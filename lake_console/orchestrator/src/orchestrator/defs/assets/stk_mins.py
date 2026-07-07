@@ -1445,7 +1445,7 @@ def _create_silver_stk_mins_base_tables(
              AND raw_rows.trade_date >= identity_map.valid_from
              AND (
                identity_map.valid_to IS NULL
-               OR raw_rows.trade_date <= identity_map.valid_to
+               OR raw_rows.trade_date < identity_map.valid_to
              )
             WHERE identity_map.latest_ts_code IS NULL
             """
@@ -1461,7 +1461,7 @@ def _create_silver_stk_mins_base_tables(
              AND raw_rows.trade_date >= identity_map.valid_from
              AND (
                identity_map.valid_to IS NULL
-               OR raw_rows.trade_date <= identity_map.valid_to
+               OR raw_rows.trade_date < identity_map.valid_to
              )
             WHERE identity_map.latest_ts_code IS NULL
             GROUP BY raw_rows.source_ts_code, raw_rows.trade_date
@@ -1495,7 +1495,7 @@ def _create_silver_stk_mins_base_tables(
          AND raw_rows.trade_date >= identity_map.valid_from
          AND (
            identity_map.valid_to IS NULL
-           OR raw_rows.trade_date <= identity_map.valid_to
+           OR raw_rows.trade_date < identity_map.valid_to
          )
         """
     )

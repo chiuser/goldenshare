@@ -326,7 +326,7 @@ def _silver_filter_counts(
           SELECT *
           FROM after_list_date
           WHERE delist_date IS NULL
-             OR trade_date <= delist_date
+             OR trade_date < delist_date
         ),
         after_bj_market_open_date AS (
           SELECT *
@@ -530,7 +530,8 @@ def raw_tushare_stock_daily(
         extra_metadata={
             "filter_policy": (
                 "Keep CNY stocks whose trade_date falls within silver_stock_lifecycle "
-                "list_date/delist_date lifecycle; keep rows on/after 2014-01-01; "
+                "list_date <= trade_date < delist_date lifecycle; keep rows on/after "
+                "2014-01-01; "
                 "keep BJ stocks only on/after 2021-11-15; raw remains source mirror."
             ),
             "upstream_ready_policy": (

@@ -583,9 +583,9 @@ cn_a_stock_mins_silver_trade_days = dg.DynamicPartitionsDefinition(
       <tr><td><code>latest_ts_code</code></td><td><code>VARCHAR</code></td><td>标准股票代码。</td><td>silver/gold 层最终使用的股票代码。</td></tr>
       <tr><td><code>source_ts_code</code></td><td><code>VARCHAR</code></td><td>源代码或历史代码。</td><td>raw clean_next 中出现的代码，用于 join 映射。</td></tr>
       <tr><td><code>valid_from</code></td><td><code>DATE</code></td><td>映射有效起始日期。</td><td>为后续审计映射区间和历史追溯保留时间边界。</td></tr>
-      <tr><td><code>valid_to</code></td><td><code>DATE</code></td><td>映射有效结束日期，可为空。</td><td>退市或历史区间结束时需要明确边界。</td></tr>
+      <tr><td><code>valid_to</code></td><td><code>DATE</code></td><td>映射失效生效日期，可为空；有效范围不含当日。</td><td>退市或历史区间结束时需要明确边界，不能把失效当天行情归入该映射。</td></tr>
       <tr><td><code>effective_list_date</code></td><td><code>DATE</code></td><td>标准股票上市日期。</td><td>支持过滤上市日前分钟线和解释覆盖范围。</td></tr>
-      <tr><td><code>effective_delist_date</code></td><td><code>DATE</code></td><td>标准股票退市日期，可为空。</td><td>当前主口径不服务退市股票，但保留字段便于审计历史来源。</td></tr>
+      <tr><td><code>effective_delist_date</code></td><td><code>DATE</code></td><td>标准股票退市生效日期，可为空。</td><td>当前主口径不服务已失效股票，但保留字段便于审计历史来源。</td></tr>
       <tr><td><code>identity_source</code></td><td><code>VARCHAR</code></td><td>映射来源枚举。</td><td>允许值为 <code>stock_basic</code>、<code>bse_mapping</code>、<code>namechange</code>。</td></tr>
       <tr><td><code>confidence</code></td><td><code>VARCHAR</code></td><td>置信度枚举。</td><td><code>stock_basic</code> 与 <code>bse_mapping</code> 为 <code>confirmed</code>；<code>namechange</code> 推断映射为 <code>inferred</code>。</td></tr>
       <tr><td><code>reason</code></td><td><code>VARCHAR</code></td><td>映射原因。</td><td>排查和审计时需要看到可读原因。</td></tr>
@@ -650,7 +650,7 @@ cn_a_stock_mins_silver_trade_days = dg.DynamicPartitionsDefinition(
       <li><code>latest_ts_code</code> 非空。</li>
       <li><code>identity_source</code> 只能为 <code>stock_basic</code>、<code>bse_mapping</code>、<code>namechange</code>。</li>
       <li><code>confidence</code> 只能为 <code>confirmed</code>、<code>inferred</code>。</li>
-      <li><code>valid_to</code> 若非空，必须不早于 <code>valid_from</code>。</li>
+      <li><code>valid_to</code> 若非空，必须不早于 <code>valid_from</code>；运行时有效范围为 <code>valid_from &lt;= trade_date &lt; valid_to</code>。</li>
       <li>同一 <code>source_ts_code</code> 不允许映射到多个不同 <code>latest_ts_code</code>。</li>
       <li><code>namechange</code> 推断映射如果与已确认映射冲突，必须 fail，不允许静默覆盖。</li>
     </ul>
@@ -1160,7 +1160,7 @@ ops:
       <tr>
         <td>上游门禁</td>
         <td>同一 <code>trade_date</code> 必须满足：raw 五频度 batch lake readiness ready、stock daily ready、suspend ready、<code>silver_stock_identity_map</code> freshness ready。</td>
-        <td><code>silver_namechange</code> 不再是 silver 分钟线直接硬 gate；历史生命周期合法性由 <code>silver_stock_lifecycle</code> 支撑的 check/readiness 语义表达。</td>
+        <td><code>silver_namechange</code> 不再是 silver 分钟线直接硬 gate；历史生命周期合法性由 <code>silver_stock_lifecycle</code> 支撑的 check/readiness 语义表达，且 <code>delist_date</code> 按退市生效日处理，不含当日。</td>
       </tr>
       <tr>
         <td>目标 silver 门禁</td>
@@ -1364,7 +1364,7 @@ ops:
       </tr>
       <tr>
         <td>变化检测</td>
-        <td>repair job 内把 run config 中的 <code>trade_date</code> 视为 <code>as_of_trade_date</code>，用 DuckDB 比较 <code>silver_adj_factor[trade_date]</code> 与上一股票交易日的 <code>silver_adj_factor[previous_trade_date]</code>，并结合 <code>silver_stock_lifecycle.list_date/delist_date</code> 生成 repair plan。</td>
+        <td>repair job 内把 run config 中的 <code>trade_date</code> 视为 <code>as_of_trade_date</code>，用 DuckDB 比较 <code>silver_adj_factor[trade_date]</code> 与上一股票交易日的 <code>silver_adj_factor[previous_trade_date]</code>，并结合 <code>silver_stock_lifecycle.list_date/delist_date</code> 生成 repair plan；<code>delist_date</code> 是退市生效日，有效范围不含当日。</td>
         <td>几千只股票的因子差异比较很轻；M9B 已实现纯 helper，不读取正式 Dagster instance，不写 lake，不新增 active check。</td>
       </tr>
       <tr>

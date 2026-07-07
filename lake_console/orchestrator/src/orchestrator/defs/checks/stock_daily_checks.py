@@ -635,7 +635,7 @@ def silver_stock_daily_stock_lifecycle_covered(
             LEFT JOIN ({stock_lifecycle_sql}) basic
               ON daily.ts_code = basic.ts_code
              AND daily.trade_date >= basic.list_date
-             AND (basic.delist_date IS NULL OR daily.trade_date <= basic.delist_date)
+             AND (basic.delist_date IS NULL OR daily.trade_date < basic.delist_date)
             WHERE basic.ts_code IS NULL
             """
         ).fetchone()[0]
@@ -646,7 +646,7 @@ def silver_stock_daily_stock_lifecycle_covered(
             LEFT JOIN ({stock_lifecycle_sql}) basic
               ON daily.ts_code = basic.ts_code
              AND daily.trade_date >= basic.list_date
-             AND (basic.delist_date IS NULL OR daily.trade_date <= basic.delist_date)
+             AND (basic.delist_date IS NULL OR daily.trade_date < basic.delist_date)
             WHERE basic.ts_code IS NULL
             ORDER BY daily.ts_code
             LIMIT 10
@@ -897,7 +897,7 @@ def _expected_tradable_universe_metadata(
         AND list_date <= DATE '{partition_key}'
         AND (
           delist_date IS NULL
-          OR DATE '{partition_key}' <= delist_date
+          OR DATE '{partition_key}' < delist_date
         )
         AND (
           NOT ends_with(ts_code, '.BJ')

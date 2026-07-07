@@ -52,6 +52,8 @@ def _write_raw_adj_factor_parquet(path: Path) -> None:
               UNION ALL
               SELECT '000004.SZ' AS ts_code, '20200101' AS trade_date, 4.4 AS adj_factor
               UNION ALL
+              SELECT '000006.SZ' AS ts_code, '20260528' AS trade_date, 6.6 AS adj_factor
+              UNION ALL
               SELECT '200001.SZ' AS ts_code, '20260528' AS trade_date, 5.5 AS adj_factor
             ) TO {duckdb_string(path)} (FORMAT PARQUET)
             """
@@ -77,6 +79,9 @@ def _write_silver_stock_lifecycle_parquet(path: Path) -> None:
               UNION ALL
               SELECT '000002.SZ', '000002', '退市样本', 'SZSE', '主板',
                 'CNY', true, 'D', DATE '2020-01-01', DATE '2026-06-30'
+              UNION ALL
+              SELECT '000006.SZ', '000006', '退市生效日样本', 'SZSE', '主板',
+                'CNY', true, 'D', DATE '2020-01-01', DATE '2026-05-28'
               UNION ALL
               SELECT '000003.SZ', '000003', '未上市样本', 'SZSE', '主板',
                 'CNY', true, 'L', DATE '2026-05-29', NULL::DATE

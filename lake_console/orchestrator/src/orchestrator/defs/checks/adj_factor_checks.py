@@ -759,7 +759,7 @@ def silver_adj_factor_listed_stock_only(
                OR adj.trade_date < stock_lifecycle.list_date
                OR (
                  stock_lifecycle.delist_date IS NOT NULL
-                 AND adj.trade_date > stock_lifecycle.delist_date
+                 AND adj.trade_date >= stock_lifecycle.delist_date
                )
             """
         ).fetchone()[0]
@@ -781,7 +781,7 @@ def silver_adj_factor_listed_stock_only(
                OR adj.trade_date < stock_lifecycle.list_date
                OR (
                  stock_lifecycle.delist_date IS NOT NULL
-                 AND adj.trade_date > stock_lifecycle.delist_date
+                 AND adj.trade_date >= stock_lifecycle.delist_date
                )
             ORDER BY adj.ts_code, adj.trade_date
             LIMIT 10
@@ -837,7 +837,7 @@ def silver_adj_factor_coverage_complete(
               WHERE list_date <= {partition_date}
                 AND (
                   delist_date IS NULL
-                  OR delist_date >= {partition_date}
+                  OR delist_date > {partition_date}
                 )
             ),
             actual AS (
@@ -872,7 +872,7 @@ def silver_adj_factor_coverage_complete(
               WHERE list_date <= {partition_date}
                 AND (
                   delist_date IS NULL
-                  OR delist_date >= {partition_date}
+                  OR delist_date > {partition_date}
                 )
             ),
             actual AS (
@@ -896,7 +896,7 @@ def silver_adj_factor_coverage_complete(
               WHERE list_date <= {partition_date}
                 AND (
                   delist_date IS NULL
-                  OR delist_date >= {partition_date}
+                  OR delist_date > {partition_date}
                 )
             ),
             actual AS (

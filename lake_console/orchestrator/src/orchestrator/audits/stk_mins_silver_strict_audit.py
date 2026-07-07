@@ -1255,7 +1255,7 @@ def _mapped_rows_sql(raw_relation: str, identity_relation: str, partition_key: s
         INNER JOIN {identity_relation} id
           ON raw.ts_code = id.source_ts_code
          AND {date_sql} >= id.valid_from
-         AND (id.valid_to IS NULL OR {date_sql} <= id.valid_to)
+         AND (id.valid_to IS NULL OR {date_sql} < id.valid_to)
         WHERE id.latest_ts_code IS NOT NULL
           AND trim(CAST(id.latest_ts_code AS VARCHAR)) != ''
     """

@@ -131,7 +131,7 @@ SILVER_STOCK_BASIC_SCHEMA = (
     ColumnContract("curr_type", "VARCHAR", "交易货币"),
     ColumnContract("list_status", "VARCHAR", "上市状态；silver 层仅保留当前上市股票"),
     ColumnContract("list_date", "DATE", "上市日期"),
-    ColumnContract("delist_date", "DATE", "退市日期；当前上市股票通常为空"),
+    ColumnContract("delist_date", "DATE", "退市生效日期；行情有效范围不含当日"),
     ColumnContract("is_hs", "VARCHAR", "沪深港通标识"),
     ColumnContract("act_name", "VARCHAR", "实控人名称"),
     ColumnContract("act_ent_type", "VARCHAR", "实控人企业性质"),
@@ -147,16 +147,16 @@ SILVER_STOCK_LIFECYCLE_SCHEMA = (
     ColumnContract("is_cny_stock", "BOOLEAN", "是否人民币计价股票"),
     ColumnContract("list_status", "VARCHAR", "上市状态，沿用 Tushare 原始值"),
     ColumnContract("list_date", "DATE", "上市日期"),
-    ColumnContract("delist_date", "DATE", "退市日期，可为空"),
+    ColumnContract("delist_date", "DATE", "退市生效日期，可为空；行情有效范围不含当日"),
 )
 
 SILVER_STOCK_IDENTITY_MAP_SCHEMA = (
     ColumnContract("latest_ts_code", "VARCHAR", "标准股票代码"),
     ColumnContract("source_ts_code", "VARCHAR", "源代码或历史代码"),
     ColumnContract("valid_from", "DATE", "映射有效起始日期"),
-    ColumnContract("valid_to", "DATE", "映射有效结束日期，可为空"),
+    ColumnContract("valid_to", "DATE", "映射失效生效日期，可为空；有效范围不含当日"),
     ColumnContract("effective_list_date", "DATE", "标准股票上市日期"),
-    ColumnContract("effective_delist_date", "DATE", "标准股票退市日期，可为空"),
+    ColumnContract("effective_delist_date", "DATE", "标准股票退市生效日期，可为空"),
     ColumnContract("identity_source", "VARCHAR", "映射来源枚举"),
     ColumnContract("confidence", "VARCHAR", "映射置信度枚举"),
     ColumnContract("reason", "VARCHAR", "映射原因"),

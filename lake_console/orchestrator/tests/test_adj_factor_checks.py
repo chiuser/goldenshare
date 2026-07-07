@@ -76,20 +76,30 @@ def _write_silver_adj_factor_file(
 ) -> Path:
     path = silver_adj_factor_path(root, trade_date)
     path.parent.mkdir(parents=True, exist_ok=True)
-    values_sql = ", ".join(
-        "("
-        f"{_sql_string(ts_code)}, "
-        f"DATE {duckdb_string(row_trade_date)}, "
-        f"{_sql_double(factor)}"
-        ")"
-        for ts_code, row_trade_date, factor in rows
-    )
+    if rows:
+        select_sql = (
+            "SELECT * FROM (VALUES "
+            + ", ".join(
+                "("
+                f"{_sql_string(ts_code)}, "
+                f"DATE {duckdb_string(row_trade_date)}, "
+                f"{_sql_double(factor)}"
+                ")"
+                for ts_code, row_trade_date, factor in rows
+            )
+            + ") rows(ts_code, trade_date, adj_factor)"
+        )
+    else:
+        select_sql = (
+            "SELECT NULL::VARCHAR AS ts_code, "
+            f"DATE {duckdb_string(trade_date)} AS trade_date, "
+            "NULL::DOUBLE AS adj_factor WHERE FALSE"
+        )
     with duckdb.connect(database=":memory:") as connection:
         connection.execute(
             f"""
             COPY (
-              SELECT *
-              FROM (VALUES {values_sql}) rows(ts_code, trade_date, adj_factor)
+              {select_sql}
             ) TO {duckdb_string(path)} (FORMAT PARQUET)
             """
         )
@@ -324,6 +334,63 @@ class AdjFactorCheckTests(unittest.TestCase):
 
             coverage_check = _check_function(checks.silver_adj_factor_coverage_complete)
             self.assertFalse(coverage_check(context, lake_root, duckdb_resource).passed)
+
+    def test_silver_adj_factor_lifecycle_rejects_delist_effective_date_row(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_silver_stock_lifecycle_file(
+                root,
+                (("600193.SH", "CNY", "D", "1999-05-27", TARGET_TRADE_DATE),),
+            )
+            _write_silver_adj_factor_file(
+                root,
+                TARGET_TRADE_DATE,
+                (("600193.SH", TARGET_TRADE_DATE, 1.1),),
+            )
+            context = _PartitionContext(TARGET_TRADE_DATE)
+            lake_root = LakeRootResource(root_path=str(root))
+            duckdb_resource = DuckDBResource()
+            listed_check = _check_function(checks.silver_adj_factor_listed_stock_only)
+            coverage_check = _check_function(checks.silver_adj_factor_coverage_complete)
+
+            listed_result = listed_check(context, lake_root, duckdb_resource)
+            coverage_result = coverage_check(context, lake_root, duckdb_resource)
+
+        self.assertFalse(listed_result.passed)
+        listed_metadata = {
+            key: _metadata_value(value) for key, value in listed_result.metadata.items()
+        }
+        self.assertEqual(listed_metadata["goldenshare/failed_row_count"], 1)
+        self.assertFalse(coverage_result.passed)
+        coverage_metadata = {
+            key: _metadata_value(value) for key, value in coverage_result.metadata.items()
+        }
+        self.assertEqual(coverage_metadata["goldenshare/expected_code_count"], 0)
+        self.assertEqual(coverage_metadata["goldenshare/unexpected_code_count"], 1)
+
+    def test_silver_adj_factor_coverage_does_not_require_delist_effective_date(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_silver_stock_lifecycle_file(
+                root,
+                (("600193.SH", "CNY", "D", "1999-05-27", TARGET_TRADE_DATE),),
+            )
+            _write_silver_adj_factor_file(root, TARGET_TRADE_DATE, ())
+            context = _PartitionContext(TARGET_TRADE_DATE)
+            lake_root = LakeRootResource(root_path=str(root))
+            duckdb_resource = DuckDBResource()
+            coverage_check = _check_function(checks.silver_adj_factor_coverage_complete)
+
+            result = coverage_check(context, lake_root, duckdb_resource)
+
+        self.assertTrue(result.passed)
+        metadata = {key: _metadata_value(value) for key, value in result.metadata.items()}
+        self.assertEqual(metadata["goldenshare/expected_code_count"], 0)
+        self.assertEqual(metadata["goldenshare/missing_code_count"], 0)
 
     def test_silver_lifecycle_check_metadata_explains_coverage_gap(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

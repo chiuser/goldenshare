@@ -590,6 +590,38 @@ class StockDailyRawCheckTests(unittest.TestCase):
 
         self.assertEqual([row[0] for row in rows], ["000638.SZ"])
 
+    def test_silver_select_excludes_stock_on_delist_effective_date(self) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            raw_path = raw_stock_daily_path(lake_root, PARTITION_KEY)
+            lifecycle_path = _write_stock_lifecycle(
+                lake_root,
+                [
+                    _stock_lifecycle_row(
+                        "600193.SH",
+                        list_status="D",
+                        list_date="1999-05-27",
+                        delist_date=PARTITION_KEY,
+                    )
+                ],
+            )
+            _write_rows(
+                raw_path,
+                column_types=dict(STOCK_DAILY_RAW_COLUMN_TYPES),
+                rows=[_full_raw_row("600193.SH")],
+                order_by="ts_code, trade_date",
+            )
+            with DuckDBResource().connect() as connection:
+                rows = connection.execute(
+                    f"""
+                    SELECT ts_code
+                    FROM ({silver_stock_daily_select(raw_path, lifecycle_path)})
+                    ORDER BY ts_code
+                    """
+                ).fetchall()
+
+        self.assertEqual(rows, [])
+
     def test_silver_select_excludes_stock_after_lifecycle(self) -> None:
         with TemporaryDirectory() as directory:
             lake_root = Path(directory)
@@ -632,7 +664,7 @@ class StockDailyRawCheckTests(unittest.TestCase):
                         "000638.SZ",
                         list_status="D",
                         list_date="1996-11-26",
-                        delist_date="2026-05-01",
+                        delist_date=PARTITION_KEY,
                     )
                 ],
             )
@@ -646,6 +678,29 @@ class StockDailyRawCheckTests(unittest.TestCase):
             )
 
         self.assertFalse(result.passed)
+
+    def test_silver_universe_excludes_delist_effective_date_from_expected(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            metadata = _silver_universe_metadata(
+                Path(directory),
+                lifecycle_rows=[
+                    _stock_lifecycle_row(
+                        "600193.SH",
+                        list_status="D",
+                        list_date="1999-05-27",
+                        delist_date=PARTITION_KEY,
+                    )
+                ],
+                suspend_rows=[],
+                silver_rows=[],
+            )
+
+        self.assertEqual(metadata["listed_count"], 0)
+        self.assertEqual(metadata["expected_count"], 0)
+        self.assertEqual(metadata["daily_count"], 0)
+        self.assertEqual(metadata["unexplained_missing_count"], 0)
 
     def test_silver_universe_reports_missing_expected_code(self) -> None:
         with TemporaryDirectory() as directory:

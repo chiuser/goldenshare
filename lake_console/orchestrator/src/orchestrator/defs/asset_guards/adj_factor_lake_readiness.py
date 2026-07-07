@@ -281,7 +281,7 @@ def _silver_metrics_by_trade_date(
             ON path_plan.trade_date >= lifecycle.list_date
            AND (
              lifecycle.delist_date IS NULL
-             OR path_plan.trade_date <= lifecycle.delist_date
+             OR path_plan.trade_date < lifecycle.delist_date
            )
         ),
         actual_codes AS (
@@ -317,7 +317,7 @@ def _silver_metrics_by_trade_date(
                OR silver_rows.trade_date < lifecycle.list_date
                OR (
                  lifecycle.delist_date IS NOT NULL
-                 AND silver_rows.trade_date > lifecycle.delist_date
+                 AND silver_rows.trade_date >= lifecycle.delist_date
                )
           ) AS listed_failed_count,
           (

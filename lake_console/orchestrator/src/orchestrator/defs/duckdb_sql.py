@@ -448,7 +448,7 @@ WHERE deduped.trade_date >= DATE {duckdb_string(STOCK_DAILY_MIN_TRADE_DATE)}
   AND deduped.trade_date >= stock_lifecycle.list_date
   AND (
     stock_lifecycle.delist_date IS NULL
-    OR deduped.trade_date <= stock_lifecycle.delist_date
+    OR deduped.trade_date < stock_lifecycle.delist_date
   )
   AND (
     NOT ends_with(deduped.ts_code, '.BJ')
@@ -481,7 +481,7 @@ INNER JOIN stock_lifecycle USING (ts_code)
 WHERE normalized.trade_date >= stock_lifecycle.list_date
   AND (
     stock_lifecycle.delist_date IS NULL
-    OR normalized.trade_date <= stock_lifecycle.delist_date
+    OR normalized.trade_date < stock_lifecycle.delist_date
   )
 """
 

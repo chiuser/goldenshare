@@ -790,7 +790,7 @@ def _silver_lifecycle_failure_counts(
            AND silver_codes.trade_date >= stock_lifecycle.list_date
            AND (
              stock_lifecycle.delist_date IS NULL
-             OR silver_codes.trade_date <= stock_lifecycle.delist_date
+             OR silver_codes.trade_date < stock_lifecycle.delist_date
            )
           WHERE stock_lifecycle.ts_code IS NULL
         )

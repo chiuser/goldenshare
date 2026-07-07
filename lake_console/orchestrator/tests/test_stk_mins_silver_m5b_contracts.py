@@ -491,6 +491,41 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
 
             self.assertEqual(result.row_count, 1)
 
+    def test_identity_mapping_rejects_rows_on_valid_to_effective_date(self) -> None:
+        partition_key = "2026-05-29"
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            _write_raw(
+                lake_root,
+                1,
+                partition_key,
+                [_raw_row("600193.SH", "2026-05-29 09:30:00")],
+            )
+            _write_common_inputs(
+                lake_root,
+                partition_key,
+                identity_rows=[
+                    _identity_row("600193.SH", valid_to=partition_key),
+                ],
+                daily_codes=("600193.SH",),
+                lifecycle_rows=[
+                    _stock_lifecycle_row(
+                        "600193.SH",
+                        list_status="D",
+                        list_date="1999-05-27",
+                        delist_date=partition_key,
+                    )
+                ],
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "identity mapping missing"):
+                stk_mins.write_silver_stk_mins_partition(
+                    lake_root=lake_root,
+                    duckdb=DuckDBResource(),
+                    freq=1,
+                    partition_key=partition_key,
+                )
+
     def test_coarse_price_anomaly_is_recomputed_from_one_minute_window(self) -> None:
         partition_key = "2026-05-29"
         with TemporaryDirectory() as directory:
@@ -782,7 +817,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
     def test_name_timeline_check_uses_lifecycle_for_delisted_stock(self) -> None:
         with TemporaryDirectory() as directory:
             lake_root = Path(directory)
-            partition_key = "2026-04-13"
+            partition_key = "2026-04-10"
             _write_silver_for_check(
                 lake_root,
                 partition_key,
@@ -790,7 +825,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
                     _silver_row(
                         "000638.SZ",
                         partition_key=partition_key,
-                        trade_time="2026-04-13 09:30:00",
+                        trade_time="2026-04-10 09:30:00",
                         exchange="SZSE",
                     )
                 ],
@@ -826,6 +861,51 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             self.assertEqual(
                 result.metadata["goldenshare/failed_code_date_count"].value,
                 0,
+            )
+
+    def test_name_timeline_check_fails_on_delist_effective_date(self) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            partition_key = "2026-04-13"
+            _write_silver_for_check(
+                lake_root,
+                partition_key,
+                [
+                    _silver_row(
+                        "000638.SZ",
+                        partition_key=partition_key,
+                        trade_time="2026-04-13 09:30:00",
+                        exchange="SZSE",
+                    )
+                ],
+            )
+            _write_stock_lifecycle(
+                lake_root,
+                [
+                    _stock_lifecycle_row(
+                        "000638.SZ",
+                        list_status="D",
+                        list_date="1996-11-26",
+                        delist_date="2026-04-13",
+                    )
+                ],
+            )
+
+            result = stk_mins_checks._silver_name_timeline_covered(
+                context=_CheckContext(partition_key),
+                lake_root=_LakeRoot(lake_root),
+                duckdb=DuckDBResource(),
+                freq=1,
+            )
+
+            self.assertFalse(result.passed)
+            self.assertEqual(
+                result.metadata["goldenshare/checked_code_date_count"].value,
+                1,
+            )
+            self.assertEqual(
+                result.metadata["goldenshare/failed_code_date_count"].value,
+                1,
             )
 
     def test_name_timeline_check_fails_outside_lifecycle(self) -> None:

@@ -288,8 +288,10 @@
         <span class="tag silver">silver</span>
         <h3>silver_stock_daily 才定义标准事实边界</h3>
         <p>
-          <code>silver_stock_daily</code> 从 raw 中筛选出：<code>2014-01-01</code> 之后、当前上市股票、
-          <code>curr_type='CNY'</code> 的 A 股日线对象、股票上市日之后、BJ 自 <code>2021-11-15</code>
+          <code>silver_stock_daily</code> 从 raw 中筛选出：<code>2014-01-01</code> 之后、
+          <code>curr_type='CNY'</code> 的 A 股日线对象、股票生命周期内
+          （<code>list_date &lt;= trade_date &lt; delist_date</code>，<code>delist_date</code> 为空表示仍有效）、
+          BJ 自 <code>2021-11-15</code>
           起的数据，并完成字段类型标准化。Tushare <code>daily</code> 是 A 股日线接口，B 股等非
           <code>CNY</code> 股票不得进入 <code>stock_daily</code> expected universe 或 missing-code repair。
         </p>
@@ -428,7 +430,7 @@
         <tr>
           <td>daily 目标 silver</td>
           <td><code>11,296,600</code> 行，覆盖 <code>5517</code> 只当前上市股票</td>
-          <td>应用当前上市、上市日、BJ 起始日、2014 起始日过滤后的标准事实结果。</td>
+          <td>这是历史迁移审计当时的目标结果。当前实现口径已收敛为 CNY 股票生命周期内、BJ 起始日、2014 起始日过滤。</td>
         </tr>
         <tr>
           <td>daily 质量</td>
@@ -501,7 +503,7 @@
         DB->>RAW: 写 raw_tushare_stock_daily[date]
         CK->>RAW: raw stock_daily checks
         DB->>SIL: 从 raw 生成 silver_stock_daily[date]
-        DB->>SIL: 过滤：2014 后、当前上市、上市日后、BJ 自 2021-11-15 起
+        DB->>SIL: 过滤：2014 后、CNY 生命周期内、BJ 自 2021-11-15 起
         DB->>SIL: 标准化：trade_date 转 DATE，change 改 change_amount
         CK->>SIL: silver stock_daily blocking checks
       end
@@ -557,7 +559,8 @@
           <code>silver/quote/stock_daily/trade_date=YYYY-MM-DD/part-000.parquet</code>
         </div>
         <div class="flow-node">
-          从 raw 中筛选标准事实：<code>trade_date &gt;= 2014-01-01</code>、当前上市股票、<code>trade_date &gt;= list_date</code>、
+          从 raw 中筛选标准事实：<code>trade_date &gt;= 2014-01-01</code>、<code>curr_type='CNY'</code>、
+          <code>list_date &lt;= trade_date &lt; delist_date</code>（<code>delist_date</code> 为退市生效日，不含当日）、
           <code>.BJ</code> 只保留 <code>2021-11-15</code> 及之后。字段标准化：<code>trade_date</code> 转
           <code>DATE</code>，<code>change</code> 改为 <code>change_amount</code>，数值字段转统一数值类型。
         </div>
@@ -747,13 +750,13 @@
         <tr><td><code>silver_stock_daily_conflicting_duplicate_absent</code></td><td>是</td><td>同一 key 出现不同字段内容时直接失败。</td></tr>
         <tr><td><code>silver_stock_daily_required_columns_non_null</code></td><td>是</td><td><code>ts_code</code>、<code>trade_date</code>、<code>pct_chg</code> 不允许为空。</td></tr>
         <tr><td><code>silver_stock_daily_partition_date_matches</code></td><td>是</td><td>silver 内部 <code>trade_date</code> 是 <code>DATE</code>，必须等于 partition key。</td></tr>
-        <tr><td><code>silver_stock_daily_stock_lifecycle_covered</code></td><td>是</td><td>当前正式口径使用 <code>silver_stock_lifecycle</code> 判断 <code>ts_code + trade_date</code> 是否落在股票生命周期内；旧 <code>silver_stock_daily_current_listed_only</code> 已退出正式阻断口径。</td></tr>
+        <tr><td><code>silver_stock_daily_stock_lifecycle_covered</code></td><td>是</td><td>当前正式口径使用 <code>silver_stock_lifecycle</code> 判断 <code>ts_code + trade_date</code> 是否落在股票生命周期内；有效范围为 <code>list_date &lt;= trade_date &lt; delist_date</code>，<code>delist_date</code> 是退市生效日，不允许当天行情进入 silver；旧 <code>silver_stock_daily_current_listed_only</code> 已退出正式阻断口径。</td></tr>
         <tr><td><code>silver_stock_daily_after_list_date_only</code></td><td>是</td><td>不允许出现股票上市日前日线。</td></tr>
         <tr><td><code>silver_stock_daily_bj_after_market_open_only</code></td><td>是</td><td>BJ 股票不允许出现 <code>2021-11-15</code> 前日线。</td></tr>
         <tr><td><code>silver_stock_daily_price_sanity</code></td><td>是</td><td>阻断。价格字段不允许为负；不允许 <code>high &lt; low</code>；必须满足 <code>high &gt;= open &gt;= low</code>、<code>high &gt;= close &gt;= low</code>。审计结果为 0。</td></tr>
         <tr><td><code>silver_stock_daily_row_count_not_greater_than_raw</code></td><td>否</td><td>观测项。silver 经过筛选，行数应小于等于 raw。</td></tr>
         <tr><td><code>silver_stock_daily_row_count_matches_expected_tradable_count</code></td><td>否</td><td>观测项。记录 silver 当日 distinct <code>ts_code</code> 数量是否等于预期可交易股票池数量；不作为阻断，避免和集合覆盖 check 重复阻断。</td></tr>
-        <tr><td><code>silver_stock_daily_covers_expected_tradable_universe</code></td><td>是</td><td>标准事实表完整性门禁。silver 当日必须覆盖全部“当前上市、<code>curr_type='CNY'</code> 且非全日停牌”的股票，且不得多出非预期股票；全日停牌可解释缺失，盘中停牌不能解释缺失；missing/extra 均阻断。</td></tr>
+        <tr><td><code>silver_stock_daily_covers_expected_tradable_universe</code></td><td>是</td><td>标准事实表完整性门禁。silver 当日必须覆盖全部“<code>curr_type='CNY'</code>、处于 <code>list_date &lt;= D &lt; delist_date</code> 生命周期内且非全日停牌”的股票，且不得多出非预期股票；全日停牌可解释缺失，盘中停牌不能解释缺失；missing/extra 均阻断。</td></tr>
       </tbody>
     </table>
 
@@ -780,7 +783,7 @@
       <li>先更新 Phase 2 方案文档和 LLD，把本文档确认的 daily 迁移口径同步进去。</li>
       <li>改造 <code>silver_stock_basic</code>，只过滤当前 <code>list_status='L' AND curr_type='CNY'</code> 股票，保留 raw stock_basic 全部业务字段，并调整对应 checks。</li>
       <li>改造 <code>silver_stock_suspend_daily</code>，增加 14 条 timing 修正常量；增加全日停牌缺失补充规则；两类修正都通过 materialization metadata 留痕，不新增修正命中 blocking check。</li>
-      <li>改造 <code>silver_stock_daily</code>，从 raw 中执行当前上市、<code>curr_type='CNY'</code> A 股日线对象、上市日、BJ 起始日、2014 起始日过滤。</li>
+      <li>改造 <code>silver_stock_daily</code>，从 raw 中执行 <code>curr_type='CNY'</code> A 股日线对象、<code>list_date &lt;= trade_date &lt; delist_date</code> 生命周期、BJ 起始日、2014 起始日过滤。</li>
       <li>保留 <code>raw_tushare_stock_daily</code> 源镜像口径，不做业务筛选。</li>
       <li>重写 stock daily 完整性观测口径，避免把盘中停牌误判为全日停牌。</li>
       <li>跑 <code>2014-01-02</code> 至 <code>2026-05-15</code> 全量 bootstrap 验收。</li>
@@ -806,7 +809,7 @@
         </tr>
         <tr>
           <td><code>duckdb_sql.py / silver_stock_daily_select</code></td>
-          <td>已加入 stock_basic join 和四类过滤：2014 起始日后、当前上市、上市日后、BJ 起始日后。</td>
+          <td>已加入 stock lifecycle join 和四类过滤：2014 起始日后、CNY 生命周期内、退市生效日前、BJ 起始日后。</td>
           <td>全量验收 missing/extra 为 <code>0/0</code>。</td>
         </tr>
         <tr>

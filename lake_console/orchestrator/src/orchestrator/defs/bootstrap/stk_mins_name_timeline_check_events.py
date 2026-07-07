@@ -231,7 +231,7 @@ def build_silver_name_timeline_correction_candidates(
            AND target_rows.trade_date >= stock_lifecycle.list_date
            AND (
              stock_lifecycle.delist_date IS NULL
-             OR target_rows.trade_date <= stock_lifecycle.delist_date
+             OR target_rows.trade_date < stock_lifecycle.delist_date
            )
           GROUP BY 1, 2, 3
         )

@@ -2789,7 +2789,7 @@ def _silver_name_timeline_covered(
                AND silver_codes.trade_date >= stock_lifecycle.list_date
                AND (
                  stock_lifecycle.delist_date IS NULL
-                 OR silver_codes.trade_date <= stock_lifecycle.delist_date
+                 OR silver_codes.trade_date < stock_lifecycle.delist_date
                )
               WHERE stock_lifecycle.ts_code IS NULL
             )
@@ -2816,7 +2816,7 @@ def _silver_name_timeline_covered(
              AND silver_codes.trade_date >= stock_lifecycle.list_date
              AND (
                stock_lifecycle.delist_date IS NULL
-               OR silver_codes.trade_date <= stock_lifecycle.delist_date
+               OR silver_codes.trade_date < stock_lifecycle.delist_date
              )
             WHERE stock_lifecycle.ts_code IS NULL
             ORDER BY silver_codes.ts_code

@@ -889,6 +889,44 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
             _write_silver_ready_inputs(
                 connection,
                 lake_root,
+                trade_date="2026-04-10",
+                ts_code="000638.SZ",
+            )
+            for freq in STK_MINS_FREQS:
+                _write_silver_file(
+                    connection,
+                    lake_root,
+                    trade_date="2026-04-10",
+                    freq=freq,
+                    ts_code="000638.SZ",
+                    exchange="SZSE",
+                )
+
+            batch_status = batch_silver_stk_mins_lake_readiness(
+                connection=connection,
+                lake_root=lake_root,
+                expected_trade_dates=("2026-04-10",),
+                registered_trade_days=("2026-04-10",),
+            )
+
+        status = batch_status.status_for_trade_date("2026-04-10")
+        self.assertTrue(status.ready)
+        self.assertNotIn(SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK, status.failed_check_names)
+
+    def test_silver_batch_readiness_rejects_delist_effective_date_rows(self) -> None:
+        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+            lake_root = Path(directory)
+            _write_stock_lifecycle_file(
+                connection,
+                lake_root,
+                ts_code="000638.SZ",
+                list_status="D",
+                list_date="2010-01-01",
+                delist_date="2026-04-13",
+            )
+            _write_silver_ready_inputs(
+                connection,
+                lake_root,
                 trade_date="2026-04-13",
                 ts_code="000638.SZ",
             )
@@ -910,8 +948,11 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
             )
 
         status = batch_status.status_for_trade_date("2026-04-13")
-        self.assertTrue(status.ready)
-        self.assertNotIn(SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK, status.failed_check_names)
+        self.assertFalse(status.ready)
+        self.assertIn(
+            SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK,
+            status.failed_check_names,
+        )
 
     def test_silver_batch_readiness_fails_closed_for_unknown_date(self) -> None:
         with duckdb.connect(":memory:") as connection:

@@ -205,6 +205,7 @@
       本文档把 <code>dagster-stock-daily-migration.html</code> 中已经拍板的历史迁移设计落成技术实现方案。
       它是历史 bootstrap 记录，不是当前日常生产入口说明；当前 Tushare API 更新、sensor、run contract 和 metadata helper 口径以 Phase 2 收口文档、topology 和 run contract governance 为准。
       当前代码已将 <code>silver_stock_daily</code> 股票生命周期过滤事实源收敛到 <code>silver_stock_lifecycle</code>；
+      <code>delist_date</code> 是退市生效日，行情有效范围为 <code>list_date &lt;= trade_date &lt; delist_date</code>；
       旧 <code>silver_stock_daily_current_listed_only</code> 不再是正式 blocking/readiness 口径。
     </p>
   </header>
@@ -249,8 +250,8 @@
         <span class="tag silver">Silver</span>
         <h3>silver 定义标准事实边界</h3>
         <p>
-          <code>silver_stock_daily</code> 执行五类过滤：<code>2014-01-01</code> 后、当前上市、
-          <code>curr_type='CNY'</code> 的 A 股日线对象、上市日后、BJ 自 <code>2021-11-15</code> 起。
+          <code>silver_stock_daily</code> 执行五类过滤：<code>2014-01-01</code> 后、
+          <code>curr_type='CNY'</code> 的 A 股日线对象、<code>list_date &lt;= trade_date &lt; delist_date</code> 生命周期内、BJ 自 <code>2021-11-15</code> 起。
           silver 日期字段统一为 <code>DATE</code>。Tushare <code>daily</code> 是 A 股日线接口，B 股等非
           <code>CNY</code> 股票不进入 <code>stock_daily</code> expected universe 或 missing-code repair。
         </p>
@@ -297,7 +298,7 @@
         </tr>
         <tr>
           <td><code>defs/assets/stock_daily.py</code></td>
-          <td><code>silver_stock_daily</code> 读取 <code>silver_stock_basic</code> 作为股票池输入，执行四类过滤并上报过滤统计。</td>
+          <td><code>silver_stock_daily</code> 读取 <code>silver_stock_lifecycle</code> 作为股票生命周期输入，执行生命周期与交易日过滤并上报过滤统计。</td>
           <td><code>raw_tushare_stock_daily</code> 不改为过滤 raw。</td>
         </tr>
         <tr>
@@ -432,17 +433,20 @@ deduped AS (
   SELECT DISTINCT *
   FROM normalized
 ),
-listed AS (
-  SELECT ts_code, list_date
-  FROM read_parquet(silver_stock_basic_path, hive_partitioning=false)
-  WHERE list_status = 'L'
-    AND curr_type = 'CNY'
+stock_lifecycle AS (
+  SELECT ts_code, list_date, delist_date
+  FROM read_parquet(silver_stock_lifecycle_path, hive_partitioning=false)
+  WHERE is_cny_stock = true
 )
 SELECT deduped.*
 FROM deduped
-INNER JOIN listed USING (ts_code)
+INNER JOIN stock_lifecycle USING (ts_code)
 WHERE deduped.trade_date &gt;= DATE '2014-01-01'
-  AND deduped.trade_date &gt;= listed.list_date
+  AND deduped.trade_date &gt;= stock_lifecycle.list_date
+  AND (
+    stock_lifecycle.delist_date IS NULL
+    OR deduped.trade_date &lt; stock_lifecycle.delist_date
+  )
   AND (
     NOT ends_with(deduped.ts_code, '.BJ')
     OR deduped.trade_date &gt;= DATE '2021-11-15'
@@ -491,7 +495,7 @@ WHERE deduped.trade_date &gt;= DATE '2014-01-01'
         </tr>
         <tr>
           <td><code>silver_stock_daily[date]</code></td>
-          <td>依赖 <code>raw_tushare_stock_daily</code> 和 <code>silver_stock_basic</code>；先做冲突检查，再写标准事实 parquet。</td>
+          <td>依赖 <code>raw_tushare_stock_daily</code> 和 <code>silver_stock_lifecycle</code>；先做冲突检查，再写标准事实 parquet。</td>
           <td><code>row_count</code>、<code>raw_row_count</code>、<code>filtered_out_count</code>、<code>current_listed_count</code>、<code>duplicate_removed_count</code>、<code>conflict_key_count</code>。</td>
         </tr>
       </tbody>
@@ -556,7 +560,7 @@ WHERE deduped.trade_date &gt;= DATE '2014-01-01'
         <tr><td><code>silver_stock_daily_conflicting_duplicate_absent</code></td><td>是</td><td>同一 key 多版本内容直接失败，metadata 输出 key 和行样本。</td></tr>
         <tr><td><code>silver_stock_daily_required_columns_non_null</code></td><td>是</td><td><code>ts_code</code>、<code>trade_date</code>、<code>pct_chg</code> 非空。</td></tr>
         <tr><td><code>silver_stock_daily_partition_date_matches</code></td><td>是</td><td>silver <code>trade_date</code> 是 <code>DATE</code>，等于 partition key。</td></tr>
-        <tr><td><code>silver_stock_daily_stock_lifecycle_covered</code></td><td>是</td><td>当前正式口径：使用 <code>silver_stock_lifecycle</code> 判断 <code>ts_code + trade_date</code> 是否落在股票生命周期内；旧 <code>silver_stock_daily_current_listed_only</code> 已退出正式阻断口径。</td></tr>
+        <tr><td><code>silver_stock_daily_stock_lifecycle_covered</code></td><td>是</td><td>当前正式口径：使用 <code>silver_stock_lifecycle</code> 判断 <code>ts_code + trade_date</code> 是否落在股票生命周期内；有效范围为 <code>list_date &lt;= trade_date &lt; delist_date</code>，<code>delist_date</code> 为退市生效日，不含当日；旧 <code>silver_stock_daily_current_listed_only</code> 已退出正式阻断口径。</td></tr>
         <tr><td><code>silver_stock_daily_after_list_date_only</code></td><td>是</td><td>不允许出现 <code>trade_date &lt; list_date</code>。</td></tr>
         <tr><td><code>silver_stock_daily_bj_after_market_open_only</code></td><td>是</td><td>BJ 股票不允许出现 <code>2021-11-15</code> 前数据。</td></tr>
         <tr><td><code>silver_stock_daily_price_sanity</code></td><td>是</td><td>价格非负，且 <code>high &gt;= open &gt;= low</code>、<code>high &gt;= close &gt;= low</code>。</td></tr>
@@ -633,7 +637,7 @@ git status --short</code></pre>
       <li>materialize <code>raw_tushare_suspend_d[2014-01-02]</code>。</li>
       <li>materialize <code>silver_stock_suspend_daily[2014-01-02]</code>，确认 <code>000566.SZ</code> 的 <code>suspend_timing=13:55-15:00</code>。</li>
       <li>materialize <code>raw_tushare_stock_daily[2014-01-02]</code>，确认 raw 未被股票池过滤。</li>
-      <li>materialize <code>silver_stock_daily[2014-01-02]</code>，确认只保留当前上市、上市日后、BJ 合规数据。</li>
+      <li>materialize <code>silver_stock_daily[2014-01-02]</code>，确认只保留 CNY、生命周期内、BJ 合规数据。</li>
       <li>确认 blocking checks 全部通过，观测 checks 输出样本清晰。</li>
     </ul>
 

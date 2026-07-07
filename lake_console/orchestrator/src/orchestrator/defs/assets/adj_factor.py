@@ -149,7 +149,7 @@ def _silver_filter_counts(
           WHERE normalized.trade_date >= stock_lifecycle.list_date
             AND (
               stock_lifecycle.delist_date IS NULL
-              OR normalized.trade_date <= stock_lifecycle.delist_date
+              OR normalized.trade_date < stock_lifecycle.delist_date
             )
         )
         SELECT
@@ -309,7 +309,7 @@ def raw_tushare_adj_factor(
         ),
         extra_metadata={
             "filter_policy": (
-                "Keep lifecycle-valid CNY stocks on/after list_date and on/before "
+                "Keep lifecycle-valid CNY stocks where list_date <= trade_date < "
                 "delist_date when present; "
                 "raw remains the Tushare source mirror."
             ),
