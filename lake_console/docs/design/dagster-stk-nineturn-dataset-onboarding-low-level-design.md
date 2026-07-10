@@ -1,6 +1,6 @@
 # Dagster 神奇九转数据集接入低层设计
 
-状态：N0-N6 已完成开发、正式执行与验收；N7 待推进
+状态：N0-N6 已完成开发、正式执行与验收；N7 已完成 cutover smoke 与只读 sensor 观察，持久化启用 sensor 和最终验收待执行
 日期：2026-07-10
 上位方案：[`dagster-stk-nineturn-dataset-onboarding-plan.md`](./dagster-stk-nineturn-dataset-onboarding-plan.md)
 
@@ -1317,6 +1317,26 @@ Dagster history。当前已通过 5 个 N6 专用临时实例测试及既有 106
 6. 更新方案/LLD/CODING_STANDARDS 如有新事实。
 
 旧 staging 清理仍不在 N7 自动执行，必须另行审批。
+
+### 15.5 N7 Cutover Smoke 记录
+
+2026-07-10 是 formal history 覆盖后的第一交易日。执行前确认 SSE calendar 开市、
+`cn_a_stock_trade_days` 已包含该分区；Raw/Silver 文件均不存在，因此只执行一次 Raw
+smoke 和一次 Silver smoke。
+
+| 项目 | 结果 |
+| --- | --- |
+| Raw job | `raw_stk_nineturn_update_job` 成功，run `3b5373db-2c66-4633-81bb-c80d95a2a7c2`，1 页、5,517 行 |
+| Raw checks | 2 个 check 均成功，partition=`2026-07-10`，target 指向 Raw 最新 materialization `6665217` |
+| Silver job | `silver_stock_nineturn_daily_update_job` 成功，run `880974df-c9a8-4552-9af9-0c0acff7e42a`，输出 5,517 行 |
+| Silver checks | 2 个 check 均成功，partition=`2026-07-10`，target 指向 Silver 最新 materialization `6665239` |
+| Raw sensor observation | `all_ready` skip，最近 10 日 `2026-06-29..2026-07-10`，batch 12ms，RunRequest=0 |
+| Silver sensor observation | `all_ready` skip，最近 10 日同上，batch 208ms，RunRequest=0 |
+| active runs | 0 |
+
+本次只做了手工 sensor evaluation，没有启动 daemon，也没有把两个 sensor 持久化切换为
+`RUNNING`；因此 N7 的代码、单日 smoke、cursor、partition 归属和性能观察已通过，
+全局自动化启用仍需单独的运维窗口和最终确认。
 
 ## 19. 阶段组合与审批边界
 

@@ -1,6 +1,6 @@
 # Dagster 神奇九转数据集接入方案
 
-状态：N0-N6 已完成开发、正式写入与验收；N7 cutover 待推进
+状态：N0-N6 已完成开发、正式写入与验收；N7 cutover smoke 与只读 sensor 观察已完成，持久化启用 sensor 和最终验收待执行
 日期：2026-07-10
 
 代码级设计：
@@ -789,7 +789,7 @@ prod export 已在隔离 staging 完成，并通过 850 文件全量审计。
 | N4（已完成） | prod 全量重新导出 dry-run/sample/full + staging audit | 850 文件、4,523,818 行、精确 schema 和 manifest 对账已通过 |
 | N5 | Formal Raw/Silver history dry-run/sample/full + 聚合审计 | 已完成；最终文件审计通过 |
 | N6 | Runless event dry-run/sample/full | 已完成；1,780 个 event 已写入，recent20 checks 的 partition 与 latest materialization target 对账通过 |
-| N7 | 单日 Tushare smoke、sensor 人工启用、最终文档对账 | 最终验收 |
+| N7 | 单日 Tushare smoke、sensor 人工启用、最终文档对账 | smoke 与手工 evaluation 已通过；daemon/sensor 持久化启用及最终验收待执行 |
 
 N4、N5、N6 不得合并成一次不可中断的大操作。每阶段必须有独立 dry-run、样本、正式执行和结果报告。
 
