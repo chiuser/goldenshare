@@ -23,6 +23,7 @@ from orchestrator.defs.sensors.stock_identity_map_sensor import (
 )
 from orchestrator.seeds.basic.stock_identity_mappings import (
     STOCK_IDENTITY_MAPPINGS_SEED_COLUMNS,
+    STOCK_IDENTITY_MAPPINGS_SEED_PATH,
     load_stock_identity_mapping_seed,
 )
 
@@ -59,6 +60,15 @@ class StockIdentityMapActiveAssetTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "source_ts_code must be unique"):
                 load_stock_identity_mapping_seed(seed_path)
+
+    def test_versioned_seed_covers_nineturn_historical_bse_code(self) -> None:
+        seed_rows = load_stock_identity_mapping_seed(STOCK_IDENTITY_MAPPINGS_SEED_PATH)
+        mapping = {
+            row.source_ts_code: row.latest_ts_code
+            for row in seed_rows
+            if row.identity_source == "bse_mapping"
+        }
+        self.assertEqual(mapping["839680.BJ"], "920680.BJ")
 
     def test_build_rows_generates_self_and_seed_mappings(self) -> None:
         seed_rows = load_stock_identity_mapping_seed(_write_seed_fixture())

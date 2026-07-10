@@ -1,6 +1,6 @@
 # Dagster 神奇九转数据集接入低层设计
 
-状态：N0-N4 已完成开发与验收；N5A/N5B 已完成代码开发与本地验证；N5 正式 Lake 已写入但 Silver 审计被历史 identity map 语义阻断，正在修复后重建；N6-N7 仍待分阶段审批
+状态：N0-N4 已完成开发与验收；N5 Formal Raw/Silver 已完成并通过最终文件审计；N6-N7 仍待分阶段审批
 日期：2026-07-10
 上位方案：[`dagster-stk-nineturn-dataset-onboarding-plan.md`](./dagster-stk-nineturn-dataset-onboarding-plan.md)
 
@@ -25,7 +25,8 @@
 6. 历史 prod 导出、formal raw/silver 构建、runless event 写入必须分别 dry-run、样本、审批和验收。
 7. `silver_stock_identity_map` 的 self mapping 来源是 `silver_stock_lifecycle` 的全部历史代码，包含退市代码；`silver_namechange` 只用于校验版本化非 self seed 的解释性，不承担历史股票全集职责。
 
-本 LLD 不授权运行 `dg`、写正式 Lake、写 Dagster instance 或删除历史 staging。
+本 LLD 当前只保留 N6 Dagster instance 写入和 N7 日常切换的审批边界；N5 Formal Lake 写入已按批准完成。
+本 LLD 不授权运行 `dg`、写 Dagster instance 或删除历史 staging。
 
 ## 2. 依据与代码审计
 
@@ -72,7 +73,7 @@
 | 原始业务键重复 | 0 |
 | 缺失开市日 | 0 |
 | 北交所映射后重复标准键 | 4,340 |
-| 计数/信号内容冲突键 | 42 |
+| 计数/信号内容冲突键 | 46 |
 | OHLC/vol/amount 冲突键 | 0 |
 
 已有历史导出曾以 807 日、4,287,061 行完成，耗时约 430 秒。本次全区间导出的性能停止线定为 600 秒；超过时只做 profiling，不继续 formal build。
@@ -971,7 +972,7 @@ stock_daily_warmup_gap_count
 - unmapped = 0。
 - canonical duplicates = 0。
 - market value conflicts = 0。
-- 已知 42 个 count/signal 冲突按新代码优先收敛。
+- 已知 46 个 count/signal 冲突按新代码优先收敛。
 
 stock daily warm-up 缺口只报告，不作为失败项。
 
@@ -1142,7 +1143,9 @@ N3 本地临时 Parquet 实测结果：
 | N2 | 已完成 | Silver set-based writer、asset、2 checks、job、catalog 与完整 alias/identity 冲突矩阵已通过 |
 | N3 | 已完成 | Raw/Silver true-batch lake readiness、两个 STOPPED sensors、统一 run key/cursor、first-not-ready 和性能门禁已通过 |
 | N4 | 已完成 | prod read-only cutover、3 日 sample、850 日 fresh full export、逐文件 schema 与 manifest/data audit 已通过 |
-| N5-N7 | 待推进 | 按下列边界分别开发或审批执行 |
+| N5 | 已完成 | identity map 修复后重建 Formal Raw/Silver，最终文件审计通过 |
+| N6 | 待推进 | runless materialization/check event dry-run 与正式写入审批 |
+| N7 | 待推进 | 日常 Tushare 来源切换、sensor 观察和最终验收 |
 
 N0 与 N1 按批准口径合并为一个代码提交，但验收边界保持独立。N0 预声明
 Silver schema、path 和 partition model；没有提前写入 Silver catalog entry，因为 catalog
@@ -1220,8 +1223,9 @@ prod export manifest，Raw 和 Silver 均按年度建立一次 DuckDB 主查询�
 分区文件，再逐分区原子 promote；final audit 复用现有 Raw/Silver canonical metrics SQL，
 并报告映射缺失、标准键重复、行情冲突、计数/信号冲突和 stock daily warm-up 缺口。
 所有写模式必须显式传 `--confirm-write`；dry-run/audit 只写报告，不读取 Dagster instance，
-不写 Dagster event。N5 代码完成不等于正式 Lake 已写入，正式执行仍须单独审批并按
-Raw -> Raw audit -> Silver -> final audit 串行验收。
+不写 Dagster event。N5 Formal Lake 写入已按 Raw -> Raw audit -> Silver -> final audit
+串行完成；N5C identity map 修复和 Silver 重建结果见下文。N5 完成不等于 N6 event
+写入完成，N6 仍须单独审批。
 
 N5A 首次正式执行发现并修正了一个跨卷原子替换问题：临时目录必须创建在
 `lake_root` 同一文件系统内，不能使用系统 `/var/folders` 临时目录；否则 macOS 的
@@ -1239,8 +1243,21 @@ current-listed-only 的 `silver_stock_basic` 生成，导致 `000638.SZ`、`6882
 `valid_to/delist_date`，再叠加 seed 的非 self 映射。修复后必须先重建并只读审计 identity map，
 再从同一 formal Raw 全量原子重建 Silver；在最终 file audit 通过前，不进入 N6。
 
+重建后的第二次审计又发现一个独立的 seed 缺口：九转 Raw 中有 623 行旧代码
+`839680.BJ`，Tushare `bse_mapping` 当前事实为 `839680.BJ -> 920680.BJ`，但版本化 seed
+此前漏记该映射。该行已补入 seed，并增加测试锁定；这不是生命周期缺失，也不是允许把旧代码
+原样写进 Silver。补 seed 后必须再次重建 identity map 和 Silver，并以最终审计为准。
+
 N5C 还修复了 bootstrap helper 直接调用 `duckdb.connect()` 的规范违例，统一使用
 `DuckDBResource.connect()`，确保历史构建与正式生产路径采用相同 DuckDB 配置。
+
+N5C 修复后的正式结果：identity map 为 6,116 行，包含 5,865 行历史生命周期
+self mapping 和 251 行 seed 映射；最终 Raw/Silver 文件审计报告为
+`/private/tmp/stk_nineturn_n5c_final_audit_20260711_retry.json`，850/850 分区齐全，
+Raw 4,523,818 行，Silver 4,518,978 行，未映射源代码 0，标准键重复 0，行情冲突 0，
+Silver failed partition 0，stock daily warm-up gap 84 行。计数/信号冲突为 46 个，均按
+规范新代码优先收敛，未触发 Silver 失败条件。N5 已完成，不进入 N6 前仍需单独审批
+Dagster event 写入。
 
 ### N6 Runless Events
 

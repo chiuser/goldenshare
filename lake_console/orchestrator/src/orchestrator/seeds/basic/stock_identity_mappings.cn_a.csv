@@ -161,6 +161,7 @@ latest_ts_code,source_ts_code,valid_from,valid_to,identity_source,confidence,rea
 920670.BJ,835670.BJ,2020-12-08,,bse_mapping,confirmed,bse_mapping o_code=835670.BJ -> n_code=920670.BJ
 920675.BJ,836675.BJ,2020-12-28,,bse_mapping,confirmed,bse_mapping o_code=836675.BJ -> n_code=920675.BJ
 920679.BJ,873679.BJ,2023-11-10,,bse_mapping,confirmed,bse_mapping o_code=873679.BJ -> n_code=920679.BJ
+920680.BJ,839680.BJ,2021-11-15,,bse_mapping,confirmed,bse_mapping o_code=839680.BJ -> n_code=920680.BJ
 920682.BJ,834682.BJ,2020-07-27,,bse_mapping,confirmed,bse_mapping o_code=834682.BJ -> n_code=920682.BJ
 920685.BJ,430685.BJ,2022-10-10,,bse_mapping,confirmed,bse_mapping o_code=430685.BJ -> n_code=920685.BJ
 920689.BJ,831689.BJ,2022-03-21,,bse_mapping,confirmed,bse_mapping o_code=831689.BJ -> n_code=920689.BJ
