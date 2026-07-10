@@ -1,6 +1,6 @@
 # Dagster 神奇九转数据集接入低层设计
 
-状态：N0-N4 已完成开发与验收；N5-N6 正式操作仍待分阶段审批
+状态：N0-N4 已完成开发与验收；N5A 已完成代码开发与本地验证；N5B-N6 正式操作仍待分阶段审批
 日期：2026-07-10
 上位方案：[`dagster-stk-nineturn-dataset-onboarding-plan.md`](./dagster-stk-nineturn-dataset-onboarding-plan.md)
 
@@ -1213,6 +1213,12 @@ asset check 与 lake readiness 对同一坏文件不会给出相反结论。
 动作：dry-run -> 单年度样本 -> Raw full -> Raw audit -> Silver sample -> Silver full -> final file audit。
 
 需要单独批准正式 Lake 写入。Raw 与 Silver 可使用同一代码阶段，但正式执行必须串行并分别验收。
+
+当前开发进度：N5A 已落地 `stk_nineturn_history.py` 与对应 CLI，负责读取唯一批准的
+prod export manifest、生成 Raw history build plan，并在显式 `--confirm-write` 下按分区
+使用 DuckDB 显式投影和临时文件原子 promote。N5A 不读取 Dagster instance、不写 event，
+dry-run 不创建 formal Lake 目录。N5B（Silver 年度批处理、final file audit）仍未开发，
+因此不得把 N5A 的 plan 输出当作 N5 完成证明。
 
 ### N6 Runless Events
 
