@@ -1,6 +1,6 @@
 # Dagster 神奇九转数据集接入低层设计
 
-状态：N0-N5 已完成开发与验收；N6 runless event 工具已完成本地实现与临时实例验证，正式 Dagster event 写入仍待单独批准；N7 待推进
+状态：N0-N6 已完成开发、正式执行与验收；N7 待推进
 日期：2026-07-10
 上位方案：[`dagster-stk-nineturn-dataset-onboarding-plan.md`](./dagster-stk-nineturn-dataset-onboarding-plan.md)
 
@@ -25,7 +25,7 @@
 6. 历史 prod 导出、formal raw/silver 构建、runless event 写入必须分别 dry-run、样本、审批和验收。
 7. `silver_stock_identity_map` 的 self mapping 来源是 `silver_stock_lifecycle` 的全部历史代码，包含退市代码；`silver_namechange` 只用于校验版本化非 self seed 的解释性，不承担历史股票全集职责。
 
-本 LLD 当前只保留 N6 正式 Dagster instance 写入和 N7 日常切换的审批边界；N5 Formal Lake 写入已按批准完成。N6 代码已落地 dry-run 与显式确认的 report 入口，但本轮没有连接正式 instance，也没有写正式 event。
+本 LLD 当前只保留 N7 日常切换的审批边界；N5 Formal Lake 写入和 N6 正式 Dagster event 写入均已按分阶段批准完成。N6 先完成只读 dry-run，再完成 3 日样本和剩余全量补录，最终 dry-run 计划归零。
 本 LLD 不授权运行 `dg`、写 Dagster instance 或删除历史 staging。
 
 ## 2. 依据与代码审计
@@ -1034,6 +1034,26 @@ Check event 必须绑定同分区最新 materialization，通过 `AssetCheckEval
 - 失败后保留已成功事件，重新 dry-run 后幂等续跑。
 - 不删除或覆盖历史 Dagster event。
 
+### 15.4 N6 正式执行记录
+
+执行前冻结条件：daemon/webserver 未运行，active runs 为 `{}`，N5 final file audit
+报告为 `/private/tmp/stk_nineturn_n5c_final_audit_20260711_retry.json`，850 个 Raw/Silver
+分区全部通过，未映射代码和 Silver 失败分区均为 0。
+
+| 阶段 | 报告 | 结果 |
+| --- | --- | ---: |
+| 全量 dry-run | `/private/tmp/stk_nineturn_events_n6_dry_run_20260710T202000.json` | 1,700 materializations + 80 checks |
+| 3 日 sample dry-run | `/private/tmp/stk_nineturn_events_n6_sample_dry_run_20260710T202200.json` | 6 materializations + 12 checks |
+| 3 日 sample report | `/private/tmp/stk_nineturn_events_n6_sample_report_20260710T202300.json` | 18 events |
+| sample 后 dry-run | `/private/tmp/stk_nineturn_events_n6_post_sample_dry_run_20260710T202500.json` | 剩余 1,694 + 68 |
+| 剩余 full report | `/private/tmp/stk_nineturn_events_n6_full_report_20260710T202700.json` | 1,762 events |
+| final dry-run | `/private/tmp/stk_nineturn_events_n6_final_dry_run_20260710T203000.json` | 计划归零 |
+
+正式执行总计写入 1,780 个 event：Raw/Silver 各 850 个 materialization，recent20
+各 20 个 partitioned checks。最终只读核验确认四类 check 均有 20 个分区记录，且每条
+check 的 `target_materialization_data.storage_id` 等于同分区最新 materialization；
+`cn_a_stock_trade_days` 当前为 3,043 个 dynamic partitions，N6 没有写 dynamic partition。
+
 ## 16. 性能门禁
 
 | 场景 | 正式模型 | 目标 | 停止条件 |
@@ -1157,7 +1177,7 @@ N3 本地临时 Parquet 实测结果：
 | N3 | 已完成 | Raw/Silver true-batch lake readiness、两个 STOPPED sensors、统一 run key/cursor、first-not-ready 和性能门禁已通过 |
 | N4 | 已完成 | prod read-only cutover、3 日 sample、850 日 fresh full export、逐文件 schema 与 manifest/data audit 已通过 |
 | N5 | 已完成 | identity map 修复后重建 Formal Raw/Silver，最终文件审计通过 |
-| N6 | 工具已完成，正式写入待批准 | `stk_nineturn_events.py` / CLI 已实现 bounded dry-run、显式确认 report、同分区 latest materialization target；本地临时实例回归通过 |
+| N6 | 已完成 | 已完成 formal dry-run、3 日样本、1,780 个 runless events 正式写入和 final dry-run 对账；partitioned check target 全部正确 |
 | N7 | 待推进 | 日常 Tushare 来源切换、sensor 观察和最终验收 |
 
 N0 与 N1 按批准口径合并为一个代码提交，但验收边界保持独立。N0 预声明
@@ -1237,8 +1257,8 @@ prod export manifest，Raw 和 Silver 均按年度建立一次 DuckDB 主查询�
 并报告映射缺失、标准键重复、行情冲突、计数/信号冲突和 stock daily warm-up 缺口。
 所有写模式必须显式传 `--confirm-write`；dry-run/audit 只写报告，不读取 Dagster instance，
 不写 Dagster event。N5 Formal Lake 写入已按 Raw -> Raw audit -> Silver -> final audit
-串行完成；N5C identity map 修复和 Silver 重建结果见下文。N5 完成不等于 N6 event
-写入完成，N6 仍须单独审批。
+串行完成；N5C identity map 修复和 Silver 重建结果见下文。N5 完成后，N6 按单独审批
+边界完成了 event dry-run、样本和全量补录。
 
 N5A 首次正式执行发现并修正了一个跨卷原子替换问题：临时目录必须创建在
 `lake_root` 同一文件系统内，不能使用系统 `/var/folders` 临时目录；否则 macOS 的
@@ -1269,8 +1289,8 @@ self mapping 和 251 行 seed 映射；最终 Raw/Silver 文件审计报告为
 `/private/tmp/stk_nineturn_n5c_final_audit_20260711_retry.json`，850/850 分区齐全，
 Raw 4,523,818 行，Silver 4,518,978 行，未映射源代码 0，标准键重复 0，行情冲突 0，
 Silver failed partition 0，stock daily warm-up gap 84 行。计数/信号冲突为 46 个，均按
-规范新代码优先收敛，未触发 Silver 失败条件。N5 已完成，不进入 N6 前仍需单独审批
-Dagster event 写入。
+规范新代码优先收敛，未触发 Silver 失败条件。N5 已完成，随后 N6 已按单独审批边界
+完成 Dagster event 写入。
 
 ### N6 Runless Events
 
@@ -1282,10 +1302,10 @@ Dagster event 写入。
 工具实现：dry-run -> 3 日样本 -> all materializations -> recent20 checks -> final event audit。
 planner 以本批 manifest 为边界，只读一次动态分区集合、两次 DuckDB batch readiness、每个
 asset 一次目标 materialization 查询、每个 check 一次有界 history 查询；不按日期逐个扫描
-Dagster history。当前已通过 5 个 N6 专用临时实例测试及既有 106 个相关回归测试。
+Dagster history。当前已通过 5 个 N6 专用临时实例测试及既有 106 个相关回归测试，且已完成
+正式 event 写入与 final dry-run 对账。
 
-需要单独批准正式 Dagster instance 写入。当前没有连接正式 instance、没有写正式 event，
-不得与 N5 合并。
+正式 Dagster instance 写入已完成，N6 不得与 N5 合并；N7 仍需单独验收。
 
 ### N7 日常切换与最终验收
 

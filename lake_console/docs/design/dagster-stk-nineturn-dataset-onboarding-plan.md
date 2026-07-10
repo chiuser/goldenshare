@@ -1,6 +1,6 @@
 # Dagster 神奇九转数据集接入方案
 
-状态：N0-N5 Formal Raw/Silver 已完成开发、正式写入与最终文件审计；N6 runless event 工具已完成本地 dry-run/apply 实现与临时实例验证，正式 event 写入仍待单独批准；N7 cutover 待推进
+状态：N0-N6 已完成开发、正式写入与验收；N7 cutover 待推进
 日期：2026-07-10
 
 代码级设计：
@@ -627,8 +627,10 @@ n4_sample_20260710T193201  # 最终修复后的 3 日样本，仅作样本验收
 
 禁止为历史补录运行 850 个 Dagster jobs。Runless event 写入需要单独正式审批。
 N6 工具已落地到 `stk_nineturn_events.py` / `stk_nineturn_events_cli.py`：dry-run 默认只读，
-report 必须显式 `--confirm-write`；事件目标绑定同分区最新 materialization。正式 instance
-写入尚未执行。
+report 必须显式 `--confirm-write`；事件目标绑定同分区最新 materialization。正式执行已完成：
+1,700 个 materialization 和 80 个 recent20 check event 均已写入，final dry-run 计划归零。
+执行报告分别保存在 `/private/tmp/stk_nineturn_events_n6_*`，正式执行前后均通过 active runs
+为 0 和 final file audit 门禁。
 
 ### 10.7 B6：切换日常来源
 
@@ -786,7 +788,7 @@ prod export 已在隔离 staging 完成，并通过 850 文件全量审计。
 | N3（已完成） | Batch lake readiness + 两个 sensors + cursor/static gates | 10/60 日性能、0 次 Dagster history、first-not-ready 与小型 cursor 已通过 |
 | N4（已完成） | prod 全量重新导出 dry-run/sample/full + staging audit | 850 文件、4,523,818 行、精确 schema 和 manifest 对账已通过 |
 | N5 | Formal Raw/Silver history dry-run/sample/full + 聚合审计 | 已完成；最终文件审计通过 |
-| N6 | Runless event dry-run/sample/full | 工具已实现并通过本地临时实例验证；正式 Dagster event 写入必须单独审批 |
+| N6 | Runless event dry-run/sample/full | 已完成；1,780 个 event 已写入，recent20 checks 的 partition 与 latest materialization target 对账通过 |
 | N7 | 单日 Tushare smoke、sensor 人工启用、最终文档对账 | 最终验收 |
 
 N4、N5、N6 不得合并成一次不可中断的大操作。每阶段必须有独立 dry-run、样本、正式执行和结果报告。
