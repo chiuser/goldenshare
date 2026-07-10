@@ -15,7 +15,7 @@ def _manifest(tmp_path: Path) -> Path:
     path = tmp_path / "sync_runs.jsonl"
     path.write_text(json.dumps({
         "run_id": "run-1", "dataset_key": "stk_nineturn",
-        "source": "prod_db_readonly", "mode": "range_rebuild",
+        "source": "prod-raw-db", "mode": "range_rebuild",
         "start_date": "2023-01-03", "end_date": "2023-01-04",
         "fetched_rows": 4, "written_rows": 4, "skipped_partitions": 0,
         "partitions": [

@@ -839,7 +839,7 @@ def load_stk_nineturn_prod_export_manifest(
 验证项：
 
 - `dataset_id == "stk_nineturn"`
-- `source_method == "prod_db_readonly"`
+- `source_method == "prod-raw-db"`（backend `DbTradeDateExportService` 的正式 source 标识）
 - range mode 且起点为 2023-01-03
 - end date 等于本次 cutover
 - expected dates 与 partition keys 完全一致
@@ -1112,7 +1112,7 @@ N3 本地临时 Parquet 实测结果：
 ### 17.6 Bootstrap/Events
 
 - manifest run id 不匹配时失败。
-- 非 prod_db_readonly、旧批次、日期缺口、skipped partition、行数差异、路径越界均失败。
+- 非 `prod-raw-db`、旧批次、日期缺口、skipped partition、行数差异、路径越界均失败。
 - dry-run 不写文件/event。
 - 年度 raw/silver 样本与逐日 fixture 结果一致。
 - 全历史 materialization 与 recent20 check 数量正确。

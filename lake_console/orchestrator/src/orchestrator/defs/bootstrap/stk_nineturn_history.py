@@ -15,7 +15,7 @@ from orchestrator.defs.resources import DuckDBResource
 
 
 STK_NINETURN_DATASET_ID = "stk_nineturn"
-STK_NINETURN_SOURCE_METHOD = "prod_db_readonly"
+STK_NINETURN_SOURCE_METHOD = "prod-raw-db"
 STK_NINETURN_HISTORY_START_DATE = "2023-01-03"
 STK_NINETURN_RAW_COLUMNS = (
     "ts_code", "trade_date", "freq", "open", "high", "low", "close",
