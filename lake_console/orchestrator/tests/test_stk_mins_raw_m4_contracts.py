@@ -1126,6 +1126,21 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             parse_stock_mins_raw_config({}).write_mode,
             "reuse_existing",
         )
+        self.assertEqual(
+            parse_stock_mins_raw_config({}).source,
+            "prod_db",
+        )
+        self.assertEqual(
+            parse_stock_mins_raw_config(
+                {
+                    "source": "tushare",
+                    "write_mode": {
+                        "reuse_existing": {},
+                    },
+                }
+            ).source,
+            "tushare",
+        )
         with self.assertRaisesRegex(ValueError, "only supports source=tushare"):
             parse_stock_mins_raw_config(
                 {
@@ -1366,7 +1381,10 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             "stock_mins_raw_update_from_prod:2026-05-29",
         )
         self.assertEqual(request.tags, {})
-        self.assertEqual(request.run_config, {})
+        self.assertEqual(
+            request.run_config,
+            build_stock_mins_raw_update_job_run_config(source="prod_db"),
+        )
         self.assertEqual(
             STOCK_MINS_RAW_SENSOR_JOB_NAME,
             "stock_mins_raw_update_from_prod_job",

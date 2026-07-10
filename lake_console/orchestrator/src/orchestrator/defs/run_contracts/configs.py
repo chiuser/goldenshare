@@ -123,11 +123,11 @@ STOCK_MINS_RAW_CONFIG_SCHEMA = dg.Shape(
                     dg.EnumValue("prod_db"),
                 ],
             ),
-            default_value="tushare",
+            default_value="prod_db",
             is_required=False,
             description=(
-                "股票分钟线 raw 写入来源；默认日常 sensor 使用 prod DB job，"
-                "Tushare source 保留为人工备用入口和 merge_repair 修复入口。"
+                "股票分钟线 raw 写入来源；默认使用 prod DB，Tushare source "
+                "保留为显式人工备用入口和 merge_repair 修复入口。"
             ),
         ),
         "write_mode": dg.Field(
@@ -332,7 +332,7 @@ def parse_stock_mins_raw_config(
     raw_config: Mapping[str, object] | None,
 ) -> ParsedStockMinsRawConfig:
     config = dict(raw_config or {})
-    source = _normalize_stock_mins_raw_source(config.get("source", "tushare"))
+    source = _normalize_stock_mins_raw_source(config.get("source", "prod_db"))
     write_mode_config = config.get("write_mode", {"reuse_existing": {}})
     if not isinstance(write_mode_config, Mapping):
         raise ValueError("write_mode must be a selector mapping.")

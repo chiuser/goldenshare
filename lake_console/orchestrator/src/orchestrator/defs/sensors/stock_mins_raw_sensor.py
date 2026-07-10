@@ -14,6 +14,9 @@ from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
 )
 from orchestrator.defs.partitions import cn_a_stock_mins_trade_days
 from orchestrator.defs.paths import silver_trade_calendar_path
+from orchestrator.defs.run_contracts.configs import (
+    build_stock_mins_raw_update_job_run_config,
+)
 from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
@@ -279,6 +282,9 @@ def _run_request_for_trade_date(trade_date: str):
             unit_id=trade_date,
         ),
         partition_key=trade_date,
+        run_config=build_stock_mins_raw_update_job_run_config(
+            source=STOCK_MINS_RAW_SOURCE,
+        ),
     )
 
 

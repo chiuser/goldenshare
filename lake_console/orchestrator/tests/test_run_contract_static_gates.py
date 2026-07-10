@@ -1565,6 +1565,8 @@ class RunContractStaticGateTests(unittest.TestCase):
             "StkMinsBatchReadiness",
             "build_run_request",
             "build_asset_update_run_key",
+            "build_stock_mins_raw_update_job_run_config",
+            "source=STOCK_MINS_RAW_SOURCE",
         )
         forbidden_fragments = (
             "raw_stk_mins_ready_for_trade_date",
@@ -1573,6 +1575,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             "run_key=f",
             "run_key=(",
             ".split(",
+            "partition_key=trade_date,\n    )",
         )
         issues.extend(
             f"{path} misses required raw sensor batch readiness fragment: {fragment}"
@@ -1581,6 +1584,32 @@ class RunContractStaticGateTests(unittest.TestCase):
         )
         issues.extend(
             f"{path} contains forbidden raw sensor hot-path fragment: {fragment}"
+            for fragment in forbidden_fragments
+            if fragment in source
+        )
+
+        self.assertEqual(issues, [])
+
+    def test_stock_mins_raw_default_source_is_prod_db(self) -> None:
+        path = DEFS_DIR / "run_contracts" / "configs.py"
+        source = path.read_text()
+        issues = []
+
+        required_fragments = (
+            'default_value="prod_db"',
+            'config.get("source", "prod_db")',
+        )
+        forbidden_fragments = (
+            'default_value="tushare"',
+            'config.get("source", "tushare")',
+        )
+        issues.extend(
+            f"{path} misses required stock mins raw default source fragment: {fragment}"
+            for fragment in required_fragments
+            if fragment not in source
+        )
+        issues.extend(
+            f"{path} contains unsafe stock mins raw default source fragment: {fragment}"
             for fragment in forbidden_fragments
             if fragment in source
         )
