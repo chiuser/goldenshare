@@ -1,6 +1,6 @@
 # Dagster 神奇九转数据集接入低层设计
 
-状态：N0 + N1 已完成本地开发与验收，N2 待开发；N4-N6 正式操作仍待分阶段审批
+状态：N0-N2 已完成本地开发与验收，N3 待开发；N4-N6 正式操作仍待分阶段审批
 日期：2026-07-10
 上位方案：[`dagster-stk-nineturn-dataset-onboarding-plan.md`](./dagster-stk-nineturn-dataset-onboarding-plan.md)
 
@@ -321,6 +321,12 @@ class StkNineturnPartitionMetrics:
     canonical_duplicate_key_count: int = 0
     market_value_conflict_key_count: int = 0
     count_signal_conflict_key_count: int = 0
+    source_row_count: int = 0
+    mapped_row_count: int = 0
+    expected_output_row_count: int = 0
+    alias_duplicate_key_count: int = 0
+    unresolved_count_signal_conflict_key_count: int = 0
+    canonical_selection_mismatch_count: int = 0
 ```
 
 同时定义最多 10 条的失败样本结构。样本只用于 check metadata 和诊断，不进入 cursor。
@@ -344,6 +350,7 @@ Raw 内容规则：
 Silver 在以上规则上增加：
 
 - source code 全部可被 identity map 的有效区间覆盖。
+- 每条 Raw 行在目标交易日必须恰好命中一条有效 identity；0 条是未映射，超过 1 条是重叠映射，均 fail closed。
 - 输出代码全部是 `latest_ts_code`。
 - canonical key 唯一。
 - 行数等于映射去重后的预期行数。
@@ -542,6 +549,7 @@ order by ts_code;
 3. count/signal 不同且不存在规范新代码来源行：fail closed，不能按字符串排序静默选择历史 alias。
 4. 只有一条旧代码来源行：保留其业务值，输出 `latest_ts_code`。
 5. 任一 source code 未映射：fail closed。
+6. 同一 Raw 行命中多条有效 identity：fail closed，禁止让 JOIN 行数放大后再静默去重。
 
 ### 9.4 写入事务边界
 
@@ -1075,7 +1083,7 @@ Check event 必须绑定同分区最新 materialization，通过 `AssetCheckEval
 | --- | --- | --- |
 | N0 | 已完成 | Raw/Silver schema、path、partition model、中文名和共享 metrics contract 已落地；Raw catalog entry 已随 N1 active asset 注册 |
 | N1 | 已完成 | Raw asset、2 个 partitioned blocking checks、Raw job 已落地；Tushare fixture、6000 行分页、0 行不写文件、真实 check execution 分区归属已通过 |
-| N2 | 待开发 | Silver writer/asset/checks/job；Silver catalog entry 必须在 active Silver asset 同阶段注册 |
+| N2 | 已完成 | Silver set-based writer、asset、2 checks、job、catalog 与完整 alias/identity 冲突矩阵已通过 |
 | N3-N7 | 待推进 | 按下列边界分别开发或审批执行 |
 
 N0 与 N1 按批准口径合并为一个代码提交，但验收边界保持独立。N0 预声明
@@ -1109,6 +1117,13 @@ Silver schema、path 和 partition model；没有提前写入 Silver catalog ent
 改动：Silver writer/asset、2 checks、Silver job。
 
 验收：完整 identity 冲突矩阵。该阶段单独推进，不能与 sensor 一起隐藏 SQL 语义问题。
+
+结果：已完成。writer 在写临时文件前检查 Raw 内容、未映射、重叠有效映射、
+OHLC/vol/amount 冲突和无规范来源的 count/signal 冲突；写后再次批量比较实际 Silver
+与“规范源代码优先”的预期行，并验证 schema、行数和标准键。测试覆盖仅旧代码、
+新旧同行、相同 alias、安全的规范来源冲突、无规范来源冲突、行情冲突、失效区间、
+重叠 identity、已有目标不覆盖、篡改 Silver 后 canonical check 失败，以及真实
+`asset_check_executions.partition` 归属。
 
 ### N3 Readiness 与 Sensors
 

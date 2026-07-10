@@ -58,7 +58,10 @@ from orchestrator.defs.assets.stock_daily import (
     silver_stock_daily,
 )
 from orchestrator.defs.assets.stock_daily_qfq import gold_stock_daily_qfq
-from orchestrator.defs.assets.stk_nineturn import raw_tushare_stk_nineturn
+from orchestrator.defs.assets.stk_nineturn import (
+    raw_tushare_stk_nineturn,
+    silver_stock_nineturn_daily,
+)
 from orchestrator.defs.assets.stk_mins import (
     GOLD_STK_MINS_QFQ_COLUMNS,
     STK_MINS_RAW_COLUMN_TYPES,
@@ -216,6 +219,7 @@ ACTIVE_ASSET_DEFINITIONS = (
     silver_stock_suspend_daily,
     raw_tushare_stock_daily,
     raw_tushare_stk_nineturn,
+    silver_stock_nineturn_daily,
     silver_stock_daily,
     raw_tushare_adj_factor,
     silver_adj_factor,
@@ -334,7 +338,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
 
     def test_current_assets_have_governance_tags_and_dataset_metadata(self) -> None:
         catalog_entries = _catalog_entries_by_key()
-        self.assertEqual(len(catalog_entries), 59)
+        self.assertEqual(len(catalog_entries), 60)
         self.assertEqual(set(catalog_entries), set(ACTIVE_ASSETS_BY_KEY))
 
         for asset_key, entry in catalog_entries.items():
@@ -385,7 +389,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         entries = list_lake_asset_catalog_entries()
 
         self.assertIsInstance(entries, tuple)
-        self.assertEqual(len(entries), 59)
+        self.assertEqual(len(entries), 60)
         self.assertEqual(tuple(entry.asset_key for entry in entries), list_lake_asset_keys())
         self.assertEqual(set(list_lake_asset_keys()), set(ACTIVE_ASSETS_BY_KEY))
         self.assertIs(
@@ -483,6 +487,10 @@ class AssetGovernanceContractTests(unittest.TestCase):
 
         self.assertEqual(
             raw_tushare_stk_nineturn.partitions_def,
+            cn_a_stock_trade_days,
+        )
+        self.assertEqual(
+            silver_stock_nineturn_daily.partitions_def,
             cn_a_stock_trade_days,
         )
 

@@ -4467,7 +4467,7 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
-    def test_stk_nineturn_raw_slice_keeps_definition_boundaries(self) -> None:
+    def test_stk_nineturn_daily_slice_keeps_definition_boundaries(self) -> None:
         asset_source = Path(
             "src/orchestrator/defs/assets/stk_nineturn.py"
         ).read_text()
@@ -4499,6 +4499,18 @@ class RunContractStaticGateTests(unittest.TestCase):
             'name="raw_stk_nineturn_update_job"',
             "AssetSelection.assets(raw_tushare_stk_nineturn)",
             "AssetSelection.checks_for_assets(raw_tushare_stk_nineturn)",
+            'name="silver_stock_nineturn_daily_update_job"',
+            "AssetSelection.assets(silver_stock_nineturn_daily)",
+            "AssetSelection.checks_for_assets(silver_stock_nineturn_daily)",
+        )
+        required_silver_fragments = (
+            'name="silver_stock_nineturn_daily"',
+            "deps=[raw_tushare_stk_nineturn, silver_stock_identity_map]",
+            "write_silver_stock_nineturn_daily_partition",
+            "silver_stock_nineturn_daily_contract_check",
+            "silver_stock_nineturn_daily_canonical_integrity_check",
+            "additional_deps=[raw_tushare_stk_nineturn, silver_stock_identity_map]",
+            "load_silver_stock_nineturn_daily_metrics",
         )
         issues.extend(
             f"stk_nineturn raw asset misses fragment: {fragment}"
@@ -4515,13 +4527,27 @@ class RunContractStaticGateTests(unittest.TestCase):
             for fragment in required_job_fragments
             if fragment not in job_source
         )
+        issues.extend(
+            f"stk_nineturn Silver slice misses fragment: {fragment}"
+            for fragment in required_silver_fragments
+            if fragment not in f"{asset_source}\n{checks_source}"
+        )
+        silver_asset_offset = asset_source.index(
+            '@dg.asset(\n    name="silver_stock_nineturn_daily"'
+        )
+        raw_asset_offset = asset_source.index("def raw_tushare_stk_nineturn(")
+        raw_asset_source = asset_source[raw_asset_offset:silver_asset_offset]
         for forbidden in (
             "dg.RunRequest(",
             "silver_stock_identity_map",
             "bse_mapping",
         ):
-            if forbidden in asset_source:
+            if forbidden in raw_asset_source:
                 issues.append(f"stk_nineturn raw asset contains forbidden {forbidden}")
+        if "bse_mapping" in asset_source:
+            issues.append("stk_nineturn Silver asset must not build a local BSE mapping")
+        if "silver_stock_daily" in asset_source:
+            issues.append("stk_nineturn Silver asset must not depend on stock daily")
         for forbidden in ("TushareResource", "DuckDBResource", "read_parquet("):
             if forbidden in job_source:
                 issues.append(f"stk_nineturn job contains forbidden {forbidden}")

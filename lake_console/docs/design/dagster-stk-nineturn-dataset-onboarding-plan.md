@@ -1,6 +1,6 @@
 # Dagster 神奇九转数据集接入方案
 
-状态：N0 + N1 已完成本地开发与验收，N2 待开发；正式 bootstrap/event 阶段仍待审批
+状态：N0-N2 已完成本地开发与验收，N3 待开发；正式 bootstrap/event 阶段仍待审批
 日期：2026-07-10
 
 代码级设计：
@@ -706,16 +706,16 @@ tests/test_run_contract_static_gates.py
 
 ## 15. 分阶段推进
 
-当前进度（2026-07-10）：N0 契约地基与 N1 Raw 日常链路已经完成并通过本地
-asset/check/job、catalog 和静态门禁；N2 尚未开始。Silver schema、path 和 partition
-model 已在 N0 预声明，但 Silver catalog entry 将与 N2 active asset 同阶段注册，避免
-catalog 提前声明尚不存在的正式资产。
+当前进度（2026-07-10）：N0 契约地基、N1 Raw 日常链路和 N2 Silver 日常链路
+已经完成本地开发与验收。Silver catalog entry 已与 active Silver asset 同阶段注册；
+writer/checks 已覆盖 identity 有效区间、每行恰好一次映射、规范代码优先和冲突
+fail-closed 语义。N3 readiness/sensors 尚未开始。
 
 | 阶段 | 核心任务 | 是否可合并 |
 | --- | --- | --- |
 | N0（已完成） | 契约、路径、schema、Raw catalog、check 治理矩阵 | 已与 N1 同轮开发并完成独立契约验收 |
 | N1（已完成） | Raw asset + raw checks + raw job | 临时 Lake、分页、0 行和 partitioned check 归属已通过 |
-| N2 | Silver SQL/asset + silver checks + silver job | 单独推进，先验映射冲突 |
+| N2（已完成） | Silver SQL/asset + silver checks + silver job | identity/alias 冲突矩阵和 partitioned checks 已通过 |
 | N3 | Batch lake readiness + 两个 sensors + cursor/static gates | 可合并开发 |
 | N4 | prod 全量重新导出 dry-run/sample/full + formal raw batch bootstrap | 单独审批文件写入 |
 | N5 | Silver history dry-run/sample/full + 聚合审计 | 单独审批文件写入 |

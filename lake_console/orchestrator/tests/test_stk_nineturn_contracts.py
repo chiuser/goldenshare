@@ -117,6 +117,30 @@ class StkNineturnContractTests(unittest.TestCase):
             ),
         )
 
+    def test_silver_catalog_entry_expresses_derived_boundary(self) -> None:
+        entry = get_lake_asset_catalog_entry("silver_stock_nineturn_daily")
+
+        self.assertEqual(entry.dataset_id, "stock_nineturn_daily")
+        self.assertEqual(
+            entry.partition_model,
+            PartitionModel.TRADE_DATE_PARTITION_SILVER_STOCK_NINETURN_DAILY,
+        )
+        self.assertEqual(
+            entry.bootstrap_sources,
+            (IngestionSource.DERIVED_FROM_ASSETS,),
+        )
+        self.assertEqual(
+            entry.event_policy,
+            EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        )
+        self.assertEqual(
+            entry.blocking_check_names,
+            (
+                "silver_stock_nineturn_daily_contract_check",
+                "silver_stock_nineturn_daily_canonical_integrity_check",
+            ),
+        )
+
     def test_partition_models_exist_for_raw_and_future_silver_asset(self) -> None:
         raw_model = get_partition_model_definition(
             PartitionModel.TRADE_DATE_PARTITION_RAW_STK_NINETURN

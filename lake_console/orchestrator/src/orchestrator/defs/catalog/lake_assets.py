@@ -37,6 +37,7 @@ from orchestrator.defs.paths import (
     silver_stock_daily_path,
     silver_stock_identity_map_path,
     silver_stock_lifecycle_path,
+    silver_stock_nineturn_daily_path,
     silver_stock_suspend_daily_path,
     silver_trade_calendar_path,
 )
@@ -69,6 +70,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_STOCK_DAILY_SCHEMA,
     SILVER_STOCK_IDENTITY_MAP_SCHEMA,
     SILVER_STOCK_LIFECYCLE_SCHEMA,
+    SILVER_STOCK_NINETURN_DAILY_SCHEMA,
     SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
     SILVER_TRADE_CALENDAR_SCHEMA,
 )
@@ -303,6 +305,10 @@ RAW_STOCK_DAILY_CHECKS = (
 RAW_STK_NINETURN_CHECKS = (
     "raw_tushare_stk_nineturn_contract_check",
     "raw_tushare_stk_nineturn_content_integrity_check",
+)
+SILVER_STOCK_NINETURN_DAILY_CHECKS = (
+    "silver_stock_nineturn_daily_contract_check",
+    "silver_stock_nineturn_daily_canonical_integrity_check",
 )
 SILVER_STOCK_DAILY_CHECKS = (
     "silver_stock_daily_contract_check",
@@ -1084,6 +1090,33 @@ LAKE_ASSET_CATALOG = (
         notes=(
             "Raw preserves source stock codes. Historical bootstrap accepts only "
             "the approved prod DB export manifest."
+        ),
+    ),
+    _derived_entry(
+        asset_key="silver_stock_nineturn_daily",
+        dataset_id="stock_nineturn_daily",
+        layer=AssetLayer.SILVER,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="quote",
+        data_contract="canonical_stock_nineturn_daily",
+        column_schema=SILVER_STOCK_NINETURN_DAILY_SCHEMA,
+        path_template=lake_path_template(
+            silver_stock_nineturn_daily_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        partition_model=(
+            PartitionModel.TRADE_DATE_PARTITION_SILVER_STOCK_NINETURN_DAILY
+        ),
+        blocking_check_names=SILVER_STOCK_NINETURN_DAILY_CHECKS,
+        batch_grain="trade_date",
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        notes=(
+            "Derived from raw_tushare_stk_nineturn and "
+            "silver_stock_identity_map; emits latest_ts_code only."
         ),
     ),
     _derived_entry(

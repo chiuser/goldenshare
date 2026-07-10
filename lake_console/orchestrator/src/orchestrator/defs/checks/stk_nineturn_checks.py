@@ -6,10 +6,18 @@ from zoneinfo import ZoneInfo
 
 import dagster as dg
 
-from orchestrator.defs.assets.stk_nineturn import raw_tushare_stk_nineturn
+from orchestrator.defs.assets.stock_identity_map import silver_stock_identity_map
+from orchestrator.defs.assets.stk_nineturn import (
+    raw_tushare_stk_nineturn,
+    silver_stock_nineturn_daily,
+)
 from orchestrator.defs.duckdb_sql import count_parquet_query
 from orchestrator.defs.partitions import cn_a_stock_trade_days
-from orchestrator.defs.paths import raw_stk_nineturn_path
+from orchestrator.defs.paths import (
+    raw_stk_nineturn_path,
+    silver_stock_identity_map_path,
+    silver_stock_nineturn_daily_path,
+)
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.metadata import (
     CheckScope,
@@ -17,12 +25,16 @@ from orchestrator.defs.run_contracts.metadata import (
 )
 from orchestrator.defs.stk_nineturn_contract import (
     RAW_STK_NINETURN_EXPECTED_SCHEMA,
+    SILVER_STOCK_NINETURN_DAILY_EXPECTED_SCHEMA,
     build_stk_nineturn_path_plan,
     describe_stk_nineturn_parquet_schema,
     load_raw_stk_nineturn_failure_samples,
     load_raw_stk_nineturn_metrics,
+    load_silver_stock_nineturn_daily_metrics,
+    load_silver_stock_nineturn_mapping_failure_samples,
     raw_stk_nineturn_failed_row_count,
     raw_stk_nineturn_failed_rule_names,
+    silver_stock_nineturn_daily_failed_rule_names,
 )
 
 
@@ -51,6 +63,30 @@ def _missing_file_result(
                 "summary": "神奇九转 raw 分区文件不存在。",
                 "next_action": "先运行 raw_stk_nineturn_update_job 生成该交易日分区。",
                 "failed_rule_names": ["file_exists"],
+            },
+        ),
+    )
+
+
+def _missing_silver_input_result(
+    *,
+    target_path: Path,
+    missing_paths: list[Path],
+    check_scope: CheckScope,
+) -> dg.AssetCheckResult:
+    return dg.AssetCheckResult(
+        passed=False,
+        metadata=build_check_metadata(
+            check_scope=check_scope,
+            file_path=target_path,
+            missing_file_paths=missing_paths,
+            extra_metadata={
+                "summary": "神奇九转 Silver 目标或 canonical 输入文件不存在。",
+                "next_action": (
+                    "先确认 Raw 分区和 silver_stock_identity_map ready，再运行 "
+                    "silver_stock_nineturn_daily_update_job。"
+                ),
+                "failed_rule_names": ["required_files_exist"],
             },
         ),
     )
@@ -235,6 +271,241 @@ def raw_tushare_stk_nineturn_content_integrity_check(
                 "failed_rule_names": list(failed_rule_names),
                 "rule_summary": metric_summary,
                 "failure_samples": list(failure_samples),
+            },
+        ),
+    )
+
+
+@dg.asset_check(
+    asset=silver_stock_nineturn_daily,
+    partitions_def=cn_a_stock_trade_days,
+    blocking=True,
+)
+def silver_stock_nineturn_daily_contract_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    partition_key = context.partition_key
+    target_path = silver_stock_nineturn_daily_path(
+        lake_root.root(),
+        partition_key,
+    )
+    if not target_path.exists():
+        return _missing_silver_input_result(
+            target_path=target_path,
+            missing_paths=[target_path],
+            check_scope=CheckScope.SCHEMA,
+        )
+
+    connect_duckdb = duckdb.connect
+    with connect_duckdb() as connection:
+        observed_schema = describe_stk_nineturn_parquet_schema(
+            connection,
+            target_path,
+        )
+        metrics = (
+            load_raw_stk_nineturn_metrics(
+                connection,
+                path_plans=[
+                    build_stk_nineturn_path_plan(
+                        trade_date=partition_key,
+                        path=target_path,
+                    )
+                ],
+            ).get(partition_key)
+            if observed_schema == SILVER_STOCK_NINETURN_DAILY_EXPECTED_SCHEMA
+            else None
+        )
+    registered_trade_days = set(
+        context.instance.get_dynamic_partitions(cn_a_stock_trade_days.name)
+    )
+    failed_rule_names = []
+    if observed_schema != SILVER_STOCK_NINETURN_DAILY_EXPECTED_SCHEMA:
+        failed_rule_names.append("schema_matches_contract")
+    if metrics is None or metrics.row_count <= 0:
+        failed_rule_names.append("row_count_positive")
+    if metrics is not None:
+        if metrics.null_key_count:
+            failed_rule_names.append("key_columns_non_null")
+        if metrics.duplicate_key_count:
+            failed_rule_names.append("canonical_key_unique")
+        if metrics.partition_date_mismatch_count:
+            failed_rule_names.append("partition_date_matches")
+        if metrics.non_daily_freq_count:
+            failed_rule_names.append("freq_is_daily")
+    if partition_key not in registered_trade_days:
+        failed_rule_names.append("partition_is_registered")
+
+    return dg.AssetCheckResult(
+        passed=not failed_rule_names,
+        metadata=build_check_metadata(
+            check_scope=CheckScope.SCHEMA,
+            checked_row_count=metrics.row_count if metrics is not None else 0,
+            failed_row_count=len(failed_rule_names),
+            file_path=target_path,
+            extra_metadata={
+                "summary": "神奇九转 Silver 文件、schema、标准键和分区已检查。",
+                "next_action": (
+                    "contract 通过后继续执行 canonical integrity check。"
+                    if not failed_rule_names
+                    else "按 failed_rule_names 修复 Silver 分区后重新运行。"
+                ),
+                "partition_key": partition_key,
+                "partition_set_name": cn_a_stock_trade_days.name,
+                "observed_schema": _schema_metadata(observed_schema),
+                "expected_schema": _schema_metadata(
+                    SILVER_STOCK_NINETURN_DAILY_EXPECTED_SCHEMA
+                ),
+                "failed_rule_names": failed_rule_names,
+            },
+        ),
+    )
+
+
+@dg.asset_check(
+    asset=silver_stock_nineturn_daily,
+    additional_deps=[raw_tushare_stk_nineturn, silver_stock_identity_map],
+    partitions_def=cn_a_stock_trade_days,
+    blocking=True,
+)
+def silver_stock_nineturn_daily_canonical_integrity_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    partition_key = context.partition_key
+    raw_path = raw_stk_nineturn_path(lake_root.root(), partition_key)
+    identity_map_path = silver_stock_identity_map_path(lake_root.root())
+    target_path = silver_stock_nineturn_daily_path(
+        lake_root.root(),
+        partition_key,
+    )
+    missing_paths = [
+        path
+        for path in (raw_path, identity_map_path, target_path)
+        if not path.exists()
+    ]
+    if missing_paths:
+        return _missing_silver_input_result(
+            target_path=target_path,
+            missing_paths=missing_paths,
+            check_scope=CheckScope.RECONCILIATION,
+        )
+
+    connect_duckdb = duckdb.connect
+    with connect_duckdb() as connection:
+        observed_schema = describe_stk_nineturn_parquet_schema(
+            connection,
+            target_path,
+        )
+        if observed_schema != SILVER_STOCK_NINETURN_DAILY_EXPECTED_SCHEMA:
+            return dg.AssetCheckResult(
+                passed=False,
+                metadata=build_check_metadata(
+                    check_scope=CheckScope.RECONCILIATION,
+                    file_path=target_path,
+                    input_file_paths=[raw_path, identity_map_path],
+                    extra_metadata={
+                        "summary": "神奇九转 Silver schema 不匹配，canonical 语义未执行。",
+                        "next_action": "先修复 Silver contract check 再检查映射语义。",
+                        "failed_rule_names": ["schema_matches_contract"],
+                    },
+                ),
+            )
+        metrics = load_silver_stock_nineturn_daily_metrics(
+            connection,
+            raw_path_plans=[
+                build_stk_nineturn_path_plan(
+                    trade_date=partition_key,
+                    path=raw_path,
+                )
+            ],
+            silver_path_plans=[
+                build_stk_nineturn_path_plan(
+                    trade_date=partition_key,
+                    path=target_path,
+                )
+            ],
+            identity_map_path=identity_map_path,
+        ).get(partition_key)
+        failed_rule_names = (
+            silver_stock_nineturn_daily_failed_rule_names(metrics)
+            if metrics is not None
+            else ("metrics_available",)
+        )
+        mapping_samples = (
+            load_silver_stock_nineturn_mapping_failure_samples(
+                connection,
+                raw_path=raw_path,
+                identity_map_path=identity_map_path,
+                trade_date=partition_key,
+            )
+            if metrics is not None
+            and (
+                metrics.unmapped_source_code_count
+                or metrics.market_value_conflict_key_count
+                or metrics.unresolved_count_signal_conflict_key_count
+            )
+            else ()
+        )
+        content_samples = (
+            load_raw_stk_nineturn_failure_samples(
+                connection,
+                path=target_path,
+                expected_trade_date=partition_key,
+            )
+            if metrics is not None
+            and raw_stk_nineturn_failed_rule_names(metrics)
+            else ()
+        )
+
+    metric_summary = (
+        {
+            "source_row_count": metrics.source_row_count,
+            "mapped_row_count": metrics.mapped_row_count,
+            "expected_output_row_count": metrics.expected_output_row_count,
+            "output_row_count": metrics.row_count,
+            "alias_duplicate_key_count": metrics.alias_duplicate_key_count,
+            "count_signal_conflict_key_count": (
+                metrics.count_signal_conflict_key_count
+            ),
+            "unresolved_count_signal_conflict_key_count": (
+                metrics.unresolved_count_signal_conflict_key_count
+            ),
+            "market_value_conflict_key_count": (
+                metrics.market_value_conflict_key_count
+            ),
+            "unmapped_source_code_count": metrics.unmapped_source_code_count,
+            "canonical_selection_mismatch_count": (
+                metrics.canonical_selection_mismatch_count
+            ),
+        }
+        if metrics is not None
+        else {}
+    )
+    return dg.AssetCheckResult(
+        passed=metrics is not None and not failed_rule_names,
+        metadata=build_check_metadata(
+            check_scope=CheckScope.RECONCILIATION,
+            checked_row_count=metrics.row_count if metrics is not None else 0,
+            failed_row_count=len(failed_rule_names),
+            file_path=target_path,
+            input_file_paths=[raw_path, identity_map_path],
+            extra_metadata={
+                "summary": (
+                    "神奇九转 Silver 代码映射、冲突和规范来源选择已检查。"
+                ),
+                "next_action": (
+                    "canonical 语义通过，Silver 分区可供下游消费。"
+                    if not failed_rule_names
+                    else "按 failed_rule_names 和样本审计 Raw/identity/Silver。"
+                ),
+                "partition_key": partition_key,
+                "failed_rule_names": list(failed_rule_names),
+                "rule_summary": metric_summary,
+                "mapping_failure_samples": list(mapping_samples),
+                "content_failure_samples": list(content_samples),
             },
         ),
     )
