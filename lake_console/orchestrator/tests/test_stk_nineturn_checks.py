@@ -147,6 +147,22 @@ class StkNineturnCheckTests(unittest.TestCase):
 
             self.assertFalse(result.passed)
 
+    def test_partition_date_and_freq_fail_contract_check(self) -> None:
+        with TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            _write_raw_rows(
+                raw_stk_nineturn_path(root, PARTITION_KEY),
+                [_raw_row(trade_date="2026-07-08", freq="weekly")],
+            )
+
+            result = _check_function(raw_tushare_stk_nineturn_contract_check)(
+                _CheckContext(self._instance()),
+                LakeRootResource(root_path=str(root)),
+                DuckDBResource(),
+            )
+
+            self.assertFalse(result.passed)
+
     def test_invalid_price_count_and_marker_fail_content_integrity(self) -> None:
         with TemporaryDirectory() as temporary_dir:
             root = Path(temporary_dir)

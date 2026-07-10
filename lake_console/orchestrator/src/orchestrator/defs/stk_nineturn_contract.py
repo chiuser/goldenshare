@@ -611,21 +611,24 @@ def load_silver_stock_nineturn_mapping_failure_samples(
     return tuple(dict(zip(columns, row, strict=True)) for row in rows)
 
 
-def _paired_existing_path_plans(
+def _existing_raw_path_plans(
     *,
     raw_path_plans: Sequence[StkNineturnPathPlan],
     silver_path_plans: Sequence[StkNineturnPathPlan],
-) -> tuple[tuple[str, Path, Path], ...]:
+) -> tuple[tuple[str, Path, Path, bool], ...]:
     raw_by_date = {plan.trade_date: plan for plan in raw_path_plans}
     silver_by_date = {plan.trade_date: plan for plan in silver_path_plans}
     return tuple(
-        (trade_date, raw_plan.path, silver_by_date[trade_date].path)
+        (
+            trade_date,
+            raw_plan.path,
+            silver_by_date[trade_date].path,
+            silver_by_date[trade_date].file_exists,
+        )
         for trade_date, raw_plan in sorted(raw_by_date.items())
         if trade_date in silver_by_date
         and raw_plan.file_exists
         and raw_plan.path.exists()
-        and silver_by_date[trade_date].file_exists
-        and silver_by_date[trade_date].path.exists()
     )
 
 
@@ -636,7 +639,7 @@ def load_silver_stock_nineturn_daily_metrics(
     silver_path_plans: Sequence[StkNineturnPathPlan],
     identity_map_path: Path,
 ) -> Mapping[str, StkNineturnPartitionMetrics]:
-    paired_plans = _paired_existing_path_plans(
+    paired_plans = _existing_raw_path_plans(
         raw_path_plans=raw_path_plans,
         silver_path_plans=silver_path_plans,
     )
@@ -648,15 +651,61 @@ def load_silver_stock_nineturn_daily_metrics(
     plan_values = ", ".join(
         f"({duckdb_string(trade_date)}, {duckdb_string(raw_path)}, "
         f"{duckdb_string(silver_path)})"
-        for trade_date, raw_path, silver_path in paired_plans
+        for trade_date, raw_path, silver_path, _silver_usable in paired_plans
     )
     raw_paths = ", ".join(
-        duckdb_string(raw_path) for _trade_date, raw_path, _silver_path in paired_plans
+        duckdb_string(raw_path)
+        for _trade_date, raw_path, _silver_path, _silver_usable in paired_plans
     )
     silver_paths = ", ".join(
         duckdb_string(silver_path)
-        for _trade_date, _raw_path, silver_path in paired_plans
+        for _trade_date, _raw_path, silver_path, silver_usable in paired_plans
+        if silver_usable and silver_path.exists()
     )
+    if silver_paths:
+        silver_rows_sql = f"""
+          SELECT
+            plan.expected_trade_date,
+            silver.ts_code,
+            CAST(silver.trade_date AS DATE) AS trade_date,
+            silver.freq,
+            silver.open,
+            silver.high,
+            silver.low,
+            silver.close,
+            silver.vol,
+            silver.amount,
+            silver.up_count,
+            silver.down_count,
+            silver.nine_up_turn,
+            silver.nine_down_turn
+          FROM read_parquet(
+            [{silver_paths}],
+            hive_partitioning=false,
+            union_by_name=true,
+            filename=true
+          ) AS silver
+          JOIN path_plan AS plan ON silver.filename = plan.silver_file_path
+        """
+    else:
+        silver_rows_sql = """
+          SELECT
+            NULL::VARCHAR AS expected_trade_date,
+            NULL::VARCHAR AS ts_code,
+            NULL::DATE AS trade_date,
+            NULL::VARCHAR AS freq,
+            NULL::DOUBLE AS open,
+            NULL::DOUBLE AS high,
+            NULL::DOUBLE AS low,
+            NULL::DOUBLE AS close,
+            NULL::DOUBLE AS vol,
+            NULL::DOUBLE AS amount,
+            NULL::INTEGER AS up_count,
+            NULL::INTEGER AS down_count,
+            NULL::VARCHAR AS nine_up_turn,
+            NULL::VARCHAR AS nine_down_turn
+          WHERE false
+        """
     result = connection.execute(
         f"""
         WITH path_plan(expected_trade_date, raw_file_path, silver_file_path) AS (
@@ -687,28 +736,7 @@ def load_silver_stock_nineturn_daily_metrics(
           JOIN path_plan AS plan ON raw.filename = plan.raw_file_path
         ),
         silver_rows AS (
-          SELECT
-            plan.expected_trade_date,
-            silver.ts_code,
-            CAST(silver.trade_date AS DATE) AS trade_date,
-            silver.freq,
-            silver.open,
-            silver.high,
-            silver.low,
-            silver.close,
-            silver.vol,
-            silver.amount,
-            silver.up_count,
-            silver.down_count,
-            silver.nine_up_turn,
-            silver.nine_down_turn
-          FROM read_parquet(
-            [{silver_paths}],
-            hive_partitioning=false,
-            union_by_name=true,
-            filename=true
-          ) AS silver
-          JOIN path_plan AS plan ON silver.filename = plan.silver_file_path
+          {silver_rows_sql}
         ),
         mapped AS (
           SELECT identity.latest_ts_code, raw_rows.*

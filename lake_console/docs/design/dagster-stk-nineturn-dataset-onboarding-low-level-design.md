@@ -1,6 +1,6 @@
 # Dagster 神奇九转数据集接入低层设计
 
-状态：N0-N2 已完成本地开发与验收，N3 待开发；N4-N6 正式操作仍待分阶段审批
+状态：N0-N3 已完成本地开发与验收；N4-N6 正式操作仍待分阶段审批
 日期：2026-07-10
 上位方案：[`dagster-stk-nineturn-dataset-onboarding-plan.md`](./dagster-stk-nineturn-dataset-onboarding-plan.md)
 
@@ -720,12 +720,12 @@ Raw：
 Silver：
 
 1. expected/registered/time gate 同 Raw。
-2. 一次 Raw batch readiness，确认 raw frontier 未落后。
-3. Raw 最早 not-ready 不晚于 Silver 目标时，直接 skip，不执行 Silver 重查询。
-4. 一次 Silver batch readiness。
-5. 选择 first silver not-ready。
+2. 一次 Raw batch readiness，找出窗口内连续 ready 前缀。
+3. Raw 首日不 ready 时直接 skip，不执行 Silver readiness。
+4. 只对 Raw 连续 ready 前缀执行一次 Silver batch readiness。
+5. 选择该前缀内 first silver not-ready；允许补阻断日前更早的 Silver 缺口，但不得越过 Raw frontier。
 6. identity map 缺失或映射不全时 skip，并指向 identity map。
-7. Silver 缺文件且 Raw ready 时提交一个 run。
+7. Silver 缺文件且同日 Raw ready 时提交一个 run。
 
 ### 12.3 Run keys
 
@@ -997,6 +997,18 @@ Check event 必须绑定同分区最新 materialization，通过 `AssetCheckEval
 
 性能测试报告至少记录：elapsed ms、文件数、行数、DuckDB 主查询次数、schema metadata 读取次数、Dagster history API 次数。
 
+N3 本地临时 Parquet 实测结果：
+
+| helper | 窗口 | 文件/行模型 | 业务主查询 | schema metadata 读取 | Dagster history | elapsed |
+| --- | ---: | --- | ---: | ---: | ---: | ---: |
+| Raw | 10 日 | 10 文件 / 10 行 | 1 | 10 | 0 | 6ms |
+| Silver | 10 日 | 20 日文件 + identity / 20 行 | 1 | 20 | 0 | 13ms |
+| Raw | 60 日容量 | 60 文件 / 60 行 | 1 | 60 | 0 | 22ms |
+| Silver | 60 日容量 | 120 日文件 + identity / 120 行 | 1 | 120 | 0 | 42ms |
+
+这些数据只证明读取模型和查询次数符合门禁，不替代业务异常测试。正式 sensor 仍固定
+10 日；60 日只作为容量回归样本。
+
 ## 17. 测试矩阵
 
 ### 17.1 Contract/Catalog/Path
@@ -1084,7 +1096,8 @@ Check event 必须绑定同分区最新 materialization，通过 `AssetCheckEval
 | N0 | 已完成 | Raw/Silver schema、path、partition model、中文名和共享 metrics contract 已落地；Raw catalog entry 已随 N1 active asset 注册 |
 | N1 | 已完成 | Raw asset、2 个 partitioned blocking checks、Raw job 已落地；Tushare fixture、6000 行分页、0 行不写文件、真实 check execution 分区归属已通过 |
 | N2 | 已完成 | Silver set-based writer、asset、2 checks、job、catalog 与完整 alias/identity 冲突矩阵已通过 |
-| N3-N7 | 待推进 | 按下列边界分别开发或审批执行 |
+| N3 | 已完成 | Raw/Silver true-batch lake readiness、两个 STOPPED sensors、统一 run key/cursor、first-not-ready 和性能门禁已通过 |
+| N4-N7 | 待推进 | 按下列边界分别开发或审批执行 |
 
 N0 与 N1 按批准口径合并为一个代码提交，但验收边界保持独立。N0 预声明
 Silver schema、path 和 partition model；没有提前写入 Silver catalog entry，因为 catalog
@@ -1130,6 +1143,15 @@ OHLC/vol/amount 冲突和无规范来源的 count/signal 冲突；写后再次�
 改动：Raw/Silver batch lake readiness、两个 sensors、cursor/run key/static gates。
 
 验收：10 日真实模型、60 日容量、0 次 Dagster history、<5 秒硬门禁。
+
+结果：已完成。Raw readiness 对每个窗口只执行 1 个业务主查询；Silver readiness
+复用共享 canonical metrics SQL，对 Raw ready 前缀只执行 1 个业务主查询。文件缺失
+可自动提交，文件已存在但 blocking 语义失败则 fail closed 并要求人工处理。Raw/Silver
+cursor 分别受 2KB/3KB 测试门禁约束，不写逐文件明细。10 日 Raw/Silver 实测分别为
+6ms/13ms，60 日容量样本分别为 22ms/42ms；日期循环内 Dagster history API 为 0。
+
+N3 同时补齐了 Raw contract check 对分区日期与 `freq=daily` 的正式校验，确保
+asset check 与 lake readiness 对同一坏文件不会给出相反结论。
 
 ### N4 Prod Fresh Export
 

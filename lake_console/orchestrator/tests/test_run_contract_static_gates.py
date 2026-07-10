@@ -2171,7 +2171,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 36)
+        self.assertEqual(sensor_definition_count, 38)
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:
@@ -4477,6 +4477,12 @@ class RunContractStaticGateTests(unittest.TestCase):
         job_source = Path(
             "src/orchestrator/defs/jobs/stk_nineturn_update.py"
         ).read_text()
+        sensor_source = Path(
+            "src/orchestrator/defs/sensors/stk_nineturn_sensor.py"
+        ).read_text()
+        readiness_source = Path(
+            "src/orchestrator/defs/asset_guards/stk_nineturn_lake_readiness.py"
+        ).read_text()
         issues = []
 
         required_asset_fragments = (
@@ -4548,6 +4554,50 @@ class RunContractStaticGateTests(unittest.TestCase):
             issues.append("stk_nineturn Silver asset must not build a local BSE mapping")
         if "silver_stock_daily" in asset_source:
             issues.append("stk_nineturn Silver asset must not depend on stock daily")
+        required_sensor_fragments = (
+            'job_name="raw_stk_nineturn_update_job"',
+            'job_name="silver_stock_nineturn_daily_update_job"',
+            "default_status=dg.DefaultSensorStatus.STOPPED",
+            "minimum_interval_seconds=600",
+            'required_resource_keys={"lake_root", "duckdb"}',
+            "load_expected_trade_date_window",
+            "build_registered_gap_status",
+            "select_first_not_ready_trade_date",
+            "batch_raw_stk_nineturn_lake_readiness",
+            "batch_silver_stock_nineturn_daily_lake_readiness",
+            'subject="raw_stk_nineturn_update"',
+            'subject="silver_stock_nineturn_daily_update"',
+            "build_run_request",
+            "build_sensor_cursor",
+        )
+        required_readiness_fragments = (
+            "load_raw_stk_nineturn_metrics",
+            "load_silver_stock_nineturn_daily_metrics",
+            "ContinuityBatchReadiness",
+            "ContinuityDateReadiness",
+            "full_semantics: bool = True",
+        )
+        issues.extend(
+            f"stk_nineturn sensor misses fragment: {fragment}"
+            for fragment in required_sensor_fragments
+            if fragment not in sensor_source
+        )
+        issues.extend(
+            f"stk_nineturn lake readiness misses fragment: {fragment}"
+            for fragment in required_readiness_fragments
+            if fragment not in readiness_source
+        )
+        for forbidden in (
+            "dg.RunRequest(",
+            "get_event_records(",
+            "get_asset_check_execution_history(",
+            "partition_dataset_readiness_status_from_latest_checks",
+            "run_key.split",
+        ):
+            if forbidden in sensor_source or forbidden in readiness_source:
+                issues.append(
+                    f"stk_nineturn readiness/sensor contains forbidden {forbidden}"
+                )
         for forbidden in ("TushareResource", "DuckDBResource", "read_parquet("):
             if forbidden in job_source:
                 issues.append(f"stk_nineturn job contains forbidden {forbidden}")

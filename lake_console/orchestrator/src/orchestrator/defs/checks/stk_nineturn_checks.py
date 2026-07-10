@@ -113,6 +113,20 @@ def raw_tushare_stk_nineturn_contract_check(
         row_count = int(
             connection.execute(count_parquet_query(raw_path)).fetchone()[0]
         )
+        schema_matches = observed_schema == RAW_STK_NINETURN_EXPECTED_SCHEMA
+        metrics = (
+            load_raw_stk_nineturn_metrics(
+                connection,
+                path_plans=[
+                    build_stk_nineturn_path_plan(
+                        trade_date=partition_key,
+                        path=raw_path,
+                    )
+                ],
+            ).get(partition_key)
+            if schema_matches
+            else None
+        )
     registered_trade_days = set(
         context.instance.get_dynamic_partitions(cn_a_stock_trade_days.name)
     )
@@ -121,13 +135,15 @@ def raw_tushare_stk_nineturn_contract_check(
     is_not_future = (
         partition_key <= datetime.now(STK_NINETURN_TIMEZONE).date().isoformat()
     )
-    schema_matches = observed_schema == RAW_STK_NINETURN_EXPECTED_SCHEMA
-
     failed_rule_names = []
     if row_count <= 0:
         failed_rule_names.append("row_count_positive")
     if not schema_matches:
         failed_rule_names.append("schema_matches_contract")
+    if metrics is not None and metrics.partition_date_mismatch_count:
+        failed_rule_names.append("partition_date_matches")
+    if metrics is not None and metrics.non_daily_freq_count:
+        failed_rule_names.append("freq_is_daily")
     if not is_registered:
         failed_rule_names.append("partition_is_registered")
     if not is_not_before_start:
@@ -156,6 +172,14 @@ def raw_tushare_stk_nineturn_contract_check(
                 "is_registered": is_registered,
                 "is_not_before_start": is_not_before_start,
                 "is_not_future": is_not_future,
+                "partition_date_mismatch_count": (
+                    metrics.partition_date_mismatch_count
+                    if metrics is not None
+                    else None
+                ),
+                "non_daily_freq_count": (
+                    metrics.non_daily_freq_count if metrics is not None else None
+                ),
                 "observed_schema": _schema_metadata(observed_schema),
                 "expected_schema": _schema_metadata(
                     RAW_STK_NINETURN_EXPECTED_SCHEMA

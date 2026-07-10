@@ -1,6 +1,6 @@
 # Dagster 神奇九转数据集接入方案
 
-状态：N0-N2 已完成本地开发与验收，N3 待开发；正式 bootstrap/event 阶段仍待审批
+状态：N0-N3 已完成本地开发与验收；正式 bootstrap/event 阶段仍待审批
 日期：2026-07-10
 
 代码级设计：
@@ -446,6 +446,10 @@ defs/asset_guards/stk_nineturn_lake_readiness.py
 
 如果 identity map 不覆盖 source code，sensor 不提交 silver run，cursor 指向 `silver_stock_identity_map`；正式 asset 仍会 fail closed，不能由 sensor 判断替代 asset/check。
 
+正式实现先用一次 Raw batch readiness 找到连续 ready 前缀，再只对该前缀执行一次
+Silver batch readiness。Raw 窗口首日不 ready 时不读取 Silver；Raw 在窗口中途阻断时，
+仍允许补齐阻断日前更早的 Silver 缺口，但永远不会越过 Raw frontier 提交后续日期。
+
 ### 9.3 Run key
 
 只能通过统一 builder：
@@ -611,6 +615,19 @@ Dry-run 不得把历史遗留 staging 文件计为已完成分区。
 
 开发阶段必须新增 10 日和 60 日容量样本；60 日只做容量测试，不改变日常 10 日窗口。
 
+N3 本地临时 Parquet 性能验收结果如下。样本每个日文件 1 行，elapsed 只统计
+readiness helper，不包含 fixture 构建；正式 sensor 日期循环内 Dagster history API
+调用次数为 0。
+
+| helper | 窗口 | 文件模型 | 业务主查询 | schema metadata 读取 | elapsed |
+| --- | ---: | --- | ---: | ---: | ---: |
+| Raw readiness | 10 日 | 10 个 Raw 文件 | 1 | 10 | 6ms |
+| Silver readiness | 10 日 | 10 Raw + 10 Silver + identity | 1 | 20 | 13ms |
+| Raw readiness | 60 日容量 | 60 个 Raw 文件 | 1 | 60 | 22ms |
+| Silver readiness | 60 日容量 | 60 Raw + 60 Silver + identity | 1 | 120 | 42ms |
+
+上述 60 日结果只证明算法没有退化成逐日重 SQL；正式 sensor 固定最近 10 日。
+
 ## 12. 失败与恢复语义
 
 | 场景 | 自动行为 | 人工动作 |
@@ -706,17 +723,17 @@ tests/test_run_contract_static_gates.py
 
 ## 15. 分阶段推进
 
-当前进度（2026-07-10）：N0 契约地基、N1 Raw 日常链路和 N2 Silver 日常链路
-已经完成本地开发与验收。Silver catalog entry 已与 active Silver asset 同阶段注册；
-writer/checks 已覆盖 identity 有效区间、每行恰好一次映射、规范代码优先和冲突
-fail-closed 语义。N3 readiness/sensors 尚未开始。
+当前进度（2026-07-10）：N0-N3 已完成本地开发与验收。Silver catalog entry 已与
+active Silver asset 同阶段注册；writer/checks 已覆盖 identity 有效区间、每行恰好一次
+映射、规范代码优先和冲突 fail-closed 语义。Raw/Silver sensor 已按最近 10 日、
+first-not-ready、Raw ready frontier 和 DuckDB true-batch readiness 落地。
 
 | 阶段 | 核心任务 | 是否可合并 |
 | --- | --- | --- |
 | N0（已完成） | 契约、路径、schema、Raw catalog、check 治理矩阵 | 已与 N1 同轮开发并完成独立契约验收 |
 | N1（已完成） | Raw asset + raw checks + raw job | 临时 Lake、分页、0 行和 partitioned check 归属已通过 |
 | N2（已完成） | Silver SQL/asset + silver checks + silver job | identity/alias 冲突矩阵和 partitioned checks 已通过 |
-| N3 | Batch lake readiness + 两个 sensors + cursor/static gates | 可合并开发 |
+| N3（已完成） | Batch lake readiness + 两个 sensors + cursor/static gates | 10/60 日性能、0 次 Dagster history、first-not-ready 与小型 cursor 已通过 |
 | N4 | prod 全量重新导出 dry-run/sample/full + formal raw batch bootstrap | 单独审批文件写入 |
 | N5 | Silver history dry-run/sample/full + 聚合审计 | 单独审批文件写入 |
 | N6 | Runless event dry-run/sample/full | 必须与文件生成分开审批 |
