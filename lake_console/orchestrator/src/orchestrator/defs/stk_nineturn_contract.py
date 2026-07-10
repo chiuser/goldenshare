@@ -401,8 +401,9 @@ def _silver_mapping_ctes(
     expected_trade_date_sql: str,
 ) -> str:
     return f"""
-    raw_normalized AS (
+        raw_normalized AS (
       SELECT
+        CAST({expected_trade_date_sql} AS DATE) AS expected_trade_date,
         trim(ts_code) AS source_ts_code,
         CAST(trade_date AS DATE) AS trade_date,
         trim(freq) AS freq,
@@ -509,6 +510,53 @@ def build_silver_stock_nineturn_daily_select_sql(
     FROM ranked
     WHERE source_rank = 1
     ORDER BY ts_code
+    """
+
+
+def build_silver_stock_nineturn_daily_batch_select_sql(
+    *,
+    raw_paths: Sequence[Path],
+    identity_map_path: Path,
+) -> str:
+    """Build one canonical mapping query for all raw files in a year."""
+    if not raw_paths:
+        raise ValueError("raw_paths must not be empty")
+    raw_relation = (
+        "(SELECT * FROM read_parquet(["
+        + ", ".join(duckdb_string(path) for path in raw_paths)
+        + "], hive_partitioning=false, union_by_name=true)) AS raw_source"
+    )
+    mapping_ctes = _silver_mapping_ctes(
+        raw_relation=raw_relation,
+        identity_relation=read_parquet(identity_map_path, hive_partitioning=False),
+        expected_trade_date_sql="raw_source.trade_date",
+    )
+    cast_columns = {
+        "ts_code": "latest_ts_code",
+        "trade_date": "trade_date",
+        "freq": "freq",
+        "open": "open",
+        "high": "high",
+        "low": "low",
+        "close": "close",
+        "vol": "vol",
+        "amount": "amount",
+        "up_count": "up_count",
+        "down_count": "down_count",
+        "nine_up_turn": "nine_up_turn",
+        "nine_down_turn": "nine_down_turn",
+    }
+    projections = ",\n      ".join(
+        f"CAST({cast_columns[column]} AS {SILVER_STOCK_NINETURN_DAILY_COLUMN_TYPES[column]}) AS {column}"
+        for column in SILVER_STOCK_NINETURN_DAILY_COLUMNS
+    )
+    return f"""
+    WITH {mapping_ctes}
+    SELECT
+      {projections}
+    FROM ranked
+    WHERE source_rank = 1
+    ORDER BY trade_date, ts_code
     """
 
 

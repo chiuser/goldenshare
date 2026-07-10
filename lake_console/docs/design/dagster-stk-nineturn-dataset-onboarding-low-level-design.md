@@ -1,6 +1,6 @@
 # Dagster 神奇九转数据集接入低层设计
 
-状态：N0-N4 已完成开发与验收；N5A 已完成代码开发与本地验证；N5B-N6 正式操作仍待分阶段审批
+状态：N0-N4 已完成开发与验收；N5A/N5B 已完成代码开发与本地验证；N5 正式 Lake 操作、N6-N7 仍待分阶段审批
 日期：2026-07-10
 上位方案：[`dagster-stk-nineturn-dataset-onboarding-plan.md`](./dagster-stk-nineturn-dataset-onboarding-plan.md)
 
@@ -1214,11 +1214,13 @@ asset check 与 lake readiness 对同一坏文件不会给出相反结论。
 
 需要单独批准正式 Lake 写入。Raw 与 Silver 可使用同一代码阶段，但正式执行必须串行并分别验收。
 
-当前开发进度：N5A 已落地 `stk_nineturn_history.py` 与对应 CLI，负责读取唯一批准的
-prod export manifest、生成 Raw history build plan，并在显式 `--confirm-write` 下按分区
-使用 DuckDB 显式投影和临时文件原子 promote。N5A 不读取 Dagster instance、不写 event，
-dry-run 不创建 formal Lake 目录。N5B（Silver 年度批处理、final file audit）仍未开发，
-因此不得把 N5A 的 plan 输出当作 N5 完成证明。
+当前开发进度：N5A/N5B 已落地 `stk_nineturn_history.py` 与对应 CLI。工具读取唯一批准的
+prod export manifest，Raw 和 Silver 均按年度建立一次 DuckDB 主查询、在临时目录生成
+分区文件，再逐分区原子 promote；final audit 复用现有 Raw/Silver canonical metrics SQL，
+并报告映射缺失、标准键重复、行情冲突、计数/信号冲突和 stock daily warm-up 缺口。
+所有写模式必须显式传 `--confirm-write`；dry-run/audit 只写报告，不读取 Dagster instance，
+不写 Dagster event。N5 代码完成不等于正式 Lake 已写入，正式执行仍须单独审批并按
+Raw -> Raw audit -> Silver -> final audit 串行验收。
 
 ### N6 Runless Events
 
