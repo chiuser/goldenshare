@@ -11,7 +11,7 @@ import dagster as dg
 
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.namechange import silver_namechange
-from orchestrator.defs.assets.stock_basic import silver_stock_basic
+from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
 from orchestrator.defs.duckdb_sql import (
     SILVER_STOCK_IDENTITY_MAP_REQUIRED_COLUMNS,
     copy_query_to_parquet,
@@ -23,8 +23,8 @@ from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
     lake_path_template,
     silver_namechange_path,
-    silver_stock_basic_path,
     silver_stock_identity_map_path,
+    silver_stock_lifecycle_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
@@ -51,11 +51,11 @@ from orchestrator.seeds.basic.stock_identity_mappings import (
 )
 
 
-STOCK_BASIC_IDENTITY_SOURCE = "stock_basic"
-STOCK_BASIC_IDENTITY_CONFIDENCE = "confirmed"
+STOCK_LIFECYCLE_IDENTITY_SOURCE = "stock_lifecycle"
+STOCK_LIFECYCLE_IDENTITY_CONFIDENCE = "confirmed"
 STOCK_IDENTITY_MAP_TIMEZONE = ZoneInfo("Asia/Shanghai")
 STOCK_IDENTITY_ALLOWED_SOURCES = frozenset(
-    {STOCK_BASIC_IDENTITY_SOURCE, *STOCK_IDENTITY_ALLOWED_SEED_SOURCES}
+    {STOCK_LIFECYCLE_IDENTITY_SOURCE, *STOCK_IDENTITY_ALLOWED_SEED_SOURCES}
 )
 STOCK_IDENTITY_ALLOWED_CONFIDENCE = STOCK_IDENTITY_ALLOWED_SEED_CONFIDENCE
 STOCK_IDENTITY_COLUMN_TYPES = {
@@ -67,7 +67,7 @@ LOGGER = DgStdoutLogger("basic_facts.stock_identity_map")
 @dataclass(frozen=True)
 class StockIdentityMapBuildResult:
     rows: tuple[dict[str, Any], ...]
-    stock_basic_row_count: int
+    stock_lifecycle_row_count: int
     seed_row_count: int
     source_distribution: tuple[dict[str, Any], ...]
     confidence_distribution: tuple[dict[str, Any], ...]
@@ -75,36 +75,36 @@ class StockIdentityMapBuildResult:
 
 def build_stock_identity_map_rows(
     *,
-    stock_basic_rows: Sequence[dict[str, Any]],
+    lifecycle_rows: Sequence[dict[str, Any]],
     seed_rows: Sequence[StockIdentityMappingSeedRow],
     namechange_codes: set[str],
     created_at: datetime,
 ) -> StockIdentityMapBuildResult:
-    """Build the full stock identity map snapshot from current listed facts and seed."""
+    """Build the full identity map from historical lifecycle facts and seed."""
 
-    stock_basic_by_code = {
+    lifecycle_by_code = {
         str(row["ts_code"]): row
-        for row in stock_basic_rows
+        for row in lifecycle_rows
         if row.get("ts_code") is not None and str(row.get("ts_code")).strip()
     }
-    if not stock_basic_by_code:
-        raise RuntimeError("silver_stock_basic produced no current listed stock rows.")
+    if not lifecycle_by_code:
+        raise RuntimeError("silver_stock_lifecycle produced no historical stock rows.")
 
     rows: list[dict[str, Any]] = [
-        _self_mapping_row(stock_basic_row, created_at)
-        for stock_basic_row in stock_basic_by_code.values()
+        _self_mapping_row(lifecycle_row, created_at)
+        for lifecycle_row in lifecycle_by_code.values()
     ]
 
     missing_latest_codes = sorted(
         {
             seed_row.latest_ts_code
             for seed_row in seed_rows
-            if seed_row.latest_ts_code not in stock_basic_by_code
+            if seed_row.latest_ts_code not in lifecycle_by_code
         }
     )
     if missing_latest_codes:
         raise RuntimeError(
-            "Stock identity mapping seed latest_ts_code not found in silver_stock_basic: "
+            "Stock identity mapping seed latest_ts_code not found in silver_stock_lifecycle: "
             f"{missing_latest_codes[:20]}"
         )
 
@@ -123,15 +123,15 @@ def build_stock_identity_map_rows(
         )
 
     for seed_row in seed_rows:
-        latest_stock_basic = stock_basic_by_code[seed_row.latest_ts_code]
+        latest_lifecycle = lifecycle_by_code[seed_row.latest_ts_code]
         rows.append(
             {
                 "latest_ts_code": seed_row.latest_ts_code,
                 "source_ts_code": seed_row.source_ts_code,
                 "valid_from": seed_row.valid_from,
                 "valid_to": seed_row.valid_to,
-                "effective_list_date": latest_stock_basic["list_date"],
-                "effective_delist_date": latest_stock_basic["delist_date"],
+                "effective_list_date": latest_lifecycle["list_date"],
+                "effective_delist_date": latest_lifecycle["delist_date"],
                 "identity_source": seed_row.identity_source,
                 "confidence": seed_row.confidence,
                 "reason": seed_row.reason,
@@ -148,7 +148,7 @@ def build_stock_identity_map_rows(
     )
     return StockIdentityMapBuildResult(
         rows=sorted_rows,
-        stock_basic_row_count=len(stock_basic_by_code),
+        stock_lifecycle_row_count=len(lifecycle_by_code),
         seed_row_count=len(seed_rows),
         source_distribution=_distribution(sorted_rows, "identity_source"),
         confidence_distribution=_distribution(sorted_rows, "confidence"),
@@ -210,20 +210,20 @@ def write_stock_identity_map_snapshot(
 
 
 def _self_mapping_row(
-    stock_basic_row: dict[str, Any],
+    lifecycle_row: dict[str, Any],
     created_at: datetime,
 ) -> dict[str, Any]:
-    ts_code = str(stock_basic_row["ts_code"])
+    ts_code = str(lifecycle_row["ts_code"])
     return {
         "latest_ts_code": ts_code,
         "source_ts_code": ts_code,
-        "valid_from": stock_basic_row["list_date"],
-        "valid_to": stock_basic_row["delist_date"],
-        "effective_list_date": stock_basic_row["list_date"],
-        "effective_delist_date": stock_basic_row["delist_date"],
-        "identity_source": STOCK_BASIC_IDENTITY_SOURCE,
-        "confidence": STOCK_BASIC_IDENTITY_CONFIDENCE,
-        "reason": "current listed stock self mapping",
+        "valid_from": lifecycle_row["list_date"],
+        "valid_to": lifecycle_row["delist_date"],
+        "effective_list_date": lifecycle_row["list_date"],
+        "effective_delist_date": lifecycle_row["delist_date"],
+        "identity_source": STOCK_LIFECYCLE_IDENTITY_SOURCE,
+        "confidence": STOCK_LIFECYCLE_IDENTITY_CONFIDENCE,
+        "reason": "historical stock lifecycle self mapping",
         "created_at": created_at,
     }
 
@@ -301,7 +301,7 @@ def _sample_rows(rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
     return samples
 
 
-def _read_stock_basic_rows(
+def _read_stock_lifecycle_rows(
     duckdb: DuckDBResource,
     path: Path,
 ) -> tuple[dict[str, Any], ...]:
@@ -338,20 +338,20 @@ def _read_namechange_codes(
 
 @dg.asset(
     name="silver_stock_identity_map",
-    deps=[silver_stock_basic, silver_namechange],
+    deps=[silver_stock_lifecycle, silver_namechange],
     group_name="basic",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.BASIC_DATA),
     metadata=build_asset_definition_metadata(
         dataset_id="stock_identity_map",
         source_system=SourceSystem.DERIVED,
-        data_contract="current_listed_stock_identity_full_snapshot",
+        data_contract="historical_stock_identity_full_snapshot",
         column_schema=SILVER_STOCK_IDENTITY_MAP_SCHEMA,
         path_template=lake_path_template(
             silver_stock_identity_map_path(PATH_TEMPLATE_LAKE_ROOT)
         ),
         extra_metadata={
             "generation_policy": (
-                "Full snapshot rebuilt from silver_stock_basic self mappings and "
+                "Full snapshot rebuilt from silver_stock_lifecycle self mappings and "
                 "version-controlled non-self identity seed mappings."
             ),
             "seed_version": STOCK_IDENTITY_MAPPINGS_SEED_VERSION,
@@ -359,7 +359,7 @@ def _read_namechange_codes(
     ),
     description=(
         "股票身份映射 silver 标准表，把历史源代码归一到当前标准股票代码，"
-        "输入为当前股票池、曾用名时间线和版本化人工 seed。"
+        "输入为历史股票生命周期、曾用名时间线和版本化人工 seed。"
     ),
 )
 def silver_stock_identity_map(
@@ -367,11 +367,11 @@ def silver_stock_identity_map(
     duckdb: DuckDBResource,
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
-    stock_basic_path = silver_stock_basic_path(lake_root.root())
+    lifecycle_path = silver_stock_lifecycle_path(lake_root.root())
     namechange_path = silver_namechange_path(lake_root.root())
     target_path = silver_stock_identity_map_path(lake_root.root())
-    if not stock_basic_path.exists():
-        raise FileNotFoundError(f"Missing silver stock basic file: {stock_basic_path}")
+    if not lifecycle_path.exists():
+        raise FileNotFoundError(f"Missing silver stock lifecycle file: {lifecycle_path}")
     if not namechange_path.exists():
         raise FileNotFoundError(f"Missing silver namechange file: {namechange_path}")
 
@@ -379,7 +379,7 @@ def silver_stock_identity_map(
     seed_rows = load_stock_identity_mapping_seed()
     try:
         build_result = build_stock_identity_map_rows(
-            stock_basic_rows=_read_stock_basic_rows(duckdb, stock_basic_path),
+            lifecycle_rows=_read_stock_lifecycle_rows(duckdb, lifecycle_path),
             seed_rows=seed_rows,
             namechange_codes=_read_namechange_codes(duckdb, namechange_path),
             created_at=datetime.now(STOCK_IDENTITY_MAP_TIMEZONE),
@@ -399,7 +399,7 @@ def silver_stock_identity_map(
     LOGGER.stdout(
         "stock_identity_map_completed",
         row_count=row_count,
-        stock_basic_self_mapping_row_count=build_result.stock_basic_row_count,
+        stock_lifecycle_self_mapping_row_count=build_result.stock_lifecycle_row_count,
         seed_row_count=build_result.seed_row_count,
     )
 
@@ -412,17 +412,17 @@ def silver_stock_identity_map(
                 "summary": "已重建股票身份映射快照，历史源代码可映射到当前标准股票代码。",
                 "next_action": "等待 silver_stock_identity_map blocking checks 通过后供下游历史代码归一使用。",
                 "result_status": "written",
-                "input_summary": "输入为 silver_stock_basic、silver_namechange 和版本化 stock identity seed。",
+                "input_summary": "输入为 silver_stock_lifecycle、silver_namechange 和版本化 stock identity seed。",
                 "filter_summary": (
-                    f"当前股票自映射 {build_result.stock_basic_row_count} 行，"
+                    f"历史生命周期自映射 {build_result.stock_lifecycle_row_count} 行，"
                     f"seed 非自映射 {build_result.seed_row_count} 行。"
                 ),
                 "diagnostic_ref": "完整诊断看 stock_identity_map checks、seed 文件和 run stdout。",
-                "stock_basic_file_path": str(stock_basic_path),
+                "stock_lifecycle_file_path": str(lifecycle_path),
                 "namechange_file_path": str(namechange_path),
                 "seed_file_path": str(STOCK_IDENTITY_MAPPINGS_SEED_PATH),
                 "seed_version": STOCK_IDENTITY_MAPPINGS_SEED_VERSION,
-                "stock_basic_self_mapping_row_count": build_result.stock_basic_row_count,
+                "stock_lifecycle_self_mapping_row_count": build_result.stock_lifecycle_row_count,
                 "seed_row_count": build_result.seed_row_count,
                 "source_distribution": list(build_result.source_distribution),
                 "confidence_distribution": list(build_result.confidence_distribution),

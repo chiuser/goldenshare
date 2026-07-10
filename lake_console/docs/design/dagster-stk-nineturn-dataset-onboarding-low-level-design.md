@@ -1,6 +1,6 @@
 # Dagster 神奇九转数据集接入低层设计
 
-状态：N0-N4 已完成开发与验收；N5A/N5B 已完成代码开发与本地验证；N5 正式 Lake 操作、N6-N7 仍待分阶段审批
+状态：N0-N4 已完成开发与验收；N5A/N5B 已完成代码开发与本地验证；N5 正式 Lake 已写入但 Silver 审计被历史 identity map 语义阻断，正在修复后重建；N6-N7 仍待分阶段审批
 日期：2026-07-10
 上位方案：[`dagster-stk-nineturn-dataset-onboarding-plan.md`](./dagster-stk-nineturn-dataset-onboarding-plan.md)
 
@@ -23,6 +23,7 @@
 4. 日常 sensor 只看最近 10 个交易日，使用 DuckDB true-batch readiness，日期循环内不读 Dagster event/check history。
 5. 每个资产只注册 2 个合并后的 blocking checks，共 4 个，避免 Dagster DB 事件增量失控。
 6. 历史 prod 导出、formal raw/silver 构建、runless event 写入必须分别 dry-run、样本、审批和验收。
+7. `silver_stock_identity_map` 的 self mapping 来源是 `silver_stock_lifecycle` 的全部历史代码，包含退市代码；`silver_namechange` 只用于校验版本化非 self seed 的解释性，不承担历史股票全集职责。
 
 本 LLD 不授权运行 `dg`、写正式 Lake、写 Dagster instance 或删除历史 staging。
 
@@ -91,7 +92,7 @@
 
 - 不新增 gold 层、页面、API、策略或报告资产。
 - 不新增 resource、数据库表、配置项、dynamic partitions、summary/readiness asset。
-- 不修改 `silver_stock_identity_map` 生成逻辑。
+- N5 必须使用 `silver_stock_lifecycle` 重建 `silver_stock_identity_map`，不得用 current-listed-only 的 `silver_stock_basic` 作为历史股票全集。
 - 不把 `silver_stock_daily` 作为 blocking dependency。
 - 不新增九转计算公式；Silver 不重算九转。
 - 不通过 850 个 Dagster jobs 做历史 backfill。
@@ -1229,6 +1230,17 @@ Raw/Silver 仍为 0 分区，后续可从同一 manifest 幂等重跑。
 
 N5B 正式执行前又完成了一次边界校验：Silver 年度主查询的输入已固定为已验收的
 formal Raw 分区，不直接读取 N4 staging；staging 只允许作为 N5A Raw promote 的输入。
+
+N5C 历史身份事实修复：首次正式 Silver 审计发现，formal identity map 仍按
+current-listed-only 的 `silver_stock_basic` 生成，导致 `000638.SZ`、`688287.SH` 等已退市
+历史代码没有 self mapping，Silver 出现 28,593 条未映射源行。修复口径是将 identity map
+生成、reference domain check 和 sensor upstream gate 全部迁移到 `silver_stock_lifecycle`；
+生命周期中的每个 `ts_code` 都生成 self mapping，保留 `valid_from/list_date` 与
+`valid_to/delist_date`，再叠加 seed 的非 self 映射。修复后必须先重建并只读审计 identity map，
+再从同一 formal Raw 全量原子重建 Silver；在最终 file audit 通过前，不进入 N6。
+
+N5C 还修复了 bootstrap helper 直接调用 `duckdb.connect()` 的规范违例，统一使用
+`DuckDBResource.connect()`，确保历史构建与正式生产路径采用相同 DuckDB 配置。
 
 ### N6 Runless Events
 

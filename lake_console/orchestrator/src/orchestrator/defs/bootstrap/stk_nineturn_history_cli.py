@@ -35,7 +35,7 @@ def main() -> None:
         plan = build_stk_nineturn_raw_history(
             manifest=manifest,
             lake_root=args.lake_root,
-            duckdb=DuckDBResource(),
+            duckdb_resource=DuckDBResource(),
             confirm_write=True,
         )
     elif args.command == "build-silver":
@@ -44,14 +44,14 @@ def main() -> None:
         plan = build_stk_nineturn_silver_history(
             manifest=manifest,
             lake_root=args.lake_root,
-            duckdb=DuckDBResource(),
+            duckdb_resource=DuckDBResource(),
             confirm_write=True,
         )
     elif args.command == "audit":
         report = audit_stk_nineturn_formal_files(
             manifest=manifest,
             lake_root=args.lake_root,
-            duckdb=DuckDBResource(),
+            duckdb_resource=DuckDBResource(),
         )
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")

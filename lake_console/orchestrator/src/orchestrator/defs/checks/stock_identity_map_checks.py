@@ -5,7 +5,7 @@ from typing import Any
 import dagster as dg
 
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
-from orchestrator.defs.assets.stock_basic import silver_stock_basic
+from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
 from orchestrator.defs.assets.stock_identity_map import (
     STOCK_IDENTITY_ALLOWED_CONFIDENCE,
     STOCK_IDENTITY_ALLOWED_SOURCES,
@@ -18,8 +18,8 @@ from orchestrator.defs.duckdb_sql import (
     read_parquet,
 )
 from orchestrator.defs.paths import (
-    silver_stock_basic_path,
     silver_stock_identity_map_path,
+    silver_stock_lifecycle_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
@@ -69,7 +69,7 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
             missing_file_paths=[path],
             extra_metadata={
                 "summary": "股票身份映射输入或目标文件不存在，当前 check 无法继续验证。",
-                "next_action": "先确认 silver_stock_basic、silver_namechange 和 stock_identity_map 目标文件已生成。",
+                "next_action": "先确认 silver_stock_lifecycle、silver_namechange 和 stock_identity_map 目标文件已生成。",
                 "rule_summary": ["file_exists"],
                 "missing_file": True,
             },
@@ -286,13 +286,13 @@ def silver_stock_identity_map_latest_ts_code_present(
     )
 
 
-def silver_stock_identity_map_latest_code_exists_in_stock_basic(
+def silver_stock_identity_map_latest_code_exists_in_stock_lifecycle(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
     identity_path = silver_stock_identity_map_path(lake_root.root())
-    stock_basic_path = silver_stock_basic_path(lake_root.root())
-    for path in (identity_path, stock_basic_path):
+    lifecycle_path = silver_stock_lifecycle_path(lake_root.root())
+    for path in (identity_path, lifecycle_path):
         if not path.exists():
             return _missing_file_result(path)
     with connect_configured_duckdb() as connection:
@@ -300,9 +300,9 @@ def silver_stock_identity_map_latest_code_exists_in_stock_basic(
             f"""
             SELECT identity_map.latest_ts_code, count(*) AS row_count
             FROM {read_parquet(identity_path, hive_partitioning=False)} identity_map
-            LEFT JOIN {read_parquet(stock_basic_path, hive_partitioning=False)} basic
-              ON identity_map.latest_ts_code = basic.ts_code
-            WHERE basic.ts_code IS NULL
+            LEFT JOIN {read_parquet(lifecycle_path, hive_partitioning=False)} lifecycle
+              ON identity_map.latest_ts_code = lifecycle.ts_code
+            WHERE lifecycle.ts_code IS NULL
             GROUP BY identity_map.latest_ts_code
             ORDER BY row_count DESC, latest_ts_code
             LIMIT 10
@@ -313,9 +313,9 @@ def silver_stock_identity_map_latest_code_exists_in_stock_basic(
                 f"""
                 SELECT count(DISTINCT identity_map.latest_ts_code)
                 FROM {read_parquet(identity_path, hive_partitioning=False)} identity_map
-                LEFT JOIN {read_parquet(stock_basic_path, hive_partitioning=False)} basic
-                  ON identity_map.latest_ts_code = basic.ts_code
-                WHERE basic.ts_code IS NULL
+                LEFT JOIN {read_parquet(lifecycle_path, hive_partitioning=False)} lifecycle
+                  ON identity_map.latest_ts_code = lifecycle.ts_code
+                WHERE lifecycle.ts_code IS NULL
                 """
             ).fetchone()[0]
         )
@@ -327,7 +327,7 @@ def silver_stock_identity_map_latest_code_exists_in_stock_basic(
             checked_row_count=checked_row_count,
             failed_row_count=failed_count,
             file_path=identity_path,
-            input_file_paths=[stock_basic_path],
+            input_file_paths=[lifecycle_path],
             extra_metadata={
                 "missing_latest_code_samples": _sample_dicts(
                     ["latest_ts_code", "row_count"],
@@ -460,9 +460,9 @@ def silver_stock_identity_map_seed_latest_code_explainable(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
-    stock_basic_path = silver_stock_basic_path(lake_root.root())
-    if not stock_basic_path.exists():
-        return _missing_file_result(stock_basic_path)
+    lifecycle_path = silver_stock_lifecycle_path(lake_root.root())
+    if not lifecycle_path.exists():
+        return _missing_file_result(lifecycle_path)
     try:
         seed_rows = load_stock_identity_mapping_seed()
     except (FileNotFoundError, ValueError) as error:
@@ -470,7 +470,7 @@ def silver_stock_identity_map_seed_latest_code_explainable(
             passed=False,
             metadata=build_check_metadata(
                 check_scope=CheckScope.REFERENTIAL_INTEGRITY,
-                file_path=stock_basic_path,
+                file_path=lifecycle_path,
                 extra_metadata={"seed_error": str(error)},
             ),
         )
@@ -482,21 +482,21 @@ def silver_stock_identity_map_seed_latest_code_explainable(
             if connection.execute(
                 f"""
                 SELECT count(*)
-                FROM {read_parquet(stock_basic_path, hive_partitioning=False)}
+                FROM {read_parquet(lifecycle_path, hive_partitioning=False)}
                 WHERE ts_code = ?
                 """,
                 [code],
             ).fetchone()[0]
             == 0
         ]
-        checked_row_count = _row_count(connection, stock_basic_path)
+        checked_row_count = _row_count(connection, lifecycle_path)
     return dg.AssetCheckResult(
         passed=not missing_codes,
         metadata=build_check_metadata(
             check_scope=CheckScope.REFERENTIAL_INTEGRITY,
             checked_row_count=checked_row_count,
             failed_row_count=len(missing_codes),
-            file_path=stock_basic_path,
+            file_path=lifecycle_path,
             extra_metadata={
                 "seed_row_count": len(seed_rows),
                 "seed_latest_code_count": len(seed_latest_codes),
@@ -614,7 +614,7 @@ def silver_stock_identity_map_key_integrity_check(
 
 @dg.asset_check(
     asset=silver_stock_identity_map,
-    additional_deps=[silver_stock_basic],
+    additional_deps=[silver_stock_lifecycle],
     blocking=True,
 )
 def silver_stock_identity_map_reference_domain_check(
@@ -625,8 +625,8 @@ def silver_stock_identity_map_reference_domain_check(
         check_scope=CheckScope.REFERENTIAL_INTEGRITY,
         rule_results=(
             (
-                "silver_stock_identity_map_latest_code_exists_in_stock_basic",
-                silver_stock_identity_map_latest_code_exists_in_stock_basic(
+                "silver_stock_identity_map_latest_code_exists_in_stock_lifecycle",
+                silver_stock_identity_map_latest_code_exists_in_stock_lifecycle(
                     lake_root, duckdb
                 ),
             ),

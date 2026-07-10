@@ -24,8 +24,8 @@ from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
     AssetReadinessStatus,
     silver_namechange_ready_for_trade_date,
-    silver_stock_basic_ready_for_trade_date,
     silver_stock_identity_map_ready_for_trade_date,
+    silver_stock_lifecycle_ready_without_freshness,
 )
 
 
@@ -57,14 +57,14 @@ def _source_window_started(evaluated_at: datetime) -> bool:
 def _identity_map_decision(
     *,
     target_trade_date: str,
-    stock_basic_status: AssetReadinessStatus,
+    stock_lifecycle_status: AssetReadinessStatus,
     namechange_status: AssetReadinessStatus,
     identity_map_status: AssetReadinessStatus,
 ) -> StockIdentityMapSensorDecision:
-    if not stock_basic_status.ready:
+    if not stock_lifecycle_status.ready:
         return StockIdentityMapSensorDecision(
             request_run=False,
-            reason=f"股票基础信息未 ready：{stock_basic_status.reason}",
+            reason=f"股票生命周期事实未 ready：{stock_lifecycle_status.reason}",
             identity_map_current=False,
         )
     if not namechange_status.ready:
@@ -77,7 +77,7 @@ def _identity_map_decision(
     upstream_storage_ids = [
         storage_id
         for storage_id in (
-            stock_basic_status.materialization_storage_id,
+            stock_lifecycle_status.materialization_storage_id,
             namechange_status.materialization_storage_id,
         )
         if storage_id is not None
@@ -132,7 +132,7 @@ def _cursor_payload(
     source_window_started: bool,
     registered_trade_day_count: int,
     reason: str,
-    stock_basic_status: AssetReadinessStatus | None = None,
+    stock_lifecycle_status: AssetReadinessStatus | None = None,
     namechange_status: AssetReadinessStatus | None = None,
     identity_map_status: AssetReadinessStatus | None = None,
     identity_map_current: bool | None = None,
@@ -143,7 +143,7 @@ def _cursor_payload(
         reason_code = "request_run"
     else:
         for component, status in (
-            ("silver_stock_basic", stock_basic_status),
+            ("silver_stock_lifecycle", stock_lifecycle_status),
             ("silver_namechange", namechange_status),
             ("silver_stock_identity_map", identity_map_status),
         ):
@@ -168,8 +168,8 @@ def _cursor_payload(
         next_action = "先注册股票交易日分区，再等待下一次 sensor tick。"
     elif blocked_component == "stock_identity_map_update_window":
         next_action = "等待 17:30 之后再检查上游 readiness。"
-    elif blocked_component == "silver_stock_basic":
-        next_action = "先修复 silver_stock_basic readiness，再等待下一次 sensor tick。"
+    elif blocked_component == "silver_stock_lifecycle":
+        next_action = "先修复 silver_stock_lifecycle readiness，再等待下一次 sensor tick。"
     elif blocked_component == "silver_namechange":
         next_action = "先修复 silver_namechange readiness，再等待下一次 sensor tick。"
     elif blocked_component == "silver_stock_identity_map":
@@ -202,7 +202,7 @@ def _cursor_payload(
             ),
             gate_statuses=compact_gate_statuses(
                 {
-                    "silver_stock_basic": stock_basic_status,
+                    "silver_stock_lifecycle": stock_lifecycle_status,
                     "silver_namechange": namechange_status,
                     "silver_stock_identity_map": identity_map_status,
                 }
@@ -267,9 +267,8 @@ def stock_identity_map_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
             ),
         )
 
-    stock_basic_status = silver_stock_basic_ready_for_trade_date(
+    stock_lifecycle_status = silver_stock_lifecycle_ready_without_freshness(
         context.instance,
-        target_trade_date,
     )
     namechange_status = silver_namechange_ready_for_trade_date(
         context.instance,
@@ -281,7 +280,7 @@ def stock_identity_map_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
     )
     identity_decision = _identity_map_decision(
         target_trade_date=target_trade_date,
-        stock_basic_status=stock_basic_status,
+        stock_lifecycle_status=stock_lifecycle_status,
         namechange_status=namechange_status,
         identity_map_status=identity_map_status,
     )
@@ -297,7 +296,7 @@ def stock_identity_map_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
         source_window_started=source_window_started,
         registered_trade_day_count=len(registered_trade_days),
         reason=identity_decision.reason,
-        stock_basic_status=stock_basic_status,
+        stock_lifecycle_status=stock_lifecycle_status,
         namechange_status=namechange_status,
         identity_map_status=identity_map_status,
         identity_map_current=identity_decision.identity_map_current,

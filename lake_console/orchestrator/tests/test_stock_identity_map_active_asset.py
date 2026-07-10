@@ -7,8 +7,8 @@ from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from orchestrator.defs.assets.stock_identity_map import (
-    STOCK_BASIC_IDENTITY_CONFIDENCE,
-    STOCK_BASIC_IDENTITY_SOURCE,
+    STOCK_LIFECYCLE_IDENTITY_CONFIDENCE,
+    STOCK_LIFECYCLE_IDENTITY_SOURCE,
     build_stock_identity_map_rows,
     write_stock_identity_map_snapshot,
 )
@@ -63,7 +63,7 @@ class StockIdentityMapActiveAssetTests(unittest.TestCase):
     def test_build_rows_generates_self_and_seed_mappings(self) -> None:
         seed_rows = load_stock_identity_mapping_seed(_write_seed_fixture())
         result = build_stock_identity_map_rows(
-            stock_basic_rows=(
+            lifecycle_rows=(
                 {
                     "ts_code": "000001.SZ",
                     "list_date": date(1991, 4, 3),
@@ -87,11 +87,11 @@ class StockIdentityMapActiveAssetTests(unittest.TestCase):
         self.assertEqual(seed_row["latest_ts_code"], "920001.BJ")
         self.assertEqual(seed_row["effective_list_date"], date(2021, 11, 15))
         self.assertIn(
-            {"value": STOCK_BASIC_IDENTITY_SOURCE, "row_count": 2},
+            {"value": STOCK_LIFECYCLE_IDENTITY_SOURCE, "row_count": 2},
             result.source_distribution,
         )
         self.assertIn(
-            {"value": STOCK_BASIC_IDENTITY_CONFIDENCE, "row_count": 3},
+            {"value": STOCK_LIFECYCLE_IDENTITY_CONFIDENCE, "row_count": 3},
             result.confidence_distribution,
         )
 
@@ -99,7 +99,7 @@ class StockIdentityMapActiveAssetTests(unittest.TestCase):
         seed_rows = load_stock_identity_mapping_seed(_write_seed_fixture())
         with self.assertRaisesRegex(RuntimeError, "latest_ts_code not found"):
             build_stock_identity_map_rows(
-                stock_basic_rows=(
+                lifecycle_rows=(
                     {
                         "ts_code": "000001.SZ",
                         "list_date": date(1991, 4, 3),
@@ -114,7 +114,7 @@ class StockIdentityMapActiveAssetTests(unittest.TestCase):
     def test_write_snapshot_is_atomic_and_keeps_contract_columns(self) -> None:
         seed_rows = load_stock_identity_mapping_seed(_write_seed_fixture())
         result = build_stock_identity_map_rows(
-            stock_basic_rows=(
+            lifecycle_rows=(
                 {
                     "ts_code": "920001.BJ",
                     "list_date": date(2021, 11, 15),
@@ -151,6 +151,30 @@ class StockIdentityMapActiveAssetTests(unittest.TestCase):
                 ),
             )
 
+    def test_build_rows_self_maps_delisted_historical_code(self) -> None:
+        result = build_stock_identity_map_rows(
+            lifecycle_rows=(
+                {
+                    "ts_code": "000638.SZ",
+                    "list_date": date(1996, 11, 26),
+                    "delist_date": date(2026, 6, 3),
+                },
+            ),
+            seed_rows=(),
+            namechange_codes=set(),
+            created_at=datetime(2026, 7, 10, tzinfo=ZoneInfo("Asia/Shanghai")),
+        )
+
+        self.assertEqual(len(result.rows), 1)
+        self.assertEqual(result.rows[0]["source_ts_code"], "000638.SZ")
+        self.assertEqual(result.rows[0]["latest_ts_code"], "000638.SZ")
+        self.assertEqual(result.rows[0]["valid_from"], date(1996, 11, 26))
+        self.assertEqual(result.rows[0]["valid_to"], date(2026, 6, 3))
+        self.assertEqual(
+            result.rows[0]["identity_source"],
+            STOCK_LIFECYCLE_IDENTITY_SOURCE,
+        )
+
 
 class StockIdentityMapSensorDecisionTests(unittest.TestCase):
     def test_window_starts_at_1730(self) -> None:
@@ -175,18 +199,18 @@ class StockIdentityMapSensorDecisionTests(unittest.TestCase):
     def test_decision_skips_when_upstream_not_ready(self) -> None:
         decision = _identity_map_decision(
             target_trade_date="2026-05-29",
-            stock_basic_status=_status(ready=False, reason="stock basic stale"),
+            stock_lifecycle_status=_status(ready=False, reason="stock lifecycle stale"),
             namechange_status=_status(ready=True, storage_id=2),
             identity_map_status=_status(ready=False, storage_id=1),
         )
 
         self.assertFalse(decision.request_run)
-        self.assertIn("股票基础信息未 ready", decision.reason)
+        self.assertIn("股票生命周期事实未 ready", decision.reason)
 
     def test_decision_requests_when_identity_map_is_stale(self) -> None:
         decision = _identity_map_decision(
             target_trade_date="2026-05-29",
-            stock_basic_status=_status(ready=True, storage_id=10),
+            stock_lifecycle_status=_status(ready=True, storage_id=10),
             namechange_status=_status(ready=True, storage_id=11),
             identity_map_status=_status(ready=True, storage_id=9),
         )
@@ -197,7 +221,7 @@ class StockIdentityMapSensorDecisionTests(unittest.TestCase):
     def test_decision_skips_when_identity_map_is_current(self) -> None:
         decision = _identity_map_decision(
             target_trade_date="2026-05-29",
-            stock_basic_status=_status(ready=True, storage_id=10),
+            stock_lifecycle_status=_status(ready=True, storage_id=10),
             namechange_status=_status(ready=True, storage_id=11),
             identity_map_status=_status(ready=True, storage_id=12),
         )
@@ -210,7 +234,7 @@ class StockIdentityMapSensorDecisionTests(unittest.TestCase):
             "orchestrator.defs.sensors.stock_identity_map_sensor.datetime",
             _FixedDateTime,
         ), patch(
-            "orchestrator.defs.sensors.stock_identity_map_sensor.silver_stock_basic_ready_for_trade_date",
+            "orchestrator.defs.sensors.stock_identity_map_sensor.silver_stock_lifecycle_ready_without_freshness",
             return_value=_status(ready=True, storage_id=10),
         ), patch(
             "orchestrator.defs.sensors.stock_identity_map_sensor.silver_namechange_ready_for_trade_date",

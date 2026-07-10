@@ -84,10 +84,10 @@ def test_silver_history_uses_one_batch_mapping_query_per_year(tmp_path: Path) ->
         manifest_path=manifest_path, run_id="run-1"
     )
     build_stk_nineturn_raw_history(
-        manifest=manifest, lake_root=tmp_path / "lake", duckdb=DuckDBResource(), confirm_write=True
+        manifest=manifest, lake_root=tmp_path / "lake", duckdb_resource=DuckDBResource(), confirm_write=True
     )
     build_stk_nineturn_silver_history(
-        manifest=manifest, lake_root=tmp_path / "lake", duckdb=DuckDBResource(), confirm_write=True
+        manifest=manifest, lake_root=tmp_path / "lake", duckdb_resource=DuckDBResource(), confirm_write=True
     )
     assert silver_stock_nineturn_daily_path(
         tmp_path / "lake", "2023-01-03"

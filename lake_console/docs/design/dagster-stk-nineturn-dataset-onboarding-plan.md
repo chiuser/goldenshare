@@ -151,6 +151,11 @@ Silver 固定采用以下优先级：
 Silver 中不允许出现北交所旧代码。Raw 继续保存 prod/Tushare 返回的原始代码事实，
 但 raw 旧代码只能作为 identity mapping 输入，不能原样进入 Silver。
 
+identity map 的历史全集口径已经固定为 `silver_stock_lifecycle`：生命周期事实中的每个
+历史 `ts_code` 都生成 self mapping，包括已退市代码；`silver_stock_basic` 仍是
+current-listed-only 快照，不作为历史九转代码全集。`silver_namechange` 只用于校验
+版本化非 self seed 的解释性，不用于补造或筛掉历史股票 self mapping。
+
 ### 2.4 现有 Lake 事实
 
 历史遗留的 prod 导出 staging 目前存在：

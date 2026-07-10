@@ -990,7 +990,7 @@ LAKE_ASSET_CATALOG = (
         layer=AssetLayer.SILVER,
         data_domain=DataDomain.BASIC_DATA,
         group_name="basic",
-        data_contract="current_listed_stock_identity_full_snapshot",
+        data_contract="historical_stock_identity_full_snapshot",
         column_schema=SILVER_STOCK_IDENTITY_MAP_SCHEMA,
         path_template=lake_path_template(
             silver_stock_identity_map_path(PATH_TEMPLATE_LAKE_ROOT)

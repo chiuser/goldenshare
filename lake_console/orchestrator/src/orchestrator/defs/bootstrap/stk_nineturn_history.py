@@ -140,7 +140,7 @@ def plan_stk_nineturn_raw_history(
 
 def build_stk_nineturn_raw_history(
     *, manifest: StkNineturnProdExportManifest, lake_root: Path,
-    duckdb: DuckDBResource, confirm_write: bool = False,
+    duckdb_resource: DuckDBResource, confirm_write: bool = False,
 ) -> StkNineturnHistoryBuildPlan:
     if not confirm_write:
         raise ValueError("Formal Raw bootstrap requires confirm_write=True.")
@@ -152,7 +152,7 @@ def build_stk_nineturn_raw_history(
         sources_by_year.setdefault(int(partition_key[:4]), []).append(
             (partition_key, source_path)
         )
-    with duckdb.connect() as connection, TemporaryDirectory(
+    with duckdb_resource.connect() as connection, TemporaryDirectory(
         dir=str(lake_root), prefix=".stk_nineturn_raw_"
     ) as temp_dir:
         temp_root = Path(temp_dir)
@@ -194,7 +194,7 @@ def build_stk_nineturn_raw_history(
 
 def build_stk_nineturn_silver_history(
     *, manifest: StkNineturnProdExportManifest, lake_root: Path,
-    duckdb: DuckDBResource, confirm_write: bool = False,
+    duckdb_resource: DuckDBResource, confirm_write: bool = False,
 ) -> StkNineturnHistoryBuildPlan:
     """Build Silver with one canonical mapping query per year."""
     if not confirm_write:
@@ -212,7 +212,7 @@ def build_stk_nineturn_silver_history(
         sources_by_year.setdefault(year, []).append(source_path)
         dates_by_year.setdefault(year, []).append(key)
 
-    with duckdb.connect() as connection, TemporaryDirectory(
+    with duckdb_resource.connect() as connection, TemporaryDirectory(
         dir=str(lake_root), prefix=".stk_nineturn_silver_"
     ) as temp_dir:
         temp_root = Path(temp_dir)
@@ -264,7 +264,7 @@ class StkNineturnFileAudit:
 
 def audit_stk_nineturn_formal_files(
     *, manifest: StkNineturnProdExportManifest, lake_root: Path,
-    duckdb: DuckDBResource,
+    duckdb_resource: DuckDBResource,
 ) -> StkNineturnFileAudit:
     """Read-only file/row audit for promoted Raw and Silver partitions."""
     expected = tuple(sorted(manifest.partition_keys))
@@ -280,7 +280,7 @@ def audit_stk_nineturn_formal_files(
         build_stk_nineturn_path_plan(trade_date=key, path=path)
         for key, path in zip(expected, silver_paths, strict=True)
     )
-    with duckdb.connect() as connection:
+    with duckdb_resource.connect() as connection:
         raw_count = _count_rows(connection, tuple(path for path in raw_paths if path.is_file()))
         silver_count = _count_rows(connection, tuple(path for path in silver_paths if path.is_file()))
         raw_metrics = load_raw_stk_nineturn_metrics(connection, path_plans=raw_plans)
