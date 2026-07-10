@@ -1,6 +1,6 @@
 # Dagster 神奇九转数据集接入方案
 
-状态：N0-N3 已完成本地开发与验收；正式 bootstrap/event 阶段仍待审批
+状态：N0-N4 已完成开发与验收；N5 formal build、N6 events 与 N7 cutover 仍待分阶段审批
 日期：2026-07-10
 
 代码级设计：
@@ -520,6 +520,11 @@ min(prod raw latest date, latest completed SSE trade date)
 Dry-run 必须输出：日期数、源行数、预计文件数、目标冲突、预计磁盘和单连接范围读取计划。
 Dry-run 不得把历史遗留 staging 文件计为已完成分区。
 
+N4 于 2026-07-10 完成：生产只读复核仍为 `2023-01-03..2026-07-09`、
+850 个交易日、4,523,818 行；正式 SSE calendar 已到 `2026-07-10`，因此 cutover
+按两者较小值固定为 `2026-07-09`。本地 `plan-sync` 输出 850 个目标分区，首尾路径
+与 expected calendar 一致。
+
 ### 10.2 B1：prod-raw-db staging 导出
 
 执行区间流式导出，从 prod 重新生成完整 bootstrap staging。读取必须：
@@ -533,6 +538,42 @@ Dry-run 不得把历史遗留 staging 文件计为已完成分区。
 - B2 只接受本批 manifest 中的文件；目录中未列入 manifest 的历史文件一律忽略。
 
 该阶段不写 Dagster event。
+
+N4 正式执行使用显式、独立的 mini-lake root，不能省略 `--lake-root`。backend
+默认根 `/Volumes/datasource/goldenshare-tushare-lake` 属于旧 Lake，不是本专项
+formal Lake；本批只复制已与正式 Silver calendar 做过 850 日零差集对账的 calendar
+manifest，不复用其中任何九转文件。
+
+唯一允许 N5 消费的 fresh export：
+
+```text
+staging root:
+/Volumes/datasource/data_lake/_bootstrap/stk_nineturn/n4_full_20260710T193955
+
+manifest:
+/Volumes/datasource/data_lake/_bootstrap/stk_nineturn/n4_full_20260710T193955/manifest/sync_runs.jsonl
+
+run_id:
+20260710T115046Z-stk_nineturn-prod-raw-db
+```
+
+正式结果：850 个文件、4,523,818 行、146MB，`fetched_rows=written_rows`，
+skipped/source-gap/no-data 均为 0，流式导出耗时 401.756 秒。逐文件 schema、
+manifest/file 行数、日期集合、业务键及完整 Raw 内容规则全部通过，所有异常计数为 0。
+正式 Raw 目录在 N4 结束时仍不存在。
+
+N4 样本暴露并修复了两个通用导出问题：`DbTradeDateExportService` 现按字段白名单
+顺序构造行；Parquet writer 支持显式 dtype override，九转两个 marker 即使整日全为
+NULL 也固定写成字符串类型。以下根只保留作诊断证据，禁止 N5 消费：
+
+```text
+n4_sample_20260710T183722  # trade_date/ts_code 列顺序错误
+n4_sample_20260710T184337  # 顺序修复样本，但未覆盖全 NULL marker 风险
+n4_full_20260710T185859    # 13 个 nine_down_turn 全 NULL 分区被推断为 NULL 类型
+n4_sample_20260710T193201  # 最终修复后的 3 日样本，仅作样本验收
+```
+
+这些隔离目录不自动删除；清理必须另行审批，不能与 N5 formal build 混在一起。
 
 ### 10.3 B2：formal raw 批量构建
 
@@ -594,7 +635,7 @@ Dry-run 不得把历史遗留 staging 文件计为已完成分区。
 
 | 场景 | 对象/日期 | 读写模型 | 预算/门禁 |
 | --- | --- | --- | --- |
-| prod bootstrap | 850 日、4,523,818 行 | 单连接 range streaming | 禁止逐日建 850 个 DB 连接；预计 raw 约 150MB |
+| prod bootstrap | 850 日、4,523,818 行 | 单连接 range streaming | 实测 401.756 秒、146MB；禁止逐日建 850 个 DB 连接，硬停止线 600 秒 |
 | formal raw bootstrap | 4 个年度批次 | DuckDB batch read/write | 每年 1 个主查询；禁止 850 次独立 DuckDB 深扫 |
 | silver bootstrap | 4 个年度批次 + 1 个 identity full file | DuckDB set-based join/window | Python 不处理明细行；内存不足则降为季度批次，不降低语义 |
 | 日常 raw | 1 日期，通常 <= 5,667 行 | 项目 helper 每页 6,000 行，保留 `limit/offset` 分页 | 单 run 目标 < 30 秒；超过 2 页或 60 秒停止评估源站变化 |
@@ -723,10 +764,11 @@ tests/test_run_contract_static_gates.py
 
 ## 15. 分阶段推进
 
-当前进度（2026-07-10）：N0-N3 已完成本地开发与验收。Silver catalog entry 已与
+当前进度（2026-07-10）：N0-N4 已完成开发与验收。Silver catalog entry 已与
 active Silver asset 同阶段注册；writer/checks 已覆盖 identity 有效区间、每行恰好一次
 映射、规范代码优先和冲突 fail-closed 语义。Raw/Silver sensor 已按最近 10 日、
-first-not-ready、Raw ready frontier 和 DuckDB true-batch readiness 落地。
+first-not-ready、Raw ready frontier 和 DuckDB true-batch readiness 落地。N4 fresh
+prod export 已在隔离 staging 完成，并通过 850 文件全量审计。
 
 | 阶段 | 核心任务 | 是否可合并 |
 | --- | --- | --- |
@@ -734,8 +776,8 @@ first-not-ready、Raw ready frontier 和 DuckDB true-batch readiness 落地。
 | N1（已完成） | Raw asset + raw checks + raw job | 临时 Lake、分页、0 行和 partitioned check 归属已通过 |
 | N2（已完成） | Silver SQL/asset + silver checks + silver job | identity/alias 冲突矩阵和 partitioned checks 已通过 |
 | N3（已完成） | Batch lake readiness + 两个 sensors + cursor/static gates | 10/60 日性能、0 次 Dagster history、first-not-ready 与小型 cursor 已通过 |
-| N4 | prod 全量重新导出 dry-run/sample/full + formal raw batch bootstrap | 单独审批文件写入 |
-| N5 | Silver history dry-run/sample/full + 聚合审计 | 单独审批文件写入 |
+| N4（已完成） | prod 全量重新导出 dry-run/sample/full + staging audit | 850 文件、4,523,818 行、精确 schema 和 manifest 对账已通过 |
+| N5 | Formal Raw/Silver history dry-run/sample/full + 聚合审计 | 单独审批正式 Lake 写入 |
 | N6 | Runless event dry-run/sample/full | 必须与文件生成分开审批 |
 | N7 | 单日 Tushare smoke、sensor 人工启用、最终文档对账 | 最终验收 |
 

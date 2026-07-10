@@ -505,6 +505,63 @@ def test_adj_factor_prod_raw_export_ignores_non_open_day_rows(monkeypatch, tmp_p
     assert "adj_factor" in schema.names
 
 
+def test_stk_nineturn_prod_raw_export_preserves_schema_with_null_markers(tmp_path) -> None:
+    pa = pytest.importorskip("pyarrow")
+    pq = pytest.importorskip("pyarrow.parquet")
+
+    trade_date = date(2026, 7, 9)
+    _write_trade_calendar(tmp_path, [trade_date])
+
+    def fake_fetch_prod_raw_rows(*, database_url, query):
+        assert database_url == "postgresql://readonly@example/db"
+        assert query.table_name == "raw_tushare.stk_nineturn"
+        return [
+            {
+                "trade_date": trade_date,
+                "ts_code": "600030.SH",
+                "freq": "daily",
+                "open": Decimal("34.10"),
+                "high": Decimal("34.56"),
+                "low": Decimal("33.90"),
+                "close": Decimal("34.20"),
+                "vol": Decimal("1000"),
+                "amount": Decimal("2000"),
+                "up_count": Decimal("0"),
+                "down_count": Decimal("3"),
+                "nine_up_turn": None,
+                "nine_down_turn": None,
+            }
+        ]
+
+    DbTradeDateExportService(
+        lake_root=tmp_path,
+        dataset_key="stk_nineturn",
+        api_name="stk_nineturn",
+        source="prod-raw-db",
+        database_url="postgresql://readonly@example/db",
+        build_point_query=build_prod_raw_trade_date_query,
+        build_range_query=build_prod_raw_trade_date_range_query,
+        fetch_rows=fake_fetch_prod_raw_rows,
+        iter_rows=lambda **_: iter(()),
+        progress=lambda _: None,
+    ).export(trade_date=trade_date)
+
+    parquet_file = (
+        tmp_path
+        / "raw_tushare"
+        / "stk_nineturn"
+        / "trade_date=2026-07-09"
+        / "part-000.parquet"
+    )
+    schema = pq.read_schema(parquet_file)
+    assert schema.names == list(STK_NINETURN_FIELDS)
+    for marker_column in ("nine_up_turn", "nine_down_turn"):
+        marker_type = schema.field(marker_column).type
+        assert pa.types.is_string(marker_type) or pa.types.is_large_string(
+            marker_type
+        )
+
+
 def test_stk_period_bar_month_prod_raw_export_ignores_2020_02_29_special_rows(tmp_path) -> None:
     pytest.importorskip("pyarrow")
     pq = pytest.importorskip("pyarrow.parquet")

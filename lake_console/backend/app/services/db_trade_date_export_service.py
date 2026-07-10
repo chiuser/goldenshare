@@ -26,6 +26,15 @@ class _QueryLike(Protocol):
     fields: tuple[str, ...]
 
 
+# All-null marker partitions otherwise become Parquet NULL columns.
+_PARQUET_DTYPES_BY_DATASET: dict[str, dict[str, str]] = {
+    "stk_nineturn": {
+        "nine_up_turn": "string",
+        "nine_down_turn": "string",
+    },
+}
+
+
 class DbTradeDateExportService:
     def __init__(
         self,
@@ -245,7 +254,11 @@ class DbTradeDateExportService:
         final_file = final_dir / "part-000.parquet"
         backup_root = self.lake_root / "_tmp" / run_id / "_backup" / self.dataset_key / f"trade_date={trade_date.isoformat()}"
 
-        written = _write_and_validate(rows=rows, tmp_file=tmp_file)
+        written = _write_and_validate(
+            rows=rows,
+            tmp_file=tmp_file,
+            column_dtypes=_PARQUET_DTYPES_BY_DATASET.get(self.dataset_key),
+        )
         replace_directory_atomically(tmp_dir=tmp_dir, final_dir=final_dir, backup_root=backup_root)
         self.progress(
             f"[{self.dataset_key}:{self.source}] unit={unit_index}/{unit_total} trade_date={trade_date.isoformat()} "
@@ -297,14 +310,16 @@ class DbTradeDateExportService:
                 f"{self.dataset_key} 返回 trade_date={trade_date.isoformat()}，"
                 f"与请求日期 {expected_trade_date.isoformat()} 不一致。"
             )
-        normalized: dict[str, Any] = {"trade_date": trade_date}
-        if "ts_code" in fields:
-            ts_code = _normalize_ts_code(row.get("ts_code"))
-            if ts_code is None:
-                raise ValueError(f"{self.dataset_key} 返回行缺少 ts_code。")
-            normalized["ts_code"] = ts_code
+        normalized: dict[str, Any] = {}
         for field in fields:
-            if field in {"ts_code", "trade_date"}:
+            if field == "trade_date":
+                normalized[field] = trade_date
+                continue
+            if field == "ts_code":
+                ts_code = _normalize_ts_code(row.get(field))
+                if ts_code is None:
+                    raise ValueError(f"{self.dataset_key} 返回行缺少 ts_code。")
+                normalized[field] = ts_code
                 continue
             value = row.get(field)
             if value is None or _is_nan(value):
@@ -327,8 +342,17 @@ def _is_nan(value: Any) -> bool:
     return isinstance(value, float) and math.isnan(value)
 
 
-def _write_and_validate(*, rows: list[dict[str, Any]], tmp_file: Path) -> int:
-    written = write_rows_to_parquet(rows, tmp_file)
+def _write_and_validate(
+    *,
+    rows: list[dict[str, Any]],
+    tmp_file: Path,
+    column_dtypes: dict[str, str] | None,
+) -> int:
+    written = write_rows_to_parquet(
+        rows,
+        tmp_file,
+        column_dtypes=column_dtypes,
+    )
     validated = read_parquet_row_count(tmp_file)
     if validated != written:
         raise RuntimeError(f"trade_date Parquet 校验失败：written={written} validated={validated} file={tmp_file}")

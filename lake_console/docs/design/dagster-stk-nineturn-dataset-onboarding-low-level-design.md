@@ -1,6 +1,6 @@
 # Dagster 神奇九转数据集接入低层设计
 
-状态：N0-N3 已完成本地开发与验收；N4-N6 正式操作仍待分阶段审批
+状态：N0-N4 已完成开发与验收；N5-N6 正式操作仍待分阶段审批
 日期：2026-07-10
 上位方案：[`dagster-stk-nineturn-dataset-onboarding-plan.md`](./dagster-stk-nineturn-dataset-onboarding-plan.md)
 
@@ -803,6 +803,11 @@ freq = daily
 - `order by trade_date, ts_code`。
 - 每个 trade date 原子写 staging 文件。
 
+当前 backend 默认 Lake 根是旧 Lake。N4 必须显式把 `--lake-root` 指向本批新建的
+隔离 mini-lake root；`DbTradeDateExportService` 会在该根下写相对路径
+`raw_tushare/stk_nineturn/...`，因此不会碰正式 Raw。样本和 full 使用不同根，目录中
+任何旧九转文件都不得参与本批 manifest。
+
 ### 13.2 Manifest contract
 
 `stk_nineturn_history.py` 定义：
@@ -845,7 +850,45 @@ def load_stk_nineturn_prod_export_manifest(
 
 Orchestrator 不能 import `lake_console.backend`。交接边界只能是 staging Parquet + manifest record。
 
-### 13.3 CLI
+### 13.3 N4 执行结果
+
+生产只读 cutover 审计：
+
+| 项 | 结果 |
+| --- | ---: |
+| prod latest | 2026-07-09 |
+| latest completed SSE | 2026-07-10 |
+| cutover | 2026-07-09 |
+| partition count | 850 |
+| source row count | 4,523,818 |
+| source non-daily/null-key | 0 / 0 |
+
+最终 3 日样本根为
+`/Volumes/datasource/data_lake/_bootstrap/stk_nineturn/n4_sample_20260710T193201`；
+最终 full staging root 为
+`/Volumes/datasource/data_lake/_bootstrap/stk_nineturn/n4_full_20260710T193955`。
+N5 只能读取 full 根中 run id
+`20260710T115046Z-stk_nineturn-prod-raw-db` 对应的 manifest record。
+
+Full audit 结果：
+
+| 项 | 结果 |
+| --- | ---: |
+| files / dates / rows | 850 / 850 / 4,523,818 |
+| size | 146MB |
+| elapsed | 401.756s |
+| schema mismatch | 0 |
+| manifest/file row mismatch | 0 |
+| expected-only / actual-only dates | 0 / 0 |
+| duplicate/null/partition/freq failures | 0 |
+| OHLC/volume/count/signal failures | 0 |
+
+首次样本发现 exporter 把 `trade_date` 插在 `ts_code` 前；首次 full 又发现 13 个
+`nine_down_turn` 全 NULL 的日期被 PyArrow 推断为 NULL 类型。实现已改为按字段白名单
+顺序构造行，并通过显式 dtype override 固定两个 marker 为 string。早期 sample/full
+根均为失败或诊断证据，禁止 N5 消费，也不得在未审批时删除。
+
+### 13.4 CLI
 
 ```text
 python -m orchestrator.defs.bootstrap.stk_nineturn_history_cli dry-run ...
@@ -980,7 +1023,7 @@ Check event 必须绑定同分区最新 materialization，通过 `AssetCheckEval
 
 | 场景 | 正式模型 | 目标 | 停止条件 |
 | --- | --- | ---: | --- |
-| prod export | 1 个只读连接、20,000 行流式 batch | <600 秒 | >600 秒或连接/内存异常 |
+| prod export | 1 个只读连接、20,000 行流式 batch | 实测 401.756 秒 | >600 秒或连接/内存异常 |
 | formal raw | 4 个年度主查询 | 每年 1 个主扫描 | 每日 850 次重 SQL |
 | formal silver | 4 个年度 join/window 查询 | 无 Python 明细循环 | spill 且季度切分仍不可控 |
 | 日常 Raw | 当前通常 1 个 6,000 行 page | <30 秒 | >2 页或 >60 秒 |
@@ -1097,7 +1140,8 @@ N3 本地临时 Parquet 实测结果：
 | N1 | 已完成 | Raw asset、2 个 partitioned blocking checks、Raw job 已落地；Tushare fixture、6000 行分页、0 行不写文件、真实 check execution 分区归属已通过 |
 | N2 | 已完成 | Silver set-based writer、asset、2 checks、job、catalog 与完整 alias/identity 冲突矩阵已通过 |
 | N3 | 已完成 | Raw/Silver true-batch lake readiness、两个 STOPPED sensors、统一 run key/cursor、first-not-ready 和性能门禁已通过 |
-| N4-N7 | 待推进 | 按下列边界分别开发或审批执行 |
+| N4 | 已完成 | prod read-only cutover、3 日 sample、850 日 fresh full export、逐文件 schema 与 manifest/data audit 已通过 |
+| N5-N7 | 待推进 | 按下列边界分别开发或审批执行 |
 
 N0 与 N1 按批准口径合并为一个代码提交，但验收边界保持独立。N0 预声明
 Silver schema、path 和 partition model；没有提前写入 Silver catalog entry，因为 catalog
@@ -1158,6 +1202,11 @@ asset check 与 lake readiness 对同一坏文件不会给出相反结论。
 动作：只读 dry-run -> 3 日样本 -> 全区间 fresh export -> manifest 审计。
 
 需要单独批准 prod 只读访问和 staging 写入。超过 600 秒停止。
+
+结果：已完成。唯一可消费 staging root 为
+`n4_full_20260710T193955`，manifest run id 为
+`20260710T115046Z-stk_nineturn-prod-raw-db`。850 文件、4,523,818 行、146MB，
+导出耗时 401.756 秒；逐文件 schema 和全量业务审计全部通过，正式 Raw 未写入。
 
 ### N5 Formal Raw/Silver Bootstrap
 

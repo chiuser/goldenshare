@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -9,12 +10,21 @@ class ParquetDependencyError(RuntimeError):
     pass
 
 
-def write_rows_to_parquet(rows: list[dict[str, Any]], output_path: Path) -> int:
+def write_rows_to_parquet(
+    rows: list[dict[str, Any]],
+    output_path: Path,
+    *,
+    column_dtypes: Mapping[str, str] | None = None,
+) -> int:
     if not rows:
         raise ValueError("没有可写入的行。")
     pd = _require_pandas()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     frame = pd.DataFrame(rows)
+    for column, dtype in (column_dtypes or {}).items():
+        if column not in frame.columns:
+            raise ValueError(f"Parquet dtype override 字段不存在：{column}")
+        frame[column] = frame[column].astype(dtype)
     frame.to_parquet(output_path, index=False, engine="pyarrow", compression="zstd")
     return len(frame)
 
