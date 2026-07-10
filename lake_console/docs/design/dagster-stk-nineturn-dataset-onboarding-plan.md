@@ -1,6 +1,6 @@
 # Dagster 神奇九转数据集接入方案
 
-状态：N0-N4 已完成开发与验收；N5 formal build、N6 events 与 N7 cutover 仍待分阶段审批
+状态：N0-N5 Formal Raw/Silver 已完成开发、正式写入与最终文件审计；N6 runless event 工具已完成本地 dry-run/apply 实现与临时实例验证，正式 event 写入仍待单独批准；N7 cutover 待推进
 日期：2026-07-10
 
 代码级设计：
@@ -129,13 +129,13 @@ Tushare 没有公开九转累计计数的完整计算公式。本资产保存和
 | --- | ---: |
 | 重复标准键 `(canonical_ts_code, trade_date)` | 4,340 |
 | 重复额外行 | 4,340 |
-| 内容不完全一致的重复键 | 42 |
+| 内容不完全一致的重复键 | 46 |
 | OHLC/成交量/成交额不一致键 | 0 |
-| count 不一致键 | 42 |
+| count 不一致键 | 46 |
 | signal 不一致键 | 3 |
 | 最大来源行数 | 2 |
 
-42 个差异键全部位于 2023-01-03 至 2023-01-12：
+46 个差异键全部位于 2023-01-03 至 2023-01-12：
 
 - OHLC、成交量、成交额无差异。
 - 差异只在 `up_count/down_count`，其中 3 个键同时影响 `+9/-9` 标志。
@@ -612,7 +612,7 @@ n4_sample_20260710T193201  # 最终修复后的 3 日样本，仅作样本验收
 - silver 总行数与规范化去重结果一致。
 - 任一 source code 未映射数为 0。
 - OHLC/vol/amount 别名冲突数为 0。
-- 42 个已知计数/信号冲突按新代码优先收敛，并输出审计样本。
+- 46 个已知计数/信号冲突按新代码优先收敛，并输出审计样本。
 
 ### 10.6 B5：runless event dry-run 与补录
 
@@ -626,6 +626,9 @@ n4_sample_20260710T193201  # 最终修复后的 3 日样本，仅作样本验收
 执行顺序：dry-run -> 3 日样本 -> 对账 -> 分批 full report -> final audit。
 
 禁止为历史补录运行 850 个 Dagster jobs。Runless event 写入需要单独正式审批。
+N6 工具已落地到 `stk_nineturn_events.py` / `stk_nineturn_events_cli.py`：dry-run 默认只读，
+report 必须显式 `--confirm-write`；事件目标绑定同分区最新 materialization。正式 instance
+写入尚未执行。
 
 ### 10.7 B6：切换日常来源
 
@@ -782,8 +785,8 @@ prod export 已在隔离 staging 完成，并通过 850 文件全量审计。
 | N2（已完成） | Silver SQL/asset + silver checks + silver job | identity/alias 冲突矩阵和 partitioned checks 已通过 |
 | N3（已完成） | Batch lake readiness + 两个 sensors + cursor/static gates | 10/60 日性能、0 次 Dagster history、first-not-ready 与小型 cursor 已通过 |
 | N4（已完成） | prod 全量重新导出 dry-run/sample/full + staging audit | 850 文件、4,523,818 行、精确 schema 和 manifest 对账已通过 |
-| N5 | Formal Raw/Silver history dry-run/sample/full + 聚合审计 | 单独审批正式 Lake 写入 |
-| N6 | Runless event dry-run/sample/full | 必须与文件生成分开审批 |
+| N5 | Formal Raw/Silver history dry-run/sample/full + 聚合审计 | 已完成；最终文件审计通过 |
+| N6 | Runless event dry-run/sample/full | 工具已实现并通过本地临时实例验证；正式 Dagster event 写入必须单独审批 |
 | N7 | 单日 Tushare smoke、sensor 人工启用、最终文档对账 | 最终验收 |
 
 N4、N5、N6 不得合并成一次不可中断的大操作。每阶段必须有独立 dry-run、样本、正式执行和结果报告。
@@ -793,7 +796,7 @@ N4、N5、N6 不得合并成一次不可中断的大操作。每阶段必须有�
 1. Formal raw/silver 覆盖 cutover date 之前全部 expected trade dates。
 2. Raw 行数与 prod 白名单导出一致。
 3. Silver 未映射代码、行情别名冲突、重复标准键均为 0。
-4. 已知 42 个计数/信号冲突按规范新代码优先收敛，并有审计记录。
+4. 已知 46 个计数/信号冲突按规范新代码优先收敛，并有审计记录。
 5. 最近 20 日 raw/silver materialization 与 4 个 checks 均可按 partition 读取。
 6. 更早历史 materialization 可见，但不写全量普通 check events。
 7. 日常 Tushare 单分区写入和 silver 生成闭环通过。

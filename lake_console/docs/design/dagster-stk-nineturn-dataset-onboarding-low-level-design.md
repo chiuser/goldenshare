@@ -1,6 +1,6 @@
 # Dagster 神奇九转数据集接入低层设计
 
-状态：N0-N4 已完成开发与验收；N5 Formal Raw/Silver 已完成并通过最终文件审计；N6-N7 仍待分阶段审批
+状态：N0-N5 已完成开发与验收；N6 runless event 工具已完成本地实现与临时实例验证，正式 Dagster event 写入仍待单独批准；N7 待推进
 日期：2026-07-10
 上位方案：[`dagster-stk-nineturn-dataset-onboarding-plan.md`](./dagster-stk-nineturn-dataset-onboarding-plan.md)
 
@@ -25,7 +25,7 @@
 6. 历史 prod 导出、formal raw/silver 构建、runless event 写入必须分别 dry-run、样本、审批和验收。
 7. `silver_stock_identity_map` 的 self mapping 来源是 `silver_stock_lifecycle` 的全部历史代码，包含退市代码；`silver_namechange` 只用于校验版本化非 self seed 的解释性，不承担历史股票全集职责。
 
-本 LLD 当前只保留 N6 Dagster instance 写入和 N7 日常切换的审批边界；N5 Formal Lake 写入已按批准完成。
+本 LLD 当前只保留 N6 正式 Dagster instance 写入和 N7 日常切换的审批边界；N5 Formal Lake 写入已按批准完成。N6 代码已落地 dry-run 与显式确认的 report 入口，但本轮没有连接正式 instance，也没有写正式 event。
 本 LLD 不授权运行 `dg`、写 Dagster instance 或删除历史 staging。
 
 ## 2. 依据与代码审计
@@ -985,10 +985,20 @@ stock daily warm-up 缺口只报告，不作为失败项。
 ```python
 @dataclass(frozen=True, slots=True)
 class StkNineturnRunlessEventPlan:
-    materialization_partition_keys: tuple[str, ...]
-    check_partition_keys: tuple[str, ...]
-    existing_materialized_partition_keys: tuple[str, ...]
-    existing_ready_check_partition_keys: tuple[str, ...]
+    raw_materialization_partition_keys: tuple[str, ...]
+    silver_materialization_partition_keys: tuple[str, ...]
+    raw_check_partition_keys: tuple[str, ...]
+    silver_check_partition_keys: tuple[str, ...]
+    existing_raw_materialized_partition_keys: tuple[str, ...]
+    existing_silver_materialized_partition_keys: tuple[str, ...]
+    existing_raw_ready_check_partition_keys: tuple[str, ...]
+    existing_silver_ready_check_partition_keys: tuple[str, ...]
+    existing_raw_passed_check_keys: tuple[tuple[str, str], ...]
+    existing_silver_passed_check_keys: tuple[tuple[str, str], ...]
+    failed_raw_partition_keys: tuple[str, ...]
+    failed_silver_partition_keys: tuple[str, ...]
+    raw_row_counts: tuple[tuple[str, int], ...]
+    silver_row_counts: tuple[tuple[str, int], ...]
     planned_materialization_event_count: int
     planned_check_event_count: int
 ```
@@ -998,13 +1008,14 @@ class StkNineturnRunlessEventPlan:
 - 850 Raw materializations。
 - 850 Silver materializations。
 - 最近 20 日 x 2 assets x 2 checks = 80 checks。
-- 合计最多约 1,780 个新 event；实际减去已存在、已通过事件。
+- 合计最多约 1,780 个新 event；实际减去已存在、已通过事件。Planner 只保存全量分区的行数摘要，JSON 只输出 recent20 的样本审计，不嵌入 850 个分区的逐行明细。
+- `check_partition_keys` 必须是 `materialization_partition_keys` 的子集，避免 checks-only 作用域没有可绑定的 materialization。
 
 ### 15.2 安全顺序
 
 1. 读取 final file audit，必须全绿。
 2. 生成 dry-run，禁止写 event。
-3. 先对 3 个日期执行样本补录。
+3. 先对 3 个日期执行样本补录；report 命令必须显式提供 `--confirm-write`。
 4. 只读验证 partition、asset key、check target materialization 归属。
 5. 再按固定批次补所有 materializations。
 6. 最后补 recent20 checks。
@@ -1017,6 +1028,8 @@ Check event 必须绑定同分区最新 materialization，通过 `AssetCheckEval
 - materialization 已存在时默认跳过。
 - recent20 对应 check 已 ready 且绑定最新 materialization时跳过。
 - 只查询 2 个 asset 的目标 partition 集合，不做全库无界 event scan。
+- Planner 只调用两次 DuckDB batch readiness、每个资产一次 materialization partition 查询、每个 check 一次 bounded history 查询；不会按 850 个日期逐日读取 Dagster history。
+- CLI 只有 `dry-run` 和需要 `--confirm-write` 的 `report` 两条路径；dry-run 不调用 `report_runless_asset_event`。
 - 写入 metadata 包含 bootstrap run id、source manifest run id、file audit report path、partition key。
 - 失败后保留已成功事件，重新 dry-run 后幂等续跑。
 - 不删除或覆盖历史 Dagster event。
@@ -1144,7 +1157,7 @@ N3 本地临时 Parquet 实测结果：
 | N3 | 已完成 | Raw/Silver true-batch lake readiness、两个 STOPPED sensors、统一 run key/cursor、first-not-ready 和性能门禁已通过 |
 | N4 | 已完成 | prod read-only cutover、3 日 sample、850 日 fresh full export、逐文件 schema 与 manifest/data audit 已通过 |
 | N5 | 已完成 | identity map 修复后重建 Formal Raw/Silver，最终文件审计通过 |
-| N6 | 待推进 | runless materialization/check event dry-run 与正式写入审批 |
+| N6 | 工具已完成，正式写入待批准 | `stk_nineturn_events.py` / CLI 已实现 bounded dry-run、显式确认 report、同分区 latest materialization target；本地临时实例回归通过 |
 | N7 | 待推进 | 日常 Tushare 来源切换、sensor 观察和最终验收 |
 
 N0 与 N1 按批准口径合并为一个代码提交，但验收边界保持独立。N0 预声明
@@ -1261,9 +1274,18 @@ Dagster event 写入。
 
 ### N6 Runless Events
 
-动作：dry-run -> 3 日样本 -> all materializations -> recent20 checks -> final event audit。
+代码入口：
 
-需要单独批准 Dagster instance 写入。不得与 N5 合并。
+- `python -m orchestrator.defs.bootstrap.stk_nineturn_events_cli dry-run`
+- `python -m orchestrator.defs.bootstrap.stk_nineturn_events_cli report --confirm-write`
+
+工具实现：dry-run -> 3 日样本 -> all materializations -> recent20 checks -> final event audit。
+planner 以本批 manifest 为边界，只读一次动态分区集合、两次 DuckDB batch readiness、每个
+asset 一次目标 materialization 查询、每个 check 一次有界 history 查询；不按日期逐个扫描
+Dagster history。当前已通过 5 个 N6 专用临时实例测试及既有 106 个相关回归测试。
+
+需要单独批准正式 Dagster instance 写入。当前没有连接正式 instance、没有写正式 event，
+不得与 N5 合并。
 
 ### N7 日常切换与最终验收
 
