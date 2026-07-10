@@ -1227,6 +1227,9 @@ N5A 首次正式执行发现并修正了一个跨卷原子替换问题：临时�
 `os.replace` 会返回 cross-device link。修正后首次执行未产生 formal Raw 文件，formal
 Raw/Silver 仍为 0 分区，后续可从同一 manifest 幂等重跑。
 
+N5B 正式执行前又完成了一次边界校验：Silver 年度主查询的输入已固定为已验收的
+formal Raw 分区，不直接读取 N4 staging；staging 只允许作为 N5A Raw promote 的输入。
+
 ### N6 Runless Events
 
 动作：dry-run -> 3 日样本 -> all materializations -> recent20 checks -> final event audit。

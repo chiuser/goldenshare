@@ -205,7 +205,9 @@ def build_stk_nineturn_silver_history(
     plan = plan_stk_nineturn_raw_history(manifest=manifest, lake_root=lake_root)
     sources_by_year: dict[int, list[Path]] = {}
     dates_by_year: dict[int, list[str]] = {}
-    for key, source_path in zip(plan.expected_partition_keys, manifest.output_paths, strict=True):
+    for key, source_path in zip(
+        plan.expected_partition_keys, plan.raw_target_paths, strict=True
+    ):
         year = int(key[:4])
         sources_by_year.setdefault(year, []).append(source_path)
         dates_by_year.setdefault(year, []).append(key)

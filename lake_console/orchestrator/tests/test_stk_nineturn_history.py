@@ -4,6 +4,7 @@ import json
 import pytest
 
 from orchestrator.defs.bootstrap.stk_nineturn_history import (
+    build_stk_nineturn_raw_history,
     build_stk_nineturn_silver_history,
     load_stk_nineturn_prod_export_manifest,
     plan_stk_nineturn_raw_history,
@@ -81,6 +82,9 @@ def test_silver_history_uses_one_batch_mapping_query_per_year(tmp_path: Path) ->
     }) + "\n", encoding="utf-8")
     manifest = load_stk_nineturn_prod_export_manifest(
         manifest_path=manifest_path, run_id="run-1"
+    )
+    build_stk_nineturn_raw_history(
+        manifest=manifest, lake_root=tmp_path / "lake", duckdb=DuckDBResource(), confirm_write=True
     )
     build_stk_nineturn_silver_history(
         manifest=manifest, lake_root=tmp_path / "lake", duckdb=DuckDBResource(), confirm_write=True
