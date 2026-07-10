@@ -1,5 +1,13 @@
 # Tushare 神奇九转指标（`stk_nineturn`）数据集开发说明
 
+> Dagster Lake 扩展：生产 DatasetDefinition 与数据库同步口径保持不变；
+> 新增 Dagster raw/silver 资产、prod 历史 bootstrap、Tushare 日常增量、
+> 北交所代码归一与 runless event 方案见
+> `lake_console/docs/design/dagster-stk-nineturn-dataset-onboarding-plan.md`；
+> 代码级落点、SQL、sensor、性能门禁和阶段清单见
+> `lake_console/docs/design/dagster-stk-nineturn-dataset-onboarding-low-level-design.md`。
+> Dagster 日常不会读取生产数据库，也不会把本文件的生产 serving 表当作 Lake silver。
+
 ## 1. 目标与边界
 
 - 目标：新增 `stk_nineturn` 数据集，完成 Tushare 接口拉取、`raw_tushare` 落库、`core_serving` 对外服务与 Ops 任务打通。

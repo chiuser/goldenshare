@@ -24,6 +24,7 @@ from orchestrator.defs.paths import (
     raw_namechange_path,
     raw_stock_basic_path,
     raw_stock_daily_path,
+    raw_stk_nineturn_path,
     raw_stk_mins_path,
     raw_suspend_d_path,
     raw_trade_calendar_path,
@@ -56,6 +57,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_NAMECHANGE_SCHEMA,
     RAW_TUSHARE_STOCK_BASIC_SCHEMA,
     RAW_TUSHARE_STOCK_DAILY_SCHEMA,
+    RAW_TUSHARE_STK_NINETURN_SCHEMA,
     RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA,
     RAW_TUSHARE_TRADE_CALENDAR_SCHEMA,
     SILVER_ADJ_FACTOR_SCHEMA,
@@ -124,6 +126,12 @@ class PartitionModel(str, Enum):
     TRADE_DATE_PARTITION_RAW_STOCK_DAILY = "trade_date_partition_raw_stock_daily"
     TRADE_DATE_PARTITION_SILVER_STOCK_DAILY = (
         "trade_date_partition_silver_stock_daily"
+    )
+    TRADE_DATE_PARTITION_RAW_STK_NINETURN = (
+        "trade_date_partition_raw_stk_nineturn"
+    )
+    TRADE_DATE_PARTITION_SILVER_STOCK_NINETURN_DAILY = (
+        "trade_date_partition_silver_stock_nineturn_daily"
     )
     TRADE_DATE_PARTITION_RAW_ADJ_FACTOR = "trade_date_partition_raw_adj_factor"
     TRADE_DATE_PARTITION_SILVER_ADJ_FACTOR = "trade_date_partition_silver_adj_factor"
@@ -291,6 +299,10 @@ RAW_STOCK_DAILY_CHECKS = (
     "raw_stock_daily_key_integrity_check",
     "raw_stock_daily_tradable_universe_check",
     "raw_stock_daily_partition_allowed_check",
+)
+RAW_STK_NINETURN_CHECKS = (
+    "raw_tushare_stk_nineturn_contract_check",
+    "raw_tushare_stk_nineturn_content_integrity_check",
 )
 SILVER_STOCK_DAILY_CHECKS = (
     "silver_stock_daily_contract_check",
@@ -536,6 +548,22 @@ PARTITION_MODEL_DEFINITIONS = (
         PartitionModelFamily.TRADE_DATE_PARTITION,
         AssetLayer.SILVER,
         "stock_daily",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_RAW_STK_NINETURN,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.RAW,
+        "stk_nineturn",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_SILVER_STOCK_NINETURN_DAILY,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.SILVER,
+        "stock_nineturn_daily",
         "trade_date",
         PartitionPhysicalLayout.PARTITION_FILE,
     ),
@@ -1016,6 +1044,47 @@ LAKE_ASSET_CATALOG = (
         source_doc="docs/sources/tushare/股票数据/行情数据/0027_A股日线行情.md",
         blocking_check_names=RAW_STOCK_DAILY_CHECKS,
         batch_grain="trade_date",
+    ),
+    _entry(
+        asset_key="raw_tushare_stk_nineturn",
+        dataset_id="stk_nineturn",
+        layer=AssetLayer.RAW,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="quote",
+        source_system=SourceSystem.TUSHARE,
+        data_contract="source_mirror",
+        data_contract_source=DataContractSource.TUSHARE_RAW_CONTRACT,
+        column_schema=RAW_TUSHARE_STK_NINETURN_SCHEMA,
+        path_template=lake_path_template(
+            raw_stk_nineturn_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_RAW_STK_NINETURN,
+        source_api="stk_nineturn",
+        source_doc="docs/sources/tushare/股票数据/特色数据/0364_神奇九转指标.md",
+        ingestion_sources=(
+            IngestionSource.TUSHARE_API,
+            IngestionSource.PROD_DB_READONLY,
+        ),
+        default_daily_ingestion_source=IngestionSource.TUSHARE_API,
+        bootstrap_sources=(IngestionSource.PROD_DB_READONLY,),
+        blocking_check_names=RAW_STK_NINETURN_CHECKS,
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        performance_contract=_perf(
+            batch_grain="trade_date",
+            compute_engine=ComputeEngine.TUSHARE_RESOURCE,
+            source_request_policy=(
+                "daily_tushare_limit_offset; historical_prod_db_readonly"
+            ),
+            notes="Daily source is Tushare; prod DB is bootstrap-only.",
+        ),
+        notes=(
+            "Raw preserves source stock codes. Historical bootstrap accepts only "
+            "the approved prod DB export manifest."
+        ),
     ),
     _derived_entry(
         asset_key="silver_stock_daily",

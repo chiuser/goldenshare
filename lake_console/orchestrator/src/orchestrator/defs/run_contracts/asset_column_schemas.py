@@ -53,6 +53,22 @@ RAW_TUSHARE_STOCK_DAILY_SCHEMA = (
     ColumnContract("amount", "DOUBLE", "成交额，沿用 Tushare 股票日线口径"),
 )
 
+RAW_TUSHARE_STK_NINETURN_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "Tushare 源股票代码"),
+    ColumnContract("trade_date", "DATE", "Tushare 神奇九转交易日"),
+    ColumnContract("freq", "VARCHAR", "九转频率，正式口径固定为 daily"),
+    ColumnContract("open", "DOUBLE", "当日开盘价"),
+    ColumnContract("high", "DOUBLE", "当日最高价"),
+    ColumnContract("low", "DOUBLE", "当日最低价"),
+    ColumnContract("close", "DOUBLE", "当日收盘价"),
+    ColumnContract("vol", "DOUBLE", "成交量，沿用 Tushare 神奇九转口径"),
+    ColumnContract("amount", "DOUBLE", "成交额，沿用 Tushare 神奇九转口径"),
+    ColumnContract("up_count", "DOUBLE", "上九转累计计数，保留源端数值类型"),
+    ColumnContract("down_count", "DOUBLE", "下九转累计计数，保留源端数值类型"),
+    ColumnContract("nine_up_turn", "VARCHAR", "上九转信号，允许 +9 或空"),
+    ColumnContract("nine_down_turn", "VARCHAR", "下九转信号，允许 -9 或空"),
+)
+
 RAW_STK_MINS_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "股票代码"),
     ColumnContract("freq", "INTEGER", "分钟频度，允许值为 1、5、15、30、60"),
@@ -253,6 +269,22 @@ SILVER_STOCK_DAILY_SCHEMA = (
     ColumnContract("pct_chg", "DOUBLE", "涨跌幅，百分比"),
     ColumnContract("vol", "DOUBLE", "成交量，沿用 Tushare 股票日线口径"),
     ColumnContract("amount", "DOUBLE", "成交额，沿用 Tushare 股票日线口径"),
+)
+
+SILVER_STOCK_NINETURN_DAILY_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "标准股票代码"),
+    ColumnContract("trade_date", "DATE", "交易日"),
+    ColumnContract("freq", "VARCHAR", "九转频率，正式口径固定为 daily"),
+    ColumnContract("open", "DOUBLE", "当日开盘价"),
+    ColumnContract("high", "DOUBLE", "当日最高价"),
+    ColumnContract("low", "DOUBLE", "当日最低价"),
+    ColumnContract("close", "DOUBLE", "当日收盘价"),
+    ColumnContract("vol", "DOUBLE", "成交量"),
+    ColumnContract("amount", "DOUBLE", "成交额"),
+    ColumnContract("up_count", "INTEGER", "非负上九转累计计数"),
+    ColumnContract("down_count", "INTEGER", "非负下九转累计计数"),
+    ColumnContract("nine_up_turn", "VARCHAR", "上九转信号，允许 +9 或空"),
+    ColumnContract("nine_down_turn", "VARCHAR", "下九转信号，允许 -9 或空"),
 )
 
 SILVER_ADJ_FACTOR_SCHEMA = (

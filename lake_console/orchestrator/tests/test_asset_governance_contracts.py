@@ -58,6 +58,7 @@ from orchestrator.defs.assets.stock_daily import (
     silver_stock_daily,
 )
 from orchestrator.defs.assets.stock_daily_qfq import gold_stock_daily_qfq
+from orchestrator.defs.assets.stk_nineturn import raw_tushare_stk_nineturn
 from orchestrator.defs.assets.stk_mins import (
     GOLD_STK_MINS_QFQ_COLUMNS,
     STK_MINS_RAW_COLUMN_TYPES,
@@ -133,6 +134,7 @@ from orchestrator.defs.duckdb_sql import (
     TRADE_CALENDAR_SILVER_REQUIRED_COLUMNS,
 )
 from orchestrator.defs.partitions import (
+    cn_a_stock_trade_days,
     cn_a_stock_mins_silver_trade_days,
     cn_a_stock_mins_trade_days,
 )
@@ -160,6 +162,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_STK_MINS_SCHEMA,
     RAW_TUSHARE_STOCK_BASIC_SCHEMA,
     RAW_TUSHARE_STOCK_DAILY_SCHEMA,
+    RAW_TUSHARE_STK_NINETURN_SCHEMA,
     RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA,
     RAW_TUSHARE_TRADE_CALENDAR_SCHEMA,
     SILVER_INDEX_BASIC_SCHEMA,
@@ -168,6 +171,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_NAMECHANGE_SCHEMA,
     SILVER_STOCK_BASIC_SCHEMA,
     SILVER_STOCK_DAILY_SCHEMA,
+    SILVER_STOCK_NINETURN_DAILY_SCHEMA,
     SILVER_STOCK_IDENTITY_MAP_SCHEMA,
     SILVER_STOCK_LIFECYCLE_SCHEMA,
     SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
@@ -176,6 +180,12 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 from orchestrator.defs.stk_mins_qfq_macd_kdj import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_COLUMNS,
     GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_COLUMNS,
+)
+from orchestrator.defs.stk_nineturn_contract import (
+    RAW_STK_NINETURN_COLUMNS,
+    RAW_STK_NINETURN_COLUMN_TYPES,
+    SILVER_STOCK_NINETURN_DAILY_COLUMNS,
+    SILVER_STOCK_NINETURN_DAILY_COLUMN_TYPES,
 )
 from orchestrator.defs.run_contracts.metadata import (
     DATA_CONTRACT_METADATA_KEY,
@@ -205,6 +215,7 @@ ACTIVE_ASSET_DEFINITIONS = (
     raw_tushare_suspend_d,
     silver_stock_suspend_daily,
     raw_tushare_stock_daily,
+    raw_tushare_stk_nineturn,
     silver_stock_daily,
     raw_tushare_adj_factor,
     silver_adj_factor,
@@ -323,7 +334,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
 
     def test_current_assets_have_governance_tags_and_dataset_metadata(self) -> None:
         catalog_entries = _catalog_entries_by_key()
-        self.assertEqual(len(catalog_entries), 58)
+        self.assertEqual(len(catalog_entries), 59)
         self.assertEqual(set(catalog_entries), set(ACTIVE_ASSETS_BY_KEY))
 
         for asset_key, entry in catalog_entries.items():
@@ -374,7 +385,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         entries = list_lake_asset_catalog_entries()
 
         self.assertIsInstance(entries, tuple)
-        self.assertEqual(len(entries), 58)
+        self.assertEqual(len(entries), 59)
         self.assertEqual(tuple(entry.asset_key for entry in entries), list_lake_asset_keys())
         self.assertEqual(set(list_lake_asset_keys()), set(ACTIVE_ASSETS_BY_KEY))
         self.assertIs(
@@ -470,6 +481,11 @@ class AssetGovernanceContractTests(unittest.TestCase):
                         cn_a_stock_mins_silver_trade_days,
                     )
 
+        self.assertEqual(
+            raw_tushare_stk_nineturn.partitions_def,
+            cn_a_stock_trade_days,
+        )
+
     def test_assets_register_definition_column_schema(
         self,
     ) -> None:
@@ -555,6 +571,28 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self.assertEqual(
             STOCK_DAILY_RAW_COLUMN_TYPES,
             {column.name: column.type for column in RAW_TUSHARE_STOCK_DAILY_SCHEMA},
+        )
+        self.assertEqual(
+            RAW_STK_NINETURN_COLUMNS,
+            tuple(column.name for column in RAW_TUSHARE_STK_NINETURN_SCHEMA),
+        )
+        self.assertEqual(
+            RAW_STK_NINETURN_COLUMN_TYPES,
+            {
+                column.name: column.type
+                for column in RAW_TUSHARE_STK_NINETURN_SCHEMA
+            },
+        )
+        self.assertEqual(
+            SILVER_STOCK_NINETURN_DAILY_COLUMNS,
+            tuple(column.name for column in SILVER_STOCK_NINETURN_DAILY_SCHEMA),
+        )
+        self.assertEqual(
+            SILVER_STOCK_NINETURN_DAILY_COLUMN_TYPES,
+            {
+                column.name: column.type
+                for column in SILVER_STOCK_NINETURN_DAILY_SCHEMA
+            },
         )
         self.assertEqual(
             ADJ_FACTOR_RAW_REQUIRED_COLUMNS,

@@ -166,6 +166,8 @@ docs/
 - [股票收盘集合竞价](/Users/congming/github/goldenshare/docs/datasets/stk-auction-c-dataset-development.md)
 - [神奇九转指标](/Users/congming/github/goldenshare/docs/datasets/stk-nineturn-dataset-development.md)
 - [神奇九转指标 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/stk-nineturn-prod-raw-db-lake-export-plan.md)
+- [Dagster 神奇九转数据集接入方案](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stk-nineturn-dataset-onboarding-plan.md)
+- [Dagster 神奇九转数据集接入 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stk-nineturn-dataset-onboarding-low-level-design.md)
 - [股票历史分钟行情](/Users/congming/github/goldenshare/docs/datasets/stk-mins-dataset-development.md)
 - [指数历史分钟行情](/Users/congming/github/goldenshare/docs/datasets/index-mins-dataset-development.md)
 - [指数历史分钟行情 Lake 双模式接入方案 v1](/Users/congming/github/goldenshare/docs/datasets/index-mins-dual-source-lake-plan-v1.md)

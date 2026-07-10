@@ -135,6 +135,10 @@ RAW_STOCK_DAILY_CHECKS = (
     "raw_stock_daily_tradable_universe_check",
     "raw_stock_daily_partition_allowed_check",
 )
+RAW_STK_NINETURN_CHECKS = (
+    "raw_tushare_stk_nineturn_contract_check",
+    "raw_tushare_stk_nineturn_content_integrity_check",
+)
 SILVER_STOCK_DAILY_CHECKS = (
     "silver_stock_daily_contract_check",
     "silver_stock_daily_key_integrity_check",
@@ -364,6 +368,12 @@ ASSET_CHECK_GOVERNANCE: dict[str, dict[str, AssetCheckGovernanceRule]] = {
         category=MOVE_TO_SENSOR_LAKE_READINESS,
         phase="P3",
         readiness=True,
+        retention_allowed=True,
+    ),
+    "raw_tushare_stk_nineturn": _rules(
+        RAW_STK_NINETURN_CHECKS,
+        category=MOVE_TO_SENSOR_LAKE_READINESS,
+        phase="STK_NINETURN_N3",
         retention_allowed=True,
     ),
     "silver_stock_daily": _rules(

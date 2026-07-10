@@ -321,15 +321,16 @@ Check    = 这个资产生成后是否合格
 
 ### Partitioned Asset Checks API 门禁
 
-对 partitioned asset 增加 asset checks 时，优先让 check 绑定资产对象，不要给 check 手写 `partitions_def`。
+对 partitioned asset 增加 asset checks 时，必须同时绑定资产对象并显式声明与资产一致的 `partitions_def`。
 
 规则：
 
-1. 推荐写法：`@dg.asset_check(asset=silver_stock_daily, blocking=True)`。
-2. 避免写法：`@dg.asset_check(asset="silver_stock_daily", partitions_def=cn_a_trade_days, ...)`。
-3. 原因：当前 Dagster 版本在 `asset_check` 上显式指定 `partitions_def` 会触发 preview warning；绑定 partitioned asset 对象时，check 会继承 asset 的分区语义。
-4. 验证 partitioned checks 时，必须显式传入 `partition_key`；否则不能说明具体交易日分区已经验收。
-5. 读取 `ASSET_CHECK_EVALUATION` 事件时，`event.event_specific_data` 本身就是 `AssetCheckEvaluation`；不要再访问不存在的 `.asset_check_evaluation` 属性。
+1. 正式写法：`@dg.asset_check(asset=silver_stock_daily, partitions_def=cn_a_stock_trade_days, blocking=True)`。
+2. 禁止只写 `asset=silver_stock_daily` 后假设 check 会自动继承分区。当前 Dagster 版本的本地 asset + checks job 回归测试证明，这种写法会让 `AssetCheckEvaluation.partition` 与 `asset_check_executions.partition` 为空。
+3. 显式 `partitions_def` 当前可能触发 preview warning，但 check event 的正确分区归属优先于该 warning；不得为了消除 warning 退回空 partition event。
+4. check 的 `partitions_def` 必须与目标 asset 的 partition definition 相同，并由单元测试同时断言 definition 属性、`AssetCheckEvaluation.partition` 与 `asset_check_executions.partition`。
+5. 验证 partitioned checks 时，必须显式传入 `partition_key`；否则不能说明具体交易日分区已经验收。
+6. 读取 `ASSET_CHECK_EVALUATION` 事件时，`event.event_specific_data` 本身就是 `AssetCheckEvaluation`；check 分区应读取 `event.event_specific_data.partition`，不得误用顶层 `DagsterEvent.partition`，也不要再访问不存在的 `.asset_check_evaluation` 属性。
 
 ### 提交前检查门禁
 

@@ -92,6 +92,28 @@ def raw_stock_daily_path(root: Path, partition_key: str) -> Path:
     )
 
 
+def raw_stk_nineturn_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        RAW,
+        "tushare",
+        "stk_nineturn",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
+def silver_stock_nineturn_daily_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        SILVER,
+        "quote",
+        "stock_nineturn_daily",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
 def raw_stk_mins_path(root: Path, freq: int | str, partition_key: str) -> Path:
     return lake_path(
         root,

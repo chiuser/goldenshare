@@ -4467,6 +4467,67 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_stk_nineturn_raw_slice_keeps_definition_boundaries(self) -> None:
+        asset_source = Path(
+            "src/orchestrator/defs/assets/stk_nineturn.py"
+        ).read_text()
+        checks_source = Path(
+            "src/orchestrator/defs/checks/stk_nineturn_checks.py"
+        ).read_text()
+        job_source = Path(
+            "src/orchestrator/defs/jobs/stk_nineturn_update.py"
+        ).read_text()
+        issues = []
+
+        required_asset_fragments = (
+            'name="raw_tushare_stk_nineturn"',
+            "partitions_def=cn_a_stock_trade_days",
+            "fetch_tushare_partition_to_raw",
+            'api_name="stk_nineturn"',
+            '"freq": "daily"',
+            "RAW_STK_NINETURN_COLUMNS",
+            "RAW_STK_NINETURN_COLUMN_TYPES",
+        )
+        required_check_fragments = (
+            "asset=raw_tushare_stk_nineturn",
+            "partitions_def=cn_a_stock_trade_days",
+            "raw_tushare_stk_nineturn_contract_check",
+            "raw_tushare_stk_nineturn_content_integrity_check",
+            "load_raw_stk_nineturn_metrics",
+        )
+        required_job_fragments = (
+            'name="raw_stk_nineturn_update_job"',
+            "AssetSelection.assets(raw_tushare_stk_nineturn)",
+            "AssetSelection.checks_for_assets(raw_tushare_stk_nineturn)",
+        )
+        issues.extend(
+            f"stk_nineturn raw asset misses fragment: {fragment}"
+            for fragment in required_asset_fragments
+            if fragment not in asset_source
+        )
+        issues.extend(
+            f"stk_nineturn raw checks miss fragment: {fragment}"
+            for fragment in required_check_fragments
+            if fragment not in checks_source
+        )
+        issues.extend(
+            f"stk_nineturn raw job misses fragment: {fragment}"
+            for fragment in required_job_fragments
+            if fragment not in job_source
+        )
+        for forbidden in (
+            "dg.RunRequest(",
+            "silver_stock_identity_map",
+            "bse_mapping",
+        ):
+            if forbidden in asset_source:
+                issues.append(f"stk_nineturn raw asset contains forbidden {forbidden}")
+        for forbidden in ("TushareResource", "DuckDBResource", "read_parquet("):
+            if forbidden in job_source:
+                issues.append(f"stk_nineturn job contains forbidden {forbidden}")
+
+        self.assertEqual(issues, [])
+
 
 if __name__ == "__main__":
     unittest.main()
