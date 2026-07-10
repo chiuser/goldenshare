@@ -1222,6 +1222,11 @@ prod export manifest，Raw 和 Silver 均按年度建立一次 DuckDB 主查询�
 不写 Dagster event。N5 代码完成不等于正式 Lake 已写入，正式执行仍须单独审批并按
 Raw -> Raw audit -> Silver -> final audit 串行验收。
 
+N5A 首次正式执行发现并修正了一个跨卷原子替换问题：临时目录必须创建在
+`lake_root` 同一文件系统内，不能使用系统 `/var/folders` 临时目录；否则 macOS 的
+`os.replace` 会返回 cross-device link。修正后首次执行未产生 formal Raw 文件，formal
+Raw/Silver 仍为 0 分区，后续可从同一 manifest 幂等重跑。
+
 ### N6 Runless Events
 
 动作：dry-run -> 3 日样本 -> all materializations -> recent20 checks -> final event audit。

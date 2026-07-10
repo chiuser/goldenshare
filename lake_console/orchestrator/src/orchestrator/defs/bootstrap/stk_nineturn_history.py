@@ -152,7 +152,9 @@ def build_stk_nineturn_raw_history(
         sources_by_year.setdefault(int(partition_key[:4]), []).append(
             (partition_key, source_path)
         )
-    with duckdb.connect() as connection, TemporaryDirectory(prefix="stk_nineturn_raw_") as temp_dir:
+    with duckdb.connect() as connection, TemporaryDirectory(
+        dir=str(lake_root), prefix=".stk_nineturn_raw_"
+    ) as temp_dir:
         temp_root = Path(temp_dir)
         for year, year_sources in sorted(sources_by_year.items()):
             table_name = f"nineturn_raw_{year}"
@@ -208,7 +210,9 @@ def build_stk_nineturn_silver_history(
         sources_by_year.setdefault(year, []).append(source_path)
         dates_by_year.setdefault(year, []).append(key)
 
-    with duckdb.connect() as connection, TemporaryDirectory(prefix="stk_nineturn_silver_") as temp_dir:
+    with duckdb.connect() as connection, TemporaryDirectory(
+        dir=str(lake_root), prefix=".stk_nineturn_silver_"
+    ) as temp_dir:
         temp_root = Path(temp_dir)
         for year in sorted(sources_by_year):
             table_name = f"nineturn_silver_{year}"
