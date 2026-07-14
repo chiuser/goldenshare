@@ -85,6 +85,15 @@ src/
 
 ---
 
+## 管理员持续授权
+
+1. `/private/tmp`：允许创建、修改和执行临时审计脚本及报告，无需逐次向管理员确认。
+2. DG 只读审计：允许直接读取 Dagster instance、只读数据库、workspace/code location 和 lake 文件，无需逐次向管理员确认。
+3. 上述授权不包含 job、sensor、materialize、backfill、runless event、动态分区或任何数据库/lake 写入；这些仍须按阶段获得管理员明确批准。
+4. 工具层如因沙箱或本机权限要求弹出授权提示，仍按工具规则申请；不得把该提示误解为需要再次请求业务审批。
+
+---
+
 ## Codex Hook 禁用规则
 
 1. 本仓库禁止新增、恢复或启用 repo-scoped Codex hooks，包括 `.codex/hooks.json`、`.codex/hooks/**` 以及任何 `PreToolUse`、`UserPromptSubmit`、`Stop` hook。
