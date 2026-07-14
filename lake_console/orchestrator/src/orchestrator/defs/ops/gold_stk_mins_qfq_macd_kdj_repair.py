@@ -31,6 +31,7 @@ from orchestrator.defs.stk_mins_qfq import (
 from orchestrator.defs.stk_mins_qfq_macd_kdj import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME,
     discover_gold_stk_mins_qfq_source_year_paths,
+    gold_stk_mins_qfq_macd_kdj_state_path,
     write_gold_stk_mins_qfq_macd_kdj_rows,
 )
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
@@ -42,6 +43,14 @@ MACD_KDJ_REPAIR_EMPTY_STOCK_CODES_ERROR = (
 )
 MACD_KDJ_REPAIR_MANUAL_UNSUPPORTED_ERROR = (
     "MACD/KDJ manual repair is unsupported without a qfq factor repair upstream batch."
+)
+MACD_KDJ_REPAIR_FULL_FREQUENCY_ERROR = (
+    "MACD/KDJ repair requires exactly the full 1/5/15/30/60/90/120 frequency set; "
+    "partial, duplicate, extra, or reordered frequencies would make the fourteen "
+    "completion checks claim a repair that did not run."
+)
+MACD_KDJ_REPAIR_TARGET_STATE_MISSING_ERROR = (
+    "MACD/KDJ scoped repair requires every target state file before writing."
 )
 LOGGER = DgStdoutLogger("stk_mins_qfq_macd_kdj_repair")
 
@@ -160,6 +169,53 @@ def _repair_completion_asset_keys() -> tuple[dg.AssetKey, ...]:
         for freq in STK_MINS_QFQ_FREQS
     )
     return indicator_keys + state_keys
+
+
+def _assert_repair_target_state_files_exist(
+    *,
+    lake_root: Path,
+    freqs: tuple[int, ...],
+    target_dates: tuple[str, ...],
+    repair_required_codes_hash: str,
+    upstream_batch_id: str,
+) -> None:
+    missing_paths: list[Path] = []
+    missing_count_by_freq: dict[str, int] = {}
+    for freq in freqs:
+        missing_for_freq = []
+        for trade_date in target_dates:
+            state_path = gold_stk_mins_qfq_macd_kdj_state_path(
+                lake_root,
+                freq,
+                trade_date,
+            )
+            if not state_path.exists():
+                missing_for_freq.append(state_path)
+        if missing_for_freq:
+            missing_paths.extend(missing_for_freq)
+            missing_count_by_freq[str(freq)] = len(missing_for_freq)
+    if not missing_paths:
+        return
+
+    first_missing_path = missing_paths[0]
+    raise dg.Failure(
+        description=(
+            f"{MACD_KDJ_REPAIR_TARGET_STATE_MISSING_ERROR} "
+            f"missing_state_file_count={len(missing_paths)}, "
+            f"first_missing_state_path={first_missing_path}."
+        ),
+        metadata={
+            "target_state_file_count": len(freqs) * len(target_dates),
+            "missing_state_file_count": len(missing_paths),
+            "missing_state_file_count_by_freq": missing_count_by_freq,
+            "missing_state_file_samples": [
+                str(path) for path in missing_paths[:10]
+            ],
+            "first_missing_state_path": str(first_missing_path),
+            "repair_required_codes_hash": repair_required_codes_hash,
+            "upstream_batch_id": upstream_batch_id,
+        },
+    )
 
 
 def _repair_scope_from_qfq_factor_repair_status(
@@ -346,6 +402,8 @@ def gold_stk_mins_qfq_macd_kdj_repair_op(context: dg.OpExecutionContext) -> None
         raise dg.Failure(
             "MACD/KDJ repair requires explicit repair_required_codes_hash."
         )
+    if freqs != STK_MINS_QFQ_FREQS:
+        raise dg.Failure(MACD_KDJ_REPAIR_FULL_FREQUENCY_ERROR)
 
     qfq_factor_repair_status = gold_stk_mins_qfq_factor_repair_status(
         context.instance,
@@ -455,6 +513,7 @@ def gold_stk_mins_qfq_macd_kdj_repair_op(context: dg.OpExecutionContext) -> None
             lake_root,
             freq=freq,
             trade_dates=target_dates,
+            stock_codes=stock_codes,
         )
         if not source_paths:
             raise FileNotFoundError(
@@ -471,6 +530,14 @@ def gold_stk_mins_qfq_macd_kdj_repair_op(context: dg.OpExecutionContext) -> None
         )
         source_paths_by_freq[freq] = source_paths
         previous_state_path_by_freq[freq] = previous_state_path
+
+    _assert_repair_target_state_files_exist(
+        lake_root=lake_root,
+        freqs=freqs,
+        target_dates=target_dates,
+        repair_required_codes_hash=repair_required_codes_hash,
+        upstream_batch_id=upstream_batch_id,
+    )
 
     total_indicator_file_count = 0
     total_indicator_row_count = 0

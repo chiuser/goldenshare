@@ -824,6 +824,53 @@ class RunContractStaticGateTests(unittest.TestCase):
             if fragment in repair_sensor_source
         )
 
+        repair_op_source = repair_op_path.read_text()
+        required_repair_op_fragments = (
+            "stock_codes=stock_codes",
+            "_assert_repair_target_state_files_exist",
+            "freqs != STK_MINS_QFQ_FREQS",
+            "MACD_KDJ_REPAIR_FULL_FREQUENCY_ERROR",
+            "repair_required_codes_hash=repair_required_codes_hash",
+            "upstream_batch_id=upstream_batch_id",
+        )
+        issues.extend(
+            f"{repair_op_path} misses R5 MACD/KDJ repair guard: {fragment}"
+            for fragment in required_repair_op_fragments
+            if fragment not in repair_op_source
+        )
+
+        source_scope_callers = (
+            asset_path,
+            CHECKS_DIR / "stk_mins_qfq_macd_kdj_checks.py",
+            DEFS_DIR / "bootstrap" / "stk_mins_qfq_macd_kdj_history.py",
+            repair_op_path,
+        )
+        repair_scope_call_count = 0
+        for path in source_scope_callers:
+            source_tree = ast.parse(path.read_text())
+            for node in ast.walk(source_tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                if _call_name(node.func) != "discover_gold_stk_mins_qfq_source_year_paths":
+                    continue
+                uses_repair_scope = any(
+                    keyword.arg == "stock_codes" for keyword in node.keywords
+                )
+                if not uses_repair_scope:
+                    continue
+                if path != repair_op_path:
+                    issues.append(
+                        f"{path} must not pass repair-only stock_codes scope to "
+                        "MACD/KDJ source discovery"
+                    )
+                    continue
+                repair_scope_call_count += 1
+        if repair_scope_call_count != 1:
+            issues.append(
+                "MACD/KDJ repair op must be the only source discovery caller "
+                "that passes stock_codes scope"
+            )
+
         asset_source = asset_path.read_text()
         guard_call = "assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate"
         guard_call_site = (

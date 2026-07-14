@@ -936,8 +936,8 @@ previous_state_ready = (
       M9 已完成。正式 daily writer body 已禁止 latest-before-state fallback；bootstrap/history helper 仍可保留历史 state 发现能力，但不得被 daily asset write 正式路径调用。
     </div>
 
-    <h3>4.10 <code>ops/gold_stk_mins_qfq_macd_kdj_repair.py</code>（M10 已完成）</h3>
-    <p>目标：MACD/KDJ repair op 的 target range 和 previous state 都来自 expected calendar，且在任何写文件前完成全量 fail-closed preflight。</p>
+    <h3>4.10 <code>ops/gold_stk_mins_qfq_macd_kdj_repair.py</code>（M10 已完成，R5-P0 已补强）</h3>
+    <p>目标：MACD/KDJ repair op 的 target range 和 previous state 都来自 expected calendar。M10 已完成 expected range、注册和起始上一 state 的 fail-closed preflight；R5-P0 已补齐全 target state 文件预检和全七频度约束。正式 repair 的 lake 写入仍需在 state 缺口补齐、live preflight 和备份审批后单独执行。</p>
 
     <h4>4.10.1 当前代码事实</h4>
     <ul>
@@ -1066,8 +1066,8 @@ for freq in freqs:
     </ul>
 
     <div class="warning">
-      <strong>当前代码事实：</strong>
-      M10 已完成。<code>gold_stk_mins_qfq_macd_kdj_repair_op</code> 已从 registered-only range 切到 expected range，并在任何写文件或 completion checks 前完成 expected registration、qfq source path 与 exact previous expected state preflight。
+      <strong>当前代码事实（2026-07-14 校正并已补强）：</strong>
+      M10 已完成。<code>gold_stk_mins_qfq_macd_kdj_repair_op</code> 已从 registered-only range 切到 expected range，并在任何写文件或 completion checks 前完成 expected registration、scoped qfq source path、exact previous expected state 与全部 target state 文件预检。repair 还强制全七频度，避免部分频度却写出全量 completion check。R5-P0 的 131 项关联单测、静态门禁和性能门禁已通过；正式 R5 lake 执行尚未开始。详细执行门禁见 <code>dagster-stk-mins-qfq-macd-kdj-reconciliation-recovery-r5-low-level-design.md</code>。
     </div>
   </section>
 

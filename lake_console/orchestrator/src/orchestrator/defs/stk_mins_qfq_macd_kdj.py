@@ -161,12 +161,26 @@ def discover_gold_stk_mins_qfq_source_year_paths(
     *,
     freq: int | str,
     trade_dates: Sequence[str],
+    stock_codes: Sequence[str] | None = None,
 ) -> tuple[Path, ...]:
     normalized_freq = normalize_stk_mins_qfq_freq(freq)
     years = {date.fromisoformat(trade_date).year for trade_date in trade_dates}
     years.update(year - 1 for year in tuple(years))
     paths: list[Path] = []
     for year in sorted(years):
+        if stock_codes is not None:
+            for scoped_code in sorted(
+                {str(item).strip() for item in stock_codes if str(item).strip()}
+            ):
+                path = gold_stk_mins_qfq_path(
+                    lake_root,
+                    normalized_freq,
+                    scoped_code,
+                    str(year),
+                )
+                if path.exists():
+                    paths.append(path)
+            continue
         freq_root = gold_stk_mins_qfq_path(
             lake_root,
             normalized_freq,
@@ -174,7 +188,7 @@ def discover_gold_stk_mins_qfq_source_year_paths(
             str(year),
         ).parents[2]
         paths.extend(sorted(freq_root.glob(f"ts_code=*/year={year}/part-000.parquet")))
-    return tuple(paths)
+    return tuple(sorted(set(paths)))
 
 
 def discover_latest_macd_kdj_state_path_before_trade_date(

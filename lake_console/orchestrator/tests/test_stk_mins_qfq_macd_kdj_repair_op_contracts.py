@@ -14,7 +14,10 @@ from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
 )
 from orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair import (
     MACD_KDJ_REPAIR_EMPTY_STOCK_CODES_ERROR,
+    MACD_KDJ_REPAIR_FULL_FREQUENCY_ERROR,
     MACD_KDJ_REPAIR_MANUAL_UNSUPPORTED_ERROR,
+    MACD_KDJ_REPAIR_TARGET_STATE_MISSING_ERROR,
+    _assert_repair_target_state_files_exist,
     gold_stk_mins_qfq_macd_kdj_repair_op,
 )
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
@@ -155,7 +158,45 @@ def _touch_previous_state_files(
         state_path.write_text("previous-state", encoding="utf-8")
 
 
+def _touch_target_state_files(
+    lake_root: Path,
+    *,
+    trade_dates: tuple[str, ...],
+    freqs: tuple[int, ...] = STK_MINS_QFQ_FREQS,
+) -> None:
+    for freq in freqs:
+        for trade_date in trade_dates:
+            state_path = gold_stk_mins_qfq_macd_kdj_state_path(
+                lake_root,
+                freq,
+                trade_date,
+            )
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            state_path.write_text("target-state", encoding="utf-8")
+
+
 class StkMinsQfqMacdKdjRepairOpContractTests(unittest.TestCase):
+    def test_target_state_preflight_keeps_upstream_repair_identity(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            with self.assertRaises(dg.Failure) as raised:
+                _assert_repair_target_state_files_exist(
+                    lake_root=lake_root,
+                    freqs=(1,),
+                    target_dates=(START_DATE,),
+                    repair_required_codes_hash=REPAIR_CODES_HASH,
+                    upstream_batch_id=UPSTREAM_BATCH_ID,
+                )
+
+        self.assertEqual(
+            raised.exception.metadata["repair_required_codes_hash"].text,
+            REPAIR_CODES_HASH,
+        )
+        self.assertEqual(
+            raised.exception.metadata["upstream_batch_id"].text,
+            UPSTREAM_BATCH_ID,
+        )
+
     def test_repair_op_uses_qfq_writer_pool(self) -> None:
         self.assertEqual(
             gold_stk_mins_qfq_macd_kdj_repair_op.pool,
@@ -194,6 +235,10 @@ class StkMinsQfqMacdKdjRepairOpContractTests(unittest.TestCase):
             lake_root = Path(temp_dir)
             _write_calendar_rows(lake_root, DEFAULT_EXPECTED_TRADE_DATES)
             _touch_previous_state_files(lake_root)
+            _touch_target_state_files(
+                lake_root,
+                trade_dates=DEFAULT_TARGET_TRADE_DATES,
+            )
             instance = dg.DagsterInstance.ephemeral()
             instance.add_dynamic_partitions(
                 cn_a_stock_mins_silver_trade_days.name,
@@ -202,7 +247,8 @@ class StkMinsQfqMacdKdjRepairOpContractTests(unittest.TestCase):
 
             captured_write_calls: list[dict[str, object]] = []
 
-            def fake_source_paths(lake_root, *, freq, trade_dates):
+            def fake_source_paths(lake_root, *, freq, trade_dates, stock_codes):
+                self.assertEqual(stock_codes, REPAIR_CODES)
                 return (Path(temp_dir) / f"source-{freq}.parquet",)
 
             def fake_write_rows(
@@ -351,9 +397,14 @@ class StkMinsQfqMacdKdjRepairOpContractTests(unittest.TestCase):
                 cn_a_stock_mins_silver_trade_days.name,
                 [FIRST_EXPECTED_TRADE_DATE, repair_end_trade_date],
             )
+            _touch_target_state_files(
+                lake_root,
+                trade_dates=(FIRST_EXPECTED_TRADE_DATE, repair_end_trade_date),
+            )
             captured_write_calls: list[dict[str, object]] = []
 
-            def fake_source_paths(lake_root, *, freq, trade_dates):
+            def fake_source_paths(lake_root, *, freq, trade_dates, stock_codes):
+                self.assertEqual(stock_codes, REPAIR_CODES)
                 return (Path(temp_dir) / f"source-{freq}.parquet",)
 
             def fake_write_rows(
@@ -570,7 +621,7 @@ class StkMinsQfqMacdKdjRepairOpContractTests(unittest.TestCase):
                 ["2026-06-16"],
             )
 
-            def fake_source_paths(lake_root, *, freq, trade_dates):
+            def fake_source_paths(lake_root, *, freq, trade_dates, stock_codes):
                 return (Path(temp_dir) / f"source-{freq}.parquet",)
 
             with (
@@ -621,13 +672,17 @@ class StkMinsQfqMacdKdjRepairOpContractTests(unittest.TestCase):
             lake_root = Path(temp_dir)
             _write_calendar_rows(lake_root, DEFAULT_EXPECTED_TRADE_DATES)
             _touch_previous_state_files(lake_root)
+            _touch_target_state_files(
+                lake_root,
+                trade_dates=DEFAULT_TARGET_TRADE_DATES,
+            )
             instance = dg.DagsterInstance.ephemeral()
             instance.add_dynamic_partitions(
                 cn_a_stock_mins_silver_trade_days.name,
                 list(DEFAULT_TARGET_TRADE_DATES),
             )
 
-            def fake_source_paths(lake_root, *, freq, trade_dates):
+            def fake_source_paths(lake_root, *, freq, trade_dates, stock_codes):
                 if freq == 5:
                     return ()
                 return (Path(temp_dir) / f"source-{freq}.parquet",)
@@ -667,6 +722,105 @@ class StkMinsQfqMacdKdjRepairOpContractTests(unittest.TestCase):
             str(result.get_step_failure_events()[0].event_specific_data.error),
         )
         mocked_write_rows.assert_not_called()
+
+    def test_repair_op_fails_before_writing_when_any_target_state_is_missing(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            _write_calendar_rows(lake_root, DEFAULT_EXPECTED_TRADE_DATES)
+            _touch_previous_state_files(lake_root)
+            _touch_target_state_files(
+                lake_root,
+                trade_dates=DEFAULT_TARGET_TRADE_DATES,
+            )
+            gold_stk_mins_qfq_macd_kdj_state_path(
+                lake_root,
+                60,
+                "2026-06-05",
+            ).unlink()
+            instance = dg.DagsterInstance.ephemeral()
+            instance.add_dynamic_partitions(
+                cn_a_stock_mins_silver_trade_days.name,
+                list(DEFAULT_TARGET_TRADE_DATES),
+            )
+
+            def fake_source_paths(lake_root, *, freq, trade_dates, stock_codes):
+                return (Path(temp_dir) / f"source-{freq}.parquet",)
+
+            with (
+                patch(
+                    "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
+                    "gold_stk_mins_qfq_factor_repair_status",
+                    return_value=_ready_qfq_factor_repair_status(),
+                ),
+                patch(
+                    "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
+                    "discover_gold_stk_mins_qfq_source_year_paths",
+                    side_effect=fake_source_paths,
+                ),
+                patch(
+                    "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
+                    "write_gold_stk_mins_qfq_macd_kdj_rows",
+                ) as mocked_write_rows,
+            ):
+                result = gold_stk_mins_qfq_macd_kdj_repair_job.execute_in_process(
+                    run_config={
+                        "ops": {
+                            "gold_stk_mins_qfq_macd_kdj_repair_op": {
+                                "config": _full_replay_config(),
+                            }
+                        }
+                    },
+                    instance=instance,
+                    raise_on_error=False,
+                    resources=_resources(temp_dir),
+                )
+            records = instance.get_event_records(
+                dg.EventRecordsFilter(
+                    event_type=dg.DagsterEventType.ASSET_CHECK_EVALUATION,
+                ),
+                limit=20,
+            )
+
+        self.assertFalse(result.success)
+        self.assertIn(
+            MACD_KDJ_REPAIR_TARGET_STATE_MISSING_ERROR,
+            str(result.get_step_failure_events()[0].event_specific_data.error),
+        )
+        mocked_write_rows.assert_not_called()
+        self.assertEqual(records, [])
+
+    def test_repair_op_rejects_non_full_frequency_scope_before_writing(self) -> None:
+        invalid_frequency_sets = (
+            [1, 5],
+            [1, 5, 15, 30, 60, 90, 120, 120],
+            [5, 1, 15, 30, 60, 90, 120],
+        )
+        for freqs in invalid_frequency_sets:
+            with self.subTest(freqs=freqs), TemporaryDirectory() as temp_dir:
+                with patch(
+                    "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
+                    "write_gold_stk_mins_qfq_macd_kdj_rows",
+                ) as mocked_write_rows:
+                    result = gold_stk_mins_qfq_macd_kdj_repair_job.execute_in_process(
+                        run_config={
+                            "ops": {
+                                "gold_stk_mins_qfq_macd_kdj_repair_op": {
+                                    "config": _full_replay_config(freqs=freqs),
+                                }
+                            }
+                        },
+                        raise_on_error=False,
+                        resources=_resources(temp_dir),
+                    )
+
+                self.assertFalse(result.success)
+                self.assertIn(
+                    MACD_KDJ_REPAIR_FULL_FREQUENCY_ERROR,
+                    str(result.get_step_failure_events()[0].event_specific_data.error),
+                )
+                mocked_write_rows.assert_not_called()
 
     def test_repair_op_rejects_stock_codes_that_conflict_with_qfq_metadata(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -882,13 +1036,17 @@ class StkMinsQfqMacdKdjRepairOpContractTests(unittest.TestCase):
             lake_root = Path(temp_dir)
             _write_calendar_rows(lake_root, DEFAULT_EXPECTED_TRADE_DATES)
             _touch_previous_state_files(lake_root)
+            _touch_target_state_files(
+                lake_root,
+                trade_dates=DEFAULT_TARGET_TRADE_DATES,
+            )
             instance = dg.DagsterInstance.ephemeral()
             instance.add_dynamic_partitions(
                 cn_a_stock_mins_silver_trade_days.name,
                 list(DEFAULT_TARGET_TRADE_DATES),
             )
 
-            def fake_source_paths(lake_root, *, freq, trade_dates):
+            def fake_source_paths(lake_root, *, freq, trade_dates, stock_codes):
                 return (Path(temp_dir) / f"source-{freq}.parquet",)
 
             def fake_write_rows(

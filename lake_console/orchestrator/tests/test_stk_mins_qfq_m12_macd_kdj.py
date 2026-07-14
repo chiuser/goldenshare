@@ -24,6 +24,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 )
 from orchestrator.defs.stk_mins_qfq_macd_kdj import (
     SEGMENT_BAR_COUNT,
+    discover_gold_stk_mins_qfq_source_year_paths,
     write_gold_stk_mins_qfq_macd_kdj_asset_partition,
     write_gold_stk_mins_qfq_macd_kdj_rows,
 )
@@ -31,6 +32,7 @@ from orchestrator.defs.stk_mins_qfq_macd_kdj import (
 
 STOCK_A = "600000.SH"
 STOCK_B = "000001.SZ"
+STOCK_C = "300001.SZ"
 FIRST_EXPECTED_TRADE_DATE = "2014-01-02"
 
 
@@ -164,6 +166,45 @@ def _write_calendar_rows(lake_root: Path, trade_dates: tuple[str, ...]) -> None:
 
 
 class StkMinsQfqM12MacdKdjTests(unittest.TestCase):
+    def test_source_year_discovery_preserves_full_scope_and_supports_code_scope(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            all_paths = tuple(
+                gold_stk_mins_qfq_path(lake_root, 1, stock_code, year)
+                for stock_code in (STOCK_A, STOCK_B, STOCK_C)
+                for year in (2025, 2026)
+            )
+            for path in all_paths:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.touch()
+
+            full_scope_paths = discover_gold_stk_mins_qfq_source_year_paths(
+                lake_root,
+                freq=1,
+                trade_dates=("2026-06-02",),
+            )
+            scoped_paths = discover_gold_stk_mins_qfq_source_year_paths(
+                lake_root,
+                freq=1,
+                trade_dates=("2026-06-02",),
+                stock_codes=(STOCK_A, STOCK_B),
+            )
+
+        self.assertEqual(full_scope_paths, tuple(sorted(all_paths)))
+        self.assertEqual(
+            scoped_paths,
+            tuple(
+                path
+                for path in sorted(all_paths)
+                if any(
+                    f"ts_code={stock_code}" in str(path)
+                    for stock_code in (STOCK_A, STOCK_B)
+                )
+            ),
+        )
+
     def test_macd_kdj_writes_indicator_and_state_with_expected_formulas(self) -> None:
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)
