@@ -191,7 +191,7 @@ def _macd_kdj_records(
             GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME,
         ): _record(
             storage_id=storage_start + index,
-            partition=REPAIR_START_DATE,
+            partition=TRADE_DATE,
             metadata=metadata or _macd_kdj_metadata(),
         )
         for index, asset_key in enumerate(_macd_kdj_asset_keys())
@@ -393,6 +393,7 @@ class StkMinsQfqMacdKdjRepairGateTests(unittest.TestCase):
 
         status = gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch(
             instance,
+            qfq_factor_repair_trade_date=TRADE_DATE,
             repair_start_trade_date=REPAIR_START_DATE,
             repair_end_trade_date=TRADE_DATE,
             upstream_batch_id=UPSTREAM_BATCH_ID,

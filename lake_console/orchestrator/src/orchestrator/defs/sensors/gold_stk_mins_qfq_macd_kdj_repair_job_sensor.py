@@ -182,6 +182,7 @@ def _run_request_or_skip_for_repair_decision(
     completion_status = (
         gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch(
             instance,
+            qfq_factor_repair_trade_date=qfq_factor_repair_status.trade_date,
             repair_start_trade_date=decision.selected_trade_date,
             repair_end_trade_date=qfq_factor_repair_status.repair_end_trade_date,
             upstream_batch_id=decision.upstream_batch_id,

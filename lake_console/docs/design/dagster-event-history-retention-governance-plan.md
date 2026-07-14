@@ -49,9 +49,10 @@ postgresql://congming@localhost:5432/goldenshare_dagster
    - metadata 中的 `producer_run_id`、`upstream_batch_id`、`repair_start_trade_date`、`repair_end_trade_date`、`repair_required_codes_hash` 等字段是下游触发和 repair config 的正式来源。
 2. `gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch(...)`
    - 读取 `gold_stk_mins_qfq_macd_kdj_repair_completed_check`。
-   - metadata 中的 `source_upstream_batch_id`、覆盖范围、代码 hash、freqs 等字段用于防重复和 completion gate。
+   - completion 的正式 Dagster partition 是 `qfq_factor_repair_trade_date`；`repair_start_trade_date` 与 `repair_end_trade_date` 仅表达覆盖范围，不得再作为 latest completion 查询分区。
+   - metadata 中的 `source_upstream_batch_id`、覆盖范围、代码 hash、freqs 等字段用于防重复和 completion gate。同一触发日若产生新 upstream batch，旧 completion metadata 必须失配并 fail-closed。
 
-这类 check event 数量很小，但语义很重。第一阶段一律禁止清理。
+这类 check event 数量很小，但语义很重。第一阶段一律禁止清理。R5-P5 对 `2026-07-08/09/10/13` 的旧 `2014-01-02` completion events 只视为历史证据；经 source run、14 条绿 check 和 metadata 精确核验后，最多补 56 条 runless check event 到各自的 trigger-date partition。旧证据和新 identity 状态均不得在 retention 清理中删除。
 
 只读统计：
 

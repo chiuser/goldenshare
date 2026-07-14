@@ -986,7 +986,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             "_repair_scope_from_qfq_factor_repair_status",
             "dg.AssetCheckEvaluation",
             "blocking=True",
-            "partition=start_trade_date",
+            "partition=qfq_factor_repair_trade_date",
             "repair_required_codes_hash",
             "source_upstream_batch_id",
             '"stock_code_scope": "explicit"',
@@ -1068,12 +1068,24 @@ class RunContractStaticGateTests(unittest.TestCase):
             "def _target_trade_dates",
             "discover_latest_macd_kdj_state_path_before_trade_date",
             "start_trade_date == STK_MINS_MACD_KDJ_BASELINE_START_DATE",
+            "partition=start_trade_date",
         )
         issues.extend(
             f"{repair_op_path} contains forbidden MACD/KDJ repair op fragment: {fragment}"
             for fragment in forbidden_repair_op_fragments
             if fragment in repair_op_source
         )
+
+        repair_gate_path = DEFS_DIR / "asset_guards" / "stk_mins_qfq_macd_kdj.py"
+        repair_gate_source = repair_gate_path.read_text()
+        if "partition_key=qfq_factor_repair_trade_date" not in repair_gate_source:
+            issues.append(
+                "MACD/KDJ repair completion gate must read the QFQ repair trigger partition"
+            )
+        if "partition_key=repair_start_trade_date" in repair_gate_source:
+            issues.append(
+                "MACD/KDJ repair completion gate must not read the repair start partition"
+            )
 
         self.assertEqual(issues, [])
 

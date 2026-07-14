@@ -209,6 +209,7 @@ def gold_stk_mins_qfq_macd_kdj_repair_completion_status(
 ) -> MacdKdjRepairCompletionGateStatus:
     return gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch(
         instance,
+        qfq_factor_repair_trade_date=qfq_factor_repair_status.trade_date,
         repair_start_trade_date=qfq_factor_repair_status.repair_start_trade_date,
         repair_end_trade_date=qfq_factor_repair_status.repair_end_trade_date,
         upstream_batch_id=qfq_factor_repair_status.upstream_batch_id,
@@ -220,6 +221,7 @@ def gold_stk_mins_qfq_macd_kdj_repair_completion_status(
 def gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch(
     instance: dg.DagsterInstance,
     *,
+    qfq_factor_repair_trade_date: str | None,
     repair_start_trade_date: str | None,
     repair_end_trade_date: str | None,
     upstream_batch_id: str | None,
@@ -228,6 +230,7 @@ def gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch(
 ) -> MacdKdjRepairCompletionGateStatus:
     return _macd_kdj_repair_completion_status(
         instance,
+        qfq_factor_repair_trade_date=qfq_factor_repair_trade_date,
         repair_start_trade_date=repair_start_trade_date,
         repair_end_trade_date=repair_end_trade_date,
         upstream_batch_id=upstream_batch_id,
@@ -296,6 +299,7 @@ def _macd_kdj_asset_keys() -> tuple[dg.AssetKey, ...]:
 def _macd_kdj_repair_completion_status(
     instance: dg.DagsterInstance,
     *,
+    qfq_factor_repair_trade_date: str | None,
     repair_start_trade_date: str | None,
     repair_end_trade_date: str | None,
     upstream_batch_id: str | None,
@@ -303,6 +307,8 @@ def _macd_kdj_repair_completion_status(
     repair_required_codes_hash: str | None,
 ) -> MacdKdjRepairCompletionGateStatus:
     if (
+        qfq_factor_repair_trade_date is None
+        or
         repair_start_trade_date is None
         or repair_end_trade_date is None
         or upstream_batch_id is None
@@ -315,7 +321,7 @@ def _macd_kdj_repair_completion_status(
         instance,
         _macd_kdj_asset_keys(),
         GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME,
-        partition_key=repair_start_trade_date,
+        partition_key=qfq_factor_repair_trade_date,
     )
     missing: list[str] = []
     failed: list[str] = []
@@ -337,7 +343,7 @@ def _macd_kdj_repair_completion_status(
             instance,
             check_key,
             record,
-            partition_key=repair_start_trade_date,
+            partition_key=qfq_factor_repair_trade_date,
         )
         metadata = asset_check_record_metadata(evaluation)
         if (
@@ -345,7 +351,7 @@ def _macd_kdj_repair_completion_status(
             or getattr(evaluation, "passed", None) is not True
             or getattr(evaluation, "blocking", None) is not True
             or asset_check_record_partition(record, evaluation)
-            != repair_start_trade_date
+            != qfq_factor_repair_trade_date
             or not metadata_has_keys(
                 metadata,
                 _MACD_KDJ_REPAIR_COMPLETION_REQUIRED_METADATA_KEYS,

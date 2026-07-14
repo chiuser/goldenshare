@@ -649,6 +649,6 @@ def gold_stk_mins_qfq_macd_kdj_repair_op(context: dg.OpExecutionContext) -> None
                 passed=True,
                 metadata=completion_metadata,
                 blocking=True,
-                partition=start_trade_date,
+                partition=qfq_factor_repair_trade_date,
             )
         )

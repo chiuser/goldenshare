@@ -494,6 +494,7 @@ return build_run_request(
 ```python
 completion_status = gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch(
     context.instance,
+    qfq_factor_repair_trade_date=qfq_factor_repair_status.trade_date,
     repair_start_trade_date=decision.selected_trade_date,
     repair_end_trade_date=qfq_factor_repair_status.repair_end_trade_date,
     upstream_batch_id=decision.upstream_batch_id,
@@ -667,7 +668,7 @@ freqs
 新 gate 只按 `source_upstream_batch_id` 判断 upstream identity，必须验证：
 
 1. 每个 MACD/KDJ asset 的 completion check 都存在且 passed/blocking。
-2. partition 等于 `repair_start_trade_date`。
+2. partition 等于 `qfq_factor_repair_trade_date`；`repair_start_trade_date` 只用于覆盖范围 metadata 校验，不能再作为 latest completion 查询分区。
 3. metadata 包含新 required keys。
 4. `source_upstream_batch_id == upstream_batch_id`。
 5. `covered_start_trade_date <= repair_start_trade_date`。

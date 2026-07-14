@@ -1113,7 +1113,7 @@ class StkMinsQfqMacdKdjRepairOpContractTests(unittest.TestCase):
             evaluation = record.event_log_entry.dagster_event.event_specific_data
             self.assertTrue(evaluation.passed)
             self.assertTrue(evaluation.blocking)
-            self.assertEqual(evaluation.partition, START_DATE)
+            self.assertEqual(evaluation.partition, QFQ_FACTOR_REPAIR_DATE)
             self.assertEqual(
                 evaluation.metadata["goldenshare/covered_start_trade_date"].text,
                 START_DATE,
