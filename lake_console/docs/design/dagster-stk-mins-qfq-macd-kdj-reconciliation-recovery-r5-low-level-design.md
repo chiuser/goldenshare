@@ -1,6 +1,6 @@
 # Dagster 股票分钟线 QFQ MACD/KDJ Reconciliation Recovery R5 LLD
 
-状态：R5-P0 代码与本地验证、R5-P1 只读 preflight、R5-P2 四日 daily state 补洞、R5-P3 四批 repair 与 R5-P4 最终审计均已完成；completion latest-state 分区碰撞待另立方案处理
+状态：R5-P0 至 R5-P5B 已完成；四批 completion 状态已按 QFQ 触发日独立可见。后续只剩 P6A 只读运行链路验收与 P6B sensor 恢复审批。
 
 更新时间：2026-07-14
 
@@ -320,7 +320,7 @@ source gate 报告为 [source gate](/private/tmp/stk_mins_qfq_macd_kdj_repair_so
 3. quarantine manifest 的 38,819 个当前目标文件均必须存在且非空；不存在 active qfq/MACD-KDJ repair job；未修改 prod 数据库、动态分区或不相关 lake 文件。
 4. 已完成最终审计，但四个 sensor 继续保持 `STOPPED`。恢复前必须先单独审计 completion latest-state 碰撞对未来 sensor gate 的实际影响，不能因为本轮物理数据已正确就默认恢复。
 
-### R5-P5：completion latest-state 碰撞（代码完成；instance 补录待单独审批）
+### R5-P5：completion latest-state 碰撞（P5A/P5B 已完成）
 
 completion check 的 Dagster identity 是 `asset key + check name + partition`。四个 repair 批次都从 `2014-01-02` 开始，旧实现把该开始日期当作 check partition，因此同一 14 个 asset/check 的 latest 视图只会留下最后写入的 `2026-07-13` 批次。物理数据和四个历史 repair run 都正确，错误只在 completion 状态的身份设计。
 
@@ -354,14 +354,16 @@ src/orchestrator/defs/bootstrap/stk_mins_qfq_macd_kdj_repair_completion_events_c
 
 四批最多写入 `4 x 14 = 56` 条 runless check event。补录只复制已验证的正式 completion metadata，并额外记录 bootstrap 方法、源 completion storage id 和源 repair run id；不补 materialization、不附目标 materialization、不重跑 repair、不改原 event、不写 lake、prod 或动态分区，也不直接 SQL 修改 Dagster DB。写后会重新 plan，只有计划事件数归零且无 stop reason 才算收敛；中途部分写入可由同一 plan 安全续跑，未补全批次继续 fail-closed。
 
-P5A 已完成代码、单元测试和正式 instance 的只读 preflight。2026-07-14 的 [plan report](/private/tmp/stk_mins_qfq_macd_kdj_repair_completion_events_plan-events_20260714_225551.json) 与 [dry-run report](/private/tmp/stk_mins_qfq_macd_kdj_repair_completion_events_report-events_20260714_225734.json) 一致：4 批、56 条 source completion event、0 条目标 trigger-date event、计划补 56 条、`should_stop=false`，冻结 fingerprint 为 `f1e3771014ed8570f908a24a7af471710678b4f67dd72db180136b91350e1f4e`。P5B 的 `--apply` 是独立的 Dagster instance 写入审批；四个相关 sensor 在 P5B 完成和 post-audit 前继续保持 `STOPPED`。
+P5A 已完成代码、单元测试和正式 instance 的只读 preflight。2026-07-14 的 [plan report](/private/tmp/stk_mins_qfq_macd_kdj_repair_completion_events_plan-events_20260714_225551.json) 与 [dry-run report](/private/tmp/stk_mins_qfq_macd_kdj_repair_completion_events_report-events_20260714_225734.json) 一致：4 批、56 条 source completion event、0 条目标 trigger-date event、计划补 56 条、`should_stop=false`，冻结 fingerprint 为 `f1e3771014ed8570f908a24a7af471710678b4f67dd72db180136b91350e1f4e`。
+
+P5B 已于 2026-07-14 执行。apply 使用同轮 [fresh plan report](/private/tmp/stk_mins_qfq_macd_kdj_repair_completion_events_plan-events_20260714_230729.json)，写入恰好 56 条 runless completion check event，报告为 [apply report](/private/tmp/stk_mins_qfq_macd_kdj_repair_completion_events_report-events_20260714_230913.json)。CLI 的 post-apply plan 为：`existing_target_event_count=56`、`planned_event_count=0`、`should_stop=false`。独立 [post-audit](/private/tmp/stk_mins_qfq_macd_kdj_p5b_completion_events_post_audit_20260714T151024Z.json) 进一步确认四个触发日各有 14 条 passed/blocking completion check，代码数为 `60/58/102/33`，覆盖范围均为 `2014-01-02` 至各自触发日，七频度齐全，且四个 upstream batch 均精确匹配。旧 `2014-01-02` source completion evidence 仍完整可读；四个相关 sensor 仍为 `STOPPED`，四个相关 job 无 active run。
 
 ## 9. 审批点与停止条件
 
 ### 9.1 后续需要管理员明确批准的动作
 
-1. R5-P5B 的 runless completion event apply；仅允许对本节列出的四个日期、最多 56 条 event 写入，必须使用同轮 `plan-events` report 的 fingerprint。
-2. R5-P4 的 sensor 恢复；必须在 R5-P5B post-audit 后单独批准。
+1. R5-P6A 的只读运行链路验收：确认四批 completion gate 均独立 ready，并审计当前交易日 qfq、factor repair、MACD/KDJ 的上游 readiness 与 sensor 选择日期。该步骤不启用 sensor、不发 run。
+2. R5-P6B 的四个 sensor 恢复；仅在 P6A 全绿后单独批准。恢复后只观察自然触发，不人工补发历史 run。
 3. quarantine 的保留期限与最终删除；当前不得自动删除。
 
 ### 9.2 必须停止的情况
