@@ -1,7 +1,7 @@
 # Dagster 神奇九转数据集接入低层设计
 
-状态：N0-N6 已完成开发、正式执行与验收；N7 已完成 cutover smoke 与只读 sensor 观察，持久化启用 sensor 和最终验收待执行
-日期：2026-07-10
+状态：N0-N7 已完成开发、正式执行与验收；最近 7 个已完成交易日 Raw/Silver 与 checks 对账通过
+日期：2026-07-14
 上位方案：[`dagster-stk-nineturn-dataset-onboarding-plan.md`](./dagster-stk-nineturn-dataset-onboarding-plan.md)
 
 ## 1. 设计结论
@@ -25,7 +25,7 @@
 6. 历史 prod 导出、formal raw/silver 构建、runless event 写入必须分别 dry-run、样本、审批和验收。
 7. `silver_stock_identity_map` 的 self mapping 来源是 `silver_stock_lifecycle` 的全部历史代码，包含退市代码；`silver_namechange` 只用于校验版本化非 self seed 的解释性，不承担历史股票全集职责。
 
-本 LLD 当前只保留 N7 日常切换的审批边界；N5 Formal Lake 写入和 N6 正式 Dagster event 写入均已按分阶段批准完成。N6 先完成只读 dry-run，再完成 3 日样本和剩余全量补录，最终 dry-run 计划归零。
+本 LLD 的 N5 Formal Lake 写入、N6 正式 Dagster event 写入和 N7 日常 sensor 启用均已按分阶段批准完成。N6 先完成只读 dry-run，再完成 3 日样本和剩余全量补录，最终 dry-run 计划归零。
 本 LLD 不授权运行 `dg`、写 Dagster instance 或删除历史 staging。
 
 ## 2. 依据与代码审计
@@ -1167,7 +1167,7 @@ N3 本地临时 Parquet 实测结果：
 
 ## 18. 分阶段执行清单
 
-截至 2026-07-10 的执行进度：
+截至 2026-07-14 的执行进度：
 
 | 阶段 | 状态 | 已验收事实 |
 | --- | --- | --- |
@@ -1178,7 +1178,7 @@ N3 本地临时 Parquet 实测结果：
 | N4 | 已完成 | prod read-only cutover、3 日 sample、850 日 fresh full export、逐文件 schema 与 manifest/data audit 已通过 |
 | N5 | 已完成 | identity map 修复后重建 Formal Raw/Silver，最终文件审计通过 |
 | N6 | 已完成 | 已完成 formal dry-run、3 日样本、1,780 个 runless events 正式写入和 final dry-run 对账；partitioned check target 全部正确 |
-| N7 | 待推进 | 日常 Tushare 来源切换、sensor 观察和最终验收 |
+| N7 | 已完成 | 日常 Tushare 来源切换、两个 sensor 启用、最近 7 个已完成交易日对账和最终文档对账 |
 
 N0 与 N1 按批准口径合并为一个代码提交，但验收边界保持独立。N0 预声明
 Silver schema、path 和 partition model；没有提前写入 Silver catalog entry，因为 catalog
@@ -1305,7 +1305,7 @@ asset 一次目标 materialization 查询、每个 check 一次有界 history �
 Dagster history。当前已通过 5 个 N6 专用临时实例测试及既有 106 个相关回归测试，且已完成
 正式 event 写入与 final dry-run 对账。
 
-正式 Dagster instance 写入已完成，N6 不得与 N5 合并；N7 仍需单独验收。
+正式 Dagster instance 写入已完成，N6 不得与 N5 合并；N7 已按单独验收边界完成。
 
 ### N7 日常切换与最终验收
 
@@ -1334,9 +1334,31 @@ smoke 和一次 Silver smoke。
 | Silver sensor observation | `all_ready` skip，最近 10 日同上，batch 208ms，RunRequest=0 |
 | active runs | 0 |
 
-本次只做了手工 sensor evaluation，没有启动 daemon，也没有把两个 sensor 持久化切换为
-`RUNNING`；因此 N7 的代码、单日 smoke、cursor、partition 归属和性能观察已通过，
-全局自动化启用仍需单独的运维窗口和最终确认。
+本次 smoke 之后，两个 sensor 已由 Dagster 实例持久化切换为 `RUNNING`。2026-07-14
+只读复核时 active runs 为 0，且最近 7 个已完成交易日的自动化结果如下：
+
+| 项目 | 结果 |
+| --- | --- |
+| 已完成交易日 | `2026-07-03`、`2026-07-06` 至 `2026-07-10`、`2026-07-13` |
+| Raw 文件与 readiness | 7/7 存在且 `ready=true` |
+| Silver 文件与 readiness | 7/7 存在且 `ready=true` |
+| Raw materialization | 7/7 存在 |
+| Silver materialization | 7/7 存在 |
+| Raw checks | 14/14（2 checks x 7 日）成功，partition 与 latest materialization target 一致 |
+| Silver checks | 14/14（2 checks x 7 日）成功，partition 与 latest materialization target 一致 |
+| sensor 状态 | `raw_stk_nineturn_update_job_sensor=RUNNING`；`silver_stock_nineturn_daily_update_job_sensor=RUNNING` |
+| active runs | 0 |
+
+当前交易日 `2026-07-14` 尚未进入 `cn_a_stock_trade_days` dynamic partition，因此两个
+sensor 的 batch readiness 均以 `missing_registered_partition` fail closed；该日期尚无 Raw/
+Silver 文件、materialization 或 check event。这符合第 12 节的先注册后扫描顺序，不是历史
+数据缺失。待交易日分区上游注册后，Raw sensor 才会提交该日 Tushare run，Silver sensor
+再在 Raw frontier 通过后提交 Silver run。
+
+因此 N7 的代码、sensor 持久化状态、日常来源边界、最近 7 个已完成交易日数据闭环、
+partition 归属和性能门禁均已验收；后续只需按日观察上游交易日分区注册，不需要对本专项
+再做 bootstrap、runless event 或历史文件操作。
+完整只读审计输出：`/private/tmp/stk_nineturn_n7_closeout_audit_20260714.json`。
 
 ## 19. 阶段组合与审批边界
 

@@ -1,7 +1,7 @@
 # Dagster 神奇九转数据集接入方案
 
-状态：N0-N6 已完成开发、正式写入与验收；N7 cutover smoke 与只读 sensor 观察已完成，持久化启用 sensor 和最终验收待执行
-日期：2026-07-10
+状态：N0-N7 已完成开发、正式写入与验收；最近 7 个已完成交易日 Raw/Silver 与 checks 均已对账通过
+日期：2026-07-14
 
 代码级设计：
 [`dagster-stk-nineturn-dataset-onboarding-low-level-design.md`](./dagster-stk-nineturn-dataset-onboarding-low-level-design.md)
@@ -641,6 +641,27 @@ report 必须显式 `--confirm-write`；事件目标绑定同分区最新 materi
 3. prod-raw-db 不进入日常 sensor。
 4. 历史遗留 staging 是否删除另行审批，不包含在本专项自动执行中。
 
+### 10.8 B7：日常切换收口结果
+
+2026-07-14 只读复核确认两个日常 sensor 已由 Dagster 实例持久化为 `RUNNING`：
+`raw_stk_nineturn_update_job_sensor` 和 `silver_stock_nineturn_daily_update_job_sensor`。
+复核时 active runs 为 0，未发现该专项产生的并发运行。
+
+最近 7 个已完成交易日为 `2026-07-03`、`2026-07-06` 至 `2026-07-10`、
+`2026-07-13`。这 7 天的 Raw/Silver 文件均存在；每个分区的 Raw 与 Silver
+materialization 均存在；两层各 2 个 blocking checks 均为 succeeded、带正确 partition，
+且 check target 均指向该分区最新 materialization。Raw 行数为
+`5514/5515/5517/5517/5518/5517/5521`，Silver 输出行数逐日与 Raw canonical 预期一致。
+
+`2026-07-14` 是当前交易日，但 `cn_a_stock_trade_days` 尚未注册该分区；因此 Raw/Silver
+文件、materialization 和 checks 均不存在，两个 batch readiness 都返回
+`missing_registered_partition`。这是 sensor 的 fail-closed 预期行为，不属于九转数据失败，
+待交易日分区上游注册后由 sensor 继续处理。
+
+本次收口只读验证同时确认：日常仍使用 Tushare Raw、Silver 仍只消费 Raw + identity map，
+没有回流 prod DB；没有修改数据湖文件、dynamic partition 或 Dagster event。
+完整只读审计输出保存在 `/private/tmp/stk_nineturn_n7_closeout_audit_20260714.json`。
+
 ## 11. 性能门禁
 
 | 场景 | 对象/日期 | 读写模型 | 预算/门禁 |
@@ -774,7 +795,7 @@ tests/test_run_contract_static_gates.py
 
 ## 15. 分阶段推进
 
-当前进度（2026-07-10）：N0-N4 已完成开发与验收。Silver catalog entry 已与
+当前进度（2026-07-14）：N0-N7 已完成开发与验收。Silver catalog entry 已与
 active Silver asset 同阶段注册；writer/checks 已覆盖 identity 有效区间、每行恰好一次
 映射、规范代码优先和冲突 fail-closed 语义。Raw/Silver sensor 已按最近 10 日、
 first-not-ready、Raw ready frontier 和 DuckDB true-batch readiness 落地。N4 fresh
@@ -789,7 +810,7 @@ prod export 已在隔离 staging 完成，并通过 850 文件全量审计。
 | N4（已完成） | prod 全量重新导出 dry-run/sample/full + staging audit | 850 文件、4,523,818 行、精确 schema 和 manifest 对账已通过 |
 | N5 | Formal Raw/Silver history dry-run/sample/full + 聚合审计 | 已完成；最终文件审计通过 |
 | N6 | Runless event dry-run/sample/full | 已完成；1,780 个 event 已写入，recent20 checks 的 partition 与 latest materialization target 对账通过 |
-| N7 | 单日 Tushare smoke、sensor 人工启用、最终文档对账 | smoke 与手工 evaluation 已通过；daemon/sensor 持久化启用及最终验收待执行 |
+| N7（已完成） | 单日 Tushare smoke、sensor 启用、最近 7 个已完成交易日对账与最终文档对账 | 两个 sensor 均为 RUNNING；2026-07-03 至 2026-07-13 共 7 个已完成交易日的 Raw/Silver 文件、materialization、4 个 checks 全部通过；2026-07-14 尚未注册交易日分区，按设计等待上游注册 |
 
 N4、N5、N6 不得合并成一次不可中断的大操作。每阶段必须有独立 dry-run、样本、正式执行和结果报告。
 
