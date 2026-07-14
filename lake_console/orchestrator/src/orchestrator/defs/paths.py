@@ -345,6 +345,72 @@ def silver_index_daily_path(root: Path, partition_key: str) -> Path:
     )
 
 
+def raw_dc_index_path(root: Path, trade_date: str) -> Path:
+    return lake_path(
+        root,
+        RAW,
+        "board",
+        "dc_index",
+        f"trade_date={trade_date}",
+        "part-000.parquet",
+    )
+
+
+def raw_dc_member_path(root: Path, trade_date: str) -> Path:
+    return lake_path(
+        root,
+        RAW,
+        "board",
+        "dc_member",
+        f"trade_date={trade_date}",
+        "part-000.parquet",
+    )
+
+
+def raw_dc_daily_path(root: Path, trade_date: str) -> Path:
+    return lake_path(
+        root,
+        RAW,
+        "board",
+        "dc_daily",
+        f"trade_date={trade_date}",
+        "part-000.parquet",
+    )
+
+
+def silver_dc_index_path(root: Path, trade_date: str) -> Path:
+    return lake_path(
+        root,
+        SILVER,
+        "board",
+        "dc_index",
+        f"trade_date={trade_date}",
+        "part-000.parquet",
+    )
+
+
+def silver_dc_member_path(root: Path, trade_date: str) -> Path:
+    return lake_path(
+        root,
+        SILVER,
+        "board",
+        "dc_member",
+        f"trade_date={trade_date}",
+        "part-000.parquet",
+    )
+
+
+def silver_dc_daily_path(root: Path, trade_date: str) -> Path:
+    return lake_path(
+        root,
+        SILVER,
+        "board",
+        "dc_daily",
+        f"trade_date={trade_date}",
+        "part-000.parquet",
+    )
+
+
 def gold_market_major_indices_daily_path(root: Path, partition_key: str) -> Path:
     return lake_path(
         root,

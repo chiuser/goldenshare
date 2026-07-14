@@ -19,6 +19,9 @@ from orchestrator.defs.paths import (
     gold_wealth_market_turnover_path,
     lake_path_template,
     raw_adj_factor_path,
+    raw_dc_daily_path,
+    raw_dc_index_path,
+    raw_dc_member_path,
     raw_index_basic_path,
     raw_index_daily_path,
     raw_namechange_path,
@@ -29,6 +32,9 @@ from orchestrator.defs.paths import (
     raw_suspend_d_path,
     raw_trade_calendar_path,
     silver_adj_factor_path,
+    silver_dc_daily_path,
+    silver_dc_index_path,
+    silver_dc_member_path,
     silver_index_basic_path,
     silver_index_daily_path,
     silver_namechange_path,
@@ -43,6 +49,9 @@ from orchestrator.defs.paths import (
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA,
+    RAW_TUSHARE_DC_DAILY_SCHEMA,
+    RAW_TUSHARE_DC_INDEX_SCHEMA,
+    RAW_TUSHARE_DC_MEMBER_SCHEMA,
     GOLD_MARKET_BREADTH_DAILY_SCHEMA,
     GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA,
     GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA,
@@ -62,6 +71,9 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA,
     RAW_TUSHARE_TRADE_CALENDAR_SCHEMA,
     SILVER_ADJ_FACTOR_SCHEMA,
+    SILVER_DC_DAILY_SCHEMA,
+    SILVER_DC_INDEX_SCHEMA,
+    SILVER_DC_MEMBER_SCHEMA,
     SILVER_INDEX_BASIC_SCHEMA,
     SILVER_INDEX_DAILY_SCHEMA,
     SILVER_NAMECHANGE_SCHEMA,
@@ -76,6 +88,17 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 )
 from orchestrator.defs.run_contracts.asset_tags import AssetLayer, DataDomain
 from orchestrator.defs.run_contracts.column_schema import ColumnContract
+from orchestrator.defs.run_contracts.dc_board import (
+    DC_DAILY_REQUEST_POLICY_NAME,
+    DC_INDEX_REQUEST_POLICY_NAME,
+    DC_MEMBER_REQUEST_POLICY_NAME,
+    RAW_DC_DAILY_CHECKS,
+    RAW_DC_INDEX_CHECKS,
+    RAW_DC_MEMBER_CHECKS,
+    SILVER_DC_DAILY_CHECKS,
+    SILVER_DC_INDEX_CHECKS,
+    SILVER_DC_MEMBER_CHECKS,
+)
 from orchestrator.defs.run_contracts.metadata import SourceSystem
 
 
@@ -148,6 +171,12 @@ class PartitionModel(str, Enum):
     TRADE_DATE_PARTITION_SILVER_INDEX_DAILY = (
         "trade_date_partition_silver_index_daily"
     )
+    TRADE_DATE_PARTITION_RAW_DC_INDEX = "trade_date_partition_raw_dc_index"
+    TRADE_DATE_PARTITION_RAW_DC_MEMBER = "trade_date_partition_raw_dc_member"
+    TRADE_DATE_PARTITION_RAW_DC_DAILY = "trade_date_partition_raw_dc_daily"
+    TRADE_DATE_PARTITION_SILVER_DC_INDEX = "trade_date_partition_silver_dc_index"
+    TRADE_DATE_PARTITION_SILVER_DC_MEMBER = "trade_date_partition_silver_dc_member"
+    TRADE_DATE_PARTITION_SILVER_DC_DAILY = "trade_date_partition_silver_dc_daily"
     TRADE_DATE_PARTITION_RAW_STOCK_MINS = "trade_date_partition_raw_stock_mins"
     TRADE_DATE_PARTITION_SILVER_STOCK_MINS = "trade_date_partition_silver_stock_mins"
     TRADE_DATE_PARTITION_GOLD_STOCK_MINS_QFQ_STOCK_YEAR_FILE = (
@@ -630,6 +659,54 @@ PARTITION_MODEL_DEFINITIONS = (
         PartitionPhysicalLayout.PARTITION_FILE,
     ),
     _model(
+        PartitionModel.TRADE_DATE_PARTITION_RAW_DC_INDEX,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.RAW,
+        "dc_index",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_RAW_DC_MEMBER,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.RAW,
+        "dc_member",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_RAW_DC_DAILY,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.RAW,
+        "dc_daily",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_SILVER_DC_INDEX,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.SILVER,
+        "dc_index",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_SILVER_DC_MEMBER,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.SILVER,
+        "dc_member",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_SILVER_DC_DAILY,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.SILVER,
+        "dc_daily",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+    ),
+    _model(
         PartitionModel.TRADE_DATE_PARTITION_RAW_STOCK_MINS,
         PartitionModelFamily.TRADE_DATE_PARTITION,
         AssetLayer.RAW,
@@ -796,6 +873,9 @@ def _tushare_raw_entry(
     source_doc: str,
     blocking_check_names: tuple[str, ...],
     batch_grain: str,
+    bootstrap_sources: tuple[IngestionSource, ...] = (),
+    source_request_policy: str = "tushare_request_per_asset_unit",
+    performance_notes: str = "",
 ) -> LakeAssetCatalogEntry:
     return _entry(
         asset_key=asset_key,
@@ -813,7 +893,7 @@ def _tushare_raw_entry(
         source_doc=source_doc,
         ingestion_sources=(IngestionSource.TUSHARE_API,),
         default_daily_ingestion_source=IngestionSource.TUSHARE_API,
-        bootstrap_sources=(),
+        bootstrap_sources=bootstrap_sources,
         blocking_check_names=blocking_check_names,
         write_policy=(
             WritePolicy.SINGLE_FILE_ATOMIC_REPLACE
@@ -824,7 +904,8 @@ def _tushare_raw_entry(
         performance_contract=_perf(
             batch_grain=batch_grain,
             compute_engine=ComputeEngine.TUSHARE_RESOURCE,
-            source_request_policy="tushare_request_per_asset_unit",
+            source_request_policy=source_request_policy,
+            notes=performance_notes,
         ),
     )
 
@@ -1461,6 +1542,134 @@ LAKE_ASSET_CATALOG += (
         batch_grain="trade_date",
         write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
         bootstrap_sources=(IngestionSource.OLD_LAKE_BOOTSTRAP,),
+    ),
+    _tushare_raw_entry(
+        asset_key="raw_tushare_dc_index",
+        dataset_id="dc_index",
+        group_name="board",
+        data_domain=DataDomain.QUOTE_DATA,
+        data_contract="source_mirror",
+        column_schema=RAW_TUSHARE_DC_INDEX_SCHEMA,
+        path_template=lake_path_template(
+            raw_dc_index_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_RAW_DC_INDEX,
+        source_api="dc_index",
+        source_doc="docs/sources/tushare/股票数据/打板专题数据/0362_东方财富概念板块.md",
+        blocking_check_names=RAW_DC_INDEX_CHECKS,
+        batch_grain="trade_date",
+        bootstrap_sources=(IngestionSource.TUSHARE_API,),
+        source_request_policy=DC_INDEX_REQUEST_POLICY_NAME,
+        performance_notes="Three idx_type requests per trade_date with bounded pagination.",
+    ),
+    _entry(
+        asset_key="raw_tushare_dc_member",
+        dataset_id="dc_member",
+        layer=AssetLayer.RAW,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="board",
+        source_system=SourceSystem.TUSHARE,
+        data_contract="source_mirror_prod_bootstrap_tushare_daily",
+        data_contract_source=DataContractSource.TUSHARE_RAW_CONTRACT,
+        column_schema=RAW_TUSHARE_DC_MEMBER_SCHEMA,
+        path_template=lake_path_template(
+            raw_dc_member_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_RAW_DC_MEMBER,
+        source_api="dc_member",
+        source_doc="docs/sources/tushare/股票数据/打板专题数据/0363_东方财富板块成分.md",
+        ingestion_sources=(
+            IngestionSource.TUSHARE_API,
+            IngestionSource.PROD_DB_READONLY,
+        ),
+        default_daily_ingestion_source=IngestionSource.TUSHARE_API,
+        bootstrap_sources=(IngestionSource.PROD_DB_READONLY,),
+        blocking_check_names=RAW_DC_MEMBER_CHECKS,
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.DAGSTER_RUN_ONLY,
+        performance_contract=_perf(
+            batch_grain="trade_date",
+            compute_engine=ComputeEngine.TUSHARE_RESOURCE,
+            source_request_policy=DC_MEMBER_REQUEST_POLICY_NAME,
+            notes=(
+                "Daily writer must explicitly use the approved bounded request "
+                "policy; historical bootstrap is read-only prod DB export."
+            ),
+        ),
+        notes=(
+            "The asset key names the Tushare contract family. Bootstrap partitions "
+            "must record prod_db_readonly_export in materialization metadata."
+        ),
+    ),
+    _tushare_raw_entry(
+        asset_key="raw_tushare_dc_daily",
+        dataset_id="dc_daily",
+        group_name="board",
+        data_domain=DataDomain.QUOTE_DATA,
+        data_contract="source_mirror",
+        column_schema=RAW_TUSHARE_DC_DAILY_SCHEMA,
+        path_template=lake_path_template(
+            raw_dc_daily_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_RAW_DC_DAILY,
+        source_api="dc_daily",
+        source_doc="docs/sources/tushare/股票数据/打板专题数据/0382_东财概念板块行情.md",
+        blocking_check_names=RAW_DC_DAILY_CHECKS,
+        batch_grain="trade_date",
+        bootstrap_sources=(IngestionSource.TUSHARE_API,),
+        source_request_policy=DC_DAILY_REQUEST_POLICY_NAME,
+        performance_notes="One trade_date request with bounded pagination.",
+    ),
+    _derived_entry(
+        asset_key="silver_dc_index",
+        dataset_id="dc_index",
+        layer=AssetLayer.SILVER,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="board",
+        data_contract="standardized_dc_index",
+        column_schema=SILVER_DC_INDEX_SCHEMA,
+        path_template=lake_path_template(
+            silver_dc_index_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_SILVER_DC_INDEX,
+        blocking_check_names=SILVER_DC_INDEX_CHECKS,
+        batch_grain="trade_date",
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+    ),
+    _derived_entry(
+        asset_key="silver_dc_member",
+        dataset_id="dc_member",
+        layer=AssetLayer.SILVER,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="board",
+        data_contract="standardized_dc_member",
+        column_schema=SILVER_DC_MEMBER_SCHEMA,
+        path_template=lake_path_template(
+            silver_dc_member_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_SILVER_DC_MEMBER,
+        blocking_check_names=SILVER_DC_MEMBER_CHECKS,
+        batch_grain="trade_date",
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+    ),
+    _derived_entry(
+        asset_key="silver_dc_daily",
+        dataset_id="dc_daily",
+        layer=AssetLayer.SILVER,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="board",
+        data_contract="standardized_dc_daily",
+        column_schema=SILVER_DC_DAILY_SCHEMA,
+        path_template=lake_path_template(
+            silver_dc_daily_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_SILVER_DC_DAILY,
+        blocking_check_names=SILVER_DC_DAILY_CHECKS,
+        batch_grain="trade_date",
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
     ),
     _derived_entry(
         asset_key="gold_market_major_indices_daily",

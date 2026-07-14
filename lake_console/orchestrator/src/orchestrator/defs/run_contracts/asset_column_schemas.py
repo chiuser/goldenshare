@@ -126,6 +126,45 @@ RAW_INDEX_DAILY_SCHEMA = (
     ColumnContract("amount", "DOUBLE", "成交额，沿用指数日线口径"),
 )
 
+RAW_TUSHARE_DC_INDEX_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "东方财富板块代码"),
+    ColumnContract("trade_date", "VARCHAR", "Tushare 原始交易日，YYYYMMDD 字符串"),
+    ColumnContract("name", "VARCHAR", "板块名称"),
+    ColumnContract("leading", "VARCHAR", "领涨股票名称"),
+    ColumnContract("leading_code", "VARCHAR", "领涨股票代码"),
+    ColumnContract("pct_change", "DOUBLE", "板块涨跌幅，百分比"),
+    ColumnContract("leading_pct", "DOUBLE", "领涨股票涨跌幅，百分比"),
+    ColumnContract("total_mv", "DOUBLE", "板块总市值，万元"),
+    ColumnContract("turnover_rate", "DOUBLE", "板块换手率，百分比"),
+    ColumnContract("up_num", "INTEGER", "上涨家数"),
+    ColumnContract("down_num", "INTEGER", "下跌家数"),
+    ColumnContract("idx_type", "VARCHAR", "板块类型"),
+    ColumnContract("level", "VARCHAR", "行业层级"),
+)
+
+RAW_TUSHARE_DC_MEMBER_SCHEMA = (
+    ColumnContract("trade_date", "VARCHAR", "Tushare 原始交易日，YYYYMMDD 字符串"),
+    ColumnContract("ts_code", "VARCHAR", "东方财富板块代码"),
+    ColumnContract("con_code", "VARCHAR", "成分股票代码"),
+    ColumnContract("name", "VARCHAR", "成分股票名称"),
+)
+
+RAW_TUSHARE_DC_DAILY_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "东方财富板块代码"),
+    ColumnContract("trade_date", "VARCHAR", "Tushare 原始交易日，YYYYMMDD 字符串"),
+    ColumnContract("close", "DOUBLE", "板块收盘点位"),
+    ColumnContract("open", "DOUBLE", "板块开盘点位"),
+    ColumnContract("high", "DOUBLE", "板块最高点位"),
+    ColumnContract("low", "DOUBLE", "板块最低点位"),
+    ColumnContract("change", "DOUBLE", "源站原始变动值字段，raw 层不改名"),
+    ColumnContract("pct_change", "DOUBLE", "板块涨跌幅，百分比"),
+    ColumnContract("vol", "DOUBLE", "成交量"),
+    ColumnContract("amount", "DOUBLE", "成交额"),
+    ColumnContract("swing", "DOUBLE", "振幅，百分比"),
+    ColumnContract("turnover_rate", "DOUBLE", "换手率，百分比"),
+    ColumnContract("category", "VARCHAR", "板块分类，保留为业务主键组成部分"),
+)
+
 SILVER_TRADE_CALENDAR_SCHEMA = (
     ColumnContract("exchange", "VARCHAR", "交易所代码"),
     ColumnContract("trade_date", "DATE", "交易日"),
@@ -342,6 +381,45 @@ SILVER_INDEX_DAILY_SCHEMA = (
     ColumnContract("pct_chg", "DOUBLE", "涨跌幅，百分比"),
     ColumnContract("vol", "DOUBLE", "成交量，沿用 Tushare 指数日线口径"),
     ColumnContract("amount", "DOUBLE", "成交额，沿用 Tushare 指数日线口径"),
+)
+
+SILVER_DC_INDEX_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "规范化东方财富板块代码"),
+    ColumnContract("trade_date", "DATE", "交易日"),
+    ColumnContract("name", "VARCHAR", "板块名称"),
+    ColumnContract("leading", "VARCHAR", "领涨股票名称"),
+    ColumnContract("leading_code", "VARCHAR", "领涨股票代码"),
+    ColumnContract("pct_change", "DOUBLE", "板块涨跌幅，百分比"),
+    ColumnContract("leading_pct", "DOUBLE", "领涨股票涨跌幅，百分比"),
+    ColumnContract("total_mv", "DOUBLE", "板块总市值，万元"),
+    ColumnContract("turnover_rate", "DOUBLE", "板块换手率，百分比"),
+    ColumnContract("up_num", "INTEGER", "上涨家数"),
+    ColumnContract("down_num", "INTEGER", "下跌家数"),
+    ColumnContract("idx_type", "VARCHAR", "板块类型"),
+    ColumnContract("level", "VARCHAR", "行业层级"),
+)
+
+SILVER_DC_MEMBER_SCHEMA = (
+    ColumnContract("trade_date", "DATE", "交易日"),
+    ColumnContract("ts_code", "VARCHAR", "规范化东方财富板块代码"),
+    ColumnContract("con_code", "VARCHAR", "规范化成分股票代码"),
+    ColumnContract("name", "VARCHAR", "成分股票名称"),
+)
+
+SILVER_DC_DAILY_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "规范化东方财富板块代码"),
+    ColumnContract("trade_date", "DATE", "交易日"),
+    ColumnContract("close", "DOUBLE", "板块收盘点位"),
+    ColumnContract("open", "DOUBLE", "板块开盘点位"),
+    ColumnContract("high", "DOUBLE", "板块最高点位"),
+    ColumnContract("low", "DOUBLE", "板块最低点位"),
+    ColumnContract("change", "DOUBLE", "板块变动值，保留源字段语义"),
+    ColumnContract("pct_change", "DOUBLE", "板块涨跌幅，百分比"),
+    ColumnContract("vol", "DOUBLE", "成交量"),
+    ColumnContract("amount", "DOUBLE", "成交额"),
+    ColumnContract("swing", "DOUBLE", "振幅，百分比"),
+    ColumnContract("turnover_rate", "DOUBLE", "换手率，百分比"),
+    ColumnContract("category", "VARCHAR", "板块分类，业务主键组成部分"),
 )
 
 GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA = (

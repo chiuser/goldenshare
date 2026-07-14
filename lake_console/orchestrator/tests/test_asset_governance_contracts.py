@@ -270,6 +270,14 @@ def _asset_specs_and_definitions_by_key():
 
 ACTIVE_ASSET_SPECS_BY_KEY, ACTIVE_ASSETS_BY_KEY = _asset_specs_and_definitions_by_key()
 ASSETS_WITHOUT_COLUMN_SCHEMA = {"lake_root_health"}
+CONTRACT_ONLY_CATALOG_ASSET_KEYS = {
+    "raw_tushare_dc_index",
+    "raw_tushare_dc_member",
+    "raw_tushare_dc_daily",
+    "silver_dc_index",
+    "silver_dc_member",
+    "silver_dc_daily",
+}
 
 
 def _catalog_entries_by_key():
@@ -338,10 +346,15 @@ class AssetGovernanceContractTests(unittest.TestCase):
 
     def test_current_assets_have_governance_tags_and_dataset_metadata(self) -> None:
         catalog_entries = _catalog_entries_by_key()
-        self.assertEqual(len(catalog_entries), 60)
-        self.assertEqual(set(catalog_entries), set(ACTIVE_ASSETS_BY_KEY))
+        active_catalog_entries = {
+            asset_key: entry
+            for asset_key, entry in catalog_entries.items()
+            if asset_key not in CONTRACT_ONLY_CATALOG_ASSET_KEYS
+        }
+        self.assertEqual(len(active_catalog_entries), len(ACTIVE_ASSETS_BY_KEY))
+        self.assertEqual(set(active_catalog_entries), set(ACTIVE_ASSETS_BY_KEY))
 
-        for asset_key, entry in catalog_entries.items():
+        for asset_key, entry in active_catalog_entries.items():
             with self.subTest(asset=asset_key):
                 spec = ACTIVE_ASSET_SPECS_BY_KEY[asset_key]
 
@@ -389,9 +402,15 @@ class AssetGovernanceContractTests(unittest.TestCase):
         entries = list_lake_asset_catalog_entries()
 
         self.assertIsInstance(entries, tuple)
-        self.assertEqual(len(entries), 60)
+        self.assertEqual(
+            len(entries),
+            len(ACTIVE_ASSETS_BY_KEY) + len(CONTRACT_ONLY_CATALOG_ASSET_KEYS),
+        )
         self.assertEqual(tuple(entry.asset_key for entry in entries), list_lake_asset_keys())
-        self.assertEqual(set(list_lake_asset_keys()), set(ACTIVE_ASSETS_BY_KEY))
+        self.assertEqual(
+            set(list_lake_asset_keys()),
+            set(ACTIVE_ASSETS_BY_KEY) | CONTRACT_ONLY_CATALOG_ASSET_KEYS,
+        )
         self.assertIs(
             get_lake_asset_catalog_entry("lake_root_health"),
             _catalog_entries_by_key()["lake_root_health"],
@@ -498,9 +517,14 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self,
     ) -> None:
         catalog_entries = _catalog_entries_by_key()
+        active_catalog_entries = {
+            asset_key: entry
+            for asset_key, entry in catalog_entries.items()
+            if asset_key not in CONTRACT_ONLY_CATALOG_ASSET_KEYS
+        }
         schemas_by_asset_key = {
             asset_key: entry.column_schema
-            for asset_key, entry in catalog_entries.items()
+            for asset_key, entry in active_catalog_entries.items()
             if entry.column_schema is not None
         }
         self.assertEqual(
@@ -536,6 +560,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         expected_check_names = {
             entry.asset_key: set(entry.blocking_check_names)
             for entry in list_lake_asset_catalog_entries()
+            if entry.asset_key not in CONTRACT_ONLY_CATALOG_ASSET_KEYS
         }
         active_check_names = _blocking_check_names_by_asset_key()
         actual_check_names = {
