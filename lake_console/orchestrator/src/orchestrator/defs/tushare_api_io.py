@@ -1,4 +1,5 @@
 import os
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -300,6 +301,76 @@ def fetch_tushare_full_file_distinct_to_raw(
     )
 
 
+def fetch_tushare_namechange_announcement_windows_to_raw(
+    *,
+    tushare: TushareResource,
+    duckdb: DuckDBResource,
+    fields: Sequence[str],
+    column_types: Mapping[str, str],
+    target_path: Path,
+    allow_empty: bool,
+    announcement_start_date: date,
+    announcement_end_date: date,
+    limit: int = TUSHARE_API_PAGE_LIMIT,
+) -> dict[str, Any]:
+    """Write a complete namechange snapshot without relying on offset pagination."""
+    field_names = tuple(fields)
+    _validate_contract(field_names, column_types)
+    if limit <= 0:
+        raise ValueError("Tushare namechange announcement window limit must be positive.")
+    if announcement_start_date > announcement_end_date:
+        raise ValueError("namechange announcement_start_date must not be after announcement_end_date.")
+
+    rows, query_count, accepted_window_sizes, split_window_count = (
+        _fetch_namechange_announcement_windows(
+            tushare=tushare,
+            field_names=field_names,
+            start_date=announcement_start_date,
+            end_date=announcement_end_date,
+            limit=limit,
+        )
+    )
+    if not allow_empty and not rows:
+        raise RuntimeError(
+            "Tushare namechange returned 0 rows across announcement-date windows; "
+            "raw source mirror will not write an empty full-file asset."
+        )
+
+    row_count = _write_distinct_rows_to_parquet(
+        duckdb=duckdb,
+        rows=rows,
+        fields=field_names,
+        column_types=column_types,
+        target_path=target_path,
+    )
+    if not allow_empty and row_count == 0:
+        raise RuntimeError(
+            "Tushare namechange returned 0 distinct rows across announcement-date windows; "
+            "raw source mirror will not write an empty full-file asset."
+        )
+
+    return build_materialization_metadata(
+        uri=target_path,
+        row_count=row_count,
+        observed_columns=field_names,
+        extra_metadata={
+            "source_method": TUSHARE_API_SOURCE_METHOD,
+            "api_name": "namechange",
+            "source_query_strategy": "announcement_date_adaptive_bisection",
+            "announcement_start_date": announcement_start_date.isoformat(),
+            "announcement_end_date": announcement_end_date.isoformat(),
+            "fields": list(field_names),
+            "limit": limit,
+            "source_query_count": query_count,
+            "accepted_window_count": len(accepted_window_sizes),
+            "split_window_count": split_window_count,
+            "max_accepted_window_row_count": max(accepted_window_sizes, default=0),
+            "source_row_count": len(rows),
+            "duplicate_removed_count": len(rows) - row_count,
+        },
+    )
+
+
 def _validate_stock_daily_repair_staging(
     *,
     staging_path: Path,
@@ -422,6 +493,59 @@ def _fetch_all_pages(
         offset += limit
 
     return rows, page_count
+
+
+def _fetch_namechange_announcement_windows(
+    *,
+    tushare: TushareResource,
+    field_names: tuple[str, ...],
+    start_date: date,
+    end_date: date,
+    limit: int,
+) -> tuple[list[dict[str, Any]], int, tuple[int, ...], int]:
+    request_params = {
+        "start_date": start_date.strftime("%Y%m%d"),
+        "end_date": end_date.strftime("%Y%m%d"),
+        "limit": limit,
+        "offset": 0,
+    }
+    result = tushare.call("namechange", request_params, field_names)
+    page_rows = result.rows
+    if result.columns != field_names and (result.columns or page_rows):
+        raise RuntimeError(
+            "Tushare namechange returned columns "
+            f"{list(result.columns)}, expected {list(field_names)}."
+        )
+
+    if len(page_rows) < limit:
+        return page_rows, 1, (len(page_rows),), 0
+    if start_date == end_date:
+        raise RuntimeError(
+            "Tushare namechange announcement-date window reached the page limit for a "
+            f"single day: announcement_date={start_date.isoformat()}, limit={limit}."
+        )
+
+    midpoint = start_date + timedelta(days=(end_date - start_date).days // 2)
+    left_rows, left_queries, left_sizes, left_splits = _fetch_namechange_announcement_windows(
+        tushare=tushare,
+        field_names=field_names,
+        start_date=start_date,
+        end_date=midpoint,
+        limit=limit,
+    )
+    right_rows, right_queries, right_sizes, right_splits = _fetch_namechange_announcement_windows(
+        tushare=tushare,
+        field_names=field_names,
+        start_date=midpoint + timedelta(days=1),
+        end_date=end_date,
+        limit=limit,
+    )
+    return (
+        [*left_rows, *right_rows],
+        1 + left_queries + right_queries,
+        (*left_sizes, *right_sizes),
+        1 + left_splits + right_splits,
+    )
 
 
 def _validate_contract(

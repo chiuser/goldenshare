@@ -5,6 +5,7 @@ import unittest
 
 import duckdb
 
+from orchestrator.defs.assets import namechange as namechange_assets
 from orchestrator.defs.assets.namechange import NAMECHANGE_RAW_COLUMN_TYPES
 from orchestrator.defs.checks.namechange_checks import (
     raw_namechange_overlap_interval_observed,
@@ -15,7 +16,10 @@ from orchestrator.defs.namechange_timeline import (
 )
 from orchestrator.defs.paths import raw_namechange_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResult
-from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_distinct_to_raw
+from orchestrator.defs.tushare_api_io import (
+    fetch_tushare_full_file_distinct_to_raw,
+    fetch_tushare_namechange_announcement_windows_to_raw,
+)
 
 
 class FakeTushareResource:
@@ -32,7 +36,31 @@ class FakeTushareResource:
         )
 
 
+class WindowedFakeTushareResource:
+    def __init__(self, rows_by_window):
+        self._rows_by_window = rows_by_window
+        self.calls = []
+
+    def call(self, api_name, params, fields):
+        requested_params = dict(params)
+        self.calls.append((api_name, requested_params, tuple(fields)))
+        window = (requested_params["start_date"], requested_params["end_date"])
+        return TushareResult(
+            rows=list(self._rows_by_window[window]),
+            columns=tuple(fields),
+            metadata={},
+        )
+
+
 class NamechangeContractTests(unittest.TestCase):
+    def test_raw_asset_uses_namechange_announcement_window_reader(self) -> None:
+        source = Path(namechange_assets.__file__).read_text()
+
+        self.assertIn(
+            "fetch_tushare_namechange_announcement_windows_to_raw(", source
+        )
+        self.assertNotIn("fetch_tushare_full_file_distinct_to_raw", source)
+
     def test_raw_full_snapshot_helper_removes_exact_duplicates(self) -> None:
         rows = [
             {
@@ -73,6 +101,159 @@ class NamechangeContractTests(unittest.TestCase):
         self.assertEqual(metadata["dagster/row_count"], 1)
         self.assertEqual(metadata["goldenshare/source_row_count"], 2)
         self.assertEqual(metadata["goldenshare/duplicate_removed_count"], 1)
+
+    def test_announcement_window_reader_splits_full_page_and_deduplicates(self) -> None:
+        first = _row("000001.SZ", "名称A", "20200101", None, "20200101")
+        second = _row("000002.SZ", "名称B", "20200102", None, "20200102")
+        tushare = WindowedFakeTushareResource(
+            {
+                ("20200101", "20200104"): [first, second, first],
+                ("20200101", "20200102"): [first],
+                ("20200103", "20200104"): [first, second],
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target_path = Path(tmpdir) / "part-000.parquet"
+            metadata = fetch_tushare_namechange_announcement_windows_to_raw(
+                tushare=tushare,
+                duckdb=DuckDBResource(),
+                fields=NAMECHANGE_RAW_COLUMNS,
+                column_types=NAMECHANGE_RAW_COLUMN_TYPES,
+                target_path=target_path,
+                allow_empty=False,
+                announcement_start_date=date(2020, 1, 1),
+                announcement_end_date=date(2020, 1, 4),
+                limit=3,
+            )
+            with duckdb.connect(database=":memory:") as connection:
+                row_count = connection.execute(
+                    f"SELECT count(*) FROM read_parquet('{target_path.as_posix()}')"
+                ).fetchone()[0]
+
+        self.assertEqual(row_count, 2)
+        self.assertEqual(metadata["dagster/row_count"], 2)
+        self.assertEqual(metadata["goldenshare/api_name"], "namechange")
+        self.assertEqual(metadata["goldenshare/source_query_strategy"], "announcement_date_adaptive_bisection")
+        self.assertEqual(metadata["goldenshare/source_query_count"], 3)
+        self.assertEqual(metadata["goldenshare/accepted_window_count"], 2)
+        self.assertEqual(metadata["goldenshare/split_window_count"], 1)
+        self.assertEqual(metadata["goldenshare/max_accepted_window_row_count"], 2)
+        self.assertEqual(metadata["goldenshare/source_row_count"], 3)
+        self.assertEqual(metadata["goldenshare/duplicate_removed_count"], 1)
+        self.assertEqual(
+            [(params["start_date"], params["end_date"]) for _, params, _ in tushare.calls],
+            [
+                ("20200101", "20200104"),
+                ("20200101", "20200102"),
+                ("20200103", "20200104"),
+            ],
+        )
+        self.assertTrue(
+            all(
+                api_name == "namechange" and params["offset"] == 0
+                for api_name, params, _ in tushare.calls
+            )
+        )
+
+    def test_announcement_window_reader_preserves_source_anchors(self) -> None:
+        anchors = [
+            _row_with_reason(
+                "000040.SZ",
+                "ST鸿基",
+                "20040510",
+                "20050525",
+                "20040430",
+                "撤消*ST并实行ST",
+            ),
+            _row_with_reason(
+                "000761.SZ",
+                "本钢板材",
+                "20040510",
+                "20060314",
+                "20040430",
+                "撤销ST",
+            ),
+            _row_with_reason(
+                "600381.SH",
+                "青海春天",
+                "20150612",
+                "20160628",
+                "20150424",
+                "其他",
+            ),
+        ]
+        tushare = WindowedFakeTushareResource(
+            {
+                ("20200101", "20200104"): anchors,
+                ("20200101", "20200102"): anchors[:2],
+                ("20200103", "20200104"): anchors[2:],
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target_path = Path(tmpdir) / "part-000.parquet"
+            fetch_tushare_namechange_announcement_windows_to_raw(
+                tushare=tushare,
+                duckdb=DuckDBResource(),
+                fields=NAMECHANGE_RAW_COLUMNS,
+                column_types=NAMECHANGE_RAW_COLUMN_TYPES,
+                target_path=target_path,
+                allow_empty=False,
+                announcement_start_date=date(2020, 1, 1),
+                announcement_end_date=date(2020, 1, 4),
+                limit=3,
+            )
+            with duckdb.connect(database=":memory:") as connection:
+                actual = connection.execute(
+                    f"""
+                    SELECT ts_code, name, start_date, end_date, ann_date, change_reason
+                    FROM read_parquet('{target_path.as_posix()}')
+                    ORDER BY ts_code
+                    """
+                ).fetchall()
+
+        self.assertEqual(
+            actual,
+            [
+                (
+                    row["ts_code"],
+                    row["name"],
+                    row["start_date"],
+                    row["end_date"],
+                    row["ann_date"],
+                    row["change_reason"],
+                )
+                for row in anchors
+            ],
+        )
+
+    def test_announcement_window_reader_fails_without_replacing_target_for_full_day(
+        self,
+    ) -> None:
+        full_day_rows = [
+            _row("000001.SZ", "名称A", "20200101", None, "20200101"),
+            _row("000002.SZ", "名称B", "20200101", None, "20200101"),
+        ]
+        tushare = WindowedFakeTushareResource(
+            {("20200101", "20200101"): full_day_rows}
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target_path = Path(tmpdir) / "part-000.parquet"
+            target_path.write_bytes(b"unchanged-target")
+            with self.assertRaisesRegex(RuntimeError, "single day"):
+                fetch_tushare_namechange_announcement_windows_to_raw(
+                    tushare=tushare,
+                    duckdb=DuckDBResource(),
+                    fields=NAMECHANGE_RAW_COLUMNS,
+                    column_types=NAMECHANGE_RAW_COLUMN_TYPES,
+                    target_path=target_path,
+                    allow_empty=False,
+                    announcement_start_date=date(2020, 1, 1),
+                    announcement_end_date=date(2020, 1, 1),
+                    limit=2,
+                )
+
+            self.assertEqual(target_path.read_bytes(), b"unchanged-target")
+        self.assertEqual(tushare.calls[0][1]["offset"], 0)
 
     def test_raw_overlap_observation_check_sql_runs_on_duckdb(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

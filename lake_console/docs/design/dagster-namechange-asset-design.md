@@ -23,7 +23,7 @@
 - 不改造任何下游服务或历史消费者。
 - 不讨论 `stk_mins_clean_service`、身份映射、分钟线清洗等其它需求。
 - 不引入 gold / serving / ClickHouse。
-- 不把旧湖独有记录作为 correction 或人工补丁写入新湖；第一版完全接受 Tushare 最新 full snapshot。
+- 不把旧湖独有记录作为 correction 或人工补丁写入新湖；raw 始终接受 Tushare source mirror。2026-07-14 复测证明无筛选全量查询会漏行，正式取数应以公告日期自适应切窗的 source 并集为准，不能把无筛选 `limit/offset` 翻页单独视为完整事实。
 
 ## 2. 依据与已读门禁
 
@@ -52,7 +52,7 @@
 | 数据域 | `basic_data` |
 | 层级 | raw / silver |
 | 分区模型 | full snapshot，不设置 `partitions_def` |
-| 更新方式 | 直接从 Tushare API 拉取全集分页快照，原子替换 full parquet |
+| 更新方式 | 从 Tushare API 按公告日期自适应切窗读取完整 source 并集，exact distinct 后原子替换 full parquet |
 | 旧湖用途 | 只作为调研证据，不作为本次集成数据来源 |
 | 下游消费 | 本方案不设计下游消费；后续如有下游需求，单独设计依赖关系 |
 | 日常 raw job | `raw_namechange_update_job` |
@@ -78,11 +78,11 @@ namechange
 
 | 参数 | 类型 | 必填 | 说明 | 本方案口径 |
 |---|---|---:|---|---|
-| `ts_code` | str | 否 | TS 股票代码 | 第一版 full snapshot 不传；后续手动 repair 可评估是否支持 |
-| `start_date` | str | 否 | 公告开始日期 | 第一版 full snapshot 不传 |
-| `end_date` | str | 否 | 公告结束日期 | 第一版 full snapshot 不传 |
-| `limit` | int | 否 | 分页长度 | 由现有 Tushare helper 统一注入 |
-| `offset` | int | 否 | 分页偏移 | 由现有 Tushare helper 统一注入 |
+| `ts_code` | str | 否 | TS 股票代码 | full snapshot 不传；不把单代码请求当成日常生产入口 |
+| `start_date` | str | 否 | 公告开始日期 | 由 namechange 专用 reader 内部生成闭区间，不向运营暴露 |
+| `end_date` | str | 否 | 公告结束日期 | 由 namechange 专用 reader 内部生成闭区间，不向运营暴露 |
+| `limit` | int | 否 | 分页长度 | 固定 6000；叶子窗口必须少于该值 |
+| `offset` | int | 否 | 请求数据的开始位移量 | 固定为 0；叶子窗口禁止 offset 翻页，满页时改按公告日期二分 |
 
 输出字段：
 
@@ -112,7 +112,7 @@ MCP 实测结论：
 因此第一版 raw 写入必须：
 
 - 显式请求字段 `ts_code,name,start_date,end_date,ann_date,change_reason`。
-- 使用 full snapshot，不按公告日期或生效日期分区。
+- 使用 full snapshot，不把 lake 文件按公告日期或生效日期分区；但 source 读取按公告日期窗口切分，以保证 source 完整性。
 - 对所有字段完全一致的行做 `DISTINCT`。
 - 在 materialization metadata 上报去重前后行数和 `duplicate_removed_count`。
 
@@ -304,9 +304,9 @@ raw 字段契约：
 
 raw 写入规则：
 
-1. 调用 `fetch_tushare_full_file_to_raw(...)` 或新增同职责 full snapshot helper。
-2. 参数不传 `ts_code/start_date/end_date`。
-3. 分页使用现有 Tushare helper 的 `limit/offset` 模型。
+1. 调用 `fetch_tushare_namechange_announcement_windows_to_raw(...)`；不得调用 generic full-file helper。
+2. 参数不传 `ts_code`；reader 内部以 `1990-01-01` 到上海时区当日的公告日期闭区间递归二分。
+3. 每个 source 请求显式传 `start_date/end_date`、`limit=6000`、`offset=0`；窗口恰好满页必须二分，单日满页直接失败。
 4. 写入前对所有字段完全一致的行做 distinct。
 5. 如果 distinct 后 0 行，直接失败。
 6. 使用 `.tmp` + `os.replace` 原子替换。
@@ -320,10 +320,12 @@ raw materialization metadata：
 | `dagster/row_count` | distinct 后行数 |
 | `goldenshare/observed_columns` | 本次输出字段 |
 | `source_method` | `tushare_api` |
+| `source_query_strategy` | `announcement_date_adaptive_bisection` |
 | `api_name` | `namechange` |
-| `params` | 脱敏后的请求参数，第一版为空 dict 加分页参数摘要 |
+| `announcement_start_date/end_date` | 本次完整 source 覆盖范围 |
+| `source_query_count/accepted_window_count/split_window_count` | source 读取规模和切窗过程摘要 |
+| `max_accepted_window_row_count` | 最大叶子窗口行数，必须小于 `limit` |
 | `fields` | 显式请求字段 |
-| `page_count` | 分页页数 |
 | `source_row_count` | 去重前行数 |
 | `duplicate_removed_count` | 完全重复行去重数量 |
 
@@ -854,7 +856,11 @@ uv run dg check defs
    - `goldenshare/observed_columns`
    - `source_row_count`
    - `duplicate_removed_count`
-   - `page_count`
+   - `source_query_strategy`
+   - `announcement_start_date` / `announcement_end_date`
+   - `source_query_count`
+   - `accepted_window_count` / `split_window_count`
+   - `max_accepted_window_row_count`
 6. 确认 silver materialization metadata 包含：
    - `dagster/uri`
    - `dagster/row_count`
@@ -881,7 +887,7 @@ uv run dg check defs
 | Materialization metadata | 使用 `build_materialization_metadata(...)` 和 `observed_columns` | 已明确 |
 | 字段 | raw 源镜像，silver 日期标准化 | 已明确 |
 | Tushare | 参数、字段、分页、空结果、样本行数已实测 | 已完成基础实测；开发前可补一次全量页数实测 |
-| 请求范围 | 对象池/分页量/耗时评估 | full snapshot，不需要对象池；需在首次运行记录 page_count |
+| 请求范围 | 对象池/分页量/耗时评估 | full snapshot，不需要对象池；首次运行记录 `source_query_count`、`accepted_window_count`、`split_window_count` 和 `max_accepted_window_row_count` |
 | checks | blocking/WARN 分清，metadata 有数量和样本 | 已列清 |
 | deps | asset deps 表达真实输入 | `silver_namechange` 依赖 `raw_tushare_namechange` |
 | job | job 只做 selection | raw/silver 分层 job 已明确 |
@@ -901,3 +907,16 @@ uv run dg check defs
 4. `end_date IS NULL` 多行和区间重叠是源数据现实：raw 层只观测，silver 层必须归并；归并后仍无法解释的矛盾必须阻断。
 5. full snapshot 并发运行可能造成重复请求和后写覆盖前写；`raw_namechange_update_job_sensor` 必须用 run key 和 cursor 避免同一交易日重复提交。
 6. 本方案不处理旧 manifest 或其它消费者；如果未来有人需要消费 `namechange`，应依赖 `silver_namechange` 另起设计。
+
+## 20. 2026-07-14 Source Drift 恢复 LLD
+
+当前 Tushare source 可以在日常 raw 写入后补充或修订历史名称区间；2026-07-14 进一步确认，无筛选全量响应本身可能遗漏仍可被公告日期窗口取到的记录。因此，发现 silver 的未知相邻空档时，必须先实时核验 Tushare，再决定是按公告日期完整窗口重建 raw，还是另行设计人工校正机制。
+
+`000040.SZ`、`000761.SZ`、`600381.SH` 的本次问题经实时 Tushare 核验后均属于 source drift：当前源站已有对应记录，本地 raw 缺失。正式恢复方案见 [Dagster 股票曾用名 Source Drift 恢复 LLD](dagster-namechange-source-drift-recovery-low-level-design.md)。
+
+该专项明确：
+
+1. 本次不新增人工校正 seed；raw 必须继续作为 Tushare source mirror。
+2. namechange 专用公告日期自适应 reader 已完成代码与本地测试；`raw_namechange_update_job` 已于 2026-07-14 成功完成新的 R1，raw 三项 blocking checks 全绿，三条 source anchor 均已写入；`silver_namechange_update_job` 随后完成 R2，silver 三项 blocking checks 全绿，未知相邻空档和区间重叠均为零；`stock_identity_map_update_job` 已完成 R3，身份映射对 `2026-07-13` 为 ready。R4 随后完成：经管理员明确批准一次性直接注册该日分钟线 silver 分区，`stock_mins_silver_update_job`、`stock_mins_qfq_daily_update_job` 与 `stock_mins_qfq_factor_repair_job` 均成功。factor repair 修复了 33 个代码自 `2014-01-02` 起的 qfq 历史，并标记需要独立的 MACD/KDJ historical reconciliation；该 reconciliation 不属于本次 namechange 恢复。完整审计见 [Source Drift 恢复 LLD](dagster-namechange-source-drift-recovery-low-level-design.md)。
+3. `unknown_adjacent_gap_count` 不能靠 `KNOWN_NAMECHANGE_ADJACENT_GAP_KEYS` 绕过。
+4. 只有 Tushare 实时核验仍缺失、且人工证据充分时，才可以另起方案设计 silver-only 校正 seed。

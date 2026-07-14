@@ -1,6 +1,8 @@
 import os
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import dagster as dg
 
@@ -40,11 +42,14 @@ from orchestrator.defs.run_contracts.metadata import (
     build_asset_definition_metadata,
     build_materialization_metadata,
 )
-from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_distinct_to_raw
+from orchestrator.defs.tushare_api_io import (
+    fetch_tushare_namechange_announcement_windows_to_raw,
+)
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
-NAMECHANGE_API_PARAMS: dict[str, object] = {}
+CN_A_TIMEZONE = ZoneInfo("Asia/Shanghai")
+NAMECHANGE_ANNOUNCEMENT_START_DATE = date(1990, 1, 1)
 NAMECHANGE_RAW_COLUMN_TYPES = {
     column.name: column.type for column in RAW_TUSHARE_NAMECHANGE_SCHEMA
 }
@@ -153,14 +158,15 @@ def _replace_silver_rows(
         ),
         extra_metadata={
             "raw_contract": (
-                "Tushare namechange full snapshot; date fields remain YYYYMMDD "
-                "strings and exact full-row duplicates are removed before writing."
+                "Tushare namechange full snapshot assembled from announcement-date "
+                "windows; date fields remain YYYYMMDD strings and exact full-row "
+                "duplicates are removed before writing."
             ),
-            "update_policy": "daily_full_snapshot_api_replace",
+            "update_policy": "daily_announcement_window_snapshot_api_replace",
         },
     ),
     description=(
-        "Tushare 股票曾用名 raw 全量快照，按全字段完全一致去重，"
+        "Tushare 股票曾用名 raw 全量快照，按公告日期窗口完整读取并按全字段完全一致去重，"
         "供股票曾用名标准时间线生成和身份映射引用校验使用。"
     ),
 )
@@ -172,21 +178,23 @@ def raw_tushare_namechange(
     lake_root.ensure_available_for_run()
     target_path = raw_namechange_path(lake_root.root())
     LOGGER.stdout("namechange_raw_started")
-    metadata = fetch_tushare_full_file_distinct_to_raw(
+    metadata = fetch_tushare_namechange_announcement_windows_to_raw(
         tushare=tushare,
         duckdb=duckdb,
-        api_name="namechange",
-        api_params=NAMECHANGE_API_PARAMS,
         fields=NAMECHANGE_RAW_COLUMNS,
         column_types=NAMECHANGE_RAW_COLUMN_TYPES,
         target_path=target_path,
         allow_empty=False,
+        announcement_start_date=NAMECHANGE_ANNOUNCEMENT_START_DATE,
+        announcement_end_date=datetime.now(CN_A_TIMEZONE).date(),
     )
     LOGGER.stdout(
         "namechange_raw_completed",
         row_count=metadata.get("dagster/row_count"),
         source_row_count=metadata.get("goldenshare/source_row_count"),
         duplicate_removed_count=metadata.get("goldenshare/duplicate_removed_count"),
+        source_query_count=metadata.get("goldenshare/source_query_count"),
+        accepted_window_count=metadata.get("goldenshare/accepted_window_count"),
     )
     return dg.MaterializeResult(
         metadata={
@@ -196,7 +204,7 @@ def raw_tushare_namechange(
                     "summary": "已写入股票曾用名 raw 去重全量快照。",
                     "next_action": "等待 raw blocking checks 通过后生成 silver_namechange 时间线。",
                     "result_status": "written",
-                    "input_summary": "来源为 Tushare namechange，全量刷新并按完整行去重。",
+                    "input_summary": "来源为 Tushare namechange，按公告日期自适应切窗读取并按完整行去重。",
                     "filter_summary": "raw 层只去除完全重复行，不做股票池过滤。",
                     "diagnostic_ref": "完整诊断看 raw_namechange checks 和 run stdout。",
                 }
