@@ -258,6 +258,66 @@ class RunContractStaticGateTests(unittest.TestCase):
         self.assertIn("connection.set_session(readonly=True, autocommit=False)", resource_source)
         self.assertIn("connection.rollback()", resource_source)
 
+    def test_dc_board_m4_keeps_partitioned_checks_and_hot_path_boundary(self) -> None:
+        asset_path = ASSETS_DIR / "dc_board_raw.py"
+        check_path = CHECKS_DIR / "dc_board_checks.py"
+        readiness_path = DEFS_DIR / "asset_guards" / "dc_board_lake_readiness.py"
+        jobs_path = JOBS_DIR / "dc_board.py"
+        sensors_path = SENSORS_DIR / "dc_board_sensor.py"
+        asset_source = asset_path.read_text()
+        check_source = check_path.read_text()
+        readiness_source = readiness_path.read_text()
+        jobs_source = jobs_path.read_text()
+        sensors_source = sensors_path.read_text()
+
+        for check_name in (
+            "raw_tushare_dc_index_core_check",
+            "raw_tushare_dc_member_core_check",
+            "raw_tushare_dc_daily_core_check",
+        ):
+            self.assertIn(check_name, check_source)
+        self.assertEqual(check_source.count("partitions_def=cn_a_index_trade_days"), 3)
+        self.assertIn("blocking=True", check_source)
+
+        for source in (asset_source, readiness_source, sensors_source):
+            self.assertNotIn("get_event_records", source)
+        self.assertNotIn("ProdPostgresResource", sensors_source)
+        self.assertNotIn("TushareResource.call(", asset_source)
+        self.assertIn("plan_dc_member_candidate_codes", asset_source)
+        self.assertIn("DC_BOARD_MAX_REQUESTS_PER_PARTITION", asset_source)
+        self.assertIn("read_parquet", readiness_source)
+        self.assertIn("DC_BOARD_SENSOR_WINDOW_LIMIT", sensors_source)
+        self.assertIn("build_asset_update_run_key", sensors_source)
+        self.assertNotIn("AssetSelection.assets(silver_", jobs_source)
+        self.assertEqual(jobs_source.count("dg.define_asset_job("), 3)
+
+    def test_dc_board_m5_keeps_silver_partition_boundary_and_no_automation(self) -> None:
+        asset_path = ASSETS_DIR / "dc_board_silver.py"
+        check_path = CHECKS_DIR / "dc_board_silver_checks.py"
+        asset_source = asset_path.read_text()
+        check_source = check_path.read_text()
+
+        for asset_name in ("silver_dc_index", "silver_dc_member", "silver_dc_daily"):
+            self.assertIn(f'name="{asset_name}"', asset_source)
+        for check_name in (
+            "silver_dc_index_core_check",
+            "silver_dc_member_core_check",
+            "silver_dc_daily_core_check",
+        ):
+            self.assertIn(f'name="{check_name}"', check_source)
+
+        self.assertEqual(asset_source.count("@dg.asset("), 3)
+        self.assertEqual(check_source.count("@dg.asset_check("), 3)
+        self.assertEqual(check_source.count("partitions_def=cn_a_index_trade_days"), 3)
+        self.assertEqual(check_source.count("blocking=True"), 3)
+        self.assertIn("read_parquet", asset_source)
+        self.assertIn("silver_trade_calendar_path", asset_source)
+        self.assertIn("os.replace", asset_source)
+        self.assertNotIn("get_event_records", asset_source + check_source)
+        self.assertNotIn("TushareResource", asset_source + check_source)
+        self.assertNotIn("ProdPostgresResource", asset_source + check_source)
+        self.assertNotIn("AssetSelection", asset_source + check_source)
+
     def test_gold_wealth_market_turnover_keeps_source_boundary(self) -> None:
         forbidden_fragments = (
             "src.biz",
@@ -2271,7 +2331,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 38)
+        self.assertEqual(sensor_definition_count, 41)
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:

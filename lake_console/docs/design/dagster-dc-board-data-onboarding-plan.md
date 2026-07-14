@@ -1,6 +1,6 @@
 # Dagster `dc_index` / `dc_member` / `dc_daily` 数据集接入技术方案
 
-> 状态：M3 Raw 写入能力已完成；M4+仍未创建 active Dagster definition。M3 只验证临时 staging，不写正式数据湖、Dagster materialization、check event 或 sensor。
+> 状态：M3 Raw 写入能力、M4 Raw Dagster definition、M5 Silver writer/asset/check 已完成；M6+尚未开始。M4 sensor 仍为 `STOPPED`，M5 只完成临时 lake 联调，未启用 Silver sensor，不写正式数据湖、Dagster materialization 或 check event。
 >
 > 依据：新增数据集接入模板、`lake_console/orchestrator/CODING_STANDARDS.md`、
 > `dagster-data-pipeline-performance-governance.md`、现有 `index_daily` / `stk_nineturn`
@@ -19,6 +19,18 @@ M3 已完成 Raw-only 写入能力：
 性能样本：`/private/tmp/dc_board_m3_performance_20260714.json`。1,022 个 fake `dc_member` 代码请求为 1,022 次、1,022 页、0 retry，source/written 均为 1,022，DuckDB + Parquet staging 耗时约 394 ms；真实 Tushare 间隔仍由 M1C 固化的 `0.13s` 和 1,200/300s 预算控制。
 
 M3 明确不新增 active Dagster asset/check/job/sensor，不执行正式 bootstrap，不写正式湖或 Dagster DB。
+
+## M4 实施状态
+
+M4 已完成 Raw Dagster 接入，但保持 sensor 默认关闭、未执行正式同步：
+
+- `defs/assets/dc_board_raw.py` 创建三个单分区 Raw asset；`dc_member` 在 asset run 内从目标日 `raw_dc_index` 与最近可用 member 分区规划去重后的候选板块代码，缺历史基线或超过请求预算时在 Tushare 请求前 fail closed。
+- `defs/checks/dc_board_checks.py` 创建三个显式绑定 `cn_a_index_trade_days` 的合并核心 blocking check；每次只接受一个 partition，并以 DuckDB set-based SQL 检查文件、schema、行数、日期、主键和身份字段。
+- `defs/asset_guards/dc_board_lake_readiness.py` 创建内存态 batch readiness；单个 sensor tick 最近 10 个 expected dates 共用一个 DuckDB connection，不读取 Dagster event history、Prod DB 或 Tushare。
+- `defs/jobs/dc_board.py` 创建三个只选择对应 Raw asset 与其 check 的 job；`defs/sensors/dc_board_sensor.py` 创建三个 `STOPPED` sensor，每 tick 最多一个 first-not-ready run request，并使用统一 run key/cursor builder。
+- M4 本地验证包含完整 M3 回归、定义加载、候选 planner、core check、10 日 readiness、sensor 和静态门禁，共 `112 passed`；未运行 `dg launch`、未启动 daemon/webserver、未写正式 lake 或 Dagster DB。
+
+M4 当前没有正式数据可供 readiness 触发是预期状态；M4 的三个 Raw sensor 继续保持 `STOPPED`，M5 不增加自动化入口，也不执行正式 Bootstrap。
 
 ## 1. 目标与范围
 
@@ -338,16 +350,24 @@ SSE open dates
 - 三者共用字段、日期、主键、空结果和原子 promote 规则；`dc_member` 额外记录 prod source audit 和有限 Tushare 样本 reconciliation。
 - 该阶段不在 sensor 热路径访问 prod DB；Bootstrap 是独立人工维护入口。
 
-### P4：Raw 日常接入
+### P4：Raw 日常接入（已完成）
 
-- 新增三个 Raw asset、三个 job、三个 sensor 和 batch readiness helper。
+- 已新增三个 Raw asset、三个 job、三个 sensor 和 batch readiness helper，实际文件见 M4 实施状态。
 - `dc_index` / `dc_daily` 按 Tushare 日期请求；`dc_member` 按 M1C 通过的候选代码逐个请求。
-- 先做单日、分页、空结果和源/写入对账，再做最近 10 日小批量。
+- 单日、分页、空结果、失败不覆盖和最近 10 日 readiness 已用本地临时数据覆盖；正式单日同步和全量 Bootstrap 留到 M7。
 
-### P5：Silver
+M4 的进入 M5 条件已满足：sensor 每 tick 最多提交一个 first-not-ready 分区，不读 Dagster event history，默认状态仍为 `STOPPED`，M3 writer/static gate 未回退。
 
-- 新增三个 Silver asset 和三个 job/sensor。
-- 用 DuckDB SQL 清洗并原子写入；不把跨数据集集合差异变成日常硬 gate。
+### P5：Silver（已完成）
+
+- `defs/assets/dc_board_silver.py` 提供三个 `trade_date` 分区 Silver asset 和 writer。输入只取同日 Raw 与 SSE 交易日文件；日期转 `DATE`、代码 trim/uppercase、业务字段保留、非法行 fail-closed、同业务主键完全重复去重、同主键不同业务值拒绝。
+- Silver writer 使用 DuckDB set-based SQL，输出先写唯一临时 Parquet，回读 schema/行数通过后才 `os.replace`；校验失败不覆盖已有目标文件。`dc_daily.category` 保留并继续参与 `(ts_code, trade_date, category)` 主键。
+- `defs/checks/dc_board_silver_checks.py` 提供三个显式绑定 `cn_a_index_trade_days` 的单分区 blocking core check。check 只扫描当前 Silver 文件，检查文件/行数、schema、分区日期、业务主键非空唯一、数据集身份字段和数值域，并通过 `failed_rules`/`reason_code`/有限样本表达失败原因。
+- Silver 资产只依赖对应同日 Raw，不把 `dc_index`、`dc_member`、`dc_daily` 的历史非等集关系变成日常硬 gate；本阶段不新增 Silver job/sensor，不接入 Dagster event history，不启用任何 sensor。
+- M3/M4/M5 scoped suite 共 `123 passed`；定义加载可见三个 Silver asset 和三个 Silver check。验证没有运行 `dg launch`，没有启动 daemon/webserver，没有写正式湖或 Dagster DB。
+- 临时性能样本 `/private/tmp/dc_board_m5_performance_20260714.json` 使用每类 3,000 行：`dc_index=24.094ms`、`dc_member=20.839ms`、`dc_daily=21.587ms`；三类 source/output 均为 3,000 行，重复删除为 0。该样本只证明单分区集合 SQL 和原子 Parquet 写入在临时环境内没有异常，不代表正式全量 Bootstrap 耗时。
+
+进入 M6 的条件已满足：同日 Raw ready 后 Silver 能生成正确分区；失败不覆盖；跨数据集历史非等集不误阻断；三类 Silver check 均保持单分区可归因。
 
 ### P6：check/event/下游验收
 
