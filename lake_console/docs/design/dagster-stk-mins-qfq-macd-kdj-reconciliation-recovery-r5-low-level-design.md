@@ -1,20 +1,20 @@
 # Dagster 股票分钟线 QFQ MACD/KDJ Reconciliation Recovery R5 LLD
 
-状态：R5-P0 代码与本地验证、R5-P1 只读 preflight 已完成；正式 Dagster/lake 恢复待审批
+状态：R5-P0 代码与本地验证、R5-P1 只读 preflight、R5-P2 四日 daily state 补洞、R5-P3 四批 repair 与 R5-P4 最终审计均已完成；completion latest-state 分区碰撞待另立方案处理
 
 更新时间：2026-07-14
 
 ## 1. 一句话结论
 
-`2026-07-13` 的 qfq factor repair 已正确标记为“历史 qfq 被改写，必须重算 MACD/KDJ”。R5-P0 已消除两个代码级阻断：repair 现在只读取 affected code 的历史 qfq 文件，并且会在写入前检查整段历史的 state 文件是否齐备。当前仍不能直接运行正式 repair，因为四个日期的 state 文件尚未补齐，且正式 lake 写入、quarantine 备份和 Dagster job 都需要单独审批。
+`2026-07-08`、`2026-07-09`、`2026-07-10`、`2026-07-13` 的 qfq factor repair 都改写了历史 QFQ，因此必须分别重算同批受影响代码的 MACD/KDJ。R5-P0 已消除 source scope 与全段 state 的代码级阻断；R5-P2 已补齐四个日期的 28 份 state 文件；R5-P3 已按四个精确上游批次完成历史 repair。四批合计 253 个互不重叠代码，均由成功 run、逐批 14 条 completion 历史事件和物理文件审计证实。
 
-R5 的顺序是：先完成两项 fail-closed 代码硬化，再按交易日顺序补齐 `2026-07-08`、`2026-07-09`、`2026-07-10`、`2026-07-13` 的 MACD/KDJ daily state，最后对当前 qfq repair 批次做一次 33-code 的历史 reconciliation。R5 不补全历史 Dagster 分区事件，不改变日常 sensor 的触发机制。
+R5 的顺序是：先完成两项 fail-closed 代码硬化，再按交易日顺序补齐 `2026-07-08`、`2026-07-09`、`2026-07-10`、`2026-07-13` 的 MACD/KDJ daily state，最后按同一顺序对四个 qfq repair 批次分别做历史 reconciliation。R5 不补全历史 Dagster 分区事件，不改变日常 sensor 的触发机制。
 
 ## 2. 目标、边界与硬约束
 
 ### 2.1 目标
 
-1. 让 scoped MACD/KDJ repair 只读取 qfq factor repair 当前给出的 affected code 范围，不再为 33 个代码扫描全市场历史文件。
+1. 让 scoped MACD/KDJ repair 只读取 qfq factor repair 当前给出的 affected code 范围，不再为少量受影响代码扫描全市场历史文件。
 2. repair 开始写任何指标或 state 文件前，确认完整 target range 的 state 文件都存在；缺任意一份时立即失败且不写 completion check。
 3. 用既有 `gold_stk_mins_qfq_macd_kdj_daily_update_job` 顺序补齐四个缺失日期的 14 个 daily asset/state 状态，再执行一次正式 scoped repair。
 4. 保持 `gold_stk_mins_qfq_macd_kdj_repair_completed_check` 的轻量语义：成功后只写 14 个 reconciliation completion check，不为 3,044 个历史日期补 materialization、普通 check 或 runless event。
@@ -32,15 +32,15 @@ R5 的顺序是：先完成两项 fail-closed 代码硬化，再按交易日顺�
 
 | 不变量 | R5 处理方式 |
 |---|---|
-| qfq repair scope | 仍以当前 `gold_stk_mins_qfq_factor_repair_status(...)` 的 `start/end/codes/hash/upstream_batch_id` 为唯一事实源；运行时重新读取，不把本文件中的 33 个代码或日期硬编码进生产代码。 |
+| qfq repair scope | 仍以当前 `gold_stk_mins_qfq_factor_repair_status(...)` 的 `start/end/codes/hash/upstream_batch_id` 为唯一事实源；运行时重新读取，不把本文件中的任何固定代码数或日期硬编码进生产代码。 |
 | 全七频度 completion | repair completion 固定覆盖 `1/5/15/30/60/90/120` 七个 indicator 与七个 state asset，共 14 个 check event。 |
-| state merge | 继续只替换 affected code 的 state 行，保留同日 state 文件内未受影响代码；不得整文件用 33-code 结果覆盖。 |
+| state merge | 继续只替换 affected code 的 state 行，保留同日 state 文件内未受影响代码；不得整文件用 scoped 结果覆盖。 |
 | 日常连续性 | daily 仍必须要求上一 expected trade date 的 state ready；R5 只按该既有规则补洞，不放宽门禁。 |
 | 并发 | repair 继续使用既有 `GOLD_STK_MINS_QFQ_WRITER_POOL`；正式执行窗口还必须单独防止 sensor 与人工恢复并发。 |
 
 ## 3. 已核验事实与根因
 
-### 3.1 当前修复批次基线
+### 3.1 初始单批修复基线（历史记录）
 
 只读 preflight 报告：`/private/tmp/stk_mins_qfq_macd_kdj_reconciliation_preflight_20260714T081142Z.json`。
 
@@ -54,7 +54,7 @@ R5 的顺序是：先完成两项 fail-closed 代码硬化，再按交易日顺�
 | 当前 completion gate | 不通过。现存 completion 属于 7 月 7 日的 32-code 旧批次，不能覆盖当前 33-code/hash/upstream batch。 |
 | 相关 active run | qfq daily、qfq factor repair、MACD/KDJ daily、MACD/KDJ repair 均为 0。 |
 
-上表只是本轮冻结基线。R5 执行前必须重新读取 qfq repair status；若日期、范围、code count、hash 或 upstream batch 任一变化，停止并重新生成计划，不得复用本表作为 run config。
+上表是 R5 初始针对 `2026-07-13` 的冻结基线，不是最终执行范围。后续只读审计发现 `2026-07-08/09/10` 也各有独立 qfq factor repair scope，故 P3 按四批分别执行。任何 repair 运行前仍必须重新读取 qfq repair status；若日期、范围、code count、hash 或 upstream batch 任一变化，停止并重新生成计划，不得复用本表作为 run config。
 
 ### 3.2 四个 state 缺口及因果链
 
@@ -73,7 +73,7 @@ R5 的顺序是：先完成两项 fail-closed 代码硬化，再按交易日顺�
 
 | 对象 | 当前实现 | R5 目标 / 事实 |
 |---|---:|---:|
-| repair qfq 源文件 | 370,023 个，约 83.8 GiB，全市场按年份 glob | 2,260 个，约 494 MiB，仅当前 33-code 范围；约 255,998,831 行 |
+| repair qfq 源文件 | 370,023 个，约 83.8 GiB，全市场按年份 glob | 初始 7 月 13 日单批为 2,260 个、约 494 MiB；最终四批合并范围另见 P3 执行结果 |
 | indicator 年文件 | 2,260 个，约 1.18 GiB | repair 会重写该范围内已有或应创建的年文件 |
 | state 文件 | 3,044 日期 × 7 频度 = 21,308 个；已有 21,280 个 | 缺 `2026-07-08/09/10/13` × 7 = 28 个；必须先由 daily job 生成 |
 | 现有 state 体量 | 约 3.46 GiB、905,379,552 行 | scoped repair 仍会 merge/replace 全部 target state 文件，不能忽略写入风险 |
@@ -91,7 +91,7 @@ R5 的顺序是：先完成两项 fail-closed 代码硬化，再按交易日顺�
 freq=<freq>/ts_code=*/year=<year>/part-000.parquet
 ```
 
-`gold_stk_mins_qfq_macd_kdj_repair_op(...)` 虽然随后把 `stock_codes` 传给 writer 过滤 replacement rows，但 DuckDB 已经需要规划并读取全市场 source file 集合。这与 33-code scoped repair 的意图相矛盾，也是 83.8 GiB 扫描的直接根因。
+`gold_stk_mins_qfq_macd_kdj_repair_op(...)` 虽然随后把 `stock_codes` 传给 writer 过滤 replacement rows，但 DuckDB 已经需要规划并读取全市场 source file 集合。这与 affected-code scoped repair 的意图相矛盾，也是 83.8 GiB 扫描的直接根因。
 
 CodeGraph 影响面审计确认该 helper 同时被 daily writer、五类 checks、历史 bootstrap/history 工具和 repair op 使用。R5 只能给 helper 增加可选 code scope，且默认必须保持当前全市场行为；只有 repair op 传入显式 code scope。
 
@@ -220,7 +220,7 @@ git diff --check
 |---|---|
 | 28 个 target state 中任意一个缺失 | repair fail before write，writer 和 completion event 均为 0。 |
 | `freqs=[1, 5]`、重复、乱序 | fail before source discovery/write，错误说明 completion 语义。 |
-| 当前 33-code scope | repair source helper 只收到该 scope；未传 scope 的 daily/check/history 调用保持全市场。 |
+| 初始 33-code fixture | repair source helper 只收到该测试 scope；未传 scope 的 daily/check/history 调用保持全市场。 |
 | scope/hash 与 qfq repair metadata 不一致 | 保持现有 fail closed，不能因为 source scope 优化而放宽。 |
 | 完整 state + 全七频度 | 保持 14 个 completion check、`covered_end_trade_date`、hash 与 upstream batch metadata。 |
 
@@ -251,7 +251,7 @@ git diff --check
 4. scoped source file/byte/row 规模、indicator/state target 文件数、quarantine 所需字节数、磁盘可用空间。
 5. 当前 completion gate 是否仍未覆盖本批次，及已有 completion 的 batch/hash 证据。
 
-执行结果（2026-07-14 16:59:11+08:00）：报告为 [R5-P1 preflight](/private/tmp/stk_mins_qfq_macd_kdj_reconciliation_preflight_20260714T085911Z.json)。当前 qfq factor repair scope 仍为 33 个代码、`2014-01-02` 至 `2026-07-13`、3,044 个 expected dates、hash `596cb3d8...933311b`、upstream batch `qfq_factor_repair:2026-07-13:6e5e6183709d`，与 R5 基线一致；相关四个 job 均无 active run，全部 target dates 已注册，四个相关 sensor 均为 `RUNNING`。
+执行结果（2026-07-14 16:59:11+08:00）：报告为 [R5-P1 preflight](/private/tmp/stk_mins_qfq_macd_kdj_reconciliation_preflight_20260714T085911Z.json)。当时只审计了 7 月 13 日的 33-code scope、`2014-01-02` 至 `2026-07-13`、3,044 个 expected dates、hash `596cb3d8...933311b`、upstream batch `qfq_factor_repair:2026-07-13:6e5e6183709d`；相关四个 job 均无 active run，全部 target dates 已注册，四个相关 sensor 均为 `RUNNING`。该单批 preflight 在 P3 前已被四批 preflight 取代。
 
 本次 preflight 按 R5-P0 的 scoped source helper 计量：7 个频度合计只读取 2,260 个 affected-code qfq 年文件、517,689,750 bytes、255,998,831 行；不再把全市场 source 扫描作为 repair 输入。正式 repair 前仍有两个阻断：四个日期 `2026-07-08/09/10/13` 在每个频度各缺一份 state，共 28 份；旧 completion 仍属于 2026-07-07 的 32-code batch，不能覆盖当前 batch。当前可备份的 affected indicator/state 文件为 23,540 份、4,978,522,950 bytes；P2 补齐 state 后必须重新 preflight，届时预期为 23,568 份。lake 可用空间为 2,566,700,339,200 bytes，不构成阻断。
 
@@ -279,33 +279,90 @@ gold_stk_mins_qfq_macd_kdj_daily_update_job[2026-07-13]
 
 每一步都重新确认同日 qfq daily、qfq factor repair、当前目标文件、上一 expected state 与 14 个 blocking checks。任一步失败、已 materialized 但 checks 失败、或发现新 active run，立即停止，不跳到后一天，不自动覆盖。
 
-### R5-P3：quarantine 备份与 scoped repair
+执行结果（2026-07-14）：四个 sensor 已在维护窗口开始前由 `DagsterInstance` API 暂停，并保持 `STOPPED`。既有 job 严格串行完成：
+
+| 日期 | daily job run id | post-audit |
+|---|---|---|
+| `2026-07-08` | `6dec541a-dbef-4161-914e-b0f9bef3ddd3` | [报告](/private/tmp/stk_mins_qfq_macd_kdj_r5_p2_post_audit_2026-07-08_20260714T102735Z.json) 通过 |
+| `2026-07-09` | `7ccb8146-55c6-46e4-8e32-8649d1872ff7` | [报告](/private/tmp/stk_mins_qfq_macd_kdj_r5_p2_post_audit_2026-07-09_20260714T114415Z.json) 通过 |
+| `2026-07-10` | `145e45c3-d7e5-4234-9bde-ad17e2b8c1fb` | [报告](/private/tmp/stk_mins_qfq_macd_kdj_r5_p2_post_audit_2026-07-10_20260714T115623Z.json) 通过 |
+| `2026-07-13` | `a1adce0c-fe1f-4cc8-bc54-79ced2eb8e80` | [报告](/private/tmp/stk_mins_qfq_macd_kdj_r5_p2_post_audit_2026-07-13_20260714T120710Z.json) 通过 |
+
+每份 post-audit 都确认同日 14 个 indicator/state asset 已 materialize 且 blocking checks 通过、七份 state 文件存在、相关 job 无 active run。汇总 [R5-P2 preflight](/private/tmp/stk_mins_qfq_macd_kdj_reconciliation_preflight_20260714T120822Z.json) 随后确认：3,044 个目标交易日乘七个频度的 21,308 份 state 文件均存在，原有 28 个 state 缺口已归零；实时 repair scope 仍为 33 个代码、hash `596cb3d8...933311b`、upstream batch `qfq_factor_repair:2026-07-13:6e5e6183709d`，与 R5 基线一致；四个相关 job 均无 active run。P2 未写 prod 数据库、未修改 dynamic partitions，且未启动 repair job。
+
+### R5-P3：quarantine 备份与四批 scoped repair（已完成）
 
 在四个 daily gap 都绿后：
 
-1. 重新运行 R5-P1 preflight，确认 all-target-state gate 已通过。
-2. 把 preflight 生成的 affected indicator/state 文件清单复制到同卷 quarantine：`/Volumes/datasource/data_lake/_quarantine/stk_mins_qfq_macd_kdj_r5_<timestamp>/`，生成相对路径、行数、字节数、SHA-256 manifest；备份数与 preflight 完全一致才继续。
-3. 用当前 qfq factor repair status 生成 repair run config。`start_trade_date/stock_codes/hash/upstream_batch_id` 必须逐项取实时 status；`freqs` 固定全七频度。
-4. 只启动一次既有 `gold_stk_mins_qfq_macd_kdj_repair_job`，等待它完成；禁止绕开 job 直接调用 op 或手改 Parquet。
-5. 若 run 失败，停止在 post-failure audit；不自动恢复。是否按 manifest 回滚由管理员另行批准。
+1. 重新运行 multi-batch preflight，确认四个 qfq factor repair status 均完整、四批 code scope 两两无重叠、所有 state target 已存在、相关 sensor 均为 `STOPPED`，且不存在 active repair run。
+2. 用生产 QFQ 公式比较 helper 做只读 source gate。最近受影响日期的所有 253 个公式差异代码都必须落在其对应的、已成功 factor-repair scope 内；发现任一未覆盖代码即停止。
+3. 将四批的 affected indicator/state 文件并集复制到同卷 quarantine，生成相对路径、字节数、SHA-256 manifest；备份完成后才启动 repair。
+4. 每一批都实时读取自己的 `start_trade_date/stock_codes/hash/upstream_batch_id`，用全七频度 config 启动既有 `gold_stk_mins_qfq_macd_kdj_repair_job`；必须严格串行，单批 post-audit 通过才进入下一批。
+5. 任一 batch 失败即停止，不自动恢复；是否按 manifest 回滚仍由管理员另行批准。
 
-### R5-P4：最终审计与恢复日常
+执行结果（2026-07-14）：
+
+| qfq factor repair 日 | 代码数 | repair run id | 运行结果 |
+|---|---:|---|---|
+| `2026-07-08` | 60 | `d06290f4-3f0b-44d9-a9ce-307d4b8dd676` | 成功；14 条 completion 历史事件与 batch metadata 一致 |
+| `2026-07-09` | 58 | `9ac6079c-3dc2-442b-9a7b-015faf40fc29` | 成功；14 条 completion 历史事件与 batch metadata 一致 |
+| `2026-07-10` | 102 | `81595590-c0a0-406d-a845-543218f370c2` | 成功；14 条 completion 历史事件与 batch metadata 一致 |
+| `2026-07-13` | 33 | `9d967323-524a-4241-9d01-628f2e74672c` | 成功；14 条 completion 历史事件与 batch metadata 一致 |
+
+source gate 报告为 [source gate](/private/tmp/stk_mins_qfq_macd_kdj_repair_source_gate_20260714T125731Z.json)，确认 253 个 scoped 差异代码都被其精确 factor-repair 批次覆盖。quarantine 位于 `/Volumes/datasource/data_lake/_quarantine/stk_mins_qfq_macd_kdj_r5_multi_20260714T130322Z/`，manifest 包含 38,819 个文件、13,476,511,817 bytes。最终审计为 [final audit](/private/tmp/stk_mins_qfq_macd_kdj_multi_batch_repair_final_audit_20260714T142623Z.json)：四批 run config 均仍匹配实时 source metadata，当前目标文件均存在且非空，且无 active repair run。
+
+### R5-P4：最终审计与恢复日常（审计完成；sensor 恢复待复核）
 
 输出 `/private/tmp/stk_mins_qfq_macd_kdj_r5_final_audit_<timestamp>.json`，必须证明：
 
-1. 当前 qfq repair batch 的 33-code/hash/upstream batch 与 repair completion metadata 完全一致。
-2. completion status ready，14 个 completion check 齐全；没有为了历史补齐写成 3,044 日期的 runless events。
-3. 4 个 daily gap 与 `2026-07-13` 的 indicator/state 全部 ready；repair 后的 source/indicator/state row count 与 scope 对账，无 unexpected code。
-4. 不存在 active qfq/MACD-KDJ repair job；未修改 prod 数据库、动态分区或不相关 lake 文件。
-5. 恢复 R5-P2 前记录为 `RUNNING` 的 sensor，并回读状态。若某 sensor 原先不是 `RUNNING`，按原状态保留，不强行开启。
+1. 四批的 run config 必须逐项匹配其 source metadata；每批历史 run 都必须存在恰好 14 条 passed/blocking completion event，且 event metadata 的 trade date、start/end、code count/hash、upstream batch 必须精确一致。
+2. 不能把四批都要求为当前 latest completion ready：它们共享 `repair_start_trade_date=2014-01-02`，后写 batch 的最新 check 会覆盖先前 batch 的最新 check。前 3 批以历史 run events 为证据，最后一批以 latest completion 为证据。
+3. quarantine manifest 的 38,819 个当前目标文件均必须存在且非空；不存在 active qfq/MACD-KDJ repair job；未修改 prod 数据库、动态分区或不相关 lake 文件。
+4. 已完成最终审计，但四个 sensor 继续保持 `STOPPED`。恢复前必须先单独审计 completion latest-state 碰撞对未来 sensor gate 的实际影响，不能因为本轮物理数据已正确就默认恢复。
+
+### R5-P5：completion latest-state 碰撞（代码完成；instance 补录待单独审批）
+
+completion check 的 Dagster identity 是 `asset key + check name + partition`。四个 repair 批次都从 `2014-01-02` 开始，旧实现把该开始日期当作 check partition，因此同一 14 个 asset/check 的 latest 视图只会留下最后写入的 `2026-07-13` 批次。物理数据和四个历史 repair run 都正确，错误只在 completion 状态的身份设计。
+
+P5 将正式身份改为 QFQ factor repair 的触发交易日：
+
+```text
+asset key + gold_stk_mins_qfq_macd_kdj_repair_completed_check
++ qfq_factor_repair_trade_date
+```
+
+`repair_start_trade_date` 与 `repair_end_trade_date` 仍是 repair 覆盖范围，继续写入并校验 metadata；它们不再用于查询 Dagster latest completion check。`gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch(...)` 现在显式接收 `qfq_factor_repair_trade_date`。日常 MACD/KDJ gate 和 repair sensor 都把上游 QFQ status 的 `trade_date` 原样传入。
+
+repair op 仍为 14 个既有 asset 写 14 条 blocking completion check，未新增 asset、check、job、sensor、动态分区或日常 event 数量；唯一变化是 event partition 从 `start_trade_date` 改为 `qfq_factor_repair_trade_date`。同一触发日出现新的 upstream batch 时，`source_upstream_batch_id`、代码 hash、范围或频度 metadata 不匹配，gate 必须 fail-closed 并要求重新 repair，不能把旧完成状态误认为新 batch 已完成。
+
+#### P5A 代码与只读计划
+
+新增非 active bootstrap 模块和 CLI：
+
+```text
+src/orchestrator/defs/bootstrap/stk_mins_qfq_macd_kdj_repair_completion_events.py
+src/orchestrator/defs/bootstrap/stk_mins_qfq_macd_kdj_repair_completion_events_cli.py
+```
+
+它只允许本次冻结的四个 QFQ 触发日：`2026-07-08`、`2026-07-09`、`2026-07-10`、`2026-07-13`。先执行 `plan-events`，只读扫描每个日期的 QFQ status、QFQ producer run、旧 completion history 和目标 trigger-date partition；随后才可使用带 `--apply` 的 `report-events`。`--apply` 必须同时提供刚生成的 plan report，CLI 会核对 plan fingerprint，防止 preflight 与写入之间上游状态已经变化。
+
+每一批只有在以下条件全部满足时才可计划 14 条 runless `AssetCheckEvaluation`：
+
+1. 当前 QFQ repair status ready、实际 rewrote history，且 producer run 为 `SUCCESS`。
+2. 旧 `2014-01-02` completion history 中，每个既有 MACD/KDJ indicator/state asset 都恰有一条 passed/blocking event；14 条 event 的触发日、覆盖范围、代码数/hash、upstream batch、全频度 metadata 全部与该 QFQ batch 一致，并来自同一个成功 repair run。
+3. 新的 trigger-date partition 没有 completion event；若已存在，必须 metadata 完全一致才跳过，任何冲突都停止。
+
+四批最多写入 `4 x 14 = 56` 条 runless check event。补录只复制已验证的正式 completion metadata，并额外记录 bootstrap 方法、源 completion storage id 和源 repair run id；不补 materialization、不附目标 materialization、不重跑 repair、不改原 event、不写 lake、prod 或动态分区，也不直接 SQL 修改 Dagster DB。写后会重新 plan，只有计划事件数归零且无 stop reason 才算收敛；中途部分写入可由同一 plan 安全续跑，未补全批次继续 fail-closed。
+
+P5A 已完成代码、单元测试和正式 instance 的只读 preflight。2026-07-14 的 [plan report](/private/tmp/stk_mins_qfq_macd_kdj_repair_completion_events_plan-events_20260714_225551.json) 与 [dry-run report](/private/tmp/stk_mins_qfq_macd_kdj_repair_completion_events_report-events_20260714_225734.json) 一致：4 批、56 条 source completion event、0 条目标 trigger-date event、计划补 56 条、`should_stop=false`，冻结 fingerprint 为 `f1e3771014ed8570f908a24a7af471710678b4f67dd72db180136b91350e1f4e`。P5B 的 `--apply` 是独立的 Dagster instance 写入审批；四个相关 sensor 在 P5B 完成和 post-audit 前继续保持 `STOPPED`。
 
 ## 9. 审批点与停止条件
 
 ### 9.1 后续需要管理员明确批准的动作
 
-1. R5-P2 的正式 Dagster sensor 暂停、四个 daily job 人工运行与状态回读。
-2. R5-P3 的 lake quarantine 备份和正式 repair job。
-3. 若 repair 失败，任何 lake 文件恢复动作。
+1. R5-P5B 的 runless completion event apply；仅允许对本节列出的四个日期、最多 56 条 event 写入，必须使用同轮 `plan-events` report 的 fingerprint。
+2. R5-P4 的 sensor 恢复；必须在 R5-P5B post-audit 后单独批准。
+3. quarantine 的保留期限与最终删除；当前不得自动删除。
 
 ### 9.2 必须停止的情况
 
@@ -314,7 +371,7 @@ gold_stk_mins_qfq_macd_kdj_daily_update_job[2026-07-13]
 3. source scope 超出当前 qfq repair code list，或发现 helper 默认全市场行为被影响。
 4. 存在 qfq/MACD-KDJ 相关 active run，或维护窗口中出现新的并发 run。
 5. quarantine manifest 行数、字节数或 hash 与 preflight 不一致。
-6. scoped repair 成功但 completion metadata 不是当前 batch/hash/full freqs，或 final audit 发现异常代码/文件。
+6. scoped repair 成功但任一历史 completion event 的 batch/hash/full freqs 不匹配，或 final audit 发现异常代码/文件。
 
 ## 10. 影响面审计结论
 
