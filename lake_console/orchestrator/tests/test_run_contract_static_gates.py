@@ -217,6 +217,47 @@ def _is_allowed_sensor_run_key_value(path: Path, node: ast.AST) -> bool:
 
 
 class RunContractStaticGateTests(unittest.TestCase):
+    def test_dc_board_m3_writers_keep_raw_only_bounded_boundary(self) -> None:
+        writer_path = DEFS_DIR / "assets" / "dc_board.py"
+        bootstrap_path = DEFS_DIR / "bootstrap" / "dc_board_bootstrap.py"
+        resource_path = DEFS_DIR / "resources.py"
+        writer_source = writer_path.read_text()
+        bootstrap_source = bootstrap_path.read_text()
+        resource_source = resource_path.read_text()
+
+        for required in (
+            "execute_bounded_pages",
+            "execute_bounded_code_pages",
+            "copy_query_to_parquet",
+            "os.replace",
+            "write_dc_member_rows_streaming",
+            "source_method",
+        ):
+            self.assertIn(required, writer_source)
+        for forbidden in (
+            "TushareResource.call(",
+            "report_runless_asset_event",
+            "@dg.asset",
+            "@dg.asset_check",
+            "@dg.job",
+            "@dg.sensor",
+            "select *",
+            "SELECT *",
+        ):
+            self.assertNotIn(forbidden, writer_source)
+
+        self.assertIn("connect_readonly_transaction", bootstrap_source)
+        self.assertIn("fetchmany", bootstrap_source)
+        self.assertIn("DC_MEMBER_BOOTSTRAP_SELECT_SQL", bootstrap_source)
+        self.assertNotIn("fetchall", bootstrap_source)
+        self.assertNotIn("ProdPostgresWriteResource", bootstrap_source)
+        self.assertNotIn("prod_postgres_write", bootstrap_source)
+        self.assertNotIn("SELECT *", bootstrap_source)
+        self.assertNotIn("report_runless_asset_event", bootstrap_source)
+
+        self.assertIn("connection.set_session(readonly=True, autocommit=False)", resource_source)
+        self.assertIn("connection.rollback()", resource_source)
+
     def test_gold_wealth_market_turnover_keeps_source_boundary(self) -> None:
         forbidden_fragments = (
             "src.biz",

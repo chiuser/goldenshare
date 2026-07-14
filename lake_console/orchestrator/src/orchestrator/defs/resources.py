@@ -129,6 +129,35 @@ class ProdPostgresResource(dg.ConfigurableResource):
         finally:
             connection.close()
 
+    @contextmanager
+    def connect_readonly_transaction(self) -> Iterator[Any]:
+        """Open a rollback-only read transaction for bounded streaming exports."""
+
+        try:
+            import psycopg2
+        except ModuleNotFoundError as exc:
+            raise RuntimeError(
+                "Missing psycopg2 dependency in the Dagster orchestrator environment."
+            ) from exc
+
+        connection = psycopg2.connect(
+            host=self._required_env(self.host_env_var),
+            port=int(self._required_env(self.port_env_var)),
+            user=self._required_env(self.user_env_var),
+            password=self._required_env(self.password_env_var),
+            dbname=self._required_env(self.database_env_var),
+            sslmode=self._optional_env(self.sslmode_env_var, self.default_sslmode),
+            connect_timeout=self.connect_timeout_seconds,
+        )
+        try:
+            connection.set_session(readonly=True, autocommit=False)
+            try:
+                yield connection
+            finally:
+                connection.rollback()
+        finally:
+            connection.close()
+
     def duckdb_connection_string(self) -> str:
         parts = {
             "host": self._required_env(self.host_env_var),
