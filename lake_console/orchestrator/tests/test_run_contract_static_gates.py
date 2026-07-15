@@ -4946,6 +4946,56 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_historical_materialization_reconciliation_is_materialization_only(self) -> None:
+        helper_path = (
+            DEFS_DIR / "bootstrap" / "historical_materialization_reconciliation.py"
+        )
+        cli_path = (
+            DEFS_DIR / "bootstrap" / "historical_materialization_reconciliation_cli.py"
+        )
+        helper_source = helper_path.read_text(encoding="utf-8")
+        cli_source = cli_path.read_text(encoding="utf-8")
+        issues = []
+        required_helper_fragments = (
+            "report_runless_asset_event",
+            "AssetMaterialization(",
+            "WRITE_CHUNK_SIZE = 500",
+            "HOT_WINDOW_SIZE = 20",
+            "check_events_reported",
+            "historical_lake_partition_materialization_v1",
+        )
+        issues.extend(
+            f"historical materialization helper misses {fragment}"
+            for fragment in required_helper_fragments
+            if fragment not in helper_source
+        )
+        forbidden_bundle_fragments = (
+            "AssetCheckEvaluation",
+            "@dg.asset",
+            "@dg.asset_check",
+            "@dg.sensor",
+            "define_asset_job",
+            "RunRequest",
+            "insert into ",
+            "update ",
+            "delete from ",
+            "truncate ",
+            "add_dynamic_partitions",
+            "materialize(",
+            "backfill",
+        )
+        source_bundle = f"{helper_source}\n{cli_source}".lower()
+        issues.extend(
+            f"historical materialization helper contains forbidden {fragment}"
+            for fragment in forbidden_bundle_fragments
+            if fragment.lower() in source_bundle
+        )
+        if 'choices=("plan", "apply", "audit")' not in cli_source:
+            issues.append("historical materialization CLI must expose plan/apply/audit only")
+        if 'parser.add_argument("--apply", action="store_true")' not in cli_source:
+            issues.append("historical materialization CLI must require explicit --apply")
+        self.assertEqual(issues, [])
+
 
 if __name__ == "__main__":
     unittest.main()
