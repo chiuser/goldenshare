@@ -1212,7 +1212,7 @@ N3 本地临时 Parquet 实测结果：
 | N5 | 已完成 | identity map 修复后重建 Formal Raw/Silver，最终文件审计通过 |
 | N6 | 已完成 | 已完成 formal dry-run、3 日样本、1,780 个 runless events 正式写入和 final dry-run 对账；partitioned check target 全部正确 |
 | N7 | 已完成 | 日常 Tushare 来源切换、两个 sensor 启用、最近 7 个已完成交易日对账和最终文档对账 |
-| N8 | 代码与本地测试已完成，正式迁移待审批 | 新分区、消费者切换、离线 migration planner/CLI、专属注册 sensor 与静态门禁已落地；尚未读取或写入正式 Dagster instance，尚未启用新 sensor |
+| N8 | 代码、本地测试与正式只读 plan 已完成；维护窗口 apply 待审批 | 新分区、消费者切换、离线 migration planner/CLI、专属注册 sensor 与静态门禁已落地；853 日期正式 preflight 全绿，尚未写入新分区或启用新 sensor |
 
 N0 与 N1 按批准口径合并为一个代码提交，但验收边界保持独立。N0 预声明
 Silver schema、path 和 partition model；没有提前写入 Silver catalog entry，因为 catalog
@@ -1468,7 +1468,7 @@ N8 完成后，九转 active production source、active checks、active sensors�
 不得再出现 `cn_a_stock_trade_days`。该字符串只允许保留在本 LLD 的
 N0-N7 历史记录、`stock_trade_day_sensor` 和非九转资产族代码中。
 
-#### N8.4 852 日期动态分区写入前 dry-run
+#### N8.4 历史交易日动态分区写入前 dry-run
 
 N8 新增非 active 的 `stk_nineturn_partition_migration.py` 与 CLI。默认 `plan` 只读；只有
 显式 `--apply` 才允许调用 `DagsterInstance.add_dynamic_partitions(...)`。它不运行 job、sensor、
@@ -1476,8 +1476,10 @@ materialize、check、backfill，也不写 Lake、prod DB 或 event log。
 
 `plan` 必须输出 `/private/tmp/stk_nineturn_partition_migration_plan_<timestamp>.json`，并冻结：
 
-1. 由 `silver_trade_calendar` 推导的候选日期数、最小/最大日期和 sorted hash。当前基线应为
-   852 个日期、`2023-01-03` 至 `2026-07-14`；实现不得硬编码 852 或终止日期。
+1. 先从已发现的 Raw/Silver 分区各自取最大日期，再取较早者为 `historical_cutoff_date`；候选只取
+   `silver_trade_calendar` 中 `SSE + is_open=true`、介于历史起点和该上界（含）之间的日期。该上界
+   表示已有完整历史事实的 frontier，不是今天或日历预置的未来日期；实现不得硬编码数量、截止日或
+   当前日期。报告必须输出该上界、候选日期数、最小/最大日期和 sorted hash。
 2. 候选集合与现有 Raw 文件集合、Silver 文件集合的四向差集：
    `candidate - raw`、`candidate - silver`、`raw - candidate`、`silver - candidate`，四者必须为 0。
 3. 全部候选 Raw/Silver 文件的非空、schema、分区日期和现有 batch readiness 事实；不得只用
@@ -1493,11 +1495,16 @@ materialize、check、backfill，也不写 Lake、prod DB 或 event log。
 `cn_a_stock_trade_days`，也不得删除新分区中已有 key；commit 后若需恢复，必须另起明确的
 状态治理方案。
 
+`--apply` 还必须显式携带已批准 plan 的 `expected_candidate_hash` 和
+`expected_candidate_count`。执行时重新计算 fresh plan，任一值变化都在
+`add_dynamic_partitions(...)` 前拒绝执行；不能仅因 fresh plan 本身为绿，就把审批后新增的日期
+一并写入。
+
 #### N8.5 历史 materialization/check event 兼容性
 
 N8 不把旧 history 当作可以随手重写的状态。切换前必须做正式 Dagster instance 只读 preflight：
 
-1. 对两个 asset key 读取 materialized partition keys，确认全部位于候选 852 日期集合内。
+1. 对两个 asset key 读取 materialized partition keys，确认全部位于候选历史日期集合内。
 2. 按四个 check key 有界读取历史 `AssetCheckEvaluation`，确认其 `partition`、target
    materialization partition 和 candidate key 一致；不得按时间范围或整表扫描。
 3. 用临时 Dagster instance 测试“同 asset key + 新 DynamicPartitionsDefinition + 相同日期 key”
@@ -1539,8 +1546,8 @@ sensor 仍只检查最近 10 个日期。852 日期全量扫描只允许出现�
 
 #### N8.7 2026-07-15 代码与本地测试记录
 
-本轮只完成代码与本地测试，未调用正式 Dagster instance、未执行 migration CLI、未写 dynamic
-partition、未写 Lake/Prod、未暂停或启用任何 sensor。
+本轮先完成代码与本地测试，随后经单独批准执行一次正式 Dagster instance 只读 `plan`；没有写
+dynamic partition、Lake/Prod/event，也没有暂停或启用任何 sensor。
 
 - 新增 `cn_a_stk_nineturn_trade_days`；`STK_NINETURN_HISTORY_START_DATE` 收敛为
   `stk_nineturn_contract.py` 的唯一常量。
@@ -1553,8 +1560,23 @@ partition、未写 Lake/Prod、未暂停或启用任何 sensor。
   新增带旧默认值的显示参数；现有调用方的 cursor 字段保持原值。
 - 新增非 active 的 `stk_nineturn_partition_migration.py` 及 CLI：默认 `plan`，`--apply` 才允许
   `add_dynamic_partitions(...)`；全量审计固定按 60 日期批次，审核 Raw/Silver 文件集合、文件契约、
-  batch readiness、已注册新分区、排序 hash 与历史 materialization/check 的分区身份。候选外日期、
-  集合差异、文件/readiness 异常、事件身份不一致或历史查询达到上限都会拒绝 apply。
+  batch readiness、已注册新分区、排序 hash 与历史 materialization/check 的分区身份。候选上界为
+  Raw/Silver 已发现最大分区的较早者；候选外日期、集合差异、文件/readiness 异常、事件身份不一致或
+  历史查询达到上限都会拒绝 apply。
+- 只读计划报告为
+  `/private/tmp/stk_nineturn_partition_migration_plan_20260715_145800.json`。首轮使用旧候选算法时，
+  交易日历预置到 `2026-12-31`，错误把 `2026-07-15` 至年底的 116 个未来日期当成历史缺文件，
+  因此按 stop condition 拒绝 apply；853 个 Raw/Silver 文件、853 个历史 materialization 和四类
+  check event 的分区身份均无异常。随后已修正 candidate frontier。
+- 修正后的正式只读 plan 已于 2026-07-15 执行，报告为
+  `/private/tmp/stk_nineturn_partition_migration_plan_20260715_150816.json`：候选为 853 个日期，
+  范围 `2023-01-03` 至 `2026-07-14`，`historical_cutoff_date=2026-07-14`，sorted hash 为
+  `34d638fbec41904f120fd9cf1c382c5c1718ffd5228bfd31104f33bc4f21d841`；Raw/Silver 各 853 文件，
+  新分区当前为 0，待添加 853。15 个 60 日期批次扫描 2,574 个文件，耗时 16,913ms，
+  `should_stop=false`。两个 asset 各有 853 个历史 materialization；四类 check 均无候选外分区、
+  target mismatch 或历史查询上限问题。
+- 维护窗口前补齐 apply fingerprint 门禁：CLI 的 `--apply` 必须携带上述 853 日期的 hash 与数量，
+  planner 会在写入前重新计算并逐项比对；不匹配时零分区写入。
 - 本地测试已运行 154 项并全部通过：九转 contract/asset/check/silver/sensor/readiness/event/migration、
   asset governance、10/60 日 hot-path performance、static gates。`test_stk_nineturn_history.py`
   因当前项目虚拟环境未安装其既有依赖 `pytest` 而未能由 `unittest` 加载；未为本专项新增或安装依赖。

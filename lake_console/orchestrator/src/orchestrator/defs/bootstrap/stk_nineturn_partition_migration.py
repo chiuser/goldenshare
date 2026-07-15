@@ -102,6 +102,7 @@ class StkNineturnEventCompatibility:
 class StkNineturnPartitionMigrationPlan:
     candidate_partition_keys: tuple[str, ...]
     candidate_partition_hash: str
+    historical_cutoff_date: str
     raw_partition_keys: tuple[str, ...]
     silver_partition_keys: tuple[str, ...]
     candidate_missing_raw_keys: tuple[str, ...]
@@ -159,6 +160,7 @@ class StkNineturnPartitionMigrationPlan:
                 else None
             ),
             "candidate_partition_hash": self.candidate_partition_hash,
+            "historical_cutoff_date": self.historical_cutoff_date,
             "raw_partition_count": len(self.raw_partition_keys),
             "silver_partition_count": len(self.silver_partition_keys),
             "candidate_missing_raw_keys": list(self.candidate_missing_raw_keys),
@@ -212,19 +214,25 @@ def plan_stk_nineturn_partition_migration(
 ) -> StkNineturnPartitionMigrationPlan:
     """Freeze the only allowed dynamic-partition migration input set."""
     started = perf_counter()
-    candidate_keys = _load_candidate_partition_keys(
-        lake_root=lake_root,
-        duckdb_resource=duckdb_resource,
-    )
-    if not candidate_keys:
-        raise ValueError("Nine-turn candidate partition set must not be empty.")
-
     raw_keys = _discover_partition_keys(
         raw_stk_nineturn_path(lake_root, "2000-01-01").parent.parent
     )
     silver_keys = _discover_partition_keys(
         silver_stock_nineturn_daily_path(lake_root, "2000-01-01").parent.parent
     )
+    if not raw_keys or not silver_keys:
+        raise ValueError(
+            "Nine-turn migration requires non-empty Raw and Silver historical files."
+        )
+    historical_cutoff_date = min(raw_keys[-1], silver_keys[-1])
+    candidate_keys = _load_candidate_partition_keys(
+        lake_root=lake_root,
+        duckdb_resource=duckdb_resource,
+        historical_cutoff_date=historical_cutoff_date,
+    )
+    if not candidate_keys:
+        raise ValueError("Nine-turn candidate partition set must not be empty.")
+
     candidate_set = set(candidate_keys)
     raw_set = set(raw_keys)
     silver_set = set(silver_keys)
@@ -247,6 +255,7 @@ def plan_stk_nineturn_partition_migration(
     return StkNineturnPartitionMigrationPlan(
         candidate_partition_keys=candidate_keys,
         candidate_partition_hash=_sorted_key_hash(candidate_keys),
+        historical_cutoff_date=historical_cutoff_date,
         raw_partition_keys=raw_keys,
         silver_partition_keys=silver_keys,
         candidate_missing_raw_keys=tuple(sorted(candidate_set - raw_set)),
@@ -279,15 +288,33 @@ def apply_stk_nineturn_partition_migration(
     lake_root: Path,
     duckdb_resource: DuckDBResource,
     confirm_apply: bool = False,
+    expected_candidate_hash: str | None = None,
+    expected_candidate_count: int | None = None,
 ) -> StkNineturnPartitionMigrationApplyReport:
     """Add only the fresh-plan delta after all read-only gates pass."""
     if not confirm_apply:
         raise ValueError("Dynamic partition apply requires confirm_apply=True.")
+    if expected_candidate_hash is None or expected_candidate_count is None:
+        raise ValueError(
+            "Dynamic partition apply requires an approved candidate hash and count."
+        )
     plan = plan_stk_nineturn_partition_migration(
         instance=instance,
         lake_root=lake_root,
         duckdb_resource=duckdb_resource,
     )
+    if plan.candidate_partition_hash != expected_candidate_hash:
+        raise ValueError(
+            "Nine-turn migration candidate hash changed after approval: "
+            f"expected={expected_candidate_hash}, "
+            f"actual={plan.candidate_partition_hash}"
+        )
+    if len(plan.candidate_partition_keys) != expected_candidate_count:
+        raise ValueError(
+            "Nine-turn migration candidate count changed after approval: "
+            f"expected={expected_candidate_count}, "
+            f"actual={len(plan.candidate_partition_keys)}"
+        )
     if plan.should_stop:
         raise ValueError(
             "Nine-turn partition migration plan is not eligible for apply: "
@@ -396,6 +423,7 @@ def _load_candidate_partition_keys(
     *,
     lake_root: Path,
     duckdb_resource: DuckDBResource,
+    historical_cutoff_date: str,
 ) -> tuple[str, ...]:
     calendar_path = silver_trade_calendar_path(lake_root)
     if not calendar_path.is_file():
@@ -408,9 +436,14 @@ def _load_candidate_partition_keys(
             WHERE exchange = 'SSE'
               AND is_open = true
               AND trade_date >= CAST(? AS DATE)
+              AND trade_date <= CAST(? AS DATE)
             ORDER BY trade_date
             """,
-            [str(calendar_path), STK_NINETURN_HISTORY_START_DATE],
+            [
+                str(calendar_path),
+                STK_NINETURN_HISTORY_START_DATE,
+                historical_cutoff_date,
+            ],
         ).fetchall()
     return _validated_partition_keys((str(row[0]) for row in rows), "candidate")
 

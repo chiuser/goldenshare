@@ -30,10 +30,27 @@ def main() -> None:
     parser.add_argument("--lake-root", type=Path, required=True)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--expected-candidate-hash")
+    parser.add_argument("--expected-candidate-count", type=int)
     args = parser.parse_args()
 
     if not os.environ.get("DAGSTER_HOME"):
         parser.error("DAGSTER_HOME must be set to the approved Dagster instance.")
+    if args.apply and (
+        args.expected_candidate_hash is None
+        or args.expected_candidate_count is None
+    ):
+        parser.error(
+            "--apply requires --expected-candidate-hash and "
+            "--expected-candidate-count from the approved plan."
+        )
+    if not args.apply and (
+        args.expected_candidate_hash is not None
+        or args.expected_candidate_count is not None
+    ):
+        parser.error(
+            "Expected candidate fingerprint options are valid only with --apply."
+        )
     instance = dg.DagsterInstance.get()
     if args.apply:
         report = apply_stk_nineturn_partition_migration(
@@ -41,6 +58,8 @@ def main() -> None:
             lake_root=args.lake_root,
             duckdb_resource=DuckDBResource(),
             confirm_apply=True,
+            expected_candidate_hash=args.expected_candidate_hash,
+            expected_candidate_count=args.expected_candidate_count,
         ).to_dict()
     else:
         report = plan_stk_nineturn_partition_migration(

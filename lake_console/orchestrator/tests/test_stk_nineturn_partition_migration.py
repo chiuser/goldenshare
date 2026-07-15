@@ -25,6 +25,7 @@ from orchestrator.defs.partitions import cn_a_stk_nineturn_trade_days
 from orchestrator.defs.paths import (
     raw_stk_nineturn_path,
     silver_stock_identity_map_path,
+    silver_stock_nineturn_daily_path,
     silver_trade_calendar_path,
 )
 from orchestrator.defs.resources import DuckDBResource
@@ -55,6 +56,7 @@ class StkNineturnPartitionMigrationTests(unittest.TestCase):
 
         self.assertEqual(plan.candidate_partition_keys, TRADE_DATES)
         self.assertEqual(plan.candidate_partition_hash, _hash(TRADE_DATES))
+        self.assertEqual(plan.historical_cutoff_date, TRADE_DATES[-1])
         self.assertEqual(plan.planned_partition_keys, TRADE_DATES)
         self.assertEqual(plan.readiness_batch_size, STK_NINETURN_PARTITION_AUDIT_BATCH_SIZE)
         self.assertEqual(plan.readiness_batch_count, 1)
@@ -63,6 +65,36 @@ class StkNineturnPartitionMigrationTests(unittest.TestCase):
             len(TRADE_DATES) * 3 + 1,
         )
         self.assertFalse(plan.should_stop, plan.to_dict())
+
+    def test_plan_excludes_future_calendar_dates_after_file_frontier(self) -> None:
+        with TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            _prepare_lake(root)
+            plan = plan_stk_nineturn_partition_migration(
+                instance=dg.DagsterInstance.ephemeral(),
+                lake_root=root,
+                duckdb_resource=DuckDBResource(),
+            )
+
+        self.assertEqual(plan.candidate_partition_keys, TRADE_DATES)
+        self.assertEqual(plan.historical_cutoff_date, "2026-07-09")
+        self.assertNotIn("2026-12-31", plan.candidate_partition_keys)
+        self.assertFalse(plan.should_stop, plan.to_dict())
+
+    def test_plan_rejects_raw_silver_tail_asymmetry(self) -> None:
+        with TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            _prepare_lake(root)
+            silver_stock_nineturn_daily_path(root, TRADE_DATES[-1]).unlink()
+            plan = plan_stk_nineturn_partition_migration(
+                instance=dg.DagsterInstance.ephemeral(),
+                lake_root=root,
+                duckdb_resource=DuckDBResource(),
+            )
+
+        self.assertEqual(plan.historical_cutoff_date, TRADE_DATES[-2])
+        self.assertEqual(plan.raw_outside_candidate_keys, (TRADE_DATES[-1],))
+        self.assertIn("raw_files_outside_candidate", plan.stop_reasons)
 
     def test_plan_rejects_lake_partition_set_or_contract_mismatch(self) -> None:
         with TemporaryDirectory() as temporary_dir:
@@ -117,18 +149,43 @@ class StkNineturnPartitionMigrationTests(unittest.TestCase):
                 lake_root=root,
                 duckdb_resource=DuckDBResource(),
                 confirm_apply=True,
+                expected_candidate_hash=_hash(TRADE_DATES),
+                expected_candidate_count=len(TRADE_DATES),
             )
             second = apply_stk_nineturn_partition_migration(
                 instance=instance,
                 lake_root=root,
                 duckdb_resource=DuckDBResource(),
                 confirm_apply=True,
+                expected_candidate_hash=_hash(TRADE_DATES),
+                expected_candidate_count=len(TRADE_DATES),
             )
 
         self.assertEqual(first.registered_partition_keys, TRADE_DATES)
         self.assertEqual(first.final_partition_keys, TRADE_DATES)
         self.assertEqual(second.registered_partition_keys, ())
         self.assertEqual(second.final_partition_keys, TRADE_DATES)
+
+    def test_apply_rejects_a_changed_approved_candidate_before_write(self) -> None:
+        with TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            _prepare_lake(root)
+            instance = dg.DagsterInstance.ephemeral()
+            with self.assertRaisesRegex(ValueError, "hash changed after approval"):
+                apply_stk_nineturn_partition_migration(
+                    instance=instance,
+                    lake_root=root,
+                    duckdb_resource=DuckDBResource(),
+                    confirm_apply=True,
+                    expected_candidate_hash="not-the-approved-hash",
+                    expected_candidate_count=len(TRADE_DATES),
+                )
+
+            registered = instance.get_dynamic_partitions(
+                cn_a_stk_nineturn_trade_days.name
+            )
+
+        self.assertEqual(registered, [])
 
     def test_ephemeral_events_remain_ready_with_the_new_partition_identity(self) -> None:
         with TemporaryDirectory() as temporary_dir:
@@ -223,7 +280,8 @@ def _write_calendar(root: Path) -> None:
                 ('SSE', false, DATE '2023-01-02'),
                 ('SSE', true, DATE '2026-07-07'),
                 ('SSE', true, DATE '2026-07-08'),
-                ('SSE', true, DATE '2026-07-09')
+                ('SSE', true, DATE '2026-07-09'),
+                ('SSE', true, DATE '2026-12-31')
               ) AS rows(exchange, is_open, trade_date)
             ) TO ? (FORMAT PARQUET)
             """,
