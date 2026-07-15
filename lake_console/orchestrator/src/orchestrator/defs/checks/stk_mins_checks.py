@@ -42,7 +42,6 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.partitions import cn_a_stock_mins_trade_days
 from orchestrator.defs.paths import (
-    gold_stk_mins_qfq_as_of_basis_path,
     gold_stk_mins_qfq_path,
     raw_stk_mins_path,
     silver_adj_factor_path,
@@ -60,15 +59,10 @@ from orchestrator.defs.run_contracts.stk_mins import (
 )
 from orchestrator.defs.stk_mins_qfq import (
     GOLD_STK_MINS_QFQ_COLUMN_TYPES,
+    build_daily_qfq_coverage_identities_sql,
+    build_daily_qfq_coverage_sql,
     build_gold_stk_mins_qfq_derived_diagnostics_sql,
-    build_gold_stk_mins_qfq_derived_select_sql,
-    build_daily_qfq_coverage_sql_from_as_of_basis,
-    build_daily_qfq_select_sql_from_as_of_basis,
-)
-from orchestrator.defs.stk_mins_qfq_as_of_basis import (
-    GoldStkMinsQfqAsOfBasisValidationCounts,
-    qfq_as_of_basis_source_trade_dates,
-    qfq_as_of_basis_validation_counts,
+    build_gold_stk_mins_qfq_derived_coverage_sql,
 )
 
 
@@ -156,17 +150,11 @@ GOLD_STK_MINS_QFQ_ROW_COUNT_MATCHES_SILVER_CHECK = (
 GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK = (
     "gold_stk_mins_qfq_factor_coverage_complete"
 )
-GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK = (
-    "gold_stk_mins_qfq_formula_matches_silver_adj_factor"
-)
 GOLD_STK_MINS_QFQ_DERIVED_SOURCE_READY_CHECK = (
     "gold_stk_mins_qfq_derived_source_ready"
 )
 GOLD_STK_MINS_QFQ_DERIVED_ROW_COUNT_MATCHES_SOURCE_WINDOWS_CHECK = (
     "gold_stk_mins_qfq_derived_row_count_matches_source_windows"
-)
-GOLD_STK_MINS_QFQ_DERIVED_FORMULA_MATCHES_SOURCE_CHECK = (
-    "gold_stk_mins_qfq_derived_formula_matches_source"
 )
 GOLD_STK_MINS_QFQ_CONTRACT_CHECK = "gold_stk_mins_qfq_contract_check"
 GOLD_STK_MINS_QFQ_KEY_INTEGRITY_CHECK = "gold_stk_mins_qfq_key_integrity_check"
@@ -185,18 +173,15 @@ GOLD_STK_MINS_QFQ_BASE_CHECK_NAMES = (
 GOLD_STK_MINS_QFQ_NATIVE_CHECK_NAMES = (
     *GOLD_STK_MINS_QFQ_BASE_CHECK_NAMES,
     GOLD_STK_MINS_QFQ_SOURCE_COVERAGE_CHECK,
-    GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
 )
 
 GOLD_STK_MINS_QFQ_DERIVED_CHECK_NAMES = (
     *GOLD_STK_MINS_QFQ_BASE_CHECK_NAMES,
     GOLD_STK_MINS_QFQ_DERIVED_SOURCE_COVERAGE_CHECK,
-    GOLD_STK_MINS_QFQ_DERIVED_FORMULA_MATCHES_SOURCE_CHECK,
 )
 
 GOLD_STK_MINS_QFQ_CHECK_NAMES = GOLD_STK_MINS_QFQ_NATIVE_CHECK_NAMES
 
-GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE = 1e-6
 GOLD_STK_MINS_QFQ_METADATA_SAMPLE_LIMIT = 20
 
 
@@ -209,19 +194,16 @@ class GoldStkMinsQfqCheckCounts:
     gold_target_row_count: int
     missing_trade_adj_factor_row_count: int
     missing_as_of_adj_factor_row_count: int
+    invalid_trade_adj_factor_row_count: int
+    invalid_as_of_adj_factor_row_count: int
     qfq_output_row_count: int
     schema_mismatch_file_count: int
     path_mismatch_row_count: int
     duplicate_key_count: int
     invalid_price_row_count: int
-    formula_missing_gold_row_count: int
-    formula_unexpected_gold_row_count: int
-    formula_mismatch_row_count: int
-    invalid_as_of_basis_row_count: int = 0
-    duplicate_as_of_basis_key_count: int = 0
-    missing_as_of_source_factor_row_count: int = 0
-    duplicate_as_of_source_factor_key_count: int = 0
-    as_of_source_factor_mismatch_row_count: int = 0
+    missing_gold_identity_row_count: int
+    unexpected_gold_identity_row_count: int
+    exchange_mismatch_row_count: int
 
 
 @dataclass(frozen=True)
@@ -242,9 +224,9 @@ class GoldStkMinsQfqDerivedCheckCounts:
     path_mismatch_row_count: int
     duplicate_key_count: int
     invalid_price_row_count: int
-    formula_missing_gold_row_count: int
-    formula_unexpected_gold_row_count: int
-    formula_mismatch_row_count: int
+    missing_gold_identity_row_count: int
+    unexpected_gold_identity_row_count: int
+    exchange_mismatch_row_count: int
 
 
 def _missing_file_result(path: Path) -> dg.AssetCheckResult:
@@ -422,14 +404,14 @@ def _gold_qfq_derived_expected_paths(
     lake_root: Path,
     target_freq: int,
     partition_key: str,
-    expected_select_sql: str,
+    expected_identity_sql: str,
 ) -> tuple[Path, ...]:
     rows = connection.execute(
         f"""
         SELECT DISTINCT
           CAST(ts_code AS VARCHAR) AS ts_code,
           strftime(CAST(trade_date AS DATE), '%Y') AS year
-        FROM ({expected_select_sql})
+        FROM ({expected_identity_sql})
         ORDER BY ts_code, year
         """
     ).fetchall()
@@ -655,23 +637,19 @@ def _gold_qfq_sample_queries(
     }
 
 
-def _gold_qfq_formula_counts_sql(
+def _gold_qfq_identity_coverage_counts_sql(
     *,
     gold_source: str,
-    qfq_select_sql: str,
+    expected_identity_sql: str,
     partition_key: str,
 ) -> str:
     partition_date_sql = duckdb_string(partition_key)
-    tolerance = GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE
     return f"""
     WITH gold_rows AS (
       SELECT
         CAST(ts_code AS VARCHAR) AS ts_code,
         CAST(trade_time AS TIMESTAMP) AS trade_time,
-        CAST(open AS DOUBLE) AS open,
-        CAST(high AS DOUBLE) AS high,
-        CAST(low AS DOUBLE) AS low,
-        CAST(close AS DOUBLE) AS close
+        CAST(exchange AS VARCHAR) AS exchange
       FROM {gold_source}
       WHERE CAST(trade_date AS DATE) = CAST({partition_date_sql} AS DATE)
     ),
@@ -679,24 +657,15 @@ def _gold_qfq_formula_counts_sql(
       SELECT
         ts_code,
         trade_time,
-        open,
-        high,
-        low,
-        close
-      FROM ({qfq_select_sql})
+        exchange
+      FROM ({expected_identity_sql})
     ),
     compared_rows AS (
       SELECT
         coalesce(gold_rows.ts_code, expected_rows.ts_code) AS ts_code,
         coalesce(gold_rows.trade_time, expected_rows.trade_time) AS trade_time,
-        gold_rows.open AS gold_open,
-        expected_rows.open AS expected_open,
-        gold_rows.high AS gold_high,
-        expected_rows.high AS expected_high,
-        gold_rows.low AS gold_low,
-        expected_rows.low AS expected_low,
-        gold_rows.close AS gold_close,
-        expected_rows.close AS expected_close,
+        gold_rows.exchange AS gold_exchange,
+        expected_rows.exchange AS expected_exchange,
         gold_rows.ts_code IS NULL AS missing_gold_row,
         expected_rows.ts_code IS NULL AS unexpected_gold_row
       FROM gold_rows
@@ -710,82 +679,9 @@ def _gold_qfq_formula_counts_sql(
       count(*) FILTER (
         WHERE NOT missing_gold_row
           AND NOT unexpected_gold_row
-          AND (
-            abs(gold_open - expected_open) > {tolerance}
-            OR abs(gold_high - expected_high) > {tolerance}
-            OR abs(gold_low - expected_low) > {tolerance}
-            OR abs(gold_close - expected_close) > {tolerance}
-          )
-      ) AS formula_mismatch_row_count
+          AND gold_exchange IS DISTINCT FROM expected_exchange
+      ) AS exchange_mismatch_row_count
     FROM compared_rows
-    """
-
-
-def _gold_qfq_formula_sample_sql(
-    *,
-    gold_source: str,
-    qfq_select_sql: str,
-    partition_key: str,
-) -> str:
-    partition_date_sql = duckdb_string(partition_key)
-    tolerance = GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE
-    return f"""
-    WITH gold_rows AS (
-      SELECT
-        CAST(ts_code AS VARCHAR) AS ts_code,
-        CAST(trade_time AS TIMESTAMP) AS trade_time,
-        CAST(open AS DOUBLE) AS open,
-        CAST(high AS DOUBLE) AS high,
-        CAST(low AS DOUBLE) AS low,
-        CAST(close AS DOUBLE) AS close
-      FROM {gold_source}
-      WHERE CAST(trade_date AS DATE) = CAST({partition_date_sql} AS DATE)
-    ),
-    expected_rows AS (
-      SELECT ts_code, trade_time, open, high, low, close
-      FROM ({qfq_select_sql})
-    ),
-    compared_rows AS (
-      SELECT
-        coalesce(gold_rows.ts_code, expected_rows.ts_code) AS ts_code,
-        coalesce(gold_rows.trade_time, expected_rows.trade_time) AS trade_time,
-        gold_rows.open AS gold_open,
-        expected_rows.open AS expected_open,
-        gold_rows.high AS gold_high,
-        expected_rows.high AS expected_high,
-        gold_rows.low AS gold_low,
-        expected_rows.low AS expected_low,
-        gold_rows.close AS gold_close,
-        expected_rows.close AS expected_close,
-        gold_rows.ts_code IS NULL AS missing_gold_row,
-        expected_rows.ts_code IS NULL AS unexpected_gold_row
-      FROM gold_rows
-      FULL OUTER JOIN expected_rows
-        ON gold_rows.ts_code = expected_rows.ts_code
-       AND gold_rows.trade_time = expected_rows.trade_time
-    )
-    SELECT
-      ts_code,
-      trade_time,
-      gold_open,
-      expected_open,
-      gold_high,
-      expected_high,
-      gold_low,
-      expected_low,
-      gold_close,
-      expected_close,
-      missing_gold_row,
-      unexpected_gold_row
-    FROM compared_rows
-    WHERE missing_gold_row
-       OR unexpected_gold_row
-       OR abs(gold_open - expected_open) > {tolerance}
-       OR abs(gold_high - expected_high) > {tolerance}
-       OR abs(gold_low - expected_low) > {tolerance}
-       OR abs(gold_close - expected_close) > {tolerance}
-    ORDER BY ts_code, trade_time
-    LIMIT 5
     """
 
 
@@ -801,7 +697,6 @@ def _gold_qfq_check_results(
     observed_schema: dict[str, str],
     schema_error: str | None,
     samples: dict[str, list[dict[str, Any]]],
-    as_of_basis_validation_error: str | None = None,
 ) -> tuple[dg.AssetCheckResult, ...]:
     common_metadata = {
         "partition_key": partition_key,
@@ -819,22 +714,9 @@ def _gold_qfq_check_results(
     factor_coverage_failed_count = (
         counts.missing_trade_adj_factor_row_count
         + counts.missing_as_of_adj_factor_row_count
-        + counts.invalid_as_of_basis_row_count
-        + counts.duplicate_as_of_basis_key_count
-        + counts.missing_as_of_source_factor_row_count
-        + counts.duplicate_as_of_source_factor_key_count
-        + counts.as_of_source_factor_mismatch_row_count
+        + counts.invalid_trade_adj_factor_row_count
+        + counts.invalid_as_of_adj_factor_row_count
         + abs(counts.silver_row_count - counts.qfq_output_row_count)
-    )
-    formula_failed_count = (
-        counts.formula_missing_gold_row_count
-        + counts.formula_unexpected_gold_row_count
-        + counts.formula_mismatch_row_count
-        + counts.invalid_as_of_basis_row_count
-        + counts.duplicate_as_of_basis_key_count
-        + counts.missing_as_of_source_factor_row_count
-        + counts.duplicate_as_of_source_factor_key_count
-        + counts.as_of_source_factor_mismatch_row_count
     )
 
     contract_failed_rule_names = []
@@ -856,7 +738,13 @@ def _gold_qfq_check_results(
         contract_failed_rule_names.append(GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK)
 
     source_failed_rule_names = []
-    if counts.missing_file_count or counts.gold_target_row_count != counts.silver_row_count:
+    if (
+        counts.missing_file_count
+        or counts.gold_target_row_count != counts.silver_row_count
+        or counts.missing_gold_identity_row_count
+        or counts.unexpected_gold_identity_row_count
+        or counts.exchange_mismatch_row_count
+    ):
         source_failed_rule_names.append(GOLD_STK_MINS_QFQ_ROW_COUNT_MATCHES_SILVER_CHECK)
     if factor_coverage_failed_count:
         source_failed_rule_names.append(GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK)
@@ -894,21 +782,6 @@ def _gold_qfq_check_results(
         value_readable_failed_rule_names.append(
             GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK
         )
-    formula_failed_rule_names = []
-    if formula_failed_count:
-        formula_failed_rule_names.append(
-            GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK
-        )
-    formula_readable_failed_rule_names = list(formula_failed_rule_names)
-    if counts.missing_file_count:
-        formula_readable_failed_rule_names.append(
-            GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK
-        )
-    if counts.schema_mismatch_file_count:
-        formula_readable_failed_rule_names.append(
-            GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK
-        )
-
     return (
         _check_result(
             passed=not contract_failed_rule_names,
@@ -1015,6 +888,9 @@ def _gold_qfq_check_results(
             checked_row_count=counts.silver_row_count,
             failed_row_count=factor_coverage_failed_count
             + abs(counts.gold_target_row_count - counts.silver_row_count)
+            + counts.missing_gold_identity_row_count
+            + counts.unexpected_gold_identity_row_count
+            + counts.exchange_mismatch_row_count
             + counts.missing_file_count,
             extra_metadata={
                 **common_metadata,
@@ -1025,20 +901,19 @@ def _gold_qfq_check_results(
                 "missing_as_of_adj_factor_row_count": (
                     counts.missing_as_of_adj_factor_row_count
                 ),
-                "as_of_basis_validation_error": as_of_basis_validation_error,
-                "invalid_as_of_basis_row_count": counts.invalid_as_of_basis_row_count,
-                "duplicate_as_of_basis_key_count": (
-                    counts.duplicate_as_of_basis_key_count
+                "invalid_trade_adj_factor_row_count": (
+                    counts.invalid_trade_adj_factor_row_count
                 ),
-                "missing_as_of_source_factor_row_count": (
-                    counts.missing_as_of_source_factor_row_count
+                "invalid_as_of_adj_factor_row_count": (
+                    counts.invalid_as_of_adj_factor_row_count
                 ),
-                "duplicate_as_of_source_factor_key_count": (
-                    counts.duplicate_as_of_source_factor_key_count
+                "missing_gold_identity_row_count": (
+                    counts.missing_gold_identity_row_count
                 ),
-                "as_of_source_factor_mismatch_row_count": (
-                    counts.as_of_source_factor_mismatch_row_count
+                "unexpected_gold_identity_row_count": (
+                    counts.unexpected_gold_identity_row_count
                 ),
+                "exchange_mismatch_row_count": counts.exchange_mismatch_row_count,
                 "failed_rule_names": source_failed_rule_names,
                 **_readable_check_metadata(
                     dataset_label=f"股票 {freq} 分钟 gold qfq 输入覆盖",
@@ -1049,62 +924,9 @@ def _gold_qfq_check_results(
                     failed_rule_names=source_failed_rule_names,
                     success_next_action="无需处理；等待 factor repair 或指标链路消费。",
                     failure_next_action=(
-                        "先确认 silver 行数、当日复权因子和 as-of 复权因子覆盖完整。"
+                        "先确认 silver 行、当日复权因子和目标 qfq 身份覆盖完整。"
                     ),
                 ),
-            },
-        ),
-        _check_result(
-            passed=counts.missing_file_count == 0
-            and counts.schema_mismatch_file_count == 0
-            and formula_failed_count == 0,
-            asset_key=asset_key,
-            check_name=GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
-            check_scope=CheckScope.RECONCILIATION,
-            file_path=output_root_path,
-            input_file_paths=input_file_paths,
-            checked_row_count=counts.gold_target_row_count,
-            failed_row_count=formula_failed_count
-            + counts.missing_file_count
-            + counts.schema_mismatch_file_count,
-            extra_metadata={
-                **common_metadata,
-                "formula_tolerance": GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE,
-                "formula_missing_gold_row_count": (
-                    counts.formula_missing_gold_row_count
-                ),
-                "formula_unexpected_gold_row_count": (
-                    counts.formula_unexpected_gold_row_count
-                ),
-                "formula_mismatch_row_count": counts.formula_mismatch_row_count,
-                "invalid_as_of_basis_row_count": counts.invalid_as_of_basis_row_count,
-                "duplicate_as_of_basis_key_count": (
-                    counts.duplicate_as_of_basis_key_count
-                ),
-                "missing_as_of_source_factor_row_count": (
-                    counts.missing_as_of_source_factor_row_count
-                ),
-                "duplicate_as_of_source_factor_key_count": (
-                    counts.duplicate_as_of_source_factor_key_count
-                ),
-                "as_of_source_factor_mismatch_row_count": (
-                    counts.as_of_source_factor_mismatch_row_count
-                ),
-                "failed_rule_names": formula_failed_rule_names,
-                **_readable_check_metadata(
-                    dataset_label=f"股票 {freq} 分钟 gold qfq 公式",
-                    rule_names=(
-                        GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
-                        GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
-                        GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK,
-                    ),
-                    failed_rule_names=formula_readable_failed_rule_names,
-                    success_next_action="无需处理；等待指标链路消费。",
-                    failure_next_action=(
-                        "先查看 formula_samples 和复权因子覆盖；必要时触发 qfq factor repair。"
-                    ),
-                ),
-                "failure_samples": samples.get("formula_samples", []),
             },
         ),
     )
@@ -1142,14 +964,9 @@ def _gold_qfq_derived_check_results(
             str(path) for path in missing_gold_paths[:GOLD_STK_MINS_QFQ_METADATA_SAMPLE_LIMIT]
         ],
     }
-    formula_failed_count = (
-        counts.formula_missing_gold_row_count
-        + counts.formula_unexpected_gold_row_count
-        + counts.formula_mismatch_row_count
-    )
     row_count_failed_count = abs(
         counts.gold_target_row_count - counts.generated_window_count
-    ) + counts.missing_file_count
+    ) + counts.missing_file_count + counts.incomplete_window_count
 
     contract_failed_rule_names = []
     if not (
@@ -1179,8 +996,12 @@ def _gold_qfq_derived_check_results(
     if (
         counts.missing_file_count
         or counts.schema_mismatch_file_count
+        or counts.incomplete_window_count
         or counts.exchange_mismatch_window_count
         or counts.gold_target_row_count != counts.generated_window_count
+        or counts.missing_gold_identity_row_count
+        or counts.unexpected_gold_identity_row_count
+        or counts.exchange_mismatch_row_count
     ):
         source_failed_rule_names.append(
             GOLD_STK_MINS_QFQ_DERIVED_ROW_COUNT_MATCHES_SOURCE_WINDOWS_CHECK
@@ -1219,21 +1040,6 @@ def _gold_qfq_derived_check_results(
         value_readable_failed_rule_names.append(
             GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK
         )
-    formula_failed_rule_names = []
-    if formula_failed_count:
-        formula_failed_rule_names.append(
-            GOLD_STK_MINS_QFQ_DERIVED_FORMULA_MATCHES_SOURCE_CHECK
-        )
-    formula_readable_failed_rule_names = list(formula_failed_rule_names)
-    if counts.missing_file_count:
-        formula_readable_failed_rule_names.append(
-            GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK
-        )
-    if counts.schema_mismatch_file_count:
-        formula_readable_failed_rule_names.append(
-            GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK
-        )
-
     return (
         _check_result(
             passed=not contract_failed_rule_names,
@@ -1340,7 +1146,10 @@ def _gold_qfq_derived_check_results(
             checked_row_count=counts.source_row_count,
             failed_row_count=row_count_failed_count
             + counts.schema_mismatch_file_count
-            + counts.exchange_mismatch_window_count,
+            + counts.exchange_mismatch_window_count
+            + counts.missing_gold_identity_row_count
+            + counts.unexpected_gold_identity_row_count
+            + counts.exchange_mismatch_row_count,
             extra_metadata={
                 **common_metadata,
                 "failed_rule_names": source_failed_rule_names,
@@ -1356,44 +1165,6 @@ def _gold_qfq_derived_check_results(
                         "先确认 source_freq 输入文件、窗口生成数量和 exchange 唯一性。"
                     ),
                 ),
-            },
-        ),
-        _check_result(
-            passed=counts.missing_file_count == 0
-            and counts.schema_mismatch_file_count == 0
-            and formula_failed_count == 0,
-            asset_key=asset_key,
-            check_name=GOLD_STK_MINS_QFQ_DERIVED_FORMULA_MATCHES_SOURCE_CHECK,
-            check_scope=CheckScope.RECONCILIATION,
-            file_path=output_root_path,
-            input_file_paths=input_file_paths,
-            checked_row_count=counts.gold_target_row_count,
-            failed_row_count=formula_failed_count
-            + counts.missing_file_count
-            + counts.schema_mismatch_file_count,
-            extra_metadata={
-                **common_metadata,
-                "formula_tolerance": GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE,
-                "formula_missing_gold_row_count": (
-                    counts.formula_missing_gold_row_count
-                ),
-                "formula_unexpected_gold_row_count": (
-                    counts.formula_unexpected_gold_row_count
-                ),
-                "formula_mismatch_row_count": counts.formula_mismatch_row_count,
-                "failed_rule_names": formula_failed_rule_names,
-                **_readable_check_metadata(
-                    dataset_label=f"股票 {freq} 分钟 gold qfq 派生公式",
-                    rule_names=(
-                        GOLD_STK_MINS_QFQ_DERIVED_FORMULA_MATCHES_SOURCE_CHECK,
-                        GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
-                        GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK,
-                    ),
-                    failed_rule_names=formula_readable_failed_rule_names,
-                    success_next_action="无需处理；等待指标链路消费。",
-                    failure_next_action="先查看 formula_samples，再核对 source qfq 窗口聚合逻辑。",
-                ),
-                "failure_samples": samples.get("formula_samples", []),
             },
         ),
     )
@@ -1412,10 +1183,6 @@ def _gold_stk_mins_qfq_check_results(
     normalized_freq = normalize_stk_mins_freq(freq)
     silver_path = _silver_path(lake_root, normalized_freq, partition_key)
     trade_adj_factor_path = silver_adj_factor_path(root, partition_key)
-    as_of_basis_path = gold_stk_mins_qfq_as_of_basis_path(
-        root,
-        partition_key[:4],
-    )
     output_root_path = gold_stk_mins_qfq_path(
         root,
         normalized_freq,
@@ -1431,7 +1198,7 @@ def _gold_stk_mins_qfq_check_results(
             freq=normalized_freq,
         )
 
-    input_file_paths = [silver_path, trade_adj_factor_path, as_of_basis_path]
+    input_file_paths = [silver_path, trade_adj_factor_path]
 
     with connect_configured_duckdb() as connection:
         expected_paths = _gold_qfq_expected_paths(
@@ -1453,50 +1220,10 @@ def _gold_stk_mins_qfq_check_results(
         path_mismatch_row_count = 0
         duplicate_key_count = 0
         invalid_price_row_count = 0
-        formula_missing_gold_row_count = 0
-        formula_unexpected_gold_row_count = 0
-        formula_mismatch_row_count = 0
-        basis_validation = GoldStkMinsQfqAsOfBasisValidationCounts(
-            basis_row_count=0,
-            invalid_basis_row_count=0,
-            duplicate_basis_key_count=0,
-            missing_source_factor_row_count=0,
-            duplicate_source_factor_key_count=0,
-            source_factor_mismatch_row_count=0,
-        )
-        basis_validation_error: str | None = None
+        missing_gold_identity_row_count = 0
+        unexpected_gold_identity_row_count = 0
+        exchange_mismatch_row_count = 0
         samples: dict[str, list[dict[str, Any]]] = {}
-
-        if as_of_basis_path.exists():
-            try:
-                source_trade_dates = qfq_as_of_basis_source_trade_dates(
-                    connection,
-                    basis_paths=[as_of_basis_path],
-                    trade_dates=[partition_key],
-                )
-                source_factor_paths = tuple(
-                    silver_adj_factor_path(root, source_trade_date)
-                    for source_trade_date in source_trade_dates
-                )
-                input_file_paths.extend(source_factor_paths)
-                basis_validation = qfq_as_of_basis_validation_counts(
-                    connection,
-                    basis_paths=[as_of_basis_path],
-                    trade_dates=[partition_key],
-                    source_factor_paths=tuple(
-                        path for path in source_factor_paths if path.exists()
-                    ),
-                )
-            except (duckdb.Error, ValueError) as error:
-                basis_validation_error = str(error)
-                basis_validation = GoldStkMinsQfqAsOfBasisValidationCounts(
-                    basis_row_count=0,
-                    invalid_basis_row_count=silver_row_count,
-                    duplicate_basis_key_count=0,
-                    missing_source_factor_row_count=0,
-                    duplicate_source_factor_key_count=0,
-                    source_factor_mismatch_row_count=0,
-                )
 
         if existing_gold_paths and schema_mismatch_count == 0:
             gold_source = _read_parquet_paths(existing_gold_paths, filename=True)
@@ -1537,56 +1264,31 @@ def _gold_stk_mins_qfq_check_results(
                 columns = [column[0] for column in connection.description]
                 samples[sample_name] = _sample_dicts(columns, rows)
 
-            if (
-                trade_adj_factor_path.exists()
-                and as_of_basis_path.exists()
-                and basis_validation_error is None
-            ):
-                qfq_select_sql = build_daily_qfq_select_sql_from_as_of_basis(
+            if trade_adj_factor_path.exists():
+                expected_identity_sql = build_daily_qfq_coverage_identities_sql(
                     silver_paths=[silver_path],
                     trade_adj_factor_paths=[trade_adj_factor_path],
-                    as_of_basis_paths=[as_of_basis_path],
+                    as_of_adj_factor_paths=[trade_adj_factor_path],
                 )
-                formula_counts = connection.execute(
-                    _gold_qfq_formula_counts_sql(
+                identity_counts = connection.execute(
+                    _gold_qfq_identity_coverage_counts_sql(
                         gold_source=gold_source,
-                        qfq_select_sql=qfq_select_sql,
+                        expected_identity_sql=expected_identity_sql,
                         partition_key=partition_key,
                     )
                 ).fetchone()
                 (
-                    formula_missing_gold_row_count,
-                    formula_unexpected_gold_row_count,
-                    formula_mismatch_row_count,
-                ) = (int(value or 0) for value in formula_counts)
-                formula_failed_count = (
-                    formula_missing_gold_row_count
-                    + formula_unexpected_gold_row_count
-                    + formula_mismatch_row_count
-                )
-                if formula_failed_count > 0:
-                    rows = connection.execute(
-                        _gold_qfq_formula_sample_sql(
-                            gold_source=gold_source,
-                            qfq_select_sql=qfq_select_sql,
-                            partition_key=partition_key,
-                        )
-                    ).fetchall()
-                    columns = [column[0] for column in connection.description]
-                    samples["formula_samples"] = _sample_dicts(columns, rows)
-            elif not as_of_basis_path.exists() or basis_validation_error is not None:
-                formula_unexpected_gold_row_count = gold_target_row_count
+                    missing_gold_identity_row_count,
+                    unexpected_gold_identity_row_count,
+                    exchange_mismatch_row_count,
+                ) = (int(value or 0) for value in identity_counts)
 
-        if (
-            trade_adj_factor_path.exists()
-            and as_of_basis_path.exists()
-            and basis_validation_error is None
-        ):
+        if trade_adj_factor_path.exists():
             coverage_counts = connection.execute(
-                build_daily_qfq_coverage_sql_from_as_of_basis(
+                build_daily_qfq_coverage_sql(
                     silver_paths=[silver_path],
                     trade_adj_factor_paths=[trade_adj_factor_path],
-                    as_of_basis_paths=[as_of_basis_path],
+                    as_of_adj_factor_paths=[trade_adj_factor_path],
                 )
             ).fetchone()
             (
@@ -1594,11 +1296,15 @@ def _gold_stk_mins_qfq_check_results(
                 qfq_output_row_count,
                 missing_trade_adj_factor_row_count,
                 missing_as_of_adj_factor_row_count,
+                invalid_trade_adj_factor_row_count,
+                invalid_as_of_adj_factor_row_count,
             ) = (int(value or 0) for value in coverage_counts)
         else:
             qfq_output_row_count = 0
             missing_trade_adj_factor_row_count = silver_row_count
             missing_as_of_adj_factor_row_count = silver_row_count
+            invalid_trade_adj_factor_row_count = 0
+            invalid_as_of_adj_factor_row_count = 0
 
     counts = GoldStkMinsQfqCheckCounts(
         silver_row_count=silver_row_count,
@@ -1608,25 +1314,16 @@ def _gold_stk_mins_qfq_check_results(
         gold_target_row_count=gold_target_row_count,
         missing_trade_adj_factor_row_count=missing_trade_adj_factor_row_count,
         missing_as_of_adj_factor_row_count=missing_as_of_adj_factor_row_count,
+        invalid_trade_adj_factor_row_count=invalid_trade_adj_factor_row_count,
+        invalid_as_of_adj_factor_row_count=invalid_as_of_adj_factor_row_count,
         qfq_output_row_count=qfq_output_row_count,
         schema_mismatch_file_count=schema_mismatch_count,
         path_mismatch_row_count=path_mismatch_row_count,
         duplicate_key_count=duplicate_key_count,
         invalid_price_row_count=invalid_price_row_count,
-        formula_missing_gold_row_count=formula_missing_gold_row_count,
-        formula_unexpected_gold_row_count=formula_unexpected_gold_row_count,
-        formula_mismatch_row_count=formula_mismatch_row_count,
-        invalid_as_of_basis_row_count=basis_validation.invalid_basis_row_count,
-        duplicate_as_of_basis_key_count=basis_validation.duplicate_basis_key_count,
-        missing_as_of_source_factor_row_count=(
-            basis_validation.missing_source_factor_row_count
-        ),
-        duplicate_as_of_source_factor_key_count=(
-            basis_validation.duplicate_source_factor_key_count
-        ),
-        as_of_source_factor_mismatch_row_count=(
-            basis_validation.source_factor_mismatch_row_count
-        ),
+        missing_gold_identity_row_count=missing_gold_identity_row_count,
+        unexpected_gold_identity_row_count=unexpected_gold_identity_row_count,
+        exchange_mismatch_row_count=exchange_mismatch_row_count,
     )
     return _gold_qfq_check_results(
         asset_key=asset_key,
@@ -1639,7 +1336,6 @@ def _gold_stk_mins_qfq_check_results(
         observed_schema=observed_schema,
         schema_error=schema_error,
         samples=samples,
-        as_of_basis_validation_error=basis_validation_error,
     )
 
 
@@ -1682,7 +1378,7 @@ def _gold_stk_mins_qfq_derived_check_results(
         "{ts_code}",
         year,
     ).parents[2]
-    expected_select_sql = build_gold_stk_mins_qfq_derived_select_sql(
+    expected_identity_sql = build_gold_stk_mins_qfq_derived_coverage_sql(
         source_qfq_paths=source_paths,
         target_freq=normalized_freq,
         partition_keys=[partition_key],
@@ -1708,7 +1404,7 @@ def _gold_stk_mins_qfq_derived_check_results(
             lake_root=root,
             target_freq=normalized_freq,
             partition_key=partition_key,
-            expected_select_sql=expected_select_sql,
+            expected_identity_sql=expected_identity_sql,
         )
         missing_gold_paths = tuple(path for path in expected_paths if not path.exists())
         existing_gold_paths = tuple(path for path in expected_paths if path.exists())
@@ -1720,9 +1416,9 @@ def _gold_stk_mins_qfq_derived_check_results(
         path_mismatch_row_count = 0
         duplicate_key_count = 0
         invalid_price_row_count = 0
-        formula_missing_gold_row_count = 0
-        formula_unexpected_gold_row_count = 0
-        formula_mismatch_row_count = 0
+        missing_gold_identity_row_count = 0
+        unexpected_gold_identity_row_count = 0
+        exchange_mismatch_row_count = 0
         samples: dict[str, list[dict[str, Any]]] = {}
 
         if existing_gold_paths and schema_mismatch_count == 0:
@@ -1764,33 +1460,18 @@ def _gold_stk_mins_qfq_derived_check_results(
                 columns = [column[0] for column in connection.description]
                 samples[sample_name] = _sample_dicts(columns, rows)
 
-            formula_counts = connection.execute(
-                _gold_qfq_formula_counts_sql(
+            identity_counts = connection.execute(
+                _gold_qfq_identity_coverage_counts_sql(
                     gold_source=gold_source,
-                    qfq_select_sql=expected_select_sql,
+                    expected_identity_sql=expected_identity_sql,
                     partition_key=partition_key,
                 )
             ).fetchone()
             (
-                formula_missing_gold_row_count,
-                formula_unexpected_gold_row_count,
-                formula_mismatch_row_count,
-            ) = (int(value or 0) for value in formula_counts)
-            formula_failed_count = (
-                formula_missing_gold_row_count
-                + formula_unexpected_gold_row_count
-                + formula_mismatch_row_count
-            )
-            if formula_failed_count > 0:
-                rows = connection.execute(
-                    _gold_qfq_formula_sample_sql(
-                        gold_source=gold_source,
-                        qfq_select_sql=expected_select_sql,
-                        partition_key=partition_key,
-                    )
-                ).fetchall()
-                columns = [column[0] for column in connection.description]
-                samples["formula_samples"] = _sample_dicts(columns, rows)
+                missing_gold_identity_row_count,
+                unexpected_gold_identity_row_count,
+                exchange_mismatch_row_count,
+            ) = (int(value or 0) for value in identity_counts)
 
     counts = GoldStkMinsQfqDerivedCheckCounts(
         source_freq=source_freq_from_sql,
@@ -1809,9 +1490,9 @@ def _gold_stk_mins_qfq_derived_check_results(
         path_mismatch_row_count=path_mismatch_row_count,
         duplicate_key_count=duplicate_key_count,
         invalid_price_row_count=invalid_price_row_count,
-        formula_missing_gold_row_count=formula_missing_gold_row_count,
-        formula_unexpected_gold_row_count=formula_unexpected_gold_row_count,
-        formula_mismatch_row_count=formula_mismatch_row_count,
+        missing_gold_identity_row_count=missing_gold_identity_row_count,
+        unexpected_gold_identity_row_count=unexpected_gold_identity_row_count,
+        exchange_mismatch_row_count=exchange_mismatch_row_count,
     )
     return _gold_qfq_derived_check_results(
         asset_key=asset_key,

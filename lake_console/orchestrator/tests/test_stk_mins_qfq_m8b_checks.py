@@ -9,14 +9,12 @@ import duckdb
 from orchestrator.defs.checks import stk_mins_checks
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet
 from orchestrator.defs.paths import (
-    gold_stk_mins_qfq_as_of_basis_path,
     gold_stk_mins_qfq_path,
     silver_adj_factor_path,
     silver_stk_mins_path,
 )
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
-    GOLD_STK_MINS_QFQ_AS_OF_BASIS_SCHEMA,
     GOLD_STK_MINS_QFQ_SCHEMA,
     SILVER_ADJ_FACTOR_SCHEMA,
     SILVER_STK_MINS_SCHEMA,
@@ -164,21 +162,6 @@ def _write_adj_factor(
         order_by="ts_code",
     )
     _write_rows(
-        gold_stk_mins_qfq_as_of_basis_path(lake_root, TRADE_DATE[:4]),
-        schema=GOLD_STK_MINS_QFQ_AS_OF_BASIS_SCHEMA,
-        rows=[
-            {
-                "ts_code": row["ts_code"],
-                "trade_date": TRADE_DATE,
-                "as_of_adj_factor": row["adj_factor"],
-                "as_of_trade_date": TRADE_DATE,
-                "basis_origin": "daily_qfq",
-            }
-            for row in resolved_trade_rows
-        ],
-        order_by="ts_code",
-    )
-    _write_rows(
         silver_adj_factor_path(lake_root, LATEST_DATE),
         schema=SILVER_ADJ_FACTOR_SCHEMA,
         rows=latest_rows
@@ -253,7 +236,7 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
             self.assertTrue(all(result.passed for result in results.values()))
             self.assertEqual(
                 results[
-                    stk_mins_checks.GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK
+                    stk_mins_checks.GOLD_STK_MINS_QFQ_SOURCE_COVERAGE_CHECK
                 ].asset_key,
                 ASSET_KEY,
             )
@@ -282,11 +265,6 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
                     stk_mins_checks,
                     "_gold_qfq_sample_queries",
                     side_effect=AssertionError("failure samples should be lazy"),
-                ),
-                patch.object(
-                    stk_mins_checks,
-                    "_gold_qfq_formula_sample_sql",
-                    side_effect=AssertionError("formula samples should be lazy"),
                 ),
             ):
                 results = _check_results(lake_root)
@@ -325,11 +303,6 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
                     "_gold_qfq_sample_queries",
                     return_value=sample_queries,
                 ) as sample_query_builder,
-                patch.object(
-                    stk_mins_checks,
-                    "_gold_qfq_formula_sample_sql",
-                    side_effect=AssertionError("formula samples should be lazy"),
-                ),
             ):
                 results = _check_results(lake_root)
 
@@ -352,7 +325,7 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
                 ],
             )
 
-    def test_missing_gold_file_fails_file_row_count_and_formula_checks(self) -> None:
+    def test_missing_gold_file_fails_contract_and_source_coverage_checks(self) -> None:
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir) / "lake"
             _write_silver(lake_root, [_silver_row("600000.SH", open_=10.0)])
@@ -367,7 +340,7 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
             )
             self.assertFalse(
                 results[
-                    stk_mins_checks.GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK
+                    stk_mins_checks.GOLD_STK_MINS_QFQ_SOURCE_COVERAGE_CHECK
                 ].passed
             )
 
@@ -527,7 +500,7 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
             self.assertIn("goldenshare/missing_as_of_adj_factor_row_count", metadata)
             self.assertNotIn("goldenshare/missing_latest_adj_factor_row_count", metadata)
 
-    def test_formula_mismatch_fails_formula_check(self) -> None:
+    def test_price_difference_does_not_trigger_a_second_formula_calculation(self) -> None:
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir) / "lake"
             _write_silver(lake_root, [_silver_row("600000.SH", open_=10.0)])
@@ -536,21 +509,21 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
 
             results = _check_results(lake_root)
 
-            self.assertFalse(
-                results[
-                    stk_mins_checks.GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK
-                ].passed
+            self.assertNotIn(
+                "gold_stk_mins_qfq_formula_matches_silver_adj_factor",
+                results,
             )
-            self.assertGreater(
-                len(
-                    results[
-                        stk_mins_checks.GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK
-                    ].metadata["goldenshare/failure_samples"].data
-                ),
-                0,
-            )
+            self.assertTrue(all(result.passed for result in results.values()))
 
     def test_check_definitions_and_readiness_names_match(self) -> None:
+        self.assertEqual(
+            len(stk_mins_checks.GOLD_STK_MINS_QFQ_NATIVE_CHECK_NAMES),
+            4,
+        )
+        self.assertEqual(
+            len(stk_mins_checks.GOLD_STK_MINS_QFQ_DERIVED_CHECK_NAMES),
+            4,
+        )
         check_names = sorted(
             check_key.name
             for check_definition in stk_mins_checks.GOLD_STK_MINS_QFQ_CHECK_DEFINITIONS
@@ -564,6 +537,7 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
         )
 
         self.assertEqual(check_names, expected_names)
+        self.assertEqual(len(check_names), 28)
         self.assertEqual(
             readiness.GOLD_STK_MINS_QFQ_CHECKS,
             stk_mins_checks.GOLD_STK_MINS_QFQ_NATIVE_CHECK_NAMES,

@@ -18,7 +18,7 @@ PARTITION_KEY = "2026-05-29"
 ASSET_KEY = dg.AssetKey("gold_stk_mins_qfq_90m")
 CHECK_NAMES = (
     "gold_stk_mins_qfq_contract_check",
-    "gold_stk_mins_qfq_derived_formula_matches_source",
+    "gold_stk_mins_qfq_derived_source_coverage_check",
 )
 SPEC = AssetReadinessSpec(ASSET_KEY, CHECK_NAMES)
 

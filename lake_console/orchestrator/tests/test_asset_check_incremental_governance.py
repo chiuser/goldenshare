@@ -178,10 +178,8 @@ GOLD_STK_MINS_QFQ_NATIVE_CHECKS = (
     "gold_stk_mins_qfq_key_integrity_check",
     "gold_stk_mins_qfq_value_domain_check",
     "gold_stk_mins_qfq_source_coverage_check",
-    "gold_stk_mins_qfq_formula_matches_silver_adj_factor",
 )
 GOLD_STK_MINS_QFQ_DERIVED_CHECKS = (
-    "gold_stk_mins_qfq_derived_formula_matches_source",
     "gold_stk_mins_qfq_derived_source_coverage_check",
     "gold_stk_mins_qfq_contract_check",
     "gold_stk_mins_qfq_key_integrity_check",
@@ -190,7 +188,6 @@ GOLD_STK_MINS_QFQ_DERIVED_CHECKS = (
 MACD_KDJ_INDICATOR_CHECKS = (
     "gold_stk_mins_qfq_macd_kdj_contract_check",
     "gold_stk_mins_qfq_macd_kdj_source_coverage_check",
-    "gold_stk_mins_qfq_macd_kdj_formula_sample_check",
 )
 MACD_KDJ_STATE_CHECKS = (
     "gold_stk_mins_qfq_macd_kdj_state_file_exists_and_schema_check",

@@ -250,14 +250,6 @@ GOLD_STK_MINS_QFQ_SCHEMA = (
     ColumnContract("exchange", "VARCHAR", "标准交易所代码，沿用 silver 分钟线事实"),
 )
 
-GOLD_STK_MINS_QFQ_AS_OF_BASIS_SCHEMA = (
-    ColumnContract("ts_code", "VARCHAR", "标准股票代码"),
-    ColumnContract("trade_date", "DATE", "被前复权的交易日"),
-    ColumnContract("as_of_adj_factor", "DOUBLE", "该股票该日实际使用的前复权分母因子"),
-    ColumnContract("as_of_trade_date", "DATE", "可验证时记录因子来源交易日；历史重建可为空"),
-    ColumnContract("basis_origin", "VARCHAR", "因子依据来源：daily_qfq、factor_repair、history_reconstruction"),
-)
-
 GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "标准股票代码"),
     ColumnContract(

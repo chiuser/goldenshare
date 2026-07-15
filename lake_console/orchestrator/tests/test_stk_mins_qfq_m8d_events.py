@@ -188,7 +188,7 @@ class StkMinsQfqM8DEventTests(unittest.TestCase):
             ).records
 
         self.assertEqual(plan.asset_partition_count, 2)
-        self.assertEqual(plan.planned_event_count, 12)
+        self.assertEqual(plan.planned_event_count, 10)
         self.assertEqual(plan.missing_input_count, 0)
         self.assertEqual(plan.existing_target_file_count, plan.planned_target_file_count)
         self.assertEqual(materializations, [])
@@ -281,12 +281,12 @@ class StkMinsQfqM8DEventTests(unittest.TestCase):
                 skip_existing_ready=True,
             )
 
-        self.assertEqual(report.reported_event_count, 6)
+        self.assertEqual(report.reported_event_count, 5)
         self.assertTrue(readiness.ready)
         self.assertEqual(second.reported_event_count, 0)
         self.assertEqual(second.skipped_ready_asset_partitions, ((FREQ, DATE_1),))
 
-    def test_bad_gold_formula_blocks_green_events(self) -> None:
+    def test_bootstrap_audit_does_not_recalculate_qfq_prices(self) -> None:
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)
             _write_valid_gold_inputs(lake_root)
@@ -307,7 +307,7 @@ class StkMinsQfqM8DEventTests(unittest.TestCase):
                         """
                     ).fetchall()
                 ]
-            rows[0]["open"] = 999.0
+            rows[0].update(open=20.0, high=21.0, low=19.0, close=20.5)
             _write_rows(
                 stock_a_path,
                 schema=GOLD_STK_MINS_QFQ_SCHEMA,
@@ -316,15 +316,14 @@ class StkMinsQfqM8DEventTests(unittest.TestCase):
             )
             instance = dg.DagsterInstance.ephemeral()
 
-            with self.assertRaisesRegex(ValueError, "bootstrap audit failed"):
-                report_stk_mins_qfq_bootstrap_events(
-                    instance=instance,
-                    lake_root=lake_root,
-                    duckdb=DuckDBResource(),
-                    registered_partition_keys=[DATE_1, DATE_2],
-                    partition_keys=[DATE_1],
-                    freqs=[FREQ],
-                )
+            report = report_stk_mins_qfq_bootstrap_events(
+                instance=instance,
+                lake_root=lake_root,
+                duckdb=DuckDBResource(),
+                registered_partition_keys=[DATE_1, DATE_2],
+                partition_keys=[DATE_1],
+                freqs=[FREQ],
+            )
             materializations = instance.fetch_materializations(
                 dg.AssetRecordsFilter(
                     asset_key=GOLD_STK_MINS_QFQ_ASSET_KEYS[FREQ],
@@ -333,7 +332,8 @@ class StkMinsQfqM8DEventTests(unittest.TestCase):
                 limit=1,
             ).records
 
-        self.assertEqual(materializations, [])
+        self.assertEqual(report.reported_event_count, 5)
+        self.assertEqual(len(materializations), 1)
 
     def test_report_writes_each_year_after_that_year_audit_passes(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -479,7 +479,7 @@ class StkMinsQfqM8DEventTests(unittest.TestCase):
 
         output = buffer.getvalue()
         self.assertIn("'asset_partition_count': 1", output)
-        self.assertIn("'reported_event_count': 6", output)
+        self.assertIn("'reported_event_count': 5", output)
         self.assertIn("'sample_readiness': {'5:2014-06-03': True}", output)
 
 

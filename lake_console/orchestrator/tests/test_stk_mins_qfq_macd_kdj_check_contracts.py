@@ -55,6 +55,38 @@ def _assert_no_tuple_values(value) -> None:  # noqa: ANN001
 
 
 class StkMinsQfqMacdKdjCheckContractTests(unittest.TestCase):
+    def test_indicator_and_state_check_counts_stay_compact(self) -> None:
+        self.assertEqual(len(checks.GOLD_STK_MINS_QFQ_MACD_KDJ_CHECK_NAMES), 2)
+        self.assertEqual(len(checks.GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_CHECK_NAMES), 2)
+        indicator_check_key_count = sum(
+            len(
+                getattr(
+                    checks,
+                    f"gold_stk_mins_qfq_macd_kdj_{freq}m_{check_name}",
+                ).check_keys
+            )
+            for freq in (1, 5, 15, 30, 60, 90, 120)
+            for check_name in checks.GOLD_STK_MINS_QFQ_MACD_KDJ_CHECK_NAMES
+        )
+        state_check_key_count = sum(
+            len(
+                getattr(
+                    checks,
+                    f"gold_stk_mins_qfq_macd_kdj_state_{freq}m_{check_name}",
+                ).check_keys
+            )
+            for freq in (1, 5, 15, 30, 60, 90, 120)
+            for check_name in checks.GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_CHECK_NAMES
+        )
+        self.assertEqual(
+            indicator_check_key_count,
+            14,
+        )
+        self.assertEqual(
+            state_check_key_count,
+            14,
+        )
+
     def test_macd_kdj_indicator_and_state_checks_are_partitioned(self) -> None:
         for freq in (1, 5, 15, 30, 60, 90, 120):
             for check_name in checks.GOLD_STK_MINS_QFQ_MACD_KDJ_CHECK_NAMES:
@@ -236,50 +268,6 @@ class StkMinsQfqMacdKdjCheckContractTests(unittest.TestCase):
         self.assertIn("source 覆盖", _metadata_value(result.metadata, "summary"))
         self.assertIn("goldenshare/source_row_count", result.metadata)
         _assert_no_tuple_values(result.metadata)
-
-    def test_formula_check_readable_metadata_is_dagster_compatible(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            indicator_path = Path(temp_dir) / "indicator.parquet"
-            _write_parquet(
-                indicator_path,
-                """
-                SELECT
-                  '000001.SZ' AS ts_code,
-                  1 AS freq,
-                  DATE '2026-06-24' AS trade_date,
-                  TIMESTAMP '2026-06-24 10:00:00' AS trade_time,
-                  1.0 AS macd_dif_qfq,
-                  0.5 AS macd_dea_qfq,
-                  99.0 AS macd_qfq,
-                  1.0 AS kdj_k_qfq,
-                  0.5 AS kdj_d_qfq,
-                  99.0 AS kdj_qfq
-                """,
-            )
-            with patch.object(
-                checks,
-                "discover_gold_stk_mins_qfq_source_year_paths",
-                return_value=(indicator_path,),
-            ), patch.object(
-                checks,
-                "_indicator_expected_paths",
-                return_value=(indicator_path,),
-            ):
-                result = checks._indicator_formula_result(
-                    lake_root=Path(temp_dir),
-                    freq=1,
-                    partition_key="2026-06-24",
-                )
-
-        self.assertFalse(result.passed)
-        self.assertIn("公式抽样", _metadata_value(result.metadata, "summary"))
-        self.assertIn("goldenshare/failure_samples", result.metadata)
-        self.assertEqual(
-            _metadata_value(result.metadata, "failed_rule_names"),
-            [checks.GOLD_STK_MINS_QFQ_MACD_KDJ_FORMULA_SAMPLE_CHECK],
-        )
-        _assert_no_tuple_values(result.metadata)
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -260,7 +260,7 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
             [(batch.target_freq, batch.year) for batch in plan.batches],
             [(90, "2014"), (90, "2015"), (120, "2014"), (120, "2015")],
         )
-        self.assertEqual(plan.planned_event_count, 3 * 2 * 6)
+        self.assertEqual(plan.planned_event_count, 3 * 2 * 5)
         self.assertGreater(plan.planned_target_row_count, 0)
 
     def test_generate_writes_derived_stock_year_files(self) -> None:
@@ -282,7 +282,7 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
 
         self.assertEqual(len(report.batch_results), 2)
         self.assertEqual(report.written_file_count, 4)
-        self.assertEqual(report.plan.planned_event_count, 2 * 2 * 6)
+        self.assertEqual(report.plan.planned_event_count, 2 * 2 * 5)
         self.assertEqual(len(rows_90), 6)
         self.assertEqual(len(rows_120), 4)
         self.assertEqual([row["freq"] for row in rows_90], [90] * 6)
@@ -366,7 +366,7 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
             ).records
 
         self.assertEqual(plan.asset_partition_count, 2)
-        self.assertEqual(plan.planned_event_count, 12)
+        self.assertEqual(plan.planned_event_count, 10)
         self.assertTrue(report.dry_run)
         self.assertEqual(report.failed_partition_count, 0)
         self.assertEqual(report.reported_event_count, 0)
@@ -412,7 +412,7 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
                 skip_existing_ready=True,
             )
 
-        self.assertEqual(report.reported_event_count, 6)
+        self.assertEqual(report.reported_event_count, 5)
         self.assertTrue(readiness.ready)
         self.assertEqual(second.reported_event_count, 0)
         self.assertEqual(second.skipped_ready_asset_partitions, ((90, DATE_1),))
@@ -455,9 +455,9 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
                 )
 
         self.assertEqual(dry_run.reported_event_count, 0)
-        self.assertEqual(report.reported_event_count, 6)
+        self.assertEqual(report.reported_event_count, 5)
 
-    def test_bad_derived_formula_blocks_green_events(self) -> None:
+    def test_derived_bootstrap_audit_does_not_recalculate_qfq_prices(self) -> None:
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)
             _write_valid_derived_sources(lake_root)
@@ -469,18 +469,17 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
             )
             target_path = gold_stk_mins_qfq_path(lake_root, 90, STOCK_A, 2014)
             rows = _read_gold_rows(target_path)
-            rows[0]["open"] = 999.0
+            rows[0].update(open=20.0, high=21.0, low=19.0, close=20.5)
             _write_rows(target_path, rows=rows)
             instance = dg.DagsterInstance.ephemeral()
 
-            with self.assertRaisesRegex(ValueError, "derived bootstrap audit failed"):
-                report_stk_mins_qfq_derived_bootstrap_events(
-                    instance=instance,
-                    lake_root=lake_root,
-                    duckdb=DuckDBResource(),
-                    registered_partition_keys=[DATE_1],
-                    freqs=[90],
-                )
+            report = report_stk_mins_qfq_derived_bootstrap_events(
+                instance=instance,
+                lake_root=lake_root,
+                duckdb=DuckDBResource(),
+                registered_partition_keys=[DATE_1],
+                freqs=[90],
+            )
             materializations = instance.fetch_materializations(
                 dg.AssetRecordsFilter(
                     asset_key=GOLD_STK_MINS_QFQ_DERIVED_ASSET_KEYS[90],
@@ -489,7 +488,8 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
                 limit=1,
             ).records
 
-        self.assertEqual(materializations, [])
+        self.assertEqual(report.reported_event_count, 5)
+        self.assertEqual(len(materializations), 1)
 
     def test_final_audit_uses_counts_and_sample_readiness(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -653,7 +653,7 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
 
         output = buffer.getvalue()
         self.assertIn("'selected_target_freqs': [90]", output)
-        self.assertIn("'reported_event_count': 6", output)
+        self.assertIn("'reported_event_count': 5", output)
         self.assertIn("'audit_mode': 'full'", output)
         self.assertIn("'check_success_counts_skipped': False", output)
         self.assertIn("'audit_mode': 'quick'", output)

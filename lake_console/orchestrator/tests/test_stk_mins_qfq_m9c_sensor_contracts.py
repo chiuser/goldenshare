@@ -16,9 +16,7 @@ from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
 from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
     GoldStkMinsQfqFactorRepairStatus,
 )
-from orchestrator.defs.checks.stk_mins_checks import (
-    GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
-)
+from orchestrator.defs.checks.stk_mins_checks import GOLD_STK_MINS_QFQ_SOURCE_COVERAGE_CHECK
 from orchestrator.defs.sensors.readiness import (
     AssetReadinessStatus,
     DatasetReadinessStatus,
@@ -568,17 +566,17 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
         self.assertEqual(result.run_requests, [])
         self.assertIn("blocking checks 未全绿", result.skip_reason.skip_message)
 
-    def test_sensor_blocks_direct_formula_failure_without_repair_event_override(
+    def test_sensor_blocks_direct_source_coverage_failure_without_repair_event_override(
         self,
     ) -> None:
-        same_day_formula_failed_status = StkMinsDateReadiness(
+        same_day_source_coverage_failed_status = StkMinsDateReadiness(
             trade_date=PARTITION_KEY,
             ready=False,
             materialized=True,
             checks_passed=False,
-            reason="same-day formula failed",
+            reason="same-day source coverage failed",
             failed_check_names=(
-                GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
+                GOLD_STK_MINS_QFQ_SOURCE_COVERAGE_CHECK,
             ),
             missing_file_paths=(),
             expected_file_count=7,
@@ -593,7 +591,7 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
                 "_load_stock_mins_qfq_expected_trade_dates",
                 return_value=(PARTITION_KEY,),
             ),
-            _patched_gold_batch_readiness(same_day_formula_failed_status),
+            _patched_gold_batch_readiness(same_day_source_coverage_failed_status),
             patch.object(
                 repair_sensor_module,
                 "gold_stk_mins_qfq_factor_repair_status",

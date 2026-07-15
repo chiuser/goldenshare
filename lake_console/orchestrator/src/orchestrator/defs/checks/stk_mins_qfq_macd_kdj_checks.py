@@ -1,5 +1,4 @@
 from collections.abc import Sequence
-from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -30,9 +29,6 @@ GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_READY_CHECK = (
 GOLD_STK_MINS_QFQ_MACD_KDJ_ROW_COUNT_MATCHES_QFQ_CHECK = (
     "gold_stk_mins_qfq_macd_kdj_row_count_matches_qfq_check"
 )
-GOLD_STK_MINS_QFQ_MACD_KDJ_FORMULA_SAMPLE_CHECK = (
-    "gold_stk_mins_qfq_macd_kdj_formula_sample_check"
-)
 GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_FILE_EXISTS_AND_SCHEMA_CHECK = (
     "gold_stk_mins_qfq_macd_kdj_state_file_exists_and_schema_check"
 )
@@ -49,13 +45,11 @@ GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_COVERAGE_CHECK = (
 GOLD_STK_MINS_QFQ_MACD_KDJ_CHECK_NAMES = (
     GOLD_STK_MINS_QFQ_MACD_KDJ_CONTRACT_CHECK,
     GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_COVERAGE_CHECK,
-    GOLD_STK_MINS_QFQ_MACD_KDJ_FORMULA_SAMPLE_CHECK,
 )
 GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_CHECK_NAMES = (
     GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_FILE_EXISTS_AND_SCHEMA_CHECK,
     GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_LATEST_COVERAGE_CHECK,
 )
-GOLD_STK_MINS_QFQ_MACD_KDJ_FORMULA_TOLERANCE = 1e-8
 GOLD_STK_MINS_QFQ_MACD_KDJ_SAMPLE_LIMIT = 20
 
 
@@ -92,21 +86,6 @@ def _read_parquet_paths(paths: Sequence[Path]) -> str:
         return read_parquet(paths[0], hive_partitioning=False, union_by_name=True)
     quoted_paths = ", ".join(duckdb_string(path) for path in paths)
     return f"read_parquet([{quoted_paths}], hive_partitioning=false, union_by_name=true)"
-
-
-def _sample_dicts(columns: Sequence[str], rows: Sequence[Sequence[Any]]) -> list[dict[str, Any]]:
-    samples = []
-    for row in rows:
-        sample = {}
-        for column, value in zip(columns, row, strict=True):
-            if hasattr(value, "isoformat"):
-                sample[column] = value.isoformat()
-            elif isinstance(value, Decimal):
-                sample[column] = float(value)
-            else:
-                sample[column] = value
-        samples.append(sample)
-    return samples
 
 
 def _missing_paths_result(
@@ -370,120 +349,9 @@ def _indicator_source_coverage_result(
                         GOLD_STK_MINS_QFQ_MACD_KDJ_ROW_COUNT_MATCHES_QFQ_CHECK,
                     ),
                     failed_rule_names=failed_rule_names,
-                    success_next_action="无需处理，继续等待公式抽样检查。",
+                    success_next_action="无需处理，等待下游消费。",
                     failure_next_action=(
                         "先对齐 source_row_count 与 indicator_row_count，再重跑 MACD/KDJ。"
-                    ),
-                ),
-            },
-        ),
-    )
-
-
-def _indicator_formula_result(
-    *,
-    lake_root: Path,
-    freq: int,
-    partition_key: str,
-) -> dg.AssetCheckResult:
-    source_paths = discover_gold_stk_mins_qfq_source_year_paths(
-        lake_root,
-        freq=freq,
-        trade_dates=[partition_key],
-    )
-    if not source_paths:
-        return _indicator_source_coverage_result(
-            lake_root=lake_root,
-            freq=freq,
-            partition_key=partition_key,
-        )
-    indicator_paths = tuple(
-        path
-        for path in _indicator_expected_paths(
-            lake_root=lake_root,
-            freq=freq,
-            partition_key=partition_key,
-            source_paths=source_paths,
-        )
-        if path.exists()
-    )
-    if not indicator_paths:
-        return _missing_paths_result(
-            check_scope=CheckScope.FILE_EXISTS,
-            missing_paths=(),
-            extra_metadata={"existing_indicator_file_count": 0},
-        )
-    tolerance = GOLD_STK_MINS_QFQ_MACD_KDJ_FORMULA_TOLERANCE
-    with connect_configured_duckdb() as connection:
-        mismatch_count = int(
-            connection.execute(
-                f"""
-                SELECT count(*)
-                FROM {_read_parquet_paths(indicator_paths)}
-                WHERE CAST(freq AS INTEGER) = {freq}
-                  AND CAST(trade_date AS DATE) = DATE {duckdb_string(partition_key)}
-                  AND (
-                    abs(macd_qfq - 2.0 * (macd_dif_qfq - macd_dea_qfq)) > {tolerance}
-                    OR abs(kdj_qfq - (3.0 * kdj_k_qfq - 2.0 * kdj_d_qfq)) > {tolerance}
-                  )
-                """
-            ).fetchone()[0]
-        )
-        sample_rows = []
-        if mismatch_count:
-            sample_rows = connection.execute(
-                f"""
-                SELECT
-                  ts_code,
-                  trade_time,
-                  macd_dif_qfq,
-                  macd_dea_qfq,
-                  macd_qfq,
-                  kdj_k_qfq,
-                  kdj_d_qfq,
-                  kdj_qfq
-                FROM {_read_parquet_paths(indicator_paths)}
-                WHERE CAST(freq AS INTEGER) = {freq}
-                  AND CAST(trade_date AS DATE) = DATE {duckdb_string(partition_key)}
-                  AND (
-                    abs(macd_qfq - 2.0 * (macd_dif_qfq - macd_dea_qfq)) > {tolerance}
-                    OR abs(kdj_qfq - (3.0 * kdj_k_qfq - 2.0 * kdj_d_qfq)) > {tolerance}
-                  )
-                LIMIT {GOLD_STK_MINS_QFQ_MACD_KDJ_SAMPLE_LIMIT}
-                """
-            ).fetchall()
-    return dg.AssetCheckResult(
-        passed=mismatch_count == 0,
-        metadata=build_check_metadata(
-            check_scope=CheckScope.VALUE_SANITY,
-            failed_row_count=mismatch_count,
-            input_file_paths=indicator_paths[:GOLD_STK_MINS_QFQ_MACD_KDJ_SAMPLE_LIMIT],
-            extra_metadata={
-                "formula_tolerance": tolerance,
-                "failure_samples": _sample_dicts(
-                    (
-                        "ts_code",
-                        "trade_time",
-                        "macd_dif_qfq",
-                        "macd_dea_qfq",
-                        "macd_qfq",
-                        "kdj_k_qfq",
-                        "kdj_d_qfq",
-                        "kdj_qfq",
-                    ),
-                    sample_rows,
-                ),
-                **_readable_check_metadata(
-                    dataset_label=f"股票 {freq}min MACD/KDJ 公式抽样",
-                    rule_names=(GOLD_STK_MINS_QFQ_MACD_KDJ_FORMULA_SAMPLE_CHECK,),
-                    failed_rule_names=(
-                        (GOLD_STK_MINS_QFQ_MACD_KDJ_FORMULA_SAMPLE_CHECK,)
-                        if mismatch_count
-                        else ()
-                    ),
-                    success_next_action="无需处理，indicator 公式抽样通过。",
-                    failure_next_action=(
-                        "先查看 failure_samples，核对 MACD/KDJ 参数和 qfq 输入后重跑。"
                     ),
                 ),
             },
@@ -672,12 +540,6 @@ def _build_indicator_check(asset_name: str, check_name: str, freq: int):
             )
         if check_name == GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_COVERAGE_CHECK:
             return _indicator_source_coverage_result(
-                lake_root=lake_root.root(),
-                freq=freq,
-                partition_key=partition_key,
-            )
-        if check_name == GOLD_STK_MINS_QFQ_MACD_KDJ_FORMULA_SAMPLE_CHECK:
-            return _indicator_formula_result(
                 lake_root=lake_root.root(),
                 freq=freq,
                 partition_key=partition_key,

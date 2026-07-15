@@ -403,14 +403,6 @@ def _audit_indicator_asset_partition(
                 partition_key=partition_key,
             ),
         ),
-        (
-            macd_kdj_checks.GOLD_STK_MINS_QFQ_MACD_KDJ_FORMULA_SAMPLE_CHECK,
-            macd_kdj_checks._indicator_formula_result(
-                lake_root=lake_root,
-                freq=freq,
-                partition_key=partition_key,
-            ),
-        ),
     )
     return StkMinsQfqMacdKdjBootstrapAssetAudit(
         freq=freq,

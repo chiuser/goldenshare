@@ -32,7 +32,6 @@ from orchestrator.defs.paths import (
     PATH_TEMPLATE_TS_CODE,
     PATH_TEMPLATE_YEAR,
     gold_stk_mins_qfq_path,
-    gold_stk_mins_qfq_as_of_basis_path,
     lake_path_template,
     raw_stk_mins_path,
     silver_adj_factor_path,
@@ -89,10 +88,6 @@ from orchestrator.defs.stk_mins_qfq import (
     build_daily_qfq_coverage_sql,
     build_daily_qfq_select_sql,
     write_gold_stk_mins_qfq_rows_to_year_files,
-)
-from orchestrator.defs.stk_mins_qfq_as_of_basis import (
-    build_qfq_as_of_basis_rows_sql,
-    write_gold_stk_mins_qfq_as_of_basis,
 )
 from orchestrator.seeds.quote.stk_mins_price_corrections import (
     STK_MINS_PRICE_CORRECTIONS_SEED_VERSION,
@@ -337,8 +332,6 @@ class GoldStkMinsQfqPartitionWriteResult:
     row_count: int
     replacement_row_count: int
     observed_columns: tuple[str, ...]
-    as_of_basis_years: tuple[str, ...] = ()
-    as_of_basis_changed_year_count: int = 0
 
     def materialization_extra_metadata(
         self,
@@ -356,8 +349,6 @@ class GoldStkMinsQfqPartitionWriteResult:
             "output_file_count": self.output_file_count,
             "output_sample_file_paths": list(self.output_sample_file_paths),
             "replacement_row_count": self.replacement_row_count,
-            "as_of_basis_years": list(self.as_of_basis_years),
-            "as_of_basis_changed_year_count": self.as_of_basis_changed_year_count,
             "physical_layout": "freq_ts_code_year",
         }
 
@@ -1951,6 +1942,8 @@ def _qfq_coverage_counts(
         "qfq_output_row_count": int(row[1]),
         "missing_trade_adj_factor_row_count": int(row[2]),
         "missing_as_of_adj_factor_row_count": int(row[3]),
+        "invalid_trade_adj_factor_row_count": int(row[4]),
+        "invalid_as_of_adj_factor_row_count": int(row[5]),
     }
 
 
@@ -1968,6 +1961,8 @@ def _validate_gold_qfq_coverage(
     if (
         coverage_counts["missing_trade_adj_factor_row_count"]
         or coverage_counts["missing_as_of_adj_factor_row_count"]
+        or coverage_counts["invalid_trade_adj_factor_row_count"]
+        or coverage_counts["invalid_as_of_adj_factor_row_count"]
         or coverage_counts["qfq_output_row_count"] != coverage_counts["silver_row_count"]
     ):
         raise RuntimeError(
@@ -2022,17 +2017,6 @@ def write_gold_stk_mins_qfq_asset_partition(
             f"freq={normalized_freq}, partition={partition_key}."
         )
 
-    basis_results = write_gold_stk_mins_qfq_as_of_basis(
-        lake_root=lake_root,
-        replacement_rows_sql=build_qfq_as_of_basis_rows_sql(
-            silver_paths=[silver_file_path],
-            as_of_adj_factor_path=as_of_adj_factor_file_path,
-            as_of_trade_date=partition_key,
-            basis_origin="daily_qfq",
-            trade_dates=[partition_key],
-        ),
-    )
-
     output_file_paths = tuple(str(result.path) for result in write_results)
     return GoldStkMinsQfqPartitionWriteResult(
         silver_file_path=silver_file_path,
@@ -2047,10 +2031,6 @@ def write_gold_stk_mins_qfq_asset_partition(
             result.replacement_row_count for result in write_results
         ),
         observed_columns=GOLD_STK_MINS_QFQ_COLUMNS,
-        as_of_basis_years=tuple(result.year for result in basis_results),
-        as_of_basis_changed_year_count=sum(
-            1 for result in basis_results if result.changed
-        ),
     )
 
 
@@ -2871,21 +2851,14 @@ def _gold_stk_mins_qfq_extra_metadata(freq: int) -> dict[str, object]:
         "freq": freq,
         "formula": (
             "qfq_price = silver_price * adj_factor(row_trade_date) / "
-            "qfq_as_of_basis.as_of_adj_factor"
+            "adj_factor(as_of_trade_date)"
         ),
         "physical_layout": "freq + ts_code + year",
         "price_columns": "open/high/low/close are qfq prices",
         "non_price_columns": "vol/amount/exchange are inherited from silver stk_mins",
         "as_of_adj_factor_policy": (
-            "The as-of denominator is persisted per ts_code + trade_date in the "
-            "QFQ as-of basis sidecar; daily writes use the target-date factor."
-        ),
-        "as_of_basis_contract": "gold_stk_mins_qfq_as_of_basis_v1",
-        "as_of_basis_path_template": lake_path_template(
-            gold_stk_mins_qfq_as_of_basis_path(
-                PATH_TEMPLATE_LAKE_ROOT,
-                PATH_TEMPLATE_YEAR,
-            )
+            "日常分区以当前交易日的复权因子作为分母；因子修复会按其触发日"
+            "重新计算受影响的历史分区。"
         ),
     }
 

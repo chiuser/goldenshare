@@ -38,7 +38,7 @@ from orchestrator.defs.sensors.readiness import (
 from orchestrator.defs.stk_mins_qfq import (
     _derived_window_completion_predicate,
     _derived_window_rows_sql,
-    build_gold_stk_mins_qfq_derived_select_sql,
+    build_gold_stk_mins_qfq_derived_coverage_sql,
 )
 
 
@@ -295,7 +295,7 @@ def audit_stk_mins_qfq_derived_bootstrap_batch(
             ).parents[2],
         )
 
-    expected_select_sql = build_gold_stk_mins_qfq_derived_select_sql(
+    expected_identity_sql = build_gold_stk_mins_qfq_derived_coverage_sql(
         source_qfq_paths=source_paths,
         target_freq=batch.target_freq,
         partition_keys=batch.partition_keys,
@@ -310,7 +310,7 @@ def audit_stk_mins_qfq_derived_bootstrap_batch(
             connection,
             lake_root=lake_root,
             target_freq=batch.target_freq,
-            expected_select_sql=expected_select_sql,
+            expected_identity_sql=expected_identity_sql,
         )
         all_expected_paths = tuple(
             dict.fromkeys(
@@ -338,11 +338,11 @@ def audit_stk_mins_qfq_derived_bootstrap_batch(
             gold_paths=existing_paths,
             freq=batch.target_freq,
         )
-        formula_counts = _batch_derived_formula_counts(
+        identity_counts = _batch_derived_identity_coverage_counts(
             connection,
             partition_keys=batch.partition_keys,
             gold_paths=existing_paths,
-            expected_select_sql=expected_select_sql,
+            expected_identity_sql=expected_identity_sql,
         )
 
     audits: list[StkMinsQfqBootstrapPartitionAudit] = []
@@ -352,7 +352,7 @@ def audit_stk_mins_qfq_derived_bootstrap_batch(
         existing_file_count = len(expected_paths) - len(missing_paths)
         diagnostics = diagnostics_by_date.get(partition_key, {})
         gold = gold_counts.get(partition_key, {})
-        formula = formula_counts.get(partition_key, {})
+        identity = identity_counts.get(partition_key, {})
         counts = stk_mins_checks.GoldStkMinsQfqDerivedCheckCounts(
             source_freq=batch.source_freq,
             source_file_count=len(source_paths),
@@ -376,14 +376,14 @@ def audit_stk_mins_qfq_derived_bootstrap_batch(
             path_mismatch_row_count=int(gold.get("path_mismatch_row_count", 0)),
             duplicate_key_count=int(gold.get("duplicate_key_count", 0)),
             invalid_price_row_count=int(gold.get("invalid_price_row_count", 0)),
-            formula_missing_gold_row_count=int(
-                formula.get("formula_missing_gold_row_count", 0)
+            missing_gold_identity_row_count=int(
+                identity.get("missing_gold_identity_row_count", 0)
             ),
-            formula_unexpected_gold_row_count=int(
-                formula.get("formula_unexpected_gold_row_count", 0)
+            unexpected_gold_identity_row_count=int(
+                identity.get("unexpected_gold_identity_row_count", 0)
             ),
-            formula_mismatch_row_count=int(
-                formula.get("formula_mismatch_row_count", 0)
+            exchange_mismatch_row_count=int(
+                identity.get("exchange_mismatch_row_count", 0)
             ),
         )
         results = stk_mins_checks._gold_qfq_derived_check_results(
@@ -647,7 +647,7 @@ def _expected_derived_gold_paths_by_date(
     *,
     lake_root: Path,
     target_freq: int,
-    expected_select_sql: str,
+    expected_identity_sql: str,
 ) -> dict[str, tuple[Path, ...]]:
     rows = connection.execute(
         f"""
@@ -655,7 +655,7 @@ def _expected_derived_gold_paths_by_date(
           strftime(CAST(trade_date AS DATE), '%Y-%m-%d') AS partition_key,
           CAST(ts_code AS VARCHAR) AS ts_code,
           strftime(CAST(trade_date AS DATE), '%Y') AS year
-        FROM ({expected_select_sql})
+        FROM ({expected_identity_sql})
         ORDER BY partition_key, ts_code
         """
     ).fetchall()
@@ -667,24 +667,23 @@ def _expected_derived_gold_paths_by_date(
     return {key: tuple(paths) for key, paths in paths_by_date.items()}
 
 
-def _batch_derived_formula_counts(
+def _batch_derived_identity_coverage_counts(
     connection,
     *,
     partition_keys: Sequence[str],
     gold_paths: Sequence[Path],
-    expected_select_sql: str,
+    expected_identity_sql: str,
 ) -> dict[str, dict[str, int]]:
     if not gold_paths:
         return {
             partition_key: {
-                "formula_missing_gold_row_count": 0,
-                "formula_unexpected_gold_row_count": 0,
-                "formula_mismatch_row_count": 0,
+                "missing_gold_identity_row_count": 0,
+                "unexpected_gold_identity_row_count": 0,
+                "exchange_mismatch_row_count": 0,
             }
             for partition_key in partition_keys
         }
     gold_source = _read_parquet_paths(gold_paths)
-    tolerance = stk_mins_checks.GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE
     rows = connection.execute(
         f"""
         WITH selected(partition_key) AS ({_values_sql(partition_keys)}),
@@ -693,10 +692,7 @@ def _batch_derived_formula_counts(
             CAST(ts_code AS VARCHAR) AS ts_code,
             strftime(CAST(trade_date AS DATE), '%Y-%m-%d') AS partition_key,
             CAST(trade_time AS TIMESTAMP) AS trade_time,
-            CAST(open AS DOUBLE) AS open,
-            CAST(high AS DOUBLE) AS high,
-            CAST(low AS DOUBLE) AS low,
-            CAST(close AS DOUBLE) AS close
+            CAST(exchange AS VARCHAR) AS exchange
           FROM {gold_source}
         ),
         target_gold_rows AS (
@@ -710,24 +706,15 @@ def _batch_derived_formula_counts(
             CAST(ts_code AS VARCHAR) AS ts_code,
             strftime(CAST(trade_date AS DATE), '%Y-%m-%d') AS partition_key,
             CAST(trade_time AS TIMESTAMP) AS trade_time,
-            CAST(open AS DOUBLE) AS open,
-            CAST(high AS DOUBLE) AS high,
-            CAST(low AS DOUBLE) AS low,
-            CAST(close AS DOUBLE) AS close
-          FROM ({expected_select_sql})
+            CAST(exchange AS VARCHAR) AS exchange
+          FROM ({expected_identity_sql})
         ),
         compared_rows AS (
           SELECT
             coalesce(target_gold_rows.partition_key, expected_rows.partition_key)
               AS partition_key,
-            target_gold_rows.open AS gold_open,
-            expected_rows.open AS expected_open,
-            target_gold_rows.high AS gold_high,
-            expected_rows.high AS expected_high,
-            target_gold_rows.low AS gold_low,
-            expected_rows.low AS expected_low,
-            target_gold_rows.close AS gold_close,
-            expected_rows.close AS expected_close,
+            target_gold_rows.exchange AS gold_exchange,
+            expected_rows.exchange AS expected_exchange,
             target_gold_rows.ts_code IS NULL AS missing_gold_row,
             expected_rows.ts_code IS NULL AS unexpected_gold_row
           FROM target_gold_rows
@@ -736,53 +723,48 @@ def _batch_derived_formula_counts(
            AND target_gold_rows.ts_code = expected_rows.ts_code
            AND target_gold_rows.trade_time = expected_rows.trade_time
         ),
-        formula_aggregates AS (
+        identity_aggregates AS (
           SELECT
             partition_key,
             count(*) FILTER (WHERE missing_gold_row)
-              AS formula_missing_gold_row_count,
+              AS missing_gold_identity_row_count,
             count(*) FILTER (WHERE unexpected_gold_row)
-              AS formula_unexpected_gold_row_count,
+              AS unexpected_gold_identity_row_count,
             count(*) FILTER (
               WHERE NOT missing_gold_row
                 AND NOT unexpected_gold_row
-                AND (
-                  abs(gold_open - expected_open) > {tolerance}
-                  OR abs(gold_high - expected_high) > {tolerance}
-                  OR abs(gold_low - expected_low) > {tolerance}
-                  OR abs(gold_close - expected_close) > {tolerance}
-                )
-            ) AS formula_mismatch_row_count
+                AND gold_exchange IS DISTINCT FROM expected_exchange
+            ) AS exchange_mismatch_row_count
           FROM compared_rows
           GROUP BY partition_key
         )
         SELECT
           selected.partition_key,
-          coalesce(formula_aggregates.formula_missing_gold_row_count, 0)
-            AS formula_missing_gold_row_count,
-          coalesce(formula_aggregates.formula_unexpected_gold_row_count, 0)
-            AS formula_unexpected_gold_row_count,
-          coalesce(formula_aggregates.formula_mismatch_row_count, 0)
-            AS formula_mismatch_row_count
+          coalesce(identity_aggregates.missing_gold_identity_row_count, 0)
+            AS missing_gold_identity_row_count,
+          coalesce(identity_aggregates.unexpected_gold_identity_row_count, 0)
+            AS unexpected_gold_identity_row_count,
+          coalesce(identity_aggregates.exchange_mismatch_row_count, 0)
+            AS exchange_mismatch_row_count
         FROM selected
-        LEFT JOIN formula_aggregates
-          ON selected.partition_key = formula_aggregates.partition_key
+        LEFT JOIN identity_aggregates
+          ON selected.partition_key = identity_aggregates.partition_key
         ORDER BY selected.partition_key
         """
     ).fetchall()
     return {
         str(partition_key): {
-            "formula_missing_gold_row_count": int(formula_missing_gold_row_count),
-            "formula_unexpected_gold_row_count": int(
-                formula_unexpected_gold_row_count
+            "missing_gold_identity_row_count": int(missing_gold_identity_row_count),
+            "unexpected_gold_identity_row_count": int(
+                unexpected_gold_identity_row_count
             ),
-            "formula_mismatch_row_count": int(formula_mismatch_row_count),
+            "exchange_mismatch_row_count": int(exchange_mismatch_row_count),
         }
         for (
             partition_key,
-            formula_missing_gold_row_count,
-            formula_unexpected_gold_row_count,
-            formula_mismatch_row_count,
+            missing_gold_identity_row_count,
+            unexpected_gold_identity_row_count,
+            exchange_mismatch_row_count,
         ) in rows
     }
 

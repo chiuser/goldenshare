@@ -11,10 +11,7 @@ from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
 )
 from orchestrator.defs.duckdb_sql import duckdb_string
 from orchestrator.defs.paths import (
-    gold_stk_mins_qfq_as_of_basis_path,
     gold_stk_mins_qfq_path,
-    silver_adj_factor_path,
-    silver_stk_mins_path,
 )
 from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_FREQS,
@@ -190,35 +187,6 @@ def _write_gold_qfq_ready_window(
             target_freq=target_freq,
             trade_dates=trade_dates,
         )
-    basis_path = gold_stk_mins_qfq_as_of_basis_path(lake_root, "2026")
-    basis_path.parent.mkdir(parents=True, exist_ok=True)
-    silver_paths = ", ".join(
-        duckdb_string(silver_stk_mins_path(lake_root, 1, trade_date))
-        for trade_date in trade_dates
-    )
-    factor_paths = ", ".join(
-        duckdb_string(silver_adj_factor_path(lake_root, trade_date))
-        for trade_date in trade_dates
-    )
-    connection.execute(
-        f"""
-        COPY (
-          SELECT DISTINCT
-            CAST(silver.ts_code AS VARCHAR) AS ts_code,
-            CAST(silver.trade_date AS DATE) AS trade_date,
-            CAST(adj.adj_factor AS DOUBLE) AS as_of_adj_factor,
-            CAST(silver.trade_date AS DATE) AS as_of_trade_date,
-            'daily_qfq'::VARCHAR AS basis_origin
-          FROM read_parquet([{silver_paths}], hive_partitioning=false) AS silver
-          INNER JOIN read_parquet([{factor_paths}], hive_partitioning=false) AS adj
-            ON silver.ts_code = adj.ts_code
-           AND silver.trade_date = adj.trade_date
-          ORDER BY trade_date, ts_code
-        ) TO {duckdb_string(basis_path)} (FORMAT PARQUET)
-        """
-    )
-
-
 class StkMinsContinuityPerformanceTests(unittest.TestCase):
     def test_raw_and_silver_batch_readiness_20_and_60_day_budget(self) -> None:
         with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:

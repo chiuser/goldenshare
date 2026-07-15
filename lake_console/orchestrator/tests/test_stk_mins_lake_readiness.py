@@ -1,4 +1,3 @@
-import os
 import unittest
 from datetime import date, timedelta
 from pathlib import Path
@@ -18,7 +17,6 @@ from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
 )
 from orchestrator.defs.checks.stk_mins_checks import (
     GOLD_STK_MINS_QFQ_CONTRACT_CHECK,
-    GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
     RAW_STK_MINS_CONTRACT_CHECK,
     RAW_STK_MINS_KEY_INTEGRITY_CHECK,
     RAW_STK_MINS_VALUE_DOMAIN_CHECK,
@@ -29,7 +27,6 @@ from orchestrator.defs.checks.stk_mins_checks import (
 )
 from orchestrator.defs.duckdb_sql import duckdb_string
 from orchestrator.defs.paths import (
-    gold_stk_mins_qfq_as_of_basis_path,
     gold_stk_mins_qfq_path,
     raw_adj_factor_path,
     raw_stk_mins_path,
@@ -462,49 +459,6 @@ def _write_gold_qfq_ready_inputs(
             trade_date=trade_date,
             target_freq=target_freq,
         )
-    basis_path = gold_stk_mins_qfq_as_of_basis_path(lake_root, trade_date[:4])
-    basis_path.parent.mkdir(parents=True, exist_ok=True)
-    temporary_basis_path = basis_path.with_suffix(".tmp.parquet")
-    one_minute_silver_path = silver_stk_mins_path(lake_root, 1, trade_date)
-    adj_factor_path = silver_adj_factor_path(lake_root, trade_date)
-    existing_basis_sql = (
-        "SELECT ts_code, trade_date, as_of_adj_factor, as_of_trade_date, basis_origin "
-        f"FROM read_parquet({duckdb_string(basis_path)}, hive_partitioning=false)"
-        if basis_path.exists()
-        else """
-        SELECT
-          NULL::VARCHAR AS ts_code,
-          NULL::DATE AS trade_date,
-          NULL::DOUBLE AS as_of_adj_factor,
-          NULL::DATE AS as_of_trade_date,
-          NULL::VARCHAR AS basis_origin
-        WHERE false
-        """
-    )
-    connection.execute(
-        f"""
-        COPY (
-          SELECT ts_code, trade_date, as_of_adj_factor, as_of_trade_date, basis_origin
-          FROM ({existing_basis_sql})
-          WHERE trade_date <> DATE {duckdb_string(trade_date)}
-          UNION ALL
-          SELECT DISTINCT
-            CAST(silver.ts_code AS VARCHAR) AS ts_code,
-            CAST(silver.trade_date AS DATE) AS trade_date,
-            CAST(adj.adj_factor AS DOUBLE) AS as_of_adj_factor,
-            CAST(silver.trade_date AS DATE) AS as_of_trade_date,
-            'daily_qfq'::VARCHAR AS basis_origin
-          FROM read_parquet({duckdb_string(one_minute_silver_path)}, hive_partitioning=false) AS silver
-          INNER JOIN read_parquet({duckdb_string(adj_factor_path)}, hive_partitioning=false) AS adj
-            ON silver.ts_code = adj.ts_code
-           AND silver.trade_date = adj.trade_date
-          ORDER BY ts_code, trade_date
-        ) TO {duckdb_string(temporary_basis_path)} (FORMAT PARQUET)
-        """
-    )
-    os.replace(temporary_basis_path, basis_path)
-
-
 def _write_silver_ready_inputs(
     connection,
     lake_root: Path,
@@ -1098,7 +1052,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
                 readiness_status.failed_check_names,
             )
 
-    def test_gold_qfq_batch_readiness_detects_formula_failure(self) -> None:
+    def test_gold_qfq_batch_readiness_does_not_recalculate_qfq_prices(self) -> None:
         with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
             lake_root = Path(directory)
             _write_gold_qfq_ready_inputs(
@@ -1123,10 +1077,10 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
             )
 
         status = batch_status.status_for_trade_date("2026-06-15")
-        self.assertFalse(status.ready)
+        self.assertTrue(status.ready)
         self.assertTrue(status.materialized)
-        self.assertIn(
-            GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
+        self.assertNotIn(
+            "gold_stk_mins_qfq_formula_matches_silver_adj_factor",
             status.failed_check_names,
         )
 

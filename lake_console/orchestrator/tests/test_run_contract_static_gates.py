@@ -2494,51 +2494,75 @@ class RunContractStaticGateTests(unittest.TestCase):
         if "if include_event_storage_ids:" not in evaluate_status_source:
             issues.append("qfq factor repair evaluator must guard storage id backfill")
 
-        basis_path = DEFS_DIR / "stk_mins_qfq_as_of_basis.py"
+        retired_basis_paths = (
+            DEFS_DIR / "stk_mins_qfq_as_of_basis.py",
+            DEFS_DIR / "bootstrap" / "stk_mins_qfq_as_of_basis.py",
+            DEFS_DIR / "bootstrap" / "stk_mins_qfq_as_of_basis_cli.py",
+        )
         retired_effective_path = (
             DEFS_DIR / "asset_guards" / "stk_mins_qfq_effective_readiness.py"
         )
         if retired_effective_path.exists():
             issues.append("retired qfq effective-readiness workaround must be deleted")
+        for retired_basis_path in retired_basis_paths:
+            if retired_basis_path.exists():
+                issues.append(
+                    f"retired qfq as-of-basis module must be deleted: {retired_basis_path}"
+                )
 
-        basis_source = basis_path.read_text()
         checks_source = (CHECKS_DIR / "stk_mins_checks.py").read_text()
         readiness_source = (
             DEFS_DIR / "asset_guards" / "stk_mins_lake_readiness.py"
         ).read_text()
-        for source_name, source, required_fragments in (
+        catalog_source = (DEFS_DIR / "catalog" / "lake_assets.py").read_text()
+        sensor_readiness_source = (SENSORS_DIR / "readiness.py").read_text()
+        bootstrap_sources = (
+            (DEFS_DIR / "assets" / "stk_mins.py").read_text(),
+            (DEFS_DIR / "stk_mins_qfq.py").read_text(),
+            (DEFS_DIR / "stk_mins_qfq_factor_repair.py").read_text(),
+            (DEFS_DIR / "bootstrap" / "stk_mins_qfq_bootstrap_events.py").read_text(),
             (
-                "qfq as-of basis",
-                basis_source,
-                (
-                    "write_gold_stk_mins_qfq_as_of_basis",
-                    "qfq_as_of_basis_validation_counts_by_trade_date",
-                    "as_of_trade_date",
-                    "basis_origin",
-                ),
-            ),
+                DEFS_DIR / "bootstrap" / "stk_mins_qfq_derived_bootstrap_events.py"
+            ).read_text(),
+            (DEFS_DIR / "bootstrap" / "stk_mins_qfq_history.py").read_text(),
+            (
+                DEFS_DIR / "bootstrap" / "stk_mins_qfq_macd_kdj_baseline_events.py"
+            ).read_text(),
+        )
+        for source_name, source in (
             (
                 "qfq direct checks",
                 checks_source,
-                (
-                    "build_daily_qfq_select_sql_from_as_of_basis",
-                    "qfq_as_of_basis_validation_counts",
-                ),
             ),
             (
                 "qfq lake readiness",
                 readiness_source,
-                (
-                    "build_daily_qfq_select_sql_from_as_of_basis",
-                    "qfq_as_of_basis_validation_counts_by_trade_date",
-                ),
+            ),
+            ("qfq catalog", catalog_source),
+            ("qfq sensor readiness", sensor_readiness_source),
+            *(
+                (f"qfq bootstrap source {index}", source)
+                for index, source in enumerate(bootstrap_sources, start=1)
             ),
         ):
             issues.extend(
-                f"{source_name} misses as-of-basis fragment: {fragment}"
-                for fragment in required_fragments
-                if fragment not in source
+                f"{source_name} contains retired qfq validation fragment: {fragment}"
+                for fragment in (
+                    "as_of_basis",
+                    "build_daily_qfq_select_sql_from_as_of_basis",
+                    "GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK",
+                    "GOLD_STK_MINS_QFQ_DERIVED_FORMULA_MATCHES_SOURCE_CHECK",
+                    "GOLD_STK_MINS_QFQ_MACD_KDJ_FORMULA_SAMPLE_CHECK",
+                    "_indicator_formula_result",
+                    "_gold_qfq_formula_sample_sql",
+                )
+                if fragment in source
             )
+
+        if "build_gold_stk_mins_qfq_derived_select_sql" in readiness_source:
+            issues.append("qfq lake readiness must not evaluate the full derived QFQ SQL")
+        if "build_gold_stk_mins_qfq_derived_coverage_sql" not in readiness_source:
+            issues.append("qfq lake readiness must use derived identity coverage SQL")
 
         for source_name, source in (
             ("qfq direct checks", checks_source),

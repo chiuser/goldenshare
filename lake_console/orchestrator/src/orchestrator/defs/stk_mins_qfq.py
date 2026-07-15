@@ -20,9 +20,6 @@ from orchestrator.defs.run_contracts.stk_mins import (
     normalize_stk_mins_qfq_freq,
     qfq_source_freq_for_derived_freq,
 )
-from orchestrator.defs.stk_mins_qfq_as_of_basis import (
-    build_qfq_as_of_basis_by_code_sql,
-)
 
 
 GOLD_STK_MINS_QFQ_COLUMNS = tuple(column.name for column in GOLD_STK_MINS_QFQ_SCHEMA)
@@ -153,22 +150,6 @@ def build_daily_qfq_select_sql(
     )
 
 
-def build_daily_qfq_select_sql_from_as_of_basis(
-    *,
-    silver_paths: Sequence[Path],
-    trade_adj_factor_paths: Sequence[Path],
-    as_of_basis_paths: Sequence[Path],
-) -> str:
-    return _build_daily_qfq_select_sql(
-        silver_paths=silver_paths,
-        trade_adj_factor_paths=trade_adj_factor_paths,
-        as_of_adj_sql=build_qfq_as_of_basis_by_code_sql(
-            basis_paths=as_of_basis_paths,
-        ),
-        match_as_of_by_trade_date=True,
-    )
-
-
 def _build_daily_qfq_select_sql(
     *,
     silver_paths: Sequence[Path],
@@ -234,6 +215,10 @@ INNER JOIN as_of_adj_factor
 {as_of_join}
 WHERE trade_adj_factor.trade_adj_factor IS NOT NULL
   AND as_of_adj_factor.as_of_adj_factor IS NOT NULL
+  AND isfinite(trade_adj_factor.trade_adj_factor)
+  AND isfinite(as_of_adj_factor.as_of_adj_factor)
+  AND trade_adj_factor.trade_adj_factor > 0
+  AND as_of_adj_factor.as_of_adj_factor > 0
 ORDER BY silver_rows.ts_code, silver_rows.trade_time
 """
 
@@ -252,20 +237,53 @@ def build_daily_qfq_coverage_sql(
     )
 
 
-def build_daily_qfq_coverage_sql_from_as_of_basis(
+def build_daily_qfq_coverage_identities_sql(
     *,
     silver_paths: Sequence[Path],
     trade_adj_factor_paths: Sequence[Path],
-    as_of_basis_paths: Sequence[Path],
+    as_of_adj_factor_paths: Sequence[Path],
 ) -> str:
-    return _build_daily_qfq_coverage_sql(
-        silver_paths=silver_paths,
-        trade_adj_factor_paths=trade_adj_factor_paths,
-        as_of_adj_sql=build_qfq_as_of_basis_by_code_sql(
-            basis_paths=as_of_basis_paths,
-        ),
-        match_as_of_by_trade_date=True,
-    )
+    """Return only QFQ rows whose source factors make them eligible to write."""
+
+    silver_source = _read_parquet_paths(silver_paths)
+    trade_adj_source = _read_parquet_paths(trade_adj_factor_paths)
+    as_of_adj_sql = build_as_of_adj_factor_by_code_sql(as_of_adj_factor_paths)
+    return f"""
+WITH silver_rows AS (
+  SELECT
+    CAST(ts_code AS VARCHAR) AS ts_code,
+    CAST(trade_date AS DATE) AS trade_date,
+    CAST(trade_time AS TIMESTAMP) AS trade_time,
+    CAST(exchange AS VARCHAR) AS exchange
+  FROM {silver_source}
+),
+trade_adj_factor AS (
+  SELECT
+    CAST(ts_code AS VARCHAR) AS ts_code,
+    CAST(trade_date AS DATE) AS trade_date,
+    CAST(adj_factor AS DOUBLE) AS trade_adj_factor
+  FROM {trade_adj_source}
+),
+as_of_adj_factor AS (
+  {as_of_adj_sql}
+)
+SELECT
+  silver_rows.ts_code,
+  silver_rows.trade_date,
+  silver_rows.trade_time,
+  silver_rows.exchange
+FROM silver_rows
+INNER JOIN trade_adj_factor
+  ON silver_rows.ts_code = trade_adj_factor.ts_code
+ AND silver_rows.trade_date = trade_adj_factor.trade_date
+INNER JOIN as_of_adj_factor
+  ON silver_rows.ts_code = as_of_adj_factor.ts_code
+WHERE isfinite(trade_adj_factor.trade_adj_factor)
+  AND isfinite(as_of_adj_factor.as_of_adj_factor)
+  AND trade_adj_factor.trade_adj_factor > 0
+  AND as_of_adj_factor.as_of_adj_factor > 0
+ORDER BY silver_rows.ts_code, silver_rows.trade_time
+"""
 
 
 def _build_daily_qfq_coverage_sql(
@@ -320,10 +338,23 @@ joined_rows AS (
 SELECT
   count(*) AS silver_row_count,
   count(*) FILTER (
-    WHERE trade_adj_factor IS NOT NULL AND as_of_adj_factor IS NOT NULL
+    WHERE trade_adj_factor IS NOT NULL
+      AND as_of_adj_factor IS NOT NULL
+      AND isfinite(trade_adj_factor)
+      AND isfinite(as_of_adj_factor)
+      AND trade_adj_factor > 0
+      AND as_of_adj_factor > 0
   ) AS qfq_output_row_count,
   count(*) FILTER (WHERE trade_adj_factor IS NULL) AS missing_trade_adj_factor_row_count,
-  count(*) FILTER (WHERE as_of_adj_factor IS NULL) AS missing_as_of_adj_factor_row_count
+  count(*) FILTER (WHERE as_of_adj_factor IS NULL) AS missing_as_of_adj_factor_row_count,
+  count(*) FILTER (
+    WHERE trade_adj_factor IS NOT NULL
+      AND (NOT isfinite(trade_adj_factor) OR trade_adj_factor <= 0)
+  ) AS invalid_trade_adj_factor_row_count,
+  count(*) FILTER (
+    WHERE as_of_adj_factor IS NOT NULL
+      AND (NOT isfinite(as_of_adj_factor) OR as_of_adj_factor <= 0)
+  ) AS invalid_as_of_adj_factor_row_count
 FROM joined_rows
 """
 
@@ -540,6 +571,107 @@ SELECT
   ) AS incomplete_window_count,
   count(*) FILTER (WHERE exchange_count > 1) AS exchange_mismatch_window_count
 FROM window_status
+"""
+
+
+def build_gold_stk_mins_qfq_derived_coverage_sql(
+    *,
+    source_qfq_paths: Sequence[Path],
+    target_freq: int | str,
+    partition_keys: Sequence[str],
+    stock_codes: Sequence[str] = (),
+) -> str:
+    """Return only complete derived-window identities for production coverage checks."""
+
+    normalized_target_freq = normalize_stk_mins_qfq_freq(target_freq)
+    if normalized_target_freq not in STK_MINS_QFQ_DERIVED_FREQS:
+        allowed = ", ".join(str(freq) for freq in STK_MINS_QFQ_DERIVED_FREQS)
+        raise ValueError(
+            "Gold stk_mins qfq derived coverage only supports derived freqs: "
+            f"{allowed}."
+        )
+    source_freq = qfq_source_freq_for_derived_freq(normalized_target_freq)
+    source = _read_parquet_paths(source_qfq_paths)
+    partition_dates_sql = _date_values_sql(_normalize_trade_dates(partition_keys))
+    stock_filter = ""
+    if stock_codes:
+        stock_filter = f"AND ts_code IN ({_string_values_sql(stock_codes)})"
+    window_rows_sql = _derived_window_rows_sql(normalized_target_freq)
+    completion_predicate = _derived_window_completion_predicate(
+        normalized_target_freq,
+        source_row_count_column="actual_windows.source_row_count",
+        window_id_column="expected_windows.window_id",
+    )
+    return f"""
+WITH source_rows AS (
+  SELECT
+    CAST(ts_code AS VARCHAR) AS ts_code,
+    CAST(freq AS INTEGER) AS freq,
+    CAST(trade_date AS DATE) AS trade_date,
+    CAST(trade_time AS TIMESTAMP) AS trade_time,
+    CAST(exchange AS VARCHAR) AS exchange
+  FROM {source}
+  WHERE CAST(freq AS INTEGER) = {source_freq}
+    AND CAST(trade_date AS DATE) IN ({partition_dates_sql})
+    {stock_filter}
+),
+source_stock_days AS (
+  SELECT DISTINCT ts_code, trade_date
+  FROM source_rows
+),
+window_map AS (
+  {window_rows_sql}
+),
+expected_windows AS (
+  SELECT
+    source_stock_days.ts_code,
+    source_stock_days.trade_date,
+    window_map.window_id,
+    max(window_map.target_time) AS target_time
+  FROM source_stock_days
+  CROSS JOIN window_map
+  GROUP BY source_stock_days.ts_code, source_stock_days.trade_date, window_map.window_id
+),
+windowed_rows AS (
+  SELECT
+    source_rows.ts_code,
+    source_rows.trade_date,
+    source_rows.trade_time,
+    source_rows.exchange,
+    window_map.window_id,
+    window_map.target_time
+  FROM source_rows
+  INNER JOIN window_map
+    ON strftime(source_rows.trade_time, '%H:%M:%S') = window_map.source_time
+),
+actual_windows AS (
+  SELECT
+    ts_code,
+    trade_date,
+    window_id,
+    max(trade_time) AS trade_time,
+    max(target_time) AS target_time,
+    max(exchange) AS exchange,
+    count(*) AS source_row_count,
+    count(DISTINCT exchange) AS exchange_count
+  FROM windowed_rows
+  GROUP BY ts_code, trade_date, window_id
+)
+SELECT
+  expected_windows.ts_code,
+  {normalized_target_freq} AS freq,
+  expected_windows.trade_date,
+  actual_windows.trade_time,
+  actual_windows.exchange
+FROM expected_windows
+INNER JOIN actual_windows
+  ON expected_windows.ts_code = actual_windows.ts_code
+ AND expected_windows.trade_date = actual_windows.trade_date
+ AND expected_windows.window_id = actual_windows.window_id
+WHERE actual_windows.exchange_count = 1
+  AND strftime(actual_windows.trade_time, '%H:%M:%S') = expected_windows.target_time
+  AND ({completion_predicate})
+ORDER BY expected_windows.ts_code, actual_windows.trade_time
 """
 
 
