@@ -1,16 +1,25 @@
-# Dagster 股票分钟线 QFQ As-Of 因子审计依据低层设计
+# Dagster 股票分钟线 QFQ As-Of 因子审计依据撤销记录
 
 更新时间：2026-07-15
 
-状态：代码与本地回归已完成；正式 Lake basis 初始化仍须单独审批。
+状态：**已撤销，禁止启用。** 本文保留为一次被否决方案的事实记录，不是当前设计、实现或运行依据。现行口径见 [QFQ 计算测试与生产 Check 治理低层设计](dagster-stk-mins-qfq-validation-governance-low-level-design.md)。
 
-## 1. 一句话结论
+> 撤销原因：本方案把 QFQ 公式二次计算放进 production check/readiness，并试图从既有 QFQ 结果反推全历史 as-of 因子。前者会把 check 变成昂贵的第二计算系统；后者最多证明历史文件内部自洽，不能证明当年因子来源正确。2026-07-15 的独占只读 plan 在 328.89 秒后耗尽 16 GiB DuckDB 预算，未生成报告、未写入 Lake。任何 as-of basis 路径、bootstrap、sidecar、check/readiness 依赖均不得据本文启用。
+
+## 撤销决定
+
+1. QFQ 计算公式正确性由受保护的金样本测试负责，不由 Dagster production check 重新计算 OHLC 负责。
+2. production check 只验证上游输入、目标文件契约、分区完整性和 repair 状态新鲜度。
+3. 既有历史缺少写入当时的 as-of 事实时，保持“未具备公式审计依据”，不得从自身结果反推后写成已验证事实。
+4. 本文第 2 节及以下内容仅用于解释被撤销方案的来由和代码清理范围；其中的“必须”“正式”“当前”措辞均不再生效。
+
+## 1. [撤销方案] 一句话结论
 
 `gold_stk_mins_qfq` 的历史文件可以在一次 factor repair 后使用较新的 as-of 复权因子。因此，不能再用“目标交易日的复权因子”直接重算历史 QFQ 并把差异判成错误。
 
 本设计为每个 `ts_code + trade_date` 固化实际使用的 **as-of 因子数值**，作为 QFQ 文件族的年度审计侧车。正式 formula check 和 batch readiness 都直接读取这个依据，按真实 QFQ 公式校验。现有“普通 check 先红，再由 readiness 根据 repair event 改判为绿”的逻辑彻底删除。
 
-## 2. 已核实事实与根因
+## 2. [撤销方案] 已核实事实与根因
 
 以下结论来自当前代码与 2026-07-15 的只读审计，不是推测。
 
@@ -21,7 +30,7 @@
 5. 只读公式审计覆盖 `2026-06-30` 至 `2026-07-10` 共 9 个日期、五个 native 频度。按错误的同日 as-of 口径有 `867,975` 条公式差异；按每个代码实际 repair as-of 因子重算则 `1,022,056` 条可比行全部通过，未发现真实 QFQ 公式错误。
 6. 当前 QFQ Lake 共有 `370,023` 个 Parquet、约 `79 GiB`；`silver_stk_mins[1m]` 已注册并有文件的日期为 `2014-01-02` 至 `2026-07-14`，共 `3,045` 个交易日。不能把这类审计依据做成逐日 Dagster event 或逐股票小文件。
 
-## 3. 目标、边界与硬约束
+## 3. [撤销方案] 目标、边界与硬约束
 
 ### 3.1 目标
 
@@ -39,7 +48,7 @@
 4. 不在本轮写 Lake、Dagster instance、prod DB，或启停 sensor/job。历史 basis 初始化另行审批。
 5. 不保留旧 readiness fallback，也不让 sensor 根据 repair metadata 覆盖一个仍然失败的正式 formula check。
 
-## 4. As-Of Basis 数据契约
+## 4. [撤销方案] As-Of Basis 数据契约
 
 ### 4.1 物理布局
 
@@ -84,7 +93,7 @@ gold_price
 
 其中 `trade_date_adj_factor` 仍来自同日 `silver_adj_factor`；分母来自 basis。对于 `basis_origin in ('daily_qfq', 'factor_repair')`，check 还必须验证：basis 的 `as_of_adj_factor` 等于 `silver_adj_factor[as_of_trade_date]` 中同一代码的因子。对 `history_reconstruction`，check 只使用已验证的数值 basis，不虚构来源日期。
 
-## 5. 代码级实现
+## 5. [撤销方案] 代码级实现
 
 ### 5.1 基础 helper 与路径
 
@@ -161,7 +170,7 @@ basis_origin = factor_repair
 
 三个 sensor 仍保持当前窗口、run key、run config、选择第一个未完成日期、短路顺序和每 tick 最多一个请求的行为；唯一变化是它们直接消费真实 `batch_gold_stk_mins_qfq_lake_readiness(...)` 结果。不存在“check failed 但 effective ready”的状态。
 
-## 6. 性能与写入预算
+## 6. [撤销方案] 性能与写入预算
 
 | 入口 | 读取模型 | 写入模型 | 预算与拒绝策略 |
 |---|---|---|---|
@@ -172,7 +181,7 @@ basis_origin = factor_repair
 
 当前 `2014-01-02` 至 `2026-07-14` 覆盖 13 个自然年度。bootstrap 的准确行数、每年行数、输出字节和耗时必须由 `plan` 实测写入报告，不能在代码里硬编码估算。目标是把 audit 数据控制为 13 个年度文件，而非数十万小文件或数万个 Dagster event。
 
-## 7. 测试与静态门禁
+## 7. [撤销方案] 测试与静态门禁
 
 ### 7.1 单元与 DuckDB fixture
 
@@ -218,7 +227,7 @@ git diff --check
 
 不默认运行 `dg check defs`、job、sensor、materialize、backfill 或 bootstrap apply。
 
-## 8. 上线顺序与审批边界
+## 8. [撤销方案] 上线顺序与审批边界
 
 代码合入不等于 basis 已启用。为了不出现“代码已要求 basis、但 Lake 里尚无 basis”而阻塞运行，正式启用顺序固定如下：
 
@@ -230,7 +239,7 @@ git diff --check
 6. 不补历史普通 QFQ event。旧的红色 check event 仅是历史的错误评估证据；新的正确 check 会在正常运行或获批的 check refresh 时写入。禁止用 runless 绿事件覆盖历史。
 7. basis 缺失、plan/apply 不一致、任一年有公式差异、任何 active run、或 check/readiness 语义与本设计不一致时，停止，不删除旧 basis，不启用新代码路径。
 
-## 9. 与既有方案的关系
+## 9. [撤销方案] 与既有方案的关系
 
 1. 本文已同步 `dagster-stk-mins-qfq-macd-kdj-indicators-plan.md`：当前 daily sensor 使用“直接 QFQ readiness”，不保留双口径。
 2. 本文不推翻 R5 的 repair 事实：repair 确实按代码集合和触发日改写历史 QFQ，MACD/KDJ repair 仍按既有 completion check 处理。本文只让 QFQ 自身的 check/readiness 使用同一事实。

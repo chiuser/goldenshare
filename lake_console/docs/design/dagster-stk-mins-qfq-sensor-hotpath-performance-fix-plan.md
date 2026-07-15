@@ -4,6 +4,11 @@
 
 状态：已由 [Dagster Batch Readiness Hot Path 性能治理专项方案](dagster-batch-readiness-hotpath-governance-plan.md) 收口完成。S1、S2、S3 对应的窗口前轻量 skip、qfq gold true batch、同类窗口前重活收口、全 helper 性能回归和长期门禁均已落地；本文保留为问题背景与修复依据。
 
+2026-07-15 治理补充：本文中“公式 check 必须进入 batch readiness”的旧要求已撤销。
+QFQ 与 derived QFQ 的公式正确性改由受保护金样本测试保障；后续热路径只能校验生产输入、
+文件、键、值域、来源覆盖和 repair 状态。现行职责边界见
+[QFQ 计算测试与生产 Check 治理低层设计](dagster-stk-mins-qfq-validation-governance-low-level-design.md)。
+
 ## 1. 背景
 
 打开 Dagster Runs 页面时出现报错。初步怀疑是任务过重导致 UI 请求超时。
@@ -289,7 +294,7 @@ failed_check=gold_stk_mins_qfq_file_exists_and_row_count_positive
 4. price sanity
 5. row count matches silver
 6. factor coverage
-7. formula matches silver + adj factor
+7. formula matches silver + adj factor（历史实现；后续从 production check/readiness 删除）
 
 第三层：derived 90/120 窗口批量语义。
 
@@ -309,7 +314,8 @@ formula_counts 一次按 trade_date 聚合
 
 1. `source_paths` 不能在窗口内按日期重复发现。
 2. `build_gold_stk_mins_qfq_derived_select_sql(...)` 不能每个日期单独构造。
-3. derived formula check 必须按窗口一次生成 expected rows，再和 target rows 做 group by 对账。
+3. derived source window / source coverage 必须按窗口一次聚合，并映射回每个交易日；
+   不在 readiness 中生成 expected OHLC 或进行公式对账。
 4. 输出仍然必须能映射回 `StkMinsDateReadiness`，保留每个 trade_date 的：
    - `ready`
    - `materialized`
@@ -334,7 +340,8 @@ formula_counts 一次按 trade_date 聚合
 若完整语义无法进入预算：
 
 1. 不允许把 `full_semantics=False` 作为正式路径。
-2. 不允许删除 derived formula check。
+2. 不允许降低输入、文件、键、值域、来源覆盖或 repair 状态的 production 语义；
+   公式验证由受保护测试金样本承担，不进入热路径。
 3. 不允许只看文件存在和 row count。
 4. 必须先拿真实 profiling 数据回来，再讨论是否使用 Dagster 正式 check event 的 bounded batch read 作为 heavyweight check 的缓存事实。
 

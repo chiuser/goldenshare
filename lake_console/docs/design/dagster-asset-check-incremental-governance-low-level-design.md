@@ -220,8 +220,9 @@ P0.1 已确认：
   均已登记 P2-P6 合并后的正式 check names。
 - `defs/sensors/readiness.py` 中 daily、suspend、adj factor、index daily、分钟线 qfq
   等 readiness specs 已使用合并后的 check names。
-- `defs/checks/stk_mins_qfq_macd_kdj_checks.py` 中 MACD/KDJ indicator 正式 check
-  已是 `contract/source_coverage/formula_sample` 三个；state checks 仍保持两个。
+- `defs/checks/stk_mins_qfq_macd_kdj_checks.py` 中 MACD/KDJ indicator 当前仍有
+  `contract/source_coverage/formula_sample` 三个 check；后续治理必须退役
+  `formula_sample`，将公式自洽迁至受保护金样本测试。state checks 仍保持两个。
 - `defs/checks/wealth_market_turnover_checks.py` 当前正式 check 为
   `gold_wealth_market_turnover_integrity_check`，已纳入治理矩阵，暂不进入合并优先级。
 
@@ -848,7 +849,6 @@ P5C 已落地：
 - `lake_console/orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py`
 - `lake_console/orchestrator/src/orchestrator/defs/checks/stk_mins_qfq_macd_kdj_checks.py`
 - `lake_console/orchestrator/src/orchestrator/defs/asset_guards/stk_mins_lake_readiness.py`
-- `lake_console/orchestrator/src/orchestrator/defs/stk_mins_qfq_as_of_basis.py`
 - 股票分钟线相关 sensors/tests/retention 工具。
 
 #### 修改方式
@@ -888,8 +888,7 @@ P5C 已落地：
     `gold_stk_mins_qfq_contract_check`、
     `gold_stk_mins_qfq_key_integrity_check`、
     `gold_stk_mins_qfq_value_domain_check`、
-    `gold_stk_mins_qfq_source_coverage_check`、
-    `gold_stk_mins_qfq_formula_matches_silver_adj_factor`。
+    `gold_stk_mins_qfq_source_coverage_check`。
   - `GOLD_STK_MINS_QFQ_DERIVED_CHECK_NAMES` 从旧 8 个普通 check 改为
     `gold_stk_mins_qfq_contract_check`、
     `gold_stk_mins_qfq_key_integrity_check`、
@@ -902,9 +901,8 @@ P5C 已落地：
   - derived `contract` 聚合文件存在/行数、schema、freq/date/path；
     `key_integrity` 聚合 `(ts_code, trade_time)` 唯一性；`value_domain` 保留价格 sanity；
     `derived_source_coverage` 聚合 source ready、source window、derived row count。
-  - `gold_stk_mins_qfq_formula_matches_silver_adj_factor` 与
-    `gold_stk_mins_qfq_derived_formula_matches_source` 不合并：native check 通过年度
-    as-of basis 校验真实 QFQ 公式，derived check 校验 source window，两者不是同一事实。
+  - native QFQ 与 derived QFQ 的业务公式不再注册为 Dagster check：它们由受保护的
+    金样本测试验证。derived source window 仍是 production lineage 事实。
   - `_gold_qfq_check_results(...)` 和 `_gold_qfq_derived_check_results(...)` 继续保留旧细粒度
     rule 名称作为 `failed_rule_names` metadata，供人工定位具体失败原因；这些旧名称不再进入
     `LAKE_ASSET_CATALOG`、`readiness.py` 或 Dagster official check set。
@@ -915,8 +913,8 @@ P5C 已落地：
     估算必须引用正式 `GOLD_STK_MINS_QFQ_*_CHECK_NAMES` 长度，禁止继续硬编码旧 8 个 check。
   - qfq factor repair plan/status、MACD/KDJ repair completion 等 protected checks 不属于 P6C，
     不改名称、不进入合并。
-- P6D 收敛 `gold_stk_mins_qfq_macd_kdj` indicator：
-  - `GOLD_STK_MINS_QFQ_MACD_KDJ_CHECK_NAMES` 从旧 4 个普通 check 改为
+- P6D 当前代码事实与后续治理目标：
+  - `GOLD_STK_MINS_QFQ_MACD_KDJ_CHECK_NAMES` 当前为
     `gold_stk_mins_qfq_macd_kdj_contract_check`、
     `gold_stk_mins_qfq_macd_kdj_source_coverage_check`、
     `gold_stk_mins_qfq_macd_kdj_formula_sample_check`。
@@ -926,8 +924,9 @@ P5C 已落地：
     `_indicator_row_count_matches_qfq_result(...)`，一次性判断 qfq source 是否存在以及
     indicator row count 是否与 qfq source 对齐；旧细粒度名称只作为 `failed_rule_names`
     metadata。
-  - `formula_sample` 保留独立 check，因为它是指标计算公式抽样，不应和文件/schema 或 source
-    coverage 混在一个 Dagster check 里。
+  - `formula_sample` 是待退役的历史实现。MACD/KDJ 公式自洽由受保护金样本测试承担，
+    不能继续作为 Dagster production check；完成代码专项后正式 check 集合只保留
+    `contract` 和 `source_coverage`。
   - `GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_CHECK_NAMES` 暂不合并，继续保留
     `state_file_exists_and_schema_check` 和 `state_latest_coverage_check`；state readiness 直接影响
     daily exact previous state gate 和 repair gate，不能隐藏为单一普通 check。

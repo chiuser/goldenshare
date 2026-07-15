@@ -195,7 +195,8 @@
 | price sanity / volume sanity / amount sanity | `*_value_domain_check` | DuckDB readiness，必要时 current summary check |
 | row count matches expected / coverage complete / registered code coverage | `*_coverage_check` | DuckDB readiness |
 | lifecycle/listed/CNY coverage | `*_universe_membership_check` | DuckDB readiness，事实源统一 `silver_stock_lifecycle` |
-| formula matches / derived formula / source window | `*_lineage_consistency_check` | DuckDB readiness；重型历史抽样进入离线审计 |
+| source window / upstream lineage | `*_lineage_consistency_check` | DuckDB readiness；只验证来源和窗口事实，不重算业务公式 |
+| formula matches / derived formula | 受保护的测试金样本 | 不注册为 production check；历史内部一致性如有需要只能作为单独离线审计 |
 | cross-system row matches local/gold | `*_serving_consistency_audit` | 离线审计报告，latest 可保留一个摘要 check |
 
 注意：已有 check 名称不能为了好看直接改名。后续阶段若需要新增合并后 check，必须在同一阶段移除旧 check 消费口径，不能长期双轨。
@@ -247,7 +248,7 @@
 | --- | --- | ---: | --- |
 | raw_stk_mins | `raw_stk_mins_1m/5m/15m/30m/60m` | 1,372 | 已有 keep20 retention；继续保留 compact ordinary checks，hot path 用 DuckDB readiness |
 | silver_stk_mins | `silver_stk_mins_1m/5m/15m/30m/60m` | 1,000 | 已有 keep20 retention；生命周期语义已从 namechange/current-listed-only 收敛到 `silver_stock_lifecycle` |
-| gold_stk_mins_qfq | `gold_stk_mins_qfq_1m/5m/15m/30m/60m/90m/120m` | 1,330 | 已有 keep20 retention；年度 as-of basis 让正式 formula check/readiness 直接处理 repair-adjusted qfq |
+| gold_stk_mins_qfq | `gold_stk_mins_qfq_1m/5m/15m/30m/60m/90m/120m` | 1,330 | 已有 keep20 retention；QFQ 公式正确性转由受保护测试金样本保障，production check/readiness 只保留输入、文件和 repair 状态事实 |
 | MACD/KDJ indicator | `gold_stk_mins_qfq_macd_kdj_1m/5m/15m/30m/60m/90m/120m` | 861 | 已有 keep20 retention；普通 check 可继续保留最近窗口 |
 | MACD/KDJ state | `gold_stk_mins_qfq_macd_kdj_state_1m/5m/15m/30m/60m/90m/120m` | 469 | 已有 keep20 retention；state 是递推链关键状态，latest/current check 必须保留 |
 
@@ -557,8 +558,7 @@ P6C 已落地事实：
   8 个收敛为 `gold_stk_mins_qfq_contract_check`、
   `gold_stk_mins_qfq_key_integrity_check`、
   `gold_stk_mins_qfq_value_domain_check`、
-  `gold_stk_mins_qfq_source_coverage_check`、
-  `gold_stk_mins_qfq_formula_matches_silver_adj_factor` 5 个。
+  `gold_stk_mins_qfq_source_coverage_check` 4 个。
 - `gold_stk_mins_qfq_90m/120m` derived qfq 正式 Dagster checks 从每个资产 8 个收敛为
   `gold_stk_mins_qfq_contract_check`、
   `gold_stk_mins_qfq_key_integrity_check`、
@@ -571,23 +571,24 @@ P6C 已落地事实：
 - derived 的文件/行数、schema、freq/date/path 进入 `contract`；唯一键进入
   `key_integrity`；价格进入 `value_domain`；source ready、source window、derived row
   count 进入 `derived_source_coverage`。
-- 两个 formula check 名称保留不合并：native QFQ 公式由年度 as-of basis 直接校验，derived
-  QFQ 公式仍校验 source window；两者数据来源不同，不能为了压缩 checks 混成一个。
+- native QFQ 和 derived QFQ 的公式校验均转为受保护测试金样本，不再注册 Dagster
+  formula check；derived source window 继续作为来源事实保留。
 - `batch_gold_stk_mins_qfq_lake_readiness(...)`、catalog、readiness specs、
-  qfq history/bootstrap event 数量估算均同步为 5 个正式 check；旧细粒度名称只保留为
+  qfq history/bootstrap event 数量估算均同步为 4 个 native 正式 check；旧细粒度名称只保留为
   check metadata 的 `failed_rule_names` 诊断标签。
 - P6C 不触碰 qfq factor repair protected check，不改变 qfq daily/repair 文件写入、
   run key、upstream batch 或 completion metadata。
 
-P6D 已落地事实：
+P6D 当前代码事实与后续治理目标：
 
 - `gold_stk_mins_qfq_macd_kdj_1m/5m/15m/30m/60m/90m/120m` indicator 正式
-  Dagster checks 从每个资产 4 个收敛为
+  Dagster checks 当前为
   `gold_stk_mins_qfq_macd_kdj_contract_check`、
   `gold_stk_mins_qfq_macd_kdj_source_coverage_check`、
   `gold_stk_mins_qfq_macd_kdj_formula_sample_check` 3 个。
 - 文件存在/行数、schema 进入 `contract`；qfq source ready 与 indicator/qfq row count
-  对账进入 `source_coverage`；公式抽样保留独立 check，不与 contract/source 合并。
+  对账进入 `source_coverage`。`formula_sample_check` 是当前遗留实现，后续专项必须退役：
+  MACD/KDJ 公式自洽改由受保护金样本测试覆盖，production check 只保留前两类运行事实。
 - `gold_stk_mins_qfq_macd_kdj_state_*` state assets 继续保留
   `state_file_exists_and_schema_check` 与 `state_latest_coverage_check` 两个 check；state 是递推链
   关键状态，不在 P6D 合并。

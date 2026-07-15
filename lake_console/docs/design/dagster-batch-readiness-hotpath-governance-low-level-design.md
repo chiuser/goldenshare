@@ -6,6 +6,11 @@
 
 状态：P0 已完成。P0A、P0B、P0C、P0D、P0E、P0F、P0G 均已完成。本文档是编码级设计和阶段验收依据。
 
+2026-07-15 治理补充：P0 的历史性能结论仍有效，但 QFQ 业务公式不再属于 production
+check/readiness 语义。本文后续列出的 formula check 常量仅记录 P0 当时的代码事实；后续
+QFQ 治理代码完成后，batch readiness 只能复刻输入、文件、键、值域、覆盖和 repair 状态事实，
+不得继续在热路径二次计算 QFQ 或 derived QFQ 公式。
+
 ## 0. 当前进度与阶段边界
 
 | 阶段 | 状态 | 开发边界 |
@@ -493,7 +498,9 @@ Native freqs：
 1, 5, 15, 30, 60
 ```
 
-必须覆盖现有 checks：
+P0 当时的代码覆盖下列 8 个细粒度 check；这是历史实现清单，不是后续热路径的保留要求。
+后续 QFQ 治理代码完成后，native batch 只复刻 `contract`、`key_integrity`、`value_domain`、
+`source_coverage` 四类 production 事实：
 
 1. `GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK`
 2. `GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK`
@@ -502,7 +509,8 @@ Native freqs：
 5. `GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK`
 6. `GOLD_STK_MINS_QFQ_ROW_COUNT_MATCHES_SILVER_CHECK`
 7. `GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK`
-8. `GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK`
+8. `GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK`（待从正式 check/readiness 删除；
+   公式正确性转入受保护金样本测试）
 
 SQL 输出必须至少能分组：
 
@@ -521,7 +529,9 @@ Derived freqs：
 90, 120
 ```
 
-必须覆盖现有 checks：
+P0 当时的代码覆盖下列 8 个细粒度 check；这是历史实现清单，不是后续热路径的保留要求。
+后续 QFQ 治理代码完成后，derived batch 只复刻 `contract`、`key_integrity`、`value_domain`、
+`derived_source_coverage` 四类 production 事实：
 
 1. `GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK`
 2. `GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK`
@@ -530,7 +540,8 @@ Derived freqs：
 5. `GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK`
 6. `GOLD_STK_MINS_QFQ_DERIVED_SOURCE_READY_CHECK`
 7. `GOLD_STK_MINS_QFQ_DERIVED_ROW_COUNT_MATCHES_SOURCE_WINDOWS_CHECK`
-8. `GOLD_STK_MINS_QFQ_DERIVED_FORMULA_MATCHES_SOURCE_CHECK`
+8. `GOLD_STK_MINS_QFQ_DERIVED_FORMULA_MATCHES_SOURCE_CHECK`（待从正式 check/readiness 删除；
+   派生公式正确性转入受保护金样本测试）
 
 Derived batch 必须按下面维度合并：
 
@@ -907,7 +918,8 @@ dagster-stk-mins-continuity-performance-optimization-low-level-design.html
 开发中遇到以下任一情况必须停止汇报：
 
 1. qfq gold 完整语义无法在不新增持久化实体的前提下进入预算。
-2. 需要降低公式、coverage、derived source window 等 blocking check 语义。
+2. 需要降低输入覆盖、文件契约、唯一键、值域、derived source window 或 repair 状态等
+   production blocking check 语义。
 3. 需要运行 `dg` 或读取正式 Dagster runtime 才能判断。
 4. 需要写正式 lake。
 5. 需要修改 run key、run config、asset/check/job/sensor 名称。

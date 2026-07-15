@@ -282,7 +282,7 @@
     <h2>1. 状态与范围</h2>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
-      <tr><td>状态</td><td>设计口径已确认。raw 五频度正式资产、prod DB 批量抽取、Tushare <code>merge_repair</code> 人工备用入口、silver 五频度资产/checks/job/sensor、2014+ silver 历史文件与 runless events、native gold qfq 五频度历史文件与 runless events、qfq daily job/sensor、factor repair job/sensor、repair 非分区建模、repair <code>freq/year</code> 批量写回、DuckDB 统一连接治理和 qfq writer pool 均已落地。M11 已新增 <code>gold_stk_mins_qfq_90m</code> / <code>gold_stk_mins_qfq_120m</code> derived assets，并把 qfq daily 与 repair 入口扩为七频度；M11F/M11G 已完成 90/120 历史直写补录、runless events 和最终 full audit 收口；后续性能治理已将 qfq daily/repair sensor readiness 升级为 DuckDB lake batch readiness，并以年度 as-of basis sidecar 直接校验真实 QFQ 公式，日常窗口为最近 10 个 expected trade dates。正式历史 basis 初始化仍须单独审批。M12 MACD/KDJ 指标资产已另起专项设计文档，代码、全历史文件直写和 <code>2026-06-05</code> baseline events 均已完成；当前基础 stk_mins/qfq 文档只保留上游事实和阶段摘要。</td></tr>
+      <tr><td>状态</td><td>设计口径已确认。raw 五频度正式资产、prod DB 批量抽取、Tushare <code>merge_repair</code> 人工备用入口、silver 五频度资产/checks/job/sensor、2014+ silver 历史文件与 runless events、native gold qfq 五频度历史文件与 runless events、qfq daily job/sensor、factor repair job/sensor、repair 非分区建模、repair <code>freq/year</code> 批量写回、DuckDB 统一连接治理和 qfq writer pool 均已落地。M11 已新增 <code>gold_stk_mins_qfq_90m</code> / <code>gold_stk_mins_qfq_120m</code> derived assets，并把 qfq daily 与 repair 入口扩为七频度；M11F/M11G 已完成 90/120 历史直写补录、runless events 和最终 full audit 收口。2026-07-15 已撤销年度 as-of basis sidecar 和全历史公式 bootstrap：QFQ 计算正确性由受保护测试金样本保障，daily/repair sensor 继续使用最近 10 个 expected trade dates 的 DuckDB lake batch readiness，但只判断生产输入、文件契约和 repair 状态。已提交但未启用的 basis 代码必须后续完整删除，不执行 Lake 初始化。M12 MACD/KDJ 指标资产已另起专项设计文档，代码、全历史文件直写和 <code>2026-06-05</code> baseline events 均已完成；当前基础 stk_mins/qfq 文档只保留上游事实和阶段摘要。</td></tr>
       <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
       <tr><td>不涉及</td><td>M4/M4B 开发范围不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不在代码里自动覆盖 M3 历史 baseline，不新增第二套 raw asset。任何正式 backfill、手动 run 或 sensor 启用都必须单独列范围、影响和回滚方式后审批执行。</td></tr>
       <tr><td>关键拍板</td><td>raw 使用 <code>cn_a_stock_mins_trade_days</code>，覆盖 2009 年以来全量分钟线；silver 新增 <code>cn_a_stock_mins_silver_trade_days</code>，只注册 <code>2014-01-01</code> 之后的可生成日期；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
@@ -1816,7 +1816,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <tr>
         <td><code>stock_mins_qfq_daily_sensor</code></td>
         <td>20:10 后，按 expected calendar + silver registered partitions 选择 first qfq not ready trade day；在 silver ready、当日 adj factor ready 且目标 gold 当日尚未 ready 时，触发单日 qfq job。</td>
-        <td>已实现；代码 definition 默认 <code>STOPPED</code>，正式 Dagster instance 已由用户人工启用。连续性治理后不再以 latest silver registered 作为目标；当前 hot path 使用 silver / adj factor / gold qfq 的 DuckDB lake batch readiness，gold qfq 直接按年度 as-of basis 的真实公式判断；同目标日期已提交后的 cursor 快路径仍保留。</td>
+        <td>已实现；代码 definition 默认 <code>STOPPED</code>，正式 Dagster instance 已由用户人工启用。连续性治理后不再以 latest silver registered 作为目标；当前目标口径是 silver / adj factor / gold qfq 的 DuckDB lake batch readiness，只复刻生产输入与文件 checks；同目标日期已提交后的 cursor 快路径仍保留。已提交但未启用的 basis 代码不代表正式口径，须在后续专项删除。</td>
       </tr>
       <tr>
         <td><code>stock_mins_qfq_factor_repair_job</code></td>
@@ -1839,7 +1839,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
   <section>
     <h2>10.1 qfq daily / repair sensor readiness 性能修复方案（M11H 历史记录，当前已升级为 lake batch readiness）</h2>
     <div class="callout">
-      当前代码事实：M11H 的 latest-check event log 批量方案已经被后续性能治理替换。<code>stock_mins_qfq_daily_sensor</code> 和 <code>stock_mins_qfq_factor_repair_sensor</code> 日常 hot path 现在使用 DuckDB lake batch readiness；gold qfq 直接读取年度 as-of basis，按真实 QFQ 公式判断，不再由 repair metadata 覆盖 failed formula check。以下 latest-check 内容只保留为历史问题与退场背景，不再代表当前实现。
+      当前治理口径：M11H 的 latest-check event log 批量方案已经被后续性能治理替换。<code>stock_mins_qfq_daily_sensor</code> 和 <code>stock_mins_qfq_factor_repair_sensor</code> 日常 hot path 使用 DuckDB lake batch readiness；gold qfq 只判断生产输入、文件契约和 repair 状态，不再由 repair metadata 覆盖 failed check，也不二次计算 QFQ 公式。年度 as-of basis 方案已撤销且未写 Lake；以下 latest-check 内容只保留为历史问题与退场背景，不再代表当前实现。
     </div>
     <div class="warning">
       <strong>问题：</strong>
@@ -1865,7 +1865,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <tr>
         <td>交易日选择</td>
         <td>连续性治理后，目标日期来自 expected calendar + <code>cn_a_stock_mins_silver_trade_days</code> 的 first qfq not ready；当前 readiness 由 silver / adj factor / gold qfq lake batch helper 提供。</td>
-        <td>连续性治理后，目标日期来自 expected calendar 的 first qfq factor repair not completed；当前 gold qfq readiness 由 lake batch helper 直接按 as-of basis 公式提供。</td>
+        <td>连续性治理后，目标日期来自 expected calendar 的 first qfq factor repair not completed；当前 gold qfq readiness 由 lake batch helper 按生产输入、文件契约和 repair 状态提供。</td>
       </tr>
       <tr>
         <td>时窗</td>
@@ -1909,13 +1909,13 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <tr>
         <td>qfq daily 首次决策 tick</td>
         <td>约 14 次 materialization 查询 + 108 次 check history 扫描。</td>
-        <td>上游按顺序短路：silver、adj factor、qfq gold 均使用 DuckDB lake batch readiness；qfq gold 直接按年度 as-of basis 的真实公式判断；0 次 check history 扫描。</td>
+        <td>上游按顺序短路：silver、adj factor、qfq gold 均使用 DuckDB lake batch readiness；qfq gold 只复刻生产输入和文件 checks；0 次 check history 扫描。</td>
         <td>本地 fake instance 单测必须证明 check history 调用数为 0；后续经审批的正式只读 dry-run 应小于 5 秒，超过 10 秒拒绝上线。</td>
       </tr>
       <tr>
         <td>factor repair 首次决策 tick</td>
         <td>约 7 次 materialization 查询 + 56 次 check history 扫描。</td>
-        <td>qfq gold 使用 DuckDB lake batch readiness + as-of basis 直接公式；repair status 仅在 selected target 上读取，并使用 <code>include_event_storage_ids=False</code>；0 次 check history 深扫。</td>
+        <td>qfq gold 使用 DuckDB lake batch readiness + selected-target repair state；repair status 仅在 selected target 上读取，并使用 <code>include_event_storage_ids=False</code>；0 次 check history 深扫。</td>
         <td>本地 fake instance 单测必须证明 check history 调用数为 0；后续经审批的正式只读 dry-run 应小于 3 秒，超过 5 秒拒绝上线。</td>
       </tr>
       <tr>
@@ -1930,7 +1930,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
     <ol>
       <li>daily sensor：时窗前不查 readiness；silver/adj 不 ready 时 skip；gold missing 时提交 daily run；gold 全 ready 时 skip；gold 已 materialized 但 blocking checks failed/missing 时 skip；新旧 cursor submitted 证据命中时快路径 skip。</li>
       <li>repair sensor：时窗前不查 readiness；gold missing/not ready 时 skip；gold 全 ready 时提交 repair run；新旧 cursor submitted 证据命中时快路径 skip。</li>
-      <li>lake batch readiness helper：目标日 0 行视为未 materialized，可触发 daily；目标日存在部分行但结构、真实 QFQ 公式、derived 语义等 blocking checks 失败时视为 materialized check problem；不允许 repair metadata 覆盖 failed formula check。</li>
+      <li>lake batch readiness helper：目标日 0 行视为未 materialized，可触发 daily；目标日存在部分行但结构、键、值域、来源覆盖或 repair 状态等 production checks 失败时视为 materialized check problem；不允许 repair metadata 覆盖 failed check。</li>
       <li>静态回归：不新增 summary/readiness asset，不扩大 job selection，不改 sensor tags、run key、run config 和 cursor 主结构。</li>
       <li>验证命令必须包含触达文件 <code>py_compile</code>、相关 unittest、<code>ruff check</code>、<code>git diff --check</code> 和 <code>python3 scripts/check_docs_integrity.py</code>。</li>
     </ol>
@@ -2114,7 +2114,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       </tr>
       <tr>
         <td>gold sensor 门禁过重导致超时</td>
-        <td>当前日常 qfq sensor 使用最近 10 个 expected trade dates 的 lake batch readiness 和年度 as-of basis 直接公式，不做历史分区深扫，不逐 blocking check 扫 <code>get_asset_check_execution_history(limit=5000)</code>，也不以 storage id 作为 hot path 绑定口径。</td>
+        <td>当前日常 qfq sensor 使用最近 10 个 expected trade dates 的 lake batch readiness，只验证生产输入、文件和 repair 状态；不做历史分区深扫，不逐 blocking check 扫 <code>get_asset_check_execution_history(limit=5000)</code>，也不以 storage id 作为 hot path 绑定口径。</td>
       </tr>
       <tr>
         <td>历史批量补录 event 过慢</td>
@@ -2152,7 +2152,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <li>确认 repair 后普通 qfq event reconciliation 已撤销、不保留：factor repair run 不内联补普通 qfq materialization/check；不通过重跑 <code>stock_mins_qfq_daily_update_job</code> 补 event；repair check metadata 作为历史 qfq 文件改写账本。</li>
       <li>确认日常写入和 repair 写入的并发保护：同一 <code>freq/ts_code/year</code> 文件不能被多个 run 并发写。正式 Dagster 入口必须使用统一 <code>gold_stk_mins_qfq_writer</code> concurrency pool；<code>in_process_executor</code> 只保证单 run 内顺序，不能替代跨 run 互斥。</li>
       <li>确认历史 gold baseline 文件生成采用串行或等价互斥保护，同一 <code>freq/ts_code/year</code> 文件不能被多个命令任务同时写。</li>
-      <li>确认日常 sensor 门禁只使用最近 10 个 expected trade dates 的 bounded readiness，不允许复制历史批量逐分区深扫模式；qfq daily/repair sensor 必须使用 lake batch readiness + as-of basis 直接公式，不得在稳定态逐 check 扫 history或回填 event storage id。</li>
+      <li>确认日常 sensor 门禁只使用最近 10 个 expected trade dates 的 bounded readiness，不允许复制历史批量逐分区深扫模式；qfq daily/repair sensor 必须使用 lake batch readiness 复刻生产输入、文件和 repair 状态，不得在稳定态逐 check 扫 history、回填 event storage id 或二次计算 QFQ 公式。</li>
     </ol>
     <div class="danger">
       <strong>门禁：</strong>

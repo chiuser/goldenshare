@@ -252,6 +252,28 @@
   </section>
 
   <section>
+    <h2>2.1 计算测试与生产 Check 分工</h2>
+    <div class="danger">
+      <strong>先明确谁证明什么：</strong>
+      计算逻辑正确性只能由受保护的测试金样本证明；production check 只验证本次运行的输入、文件和状态事实。禁止为了证明公式正确，在 asset check 或 sensor readiness 中对全量结果做第二次计算。
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>机制</th><th>必须负责</th><th>禁止承担</th></tr></thead>
+        <tbody>
+        <tr><td>公式金样本测试</td><td>正常值、边界、空值、异常值、repair 范围、字面 expected 输出。</td><td>读取正式 Lake、Dagster instance 或生产库；用被测 helper 生成 expected 值。</td></tr>
+        <tr><td>production check</td><td>缺代码/缺上游事实、重复/空 key、schema 漂移、分区错位、文件写半截、来源覆盖、状态过期。</td><td>重跑业务转换、从输出反推依据、为了历史全绿伪造验证事实。</td></tr>
+        <tr><td>sensor/readiness</td><td>只复刻 active production checks，选择是否请求 run。</td><td>修正 failed check、解释历史红色公式 check、做全历史计算。</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="warning">
+      <strong>金样本保护：</strong>
+      核心计算测试不得随意删除、跳过或降低断言。业务公式确实变化时，必须同时更新设计口径、fixture 输入、字面 expected 输出、测试说明和静态门禁；只改断言让测试通过属于禁止行为。
+    </div>
+  </section>
+
+  <section>
     <h2>3. 数据集说明卡模板</h2>
     <div class="table-wrap">
       <table>

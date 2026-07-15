@@ -67,6 +67,16 @@ sensor、run-status sensor、AutomationCondition 替代 sensor、日常 readines
 
 热路径要求小窗口、低查询次数、低反序列化、低 cursor 体积。离线路径可以更重，但必须 dry-run、分批、设上限、输出报告，并经审批后才能写正式环境。
 
+### 2.5 计算正确性与生产 Check 必须分工
+
+计算逻辑的正确性由受保护的测试金样本负责；production check 负责本次真实运行的输入、文件和状态事实。两者不得互相替代。
+
+1. 公式、转换、窗口、边界和 repair 范围必须由独立 expected 值的 unit/integration fixture 覆盖。禁止由被测 helper 反向生成 expected 值。
+2. production check 默认不得为证明公式正确而对全量输出做第二次计算。它应优先验证上游覆盖、空值/重复、schema、分区、文件写入和状态新鲜度。
+3. 只有存在独立外部对账事实，且该对账是明确业务契约时，才可设计计算型 production check；必须先给出读取量、性能预算和为什么测试不足以覆盖该风险。
+4. 不能为了让历史 check 变绿，从输出结果反推“依据”再用该依据证明输出正确。这最多是内部一致性审计，不是源头正确性证明。
+5. 公式金样本不得随意删除、弱化或跳过。业务公式确实变更时，必须同时更新设计口径、fixture 输入、字面 expected 输出、测试说明和静态门禁。
+
 ---
 
 ## 3. 开发前性能设计清单
@@ -184,7 +194,7 @@ sensor 热路径禁止：
 禁止做：
 
 1. 只看文件存在和 row count。
-2. 忽略 schema、date/freq、唯一键、价格成交量、覆盖率、生命周期、公式校验等正式 blocking checks。
+2. 忽略 schema、date/freq、唯一键、价格成交量、覆盖率、生命周期等正式 blocking checks；公式正确性默认由测试金样本负责，不应被重新塞入 readiness。
 3. 因性能压力删除或弱化 blocking check 条件。
 
 ### 5.3 身份和生命周期事实必须来自稳定资产
