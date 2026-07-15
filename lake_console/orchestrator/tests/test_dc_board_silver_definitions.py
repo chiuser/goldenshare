@@ -15,6 +15,16 @@ from orchestrator.defs.checks.dc_board_silver_checks import (
     silver_dc_index_core_check,
     silver_dc_member_core_check,
 )
+from orchestrator.defs.jobs.dc_board_silver import (
+    silver_dc_daily_update_job,
+    silver_dc_index_update_job,
+    silver_dc_member_update_job,
+)
+from orchestrator.defs.sensors.dc_board_silver_sensor import (
+    silver_dc_daily_update_job_sensor,
+    silver_dc_index_update_job_sensor,
+    silver_dc_member_update_job_sensor,
+)
 from orchestrator.defs.partitions import cn_a_index_trade_days
 
 
@@ -46,8 +56,32 @@ def test_m5_silver_assets_and_checks_are_partitioned_and_raw_bound():
         }
 
 
-def test_m5_does_not_add_jobs_or_sensors():
+def test_m6_adds_silver_jobs_and_sensors_in_separate_modules():
     jobs_dir = Path("src/orchestrator/defs/jobs")
     sensors_dir = Path("src/orchestrator/defs/sensors")
-    assert not list(jobs_dir.glob("dc_board_silver*.py"))
-    assert not list(sensors_dir.glob("dc_board_silver*.py"))
+    assert (jobs_dir / "dc_board_silver.py").exists()
+    assert (sensors_dir / "dc_board_silver_sensor.py").exists()
+
+
+def test_m6_silver_jobs_and_sensors_are_single_partition_stopped_definitions():
+    jobs = (
+        silver_dc_index_update_job,
+        silver_dc_member_update_job,
+        silver_dc_daily_update_job,
+    )
+    sensors = (
+        silver_dc_index_update_job_sensor,
+        silver_dc_member_update_job_sensor,
+        silver_dc_daily_update_job_sensor,
+    )
+    assert {job.name for job in jobs} == {
+        "silver_dc_index_update_job",
+        "silver_dc_member_update_job",
+        "silver_dc_daily_update_job",
+    }
+    for sensor in sensors:
+        assert sensor.default_status.value == "STOPPED"
+    source = Path("src/orchestrator/defs/jobs/dc_board_silver.py").read_text()
+    assert source.count("AssetSelection.assets") == 3
+    assert "AssetSelection.assets(raw_" not in source
+    assert "AssetSelection.checks_for_assets" in source

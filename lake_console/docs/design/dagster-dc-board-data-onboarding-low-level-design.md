@@ -3,7 +3,7 @@
 > 本文基于 [`dagster-dc-board-data-onboarding-plan.md`](./dagster-dc-board-data-onboarding-plan.md)。
 > 方案文档冻结业务口径；本文冻结文件、函数、SQL、事务、测试和推进顺序。
 >
-> 当前状态：M3 Raw-only writer/staging、M4 Raw Dagster definitions、M5 Silver writer/asset/check 已实现并通过本地临时 lake 验证；M6 尚未开始。M4 sensor 仍为 `STOPPED`，M5 未启用 Silver sensor，不运行正式 job，不读写正式数据湖或 Dagster DB。
+> 当前状态：M3 Raw-only writer/staging、M4 Raw Dagster definitions、M5 Silver writer/asset/check、M6 Silver Dagster 接入已实现并通过本地临时 lake 验证。Raw/Silver sensor 仍为 `STOPPED`，不运行正式 job，不读写正式数据湖或 Dagster DB。
 
 ## 1. LLD 约束
 
@@ -745,13 +745,76 @@ silver_dc_daily_core_check
 
 进入 M6 的条件已满足：同日 Raw ready 后 Silver 能生成正确分区；失败不覆盖已有文件；跨数据集历史非等集不误阻断；三个 check 都是单分区可归因 check。
 
-### M6：Silver Dagster 接入（待开始）
+### M6：Silver Dagster 接入（已完成）
 
-核心任务：增加三个 Silver job/sensor，接通 Raw → Silver 的 first-not-ready 连续触发，保持最近 10 日窗口和 lake readiness。
+#### M6.1 文件与共享规则
 
-产出：Silver sensor/cursor/partition event 回归测试。
+新增或修改：
 
-进入 M7 的条件：Raw ready 可触发 Silver；materialized check problem 不自动覆盖；sensor 热路径保持性能预算。
+| 文件 | 责任 |
+| --- | --- |
+| `defs/asset_guards/dc_board_silver_quality.py` | Silver core check 与 readiness 共用的 schema、主键、身份和数值域规则 |
+| `defs/asset_guards/dc_board_silver_lake_readiness.py` | 三个 Silver batch readiness，返回内存态 `ContinuityBatchReadiness` |
+| `defs/jobs/dc_board_silver.py` | 三个只选择 Silver asset/check 的单分区 job |
+| `defs/sensors/dc_board_silver_sensor.py` | 三个默认停止的 Silver sensor、Raw/Silver frontier 门禁和 cursor |
+| `defs/checks/dc_board_silver_checks.py` | 复用共享质量规则，保持 check 名称和单分区归属不变 |
+
+三个 job/sensor 名称固定为：
+
+```text
+silver_dc_index_update_job
+silver_dc_member_update_job
+silver_dc_daily_update_job
+```
+
+#### M6.2 Readiness SQL 语义
+
+每个 sensor tick 使用一个 DuckDB connection 加载 `silver_trade_calendar` 和最近 10 个 expected `cn_a_index_trade_days`，然后批量计算同窗口的 Raw/Silver 状态。
+
+Silver readiness 复用 core check 的完整规则：
+
+1. `DESCRIBE` 校验列顺序和类型。
+2. 按路径提取分区日期，检查 `trade_date` 和行数。
+3. 按业务主键聚合，检查空键和重复键。
+4. 检查板块代码、股票代码、`idx_type`、`category` 和名称规则。
+5. 检查价格、数量、比例和金额数值域。
+
+文件缺失返回 `materialized=False`；文件存在但为空或任一规则失败返回 `materialized=True, checks_passed=False`，进入人工处理分支，不自动覆盖已有 Silver 文件。
+
+#### M6.3 Sensor 选择与 Raw frontier 门禁
+
+```text
+registered partition gap
+    -> Raw batch readiness
+    -> Silver batch readiness
+    -> Silver first-not-ready
+    -> Raw frontier comparison
+    -> one RunRequest or SkipReason
+```
+
+Raw first-not-ready `<` 或 `==` Silver target 时 skip；Raw first-not-ready `>` Silver target 或 Raw 全 ready 时，允许提交 Silver target。Silver materialized check failure 始终 skip，不重跑。
+
+每次最多返回一个 RunRequest，run key 由 `build_asset_update_run_key` 生成：
+
+```text
+silver_dc_index_update:{trade_date}
+silver_dc_member_update:{trade_date}
+silver_dc_daily_update:{trade_date}
+```
+
+Sensor 不调用 `get_event_records`，不访问 Tushare/Prod DB，不解析 run key。cursor 只保存 ASCII reason code、阻断组件、日期 frontier、文件数、耗时和有限样本。
+
+#### M6.4 测试与性能结果
+
+- 新增 readiness、sensor、definition/static gate 测试，覆盖 Raw 阻断、Silver 首个缺口、Raw 较晚缺口、materialized check failure、注册分区缺口、单连接和单 RunRequest。
+- M3-M6 scoped suite：`137 passed`。
+- 定义加载可见 66 个 asset、162 个 asset checks，以及三组新增 Silver job/sensor。
+- 临时性能报告：`/private/tmp/dc_board_m6_readiness_benchmark_20260715.json`；10 日 × 3 数据集共扫描 30 个 Silver 文件，三个 helper 均 10/10 ready，耗时约 4.972ms、5.352ms、5.578ms。
+- 本阶段没有正式 lake 写入、Dagster DB 写入、event backfill、`dg launch` 或 sensor 启用。
+
+产出：Silver batch readiness、三个 job、三个 sensor、cursor/frontier 回归测试和临时 lake 性能报告。
+
+进入 M7 的条件已满足：Raw ready 可触发 Silver；Raw 未 ready 阻断 Silver；materialized check problem 不自动覆盖；最近 10 日、单连接、单分区、无 event history 扫描的性能门禁通过。
 
 ### M7：全量 Bootstrap
 

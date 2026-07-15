@@ -1,6 +1,6 @@
 # Dagster `dc_index` / `dc_member` / `dc_daily` 数据集接入技术方案
 
-> 状态：M3 Raw 写入能力、M4 Raw Dagster definition、M5 Silver writer/asset/check 已完成；M6+尚未开始。M4 sensor 仍为 `STOPPED`，M5 只完成临时 lake 联调，未启用 Silver sensor，不写正式数据湖、Dagster materialization 或 check event。
+> 状态：M3 Raw 写入能力、M4 Raw Dagster definition、M5 Silver writer/asset/check、M6 Silver Dagster 接入已完成。Raw/Silver sensor 均保持 `STOPPED`，未执行正式 Bootstrap、未启用 sensor，不写正式数据湖、Dagster materialization 或 check event。
 >
 > 依据：新增数据集接入模板、`lake_console/orchestrator/CODING_STANDARDS.md`、
 > `dagster-data-pipeline-performance-governance.md`、现有 `index_daily` / `stk_nineturn`
@@ -369,16 +369,29 @@ M4 的进入 M5 条件已满足：sensor 每 tick 最多提交一个 first-not-r
 
 进入 M6 的条件已满足：同日 Raw ready 后 Silver 能生成正确分区；失败不覆盖；跨数据集历史非等集不误阻断；三类 Silver check 均保持单分区可归因。
 
-### P6：check/event/下游验收
+### P6：Silver Dagster 接入（已完成）
 
-- 运行一个交易日的正式 checks，确认每个 check event 有正确 partition。
-- 对照 prod DB、Tushare 样本、Raw、Silver 和业务查询。
-- 再决定是否需要历史 event 补录；默认不做无界补录。
+- `defs/asset_guards/dc_board_silver_quality.py` 集中保存 Silver core check 与 batch readiness 共用的 schema、主键、身份和数值域规则。
+- `defs/asset_guards/dc_board_silver_lake_readiness.py` 提供三个 Silver batch helper；每个 sensor tick 最近 10 个 expected dates 使用一个 DuckDB connection，不读取 Dagster event history、Tushare 或 Prod DB。
+- `defs/jobs/dc_board_silver.py` 提供三个只选择对应 Silver asset/check 的单分区 job；`defs/sensors/dc_board_silver_sensor.py` 提供三个默认 `STOPPED` sensor。
+- Raw first-not-ready 早于或等于 Silver target 时阻断；Raw frontier 晚于 Silver target 时允许处理更早的 Silver 缺口；Silver 文件已存在但 blocking check 失败时不自动覆盖。
+- M3-M6 scoped suite `137 passed`；定义加载可见 66 个 asset、162 个 asset checks，以及三组新增 Silver job/sensor。
+- 临时 benchmark `/private/tmp/dc_board_m6_readiness_benchmark_20260715.json`：10 日 × 3 数据集共扫描 30 个文件，每个数据集 10/10 ready，单数据集耗时约 4.972ms-5.578ms。
+- 本阶段未运行 `dg launch`，未启动 daemon/webserver，未启用 sensor，未写正式 lake、Dagster DB 或 event。
 
-### P7：启用日常自动化
+进入 M7 的条件已满足：Raw ready 可触发 Silver；Raw 未 ready 阻断 Silver；materialized check problem 不自动覆盖；sensor 热路径保持最近 10 日、单连接、无 event history 扫描。
 
-- 重载 definitions 后先保持 sensor `STOPPED`，完成人工 smoke。
-- 仅在单日和小批量验收通过后由运营启用 sensor。
+### P7：全量 Bootstrap
+
+- `dc_index` / `dc_daily` 从历史起点请求 Tushare；`dc_member` 从 Prod DB 只读导出历史分区。
+- 按日期分批生成 Raw staging，完成来源、schema、日期、主键、行数和性能门禁后原子 promote。
+- Raw 全量通过后生成 Silver staging；文件审计通过后再规划 materialization/check 事件验收。
+- 本阶段不自动启用 sensor；正式 Bootstrap、正式 lake promote 和事件补录必须分开审批。
+
+### P8：事件验收与日常自动化
+
+- 先验证单分区 materialization/check 归属，再决定是否只为最近窗口补 check event。
+- 最终由运营启用 Raw/Silver sensor，观察连续交易日的请求量、耗时、cursor、Raw/Silver frontier 和下游查询。
 
 ## 10. 验收标准
 

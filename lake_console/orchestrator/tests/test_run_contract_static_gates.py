@@ -339,6 +339,37 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_dc_board_silver_sensor_is_bounded_and_event_history_free(self) -> None:
+        sensor_path = DEFS_DIR / "sensors" / "dc_board_silver_sensor.py"
+        readiness_path = DEFS_DIR / "asset_guards" / "dc_board_silver_lake_readiness.py"
+        jobs_path = DEFS_DIR / "jobs" / "dc_board_silver.py"
+        sensor_source = sensor_path.read_text()
+        readiness_source = readiness_path.read_text()
+        jobs_source = jobs_path.read_text()
+
+        for fragment in (
+            "DC_BOARD_SENSOR_WINDOW_LIMIT",
+            "batch_raw_dc_index_lake_readiness",
+            "batch_silver_dc_index_lake_readiness",
+            "select_first_not_ready_trade_date",
+            "build_run_request",
+            "build_asset_update_run_key",
+            "default_status=dg.DefaultSensorStatus.STOPPED",
+        ):
+            self.assertIn(fragment, sensor_source)
+        for forbidden in (
+            "get_event_records(",
+            "get_asset_check_execution_history(",
+            "partition_dataset_readiness_status_from_latest_checks",
+            "dg.RunRequest(",
+            "run_key.split",
+        ):
+            self.assertNotIn(forbidden, sensor_source)
+        self.assertIn("ContinuityBatchReadiness", readiness_source)
+        self.assertIn("SILVER_DC_QUALITY_SPECS", readiness_source)
+        self.assertNotIn("get_event_records(", readiness_source)
+        self.assertNotIn("AssetSelection.assets(raw_", jobs_source)
+
     def test_gold_wealth_market_turnover_keeps_single_json_integrity_check(self) -> None:
         schema_source = (
             DEFS_DIR / "run_contracts" / "asset_column_schemas.py"
@@ -2331,7 +2362,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 41)
+        self.assertEqual(sensor_definition_count, 44)
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:
