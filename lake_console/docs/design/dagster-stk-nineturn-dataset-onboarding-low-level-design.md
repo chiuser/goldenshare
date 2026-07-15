@@ -1,7 +1,7 @@
 # Dagster 神奇九转数据集接入低层设计
 
-状态：N0-N7 已完成开发、正式执行与验收；最近 7 个已完成交易日 Raw/Silver 与 checks 对账通过
-日期：2026-07-14
+状态：N0-N7 已完成开发、正式执行与验收；N8 分区语义收敛已完成设计，尚未开发或写入 Dagster instance
+日期：2026-07-15
 上位方案：[`dagster-stk-nineturn-dataset-onboarding-plan.md`](./dagster-stk-nineturn-dataset-onboarding-plan.md)
 
 ## 1. 设计结论
@@ -28,6 +28,8 @@
 本 LLD 的 N5 Formal Lake 写入、N6 正式 Dagster event 写入和 N7 日常 sensor 启用均已按分阶段批准完成。N6 先完成只读 dry-run，再完成 3 日样本和剩余全量补录，最终 dry-run 计划归零。
 本 LLD 不授权运行 `dg`、写 Dagster instance 或删除历史 staging。
 
+2026-07-15 的 Lake 文件审计发现，九转 Raw/Silver 的文件从 `2023-01-03` 起连续完整，但它们仍声明使用从 `2014-01-02` 起的共享 `cn_a_stock_trade_days`。日常 sensor 以 `STK_NINETURN_HISTORY_START_DATE` 局部过滤早期日期，因此当前生产不会误跑；但 asset 分区语义、Dagster UI 和通用文件审计会把 2023 年前的 2,192 个日期误读为“应有数据却缺文件”。N8 的目标是把“市场开市日”和“九转数据应存在的日期”拆开：新增专属分区集，保留既有湖文件、资产键、事件和日常计算口径不变。
+
 ## 2. 依据与代码审计
 
 ### 2.1 必读规范
@@ -47,7 +49,8 @@
 | 能力 | 当前事实 | 本专项用法 |
 | --- | --- | --- |
 | Definitions 加载 | `load_from_defs_folder(...)` 自动发现 `defs` 文件 | 新文件无需集中注册 import |
-| 股票交易日分区 | `cn_a_stock_trade_days` 已存在 | Raw/Silver/check/job 共用，不新增 partition set |
+| 股票交易日分区（N0-N7 当前事实） | `cn_a_stock_trade_days` 已存在 | 当前 Raw/Silver/check/sensor 共用；它是股票市场开市日集合，不等同于九转数据有效日期集合 |
+| 九转交易日分区（N8 目标） | `cn_a_stk_nineturn_trade_days` | 只注册 `2023-01-03` 起、九转数据应存在的上交所开市日；切换后供 Raw/Silver/check/job/sensor/readiness 共用 |
 | Tushare raw helper | `fetch_tushare_partition_to_raw(...)` | 日常 Raw 复用，保留分页和原子写入 |
 | Tushare 分页大小 | `TUSHARE_API_PAGE_LIMIT = 6000` | 当前单日峰值 5,667 行，通常 1 页 |
 | RunRequest | `build_run_request(...)` | 禁止直接构造 `dg.RunRequest(...)` |
@@ -88,11 +91,12 @@
 - prod export manifest 验证、formal raw/silver 历史构建、文件审计。
 - 历史 runless materialization/check event dry-run 和补录工具。
 - 单元、集成、静态和性能门禁。
+- N8 仅新增一个九转专属 dynamic partition set 及其注册 sensor；它不改数据源、Lake 路径、Parquet schema、公式、asset key、check 名称、job 名称或 run key。
 
 ### 3.2 本专项不包含
 
 - 不新增 gold 层、页面、API、策略或报告资产。
-- 不新增 resource、数据库表、配置项、dynamic partitions、summary/readiness asset。
+- N0-N7 不新增 resource、数据库表、配置项、dynamic partitions、summary/readiness asset。N8 是唯一例外：只新增 `cn_a_stk_nineturn_trade_days`，不新增业务数据表、Lake 状态文件或 summary/readiness asset。
 - N5 必须使用 `silver_stock_lifecycle` 重建 `silver_stock_identity_map`，不得用 current-listed-only 的 `silver_stock_basic` 作为历史股票全集。
 - 不把 `silver_stock_daily` 作为 blocking dependency。
 - 不新增九转计算公式；Silver 不重算九转。
@@ -151,6 +155,26 @@ lake_console/orchestrator/src/orchestrator/defs/catalog/name_mapping.py
 
 不修改 definitions 组合根。`defs` 目录自动发现新 definitions。
 
+N8 额外修改或新增的精确文件如下；除这些文件及对应测试外，不扩散到股票日线、指数、分钟线或其它资产族：
+
+```text
+lake_console/orchestrator/src/orchestrator/defs/partitions.py
+lake_console/orchestrator/src/orchestrator/defs/stk_nineturn_contract.py
+lake_console/orchestrator/src/orchestrator/defs/assets/stk_nineturn.py
+lake_console/orchestrator/src/orchestrator/defs/checks/stk_nineturn_checks.py
+lake_console/orchestrator/src/orchestrator/defs/sensors/stk_nineturn_sensor.py
+lake_console/orchestrator/src/orchestrator/defs/sensors/stk_nineturn_trade_day_sensor.py
+lake_console/orchestrator/src/orchestrator/defs/asset_guards/stk_nineturn_lake_readiness.py
+lake_console/orchestrator/src/orchestrator/defs/bootstrap/stk_nineturn_history.py
+lake_console/orchestrator/src/orchestrator/defs/bootstrap/stk_nineturn_events.py
+lake_console/orchestrator/src/orchestrator/defs/bootstrap/stk_nineturn_partition_migration.py
+lake_console/orchestrator/src/orchestrator/defs/bootstrap/stk_nineturn_partition_migration_cli.py
+```
+
+`jobs/stk_nineturn_update.py` 当前仅用 asset selection 形成两个 job，没有独立的
+`partitions_def`。N8 不在 job 内新增分区逻辑；asset 切换后，job 自然继承目标 asset 的
+分区定义。必须以测试锁定这一事实，避免未来在 job 中另写一套分区口径。
+
 ### 5.3 测试文件
 
 ```text
@@ -158,6 +182,7 @@ lake_console/orchestrator/tests/test_stk_nineturn_contracts.py
 lake_console/orchestrator/tests/test_stk_nineturn_assets.py
 lake_console/orchestrator/tests/test_stk_nineturn_checks.py
 lake_console/orchestrator/tests/test_stk_nineturn_sensors.py
+lake_console/orchestrator/tests/test_stk_nineturn_trade_day_sensor.py
 lake_console/orchestrator/tests/test_stk_nineturn_lake_readiness.py
 lake_console/orchestrator/tests/test_stk_nineturn_history.py
 lake_console/orchestrator/tests/test_stk_nineturn_events.py
@@ -167,6 +192,10 @@ lake_console/orchestrator/tests/test_run_contract_static_gates.py
 ```
 
 ## 6. Schema、路径与 Catalog
+
+> 阅读口径：第 6 至 17 节记录 N0-N7 当前生产实现，因此其中出现的
+> `cn_a_stock_trade_days` 是现状，不是 N8 已完成事实。只有 N8.6 的代码、正式 instance
+> preflight 和 dynamic partition apply 全部完成后，N8.3 才正式覆盖这些分区引用。
 
 ### 6.1 Schema constants
 
@@ -262,7 +291,11 @@ TRADE_DATE_PARTITION_SILVER_STOCK_NINETURN_DAILY
 - family：trade-date partition。
 - dimension：`trade_date`。
 - physical layout：单分区文件。
-- partition set：definition 侧使用 `cn_a_stock_trade_days`。
+- N0-N7 当前 partition set：definition 侧使用 `cn_a_stock_trade_days`。
+- N8 目标 partition set：asset/check/sensor/readiness definition 侧改为
+  `cn_a_stk_nineturn_trade_days`。当前 Catalog 不保存 dynamic partition set 名称，
+  `PartitionModel` 仍是同一个 trade-date 单文件模型，因此 `lake_assets.py`、path template 和
+  blocking check governance 均不改；只更新治理测试对实际 asset/check 分区定义的断言。
 
 Raw `LakeAssetCatalogEntry`：
 
@@ -1167,7 +1200,7 @@ N3 本地临时 Parquet 实测结果：
 
 ## 18. 分阶段执行清单
 
-截至 2026-07-14 的执行进度：
+截至 2026-07-15 的执行进度：
 
 | 阶段 | 状态 | 已验收事实 |
 | --- | --- | --- |
@@ -1179,6 +1212,7 @@ N3 本地临时 Parquet 实测结果：
 | N5 | 已完成 | identity map 修复后重建 Formal Raw/Silver，最终文件审计通过 |
 | N6 | 已完成 | 已完成 formal dry-run、3 日样本、1,780 个 runless events 正式写入和 final dry-run 对账；partitioned check target 全部正确 |
 | N7 | 已完成 | 日常 Tushare 来源切换、两个 sensor 启用、最近 7 个已完成交易日对账和最终文档对账 |
+| N8 | 代码与本地测试已完成，正式迁移待审批 | 新分区、消费者切换、离线 migration planner/CLI、专属注册 sensor 与静态门禁已落地；尚未读取或写入正式 Dagster instance，尚未启用新 sensor |
 
 N0 与 N1 按批准口径合并为一个代码提交，但验收边界保持独立。N0 预声明
 Silver schema、path 和 partition model；没有提前写入 Silver catalog entry，因为 catalog
@@ -1360,6 +1394,175 @@ partition 归属和性能门禁均已验收；后续只需按日观察上游交�
 再做 bootstrap、runless event 或历史文件操作。
 完整只读审计输出：`/private/tmp/stk_nineturn_n7_closeout_audit_20260714.json`。
 
+### N8 九转专属交易日分区收敛
+
+#### N8.1 要解决的语义问题
+
+`cn_a_stock_trade_days` 是“股票资产族的市场开市日”集合，当前有 3,045 个日期，起点为
+`2014-01-02`。九转数据的已确认历史起点则是 `2023-01-03`。N0-N7 为了复用前者，在
+sensor、check 和 history bootstrap 中各自写入 `STK_NINETURN_HISTORY_START_DATE` 来跳过
+早期日期；这让日常生产可以工作，却使 asset definition 声称 2014 年起的每个分区都有效。
+
+截至 `2026-07-14` 的只读基线如下：
+
+| 项 | 事实 |
+| --- | --- |
+| 九转有效起点 | `2023-01-03` |
+| 当前有效交易日数 | 852 |
+| Raw 文件 | 852 个，日期集合连续且完整 |
+| Silver 文件 | 852 个，日期集合连续且完整 |
+| 共享股票交易日分区中的早期无效日期 | 2,192 个（`2014-01-02` 至 `2022-12-30`） |
+
+N8 新增 `cn_a_stk_nineturn_trade_days`。它只表示“九转 Raw/Silver 应存在的交易日”，
+候选集合固定由 `silver_trade_calendar` 的 `SSE + is_open=true` 日期与
+`trade_date >= STK_NINETURN_HISTORY_START_DATE` 的交集生成。它不是新的数据源、不是新的
+Lake 路径，也不是对 `cn_a_stock_trade_days` 的替代或删除。
+
+`STK_NINETURN_HISTORY_START_DATE` 必须从当前 sensor、checks、history bootstrap 三处重复
+字面量收敛到 `stk_nineturn_contract.py` 的单一定义；所有 N8 消费者只 import 此常量。
+
+#### N8.2 分区注册责任与失败语义
+
+新增 `stk_nineturn_trade_day_sensor`，它是 `cn_a_stk_nineturn_trade_days` 日常唯一写入者：
+
+| 项 | 固定口径 |
+| --- | --- |
+| 责任 | 只注册动态分区，不提交数据 job，不做 Lake 写入 |
+| 输入事实 | `silver_trade_calendar`、`STK_NINETURN_HISTORY_START_DATE`、目标分区当前已注册集合 |
+| 复用能力 | `build_trade_day_partition_registration_result(...)`，不另造日期选择或 cursor 结构 |
+| 时间与节流 | 与 `stock_trade_day_sensor` 一致，17:00 后；每 tick 最多注册 2 个日期 |
+| 初始状态 | `STOPPED`；仅在 N8 bootstrap 与 post-audit 通过后单独启用 |
+| 日常增量 | 一个新开市日只新增该日期；不得回写或删除既有分区 |
+
+失败必须 fail closed：
+
+1. `silver_trade_calendar` 缺失、不可读或查不到应注册日期时，注册 sensor 报错/skip，零分区写入。
+2. 九转专属分区落后于交易日历时，Raw/Silver sensor 以
+   `missing_registered_partition` skip；不得退回读取 `cn_a_stock_trade_days`，也不得在数据
+   sensor 内顺手注册分区。
+3. Raw/Silver 文件存在但 blocking 语义不通过时，继续沿用现有“文件已存在即人工处理”的
+   fail-closed 行为，不因 N8 自动重跑或覆盖。
+4. 共享 `stock_trade_day_sensor` 保持只维护 `cn_a_stock_trade_days`；N8 不修改它，也不让它
+   同时承担两个分区集，避免一个资产族的注册故障影响另一个资产族。
+
+#### N8.3 Raw/Silver/check/job/sensor/readiness 消费者切换
+
+N8 是 partition contract 变更，必须清零九转 active source 对
+`cn_a_stock_trade_days` 的依赖。切换表如下：
+
+| 位置 | 精确改动 | 不变项 |
+| --- | --- | --- |
+| `defs/partitions.py` | 新增 `cn_a_stk_nineturn_trade_days = dg.DynamicPartitionsDefinition(...)` | 既有 `cn_a_stock_trade_days` 完全不动 |
+| `defs/stk_nineturn_contract.py` | 提供唯一的 `STK_NINETURN_HISTORY_START_DATE` | Raw/Silver schema、metrics SQL 和业务规则不变 |
+| `defs/assets/stk_nineturn.py` | 两个 asset 的 `partitions_def` 改为新分区 | asset key、依赖、路径、写入和 metadata 不变 |
+| `defs/checks/stk_nineturn_checks.py` | 四个 checks 的 `partitions_def`、注册集合读取和 metadata 的 `partition_set_name` 改为新分区 | check 名称、blocking 数量和业务规则不变；日期下限仍作为防御性校验保留 |
+| `defs/jobs/stk_nineturn_update.py` | 不新增分区逻辑；验证两个 asset-selection job 随 asset 定义使用新分区 | job 名、selection、run key、run config 不变 |
+| `defs/sensors/stk_nineturn_sensor.py` | Raw/Silver 两个 sensor 的 registered set、cursor `partition_set`、registered-gap 文案全部改为新分区 | 10 日窗口、21:15/21:20 时段、每 tick 最多一个 run、first-not-ready 逻辑不变 |
+| `defs/sensors/stk_nineturn_trade_day_sensor.py` | 新增上述唯一注册 sensor | 不触发 Raw/Silver job |
+| `defs/asset_guards/stk_nineturn_lake_readiness.py` | 调用方传入新分区 registered set；`missing_registered_partition` 继续指向同一语义 | 文件契约、DuckDB batch SQL、10 日性能模型不变 |
+| `defs/bootstrap/stk_nineturn_history.py` | 使用 contract 中唯一历史起点 | 不重建任何 Lake 文件 |
+| `defs/bootstrap/stk_nineturn_events.py` | runless event planner/audit 的目标分区注册核验改为新分区 | N8 不新增 runless event，也不删除 N6 历史 event |
+| `tests/test_asset_governance_contracts.py` 等治理测试 | 断言两个 asset 与四个 checks 使用新分区定义 | Catalog entry、dataset id、schema、path、source、check governance 不变 |
+
+N8 完成后，九转 active production source、active checks、active sensors、readiness 和静态门禁中
+不得再出现 `cn_a_stock_trade_days`。该字符串只允许保留在本 LLD 的
+N0-N7 历史记录、`stock_trade_day_sensor` 和非九转资产族代码中。
+
+#### N8.4 852 日期动态分区写入前 dry-run
+
+N8 新增非 active 的 `stk_nineturn_partition_migration.py` 与 CLI。默认 `plan` 只读；只有
+显式 `--apply` 才允许调用 `DagsterInstance.add_dynamic_partitions(...)`。它不运行 job、sensor、
+materialize、check、backfill，也不写 Lake、prod DB 或 event log。
+
+`plan` 必须输出 `/private/tmp/stk_nineturn_partition_migration_plan_<timestamp>.json`，并冻结：
+
+1. 由 `silver_trade_calendar` 推导的候选日期数、最小/最大日期和 sorted hash。当前基线应为
+   852 个日期、`2023-01-03` 至 `2026-07-14`；实现不得硬编码 852 或终止日期。
+2. 候选集合与现有 Raw 文件集合、Silver 文件集合的四向差集：
+   `candidate - raw`、`candidate - silver`、`raw - candidate`、`silver - candidate`，四者必须为 0。
+3. 全部候选 Raw/Silver 文件的非空、schema、分区日期和现有 batch readiness 事实；不得只用
+   文件存在冒充可迁移。
+4. 候选集合相对 `cn_a_stock_trade_days` 的差异，仅作旧集合对账证据；新分区日常注册不得继续
+   依赖旧集合。
+5. 当前新分区已注册集合。首次 apply 前必须为空；重跑时只允许是候选集合的子集，出现候选外
+   key 或冲突 hash 立即停止。
+
+只有上述门禁全绿、两个数据 sensor 已暂停且没有 active run 时，才允许 `--apply`。apply 只添加
+`candidate - existing_new_partition_set`，写入数量必须等于 fresh plan 的待添加数；任何数量差异
+立即停止并输出审计报告。Dagster dynamic partition 没有本轮自动回滚或删除动作：不得删除
+`cn_a_stock_trade_days`，也不得删除新分区中已有 key；commit 后若需恢复，必须另起明确的
+状态治理方案。
+
+#### N8.5 历史 materialization/check event 兼容性
+
+N8 不把旧 history 当作可以随手重写的状态。切换前必须做正式 Dagster instance 只读 preflight：
+
+1. 对两个 asset key 读取 materialized partition keys，确认全部位于候选 852 日期集合内。
+2. 按四个 check key 有界读取历史 `AssetCheckEvaluation`，确认其 `partition`、target
+   materialization partition 和 candidate key 一致；不得按时间范围或整表扫描。
+3. 用临时 Dagster instance 测试“同 asset key + 新 DynamicPartitionsDefinition + 相同日期 key”
+   的 materialization/check 查询与 readiness 识别行为；expected 必须来自已存在 event 的日期，
+   不能由被测 helper 反推。
+4. 正式 apply 后只读复核同一批 materialization/check event 仍能按目标日期被 Definitions/UI
+   识别；N8 不新增 runless event，不删除旧 event，不重跑 852 个历史 job。
+
+若发现 `2023-01-03` 以前的九转 event、任一 event 无法按新分区识别，或 event target 与
+partition 不一致，停止在 preflight；不得通过批量补 event、删除历史或兼容读取旧分区来绕过。
+
+#### N8.6 实施顺序、测试与验收
+
+1. 先完成本地代码和测试：新分区定义、唯一历史起点、四个 check、两个 assets、两个 sensors、
+   readiness caller、event planner 和治理断言同步切换。禁止保留 global-partition fallback。
+2. 本地 Dagster 临时实例测试新分区事件识别；运行相关 unit、static gate、catalog governance 和
+   10 日/60 日 readiness 性能测试。日常热路径读取次数和耗时不得增加。
+3. 单独审批正式 instance 只读 preflight，并生成 852 日期 `plan`；不绿即停止。
+4. 单独审批维护窗口：暂停两个数据 sensor，确认无 active run；部署 N8 definitions 后执行一次
+   `--apply`，只写新 dynamic partitions。
+5. 只读 post-audit 通过后，先启用 `stk_nineturn_trade_day_sensor`，再恢复 Raw/Silver sensor；
+   只观察自然触发，不人为补发历史 run。
+
+必须新增或更新的测试至少包括：
+
+- `cn_a_stk_nineturn_trade_days` 是 Raw/Silver/四个 checks 的唯一分区定义；早于历史起点的日期
+  不在专属集合内。
+- 专属注册 sensor 只根据交易日历注册、一次最多 2 个、不提交 RunRequest；日历异常或注册缺口时
+  Raw/Silver 均 fail closed。
+- Raw/Silver sensor cursor、registered-gap 和 readiness 均指向新分区，且 active 九转代码没有
+  读取 `cn_a_stock_trade_days` 的 fallback。
+- migration `plan` 对完整集合通过；任一文件缺失、空文件、schema/日期错误、集合差异、候选外
+  已注册 key、event 兼容性异常均拒绝 apply；apply 幂等。
+- 旧共享分区、Lake 文件、Parquet schema、asset/check/job/run key 名称、N6 event 数量均不变。
+
+N8 的性能预算保持日常注册每 tick 1 次有界交易日历读取、最多 2 个动态分区请求；Raw/Silver
+sensor 仍只检查最近 10 个日期。852 日期全量扫描只允许出现在 migration `plan` 离线路径，必须
+记录文件数、DuckDB 查询次数、耗时和输出 hash，绝不进入 sensor 热路径。
+
+#### N8.7 2026-07-15 代码与本地测试记录
+
+本轮只完成代码与本地测试，未调用正式 Dagster instance、未执行 migration CLI、未写 dynamic
+partition、未写 Lake/Prod、未暂停或启用任何 sensor。
+
+- 新增 `cn_a_stk_nineturn_trade_days`；`STK_NINETURN_HISTORY_START_DATE` 收敛为
+  `stk_nineturn_contract.py` 的唯一常量。
+- `raw_tushare_stk_nineturn`、`silver_stock_nineturn_daily`、四个 blocking checks、Raw/Silver
+  数据 sensor、历史事件 planner 均改为只使用新分区。活跃路径不保留
+  `cn_a_stock_trade_days` fallback；共享分区只在 migration plan 中作为只读对账证据。
+- 新增默认 `STOPPED` 的 `stk_nineturn_trade_day_sensor`。它以
+  `quote_data / partition / partition_registration` 分类，只注册专属分区、17:00 后运行、每 tick
+  最多 2 个日期、不提交 `RunRequest`。为保证 cursor 如实标注目标分区，通用交易日注册 helper
+  新增带旧默认值的显示参数；现有调用方的 cursor 字段保持原值。
+- 新增非 active 的 `stk_nineturn_partition_migration.py` 及 CLI：默认 `plan`，`--apply` 才允许
+  `add_dynamic_partitions(...)`；全量审计固定按 60 日期批次，审核 Raw/Silver 文件集合、文件契约、
+  batch readiness、已注册新分区、排序 hash 与历史 materialization/check 的分区身份。候选外日期、
+  集合差异、文件/readiness 异常、事件身份不一致或历史查询达到上限都会拒绝 apply。
+- 本地测试已运行 154 项并全部通过：九转 contract/asset/check/silver/sensor/readiness/event/migration、
+  asset governance、10/60 日 hot-path performance、static gates。`test_stk_nineturn_history.py`
+  因当前项目虚拟环境未安装其既有依赖 `pytest` 而未能由 `unittest` 加载；未为本专项新增或安装依赖。
+
+下一步仍严格分三次正式审批：先执行只读 migration `plan`；计划全绿后，在维护窗口暂停两个数据
+sensor 并执行唯一一次 `--apply`；最后只读 post-audit 通过后，先启用专属交易日注册 sensor，再恢复
+Raw/Silver 数据 sensor。
+
 ## 19. 阶段组合与审批边界
 
 | 组合 | 结论 | 原因 |
@@ -1371,6 +1574,8 @@ partition 归属和性能门禁均已验收；后续只需按日观察上游交�
 | N5 Raw/Silver 正式执行 | 串行 | Silver 必须消费已验收 Raw |
 | N6 | 单独正式操作 | 写 Dagster event，不能与文件写入混合 |
 | N7 | 单独验收 | 启用自动化前最后观察点 |
+| N8 代码开发 | 单独 | 分区 contract 变更必须先完成全量消费者和历史 event 兼容性测试 |
+| N8 dynamic partition apply | 单独正式操作 | 仅写 852 个以内的新分区 key；不与代码开发、Lake 写入或 event 写入混合 |
 
 ## 20. 停止条件
 
@@ -1386,9 +1591,15 @@ partition 归属和性能门禁均已验收；后续只需按日观察上游交�
 8. Runless event 无法绑定具体 partition/latest materialization。
 9. 需要新增持久化 readiness 实体、数据库表或兼容路径才能完成。
 10. 发现现有方案与当前代码、真实数据或源接口行为冲突。
+11. N8 852 日期 dry-run 的 Raw/Silver 集合、文件契约、batch readiness 或 hash 任一不一致。
+12. N8 历史 materialization/check event 不能按新分区日期正确识别，或发现候选范围外的九转 event。
+13. N8 需要修改 `cn_a_stock_trade_days`、删除旧分区、改写 Lake 文件或补写历史 event 才能继续。
 
 ## 21. 开发就绪结论
 
-开发前必须拍板的业务事项已经全部关闭：Raw/Silver 代码语义、双来源边界、check 数量、历史事件范围、sensor 时间窗口和历史 staging 处置均已有明确结论。
+N0-N7 的业务事项已经关闭并完成执行。N8 的代码、消费者切换、离线 migration 约束和本地测试
+已经完成；但它仍是新的 partition contract 变更，正式 Dagster instance 的 preflight、dynamic
+partition apply 和 sensor 切换均未获批准，也尚未执行。
 
-因此可以从 N0 + N1 开始编码。正式 prod 导出、正式 Lake 构建和 Dagster runless event 写入仍分别需要执行审批，不能因 LLD 完成而默认获批。
+因此下一步只能按 N8.6/N8.7 的顺序先做正式 instance 只读 preflight；只有计划全绿后，才能分别
+审批维护窗口 apply 与 sensor 恢复。代码完成不等同于正式分区已迁移。

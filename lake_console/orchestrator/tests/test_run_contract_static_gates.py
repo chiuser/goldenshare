@@ -2361,7 +2361,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 44)
+        self.assertEqual(sensor_definition_count, 45)
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:
@@ -4731,11 +4731,20 @@ class RunContractStaticGateTests(unittest.TestCase):
         readiness_source = Path(
             "src/orchestrator/defs/asset_guards/stk_nineturn_lake_readiness.py"
         ).read_text()
+        registration_sensor_source = Path(
+            "src/orchestrator/defs/sensors/stk_nineturn_trade_day_sensor.py"
+        ).read_text()
+        migration_source = Path(
+            "src/orchestrator/defs/bootstrap/stk_nineturn_partition_migration.py"
+        ).read_text()
+        migration_cli_source = Path(
+            "src/orchestrator/defs/bootstrap/stk_nineturn_partition_migration_cli.py"
+        ).read_text()
         issues = []
 
         required_asset_fragments = (
             'name="raw_tushare_stk_nineturn"',
-            "partitions_def=cn_a_stock_trade_days",
+            "partitions_def=cn_a_stk_nineturn_trade_days",
             "fetch_tushare_partition_to_raw",
             'api_name="stk_nineturn"',
             '"freq": "daily"',
@@ -4744,7 +4753,7 @@ class RunContractStaticGateTests(unittest.TestCase):
         )
         required_check_fragments = (
             "asset=raw_tushare_stk_nineturn",
-            "partitions_def=cn_a_stock_trade_days",
+            "partitions_def=cn_a_stk_nineturn_trade_days",
             "raw_tushare_stk_nineturn_contract_check",
             "raw_tushare_stk_nineturn_content_integrity_check",
             "load_raw_stk_nineturn_metrics",
@@ -4817,6 +4826,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             'subject="silver_stock_nineturn_daily_update"',
             "build_run_request",
             "build_sensor_cursor",
+            "cn_a_stk_nineturn_trade_days",
         )
         required_readiness_fragments = (
             "load_raw_stk_nineturn_metrics",
@@ -4834,6 +4844,48 @@ class RunContractStaticGateTests(unittest.TestCase):
             f"stk_nineturn lake readiness misses fragment: {fragment}"
             for fragment in required_readiness_fragments
             if fragment not in readiness_source
+        )
+        forbidden_nineturn_global_partition_fragments = (
+            "cn_a_stock_trade_days",
+        )
+        issues.extend(
+            f"stk_nineturn active source contains forbidden global partition: {fragment}"
+            for fragment in forbidden_nineturn_global_partition_fragments
+            if fragment in f"{asset_source}\n{checks_source}\n{sensor_source}\n{readiness_source}"
+        )
+        required_registration_sensor_fragments = (
+            "stk_nineturn_trade_day_sensor",
+            "cn_a_stk_nineturn_trade_days",
+            "STK_NINETURN_HISTORY_START_DATE",
+            "build_trade_day_partition_registration_result",
+            "default_status=dg.DefaultSensorStatus.STOPPED",
+        )
+        issues.extend(
+            f"stk_nineturn partition registration sensor misses fragment: {fragment}"
+            for fragment in required_registration_sensor_fragments
+            if fragment not in registration_sensor_source
+        )
+        forbidden_registration_sensor_fragments = (
+            "RunRequest",
+            "report_runless_asset_event",
+        )
+        issues.extend(
+            f"stk_nineturn partition registration sensor contains forbidden fragment: {fragment}"
+            for fragment in forbidden_registration_sensor_fragments
+            if fragment in registration_sensor_source
+        )
+        required_migration_fragments = (
+            "plan_stk_nineturn_partition_migration",
+            "apply_stk_nineturn_partition_migration",
+            "STK_NINETURN_PARTITION_AUDIT_BATCH_SIZE = 60",
+            "add_dynamic_partitions",
+            "audit_stk_nineturn_event_compatibility",
+            "confirm_apply=True",
+        )
+        issues.extend(
+            f"stk_nineturn partition migration misses fragment: {fragment}"
+            for fragment in required_migration_fragments
+            if fragment not in f"{migration_source}\n{migration_cli_source}"
         )
         for forbidden in (
             "dg.RunRequest(",

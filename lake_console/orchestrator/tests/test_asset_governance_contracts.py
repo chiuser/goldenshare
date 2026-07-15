@@ -138,6 +138,7 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.partitions import (
     cn_a_stock_trade_days,
+    cn_a_stk_nineturn_trade_days,
     cn_a_stock_mins_silver_trade_days,
     cn_a_stock_mins_trade_days,
 )
@@ -506,11 +507,11 @@ class AssetGovernanceContractTests(unittest.TestCase):
 
         self.assertEqual(
             raw_tushare_stk_nineturn.partitions_def,
-            cn_a_stock_trade_days,
+            cn_a_stk_nineturn_trade_days,
         )
         self.assertEqual(
             silver_stock_nineturn_daily.partitions_def,
-            cn_a_stock_trade_days,
+            cn_a_stk_nineturn_trade_days,
         )
 
     def test_assets_register_definition_column_schema(

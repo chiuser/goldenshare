@@ -4,6 +4,9 @@ import dagster as dg
 # their asset-family-specific partition definitions below.
 cn_a_trade_days = dg.DynamicPartitionsDefinition(name="cn_a_trade_days")
 cn_a_stock_trade_days = dg.DynamicPartitionsDefinition(name="cn_a_stock_trade_days")
+cn_a_stk_nineturn_trade_days = dg.DynamicPartitionsDefinition(
+    name="cn_a_stk_nineturn_trade_days"
+)
 cn_a_stock_current_trade_days = dg.DynamicPartitionsDefinition(
     name="cn_a_stock_current_trade_days"
 )

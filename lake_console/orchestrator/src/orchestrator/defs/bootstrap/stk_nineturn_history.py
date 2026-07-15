@@ -17,6 +17,7 @@ from orchestrator.defs.paths import (
 )
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.stk_nineturn_contract import (
+    STK_NINETURN_HISTORY_START_DATE,
     build_stk_nineturn_path_plan,
     build_silver_stock_nineturn_daily_batch_select_sql,
     load_raw_stk_nineturn_metrics,
@@ -26,7 +27,6 @@ from orchestrator.defs.stk_nineturn_contract import (
 
 STK_NINETURN_DATASET_ID = "stk_nineturn"
 STK_NINETURN_SOURCE_METHOD = "prod-raw-db"
-STK_NINETURN_HISTORY_START_DATE = "2023-01-03"
 STK_NINETURN_RAW_COLUMNS = (
     "ts_code", "trade_date", "freq", "open", "high", "low", "close",
     "vol", "amount", "up_count", "down_count", "nine_up_turn",

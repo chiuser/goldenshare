@@ -18,7 +18,7 @@ from orchestrator.defs.catalog.lake_assets import (
     RAW_STK_NINETURN_CHECKS,
     SILVER_STOCK_NINETURN_DAILY_CHECKS,
 )
-from orchestrator.defs.partitions import cn_a_stock_trade_days
+from orchestrator.defs.partitions import cn_a_stk_nineturn_trade_days
 from orchestrator.defs.paths import (
     raw_stk_nineturn_path,
     silver_stock_identity_map_path,
@@ -212,7 +212,7 @@ def _manifest(dates: tuple[str, ...]) -> StkNineturnProdExportManifest:
 
 def _instance_with_partitions(dates: tuple[str, ...]) -> dg.DagsterInstance:
     instance = dg.DagsterInstance.ephemeral()
-    instance.add_dynamic_partitions(cn_a_stock_trade_days.name, list(dates))
+    instance.add_dynamic_partitions(cn_a_stk_nineturn_trade_days.name, list(dates))
     return instance
 
 

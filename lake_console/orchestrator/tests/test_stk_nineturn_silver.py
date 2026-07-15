@@ -12,7 +12,7 @@ from orchestrator.defs.checks.stk_nineturn_checks import (
 from orchestrator.defs.jobs.stk_nineturn_update import (
     silver_stock_nineturn_daily_update_job,
 )
-from orchestrator.defs.partitions import cn_a_stock_trade_days
+from orchestrator.defs.partitions import cn_a_stk_nineturn_trade_days
 from orchestrator.defs.paths import (
     raw_stk_nineturn_path,
     silver_stock_identity_map_path,
@@ -400,7 +400,7 @@ class StkNineturnSilverTests(unittest.TestCase):
             temporary_path.replace(target_path)
             instance = dg.DagsterInstance.ephemeral()
             instance.add_dynamic_partitions(
-                cn_a_stock_trade_days.name,
+                cn_a_stk_nineturn_trade_days.name,
                 [PARTITION_KEY],
             )
 
@@ -425,14 +425,14 @@ class StkNineturnSilverTests(unittest.TestCase):
             )
             instance = dg.DagsterInstance.ephemeral()
             instance.add_dynamic_partitions(
-                cn_a_stock_trade_days.name,
+                cn_a_stk_nineturn_trade_days.name,
                 [PARTITION_KEY],
             )
             definitions = dg.Definitions(
                 assets=[
                     dg.AssetSpec(
                         key="raw_tushare_stk_nineturn",
-                        partitions_def=cn_a_stock_trade_days,
+                        partitions_def=cn_a_stk_nineturn_trade_days,
                     ),
                     dg.AssetSpec(key="silver_stock_identity_map"),
                     silver_stock_nineturn_daily,

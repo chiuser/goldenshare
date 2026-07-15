@@ -11,7 +11,7 @@ from orchestrator.defs.checks.stk_nineturn_checks import (
     raw_tushare_stk_nineturn_contract_check,
 )
 from orchestrator.defs.jobs.stk_nineturn_update import raw_stk_nineturn_update_job
-from orchestrator.defs.partitions import cn_a_stock_trade_days
+from orchestrator.defs.partitions import cn_a_stk_nineturn_trade_days
 from orchestrator.defs.paths import raw_stk_nineturn_path
 from orchestrator.defs.resources import (
     DuckDBResource,
@@ -93,18 +93,24 @@ def _write_raw_rows(path: Path, rows: list[dict[str, object]]) -> None:
 class StkNineturnCheckTests(unittest.TestCase):
     def _instance(self) -> dg.DagsterInstance:
         instance = dg.DagsterInstance.ephemeral()
-        instance.add_dynamic_partitions(cn_a_stock_trade_days.name, [PARTITION_KEY])
+        instance.add_dynamic_partitions(
+            cn_a_stk_nineturn_trade_days.name,
+            [PARTITION_KEY],
+        )
         return instance
 
-    def test_checks_inherit_stock_trade_day_partitions_from_asset(self) -> None:
-        self.assertEqual(raw_tushare_stk_nineturn.partitions_def, cn_a_stock_trade_days)
+    def test_checks_inherit_nineturn_trade_day_partitions_from_asset(self) -> None:
+        self.assertEqual(
+            raw_tushare_stk_nineturn.partitions_def,
+            cn_a_stk_nineturn_trade_days,
+        )
         self.assertEqual(
             raw_tushare_stk_nineturn_contract_check.partitions_def,
-            cn_a_stock_trade_days,
+            cn_a_stk_nineturn_trade_days,
         )
         self.assertEqual(
             raw_tushare_stk_nineturn_content_integrity_check.partitions_def,
-            cn_a_stock_trade_days,
+            cn_a_stk_nineturn_trade_days,
         )
 
     def test_valid_partition_passes_both_checks(self) -> None:

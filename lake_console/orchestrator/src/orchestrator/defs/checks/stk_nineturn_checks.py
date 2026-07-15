@@ -12,7 +12,7 @@ from orchestrator.defs.assets.stk_nineturn import (
     silver_stock_nineturn_daily,
 )
 from orchestrator.defs.duckdb_sql import count_parquet_query
-from orchestrator.defs.partitions import cn_a_stock_trade_days
+from orchestrator.defs.partitions import cn_a_stk_nineturn_trade_days
 from orchestrator.defs.paths import (
     raw_stk_nineturn_path,
     silver_stock_identity_map_path,
@@ -35,10 +35,10 @@ from orchestrator.defs.stk_nineturn_contract import (
     raw_stk_nineturn_failed_row_count,
     raw_stk_nineturn_failed_rule_names,
     silver_stock_nineturn_daily_failed_rule_names,
+    STK_NINETURN_HISTORY_START_DATE,
 )
 
 
-STK_NINETURN_HISTORY_START_DATE = "2023-01-03"
 STK_NINETURN_TIMEZONE = ZoneInfo("Asia/Shanghai")
 
 
@@ -94,7 +94,7 @@ def _missing_silver_input_result(
 
 @dg.asset_check(
     asset=raw_tushare_stk_nineturn,
-    partitions_def=cn_a_stock_trade_days,
+    partitions_def=cn_a_stk_nineturn_trade_days,
     blocking=True,
 )
 def raw_tushare_stk_nineturn_contract_check(
@@ -128,7 +128,7 @@ def raw_tushare_stk_nineturn_contract_check(
             else None
         )
     registered_trade_days = set(
-        context.instance.get_dynamic_partitions(cn_a_stock_trade_days.name)
+        context.instance.get_dynamic_partitions(cn_a_stk_nineturn_trade_days.name)
     )
     is_registered = partition_key in registered_trade_days
     is_not_before_start = partition_key >= STK_NINETURN_HISTORY_START_DATE
@@ -168,7 +168,7 @@ def raw_tushare_stk_nineturn_contract_check(
                     else "按 failed_rule_names 修复 raw 分区后重新运行。"
                 ),
                 "partition_key": partition_key,
-                "partition_set_name": cn_a_stock_trade_days.name,
+                "partition_set_name": cn_a_stk_nineturn_trade_days.name,
                 "is_registered": is_registered,
                 "is_not_before_start": is_not_before_start,
                 "is_not_future": is_not_future,
@@ -192,7 +192,7 @@ def raw_tushare_stk_nineturn_contract_check(
 
 @dg.asset_check(
     asset=raw_tushare_stk_nineturn,
-    partitions_def=cn_a_stock_trade_days,
+    partitions_def=cn_a_stk_nineturn_trade_days,
     blocking=True,
 )
 def raw_tushare_stk_nineturn_content_integrity_check(
@@ -302,7 +302,7 @@ def raw_tushare_stk_nineturn_content_integrity_check(
 
 @dg.asset_check(
     asset=silver_stock_nineturn_daily,
-    partitions_def=cn_a_stock_trade_days,
+    partitions_def=cn_a_stk_nineturn_trade_days,
     blocking=True,
 )
 def silver_stock_nineturn_daily_contract_check(
@@ -342,7 +342,7 @@ def silver_stock_nineturn_daily_contract_check(
             else None
         )
     registered_trade_days = set(
-        context.instance.get_dynamic_partitions(cn_a_stock_trade_days.name)
+        context.instance.get_dynamic_partitions(cn_a_stk_nineturn_trade_days.name)
     )
     failed_rule_names = []
     if observed_schema != SILVER_STOCK_NINETURN_DAILY_EXPECTED_SCHEMA:
@@ -376,7 +376,7 @@ def silver_stock_nineturn_daily_contract_check(
                     else "按 failed_rule_names 修复 Silver 分区后重新运行。"
                 ),
                 "partition_key": partition_key,
-                "partition_set_name": cn_a_stock_trade_days.name,
+                "partition_set_name": cn_a_stk_nineturn_trade_days.name,
                 "observed_schema": _schema_metadata(observed_schema),
                 "expected_schema": _schema_metadata(
                     SILVER_STOCK_NINETURN_DAILY_EXPECTED_SCHEMA
@@ -390,7 +390,7 @@ def silver_stock_nineturn_daily_contract_check(
 @dg.asset_check(
     asset=silver_stock_nineturn_daily,
     additional_deps=[raw_tushare_stk_nineturn, silver_stock_identity_map],
-    partitions_def=cn_a_stock_trade_days,
+    partitions_def=cn_a_stk_nineturn_trade_days,
     blocking=True,
 )
 def silver_stock_nineturn_daily_canonical_integrity_check(

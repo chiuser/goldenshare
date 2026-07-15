@@ -26,6 +26,9 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 )
 
 
+STK_NINETURN_HISTORY_START_DATE = "2023-01-03"
+
+
 RAW_STK_NINETURN_COLUMNS = tuple(
     column.name for column in RAW_TUSHARE_STK_NINETURN_SCHEMA
 )

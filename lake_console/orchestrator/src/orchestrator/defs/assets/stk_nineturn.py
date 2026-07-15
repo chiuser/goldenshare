@@ -3,7 +3,7 @@
 import dagster as dg
 
 from orchestrator.defs.assets.stock_identity_map import silver_stock_identity_map
-from orchestrator.defs.partitions import cn_a_stock_trade_days
+from orchestrator.defs.partitions import cn_a_stk_nineturn_trade_days
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
     PATH_TEMPLATE_PARTITION_KEY,
@@ -41,7 +41,7 @@ from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 @dg.asset(
     name="raw_tushare_stk_nineturn",
-    partitions_def=cn_a_stock_trade_days,
+    partitions_def=cn_a_stk_nineturn_trade_days,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.QUOTE_DATA),
     metadata=build_asset_definition_metadata(
@@ -136,7 +136,7 @@ def raw_tushare_stk_nineturn(
 @dg.asset(
     name="silver_stock_nineturn_daily",
     deps=[raw_tushare_stk_nineturn, silver_stock_identity_map],
-    partitions_def=cn_a_stock_trade_days,
+    partitions_def=cn_a_stk_nineturn_trade_days,
     group_name="quote",
     tags=build_asset_tags(
         layer=AssetLayer.SILVER,

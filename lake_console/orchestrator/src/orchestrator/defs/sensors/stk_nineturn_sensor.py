@@ -20,7 +20,7 @@ from orchestrator.defs.asset_guards.stk_nineturn_lake_readiness import (
     batch_raw_stk_nineturn_lake_readiness,
     batch_silver_stock_nineturn_daily_lake_readiness,
 )
-from orchestrator.defs.partitions import cn_a_stock_trade_days
+from orchestrator.defs.partitions import cn_a_stk_nineturn_trade_days
 from orchestrator.defs.paths import (
     silver_stock_identity_map_path,
     silver_trade_calendar_path,
@@ -43,9 +43,9 @@ from orchestrator.defs.run_contracts.sensor_tags import (
     build_sensor_tags,
 )
 from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
+from orchestrator.defs.stk_nineturn_contract import STK_NINETURN_HISTORY_START_DATE
 
 
-STK_NINETURN_HISTORY_START_DATE = "2023-01-03"
 RAW_STK_NINETURN_RUN_START = time(21, 15)
 SILVER_STOCK_NINETURN_RUN_START = time(21, 20)
 
@@ -216,7 +216,7 @@ def _sensor_cursor(
             sensor_name=sensor_name,
             job_name=job_name,
             asset_family="stk_nineturn",
-            partition_set=cn_a_stock_trade_days.name,
+            partition_set=cn_a_stk_nineturn_trade_days.name,
             reason_code=reason_code,
             blocked_component=blocked_component,
             summary=summary,
@@ -239,7 +239,7 @@ def _sensor_cursor(
 
 def _registered_gap_reason(gap_status: ContinuityRegisteredGapStatus) -> str:
     return (
-        "股票交易日分区存在缺口，最早缺失日期为 "
+        "神奇九转交易日分区存在缺口，最早缺失日期为 "
         f"{gap_status.first_missing_registered_date}，暂不触发神奇九转更新。"
     )
 
@@ -264,7 +264,9 @@ def raw_stk_nineturn_update_job_sensor(
     expected_window = _load_expected_window(context, evaluated_at)
     registered_trade_days = tuple(
         sorted(
-            context.instance.get_dynamic_partitions(cn_a_stock_trade_days.name)
+            context.instance.get_dynamic_partitions(
+                cn_a_stk_nineturn_trade_days.name
+            )
         )
     )
     gap_status = build_registered_gap_status(
@@ -286,8 +288,8 @@ def raw_stk_nineturn_update_job_sensor(
                 selection=None,
                 selected_trade_date=None,
                 reason_code="missing_registered_partition",
-                blocked_component=cn_a_stock_trade_days.name,
-                summary="未触发：股票交易日分区存在缺口。",
+                blocked_component=cn_a_stk_nineturn_trade_days.name,
+                summary="未触发：神奇九转交易日分区存在缺口。",
                 next_action="先补齐 dynamic partition，再等待下一次 sensor tick。",
                 run_window_started=run_window_started,
             ),
@@ -401,7 +403,9 @@ def silver_stock_nineturn_daily_update_job_sensor(
     expected_window = _load_expected_window(context, evaluated_at)
     registered_trade_days = tuple(
         sorted(
-            context.instance.get_dynamic_partitions(cn_a_stock_trade_days.name)
+            context.instance.get_dynamic_partitions(
+                cn_a_stk_nineturn_trade_days.name
+            )
         )
     )
     gap_status = build_registered_gap_status(
@@ -423,8 +427,8 @@ def silver_stock_nineturn_daily_update_job_sensor(
                 selection=None,
                 selected_trade_date=None,
                 reason_code="missing_registered_partition",
-                blocked_component=cn_a_stock_trade_days.name,
-                summary="未触发：股票交易日分区存在缺口。",
+                blocked_component=cn_a_stk_nineturn_trade_days.name,
+                summary="未触发：神奇九转交易日分区存在缺口。",
                 next_action="先补齐 dynamic partition，再等待下一次 sensor tick。",
                 run_window_started=run_window_started,
             ),

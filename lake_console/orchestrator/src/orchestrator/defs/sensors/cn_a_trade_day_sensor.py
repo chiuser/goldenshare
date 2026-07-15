@@ -123,7 +123,14 @@ def build_trade_day_partition_decision(
     )
 
 
-def _cursor_payload(decision: TradeDayPartitionDecision, evaluated_at: datetime) -> str:
+def _cursor_payload(
+    decision: TradeDayPartitionDecision,
+    evaluated_at: datetime,
+    *,
+    sensor_name: str,
+    asset_family: str,
+    partition_set: str,
+) -> str:
     cursor_decision = (
         SensorCursorDecision.REGISTER_PARTITIONS
         if decision.selected_keys
@@ -140,10 +147,10 @@ def _cursor_payload(decision: TradeDayPartitionDecision, evaluated_at: datetime)
         ),
         sample_keys=decision.selected_keys,
         details=build_cursor_details(
-            sensor_name="cn_a_trade_day_sensor",
+            sensor_name=sensor_name,
             job_name=None,
-            asset_family="trade_day_partitions",
-            partition_set="cn_a_trade_days",
+            asset_family=asset_family,
+            partition_set=partition_set,
             reason_code=(
                 "register_partitions"
                 if decision.selected_keys
@@ -215,6 +222,9 @@ def build_trade_day_partition_registration_result(
     min_trade_date: str,
     partition_set_label: str,
     same_day_register_start: time = SAME_DAY_PARTITION_REGISTER_START,
+    sensor_name: str = "cn_a_trade_day_sensor",
+    asset_family: str = "trade_day_partitions",
+    cursor_partition_set: str = "cn_a_trade_days",
 ) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
     lake_root = context.resources.lake_root
@@ -287,14 +297,26 @@ def build_trade_day_partition_registration_result(
             skip_reason = f"当前所有符合条件的{partition_set_label}交易日分区都已经注册。"
         return dg.SensorResult(
             skip_reason=skip_reason,
-            cursor=_cursor_payload(decision, evaluated_at),
+            cursor=_cursor_payload(
+                decision,
+                evaluated_at,
+                sensor_name=sensor_name,
+                asset_family=asset_family,
+                partition_set=cursor_partition_set,
+            ),
         )
 
     return dg.SensorResult(
         dynamic_partitions_requests=[
             dynamic_partitions.build_add_request(list(decision.selected_keys))
         ],
-        cursor=_cursor_payload(decision, evaluated_at),
+        cursor=_cursor_payload(
+            decision,
+            evaluated_at,
+            sensor_name=sensor_name,
+            asset_family=asset_family,
+            partition_set=cursor_partition_set,
+        ),
     )
 
 

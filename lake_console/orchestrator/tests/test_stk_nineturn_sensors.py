@@ -25,6 +25,7 @@ from orchestrator.defs.sensors.stk_nineturn_sensor import (
     raw_stk_nineturn_update_job_sensor,
     silver_stock_nineturn_daily_update_job_sensor,
 )
+from orchestrator.defs.partitions import cn_a_stk_nineturn_trade_days
 
 
 TRADE_DATES = ("2026-07-07", "2026-07-08", "2026-07-09")
@@ -196,6 +197,14 @@ class StkNineturnSensorTests(unittest.TestCase):
             self.assertEqual(result.run_requests, [])
             details = json.loads(result.cursor)["details"]
             self.assertEqual(details["reason_code"], "missing_registered_partition")
+            self.assertEqual(
+                details["partition_set"],
+                cn_a_stk_nineturn_trade_days.name,
+            )
+            self.assertEqual(
+                details["blocked_component"],
+                cn_a_stk_nineturn_trade_days.name,
+            )
             self.assertEqual(details["frontier"]["first_missing_registered_date"], TRADE_DATES[1])
 
     def test_raw_before_window_skips_without_batch_scan(self) -> None:

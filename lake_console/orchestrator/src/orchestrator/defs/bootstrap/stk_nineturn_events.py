@@ -27,7 +27,7 @@ from orchestrator.defs.catalog.lake_assets import (
     RAW_STK_NINETURN_CHECKS,
     SILVER_STOCK_NINETURN_DAILY_CHECKS,
 )
-from orchestrator.defs.partitions import cn_a_stock_trade_days
+from orchestrator.defs.partitions import cn_a_stk_nineturn_trade_days
 from orchestrator.defs.paths import (
     raw_stk_nineturn_path,
     silver_stock_nineturn_daily_path,
@@ -213,7 +213,9 @@ def plan_stk_nineturn_runless_events(
             "check_partition_keys must be a subset of materialization_partition_keys."
         )
 
-    registered = set(instance.get_dynamic_partitions(cn_a_stock_trade_days.name))
+    registered = set(
+        instance.get_dynamic_partitions(cn_a_stk_nineturn_trade_days.name)
+    )
     missing_registered = sorted(
         set(selected_materialization_keys).union(selected_check_keys) - registered
     )

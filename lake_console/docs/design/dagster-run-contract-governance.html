@@ -544,6 +544,12 @@
     <p>
       当前实现要求所有 sensor definition 的 tags 均通过 <code>defs/run_contracts/sensor_tags.py</code> 的 <code>build_sensor_tags(...)</code> 构造。本文档是 sensor definition tags 的治理口径；<code>dagster-asset-job-topology.html</code> 记录当前 sensor 拓扑和分类现状。新增或修改 sensor 时，必须同步更新本文档、拓扑文档和静态门禁。
     </p>
+    <p>
+      九转专属分区注册 sensor 的确定分类是：<code>stk_nineturn_trade_day_sensor</code> 使用
+      <code>quote_data / partition / partition_registration</code>。它只写
+      <code>cn_a_stk_nineturn_trade_days</code>，不提交 <code>RunRequest</code>，默认
+      <code>STOPPED</code>；它不能冒充共享股票交易日分区的维护者，也不能把“注册分区”和“生产九转数据”混在一个 sensor 里。
+    </p>
   </section>
 
   <section>

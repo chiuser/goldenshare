@@ -23,10 +23,14 @@ from orchestrator.defs.stk_nineturn_contract import (
     RAW_STK_NINETURN_COLUMN_TYPES,
     SILVER_STOCK_NINETURN_DAILY_COLUMNS,
     SILVER_STOCK_NINETURN_DAILY_COLUMN_TYPES,
+    STK_NINETURN_HISTORY_START_DATE,
 )
 
 
 class StkNineturnContractTests(unittest.TestCase):
+    def test_history_start_date_is_centralized(self) -> None:
+        self.assertEqual(STK_NINETURN_HISTORY_START_DATE, "2023-01-03")
+
     def test_schema_contracts_and_derived_constants_are_stable(self) -> None:
         expected_columns = (
             "ts_code",
