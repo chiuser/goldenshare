@@ -4,6 +4,12 @@
 
 复审日期：2026-06-05
 
+> **历史审计快照（2026-07-15 校正）：** 本文的性能样本、P0/P1/P2 优先级和
+> raw-by-code 结论只描述 2026-06 的代码与数据规模。后续指数日线已迁移到 raw by-date /
+> prod core DB 链路；QFQ/MACD-KDJ 公式 production check 已退出，公式正确性转由受保护金样本
+> 测试承担。当前性能规则以 <a href="dagster-data-pipeline-performance-governance.md">数据管道性能治理规范</a>
+> 和对应数据集 LLD 为准；本文不改写原始测量数字。
+
 ## 审计目标
 
 本轮审计只回答一个问题：当前新湖 Dagster asset、check、关键 helper 中，是否还存在违反性能门禁的实现，尤其是：

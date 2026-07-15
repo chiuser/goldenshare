@@ -9,7 +9,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 import os
-import re
 from time import perf_counter
 from uuid import uuid4
 
@@ -104,6 +103,14 @@ class DcBoardSilverWriteResult:
             "elapsed_ms": round(self.elapsed_ms, 3),
             "write_mode": "duckdb_set_based_atomic_replace",
         }
+
+
+@dataclass(frozen=True, slots=True)
+class DcBoardSilverStagingResult:
+    """Validated Silver output that has not been promoted yet."""
+
+    result: DcBoardSilverWriteResult
+    staging_path: Path
 
 
 @dataclass(frozen=True, slots=True)
@@ -344,13 +351,14 @@ def _conflict_counts(connection, normalized_sql: str, key_columns: Sequence[str]
     return int(duplicate_count or 0), int(conflict_count or 0)
 
 
-def _write_silver_partition(
+def _stage_silver_partition(
     *,
     dataset: str,
     lake_root_path: Path,
-    duckdb_resource: DuckDBResource,
+    connection,
     partition_key: str,
-) -> DcBoardSilverWriteResult:
+    staging_tag: str,
+) -> DcBoardSilverStagingResult:
     spec = _SPECS[dataset]
     raw_path = spec.raw_path_builder(lake_root_path, partition_key)
     target_path = spec.silver_path_builder(lake_root_path, partition_key)
@@ -362,91 +370,136 @@ def _write_silver_partition(
     if not calendar_path.exists():
         raise FileNotFoundError(f"Missing silver trade calendar file: {calendar_path}")
 
+    if _open_day_count(connection, calendar_path, partition_key) != 1:
+        raise DcBoardSilverValidationError(
+            f"{dataset} partition {partition_key} is not exactly one SSE open day."
+        )
+    source_schema = _schema_mismatches(connection, raw_path, spec.raw_schema)
+    if source_schema["mismatch"]:
+        raise DcBoardSilverValidationError(
+            f"raw {dataset} schema does not match contract: {source_schema}"
+        )
+
+    normalized_sql = spec.normalized_sql_builder(raw_path)
+    source_row_count = int(
+        connection.execute(f"SELECT count(*) FROM ({normalized_sql}) normalized").fetchone()[0]
+    )
+    if source_row_count <= 0:
+        raise DcBoardSilverValidationError(
+            f"raw {dataset} has no rows for {partition_key}."
+        )
+
+    rejection_rows = connection.execute(
+        spec.rejection_sql_builder(normalized_sql, partition_key)
+    ).fetchall()
+    reject_reason_counts = {str(row[0]): int(row[1]) for row in rejection_rows}
+    rejected_row_count = sum(reject_reason_counts.values())
+    if rejected_row_count:
+        raise DcBoardSilverValidationError(
+            f"{dataset} Silver normalization rejected rows for {partition_key}: "
+            f"{reject_reason_counts}"
+        )
+
+    value_columns = tuple(
+        column.name for column in spec.silver_schema if column.name not in spec.key_columns
+    )
+    duplicate_removed_count, conflict_key_count = _conflict_counts(
+        connection,
+        normalized_sql,
+        spec.key_columns,
+        value_columns,
+    )
+    if conflict_key_count:
+        raise DcBoardSilverValidationError(
+            f"{dataset} has conflicting duplicate business keys for {partition_key}: "
+            f"conflict_key_count={conflict_key_count}"
+        )
+
+    output_sql = (
+        f"SELECT DISTINCT * FROM ({normalized_sql}) normalized "
+        f"ORDER BY {', '.join(spec.key_columns)}"
+    )
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    staging_path = target_path.with_name(
+        f"{target_path.name}.{staging_tag}-{uuid4().hex}.tmp"
+    )
+    try:
+        connection.execute(copy_query_to_parquet(output_sql, staging_path))
+        target_schema = _schema_mismatches(connection, staging_path, spec.silver_schema)
+        if target_schema["mismatch"]:
+            raise DcBoardSilverValidationError(
+                f"silver {dataset} staging schema does not match contract: {target_schema}"
+            )
+        output_row_count = int(
+            connection.execute(f"SELECT count(*) FROM {read_parquet(staging_path)}").fetchone()[0]
+        )
+        if output_row_count <= 0:
+            raise DcBoardSilverValidationError(
+                f"silver {dataset} staging has no rows for {partition_key}."
+            )
+    except Exception:
+        if staging_path.exists():
+            staging_path.unlink()
+        raise
+
+    return DcBoardSilverStagingResult(
+        result=DcBoardSilverWriteResult(
+            dataset=dataset,
+            partition_key=partition_key,
+            source_file_path=raw_path,
+            target_file_path=target_path,
+            source_row_count=source_row_count,
+            output_row_count=output_row_count,
+            duplicate_removed_count=duplicate_removed_count,
+            conflict_key_count=conflict_key_count,
+            rejected_row_count=rejected_row_count,
+            reject_reason_counts=reject_reason_counts,
+            observed_columns=tuple(column.name for column in spec.silver_schema),
+            elapsed_ms=(perf_counter() - started_at) * 1000,
+        ),
+        staging_path=staging_path,
+    )
+
+
+def _write_silver_partition(
+    *,
+    dataset: str,
+    lake_root_path: Path,
+    duckdb_resource: DuckDBResource,
+    partition_key: str,
+) -> DcBoardSilverWriteResult:
     with duckdb_resource.connect() as connection:
-        if _open_day_count(connection, calendar_path, partition_key) != 1:
-            raise DcBoardSilverValidationError(
-                f"{dataset} partition {partition_key} is not exactly one SSE open day."
-            )
-        source_schema = _schema_mismatches(connection, raw_path, spec.raw_schema)
-        if source_schema["mismatch"]:
-            raise DcBoardSilverValidationError(
-                f"raw {dataset} schema does not match contract: {source_schema}"
-            )
-
-        normalized_sql = spec.normalized_sql_builder(raw_path)
-        source_row_count = int(
-            connection.execute(f"SELECT count(*) FROM ({normalized_sql}) normalized").fetchone()[0]
+        staged = _stage_silver_partition(
+            dataset=dataset,
+            lake_root_path=lake_root_path,
+            connection=connection,
+            partition_key=partition_key,
+            staging_tag="m5",
         )
-        if source_row_count <= 0:
-            raise DcBoardSilverValidationError(
-                f"raw {dataset} has no rows for {partition_key}."
-            )
-
-        rejection_rows = connection.execute(
-            spec.rejection_sql_builder(normalized_sql, partition_key)
-        ).fetchall()
-        reject_reason_counts = {str(row[0]): int(row[1]) for row in rejection_rows}
-        rejected_row_count = sum(reject_reason_counts.values())
-        if rejected_row_count:
-            raise DcBoardSilverValidationError(
-                f"{dataset} Silver normalization rejected rows for {partition_key}: "
-                f"{reject_reason_counts}"
-            )
-
-        value_columns = tuple(
-            column.name for column in spec.silver_schema if column.name not in spec.key_columns
-        )
-        duplicate_removed_count, conflict_key_count = _conflict_counts(
-            connection,
-            normalized_sql,
-            spec.key_columns,
-            value_columns,
-        )
-        if conflict_key_count:
-            raise DcBoardSilverValidationError(
-                f"{dataset} has conflicting duplicate business keys for {partition_key}: "
-                f"conflict_key_count={conflict_key_count}"
-            )
-
-        output_sql = (
-            f"SELECT DISTINCT * FROM ({normalized_sql}) normalized "
-            f"ORDER BY {', '.join(spec.key_columns)}"
-        )
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        staging_path = target_path.with_name(f"{target_path.name}.m5-{uuid4().hex}.tmp")
         try:
-            connection.execute(copy_query_to_parquet(output_sql, staging_path))
-            target_schema = _schema_mismatches(connection, staging_path, spec.silver_schema)
-            if target_schema["mismatch"]:
-                raise DcBoardSilverValidationError(
-                    f"silver {dataset} staging schema does not match contract: {target_schema}"
-                )
-            output_row_count = int(
-                connection.execute(f"SELECT count(*) FROM {read_parquet(staging_path)}").fetchone()[0]
-            )
-            if output_row_count <= 0:
-                raise DcBoardSilverValidationError(
-                    f"silver {dataset} staging has no rows for {partition_key}."
-                )
-            os.replace(staging_path, target_path)
+            os.replace(staged.staging_path, staged.result.target_file_path)
         except Exception:
-            if staging_path.exists():
-                staging_path.unlink()
+            if staged.staging_path.exists():
+                staged.staging_path.unlink()
             raise
+    return staged.result
 
-    return DcBoardSilverWriteResult(
-        dataset=dataset,
+
+def stage_silver_dc_daily_partition_with_connection(
+    *,
+    lake_root_path: Path,
+    connection,
+    partition_key: str,
+    staging_tag: str = "m6-repair",
+) -> DcBoardSilverStagingResult:
+    """Build and validate one dc_daily Silver staging file without promotion."""
+
+    return _stage_silver_partition(
+        dataset="dc_daily",
+        lake_root_path=lake_root_path,
+        connection=connection,
         partition_key=partition_key,
-        source_file_path=raw_path,
-        target_file_path=target_path,
-        source_row_count=source_row_count,
-        output_row_count=output_row_count,
-        duplicate_removed_count=duplicate_removed_count,
-        conflict_key_count=conflict_key_count,
-        rejected_row_count=rejected_row_count,
-        reject_reason_counts=reject_reason_counts,
-        observed_columns=tuple(column.name for column in spec.silver_schema),
-        elapsed_ms=(perf_counter() - started_at) * 1000,
+        staging_tag=staging_tag,
     )
 
 
@@ -580,10 +633,12 @@ def silver_dc_daily(context: dg.AssetExecutionContext, lake_root: LakeRootResour
 
 __all__ = [
     "DcBoardSilverValidationError",
+    "DcBoardSilverStagingResult",
     "DcBoardSilverWriteResult",
     "silver_dc_daily",
     "silver_dc_index",
     "silver_dc_member",
+    "stage_silver_dc_daily_partition_with_connection",
     "write_silver_dc_daily_partition",
     "write_silver_dc_index_partition",
     "write_silver_dc_member_partition",

@@ -786,16 +786,15 @@ M12J 自动触发规则：
 
 ### 11.1 指标结果 checks
 
-下表前 3 个细粒度名称记录 M12 的历史 rule 语义；当前代码已将文件/行数/schema 收敛为
-`contract_check`，将 qfq source/行数对账收敛为 `source_coverage_check`。后续治理专项还必须
-删除公式类 production check，并把公式断言留在受保护金样本测试中。
+下表前三个细粒度名称只记录 M12 的历史 rule 语义；当前 production check 已收敛为
+`contract_check` 与 `source_coverage_check`。公式类 production check 已退出，公式断言由受保护金样本测试承担。
 
 | check | 口径 |
 |---|---|
 | `gold_stk_mins_qfq_macd_kdj_file_exists_and_schema_check` | 当日涉及的 stock-year 指标文件存在，schema 等于 definition metadata 契约 |
 | `gold_stk_mins_qfq_macd_kdj_source_ready_check` | 同分区 qfq source 存在且有行 |
 | `gold_stk_mins_qfq_macd_kdj_row_count_matches_qfq_check` | 指标行数等于同分区 qfq source 行数 |
-| 待退役的 `gold_stk_mins_qfq_macd_kdj_formula_sample_check` | 当前代码仍存在；后续专项将其移除。MACD/KDJ 公式自洽改由受保护金样本测试验证，不在 production check 中二次计算。 |
+| 历史 `gold_stk_mins_qfq_macd_kdj_formula_sample_check` | 已退出正式 Dagster check；MACD/KDJ 公式自洽由受保护金样本测试验证，不在 production check 中二次计算。 |
 
 ### 11.2 State checks
 

@@ -1003,12 +1003,17 @@ qfq formula checks</pre>
     </table>
 
     <h3>5.5 指数日线链路</h3>
-    <pre class="flow">raw_tushare_index_daily_by_code
+    <pre class="flow">prod core_serving.index_daily_serving
         │
-        ├─ DuckDB file-fact gate:
-        │   recent 60-day raw continuity + target-date presence
+        ├─ raw_index_daily_update_job_sensor
+        │   recent 10-day raw readiness + selected-date prod source coverage
         ▼
-silver_index_daily
+raw_index_daily[trade_date]
+        │
+        ├─ raw_index_daily_file_contract_check
+        ├─ raw_index_daily_code_coverage_check
+        ▼
+silver_index_daily[trade_date]
         ▼
 gold_market_major_indices_daily</pre>
     <table>
@@ -1022,10 +1027,10 @@ gold_market_major_indices_daily</pre>
       </thead>
       <tbody>
       <tr>
-        <td><code>silver_index_daily_sensor</code> 提交 <code>silver_index_daily_update_job</code></td>
-        <td><code>audit_index_daily_raw_gaps</code> 和 <code>check_index_daily_raw_files_for_trade_date</code>，均通过 DuckDB 文件事实判断。</td>
-        <td class="ok"><code>file-fact ready</code> 是正式接受口径，不应改成逐 code event 深扫。注意 <code>silver_index_basic</code> 被作为文件事实输入，后续可考虑补 event/check ready gate。</td>
-        <td>影响 <code>gold_market_major_indices_daily</code>。当前主要指数 sensor 还会检查 <code>silver_index_daily_ready_for_trade_date</code> 和 <code>silver_index_basic_ready</code>。</td>
+        <td><code>raw_index_daily_update_job_sensor</code> 提交 <code>raw_index_daily_update_job</code>；<code>silver_index_daily_sensor</code> 在同日 raw ready 后提交 <code>silver_index_daily_update_job</code></td>
+        <td>raw 以 <code>raw_index_daily_file_contract_check</code> 和 <code>raw_index_daily_code_coverage_check</code> 验证同日 by-date 文件；raw sensor 还对 selected date 的 prod source 做只读覆盖探针。</td>
+        <td class="ok"><code>file-fact ready</code> 仍是正式接受口径，但当前实现按最多 10 个交易日批量读取 raw by-date 文件和 latest check 状态，不做逐 code event 深扫。silver 覆盖必须与同日 raw 文件 code set 一致，不从当前动态代码集合反推历史分区。</td>
+        <td>影响 <code>gold_market_major_indices_daily</code>。当前主要指数 sensor 还会检查 <code>silver_index_daily_ready_for_trade_date</code>、<code>silver_index_basic_ready</code> 和 seed 输入。</td>
       </tr>
       </tbody>
     </table>
@@ -1290,7 +1295,7 @@ silver_stk_mins_1m/5m/15m/30m/60m</pre>
       <li>股票日线 missing-code repair：<a href="../../orchestrator/src/orchestrator/defs/sensors/stock_daily_raw_repair.py"><code>stock_daily_raw_repair.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/tushare_api_io.py"><code>tushare_api_io.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/run_contracts/configs.py"><code>configs.py</code></a>。</li>
       <li>停复牌触发：<a href="../../orchestrator/src/orchestrator/defs/sensors/suspend_d_sensor.py"><code>suspend_d_sensor.py</code></a>。</li>
       <li>复权因子触发：<a href="../../orchestrator/src/orchestrator/defs/sensors/stock_adj_factor_sensor.py"><code>stock_adj_factor_sensor.py</code></a>，文件内包含 <code>raw_adj_factor_update_job_sensor</code> 与 <code>silver_adj_factor_update_job_sensor</code>。</li>
-      <li>指数日线文件事实 gate：<a href="../../orchestrator/src/orchestrator/defs/sensors/silver_index_daily_sensor.py"><code>silver_index_daily_sensor.py</code></a> 与 <a href="../../orchestrator/src/orchestrator/defs/sensors/index_daily_raw_file_readiness.py"><code>index_daily_raw_file_readiness.py</code></a>。</li>
+      <li>指数日线文件事实 gate：<a href="../../orchestrator/src/orchestrator/defs/sensors/raw_index_daily_update_job_sensor.py"><code>raw_index_daily_update_job_sensor.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/sensors/silver_index_daily_sensor.py"><code>silver_index_daily_sensor.py</code></a> 与 <a href="../../orchestrator/src/orchestrator/defs/sensors/index_daily_raw_file_readiness.py"><code>index_daily_raw_file_readiness.py</code></a>。</li>
       <li>分钟线 silver gate：<a href="../../orchestrator/src/orchestrator/defs/sensors/stock_mins_silver_trade_day_sensor.py"><code>stock_mins_silver_trade_day_sensor.py</code></a> 与 <a href="../../orchestrator/src/orchestrator/defs/sensors/stock_mins_silver_sensor.py"><code>stock_mins_silver_sensor.py</code></a>。</li>
       <li>直接下游：<a href="../../orchestrator/src/orchestrator/defs/assets/market_breadth.py"><code>market_breadth.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/assets/stock_return_distribution.py"><code>stock_return_distribution.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/assets/stk_mins.py"><code>stk_mins.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/assets/market_major_indices.py"><code>market_major_indices.py</code></a>。</li>
       <li>本地验证：<a href="../../orchestrator/tests/test_stock_daily_sensor.py"><code>test_stock_daily_sensor.py</code></a>、<a href="../../orchestrator/tests/test_stock_daily_raw_repair.py"><code>test_stock_daily_raw_repair.py</code></a>、<a href="../../orchestrator/tests/test_suspend_d_sensor.py"><code>test_suspend_d_sensor.py</code></a>、<a href="../../orchestrator/tests/test_suspend_d_checks.py"><code>test_suspend_d_checks.py</code></a>、<a href="../../orchestrator/tests/test_run_contract_configs.py"><code>test_run_contract_configs.py</code></a>、<a href="../../orchestrator/tests/test_run_contract_static_gates.py"><code>test_run_contract_static_gates.py</code></a>。</li>

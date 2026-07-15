@@ -3,6 +3,12 @@
 > 日期：2026-06-04  
 > 状态：阶段性审计记录，P0 已先行登记；后续仍需继续补充其它资产族的非 P0 风险。
 
+> **历史审计快照（2026-07-15 校正）：** 本文的架构结论、代码路径和性能数字固定在
+> 2026-06-04 审计时点。后续 QFQ/MACD-KDJ 生产 check 已按“输入、文件、覆盖、repair 状态”
+> 收敛，公式正确性由受保护金样本测试承担；指数日线也已完成 raw by-date / prod core DB
+> 迁移。现行长期约束以 <a href="dagster-data-pipeline-performance-governance.md">数据管道性能治理规范</a>、
+> <a href="dagster-run-contract-governance.html">run contract governance</a> 和对应数据集 LLD 为准；本文不改写原始审计证据。
+
 ## 审计范围
 
 本轮审计对象是 `lake_console/orchestrator/src/orchestrator/defs/**` 中的新湖 Dagster definitions：

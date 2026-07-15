@@ -2,6 +2,15 @@
 
 状态：M1-M9 已完成实现、本地完整回归与最终专项验收。legacy bridge 已退出，本文保留为实现对账和回归测试参考。
 
+> **指数日线状态校正（2026-07-15）：** 本文第 4 节中的
+> `index_daily_late_arrival_repair.py` 是 raw-by-code 退出前的历史审计对象，文件和
+> 对应测试已删除。现行 raw 指数日线由
+> `raw_index_daily_update_job_sensor.py` 以
+> `build_asset_update_run_key(subject="raw_index_daily", unit_id=trade_date)` 生成
+> date-level run key；run config 由
+> `build_raw_index_daily_update_job_run_config(...)` 构造。指数当前实现以
+> `dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md` 为准。
+
 更新时间：2026-06-17
 
 上层方案：`lake_console/docs/design/dagster-run-key-governance-optimization-plan.md`
@@ -105,7 +114,7 @@ CodeGraph 重点覆盖：
 | --- | --- | --- |
 | `src/orchestrator/defs/run_contracts/requests.py` | `build_run_request(...)` 只是 `dg.RunRequest` 薄封装，不生成 run key。 | 保留该职责；新增 run key builder 不塞进 `requests.py`。 |
 | `src/orchestrator/defs/sensors/**` | 多数 sensor 直接用 `run_key=f"...` 或 `dg.RunRequest(run_key=(...))` 手写模板。 | 全量迁移到统一 builder；除前复权分钟线 MACD/KDJ 修复外，输出字符串必须不变。 |
-| `src/orchestrator/defs/sensors/index_daily_late_arrival_repair.py` | 已有 `base_index_daily_run_key(...)`、`repair_index_daily_run_key(...)` 两个局部 helper。 | 删除局部 helper，改用统一 `build_asset_update_run_key` / `build_repair_attempt_run_key`。 |
+| 历史 `src/orchestrator/defs/sensors/index_daily_late_arrival_repair.py` | raw-by-code 退出前存在 `base_index_daily_run_key(...)`、`repair_index_daily_run_key(...)` 两个局部 helper；该文件已删除。 | 这是历史迁移证据，不是现行实现。当前 raw 指数日线使用 `build_asset_update_run_key(subject="raw_index_daily", unit_id=trade_date)`；不存在专属 late-arrival repair helper。 |
 | `src/orchestrator/defs/sensors/stock_daily_sensor.py` | raw 日更和 missing-code repair run key 在 sensor 内拼接。 | 日更迁到 asset update builder；missing-code repair 迁到 repair attempt builder，字符串保持不变。 |
 | `src/orchestrator/defs/sensors/gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py` | 日常更新 run key 是 `gold_stk_mins_qfq_macd_kdj_daily_update:{trade_date}`。 | 这是普通资产更新，不使用 `upstream_batch_id`；字符串保持不变。 |
 | `src/orchestrator/defs/sensors/gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py` | 治理前修复 run key 是 `gold_stk_mins_qfq_macd_kdj_repair:{target_trade_date}:{repair_required_codes_hash}:{qfq_event_identity}`，其中 `qfq_event_identity` 来自上游 check event storage ids。 | 改为 `build_upstream_triggered_run_key(consumer, upstream_batch_id)`；run config 显式传 `upstream_batch_id` 和执行参数。 |
@@ -815,7 +824,7 @@ cd lake_console/orchestrator
 uv run pytest tests/test_run_contract_run_keys.py
 uv run pytest tests/test_run_contract_static_gates.py
 uv run pytest tests/test_stock_daily_sensor.py
-uv run pytest tests/test_index_daily_late_arrival_repair.py
+uv run pytest tests/test_raw_index_daily_update_job_sensor.py
 uv run pytest tests -k "qfq and macd"
 ```
 

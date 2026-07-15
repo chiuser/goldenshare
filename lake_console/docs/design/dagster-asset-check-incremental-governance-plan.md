@@ -2,6 +2,8 @@
 
 更新时间：2026-06-24
 
+> **QFQ/MACD-KDJ 状态校正（2026-07-15）：** 本文早期表格中的 event 数量与旧 formula rule 是历史统计，不是当前 active check 定义。现行 QFQ/MACD-KDJ production check 以 `dagster-stk-mins-qfq-validation-governance-low-level-design.md` 和 `defs/checks/**` 为准：QFQ native/derived 各 4 条，indicator 每频度 2 条，state 每频度 2 条；公式正确性只由受保护金样本测试验证。
+
 低层设计：[`dagster-asset-check-incremental-governance-low-level-design.md`](./dagster-asset-check-incremental-governance-low-level-design.md)
 
 ## 1. 背景
@@ -36,9 +38,9 @@
 3. 非 blocking / WARN 观测 check 也会写入 Dagster DB；它们不参与 readiness 阻断，默认不应长期保留，后续按 materialization metadata 或离线审计报告收敛。
 4. repair/status/completion 类通过 op helper 上报的特殊 check 不属于 ordinary quality check，按保护账本单独处理。
 
-当前 `asset_check_executions` 高基数分布如下：
+截至 2026-06-24 的历史 `asset_check_executions` 高基数快照如下；其中 check name 数是当时 event 中出现的名称数量，不是当前 active check 清单：
 
-| 资产族 | check rows | asset 数 | check name 数 | distinct partition 数 | null partition rows | 最近 7 天新增 |
+| 资产族 | 历史 check rows | asset 数 | 历史 check name 数 | distinct partition 数 | null partition rows | 当时最近 7 天新增 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | other | 256,058 | 18 | 127 | 4,215 | 180,188 | 543 |
 | market_breadth / return / serving | 111,799 | 4 | 24 | 4 | 111,779 | 122 |
@@ -49,9 +51,9 @@
 | MACD/KDJ indicator | 861 | 7 | 5 | 21 | 168 | 357 |
 | MACD/KDJ state | 469 | 7 | 3 | 21 | 84 | 189 |
 
-当前最大来源已经不是分钟线历史，而是以下资产：
+该历史快照中的最大来源已经不是分钟线历史，而是以下资产：
 
-| asset | check rows | check names | null partition rows | 说明 |
+| asset | 历史 check rows | 历史 check names | null partition rows | 说明 |
 | --- | ---: | ---: | ---: | --- |
 | `gold_market_major_indices_daily` | 66,370 | 11 | 66,370 | 多个普通质量 check，历史 partition 归属为空 |
 | `silver_stock_daily` | 61,560 | 14 | 61,560 | 日线 silver 质量 check 较多，历史 partition 归属为空 |
@@ -563,8 +565,7 @@ P6C 已落地事实：
   `gold_stk_mins_qfq_contract_check`、
   `gold_stk_mins_qfq_key_integrity_check`、
   `gold_stk_mins_qfq_value_domain_check`、
-  `gold_stk_mins_qfq_derived_source_coverage_check`、
-  `gold_stk_mins_qfq_derived_formula_matches_source` 5 个。
+  `gold_stk_mins_qfq_derived_source_coverage_check` 4 个。
 - native 的文件/行数、schema、freq/date/path 进入 `contract`；唯一键进入
   `key_integrity`；价格进入 `value_domain`；row count 与 adj factor coverage 进入
   `source_coverage`。
@@ -574,21 +575,19 @@ P6C 已落地事实：
 - native QFQ 和 derived QFQ 的公式校验均转为受保护测试金样本，不再注册 Dagster
   formula check；derived source window 继续作为来源事实保留。
 - `batch_gold_stk_mins_qfq_lake_readiness(...)`、catalog、readiness specs、
-  qfq history/bootstrap event 数量估算均同步为 4 个 native 正式 check；旧细粒度名称只保留为
+  qfq history/bootstrap event 数量估算均同步为 native/derived 各 4 个正式 check；旧细粒度名称只保留为
   check metadata 的 `failed_rule_names` 诊断标签。
 - P6C 不触碰 qfq factor repair protected check，不改变 qfq daily/repair 文件写入、
   run key、upstream batch 或 completion metadata。
 
-P6D 当前代码事实与后续治理目标：
+P6D 已收敛代码事实：
 
 - `gold_stk_mins_qfq_macd_kdj_1m/5m/15m/30m/60m/90m/120m` indicator 正式
   Dagster checks 当前为
   `gold_stk_mins_qfq_macd_kdj_contract_check`、
-  `gold_stk_mins_qfq_macd_kdj_source_coverage_check`、
-  `gold_stk_mins_qfq_macd_kdj_formula_sample_check` 3 个。
+  `gold_stk_mins_qfq_macd_kdj_source_coverage_check` 2 个。
 - 文件存在/行数、schema 进入 `contract`；qfq source ready 与 indicator/qfq row count
-  对账进入 `source_coverage`。`formula_sample_check` 是当前遗留实现，后续专项必须退役：
-  MACD/KDJ 公式自洽改由受保护金样本测试覆盖，production check 只保留前两类运行事实。
+  对账进入 `source_coverage`。MACD/KDJ 公式自洽已由受保护金样本测试覆盖，production check 只保留前两类运行事实。
 - `gold_stk_mins_qfq_macd_kdj_state_*` state assets 继续保留
   `state_file_exists_and_schema_check` 与 `state_latest_coverage_check` 两个 check；state 是递推链
   关键状态，不在 P6D 合并。

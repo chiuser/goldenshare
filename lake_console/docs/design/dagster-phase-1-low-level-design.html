@@ -304,6 +304,13 @@
   </header>
 
   <section>
+    <h2>0. 文档状态与现行依据</h2>
+    <div class="callout">
+      <strong>历史阶段记录（2026-07-15 校正）：</strong>本文保存第一期代码结构和验收边界，不是当前 Dagster definitions 的唯一说明。现行资产、job、sensor 入口以 <a href="../architecture/dagster-asset-job-topology.html">Dagster asset/job topology</a>、<a href="dagster-silver-raw-readiness-registry.html">readiness registry</a>、<a href="dagster-run-contract-governance.html">run contract governance</a> 与具体数据集 LLD 为准。
+    </div>
+  </section>
+
+  <section>
     <h2>1. 依据与边界</h2>
     <div class="callout">
       本低层设计只承接第一期已确认方案，不扩展新需求。第一期 raw 数据来自已经准备好的新湖 raw 文件；Dagster 负责登记、校验、标准化、计算和观测。

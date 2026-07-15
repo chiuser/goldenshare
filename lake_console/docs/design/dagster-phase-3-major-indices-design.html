@@ -184,6 +184,13 @@
   </header>
 
   <section>
+    <h2>0. 文档状态与现行依据</h2>
+    <div class="callout">
+      <strong>已替代的历史阶段设计（2026-07-15 校正）：</strong>本文保留主要指数与早期 raw-by-code 链路的阶段证据；其中 raw-by-code 不是当前生产入口。当前指数日线权威是 <a href="dagster-index-daily-raw-by-date-prod-db-migration-plan.md">raw by-date / prod core DB migration plan</a> 与其 <a href="dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md">LLD</a>；主要指数现行依赖以 <a href="../architecture/dagster-asset-job-topology.html">Dagster asset/job topology</a> 为准。
+    </div>
+  </section>
+
+  <section>
     <h2>1. 合并后的核心结论</h2>
     <div class="callout">
       Phase 3 指数链路只保留一套方向：指数日线 raw 以 <code>ts_code</code> 为分区拉取和保存，

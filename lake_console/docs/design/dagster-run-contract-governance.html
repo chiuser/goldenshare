@@ -739,7 +739,7 @@ DATASET_CHINESE_NAMES = {
 
     <h3>7.2 指数 Silver 触发安全设计</h3>
     <p>
-      删除指数链路自定义 run tags 前，必须先保证 <code>silver_index_daily_sensor</code> 不误判。M2 已经把它从“查询 raw run tags/config”迁移为“读取 raw 文件事实”；M4 只是在这个前提下删除它自己提交 silver run 时残留的 <code>triggered_by/asset_family/trade_date</code> tags。
+      当前 <code>silver_index_daily_sensor</code> 不读取 raw run tags/config，而是读取同日 <code>raw_index_daily</code> by-date 文件事实与 raw blocking checks。raw 更新由 <code>raw_index_daily_update_job_sensor</code> 负责，二者都不以自定义 run tags 传递 readiness。
     </p>
     <table>
       <thead>
@@ -752,8 +752,8 @@ DATASET_CHINESE_NAMES = {
       <tbody>
       <tr>
         <td>Silver 门禁事实源</td>
-        <td>改为 raw 文件事实：所有注册指数代码的 raw 文件必须存在，并且都包含目标 <code>trade_date</code> 数据。</td>
-        <td>Silver 真正消费的是 raw 文件，不是 run 记录。run 成功不能证明文件仍存在，也不能证明文件里有目标日期。</td>
+        <td>同日 <code>raw_index_daily</code> 文件必须通过 file contract 与 code coverage；silver code set 必须与同日 raw 文件完全一致。</td>
+        <td>Silver 真正消费的是同日 raw by-date 文件，不是 run 记录；run 成功不能证明文件契约与 code coverage 仍成立。</td>
       </tr>
       <tr>
         <td>禁止误判</td>
@@ -772,8 +772,8 @@ DATASET_CHINESE_NAMES = {
       </tr>
       <tr>
         <td>整改顺序</td>
-        <td>先迁移 <code>silver_index_daily_sensor</code> 到 raw 文件事实门禁；静态确认不再依赖旧 run tags/config；再删除 <code>index_daily_sensor</code> 里的自定义 run tags。</td>
-        <td>顺序错误会直接影响 silver 自动触发，属于数据安全风险。</td>
+        <td>raw sensor 先确认 selected date 的 prod source 覆盖 DG 管理代码集合；silver sensor 再只消费同日 raw readiness。两个入口均不读取旧 run tags/config。</td>
+        <td>将来源覆盖与 Lake 文件事实分层，既避免错误触发，也不把运行记录误当业务事实。</td>
       </tr>
       </tbody>
     </table>
@@ -817,27 +817,26 @@ DATASET_CHINESE_NAMES = {
       </tbody>
     </table>
 
-    <h3>8.1 指数日线 UI Config 最终态</h3>
+    <h3>8.1 指数日线 UI 与 Sensor Config 当前契约</h3>
     <p>
-      <code>index_daily_update_job</code> 的 UI 配置最终态只暴露简化业务字段。这里不是“UI 好看”问题，而是 run config 在资产族变多后是否可维护、可审计、可被运营正确使用的问题。手动运行不能要求运营记忆 Tushare 内部窗口和隐藏不变量。
+      <code>raw_index_daily_update_job</code> 的业务日期由 Dagster partition key 表达，run config 只保留 <code>write_mode</code>。这里不是“UI 好看”问题，而是日期、分区和资产写入模式必须各归各位，不能把已由 partition 表达的日期再塞进 config。
     </p>
     <p>
-      M3B 已把 <code>raw_tushare_index_daily_by_code</code> 的正式 UI config 从 <code>start_date/end_date/write_mode</code> 收敛为 <code>trade_date/write_mode</code>。由于当前入口仍是带指数代码分区的 asset job，Launchpad 里仍显示 Dagster 原生 <code>ops/raw_tushare_index_daily_by_code/config</code> 层级；治理目标是把该 config 节点下的字段收敛成业务动作字段，而不是强行把配置提升成 job 顶层。
+      当前 raw asset 是按交易日分区的 <code>raw_index_daily</code>。Launchpad 或 sensor 必须通过 partition key 选择 <code>trade_date</code>，并使用 <code>build_raw_index_daily_update_job_run_config(partition_key, write_mode)</code> 生成 <code>ops/raw_index_daily/config</code>；该 helper 会校验日期格式，config 只传 <code>write_mode=replace</code>。
     </p>
     <p>
-      asset 内部把 <code>trade_date</code> 映射成 <code>start_date = end_date = trade_date</code>，底层 Tushare 请求窗口不再暴露给运营。<code>trade_date</code> 必须有字段说明但不设置危险默认日期；<code>write_mode</code> 可以默认 <code>replace</code>。如果 Launchpad 中 Add config 或 Scaffold Missing Config 后仍然只能得到空白编辑器，或仍要求用户手写 <code>start_date/end_date</code>，则该 job 尚未达到本节定义的最终态。
+      asset 按 partition key 从 prod <code>core_serving.index_daily_serving</code> 只读同步 DG 管理代码集合，不存在 Tushare <code>start_date/end_date</code> 窗口。<code>write_mode</code> 默认且只允许 <code>replace</code>；任何 UI 或 sensor 入口都不得手写旧 raw-by-code op 层级。
     </p>
     <p>
-      M3 静态验证发现：当前 Dagster 版本不适合给带分区定义的 asset job 直接挂 <code>ConfigMapping</code> 来强接顶层 config。因此 M3B 没有绕开 asset job，也没有改变“指数代码是分区语义”的模型，而是治理 asset typed config 本身。
+      当前模型不采用“指数代码 x 日期”二维分区：raw 与 silver 都按单一交易日分区，指数代码集合是 raw asset 的运行时输入，而不是 Dagster asset partition。
     </p>
     <pre><code># Launchpad / sensor 正式 config 形态
 ops:
-  raw_tushare_index_daily_by_code:
+  raw_index_daily:
     config:
-      trade_date: "2026-05-26"
       write_mode: "replace"</code></pre>
     <p>
-      M3B UI 验收结论：实际点击 <code>Scaffold Missing Config</code> 后，Dagster 只生成必填字段 <code>trade_date: ''</code>；<code>write_mode</code> 因为 schema 默认值是 <code>replace</code>，不是 missing config，所以不会自动出现在 scaffold 结果里。该行为符合预期：只填写 <code>trade_date</code> 时，Dagster validation 会用默认值补齐 <code>write_mode=replace</code>。
+      <code>write_mode</code> 因为 schema 默认值是 <code>replace</code>，不是 missing config；日期则始终由选择的 Dagster partition 提供。手动运行不得通过 config 模拟未注册分区。
     </p>
 
     <table>
@@ -851,10 +850,10 @@ ops:
       </thead>
       <tbody>
       <tr>
-        <td><code>trade_date</code></td>
-        <td><code>start_date = trade_date</code>，<code>end_date = trade_date</code></td>
+        <td><code>partition_key</code></td>
+        <td>Dagster 交易日分区</td>
         <td><code>YYYY-MM-DD</code></td>
-        <td>手动补某一天指数 raw-by-code 时，用户只关心业务日期，不应填写两个相同的日期字段。</td>
+        <td>手动补某一天指数 raw by-date 时，业务日期必须来自已注册的交易日分区，不在 run config 中重复表达。</td>
       </tr>
       <tr>
         <td><code>write_mode</code></td>
@@ -865,7 +864,7 @@ ops:
       </tbody>
     </table>
 
-    <h3>8.2 M3B Launchpad Config 契约治理计划</h3>
+    <h3>8.2 当前 Config 边界</h3>
     <p>
       依据 Dagster 官方 run config 口径，配置由 asset / op / resource 的 schema 驱动，Launchpad 负责按 schema 做校验、展示说明并支持 Scaffold Missing Config；asset job 是资产执行入口，不能为了手动配置体验绕开 asset、partition 和 checks 体系。
       参考：
@@ -877,7 +876,7 @@ ops:
       <thead>
       <tr>
         <th>治理点</th>
-        <th>M3B 口径</th>
+        <th>当前口径</th>
         <th>原因</th>
       </tr>
       </thead>
@@ -889,8 +888,8 @@ ops:
       </tr>
       <tr>
         <td>实现方向</td>
-        <td>在 Dagster 原生 <code>dg.Config</code> schema 内降低认知负担，主入口只暴露 <code>trade_date/write_mode</code>。</td>
-        <td>让 UI、sensor 和文档共享同一个业务动作语义，避免三套配置口径分裂。</td>
+        <td>交易日由 partition key 表达；<code>IndexDailyRawConfig</code> 只暴露 <code>write_mode</code>。</td>
+        <td>让 UI、sensor 和文档共享同一个日期分区语义，避免把同一日期写进多个输入面。</td>
       </tr>
       <tr>
         <td>不采用路径</td>
@@ -899,16 +898,16 @@ ops:
       </tr>
       <tr>
         <td>区间修复</td>
-        <td>不把 <code>start_date/end_date</code> 区间修复保留为主入口能力；未来需要时单独设计 repair 入口。</td>
-        <td>当前日常和缺口修复都是“指数代码 + 单个交易日”，低频区间能力不应污染主入口。</td>
+        <td>不把 <code>start_date/end_date</code> 或 code 级 repair 保留为主入口能力；需要历史重建时按迁移 LLD 单独设计。</td>
+        <td>当前日常入口是“单个交易日 + DG 当前代码集合”，不能让历史 raw-by-code 参数回流。</td>
       </tr>
       </tbody>
     </table>
     <div class="warning">
-      <strong>M3B 验证口径：</strong>代码实现阶段必须补充编译、纯函数测试、in-memory <code>Definitions + dg.validate_run_config(...)</code> 验证、旧 <code>start_date/end_date</code> 拒绝验证、sensor 静态扫描、<code>git diff --check</code> 和文档完整性检查；UI 验证只允许打开 Launchpad / Scaffold Missing Config，不启动 run，且读取正式 Dagster UI 前必须单独获批。
+      <strong>验证口径：</strong>run config helper 必须校验 partition key 与 write mode；静态测试必须确认 sensor target 为 <code>raw_index_daily</code>，且不得恢复旧 raw-by-code op 层级。UI 验证不启动 run，读取正式 Dagster UI 前仍须单独获批。
     </div>
 
-    <h3>8.3 M3B 目标 Typed Config 字段</h3>
+    <h3>8.3 当前 Typed Config 字段</h3>
     <table>
       <thead>
       <tr>
@@ -920,25 +919,20 @@ ops:
       </thead>
       <tbody>
       <tr>
-        <td rowspan="2"><code>IndexDailyRawByCodeConfig</code>（M3B 目标）</td>
-        <td><code>trade_date</code></td>
-        <td><code>YYYY-MM-DD</code></td>
-        <td>主入口只表达“补哪一个交易日”。该字段由 asset 内部映射为 Tushare <code>start_date=end_date</code>，避免运营手填两个必须相等的日期。</td>
-      </tr>
-      <tr>
+        <td><code>IndexDailyRawConfig</code></td>
         <td><code>write_mode</code></td>
         <td><code>replace</code></td>
-        <td>当前 raw-by-code 文件写入只允许替换模式。保留字段是为了让写入行为显式，并由 schema 给出默认值和说明。</td>
+        <td>当前 raw by-date 文件写入只允许替换模式。交易日由 partition key 提供，schema 不重复保存日期。</td>
       </tr>
       </tbody>
     </table>
 
     <h3>8.4 不采用二维分区</h3>
     <p>
-      Dagster 支持 <code>MultiPartitionsDefinition</code>，可以表达“指数代码 x 日期”的笛卡尔积分区；本地 Dagster 1.13.6 也存在 <code>MultiPartitionsDefinition</code>、<code>MultiPartitionKey</code> 和 <code>MultiToSingleDimensionPartitionMapping</code>。但当前指数交易日约 6393 个、指数代码约 946 个，笛卡尔积约 604 万 partitions，远超 Dagster 官方建议单 asset 控制在 100,000 partitions 以内的量级。
+      Dagster 支持 <code>MultiPartitionsDefinition</code>，可以表达“指数代码 x 日期”的笛卡尔积分区；但当前指数日线 raw 运行时读取 DG 管理代码集合并按单一交易日写入一个 by-date 文件，不需要也不应把每个代码变成 asset partition。
     </p>
     <div class="danger">
-      <strong>最终口径：</strong>不采用“指数代码 x 日期”二维分区作为指数日线 raw 主模型。raw 继续按指数代码分区，日期通过 asset typed config 的 <code>trade_date</code> 输入；silver 继续按交易日分区。
+      <strong>最终口径：</strong>不采用“指数代码 x 日期”二维分区作为指数日线 raw 主模型。raw 与 silver 都按交易日分区；raw 在运行时读取 <code>cn_a_index_ts_codes</code>，日期不通过 asset typed config 重复输入。
     </div>
 
     <div class="warning">
@@ -1183,10 +1177,7 @@ ops:
     </p>
     <div class="note">
       <strong>M7 已实施口径：</strong>所有会写 cursor 的普通 sensor 已统一使用
-      <code>build_sensor_cursor(...)</code> 写出 v1 结构。<code>index_daily_sensor</code>
-      需要跨 tick 推进 raw-by-code 批次，<code>next_pending_offset</code> 只允许放在
-      <code>details.next_pending_offset</code>；缺失、非法或旧无版本 cursor 按安全默认值处理，
-      即从 offset 0 重新开始扫描，正确性仍由 raw 文件事实和 <code>run_key</code> 去重保证。
+      <code>build_sensor_cursor(...)</code> 写出 v1 结构。指数 raw sensor 只保留本 tick 的目标交易日、阻断组件、raw readiness 摘要与 prod source 最小证据；不保存跨 tick code offset、批量 status samples 或完整 readiness 报告。正确性仍由本次 raw 文件事实、prod source 探针和 <code>run_key</code> 去重保证。
     </div>
 
     <table>
@@ -1331,13 +1322,16 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
   </section>
 
   <section>
-    <h2>12. Milestone 开发计划</h2>
+    <h2>12. 历史 Milestone 执行记录</h2>
+    <div class="warning">
+      <strong>历史执行记录：</strong>M0-M8 记录本专项最初的治理顺序。其 M2/M3 指数 raw-by-code 实现已被 raw-by-date/prod-core-db 迁移替代；保留旧名称仅用于解释历史 run-tag 清理，不能作为当前代码入口或新增实现依据。
+    </div>
     <p>
       本专项按依赖顺序推进，不做一次性全仓重写。每个 milestone 只能解决一个明确问题；前置门禁未完成时，后续 milestone 不得提前进入编码。
     </p>
 
-    <h3>12.1 依赖主线</h3>
-    <pre><code>M0 方案冻结
+    <h3>12.1 历史依赖主线</h3>
+    <pre><code>历史 M0 方案冻结
   -> M1 契约基础框架
     -> M2 silver_index_daily_sensor 脱离旧 run tags/config
       -> M3 index_daily_update_job 与 index_daily_sensor 契约清理
@@ -1384,7 +1378,7 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
         <td>不接入 asset definitions，不删除旧 tags，不改 Launchpad config。</td>
       </tr>
       <tr>
-        <td><code>M2</code> Silver 门禁脱旧依赖</td>
+        <td><code>历史 M2</code> Silver 门禁脱旧依赖</td>
         <td>把 <code>silver_index_daily_sensor</code> 从“查询 raw run tags/config”迁移到“读取 raw 文件事实”。</td>
         <td><code>M1</code>。</td>
         <td>
@@ -1399,15 +1393,15 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
           不触发任何真实 Dagster run。
         </td>
         <td>
-          不修改 <code>index_daily_sensor</code> tags；
+          不修改当时的 <code>index_daily_sensor</code> tags；
           不新增 readiness asset；
           不读取 asset check history；
           不扩大 job selection。
         </td>
       </tr>
       <tr>
-        <td><code>M3</code> 指数 raw 运行契约清理</td>
-        <td>已完成：在 silver 门禁安全后，删除指数 raw run 的自定义 tags；UI 手动 config 拆入 <code>M3B</code>。</td>
+        <td><code>历史 M3</code> 指数 raw 运行契约清理</td>
+        <td>当时已完成：在 silver 门禁安全后，删除旧指数 raw run 的自定义 tags；UI 手动 config 拆入 <code>M3B</code>。</td>
         <td><code>M2</code>。</td>
         <td>
           <code>defs/sensors/index_daily_sensor.py</code>；
@@ -1415,8 +1409,8 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
           <code>tests/test_run_contract_configs.py</code>。
         </td>
         <td>
-          <code>index_daily_sensor</code> 不再写 <code>triggered_by/asset_family/trade_date/index_ts_code</code>；
-          <code>IndexDailyRawByCodeConfig</code> 保留；
+          当时的 <code>index_daily_sensor</code> 不再写 <code>triggered_by/asset_family/trade_date/index_ts_code</code>；
+          当时的 <code>IndexDailyRawByCodeConfig</code> 保留；
           sensor 侧不再裸写深层 <code>ops/.../config</code> dict；
           job-level 简化 config 不能通过 partitioned asset job 的 <code>ConfigMapping</code> 实现。
         </td>
@@ -1512,7 +1506,7 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
         <td>
           新 cursor 顶层包含 <code>schema_version</code>、<code>evaluated_at</code>、<code>decision</code>、<code>target_date</code>、<code>selected_count</code>、<code>blocked_count</code>、<code>sample_keys</code>、<code>details</code>；
           cursor 不保存跨 tick 正向 ready 事实；所有 sensor 文件不再本地手写 <code>json.dumps</code> / <code>json.loads</code>；
-          <code>index_daily_sensor</code> 的 <code>next_pending_offset</code> 只保存在 <code>details</code>。
+          历史 raw-by-code <code>index_daily_sensor</code> 的 <code>next_pending_offset</code> 只保存在 <code>details</code>。
         </td>
         <td>
           不读取正式 Dagster instance 做迁移；
@@ -1540,7 +1534,7 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
       </tbody>
     </table>
     <div class="warning">
-      <strong>历史 run 处理口径：</strong>本文档定义的是新契约。历史 run records 中已经存在的旧 tags/config 不在正式代码里长期兼容。删除旧 tags 前必须先让当前自动触发链路脱离旧 tags/config，尤其是 <code>silver_index_daily_sensor</code>。
+      <strong>历史 run 处理口径：</strong>历史 run records 中已经存在的旧 tags/config 不在正式代码里长期兼容。当前指数链路不读取旧 tags/config；raw-by-code 相关 M2/M3 描述仅保留为历史执行证据。
     </div>
     <div class="note">
       <strong>收口口径：</strong>M8 完成后，tags/config/metadata/cursor 第一轮治理专项已收口。
@@ -1565,14 +1559,14 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
       </thead>
       <tbody>
       <tr>
-        <td><code>defs/sensors/index_daily_sensor.py</code></td>
-        <td>当前通过 run contract builder 生成 raw-by-code <code>RunRequest</code>；不再写 <code>triggered_by</code>、<code>asset_family</code>、<code>trade_date</code>、<code>index_ts_code</code> 自定义 run tags。</td>
-        <td>已完成前置门禁迁移，silver 不再读取这些 tags；继续保留 builder 是为了防止 sensor 重新裸写深层 dict。</td>
-        <td>M3B 后 builder 输出已收敛到 asset typed config 的 <code>trade_date/write_mode</code>。</td>
+        <td><code>defs/sensors/raw_index_daily_update_job_sensor.py</code></td>
+        <td>当前通过 <code>build_asset_update_run_key(...)</code> 与 <code>build_raw_index_daily_update_job_run_config(...)</code> 生成 date-level <code>RunRequest</code>；不写自定义 run tags。</td>
+        <td>raw readiness 与 prod source readiness 都不依赖 run tags/config；helper 统一构造 <code>ops/raw_index_daily/config</code>，避免 sensor 裸写深层 dict。</td>
+        <td>Dagster partition key 表达 <code>trade_date</code>；<code>IndexDailyRawConfig</code> 只保留 <code>write_mode=replace</code>。</td>
       </tr>
       <tr>
         <td><code>defs/sensors/silver_index_daily_sensor.py</code></td>
-        <td>当前门禁事实源已经是 raw 文件事实：目标交易日下，所有注册指数代码的 raw 文件必须存在且包含目标日期数据。提交 <code>silver_index_daily_update_job</code> 时不再写 <code>triggered_by/asset_family/trade_date</code> 自定义 run tags。</td>
+        <td>当前门禁事实源是同日 raw by-date 文件和两个 raw blocking checks。提交 <code>silver_index_daily_update_job</code> 时不写自定义 run tags。</td>
         <td>已完成最高风险前置迁移；删除残留 run tags 不影响 <code>silver_index_daily</code> 自动触发门禁。</td>
         <td>保留 raw 文件扫描、silver 已 ready / 已 materialized 但 checks 未全绿保护、cursor 诊断和 <code>SkipReason</code>；不读取 raw run tags/config。</td>
       </tr>
@@ -1595,16 +1589,10 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
         <td>目标日期诊断只保留在 cursor / SkipReason / readiness 结果中。</td>
       </tr>
       <tr>
-        <td><code>defs/sensors/market_breadth_automation_sensor.py</code></td>
-        <td><code>AutomationConditionSensorDefinition</code> 不再写 <code>run_tags={trigger: automation_condition, asset_family: market_breadth}</code>。</td>
-        <td>数据生产低风险；当前没有生产门禁读取这些 tags。</td>
-        <td>保留 target、default status、automation condition、interval、backfill 口径和 user code server 口径。</td>
-      </tr>
-      <tr>
-        <td><code>defs/sensors/stock_return_distribution_automation_sensor.py</code></td>
-        <td><code>AutomationConditionSensorDefinition</code> 不再写 <code>run_tags={trigger: automation_condition, asset_family: stock_return_distribution}</code>。</td>
-        <td>数据生产低风险；当前没有生产门禁读取这些 tags。</td>
-        <td>保留 target、default status、automation condition、interval、backfill 口径和 user code server 口径。</td>
+        <td><code>defs/sensors/market_breadth_continuity_sensor.py</code>、<code>stock_return_distribution_continuity_sensor.py</code></td>
+        <td>当前按 bounded continuity 选择最早未 ready 分区并构造 run request，不使用 automation sensor 或自定义 run tags 传递生产状态。</td>
+        <td>完整 readiness 来自上游 asset/check 状态与本 tick 文件事实，不能从历史 run tag 推断。</td>
+        <td>保留各自 job target、partition key、run key、cursor 摘要和单 tick 上限。</td>
       </tr>
       <tr>
         <td><code>defs/sensors/feishu_run_status_sensor.py</code></td>
@@ -1614,15 +1602,15 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
       </tr>
       <tr>
         <td><code>defs/jobs/index_daily_update.py</code></td>
-        <td>当前 job 只有 asset selection，没有 job-level config mapping；Launchpad 使用 Dagster 原生 <code>ops/raw_tushare_index_daily_by_code/config</code> 层级。</td>
-        <td>不再暴露源接口窗口；当前 asset typed config 只接受 <code>trade_date/write_mode</code>，旧 <code>start_date/end_date</code> 不是正式手填口径。</td>
-        <td>M3B 已落地：sensor 与 UI 共同使用 <code>trade_date</code>，asset 内部映射到 Tushare <code>start_date=end_date=trade_date</code>。</td>
+        <td>当前 job 只选择 <code>raw_index_daily</code> 及其 checks，没有 job-level config mapping；Launchpad 使用 Dagster 原生 <code>ops/raw_index_daily/config</code> 层级。</td>
+        <td>业务日期由 partition key 表达；config 只接受 <code>write_mode=replace</code>，不存在 Tushare 日期窗口字段。</td>
+        <td>sensor 与 UI 共同使用已注册交易日 partition；asset 从 prod core serving 只读同步。</td>
       </tr>
       <tr>
         <td><code>defs/assets/index_daily.py</code></td>
-        <td><code>IndexDailyRawByCodeConfig</code> 是 typed config，字段已收敛为 <code>trade_date</code>、<code>write_mode</code>；asset 内部读取它生成 Tushare 单日请求窗口。</td>
-        <td>当前字段表达运营主入口动作语义；不再暴露底层源接口窗口给手动 run config。</td>
-        <td>区间修复如确需保留，必须另设 repair 入口并单独设计。</td>
+        <td><code>IndexDailyRawConfig</code> 是 typed config，字段只有 <code>write_mode</code>；asset 通过 Dagster partition key 取得交易日。</td>
+        <td>当前 config 只表达写入模式；prod source、代码集合和交易日都来自正式运行上下文，不暴露为手动字段。</td>
+        <td>历史重建如确需保留，必须按迁移 LLD 单独设计。</td>
       </tr>
       <tr>
         <td><code>defs/assets/**/*.py</code>、<code>defs/checks/**/*.py</code></td>
@@ -1634,7 +1622,7 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
     </table>
 
     <div class="danger">
-      <strong>安全结论：</strong>指数链路已按 <code>M2/M3/M4</code> 顺序完成：先让 <code>silver_index_daily_sensor</code> 脱离 raw run tags/config，再删除 <code>index_daily_sensor</code> 的 raw 自定义 tags，最后清理 silver 和其它低风险传感器残留 tags。飞书展示只读 Dagster 系统 tags，避免留下“旧 tag 仍是新契约”的错觉。
+      <strong>安全结论：</strong>当前指数链路的 raw/silver readiness 均不读取自定义 run tags/config。raw 使用 prod source readiness 与 by-date 文件事实；silver 使用同日 raw readiness。历史 M2/M3/M4 的旧 tag 清理是退出前执行证据，不是当前入口契约。
     </div>
   </section>
 </main>

@@ -10,6 +10,8 @@
 
 状态：P0F-P7 已完成；非股票分钟线连续性治理专项已完成代码、静态门禁、性能结论和文档口径收口。
 
+> **指数日线状态校正（2026-07-15）：** 本 LLD 的 P5 原始实现记录已被 raw-by-date/prod-core-db 迁移替代。P5 只保留 expected registered gap、bounded selector 与禁止 event-history 深扫的通用原则；现行代码锚点是 `raw_index_daily_update_job_sensor.py`、`silver_index_daily_sensor.py`、`index_daily_raw_file_readiness.py` 和指数迁移 LLD。旧 `index_daily_sensor.py`、late-arrival repair、raw gap audit 与对应测试仅作迁移前历史证据。
+
 范围：非股票分钟线日频历史连续资产的停机补洞能力、生命周期事实源收敛、主要指数 sensor 性能治理、派生 automation 资产显式补洞入口。本文档只设计，不执行代码开发，不运行 `dg`，不读取正式 Dagster runtime，不触碰正式 lake。
 
 ## 1. 总体硬口径
@@ -291,31 +293,32 @@ P0F -> P1 -> P2A -> P2B -> P2C -> P3 -> P5 -> P4 -> P6 -> P7
 
 ### 2.1.8 P5：指数日线 Raw/Silver Gap Guard
 
-目标：为指数日线 raw/silver 链路补 expected registered gap guard，保持既有 late-arrival repair 与 silver selector 语义。
+现行目标：为 raw-by-date/prod-core-db 指数日线链路保持 expected registered gap guard 与 bounded first-not-ready 语义，不恢复迁移前 raw-by-code repair。
 
 建议改动范围：
 
-- `lake_console/orchestrator/src/orchestrator/defs/sensors/index_daily_sensor.py`
+- `lake_console/orchestrator/src/orchestrator/defs/sensors/raw_index_daily_update_job_sensor.py`
 - `lake_console/orchestrator/src/orchestrator/defs/sensors/silver_index_daily_sensor.py`
-- `lake_console/orchestrator/tests/test_index_daily_sensor.py`
+- `lake_console/orchestrator/src/orchestrator/defs/sensors/index_daily_raw_file_readiness.py`
+- `lake_console/orchestrator/tests/test_raw_index_daily_update_job_sensor.py`
 - `lake_console/orchestrator/tests/test_silver_index_daily_sensor.py`
-- `lake_console/orchestrator/tests/test_index_daily_late_arrival_repair.py`
+- `lake_console/orchestrator/tests/test_index_daily_raw_file_readiness.py`
 
 执行步骤：
 
-1. 审计 raw index daily 当前 late-arrival selector，确认 repair attempt/backoff/cursor 语义不能被破坏。
-2. 在 raw 入口前增加 expected registered gap guard。
-3. 在 silver selector 前增加 raw/silver expected gap guard。
-4. 保留 existing late-arrival repair run key、attempt、cursor 语义。
+1. 在 raw/silver 入口前保留 expected registered gap guard。
+2. raw 在最近 10 个 expected dates 内用 raw by-date readiness 选择最早未 ready 日期；只有 selected date 的 prod source 覆盖 DG 管理代码集合才请求 run。
+3. silver 在同一窗口只消费同日 raw by-date readiness，选择最早未 ready silver 日期。
+4. 不恢复 code 级 repair、cursor offset、Tushare source readiness 或 raw gap audit。
 
 测试覆盖：
 
 - raw 缺 `06-15` 时不推进 `06-16`。
 - silver 缺 raw/silver 早期日期时不推进后续日期。
-- late-arrival repair attempt 语义不变。
-- 不新增逐日 Dagster check 深扫。
+- prod source 覆盖缺 code、重复 key、空 key 或日期错位时 raw skip。
+- 不新增逐日 Dagster check 深扫，也不读取旧 raw-by-code 文件。
 
-验收：P5 完成后，指数日线链路具备停机补洞能力，且不破坏已有 late-arrival repair。
+验收：P5 现行实现能在注册缺口、raw not-ready 和 prod source 不完整时 fail closed，并保持 date-level 补洞能力。
 
 ### 2.1.9 P4：主要指数 Gold Daily Batch Selector
 
@@ -907,51 +910,53 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 ### 7.1 目标文件
 
 ```text
-sensors/index_daily_sensor.py
+sensors/raw_index_daily_update_job_sensor.py
 sensors/silver_index_daily_sensor.py
-tests/test_index_daily_sensor.py
+sensors/index_daily_raw_file_readiness.py
+tests/test_raw_index_daily_update_job_sensor.py
 tests/test_silver_index_daily_sensor.py
+tests/test_index_daily_raw_file_readiness.py
 tests/test_run_contract_static_gates.py
 ```
 
 ### 7.2 实现目标
 
 1. raw / silver 两个 sensor 增加 expected registered gap guard。
-2. 保留 `audit_index_daily_raw_gaps(...)`。
-3. 保留 `select_first_not_ready_silver_index_daily_partition(...)`。
-4. 不把 `silver_index_daily_ready_for_trade_date(...)` 放入窗口循环。
-5. 不改 raw-by-code repair、cursor offset、run key。
+2. raw 使用 `raw_index_daily_lake_readiness_for_trade_dates(...)` 选择最早未 ready 日期，并只对 selected date 做 prod source coverage probe。
+3. silver 使用同日 raw by-date readiness，silver code coverage 对齐同日 raw 文件 code set。
+4. 不把单日 Dagster readiness wrapper 放入 10 日窗口。
+5. 不恢复 raw-by-code repair、cursor offset、Tushare source readiness 或 raw gap audit。
 
 ### 7.2.1 已落地代码事实
 
-1. `index_daily_sensor.py` 与 `silver_index_daily_sensor.py` 均通过 `load_expected_trade_date_window(...)` 读取最近 10 个 expected index trade dates。
-2. 两个 sensor 均使用 `INDEX_TRADE_DAY_MIN_DATE` 和 `SAME_DAY_PARTITION_REGISTER_START`，保持与 `index_trade_day_sensor` 注册口径一致。
-3. 注册缺口存在时，raw sensor 在 `audit_index_daily_raw_gaps(...)`、target presence scan、Tushare source readiness 和 late-arrival repair 之前 skip。
-4. 注册缺口存在时，silver sensor 在 `audit_index_daily_raw_gaps(...)`、`select_first_not_ready_silver_index_daily_partition(...)` 和 target raw presence scan 之前 skip。
-5. 注册连续时，raw gap audit、latest raw target presence、late-arrival repair attempt/backoff/cursor offset、silver first-not-ready selector 和 run key/run config 均保持原语义。
+1. `raw_index_daily_update_job_sensor.py` 与 `silver_index_daily_sensor.py` 均在最近 10 个 expected index trade dates 内优先检查 registered gap。
+2. raw sensor 运行时读取 `cn_a_index_ts_codes`，以 raw by-date readiness 选择首个未 ready 分区；注册连续不等于 source ready。
+3. raw 只有在 selected date 的 prod source 覆盖 DG 管理代码集合、且无重复 key、空 key 或日期错位时才提交 run。
+4. silver 只读取同日 raw by-date 文件契约和 code coverage，不读取旧 raw-by-code、Tushare source 或 run tags/config。
+5. raw/silver 的 run key、partition key 与 config 均为 date-level 契约；sensor cursor 只保留本 tick 诊断摘要。
 
 ### 7.3 测试
 
 覆盖：
 
 1. `cn_a_index_trade_days` 注册缺口存在时，raw/silver index daily skip。
-2. 注册连续后，raw gap audit 行为不变。
-3. silver first-not-ready 仍使用 bounded selector。
-4. 静态门禁防止单日 wrapper 回流。
-5. 静态门禁要求两个 sensor 保留 `load_expected_trade_date_window`、`build_registered_gap_status`、`build_continuity_cursor_details`、`SAME_DAY_PARTITION_REGISTER_START` 和 `DEFAULT_CONTINUITY_WINDOW_LIMIT`，并禁止 `_latest_registered_trade_date` / `_eligible_registered_trade_dates` 回流。
+2. 注册连续后，raw/silver 都只在 10 日期 bounded selector 内选择最早未 ready。
+3. raw prod source 覆盖不足、重复 key、空 key 或日期错位时不提交 run。
+4. silver 同日 raw 文件缺失、契约失败或 code coverage 不一致时不提交 run。
+5. 静态门禁禁止旧 raw-by-code helper、已删除 sensor、逐日 Dagster event-history 深扫和完整 readiness 报告写入 cursor。
 
 本地验证：
 
 ```bash
 cd lake_console/orchestrator
 PYTHONPATH=src uv run --project . --with pytest python -m pytest \
-  tests/test_index_daily_sensor.py \
+  tests/test_raw_index_daily_update_job_sensor.py \
   tests/test_silver_index_daily_sensor.py \
-  tests/test_index_daily_late_arrival_repair.py \
+  tests/test_index_daily_raw_file_readiness.py \
   tests/test_run_contract_static_gates.py
 ```
 
-结果：`55 passed`。
+历史 `55 passed` 是迁移前 P5 结果；当前测试集合以 raw-by-date/prod-core-db 迁移 LLD 的验收为准。
 
 ## 8. P4 主要指数日线 gold
 
@@ -1117,8 +1122,9 @@ P7 收口事实：
      tests/test_stock_lifecycle_contracts.py \
      tests/test_stock_daily_sensor.py \
      tests/test_suspend_d_sensor.py \
-     tests/test_index_daily_sensor.py \
+     tests/test_raw_index_daily_update_job_sensor.py \
      tests/test_silver_index_daily_sensor.py \
+     tests/test_index_daily_raw_file_readiness.py \
      tests/test_market_major_indices_lake_readiness.py \
      tests/test_market_major_indices_daily_sensor.py \
      tests/test_market_breadth_lake_readiness.py \
@@ -1155,8 +1161,9 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
   tests/test_stock_lifecycle_contracts.py \
   tests/test_stock_daily_sensor.py \
   tests/test_suspend_d_sensor.py \
-  tests/test_index_daily_sensor.py \
+  tests/test_raw_index_daily_update_job_sensor.py \
   tests/test_silver_index_daily_sensor.py \
+  tests/test_index_daily_raw_file_readiness.py \
   tests/test_market_major_indices_lake_readiness.py \
   tests/test_market_major_indices_daily_sensor.py \
   tests/test_market_breadth_lake_readiness.py \
@@ -1194,6 +1201,6 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 1. P0F：基础 selector 是纯函数，性能门禁来自本地单元测试和静态门禁，不读取正式 Dagster runtime。
 2. P1：正式 calendar 读取、`cn_a_stock_current_trade_days` dynamic partitions 读取和 60 日 gap diff 已完成只读 profiling，均为亚秒级 / 毫秒级；2026-06-21 后日常实现窗口统一为 10 个 expected trade dates，60 日只保留为容量参考。
 3. P3：股票日线 / 停复牌只加 expected registered gap guard，不扩大 selected-date readiness；正式 dynamic partition 和 materialized partition set 读取已验证为毫秒级。
-4. P5：指数日线 raw/silver 保留既有 raw gap audit 和 silver bounded selector，只补 expected registered gap guard；20/60 日只读 profiling 已覆盖。
+4. P5：指数日线 raw/silver 已由 raw-by-date/prod-core-db 迁移替代；现行实现保留 expected registered gap guard 与最多 10 日的 bounded selector，不复用 raw gap audit。
 
 这些点应在各阶段进入开发前计划中列清并等待 review。

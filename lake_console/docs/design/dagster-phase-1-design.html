@@ -306,6 +306,13 @@
   </header>
 
   <section>
+    <h2>0. 文档状态与现行依据</h2>
+    <div class="callout">
+      <strong>历史阶段记录（2026-07-15 校正）：</strong>本文保存第一期最小闭环的设计与验收证据，不是新增实现或当前运维的唯一依据。现行资产、job、sensor 入口以 <a href="../architecture/dagster-asset-job-topology.html">Dagster asset/job topology</a>、<a href="dagster-silver-raw-readiness-registry.html">readiness registry</a> 与对应数据集 LLD 为准。
+    </div>
+  </section>
+
+  <section>
     <h2>1. 第一期开工边界</h2>
     <div class="callout">
       第一期只解决一个问题：把旧数据湖中已存在的数据放入新 <code>&lt;LAKE_ROOT&gt;/raw</code> 后，验证 Dagster 是否能稳定管理本地 Parquet 数据湖的资产依赖、交易日分区、DuckDB 计算和小颗粒度 checks。

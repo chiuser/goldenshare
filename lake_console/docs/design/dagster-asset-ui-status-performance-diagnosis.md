@@ -2,6 +2,12 @@
 
 更新时间：2026-06-23
 
+> **历史审计快照（2026-07-15 校正）：** 本文所有表行数、分区数、UI 耗时和
+> `raw_tushare_index_daily_by_code` 结论都只描述 2026-06-23 的观测时点，不代表当前
+> Dagster instance。指数旧 active source/catalog 退出、P8 物理隔离与 P9B/P9C 精确状态治理
+> 已在后续完成；现行入口见 <a href="../architecture/dagster-asset-job-topology.html">Dagster asset/job topology</a>，
+> retention 后续状态见 <a href="dagster-event-history-retention-governance-plan.md">event-history retention governance</a>。
+
 ## 1. 结论
 
 本诊断只回答两个问题：
@@ -11,7 +17,7 @@
 
 本轮不提出最终修复方案，不修改 Dagster 代码，不运行 job、sensor、backfill、asset check 或 materialization，不写 Dagster DB，不写数据湖文件。
 
-当前结论：
+当时结论：
 
 1. `/assets` HTML shell 和资产 definition 列表不是慢点；本机 GraphQL 读取 definition 约 0.009s。
 2. Status 相关字段属于 GraphQL + Dagster instance storage 查询。当前复测中，`partitionStats`、`assetChecksOrError`、`executionForLatestMaterialization` 等后端查询没有稳定复现 45s 级耗时，但这些查询依赖的底层表已经是高基数：`event_logs` 约 642 万行，`asset_check_executions` 约 125 万行。

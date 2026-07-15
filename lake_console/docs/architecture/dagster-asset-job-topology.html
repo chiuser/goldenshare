@@ -333,11 +333,11 @@
     <h2>1. 代码事实快照</h2>
     <div class="callout">
       当前 code location 使用 <code>load_from_defs_folder</code> 自动加载 <code>defs</code> 下的 assets、checks、jobs、sensors 和 resources。
-      当前 active jobs 包括 <code>calendar_update_job</code>、<code>raw_stock_basic_update_job</code>、<code>silver_stock_basic_update_job</code>、<code>raw_namechange_update_job</code>、<code>silver_namechange_update_job</code>、<code>stock_identity_map_update_job</code>、<code>raw_suspend_d_update_job</code>、<code>silver_suspend_d_update_job</code>、<code>raw_stock_daily_update_job</code>、<code>silver_stock_daily_update_job</code>、<code>raw_adj_factor_update_job</code>、<code>silver_adj_factor_update_job</code>、<code>stock_mins_raw_update_job</code>、<code>stock_mins_raw_update_from_prod_job</code>、<code>stock_mins_silver_update_job</code>、<code>stock_mins_qfq_daily_update_job</code>、<code>stock_mins_qfq_factor_repair_job</code>、<code>gold_stk_mins_qfq_macd_kdj_daily_update_job</code>、<code>gold_stk_mins_qfq_macd_kdj_check_refresh_job</code>、<code>gold_stk_mins_qfq_macd_kdj_repair_job</code>、<code>daily_market_breadth_job</code>、<code>stock_return_distribution_daily_job</code>、<code>index_basic_update_job</code>、<code>index_daily_update_job</code>、<code>silver_index_daily_update_job</code>、<code>market_major_indices_daily_update_job</code>、<code>clickhouse_share_fact_market_breadth_update_job</code>、<code>prod_clickhouse_share_fact_market_breadth_sync_job</code> 和 <code>lake_root_health_check_job</code>。
+      当前 active jobs 包括 <code>calendar_update_job</code>、<code>raw_stock_basic_update_job</code>、<code>silver_stock_basic_update_job</code>、<code>raw_namechange_update_job</code>、<code>silver_namechange_update_job</code>、<code>stock_identity_map_update_job</code>、<code>raw_suspend_d_update_job</code>、<code>silver_suspend_d_update_job</code>、<code>raw_stock_daily_update_job</code>、<code>silver_stock_daily_update_job</code>、<code>raw_adj_factor_update_job</code>、<code>silver_adj_factor_update_job</code>、<code>stock_mins_raw_update_job</code>、<code>stock_mins_raw_update_from_prod_job</code>、<code>stock_mins_silver_update_job</code>、<code>stock_mins_qfq_daily_update_job</code>、<code>stock_mins_qfq_factor_repair_job</code>、<code>gold_stk_mins_qfq_macd_kdj_daily_update_job</code>、<code>gold_stk_mins_qfq_macd_kdj_check_refresh_job</code>、<code>gold_stk_mins_qfq_macd_kdj_repair_job</code>、<code>daily_market_breadth_job</code>、<code>stock_return_distribution_daily_job</code>、<code>index_basic_update_job</code>、<code>raw_index_daily_update_job</code>、<code>silver_index_daily_update_job</code>、<code>market_major_indices_daily_update_job</code>、<code>clickhouse_share_fact_market_breadth_update_job</code>、<code>prod_clickhouse_share_fact_market_breadth_sync_job</code> 和 <code>lake_root_health_check_job</code>。
       <code>gold_market_breadth_daily</code> 与 <code>gold_stock_return_distribution</code> 这两个 derived/gold assets、checks、declarative automation 和各自 gold job 均已存在。
       正式 instance 已验证 <code>daily_market_breadth_job[2026-05-21]</code> 成功，run id 为 <code>2b336cba-cf28-4a21-9d5b-93df9c9c21ee</code>，只生成 market breadth gold 和 gold checks。
       短窗口只读评估确认：当前从空 cursor 评估 market breadth automation 会请求 <code>2975</code> 个历史缺失的 market breadth 分区，因此不直接开启默认全局 automation sensor。
-      当前已新增自定义 <code>market_breadth_automation_sensor</code>、<code>stock_return_distribution_automation_sensor</code>、<code>clickhouse_share_fact_market_breadth_automation_sensor</code> 和 <code>prod_clickhouse_share_fact_market_breadth_automation_sensor</code>，分别只 target 自己的 gold / serving asset，用来替代全局默认 automation sensor 作为日常触发入口。
+      市场宽度、收益分布、本机 ClickHouse serving 和 prod ClickHouse sync 的日常入口分别是 <code>market_breadth_continuity_sensor</code>、<code>stock_return_distribution_continuity_sensor</code>、<code>clickhouse_market_breadth_continuity_sensor</code> 和 <code>prod_clickhouse_market_breadth_continuity_sensor</code>。它们都按 bounded continuity 选择最早未 ready 的交易日，不使用旧 automation sensor。
       最新实现口径是：<code>suspend_d</code> 与 <code>stock_daily</code> 均已拆为 raw-only job/sensor 和 silver-only job/sensor。<code>raw_suspend_d_update_job</code> 只写 <code>raw_tushare_suspend_d</code>，<code>silver_suspend_d_update_job</code> 等 raw latest materialization 及 raw blocking checks 全绿后才写 <code>silver_stock_suspend_daily</code>；<code>raw_stock_daily_update_job</code> 只写日线 raw，<code>silver_stock_daily_update_job</code> 等 raw stock daily、<code>silver_stock_lifecycle</code>、stock basic freshness guard、suspend_d ready 后才写日线 silver。<code>silver_stock_daily</code> materialization 仍保留不可绕过的 stock basic freshness guard，防止人工运行绕过 sensor 后静默过滤新股；股票生命周期过滤事实源已收敛到 <code>silver_stock_lifecycle</code>。股票日线 raw/silver 也是当前人类可读治理标杆资产族：description、run stdout、materialization metadata、check metadata 和 sensor cursor 均先给人可读结论与下一步，再给小型证据，完整诊断留在正式 check/readiness 输出。
       复权因子最新口径是：<code>stock_current_trade_day_sensor</code> 每天 06:00 后按交易日历与最近 10 个 expected trade dates 注册 <code>cn_a_stock_current_trade_days</code> 的最早缺失分区，每 tick 最多补 2 个，不触发数据更新任务；<code>raw_adj_factor_update_job_sensor</code> 在 09:30 后只补缺失 raw；<code>silver_adj_factor_update_job_sensor</code> 等 <code>raw_tushare_adj_factor[trade_date]</code> latest materialization 及 raw blocking checks 全绿，并只要求 <code>stock_basic_ready_without_freshness</code> 通过，不要求当天 freshness。
       股票曾用名最新口径是：<code>raw_tushare_namechange</code> 每次从 Tushare <code>namechange</code> 拉取 full snapshot 并按全字段 exact distinct 写 raw；<code>silver_namechange</code> 使用 <code>latest_announcement_timeline_v1</code> 生成非重叠名称区间；<code>raw_namechange_update_job_sensor</code> 在股票当前交易日注册后按 09:30 早盘与 17:00 晚盘两阶段触发 raw 更新，<code>silver_namechange_update_job_sensor</code> 等 raw namechange ready、stock_basic final ready 且 silver 未跟上最新 upstream storage id 时触发 silver 更新。
@@ -346,8 +346,7 @@
       补充门禁：<code>stock_mins_raw_sensor</code> 提交 prod DB raw run 前，必须确认 <code>stock_basic_ready_for_trade_date(context.instance, target_trade_date)</code> ready，即 <code>raw_tushare_stock_basic</code> 与 <code>silver_stock_basic</code> 都满足目标交易日 freshness 与 blocking checks；不新增 stock basic 日内第二批次判断。
       最新实现口径是：<code>cn_a_trade_day_sensor</code> 只注册全量备份分区；<code>stock_trade_day_sensor</code> 在 17:00 后按交易日历补注册股票资产族分区，每 tick 最多 2 个，具体数据集更新由资产族 sensor 接管。
       神奇九转已在代码定义侧接入专属 <code>cn_a_stk_nineturn_trade_days</code>：<code>stk_nineturn_trade_day_sensor</code> 从 <code>silver_trade_calendar</code> 仅注册 <code>2023-01-03</code> 起的上交所开市日，每 tick 最多 2 个、不提交数据 run，definition 默认 <code>STOPPED</code>。它与共享 <code>stock_trade_day_sensor</code> 职责分离；正式迁移 preflight、分区写入和 post-audit 全绿前不得启用。
-      指数资产族最新口径是：<code>index_trade_day_sensor</code> 只注册指数交易日分区；<code>index_daily_sensor</code> 用 DuckDB gap audit 找最近 60 个可运行交易日内最早 raw 有效缺口，只在该缺口日期的 Tushare <code>index_daily</code> 源站 ready 后触发 <code>index_daily_update_job</code>，不触发 silver；raw gap audit 按 <code>silver_index_basic.list_date/exp_date</code> 过滤上市前和退市后代码；<code>silver_index_daily_sensor</code> 先确认最近 60 个可运行交易日内 raw-by-code 无有效空洞，再触发最早未 ready 的 <code>silver_index_daily_update_job</code>；<code>silver_index_daily_registered_code_coverage</code> 是 blocking check；<code>market_major_indices_daily_sensor</code> 在 silver、index basic 和 seed 输入均 ready 后触发主要指数日线 gold。
-      <code>index_daily_sensor</code> 的晚到补缺逻辑已并入同一个 sensor，不新增独立 repair sensor：首次缺口仍使用 <code>index_daily:&lt;trade_date&gt;:&lt;ts_code&gt;</code> run key；已尝试且仍 pending 的 code 达到 backoff 后使用 <code>index_daily:&lt;trade_date&gt;:&lt;ts_code&gt;:repair:&lt;evaluation_date&gt;:&lt;attempt&gt;</code>；cursor 只记录仍 pending 的 repair state，raw ready 后剪枝，每 tick repair 上限 50、每 code 每自然日最多 8 次。
+      指数资产族最新口径是：<code>index_trade_day_sensor</code> 只注册指数交易日分区；<code>raw_index_daily_update_job_sensor</code> 每次运行时读取 DG 的 <code>cn_a_index_ts_codes</code>，先以最近 10 个交易日的 raw by-date readiness 选择最早未 ready 日期，再确认 prod <code>core_serving.index_daily_serving</code> 对该代码集合完整覆盖后触发 <code>raw_index_daily_update_job</code>。<code>raw_index_daily</code> 只写同日 by-date Parquet，并由 <code>raw_index_daily_file_contract_check</code> 与 <code>raw_index_daily_code_coverage_check</code> 阻断。<code>silver_index_daily_sensor</code> 只消费同日 raw by-date readiness，触发 <code>silver_index_daily_update_job</code>；silver 的四条 blocking checks 包括 contract、key integrity、value domain 和 <code>silver_index_daily_registered_code_coverage_check</code>。<code>market_major_indices_daily_sensor</code> 在 silver、index basic 和 seed 输入均 ready 后触发主要指数日线 gold。
       当前正式 asset definition 已接入治理 tags：<code>goldenshare/layer</code>、<code>goldenshare/data_domain</code> 使用英文枚举值；中文数据集名通过 <code>goldenshare/dataset_name</code> definition metadata 暴露。ClickHouse serving asset 使用 <code>serving</code> layer，不伪装成 gold。
       当前正式 sensor definition 已接入分类 tags：<code>goldenshare/sensor_domain</code>、<code>goldenshare/sensor_target_layer</code>、<code>goldenshare/sensor_role</code>。Automation 页面仍显示 <code>orchestrator</code> code location 分组，分类能力通过搜索和过滤这些 tags 实现。
       股票资产族的分区合法性由正式 blocking asset checks 表达，不在业务 asset 写入函数里保留定制化写前 guard。例外是生产前置事实门禁：<code>silver_stock_daily</code> 依赖 <code>silver_stock_lifecycle</code> 做历史生命周期过滤，同时在写入前校验 <code>silver_stock_basic</code> freshness，防止绕过 sensor 的人工 run 写出静默缺行文件。
@@ -378,7 +377,7 @@
         </tr>
         <tr>
           <td>Sensor</td>
-          <td><code>defs/sensors/cn_a_trade_day_sensor.py</code>、<code>stock_trade_day_sensor.py</code>、<code>stk_nineturn_trade_day_sensor.py</code>、<code>stock_current_trade_day_sensor.py</code>、<code>stock_mins_trade_day_sensor.py</code>、<code>stock_mins_silver_trade_day_sensor.py</code>、<code>stock_mins_silver_sensor.py</code>、<code>stock_mins_qfq_daily_sensor.py</code>、<code>stock_mins_qfq_factor_repair_sensor.py</code>、<code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py</code>、<code>gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py</code>、<code>index_trade_day_sensor.py</code>、<code>index_daily_sensor.py</code>、<code>silver_index_daily_sensor.py</code>、<code>market_major_indices_daily_sensor.py</code>、<code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>、<code>stock_namechange_sensor.py</code>、<code>stock_identity_map_sensor.py</code>、<code>stock_daily_sensor.py</code>、<code>stock_adj_factor_sensor.py</code>、<code>stock_mins_raw_sensor.py</code>、<code>feishu_run_status_sensor.py</code>、<code>market_breadth_automation_sensor.py</code>、<code>stock_return_distribution_automation_sensor.py</code>、<code>clickhouse_share_fact_market_breadth_automation_sensor.py</code>、<code>prod_clickhouse_share_fact_market_breadth_automation_sensor.py</code></td>
+          <td><code>defs/sensors/cn_a_trade_day_sensor.py</code>、<code>stock_trade_day_sensor.py</code>、<code>stk_nineturn_trade_day_sensor.py</code>、<code>stock_current_trade_day_sensor.py</code>、<code>stock_mins_trade_day_sensor.py</code>、<code>stock_mins_silver_trade_day_sensor.py</code>、<code>stock_mins_silver_sensor.py</code>、<code>stock_mins_qfq_daily_sensor.py</code>、<code>stock_mins_qfq_factor_repair_sensor.py</code>、<code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py</code>、<code>gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py</code>、<code>index_trade_day_sensor.py</code>、<code>raw_index_daily_update_job_sensor.py</code>、<code>silver_index_daily_sensor.py</code>、<code>market_major_indices_daily_sensor.py</code>、<code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>、<code>stock_namechange_sensor.py</code>、<code>stock_identity_map_sensor.py</code>、<code>stock_daily_sensor.py</code>、<code>stock_adj_factor_sensor.py</code>、<code>stock_mins_raw_sensor.py</code>、<code>feishu_run_status_sensor.py</code>、<code>market_breadth_continuity_sensor.py</code>、<code>stock_return_distribution_continuity_sensor.py</code>、<code>clickhouse_market_breadth_continuity_sensor.py</code></td>
           <td>已拆成多 sensor：交易日注册、资产族生产和运行告警分离。</td>
           <td><code>cn_a_trade_day_sensor</code> 不触发数据生产且只维护全量备份分区；<code>stk_nineturn_trade_day_sensor</code> 只维护九转专属交易日分区，默认停止且不提交 <code>RunRequest</code>；每个资产族 sensor 只判断本资产族 missing、freshness、blocking checks 和上游 ready；飞书 run status sensors 只监听 <code>STARTED</code>、<code>SUCCESS</code>、<code>FAILURE</code>，默认停止，不提交 <code>RunRequest</code>。所有 sensor definition 均通过分类 tags 服务 Automation 页面过滤。</td>
         </tr>
@@ -503,7 +502,7 @@
     <div class="warning">
       注意：图中的 <code>gold automation</code> 是当前已经声明在 <code>gold_market_breadth_daily</code> 上的 declarative automation 条件，不是一个新 asset。
       当前 <code>gold_market_breadth_daily</code> 只显式依赖 <code>silver_stock_daily</code>；这与市场宽度计算只消费标准日线事实的口径一致。
-      历史 gold 分区补齐已由用户完成自验；日常触发继续使用自定义 <code>market_breadth_automation_sensor</code>，默认是否长期启用按运营验证策略决定。
+      历史 gold 分区补齐已由用户完成自验；日常触发使用 <code>market_breadth_continuity_sensor</code>，由正式 Dagster instance 的 sensor 启停状态决定是否运行。
     </div>
 
     <h3>2.1 Phase 3 指数链路代码事实</h3>
@@ -525,15 +524,15 @@
           <td><code>index_basic_update_job</code></td>
         </tr>
         <tr>
-          <td><code>raw_tushare_index_daily_by_code</code></td>
-          <td>raw，<code>cn_a_index_ts_codes</code> 分区</td>
-          <td>分区 key 即指数代码；主入口 run config 是 <code>trade_date/write_mode</code>，asset 内部把 <code>trade_date</code> 映射成 Tushare <code>index_daily(ts_code,start_date,end_date)</code> 的单日请求窗口，并写入 raw-by-code 文件。</td>
-          <td><code>index_daily_update_job</code>；只选择 raw-by-code asset 和 raw checks。</td>
+          <td><code>raw_index_daily</code></td>
+          <td>raw，<code>cn_a_index_trade_days</code> 分区</td>
+          <td>按交易日从 prod <code>core_serving.index_daily_serving</code> 只读同步；运行时读取 <code>cn_a_index_ts_codes</code>，只导出 DG 管理代码的同日 by-date 文件。</td>
+          <td><code>raw_index_daily_update_job</code>；只选择 raw by-date asset 和两个 raw checks。</td>
         </tr>
         <tr>
           <td><code>silver_index_daily</code></td>
           <td>silver，<code>cn_a_index_trade_days</code> 分区</td>
-          <td>读取已注册 <code>cn_a_index_ts_codes</code> 对应的 raw-by-code 文件集合，按当前交易日抽取并标准化。</td>
+          <td>读取同交易日 <code>raw_index_daily</code> by-date 文件，标准化并保持其 code set。</td>
           <td><code>silver_index_daily_update_job</code>；只选择 silver asset 和 silver checks。</td>
         </tr>
         <tr>
@@ -664,20 +663,20 @@
         </tr>
         <tr>
           <td><span class="tag">index</span></td>
-          <td><code>raw_tushare_index_daily_by_code</code></td>
+          <td><code>raw_index_daily</code></td>
           <td><span class="tag raw">raw</span></td>
-          <td><code>cn_a_index_ts_codes</code></td>
-          <td><code>index_daily_update_job</code> 按指数代码分区拉 Tushare <code>index_daily</code>。</td>
-          <td>交易日日频或历史批量，主入口 run config 提供 <code>trade_date/write_mode</code>；日更由 <code>index_daily_sensor</code> 用 DuckDB gap audit 找最近 60 个可运行交易日内最早 raw 有效缺口，并在该日期源站 ready 后触发。</td>
-          <td>指数日线 raw 源镜像；不再依赖本地 metadata active pool。</td>
+          <td><code>cn_a_index_trade_days</code></td>
+          <td><code>raw_index_daily_update_job</code> 从 prod core serving 读取当日 DG 管理代码集合并写 raw by-date 文件。</td>
+          <td>交易日日频或历史批量；<code>raw_index_daily_update_job_sensor</code> 在最近 10 个交易日窗口选择最早未 ready 分区，只有 prod source 完整覆盖 DG 代码集合时才提交。</td>
+          <td>指数日线 raw 源镜像；正式来源是 prod core DB，不写入或依赖本地 active pool。</td>
         </tr>
         <tr>
           <td><span class="tag">index</span></td>
           <td><code>silver_index_daily</code></td>
           <td><span class="tag silver">silver</span></td>
           <td><code>cn_a_index_trade_days</code></td>
-          <td><code>silver_index_daily_update_job</code> 从 raw-by-code 文件集合按交易日生成。</td>
-          <td>交易日日频或历史批量；<code>silver_index_daily_sensor</code> 先用 DuckDB gap audit 确认最近 60 个可运行交易日内 raw-by-code 无有效空洞，再触发最早未 ready 的 silver 分区。</td>
+          <td><code>silver_index_daily_update_job</code> 从同日 raw by-date 文件生成。</td>
+          <td>交易日日频或历史批量；<code>silver_index_daily_sensor</code> 先检查最近 10 个交易日的 raw by-date readiness，再触发最早未 ready 的 silver 分区。</td>
           <td>指数日线标准事实；服务后续主要指数日线 gold。</td>
         </tr>
         <tr>
@@ -914,18 +913,18 @@
           <td>自动使用 <code>cn_a_index_trade_days</code> 中最近 60 个可运行交易日内的最早 raw 有效缺口；不得由业务 gold job 代写。</td>
         </tr>
         <tr>
-          <td><code>index_daily_update_job</code></td>
-          <td><code>raw_tushare_index_daily_by_code</code> + raw checks</td>
-          <td>单个指数代码的 raw-by-code 文件。</td>
-          <td><code>index_daily_sensor</code>、人工分区运行或 UI backfill。</td>
-          <td>不写 silver，不读取 PG active pool，不生产主要指数 gold。</td>
+          <td><code>raw_index_daily_update_job</code></td>
+          <td><code>raw_index_daily</code> + raw checks</td>
+          <td>单个交易日的指数日线 raw by-date 文件。</td>
+          <td><code>raw_index_daily_update_job_sensor</code>、人工分区运行或 UI backfill。</td>
+          <td>从 prod core serving 只读同步 DG 管理代码集合；不写 silver，不生产主要指数 gold。</td>
         </tr>
         <tr>
           <td><code>silver_index_daily_update_job</code></td>
           <td><code>silver_index_daily</code> + silver checks</td>
           <td>单个交易日指数日线 silver 分区。</td>
           <td>人工分区运行、UI backfill 或 <code>silver_index_daily_sensor</code> 触发最早未 ready 的交易日。</td>
-          <td>只消费 raw-by-code 文件集合，不调用 Tushare，不写 raw。</td>
+          <td>只消费同日 raw by-date 文件，不调用 prod 或 Tushare，不写 raw。</td>
         </tr>
         <tr>
           <td><code>market_major_indices_daily_update_job</code></td>
@@ -938,28 +937,28 @@
           <td><code>daily_market_breadth_job</code></td>
           <td>已实现；只选择 <code>gold_market_breadth_daily</code> + gold checks。</td>
           <td>市场宽度 gold。</td>
-          <td>目标由自定义 <code>market_breadth_automation_sensor</code>、人工 partition run 或 UI backfill 触发。</td>
+          <td>目标由 <code>market_breadth_continuity_sensor</code>、人工 partition run 或 UI backfill 触发。</td>
           <td>不能补上游，不能拉 Tushare，不能写 quote/basic/calendar。</td>
         </tr>
         <tr>
           <td><code>stock_return_distribution_daily_job</code></td>
           <td>已实现；只选择 <code>gold_stock_return_distribution</code> + gold checks。</td>
           <td>股票涨跌幅区间分布 gold，按 <code>pct_chg</code> 统计十一段收益率区间数量。</td>
-          <td>目标由自定义 <code>stock_return_distribution_automation_sensor</code>、人工 partition run 或 UI backfill 触发。</td>
+          <td>目标由 <code>stock_return_distribution_continuity_sensor</code>、人工 partition run 或 UI backfill 触发。</td>
           <td>不能补上游，不能拉 Tushare，不能在 gold 层过滤 <code>pct_chg</code> 空值。</td>
         </tr>
         <tr>
           <td><code>clickhouse_share_fact_market_breadth_update_job</code></td>
           <td>已实现并完成小范围验收；只选择 <code>ch_share_fact_market_breadth_daily</code> + serving checks。</td>
           <td>ClickHouse 行情事实市场宽度 serving 副本。</td>
-          <td>目标由自定义 <code>clickhouse_share_fact_market_breadth_automation_sensor</code>、人工 partition run 或 UI backfill 触发。</td>
+          <td>目标由 <code>clickhouse_market_breadth_continuity_sensor</code>、人工 partition run 或 UI backfill 触发。</td>
           <td>不能补上游，不能拉 Tushare，不能写 gold/silver/raw。</td>
         </tr>
         <tr>
           <td><code>prod_clickhouse_share_fact_market_breadth_sync_job</code></td>
           <td>已实现；只选择 <code>prod_ch_share_fact_market_breadth_daily</code> + prod serving checks。</td>
           <td>把本机 ClickHouse 市场宽度 serving 分区同步到 prod ClickHouse。</td>
-          <td>目标由自定义 <code>prod_clickhouse_share_fact_market_breadth_automation_sensor</code>、人工 partition run 或 UI backfill 触发。</td>
+          <td>目标由 <code>prod_clickhouse_market_breadth_continuity_sensor</code>、人工 partition run 或 UI backfill 触发。</td>
           <td>不能补本机 CH 上游，不能拉 Tushare，不能写 gold/silver/raw；同步时按 <code>trade_date</code> 删除 prod 旧行并插入本机 CH 完整新行；SSH tunnel 是运行前置条件。</td>
         </tr>
         <tr>
@@ -1122,11 +1121,11 @@
       </div>
       <div class="card">
         <strong>Sensor 按资产族拆分</strong>
-        <code>cn_a_trade_day_sensor</code> 只注册交易日；<code>index_trade_day_sensor</code> 只注册指数交易日；<code>stock_mins_trade_day_sensor</code> 只注册分钟线 raw 交易日；<code>stock_mins_silver_trade_day_sensor</code> 只注册分钟线 silver 交易日；<code>index_daily_sensor</code>、<code>silver_index_daily_sensor</code>、<code>market_major_indices_daily_sensor</code>、<code>raw_suspend_d_update_job_sensor</code>、<code>silver_suspend_d_update_job_sensor</code>、<code>raw_stock_basic_update_job_sensor</code>、<code>silver_stock_basic_update_job_sensor</code>、<code>raw_namechange_update_job_sensor</code>、<code>silver_namechange_update_job_sensor</code>、<code>stock_identity_map_sensor</code>、<code>raw_stock_daily_update_job_sensor</code>、<code>silver_stock_daily_update_job_sensor</code>、<code>raw_adj_factor_update_job_sensor</code>、<code>silver_adj_factor_update_job_sensor</code>、<code>stock_mins_raw_sensor</code>、<code>stock_mins_silver_sensor</code>、<code>stock_mins_qfq_daily_sensor</code>、<code>stock_mins_qfq_factor_repair_sensor</code>、<code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor</code>、<code>gold_stk_mins_qfq_macd_kdj_repair_job_sensor</code> 分别判断本资产族是否 missing、fresh、checks passed、seed/input ready、上游 run status 或源站 ready，并提交对应 run request。Automation 页面分类使用 sensor definition tags，不通过改名、目录或 run tags 实现。
+        <code>cn_a_trade_day_sensor</code> 只注册交易日；<code>index_trade_day_sensor</code> 只注册指数交易日；<code>stock_mins_trade_day_sensor</code> 只注册分钟线 raw 交易日；<code>stock_mins_silver_trade_day_sensor</code> 只注册分钟线 silver 交易日；<code>raw_index_daily_update_job_sensor</code>、<code>silver_index_daily_sensor</code>、<code>market_major_indices_daily_sensor</code>、<code>raw_suspend_d_update_job_sensor</code>、<code>silver_suspend_d_update_job_sensor</code>、<code>raw_stock_basic_update_job_sensor</code>、<code>silver_stock_basic_update_job_sensor</code>、<code>raw_namechange_update_job_sensor</code>、<code>silver_namechange_update_job_sensor</code>、<code>stock_identity_map_sensor</code>、<code>raw_stock_daily_update_job_sensor</code>、<code>silver_stock_daily_update_job_sensor</code>、<code>raw_adj_factor_update_job_sensor</code>、<code>silver_adj_factor_update_job_sensor</code>、<code>stock_mins_raw_sensor</code>、<code>stock_mins_silver_sensor</code>、<code>stock_mins_qfq_daily_sensor</code>、<code>stock_mins_qfq_factor_repair_sensor</code>、<code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor</code>、<code>gold_stk_mins_qfq_macd_kdj_repair_job_sensor</code> 分别判断本资产族是否 missing、fresh、checks passed、seed/input ready、上游 run status 或源站 ready，并提交对应 run request。Automation 页面分类使用 sensor definition tags，不通过改名、目录或 run tags 实现。
       </div>
       <div class="card">
         <strong>Sensor 门禁必须轻量</strong>
-        <code>silver_index_daily_sensor</code> 的门禁只读 raw-by-code 文件事实：用 DuckDB gap audit 检查最近 60 个可运行交易日内全部有效注册指数代码的 raw parquet 文件都存在且包含对应交易日数据，有效性由 <code>silver_index_basic.list_date/exp_date</code> 决定；<code>market_major_indices_daily_sensor</code> 只查 10 个主要指数 seed code 在注册分区、<code>silver_index_basic</code> 和当日 <code>silver_index_daily</code> 中是否齐备；不在 evaluation 中读取旧 run tags/config。
+        <code>raw_index_daily_update_job_sensor</code> 与 <code>silver_index_daily_sensor</code> 的门禁只读最近 10 个交易日的 raw by-date 文件事实和 latest check 状态：raw 先验证 prod source 覆盖 DG 管理代码集合；silver 再验证同日 raw 文件契约与 code coverage。<code>market_major_indices_daily_sensor</code> 只查主要指数 seed code 在注册分区、<code>silver_index_basic</code> 和当日 <code>silver_index_daily</code> 中是否齐备；不在 evaluation 中读取旧 run tags/config。
       </div>
       <div class="card">
         <strong>告警不参与生产</strong>
@@ -1146,12 +1145,12 @@
 
 2. Stock breadth gold + ClickHouse serving
    - gold_market_breadth_daily and gold_stock_return_distribution are implemented
-   - ch_share_fact_market_breadth_daily, checks, job, automation sensor are implemented
-   - prod_ch_share_fact_market_breadth_daily, checks, sync job, automation sensor are implemented
+   - ch_share_fact_market_breadth_daily, checks, job, continuity sensor are implemented
+   - prod_ch_share_fact_market_breadth_daily, checks, sync job, continuity sensor are implemented
    - historical catch-up and small-window acceptance were user-verified
 
 3. Phase 3 index daily / major indices
-   - raw-by-code, silver_index_daily, silver_index_daily_sensor are implemented
+   - raw_index_daily by-date, silver_index_daily and their date-level sensors are implemented
    - major indices seed, daily gold asset, checks, job and sensor are implemented
    - old active pool production path has retired from active definitions
 

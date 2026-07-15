@@ -1,6 +1,6 @@
 # `dc_daily` 技术指标 Gold 数据集技术方案
 
-> 状态：P5 Silver repair batch 协议、`silver_dc_daily` 适配器与范围校验已完成；Gold repair job/sensor、Bootstrap、事件验收和正式启用尚未开始。
+> 状态：P6 `silver_dc_daily` bounded repair producer 已完成并通过临时湖验证；Gold repair job/sensor、Bootstrap、事件验收和正式启用尚未开始。
 >
 > 本文是正式技术方案。代码级文件、SQL、测试和执行顺序见
 > [`dagster-dc-daily-technical-indicators-low-level-design.md`](dagster-dc-daily-technical-indicators-low-level-design.md)。
@@ -255,7 +255,7 @@ repair sensor 不能通过全历史 event 扫描猜测“哪些日期被修过�
 
 这里必须区分“源数据修复范围”和“指标有效重算范围”。MA250 至少需要历史窗口；MACD EMA 具有递推影响，源数据修正后后续结果可能持续变化。若没有可验证的 EMA baseline，`context_start_trade_date` 必须回到指标历史起点，不能为了性能擅自截短。
 
-当前 `dc_board` 已有 Silver repair batch 协议基础，但还没有实际 Silver repair writer；repair sensor 接入前必须先完成能产生真实 source revision 的上游 repair producer。没有合法 batch 时 fail closed，不扫描 event history、不按“最近一个 materialization”猜范围。
+`silver_dc_daily` repair producer 接收显式 source repair 范围和 indicator frontier，不从 event history 或文件 mtime 猜范围。它在一个 DuckDB connection 中先对所有 source 日期 staging，做旧/新 Silver 的 set-based 差异和 source revision 计算，只有确认存在真实变化且 batch 校验通过后才逐文件原子 promote。没有合法 batch 时 fail closed；相同内容重试返回 no-op，不产生 ready batch。
 
 repair job 接收显式范围和 `upstream_batch_id`，一次有界扫描受影响范围及所需历史上下文，逐日期生成 staging 并原子替换。范围超过性能上限、源 batch 不 ready、日期未注册或输出对账不一致时整批停止，不拆成无界的一日一 run。
 
@@ -389,13 +389,35 @@ P5 本轮只完成 repair prerequisite，不开发或启用 Gold repair job/sens
 
 P5 验证结果（2026-07-15）：新增协议测试与 P2-P4 定向回归共 `106 passed`；新模块通过 `py_compile`，definitions 加载成功，asset graph 保持 67 个资产且没有新增 repair asset/sensor。本阶段没有运行 `dg`、job、sensor，没有写正式 lake、Dagster DB 或 event。
 
-### P6：Bootstrap 与事件验收
+### P6：Silver repair producer（已完成）
+
+- 新增 `asset_guards/dc_daily_silver_repair_producer.py`，从 Raw `dc_daily` 重建显式 source repair 日期；不定义 Dagster asset/job/sensor，不读取 event history，不写 Dagster DB/event。
+- `dc_board_silver.py` 新增不 promote 的 staging 边界；producer 一次只建立一个 DuckDB connection，先 staging 全部 source 日期，再比较旧 Silver 与 staging 的 `(ts_code, trade_date, category, close, high, low)` 集合。
+- `source_revision` 是规范化 Silver 指标输入列的稳定 SHA-256 内容版本，不使用 mtime、run history 或 event storage id；只将受影响序列的 hash 写入 batch，不写完整序列列表。
+- 固定 source repair 上限为 20 个 expected 交易日，indicator recompute 上限为 60 个 expected 交易日；超限、注册缺口、上下文文件缺失、旧目标 schema 损坏或输入校验失败均在 promote 前 fail closed。
+- 只有真实内容变化的 source 分区才 promote；无变化重试清理 staging 并返回 `no_op=true`、`batch=None`。
+- P6 临时湖测试覆盖真实变化返回 `status=ready`、稳定 source revision、no-op、预算拒绝、非法 Raw、损坏旧目标、staging 清理和单连接约束；本阶段未写正式 lake、Dagster DB 或 event。
+
+P6 验证结果（2026-07-15）：producer、Silver writer 和 repair protocol 定向测试共 `26 passed`；新模块通过 `py_compile`。下一步才允许设计 Gold bounded repair job/sensor。
+
+### P7：Gold repair definition
+
+- 只消费 P6 产生的 `silver_dc_daily` ready batch；不得从 event history 重新推断范围。
+- 设计 bounded Gold repair job/sensor，验证 source revision、范围、注册分区和 60 日期预算后再提交 RunRequest。
+- Gold repair 仍采用 context 读取、有效范围输出、逐文件 staging/promote；超过预算直接 skip/fail closed。
+
+### P8：Bootstrap 与事件验收
 
 - dry-run -> 样本 -> 全历史 Gold 文件；
 - 文件对账通过后，再做 materialization/check event 计划与必要补录；
 - 不把 event backfill 当作 Dagster daily backfill。
 
-### P7：启用与观察
+### P9：事件验收
+
+- Gold 文件完全对账后，再分开处理 materialization 与最近 20 日 check event。
+- 不把 event backfill 当作 Dagster daily backfill。
+
+### P10：启用与观察
 
 - 只读 definitions/partition/readiness 预检；
 - 手动启用 normal sensor，再观察至少 3 个交易日；

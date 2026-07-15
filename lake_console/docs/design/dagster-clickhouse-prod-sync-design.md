@@ -2,6 +2,14 @@
 
 更新时间：2026-06-06
 
+> **触发入口状态校正（2026-07-15）：** 本文中
+> `prod_clickhouse_share_fact_market_breadth_automation_sensor` 与
+> `AutomationCondition` 是已退出的历史执行记录。当前 prod 同步由
+> `prod_clickhouse_market_breadth_continuity_sensor` 负责：它在 bounded continuity
+> 窗口中先检查交易日注册缺口，再确认本机 ClickHouse serving 同日 ready，最后只提交最早
+> 未 ready 的 prod 分区。是否运行由正式 Dagster instance 的 sensor state 决定，不再有
+> automation sensor 的“长期启用”决策。
+
 ## 1. 背景与目标
 
 本机 ClickHouse 已作为本地 serving 副本层接入 Dagster。当前第一张 serving 表是：
@@ -499,7 +507,7 @@ partitions 的单条 check event。
 
 如果 delete 成功但 insert 失败，prod 对应单日 serving 行可能暂时缺失。由于 prod ClickHouse 是副本层，重新运行同一 partition 即可恢复。
 
-并发同一分区写入第一版不单独处理；后续如果自动化长期启用，需要评估 Dagster concurrency / run queue 限制。
+并发同一分区写入第一版不单独处理；如正式 instance 启用 prod continuity sensor，仍需按 bounded single-partition 模型观察 Dagster concurrency / run queue。
 
 刷新历史数据时，prod 同日期旧行必须先删除，再插入本机 CH 已重建后的完整新行；禁止只补新增列、禁止对 prod 旧行做 `ALTER TABLE UPDATE` mutation，也禁止绕过 Dagster 用手写脚本直接灌 prod。
 
@@ -635,41 +643,26 @@ def prod_ch_share_fact_market_breadth_daily(...):
 6. checks-only job 必须显式声明 `partitions_def=cn_a_stock_trade_days`，并配置同一 partition set 的空 `PartitionedConfig`，确保 `dg launch --partition` 能识别它是 partitioned job。
 7. 不新增 sensor、summary asset、数据库表或配置项。
 
-### 9.2 Automation
+### 9.2 现行 Prod Continuity Sensor
 
-新增 automation sensor：
-
-```text
-prod_clickhouse_share_fact_market_breadth_automation_sensor
-```
-
-默认：
+现行 sensor：
 
 ```text
-STOPPED
+prod_clickhouse_market_breadth_continuity_sensor
 ```
 
-target：
+target asset：
 
 ```text
 prod_ch_share_fact_market_breadth_daily
 ```
 
-condition：
+选择与阻断口径：
 
-```python
-dg.AutomationCondition.eager()
-& dg.AutomationCondition.all_deps_blocking_checks_passed()
-```
-
-含义：
-
-1. 本机 CH serving asset 更新后，prod sync asset 可跟进。
-2. 只检查直接上游 `ch_share_fact_market_breadth_daily` 的 blocking checks。
-3. 不触发 gold / silver / raw。
-4. 不负责恢复 SSH tunnel。
-
-第一版启用前必须先做请求范围评估，避免历史缺失分区被一次性请求。
+1. 先在最近 10 个 expected stock trade dates 内检查注册缺口；缺口存在时 fail closed。
+2. 对本机 `ch_share_fact_market_breadth_daily` 和 prod target 做 batch readiness，选择最早未 ready 日期。
+3. 只在 selected date 的本机 serving ready 时提交 prod sync；不触发 gold / silver / raw，也不负责恢复 SSH tunnel。
+4. prod 已 materialized 但 blocking checks 未绿时 skip，不自动覆盖；不扫描全历史或一次请求大量历史缺口。
 
 ## 10. 落地步骤
 
@@ -800,15 +793,15 @@ updated_at = 2026-05-28 22:09:21
 10. 如果 tunnel 中断或 prod 不可达，对应批次 run 失败并暴露连接错误；修复 tunnel 后对 failed / missing partitions 重新 backfill。
 11. 不直接用 `clickhouse-client INSERT SELECT` 或手写脚本批量灌 prod，因为那会绕过 Dagster asset/check/event 可观测性。
 
-### Slice PCH-6：prod sync automation
+### Slice PCH-6：历史 prod sync automation（已退出）
 
-状态：已完成，默认 `STOPPED`。
+状态：历史实现已完成，后续已由 prod continuity sensor 替代。
 
 已落地：
 
-1. 新增 `prod_clickhouse_share_fact_market_breadth_automation_sensor`。
-2. 默认 `STOPPED`。
-3. 小范围评估后再短暂开启。
+1. 历史上新增 `prod_clickhouse_share_fact_market_breadth_automation_sensor`。
+2. 该入口已退出，不再有默认 state。
+3. 当前是否运行由 `prod_clickhouse_market_breadth_continuity_sensor` 的正式 instance state 决定。
 
 验收：
 
@@ -946,7 +939,7 @@ prod checks 与本机 CH 不一致
 2. prod 运行目录使用 `/opt/goldenshare/clickhouse/`，systemd unit 为 `goldenshare-clickhouse.service`。
 3. SSH tunnel 第一版使用手动脚本 `lake_console/bin/lake-prod-clickhouse-tunnel`。
 4. `goldenshare_sync_writer` 密码只写入本机 `~/.bash_profile` 的 `PROD_CLICKHOUSE_PASSWORD`，不入仓库、不入文档、不入 metadata。
-5. prod sync automation 已定义但默认 `STOPPED`，长期启用需要单独确认。
+5. prod continuity sensor 的启停和 bounded window 观察需要按正式 instance 单独确认；不再讨论已退出 automation sensor。
 6. PCH-7 原 250 交易日批量 backfill 方案已撤销，不再作为正式实现推进。
 7. P2R 后 `prod_ch_share_fact_market_breadth_daily` 正式执行固定为 single-partition；当前 4 个 prod sync check 名称和 blocking 语义不变。
 8. 如后续重新设计历史全量同步性能优化，必须先保证 per-partition materialization/check event 归属正确，不得恢复多分区 run 只写一条 check result 的旧口径。

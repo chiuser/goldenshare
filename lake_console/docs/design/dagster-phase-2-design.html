@@ -277,6 +277,13 @@
   </header>
 
   <section>
+    <h2>0. 文档状态与现行依据</h2>
+    <div class="callout">
+      <strong>历史阶段记录（2026-07-15 校正）：</strong>本文记录第二期 bootstrap、Tushare 接入和早期自动化的阶段决策，不把其中的历史 automation 或旧入口称为当前实现。现行股票日线和下游连续性入口以 <a href="../architecture/dagster-asset-job-topology.html">Dagster asset/job topology</a>、<a href="dagster-silver-raw-readiness-registry.html">readiness registry</a>、<a href="dagster-non-stk-mins-continuity-governance-plan.md">non-stk continuity plan</a> 与具体数据集 LLD 为准。
+    </div>
+  </section>
+
+  <section>
     <h2>0. Phase 3 分区口径修正</h2>
     <div class="callout">
       Phase 3 Slice 3.2.2 后，股票日频资产族的正式生产分区统一为 <code>cn_a_stock_trade_days</code>；

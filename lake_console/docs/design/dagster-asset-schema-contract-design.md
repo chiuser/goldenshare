@@ -84,7 +84,7 @@ asset checks
 
 ## 4. 改造范围
 
-当前 active asset 事实以 `orchestrator.defs.catalog.lake_assets.LAKE_ASSET_CATALOG` 为准；`tests/test_asset_governance_contracts.py` 对账当前共有 58 个 active catalog entries。除 `lake_root_health` 是 platform health asset、没有 table column schema 外，其余 57 个 table-like / serving assets 都必须注册 definition column schema。
+当前 active asset 事实以 `orchestrator.defs.catalog.lake_assets.LAKE_ASSET_CATALOG` 为准；资产数量不得在本文手写固定数字，必须由 `list_lake_asset_catalog_entries()` 与 `tests/test_asset_governance_contracts.py` 在当前代码基线生成。除 `lake_root_health` 是 platform health asset、没有 table column schema 外，其余 table-like / serving active assets 都必须注册 definition column schema。
 
 当前覆盖范围：
 
@@ -343,11 +343,11 @@ silver_index_daily
 2. 现有 silver checks 继续通过。
 3. 不改变 silver parquet 写入逻辑。
 
-### Slice SC-5：推广到 raw（已落地）
+### Slice SC-5：推广到 raw（历史执行记录，已落地）
 
 状态：
 
-1. `raw_tushare_trade_calendar`、`raw_tushare_stock_basic`、`raw_tushare_stock_daily`、`raw_tushare_adj_factor`、`raw_tushare_suspend_d`、`raw_tushare_index_basic`、`raw_tushare_index_daily_by_code` 均已注册 definition column schema。
+1. 当时的 `raw_tushare_trade_calendar`、`raw_tushare_stock_basic`、`raw_tushare_stock_daily`、`raw_tushare_adj_factor`、`raw_tushare_suspend_d`、`raw_tushare_index_basic`、`raw_tushare_index_daily_by_code` 均已注册 definition column schema。
 2. raw 层字段契约保持源站镜像口径：Tushare 日期字符串仍注册为 `VARCHAR`，`raw_tushare_trade_calendar.is_open` 注册为 `INTEGER`，股票/指数日线 raw 字段继续使用 `change`。
 3. Tushare raw 写入 helper 的运行时列信息已从旧 `columns=` 收敛为 `goldenshare/observed_columns`；`fields` 作为本次请求观测信息继续保留在 materialization metadata。
 4. raw 字段常量和 raw column type maps 已从 schema contract 派生，避免字段契约维护两份。
@@ -361,7 +361,8 @@ raw_tushare_stock_daily
 raw_tushare_adj_factor
 raw_tushare_suspend_d
 raw_tushare_index_basic
-raw_tushare_index_daily_by_code
+raw_tushare_index_daily_by_code（历史已退出）
+raw_index_daily（当前指数 raw，按交易日 by-date）
 ```
 
 重点：
@@ -445,7 +446,7 @@ git status --short
 验收结论：
 
 1. SC-1 至 SC-6 已完成开发与收口。
-2. 57 个 active table-like / serving assets 已接入 definition column schema；`lake_root_health` 作为 platform health asset 明确不注册 table schema。
+2. 当前 `LAKE_ASSET_CATALOG` 中除 `lake_root_health` 外的每个 table-like / serving active asset 都已接入 definition column schema；数量由治理测试生成，不在本文固化。
 3. 用户已完成 UI 自验，确认 schema contract 口径可用。
 4. 历史 materialization metadata 不刷新，这是预期；如需清理旧 event log，另起方案。
 
@@ -518,7 +519,7 @@ git status --short
 
 完成后应满足：
 
-1. 所有 57 个 active table-like / serving assets 都在 definition metadata 中注册 column schema；`lake_root_health` 作为唯一无表结构例外。
+1. 当前 `LAKE_ASSET_CATALOG` 中除 `lake_root_health` 外的所有 table-like / serving active assets 都在 definition metadata 中注册 column schema；不得在本文固化资产总数。
 2. 每个字段都有 name、type、description。
 3. materialization metadata 不再承担稳定字段契约职责。
 4. runtime observed columns 仍可见。

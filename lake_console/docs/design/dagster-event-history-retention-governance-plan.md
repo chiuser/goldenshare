@@ -2,6 +2,8 @@
 
 更新时间：2026-06-23
 
+> **状态校正（2026-07-15）：** 本文第 3-11 节保留的是 2026-06-23 的历史审计、候选与执行设计，不能再当作现行 index daily 状态判断。指数日线 raw-by-code 迁移已完成：P7 已清理 active source/catalog，P8 已将旧物理目录隔离到 quarantine，P9B-1 已清理旧 raw asset/check 与旧 raw sensor state，P9C-1 已清理不含 `silver_index_daily` 事件的旧 run history。仍待单独拍板的只有 P8 quarantine 最终物理删除和 P9C-2 的 4 个 mixed runs；当前链路以 `raw_index_daily` by-date/prod-core-db 迁移 LLD 为准。
+
 ## 1. 目标
 
 本专项的优先级是 **降存量，防增量**。
@@ -61,18 +63,16 @@ postgresql://congming@localhost:5432/goldenshare_dagster
 | `gold_stk_mins_qfq_factor_repair_plan_evaluated` | 188 | 禁删 |
 | `gold_stk_mins_qfq_macd_kdj_repair_completed_check` | 126 | 禁删 |
 
-### 3.3 `raw_tushare_index_daily_by_code` 仍是 active definition
+### 3.3 历史前提：`raw_tushare_index_daily_by_code` 当时仍是 active definition
 
-代码中仍存在：
+以下是 2026-06-23 的审计事实，不再是当前代码事实：当时 raw-by-code 仍有 asset、job、checks、catalog、readiness 和文件事实消费者，因此不能直接清理。
 
-1. `assets/index_daily.py::raw_tushare_index_daily_by_code`
-2. `jobs/index_daily_update.py`
-3. `checks/index_daily_checks.py` 中 raw by-code checks
-4. `catalog/lake_assets.py` 中 catalog entry
-5. `sensors/readiness.py` 中 `RAW_INDEX_DAILY_BY_CODE_READINESS_SPEC`
-6. `asset_guards/market_major_indices_lake_readiness.py` 和 `index_daily_raw_file_readiness.py` 仍读取 raw by-code 文件事实。
+后续实际收口结果：
 
-所以 `raw_tushare_index_daily_by_code` 虽然是高基数旧模式，但当前还不能按 retired asset 直接清理。只有完成 raw index daily by-date 迁移、active definitions 和 readiness 消费者清零后，才能进入 retired asset 清理。
+1. P7 已从 active definitions 与 catalog 退出 raw-by-code source。
+2. P8 已将旧 lake 目录整体隔离到 quarantine，原路径不再存在。
+3. P9B-1 已精确清理旧 raw asset/check 事件和旧 raw sensor instigator state；P9C-1 已清理安全旧 run history 子集。
+4. 当前正式入口是 `raw_index_daily`、`raw_index_daily_update_job`、`raw_index_daily_update_job_sensor` 与同日 raw-by-date readiness；不得基于本节恢复或设计 raw-by-code 消费者。
 
 ## 4. Dagster Storage 现状
 
@@ -429,7 +429,7 @@ JOIN latest_materializations lm
 2. `gold_stock_return_distribution`
 3. `prod_ch_share_fact_market_breadth_daily`
 
-不先选择 `raw_tushare_index_daily_by_code`，原因是它当前仍是 active definition，仍有 job、checks、catalog、readiness 和文件事实消费者。
+历史上不先选择 `raw_tushare_index_daily_by_code`，原因是当时它仍是 active definition；该限制已在 P7-P9 收口，现行状态见文首状态校正。
 
 每个资产输出：
 
@@ -566,7 +566,7 @@ P3 第一批只允许包含：
 P3 第一批禁止包含：
 
 1. `prod_ch_share_fact_market_breadth_daily`
-2. `raw_tushare_index_daily_by_code`
+2. `raw_tushare_index_daily_by_code`（历史排除对象，P7-P9 前的审计范围）
 3. repair/status 类 check asset
 4. 任意 P2 dry-run 未证明 latest materialization 与 latest checks 完整的 asset
 
@@ -664,12 +664,12 @@ P3 第一批禁止包含：
 
 ### P5：retired check / retired asset 清理
 
-目标：处理已经从 active definitions 和所有消费者中退出的 check / asset。
+历史目标：处理已经从 active definitions 和所有消费者中退出的 check / asset。指数 raw-by-code 已在 P7-P9 实际收口，不再作为未来 P5 候选。
 
 候选：
 
 1. `silver_stock_daily_current_listed_only`
-2. 后续退出后的 `raw_tushare_index_daily_by_code`
+2. 已于 P7-P9 退出并治理完成的 `raw_tushare_index_daily_by_code`（保留本条作为历史执行索引，不再安排重复清理）
 3. 其它 active definitions 已清零的旧 check / asset
 
 每个 retired 对象必须先通过六项审计：
@@ -754,7 +754,7 @@ P3 第一批禁止包含：
 
 1. 两者旧 check/materialization 候选数量明显。
 2. 不涉及 qfq repair / MACD/KDJ repair metadata。
-3. 不直接触碰当前最大但仍 active 的 `raw_tushare_index_daily_by_code`。
+3. 历史上不直接触碰当时最大且仍 active 的 `raw_tushare_index_daily_by_code`；该对象已在 P7-P9 处理，不再属于现行第一批建议范围。
 4. 可验证 ClickHouse serving / gold 派生资产的 UI current status 是否保持稳定。
 5. P2 实测证明两者 latest materialization 与 latest check state 完整，具备小样本删除前置条件。
 
@@ -769,12 +769,7 @@ P3 第一批禁止包含：
 3. P2R 代码修复只解决后续新 run/check 的归属正确性，不再做 3,007 个历史分区全量补录。
 4. 当前它必须继续排除在 P3/P4 删除候选外；只有未来独立方案证明 `latest_materializations_without_latest_checks = 0` 后，才允许重新讨论是否进入候选。
 
-`raw_tushare_index_daily_by_code` 的清理顺序：
-
-1. 先完成 raw index daily by-date 迁移。
-2. active definition、job、checks、catalog、readiness、docs 引用清零。
-3. dry-run 确认 UI / sensor 不再消费 by-code asset。
-4. 再作为 retired asset 做更大范围清理。
+`raw_tushare_index_daily_by_code` 的历史清理顺序已经执行完成：先完成 raw index daily by-date 迁移，再清零 active definition、job、checks、catalog 和 readiness 消费者，随后完成 P8 物理隔离及 P9B/P9C 状态治理。剩余动作仅为 P8 quarantine 最终物理删除与 P9C-2 mixed runs 的独立决策。
 
 `silver_stock_daily_current_listed_only` 的清理顺序：
 

@@ -4,7 +4,17 @@
 
 ## 1. 背景与目标
 
-本地 ClickHouse 已完成基础安装、Flyway migration、Dagster resource 接入、第一张 serving asset 定义、serving checks / job 接入、serving automation 入口定义、历史补齐和小范围运行验收。当前代码已经安装 `dagster-clickhouse==0.29.6`，并把官方 `ClickhouseResource` 注册为 Dagster resource；serving automation sensor 默认 `STOPPED`，是否长期启用由运营验证后决定。
+本地 ClickHouse 已完成基础安装、Flyway migration、Dagster resource 接入、第一张 serving asset 定义、serving checks / job 接入、历史补齐和小范围运行验收。当前代码已经安装 `dagster-clickhouse==0.29.6`，并把官方 `ClickhouseResource` 注册为 Dagster resource；日常触发使用 continuity sensor，不再存在 serving automation sensor。
+
+> **触发入口状态校正（2026-07-15）：** 本文早期出现的
+> `*_automation_sensor`、`AutomationCondition` 与“默认 `STOPPED` 后再决定是否长期启用”均为
+> 已退出的历史执行记录。当前市场宽度、收益分布、本机 ClickHouse serving 和 prod ClickHouse
+> sync 分别由 `market_breadth_continuity_sensor`、
+> `stock_return_distribution_continuity_sensor`、
+> `clickhouse_market_breadth_continuity_sensor`、
+> `prod_clickhouse_market_breadth_continuity_sensor` 按 bounded continuity 选择最早未 ready
+> 分区。是否运行由正式 Dagster instance 的 sensor state 决定；运营只评估启停与观察窗口，
+> 不再选择不存在的 automation sensor。
 
 本设计目标是：让 Dagster 把已经生成的 Parquet gold 资产同步到本地 ClickHouse serving 表，并用 Dagster assets、jobs、checks 和 automation 管理 ClickHouse 表的数据状态。
 
@@ -70,10 +80,12 @@ ClickHouse serving automation sensor
 ClickHouse serving 单日、小范围 backfill 与历史补齐验收
 ```
 
-当前尚未默认长期启用：
+当前运行状态必须以正式 Dagster instance 为准：
 
 ```text
-ClickHouse serving 默认长期自动化
+clickhouse_market_breadth_continuity_sensor
+  由正式 Dagster instance 的 sensor state 决定是否运行
+  每 tick 只在 bounded continuity 窗口内选择最早未 ready 分区
 ```
 
 当前已存在的直接上游 gold assets：
@@ -85,32 +97,24 @@ gold_stock_return_distribution[trade_date]
 
 这两个资产都直接依赖 `silver_stock_daily[trade_date]`，并且已经通过各自 gold checks 管理数据质量。
 
-重构后当前代码对照：
+当前触发代码对照：
 
 ```text
-defs/assets/market_breadth.py
-  gold_market_breadth_daily
-  automation_condition = eager() & all_deps_blocking_checks_passed()
+defs/sensors/market_breadth_continuity_sensor.py
+  market_breadth_continuity_sensor
+  选择最早未 ready 的 gold_market_breadth_daily[trade_date]
 
-defs/assets/stock_return_distribution.py
-  gold_stock_return_distribution
-  automation_condition = eager() & all_deps_blocking_checks_passed()
+defs/sensors/stock_return_distribution_continuity_sensor.py
+  stock_return_distribution_continuity_sensor
+  选择最早未 ready 的 gold_stock_return_distribution[trade_date]
 
-defs/jobs/daily_market_breadth.py
-  daily_market_breadth_job
-  只选择 gold_market_breadth_daily + 对应 checks
+defs/sensors/clickhouse_market_breadth_continuity_sensor.py
+  clickhouse_market_breadth_continuity_sensor
+  等两个 gold 上游同日 ready 后选择最早未 ready 的本机 ClickHouse serving 分区
 
-defs/jobs/stock_return_distribution_daily.py
-  stock_return_distribution_daily_job
-  只选择 gold_stock_return_distribution + 对应 checks
-
-defs/sensors/market_breadth_automation_sensor.py
-  market_breadth_automation_sensor
-  只 target gold_market_breadth_daily，默认 STOPPED
-
-defs/sensors/stock_return_distribution_automation_sensor.py
-  stock_return_distribution_automation_sensor
-  只 target gold_stock_return_distribution，默认 STOPPED
+defs/sensors/clickhouse_market_breadth_continuity_sensor.py
+  prod_clickhouse_market_breadth_continuity_sensor
+  等本机 ClickHouse serving 同日 ready 后选择最早未 ready 的 prod sync 分区
 ```
 
 因此 ClickHouse serving 设计必须把这两个 gold assets 当作直接上游，不能回到旧的“普通 sensor 手写文件探测”或“下游补上游”的口径。
@@ -141,7 +145,7 @@ interserver_http_port = 9009
 2. native `9000` 正在监听 `127.0.0.1:9000`。
 3. 在 Codex 沙箱内直接连 native `9000` 可能报 `Operation not permitted` 或 I/O error，这是沙箱网络限制，不代表 ClickHouse 配置失败。
 4. 经批准在沙箱外执行 native client，`SELECT version(), currentDatabase()` 返回 `26.6.1.141 default`。
-5. Slice CH-1 已通过 Flyway 创建 `goldenshare_serving` 数据库和 `goldenshare_serving.share_fact_market_breadth_daily` 空表；Slice CH-2 已接入 Dagster resource；Slice CH-3 已接入 serving asset；Slice CH-4 已接入 serving checks 和 job；Slice CH-5 已定义 automation 入口，默认 `STOPPED`；Slice CH-6 的单日 checks 验收、小范围 backfill 验收和历史补齐已由用户完成。
+5. Slice CH-1 已通过 Flyway 创建 `goldenshare_serving` 数据库和 `goldenshare_serving.share_fact_market_breadth_daily` 空表；Slice CH-2 已接入 Dagster resource；Slice CH-3 已接入 serving asset；Slice CH-4 已接入 serving checks 和 job；Slice CH-5 的 historical automation 入口已退出，现行入口为 continuity sensor；Slice CH-6 的单日 checks 验收、小范围 backfill 验收和历史补齐已由用户完成。
 
 本地已知坑：
 
@@ -622,35 +626,30 @@ raw_tushare_stock_daily
 
 ClickHouse job 只负责 serving 同步，不负责补上游。
 
-### 10.2 自动化
+### 10.2 现行 Continuity Sensor
 
-自动化是 ClickHouse serving 接入设计的一部分，不能省略。
+本机 ClickHouse serving 的日常推进由 bounded continuity sensor 承担，不使用 declarative automation。
 
-第一阶段可以不默认开启，但必须实现和验证自动化入口。
+是否启用是正式 Dagster instance 的运维状态；启用前只评估当前连续性窗口和上游 readiness，不执行全历史扫描。
 
-正式自动化目标：
+当前本机 ClickHouse serving 触发目标：
 
 ```text
-ch_share_fact_market_breadth_daily automation:
-  gold_market_breadth_daily[trade_date] materialized
-  gold_market_breadth_daily blocking checks passed
-  gold_stock_return_distribution[trade_date] materialized
-  gold_stock_return_distribution blocking checks passed
-  direct upstream gold assets updated
+clickhouse_market_breadth_continuity_sensor:
+  最近 10 个 expected stock trade dates 内先检查注册缺口
+  两个 gold 上游与本机 ClickHouse serving 的 lake-derived readiness 必须同日满足
+  只提交最早未 ready 的 ch_share_fact_market_breadth_daily[trade_date]
+  已 materialized 但 blocking checks 未绿时 fail closed，不自动覆盖
 ```
 
-建议实现：
+现行实现：
 
 ```text
-ch_share_fact_market_breadth_daily
-  automation_condition =
-    eager()
-    AND all_deps_blocking_checks_passed()
-
-clickhouse_share_fact_market_breadth_automation_sensor
-  target = ch_share_fact_market_breadth_daily
-  default_status = STOPPED
-  minimum_interval_seconds = 600
+clickhouse_market_breadth_continuity_sensor
+  target job = clickhouse_share_fact_market_breadth_update_job
+  run key = ch_share_fact_market_breadth_daily:<trade_date>
+  one tick at most one trade-date run
+  source = registered expected dates + gold/local-serving batch readiness
 ```
 
 边界：
@@ -663,14 +662,12 @@ clickhouse_share_fact_market_breadth_automation_sensor
 
 验收：
 
-1. 先保持 sensor `STOPPED`。
-2. 手动确认某个交易日两个 gold 上游都已 materialized 且 checks 通过。
-3. 短暂开启 sensor 一个 tick。
-4. 期望只请求对应日期的 `ch_share_fact_market_breadth_daily`。
-5. run 中不得出现 raw / silver / Tushare / gold 上游 materialization。
-6. 验证后关闭，或经确认后长期启用。
+1. 读取正式 instance 确认 continuity sensor 当前 state。
+2. 观察一个 bounded tick：仅当同日两个 gold 上游 ready 时，才请求对应的 ClickHouse serving 分区。
+3. run 中不得出现 raw / silver / Tushare / gold 上游 materialization。
+4. 若发现注册缺口、上游未 ready 或 materialized check failure，必须 skip，不扩大扫描窗口或自动覆盖。
 
-如果 Dagster 当前版本对双上游 `eager() + all_deps_blocking_checks_passed()` 行为与预期不一致，必须停下讨论后备方案，不允许退化成“只看文件存在”的普通 sensor。
+如果 current continuity sensor 的双上游 batch readiness 与预期不一致，必须停下审计，不允许退化成“只看文件存在”、恢复旧 declarative automation，或在下游 job 内补上游。
 
 ## 11. 代码组织
 
@@ -758,14 +755,14 @@ lake_console/orchestrator/src/orchestrator/defs/jobs/clickhouse_share_fact_marke
 
 Job 文件只写 asset selection，不写 SQL、不连 ClickHouse。
 
-### 11.6 Automation Sensor
+### 11.6 当前 Continuity Sensor
 
 ```text
-lake_console/orchestrator/src/orchestrator/defs/sensors/clickhouse_share_fact_market_breadth_automation_sensor.py
-  clickhouse_share_fact_market_breadth_automation_sensor
+lake_console/orchestrator/src/orchestrator/defs/sensors/clickhouse_market_breadth_continuity_sensor.py
+  clickhouse_market_breadth_continuity_sensor
 ```
 
-该 sensor 是 `AutomationConditionSensorDefinition`，不是普通 `@sensor`。
+该 sensor 按注册缺口、上游 readiness 与本机 ClickHouse serving readiness 做 bounded selection；它不使用 declarative automation 作为日常入口。
 
 ## 12. 配置审计表
 
@@ -814,7 +811,7 @@ Schema history table: default.flyway_schema_history
 3. 本地 ClickHouse `default` 用户为空密码，但 Flyway 必须显式传 `-password=`；只传 `-user=default` 会触发 `REQUIRED_PASSWORD`。
 4. Codex 沙箱内 Java/Flyway 连接本机 ClickHouse 会遇到 `SocketException: Operation not permitted`，执行 Flyway 连接和迁移命令需要在沙箱外运行。
 
-目标：
+历史目标：
 
 1. 安装或确认本机 Flyway CLI 可用。
 2. 确认 Flyway 能识别 ClickHouse JDBC 连接，必要时明确 ClickHouse JDBC driver / plugin 的安装方式。
@@ -865,7 +862,7 @@ database: goldenshare_serving
   CLICKHOUSE_DATABASE
 ```
 
-目标：
+历史目标：
 
 1. 安装 `dagster-clickhouse==0.29.6`。
 2. 注册官方 `ClickhouseResource`，resource key 为 `clickhouse`。
@@ -967,11 +964,11 @@ selection:
 3. run 中不 materialize 上游 gold / silver / raw。
 4. 已完成单日 serving checks 验证，6 个 ClickHouse checks 均通过。
 
-### Slice CH-5：自动化入口
+### Slice CH-5：历史 automation 入口（已退出）
 
-状态：已完成。
+状态：历史实现已完成，后续已由 continuity sensor 替代。
 
-当前实现结果：
+历史实现结果：
 
 ```text
 asset condition:
@@ -992,21 +989,21 @@ automation sensor:
 1. 为 `ch_share_fact_market_breadth_daily` 添加 automation condition。
 2. 新增专用 `clickhouse_share_fact_market_breadth_automation_sensor`。
 3. sensor 默认 `STOPPED`。
-4. 自动化入口已定义，长期启用仍需按运营节奏决定。
+4. 当时的自动化入口已定义；该入口随后已退出，不再存在长期启用决策。
 
-不做：
+当时不做：
 
 1. 不默认长期开启。
 2. 不做全历史大范围同步。
 3. 不用普通 sensor 写重 IO readiness。
 
-验收：
+当时验收：
 
 1. 只有两个 gold 直接上游 ready 时才请求 ClickHouse serving asset。
 2. 不触发 gold 上游 job。
 3. 不触发 raw / silver / Tushare。
 4. 启用前必须先做请求范围评估，避免历史缺失分区被一次性请求。
-5. 当前默认保持 `STOPPED`；是否长期打开不作为第一版表开发完成的阻塞条件。
+5. 当时默认保持 `STOPPED`；该状态仅为历史证据，当前运行状态以 continuity sensor 的正式 instance state 为准。
 
 ### Slice CH-6：小范围 backfill 与文档收口
 
@@ -1021,7 +1018,7 @@ automation sensor:
 
 仍保留的运营决策：
 
-1. 是否长期启用 `clickhouse_share_fact_market_breadth_automation_sensor`。
+1. 是否在正式 instance 启用 `clickhouse_market_breadth_continuity_sensor`，以及观察的 bounded window。
 2. 是否做更大范围历史 backfill。
 3. 是否把本地 API 查询切到 ClickHouse serving 表。
 
@@ -1096,7 +1093,7 @@ ClickHouse 不使用根 Alembic，也不新增 ClickHouse Alembic 分支。
 4. `ch_share_fact_market_breadth_daily[trade_date]` 可单日运行。
 5. ClickHouse 表中该日数据与两个 gold assets 完全一致。
 6. `clickhouse_share_fact_market_breadth_update_job` 只负责 ClickHouse serving asset。
-7. `clickhouse_share_fact_market_breadth_automation_sensor` 已定义，默认 `STOPPED`。
+7. 现行 `clickhouse_market_breadth_continuity_sensor` 负责日常推进；其实际启停状态必须读取正式 Dagster instance。
 8. 所有 serving checks 通过。
 9. 已完成小范围 backfill 验收。
 10. 已完成历史补齐验收，`gold_market_breadth_daily` 与 `gold_stock_return_distribution` 共同进入 ClickHouse serving 表的链路已收口。
@@ -1105,4 +1102,4 @@ ClickHouse 不使用根 Alembic，也不新增 ClickHouse Alembic 分支。
 当前边界：
 
 1. ClickHouse serving 表是副本层，不是 raw / silver / gold 的事实源。
-2. automation sensor 仍默认 `STOPPED`；长期启用属于运营策略，不影响第一版开发收口。
+2. continuity sensor 的启停和观察窗口属于运营策略，不影响 serving asset、job、checks 与物理表的开发收口。

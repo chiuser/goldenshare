@@ -4,6 +4,8 @@
 
 更新时间：2026-06-25
 
+> **QFQ/MACD-KDJ 状态校正（2026-07-15）：** 本文中 M6/P6 的旧 formula check 描述和事件量是历史设计记录，不能作为当前定义依据。现行 production check 集合由 `defs/checks/stk_mins_checks.py`、`defs/checks/stk_mins_qfq_macd_kdj_checks.py` 与 QFQ validation LLD 共同固定：QFQ native/derived 各 4 条、indicator 2 条、state 2 条；公式正确性在受保护金样本测试中验证。
+
 ## 1. 目标与边界
 
 本 LLD 用于指导专项落地。P0.1 已完成治理矩阵与静态门禁开发；后续阶段仍按本文逐段推进。本文不授权执行 Dagster、删除 Dagster DB event 或触碰数据湖文件。
@@ -148,9 +150,9 @@ dg.AssetSelection.assets(asset) | dg.AssetSelection.checks_for_assets(asset)
 
 ### 2.5 高基数来源
 
-基于 2026-06-24 正式 Dagster Postgres 只读统计，当前 check event 压力主要来自非分钟线资产。
+基于 2026-06-24 正式 Dagster Postgres 的只读历史统计，当时 check event 压力主要来自非分钟线资产；下表的 check names 不是当前 active check 清单。
 
-| family | check rows | assets | check names | null partition rows | last 7d rows |
+| family | 历史 check rows | assets | 历史 check names | null partition rows | 当时 last 7d rows |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | other | 256,058 | 18 | 127 | 180,188 | 543 |
 | market_breadth | 111,799 | 4 | 24 | 111,779 | 122 |
@@ -161,9 +163,9 @@ dg.AssetSelection.assets(asset) | dg.AssetSelection.checks_for_assets(asset)
 | MACD/KDJ indicator | 861 | 7 | 5 | 168 | 357 |
 | MACD/KDJ state | 469 | 7 | 3 | 84 | 189 |
 
-最大资产来源：
+该历史快照中的最大资产来源：
 
-| asset_key | check rows | check names | null partition rows |
+| asset_key | 历史 check rows | 历史 check names | null partition rows |
 | --- | ---: | ---: | ---: |
 | `gold_market_major_indices_daily` | 66,370 | 11 | 66,370 |
 | `silver_stock_daily` | 61,560 | 14 | 61,560 |
@@ -220,9 +222,9 @@ P0.1 已确认：
   均已登记 P2-P6 合并后的正式 check names。
 - `defs/sensors/readiness.py` 中 daily、suspend、adj factor、index daily、分钟线 qfq
   等 readiness specs 已使用合并后的 check names。
-- `defs/checks/stk_mins_qfq_macd_kdj_checks.py` 中 MACD/KDJ indicator 当前仍有
-  `contract/source_coverage/formula_sample` 三个 check；后续治理必须退役
-  `formula_sample`，将公式自洽迁至受保护金样本测试。state checks 仍保持两个。
+- `defs/checks/stk_mins_qfq_macd_kdj_checks.py` 中 MACD/KDJ indicator 当前为
+  `contract/source_coverage` 两个 production check；`formula_sample` 已退出正式
+  Dagster check，公式正确性由受保护金样本测试承担。state checks 仍保持两个。
 - `defs/checks/wealth_market_turnover_checks.py` 当前正式 check 为
   `gold_wealth_market_turnover_integrity_check`，已纳入治理矩阵，暂不进入合并优先级。
 
@@ -893,8 +895,7 @@ P5C 已落地：
     `gold_stk_mins_qfq_contract_check`、
     `gold_stk_mins_qfq_key_integrity_check`、
     `gold_stk_mins_qfq_value_domain_check`、
-    `gold_stk_mins_qfq_derived_source_coverage_check`、
-    `gold_stk_mins_qfq_derived_formula_matches_source`。
+    `gold_stk_mins_qfq_derived_source_coverage_check`。
   - native `contract` 聚合文件存在/行数、schema、freq/date/path；
     `key_integrity` 聚合 `(ts_code, trade_time)` 唯一性；`value_domain` 保留价格 sanity；
     `source_coverage` 聚合 silver row count 与 adj factor coverage。
@@ -907,7 +908,7 @@ P5C 已落地：
     rule 名称作为 `failed_rule_names` metadata，供人工定位具体失败原因；这些旧名称不再进入
     `LAKE_ASSET_CATALOG`、`readiness.py` 或 Dagster official check set。
   - `batch_gold_stk_mins_qfq_lake_readiness(...)` 不新增 DuckDB 查询，只把现有 metrics 映射到
-    5 个正式 failed check names；缺文件或目标日 0 行都归入 `contract` 且
+    native/derived 各 4 个正式 failed check names；缺文件或目标日 0 行都归入 `contract` 且
     `materialized=False`。
   - `stk_mins_qfq_history`、`stk_mins_qfq_derived_history` 与 qfq bootstrap event 工具的事件数量
     估算必须引用正式 `GOLD_STK_MINS_QFQ_*_CHECK_NAMES` 长度，禁止继续硬编码旧 8 个 check。
@@ -916,16 +917,14 @@ P5C 已落地：
 - P6D 当前代码事实与后续治理目标：
   - `GOLD_STK_MINS_QFQ_MACD_KDJ_CHECK_NAMES` 当前为
     `gold_stk_mins_qfq_macd_kdj_contract_check`、
-    `gold_stk_mins_qfq_macd_kdj_source_coverage_check`、
-    `gold_stk_mins_qfq_macd_kdj_formula_sample_check`。
+    `gold_stk_mins_qfq_macd_kdj_source_coverage_check`。
   - `contract` 复用 `_indicator_file_exists_and_schema_result(...)`，覆盖 indicator 文件存在、
     目标日行数和 schema。
   - `source_coverage` 合并原 `_indicator_source_ready_result(...)` 与
     `_indicator_row_count_matches_qfq_result(...)`，一次性判断 qfq source 是否存在以及
     indicator row count 是否与 qfq source 对齐；旧细粒度名称只作为 `failed_rule_names`
     metadata。
-  - `formula_sample` 是待退役的历史实现。MACD/KDJ 公式自洽由受保护金样本测试承担，
-    不能继续作为 Dagster production check；完成代码专项后正式 check 集合只保留
+  - MACD/KDJ 公式自洽已由受保护金样本测试承担；正式 production check 集合只保留
     `contract` 和 `source_coverage`。
   - `GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_CHECK_NAMES` 暂不合并，继续保留
     `state_file_exists_and_schema_check` 和 `state_latest_coverage_check`；state readiness 直接影响
