@@ -118,6 +118,6 @@ def test_p3_writer_boundary_and_p4_definition_modules() -> None:
         "asset_guards/dc_daily_technical_lake_readiness.py",
         "jobs/dc_daily_technical.py",
         "sensors/dc_daily_technical_sensor.py",
+        "sensors/dc_daily_technical_repair_sensor.py",
     ):
         assert (defs_root / relative_path).exists()
-    assert not (defs_root / "sensors/dc_daily_technical_repair_sensor.py").exists()

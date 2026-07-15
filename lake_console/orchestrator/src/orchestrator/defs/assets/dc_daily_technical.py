@@ -248,7 +248,7 @@ def _validate_source(connection, expected_dates: tuple[str, ...], target_trade_d
     }
 
 
-def _indicator_sql(target_trade_date: str) -> str:
+def _indicator_sql(target_trade_date: str | None) -> str:
     ma_window_columns = ",\n".join(
         f"COUNT(close) OVER (PARTITION BY ts_code, category ORDER BY trade_date "
         f"ROWS BETWEEN {period - 1} PRECEDING AND CURRENT ROW) AS ma_{period}_count,\n"
@@ -274,6 +274,11 @@ def _indicator_sql(target_trade_date: str) -> str:
     beta_k = 1.0 - alpha_k
     alpha_d = 1.0 / 3.0
     beta_d = 1.0 - alpha_d
+    target_filter = (
+        f"WHERE trade_date = DATE {duckdb_string(target_trade_date)}"
+        if target_trade_date is not None
+        else ""
+    )
     return f"""
     WITH ordered AS (
       SELECT
@@ -404,7 +409,7 @@ def _indicator_sql(target_trade_date: str) -> str:
       CAST({duckdb_string(DC_DAILY_TECHNICAL_PARAMS_KEY)} AS VARCHAR) AS params_key,
       CAST({duckdb_string(DC_DAILY_TECHNICAL_INDICATOR_VERSION)} AS VARCHAR) AS indicator_version
     FROM d_values
-    WHERE trade_date = DATE {duckdb_string(target_trade_date)}
+    {target_filter}
     """
 
 

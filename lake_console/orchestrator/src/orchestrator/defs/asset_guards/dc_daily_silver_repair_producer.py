@@ -244,7 +244,10 @@ def produce_dc_daily_silver_repair_batch(
                     )
                 )
 
-            source_revision = _source_revision(connection, tuple(item.staging_path for item in staged))
+            source_revision = source_revision_for_silver_paths(
+                connection,
+                tuple(item.staging_path for item in staged),
+            )
             changed_series: set[str] = set()
             changed_staged: list[DcBoardSilverStagingResult] = []
             for item in staged:
@@ -326,8 +329,13 @@ def produce_dc_daily_silver_repair_batch(
         raise
 
 
-def _source_revision(connection, staging_paths: tuple[Path, ...]) -> str:
-    relation = _read_paths(staging_paths)
+def source_revision_for_silver_paths(
+    connection,
+    silver_paths: tuple[Path, ...],
+) -> str:
+    """Compute the canonical revision for a bounded Silver source range."""
+
+    relation = _read_paths(silver_paths)
     digest = connection.execute(
         f"""
         SELECT sha256(
@@ -457,4 +465,5 @@ __all__ = [
     "DcDailySilverRepairValidationError",
     "SILVER_DC_DAILY_SOURCE_REVISION_PREFIX",
     "produce_dc_daily_silver_repair_batch",
+    "source_revision_for_silver_paths",
 ]

@@ -20,6 +20,7 @@ from orchestrator.defs.run_contracts.run_keys import build_batch_id
 SILVER_REPAIR_BATCH_PROTOCOL_VERSION = "v1"
 SILVER_REPAIR_READY_STATUS = "ready"
 SILVER_REPAIR_METADATA_PREFIX = "goldenshare/"
+SILVER_REPAIR_RUN_TAG_PREFIX = "goldenshare/silver_repair/"
 
 
 class SilverRepairBatchValidationError(ValueError):
@@ -81,6 +82,19 @@ class SilverRepairBatch:
         return {
             f"{SILVER_REPAIR_METADATA_PREFIX}{key}": value
             for key, value in self.to_payload().items()
+        }
+
+    def to_run_tags(self) -> dict[str, str]:
+        """Return bounded scalar tags for a successful producer run.
+
+        Run tags are intentionally smaller than event metadata and never carry
+        a full affected-series list or event storage identifiers.
+        """
+
+        payload = self.to_payload()
+        return {
+            f"{SILVER_REPAIR_RUN_TAG_PREFIX}{key}": _run_tag_value(value)
+            for key, value in payload.items()
         }
 
 
@@ -439,6 +453,33 @@ def parse_silver_repair_batch(
     return batch
 
 
+def parse_silver_repair_batch_from_run_tags(
+    tags: Mapping[str, object],
+    *,
+    expected_trade_dates: Sequence[object] | None = None,
+    registered_trade_dates: Sequence[object] | None = None,
+    max_indicator_recompute_dates: int | None = None,
+) -> SilverRepairBatch:
+    """Parse a ready batch from one producer run's scalar tags."""
+
+    payload: dict[str, object] = {}
+    for key in SilverRepairBatch.__dataclass_fields__:  # type: ignore[attr-defined]
+        tag_key = f"{SILVER_REPAIR_RUN_TAG_PREFIX}{key}"
+        if tag_key in tags:
+            payload[key] = tags[tag_key]
+    for key in ("affected_date_count", "affected_series_count", "selected_partition_count"):
+        if key in payload:
+            payload[key] = _parse_run_tag_int(payload[key], key)
+    if "truncated" in payload:
+        payload["truncated"] = _parse_run_tag_bool(payload["truncated"], "truncated")
+    return parse_silver_repair_batch(
+        payload,
+        expected_trade_dates=expected_trade_dates,
+        registered_trade_dates=registered_trade_dates,
+        max_indicator_recompute_dates=max_indicator_recompute_dates,
+    )
+
+
 def _validate_ordering(batch: SilverRepairBatch) -> None:
     if batch.source_repair_start_trade_date > batch.source_repair_end_trade_date:
         raise SilverRepairBatchValidationError(
@@ -527,9 +568,36 @@ def _invalid_bool(field_name: str) -> bool:
     raise SilverRepairBatchValidationError(f"{field_name} must be boolean.")
 
 
+def _run_tag_value(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
+def _parse_run_tag_int(value: object, field_name: str) -> int:
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError) as error:
+        raise SilverRepairBatchValidationError(
+            f"{field_name} run tag must be an integer."
+        ) from error
+
+
+def _parse_run_tag_bool(value: object, field_name: str) -> bool:
+    normalized = str(value).strip().lower()
+    if normalized == "true":
+        return True
+    if normalized == "false":
+        return False
+    raise SilverRepairBatchValidationError(
+        f"{field_name} run tag must be true or false."
+    )
+
+
 __all__ = [
     "SILVER_REPAIR_BATCH_PROTOCOL_VERSION",
     "SILVER_REPAIR_READY_STATUS",
+    "SILVER_REPAIR_RUN_TAG_PREFIX",
     "SilverRepairBatch",
     "SilverRepairBatchValidationError",
     "build_silver_repair_batch",
@@ -538,5 +606,6 @@ __all__ = [
     "normalize_expected_trade_dates",
     "normalize_trade_date",
     "parse_silver_repair_batch",
+    "parse_silver_repair_batch_from_run_tags",
     "validate_silver_repair_batch",
 ]

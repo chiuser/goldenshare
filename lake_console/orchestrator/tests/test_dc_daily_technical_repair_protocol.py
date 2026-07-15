@@ -6,6 +6,7 @@ import unittest
 from orchestrator.defs.asset_guards.dc_daily_silver_repair import (
     build_dc_daily_silver_repair_batch,
     parse_dc_daily_silver_repair_batch,
+    parse_dc_daily_silver_repair_batch_from_run_tags,
 )
 from orchestrator.defs.run_contracts.silver_repair import (
     SilverRepairBatchValidationError,
@@ -74,6 +75,20 @@ class DcDailyTechnicalRepairProtocolTests(unittest.TestCase):
 
         self.assertEqual(plain, batch)
         self.assertEqual(namespaced, batch)
+
+    def test_ready_batch_round_trips_through_scalar_run_tags(self) -> None:
+        batch = _batch()
+
+        parsed = parse_dc_daily_silver_repair_batch_from_run_tags(
+            batch.to_run_tags(),
+            expected_trade_dates=EXPECTED_DATES,
+            registered_trade_dates=EXPECTED_DATES,
+            max_indicator_recompute_dates=60,
+        )
+
+        self.assertEqual(parsed, batch)
+        self.assertTrue(all(isinstance(value, str) for value in batch.to_run_tags().values()))
+        self.assertNotIn("event_storage_id", batch.to_run_tags())
 
     def test_source_revision_is_required(self) -> None:
         with self.assertRaisesRegex(SilverRepairBatchValidationError, "source_revision"):
@@ -180,9 +195,11 @@ class DcDailyTechnicalRepairProtocolTests(unittest.TestCase):
             self.assertNotIn("get_event_records", source)
             self.assertNotIn("DagsterInstance", source)
             self.assertNotIn("@dg.sensor", source)
-        self.assertFalse(
-            (source_root / "sensors" / "dc_daily_technical_repair_sensor.py").exists()
-        )
+        sensor_source = (
+            source_root / "sensors" / "dc_daily_technical_repair_sensor.py"
+        ).read_text()
+        self.assertNotIn("get_event_records", sensor_source)
+        self.assertNotIn("report_runless_asset_event", sensor_source)
 
 
 if __name__ == "__main__":

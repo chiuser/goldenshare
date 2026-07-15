@@ -198,6 +198,7 @@ def _is_allowed_sensor_run_config_dict(path: Path, dict_node: ast.Dict) -> bool:
     return path.name in (
         "stock_mins_qfq_factor_repair_sensor.py",
         "gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py",
+        "dc_daily_technical_repair_sensor.py",
     ) and "ops" in _direct_string_keys(dict_node)
 
 
@@ -317,6 +318,43 @@ class RunContractStaticGateTests(unittest.TestCase):
         self.assertNotIn("TushareResource", asset_source + check_source)
         self.assertNotIn("ProdPostgresResource", asset_source + check_source)
         self.assertNotIn("AssetSelection", asset_source + check_source)
+
+    def test_dc_daily_technical_p7_repair_is_bounded_and_partition_attributable(self) -> None:
+        producer_op_path = DEFS_DIR / "ops" / "silver_dc_daily_repair.py"
+        producer_job_path = JOBS_DIR / "silver_dc_daily_repair.py"
+        writer_path = ASSETS_DIR / "dc_daily_technical_repair.py"
+        repair_op_path = DEFS_DIR / "ops" / "dc_daily_technical_repair.py"
+        repair_job_path = JOBS_DIR / "dc_daily_technical_repair.py"
+        sensor_path = SENSORS_DIR / "dc_daily_technical_repair_sensor.py"
+        sources = {
+            path: path.read_text()
+            for path in (
+                producer_op_path,
+                producer_job_path,
+                writer_path,
+                repair_op_path,
+                repair_job_path,
+                sensor_path,
+            )
+        }
+
+        for path, source in sources.items():
+            self.assertNotIn("get_event_records", source, str(path))
+            self.assertNotIn("report_runless_asset_event", source, str(path))
+        self.assertIn("add_run_tags", sources[producer_op_path])
+        self.assertIn("to_run_tags", sources[producer_op_path])
+        self.assertNotIn("AssetSelection.assets", sources[repair_job_path])
+        self.assertIn("AssetMaterialization", sources[repair_op_path])
+        self.assertIn("AssetCheckEvaluation", sources[repair_op_path])
+        self.assertEqual(
+            sources[repair_op_path].count("partition=partition_result.trade_date"),
+            2,
+        )
+        self.assertIn("build_upstream_triggered_run_key", sources[sensor_path])
+        self.assertIn("build_run_request", sources[sensor_path])
+        self.assertIn("default_status=dg.DefaultSensorStatus.STOPPED", sources[sensor_path])
+        self.assertNotIn("instance.get_event_records", sources[sensor_path])
+        self.assertNotIn("partition_dataset_readiness_status_from_latest_checks", sources[sensor_path])
 
     def test_gold_wealth_market_turnover_keeps_source_boundary(self) -> None:
         forbidden_fragments = (
@@ -2361,7 +2399,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 46)
+        self.assertEqual(sensor_definition_count, 47)
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:
