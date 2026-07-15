@@ -351,8 +351,8 @@ python3 scripts/check_docs_integrity.py
    - `/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq_as_of_basis`
    - `/Volumes/datasource/data_lake/gold/stk_mins_qfq_as_of_basis`
 2. 未发现计划外的 sidecar 消费者。删除范围包括 sidecar 模块、history/bootstrap CLI、path helper、schema、生产写入调用和专属测试；没有保留兼容入口。
-3. 本次未执行 Lake、Dagster instance、prod DB、dynamic partition 写入；未运行 job、sensor、materialize、backfill、bootstrap 或 runless event。
-4. 工作区中的 `dc_board` 文件全部保持隔离，未修改、未暂存、未借本专项修复其问题。
+3. 本次未执行 Lake、Dagster instance、prod DB、dynamic partition 写入；未运行 job、sensor、materialize、backfill、bootstrap 或 runless event。2026-07-15 后续仅执行了正式 Dagster instance 的只读审计，结果见第 15.4 节。
+4. QFQ 专项未修改、未暂存 `dc_board` 文件。此前阻断全仓门禁的 `dc_board` 治理映射与语法错误已由其维护专项在 `1fdf1e59` 修复。
 
 ### 15.2 已落地的代码事实
 
@@ -377,6 +377,18 @@ python3 scripts/check_docs_integrity.py
 
 静态扫描确认生产源没有 `as_of_basis`、retired formula check 或 formula sample helper 残留；命中仅存在于静态门禁自身的禁止词断言。`expected_identity_sql` 已在 derived check/readiness/bootstrap 内明确命名，避免把不含价格字段的身份覆盖 SQL 误解为完整 expected select。
 
-`tests.test_asset_check_incremental_governance` 已单独执行但当前未绿：它检测到 `dc_board` 未提交 catalog 中的 7 个 blocking-check asset 没有治理映射，分别为 `raw_tushare_dc_daily`、`raw_tushare_dc_index`、`raw_tushare_dc_member`、`silver_dc_member`、`silver_dc_daily`、`silver_dc_index`、`gold_stock_daily_qfq`。该集合不含本专项的 QFQ/MACD-KDJ asset；本专项仅更新自身 check 清单，未修改 `dc_board` 或共享治理映射。此项应由 `dc_board` 专项处理后再恢复全仓绿色。
+`tests.test_asset_check_incremental_governance` 曾因 7 个 `dc_board` / `gold_stock_daily_qfq` catalog asset 缺治理映射而失败；该问题已由 `dc_board` 维护专项在 `1fdf1e59` 修复。随后与 `tests.test_dc_board_contracts`、`tests.test_dc_board_raw_io` 联合执行，共 11 项通过。
 
-未运行 `dg check defs`。此外，一次仓库级 `compileall` 仅因同一批未提交 `dc_board` 文件存在两个既有 f-string 语法错误而失败；QFQ/MACD-KDJ 精确范围 `py_compile` 已通过。
+`uv run dg check defs` 已通过，输出为 `All component YAML validated successfully.` 和 `All definitions loaded successfully.`。此前阻断仓库级 `compileall` 的两个 `dc_board` f-string 语法错误，也已由同一维护专项修复；QFQ/MACD-KDJ 精确范围 `py_compile` 始终通过。
+
+### 15.4 正式 Dagster instance 只读验收
+
+经单独批准，使用正式 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home` 在 2026-07-15 14:05（Asia/Shanghai）执行只读审计，报告为 `/private/tmp/qfq_mins_post_change_instance_audit_20260715_140535.json`。
+
+1. 从 `cn_a_stock_mins_silver_trade_days` 的 3,045 个已注册分区中选取最近 10 个交易日：`2026-07-01` 至 `2026-07-14`。
+2. 7 个 QFQ 频度的 Lake batch readiness 全绿：每个日期的 expected/existing 文件数相等、没有缺文件或 active 事实失败；该批量扫描耗时 `16,621.840 ms`，整个审计耗时 `21,778.985 ms`。
+3. 7 个 QFQ asset 的 4 条 active check 均与各自 materialization 正确关联，10 个日期全部 ready；关联依据是 `AssetCheckEvaluation.target_materialization_data.storage_id`。不要用 check record 的 partition 字段做此项历史验收：现有 QFQ check event 的该字段为 `null`，但 target materialization link 完整且是 Dagster 的实际关联事实。
+4. 7 个 MACD/KDJ indicator 与 7 个 state asset 的 active check 在同一 10 日窗口内均 ready。
+5. 三个相关 sensor 均为 `RUNNING`。QFQ daily 与 factor repair cursor 在 14:05 正常显示 `run_window_not_started`，分别为 600 和 622 bytes；MACD/KDJ run-status sensor cursor 为 142 bytes。没有发现 cursor 膨胀或运行中阻断。
+
+本次审计不生成 event、不改 Lake 文件、不发起 run，也不改变 sensor 状态。当前没有必要为 7 月 14 日人工重跑 QFQ：物理事实、active check 关联和下游 MACD/KDJ 状态均已全绿。下一次日常生产应由现有 sensor 在收盘后的既定窗口自然处理新的交易日；如需人工发起任何 run，必须另行批准。
