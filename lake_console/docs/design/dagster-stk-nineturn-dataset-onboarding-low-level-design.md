@@ -1,6 +1,6 @@
 # Dagster 神奇九转数据集接入低层设计
 
-状态：N0-N7 已完成开发、正式执行与验收；N8 分区语义收敛已完成设计，尚未开发或写入 Dagster instance
+状态：N0-N7 已完成开发、正式执行与验收；N8 专属分区代码、正式迁移与 post-audit 已完成，sensor 启用/恢复待单独审批
 日期：2026-07-15
 上位方案：[`dagster-stk-nineturn-dataset-onboarding-plan.md`](./dagster-stk-nineturn-dataset-onboarding-plan.md)
 
@@ -25,8 +25,8 @@
 6. 历史 prod 导出、formal raw/silver 构建、runless event 写入必须分别 dry-run、样本、审批和验收。
 7. `silver_stock_identity_map` 的 self mapping 来源是 `silver_stock_lifecycle` 的全部历史代码，包含退市代码；`silver_namechange` 只用于校验版本化非 self seed 的解释性，不承担历史股票全集职责。
 
-本 LLD 的 N5 Formal Lake 写入、N6 正式 Dagster event 写入和 N7 日常 sensor 启用均已按分阶段批准完成。N6 先完成只读 dry-run，再完成 3 日样本和剩余全量补录，最终 dry-run 计划归零。
-本 LLD 不授权运行 `dg`、写 Dagster instance 或删除历史 staging。
+本 LLD 的 N5 Formal Lake 写入、N6 正式 Dagster event 写入和 N7 日常 sensor 启用均已按分阶段批准完成。N6 先完成只读 dry-run，再完成 3 日样本和剩余全量补录，最终 dry-run 计划归零。N8 的 definitions 检查、专属 dynamic partition apply 和 post-audit 也均按独立审批执行；具体证据见 N8.7。
+本 LLD 不授权未列明、未单独批准的 `dg`、Dagster instance 写入、Lake/Prod 写入或历史 staging 删除。
 
 2026-07-15 的 Lake 文件审计发现，九转 Raw/Silver 的文件从 `2023-01-03` 起连续完整，但它们仍声明使用从 `2014-01-02` 起的共享 `cn_a_stock_trade_days`。日常 sensor 以 `STK_NINETURN_HISTORY_START_DATE` 局部过滤早期日期，因此当前生产不会误跑；但 asset 分区语义、Dagster UI 和通用文件审计会把 2023 年前的 2,192 个日期误读为“应有数据却缺文件”。N8 的目标是把“市场开市日”和“九转数据应存在的日期”拆开：新增专属分区集，保留既有湖文件、资产键、事件和日常计算口径不变。
 
@@ -1212,7 +1212,7 @@ N3 本地临时 Parquet 实测结果：
 | N5 | 已完成 | identity map 修复后重建 Formal Raw/Silver，最终文件审计通过 |
 | N6 | 已完成 | 已完成 formal dry-run、3 日样本、1,780 个 runless events 正式写入和 final dry-run 对账；partitioned check target 全部正确 |
 | N7 | 已完成 | 日常 Tushare 来源切换、两个 sensor 启用、最近 7 个已完成交易日对账和最终文档对账 |
-| N8 | 代码、本地测试与正式只读 plan 已完成；维护窗口 apply 待审批 | 新分区、消费者切换、离线 migration planner/CLI、专属注册 sensor 与静态门禁已落地；853 日期正式 preflight 全绿，尚未写入新分区或启用新 sensor |
+| N8 | 专属分区迁移已完成；sensor 启用/恢复待单独审批 | 新分区、消费者切换、离线 migration planner/CLI、专属注册 sensor 与静态门禁已落地；正式 apply 仅添加 853 个专属 dynamic partition，post-audit 已归零；未启用新注册 sensor，Raw/Silver 数据 sensor 仍停止 |
 
 N0 与 N1 按批准口径合并为一个代码提交，但验收边界保持独立。N0 预声明
 Silver schema、path 和 partition model；没有提前写入 Silver catalog entry，因为 catalog
@@ -1408,9 +1408,9 @@ sensor、check 和 history bootstrap 中各自写入 `STK_NINETURN_HISTORY_START
 | 项 | 事实 |
 | --- | --- |
 | 九转有效起点 | `2023-01-03` |
-| 当前有效交易日数 | 852 |
-| Raw 文件 | 852 个，日期集合连续且完整 |
-| Silver 文件 | 852 个，日期集合连续且完整 |
+| 当前有效交易日数 | 853 |
+| Raw 文件 | 853 个，日期集合连续且完整 |
+| Silver 文件 | 853 个，日期集合连续且完整 |
 | 共享股票交易日分区中的早期无效日期 | 2,192 个（`2014-01-02` 至 `2022-12-30`） |
 
 N8 新增 `cn_a_stk_nineturn_trade_days`。它只表示“九转 Raw/Silver 应存在的交易日”，
@@ -1511,7 +1511,7 @@ N8 不把旧 history 当作可以随手重写的状态。切换前必须做正�
    的 materialization/check 查询与 readiness 识别行为；expected 必须来自已存在 event 的日期，
    不能由被测 helper 反推。
 4. 正式 apply 后只读复核同一批 materialization/check event 仍能按目标日期被 Definitions/UI
-   识别；N8 不新增 runless event，不删除旧 event，不重跑 852 个历史 job。
+   识别；N8 不新增 runless event，不删除旧 event，不重跑 853 个历史 job。
 
 若发现 `2023-01-03` 以前的九转 event、任一 event 无法按新分区识别，或 event target 与
 partition 不一致，停止在 preflight；不得通过批量补 event、删除历史或兼容读取旧分区来绕过。
@@ -1522,7 +1522,7 @@ partition 不一致，停止在 preflight；不得通过批量补 event、删除
    readiness caller、event planner 和治理断言同步切换。禁止保留 global-partition fallback。
 2. 本地 Dagster 临时实例测试新分区事件识别；运行相关 unit、static gate、catalog governance 和
    10 日/60 日 readiness 性能测试。日常热路径读取次数和耗时不得增加。
-3. 单独审批正式 instance 只读 preflight，并生成 852 日期 `plan`；不绿即停止。
+3. 单独审批正式 instance 只读 preflight，并生成由实际 Lake frontier 推导的候选 `plan`；不绿即停止。
 4. 单独审批维护窗口：暂停两个数据 sensor，确认无 active run；部署 N8 definitions 后执行一次
    `--apply`，只写新 dynamic partitions。
 5. 只读 post-audit 通过后，先启用 `stk_nineturn_trade_day_sensor`，再恢复 Raw/Silver sensor；
@@ -1541,13 +1541,14 @@ partition 不一致，停止在 preflight；不得通过批量补 event、删除
 - 旧共享分区、Lake 文件、Parquet schema、asset/check/job/run key 名称、N6 event 数量均不变。
 
 N8 的性能预算保持日常注册每 tick 1 次有界交易日历读取、最多 2 个动态分区请求；Raw/Silver
-sensor 仍只检查最近 10 个日期。852 日期全量扫描只允许出现在 migration `plan` 离线路径，必须
+sensor 仍只检查最近 10 个日期。全量候选扫描只允许出现在 migration `plan` 离线路径，必须
 记录文件数、DuckDB 查询次数、耗时和输出 hash，绝不进入 sensor 热路径。
 
 #### N8.7 2026-07-15 代码与本地测试记录
 
-本轮先完成代码与本地测试，随后经单独批准执行一次正式 Dagster instance 只读 `plan`；没有写
-dynamic partition、Lake/Prod/event，也没有暂停或启用任何 sensor。
+本轮先完成代码与本地测试，随后按独立审批完成正式 instance 只读 `plan`、maintenance apply 和
+post-audit。唯一的状态写入是 `cn_a_stk_nineturn_trade_days` 的 853 个 dynamic partition；没有写
+Lake、Prod 或 event，也没有删除共享分区或历史状态。
 
 - 新增 `cn_a_stk_nineturn_trade_days`；`STK_NINETURN_HISTORY_START_DATE` 收敛为
   `stk_nineturn_contract.py` 的唯一常量。
@@ -1577,13 +1578,32 @@ dynamic partition、Lake/Prod/event，也没有暂停或启用任何 sensor。
   target mismatch 或历史查询上限问题。
 - 维护窗口前补齐 apply fingerprint 门禁：CLI 的 `--apply` 必须携带上述 853 日期的 hash 与数量，
   planner 会在写入前重新计算并逐项比对；不匹配时零分区写入。
+- 2026-07-15 维护窗口先执行
+  `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home uv run dg check defs`，结果为
+  `All definitions loaded successfully`；随后通过 DagsterInstance API 暂停两个数据 sensor，报告为
+  `/private/tmp/stk_nineturn_partition_sensor_pause_apply_stop_20260715T073127Z.json`，两者均为
+  `STOPPED` 且两个相关 job 无 active run。
+- 只 reload `orchestrator` code location，不重启 webserver 或 daemon；报告为
+  `/private/tmp/stk_nineturn_orchestrator_reload_20260715T073233Z.json`，结果为 `SUCCESS`。reload 后的
+  只读 GraphQL 查询确认 `stk_nineturn_trade_day_sensor` 已在正式 definitions 中可见。
+- apply 使用批准的 `candidate_count=853` 和
+  `candidate_hash=34d638fbec41904f120fd9cf1c382c5c1718ffd5228bfd31104f33bc4f21d841`，报告为
+  `/private/tmp/stk_nineturn_partition_migration_apply_20260715_153300.json`：fresh plan 仍为 853 个候选、
+  15 个批次、2,574 个文件、无 Raw/Silver readiness failure、无 event compatibility stop reason；写入 853 个
+  `cn_a_stk_nineturn_trade_days` key 后 final count 为 853。
+- apply 后的只读 plan 报告为
+  `/private/tmp/stk_nineturn_partition_migration_post_audit_20260715_153330.json`，候选 hash 未变、
+  `existing_new_partition_count=853`、`planned_partition_count=0`、`should_stop=false`。独立 post-audit
+  报告为 `/private/tmp/stk_nineturn_partition_post_audit_20260715T073428Z.json`，确认 Raw/Silver 各有
+  853 个 materialization，两个数据 sensor 均仍为 `STOPPED`，相关 job 无 active run。新的
+  `stk_nineturn_trade_day_sensor` 尚无持久化 instigator state，按 definition 默认 `STOPPED`，即尚未启用。
 - 本地测试已运行 154 项并全部通过：九转 contract/asset/check/silver/sensor/readiness/event/migration、
   asset governance、10/60 日 hot-path performance、static gates。`test_stk_nineturn_history.py`
   因当前项目虚拟环境未安装其既有依赖 `pytest` 而未能由 `unittest` 加载；未为本专项新增或安装依赖。
 
-下一步仍严格分三次正式审批：先执行只读 migration `plan`；计划全绿后，在维护窗口暂停两个数据
-sensor 并执行唯一一次 `--apply`；最后只读 post-audit 通过后，先启用专属交易日注册 sensor，再恢复
-Raw/Silver 数据 sensor。
+N8 分区迁移已收口。剩余正式操作必须继续分开审批：先启用
+`stk_nineturn_trade_day_sensor`，再恢复 Raw/Silver 数据 sensor；恢复后只观察自然触发，
+不人为补发历史 run。
 
 ## 19. 阶段组合与审批边界
 
@@ -1597,7 +1617,7 @@ Raw/Silver 数据 sensor。
 | N6 | 单独正式操作 | 写 Dagster event，不能与文件写入混合 |
 | N7 | 单独验收 | 启用自动化前最后观察点 |
 | N8 代码开发 | 单独 | 分区 contract 变更必须先完成全量消费者和历史 event 兼容性测试 |
-| N8 dynamic partition apply | 单独正式操作 | 仅写 852 个以内的新分区 key；不与代码开发、Lake 写入或 event 写入混合 |
+| N8 dynamic partition apply | 已完成的单独正式操作 | 仅写经 fresh plan 与批准 fingerprint 共同确认的 853 个新分区 key；不与代码开发、Lake 写入或 event 写入混合 |
 
 ## 20. 停止条件
 
@@ -1613,15 +1633,15 @@ Raw/Silver 数据 sensor。
 8. Runless event 无法绑定具体 partition/latest materialization。
 9. 需要新增持久化 readiness 实体、数据库表或兼容路径才能完成。
 10. 发现现有方案与当前代码、真实数据或源接口行为冲突。
-11. N8 852 日期 dry-run 的 Raw/Silver 集合、文件契约、batch readiness 或 hash 任一不一致。
+11. N8 approved candidate 的 Raw/Silver 集合、文件契约、batch readiness 或 hash 任一不一致。
 12. N8 历史 materialization/check event 不能按新分区日期正确识别，或发现候选范围外的九转 event。
 13. N8 需要修改 `cn_a_stock_trade_days`、删除旧分区、改写 Lake 文件或补写历史 event 才能继续。
 
 ## 21. 开发就绪结论
 
-N0-N7 的业务事项已经关闭并完成执行。N8 的代码、消费者切换、离线 migration 约束和本地测试
-已经完成；但它仍是新的 partition contract 变更，正式 Dagster instance 的 preflight、dynamic
-partition apply 和 sensor 切换均未获批准，也尚未执行。
+N0-N8 的 Lake 与 Dagster 状态迁移事项已经按阶段完成。N8 的代码、消费者切换、离线 migration
+约束、本地测试、正式 definitions load、专属 dynamic partition apply 和 post-audit 均已完成，且没有
+改变共享股票交易日分区、Lake 文件、Prod 或历史 event。
 
-因此下一步只能按 N8.6/N8.7 的顺序先做正式 instance 只读 preflight；只有计划全绿后，才能分别
-审批维护窗口 apply 与 sensor 恢复。代码完成不等同于正式分区已迁移。
+当前剩余边界只有自动化恢复：新的专属交易日注册 sensor 仍未启用，Raw/Silver 数据 sensor 仍保持停止。
+它们必须按 N8.7 的顺序另行审批和观察；分区迁移完成不等同于自动化已恢复。
