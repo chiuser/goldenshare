@@ -278,6 +278,7 @@ CONTRACT_ONLY_CATALOG_ASSET_KEYS = {
     "silver_dc_index",
     "silver_dc_member",
     "silver_dc_daily",
+    "gold_dc_daily_technical",
 }
 
 

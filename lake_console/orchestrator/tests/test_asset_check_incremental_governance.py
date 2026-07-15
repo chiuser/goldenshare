@@ -257,6 +257,11 @@ SILVER_DC_BOARD_CHECKS = (
 GOLD_STOCK_DAILY_QFQ_CHECKS = (
     "gold_stock_daily_qfq_contract_check",
 )
+GOLD_DC_DAILY_TECHNICAL_CHECKS = (
+    "gold_dc_daily_technical_core_check",
+)
+
+PLANNED_CATALOG_ASSET_KEYS: set[str] = set()
 
 
 def _stk_mins_asset_rules() -> dict[str, dict[str, AssetCheckGovernanceRule]]:
@@ -462,6 +467,13 @@ ASSET_CHECK_GOVERNANCE: dict[str, dict[str, AssetCheckGovernanceRule]] = {
         readiness=True,
         retention_allowed=True,
     ),
+    "gold_dc_daily_technical": _rules(
+        GOLD_DC_DAILY_TECHNICAL_CHECKS,
+        category=MOVE_TO_SENSOR_LAKE_READINESS,
+        phase="P4",
+        readiness=True,
+        retention_allowed=True,
+    ),
     **_stk_mins_asset_rules(),
     "raw_tushare_index_basic": _rules(
         RAW_INDEX_BASIC_CHECKS,
@@ -614,10 +626,12 @@ class AssetCheckIncrementalGovernanceTests(unittest.TestCase):
             asset_key: check_names
             for asset_key, check_names in _active_blocking_checks_by_asset().items()
             if asset_key in ASSET_CHECK_GOVERNANCE
+            and asset_key not in PLANNED_CATALOG_ASSET_KEYS
         }
         governed_checks = {
             asset_key: set(rules)
             for asset_key, rules in ASSET_CHECK_GOVERNANCE.items()
+            if asset_key not in PLANNED_CATALOG_ASSET_KEYS
         }
 
         self.assertEqual(active_checks, governed_checks)

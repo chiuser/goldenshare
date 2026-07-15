@@ -257,6 +257,17 @@ def gold_stock_daily_qfq_path(root: Path, partition_key: str) -> Path:
     )
 
 
+def gold_dc_daily_technical_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "board",
+        "dc_daily_technical",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
 def silver_stock_suspend_daily_path(root: Path, partition_key: str) -> Path:
     return lake_path(
         root,

@@ -8,6 +8,10 @@ from dagster._core.storage.asset_check_execution_record import (
     AssetCheckExecutionRecordStatus,
 )
 
+from orchestrator.defs.run_contracts.dc_daily_technical import (
+    DC_DAILY_TECHNICAL_CHECKS,
+)
+
 
 CN_A_SENSOR_TIMEZONE = ZoneInfo("Asia/Shanghai")
 CHECK_HISTORY_LIMIT = 5000
@@ -131,6 +135,7 @@ GOLD_MARKET_MAJOR_INDICES_DAILY_BLOCKING_CHECKS = (
     "gold_market_major_indices_daily_seed_coverage_check",
     "gold_market_major_indices_daily_ranking_consistency_check",
 )
+GOLD_DC_DAILY_TECHNICAL_CHECKS = DC_DAILY_TECHNICAL_CHECKS
 
 RAW_STOCK_BASIC_ASSET_KEY = dg.AssetKey("raw_tushare_stock_basic")
 SILVER_STOCK_BASIC_ASSET_KEY = dg.AssetKey("silver_stock_basic")
@@ -176,6 +181,7 @@ SILVER_INDEX_BASIC_ASSET_KEY = dg.AssetKey("silver_index_basic")
 GOLD_MARKET_MAJOR_INDICES_DAILY_ASSET_KEY = dg.AssetKey(
     "gold_market_major_indices_daily"
 )
+GOLD_DC_DAILY_TECHNICAL_ASSET_KEY = dg.AssetKey("gold_dc_daily_technical")
 
 
 @dataclass(frozen=True)
@@ -302,6 +308,10 @@ SILVER_INDEX_BASIC_READINESS_SPEC = AssetReadinessSpec(
 GOLD_MARKET_MAJOR_INDICES_DAILY_READINESS_SPEC = AssetReadinessSpec(
     GOLD_MARKET_MAJOR_INDICES_DAILY_ASSET_KEY,
     GOLD_MARKET_MAJOR_INDICES_DAILY_BLOCKING_CHECKS,
+)
+GOLD_DC_DAILY_TECHNICAL_READINESS_SPEC = AssetReadinessSpec(
+    GOLD_DC_DAILY_TECHNICAL_ASSET_KEY,
+    GOLD_DC_DAILY_TECHNICAL_CHECKS,
 )
 
 

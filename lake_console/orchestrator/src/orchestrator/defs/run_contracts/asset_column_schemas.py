@@ -346,6 +346,33 @@ GOLD_STOCK_DAILY_QFQ_SCHEMA = (
     ColumnContract("amount", "DOUBLE", "成交额，沿用 silver_stock_daily 事实"),
 )
 
+GOLD_DC_DAILY_TECHNICAL_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "东方财富板块代码"),
+    ColumnContract("trade_date", "DATE", "交易日"),
+    ColumnContract("category", "VARCHAR", "板块分类，业务主键组成部分"),
+    ColumnContract("close", "DOUBLE", "板块收盘价"),
+    ColumnContract("ma_5", "DOUBLE", "5 日移动平均；有效观测不足时为空"),
+    ColumnContract("ma_10", "DOUBLE", "10 日移动平均；有效观测不足时为空"),
+    ColumnContract("ma_15", "DOUBLE", "15 日移动平均；有效观测不足时为空"),
+    ColumnContract("ma_20", "DOUBLE", "20 日移动平均；有效观测不足时为空"),
+    ColumnContract("ma_30", "DOUBLE", "30 日移动平均；有效观测不足时为空"),
+    ColumnContract("ma_60", "DOUBLE", "60 日移动平均；有效观测不足时为空"),
+    ColumnContract("ma_120", "DOUBLE", "120 日移动平均；有效观测不足时为空"),
+    ColumnContract("ma_250", "DOUBLE", "250 日移动平均；有效观测不足时为空"),
+    ColumnContract("kdj_k", "DOUBLE", "KDJ K，参数 9/3/3"),
+    ColumnContract("kdj_d", "DOUBLE", "KDJ D，参数 9/3/3"),
+    ColumnContract("kdj_j", "DOUBLE", "KDJ J，固定为 3*K-2*D"),
+    ColumnContract("macd_dif", "DOUBLE", "MACD DIF，参数 12/26/9"),
+    ColumnContract("macd_dea", "DOUBLE", "MACD DEA，参数 12/26/9"),
+    ColumnContract("macd", "DOUBLE", "MACD 柱，固定为 2*(DIF-DEA)"),
+    ColumnContract("boll_mid", "DOUBLE", "BOLL 中轨，N=20；有效观测不足时为空"),
+    ColumnContract("boll_upper", "DOUBLE", "BOLL 上轨，N=20、P=2；有效观测不足时为空"),
+    ColumnContract("boll_lower", "DOUBLE", "BOLL 下轨，N=20、P=2；有效观测不足时为空"),
+    ColumnContract("observation_count", "INTEGER", "该板块分类序列的有效观测序号"),
+    ColumnContract("params_key", "VARCHAR", "固定指标参数标识"),
+    ColumnContract("indicator_version", "VARCHAR", "指标算法版本，首版为 v1"),
+)
+
 SILVER_STOCK_SUSPEND_DAILY_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "股票代码"),
     ColumnContract("trade_date", "DATE", "交易日"),

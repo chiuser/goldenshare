@@ -9,6 +9,7 @@ from orchestrator.defs.paths import (
     PATH_TEMPLATE_PARTITION_KEY,
     PATH_TEMPLATE_TS_CODE,
     PATH_TEMPLATE_YEAR,
+    gold_dc_daily_technical_path,
     gold_market_breadth_daily_path,
     gold_market_major_indices_daily_path,
     gold_stk_mins_qfq_macd_kdj_path,
@@ -54,6 +55,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_DC_MEMBER_SCHEMA,
     GOLD_MARKET_BREADTH_DAILY_SCHEMA,
     GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA,
+    GOLD_DC_DAILY_TECHNICAL_SCHEMA,
     GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA,
     GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA,
     GOLD_STK_MINS_QFQ_SCHEMA,
@@ -98,6 +100,9 @@ from orchestrator.defs.run_contracts.dc_board import (
     SILVER_DC_DAILY_CHECKS,
     SILVER_DC_INDEX_CHECKS,
     SILVER_DC_MEMBER_CHECKS,
+)
+from orchestrator.defs.run_contracts.dc_daily_technical import (
+    DC_DAILY_TECHNICAL_CHECKS,
 )
 from orchestrator.defs.run_contracts.metadata import SourceSystem
 
@@ -162,6 +167,9 @@ class PartitionModel(str, Enum):
     TRADE_DATE_PARTITION_SILVER_ADJ_FACTOR = "trade_date_partition_silver_adj_factor"
     TRADE_DATE_PARTITION_GOLD_STOCK_DAILY_QFQ = (
         "trade_date_partition_gold_stock_daily_qfq"
+    )
+    TRADE_DATE_PARTITION_GOLD_DC_DAILY_TECHNICAL = (
+        "trade_date_partition_gold_dc_daily_technical"
     )
     TRADE_DATE_PARTITION_RAW_SUSPEND_D = "trade_date_partition_raw_suspend_d"
     TRADE_DATE_PARTITION_SILVER_STOCK_SUSPEND_DAILY = (
@@ -620,6 +628,14 @@ PARTITION_MODEL_DEFINITIONS = (
         PartitionModelFamily.TRADE_DATE_PARTITION,
         AssetLayer.GOLD,
         "stock_daily_qfq",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_GOLD_DC_DAILY_TECHNICAL,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.GOLD,
+        "dc_daily_technical",
         "trade_date",
         PartitionPhysicalLayout.PARTITION_FILE,
     ),
@@ -1270,6 +1286,32 @@ LAKE_ASSET_CATALOG = (
             "Daily qfq reads silver_stock_daily and silver_adj_factor. Historical "
             "bootstrap may use runless full-history materialization events and "
             "recent-window ordinary check events."
+        ),
+    ),
+    _derived_entry(
+        asset_key="gold_dc_daily_technical",
+        dataset_id="dc_daily_technical",
+        layer=AssetLayer.GOLD,
+        data_domain=DataDomain.DERIVED_METRIC,
+        group_name="board",
+        data_contract="gold_dc_daily_technical",
+        column_schema=GOLD_DC_DAILY_TECHNICAL_SCHEMA,
+        path_template=lake_path_template(
+            gold_dc_daily_technical_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_GOLD_DC_DAILY_TECHNICAL,
+        blocking_check_names=DC_DAILY_TECHNICAL_CHECKS,
+        batch_grain="trade_date",
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        notes=(
+            "Single Gold technical-indicator asset over silver_dc_daily. "
+            "MA/BOLL warmup remains NULL; formula checks stay in fixtures and "
+            "the single core contract check, not separate high-cardinality checks."
         ),
     ),
 )
