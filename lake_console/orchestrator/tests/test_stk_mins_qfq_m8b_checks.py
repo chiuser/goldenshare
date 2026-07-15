@@ -9,12 +9,14 @@ import duckdb
 from orchestrator.defs.checks import stk_mins_checks
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet
 from orchestrator.defs.paths import (
+    gold_stk_mins_qfq_as_of_basis_path,
     gold_stk_mins_qfq_path,
     silver_adj_factor_path,
     silver_stk_mins_path,
 )
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
+    GOLD_STK_MINS_QFQ_AS_OF_BASIS_SCHEMA,
     GOLD_STK_MINS_QFQ_SCHEMA,
     SILVER_ADJ_FACTOR_SCHEMA,
     SILVER_STK_MINS_SCHEMA,
@@ -147,14 +149,32 @@ def _write_adj_factor(
     trade_rows: list[dict[str, object]] | None = None,
     latest_rows: list[dict[str, object]] | None = None,
 ) -> None:
-    _write_rows(
-        silver_adj_factor_path(lake_root, TRADE_DATE),
-        schema=SILVER_ADJ_FACTOR_SCHEMA,
-        rows=trade_rows
+    resolved_trade_rows = (
+        trade_rows
         if trade_rows is not None
         else [
             _adj_row("600000.SH", TRADE_DATE, 2.0),
             _adj_row("000001.SZ", TRADE_DATE, 3.0),
+        ]
+    )
+    _write_rows(
+        silver_adj_factor_path(lake_root, TRADE_DATE),
+        schema=SILVER_ADJ_FACTOR_SCHEMA,
+        rows=resolved_trade_rows,
+        order_by="ts_code",
+    )
+    _write_rows(
+        gold_stk_mins_qfq_as_of_basis_path(lake_root, TRADE_DATE[:4]),
+        schema=GOLD_STK_MINS_QFQ_AS_OF_BASIS_SCHEMA,
+        rows=[
+            {
+                "ts_code": row["ts_code"],
+                "trade_date": TRADE_DATE,
+                "as_of_adj_factor": row["adj_factor"],
+                "as_of_trade_date": TRADE_DATE,
+                "basis_origin": "daily_qfq",
+            }
+            for row in resolved_trade_rows
         ],
         order_by="ts_code",
     )

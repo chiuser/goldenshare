@@ -726,15 +726,6 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
                 freq_count=7,
             )
 
-        def _effective_readiness_side_effect(
-            *,
-            lake_status,
-            candidate_repair_trade_dates,
-            **_kwargs,
-        ):
-            observed_windows["repair_candidates"] = tuple(candidate_repair_trade_dates)
-            return SimpleNamespace(status=lake_status)
-
         with (
             patch.object(daily_sensor_module, "datetime") as mock_datetime,
             patch.object(
@@ -757,11 +748,6 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
                 "batch_gold_stk_mins_qfq_lake_readiness",
                 side_effect=_gold_batch_side_effect,
             ),
-            patch.object(
-                daily_sensor_module,
-                "effective_gold_qfq_readiness_for_trade_date",
-                side_effect=_effective_readiness_side_effect,
-            ),
         ):
             mock_datetime.now.return_value = EVALUATED_AT
             result = daily_sensor_module.stock_mins_qfq_daily_sensor._raw_fn(context)
@@ -774,7 +760,6 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
                 "silver": expected_window,
                 "adj_factor": expected_window,
                 "gold": expected_window,
-                "repair_candidates": expected_window,
             },
         )
 
@@ -977,20 +962,7 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
         self.assertEqual(result.run_requests, [])
         self.assertIn("blocking checks 未全绿", result.skip_reason.skip_message)
 
-    def test_sensor_does_not_resubmit_repair_adjusted_formula_mismatch(self) -> None:
-        repair_adjusted_status = StkMinsDateReadiness(
-            trade_date=PARTITION_KEY,
-            ready=True,
-            materialized=True,
-            checks_passed=True,
-            reason="ready_after_qfq_factor_repair",
-            failed_check_names=(),
-            missing_file_paths=(),
-            expected_file_count=7,
-            existing_file_count=7,
-            checked_row_count=7,
-            failed_row_count=0,
-        )
+    def test_sensor_blocks_direct_formula_failure_without_repair_event_override(self) -> None:
         same_day_formula_failed_status = StkMinsDateReadiness(
             trade_date=PARTITION_KEY,
             ready=False,
@@ -1014,11 +986,6 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
                 return_value=(PARTITION_KEY,),
             ),
             _patched_batch_readiness(gold_status=same_day_formula_failed_status),
-            patch.object(
-                daily_sensor_module,
-                "effective_gold_qfq_readiness_for_trade_date",
-                return_value=SimpleNamespace(status=repair_adjusted_status),
-            ) as effective_readiness_mock,
         ):
             mock_datetime.now.return_value = EVALUATED_AT
             result = daily_sensor_module.stock_mins_qfq_daily_sensor._raw_fn(
@@ -1026,14 +993,9 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
             )
 
         self.assertEqual(result.run_requests, [])
-        self.assertIn("已经 ready", result.skip_reason.skip_message)
-        effective_readiness_mock.assert_called_once()
+        self.assertIn("blocking checks 未全绿", result.skip_reason.skip_message)
         cursor = json.loads(result.cursor)
-        self.assertNotIn("gold_stk_mins_qfq", cursor["details"].get("gate_statuses", {}))
-        self.assertEqual(
-            cursor["details"]["frontier"]["continuity"]["ready_through_date"],
-            PARTITION_KEY,
-        )
+        self.assertIn("gold_stk_mins_qfq", cursor["details"].get("gate_statuses", {}))
 
 
 if __name__ == "__main__":

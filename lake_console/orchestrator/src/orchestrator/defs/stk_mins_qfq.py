@@ -20,6 +20,9 @@ from orchestrator.defs.run_contracts.stk_mins import (
     normalize_stk_mins_qfq_freq,
     qfq_source_freq_for_derived_freq,
 )
+from orchestrator.defs.stk_mins_qfq_as_of_basis import (
+    build_qfq_as_of_basis_by_code_sql,
+)
 
 
 GOLD_STK_MINS_QFQ_COLUMNS = tuple(column.name for column in GOLD_STK_MINS_QFQ_SCHEMA)
@@ -142,9 +145,49 @@ def build_daily_qfq_select_sql(
     trade_adj_factor_paths: Sequence[Path],
     as_of_adj_factor_paths: Sequence[Path],
 ) -> str:
+    return _build_daily_qfq_select_sql(
+        silver_paths=silver_paths,
+        trade_adj_factor_paths=trade_adj_factor_paths,
+        as_of_adj_sql=build_as_of_adj_factor_by_code_sql(as_of_adj_factor_paths),
+        match_as_of_by_trade_date=False,
+    )
+
+
+def build_daily_qfq_select_sql_from_as_of_basis(
+    *,
+    silver_paths: Sequence[Path],
+    trade_adj_factor_paths: Sequence[Path],
+    as_of_basis_paths: Sequence[Path],
+) -> str:
+    return _build_daily_qfq_select_sql(
+        silver_paths=silver_paths,
+        trade_adj_factor_paths=trade_adj_factor_paths,
+        as_of_adj_sql=build_qfq_as_of_basis_by_code_sql(
+            basis_paths=as_of_basis_paths,
+        ),
+        match_as_of_by_trade_date=True,
+    )
+
+
+def _build_daily_qfq_select_sql(
+    *,
+    silver_paths: Sequence[Path],
+    trade_adj_factor_paths: Sequence[Path],
+    as_of_adj_sql: str,
+    match_as_of_by_trade_date: bool,
+) -> str:
     silver_source = _read_parquet_paths(silver_paths)
     trade_adj_source = _read_parquet_paths(trade_adj_factor_paths)
-    as_of_adj_sql = build_as_of_adj_factor_by_code_sql(as_of_adj_factor_paths)
+    as_of_join = (
+        """
+  ON silver_rows.ts_code = as_of_adj_factor.ts_code
+ AND silver_rows.trade_date = as_of_adj_factor.trade_date
+"""
+        if match_as_of_by_trade_date
+        else """
+  ON silver_rows.ts_code = as_of_adj_factor.ts_code
+"""
+    )
     return f"""
 WITH silver_rows AS (
   SELECT
@@ -188,7 +231,7 @@ INNER JOIN trade_adj_factor
   ON silver_rows.ts_code = trade_adj_factor.ts_code
  AND silver_rows.trade_date = trade_adj_factor.trade_date
 INNER JOIN as_of_adj_factor
-  ON silver_rows.ts_code = as_of_adj_factor.ts_code
+{as_of_join}
 WHERE trade_adj_factor.trade_adj_factor IS NOT NULL
   AND as_of_adj_factor.as_of_adj_factor IS NOT NULL
 ORDER BY silver_rows.ts_code, silver_rows.trade_time
@@ -201,9 +244,49 @@ def build_daily_qfq_coverage_sql(
     trade_adj_factor_paths: Sequence[Path],
     as_of_adj_factor_paths: Sequence[Path],
 ) -> str:
+    return _build_daily_qfq_coverage_sql(
+        silver_paths=silver_paths,
+        trade_adj_factor_paths=trade_adj_factor_paths,
+        as_of_adj_sql=build_as_of_adj_factor_by_code_sql(as_of_adj_factor_paths),
+        match_as_of_by_trade_date=False,
+    )
+
+
+def build_daily_qfq_coverage_sql_from_as_of_basis(
+    *,
+    silver_paths: Sequence[Path],
+    trade_adj_factor_paths: Sequence[Path],
+    as_of_basis_paths: Sequence[Path],
+) -> str:
+    return _build_daily_qfq_coverage_sql(
+        silver_paths=silver_paths,
+        trade_adj_factor_paths=trade_adj_factor_paths,
+        as_of_adj_sql=build_qfq_as_of_basis_by_code_sql(
+            basis_paths=as_of_basis_paths,
+        ),
+        match_as_of_by_trade_date=True,
+    )
+
+
+def _build_daily_qfq_coverage_sql(
+    *,
+    silver_paths: Sequence[Path],
+    trade_adj_factor_paths: Sequence[Path],
+    as_of_adj_sql: str,
+    match_as_of_by_trade_date: bool,
+) -> str:
     silver_source = _read_parquet_paths(silver_paths)
     trade_adj_source = _read_parquet_paths(trade_adj_factor_paths)
-    as_of_adj_sql = build_as_of_adj_factor_by_code_sql(as_of_adj_factor_paths)
+    as_of_join = (
+        """
+    ON silver_rows.ts_code = as_of_adj_factor.ts_code
+   AND silver_rows.trade_date = as_of_adj_factor.trade_date
+"""
+        if match_as_of_by_trade_date
+        else """
+    ON silver_rows.ts_code = as_of_adj_factor.ts_code
+"""
+    )
     return f"""
 WITH silver_rows AS (
   SELECT
@@ -232,7 +315,7 @@ joined_rows AS (
     ON silver_rows.ts_code = trade_adj_factor.ts_code
    AND silver_rows.trade_date = trade_adj_factor.trade_date
   LEFT JOIN as_of_adj_factor
-    ON silver_rows.ts_code = as_of_adj_factor.ts_code
+{as_of_join}
 )
 SELECT
   count(*) AS silver_row_count,

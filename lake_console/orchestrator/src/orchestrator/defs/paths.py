@@ -168,6 +168,17 @@ def gold_stk_mins_qfq_path(root: Path, freq: int | str, ts_code: str, year: int 
     )
 
 
+def gold_stk_mins_qfq_as_of_basis_path(root: Path, year: int | str) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "quote",
+        "stk_mins_qfq_as_of_basis",
+        _gold_stk_mins_qfq_year_part(year),
+        "part-000.parquet",
+    )
+
+
 def gold_stk_mins_qfq_macd_kdj_path(
     root: Path,
     freq: int | str,

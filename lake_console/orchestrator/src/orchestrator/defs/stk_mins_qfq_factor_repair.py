@@ -34,6 +34,10 @@ from orchestrator.defs.stk_mins_qfq import (
     build_gold_stk_mins_qfq_factor_repair_plan,
     write_gold_stk_mins_qfq_rows_to_year_files,
 )
+from orchestrator.defs.stk_mins_qfq_as_of_basis import (
+    build_qfq_as_of_basis_rows_sql,
+    write_gold_stk_mins_qfq_as_of_basis,
+)
 
 
 @dataclass(frozen=True)
@@ -180,6 +184,22 @@ def execute_gold_stk_mins_qfq_factor_repair(
         target_freqs=derived_target_freqs,
         stock_codes=plan.repair_required_codes,
         selected_partition_keys=selected_partition_keys,
+    )
+    repair_silver_paths = tuple(
+        silver_stk_mins_path(lake_root, freq, partition_key)
+        for freq in normalized_freqs
+        for partition_key in selected_partition_keys
+    )
+    write_gold_stk_mins_qfq_as_of_basis(
+        lake_root=lake_root,
+        replacement_rows_sql=build_qfq_as_of_basis_rows_sql(
+            silver_paths=repair_silver_paths,
+            as_of_adj_factor_path=as_of_adj_factor_path,
+            as_of_trade_date=normalized_trade_date,
+            basis_origin="factor_repair",
+            trade_dates=selected_partition_keys,
+            stock_codes=plan.repair_required_codes,
+        ),
     )
     all_write_results = tuple(write_results) + derived_write_results
     code_results = _build_repair_code_results(

@@ -568,22 +568,9 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
         self.assertEqual(result.run_requests, [])
         self.assertIn("blocking checks 未全绿", result.skip_reason.skip_message)
 
-    def test_sensor_treats_later_repair_adjusted_formula_mismatch_as_complete(
+    def test_sensor_blocks_direct_formula_failure_without_repair_event_override(
         self,
     ) -> None:
-        repair_adjusted_status = StkMinsDateReadiness(
-            trade_date=PARTITION_KEY,
-            ready=True,
-            materialized=True,
-            checks_passed=True,
-            reason="ready_after_qfq_factor_repair",
-            failed_check_names=(),
-            missing_file_paths=(),
-            expected_file_count=7,
-            existing_file_count=7,
-            checked_row_count=7,
-            failed_row_count=0,
-        )
         same_day_formula_failed_status = StkMinsDateReadiness(
             trade_date=PARTITION_KEY,
             ready=False,
@@ -609,17 +596,9 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
             _patched_gold_batch_readiness(same_day_formula_failed_status),
             patch.object(
                 repair_sensor_module,
-                "effective_gold_qfq_readiness_for_trade_date",
-                return_value=SimpleNamespace(
-                    status=repair_adjusted_status,
-                    repair_adjusted=True,
-                ),
-            ) as effective_readiness_mock,
-            patch.object(
-                repair_sensor_module,
                 "gold_stk_mins_qfq_factor_repair_status",
                 side_effect=AssertionError(
-                    "same-date repair status must not be read when later repair covers it"
+                    "repair status must not be read while direct gold readiness is red"
                 ),
             ),
         ):
@@ -629,14 +608,9 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
             )
 
         self.assertEqual(result.run_requests, [])
-        self.assertIn("continuity 窗口内分区已经完成", result.skip_reason.skip_message)
-        effective_readiness_mock.assert_called_once()
+        self.assertIn("blocking checks 未全绿", result.skip_reason.skip_message)
         cursor = json.loads(result.cursor)
-        self.assertNotIn("gold_stk_mins_qfq", cursor["details"].get("gate_statuses", {}))
-        self.assertEqual(
-            cursor["details"]["frontier"]["continuity"]["ready_through_date"],
-            PARTITION_KEY,
-        )
+        self.assertIn("gold_stk_mins_qfq", cursor["details"].get("gate_statuses", {}))
 
 
 if __name__ == "__main__":

@@ -247,7 +247,7 @@
 | --- | --- | ---: | --- |
 | raw_stk_mins | `raw_stk_mins_1m/5m/15m/30m/60m` | 1,372 | 已有 keep20 retention；继续保留 compact ordinary checks，hot path 用 DuckDB readiness |
 | silver_stk_mins | `silver_stk_mins_1m/5m/15m/30m/60m` | 1,000 | 已有 keep20 retention；生命周期语义已从 namechange/current-listed-only 收敛到 `silver_stock_lifecycle` |
-| gold_stk_mins_qfq | `gold_stk_mins_qfq_1m/5m/15m/30m/60m/90m/120m` | 1,330 | 已有 keep20 retention；effective readiness 继续处理 repair-adjusted qfq |
+| gold_stk_mins_qfq | `gold_stk_mins_qfq_1m/5m/15m/30m/60m/90m/120m` | 1,330 | 已有 keep20 retention；年度 as-of basis 让正式 formula check/readiness 直接处理 repair-adjusted qfq |
 | MACD/KDJ indicator | `gold_stk_mins_qfq_macd_kdj_1m/5m/15m/30m/60m/90m/120m` | 861 | 已有 keep20 retention；普通 check 可继续保留最近窗口 |
 | MACD/KDJ state | `gold_stk_mins_qfq_macd_kdj_state_1m/5m/15m/30m/60m/90m/120m` | 469 | 已有 keep20 retention；state 是递推链关键状态，latest/current check 必须保留 |
 
@@ -571,8 +571,8 @@ P6C 已落地事实：
 - derived 的文件/行数、schema、freq/date/path 进入 `contract`；唯一键进入
   `key_integrity`；价格进入 `value_domain`；source ready、source window、derived row
   count 进入 `derived_source_coverage`。
-- 两个 formula check 名称保留不合并：`effective gold qfq readiness` 依赖“唯一失败项是否
-  为公式 mismatch”来识别 repair-adjusted qfq；合并 formula 会隐藏 repair-aware 语义。
+- 两个 formula check 名称保留不合并：native QFQ 公式由年度 as-of basis 直接校验，derived
+  QFQ 公式仍校验 source window；两者数据来源不同，不能为了压缩 checks 混成一个。
 - `batch_gold_stk_mins_qfq_lake_readiness(...)`、catalog、readiness specs、
   qfq history/bootstrap event 数量估算均同步为 5 个正式 check；旧细粒度名称只保留为
   check metadata 的 `failed_rule_names` 诊断标签。

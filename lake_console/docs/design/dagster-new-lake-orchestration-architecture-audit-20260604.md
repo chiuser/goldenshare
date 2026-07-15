@@ -270,14 +270,14 @@ postgres_query('prod_raw_pg', '<remote query>')
 8. `decision=skip`、`selected_count=0` 且无 sample、坏 JSON、schema 不匹配或不同目标日期都不触发快路径。
 9. 不新增独立 repair sensor、summary asset、readiness asset、数据库表或配置项，不改 job selection、run key、tags、asset/check definitions。
 
-M11H-3 补充修正：2026-06-08 正式只读核验发现，带 `partition_filter` 的 latest-check 查询会过滤掉实际存在且绑定正确 materialization 的 check records，因为部分正式 check execution record 的 `partition` 字段为空。当时口径固定为 latest-check 查询不传 partition 过滤，只用目标分区 latest materialization 的 `storage_id` 与 check 的 `target_materialization_data.storage_id` 精确匹配。当前代码事实已进一步升级：qfq daily / factor repair sensor 不再用 latest-check event log batch 作为热路径 readiness，而是使用 DuckDB lake batch readiness + effective qfq readiness；repair status hot path 传入 `include_event_storage_ids=False`，不回填 storage id。
+M11H-3 补充修正：2026-06-08 正式只读核验发现，带 `partition_filter` 的 latest-check 查询会过滤掉实际存在且绑定正确 materialization 的 check records，因为部分正式 check execution record 的 `partition` 字段为空。当时口径固定为 latest-check 查询不传 partition 过滤，只用目标分区 latest materialization 的 `storage_id` 与 check 的 `target_materialization_data.storage_id` 精确匹配。当前代码事实已进一步升级：qfq daily / factor repair sensor 不再用 latest-check event log batch 作为热路径 readiness，而是使用 DuckDB lake batch readiness；gold QFQ 直接按年度 as-of basis 计算真实公式，不再由 repair metadata 覆盖失败的 formula check；repair status hot path 传入 `include_event_storage_ids=False`，不回填 storage id。
 
 性能门槛：
 
 | 路径 | 当前成本 | 目标成本 | 拒绝阈值 |
 | --- | --- | --- | --- |
-| qfq daily 首次决策 tick | 约 14 次 materialization 查询 + 108 次 check history 扫描 | 当前实现为 silver / adj factor / qfq gold DuckDB lake batch readiness；qfq gold 普通 formula mismatch 可被 ready 的 qfq factor repair 覆盖时使用 effective qfq readiness；0 次 check history 扫描 | 经审批的正式只读 dry-run 超过 10 秒拒绝上线 |
-| factor repair 首次决策 tick | 约 7 次 materialization 查询 + 56 次 check history 扫描 | 当前实现为 qfq gold DuckDB lake batch readiness + effective qfq readiness；repair status 只在 selected target 上读取，且 `include_event_storage_ids=False`；0 次 check history 深扫 | 经审批的正式只读 dry-run 超过 5 秒拒绝上线 |
+| qfq daily 首次决策 tick | 约 14 次 materialization 查询 + 108 次 check history 扫描 | 当前实现为 silver / adj factor / qfq gold DuckDB lake batch readiness；qfq gold 直接按年度 as-of basis 的真实公式判断；0 次 check history 扫描 | 经审批的正式只读 dry-run 超过 10 秒拒绝上线 |
+| factor repair 首次决策 tick | 约 7 次 materialization 查询 + 56 次 check history 扫描 | 当前实现为 qfq gold DuckDB lake batch readiness + as-of basis 直接公式；repair status 只在 selected target 上读取，且 `include_event_storage_ids=False`；0 次 check history 深扫 | 经审批的正式只读 dry-run 超过 5 秒拒绝上线 |
 | 同一目标日期已提交 run 后的稳定 tick | 仍可能重复 readiness 深查 | cursor 快路径直接 skip | 本地单测超过 2 秒拒绝上线 |
 
 代码落地前必须先在 `dagster-stk-mins-asset-design.html` 中保持 M11 90/120 同一口径；开发阶段不得运行正式 Dagster job/sensor/backfill/materialization/check。

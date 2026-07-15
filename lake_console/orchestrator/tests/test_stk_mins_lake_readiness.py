@@ -1,3 +1,4 @@
+import os
 import unittest
 from datetime import date, timedelta
 from pathlib import Path
@@ -15,13 +16,6 @@ from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
     batch_raw_stk_mins_lake_readiness,
     batch_silver_stk_mins_lake_readiness,
 )
-from orchestrator.defs.asset_guards.stk_mins_qfq_effective_readiness import (
-    QFQ_EFFECTIVE_READINESS_REASON,
-    effective_gold_qfq_readiness_for_trade_date,
-)
-from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
-    GoldStkMinsQfqFactorRepairStatus,
-)
 from orchestrator.defs.checks.stk_mins_checks import (
     GOLD_STK_MINS_QFQ_CONTRACT_CHECK,
     GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
@@ -35,6 +29,7 @@ from orchestrator.defs.checks.stk_mins_checks import (
 )
 from orchestrator.defs.duckdb_sql import duckdb_string
 from orchestrator.defs.paths import (
+    gold_stk_mins_qfq_as_of_basis_path,
     gold_stk_mins_qfq_path,
     raw_adj_factor_path,
     raw_stk_mins_path,
@@ -467,32 +462,47 @@ def _write_gold_qfq_ready_inputs(
             trade_date=trade_date,
             target_freq=target_freq,
         )
-
-
-def _qfq_factor_repair_status_for_codes(
-    *,
-    trade_date: str,
-    repair_start_trade_date: str,
-    repair_end_trade_date: str,
-    repair_required_codes: tuple[str, ...],
-    ready: bool = True,
-) -> GoldStkMinsQfqFactorRepairStatus:
-    return GoldStkMinsQfqFactorRepairStatus(
-        ready=ready,
-        trade_date=trade_date,
-        reason="ready" if ready else "not ready",
-        repair_required=bool(repair_required_codes),
-        upstream_batch_id=f"qfq_factor_repair:{trade_date}:digest",
-        repair_start_trade_date=repair_start_trade_date,
-        repair_end_trade_date=repair_end_trade_date,
-        selected_partition_count=10,
-        repair_required_code_count=len(repair_required_codes),
-        repair_required_codes=repair_required_codes,
-        repair_required_codes_hash="a" * 64,
-        repair_required_codes_truncated=False,
-        rewritten_file_count=1 if repair_required_codes else 0,
-        rewritten_row_count=1 if repair_required_codes else 0,
+    basis_path = gold_stk_mins_qfq_as_of_basis_path(lake_root, trade_date[:4])
+    basis_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_basis_path = basis_path.with_suffix(".tmp.parquet")
+    one_minute_silver_path = silver_stk_mins_path(lake_root, 1, trade_date)
+    adj_factor_path = silver_adj_factor_path(lake_root, trade_date)
+    existing_basis_sql = (
+        "SELECT ts_code, trade_date, as_of_adj_factor, as_of_trade_date, basis_origin "
+        f"FROM read_parquet({duckdb_string(basis_path)}, hive_partitioning=false)"
+        if basis_path.exists()
+        else """
+        SELECT
+          NULL::VARCHAR AS ts_code,
+          NULL::DATE AS trade_date,
+          NULL::DOUBLE AS as_of_adj_factor,
+          NULL::DATE AS as_of_trade_date,
+          NULL::VARCHAR AS basis_origin
+        WHERE false
+        """
     )
+    connection.execute(
+        f"""
+        COPY (
+          SELECT ts_code, trade_date, as_of_adj_factor, as_of_trade_date, basis_origin
+          FROM ({existing_basis_sql})
+          WHERE trade_date <> DATE {duckdb_string(trade_date)}
+          UNION ALL
+          SELECT DISTINCT
+            CAST(silver.ts_code AS VARCHAR) AS ts_code,
+            CAST(silver.trade_date AS DATE) AS trade_date,
+            CAST(adj.adj_factor AS DOUBLE) AS as_of_adj_factor,
+            CAST(silver.trade_date AS DATE) AS as_of_trade_date,
+            'daily_qfq'::VARCHAR AS basis_origin
+          FROM read_parquet({duckdb_string(one_minute_silver_path)}, hive_partitioning=false) AS silver
+          INNER JOIN read_parquet({duckdb_string(adj_factor_path)}, hive_partitioning=false) AS adj
+            ON silver.ts_code = adj.ts_code
+           AND silver.trade_date = adj.trade_date
+          ORDER BY ts_code, trade_date
+        ) TO {duckdb_string(temporary_basis_path)} (FORMAT PARQUET)
+        """
+    )
+    os.replace(temporary_basis_path, basis_path)
 
 
 def _write_silver_ready_inputs(
@@ -1118,101 +1128,6 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         self.assertIn(
             GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
             status.failed_check_names,
-        )
-
-    def test_gold_qfq_effective_readiness_allows_repair_adjusted_formula_failure(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
-            lake_root = Path(directory)
-            _write_gold_qfq_ready_inputs(
-                connection,
-                lake_root,
-                trade_date="2026-06-17",
-            )
-            _write_gold_qfq_file_for_times(
-                connection,
-                lake_root,
-                trade_date="2026-06-17",
-                freq=1,
-                trade_times=("09:31:00",),
-                open_shift=5.0,
-            )
-            batch_status = batch_gold_stk_mins_qfq_lake_readiness(
-                connection=connection,
-                lake_root=lake_root,
-                expected_trade_dates=("2026-06-17",),
-                registered_trade_days=("2026-06-17",),
-            )
-            result = effective_gold_qfq_readiness_for_trade_date(
-                connection=connection,
-                lake_root=lake_root,
-                trade_date="2026-06-17",
-                lake_status=batch_status.status_for_trade_date("2026-06-17"),
-                candidate_repair_trade_dates=("2026-06-18",),
-                repair_status_for_trade_date=lambda _trade_date: (
-                    _qfq_factor_repair_status_for_codes(
-                        trade_date="2026-06-18",
-                        repair_start_trade_date="2026-06-05",
-                        repair_end_trade_date="2026-06-18",
-                        repair_required_codes=("000001.SZ",),
-                    )
-                ),
-            )
-
-        self.assertTrue(result.ready)
-        self.assertTrue(result.repair_adjusted)
-        self.assertEqual(result.status.reason, QFQ_EFFECTIVE_READINESS_REASON)
-        self.assertEqual(result.covering_repair_trade_dates, ("2026-06-18",))
-        self.assertEqual(result.formula_mismatch_code_count, 1)
-        self.assertEqual(result.formula_mismatch_code_samples, ("000001.SZ",))
-
-    def test_gold_qfq_effective_readiness_fails_when_repair_codes_do_not_cover(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
-            lake_root = Path(directory)
-            _write_gold_qfq_ready_inputs(
-                connection,
-                lake_root,
-                trade_date="2026-06-17",
-            )
-            _write_gold_qfq_file_for_times(
-                connection,
-                lake_root,
-                trade_date="2026-06-17",
-                freq=1,
-                trade_times=("09:31:00",),
-                open_shift=5.0,
-            )
-            batch_status = batch_gold_stk_mins_qfq_lake_readiness(
-                connection=connection,
-                lake_root=lake_root,
-                expected_trade_dates=("2026-06-17",),
-                registered_trade_days=("2026-06-17",),
-            )
-            result = effective_gold_qfq_readiness_for_trade_date(
-                connection=connection,
-                lake_root=lake_root,
-                trade_date="2026-06-17",
-                lake_status=batch_status.status_for_trade_date("2026-06-17"),
-                candidate_repair_trade_dates=("2026-06-18",),
-                repair_status_for_trade_date=lambda _trade_date: (
-                    _qfq_factor_repair_status_for_codes(
-                        trade_date="2026-06-18",
-                        repair_start_trade_date="2026-06-05",
-                        repair_end_trade_date="2026-06-18",
-                        repair_required_codes=("000002.SZ",),
-                    )
-                ),
-            )
-
-        self.assertFalse(result.ready)
-        self.assertFalse(result.repair_adjusted)
-        self.assertIn("not covered", result.status.reason)
-        self.assertIn(
-            GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
-            result.status.failed_check_names,
         )
 
     def test_gold_qfq_batch_readiness_does_not_call_single_date_helpers(self) -> None:

@@ -901,7 +901,6 @@ class RunContractStaticGateTests(unittest.TestCase):
             "partition_dataset_readiness_status_from_latest_checks",
             "gold_stk_mins_qfq_factor_repair_status",
             "batch_gold_stk_mins_qfq_lake_readiness",
-            "effective_gold_qfq_readiness_for_trade_date",
             "build_sensor_tags",
         )
         forbidden_sensor_fragments = (
@@ -2397,11 +2396,9 @@ class RunContractStaticGateTests(unittest.TestCase):
                 "batch_silver_stk_mins_lake_readiness",
                 "batch_adj_factor_lake_readiness",
                 "batch_gold_stk_mins_qfq_lake_readiness",
-                "effective_gold_qfq_readiness_for_trade_date",
             ),
             SENSORS_DIR / "stock_mins_qfq_factor_repair_sensor.py": (
                 "batch_gold_stk_mins_qfq_lake_readiness",
-                "effective_gold_qfq_readiness_for_trade_date",
                 "include_event_storage_ids=False",
             ),
         }
@@ -2415,6 +2412,9 @@ class RunContractStaticGateTests(unittest.TestCase):
                 "SILVER_STK_MINS_READINESS_SPECS",
                 "ADJ_FACTOR_READINESS_SPECS",
                 "GOLD_STK_MINS_QFQ_READINESS_SPECS",
+                "effective_gold_qfq_readiness_for_trade_date",
+                "stk_mins_qfq_effective_readiness",
+                "gold_qfq_formula_mismatch_codes",
             ),
             SENSORS_DIR / "stock_mins_qfq_factor_repair_sensor.py": (
                 "gold_stk_mins_qfq_ready_for_trade_date",
@@ -2422,6 +2422,9 @@ class RunContractStaticGateTests(unittest.TestCase):
                 "partition_dataset_readiness_status_from_latest_checks",
                 "GOLD_STK_MINS_QFQ_READINESS_SPECS",
                 "get_event_records",
+                "effective_gold_qfq_readiness_for_trade_date",
+                "stk_mins_qfq_effective_readiness",
+                "gold_qfq_formula_mismatch_codes",
             ),
         }
         for path, required_fragments in required_by_file.items():
@@ -2491,35 +2494,65 @@ class RunContractStaticGateTests(unittest.TestCase):
         if "if include_event_storage_ids:" not in evaluate_status_source:
             issues.append("qfq factor repair evaluator must guard storage id backfill")
 
-        effective_readiness_source = (
+        basis_path = DEFS_DIR / "stk_mins_qfq_as_of_basis.py"
+        retired_effective_path = (
             DEFS_DIR / "asset_guards" / "stk_mins_qfq_effective_readiness.py"
+        )
+        if retired_effective_path.exists():
+            issues.append("retired qfq effective-readiness workaround must be deleted")
+
+        basis_source = basis_path.read_text()
+        checks_source = (CHECKS_DIR / "stk_mins_checks.py").read_text()
+        readiness_source = (
+            DEFS_DIR / "asset_guards" / "stk_mins_lake_readiness.py"
         ).read_text()
-        required_effective_fragments = (
-            "QFQ_EFFECTIVE_READINESS_REASON",
-            "ready_after_qfq_factor_repair",
-            "gold_qfq_formula_mismatch_codes",
-            "GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK",
-            "repair_required_codes",
-            "repair_required_codes_hash",
-        )
-        forbidden_effective_fragments = (
-            "get_event_records",
-            "event_storage_id",
-            "source_qfq_factor_repair_event_storage_ids",
-            "run_key",
-        )
-        issues.extend(
-            "stk_mins_qfq_effective_readiness.py misses repair-aware fragment: "
-            f"{fragment}"
-            for fragment in required_effective_fragments
-            if fragment not in effective_readiness_source
-        )
-        issues.extend(
-            "stk_mins_qfq_effective_readiness.py contains forbidden fragment: "
-            f"{fragment}"
-            for fragment in forbidden_effective_fragments
-            if fragment in effective_readiness_source
-        )
+        for source_name, source, required_fragments in (
+            (
+                "qfq as-of basis",
+                basis_source,
+                (
+                    "write_gold_stk_mins_qfq_as_of_basis",
+                    "qfq_as_of_basis_validation_counts_by_trade_date",
+                    "as_of_trade_date",
+                    "basis_origin",
+                ),
+            ),
+            (
+                "qfq direct checks",
+                checks_source,
+                (
+                    "build_daily_qfq_select_sql_from_as_of_basis",
+                    "qfq_as_of_basis_validation_counts",
+                ),
+            ),
+            (
+                "qfq lake readiness",
+                readiness_source,
+                (
+                    "build_daily_qfq_select_sql_from_as_of_basis",
+                    "qfq_as_of_basis_validation_counts_by_trade_date",
+                ),
+            ),
+        ):
+            issues.extend(
+                f"{source_name} misses as-of-basis fragment: {fragment}"
+                for fragment in required_fragments
+                if fragment not in source
+            )
+
+        for source_name, source in (
+            ("qfq direct checks", checks_source),
+            ("qfq lake readiness", readiness_source),
+        ):
+            issues.extend(
+                f"{source_name} still contains retired workaround fragment: {fragment}"
+                for fragment in (
+                    "effective_gold_qfq_readiness_for_trade_date",
+                    "gold_qfq_formula_mismatch_codes",
+                    "ready_after_qfq_factor_repair",
+                )
+                if fragment in source
+            )
 
         self.assertEqual(issues, [])
 

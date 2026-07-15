@@ -144,7 +144,7 @@ def _write_adj_factor_partition(lake_root: Path, *, trade_date: str) -> None:
 
 
 def _write_valid_inputs(lake_root: Path, *, freqs: tuple[int, ...] = (5,)) -> None:
-    for freq in freqs:
+    for freq in tuple(sorted({1, *freqs})):
         _write_silver_partition(lake_root, freq=freq, trade_date=DATE_1)
         _write_silver_partition(lake_root, freq=freq, trade_date=DATE_2)
     _write_adj_factor_partition(lake_root, trade_date=DATE_1)
@@ -271,6 +271,7 @@ class StkMinsQfqM8CHistoryTests(unittest.TestCase):
     def test_generate_fails_when_factor_coverage_is_incomplete(self) -> None:
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)
+            _write_silver_partition(lake_root, freq=1, trade_date=DATE_1)
             _write_silver_partition(lake_root, freq=5, trade_date=DATE_1)
             _write_rows(
                 silver_adj_factor_path(lake_root, DATE_1),

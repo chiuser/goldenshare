@@ -24,6 +24,11 @@ from orchestrator.defs.stk_mins_qfq import (
     build_daily_qfq_select_sql,
     write_gold_stk_mins_qfq_rows_to_year_files,
 )
+from orchestrator.defs.stk_mins_qfq_as_of_basis import (
+    GoldStkMinsQfqAsOfBasisWriteResult,
+    build_qfq_as_of_basis_rows_sql,
+    write_gold_stk_mins_qfq_as_of_basis,
+)
 
 
 STK_MINS_QFQ_HISTORY_START_DATE = "2014-01-01"
@@ -69,6 +74,7 @@ class StkMinsQfqHistoryBatchResult:
 class StkMinsQfqHistoryReport:
     plan: StkMinsQfqHistoryPlan
     batch_results: tuple[StkMinsQfqHistoryBatchResult, ...]
+    basis_write_results: tuple[GoldStkMinsQfqAsOfBasisWriteResult, ...]
 
     @property
     def written_file_count(self) -> int:
@@ -179,7 +185,6 @@ def generate_stk_mins_qfq_history(
             "Gold qfq history target files already exist; refusing baseline write: "
             f"{plan.existing_target_file_count}."
         )
-
     as_of_trade_date = plan.selected_partition_keys[-1]
     as_of_adj_factor_path = silver_adj_factor_path(lake_root, as_of_trade_date)
     batch_results: list[StkMinsQfqHistoryBatchResult] = []
@@ -192,9 +197,24 @@ def generate_stk_mins_qfq_history(
         )
         batch_results.append(result)
 
+    basis_write_results = write_gold_stk_mins_qfq_as_of_basis(
+        lake_root=lake_root,
+        replacement_rows_sql=build_qfq_as_of_basis_rows_sql(
+            silver_paths=tuple(
+                silver_stk_mins_path(lake_root, 1, partition_key)
+                for partition_key in plan.selected_partition_keys
+            ),
+            as_of_adj_factor_path=as_of_adj_factor_path,
+            as_of_trade_date=as_of_trade_date,
+            basis_origin="history_reconstruction",
+            trade_dates=plan.selected_partition_keys,
+        ),
+    )
+
     return StkMinsQfqHistoryReport(
         plan=plan,
         batch_results=tuple(batch_results),
+        basis_write_results=basis_write_results,
     )
 
 
@@ -326,6 +346,10 @@ def _missing_qfq_history_inputs(
         for path in _silver_paths_for_batch(lake_root, batch):
             if not path.exists():
                 missing.append(f"{batch.freq}:{batch.year}:silver_stk_mins:{path}")
+    for partition_key in selected_partition_keys:
+        one_minute_path = silver_stk_mins_path(lake_root, 1, partition_key)
+        if not one_minute_path.exists():
+            missing.append(f"1:{partition_key}:silver_stk_mins:{one_minute_path}")
     return missing
 
 

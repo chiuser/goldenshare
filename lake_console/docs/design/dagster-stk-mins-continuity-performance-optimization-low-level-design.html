@@ -445,7 +445,7 @@ return select_first_not_ready_from_full_semantics(full)</code></pre>
             <td><code>asset_guards/stk_mins_lake_readiness.py</code></td>
             <td>P4 已新增无状态 helper 文件，P5/P6 已扩展到 silver、adj factor、gold qfq。</td>
             <td>
-              当前已封装 raw/silver/adj factor/gold qfq batch lake readiness，并保留 effective qfq readiness 作为 repair-adjusted 历史 qfq 的消费口径。
+              当前已封装 raw/silver/adj factor/gold qfq batch lake readiness；gold qfq 通过年度 as-of basis 直接按真实公式判断，不保留 repair-aware 覆盖层。
               它不是新实体，不写 lake，不写 Dagster，只返回内存状态。
             </td>
           </tr>
@@ -512,7 +512,7 @@ return select_first_not_ready_from_full_semantics(full)</code></pre>
           </tr>
           <tr>
             <td><code>sensors/stock_mins_qfq_daily_sensor.py</code> / <code>stock_mins_qfq_factor_repair_sensor.py</code></td>
-            <td>已完成连续性改造，并在 P6 改为 lake batch readiness + effective qfq readiness。</td>
+            <td>已完成连续性改造，并改为 lake batch readiness + as-of basis 直接 QFQ readiness。</td>
             <td>不得回流逐日 Dagster check 深扫；不得新增 qfq 状态实体。</td>
           </tr>
         </tbody>

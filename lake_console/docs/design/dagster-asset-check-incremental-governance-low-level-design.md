@@ -848,7 +848,7 @@ P5C 已落地：
 - `lake_console/orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py`
 - `lake_console/orchestrator/src/orchestrator/defs/checks/stk_mins_qfq_macd_kdj_checks.py`
 - `lake_console/orchestrator/src/orchestrator/defs/asset_guards/stk_mins_lake_readiness.py`
-- `lake_console/orchestrator/src/orchestrator/defs/asset_guards/stk_mins_qfq_effective_readiness.py`
+- `lake_console/orchestrator/src/orchestrator/defs/stk_mins_qfq_as_of_basis.py`
 - 股票分钟线相关 sensors/tests/retention 工具。
 
 #### 修改方式
@@ -903,9 +903,8 @@ P5C 已落地：
     `key_integrity` 聚合 `(ts_code, trade_time)` 唯一性；`value_domain` 保留价格 sanity；
     `derived_source_coverage` 聚合 source ready、source window、derived row count。
   - `gold_stk_mins_qfq_formula_matches_silver_adj_factor` 与
-    `gold_stk_mins_qfq_derived_formula_matches_source` 不合并，因为
-    `stk_mins_qfq_effective_readiness.py` 必须精确识别“只有 formula mismatch 失败”才能
-    使用 qfq factor repair metadata 判定 `ready_after_qfq_factor_repair`。
+    `gold_stk_mins_qfq_derived_formula_matches_source` 不合并：native check 通过年度
+    as-of basis 校验真实 QFQ 公式，derived check 校验 source window，两者不是同一事实。
   - `_gold_qfq_check_results(...)` 和 `_gold_qfq_derived_check_results(...)` 继续保留旧细粒度
     rule 名称作为 `failed_rule_names` metadata，供人工定位具体失败原因；这些旧名称不再进入
     `LAKE_ASSET_CATALOG`、`readiness.py` 或 Dagster official check set。
