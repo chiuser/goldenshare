@@ -1,6 +1,6 @@
 # `dc_daily` 技术指标 Gold 数据集技术方案
 
-> 状态：P4 Gold asset、核心 check、normal job、bounded readiness 与默认 STOPPED sensor 已完成；repair、Bootstrap、事件验收和正式启用尚未开始。
+> 状态：P5 Silver repair batch 协议、`silver_dc_daily` 适配器与范围校验已完成；Gold repair job/sensor、Bootstrap、事件验收和正式启用尚未开始。
 >
 > 本文是正式技术方案。代码级文件、SQL、测试和执行顺序见
 > [`dagster-dc-daily-technical-indicators-low-level-design.md`](dagster-dc-daily-technical-indicators-low-level-design.md)。
@@ -200,8 +200,8 @@ gold_dc_daily_technical[trade_date]
 | blocking check | `gold_dc_daily_technical_core_check` |
 | normal job | `gold_dc_daily_technical_update_job` |
 | normal sensor | `gold_dc_daily_technical_update_job_sensor`，默认 `STOPPED`，验收后再启用 |
-| repair job | `gold_dc_daily_technical_repair_job` |
-| repair sensor | `gold_dc_daily_technical_repair_job_sensor`，默认 `STOPPED`，模式参考分钟线 MACD repair |
+| repair job | `gold_dc_daily_technical_repair_job`（P7 planned，当前未定义） |
+| repair sensor | `gold_dc_daily_technical_repair_job_sensor`（P7 planned，当前未定义，不能启用） |
 
 所有 check 必须显式绑定 `cn_a_index_trade_days`，每个 run 只处理一个 partition。run key、cursor、RunRequest 都必须走现有统一 builder，不手写 run key，不解析历史 run key。
 
@@ -255,7 +255,7 @@ repair sensor 不能通过全历史 event 扫描猜测“哪些日期被修过�
 
 这里必须区分“源数据修复范围”和“指标有效重算范围”。MA250 至少需要历史窗口；MACD EMA 具有递推影响，源数据修正后后续结果可能持续变化。若没有可验证的 EMA baseline，`context_start_trade_date` 必须回到指标历史起点，不能为了性能擅自截短。
 
-当前 `dc_board` 代码还没有这套 Silver repair batch 生产协议，所以 repair sensor 接入前必须先完成上游协议设计或复用已审计的统一 repair metadata。没有合法 batch 时 fail closed，不扫描 event history、不按“最近一个 materialization”猜范围。
+当前 `dc_board` 已有 Silver repair batch 协议基础，但还没有实际 Silver repair writer；repair sensor 接入前必须先完成能产生真实 source revision 的上游 repair producer。没有合法 batch 时 fail closed，不扫描 event history、不按“最近一个 materialization”猜范围。
 
 repair job 接收显式范围和 `upstream_batch_id`，一次有界扫描受影响范围及所需历史上下文，逐日期生成 staging 并原子替换。范围超过性能上限、源 batch 不 ready、日期未注册或输出对账不一致时整批停止，不拆成无界的一日一 run。
 
@@ -377,9 +377,17 @@ P4 测试与验证结果：
 
 ### P5：Repair 协议与 repair job/sensor
 
-- 先补齐/审计 Silver repair batch metadata；
-- 再实现 bounded repair job/sensor；
-- 验证无 batch、超范围、源数据失败时 fail closed。
+P5 本轮只完成 repair prerequisite，不开发或启用 Gold repair job/sensor：
+
+- 已审计当前代码：`silver_dc_daily` 只有 normal writer/asset，没有现成 Silver repair producer；股票 QFQ repair metadata 不属于板块日线 Silver 上游事实，不能直接复用；
+- 新增通用 `SilverRepairBatch` 协议，要求 `producer_run_id`、`upstream_batch_id`、`status=ready`、`source_revision`、源修复范围、指标重算范围、context 起点、目标 frontier、受影响日期/序列统计、哈希、`truncated=false`、协议版本和 selected partition count；
+- 新增 `silver_dc_daily` 窄适配器，未来 Silver repair writer 必须通过该适配器生产/解析 batch，不允许由 Gold sensor 扫描 event history 或自行猜范围；
+- 明确定义：`affected_date_count` 是 source repair 范围的 expected 交易日数量，`selected_partition_count` 是 indicator recompute 范围的 expected 交易日数量；
+- 校验已覆盖：日期格式与 expected calendar、注册分区、source/indicator 范围包含关系、context 起点、frontier、计数一致性、source revision、series hash、截断标记和重算预算；
+- 测试已覆盖 plain/namespaced metadata 往返、缺字段、非 ready、截断、范围越界、注册缺口、计数不一致和预算超限；
+- 在实际 `silver_dc_daily` repair writer 落地并能稳定产生真实 source revision 前，Gold repair sensor 必须保持不存在/STOPPED，不得进入下一阶段。
+
+P5 验证结果（2026-07-15）：新增协议测试与 P2-P4 定向回归共 `106 passed`；新模块通过 `py_compile`，definitions 加载成功，asset graph 保持 67 个资产且没有新增 repair asset/sensor。本阶段没有运行 `dg`、job、sensor，没有写正式 lake、Dagster DB 或 event。
 
 ### P6：Bootstrap 与事件验收
 
@@ -412,7 +420,7 @@ P4 测试与验证结果：
 
 1. BOLL 的公开公式没有明确分母；本方案已按主流实现冻结 `ddof=0`。如果未来可靠同花顺高精度样本冲突，必须先停止 Bootstrap 并重新确认，不得悄悄改数值。
 2. MACD/KDJ 采用全历史 set-based SQL，但实现若退回 Python 递推，会破坏性能门禁；必须通过性能测试保护。
-3. Silver repair batch 协议当前未形成统一事实源；在协议完成前不能把 repair sensor 接到历史事件猜测路径。
+3. `silver_dc_daily` 的实际 repair writer 尚未存在；在它能生产真实 source revision 和 ready batch 前，不能把 Gold repair sensor 接入任何历史事件猜测路径。
 4. 输入存在稀疏序列；窗口按有效观测而不是补齐自然日，必须让 API/前端理解 `NULL` 预热语义。
 
 ## 12. 参考资料

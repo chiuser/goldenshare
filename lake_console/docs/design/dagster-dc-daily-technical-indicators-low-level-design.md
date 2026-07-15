@@ -1,6 +1,6 @@
 # `dc_daily` 技术指标 Gold 数据集 LLD
 
-> 状态：P4 Gold asset、核心 check、normal job、bounded readiness 与默认 STOPPED sensor 已完成；repair、Bootstrap、事件验收和正式启用尚未开始。
+> 状态：P5 Silver repair batch 协议、`silver_dc_daily` 适配器与范围校验已完成；Gold repair job/sensor、Bootstrap、事件验收和正式启用尚未开始。
 >
 > 本文建立在 [`dagster-dc-daily-technical-indicators-plan.md`](dagster-dc-daily-technical-indicators-plan.md) 的冻结口径上。若实现前发现代码事实冲突，必须先更新方案和本 LLD，不能在代码里留下隐式兼容分支。
 
@@ -56,13 +56,15 @@
 | `orchestrator/defs/paths.py` | `gold_dc_daily_technical_path(lake_root, trade_date)` |
 | `orchestrator/defs/run_contracts/asset_column_schemas.py` | Gold 输出 schema |
 | `orchestrator/defs/asset_guards/dc_daily_technical_quality.py` | check/readiness 共用 predicates、schema、有限样本规则 |
-| `orchestrator/defs/assets/dc_daily_technical.py` | Gold asset、writer、staging promote 和 metadata |
+| `orchestrator/defs/assets/dc_daily_technical.py` | Gold writer、staging promote 和 metadata |
+| `orchestrator/defs/assets/dc_daily_technical_asset.py` | active Gold asset wrapper |
 | `orchestrator/defs/checks/dc_daily_technical_checks.py` | 一个 partitioned core check |
 | `orchestrator/defs/asset_guards/dc_daily_technical_lake_readiness.py` | 最近 10 日 Gold batch readiness |
-| `orchestrator/defs/jobs/dc_daily_technical.py` | normal update job 和 repair job selection |
+| `orchestrator/defs/jobs/dc_daily_technical.py` | 当前只有 normal update job；repair job 属于 P7 计划 |
 | `orchestrator/defs/sensors/dc_daily_technical_sensor.py` | normal update sensor |
-| `orchestrator/defs/assets/dc_daily_technical_repair.py` | repair range planner/执行辅助；不新增 asset |
-| `orchestrator/defs/sensors/dc_daily_technical_repair_sensor.py` | 消费显式上游 repair batch |
+| `orchestrator/defs/asset_guards/dc_daily_silver_repair.py` | P5 已落地的 `silver_dc_daily` repair batch 适配器 |
+| `orchestrator/defs/assets/dc_daily_technical_repair.py` | P7 计划中的 repair range planner/执行辅助；当前不存在 |
+| `orchestrator/defs/sensors/dc_daily_technical_repair_sensor.py` | P7 计划中的 repair sensor；当前不存在 |
 | `orchestrator/defs/catalog/lake_assets.py` | Gold catalog、性能合同和 check 治理映射 |
 | `orchestrator/tests/test_dc_daily_technical_*.py` | 公式、writer、readiness、sensor、repair、性能和静态门禁 |
 
@@ -290,6 +292,7 @@ sensor 禁止：逐日 Dagster readiness、`instance.get_event_records`、Tushar
 
 ```text
 upstream_batch_id
+producer_run_id
 status=ready
 source_revision
 source_repair_start_trade_date
@@ -303,6 +306,7 @@ affected_series_count
 affected_series_hash
 truncated=false
 selected_partition_count
+protocol_version
 ```
 
 这里必须区分两个范围：
@@ -313,6 +317,34 @@ selected_partition_count
 MA250 至少需要足够的历史窗口；MACD EMA 具有递推影响，源数据修正后后续结果可能持续变化。若没有可验证的 EMA baseline，`context_start_trade_date` 必须回到指标历史起点，不能为了性能擅自截短。这个范围由上游 repair planner 或统一 repair status helper 计算并写入，Gold sensor 不自行推断。
 
 这个 metadata 可以来自已审计的统一 repair status helper，但不能由新 sensor 自己扫描 event history 拼出来。若当前 Silver repair 入口还不能提供，P5 必须先补齐协议生产端；否则 repair sensor 保持 `STOPPED`。
+
+#### P5 已落地的协议基础
+
+代码审计确认，当前 `silver_dc_daily` 只有 normal asset/writer，没有可以直接提供 repair batch 的 Silver repair job。股票 QFQ repair 的 metadata 有自己的资产、字段和消费者，不是本数据集的 Silver source revision，禁止跨资产族冒用。
+
+P5 已完成以下无持久化协议基础：
+
+| 文件 | 职责 | 约束 |
+| --- | --- | --- |
+| `orchestrator/defs/run_contracts/silver_repair.py` | 通用 `SilverRepairBatch`、稳定 series hash、upstream batch id、plain/namespaced metadata 解析和日历范围校验 | 不导入 Dagster，不读 event history，不写 lake/DB |
+| `orchestrator/defs/asset_guards/dc_daily_silver_repair.py` | 固定 `source_asset=silver_dc_daily` 的窄适配器 | 只能构造/解析显式 batch，不能扫描历史事件推断范围 |
+| `tests/test_dc_daily_technical_repair_protocol.py` | producer/consumer 协议、范围、计数、版本、注册和预算的正负测试 | 不运行 job/sensor，不写 lake/DB |
+
+字段语义已经写死：
+
+- `source_repair_start/end_trade_date` 是 Silver 实际被修正的 source 日期范围；
+- `indicator_recompute_start/end_trade_date` 是 Gold 必须重新输出的有效日期范围，必须覆盖 source repair 范围；
+- `context_start_trade_date` 是指标计算读取的最早上下文日期，不能晚于 indicator recompute 起点；
+- `affected_date_count` 必须等于 source repair 范围内 expected 交易日数；
+- `selected_partition_count` 必须等于 indicator recompute 范围内 expected 交易日数；
+- `affected_series_hash` 只保存稳定 hash，不把完整 series/code 列表写进 metadata；
+- `source_revision` 是上游 Silver producer 提供的非空、可追溯版本，不由 Gold sensor 通过文件 mtime 或事件历史猜测；
+- `producer_run_id` 用于 provenance，`upstream_batch_id` 用统一 batch builder 生成或由上游显式提供；
+- `truncated=true`、非 ready 状态、范围越界、注册缺口、计数不一致或超出预算都 fail closed。
+
+P5 的边界是“协议已具备可生产/可消费的验证基础”，不是伪造一个不存在的 Silver repair 任务。实际 Silver repair writer 尚未实现；因此本阶段没有新增 Gold repair job/sensor，也没有改变 normal sensor。
+
+P5 验证结果（2026-07-15）：`tests/test_dc_daily_technical_repair_protocol.py` 与 P2-P4 定向回归共 `106 passed`；协议模块通过 `py_compile`，definitions 加载成功，asset graph 保持 67 个资产且没有新增 repair asset/sensor。本阶段没有运行 `dg`、job、sensor，没有写正式 lake、Dagster DB 或 event。
 
 ### 10.2 Repair sensor
 
@@ -400,11 +432,12 @@ P1 通过，但正式 writer 必须固定采用“单次临时关系 + 逐交易
 2. **P2 contract**：新增 constants/schema/path/catalog 草案和静态测试；catalog governance 必须同步。该阶段已于 2026-07-15 完成：新增 `run_contracts/dc_daily_technical.py`、`GOLD_DC_DAILY_TECHNICAL_SCHEMA`、`gold_dc_daily_technical_path(...)`、contract-only catalog entry、`trade_date` Gold partition model、展示名称和治理矩阵映射；新增 `tests/test_dc_daily_technical_contracts.py`，聚焦测试 `103 passed`。本阶段没有创建 active asset/check/job/sensor，也没有写正式 lake、Dagster DB 或 event。
 3. **P3 writer**：已于 2026-07-15 完成。新增 `assets/dc_daily_technical.py` 作为无 decorator 的 writer，使用显式 Silver 文件列表、单 DuckDB source relation、set-based 窗口/闭式 EMA、staging 回读和原子替换；新增 `tests/test_dc_daily_technical.py`，P2/P3 聚焦回归共 `113 passed`。10 日、250 日和 611 日输入上下文性能分别为 `45.4ms`、`419.6ms`、`981.3ms`，报告为 `/private/tmp/dc_daily_technical_p3_report_20260715.json`。本阶段未写正式 lake、Dagster DB 或 event。
 4. **P4 normal definition**：已完成。新增 active asset、唯一 partitioned core check、normal job、最近 10 日 batch readiness 和默认 STOPPED sensor；完成本地 definitions 加载、临时 lake readiness 和负向安全测试，未启用 sensor、未写正式 lake/DB/event。
-5. **P5 repair prerequisite**：先核对/补齐 Silver repair batch metadata 生产端；没有明确 source revision 不接 sensor。
-6. **P6 repair definition**：bounded repair job/sensor、超预算 fail closed、无 event history。
-7. **P7 bootstrap**：dry-run -> sample -> full lake files -> aggregate audit；不写 Dagster event。
-8. **P8 event acceptance**：文件完全对账后，materialization 与最近 20 日 check event 分开处理。
-9. **P9 enablement**：手动启用 normal，再启用 repair；至少观察 3 个交易日。
+5. **P5 repair prerequisite**：已完成 Silver repair batch 协议、`silver_dc_daily` 适配器和本地 fail-closed 校验；实际 Silver repair writer 尚未存在，Gold repair sensor 不开发、不启用。
+6. **P6 Silver repair producer**：实现能产生真实 source revision 和 ready batch 的 bounded Silver repair 入口；通过后才允许设计 Gold repair job/sensor。
+7. **P7 repair definition**：bounded Gold repair job/sensor、超预算 fail closed、无 event history。
+8. **P8 bootstrap**：dry-run -> sample -> full lake files -> aggregate audit；不写 Dagster event。
+9. **P9 event acceptance**：文件完全对账后，materialization 与最近 20 日 check event 分开处理。
+10. **P10 enablement**：手动启用 normal，再启用 repair；至少观察 3 个交易日。
 
 每一步都必须保存临时报告；任一失败只保留已验证事实，不跳过阶段、不自动扩大范围。
 
