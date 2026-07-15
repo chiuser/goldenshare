@@ -194,7 +194,6 @@ def gold_dc_daily_technical_update_job_sensor(
                 lake_root=context.resources.lake_root.root(),
                 expected_trade_dates=expected_window.expected_trade_dates,
                 registered_trade_days=registered,
-                dataset="dc_daily",
             )
             gold_batch = batch_gold_dc_daily_technical_lake_readiness(
                 connection=connection,

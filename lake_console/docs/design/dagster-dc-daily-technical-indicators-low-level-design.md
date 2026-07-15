@@ -1,6 +1,6 @@
 # `dc_daily` 技术指标 Gold 数据集 LLD
 
-> 状态：P7 Silver repair producer job/tag handoff、Gold bounded repair writer、op/job/sensor 已完成本地开发与临时湖测试；正式 repair、Bootstrap、事件验收和启用尚未执行。
+> 状态：P8A Gold Bootstrap/lake 只读对账、P8C 临时样本 Bootstrap、P8D 正式 Gold 全量 Bootstrap 和 P9 事件验收均已完成。P10A 已启用 normal sensor；P7 repair sensor 仍未启用，尚未完成 3 个交易日观察。
 >
 > 本文建立在 [`dagster-dc-daily-technical-indicators-plan.md`](dagster-dc-daily-technical-indicators-plan.md) 的冻结口径上。若实现前发现代码事实冲突，必须先更新方案和本 LLD，不能在代码里留下隐式兼容分支。
 
@@ -17,7 +17,7 @@
 7. normal sensor 最近 10 个 expected dates、一个 DuckDB connection、最多一个 RunRequest、零 Dagster event history 查询。
 8. repair 只能消费显式 upstream batch，不允许从历史 event 猜范围。
 9. 任何 writer 都必须 `staging -> validate -> atomic replace`；已存在但错误的目标文件不得静默覆盖。
-10. 本轮代码阶段只做本地定义、单元测试和临时 lake 测试；不运行正式 `dg`、job、sensor、Bootstrap，不写正式 lake 或 Dagster DB/event。
+10. P8C 之前的代码阶段只做本地定义、单元测试和临时 lake 测试；P8D/P9 是单独批准的正式 Gold 文件写入与事件验收阶段，不运行 daily job，不启用 sensor。
 
 ## 2. 已审计代码与影响面
 
@@ -69,6 +69,8 @@
 | `orchestrator/defs/ops/dc_daily_technical_repair.py` | P7 Gold op；解析 batch、调用 writer、按目标日期写 partitioned events |
 | `orchestrator/defs/jobs/dc_daily_technical_repair.py` | P7 op-based Gold repair job；不使用多分区 asset job |
 | `orchestrator/defs/sensors/dc_daily_technical_repair_sensor.py` | P7 STOPPED run-status sensor；只读 producer tags 和当前 Silver lake，不扫事件历史 |
+| `orchestrator/defs/bootstrap/dc_daily_technical_events.py` | P9 有界 Bootstrap 事件规划、样本写入、全量 materialization/最近 20 日 check 补录 |
+| `orchestrator/defs/bootstrap/dc_daily_technical_events_cli.py` | P9 dry-run/sample/apply CLI；正式写入必须显式确认 |
 | `orchestrator/defs/catalog/lake_assets.py` | Gold catalog、性能合同和 check 治理映射 |
 | `orchestrator/tests/test_dc_daily_technical_*.py` | 公式、writer、readiness、sensor、repair、性能和静态门禁 |
 
@@ -420,6 +422,73 @@ repair writer 与 normal writer 分开：normal writer 对已有合法 Gold 文�
 
 单次 repair 不得从 2014 起点无条件重算到当前，也不得改成每个日期单独提交一个 Dagster run。范围、文件数、耗时或输出行数超预算时整批 fail closed。
 
+### 10.4 P8A Bootstrap/lake 只读对账结果
+
+P8A 不把交易日历的未来预注册日期误当成历史数据缺口。当前日历已包含到 `2026-12-31`，历史 Bootstrap 的日期集合固定为：
+
+```text
+SSE open dates >= 2024-01-02 and <= latest existing silver_dc_daily date
+```
+
+2026-07-15 的有效只读报告为：
+`/private/tmp/dc_daily_technical_p8_lake_reconciliation_20260715_v2.json`。
+
+- Silver source frontier 为 `2026-07-14`；历史 expected 为 611 个交易日；
+- `silver_dc_daily` 共 611 个文件、596,200 行，schema 与 `SILVER_DC_DAILY_SCHEMA` 一致；
+- `trade_date` 与物理分区错位 0，身份字段异常 0，`(ts_code, trade_date, category)` 重复行 0；
+- 1,065 个 `(ts_code, category)` 序列、3 个 category，历史 expected 文件全部存在；
+- Silver staging 残留 0，异常路径 0；
+- Gold `dc_daily_technical` 目标目录目前没有文件，目标冲突 0，Gold staging 残留 0；
+- 只读 DuckDB 聚合耗时约 `735ms`，没有 Dagster event history 调用、Dagster DB 写入或 lake 写入；
+- `should_stop=false`，允许进入 Gold 临时样本 Bootstrap；这是 P8A 对账时的状态，正式 Gold 文件随后由 P8D 生成。
+
+首次报告 `/private/tmp/dc_daily_technical_p8_lake_reconciliation_20260715.json` 因将日历未来的 116 个日期计入缺失而停止，已判定为审计范围错误；不得把该报告作为数据缺失结论。
+
+### 10.5 P8B 事件验收设计（已完成）
+
+Gold 611 个分区文件全部生成并通过同一套 core predicates 后，事件验收严格拆成两类：
+
+1. **只读 dry-run**：统计 611 个 materialization 目标、最近 20 个 check 目标、已有 event、缺文件、计划事件和保护项；dry-run 不调用 `report_runless_asset_event`。
+2. **小样本**：选择起始日、中间日、最新日各 1 个，先报告带正确 partition 的 `AssetMaterialization`，再以该 materialization 为 target 报告 partitioned `gold_dc_daily_technical_core_check`；只读确认 partition attribution、target materialization 和 readiness。
+3. **正式批量**：materialization 全历史 611 个；check 只补最近 20 个交易日，当前范围是 `2026-06-16..2026-07-14`，计划总量 631 个 event。每批失败立即停止，不运行 Gold daily job，不启用 sensor。
+4. **最终验收**：聚合核对 materialization/check 数量、partition 归属、latest state、最近 20 日 readiness 和后续 sensor 判断；不补 611 个历史 check，不删除历史 event。
+
+正式事件阶段必须复用 `audit_gold_dc_daily_technical_partition` 的 blocking 语义，只对已通过文件事实校验的分区写绿事件；该口径已在 P8D/P9 正式执行中验证。
+
+### 10.6 P8C Gold 临时样本 Bootstrap 结果
+
+本阶段使用正式 Silver 文件的只读符号链接，在 `/private/tmp/dc_daily_technical_p8_sample_lake_20260715_174919` 中执行正常 Gold writer；报告为 `/private/tmp/dc_daily_technical_p8_sample_bootstrap_20260715_174919.json`。
+
+- 样本日期固定为 `2024-01-02`、`2025-04-10`、`2026-07-14`，覆盖起始、历史中段和当前 source frontier；
+- 三个样本分区均通过 schema、日期、业务主键、Silver key/close 对账、指标有限值和 warmup NULL 规则；输出行数为 `940`、`975`、`1022`；
+- 最新日读取 611 个 Silver 分区，DuckDB 计算约 `607ms`，端到端约 `1049ms`；中间日读取 306 个分区，端到端约 `589ms`；
+- 目标文件均经过 staging 回读和原子 promote，临时 lake 无 `.tmp` 残留；
+- 临时 Gold 与正式 Gold 目录隔离；样本阶段 Dagster event history、Tushare、Prod DB 调用均为 0，正式 lake/DB/event 写入均为 0；
+- 样本通过后进入 P8D 正式全量 Bootstrap，不能由样本结果自动触发正式写入。
+
+### 10.7 P8D/P9 正式执行结果
+
+#### P8D：正式 Gold 全量 Bootstrap 与文件对账
+
+2026-07-15 按 P8A 冻结的 `2024-01-02..2026-07-14` 611 个 SSE expected dates，串行生成正式 Gold 文件。preflight、Bootstrap 和全量对账报告分别为：
+
+- `/private/tmp/dc_daily_technical_p8_full_bootstrap_preflight_20260715_175436.json`
+- `/private/tmp/dc_daily_technical_p8_full_bootstrap_20260715_175530.json`
+- `/private/tmp/dc_daily_technical_p8_full_bootstrap_audit_20260715_180211.json`
+
+结果为 611/611 文件、596,200 行、611/611 日期通过共享质量 predicates，失败日期/意外文件/staging 残留均为 0；Bootstrap 约 369.7 秒，全量 DuckDB 对账约 3.22 秒。writer 继续遵守 staging 回读校验后原子替换。该阶段不运行 Dagster job/sensor，不调用 Tushare/Prod DB，不写 Dagster event。
+
+#### P9：事件验收
+
+新增的 `dc_daily_technical_events.py` 与 CLI 只做有界事件规划和显式确认写入：
+
+- dry-run `/private/tmp/dc_daily_technical_p8_events_dry_run_20260715.json`：计划 611 个 materialization、最近 20 日 20 个 partitioned core check，共 631 个 event；
+- sample `/private/tmp/dc_daily_technical_p8_events_sample_20260715.json`：3 个 materialization + 最新日 1 个 check；
+- apply `/private/tmp/dc_daily_technical_p8_events_apply_20260715.json`：新增 608 个 materialization + 19 个 check；
+- final `/private/tmp/dc_daily_technical_p8_events_final_20260715_180652.json`：materialization 611/611、最近 check 20/20，所有 check partition 正确、target materialization 精确匹配、readiness 失败 0。
+
+P9 没有运行 Gold daily job、没有启用 normal/repair sensor、没有补历史 611 个 check，也没有改写 Gold 文件。
+
 ## 11. 测试矩阵
 
 ### 11.1 公式 fixture
@@ -491,9 +560,12 @@ P1 通过，但正式 writer 必须固定采用“单次临时关系 + 逐交易
 5. **P5 repair prerequisite**：已完成 Silver repair batch 协议、`silver_dc_daily` 适配器和本地 fail-closed 校验；P5 不开发 Gold repair。P6 补齐 producer，P7 补齐 Gold repair，但 sensor 仍默认 `STOPPED`。
 6. **P6 Silver repair producer**：已完成 bounded source rebuild、内容 revision、旧/新差异、ready batch 和临时湖验证；未新增 Gold repair definition。
 7. **P7 repair definition**：已完成 producer job/tag handoff、bounded Gold repair writer、op-based repair job 和 STOPPED run-status sensor；定向测试通过，未执行正式 repair。
-8. **P8 bootstrap**：dry-run -> sample -> full lake files -> aggregate audit；不写 Dagster event。
-9. **P9 event acceptance**：文件完全对账后，materialization 与最近 20 日 check event 分开处理。
-10. **P10 enablement**：手动启用 normal，再启用 repair；至少观察 3 个交易日。
+8. **P8A lake 对账**：已完成；以 source frontier 冻结 611 个历史 expected 日期，报告为 `/private/tmp/dc_daily_technical_p8_lake_reconciliation_20260715_v2.json`。
+9. **P8B event acceptance design**：已完成；materialization 全历史、check 最近 20 日，随后由 P9 按该口径执行。
+10. **P8C temporary sample Bootstrap**：已完成三日临时 lake 生成与质量审计。
+11. **P8D full Gold Bootstrap**：已完成 611 个正式 Gold 分区生成和全量文件对账。
+12. **P9 event acceptance**：已完成 611 个 materialization 与最近 20 个 partitioned check 的有界补录和最终对账。
+13. **P10 enablement**：P10A 已完成 normal sensor 启用和只读 preview；当前因 Silver source frontier 未覆盖 Gold 目标日期而正常 skip，尚未启动 daemon 观察，也未启用 repair sensor。后续仍需观察至少 3 个交易日，再单独评估 repair sensor。
 
 每一步都必须保存临时报告；任一失败只保留已验证事实，不跳过阶段、不自动扩大范围。
 

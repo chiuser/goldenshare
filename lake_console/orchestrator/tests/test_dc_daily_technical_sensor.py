@@ -118,6 +118,11 @@ def _evaluate(context, silver_batch, gold_batch):
     return dc_daily_technical_sensor.gold_dc_daily_technical_update_job_sensor._raw_fn(context)
 
 
+def _assert_no_dataset_argument(kwargs, batch):
+    assert "dataset" not in kwargs
+    return batch
+
+
 def _patch_scan(monkeypatch, context, silver_batch, gold_batch, registered):
     monkeypatch.setattr(
         dc_daily_technical_sensor,
@@ -127,7 +132,7 @@ def _patch_scan(monkeypatch, context, silver_batch, gold_batch, registered):
     monkeypatch.setattr(
         dc_daily_technical_sensor,
         "batch_silver_dc_daily_lake_readiness",
-        lambda **kwargs: silver_batch,
+        lambda **kwargs: _assert_no_dataset_argument(kwargs, silver_batch),
     )
     monkeypatch.setattr(
         dc_daily_technical_sensor,
