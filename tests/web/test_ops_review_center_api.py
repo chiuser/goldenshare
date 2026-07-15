@@ -1,6 +1,41 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+
+
+def _seed_index_daily_raw_eligibility(
+    db_session,
+    *,
+    ts_code: str,
+    trade_dates: list[date],
+    include_calendar: bool = True,
+) -> None:
+    from src.foundation.models.core.trade_calendar import TradeCalendar
+    from src.foundation.models.raw.raw_index_daily import RawIndexDaily
+
+    if include_calendar:
+        db_session.add_all(
+            [
+                TradeCalendar(
+                    exchange="SSE",
+                    trade_date=trade_date,
+                    is_open=True,
+                    pretrade_date=None,
+                )
+                for trade_date in trade_dates
+            ]
+        )
+    db_session.add_all(
+        [
+            RawIndexDaily(
+                ts_code=ts_code,
+                trade_date=trade_date,
+                api_name="index_daily",
+                fetched_at=datetime.now(timezone.utc),
+            )
+            for trade_date in trade_dates
+        ]
+    )
 
 
 def test_ops_review_center_requires_admin(app_client, user_factory) -> None:
@@ -108,6 +143,75 @@ def test_ops_review_index_active_list_returns_serving_coverage(app_client, user_
     assert item["latest_monthly_date"] is None
 
 
+def test_ops_review_index_active_exposes_and_filters_source_serviceability(
+    app_client,
+    user_factory,
+    db_session,
+) -> None:
+    from src.foundation.models.core.trade_calendar import TradeCalendar
+    from src.foundation.models.raw.raw_index_daily import RawIndexDaily
+    from src.ops.models.ops.index_series_active import IndexSeriesActive
+
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+    reference_date = date.today() - timedelta(days=1)
+    previous_date = reference_date - timedelta(days=1)
+    db_session.add_all(
+        [
+            TradeCalendar(exchange="SSE", trade_date=reference_date, is_open=True, pretrade_date=None),
+            TradeCalendar(exchange="SSE", trade_date=previous_date, is_open=True, pretrade_date=None),
+            IndexSeriesActive(
+                resource="index_daily",
+                ts_code="READY.SH",
+                first_seen_date=previous_date,
+                last_seen_date=reference_date,
+                last_checked_at=datetime.now(timezone.utc),
+            ),
+            IndexSeriesActive(
+                resource="index_daily",
+                ts_code="DELAY.SH",
+                first_seen_date=previous_date,
+                last_seen_date=reference_date,
+                last_checked_at=datetime.now(timezone.utc),
+            ),
+            RawIndexDaily(
+                ts_code="READY.SH",
+                trade_date=reference_date,
+                api_name="index_daily",
+                fetched_at=datetime.now(timezone.utc),
+            ),
+            RawIndexDaily(
+                ts_code="DELAY.SH",
+                trade_date=previous_date,
+                api_name="index_daily",
+                fetched_at=datetime.now(timezone.utc),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/ops/review/index/active?resource=index_daily&page=1&page_size=10",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    items_by_code = {item["ts_code"]: item for item in response.json()["items"]}
+    assert items_by_code["READY.SH"]["source_serviceability_status"] == "ready"
+    assert items_by_code["READY.SH"]["source_serviceability_label"] == "正常"
+    assert items_by_code["READY.SH"]["latest_raw_trade_date"] == reference_date.isoformat()
+    assert items_by_code["DELAY.SH"]["source_serviceability_status"] == "source_delayed"
+    assert items_by_code["DELAY.SH"]["source_serviceability_action"] == "系统将在受控窗口继续补漏"
+
+    filtered_response = app_client.get(
+        "/api/v1/ops/review/index/active?resource=index_daily&source_serviceability_status=source_delayed",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert filtered_response.status_code == 200
+    assert [item["ts_code"] for item in filtered_response.json()["items"]] == ["DELAY.SH"]
+
+
 def test_ops_review_index_active_summary_counts_available_layers(app_client, user_factory, db_session) -> None:
     from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
     from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
@@ -197,15 +301,79 @@ def test_ops_review_index_active_candidates_excludes_active_codes(app_client, us
     assert [item["ts_code"] for item in items] == ["000905.SH"]
 
 
+def test_ops_review_index_candidates_and_add_enforce_source_serviceability(
+    app_client,
+    user_factory,
+    db_session,
+) -> None:
+    from src.foundation.models.core.index_basic import IndexBasic
+
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+    reference_date = date.today() - timedelta(days=1)
+    required_dates = [
+        reference_date,
+        reference_date - timedelta(days=1),
+        reference_date - timedelta(days=2),
+    ]
+    _seed_index_daily_raw_eligibility(db_session, ts_code="READY.SH", trade_dates=required_dates)
+    _seed_index_daily_raw_eligibility(
+        db_session,
+        ts_code="WAIT.SH",
+        trade_dates=[required_dates[0]],
+        include_calendar=False,
+    )
+    db_session.add_all(
+        [
+            IndexBasic(ts_code="READY.SH", name="可加入指数", market="SSE", publisher="测试"),
+            IndexBasic(ts_code="WAIT.SH", name="待观察指数", market="SSE", publisher="测试"),
+        ]
+    )
+    db_session.commit()
+
+    candidates_response = app_client.get(
+        "/api/v1/ops/review/index/active/candidates?resource=index_daily&keyword=指数",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert candidates_response.status_code == 200
+    candidates_by_code = {item["ts_code"]: item for item in candidates_response.json()["items"]}
+    assert candidates_by_code["READY.SH"]["eligible_for_activation"] is True
+    assert candidates_by_code["WAIT.SH"]["eligible_for_activation"] is False
+    assert "连续 3 个已结束开市日" in candidates_by_code["WAIT.SH"]["eligibility_message"]
+
+    rejected_response = app_client.post(
+        "/api/v1/ops/review/index/active",
+        json={"resource": "index_daily", "ts_code": "WAIT.SH"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert rejected_response.status_code == 422
+    assert rejected_response.json()["code"] == "source_serviceability_not_ready"
+
+    accepted_response = app_client.post(
+        "/api/v1/ops/review/index/active",
+        json={"resource": "index_daily", "ts_code": "READY.SH"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert accepted_response.status_code == 200
+
+
 def test_ops_review_index_active_add_and_remove_only_change_active_pool(app_client, user_factory, db_session) -> None:
     from src.foundation.models.core.index_basic import IndexBasic
     from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
+    from src.foundation.models.raw.raw_index_daily import RawIndexDaily
     from src.ops.models.ops.index_series_active import IndexSeriesActive
 
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
 
+    reference_date = date.today() - timedelta(days=1)
+    _seed_index_daily_raw_eligibility(
+        db_session,
+        ts_code="000300.SH",
+        trade_dates=[reference_date, reference_date - timedelta(days=1), reference_date - timedelta(days=2)],
+    )
     db_session.add_all(
         [
             IndexBasic(ts_code="000300.SH", name="沪深300", market="SSE", publisher="中证指数"),
@@ -238,6 +406,7 @@ def test_ops_review_index_active_add_and_remove_only_change_active_pool(app_clie
     assert remove_response.json() == {"resource": "index_daily", "ts_code": "000300.SH"}
     assert db_session.get(IndexSeriesActive, ("index_daily", "000300.SH")) is None
     assert db_session.get(IndexDailyServing, ("000300.SH", date(2026, 4, 24))) is not None
+    assert db_session.get(RawIndexDaily, ("000300.SH", reference_date)) is not None
 
 
 def test_ops_review_index_active_add_rejects_unknown_index(app_client, user_factory) -> None:

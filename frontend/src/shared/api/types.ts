@@ -813,6 +813,12 @@ export interface OpsReviewActiveIndexResponse {
     latest_daily_date: string | null;
     latest_weekly_date: string | null;
     latest_monthly_date: string | null;
+    latest_raw_trade_date: string | null;
+    source_serviceability_status: string | null;
+    source_serviceability_label: string | null;
+    source_serviceability_action: string | null;
+    serviceability_reference_date: string | null;
+    source_serviceability_reason: string | null;
     first_seen_date: string;
     last_seen_date: string;
     last_checked_at: string;
@@ -860,6 +866,10 @@ export interface OpsReviewActiveIndexCandidateResponse {
     market: string | null;
     publisher: string | null;
     exp_date: string | null;
+    eligible_for_activation: boolean | null;
+    eligibility_message: string | null;
+    latest_raw_trade_date: string | null;
+    serviceability_reference_date: string | null;
   }>;
 }
 

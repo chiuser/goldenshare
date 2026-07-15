@@ -8,9 +8,16 @@ from sqlalchemy.orm import Session
 from src.app.exceptions import WebAppError
 from src.foundation.models.core.index_basic import IndexBasic
 from src.ops.models.ops.index_series_active import IndexSeriesActive
+from src.ops.services.index_daily_source_serviceability_service import IndexDailySourceServiceabilityService
 
 
 class ReviewCenterCommandService:
+    def __init__(
+        self,
+        source_serviceability_service: IndexDailySourceServiceabilityService | None = None,
+    ) -> None:
+        self._source_serviceability_service = source_serviceability_service or IndexDailySourceServiceabilityService()
+
     def add_active_index(
         self,
         session: Session,
@@ -34,6 +41,18 @@ class ReviewCenterCommandService:
         )
         if existing is not None:
             raise WebAppError(status_code=409, code="conflict", message="该指数已经在激活池中")
+
+        if normalized_resource == "index_daily":
+            eligibility = self._source_serviceability_service.activation_eligibility(
+                session,
+                ts_code=normalized_code,
+            )
+            if not eligibility.eligible:
+                raise WebAppError(
+                    status_code=422,
+                    code="source_serviceability_not_ready",
+                    message=eligibility.message,
+                )
 
         observed_at = datetime.now(timezone.utc)
         today = date.today()

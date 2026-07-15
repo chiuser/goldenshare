@@ -35,6 +35,7 @@ def list_active_indexes(
     resource: str = Query("index_daily"),
     keyword: str | None = Query(default=None),
     data_status: str | None = Query(default=None),
+    source_serviceability_status: str | None = Query(default=None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
 ) -> ReviewActiveIndexListResponse:
@@ -43,6 +44,7 @@ def list_active_indexes(
         resource=resource,
         keyword=keyword,
         data_status=data_status,
+        source_serviceability_status=source_serviceability_status,
         page=page,
         page_size=page_size,
     )

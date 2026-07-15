@@ -33,6 +33,7 @@ from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyS
 from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
 from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.foundation.models.raw.raw_index_daily import RawIndexDaily
 from src.foundation.models.meta.realtime_runtime_config import RealtimeRuntimeConfigRecord
 from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.dataset_date_completeness_exclusion import DatasetDateCompletenessExclusion
@@ -85,6 +86,7 @@ def web_engine(configured_web_env) -> Generator:
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS core_serving_light")
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS foundation")
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS ops")
+        connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS raw_tushare")
         AppUser.__table__.create(connection)
         AuthRole.__table__.create(connection)
         AuthPermission.__table__.create(connection)
@@ -101,6 +103,7 @@ def web_engine(configured_web_env) -> Generator:
         IndexDailyServing.__table__.create(connection)
         IndexWeeklyServing.__table__.create(connection)
         IndexMonthlyServing.__table__.create(connection)
+        RawIndexDaily.__table__.create(connection)
         ThsIndex.__table__.create(connection)
         ThsMember.__table__.create(connection)
         DcIndex.__table__.create(connection)

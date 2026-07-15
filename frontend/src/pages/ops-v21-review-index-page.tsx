@@ -34,6 +34,13 @@ const DATA_STATUS_OPTIONS = [
   { value: "missing_monthly", label: "缺月线" },
 ];
 
+const SOURCE_SERVICEABILITY_OPTIONS = [
+  { value: "all", label: "全部" },
+  { value: "ready", label: "正常" },
+  { value: "source_delayed", label: "等待源站" },
+  { value: "serviceability_review_required", label: "待审查" },
+];
+
 const LAYER_LABELS: Record<string, string> = {
   daily: "日线",
   weekly: "周线",
@@ -68,6 +75,12 @@ function statusColor(item: ActiveIndexItem): string {
   return "warning";
 }
 
+function serviceabilityColor(status: string | null): string {
+  if (status === "ready") return "success";
+  if (status === "source_delayed") return "warning";
+  return "error";
+}
+
 function formatRecentMarketDates(item: ActiveIndexItem): string {
   return [
     `日 ${formatDateLabel(item.latest_daily_date)}`,
@@ -87,6 +100,10 @@ export function OpsV21ReviewIndexPage() {
   const resource = "index_daily";
   const keyword = pickString((search as Record<string, unknown>)?.keyword, "");
   const dataStatus = pickString((search as Record<string, unknown>)?.data_status, "all");
+  const sourceServiceabilityStatus = pickString(
+    (search as Record<string, unknown>)?.source_serviceability_status,
+    "all",
+  );
   const [keywordDraft, setKeywordDraft] = useState(keyword);
   const [addModalOpened, setAddModalOpened] = useState(false);
   const [candidateKeyword, setCandidateKeyword] = useState("");
@@ -100,8 +117,19 @@ export function OpsV21ReviewIndexPage() {
   }, [keyword]);
 
   const listQueryKey = useMemo(
-    () => ["ops", "review", "index", "active", resource, keyword, dataStatus, page, pageSize],
-    [resource, keyword, dataStatus, page, pageSize],
+    () => [
+      "ops",
+      "review",
+      "index",
+      "active",
+      resource,
+      keyword,
+      dataStatus,
+      sourceServiceabilityStatus,
+      page,
+      pageSize,
+    ],
+    [resource, keyword, dataStatus, sourceServiceabilityStatus, page, pageSize],
   );
   const query = useQuery({
     queryKey: listQueryKey,
@@ -113,6 +141,9 @@ export function OpsV21ReviewIndexPage() {
       params.set("page_size", String(pageSize));
       if (keyword.trim()) params.set("keyword", keyword.trim());
       if (dataStatus !== "all") params.set("data_status", dataStatus);
+      if (sourceServiceabilityStatus !== "all") {
+        params.set("source_serviceability_status", sourceServiceabilityStatus);
+      }
       return apiRequest<OpsReviewActiveIndexResponse>(`/api/v1/ops/review/index/active?${params.toString()}`);
     },
   });
@@ -227,7 +258,7 @@ export function OpsV21ReviewIndexPage() {
               </Button>
             )}
           >
-            <FilterBarItem span={{ base: 12, md: 5 }}>
+            <FilterBarItem span={{ base: 12, md: 4 }}>
               <TextInput
                 label="关键词"
                 placeholder="输入指数代码或名称"
@@ -243,7 +274,7 @@ export function OpsV21ReviewIndexPage() {
                 leftSection={<IconSearch size={14} />}
               />
             </FilterBarItem>
-            <FilterBarItem span={{ base: 12, md: 3 }}>
+            <FilterBarItem span={{ base: 12, md: 2 }}>
               <Select
                 label="数据状态"
                 data={DATA_STATUS_OPTIONS}
@@ -255,6 +286,25 @@ export function OpsV21ReviewIndexPage() {
                     search: {
                       ...((search as Record<string, unknown>) || {}),
                       data_status: value || "all",
+                      page: 1,
+                    },
+                    replace: true,
+                  });
+                }}
+              />
+            </FilterBarItem>
+            <FilterBarItem span={{ base: 12, md: 3 }}>
+              <Select
+                label="源站服务能力"
+                data={SOURCE_SERVICEABILITY_OPTIONS}
+                value={sourceServiceabilityStatus}
+                allowDeselect={false}
+                onChange={(value) => {
+                  void navigate({
+                    to: "/ops/v21/review/index",
+                    search: {
+                      ...((search as Record<string, unknown>) || {}),
+                      source_serviceability_status: value || "all",
                       page: 1,
                     },
                     replace: true,
@@ -340,6 +390,8 @@ export function OpsV21ReviewIndexPage() {
                     <OpsTableHeaderCell align="left">市场</OpsTableHeaderCell>
                     <OpsTableHeaderCell align="left">发布方</OpsTableHeaderCell>
                     <OpsTableHeaderCell align="left">数据状态</OpsTableHeaderCell>
+                    <OpsTableHeaderCell align="left">源站服务能力</OpsTableHeaderCell>
+                    <OpsTableHeaderCell align="left">最近源站日线</OpsTableHeaderCell>
                     <OpsTableHeaderCell align="left">最近行情</OpsTableHeaderCell>
                     <OpsTableHeaderCell align="right">操作</OpsTableHeaderCell>
                   </Table.Tr>
@@ -354,6 +406,22 @@ export function OpsV21ReviewIndexPage() {
                       <OpsTableCell align="left">
                         <Badge variant="light" color={statusColor(item)}>{formatStatusLabel(item)}</Badge>
                       </OpsTableCell>
+                      <OpsTableCell align="left">
+                        <Stack gap={2}>
+                          <Badge variant="light" color={serviceabilityColor(item.source_serviceability_status)}>
+                            {item.source_serviceability_label || "待审查"}
+                          </Badge>
+                          {item.source_serviceability_action ? (
+                            <Text size="xs" c="dimmed">{item.source_serviceability_action}</Text>
+                          ) : null}
+                          {item.serviceability_reference_date ? (
+                            <Text size="xs" c="dimmed">
+                              按 {formatDateLabel(item.serviceability_reference_date)} 判断
+                            </Text>
+                          ) : null}
+                        </Stack>
+                      </OpsTableCell>
+                      <OpsTableCell align="left">{formatDateLabel(item.latest_raw_trade_date)}</OpsTableCell>
                       <OpsTableCell align="left">{formatRecentMarketDates(item)}</OpsTableCell>
                       <OpsTableCell align="right">
                         <Button size="compact-xs" variant="subtle" color="error" onClick={() => setRemoveTarget(item)}>
@@ -405,6 +473,7 @@ export function OpsV21ReviewIndexPage() {
                   <OpsTableHeaderCell align="left">指数代码</OpsTableHeaderCell>
                   <OpsTableHeaderCell align="left">指数名称</OpsTableHeaderCell>
                   <OpsTableHeaderCell align="left">信息</OpsTableHeaderCell>
+                  <OpsTableHeaderCell align="left">源站资格</OpsTableHeaderCell>
                   <OpsTableHeaderCell align="right">选择</OpsTableHeaderCell>
                 </Table.Tr>
               </Table.Thead>
@@ -414,10 +483,21 @@ export function OpsV21ReviewIndexPage() {
                     <OpsTableCell align="left">{candidate.ts_code}</OpsTableCell>
                     <OpsTableCell align="left">{candidate.index_name || "—"}</OpsTableCell>
                     <OpsTableCell align="left">{formatCandidateMeta(candidate)}</OpsTableCell>
+                    <OpsTableCell align="left">
+                      <Stack gap={2}>
+                        <Badge variant="light" color={candidate.eligible_for_activation ? "success" : "warning"}>
+                          {candidate.eligible_for_activation ? "可加入" : "暂不可加入"}
+                        </Badge>
+                        {candidate.eligibility_message ? (
+                          <Text size="xs" c="dimmed">{candidate.eligibility_message}</Text>
+                        ) : null}
+                      </Stack>
+                    </OpsTableCell>
                     <OpsTableCell align="right">
                       <Button
                         size="compact-xs"
                         variant={selectedCandidate?.ts_code === candidate.ts_code ? "filled" : "light"}
+                        disabled={candidate.eligible_for_activation === false}
                         onClick={() => setSelectedCandidate(candidate)}
                       >
                         选择

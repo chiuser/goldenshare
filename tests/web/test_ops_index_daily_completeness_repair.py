@@ -8,16 +8,19 @@ from sqlalchemy.orm import Session
 
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
+from src.foundation.models.raw.raw_index_daily import RawIndexDaily
 from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
 from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.services.date_completeness_audit_service import DateCompletenessAuditWorker
 from src.ops.services.date_completeness_run_service import DateCompletenessRunCommandService
 from src.ops.services.index_daily_completeness_repair_service import (
+    IndexDailyCompletenessRepairService,
+)
+from src.ops.services.index_daily_reconciliation_policy import (
     INDEX_DAILY_GAP_REPAIR_RUN_SCOPE,
     INDEX_DAILY_REPAIR_BATCH_SIZE,
     INDEX_DAILY_REPAIR_MAX_TASK_RUNS_PER_ROUND,
-    IndexDailyCompletenessRepairService,
 )
 
 
@@ -50,6 +53,20 @@ def _seed_active_indexes(db_session: Session, codes: list[str], *, trade_date: d
 
 def _seed_serving_rows(db_session: Session, codes: list[str], *, trade_date: date) -> None:
     db_session.add_all([IndexDailyServing(ts_code=code, trade_date=trade_date) for code in codes])
+
+
+def _seed_raw_rows(db_session: Session, codes: list[str], *, trade_date: date) -> None:
+    db_session.add_all(
+        [
+            RawIndexDaily(
+                ts_code=code,
+                trade_date=trade_date,
+                api_name="index_daily",
+                fetched_at=datetime(2026, 4, 24, 8, 0, tzinfo=timezone.utc),
+            )
+            for code in codes
+        ]
+    )
 
 
 def _create_source_run(db_session: Session, *, trade_date: date, result_status: str = "failed") -> DatasetDateCompletenessRun:
@@ -95,6 +112,7 @@ def test_index_daily_repair_creates_single_task_run_for_small_gap(db_session) ->
     _seed_open_day(db_session, trade_date)
     _seed_active_indexes(db_session, active_codes, trade_date=trade_date)
     _seed_serving_rows(db_session, ["000001.SH"], trade_date=trade_date)
+    _seed_raw_rows(db_session, active_codes, trade_date=trade_date)
     source_run = _create_source_run(db_session, trade_date=trade_date)
 
     task_runs = IndexDailyCompletenessRepairService().create_repair_task_runs(
@@ -125,6 +143,7 @@ def test_index_daily_repair_batches_missing_codes_by_one_hundred(db_session) -> 
     active_codes = _codes(250)
     _seed_open_day(db_session, trade_date)
     _seed_active_indexes(db_session, active_codes, trade_date=trade_date)
+    _seed_raw_rows(db_session, active_codes, trade_date=trade_date)
     source_run = _create_source_run(db_session, trade_date=trade_date)
 
     task_runs = IndexDailyCompletenessRepairService().create_repair_task_runs(
@@ -145,6 +164,7 @@ def test_index_daily_repair_caps_task_runs_per_round(db_session) -> None:
     active_codes = _codes(2500)
     _seed_open_day(db_session, trade_date)
     _seed_active_indexes(db_session, active_codes, trade_date=trade_date)
+    _seed_raw_rows(db_session, active_codes, trade_date=trade_date)
     source_run = _create_source_run(db_session, trade_date=trade_date)
 
     task_runs = IndexDailyCompletenessRepairService().create_repair_task_runs(
@@ -163,6 +183,7 @@ def test_index_daily_repair_skips_codes_already_pending(db_session) -> None:
     active_codes = ["000001.SH", "399001.SZ", "399300.SZ"]
     _seed_open_day(db_session, trade_date)
     _seed_active_indexes(db_session, active_codes, trade_date=trade_date)
+    _seed_raw_rows(db_session, active_codes, trade_date=trade_date)
     source_run = _create_source_run(db_session, trade_date=trade_date)
     pending = TaskRun(
         task_type="dataset_action",
@@ -191,8 +212,10 @@ def test_index_daily_repair_skips_codes_already_pending(db_session) -> None:
 
 
 def test_index_daily_repair_does_not_create_historical_tasks(db_session) -> None:
-    trade_date = date(2026, 4, 23)
+    trade_date = date(2026, 4, 22)
     _seed_open_day(db_session, trade_date)
+    _seed_open_day(db_session, date(2026, 4, 23))
+    _seed_open_day(db_session, date(2026, 4, 24))
     _seed_active_indexes(db_session, ["399300.SZ"], trade_date=trade_date)
     source_run = _create_source_run(db_session, trade_date=trade_date)
 
@@ -211,6 +234,7 @@ def test_date_completeness_worker_creates_index_daily_repair_after_today_gap(db_
     _seed_open_day(db_session, trade_date)
     _seed_active_indexes(db_session, ["000001.SH", "399001.SZ"], trade_date=trade_date)
     _seed_serving_rows(db_session, ["000001.SH"], trade_date=trade_date)
+    _seed_raw_rows(db_session, ["000001.SH", "399001.SZ"], trade_date=trade_date)
     DateCompletenessRunCommandService().create_system_run(
         db_session,
         dataset_key="index_daily",
@@ -233,3 +257,21 @@ def test_date_completeness_worker_creates_index_daily_repair_after_today_gap(db_
     assert repair_task.filters_json == {"ts_code": "399001.SZ"}
     assert repair_task.request_payload_json["run_scope"] == INDEX_DAILY_GAP_REPAIR_RUN_SCOPE
     assert repair_task.request_payload_json["source_date_completeness_run_id"] == run.id
+
+
+def test_index_daily_repair_allows_the_previous_open_day(db_session) -> None:
+    target_trade_date = date(2026, 4, 23)
+    _seed_open_day(db_session, target_trade_date)
+    _seed_open_day(db_session, date(2026, 4, 24))
+    _seed_active_indexes(db_session, ["399300.SZ"], trade_date=target_trade_date)
+    _seed_raw_rows(db_session, ["399300.SZ"], trade_date=target_trade_date)
+    source_run = _create_source_run(db_session, trade_date=target_trade_date)
+
+    task_runs = IndexDailyCompletenessRepairService().create_repair_task_runs(
+        db_session,
+        source_run=source_run,
+        now=datetime(2026, 4, 24, 10, 0, tzinfo=timezone.utc),
+    )
+
+    assert len(task_runs) == 1
+    assert task_runs[0].time_input_json == {"mode": "point", "trade_date": "2026-04-23"}

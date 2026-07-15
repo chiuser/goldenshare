@@ -1,53 +1,37 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
-from zoneinfo import ZoneInfo
 
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from src.foundation.config.settings import get_settings
 from src.foundation.ingestion.plan_helpers import split_multi_values
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
 from src.ops.models.ops.task_run import TaskRun
+from src.ops.services.index_daily_reconciliation_policy import (
+    INDEX_DAILY_GAP_REPAIR_RUN_SCOPE,
+    INDEX_DAILY_RECONCILIATION_TIMEZONE,
+    INDEX_DAILY_REPAIR_BATCH_SIZE,
+    INDEX_DAILY_REPAIR_MAX_TASK_RUNS_PER_ROUND,
+    is_allowed_index_daily_repair_target,
+)
+from src.ops.services.index_daily_source_serviceability_service import IndexDailySourceServiceabilityService
 from src.ops.services.task_run_service import TaskRunCommandService, TaskRunCreateContext
 
 
-INDEX_DAILY_GAP_REPAIR_RUN_SCOPE = "index_daily_gap_repair"
-INDEX_DAILY_REPAIR_BATCH_SIZE = 100
-INDEX_DAILY_REPAIR_MAX_TASK_RUNS_PER_ROUND = 20
 INDEX_DAILY_REPAIR_OPEN_STATUSES = ("queued", "running", "canceling")
 
 
 class IndexDailyCompletenessRepairService:
-    """Turn today's index_daily serving gaps into standard TaskRun intentions."""
+    """Turn eligible index_daily serving gaps into standard TaskRun intentions."""
+
+    def __init__(self, source_service: IndexDailySourceServiceabilityService | None = None) -> None:
+        self.source_service = source_service or IndexDailySourceServiceabilityService()
 
     def missing_codes(self, session: Session, *, trade_date: date) -> list[str]:
-        rows = session.execute(
-            text(
-                """
-                with expected as (
-                    select ts_code
-                    from ops.index_series_active
-                    where resource = 'index_daily'
-                      and ts_code is not null
-                ),
-                actual as (
-                    select distinct ts_code
-                    from core_serving.index_daily_serving
-                    where trade_date = :trade_date
-                      and ts_code is not null
-                )
-                select expected.ts_code
-                from expected
-                left join actual on actual.ts_code = expected.ts_code
-                where actual.ts_code is null
-                order by expected.ts_code asc
-                """
-            ),
-            {"trade_date": trade_date},
-        ).scalars()
-        return [str(code) for code in rows if str(code).strip()]
+        return self.source_service.missing_active_codes(session, target_trade_date=trade_date)
 
     def create_repair_task_runs(
         self,
@@ -60,9 +44,13 @@ class IndexDailyCompletenessRepairService:
         if trade_date is None:
             return []
 
-        missing_codes = self.missing_codes(session, trade_date=trade_date)
+        classifications = self.source_service.classify_active_gaps(session, target_trade_date=trade_date)
         pending_codes = self._pending_repair_codes(session, trade_date=trade_date)
-        repair_codes = [code for code in missing_codes if code not in pending_codes]
+        repair_codes = [
+            classification.ts_code
+            for classification in classifications
+            if classification.automatic_repair_eligible and classification.ts_code not in pending_codes
+        ]
         if not repair_codes:
             return []
 
@@ -84,7 +72,7 @@ class IndexDailyCompletenessRepairService:
                             "run_scope": INDEX_DAILY_GAP_REPAIR_RUN_SCOPE,
                             "source_date_completeness_run_id": source_run.id,
                             "repair_trade_date": trade_date.isoformat(),
-                            "missing_code_count": len(missing_codes),
+                            "missing_code_count": len(classifications),
                             "batch_index": batch_index,
                             "batch_size": len(batch_codes),
                         },
@@ -112,16 +100,31 @@ class IndexDailyCompletenessRepairService:
         if source_run.start_date != source_run.end_date:
             return None
         trade_date = source_run.start_date
-        local_today = (now or datetime.now(timezone.utc)).astimezone(ZoneInfo("Asia/Shanghai")).date()
-        if trade_date != local_today:
-            return None
-        open_trade_date = session.scalar(
+        local_today = (now or datetime.now(timezone.utc)).astimezone(INDEX_DAILY_RECONCILIATION_TIMEZONE).date()
+        current_is_open = session.scalar(
             select(TradeCalendar.trade_date)
-            .where(TradeCalendar.trade_date == trade_date)
+            .where(TradeCalendar.exchange == get_settings().default_exchange)
+            .where(TradeCalendar.trade_date == local_today)
             .where(TradeCalendar.is_open.is_(True))
             .limit(1)
         )
-        return trade_date if open_trade_date is not None else None
+        if current_is_open is None:
+            return None
+        previous_open_trade_date = session.scalar(
+            select(TradeCalendar.trade_date)
+            .where(TradeCalendar.exchange == get_settings().default_exchange)
+            .where(TradeCalendar.is_open.is_(True))
+            .where(TradeCalendar.trade_date < local_today)
+            .order_by(TradeCalendar.trade_date.desc())
+            .limit(1)
+        )
+        if not is_allowed_index_daily_repair_target(
+            target_trade_date=trade_date,
+            current_trade_date=local_today,
+            previous_open_trade_date=previous_open_trade_date,
+        ):
+            return None
+        return trade_date
 
     def _pending_repair_codes(self, session: Session, *, trade_date: date) -> set[str]:
         candidates = session.scalars(
@@ -135,7 +138,7 @@ class IndexDailyCompletenessRepairService:
         for task_run in candidates:
             time_input = task_run.time_input_json if isinstance(task_run.time_input_json, dict) else {}
             payload = task_run.request_payload_json if isinstance(task_run.request_payload_json, dict) else {}
-            if time_input.get("trade_date") != trade_date.isoformat():
+            if time_input.get("mode") != "point" or time_input.get("trade_date") != trade_date.isoformat():
                 continue
             if payload.get("run_scope") != INDEX_DAILY_GAP_REPAIR_RUN_SCOPE:
                 continue

@@ -1,9 +1,12 @@
 # 指数日线完整性补漏 LLD v1
 
-状态：已完成，待生产配置与验收
+状态：历史实施基线，不再作为后续开发 LLD
+当前方案：[指数日线完整性闭环与激活池服务能力收口方案 v2](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-completeness-reconciliation-plan-v2.md)
 创建日期：2026-06-25  
 依据方案：`docs/ops/ops-index-daily-completeness-repair-plan-v1.md`  
 适用范围：`index_daily`、`ops.index_series_active`、日期对象矩阵审计、TaskRun 系统补漏、审查中心最小可见性。
+
+> 本文描述第一阶段实现。生产审计已确认“重复审计窗口”和“只处理当日”不足以完成闭环，后续 LLD 必须依据 v2 重新编写，不得在本文基础上追加补丁。
 
 本文只描述低层实现设计，不包含生产代码改动。
 

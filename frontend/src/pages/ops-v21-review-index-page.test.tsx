@@ -1,10 +1,11 @@
 import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { vi } from "vitest";
 
 import { appTheme } from "../app/theme";
+import { apiRequest } from "../shared/api/client";
 import { OpsV21ReviewIndexPage } from "./ops-v21-review-index-page";
 
 vi.mock("../shared/api/client", () => ({
@@ -27,6 +28,10 @@ vi.mock("../shared/api/client", () => ({
             market: "SSE",
             publisher: "中证指数",
             exp_date: null,
+            eligible_for_activation: false,
+            eligibility_message: "该指数尚未连续 3 个已结束开市日取得源站日线，请先在 raw 请求池观察后再加入激活池。",
+            latest_raw_trade_date: "2026-04-24",
+            serviceability_reference_date: "2026-04-24",
           },
         ],
       };
@@ -46,6 +51,12 @@ vi.mock("../shared/api/client", () => ({
             latest_daily_date: "2026-04-24",
             latest_weekly_date: "2026-04-24",
             latest_monthly_date: null,
+            latest_raw_trade_date: "2026-04-24",
+            source_serviceability_status: "ready",
+            source_serviceability_label: "正常",
+            source_serviceability_action: "无需处理",
+            serviceability_reference_date: "2026-04-24",
+            source_serviceability_reason: "ready",
             first_seen_date: "2026-01-02",
             last_seen_date: "2026-04-17",
             last_checked_at: "2026-04-17T09:10:00+08:00",
@@ -99,8 +110,34 @@ describe("审查中心指数页", () => {
     expect(await screen.findByText("月线可用")).toBeInTheDocument();
     expect(await screen.findByLabelText("关键词")).toBeInTheDocument();
     expect(await screen.findByText("指数列表")).toBeInTheDocument();
+    expect((await screen.findAllByLabelText("源站服务能力")).length).toBeGreaterThan(0);
     expect(await screen.findByText("沪深300")).toBeInTheDocument();
     expect((await screen.findAllByText("缺月线")).length).toBeGreaterThan(0);
     expect(await screen.findByText("日 2026/04/24 · 周 2026/04/24 · 月 —")).toBeInTheDocument();
+    expect(await screen.findByText("最近源站日线")).toBeInTheDocument();
+    expect((await screen.findAllByText("正常")).length).toBeGreaterThan(0);
+    expect(await screen.findByText("无需处理")).toBeInTheDocument();
+  });
+
+  it("禁止选择未满足连续供数条件的候选", async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "加入指数" }));
+    fireEvent.change(await screen.findByLabelText("搜索指数"), { target: { value: "中证" } });
+
+    expect(await screen.findByText("暂不可加入")).toBeInTheDocument();
+    expect(await screen.findByText("该指数尚未连续 3 个已结束开市日取得源站日线，请先在 raw 请求池观察后再加入激活池。")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "选择" })).toBeDisabled();
+  });
+
+  it("将源站服务能力筛选传给后端事实查询", async () => {
+    renderPage("/app/ops/v21/review/index?source_serviceability_status=source_delayed");
+
+    await screen.findByText("沪深300");
+    expect(
+      vi.mocked(apiRequest).mock.calls.some(([path]) => (
+        typeof path === "string" && path.includes("source_serviceability_status=source_delayed")
+      )),
+    ).toBe(true);
   });
 });

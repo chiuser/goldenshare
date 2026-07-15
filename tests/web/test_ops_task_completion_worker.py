@@ -8,7 +8,7 @@ from sqlalchemy import select
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
 from src.ops.runtime.task_completion_worker import TaskRunCompletionWorker
-from src.ops.services.index_daily_completeness_repair_service import INDEX_DAILY_GAP_REPAIR_RUN_SCOPE
+from src.ops.services.index_daily_reconciliation_policy import INDEX_DAILY_GAP_REPAIR_RUN_SCOPE
 from src.ops.services.task_run_completion_service import TaskRunCompletionCursor, TaskRunCompletionService
 
 

@@ -1201,9 +1201,16 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" \
 - Query 参数：
   - `resource` 默认 `index_daily`
   - `keyword` 可选
+  - `data_status` 可选
+  - `source_serviceability_status` 可选，仅 `index_daily` 支持：`ready`、`source_delayed`、`serviceability_review_required`
   - `page` 默认 1（`>=1`）
   - `page_size` 默认 50（`1..500`）
-- 返回：`ReviewActiveIndexListResponse`
+- 返回：`ReviewActiveIndexListResponse`。`index_daily` 每行额外提供：
+  - `latest_raw_trade_date`：raw 源站日线最新业务日。
+  - `source_serviceability_status`：后端统一判定的 public 状态。
+  - `source_serviceability_label`、`source_serviceability_action`：页面直接展示的中文状态与下一步建议。
+  - `serviceability_reference_date`：本次判断使用的最近已结束开市日。
+  - `source_serviceability_reason`：仅供 API 诊断；页面不展示。
 - 示例：
 
 ```bash
@@ -1212,8 +1219,26 @@ curl -H "Authorization: Bearer <TOKEN>" \
 ```
 
 ```json
-{"total": 1200, "items": [{"ts_code": "000001.SH", "first_seen_date": "2024-01-02"}]}
+{"total": 1200, "items": [{"ts_code": "000001.SH", "latest_raw_trade_date": "2026-07-14", "source_serviceability_status": "ready", "source_serviceability_label": "正常", "source_serviceability_action": "无需处理", "serviceability_reference_date": "2026-07-14", "source_serviceability_reason": "ready", "first_seen_date": "2024-01-02"}]}
 ```
+
+### 8.2 GET /api/v1/ops/review/index/active/candidates
+
+- 功能：搜索不在指定指数激活池中的候选。
+- Query 参数：`resource`（默认 `index_daily`）、`keyword`（必填）、`limit`（默认 20，`1..50`）。
+- 当 `resource=index_daily` 时，每个候选额外返回 `eligible_for_activation`、`eligibility_message`、`latest_raw_trade_date`、`serviceability_reference_date`。候选必须在最近已结束开市日及之前连续 3 个开市日都已有 raw 日线，才可加入。
+
+### 8.3 POST /api/v1/ops/review/index/active
+
+- 功能：人工加入指数激活池。
+- 请求体：`{"resource":"index_daily","ts_code":"000300.SH"}`。
+- `resource=index_daily` 时服务端再次校验连续 3 个已结束开市日 raw 供数；不满足返回 HTTP 422 与 `code="source_serviceability_not_ready"`。其它资源保持既有加入规则。
+
+### 8.4 DELETE /api/v1/ops/review/index/active/{ts_code}
+
+- 功能：人工移出指数激活池。
+- Query 参数：`resource`，默认 `index_daily`。
+- 只删除 `ops.index_series_active` 对应行；不会删除 raw 或 serving 历史数据。
 
 ### 9.2 GET /api/v1/ops/review/board/ths
 

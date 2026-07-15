@@ -16,6 +16,12 @@ class ReviewActiveIndexItem(BaseModel):
     latest_daily_date: date | None = None
     latest_weekly_date: date | None = None
     latest_monthly_date: date | None = None
+    latest_raw_trade_date: date | None = None
+    source_serviceability_status: str | None = None
+    source_serviceability_label: str | None = None
+    source_serviceability_action: str | None = None
+    serviceability_reference_date: date | None = None
+    source_serviceability_reason: str | None = None
     first_seen_date: date
     last_seen_date: date
     last_checked_at: datetime
@@ -68,6 +74,10 @@ class ReviewActiveIndexCandidateItem(BaseModel):
     market: str | None = None
     publisher: str | None = None
     exp_date: date | None = None
+    eligible_for_activation: bool | None = None
+    eligibility_message: str | None = None
+    latest_raw_trade_date: date | None = None
+    serviceability_reference_date: date | None = None
 
 
 class ReviewActiveIndexCandidateResponse(BaseModel):

@@ -39,12 +39,22 @@ from src.ops.schemas.review_center import (
     ReviewThsBoardItem,
     ReviewThsBoardListResponse,
 )
+from src.ops.services.index_daily_source_serviceability_service import (
+    IndexDailyActiveServiceability,
+    IndexDailySourceServiceabilityService,
+)
 
 
 ETF_ACTIVE_RESOURCES = frozenset({"fund_daily", "etf_rt_daily"})
 
 
 class ReviewCenterQueryService:
+    def __init__(
+        self,
+        source_serviceability_service: IndexDailySourceServiceabilityService | None = None,
+    ) -> None:
+        self._source_serviceability_service = source_serviceability_service or IndexDailySourceServiceabilityService()
+
     def list_active_indexes(
         self,
         session: Session,
@@ -52,6 +62,7 @@ class ReviewCenterQueryService:
         resource: str = "index_daily",
         keyword: str | None = None,
         data_status: str | None = None,
+        source_serviceability_status: str | None = None,
         page: int = 1,
         page_size: int = 50,
     ) -> ReviewActiveIndexListResponse:
@@ -60,6 +71,12 @@ class ReviewCenterQueryService:
         offset = (page - 1) * page_size
         daily_subq, weekly_subq, monthly_subq = self._index_latest_date_subqueries()
         status_expr = self._index_data_status_expr(daily_subq, weekly_subq, monthly_subq)
+        serviceability_by_code: dict[str, IndexDailyActiveServiceability] = {}
+        if resource == "index_daily":
+            serviceability_by_code = {
+                item.ts_code: item
+                for item in self._source_serviceability_service.active_serviceability(session)
+            }
 
         stmt = (
             select(
@@ -92,6 +109,14 @@ class ReviewCenterQueryService:
                 stmt = stmt.where(status_expr != "complete")
             elif normalized_status:
                 stmt = stmt.where(status_expr == normalized_status)
+        if source_serviceability_status and resource == "index_daily":
+            normalized_serviceability_status = source_serviceability_status.strip().lower()
+            matching_codes = [
+                ts_code
+                for ts_code, serviceability in serviceability_by_code.items()
+                if serviceability.public_serviceability_status == normalized_serviceability_status
+            ]
+            stmt = stmt.where(IndexSeriesActive.ts_code.in_(matching_codes) if matching_codes else false())
 
         total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
         rows = session.execute(
@@ -100,27 +125,56 @@ class ReviewCenterQueryService:
         return ReviewActiveIndexListResponse(
             total=int(total),
             items=[
-                ReviewActiveIndexItem(
-                    resource=row.resource,
-                    ts_code=row.ts_code,
-                    index_name=row.index_name,
-                    market=row.market,
-                    publisher=row.publisher,
-                    data_status=row.data_status,
-                    missing_layers=self._missing_index_layers(
-                        daily_date=row.latest_daily_date,
-                        weekly_date=row.latest_weekly_date,
-                        monthly_date=row.latest_monthly_date,
-                    ),
-                    latest_daily_date=row.latest_daily_date,
-                    latest_weekly_date=row.latest_weekly_date,
-                    latest_monthly_date=row.latest_monthly_date,
-                    first_seen_date=row.first_seen_date,
-                    last_seen_date=row.last_seen_date,
-                    last_checked_at=row.last_checked_at,
+                self._build_active_index_item(
+                    row=row,
+                    serviceability=serviceability_by_code.get(row.ts_code),
                 )
                 for row in rows
             ],
+        )
+
+    def _build_active_index_item(
+        self,
+        *,
+        row: object,
+        serviceability: IndexDailyActiveServiceability | None,
+    ) -> ReviewActiveIndexItem:
+        serviceability_label: str | None = None
+        serviceability_action: str | None = None
+        if serviceability is not None:
+            serviceability_label, serviceability_action = self._source_serviceability_service.presentation_for_status(
+                serviceability.public_serviceability_status
+            )
+        return ReviewActiveIndexItem(
+            resource=row.resource,
+            ts_code=row.ts_code,
+            index_name=row.index_name,
+            market=row.market,
+            publisher=row.publisher,
+            data_status=row.data_status,
+            missing_layers=self._missing_index_layers(
+                daily_date=row.latest_daily_date,
+                weekly_date=row.latest_weekly_date,
+                monthly_date=row.latest_monthly_date,
+            ),
+            latest_daily_date=row.latest_daily_date,
+            latest_weekly_date=row.latest_weekly_date,
+            latest_monthly_date=row.latest_monthly_date,
+            latest_raw_trade_date=(serviceability.latest_raw_trade_date if serviceability is not None else None),
+            source_serviceability_status=(
+                serviceability.public_serviceability_status if serviceability is not None else None
+            ),
+            source_serviceability_label=serviceability_label,
+            source_serviceability_action=serviceability_action,
+            serviceability_reference_date=(
+                serviceability.reference_trade_date if serviceability is not None else None
+            ),
+            source_serviceability_reason=(
+                serviceability.internal_status if serviceability is not None else None
+            ),
+            first_seen_date=row.first_seen_date,
+            last_seen_date=row.last_seen_date,
+            last_checked_at=row.last_checked_at,
         )
 
     def get_active_index_summary(
@@ -303,18 +357,27 @@ class ReviewCenterQueryService:
             .order_by(IndexBasic.ts_code.asc())
             .limit(max(1, min(limit, 50)))
         ).all()
-        return ReviewActiveIndexCandidateResponse(
-            items=[
+        candidates: list[ReviewActiveIndexCandidateItem] = []
+        for row in rows:
+            eligibility = (
+                self._source_serviceability_service.activation_eligibility(session, ts_code=row.ts_code)
+                if resource == "index_daily"
+                else None
+            )
+            candidates.append(
                 ReviewActiveIndexCandidateItem(
                     ts_code=row.ts_code,
                     index_name=row.name,
                     market=row.market,
                     publisher=row.publisher,
                     exp_date=row.exp_date,
+                    eligible_for_activation=eligibility.eligible if eligibility is not None else None,
+                    eligibility_message=eligibility.message if eligibility is not None else None,
+                    latest_raw_trade_date=eligibility.latest_raw_trade_date if eligibility is not None else None,
+                    serviceability_reference_date=eligibility.reference_trade_date if eligibility is not None else None,
                 )
-                for row in rows
-            ]
-        )
+            )
+        return ReviewActiveIndexCandidateResponse(items=candidates)
 
     def list_ths_boards(
         self,

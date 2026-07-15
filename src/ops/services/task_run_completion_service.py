@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
@@ -14,7 +13,10 @@ from src.ops.models.ops.dataset_date_completeness_run import DatasetDateComplete
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.services.date_completeness_run_service import DateCompletenessRunCommandService
-from src.ops.services.index_daily_completeness_repair_service import INDEX_DAILY_GAP_REPAIR_RUN_SCOPE
+from src.ops.services.index_daily_reconciliation_policy import (
+    INDEX_DAILY_GAP_REPAIR_RUN_SCOPE,
+    INDEX_DAILY_RECONCILIATION_TIMEZONE,
+)
 from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
 from src.utils import truncate_text
 
@@ -154,7 +156,7 @@ class TaskRunCompletionService:
             trade_date = date.fromisoformat(trade_date_value)
         except ValueError:
             return None
-        local_today = (now or datetime.now(timezone.utc)).astimezone(ZoneInfo("Asia/Shanghai")).date()
+        local_today = (now or datetime.now(timezone.utc)).astimezone(INDEX_DAILY_RECONCILIATION_TIMEZONE).date()
         if trade_date != local_today:
             return None
         is_open = session.scalar(

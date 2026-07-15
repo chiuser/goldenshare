@@ -124,6 +124,7 @@ class DateCompletenessRunCommandService:
         dataset_key: str,
         start_date: date,
         end_date: date,
+        now: datetime | None = None,
     ) -> DatasetDateCompletenessRun:
         definition = self._get_definition(dataset_key)
         self._ensure_supported(definition)
@@ -132,7 +133,7 @@ class DateCompletenessRunCommandService:
 
         date_model = definition.date_model
         completeness = definition.completeness
-        now = datetime.now(timezone.utc)
+        requested_at = now or datetime.now(timezone.utc)
         run = DatasetDateCompletenessRun(
             dataset_key=definition.dataset_key,
             display_name=definition.display_name,
@@ -157,7 +158,7 @@ class DateCompletenessRunCommandService:
             technical_message=None,
             requested_by_user_id=None,
             schedule_id=None,
-            requested_at=now,
+            requested_at=requested_at,
         )
         session.add(run)
         session.commit()

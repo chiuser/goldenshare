@@ -1,8 +1,11 @@
 # 指数日线完整性补漏方案 v1
 
-状态：已完成，待生产配置与验收
+状态：历史实施基线，已被 v2 收口方案取代
+当前方案：[指数日线完整性闭环与激活池服务能力收口方案 v2](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-completeness-reconciliation-plan-v2.md)
 创建日期：2026-06-25  
 适用范围：`index_daily`、`ops.index_series_active`、审查中心完整性审计、TaskRun 自动补漏
+
+> 本文记录第一阶段已落地的“首次审计 + 标准补漏 TaskRun”基线。后续生产审计证明：本文约定的当日重复审计窗口未形成实际闭环，且“只处理当日”无法覆盖源站次日补齐。不得再把本文第 3、5.4、6.4、8、10 节作为当前执行口径；以 v2 为准。
 
 ---
 
