@@ -1,6 +1,6 @@
 # Dagster 神奇九转数据集接入低层设计
 
-状态：N0-N7 已完成开发、正式执行与验收；N8 专属分区代码、正式迁移与 post-audit 已完成，sensor 启用/恢复待单独审批
+状态：N0-N8 已完成开发、正式执行与验收；N8 专属分区自动化已恢复，进入日常自然触发观察
 日期：2026-07-15
 上位方案：[`dagster-stk-nineturn-dataset-onboarding-plan.md`](./dagster-stk-nineturn-dataset-onboarding-plan.md)
 
@@ -1212,7 +1212,7 @@ N3 本地临时 Parquet 实测结果：
 | N5 | 已完成 | identity map 修复后重建 Formal Raw/Silver，最终文件审计通过 |
 | N6 | 已完成 | 已完成 formal dry-run、3 日样本、1,780 个 runless events 正式写入和 final dry-run 对账；partitioned check target 全部正确 |
 | N7 | 已完成 | 日常 Tushare 来源切换、两个 sensor 启用、最近 7 个已完成交易日对账和最终文档对账 |
-| N8 | 专属分区迁移已完成；sensor 启用/恢复待单独审批 | 新分区、消费者切换、离线 migration planner/CLI、专属注册 sensor 与静态门禁已落地；正式 apply 仅添加 853 个专属 dynamic partition，post-audit 已归零；未启用新注册 sensor，Raw/Silver 数据 sensor 仍停止 |
+| N8 | 已完成 | 新分区、消费者切换、离线 migration planner/CLI、专属注册 sensor 与静态门禁已落地；正式 apply 仅添加 853 个专属 dynamic partition，post-audit 已归零；注册 sensor、Raw sensor 与 Silver sensor 已按顺序恢复运行，未手工提交历史 run |
 
 N0 与 N1 按批准口径合并为一个代码提交，但验收边界保持独立。N0 预声明
 Silver schema、path 和 partition model；没有提前写入 Silver catalog entry，因为 catalog
@@ -1595,15 +1595,17 @@ Lake、Prod 或 event，也没有删除共享分区或历史状态。
   `/private/tmp/stk_nineturn_partition_migration_post_audit_20260715_153330.json`，候选 hash 未变、
   `existing_new_partition_count=853`、`planned_partition_count=0`、`should_stop=false`。独立 post-audit
   报告为 `/private/tmp/stk_nineturn_partition_post_audit_20260715T073428Z.json`，确认 Raw/Silver 各有
-  853 个 materialization，两个数据 sensor 均仍为 `STOPPED`，相关 job 无 active run。新的
-  `stk_nineturn_trade_day_sensor` 尚无持久化 instigator state，按 definition 默认 `STOPPED`，即尚未启用。
+  853 个 materialization，两个数据 sensor 均为 `STOPPED`，相关 job 无 active run，作为恢复前基线。
+- 随后按独立审批启用 `stk_nineturn_trade_day_sensor`，再恢复 Raw/Silver 数据 sensor。恢复报告为
+  `/private/tmp/stk_nineturn_partition_sensor_resume_apply_start_20260715T075353Z.json`：三个 sensor 均为
+  `RUNNING`，专属分区 count/hash 未变，启动前、注册 sensor 启动后和最终三个时点的相关 job active run
+  均为 0。该动作只写 instigator state；没有手工 RunRequest、Lake/Prod/event 或 dynamic partition 写入。
 - 本地测试已运行 154 项并全部通过：九转 contract/asset/check/silver/sensor/readiness/event/migration、
   asset governance、10/60 日 hot-path performance、static gates。`test_stk_nineturn_history.py`
   因当前项目虚拟环境未安装其既有依赖 `pytest` 而未能由 `unittest` 加载；未为本专项新增或安装依赖。
 
-N8 分区迁移已收口。剩余正式操作必须继续分开审批：先启用
-`stk_nineturn_trade_day_sensor`，再恢复 Raw/Silver 数据 sensor；恢复后只观察自然触发，
-不人为补发历史 run。
+N8 分区迁移和自动化恢复均已收口。后续只观察 17:00 后的专属交易日注册，以及 21:15/21:20 后的
+Raw/Silver 自然触发；不人为补发历史 run。
 
 ## 19. 阶段组合与审批边界
 
@@ -1643,5 +1645,5 @@ N0-N8 的 Lake 与 Dagster 状态迁移事项已经按阶段完成。N8 的代�
 约束、本地测试、正式 definitions load、专属 dynamic partition apply 和 post-audit 均已完成，且没有
 改变共享股票交易日分区、Lake 文件、Prod 或历史 event。
 
-当前剩余边界只有自动化恢复：新的专属交易日注册 sensor 仍未启用，Raw/Silver 数据 sensor 仍保持停止。
-它们必须按 N8.7 的顺序另行审批和观察；分区迁移完成不等同于自动化已恢复。
+N8 已完成专属分区迁移与自动化恢复。后续运行风险按现有 sensor/readiness/check 语义处理；
+任何历史补写、共享分区改动、Lake 改写或 event 重写都不属于 N8 日常运行范围，必须另起专项。
