@@ -33,6 +33,39 @@ WHERE trade_date = %s
 ORDER BY ts_code, con_code
 """
 
+DC_MEMBER_BOOTSTRAP_AUDIT_SQL = """
+WITH scoped AS (
+    SELECT trade_date, ts_code, con_code, name
+    FROM raw_tushare.dc_member
+    WHERE trade_date IS NULL
+       OR (trade_date >= %s AND trade_date <= %s)
+), duplicate_keys AS (
+    SELECT trade_date, count(*) AS duplicate_key_count
+    FROM (
+        SELECT trade_date, ts_code, con_code
+        FROM scoped
+        GROUP BY trade_date, ts_code, con_code
+        HAVING count(*) > 1
+    ) duplicated
+    GROUP BY trade_date
+)
+SELECT
+    scoped.trade_date,
+    count(*) AS source_row_count,
+    coalesce(duplicate_keys.duplicate_key_count, 0) AS duplicate_key_count,
+    sum(CASE WHEN ts_code IS NULL
+                  OR ts_code !~ '^BK[0-9]{4}\\.DC$'
+                  OR con_code IS NULL
+                  OR con_code !~ '^[0-9]{6}\\.(SZ|SH|BJ)$'
+             THEN 1 ELSE 0 END) AS invalid_code_count,
+    sum(CASE WHEN trade_date IS NULL THEN 1 ELSE 0 END) AS out_of_partition_count,
+    sum(CASE WHEN name IS NULL OR btrim(name) = '' THEN 1 ELSE 0 END) AS blank_name_count
+FROM scoped
+LEFT JOIN duplicate_keys USING (trade_date)
+GROUP BY scoped.trade_date, duplicate_keys.duplicate_key_count
+ORDER BY scoped.trade_date
+"""
+
 
 def _row_mapping(row: Any) -> dict[str, object]:
     if isinstance(row, dict):
@@ -108,6 +141,7 @@ __all__ = [
     "DC_DAILY_HISTORY_START_DATE",
     "DC_INDEX_HISTORY_START_DATE",
     "DC_MEMBER_BOOTSTRAP_SELECT_SQL",
+    "DC_MEMBER_BOOTSTRAP_AUDIT_SQL",
     "DC_MEMBER_HISTORY_START_DATE",
     "bootstrap_dc_daily_partition_from_tushare",
     "bootstrap_dc_index_partition_from_tushare",

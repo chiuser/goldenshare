@@ -1,6 +1,6 @@
 # Dagster `dc_index` / `dc_member` / `dc_daily` 数据集接入技术方案
 
-> 状态：M3 Raw 写入能力、M4 Raw Dagster definition、M5 Silver writer/asset/check、M6 Silver Dagster 接入已完成。Raw/Silver sensor 均保持 `STOPPED`，未执行正式 Bootstrap、未启用 sensor，不写正式数据湖、Dagster materialization 或 check event。
+> 状态：M3 Raw 写入能力、M4 Raw Dagster definition、M5 Silver writer/asset/check、M6 Silver Dagster 接入、M7A 只读 Bootstrap dry-run、M7E 临时 lake 样本联调、M7F-M7I 正式 Raw/Silver Bootstrap 与对账、M8 Dagster 事件补录与验收均已完成。M9 sensor 启用尚未开始。Raw/Silver sensor 仍保持 `STOPPED`。
 >
 > 依据：新增数据集接入模板、`lake_console/orchestrator/CODING_STANDARDS.md`、
 > `dagster-data-pipeline-performance-governance.md`、现有 `index_daily` / `stk_nineturn`
@@ -383,15 +383,64 @@ M4 的进入 M5 条件已满足：sensor 每 tick 最多提交一个 first-not-r
 
 ### P7：全量 Bootstrap
 
+- M7A/M7E 已完成：只读 Bootstrap planner/CLI 和临时三日期 Raw → Silver 联调通过；正式湖的 Raw/Silver 文件已在 M7F-M7I 生成并完成对账。
 - `dc_index` / `dc_daily` 从历史起点请求 Tushare；`dc_member` 从 Prod DB 只读导出历史分区。
 - 按日期分批生成 Raw staging，完成来源、schema、日期、主键、行数和性能门禁后原子 promote。
 - Raw 全量通过后生成 Silver staging；文件审计通过后再规划 materialization/check 事件验收。
 - 本阶段不自动启用 sensor；正式 Bootstrap、正式 lake promote 和事件补录必须分开审批。
 
-### P8：事件验收与日常自动化
+### P8：事件验收与日常自动化（M8 已完成，M9 待执行）
 
-- 先验证单分区 materialization/check 归属，再决定是否只为最近窗口补 check event。
+- M8 已通过独立 CLI 完成事件补录：全量 materialization，最近 20 个交易日各补一个核心 check event。
+- 事件补录只写 Dagster event，不重新运行 asset、不请求 Tushare/Prod、不修改 Raw/Silver Parquet。
 - 最终由运营启用 Raw/Silver sensor，观察连续交易日的请求量、耗时、cursor、Raw/Silver frontier 和下游查询。
+
+### M7A/M7E 实际验收记录（2026-07-15）
+
+- 新增只读入口：`orchestrator.defs.bootstrap.dc_board_bootstrap_plan` 和
+  `orchestrator.defs.bootstrap.dc_board_bootstrap_cli`。CLI 只暴露 `dry-run`，没有
+  `apply`、Dagster event 或 lake promote 路径。
+- 稳定审计边界使用显式 `--end-date 2026-07-14`。交易日历包含未来日期，且
+  `2026-07-15` 在审计时尚未完成源数据，因此不把当日空结果误判为历史缺失。
+- 最终报告：`/private/tmp/dc_board_m7_bootstrap_dry_run_20260715_v7.json`，
+  `should_stop=false`，有效结束日 `2026-07-14`，预计 Raw/Silver 文件共 `2730` 个：
+  `dc_index=377`、`dc_member=377`、`dc_daily=611`。
+- 源行数：`dc_index=241,948`、`dc_member=25,418,099`、`dc_daily=596,200`。
+  源审计耗时：`dc_index=232,424.293ms`、`dc_member=86,700.496ms`、
+  `dc_daily=75,199.453ms`，总耗时 `394,717.231ms`。`dc_member` dry-run 使用
+  Prod 只读 named cursor + `fetchmany` 的数据库侧 set-based 汇总，不重复把全量成员行
+  传回本机；正式 writer 仍使用逐日流式导出。
+- Tushare 请求统计：`dc_index=1,131` 次、`dc_daily=612` 次；Prod member 使用单次
+  日期范围只读聚合查询和有界 cursor 读取。所有源日期均通过重复主键、身份字段、日期、空结果校验。
+- 目标审计：Raw/Silver 2730 个目标均为 missing，invalid conflict 为 0，existing bytes 为 0；
+  没有写入或覆盖正式数据湖。
+- 一次全量审计中出现的 Tushare 空列响应已对 `dc_index/2024-12-30` 和
+  `dc_daily/2026-05-20` 做单日重测，均通过；最终 v7 全量重跑无失败。该事实保留为源端
+  瞬时异常记录，不修改 fail-closed 规则。
+- 临时样本测试：`tests/test_dc_board_m7_sample.py` 覆盖起始/中间/最新三个日期，完成
+  Tushare Raw、Prod-style member streaming Raw、Silver writer、schema/非空/无 staging
+  残留验收；包含 M7A/M3/M5 相关测试共 `25 passed`。
+- M7F/M7G 实际执行记录：正式 Raw 已生成 `1365` 个文件（`dc_index=377`、`dc_member=377`、`dc_daily=611`）。Raw 对账首次发现 `dc_index[2026-06-23]` 少 `496` 行后停止；经批准后使用已验证的临时 `1,021` 行 staging 定点原子重发布，旧文件备份为 `/private/tmp/dc_board_m7_dc_index_2026-06-23_before_republish_20260715T053028Z.parquet`，操作报告为 `/private/tmp/dc_board_m7_dc_index_republish_20260715T053028Z.json`。
+- 重发布后 Raw 对账 `/private/tmp/dc_board_m7_raw_audit_20260715.json` 通过：三类 Raw 的 `ready_count` 分别为 `377/377`、`377/377`、`611/611`，行数与 v7 基线完全一致，missing/invalid/staging residue 均为 `0`。
+- M7H/M7I 已完成：正式生成 `1365` 个 Silver 文件并通过 `/private/tmp/dc_board_m7_silver_audit_20260715.json`；最终汇总 `/private/tmp/dc_board_m7_final_reconciliation_20260715.json` 为 `should_stop=false`。Raw/Silver 合计 `2730` 个文件，无 staging 残留。
+
+#### M8：Dagster 事件补录与验收（已完成）
+
+- 新增 `orchestrator.defs.bootstrap.dc_board_events` 和
+  `orchestrator.defs.bootstrap.dc_board_events_cli`。CLI 分为只读 `dry-run` 和显式
+  `--confirm-event-write` 的 `apply`，不运行 Dagster job/sensor，不触碰 lake 文件。
+- M8 dry-run `/private/tmp/dc_board_m8_events_dry_run_20260715.json` 通过：6 个资产全量
+  readiness 绿色，动态分区缺口为 `0`，计划 materialization `2730`、最近 20 日核心
+  check `120`，计划事件总数 `2850`。
+- 正式 apply `/private/tmp/dc_board_m8_events_apply_20260715.json` 完成：写入
+  `2730` 条 materialization event 和 `120` 条 check event，无跳过、无失败。
+- 事件验收 `/private/tmp/dc_board_m8_events_post_verify_20260715.json` 通过：每个资产的
+  materialization 分区数为 `377/377/611/611`，每个核心 check 正好有最近 20 个
+  `asset_check_executions.partition`，所有 check 都绑定非空 target materialization storage id，
+  readiness 全部通过，动态分区仍为 `6427`。
+- post dry-run `/private/tmp/dc_board_m8_events_post_dry_run_20260715.json` 计划新增事件数为
+  `0`，证明补录入口幂等。`raw_tushare_dc_member` 的 catalog event policy 同步修正为支持
+  runless backfill，与 Prod DB 直写 Bootstrap 和 M8 事件口径一致。
 
 ## 10. 验收标准
 

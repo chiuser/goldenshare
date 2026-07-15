@@ -10,6 +10,8 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
+import math
+from numbers import Real
 import os
 from pathlib import Path
 import re
@@ -144,7 +146,12 @@ def _iso_to_raw_trade_date(partition_key: str) -> str:
 
 
 def _normalize_row(row: Mapping[str, object], fields: Sequence[str]) -> dict[str, object]:
-    normalized = {field: row.get(field) for field in fields}
+    normalized = {}
+    for field in fields:
+        value = row.get(field)
+        if isinstance(value, Real) and not isinstance(value, bool) and math.isnan(value):
+            value = None
+        normalized[field] = value
     if "trade_date" in normalized:
         normalized["trade_date"] = _canonical_trade_date(normalized["trade_date"])
     return normalized

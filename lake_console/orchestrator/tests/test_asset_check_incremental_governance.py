@@ -244,6 +244,19 @@ PROD_CH_MARKET_BREADTH_CHECKS = (
 LAKE_ROOT_HEALTH_CHECKS = (
     "lake_root_health_ready",
 )
+RAW_DC_BOARD_CHECKS = (
+    "raw_tushare_dc_index_core_check",
+    "raw_tushare_dc_member_core_check",
+    "raw_tushare_dc_daily_core_check",
+)
+SILVER_DC_BOARD_CHECKS = (
+    "silver_dc_index_core_check",
+    "silver_dc_member_core_check",
+    "silver_dc_daily_core_check",
+)
+GOLD_STOCK_DAILY_QFQ_CHECKS = (
+    "gold_stock_daily_qfq_contract_check",
+)
 
 
 def _stk_mins_asset_rules() -> dict[str, dict[str, AssetCheckGovernanceRule]]:
@@ -401,6 +414,51 @@ ASSET_CHECK_GOVERNANCE: dict[str, dict[str, AssetCheckGovernanceRule]] = {
         SILVER_ADJ_FACTOR_CHECKS,
         category=MOVE_TO_SENSOR_LAKE_READINESS,
         phase="P3",
+        readiness=True,
+        retention_allowed=True,
+    ),
+    # Board sensors use their dedicated batch lake-readiness helpers rather
+    # than the shared AssetReadinessSpec registry.
+    "raw_tushare_dc_index": _rules(
+        (RAW_DC_BOARD_CHECKS[0],),
+        category=MOVE_TO_SENSOR_LAKE_READINESS,
+        phase="M4",
+        retention_allowed=True,
+    ),
+    "raw_tushare_dc_member": _rules(
+        (RAW_DC_BOARD_CHECKS[1],),
+        category=MOVE_TO_SENSOR_LAKE_READINESS,
+        phase="M4",
+        retention_allowed=True,
+    ),
+    "raw_tushare_dc_daily": _rules(
+        (RAW_DC_BOARD_CHECKS[2],),
+        category=MOVE_TO_SENSOR_LAKE_READINESS,
+        phase="M4",
+        retention_allowed=True,
+    ),
+    "silver_dc_index": _rules(
+        (SILVER_DC_BOARD_CHECKS[0],),
+        category=MOVE_TO_SENSOR_LAKE_READINESS,
+        phase="M6",
+        retention_allowed=True,
+    ),
+    "silver_dc_member": _rules(
+        (SILVER_DC_BOARD_CHECKS[1],),
+        category=MOVE_TO_SENSOR_LAKE_READINESS,
+        phase="M6",
+        retention_allowed=True,
+    ),
+    "silver_dc_daily": _rules(
+        (SILVER_DC_BOARD_CHECKS[2],),
+        category=MOVE_TO_SENSOR_LAKE_READINESS,
+        phase="M6",
+        retention_allowed=True,
+    ),
+    "gold_stock_daily_qfq": _rules(
+        GOLD_STOCK_DAILY_QFQ_CHECKS,
+        category=MOVE_TO_SENSOR_LAKE_READINESS,
+        phase="P8",
         readiness=True,
         retention_allowed=True,
     ),

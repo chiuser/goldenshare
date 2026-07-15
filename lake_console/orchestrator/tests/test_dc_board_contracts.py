@@ -2,6 +2,7 @@ from pathlib import Path
 
 from orchestrator.defs.catalog.lake_assets import (
     IngestionSource,
+    EventPolicy,
     PartitionPhysicalLayout,
     PartitionModel,
     get_lake_asset_catalog_entry,
@@ -119,6 +120,7 @@ def test_dc_board_catalog_has_six_explicit_entries() -> None:
     )
     assert member.default_daily_ingestion_source is IngestionSource.TUSHARE_API
     assert member.bootstrap_sources == (IngestionSource.PROD_DB_READONLY,)
+    assert member.event_policy is EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL
     assert member.performance_contract.source_request_policy == (
         DC_MEMBER_REQUEST_POLICY_NAME
     )

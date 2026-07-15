@@ -108,6 +108,10 @@ def _scan_existing(
     expected_columns = tuple(column.name for column in spec.schema)
     expected_types = {column.name: column.type.upper() for column in spec.schema}
     relation = f"read_parquet([{_path_list(paths)}], hive_partitioning=false, filename=true)"
+    null_key_predicate = " OR ".join(
+        f"{column} IS NULL OR trim(CAST({column} AS VARCHAR)) = ''"
+        for column in spec.key_columns
+    )
     try:
         describe_rows = connection.execute(
             f"DESCRIBE SELECT * FROM read_parquet([{_path_list(paths)}], hive_partitioning=false)"
@@ -130,7 +134,7 @@ def _scan_existing(
                     count(*) AS row_count,
                     sum(CASE WHEN trade_date IS NULL OR replace(trim(CAST(trade_date AS VARCHAR)), '-', '') <> replace(source_trade_date, '-', '') THEN 1 ELSE 0 END) AS date_mismatch_count,
                     sum(CASE WHEN NOT ({spec.identity_predicate}) THEN 1 ELSE 0 END) AS identity_failed_count,
-                    sum(CASE WHEN {' OR '.join(f'{column} IS NULL OR trim(CAST({column} AS VARCHAR)) = \'\'' for column in spec.key_columns)} THEN 1 ELSE 0 END) AS null_key_count
+                    sum(CASE WHEN {null_key_predicate} THEN 1 ELSE 0 END) AS null_key_count
                 FROM source
                 GROUP BY source_trade_date
             ),

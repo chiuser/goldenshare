@@ -192,6 +192,37 @@ class DcBoardRawIoTests(unittest.TestCase):
                     policy=_test_policy(),
                 )
 
+    def test_index_normalizes_tushare_nan_to_null(self):
+        def response(_api_name, params, fields):
+            if params["offset"]:
+                return []
+            code = {
+                "行业板块": "BK0001.DC",
+                "概念板块": "BK0002.DC",
+                "地域板块": "BK0003.DC",
+            }[params["idx_type"]]
+            return [
+                _index_row(params["idx_type"], code)
+                | {"up_num": float("nan"), "down_num": float("nan")}
+            ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = write_dc_index_partition(
+                lake_root_path=Path(temp_dir),
+                duckdb_resource=_MemoryDuckDB(),
+                tushare=_FakeTushare(response),
+                partition_key="2026-07-14",
+                policy=_test_policy(),
+            )
+            connection = duckdb.connect()
+            self.assertEqual(
+                connection.execute(
+                    "SELECT count(*) FROM read_parquet(?) WHERE up_num IS NULL AND down_num IS NULL",
+                    [str(result.target_path)],
+                ).fetchone()[0],
+                3,
+            )
+
 
 def _test_policy():
     from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
