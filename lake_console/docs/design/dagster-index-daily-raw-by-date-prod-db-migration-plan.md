@@ -1,6 +1,6 @@
 # Dagster Index Daily Raw By-Date Prod DB Migration Plan
 
-状态：P-1、P0、P1/P2、P3、P4、P5/P6、P7 active source/catalog 清理、P8 旧 by-code 物理目录隔离、P9B-1/P9C-1 Dagster 状态治理已完成；`raw_index_daily_update_job_sensor` 与 `silver_index_daily_sensor` 已启用，`2026-06-23` 首个自动 raw+silver 日更已成功。P8 quarantine 最终删除、P9C-2 是否处理 4 个 mixed runs 仍需后续单独审批。
+状态：P-1 至 P9C-2 已完成；包括 P8 旧 by-code quarantine 最终物理删除，以及 P9C-2 四个 mixed run 的精确 Dagster 状态治理。`raw_index_daily_update_job_sensor` 与 `silver_index_daily_sensor` 已启用，`2026-06-23` 首个自动 raw+silver 日更已成功。
 
 最新代码落点：
 
@@ -653,21 +653,25 @@ P7 当轮明确不做：
 7. coverage 语义风险：`raw_index_daily_code_coverage_check` 是统一 check 名，但必须用 `coverage_basis` 区分历史转换和日更。历史转换看 by-code input pair 是否无损，日更看 prod serving 是否覆盖运行时 Lake 期望 code set。
 8. 旧数据清理风险：旧 by-code lake 文件删除与 Dagster DB 旧状态/事件清理都不能混入新链路开发。旧物理文件删除是 P8，旧 Dagster DB 状态/事件清理是独立 P9；二者都必须单独审批、先 dry-run、后 apply。
 9. 2026-06-23 P1/P2 后二次代码级审计确认：当时 active definitions 已新增 `raw_index_daily`、两个 by-date checks、新 `raw_index_daily_update_job` 和 prod-core-db catalog entry，但旧 by-code active source 仍保留，所以当时 P9 只能 dry-run。P7 已在 `8886072a` 清零 active by-code source/catalog。
-10. 2026-06-24 P9 治理结果确认：P9B-1 已清旧 by-code asset/check/sensor state；P9C-1 已清旧 run history 安全子集。剩余旧 index daily jobs 只有 4 个含 `silver_index_daily` event 的 protected mixed runs，是否清理必须作为 P9C-2 单独拍板。
+10. 2026-06-24 P9 治理结果确认：P9B-1 已清旧 by-code asset/check/sensor state；P9C-1 已清旧 run history 安全子集。四个含 `silver_index_daily` event 的 protected mixed runs 当时保留为 P9C-2 候选；已于 2026-07-15 完成精确备份、事务删除与 post-audit，见本节执行记录。
+
+2026-07-15 P8/P9C-2 最终执行结果：
+
+1. P8 已永久删除 quarantine 目录 `/Volumes/datasource/data_lake/_quarantine/index_daily_p8/index_daily_by_code_20260624_084707`。删除前冻结 947 个文件、1,894 个目录、204,912 KiB、0 个 symlink；文件 SHA-256 清单为 `/private/tmp/index_daily_p8_p9c2_plan_20260715_171718/quarantine_file_sha256.txt`。删除后旧原路径和 quarantine 路径均不存在；新 `raw/index_daily` 仍为 6,778 个 `part-000.parquet`、191,596 KiB。
+2. P9C-2 已删除四个固定旧 run：`2cd7c15e-d79a-4573-8d0e-d8f82c40b6b7`、`7e72108b-3b1a-47d6-8be6-ea6ddb313d87`、`94e237fa-c397-4c7b-a75c-8651a28b6286`、`9d421a09-c65e-4968-9c7f-b2e04369d866`。删除前精确备份 4 个 runs、528 条 event_logs、8 条 run_tags、8 条 asset_event_tags；`asset_check_executions`、`pending_steps`、`concurrency_slots` 均为 0。备份 CSV 与 SHA-256 manifest 位于 `/private/tmp/index_daily_p8_p9c2_apply_20260715_171747/postgres_backup/`。
+3. P9C-2 的单事务 post-audit 显示四个候选 run 及其 event/tag 均为 0。`raw_index_daily` event_logs 仍为 61、raw/silver check execution 合计仍为 45,467、两个动态分区合计仍为 7,316；`silver_index_daily` event_logs 从 12,983 精确降至 12,975，差额正是本次删除的 8 条旧 mixed-run silver event。完整 apply/post-audit 报告位于 `/private/tmp/index_daily_p8_p9c2_apply_20260715_171747/`。
 
 ## 建议推进步骤
 
 1. 继续观察下一次 expected trade date 的自动 raw+silver 日更：prod source 未 ready 时应 skip，ready 后 raw run 成功，随后 silver run 成功。
 2. 若下一交易日自动链路不触发或 check 不绿，先按 sensor cursor、run tags、raw/silver 文件事实和 blocking check metadata 做只读审计，不直接重跑或覆盖。
-3. P8 quarantine 目录最终物理删除、P9C-2 是否处理 4 个 mixed runs 都不是 sensor 运行前置条件，若要继续做必须另起小范围方案。
-4. 如需释放 Dagster PostgreSQL 物理空间，再单独设计 vacuum/analyze 或存储回收观察方案；不要混入 index daily raw 日更链路。
+3. 如需释放 Dagster PostgreSQL 物理空间，再单独设计 vacuum/analyze 或存储回收观察方案；不要混入 index daily raw 日更链路。
 
 ## 遗留拍板项
 
-1. P8 quarantine 目录是否最终物理删除：当前原路径已不存在，旧文件已隔离到 `/Volumes/datasource/data_lake/_quarantine/index_daily_p8/index_daily_by_code_20260624_084707`。
-2. P9C-2 是否处理 4 个 protected mixed runs：当前保留是有意选择，不算 P9C-1 失败；如需处理，必须单独设计，因为它们含 `silver_index_daily` event。
-3. P9 后是否需要额外 Dagster DB vacuum/analyze 或空间回收观察：P9C-1 删除了大量 event history，但数据库物理空间回收策略不在本轮范围内。
-4. 是否把后续日更运行观察结果继续补充到本设计文档，还是转入常规运行手册；当前文档已记录首个自动日更成功事实。
+1. P8 quarantine 最终删除与 P9C-2 mixed run 治理已于 2026-07-15 完成，不再是遗留拍板项。
+2. P9 后是否需要额外 Dagster DB vacuum/analyze 或空间回收观察：P9C-1/P9C-2 已删除旧 event history，但数据库物理空间回收策略不在本轮范围内。
+3. 是否把后续日更运行观察结果继续补充到本设计文档，还是转入常规运行手册；当前文档已记录首个自动日更成功事实。
 
 ## 最终验收标准
 

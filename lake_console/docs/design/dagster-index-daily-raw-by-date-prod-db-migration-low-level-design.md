@@ -1,6 +1,6 @@
 # Index Daily Raw By-Date Prod DB Migration Low-Level Design
 
-状态：P-1、P0、P1/P2、P3、P4、P5/P6、P7 active source/catalog 清理、P8 旧 by-code 物理目录隔离、P9B-1/P9C-1 Dagster 状态治理已完成；`raw_index_daily_update_job_sensor` 与 `silver_index_daily_sensor` 已启用，`2026-06-23` 首个自动 raw+silver 日更已成功。P8 quarantine 最终删除、P9C-2 是否处理 4 个 mixed runs 仍需后续单独审批。
+状态：P-1 至 P9C-2 已完成；包括 P8 旧 by-code quarantine 最终物理删除，以及 P9C-2 四个 mixed run 的精确 Dagster 状态治理。`raw_index_daily_update_job_sensor` 与 `silver_index_daily_sensor` 已启用，`2026-06-23` 首个自动 raw+silver 日更已成功。
 
 最新代码落点：
 
@@ -26,7 +26,7 @@
 - P4 只补最近 20 个交易日的 `raw_index_daily` materialization/check 状态，作为日更启动和最近窗口 UI 观测基线；不做全历史 runless event 补录。
 - 性能是硬门禁：sensor 热路径不得逐 code 提交 run，不得逐日深扫 Dagster event/check history。
 
-本 LLD 同时记录设计口径和阶段落地事实。P1/P2 已完成基础契约、prod-core-db adapter、`raw_index_daily` asset、两个聚合 checks、新 job、catalog 和测试；P3 已完成 by-code 到 by-date 的 lake 文件生成；P4 已完成最近 20 个交易日 runless event 补录；P5/P6 已完成 by-date raw/silver/sensor/major readiness 切换；P7 已完成旧 by-code active source/catalog 清理；P8 已完成旧 by-code 物理目录 quarantine；P9B-1/P9C-1 已完成旧 Dagster 状态和 run history 安全子集治理。2026-06-24 已启用 raw/silver sensors，并完成 `2026-06-23` 首个自动 raw+silver 日更。
+本 LLD 同时记录设计口径和阶段落地事实。P1/P2 已完成基础契约、prod-core-db adapter、`raw_index_daily` asset、两个聚合 checks、新 job、catalog 和测试；P3 已完成 by-code 到 by-date 的 lake 文件生成；P4 已完成最近 20 个交易日 runless event 补录；P5/P6 已完成 by-date raw/silver/sensor/major readiness 切换；P7 已完成旧 by-code active source/catalog 清理；P8 已完成 quarantine 与最终物理删除；P9B-1/P9C-1/P9C-2 已完成旧 Dagster 状态和全部旧 index daily run history 治理。2026-06-24 已启用 raw/silver sensors，并完成 `2026-06-23` 首个自动 raw+silver 日更。
 
 2026-06-23 P3 执行结果：
 
@@ -49,7 +49,7 @@
 1. P8 已把旧 `raw/tushare/index_daily_by_code` 物理目录隔离到 `/Volumes/datasource/data_lake/_quarantine/index_daily_p8/index_daily_by_code_20260624_084707`；原路径已不存在，新 `raw/index_daily` 仍为 6,792 个 by-date parquet，范围 `2000-01-04` 到 `2026-06-22`。报告路径：`/private/tmp/index_daily_p8_dry_run_20260624_084649.json`、`/private/tmp/index_daily_p8_quarantine_apply_20260624_084707.json`、`/private/tmp/index_daily_p8_quarantine_audit_20260624_084731.json`。
 2. P9B-1 已清理旧 `raw_tushare_index_daily_by_code` asset/check 状态和旧 `index_daily_sensor` instigator state；post-audit 显示旧 by-code asset event、check execution、asset tag、asset key 和旧 raw sensor instigator 均为 0。报告路径：`/private/tmp/index_daily_p9b_preflight_20260624_085909.json`、`/private/tmp/index_daily_p9b_backup_20260624_085909/manifest.json`、`/private/tmp/index_daily_p9b_apply_20260624_085909_retry1.json`、`/private/tmp/index_daily_p9b_post_audit_20260624_085909.json`。
 3. P9C-1 已清理旧 index daily job run history 安全子集：删除 24,766 个 runs、1,600,791 条 event_logs、206,779 条 run_tags、6 条 asset_event_tags。post-audit 显示安全候选全部为 0，旧 job 只剩 4 个含 `silver_index_daily` event 的 protected mixed runs。报告路径：`/private/tmp/index_daily_p9c_preflight_20260624_090926.json`、`/private/tmp/index_daily_p9c_backup_20260624_090926/manifest.json`、`/private/tmp/index_daily_p9c_apply_20260624_090926.json`、`/private/tmp/index_daily_p9c_post_audit_20260624_090926.json`。
-4. P9C-2 是否处理 4 个 protected mixed runs 仍需单独拍板；当前保留它们是为了不触碰正式 `silver_index_daily` 历史。
+4. 2026-07-15 P8 最终删除与 P9C-2 已按单独批准执行：P8 永久删除 947 个 quarantine 文件；P9C-2 删除四个 mixed runs、528 条 event_logs、8 条 run_tags、8 条 asset_event_tags。精确备份与 post-audit 位于 `/private/tmp/index_daily_p8_p9c2_apply_20260715_171747/`；`silver_index_daily` event_logs 仅减少该四个 run 所属的 8 条历史 event。
 
 2026-06-24 首个自动日更执行结果：
 
@@ -1845,15 +1845,13 @@ P0 发现当时 by-code raw 尾部 `2026-06-23` 只有 10 行、10 个 code；�
 
 1. 继续观察下一次 expected trade date 的自动 raw+silver 日更：prod source 未 ready 时应 skip，ready 后 raw run 成功，随后 silver run 成功。
 2. 若下一交易日自动链路不触发或 check 不绿，先按 sensor cursor、run tags、raw/silver 文件事实和 blocking check metadata 做只读审计，不直接重跑或覆盖。
-3. P8 quarantine 目录最终物理删除、P9C-2 是否处理 4 个 mixed runs 都不是 sensor 运行前置条件，若要继续做必须另起小范围方案。
-4. 如需释放 Dagster PostgreSQL 物理空间，再单独设计 vacuum/analyze 或存储回收观察方案；不要混入 index daily raw 日更链路。
+3. 如需释放 Dagster PostgreSQL 物理空间，再单独设计 vacuum/analyze 或存储回收观察方案；不要混入 index daily raw 日更链路。
 
 ### 25.5 遗留拍板项
 
-1. P8 quarantine 目录是否最终物理删除：当前原路径已不存在，旧文件已隔离到 `/Volumes/datasource/data_lake/_quarantine/index_daily_p8/index_daily_by_code_20260624_084707`。
-2. P9C-2 是否处理 4 个 protected mixed runs：当前保留是有意选择，不算 P9C-1 失败；如需处理，必须单独设计，因为它们含 `silver_index_daily` event。
-3. P9 后是否需要额外 Dagster DB vacuum/analyze 或空间回收观察：P9C-1 删除了大量 event history，但数据库物理空间回收策略不在本轮范围内。
-4. 是否把后续日更运行观察结果继续补充到本 LLD，还是转入常规运行手册；当前文档已记录首个自动日更成功事实。
+1. P8 quarantine 最终删除与 P9C-2 mixed run 治理已于 2026-07-15 完成，不再是遗留拍板项。
+2. P9 后是否需要额外 Dagster DB vacuum/analyze 或空间回收观察：P9C-1/P9C-2 已删除旧 event history，但数据库物理空间回收策略不在本轮范围内。
+3. 是否把后续日更运行观察结果继续补充到本 LLD，还是转入常规运行手册；当前文档已记录首个自动日更成功事实。
 
 ## 26. 2026-06-23 check 收敛与 P9 清理代码级审计
 
@@ -2046,4 +2044,12 @@ post-audit 排除对象计数：
 | `cn_a_index_ts_codes` dynamic partitions | 946 |
 | `cn_a_index_trade_days` dynamic partitions | 6,412 |
 
-P9C-1 结论：旧 by-code asset/check/sensor state 和旧 run history 安全子集已清理；新 raw/silver 状态、dynamic partitions、prod DB 和 by-date lake 文件未进入删除候选。P9C-2 不属于当前已完成范围。
+P9C-1 当时结论：旧 by-code asset/check/sensor state 和旧 run history 安全子集已清理；新 raw/silver 状态、dynamic partitions、prod DB 和 by-date lake 文件未进入删除候选。P9C-2 当时未纳入该轮范围，已于 2026-07-15 完成，见下节。
+
+### 26.8 P8 最终物理删除与 P9C-2 执行结果
+
+2026-07-15 按单独批准完成最后两项遗留治理：
+
+1. P8 删除前只读 plan 固化 quarantine 目录 947 个文件、1,894 个目录、204,912 KiB、0 个 symlink，并保存 SHA-256 文件清单；随后永久删除 `/Volumes/datasource/data_lake/_quarantine/index_daily_p8/index_daily_by_code_20260624_084707`。旧 raw 原路径和 quarantine 路径均不存在；新 `raw/index_daily` 保持 6,778 个 `part-000.parquet`、191,596 KiB。
+2. P9C-2 对四个固定 mixed run 先导出精确 CSV 备份：4 个 runs、528 条 event_logs、8 条 run_tags、8 条 asset_event_tags；`asset_check_executions`、`pending_steps`、`concurrency_slots` 均为 0。备份 manifest 与 SHA-256 位于 `/private/tmp/index_daily_p8_p9c2_apply_20260715_171747/postgres_backup/`。
+3. 单事务删除后，四个候选 run/event/tag 均归零。`raw_index_daily` event_logs 仍为 61、raw/silver check executions 合计仍为 45,467、两个动态分区合计仍为 7,316；`silver_index_daily` event_logs 从 12,983 精确降为 12,975，差额是被批准删除的 8 条旧 mixed-run silver event。plan/apply/post-audit 目录分别为 `/private/tmp/index_daily_p8_p9c2_plan_20260715_171718/` 与 `/private/tmp/index_daily_p8_p9c2_apply_20260715_171747/`。

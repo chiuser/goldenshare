@@ -126,7 +126,7 @@
 
 收敛动作：将这一节改为“历史审计前提，已于 P7-P9 失效”，记录 P9B-1/P9C-1 已处理的精确范围，以及仍保留的 P8 quarantine 最终删除、P9C-2 mixed runs 决策。不得把已完成清理重新列为未来计划。
 
-实际收敛结果：已更新 `dagster-event-history-retention-governance-plan.md`，明确 P7 active source/catalog 退出、P8 quarantine、P9B-1/P9C-1 精确治理均已完成；仅 P8 quarantine 物理删除和 P9C-2 mixed runs 仍是后续独立决策。旧 by-code 事件规模保留为历史证据，不再作为当前 active-definition 前提。
+实际收敛结果：已更新 `dagster-event-history-retention-governance-plan.md`，明确 P7 active source/catalog 退出、P8 quarantine 与最终物理删除、P9B-1/P9C-1/P9C-2 精确治理均已完成。P9C-2 在删除前已导出 4 个 run、528 条 event、8 条 run tag 和 8 条 asset tag 的精确备份；post-audit 确认候选归零，且仅删除其 8 条旧 `silver_index_daily` event。旧 by-code 事件规模保留为历史证据，不再作为当前 active-definition 前提。
 
 ### C-05 [P0，已收敛 2026-07-15] 非分钟线连续性方案/LLD 仍把已删除的指数 sensor 当作 P5 现行实现
 

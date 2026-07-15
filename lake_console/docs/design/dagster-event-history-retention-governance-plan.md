@@ -2,7 +2,7 @@
 
 更新时间：2026-06-23
 
-> **状态校正（2026-07-15）：** 本文第 3-11 节保留的是 2026-06-23 的历史审计、候选与执行设计，不能再当作现行 index daily 状态判断。指数日线 raw-by-code 迁移已完成：P7 已清理 active source/catalog，P8 已将旧物理目录隔离到 quarantine，P9B-1 已清理旧 raw asset/check 与旧 raw sensor state，P9C-1 已清理不含 `silver_index_daily` 事件的旧 run history。仍待单独拍板的只有 P8 quarantine 最终物理删除和 P9C-2 的 4 个 mixed runs；当前链路以 `raw_index_daily` by-date/prod-core-db 迁移 LLD 为准。
+> **状态校正（2026-07-15）：** 本文第 3-11 节保留的是 2026-06-23 的历史审计、候选与执行设计，不能再当作现行 index daily 状态判断。指数日线 raw-by-code 迁移及状态治理已全部完成：P7 已清理 active source/catalog，P8 已完成 quarantine 与最终物理删除，P9B-1 已清理旧 raw asset/check 与旧 raw sensor state，P9C-1/P9C-2 已清理全部旧 index daily run history。P9C-2 的精确备份、事务删除和 post-audit 位于 `/private/tmp/index_daily_p8_p9c2_apply_20260715_171747/`；当前链路以 `raw_index_daily` by-date/prod-core-db 迁移 LLD 为准。
 
 ## 1. 目标
 
@@ -70,8 +70,8 @@ postgresql://congming@localhost:5432/goldenshare_dagster
 后续实际收口结果：
 
 1. P7 已从 active definitions 与 catalog 退出 raw-by-code source。
-2. P8 已将旧 lake 目录整体隔离到 quarantine，原路径不再存在。
-3. P9B-1 已精确清理旧 raw asset/check 事件和旧 raw sensor instigator state；P9C-1 已清理安全旧 run history 子集。
+2. P8 已将旧 lake 目录整体隔离到 quarantine，随后于 2026-07-15 完成最终物理删除；原路径和 quarantine 路径均不存在。
+3. P9B-1 已精确清理旧 raw asset/check 事件和旧 raw sensor instigator state；P9C-1/P9C-2 已清理全部旧 index daily run history。
 4. 当前正式入口是 `raw_index_daily`、`raw_index_daily_update_job`、`raw_index_daily_update_job_sensor` 与同日 raw-by-date readiness；不得基于本节恢复或设计 raw-by-code 消费者。
 
 ## 4. Dagster Storage 现状
@@ -769,7 +769,7 @@ P3 第一批禁止包含：
 3. P2R 代码修复只解决后续新 run/check 的归属正确性，不再做 3,007 个历史分区全量补录。
 4. 当前它必须继续排除在 P3/P4 删除候选外；只有未来独立方案证明 `latest_materializations_without_latest_checks = 0` 后，才允许重新讨论是否进入候选。
 
-`raw_tushare_index_daily_by_code` 的历史清理顺序已经执行完成：先完成 raw index daily by-date 迁移，再清零 active definition、job、checks、catalog 和 readiness 消费者，随后完成 P8 物理隔离及 P9B/P9C 状态治理。剩余动作仅为 P8 quarantine 最终物理删除与 P9C-2 mixed runs 的独立决策。
+`raw_tushare_index_daily_by_code` 的历史清理顺序已经执行完成：先完成 raw index daily by-date 迁移，再清零 active definition、job、checks、catalog 和 readiness 消费者，随后完成 P8 物理隔离及最终删除、P9B/P9C-1/P9C-2 状态治理。该链路没有剩余 event 或物理目录清理动作。
 
 `silver_stock_daily_current_listed_only` 的清理顺序：
 
