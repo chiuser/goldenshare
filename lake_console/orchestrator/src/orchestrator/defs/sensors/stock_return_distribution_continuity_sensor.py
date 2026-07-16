@@ -127,10 +127,7 @@ def _cursor_payload(
     if reason_code is None and continuity_status is not None:
         blocked_reason = continuity_status.get("blocked_reason")
         first_not_ready_reason = continuity_status.get("first_not_ready_reason")
-        first_missing_registered_date = continuity_status.get(
-            "first_missing_registered_date"
-        )
-        if first_missing_registered_date is not None:
+        if continuity_status.get("registration_gap_class") == "internal":
             reason_code = "missing_registered_partition"
             blocked_component = "cn_a_stock_trade_days"
         elif first_not_ready_reason:
@@ -239,7 +236,7 @@ def stock_return_distribution_continuity_sensor(
         expected_trade_dates=expected_window.expected_trade_dates,
         registered_trade_dates=registered_trade_days,
     )
-    if not gap_status.ready:
+    if gap_status.has_internal_gap:
         continuity_status = build_continuity_cursor_details(
             expected_window=expected_window,
             gap_status=gap_status,
@@ -247,12 +244,32 @@ def stock_return_distribution_continuity_sensor(
             selection=None,
         )
         reason = (
-            "涨跌幅分布检测到股票交易日分区存在注册缺口，等待注册 sensor "
-            f"补齐最早缺口 {gap_status.first_missing_registered_date}。"
+            "涨跌幅分布检测到股票交易日分区存在内部注册缺口，等待注册 sensor "
+            f"补齐最早缺口 {gap_status.first_internal_missing_date}。"
         )
         cursor = _cursor_payload(
             evaluated_at=evaluated_at,
-            target_trade_date=gap_status.first_missing_registered_date,
+            target_trade_date=gap_status.first_internal_missing_date,
+            registered_trade_day_count=len(registered_trade_days),
+            selected_trade_date=None,
+            reason=reason,
+            continuity_status=continuity_status,
+            blocked_fallback=1,
+        )
+        return dg.SensorResult(skip_reason=reason, cursor=cursor)
+
+    actionable_trade_dates = gap_status.actionable_expected_trade_dates
+    if not actionable_trade_dates:
+        reason = "当前没有已注册且可行动的股票交易日分区，等待注册 sensor。"
+        continuity_status = build_continuity_cursor_details(
+            expected_window=expected_window,
+            gap_status=gap_status,
+            batch_readiness=None,
+            selection=None,
+        )
+        cursor = _cursor_payload(
+            evaluated_at=evaluated_at,
+            target_trade_date=gap_status.first_trailing_unregistered_date,
             registered_trade_day_count=len(registered_trade_days),
             selected_trade_date=None,
             reason=reason,
@@ -265,10 +282,10 @@ def stock_return_distribution_continuity_sensor(
         batch_status = batch_gold_stock_return_distribution_lake_readiness(
             connection=connection,
             lake_root_path=lake_root_path,
-            expected_trade_dates=expected_window.expected_trade_dates,
+            expected_trade_dates=actionable_trade_dates,
         )
     selection = select_first_not_ready_trade_date(
-        expected_trade_dates=expected_window.expected_trade_dates,
+        expected_trade_dates=actionable_trade_dates,
         readiness=batch_status,
     )
     continuity_status = build_continuity_cursor_details(

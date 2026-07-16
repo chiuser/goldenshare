@@ -278,7 +278,7 @@ class StockDailySensorTests(unittest.TestCase):
             result = _raw_sensor_result(context)
 
         self.assertEqual(result.run_requests, [])
-        self.assertIn("最早缺失日期为 2026-06-15", result.skip_reason.skip_message)
+        self.assertIn("最早内部缺失日期为 2026-06-15", result.skip_reason.skip_message)
         materialized_mock.assert_not_called()
         stock_basic_mock.assert_not_called()
         source_mock.assert_not_called()
@@ -481,7 +481,7 @@ class StockDailySensorTests(unittest.TestCase):
             result = _silver_sensor_result(context)
 
         self.assertEqual(result.run_requests, [])
-        self.assertIn("最早缺失日期为 2026-06-15", result.skip_reason.skip_message)
+        self.assertIn("最早内部缺失日期为 2026-06-15", result.skip_reason.skip_message)
         materialized_mock.assert_not_called()
         stock_basic_mock.assert_not_called()
         raw_readiness_mock.assert_not_called()

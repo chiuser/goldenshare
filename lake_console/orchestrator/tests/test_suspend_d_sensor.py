@@ -337,7 +337,7 @@ class SuspendDSensorTests(unittest.TestCase):
             result = _raw_sensor_result(context)
 
         self.assertEqual(result.run_requests, [])
-        self.assertIn("最早缺失日期为 2026-06-15", result.skip_reason.skip_message)
+        self.assertIn("最早内部缺失日期为 2026-06-15", result.skip_reason.skip_message)
         materialized_mock.assert_not_called()
         cursor_payload = load_sensor_cursor(result.cursor)
         self.assertEqual(cursor_payload["target_date"], "2026-06-15")
@@ -418,7 +418,7 @@ class SuspendDSensorTests(unittest.TestCase):
             result = _silver_sensor_result(context)
 
         self.assertEqual(result.run_requests, [])
-        self.assertIn("最早缺失日期为 2026-06-15", result.skip_reason.skip_message)
+        self.assertIn("最早内部缺失日期为 2026-06-15", result.skip_reason.skip_message)
         materialized_mock.assert_not_called()
         raw_readiness_mock.assert_not_called()
         cursor_payload = load_sensor_cursor(result.cursor)

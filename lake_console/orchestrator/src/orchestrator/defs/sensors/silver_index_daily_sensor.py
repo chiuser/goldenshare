@@ -121,6 +121,7 @@ def _blocked_component_for_cursor(
         return "silver_index_daily"
     if reason_code in {
         "missing_registered_partition",
+        "pending_registered_partition_tail",
         "no_registered_trade_day",
         "no_expected_trade_date",
     }:
@@ -148,8 +149,13 @@ def _cursor_summary_and_next_action(
         )
     if reason_code == "missing_registered_partition":
         return (
-            f"未触发：指数交易日分区存在缺口，首个缺失日期为 {target}。",
+            f"未触发：指数交易日分区存在内部缺口，首个缺失日期为 {target}。",
             "先补齐 cn_a_index_trade_days dynamic partition，再等待下一次 sensor tick。",
+        )
+    if reason_code == "pending_registered_partition_tail":
+        return (
+            f"未触发：指数交易日分区尾部尚未注册 {target or '-'}，当前没有可行动分区。",
+            "等待 cn_a_index_trade_days 注册新的交易日分区，再等待下一次 sensor tick。",
         )
     if reason_code == "no_registered_trade_day":
         return (
@@ -271,8 +277,8 @@ def _registered_gap_skip_reason(
     gap_status: ContinuityRegisteredGapStatus,
 ) -> str:
     return (
-        "指数交易日分区存在缺口，最早缺失日期为 "
-        f"{gap_status.first_missing_registered_date}，暂不触发指数日线 silver 更新。"
+        "指数交易日分区存在内部缺口，最早内部缺失日期为 "
+        f"{gap_status.first_internal_missing_date}，暂不触发指数日线 silver 更新。"
     )
 
 
@@ -307,13 +313,13 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
         batch_readiness=None,
         selection=None,
     )
-    if gap_status.first_missing_registered_date is not None:
+    if gap_status.has_internal_gap:
         reason = _registered_gap_skip_reason(gap_status)
         return dg.SensorResult(
             skip_reason=reason,
             cursor=_cursor_payload(
                 evaluated_at=evaluated_at,
-                target_trade_date=gap_status.first_missing_registered_date,
+                target_trade_date=gap_status.first_internal_missing_date,
                 selected_trade_date=None,
                 registered_trade_day_count=len(registered_trade_days),
                 registered_code_count=len(registered_index_codes),
@@ -354,7 +360,9 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
             ),
         )
 
-    eligible_trade_dates = _recent_trade_dates(expected_window.expected_trade_dates)
+    eligible_trade_dates = _recent_trade_dates(
+        gap_status.actionable_expected_trade_dates
+    )
     if not eligible_trade_dates:
         reason = "没有符合当前日期窗口的指数 expected trade date。"
         return dg.SensorResult(

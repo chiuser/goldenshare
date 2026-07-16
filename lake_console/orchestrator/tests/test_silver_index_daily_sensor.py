@@ -198,7 +198,7 @@ class SilverIndexDailySensorTests(unittest.TestCase):
             result = silver_index_daily_sensor._raw_fn(context)
 
         self.assertEqual(result.run_requests, [])
-        self.assertIn("最早缺失日期为 2026-06-15", result.skip_reason.skip_message)
+        self.assertIn("最早内部缺失日期为 2026-06-15", result.skip_reason.skip_message)
         raw_readiness.assert_not_called()
         silver_batch.assert_not_called()
         cursor = json.loads(result.cursor)
@@ -210,7 +210,7 @@ class SilverIndexDailySensorTests(unittest.TestCase):
             cursor["details"]["blocked_component"],
             "cn_a_index_trade_days",
         )
-        self.assertIn("分区存在缺口", cursor["details"]["summary"])
+        self.assertIn("分区存在内部缺口", cursor["details"]["summary"])
         self.assertIn("cn_a_index_trade_days", cursor["details"]["next_action"])
 
     def test_raw_not_ready_skips_before_silver_batch(self) -> None:

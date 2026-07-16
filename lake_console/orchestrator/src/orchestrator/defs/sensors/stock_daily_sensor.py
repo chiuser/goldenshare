@@ -146,8 +146,8 @@ def _registered_gap_skip_reason(
     gap_status: ContinuityRegisteredGapStatus,
 ) -> str:
     return (
-        "股票交易日分区存在缺口，最早缺失日期为 "
-        f"{gap_status.first_missing_registered_date}，暂不触发股票日线 "
+        "股票交易日分区存在内部缺口，最早内部缺失日期为 "
+        f"{gap_status.first_internal_missing_date}，暂不触发股票日线 "
         f"{layer_label} 更新。"
     )
 
@@ -666,7 +666,7 @@ def raw_stock_daily_update_job_sensor(
         expected_window=expected_window,
         gap_status=gap_status,
     )
-    if gap_status.first_missing_registered_date is not None:
+    if gap_status.has_internal_gap:
         repair_state = stock_daily_repair_state_from_details(
             sensor_cursor_details(load_sensor_cursor(context.cursor))
         )
@@ -676,7 +676,7 @@ def raw_stock_daily_update_job_sensor(
             raw_missing_keys=(),
             selected_full_day_keys=(),
             selected_repair_keys=(),
-            blocked_keys=(gap_status.first_missing_registered_date,),
+            blocked_keys=(gap_status.first_internal_missing_date,),
             gate_statuses_by_trade_date={},
             repair_state=repair_state,
             repair_details={},
@@ -890,13 +890,13 @@ def silver_stock_daily_update_job_sensor(
         expected_window=expected_window,
         gap_status=gap_status,
     )
-    if gap_status.first_missing_registered_date is not None:
+    if gap_status.has_internal_gap:
         cursor = _silver_sensor_cursor(
             evaluated_at=evaluated_at,
             registered_count=len(registered_keys),
             pending_keys=(),
             selected_keys=(),
-            blocked_keys=(gap_status.first_missing_registered_date,),
+            blocked_keys=(gap_status.first_internal_missing_date,),
             gate_statuses_by_trade_date={},
             continuity_details=continuity_details,
         )

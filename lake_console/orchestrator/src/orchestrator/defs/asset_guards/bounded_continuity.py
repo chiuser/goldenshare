@@ -102,6 +102,42 @@ class ContinuityRegisteredGapStatus:
     registered_trade_dates: tuple[str, ...]
     first_missing_registered_date: str | None
     missing_registered_dates: tuple[str, ...]
+    first_internal_missing_date: str | None = None
+    internal_missing_registered_dates: tuple[str, ...] = ()
+    internal_missing_registered_count: int = 0
+    first_trailing_unregistered_date: str | None = None
+    trailing_unregistered_dates: tuple[str, ...] = ()
+    trailing_unregistered_count: int = 0
+
+    @property
+    def last_registered_expected_date(self) -> str | None:
+        return self.registered_trade_dates[-1] if self.registered_trade_dates else None
+
+    @property
+    def has_internal_gap(self) -> bool:
+        return self.internal_missing_registered_count > 0
+
+    @property
+    def has_trailing_gap(self) -> bool:
+        return self.trailing_unregistered_count > 0
+
+    @property
+    def registration_gap_class(self) -> str:
+        if self.has_internal_gap:
+            return "internal"
+        if not self.registered_trade_dates and self.expected_trade_dates:
+            return "empty"
+        if self.has_trailing_gap:
+            return "trailing"
+        return "none"
+
+    @property
+    def actionable_expected_trade_dates(self) -> tuple[str, ...]:
+        """Return registered dates that are safe to send to a readiness selector."""
+
+        if self.has_internal_gap:
+            return ()
+        return self.registered_trade_dates
 
     @property
     def ready(self) -> bool:
@@ -118,6 +154,17 @@ class ContinuityRegisteredGapStatus:
             "registered_count": len(self.registered_trade_dates),
             "first_missing_registered_date": self.first_missing_registered_date,
             "missing_registered_dates": list(self.missing_registered_dates),
+            "registration_gap_class": self.registration_gap_class,
+            "first_internal_missing_date": self.first_internal_missing_date,
+            "internal_missing_registered_dates": list(
+                self.internal_missing_registered_dates
+            ),
+            "internal_missing_registered_count": self.internal_missing_registered_count,
+            "first_trailing_unregistered_date": self.first_trailing_unregistered_date,
+            "trailing_unregistered_dates": list(self.trailing_unregistered_dates),
+            "trailing_unregistered_count": self.trailing_unregistered_count,
+            "last_registered_expected_date": self.last_registered_expected_date,
+            "actionable_registered_count": len(self.actionable_expected_trade_dates),
         }
 
 
@@ -338,11 +385,44 @@ def build_registered_gap_status(
     first_missing_registered_date = (
         missing_registered_dates[0] if missing_registered_dates else None
     )
+    last_registered_expected_date = (
+        registered_in_window[-1] if registered_in_window else None
+    )
+    internal_missing_registered_dates = tuple(
+        trade_date
+        for trade_date in missing_registered_dates
+        if last_registered_expected_date is not None
+        and trade_date < last_registered_expected_date
+    )
+    trailing_unregistered_dates = tuple(
+        trade_date
+        for trade_date in missing_registered_dates
+        if last_registered_expected_date is None
+        or trade_date > last_registered_expected_date
+    )
     return ContinuityRegisteredGapStatus(
         expected_trade_dates=expected_trade_dates,
         registered_trade_dates=registered_in_window,
         first_missing_registered_date=first_missing_registered_date,
         missing_registered_dates=sampled_missing_registered_dates,
+        first_internal_missing_date=(
+            internal_missing_registered_dates[0]
+            if internal_missing_registered_dates
+            else None
+        ),
+        internal_missing_registered_dates=tuple(
+            str(value)
+            for value in _sample(internal_missing_registered_dates, sample_limit)
+        ),
+        internal_missing_registered_count=len(internal_missing_registered_dates),
+        first_trailing_unregistered_date=(
+            trailing_unregistered_dates[0] if trailing_unregistered_dates else None
+        ),
+        trailing_unregistered_dates=tuple(
+            str(value)
+            for value in _sample(trailing_unregistered_dates, sample_limit)
+        ),
+        trailing_unregistered_count=len(trailing_unregistered_dates),
     )
 
 
@@ -415,6 +495,17 @@ def build_continuity_cursor_details(
         "registered_count": len(gap_status.registered_trade_dates),
         "first_missing_registered_date": gap_status.first_missing_registered_date,
         "missing_registered_dates": list(gap_status.missing_registered_dates),
+        "registration_gap_class": gap_status.registration_gap_class,
+        "first_internal_missing_date": gap_status.first_internal_missing_date,
+        "internal_missing_registered_dates": list(
+            gap_status.internal_missing_registered_dates
+        ),
+        "internal_missing_registered_count": gap_status.internal_missing_registered_count,
+        "first_trailing_unregistered_date": gap_status.first_trailing_unregistered_date,
+        "trailing_unregistered_dates": list(gap_status.trailing_unregistered_dates),
+        "trailing_unregistered_count": gap_status.trailing_unregistered_count,
+        "last_registered_expected_date": gap_status.last_registered_expected_date,
+        "actionable_registered_count": len(gap_status.actionable_expected_trade_dates),
         "first_not_ready_trade_date": None,
         "ready_through_trade_date": None,
         "selected_trade_date": None,

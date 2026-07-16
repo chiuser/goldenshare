@@ -114,6 +114,13 @@ def _continuity_status(
         "expected_count": len(expected_trade_dates),
         "registered_count": len(gap_status.registered_trade_dates),
         "first_missing_registered_date": gap_status.first_missing_registered_date,
+        "registration_gap_class": gap_status.registration_gap_class,
+        "first_internal_missing_date": gap_status.first_internal_missing_date,
+        "internal_missing_registered_count": gap_status.internal_missing_registered_count,
+        "first_trailing_unregistered_date": gap_status.first_trailing_unregistered_date,
+        "trailing_unregistered_count": gap_status.trailing_unregistered_count,
+        "last_registered_expected_date": gap_status.last_registered_expected_date,
+        "actionable_registered_count": len(gap_status.actionable_expected_trade_dates),
         "ready_through_trade_date": _ready_through_trade_date(
             expected_trade_dates=expected_trade_dates,
             first_not_ready_trade_date=first_not_ready_trade_date,
@@ -146,6 +153,11 @@ def _cursor_summary_and_next_action(
         return (
             f"未触发：股票交易日分区存在缺口，首个缺失日期为 {target}。",
             "先补齐 cn_a_stock_trade_days dynamic partition，再等待下一次 tick。",
+        )
+    if reason_code == "pending_registered_partition_tail":
+        return (
+            f"未触发：股票交易日分区只缺少尾部注册日期 {target}，当前没有可行动分区。",
+            "等待 cn_a_stock_trade_days 注册新的交易日分区，再等待下一次 tick。",
         )
     if reason_code == "gold_stock_daily_qfq_not_ready":
         return (
@@ -292,18 +304,33 @@ def gold_stock_daily_qfq_update_job_sensor(
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    if gap_status.first_missing_registered_date is not None:
+    if gap_status.has_internal_gap:
         reason = (
             "股票日线前复权交易日分区存在缺口，"
-            f"首个缺失日期为 {gap_status.first_missing_registered_date}。"
+            f"首个内部缺失日期为 {gap_status.first_internal_missing_date}。"
         )
         cursor = _build_cursor(
             evaluated_at=evaluated_at,
             expected_window=expected_window,
             gap_status=gap_status,
-            target_trade_date=gap_status.first_missing_registered_date,
+            target_trade_date=gap_status.first_internal_missing_date,
             selected_trade_date=None,
             reason_code="missing_registered_partition",
+            blocked_component="cn_a_stock_trade_days",
+            registered_trade_day_count=len(registered_trade_days),
+        )
+        return dg.SensorResult(skip_reason=reason, cursor=cursor)
+
+    actionable_trade_dates = gap_status.actionable_expected_trade_dates
+    if not actionable_trade_dates:
+        reason = "股票交易日分区尚未注册任何当前窗口内可行动日期。"
+        cursor = _build_cursor(
+            evaluated_at=evaluated_at,
+            expected_window=expected_window,
+            gap_status=gap_status,
+            target_trade_date=gap_status.first_trailing_unregistered_date,
+            selected_trade_date=None,
+            reason_code="pending_registered_partition_tail",
             blocked_component="cn_a_stock_trade_days",
             registered_trade_day_count=len(registered_trade_days),
         )
@@ -312,7 +339,7 @@ def gold_stock_daily_qfq_update_job_sensor(
     selected_trade_date, gold_status = (
         select_first_not_ready_gold_stock_daily_qfq_partition(
             context.instance,
-            expected_window.expected_trade_dates,
+            actionable_trade_dates,
         )
     )
 

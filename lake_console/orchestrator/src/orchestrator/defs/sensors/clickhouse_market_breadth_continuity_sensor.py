@@ -234,10 +234,7 @@ def _cursor_payload(
     if reason_code is None and continuity_status is not None:
         blocked_reason = continuity_status.get("blocked_reason")
         first_not_ready_reason = continuity_status.get("first_not_ready_reason")
-        first_missing_registered_date = continuity_status.get(
-            "first_missing_registered_date"
-        )
-        if first_missing_registered_date is not None:
+        if continuity_status.get("registration_gap_class") == "internal":
             reason_code = "missing_registered_partition"
             blocked_component = "cn_a_stock_trade_days"
         elif first_not_ready_reason:
@@ -390,7 +387,7 @@ def clickhouse_market_breadth_continuity_sensor(
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    if not gap_status.ready:
+    if gap_status.has_internal_gap:
         continuity_status = build_continuity_cursor_details(
             expected_window=expected_window,
             gap_status=gap_status,
@@ -398,12 +395,35 @@ def clickhouse_market_breadth_continuity_sensor(
             selection=None,
         )
         reason = (
-            "本机 ClickHouse 市场宽度检测到股票交易日分区存在注册缺口，等待注册 "
-            f"sensor 补齐最早缺口 {gap_status.first_missing_registered_date}。"
+            "本机 ClickHouse 市场宽度检测到股票交易日分区存在内部注册缺口，等待注册 "
+            f"sensor 补齐最早缺口 {gap_status.first_internal_missing_date}。"
         )
         cursor = _cursor_payload(
             evaluated_at=evaluated_at,
-            target_trade_date=gap_status.first_missing_registered_date,
+            target_trade_date=gap_status.first_internal_missing_date,
+            registered_trade_day_count=len(registered_trade_days),
+            selected_trade_date=None,
+            reason=reason,
+            sensor_name="prod_clickhouse_market_breadth_continuity_sensor",
+            job_name="prod_clickhouse_share_fact_market_breadth_sync_job",
+            asset_family="prod_clickhouse_market_breadth",
+            continuity_status=continuity_status,
+            blocked_fallback=1,
+        )
+        return dg.SensorResult(skip_reason=reason, cursor=cursor)
+
+    actionable_trade_dates = gap_status.actionable_expected_trade_dates
+    if not actionable_trade_dates:
+        reason = "当前没有已注册且可行动的股票交易日分区，等待注册 sensor。"
+        continuity_status = build_continuity_cursor_details(
+            expected_window=expected_window,
+            gap_status=gap_status,
+            batch_readiness=None,
+            selection=None,
+        )
+        cursor = _cursor_payload(
+            evaluated_at=evaluated_at,
+            target_trade_date=gap_status.first_trailing_unregistered_date,
             registered_trade_day_count=len(registered_trade_days),
             selected_trade_date=None,
             reason=reason,
@@ -423,21 +443,21 @@ def clickhouse_market_breadth_continuity_sensor(
                 connection=connection,
                 lake_root_path=lake_root_path,
                 clickhouse_client=client,
-                expected_trade_dates=expected_window.expected_trade_dates,
+                expected_trade_dates=actionable_trade_dates,
             )
         breadth_batch = batch_gold_market_breadth_lake_readiness(
             connection=connection,
             lake_root_path=lake_root_path,
-            expected_trade_dates=expected_window.expected_trade_dates,
+            expected_trade_dates=actionable_trade_dates,
         )
         distribution_batch = batch_gold_stock_return_distribution_lake_readiness(
             connection=connection,
             lake_root_path=lake_root_path,
-            expected_trade_dates=expected_window.expected_trade_dates,
+            expected_trade_dates=actionable_trade_dates,
         )
 
     selection = select_first_not_ready_trade_date(
-        expected_trade_dates=expected_window.expected_trade_dates,
+        expected_trade_dates=actionable_trade_dates,
         readiness=serving_batch,
     )
     continuity_status = build_continuity_cursor_details(
@@ -547,7 +567,7 @@ def prod_clickhouse_market_breadth_continuity_sensor(
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    if not gap_status.ready:
+    if gap_status.has_internal_gap:
         continuity_status = build_continuity_cursor_details(
             expected_window=expected_window,
             gap_status=gap_status,
@@ -555,12 +575,32 @@ def prod_clickhouse_market_breadth_continuity_sensor(
             selection=None,
         )
         reason = (
-            "Prod ClickHouse 市场宽度检测到股票交易日分区存在注册缺口，等待注册 "
-            f"sensor 补齐最早缺口 {gap_status.first_missing_registered_date}。"
+            "Prod ClickHouse 市场宽度检测到股票交易日分区存在内部注册缺口，等待注册 "
+            f"sensor 补齐最早缺口 {gap_status.first_internal_missing_date}。"
         )
         cursor = _cursor_payload(
             evaluated_at=evaluated_at,
-            target_trade_date=gap_status.first_missing_registered_date,
+            target_trade_date=gap_status.first_internal_missing_date,
+            registered_trade_day_count=len(registered_trade_days),
+            selected_trade_date=None,
+            reason=reason,
+            continuity_status=continuity_status,
+            blocked_fallback=1,
+        )
+        return dg.SensorResult(skip_reason=reason, cursor=cursor)
+
+    actionable_trade_dates = gap_status.actionable_expected_trade_dates
+    if not actionable_trade_dates:
+        reason = "当前没有已注册且可行动的股票交易日分区，等待注册 sensor。"
+        continuity_status = build_continuity_cursor_details(
+            expected_window=expected_window,
+            gap_status=gap_status,
+            batch_readiness=None,
+            selection=None,
+        )
+        cursor = _cursor_payload(
+            evaluated_at=evaluated_at,
+            target_trade_date=gap_status.first_trailing_unregistered_date,
             registered_trade_day_count=len(registered_trade_days),
             selected_trade_date=None,
             reason=reason,
@@ -579,17 +619,17 @@ def prod_clickhouse_market_breadth_continuity_sensor(
             prod_batch = batch_prod_clickhouse_market_breadth_readiness(
                 local_clickhouse_client=local_client,
                 prod_clickhouse_client=prod_client,
-                expected_trade_dates=expected_window.expected_trade_dates,
+                expected_trade_dates=actionable_trade_dates,
             )
             local_batch = batch_clickhouse_market_breadth_readiness(
                 connection=connection,
                 lake_root_path=lake_root_path,
                 clickhouse_client=local_client,
-                expected_trade_dates=expected_window.expected_trade_dates,
+                expected_trade_dates=actionable_trade_dates,
             )
 
     selection = select_first_not_ready_trade_date(
-        expected_trade_dates=expected_window.expected_trade_dates,
+        expected_trade_dates=actionable_trade_dates,
         readiness=prod_batch,
     )
     continuity_status = build_continuity_cursor_details(

@@ -177,6 +177,50 @@ class GoldStockDailyQfqSensorContractTests(unittest.TestCase):
             "2026-06-16",
         )
 
+    def test_trailing_unregistered_partition_does_not_block_registered_target(self) -> None:
+        selected_date = "2026-06-16"
+        context = _FakeContext(("2026-06-15", "2026-06-16"))
+        selector = Mock(
+            return_value=(selected_date, _missing_gold_status(selected_date))
+        )
+
+        with (
+            patch.object(
+                sensor_module,
+                "_load_expected_stock_trade_day_window",
+                return_value=_expected_window(),
+            ),
+            patch.object(
+                sensor_module,
+                "select_first_not_ready_gold_stock_daily_qfq_partition",
+                selector,
+            ),
+            patch.object(
+                sensor_module,
+                "stock_daily_ready_for_trade_date",
+                return_value=_ready_status("silver_stock_daily", selected_date),
+            ),
+            patch.object(
+                sensor_module,
+                "adj_factor_ready_for_trade_date",
+                return_value=_ready_status("silver_adj_factor", selected_date),
+            ),
+        ):
+            result = gold_stock_daily_qfq_update_job_sensor._raw_fn(context)
+
+        self.assertEqual(len(result.run_requests), 1)
+        self.assertEqual(result.run_requests[0].partition_key, selected_date)
+        selector.assert_called_once_with(context.instance, ("2026-06-15", "2026-06-16"))
+        cursor = load_sensor_cursor(result.cursor)
+        self.assertEqual(
+            cursor["details"]["continuity_status"]["registration_gap_class"],
+            "trailing",
+        )
+        self.assertEqual(
+            cursor["details"]["continuity_status"]["first_trailing_unregistered_date"],
+            "2026-06-17",
+        )
+
     def test_missing_gold_partition_and_ready_upstreams_submits_selected_date(self) -> None:
         selected_date = "2026-06-16"
         context = _FakeContext(EXPECTED_DATES)

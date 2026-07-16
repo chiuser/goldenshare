@@ -60,6 +60,12 @@ _COMPACT_CONTINUITY_KEYS = (
     "expected_count",
     "registered_count",
     "first_missing_registered_date",
+    "registration_gap_class",
+    "first_internal_missing_date",
+    "first_trailing_unregistered_date",
+    "trailing_unregistered_count",
+    "actionable_registered_count",
+    "last_registered_expected_date",
     "ready_through_trade_date",
     "first_not_ready_trade_date",
     "selected_trade_date",
@@ -212,6 +218,7 @@ def _blocked_component_for_reason(
         return "none"
     if reason_code in {
         "missing_registered_partition",
+        "pending_registered_partition_tail",
         "no_registered_trade_day",
         "no_expected_trade_date",
     }:
@@ -302,8 +309,8 @@ def _cursor_payload(
 
 def _registered_gap_skip_reason(gap_status: ContinuityRegisteredGapStatus) -> str:
     return (
-        "指数交易日分区存在缺口，最早缺失日期为 "
-        f"{gap_status.first_missing_registered_date}，暂不触发指数日线 raw by-date 更新。"
+        "指数交易日分区存在内部缺口，最早内部缺失日期为 "
+        f"{gap_status.first_internal_missing_date}，暂不触发指数日线 raw by-date 更新。"
     )
 
 
@@ -340,13 +347,13 @@ def raw_index_daily_update_job_sensor(
         batch_readiness=None,
         selection=None,
     )
-    if gap_status.first_missing_registered_date is not None:
+    if gap_status.has_internal_gap:
         reason = _registered_gap_skip_reason(gap_status)
         return dg.SensorResult(
             skip_reason=reason,
             cursor=_cursor_payload(
                 evaluated_at=evaluated_at,
-                target_trade_date=gap_status.first_missing_registered_date,
+                target_trade_date=gap_status.first_internal_missing_date,
                 selected_trade_date=None,
                 registered_trade_day_count=len(registered_trade_days),
                 registered_code_count=len(registered_index_codes),
@@ -387,7 +394,9 @@ def raw_index_daily_update_job_sensor(
             ),
         )
 
-    eligible_trade_dates = _recent_trade_dates(expected_window.expected_trade_dates)
+    eligible_trade_dates = _recent_trade_dates(
+        gap_status.actionable_expected_trade_dates
+    )
     if not eligible_trade_dates:
         reason = "没有符合当前日期窗口的指数 expected trade date。"
         return dg.SensorResult(

@@ -255,6 +255,19 @@ def compact_continuity_frontier(
             "expected_count": source.get("expected_count"),
             "registered_count": source.get("registered_count"),
             "first_missing_registered_date": first_missing_registered_date,
+            "registration_gap_class": source.get("registration_gap_class"),
+            "first_internal_missing_date": source.get("first_internal_missing_date"),
+            "internal_missing_registered_count": source.get(
+                "internal_missing_registered_count"
+            ),
+            "first_trailing_unregistered_date": source.get(
+                "first_trailing_unregistered_date"
+            ),
+            "trailing_unregistered_count": source.get("trailing_unregistered_count"),
+            "last_registered_expected_date": source.get(
+                "last_registered_expected_date"
+            ),
+            "actionable_registered_count": source.get("actionable_registered_count"),
             "ready_through_date": ready_through_trade_date,
             "first_not_ready_date": first_not_ready_trade_date,
             "selected_date": selected_trade_date or source.get("selected_trade_date"),
@@ -280,6 +293,34 @@ def compact_continuity_frontier(
                 ),
                 "first_missing_registered_date": getattr(
                     continuity_status, "first_missing_registered_date", None
+                ),
+                "registration_gap_class": getattr(
+                    continuity_status, "registration_gap_class", None
+                ),
+                "first_internal_missing_date": getattr(
+                    continuity_status, "first_internal_missing_date", None
+                ),
+                "internal_missing_registered_count": getattr(
+                    continuity_status, "internal_missing_registered_count", None
+                ),
+                "first_trailing_unregistered_date": getattr(
+                    continuity_status, "first_trailing_unregistered_date", None
+                ),
+                "trailing_unregistered_count": getattr(
+                    continuity_status, "trailing_unregistered_count", None
+                ),
+                "last_registered_expected_date": getattr(
+                    continuity_status, "last_registered_expected_date", None
+                ),
+                "actionable_registered_count": len(
+                    tuple(
+                        getattr(
+                            continuity_status,
+                            "actionable_expected_trade_dates",
+                            (),
+                        )
+                        or ()
+                    )
                 ),
                 "selected_date": selected_trade_date,
             }

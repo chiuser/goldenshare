@@ -133,6 +133,46 @@ class BoundedContinuityTests(unittest.TestCase):
             "2026-06-11",
         )
 
+    def test_registered_tail_gap_does_not_block_registered_prefix(self) -> None:
+        status = build_registered_gap_status(
+            expected_trade_dates=("2026-06-14", "2026-06-15", "2026-06-16"),
+            registered_trade_dates=("2026-06-14", "2026-06-15"),
+        )
+
+        self.assertFalse(status.has_internal_gap)
+        self.assertTrue(status.has_trailing_gap)
+        self.assertEqual(status.registration_gap_class, "trailing")
+        self.assertEqual(status.first_trailing_unregistered_date, "2026-06-16")
+        self.assertEqual(status.trailing_unregistered_count, 1)
+        self.assertEqual(
+            status.actionable_expected_trade_dates,
+            ("2026-06-14", "2026-06-15"),
+        )
+
+    def test_registered_internal_gap_blocks_all_actionable_dates(self) -> None:
+        status = build_registered_gap_status(
+            expected_trade_dates=("2026-06-14", "2026-06-15", "2026-06-16"),
+            registered_trade_dates=("2026-06-14", "2026-06-16"),
+        )
+
+        self.assertTrue(status.has_internal_gap)
+        self.assertFalse(status.has_trailing_gap)
+        self.assertEqual(status.registration_gap_class, "internal")
+        self.assertEqual(status.first_internal_missing_date, "2026-06-15")
+        self.assertEqual(status.internal_missing_registered_count, 1)
+        self.assertEqual(status.actionable_expected_trade_dates, ())
+
+    def test_empty_registered_window_has_no_actionable_dates(self) -> None:
+        status = build_registered_gap_status(
+            expected_trade_dates=("2026-06-14", "2026-06-15"),
+            registered_trade_dates=(),
+        )
+
+        self.assertEqual(status.registration_gap_class, "empty")
+        self.assertEqual(status.first_trailing_unregistered_date, "2026-06-14")
+        self.assertEqual(status.trailing_unregistered_count, 2)
+        self.assertEqual(status.actionable_expected_trade_dates, ())
+
     def test_date_readiness_rejects_ready_mismatch(self) -> None:
         with self.assertRaises(ValueError):
             ContinuityDateReadiness(

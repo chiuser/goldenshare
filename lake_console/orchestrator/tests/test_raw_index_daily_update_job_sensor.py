@@ -229,7 +229,7 @@ class RawIndexDailyUpdateJobSensorTests(unittest.TestCase):
             result = raw_index_daily_update_job_sensor._raw_fn(context)
 
         self.assertEqual(result.run_requests, [])
-        self.assertIn("最早缺失日期为 2026-06-15", result.skip_reason.skip_message)
+        self.assertIn("最早内部缺失日期为 2026-06-15", result.skip_reason.skip_message)
         raw_readiness.assert_not_called()
         source_probe.assert_not_called()
 
