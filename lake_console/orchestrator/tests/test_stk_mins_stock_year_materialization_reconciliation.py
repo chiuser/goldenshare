@@ -82,7 +82,10 @@ class StockYearMaterializationReconciliationTests(unittest.TestCase):
                 output_dir=Path(temporary_dir),
             )
         self.assertFalse(plan.report["should_stop"])
-        self.assertEqual(plan.report["planned_materialization_event_count"], 70)
+        self.assertEqual(
+            plan.report["planned_materialization_event_count"],
+            len(subject.TARGET_ASSET_KEYS) * 5,
+        )
         self.assertEqual(
             {candidate.partition_key for candidate in plan.candidates},
             {"2014-01-02", "2014-01-03", "2014-01-04", "2014-01-05", "2014-01-06"},
@@ -121,6 +124,50 @@ class StockYearMaterializationReconciliationTests(unittest.TestCase):
         report = plan.report["asset_reports"][asset_key]
         self.assertEqual(report["check_without_materialization"]["count"], 0)
         self.assertEqual(report["unbound_repair_completion_marker_only"]["count"], 1)
+
+    def test_state_asset_recovers_unbound_repair_completion_marker_only_partition(self) -> None:
+        instance = self._instance()
+        asset_key = subject.GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_ASSET_NAMES[0]
+        with tempfile.TemporaryDirectory() as temporary_dir, self._patch_control_plane(
+            unbound_repair_completion_markers={asset_key: {"2014-01-02"}}
+        ):
+            plan = subject.build_stock_year_materialization_plan(
+                instance=instance,
+                output_dir=Path(temporary_dir),
+            )
+        asset_candidates = {
+            candidate.partition_key for candidate in plan.candidates if candidate.asset_key == asset_key
+        }
+        self.assertIn("2014-01-02", asset_candidates)
+        report = plan.report["asset_reports"][asset_key]
+        self.assertEqual(report["check_without_materialization"]["count"], 0)
+        self.assertEqual(report["unbound_repair_completion_marker_only"]["count"], 1)
+
+    def test_state_asset_uses_state_canonical_uri(self) -> None:
+        self.assertEqual(
+            subject._canonical_uri("gold_stk_mins_qfq_macd_kdj_state_15m"),
+            "lake://gold/indicator/stk_mins_qfq_macd_kdj_state/freq=15",
+        )
+
+    def test_state_repair_completion_marker_is_recoverable(self) -> None:
+        asset_key = subject.GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_ASSET_NAMES[0]
+        encoded_asset_key = f'["{asset_key}"]'
+        with patch.object(
+            subject,
+            "_psql_rows",
+            return_value=[
+                (
+                    encoded_asset_key,
+                    "2014-01-02",
+                    subject.GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME,
+                    "SUCCEEDED",
+                    None,
+                )
+            ],
+        ):
+            protected, markers = subject._check_partition_sets((asset_key,))
+        self.assertEqual(protected[asset_key], set())
+        self.assertEqual(markers[asset_key], {"2014-01-02"})
 
     def test_only_unbound_repair_completion_marker_is_recoverable(self) -> None:
         asset_key = subject.GOLD_STK_MINS_QFQ_MACD_KDJ_ASSET_NAMES[0]
@@ -249,8 +296,8 @@ class StockYearMaterializationReconciliationTests(unittest.TestCase):
                 backup_manifest_path=backup_manifest,
                 output_dir=root,
             )
-        self.assertEqual(report.reported_event_count, 70)
-        self.assertEqual(len(instance.reported_events), 70)
+        self.assertEqual(report.reported_event_count, len(subject.TARGET_ASSET_KEYS) * 5)
+        self.assertEqual(len(instance.reported_events), len(subject.TARGET_ASSET_KEYS) * 5)
         self.assertTrue(all(isinstance(event, dg.AssetMaterialization) for event in instance.reported_events))
         self.assertTrue(
             all(

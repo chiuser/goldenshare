@@ -22,6 +22,7 @@ import dagster as dg
 from orchestrator.defs.assets.stk_mins import GOLD_STK_MINS_QFQ_ASSETS
 from orchestrator.defs.assets.stk_mins_qfq_macd_kdj import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_ASSET_NAMES,
+    GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_ASSET_NAMES,
 )
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.run_contracts.metadata import build_materialization_metadata
@@ -31,7 +32,7 @@ from orchestrator.defs.stk_mins_qfq_macd_kdj import (
 )
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 PLAN_PHASE = "P4A_trusted_control_plane_inventory"
 RECONCILIATION_METHOD = "historical_verified_state_recovery_v1"
 RECONCILIATION_BASIS = "prior_verified_historical_checks_deleted_during_db_cleanup"
@@ -56,14 +57,21 @@ def _qfq_asset_keys() -> tuple[str, ...]:
     return tuple(result)
 
 
-TARGET_ASSET_KEYS = tuple(sorted(_qfq_asset_keys() + GOLD_STK_MINS_QFQ_MACD_KDJ_ASSET_NAMES))
-if len(TARGET_ASSET_KEYS) != 14 or len(set(TARGET_ASSET_KEYS)) != 14:
+TARGET_ASSET_KEYS = tuple(
+    sorted(
+        _qfq_asset_keys()
+        + GOLD_STK_MINS_QFQ_MACD_KDJ_ASSET_NAMES
+        + GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_ASSET_NAMES
+    )
+)
+if len(TARGET_ASSET_KEYS) != 21 or len(set(TARGET_ASSET_KEYS)) != 21:
     raise StockYearMaterializationReconciliationError(
-        f"Expected exactly 14 target assets, got {TARGET_ASSET_KEYS!r}."
+        f"Expected exactly 21 target assets, got {TARGET_ASSET_KEYS!r}."
     )
 
 RECOVERABLE_UNBOUND_REPAIR_COMPLETION_ASSET_KEYS = frozenset(
     GOLD_STK_MINS_QFQ_MACD_KDJ_ASSET_NAMES
+    + GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_ASSET_NAMES
 )
 if not RECOVERABLE_UNBOUND_REPAIR_COMPLETION_ASSET_KEYS <= set(TARGET_ASSET_KEYS):
     raise StockYearMaterializationReconciliationError(
@@ -710,6 +718,11 @@ def _assert_control_counts_unchanged(
 
 def _canonical_uri(asset_key: str) -> str:
     freq = asset_key.rsplit("_", maxsplit=1)[-1]
+    if asset_key in GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_ASSET_NAMES:
+        return (
+            "lake://gold/indicator/stk_mins_qfq_macd_kdj_state/"
+            f"freq={freq.removesuffix('m')}"
+        )
     if asset_key.startswith("gold_stk_mins_qfq_macd_kdj_"):
         return f"lake://gold/indicator/stk_mins_qfq_macd_kdj/freq={freq.removesuffix('m')}"
     if asset_key.startswith("gold_stk_mins_qfq_"):
