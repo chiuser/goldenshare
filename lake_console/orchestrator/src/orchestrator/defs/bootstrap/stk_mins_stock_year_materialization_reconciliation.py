@@ -26,9 +26,12 @@ from orchestrator.defs.assets.stk_mins_qfq_macd_kdj import (
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.run_contracts.metadata import build_materialization_metadata
 from orchestrator.defs.run_contracts.stk_mins import STK_MINS_QFQ_HISTORY_START_DATE
+from orchestrator.defs.stk_mins_qfq_macd_kdj import (
+    GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME,
+)
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 PLAN_PHASE = "P4A_trusted_control_plane_inventory"
 RECONCILIATION_METHOD = "historical_verified_state_recovery_v1"
 RECONCILIATION_BASIS = "prior_verified_historical_checks_deleted_during_db_cleanup"
@@ -57,6 +60,14 @@ TARGET_ASSET_KEYS = tuple(sorted(_qfq_asset_keys() + GOLD_STK_MINS_QFQ_MACD_KDJ_
 if len(TARGET_ASSET_KEYS) != 14 or len(set(TARGET_ASSET_KEYS)) != 14:
     raise StockYearMaterializationReconciliationError(
         f"Expected exactly 14 target assets, got {TARGET_ASSET_KEYS!r}."
+    )
+
+RECOVERABLE_UNBOUND_REPAIR_COMPLETION_ASSET_KEYS = frozenset(
+    GOLD_STK_MINS_QFQ_MACD_KDJ_ASSET_NAMES
+)
+if not RECOVERABLE_UNBOUND_REPAIR_COMPLETION_ASSET_KEYS <= set(TARGET_ASSET_KEYS):
+    raise StockYearMaterializationReconciliationError(
+        "Recoverable repair completion assets must be within the P4 target asset set."
     )
 
 
@@ -139,8 +150,14 @@ def build_stock_year_materialization_plan(
                 asset_key: sorted(snapshot["materialized_by_asset"][asset_key])
                 for asset_key in TARGET_ASSET_KEYS
             },
-            "check_partitions_by_asset": {
-                asset_key: sorted(snapshot["check_partitions_by_asset"][asset_key])
+            "protected_check_partitions_by_asset": {
+                asset_key: sorted(snapshot["protected_check_partitions_by_asset"][asset_key])
+                for asset_key in TARGET_ASSET_KEYS
+            },
+            "unbound_repair_completion_marker_partitions_by_asset": {
+                asset_key: sorted(
+                    snapshot["unbound_repair_completion_marker_partitions_by_asset"][asset_key]
+                )
                 for asset_key in TARGET_ASSET_KEYS
             },
             "safe_candidates": [candidate.to_dict() for candidate in candidates],
@@ -388,6 +405,10 @@ def _state_snapshot(instance: dg.DagsterInstance) -> dict[str, Any]:
         stop_reasons.append("invalid_registered_partition_keys")
     if active_run_statuses:
         stop_reasons.append("active_dagster_runs")
+    (
+        protected_check_partitions_by_asset,
+        unbound_repair_completion_marker_partitions_by_asset,
+    ) = _check_partition_sets(TARGET_ASSET_KEYS)
     return {
         "registered_partition_keys": registered_partition_keys,
         "history_partition_keys": history_partition_keys,
@@ -395,7 +416,10 @@ def _state_snapshot(instance: dg.DagsterInstance) -> dict[str, Any]:
         "invalid_partition_keys": tuple(sorted(invalid_partition_keys)),
         "hot_window_keys": set(sorted(history_partition_keys)[-HOT_WINDOW_SIZE:]),
         "materialized_by_asset": materialized_by_asset,
-        "check_partitions_by_asset": _check_partitions_by_asset(TARGET_ASSET_KEYS),
+        "protected_check_partitions_by_asset": protected_check_partitions_by_asset,
+        "unbound_repair_completion_marker_partitions_by_asset": (
+            unbound_repair_completion_marker_partitions_by_asset
+        ),
         "active_run_statuses": active_run_statuses,
         "control_counts": _control_counts(),
         "stop_reasons": tuple(stop_reasons),
@@ -411,10 +435,19 @@ def _classify_candidates(
     hot_window_keys = set(snapshot["hot_window_keys"])
     for asset_key in TARGET_ASSET_KEYS:
         materialized = set(snapshot["materialized_by_asset"][asset_key]) & history_partition_keys
-        checked = set(snapshot["check_partitions_by_asset"][asset_key]) & history_partition_keys
-        check_without_materialization = checked - materialized
-        hot_window_excluded = (history_partition_keys - materialized - checked) & hot_window_keys
-        safe_candidates = history_partition_keys - materialized - checked - hot_window_keys
+        protected_checks = (
+            set(snapshot["protected_check_partitions_by_asset"][asset_key])
+            & history_partition_keys
+        )
+        unbound_repair_completion_markers = (
+            set(snapshot["unbound_repair_completion_marker_partitions_by_asset"][asset_key])
+            & history_partition_keys
+        )
+        check_without_materialization = protected_checks - materialized
+        hot_window_excluded = (
+            history_partition_keys - materialized - protected_checks
+        ) & hot_window_keys
+        safe_candidates = history_partition_keys - materialized - protected_checks - hot_window_keys
         candidates.extend(
             StockYearMaterializationCandidate(asset_key=asset_key, partition_key=partition_key)
             for partition_key in sorted(safe_candidates)
@@ -423,6 +456,9 @@ def _classify_candidates(
             "registered_history_partition_count": len(history_partition_keys),
             "already_materialized": _date_summary(materialized),
             "check_without_materialization": _date_summary(check_without_materialization),
+            "unbound_repair_completion_marker_only": _date_summary(
+                unbound_repair_completion_markers - protected_checks
+            ),
             "hot_window_excluded": _date_summary(hot_window_excluded),
             "safe_candidate": _date_summary(safe_candidates),
         }
@@ -446,7 +482,7 @@ def _assert_chunk_is_current(
         asset_key: set(instance.get_materialized_partitions(dg.AssetKey(asset_key)))
         for asset_key in {candidate.asset_key for candidate in candidates}
     }
-    checked_pairs = _check_candidate_pairs(candidates)
+    protected_check_pairs = _protected_check_candidate_pairs(candidates)
     for candidate in candidates:
         pair = (candidate.asset_key, candidate.partition_key)
         if candidate.partition_key not in history_keys:
@@ -461,7 +497,7 @@ def _assert_chunk_is_current(
             raise StockYearMaterializationReconciliationError(
                 f"Candidate now has a materialization: {candidate.asset_key}[{candidate.partition_key}]."
             )
-        if pair in checked_pairs:
+        if pair in protected_check_pairs:
             raise StockYearMaterializationReconciliationError(
                 f"Candidate now has check state: {candidate.asset_key}[{candidate.partition_key}]."
             )
@@ -482,36 +518,62 @@ def _history_partition_keys(registered: set[str]) -> tuple[set[str], list[str]]:
     return history_keys, sorted(invalid_keys)
 
 
-def _check_partitions_by_asset(asset_keys: Sequence[str]) -> dict[str, set[str]]:
-    result = {asset_key: set() for asset_key in asset_keys}
+def _check_partition_sets(
+    asset_keys: Sequence[str],
+) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    protected = {asset_key: set() for asset_key in asset_keys}
+    unbound_repair_completion_markers = {asset_key: set() for asset_key in asset_keys}
     encoded_keys = ", ".join(
         "'" + json.dumps([asset_key]).replace("'", "''") + "'"
         for asset_key in asset_keys
     )
     rows = _psql_rows(
         """
-        SELECT asset_key, partition
+        SELECT asset_key, partition, check_name, execution_status, materialization_event_storage_id
         FROM asset_check_executions
         WHERE partition IS NOT NULL
           AND asset_key IN ("""
         + encoded_keys
         + """
           )
-        GROUP BY asset_key, partition
-        ORDER BY asset_key, partition
+        GROUP BY asset_key, partition, check_name, execution_status, materialization_event_storage_id
+        ORDER BY asset_key, partition, check_name, execution_status, materialization_event_storage_id
         """
     )
-    for encoded_asset_key, partition_key in rows:
-        decoded = json.loads(encoded_asset_key)
-        if not isinstance(decoded, list) or len(decoded) != 1 or decoded[0] not in result:
-            raise StockYearMaterializationReconciliationError(
-                f"Unexpected target check asset key: {encoded_asset_key!r}."
+    checks_by_pair: dict[tuple[str, str], list[tuple[str, str, int | None]]] = {}
+    for (
+        encoded_asset_key,
+        partition_key,
+        check_name,
+        execution_status,
+        materialization_storage_id,
+    ) in rows:
+        asset_key = _decode_target_asset_key(encoded_asset_key, protected)
+        key = (asset_key, str(partition_key))
+        checks_by_pair.setdefault(key, []).append(
+            (
+                str(check_name),
+                str(execution_status),
+                _optional_storage_id(materialization_storage_id),
             )
-        result[str(decoded[0])].add(str(partition_key))
-    return result
+        )
+    for (asset_key, partition_key), checks in checks_by_pair.items():
+        if all(
+            _is_unbound_repair_completion_marker(
+                asset_key=asset_key,
+                check_name=check_name,
+                execution_status=execution_status,
+                materialization_storage_id=materialization_storage_id,
+            )
+            for check_name, execution_status, materialization_storage_id in checks
+        ):
+            unbound_repair_completion_markers[asset_key].add(partition_key)
+        else:
+            protected[asset_key].add(partition_key)
+    return protected, unbound_repair_completion_markers
 
 
-def _check_candidate_pairs(
+def _protected_check_candidate_pairs(
     candidates: Sequence[StockYearMaterializationCandidate],
 ) -> set[tuple[str, str]]:
     if not candidates:
@@ -522,16 +584,76 @@ def _check_candidate_pairs(
         for candidate in candidates
     )
     rows = _psql_rows(
-        "SELECT asset_key, partition FROM asset_check_executions "
+        "SELECT asset_key, partition, check_name, execution_status, materialization_event_storage_id "
+        "FROM asset_check_executions "
         "WHERE (asset_key, partition) IN (" + encoded_pairs + ") "
-        "GROUP BY asset_key, partition ORDER BY asset_key, partition"
+        "GROUP BY asset_key, partition, check_name, execution_status, materialization_event_storage_id "
+        "ORDER BY asset_key, partition, check_name, execution_status, materialization_event_storage_id"
     )
-    pairs: set[tuple[str, str]] = set()
-    for encoded_asset_key, partition_key in rows:
-        decoded = json.loads(encoded_asset_key)
-        if isinstance(decoded, list) and len(decoded) == 1:
-            pairs.add((str(decoded[0]), str(partition_key)))
-    return pairs
+    checks_by_pair: dict[tuple[str, str], list[tuple[str, str, int | None]]] = {}
+    allowed_asset_keys = {candidate.asset_key for candidate in candidates}
+    for (
+        encoded_asset_key,
+        partition_key,
+        check_name,
+        execution_status,
+        materialization_storage_id,
+    ) in rows:
+        asset_key = _decode_target_asset_key(encoded_asset_key, allowed_asset_keys)
+        key = (asset_key, str(partition_key))
+        checks_by_pair.setdefault(key, []).append(
+            (
+                str(check_name),
+                str(execution_status),
+                _optional_storage_id(materialization_storage_id),
+            )
+        )
+    return {
+        pair
+        for pair, checks in checks_by_pair.items()
+        if not all(
+            _is_unbound_repair_completion_marker(
+                asset_key=pair[0],
+                check_name=check_name,
+                execution_status=execution_status,
+                materialization_storage_id=materialization_storage_id,
+            )
+            for check_name, execution_status, materialization_storage_id in checks
+        )
+    }
+
+
+def _decode_target_asset_key(
+    encoded_asset_key: object,
+    allowed_asset_keys: Mapping[str, object] | set[str],
+) -> str:
+    decoded = json.loads(str(encoded_asset_key))
+    if not isinstance(decoded, list) or len(decoded) != 1 or decoded[0] not in allowed_asset_keys:
+        raise StockYearMaterializationReconciliationError(
+            f"Unexpected target check asset key: {encoded_asset_key!r}."
+        )
+    return str(decoded[0])
+
+
+def _optional_storage_id(value: object) -> int | None:
+    if value is None or str(value) == "":
+        return None
+    return int(str(value))
+
+
+def _is_unbound_repair_completion_marker(
+    *,
+    asset_key: str,
+    check_name: str,
+    execution_status: str,
+    materialization_storage_id: int | None,
+) -> bool:
+    return (
+        asset_key in RECOVERABLE_UNBOUND_REPAIR_COMPLETION_ASSET_KEYS
+        and check_name == GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME
+        and execution_status == "SUCCEEDED"
+        and materialization_storage_id is None
+    )
 
 
 def _active_run_statuses() -> dict[str, int]:

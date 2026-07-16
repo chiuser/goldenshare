@@ -46,14 +46,18 @@ class StockYearMaterializationReconciliationTests(unittest.TestCase):
     def _patch_control_plane(
         self,
         *,
-        checks: dict[str, set[str]] | None = None,
+        protected_checks: dict[str, set[str]] | None = None,
+        unbound_repair_completion_markers: dict[str, set[str]] | None = None,
         active: dict[str, int] | None = None,
     ):
+        protected = protected_checks or {}
+        markers = unbound_repair_completion_markers or {}
         return patch.multiple(
             subject,
-            _check_partitions_by_asset=lambda asset_keys: {
-                asset_key: set((checks or {}).get(asset_key, set())) for asset_key in asset_keys
-            },
+            _check_partition_sets=lambda asset_keys: (
+                {asset_key: set(protected.get(asset_key, set())) for asset_key in asset_keys},
+                {asset_key: set(markers.get(asset_key, set())) for asset_key in asset_keys},
+            ),
             _active_run_statuses=lambda: dict(active or {}),
             _control_counts=lambda: {
                 "asset_check_executions": 10,
@@ -63,7 +67,11 @@ class StockYearMaterializationReconciliationTests(unittest.TestCase):
                 "asset_event_tags": 14,
                 "dynamic_partitions": 15,
             },
-            _check_candidate_pairs=lambda _candidates: set(),
+            _protected_check_candidate_pairs=lambda candidates: {
+                (candidate.asset_key, candidate.partition_key)
+                for candidate in candidates
+                if candidate.partition_key in protected.get(candidate.asset_key, set())
+            },
         )
 
     def test_plan_uses_registered_control_plane_and_excludes_hot_window(self) -> None:
@@ -84,7 +92,9 @@ class StockYearMaterializationReconciliationTests(unittest.TestCase):
     def test_plan_excludes_existing_check_without_materialization(self) -> None:
         instance = self._instance()
         checks = {subject.TARGET_ASSET_KEYS[0]: {"2014-01-02"}}
-        with tempfile.TemporaryDirectory() as temporary_dir, self._patch_control_plane(checks=checks):
+        with tempfile.TemporaryDirectory() as temporary_dir, self._patch_control_plane(
+            protected_checks=checks
+        ):
             plan = subject.build_stock_year_materialization_plan(
                 instance=instance,
                 output_dir=Path(temporary_dir),
@@ -93,6 +103,124 @@ class StockYearMaterializationReconciliationTests(unittest.TestCase):
         self.assertNotIn("2014-01-02", {candidate.partition_key for candidate in first_asset})
         report = plan.report["asset_reports"][subject.TARGET_ASSET_KEYS[0]]
         self.assertEqual(report["check_without_materialization"]["count"], 1)
+
+    def test_plan_recovers_unbound_repair_completion_marker_only_partition(self) -> None:
+        instance = self._instance()
+        asset_key = subject.GOLD_STK_MINS_QFQ_MACD_KDJ_ASSET_NAMES[0]
+        with tempfile.TemporaryDirectory() as temporary_dir, self._patch_control_plane(
+            unbound_repair_completion_markers={asset_key: {"2014-01-02"}}
+        ):
+            plan = subject.build_stock_year_materialization_plan(
+                instance=instance,
+                output_dir=Path(temporary_dir),
+            )
+        asset_candidates = {
+            candidate.partition_key for candidate in plan.candidates if candidate.asset_key == asset_key
+        }
+        self.assertIn("2014-01-02", asset_candidates)
+        report = plan.report["asset_reports"][asset_key]
+        self.assertEqual(report["check_without_materialization"]["count"], 0)
+        self.assertEqual(report["unbound_repair_completion_marker_only"]["count"], 1)
+
+    def test_only_unbound_repair_completion_marker_is_recoverable(self) -> None:
+        asset_key = subject.GOLD_STK_MINS_QFQ_MACD_KDJ_ASSET_NAMES[0]
+        encoded_asset_key = f'["{asset_key}"]'
+        with patch.object(
+            subject,
+            "_psql_rows",
+            return_value=[
+                (
+                    encoded_asset_key,
+                    "2014-01-02",
+                    subject.GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME,
+                    "SUCCEEDED",
+                    None,
+                )
+            ],
+        ):
+            protected, markers = subject._check_partition_sets((asset_key,))
+        self.assertEqual(protected[asset_key], set())
+        self.assertEqual(markers[asset_key], {"2014-01-02"})
+
+        with patch.object(
+            subject,
+            "_psql_rows",
+            return_value=[
+                (
+                    encoded_asset_key,
+                    "2014-01-02",
+                    subject.GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME,
+                    "SUCCEEDED",
+                    None,
+                ),
+                (encoded_asset_key, "2014-01-02", "contract", "SUCCEEDED", None),
+            ],
+        ):
+            protected, markers = subject._check_partition_sets((asset_key,))
+        self.assertEqual(protected[asset_key], {"2014-01-02"})
+        self.assertEqual(markers[asset_key], set())
+
+    def test_empty_psql_field_means_unbound_completion_marker(self) -> None:
+        asset_key = subject.GOLD_STK_MINS_QFQ_MACD_KDJ_ASSET_NAMES[0]
+        encoded_asset_key = f'["{asset_key}"]'
+        with patch.object(
+            subject,
+            "_psql_rows",
+            return_value=[
+                (
+                    encoded_asset_key,
+                    "2014-01-02",
+                    subject.GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME,
+                    "SUCCEEDED",
+                    "",
+                )
+            ],
+        ):
+            protected, markers = subject._check_partition_sets((asset_key,))
+        self.assertEqual(protected[asset_key], set())
+        self.assertEqual(markers[asset_key], {"2014-01-02"})
+
+    def test_apply_recheck_allows_only_unbound_repair_completion_marker(self) -> None:
+        asset_key = subject.GOLD_STK_MINS_QFQ_MACD_KDJ_ASSET_NAMES[0]
+        candidate = subject.StockYearMaterializationCandidate(
+            asset_key=asset_key,
+            partition_key="2014-01-02",
+        )
+        encoded_asset_key = f'["{asset_key}"]'
+        with patch.object(
+            subject,
+            "_psql_rows",
+            return_value=[
+                (
+                    encoded_asset_key,
+                    "2014-01-02",
+                    subject.GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME,
+                    "SUCCEEDED",
+                    None,
+                )
+            ],
+        ):
+            self.assertEqual(subject._protected_check_candidate_pairs((candidate,)), set())
+
+    def test_failed_repair_completion_marker_remains_protected(self) -> None:
+        asset_key = subject.GOLD_STK_MINS_QFQ_MACD_KDJ_ASSET_NAMES[0]
+        encoded_asset_key = f'["{asset_key}"]'
+        with patch.object(
+            subject,
+            "_psql_rows",
+            return_value=[
+                (
+                    encoded_asset_key,
+                    "2014-01-02",
+                    subject.GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME,
+                    "FAILED",
+                    None,
+                )
+            ],
+        ):
+            protected, markers = subject._check_partition_sets((asset_key,))
+        self.assertEqual(protected[asset_key], {"2014-01-02"})
+        self.assertEqual(markers[asset_key], set())
 
     def test_plan_stops_for_active_run_or_invalid_partition(self) -> None:
         instance = self._instance()

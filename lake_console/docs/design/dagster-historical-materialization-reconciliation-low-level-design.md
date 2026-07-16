@@ -421,7 +421,7 @@ P4 只处理 14 个当前 active、按股票年存储、但 Dagster 分区仍是
 1. 管理员已确认：这些待补历史分区此前已完成对应 production check，后来因 Dagster PostgreSQL 清理而失去历史 event；P4 不把它们当成待验证的数据。
 2. `DagsterInstance.get_dynamic_partitions(...)` 只读当前九转无关的分钟 Silver 交易日注册集合。
 3. `DagsterInstance.get_materialized_partitions(AssetKey(...))` 只读每个目标 asset 的现有 materialization，防止重复写。
-4. `asset_check_executions` 的只读查询只用于排除已有 check 的分区，保护“latest materialization 必须与 check 绑定”的 readiness 语义。
+4. `asset_check_executions` 的只读查询用于区分会保护现状的 check 与历史 repair completion 标记；普通 check、失败 check 或绑定 materialization 的 check 必须排除，不能被本专项改写其 readiness 身份。
 5. `runs` 的只读查询只用于发现活跃 Dagster run；任何活跃 run 都阻止后续 apply。
 
 以下对象不进入 P4：
@@ -438,15 +438,16 @@ P4 只处理 14 个当前 active、按股票年存储、但 Dagster 分区仍是
 
 | 分类 | 条件 | 动作 |
 | --- | --- | --- |
-| `safe_candidate` | 已注册、在历史起点之后、非最新 20 个已注册日期、没有 materialization、没有任何 check、无活跃 run | 仅在后续 P4B 获批后补一条 materialization |
+| `safe_candidate` | 已注册、在历史起点之后、非最新 20 个已注册日期、没有 materialization、没有保护性 check、无活跃 run | 仅在后续获批后补一条 materialization |
 | `already_materialized` | 已有 materialization | 跳过 |
-| `check_without_materialization` | 没有 materialization、但已有任意 check execution | 跳过并报告；绝不补 materialization |
+| `unbound_repair_completion_marker_only` | 仅七个 indicator asset；该分区所有 check 都是 `gold_stk_mins_qfq_macd_kdj_repair_completed_check`、`SUCCEEDED` 且 `materialization_event_storage_id IS NULL` | 允许作为 `safe_candidate`；保留原 check，不写新 check |
+| `check_without_materialization` | 没有 materialization，且存在普通 check、失败 check、绑定 materialization 的 check，或不满足上述精确例外的任意 check | 跳过并报告；绝不补 materialization |
 | `hot_window_excluded` | 属于注册集合最新 20 个日期 | 跳过；把近期生产状态完全留给正常 job/sensor |
 | `before_history_start` | 早于 `STK_MINS_QFQ_HISTORY_START_DATE` | 不属于 P4 候选 |
 | `active_run_blocked` | Dagster instance 存在 `QUEUED/STARTING/STARTED/CANCELING` run | 整个 plan 标记 `should_stop=true`，不得进入 apply |
 | `invalid_partition_key` | 注册 key 不是 ISO 日期，或无法稳定排序 | `should_stop=true`，不得进入 apply |
 
-`check_without_materialization` 必须排除。向这种分区追加 materialization 会使原 check 不再绑定最新 materialization，反而可能让原本可用的状态变为 not ready。P4 仍只补 materialization、不补 check，因此 P4 写入后的历史分区在 readiness 语义中仍是 **not ready**；这正是本专项的安全边界。
+`check_without_materialization` 必须排除。向这种分区追加 materialization 会使原 check 不再绑定最新 materialization，反而可能让原本可用的状态变为 not ready。唯一例外是 P4C 识别的旧 repair completion 标记：它本来就是 repair 状态记录，不绑定 materialization，也不是指标分区的 blocking data check。该例外只覆盖七个非 state 指标 asset 的精确 check 名、成功状态和空绑定三项同时成立；一条普通、失败或绑定 check 即恢复 fail-closed。P4 仍只补 materialization、不补 check，因此 P4 写入后的历史分区在 readiness 语义中仍是 **not ready**；这正是本专项的安全边界。
 
 ### 9.4 P4A：正式 instance 只读 Plan（已完成）
 
@@ -456,7 +457,7 @@ P4A 是 P4 的初始只读冻结阶段。首次临时计划器位于 `/private/t
 
 - 一个动态分区集合；
 - 14 个 asset 的 materialized partition 集合；
-- `asset_check_executions` 中这 14 个 asset 的分区键；
+- `asset_check_executions` 中这 14 个 asset 的分区、check 名、执行状态和 materialization 绑定关系；
 - `runs` 的状态聚合。
 
 它明确不读取：
@@ -475,10 +476,10 @@ P4A 输出聚合报告和仅含 `(asset_key, partition_key)` 的候选 manifest�
 报告必须包含：
 
 - 固定 14 个 asset key、历史起点、注册日期集合的 count/min/max/sorted hash；
-- 每个 asset 的 `already_materialized`、`check_without_materialization`、`hot_window_excluded`、`safe_candidate` 数量及首尾日期/有限样本；
+- 每个 asset 的 `already_materialized`、`check_without_materialization`、`unbound_repair_completion_marker_only`、`hot_window_excluded`、`safe_candidate` 数量及首尾日期/有限样本；
 - 全部 safe candidate 的 count 与 `asset_key + partition_key` 排序 hash，不把完整候选清单塞入 cursor 或 Dagster metadata；
 - active run 状态聚合、`should_stop` 和具体 stop reason；
-- 基于“注册集合、materialization 集合、check 分区集合、热窗口集合”的 plan fingerprint；
+- 基于“注册集合、materialization 集合、check 身份/状态/绑定集合、热窗口集合”的 plan fingerprint；
 - 读取耗时；进程峰值内存和报告字节数如需留档，由外部只读审计记录，不作为 plan JSON 的强制字段。
 
 2026-07-15 的正式 instance 只读执行结果：
@@ -510,7 +511,7 @@ P4 的性能模型只处理 Dagster PostgreSQL/instance 的小型状态集合，
 | --- | ---: | --- | --- |
 | 动态分区集合 | 1 | 当前注册分钟 Silver 交易日数 | 不扫 Lake |
 | materialized partition 集合 | 14 | 每 asset 至多一个日期集合 | 不读 event payload |
-| check 分区集合 | 1 个聚合查询 | 14 asset 的去重分区键 | 不读 check metadata |
+| check 状态集合 | 1 个聚合查询 | 14 asset 的分区、check 名、状态和绑定 ID | 不读 check metadata 或 event payload |
 | run 状态 | 1 个聚合查询 | 状态行数很小 | 不读 run log |
 | 候选计算 | 内存 set 差集 | 14 × 注册日期数 | 不建文件/代码级映射 |
 
@@ -566,9 +567,52 @@ post-audit 结论：
 
 1. `all_selected_candidates_materialized=true`，14 个 asset 均无缺失候选。
 2. 新鲜 plan 的 `planned_materialization_event_count=0`、`should_stop=false`、active run 为空；没有待补历史候选。
-3. 7 个 QFQ asset 各有 3,045 个历史 materialization；7 个 indicator asset 各有 3,044 个 materialization，且各自保留 `2014-01-02` 的一个 check-only 分区。最新热窗口仍完全由正常生产链路负责。
+3. 在 P4B 当时，7 个 QFQ asset 各有 3,045 个历史 materialization；7 个 indicator asset 各有 3,044 个 materialization，且各自保留 `2014-01-02` 的一个 check-only 分区。该过宽的“任意 check 都排除”分类在后续 P4C 中已精确纠正，见第 9.6.2 节。最新热窗口仍完全由正常生产链路负责。
 4. 下列非 materialization 控制面计数在 apply 前后严格一致：`asset_check_event_logs=701,643`、`asset_check_executions=422,221`、`asset_event_tags=28,377`、`dynamic_partitions=31,458`、`run_tags=320,868`、`runs=47,146`。
 5. 对 `2014-01-02` 的正式 instance 只读验证显示：五个 native QFQ asset 都已 materialized，但各自四个 blocking check 都缺失，整体 readiness 仍为 `false`。因此，本次补录只恢复 UI/backfill 的 materialized 可见性，没有把历史分区误标为当前可消费状态。
+
+#### 9.6.2 P4C：旧 repair completion 标记的精确纠正（已完成）
+
+P4B 后发现七个 `gold_stk_mins_qfq_macd_kdj_<freq>m` indicator asset 的 `2014-01-02` 没有 materialization。根因不是缺 Lake 文件或缺计算，而是 P4B 的初版分类把“有任意 check”一概归入 `check_without_materialization`。实际控制面事实是：每个 asset 有 25 条历史 `gold_stk_mins_qfq_macd_kdj_repair_completed_check`，全部 `SUCCEEDED`，全部 `materialization_event_storage_id IS NULL`，没有其它 check；它们是 repair completion 状态，不是绑定到指标 materialization 的数据检查。
+
+P4C 将离线工具的 plan schema 升为 `2`，使旧 schema `1` plan 不能在新规则下 apply。唯一新增例外严格限制为：七个 indicator asset、精确 repair completion check 名、`SUCCEEDED`、未绑定 materialization；任何普通 check、失败 check、绑定 check、state asset 或范围外 asset 均继续保护并拒绝写入。工具不进入 active definitions，不改计算、Lake、check、job、sensor、动态分区或 readiness 实现。
+
+本次只读 plan 精确得到 7 条候选，全部为 `2014-01-02`：
+
+```text
+plan:
+/private/tmp/dagster_historical_materialization_reconciliation_stock_year_trusted_plan_20260715_221023.json
+
+candidate manifest:
+/private/tmp/dagster_historical_materialization_reconciliation_stock_year_trusted_candidates_20260715_221023.jsonl
+
+plan fingerprint:
+4bc64591df9edecc3bfef73086af786a93730f9564e6ab8954f0d5009e3c1f0f
+
+backup manifest:
+/Users/congming/.goldenshare/dagster_backups/historical_materialization_reconciliation_stock_year_p4c_20260715_221023/manifest.json
+
+backup archive:
+/Users/congming/.goldenshare/dagster_backups/historical_materialization_reconciliation_stock_year_p4c_20260715_221023/goldenshare_dagster.dump
+
+apply report:
+/private/tmp/dagster_historical_materialization_reconciliation_stock_year_trusted_apply_20260715_221139.json
+
+post-audit report:
+/private/tmp/dagster_historical_materialization_reconciliation_stock_year_trusted_audit_20260715_221147.json
+
+fresh post-plan:
+/private/tmp/dagster_historical_materialization_reconciliation_stock_year_trusted_plan_20260715_221252.json
+```
+
+新的完整 Dagster PostgreSQL 逻辑备份使用 custom + `gzip:3`，源数据库为 16,051,943,103 bytes，归档为 568,625,866 bytes，SHA-256 为 `b9b871160ac0843a94c13c439822041c721c532a00b40ef8583be858c524ba60`；`pg_restore --list` 与完整读取均通过。apply 在一个 7-event 内部块内完成，batch id 为 `0c7a21dc-0251-49a3-aa18-c6e1a45f7266`，耗时 1,727.4 ms。
+
+post-audit 确认：
+
+1. 7 个目标 asset 的 `2014-01-02` 均已有 1 条 materialization；各自 25 条旧 completion check 原样保留，且不存在其它 check。
+2. `asset_check_event_logs=701,645`、`asset_check_executions=422,222`、`asset_event_tags=28,378`、`dynamic_partitions=31,458`、`run_tags=320,874`、`runs=47,147` 在 apply 前后严格一致。
+3. 新 schema `2` fresh plan 的 `planned_materialization_event_count=0`、`should_stop=false`；七个 asset 都显示 3,045 个 materialization，最早日期已是 `2014-01-02`。
+4. 原 completion 标记仍不绑定 materialization，也不参与指标的 blocking readiness；P4C 只恢复 UI/backfill 的 materialized 展示，不会把历史分区标为 ready。
 
 ### 9.7 测试、验收和停止条件
 
@@ -582,6 +626,8 @@ P4B 已新增离线测试 `tests/test_stk_mins_stock_year_materialization_reconc
 6. 只有 materialization 的 ephemeral Dagster fixture 必须仍显示 not ready，保护现有 readiness 语义。
 7. stale fingerprint、部分写入后的重试和已有 materialization 都必须幂等。
 
+P4C 额外覆盖：只有成功且未绑定的精确 repair completion 标记可进入候选；空字符串形式的 `psql` NULL 必须等价于未绑定；普通 check、绑定 check 和失败 completion 标记均必须继续阻断。P4C 本地专项测试共 12 个用例通过。
+
 P4B 停止条件：
 
 - P4A 发现 active run、非 ISO 注册 key、资产白名单漂移或任何未解释的控制面契约异常；
@@ -592,7 +638,7 @@ P4B 停止条件：
 
 ### 9.8 对运行链路的影响
 
-P4 不改 asset、check、job、sensor、partition、run key、Lake layout、公式 SQL 或 readiness 实现。QFQ/MACD-KDJ daily 与 repair sensor 仍通过最新 materialization 加 blocking checks 的原有 API 判断 readiness；P4 只写 materialization，不能替代当前生产 check 或 repair。
+P4 不改 asset、check、job、sensor、partition、run key、Lake layout、公式 SQL 或 readiness 实现。QFQ/MACD-KDJ daily 与 repair sensor 仍通过最新 materialization 加 blocking checks 的原有 API 判断 readiness；P4 只写 materialization，不能替代当前生产 check 或 repair。除 P4C 的精确历史 repair completion 例外外，任何已有 check 均继续阻断历史 materialization 恢复。
 
 对历史 UI 和 materialization-based backfill 选择而言，已恢复分区会正常显示为 materialized。对当前日更而言，最新 20 个注册交易日和任何已有 check 的分区始终排除，因此 P4 不会把历史状态误写成当前生产成功，也不会改变自动触发逻辑。
 ## 10. A-E 通用工具测试设计
