@@ -25,7 +25,11 @@ from orchestrator.defs.duckdb_sql import (
     duckdb_string,
     read_parquet,
 )
-from orchestrator.defs.partitions import cn_a_index_trade_days
+from orchestrator.defs.partitions import (
+    cn_a_dc_daily_trade_days,
+    cn_a_dc_index_trade_days,
+    cn_a_dc_member_trade_days,
+)
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
     PATH_TEMPLATE_PARTITION_KEY,
@@ -543,7 +547,7 @@ def _materialize_result(result: DcBoardSilverWriteResult, schema: Sequence[objec
 
 @dg.asset(
     name="silver_dc_index",
-    partitions_def=cn_a_index_trade_days,
+    partitions_def=cn_a_dc_index_trade_days,
     deps=[raw_tushare_dc_index],
     group_name="board",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.INDEX_TOPIC),
@@ -556,7 +560,7 @@ def _materialize_result(result: DcBoardSilverWriteResult, schema: Sequence[objec
             silver_dc_index_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
         ),
         extra_metadata={
-            "partition_set": cn_a_index_trade_days.name,
+            "partition_set": cn_a_dc_index_trade_days.name,
             "source_asset": "raw_tushare_dc_index",
             "write_boundary": "m5_duckdb_set_based_atomic_replace",
         },
@@ -573,7 +577,7 @@ def silver_dc_index(context: dg.AssetExecutionContext, lake_root: LakeRootResour
 
 @dg.asset(
     name="silver_dc_member",
-    partitions_def=cn_a_index_trade_days,
+    partitions_def=cn_a_dc_member_trade_days,
     deps=[raw_tushare_dc_member],
     group_name="board",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.INDEX_TOPIC),
@@ -586,7 +590,7 @@ def silver_dc_index(context: dg.AssetExecutionContext, lake_root: LakeRootResour
             silver_dc_member_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
         ),
         extra_metadata={
-            "partition_set": cn_a_index_trade_days.name,
+            "partition_set": cn_a_dc_member_trade_days.name,
             "source_asset": "raw_tushare_dc_member",
             "write_boundary": "m5_duckdb_set_based_atomic_replace",
         },
@@ -603,7 +607,7 @@ def silver_dc_member(context: dg.AssetExecutionContext, lake_root: LakeRootResou
 
 @dg.asset(
     name="silver_dc_daily",
-    partitions_def=cn_a_index_trade_days,
+    partitions_def=cn_a_dc_daily_trade_days,
     deps=[raw_tushare_dc_daily],
     group_name="board",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.INDEX_TOPIC),
@@ -616,7 +620,7 @@ def silver_dc_member(context: dg.AssetExecutionContext, lake_root: LakeRootResou
             silver_dc_daily_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
         ),
         extra_metadata={
-            "partition_set": cn_a_index_trade_days.name,
+            "partition_set": cn_a_dc_daily_trade_days.name,
             "source_asset": "raw_tushare_dc_daily",
             "write_boundary": "m5_duckdb_set_based_atomic_replace",
         },

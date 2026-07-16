@@ -12,7 +12,13 @@ from orchestrator.defs.assets.dc_board_raw import (
     raw_tushare_dc_member,
 )
 from orchestrator.defs.duckdb_sql import describe_parquet_query, read_parquet
-from orchestrator.defs.partitions import cn_a_index_trade_days
+from orchestrator.defs.asset_guards.dc_board_relations import audit_raw_board_relation
+from orchestrator.defs.asset_guards.dc_board_raw_quality import RAW_DC_QUALITY_SPECS
+from orchestrator.defs.partitions import (
+    cn_a_dc_daily_trade_days,
+    cn_a_dc_index_trade_days,
+    cn_a_dc_member_trade_days,
+)
 from orchestrator.defs.paths import raw_dc_daily_path, raw_dc_index_path, raw_dc_member_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
@@ -49,6 +55,10 @@ def _core_check(
     key_columns: Sequence[str],
     identity_predicate: str,
     identity_columns: Sequence[str],
+    numeric_predicate: str = "FALSE",
+    coverage_column: str | None = None,
+    coverage_values: Sequence[str] = (),
+    relation_mode: str | None = None,
 ) -> dg.AssetCheckResult:
     partition_keys = _single_partition(context)
     if len(partition_keys) != 1:
@@ -176,12 +186,42 @@ def _core_check(
                 failed_rules.append("dataset_identity_fields_legal")
                 failed_row_count += identity_failed_count
 
+            numeric_failed_count = int(
+                connection.execute(
+                    f"SELECT count(*) FROM {read_parquet(path)} WHERE {numeric_predicate}"
+                ).fetchone()[0]
+            )
+            if numeric_failed_count:
+                failed_rules.append("numeric_value_domain_legal")
+                failed_row_count += numeric_failed_count
+
+            if coverage_column and coverage_values:
+                coverage_count = int(
+                    connection.execute(
+                        f"SELECT count(DISTINCT {coverage_column}) FROM {read_parquet(path)}"
+                    ).fetchone()[0]
+                )
+                if coverage_count < len(coverage_values):
+                    failed_rules.append("category_coverage_complete")
+                    failed_row_count += len(coverage_values) - coverage_count
+
             if failed_rules:
                 sample_query = (
                     f"SELECT {', '.join(identity_columns)} FROM {read_parquet(path)} "
                     f"WHERE NOT ({identity_predicate}) LIMIT 5"
                 )
                 samples = _sample_rows(connection, sample_query, identity_columns)
+            if relation_mode is not None:
+                relation_failed_count, relation_samples = audit_raw_board_relation(
+                    connection,
+                    source_path=path,
+                    index_path=raw_dc_index_path(lake_root.root(), partition_key),
+                    mode=relation_mode,
+                )
+                if relation_failed_count:
+                    failed_rules.append("same_day_board_relation_integrity")
+                    failed_row_count += relation_failed_count
+                    samples.extend(relation_samples)
         except Exception as exc:
             failed_rules.append("duckdb_scan")
             return dg.AssetCheckResult(
@@ -220,7 +260,7 @@ def _core_check(
 @dg.asset_check(
     asset=raw_tushare_dc_index,
     name="raw_tushare_dc_index_core_check",
-    partitions_def=cn_a_index_trade_days,
+    partitions_def=cn_a_dc_index_trade_days,
     blocking=True,
 )
 def raw_tushare_dc_index_core_check(
@@ -242,13 +282,17 @@ def raw_tushare_dc_index_core_check(
             "AND name IS NOT NULL AND trim(CAST(name AS VARCHAR)) <> ''"
         ),
         identity_columns=("ts_code", "idx_type", "name"),
+        numeric_predicate=RAW_DC_QUALITY_SPECS["dc_index"].numeric_condition,
+        coverage_column=RAW_DC_QUALITY_SPECS["dc_index"].coverage_column,
+        coverage_values=RAW_DC_QUALITY_SPECS["dc_index"].coverage_values,
     )
 
 
 @dg.asset_check(
     asset=raw_tushare_dc_member,
+    additional_deps=[raw_tushare_dc_index],
     name="raw_tushare_dc_member_core_check",
-    partitions_def=cn_a_index_trade_days,
+    partitions_def=cn_a_dc_member_trade_days,
     blocking=True,
 )
 def raw_tushare_dc_member_core_check(
@@ -270,13 +314,18 @@ def raw_tushare_dc_member_core_check(
             "AND name IS NOT NULL AND trim(CAST(name AS VARCHAR)) <> ''"
         ),
         identity_columns=("ts_code", "con_code", "name"),
+        numeric_predicate=RAW_DC_QUALITY_SPECS["dc_member"].numeric_condition,
+        coverage_column=RAW_DC_QUALITY_SPECS["dc_member"].coverage_column,
+        coverage_values=RAW_DC_QUALITY_SPECS["dc_member"].coverage_values,
+        relation_mode="member_subset_index",
     )
 
 
 @dg.asset_check(
     asset=raw_tushare_dc_daily,
+    additional_deps=[raw_tushare_dc_index],
     name="raw_tushare_dc_daily_core_check",
-    partitions_def=cn_a_index_trade_days,
+    partitions_def=cn_a_dc_daily_trade_days,
     blocking=True,
 )
 def raw_tushare_dc_daily_core_check(
@@ -297,6 +346,10 @@ def raw_tushare_dc_daily_core_check(
             "AND category IN ('行业板块', '概念板块', '地域板块')"
         ),
         identity_columns=("ts_code", "category"),
+        numeric_predicate=RAW_DC_QUALITY_SPECS["dc_daily"].numeric_condition,
+        coverage_column=RAW_DC_QUALITY_SPECS["dc_daily"].coverage_column,
+        coverage_values=RAW_DC_QUALITY_SPECS["dc_daily"].coverage_values,
+        relation_mode="daily_equals_index",
     )
 
 

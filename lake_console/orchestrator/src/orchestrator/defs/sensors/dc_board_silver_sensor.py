@@ -24,7 +24,11 @@ from orchestrator.defs.asset_guards.dc_board_silver_lake_readiness import (
     batch_silver_dc_index_lake_readiness,
     batch_silver_dc_member_lake_readiness,
 )
-from orchestrator.defs.partitions import cn_a_index_trade_days
+from orchestrator.defs.partitions import (
+    cn_a_dc_daily_trade_days,
+    cn_a_dc_index_trade_days,
+    cn_a_dc_member_trade_days,
+)
 from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.defs.run_contracts.cursor_payloads import (
     build_cursor_details,
@@ -56,6 +60,7 @@ def _load_window(
     connection,
     evaluated_at: datetime,
     min_trade_date: str,
+    partition_set: str,
 ) -> tuple[ContinuityExpectedDateWindow, tuple[str, ...], ContinuityRegisteredGapStatus]:
     lake_root = context.resources.lake_root
     lake_root.ensure_available_for_run()
@@ -68,7 +73,7 @@ def _load_window(
         window_limit=DC_BOARD_SENSOR_WINDOW_LIMIT,
     )
     registered = tuple(
-        sorted(context.instance.get_dynamic_partitions(cn_a_index_trade_days.name))
+        sorted(context.instance.get_dynamic_partitions(partition_set))
     )
     gap_status = build_registered_gap_status(
         expected_trade_dates=expected_window.expected_trade_dates,
@@ -94,6 +99,7 @@ def _cursor(
     blocked_component: str,
     summary: str,
     next_action: str,
+    partition_set: str,
 ) -> str:
     frontier = {
         "continuity": compact_continuity_frontier(
@@ -125,7 +131,7 @@ def _cursor(
             sensor_name=sensor_name,
             job_name=job_name,
             asset_family="dc_board_silver",
-            partition_set=cn_a_index_trade_days.name,
+            partition_set=partition_set,
             reason_code=reason_code,
             blocked_component=blocked_component,
             summary=summary,
@@ -157,6 +163,7 @@ def _evaluate_silver_sensor(
     min_trade_date: str,
     raw_reader,
     silver_reader,
+    partition_set,
 ) -> dg.SensorResult:
     duckdb_resource = context.resources.duckdb
     try:
@@ -166,6 +173,7 @@ def _evaluate_silver_sensor(
                 connection=connection,
                 evaluated_at=evaluated_at,
                 min_trade_date=min_trade_date,
+                partition_set=partition_set,
             )
             if not gap_status.ready:
                 reason = "registered partition gap blocks Silver update"
@@ -187,9 +195,10 @@ def _evaluate_silver_sensor(
                         selected_trade_date=None,
                         target_date=gap_status.first_missing_registered_date,
                         reason_code="missing_registered_partition",
-                        blocked_component=cn_a_index_trade_days.name,
+                        blocked_component=partition_set,
                         summary=reason,
                         next_action="register the first missing trade-date partition",
+                        partition_set=partition_set,
                     ),
                 )
             raw_batch = raw_reader(
@@ -223,6 +232,7 @@ def _evaluate_silver_sensor(
                 blocked_component="calendar_or_lake",
                 summary="bounded Silver readiness scan failed",
                 next_action="inspect the lake scan error and retry after correction",
+                partition_set=partition_set,
             ),
         )
 
@@ -258,6 +268,7 @@ def _evaluate_silver_sensor(
                 blocked_component=job_name.removesuffix("_update_job"),
                 summary="materialized Silver checks failed; no automatic overwrite",
                 next_action="repair the existing Silver partition manually",
+                partition_set=partition_set,
             ),
         )
 
@@ -281,6 +292,7 @@ def _evaluate_silver_sensor(
                 blocked_component="none",
                 summary=reason,
                 next_action="wait for the next expected trade date",
+                partition_set=partition_set,
             ),
         )
 
@@ -311,6 +323,7 @@ def _evaluate_silver_sensor(
                 ),
                 summary="Raw first-not-ready frontier blocks Silver",
                 next_action="repair or materialize the Raw target before retrying Silver",
+                partition_set=partition_set,
             ),
         )
 
@@ -340,6 +353,7 @@ def _evaluate_silver_sensor(
             blocked_component="none",
             summary="Raw frontier covers the first Silver gap",
             next_action="wait for the Silver run and core check to complete",
+            partition_set=partition_set,
         ),
     )
 
@@ -364,6 +378,7 @@ def silver_dc_index_update_job_sensor(context: dg.SensorEvaluationContext) -> dg
         min_trade_date=DC_INDEX_HISTORY_START_DATE,
         raw_reader=batch_raw_dc_index_lake_readiness,
         silver_reader=batch_silver_dc_index_lake_readiness,
+        partition_set=cn_a_dc_index_trade_days.name,
     )
 
 
@@ -387,6 +402,7 @@ def silver_dc_member_update_job_sensor(context: dg.SensorEvaluationContext) -> d
         min_trade_date=DC_MEMBER_HISTORY_START_DATE,
         raw_reader=batch_raw_dc_member_lake_readiness,
         silver_reader=batch_silver_dc_member_lake_readiness,
+        partition_set=cn_a_dc_member_trade_days.name,
     )
 
 
@@ -410,6 +426,7 @@ def silver_dc_daily_update_job_sensor(context: dg.SensorEvaluationContext) -> dg
         min_trade_date=DC_DAILY_HISTORY_START_DATE,
         raw_reader=batch_raw_dc_daily_lake_readiness,
         silver_reader=batch_silver_dc_daily_lake_readiness,
+        partition_set=cn_a_dc_daily_trade_days.name,
     )
 
 

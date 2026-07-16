@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from pathlib import Path
 from time import perf_counter
 
@@ -14,7 +15,9 @@ from orchestrator.defs.asset_guards.dc_board_silver_quality import (
     SILVER_DC_QUALITY_SPECS,
     SilverQualitySpec,
 )
+from orchestrator.defs.asset_guards.dc_board_relations import audit_silver_board_relation
 from orchestrator.defs.duckdb_sql import duckdb_string
+from orchestrator.defs.paths import silver_dc_index_path
 
 
 def _path_list(paths: Sequence[Path]) -> str:
@@ -295,6 +298,41 @@ def batch_silver_dc_board_lake_readiness(
             statuses.update(
                 _scan_existing(connection=connection, spec=spec, existing=existing)
             )
+            relation_mode = {
+                "dc_member": "member_subset_index",
+                "dc_daily": "daily_equals_index",
+            }.get(dataset)
+            if relation_mode is not None:
+                for trade_date, source_path in existing.items():
+                    status = statuses[trade_date]
+                    if not status.ready:
+                        continue
+                    relation_failed_count, relation_samples = audit_silver_board_relation(
+                        connection,
+                        source_path=source_path,
+                        index_path=silver_dc_index_path(lake_root, trade_date),
+                        mode=relation_mode,
+                    )
+                    if relation_failed_count:
+                        statuses[trade_date] = replace(
+                            status,
+                            ready=False,
+                            checks_passed=False,
+                            reason=f"silver {dataset} same-day board relation check failed for {trade_date}",
+                            failed_check_names=tuple(
+                                dict.fromkeys((*status.failed_check_names, spec.check_name))
+                            ),
+                            summary={
+                                **status.summary,
+                                "failed_rules": [
+                                    *list(status.summary.get("failed_rules", ())),
+                                    "same_day_board_relation_integrity",
+                                ],
+                                "reason_code": "cross_dataset_code_set_mismatch",
+                                "relation_failure_count": relation_failed_count,
+                                "relation_failure_samples": list(relation_samples),
+                            },
+                        )
         except Exception as exc:
             for trade_date, path in existing.items():
                 statuses[trade_date] = ContinuityDateReadiness(

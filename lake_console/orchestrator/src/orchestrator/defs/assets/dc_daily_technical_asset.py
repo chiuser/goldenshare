@@ -5,7 +5,7 @@ import dagster as dg
 from orchestrator.defs.assets.dc_daily_technical import (
     write_gold_dc_daily_technical_partition,
 )
-from orchestrator.defs.partitions import cn_a_index_trade_days
+from orchestrator.defs.partitions import cn_a_dc_daily_trade_days
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
     PATH_TEMPLATE_PARTITION_KEY,
@@ -31,7 +31,7 @@ from orchestrator.defs.run_contracts.metadata import (
 @dg.asset(
     name="gold_dc_daily_technical",
     deps=["silver_dc_daily"],
-    partitions_def=cn_a_index_trade_days,
+    partitions_def=cn_a_dc_daily_trade_days,
     group_name="board",
     tags=build_asset_tags(layer=AssetLayer.GOLD, data_domain=DataDomain.DERIVED_METRIC),
     metadata=build_asset_definition_metadata(
@@ -46,7 +46,7 @@ from orchestrator.defs.run_contracts.metadata import (
             )
         ),
         extra_metadata={
-            "partition_set": cn_a_index_trade_days.name,
+            "partition_set": cn_a_dc_daily_trade_days.name,
             "source_asset": "silver_dc_daily",
             "write_boundary": "p3_duckdb_set_based_staging_atomic_replace",
             "formula_contract": (

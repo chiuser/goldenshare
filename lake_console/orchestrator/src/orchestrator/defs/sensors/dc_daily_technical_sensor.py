@@ -20,7 +20,7 @@ from orchestrator.defs.asset_guards.dc_daily_technical_lake_readiness import (
 from orchestrator.defs.asset_guards.dc_board_silver_lake_readiness import (
     batch_silver_dc_daily_lake_readiness,
 )
-from orchestrator.defs.partitions import cn_a_index_trade_days
+from orchestrator.defs.partitions import cn_a_dc_daily_trade_days
 from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.defs.run_contracts.cursor_payloads import (
     build_cursor_details,
@@ -65,7 +65,7 @@ def _load_window(
         window_limit=DC_DAILY_TECHNICAL_SENSOR_WINDOW_LIMIT,
     )
     registered = tuple(
-        sorted(context.instance.get_dynamic_partitions(cn_a_index_trade_days.name))
+        sorted(context.instance.get_dynamic_partitions(cn_a_dc_daily_trade_days.name))
     )
     return window, registered, build_registered_gap_status(
         expected_trade_dates=window.expected_trade_dates,
@@ -104,7 +104,7 @@ def _cursor(
             sensor_name=SENSOR_NAME,
             job_name=JOB_NAME,
             asset_family="dc_daily_technical",
-            partition_set=cn_a_index_trade_days.name,
+            partition_set=cn_a_dc_daily_trade_days.name,
             reason_code=reason_code,
             blocked_component=blocked_component,
             summary=summary,
@@ -183,7 +183,7 @@ def gold_dc_daily_technical_update_job_sensor(
                         selected_trade_date=None,
                         target_date=gap_status.first_missing_registered_date,
                         reason_code="missing_registered_partition",
-                        blocked_component=cn_a_index_trade_days.name,
+                        blocked_component=cn_a_dc_daily_trade_days.name,
                         summary="registered partition gap blocks Gold technical update",
                         next_action="register the first missing trade-date partition",
                     ),

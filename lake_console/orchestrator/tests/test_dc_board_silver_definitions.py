@@ -25,7 +25,11 @@ from orchestrator.defs.sensors.dc_board_silver_sensor import (
     silver_dc_index_update_job_sensor,
     silver_dc_member_update_job_sensor,
 )
-from orchestrator.defs.partitions import cn_a_index_trade_days
+from orchestrator.defs.partitions import (
+    cn_a_dc_daily_trade_days,
+    cn_a_dc_index_trade_days,
+    cn_a_dc_member_trade_days,
+)
 
 
 def test_m5_silver_assets_and_checks_are_partitioned_and_raw_bound():
@@ -37,8 +41,10 @@ def test_m5_silver_assets_and_checks_are_partitioned_and_raw_bound():
         silver_dc_daily_core_check,
     )
 
+    assert silver_dc_index.partitions_def is cn_a_dc_index_trade_days
+    assert silver_dc_member.partitions_def is cn_a_dc_member_trade_days
+    assert silver_dc_daily.partitions_def is cn_a_dc_daily_trade_days
     for asset, raw_asset in zip(assets, raw_assets, strict=True):
-        assert asset.partitions_def is cn_a_index_trade_days
         assert raw_asset.key in asset.dependency_keys
 
     assert {spec.name for spec in silver_dc_index_core_check.check_specs} == {

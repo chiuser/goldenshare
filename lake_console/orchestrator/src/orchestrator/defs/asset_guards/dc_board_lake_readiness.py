@@ -8,7 +8,7 @@ from materialized-but-invalid files.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from time import perf_counter
 
@@ -17,17 +17,9 @@ from orchestrator.defs.asset_guards.bounded_continuity import (
     ContinuityDateReadiness,
 )
 from orchestrator.defs.duckdb_sql import duckdb_string
+from orchestrator.defs.asset_guards.dc_board_relations import audit_raw_board_relation
+from orchestrator.defs.asset_guards.dc_board_raw_quality import RAW_DC_QUALITY_SPECS, RawQualitySpec
 from orchestrator.defs.paths import raw_dc_daily_path, raw_dc_index_path, raw_dc_member_path
-from orchestrator.defs.run_contracts.asset_column_schemas import (
-    RAW_TUSHARE_DC_DAILY_SCHEMA,
-    RAW_TUSHARE_DC_INDEX_SCHEMA,
-    RAW_TUSHARE_DC_MEMBER_SCHEMA,
-)
-from orchestrator.defs.run_contracts.dc_board import (
-    RAW_DC_DAILY_CHECKS,
-    RAW_DC_INDEX_CHECKS,
-    RAW_DC_MEMBER_CHECKS,
-)
 
 
 @dataclass(frozen=True)
@@ -38,43 +30,44 @@ class _ReadinessSpec:
     schema: Sequence[object]
     key_columns: tuple[str, ...]
     identity_predicate: str
+    numeric_predicate: str
+    coverage_column: str | None
+    coverage_values: tuple[str, ...]
 
 
 _SPECS = {
     "dc_index": _ReadinessSpec(
         dataset="dc_index",
-        check_name=RAW_DC_INDEX_CHECKS[0],
+        check_name=RAW_DC_QUALITY_SPECS["dc_index"].check_name,
         path_builder=raw_dc_index_path,
-        schema=RAW_TUSHARE_DC_INDEX_SCHEMA,
+        schema=RAW_DC_QUALITY_SPECS["dc_index"].schema,
         key_columns=("ts_code", "trade_date"),
-        identity_predicate=(
-            "ts_code IS NOT NULL AND regexp_full_match(trim(CAST(ts_code AS VARCHAR)), '^BK[0-9]{4}\\.DC$') "
-            "AND idx_type IN ('行业板块', '概念板块', '地域板块') "
-            "AND name IS NOT NULL AND trim(CAST(name AS VARCHAR)) <> ''"
-        ),
+        identity_predicate=RAW_DC_QUALITY_SPECS["dc_index"].identity_condition,
+        numeric_predicate=RAW_DC_QUALITY_SPECS["dc_index"].numeric_condition,
+        coverage_column=RAW_DC_QUALITY_SPECS["dc_index"].coverage_column,
+        coverage_values=RAW_DC_QUALITY_SPECS["dc_index"].coverage_values,
     ),
     "dc_member": _ReadinessSpec(
         dataset="dc_member",
-        check_name=RAW_DC_MEMBER_CHECKS[0],
+        check_name=RAW_DC_QUALITY_SPECS["dc_member"].check_name,
         path_builder=raw_dc_member_path,
-        schema=RAW_TUSHARE_DC_MEMBER_SCHEMA,
+        schema=RAW_DC_QUALITY_SPECS["dc_member"].schema,
         key_columns=("trade_date", "ts_code", "con_code"),
-        identity_predicate=(
-            "ts_code IS NOT NULL AND regexp_full_match(trim(CAST(ts_code AS VARCHAR)), '^BK[0-9]{4}\\.DC$') "
-            "AND con_code IS NOT NULL AND regexp_full_match(trim(CAST(con_code AS VARCHAR)), '^[0-9]{6}\\.(SZ|SH|BJ)$') "
-            "AND name IS NOT NULL AND trim(CAST(name AS VARCHAR)) <> ''"
-        ),
+        identity_predicate=RAW_DC_QUALITY_SPECS["dc_member"].identity_condition,
+        numeric_predicate=RAW_DC_QUALITY_SPECS["dc_member"].numeric_condition,
+        coverage_column=RAW_DC_QUALITY_SPECS["dc_member"].coverage_column,
+        coverage_values=RAW_DC_QUALITY_SPECS["dc_member"].coverage_values,
     ),
     "dc_daily": _ReadinessSpec(
         dataset="dc_daily",
-        check_name=RAW_DC_DAILY_CHECKS[0],
+        check_name=RAW_DC_QUALITY_SPECS["dc_daily"].check_name,
         path_builder=raw_dc_daily_path,
-        schema=RAW_TUSHARE_DC_DAILY_SCHEMA,
+        schema=RAW_DC_QUALITY_SPECS["dc_daily"].schema,
         key_columns=("ts_code", "trade_date", "category"),
-        identity_predicate=(
-            "ts_code IS NOT NULL AND regexp_full_match(trim(CAST(ts_code AS VARCHAR)), '^BK[0-9]{4}\\.DC$') "
-            "AND category IN ('行业板块', '概念板块', '地域板块')"
-        ),
+        identity_predicate=RAW_DC_QUALITY_SPECS["dc_daily"].identity_condition,
+        numeric_predicate=RAW_DC_QUALITY_SPECS["dc_daily"].numeric_condition,
+        coverage_column=RAW_DC_QUALITY_SPECS["dc_daily"].coverage_column,
+        coverage_values=RAW_DC_QUALITY_SPECS["dc_daily"].coverage_values,
     ),
 }
 
@@ -134,6 +127,12 @@ def _scan_existing(
                     count(*) AS row_count,
                     sum(CASE WHEN trade_date IS NULL OR replace(trim(CAST(trade_date AS VARCHAR)), '-', '') <> replace(source_trade_date, '-', '') THEN 1 ELSE 0 END) AS date_mismatch_count,
                     sum(CASE WHEN NOT ({spec.identity_predicate}) THEN 1 ELSE 0 END) AS identity_failed_count,
+                    sum(CASE WHEN {spec.numeric_predicate} THEN 1 ELSE 0 END) AS numeric_failed_count,
+                    {(
+                        f"CASE WHEN count(DISTINCT {spec.coverage_column}) < {len(spec.coverage_values)} THEN 1 ELSE 0 END"
+                        if spec.coverage_column and spec.coverage_values
+                        else "0"
+                    )} AS coverage_failed_count,
                     sum(CASE WHEN {null_key_predicate} THEN 1 ELSE 0 END) AS null_key_count
                 FROM source
                 GROUP BY source_trade_date
@@ -154,6 +153,8 @@ def _scan_existing(
                 aggregate.date_mismatch_count,
                 aggregate.identity_failed_count,
                 aggregate.null_key_count,
+                aggregate.numeric_failed_count,
+                aggregate.coverage_failed_count,
                 coalesce(duplicates.duplicate_key_count, 0) AS duplicate_key_count
             FROM aggregate
             LEFT JOIN duplicates USING (source_trade_date)
@@ -188,7 +189,7 @@ def _scan_existing(
                 summary={"dataset": spec.dataset, "scan_error": "partition_not_observed"},
             )
             continue
-        row_count, date_mismatch, identity_failed, null_key, duplicate_key = (
+        row_count, date_mismatch, identity_failed, null_key, numeric_failed, coverage_failed, duplicate_key = (
             int(value or 0) for value in row
         )
         failed_rules = []
@@ -204,6 +205,10 @@ def _scan_existing(
             failed_rules.append("business_key_unique")
         if identity_failed:
             failed_rules.append("dataset_identity_fields_legal")
+        if numeric_failed:
+            failed_rules.append("numeric_value_domain_legal")
+        if coverage_failed:
+            failed_rules.append("category_coverage_complete")
         statuses[trade_date] = ContinuityDateReadiness(
             trade_date=trade_date,
             ready=not failed_rules,
@@ -218,7 +223,14 @@ def _scan_existing(
             summary={
                 "dataset": spec.dataset,
                 "checked_row_count": row_count,
-                "failed_row_count": date_mismatch + identity_failed + null_key + duplicate_key,
+                "failed_row_count": (
+                    date_mismatch
+                    + identity_failed
+                    + null_key
+                    + numeric_failed
+                    + coverage_failed
+                    + duplicate_key
+                ),
                 "failed_rules": failed_rules,
                 "schema_error": schema_error,
             },
@@ -249,6 +261,41 @@ def batch_dc_board_lake_readiness(
         else:
             existing[trade_date] = path
     statuses.update(_scan_existing(connection=connection, spec=spec, existing=existing))
+    relation_mode = {
+        "dc_member": "member_subset_index",
+        "dc_daily": "daily_equals_index",
+    }.get(dataset)
+    if relation_mode is not None:
+        for trade_date, source_path in existing.items():
+            status = statuses[trade_date]
+            if not status.ready:
+                continue
+            relation_failed_count, relation_samples = audit_raw_board_relation(
+                connection,
+                source_path=source_path,
+                index_path=raw_dc_index_path(lake_root, trade_date),
+                mode=relation_mode,
+            )
+            if relation_failed_count:
+                statuses[trade_date] = replace(
+                    status,
+                    ready=False,
+                    checks_passed=False,
+                    reason=f"{dataset} same-day board relation check failed for {trade_date}",
+                    failed_check_names=tuple(
+                        dict.fromkeys((*status.failed_check_names, spec.check_name))
+                    ),
+                    summary={
+                        **status.summary,
+                        "failed_rules": [
+                            *list(status.summary.get("failed_rules", ())),
+                            "same_day_board_relation_integrity",
+                        ],
+                        "reason_code": "cross_dataset_code_set_mismatch",
+                        "relation_failure_count": relation_failed_count,
+                        "relation_failure_samples": list(relation_samples),
+                    },
+                )
     return ContinuityBatchReadiness(
         expected_trade_dates=expected,
         statuses_by_trade_date=statuses,

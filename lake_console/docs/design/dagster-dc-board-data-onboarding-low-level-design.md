@@ -3,26 +3,33 @@
 > 本文基于 [`dagster-dc-board-data-onboarding-plan.md`](./dagster-dc-board-data-onboarding-plan.md)。
 > 方案文档冻结业务口径；本文冻结文件、函数、SQL、事务、测试和推进顺序。
 >
-> 当前状态：M3 Raw-only writer/staging、M4 Raw Dagster definitions、M5 Silver writer/asset/check、M6 Silver Dagster 接入、M7A 只读 Bootstrap dry-run、M7E 临时 lake 样本联调、M7F-M7I 正式 Raw/Silver Bootstrap 与对账、M8 Dagster 事件补录与验收均已实现并通过验证。M9 尚未开始。Raw/Silver sensor 仍为 `STOPPED`。
+> 当前状态：M3 Raw-only writer/staging、M4 Raw Dagster definitions、M5 Silver writer/asset/check、M6 Silver Dagster 接入、M7A 只读 Bootstrap dry-run、M7E 临时 lake 样本联调、M7F-M7I 正式 Raw/Silver Bootstrap 与对账、M8 Dagster 事件补录与验收均已实现并通过验证。M9 因分区注册和“更新成功”口径不足而暂停；M9-R 修复专项方案已完成，代码尚未切换。当前 Raw/Silver sensor 不得按旧口径启用。
+
+> **当前阅读口径**：M3-M8 章节中的共享 `cn_a_index_trade_days` 是阶段性历史实现记录，不是
+> M9-R 的正式目标。开发和验收以 M9-R 的专属 partition set、日历注册、有限 source probe、source
+> closure、核心 check 和同日关系闭环为准。M9-R 未完成前，旧 Raw/Silver sensor 不得启用。
 
 ## 1. LLD 约束
 
 ### 1.1 硬约束
 
-1. 三个数据集都按 `trade_date` 分区，复用 `cn_a_index_trade_days`。
+1. 三个数据集都按 `trade_date` 分区，但不再共享 `cn_a_index_trade_days`：Raw/Silver 分别使用 `cn_a_dc_index_trade_days`、`cn_a_dc_member_trade_days`、`cn_a_dc_daily_trade_days`；Gold daily technical 跟随 `cn_a_dc_daily_trade_days`。
 2. `dc_index` / `dc_member` 起点 `2024-12-20`；`dc_daily` 起点 `2024-01-02`。
 3. `dc_index` / `dc_daily` 的 Raw bootstrap 和日常更新都请求 Tushare；`dc_member` 历史 Bootstrap 使用 prod DB 只读导出，日常更新使用 Tushare 按交易日 + `ts_code` 请求。两者共用同一 Raw schema/path/key，但必须在 metadata 中区分来源。
 4. M1 实测已否决 `dc_member` 按日期全市场分页作为成员事实源；日常按日期+板块代码是当前已验证的完整性方向。M1B 已完成 prod Bootstrap 覆盖、流式导出和有限 Tushare 对照验证；M1C 原始无界路径曾触发真实 `500 requests/minute` 限制，整改后的有界请求策略已通过只读重测。
 5. `dc_daily` 保留 `category`，业务主键固定为 `(ts_code, trade_date, category)`。
 6. 每个资产只有一个合并核心 blocking check，但 check 必须是 partitioned、单分区可归因、当前文件 set-based 检查。
 7. 分页、行数、请求耗时和空结果属于写入前安全门禁与 materialization metadata，不再拆出额外 check event。
-8. sensor 只读 DuckDB/lake 文件和当前资源事实，不扫描 Dagster event history；每 tick 最多 1 个 run request。
+8. 专属 partition registration sensor 只读交易日历并幂等注册，不以 Tushare 更新时间作为注册条件；Raw update sensor 另行做有界 source probe。所有 sensor 不扫描 Dagster event history，每 tick 最多 1 个 run request。
 9. 任何 source/row/key/date 不一致都 fail closed，不用“已有文件”冒充 ready。
-10. 不新增用户可见配置项。起点、页大小、允许的类型和性能上限先作为代码 contract 常量；若后续需要运营可调，再单独做配置审计。
+10. 不新增用户可见配置项。起点、页大小、允许的类型、probe 请求数和性能上限先作为代码 contract 常量；若后续需要运营可调，再单独做配置审计。
 
 ### 1.2 依赖边界
 
 ```text
+silver_trade_calendar / 专属 partition registration sensors
+          |
+          v
 TushareResource / ProdPostgresResource(read-only Bootstrap)
           |
           v
@@ -34,10 +41,10 @@ raw_tushare_dc_*  --partitioned-->  silver_dc_*
           +--> dc_board_checks.py <------+
                          |
                          v
-          bounded lake readiness -> sensors -> jobs
+          bounded lake readiness + source probe -> sensors -> jobs
 ```
 
-`dc_index`、`dc_member`、`dc_daily` 的跨数据集关系只进入离线审计 helper，不作为 Silver asset 的 Dagster dependency，避免历史覆盖差异把正常更新全部卡死。
+`dc_index`、`dc_member`、`dc_daily` 的历史非等集关系仍进入离线审计；日常自动链路只对同日 `dc_index` 基准、`dc_daily` 代码集合和 `dc_member` 请求终态做有界闭环校验，不扫描历史 event，不把历史 Bootstrap 差异带入 sensor。
 
 ## 2. 代码文件清单
 
@@ -68,6 +75,25 @@ raw_tushare_dc_*  --partitioned-->  silver_dc_*
 M4 已创建并验证以下文件；M5 的 Silver 文件仍未创建：`defs/assets/dc_board_raw.py`、`defs/checks/dc_board_checks.py`、`defs/asset_guards/dc_board_lake_readiness.py`、`defs/sensors/dc_board_sensor.py`、`defs/jobs/dc_board.py`。M3 writer 文件 `defs/assets/dc_board.py` 仍保持无 Dagster decorator。
 
 不修改 `src/foundation/datasets/definitions/board_hotspot.py` 的既有 DatasetDefinition，除非后续确认 foundation 事实源需要同步；本次目标是新增 Dagster lake contract，不把两个系统的定义混为一谈。
+
+### 2.3 M9-R 待修改文件与职责
+
+以下是修复专项的预定修改面，当前只完成方案设计，尚未修改正式 Python：
+
+| 文件 | 修复职责 |
+| --- | --- |
+| `defs/partitions.py` | 增加三个板块专属 `DynamicPartitionsDefinition`，保留旧集合仅作历史兼容审计，不再作为新链路事实源 |
+| `defs/run_contracts/dc_board.py` | 起点到 partition set 映射、probe 请求上限、probe 总耗时、source closure 字段和 ASCII reason code |
+| `defs/sensors/dc_board_partition_sensor.py` | 三个 calendar-only 分区注册 sensor，不访问源站和事件历史 |
+| `defs/assets/dc_board_raw.py` / `defs/assets/dc_board_silver.py` | 切换对应的专属 partition set，保持单分区 asset 语义 |
+| `defs/checks/dc_board_checks.py` / `defs/checks/dc_board_silver_checks.py` | 增加 completeness、同日关系和失败规则映射，仍每资产只保留一个 blocking check |
+| `defs/asset_guards/dc_board_lake_readiness.py` / `dc_board_silver_lake_readiness.py` | 读取专属 registered set，区分文件缺失、source closure 未完成和已 materialize check failure |
+| `defs/sensors/dc_board_sensor.py` / `dc_board_silver_sensor.py` | source probe、first-not-ready、Raw frontier 和专属 partition set 切换 |
+| `defs/assets/dc_daily_technical_asset.py`、相关 checks/jobs/sensors | 跟随 `cn_a_dc_daily_trade_days`，保持 Gold technical 与 `dc_daily` 日期域一致 |
+| `tests/test_dc_board_partition_sensors.py`、`test_dc_board_completeness.py`、`test_dc_board_source_probe.py` | 专属注册、完整请求闭环、部分返回、空响应、集合不一致和负向门禁 |
+| `tests/test_run_contract_static_gates.py` | 禁止旧共享 partition set 回流到板块正式链路、禁止 source probe 进入完整请求循环 |
+
+本专项不新增状态表、manifest asset、summary asset、Dagster event history 扫描或用户可见配置项。
 
 ## 3. Contract 常量与数据模型
 
@@ -460,7 +486,7 @@ FROM violations;
 
 - `asset=...`
 - `blocking=True`
-- `partitions_def=cn_a_index_trade_days`
+- `partitions_def=对应数据集的专属 partition set`
 - `metadata=build_check_metadata(...)`
 
 metadata 至少包含：
@@ -484,31 +510,75 @@ check 不查询 Dagster event history，不调用 `get_event_records`，不做�
 
 `asset_guards/dc_board_lake_readiness.py` 定义内存态 `DcBoardDateReadiness`、`DcBoardBatchReadiness`：
 
-- 输入：DuckDB connection、lake root、最近 10 个 expected dates、asset kind、registered partitions。
+- 输入：DuckDB connection、lake root、最近 10 个 expected dates、asset kind、对应专属 registered partitions。
 - 一次规划当前窗口文件；按文件存在、目标日 row count、schema/key/domain 做 set-based SQL。
 - 返回 `ready/materialized/checks_passed/reason/failed_rules/elapsed_ms`。
 - 文件存在但 check 失败：`materialized=True, checks_passed=False`，sensor 不自动覆盖，要求人工处理。
 - 文件缺失或目标日 0 行：`materialized=False`，允许 first-not-ready 自动触发。
+- readiness 不把文件存在或 row count>0 当作成功；source closure 未通过、同日代码集合不一致、核心 check 失败都必须是 not-ready。
+- 批量读取只覆盖最近 10 个 expected dates；不逐日读取 Dagster event/check history，不调用 Tushare/Prod DB。
 
 ### 10.2 Sensor 流程
 
-每个 sensor 遵循同一流程：
+旧版流程已冻结为待替换，不得继续作为正式触发口径。M9-R 的正式流程如下：
 
 ```text
-load SSE expected window (10)
- -> check dynamic partition registered gap
- -> one DuckDB batch readiness call
- -> select_first_not_ready_trade_date
+calendar-only partition registration
+ -> load dataset-specific expected window (10)
+ -> check dataset-specific registered gap
+ -> one DuckDB batch lake readiness call
+ -> select first missing/not-ready trade date
+ -> bounded source probe
  -> materialized check problem => skip
- -> missing/unready file => build_run_request(one partition)
+ -> probe not ready/error => skip
+ -> probe ready => build one-partition RunRequest
 ```
 
-Raw sensor 在提交前还必须完成：
+分区注册 sensor：
 
-- source API readiness（不把 Tushare 空响应当成成功）。
+- 每个数据集一个独立 sensor，只从 SSE open calendar 计算日期并补注册自己的 dynamic partition set。
+- 不设置“每天固定时刻注册”条件；轮询周期是调度间隔，不是源站 ready 判定。
+- 不读取业务 Parquet、Tushare、Prod DB 或 Dagster event history。
+
+Raw update sensor 在提交前还必须完成：
+
+- 有界 source probe；probe 只判断源站当前是否值得运行，不能代替完整 writer 和 core check。
+- `dc_index` 最多 3 个类型探测、`dc_daily` 最多 1 个小页探测、`dc_member` 最多 5 个确定性板块代码探测；每次 probe 的硬上限为 8 秒。
+- probe 失败只 skip，不能注册分区、写湖或写事件。
 - 当前日期不超出历史起点和 SSE open calendar。
+- 目标日期早于窗口内更早的缺口时不得越过；已 materialize 但 core check failure 时不得自动覆盖。
 
-Silver sensor 只在同日 Raw ready 后提交 Silver run。跨数据集关系不进入 sensor。
+Silver sensor 只在同日 Raw **完整成功** 后提交 Silver run；Raw first-not-ready 早于或等于 Silver target 时阻断。Silver 文件存在但 core check 失败时不自动覆盖。
+
+### 10.3 “更新成功”的可核验条件
+
+一个日期只有同时满足以下三层条件，才允许 readiness 返回 `ready=True`，并允许下游 Silver/Gold 继续：
+
+#### A. Source request closure
+
+source closure 在 Raw writer promote 前完成，结果进入本次 materialization metadata 和内存态 writer result；它不是新的持久化状态实体，也不拆成额外 check event。
+
+| 数据集 | 必须通过的闭环 |
+| --- | --- |
+| `dc_index` | 三个 `idx_type` 请求都有终态；每个终态为成功非空或明确合法空结果；无失败/未尝试请求；分页、日期、列、源行数/写入行数一致；三类全空失败 |
+| `dc_daily` | 日期分页全部完成；无失败/未尝试页；category 完整；日期、列、主键、源行数/写入行数一致 |
+| `dc_member` | `requested = success + valid_empty`；failed=0；unattempted=0；每个请求代码回验通过；跨代码业务主键唯一；源行数/写入行数一致 |
+
+source closure 任一失败时：不 promote、不产生成功 materialization；已有目标保持不变，下一次 sensor 仍可针对 missing target 重试。
+
+#### B. 当前湖文件 core check
+
+- 文件、schema、分区日期、非空、主键、身份字段和数值域通过。
+- `dc_index` 的类型覆盖和 `dc_daily` 的 category 覆盖符合正式 contract。
+- 每个资产仍只有一个合并 blocking check，失败通过 `failed_rules`、`reason_code`、有限样本解释；不增加逐页/逐请求 check event。
+
+#### C. 同日板块族关系闭环
+
+- `dc_daily` 的同日板块代码集合与 `dc_index` 基准集合一致。
+- `dc_member` 的请求候选集合来自同日 `dc_index`；每个候选请求必须有成功或合法空终态。合法空响应不能通过 member 文件缺行推断。
+- 关系 SQL 只读同日/当前窗口文件，不扫描历史 Dagster event；历史 Bootstrap 的非等集差异只保留为离线审计事实。
+
+因此，source probe 通过、文件存在或 row count>0 均不能单独判定更新成功。
 
 ### 10.3 Cursor 字段
 
@@ -530,13 +600,29 @@ request_count/page_count/row_count 摘要
 
 禁止写每个板块代码的完整列表、每一页的明细或跨 tick 业务事实。
 
+M9-R 固定 ASCII reason code：
+
+```text
+partition_not_registered
+source_probe_not_ready
+source_probe_error
+source_request_incomplete
+source_request_budget_exceeded
+lake_file_missing
+materialized_check_failed
+cross_dataset_code_set_mismatch
+all_ready
+```
+
 ## 11. Job 和 Definitions 装配
 
-每个 job 只写 selection：
+每个 job 只写 selection。以下以 `dc_index` 为例，展示 M9-R 目标口径；其余 job 使用各自对应的
+专属 partition set 和 asset/check：
 
 ```python
 raw_tushare_dc_index_update_job = dg.define_asset_job(
     name="raw_tushare_dc_index_update_job",
+    partitions_def=cn_a_dc_index_trade_days,
     selection=(
         dg.AssetSelection.assets(raw_tushare_dc_index)
         | dg.AssetSelection.checks_for_assets(raw_tushare_dc_index)
@@ -551,8 +637,8 @@ Definitions 装配必须同时包含：
 - 六个 asset。
 - 六个 core check。
 - 六个 job。
-- 六个 sensor。
-- 共享 `cn_a_index_trade_days` 和必要 resources。
+- 六个 Raw/Silver update sensor，以及三个专属 calendar-only partition registration sensor。
+- 三个板块专属 partition set 和必要 resources。
 
 正式 check 不允许通过多 partition run 只返回一条聚合结果；正式执行路径单 run 单 partition。
 
@@ -567,6 +653,8 @@ Definitions 装配必须同时包含：
 - `dc_member` prod Bootstrap 的只读 SQL 投影、日期覆盖、游标/分块边界、跨块重复和源/写入行数对账。
 - `dc_member` 日常按 `trade_date + ts_code` 的单代码分页、空代码语义、请求代码回验和 request/elapsed budget。
 - 页数、请求数、行数和耗时 metadata 正确。
+- 专属 partition set 与各自 history start date 一一对应；旧 `cn_a_index_trade_days` 不得出现在新板块正式 job/sensor/check 定义中。
+- source probe 只使用有界小请求，不得调用完整 writer、不得执行全量 candidate code loop。
 
 ### 12.2 Raw writer
 
@@ -574,6 +662,7 @@ Definitions 装配必须同时包含：
 - 任何页失败不覆盖正式文件。
 - open date 全空失败；`dc_index` 单类型为空但总结果非空可通过。
 - trade_date 越界、未知 idx_type/category、重复主键、源/写入行数不等失败。
+- source closure 覆盖失败请求、未尝试请求、合法空响应、分页终态和源/写入行数对账；任一失败不得 promote。
 - 2,124 条已知 prod/source `dc_daily` 差异不进入最终 Tushare staging；最终事实只来自 Tushare。
 
 ### 12.3 Silver writer
@@ -585,11 +674,12 @@ Definitions 装配必须同时包含：
 
 ### 12.4 Checks and sensors
 
-- 每个 core check 的 `partitions_def` 为 `cn_a_index_trade_days`。
+- 每个 core check 使用对应的专属 partition set；Raw/Silver/Gold technical 的 partition set 对齐同一数据集日期域。
 - check 只针对当前 partition，event 归属正确。
-- materialized check problem 不自动重跑。
-- missing file/0 rows 选择 first-not-ready。
-- sensor 每 tick 最多 1 个 request，使用统一 run key/cursor builder。
+- check 同时验证当前湖文件和同日板块族关系；source closure 未通过时不产生成功 materialization，不能只靠文件存在判定 ready。
+- materialized check problem 不自动重跑；missing file/0 rows 选择 first-not-ready。
+- 分区注册 sensor 只读 calendar 并幂等注册；Raw update sensor 先做有限 probe，再最多提交一个 request。
+- sensor 使用统一 run key/cursor builder，cursor 只写 ASCII reason code、frontier、probe/scan 摘要。
 - 禁止直接 `dg.RunRequest`、手写 run key、解析 event history。
 
 ### 12.5 Bootstrap
@@ -611,12 +701,16 @@ Definitions 装配必须同时包含：
 - DuckDB SQL elapsed ms。
 - parquet 写入 elapsed ms。
 - 单个 sensor tick elapsed ms。
+- 分区注册 sensor 的 calendar scan elapsed、注册数量和重复注册数量。
+- source probe request/page/retry count、probe elapsed、skip 比例和完整 run 命中比例。
+- source closure 的 requested/success/valid-empty/failed/unattempted 计数。
 - bootstrap 峰值内存和单日期耗时。
 
 ### 13.2 不可接受
 
 - `dc_member` 全市场分页无法证明完整，却直接上线。
 - 单个 sensor tick 超过 Dagster RPC 的安全预算，或稳定态进入秒级/十秒级深扫而没有拆分计划。
+- 单次 source probe 超过 8 秒、调用次数超过数据集上限，或因重试接近 60 秒 RPC deadline。
 - check 读取全历史文件、Dagster event history 或用 Python 行循环。
 - 为解决数据量新增 summary asset、manifest 或数据库实体。
 - 为追求通过率把空结果、重复主键、源/写入不一致降级为 WARN。
@@ -696,13 +790,13 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \\
 
 进入 M4 的条件已满足：单日临时 writer、失败不覆盖、分页/预算/回读校验和只读 Bootstrap 流式边界全部通过。
 
-### M4：Raw Dagster 接入
+### M4：Raw Dagster 接入（历史基线，M9-R 待迁移）
 
 M4 已完成，实际实现如下：
 
-- `assets/dc_board_raw.py` 的三个 asset 使用 `cn_a_index_trade_days`，只处理 `context.partition_key`，调用 M3 writer 并写入结构化 materialization metadata。
+- `assets/dc_board_raw.py` 的三个 asset 当时使用 `cn_a_index_trade_days`，只处理 `context.partition_key`，调用 M3 writer 并写入结构化 materialization metadata。M9-R 将其分别迁移到三个专属 partition set。
 - `raw_tushare_dc_member` 的 candidate planner 只读取目标日 raw `dc_index` 与最近存在的历史 member 分区；第一个 expected 日期允许无历史 baseline，后续日期缺 baseline 或 candidate 超过 `DC_BOARD_MAX_REQUESTS_PER_PARTITION` 直接 fail closed。
-- `checks/dc_board_checks.py` 的三个 core check 均显式声明 `partitions_def=cn_a_index_trade_days`、`blocking=True`，正式路径禁止多分区聚合结果；每个 check 只在当前文件上做 set-based schema/row/date/key/identity 检查。
+- `checks/dc_board_checks.py` 的三个 core check 历史上显式声明 `partitions_def=cn_a_index_trade_days`、`blocking=True`，正式路径禁止多分区聚合结果；M9-R 迁移后必须改为对应专属 partition set，并在当前文件检查之外接入 source closure/同日关系门禁。
 - `asset_guards/dc_board_lake_readiness.py` 复用 `ContinuityBatchReadiness`/`ContinuityDateReadiness`，缺文件为 `materialized=False`，文件存在但语义失败为 `materialized=True, checks_passed=False`；一个 batch 调用最多扫描最近 10 日文件。
 - `sensors/dc_board_sensor.py` 的每个 sensor tick 只打开一个 DuckDB connection，先做 expected calendar/registered partition 门禁，再做 batch readiness；`dc_member` 先要求 raw `dc_index` 窗口连续，不在 sensor 热路径计算 candidate 或请求 Tushare。三个 sensor 默认 `STOPPED`，每 tick 最多一个 `RunRequest`。
 - `jobs/dc_board.py` 的三个 job 只选择各自 Raw asset 与 checks，不选择 Silver，不加入多分区 check。
@@ -713,7 +807,7 @@ M4 本地验证：M3 + M4 scoped suite `112 passed`；完整 definitions load �
 
 进入 M5 的条件已满足：sensor 每 tick 最多提交一个 first-not-ready 分区；不读 Dagster event history；默认 sensor 仍为 `STOPPED`；M3 writer/static gate 未回退。
 
-### M5：Silver 写入与核心 check（已完成）
+### M5：Silver 写入与核心 check（历史基线，M9-R 待迁移分区与关系门禁）
 
 #### M5.1 实际代码边界
 
@@ -722,7 +816,7 @@ M4 本地验证：M3 + M4 scoped suite `112 passed`；完整 definitions load �
 - 每个 writer 先验证 Raw 文件存在、schema 与 Raw contract 一致、目标日期是唯一 SSE open date、源行数大于 0；再用 DuckDB 集合 SQL 完成日期解析、trim/uppercase、身份字段和数值域验证。
 - 同一业务主键的完全相同行通过 `SELECT DISTINCT` 去重；同一业务主键存在不同业务值时抛 `DcBoardSilverValidationError`。拒绝行、重复数、冲突数写入内存态结果与 materialization metadata，不写入业务列。
 - 输出使用 `target.parquet.m5-<uuid>.tmp`，DuckDB `COPY` 后回读 schema 和行数，全部通过后才 `os.replace`；任意异常删除 staging 并保持已有 target 不变。
-- `silver_dc_index`、`silver_dc_member`、`silver_dc_daily` 均使用 `cn_a_index_trade_days`、`deps=[对应 raw asset]`、同一 partition 单次执行；不依赖跨数据集集合相等。
+- `silver_dc_index`、`silver_dc_member`、`silver_dc_daily` 历史上均使用 `cn_a_index_trade_days`、`deps=[对应 raw asset]`、同一 partition 单次执行；M9-R 必须分别迁移到对应专属 partition set，并将同日关系审计纳入正式成功门禁。
 
 #### M5.2 Core check 实现
 
@@ -734,7 +828,7 @@ silver_dc_member_core_check
 silver_dc_daily_core_check
 ```
 
-每个 check 显式设置 `partitions_def=cn_a_index_trade_days`、`blocking=True`，并通过 `additional_deps` 绑定对应 Raw asset。check 只读取当前 Silver Parquet，使用 DuckDB set-based SQL 检查文件/行数、schema、分区日期、业务主键非空唯一、板块/股票身份字段和数值域。失败 metadata 固定包含 `failed_rules`、`reason_code`、`partition_key`、`checked_row_count`、`failed_row_count`、文件路径和最多 5 条样本。不存在 Dagster event history、Tushare 或 Prod DB 读取。
+每个 check 在历史实现中显式设置 `partitions_def=cn_a_index_trade_days`、`blocking=True`，并通过 `additional_deps` 绑定对应 Raw asset。M9-R 必须改为对应的专属 partition set，并把同日关系纳入正式成功门禁。check 只读取当前 Silver Parquet，使用 DuckDB set-based SQL 检查文件/行数、schema、分区日期、业务主键非空唯一、板块/股票身份字段和数值域。失败 metadata 固定包含 `failed_rules`、`reason_code`、`partition_key`、`checked_row_count`、`failed_row_count`、文件路径和最多 5 条样本。不存在 Dagster event history、Tushare 或 Prod DB 读取。
 
 #### M5.3 联调与验证
 
@@ -745,7 +839,7 @@ silver_dc_daily_core_check
 
 进入 M6 的条件已满足：同日 Raw ready 后 Silver 能生成正确分区；失败不覆盖已有文件；跨数据集历史非等集不误阻断；三个 check 都是单分区可归因 check。
 
-### M6：Silver Dagster 接入（已完成）
+### M6：Silver Dagster 接入（历史基线，M9-R 待迁移分区与 Raw 完整成功门禁）
 
 #### M6.1 文件与共享规则
 
@@ -769,7 +863,7 @@ silver_dc_daily_update_job
 
 #### M6.2 Readiness SQL 语义
 
-每个 sensor tick 使用一个 DuckDB connection 加载 `silver_trade_calendar` 和最近 10 个 expected `cn_a_index_trade_days`，然后批量计算同窗口的 Raw/Silver 状态。
+历史实现每个 sensor tick 使用一个 DuckDB connection 加载 `silver_trade_calendar` 和最近 10 个 expected `cn_a_index_trade_days`，然后批量计算同窗口的 Raw/Silver 状态。M9-R 迁移后改为读取对应专属 partition set，并在 Silver 提交前要求 Raw source closure 完整成功。
 
 Silver readiness 复用 core check 的完整规则：
 
@@ -860,7 +954,7 @@ Tushare fake / Prod-style member stream
 
 测试确认 Raw/Silver 文件非空、schema 可读、日期分区正确、失败不覆盖既有目标，且无 staging 残留。M7A/M7E 与 M3/M5 相关测试合计 `25 passed`。
 
-#### M7F-M7I：正式写入与全量对账（已完成）
+#### M7F-M7I：正式写入与全量对账（已完成；事件/分区为历史 Bootstrap 基线）
 
 M7F 已按最多 20 个交易日批次串行生成 Raw，M7G 已完成 DuckDB 全量对账。首次对账发现 `dc_index[2026-06-23]` 少 `496` 行后立即停止；批准后使用已经过 Tushare 重查和临时 writer 验证的 `1,021` 行 staging 做定点原子重发布。旧文件备份为 `/private/tmp/dc_board_m7_dc_index_2026-06-23_before_republish_20260715T053028Z.parquet`，重发布报告为 `/private/tmp/dc_board_m7_dc_index_republish_20260715T053028Z.json`。
 
@@ -872,8 +966,8 @@ M7H 已按相同日期计划和最多 20 日串行批次生成 `1365` 个 Silver
 
 #### M8.1 实现边界
 
-新增 `bootstrap/dc_board_events.py` 和 `bootstrap/dc_board_events_cli.py`。事件计划固定读取
-M7 v7 日期 fingerprint、Raw/Silver 对账报告和 `cn_a_index_trade_days` 已注册分区；不从
+新增 `bootstrap/dc_board_events.py` 和 `bootstrap/dc_board_events_cli.py`。历史事件计划读取
+M7 v7 日期 fingerprint、Raw/Silver 对账报告和当时的 `cn_a_index_trade_days` 已注册分区；不从
 Dagster event history 推导湖事实。六个资产共用一次 plan 中的 DuckDB connection，分别执行
 完整 Raw/Silver core readiness，Python 只汇总状态，不逐文件重扫。
 
@@ -901,20 +995,50 @@ Dagster event history 推导湖事实。六个资产共用一次 plan 中的 Duc
 
 产出：事件对账报告和数据集验收报告。
 
-进入 M9 的条件已满足：materialization/check partition 归属正确，事件补录没有修改 parquet，最近 20 日状态可被 readiness 正确读取。
+该 M8 验收只证明历史 Bootstrap event 的分区归属和最近 20 日旧 readiness 可读；它不证明旧共享分区适合日常自动触发。进入 M9-R 的前置条件满足，不能据此启用旧 sensor。
 
-### M9：日常切换与观察
+### M9-R：板块分区与完整性门禁修复（代码已落地，sensor 仍停止）
 
-核心任务：保持 sensor 默认关闭，由运营手动启用；观察连续多个交易日的 Raw/Silver 更新、请求量、耗时、cursor 和下游查询。
+M9-R 是 M9 日常启用前的必要修复专项，已按以下顺序完成代码实现和本地验证。正式 sensor 仍保持 `STOPPED`，不在本专项内启用：
 
-产出：日常运行报告、性能回归报告和专项收口记录。
+1. **R0 影响面审计**：核对 `cn_a_index_trade_days` 的所有消费者，特别是 Raw/Silver asset、core check、job、sensor、Gold daily technical 和相关测试；形成旧分区口径清单。
+2. **R1 Contract**：在 `partitions.py` 和 `run_contracts/dc_board.py` 增加三个专属分区、起点映射、probe 上限、source closure 计数模型和 ASCII reason code；不新增状态实体。
+3. **R2 分区注册**：新增三个 calendar-only registration sensor。通过临时 calendar fixtures 验证三类起点不同、未来日期不注册、重复注册幂等、源站不可用不影响注册。
+4. **R3 Writer source closure**：在 Raw writer 结果中补齐请求终态、失败/未尝试、合法空响应、分页和源/写入行数对账；任何异常都在 promote 前 fail closed。
+5. **R4 Core check / relation audit**：扩展合并核心 check 和 readiness，验证文件质量、类型/category 覆盖、`dc_daily` 与 `dc_index` 同日代码集合、`dc_member` 请求终态闭环；保持每资产一个 blocking check。
+6. **R5 Trigger sensors**：Raw sensor 接入 bounded source probe 和专属 partition set；Silver sensor 接入新的 Raw 完整成功 gate；Gold technical normal/repair 跟随 daily 专属分区。
+7. **R6 临时 lake 验证**：覆盖起始日、中间日、最新日、源部分返回、合法空响应、失败代码、未尝试代码、跨表集合不一致和旧目标不覆盖。
+8. **R7 性能回归**：验证最近 10 日 batch readiness 单连接、单次 source probe ≤8 秒、event history=0、每 tick ≤1 request、cursor 小且 ASCII；任何接近 RPC deadline 的场景停止。
+9. **R8 正式切换前审计**：definitions 静态检查、专属动态分区只读核对、旧 sensor 停止、备份当前 cursor/active run 状态；正式切换和启用另行批准。
+
+事件边界：M8 已写入的历史 event 作为审计事实保留，不删除、不自动改写、不用于 source readiness；新定义切换后的事件使用专属 partition set。旧事件如需迁移，另开事件对账/补录专项，不能由 M9-R 隐式完成。
+
+M9-R 的 source closure 分为两层，不能混为一谈：
+
+1. **可用性层**：Raw sensor 只对最近窗口的 first-not-ready 缺失文件做有界 source probe。probe 只回答“当前是否值得尝试一次 run”，不请求全量、不验证完整分页、不访问历史 event；probe 失败只 skip。
+2. **事实层**：asset writer 在 run 内使用完整 bounded request/streaming export，并在 staging promote 前验证请求终态、分页、日期、列、主键、类别覆盖、源/写入行数和失败/未尝试集合。通过后才原子替换湖文件。随后 core check/readiness 用 DuckDB 复核已落湖文件和同日板块关系，只有三层都通过才返回 `ready=True`。
+
+因此，“成功更新”不是 `source probe ready`、文件存在或 row count > 0；而是 **writer source closure + lake core check + same-day relation gate** 全部通过。Dagster 的事件顺序可能先记录 materialization、再记录 blocking check failure；本专项用 ready frontier 作为自动链路的成功标准，materialization event 不能单独放行下游。
+
+M9-R 通过条件：
+
+- 三类资产使用正确的专属 partition set；旧 `cn_a_index_trade_days` 不再参与正式板块链路。
+- source probe 只负责筛选可尝试时机；更新成功必须同时满足 source closure、core check 和同日关系闭环。
+- 任一 partial response、failed/unattempted request、source/output row mismatch、code set mismatch 都不能进入 ready frontier。
+- 不自动覆盖已 materialize 但 check 失败的文件，不读取 Dagster event history，不扩大 sensor 窗口。
+
+本轮本地回归：板块 Raw/Silver/Gold 定义、readiness、source probe、分区注册、关系审计、临时 lake 和静态门禁共 `155 passed`；未运行 `dg`、未启用 sensor、未写正式 lake 或 Dagster event。
+
+### M9：日常切换与观察（M9-R 完成后，待单独批准）
+
+正式切换前先做只读 definitions、专属 dynamic partition、active run 和 cursor 审计；通过后才启用 M9-R 新实现的专属 partition registration、Raw/Silver update sensors。连续观察至少 3 个实际交易日后，再单独决定是否启用 Gold technical normal/repair sensor。观察记录必须包含请求量、source closure 计数、check reason、frontier、cursor、tick elapsed 和下游链路状态。M9-R 本轮不执行任何 sensor enable 或正式 run。
 
 ### 阶段合并边界
 
 - M2 + M3 可以合并开发，但必须先通过 M1B 的 prod Bootstrap 门禁和 M1C 的日常 Tushare 代码请求门禁。
 - M4 + M5 可以在临时 lake 上联调，正式 sensor 和 event 验收仍要分别通过。
 - M6 只能在 Raw/Silver 单日正确性已确认后推进。
-- M7、M8、M9 必须分开执行，不能把全量请求、文件发布、事件补录和 sensor 启用合成一个不可回滚动作。
+- M7、M8、M9-R、M9 必须分开执行，不能把全量请求、文件发布、事件补录、分区迁移和 sensor 启用合成一个不可回滚动作。
 
 ### 全局停止条件
 

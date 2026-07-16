@@ -67,22 +67,31 @@ class _FakeTushare:
             }
             return TushareResult(rows=[row], columns=tuple(fields), metadata={})
         if api_name == "dc_daily":
-            row = {
-                "ts_code": "BK0001.DC",
-                "trade_date": trade_date,
-                "close": 10.0,
-                "open": 9.0,
-                "high": 11.0,
-                "low": 8.0,
-                "change": 1.0,
-                "pct_change": 10.0,
-                "vol": 100.0,
-                "amount": 1000.0,
-                "swing": 3.0,
-                "turnover_rate": 1.0,
-                "category": "行业板块",
+            rows = []
+            code_by_category = {
+                "行业板块": "BK0001.DC",
+                "概念板块": "BK0002.DC",
+                "地域板块": "BK0003.DC",
             }
-            return TushareResult(rows=[row], columns=tuple(fields), metadata={})
+            for category, ts_code in code_by_category.items():
+                rows.append(
+                    {
+                        "ts_code": ts_code,
+                        "trade_date": trade_date,
+                        "close": 10.0,
+                        "open": 9.0,
+                        "high": 11.0,
+                        "low": 8.0,
+                        "change": 1.0,
+                        "pct_change": 10.0,
+                        "vol": 100.0,
+                        "amount": 1000.0,
+                        "swing": 3.0,
+                        "turnover_rate": 1.0,
+                        "category": category,
+                    }
+                )
+            return TushareResult(rows=rows, columns=tuple(fields), metadata={})
         raise AssertionError(api_name)
 
 

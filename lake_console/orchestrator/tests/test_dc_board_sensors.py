@@ -8,6 +8,7 @@ from orchestrator.defs.asset_guards.bounded_continuity import (
     ContinuityExpectedDateWindow,
     build_registered_gap_status,
 )
+from orchestrator.defs.asset_guards.dc_board_source_probe import DcBoardSourceProbeResult
 from orchestrator.defs.sensors import dc_board_sensor
 
 
@@ -47,6 +48,7 @@ def _context(registered):
             root=lambda: Path("/tmp/dc-board-test"),
         ),
         duckdb=duckdb_resource,
+        tushare=object(),
     )
     return SimpleNamespace(
         instance=_FakeInstance(registered),
@@ -70,6 +72,22 @@ def _window_and_gap(registered):
     return window, tuple(registered), gap
 
 
+def _ready_probe(dataset="dc_index"):
+    return DcBoardSourceProbeResult(
+        dataset=dataset,
+        trade_date="2026-07-14",
+        ready=True,
+        reason_code="ready",
+        request_count=1,
+        retry_count=0,
+        elapsed_ms=1.0,
+        successful_count=1,
+        empty_count=0,
+        failed_count=0,
+        unattempted_count=0,
+    )
+
+
 def test_sensor_skips_registered_gap_without_running_readiness(monkeypatch) -> None:
     context = _context(())
     monkeypatch.setattr(
@@ -89,6 +107,8 @@ def test_sensor_skips_registered_gap_without_running_readiness(monkeypatch) -> N
         dataset="dc_index",
         min_trade_date="2024-01-02",
         batch_reader=_unexpected_batch,
+        source_probe_reader=lambda **_kwargs: _ready_probe(),
+        partition_set="cn_a_dc_index_trade_days",
     )
     assert not result.run_requests
     assert "missing_registered_partition" in result.cursor
@@ -130,6 +150,8 @@ def test_sensor_returns_one_request_for_first_missing_file(monkeypatch) -> None:
         dataset="dc_index",
         min_trade_date="2024-01-02",
         batch_reader=_batch,
+        source_probe_reader=lambda **_kwargs: _ready_probe(),
+        partition_set="cn_a_dc_index_trade_days",
     )
     assert len(result.run_requests) == 1
     assert result.run_requests[0].partition_key == "2026-07-14"

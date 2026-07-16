@@ -10,7 +10,7 @@ from orchestrator.defs.asset_guards.dc_daily_silver_repair_producer import (
     produce_dc_daily_silver_repair_batch,
 )
 from orchestrator.defs.duckdb_sql import read_parquet
-from orchestrator.defs.partitions import cn_a_index_trade_days
+from orchestrator.defs.partitions import cn_a_dc_daily_trade_days
 from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.silver_repair import (
@@ -65,7 +65,7 @@ def silver_dc_daily_repair_op(context) -> dict[str, object]:
         duckdb_resource=duckdb_resource,
     )
     registered_trade_dates = tuple(
-        context.instance.get_dynamic_partitions(cn_a_index_trade_days.name)
+        context.instance.get_dynamic_partitions(cn_a_dc_daily_trade_days.name)
     )
     config = context.op_config
     result = produce_dc_daily_silver_repair_batch(

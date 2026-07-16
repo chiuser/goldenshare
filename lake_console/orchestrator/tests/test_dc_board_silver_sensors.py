@@ -122,6 +122,7 @@ def _evaluate(context, raw_batch, silver_batch):
         min_trade_date="2024-12-20",
         raw_reader=lambda **_kwargs: raw_batch,
         silver_reader=lambda **_kwargs: silver_batch,
+        partition_set="cn_a_dc_index_trade_days",
     )
 
 
@@ -235,6 +236,7 @@ def test_silver_sensor_skips_registered_gap_without_batch_scan(monkeypatch) -> N
         min_trade_date="2024-12-20",
         raw_reader=_unexpected,
         silver_reader=_unexpected,
+        partition_set="cn_a_dc_index_trade_days",
     )
     assert not result.run_requests
     assert calls == []

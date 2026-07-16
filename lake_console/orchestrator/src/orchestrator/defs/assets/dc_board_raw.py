@@ -20,7 +20,11 @@ from orchestrator.defs.assets.dc_board import (
     write_dc_member_partition,
 )
 from orchestrator.defs.duckdb_sql import read_parquet
-from orchestrator.defs.partitions import cn_a_index_trade_days
+from orchestrator.defs.partitions import (
+    cn_a_dc_daily_trade_days,
+    cn_a_dc_index_trade_days,
+    cn_a_dc_member_trade_days,
+)
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
     PATH_TEMPLATE_PARTITION_KEY,
@@ -69,7 +73,7 @@ def _normalize_partition_key(partition_key: str) -> str:
         ) from exc
 
 
-def _asset_metadata(*, dataset_id: str, schema: Sequence[object], path: Path, source_api: str) -> dict[str, object]:
+def _asset_metadata(*, dataset_id: str, schema: Sequence[object], path: Path, source_api: str, partition_set: str) -> dict[str, object]:
     return build_asset_definition_metadata(
         dataset_id=dataset_id,
         source_system=SourceSystem.TUSHARE,
@@ -78,7 +82,7 @@ def _asset_metadata(*, dataset_id: str, schema: Sequence[object], path: Path, so
         path_template=lake_path_template(path),
         source_api=source_api,
         extra_metadata={
-            "partition_set": cn_a_index_trade_days.name,
+            "partition_set": partition_set,
             "write_boundary": "m3_bounded_writer",
         },
     )
@@ -239,7 +243,7 @@ def plan_dc_member_candidate_codes(
 
 @dg.asset(
     name="raw_tushare_dc_index",
-    partitions_def=cn_a_index_trade_days,
+    partitions_def=cn_a_dc_index_trade_days,
     group_name="board",
     tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.INDEX_TOPIC),
     metadata=build_asset_definition_metadata(
@@ -252,7 +256,7 @@ def plan_dc_member_candidate_codes(
         ),
         source_api="dc_index",
         extra_metadata={
-            "partition_set": cn_a_index_trade_days.name,
+            "partition_set": cn_a_dc_index_trade_days.name,
             "write_boundary": "m3_bounded_writer",
         },
     ),
@@ -277,7 +281,7 @@ def raw_tushare_dc_index(
 
 @dg.asset(
     name="raw_tushare_dc_member",
-    partitions_def=cn_a_index_trade_days,
+    partitions_def=cn_a_dc_member_trade_days,
     deps=["raw_tushare_dc_index"],
     group_name="board",
     tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.INDEX_TOPIC),
@@ -291,7 +295,7 @@ def raw_tushare_dc_index(
         ),
         source_api="dc_member",
         extra_metadata={
-            "partition_set": cn_a_index_trade_days.name,
+            "partition_set": cn_a_dc_member_trade_days.name,
             "write_boundary": "m3_bounded_writer",
         },
     ),
@@ -322,7 +326,7 @@ def raw_tushare_dc_member(
 
 @dg.asset(
     name="raw_tushare_dc_daily",
-    partitions_def=cn_a_index_trade_days,
+    partitions_def=cn_a_dc_daily_trade_days,
     group_name="board",
     tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.INDEX_TOPIC),
     metadata=build_asset_definition_metadata(
@@ -335,7 +339,7 @@ def raw_tushare_dc_member(
         ),
         source_api="dc_daily",
         extra_metadata={
-            "partition_set": cn_a_index_trade_days.name,
+            "partition_set": cn_a_dc_daily_trade_days.name,
             "write_boundary": "m3_bounded_writer",
         },
     ),

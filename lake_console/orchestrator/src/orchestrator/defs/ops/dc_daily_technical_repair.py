@@ -13,7 +13,7 @@ from orchestrator.defs.assets.dc_daily_technical_repair import (
     write_gold_dc_daily_technical_repair_batch,
 )
 from orchestrator.defs.duckdb_sql import read_parquet
-from orchestrator.defs.partitions import cn_a_index_trade_days
+from orchestrator.defs.partitions import cn_a_dc_daily_trade_days
 from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.dc_daily_technical import (
@@ -83,7 +83,7 @@ def gold_dc_daily_technical_repair_op(context) -> dict[str, object]:
         duckdb_resource=duckdb_resource,
     )
     registered_trade_dates = tuple(
-        context.instance.get_dynamic_partitions(cn_a_index_trade_days.name)
+        context.instance.get_dynamic_partitions(cn_a_dc_daily_trade_days.name)
     )
     batch = parse_dc_daily_silver_repair_batch(
         context.op_config,

@@ -68,7 +68,7 @@ def load_completed_open_day_keys(
 ) -> tuple[str, ...]:
     rows = connection.execute(
         """
-        SELECT CAST(trade_date AS VARCHAR) AS trade_date
+        SELECT CAST(CAST(trade_date AS DATE) AS VARCHAR) AS trade_date
         FROM read_parquet(?)
         WHERE exchange = 'SSE'
           AND is_open = true
@@ -79,6 +79,30 @@ def load_completed_open_day_keys(
         [str(calendar_path), min_trade_date, latest_completed_trade_date],
     ).fetchall()
     return tuple(row[0] for row in rows)
+
+
+def load_open_day_keys_through_today(
+    connection: duckdb.DuckDBPyConnection,
+    calendar_path: Path,
+    today: str,
+    min_trade_date: str,
+) -> tuple[str, ...]:
+    """Load calendar facts without applying a source-time registration gate."""
+
+    rows = connection.execute(
+        """
+        SELECT CAST(CAST(trade_date AS DATE) AS VARCHAR) AS trade_date
+        FROM read_parquet(?)
+        WHERE exchange = 'SSE'
+          AND is_open = true
+          AND trade_date >= CAST(? AS DATE)
+          AND trade_date <= CAST(? AS DATE)
+        GROUP BY CAST(trade_date AS DATE)
+        ORDER BY CAST(trade_date AS DATE)
+        """,
+        [str(calendar_path), min_trade_date, today],
+    ).fetchall()
+    return tuple(str(row[0]) for row in rows)
 
 
 def is_sse_open_day(
@@ -130,6 +154,8 @@ def _cursor_payload(
     sensor_name: str,
     asset_family: str,
     partition_set: str,
+    summary: str | None = None,
+    next_action: str | None = None,
 ) -> str:
     cursor_decision = (
         SensorCursorDecision.REGISTER_PARTITIONS
@@ -159,15 +185,17 @@ def _cursor_payload(
                 else "no_completed_trade_day"
             ),
             blocked_component="none",
-            summary=(
-                f"已触发：注册 {len(decision.selected_keys)} 个交易日分区。"
+            summary=summary
+            or (
+                f"register {len(decision.selected_keys)} trade-date partitions"
                 if decision.selected_keys
-                else "未触发：当前没有需要注册的交易日分区。"
+                else "all eligible trade-date partitions are registered"
             ),
-            next_action=(
-                "等待 Dagster dynamic partition 注册完成。"
+            next_action=next_action
+            or (
+                "wait for dynamic partition registration"
                 if decision.selected_keys
-                else "无需处理，等待下一次 sensor tick。"
+                else "wait for the next sensor tick"
             ),
             frontier={
                 "latest_completed_trade_date": decision.latest_completed_trade_date,
@@ -316,6 +344,88 @@ def build_trade_day_partition_registration_result(
             sensor_name=sensor_name,
             asset_family=asset_family,
             partition_set=cursor_partition_set,
+        ),
+    )
+
+
+def build_calendar_only_partition_registration_result(
+    context: dg.SensorEvaluationContext,
+    *,
+    dynamic_partitions: dg.DynamicPartitionsDefinition,
+    min_trade_date: str,
+    partition_set_label: str,
+    sensor_name: str,
+    asset_family: str,
+) -> dg.SensorResult:
+    """Register calendar-domain partitions without a wall-clock source gate."""
+
+    evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
+    lake_root = context.resources.lake_root
+    lake_root.ensure_available_for_run()
+    calendar_path = silver_trade_calendar_path(lake_root.root())
+    if not calendar_path.exists():
+        raise FileNotFoundError(f"silver_trade_calendar file is missing: {calendar_path}")
+
+    today = evaluated_at.date().isoformat()
+    duckdb_resource = context.resources.duckdb
+    with duckdb_resource.connect() as connection:
+        eligible_open_day_keys = load_open_day_keys_through_today(
+            connection,
+            calendar_path,
+            today,
+            min_trade_date,
+        )
+        today_is_open = is_sse_open_day(connection, calendar_path, today)
+
+    existing_dynamic_partition_keys = set(
+        context.instance.get_dynamic_partitions(dynamic_partitions.name)
+    )
+    decision = build_trade_day_partition_decision(
+        eligible_open_day_keys=eligible_open_day_keys,
+        existing_dynamic_partition_keys=existing_dynamic_partition_keys,
+        today=today,
+        today_is_open=today_is_open,
+        same_day_register_window_started=True,
+    )
+    _log_trade_day_partition_decision(
+        context,
+        decision=decision,
+        dynamic_partitions=dynamic_partitions,
+        min_trade_date=min_trade_date,
+        partition_set_label=partition_set_label,
+        same_day_register_start=time.min,
+    )
+    return dg.SensorResult(
+        dynamic_partitions_requests=(
+            [dynamic_partitions.build_add_request(list(decision.selected_keys))]
+            if decision.selected_keys
+            else []
+        ),
+        skip_reason=(
+            None
+            if decision.selected_keys
+            else (
+                f"当前所有符合条件的{partition_set_label}交易日分区都已经注册。"
+                if decision.eligible_open_day_count
+                else "交易日历中没有找到符合条件的上交所开市日。"
+            )
+        ),
+        cursor=_cursor_payload(
+            decision,
+            evaluated_at,
+            sensor_name=sensor_name,
+            asset_family=asset_family,
+            partition_set=dynamic_partitions.name,
+            summary=(
+                f"register {len(decision.selected_keys)} board trade-date partitions"
+                if decision.selected_keys
+                else "all eligible board trade-date partitions are registered"
+            ),
+            next_action=(
+                "wait for board dynamic partition registration"
+                if decision.selected_keys
+                else "wait for the next board partition sensor tick"
+            ),
         ),
     )
 

@@ -3,6 +3,7 @@ from pathlib import Path
 import duckdb
 
 from orchestrator.defs.asset_guards.dc_board_lake_readiness import (
+    batch_raw_dc_daily_lake_readiness,
     batch_raw_dc_index_lake_readiness,
 )
 
@@ -95,3 +96,45 @@ def test_unknown_date_fails_closed() -> None:
     status = batch.status_for_trade_date("2026-07-15")
     assert status.ready is False
     assert status.reason == "unknown_trade_date"
+
+
+def test_daily_missing_category_is_materialized_but_not_ready(tmp_path) -> None:
+    root = Path(tmp_path)
+    path = root / "raw/board/dc_daily/trade_date=2026-07-14/part-000.parquet"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = duckdb.connect()
+    connection.execute(
+        """
+        COPY (
+            SELECT
+                'BK0001.DC'::VARCHAR AS ts_code,
+                '20260714'::VARCHAR AS trade_date,
+                10.0::DOUBLE AS close,
+                9.0::DOUBLE AS open,
+                11.0::DOUBLE AS high,
+                8.0::DOUBLE AS low,
+                1.0::DOUBLE AS change,
+                10.0::DOUBLE AS pct_change,
+                100.0::DOUBLE AS vol,
+                1000.0::DOUBLE AS amount,
+                3.0::DOUBLE AS swing,
+                1.0::DOUBLE AS turnover_rate,
+                '行业板块'::VARCHAR AS category
+        ) TO ? (FORMAT PARQUET)
+        """,
+        [str(path)],
+    )
+    try:
+        batch = batch_raw_dc_daily_lake_readiness(
+            connection=connection,
+            lake_root=root,
+            expected_trade_dates=("2026-07-14",),
+            registered_trade_days=("2026-07-14",),
+        )
+    finally:
+        connection.close()
+    status = batch.status_for_trade_date("2026-07-14")
+    assert status.ready is False
+    assert status.materialized is True
+    assert status.checks_passed is False
+    assert "category_coverage_complete" in status.summary["failed_rules"]

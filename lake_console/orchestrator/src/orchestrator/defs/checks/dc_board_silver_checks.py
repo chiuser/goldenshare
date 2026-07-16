@@ -16,13 +16,19 @@ from orchestrator.defs.assets.dc_board_raw import (
     raw_tushare_dc_index,
     raw_tushare_dc_member,
 )
+from orchestrator.defs.asset_guards.dc_board_relations import audit_silver_board_relation
 from orchestrator.defs.asset_guards.dc_board_silver_quality import (
     SILVER_DC_DAILY_QUALITY,
     SILVER_DC_INDEX_QUALITY,
     SILVER_DC_MEMBER_QUALITY,
 )
 from orchestrator.defs.duckdb_sql import describe_parquet_query, read_parquet
-from orchestrator.defs.partitions import cn_a_index_trade_days
+from orchestrator.defs.paths import silver_dc_index_path
+from orchestrator.defs.partitions import (
+    cn_a_dc_daily_trade_days,
+    cn_a_dc_index_trade_days,
+    cn_a_dc_member_trade_days,
+)
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 
@@ -84,6 +90,7 @@ def _core_check(
     key_columns: Sequence[str],
     identity_condition: str,
     numeric_condition: str,
+    relation_mode: str | None = None,
 ) -> dg.AssetCheckResult:
     partition_key = _selected_partition(context)
     if partition_key is None:
@@ -206,6 +213,17 @@ def _core_check(
             failed_rules.append("numeric_value_domain_legal")
             failed_row_count += numeric_failed_count
             samples.extend(_sample_rows(connection, relation, expected_columns[:5], numeric_condition))
+        if relation_mode is not None:
+            relation_failed_count, relation_samples = audit_silver_board_relation(
+                connection,
+                source_path=path,
+                index_path=silver_dc_index_path(lake_root.root(), partition_key),
+                mode=relation_mode,
+            )
+            if relation_failed_count:
+                failed_rules.append("same_day_board_relation_integrity")
+                failed_row_count += relation_failed_count
+                samples.extend(relation_samples)
 
     return _result(
         passed=not failed_rules,
@@ -224,7 +242,7 @@ def _core_check(
     asset=silver_dc_index,
     additional_deps=[raw_tushare_dc_index],
     name="silver_dc_index_core_check",
-    partitions_def=cn_a_index_trade_days,
+    partitions_def=cn_a_dc_index_trade_days,
     blocking=True,
 )
 def silver_dc_index_core_check(
@@ -246,9 +264,9 @@ def silver_dc_index_core_check(
 
 @dg.asset_check(
     asset=silver_dc_member,
-    additional_deps=[raw_tushare_dc_member],
+    additional_deps=[raw_tushare_dc_member, silver_dc_index],
     name="silver_dc_member_core_check",
-    partitions_def=cn_a_index_trade_days,
+    partitions_def=cn_a_dc_member_trade_days,
     blocking=True,
 )
 def silver_dc_member_core_check(
@@ -265,14 +283,15 @@ def silver_dc_member_core_check(
         key_columns=SILVER_DC_MEMBER_QUALITY.key_columns,
         identity_condition=SILVER_DC_MEMBER_QUALITY.identity_condition,
         numeric_condition=SILVER_DC_MEMBER_QUALITY.numeric_condition,
+        relation_mode="member_subset_index",
     )
 
 
 @dg.asset_check(
     asset=silver_dc_daily,
-    additional_deps=[raw_tushare_dc_daily],
+    additional_deps=[raw_tushare_dc_daily, silver_dc_index],
     name="silver_dc_daily_core_check",
-    partitions_def=cn_a_index_trade_days,
+    partitions_def=cn_a_dc_daily_trade_days,
     blocking=True,
 )
 def silver_dc_daily_core_check(
@@ -289,6 +308,7 @@ def silver_dc_daily_core_check(
         key_columns=SILVER_DC_DAILY_QUALITY.key_columns,
         identity_condition=SILVER_DC_DAILY_QUALITY.identity_condition,
         numeric_condition=SILVER_DC_DAILY_QUALITY.numeric_condition,
+        relation_mode="daily_equals_index",
     )
 
 

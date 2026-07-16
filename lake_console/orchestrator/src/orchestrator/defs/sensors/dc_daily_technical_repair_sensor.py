@@ -17,7 +17,7 @@ from orchestrator.defs.jobs.dc_daily_technical_repair import (
     gold_dc_daily_technical_repair_job,
 )
 from orchestrator.defs.jobs.silver_dc_daily_repair import silver_dc_daily_repair_job
-from orchestrator.defs.partitions import cn_a_index_trade_days
+from orchestrator.defs.partitions import cn_a_dc_daily_trade_days
 from orchestrator.defs.paths import silver_dc_daily_path, silver_trade_calendar_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.dc_daily_technical import (
@@ -92,7 +92,7 @@ def gold_dc_daily_technical_repair_job_sensor(
                 silver_trade_calendar_path(lake_root),
             )
             registered_trade_dates = tuple(
-                context.instance.get_dynamic_partitions(cn_a_index_trade_days.name)
+                context.instance.get_dynamic_partitions(cn_a_dc_daily_trade_days.name)
             )
             batch = parse_dc_daily_silver_repair_batch_from_run_tags(
                 tags,

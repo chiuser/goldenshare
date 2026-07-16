@@ -6,7 +6,7 @@ from orchestrator.defs.checks.dc_daily_technical_checks import (
     gold_dc_daily_technical_core_check,
 )
 from orchestrator.defs.jobs.dc_daily_technical import gold_dc_daily_technical_update_job
-from orchestrator.defs.partitions import cn_a_index_trade_days
+from orchestrator.defs.partitions import cn_a_dc_daily_trade_days
 from orchestrator.defs.sensors.dc_daily_technical_sensor import (
     gold_dc_daily_technical_update_job_sensor,
 )
@@ -14,14 +14,14 @@ from orchestrator.defs.sensors.dc_daily_technical_sensor import (
 
 def test_gold_asset_and_core_check_are_single_partition_definitions() -> None:
     assert gold_dc_daily_technical.key == dg.AssetKey("gold_dc_daily_technical")
-    assert gold_dc_daily_technical.partitions_def is cn_a_index_trade_days
+    assert gold_dc_daily_technical.partitions_def is cn_a_dc_daily_trade_days
     assert dg.AssetKey("silver_dc_daily") in gold_dc_daily_technical.dependency_keys
 
     check_specs = tuple(gold_dc_daily_technical_core_check.check_specs)
     assert len(check_specs) == 1
     assert check_specs[0].name == "gold_dc_daily_technical_core_check"
     assert check_specs[0].asset_key == gold_dc_daily_technical.key
-    assert check_specs[0].partitions_def is cn_a_index_trade_days
+    assert check_specs[0].partitions_def is cn_a_dc_daily_trade_days
     assert check_specs[0].blocking is True
 
 

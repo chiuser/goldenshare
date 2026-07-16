@@ -12,7 +12,7 @@ from orchestrator.defs.asset_guards.dc_daily_technical_quality import (
     GOLD_DC_DAILY_TECHNICAL_CHECK_NAME,
     audit_gold_dc_daily_technical_partition,
 )
-from orchestrator.defs.partitions import cn_a_index_trade_days
+from orchestrator.defs.partitions import cn_a_dc_daily_trade_days
 from orchestrator.defs.paths import gold_dc_daily_technical_path, silver_dc_daily_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
@@ -60,7 +60,7 @@ def _result(
     asset=gold_dc_daily_technical,
     additional_deps=[silver_dc_daily],
     name=GOLD_DC_DAILY_TECHNICAL_CHECK_NAME,
-    partitions_def=cn_a_index_trade_days,
+    partitions_def=cn_a_dc_daily_trade_days,
     blocking=True,
 )
 def gold_dc_daily_technical_core_check(

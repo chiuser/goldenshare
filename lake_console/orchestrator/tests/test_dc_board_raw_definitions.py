@@ -16,7 +16,11 @@ from orchestrator.defs.jobs.dc_board import (
     raw_tushare_dc_index_update_job,
     raw_tushare_dc_member_update_job,
 )
-from orchestrator.defs.partitions import cn_a_index_trade_days
+from orchestrator.defs.partitions import (
+    cn_a_dc_daily_trade_days,
+    cn_a_dc_index_trade_days,
+    cn_a_dc_member_trade_days,
+)
 from orchestrator.defs.sensors.dc_board_sensor import (
     raw_tushare_dc_daily_update_job_sensor,
     raw_tushare_dc_index_update_job_sensor,
@@ -25,8 +29,9 @@ from orchestrator.defs.sensors.dc_board_sensor import (
 
 
 def test_m4_definitions_are_partitioned_and_stopped() -> None:
-    for asset in (raw_tushare_dc_index, raw_tushare_dc_member, raw_tushare_dc_daily):
-        assert asset.partitions_def is cn_a_index_trade_days
+    assert raw_tushare_dc_index.partitions_def is cn_a_dc_index_trade_days
+    assert raw_tushare_dc_member.partitions_def is cn_a_dc_member_trade_days
+    assert raw_tushare_dc_daily.partitions_def is cn_a_dc_daily_trade_days
     assert {check.name for check in raw_tushare_dc_index_core_check.check_specs} == {
         "raw_tushare_dc_index_core_check"
     }

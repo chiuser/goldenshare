@@ -277,7 +277,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             "raw_tushare_dc_daily_core_check",
         ):
             self.assertIn(check_name, check_source)
-        self.assertEqual(check_source.count("partitions_def=cn_a_index_trade_days"), 3)
+        self.assertEqual(check_source.count("partitions_def=cn_a_dc_"), 3)
         self.assertIn("blocking=True", check_source)
 
         for source in (asset_source, readiness_source, sensors_source):
@@ -291,6 +291,65 @@ class RunContractStaticGateTests(unittest.TestCase):
         self.assertIn("build_asset_update_run_key", sensors_source)
         self.assertNotIn("AssetSelection.assets(silver_", jobs_source)
         self.assertEqual(jobs_source.count("dg.define_asset_job("), 3)
+
+    def test_dc_board_m9r_uses_calendar_registration_and_bounded_source_probe(self) -> None:
+        partition_sensor_source = (
+            SENSORS_DIR / "dc_board_partition_sensor.py"
+        ).read_text()
+        raw_sensor_source = (SENSORS_DIR / "dc_board_sensor.py").read_text()
+        source_probe_source = (
+            DEFS_DIR / "asset_guards" / "dc_board_source_probe.py"
+        ).read_text()
+        readiness_source = (
+            DEFS_DIR / "asset_guards" / "dc_board_lake_readiness.py"
+        ).read_text()
+
+        for fragment in (
+            "build_calendar_only_partition_registration_result",
+            "default_status=dg.DefaultSensorStatus.STOPPED",
+            "cn_a_dc_index_trade_days",
+            "cn_a_dc_member_trade_days",
+            "cn_a_dc_daily_trade_days",
+        ):
+            self.assertIn(fragment, partition_sensor_source)
+        for forbidden in ("TushareResource", "RunRequest", "get_event_records"):
+            self.assertNotIn(forbidden, partition_sensor_source)
+
+        for fragment in (
+            "batch_raw_dc_index_lake_readiness",
+            "probe_dc_index",
+            "probe_dc_member",
+            "probe_dc_daily",
+            "build_asset_update_run_key",
+            "DC_BOARD_SENSOR_WINDOW_LIMIT",
+        ):
+            self.assertIn(fragment, raw_sensor_source)
+        for forbidden in (
+            "cn_a_index_trade_days",
+            "get_event_records",
+            "partition_dataset_readiness_status_from_latest_checks",
+            "tushare.call(",
+            "dg.RunRequest(",
+        ):
+            self.assertNotIn(forbidden, raw_sensor_source)
+
+        for fragment in (
+            "execute_bounded_code_requests",
+            "DC_BOARD_SOURCE_PROBE_MAX_REQUESTS",
+            "DC_BOARD_SOURCE_PROBE_MAX_ELAPSED_SECONDS",
+        ):
+            self.assertIn(fragment, source_probe_source)
+        for forbidden in ("get_event_records", "report_runless_asset_event"):
+            self.assertNotIn(forbidden, source_probe_source)
+
+        for fragment in (
+            "RAW_DC_QUALITY_SPECS",
+            "numeric_value_domain_legal",
+            "category_coverage_complete",
+            "cross_dataset_code_set_mismatch",
+        ):
+            self.assertIn(fragment, readiness_source)
+        self.assertNotIn("get_event_records", readiness_source)
 
     def test_dc_board_m5_keeps_silver_partition_boundary_and_no_automation(self) -> None:
         asset_path = ASSETS_DIR / "dc_board_silver.py"
@@ -309,7 +368,7 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(asset_source.count("@dg.asset("), 3)
         self.assertEqual(check_source.count("@dg.asset_check("), 3)
-        self.assertEqual(check_source.count("partitions_def=cn_a_index_trade_days"), 3)
+        self.assertEqual(check_source.count("partitions_def=cn_a_dc_"), 3)
         self.assertEqual(check_source.count("blocking=True"), 3)
         self.assertIn("read_parquet", asset_source)
         self.assertIn("silver_trade_calendar_path", asset_source)
@@ -2399,7 +2458,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 47)
+        self.assertEqual(sensor_definition_count, 50)
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:

@@ -104,6 +104,8 @@ def _write_silver(path: Path, dataset: str, *, invalid: bool = False, empty: boo
 )
 def test_silver_batch_readiness_passes_full_semantics(tmp_path, dataset, builder) -> None:
     root = Path(tmp_path)
+    if dataset != "dc_index":
+        _write_silver(silver_dc_index_path(root, "2026-07-14"), "dc_index")
     _write_silver(builder(root, "2026-07-14"), dataset)
     reader = {
         "dc_index": batch_silver_dc_index_lake_readiness,
@@ -150,6 +152,7 @@ def test_existing_empty_silver_file_is_not_auto_rerun_candidate(tmp_path) -> Non
         "dc_member",
         empty=True,
     )
+    _write_silver(silver_dc_index_path(root, "2026-07-14"), "dc_index")
     with _MemoryDuckDB().connect() as connection:
         batch = batch_silver_dc_member_lake_readiness(
             connection=connection,

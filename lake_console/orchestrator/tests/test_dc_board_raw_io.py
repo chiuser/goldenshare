@@ -120,7 +120,11 @@ class DcBoardRawIoTests(unittest.TestCase):
     def test_daily_preserves_category_as_part_of_key(self):
         def response(_api_name, params, _fields):
             if params["offset"] == 0:
-                return [_daily_row("行业板块"), _daily_row("概念板块", "BK0002.DC")]
+                return [
+                    _daily_row("行业板块"),
+                    _daily_row("概念板块", "BK0002.DC"),
+                    _daily_row("地域板块", "BK0003.DC"),
+                ]
             return []
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -137,7 +141,7 @@ class DcBoardRawIoTests(unittest.TestCase):
                     "SELECT count(DISTINCT category) FROM read_parquet(?)",
                     [str(result.target_path)],
                 ).fetchone()[0],
-                2,
+                3,
             )
 
     def test_member_requests_one_code_at_a_time_and_records_empty_code(self):

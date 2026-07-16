@@ -31,6 +31,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_DC_MEMBER_SCHEMA,
 )
 from orchestrator.defs.run_contracts.dc_board import (
+    DC_DAILY_CATEGORIES,
     DC_DAILY_FIELDS,
     DC_DAILY_PAGE_LIMIT,
     DC_INDEX_FIELDS,
@@ -104,6 +105,7 @@ class DcBoardRawWriteResult:
         return {
             "partition_key": self.partition_key,
             "source_method": self.source_method,
+            "source_closure_status": "validated_before_promote",
             "target_path": str(self.target_path),
             "source_row_count": self.source_row_count,
             "written_row_count": self.written_row_count,
@@ -458,6 +460,16 @@ def write_dc_daily_partition(
                 f"dc_daily request failed: {page_result.to_details()}"
             )
         _insert_rows(connection, fields=DC_DAILY_FIELDS, rows=page_result.rows)
+        category_count = int(
+            connection.execute(
+                "SELECT count(DISTINCT category) FROM dc_board_rows"
+            ).fetchone()[0]
+        )
+        if category_count < len(DC_DAILY_CATEGORIES):
+            raise DcBoardRawValidationError(
+                "dc_daily category coverage is incomplete: "
+                f"observed={category_count}, expected={len(DC_DAILY_CATEGORIES)}."
+            )
         return _promote_table(
             connection,
             dataset="dc_daily",
