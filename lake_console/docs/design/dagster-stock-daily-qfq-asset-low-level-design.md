@@ -1732,3 +1732,156 @@ P8 不允许通过逐日 replay repair 初始化历史，因为这会把初始�
 1. `0` 只用于无 previous source row；previous source row 存在但 previous factor 缺失时仍失败。
 2. `stock_codes` 不得作为 repair config、正式 CLI 参数或 sensor payload 暴露；repair op 必须自行重算 affected codes 并校验 hash。
 3. 自动 sensor 必须是 run-status sensor，只处理触发 run 的单个 `trade_date`，并受 affected code 上限、hash、completion/status 和性能门禁约束。
+
+## 18. 2026-07-16 因子生命周期版本错位防护
+
+### 18.1 事故事实与根因
+
+`gold_stock_daily_qfq_update_job[2026-07-16]` 的 run
+`910ef350-eb28-4b07-b9a9-898fc5c1caf3` 在写入前失败。失败前没有覆盖或写入
+`gold/quote/stock_daily_qfq` 文件。
+
+当日事实如下：
+
+| 时间 | 已发生的事实 |
+| --- | --- |
+| 01:39 | `raw_tushare_adj_factor[2026-07-16]` 已有 `920117.BJ` 的 `adj_factor=1.0`。 |
+| 04:00 | `silver_adj_factor[2026-07-16]` 按当时的 `silver_stock_lifecycle` 快照生成，共 5,528 行，未包含该新股。 |
+| 09:11 | `silver_stock_lifecycle` 刷新后新增 `920117.BJ / N龙鑫`，上市日为 2026-07-16。 |
+| 09:22 / 09:32 | `raw_tushare_stock_daily` 与 `silver_stock_daily` 已有该股票当日行情。 |
+| 09:41 | QFQ sensor 只看到较早的 `silver_adj_factor` materialization/check 仍为绿色，提交 QFQ run；writer 发现当日行情有 1 个代码找不到同日 factor 后失败。 |
+
+根因不是 Tushare 缺数据，也不是 QFQ 公式错误。它是同一交易日内两份 silver 文件使用了不同版本的生命周期快照：因子文件较早、日线文件较晚；而 QFQ sensor 只读取 Dagster 的历史绿色状态，未核对现在落盘的两个输入文件是否仍相互覆盖。
+
+审计同时确认：`silver_adj_factor_update_job_sensor` 的 batch lake readiness 已用当前
+`silver_stock_lifecycle` 对 factor 文件做代码覆盖检查。因此它会把这类旧 factor 文件识别为
+not-ready 并自然重建。此次缺口在于 QFQ sensor 没有使用这个“文件事实”做最后一道门禁，不能为同一事实再新增一套 adj factor check 或改动其 sensor。
+
+### 18.2 目标、边界与失败语义
+
+目标是在 QFQ sensor 提交 `gold_stock_daily_qfq_update_job` 前，确认目标交易日的
+`silver_stock_daily` 每个代码都能在同日 `silver_adj_factor` 找到因子。该门禁只防止本节描述的“生命周期刷新后，日线与因子版本不同步”失败。
+
+本节不承诺消除 QFQ writer 的所有其它前置失败。writer 仍保留 as-of factor、前序日 factor、输出行数和写后文件等完整 fail-closed 防线。
+
+硬边界：
+
+1. 不新增 asset、job、sensor、asset check、catalog entry、dynamic partition、run key 或 Dagster event。
+2. 不改 `silver_adj_factor` asset、job、sensor、check、路径、schema、生命周期过滤或补数职责。
+3. 不改 QFQ 公式、QFQ 文件布局、QFQ writer 的计算 SQL、分区、写入策略或 repair 逻辑。
+4. 不写 lake、Dagster DB、prod DB；sensor 发现不一致时只 `skip`，不跨链路提交 adj factor run。
+5. 不把公式比较放入 sensor 或 production check；公式正确性继续由受保护的金样本测试负责。本门禁只验证输入文件的代码覆盖事实。
+
+失败语义：
+
+| 条件 | sensor 行为 | cursor 口径 | 后续处理 |
+| --- | --- | --- | --- |
+| 两个文件都存在，日线代码全部有同日 factor | 保持现有 `RunRequest`，行为不变。 | `qfq_input_coverage.ready=true`。 | 执行既有 QFQ job。 |
+| 任一输入文件不存在 | `skip`，不提交 QFQ run。 | `reason_code=upstream_qfq_input_coverage_not_ready`，`blocked_component` 指向缺失层。 | 等待对应上游文件/状态修复。 |
+| 日线代码缺同日 factor | `skip`，不提交 QFQ run。 | 记录缺口数量和最多 5 个 `ts_code`。 | 等待既有 adj factor sensor 识别当前生命周期覆盖缺口并重跑；下一 tick 自然重试。 |
+| 同日 factor 有额外代码 | 不阻断。 | 只记录日线到因子的覆盖结论。 | QFQ 只要求日线输入可被 factor 覆盖。 |
+
+### 18.3 实现设计
+
+在 `defs/stock_daily_qfq.py` 新增稳定、只读的输入覆盖 helper：
+
+```python
+assess_stock_daily_qfq_trade_factor_coverage(
+    *, connection, lake_root, trade_date, sample_limit=5
+) -> StockDailyQfqTradeFactorCoverage
+```
+
+它只读取：
+
+- `silver/quote/stock_daily/trade_date=<trade_date>/part-000.parquet`
+- `silver/quote/adj_factor/trade_date=<trade_date>/part-000.parquet`
+
+正常路径使用一条 DuckDB 聚合 SQL，显式只投影 `ts_code`、`trade_date`，输出：
+
+- `source_row_count`
+- `matched_row_count`
+- `missing_trade_adj_factor_row_count`
+- 两个输入文件是否存在
+- 稳定的 `reason_code` 与 `ready`。
+
+仅当覆盖失败时，额外运行一条按 `ts_code` 排序、`LIMIT 5` 的诊断 SQL。不得在成功路径读取样本，不得传递完整路径列表、完整 SQL、全量代码或 readiness 报告。
+
+`gold_stock_daily_qfq_update_job_sensor` 的插入位置固定为：
+
+1. 现有 gold QFQ 未 materialized 判断后；
+2. 现有 `stock_daily_ready_for_trade_date(...)` 通过后；
+3. 现有 `adj_factor_ready_for_trade_date(...)` 通过后；
+4. 构造既有 `_gold_stock_daily_qfq_run_request_for_trade_date(...)` 前。
+
+该顺序保留当前 Dagster readiness 为第一层门禁。只有历史状态已绿且 QFQ 确实待生成时，才读取两份当前 Parquet；所有既有 skip、run key、partition、job target 与 `MAX_RUN_REQUESTS_PER_TICK` 语义保持不变。
+
+`_build_cursor(...)` 只增加紧凑的 `qfq_input_coverage` 摘要：`ready`、`reason_code`、两个行数、缺口数量、最多 5 个代码样本。顶层 cursor v1 contract 不变，失败时 `blocked_component=silver_adj_factor`；缺 stock daily 文件时为 `silver_stock_daily`；两个输入都缺失时为 `qfq_input_files`。
+
+### 18.4 性能预算与拒绝策略
+
+| 项 | 设计上限 | 说明 |
+| --- | ---: | --- |
+| 热路径执行时机 | 仅 QFQ 缺分区且两个 Dagster 上游已绿时 | 已 ready、交易日缺口、gold check 问题或上游 Dagster not-ready 时不执行。 |
+| 读取日期 / 文件 | 1 日 / 2 个 Parquet | 只读目标交易日，不读前序 20 日，也不读生命周期文件。 |
+| 读取列 | 2 列 | 只读 `ts_code`、`trade_date`，不读 OHLC、不计算 QFQ 公式。 |
+| SQL 数 | 正常 1；失败最多 2 | 第二条仅用于 `LIMIT 5` 的人类可读诊断。 |
+| 数据量基线 | 约 5,524 日线行 + 5,528 因子行 | 2026-07-16 真实事故日；复杂度为单日两文件线性扫描。 |
+| 写入 | 0 | 无 lake、Dagster、数据库、cursor 以外状态写入。 |
+| cursor | 正常/失败均不超过 2 KiB；硬上限 8 KiB | 样本严格限制为 5。 |
+| 失败策略 | fail closed / skip | 不提交必然失败的 QFQ run，交给既有 adj factor 链路自然修复。 |
+
+测试必须用临时 Parquet fixture 证明成功路径恰为一次聚合查询、失败路径最多追加一次样本查询，且没有前序日期循环、Dagster event/check history 扩展或 `duckdb.connect()` 进入生产代码。
+
+### 18.5 精确改动点与测试
+
+| 文件 | 改动 |
+| --- | --- |
+| `defs/stock_daily_qfq.py` | 新增小型 coverage result dataclass、两文件聚合 SQL builder 和只读评估 helper。保留 writer 的完整写前 guard。 |
+| `defs/sensors/stock_daily_qfq_sensor.py` | 在既有两个上游 readiness 之后、RunRequest 之前调用 helper；coverage 不绿则 compact cursor + skip。 |
+| `tests/test_stock_daily_qfq_contracts.py` | 验证正常覆盖、缺同日 factor、extra factor 不阻断、缺输入文件、样本上限与只投影身份列。 |
+| `tests/test_stock_daily_qfq_sensor_contracts.py` | 验证两个 Dagster 上游已绿但实时 coverage 缺口时不提交 run；coverage 通过时原 run key / partition / job target 不变；上游未绿时不调用 helper。 |
+| `tests/test_run_contract_static_gates.py` | 锁定 sensor 采用 coverage helper、无 `write_gold_stock_daily_qfq_partition` 调用、无 event-history 扩展和无大样本 cursor。 |
+| 本 LLD、QFQ/adj factor 高层设计文档 | 记录 lifecycle-version skew 与最终职责边界。 |
+
+本地验证只运行相关 unit/static tests 与 `git diff --check`。不运行 `dg check defs`，不运行正式 job/sensor/materialize/backfill，不访问或写入正式数据库和 lake。
+
+### 18.6 实施验收
+
+完成后必须满足：
+
+1. 事故等价 fixture 中，Dagster 的两个 upstream status 都为 ready、但同日日线缺 1 个 factor 时，sensor 返回 `skip` 且没有 `RunRequest`。
+2. cursor 能一眼说明“同日 adj factor 缺覆盖”、缺口数量和最多 5 个代码；不包含报告型 payload。
+3. 覆盖一致时，sensor 的 run key、job target、partition key 与现状完全一致。
+4. `silver_adj_factor_update_job_sensor` 的现有生命周期覆盖 gate 不被修改、不被替代。
+5. 公式 SQL、gold 文件内容、asset/check 数量及 Dagster event 数量均不改变。
+
+### 18.7 实施结果
+
+代码已按本节完成：
+
+1. `GoldStockDailyQfqTradeFactorCoverage` 与
+   `assess_stock_daily_qfq_trade_factor_coverage(...)` 已在
+   `defs/stock_daily_qfq.py` 落地；成功时只执行一条两文件聚合 SQL，缺口时才追加一条
+   `LIMIT 5` 样本查询。
+2. `gold_stock_daily_qfq_update_job_sensor` 已在两个既有 upstream Dagster readiness
+   通过后、构造 RunRequest 前调用该 helper；缺覆盖会以
+   `upstream_qfq_input_coverage_not_ready` 跳过，不写任何状态或文件。
+3. cursor 只保留 coverage 摘要；已经绿色的 upstream readiness 不再重复写入 cursor。
+4. 覆盖、空输入、文件缺失、extra factor、sensor skip/request、不调用前置 gate、查询次数、
+   cursor 体积和静态边界均已由单元测试覆盖。
+
+本地验证（不触发正式 Dagster）：
+
+```bash
+cd lake_console/orchestrator
+uv run python -m unittest \
+  tests.test_stock_daily_qfq_contracts \
+  tests.test_stock_daily_qfq_sensor_contracts \
+  tests.test_stock_daily_qfq_checks \
+  tests.test_sensor_cursor_contracts \
+  tests.test_run_contract_static_gates \
+  tests.test_asset_governance_contracts
+git diff --check
+```
+
+结果：128 tests 通过；`git diff --check` 通过。

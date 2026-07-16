@@ -42,6 +42,7 @@ GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_AUTO_CODE_LIMIT = 500
 GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_REASON_NO_FACTOR_CHANGED = "no_factor_changed"
 GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_REASON_FACTOR_CHANGED = "factor_changed"
 GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_METADATA_SAMPLE_LIMIT = 20
+STOCK_DAILY_QFQ_TRADE_FACTOR_COVERAGE_SAMPLE_LIMIT = 5
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,40 @@ class GoldStockDailyQfqPartitionWriteResult:
     output_row_count: int
     missing_previous_row_count: int
     observed_columns: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class GoldStockDailyQfqTradeFactorCoverage:
+    trade_date: str
+    stock_daily_file_exists: bool
+    adj_factor_file_exists: bool
+    source_row_count: int
+    matched_row_count: int
+    missing_trade_adj_factor_row_count: int
+    missing_trade_adj_factor_code_samples: tuple[str, ...]
+
+    @property
+    def ready(self) -> bool:
+        return (
+            self.stock_daily_file_exists
+            and self.adj_factor_file_exists
+            and self.source_row_count > 0
+            and self.missing_trade_adj_factor_row_count == 0
+        )
+
+    @property
+    def reason_code(self) -> str:
+        if not self.stock_daily_file_exists and not self.adj_factor_file_exists:
+            return "missing_qfq_input_files"
+        if not self.stock_daily_file_exists:
+            return "missing_silver_stock_daily_file"
+        if not self.adj_factor_file_exists:
+            return "missing_silver_adj_factor_file"
+        if self.source_row_count <= 0:
+            return "empty_silver_stock_daily"
+        if self.missing_trade_adj_factor_row_count:
+            return "missing_trade_date_adj_factor_coverage"
+        return "ready"
 
 
 @dataclass(frozen=True)
@@ -321,6 +356,142 @@ SELECT
   ) AS missing_previous_adj_factor_row_count
 FROM joined_rows
 """
+
+
+def build_stock_daily_qfq_trade_factor_coverage_sql(
+    *,
+    stock_daily_path: Path,
+    trade_adj_factor_path: Path,
+    trade_date: str,
+) -> str:
+    trade_date_sql = f"DATE {duckdb_string(trade_date)}"
+    source_daily = read_parquet(stock_daily_path, hive_partitioning=False)
+    trade_factor = read_parquet(trade_adj_factor_path, hive_partitioning=False)
+    return f"""
+WITH source_daily AS (
+  SELECT CAST(ts_code AS VARCHAR) AS ts_code
+  FROM {source_daily}
+  WHERE CAST(trade_date AS DATE) = {trade_date_sql}
+),
+trade_adj_factor AS (
+  SELECT CAST(ts_code AS VARCHAR) AS ts_code
+  FROM {trade_factor}
+  WHERE CAST(trade_date AS DATE) = {trade_date_sql}
+)
+SELECT
+  count(*) AS source_row_count,
+  count(*) FILTER (
+    WHERE EXISTS (
+      SELECT 1
+      FROM trade_adj_factor
+      WHERE trade_adj_factor.ts_code = source_daily.ts_code
+    )
+  ) AS matched_row_count,
+  count(*) FILTER (
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM trade_adj_factor
+      WHERE trade_adj_factor.ts_code = source_daily.ts_code
+    )
+  ) AS missing_trade_adj_factor_row_count
+FROM source_daily
+"""
+
+
+def build_stock_daily_qfq_missing_trade_factor_samples_sql(
+    *,
+    stock_daily_path: Path,
+    trade_adj_factor_path: Path,
+    trade_date: str,
+    sample_limit: int,
+) -> str:
+    if sample_limit <= 0:
+        raise ValueError("sample_limit must be positive.")
+
+    trade_date_sql = f"DATE {duckdb_string(trade_date)}"
+    source_daily = read_parquet(stock_daily_path, hive_partitioning=False)
+    trade_factor = read_parquet(trade_adj_factor_path, hive_partitioning=False)
+    return f"""
+WITH source_daily AS (
+  SELECT CAST(ts_code AS VARCHAR) AS ts_code
+  FROM {source_daily}
+  WHERE CAST(trade_date AS DATE) = {trade_date_sql}
+),
+trade_adj_factor AS (
+  SELECT CAST(ts_code AS VARCHAR) AS ts_code
+  FROM {trade_factor}
+  WHERE CAST(trade_date AS DATE) = {trade_date_sql}
+)
+SELECT source_daily.ts_code
+FROM source_daily
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM trade_adj_factor
+  WHERE trade_adj_factor.ts_code = source_daily.ts_code
+)
+ORDER BY source_daily.ts_code
+LIMIT {int(sample_limit)}
+"""
+
+
+def assess_stock_daily_qfq_trade_factor_coverage(
+    *,
+    connection: duckdb.DuckDBPyConnection,
+    lake_root: Path,
+    trade_date: str,
+    sample_limit: int = STOCK_DAILY_QFQ_TRADE_FACTOR_COVERAGE_SAMPLE_LIMIT,
+) -> GoldStockDailyQfqTradeFactorCoverage:
+    if sample_limit <= 0:
+        raise ValueError("sample_limit must be positive.")
+
+    stock_daily_path = silver_stock_daily_path(lake_root, trade_date)
+    trade_adj_factor_path = silver_adj_factor_path(lake_root, trade_date)
+    stock_daily_file_exists = stock_daily_path.exists()
+    adj_factor_file_exists = trade_adj_factor_path.exists()
+    if not stock_daily_file_exists or not adj_factor_file_exists:
+        return GoldStockDailyQfqTradeFactorCoverage(
+            trade_date=trade_date,
+            stock_daily_file_exists=stock_daily_file_exists,
+            adj_factor_file_exists=adj_factor_file_exists,
+            source_row_count=0,
+            matched_row_count=0,
+            missing_trade_adj_factor_row_count=0,
+            missing_trade_adj_factor_code_samples=(),
+        )
+
+    coverage_row = connection.execute(
+        build_stock_daily_qfq_trade_factor_coverage_sql(
+            stock_daily_path=stock_daily_path,
+            trade_adj_factor_path=trade_adj_factor_path,
+            trade_date=trade_date,
+        )
+    ).fetchone()
+    source_row_count = int(coverage_row[0] or 0)
+    matched_row_count = int(coverage_row[1] or 0)
+    missing_trade_adj_factor_row_count = int(coverage_row[2] or 0)
+    missing_trade_adj_factor_code_samples: tuple[str, ...] = ()
+    if missing_trade_adj_factor_row_count:
+        missing_trade_adj_factor_code_samples = tuple(
+            str(row[0])
+            for row in connection.execute(
+                build_stock_daily_qfq_missing_trade_factor_samples_sql(
+                    stock_daily_path=stock_daily_path,
+                    trade_adj_factor_path=trade_adj_factor_path,
+                    trade_date=trade_date,
+                    sample_limit=sample_limit,
+                )
+            ).fetchall()
+        )
+
+    return GoldStockDailyQfqTradeFactorCoverage(
+        trade_date=trade_date,
+        stock_daily_file_exists=stock_daily_file_exists,
+        adj_factor_file_exists=adj_factor_file_exists,
+        source_row_count=source_row_count,
+        matched_row_count=matched_row_count,
+        missing_trade_adj_factor_row_count=missing_trade_adj_factor_row_count,
+        missing_trade_adj_factor_code_samples=missing_trade_adj_factor_code_samples,
+    )
 
 
 def write_gold_stock_daily_qfq_partition(

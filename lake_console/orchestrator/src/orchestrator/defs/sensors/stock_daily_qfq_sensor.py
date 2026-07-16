@@ -41,6 +41,10 @@ from orchestrator.defs.sensors.readiness import (
     select_first_not_ready_gold_stock_daily_qfq_partition,
     stock_daily_ready_for_trade_date,
 )
+from orchestrator.defs.stock_daily_qfq import (
+    GoldStockDailyQfqTradeFactorCoverage,
+    assess_stock_daily_qfq_trade_factor_coverage,
+)
 
 
 GOLD_STOCK_DAILY_QFQ_SENSOR_NAME = "gold_stock_daily_qfq_update_job_sensor"
@@ -81,6 +85,48 @@ def _gold_stock_daily_qfq_run_request_for_trade_date(
 
 def _dataset_status_materialized(status: DatasetReadinessStatus | None) -> bool:
     return bool(status and all(asset_status.materialized for asset_status in status.statuses))
+
+
+def _qfq_input_coverage_for_trade_date(
+    context: dg.SensorEvaluationContext,
+    trade_date: str,
+) -> GoldStockDailyQfqTradeFactorCoverage:
+    duckdb_resource = context.resources.duckdb
+    with duckdb_resource.connect() as connection:
+        return assess_stock_daily_qfq_trade_factor_coverage(
+            connection=connection,
+            lake_root=context.resources.lake_root.root(),
+            trade_date=trade_date,
+        )
+
+
+def _qfq_input_coverage_blocked_component(
+    coverage: GoldStockDailyQfqTradeFactorCoverage,
+) -> str:
+    if not coverage.stock_daily_file_exists and not coverage.adj_factor_file_exists:
+        return "qfq_input_files"
+    if not coverage.stock_daily_file_exists or coverage.source_row_count <= 0:
+        return "silver_stock_daily"
+    return "silver_adj_factor"
+
+
+def _compact_qfq_input_coverage(
+    coverage: GoldStockDailyQfqTradeFactorCoverage,
+) -> dict[str, object]:
+    return {
+        "ready": coverage.ready,
+        "reason_code": coverage.reason_code,
+        "stock_daily_file_exists": coverage.stock_daily_file_exists,
+        "adj_factor_file_exists": coverage.adj_factor_file_exists,
+        "source_row_count": coverage.source_row_count,
+        "matched_row_count": coverage.matched_row_count,
+        "missing_trade_adj_factor_row_count": (
+            coverage.missing_trade_adj_factor_row_count
+        ),
+        "missing_trade_adj_factor_code_samples": list(
+            coverage.missing_trade_adj_factor_code_samples
+        ),
+    }
 
 
 def _ready_through_trade_date(
@@ -174,6 +220,11 @@ def _cursor_summary_and_next_action(
             f"未触发：{target} 的 silver_adj_factor 尚未 ready。",
             "先完成同日 silver_adj_factor，再等待下一次 tick。",
         )
+    if reason_code == "upstream_qfq_input_coverage_not_ready":
+        return (
+            f"未触发：{target} 的同日股票日线与复权因子代码覆盖不一致。",
+            "等待或重跑同日 silver_adj_factor；覆盖恢复后 sensor 会自然提交 QFQ 更新。",
+        )
     if reason_code == "all_ready":
         return (
             "未触发：最近 10 个股票交易日的 gold_stock_daily_qfq 已经 ready。",
@@ -202,6 +253,7 @@ def _build_cursor(
     gold_status: DatasetReadinessStatus | None = None,
     stock_daily_status: DatasetReadinessStatus | None = None,
     adj_factor_status: DatasetReadinessStatus | None = None,
+    qfq_input_coverage: GoldStockDailyQfqTradeFactorCoverage | None = None,
     first_not_ready_trade_date: str | None = None,
     blocked_reason: str | None = None,
     registered_trade_day_count: int = 0,
@@ -238,13 +290,17 @@ def _build_cursor(
     )
     if gold_status is not None:
         details["gold_stock_daily_qfq_status"] = compact_readiness_status(gold_status)
-    if stock_daily_status is not None:
+    if stock_daily_status is not None and not stock_daily_status.ready:
         details["silver_stock_daily_status"] = compact_readiness_status(
             stock_daily_status
         )
-    if adj_factor_status is not None:
+    if adj_factor_status is not None and not adj_factor_status.ready:
         details["silver_adj_factor_status"] = compact_readiness_status(
             adj_factor_status
+        )
+    if qfq_input_coverage is not None:
+        details["qfq_input_coverage"] = _compact_qfq_input_coverage(
+            qfq_input_coverage
         )
 
     return build_sensor_cursor(
@@ -422,6 +478,35 @@ def gold_stock_daily_qfq_update_job_sensor(
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
+    qfq_input_coverage = _qfq_input_coverage_for_trade_date(
+        context,
+        selected_trade_date,
+    )
+    if not qfq_input_coverage.ready:
+        reason = (
+            f"{selected_trade_date} 的 silver_stock_daily 与 silver_adj_factor "
+            "同日代码覆盖未满足。"
+        )
+        cursor = _build_cursor(
+            evaluated_at=evaluated_at,
+            expected_window=expected_window,
+            gap_status=gap_status,
+            target_trade_date=selected_trade_date,
+            selected_trade_date=None,
+            reason_code="upstream_qfq_input_coverage_not_ready",
+            blocked_component=_qfq_input_coverage_blocked_component(
+                qfq_input_coverage
+            ),
+            gold_status=gold_status,
+            stock_daily_status=stock_daily_status,
+            adj_factor_status=adj_factor_status,
+            qfq_input_coverage=qfq_input_coverage,
+            first_not_ready_trade_date=selected_trade_date,
+            blocked_reason=qfq_input_coverage.reason_code,
+            registered_trade_day_count=len(registered_trade_days),
+        )
+        return dg.SensorResult(skip_reason=reason, cursor=cursor)
+
     reason = f"{selected_trade_date} 的股票日线前复权门禁已满足，提交更新。"
     cursor = _build_cursor(
         evaluated_at=evaluated_at,
@@ -434,6 +519,7 @@ def gold_stock_daily_qfq_update_job_sensor(
         gold_status=gold_status,
         stock_daily_status=stock_daily_status,
         adj_factor_status=adj_factor_status,
+        qfq_input_coverage=qfq_input_coverage,
         first_not_ready_trade_date=selected_trade_date,
         registered_trade_day_count=len(registered_trade_days),
     )

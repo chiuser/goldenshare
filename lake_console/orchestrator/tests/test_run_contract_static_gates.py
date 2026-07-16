@@ -4290,7 +4290,16 @@ class RunContractStaticGateTests(unittest.TestCase):
 
     def test_gold_stock_daily_qfq_daily_sensor_uses_bounded_run_contracts(self) -> None:
         sensor_path = SENSORS_DIR / "stock_daily_qfq_sensor.py"
+        coverage_path = DEFS_DIR / "stock_daily_qfq.py"
         source = sensor_path.read_text()
+        coverage_source = _function_source(
+            coverage_path,
+            "assess_stock_daily_qfq_trade_factor_coverage",
+        )
+        coverage_sql_source = _function_source(
+            coverage_path,
+            "build_stock_daily_qfq_trade_factor_coverage_sql",
+        )
         issues = []
 
         required_snippets = (
@@ -4301,6 +4310,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             "cn_a_stock_trade_days",
             "required_resource_keys={\"lake_root\", \"duckdb\"}",
             "default_status=dg.DefaultSensorStatus.STOPPED",
+            "_qfq_input_coverage_for_trade_date",
         )
         for snippet in required_snippets:
             if snippet not in source:
@@ -4313,10 +4323,26 @@ class RunContractStaticGateTests(unittest.TestCase):
             "gold_stock_daily_qfq_ready_for_trade_date(",
             "stock_codes",
             "get_event_records(",
+            "write_gold_stock_daily_qfq_partition",
         )
         for snippet in forbidden_snippets:
             if snippet in source:
                 issues.append(f"{sensor_path} contains forbidden snippet: {snippet}")
+
+        for fragment in ("source_row_count", "sample_limit"):
+            if fragment not in coverage_source:
+                issues.append(
+                    f"{coverage_path} coverage helper misses required fragment: {fragment}"
+                )
+        if "read_parquet" not in coverage_sql_source:
+            issues.append(
+                f"{coverage_path} coverage SQL must read bounded parquet inputs"
+            )
+        for fragment in ("open_qfq", "close_qfq", "previous_daily", "duckdb.connect("):
+            if fragment in f"{coverage_source}\n{coverage_sql_source}":
+                issues.append(
+                    f"{coverage_path} coverage helper contains forbidden fragment: {fragment}"
+                )
 
         self.assertEqual(issues, [])
 

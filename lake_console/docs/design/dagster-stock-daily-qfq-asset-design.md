@@ -228,6 +228,12 @@ P8 也不再设计另一套公式级聚合对账、固定样本公式验收或�
 
 日常 sensor 只负责判断最早缺失或 not-ready 的 `trade_date`，并提交单日 run；不得在 sensor 中执行历史补数，也不得扫描全历史。
 
+补充现行防护：当 `silver_stock_daily` 与 `silver_adj_factor` 的 Dagster readiness
+都绿、但 QFQ 分区仍待生成时，sensor 会只读核对该交易日两份 Parquet 的代码覆盖。它只读
+`ts_code/trade_date`，正常一条聚合 SQL，缺覆盖时最多再取 5 个代码样本；不会读取前序日期、
+不会复算 QFQ 公式、不会代替 adj factor sensor 提交补数。日线代码缺当日 factor 时，QFQ
+sensor fail closed 并等待既有 `silver_adj_factor_update_job_sensor` 按当前生命周期重建因子文件。
+
 ### 5.2 历史初始化 / 大范围补数
 
 如果需要一次性生成历史 `gold_stock_daily_qfq`，默认不采用“数千个 Dagster backfill run”作为第一选择。后续 LLD 必须先测算规模，再按下面路径选择执行方式：

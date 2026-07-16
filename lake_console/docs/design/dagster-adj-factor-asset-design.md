@@ -362,6 +362,11 @@ write_mode = replace partition
   - 09:30 前不触发；09:30 后才评估 silver 门禁。
   - 先确认 `raw_tushare_adj_factor[trade_date]` latest materialization 及对应 raw blocking checks 全绿。
   - 再确认 `stock_basic_ready_without_freshness` 通过；按本轮确认口径，不要求 `stock_basic` materialization date >= 目标交易日。
+  - lake readiness 同时按当前 `silver_stock_lifecycle` 核对同日 factor 的 expected code coverage；因此生命周期在日内刷新后，旧 factor 文件即使保留了较早的 Dagster 绿色 check，也会被识别为 not-ready 并自然重建。
+
+下游 `gold_stock_daily_qfq_update_job_sensor` 不复制或替代上述因子重建职责。它只在既有
+Dagster upstream readiness 全绿后，对目标交易日 `silver_stock_daily -> silver_adj_factor`
+做一次两文件代码覆盖复核，避免提交必然因缺当日 factor 而失败的 QFQ run。
   - 若 `silver_adj_factor[trade_date]` 缺 materialization 且门禁全满足，则提交 `silver_adj_factor_update_job[trade_date]`。
   - 若 silver 已 materialized 但 blocking checks 未全绿，则保守 skip，避免失败循环。
   - definition tags：`quote_data/silver/asset_update`。

@@ -40,6 +40,8 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.stock_daily_qfq import (
     GOLD_STOCK_DAILY_QFQ_COLUMNS,
+    assess_stock_daily_qfq_trade_factor_coverage,
+    build_stock_daily_qfq_trade_factor_coverage_sql,
     build_stock_daily_qfq_select_sql,
     load_stock_daily_qfq_previous_lookup_trade_dates,
     write_gold_stock_daily_qfq_partition,
@@ -199,6 +201,16 @@ def _fetch_output_rows(path: Path) -> list[dict[str, object]]:
             """
         ).fetchall()
     return [dict(zip(GOLD_STOCK_DAILY_QFQ_COLUMNS, row, strict=True)) for row in rows]
+
+
+class _CountingConnection:
+    def __init__(self, connection: duckdb.DuckDBPyConnection) -> None:
+        self._connection = connection
+        self.execute_count = 0
+
+    def execute(self, *args, **kwargs):
+        self.execute_count += 1
+        return self._connection.execute(*args, **kwargs)
 
 
 class StockDailyQfqContractTests(unittest.TestCase):
@@ -384,6 +396,132 @@ class StockDailyQfqContractTests(unittest.TestCase):
             [(column[0], column[1]) for column in described],
             [(column.name, column.type) for column in GOLD_STOCK_DAILY_QFQ_SCHEMA],
         )
+
+    def test_trade_factor_coverage_accepts_matching_codes_and_factor_extras(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_stock_daily(
+                root,
+                TRADE_DATE,
+                [
+                    _stock_daily_row("000001.SZ", TRADE_DATE, close=10.5),
+                    _stock_daily_row("600000.SH", TRADE_DATE, close=20.5),
+                ],
+            )
+            _write_adj_factor(
+                root,
+                TRADE_DATE,
+                [
+                    _adj_factor_row("000001.SZ", TRADE_DATE, 4.0),
+                    _adj_factor_row("600000.SH", TRADE_DATE, 5.0),
+                    _adj_factor_row("999999.SZ", TRADE_DATE, 1.0),
+                ],
+            )
+
+            with duckdb.connect(database=":memory:") as connection:
+                counted_connection = _CountingConnection(connection)
+                coverage = assess_stock_daily_qfq_trade_factor_coverage(
+                    connection=counted_connection,
+                    lake_root=root,
+                    trade_date=TRADE_DATE,
+                )
+                coverage_sql = build_stock_daily_qfq_trade_factor_coverage_sql(
+                    stock_daily_path=silver_stock_daily_path(root, TRADE_DATE),
+                    trade_adj_factor_path=silver_adj_factor_path(root, TRADE_DATE),
+                    trade_date=TRADE_DATE,
+                )
+
+        self.assertTrue(coverage.ready)
+        self.assertEqual(coverage.reason_code, "ready")
+        self.assertEqual(coverage.source_row_count, 2)
+        self.assertEqual(coverage.matched_row_count, 2)
+        self.assertEqual(coverage.missing_trade_adj_factor_row_count, 0)
+        self.assertEqual(coverage.missing_trade_adj_factor_code_samples, ())
+        self.assertEqual(counted_connection.execute_count, 1)
+        self.assertNotIn("open_qfq", coverage_sql)
+        self.assertNotIn("close_qfq", coverage_sql)
+        self.assertNotIn("previous_daily", coverage_sql)
+
+    def test_trade_factor_coverage_reports_bounded_missing_code_samples(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_stock_daily(
+                root,
+                TRADE_DATE,
+                [
+                    _stock_daily_row(f"{number:06d}.SZ", TRADE_DATE, close=10.5)
+                    for number in range(1, 8)
+                ],
+            )
+            _write_adj_factor(
+                root,
+                TRADE_DATE,
+                [_adj_factor_row("000001.SZ", TRADE_DATE, 4.0)],
+            )
+
+            with duckdb.connect(database=":memory:") as connection:
+                counted_connection = _CountingConnection(connection)
+                coverage = assess_stock_daily_qfq_trade_factor_coverage(
+                    connection=counted_connection,
+                    lake_root=root,
+                    trade_date=TRADE_DATE,
+                    sample_limit=3,
+                )
+
+        self.assertFalse(coverage.ready)
+        self.assertEqual(
+            coverage.reason_code,
+            "missing_trade_date_adj_factor_coverage",
+        )
+        self.assertEqual(coverage.source_row_count, 7)
+        self.assertEqual(coverage.matched_row_count, 1)
+        self.assertEqual(coverage.missing_trade_adj_factor_row_count, 6)
+        self.assertEqual(
+            coverage.missing_trade_adj_factor_code_samples,
+            ("000002.SZ", "000003.SZ", "000004.SZ"),
+        )
+        self.assertEqual(counted_connection.execute_count, 2)
+
+    def test_trade_factor_coverage_fails_closed_for_missing_input_file(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_stock_daily(
+                root,
+                TRADE_DATE,
+                [_stock_daily_row("000001.SZ", TRADE_DATE, close=10.5)],
+            )
+
+            with duckdb.connect(database=":memory:") as connection:
+                coverage = assess_stock_daily_qfq_trade_factor_coverage(
+                    connection=connection,
+                    lake_root=root,
+                    trade_date=TRADE_DATE,
+                )
+
+        self.assertFalse(coverage.ready)
+        self.assertEqual(coverage.reason_code, "missing_silver_adj_factor_file")
+        self.assertFalse(coverage.adj_factor_file_exists)
+
+    def test_trade_factor_coverage_fails_closed_for_empty_stock_daily(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_stock_daily(root, TRADE_DATE, [])
+            _write_adj_factor(
+                root,
+                TRADE_DATE,
+                [_adj_factor_row("000001.SZ", TRADE_DATE, 4.0)],
+            )
+
+            with duckdb.connect(database=":memory:") as connection:
+                coverage = assess_stock_daily_qfq_trade_factor_coverage(
+                    connection=connection,
+                    lake_root=root,
+                    trade_date=TRADE_DATE,
+                )
+
+        self.assertFalse(coverage.ready)
+        self.assertEqual(coverage.reason_code, "empty_silver_stock_daily")
+        self.assertEqual(coverage.source_row_count, 0)
 
     def test_writer_uses_qfq_formula_and_recomputes_previous_fields(self) -> None:
         with TemporaryDirectory() as temp_dir:

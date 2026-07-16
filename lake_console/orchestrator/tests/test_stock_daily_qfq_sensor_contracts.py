@@ -22,6 +22,7 @@ from orchestrator.defs.sensors.readiness import (
     AssetReadinessStatus,
     DatasetReadinessStatus,
 )
+from orchestrator.defs.stock_daily_qfq import GoldStockDailyQfqTradeFactorCoverage
 from orchestrator.defs.sensors.stock_daily_qfq_sensor import (
     GOLD_STOCK_DAILY_QFQ_SENSOR_NAME,
     gold_stock_daily_qfq_update_job_sensor,
@@ -125,6 +126,23 @@ def _ready_status(asset_key: str, trade_date: str) -> DatasetReadinessStatus:
     )
 
 
+def _qfq_input_coverage(
+    trade_date: str,
+    *,
+    missing_code_count: int = 0,
+    missing_code_samples: tuple[str, ...] = (),
+) -> GoldStockDailyQfqTradeFactorCoverage:
+    return GoldStockDailyQfqTradeFactorCoverage(
+        trade_date=trade_date,
+        stock_daily_file_exists=True,
+        adj_factor_file_exists=True,
+        source_row_count=2,
+        matched_row_count=2 - missing_code_count,
+        missing_trade_adj_factor_row_count=missing_code_count,
+        missing_trade_adj_factor_code_samples=missing_code_samples,
+    )
+
+
 class GoldStockDailyQfqSensorContractTests(unittest.TestCase):
     def test_sensor_definition_is_stopped_and_tagged(self) -> None:
         self.assertEqual(
@@ -205,6 +223,11 @@ class GoldStockDailyQfqSensorContractTests(unittest.TestCase):
                 "adj_factor_ready_for_trade_date",
                 return_value=_ready_status("silver_adj_factor", selected_date),
             ),
+            patch.object(
+                sensor_module,
+                "_qfq_input_coverage_for_trade_date",
+                return_value=_qfq_input_coverage(selected_date),
+            ),
         ):
             result = gold_stock_daily_qfq_update_job_sensor._raw_fn(context)
 
@@ -246,6 +269,11 @@ class GoldStockDailyQfqSensorContractTests(unittest.TestCase):
                 "adj_factor_ready_for_trade_date",
                 return_value=_ready_status("silver_adj_factor", selected_date),
             ) as adj_factor_ready,
+            patch.object(
+                sensor_module,
+                "_qfq_input_coverage_for_trade_date",
+                return_value=_qfq_input_coverage(selected_date),
+            ) as input_coverage,
         ):
             result = gold_stock_daily_qfq_update_job_sensor._raw_fn(context)
 
@@ -258,9 +286,11 @@ class GoldStockDailyQfqSensorContractTests(unittest.TestCase):
         )
         stock_daily_ready.assert_called_once_with(context.instance, selected_date)
         adj_factor_ready.assert_called_once_with(context.instance, selected_date)
+        input_coverage.assert_called_once_with(context, selected_date)
         cursor = load_sensor_cursor(result.cursor)
         self.assertEqual(cursor["decision"], "request_runs")
         self.assertEqual(cursor["details"]["reason_code"], "selected_for_update")
+        self.assertLess(len(result.cursor.encode("utf-8")), 2048)
         self.assertEqual(
             cursor["details"]["continuity_status"]["selected_date"],
             selected_date,
@@ -330,16 +360,82 @@ class GoldStockDailyQfqSensorContractTests(unittest.TestCase):
                 ),
             ),
             patch.object(sensor_module, "adj_factor_ready_for_trade_date") as adj_ready,
+            patch.object(
+                sensor_module,
+                "_qfq_input_coverage_for_trade_date",
+            ) as input_coverage,
         ):
             result = gold_stock_daily_qfq_update_job_sensor._raw_fn(context)
 
         self.assertEqual(result.run_requests, [])
         adj_ready.assert_not_called()
+        input_coverage.assert_not_called()
         cursor = load_sensor_cursor(result.cursor)
         self.assertEqual(
             cursor["details"]["reason_code"],
             "upstream_silver_stock_daily_not_ready",
         )
+
+    def test_selected_date_skips_when_live_trade_factor_coverage_is_missing(self) -> None:
+        selected_date = "2026-06-16"
+        context = _FakeContext(EXPECTED_DATES)
+        coverage = _qfq_input_coverage(
+            selected_date,
+            missing_code_count=1,
+            missing_code_samples=("920117.BJ",),
+        )
+
+        with (
+            patch.object(
+                sensor_module,
+                "_load_expected_stock_trade_day_window",
+                return_value=_expected_window(),
+            ),
+            patch.object(
+                sensor_module,
+                "select_first_not_ready_gold_stock_daily_qfq_partition",
+                return_value=(selected_date, _missing_gold_status(selected_date)),
+            ),
+            patch.object(
+                sensor_module,
+                "stock_daily_ready_for_trade_date",
+                return_value=_ready_status("silver_stock_daily", selected_date),
+            ),
+            patch.object(
+                sensor_module,
+                "adj_factor_ready_for_trade_date",
+                return_value=_ready_status("silver_adj_factor", selected_date),
+            ),
+            patch.object(
+                sensor_module,
+                "_qfq_input_coverage_for_trade_date",
+                return_value=coverage,
+            ) as input_coverage,
+        ):
+            result = gold_stock_daily_qfq_update_job_sensor._raw_fn(context)
+
+        self.assertEqual(result.run_requests, [])
+        input_coverage.assert_called_once_with(context, selected_date)
+        cursor = load_sensor_cursor(result.cursor)
+        self.assertEqual(
+            cursor["details"]["reason_code"],
+            "upstream_qfq_input_coverage_not_ready",
+        )
+        self.assertEqual(cursor["details"]["blocked_component"], "silver_adj_factor")
+        self.assertEqual(
+            cursor["details"]["qfq_input_coverage"],
+            {
+                "ready": False,
+                "reason_code": "missing_trade_date_adj_factor_coverage",
+                "stock_daily_file_exists": True,
+                "adj_factor_file_exists": True,
+                "source_row_count": 2,
+                "matched_row_count": 1,
+                "missing_trade_adj_factor_row_count": 1,
+                "missing_trade_adj_factor_code_samples": ["920117.BJ"],
+            },
+        )
+        self.assertLess(len(result.cursor.encode("utf-8")), 2048)
 
     def test_all_ready_skips_with_ready_frontier(self) -> None:
         context = _FakeContext(EXPECTED_DATES)
