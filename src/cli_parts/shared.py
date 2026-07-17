@@ -43,15 +43,11 @@ def open_task_run_counts(session, *, task_run_model) -> tuple[int, int]:
 def auto_reconcile_stale_task_runs(
     session,
     *,
-    stale_for_minutes: int,
     limit: int,
     reconciliation_service,
 ) -> int:
-    if stale_for_minutes <= 0:
-        return 0
     reconciled = reconciliation_service.reconcile_stale_task_runs(
         session,
-        stale_for_minutes=stale_for_minutes,
         limit=limit,
     )
     return len(reconciled)

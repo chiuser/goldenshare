@@ -163,7 +163,7 @@ flowchart TD
 3. `P` 成为合法自动补漏日期；所有更早日期仍拒绝。
 4. TaskRun 保持 `run_scope='index_daily_gap_repair'`、`trigger_source='system'`、单日 `time_input` 和 code 批次筛选。
 
-重试次数从同一目标日已终态的 `index_daily_gap_repair` TaskRun 的 `filters.ts_code` 实时派生，不新增重试表。补漏 TaskRun 成功仍只表示这次请求和写入流程成功；是否完整必须由下一次审计重新判断。
+重试次数从同一目标日**已被 worker 领取且已终态**的 `index_daily_gap_repair` TaskRun 的 `filters.ts_code` 实时派生，不新增重试表。`started_at` 为空的终态记录从未请求源站，不消耗补漏次数。补漏 TaskRun 成功仍只表示这次请求和写入流程成功；是否完整必须由下一次审计重新判断。
 
 ### 5.4 审查中心
 
@@ -277,3 +277,4 @@ flowchart TD
 3. repair service、scheduler 再审计和审查中心共用同一分类事实：scheduler 只因仍可补的 `source_delayed` 继续循环，raw 已有而 serving 缺失只作为一次即时补漏，不驱动循环。
 4. 审查中心 API 和页面已展示后端返回的源站服务能力、行动建议、最近 raw 日线和判断参考日；候选不满足连续 3 个已结束开市日 raw 供数时，页面禁用选择，POST 仍返回 `source_serviceability_not_ready` 作为硬校验。
 5. 未改 `foundation` ingestion、`DatasetDefinition`、请求参数、raw/serving writer、业务表、数据库结构或部署单元。生产验收只需只读观察 T/P 补漏闭环和待审查展示，不执行清表或对象池变更。
+6. TaskRun 自动收敛只处理已领取的 `running` 与 `canceling`：运行中 10 分钟无进展收敛为失败，取消中 3 分钟无进展收敛为已取消；`queued` 永远保持等待，不能因排队时长被伪造为失败。

@@ -56,7 +56,7 @@ def test_ops_worker_run_consumes_until_limit_or_queue_is_empty(mocker) -> None:
     assert result.exit_code == 0
     worker_cls.assert_called_once_with()
     reconcile_cls.assert_called_once_with()
-    reconcile_service.reconcile_stale_task_runs.assert_called_once_with(session, stale_for_minutes=5, limit=200)
+    reconcile_service.reconcile_stale_task_runs.assert_called_once_with(session, limit=200)
     assert worker.run_next.call_count == 3
     assert "processed task_run#201 status=success rows_fetched=8 rows_saved=6" in result.stdout
     assert "processed task_run#202 status=failed rows_fetched=3 rows_saved=0" in result.stdout
@@ -106,6 +106,7 @@ def test_ops_worker_serve_runs_multiple_cycles(mocker) -> None:
     worker_cls.assert_called()
     assert reconcile_cls.call_count == 2
     assert reconcile_service.reconcile_stale_task_runs.call_count == 2
+    assert reconcile_service.reconcile_stale_task_runs.call_args_list == [mocker.call(session, limit=200), mocker.call(session, limit=200)]
     assert worker.run_next.call_count == 3
     assert open_counts.call_count == 2
     sleep.assert_called_once_with(1.0)
@@ -155,11 +156,11 @@ def test_ops_reconcile_task_runs_previews_by_default(mocker) -> None:
     service.reconcile_stale_task_runs.return_value = []
     service_cls = mocker.patch("src.cli.OperationsTaskRunReconciliationService", return_value=service)
 
-    result = CliRunner().invoke(app, ["ops-reconcile-task-runs", "--stale-for-minutes", "15"])
+    result = CliRunner().invoke(app, ["ops-reconcile-task-runs"])
 
     assert result.exit_code == 0
     service_cls.assert_called_once_with()
-    service.preview_stale_task_runs.assert_called_once_with(session, stale_for_minutes=15, limit=200)
+    service.preview_stale_task_runs.assert_called_once_with(session, limit=200)
     assert "stale task_run#8 running->canceled" in result.stdout
     assert "ops-reconcile-task-runs: stale=1" in result.stdout
 
@@ -182,7 +183,7 @@ def test_ops_reconcile_task_runs_apply_repairs_statuses(mocker) -> None:
 
     assert result.exit_code == 0
     service_cls.assert_called_once_with()
-    service.reconcile_stale_task_runs.assert_called_once_with(session, stale_for_minutes=30, limit=200)
+    service.reconcile_stale_task_runs.assert_called_once_with(session, limit=200)
     assert "reconciled task_run#7 running->failed" in result.stdout
     assert "ops-reconcile-task-runs: reconciled=1" in result.stdout
 def test_ops_rebuild_dataset_status_rebuilds_snapshots(mocker) -> None:

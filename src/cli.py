@@ -103,12 +103,10 @@ def _open_task_run_counts(session) -> tuple[int, int]:
 def _auto_reconcile_stale_task_runs(
     session,
     *,
-    stale_for_minutes: int,
     limit: int,
 ) -> int:
     return _auto_reconcile_stale_task_runs_impl(
         session,
-        stale_for_minutes=stale_for_minutes,
         limit=limit,
         reconciliation_service=OperationsTaskRunReconciliationService(),
     )
@@ -524,11 +522,6 @@ def ops_scheduler_tick(
 @app.command("ops-worker-run")
 def ops_worker_run(
     limit: int = typer.Option(1, min=1, max=1000, help="Maximum queued task runs to consume in one run."),
-    auto_reconcile_stale_for_minutes: int = typer.Option(
-        5,
-        min=0,
-        help="Automatically reconcile stale queued/running/canceling task runs before consuming queue. Set 0 to disable.",
-    ),
     auto_reconcile_limit: int = typer.Option(200, min=1, max=1000, help="Maximum open task runs to inspect per auto-reconcile."),
 ) -> None:
     _run_ops_worker_run_impl(
@@ -537,7 +530,6 @@ def ops_worker_run(
         auto_reconcile_fn=_auto_reconcile_stale_task_runs,
         open_task_run_counts_fn=_open_task_run_counts,
         limit=limit,
-        auto_reconcile_stale_for_minutes=auto_reconcile_stale_for_minutes,
         auto_reconcile_limit=auto_reconcile_limit,
         echo_fn=typer.echo,
     )
@@ -629,11 +621,6 @@ def ops_worker_serve(
     limit: int = typer.Option(10, min=1, max=1000, help="Maximum queued task runs to consume per cycle."),
     sleep_seconds: float = typer.Option(5.0, min=1.0, help="Seconds to sleep between worker cycles."),
     max_cycles: int | None = typer.Option(None, min=1, help="Optional max cycles for testing or one-off runs."),
-    auto_reconcile_stale_for_minutes: int = typer.Option(
-        5,
-        min=0,
-        help="Automatically reconcile stale queued/running/canceling task runs before each cycle. Set 0 to disable.",
-    ),
     auto_reconcile_limit: int = typer.Option(200, min=1, max=1000, help="Maximum open task runs to inspect per auto-reconcile."),
 ) -> None:
     _run_ops_worker_serve_impl(
@@ -644,7 +631,6 @@ def ops_worker_serve(
         limit=limit,
         sleep_seconds=sleep_seconds,
         max_cycles=max_cycles,
-        auto_reconcile_stale_for_minutes=auto_reconcile_stale_for_minutes,
         auto_reconcile_limit=auto_reconcile_limit,
         echo_fn=typer.echo,
     )
@@ -663,14 +649,12 @@ def realtime_collector_serve(
 
 @app.command("ops-reconcile-task-runs")
 def ops_reconcile_task_runs(
-    stale_for_minutes: int = typer.Option(30, min=1, help="Treat queued/running task runs without activity for this many minutes as stale."),
     limit: int = typer.Option(200, min=1, max=1000, help="Maximum open task runs to inspect."),
     apply: bool = typer.Option(False, "--apply", help="Actually repair stale task run statuses. Without this flag, only preview."),
 ) -> None:
     _run_ops_reconcile_task_runs_impl(
         session_local=SessionLocal,
         service_cls=OperationsTaskRunReconciliationService,
-        stale_for_minutes=stale_for_minutes,
         limit=limit,
         apply=apply,
         echo_fn=typer.echo,

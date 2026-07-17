@@ -337,6 +337,8 @@ class IndexDailySourceServiceabilityService:
         counts: dict[str, int] = {}
         expected_trade_date = target_trade_date.isoformat()
         for task_run in candidates:
+            if task_run.started_at is None:
+                continue
             payload = task_run.request_payload_json if isinstance(task_run.request_payload_json, dict) else {}
             time_input = task_run.time_input_json if isinstance(task_run.time_input_json, dict) else {}
             if payload.get("run_scope") != INDEX_DAILY_GAP_REPAIR_RUN_SCOPE:

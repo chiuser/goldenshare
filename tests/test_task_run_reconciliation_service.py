@@ -64,9 +64,10 @@ def test_preview_stale_task_runs_returns_only_stale_open_items(db_session: Sessi
     stale = build_task_run()
     healthy = build_task_run(
         resource_key="adj_factor",
-        requested_at=now - timedelta(minutes=20),
-        queued_at=now - timedelta(minutes=20),
-        started_at=now - timedelta(minutes=20),
+        requested_at=now - timedelta(minutes=9),
+        queued_at=now - timedelta(minutes=9),
+        started_at=now - timedelta(minutes=9),
+        updated_at=now - timedelta(minutes=9),
     )
     done = build_task_run(
         status="success",
@@ -80,7 +81,6 @@ def test_preview_stale_task_runs_returns_only_stale_open_items(db_session: Sessi
 
     items = OperationsTaskRunReconciliationService().preview_stale_task_runs(
         db_session,
-        stale_for_minutes=30,
         now=now,
     )
 
@@ -89,15 +89,18 @@ def test_preview_stale_task_runs_returns_only_stale_open_items(db_session: Sessi
     ]
 
 
-def test_reconcile_stale_task_runs_marks_cancel_requested_as_canceled(db_session: Session) -> None:
+def test_reconcile_stale_task_runs_marks_canceling_task_run_as_canceled(db_session: Session) -> None:
     now = datetime(2026, 4, 1, 1, 0, tzinfo=timezone.utc)
-    task_run = build_task_run(cancel_requested_at=now - timedelta(hours=1))
+    task_run = build_task_run(
+        status="canceling",
+        cancel_requested_at=now - timedelta(minutes=4),
+        updated_at=now - timedelta(minutes=4),
+    )
     db_session.add(task_run)
     db_session.commit()
 
     reconciled = OperationsTaskRunReconciliationService().reconcile_stale_task_runs(
         db_session,
-        stale_for_minutes=30,
         now=now,
     )
 
@@ -117,7 +120,6 @@ def test_reconcile_stale_task_runs_records_issue_for_failed_item(db_session: Ses
 
     reconciled = OperationsTaskRunReconciliationService().reconcile_stale_task_runs(
         db_session,
-        stale_for_minutes=30,
         now=now,
     )
 
@@ -128,3 +130,63 @@ def test_reconcile_stale_task_runs_records_issue_for_failed_item(db_session: Ses
     assert task_run.status_reason_code == "stale_task_run"
     assert issue is not None
     assert issue.code == "stale_task_run"
+
+
+def test_reconcile_stale_task_runs_requires_running_task_to_exceed_ten_minutes(db_session: Session) -> None:
+    now = datetime(2026, 4, 1, 1, 0, tzinfo=timezone.utc)
+    at_threshold = build_task_run(
+        resource_key="at_threshold",
+        started_at=now - timedelta(minutes=10),
+        updated_at=now - timedelta(minutes=10),
+    )
+    beyond_threshold = build_task_run(
+        resource_key="beyond_threshold",
+        started_at=now - timedelta(minutes=10, seconds=1),
+        updated_at=now - timedelta(minutes=10, seconds=1),
+    )
+    db_session.add_all([at_threshold, beyond_threshold])
+    db_session.commit()
+
+    reconciled = OperationsTaskRunReconciliationService().reconcile_stale_task_runs(db_session, now=now)
+
+    db_session.refresh(at_threshold)
+    db_session.refresh(beyond_threshold)
+    assert [(item.id, item.new_status) for item in reconciled] == [(beyond_threshold.id, "failed")]
+    assert at_threshold.status == "running"
+    assert beyond_threshold.status == "failed"
+
+
+def test_reconcile_stale_task_runs_keeps_queued_tasks_waiting(db_session: Session) -> None:
+    now = datetime(2026, 4, 1, 1, 0, tzinfo=timezone.utc)
+    task_run = build_task_run(
+        status="queued",
+        started_at=None,
+        requested_at=now - timedelta(hours=2),
+        queued_at=now - timedelta(hours=2),
+        updated_at=now - timedelta(hours=2),
+    )
+    db_session.add(task_run)
+    db_session.commit()
+
+    reconciled = OperationsTaskRunReconciliationService().reconcile_stale_task_runs(db_session, now=now)
+
+    db_session.refresh(task_run)
+    assert reconciled == []
+    assert task_run.status == "queued"
+
+
+def test_reconcile_stale_task_runs_keeps_recent_canceling_task_run_open(db_session: Session) -> None:
+    now = datetime(2026, 4, 1, 1, 0, tzinfo=timezone.utc)
+    task_run = build_task_run(
+        status="canceling",
+        cancel_requested_at=now - timedelta(minutes=2),
+        updated_at=now - timedelta(minutes=2),
+    )
+    db_session.add(task_run)
+    db_session.commit()
+
+    reconciled = OperationsTaskRunReconciliationService().reconcile_stale_task_runs(db_session, now=now)
+
+    db_session.refresh(task_run)
+    assert reconciled == []
+    assert task_run.status == "canceling"

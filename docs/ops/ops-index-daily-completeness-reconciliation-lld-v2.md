@@ -76,7 +76,7 @@ flowchart LR
 | 当日 `T` 窗口 | `17:45–22:30`，间隔 30 分钟 | reconciliation service。 |
 | 前一开市日 `P` 窗口 | `09:00–16:30`，间隔 30 分钟 | reconciliation service。 |
 | 源站延迟容忍 | 最近 3 个开市日 | source serviceability service。 |
-| 自动补漏上限 | 单 code、单目标日最多 3 个已终态补漏 TaskRun | source serviceability service。 |
+| 自动补漏上限 | 单 code、单目标日最多 3 个已被 worker 领取且已终态的补漏 TaskRun | source serviceability service。 |
 | 每轮补漏批次 | 100 code/TaskRun，最多 20 个 TaskRun | repair service。 |
 | 新候选连续供数 | 最近已结束开市日及之前连续 3 个开市日均有 raw | review command/query。 |
 
@@ -137,6 +137,7 @@ class IndexDailyActivationEligibility:
 2. `request_payload_json.run_scope='index_daily_gap_repair'`。
 3. `time_input_json.mode='point'` 且 `trade_date` 等于目标日。
 4. `status in ('success', 'partial_success', 'failed', 'canceled')`。
+5. `started_at is not null`；未被 worker 领取的终态记录没有执行请求，不消耗补漏次数。
 
 只读查询先按资源、动作、状态收窄，再在 Python 解析 JSON；不依赖数据库方言 JSON 运算符，保证现有 SQLite 测试与 PostgreSQL 生产的一致性。
 
@@ -367,7 +368,7 @@ Ops 只传标准时间意图和代码筛选；`DatasetActionResolver`、unit pla
 2. 已有 open 审计、open repair、间隔未到、最新审计通过时不重复创建审计。
 3. raw 有目标日、近期延迟、长期缺失、无 raw、raw 跳过目标日、重试已满全部分类正确。
 4. 同一 code 已被 queued/running repair 覆盖时，不重复入新 TaskRun。
-5. 近期延迟最多进入 3 个已终态补漏轮次；超过后只显示待审查。
+5. 近期延迟最多进入 3 个已被 worker 领取且已终态的补漏轮次；超过后只显示待审查。
 6. 活跃候选 raw 连续 3 个开市日才可加入；直接调用 POST 不能绕过页面禁用。
 7. 移出激活池不删除任何 raw/serving 行。
 8. `index_daily_raw` 请求池、writer 的 raw 全写和 serving active gate 回归不变。
@@ -420,3 +421,4 @@ python3 scripts/check_docs_integrity.py
 3. `ReviewCenterQueryService` 只把后端统一事实投影为列表字段；前端不读取 raw、serving、日历或 TaskRun 后自行推断状态。
 4. 已覆盖 T/P 边界、30 分钟间隔、运行中审计/补漏去重、终态次数上限、raw/serving 分类、候选连续 3 日准入、POST 硬拒绝、手动移出保留业务数据及前端禁用交互。
 5. 待生产只读验收：观察一次 `P` 日源站迟到后进入下一轮审计与补漏，以及一次长期缺失代码显示“待审查”且不再循环创建补漏 TaskRun。不得为验收清表、删数据或变更激活池。
+6. TaskRun 自动收敛固定为：`queued` 永不因等待时长收敛；`running` 10 分钟无进展收敛为失败；`canceling` 3 分钟无进展收敛为已取消。

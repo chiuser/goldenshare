@@ -359,14 +359,12 @@ def run_ops_worker_run(
     auto_reconcile_fn: Callable[..., int],
     open_task_run_counts_fn: Callable[..., tuple[int, int]],
     limit: int,
-    auto_reconcile_stale_for_minutes: int,
     auto_reconcile_limit: int,
     echo_fn: Callable[[str], None],
 ) -> None:
     with session_local() as session:
         reconciled = auto_reconcile_fn(
             session,
-            stale_for_minutes=auto_reconcile_stale_for_minutes,
             limit=auto_reconcile_limit,
         )
         worker = worker_cls()
@@ -514,7 +512,6 @@ def run_ops_worker_serve(
     limit: int,
     sleep_seconds: float,
     max_cycles: int | None,
-    auto_reconcile_stale_for_minutes: int,
     auto_reconcile_limit: int,
     echo_fn: Callable[[str], None],
 ) -> None:
@@ -523,7 +520,6 @@ def run_ops_worker_serve(
         with session_local() as session:
             reconciled = auto_reconcile_fn(
                 session,
-                stale_for_minutes=auto_reconcile_stale_for_minutes,
                 limit=auto_reconcile_limit,
             )
             worker = worker_cls()
@@ -551,7 +547,6 @@ def run_ops_reconcile_task_runs(
     *,
     session_local,
     service_cls,
-    stale_for_minutes: int,
     limit: int,
     apply: bool,
     echo_fn: Callable[[str], None],
@@ -559,7 +554,7 @@ def run_ops_reconcile_task_runs(
     with session_local() as session:
         service = service_cls()
         if apply:
-            reconciled = service.reconcile_stale_task_runs(session, stale_for_minutes=stale_for_minutes, limit=limit)
+            reconciled = service.reconcile_stale_task_runs(session, limit=limit)
             for item in reconciled:
                 echo_fn(
                     f"reconciled task_run#{item.id} {item.previous_status}->{item.new_status} reason={item.reason}"
@@ -567,7 +562,7 @@ def run_ops_reconcile_task_runs(
             echo_fn(f"ops-reconcile-task-runs: reconciled={len(reconciled)}")
             return
 
-        previews = service.preview_stale_task_runs(session, stale_for_minutes=stale_for_minutes, limit=limit)
+        previews = service.preview_stale_task_runs(session, limit=limit)
         for item in previews:
             echo_fn(
                 f"stale task_run#{item.id} {item.previous_status}->{item.new_status} reason={item.reason}"

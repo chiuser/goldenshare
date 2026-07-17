@@ -28,7 +28,7 @@ def test_deploy_script_loads_runtime_env_before_cli_self_checks() -> None:
         "  .venv/bin/goldenshare list-resources >/dev/null\n"
         "\n"
         '  log "10/12 Ops 自检"\n'
-        "  .venv/bin/goldenshare ops-reconcile-task-runs --stale-for-minutes 30 >/dev/null"
+        "  .venv/bin/goldenshare ops-reconcile-task-runs >/dev/null"
     ) in script
 
 

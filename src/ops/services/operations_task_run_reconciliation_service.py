@@ -10,6 +10,11 @@ from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 
 
+RUNNING_STALE_FOR_MINUTES = 10
+CANCELING_STALE_FOR_MINUTES = 3
+STALE_RECONCILIATION_STATUSES = ("running", "canceling")
+
+
 @dataclass(slots=True)
 class ReconciledTaskRun:
     id: int
@@ -23,63 +28,57 @@ class OperationsTaskRunReconciliationService:
         self,
         session: Session,
         *,
-        stale_for_minutes: int = 30,
         limit: int = 200,
         now: datetime | None = None,
     ) -> list[ReconciledTaskRun]:
-        threshold = self._threshold(stale_for_minutes=stale_for_minutes, now=now)
         task_runs = self._load_open_task_runs(session=session, limit=limit)
         return [
             self._build_preview_item(task_run=task_run)
             for task_run in task_runs
-            if self._is_stale(task_run=task_run, threshold=threshold)
+            if self._is_stale(task_run=task_run, now=now)
         ]
 
     def reconcile_stale_task_runs(
         self,
         session: Session,
         *,
-        stale_for_minutes: int = 30,
         limit: int = 200,
         now: datetime | None = None,
     ) -> list[ReconciledTaskRun]:
-        threshold = self._threshold(stale_for_minutes=stale_for_minutes, now=now)
         task_runs = self._load_open_task_runs(session=session, limit=limit)
         reconciled: list[ReconciledTaskRun] = []
         for task_run in task_runs:
-            if not self._is_stale(task_run=task_run, threshold=threshold):
+            if not self._is_stale(task_run=task_run, now=now):
                 continue
             reconciled.append(self._apply_reconciliation(session=session, task_run=task_run, now=now or datetime.now(timezone.utc)))
         session.commit()
         return reconciled
 
     @staticmethod
-    def _threshold(*, stale_for_minutes: int, now: datetime | None) -> datetime:
-        base_now = now or datetime.now(timezone.utc)
-        return base_now - timedelta(minutes=max(1, stale_for_minutes))
-
-    @staticmethod
     def _load_open_task_runs(session: Session, *, limit: int) -> list[TaskRun]:
         return list(
             session.scalars(
                 select(TaskRun)
-                .where(TaskRun.status.in_(("queued", "running", "canceling")))
+                .where(TaskRun.status.in_(STALE_RECONCILIATION_STATUSES))
                 .order_by(TaskRun.requested_at.asc(), TaskRun.id.asc())
                 .limit(max(1, min(limit, 1000)))
             )
         )
 
     @staticmethod
-    def _is_stale(*, task_run: TaskRun, threshold: datetime) -> bool:
-        candidates = [
-            task_run.started_at,
-            task_run.queued_at,
-            task_run.requested_at,
-            task_run.cancel_requested_at,
-            task_run.updated_at,
-        ]
+    def _is_stale(*, task_run: TaskRun, now: datetime | None) -> bool:
+        base_now = now or datetime.now(timezone.utc)
+        if task_run.status == "running":
+            candidates = [task_run.started_at, task_run.updated_at]
+            stale_for_minutes = RUNNING_STALE_FOR_MINUTES
+        elif task_run.status == "canceling":
+            candidates = [task_run.started_at, task_run.cancel_requested_at, task_run.updated_at]
+            stale_for_minutes = CANCELING_STALE_FOR_MINUTES
+        else:
+            return False
         normalized = [OperationsTaskRunReconciliationService._normalize_datetime(value) for value in candidates if value is not None]
-        return (max(normalized) if normalized else datetime.min.replace(tzinfo=timezone.utc)) < threshold
+        last_activity = max(normalized) if normalized else datetime.min.replace(tzinfo=timezone.utc)
+        return last_activity < base_now - timedelta(minutes=stale_for_minutes)
 
     def _build_preview_item(self, *, task_run: TaskRun) -> ReconciledTaskRun:
         new_status, reason = self._target_status_and_reason(task_run)
@@ -117,7 +116,7 @@ class OperationsTaskRunReconciliationService:
 
     @staticmethod
     def _target_status_and_reason(task_run: TaskRun) -> tuple[str, str]:
-        if task_run.cancel_requested_at is not None:
+        if task_run.status == "canceling":
             return "canceled", "任务已经收到停止请求，但长时间没有完成收尾，系统已修正为已取消。"
         return "failed", "任务长时间没有任何新进展，推定已经中断，系统已修正为执行失败。"
 

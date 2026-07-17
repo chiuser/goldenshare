@@ -54,7 +54,16 @@ def _seed_raw(session: Session, *, ts_code: str, trade_date: date) -> None:
     )
 
 
-def _seed_terminal_repair(session: Session, *, ts_code: str, trade_date: date, task_id: int) -> None:
+def _seed_terminal_repair(
+    session: Session,
+    *,
+    ts_code: str,
+    trade_date: date,
+    task_id: int,
+    worker_claimed: bool = True,
+    status: str = "success",
+) -> None:
+    occurred_at = datetime(2026, 7, 14, 18, task_id, tzinfo=timezone.utc)
     session.add(
         TaskRun(
             id=task_id,
@@ -63,14 +72,15 @@ def _seed_terminal_repair(session: Session, *, ts_code: str, trade_date: date, t
             action="maintain",
             title="指数日线",
             trigger_source="system",
-            status="success",
+            status=status,
             time_input_json={"mode": "point", "trade_date": trade_date.isoformat()},
             filters_json={"ts_code": ts_code},
             request_payload_json={"run_scope": INDEX_DAILY_GAP_REPAIR_RUN_SCOPE},
             plan_snapshot_json={},
             current_object_json={},
-            requested_at=datetime(2026, 7, 14, 18, task_id, tzinfo=timezone.utc),
-            ended_at=datetime(2026, 7, 14, 18, task_id, tzinfo=timezone.utc),
+            requested_at=occurred_at,
+            started_at=occurred_at if worker_claimed else None,
+            ended_at=occurred_at,
         )
     )
 
@@ -124,6 +134,33 @@ def test_index_daily_serviceability_classifies_gaps_from_current_facts(db_sessio
     assert by_code["STALE.GAP"].internal_status == "serviceability_review_required"
     assert by_code["SKIPPED.GAP"].internal_status == "serviceability_review_required"
     assert by_code["EMPTY.GAP"].internal_status == "serviceability_review_required"
+
+
+def test_index_daily_serviceability_does_not_count_unclaimed_terminal_repairs(db_session: Session) -> None:
+    target_date = date(2026, 7, 14)
+    _seed_open_days(db_session, target_date, date(2026, 7, 13), date(2026, 7, 12))
+    _seed_active_codes(db_session, "DELAY.GAP")
+    _seed_raw(db_session, ts_code="DELAY.GAP", trade_date=date(2026, 7, 13))
+    _seed_terminal_repair(db_session, ts_code="DELAY.GAP", trade_date=target_date, task_id=1)
+    _seed_terminal_repair(db_session, ts_code="DELAY.GAP", trade_date=target_date, task_id=2)
+    _seed_terminal_repair(
+        db_session,
+        ts_code="DELAY.GAP",
+        trade_date=target_date,
+        task_id=3,
+        worker_claimed=False,
+        status="failed",
+    )
+    db_session.commit()
+
+    classification = IndexDailySourceServiceabilityService().classify_active_gaps(
+        db_session,
+        target_trade_date=target_date,
+    )[0]
+
+    assert classification.terminal_repair_attempt_count == 2
+    assert classification.internal_status == "source_delayed"
+    assert classification.automatic_repair_eligible is True
 
 
 def test_index_daily_activation_requires_three_completed_open_days(db_session: Session) -> None:
