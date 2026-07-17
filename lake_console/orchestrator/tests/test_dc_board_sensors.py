@@ -72,6 +72,55 @@ def _window_and_gap(registered):
     return window, tuple(registered), gap
 
 
+def _window_and_gap_for_dates(registered):
+    dates = ("2026-07-15", "2026-07-16", "2026-07-17")
+    window = ContinuityExpectedDateWindow(
+        expected_trade_dates=dates,
+        min_trade_date="2024-01-02",
+        max_trade_date=dates[-1],
+        evaluated_at=datetime.now(),
+        window_limit=10,
+    )
+    gap = build_registered_gap_status(
+        expected_trade_dates=dates,
+        registered_trade_dates=registered,
+    )
+    return window, tuple(registered), gap
+
+
+def _batch_with_first_not_ready(
+    dates, *, first_not_ready=None, materialized_check_failure=False
+):
+    statuses = {}
+    for date in dates:
+        if date == first_not_ready:
+            statuses[date] = ContinuityDateReadiness(
+                trade_date=date,
+                ready=False,
+                materialized=materialized_check_failure,
+                checks_passed=False,
+                reason=(
+                    "materialized check failed"
+                    if materialized_check_failure
+                    else "file is missing"
+                ),
+            )
+        else:
+            statuses[date] = ContinuityDateReadiness(
+                trade_date=date,
+                ready=True,
+                materialized=True,
+                checks_passed=True,
+                reason="ready",
+            )
+    return ContinuityBatchReadiness(
+        expected_trade_dates=tuple(dates),
+        statuses_by_trade_date=statuses,
+        elapsed_ms=3,
+        scanned_file_count=len(dates),
+    )
+
+
 def _ready_probe(dataset="dc_index"):
     return DcBoardSourceProbeResult(
         dataset=dataset,
@@ -158,3 +207,125 @@ def test_sensor_returns_one_request_for_first_missing_file(monkeypatch) -> None:
     assert result.run_requests[0].run_key == "raw_tushare_dc_index_update:2026-07-14"
     assert calls == [True]
     assert context.duckdb_resource.connection_count == 1
+
+
+def test_later_index_gap_does_not_block_daily_or_member(monkeypatch) -> None:
+    dates = ("2026-07-15", "2026-07-16", "2026-07-17")
+    context = _context(dates)
+    monkeypatch.setattr(
+        dc_board_sensor,
+        "_load_window",
+        lambda *args, **kwargs: _window_and_gap_for_dates(dates),
+    )
+    index_batch = _batch_with_first_not_ready(dates, first_not_ready="2026-07-17")
+    monkeypatch.setattr(
+        dc_board_sensor,
+        "batch_raw_dc_index_lake_readiness",
+        lambda **_kwargs: index_batch,
+    )
+
+    for dataset, job_name, partition_set in (
+        (
+            "dc_daily",
+            "raw_tushare_dc_daily_update_job",
+            "cn_a_dc_daily_trade_days",
+        ),
+        (
+            "dc_member",
+            "raw_tushare_dc_member_update_job",
+            "cn_a_dc_member_trade_days",
+        ),
+    ):
+        result = dc_board_sensor._evaluate_sensor(
+            context,
+            evaluated_at=datetime.now(dc_board_sensor.CN_A_SENSOR_TIMEZONE),
+            sensor_name=f"{job_name}_sensor",
+            job_name=job_name,
+            dataset=dataset,
+            min_trade_date="2024-01-02",
+            batch_reader=lambda **_kwargs: _batch_with_first_not_ready(
+                dates,
+                first_not_ready="2026-07-15",
+            ),
+            source_probe_reader=lambda **_kwargs: _ready_probe(dataset),
+            partition_set=partition_set,
+            upstream_index_gate=True,
+        )
+        assert len(result.run_requests) == 1
+        assert result.run_requests[0].partition_key == "2026-07-15"
+
+
+def test_same_day_index_gap_blocks_daily_target(monkeypatch) -> None:
+    dates = ("2026-07-15", "2026-07-16", "2026-07-17")
+    context = _context(dates)
+    monkeypatch.setattr(
+        dc_board_sensor,
+        "_load_window",
+        lambda *args, **kwargs: _window_and_gap_for_dates(dates),
+    )
+    monkeypatch.setattr(
+        dc_board_sensor,
+        "batch_raw_dc_index_lake_readiness",
+        lambda **_kwargs: _batch_with_first_not_ready(
+            dates,
+            first_not_ready="2026-07-15",
+        ),
+    )
+
+    result = dc_board_sensor._evaluate_sensor(
+        context,
+        evaluated_at=datetime.now(dc_board_sensor.CN_A_SENSOR_TIMEZONE),
+        sensor_name="raw_tushare_dc_daily_update_job_sensor",
+        job_name="raw_tushare_dc_daily_update_job",
+        dataset="dc_daily",
+        min_trade_date="2024-01-02",
+        batch_reader=lambda **_kwargs: _batch_with_first_not_ready(
+            dates,
+            first_not_ready="2026-07-15",
+        ),
+        source_probe_reader=lambda **_kwargs: _ready_probe("dc_daily"),
+        partition_set="cn_a_dc_daily_trade_days",
+        upstream_index_gate=True,
+    )
+
+    assert not result.run_requests
+    assert "upstream_index_not_ready" in result.cursor
+    assert '"target_date": "2026-07-15"' in result.cursor
+
+
+def test_later_index_check_failure_does_not_block_earlier_target(monkeypatch) -> None:
+    dates = ("2026-07-15", "2026-07-16", "2026-07-17")
+    context = _context(dates)
+    monkeypatch.setattr(
+        dc_board_sensor,
+        "_load_window",
+        lambda *args, **kwargs: _window_and_gap_for_dates(dates),
+    )
+    monkeypatch.setattr(
+        dc_board_sensor,
+        "batch_raw_dc_index_lake_readiness",
+        lambda **_kwargs: _batch_with_first_not_ready(
+            dates,
+            first_not_ready="2026-07-17",
+            materialized_check_failure=True,
+        ),
+    )
+
+    result = dc_board_sensor._evaluate_sensor(
+        context,
+        evaluated_at=datetime.now(dc_board_sensor.CN_A_SENSOR_TIMEZONE),
+        sensor_name="raw_tushare_dc_daily_update_job_sensor",
+        job_name="raw_tushare_dc_daily_update_job",
+        dataset="dc_daily",
+        min_trade_date="2024-01-02",
+        batch_reader=lambda **_kwargs: _batch_with_first_not_ready(
+            dates,
+            first_not_ready="2026-07-15",
+        ),
+        source_probe_reader=lambda **_kwargs: _ready_probe("dc_daily"),
+        partition_set="cn_a_dc_daily_trade_days",
+        upstream_index_gate=True,
+    )
+
+    assert len(result.run_requests) == 1
+    assert result.run_requests[0].partition_key == "2026-07-15"

@@ -33,6 +33,8 @@ DATASET_CHINESE_NAMES = MappingProxyType(
         "wealth_market_turnover": "财富市场成交额快照",
         "ch_share_fact_market_breadth_daily": "ClickHouse 市场宽度日表",
         "prod_ch_share_fact_market_breadth_daily": "Prod ClickHouse 市场宽度日表",
+        "ch_dc_daily_technical": "ClickHouse 板块日线技术指标表",
+        "prod_ch_dc_daily_technical": "Prod ClickHouse 板块日线技术指标表",
         "lake_root_health": "Lake 根目录健康",
     }
 )

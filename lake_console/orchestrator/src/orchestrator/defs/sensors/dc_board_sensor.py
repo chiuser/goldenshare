@@ -10,6 +10,7 @@ from orchestrator.defs.asset_guards.bounded_continuity import (
     ContinuityBatchReadiness,
     ContinuityExpectedDateWindow,
     ContinuityRegisteredGapStatus,
+    ContinuitySelection,
     build_registered_gap_status,
     load_expected_trade_date_window,
     select_first_not_ready_trade_date,
@@ -141,6 +142,19 @@ def _cursor(
     )
 
 
+def _upstream_blocks_target(
+    selection: ContinuitySelection,
+    *,
+    target_trade_date: str,
+) -> bool:
+    """Block only when the upstream frontier does not cover this target date."""
+    first_not_ready_trade_date = selection.first_not_ready_trade_date
+    return (
+        first_not_ready_trade_date is not None
+        and first_not_ready_trade_date <= target_trade_date
+    )
+
+
 def _evaluate_sensor(
     context: dg.SensorEvaluationContext,
     *,
@@ -187,49 +201,6 @@ def _evaluate_sensor(
                     ),
                     cursor=cursor,
                 )
-            if upstream_index_gate:
-                index_registered = tuple(
-                    sorted(
-                        context.instance.get_dynamic_partitions(
-                            cn_a_dc_index_trade_days.name
-                        )
-                    )
-                )
-                index_batch = batch_raw_dc_index_lake_readiness(
-                    connection=connection,
-                    lake_root=context.resources.lake_root.root(),
-                    expected_trade_dates=expected_window.expected_trade_dates,
-                    registered_trade_days=index_registered,
-                )
-                index_selection = select_first_not_ready_trade_date(
-                    expected_trade_dates=expected_window.expected_trade_dates,
-                    readiness=index_batch,
-                )
-                if index_selection.selected_trade_date is not None or index_selection.blocked_reason:
-                    cursor = _cursor(
-                        sensor_name=sensor_name,
-                        job_name=job_name,
-                        evaluated_at=evaluated_at,
-                        expected_window=expected_window,
-                        gap_status=gap_status,
-                        batch_status=index_batch,
-                        selected_trade_date=None,
-                        reason_code=(
-                            "materialized_check_failed"
-                            if index_selection.blocked_reason
-                            else "upstream_index_not_ready"
-                        ),
-                        blocked_component="raw_dc_index",
-                        summary="dc_member waits for raw dc_index readiness",
-                        next_action="repair or materialize raw dc_index first",
-                        target_date=index_selection.first_not_ready_trade_date,
-                        source_probe=None,
-                        partition_set=partition_set,
-                    )
-                    return dg.SensorResult(
-                        skip_reason="dc_member 等待同日 raw dc_index 就绪。",
-                        cursor=cursor,
-                    )
             batch_status = batch_reader(
                 connection=connection,
                 lake_root=context.resources.lake_root.root(),
@@ -260,6 +231,53 @@ def _evaluate_sensor(
                     partition_set=partition_set,
                 )
                 return dg.SensorResult(skip_reason="板块 Raw 窗口暂无可提交分区。", cursor=cursor)
+
+            if upstream_index_gate:
+                index_registered = tuple(
+                    sorted(
+                        context.instance.get_dynamic_partitions(
+                            cn_a_dc_index_trade_days.name
+                        )
+                    )
+                )
+                index_batch = batch_raw_dc_index_lake_readiness(
+                    connection=connection,
+                    lake_root=context.resources.lake_root.root(),
+                    expected_trade_dates=expected_window.expected_trade_dates,
+                    registered_trade_days=index_registered,
+                )
+                index_selection = select_first_not_ready_trade_date(
+                    expected_trade_dates=expected_window.expected_trade_dates,
+                    readiness=index_batch,
+                )
+                if _upstream_blocks_target(
+                    index_selection,
+                    target_trade_date=selected_trade_date,
+                ):
+                    cursor = _cursor(
+                        sensor_name=sensor_name,
+                        job_name=job_name,
+                        evaluated_at=evaluated_at,
+                        expected_window=expected_window,
+                        gap_status=gap_status,
+                        batch_status=index_batch,
+                        selected_trade_date=None,
+                        reason_code=(
+                            "materialized_check_failed"
+                            if index_selection.blocked_reason
+                            else "upstream_index_not_ready"
+                        ),
+                        blocked_component="raw_dc_index",
+                        summary="raw dc_index frontier does not cover target date",
+                        next_action="repair or materialize raw dc_index through the target date",
+                        target_date=selected_trade_date,
+                        source_probe=None,
+                        partition_set=partition_set,
+                    )
+                    return dg.SensorResult(
+                        skip_reason="板块 Raw 等待 raw dc_index 覆盖自身目标日期。",
+                        cursor=cursor,
+                    )
 
             try:
                 source_probe = source_probe_reader(

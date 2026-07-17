@@ -373,6 +373,11 @@ GOLD_DC_DAILY_TECHNICAL_SCHEMA = (
     ColumnContract("indicator_version", "VARCHAR", "指标算法版本，首版为 v1"),
 )
 
+CH_DC_DAILY_TECHNICAL_SERVING_SCHEMA = (
+    *GOLD_DC_DAILY_TECHNICAL_SCHEMA,
+    ColumnContract("updated_at", "DATETIME", "ClickHouse serving 写入时间"),
+)
+
 SILVER_STOCK_SUSPEND_DAILY_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "股票代码"),
     ColumnContract("trade_date", "DATE", "交易日"),

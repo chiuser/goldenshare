@@ -89,7 +89,12 @@ def _write_member_probe_index(root: Path) -> None:
 
 def test_index_probe_requires_all_types_terminal_and_nonempty(tmp_path):
     tushare = _FakeTushare()
-    result = probe_dc_index(tushare=tushare, trade_date="2026-07-14")
+    result = probe_dc_index(
+        connection=object(),
+        lake_root=Path(tmp_path),
+        tushare=tushare,
+        trade_date="2026-07-14",
+    )
     assert result.ready is True
     assert result.request_count == 3
     assert all(call[2] == DC_INDEX_FIELDS for call in tushare.calls)
@@ -103,7 +108,12 @@ def test_index_probe_requires_all_types_terminal_and_nonempty(tmp_path):
 
 def test_daily_probe_is_one_bounded_request_with_explicit_fields():
     tushare = _FakeTushare()
-    result = probe_dc_daily(tushare=tushare, trade_date="2026-07-14")
+    result = probe_dc_daily(
+        connection=object(),
+        lake_root=Path("/private/tmp/unused-dc-board-probe"),
+        tushare=tushare,
+        trade_date="2026-07-14",
+    )
     assert result.ready is True
     assert len(tushare.calls) == 1
     assert tushare.calls[0][2] == DC_DAILY_FIELDS

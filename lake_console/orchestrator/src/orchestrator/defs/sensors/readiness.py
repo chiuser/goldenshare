@@ -11,6 +11,10 @@ from dagster._core.storage.asset_check_execution_record import (
 from orchestrator.defs.run_contracts.dc_daily_technical import (
     DC_DAILY_TECHNICAL_CHECKS,
 )
+from orchestrator.defs.run_contracts.dc_daily_technical_serving import (
+    CH_DC_DAILY_TECHNICAL_CHECKS,
+    PROD_CH_DC_DAILY_TECHNICAL_CHECKS,
+)
 
 
 CN_A_SENSOR_TIMEZONE = ZoneInfo("Asia/Shanghai")
@@ -182,6 +186,8 @@ GOLD_MARKET_MAJOR_INDICES_DAILY_ASSET_KEY = dg.AssetKey(
     "gold_market_major_indices_daily"
 )
 GOLD_DC_DAILY_TECHNICAL_ASSET_KEY = dg.AssetKey("gold_dc_daily_technical")
+CH_DC_DAILY_TECHNICAL_ASSET_KEY = dg.AssetKey("ch_dc_daily_technical")
+PROD_CH_DC_DAILY_TECHNICAL_ASSET_KEY = dg.AssetKey("prod_ch_dc_daily_technical")
 
 
 @dataclass(frozen=True)
@@ -312,6 +318,14 @@ GOLD_MARKET_MAJOR_INDICES_DAILY_READINESS_SPEC = AssetReadinessSpec(
 GOLD_DC_DAILY_TECHNICAL_READINESS_SPEC = AssetReadinessSpec(
     GOLD_DC_DAILY_TECHNICAL_ASSET_KEY,
     GOLD_DC_DAILY_TECHNICAL_CHECKS,
+)
+CH_DC_DAILY_TECHNICAL_READINESS_SPEC = AssetReadinessSpec(
+    CH_DC_DAILY_TECHNICAL_ASSET_KEY,
+    CH_DC_DAILY_TECHNICAL_CHECKS,
+)
+PROD_CH_DC_DAILY_TECHNICAL_READINESS_SPEC = AssetReadinessSpec(
+    PROD_CH_DC_DAILY_TECHNICAL_ASSET_KEY,
+    PROD_CH_DC_DAILY_TECHNICAL_CHECKS,
 )
 
 

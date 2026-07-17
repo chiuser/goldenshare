@@ -50,6 +50,7 @@ from orchestrator.defs.paths import (
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA,
+    CH_DC_DAILY_TECHNICAL_SERVING_SCHEMA,
     RAW_TUSHARE_DC_DAILY_SCHEMA,
     RAW_TUSHARE_DC_INDEX_SCHEMA,
     RAW_TUSHARE_DC_MEMBER_SCHEMA,
@@ -103,6 +104,10 @@ from orchestrator.defs.run_contracts.dc_board import (
 )
 from orchestrator.defs.run_contracts.dc_daily_technical import (
     DC_DAILY_TECHNICAL_CHECKS,
+)
+from orchestrator.defs.run_contracts.dc_daily_technical_serving import (
+    CH_DC_DAILY_TECHNICAL_CHECKS,
+    PROD_CH_DC_DAILY_TECHNICAL_CHECKS,
 )
 from orchestrator.defs.run_contracts.metadata import SourceSystem
 
@@ -213,6 +218,9 @@ class PartitionModel(str, Enum):
     )
 
     SERVING_TABLE_SERVING_MARKET_BREADTH = "serving_table_serving_market_breadth"
+    SERVING_TABLE_SERVING_DC_DAILY_TECHNICAL = (
+        "serving_table_serving_dc_daily_technical"
+    )
     NON_PARTITIONED_PLATFORM_LAKE_ROOT_HEALTH = (
         "non_partitioned_platform_lake_root_health"
     )
@@ -808,6 +816,14 @@ PARTITION_MODEL_DEFINITIONS = (
         PartitionModelFamily.SERVING_TABLE,
         AssetLayer.SERVING,
         "market_breadth",
+        "trade_date",
+        PartitionPhysicalLayout.SERVING_TABLE,
+    ),
+    _model(
+        PartitionModel.SERVING_TABLE_SERVING_DC_DAILY_TECHNICAL,
+        PartitionModelFamily.SERVING_TABLE,
+        AssetLayer.SERVING,
+        "board_fact_technical",
         "trade_date",
         PartitionPhysicalLayout.SERVING_TABLE,
     ),
@@ -1864,6 +1880,37 @@ LAKE_ASSET_CATALOG += (
         write_policy=WritePolicy.CLICKHOUSE_TABLE_SYNC,
         compute_engine=ComputeEngine.CLICKHOUSE_CLIENT,
         notes="Prod ClickHouse serving sync uses the same table schema contract as the local serving asset.",
+    ),
+    _derived_entry(
+        asset_key="ch_dc_daily_technical",
+        dataset_id="ch_dc_daily_technical",
+        layer=AssetLayer.SERVING,
+        data_domain=DataDomain.DERIVED_METRIC,
+        group_name="serving",
+        data_contract="gold_dc_daily_technical_clickhouse_serving",
+        column_schema=CH_DC_DAILY_TECHNICAL_SERVING_SCHEMA,
+        path_template=None,
+        partition_model=PartitionModel.SERVING_TABLE_SERVING_DC_DAILY_TECHNICAL,
+        blocking_check_names=CH_DC_DAILY_TECHNICAL_CHECKS,
+        batch_grain="trade_date",
+        write_policy=WritePolicy.CLICKHOUSE_TABLE_SYNC,
+        compute_engine=ComputeEngine.CLICKHOUSE_CLIENT,
+    ),
+    _derived_entry(
+        asset_key="prod_ch_dc_daily_technical",
+        dataset_id="prod_ch_dc_daily_technical",
+        layer=AssetLayer.SERVING,
+        data_domain=DataDomain.DERIVED_METRIC,
+        group_name="serving",
+        data_contract="gold_dc_daily_technical_prod_clickhouse_sync",
+        column_schema=CH_DC_DAILY_TECHNICAL_SERVING_SCHEMA,
+        path_template=None,
+        partition_model=PartitionModel.SERVING_TABLE_SERVING_DC_DAILY_TECHNICAL,
+        blocking_check_names=PROD_CH_DC_DAILY_TECHNICAL_CHECKS,
+        batch_grain="trade_date",
+        write_policy=WritePolicy.CLICKHOUSE_TABLE_SYNC,
+        compute_engine=ComputeEngine.CLICKHOUSE_CLIENT,
+        notes="Prod ClickHouse serving copy uses the local ClickHouse serving rows as its source.",
     ),
     _entry(
         asset_key="lake_root_health",

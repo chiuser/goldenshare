@@ -151,6 +151,8 @@ def _validate_rows(
 
 def probe_dc_index(
     *,
+    connection: object | None = None,
+    lake_root: Path | None = None,
     tushare: TushareResource,
     trade_date: str,
 ) -> DcBoardSourceProbeResult:
@@ -216,6 +218,8 @@ def probe_dc_index(
 
 def probe_dc_daily(
     *,
+    connection: object | None = None,
+    lake_root: Path | None = None,
     tushare: TushareResource,
     trade_date: str,
 ) -> DcBoardSourceProbeResult:

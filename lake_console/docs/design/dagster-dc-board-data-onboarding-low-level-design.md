@@ -1011,6 +1011,22 @@ M9-R 是 M9 日常启用前的必要修复专项，已按以下顺序完成代�
 8. **R7 性能回归**：验证最近 10 日 batch readiness 单连接、单次 source probe ≤8 秒、event history=0、每 tick ≤1 request、cursor 小且 ASCII；任何接近 RPC deadline 的场景停止。
 9. **R8 正式切换前审计**：definitions 静态检查、专属动态分区只读核对、旧 sensor 停止、备份当前 cursor/active run 状态；正式切换和启用另行批准。
 
+#### R5.1 上游 frontier 比较规则
+
+Raw `dc_daily` 和 `dc_member` 依赖同日 `raw_dc_index`，但依赖关系不能实现为“只要上游窗口存在任何未就绪日期就阻断”。每个 sensor 必须先计算自身的
+`first_not_ready_trade_date`，再计算上游 `raw_dc_index` 的首个未就绪日期，并按日期比较：
+
+| 上游 `raw_dc_index` 首个未就绪日期 | 自身目标日期 | 处理 |
+| --- | --- | --- |
+| 早于自身目标 | 任意 | 阻断自身 run |
+| 等于自身目标 | 任意 | 阻断自身 run |
+| 晚于自身目标 | 已存在更早缺口 | 允许提交自身目标 |
+| 无上游缺口 | 已存在自身缺口 | 允许提交自身目标 |
+
+自身 materialized 但 blocking check 失败时，优先按自身失败语义停止，不能被上游状态覆盖。该规则保证上游较晚日期的缺口不会阻断下游较早日期的补洞，同时仍保证不会越过上游尚未覆盖的同日或更早日期。
+
+2026-07-17 的只读运行审计曾观察到：`raw_dc_index` 首个缺口为 `2026-07-17`，而 `raw_dc_daily` / `raw_dc_member` 自身首个缺口为 `2026-07-15`。旧实现只要发现上游有缺口就直接 skip，导致 `2026-07-15` 无法提交；这属于共享 sensor 的 frontier 门禁实现错误，不是源数据缺失或分区注册错误。实现必须在同一个 DuckDB connection 内完成自身和上游最近 10 日 batch readiness，不能回流 Dagster event history、Tushare 请求或 Prod DB 读取。
+
 事件边界：M8 已写入的历史 event 作为审计事实保留，不删除、不自动改写、不用于 source readiness；新定义切换后的事件使用专属 partition set。旧事件如需迁移，另开事件对账/补录专项，不能由 M9-R 隐式完成。
 
 M9-R 的 source closure 分为两层，不能混为一谈：

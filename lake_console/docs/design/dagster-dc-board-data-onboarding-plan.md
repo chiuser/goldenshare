@@ -604,12 +604,14 @@ R0-R8 已完成本地代码、静态门禁和临时 lake 验证；在正式切�
 - Raw update sensor 先做最近 10 个 expected trade dates 的 DuckDB readiness，再只对“物理文件缺失”的 first-not-ready 日期做有界源探测；探测通过后最多提交一个 partition run。文件存在但 core check 失败时只 skip，不自动覆盖。
 - `dc_index`、`dc_daily`、`dc_member` 的完整 source closure 仍只在 writer run 内执行：分页、请求终态、失败/未尝试、字段、日期、主键、类别覆盖、源/写入行数和原子 promote 全部通过后才产生可消费的湖文件。
 - Raw/Silver core check 与 readiness 继续使用单个 partition、单个合并 blocking check，并增加同日关系审计：`dc_daily` 与 `dc_index` 代码集合相等，`dc_member` 请求集合有明确成功或合法空终态。关系失败不会进入 ready frontier。
+- `dc_daily` / `dc_member` 的 Raw sensor 先确定自身首个未就绪目标，再比较 `raw_dc_index` 上游 frontier；上游首个未就绪日期早于或等于自身目标时阻断，晚于自身目标时允许补更早目标。不能因为上游窗口存在一个更晚缺口，就阻断自身更早日期。
 - source probe 只是“现在是否值得尝试”的可用性判断，不是成功证明；文件存在、row count > 0 或 probe 通过都不能单独判定更新成功。真正成功必须是 writer closure + 湖文件 core check + 同日关系闭环。
 - Dagster 可能先记录 materialization 再记录 blocking check 失败；因此本专项的“成功更新”定义为 readiness `ready=True` 和下游 frontier 可推进，而不是单独看 materialization event。
 
 ### M9-R 本地验证记录
 
 - 新增分区注册、source probe、同日关系和 Raw category coverage 的正/负向测试；Raw/Silver/Gold 定义、sensor、静态门禁回归通过。本轮板块相关回归共 `155 passed`，仅保留 Dagster preview/deprecation warnings。
+- 针对上游 frontier 修复，额外完成 Raw sensor 定向回归 `92 passed`：覆盖 `dc_daily` / `dc_member` 上游较晚缺口放行、上游同日缺口阻断、上游较晚 check failure 不阻断、单 tick 单 DuckDB connection 和无 event history 读取。
 - 本轮不运行 `dg`，不读取正式 Dagster runtime，不启用 sensor，不写正式湖或 Dagster event。正式切换前仍需做只读 definitions/partition/cursor 审计和至少三个实际交易日观察。
 
 ## 10. 验收标准

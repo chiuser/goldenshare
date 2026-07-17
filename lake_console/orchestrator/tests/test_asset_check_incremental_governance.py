@@ -260,6 +260,9 @@ GOLD_STOCK_DAILY_QFQ_CHECKS = (
 GOLD_DC_DAILY_TECHNICAL_CHECKS = (
     "gold_dc_daily_technical_core_check",
 )
+PROD_CH_DC_DAILY_TECHNICAL_CHECKS = (
+    "prod_ch_dc_daily_technical_core_check",
+)
 
 PLANNED_CATALOG_ASSET_KEYS: set[str] = set()
 
@@ -538,6 +541,20 @@ ASSET_CHECK_GOVERNANCE: dict[str, dict[str, AssetCheckGovernanceRule]] = {
         category=MOVE_TO_OFFLINE_AUDIT,
         phase="P4",
         retention_allowed=False,
+    ),
+    "ch_dc_daily_technical": _rules(
+        ("ch_dc_daily_technical_core_check",),
+        category=MOVE_TO_SENSOR_LAKE_READINESS,
+        phase="P2",
+        readiness=True,
+        retention_allowed=True,
+    ),
+    "prod_ch_dc_daily_technical": _rules(
+        PROD_CH_DC_DAILY_TECHNICAL_CHECKS,
+        category=MOVE_TO_SENSOR_LAKE_READINESS,
+        phase="P3",
+        readiness=True,
+        retention_allowed=True,
     ),
     "lake_root_health": _rules(
         LAKE_ROOT_HEALTH_CHECKS,
