@@ -23,6 +23,7 @@ from orchestrator.defs.run_contracts.dc_daily_technical import (
     DC_DAILY_TECHNICAL_MA_PERIODS,
     DC_DAILY_TECHNICAL_PARAMS_KEY,
     DC_DAILY_TECHNICAL_SENSOR_WINDOW_LIMIT,
+    DC_DAILY_TECHNICAL_SOURCE_FILE_BATCH_SIZE,
 )
 
 
@@ -38,6 +39,7 @@ def test_contract_constants_are_frozen() -> None:
     assert DC_DAILY_TECHNICAL_BOLL == (20, 2)
     assert DC_DAILY_TECHNICAL_BOLL_STD_DDOF == 0
     assert DC_DAILY_TECHNICAL_SENSOR_WINDOW_LIMIT == 10
+    assert DC_DAILY_TECHNICAL_SOURCE_FILE_BATCH_SIZE == 32
     assert DC_DAILY_TECHNICAL_INDICATOR_VERSION == "v1"
     assert DC_DAILY_TECHNICAL_PARAMS_KEY == (
         "ma_5_10_15_20_30_60_120_250__"

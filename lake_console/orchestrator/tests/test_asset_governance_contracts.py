@@ -20,6 +20,10 @@ from orchestrator.defs.assets.clickhouse_serving import (
     ch_share_fact_market_breadth_daily,
     prod_ch_share_fact_market_breadth_daily,
 )
+from orchestrator.defs.assets.dc_daily_technical_serving import (
+    ch_dc_daily_technical,
+    prod_ch_dc_daily_technical,
+)
 from orchestrator.defs.assets.lake_root_health import lake_root_health
 from orchestrator.defs.assets.index_basic import (
     INDEX_BASIC_RAW_COLUMN_TYPES,
@@ -254,6 +258,8 @@ ACTIVE_ASSET_DEFINITIONS = (
     prod_core_wealth_market_turnover,
     ch_share_fact_market_breadth_daily,
     prod_ch_share_fact_market_breadth_daily,
+    ch_dc_daily_technical,
+    prod_ch_dc_daily_technical,
     lake_root_health,
 )
 

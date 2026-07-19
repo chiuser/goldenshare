@@ -82,7 +82,8 @@ P4 本地验证结果：专项回归 139 个测试、70 个子测试通过；`dg
 
 ### 2.2 Files that remain unchanged
 
-- `defs/assets/dc_daily_technical.py`: Gold formula, lake writer and repair semantics.
+- `defs/assets/dc_daily_technical.py`: Gold formula、输出合同和 repair 语义保持不变；其历史
+  Silver 输入装载使用有界文件批次，避免一次打开全部 Parquet。
 - `defs/assets/dc_daily_technical_asset.py`: Gold asset name and partition set.
 - `defs/checks/dc_daily_technical_checks.py`: Gold core check; no formula check is added.
 - `defs/assets/clickhouse_serving.py`: Existing market-breadth implementation is not overloaded with a different table contract.

@@ -6,6 +6,7 @@ from pathlib import Path
 import duckdb
 import pytest
 
+import orchestrator.defs.assets.dc_daily_technical as dc_daily_technical
 from orchestrator.defs.assets.dc_daily_technical import (
     DcDailyTechnicalValidationError,
     write_gold_dc_daily_technical_partition,
@@ -287,3 +288,31 @@ def test_duplicate_source_key_fails_closed(tmp_path):
             duckdb_resource=_MemoryDuckDB(),
             partition_key=dates[-1],
         )
+
+
+def test_writer_loads_source_in_bounded_file_batches(tmp_path, monkeypatch):
+    root = Path(tmp_path)
+    dates = _write_fixture(root, 7)
+    observed_batch_sizes: list[int] = []
+    original_source_sql = dc_daily_technical._source_sql
+
+    def tracked_source_sql(paths_by_date):
+        observed_batch_sizes.append(len(paths_by_date))
+        return original_source_sql(paths_by_date)
+
+    monkeypatch.setattr(
+        dc_daily_technical,
+        "DC_DAILY_TECHNICAL_SOURCE_FILE_BATCH_SIZE",
+        3,
+    )
+    monkeypatch.setattr(dc_daily_technical, "_source_sql", tracked_source_sql)
+
+    result = write_gold_dc_daily_technical_partition(
+        lake_root_path=root,
+        duckdb_resource=_MemoryDuckDB(),
+        partition_key=dates[-1],
+    )
+
+    assert observed_batch_sizes == [3, 3, 1]
+    assert result.source_file_count == 7
+    assert result.source_row_count == 7

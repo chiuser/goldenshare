@@ -25,6 +25,23 @@ M3 已完成 Raw-only 写入能力：
 
 M3 明确不新增 active Dagster asset/check/job/sensor，不执行正式 bootstrap，不写正式湖或 Dagster DB。
 
+### 2026-07-19 运行修复：拒绝部分 `dc_daily` 响应
+
+7 月 17 日的 `raw_tushare_dc_daily` 文件只有 277 个代码，而同日 `dc_index` 基准集合为
+1,022 个代码；这不是允许落湖的板块关系差异。对当前源站做的只读复核中，`dc_daily` 与
+三个 `dc_index` 类型均返回 1,022 个代码，两个集合差异为 0，因此该 277 行响应应视为
+源端的临时不完整响应。
+
+- `dc_daily` writer 在原子替换前，额外对齐同日 `raw_dc_index` 的去重 `ts_code` 集合；
+  缺同日 index 文件、index 集合为空、daily 缺代码或出现额外代码都会 fail closed，既不
+  替换目标 Parquet，也不产生成功 materialization。
+- 这不是新增 Dagster check：现有合并 core check 仍是最终湖文件防线；写入前闭环负责避免
+  将已知不完整的源端响应先写入再报红，不增加 check event 数量。
+- `dc_member` 候选规划的交易日历字段统一使用 Silver 实际 schema 的 `trade_date`；不再读取
+  已不存在的 `cal_date`。
+
+本修复不改变 Tushare 请求参数、分页策略、资产/检查/job/sensor 名称、分区或数据湖路径。
+
 ## M4 实施状态
 
 M4 已完成 Raw Dagster 接入，但保持 sensor 默认关闭、未执行正式同步：

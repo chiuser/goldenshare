@@ -132,12 +132,12 @@ def _first_expected_trade_date(connection, calendar_path: Path, min_trade_date: 
         )
     row = connection.execute(
         """
-        SELECT CAST(CAST(cal_date AS DATE) AS VARCHAR)
+        SELECT CAST(CAST(trade_date AS DATE) AS VARCHAR)
         FROM read_parquet(?)
         WHERE exchange = 'SSE'
           AND is_open = true
-          AND CAST(cal_date AS DATE) >= CAST(? AS DATE)
-        ORDER BY CAST(cal_date AS DATE)
+          AND CAST(trade_date AS DATE) >= CAST(? AS DATE)
+        ORDER BY CAST(trade_date AS DATE)
         LIMIT 1
         """,
         [str(calendar_path), min_trade_date],
@@ -160,13 +160,13 @@ def _previous_member_path(
         return None
     rows = connection.execute(
         """
-        SELECT CAST(CAST(cal_date AS DATE) AS VARCHAR)
+        SELECT CAST(CAST(trade_date AS DATE) AS VARCHAR)
         FROM read_parquet(?)
         WHERE exchange = 'SSE'
           AND is_open = true
-          AND CAST(cal_date AS DATE) >= CAST(? AS DATE)
-          AND CAST(cal_date AS DATE) < CAST(? AS DATE)
-        ORDER BY CAST(cal_date AS DATE) DESC
+          AND CAST(trade_date AS DATE) >= CAST(? AS DATE)
+          AND CAST(trade_date AS DATE) < CAST(? AS DATE)
+        ORDER BY CAST(trade_date AS DATE) DESC
         """,
         [
             str(silver_trade_calendar_path(lake_root_path)),

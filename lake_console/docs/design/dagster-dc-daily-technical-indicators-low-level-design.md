@@ -18,6 +18,8 @@
 8. repair 只能消费显式 upstream batch，不允许从历史 event 猜范围。
 9. 任何 writer 都必须 `staging -> validate -> atomic replace`；已存在但错误的目标文件不得静默覆盖。
 10. P8C 之前的代码阶段只做本地定义、单元测试和临时 lake 测试；P8D/P9 是单独批准的正式 Gold 文件写入与事件验收阶段，不运行 daily job，不启用 sensor。
+11. Gold writer 读取历史 `silver_dc_daily` 时，每次 DuckDB `read_parquet` 最多传入 32 个文件；
+    全部批次顺序加载到同一个临时 source relation，不能以一个超长文件列表同时打开全历史文件。
 
 ## 2. 已审计代码与影响面
 
@@ -221,7 +223,8 @@ staging_path
 
 ```text
 validate target date and source paths
-  -> DuckDB temp relation
+  -> DuckDB source schema batches (at most 32 files each)
+  -> one DuckDB temp relation populated by bounded batches
   -> compute indicators
   -> COPY result TO unique staging parquet
   -> re-read staging schema/date/key/row-count
@@ -232,6 +235,12 @@ validate target date and source paths
 目标不存在才 promote；目标存在且当前 contract 通过则按幂等策略跳过；目标存在但错误则停止，不覆盖。进程异常、DuckDB 错误、Parquet 回读失败时，既有目标必须保持原样，staging 文件清理到可审计状态。
 
 不把写入和 Dagster event 写入放在同一事务里；event 失败不能回滚已经验证通过的 lake 文件。
+
+`DC_DAILY_TECHNICAL_SOURCE_FILE_BATCH_SIZE = 32` 是 writer 的固定性能合同。每个批次先做
+`SILVER_DC_DAILY_SCHEMA` 校验；第一批创建 `dc_daily_technical_source`，后续批次仅向同一临时
+relation 追加。这样仍然以一次 set-based 指标 SQL 计算完整上下文，但不会因数百个独立
+Parquet 文件被同一 `read_parquet([...])` 同时打开而耗尽文件描述符。批次仅改变输入装载方式，
+不得改变日期范围、公式、输出、文件布局或 repair 语义。
 
 ## 8. Core check 详细规则
 

@@ -36,6 +36,7 @@ from orchestrator.defs.run_contracts.dc_daily_technical import (
     DC_DAILY_TECHNICAL_MACD,
     DC_DAILY_TECHNICAL_MA_PERIODS,
     DC_DAILY_TECHNICAL_PARAMS_KEY,
+    DC_DAILY_TECHNICAL_SOURCE_FILE_BATCH_SIZE,
 )
 
 
@@ -101,6 +102,22 @@ def _read_paths(paths: tuple[Path, ...]) -> str:
     return f"read_parquet([{quoted_paths}], hive_partitioning=false)"
 
 
+def _path_batches(paths: tuple[Path, ...]) -> tuple[tuple[Path, ...], ...]:
+    return tuple(
+        paths[start : start + DC_DAILY_TECHNICAL_SOURCE_FILE_BATCH_SIZE]
+        for start in range(0, len(paths), DC_DAILY_TECHNICAL_SOURCE_FILE_BATCH_SIZE)
+    )
+
+
+def _source_path_batches(
+    paths_by_date: tuple[tuple[str, Path], ...],
+) -> tuple[tuple[tuple[str, Path], ...], ...]:
+    return tuple(
+        paths_by_date[start : start + DC_DAILY_TECHNICAL_SOURCE_FILE_BATCH_SIZE]
+        for start in range(0, len(paths_by_date), DC_DAILY_TECHNICAL_SOURCE_FILE_BATCH_SIZE)
+    )
+
+
 def _schema_mismatches(connection, relation: str, schema: tuple[object, ...]) -> dict[str, object]:
     observed = tuple(
         (str(row[0]), str(row[1]).upper())
@@ -160,6 +177,38 @@ def _source_sql(paths_by_date: tuple[tuple[str, Path], ...]) -> str:
         for trade_date, path in paths_by_date
     )
     return "\nUNION ALL\n".join(selects)
+
+
+def _validate_source_schemas(
+    connection,
+    *,
+    source_paths: tuple[Path, ...],
+) -> None:
+    for path_batch in _path_batches(source_paths):
+        source_schema = _schema_mismatches(
+            connection,
+            _read_paths(path_batch),
+            SILVER_DC_DAILY_SCHEMA,
+        )
+        if source_schema["mismatch"]:
+            raise DcDailyTechnicalValidationError(
+                f"Silver dc_daily schema does not match contract: {source_schema}"
+            )
+
+
+def _create_source_in_bounded_batches(
+    connection,
+    *,
+    paths_by_date: tuple[tuple[str, Path], ...],
+) -> None:
+    for batch_index, source_batch in enumerate(_source_path_batches(paths_by_date)):
+        source_sql = _source_sql(source_batch)
+        if batch_index == 0:
+            connection.execute(
+                f"CREATE OR REPLACE TEMP TABLE dc_daily_technical_source AS {source_sql}"
+            )
+        else:
+            connection.execute(f"INSERT INTO dc_daily_technical_source {source_sql}")
 
 
 def _validate_source(connection, expected_dates: tuple[str, ...], target_trade_date: str) -> dict[str, int]:
@@ -608,14 +657,8 @@ def write_gold_dc_daily_technical_partition(
             )
 
         source_paths = tuple(path for _, path in paths_by_date)
-        source_schema = _schema_mismatches(connection, _read_paths(source_paths), SILVER_DC_DAILY_SCHEMA)
-        if source_schema["mismatch"]:
-            raise DcDailyTechnicalValidationError(
-                f"Silver dc_daily schema does not match contract: {source_schema}"
-            )
-        connection.execute(
-            f"CREATE OR REPLACE TEMP TABLE dc_daily_technical_source AS {_source_sql(paths_by_date)}"
-        )
+        _validate_source_schemas(connection, source_paths=source_paths)
+        _create_source_in_bounded_batches(connection, paths_by_date=paths_by_date)
         source_metrics = _validate_source(connection, expected_dates, target_trade_date)
         target_source_row_count = source_metrics["target_source_row_count"]
 

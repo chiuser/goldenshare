@@ -308,6 +308,13 @@ fetch_all_pages(
 - `(ts_code, trade_date, category)` 跨页唯一。
 - SSE open date 全量空结果失败。
 - 不把 `category` 丢失或按 `ts_code` 聚合。
+- promote 前必须读取同日 `raw_dc_index`，将双方去重后的 `ts_code` 做双向集合比较。缺 index
+  文件、index 集合为空、daily 缺 index 代码或 daily 出现额外代码均为 source closure 失败；
+  不写正式目标文件，也不产生成功 materialization。这一闭环不新增 Dagster check，现有合并
+  core check 继续作为写入后的最终文件防线。
+
+2026-07-19 对源站的只读复核显示，`dc_daily` 与三个 `dc_index` 类型当日均为 1,022 个代码，
+集合差异为 0。此前 277 行 `dc_daily` 响应因此按部分源响应处理，而非合法板块关系差异。
 
 ### 5.6 原子写入和 metadata
 
@@ -565,6 +572,9 @@ source closure 在 Raw writer promote 前完成，结果进入本次 materializa
 | `dc_member` | `requested = success + valid_empty`；failed=0；unattempted=0；每个请求代码回验通过；跨代码业务主键唯一；源行数/写入行数一致 |
 
 source closure 任一失败时：不 promote、不产生成功 materialization；已有目标保持不变，下一次 sensor 仍可针对 missing target 重试。
+
+`dc_member` 日常候选规划读取的 Silver 交易日历真实列名为 `trade_date`；不得使用历史命名
+`cal_date`。该字段错误会在候选规划阶段阻断请求，不能用空候选或 fallback 掩盖。
 
 #### B. 当前湖文件 core check
 

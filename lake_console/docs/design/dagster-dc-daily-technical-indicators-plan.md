@@ -347,6 +347,8 @@ P3 已完成，新增 `orchestrator/defs/assets/dc_daily_technical.py`，但该�
 
 - 从 `silver_dc_daily` 的显式历史交易日文件列表读取输入；不做无界 glob，不访问 Dagster event history；
 - 一个 DuckDB 临时 source relation 完成 schema、日期、代码、category、数值域和业务主键校验；
+  输入文件按最多 32 个一组验证并追加到同一个临时 relation，禁止单条 SQL 同时打开全部历史
+  Parquet 文件；
 - 使用 DuckDB set-based 窗口、闭式 EMA、KDJ 递推、`stddev_pop` BOLL 计算；不做 Python 大表逐行计算；
 - 目标日只输出同日 Silver 中存在的 `(ts_code, category)`，MA/BOLL 预热期写 `NULL`；
 - staging Parquet 回读 schema、行数、日期、主键、metadata、有限值和 warmup 规则，通过后才 `os.replace`；
@@ -355,6 +357,12 @@ P3 已完成，新增 `orchestrator/defs/assets/dc_daily_technical.py`，但该�
 新增 `tests/test_dc_daily_technical.py` 覆盖 BOLL 总体标准差、MACD/KDJ 独立递推对照、category 隔离、预热期 `NULL`、schema 回读、幂等跳过、重复源键、日期错误和失败不覆盖。
 
 2026-07-15 只读使用正式 Silver 输入、临时 symlink lake 和临时 Gold 输出完成性能验证：10 日上下文 `45.4ms`、250 日上下文 `419.6ms`、611 日全历史上下文 `981.3ms`；分别扫描 10/250/611 个 Silver 文件，输出均为单个 `part-000.parquet`，staging 残留为 0。正式 lake、Dagster DB 和 event 均未写入。
+
+2026-07-19 运行修复：实际 Gold run 曾因把约 611 个输入 Parquet 放入一个 DuckDB
+`read_parquet([...])` 表达式而触发操作系统文件描述符上限。writer 现以
+`DC_DAILY_TECHNICAL_SOURCE_FILE_BATCH_SIZE = 32` 分批做 schema 校验并顺序追加到同一个临时
+source relation；指标 SQL、输入日期范围、输出 schema、原子替换和 repair 语义均不变。测试以
+7 个文件、批大小 3 固定验证 `3/3/1` 的加载边界。
 
 ### P4：Asset、核心 check、normal job/sensor
 

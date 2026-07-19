@@ -10,6 +10,7 @@ from orchestrator.defs.assets.dc_board import (
     write_dc_index_partition,
     write_dc_member_partition,
 )
+from orchestrator.defs.paths import raw_dc_index_path
 from orchestrator.defs.resources import TushareResult
 
 
@@ -86,6 +87,17 @@ def _daily_row(category="行业板块", ts_code="BK0001.DC"):
     }
 
 
+def _write_daily_index_baseline(root: Path, codes: tuple[str, ...]) -> None:
+    path = raw_dc_index_path(root, "2026-07-14")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    values = ", ".join(f"('{code}')" for code in codes)
+    with duckdb.connect(":memory:") as connection:
+        connection.execute(
+            f"COPY (SELECT * FROM (VALUES {values}) AS t(ts_code)) TO ? (FORMAT PARQUET)",
+            [str(path)],
+        )
+
+
 class DcBoardRawIoTests(unittest.TestCase):
     def test_index_three_types_are_merged_and_written_atomically(self):
         def response(api_name, params, _fields):
@@ -128,6 +140,10 @@ class DcBoardRawIoTests(unittest.TestCase):
             return []
 
         with tempfile.TemporaryDirectory() as temp_dir:
+            _write_daily_index_baseline(
+                Path(temp_dir),
+                ("BK0001.DC", "BK0002.DC", "BK0003.DC"),
+            )
             result = write_dc_daily_partition(
                 lake_root_path=Path(temp_dir),
                 duckdb_resource=_MemoryDuckDB(),
@@ -143,6 +159,35 @@ class DcBoardRawIoTests(unittest.TestCase):
                 ).fetchone()[0],
                 3,
             )
+
+    def test_daily_partial_source_fails_before_target_promotion(self):
+        def response(_api_name, params, _fields):
+            if params["offset"] == 0:
+                return [
+                    _daily_row("行业板块"),
+                    _daily_row("概念板块", "BK0002.DC"),
+                    _daily_row("地域板块", "BK0003.DC"),
+                ]
+            return []
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_daily_index_baseline(
+                root,
+                ("BK0001.DC", "BK0002.DC", "BK0003.DC", "BK0004.DC"),
+            )
+            with self.assertRaisesRegex(
+                DcBoardRawValidationError,
+                "same-day board code coverage is incomplete",
+            ):
+                write_dc_daily_partition(
+                    lake_root_path=root,
+                    duckdb_resource=_MemoryDuckDB(),
+                    tushare=_FakeTushare(response),
+                    partition_key="2026-07-14",
+                    policy=_test_policy(),
+                )
+            self.assertFalse((root / "raw/board/dc_daily/trade_date=2026-07-14/part-000.parquet").exists())
 
     def test_member_requests_one_code_at_a_time_and_records_empty_code(self):
         def response(_api_name, params, _fields):

@@ -361,6 +361,63 @@ def _tushare_extract_rows(result: TushareResult, fields: Sequence[str]) -> Seque
     return _normalize_rows(result.rows, fields)
 
 
+def _validate_dc_daily_same_day_index_coverage(
+    connection,
+    *,
+    index_path: Path,
+) -> None:
+    """Reject a partial ``dc_daily`` response before it can replace the target file."""
+
+    if not index_path.exists():
+        raise DcBoardRawValidationError(
+            f"dc_daily source closure requires same-day raw dc_index: {index_path}"
+        )
+
+    row = connection.execute(
+        f"""
+        WITH daily_codes AS (
+            SELECT DISTINCT trim(CAST(ts_code AS VARCHAR)) AS ts_code
+            FROM dc_board_rows
+            WHERE ts_code IS NOT NULL AND trim(CAST(ts_code AS VARCHAR)) <> ''
+        ), index_codes AS (
+            SELECT DISTINCT trim(CAST(ts_code AS VARCHAR)) AS ts_code
+            FROM {read_parquet(index_path)}
+            WHERE ts_code IS NOT NULL AND trim(CAST(ts_code AS VARCHAR)) <> ''
+        ), missing_codes AS (
+            SELECT ts_code FROM index_codes
+            EXCEPT
+            SELECT ts_code FROM daily_codes
+        ), extra_codes AS (
+            SELECT ts_code FROM daily_codes
+            EXCEPT
+            SELECT ts_code FROM index_codes
+        )
+        SELECT
+            (SELECT count(*) FROM daily_codes),
+            (SELECT count(*) FROM index_codes),
+            (SELECT count(*) FROM missing_codes),
+            (SELECT count(*) FROM extra_codes),
+            (SELECT list(ts_code ORDER BY ts_code) FROM (SELECT ts_code FROM missing_codes LIMIT 5)),
+            (SELECT list(ts_code ORDER BY ts_code) FROM (SELECT ts_code FROM extra_codes LIMIT 5))
+        """
+    ).fetchone()
+    daily_count, index_count, missing_count, extra_count, missing_sample, extra_sample = row
+    if int(index_count or 0) <= 0:
+        raise DcBoardRawValidationError(
+            f"dc_daily source closure found no board codes in same-day raw dc_index: {index_path}"
+        )
+    if int(missing_count or 0) or int(extra_count or 0):
+        raise DcBoardRawValidationError(
+            "dc_daily same-day board code coverage is incomplete before target promotion: "
+            f"daily_code_count={int(daily_count or 0)}, "
+            f"index_code_count={int(index_count or 0)}, "
+            f"missing_index_code_count={int(missing_count or 0)}, "
+            f"extra_daily_code_count={int(extra_count or 0)}, "
+            f"missing_index_code_sample={list(missing_sample or ())}, "
+            f"extra_daily_code_sample={list(extra_sample or ())}."
+        )
+
+
 def write_dc_index_partition(
     *,
     lake_root_path: Path,
@@ -470,6 +527,10 @@ def write_dc_daily_partition(
                 "dc_daily category coverage is incomplete: "
                 f"observed={category_count}, expected={len(DC_DAILY_CATEGORIES)}."
             )
+        _validate_dc_daily_same_day_index_coverage(
+            connection,
+            index_path=raw_dc_index_path(lake_root_path, partition_key),
+        )
         return _promote_table(
             connection,
             dataset="dc_daily",

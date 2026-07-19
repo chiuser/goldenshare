@@ -83,7 +83,7 @@ def test_member_candidate_planner_uses_index_and_nearest_member_baseline(tmp_pat
             SELECT * FROM (VALUES
                 ('SSE', DATE '2024-12-20', true),
                 ('SSE', DATE '2024-12-23', true)
-            ) AS t(exchange, cal_date, is_open)
+            ) AS t(exchange, trade_date, is_open)
         ) TO '{calendar}' (FORMAT PARQUET)
         """,
     )
@@ -130,7 +130,7 @@ def test_member_candidate_planner_fails_without_non_first_baseline(tmp_path) -> 
     calendar.parent.mkdir(parents=True)
     connection = duckdb.connect()
     connection.execute(
-        f"COPY (SELECT * FROM (VALUES ('SSE', DATE '2024-12-20', true), ('SSE', DATE '2024-12-23', true)) AS t(exchange, cal_date, is_open)) TO '{calendar}' (FORMAT PARQUET)",
+        f"COPY (SELECT * FROM (VALUES ('SSE', DATE '2024-12-20', true), ('SSE', DATE '2024-12-23', true)) AS t(exchange, trade_date, is_open)) TO '{calendar}' (FORMAT PARQUET)",
     )
     index_path = root / "raw/board/dc_index/trade_date=2024-12-23/part-000.parquet"
     index_path.parent.mkdir(parents=True)
