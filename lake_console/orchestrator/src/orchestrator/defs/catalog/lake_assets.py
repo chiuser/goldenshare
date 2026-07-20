@@ -668,7 +668,7 @@ PARTITION_MODEL_DEFINITIONS = (
         PartitionModelFamily.TRADE_DATE_PARTITION,
         AssetLayer.RAW,
         "index_daily",
-        "ts_code",
+        "trade_date",
         PartitionPhysicalLayout.PARTITION_FILE,
     ),
     _model(

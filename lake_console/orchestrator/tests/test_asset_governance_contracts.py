@@ -141,6 +141,7 @@ from orchestrator.defs.duckdb_sql import (
     TRADE_CALENDAR_SILVER_REQUIRED_COLUMNS,
 )
 from orchestrator.defs.partitions import (
+    cn_a_index_trade_days,
     cn_a_stock_trade_days,
     cn_a_stk_nineturn_trade_days,
     cn_a_stock_mins_silver_trade_days,
@@ -461,6 +462,17 @@ class AssetGovernanceContractTests(unittest.TestCase):
                         definition.physical_layout,
                         PartitionPhysicalLayout.STOCK_YEAR_FILE,
                     )
+
+    def test_raw_index_daily_catalog_and_asset_are_trade_date_partitioned(self) -> None:
+        entry = get_lake_asset_catalog_entry("raw_index_daily")
+        definition = get_partition_model_definition(entry.partition_model)
+
+        self.assertEqual(
+            entry.partition_model,
+            PartitionModel.TRADE_DATE_PARTITION_RAW_INDEX_DAILY,
+        )
+        self.assertEqual(definition.dagster_partition_dimension, "trade_date")
+        self.assertEqual(raw_index_daily.partitions_def, cn_a_index_trade_days)
 
     def test_stk_mins_assets_use_expected_partitions(self) -> None:
         raw_assets = (
