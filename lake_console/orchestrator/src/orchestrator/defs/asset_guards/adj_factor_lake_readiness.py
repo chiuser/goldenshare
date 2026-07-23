@@ -62,6 +62,12 @@ SILVER_ADJ_FACTOR_STOCK_CURRENT_PARTITION_KEY_ALLOWED_CHECK = (
 SILVER_ADJ_FACTOR_UNIQUE_TS_CODE_TRADE_DATE_CHECK = (
     "silver_adj_factor_unique_ts_code_trade_date"
 )
+SILVER_ADJ_FACTOR_LIFECYCLE_REBUILDABLE_CHECKS = frozenset(
+    {
+        SILVER_ADJ_FACTOR_LISTED_STOCK_ONLY_CHECK,
+        SILVER_ADJ_FACTOR_COVERAGE_COMPLETE_CHECK,
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -84,6 +90,18 @@ class _AdjFactorPathMetrics:
     silver_listed_failed_count: int = 0
     silver_missing_code_count: int = 0
     silver_unexpected_code_count: int = 0
+
+
+@dataclass(frozen=True)
+class SilverAdjFactorLifecycleRebuildAssessment:
+    """Whether one failed silver partition can be safely rebuilt from current inputs."""
+
+    eligible: bool
+    reason_code: str
+    failed_check_names: tuple[str, ...]
+    expected_code_count: int = 0
+    raw_missing_code_count: int = 0
+    raw_missing_code_samples: tuple[str, ...] = ()
 
 
 def _normalize_trade_dates(values: Sequence[str]) -> tuple[str, ...]:
@@ -388,6 +406,136 @@ def _metrics_by_trade_date(
         )
         for path_plan in path_plans
     }
+
+
+def assess_silver_adj_factor_lifecycle_rebuildability(
+    *,
+    connection,
+    lake_root: Path,
+    trade_date: str,
+    raw_status: ContinuityDateReadiness,
+    silver_status: ContinuityDateReadiness,
+    sample_limit: int = 5,
+) -> SilverAdjFactorLifecycleRebuildAssessment:
+    """Assess the narrow lifecycle-only rebuild path for one silver partition.
+
+    The normal sensor path must not call this helper. It is only for an existing
+    silver file whose physical readiness reports lifecycle-derived failures.
+    """
+
+    if sample_limit < 1:
+        raise ValueError("sample_limit must be at least 1")
+
+    failed_check_names = tuple(silver_status.failed_check_names)
+    if silver_status.ready:
+        return SilverAdjFactorLifecycleRebuildAssessment(
+            eligible=False,
+            reason_code="silver_already_ready",
+            failed_check_names=failed_check_names,
+        )
+    if not silver_status.materialized:
+        return SilverAdjFactorLifecycleRebuildAssessment(
+            eligible=False,
+            reason_code="silver_not_materialized",
+            failed_check_names=failed_check_names,
+        )
+    if not raw_status.ready:
+        return SilverAdjFactorLifecycleRebuildAssessment(
+            eligible=False,
+            reason_code="raw_not_ready",
+            failed_check_names=failed_check_names,
+        )
+
+    failed_check_set = set(failed_check_names)
+    if (
+        not failed_check_set
+        or not failed_check_set.issubset(SILVER_ADJ_FACTOR_LIFECYCLE_REBUILDABLE_CHECKS)
+    ):
+        return SilverAdjFactorLifecycleRebuildAssessment(
+            eligible=False,
+            reason_code="non_lifecycle_silver_check_failed",
+            failed_check_names=failed_check_names,
+        )
+
+    raw_path = raw_adj_factor_path(lake_root, trade_date)
+    silver_path = silver_adj_factor_path(lake_root, trade_date)
+    stock_lifecycle_path = silver_stock_lifecycle_path(lake_root)
+    if not raw_path.exists():
+        return SilverAdjFactorLifecycleRebuildAssessment(
+            eligible=False,
+            reason_code="raw_file_missing",
+            failed_check_names=failed_check_names,
+        )
+    if not silver_path.exists():
+        return SilverAdjFactorLifecycleRebuildAssessment(
+            eligible=False,
+            reason_code="silver_file_missing",
+            failed_check_names=failed_check_names,
+        )
+    if not stock_lifecycle_path.exists():
+        return SilverAdjFactorLifecycleRebuildAssessment(
+            eligible=False,
+            reason_code="stock_lifecycle_file_missing",
+            failed_check_names=failed_check_names,
+        )
+
+    lifecycle_sql = silver_cny_stock_lifecycle_select(stock_lifecycle_path)
+    expected_codes_sql = f"""
+        SELECT lifecycle.ts_code
+        FROM ({lifecycle_sql}) lifecycle
+        WHERE DATE {duckdb_string(trade_date)} >= lifecycle.list_date
+          AND (
+            lifecycle.delist_date IS NULL
+            OR DATE {duckdb_string(trade_date)} < lifecycle.delist_date
+          )
+    """
+    raw_codes_sql = f"""
+        SELECT DISTINCT CAST(raw.ts_code AS VARCHAR) AS ts_code
+        FROM {read_parquet(raw_path, hive_partitioning=False)} raw
+        WHERE try_strptime(CAST(raw.trade_date AS VARCHAR), '%Y%m%d')::DATE
+          = DATE {duckdb_string(trade_date)}
+    """
+    expected_code_count, raw_missing_code_count = connection.execute(
+        f"""
+        WITH expected_codes AS ({expected_codes_sql}),
+        raw_codes AS ({raw_codes_sql})
+        SELECT
+          count(*) AS expected_code_count,
+          count(*) FILTER (WHERE raw_codes.ts_code IS NULL) AS raw_missing_code_count
+        FROM expected_codes
+        LEFT JOIN raw_codes USING (ts_code)
+        """
+    ).fetchone()
+    expected_code_count = int(expected_code_count or 0)
+    raw_missing_code_count = int(raw_missing_code_count or 0)
+    if raw_missing_code_count:
+        rows = connection.execute(
+            f"""
+            WITH expected_codes AS ({expected_codes_sql}),
+            raw_codes AS ({raw_codes_sql})
+            SELECT expected_codes.ts_code
+            FROM expected_codes
+            LEFT JOIN raw_codes USING (ts_code)
+            WHERE raw_codes.ts_code IS NULL
+            ORDER BY expected_codes.ts_code
+            LIMIT {sample_limit}
+            """
+        ).fetchall()
+        return SilverAdjFactorLifecycleRebuildAssessment(
+            eligible=False,
+            reason_code="raw_missing_lifecycle_coverage",
+            failed_check_names=failed_check_names,
+            expected_code_count=expected_code_count,
+            raw_missing_code_count=raw_missing_code_count,
+            raw_missing_code_samples=tuple(str(row[0]) for row in rows),
+        )
+
+    return SilverAdjFactorLifecycleRebuildAssessment(
+        eligible=True,
+        reason_code="lifecycle_rebuild_eligible",
+        failed_check_names=failed_check_names,
+        expected_code_count=expected_code_count,
+    )
 
 
 def _raw_status_for_trade_date(

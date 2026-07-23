@@ -362,13 +362,13 @@ write_mode = replace partition
   - 09:30 前不触发；09:30 后才评估 silver 门禁。
   - 先确认 `raw_tushare_adj_factor[trade_date]` latest materialization 及对应 raw blocking checks 全绿。
   - 再确认 `stock_basic_ready_without_freshness` 通过；按本轮确认口径，不要求 `stock_basic` materialization date >= 目标交易日。
-  - lake readiness 同时按当前 `silver_stock_lifecycle` 核对同日 factor 的 expected code coverage；因此生命周期在日内刷新后，旧 factor 文件即使保留了较早的 Dagster 绿色 check，也会被识别为 not-ready 并自然重建。
+  - lake readiness 同时按当前 `silver_stock_lifecycle` 核对同日 factor 的 expected code coverage。生命周期日内刷新后的旧文件若因此不再 ready，sensor 只会在第 13 节定义的生命周期覆盖白名单和 raw 覆盖门禁均通过时提交安全重建；其它已 materialized check 失败仍保守 skip。
 
 下游 `gold_stock_daily_qfq_update_job_sensor` 不复制或替代上述因子重建职责。它只在既有
 Dagster upstream readiness 全绿后，对目标交易日 `silver_stock_daily -> silver_adj_factor`
 做一次两文件代码覆盖复核，避免提交必然因缺当日 factor 而失败的 QFQ run。
   - 若 `silver_adj_factor[trade_date]` 缺 materialization 且门禁全满足，则提交 `silver_adj_factor_update_job[trade_date]`。
-  - 若 silver 已 materialized 但 blocking checks 未全绿，则保守 skip，避免失败循环。
+  - 若 silver 已 materialized 但 blocking checks 未全绿，默认保守 skip，避免失败循环。仅第 13 节定义的“当前生命周期变化且可证明安全重建”情形例外。
   - definition tags：`quote_data/silver/asset_update`。
   - 不写自定义 run tags。
   - cursor 使用 M7 标准结构。
@@ -503,3 +503,168 @@ Readiness：
 - 只处理 M5 范围之后的 current-day/catch-up 分区，不重跑历史 raw bootstrap。
 - 状态：部分完成；`2026-05-18` 至 `2026-05-29` 缺口曾通过人工旧混合 job 补齐并通过只读核验；后续日常自动入口已拆分为 raw/silver 两个 job sensor。
 - 待完成：观察下一个股票开市日是否由 06:00 分区注册和 09:30 后 raw/silver update sensors 触发自然闭环。
+
+## 13. 生命周期日内刷新后的依赖顺序与安全重建方案
+
+### 13.1 要解决的问题
+
+`silver_adj_factor[trade_date]` 的实际内容由两份输入共同决定：同日
+`raw_tushare_adj_factor` 与全量快照 `silver_stock_lifecycle`。后者不是分区资产，
+一次 `silver_stock_basic_update_job` 成功会原地替换整份生命周期文件。
+
+这会产生一个真实而可重复的顺序问题：早上 factor 文件先按旧生命周期写出；盘后或
+日内基础事实刷新后，某只新上市、退市生效或更正生命周期的股票进入/退出目标日应覆盖集合。
+此时旧 factor 文件与当前生命周期不一致，但它仍可能绑定着早些时候的绿色 Dagster
+check event。
+
+`batch_silver_adj_factor_lake_readiness(...)` 已经正确地按当前文件事实发现这种不一致。
+问题出在下一步：通用 `select_first_not_ready_trade_date(...)` 对任何“文件已存在、
+但 checks 不通过”的分区都返回 `materialized_check_failed`，sensor 随即 skip。这个
+保守默认对文件损坏、重复键、日期错位等情况正确，却错误地把“生命周期刷新造成的、
+可由同一确定性 writer 重建的失配”也卡住了。下游 QFQ 和 factor repair 只能持续等待。
+
+本节的目标是消除这条正常日更依赖竞态，并让这一种可证明安全的失配自行闭环；不把
+任意失败分区改成自动重跑。
+
+### 13.2 已核实的当前实现
+
+| 事实 | 当前代码锚点 | 结果 |
+| --- | --- | --- |
+| silver writer 使用当前生命周期过滤同日 raw factor | `defs/assets/adj_factor.py::write_silver_adj_factor_partition`、`defs/duckdb_sql.py::silver_adj_factor_select` | 重跑同一分区会以当前生命周期确定性原子替换文件。 |
+| 生命周期有效范围 | `list_date <= trade_date < delist_date` | 新上市、退市生效及更正均会影响同日应覆盖代码集合。 |
+| physical readiness | `defs/asset_guards/adj_factor_lake_readiness.py::_silver_status_for_trade_date` | 已同时检查 schema、键、日期、正值、生命周期有效性及当前 expected/actual code coverage。 |
+| 通用 fail-closed 选择 | `defs/asset_guards/bounded_continuity.py::select_first_not_ready_trade_date` | materialized 但未 ready 时不返回可提交日期。 |
+| 当前 silver sensor | `defs/sensors/stock_adj_factor_sensor.py::silver_adj_factor_update_job_sensor` | 对选中的候选日期先要求 `silver_stock_lifecycle_ready_for_trade_date(instance, D)`；仅在 materialized failure 满足窄范围白名单时评估安全重建，否则继续 skip。 |
+| RunRequest 幂等 | `build_asset_update_run_key(subject="silver_adj_factor_update", unit_id=trade_date)` | Dagster 以 sensor + run key 去重；同一个已完成的日常 run key 不能再次用于同日重建。 |
+
+因此，单纯把 `materialized_check_failed` 改成“允许提交”，既会误重跑坏文件，也会被
+原日常 run key 去重而没有实际效果，不能采用。
+
+### 13.3 目标依赖模型
+
+```text
+raw_tushare_adj_factor[D] -----------------------------+
+                                                        |
+silver_stock_basic[D] -> silver_stock_lifecycle[D fresh] -> silver_adj_factor[D]
+                                                        |
+silver_adj_factor[D] -> gold_stk_mins_qfq[D] -> factor repair[D] -> MACD/KDJ[D]
+```
+
+这里的 `silver_stock_lifecycle[D fresh]` 的含义是：最新生命周期 materialization 的
+上海日期不早于目标交易日 `D`，并且其 blocking checks 通过。它不是新增版本文件，
+也不是把 5,000 多只股票复制进每个交易日的 sidecar。
+
+日常顺序调整为：
+
+1. raw factor 仍可在 09:30 后按源站可用性写入，完全不等待基础事实。
+2. silver factor 对每个候选日期必须先等待 `silver_stock_lifecycle` 对该日期 fresh 且 ready。
+3. 生命周期尚未完成时，silver sensor skip 并明确说明“等待当日 lifecycle”，不生成
+   factor 文件，也不让下游误以为因子已可消费。
+4. 生命周期完成后，若 silver 文件缺失，走既有日常更新 run；若文件只是由于本次
+   lifecycle 刷新而失配，走第 13.4 节的窄范围重建。
+5. QFQ 仍保留现有的两文件代码覆盖门禁。它是最后一道保护，不承担唤醒或重建 factor
+   的职责。
+
+### 13.4 唯一允许自动重建的条件
+
+自动重建不是“check 失败就重跑”。仅当目标分区同时满足下表全部条件时才允许：
+
+| 条件 | 为什么必须有 | 不满足时的行为 |
+| --- | --- | --- |
+| `silver_adj_factor` 文件存在，且它是最早的未就绪分区 | 保持 first-not-ready 与每 tick 最多一个 run 的既有顺序。 | 保持普通连续性选择。 |
+| 同日 raw factor 通过完整 physical readiness | 不能用坏 raw 覆盖已有 silver。 | `skip`，阻断组件 `raw_adj_factor`。 |
+| `silver_stock_lifecycle_ready_for_trade_date(instance, D)` 为 ready | 保证目标 writer 使用的是该日已完成的生命周期事实。 | `skip`，阻断组件 `stock_lifecycle`。 |
+| silver failed rules 为非空子集 `{listed_stock_only, coverage_complete}` | 这两条是当前生命周期变化能够确定性修复的语义；不包含任何文件/键/日期/正值/分区失败。 | 保持通用 `silver_materialized_check_failed`，人工处理。 |
+| 同日 raw code set 覆盖当前 lifecycle 对 `D` 的全部 expected code set | 若 raw 根本没有新增应覆盖代码，重跑必然再次失败，不能制造循环。 | `skip`，阻断组件 `raw_adj_factor`，记录缺口数量和最多 5 个代码。 |
+| rebuild 请求携带当前 lifecycle materialization 身份 | 每份生命周期快照必须生成稳定且可区分的重建意图，不能被旧日常 run key 吞掉。 | 使用 `silver_adj_factor_lifecycle_rebuild:<date>:lifecycle:<storage_id>`；Dagster 按 sensor + run key 去重，等待该 run 的结果。 |
+
+`listed_stock_only` 与 `coverage_complete` 两者都允许，是因为 writer 本身以同一份
+lifecycle 做 inner join 和有效日期过滤：生命周期新增代码时补入；生命周期收紧时剔除。
+它们不包含任何对因子数值的猜测或修正。任何 schema、空文件、重复键、日期不一致、
+非正因子、未注册分区或 raw 缺覆盖，仍严格 fail closed。
+
+### 13.5 精确代码改动
+
+本轮实现仅改动以下位置：
+
+| 文件 | 精确改动 | 不改什么 |
+| --- | --- | --- |
+| `defs/sensors/stock_adj_factor_sensor.py` | `silver_adj_factor_update_job_sensor` 从 `silver_stock_lifecycle_ready_without_freshness` 切到 `silver_stock_lifecycle_ready_for_trade_date(instance, D)`；将 lifecycle gate 放在 silver 缺失分区与 materialized-check-failed 分支共同的提交前位置。 | 不改 raw sensor、日期窗口、动态分区、job selection、正常日常 run key。 |
+| `defs/asset_guards/adj_factor_lake_readiness.py` | 新增只读 `assess_silver_adj_factor_lifecycle_rebuildability(...)` 及小型结果 dataclass；它只评估一个已 materialized 的目标日期是否满足第 13.4 节。 | 不改变 `batch_silver_adj_factor_lake_readiness(...)` 的 ready 语义，不放宽任何现有 check。 |
+| `defs/sensors/stock_adj_factor_sensor.py` | 新增私有 rebuild RunRequest builder：继续使用 `build_run_request(...)` / `build_asset_update_run_key(...)`，但 subject 固定为 `silver_adj_factor_lifecycle_rebuild`，unit id 为 `<trade_date>:lifecycle:<materialization_storage_id>`。 | 不手写 `dg.RunRequest`，不解析 run key，不改正常 `silver_adj_factor_update:<date>`。 |
+| `defs/run_contracts/run_keys.py` | 不新增新的通用 builder；只复用现有 builder。 | 不修改既有 run key 格式或消费者。 |
+| `tests/test_adj_factor_m4_contracts.py`、新增/现有 adj-factor readiness tests | 锁定正常日常路径不变、freshness gate、可重建白名单、raw 缺覆盖拒绝、非 lifecycle 失败拒绝、rebuild run key 身份及 cursor。 | 不把 test fixture 接到真实 Dagster/Lake。 |
+| `tests/test_run_contract_run_keys.py` | 为 `silver_adj_factor_lifecycle_rebuild:<date>:lifecycle:<storage_id>` 增加精确 contract 断言，证明它与日常 key 不冲突且仍由统一 builder 生成。 | 不接受随机时间戳、手写字符串或解析旧 run key。 |
+| `tests/test_batch_readiness_hotpath_performance.py`、`tests/test_run_contract_static_gates.py` | 锁定正常 tick 无额外扫描；重建评估仅命中一个日期；禁止把 generic `materialized_check_failed` 自动重跑或把完整 status 写 cursor。 | 不改变其它 asset family 的 selector。 |
+
+`assess_silver_adj_factor_lifecycle_rebuildability(...)` 的 SQL 只读一个目标日的 raw
+factor 与生命周期，只投影 `ts_code`、`trade_date`。成功时一条聚合 query 给出
+expected code 数和 raw missing code 数；只有缺失时才追加一条 `ORDER BY ts_code LIMIT 5`
+诊断 query。它不得重新读 10 日期窗口、不得读取 OHLC 或 factor 数值、不得查询
+Dagster 全历史 event/check。
+
+### 13.6 Run key 与状态语义
+
+日常更新和生命周期重建是不同的调度意图：
+
+```text
+日常首次写入: silver_adj_factor_update:2026-07-21
+生命周期重建: silver_adj_factor_lifecycle_rebuild:2026-07-21:lifecycle:123456
+```
+
+第二个 key 的最后一段来自最新 lifecycle materialization storage id，而不是时间戳。
+同一份生命周期快照会产生同一个 rebuild key，Dagster 的 sensor run-key 去重会阻止重复
+启动；当 lifecycle 又有一份新的 materialization 时，它代表新的事实输入，才会生成新的
+rebuild key。sensor 不查询或维护 run history。这样既不会被旧日常 run 去重吞掉，也不会
+为了“强行重跑”删除 run、清 cursor 或绕过 Dagster 幂等。
+
+rebuild 仍使用既有 `silver_adj_factor_update_job` 和同一分区 replace writer。成功后新的
+materialization 与 checks 自然成为当前状态；不补 runless event、不新增 repair job、
+不新增 check 或 dynamic partition。
+
+### 13.7 Cursor 与人的可读性
+
+新增/调整的 cursor 仅保留本次选择理由：
+
+| 情形 | `reason_code` | `blocked_component` | 必要 evidence |
+| --- | --- | --- | --- |
+| 生命周期未完成 | `stock_lifecycle_not_fresh` | `stock_lifecycle` | target date、lifecycle materialization date、freshness passed。 |
+| 可安全重建并提交 | `request_lifecycle_rebuild` | `none` | target date、lifecycle materialization storage id、允许的 failed rule names、expected/raw code counts。 |
+| raw 缺当前 lifecycle 代码 | `raw_missing_lifecycle_coverage` | `raw_adj_factor` | missing count、最多 5 个代码。 |
+| 其它已 materialized check 失败 | 保持 `silver_materialized_check_failed` | `silver_adj_factor` | failed rule names；不塞完整 batch status。 |
+
+普通 cursor 预算不超过 2 KiB，重建拒绝分支不超过 3 KiB，硬上限 8 KiB。
+
+### 13.8 性能预算
+
+| 路径 | 日期/文件 | DuckDB 工作量 | 额外 Dagster 读取 | 预算 |
+| --- | --- | --- | --- | --- |
+| 正常 silver tick | 保持既有最近 10 个交易日 batch | 不新增 query/文件扫描 | lifecycle readiness 仅读取该 asset 最新 materialization 与 blocking checks。 | 不得劣于现有 10 日基线。 |
+| 等待 lifecycle | 0 个额外 Parquet | 0 | 同上。 | 常量级。 |
+| 生命周期安全重建评估 | 1 日 raw + lifecycle | 正常 1 条 aggregate SQL；raw 缺覆盖时额外 1 条 `LIMIT 5`。 | 无全历史 event scan。 | 只在已 materialized 且 lifecycle-only 失配时运行。 |
+| 实际重建 run | 1 个 silver partition | 复用现有单分区 DuckDB select/atomic replace。 | 复用既有 materialization + 4 aggregate checks。 | 与人工重跑同一 job 等价。 |
+
+本方案不新增 per-date lifecycle sidecar、数据库表、manifest、asset/check、event 或历史扫描。
+它解决的是正确的执行顺序，不通过堆积细碎状态来掩盖顺序问题。
+
+### 13.9 测试、发布与停止条件
+
+实现已通过以下本地测试约束：
+
+1. 生命周期 materialization date 早于目标日期时，silver sensor 不提交 run，cursor 明确等待 lifecycle。
+2. normal silver missing partition 且 lifecycle fresh/ready 时，现有日常 run key、job、partition 与每 tick 一个 run 不变。
+3. 已 materialized 分区仅失败 `coverage_complete`、raw 覆盖当前 lifecycle 时，提交一次 lifecycle rebuild key。
+4. 仅失败 `listed_stock_only`、或两者同时失败且 raw 覆盖时，也可重建；任何其它 failed rule 都必须 skip。
+5. raw 缺一个当前 expected lifecycle code 时，绝不提交 rebuild；cursor 样本至多 5 个。
+6. 同一 lifecycle storage id 必须生成相同 rebuild key，并由 Dagster 的 sensor run-key
+   去重阻止重复启动；新 lifecycle storage id 必须生成不同 key 并可重新评估。
+7. QFQ sensor 的实时两文件 coverage gate 保持不变：factor 重建前 skip，重建成功后自然恢复；不直接由 QFQ sensor 提交 factor job。
+8. 10 日期 normal batch 性能不回退；rebuild helper 不得在正常路径调用，不得逐日循环或读取 Dagster history。
+
+发布顺序必须是：代码与本地测试 -> `dg check defs` 的单独审批 -> 正式 instance 只读
+sensor evaluate/plan 复核 -> 单独批准启用后的首个交易日观察。任何一步发现新 run key
+无法被 Dagster 去重、raw 缺覆盖、非生命周期规则失败、batch 性能回退或 lifecycle
+freshness 语义与实际 materialization 时间不一致，立即停止，不自动写 lake。
+
+本节当前状态：**代码与本地测试已完成；未执行 `dg check defs`，未操作正式 Dagster
+instance、Lake、prod 或动态分区。**

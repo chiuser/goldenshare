@@ -2839,6 +2839,67 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_silver_adj_factor_lifecycle_rebuild_stays_narrow_and_fresh(self) -> None:
+        sensor_path = SENSORS_DIR / "stock_adj_factor_sensor.py"
+        readiness_path = DEFS_DIR / "asset_guards" / "adj_factor_lake_readiness.py"
+        sensor_source = _function_source(
+            sensor_path,
+            "silver_adj_factor_update_job_sensor",
+        )
+        readiness_source = _function_source(
+            readiness_path,
+            "assess_silver_adj_factor_lifecycle_rebuildability",
+        )
+        issues = []
+
+        sensor_required_fragments = (
+            "silver_stock_lifecycle_ready_for_trade_date(",
+            "assess_silver_adj_factor_lifecycle_rebuildability(",
+            "silver_adj_factor_lifecycle_rebuild",
+            "raw_missing_lifecycle_coverage",
+        )
+        sensor_forbidden_fragments = (
+            "silver_stock_lifecycle_ready_without_freshness",
+        )
+        readiness_required_fragments = (
+            "raw_adj_factor_path(lake_root, trade_date)",
+            "silver_adj_factor_path(lake_root, trade_date)",
+            "silver_stock_lifecycle_path(lake_root)",
+            "SILVER_ADJ_FACTOR_LIFECYCLE_REBUILDABLE_CHECKS",
+            "LIMIT {sample_limit}",
+        )
+        readiness_forbidden_fragments = (
+            "batch_raw_adj_factor_lake_readiness(",
+            "batch_silver_adj_factor_lake_readiness(",
+            "expected_trade_dates",
+        )
+        issues.extend(
+            "silver adj factor sensor misses lifecycle rebuild guard: "
+            f"{fragment}"
+            for fragment in sensor_required_fragments
+            if fragment not in sensor_source
+        )
+        issues.extend(
+            "silver adj factor sensor contains stale lifecycle readiness helper: "
+            f"{fragment}"
+            for fragment in sensor_forbidden_fragments
+            if fragment in sensor_source
+        )
+        issues.extend(
+            "single-date lifecycle rebuild helper misses narrow audit fragment: "
+            f"{fragment}"
+            for fragment in readiness_required_fragments
+            if fragment not in readiness_source
+        )
+        issues.extend(
+            "single-date lifecycle rebuild helper widened into batch behavior: "
+            f"{fragment}"
+            for fragment in readiness_forbidden_fragments
+            if fragment in readiness_source
+        )
+
+        self.assertEqual(issues, [])
+
     def test_prod_clickhouse_market_breadth_checks_are_partition_attributable(
         self,
     ) -> None:

@@ -218,6 +218,13 @@ class RunContractRunKeyTests(unittest.TestCase):
             ),
             (
                 build_asset_update_run_key(
+                    subject="silver_adj_factor_lifecycle_rebuild",
+                    unit_id=f"{trade_date}:lifecycle:42",
+                ),
+                "silver_adj_factor_lifecycle_rebuild:2026-06-09:lifecycle:42",
+            ),
+            (
+                build_asset_update_run_key(
                     subject="stock_mins_raw_update_from_prod",
                     unit_id=trade_date,
                 ),

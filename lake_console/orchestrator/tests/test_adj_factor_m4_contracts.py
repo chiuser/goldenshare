@@ -14,6 +14,10 @@ from orchestrator.defs.asset_guards.bounded_continuity import (
     ContinuityBatchReadiness,
     ContinuityDateReadiness,
 )
+from orchestrator.defs.asset_guards.adj_factor_lake_readiness import (
+    SILVER_ADJ_FACTOR_COVERAGE_COMPLETE_CHECK,
+    SilverAdjFactorLifecycleRebuildAssessment,
+)
 from orchestrator.defs.checks import adj_factor_checks
 from orchestrator.defs.duckdb_sql import duckdb_string
 from orchestrator.defs.jobs import stock_adj_factor_update as adj_factor_jobs
@@ -32,6 +36,7 @@ from orchestrator.defs.sensors.readiness import (
 )
 from orchestrator.defs.sensors.stock_adj_factor_sensor import (
     _raw_run_request_for_trade_date,
+    _silver_lifecycle_rebuild_run_request_for_trade_date,
     _silver_run_request_for_trade_date,
     raw_adj_factor_update_job_sensor,
     silver_adj_factor_update_job_sensor,
@@ -182,18 +187,36 @@ def _stock_basic_status(*, ready: bool) -> DatasetReadinessStatus:
     return DatasetReadinessStatus(ready=ready, statuses=statuses)
 
 
-def _stock_lifecycle_status(*, ready: bool) -> AssetReadinessStatus:
+def _stock_lifecycle_status(
+    *,
+    ready: bool,
+    materialized: bool | None = None,
+    checks_passed: bool | None = None,
+    freshness_passed: bool | None = None,
+    materialization_storage_id: int | None = None,
+    materialization_date: str | None = None,
+) -> AssetReadinessStatus:
+    if materialized is None:
+        materialized = ready
+    if checks_passed is None:
+        checks_passed = ready
+    if freshness_passed is None:
+        freshness_passed = ready
+    if materialization_storage_id is None and materialized:
+        materialization_storage_id = 1
+    if materialization_date is None and materialized:
+        materialization_date = "2026-06-05"
     return AssetReadinessStatus(
         asset_key="silver_stock_lifecycle",
         partition_key=None,
         ready=ready,
-        materialized=ready,
-        checks_passed=ready,
-        freshness_passed=ready,
-        materialization_storage_id=1 if ready else None,
-        materialization_date="2026-06-04" if ready else None,
+        materialized=materialized,
+        checks_passed=checks_passed,
+        freshness_passed=freshness_passed,
+        materialization_storage_id=materialization_storage_id,
+        materialization_date=materialization_date,
         missing_check_names=()
-        if ready
+        if checks_passed
         else ("silver_stock_lifecycle_contract_check",),
         failed_check_names=(),
         reason="ready" if ready else "silver_stock_lifecycle not ready",
@@ -205,6 +228,7 @@ def _batch_status(
     ready_dates: tuple[str, ...] = (),
     missing_dates: tuple[str, ...] = (),
     failed_dates: tuple[str, ...] = (),
+    failed_check_names: tuple[str, ...] = ("adj_factor_partition_date_matches",),
 ) -> ContinuityBatchReadiness:
     statuses: dict[str, ContinuityDateReadiness] = {}
     for trade_date in (*ready_dates, *missing_dates, *failed_dates):
@@ -225,7 +249,7 @@ def _batch_status(
                 materialized=True,
                 checks_passed=False,
                 reason="blocking checks failed",
-                failed_check_names=("adj_factor_partition_date_matches",),
+                failed_check_names=failed_check_names,
                 missing_file_paths=(),
             )
         else:
@@ -594,6 +618,18 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         self.assertEqual(silver_request.tags, {})
         self.assertEqual(silver_request.run_config, {})
 
+        lifecycle_rebuild_request = _silver_lifecycle_rebuild_run_request_for_trade_date(
+            trade_date="2026-06-05",
+            lifecycle_materialization_storage_id=42,
+        )
+        self.assertEqual(lifecycle_rebuild_request.partition_key, "2026-06-05")
+        self.assertEqual(
+            lifecycle_rebuild_request.run_key,
+            "silver_adj_factor_lifecycle_rebuild:2026-06-05:lifecycle:42",
+        )
+        self.assertEqual(lifecycle_rebuild_request.tags, {})
+        self.assertEqual(lifecycle_rebuild_request.run_config, {})
+
     def test_silver_sensor_skips_when_raw_missing_or_checks_not_ready(self) -> None:
         cases = (
             _batch_status(
@@ -710,13 +746,13 @@ class AdjFactorM4ContractTests(unittest.TestCase):
             "orchestrator.defs.sensors.stock_adj_factor_sensor.stock_basic_ready_without_freshness",
             return_value=_stock_basic_status(ready=True),
         ), patch(
-            "orchestrator.defs.sensors.stock_adj_factor_sensor.silver_stock_lifecycle_ready_without_freshness",
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.silver_stock_lifecycle_ready_for_trade_date",
             return_value=_stock_lifecycle_status(ready=False),
         ):
             result = _silver_sensor_result(context)
 
         self.assertEqual(result.run_requests, [])
-        self.assertIn("股票生命周期事实尚未通过", result.skip_reason.skip_message)
+        self.assertIn("股票生命周期事实尚未按目标交易日通过", result.skip_reason.skip_message)
         cursor_payload = load_sensor_cursor(result.cursor)
         stock_lifecycle_payload = cursor_payload["details"]["gate_statuses"][
             "stock_lifecycle"
@@ -735,6 +771,10 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         self.assertEqual(
             stock_lifecycle_payload["missing_check_names"],
             ["silver_stock_lifecycle_contract_check"],
+        )
+        self.assertEqual(
+            cursor_payload["details"]["reason_code"],
+            "stock_lifecycle_not_ready",
         )
 
     def test_silver_sensor_submits_only_when_raw_stock_basic_and_lifecycle_ready(
@@ -757,9 +797,11 @@ class AdjFactorM4ContractTests(unittest.TestCase):
             "orchestrator.defs.sensors.stock_adj_factor_sensor.stock_basic_ready_without_freshness",
             return_value=_stock_basic_status(ready=True),
         ), patch(
-            "orchestrator.defs.sensors.stock_adj_factor_sensor.silver_stock_lifecycle_ready_without_freshness",
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.silver_stock_lifecycle_ready_for_trade_date",
             return_value=_stock_lifecycle_status(ready=True),
-        ):
+        ) as lifecycle_ready, patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.assess_silver_adj_factor_lifecycle_rebuildability"
+        ) as assess_rebuild:
             result = _silver_sensor_result(context)
 
         self.assertEqual(len(result.run_requests), 1)
@@ -784,6 +826,171 @@ class AdjFactorM4ContractTests(unittest.TestCase):
             "silver_stock_lifecycle",
         )
         self.assertTrue(stock_lifecycle_payload["ready"])
+        lifecycle_ready.assert_called_once_with(context.instance, "2026-06-05")
+        assess_rebuild.assert_not_called()
+
+    def test_silver_sensor_waits_for_target_date_lifecycle_freshness(self) -> None:
+        context = _FakeContext(partitions=ADJ_FACTOR_REGISTERED_DAYS)
+        stale_lifecycle = _stock_lifecycle_status(
+            ready=False,
+            materialized=True,
+            checks_passed=True,
+            freshness_passed=False,
+            materialization_storage_id=41,
+            materialization_date="2026-06-04",
+        )
+        with patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.datetime",
+            _FixedDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.batch_raw_adj_factor_lake_readiness",
+            return_value=_batch_status(ready_dates=ADJ_FACTOR_REGISTERED_DAYS),
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.batch_silver_adj_factor_lake_readiness",
+            return_value=_batch_status(
+                ready_dates=("2026-06-03", "2026-06-04"),
+                missing_dates=("2026-06-05",),
+            ),
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.stock_basic_ready_without_freshness",
+            return_value=_stock_basic_status(ready=True),
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.silver_stock_lifecycle_ready_for_trade_date",
+            return_value=stale_lifecycle,
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.assess_silver_adj_factor_lifecycle_rebuildability"
+        ) as assess_rebuild:
+            result = _silver_sensor_result(context)
+
+        self.assertEqual(result.run_requests, [])
+        assess_rebuild.assert_not_called()
+        cursor_payload = load_sensor_cursor(result.cursor)
+        self.assertEqual(
+            cursor_payload["details"]["reason_code"],
+            "stock_lifecycle_not_fresh",
+        )
+        self.assertEqual(
+            cursor_payload["details"]["blocked_component"],
+            "stock_lifecycle",
+        )
+        self.assertIn("尚未按当日刷新", cursor_payload["details"]["summary"])
+
+    def test_silver_sensor_submits_lifecycle_rebuild_for_coverage_only_failure(
+        self,
+    ) -> None:
+        context = _FakeContext(partitions=ADJ_FACTOR_REGISTERED_DAYS)
+        assessment = SilverAdjFactorLifecycleRebuildAssessment(
+            eligible=True,
+            reason_code="lifecycle_rebuild_eligible",
+            failed_check_names=(SILVER_ADJ_FACTOR_COVERAGE_COMPLETE_CHECK,),
+            expected_code_count=2,
+        )
+        with patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.datetime",
+            _FixedDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.batch_raw_adj_factor_lake_readiness",
+            return_value=_batch_status(ready_dates=ADJ_FACTOR_REGISTERED_DAYS),
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.batch_silver_adj_factor_lake_readiness",
+            return_value=_batch_status(
+                ready_dates=("2026-06-03", "2026-06-04"),
+                failed_dates=("2026-06-05",),
+                failed_check_names=(SILVER_ADJ_FACTOR_COVERAGE_COMPLETE_CHECK,),
+            ),
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.stock_basic_ready_without_freshness",
+            return_value=_stock_basic_status(ready=True),
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.silver_stock_lifecycle_ready_for_trade_date",
+            return_value=_stock_lifecycle_status(
+                ready=True,
+                materialization_storage_id=42,
+            ),
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.assess_silver_adj_factor_lifecycle_rebuildability",
+            return_value=assessment,
+        ) as assess_rebuild:
+            result = _silver_sensor_result(context)
+
+        self.assertEqual(len(result.run_requests), 1)
+        self.assertEqual(
+            result.run_requests[0].run_key,
+            "silver_adj_factor_lifecycle_rebuild:2026-06-05:lifecycle:42",
+        )
+        assess_rebuild.assert_called_once()
+        cursor_payload = load_sensor_cursor(result.cursor)
+        cursor_text = json.dumps(cursor_payload, ensure_ascii=False)
+        self.assertLess(len(cursor_text), 3000)
+        self.assertEqual(
+            cursor_payload["details"]["reason_code"],
+            "request_lifecycle_rebuild",
+        )
+        self.assertEqual(cursor_payload["details"]["blocked_component"], "none")
+        self.assertEqual(
+            cursor_payload["details"]["evidence"]["lifecycle_rebuild"],
+            {
+                "reason_code": "lifecycle_rebuild_eligible",
+                "lifecycle_materialization_storage_id": 42,
+                "failed_check_names": [SILVER_ADJ_FACTOR_COVERAGE_COMPLETE_CHECK],
+                "expected_code_count": 2,
+                "raw_missing_code_count": 0,
+            },
+        )
+
+    def test_silver_sensor_rejects_lifecycle_rebuild_when_raw_lacks_coverage(
+        self,
+    ) -> None:
+        context = _FakeContext(partitions=ADJ_FACTOR_REGISTERED_DAYS)
+        assessment = SilverAdjFactorLifecycleRebuildAssessment(
+            eligible=False,
+            reason_code="raw_missing_lifecycle_coverage",
+            failed_check_names=(SILVER_ADJ_FACTOR_COVERAGE_COMPLETE_CHECK,),
+            expected_code_count=2,
+            raw_missing_code_count=1,
+            raw_missing_code_samples=("000002.SZ",),
+        )
+        with patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.datetime",
+            _FixedDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.batch_raw_adj_factor_lake_readiness",
+            return_value=_batch_status(ready_dates=ADJ_FACTOR_REGISTERED_DAYS),
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.batch_silver_adj_factor_lake_readiness",
+            return_value=_batch_status(
+                ready_dates=("2026-06-03", "2026-06-04"),
+                failed_dates=("2026-06-05",),
+                failed_check_names=(SILVER_ADJ_FACTOR_COVERAGE_COMPLETE_CHECK,),
+            ),
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.stock_basic_ready_without_freshness",
+            return_value=_stock_basic_status(ready=True),
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.silver_stock_lifecycle_ready_for_trade_date",
+            return_value=_stock_lifecycle_status(ready=True),
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.assess_silver_adj_factor_lifecycle_rebuildability",
+            return_value=assessment,
+        ):
+            result = _silver_sensor_result(context)
+
+        self.assertEqual(result.run_requests, [])
+        cursor_payload = load_sensor_cursor(result.cursor)
+        self.assertEqual(
+            cursor_payload["details"]["reason_code"],
+            "raw_missing_lifecycle_coverage",
+        )
+        self.assertEqual(
+            cursor_payload["details"]["blocked_component"],
+            "raw_adj_factor",
+        )
+        self.assertEqual(
+            cursor_payload["details"]["evidence"]["lifecycle_rebuild"][
+                "raw_missing_code_samples"
+            ],
+            ["000002.SZ"],
+        )
 
     def test_silver_sensor_does_not_rerun_materialized_partition(self) -> None:
         context = _FakeContext(partitions=ADJ_FACTOR_REGISTERED_DAYS)
@@ -798,6 +1005,19 @@ class AdjFactorM4ContractTests(unittest.TestCase):
             return_value=_batch_status(
                 ready_dates=("2026-06-03", "2026-06-04"),
                 failed_dates=("2026-06-05",),
+            ),
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.stock_basic_ready_without_freshness",
+            return_value=_stock_basic_status(ready=True),
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.silver_stock_lifecycle_ready_for_trade_date",
+            return_value=_stock_lifecycle_status(ready=True),
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.assess_silver_adj_factor_lifecycle_rebuildability",
+            return_value=SilverAdjFactorLifecycleRebuildAssessment(
+                eligible=False,
+                reason_code="non_lifecycle_silver_check_failed",
+                failed_check_names=("adj_factor_partition_date_matches",),
             ),
         ):
             result = _silver_sensor_result(context)

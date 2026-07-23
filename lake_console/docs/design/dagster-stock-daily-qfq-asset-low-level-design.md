@@ -1755,7 +1755,12 @@ P8 不允许通过逐日 replay repair 初始化历史，因为这会把初始�
 
 审计同时确认：`silver_adj_factor_update_job_sensor` 的 batch lake readiness 已用当前
 `silver_stock_lifecycle` 对 factor 文件做代码覆盖检查。因此它会把这类旧 factor 文件识别为
-not-ready 并自然重建。此次缺口在于 QFQ sensor 没有使用这个“文件事实”做最后一道门禁，不能为同一事实再新增一套 adj factor check 或改动其 sensor。
+not-ready；但当文件已 materialized 时，通用连续性选择器会保守返回
+`materialized_check_failed` 并使 sensor skip。该窄范围情况现已由 lifecycle fresh gate 与
+安全 rebuild run 收口：只有 lifecycle 覆盖类失败、同日 raw 覆盖当前生命周期代码集合时才会
+重建，其它失败仍严格 skip。本节的 QFQ 输入覆盖门禁仍是必要的最后保护；上游自动恢复职责由
+`dagster-adj-factor-asset-design.md` 第 13 节的“生命周期日内刷新后的依赖顺序与安全重建方案”
+定义。
 
 ### 18.2 目标、边界与失败语义
 
@@ -1778,7 +1783,7 @@ not-ready 并自然重建。此次缺口在于 QFQ sensor 没有使用这个“�
 | --- | --- | --- | --- |
 | 两个文件都存在，日线代码全部有同日 factor | 保持现有 `RunRequest`，行为不变。 | `qfq_input_coverage.ready=true`。 | 执行既有 QFQ job。 |
 | 任一输入文件不存在 | `skip`，不提交 QFQ run。 | `reason_code=upstream_qfq_input_coverage_not_ready`，`blocked_component` 指向缺失层。 | 等待对应上游文件/状态修复。 |
-| 日线代码缺同日 factor | `skip`，不提交 QFQ run。 | 记录缺口数量和最多 5 个 `ts_code`。 | 等待既有 adj factor sensor 识别当前生命周期覆盖缺口并重跑；下一 tick 自然重试。 |
+| 日线代码缺同日 factor | `skip`，不提交 QFQ run。 | 记录缺口数量和最多 5 个 `ts_code`。 | 等待上游 adj factor 链路：生命周期未 fresh 时等待 lifecycle；满足安全重建白名单时由 adj factor sensor 提交重建；否则人工修复。 |
 | 同日 factor 有额外代码 | 不阻断。 | 只记录日线到因子的覆盖结论。 | QFQ 只要求日线输入可被 factor 覆盖。 |
 
 ### 18.3 实现设计
@@ -1852,7 +1857,8 @@ assess_stock_daily_qfq_trade_factor_coverage(
 1. 事故等价 fixture 中，Dagster 的两个 upstream status 都为 ready、但同日日线缺 1 个 factor 时，sensor 返回 `skip` 且没有 `RunRequest`。
 2. cursor 能一眼说明“同日 adj factor 缺覆盖”、缺口数量和最多 5 个代码；不包含报告型 payload。
 3. 覆盖一致时，sensor 的 run key、job target、partition key 与现状完全一致。
-4. `silver_adj_factor_update_job_sensor` 的现有生命周期覆盖 gate 不被修改、不被替代。
+4. QFQ 不修改或替代 `silver_adj_factor` 的生命周期覆盖语义；其上游日内顺序与安全重建由
+   `dagster-adj-factor-asset-design.md` 第 13 节独立治理。
 5. 公式 SQL、gold 文件内容、asset/check 数量及 Dagster event 数量均不改变。
 
 ### 18.7 实施结果

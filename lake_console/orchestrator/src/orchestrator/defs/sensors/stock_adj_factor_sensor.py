@@ -5,6 +5,8 @@ from datetime import datetime, time
 import dagster as dg
 
 from orchestrator.defs.asset_guards.adj_factor_lake_readiness import (
+    SilverAdjFactorLifecycleRebuildAssessment,
+    assess_silver_adj_factor_lifecycle_rebuildability,
     batch_raw_adj_factor_lake_readiness,
     batch_silver_adj_factor_lake_readiness,
 )
@@ -42,7 +44,7 @@ from orchestrator.defs.sensors.readiness import (
     AssetReadinessStatus,
     CN_A_SENSOR_TIMEZONE,
     DatasetReadinessStatus,
-    silver_stock_lifecycle_ready_without_freshness,
+    silver_stock_lifecycle_ready_for_trade_date,
     stock_basic_ready_without_freshness,
 )
 
@@ -254,6 +256,11 @@ def _silver_cursor_summary_and_next_action(
     target_trade_date: str | None,
 ) -> tuple[str, str]:
     target = selected_trade_date or target_trade_date
+    if reason_code == "request_lifecycle_rebuild":
+        return (
+            f"已触发：按当前生命周期事实重建 {target} 的复权因子 silver 分区。",
+            "等待本次 lifecycle rebuild 完成；完成后确认 silver adj_factor blocking checks 全绿。",
+        )
     if selected_trade_date:
         return (
             f"已触发：提交 {selected_trade_date} 的复权因子 silver 更新。",
@@ -280,9 +287,19 @@ def _silver_cursor_summary_and_next_action(
             "先修复 stock_basic 的 materialization 或 blocking checks，再等待下一次 tick。",
         )
     if blocked_component == "stock_lifecycle":
+        if reason_code == "stock_lifecycle_not_fresh":
+            return (
+                f"未触发：{target} 的股票生命周期事实尚未按当日刷新。",
+                "等待 silver_stock_lifecycle 完成当日 materialization 和 blocking checks 后再触发。",
+            )
         return (
             "未触发：股票生命周期事实还没有 ready，复权因子 silver 暂不能生产。",
             "先修复 silver_stock_lifecycle 的 materialization 或 blocking checks，再等待下一次 tick。",
+        )
+    if reason_code == "raw_missing_lifecycle_coverage":
+        return (
+            f"未触发：{target} 的 raw 因子未覆盖当前生命周期应有股票，不能安全重建。",
+            "先修复 raw_adj_factor 的当日代码覆盖，再等待下一次 sensor tick。",
         )
     if reason_code == "silver_materialized_check_failed":
         return (
@@ -314,10 +331,11 @@ def _silver_sensor_cursor(
     stock_lifecycle_status: AssetReadinessStatus | None = None,
     continuity_details: dict[str, object] | None = None,
     raw_continuity_details: dict[str, object] | None = None,
+    lifecycle_rebuild_assessment: SilverAdjFactorLifecycleRebuildAssessment | None = None,
     reason_code: str | None = None,
     blocked_component: str | None = None,
 ) -> str:
-    if selected_trade_date:
+    if selected_trade_date and reason_code is None:
         reason_code = "request_run"
         blocked_component = "none"
     if reason_code is None and continuity_details is not None:
@@ -402,6 +420,32 @@ def _silver_sensor_cursor(
                 "registered_trade_day_count": registered_trade_day_count,
                 "source_window_started": source_window_started,
                 "stock_basic_freshness_required": False,
+                **(
+                    {
+                        "lifecycle_rebuild": {
+                            "reason_code": lifecycle_rebuild_assessment.reason_code,
+                            "lifecycle_materialization_storage_id": (
+                                stock_lifecycle_status.materialization_storage_id
+                                if stock_lifecycle_status is not None
+                                else None
+                            ),
+                            "failed_check_names": list(
+                                lifecycle_rebuild_assessment.failed_check_names
+                            ),
+                            "expected_code_count": (
+                                lifecycle_rebuild_assessment.expected_code_count
+                            ),
+                            "raw_missing_code_count": (
+                                lifecycle_rebuild_assessment.raw_missing_code_count
+                            ),
+                            "raw_missing_code_samples": list(
+                                lifecycle_rebuild_assessment.raw_missing_code_samples
+                            ),
+                        }
+                    }
+                    if lifecycle_rebuild_assessment is not None
+                    else {}
+                ),
             },
         ),
     )
@@ -422,6 +466,20 @@ def _silver_run_request_for_trade_date(trade_date: str):
         run_key=build_asset_update_run_key(
             subject="silver_adj_factor_update",
             unit_id=trade_date,
+        ),
+        partition_key=trade_date,
+    )
+
+
+def _silver_lifecycle_rebuild_run_request_for_trade_date(
+    *,
+    trade_date: str,
+    lifecycle_materialization_storage_id: int,
+):
+    return build_run_request(
+        run_key=build_asset_update_run_key(
+            subject="silver_adj_factor_lifecycle_rebuild",
+            unit_id=f"{trade_date}:lifecycle:{lifecycle_materialization_storage_id}",
         ),
         partition_key=trade_date,
     )
@@ -590,7 +648,7 @@ def raw_adj_factor_update_job_sensor(
         role=SensorRole.ASSET_UPDATE,
     ),
     required_resource_keys={"lake_root", "duckdb"},
-    description="复权因子 raw 和股票基础信息 ready 后，触发复权因子 silver-only 更新。",
+    description="复权因子 raw、股票基础信息和当日生命周期事实 ready 后，触发复权因子 silver-only 更新。",
 )
 def silver_adj_factor_update_job_sensor(
     context: dg.SensorEvaluationContext,
@@ -733,15 +791,11 @@ def silver_adj_factor_update_job_sensor(
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    if silver_selection.selected_trade_date is None:
-        silver_status = silver_selection.selected_status
-        if silver_selection.blocked_reason == "materialized_check_failed":
-            reason = (
-                "最早未就绪复权因子 silver 分区已生成过，但 blocking checks 未全绿，"
-                "暂不自动重跑，请人工检查后修复。"
-            )
-        else:
-            reason = "最近 10 个股票当前交易日的复权因子 silver 分区已经 ready。"
+    if (
+        silver_selection.selected_trade_date is None
+        and silver_selection.blocked_reason != "materialized_check_failed"
+    ):
+        reason = "最近 10 个股票当前交易日的复权因子 silver 分区已经 ready。"
         cursor = _silver_sensor_cursor(
             evaluated_at=evaluated_at,
             registered_trade_day_count=len(registered_trade_days),
@@ -749,23 +803,20 @@ def silver_adj_factor_update_job_sensor(
             selected_trade_date=None,
             reason=reason,
             source_window_started=True,
-            silver_status=silver_status,
+            silver_status=silver_selection.selected_status,
             continuity_details=continuity_details,
             raw_continuity_details=raw_continuity_details,
-            reason_code=(
-                "silver_materialized_check_failed"
-                if silver_selection.blocked_reason == "materialized_check_failed"
-                else "all_ready"
-            ),
-            blocked_component=(
-                "silver_adj_factor"
-                if silver_selection.blocked_reason == "materialized_check_failed"
-                else "none"
-            ),
+            reason_code="all_ready",
+            blocked_component="none",
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    selected_trade_date = silver_selection.selected_trade_date
+    selected_trade_date = (
+        silver_selection.selected_trade_date
+        or silver_selection.first_not_ready_trade_date
+    )
+    if selected_trade_date is None:
+        raise RuntimeError("silver adj factor selection has no target trade date")
     raw_status = raw_batch_status.status_for_trade_date(selected_trade_date)
     silver_status = silver_batch_status.status_for_trade_date(selected_trade_date)
 
@@ -789,11 +840,14 @@ def silver_adj_factor_update_job_sensor(
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    stock_lifecycle_status = silver_stock_lifecycle_ready_without_freshness(
-        context.instance
+    stock_lifecycle_status = silver_stock_lifecycle_ready_for_trade_date(
+        context.instance,
+        selected_trade_date,
     )
     if not stock_lifecycle_status.ready:
-        reason = "股票生命周期事实尚未通过 materialization 和 blocking checks 门禁。"
+        reason = (
+            "股票生命周期事实尚未按目标交易日通过 materialization 和 blocking checks 门禁。"
+        )
         cursor = _silver_sensor_cursor(
             evaluated_at=evaluated_at,
             registered_trade_day_count=len(registered_trade_days),
@@ -807,10 +861,101 @@ def silver_adj_factor_update_job_sensor(
             stock_lifecycle_status=stock_lifecycle_status,
             continuity_details=continuity_details,
             raw_continuity_details=raw_continuity_details,
-            reason_code="stock_lifecycle_not_ready",
+            reason_code=(
+                "stock_lifecycle_not_fresh"
+                if (
+                    stock_lifecycle_status.materialized
+                    and stock_lifecycle_status.checks_passed
+                    and not stock_lifecycle_status.freshness_passed
+                )
+                else "stock_lifecycle_not_ready"
+            ),
             blocked_component="stock_lifecycle",
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
+
+    if silver_selection.selected_trade_date is None:
+        with duckdb_resource.connect() as connection:
+            lifecycle_rebuild_assessment = (
+                assess_silver_adj_factor_lifecycle_rebuildability(
+                    connection=connection,
+                    lake_root=lake_root.root(),
+                    trade_date=selected_trade_date,
+                    raw_status=raw_status,
+                    silver_status=silver_status,
+                )
+            )
+        if not lifecycle_rebuild_assessment.eligible:
+            reason = (
+                "最早未就绪复权因子 silver 分区已生成，但不满足生命周期安全重建条件，"
+                "暂不自动重跑。"
+            )
+            blocked_component = (
+                "raw_adj_factor"
+                if lifecycle_rebuild_assessment.reason_code
+                == "raw_missing_lifecycle_coverage"
+                else "silver_adj_factor"
+            )
+            cursor = _silver_sensor_cursor(
+                evaluated_at=evaluated_at,
+                registered_trade_day_count=len(registered_trade_days),
+                target_trade_date=selected_trade_date,
+                selected_trade_date=None,
+                reason=reason,
+                source_window_started=True,
+                raw_status=raw_status,
+                silver_status=silver_status,
+                stock_basic_status=stock_basic_status,
+                stock_lifecycle_status=stock_lifecycle_status,
+                continuity_details=continuity_details,
+                raw_continuity_details=raw_continuity_details,
+                lifecycle_rebuild_assessment=lifecycle_rebuild_assessment,
+                reason_code=(
+                    lifecycle_rebuild_assessment.reason_code
+                    if lifecycle_rebuild_assessment.reason_code
+                    == "raw_missing_lifecycle_coverage"
+                    else "silver_materialized_check_failed"
+                ),
+                blocked_component=blocked_component,
+            )
+            return dg.SensorResult(skip_reason=reason, cursor=cursor)
+
+        lifecycle_materialization_storage_id = (
+            stock_lifecycle_status.materialization_storage_id
+        )
+        if lifecycle_materialization_storage_id is None:
+            raise RuntimeError(
+                "ready silver stock lifecycle has no materialization storage id"
+            )
+        reason = "当前生命周期已刷新，安全重建最早未就绪复权因子 silver 分区。"
+        cursor = _silver_sensor_cursor(
+            evaluated_at=evaluated_at,
+            registered_trade_day_count=len(registered_trade_days),
+            target_trade_date=selected_trade_date,
+            selected_trade_date=selected_trade_date,
+            reason=reason,
+            source_window_started=True,
+            raw_status=raw_status,
+            silver_status=silver_status,
+            stock_basic_status=stock_basic_status,
+            stock_lifecycle_status=stock_lifecycle_status,
+            continuity_details=continuity_details,
+            raw_continuity_details=raw_continuity_details,
+            lifecycle_rebuild_assessment=lifecycle_rebuild_assessment,
+            reason_code="request_lifecycle_rebuild",
+            blocked_component="none",
+        )
+        return dg.SensorResult(
+            run_requests=[
+                _silver_lifecycle_rebuild_run_request_for_trade_date(
+                    trade_date=selected_trade_date,
+                    lifecycle_materialization_storage_id=(
+                        lifecycle_materialization_storage_id
+                    ),
+                )
+            ],
+            cursor=cursor,
+        )
 
     reason = "复权因子 silver 门禁已满足，提交最早未就绪股票当前交易日 silver 更新。"
     cursor = _silver_sensor_cursor(
