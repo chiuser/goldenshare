@@ -21,6 +21,9 @@ from src.ops.services.index_daily_reconciliation_policy import (
     INDEX_DAILY_GAP_REPAIR_RUN_SCOPE,
     INDEX_DAILY_REPAIR_BATCH_SIZE,
     INDEX_DAILY_REPAIR_MAX_TASK_RUNS_PER_ROUND,
+    INDEX_DAILY_REPAIR_SLOT_PREVIOUS_OPEN_DAY_AFTERNOON,
+    INDEX_DAILY_REPAIR_SLOT_PREVIOUS_OPEN_DAY_MORNING,
+    INDEX_DAILY_REPAIR_SLOT_SAME_DAY_INITIAL,
 )
 
 
@@ -69,12 +72,21 @@ def _seed_raw_rows(db_session: Session, codes: list[str], *, trade_date: date) -
     )
 
 
-def _create_source_run(db_session: Session, *, trade_date: date, result_status: str = "failed") -> DatasetDateCompletenessRun:
+def _create_source_run(
+    db_session: Session,
+    *,
+    trade_date: date,
+    result_status: str = "failed",
+    requested_at: datetime | None = None,
+    run_mode: str = "scheduled",
+    requested_by_user_id: int | None = None,
+    schedule_id: int | None = None,
+) -> DatasetDateCompletenessRun:
     run = DatasetDateCompletenessRun(
         dataset_key="index_daily",
         display_name="指数日线行情",
         target_table="core_serving.index_daily_serving",
-        run_mode="scheduled",
+        run_mode=run_mode,
         run_status="succeeded",
         result_status=result_status,
         start_date=trade_date,
@@ -94,7 +106,9 @@ def _create_source_run(db_session: Session, *, trade_date: date, result_status: 
         affected_bucket_count=1 if result_status == "failed" else 0,
         affected_subject_count=1 if result_status == "failed" else 0,
         current_stage="completed",
-        requested_at=datetime(2026, 4, 24, 8, 0, tzinfo=timezone.utc),
+        requested_by_user_id=requested_by_user_id,
+        schedule_id=schedule_id,
+        requested_at=requested_at or datetime(2026, 4, 24, 8, 0, tzinfo=timezone.utc),
     )
     db_session.add(run)
     db_session.commit()
@@ -131,6 +145,7 @@ def test_index_daily_repair_creates_single_task_run_for_small_gap(db_session) ->
     assert task_run.time_input_json == {"mode": "point", "trade_date": "2026-04-24"}
     assert task_run.filters_json == {"ts_code": "399001.SZ,399300.SZ"}
     assert task_run.request_payload_json["run_scope"] == INDEX_DAILY_GAP_REPAIR_RUN_SCOPE
+    assert task_run.request_payload_json["repair_slot"] == INDEX_DAILY_REPAIR_SLOT_SAME_DAY_INITIAL
     assert task_run.request_payload_json["source_date_completeness_run_id"] == source_run.id
     assert task_run.request_payload_json["repair_trade_date"] == "2026-04-24"
     assert task_run.request_payload_json["missing_code_count"] == 2
@@ -256,6 +271,7 @@ def test_date_completeness_worker_creates_index_daily_repair_after_today_gap(db_
     assert repair_task.time_input_json == {"mode": "point", "trade_date": trade_date.isoformat()}
     assert repair_task.filters_json == {"ts_code": "399001.SZ"}
     assert repair_task.request_payload_json["run_scope"] == INDEX_DAILY_GAP_REPAIR_RUN_SCOPE
+    assert repair_task.request_payload_json["repair_slot"] == INDEX_DAILY_REPAIR_SLOT_SAME_DAY_INITIAL
     assert repair_task.request_payload_json["source_date_completeness_run_id"] == run.id
 
 
@@ -275,3 +291,70 @@ def test_index_daily_repair_allows_the_previous_open_day(db_session) -> None:
 
     assert len(task_runs) == 1
     assert task_runs[0].time_input_json == {"mode": "point", "trade_date": "2026-04-23"}
+    assert task_runs[0].request_payload_json["repair_slot"] == INDEX_DAILY_REPAIR_SLOT_PREVIOUS_OPEN_DAY_AFTERNOON
+
+
+def test_index_daily_repair_uses_source_audit_time_for_previous_open_day_slot(db_session) -> None:
+    target_trade_date = date(2026, 4, 23)
+    _seed_open_day(db_session, date(2026, 4, 22))
+    _seed_open_day(db_session, target_trade_date)
+    _seed_open_day(db_session, date(2026, 4, 24))
+    _seed_active_indexes(db_session, ["399300.SZ"], trade_date=target_trade_date)
+    _seed_raw_rows(db_session, ["399300.SZ"], trade_date=date(2026, 4, 22))
+    source_run = _create_source_run(
+        db_session,
+        trade_date=target_trade_date,
+        requested_at=datetime(2026, 4, 24, 2, 0, tzinfo=timezone.utc),
+    )
+
+    task_runs = IndexDailyCompletenessRepairService().create_repair_task_runs(
+        db_session,
+        source_run=source_run,
+        now=datetime(2026, 4, 24, 7, 0, tzinfo=timezone.utc),
+    )
+
+    assert len(task_runs) == 1
+    assert task_runs[0].request_payload_json["repair_slot"] == INDEX_DAILY_REPAIR_SLOT_PREVIOUS_OPEN_DAY_MORNING
+
+
+def test_index_daily_repair_keeps_manual_audits_outside_automatic_slots(db_session) -> None:
+    trade_date = date(2026, 4, 24)
+    _seed_open_day(db_session, trade_date)
+    _seed_active_indexes(db_session, ["399300.SZ"], trade_date=trade_date)
+    _seed_raw_rows(db_session, ["399300.SZ"], trade_date=trade_date)
+    source_run = _create_source_run(
+        db_session,
+        trade_date=trade_date,
+        run_mode="manual",
+        requested_by_user_id=1,
+    )
+
+    task_runs = IndexDailyCompletenessRepairService().create_repair_task_runs(
+        db_session,
+        source_run=source_run,
+        now=datetime(2026, 4, 24, 10, 0, tzinfo=timezone.utc),
+    )
+
+    assert len(task_runs) == 1
+    assert "repair_slot" not in task_runs[0].request_payload_json
+
+
+def test_index_daily_repair_keeps_configured_audits_outside_automatic_slots(db_session) -> None:
+    trade_date = date(2026, 4, 24)
+    _seed_open_day(db_session, trade_date)
+    _seed_active_indexes(db_session, ["399300.SZ"], trade_date=trade_date)
+    _seed_raw_rows(db_session, ["399300.SZ"], trade_date=trade_date)
+    source_run = _create_source_run(
+        db_session,
+        trade_date=trade_date,
+        schedule_id=7,
+    )
+
+    task_runs = IndexDailyCompletenessRepairService().create_repair_task_runs(
+        db_session,
+        source_run=source_run,
+        now=datetime(2026, 4, 24, 10, 0, tzinfo=timezone.utc),
+    )
+
+    assert len(task_runs) == 1
+    assert "repair_slot" not in task_runs[0].request_payload_json

@@ -15,8 +15,8 @@ from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.services.index_daily_reconciliation_policy import (
     INDEX_DAILY_ACTIVATION_REQUIRED_OPEN_DAYS,
+    INDEX_DAILY_AUTOMATIC_REPAIR_SLOTS,
     INDEX_DAILY_GAP_REPAIR_RUN_SCOPE,
-    INDEX_DAILY_MAX_TERMINAL_REPAIR_ATTEMPTS,
     INDEX_DAILY_RECONCILIATION_TIMEZONE,
     INDEX_DAILY_SOURCE_DELAY_OPEN_DAY_LIMIT,
 )
@@ -36,10 +36,9 @@ class IndexDailyGapClassification:
     target_trade_date: date
     latest_raw_trade_date: date | None
     raw_has_target_trade_date: bool
-    terminal_repair_attempt_count: int
+    completed_repair_slots: frozenset[str]
     internal_status: str
     public_serviceability_status: str
-    automatic_repair_eligible: bool
 
 
 @dataclass(frozen=True)
@@ -91,6 +90,18 @@ class IndexDailySourceServiceabilityService:
     ) -> list[IndexDailyGapClassification]:
         missing_codes = self.missing_active_codes(session, target_trade_date=target_trade_date)
         return self.classify_codes(session, target_trade_date=target_trade_date, ts_codes=missing_codes)
+
+    @staticmethod
+    def is_repair_slot_available(
+        classification: IndexDailyGapClassification,
+        *,
+        repair_slot: str,
+    ) -> bool:
+        return (
+            classification.internal_status == "source_delayed"
+            and repair_slot in INDEX_DAILY_AUTOMATIC_REPAIR_SLOTS
+            and repair_slot not in classification.completed_repair_slots
+        )
 
     def active_serviceability(
         self,
@@ -163,7 +174,7 @@ class IndexDailySourceServiceabilityService:
             ts_codes=normalized_codes,
             target_trade_date=target_trade_date,
         )
-        repair_attempts_by_code = self._terminal_repair_attempts_by_code(
+        completed_repair_slots_by_code = self._completed_repair_slots_by_code(
             session,
             target_trade_date=target_trade_date,
         )
@@ -179,7 +190,7 @@ class IndexDailySourceServiceabilityService:
         for ts_code in normalized_codes:
             latest_raw_trade_date = raw_latest_by_code.get(ts_code)
             raw_has_target_trade_date = ts_code in raw_target_codes
-            terminal_repair_attempt_count = repair_attempts_by_code.get(ts_code, 0)
+            completed_repair_slots = completed_repair_slots_by_code.get(ts_code, frozenset())
             if raw_has_target_trade_date:
                 classifications.append(
                     IndexDailyGapClassification(
@@ -187,37 +198,32 @@ class IndexDailySourceServiceabilityService:
                         target_trade_date=target_trade_date,
                         latest_raw_trade_date=latest_raw_trade_date,
                         raw_has_target_trade_date=True,
-                        terminal_repair_attempt_count=terminal_repair_attempt_count,
+                        completed_repair_slots=completed_repair_slots,
                         internal_status="serving_projection_gap",
                         public_serviceability_status="ready",
-                        automatic_repair_eligible=True,
                     )
                 )
                 continue
 
             is_recent_delay = latest_raw_trade_date is not None and latest_raw_trade_date in allowed_delay_dates
-            if is_recent_delay and terminal_repair_attempt_count < INDEX_DAILY_MAX_TERMINAL_REPAIR_ATTEMPTS:
+            if is_recent_delay and completed_repair_slots != INDEX_DAILY_AUTOMATIC_REPAIR_SLOTS:
                 internal_status = "source_delayed"
                 public_status = "source_delayed"
-                repair_eligible = True
             elif is_recent_delay:
                 internal_status = "source_retry_exhausted"
                 public_status = "serviceability_review_required"
-                repair_eligible = False
             else:
                 internal_status = "serviceability_review_required"
                 public_status = "serviceability_review_required"
-                repair_eligible = False
             classifications.append(
                 IndexDailyGapClassification(
                     ts_code=ts_code,
                     target_trade_date=target_trade_date,
                     latest_raw_trade_date=latest_raw_trade_date,
                     raw_has_target_trade_date=False,
-                    terminal_repair_attempt_count=terminal_repair_attempt_count,
+                    completed_repair_slots=completed_repair_slots,
                     internal_status=internal_status,
                     public_serviceability_status=public_status,
-                    automatic_repair_eligible=repair_eligible,
                 )
             )
         return classifications
@@ -322,19 +328,20 @@ class IndexDailySourceServiceabilityService:
         )
 
     @staticmethod
-    def _terminal_repair_attempts_by_code(
+    def _completed_repair_slots_by_code(
         session: Session,
         *,
         target_trade_date: date,
-    ) -> dict[str, int]:
+    ) -> dict[str, frozenset[str]]:
         candidates = session.scalars(
             select(TaskRun)
             .where(TaskRun.task_type == "dataset_action")
             .where(TaskRun.resource_key == "index_daily")
             .where(TaskRun.action == "maintain")
+            .where(TaskRun.trigger_source == "system")
             .where(TaskRun.status.in_(TERMINAL_REPAIR_STATUSES))
         )
-        counts: dict[str, int] = {}
+        slots_by_code: dict[str, set[str]] = {}
         expected_trade_date = target_trade_date.isoformat()
         for task_run in candidates:
             if task_run.started_at is None:
@@ -343,12 +350,15 @@ class IndexDailySourceServiceabilityService:
             time_input = task_run.time_input_json if isinstance(task_run.time_input_json, dict) else {}
             if payload.get("run_scope") != INDEX_DAILY_GAP_REPAIR_RUN_SCOPE:
                 continue
+            repair_slot = str(payload.get("repair_slot") or "").strip()
+            if repair_slot not in INDEX_DAILY_AUTOMATIC_REPAIR_SLOTS:
+                continue
             if time_input.get("mode") != "point" or time_input.get("trade_date") != expected_trade_date:
                 continue
             filters = task_run.filters_json if isinstance(task_run.filters_json, dict) else {}
             for ts_code in split_multi_values(filters.get("ts_code")):
-                counts[ts_code] = counts.get(ts_code, 0) + 1
-        return counts
+                slots_by_code.setdefault(ts_code, set()).add(repair_slot)
+        return {ts_code: frozenset(slots) for ts_code, slots in slots_by_code.items()}
 
     @staticmethod
     def _open_trade_dates_on_or_before(session: Session, *, trade_date: date, limit: int) -> list[date]:

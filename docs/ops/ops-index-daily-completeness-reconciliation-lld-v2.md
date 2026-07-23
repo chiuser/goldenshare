@@ -11,7 +11,7 @@
 
 本 LLD 只实现两件事：
 
-1. 当 `index_daily` 当日同步后仍有缺口时，在受控窗口内重复审计，并允许下一个开市日只对前一开市日补漏。
+1. 当 `index_daily` 当日同步后仍有缺口时，只在当日首次、前一开市日早段、前一开市日晚段三个固定阶段补漏。
 2. 运营能看见激活池指数的源站供数状态；未证明连续供数的候选不能加入 `resource='index_daily'` 激活池。
 
 不做：
@@ -68,25 +68,35 @@ flowchart LR
 
 新增文件：`src/ops/services/index_daily_reconciliation_policy.py`。
 
-该文件是本专题唯一策略来源。其它 service、query、API、前端和测试不得复制时间窗口、重试上限或连续供数门槛。
+该文件是本专题唯一策略来源。其它 service、query、API、前端和测试不得复制阶段窗口、补漏上限或连续供数门槛。
 
 | 常量/值对象 | 固定值 | 使用方 |
 | --- | --- | --- |
 | 本地时区 | `Asia/Shanghai` | reconciliation、资格判断。 |
-| 当日 `T` 窗口 | `17:45–22:30`，间隔 30 分钟 | reconciliation service。 |
-| 前一开市日 `P` 窗口 | `09:00–16:30`，间隔 30 分钟 | reconciliation service。 |
+| 当日首次阶段 | 主任务完成后的首次失败审计 | completion audit + repair service。 |
+| 前一开市日早段阶段 | `09:00–12:00` | reconciliation service。 |
+| 前一开市日晚段阶段 | `13:30–16:30` | reconciliation service。 |
 | 源站延迟容忍 | 最近 3 个开市日 | source serviceability service。 |
-| 自动补漏上限 | 单 code、单目标日最多 3 个已被 worker 领取且已终态的补漏 TaskRun | source serviceability service。 |
+| 自动补漏上限 | 单 code、单目标日的三个命名阶段各最多一个已被 worker 领取且已终态的补漏 TaskRun | source serviceability service。 |
 | 每轮补漏批次 | 100 code/TaskRun，最多 20 个 TaskRun | repair service。 |
 | 新候选连续供数 | 最近已结束开市日及之前连续 3 个开市日均有 raw | review command/query。 |
 
-实现采用不可变值对象 `IndexDailyReconciliationWindow(start_time, end_time, interval)` 和模块级常量；不读 env，不写数据库，不让页面传这些值。
+实现采用不可变阶段值对象和模块级常量；不读 env，不写数据库，不让页面传这些值。阶段完成事实从既有 `ops.task_run.request_payload_json.repair_slot` 派生，不新增表或独立账本。
+
+`DatasetDateCompletenessRun` 不增加阶段字段。新增私有辅助函数 `resolve_repair_slot(source_run)`，只对系统单日 `index_daily` 审计判定阶段：`run_mode='scheduled'`、`requested_by_user_id is null`、`schedule_id is null`、`audit_scope='date_subject_matrix'`、`start_date=end_date` 是前置条件。它使用 `source_run.requested_at` 转上海本地时间，而不是使用 date-completeness worker 的执行时间：
+
+1. 目标日等于 `requested_at` 的本地日期，返回 `same_day_initial`。
+2. 目标日等于 `requested_at` 所在开市日前一开市日，且本地时刻在 `09:00–12:00`，返回 `previous_open_day_morning`。
+3. 同上但本地时刻在 `13:30–16:30`，返回 `previous_open_day_afternoon`。
+4. 其余情况返回空值：不属于本自动阶段闭环。手动审计和带 `schedule_id` 的既有定时审计保持原有修复行为，不写入也不消耗自动阶段。
+
+补漏服务将解析出的非空阶段写入本自动闭环创建的 TaskRun `request_payload_json.repair_slot`。阶段事实只由该 TaskRun 保存；不得把阶段复制到审计表、snapshot 或新状态表。
 
 ### 3.1 时间判定
 
-1. `T` 只在“本地今天是开市日且当前时间位于当日窗口”时成立。
-2. `P` 只在“本地今天是开市日且当前时间位于前一开市日窗口”时成立；从 `TradeCalendar` 查询小于 `T` 的最近开市日。
-3. 周末、节假日不产生任何自动目标日期。
+1. `same_day_initial` 只由普通主任务完成后的首次失败审计触发；scheduler 不再在当日晚间重复触发 `T`。
+2. `previous_open_day_morning` 只在本地开市日的 `09:00–12:00` 成立；`previous_open_day_afternoon` 只在 `13:30–16:30` 成立。两者目标都为 `P`。
+3. `P` 从 `TradeCalendar` 查询小于当前开市日的最近开市日；周末、节假日不产生任何自动目标日期。
 4. `now` 统一由调用方传入；省略时才取当前 UTC 时间后转换为 `Asia/Shanghai`，以保证测试可精确验证边界。
 
 ---
@@ -104,10 +114,9 @@ class IndexDailyGapClassification:
     target_trade_date: date
     latest_raw_trade_date: date | None
     raw_has_target_trade_date: bool
-    terminal_repair_attempt_count: int
+    completed_repair_slots: frozenset[str]
     internal_status: str
     public_serviceability_status: str
-    automatic_repair_eligible: bool
 
 
 @dataclass(frozen=True)
@@ -119,7 +128,7 @@ class IndexDailyActivationEligibility:
     message: str
 ```
 
-`internal_status` 只在 ops service 内部使用。页面不接触 `serving_projection_gap` 或 `source_retry_exhausted`。
+`internal_status` 只在 ops service 内部使用。页面不接触 `serving_projection_gap` 或 `source_retry_exhausted`。`completed_repair_slots` 是已执行阶段的事实；服务通过 `is_repair_slot_available(classification, repair_slot)` 判断当前阶段是否还能补漏，不能再保留脱离阶段的 `automatic_repair_eligible` 布尔值。
 
 ### 4.2 分类输入
 
@@ -129,15 +138,15 @@ class IndexDailyActivationEligibility:
 2. `core_serving.index_daily_serving`：目标日已进入服务层的代码。
 3. `raw_tushare.index_daily`：目标日是否已到、每个代码 raw 最新业务日。
 4. `core_serving.trade_calendar`：目标日及其之前最近 3 个开市日。
-5. `ops.task_run`：同一目标日、同一 code 已结束的系统补漏 TaskRun 数量。
+5. `ops.task_run`：同一目标日、同一 code、同一 `repair_slot` 的系统补漏 TaskRun 状态。
 
 `ops.task_run.filters_json.ts_code` 当前是逗号分隔字符串。实现必须复用 `split_multi_values()`，逐条解析，并只计入同时满足以下条件的 TaskRun：
 
-1. `task_type='dataset_action'`、`resource_key='index_daily'`、`action='maintain'`。
-2. `request_payload_json.run_scope='index_daily_gap_repair'`。
+1. `task_type='dataset_action'`、`resource_key='index_daily'`、`action='maintain'`、`trigger_source='system'`。
+2. `request_payload_json.run_scope='index_daily_gap_repair'`，且 `repair_slot` 是三个已定义阶段之一。
 3. `time_input_json.mode='point'` 且 `trade_date` 等于目标日。
 4. `status in ('success', 'partial_success', 'failed', 'canceled')`。
-5. `started_at is not null`；未被 worker 领取的终态记录没有执行请求，不消耗补漏次数。
+5. `started_at is not null`；未被 worker 领取的终态记录没有执行请求，不消耗阶段。
 
 只读查询先按资源、动作、状态收窄，再在 Python 解析 JSON；不依赖数据库方言 JSON 运算符，保证现有 SQLite 测试与 PostgreSQL 生产的一致性。
 
@@ -148,14 +157,14 @@ class IndexDailyActivationEligibility:
 | 内部状态 | 判定 | public `source_serviceability_status` | 自动动作 |
 | --- | --- | --- | --- |
 | `serving_projection_gap` | raw 已有目标日，serving 缺目标日 | `ready` | 本轮失败审计可创建一次标准补漏 TaskRun。 |
-| `source_delayed` | raw 缺目标日，且 `latest_raw_trade_date` 位于目标日及之前最近 3 个开市日内，且终态补漏数小于 3 | `source_delayed` | 可创建标准补漏 TaskRun；可驱动下一次受控审计。 |
-| `source_retry_exhausted` | 仍满足近期延迟，但终态补漏数已达 3 | `serviceability_review_required` | 不创建 TaskRun，不再驱动再审计。 |
+| `source_delayed` | raw 缺目标日，且 `latest_raw_trade_date` 位于目标日及之前最近 3 个开市日内，且至少一个固定阶段尚未完成 | `source_delayed` | 当前阶段可用时创建标准补漏 TaskRun；可驱动下一阶段的受控审计。 |
+| `source_retry_exhausted` | 仍满足近期延迟，但三个固定阶段均已完成 | `serviceability_review_required` | 不创建 TaskRun，不再驱动再审计。 |
 | `serviceability_review_required` | raw 从未有记录、raw 最新日早于允许窗口，或 raw 已出现更晚日期却跳过目标日 | `serviceability_review_required` | 不创建 TaskRun，不再驱动再审计。 |
 
 说明：
 
 1. `serving_projection_gap` 说明源站数据已经到达，但服务层未覆盖；它不是源站延迟。页面会同时显示“缺日线”和“源站正常”，方便区分写入投影问题与源站问题。
-2. 本期 scheduler 的继续再审计条件只看仍可重试的 `source_delayed`。如果只剩 `serving_projection_gap`，不会形成无限重试循环；它保留在日期审计缺口和页面数据状态中，供后续针对写入链路排查。
+2. scheduler 只为当前可用阶段仍有 `source_delayed` 的代码创建审计。如果只剩 `serving_projection_gap`，不会形成无限重试循环；它保留在日期审计缺口和页面数据状态中，供后续针对写入链路排查。
 3. `source_retry_exhausted` 只是不再自动请求，不代表数据完整；日期审计仍会失败，运营可据此决定是否移出激活池。
 
 ### 4.4 新候选资格
@@ -191,27 +200,27 @@ class IndexDailyCompletenessReconciliationService:
 
 `src/ops/runtime/scheduler.py::OperationsScheduler.run_once()` 在现有“普通自动任务 -> 日期审计 schedule -> probe”执行完后调用该服务。原有三者的先后和返回值保持不变；该服务返回的 audit run 不加入 scheduler 的 `list[TaskRun]` 返回值，和现有日期审计 schedule 的行为一致。
 
-### 5.2 目标日选择
+### 5.2 目标日与阶段选择
 
 ```text
 本地今天不是开市日                     -> []
-09:00 <= 当前时间 <= 16:30             -> [P]
-17:45 <= 当前时间 <= 22:30             -> [T]
+09:00 <= 当前时间 <= 12:00             -> [P, previous_open_day_morning]
+13:30 <= 当前时间 <= 16:30             -> [P, previous_open_day_afternoon]
 其它时间                                -> []
 ```
 
-`P` 只能是 `T` 之前最近一个开市日。不会计算 `P-1`，不会处理自然日周末或节假日。
+`P` 只能是 `T` 之前最近一个开市日。不会计算 `P-1`，不会处理自然日周末或节假日。reconciliation service 将 `(P, repair_slot)` 传入同一轮入队判断；它创建的 system audit 本身不新增阶段列，后续 repair service 仍按该审计的 `requested_at` 重新解析出相同阶段。
 
 ### 5.3 某个目标日的入队条件
 
 按下面顺序检查，任一项不满足即跳过：
 
-1. 目标日位于当前策略窗口。
+1. 目标日和 `repair_slot` 位于当前策略阶段；scheduler 不创建 `same_day_initial` 审计。
 2. 存在 `dataset_key='index_daily'`、`audit_scope='date_subject_matrix'`、同日范围的最新审计，且 `run_status='succeeded'`、`result_status='failed'`。
 3. 不存在同日 `queued/running` 审计。
 4. 不存在同日 `queued/running/canceling` 的 `index_daily_gap_repair` TaskRun。
-5. 最新失败审计的 `finished_at` 距当前时间不少于该窗口 30 分钟间隔。
-6. 统一分类结果中至少有一个 `source_delayed` 且 `automatic_repair_eligible=True` 的代码。
+5. 目标日没有 `queued/running/canceling` 的同阶段补漏 TaskRun；已经被 worker 领取且终态的同阶段 TaskRun 视为阶段完成。
+6. 统一分类结果中至少有一个当前阶段可补的 `source_delayed` 代码。
 
 通过后调用 `DateCompletenessRunCommandService.create_system_run()` 创建单日审计。为可测试性，该方法新增仅内部调用的可选 `now` 参数；缺省时保持原有当前时间行为。该参数只决定 `requested_at`，不改变审计范围或 public API。
 
@@ -247,6 +256,7 @@ class IndexDailyCompletenessReconciliationService:
   },
   "request_payload": {
     "run_scope": "index_daily_gap_repair",
+    "repair_slot": "previous_open_day_morning",
     "source_date_completeness_run_id": 48,
     "repair_trade_date": "2026-07-14",
     "missing_code_count": 77,
@@ -262,9 +272,9 @@ Ops 只传标准时间意图和代码筛选；`DatasetActionResolver`、unit pla
 
 1. 现有 `missing_codes()` 改为委托 source serviceability service 的 serving 差集查询，避免修复服务和审查中心各自维护差集 SQL。
 2. `_eligible_trade_date()` 不再比较“目标日必须等于今天”；改为调用 policy 的 `T/P` 允许日期判断，且仍要求失败的单日 `date_subject_matrix` 审计和开市日。
-3. `create_repair_task_runs()` 只选取 `automatic_repair_eligible=True` 的分类结果。批大小和最多 20 个 TaskRun 不变。
-4. `_pending_repair_codes()` 保留，继续排除尚在队列或运行中的同日代码；它与“已终态重试次数”是两个不同事实，不能互相替代。
-5. 批次 payload 继续保留既有字段；不新增执行路由、兼容标记或源端参数。
+3. `create_repair_task_runs()` 先调用 `resolve_repair_slot(source_run)`。非空时，只选取该阶段可补的 `source_delayed`；再把该值写入每个补漏 TaskRun 的 payload。空值时保留当前手动/带 `schedule_id` 定时审计的修复分支，且不读取、不写入三个自动阶段。批大小和最多 20 个 TaskRun 不变。
+4. `_pending_repair_codes()` 保留，继续排除同目标日尚在队列或运行中的任何 repair code，避免跨阶段并发维护同一代码；它与“已完成阶段”是两个不同事实，不能互相替代。
+5. 批次 payload 新增 `repair_slot`，不新增执行路由、兼容标记或源端参数。
 
 ---
 
@@ -356,22 +366,23 @@ Ops 只传标准时间意图和代码筛选；`DatasetActionResolver`、unit pla
 | --- | --- | --- |
 | 唯一策略与时间边界 | `index_daily_reconciliation_policy.py` | 新增 `tests/web/test_ops_index_daily_reconciliation.py`。 |
 | raw/serving/TaskRun 分类 | `index_daily_source_serviceability_service.py` | 新增服务级分类测试。 |
-| `T/P` 再审计 | `index_daily_completeness_reconciliation_service.py`、`runtime/scheduler.py` | 新增 reconciliation 测试，补 `tests/web/test_ops_runtime.py`。 |
-| 标准补漏选择 | `index_daily_completeness_repair_service.py` | 扩展 `tests/web/test_ops_index_daily_completeness_repair.py`。 |
+| 三阶段再审计 | `index_daily_completeness_reconciliation_service.py`、`runtime/scheduler.py` | 新增阶段边界测试，补 `tests/web/test_ops_runtime.py`。 |
+| 标准补漏选择 | `index_daily_completeness_repair_service.py` | 扩展 `tests/web/test_ops_index_daily_completeness_repair.py`，覆盖 `repair_slot`。 |
 | 激活池 API/资格门禁 | query/service/schema/API | 扩展 `tests/web/test_ops_review_center_api.py`。 |
 | 页面消费 | review index page、API types | 扩展 `frontend/src/pages/ops-v21-review-index-page.test.tsx`。 |
 | completion worker 不回退 | 不改主逻辑 | 保留并扩展 `tests/web/test_ops_task_completion_worker.py`。 |
 
 必须覆盖的反例：
 
-1. `T` 窗口外、非开市日和 `P-1` 都不创建审计。
-2. 已有 open 审计、open repair、间隔未到、最新审计通过时不重复创建审计。
-3. raw 有目标日、近期延迟、长期缺失、无 raw、raw 跳过目标日、重试已满全部分类正确。
-4. 同一 code 已被 queued/running repair 覆盖时，不重复入新 TaskRun。
-5. 近期延迟最多进入 3 个已被 worker 领取且已终态的补漏轮次；超过后只显示待审查。
-6. 活跃候选 raw 连续 3 个开市日才可加入；直接调用 POST 不能绕过页面禁用。
-7. 移出激活池不删除任何 raw/serving 行。
-8. `index_daily_raw` 请求池、writer 的 raw 全写和 serving active gate 回归不变。
+1. 非开市日、阶段窗口外和 `P-1` 都不创建审计。
+2. 已有 open 审计、open repair、当前阶段已完成、最新审计通过时不重复创建审计。
+3. raw 有目标日、近期延迟、长期缺失、无 raw、raw 跳过目标日、三个阶段均结束全部分类正确。
+4. 同一 code 已被 queued/running/canceling repair 覆盖时，不重复入新 TaskRun；未领取终态不消耗阶段。
+5. 近期延迟只能依次进入当日首次、次日早段、次日晚段三个阶段；不能在当日晚间连续耗尽。
+6. date-completeness worker 延后执行时，阶段仍按 source audit 的 `requested_at` 判定；手动审计和带 `schedule_id` 的定时审计不误写、不消耗自动阶段。
+7. 活跃候选 raw 连续 3 个开市日才可加入；直接调用 POST 不能绕过页面禁用。
+8. 移出激活池不删除任何 raw/serving 行。
+9. `index_daily_raw` 请求池、writer 的 raw 全写和 serving active gate 回归不变。
 
 建议验证命令：
 
@@ -384,15 +395,15 @@ uv run pytest -q tests/architecture/test_subsystem_dependency_matrix.py
 python3 scripts/check_docs_integrity.py
 ```
 
-生产验收只做只读核验：确认一次 `P` 日源站迟到后被重新审计并补齐，以及一次长期无 raw 的 active code 进入“待审查”且不再重复创建 TaskRun。不得在验收中清表、删表或改动激活池。
+生产验收只做只读核验：确认一次当日首次补漏未命中后，次日早段或晚段被重新审计并补齐；以及一次长期无 raw 的 active code 进入“待审查”且不再重复创建 TaskRun。不得在验收中清表、删表或改动激活池。
 
 ---
 
 ## 9. 研发顺序
 
 1. 新增 policy 与 source serviceability service，先用纯服务测试锁定分类和候选资格。
-2. 改 repair service，使即时补漏和后续审计使用同一分类事实。
-3. 新增 reconciliation service，接入 scheduler，补 `T/P`、窗口、间隔、open run 的回归测试。
+2. 改 repair service，使即时补漏和后续审计使用同一分类事实与 `repair_slot`。
+3. 改 reconciliation service，接入 scheduler，补当日首次、次日早段、次日晚段、open run 的回归测试。
 4. 扩展 review API/schema/query/command，并先完成 API 测试。
 5. 最后更新前端传输类型和页面；只消费后端返回字段。
 6. 完成全量定向回归后，更新方案状态、API 文档和本文状态。
@@ -416,9 +427,9 @@ python3 scripts/check_docs_integrity.py
 
 ## 11. 实施结果与验收状态
 
-1. M1 至 M5 已完成：新增唯一策略、实时服务能力分类、T/P 再审计编排、补漏选择收口、审查中心 API/页面及候选加入硬校验。
-2. `IndexDailyCompletenessRepairService` 只为 `serving_projection_gap` 和未达到终态次数上限的 `source_delayed` 创建标准 `index_daily.maintain` TaskRun；reconciliation scheduler 只因仍存在可补的 `source_delayed` 再创建审计。
+1. M1 至 M5 已完成：唯一策略改为三个命名阶段；服务能力分类改为读取已完成 `repair_slot`；repair service 写入阶段；scheduler 只在前一开市日早段、晚段创建审计；既有审查中心 API/页面继续消费同一服务能力事实。
+2. 生产审计确认的“当日晚间耗尽三次机会”缺陷已移除：当前代码不再保留总终态次数常量、字段或查询。系统补漏 TaskRun 通过 `request_payload_json.repair_slot` 记录阶段，旧无阶段或未领取终态 TaskRun 不消耗阶段。
 3. `ReviewCenterQueryService` 只把后端统一事实投影为列表字段；前端不读取 raw、serving、日历或 TaskRun 后自行推断状态。
-4. 已覆盖 T/P 边界、30 分钟间隔、运行中审计/补漏去重、终态次数上限、raw/serving 分类、候选连续 3 日准入、POST 硬拒绝、手动移出保留业务数据及前端禁用交互。
-5. 待生产只读验收：观察一次 `P` 日源站迟到后进入下一轮审计与补漏，以及一次长期缺失代码显示“待审查”且不再循环创建补漏 TaskRun。不得为验收清表、删数据或变更激活池。
+4. 测试已覆盖早段/晚段边界、当日晚间不再创建当日审计、运行中审计/补漏去重、旧无阶段和未领取终态不消耗阶段、同 code 早段完成后晚段仍可补、raw/serving 分类、候选连续 3 日准入、POST 硬拒绝、手动移出保留业务数据及前端禁用交互。
+5. 待生产只读验收：观察一次当日首次未命中后在次日早段或晚段补齐，以及一次长期缺失代码显示“待审查”且不再循环创建 TaskRun。不得为验收清表、删数据或变更激活池。
 6. TaskRun 自动收敛固定为：`queued` 永不因等待时长收敛；`running` 10 分钟无进展收敛为失败；`canceling` 3 分钟无进展收敛为已取消。

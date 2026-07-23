@@ -9,7 +9,12 @@ from src.foundation.models.core_serving.index_daily_serving import IndexDailySer
 from src.foundation.models.raw.raw_index_daily import RawIndexDaily
 from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.models.ops.task_run import TaskRun
-from src.ops.services.index_daily_reconciliation_policy import INDEX_DAILY_GAP_REPAIR_RUN_SCOPE
+from src.ops.services.index_daily_reconciliation_policy import (
+    INDEX_DAILY_GAP_REPAIR_RUN_SCOPE,
+    INDEX_DAILY_REPAIR_SLOT_PREVIOUS_OPEN_DAY_AFTERNOON,
+    INDEX_DAILY_REPAIR_SLOT_PREVIOUS_OPEN_DAY_MORNING,
+    INDEX_DAILY_REPAIR_SLOT_SAME_DAY_INITIAL,
+)
 from src.ops.services.index_daily_source_serviceability_service import IndexDailySourceServiceabilityService
 
 
@@ -62,6 +67,8 @@ def _seed_terminal_repair(
     task_id: int,
     worker_claimed: bool = True,
     status: str = "success",
+    repair_slot: str | None = None,
+    trigger_source: str = "system",
 ) -> None:
     occurred_at = datetime(2026, 7, 14, 18, task_id, tzinfo=timezone.utc)
     session.add(
@@ -71,11 +78,14 @@ def _seed_terminal_repair(
             resource_key="index_daily",
             action="maintain",
             title="指数日线",
-            trigger_source="system",
+            trigger_source=trigger_source,
             status=status,
             time_input_json={"mode": "point", "trade_date": trade_date.isoformat()},
             filters_json={"ts_code": ts_code},
-            request_payload_json={"run_scope": INDEX_DAILY_GAP_REPAIR_RUN_SCOPE},
+            request_payload_json={
+                "run_scope": INDEX_DAILY_GAP_REPAIR_RUN_SCOPE,
+                **({"repair_slot": repair_slot} if repair_slot is not None else {}),
+            },
             plan_snapshot_json={},
             current_object_json={},
             requested_at=occurred_at,
@@ -105,8 +115,21 @@ def test_index_daily_serviceability_classifies_gaps_from_current_facts(db_sessio
     _seed_raw(db_session, ts_code="SKIPPED.GAP", trade_date=date(2026, 7, 15))
     _seed_raw(db_session, ts_code="COMPLETE.GAP", trade_date=target_date)
     db_session.add(IndexDailyServing(ts_code="COMPLETE.GAP", trade_date=target_date, source="api"))
-    for task_id in range(1, 4):
-        _seed_terminal_repair(db_session, ts_code="EXHAUST.GAP", trade_date=target_date, task_id=task_id)
+    for task_id, repair_slot in enumerate(
+        (
+            INDEX_DAILY_REPAIR_SLOT_SAME_DAY_INITIAL,
+            INDEX_DAILY_REPAIR_SLOT_PREVIOUS_OPEN_DAY_MORNING,
+            INDEX_DAILY_REPAIR_SLOT_PREVIOUS_OPEN_DAY_AFTERNOON,
+        ),
+        start=1,
+    ):
+        _seed_terminal_repair(
+            db_session,
+            ts_code="EXHAUST.GAP",
+            trade_date=target_date,
+            task_id=task_id,
+            repair_slot=repair_slot,
+        )
     db_session.commit()
 
     classifications = IndexDailySourceServiceabilityService().classify_active_gaps(
@@ -125,31 +148,58 @@ def test_index_daily_serviceability_classifies_gaps_from_current_facts(db_sessio
     }
     assert by_code["SERVING.GAP"].internal_status == "serving_projection_gap"
     assert by_code["SERVING.GAP"].public_serviceability_status == "ready"
-    assert by_code["SERVING.GAP"].automatic_repair_eligible is True
+    assert by_code["SERVING.GAP"].completed_repair_slots == frozenset()
     assert by_code["DELAY.GAP"].internal_status == "source_delayed"
-    assert by_code["DELAY.GAP"].automatic_repair_eligible is True
+    assert IndexDailySourceServiceabilityService.is_repair_slot_available(
+        by_code["DELAY.GAP"],
+        repair_slot=INDEX_DAILY_REPAIR_SLOT_SAME_DAY_INITIAL,
+    )
     assert by_code["EXHAUST.GAP"].internal_status == "source_retry_exhausted"
-    assert by_code["EXHAUST.GAP"].terminal_repair_attempt_count == 3
-    assert by_code["EXHAUST.GAP"].automatic_repair_eligible is False
+    assert by_code["EXHAUST.GAP"].completed_repair_slots == frozenset(
+        {
+            INDEX_DAILY_REPAIR_SLOT_SAME_DAY_INITIAL,
+            INDEX_DAILY_REPAIR_SLOT_PREVIOUS_OPEN_DAY_MORNING,
+            INDEX_DAILY_REPAIR_SLOT_PREVIOUS_OPEN_DAY_AFTERNOON,
+        }
+    )
+    assert not IndexDailySourceServiceabilityService.is_repair_slot_available(
+        by_code["EXHAUST.GAP"],
+        repair_slot=INDEX_DAILY_REPAIR_SLOT_PREVIOUS_OPEN_DAY_AFTERNOON,
+    )
     assert by_code["STALE.GAP"].internal_status == "serviceability_review_required"
     assert by_code["SKIPPED.GAP"].internal_status == "serviceability_review_required"
     assert by_code["EMPTY.GAP"].internal_status == "serviceability_review_required"
 
 
-def test_index_daily_serviceability_does_not_count_unclaimed_terminal_repairs(db_session: Session) -> None:
+def test_index_daily_serviceability_uses_completed_slots_and_ignores_legacy_or_unclaimed_repairs(db_session: Session) -> None:
     target_date = date(2026, 7, 14)
     _seed_open_days(db_session, target_date, date(2026, 7, 13), date(2026, 7, 12))
     _seed_active_codes(db_session, "DELAY.GAP")
     _seed_raw(db_session, ts_code="DELAY.GAP", trade_date=date(2026, 7, 13))
-    _seed_terminal_repair(db_session, ts_code="DELAY.GAP", trade_date=target_date, task_id=1)
-    _seed_terminal_repair(db_session, ts_code="DELAY.GAP", trade_date=target_date, task_id=2)
     _seed_terminal_repair(
         db_session,
         ts_code="DELAY.GAP",
         trade_date=target_date,
-        task_id=3,
+        task_id=1,
+        repair_slot=INDEX_DAILY_REPAIR_SLOT_SAME_DAY_INITIAL,
+    )
+    _seed_terminal_repair(
+        db_session,
+        ts_code="DELAY.GAP",
+        trade_date=target_date,
+        task_id=2,
         worker_claimed=False,
         status="failed",
+        repair_slot=INDEX_DAILY_REPAIR_SLOT_PREVIOUS_OPEN_DAY_MORNING,
+    )
+    _seed_terminal_repair(db_session, ts_code="DELAY.GAP", trade_date=target_date, task_id=3)
+    _seed_terminal_repair(
+        db_session,
+        ts_code="DELAY.GAP",
+        trade_date=target_date,
+        task_id=4,
+        repair_slot=INDEX_DAILY_REPAIR_SLOT_PREVIOUS_OPEN_DAY_AFTERNOON,
+        trigger_source="manual",
     )
     db_session.commit()
 
@@ -158,9 +208,12 @@ def test_index_daily_serviceability_does_not_count_unclaimed_terminal_repairs(db
         target_trade_date=target_date,
     )[0]
 
-    assert classification.terminal_repair_attempt_count == 2
+    assert classification.completed_repair_slots == frozenset({INDEX_DAILY_REPAIR_SLOT_SAME_DAY_INITIAL})
     assert classification.internal_status == "source_delayed"
-    assert classification.automatic_repair_eligible is True
+    assert IndexDailySourceServiceabilityService.is_repair_slot_available(
+        classification,
+        repair_slot=INDEX_DAILY_REPAIR_SLOT_PREVIOUS_OPEN_DAY_MORNING,
+    )
 
 
 def test_index_daily_activation_requires_three_completed_open_days(db_session: Session) -> None:

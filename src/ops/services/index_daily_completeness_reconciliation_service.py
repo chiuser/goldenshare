@@ -11,11 +11,9 @@ from src.ops.models.ops.dataset_date_completeness_run import DatasetDateComplete
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.services.date_completeness_run_service import DateCompletenessRunCommandService
 from src.ops.services.index_daily_reconciliation_policy import (
-    INDEX_DAILY_CURRENT_DAY_RECONCILIATION_WINDOW,
     INDEX_DAILY_GAP_REPAIR_RUN_SCOPE,
-    INDEX_DAILY_PREVIOUS_OPEN_DAY_RECONCILIATION_WINDOW,
     INDEX_DAILY_RECONCILIATION_TIMEZONE,
-    IndexDailyReconciliationWindow,
+    previous_open_day_repair_slot_for_time,
 )
 from src.ops.services.index_daily_source_serviceability_service import IndexDailySourceServiceabilityService
 
@@ -49,12 +47,11 @@ class IndexDailyCompletenessReconciliationService:
         target = self._target_for_local_now(session, local_now=local_now)
         if target is None:
             return []
-        target_trade_date, window = target
+        target_trade_date, repair_slot = target
         if not self._is_due_for_reaudit(
             session,
             target_trade_date=target_trade_date,
-            current_time=current_time,
-            window=window,
+            repair_slot=repair_slot,
         ):
             return []
         return [
@@ -72,31 +69,29 @@ class IndexDailyCompletenessReconciliationService:
         session: Session,
         *,
         local_now: datetime,
-    ) -> tuple[date, IndexDailyReconciliationWindow] | None:
+    ) -> tuple[date, str] | None:
         local_time = local_now.time().replace(tzinfo=None)
-        if self._is_within_window(local_time, INDEX_DAILY_PREVIOUS_OPEN_DAY_RECONCILIATION_WINDOW):
-            previous_open_trade_date = session.scalar(
-                select(TradeCalendar.trade_date)
-                .where(TradeCalendar.exchange == get_settings().default_exchange)
-                .where(TradeCalendar.is_open.is_(True))
-                .where(TradeCalendar.trade_date < local_now.date())
-                .order_by(TradeCalendar.trade_date.desc())
-                .limit(1)
-            )
-            if previous_open_trade_date is None:
-                return None
-            return previous_open_trade_date, INDEX_DAILY_PREVIOUS_OPEN_DAY_RECONCILIATION_WINDOW
-        if self._is_within_window(local_time, INDEX_DAILY_CURRENT_DAY_RECONCILIATION_WINDOW):
-            return local_now.date(), INDEX_DAILY_CURRENT_DAY_RECONCILIATION_WINDOW
-        return None
+        repair_slot = previous_open_day_repair_slot_for_time(local_time)
+        if repair_slot is None:
+            return None
+        previous_open_trade_date = session.scalar(
+            select(TradeCalendar.trade_date)
+            .where(TradeCalendar.exchange == get_settings().default_exchange)
+            .where(TradeCalendar.is_open.is_(True))
+            .where(TradeCalendar.trade_date < local_now.date())
+            .order_by(TradeCalendar.trade_date.desc())
+            .limit(1)
+        )
+        if previous_open_trade_date is None:
+            return None
+        return previous_open_trade_date, repair_slot
 
     def _is_due_for_reaudit(
         self,
         session: Session,
         *,
         target_trade_date: date,
-        current_time: datetime,
-        window: IndexDailyReconciliationWindow,
+        repair_slot: str,
     ) -> bool:
         latest_audit = session.scalar(
             select(DatasetDateCompletenessRun)
@@ -111,25 +106,17 @@ class IndexDailyCompletenessReconciliationService:
             return False
         if latest_audit.run_status != "succeeded" or latest_audit.result_status != "failed":
             return False
-        if latest_audit.finished_at is None:
-            return False
-        if self._as_utc(latest_audit.finished_at) + window.interval > current_time:
-            return False
         if self._has_open_audit(session, target_trade_date=target_trade_date):
             return False
         if self._has_open_repair_task_run(session, target_trade_date=target_trade_date):
             return False
         return any(
-            classification.internal_status == "source_delayed" and classification.automatic_repair_eligible
+            self.source_service.is_repair_slot_available(classification, repair_slot=repair_slot)
             for classification in self.source_service.classify_active_gaps(
                 session,
                 target_trade_date=target_trade_date,
             )
         )
-
-    @staticmethod
-    def _is_within_window(local_time, window: IndexDailyReconciliationWindow) -> bool:  # type: ignore[no-untyped-def]
-        return window.start_time <= local_time <= window.end_time
 
     @staticmethod
     def _has_open_audit(session: Session, *, target_trade_date: date) -> bool:

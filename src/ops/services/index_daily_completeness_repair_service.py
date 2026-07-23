@@ -15,9 +15,14 @@ from src.ops.services.index_daily_reconciliation_policy import (
     INDEX_DAILY_RECONCILIATION_TIMEZONE,
     INDEX_DAILY_REPAIR_BATCH_SIZE,
     INDEX_DAILY_REPAIR_MAX_TASK_RUNS_PER_ROUND,
+    INDEX_DAILY_REPAIR_SLOT_SAME_DAY_INITIAL,
     is_allowed_index_daily_repair_target,
+    previous_open_day_repair_slot_for_time,
 )
-from src.ops.services.index_daily_source_serviceability_service import IndexDailySourceServiceabilityService
+from src.ops.services.index_daily_source_serviceability_service import (
+    IndexDailyGapClassification,
+    IndexDailySourceServiceabilityService,
+)
 from src.ops.services.task_run_service import TaskRunCommandService, TaskRunCreateContext
 
 
@@ -44,12 +49,14 @@ class IndexDailyCompletenessRepairService:
         if trade_date is None:
             return []
 
+        repair_slot = self._resolve_repair_slot(session, source_run=source_run)
         classifications = self.source_service.classify_active_gaps(session, target_trade_date=trade_date)
         pending_codes = self._pending_repair_codes(session, trade_date=trade_date)
         repair_codes = [
             classification.ts_code
             for classification in classifications
-            if classification.automatic_repair_eligible and classification.ts_code not in pending_codes
+            if classification.ts_code not in pending_codes
+            and self._is_repair_eligible(classification, repair_slot=repair_slot)
         ]
         if not repair_codes:
             return []
@@ -59,6 +66,16 @@ class IndexDailyCompletenessRepairService:
         task_runs: list[TaskRun] = []
         for batch_index, start in enumerate(range(0, len(selected_codes), INDEX_DAILY_REPAIR_BATCH_SIZE), start=1):
             batch_codes = selected_codes[start : start + INDEX_DAILY_REPAIR_BATCH_SIZE]
+            request_payload = {
+                "run_scope": INDEX_DAILY_GAP_REPAIR_RUN_SCOPE,
+                "source_date_completeness_run_id": source_run.id,
+                "repair_trade_date": trade_date.isoformat(),
+                "missing_code_count": len(classifications),
+                "batch_index": batch_index,
+                "batch_size": len(batch_codes),
+            }
+            if repair_slot is not None:
+                request_payload["repair_slot"] = repair_slot
             task_runs.append(
                 TaskRunCommandService().create_task_run(
                     session,
@@ -68,14 +85,7 @@ class IndexDailyCompletenessRepairService:
                         action="maintain",
                         time_input={"mode": "point", "trade_date": trade_date.isoformat()},
                         filters={"ts_code": ",".join(batch_codes)},
-                        request_payload={
-                            "run_scope": INDEX_DAILY_GAP_REPAIR_RUN_SCOPE,
-                            "source_date_completeness_run_id": source_run.id,
-                            "repair_trade_date": trade_date.isoformat(),
-                            "missing_code_count": len(classifications),
-                            "batch_index": batch_index,
-                            "batch_size": len(batch_codes),
-                        },
+                        request_payload=request_payload,
                         trigger_source="system",
                         requested_by_user_id=None,
                         schedule_id=None,
@@ -83,6 +93,57 @@ class IndexDailyCompletenessRepairService:
                 )
             )
         return task_runs
+
+    def _is_repair_eligible(
+        self,
+        classification: IndexDailyGapClassification,
+        *,
+        repair_slot: str | None,
+    ) -> bool:
+        if classification.internal_status == "serving_projection_gap":
+            return True
+        if classification.internal_status != "source_delayed":
+            return False
+        if repair_slot is None:
+            # Manual and configured audits retain their existing generic repair path.
+            return True
+        return self.source_service.is_repair_slot_available(classification, repair_slot=repair_slot)
+
+    @staticmethod
+    def _resolve_repair_slot(
+        session: Session,
+        *,
+        source_run: DatasetDateCompletenessRun,
+    ) -> str | None:
+        if (
+            source_run.dataset_key != "index_daily"
+            or source_run.run_mode != "scheduled"
+            or source_run.requested_by_user_id is not None
+            or source_run.schedule_id is not None
+            or source_run.audit_scope != "date_subject_matrix"
+            or source_run.start_date != source_run.end_date
+        ):
+            return None
+
+        requested_at = source_run.requested_at
+        if requested_at.tzinfo is None:
+            requested_at = requested_at.replace(tzinfo=timezone.utc)
+        # The audit can wait in the Ops queue; its creation time fixes the intended repair stage.
+        local_requested_at = requested_at.astimezone(INDEX_DAILY_RECONCILIATION_TIMEZONE)
+        if source_run.start_date == local_requested_at.date():
+            return INDEX_DAILY_REPAIR_SLOT_SAME_DAY_INITIAL
+
+        previous_open_trade_date = session.scalar(
+            select(TradeCalendar.trade_date)
+            .where(TradeCalendar.exchange == get_settings().default_exchange)
+            .where(TradeCalendar.is_open.is_(True))
+            .where(TradeCalendar.trade_date < local_requested_at.date())
+            .order_by(TradeCalendar.trade_date.desc())
+            .limit(1)
+        )
+        if source_run.start_date != previous_open_trade_date:
+            return None
+        return previous_open_day_repair_slot_for_time(local_requested_at.time().replace(tzinfo=None))
 
     def _eligible_trade_date(
         self,
