@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import duckdb
 import pytest
@@ -18,42 +19,73 @@ from orchestrator.defs.bootstrap.dc_board_bootstrap_apply import (
 from orchestrator.defs.bootstrap.dc_board_bootstrap_plan import build_date_plans
 from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.defs.resources import DuckDBResource, TushareResult
-from orchestrator.defs.run_contracts.dc_board import DC_INDEX_TYPES
+from orchestrator.defs.run_contracts.dc_board import (
+    DC_INDEX_TYPES,
+    build_dc_board_prod_reference_snapshot,
+)
 
 
 class _FakeTushare:
     def call(self, api_name, params, fields):
-        if api_name != "dc_index":
-            raise AssertionError(api_name)
         if params["offset"]:
             return TushareResult(rows=[], columns=tuple(fields), metadata={})
-        idx_type = params["idx_type"]
-        return TushareResult(
-            rows=[
-                {
-                    "ts_code": f"BK{DC_INDEX_TYPES.index(idx_type) + 1:04d}.DC",
-                    "trade_date": params["trade_date"],
-                    "name": "板块",
-                    "leading": "股票",
-                    "leading_code": "000001.SZ",
-                    "pct_change": 1.0,
-                    "leading_pct": 1.0,
-                    "total_mv": 100.0,
-                    "turnover_rate": 1.0,
-                    "up_num": 1,
-                    "down_num": 1,
-                    "idx_type": idx_type,
-                    "level": "L1",
-                }
-            ],
-            columns=tuple(fields),
-            metadata={},
-        )
+        if api_name == "dc_index":
+            idx_type = params["idx_type"]
+            return TushareResult(
+                rows=[
+                    {
+                        "ts_code": f"BK{DC_INDEX_TYPES.index(idx_type) + 1:04d}.DC",
+                        "trade_date": params["trade_date"],
+                        "name": "板块",
+                        "leading": "股票",
+                        "leading_code": "000001.SZ",
+                        "pct_change": 1.0,
+                        "leading_pct": 1.0,
+                        "total_mv": 100.0,
+                        "turnover_rate": 1.0,
+                        "up_num": 1,
+                        "down_num": 1,
+                        "idx_type": idx_type,
+                        "level": "L1",
+                    }
+                ],
+                columns=tuple(fields),
+                metadata={},
+            )
+        if api_name == "dc_daily":
+            return TushareResult(
+                rows=[
+                    {"category": category, "ts_code": ts_code, "trade_date": params["trade_date"]}
+                    for category, ts_code in (
+                        ("行业板块", "BK0001.DC"),
+                        ("概念板块", "BK0002.DC"),
+                        ("地域板块", "BK0003.DC"),
+                    )
+                ],
+                columns=tuple(fields),
+                metadata={},
+            )
+        raise AssertionError(api_name)
 
 
 class _NoProd:
     def connect_readonly_transaction(self):
         raise AssertionError("dc_index apply must not access Prod DB")
+
+
+def _reference(trade_date: str):
+    identity = (
+        ("行业板块", "BK0001.DC"),
+        ("概念板块", "BK0002.DC"),
+        ("地域板块", "BK0003.DC"),
+    )
+    return build_dc_board_prod_reference_snapshot(
+        trade_date=trade_date,
+        index_identity=identity,
+        daily_identity=identity,
+        member_codes=("BK0001.DC", "BK0002.DC", "BK0003.DC"),
+        member_row_count=3,
+    )
 
 
 def _calendar(root: Path, dates: tuple[str, ...]) -> Path:
@@ -114,16 +146,23 @@ def test_raw_apply_and_reconciliation_are_resumable(tmp_path):
     _baseline(tmp_path, dates, baseline)
     reports = tmp_path / "reports"
 
-    report = run_raw_bootstrap(
-        lake_root=tmp_path,
-        duckdb_resource=DuckDBResource(),
-        tushare=_FakeTushare(),
-        prod_postgres=_NoProd(),
-        baseline_report=baseline,
-        report_dir=reports,
-        datasets=("dc_index",),
-        batch_size=1,
-    )
+    with patch(
+        "orchestrator.defs.bootstrap.dc_board_bootstrap_apply.require_closed_prod_dc_board_reference",
+        side_effect=lambda *, trade_date, **_kwargs: _reference(trade_date),
+    ), patch(
+        "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_reference",
+        side_effect=lambda *, trade_date, **_kwargs: _reference(trade_date),
+    ):
+        report = run_raw_bootstrap(
+            lake_root=tmp_path,
+            duckdb_resource=DuckDBResource(),
+            tushare=_FakeTushare(),
+            prod_postgres=_NoProd(),
+            baseline_report=baseline,
+            report_dir=reports,
+            datasets=("dc_index",),
+            batch_size=1,
+        )
     assert report.totals == {"expected_dates": 2, "written_count": 2, "skipped_count": 0, "entry_count": 2}
     raw_report = tmp_path / "raw.json"
     write_phase_report(report, raw_report)
@@ -141,16 +180,23 @@ def test_raw_apply_and_reconciliation_are_resumable(tmp_path):
     raw_audit = tmp_path / "raw_audit.json"
     write_reconciliation_report(audit, raw_audit)
 
-    resumed = run_raw_bootstrap(
-        lake_root=tmp_path,
-        duckdb_resource=DuckDBResource(),
-        tushare=_FakeTushare(),
-        prod_postgres=_NoProd(),
-        baseline_report=baseline,
-        report_dir=reports,
-        datasets=("dc_index",),
-        batch_size=1,
-    )
+    with patch(
+        "orchestrator.defs.bootstrap.dc_board_bootstrap_apply.require_closed_prod_dc_board_reference",
+        side_effect=lambda *, trade_date, **_kwargs: _reference(trade_date),
+    ), patch(
+        "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_reference",
+        side_effect=lambda *, trade_date, **_kwargs: _reference(trade_date),
+    ):
+        resumed = run_raw_bootstrap(
+            lake_root=tmp_path,
+            duckdb_resource=DuckDBResource(),
+            tushare=_FakeTushare(),
+            prod_postgres=_NoProd(),
+            baseline_report=baseline,
+            report_dir=reports,
+            datasets=("dc_index",),
+            batch_size=1,
+        )
     assert resumed.totals["written_count"] == 0
     assert resumed.totals["skipped_count"] == 2
 

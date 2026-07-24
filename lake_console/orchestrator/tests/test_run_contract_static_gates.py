@@ -282,7 +282,8 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         for source in (asset_source, readiness_source, sensors_source):
             self.assertNotIn("get_event_records", source)
-        self.assertNotIn("ProdPostgresResource", sensors_source)
+        self.assertIn("ProdPostgresResource", asset_source)
+        self.assertIn("prod_postgres", sensors_source)
         self.assertNotIn("TushareResource.call(", asset_source)
         self.assertIn("plan_dc_member_candidate_codes", asset_source)
         self.assertIn("DC_BOARD_MAX_REQUESTS_PER_PARTITION", asset_source)
@@ -292,10 +293,11 @@ class RunContractStaticGateTests(unittest.TestCase):
         self.assertNotIn("AssetSelection.assets(silver_", jobs_source)
         self.assertEqual(jobs_source.count("dg.define_asset_job("), 3)
 
-    def test_dc_board_m9r_uses_calendar_registration_and_bounded_source_probe(self) -> None:
+    def test_dc_board_m10_uses_stable_prod_reference_and_complete_source_compare(self) -> None:
         partition_sensor_source = (
             SENSORS_DIR / "dc_board_partition_sensor.py"
         ).read_text()
+        asset_source = (ASSETS_DIR / "dc_board_raw.py").read_text()
         raw_sensor_source = (SENSORS_DIR / "dc_board_sensor.py").read_text()
         source_probe_source = (
             DEFS_DIR / "asset_guards" / "dc_board_source_probe.py"
@@ -317,9 +319,11 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         for fragment in (
             "batch_raw_dc_index_lake_readiness",
-            "probe_dc_index",
-            "probe_dc_member",
-            "probe_dc_daily",
+            "load_prod_dc_board_reference",
+            "compare_tushare_index_and_daily_to_reference",
+            "DC_BOARD_CURRENT_DAY_REFERENCE_NOT_BEFORE",
+            "DC_BOARD_REFERENCE_STABILITY_SECONDS",
+            "build_raw_dc_index_update_job_run_config",
             "build_asset_update_run_key",
             "DC_BOARD_SENSOR_WINDOW_LIMIT",
         ):
@@ -334,13 +338,24 @@ class RunContractStaticGateTests(unittest.TestCase):
             self.assertNotIn(forbidden, raw_sensor_source)
 
         for fragment in (
-            "execute_bounded_code_requests",
-            "DC_BOARD_SOURCE_PROBE_MAX_REQUESTS",
-            "DC_BOARD_SOURCE_PROBE_MAX_ELAPSED_SECONDS",
+            "execute_bounded_code_pages",
+            "execute_bounded_pages",
+            "core_serving.dc_index",
+            "core_serving.dc_daily",
+            "core_serving.dc_member",
+            "load_prod_dc_member_pairs",
         ):
             self.assertIn(fragment, source_probe_source)
-        for forbidden in ("get_event_records", "report_runless_asset_event"):
+        for forbidden in (
+            "get_event_records",
+            "report_runless_asset_event",
+            '"limit": 1',
+            "SELECT *",
+            "select *",
+        ):
             self.assertNotIn(forbidden, source_probe_source)
+        self.assertNotIn("_previous_member_path", asset_source)
+        self.assertNotIn("_previous_member_codes", asset_source)
 
         for fragment in (
             "RAW_DC_QUALITY_SPECS",

@@ -32,9 +32,13 @@ from orchestrator.defs.paths import (
     raw_dc_daily_path,
     raw_dc_index_path,
     raw_dc_member_path,
-    silver_trade_calendar_path,
 )
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.resources import (
+    DuckDBResource,
+    LakeRootResource,
+    ProdPostgresResource,
+    TushareResource,
+)
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_DC_DAILY_SCHEMA,
     RAW_TUSHARE_DC_INDEX_SCHEMA,
@@ -52,7 +56,10 @@ from orchestrator.defs.run_contracts.dc_board import (
     DC_INDEX_FIELDS,
     DC_INDEX_HISTORY_START_DATE,
     DC_MEMBER_FIELDS,
-    DC_MEMBER_HISTORY_START_DATE,
+)
+from orchestrator.defs.run_contracts.configs import (
+    DcBoardIndexReferenceConfig,
+    validate_dc_board_index_reference_config,
 )
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
@@ -125,114 +132,22 @@ def _target_raw_index_codes(connection, path: Path) -> tuple[str, ...]:
     return codes
 
 
-def _first_expected_trade_date(connection, calendar_path: Path, min_trade_date: str) -> str:
-    if not calendar_path.exists():
-        raise DcBoardRawValidationError(
-            f"dc_member candidate planning requires silver trade calendar: {calendar_path}"
-        )
-    row = connection.execute(
-        """
-        SELECT CAST(CAST(trade_date AS DATE) AS VARCHAR)
-        FROM read_parquet(?)
-        WHERE exchange = 'SSE'
-          AND is_open = true
-          AND CAST(trade_date AS DATE) >= CAST(? AS DATE)
-        ORDER BY CAST(trade_date AS DATE)
-        LIMIT 1
-        """,
-        [str(calendar_path), min_trade_date],
-    ).fetchone()
-    if row is None:
-        raise DcBoardRawValidationError(
-            f"no expected SSE trade date is available after {min_trade_date}"
-        )
-    return str(row[0])
-
-
-def _previous_member_path(
-    *,
-    connection,
-    lake_root_path: Path,
-    target_trade_date: str,
-    first_expected_trade_date: str,
-) -> Path | None:
-    if target_trade_date == first_expected_trade_date:
-        return None
-    rows = connection.execute(
-        """
-        SELECT CAST(CAST(trade_date AS DATE) AS VARCHAR)
-        FROM read_parquet(?)
-        WHERE exchange = 'SSE'
-          AND is_open = true
-          AND CAST(trade_date AS DATE) >= CAST(? AS DATE)
-          AND CAST(trade_date AS DATE) < CAST(? AS DATE)
-        ORDER BY CAST(trade_date AS DATE) DESC
-        """,
-        [
-            str(silver_trade_calendar_path(lake_root_path)),
-            DC_MEMBER_HISTORY_START_DATE,
-            target_trade_date,
-        ],
-    ).fetchall()
-    for row in rows:
-        candidate_path = raw_dc_member_path(lake_root_path, str(row[0]))
-        if candidate_path.exists():
-            return candidate_path
-    return None
-
-
-def _previous_member_codes(connection, path: Path) -> tuple[str, ...]:
-    rows = connection.execute(
-        f"""
-        SELECT DISTINCT trim(CAST(ts_code AS VARCHAR)) AS ts_code
-        FROM {read_parquet(path)}
-        WHERE ts_code IS NOT NULL AND trim(CAST(ts_code AS VARCHAR)) <> ''
-        ORDER BY ts_code
-        """
-    ).fetchall()
-    codes = tuple(str(row[0]).strip().upper() for row in rows)
-    invalid = tuple(code for code in codes if not _BOARD_CODE_RE.fullmatch(code))
-    if invalid:
-        raise DcBoardRawValidationError(
-            f"historical raw dc_member contains invalid board codes: {invalid[:10]}"
-        )
-    return codes
-
-
 def plan_dc_member_candidate_codes(
     *,
     lake_root_path: Path,
     duckdb_resource: DuckDBResource,
     partition_key: str,
 ) -> tuple[str, ...]:
-    """Build a bounded member request set from the index and nearest member file."""
+    """Use only the same-day raw index directory as the member request set."""
 
     normalized_partition_key = _normalize_partition_key(partition_key)
-    calendar_path = silver_trade_calendar_path(lake_root_path)
     with duckdb_resource.connect() as connection:
         index_codes = _target_raw_index_codes(
             connection,
             raw_dc_index_path(lake_root_path, normalized_partition_key),
         )
-        first_expected = _first_expected_trade_date(
-            connection,
-            calendar_path,
-            DC_MEMBER_HISTORY_START_DATE,
-        )
-        previous_path = _previous_member_path(
-            connection=connection,
-            lake_root_path=lake_root_path,
-            target_trade_date=normalized_partition_key,
-            first_expected_trade_date=first_expected,
-        )
-        if normalized_partition_key != first_expected and previous_path is None:
-            raise DcBoardRawValidationError(
-                "dc_member candidate planning has no historical member baseline "
-                f"before {normalized_partition_key}"
-            )
-        previous_codes = _previous_member_codes(connection, previous_path) if previous_path else ()
 
-    candidate_codes = tuple(sorted(set(index_codes).union(previous_codes)))
+    candidate_codes = tuple(sorted(set(index_codes)))
     if len(candidate_codes) > DC_BOARD_MAX_REQUESTS_PER_PARTITION:
         raise DcBoardRawValidationError(
             "dc_member candidate count exceeds request budget before Tushare calls: "
@@ -267,14 +182,22 @@ def raw_tushare_dc_index(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
     tushare: TushareResource,
+    prod_postgres: ProdPostgresResource,
+    config: DcBoardIndexReferenceConfig,
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = _normalize_partition_key(context.partition_key)
+    validated_config = validate_dc_board_index_reference_config(
+        config,
+        partition_key=partition_key,
+    )
     result = write_dc_index_partition(
         lake_root_path=lake_root.root(),
         duckdb_resource=duckdb,
         tushare=tushare,
+        prod_postgres=prod_postgres,
         partition_key=partition_key,
+        reference_config=validated_config,
     )
     return _materialize_result(result, schema=RAW_TUSHARE_DC_INDEX_SCHEMA)
 
@@ -306,6 +229,7 @@ def raw_tushare_dc_member(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
     tushare: TushareResource,
+    prod_postgres: ProdPostgresResource,
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = _normalize_partition_key(context.partition_key)
@@ -318,6 +242,7 @@ def raw_tushare_dc_member(
         lake_root_path=lake_root.root(),
         duckdb_resource=duckdb,
         tushare=tushare,
+        prod_postgres=prod_postgres,
         partition_key=partition_key,
         candidate_codes=candidate_codes,
     )
@@ -350,6 +275,7 @@ def raw_tushare_dc_daily(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
     tushare: TushareResource,
+    prod_postgres: ProdPostgresResource,
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = _normalize_partition_key(context.partition_key)
@@ -357,6 +283,7 @@ def raw_tushare_dc_daily(
         lake_root_path=lake_root.root(),
         duckdb_resource=duckdb,
         tushare=tushare,
+        prod_postgres=prod_postgres,
         partition_key=partition_key,
     )
     return _materialize_result(result, schema=RAW_TUSHARE_DC_DAILY_SCHEMA)

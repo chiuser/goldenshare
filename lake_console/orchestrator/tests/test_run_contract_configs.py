@@ -2,6 +2,7 @@ import unittest
 
 from orchestrator.defs.run_contracts.configs import (
     build_gold_stock_daily_qfq_factor_repair_run_config,
+    build_raw_dc_index_update_job_run_config,
     build_raw_index_daily_update_job_run_config,
     build_stock_daily_raw_repair_run_config,
     parse_stock_daily_raw_config,
@@ -10,6 +11,44 @@ from orchestrator.defs.run_contracts.requests import build_run_request
 
 
 class RunContractConfigTests(unittest.TestCase):
+    def test_raw_dc_index_run_config_keeps_only_frozen_reference_summary(self) -> None:
+        config = build_raw_dc_index_update_job_run_config(
+            partition_key="2026-07-14",
+            reference_trade_date="2026-07-14",
+            reference_observed_at="2026-07-14T21:25:00+08:00",
+            reference_fingerprint="a" * 64,
+        )
+        self.assertEqual(
+            config,
+            {
+                "ops": {
+                    "raw_tushare_dc_index": {
+                        "config": {
+                            "reference_trade_date": "2026-07-14",
+                            "reference_observed_at": "2026-07-14T21:25:00+08:00",
+                            "reference_fingerprint": "a" * 64,
+                        }
+                    }
+                }
+            },
+        )
+
+    def test_raw_dc_index_run_config_rejects_incomplete_or_misaligned_reference(self) -> None:
+        with self.assertRaisesRegex(ValueError, "must equal partition_key"):
+            build_raw_dc_index_update_job_run_config(
+                partition_key="2026-07-14",
+                reference_trade_date="2026-07-15",
+                reference_observed_at="2026-07-14T21:25:00+08:00",
+                reference_fingerprint="a" * 64,
+            )
+        with self.assertRaisesRegex(ValueError, "timezone"):
+            build_raw_dc_index_update_job_run_config(
+                partition_key="2026-07-14",
+                reference_trade_date="2026-07-14",
+                reference_observed_at="2026-07-14T21:25:00",
+                reference_fingerprint="a" * 64,
+            )
+
     def test_raw_index_daily_update_job_run_config_uses_partition_schema(self) -> None:
         self.assertEqual(
             build_raw_index_daily_update_job_run_config(

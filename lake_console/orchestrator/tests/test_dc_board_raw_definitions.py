@@ -70,32 +70,15 @@ def test_m4_jobs_select_only_their_raw_asset_and_check() -> None:
         assert "AssetSelection.assets(silver_" not in source
 
 
-def test_member_candidate_planner_uses_index_and_nearest_member_baseline(tmp_path) -> None:
+def test_member_candidate_planner_uses_only_same_day_raw_index(tmp_path) -> None:
     import duckdb
 
     root = Path(tmp_path)
-    calendar = root / "silver/calendar/trade_calendar/full/part-000.parquet"
-    calendar.parent.mkdir(parents=True)
     connection = duckdb.connect()
-    connection.execute(
-        f"""
-        COPY (
-            SELECT * FROM (VALUES
-                ('SSE', DATE '2024-12-20', true),
-                ('SSE', DATE '2024-12-23', true)
-            ) AS t(exchange, trade_date, is_open)
-        ) TO '{calendar}' (FORMAT PARQUET)
-        """,
-    )
     index_path = root / "raw/board/dc_index/trade_date=2024-12-23/part-000.parquet"
     index_path.parent.mkdir(parents=True)
     connection.execute(
         f"COPY (SELECT * FROM (VALUES ('BK0002.DC')) AS t(ts_code)) TO '{index_path}' (FORMAT PARQUET)",
-    )
-    member_path = root / "raw/board/dc_member/trade_date=2024-12-20/part-000.parquet"
-    member_path.parent.mkdir(parents=True)
-    connection.execute(
-        f"COPY (SELECT * FROM (VALUES ('BK0001.DC')) AS t(ts_code)) TO '{member_path}' (FORMAT PARQUET)",
     )
     connection.close()
 
@@ -116,43 +99,4 @@ def test_member_candidate_planner_uses_index_and_nearest_member_baseline(tmp_pat
         duckdb_resource=_MemoryDuckDB(),
         partition_key="2024-12-23",
     )
-    assert candidates == ("BK0001.DC", "BK0002.DC")
-
-
-def test_member_candidate_planner_fails_without_non_first_baseline(tmp_path) -> None:
-    import duckdb
-    import pytest
-
-    from orchestrator.defs.assets.dc_board import DcBoardRawValidationError
-
-    root = Path(tmp_path)
-    calendar = root / "silver/calendar/trade_calendar/full/part-000.parquet"
-    calendar.parent.mkdir(parents=True)
-    connection = duckdb.connect()
-    connection.execute(
-        f"COPY (SELECT * FROM (VALUES ('SSE', DATE '2024-12-20', true), ('SSE', DATE '2024-12-23', true)) AS t(exchange, trade_date, is_open)) TO '{calendar}' (FORMAT PARQUET)",
-    )
-    index_path = root / "raw/board/dc_index/trade_date=2024-12-23/part-000.parquet"
-    index_path.parent.mkdir(parents=True)
-    connection.execute(
-        f"COPY (SELECT * FROM (VALUES ('BK0002.DC')) AS t(ts_code)) TO '{index_path}' (FORMAT PARQUET)",
-    )
-    connection.close()
-
-    class _MemoryDuckDB:
-        def connect(self):
-            class _Context:
-                def __enter__(self):
-                    self.connection = duckdb.connect()
-                    return self.connection
-                def __exit__(self, exc_type, exc, tb):
-                    self.connection.close()
-                    return False
-            return _Context()
-
-    with pytest.raises(DcBoardRawValidationError, match="historical member baseline"):
-        plan_dc_member_candidate_codes(
-            lake_root_path=root,
-            duckdb_resource=_MemoryDuckDB(),
-            partition_key="2024-12-23",
-        )
+    assert candidates == ("BK0002.DC",)

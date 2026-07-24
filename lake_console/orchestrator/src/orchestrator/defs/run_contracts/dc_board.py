@@ -1,5 +1,13 @@
 """Stable contracts for the Eastmoney board datasets."""
 
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import time
+import hashlib
+import json
+from collections.abc import Sequence
+
 DC_INDEX_HISTORY_START_DATE = "2024-12-20"
 DC_MEMBER_HISTORY_START_DATE = "2024-12-20"
 DC_DAILY_HISTORY_START_DATE = "2024-01-02"
@@ -43,6 +51,8 @@ DC_INDEX_PAGE_LIMIT = 5_000
 DC_MEMBER_PAGE_LIMIT = 5_000
 DC_DAILY_PAGE_LIMIT = 2_000
 DC_BOARD_SENSOR_WINDOW_LIMIT = 10
+DC_BOARD_CURRENT_DAY_REFERENCE_NOT_BEFORE = time(21, 15)
+DC_BOARD_REFERENCE_STABILITY_SECONDS = 300
 
 # These are the M1C-approved per-partition guardrails for the future dc_member
 # writer. The writer must pass requests through the bounded policy helper; these
@@ -76,3 +86,74 @@ RAW_DC_DAILY_COLUMNS = DC_DAILY_FIELDS
 SILVER_DC_INDEX_COLUMNS = DC_INDEX_FIELDS
 SILVER_DC_MEMBER_COLUMNS = DC_MEMBER_FIELDS
 SILVER_DC_DAILY_COLUMNS = DC_DAILY_FIELDS
+
+
+@dataclass(frozen=True, slots=True)
+class DcBoardProdReferenceSnapshot:
+    """In-memory prod identity baseline; never serialize its code sets."""
+
+    trade_date: str
+    index_identity: tuple[tuple[str, str], ...]
+    daily_identity: tuple[tuple[str, str], ...]
+    member_codes: tuple[str, ...]
+    member_row_count: int
+    fingerprint: str
+
+    @property
+    def index_row_count(self) -> int:
+        return len(self.index_identity)
+
+    @property
+    def daily_row_count(self) -> int:
+        return len(self.daily_identity)
+
+    @property
+    def member_code_count(self) -> int:
+        return len(self.member_codes)
+
+    def compact_summary(self) -> dict[str, object]:
+        return {
+            "trade_date": self.trade_date,
+            "fingerprint": self.fingerprint,
+            "index_row_count": self.index_row_count,
+            "daily_row_count": self.daily_row_count,
+            "member_row_count": self.member_row_count,
+            "member_code_count": self.member_code_count,
+        }
+
+
+def build_dc_board_prod_reference_snapshot(
+    *,
+    trade_date: str,
+    index_identity: Sequence[tuple[str, str]],
+    daily_identity: Sequence[tuple[str, str]],
+    member_codes: Sequence[str],
+    member_row_count: int,
+) -> DcBoardProdReferenceSnapshot:
+    """Build the stable identity hash used across the sensor and writer gates."""
+
+    normalized_index_identity = tuple(sorted(index_identity))
+    normalized_daily_identity = tuple(sorted(daily_identity))
+    normalized_member_codes = tuple(sorted(member_codes))
+    fingerprint_payload = {
+        "trade_date": trade_date,
+        "index_identity": normalized_index_identity,
+        "daily_identity": normalized_daily_identity,
+        "member_codes": normalized_member_codes,
+        "member_row_count": member_row_count,
+    }
+    fingerprint = hashlib.sha256(
+        json.dumps(
+            fingerprint_payload,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    return DcBoardProdReferenceSnapshot(
+        trade_date=trade_date,
+        index_identity=normalized_index_identity,
+        daily_identity=normalized_daily_identity,
+        member_codes=normalized_member_codes,
+        member_row_count=member_row_count,
+        fingerprint=fingerprint,
+    )

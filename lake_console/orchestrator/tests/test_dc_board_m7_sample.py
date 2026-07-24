@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
+from unittest.mock import patch
 
 import duckdb
 
@@ -24,7 +26,11 @@ from orchestrator.defs.paths import (
     silver_trade_calendar_path,
 )
 from orchestrator.defs.resources import TushareResult
-from orchestrator.defs.run_contracts.dc_board import DC_INDEX_TYPES
+from orchestrator.defs.run_contracts.configs import DcBoardIndexReferenceConfig
+from orchestrator.defs.run_contracts.dc_board import (
+    DC_INDEX_TYPES,
+    build_dc_board_prod_reference_snapshot,
+)
 from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
 
 
@@ -118,6 +124,21 @@ def _policy() -> TushareRequestPolicy:
     )
 
 
+def _reference(trade_date: str):
+    identity = (
+        ("行业板块", "BK0001.DC"),
+        ("概念板块", "BK0002.DC"),
+        ("地域板块", "BK0003.DC"),
+    )
+    return build_dc_board_prod_reference_snapshot(
+        trade_date=trade_date,
+        index_identity=identity,
+        daily_identity=identity,
+        member_codes=("BK0001.DC", "BK0002.DC", "BK0003.DC"),
+        member_row_count=3,
+    )
+
+
 def test_m7_sample_raw_to_silver_three_dates_uses_atomic_temp_lake(tmp_path):
     root = Path(tmp_path)
     dates = ("2024-12-20", "2025-12-29", "2026-07-14")
@@ -125,53 +146,65 @@ def test_m7_sample_raw_to_silver_three_dates_uses_atomic_temp_lake(tmp_path):
     tushare = _FakeTushare()
     duckdb_resource = _MemoryDuckDB()
 
-    for trade_date in dates:
-        compact_date = trade_date.replace("-", "")
-        write_dc_index_partition(
-            lake_root_path=root,
-            duckdb_resource=duckdb_resource,
-            tushare=tushare,
-            partition_key=trade_date,
-            policy=_policy(),
-        )
-        write_dc_daily_partition(
-            lake_root_path=root,
-            duckdb_resource=duckdb_resource,
-            tushare=tushare,
-            partition_key=trade_date,
-            policy=_policy(),
-        )
-        write_dc_member_rows_streaming(
-            lake_root_path=root,
-            duckdb_resource=duckdb_resource,
-            partition_key=trade_date,
-            chunks=(
-                (
-                    {
-                        "trade_date": compact_date,
-                        "ts_code": "BK0001.DC",
-                        "con_code": "000001.SZ",
-                        "name": "股票",
-                    },
+    with patch(
+        "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_reference",
+        side_effect=lambda *, trade_date, **_kwargs: _reference(trade_date),
+    ):
+        for trade_date in dates:
+            compact_date = trade_date.replace("-", "")
+            reference = _reference(trade_date)
+            write_dc_index_partition(
+                lake_root_path=root,
+                duckdb_resource=duckdb_resource,
+                tushare=tushare,
+                prod_postgres=object(),
+                partition_key=trade_date,
+                reference_config=DcBoardIndexReferenceConfig(
+                    reference_trade_date=trade_date,
+                    reference_observed_at=datetime.now(UTC).isoformat(),
+                    reference_fingerprint=reference.fingerprint,
                 ),
-            ),
-        )
+                policy=_policy(),
+            )
+            write_dc_daily_partition(
+                lake_root_path=root,
+                duckdb_resource=duckdb_resource,
+                tushare=tushare,
+                prod_postgres=object(),
+                partition_key=trade_date,
+                policy=_policy(),
+            )
+            write_dc_member_rows_streaming(
+                lake_root_path=root,
+                duckdb_resource=duckdb_resource,
+                partition_key=trade_date,
+                chunks=(
+                    (
+                        {
+                            "trade_date": compact_date,
+                            "ts_code": "BK0001.DC",
+                            "con_code": "000001.SZ",
+                            "name": "股票",
+                        },
+                    ),
+                ),
+            )
 
-        write_silver_dc_index_partition(
-            lake_root_path=root,
-            duckdb=duckdb_resource,
-            partition_key=trade_date,
-        )
-        write_silver_dc_member_partition(
-            lake_root_path=root,
-            duckdb=duckdb_resource,
-            partition_key=trade_date,
-        )
-        write_silver_dc_daily_partition(
-            lake_root_path=root,
-            duckdb=duckdb_resource,
-            partition_key=trade_date,
-        )
+            write_silver_dc_index_partition(
+                lake_root_path=root,
+                duckdb=duckdb_resource,
+                partition_key=trade_date,
+            )
+            write_silver_dc_member_partition(
+                lake_root_path=root,
+                duckdb=duckdb_resource,
+                partition_key=trade_date,
+            )
+            write_silver_dc_daily_partition(
+                lake_root_path=root,
+                duckdb=duckdb_resource,
+                partition_key=trade_date,
+            )
 
     with duckdb.connect(":memory:") as connection:
         for builder in (

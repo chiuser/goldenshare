@@ -18,13 +18,26 @@ import re
 from time import perf_counter
 from uuid import uuid4
 
+from orchestrator.defs.asset_guards.dc_board_source_probe import (
+    DcBoardReferenceValidationError,
+    assert_dc_daily_rows_match_reference,
+    build_dc_board_request_policy,
+    load_prod_dc_member_pairs,
+    require_closed_prod_dc_board_reference,
+    require_tushare_index_and_daily_reference_match,
+)
 from orchestrator.defs.duckdb_sql import (
     count_parquet_query,
     copy_query_to_parquet,
     read_parquet,
 )
 from orchestrator.defs.paths import raw_dc_daily_path, raw_dc_index_path, raw_dc_member_path
-from orchestrator.defs.resources import DuckDBResource, TushareResource, TushareResult
+from orchestrator.defs.resources import (
+    DuckDBResource,
+    ProdPostgresResource,
+    TushareResource,
+    TushareResult,
+)
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_DC_DAILY_SCHEMA,
     RAW_TUSHARE_DC_INDEX_SCHEMA,
@@ -39,12 +52,10 @@ from orchestrator.defs.run_contracts.dc_board import (
     DC_INDEX_TYPES,
     DC_MEMBER_FIELDS,
     DC_MEMBER_PAGE_LIMIT,
-    DC_MEMBER_BACKOFF_BASE_SECONDS,
-    DC_MEMBER_BACKOFF_MAX_SECONDS,
-    DC_MEMBER_MAX_RETRIES,
-    DC_MEMBER_MIN_REQUEST_INTERVAL_SECONDS,
-    DC_BOARD_MAX_ELAPSED_MS,
-    DC_BOARD_MAX_REQUESTS_PER_PARTITION,
+)
+from orchestrator.defs.run_contracts.configs import (
+    DcBoardIndexReferenceConfig,
+    validate_dc_board_index_reference_config,
 )
 from orchestrator.defs.tushare_request_policy import (
     BoundedCodeRequestResult,
@@ -54,14 +65,7 @@ from orchestrator.defs.tushare_request_policy import (
 )
 
 
-DC_REQUEST_POLICY = TushareRequestPolicy(
-    minimum_interval_seconds=DC_MEMBER_MIN_REQUEST_INTERVAL_SECONDS,
-    max_retries=DC_MEMBER_MAX_RETRIES,
-    backoff_base_seconds=DC_MEMBER_BACKOFF_BASE_SECONDS,
-    max_backoff_seconds=DC_MEMBER_BACKOFF_MAX_SECONDS,
-    max_requests=DC_BOARD_MAX_REQUESTS_PER_PARTITION,
-    max_elapsed_seconds=DC_BOARD_MAX_ELAPSED_MS / 1000,
-)
+DC_REQUEST_POLICY = build_dc_board_request_policy()
 
 
 _TRADE_DATE_RE = re.compile(r"^\d{8}$")
@@ -100,6 +104,8 @@ class DcBoardRawWriteResult:
     failed_codes: tuple[str, ...] = ()
     empty_codes: tuple[str, ...] = ()
     chunk_count: int = 0
+    reference_fingerprint: str | None = None
+    reference_observed_at: str | None = None
 
     def to_metadata(self) -> dict[str, object]:
         return {
@@ -121,6 +127,8 @@ class DcBoardRawWriteResult:
             "failed_codes": list(self.failed_codes[:20]),
             "empty_codes": list(self.empty_codes[:20]),
             "chunk_count": self.chunk_count,
+            "reference_fingerprint": self.reference_fingerprint,
+            "reference_observed_at": self.reference_observed_at,
         }
 
 
@@ -277,6 +285,8 @@ def _promote_table(
     failed_codes: Sequence[str] = (),
     empty_codes: Sequence[str] = (),
     chunk_count: int = 0,
+    reference_fingerprint: str | None = None,
+    reference_observed_at: str | None = None,
 ) -> DcBoardRawWriteResult:
     fields = tuple(_RAW_TYPES[dataset])
     raw_trade_date = _iso_to_raw_trade_date(partition_key)
@@ -353,6 +363,8 @@ def _promote_table(
         failed_codes=tuple(failed_codes),
         empty_codes=tuple(empty_codes),
         chunk_count=chunk_count,
+        reference_fingerprint=reference_fingerprint,
+        reference_observed_at=reference_observed_at,
     )
 
 
@@ -365,6 +377,7 @@ def _validate_dc_daily_same_day_index_coverage(
     connection,
     *,
     index_path: Path,
+    expected_index_identity: Sequence[tuple[str, str]],
 ) -> None:
     """Reject a partial ``dc_daily`` response before it can replace the target file."""
 
@@ -416,6 +429,75 @@ def _validate_dc_daily_same_day_index_coverage(
             f"missing_index_code_sample={list(missing_sample or ())}, "
             f"extra_daily_code_sample={list(extra_sample or ())}."
         )
+    raw_index_identity = tuple(
+        (str(idx_type).strip(), str(ts_code).strip().upper())
+        for idx_type, ts_code in connection.execute(
+            f"""
+            SELECT DISTINCT
+                trim(CAST(idx_type AS VARCHAR)),
+                upper(trim(CAST(ts_code AS VARCHAR)))
+            FROM {read_parquet(index_path)}
+            WHERE idx_type IS NOT NULL AND trim(CAST(idx_type AS VARCHAR)) <> ''
+              AND ts_code IS NOT NULL AND trim(CAST(ts_code AS VARCHAR)) <> ''
+            ORDER BY 1, 2
+            """
+        ).fetchall()
+    )
+    expected_identity = tuple(sorted(expected_index_identity))
+    missing_identity_count = len(set(expected_identity) - set(raw_index_identity))
+    extra_identity_count = len(set(raw_index_identity) - set(expected_identity))
+    if missing_identity_count or extra_identity_count:
+        raise DcBoardRawValidationError(
+            "dc_daily source closure found a same-day raw dc_index identity mismatch: "
+            f"missing_index_identity_count={missing_identity_count}, "
+            f"extra_index_identity_count={extra_identity_count}."
+        )
+
+
+def _validate_dc_member_pairs_against_prod(
+    connection,
+    *,
+    prod_pairs: Sequence[tuple[str, str]],
+) -> None:
+    """Compare source and prod member pairs in DuckDB before target promotion."""
+
+    connection.execute(
+        "CREATE TEMP TABLE prod_dc_member_pairs (ts_code VARCHAR, con_code VARCHAR)"
+    )
+    connection.executemany(
+        "INSERT INTO prod_dc_member_pairs (ts_code, con_code) VALUES (?, ?)",
+        prod_pairs,
+    )
+    row = connection.execute(
+        """
+        WITH source_pairs AS (
+            SELECT DISTINCT
+                upper(trim(CAST(ts_code AS VARCHAR))) AS ts_code,
+                upper(trim(CAST(con_code AS VARCHAR))) AS con_code
+            FROM dc_board_rows
+        ), prod_pairs AS (
+            SELECT DISTINCT ts_code, con_code
+            FROM prod_dc_member_pairs
+        ), missing_pairs AS (
+            SELECT ts_code, con_code FROM prod_pairs
+            EXCEPT
+            SELECT ts_code, con_code FROM source_pairs
+        ), extra_pairs AS (
+            SELECT ts_code, con_code FROM source_pairs
+            EXCEPT
+            SELECT ts_code, con_code FROM prod_pairs
+        )
+        SELECT
+            (SELECT count(*) FROM missing_pairs),
+            (SELECT count(*) FROM extra_pairs)
+        """
+    ).fetchone()
+    missing_count, extra_count = (int(value or 0) for value in row)
+    if missing_count or extra_count:
+        raise DcBoardRawValidationError(
+            "dc_member Tushare/prod pair identity differs before target promotion: "
+            f"missing_pair_count={missing_count}, extra_pair_count={extra_count}."
+        )
 
 
 def write_dc_index_partition(
@@ -423,50 +505,47 @@ def write_dc_index_partition(
     lake_root_path: Path,
     duckdb_resource: DuckDBResource,
     tushare: TushareResource,
+    prod_postgres: ProdPostgresResource,
     partition_key: str,
+    reference_config: DcBoardIndexReferenceConfig,
     policy=DC_REQUEST_POLICY,
 ) -> DcBoardRawWriteResult:
     """Fetch and atomically write one ``dc_index`` trade-date partition."""
 
     started_at = perf_counter()
+    validated_config = validate_dc_board_index_reference_config(
+        reference_config,
+        partition_key=partition_key,
+    )
+    try:
+        fresh_reference = require_closed_prod_dc_board_reference(
+            prod_postgres=prod_postgres,
+            trade_date=partition_key,
+        )
+    except DcBoardReferenceValidationError as exc:
+        raise DcBoardRawValidationError(str(exc)) from exc
+    if fresh_reference.fingerprint != validated_config.reference_fingerprint:
+        raise DcBoardRawValidationError(
+            "dc_index prod reference changed after sensor freeze; target promotion is blocked: "
+            f"sensor_fingerprint={validated_config.reference_fingerprint}, "
+            f"writer_fingerprint={fresh_reference.fingerprint}."
+        )
+    try:
+        comparison = require_tushare_index_and_daily_reference_match(
+            tushare=tushare,
+            trade_date=partition_key,
+            reference=fresh_reference,
+            policy=policy,
+        )
+    except DcBoardReferenceValidationError as exc:
+        raise DcBoardRawValidationError(str(exc)) from exc
     with duckdb_resource.connect() as connection:
         _create_table(connection, "dc_index")
-        result: BoundedCodeRequestResult[TushareResult] = execute_bounded_code_pages(
-            codes=DC_INDEX_TYPES,
-            request_page=lambda idx_type, offset: tushare.call(
-                    "dc_index",
-                    {
-                        "trade_date": partition_key.replace("-", ""),
-                        "idx_type": idx_type,
-                        "limit": 5_000,
-                        "offset": offset,
-                    },
-                    DC_INDEX_FIELDS,
-                ),
-            extract_rows=lambda result: _tushare_extract_rows(result, DC_INDEX_FIELDS),
-            page_size=DC_INDEX_PAGE_LIMIT,
-            policy=policy,
-            row_key=lambda row: (row.get("ts_code"), row.get("trade_date")),
-        )
-        if not result.ready:
-            raise DcBoardRawValidationError(
-                f"dc_index request failed: {result.to_details()}"
-            )
         for idx_type in DC_INDEX_TYPES:
-            page_rows = result.rows_by_code.get(idx_type, [])
-            mismatched_idx_type = [
-                row
-                for row in page_rows
-                if row.get("idx_type") != idx_type
-            ]
-            if mismatched_idx_type:
-                raise DcBoardRawValidationError(
-                    f"dc_index response contains rows for a different idx_type: "
-                    f"requested={idx_type}, sample={mismatched_idx_type[:3]}"
-                )
+            page_rows = comparison.index_rows_by_type.get(idx_type, ())
             _insert_rows(connection, fields=DC_INDEX_FIELDS, rows=page_rows)
 
-        if not any(result.rows_by_code.values()):
+        if not any(comparison.index_rows_by_type.values()):
             raise DcBoardRawValidationError(
                 f"dc_index returned no rows across all idx_type values for {partition_key}."
             )
@@ -476,10 +555,12 @@ def write_dc_index_partition(
             partition_key=partition_key,
             target_path=raw_dc_index_path(lake_root_path, partition_key),
             source_method="tushare_api",
-            request_count=result.request_count,
-            page_count=sum(result.page_counts.values()),
-            retry_count=result.retry_count,
+            request_count=comparison.request_count,
+            page_count=comparison.page_count,
+            retry_count=comparison.retry_count,
             started_at=started_at,
+            reference_fingerprint=fresh_reference.fingerprint,
+            reference_observed_at=validated_config.reference_observed_at,
         )
 
 
@@ -488,12 +569,20 @@ def write_dc_daily_partition(
     lake_root_path: Path,
     duckdb_resource: DuckDBResource,
     tushare: TushareResource,
+    prod_postgres: ProdPostgresResource,
     partition_key: str,
     policy=DC_REQUEST_POLICY,
 ) -> DcBoardRawWriteResult:
     """Fetch and atomically write one ``dc_daily`` trade-date partition."""
 
     started_at = perf_counter()
+    try:
+        fresh_reference = require_closed_prod_dc_board_reference(
+            prod_postgres=prod_postgres,
+            trade_date=partition_key,
+        )
+    except DcBoardReferenceValidationError as exc:
+        raise DcBoardRawValidationError(str(exc)) from exc
     with duckdb_resource.connect() as connection:
         _create_table(connection, "dc_daily")
         page_result = execute_bounded_pages(
@@ -516,6 +605,14 @@ def write_dc_daily_partition(
             raise DcBoardRawValidationError(
                 f"dc_daily request failed: {page_result.to_details()}"
             )
+        try:
+            assert_dc_daily_rows_match_reference(
+                rows=page_result.rows,
+                trade_date=partition_key,
+                reference=fresh_reference,
+            )
+        except DcBoardReferenceValidationError as exc:
+            raise DcBoardRawValidationError(str(exc)) from exc
         _insert_rows(connection, fields=DC_DAILY_FIELDS, rows=page_result.rows)
         category_count = int(
             connection.execute(
@@ -530,6 +627,7 @@ def write_dc_daily_partition(
         _validate_dc_daily_same_day_index_coverage(
             connection,
             index_path=raw_dc_index_path(lake_root_path, partition_key),
+            expected_index_identity=fresh_reference.index_identity,
         )
         return _promote_table(
             connection,
@@ -541,6 +639,7 @@ def write_dc_daily_partition(
             page_count=page_result.page_count,
             retry_count=page_result.retry_count,
             started_at=started_at,
+            reference_fingerprint=fresh_reference.fingerprint,
         )
 
 
@@ -549,6 +648,7 @@ def write_dc_member_partition(
     lake_root_path: Path,
     duckdb_resource: DuckDBResource,
     tushare: TushareResource,
+    prod_postgres: ProdPostgresResource,
     partition_key: str,
     candidate_codes: Sequence[str],
     policy=DC_REQUEST_POLICY,
@@ -565,6 +665,19 @@ def write_dc_member_partition(
             f"{invalid_candidates[:20]}"
         )
     started_at = perf_counter()
+    try:
+        fresh_reference = require_closed_prod_dc_board_reference(
+            prod_postgres=prod_postgres,
+            trade_date=partition_key,
+        )
+    except DcBoardReferenceValidationError as exc:
+        raise DcBoardRawValidationError(str(exc)) from exc
+    if tuple(sorted(set(normalized_codes))) != fresh_reference.member_codes:
+        raise DcBoardRawValidationError(
+            "dc_member candidate codes must exactly match the same-day prod reference: "
+            f"candidate_code_count={len(set(normalized_codes))}, "
+            f"reference_code_count={fresh_reference.member_code_count}."
+        )
     with duckdb_resource.connect() as connection:
         _create_table(connection, "dc_member")
         result: BoundedCodeRequestResult[TushareResult] = execute_bounded_code_pages(
@@ -605,6 +718,14 @@ def write_dc_member_partition(
                 f"dc_member returned no rows for any candidate code on {partition_key}."
             )
         _insert_rows(connection, fields=DC_MEMBER_FIELDS, rows=all_rows)
+        try:
+            prod_pairs = load_prod_dc_member_pairs(
+                prod_postgres=prod_postgres,
+                trade_date=partition_key,
+            )
+        except DcBoardReferenceValidationError as exc:
+            raise DcBoardRawValidationError(str(exc)) from exc
+        _validate_dc_member_pairs_against_prod(connection, prod_pairs=prod_pairs)
         return _promote_table(
             connection,
             dataset="dc_member",
@@ -616,6 +737,7 @@ def write_dc_member_partition(
             retry_count=result.retry_count,
             started_at=started_at,
             empty_codes=result.empty_codes,
+            reference_fingerprint=fresh_reference.fingerprint,
         )
 
 

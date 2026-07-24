@@ -22,6 +22,9 @@ from orchestrator.defs.asset_guards.dc_board_lake_readiness import (
     batch_raw_dc_index_lake_readiness,
     batch_raw_dc_member_lake_readiness,
 )
+from orchestrator.defs.asset_guards.dc_board_source_probe import (
+    require_closed_prod_dc_board_reference,
+)
 from orchestrator.defs.asset_guards.dc_board_silver_lake_readiness import (
     batch_silver_dc_daily_lake_readiness,
     batch_silver_dc_index_lake_readiness,
@@ -57,6 +60,7 @@ from orchestrator.defs.paths import (
     silver_dc_member_path,
 )
 from orchestrator.defs.resources import DuckDBResource, ProdPostgresResource, TushareResource
+from orchestrator.defs.run_contracts.configs import DcBoardIndexReferenceConfig
 
 
 DATASETS = ("dc_index", "dc_member", "dc_daily")
@@ -315,12 +319,29 @@ def _raw_write(
     *, lake_root: Path, duckdb_resource: DuckDBResource, tushare: TushareResource, prod_postgres: ProdPostgresResource, dataset: str, trade_date: str
 ) -> DcBoardRawWriteResult:
     if dataset == "dc_index":
+        reference = require_closed_prod_dc_board_reference(
+            prod_postgres=prod_postgres,
+            trade_date=trade_date,
+        )
         return write_dc_index_partition(
-            lake_root_path=lake_root, duckdb_resource=duckdb_resource, tushare=tushare, partition_key=trade_date
+            lake_root_path=lake_root,
+            duckdb_resource=duckdb_resource,
+            tushare=tushare,
+            prod_postgres=prod_postgres,
+            partition_key=trade_date,
+            reference_config=DcBoardIndexReferenceConfig(
+                reference_trade_date=trade_date,
+                reference_observed_at=datetime.now(timezone.utc).isoformat(),
+                reference_fingerprint=reference.fingerprint,
+            ),
         )
     if dataset == "dc_daily":
         return write_dc_daily_partition(
-            lake_root_path=lake_root, duckdb_resource=duckdb_resource, tushare=tushare, partition_key=trade_date
+            lake_root_path=lake_root,
+            duckdb_resource=duckdb_resource,
+            tushare=tushare,
+            prod_postgres=prod_postgres,
+            partition_key=trade_date,
         )
     if dataset == "dc_member":
         return export_dc_member_partition_from_prod_db(

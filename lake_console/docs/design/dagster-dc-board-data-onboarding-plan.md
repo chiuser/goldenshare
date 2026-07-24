@@ -1,15 +1,15 @@
 # Dagster `dc_index` / `dc_member` / `dc_daily` 数据集接入技术方案
 
-> 状态：M3 Raw 写入能力、M4 Raw Dagster definition、M5 Silver writer/asset/check、M6 Silver Dagster 接入、M7A 只读 Bootstrap dry-run、M7E 临时 lake 样本联调、M7F-M7I 正式 Raw/Silver Bootstrap 与对账、M8 Dagster 事件补录与验收均已完成。M9 sensor 启用因成功判定和分区注册口径不足而暂停；M9-R“专属分区 + 有限探测 + 完整性门禁”修复专项已完成方案设计，代码尚未切换。当前 Raw/Silver sensor 不得继续按旧口径启用。
+> 状态：M3 Raw 写入能力、M4 Raw Dagster definition、M5 Silver writer/asset/check、M6 Silver Dagster 接入、M7A 只读 Bootstrap dry-run、M7E 临时 lake 样本联调、M7F-M7I 正式 Raw/Silver Bootstrap 与对账、M8 Dagster 事件补录与验收均已完成。M9-R 已完成专属分区、同日 Lake 关系和 writer 基础闭环的代码落地；其中“有限小页 source probe 可提交 Raw run”的日常触发口径已被 M10 取代。M10“稳定 prod 基线 + 完整 Tushare 对照”代码已完成，并已通过本地 contract、writer、sensor、性能与静态门禁验证；待单独批准正式 prod source-finalization 审计、`dg check defs` 和 sensor 启用。本轮未运行真实 Dagster job/sensor，也未写 Lake、prod 或 Dagster DB。
 >
 > 依据：新增数据集接入模板、`lake_console/orchestrator/CODING_STANDARDS.md`、
 > `dagster-data-pipeline-performance-governance.md`、现有 `index_daily` / `stk_nineturn`
 > 实现，以及 2026-07-14 对 prod DB 和 Tushare 的只读审计。
 
 > **当前阅读口径**：M3-M8 的实施状态保留当时的代码事实，用于追溯历史和验收证据；其中出现的
-> 共享 `cn_a_index_trade_days` 只代表旧实现，不是当前板块链路的目标口径。当前正式设计以
-> M9-R 为准：专属分区、日历驱动注册、有限源探测、source closure、核心 check 和同日关系闭环。
-> M9-R 未完成前不得按旧实现启用 sensor。
+> 共享 `cn_a_index_trade_days` 只代表旧实现，不是当前板块链路的目标口径。分区、Lake core check
+> 和同日关系以 M9-R 为准；日常 Raw 触发、prod 基线和 Tushare 完整性判断以 M10 为唯一现行设计。
+> 小页 probe 仅保留为历史实现事实，不能被解释为“源端已完整”；当前代码以 M10 的稳定 prod 基线和完整 Tushare 对照为唯一日常 Raw 触发口径。
 
 ## M3 实施状态
 
@@ -241,9 +241,9 @@ Bootstrap 是独立人工维护工具，不接 sensor、schedule 或 AutomationC
 M9-R 会保留 job、sensor、cursor 和单分区 check 的低基数原则，但替换分区来源、注册入口、source
 probe 和成功判定；旧版文件 readiness 不能单独触发正式更新。
 
-### 5.4 M9-R：专属分区、有限探测与完整性门禁修复专项
+### 5.4 M9-R：专属分区、有限探测与完整性门禁修复专项（历史实现基线）
 
-本节替代 5.3 中旧的“共享 `cn_a_index_trade_days` + 文件 readiness 即可触发”口径。修复专项只解决板块 Raw/Silver/Gold 日常链路，不改变数据字段、物理布局、run key 命名规则和单分区 check 颗粒度。
+本节替代 5.3 中旧的“共享 `cn_a_index_trade_days` + 文件 readiness 即可触发”口径。它已经定义并落地专属分区、Lake core check 和同日关系闭环；但其中“有限小页 source probe”无法证明当天 Tushare 已发布完整目录，已由 5.5 M10 替代。M10 不改变数据字段、物理布局、run key 命名规则和单分区 check 颗粒度。
 
 #### 5.4.1 专属分区注册 sensor
 
@@ -260,13 +260,14 @@ dc_daily_trade_day_partition_sensor
 1. 每个 sensor 只读取 `silver_trade_calendar`，按自己的 history start date 生成 SSE `is_open=true` 且不晚于当前本地日期的 expected dates。
 2. 每个 sensor 只向自己的 dynamic partition set 注册缺失日期；注册操作幂等，已注册日期不重复添加。
 3. 分区注册 sensor 不访问 Tushare、Prod DB、Parquet 业务文件或 Dagster event history。
-4. 注册周期是有限轮询间隔，不是源站更新时间。即使源站当天尚未更新，也先注册日期，等待后续 Raw sensor 的 source probe。
+4. 注册周期是有限轮询间隔，不是源站更新时间。即使源站当天尚未更新，也先注册日期；M9-R 当时随后会等待 Raw sensor 的 source probe，M10 则按 5.5 的 prod 基线与完整 Tushare 对照判断是否提交 run。
 5. 注册缺口只能由专属注册 sensor 修复；Raw/Silver sensor 发现自己的分区缺口时只返回 `partition_not_registered`，不得借用其它资产族的 partition set，也不得在同一个 tick 里偷偷注册。
 6. Gold technical asset、Gold daily sensor 和 Gold repair sensor 必须跟随 `cn_a_dc_daily_trade_days`，不能继续消费旧的共享注册集。
 
-#### 5.4.2 Raw 触发模式
+#### 5.4.2 Raw 触发模式（历史规则，已由 M10 替换）
 
-Raw sensor 不再使用固定时刻触发，而使用“分区已注册 + 有限源探测 + first-not-ready”模式：
+M9-R 的 Raw sensor 曾使用“分区已注册 + 有限源探测 + first-not-ready”模式；该模式保留在此解释已落地
+代码的来源，不能作为 M10 后的日常触发规则：
 
 ```text
 专属分区注册
@@ -328,9 +329,9 @@ source request closure
 
 完整成功条件由“writer source closure + core check + 关系闭环”共同组成；不是 source probe 通过、文件存在或 row count 大于 0 的任一单项条件。
 
-#### 5.4.4 Sensor / cursor 状态模型
+#### 5.4.4 Sensor / cursor 状态模型（历史规则）
 
-固定 ASCII reason code：
+M9-R 的历史 ASCII reason code：
 
 ```text
 partition_not_registered
@@ -361,6 +362,123 @@ cursor 只保存目标日期、first-not-ready、ready frontier、probe 请求�
 事件边界：M8 已写入的历史 event 作为审计事实保留，不删除、不自动改写、不用于 source readiness；新定义切换后的事件使用专属 partition set。若需要把旧事件迁移到新分区集，必须另开事件对账/补录专项，不能在 M9-R 中隐式完成。
 
 R0-R8 未完成前，不得继续按旧 `cn_a_index_trade_days` 口径启用 Raw/Silver sensor；正式 Dagster 执行和 sensor 切换另行审批。
+
+### 5.5 M10：日常源端完成确认门禁（代码完成，待正式审计/启用）
+
+#### 5.5.1 目标、边界与事实源
+
+M10 解决的是“源端已有少量记录，但当天目录或行情尚未完整发布”这一时序问题。2026-07-22 的自动
+`raw_tushare_dc_index` run 在 15:06 以 231 行成功，而同日后续复核的 Tushare 和 prod 基线均为
+1,022 个板块代码；因此“非空的小页 probe”不能再作为提交 Raw run 的依据。
+
+审计证据固定为 `/private/tmp/tushare_dc_20260722_source_audit_20260723_215311.json`（Tushare 当前完整
+code set）与 `/private/tmp/prod_dc_daily_publish_timing_20260724.tsv`（prod 在 2026-07-10 至 2026-07-23
+的首写入、最终更新时间和同日集合闭环）。prod 时间戳只证明 prod 的可用与稳定窗口，不被表述为 Tushare
+的直接发布时间证明。
+
+- Tushare 仍是 `raw_tushare_dc_index`、`raw_tushare_dc_daily`、`raw_tushare_dc_member` 的唯一业务数据来源；M10 不把 prod 数据写入 Lake，也不改变历史 Bootstrap 来源。
+- prod `core_serving.dc_index`、`core_serving.dc_daily`、`core_serving.dc_member` 只作为当天已发布数据的**只读完整性基线**。它不是新的 Raw source，也不参与 Silver/Gold 的数据计算。
+- 不新增 asset、job、check、dynamic partition、runless event、manifest 或状态表。M10 只替换 Raw 日常触发和 Raw promote 前的完整性判定。
+- 现有 Raw/Silver/Gold 的分区、路径、schema、run key、单分区合并 check 和 Lake readiness 语义保持不变。
+
+#### 5.5.2 冻结时间与 prod 基线
+
+对当天目标分区，基线不是在 21:15 直接冻结，而是以下两次读取均通过后，在第二次读取完成时冻结：
+
+```text
+t1 = 21:15（上海时间）之后的第一个 raw_dc_index sensor tick
+  -> 读取 prod 当天 reference snapshot，得到 fingerprint F1
+
+t2 >= t1 + 5 分钟的下一次 tick
+  -> 再次读取同一 reference snapshot，得到 fingerprint F2
+
+F1 == F2 且两次 reference 都内部闭合
+  -> 在 t2 冻结 F2，才允许提交 raw_tushare_dc_index run
+```
+
+现有 Raw sensor 的最小间隔是 600 秒，因此不为 M10 缩短轮询；若第一轮恰在 21:15，实际最早冻结约为
+21:25。`21:15` 是近期 prod 审计中最晚最终更新时间约 21:12 后的首个观察下限，不是“到点必然完整”的
+断言。若两次 fingerprint 不同，或 prod 读取失败、集合不闭合，则只保留最新候选并等待下一 tick；绝不提交
+run。
+
+冻结 snapshot 的身份只包含排序后的业务身份、计数和 SHA-256：
+
+| 数据集 | 基线身份 | 必须满足的内部闭环 |
+| --- | --- | --- |
+| `dc_index` | `(idx_type, ts_code)` | 三类均存在；无空/重复 key |
+| `dc_daily` | `(category, ts_code)` | 无空/重复 key；与 `dc_index` 的 `(type, code)` 映射严格相等 |
+| `dc_member` | `ts_code` 的 distinct set、总行数 | distinct `ts_code` 与当天 `dc_index` code set 相等；无空 key |
+
+sensor 热路径只读取约千级 index/daily identity 和 member 聚合，不拉取约九万级 member pair。完整
+`(ts_code, con_code)` 对照留在 member writer 的单日 run 内执行。
+
+#### 5.5.3 Tushare 完整性对照与执行顺序
+
+`raw_tushare_dc_index_update_job_sensor` 是唯一做“完整源端可用性”判断的 Raw sensor：它在 prod snapshot
+冻结后，完整读取 Tushare 三个 `dc_index` 类型和完整 `dc_daily` 分页，并要求每类 identity、计数和
+hash 与冻结基线严格相等。它不再发出 `limit=1` probe。
+
+```text
+注册交易日
+  -> raw_dc_index：时间门槛 + prod 双快照冻结 + Tushare index/daily 全量对照
+  -> raw_dc_index promote：重新确认冻结 fingerprint 未变化，再原子写入
+  -> raw_dc_daily：同日 raw_dc_index 已 ready；完整 Tushare daily 对齐 raw index 与 prod daily
+  -> raw_dc_member：同日 raw_dc_index 已 ready；仅请求当天 raw index 的代码，完整成员集合对齐 prod
+  -> 三个 Silver
+  -> gold_dc_daily_technical
+```
+
+`dc_daily` 和 `dc_member` 不再以“几条小页返回正常”作为独立 source ready 条件。它们只能在同日 Raw
+index 已 ready 后提交；实际 writer 仍在 promote 前做自己的完整闭环。这样既不把 1,000+ member 请求放到
+sensor 热路径，也不允许手工 Launchpad 绕过完整性检查。
+
+#### 5.5.4 Writer promote 前的不可绕过门禁
+
+- `dc_index` run config 只传递 `trade_date`、冻结时刻和 64 位 reference fingerprint，不传完整代码清单。writer 重新只读 prod，并要求 fingerprint 仍等于传入值；随后完整 Tushare index/daily identity 必须等于该基线。任一不等，staging 丢弃，不 promote。
+- `dc_daily` 的完整 Tushare `(category, ts_code)` 身份必须同时等于同日 `raw_dc_index` 映射和 fresh prod `dc_daily` 基线；任一不等，不 promote。
+- `dc_member` 候选只能等于同日 `raw_dc_index` 的 `ts_code` 集合，删除“与前一日 member 代码并集”的连续性 fallback。writer 用 DuckDB set-based SQL 将 Tushare `(ts_code, con_code)` 与 prod 当天同一 identity 做双向差集；缺失、额外、重复、空 key、日期不符或请求失败都不 promote。
+- 所有比对均显式字段投影，禁止 `SELECT *`。prod 连接必须是既有 `ProdPostgresResource.connect_readonly_transaction()`；不得使用写资源。
+- 已有目标文件只沿用既有“materialized 但 blocking check failed 时不自动覆盖”规则；M10 不引入自动重写历史文件。
+
+#### 5.5.5 Cursor、性能与失败语义
+
+cursor 是调度路标，不是基线报告。跨 tick 的 `runtime_state` 只保存 `trade_date`、第一次 snapshot
+fingerprint 和 `observed_at`；人可见部分只保存目标日期、阻断组件、当前/基线数量、简短中文摘要和下一步动作。
+禁止写全量 code、hash 明细、Tushare 行、prod 行、分页结果或 member pair。
+
+新增 reason code：
+
+```text
+before_prod_reference_window
+prod_reference_pending_confirmation
+prod_reference_not_closed
+prod_reference_changed
+tushare_reference_mismatch
+prod_reference_unavailable
+```
+
+典型摘要必须可直接读懂，例如“尚未到板块源端观察窗口，21:15 后再检查”或“Tushare 概念板块返回 100 个，
+prod 基线为 495 个，未提交 run”。`blocked_component` 固定为 `prod_core_reference`、`tushare_source`、
+`raw_tushare_dc_index` 或现有分区/Lake 组件，不使用宽泛的 `source_probe`。
+
+稳定日 index sensor 先用两轮、每轮 3 个只读 prod 查询冻结基线；仅在第二轮一致后，才执行一次完整
+Tushare 对照（3 个 `dc_index` 类型 + 1 个 `dc_daily` 请求）。因此两轮合计最多 6 次 prod 查询和 4 次
+Tushare 请求。实际 index writer 会再做一次完整 Tushare 对照，以防 sensor 到 run 执行之间的源端变化。
+member 的约千次请求仍只发生在实际 member job，不进入 sensor。任何 prod/Tushare 调用超时、请求预算越界或
+对照不一致都 fail closed，下一 tick 再尝试；不得调大 Dagster RPC timeout。
+
+#### 5.5.6 实现、验证与切换顺序
+
+1. 先完成 prod schema/identity 一致性只读审计：确认三张 prod 表的列、主键、同日集合关系，以及 member
+   `(ts_code, con_code)` 与 Tushare 写入 schema 可直接对照；若字段或语义不一致，停止并修订本设计。
+2. 修改现有 source probe、Raw sensor、Raw writer、member candidate planner 和对应 run-config helper；不新增
+   平行 job/sensor 或兼容 fallback。
+3. 本地 fake prod/Tushare 测试覆盖：21:15 前不请求源站、第一次快照不触发、第二次稳定快照触发、prod 变化、
+   231/1022 部分源响应、writer 执行期 reference 变化、daily/member identity mismatch、member 前一日独有代码
+   不再请求、所有失败不 promote。
+4. 性能测试锁定完整 probe 的调用次数、prod 行数、DuckDB 差集耗时和 600 秒 sensor 间隔；稳定日 sensor
+   目标小于 10 秒，任何路径不得出现按日期循环、Dagster event-history 扫描或全量 member 热路径请求。
+5. 代码与本地 fake prod/Tushare 回归、静态门禁和性能测试已通过；其中 M10 定向回归 `99` 条，资产治理与 cursor contract 回归 `18` 条，Bootstrap/M7 样本调用也已通过。下一步必须先单独做正式环境只读 source-finalization 审计；`dg check defs` 仍须单独批准，通过后再单独审批启用或恢复 sensor。M10 不包含 Lake 回补、prod 写入或历史 event 补录。
 
 ## 6. Check 设计
 
@@ -473,9 +591,13 @@ SSE open dates
 - source 请求和文件写入的单分区耗时超过预算时，run fail closed，不进入重试风暴；cursor 只显示摘要，详细报告写临时审计文件。
 - sensor 每 tick 最多 1 个 run request，readiness 只读取最近 10 个日期的目标文件。
 - 专属分区注册 sensor 只读取交易日历并幂等补注册，不以固定时刻判断源站是否完成。
-- Raw source probe 每 tick 只允许 `dc_index=3`、`dc_daily=1`、`dc_member=3-5` 次有限请求；每次 probe elapsed 上限 `8s`，超限只 skip，不触发完整 run。
-- sensor 的 source probe、日常 readiness 和 cursor 必须在 Dagster RPC 安全预算内；目标是稳定态 `<10s`，硬上限不得接近 `60s`，不能通过调大 timeout 规避。
-- 完整 source closure 只发生在 asset run 内；`dc_member` 的 1,022 级代码请求不能回流到 sensor 热路径。
+- M10 落地后，`raw_dc_index` 在 21:15 后先用两轮、每轮 3 个只读 prod 查询冻结当天基线；仅在第二轮
+  一致后才执行一次完整 Tushare 对照（3 个 `dc_index` 类型 + 1 个 `dc_daily` 请求）。现有 600 秒间隔下
+  两轮之间至少相隔 5 分钟。其余 Raw sensor 不再使用小页 Tushare probe。
+- sensor 的 prod reference、完整 source 对照、日常 readiness 和 cursor 必须在 Dagster RPC 安全预算内；
+  目标是稳定态 `<10s`，硬上限不得接近 `60s`，不能通过调大 timeout 规避。
+- 完整 member source closure 只发生在 asset run 内；`dc_member` 的 1,022 级代码请求和约九万级 identity
+  对照不能回流到 sensor 热路径。
 
 ## 9. 分阶段推进
 
@@ -598,11 +720,11 @@ M4 的进入 M5 条件已满足：sensor 每 tick 最多提交一个 first-not-r
   `0`，证明补录入口幂等。`raw_tushare_dc_member` 的 catalog event policy 同步修正为支持
   runless backfill，与 Prod DB 直写 Bootstrap 和 M8 事件口径一致。
 
-## M9-R：板块分区与完整性门禁修复（代码已落地，sensor 仍停止）
+## M9-R：板块分区与完整性门禁修复（历史实施记录）
 
-旧版 sensor 不能直接启用，因为它使用共享 `cn_a_index_trade_days`，并把“文件存在且基础字段可读”当作足够的 ready 条件。M9-R 已完成代码和本地验证；当前不启用 sensor，也不改变历史 M8 event。
+旧版 sensor 不能直接启用，因为它使用共享 `cn_a_index_trade_days`，并把“文件存在且基础字段可读”当作足够的 ready 条件。以下保留 M9-R 代码和本地验证时的历史事实，不描述当前 Dagster instance 的 sensor 状态，也不改变历史 M8 event。
 
-核心任务：按 5.4 的 R0-R8 顺序完成专属分区注册、无固定时刻的有限源探测、writer source closure、合并核心 check 和同日板块族关系审计。
+核心任务：按 5.4 的 R0-R8 顺序完成专属分区注册、有限源探测、writer source closure、合并核心 check 和同日板块族关系审计。M10 已取代其中的日常 source trigger 语义：小页 probe 不能再作为完整性依据。
 
 完成条件：
 
@@ -618,11 +740,13 @@ R0-R8 已完成本地代码、静态门禁和临时 lake 验证；在正式切�
 
 - 新增 `cn_a_dc_index_trade_days`、`cn_a_dc_member_trade_days`、`cn_a_dc_daily_trade_days`；Raw、对应 Silver、Gold daily technical 分别使用自己的日期域，历史 `cn_a_index_trade_days` 不再参与当前 `dc_board` 正式链路。
 - 新增三个 calendar-only partition sensor。它们只读取 SSE open calendar 并幂等注册专属动态分区，不读取 Tushare、Prod DB、湖文件或 Dagster event history，也不以固定源站时间作为注册门禁。
-- Raw update sensor 先做最近 10 个 expected trade dates 的 DuckDB readiness，再只对“物理文件缺失”的 first-not-ready 日期做有界源探测；探测通过后最多提交一个 partition run。文件存在但 core check 失败时只 skip，不自动覆盖。
+- Raw update sensor 先做最近 10 个 expected trade dates 的 DuckDB readiness；M10 落地后，`raw_dc_index`
+  仅在 prod 双快照冻结并完成完整 Tushare 对照后才提交一个 partition run，`dc_daily` / `dc_member` 等待同日
+  `raw_dc_index` ready。文件存在但 core check 失败时只 skip，不自动覆盖。
 - `dc_index`、`dc_daily`、`dc_member` 的完整 source closure 仍只在 writer run 内执行：分页、请求终态、失败/未尝试、字段、日期、主键、类别覆盖、源/写入行数和原子 promote 全部通过后才产生可消费的湖文件。
 - Raw/Silver core check 与 readiness 继续使用单个 partition、单个合并 blocking check，并增加同日关系审计：`dc_daily` 与 `dc_index` 代码集合相等，`dc_member` 请求集合有明确成功或合法空终态。关系失败不会进入 ready frontier。
 - `dc_daily` / `dc_member` 的 Raw sensor 先确定自身首个未就绪目标，再比较 `raw_dc_index` 上游 frontier；上游首个未就绪日期早于或等于自身目标时阻断，晚于自身目标时允许补更早目标。不能因为上游窗口存在一个更晚缺口，就阻断自身更早日期。
-- source probe 只是“现在是否值得尝试”的可用性判断，不是成功证明；文件存在、row count > 0 或 probe 通过都不能单独判定更新成功。真正成功必须是 writer closure + 湖文件 core check + 同日关系闭环。
+- 小页 source probe 是 M9-R 当时的“现在是否值得尝试”筛选策略，不是成功证明；文件存在、row count > 0 或 probe 通过都不能单独判定更新成功。M10 已将当前日提交条件替换为稳定 prod 基线加完整 Tushare 对照，writer closure + 湖文件 core check + 同日关系闭环仍是最终成功条件。
 - Dagster 可能先记录 materialization 再记录 blocking check 失败；因此本专项的“成功更新”定义为 readiness `ready=True` 和下游 frontier 可推进，而不是单独看 materialization event。
 
 ### M9-R 本地验证记录
@@ -630,6 +754,13 @@ R0-R8 已完成本地代码、静态门禁和临时 lake 验证；在正式切�
 - 新增分区注册、source probe、同日关系和 Raw category coverage 的正/负向测试；Raw/Silver/Gold 定义、sensor、静态门禁回归通过。本轮板块相关回归共 `155 passed`，仅保留 Dagster preview/deprecation warnings。
 - 针对上游 frontier 修复，额外完成 Raw sensor 定向回归 `92 passed`：覆盖 `dc_daily` / `dc_member` 上游较晚缺口放行、上游同日缺口阻断、上游较晚 check failure 不阻断、单 tick 单 DuckDB connection 和无 event history 读取。
 - 本轮不运行 `dg`，不读取正式 Dagster runtime，不启用 sensor，不写正式湖或 Dagster event。正式切换前仍需做只读 definitions/partition/cursor 审计和至少三个实际交易日观察。
+
+## M10：稳定 prod 基线与完整 Tushare 对照（代码完成，待正式审计/启用）
+
+M10 的唯一目标是拒绝“源端已经返回少量行、但当天目录或行情尚未完整”的中间状态。当前日先在 21:15
+之后的两个 600 秒 sensor tick 读取 prod reference；两次内部闭合且 fingerprint 一致，第二次才冻结。冻结后
+只做一次完整 Tushare 对照，随后将 reference fingerprint 传入既有 index job，writer 在 promote 前再复核。
+`dc_daily`、`dc_member` 不再独立做小页探测，只在同日 raw index ready 后由 writer 完成完整闭环；member 候选仅来自当天 index 目录。完整口径、性能预算、测试和切换顺序以 5.5 为准。
 
 ## 10. 验收标准
 

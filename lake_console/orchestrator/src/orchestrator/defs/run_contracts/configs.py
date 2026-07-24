@@ -17,6 +17,18 @@ class IndexDailyRawConfig(dg.Config):
     )
 
 
+class DcBoardIndexReferenceConfig(dg.Config):
+    reference_trade_date: str = Field(
+        description="prod DC 完整性基线对应的交易日，格式 YYYY-MM-DD。",
+    )
+    reference_observed_at: str = Field(
+        description="第二次稳定 prod 基线快照的带时区 ISO-8601 观测时间。",
+    )
+    reference_fingerprint: str = Field(
+        description="稳定 prod identity 基线的 lowercase SHA-256。",
+    )
+
+
 class GoldStockDailyQfqFactorRepairConfig(dg.Config):
     qfq_factor_trade_date: str = Field(
         description="股票日线前复权 repair 的复权因子交易日，格式 YYYY-MM-DD。",
@@ -203,6 +215,59 @@ def build_raw_index_daily_update_job_run_config(
             }
         }
     }
+
+
+def build_raw_dc_index_update_job_run_config(
+    *,
+    partition_key: str,
+    reference_trade_date: str,
+    reference_observed_at: str,
+    reference_fingerprint: str,
+) -> dict[str, object]:
+    normalized_partition_key = normalize_iso_trade_date(
+        partition_key,
+        field_name="partition_key",
+    )
+    normalized_reference_trade_date = normalize_iso_trade_date(
+        reference_trade_date,
+        field_name="reference_trade_date",
+    )
+    if normalized_reference_trade_date != normalized_partition_key:
+        raise ValueError(
+            "reference_trade_date must equal partition_key."
+        )
+    normalized_reference_observed_at = _normalize_reference_observed_at(
+        reference_observed_at,
+    )
+    normalized_reference_fingerprint = _normalize_sha256_hex(
+        reference_fingerprint,
+        field_name="reference_fingerprint",
+    )
+    return {
+        "ops": {
+            "raw_tushare_dc_index": {
+                "config": {
+                    "reference_trade_date": normalized_reference_trade_date,
+                    "reference_observed_at": normalized_reference_observed_at,
+                    "reference_fingerprint": normalized_reference_fingerprint,
+                }
+            }
+        }
+    }
+
+
+def validate_dc_board_index_reference_config(
+    config: DcBoardIndexReferenceConfig,
+    *,
+    partition_key: str,
+) -> DcBoardIndexReferenceConfig:
+    build_raw_dc_index_update_job_run_config(
+        partition_key=partition_key,
+        reference_trade_date=config.reference_trade_date,
+        reference_observed_at=config.reference_observed_at,
+        reference_fingerprint=config.reference_fingerprint,
+    )
+    return config
 
 
 def build_stock_daily_raw_repair_run_config(
@@ -426,6 +491,21 @@ def _normalize_missing_codes_hash(value: object) -> str:
         value,
         field_name="missing_code_repair.missing_codes_hash",
     )
+
+
+def _normalize_reference_observed_at(value: object) -> str:
+    text = str(value or "").strip()
+    if not text:
+        raise ValueError("reference_observed_at must be a non-empty ISO-8601 timestamp.")
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(
+            "reference_observed_at must be an ISO-8601 timestamp."
+        ) from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("reference_observed_at must include a timezone offset.")
+    return parsed.isoformat()
 
 
 def _normalize_sha256_hex(value: object, *, field_name: str) -> str:

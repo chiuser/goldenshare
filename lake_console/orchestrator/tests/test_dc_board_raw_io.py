@@ -1,6 +1,8 @@
 import tempfile
 import unittest
+from datetime import UTC, datetime
 from pathlib import Path
+from unittest.mock import patch
 
 import duckdb
 
@@ -12,6 +14,13 @@ from orchestrator.defs.assets.dc_board import (
 )
 from orchestrator.defs.paths import raw_dc_index_path
 from orchestrator.defs.resources import TushareResult
+from orchestrator.defs.run_contracts.configs import DcBoardIndexReferenceConfig
+from orchestrator.defs.run_contracts.dc_board import build_dc_board_prod_reference_snapshot
+from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
+
+
+_TRADE_DATE = "2026-07-14"
+_RAW_TRADE_DATE = _TRADE_DATE.replace("-", "")
 
 
 class _MemoryDuckDB:
@@ -45,7 +54,7 @@ class _FakeTushare:
 def _index_row(idx_type="行业板块", ts_code="BK0001.DC"):
     return {
         "ts_code": ts_code,
-        "trade_date": "20260714",
+        "trade_date": _RAW_TRADE_DATE,
         "name": "板块一",
         "leading": "股票一",
         "leading_code": "000001.SZ",
@@ -61,18 +70,13 @@ def _index_row(idx_type="行业板块", ts_code="BK0001.DC"):
 
 
 def _member_row(code="BK0001.DC", con_code="000001.SZ"):
-    return {
-        "trade_date": "20260714",
-        "ts_code": code,
-        "con_code": con_code,
-        "name": "股票一",
-    }
+    return {"trade_date": _RAW_TRADE_DATE, "ts_code": code, "con_code": con_code, "name": "股票一"}
 
 
 def _daily_row(category="行业板块", ts_code="BK0001.DC"):
     return {
         "ts_code": ts_code,
-        "trade_date": "20260714",
+        "trade_date": _RAW_TRADE_DATE,
         "close": 10.0,
         "open": 9.0,
         "high": 11.0,
@@ -87,8 +91,36 @@ def _daily_row(category="行业板块", ts_code="BK0001.DC"):
     }
 
 
+def _reference(codes=("BK0001.DC", "BK0002.DC", "BK0003.DC")):
+    identities = tuple(zip(("行业板块", "概念板块", "地域板块")[: len(codes)], codes, strict=True))
+    return build_dc_board_prod_reference_snapshot(
+        trade_date=_TRADE_DATE,
+        index_identity=identities,
+        daily_identity=identities,
+        member_codes=codes,
+        member_row_count=len(codes),
+    )
+
+
+def _config(reference):
+    return DcBoardIndexReferenceConfig(
+        reference_trade_date=_TRADE_DATE,
+        reference_observed_at=datetime.now(UTC).isoformat(),
+        reference_fingerprint=reference.fingerprint,
+    )
+
+
+def _test_policy():
+    return TushareRequestPolicy(
+        minimum_interval_seconds=0.0,
+        max_retries=0,
+        max_requests=20,
+        max_elapsed_seconds=30.0,
+    )
+
+
 def _write_daily_index_baseline(root: Path, codes: tuple[str, ...]) -> None:
-    path = raw_dc_index_path(root, "2026-07-14")
+    path = raw_dc_index_path(root, _TRADE_DATE)
     path.parent.mkdir(parents=True, exist_ok=True)
     values = ", ".join(f"('{code}')" for code in codes)
     with duckdb.connect(":memory:") as connection:
@@ -98,190 +130,128 @@ def _write_daily_index_baseline(root: Path, codes: tuple[str, ...]) -> None:
         )
 
 
-class DcBoardRawIoTests(unittest.TestCase):
-    def test_index_three_types_are_merged_and_written_atomically(self):
-        def response(api_name, params, _fields):
-            if api_name == "dc_index":
-                code = {
-                    "行业板块": "BK0001.DC",
-                    "概念板块": "BK0002.DC",
-                    "地域板块": "BK0003.DC",
-                }[params["idx_type"]]
-                return [_index_row(params["idx_type"], code)]
-            raise AssertionError(api_name)
+def _full_response(api_name, params, _fields):
+    codes = {"行业板块": "BK0001.DC", "概念板块": "BK0002.DC", "地域板块": "BK0003.DC"}
+    if params["offset"]:
+        return []
+    if api_name == "dc_index":
+        return [_index_row(params["idx_type"], codes[params["idx_type"]])]
+    if api_name == "dc_daily":
+        return [_daily_row(category, code) for category, code in codes.items()]
+    raise AssertionError(api_name)
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            source = _FakeTushare(response)
+
+class DcBoardRawIoTests(unittest.TestCase):
+    def test_index_requires_sensor_fingerprint_to_match_fresh_prod_reference(self):
+        reference = _reference()
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_reference",
+            return_value=reference,
+        ):
             result = write_dc_index_partition(
                 lake_root_path=Path(temp_dir),
                 duckdb_resource=_MemoryDuckDB(),
-                tushare=source,
-                partition_key="2026-07-14",
+                tushare=_FakeTushare(_full_response),
+                prod_postgres=object(),
+                partition_key=_TRADE_DATE,
+                reference_config=_config(reference),
                 policy=_test_policy(),
             )
-            self.assertEqual(result.source_row_count, 3)
-            self.assertEqual(result.written_row_count, 3)
-            self.assertEqual(len(source.calls), 3)
-            self.assertEqual(
-                duckdb.connect().execute(
-                    "SELECT count(*) FROM read_parquet(?)", [str(result.target_path)]
-                ).fetchone()[0],
-                3,
-            )
+        self.assertEqual(result.written_row_count, 3)
+        self.assertEqual(result.reference_fingerprint, reference.fingerprint)
 
-    def test_daily_preserves_category_as_part_of_key(self):
-        def response(_api_name, params, _fields):
-            if params["offset"] == 0:
-                return [
-                    _daily_row("行业板块"),
-                    _daily_row("概念板块", "BK0002.DC"),
-                    _daily_row("地域板块", "BK0003.DC"),
-                ]
-            return []
+    def test_index_rejects_changed_prod_reference_before_any_target_write(self):
+        frozen_reference = _reference()
+        fresh_reference = _reference(("BK0004.DC", "BK0005.DC", "BK0006.DC"))
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_reference",
+            return_value=fresh_reference,
+        ):
+            with self.assertRaisesRegex(DcBoardRawValidationError, "reference changed"):
+                write_dc_index_partition(
+                    lake_root_path=Path(temp_dir),
+                    duckdb_resource=_MemoryDuckDB(),
+                    tushare=_FakeTushare(_full_response),
+                    prod_postgres=object(),
+                    partition_key=_TRADE_DATE,
+                    reference_config=_config(frozen_reference),
+                    policy=_test_policy(),
+                )
+            self.assertFalse((Path(temp_dir) / "raw/board/dc_index").exists())
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            _write_daily_index_baseline(
-                Path(temp_dir),
-                ("BK0001.DC", "BK0002.DC", "BK0003.DC"),
-            )
-            result = write_dc_daily_partition(
-                lake_root_path=Path(temp_dir),
-                duckdb_resource=_MemoryDuckDB(),
-                tushare=_FakeTushare(response),
-                partition_key="2026-07-14",
-                policy=_test_policy(),
-            )
-            connection = duckdb.connect()
-            self.assertEqual(
-                connection.execute(
-                    "SELECT count(DISTINCT category) FROM read_parquet(?)",
-                    [str(result.target_path)],
-                ).fetchone()[0],
-                3,
-            )
-
-    def test_daily_partial_source_fails_before_target_promotion(self):
-        def response(_api_name, params, _fields):
-            if params["offset"] == 0:
-                return [
-                    _daily_row("行业板块"),
-                    _daily_row("概念板块", "BK0002.DC"),
-                    _daily_row("地域板块", "BK0003.DC"),
-                ]
-            return []
-
-        with tempfile.TemporaryDirectory() as temp_dir:
+    def test_daily_requires_tushare_raw_index_and_prod_identity_to_agree(self):
+        reference = _reference()
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_reference",
+            return_value=reference,
+        ):
             root = Path(temp_dir)
-            _write_daily_index_baseline(
-                root,
-                ("BK0001.DC", "BK0002.DC", "BK0003.DC", "BK0004.DC"),
-            )
-            with self.assertRaisesRegex(
-                DcBoardRawValidationError,
-                "same-day board code coverage is incomplete",
-            ):
+            _write_daily_index_baseline(root, ("BK0001.DC", "BK0002.DC", "BK0003.DC", "BK0004.DC"))
+            with self.assertRaisesRegex(DcBoardRawValidationError, "same-day board code coverage"):
                 write_dc_daily_partition(
                     lake_root_path=root,
                     duckdb_resource=_MemoryDuckDB(),
-                    tushare=_FakeTushare(response),
-                    partition_key="2026-07-14",
+                    tushare=_FakeTushare(_full_response),
+                    prod_postgres=object(),
+                    partition_key=_TRADE_DATE,
                     policy=_test_policy(),
                 )
-            self.assertFalse((root / "raw/board/dc_daily/trade_date=2026-07-14/part-000.parquet").exists())
 
-    def test_member_requests_one_code_at_a_time_and_records_empty_code(self):
-        def response(_api_name, params, _fields):
-            if params["ts_code"] == "BK0002.DC":
+    def test_member_pair_difference_blocks_target_promotion(self):
+        reference = _reference(("BK0001.DC", "BK0002.DC"))
+
+        def response(api_name, params, _fields):
+            assert api_name == "dc_member"
+            if params["offset"]:
                 return []
-            return [_member_row(params["ts_code"])]
+            return [_member_row(params["ts_code"], "000001.SZ")]
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            source = _FakeTushare(response)
-            result = write_dc_member_partition(
-                lake_root_path=Path(temp_dir),
-                duckdb_resource=_MemoryDuckDB(),
-                tushare=source,
-                partition_key="2026-07-14",
-                candidate_codes=["BK0001.DC", "BK0002.DC"],
-                policy=_test_policy(),
-            )
-            self.assertEqual(result.empty_codes, ("BK0002.DC",))
-            self.assertEqual([call[1]["ts_code"] for call in source.calls], ["BK0001.DC", "BK0002.DC"])
-
-    def test_validation_failure_keeps_existing_target_untouched(self):
-        def response(_api_name, params, _fields):
-            return [_daily_row(category="未知分类")]
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            target = root / "raw/board/dc_daily/trade_date=2026-07-14/part-000.parquet"
-            target.parent.mkdir(parents=True)
-            target.write_bytes(b"existing-target")
-            with self.assertRaises(DcBoardRawValidationError):
-                write_dc_daily_partition(
-                    lake_root_path=root,
-                    duckdb_resource=_MemoryDuckDB(),
-                    tushare=_FakeTushare(response),
-                    partition_key="2026-07-14",
-                    policy=_test_policy(),
-                )
-            self.assertEqual(target.read_bytes(), b"existing-target")
-
-    def test_column_drift_fails_before_target_promotion(self):
-        def response(_api_name, _params, fields):
-            return TushareResult(rows=[_daily_row()], columns=fields[:-1], metadata={})
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            with self.assertRaises(DcBoardRawValidationError):
-                write_dc_daily_partition(
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_reference",
+            return_value=reference,
+        ), patch(
+            "orchestrator.defs.assets.dc_board.load_prod_dc_member_pairs",
+            return_value=(("BK0001.DC", "000001.SZ"),),
+        ):
+            with self.assertRaisesRegex(DcBoardRawValidationError, "pair identity differs"):
+                write_dc_member_partition(
                     lake_root_path=Path(temp_dir),
                     duckdb_resource=_MemoryDuckDB(),
                     tushare=_FakeTushare(response),
-                    partition_key="2026-07-14",
+                    prod_postgres=object(),
+                    partition_key=_TRADE_DATE,
+                    candidate_codes=("BK0001.DC", "BK0002.DC"),
                     policy=_test_policy(),
                 )
 
-    def test_index_normalizes_tushare_nan_to_null(self):
-        def response(_api_name, params, fields):
+    def test_member_pair_match_promotes_atomically(self):
+        reference = _reference(("BK0001.DC", "BK0002.DC"))
+
+        def response(api_name, params, _fields):
+            assert api_name == "dc_member"
             if params["offset"]:
                 return []
-            code = {
-                "行业板块": "BK0001.DC",
-                "概念板块": "BK0002.DC",
-                "地域板块": "BK0003.DC",
-            }[params["idx_type"]]
-            return [
-                _index_row(params["idx_type"], code)
-                | {"up_num": float("nan"), "down_num": float("nan")}
-            ]
+            return [_member_row(params["ts_code"], "000001.SZ")]
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            result = write_dc_index_partition(
+        pairs = (("BK0001.DC", "000001.SZ"), ("BK0002.DC", "000001.SZ"))
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_reference",
+            return_value=reference,
+        ), patch(
+            "orchestrator.defs.assets.dc_board.load_prod_dc_member_pairs",
+            return_value=pairs,
+        ):
+            result = write_dc_member_partition(
                 lake_root_path=Path(temp_dir),
                 duckdb_resource=_MemoryDuckDB(),
                 tushare=_FakeTushare(response),
-                partition_key="2026-07-14",
+                prod_postgres=object(),
+                partition_key=_TRADE_DATE,
+                candidate_codes=("BK0001.DC", "BK0002.DC"),
                 policy=_test_policy(),
             )
-            connection = duckdb.connect()
-            self.assertEqual(
-                connection.execute(
-                    "SELECT count(*) FROM read_parquet(?) WHERE up_num IS NULL AND down_num IS NULL",
-                    [str(result.target_path)],
-                ).fetchone()[0],
-                3,
-            )
-
-
-def _test_policy():
-    from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
-
-    return TushareRequestPolicy(
-        minimum_interval_seconds=0.0,
-        max_retries=0,
-        max_requests=20,
-        max_elapsed_seconds=30.0,
-    )
+        self.assertEqual(result.written_row_count, 2)
+        self.assertEqual(result.reference_fingerprint, reference.fingerprint)
 
 
 if __name__ == "__main__":

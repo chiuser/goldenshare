@@ -2,11 +2,13 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import duckdb
 
 from orchestrator.defs.assets.dc_board import write_dc_member_partition
 from orchestrator.defs.resources import TushareResult
+from orchestrator.defs.run_contracts.dc_board import build_dc_board_prod_reference_snapshot
 from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
 
 
@@ -59,14 +61,30 @@ class DcBoardPerformanceTests(unittest.TestCase):
         )
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            result = write_dc_member_partition(
-                lake_root_path=Path(temp_dir),
-                duckdb_resource=_MemoryDuckDB(),
-                tushare=source,
-                partition_key="2026-07-14",
-                candidate_codes=codes,
-                policy=policy,
+            reference = build_dc_board_prod_reference_snapshot(
+                trade_date="2026-07-14",
+                index_identity=tuple(("行业板块", code) for code in codes),
+                daily_identity=tuple(("行业板块", code) for code in codes),
+                member_codes=codes,
+                member_row_count=len(codes),
             )
+            pairs = tuple((code, "000001.SZ") for code in codes)
+            with patch(
+                "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_reference",
+                return_value=reference,
+            ), patch(
+                "orchestrator.defs.assets.dc_board.load_prod_dc_member_pairs",
+                return_value=pairs,
+            ):
+                result = write_dc_member_partition(
+                    lake_root_path=Path(temp_dir),
+                    duckdb_resource=_MemoryDuckDB(),
+                    tushare=source,
+                    prod_postgres=object(),
+                    partition_key="2026-07-14",
+                    candidate_codes=codes,
+                    policy=policy,
+                )
             report = {
                 "code_count": len(codes),
                 "request_count": result.request_count,
