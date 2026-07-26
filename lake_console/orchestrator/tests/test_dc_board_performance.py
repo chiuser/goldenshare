@@ -8,7 +8,10 @@ import duckdb
 
 from orchestrator.defs.assets.dc_board import write_dc_member_partition
 from orchestrator.defs.resources import TushareResult
-from orchestrator.defs.run_contracts.dc_board import build_dc_board_prod_reference_snapshot
+from orchestrator.defs.run_contracts.dc_board import (
+    DC_BOARD_MAX_ELAPSED_MS,
+    build_dc_board_prod_reference_snapshot,
+)
 from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
 
 
@@ -57,7 +60,7 @@ class DcBoardPerformanceTests(unittest.TestCase):
             minimum_interval_seconds=0.0,
             max_retries=0,
             max_requests=1_200,
-            max_elapsed_seconds=300.0,
+            max_elapsed_seconds=DC_BOARD_MAX_ELAPSED_MS / 1000,
         )
 
         with tempfile.TemporaryDirectory() as temp_dir:

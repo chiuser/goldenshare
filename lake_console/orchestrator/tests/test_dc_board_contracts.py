@@ -153,4 +153,4 @@ def test_dc_board_catalog_has_six_explicit_entries() -> None:
         )
 
     assert DC_BOARD_MAX_REQUESTS_PER_PARTITION == 1_200
-    assert DC_BOARD_MAX_ELAPSED_MS == 300_000
+    assert DC_BOARD_MAX_ELAPSED_MS == 600_000

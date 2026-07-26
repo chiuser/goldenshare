@@ -461,7 +461,7 @@ class TushareFetchSummary:
 3. 只对幂等请求重试，最多 3 次；限流/网络瞬态错误使用 `1/2/4s` 指数退避，单次最多 `8s`，不得无限等待；权限、参数、字段和业务契约错误不重试。
 4. 每次重试和分页记录耗时；不把完整 rows 写入 cursor。
 5. 连续空页是结束条件，但 page 0 空结果由资产语义决定；`dc_index` 允许单类型空，`dc_member`/`dc_daily` 的 open date 全空失败。
-6. 单 partition 超过 `1,200` 次请求或 `300s` elapsed budget 时停止该 partition，输出预算原因和失败/未尝试代码清单，整日不写 Raw，避免重试风暴。
+6. 单 partition 超过 `1,200` 次请求或 `600s` elapsed budget 时停止该 partition，输出预算原因和失败/未尝试代码清单，整日不写 Raw，避免重试风暴。
 
 ### 7.2 并发、恢复和幂等
 
@@ -479,7 +479,7 @@ class TushareFetchSummary:
 | --- | ---: | ---: |
 | `dc_index` | 376 | `376 * 3 = 1,128` 类型请求，超 5,000 行再分页 |
 | `dc_member` Bootstrap | 376 | 376 个 prod 只读日期导出；请求次数由 DB cursor/chunk 决定，必须实测单日 rows、chunk 数、耗时和总吞吐 |
-| `dc_member` 日常 | 每个交易日 | 当前观测约 1,023 个代码请求；使用 `0.13s` 最小间隔、最多 1,200 请求、最多 300s；超过预算整日 fail-closed |
+| `dc_member` 日常 | 每个交易日 | 当前观测约 1,023 个代码请求；使用 `0.13s` 最小间隔、最多 1,200 请求、最多 600s；超过预算整日 fail-closed |
 | `dc_daily` | 610 | 约 610 个日期请求，超 2,000 行再分页 |
 
 旧的 8,882 次全 Tushare 估算已失效，也不再用于 `dc_member` Bootstrap。新预算拆开计算：`dc_member` Bootstrap 由 prod DB 流式导出吞吐决定；`dc_member` 日常由 M1C 的代码请求预算决定；`dc_index` / `dc_daily` 仍按 Tushare 请求量计算。不能因为 Bootstrap 使用 prod 就取消日常 Tushare 的请求、配额、空结果和失败恢复门禁。
@@ -860,12 +860,18 @@ M1B 结论：**通过**。本轮没有写 staging，因此不把 source rows 伪
 profiling 结果（2026-07-14）：候选集合来自当日 `dc_index` 三类代码并集；由于当前没有已完成 Raw `dc_member` 分区，未额外并入 member-only 代码。四个日期候选数为 `2024-12-20=458`、`2025-02-19=462`、`2025-05-30=552`、`2026-07-13=1,022`。每日期抽取 80 个确定性代码，使用工程 `TushareResource.call`、显式字段和 `limit=5000/offset` 做 320 个单代码请求。
 
 - 原始无界连续请求约 `10.2 req/s` 时真实触发 Tushare `dc_member` 频率超限；这个失败事实保留为反例，不能回流。
-- 新增 `orchestrator/defs/tushare_request_policy.py`，提供 `0.13s` 最小间隔、最多 3 次重试、`1/2/4s` 指数退避、单次退避最多 `8s`、单分区最多 `1,200` 次请求、单分区最多 `300s`。权限/参数/字段等确定性错误不重试；限流和网络瞬态错误才重试。分页每一页共用同一预算。
+- 2026-07-14 的 profiling 版本新增 `orchestrator/defs/tushare_request_policy.py`，提供 `0.13s` 最小间隔、最多 3 次重试、`1/2/4s` 指数退避、单次退避最多 `8s`、单分区最多 `1,200` 次请求、单分区最多 `300s`。权限/参数/字段等确定性错误不重试；限流和网络瞬态错误才重试。分页每一页共用同一预算。
 - 安全重测共 323 个分页请求，其中 3 次重试全部恢复；成功/空结果/失败/未尝试代码为 `286/37/0/0`，多页代码 `0`，日期/代码/空主键/重复业务主键错误为 `0`。请求 p50 `46.112ms`、p95 `136.134ms`、最大 `1,382.451ms`，墙钟 `59,507.589ms`；最近日 1,022 个候选的硬下限仍为 `122.64s`。
 - 空结果探针正常返回 0 行；合成超时后第二次真实请求返回 444 行；两者均通过有界策略且没有任何正式写入。
 - 报告：`/private/tmp/dc_board_m1c_validation_20260714.json`；详情：`/private/tmp/dc_board_m1c_member_request_profile_throttled_20260714.json`。
 
 M1C 结论：**整改后通过**。进入 M2 的条件已满足，但正式 Raw writer 必须复用该策略：任何失败代码、预算超限或分页未完成都整日 fail-closed，并把失败/未尝试代码写入本次 run metadata，而不是写入 cursor 或伪装成空结果。
+
+### M1C 后续预算校准（2026-07-24）
+
+上述 300 秒是 M1C profiling 的历史事实。正式运行 `raw_tushare_dc_member_update_job[2026-07-23]` 证明当前源端延迟可以使 `802 / 1,022` 个无重试请求耗尽 `300.070s`，剩余 220 个代码未尝试；writer 在对账和 promote 前停止，既有 Lake 文件未受影响。管理员已确认把当前 `DC_BOARD_MAX_ELAPSED_MS` 改为 **600,000ms / 600s**。
+
+该调整不改变共享 `TushareRequestPolicy` 的默认 300 秒，也不改变 300 秒的 prod reference stability 间隔。DC member 仍受 `1,200` 次请求硬上限、`0.13s` 限速、3 次重试和 source/prod 完整 pair 对账保护；600 秒耗尽时仍返回 `max_elapsed_seconds_exceeded`，整日 fail-closed。
 
 ### M2：Contract / Catalog 基础
 

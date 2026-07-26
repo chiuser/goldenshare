@@ -296,7 +296,7 @@ M9-R 的 Raw sensor 曾使用“分区已注册 + 有限源探测 + first-not-re
 | `dc_daily` | 1 次，小页请求 | 非空、日期合法、出现正式 category 集合；完整 run 再验证全部板块代码集合 | 最多 1 次探测请求、单次 probe 8 秒 |
 | `dc_member` | 3-5 次，每个确定性板块代码一次 | 请求无错误、返回代码与请求代码一致；空响应不能单独证明完整，最终以全量代码请求闭环为准 | 最多 5 次探测请求、单次 probe 8 秒 |
 
-探测策略不得有无限重试；探测总预算超限就 skip，避免 Dagster user-code RPC 接近 60 秒 deadline。完整生产 run 继续使用 M1C 的 1,200 请求 / 300 秒分区预算。
+探测策略不得有无限重试；探测总预算超限就 skip，避免 Dagster user-code RPC 接近 60 秒 deadline。完整生产 run 使用 1,200 请求 / 600 秒分区预算。
 
 #### 5.4.3 “更新成功”的正式定义
 
@@ -572,7 +572,7 @@ SSE open dates
 | `dc_index` | 3 个 `idx_type`，每个按页 | 通常 3 页级请求，超限按页增加 |
 | `dc_daily` | 按日期分页 | 当前约 1 页，严格按 2,000 上限分页 |
 | `dc_member` Bootstrap | prod DB 只读、按交易日流式导出 | 不产生 Tushare 历史请求；必须通过 prod 覆盖、主键和行数审计 |
-| `dc_member` 日常 | 每个候选 `ts_code` 单独请求，单代码分页 | 当前约 1,023 次/日；固定最小间隔 `0.13s`、最多 1,200 次、最多 300s，超限整日 fail-closed |
+| `dc_member` 日常 | 每个候选 `ts_code` 单独请求，单代码分页 | 当前约 1,023 次/日；固定最小间隔 `0.13s`、最多 1,200 次、最多 600s，超限整日 fail-closed |
 
 不接受的情况：
 
@@ -848,6 +848,12 @@ M10 的唯一目标是拒绝“源端已经返回少量行、但当天目录或�
 - 安全重测共 323 个分页请求；成功/空结果/失败/未尝试代码为 `286/37/0/0`，其中 3 次重试全部恢复，多页代码 `0`，日期/代码/空主键/重复业务主键错误均为 `0`。p50 `46.112ms`、p95 `136.134ms`、最大 `1,382.451ms`，总墙钟时间 `59,507.589ms`。最近日 `1,022` 个候选的硬下限仍为 `122.64s`。
 - 空结果探针 `BK9999.DC` 正常返回 0 行；合成超时后第二次真实请求恢复，返回 444 行；两者均通过策略层且没有任何正式写入。
 - M1C 结论：**整改后通过**。正式 Raw writer 必须使用该策略，任何失败代码、预算超限或分页未完成都整日 fail-closed；详细报告：`/private/tmp/dc_board_m1c_member_request_profile_throttled_20260714.json`，汇总报告：`/private/tmp/dc_board_m1c_validation_20260714.json`。
+
+### 12.7 2026-07-24 日常请求预算校准
+
+M1C 的 300 秒是 2026-07-14 profiling 的历史基线，不再是当前生效值。2026-07-24 的正式 `raw_tushare_dc_member_update_job[2026-07-23]` 在无重试的情况下于 `300.070s` 只完成 `802 / 1,022` 个板块请求，触发 `max_elapsed_seconds_exceeded`，未写入或覆盖任何 Lake 文件。管理员据此确认将 DC member 的单分区总耗时预算调整为 **600 秒**。
+
+本次只调整 `DC_BOARD_MAX_ELAPSED_MS`；`0.13s` 最小间隔、最多 `1,200` 次请求、最多 3 次重试、分页共享预算、source/prod identity 对照和 staging 原子 promote 均不变。600 秒仍是有界预算：任一代码失败、未尝试、超出 600 秒或对照不一致时，整日继续 fail-closed，不产生成功 materialization。
 
 详细报告：`/private/tmp/dc_board_m1_tushare_validation_report_20260714.json`。
 
