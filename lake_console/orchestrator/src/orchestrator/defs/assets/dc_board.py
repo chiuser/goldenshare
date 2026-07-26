@@ -7,8 +7,8 @@ contracts have been proven.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass, field as dataclass_field
 from datetime import date, datetime
 import math
 from numbers import Real
@@ -48,7 +48,6 @@ from orchestrator.defs.run_contracts.dc_board import (
     DC_DAILY_FIELDS,
     DC_DAILY_PAGE_LIMIT,
     DC_INDEX_FIELDS,
-    DC_INDEX_PAGE_LIMIT,
     DC_INDEX_TYPES,
     DC_MEMBER_FIELDS,
     DC_MEMBER_PAGE_LIMIT,
@@ -58,9 +57,8 @@ from orchestrator.defs.run_contracts.configs import (
     validate_dc_board_index_reference_config,
 )
 from orchestrator.defs.tushare_request_policy import (
+    BoundedCodePageRequestSession,
     BoundedCodeRequestResult,
-    TushareRequestPolicy,
-    execute_bounded_code_pages,
     execute_bounded_pages,
 )
 
@@ -106,9 +104,10 @@ class DcBoardRawWriteResult:
     chunk_count: int = 0
     reference_fingerprint: str | None = None
     reference_observed_at: str | None = None
+    source_closure_diagnostics: Mapping[str, int] = dataclass_field(default_factory=dict)
 
     def to_metadata(self) -> dict[str, object]:
-        return {
+        metadata: dict[str, object] = {
             "partition_key": self.partition_key,
             "source_method": self.source_method,
             "source_closure_status": "validated_before_promote",
@@ -130,6 +129,17 @@ class DcBoardRawWriteResult:
             "reference_fingerprint": self.reference_fingerprint,
             "reference_observed_at": self.reference_observed_at,
         }
+        metadata.update(self.source_closure_diagnostics)
+        return metadata
+
+
+@dataclass(frozen=True, slots=True)
+class _DcMemberPairDiff:
+    missing_pair_count: int
+    extra_pair_count: int
+    repair_codes: tuple[str, ...]
+    missing_pair_samples: tuple[tuple[str, str], ...]
+    extra_pair_samples: tuple[tuple[str, str], ...]
 
 
 def _canonical_trade_date(value: object) -> str | None:
@@ -287,6 +297,7 @@ def _promote_table(
     chunk_count: int = 0,
     reference_fingerprint: str | None = None,
     reference_observed_at: str | None = None,
+    source_closure_diagnostics: Mapping[str, int] | None = None,
 ) -> DcBoardRawWriteResult:
     fields = tuple(_RAW_TYPES[dataset])
     raw_trade_date = _iso_to_raw_trade_date(partition_key)
@@ -365,6 +376,7 @@ def _promote_table(
         chunk_count=chunk_count,
         reference_fingerprint=reference_fingerprint,
         reference_observed_at=reference_observed_at,
+        source_closure_diagnostics=source_closure_diagnostics or {},
     )
 
 
@@ -454,13 +466,14 @@ def _validate_dc_daily_same_day_index_coverage(
         )
 
 
-def _validate_dc_member_pairs_against_prod(
+def _load_prod_dc_member_pairs_for_comparison(
     connection,
     *,
     prod_pairs: Sequence[tuple[str, str]],
 ) -> None:
-    """Compare source and prod member pairs in DuckDB before target promotion."""
+    """Load the fixed prod member-pair baseline for one writer invocation."""
 
+    connection.execute("DROP TABLE IF EXISTS prod_dc_member_pairs")
     connection.execute(
         "CREATE TEMP TABLE prod_dc_member_pairs (ts_code VARCHAR, con_code VARCHAR)"
     )
@@ -468,36 +481,188 @@ def _validate_dc_member_pairs_against_prod(
         "INSERT INTO prod_dc_member_pairs (ts_code, con_code) VALUES (?, ?)",
         prod_pairs,
     )
-    row = connection.execute(
+
+
+def _inspect_dc_member_pair_diff(connection) -> _DcMemberPairDiff:
+    """Return the current DuckDB source/prod member-pair difference."""
+
+    connection.execute("DROP TABLE IF EXISTS dc_member_missing_pairs")
+    connection.execute("DROP TABLE IF EXISTS dc_member_extra_pairs")
+    connection.execute(
         """
+        CREATE TEMP TABLE dc_member_missing_pairs AS
         WITH source_pairs AS (
             SELECT DISTINCT
                 upper(trim(CAST(ts_code AS VARCHAR))) AS ts_code,
                 upper(trim(CAST(con_code AS VARCHAR))) AS con_code
             FROM dc_board_rows
         ), prod_pairs AS (
-            SELECT DISTINCT ts_code, con_code
+            SELECT DISTINCT
+                upper(trim(CAST(ts_code AS VARCHAR))) AS ts_code,
+                upper(trim(CAST(con_code AS VARCHAR))) AS con_code
             FROM prod_dc_member_pairs
-        ), missing_pairs AS (
-            SELECT ts_code, con_code FROM prod_pairs
-            EXCEPT
-            SELECT ts_code, con_code FROM source_pairs
-        ), extra_pairs AS (
-            SELECT ts_code, con_code FROM source_pairs
-            EXCEPT
-            SELECT ts_code, con_code FROM prod_pairs
         )
-        SELECT
-            (SELECT count(*) FROM missing_pairs),
-            (SELECT count(*) FROM extra_pairs)
+        SELECT ts_code, con_code FROM prod_pairs
+        EXCEPT
+        SELECT ts_code, con_code FROM source_pairs
         """
-    ).fetchone()
-    missing_count, extra_count = (int(value or 0) for value in row)
-    if missing_count or extra_count:
-        raise DcBoardRawValidationError(
-            "dc_member Tushare/prod pair identity differs before target promotion: "
-            f"missing_pair_count={missing_count}, extra_pair_count={extra_count}."
+    )
+    connection.execute(
+        """
+        CREATE TEMP TABLE dc_member_extra_pairs AS
+        WITH source_pairs AS (
+            SELECT DISTINCT
+                upper(trim(CAST(ts_code AS VARCHAR))) AS ts_code,
+                upper(trim(CAST(con_code AS VARCHAR))) AS con_code
+            FROM dc_board_rows
+        ), prod_pairs AS (
+            SELECT DISTINCT
+                upper(trim(CAST(ts_code AS VARCHAR))) AS ts_code,
+                upper(trim(CAST(con_code AS VARCHAR))) AS con_code
+            FROM prod_dc_member_pairs
         )
+        SELECT ts_code, con_code FROM source_pairs
+        EXCEPT
+        SELECT ts_code, con_code FROM prod_pairs
+        """
+    )
+    missing_count = int(
+        connection.execute("SELECT count(*) FROM dc_member_missing_pairs").fetchone()[0]
+    )
+    extra_count = int(
+        connection.execute("SELECT count(*) FROM dc_member_extra_pairs").fetchone()[0]
+    )
+    repair_codes = tuple(
+        str(row[0])
+        for row in connection.execute(
+            """
+            SELECT DISTINCT ts_code
+            FROM dc_member_missing_pairs
+            ORDER BY ts_code
+            """
+        ).fetchall()
+    )
+    missing_pair_samples = tuple(
+        (str(ts_code), str(con_code))
+        for ts_code, con_code in connection.execute(
+            """
+            SELECT ts_code, con_code
+            FROM dc_member_missing_pairs
+            ORDER BY ts_code, con_code
+            LIMIT 20
+            """
+        ).fetchall()
+    )
+    extra_pair_samples = tuple(
+        (str(ts_code), str(con_code))
+        for ts_code, con_code in connection.execute(
+            """
+            SELECT ts_code, con_code
+            FROM dc_member_extra_pairs
+            ORDER BY ts_code, con_code
+            LIMIT 20
+            """
+        ).fetchall()
+    )
+    return _DcMemberPairDiff(
+        missing_pair_count=missing_count,
+        extra_pair_count=extra_count,
+        repair_codes=repair_codes,
+        missing_pair_samples=missing_pair_samples,
+        extra_pair_samples=extra_pair_samples,
+    )
+
+
+def _raise_dc_member_pair_diff_error(
+    pair_diff: _DcMemberPairDiff,
+    *,
+    phase: str,
+) -> None:
+    raise DcBoardRawValidationError(
+        "dc_member Tushare/prod pair identity differs before target promotion: "
+        f"phase={phase}, "
+        f"missing_pair_count={pair_diff.missing_pair_count}, "
+        f"extra_pair_count={pair_diff.extra_pair_count}, "
+        f"missing_pair_samples={list(pair_diff.missing_pair_samples)}, "
+        f"extra_pair_samples={list(pair_diff.extra_pair_samples)}."
+    )
+
+
+def _assert_dc_member_rows_valid_for_pair_comparison(
+    connection,
+    *,
+    partition_key: str,
+) -> None:
+    """Reject structural member defects before deciding whether a retry is safe."""
+
+    duplicate_count, invalid_count, out_of_partition_count, blank_name_count = _validation_counts(
+        connection,
+        "dc_member",
+        _iso_to_raw_trade_date(partition_key),
+    )
+    if duplicate_count or invalid_count or blank_name_count or out_of_partition_count:
+        raise DcBoardRawValidationError(
+            f"dc_member validation failed for {partition_key}: "
+            f"duplicate_key_count={duplicate_count}, "
+            f"invalid_code_count={invalid_count}, "
+            f"blank_name_count={blank_name_count}, "
+            f"out_of_partition_count={out_of_partition_count}."
+        )
+
+
+def _replace_dc_member_rows_for_repair_codes(
+    connection,
+    *,
+    repair_codes: Sequence[str],
+    replacement_rows: Sequence[Mapping[str, object]],
+) -> None:
+    """Replace full member rows for retried board codes inside the temporary table."""
+
+    connection.execute("DROP TABLE IF EXISTS dc_member_repair_codes")
+    connection.execute("CREATE TEMP TABLE dc_member_repair_codes (ts_code VARCHAR)")
+    connection.executemany(
+        "INSERT INTO dc_member_repair_codes (ts_code) VALUES (?)",
+        [(code,) for code in repair_codes],
+    )
+    connection.execute(
+        """
+        DELETE FROM dc_board_rows
+        WHERE ts_code IN (SELECT ts_code FROM dc_member_repair_codes)
+        """
+    )
+    _insert_rows(connection, fields=DC_MEMBER_FIELDS, rows=replacement_rows)
+
+
+def _dc_member_rows_from_request_result(
+    result: BoundedCodeRequestResult[TushareResult],
+    *,
+    phase: str,
+) -> list[dict[str, object]]:
+    """Return validated member rows from one bounded request batch."""
+
+    if not result.ready:
+        details = result.to_details()
+        details["empty_codes"] = list(result.empty_codes[:20])
+        details["empty_code_list_truncated"] = len(result.empty_codes) > 20
+        raise DcBoardRawValidationError(
+            f"dc_member {phase} request failed: {details}"
+        )
+    mismatched_codes = [
+        row
+        for code in result.successful_codes
+        for row in result.rows_by_code[code]
+        if row.get("ts_code") != code
+    ]
+    if mismatched_codes:
+        raise DcBoardRawValidationError(
+            "dc_member response contains rows for a different requested board code: "
+            f"phase={phase}, sample={mismatched_codes[:3]}"
+        )
+    return [
+        row
+        for code in result.successful_codes
+        for row in result.rows_by_code[code]
+    ]
 
 
 def write_dc_index_partition(
@@ -680,7 +845,8 @@ def write_dc_member_partition(
         )
     with duckdb_resource.connect() as connection:
         _create_table(connection, "dc_member")
-        result: BoundedCodeRequestResult[TushareResult] = execute_bounded_code_pages(
+        request_session = BoundedCodePageRequestSession(policy=policy)
+        initial_result = request_session.execute(
             codes=normalized_codes,
             request_page=lambda code, offset: tushare.call(
                 "dc_member",
@@ -694,30 +860,21 @@ def write_dc_member_partition(
             ),
             extract_rows=lambda response: _tushare_extract_rows(response, DC_MEMBER_FIELDS),
             page_size=DC_MEMBER_PAGE_LIMIT,
-            policy=policy,
             row_key=lambda row: (row.get("trade_date"), row.get("ts_code"), row.get("con_code")),
         )
-        if not result.ready:
-            raise DcBoardRawValidationError(
-                f"dc_member request failed: {result.to_details()}"
-            )
-        mismatched_codes = [
-            row
-            for code in result.successful_codes
-            for row in result.rows_by_code[code]
-            if row.get("ts_code") != code
-        ]
-        if mismatched_codes:
-            raise DcBoardRawValidationError(
-                "dc_member response contains rows for a different requested board code: "
-                f"sample={mismatched_codes[:3]}"
-            )
-        all_rows = [row for code in result.successful_codes for row in result.rows_by_code[code]]
-        if not all_rows:
+        initial_rows = _dc_member_rows_from_request_result(
+            initial_result,
+            phase="initial",
+        )
+        if not initial_rows:
             raise DcBoardRawValidationError(
                 f"dc_member returned no rows for any candidate code on {partition_key}."
             )
-        _insert_rows(connection, fields=DC_MEMBER_FIELDS, rows=all_rows)
+        _insert_rows(connection, fields=DC_MEMBER_FIELDS, rows=initial_rows)
+        _assert_dc_member_rows_valid_for_pair_comparison(
+            connection,
+            partition_key=partition_key,
+        )
         try:
             prod_pairs = load_prod_dc_member_pairs(
                 prod_postgres=prod_postgres,
@@ -725,19 +882,84 @@ def write_dc_member_partition(
             )
         except DcBoardReferenceValidationError as exc:
             raise DcBoardRawValidationError(str(exc)) from exc
-        _validate_dc_member_pairs_against_prod(connection, prod_pairs=prod_pairs)
+        _load_prod_dc_member_pairs_for_comparison(connection, prod_pairs=prod_pairs)
+        initial_pair_diff = _inspect_dc_member_pair_diff(connection)
+        repair_result: BoundedCodeRequestResult[TushareResult] | None = None
+        final_pair_diff = initial_pair_diff
+        if initial_pair_diff.extra_pair_count:
+            _raise_dc_member_pair_diff_error(initial_pair_diff, phase="initial")
+        if initial_pair_diff.missing_pair_count:
+            repair_result = request_session.execute(
+                codes=initial_pair_diff.repair_codes,
+                request_page=lambda code, offset: tushare.call(
+                    "dc_member",
+                    {
+                        "trade_date": partition_key.replace("-", ""),
+                        "ts_code": code,
+                        "limit": DC_MEMBER_PAGE_LIMIT,
+                        "offset": offset,
+                    },
+                    DC_MEMBER_FIELDS,
+                ),
+                extract_rows=lambda response: _tushare_extract_rows(
+                    response,
+                    DC_MEMBER_FIELDS,
+                ),
+                page_size=DC_MEMBER_PAGE_LIMIT,
+                row_key=lambda row: (
+                    row.get("trade_date"),
+                    row.get("ts_code"),
+                    row.get("con_code"),
+                ),
+            )
+            repair_rows = _dc_member_rows_from_request_result(
+                repair_result,
+                phase="missing_pair_repair",
+            )
+            _replace_dc_member_rows_for_repair_codes(
+                connection,
+                repair_codes=initial_pair_diff.repair_codes,
+                replacement_rows=repair_rows,
+            )
+            _assert_dc_member_rows_valid_for_pair_comparison(
+                connection,
+                partition_key=partition_key,
+            )
+            final_pair_diff = _inspect_dc_member_pair_diff(connection)
+        if final_pair_diff.missing_pair_count or final_pair_diff.extra_pair_count:
+            _raise_dc_member_pair_diff_error(final_pair_diff, phase="final")
+
+        repair_page_count = (
+            sum(repair_result.page_counts.values()) if repair_result is not None else 0
+        )
+        repair_request_count = repair_result.request_count if repair_result is not None else 0
+        repair_retry_count = repair_result.retry_count if repair_result is not None else 0
         return _promote_table(
             connection,
             dataset="dc_member",
             partition_key=partition_key,
             target_path=raw_dc_member_path(lake_root_path, partition_key),
             source_method="tushare_api_by_ts_code",
-            request_count=result.request_count,
-            page_count=sum(result.page_counts.values()),
-            retry_count=result.retry_count,
+            request_count=request_session.request_count,
+            page_count=sum(initial_result.page_counts.values()) + repair_page_count,
+            retry_count=request_session.retry_count,
             started_at=started_at,
-            empty_codes=result.empty_codes,
+            empty_codes=initial_result.empty_codes,
             reference_fingerprint=fresh_reference.fingerprint,
+            source_closure_diagnostics={
+                "member_initial_missing_pair_count": initial_pair_diff.missing_pair_count,
+                "member_repair_code_count": len(initial_pair_diff.repair_codes)
+                if repair_result is not None
+                else 0,
+                "member_repair_request_count": repair_request_count,
+                "member_repair_page_count": repair_page_count,
+                "member_repair_retry_count": repair_retry_count,
+                "member_recovered_pair_count": (
+                    initial_pair_diff.missing_pair_count - final_pair_diff.missing_pair_count
+                ),
+                "member_final_missing_pair_count": final_pair_diff.missing_pair_count,
+                "member_final_extra_pair_count": final_pair_diff.extra_pair_count,
+            },
         )
 
 

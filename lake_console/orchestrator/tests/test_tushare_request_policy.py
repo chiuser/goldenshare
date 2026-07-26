@@ -1,6 +1,7 @@
 import unittest
 
 from orchestrator.defs.tushare_request_policy import (
+    BoundedCodePageRequestSession,
     TUSHARE_FAILURE_NON_RETRYABLE,
     TUSHARE_FAILURE_RATE_LIMIT,
     TUSHARE_FAILURE_TRANSIENT,
@@ -288,6 +289,87 @@ class TushareRequestPolicyTests(unittest.TestCase):
 
         self.assertFalse(result.ready)
         self.assertEqual(result.failed_codes[0].code, "000001.SZ")
+
+    def test_code_page_session_shares_rate_limit_and_request_budget_across_batches(self) -> None:
+        clock = _FakeClock()
+        calls: list[str] = []
+        session = BoundedCodePageRequestSession(
+            policy=TushareRequestPolicy(
+                minimum_interval_seconds=0.13,
+                max_retries=0,
+                max_requests=3,
+                max_elapsed_seconds=30.0,
+            ),
+            clock=clock.clock,
+            sleep_fn=clock.sleep,
+        )
+
+        first_result = session.execute(
+            codes=["BK0001.DC", "BK0002.DC"],
+            request_page=lambda code, _offset: calls.append(code) or [{"ts_code": code}],
+            extract_rows=lambda response: response,
+            page_size=5_000,
+        )
+        second_result = session.execute(
+            codes=["BK0003.DC"],
+            request_page=lambda code, _offset: calls.append(code) or [{"ts_code": code}],
+            extract_rows=lambda response: response,
+            page_size=5_000,
+        )
+        exhausted_result = session.execute(
+            codes=["BK0004.DC"],
+            request_page=lambda code, _offset: calls.append(code) or [{"ts_code": code}],
+            extract_rows=lambda response: response,
+            page_size=5_000,
+        )
+
+        self.assertTrue(first_result.ready)
+        self.assertTrue(second_result.ready)
+        self.assertEqual(first_result.request_count, 2)
+        self.assertEqual(second_result.request_count, 1)
+        self.assertEqual(session.request_count, 3)
+        self.assertEqual(session.remaining_request_count, 0)
+        self.assertEqual(calls, ["BK0001.DC", "BK0002.DC", "BK0003.DC"])
+        self.assertEqual(clock.sleeps, [0.13, 0.13])
+        self.assertFalse(exhausted_result.ready)
+        self.assertEqual(
+            exhausted_result.budget_reason,
+            "code_scope_exceeds_remaining_request_budget",
+        )
+
+    def test_code_page_session_shares_elapsed_time_budget_across_batches(self) -> None:
+        clock = _FakeClock()
+        calls: list[str] = []
+        session = BoundedCodePageRequestSession(
+            policy=TushareRequestPolicy(
+                minimum_interval_seconds=0.0,
+                max_retries=0,
+                max_requests=3,
+                max_elapsed_seconds=30.0,
+            ),
+            clock=clock.clock,
+            sleep_fn=clock.sleep,
+        )
+
+        first_result = session.execute(
+            codes=["BK0001.DC"],
+            request_page=lambda code, _offset: calls.append(code) or [{"ts_code": code}],
+            extract_rows=lambda response: response,
+            page_size=5_000,
+        )
+        clock.now = 30.0
+        second_result = session.execute(
+            codes=["BK0002.DC"],
+            request_page=lambda code, _offset: calls.append(code) or [{"ts_code": code}],
+            extract_rows=lambda response: response,
+            page_size=5_000,
+        )
+
+        self.assertTrue(first_result.ready)
+        self.assertFalse(second_result.ready)
+        self.assertEqual(second_result.budget_reason, "max_elapsed_seconds_exceeded")
+        self.assertEqual(session.request_count, 1)
+        self.assertEqual(calls, ["BK0001.DC"])
 
 
 if __name__ == "__main__":

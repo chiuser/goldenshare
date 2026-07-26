@@ -1163,7 +1163,7 @@ M9-R 通过条件：
 
 本轮本地回归：板块 Raw/Silver/Gold 定义、readiness、source probe、分区注册、关系审计、临时 lake 和静态门禁共 `155 passed`；未运行 `dg`、未启用 sensor、未写正式 lake 或 Dagster event。
 
-### M10：稳定 prod 基线与完整 Tushare 对照（代码完成，待正式审计/启用）
+### M10：稳定 prod 基线与完整 Tushare 对照（M10/M10.1 代码完成，待正式审计/启用）
 
 M10 是本 LLD 当前唯一的 Raw 日常 source-finalization 方案。它的目标是拒绝“源端能返回少量行但尚未
 发布完整当天目录”的中间状态；不增加 Dagster 事件、check、资产、job、sensor、分区或 Lake 状态文件。
@@ -1185,9 +1185,70 @@ M10 是本 LLD 当前唯一的 Raw 日常 source-finalization 方案。它的目
 6. **T5 正式只读审计（待单独批准）**：读取当前 prod reference 与 Tushare 对照，输出请求数、行数、hash、耗时。
    通过后才单独决定 Definitions 验证和 sensor 启用策略；M10 本身不写 Lake、prod、Dagster DB 或动态分区。
 
+#### M10.1：`dc_member` 成功但不完整响应的一轮定向重试（代码与本地验证已完成）
+
+**问题边界。** 当前 `write_dc_member_partition(...)` 使用 `execute_bounded_code_pages(...)` 完成当天全部
+板块请求，再把 DuckDB 临时表 `dc_board_rows` 与 prod `(ts_code, con_code)` 做双向差集。2026-07-24 的两次
+正式 run 证明：Tushare 可能在没有抛出网络异常的情况下少返回成员关系；现有 policy 将这类调用视为成功，
+最终只能在 pair 差集阶段 fail closed。该行为没有写坏 Lake，但也没有在同一 run 内恢复瞬时少返回。
+
+**必须保持的硬口径。**
+
+1. Tushare 仍是日常 member 的唯一业务来源；prod 只提供同日只读 identity 基线，严禁用 prod 行填补
+   Tushare 缺行。
+2. 首轮请求、分页、字段验证、候选集合、staging、原子 promote、资产键、check、job、sensor、分区、run key
+   和 Lake schema 全部保持不变。
+3. 只有“首轮请求全部完成、无请求/字段/日期/key 错误，且 pair 差异仅为 missing”才能进入一轮定向重试。
+   extra pair、重复/空 key、日期错误、跨请求代码响应、列漂移、failed/unattempted code 一律直接失败。
+4. 首轮和定向重试必须共享**同一个** request runner：最小间隔 `0.13s`、最多 3 次网络异常重试、
+   `1/2/4s` 退避（单次最多 `8s`）、总请求最多 `1,200`、总耗时最多 `600s`。禁止第二轮重新构造 policy
+   而获得新的计数或时间预算。
+5. 只允许一轮：将 missing pair 按 `ts_code` 去重、排序，逐板块重新分页请求；用该板块的完整第二轮行替换
+   临时表中的第一轮行，再做一次完整 pair 双向差集。最终 diff 非零或预算停止时不 promote。
+6. member 全量请求和 pair 对照仍只在 asset run 内完成。sensor 仍只做最近 10 日期 readiness 与同日 raw index
+   frontier，不允许把成员请求或约九万级 pair 对照搬入热路径。
+
+**精确代码落点。**
+
+| 位置 | 变更 |
+| --- | --- |
+| `defs/tushare_request_policy.py` | 保留 `execute_bounded_code_pages(...)` 的既有调用者语义；抽出一个由 session 持有 `_BoundedRequestRunner` 的公开、有界分页执行入口，使同一 writer 可以先执行首轮、再执行定向轮，而不重置 request count、elapsed time 或 rate limiter。不得把 DC 业务差集逻辑放入通用 policy。 |
+| `defs/assets/dc_board.py` | 将 `_validate_dc_member_pairs_against_prod(...)` 收敛为可返回 missing/extra counts、排序后的 repair code scope 和有限样本的内部 diff helper；`write_dc_member_partition(...)` 在 missing-only 时调用同一 session 的第二轮，删除临时表内这些 `ts_code` 的首轮行并写入第二轮行，然后复用最终校验与既有 `_promote_table(...)`。 |
+| `defs/assets/dc_board.py` 的结果/metadata 路径 | 只增加聚合诊断字段：首轮 missing pair 数、repair code 数、repair request/page/retry 数、最终 pair diff 和总耗时。失败异常最多附 20 个样本；禁止把完整 code/pair 集合写入 metadata、cursor 或 run config。 |
+| `defs/asset_guards/dc_board_source_probe.py`、`defs/sensors/dc_board_sensor.py` | 不改 member sensor 的请求范围、最小间隔、cursor runtime state、run key 或 run request。M10.1 不增加 sensor source probe。 |
+
+现有 `execute_bounded_code_pages(...)` 每次调用都会新建 `_BoundedRequestRunner`；因此实现不能在 pair diff 后简单再调用一次同名 helper。若这样做，会错误地重新获得 1,200 次和 600 秒预算，违反本 LLD。新 session/continuation 入口必须让两轮共享同一计数器、时钟和 rate limiter，并在测试中直接断言总计数和总 elapsed 边界。
+
+**测试与性能门禁。**
+
+1. `tests/test_tushare_request_policy.py`：验证两轮 session 的请求间隔、retry/backoff、分页和累计
+   request/time budget；第二轮不能重置首轮额度。
+2. `tests/test_dc_board_raw_io.py`：覆盖首轮无差异不发第二轮、单/多板块 missing-only 成功恢复、第二轮
+   replace 而非 append、重试仍缺失不 promote、extra/重复/空 key/日期错误/请求错误不进入 repair、已有目标文件
+   在任意失败下保持原样。
+3. `tests/test_dc_board_performance.py`：记录首轮、定向轮与合计的 request/page/retry/elapsed；正常路径额外
+   请求必须为 0，异常路径只等于 repair scope 的分页请求。用 1,022 代码首轮和临界剩余额度验证超过
+   `1,200` 或 `600s` 时 fail closed。
+4. `tests/test_dc_board_sensors.py`、`tests/test_run_contract_static_gates.py`：锁定 member sensor 不导入或调用
+   member 全量 request/pair diff，run key 和 600 秒 sensor 间隔不变；静态禁止“第二轮新 policy/new budget”。
+5. 本地测试全绿后，先做正式 instance/read-only 的请求量和失败样本审计，再另行审批任何正式 run；本开发阶段
+   不写 Lake、prod、Dagster DB、dynamic partition 或 event。
+
+实现结果：`BoundedCodePageRequestSession` 让首轮与定向轮复用同一个 `_BoundedRequestRunner`；既有
+`execute_bounded_code_pages(...)` 保持单轮 API 与调用方行为不变。member writer 在进入 pair diff 前复用既有
+结构校验，pair 仅 missing 时以临时 repair-code 表替换受影响板块的首轮行，最终差异归零才调用既有 promote。
+成功 materialization 新增的都是聚合诊断字段，失败文本最多包含 20 个 pair 样本。定向回归
+`120 passed`，未运行 `dg check defs`、job、sensor 或正式实例。
+
+**明确不做。** M10.1 不提升 `1,200` 次或 `600s` 限额，不把 prod 作为 fallback source，不做全量第二遍
+扫描，不新增 production check/event/状态表，也不改变同日失败 run 的 run-key 去重语义。若一轮定向重试仍因
+源端不完整失败，后续自动重试必须作为独立 M10.2 设计，单独决定次数、间隔、cursor/runtime state 和
+`build_repair_attempt_run_key(...)` 是否适用；本轮不得隐式实现。
+
 停止条件：prod 表缺列/主键或同日内部闭环不成立；Tushare 与已稳定 prod reference identity 不一致；完整
-index sensor 超过 10 秒；需要让 member sensor 逐代码请求；需要新增 manifest/summary asset；或任何路径试图
-用 `limit=1`、文件存在、row count 或历史 event 代替完整 source closure。
+index sensor 超过 10 秒；需要让 member sensor 逐代码请求；需要新增 manifest/summary asset；M10.1 需要
+重置请求预算、增加第二轮全量扫描或用 prod 填补 Tushare 缺行；或任何路径试图用 `limit=1`、文件存在、row count
+或历史 event 代替完整 source closure。
 
 ### M9：日常切换与观察（M10 完成后，待单独批准）
 

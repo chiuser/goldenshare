@@ -1,6 +1,6 @@
 # Dagster `dc_index` / `dc_member` / `dc_daily` 数据集接入技术方案
 
-> 状态：M3 Raw 写入能力、M4 Raw Dagster definition、M5 Silver writer/asset/check、M6 Silver Dagster 接入、M7A 只读 Bootstrap dry-run、M7E 临时 lake 样本联调、M7F-M7I 正式 Raw/Silver Bootstrap 与对账、M8 Dagster 事件补录与验收均已完成。M9-R 已完成专属分区、同日 Lake 关系和 writer 基础闭环的代码落地；其中“有限小页 source probe 可提交 Raw run”的日常触发口径已被 M10 取代。M10“稳定 prod 基线 + 完整 Tushare 对照”代码已完成，并已通过本地 contract、writer、sensor、性能与静态门禁验证；待单独批准正式 prod source-finalization 审计、`dg check defs` 和 sensor 启用。本轮未运行真实 Dagster job/sensor，也未写 Lake、prod 或 Dagster DB。
+> 状态：M3 Raw 写入能力、M4 Raw Dagster definition、M5 Silver writer/asset/check、M6 Silver Dagster 接入、M7A 只读 Bootstrap dry-run、M7E 临时 lake 样本联调、M7F-M7I 正式 Raw/Silver Bootstrap 与对账、M8 Dagster 事件补录与验收均已完成。M9-R 已完成专属分区、同日 Lake 关系和 writer 基础闭环的代码落地；其中“有限小页 source probe 可提交 Raw run”的日常触发口径已被 M10 取代。M10“稳定 prod 基线 + 完整 Tushare 对照”与 M10.1“`dc_member` 成功但不完整响应的单轮定向重试”均已完成代码与本地 contract、writer、sensor、性能、静态门禁验证；二者均不改变 prod 基线、Tushare 业务来源或 sensor 热路径。正式 prod source-finalization 审计、`dg check defs` 和 sensor 启用仍须逐项批准。本轮未运行真实 Dagster job/sensor，也未写 Lake、prod 或 Dagster DB。
 >
 > 依据：新增数据集接入模板、`lake_console/orchestrator/CODING_STANDARDS.md`、
 > `dagster-data-pipeline-performance-governance.md`、现有 `index_daily` / `stk_nineturn`
@@ -467,7 +467,65 @@ Tushare 请求。实际 index writer 会再做一次完整 Tushare 对照，以�
 member 的约千次请求仍只发生在实际 member job，不进入 sensor。任何 prod/Tushare 调用超时、请求预算越界或
 对照不一致都 fail closed，下一 tick 再尝试；不得调大 Dagster RPC timeout。
 
-#### 5.5.6 实现、验证与切换顺序
+#### 5.5.6 M10.1：`dc_member` 成功但不完整响应的恢复边界（代码与本地验证已完成）
+
+M10 已能阻止“当天目录尚未完整”时过早提交 Raw index run，但 2026-07-24 的运行事实说明，`dc_member`
+还存在另一类源端短暂异常：**请求没有报网络错误，却少返回了部分成员关系**。两次 writer run 分别在约
+`235.6s` 和 `212.3s` 内完成请求并在 promote 前被 prod pair 对照拒绝，差异分别为 `9` 与 `315` 条
+missing pair；两次之间的一次只读全量 Tushare/prod 对照为 `0` 差异。这不是超时、请求数超限或 429 限流，
+而是“成功响应不等于完整事实”。现有 fail-closed 门禁正确地阻止了半截 Parquet，但缺少一次有界的恢复机会。
+
+**现行请求限速必须保持不变：**
+
+| 约束 | 当前值 | 含义 |
+| --- | ---: | --- |
+| 请求起点最小间隔 | `0.13s` | 理论上约 `461` 次/分钟，低于已验证的 `500` 次/分钟源端限制 |
+| 单分区总请求数 | `1,200` | 首轮、分页、网络异常重试和 M10.1 定向重试共用同一计数 |
+| 单分区总耗时 | `600s` | M10.1 不重新获得第二个 600 秒预算 |
+| 网络异常重试 | 最多 `3` 次 | 只处理限流、超时、连接中断等异常；`1/2/4s` 退避，单次上限 `8s` |
+| sensor 最小间隔 | `600s` | 不因 member 恢复逻辑缩短轮询或增加热路径请求 |
+
+网络异常重试不能解决本问题：Tushare 对这类不完整返回给出了正常响应，因此现有 request policy 不会重试。
+M10.1 只在实际 `raw_tushare_dc_member` job 内增加下面的**一轮定向重试**，不在 sensor 中执行九万级
+member pair 对照，也不新增 asset、check、job、分区、event、环境变量或业务字段。
+
+```text
+同日 raw_dc_index ready
+  -> 首轮：按当天 1,022 级板块代码请求 Tushare（现有分页、限速与预算）
+  -> DuckDB：与 prod 当天 (ts_code, con_code) 做双向差集
+  -> 无差异：沿用现有 promote
+  -> 仅 missing pair：按缺失 pair 聚合出受影响的 ts_code，排序后只重试这些板块一次
+  -> 用重试结果替换这些板块的首轮临时行，再做全量双向差集
+  -> 差异归零：沿用现有 staging + 原子 promote
+  -> 仍有差异 / 任何其它契约错误 / 预算不足：fail closed，不写目标文件
+```
+
+恢复只适用于“所有已有字段、日期、请求代码、分页终态和主键校验通过，且最终差异仅为 source 缺少 prod
+pair”的情形。出现 extra pair、跨代码响应、重复 key、空 key、日期错误、列漂移、请求失败或未尝试代码时，
+不尝试通过重抓掩盖问题，直接按现有语义停止。重试时必须先从 DuckDB 临时表删除受影响板块的首轮行，再插入
+该板块的完整重试结果，不能把两轮结果拼接在一起制造重复或保留半截成员关系。
+
+M10.1 不提高 `1,200` 次或 `600s` 上限。首轮后可用的请求数和时间才是定向重试的真实预算；若受影响板块
+数量、分页数或网络退避使第二轮无法在剩余额度内完成，整日失败而不是扩大限额。正常成功路径增加 `0` 个
+请求；异常路径只增加“缺失成员涉及的板块数及其分页数”，最多一轮。开发前必须用 2026-07-24 运行样本和
+fake source 测试记录缺失板块分布、请求数、剩余预算和耗时，不得假设 `315` 条 missing pair 等于 `315` 个
+板块请求。
+
+写入前后的可读性边界如下：
+
+- 成功 materialization 只记录聚合诊断：首轮 missing pair 数、定向重试板块数/请求数、恢复 pair 数、最终
+  missing/extra 数及总耗时；不记录完整代码或 pair 清单。
+- 失败 run 日志和异常文本最多附 `20` 个缺失板块/pair 样本，说明是“源端成功但成员不完整”；cursor 不写 pair
+  清单或完整 request report。
+- 不新增 production check。现有合并 core check、Lake readiness 和同日关系语义不变；writer 成功仍要求
+  source closure、原子 promote 和后续 core check 全部通过。
+
+**自动再次提交不属于 M10.1。** 现有 dependent sensor 的 run key 是按 job 和 trade date 固定生成的；同日失败
+run 不能被当作无限次自动重放的理由。本轮只修复单次 job 内可验证的短暂不完整响应，保留现有 run key 和
+sensor 触发行为。若单轮定向重试仍失败，后续是否设计“仅 `member_source_incomplete`、固定次数、固定间隔”的
+sensor retry，必须另立 M10.2 方案并单独评估 Dagster run-key、cursor state 和源端压力，不能顺手改变。
+
+#### 5.5.7 实现、验证与切换顺序
 
 1. 先完成 prod schema/identity 一致性只读审计：确认三张 prod 表的列、主键、同日集合关系，以及 member
    `(ts_code, con_code)` 与 Tushare 写入 schema 可直接对照；若字段或语义不一致，停止并修订本设计。
@@ -478,7 +536,7 @@ member 的约千次请求仍只发生在实际 member job，不进入 sensor。�
    不再请求、所有失败不 promote。
 4. 性能测试锁定完整 probe 的调用次数、prod 行数、DuckDB 差集耗时和 600 秒 sensor 间隔；稳定日 sensor
    目标小于 10 秒，任何路径不得出现按日期循环、Dagster event-history 扫描或全量 member 热路径请求。
-5. 代码与本地 fake prod/Tushare 回归、静态门禁和性能测试已通过；其中 M10 定向回归 `99` 条，资产治理与 cursor contract 回归 `18` 条，Bootstrap/M7 样本调用也已通过。下一步必须先单独做正式环境只读 source-finalization 审计；`dg check defs` 仍须单独批准，通过后再单独审批启用或恢复 sensor。M10 不包含 Lake 回补、prod 写入或历史 event 补录。
+5. M10 既有代码与本地 fake prod/Tushare 回归、静态门禁和性能测试已通过；其中 M10 定向回归 `99` 条，资产治理与 cursor contract 回归 `18` 条，Bootstrap/M7 样本调用也已通过。M10.1 已新增共享 request session、missing-only replace retry、聚合 materialization diagnostics 和静态门禁；本地定向 suite 共 `120` 条通过，覆盖首轮无差异零额外请求、仅缺失 pair 的定向重试成功、多个板块排序重试、重试后仍缺失、extra/重复/日期/请求错误不重试、跨轮总请求数/总耗时不足时不 promote，以及 sensor 热路径零新增 member 请求。正式环境只读 source-finalization 审计、`dg check defs` 和 sensor 启用仍须单独批准。M10/M10.1 均不包含 Lake 回补、prod 写入或历史 event 补录。
 
 ## 6. Check 设计
 

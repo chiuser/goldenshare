@@ -444,18 +444,77 @@ def execute_bounded_code_requests(
     )
 
 
-def execute_bounded_code_pages(
+class BoundedCodePageRequestSession:
+    """Reuse one bounded request budget across sequential code-page batches."""
+
+    def __init__(
+        self,
+        *,
+        policy: TushareRequestPolicy,
+        clock: Callable[[], float] = perf_counter,
+        sleep_fn: Callable[[float], None] = sleep,
+    ) -> None:
+        self._runner = _BoundedRequestRunner(
+            policy=policy,
+            clock=clock,
+            sleep_fn=sleep_fn,
+        )
+
+    @property
+    def request_count(self) -> int:
+        """Return the cumulative request count for this session."""
+
+        return self._runner.request_count
+
+    @property
+    def retry_count(self) -> int:
+        """Return the cumulative retry count for this session."""
+
+        return self._runner.retry_count
+
+    @property
+    def elapsed_ms(self) -> float:
+        """Return elapsed time across every batch in this session."""
+
+        return self._runner.elapsed_seconds() * 1000
+
+    @property
+    def remaining_request_count(self) -> int:
+        """Return the request budget still available to later batches."""
+
+        return max(self._runner.policy.max_requests - self._runner.request_count, 0)
+
+    def execute(
+        self,
+        *,
+        codes: Sequence[str],
+        request_page: Callable[[str, int], TushareResponse],
+        extract_rows: Callable[[TushareResponse], Sequence[Mapping[str, Any]]],
+        page_size: int,
+        row_key: Callable[[Mapping[str, Any]], Hashable] | None = None,
+    ) -> BoundedCodeRequestResult[TushareResponse]:
+        """Run one code-page batch without resetting this session's budget."""
+
+        return _execute_bounded_code_pages_with_runner(
+            runner=self._runner,
+            codes=codes,
+            request_page=request_page,
+            extract_rows=extract_rows,
+            page_size=page_size,
+            row_key=row_key,
+        )
+
+
+def _execute_bounded_code_pages_with_runner(
     *,
+    runner: _BoundedRequestRunner,
     codes: Sequence[str],
     request_page: Callable[[str, int], TushareResponse],
     extract_rows: Callable[[TushareResponse], Sequence[Mapping[str, Any]]],
     page_size: int,
-    policy: TushareRequestPolicy,
     row_key: Callable[[Mapping[str, Any]], Hashable] | None = None,
-    clock: Callable[[], float] = perf_counter,
-    sleep_fn: Callable[[float], None] = sleep,
 ) -> BoundedCodeRequestResult[TushareResponse]:
-    """Execute paginated code requests under the same whole-day safety bounds."""
+    """Execute one batch under an existing code-page request session budget."""
 
     if page_size <= 0:
         raise ValueError("page_size must be positive.")
@@ -465,7 +524,15 @@ def execute_bounded_code_pages(
     if len(set(normalized_codes)) != len(normalized_codes):
         raise ValueError("code request scope must not contain duplicate codes.")
 
-    if len(normalized_codes) > policy.max_requests:
+    initial_request_count = runner.request_count
+    initial_retry_count = runner.retry_count
+    initial_elapsed_seconds = runner.elapsed_seconds()
+    if len(normalized_codes) > runner.policy.max_requests - initial_request_count:
+        budget_reason = (
+            "code_scope_exceeds_max_requests"
+            if initial_request_count == 0
+            else "code_scope_exceeds_remaining_request_budget"
+        )
         return BoundedCodeRequestResult(
             rows_by_code={},
             page_counts={},
@@ -477,10 +544,9 @@ def execute_bounded_code_pages(
             retry_count=0,
             elapsed_ms=0.0,
             budget_exceeded=True,
-            budget_reason="code_scope_exceeds_max_requests",
+            budget_reason=budget_reason,
         )
 
-    runner = _BoundedRequestRunner(policy=policy, clock=clock, sleep_fn=sleep_fn)
     rows_by_code: dict[str, list[dict[str, Any]]] = {}
     page_counts: dict[str, int] = {}
     successful_codes: list[str] = []
@@ -560,11 +626,37 @@ def execute_bounded_code_pages(
         empty_codes=tuple(empty_codes),
         failed_codes=tuple(failed_codes),
         unattempted_codes=unattempted_codes,
-        request_count=runner.request_count,
-        retry_count=runner.retry_count,
-        elapsed_ms=runner.elapsed_seconds() * 1000,
+        request_count=runner.request_count - initial_request_count,
+        retry_count=runner.retry_count - initial_retry_count,
+        elapsed_ms=(runner.elapsed_seconds() - initial_elapsed_seconds) * 1000,
         budget_exceeded=budget_exceeded,
         budget_reason=budget_reason,
+    )
+
+
+def execute_bounded_code_pages(
+    *,
+    codes: Sequence[str],
+    request_page: Callable[[str, int], TushareResponse],
+    extract_rows: Callable[[TushareResponse], Sequence[Mapping[str, Any]]],
+    page_size: int,
+    policy: TushareRequestPolicy,
+    row_key: Callable[[Mapping[str, Any]], Hashable] | None = None,
+    clock: Callable[[], float] = perf_counter,
+    sleep_fn: Callable[[float], None] = sleep,
+) -> BoundedCodeRequestResult[TushareResponse]:
+    """Execute one paginated code batch under a fresh bounded request session."""
+
+    return BoundedCodePageRequestSession(
+        policy=policy,
+        clock=clock,
+        sleep_fn=sleep_fn,
+    ).execute(
+        codes=codes,
+        request_page=request_page,
+        extract_rows=extract_rows,
+        page_size=page_size,
+        row_key=row_key,
     )
 
 

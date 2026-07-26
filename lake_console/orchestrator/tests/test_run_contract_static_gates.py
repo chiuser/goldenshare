@@ -228,7 +228,7 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         for required in (
             "execute_bounded_pages",
-            "execute_bounded_code_pages",
+            "BoundedCodePageRequestSession",
             "copy_query_to_parquet",
             "os.replace",
             "write_dc_member_rows_streaming",
@@ -246,6 +246,12 @@ class RunContractStaticGateTests(unittest.TestCase):
             "SELECT *",
         ):
             self.assertNotIn(forbidden, writer_source)
+        self.assertNotIn("execute_bounded_code_pages(", writer_source)
+        self.assertIn("_inspect_dc_member_pair_diff", writer_source)
+        self.assertIn("_replace_dc_member_rows_for_repair_codes", writer_source)
+        self.assertIn("code_scope_exceeds_remaining_request_budget", (
+            DEFS_DIR / "tushare_request_policy.py"
+        ).read_text())
 
         self.assertIn("connect_readonly_transaction", bootstrap_source)
         self.assertIn("fetchmany", bootstrap_source)
