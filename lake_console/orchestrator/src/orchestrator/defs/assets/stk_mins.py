@@ -72,8 +72,10 @@ from orchestrator.defs.run_contracts.metadata import (
 )
 from orchestrator.defs.run_contracts.configs import (
     STOCK_MINS_RAW_CONFIG_SCHEMA,
+    STOCK_MINS_SILVER_CONFIG_SCHEMA,
     StockMinsMergeRepairConfig,
     parse_stock_mins_raw_config,
+    parse_stock_mins_silver_config,
 )
 from orchestrator.defs.run_contracts.stk_mins import (
     normalize_stk_mins_freq,
@@ -245,6 +247,7 @@ class SilverStkMinsWriteResult:
     vol_amount_normalized_row_count: int
     row_count: int
     observed_columns: tuple[str, ...]
+    write_mode: str = "write_new"
 
     def materialization_extra_metadata(
         self,
@@ -255,21 +258,33 @@ class SilverStkMinsWriteResult:
         metadata: dict[str, object] = {
             "partition_key": partition_key,
             "freq": freq,
+            "write_mode": self.write_mode,
             "raw_file_path": str(self.raw_file_path),
             "identity_map_file_path": str(self.identity_map_file_path),
             "stock_daily_file_path": str(self.stock_daily_file_path),
             "suspend_file_path": str(self.suspend_file_path),
-            "source_row_count": self.source_row_count,
-            "mapped_row_count": self.mapped_row_count,
-            "duplicate_removed_count": self.duplicate_removed_count,
-            "full_day_suspend_deleted_row_count": (
-                self.full_day_suspend_deleted_row_count
-            ),
-            "price_correction_row_count": self.price_correction_row_count,
-            "price_correction_seed_version": STK_MINS_PRICE_CORRECTIONS_SEED_VERSION,
-            "recomputed_row_count": self.recomputed_row_count,
-            "vol_amount_normalized_row_count": self.vol_amount_normalized_row_count,
         }
+        if self.write_mode == "write_new":
+            metadata.update(
+                {
+                    "source_row_count": self.source_row_count,
+                    "mapped_row_count": self.mapped_row_count,
+                    "duplicate_removed_count": self.duplicate_removed_count,
+                    "full_day_suspend_deleted_row_count": (
+                        self.full_day_suspend_deleted_row_count
+                    ),
+                    "price_correction_row_count": self.price_correction_row_count,
+                    "price_correction_seed_version": (
+                        STK_MINS_PRICE_CORRECTIONS_SEED_VERSION
+                    ),
+                    "recomputed_row_count": self.recomputed_row_count,
+                    "vol_amount_normalized_row_count": (
+                        self.vol_amount_normalized_row_count
+                    ),
+                }
+            )
+        else:
+            metadata["reused_existing_partition"] = True
         if self.one_minute_raw_file_path is not None:
             metadata["one_minute_raw_file_path"] = str(self.one_minute_raw_file_path)
         return metadata
@@ -287,16 +302,27 @@ def _silver_stk_mins_human_metadata(
         "identity_map_asset": "silver_stock_identity_map",
         "stock_daily_asset": "silver_stock_daily",
         "suspend_asset": "silver_stock_suspend_daily",
-        "source_row_count": write_result.source_row_count,
-        "mapped_row_count": write_result.mapped_row_count,
     }
+    if write_result.write_mode == "write_new":
+        input_summary.update(
+            {
+                "source_row_count": write_result.source_row_count,
+                "mapped_row_count": write_result.mapped_row_count,
+            }
+        )
     if write_result.one_minute_raw_file_path is not None:
         input_summary["one_minute_raw_source_asset"] = "raw_stk_mins_1m"
 
+    reused_existing = write_result.write_mode == "reuse_existing"
     return _human_materialization_metadata(
         summary=(
-            f"已写入股票 {freq_label} 分钟 silver 标准事实："
-            f"交易日 {partition_key}，{write_result.row_count} 行。"
+            f"已复核既有股票 {freq_label} 分钟 silver 文件："
+            f"交易日 {partition_key}，{write_result.row_count} 行；未改写 Parquet。"
+            if reused_existing
+            else (
+                f"已写入股票 {freq_label} 分钟 silver 标准事实："
+                f"交易日 {partition_key}，{write_result.row_count} 行。"
+            )
         ),
         next_action=(
             "等待 silver blocking checks 全部通过；通过后 qfq、财富成交额等"
@@ -305,16 +331,26 @@ def _silver_stk_mins_human_metadata(
         result_status="written",
         input_summary=input_summary,
         filter_summary={
-            "duplicate_removed_count": write_result.duplicate_removed_count,
-            "full_day_suspend_deleted_row_count": (
-                write_result.full_day_suspend_deleted_row_count
-            ),
-            "price_correction_row_count": write_result.price_correction_row_count,
-            "recomputed_row_count": write_result.recomputed_row_count,
-            "vol_amount_normalized_row_count": (
-                write_result.vol_amount_normalized_row_count
-            ),
+            "write_mode": write_result.write_mode,
+            "reused_existing_partition": reused_existing,
             "output_row_count": write_result.row_count,
+            **(
+                {}
+                if reused_existing
+                else {
+                    "duplicate_removed_count": write_result.duplicate_removed_count,
+                    "full_day_suspend_deleted_row_count": (
+                        write_result.full_day_suspend_deleted_row_count
+                    ),
+                    "price_correction_row_count": (
+                        write_result.price_correction_row_count
+                    ),
+                    "recomputed_row_count": write_result.recomputed_row_count,
+                    "vol_amount_normalized_row_count": (
+                        write_result.vol_amount_normalized_row_count
+                    ),
+                }
+            ),
         },
         diagnostic_ref="完整诊断看 silver_stk_mins checks metadata 和本次 run stdout。",
     )
@@ -446,8 +482,7 @@ def _gold_stk_mins_qfq_derived_human_metadata(
             f"{write_result.output_file_count} 个股票年份文件。"
         ),
         next_action=(
-            "等待派生 qfq blocking checks 全部通过；通过后 MACD/KDJ 指标链路"
-            "可以消费。"
+            "等待派生 qfq blocking checks 全部通过；通过后 MACD/KDJ 指标链路可以消费。"
         ),
         result_status="written",
         input_summary={
@@ -630,7 +665,9 @@ def merge_repair_raw_stk_mins_partition_from_tushare(
     normalized_freq = normalize_stk_mins_freq(freq)
     target_path = raw_stk_mins_path(lake_root, normalized_freq, partition_key)
     if not target_path.exists():
-        raise FileNotFoundError(f"Cannot repair missing stk_mins raw file: {target_path}")
+        raise FileNotFoundError(
+            f"Cannot repair missing stk_mins raw file: {target_path}"
+        )
 
     validation_errors = _validate_existing_raw_stk_mins_partition(
         duckdb=duckdb,
@@ -793,7 +830,9 @@ def _fetch_raw_stk_mins_rows(
             returned_stock_codes.add(stock_code)
 
     empty_stock_codes = tuple(
-        stock_code for stock_code in stock_codes if stock_code not in returned_stock_codes
+        stock_code
+        for stock_code in stock_codes
+        if stock_code not in returned_stock_codes
     )
     return fetched_rows, {
         "page_count": page_count,
@@ -910,7 +949,9 @@ def _write_raw_stk_mins_rows_from_prod_db_source(
             f"SELECT * FROM ({source_sql}) AS source_rows"
         )
         source_row_count = int(
-            connection.execute("SELECT count(*) FROM prod_stk_mins_source").fetchone()[0]
+            connection.execute("SELECT count(*) FROM prod_stk_mins_source").fetchone()[
+                0
+            ]
         )
         if source_row_count == 0:
             raise RuntimeError(
@@ -1106,7 +1147,9 @@ def _merge_repair_raw_stk_mins_rows(
         connection.execute(f"CREATE TEMP TABLE repair_rows ({column_defs})")
         placeholders = ", ".join("?" for _column in STK_MINS_RAW_COLUMNS)
         values = [[row.get(column) for column in STK_MINS_RAW_COLUMNS] for row in rows]
-        connection.executemany(f"INSERT INTO repair_rows VALUES ({placeholders})", values)
+        connection.executemany(
+            f"INSERT INTO repair_rows VALUES ({placeholders})", values
+        )
 
         duplicate_key_count = int(
             connection.execute(
@@ -1297,7 +1340,9 @@ def _validate_existing_raw_stk_mins_partition(
 
 
 def _require_stk_mins_input_files(paths: Mapping[str, Path]) -> None:
-    missing_paths = [f"{name}={path}" for name, path in paths.items() if not path.exists()]
+    missing_paths = [
+        f"{name}={path}" for name, path in paths.items() if not path.exists()
+    ]
     if missing_paths:
         raise FileNotFoundError(
             "Missing stk_mins silver input files: " + ", ".join(missing_paths)
@@ -1763,7 +1808,9 @@ def _write_distinct_silver_stk_mins_rows(
     connection,
     target_path: Path,
 ) -> tuple[int, int, tuple[str, ...]]:
-    connection.execute("CREATE TEMP TABLE silver_distinct_rows AS SELECT DISTINCT * FROM silver_final_rows")
+    connection.execute(
+        "CREATE TEMP TABLE silver_distinct_rows AS SELECT DISTINCT * FROM silver_final_rows"
+    )
     conflict_count = int(
         connection.execute(
             """
@@ -1793,7 +1840,9 @@ def _write_distinct_silver_stk_mins_rows(
             f"count={conflict_count}, samples={sample_rows}"
         )
 
-    final_count = int(connection.execute("SELECT count(*) FROM silver_final_rows").fetchone()[0])
+    final_count = int(
+        connection.execute("SELECT count(*) FROM silver_final_rows").fetchone()[0]
+    )
     distinct_count = int(
         connection.execute("SELECT count(*) FROM silver_distinct_rows").fetchone()[0]
     )
@@ -1832,18 +1881,28 @@ def write_silver_stk_mins_partition(
     freq: int | str,
     partition_key: str,
     overwrite: bool = False,
+    output_path_override: Path | None = None,
 ) -> SilverStkMinsWriteResult:
+    """Write one Silver partition.
+
+    ``output_path_override`` is reserved for the non-active five-frequency
+    recovery CLI. It changes only the output path; all raw and reference
+    inputs continue to resolve from the canonical lake root.
+    """
+
     normalized_freq = normalize_stk_mins_freq(freq)
     raw_path = raw_stk_mins_path(lake_root, normalized_freq, partition_key)
     one_minute_raw_path = (
-        raw_stk_mins_path(lake_root, 1, partition_key)
-        if normalized_freq != 1
-        else None
+        raw_stk_mins_path(lake_root, 1, partition_key) if normalized_freq != 1 else None
     )
     identity_map_path = silver_stock_identity_map_path(lake_root)
     stock_daily_path = silver_stock_daily_path(lake_root, partition_key)
     suspend_path = silver_stock_suspend_daily_path(lake_root, partition_key)
-    target_path = silver_stk_mins_path(lake_root, normalized_freq, partition_key)
+    target_path = output_path_override or silver_stk_mins_path(
+        lake_root,
+        normalized_freq,
+        partition_key,
+    )
     input_paths: dict[str, Path] = {
         "raw": raw_path,
         "identity_map": identity_map_path,
@@ -1913,12 +1972,81 @@ def write_silver_stk_mins_partition(
         price_correction_row_count=target_counts["price_correction_row_count"]
         + one_minute_counts["price_correction_row_count"],
         recomputed_row_count=final_counts["recomputed_row_count"],
-        vol_amount_normalized_row_count=final_counts[
-            "vol_amount_normalized_row_count"
-        ],
+        vol_amount_normalized_row_count=final_counts["vol_amount_normalized_row_count"],
         row_count=row_count,
         observed_columns=observed_columns,
     )
+
+
+def reuse_existing_silver_stk_mins_partition(
+    *,
+    lake_root: Path,
+    duckdb: DuckDBResource,
+    freq: int | str,
+    partition_key: str,
+) -> SilverStkMinsWriteResult:
+    """Read an existing Silver partition without changing its bytes.
+
+    This is intentionally limited to the explicit job config used after a
+    separately approved offline recovery. The selected asset checks remain
+    responsible for the full file, value and reference validation.
+    """
+
+    normalized_freq = normalize_stk_mins_freq(freq)
+    raw_path = raw_stk_mins_path(lake_root, normalized_freq, partition_key)
+    one_minute_raw_path = (
+        raw_stk_mins_path(lake_root, 1, partition_key) if normalized_freq != 1 else None
+    )
+    identity_map_path = silver_stock_identity_map_path(lake_root)
+    stock_daily_path = silver_stock_daily_path(lake_root, partition_key)
+    suspend_path = silver_stock_suspend_daily_path(lake_root, partition_key)
+    target_path = silver_stk_mins_path(lake_root, normalized_freq, partition_key)
+    if not target_path.exists():
+        raise FileNotFoundError(
+            f"Cannot reuse missing Silver stk_mins file: {target_path}"
+        )
+    observed_columns, row_count = _silver_file_columns_and_count(
+        duckdb=duckdb,
+        silver_path=target_path,
+    )
+    return SilverStkMinsWriteResult(
+        raw_file_path=raw_path,
+        one_minute_raw_file_path=one_minute_raw_path,
+        identity_map_file_path=identity_map_path,
+        stock_daily_file_path=stock_daily_path,
+        suspend_file_path=suspend_path,
+        silver_file_path=target_path,
+        source_row_count=0,
+        mapped_row_count=0,
+        duplicate_removed_count=0,
+        full_day_suspend_deleted_row_count=0,
+        price_correction_row_count=0,
+        recomputed_row_count=0,
+        vol_amount_normalized_row_count=0,
+        row_count=row_count,
+        observed_columns=observed_columns,
+        write_mode="reuse_existing",
+    )
+
+
+def _silver_file_columns_and_count(
+    *,
+    duckdb: DuckDBResource,
+    silver_path: Path,
+) -> tuple[tuple[str, ...], int]:
+    with connect_configured_duckdb() as connection:
+        columns = tuple(
+            row[0]
+            for row in connection.execute(
+                describe_parquet_query(silver_path, hive_partitioning=False)
+            ).fetchall()
+        )
+        row_count = int(
+            connection.execute(
+                count_parquet_query(silver_path, hive_partitioning=False)
+            ).fetchone()[0]
+        )
+    return columns, row_count
 
 
 def _qfq_coverage_counts(
@@ -1963,7 +2091,8 @@ def _validate_gold_qfq_coverage(
         or coverage_counts["missing_as_of_adj_factor_row_count"]
         or coverage_counts["invalid_trade_adj_factor_row_count"]
         or coverage_counts["invalid_as_of_adj_factor_row_count"]
-        or coverage_counts["qfq_output_row_count"] != coverage_counts["silver_row_count"]
+        or coverage_counts["qfq_output_row_count"]
+        != coverage_counts["silver_row_count"]
     ):
         raise RuntimeError(
             "Gold stk_mins qfq factor coverage failed before write: "
@@ -2485,31 +2614,47 @@ def _materialize_silver_stk_mins_partition(
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
+    config = parse_stock_mins_silver_config(context.op_config)
     log = DgStdoutLogger("stk_mins")
     log.stdout(
         "silver_stk_mins_started",
         partition_key=partition_key,
         freq=freq,
+        write_mode=config.write_mode,
     )
-    write_result = write_silver_stk_mins_partition(
-        lake_root=lake_root.root(),
-        duckdb=duckdb,
-        freq=freq,
-        partition_key=partition_key,
-    )
-    log.stdout(
-        "silver_stk_mins_completed",
-        partition_key=partition_key,
-        freq=freq,
-        row_count=write_result.row_count,
-        source_row_count=write_result.source_row_count,
-        duplicate_removed_count=write_result.duplicate_removed_count,
-        full_day_suspend_deleted_row_count=(
-            write_result.full_day_suspend_deleted_row_count
-        ),
-        price_correction_row_count=write_result.price_correction_row_count,
-        recomputed_row_count=write_result.recomputed_row_count,
-    )
+    if config.write_mode == "reuse_existing":
+        write_result = reuse_existing_silver_stk_mins_partition(
+            lake_root=lake_root.root(),
+            duckdb=duckdb,
+            freq=freq,
+            partition_key=partition_key,
+        )
+    else:
+        write_result = write_silver_stk_mins_partition(
+            lake_root=lake_root.root(),
+            duckdb=duckdb,
+            freq=freq,
+            partition_key=partition_key,
+        )
+    completion_fields: dict[str, object] = {
+        "partition_key": partition_key,
+        "freq": freq,
+        "row_count": write_result.row_count,
+        "write_mode": write_result.write_mode,
+    }
+    if write_result.write_mode == "write_new":
+        completion_fields.update(
+            {
+                "source_row_count": write_result.source_row_count,
+                "duplicate_removed_count": write_result.duplicate_removed_count,
+                "full_day_suspend_deleted_row_count": (
+                    write_result.full_day_suspend_deleted_row_count
+                ),
+                "price_correction_row_count": write_result.price_correction_row_count,
+                "recomputed_row_count": write_result.recomputed_row_count,
+            }
+        )
+    log.stdout("silver_stk_mins_completed", **completion_fields)
     extra_metadata = write_result.materialization_extra_metadata(
         partition_key=partition_key,
         freq=freq,
@@ -2554,6 +2699,7 @@ def _silver_stk_mins_extra_metadata(freq: int) -> dict[str, object]:
         silver_stock_suspend_daily,
     ],
     partitions_def=cn_a_stock_mins_silver_trade_days,
+    config_schema=STOCK_MINS_SILVER_CONFIG_SCHEMA,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA),
     metadata=build_asset_definition_metadata(
@@ -2562,7 +2708,9 @@ def _silver_stk_mins_extra_metadata(freq: int) -> dict[str, object]:
         data_contract="standardized_stock_minute_bars",
         column_schema=SILVER_STK_MINS_SCHEMA,
         path_template=lake_path_template(
-            silver_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 1, PATH_TEMPLATE_PARTITION_KEY)
+            silver_stk_mins_path(
+                PATH_TEMPLATE_LAKE_ROOT, 1, PATH_TEMPLATE_PARTITION_KEY
+            )
         ),
         extra_metadata=_silver_stk_mins_extra_metadata(1),
     ),
@@ -2591,6 +2739,7 @@ def silver_stk_mins_1m(
         silver_stock_suspend_daily,
     ],
     partitions_def=cn_a_stock_mins_silver_trade_days,
+    config_schema=STOCK_MINS_SILVER_CONFIG_SCHEMA,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA),
     metadata=build_asset_definition_metadata(
@@ -2599,7 +2748,9 @@ def silver_stk_mins_1m(
         data_contract="standardized_stock_minute_bars",
         column_schema=SILVER_STK_MINS_SCHEMA,
         path_template=lake_path_template(
-            silver_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 5, PATH_TEMPLATE_PARTITION_KEY)
+            silver_stk_mins_path(
+                PATH_TEMPLATE_LAKE_ROOT, 5, PATH_TEMPLATE_PARTITION_KEY
+            )
         ),
         extra_metadata=_silver_stk_mins_extra_metadata(5),
     ),
@@ -2628,6 +2779,7 @@ def silver_stk_mins_5m(
         silver_stock_suspend_daily,
     ],
     partitions_def=cn_a_stock_mins_silver_trade_days,
+    config_schema=STOCK_MINS_SILVER_CONFIG_SCHEMA,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA),
     metadata=build_asset_definition_metadata(
@@ -2669,6 +2821,7 @@ def silver_stk_mins_15m(
         silver_stock_suspend_daily,
     ],
     partitions_def=cn_a_stock_mins_silver_trade_days,
+    config_schema=STOCK_MINS_SILVER_CONFIG_SCHEMA,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA),
     metadata=build_asset_definition_metadata(
@@ -2710,6 +2863,7 @@ def silver_stk_mins_30m(
         silver_stock_suspend_daily,
     ],
     partitions_def=cn_a_stock_mins_silver_trade_days,
+    config_schema=STOCK_MINS_SILVER_CONFIG_SCHEMA,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA),
     metadata=build_asset_definition_metadata(

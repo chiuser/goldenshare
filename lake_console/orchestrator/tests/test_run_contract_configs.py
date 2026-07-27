@@ -5,7 +5,9 @@ from orchestrator.defs.run_contracts.configs import (
     build_raw_dc_index_update_job_run_config,
     build_raw_index_daily_update_job_run_config,
     build_stock_daily_raw_repair_run_config,
+    build_stock_mins_silver_reuse_existing_run_config,
     parse_stock_daily_raw_config,
+    parse_stock_mins_silver_config,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
 
@@ -33,7 +35,9 @@ class RunContractConfigTests(unittest.TestCase):
             },
         )
 
-    def test_raw_dc_index_run_config_rejects_incomplete_or_misaligned_reference(self) -> None:
+    def test_raw_dc_index_run_config_rejects_incomplete_or_misaligned_reference(
+        self,
+    ) -> None:
         with self.assertRaisesRegex(ValueError, "must equal partition_key"):
             build_raw_dc_index_update_job_run_config(
                 partition_key="2026-07-14",
@@ -66,7 +70,9 @@ class RunContractConfigTests(unittest.TestCase):
             },
         )
 
-    def test_raw_index_daily_update_job_run_config_rejects_invalid_partition(self) -> None:
+    def test_raw_index_daily_update_job_run_config_rejects_invalid_partition(
+        self,
+    ) -> None:
         with self.assertRaisesRegex(
             ValueError,
             "partition_key must use YYYY-MM-DD format",
@@ -75,6 +81,37 @@ class RunContractConfigTests(unittest.TestCase):
                 partition_key="20260526",
                 write_mode="replace",
             )
+
+    def test_stock_mins_silver_reuse_existing_run_config_is_explicit_and_complete(
+        self,
+    ) -> None:
+        config = build_stock_mins_silver_reuse_existing_run_config()
+
+        self.assertEqual(
+            tuple(config["ops"]),
+            (
+                "silver_stk_mins_1m",
+                "silver_stk_mins_5m",
+                "silver_stk_mins_15m",
+                "silver_stk_mins_30m",
+                "silver_stk_mins_60m",
+            ),
+        )
+        for op_config in config["ops"].values():
+            parsed = parse_stock_mins_silver_config(op_config["config"])
+            self.assertEqual(parsed.write_mode, "reuse_existing")
+        self.assertEqual(
+            parse_stock_mins_silver_config({}).write_mode,
+            "write_new",
+        )
+
+    def test_stock_mins_silver_config_rejects_ambiguous_or_unknown_modes(self) -> None:
+        with self.assertRaisesRegex(ValueError, "exactly one branch"):
+            parse_stock_mins_silver_config(
+                {"write_mode": {"write_new": {}, "reuse_existing": {}}}
+            )
+        with self.assertRaisesRegex(ValueError, "exactly one branch"):
+            parse_stock_mins_silver_config({"write_mode": {"replace": {}}})
 
     def test_build_run_request_does_not_write_project_run_tags(self) -> None:
         request = build_run_request(
@@ -93,7 +130,9 @@ class RunContractConfigTests(unittest.TestCase):
             "replace",
         )
 
-    def test_gold_stock_daily_qfq_factor_repair_run_config_has_no_stock_codes(self) -> None:
+    def test_gold_stock_daily_qfq_factor_repair_run_config_has_no_stock_codes(
+        self,
+    ) -> None:
         config = build_gold_stock_daily_qfq_factor_repair_run_config(
             qfq_factor_trade_date="2026-06-18",
             repair_required_codes_hash="a" * 64,
@@ -121,7 +160,9 @@ class RunContractConfigTests(unittest.TestCase):
             config["ops"]["gold_stock_daily_qfq_factor_repair_op"]["config"],
         )
 
-    def test_gold_stock_daily_qfq_factor_repair_run_config_rejects_invalid_inputs(self) -> None:
+    def test_gold_stock_daily_qfq_factor_repair_run_config_rejects_invalid_inputs(
+        self,
+    ) -> None:
         with self.assertRaisesRegex(
             ValueError,
             "qfq_factor_trade_date must use YYYY-MM-DD format",

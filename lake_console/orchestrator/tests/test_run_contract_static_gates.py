@@ -249,9 +249,10 @@ class RunContractStaticGateTests(unittest.TestCase):
         self.assertNotIn("execute_bounded_code_pages(", writer_source)
         self.assertIn("_inspect_dc_member_pair_diff", writer_source)
         self.assertIn("_replace_dc_member_rows_for_repair_codes", writer_source)
-        self.assertIn("code_scope_exceeds_remaining_request_budget", (
-            DEFS_DIR / "tushare_request_policy.py"
-        ).read_text())
+        self.assertIn(
+            "code_scope_exceeds_remaining_request_budget",
+            (DEFS_DIR / "tushare_request_policy.py").read_text(),
+        )
 
         self.assertIn("connect_readonly_transaction", bootstrap_source)
         self.assertIn("fetchmany", bootstrap_source)
@@ -262,7 +263,9 @@ class RunContractStaticGateTests(unittest.TestCase):
         self.assertNotIn("SELECT *", bootstrap_source)
         self.assertNotIn("report_runless_asset_event", bootstrap_source)
 
-        self.assertIn("connection.set_session(readonly=True, autocommit=False)", resource_source)
+        self.assertIn(
+            "connection.set_session(readonly=True, autocommit=False)", resource_source
+        )
         self.assertIn("connection.rollback()", resource_source)
 
     def test_dc_board_m4_keeps_partitioned_checks_and_hot_path_boundary(self) -> None:
@@ -299,7 +302,9 @@ class RunContractStaticGateTests(unittest.TestCase):
         self.assertNotIn("AssetSelection.assets(silver_", jobs_source)
         self.assertEqual(jobs_source.count("dg.define_asset_job("), 3)
 
-    def test_dc_board_m10_uses_stable_prod_reference_and_complete_source_compare(self) -> None:
+    def test_dc_board_m10_uses_stable_prod_reference_and_complete_source_compare(
+        self,
+    ) -> None:
         partition_sensor_source = (
             SENSORS_DIR / "dc_board_partition_sensor.py"
         ).read_text()
@@ -372,7 +377,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             self.assertIn(fragment, readiness_source)
         self.assertNotIn("get_event_records", readiness_source)
 
-    def test_dc_board_m5_keeps_silver_partition_boundary_and_no_automation(self) -> None:
+    def test_dc_board_m5_keeps_silver_partition_boundary_and_no_automation(
+        self,
+    ) -> None:
         asset_path = ASSETS_DIR / "dc_board_silver.py"
         check_path = CHECKS_DIR / "dc_board_silver_checks.py"
         asset_source = asset_path.read_text()
@@ -399,7 +406,9 @@ class RunContractStaticGateTests(unittest.TestCase):
         self.assertNotIn("ProdPostgresResource", asset_source + check_source)
         self.assertNotIn("AssetSelection", asset_source + check_source)
 
-    def test_dc_daily_technical_p7_repair_is_bounded_and_partition_attributable(self) -> None:
+    def test_dc_daily_technical_p7_repair_is_bounded_and_partition_attributable(
+        self,
+    ) -> None:
         producer_op_path = DEFS_DIR / "ops" / "silver_dc_daily_repair.py"
         producer_job_path = JOBS_DIR / "silver_dc_daily_repair.py"
         writer_path = ASSETS_DIR / "dc_daily_technical_repair.py"
@@ -432,9 +441,14 @@ class RunContractStaticGateTests(unittest.TestCase):
         )
         self.assertIn("build_upstream_triggered_run_key", sources[sensor_path])
         self.assertIn("build_run_request", sources[sensor_path])
-        self.assertIn("default_status=dg.DefaultSensorStatus.STOPPED", sources[sensor_path])
+        self.assertIn(
+            "default_status=dg.DefaultSensorStatus.STOPPED", sources[sensor_path]
+        )
         self.assertNotIn("instance.get_event_records", sources[sensor_path])
-        self.assertNotIn("partition_dataset_readiness_status_from_latest_checks", sources[sensor_path])
+        self.assertNotIn(
+            "partition_dataset_readiness_status_from_latest_checks",
+            sources[sensor_path],
+        )
 
     def test_gold_wealth_market_turnover_keeps_source_boundary(self) -> None:
         forbidden_fragments = (
@@ -488,7 +502,9 @@ class RunContractStaticGateTests(unittest.TestCase):
         self.assertNotIn("get_event_records(", readiness_source)
         self.assertNotIn("AssetSelection.assets(raw_", jobs_source)
 
-    def test_gold_wealth_market_turnover_keeps_single_json_integrity_check(self) -> None:
+    def test_gold_wealth_market_turnover_keeps_single_json_integrity_check(
+        self,
+    ) -> None:
         schema_source = (
             DEFS_DIR / "run_contracts" / "asset_column_schemas.py"
         ).read_text()
@@ -498,9 +514,9 @@ class RunContractStaticGateTests(unittest.TestCase):
         self.assertIn('ColumnContract("points_json", "JSON"', schema_source)
         self.assertNotIn('ColumnContract("points_json", "VARCHAR"', schema_source)
         self.assertIn(
-            'GOLD_WEALTH_MARKET_TURNOVER_CHECKS = (\n'
+            "GOLD_WEALTH_MARKET_TURNOVER_CHECKS = (\n"
             '    "gold_wealth_market_turnover_integrity_check",\n'
-            ')',
+            ")",
             catalog_source,
         )
         self.assertEqual(check_source.count("@dg.asset_check"), 1)
@@ -527,7 +543,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             "connection.set_session(readonly=False, autocommit=False)",
             resource_source,
         )
-        self.assertIn('"prod_postgres_write": ProdPostgresWriteResource()', resource_source)
+        self.assertIn(
+            '"prod_postgres_write": ProdPostgresWriteResource()', resource_source
+        )
         self.assertIn("PROD_POSTGRES_WRITE_USER", resource_source)
 
         self.assertNotIn("select *", prod_db_source.lower())
@@ -630,7 +648,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             "延后 10 分钟",
         ):
             if fragment not in sensor_source:
-                issues.append(f"wealth sensor cursor misses readable fragment: {fragment}")
+                issues.append(
+                    f"wealth sensor cursor misses readable fragment: {fragment}"
+                )
 
         for fragment in (
             "status_samples",
@@ -640,7 +660,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             "sample_rows=",
         ):
             if fragment in sensor_source:
-                issues.append(f"wealth sensor cursor contains bulky fragment: {fragment}")
+                issues.append(
+                    f"wealth sensor cursor contains bulky fragment: {fragment}"
+                )
 
         self.assertEqual(issues, [])
 
@@ -671,12 +693,8 @@ class RunContractStaticGateTests(unittest.TestCase):
     ) -> None:
         asset_source = (ASSETS_DIR / "stk_mins.py").read_text()
         check_source = (CHECKS_DIR / "stk_mins_checks.py").read_text()
-        raw_sensor_source = (
-            SENSORS_DIR / "stock_mins_raw_sensor.py"
-        ).read_text()
-        silver_sensor_source = (
-            SENSORS_DIR / "stock_mins_silver_sensor.py"
-        ).read_text()
+        raw_sensor_source = (SENSORS_DIR / "stock_mins_raw_sensor.py").read_text()
+        silver_sensor_source = (SENSORS_DIR / "stock_mins_silver_sensor.py").read_text()
         issues = []
 
         for fragment in (
@@ -860,7 +878,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             "MACD/KDJ indicator/state",
         ):
             if fragment not in daily_sensor_source:
-                issues.append(f"MACD/KDJ daily sensor misses readable fragment: {fragment}")
+                issues.append(
+                    f"MACD/KDJ daily sensor misses readable fragment: {fragment}"
+                )
 
         for fragment in (
             "cursor=",
@@ -882,7 +902,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             "source_upstream_batch_id",
         ):
             if fragment not in repair_op_source:
-                issues.append(f"MACD/KDJ repair op misses readable fragment: {fragment}")
+                issues.append(
+                    f"MACD/KDJ repair op misses readable fragment: {fragment}"
+                )
 
         for fragment in (
             "next_action",
@@ -938,8 +960,12 @@ class RunContractStaticGateTests(unittest.TestCase):
         issues = []
         job_path = JOBS_DIR / "gold_stk_mins_qfq_macd_kdj_daily_update.py"
         repair_job_path = JOBS_DIR / "gold_stk_mins_qfq_macd_kdj_repair.py"
-        sensor_path = SENSORS_DIR / "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py"
-        repair_sensor_path = SENSORS_DIR / "gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py"
+        sensor_path = (
+            SENSORS_DIR / "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py"
+        )
+        repair_sensor_path = (
+            SENSORS_DIR / "gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py"
+        )
         asset_path = ASSETS_DIR / "stk_mins_qfq_macd_kdj.py"
         repair_op_path = DEFS_DIR / "ops" / "gold_stk_mins_qfq_macd_kdj_repair.py"
 
@@ -1100,7 +1126,10 @@ class RunContractStaticGateTests(unittest.TestCase):
             for node in ast.walk(source_tree):
                 if not isinstance(node, ast.Call):
                     continue
-                if _call_name(node.func) != "discover_gold_stk_mins_qfq_source_year_paths":
+                if (
+                    _call_name(node.func)
+                    != "discover_gold_stk_mins_qfq_source_year_paths"
+                ):
                     continue
                 uses_repair_scope = any(
                     keyword.arg == "stock_codes" for keyword in node.keywords
@@ -1250,7 +1279,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             issues.append(
                 "MACD/KDJ repair op must reject empty stock_codes before writing"
             )
-        manual_guard = "if qfq_factor_repair_trade_date is None or not upstream_batch_id:"
+        manual_guard = (
+            "if qfq_factor_repair_trade_date is None or not upstream_batch_id:"
+        )
         qfq_status_call = "gold_stk_mins_qfq_factor_repair_status("
         if manual_guard not in repair_op_source:
             issues.append(
@@ -1267,7 +1298,9 @@ class RunContractStaticGateTests(unittest.TestCase):
         elif repair_op_source.index(qfq_status_call) > repair_op_source.index(
             repair_write_call
         ):
-            issues.append("MACD/KDJ repair replay mode must resolve scope before writing")
+            issues.append(
+                "MACD/KDJ repair replay mode must resolve scope before writing"
+            )
         forbidden_repair_op_fragments = (
             '"stock_code_scope": "explicit" if stock_codes else "all"',
             '"stock_code_scope": "all"',
@@ -1325,7 +1358,8 @@ class RunContractStaticGateTests(unittest.TestCase):
             SENSORS_DIR / "market_breadth_automation_sensor.py",
             SENSORS_DIR / "stock_return_distribution_automation_sensor.py",
             SENSORS_DIR / "clickhouse_share_fact_market_breadth_automation_sensor.py",
-            SENSORS_DIR / "prod_clickhouse_share_fact_market_breadth_automation_sensor.py",
+            SENSORS_DIR
+            / "prod_clickhouse_share_fact_market_breadth_automation_sensor.py",
         )
         for path in old_sensor_files:
             if path.exists():
@@ -1584,7 +1618,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             "clickhouse_row_counts_by_partition",
         ):
             if fragment in sensor_source:
-                issues.append(f"ClickHouse sensor cursor contains bulky field: {fragment}")
+                issues.append(
+                    f"ClickHouse sensor cursor contains bulky field: {fragment}"
+                )
 
         self.assertEqual(issues, [])
 
@@ -1600,9 +1636,7 @@ class RunContractStaticGateTests(unittest.TestCase):
         qfq_repair_guard_path = (
             DEFS_DIR / "asset_guards" / "stk_mins_qfq_factor_repair.py"
         )
-        macd_kdj_guard_path = (
-            DEFS_DIR / "asset_guards" / "stk_mins_qfq_macd_kdj.py"
-        )
+        macd_kdj_guard_path = DEFS_DIR / "asset_guards" / "stk_mins_qfq_macd_kdj.py"
 
         factor_repair_op_source = factor_repair_op_path.read_text()
         forbidden_factor_repair_fragments = (
@@ -1648,8 +1682,13 @@ class RunContractStaticGateTests(unittest.TestCase):
             issues.append("neutral qfq factor repair status helper is missing")
 
         macd_kdj_guard_source = macd_kdj_guard_path.read_text()
-        if "gold_stk_mins_qfq_macd_kdj_qfq_factor_repair_status" in macd_kdj_guard_source:
-            issues.append("qfq factor repair status must not be exposed from macd/kdj guard")
+        if (
+            "gold_stk_mins_qfq_macd_kdj_qfq_factor_repair_status"
+            in macd_kdj_guard_source
+        ):
+            issues.append(
+                "qfq factor repair status must not be exposed from macd/kdj guard"
+            )
 
         self.assertEqual(issues, [])
 
@@ -1774,7 +1813,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             "silver_stock_lifecycle",
             "silver_stock_lifecycle_ready_for_trade_date",
         ):
-            if fragment not in sensor_source and fragment.endswith("_ready_for_trade_date"):
+            if fragment not in sensor_source and fragment.endswith(
+                "_ready_for_trade_date"
+            ):
                 issues.append(f"{sensor_path} does not read lifecycle readiness")
             if fragment == "silver_stock_lifecycle" and fragment not in job_source:
                 issues.append(f"{job_path} does not select silver_stock_lifecycle")
@@ -1782,7 +1823,9 @@ class RunContractStaticGateTests(unittest.TestCase):
         if "silver_stock_basic_path" in asset_source:
             issues.append("stock_lifecycle asset must not depend on silver_stock_basic")
         if "silver_stock_basic_path" in check_source:
-            issues.append("stock_lifecycle checks must not depend on silver_stock_basic")
+            issues.append(
+                "stock_lifecycle checks must not depend on silver_stock_basic"
+            )
         if "raw_stock_basic_path" not in asset_source:
             issues.append("stock_lifecycle asset must derive from raw_stock_basic")
 
@@ -1860,6 +1903,48 @@ class RunContractStaticGateTests(unittest.TestCase):
                         f"silver_stk_mins_{freq}m deps miss required dependency: "
                         f"{fragment}"
                     )
+
+        self.assertEqual(issues, [])
+
+    def test_stk_mins_silver_recovery_is_offline_and_sensor_cannot_select_it(
+        self,
+    ) -> None:
+        asset_path = ASSETS_DIR / "stk_mins.py"
+        sensor_path = SENSORS_DIR / "stock_mins_silver_sensor.py"
+        job_path = JOBS_DIR / "stock_mins_silver_update.py"
+        recovery_path = DEFS_DIR / "bootstrap" / "stk_mins_silver_replace_from_raw.py"
+        recovery_cli_path = (
+            DEFS_DIR / "bootstrap" / "stk_mins_silver_replace_from_raw_cli.py"
+        )
+        materialize_source = _function_source(
+            asset_path,
+            "_materialize_silver_stk_mins_partition",
+        )
+        issues = []
+
+        for path in (asset_path, sensor_path, job_path):
+            if "stk_mins_silver_replace_from_raw" in path.read_text():
+                issues.append(f"{path} must not import the offline recovery tool")
+        for path in (sensor_path, job_path):
+            if "reuse_existing" in path.read_text():
+                issues.append(f"{path} must not select Silver reuse_existing mode")
+        for fragment in ("output_path_override", "overwrite=True"):
+            if fragment in materialize_source:
+                issues.append(
+                    "active Silver materialization must not select recovery output "
+                    f"behavior: {fragment}"
+                )
+        for path in (recovery_path, recovery_cli_path):
+            source = path.read_text()
+            for fragment in (
+                "@dg.asset",
+                "@dg.asset_check",
+                "@dg.sensor",
+                "report_runless_asset_event",
+                "DagsterInstance",
+            ):
+                if fragment in source:
+                    issues.append(f"{path} contains active-state fragment: {fragment}")
 
         self.assertEqual(issues, [])
 
@@ -2185,8 +2270,7 @@ class RunContractStaticGateTests(unittest.TestCase):
         ).read_text()
         if "pool=GOLD_STK_MINS_QFQ_WRITER_POOL" not in repair_op_source:
             issues.append(
-                "stock_mins_qfq_factor_repair_op must use "
-                "GOLD_STK_MINS_QFQ_WRITER_POOL"
+                "stock_mins_qfq_factor_repair_op must use GOLD_STK_MINS_QFQ_WRITER_POOL"
             )
 
         self.assertEqual(issues, [])
@@ -2206,7 +2290,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             source = path.read_text()
             for token in forbidden_tokens:
                 if token in source:
-                    issues.append(f"{path} retains old qfq latest-factor token: {token}")
+                    issues.append(
+                        f"{path} retains old qfq latest-factor token: {token}"
+                    )
 
         self.assertEqual(issues, [])
 
@@ -2370,14 +2456,19 @@ class RunContractStaticGateTests(unittest.TestCase):
                         issues.append(f"{_node_location(path, node)} imports from json")
                 elif isinstance(node, ast.Call):
                     call_name = _call_name(node.func)
-                    if call_name == "RunRequest" and not _is_allowed_direct_run_request(path):
+                    if call_name == "RunRequest" and not _is_allowed_direct_run_request(
+                        path
+                    ):
                         issues.append(
                             f"{_node_location(path, node)} constructs RunRequest directly"
                         )
                     for keyword in node.keywords:
-                        if keyword.arg == "run_key" and not _is_allowed_sensor_run_key_value(
-                            path,
-                            keyword.value,
+                        if (
+                            keyword.arg == "run_key"
+                            and not _is_allowed_sensor_run_key_value(
+                                path,
+                                keyword.value,
+                            )
                         ):
                             issues.append(
                                 f"{_node_location(path, node)} writes run_key "
@@ -2590,7 +2681,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             for fragment in heavy_fragments:
                 fragment_index = function_source.find(fragment)
                 if fragment_index < 0:
-                    issues.append(f"{path} misses expected qfq sensor fragment: {fragment}")
+                    issues.append(
+                        f"{path} misses expected qfq sensor fragment: {fragment}"
+                    )
                 elif guard_index > fragment_index:
                     issues.append(
                         f"{path} calls {fragment} before the run-window guard"
@@ -2608,7 +2701,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             "_evaluate_qfq_factor_repair_records",
         )
         if "include_event_storage_ids: bool = True" not in evaluate_status_source:
-            issues.append("qfq factor repair evaluator must keep default storage id mode")
+            issues.append(
+                "qfq factor repair evaluator must keep default storage id mode"
+            )
         if "if include_event_storage_ids:" not in evaluate_status_source:
             issues.append("qfq factor repair evaluator must guard storage id backfill")
 
@@ -2678,7 +2773,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             )
 
         if "build_gold_stk_mins_qfq_derived_select_sql" in readiness_source:
-            issues.append("qfq lake readiness must not evaluate the full derived QFQ SQL")
+            issues.append(
+                "qfq lake readiness must not evaluate the full derived QFQ SQL"
+            )
         if "build_gold_stk_mins_qfq_derived_coverage_sql" not in readiness_source:
             issues.append("qfq lake readiness must use derived identity coverage SQL")
 
@@ -2879,9 +2976,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             "silver_adj_factor_lifecycle_rebuild",
             "raw_missing_lifecycle_coverage",
         )
-        sensor_forbidden_fragments = (
-            "silver_stock_lifecycle_ready_without_freshness",
-        )
+        sensor_forbidden_fragments = ("silver_stock_lifecycle_ready_without_freshness",)
         readiness_required_fragments = (
             "raw_adj_factor_path(lake_root, trade_date)",
             "silver_adj_factor_path(lake_root, trade_date)",
@@ -2895,8 +2990,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             "expected_trade_dates",
         )
         issues.extend(
-            "silver adj factor sensor misses lifecycle rebuild guard: "
-            f"{fragment}"
+            f"silver adj factor sensor misses lifecycle rebuild guard: {fragment}"
             for fragment in sensor_required_fragments
             if fragment not in sensor_source
         )
@@ -3343,9 +3437,14 @@ class RunContractStaticGateTests(unittest.TestCase):
             for node in ast.walk(asset_tree):
                 if not isinstance(node, ast.Call):
                     continue
-                if not isinstance(node.func, ast.Attribute) or node.func.attr != "stdout":
+                if (
+                    not isinstance(node.func, ast.Attribute)
+                    or node.func.attr != "stdout"
+                ):
                     continue
-                keyword_names = {keyword.arg for keyword in node.keywords if keyword.arg}
+                keyword_names = {
+                    keyword.arg for keyword in node.keywords if keyword.arg
+                }
                 forbidden = sorted(keyword_names & forbidden_stdout_fields)
                 if forbidden:
                     issues.append(
@@ -3354,7 +3453,9 @@ class RunContractStaticGateTests(unittest.TestCase):
                     )
 
         for check_path in check_paths:
-            combined_check_source = _function_source(check_path, "_combined_check_result")
+            combined_check_source = _function_source(
+                check_path, "_combined_check_result"
+            )
             for required_fragment in (
                 "failed_rule_names",
                 "rule_summary",
@@ -3606,8 +3707,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                 if fragment not in source
             )
             issues.extend(
-                f"{path} contains forbidden index daily gap guard fragment: "
-                f"{fragment}"
+                f"{path} contains forbidden index daily gap guard fragment: {fragment}"
                 for fragment in forbidden_fragments
                 if fragment in source
             )
@@ -3651,7 +3751,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                 "change_amount AS change",
                 "to_char(trade_date, 'YYYYMMDD') AS trade_date",
                 "core_serving.index_daily_serving",
-                "PROD_INDEX_DAILY_DUCKDB_ATTACH_OPTIONS = \"TYPE POSTGRES, READ_ONLY\"",
+                'PROD_INDEX_DAILY_DUCKDB_ATTACH_OPTIONS = "TYPE POSTGRES, READ_ONLY"',
             ),
         }
         sources_by_path = {
@@ -3689,7 +3789,9 @@ class RunContractStaticGateTests(unittest.TestCase):
                     f"{forbidden_check_fragment}"
                 )
         if "2026-06-23" in asset_source + check_source + prod_source:
-            issues.append("raw_index_daily production code must not hardcode migration date")
+            issues.append(
+                "raw_index_daily production code must not hardcode migration date"
+            )
 
         self.assertEqual(issues, [])
 
@@ -3732,16 +3834,18 @@ class RunContractStaticGateTests(unittest.TestCase):
         major_helper_source = major_helper_path.read_text()
         readiness_source = readiness_path.read_text()
         raw_file_readiness_source = raw_file_readiness_path.read_text()
-        silver_asset_start = asset_source.index('@dg.asset(\n    name="silver_index_daily"')
+        silver_asset_start = asset_source.index(
+            '@dg.asset(\n    name="silver_index_daily"'
+        )
         silver_asset_end = asset_source.index("def silver_index_daily(")
         silver_asset_slice = asset_source[silver_asset_start:silver_asset_end]
         silver_coverage_start = check_source.index(
             "def evaluate_silver_index_daily_registered_code_coverage"
         )
-        silver_coverage_end = check_source.index("@dg.asset_check(", silver_coverage_start)
-        silver_coverage_slice = check_source[
-            silver_coverage_start:silver_coverage_end
-        ]
+        silver_coverage_end = check_source.index(
+            "@dg.asset_check(", silver_coverage_start
+        )
+        silver_coverage_slice = check_source[silver_coverage_start:silver_coverage_end]
         issues = []
 
         required_fragments = {
@@ -3852,7 +3956,9 @@ class RunContractStaticGateTests(unittest.TestCase):
                     f"{fragment}"
                 )
         if '"source_asset": "raw_index_daily"' not in silver_asset_slice:
-            issues.append("silver_index_daily metadata must name raw_index_daily source")
+            issues.append(
+                "silver_index_daily metadata must name raw_index_daily source"
+            )
         if "raw_index_daily_path" not in silver_coverage_slice:
             issues.append("silver coverage check must compare against raw by-date path")
         if "cn_a_index_ts_codes" in silver_coverage_slice:
@@ -4029,7 +4135,9 @@ class RunContractStaticGateTests(unittest.TestCase):
 
     def test_market_major_indices_sensor_uses_bounded_lake_readiness(self) -> None:
         sensor_path = SENSORS_DIR / "market_major_indices_daily_sensor.py"
-        helper_path = DEFS_DIR / "asset_guards" / "market_major_indices_lake_readiness.py"
+        helper_path = (
+            DEFS_DIR / "asset_guards" / "market_major_indices_lake_readiness.py"
+        )
         sensor_source = sensor_path.read_text()
         helper_source = helper_path.read_text()
         issues = []
@@ -4193,7 +4301,9 @@ class RunContractStaticGateTests(unittest.TestCase):
                             f"{_node_location(path, decorator)} asset {node.name} "
                             "does not use build_asset_definition_metadata(...)"
                         )
-                    if _is_call_named(metadata_value, "build_asset_definition_metadata"):
+                    if _is_call_named(
+                        metadata_value, "build_asset_definition_metadata"
+                    ):
                         column_schema_value = _keyword_value(
                             metadata_value,
                             "column_schema",
@@ -4254,10 +4364,10 @@ class RunContractStaticGateTests(unittest.TestCase):
         readiness_source = readiness_path.read_text()
         issues = []
 
-        required_check_names = (
-            "gold_stock_daily_qfq_contract_check",
+        required_check_names = ("gold_stock_daily_qfq_contract_check",)
+        protected_repair_check_name = (
+            "gold_stock_daily_qfq_factor_repair_plan_evaluated"
         )
-        protected_repair_check_name = "gold_stock_daily_qfq_factor_repair_plan_evaluated"
 
         if check_source.count("@dg.asset_check") != 1:
             issues.append("stock_daily_qfq ordinary checks must stay at 1")
@@ -4319,12 +4429,8 @@ class RunContractStaticGateTests(unittest.TestCase):
         self.assertEqual(issues, [])
 
     def test_gold_stock_daily_qfq_p8_reset_tool_is_scoped_and_guarded(self) -> None:
-        helper_path = (
-            DEFS_DIR / "bootstrap" / "gold_stock_daily_qfq_history_reset.py"
-        )
-        cli_path = (
-            DEFS_DIR / "bootstrap" / "gold_stock_daily_qfq_history_reset_cli.py"
-        )
+        helper_path = DEFS_DIR / "bootstrap" / "gold_stock_daily_qfq_history_reset.py"
+        cli_path = DEFS_DIR / "bootstrap" / "gold_stock_daily_qfq_history_reset_cli.py"
         helper_source = helper_path.read_text()
         cli_source = cli_path.read_text()
         combined = f"{helper_source}\n{cli_source}"
@@ -4390,7 +4496,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             "build_asset_update_run_key",
             "build_sensor_cursor",
             "cn_a_stock_trade_days",
-            "required_resource_keys={\"lake_root\", \"duckdb\"}",
+            'required_resource_keys={"lake_root", "duckdb"}',
             "default_status=dg.DefaultSensorStatus.STOPPED",
             "_qfq_input_coverage_for_trade_date",
         )
@@ -4428,7 +4534,9 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
-    def test_gold_stock_daily_qfq_factor_repair_sensor_uses_bounded_run_contracts(self) -> None:
+    def test_gold_stock_daily_qfq_factor_repair_sensor_uses_bounded_run_contracts(
+        self,
+    ) -> None:
         sensor_path = SENSORS_DIR / "gold_stock_daily_qfq_factor_repair_job_sensor.py"
         status_path = DEFS_DIR / "asset_guards" / "stock_daily_qfq_factor_repair.py"
         config_path = DEFS_DIR / "run_contracts" / "configs.py"
@@ -4491,7 +4599,9 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
-    def test_gold_stock_daily_qfq_history_bootstrap_does_not_write_dagster_events(self) -> None:
+    def test_gold_stock_daily_qfq_history_bootstrap_does_not_write_dagster_events(
+        self,
+    ) -> None:
         bootstrap_paths = (
             DEFS_DIR / "bootstrap" / "gold_stock_daily_qfq_history.py",
             DEFS_DIR / "bootstrap" / "gold_stock_daily_qfq_history_cli.py",
@@ -4515,13 +4625,11 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
-    def test_gold_stock_daily_qfq_history_events_are_manual_bootstrap_only(self) -> None:
-        helper_path = (
-            DEFS_DIR / "bootstrap" / "gold_stock_daily_qfq_history_events.py"
-        )
-        cli_path = (
-            DEFS_DIR / "bootstrap" / "gold_stock_daily_qfq_history_events_cli.py"
-        )
+    def test_gold_stock_daily_qfq_history_events_are_manual_bootstrap_only(
+        self,
+    ) -> None:
+        helper_path = DEFS_DIR / "bootstrap" / "gold_stock_daily_qfq_history_events.py"
+        cli_path = DEFS_DIR / "bootstrap" / "gold_stock_daily_qfq_history_events_cli.py"
         helper_source = helper_path.read_text()
         cli_source = cli_path.read_text()
         combined = f"{helper_source}\n{cli_source}"
@@ -4535,7 +4643,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             "define_asset_job",
             "get_event_records",
             "event_storage_id",
-            "storage_id\"",
+            'storage_id"',
         )
         required_fragments = (
             "GOLD_STOCK_DAILY_QFQ_RUNLESS_CHECK_WINDOW_SIZE = 20",
@@ -4543,8 +4651,8 @@ class RunContractStaticGateTests(unittest.TestCase):
             "report_runless_asset_event",
             "AssetMaterialization(",
             "AssetCheckEvaluation(",
-            "\"plan-events\"",
-            "\"report-events\"",
+            '"plan-events"',
+            '"report-events"',
             "--as-of-trade-date",
             "--apply",
         )
@@ -4610,12 +4718,8 @@ class RunContractStaticGateTests(unittest.TestCase):
     def test_stk_mins_name_timeline_event_correction_dry_run_is_read_only(
         self,
     ) -> None:
-        helper_path = (
-            DEFS_DIR / "bootstrap" / "stk_mins_name_timeline_check_events.py"
-        )
-        cli_path = (
-            DEFS_DIR / "bootstrap" / "stk_mins_name_timeline_check_events_cli.py"
-        )
+        helper_path = DEFS_DIR / "bootstrap" / "stk_mins_name_timeline_check_events.py"
+        cli_path = DEFS_DIR / "bootstrap" / "stk_mins_name_timeline_check_events_cli.py"
         helper_source = helper_path.read_text()
         cli_source = cli_path.read_text()
         issues = []
@@ -4629,7 +4733,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             "partition_filter=",
         )
         required_helper_fragments = (
-            "TARGET_TS_CODE = \"000638.SZ\"",
+            'TARGET_TS_CODE = "000638.SZ"',
             "SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK",
             "silver_stock_lifecycle_path",
             "silver_cny_stock_lifecycle_select",
@@ -4647,9 +4751,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             for fragment in required_helper_fragments
             if fragment not in helper_source
         )
-        if "\"dry-run\"" not in cli_source:
+        if '"dry-run"' not in cli_source:
             issues.append(f"{cli_path} must expose only the dry-run command")
-        if "\"apply\"" in cli_source or "report_runless_asset_event" in cli_source:
+        if '"apply"' in cli_source or "report_runless_asset_event" in cli_source:
             issues.append(f"{cli_path} must not expose apply/write event behavior")
 
         self.assertEqual(issues, [])
@@ -4657,12 +4761,8 @@ class RunContractStaticGateTests(unittest.TestCase):
     def test_stk_mins_event_history_retention_dry_run_is_scoped_and_read_only(
         self,
     ) -> None:
-        helper_path = (
-            DEFS_DIR / "bootstrap" / "stk_mins_event_history_retention.py"
-        )
-        cli_path = (
-            DEFS_DIR / "bootstrap" / "stk_mins_event_history_retention_cli.py"
-        )
+        helper_path = DEFS_DIR / "bootstrap" / "stk_mins_event_history_retention.py"
+        cli_path = DEFS_DIR / "bootstrap" / "stk_mins_event_history_retention_cli.py"
         helper_source = helper_path.read_text()
         cli_source = cli_path.read_text()
         combined = f"{helper_source}\n{cli_source}".lower()
@@ -4678,12 +4778,11 @@ class RunContractStaticGateTests(unittest.TestCase):
             "report_runless_asset_event",
             "dagsterinstance.get",
             "--apply",
-            "\"apply\"",
+            '"apply"',
             "asset_key::text like",
         )
         required_helper_fragments = (
-            "STK_MINS_RETENTION_KEEP_PARTITION_SET_NAME = "
-            '"cn_a_stock_mins_trade_days"',
+            'STK_MINS_RETENTION_KEEP_PARTITION_SET_NAME = "cn_a_stock_mins_trade_days"',
             "STK_MINS_RETENTION_KEEP_TRADE_DAY_COUNT = 20",
             "STK_MINS_RETENTION_ASSET_KEYS",
             "gold_stk_mins_qfq_factor_repair_plan_evaluated",
@@ -4701,7 +4800,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             for fragment in required_helper_fragments
             if fragment not in helper_source
         )
-        if "\"dry-run\"" not in cli_source:
+        if '"dry-run"' not in cli_source:
             issues.append(f"{cli_path} must expose the dry-run command")
 
         self.assertEqual(issues, [])
@@ -4758,7 +4857,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             for fragment in forbidden_fragments
             if fragment in combined
         )
-        if "\"dry-run\"" in cli_source:
+        if '"dry-run"' in cli_source:
             issues.append(f"{cli_path} must not masquerade as a dry-run CLI")
 
         self.assertEqual(issues, [])
@@ -4915,15 +5014,13 @@ class RunContractStaticGateTests(unittest.TestCase):
             for fragment in forbidden_fragments
             if fragment in combined
         )
-        if "\"dry-run\"" in cli_source:
+        if '"dry-run"' in cli_source:
             issues.append(f"{cli_path} must not masquerade as a dry-run CLI")
 
         self.assertEqual(issues, [])
 
     def test_stk_nineturn_daily_slice_keeps_definition_boundaries(self) -> None:
-        asset_source = Path(
-            "src/orchestrator/defs/assets/stk_nineturn.py"
-        ).read_text()
+        asset_source = Path("src/orchestrator/defs/assets/stk_nineturn.py").read_text()
         checks_source = Path(
             "src/orchestrator/defs/checks/stk_nineturn_checks.py"
         ).read_text()
@@ -5013,7 +5110,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             if forbidden in raw_asset_source:
                 issues.append(f"stk_nineturn raw asset contains forbidden {forbidden}")
         if "bse_mapping" in asset_source:
-            issues.append("stk_nineturn Silver asset must not build a local BSE mapping")
+            issues.append(
+                "stk_nineturn Silver asset must not build a local BSE mapping"
+            )
         if "silver_stock_daily" in asset_source:
             issues.append("stk_nineturn Silver asset must not depend on stock daily")
         required_sensor_fragments = (
@@ -5050,13 +5149,12 @@ class RunContractStaticGateTests(unittest.TestCase):
             for fragment in required_readiness_fragments
             if fragment not in readiness_source
         )
-        forbidden_nineturn_global_partition_fragments = (
-            "cn_a_stock_trade_days",
-        )
+        forbidden_nineturn_global_partition_fragments = ("cn_a_stock_trade_days",)
         issues.extend(
             f"stk_nineturn active source contains forbidden global partition: {fragment}"
             for fragment in forbidden_nineturn_global_partition_fragments
-            if fragment in f"{asset_source}\n{checks_source}\n{sensor_source}\n{readiness_source}"
+            if fragment
+            in f"{asset_source}\n{checks_source}\n{sensor_source}\n{readiness_source}"
         )
         required_registration_sensor_fragments = (
             "stk_nineturn_trade_day_sensor",
@@ -5113,7 +5211,9 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
-    def test_historical_materialization_reconciliation_is_materialization_only(self) -> None:
+    def test_historical_materialization_reconciliation_is_materialization_only(
+        self,
+    ) -> None:
         helper_path = (
             DEFS_DIR / "bootstrap" / "historical_materialization_reconciliation.py"
         )
@@ -5158,9 +5258,13 @@ class RunContractStaticGateTests(unittest.TestCase):
             if fragment.lower() in source_bundle
         )
         if 'choices=("plan", "apply", "audit")' not in cli_source:
-            issues.append("historical materialization CLI must expose plan/apply/audit only")
+            issues.append(
+                "historical materialization CLI must expose plan/apply/audit only"
+            )
         if 'parser.add_argument("--apply", action="store_true")' not in cli_source:
-            issues.append("historical materialization CLI must require explicit --apply")
+            issues.append(
+                "historical materialization CLI must require explicit --apply"
+            )
         self.assertEqual(issues, [])
 
 

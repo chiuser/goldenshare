@@ -43,6 +43,7 @@ class GoldStockDailyQfqFactorRepairConfig(dg.Config):
 
 StockMinsRawSource = Literal["tushare", "prod_db"]
 StockMinsRawWriteMode = Literal["reuse_existing", "merge_repair"]
+StockMinsSilverWriteMode = Literal["write_new", "reuse_existing"]
 StockDailyRawWriteMode = Literal["full_day", "missing_code_repair"]
 MAX_STOCK_DAILY_MISSING_CODE_REPAIR_COUNT = 100
 
@@ -68,6 +69,11 @@ class ParsedStockMinsRawConfig:
         if start_time > end_time:
             raise ValueError("merge_repair.start_time must not be later than end_time.")
         return self
+
+
+@dataclass(frozen=True)
+class ParsedStockMinsSilverConfig:
+    write_mode: StockMinsSilverWriteMode
 
 
 @dataclass(frozen=True)
@@ -180,12 +186,50 @@ STOCK_MINS_RAW_CONFIG_SCHEMA = dg.Shape(
 )
 
 
+STOCK_MINS_SILVER_CONFIG_SCHEMA = dg.Shape(
+    {
+        "write_mode": dg.Field(
+            dg.Selector(
+                {
+                    "write_new": dg.Field(
+                        dg.Shape({}),
+                        default_value={},
+                        is_required=False,
+                        description="默认安全模式：目标文件已存在时拒绝覆盖。",
+                    ),
+                    "reuse_existing": dg.Field(
+                        dg.Shape({}),
+                        default_value={},
+                        is_required=False,
+                        description=(
+                            "仅用于受控恢复后的 Dagster 状态复核：只读取既有 Silver 文件，"
+                            "不改写 Parquet。"
+                        ),
+                    ),
+                }
+            ),
+            default_value={"write_new": {}},
+            is_required=False,
+            description="股票分钟线 Silver 写入模式；两个分支互斥。",
+        )
+    }
+)
+
+
 STOCK_MINS_RAW_ASSET_OP_NAMES = (
     "raw_stk_mins_1m",
     "raw_stk_mins_5m",
     "raw_stk_mins_15m",
     "raw_stk_mins_30m",
     "raw_stk_mins_60m",
+)
+
+STOCK_MINS_SILVER_ASSET_OP_NAMES = (
+    "silver_stk_mins_1m",
+    "silver_stk_mins_5m",
+    "silver_stk_mins_15m",
+    "silver_stk_mins_30m",
+    "silver_stk_mins_60m",
 )
 
 
@@ -233,9 +277,7 @@ def build_raw_dc_index_update_job_run_config(
         field_name="reference_trade_date",
     )
     if normalized_reference_trade_date != normalized_partition_key:
-        raise ValueError(
-            "reference_trade_date must equal partition_key."
-        )
+        raise ValueError("reference_trade_date must equal partition_key.")
     normalized_reference_observed_at = _normalize_reference_observed_at(
         reference_observed_at,
     )
@@ -353,6 +395,17 @@ def build_stock_mins_raw_update_job_run_config(
     }
 
 
+def build_stock_mins_silver_reuse_existing_run_config() -> dict[str, object]:
+    """Build the explicit no-write config used after offline Silver recovery."""
+
+    return {
+        "ops": {
+            op_name: {"config": {"write_mode": {"reuse_existing": {}}}}
+            for op_name in STOCK_MINS_SILVER_ASSET_OP_NAMES
+        }
+    }
+
+
 def parse_stock_daily_raw_config(
     raw_config: Mapping[str, object] | None,
 ) -> ParsedStockDailyRawConfig:
@@ -403,9 +456,7 @@ def parse_stock_mins_raw_config(
         raise ValueError("write_mode must be a selector mapping.")
 
     selected_modes = [
-        mode
-        for mode in ("reuse_existing", "merge_repair")
-        if mode in write_mode_config
+        mode for mode in ("reuse_existing", "merge_repair") if mode in write_mode_config
     ]
     if len(selected_modes) != 1:
         raise ValueError("write_mode must select exactly one branch.")
@@ -440,6 +491,22 @@ def parse_stock_mins_raw_config(
     ).validate()
 
 
+def parse_stock_mins_silver_config(
+    raw_config: Mapping[str, object] | None,
+) -> ParsedStockMinsSilverConfig:
+    config = dict(raw_config or {})
+    write_mode_config = config.get("write_mode", {"write_new": {}})
+    if not isinstance(write_mode_config, Mapping):
+        raise ValueError("write_mode must be a selector mapping.")
+
+    selected_modes = [
+        mode for mode in ("write_new", "reuse_existing") if mode in write_mode_config
+    ]
+    if len(selected_modes) != 1:
+        raise ValueError("write_mode must select exactly one branch.")
+    return ParsedStockMinsSilverConfig(write_mode=selected_modes[0])
+
+
 def _normalize_stock_mins_raw_source(value: object) -> StockMinsRawSource:
     source = str(value or "").strip().lower()
     if source not in {"tushare", "prod_db"}:
@@ -458,8 +525,7 @@ def _normalize_repair_stock_codes(value: object) -> tuple[str, ...]:
     )
     if duplicate_codes:
         raise ValueError(
-            "merge_repair.stock_codes must not contain duplicates: "
-            f"{duplicate_codes}."
+            f"merge_repair.stock_codes must not contain duplicates: {duplicate_codes}."
         )
     return stock_codes
 
@@ -496,7 +562,9 @@ def _normalize_missing_codes_hash(value: object) -> str:
 def _normalize_reference_observed_at(value: object) -> str:
     text = str(value or "").strip()
     if not text:
-        raise ValueError("reference_observed_at must be a non-empty ISO-8601 timestamp.")
+        raise ValueError(
+            "reference_observed_at must be a non-empty ISO-8601 timestamp."
+        )
     try:
         parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError as exc:

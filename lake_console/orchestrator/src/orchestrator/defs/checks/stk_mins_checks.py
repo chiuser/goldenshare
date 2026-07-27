@@ -72,9 +72,7 @@ RAW_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK = (
 RAW_STK_MINS_SCHEMA_MATCHES_CONTRACT_CHECK = "raw_stk_mins_schema_matches_contract"
 RAW_STK_MINS_FREQ_MATCHES_ASSET_CHECK = "raw_stk_mins_freq_matches_asset"
 RAW_STK_MINS_PARTITION_DATE_MATCHES_CHECK = "raw_stk_mins_partition_date_matches"
-RAW_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK = (
-    "raw_stk_mins_unique_ts_code_trade_time"
-)
+RAW_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK = "raw_stk_mins_unique_ts_code_trade_time"
 RAW_STK_MINS_PRICE_VOLUME_SANITY_CHECK = "raw_stk_mins_price_volume_sanity"
 RAW_STK_MINS_PARTITION_KEY_REGISTERED_CHECK = (
     "raw_stk_mins_stock_mins_partition_key_registered"
@@ -102,9 +100,7 @@ SILVER_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK = (
     "silver_stk_mins_unique_ts_code_trade_time"
 )
 SILVER_STK_MINS_PRICE_SANITY_CHECK = "silver_stk_mins_price_sanity"
-SILVER_STK_MINS_VOLUME_AMOUNT_SANITY_CHECK = (
-    "silver_stk_mins_volume_amount_sanity"
-)
+SILVER_STK_MINS_VOLUME_AMOUNT_SANITY_CHECK = "silver_stk_mins_volume_amount_sanity"
 SILVER_STK_MINS_EXCHANGE_MATCHES_SUFFIX_CHECK = (
     "silver_stk_mins_exchange_matches_suffix"
 )
@@ -114,15 +110,11 @@ SILVER_STK_MINS_CODES_EXIST_IN_STOCK_DAILY_CHECK = (
 SILVER_STK_MINS_NO_FULL_DAY_SUSPEND_STRUCTURAL_ROWS_CHECK = (
     "silver_stk_mins_no_full_day_suspend_structural_rows"
 )
-SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK = (
-    "silver_stk_mins_name_timeline_covered"
-)
+SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK = "silver_stk_mins_name_timeline_covered"
 SILVER_STK_MINS_CONTRACT_CHECK = "silver_stk_mins_contract_check"
 SILVER_STK_MINS_KEY_INTEGRITY_CHECK = "silver_stk_mins_key_integrity_check"
 SILVER_STK_MINS_VALUE_DOMAIN_CHECK = "silver_stk_mins_value_domain_check"
-SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK = (
-    "silver_stk_mins_reference_coverage_check"
-)
+SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK = "silver_stk_mins_reference_coverage_check"
 
 SILVER_STK_MINS_CHECK_NAMES = (
     SILVER_STK_MINS_CONTRACT_CHECK,
@@ -137,9 +129,7 @@ GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK = (
 GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK = (
     "gold_stk_mins_qfq_schema_matches_contract"
 )
-GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK = (
-    "gold_stk_mins_qfq_freq_date_path_match"
-)
+GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK = "gold_stk_mins_qfq_freq_date_path_match"
 GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK = (
     "gold_stk_mins_qfq_unique_ts_code_trade_time"
 )
@@ -150,9 +140,7 @@ GOLD_STK_MINS_QFQ_ROW_COUNT_MATCHES_SILVER_CHECK = (
 GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK = (
     "gold_stk_mins_qfq_factor_coverage_complete"
 )
-GOLD_STK_MINS_QFQ_DERIVED_SOURCE_READY_CHECK = (
-    "gold_stk_mins_qfq_derived_source_ready"
-)
+GOLD_STK_MINS_QFQ_DERIVED_SOURCE_READY_CHECK = "gold_stk_mins_qfq_derived_source_ready"
 GOLD_STK_MINS_QFQ_DERIVED_ROW_COUNT_MATCHES_SOURCE_WINDOWS_CHECK = (
     "gold_stk_mins_qfq_derived_row_count_matches_source_windows"
 )
@@ -291,7 +279,9 @@ def _readable_check_metadata(
     )
     return {
         "summary": summary,
-        "next_action": success_next_action if failed_count == 0 else failure_next_action,
+        "next_action": success_next_action
+        if failed_count == 0
+        else failure_next_action,
         "rule_summary": _rule_summary(rule_names, failed_rule_names),
     }
 
@@ -494,7 +484,9 @@ def _gold_qfq_schema_mismatch_count(
 
     observed_schema = {row[0]: row[1] for row in rows}
     missing_columns = [
-        column for column in GOLD_STK_MINS_QFQ_COLUMN_TYPES if column not in observed_schema
+        column
+        for column in GOLD_STK_MINS_QFQ_COLUMN_TYPES
+        if column not in observed_schema
     ]
     type_mismatches = [
         column
@@ -707,7 +699,8 @@ def _gold_qfq_check_results(
         "gold_target_row_count": counts.gold_target_row_count,
         "silver_row_count": counts.silver_row_count,
         "missing_gold_file_samples": [
-            str(path) for path in missing_gold_paths[:GOLD_STK_MINS_QFQ_METADATA_SAMPLE_LIMIT]
+            str(path)
+            for path in missing_gold_paths[:GOLD_STK_MINS_QFQ_METADATA_SAMPLE_LIMIT]
         ],
     }
 
@@ -729,7 +722,9 @@ def _gold_qfq_check_results(
             GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK
         )
     if counts.missing_file_count or counts.schema_mismatch_file_count:
-        contract_failed_rule_names.append(GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK)
+        contract_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK
+        )
     if (
         counts.missing_file_count
         or counts.schema_mismatch_file_count
@@ -745,9 +740,13 @@ def _gold_qfq_check_results(
         or counts.unexpected_gold_identity_row_count
         or counts.exchange_mismatch_row_count
     ):
-        source_failed_rule_names.append(GOLD_STK_MINS_QFQ_ROW_COUNT_MATCHES_SILVER_CHECK)
+        source_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_ROW_COUNT_MATCHES_SILVER_CHECK
+        )
     if factor_coverage_failed_count:
-        source_failed_rule_names.append(GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK)
+        source_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK
+        )
 
     contract_rule_names = (
         GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
@@ -790,7 +789,9 @@ def _gold_qfq_check_results(
             check_scope=CheckScope.SCHEMA,
             file_path=output_root_path,
             input_file_paths=input_file_paths,
-            missing_file_paths=missing_gold_paths[:GOLD_STK_MINS_QFQ_METADATA_SAMPLE_LIMIT],
+            missing_file_paths=missing_gold_paths[
+                :GOLD_STK_MINS_QFQ_METADATA_SAMPLE_LIMIT
+            ],
             checked_row_count=counts.expected_file_count,
             failed_row_count=len(contract_failed_rule_names),
             extra_metadata={
@@ -961,12 +962,15 @@ def _gold_qfq_derived_check_results(
         "missing_file_count": counts.missing_file_count,
         "gold_target_row_count": counts.gold_target_row_count,
         "missing_gold_file_samples": [
-            str(path) for path in missing_gold_paths[:GOLD_STK_MINS_QFQ_METADATA_SAMPLE_LIMIT]
+            str(path)
+            for path in missing_gold_paths[:GOLD_STK_MINS_QFQ_METADATA_SAMPLE_LIMIT]
         ],
     }
-    row_count_failed_count = abs(
-        counts.gold_target_row_count - counts.generated_window_count
-    ) + counts.missing_file_count + counts.incomplete_window_count
+    row_count_failed_count = (
+        abs(counts.gold_target_row_count - counts.generated_window_count)
+        + counts.missing_file_count
+        + counts.incomplete_window_count
+    )
 
     contract_failed_rule_names = []
     if not (
@@ -978,7 +982,9 @@ def _gold_qfq_derived_check_results(
             GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK
         )
     if counts.missing_file_count or counts.schema_mismatch_file_count:
-        contract_failed_rule_names.append(GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK)
+        contract_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK
+        )
     if (
         counts.missing_file_count
         or counts.schema_mismatch_file_count
@@ -1048,7 +1054,9 @@ def _gold_qfq_derived_check_results(
             check_scope=CheckScope.SCHEMA,
             file_path=output_root_path,
             input_file_paths=input_file_paths,
-            missing_file_paths=missing_gold_paths[:GOLD_STK_MINS_QFQ_METADATA_SAMPLE_LIMIT],
+            missing_file_paths=missing_gold_paths[
+                :GOLD_STK_MINS_QFQ_METADATA_SAMPLE_LIMIT
+            ],
             checked_row_count=counts.expected_file_count,
             failed_row_count=len(contract_failed_rule_names),
             extra_metadata={
@@ -1398,7 +1406,9 @@ def _gold_stk_mins_qfq_derived_check_results(
             generated_window_count,
             incomplete_window_count,
             exchange_mismatch_window_count,
-        ) = (int(value or 0) for value in connection.execute(diagnostics_sql).fetchone())
+        ) = (
+            int(value or 0) for value in connection.execute(diagnostics_sql).fetchone()
+        )
         expected_paths = _gold_qfq_derived_expected_paths(
             connection,
             lake_root=root,
@@ -1766,9 +1776,7 @@ def _price_volume_sanity(
 
     checked_count = int(row[0])
     failed_count = int(row[1] or 0)
-    failed_rule_names = (
-        [RAW_STK_MINS_PRICE_VOLUME_SANITY_CHECK] if failed_count else []
-    )
+    failed_rule_names = [RAW_STK_MINS_PRICE_VOLUME_SANITY_CHECK] if failed_count else []
     return _check_result(
         passed=failed_count == 0,
         check_scope=CheckScope.VALUE_SANITY,
@@ -1852,7 +1860,9 @@ def _raw_contract_check(
         row_count = _row_count(connection, path)
 
         missing_columns = [
-            column for column in STK_MINS_RAW_COLUMN_TYPES if column not in observed_schema
+            column
+            for column in STK_MINS_RAW_COLUMN_TYPES
+            if column not in observed_schema
         ]
         type_mismatches = {
             column: {
@@ -2077,9 +2087,10 @@ def _silver_file_exists_and_row_count_positive(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
     freq: int,
+    silver_path_override: Path | None = None,
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
-    path = _silver_path(lake_root, freq, partition_key)
+    path = silver_path_override or _silver_path(lake_root, freq, partition_key)
     if not path.exists():
         return _missing_file_result(path)
 
@@ -2101,9 +2112,10 @@ def _silver_schema_matches_contract(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
     freq: int,
+    silver_path_override: Path | None = None,
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
-    path = _silver_path(lake_root, freq, partition_key)
+    path = silver_path_override or _silver_path(lake_root, freq, partition_key)
     if not path.exists():
         return _missing_file_result(path)
 
@@ -2112,7 +2124,9 @@ def _silver_schema_matches_contract(
         row_count = _row_count(connection, path)
 
     missing_columns = [
-        column for column in STK_MINS_SILVER_COLUMN_TYPES if column not in observed_schema
+        column
+        for column in STK_MINS_SILVER_COLUMN_TYPES
+        if column not in observed_schema
     ]
     type_mismatches = {
         column: {"expected": expected_type, "actual": observed_schema.get(column)}
@@ -2141,9 +2155,10 @@ def _silver_freq_and_partition_match(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
     freq: int,
+    silver_path_override: Path | None = None,
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
-    path = _silver_path(lake_root, freq, partition_key)
+    path = silver_path_override or _silver_path(lake_root, freq, partition_key)
     if not path.exists():
         return _missing_file_result(path)
 
@@ -2183,9 +2198,10 @@ def _silver_unique_ts_code_trade_time(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
     freq: int,
+    silver_path_override: Path | None = None,
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
-    path = _silver_path(lake_root, freq, partition_key)
+    path = silver_path_override or _silver_path(lake_root, freq, partition_key)
     if not path.exists():
         return _missing_file_result(path)
 
@@ -2243,9 +2259,10 @@ def _silver_price_sanity(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
     freq: int,
+    silver_path_override: Path | None = None,
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
-    path = _silver_path(lake_root, freq, partition_key)
+    path = silver_path_override or _silver_path(lake_root, freq, partition_key)
     if not path.exists():
         return _missing_file_result(path)
 
@@ -2301,9 +2318,10 @@ def _silver_volume_amount_sanity(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
     freq: int,
+    silver_path_override: Path | None = None,
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
-    path = _silver_path(lake_root, freq, partition_key)
+    path = silver_path_override or _silver_path(lake_root, freq, partition_key)
     if not path.exists():
         return _missing_file_result(path)
 
@@ -2359,9 +2377,10 @@ def _silver_exchange_matches_suffix(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
     freq: int,
+    silver_path_override: Path | None = None,
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
-    path = _silver_path(lake_root, freq, partition_key)
+    path = silver_path_override or _silver_path(lake_root, freq, partition_key)
     if not path.exists():
         return _missing_file_result(path)
 
@@ -2423,9 +2442,10 @@ def _silver_codes_exist_in_stock_daily(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
     freq: int,
+    silver_path_override: Path | None = None,
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
-    path = _silver_path(lake_root, freq, partition_key)
+    path = silver_path_override or _silver_path(lake_root, freq, partition_key)
     daily_path = silver_stock_daily_path(lake_root.root(), partition_key)
     if not path.exists():
         return _missing_file_result(path)
@@ -2492,9 +2512,10 @@ def _silver_no_full_day_suspend_structural_rows(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
     freq: int,
+    silver_path_override: Path | None = None,
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
-    path = _silver_path(lake_root, freq, partition_key)
+    path = silver_path_override or _silver_path(lake_root, freq, partition_key)
     suspend_path = silver_stock_suspend_daily_path(lake_root.root(), partition_key)
     if not path.exists():
         return _missing_file_result(path)
@@ -2554,9 +2575,10 @@ def _silver_name_timeline_covered(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
     freq: int,
+    silver_path_override: Path | None = None,
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
-    path = _silver_path(lake_root, freq, partition_key)
+    path = silver_path_override or _silver_path(lake_root, freq, partition_key)
     stock_lifecycle_path = silver_stock_lifecycle_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
@@ -2795,6 +2817,120 @@ def _silver_reference_coverage_check(
         ),
         check_scope=CheckScope.REFERENTIAL_INTEGRITY,
         check_label="引用覆盖",
+    )
+
+
+@dataclass(frozen=True)
+class SilverStkMinsRuleDiagnostic:
+    rule_name: str
+    passed: bool
+
+
+@dataclass(frozen=True)
+class SilverStkMinsPartitionDiagnostics:
+    freq: int
+    partition_key: str
+    silver_path: Path
+    rules: tuple[SilverStkMinsRuleDiagnostic, ...]
+
+    @property
+    def passed(self) -> bool:
+        return all(rule.passed for rule in self.rules)
+
+    @property
+    def failed_rule_names(self) -> tuple[str, ...]:
+        return tuple(rule.rule_name for rule in self.rules if not rule.passed)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "freq": self.freq,
+            "partition_key": self.partition_key,
+            "silver_path": str(self.silver_path),
+            "passed": self.passed,
+            "failed_rule_names": list(self.failed_rule_names),
+            "rules": [
+                {"rule_name": rule.rule_name, "passed": rule.passed}
+                for rule in self.rules
+            ],
+        }
+
+
+@dataclass(frozen=True)
+class _SilverStkMinsPartitionContext:
+    partition_key: str
+
+
+def evaluate_silver_stk_mins_partition_diagnostics(
+    *,
+    lake_root: Path,
+    duckdb: DuckDBResource,
+    freq: int,
+    partition_key: str,
+    silver_path: Path,
+) -> SilverStkMinsPartitionDiagnostics:
+    """Evaluate the current Silver rule set against an arbitrary candidate file.
+
+    Active asset checks keep their existing standard-path behavior. The offline
+    recovery CLI calls this function on staging files so pre-promote validation
+    has exactly the same file, key, value and reference semantics.
+    """
+
+    normalized_freq = normalize_stk_mins_freq(freq)
+    context = _SilverStkMinsPartitionContext(partition_key=partition_key)
+    root_resource = LakeRootResource(root_path=str(lake_root))
+    rule_evaluators = (
+        (
+            SILVER_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+            _silver_file_exists_and_row_count_positive,
+        ),
+        (
+            SILVER_STK_MINS_SCHEMA_MATCHES_CONTRACT_CHECK,
+            _silver_schema_matches_contract,
+        ),
+        (
+            SILVER_STK_MINS_FREQ_AND_PARTITION_MATCH_CHECK,
+            _silver_freq_and_partition_match,
+        ),
+        (
+            SILVER_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
+            _silver_unique_ts_code_trade_time,
+        ),
+        (SILVER_STK_MINS_PRICE_SANITY_CHECK, _silver_price_sanity),
+        (SILVER_STK_MINS_VOLUME_AMOUNT_SANITY_CHECK, _silver_volume_amount_sanity),
+        (
+            SILVER_STK_MINS_EXCHANGE_MATCHES_SUFFIX_CHECK,
+            _silver_exchange_matches_suffix,
+        ),
+        (
+            SILVER_STK_MINS_CODES_EXIST_IN_STOCK_DAILY_CHECK,
+            _silver_codes_exist_in_stock_daily,
+        ),
+        (
+            SILVER_STK_MINS_NO_FULL_DAY_SUSPEND_STRUCTURAL_ROWS_CHECK,
+            _silver_no_full_day_suspend_structural_rows,
+        ),
+        (SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK, _silver_name_timeline_covered),
+    )
+    rules = tuple(
+        SilverStkMinsRuleDiagnostic(
+            rule_name=rule_name,
+            passed=bool(
+                evaluator(
+                    context=context,
+                    lake_root=root_resource,
+                    duckdb=duckdb,
+                    freq=normalized_freq,
+                    silver_path_override=silver_path,
+                ).passed
+            ),
+        )
+        for rule_name, evaluator in rule_evaluators
+    )
+    return SilverStkMinsPartitionDiagnostics(
+        freq=normalized_freq,
+        partition_key=partition_key,
+        silver_path=silver_path,
+        rules=rules,
     )
 
 

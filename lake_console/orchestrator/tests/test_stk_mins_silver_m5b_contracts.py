@@ -535,11 +535,56 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
                 1,
                 partition_key,
                 [
-                    _raw_row("600000.SH", "2026-05-29 09:31:00", open_=1, high=2, low=1, close=2, vol=100, amount=100),
-                    _raw_row("600000.SH", "2026-05-29 09:32:00", open_=2, high=3, low=2, close=3, vol=200, amount=400),
-                    _raw_row("600000.SH", "2026-05-29 09:33:00", open_=3, high=5, low=3, close=4, vol=300, amount=900),
-                    _raw_row("600000.SH", "2026-05-29 09:34:00", open_=4, high=6, low=4, close=5, vol=400, amount=1600),
-                    _raw_row("600000.SH", "2026-05-29 09:35:00", open_=5, high=7, low=5, close=6, vol=500, amount=2500),
+                    _raw_row(
+                        "600000.SH",
+                        "2026-05-29 09:31:00",
+                        open_=1,
+                        high=2,
+                        low=1,
+                        close=2,
+                        vol=100,
+                        amount=100,
+                    ),
+                    _raw_row(
+                        "600000.SH",
+                        "2026-05-29 09:32:00",
+                        open_=2,
+                        high=3,
+                        low=2,
+                        close=3,
+                        vol=200,
+                        amount=400,
+                    ),
+                    _raw_row(
+                        "600000.SH",
+                        "2026-05-29 09:33:00",
+                        open_=3,
+                        high=5,
+                        low=3,
+                        close=4,
+                        vol=300,
+                        amount=900,
+                    ),
+                    _raw_row(
+                        "600000.SH",
+                        "2026-05-29 09:34:00",
+                        open_=4,
+                        high=6,
+                        low=4,
+                        close=5,
+                        vol=400,
+                        amount=1600,
+                    ),
+                    _raw_row(
+                        "600000.SH",
+                        "2026-05-29 09:35:00",
+                        open_=5,
+                        high=7,
+                        low=5,
+                        close=6,
+                        vol=500,
+                        amount=2500,
+                    ),
                 ],
             )
             _write_raw(
@@ -1034,15 +1079,108 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
                     )
                     self.assertFalse(result.passed)
 
-    def test_readiness_check_names_match_silver_stk_mins_check_definitions(self) -> None:
-        first_asset_check_definitions = stk_mins_checks.SILVER_STK_MINS_CHECK_DEFINITIONS[
-            : len(stk_mins_checks.SILVER_STK_MINS_CHECK_NAMES)
-        ]
+    def test_readiness_check_names_match_silver_stk_mins_check_definitions(
+        self,
+    ) -> None:
+        first_asset_check_definitions = (
+            stk_mins_checks.SILVER_STK_MINS_CHECK_DEFINITIONS[
+                : len(stk_mins_checks.SILVER_STK_MINS_CHECK_NAMES)
+            ]
+        )
 
         self.assertEqual(
             tuple(sorted(readiness.SILVER_STK_MINS_CHECKS)),
             _check_names(first_asset_check_definitions),
         )
+
+    def test_staging_diagnostics_reuse_the_ten_current_silver_rules(self) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            code = "600000.SH"
+            for freq in (1, 5, 15, 30, 60):
+                _write_raw(
+                    lake_root,
+                    freq,
+                    PARTITION_KEY,
+                    [
+                        _raw_row(
+                            code,
+                            f"{PARTITION_KEY} 09:30:00",
+                            freq=freq,
+                        )
+                    ],
+                )
+            _write_common_inputs(
+                lake_root,
+                PARTITION_KEY,
+                identity_rows=[_identity_row(code)],
+                daily_codes=(code,),
+            )
+
+            result = stk_mins.write_silver_stk_mins_partition(
+                lake_root=lake_root,
+                duckdb=DuckDBResource(),
+                freq=1,
+                partition_key=PARTITION_KEY,
+            )
+            staging_path = lake_root / "staging" / "part-000.parquet"
+            staging_path.parent.mkdir(parents=True, exist_ok=True)
+            staging_path.write_bytes(result.silver_file_path.read_bytes())
+
+            diagnostics = (
+                stk_mins_checks.evaluate_silver_stk_mins_partition_diagnostics(
+                    lake_root=lake_root,
+                    duckdb=DuckDBResource(),
+                    freq=1,
+                    partition_key=PARTITION_KEY,
+                    silver_path=staging_path,
+                )
+            )
+
+            self.assertTrue(diagnostics.passed)
+            self.assertEqual(len(diagnostics.rules), 10)
+            self.assertEqual(diagnostics.failed_rule_names, ())
+
+    def test_reuse_existing_silver_partition_does_not_modify_parquet(self) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            code = "600000.SH"
+            _write_raw(
+                lake_root,
+                1,
+                PARTITION_KEY,
+                [_raw_row(code, f"{PARTITION_KEY} 09:30:00")],
+            )
+            _write_common_inputs(
+                lake_root,
+                PARTITION_KEY,
+                identity_rows=[_identity_row(code)],
+                daily_codes=(code,),
+            )
+            written = stk_mins.write_silver_stk_mins_partition(
+                lake_root=lake_root,
+                duckdb=DuckDBResource(),
+                freq=1,
+                partition_key=PARTITION_KEY,
+            )
+            original_bytes = written.silver_file_path.read_bytes()
+
+            reused = stk_mins.reuse_existing_silver_stk_mins_partition(
+                lake_root=lake_root,
+                duckdb=DuckDBResource(),
+                freq=1,
+                partition_key=PARTITION_KEY,
+            )
+
+            self.assertEqual(reused.write_mode, "reuse_existing")
+            self.assertEqual(reused.row_count, written.row_count)
+            self.assertEqual(written.silver_file_path.read_bytes(), original_bytes)
+            metadata = reused.materialization_extra_metadata(
+                partition_key=PARTITION_KEY,
+                freq=1,
+            )
+            self.assertTrue(metadata["reused_existing_partition"])
+            self.assertNotIn("source_row_count", metadata)
 
 
 if __name__ == "__main__":

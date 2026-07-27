@@ -1,7 +1,7 @@
 # Dagster 股票分钟线 Prod TaskRun 完成门禁 LLD
 
-**状态：R2 raw 受控替换已完成；R3 在 silver 覆盖能力缺失处停止，待补充受控 silver replace 方案后继续**
-**日期：2026-07-27**
+**状态：R2 raw 受控替换已完成；R3 在 silver 覆盖能力缺失处停止；R3A Silver 受控替换代码与本地验证完成，待正式只读 plan / 维护窗口审批**
+**日期：2026-07-28**
 **范围：`stock_mins_raw_update_from_prod_job` 的 prod 完成门禁与 2026-07-27 受控重建**
 
 ## 1. 要解决的问题
@@ -295,7 +295,103 @@ P8  只读最终审计：五频度 source/Lake code coverage、checks、Dagster 
 
 因此，继续 R3 前必须先在本 LLD 中补充并经批准一个与 raw recovery 同级的 **非 active
 silver 五频度受控 replace**：五个 staging 全部校验后，整体 quarantine/promote，失败时恢复；
-不能通过删除既有 silver 文件、修改日常 job 为强制覆盖或跳过备份来绕过现有防护。
+不能通过删除既有 silver 文件、修改日常 job 为强制覆盖或跳过备份来绕过现有防护。具体待确认
+方案见第 9.4 节。
+
+### 9.4 R3A：五频度 Silver 受控替换（代码与本地验证完成）
+
+#### 9.4.1 已核对的代码和规模事实
+
+1. `write_silver_stk_mins_partition(...)` 当前默认 `overwrite=False`；目标文件存在时会在写前
+   抛出 `FileExistsError`。这正是 `d76288be-4d96-4bf7-a2d7-45f9a5be8500` 没有改动任何
+   Silver 文件的原因。
+2. 该 helper 虽有 `overwrite=True` 低层参数，且现有单元测试已覆盖它，但它只是对**一个**频度
+   的临时文件 `os.replace`。它没有五频度共同 staging、quarantine manifest 或跨频度回滚，
+   因而不能直接用于本次恢复，也不会暴露给日常 job、sensor 或 run config。
+3. 当前写入逻辑已经承担了必须复用的业务语义：身份映射、全日停牌过滤、1m 价格校正、异常
+   粗频 bar 的 1m 重算、成交量/成交额规范化、交易所后缀推导、冲突主键拒绝和 Parquet 类型
+   强制转换。R3A 不重写或复制这些计算。
+4. 四个现行 Silver blocking check 组分别验证：文件契约、主键、取值域、引用覆盖；最后一组
+   还对齐 `silver_stock_daily`、`silver_stock_suspend_daily` 和 `silver_stock_lifecycle`。R3A
+   的 staging 必须使用从这些现行 rule 抽取的同一组路径无关诊断，不能只看文件存在或行数。
+5. 2026-07-27 当前五个 raw 文件合计约 **42.5 MiB / 1,776,093 行**；旧 Silver 合计约
+   **20.5 MiB / 1,271,603 行**。旧 Silver 各频度均无空键和重复分钟键，但只有
+   `3,958–3,976` 个代码，证明旧结构绿色并不能替代本次重建。五个旧+五个 staging 文件的
+   峰值文件体量约为当前输入输出的两份，远小于当前卷约 **2.3 TiB** 可用空间。
+6. 只读 DuckDB 统计的单文件检查耗时为：1m 约 327ms，5m 约 11ms，15m 约 8ms，30m
+   约 4ms，60m 约 4ms。R3A 的重计算仅扫描本交易日的五个 raw 文件；粗频度各额外读取
+   当日 1m raw。它不进入 sensor 热路径，也不扫描历史分区。
+
+#### 9.4.2 责任边界和不可变约束
+
+| 项 | R3A 约束 |
+|---|---|
+| 入口 | 已新增 non-active 离线 `stk_mins_silver_replace_from_raw` 模块和 CLI；不注册 asset、check、job、sensor、resource 或 automation。 |
+| 输入 | 2026-07-27 的五个 repaired raw 文件，以及同日 `silver_stock_daily`、`silver_stock_suspend_daily` 和当前 `silver_stock_identity_map`、`silver_stock_lifecycle`。 |
+| 输出 | 仅五个既有 `silver/quote/stk_mins/freq=<freq>/trade_date=2026-07-27/part-000.parquet`。不改变路径、schema、资产键、分区或计算口径。 |
+| 写入纪律 | 先五个 staging，全部通过同语义校验后才整体 quarantine/promote；不直接调用现有 helper 的 `overwrite=True` 覆盖正式文件。 |
+| Dagster 状态 | recovery CLI 不写 materialization/check/runless event；替换成功后由既有 Silver job 的显式 `reuse_existing` 状态复核路径重新记录 materialization 并运行既有 20 条 blocking checks。 |
+| 禁止项 | 不删除旧文件、不写 prod、不补动态分区、不改 sensor/job selection/run key、不在 sensor 中调用恢复 CLI、不跳过四类 Silver check。 |
+
+#### 9.4.3 需要实现的最小代码结构
+
+1. `defs/assets/stk_mins.py` 已扩展现有 writer 的受限 `output_path_override` 参数：它只改变 recovery CLI 的输出目标路径，完全复用既有计算 SQL；日常 asset 调用不传该参数。
+   日常 `write_silver_stk_mins_partition(...)` 仍固定写正式 Silver path，默认遇到既有文件仍失败；
+   recovery CLI 仅把输出指向同卷 staging path。不能把 staging root 伪装成 Lake root，否则会
+   错误读取 staging 下不存在的 raw/身份/停牌输入。
+2. `defs/checks/stk_mins_checks.py` 已抽取路径参数化的 Silver rule diagnostics。现行 asset
+   checks 继续调用它们，R3A 只在 staging 文件上调用同一语义；不新增或改名 Dagster check。
+3. 已新增 `defs/bootstrap/stk_mins_silver_replace_from_raw.py` 与 CLI，固定 `plan` / `apply`：
+   - `plan` 只读 fingerprint 五个 raw、五个旧 Silver 及四个参考输入，验证目标五文件完整存在，
+     固化日期、频度、文件事实、计划 fingerprint 和 stop reasons；不重算整日 Silver，也不写 Lake。
+   - `apply` 必须有新鲜绿 plan 和 `--apply`。先按 `1/5/15/30/60m` 写同卷 staging；每个
+     staging 文件通过四类现行 Silver check 的全部 rule 后才进入下一频度。五个全部通过后才备份。
+   - 将五个旧文件移动到
+     `_quarantine/stk_mins_silver_replace_from_raw/trade_date=2026-07-27/recovery_run_id=<uuid>/`，
+     写入含 input/target/staging SHA-256、字节数、计划 fingerprint，以及 staging 行数、字段和十条
+     rule 诊断结果的 manifest；然后
+     用同卷 `os.replace` 逐一 promote。任何 backup/promote/post-promote 断言失败都恢复已经
+     移动或替换的全部旧文件，并停止。
+4. 常规 `stock_mins_silver_update_job` 不能以默认配置直接重新执行：默认 `write_new` 仍会触发
+   `FileExistsError`。因此已新增一个仅显式配置可用的 Silver
+   `reuse_existing` mode：它只读取已存在的标准路径、收集 materialization metadata，绝不写
+   Parquet；随后让该 job 原有 selection 执行已有 20 条 Silver checks。无 config 的日常行为
+   仍为 `write_new`，遇到既有文件仍 fail closed。该 mode 不承担 replace，也不由 sensor 发起。
+
+#### 9.4.4 执行和回滚步骤
+
+1. 本地 fixture 测试和静态门禁已通过。正式执行前，先单独运行只读 R3A plan；它冻结五个 raw、
+   四个参考输入和五个既有 Silver 目标的文件存在性、字节数与 SHA-256。随后另行只读核验分区日期、
+   活跃 run 和现有 check 状态；任一证据异常即停止。
+2. 维护窗口中仅暂停当前原本运行的六个相关 sensor，记录状态且不启动原本停止的 QFQ daily
+   sensor；确认七个相关 job 无 active run。
+3. 另行批准 `apply` 后运行 recovery CLI。五个 staging 和整体 promote 成功后，保留 quarantine，
+   不物理删除。
+4. 用显式 `reuse_existing` config 运行既有 `stock_mins_silver_update_job[2026-07-27]`。它只
+   写 Dagster materialization/check 状态，不修改 Lake 文件；任一 20 条 check 失败则停止，
+   从 quarantine 完整恢复五个 Silver 文件，并且不进入 QFQ。
+5. 只读核验五个新 Silver 的行数、代码集合、频度/日期、键、四类 check 及 raw 输入 hash；
+   全绿后才恢复原本运行的 sensor 并继续原 R3 的 QFQ、repair、MACD/KDJ、wealth 顺序。
+
+#### 9.4.5 测试、性能门禁与停止条件
+
+1. 新 CLI fixture 覆盖：plan 零写入、缺 raw/reference/target、stale fingerprint、staging 文件
+   任一规则失败、五频度均绿、quarantine manifest、promote 中途异常全量恢复、重复 apply 拒绝。
+2. 参数化 diagnostics 测试确保 staged 与正式路径对同一输入给出相同的文件契约、主键、取值域
+   和引用覆盖结论；普通日常 writer 对已有文件仍抛 `FileExistsError`。
+3. `reuse_existing` 测试必须锁住：显式模式零 Parquet 字节变化、正常 job selection 不变、无
+   config 不改变当前 fail-closed 行为、20 条既有 checks 仍被选择；静态门禁禁止 recovery CLI
+   被 sensor、asset definition 或 run config builder 引用。
+4. 性能预算固定为单日五频度：最多读取 5 个 raw、5 个 staging/target 和 4 个 reference
+   Parquet；粗频度额外复用同日 1m raw；最多输出 5 个 staging、移动 5 个 quarantine、promote
+   5 个正式文件。禁止 Python 行循环、历史 glob、逐股票文件扫描或 Dagster event-history 深扫。
+5. 任一 source/reference fingerprint 变化、任一 staging rule 失败、quarantine/manifest 不完整、
+   promote 回滚失败、显式 reuse job 的任一 blocking check 失败，均停止在 Silver，不进入 QFQ。
+
+已完成的本地验证包括：恢复 CLI 的 plan 零写入、staging 十条 rule 诊断、stale plan 拒绝、诊断
+失败不触碰正式目标、五频度 quarantine/promote、promote 中途回滚、显式 `reuse_existing` 零
+Parquet 字节变化、默认 `write_new` fail-closed、job selection 与 sensor 隔离静态门禁。R3A 尚未运行
+正式 plan 或 apply，未触碰正式 Lake、Dagster instance、prod 或 sensor 状态。
 
 ## 10. 不做的事
 
