@@ -32,13 +32,13 @@ class _FixtureSource:
         self.fail_stage_frequency = fail_stage_frequency
         self.stage_calls: list[int] = []
 
-    def select_full_market_task_run(self, *, trade_date: str, expected_code_count: int):
-        self.last_task_run_request = (trade_date, expected_code_count)
+    def select_full_market_task_run(self, *, trade_date: str):
+        self.last_task_run_request = trade_date
         return recovery.StkMinsRecoveryTaskRun(
             task_run_id=6544,
             ended_at="2026-07-27T20:51:33+08:00",
-            unit_total=expected_code_count * 5,
-            unit_done=expected_code_count * 5,
+            unit_total=29355,
+            unit_done=29355,
             unit_failed=0,
             progress_percent=100.0,
             rows_fetched=20,
@@ -182,7 +182,7 @@ class StkMinsRawReplaceFromProdTests(unittest.TestCase):
         self.assertFalse(plan.should_stop)
         self.assertEqual(plan.expected_code_count, 2)
         self.assertEqual(plan.expected_code_hash, recovery.stock_code_set_hash(STOCK_CODES))
-        self.assertEqual(source.last_task_run_request, (TRADE_DATE, 2))
+        self.assertEqual(source.last_task_run_request, TRADE_DATE)
         self.assertEqual([fact.freq for fact in plan.frequency_facts], [1, 5, 15, 30, 60])
         self.assertEqual(
             before,
@@ -213,8 +213,8 @@ class StkMinsRawReplaceFromProdTests(unittest.TestCase):
             "action": "maintain",
             "status": "success",
             "ended_at": "2026-07-27T20:51:33+08:00",
-            "unit_total": len(STOCK_CODES) * 5,
-            "unit_done": len(STOCK_CODES) * 5,
+            "unit_total": 29355,
+            "unit_done": 29355,
             "unit_failed": 0,
             "progress_percent": 100.0,
             "rows_fetched": 20,
@@ -228,24 +228,28 @@ class StkMinsRawReplaceFromProdTests(unittest.TestCase):
             recovery._task_run_row_is_full_market(
                 task_run,
                 trade_date=TRADE_DATE,
-                expected_code_count=len(STOCK_CODES),
             )
         )
 
         with_code_filter = {**task_run, "filters_json": {**task_run["filters_json"], "ts_code": "000001.SZ"}}
-        incomplete = {**task_run, "unit_done": len(STOCK_CODES) * 5 - 1}
+        incomplete = {**task_run, "unit_done": 29354}
+        zero_units = {**task_run, "unit_total": 0, "unit_done": 0}
         self.assertFalse(
             recovery._task_run_row_is_full_market(
                 with_code_filter,
                 trade_date=TRADE_DATE,
-                expected_code_count=len(STOCK_CODES),
             )
         )
         self.assertFalse(
             recovery._task_run_row_is_full_market(
                 incomplete,
                 trade_date=TRADE_DATE,
-                expected_code_count=len(STOCK_CODES),
+            )
+        )
+        self.assertFalse(
+            recovery._task_run_row_is_full_market(
+                zero_units,
+                trade_date=TRADE_DATE,
             )
         )
 

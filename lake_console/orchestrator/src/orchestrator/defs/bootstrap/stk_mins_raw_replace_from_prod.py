@@ -158,7 +158,6 @@ class StkMinsRawReplaceSource(Protocol):
         self,
         *,
         trade_date: str,
-        expected_code_count: int,
     ) -> StkMinsRecoveryTaskRun | None: ...
 
     def load_frequency_facts(
@@ -194,14 +193,12 @@ class ProdStkMinsRawReplaceSource:
         self,
         *,
         trade_date: str,
-        expected_code_count: int,
     ) -> StkMinsRecoveryTaskRun | None:
         rows = self._task_run_rows(trade_date=trade_date)
         for row in rows:
             if _task_run_row_is_full_market(
                 row,
                 trade_date=trade_date,
-                expected_code_count=expected_code_count,
             ):
                 return StkMinsRecoveryTaskRun(
                     task_run_id=int(row["id"]),
@@ -399,7 +396,6 @@ def plan_stk_mins_raw_replace_from_prod(
     )
     task_run = resolved_source.select_full_market_task_run(
         trade_date=trade_date,
-        expected_code_count=len(expected_codes),
     )
     frequency_facts = tuple(
         sorted(
@@ -727,7 +723,6 @@ def _task_run_row_is_full_market(
     row: Mapping[str, object],
     *,
     trade_date: str,
-    expected_code_count: int,
 ) -> bool:
     if (
         row.get("task_type") != "dataset_action"
@@ -746,7 +741,7 @@ def _task_run_row_is_full_market(
     if _has_explicit_code_filter(filters.get("ts_code")):
         return False
     return (
-        _int(row.get("unit_total")) == expected_code_count * len(STK_MINS_RECOVERY_FREQS)
+        _int(row.get("unit_total")) > 0
         and _int(row.get("unit_done")) == _int(row.get("unit_total"))
         and _int(row.get("unit_failed")) == 0
         and _float(row.get("progress_percent")) == 100.0

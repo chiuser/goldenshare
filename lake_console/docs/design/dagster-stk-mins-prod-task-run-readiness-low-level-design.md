@@ -1,6 +1,6 @@
 # Dagster 股票分钟线 Prod TaskRun 完成门禁 LLD
 
-**状态：已确认设计；2026-07-27 修复范围已完成只读冻结，R1 离线恢复工具与本地验证已完成，待 R2 正式维护窗口审批**
+**状态：R2 raw 受控替换已完成；R3 在 silver 覆盖能力缺失处停止，待补充受控 silver replace 方案后继续**
 **日期：2026-07-27**
 **范围：`stock_mins_raw_update_from_prod_job` 的 prod 完成门禁与 2026-07-27 受控重建**
 
@@ -267,6 +267,35 @@ P8  只读最终审计：五频度 source/Lake code coverage、checks、Dagster 
 ```
 
 每一个 P 阶段都是独立生产写入审批；本 LLD 不授权任何 run、Lake 覆盖、runless event、prod 写入、sensor 启停或动态分区改动。
+
+### 9.3 2026-07-28 执行记录与停止点
+
+本次执行已获得单独维护窗口批准，且没有重复运行全量 R0 审计。执行事实如下：
+
+1. 维护开始时，6 个相关 sensor 为 `RUNNING`，`stock_mins_qfq_daily_update_job_sensor`
+   按当前 Definitions 的 `default_status=STOPPED` 且无 instance state；7 个相关 job 无 active run。
+   维护期间只暂停前述 6 个，停止点触发后已全部恢复，QFQ daily sensor 保持原有停止状态。
+2. recovery CLI 的首份 plan 暴露实现偏差：TaskRun `6544` 的 `unit_total=29,355` 是
+   prod 全市场 planner 的执行单元数，不等于 DG 当前 5,533 代码乘五频度。LLD 第 3.1 节
+   原口径正确，工具已改为只验证 unit 正数、完成闭合、五频度全市场身份和零 reject；DG
+   当前集合是否齐备仍由第 3.2 节的独立 prod 覆盖门验证。
+3. 修正后 plan 报告
+   `/private/tmp/stk_mins_20260727_r2_plan_20260728_011430.json` 全绿：五频度均为
+   5,533 代码、MD5 `e7fc1641425bd1bae5980d1e3639e02a`、零空键/重复键、时间范围
+   `09:30` 至 `15:00`；TaskRun `6544` 为 `29,355/29,355`、零 reject。
+4. raw apply 成功整体 promote 五个频度，耗时 `109,973ms`。旧文件 quarantine manifest 为
+   `/Volumes/datasource/data_lake/_quarantine/stk_mins_raw_replace_from_prod/trade_date=2026-07-27/recovery_run_id=f573265f-1162-4535-9089-c486f7b7dac1/manifest.json`。
+   随后 `stock_mins_raw_update_from_prod_job[2026-07-27]` 成功完成（run
+   `ae26c9f7-cb37-40be-9596-39eed38df343`），仅以 `reuse_existing` 重新记录 raw 事实并运行既有 checks。
+5. `stock_mins_silver_update_job[2026-07-27]`（run
+   `d76288be-4d96-4bf7-a2d7-45f9a5be8500`）在五个 asset 写入前全部因
+   `FileExistsError` 停止：当前 `write_silver_stk_mins_partition(...)` 明确禁止覆盖既有
+   `silver/quote/stk_mins/**/part-000.parquet`。没有 silver 文件被改写，未运行 QFQ、factor
+   repair、MACD/KDJ 或财富 turnover。
+
+因此，继续 R3 前必须先在本 LLD 中补充并经批准一个与 raw recovery 同级的 **非 active
+silver 五频度受控 replace**：五个 staging 全部校验后，整体 quarantine/promote，失败时恢复；
+不能通过删除既有 silver 文件、修改日常 job 为强制覆盖或跳过备份来绕过现有防护。
 
 ## 10. 不做的事
 
