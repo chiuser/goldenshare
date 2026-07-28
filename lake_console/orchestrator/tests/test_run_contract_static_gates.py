@@ -2673,7 +2673,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 52)
+        self.assertEqual(sensor_definition_count, 58)
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:

@@ -2,16 +2,17 @@
 
 ## 1. 文档状态
 
-- 状态：方案口径已冻结，P1 真实请求验证、P2 Raw contract/phase merge/staging、P3 临时湖五阶段联调、P4 Silver writer/contract/临时联调和 P5 正式 Dagster definitions 已完成；下一步进入 P6 自然日分区注册与 Raw sensor 设计。
+- 状态：方案口径已冻结，P1 真实请求验证、P2 Raw contract/phase merge/staging、P3 临时湖五阶段联调、P4 Silver writer/contract/临时联调、P5 正式 Dagster definitions 和 P6 自然日分区注册/五阶段 Raw sensor/Silver final-phase 触发已完成；P7A Bootstrap 只读目标审计已完成，P7B 源请求审计、正式 Raw/Silver 生成和全量对账尚未开始。
 - 数据集：`index_global`，中文展示名为“国际指数日线”。
 - 数据源：Tushare `index_global`。
-- 本文不执行代码、不写正式湖、不写 Dagster 数据库、不启用 sensor。
-- 当前仓库已接入 `index_global` 的 active Raw/Silver asset、core check、job、catalog、partition model 和 governance mapping；sensor、正式 Bootstrap、正式湖写入和 Dagster event 仍未启用。P5 只完成 definitions 接入，不代表数据已上线。
+- 本文记录设计和本地验证，不授权正式 Bootstrap、正式湖写入、Dagster 数据库/event 写入或 sensor 启用。
+- 当前仓库已接入 `index_global` 的 active Raw/Silver asset、core check、job、专属自然日分区注册 sensor、五阶段 Raw sensor、failed-run retry sensor、late-empty sensor、Silver final-phase/retry sensor、catalog、partition model 和 governance mapping。P6 代码仍默认 `STOPPED`，正式 Bootstrap、正式湖写入和 Dagster event 仍未执行；Definitions 接入不代表数据已上线。
 - P1 真实验证报告：`/private/tmp/index_global_p1_tushare_validation_20260728.json`。
 - P2 本地验证：`tests/test_index_global_contracts.py`、`tests/test_index_global_raw_io.py` 共 11 项通过；相关静态/回归测试共 99 项通过。
 - P3 本地与临时湖验证：相关测试共 105 项通过；真实 Tushare 五阶段报告为 `/private/tmp/index_global_p3_real_validation_p3-real-20260728204238.json`。
 - P4 Silver 定向/Raw 回归验证：28 项通过；真实 Raw -> Silver 临时湖报告为 `/private/tmp/index_global_p4_real_validation_20260728204238.json`。
-- P2/P3/P4/P5 没有写正式 lake、Dagster 数据库或 Dagster event；P5 只完成 active definitions 的本地加载和契约测试，sensor 仍留在后续阶段。
+- P2/P3/P4/P5/P6 没有写正式 lake、Dagster 数据库或 Dagster event；P6 只完成 sensor/typed-config 的本地定义加载和契约测试，sensor 仍保持停止状态。
+- P7A 只读 Bootstrap 目标审计报告：`/private/tmp/index_global_p7_bootstrap_dry_run_20260728.json`；日期计划为 `2022-01-01` 至 `2026-07-28` 的 1,670 个自然日，估算五阶段基础请求 8,350 次、Raw/Silver 各 1,670 个文件。当前正式 lake 两层均无既有目标文件，未发现冲突；本报告未发起 Tushare 源请求。
 
 ## 1.1 数据集说明卡
 
@@ -331,6 +332,21 @@ P5 已将经过 P2/P3/P4 验证的 writer 接入 Dagster definitions：
 
 P5 同步完成 `cn_global_index_trade_days`、两个 partition model、catalog、中文名、schema、路径、统一 contract 和治理映射登记。P5 定向测试与既有静态门禁共 `123 passed`、`72 subtests passed`；验证未运行 `dg`，未写正式 lake、Dagster 数据库或 Dagster event。下一阶段 P6 才处理自然日分区注册、五阶段 Raw sensor、late-empty 和 Silver final-phase 触发。
 
+### 5.5 P6 自动化边界实现记录
+
+P6 已完成以下代码级能力，全部默认 `STOPPED`，本轮没有启用 sensor、运行 job 或写正式状态：
+
+- `orchestrator/defs/run_contracts/index_global.py`：集中定义自然日注册上限、10 日/50 slot 回放上限、失败重试上限、late-empty 上限、北京时间五阶段时间表、Raw/Silver typed config、构造/解析和校验方法。retry 信息只从 typed `run_config` 读取，不使用 run tags 或 run key 反解析。
+- `orchestrator/defs/sensors/global_index_partition_sensor.py`：从 `2022-01-01` 到当前北京时间自然日计算缺失分区，每 tick 最多注册 2000 个；不读交易日历、Tushare、Prod DB 或 event history。
+- `orchestrator/defs/sensors/index_global_sensor.py`：按 `asia_1/asia_2/asia_3/europe/americas` 生成最近 10 个自然日的 due slot，按时间顺序每 tick 最多提交一个 Raw run；未注册目标和超过回放边界均 fail-closed。
+- `orchestrator/defs/sensors/index_global_retry_sensor.py`：只消费失败 Raw run 的 typed config，最多生成 2 次 retry run。
+- `orchestrator/defs/sensors/index_global_late_empty_sensor.py`：只探测 Americas 之后最近 3 个已有 Raw 文件，一次 DuckDB 批量统计空文件，每日期最多 2 次 late-empty re-probe，不删除或覆盖既有数据。
+- `orchestrator/defs/asset_guards/index_global_lake_readiness.py` 与 `orchestrator/defs/sensors/silver_index_global_sensor.py`：Silver final-phase 只消费 Raw `americas` 成功 run；已有 Silver 文件若 schema/日期/键/数值合同失败则 skip，不自动覆盖；有效空自然日仍可通过门禁。
+- `orchestrator/defs/sensors/silver_index_global_retry_sensor.py`：只消费 Silver 失败 run 的 typed config，最多生成 2 次 retry run。
+- `tests/test_index_global_p6_sensors.py`、`tests/test_index_global_p6_static.py` 和静态门禁：覆盖 phase 排序、自然日注册、单 tick 单 RunRequest、late-empty 上限、Silver final-phase gate、typed retry、cursor 大小/ASCII 和 event history 读取为 0。
+
+P6 本地验证结果：P5 定向回归、P6 sensor/static 测试和 `test_run_contract_static_gates.py` 合计 `130 passed`；仅保留既有 Dagster/Pydantic deprecation/preview warnings。验证没有运行 `dg`，没有启用 sensor，没有写正式 lake、Dagster DB 或 Dagster event。
+
 ## 6. 核心检查设计
 
 每个 Raw/Silver 资产只保留一个合并 blocking check，避免 5 个阶段每天重复写大量细粒度 check event。
@@ -552,13 +568,12 @@ Raw 的 `americas` run 成功是 Silver 的唯一日常触发信号。它保证 
 2. P2：Raw contract、phase merge writer、staging 和原子替换（已完成，见 P2 实现记录）；
 3. P3：临时湖 Raw 五阶段联调（已完成，见 P3 临时湖联调记录）；
 4. P4：Silver writer、Silver contract 和 Raw -> Silver 临时湖联调（已完成）；
-5. P5：正式 Raw/Silver asset、core check、job；
-6. P6：自然日注册和五阶段 Raw sensor；
-7. P7：phase replay、failed run retry 和 late-empty reprobe；
-8. P8：Silver final-phase sensor；
-9. P9：Bootstrap dry-run、正式湖生成和 Raw/Silver 对账；
-10. P10：Dagster event 验收；
-11. P11：手动启用 sensor，观察至少三个实际运行日。
+5. P5：正式 Raw/Silver asset、core check、job（已完成）；
+6. P6：专属自然日分区注册、五阶段 Raw sensor、phase replay、failed-run retry、late-empty reprobe、Silver final-phase/retry sensor（已完成，本地验证）；
+7. P7A：Bootstrap dry-run（已完成：自然日计划、fingerprint、目标冲突和请求预算审计）；
+8. P7B：源请求审计、正式湖生成和 Raw/Silver 对账（待独立批准）；
+9. P8：Dagster event 验收；
+10. P9：手动启用 sensor，观察至少三个实际运行日。
 
 任何阶段不得在前一阶段失败时跳过门禁进入下一阶段。
 

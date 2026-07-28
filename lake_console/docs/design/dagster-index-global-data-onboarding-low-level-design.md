@@ -4,9 +4,9 @@
 
 本文是 [`dagster-index-global-data-onboarding-plan.md`](./dagster-index-global-data-onboarding-plan.md) 的代码级设计。目标是把 Tushare `index_global` 接入 Dagster Lake，形成 Raw/Silver 两层、自然日分区、同日五阶段刷新和低开销自动触发链路。
 
-当前进度：P1 真实请求验证、P2 Raw contract/路径/phase merge/staging、P3 真实 bounded fetch 临时湖五阶段联调、P4 Silver writer/contract/临时 Raw -> Silver 联调和 P5 active Raw/Silver definitions 接入已完成；P6 及之后的 sensor、Bootstrap 和正式湖写入尚未开始。
+当前进度：P1 真实请求验证、P2 Raw contract/路径/phase merge/staging、P3 真实 bounded fetch 临时湖五阶段联调、P4 Silver writer/contract/临时 Raw -> Silver 联调、P5 active Raw/Silver definitions 接入和 P6 专属自然日注册/五阶段 Raw sensor/Silver final-phase 触发已完成；P7A Bootstrap 只读目标审计已完成，P7B 源请求审计、正式湖写入、全量对账和事件验收尚未开始。
 
-本 LLD 不实现 Gold 指标，也不在本阶段执行正式 Bootstrap、Dagster event 补录或 sensor 启用。
+本 LLD 不实现 Gold 指标，也不授权执行正式 Bootstrap、Dagster event 补录或 sensor 启用；P6 只完成默认停止的 sensor 定义和本地验证。
 
 硬边界：
 
@@ -61,7 +61,7 @@ P3 在同一稳定 Raw writer 模块中增加 `fetch_index_global_phase(...)` �
 
 真实临时湖样本使用 `2022-01-04`：五个 phase 各 21 行、各 1 页，总请求 5 次、重试 0 次，最终 Raw 21 行，全部 staging 原子 promote。真实报告为 `/private/tmp/index_global_p3_real_validation_p3-real-20260728204238.json`。验证还确认 Tushare/Pandas 空数值会以 `NaN` 进入 Python，P3 将其转换为 Parquet `NULL`；非数值和无穷值仍拒绝。P3 总计通过 105 项定向/静态测试，未调用 `dg`，未写正式 lake、Dagster DB 或 event。
 
-P3/P4 只完成 writer 和临时湖联调；P5 已接入 active Raw/Silver asset、core check 和 job，但尚未启用 sensor、Bootstrap 或正式湖写入。P4 的 Silver writer 核心仍由 P5 的 active Silver asset wrapper 调用。
+P3/P4 只完成 writer 和临时湖联调；P5 已接入 active Raw/Silver asset、core check 和 job，但尚未启用 sensor 或正式湖写入。P4 的 Silver writer 核心仍由 P5 的 active Silver asset wrapper 调用。P7A 已新增只读 Bootstrap planner/CLI，仍未启用 sensor、调用 Tushare 做全量源审计或写正式湖。
 
 ### 2.3 数据卡和代码登记落点
 
@@ -786,6 +786,23 @@ numeric_columns_have_contract_types
 
 这样不会用文件存在状态冒充“Americas 已完成”，也不会因为 Dagster event history 膨胀而在 sensor 热路径深扫。
 
+### 8.4 P6 实现对账
+
+P6 已按本节口径落地，代码边界如下：
+
+| 能力 | 实现文件 | 关键门禁 |
+| --- | --- | --- |
+| typed Raw/Silver config、阶段时间、slot replay 上限 | `orchestrator/defs/run_contracts/index_global.py` | retry 只读 `run_config`；10 日、50 slot、2 次 retry、3 日/2 次 late-empty 上限 |
+| 自然日分区注册 | `orchestrator/defs/sensors/global_index_partition_sensor.py` | 只生成 `2022-01-01` 至今日自然日；每 tick 最多注册 2000 个；不读 SSE 日历、Tushare、Prod DB 或 event history |
+| 五阶段 Raw sensor | `orchestrator/defs/sensors/index_global_sensor.py` | 北京时间 due slot，按最早缺口每 tick 一个 RunRequest；未注册和超过回放边界 fail-closed |
+| Raw failed-run retry | `orchestrator/defs/sensors/index_global_retry_sensor.py` | 只解析失败 run 的 typed config；`build_repair_attempt_run_key(..., attempt_scope="retry")` |
+| late-empty 探测 | `orchestrator/defs/sensors/index_global_late_empty_sensor.py` | 最近 3 个已存在 Raw 文件一次 DuckDB 批量计数；每日期最多 2 次；不删除已有行 |
+| Silver final-phase gate | `orchestrator/defs/sensors/silver_index_global_sensor.py` | 只接受 Raw `americas` 成功；既有 Silver core contract 失败时 skip，不自动覆盖 |
+| Silver failed-run retry | `orchestrator/defs/sensors/silver_index_global_retry_sensor.py` | 只解析失败 Silver run 的 typed config；最多 2 次 retry |
+| Silver 文件门禁 | `orchestrator/defs/asset_guards/index_global_lake_readiness.py` | schema、日期、身份、唯一键、有限数值 set-based 校验；合法空自然日通过 |
+
+P6 本地验收覆盖 `tests/test_index_global_p6_sensors.py`、`tests/test_index_global_p6_static.py`、P5 回归和全局静态门禁，共 `135 passed`、`72 subtests passed`。定义加载、Python 编译和 lint 通过；仅存在既有 Dagster/Pydantic deprecation/preview warnings。P6 阶段未运行 `dg`、未启用 sensor、未写正式 lake、Dagster DB 或 event。
+
 ## 9. 失败和重试
 
 失败分类：
@@ -841,15 +858,41 @@ Bootstrap 不使用 Dagster event history，不运行 `dg launch`，不写正式
 - 每批最多 20 个自然日，日期串行，不把历史 phase 变成 Dagster run 批量提交；
 - 每个日期只保留当前阶段返回、DuckDB 临时表和当前 staging 文件，不能把全历史行装入 Python；
 - Bootstrap 报告必须按日期记录 source rows、merged/written rows、replaced rows、request/page/retry、DuckDB、Parquet、磁盘和耗时；
-- 历史 phase 只写 Bootstrap source observation 报告，不逐 phase 补 Dagster materialization/check event；最终 Raw/Silver 状态事件另按 P10 口径处理；
+- 历史 phase 只写 Bootstrap source observation 报告，不逐 phase 补 Dagster materialization/check event；最终 Raw/Silver 状态事件另按 P8 口径处理；
 - 目标存在且 contract 正确则跳过，目标存在但错误则停止，禁止静默覆盖。
 
-### 10.1 Event 和 latest-state 口径
+### 10.1 P7A 只读 Bootstrap planner 实现
+
+P7A 的入口固定为：
+
+```text
+orchestrator.defs.bootstrap.index_global_bootstrap_cli dry-run
+```
+
+实现落点：
+
+- `orchestrator/defs/bootstrap/index_global_bootstrap_plan.py`：生成自然日计划、fingerprint、Raw/Silver 目标状态和五阶段基础请求预算；
+- `orchestrator/defs/bootstrap/index_global_bootstrap_cli.py`：只暴露 `dry-run` 子命令，没有 `apply` 或隐式写入路径；
+- `tests/test_index_global_bootstrap_plan.py`：覆盖自然日计划、未来日期/历史下限拒绝、缺失目标、合法空文件、坏 schema、CLI 无 apply 和无 Dagster event API。
+
+P7A 的目标审计使用一个配置化 DuckDB connection：先批量读取已有目标的 schema，再对同层已有合法 schema 文件做批量 set-based contract 扫描。不存在的文件只记为 `file_missing`，允许进入后续正式生成；已有文件若 schema、分区日期、代码身份、业务主键唯一性或数值有限性失败，则以 `should_stop=true` 阻断后续写入。空 Raw/Silver 文件符合自然日允许空分区口径，不因行数为 0 被误判为坏文件。
+
+P7A 明确不做以下动作：不调用 Tushare，不访问 Prod DB，不读取 Dagster event history，不执行 `dg`，不写 Raw/Silver Parquet，不写 Dagster DB/event。报告中的 `estimated_source_request_count` 只是五阶段基础请求预算，不是源站已成功返回的行数证明；P7B 必须另做源请求审计和性能/配额验收。
+
+本次正式 lake 只读报告：
+
+```text
+/private/tmp/index_global_p7_bootstrap_dry_run_20260728.json
+```
+
+结果为 1,670 个自然日、估算 8,350 次基础请求、Raw/Silver 各 1,670 个目标文件；正式 lake 两层均无既有目标文件，冲突数为 0。由于目标文件全为空缺，尚未取得全量 Tushare source rows；未经 P7B 源审计和正式写入批准，不得把本报告当作 Bootstrap 已完成。
+
+### 10.2 Event 和 latest-state 口径
 
 - 日常 Raw 五个 phase 可以对同一 partition 产生多次 materialization，但每次只保留一个合并后的最终文件；后续阶段的事件不代表“新增另一份 partition 数据”；
 - Raw/Silver 各自只保留一个 core check，不按字段拆分 check；同一分区的最新 check 只描述当前文件事实；
 - Sensor 不从 event history 判断 phase 是否完成；Raw phase 完成由触发 run 的 typed config 和 run-status sensor直接传递；
-- Bootstrap 的 phase 过程只写离线报告，避免历史阶段事件乘以五倍；最终 Raw/Silver materialization/check 事件另按 P10 验收和最近 20 个自然日保留策略处理；
+- Bootstrap 的 phase 过程只写离线报告，避免历史阶段事件乘以五倍；最终 Raw/Silver materialization/check 事件另按 P8 验收和最近 20 个自然日保留策略处理；
 - 不删除 runs、run tags、dynamic partitions 或未经过 retention 安全审计的事件。
 
 ## 11. 测试设计
@@ -944,14 +987,11 @@ Bootstrap 不使用 Dagster event history，不运行 `dg launch`，不写正式
 3. Raw 临时湖五阶段联调；
 4. Silver writer 和空分区处理（已完成，P4）；
 5. Raw/Silver definitions、core checks、jobs（已完成，P5）；
-6. 自然日注册 sensor；
-7. Raw 五阶段 sensor；
-8. failed run retry sensor 和 late-empty reprobe；
-9. Silver final-phase sensor；
-10. Bootstrap dry-run；
-11. 正式 Raw/Silver 生成和对账；
-12. Dagster event 验收；
-13. 手动启用 sensors 并观察三个实际运行日。
+6. 专属自然日注册、Raw 五阶段 replay、failed-run retry、late-empty reprobe、Silver final-phase/retry sensor（已完成，P6）；
+7. Bootstrap dry-run；
+8. 正式 Raw/Silver 生成和对账；
+9. Dagster event 验收；
+10. 手动启用 sensors 并观察三个实际运行日。
 
 进入正式写入前必须同时满足：
 
@@ -978,7 +1018,7 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
   tests/test_index_global_raw_io.py \
   tests/test_index_global_checks.py \
   tests/test_index_global_sensors.py \
-  tests/test_index_global_bootstrap.py \
+  tests/test_index_global_bootstrap_plan.py \
   tests/test_asset_check_incremental_governance.py \
   tests/test_run_contract_static_gates.py
 

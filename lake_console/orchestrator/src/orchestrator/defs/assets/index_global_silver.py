@@ -6,6 +6,9 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any
 
+import dagster as dg
+
+from orchestrator.defs.assets.index_global_raw import raw_index_global
 from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     describe_parquet_query,
@@ -20,6 +23,7 @@ from orchestrator.defs.paths import (
     silver_index_global_path,
     silver_index_global_staging_path,
 )
+from orchestrator.defs.partitions import cn_global_index_trade_days
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_INDEX_GLOBAL_SCHEMA,
@@ -27,8 +31,10 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 )
 from orchestrator.defs.run_contracts.index_global import (
     INDEX_GLOBAL_EXPECTED_CODES,
+    IndexGlobalSilverConfig,
     SILVER_INDEX_GLOBAL_FIELDS,
     normalize_index_global_trade_date,
+    validate_index_global_silver_config,
 )
 from orchestrator.defs.run_contracts.asset_tags import (
     AssetLayer,
@@ -351,12 +357,6 @@ def write_silver_index_global_partition(
             staging_path.unlink()
 
 
-import dagster as dg
-
-from orchestrator.defs.assets.index_global_raw import raw_index_global
-from orchestrator.defs.partitions import cn_global_index_trade_days
-
-
 @dg.asset(
     name="silver_index_global",
     partitions_def=cn_global_index_trade_days,
@@ -383,12 +383,17 @@ def silver_index_global(
     context: dg.AssetExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
+    config: IndexGlobalSilverConfig,
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
+    partition_key = validate_index_global_silver_config(
+        config,
+        partition_key=context.partition_key,
+    )
     result = write_silver_index_global_partition(
         lake_root_path=lake_root.root(),
         duckdb_resource=duckdb,
-        partition_key=context.partition_key,
+        partition_key=partition_key,
         run_id=context.run_id,
     )
     return dg.MaterializeResult(
@@ -398,6 +403,7 @@ def silver_index_global(
             observed_columns=result.observed_columns,
             extra_metadata={
                 "partition_key": result.partition_key,
+                "attempt": config.attempt,
                 "source_file_path": str(result.source_file_path),
                 "source_row_count": result.source_row_count,
                 "duplicate_removed_count": result.duplicate_removed_count,
