@@ -24,6 +24,11 @@ from src.ops.services.index_daily_remote_probe_service import (
     INDEX_DAILY_REMOTE_READY_CONDITION,
     IndexDailyRemoteReadinessProbeService,
 )
+from src.ops.services.kpl_list_remote_probe_service import (
+    KPL_LIST_ACTION_KEY,
+    KPL_LIST_REMOTE_READY_CONDITION,
+    KplListRemoteReadinessProbeService,
+)
 from src.ops.services.stk_mins_remote_probe_service import (
     STK_MINS_ACTION_KEY,
     STK_MINS_REMOTE_READY_CONDITION,
@@ -46,6 +51,7 @@ class ProbeRuntimeService:
         self.freshness_query = OpsFreshnessQueryService()
         self.stk_mins_remote_probe = StkMinsRemoteReadinessProbeService()
         self.index_daily_remote_probe = IndexDailyRemoteReadinessProbeService()
+        self.kpl_list_remote_probe = KplListRemoteReadinessProbeService()
 
     def run_once(self, session: Session, *, now: datetime | None = None, limit: int = 100) -> tuple[list[TaskRun], ProbeTickResult]:
         current = now or datetime.now(timezone.utc)
@@ -78,14 +84,19 @@ class ProbeRuntimeService:
                 matched, message, payload = self._evaluate_rule(session, rule, current=current)
                 rule.last_probed_at = started_at
                 if matched:
-                    task_run = self._enqueue_on_match(session, rule, probe_payload=payload)
-                    task_run_id = task_run.id
-                    task_run_correlation_id = str(task_run.id)
-                    task_runs.append(task_run)
-                    triggered += 1
-                    rule.last_triggered_at = datetime.now(timezone.utc)
-                    result_code = "hit"
-                    result_reason = "condition_hit"
+                    if self._has_effective_target_task(session, rule, probe_payload=payload):
+                        message = "目标交易日已存在有效探测任务，不重复创建"
+                        result_code = "deduplicated"
+                        result_reason = "effective_target_task_exists"
+                    else:
+                        task_run = self._enqueue_on_match(session, rule, probe_payload=payload)
+                        task_run_id = task_run.id
+                        task_run_correlation_id = str(task_run.id)
+                        task_runs.append(task_run)
+                        triggered += 1
+                        rule.last_triggered_at = datetime.now(timezone.utc)
+                        result_code = "hit"
+                        result_reason = "condition_hit"
                 else:
                     result_code = "miss"
                     result_reason = "condition_miss"
@@ -142,6 +153,9 @@ class ProbeRuntimeService:
         if condition_type == INDEX_DAILY_REMOTE_READY_CONDITION:
             result = self.index_daily_remote_probe.evaluate(session, rule, current=current)
             return result.matched, result.message, result.payload
+        if condition_type == KPL_LIST_REMOTE_READY_CONDITION:
+            result = self.kpl_list_remote_probe.evaluate(session, rule, current=current)
+            return result.matched, result.message, result.payload
         if condition_type != "freshness_latest_open":
             raise ValueError(f"不支持的探测条件：{condition_type}")
         definition = get_dataset_definition(rule.dataset_key)
@@ -189,8 +203,12 @@ class ProbeRuntimeService:
         if expected_action_key is not None:
             if action_key != expected_action_key:
                 raise ValueError(self._remote_source_probe_binding_error(condition_type))
-            latest_open_date = self._parse_probe_latest_open_date(probe_payload, condition_label=self._remote_source_probe_label(condition_type))
-            time_input = {**time_input, "mode": "point", "trade_date": latest_open_date.isoformat()}
+            target_trade_date = self._parse_probe_target_trade_date(
+                probe_payload,
+                condition_type=condition_type,
+                condition_label=self._remote_source_probe_label(condition_type),
+            )
+            time_input = {**time_input, "mode": "point", "trade_date": target_trade_date.isoformat()}
         filters = dict(request.get("filters") or {})
         filters.pop("source_key", None)
         return self.task_run_service.create_task_run(
@@ -296,12 +314,64 @@ class ProbeRuntimeService:
             raise ValueError(f"{condition_label}命中缺少 latest_open_date")
         return date.fromisoformat(text)
 
+    @classmethod
+    def _parse_probe_target_trade_date(
+        cls,
+        probe_payload: dict | None,
+        *,
+        condition_type: str,
+        condition_label: str,
+    ) -> date:
+        payload_key = "target_trade_date" if condition_type == KPL_LIST_REMOTE_READY_CONDITION else "latest_open_date"
+        value = (probe_payload or {}).get(payload_key)
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, date):
+            return value
+        text = str(value or "").strip()
+        if not text:
+            raise ValueError(f"{condition_label}命中缺少 {payload_key}")
+        return date.fromisoformat(text)
+
+    def _has_effective_target_task(self, session: Session, rule: ProbeRule, *, probe_payload: dict | None) -> bool:
+        condition_type = str((rule.probe_condition_json or {}).get("type") or "freshness_latest_open")
+        if condition_type != KPL_LIST_REMOTE_READY_CONDITION or rule.schedule_id is None:
+            return False
+        target_trade_date = self._parse_probe_target_trade_date(
+            probe_payload,
+            condition_type=condition_type,
+            condition_label=self._remote_source_probe_label(condition_type),
+        )
+        time_inputs = session.scalars(
+            select(TaskRun.time_input_json)
+            .where(TaskRun.schedule_id == rule.schedule_id)
+            .where(TaskRun.trigger_source == "probe")
+            .where(TaskRun.resource_key == "kpl_list")
+            .where(TaskRun.action == "maintain")
+            .where(TaskRun.status.in_(("queued", "running", "canceling", "success", "partial_success")))
+        )
+        return any(self._task_run_targets_trade_date(value, target_trade_date) for value in time_inputs)
+
+    @staticmethod
+    def _task_run_targets_trade_date(time_input: object, target_trade_date: date) -> bool:
+        if not isinstance(time_input, dict):
+            return False
+        value = time_input.get("trade_date")
+        if isinstance(value, date):
+            return value == target_trade_date
+        try:
+            return date.fromisoformat(str(value or "")) == target_trade_date
+        except ValueError:
+            return False
+
     @staticmethod
     def _remote_source_probe_action_key(condition_type: str) -> str | None:
         if condition_type == STK_MINS_REMOTE_READY_CONDITION:
             return STK_MINS_ACTION_KEY
         if condition_type == INDEX_DAILY_REMOTE_READY_CONDITION:
             return INDEX_DAILY_ACTION_KEY
+        if condition_type == KPL_LIST_REMOTE_READY_CONDITION:
+            return KPL_LIST_ACTION_KEY
         return None
 
     @staticmethod
@@ -310,6 +380,8 @@ class ProbeRuntimeService:
             return "源站分钟行情探测"
         if condition_type == INDEX_DAILY_REMOTE_READY_CONDITION:
             return "源站指数日线探测"
+        if condition_type == KPL_LIST_REMOTE_READY_CONDITION:
+            return "源站开盘啦榜单探测"
         return "源站探测"
 
     @staticmethod
@@ -318,4 +390,6 @@ class ProbeRuntimeService:
             return "源站分钟行情探测只支持股票历史分钟行情维护"
         if condition_type == INDEX_DAILY_REMOTE_READY_CONDITION:
             return "源站指数日线探测只支持指数日线行情维护"
+        if condition_type == KPL_LIST_REMOTE_READY_CONDITION:
+            return "源站开盘啦榜单探测只支持开盘啦榜单维护"
         return f"不支持的探测条件：{condition_type}"

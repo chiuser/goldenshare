@@ -15,6 +15,11 @@ from src.ops.services.index_daily_remote_probe_service import (
     INDEX_DAILY_DATASET_KEY,
     INDEX_DAILY_REMOTE_READY_CONDITION,
 )
+from src.ops.services.kpl_list_remote_probe_service import (
+    KPL_LIST_ACTION_KEY,
+    KPL_LIST_DATASET_KEY,
+    KPL_LIST_REMOTE_READY_CONDITION,
+)
 from src.ops.services.stk_mins_remote_probe_service import (
     STK_MINS_ACTION_KEY,
     STK_MINS_ALLOWED_FREQS,
@@ -266,6 +271,12 @@ class OpsProbeCommandService:
                 on_success_action_json=on_success_action_json,
             )
             return
+        if condition_kind == KPL_LIST_REMOTE_READY_CONDITION:
+            OpsProbeCommandService._validate_remote_kpl_list_binding(
+                dataset_key=dataset_key,
+                on_success_action_json=on_success_action_json,
+            )
+            return
 
     @staticmethod
     def _validate_remote_stk_mins_binding(*, dataset_key: str, on_success_action_json: dict) -> None:
@@ -295,6 +306,17 @@ class OpsProbeCommandService:
         request = dict(action.get("request") or {})
         if OpsProbeCommandService._has_fixed_time_input(request):
             raise WebAppError(status_code=422, code="validation_error", message="源站指数日线探测不能与固定维护日期混用")
+
+    @staticmethod
+    def _validate_remote_kpl_list_binding(*, dataset_key: str, on_success_action_json: dict) -> None:
+        if str(dataset_key or "").strip() != KPL_LIST_DATASET_KEY:
+            raise WebAppError(status_code=422, code="validation_error", message="源站开盘啦榜单探测只支持开盘啦榜单维护")
+        action = dict(on_success_action_json or {})
+        if str(action.get("action_type") or "dataset_action") != "dataset_action" or str(action.get("action_key") or "").strip() != KPL_LIST_ACTION_KEY:
+            raise WebAppError(status_code=422, code="validation_error", message="源站开盘啦榜单探测只支持开盘啦榜单维护")
+        request = dict(action.get("request") or {})
+        if OpsProbeCommandService._has_fixed_time_input(request):
+            raise WebAppError(status_code=422, code="validation_error", message="源站开盘啦榜单探测不能与固定维护日期混用")
 
     @staticmethod
     def _has_fixed_time_input(request: dict) -> bool:

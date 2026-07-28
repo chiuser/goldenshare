@@ -1390,6 +1390,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 1. `freshness_latest_open`：读取本地 freshness，判断本地最新业务日是否命中最新开市日。
 2. `remote_stk_mins_ready`：仅用于 `stk_mins.maintain`，在探测窗口内请求 Tushare 分钟行情样本；源站返回最新开市日分钟行情后，再创建正式 `stk_mins.maintain` TaskRun。
 3. `remote_index_daily_ready`：仅用于 `index_daily.maintain`，在探测窗口内请求 Tushare 指数日线样本；源站返回最新开市日指数日线后，再创建正式 `index_daily.maintain` TaskRun。
+4. `remote_kpl_list_ready`：仅用于 `kpl_list.maintain`，以“竞价”样本确认源站已在次日 08:30 发布前一开市日榜单；命中后只为该目标交易日创建一次有效的 `kpl_list.maintain` TaskRun。此条件只支持探测触发，不支持定时兜底。
 
 `remote_stk_mins_ready` 示例：
 
@@ -1445,6 +1446,31 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
     "time_input": {
       "mode": "point"
     },
+    "filters": {}
+  }
+}
+```
+
+`remote_kpl_list_ready` 示例：
+
+```json
+{
+  "target_type": "dataset_action",
+  "target_key": "kpl_list.maintain",
+  "trigger_mode": "probe",
+  "schedule_type": "cron",
+  "cron_expr": "*/30 * * * *",
+  "timezone": "Asia/Shanghai",
+  "probe_config": {
+    "source_key": "tushare",
+    "window_start": "08:35",
+    "window_end": "23:30",
+    "probe_interval_seconds": 1800,
+    "max_triggers_per_day": 1,
+    "condition_kind": "remote_kpl_list_ready"
+  },
+  "params_json": {
+    "time_input": {"mode": "point"},
     "filters": {}
   }
 }

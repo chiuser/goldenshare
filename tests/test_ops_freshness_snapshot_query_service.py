@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from src.ops.dataset_definition_projection import DatasetFreshnessProjection, list_dataset_freshness_projections
+from src.ops.dataset_definition_projection import get_dataset_freshness_projection
 from src.ops.dataset_observation_registry import OBSERVED_DATE_MODEL_REGISTRY
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
@@ -76,6 +77,63 @@ def test_business_reference_date_uses_china_business_day_when_utc_is_previous_da
     )
 
     assert reference_date == date(2026, 5, 15)
+
+
+def test_kpl_list_freshness_uses_source_release_target_date() -> None:
+    service = OpsFreshnessQueryService()
+    projection = get_dataset_freshness_projection("kpl_list")
+    assert projection is not None
+    open_trade_dates = [date(2026, 7, 24), date(2026, 7, 27)]
+
+    before_release = service._expected_business_date_target_for_projection(
+        projection,
+        reference_date=date(2026, 7, 28),
+        reference_now=datetime(2026, 7, 27, 23, 0, tzinfo=timezone.utc),
+        latest_open_date=date(2026, 7, 27),
+        open_trade_dates=open_trade_dates,
+    )
+    after_release = service._expected_business_date_target_for_projection(
+        projection,
+        reference_date=date(2026, 7, 28),
+        reference_now=datetime(2026, 7, 28, 0, 35, tzinfo=timezone.utc),
+        latest_open_date=date(2026, 7, 27),
+        open_trade_dates=open_trade_dates,
+    )
+
+    assert before_release.target_trade_date == date(2026, 7, 24)
+    assert before_release.is_resolved is True
+    assert after_release.target_trade_date == date(2026, 7, 27)
+    assert after_release.is_resolved is True
+
+
+def test_kpl_list_freshness_is_unconfirmed_when_release_target_cannot_use_calendar() -> None:
+    service = OpsFreshnessQueryService()
+    projection = get_dataset_freshness_projection("kpl_list")
+    assert projection is not None
+    target = service._expected_business_date_target_for_projection(
+        projection,
+        reference_date=date(2026, 7, 28),
+        reference_now=datetime(2026, 7, 28, 1, 0, tzinfo=timezone.utc),
+        latest_open_date=date(2026, 7, 28),
+        open_trade_dates=[],
+    )
+
+    item = service._build_item(
+        projection=projection,
+        latest_success_at=datetime(2026, 7, 28, 1, 0, tzinfo=timezone.utc),
+        latest_open_date=date(2026, 7, 28),
+        reference_date=date(2026, 7, 28),
+        expected_business_date=target.target_trade_date,
+        expected_business_date_resolved=target.is_resolved,
+        recent_failure=None,
+        quality_note=None,
+        observed_business_range=(None, None),
+        observed_sync_date=None,
+        observed_at_range=None,
+    )
+
+    assert target.is_resolved is False
+    assert item.freshness_status == "unconfirmed"
 
 
 def test_build_freshness_rebases_cached_snapshot_without_live_scanning(db_session: Session, monkeypatch) -> None:

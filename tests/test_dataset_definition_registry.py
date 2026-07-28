@@ -66,6 +66,17 @@ def test_dataset_definition_projects_core_dataset_facts() -> None:
     assert definition.planning.enum_fanout_defaults["hot_type"] == ("人气榜", "飙升榜")
 
 
+def test_dataset_definition_projects_kpl_list_next_day_source_release_fact() -> None:
+    definition = get_dataset_definition("kpl_list")
+
+    assert definition.source.release_policy == "next_calendar_day_0830"
+    assert all(
+        item.source.release_policy == "same_day"
+        for item in list_dataset_definitions()
+        if item.dataset_key != "kpl_list"
+    )
+
+
 def test_dataset_definition_projects_ths_daily_valuation_fields() -> None:
     definition = get_dataset_definition("ths_daily")
 

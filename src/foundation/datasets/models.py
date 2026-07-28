@@ -86,6 +86,7 @@ class DatasetSourceDefinition:
     source_doc_id: str | None = None
     request_builder_key: str = "generic"
     base_params: dict[str, Any] = field(default_factory=dict)
+    release_policy: str = "same_day"
 
 
 @dataclass(frozen=True, slots=True)

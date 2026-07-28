@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   actionSupportsTriggerDayPointPolicy,
   actionSupportsRemoteIndexDailyProbe,
+  actionSupportsRemoteKplListProbe,
   actionSupportsRemoteProbeCondition,
   actionSupportsRemoteStkMinsProbe,
   actionSupportsTriggerDaySingleRangePolicy,
@@ -208,6 +209,15 @@ describe("自动任务日期策略", () => {
     expect(actionSupportsRemoteProbeCondition("dataset_action", "daily.maintain", "remote_index_daily_ready")).toBe(false);
     expect(actionSupportsRemoteProbeCondition("dataset_action", "stk_mins.maintain", "remote_index_daily_ready")).toBe(false);
     expect(formatProbeConditionLabel("remote_index_daily_ready")).toBe("源站已有指数日线");
+  });
+
+  it("only enables remote kpl_list source probing for kpl_list maintain", () => {
+    expect(actionSupportsRemoteKplListProbe("dataset_action", "kpl_list.maintain")).toBe(true);
+    expect(actionSupportsRemoteKplListProbe("dataset_action", "daily.maintain")).toBe(false);
+    expect(actionSupportsRemoteKplListProbe("workflow", "kpl_list.maintain")).toBe(false);
+    expect(actionSupportsRemoteProbeCondition("dataset_action", "kpl_list.maintain", "remote_kpl_list_ready")).toBe(true);
+    expect(actionSupportsRemoteProbeCondition("dataset_action", "daily.maintain", "remote_kpl_list_ready")).toBe(false);
+    expect(formatProbeConditionLabel("remote_kpl_list_ready")).toBe("源站已有开盘啦榜单");
   });
 
   it("hides schedule timing fields for pure probe and relabels fallback timing", () => {

@@ -17,6 +17,11 @@ from src.ops.services.index_daily_remote_probe_service import (
     INDEX_DAILY_DATASET_KEY,
     INDEX_DAILY_REMOTE_READY_CONDITION,
 )
+from src.ops.services.kpl_list_remote_probe_service import (
+    KPL_LIST_ACTION_KEY,
+    KPL_LIST_DATASET_KEY,
+    KPL_LIST_REMOTE_READY_CONDITION,
+)
 from src.ops.services.stk_mins_remote_probe_service import (
     STK_MINS_ACTION_KEY,
     STK_MINS_ALLOWED_FREQS,
@@ -27,7 +32,11 @@ from src.ops.services.stk_mins_remote_probe_service import (
 
 SUPPORTED_TRIGGER_MODES = {"schedule", "probe", "schedule_probe_fallback"}
 FRESHNESS_LATEST_OPEN_CONDITION = "freshness_latest_open"
-REMOTE_SOURCE_PROBE_CONDITIONS = {STK_MINS_REMOTE_READY_CONDITION, INDEX_DAILY_REMOTE_READY_CONDITION}
+REMOTE_SOURCE_PROBE_CONDITIONS = {
+    STK_MINS_REMOTE_READY_CONDITION,
+    INDEX_DAILY_REMOTE_READY_CONDITION,
+    KPL_LIST_REMOTE_READY_CONDITION,
+}
 SUPPORTED_PROBE_CONDITIONS = {FRESHNESS_LATEST_OPEN_CONDITION, *REMOTE_SOURCE_PROBE_CONDITIONS}
 TIME_PARAM_KEYS = {"trade_date", "ann_date", "month", "start_date", "end_date", "start_month", "end_month"}
 PARAM_RESERVED_KEYS = {"dataset_key", "action", "time_input", "filters"}
@@ -104,6 +113,8 @@ class ScheduleProbeBindingService:
             self._validate_remote_stk_mins_schedule(schedule=schedule, filters=filters)
         if condition_kind == INDEX_DAILY_REMOTE_READY_CONDITION:
             self._validate_remote_index_daily_schedule(schedule=schedule)
+        if condition_kind == KPL_LIST_REMOTE_READY_CONDITION:
+            self._validate_remote_kpl_list_schedule(schedule=schedule)
         dataset_targets = self._resolve_dataset_targets(schedule=schedule, config=config)
         templates: list[ProbeRuleTemplate] = []
         for dataset_key, step_key in dataset_targets:
@@ -222,6 +233,21 @@ class ScheduleProbeBindingService:
         dataset_key = cls._dataset_from_action_target(schedule.target_key)
         if dataset_key != INDEX_DAILY_DATASET_KEY:
             raise WebAppError(status_code=422, code="validation_error", message="源站指数日线探测只支持指数日线行情维护")
+
+    @classmethod
+    def _validate_remote_kpl_list_schedule(cls, *, schedule: OpsSchedule) -> None:
+        trigger_mode = cls._normalize_trigger_mode(schedule.trigger_mode)
+        if trigger_mode != "probe":
+            raise WebAppError(status_code=422, code="validation_error", message="源站开盘啦榜单探测只支持探测触发")
+        if schedule.target_type != "dataset_action" or schedule.target_key != KPL_LIST_ACTION_KEY:
+            raise WebAppError(status_code=422, code="validation_error", message="源站开盘啦榜单探测只支持开盘啦榜单维护")
+        if schedule.calendar_policy:
+            raise WebAppError(status_code=422, code="validation_error", message="源站开盘啦榜单探测不能与日期策略混用")
+        if cls._has_fixed_time_input(dict(schedule.params_json or {})):
+            raise WebAppError(status_code=422, code="validation_error", message="源站开盘啦榜单探测不能与固定维护日期混用")
+        dataset_key = cls._dataset_from_action_target(schedule.target_key)
+        if dataset_key != KPL_LIST_DATASET_KEY:
+            raise WebAppError(status_code=422, code="validation_error", message="源站开盘啦榜单探测只支持开盘啦榜单维护")
 
     @staticmethod
     def _extract_schedule_filters(params_json: dict) -> dict:

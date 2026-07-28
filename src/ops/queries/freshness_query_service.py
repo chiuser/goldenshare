@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from calendar import monthrange
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import desc, func, select
@@ -10,9 +10,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from src.foundation.datasets.models import DatasetDateModel
+from src.foundation.datasets.source_release_policies import NEXT_CALENDAR_DAY_0830_RELEASE
 from src.foundation.datasets.freshness_policies import (
     CONTINUOUS_NATURAL_DAY,
-    CONTINUOUS_OPEN_DAY,
     EVENT_RUN_TRACE,
     PERIOD_BUCKET,
     SNAPSHOT_RUN_TRACE,
@@ -35,6 +35,7 @@ from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.action_catalog import get_workflow_definition
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse, OpsFreshnessSummary
+from src.ops.services.dataset_release_target_service import DatasetReleaseTarget, DatasetReleaseTargetService
 
 
 STATUS_PRIORITY = {"stale": 0, "lagging": 1, "unconfirmed": 2, "unknown": 3, "disabled": 4, "fresh": 5}
@@ -67,12 +68,26 @@ class AutoScheduleSnapshot:
 
 
 class OpsFreshnessQueryService:
-    def build_freshness(self, session: Session, *, today: date | None = None) -> OpsFreshnessResponse:
-        reference_date = self._business_reference_date(today)
-        snapshot_response = self._build_from_snapshot(session, reference_date=reference_date)
+    def __init__(self) -> None:
+        self.release_target_service = DatasetReleaseTargetService()
+
+    def build_freshness(
+        self,
+        session: Session,
+        *,
+        today: date | None = None,
+        now: datetime | None = None,
+    ) -> OpsFreshnessResponse:
+        reference_now = self._business_reference_now(today=today, now=now)
+        reference_date = reference_now.date()
+        snapshot_response = self._build_from_snapshot(
+            session,
+            reference_date=reference_date,
+            reference_now=reference_now,
+        )
         if snapshot_response is not None:
             return self._attach_runtime_metadata(session, snapshot_response)
-        items = self.build_live_items(session, today=reference_date)
+        items = self.build_live_items(session, today=reference_date, now=reference_now)
         groups = self._group_items(items)
         summary = self._build_summary(items)
         return self._attach_runtime_metadata(
@@ -85,9 +100,11 @@ class OpsFreshnessQueryService:
         session: Session,
         *,
         today: date | None = None,
+        now: datetime | None = None,
         resource_keys: list[str] | None = None,
     ) -> list[DatasetFreshnessItem]:
-        reference_date = self._business_reference_date(today)
+        reference_now = self._business_reference_now(today=today, now=now)
+        reference_date = reference_now.date()
         latest_open_date = self._get_latest_open_date(session, before_or_on=reference_date)
         latest_success_by_resource = self._latest_success_by_resource(session)
         failures_by_resource = self._latest_failures_by_resource(session)
@@ -107,26 +124,30 @@ class OpsFreshnessQueryService:
             open_trade_dates=open_trade_dates,
         )
 
-        items = [
-            self._build_item(
-                projection=projection,
-                latest_success_at=latest_success_by_resource.get(projection.resource_key),
-                latest_open_date=latest_open_date,
+        items: list[DatasetFreshnessItem] = []
+        for projection in projections:
+            expected_target = self._expected_business_date_target_for_projection(
+                projection,
                 reference_date=reference_date,
-                expected_business_date=self._expected_business_date_for_projection(
-                    projection,
-                    reference_date=reference_date,
-                    latest_open_date=latest_open_date,
-                    open_trade_dates=open_trade_dates,
-                ),
-                recent_failure=failures_by_resource.get(projection.resource_key),
-                quality_note=quality_notes_by_resource.get(projection.resource_key),
-                observed_business_range=observed_business_ranges.get(projection.dataset_key),
-                observed_sync_date=observed_sync_dates.get(projection.dataset_key),
-                observed_at_range=observed_at_ranges.get(projection.dataset_key),
+                reference_now=reference_now,
+                latest_open_date=latest_open_date,
+                open_trade_dates=open_trade_dates,
             )
-            for projection in projections
-        ]
+            items.append(
+                self._build_item(
+                    projection=projection,
+                    latest_success_at=latest_success_by_resource.get(projection.resource_key),
+                    latest_open_date=latest_open_date,
+                    reference_date=reference_date,
+                    expected_business_date=expected_target.target_trade_date,
+                    expected_business_date_resolved=expected_target.is_resolved,
+                    recent_failure=failures_by_resource.get(projection.resource_key),
+                    quality_note=quality_notes_by_resource.get(projection.resource_key),
+                    observed_business_range=observed_business_ranges.get(projection.dataset_key),
+                    observed_sync_date=observed_sync_dates.get(projection.dataset_key),
+                    observed_at_range=observed_at_ranges.get(projection.dataset_key),
+                )
+            )
         return items
 
     @staticmethod
@@ -142,10 +163,17 @@ class OpsFreshnessQueryService:
 
     @staticmethod
     def _business_reference_date(today: date | None = None, *, now: datetime | None = None) -> date:
-        if today is not None:
-            return today
+        return OpsFreshnessQueryService._business_reference_now(today=today, now=now).date()
+
+    @staticmethod
+    def _business_reference_now(*, today: date | None = None, now: datetime | None = None) -> datetime:
         current = now or datetime.now(timezone.utc)
-        return current.astimezone(BUSINESS_TIMEZONE).date()
+        local_now = current.astimezone(BUSINESS_TIMEZONE)
+        if today is None:
+            return local_now
+        if now is None:
+            return datetime.combine(today, time(12), tzinfo=BUSINESS_TIMEZONE)
+        return local_now.replace(year=today.year, month=today.month, day=today.day)
 
     def _build_item(
         self,
@@ -155,6 +183,7 @@ class OpsFreshnessQueryService:
         latest_open_date: date,
         reference_date: date,
         expected_business_date: date | None,
+        expected_business_date_resolved: bool = True,
         recent_failure: FailureSnapshot | None,
         quality_note: str | None,
         observed_business_range: tuple[date | None, date | None] | None,
@@ -175,13 +204,17 @@ class OpsFreshnessQueryService:
         latest_business_date = observed_business_date
         effective_date = latest_business_date
         lag_days = max((expected_business_date - effective_date).days, 0) if expected_business_date and effective_date else None
-        freshness_status = self._freshness_status_for_policy(
-            projection.freshness_policy,
-            date_model,
-            lag_days=lag_days,
-            latest_success_at=normalized_success_at,
-            observed_business_date=observed_business_date,
-            latest_observed_at=latest_observed_at,
+        freshness_status = (
+            self._freshness_status_for_policy(
+                projection.freshness_policy,
+                date_model,
+                lag_days=lag_days,
+                latest_success_at=normalized_success_at,
+                observed_business_date=observed_business_date,
+                latest_observed_at=latest_observed_at,
+            )
+            if expected_business_date_resolved
+            else "unconfirmed"
         )
         if projection.freshness_policy in {EVENT_RUN_TRACE, SNAPSHOT_RUN_TRACE}:
             expected_business_date = None
@@ -325,31 +358,62 @@ class OpsFreshnessQueryService:
         reference_date: date,
         latest_open_date: date,
         open_trade_dates: list[date],
+        now: datetime | None = None,
     ) -> date | None:
+        return self._expected_business_date_target_for_projection(
+            projection,
+            reference_date=reference_date,
+            reference_now=now or datetime.combine(reference_date, time(12), tzinfo=BUSINESS_TIMEZONE),
+            latest_open_date=latest_open_date,
+            open_trade_dates=open_trade_dates,
+        ).target_trade_date
+
+    def _expected_business_date_target_for_projection(
+        self,
+        projection: DatasetFreshnessProjection,
+        *,
+        reference_date: date,
+        reference_now: datetime,
+        latest_open_date: date,
+        open_trade_dates: list[date],
+    ) -> DatasetReleaseTarget:
         if projection.freshness_policy in {EVENT_RUN_TRACE, SNAPSHOT_RUN_TRACE}:
-            return None
+            return DatasetReleaseTarget(None, True)
         date_model = self._date_model_for_projection(projection)
         if date_model is None:
-            return None
+            return DatasetReleaseTarget(None, True)
         if date_model.bucket_rule == "not_applicable":
-            return None
+            return DatasetReleaseTarget(None, True)
+        definition = get_dataset_definition(projection.resource_key)
         if date_model.date_axis == "trade_open_day":
             if date_model.bucket_rule == "every_open_day":
-                return latest_open_date
+                if definition.source.release_policy == NEXT_CALENDAR_DAY_0830_RELEASE:
+                    return self.release_target_service.resolve(
+                        definition=definition,
+                        now=reference_now,
+                        open_trade_dates=open_trade_dates,
+                    )
+                return DatasetReleaseTarget(latest_open_date, True)
             if date_model.bucket_rule == "week_last_open_day":
-                return self._latest_due_week_bucket(reference_date=reference_date, open_trade_dates=open_trade_dates)
+                return DatasetReleaseTarget(
+                    self._latest_due_week_bucket(reference_date=reference_date, open_trade_dates=open_trade_dates),
+                    True,
+                )
             if date_model.bucket_rule == "month_last_open_day":
-                return self._latest_due_month_bucket(reference_date=reference_date, open_trade_dates=open_trade_dates)
-            return latest_open_date
+                return DatasetReleaseTarget(
+                    self._latest_due_month_bucket(reference_date=reference_date, open_trade_dates=open_trade_dates),
+                    True,
+                )
+            return DatasetReleaseTarget(latest_open_date, True)
         if date_model.date_axis == "natural_day":
             if date_model.bucket_rule == "week_friday":
-                return self._latest_due_calendar_week_friday(reference_date=reference_date)
+                return DatasetReleaseTarget(self._latest_due_calendar_week_friday(reference_date=reference_date), True)
             if date_model.bucket_rule == "month_last_calendar_day":
-                return self._latest_due_calendar_month_end(reference_date=reference_date)
-            return reference_date
+                return DatasetReleaseTarget(self._latest_due_calendar_month_end(reference_date=reference_date), True)
+            return DatasetReleaseTarget(reference_date, True)
         if date_model.date_axis in {"month_key", "month_window"}:
-            return date(reference_date.year, reference_date.month, 1)
-        return None
+            return DatasetReleaseTarget(date(reference_date.year, reference_date.month, 1), True)
+        return DatasetReleaseTarget(None, True)
 
     @staticmethod
     def _normalize_datetime(value: datetime | None) -> datetime | None:
@@ -751,12 +815,19 @@ class OpsFreshnessQueryService:
                 observed_at_ranges[projection.dataset_key] = (None, None)
         return observed_ranges, observed_sync_dates, observed_at_ranges
 
-    def _build_from_snapshot(self, session: Session, *, reference_date: date | None = None) -> OpsFreshnessResponse | None:
+    def _build_from_snapshot(
+        self,
+        session: Session,
+        *,
+        reference_date: date | None = None,
+        reference_now: datetime | None = None,
+    ) -> OpsFreshnessResponse | None:
         try:
             rows = list(session.scalars(select(DatasetStatusSnapshot).order_by(DatasetStatusSnapshot.domain_key, DatasetStatusSnapshot.display_name)))
             if not rows:
                 return None
-            business_date = self._business_reference_date(reference_date)
+            business_date = self._business_reference_date(reference_date, now=reference_now)
+            business_now = self._business_reference_now(today=business_date, now=reference_now)
             try:
                 latest_open_date = self._get_latest_open_date(session, before_or_on=business_date)
             except SQLAlchemyError:
@@ -774,18 +845,21 @@ class OpsFreshnessQueryService:
                         message=row.recent_failure_message,
                         occurred_at=self._normalize_datetime(row.recent_failure_at),
                     )
+                expected_target = self._expected_business_date_target_for_projection(
+                    projection,
+                    reference_date=business_date,
+                    reference_now=business_now,
+                    latest_open_date=latest_open_date,
+                    open_trade_dates=open_trade_dates,
+                )
                 items.append(
                     self._build_item(
                         projection=projection,
                         latest_success_at=row.latest_success_at,
                         latest_open_date=latest_open_date,
                         reference_date=business_date,
-                        expected_business_date=self._expected_business_date_for_projection(
-                            projection,
-                            reference_date=business_date,
-                            latest_open_date=latest_open_date,
-                            open_trade_dates=open_trade_dates,
-                        ),
+                        expected_business_date=expected_target.target_trade_date,
+                        expected_business_date_resolved=expected_target.is_resolved,
                         recent_failure=recent_failure,
                         quality_note=None,
                         observed_business_range=(row.earliest_business_date, row.latest_business_date),
@@ -797,18 +871,21 @@ class OpsFreshnessQueryService:
             for projection in list_dataset_freshness_projections():
                 if projection.dataset_key in existing_dataset_keys:
                     continue
+                expected_target = self._expected_business_date_target_for_projection(
+                    projection,
+                    reference_date=business_date,
+                    reference_now=business_now,
+                    latest_open_date=latest_open_date,
+                    open_trade_dates=open_trade_dates,
+                )
                 items.append(
                     self._build_item(
                         projection=projection,
                         latest_success_at=None,
                         latest_open_date=latest_open_date,
                         reference_date=business_date,
-                        expected_business_date=self._expected_business_date_for_projection(
-                            projection,
-                            reference_date=business_date,
-                            latest_open_date=latest_open_date,
-                            open_trade_dates=open_trade_dates,
-                        ),
+                        expected_business_date=expected_target.target_trade_date,
+                        expected_business_date_resolved=expected_target.is_resolved,
                         recent_failure=None,
                         quality_note=None,
                         observed_business_range=(None, None),

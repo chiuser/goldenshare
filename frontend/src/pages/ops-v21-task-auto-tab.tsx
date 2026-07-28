@@ -94,8 +94,10 @@ const PARAM_RESERVED_KEYS = new Set(["dataset_key", "action", "time_input", "fil
 const FRESHNESS_LATEST_OPEN_CONDITION = "freshness_latest_open";
 const REMOTE_STK_MINS_READY_CONDITION = "remote_stk_mins_ready";
 const REMOTE_INDEX_DAILY_READY_CONDITION = "remote_index_daily_ready";
+const REMOTE_KPL_LIST_READY_CONDITION = "remote_kpl_list_ready";
 const STK_MINS_ACTION_KEY = "stk_mins.maintain";
 const INDEX_DAILY_ACTION_KEY = "index_daily.maintain";
+const KPL_LIST_ACTION_KEY = "kpl_list.maintain";
 const DEFAULT_PARAM_LABELS = new Map([
   ["trade_date", "维护日期"],
   ["start_date", "开始日期"],
@@ -354,6 +356,7 @@ function formatTriggerModeLabel(triggerMode: string): string {
 export function formatProbeConditionLabel(conditionKind: string | null | undefined): string {
   if (conditionKind === REMOTE_STK_MINS_READY_CONDITION) return "源站已有分钟行情";
   if (conditionKind === REMOTE_INDEX_DAILY_READY_CONDITION) return "源站已有指数日线";
+  if (conditionKind === REMOTE_KPL_LIST_READY_CONDITION) return "源站已有开盘啦榜单";
   return "最新业务日命中最新交易日";
 }
 
@@ -385,12 +388,19 @@ export function actionSupportsRemoteIndexDailyProbe(actionType: string, actionKe
   return actionType === "dataset_action" && actionKey === INDEX_DAILY_ACTION_KEY;
 }
 
+export function actionSupportsRemoteKplListProbe(actionType: string, actionKey: string): boolean {
+  return actionType === "dataset_action" && actionKey === KPL_LIST_ACTION_KEY;
+}
+
 export function actionSupportsRemoteProbeCondition(actionType: string, actionKey: string, conditionKind: string): boolean {
   if (conditionKind === REMOTE_STK_MINS_READY_CONDITION) {
     return actionSupportsRemoteStkMinsProbe(actionType, actionKey);
   }
   if (conditionKind === REMOTE_INDEX_DAILY_READY_CONDITION) {
     return actionSupportsRemoteIndexDailyProbe(actionType, actionKey);
+  }
+  if (conditionKind === REMOTE_KPL_LIST_READY_CONDITION) {
+    return actionSupportsRemoteKplListProbe(actionType, actionKey);
   }
   return conditionKind === FRESHNESS_LATEST_OPEN_CONDITION;
 }
@@ -847,6 +857,9 @@ export function OpsAutomationPage() {
   );
   const selectedActionSupportsRemoteStkMinsProbe = actionSupportsRemoteStkMinsProbe(form.action_type, form.action_key);
   const selectedActionSupportsRemoteIndexDailyProbe = actionSupportsRemoteIndexDailyProbe(form.action_type, form.action_key);
+  const selectedActionSupportsRemoteKplListProbe = actionSupportsRemoteKplListProbe(form.action_type, form.action_key);
+  const selectedRemoteKplListProbe = selectedActionSupportsRemoteKplListProbe
+    && form.probe_condition_kind === REMOTE_KPL_LIST_READY_CONDITION;
   const showScheduleTimingFields = shouldShowScheduleTimingFields(form.trigger_mode);
   const scheduleTimeFieldLabel = getScheduleTimeFieldLabel(form.trigger_mode);
   const probeConditionOptions = useMemo(
@@ -858,8 +871,11 @@ export function OpsAutomationPage() {
       ...(selectedActionSupportsRemoteIndexDailyProbe
         ? [{ value: REMOTE_INDEX_DAILY_READY_CONDITION, label: "源站已有指数日线" }]
         : []),
+      ...(selectedActionSupportsRemoteKplListProbe
+        ? [{ value: REMOTE_KPL_LIST_READY_CONDITION, label: "源站已有开盘啦榜单" }]
+        : []),
     ],
-    [selectedActionSupportsRemoteIndexDailyProbe, selectedActionSupportsRemoteStkMinsProbe],
+    [selectedActionSupportsRemoteIndexDailyProbe, selectedActionSupportsRemoteKplListProbe, selectedActionSupportsRemoteStkMinsProbe],
   );
   const effectiveCalendarPolicy = useMemo(
     () =>
@@ -880,6 +896,15 @@ export function OpsAutomationPage() {
       setForm((current) => ({ ...current, probe_condition_kind: FRESHNESS_LATEST_OPEN_CONDITION }));
     }
   }, [form.action_key, form.action_type, form.probe_condition_kind, setForm]);
+  useEffect(() => {
+    if (selectedRemoteKplListProbe && form.trigger_mode !== "probe") {
+      setForm((current) => ({
+        ...current,
+        trigger_mode: "probe",
+        schedule_type: current.schedule_type === "once" ? "cron" : current.schedule_type,
+      }));
+    }
+  }, [form.trigger_mode, selectedRemoteKplListProbe, setForm]);
   const singleTradeCalendar = useTradeCalendarField({ value: form.selected_date });
   const rangeStartTradeCalendar = useTradeCalendarField({ value: form.start_date });
   const rangeEndTradeCalendar = useTradeCalendarField({ value: form.end_date });
@@ -1790,7 +1815,9 @@ export function OpsAutomationPage() {
           </SimpleGrid>
           <Select
             label="触发方式"
-            data={[
+            data={selectedRemoteKplListProbe ? [
+              { value: "probe", label: "探测触发" },
+            ] : [
               { value: "schedule", label: "定时触发" },
               { value: "probe", label: "探测触发" },
               { value: "schedule_probe_fallback", label: "定时 + 探测兜底" },
@@ -1958,6 +1985,11 @@ export function OpsAutomationPage() {
               {form.probe_condition_kind === REMOTE_INDEX_DAILY_READY_CONDITION ? (
                 <Text size="xs" c="dimmed">
                   系统会在探测窗口内请求少量代表指数；源站返回最新交易日指数日线后，再自动发起正式指数日线维护任务。
+                </Text>
+              ) : null}
+              {form.probe_condition_kind === REMOTE_KPL_LIST_READY_CONDITION ? (
+                <Text size="xs" c="dimmed">
+                  系统会在探测窗口内请求“竞价”样本；源站在次日发布前一开市日榜单后，再自动发起该目标交易日的正式维护任务。
                 </Text>
               ) : null}
               <Grid>

@@ -96,6 +96,7 @@ docs/
 - [Ops Freshness 单一事实源与旧分层观测退场计划 v1（已完成）](/Users/congming/github/goldenshare/docs/ops/ops-freshness-single-source-layer-snapshot-retirement-plan-v1.md)
 - [Ops Freshness Policy 显式映射方案 v1（已实施）](/Users/congming/github/goldenshare/docs/ops/ops-freshness-policy-explicit-mapping-plan-v1.md)
 - [`stk_mins` 远程源站探测触发方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-stk-mins-remote-source-probe-plan-v1.md)
+- [`kpl_list` 次日发布适配与自动维护方案 v1（已实现，待生产验收）](/Users/congming/github/goldenshare/docs/ops/ops-kpl-list-next-day-release-plan-v1.md)
 - [指数日线完整性闭环与激活池服务能力收口方案 v2（已拍板，LLD 已就绪，待开发）](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-completeness-reconciliation-plan-v2.md)
 - [指数日线完整性闭环与激活池服务能力收口 LLD v2（待开发）](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-completeness-reconciliation-lld-v2.md)
 - [指数日线完整性补漏方案 v1（历史实施基线）](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-completeness-repair-plan-v1.md)

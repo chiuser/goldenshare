@@ -1090,6 +1090,54 @@ def test_ops_schedule_remote_index_daily_probe_mode_creates_probe_rule(app_clien
     assert rule["on_success_action_json"]["request"]["filters"] == {"ts_code": ["000001.SH", "399001.SZ"]}
 
 
+def test_ops_schedule_remote_kpl_list_probe_mode_creates_probe_rule(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    create_response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "kpl_list.maintain",
+            "display_name": "开盘啦榜单源站就绪后同步",
+            "schedule_type": "cron",
+            "trigger_mode": "probe",
+            "cron_expr": "*/30 * * * *",
+            "timezone": "Asia/Shanghai",
+            "probe_config": {
+                "source_key": "tushare",
+                "window_start": "08:35",
+                "window_end": "23:30",
+                "probe_interval_seconds": 1800,
+                "max_triggers_per_day": 1,
+                "condition_kind": "remote_kpl_list_ready",
+            },
+            "params_json": {
+                "time_input": {"mode": "point"},
+                "filters": {},
+            },
+        },
+    )
+
+    assert create_response.status_code == 200
+    created = create_response.json()
+    assert created["probe_config"]["condition_kind"] == "remote_kpl_list_ready"
+
+    probe_response = app_client.get(
+        f"/api/v1/ops/probes?schedule_id={created['id']}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert probe_response.status_code == 200
+    rule = probe_response.json()["items"][0]
+    assert rule["dataset_key"] == "kpl_list"
+    assert rule["probe_condition_json"] == {"type": "remote_kpl_list_ready"}
+    assert rule["on_success_action_json"]["action_key"] == "kpl_list.maintain"
+    assert rule["source_key"] == "tushare"
+    assert rule["on_success_action_json"]["request"]["filters"] == {}
+
+
 @pytest.mark.parametrize(
     ("payload_patch", "expected_message"),
     [
@@ -1235,6 +1283,74 @@ def test_ops_schedule_remote_index_daily_probe_mode_rejects_invalid_binding(
             "probe_interval_seconds": 300,
             "max_triggers_per_day": 1,
             "condition_kind": "remote_index_daily_ready",
+        },
+        "params_json": {
+            "time_input": {"mode": "point"},
+            "filters": {},
+        },
+    }
+    payload.update(payload_patch)
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json=payload,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == expected_message
+
+
+@pytest.mark.parametrize(
+    ("payload_patch", "expected_message"),
+    [
+        (
+            {"trigger_mode": "schedule_probe_fallback"},
+            "源站开盘啦榜单探测只支持探测触发",
+        ),
+        (
+            {
+                "target_type": "workflow",
+                "target_key": "daily_market_close_maintenance",
+            },
+            "源站开盘啦榜单探测只支持开盘啦榜单维护",
+        ),
+        (
+            {
+                "params_json": {
+                    "time_input": {"mode": "point", "trade_date": "2026-05-29"},
+                    "filters": {},
+                },
+            },
+            "源站开盘啦榜单探测不能与固定维护日期混用",
+        ),
+    ],
+)
+def test_ops_schedule_remote_kpl_list_probe_mode_rejects_invalid_binding(
+    app_client,
+    user_factory,
+    payload_patch,
+    expected_message,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    payload = {
+        "target_type": "dataset_action",
+        "target_key": "kpl_list.maintain",
+        "display_name": "错误开盘啦榜单源站探测",
+        "schedule_type": "cron",
+        "trigger_mode": "probe",
+        "cron_expr": "*/30 * * * *",
+        "timezone": "Asia/Shanghai",
+        "probe_config": {
+            "source_key": "tushare",
+            "window_start": "08:35",
+            "window_end": "23:30",
+            "probe_interval_seconds": 1800,
+            "max_triggers_per_day": 1,
+            "condition_kind": "remote_kpl_list_ready",
         },
         "params_json": {
             "time_input": {"mode": "point"},

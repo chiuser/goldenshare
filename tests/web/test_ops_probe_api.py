@@ -14,6 +14,11 @@ from src.ops.services.index_daily_remote_probe_service import (
     IndexDailyRemoteReadinessProbeResult,
     IndexDailyRemoteReadinessProbeService,
 )
+from src.ops.services.kpl_list_remote_probe_service import (
+    KPL_LIST_REMOTE_READY_CONDITION,
+    KplListRemoteReadinessProbeResult,
+    KplListRemoteReadinessProbeService,
+)
 from src.ops.services.stk_mins_remote_probe_service import (
     STK_MINS_REMOTE_READY_CONDITION,
     StkMinsRemoteReadinessProbeResult,
@@ -194,6 +199,36 @@ def test_ops_probe_create_rejects_invalid_remote_index_daily_condition(app_clien
 
     assert response.status_code == 422
     assert response.json()["message"] == "源站指数日线探测只支持指数日线行情维护"
+
+
+def test_ops_probe_create_rejects_invalid_remote_kpl_list_condition(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/probes",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "name": "错误开盘啦源站探测",
+            "dataset_key": "daily",
+            "source_key": "tushare",
+            "window_start": "08:35",
+            "window_end": "23:30",
+            "probe_interval_seconds": 1800,
+            "probe_condition_json": {"type": KPL_LIST_REMOTE_READY_CONDITION},
+            "on_success_action_json": {
+                "action_type": "dataset_action",
+                "action_key": "daily.maintain",
+                "request": {"time_input": {"mode": "point"}, "filters": {}},
+            },
+            "max_triggers_per_day": 1,
+            "timezone_name": "Asia/Shanghai",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "源站开盘啦榜单探测只支持开盘啦榜单维护"
 
 
 def test_ops_probe_run_log_list_supports_rule_and_dataset_filters(
@@ -900,3 +935,220 @@ def test_probe_runtime_remote_index_daily_miss_does_not_create_task_run(db_sessi
     assert result.triggered_rules == 0
     assert task_runs == []
     assert db_session.scalar(select(TaskRun).where(TaskRun.resource_key == "index_daily")) is None
+
+
+def test_kpl_list_remote_probe_uses_release_target_and_resolver_request_params(
+    db_session,
+    probe_rule_factory,
+    trade_calendar_factory,
+    monkeypatch,
+) -> None:
+    trade_calendar_factory(exchange="SSE", trade_date=date(2026, 5, 29), is_open=True)
+    rule = probe_rule_factory(
+        dataset_key="kpl_list",
+        source_key="tushare",
+        probe_condition_json={"type": KPL_LIST_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "kpl_list.maintain",
+            "request": {"time_input": {"mode": "point"}, "filters": {}, "run_scope": "probe_triggered"},
+        },
+    )
+    connector_calls: list[dict] = []
+
+    class StubConnector:
+        def call(self, api_name, *, params, fields):
+            connector_calls.append({"api_name": api_name, "params": params, "fields": fields})
+            return [{"ts_code": "600000.SH", "trade_date": "20260529", "tag": "竞价"}]
+
+    monkeypatch.setattr("src.ops.services.kpl_list_remote_probe_service.create_source_connector", lambda source_key: StubConnector())
+
+    result = KplListRemoteReadinessProbeService().evaluate(
+        db_session,
+        rule,
+        current=datetime(2026, 5, 30, 0, 35, tzinfo=timezone.utc),
+    )
+
+    assert result.matched is True
+    assert result.payload["target_trade_date"] == "2026-05-29"
+    assert connector_calls == [
+        {
+            "api_name": "kpl_list",
+            "params": {"trade_date": "20260529", "tag": "竞价", "limit": 1, "offset": 0},
+            "fields": ("ts_code", "trade_date", "tag"),
+        }
+    ]
+
+
+def test_kpl_list_remote_probe_miss_does_not_claim_source_release(
+    db_session,
+    probe_rule_factory,
+    trade_calendar_factory,
+    monkeypatch,
+) -> None:
+    trade_calendar_factory(exchange="SSE", trade_date=date(2026, 5, 29), is_open=True)
+    rule = probe_rule_factory(
+        dataset_key="kpl_list",
+        source_key="tushare",
+        probe_condition_json={"type": KPL_LIST_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "kpl_list.maintain",
+            "request": {"time_input": {"mode": "point"}, "filters": {}},
+        },
+    )
+
+    class EmptyConnector:
+        def call(self, api_name, *, params, fields):
+            return []
+
+    monkeypatch.setattr("src.ops.services.kpl_list_remote_probe_service.create_source_connector", lambda source_key: EmptyConnector())
+
+    result = KplListRemoteReadinessProbeService().evaluate(
+        db_session,
+        rule,
+        current=datetime(2026, 5, 30, 0, 35, tzinfo=timezone.utc),
+    )
+
+    assert result.matched is False
+    assert result.payload["target_trade_date"] == "2026-05-29"
+    assert result.payload["sample_request_count"] == 1
+
+
+def test_probe_runtime_remote_kpl_list_hit_creates_task_run_for_release_target(
+    db_session,
+    ops_schedule_factory,
+    probe_rule_factory,
+    monkeypatch,
+) -> None:
+    schedule = ops_schedule_factory(target_key="kpl_list.maintain", trigger_mode="probe")
+    rule = probe_rule_factory(
+        schedule_id=schedule.id,
+        dataset_key="kpl_list",
+        source_key="tushare",
+        probe_condition_json={"type": KPL_LIST_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "kpl_list.maintain",
+            "request": {"time_input": {"mode": "point"}, "filters": {}, "run_scope": "probe_triggered"},
+        },
+        window_start=None,
+        window_end=None,
+    )
+    service = ProbeRuntimeService()
+    monkeypatch.setattr(
+        service.kpl_list_remote_probe,
+        "evaluate",
+        lambda session, rule, current: KplListRemoteReadinessProbeResult(
+            matched=True,
+            message="源站已返回目标交易日开盘啦榜单",
+            payload={"target_trade_date": "2026-05-29"},
+        ),
+    )
+
+    task_runs, result = service.run_once(db_session, now=datetime(2026, 5, 30, 1, 0, tzinfo=timezone.utc), limit=10)
+
+    assert result.triggered_rules == 1
+    assert len(task_runs) == 1
+    assert task_runs[0].resource_key == "kpl_list"
+    assert task_runs[0].time_input_json == {"mode": "point", "trade_date": "2026-05-29"}
+    run_log = db_session.scalar(select(ProbeRunLog).where(ProbeRunLog.probe_rule_id == rule.id))
+    assert run_log is not None
+    assert run_log.result_code == "hit"
+    assert run_log.triggered_task_run_id == task_runs[0].id
+
+
+def test_probe_runtime_remote_kpl_list_skips_existing_effective_target_task(
+    db_session,
+    ops_schedule_factory,
+    probe_rule_factory,
+    task_run_factory,
+    monkeypatch,
+) -> None:
+    schedule = ops_schedule_factory(target_key="kpl_list.maintain", trigger_mode="probe")
+    rule = probe_rule_factory(
+        schedule_id=schedule.id,
+        dataset_key="kpl_list",
+        source_key="tushare",
+        probe_condition_json={"type": KPL_LIST_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "kpl_list.maintain",
+            "request": {"time_input": {"mode": "point"}, "filters": {}, "run_scope": "probe_triggered"},
+        },
+        window_start=None,
+        window_end=None,
+    )
+    task_run_factory(
+        resource_key="kpl_list",
+        trigger_source="probe",
+        schedule_id=schedule.id,
+        status="success",
+        time_input_json={"mode": "point", "trade_date": "2026-05-29"},
+    )
+    service = ProbeRuntimeService()
+    monkeypatch.setattr(
+        service.kpl_list_remote_probe,
+        "evaluate",
+        lambda session, rule, current: KplListRemoteReadinessProbeResult(
+            matched=True,
+            message="源站已返回目标交易日开盘啦榜单",
+            payload={"target_trade_date": "2026-05-29"},
+        ),
+    )
+
+    task_runs, result = service.run_once(db_session, now=datetime(2026, 5, 30, 1, 0, tzinfo=timezone.utc), limit=10)
+
+    assert result.triggered_rules == 0
+    assert task_runs == []
+    run_log = db_session.scalar(select(ProbeRunLog).where(ProbeRunLog.probe_rule_id == rule.id))
+    assert run_log is not None
+    assert run_log.condition_matched is True
+    assert run_log.result_code == "deduplicated"
+    assert run_log.triggered_task_run_id is None
+
+
+def test_probe_runtime_remote_kpl_list_retries_failed_target_task(
+    db_session,
+    ops_schedule_factory,
+    probe_rule_factory,
+    task_run_factory,
+    monkeypatch,
+) -> None:
+    schedule = ops_schedule_factory(target_key="kpl_list.maintain", trigger_mode="probe")
+    probe_rule_factory(
+        schedule_id=schedule.id,
+        dataset_key="kpl_list",
+        source_key="tushare",
+        probe_condition_json={"type": KPL_LIST_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "kpl_list.maintain",
+            "request": {"time_input": {"mode": "point"}, "filters": {}, "run_scope": "probe_triggered"},
+        },
+        window_start=None,
+        window_end=None,
+    )
+    task_run_factory(
+        resource_key="kpl_list",
+        trigger_source="probe",
+        schedule_id=schedule.id,
+        status="failed",
+        time_input_json={"mode": "point", "trade_date": "2026-05-29"},
+    )
+    service = ProbeRuntimeService()
+    monkeypatch.setattr(
+        service.kpl_list_remote_probe,
+        "evaluate",
+        lambda session, rule, current: KplListRemoteReadinessProbeResult(
+            matched=True,
+            message="源站已返回目标交易日开盘啦榜单",
+            payload={"target_trade_date": "2026-05-29"},
+        ),
+    )
+
+    task_runs, result = service.run_once(db_session, now=datetime(2026, 5, 30, 1, 0, tzinfo=timezone.utc), limit=10)
+
+    assert result.triggered_rules == 1
+    assert len(task_runs) == 1
+    assert task_runs[0].time_input_json["trade_date"] == "2026-05-29"

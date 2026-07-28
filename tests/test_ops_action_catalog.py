@@ -143,7 +143,6 @@ def test_workflow_time_contracts_match_step_requirements() -> None:
         "dc_daily",
         "ths_hot",
         "dc_hot",
-        "kpl_list",
         "limit_list_ths",
         "limit_step",
         "limit_cpt_list",

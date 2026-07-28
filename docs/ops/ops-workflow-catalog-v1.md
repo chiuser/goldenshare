@@ -95,7 +95,7 @@
 
 ## 3.2 `daily_market_close_maintenance`（每日收盘后维护）
 
-- 描述：覆盖日线、集合竞价、历史基础列表、日指标、资金流、榜单、基金日线与新闻资讯的每日维护工作流。
+- 描述：覆盖日线、集合竞价、历史基础列表、日指标、资金流、热榜、基金日线与新闻资讯的每日维护工作流。
 - 支持自动调度：是
 - 支持手动执行：是
 - 默认调度策略：`trading_day_close`
@@ -129,14 +129,13 @@
 | 21 | `dc_daily` | 东方财富板块日线行情 | `dc_daily.maintain` |
 | 22 | `ths_hot` | 同花顺热榜 | `ths_hot.maintain` |
 | 23 | `dc_hot` | 东方财富热榜 | `dc_hot.maintain` |
-| 24 | `kpl_list` | 开盘啦榜单 | `kpl_list.maintain` |
-| 25 | `limit_list_ths` | 同花顺涨停名单 | `limit_list_ths.maintain` |
-| 26 | `limit_step` | 连板梯队 | `limit_step.maintain` |
-| 27 | `limit_cpt_list` | 涨停概念列表 | `limit_cpt_list.maintain` |
-| 28 | `kpl_concept_cons` | 开盘啦板块成分 | `kpl_concept_cons.maintain` |
-| 29 | `anns_d` | 上市公司公告 | `anns_d.maintain` |
-| 30 | `irm_qa_sh` | 上证E互动问答 | `irm_qa_sh.maintain` |
-| 31 | `irm_qa_sz` | 深证互动易问答 | `irm_qa_sz.maintain` |
+| 24 | `limit_list_ths` | 同花顺涨停名单 | `limit_list_ths.maintain` |
+| 25 | `limit_step` | 连板梯队 | `limit_step.maintain` |
+| 26 | `limit_cpt_list` | 涨停概念列表 | `limit_cpt_list.maintain` |
+| 27 | `kpl_concept_cons` | 开盘啦板块成分 | `kpl_concept_cons.maintain` |
+| 28 | `anns_d` | 上市公司公告 | `anns_d.maintain` |
+| 29 | `irm_qa_sh` | 上证E互动问答 | `irm_qa_sh.maintain` |
+| 30 | `irm_qa_sz` | 深证互动易问答 | `irm_qa_sz.maintain` |
 
 ## 3.3 `daily_moneyflow_maintenance`（每日资金流向维护）
 

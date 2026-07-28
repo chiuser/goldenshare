@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from src.foundation.datasets.registry import list_dataset_definitions
+from src.foundation.datasets.source_release_policies import SUPPORTED_SOURCE_RELEASE_POLICIES
 from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY
 
 
@@ -30,6 +31,14 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
             issues.append(IngestionLintIssue(dataset_key, "missing_display_name", "display_name 不能为空"))
         if not definition.source.source_fields:
             issues.append(IngestionLintIssue(dataset_key, "missing_source_fields", "source_fields 不能为空"))
+        if definition.source.release_policy not in SUPPORTED_SOURCE_RELEASE_POLICIES:
+            issues.append(
+                IngestionLintIssue(
+                    dataset_key,
+                    "invalid_source_release_policy",
+                    f"source.release_policy 不支持：{definition.source.release_policy}",
+                )
+            )
         if not definition.storage.target_table.strip():
             issues.append(IngestionLintIssue(dataset_key, "missing_target_table", "target_table 不能为空"))
         if definition.transaction.commit_policy != "unit":
