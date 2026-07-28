@@ -4,9 +4,9 @@
 
 本文是 [`dagster-index-global-data-onboarding-plan.md`](./dagster-index-global-data-onboarding-plan.md) 的代码级设计。目标是把 Tushare `index_global` 接入 Dagster Lake，形成 Raw/Silver 两层、自然日分区、同日五阶段刷新和低开销自动触发链路。
 
-当前进度：P1 真实请求验证、P2 Raw contract/路径/phase merge/staging、P3 真实 bounded fetch 临时湖五阶段联调、P4 Silver writer/contract/临时 Raw -> Silver 联调、P5 active Raw/Silver definitions 接入和 P6 专属自然日注册/五阶段 Raw sensor/Silver final-phase 触发已完成；P7A Bootstrap 只读目标审计已完成，P7B 源请求审计、正式湖写入、全量对账和事件验收尚未开始。
+当前进度：P1 真实请求验证、P2 Raw contract/路径/phase merge/staging、P3 真实 bounded fetch 临时湖五阶段联调、P4 Silver writer/contract/临时 Raw -> Silver 联调、P5 active Raw/Silver definitions 接入、P6 专属自然日注册/五阶段 Raw sensor/Silver final-phase 触发、P7A Bootstrap 只读目标审计、P7B 全量源请求审计、正式 Raw/Silver 生成和全量文件对账均已完成；P8 Dagster event 验收仍未开始。
 
-本 LLD 不实现 Gold 指标，也不授权执行正式 Bootstrap、Dagster event 补录或 sensor 启用；P6 只完成默认停止的 sensor 定义和本地验证。
+本 LLD 不实现 Gold 指标；正式 Raw/Silver Bootstrap 已由独立 apply CLI 按本 LLD 门禁完成，Dagster event 补录和 sensor 启用仍属于后续阶段；P6 sensor 保持默认停止。
 
 硬边界：
 
@@ -61,7 +61,7 @@ P3 在同一稳定 Raw writer 模块中增加 `fetch_index_global_phase(...)` �
 
 真实临时湖样本使用 `2022-01-04`：五个 phase 各 21 行、各 1 页，总请求 5 次、重试 0 次，最终 Raw 21 行，全部 staging 原子 promote。真实报告为 `/private/tmp/index_global_p3_real_validation_p3-real-20260728204238.json`。验证还确认 Tushare/Pandas 空数值会以 `NaN` 进入 Python，P3 将其转换为 Parquet `NULL`；非数值和无穷值仍拒绝。P3 总计通过 105 项定向/静态测试，未调用 `dg`，未写正式 lake、Dagster DB 或 event。
 
-P3/P4 只完成 writer 和临时湖联调；P5 已接入 active Raw/Silver asset、core check 和 job，但尚未启用 sensor 或正式湖写入。P4 的 Silver writer 核心仍由 P5 的 active Silver asset wrapper 调用。P7A 已新增只读 Bootstrap planner/CLI，仍未启用 sensor、调用 Tushare 做全量源审计或写正式湖。
+P3/P4 只完成 writer 和临时湖联调；P5 已接入 active Raw/Silver asset、core check 和 job，但尚未启用 sensor 或正式湖写入。P4 的 Silver writer 核心仍由 P5 的 active Silver asset wrapper 调用。P7A 已新增只读 Bootstrap planner/CLI；P7B 又新增只读 Tushare source probe 和独立 apply CLI，当前正式 apply 不访问 Dagster instance、不写 Dagster event、不启用 sensor。
 
 ### 2.3 数据卡和代码登记落点
 
@@ -885,9 +885,84 @@ P7A 明确不做以下动作：不调用 Tushare，不访问 Prod DB，不读取
 /private/tmp/index_global_p7_bootstrap_dry_run_20260728.json
 ```
 
-结果为 1,670 个自然日、估算 8,350 次基础请求、Raw/Silver 各 1,670 个目标文件；正式 lake 两层均无既有目标文件，冲突数为 0。由于目标文件全为空缺，尚未取得全量 Tushare source rows；未经 P7B 源审计和正式写入批准，不得把本报告当作 Bootstrap 已完成。
+结果为 1,670 个自然日、估算 8,350 次基础请求、Raw/Silver 各 1,670 个目标文件；正式 lake 两层均无既有目标文件，冲突数为 0。未经正式 Raw/Silver 写入批准和全量文件对账，不得把本报告当作 Bootstrap 已完成。
 
-### 10.2 Event 和 latest-state 口径
+### 10.2 P7B 全量 Tushare 源请求 dry-run 实现与结果
+
+P7B 的只读入口固定为：
+
+```text
+orchestrator.defs.bootstrap.index_global_bootstrap_source_probe_cli
+```
+
+实现落点：
+
+- `orchestrator/defs/bootstrap/index_global_bootstrap_source_probe.py`：使用冻结日期计划，按 `date -> asia_1 -> asia_2 -> asia_3 -> europe -> americas` 调用已经通过 P3 验证的 `fetch_index_global_phase(...)`；只保留聚合计数和有限失败/空结果样本；不写 Lake、不访问 Dagster instance。
+- `orchestrator/defs/bootstrap/index_global_bootstrap_source_probe_cli.py`：只接收日期范围和 JSON 输出路径，不提供 apply/write/event 参数；token 只从 `TUSHARE_TOKEN` 环境读取。
+- `tests/test_index_global_bootstrap_source_probe.py`：覆盖五阶段请求、空结果、首错停止、显式字段、全局节流记录和不写入边界。
+
+P7B 的配额门禁不是“每个 phase 自己限流”而是整轮共享节流：每个 phase 内继续使用 `build_index_global_request_policy()` 的 bounded pagination/retry 规则，phase 之间额外保证至少 `0.13s` 的间隔。这样可以避免五个独立 phase runner 在切换时连续打穿 Tushare 分钟配额。报告中的 `throttle_wait_ms` 记录这部分等待。
+
+Tushare 空 DataFrame 可能返回 `rows=()` 且 `columns=()`。`_extract_index_global_rows(...)` 将这个组合视为合法空 phase；只要有数据行，返回列集合仍必须严格等于 `INDEX_GLOBAL_FIELDS`，因此不会放松非空数据的字段漂移门禁。
+
+2026-07-28 全量 dry-run 结果：
+
+```text
+report: /private/tmp/index_global_p7b_source_probe_20260728_retry3.json
+date plan: 2022-01-01..2026-07-28
+attempted/successful phases: 8350/8350
+empty phases: 2349
+failed phases: 0
+source observation rows: 119162
+requests/pages/retries: 8350/8350/0
+throttle wait: 1085354 ms
+elapsed: 1637916 ms (约 27.3 分钟)
+should_stop: false
+```
+
+`source observation rows` 是五个 phase 返回结果的加总，不能直接当作最终 Raw 行数；同一日期的多个 phase 必须在正式 writer 中按 `merge_rank=0/1` 做 set-based 合并，最终 Raw 行数、Silver 行数和拒绝原因由正式文件对账产生。2,349 个空 phase 只说明该阶段当时没有返回行，不自动判定为全局指数缺失。
+
+P7B 前三次失败报告没有删除：首次是一次瞬时 source request failure，第二次是 retry budget exhausted，第三次定位为空响应列误判；修正全局节流与空列空结果语义后，第四次全量报告通过。正式 apply 又重新检查了目标冲突、磁盘空间和 P7B fingerprint，随后完成 Raw/Silver 写入与对账。
+
+### 10.3 正式 Raw/Silver apply 实现
+
+正式写入入口固定为：
+
+```text
+orchestrator.defs.bootstrap.index_global_bootstrap_apply_cli
+```
+
+必须显式传入 `--confirm-lake-write` 和 P7B 成功报告。apply 在写入前校验：日期计划 fingerprint、8,350 个 phase 全部成功、目标文件没有 invalid existing、Lake 目录可写以及最低可用磁盘空间。它不接受 overwrite 开关，不访问 Dagster instance，不写 Dagster DB/event，不启用 sensor。
+
+Raw 写入按最多 20 个自然日一批、批内串行执行。每个缺失日期先在正式 Lake 同一文件系统下的隐藏临时目录完成五个 phase fetch/merge；五个 phase 全部成功后才把临时 Raw 文件原子 promote 到正式日期路径。这样单个 phase 或进程失败不会把不完整 Raw 文件留在正式目标。已有目标只允许跳过；目标冲突或异常立即停止。
+
+Raw 全量完成后，apply 先运行同一只读 DuckDB target audit；Raw 缺失或 invalid 数量必须为 0，才进入 Silver。Silver 逐日读取同日 Raw，复用现有 DuckDB set-based writer、staging 回读和原子替换。最终再次运行 Raw/Silver audit，并输出：
+
+```text
+/private/tmp/index_global_m7_raw_batch_<apply_id>.json
+/private/tmp/index_global_m7_raw_audit_<apply_id>.json
+/private/tmp/index_global_m7_silver_batch_<apply_id>.json
+/private/tmp/index_global_m7_silver_audit_<apply_id>.json
+/private/tmp/index_global_m7_final_reconciliation_<apply_id>.json
+```
+
+每个阶段失败即停止，不继续后续日期或 Silver；已完成日期及阶段、请求/分页/重试、源观测行数、最终输出行数和耗时写入批次报告，便于人工审计和后续受控续跑。正式 apply 的请求节流必须与 P7B source probe 相同，不能恢复为每个 phase 独立限流。
+
+本次正式 apply 已完成，使用 `apply_id=20260728_233746`。Raw 与 Silver 各生成 1,670 个自然日文件；两层官方审计均为 `missing_count=0`、`invalid_existing_count=0`、`valid_existing_count=1670`。独立 DuckDB 对账确认两层各有 23,849 行、1,201 个非空日期、469 个合法空自然日分区，schema、路径日期、主键唯一性、代码/收盘价基础规则均通过，Raw/Silver 行级字段差异为 0。正式 Lake 隐藏 staging 目录残留为 0。
+
+正式 apply 报告：
+
+```text
+/private/tmp/index_global_m7_raw_batch_20260728_233746.json
+/private/tmp/index_global_m7_raw_audit_20260728_233746.json
+/private/tmp/index_global_m7_silver_batch_20260728_233746.json
+/private/tmp/index_global_m7_silver_audit_20260728_233746.json
+/private/tmp/index_global_m7_final_reconciliation_20260728_233746.json
+```
+
+apply 期间共执行 8,350 次请求、8,350 页、0 次重试；请求阶段节流等待约 879,848 ms。该轮没有访问 Dagster instance、没有写 Dagster DB/event、没有注册 dynamic partition，也没有启用 sensor。
+
+### 10.4 Event 和 latest-state 口径
 
 - 日常 Raw 五个 phase 可以对同一 partition 产生多次 materialization，但每次只保留一个合并后的最终文件；后续阶段的事件不代表“新增另一份 partition 数据”；
 - Raw/Silver 各自只保留一个 core check，不按字段拆分 check；同一分区的最新 check 只描述当前文件事实；
@@ -906,6 +981,7 @@ P7A 明确不做以下动作：不调用 Tushare，不访问 Prod DB，不读取
 - 单页、多页、空页、重复页、字段漂移；
 - `limit=4000` 和 `offset` 递增；
 - API 错误分类、重试和总预算。
+- 全量 Bootstrap source probe 的 phase 间全局最小间隔、节流等待计时和失败分类；空响应列集合为空时作为合法空 phase。
 
 ### 11.2 Phase merge
 
@@ -988,10 +1064,11 @@ P7A 明确不做以下动作：不调用 Tushare，不访问 Prod DB，不读取
 4. Silver writer 和空分区处理（已完成，P4）；
 5. Raw/Silver definitions、core checks、jobs（已完成，P5）；
 6. 专属自然日注册、Raw 五阶段 replay、failed-run retry、late-empty reprobe、Silver final-phase/retry sensor（已完成，P6）；
-7. Bootstrap dry-run；
-8. 正式 Raw/Silver 生成和对账；
-9. Dagster event 验收；
-10. 手动启用 sensors 并观察三个实际运行日。
+7. Bootstrap dry-run（已完成）；
+8. P7B 全量 Tushare 源请求 dry-run 和性能/配额对账（已完成，报告见 10.2）；
+9. 经单独批准后正式 Raw/Silver 生成和对账（已完成，报告见 10.3）；
+10. Dagster event 验收；
+11. 手动启用 sensors 并观察三个实际运行日。
 
 进入正式写入前必须同时满足：
 
@@ -1002,7 +1079,7 @@ P7A 明确不做以下动作：不调用 Tushare，不访问 Prod DB，不读取
 - sensor 热路径无网络和 event history 调用；
 - 性能数据在预算内；
 - 无未解释的字段、行数或覆盖冲突；
-- 正式写入和 Dagster event 仍需单独批准。
+- Dagster event 补录和 sensor 启用仍需后续单独批准。
 
 ## 14. 实现前置验收命令
 
@@ -1012,13 +1089,14 @@ P7A 明确不做以下动作：不调用 Tushare，不访问 Prod DB，不读取
 cd /Users/congming/github/goldenshare/lake_console/orchestrator
 
 PYTHONPATH=src uv run --project . --with pytest python -m pytest \
-  tests/test_index_global_source_probe.py \
+  tests/test_index_global_bootstrap_source_probe.py \
   tests/test_index_global_contracts.py \
   tests/test_index_global_partition_sensor.py \
   tests/test_index_global_raw_io.py \
   tests/test_index_global_checks.py \
   tests/test_index_global_sensors.py \
   tests/test_index_global_bootstrap_plan.py \
+  tests/test_index_global_bootstrap_apply.py \
   tests/test_asset_check_incremental_governance.py \
   tests/test_run_contract_static_gates.py
 

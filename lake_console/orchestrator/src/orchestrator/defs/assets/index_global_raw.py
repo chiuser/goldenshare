@@ -6,12 +6,14 @@ import os
 from pathlib import Path
 from typing import Any
 
+import dagster as dg
+
 from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     describe_parquet_query,
-    duckdb_string,
     read_parquet,
 )
+from orchestrator.defs.partitions import cn_global_index_trade_days
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
     PATH_TEMPLATE_PARTITION_KEY,
@@ -102,6 +104,8 @@ class IndexGlobalPhaseSequenceResult:
 
 
 def _extract_index_global_rows(result: TushareResult) -> Sequence[Mapping[str, object]]:
+    if not result.rows and not result.columns:
+        return ()
     if tuple(result.columns) != INDEX_GLOBAL_FIELDS:
         raise IndexGlobalRawValidationError(
             "index_global Tushare response columns drifted: "
@@ -142,12 +146,18 @@ def fetch_index_global_phase(
         row_key=lambda row: (row.get("ts_code"), row.get("trade_date")),
     )
     if not page_result.ready:
+        failure_details = (
+            page_result.failed_pages[0].to_details()
+            if page_result.failed_pages
+            else None
+        )
         raise IndexGlobalFetchError(
             "index_global bounded phase request failed: "
             f"{page_result.blocked_reason or 'unknown'}; "
             f"request_count={page_result.request_count}, "
             f"retry_count={page_result.retry_count}, "
-            f"failed_pages={len(page_result.failed_pages)}"
+            f"failed_pages={len(page_result.failed_pages)}, "
+            f"failure={failure_details!r}"
         )
     try:
         normalized_rows = validate_index_global_phase_rows(
@@ -493,11 +503,6 @@ def run_index_global_phase_sequence(
         phase_results=tuple(phase_results),
         merge_results=tuple(merge_results),
     )
-
-
-import dagster as dg
-
-from orchestrator.defs.partitions import cn_global_index_trade_days
 
 
 @dg.asset(

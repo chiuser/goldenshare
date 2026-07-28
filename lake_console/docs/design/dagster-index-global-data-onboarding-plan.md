@@ -2,17 +2,21 @@
 
 ## 1. 文档状态
 
-- 状态：方案口径已冻结，P1 真实请求验证、P2 Raw contract/phase merge/staging、P3 临时湖五阶段联调、P4 Silver writer/contract/临时联调、P5 正式 Dagster definitions 和 P6 自然日分区注册/五阶段 Raw sensor/Silver final-phase 触发已完成；P7A Bootstrap 只读目标审计已完成，P7B 源请求审计、正式 Raw/Silver 生成和全量对账尚未开始。
+- 状态：方案口径已冻结，P1 真实请求验证、P2 Raw contract/phase merge/staging、P3 临时湖五阶段联调、P4 Silver writer/contract/临时联调、P5 正式 Dagster definitions、P6 自然日分区注册/五阶段 Raw sensor/Silver final-phase 触发、P7A Bootstrap 只读目标审计、P7B 全量 Tushare 源请求审计、正式 Raw/Silver 生成与全量文件对账均已完成；P8 Dagster event 验收尚未开始。
 - 数据集：`index_global`，中文展示名为“国际指数日线”。
 - 数据源：Tushare `index_global`。
-- 本文记录设计和本地验证，不授权正式 Bootstrap、正式湖写入、Dagster 数据库/event 写入或 sensor 启用。
-- 当前仓库已接入 `index_global` 的 active Raw/Silver asset、core check、job、专属自然日分区注册 sensor、五阶段 Raw sensor、failed-run retry sensor、late-empty sensor、Silver final-phase/retry sensor、catalog、partition model 和 governance mapping。P6 代码仍默认 `STOPPED`，正式 Bootstrap、正式湖写入和 Dagster event 仍未执行；Definitions 接入不代表数据已上线。
+- 本文记录设计和验证；正式 Raw/Silver Bootstrap 已按 apply 门禁完成，Dagster 数据库/event 写入和 sensor 启用仍不在本轮范围内。
+- 当前仓库已接入 `index_global` 的 active Raw/Silver asset、core check、job、专属自然日分区注册 sensor、五阶段 Raw sensor、failed-run retry sensor、late-empty sensor、Silver final-phase/retry sensor、catalog、partition model 和 governance mapping。P6 代码仍默认 `STOPPED`；正式 Raw/Silver 文件已经上线，Dagster event 尚未补录，Definitions 接入和湖文件存在仍需与事件状态分开看待。
 - P1 真实验证报告：`/private/tmp/index_global_p1_tushare_validation_20260728.json`。
 - P2 本地验证：`tests/test_index_global_contracts.py`、`tests/test_index_global_raw_io.py` 共 11 项通过；相关静态/回归测试共 99 项通过。
 - P3 本地与临时湖验证：相关测试共 105 项通过；真实 Tushare 五阶段报告为 `/private/tmp/index_global_p3_real_validation_p3-real-20260728204238.json`。
 - P4 Silver 定向/Raw 回归验证：28 项通过；真实 Raw -> Silver 临时湖报告为 `/private/tmp/index_global_p4_real_validation_20260728204238.json`。
-- P2/P3/P4/P5/P6 没有写正式 lake、Dagster 数据库或 Dagster event；P6 只完成 sensor/typed-config 的本地定义加载和契约测试，sensor 仍保持停止状态。
+- P2/P3/P4/P5/P6 没有写正式 lake、Dagster 数据库或 Dagster event；P6 只完成 sensor/typed-config 的本地定义加载和契约测试，sensor 仍保持停止状态。P7 只写正式 Raw/Silver Parquet，不写 Dagster 数据库或 event。
 - P7A 只读 Bootstrap 目标审计报告：`/private/tmp/index_global_p7_bootstrap_dry_run_20260728.json`；日期计划为 `2022-01-01` 至 `2026-07-28` 的 1,670 个自然日，估算五阶段基础请求 8,350 次、Raw/Silver 各 1,670 个文件。当前正式 lake 两层均无既有目标文件，未发现冲突；本报告未发起 Tushare 源请求。
+- P7B 全量 Tushare 源请求审计报告：`/private/tmp/index_global_p7b_source_probe_20260728_retry3.json`；8,350/8,350 个日期/phase 请求成功，2,349 个 phase 合法返回空结果，源观测行数 119,162，分页 8,350，重试 0，全局节流等待约 1,085 秒，总耗时约 1,638 秒（27.3 分钟），`should_stop=false`。该行数是五阶段观测行数，不是最终 Raw 合并行数；最终 apply 实际记录的 phase source rows 为 119,147，合并后 Raw 行数为 23,849。
+- P7B 期间发现并修正两项只读探测问题：phase 之间必须共享 0.13 秒全局请求间隔，否则会在阶段切换处打穿 Tushare 分钟配额；Tushare 空 DataFrame 可能返回空列集合，空行/空列必须作为合法空 phase，非空结果仍严格校验字段。首次失败报告保留在 `/private/tmp/index_global_p7b_source_probe_20260728.json`、`/private/tmp/index_global_p7b_source_probe_20260728_retry1.json`、`/private/tmp/index_global_p7b_source_probe_20260728_retry2.json`，作为修复前审计证据。
+- 正式 apply 实现位于 `orchestrator/defs/bootstrap/index_global_bootstrap_apply.py` 和 `index_global_bootstrap_apply_cli.py`；CLI 要求 `--confirm-lake-write`、P7B fingerprint 和目标冲突校验，Raw 每个日期先在正式 Lake 同文件系统临时目录完成五阶段 merge，全部成功后才原子 promote，Raw 全量对账通过后才写 Silver。apply 不访问 Dagster instance、不写 Dagster event、不启用 sensor。
+- P7 正式 apply 报告前缀为 `/private/tmp/index_global_m7_*_20260728_233746.json`：Raw/Silver 各生成 1,670 个文件，正式对账均为 missing=0、invalid=0；两层各有 23,849 行、1,201 个非空日期和 469 个合法空自然日文件，Raw/Silver 行级字段对账差异为 0，staging 临时目录残留为 0，最终 `should_stop=false`。Raw/Silver 文件大小分别约 3.89 MB / 3.88 MB；本轮没有写 Dagster event、dynamic partition 或 sensor 状态。
 
 ## 1.1 数据集说明卡
 
@@ -571,7 +575,7 @@ Raw 的 `americas` run 成功是 Silver 的唯一日常触发信号。它保证 
 5. P5：正式 Raw/Silver asset、core check、job（已完成）；
 6. P6：专属自然日分区注册、五阶段 Raw sensor、phase replay、failed-run retry、late-empty reprobe、Silver final-phase/retry sensor（已完成，本地验证）；
 7. P7A：Bootstrap dry-run（已完成：自然日计划、fingerprint、目标冲突和请求预算审计）；
-8. P7B：源请求审计、正式湖生成和 Raw/Silver 对账（待独立批准）；
+8. P7B：全量源请求审计已完成；正式 Raw/Silver 生成和全量文件对账已完成，报告见 P7 apply 记录；
 9. P8：Dagster event 验收；
 10. P9：手动启用 sensor，观察至少三个实际运行日。
 
