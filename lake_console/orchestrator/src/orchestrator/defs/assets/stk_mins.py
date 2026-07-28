@@ -14,10 +14,15 @@ from orchestrator.defs.assets.stock_basic import silver_stock_basic
 from orchestrator.defs.assets.stock_daily import silver_stock_daily
 from orchestrator.defs.assets.stock_identity_map import silver_stock_identity_map
 from orchestrator.defs.assets.suspend_d import silver_stock_suspend_daily
+from orchestrator.defs.asset_guards.stk_mins_stock_universe import (
+    load_current_listed_stock_codes_for_stk_mins,
+)
+from orchestrator.defs.asset_guards.stk_mins_prod_readiness import (
+    validate_stk_mins_prod_completion_reference,
+)
 from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     count_parquet_query,
-    current_cny_stock_basic_select,
     describe_parquet_query,
     duckdb_string,
     read_parquet,
@@ -36,7 +41,6 @@ from orchestrator.defs.paths import (
     raw_stk_mins_path,
     silver_adj_factor_path,
     silver_stk_mins_path,
-    silver_stock_basic_path,
     silver_stock_daily_path,
     silver_stock_identity_map_path,
     silver_stock_suspend_daily_path,
@@ -44,6 +48,7 @@ from orchestrator.defs.paths import (
 from orchestrator.defs.prod_db.stk_mins import (
     PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE,
     PROD_STK_MINS_DUCKDB_ATTACH_OPTIONS,
+    PROD_STK_MINS_SOURCE_COLUMNS,
     build_prod_stk_mins_duckdb_source_sql,
     validate_prod_stk_mins_duckdb_attach_options_contract,
     validate_prod_stk_mins_select_contract,
@@ -523,29 +528,6 @@ def _partition_window(
     return f"{partition_key} {start_time}", f"{partition_key} {end_time}"
 
 
-def load_current_listed_stock_codes_for_stk_mins(
-    *,
-    lake_root: Path,
-    duckdb: DuckDBResource,
-    partition_key: str,
-) -> tuple[str, ...]:
-    stock_basic_path = silver_stock_basic_path(lake_root)
-    if not stock_basic_path.exists():
-        raise FileNotFoundError(f"Missing silver stock basic file: {stock_basic_path}")
-
-    with connect_configured_duckdb() as connection:
-        rows = connection.execute(
-            f"""
-            SELECT ts_code
-            FROM ({current_cny_stock_basic_select(stock_basic_path)}) stock_basic
-            WHERE list_date <= CAST({duckdb_string(partition_key)} AS DATE)
-            ORDER BY ts_code
-            """
-        ).fetchall()
-
-    return tuple(str(row[0]) for row in rows)
-
-
 def write_raw_stk_mins_partition(
     *,
     lake_root: Path,
@@ -933,59 +915,72 @@ def _write_raw_stk_mins_rows_from_prod_db_source(
         duckdb_string(stock_code) for stock_code in requested_stock_codes
     )
     partition_date_sql = duckdb_string(partition_key)
-    with connect_configured_duckdb() as connection:
-        if load_postgres_extension:
-            _load_duckdb_postgres_extension(connection)
-            if postgres_connection_string is None:
-                raise RuntimeError(
-                    "Prod DB DuckDB extraction requires a Postgres connection string."
+    try:
+        with connect_configured_duckdb() as connection:
+            if load_postgres_extension:
+                _load_duckdb_postgres_extension(connection)
+                if postgres_connection_string is None:
+                    raise RuntimeError(
+                        "Prod DB DuckDB extraction requires a Postgres connection string."
+                    )
+                _attach_prod_postgres_database(
+                    connection,
+                    postgres_connection_string=postgres_connection_string,
                 )
-            _attach_prod_postgres_database(
-                connection,
-                postgres_connection_string=postgres_connection_string,
-            )
-        connection.execute(
-            "CREATE TEMP TABLE prod_stk_mins_source AS "
-            f"SELECT * FROM ({source_sql}) AS source_rows"
-        )
-        source_row_count = int(
-            connection.execute("SELECT count(*) FROM prod_stk_mins_source").fetchone()[
-                0
-            ]
-        )
-        if source_row_count == 0:
-            raise RuntimeError(
-                "Prod DB stk_mins returned 0 rows for "
-                f"freq={freq}, partition={partition_key}."
-            )
-
-        invalid_scope_count = int(
             connection.execute(
-                f"""
-                SELECT count(*)
-                FROM prod_stk_mins_source
-                WHERE CAST(freq AS INTEGER) != {int(freq)}
-                   OR CAST(trade_time AS DATE) != CAST({partition_date_sql} AS DATE)
-                   OR CAST(ts_code AS VARCHAR) NOT IN ({requested_codes_sql})
-                """
-            ).fetchone()[0]
-        )
-        if invalid_scope_count:
-            raise RuntimeError(
-                "Prod DB stk_mins returned rows outside the requested stock/date/freq "
-                f"scope: invalid_row_count={invalid_scope_count}."
+                "CREATE TEMP TABLE prod_stk_mins_source AS "
+                "SELECT "
+                + ", ".join(PROD_STK_MINS_SOURCE_COLUMNS)
+                + f" FROM ({source_sql}) AS source_rows"
             )
+            source_row_count = int(
+                connection.execute("SELECT count(*) FROM prod_stk_mins_source").fetchone()[
+                    0
+                ]
+            )
+            if source_row_count == 0:
+                raise RuntimeError(
+                    "Prod DB stk_mins returned 0 rows for "
+                    f"freq={freq}, partition={partition_key}."
+                )
 
-        output_sql = _prod_db_raw_stk_mins_output_sql(freq=int(freq))
-        connection.execute(copy_query_to_parquet(output_sql, temporary_path))
-        returned_stock_code_count = int(
-            connection.execute(
-                "SELECT count(DISTINCT CAST(ts_code AS VARCHAR)) "
-                "FROM prod_stk_mins_source"
-            ).fetchone()[0]
-        )
+            invalid_scope_count = int(
+                connection.execute(
+                    f"""
+                    SELECT count(*)
+                    FROM prod_stk_mins_source
+                    WHERE CAST(freq AS INTEGER) != {int(freq)}
+                       OR CAST(trade_time AS DATE) != CAST({partition_date_sql} AS DATE)
+                       OR CAST(ts_code AS VARCHAR) NOT IN ({requested_codes_sql})
+                    """
+                ).fetchone()[0]
+            )
+            if invalid_scope_count:
+                raise RuntimeError(
+                    "Prod DB stk_mins returned rows outside the requested stock/date/freq "
+                    f"scope: invalid_row_count={invalid_scope_count}."
+                )
 
-    os.replace(temporary_path, target_path)
+            returned_stock_code_count = int(
+                connection.execute(
+                    "SELECT count(DISTINCT CAST(ts_code AS VARCHAR)) "
+                    "FROM prod_stk_mins_source"
+                ).fetchone()[0]
+            )
+            if returned_stock_code_count != len(requested_stock_codes):
+                raise RuntimeError(
+                    "Prod DB stk_mins source coverage is incomplete before raw promote: "
+                    f"expected_stock_code_count={len(requested_stock_codes)}, "
+                    f"returned_stock_code_count={returned_stock_code_count}."
+                )
+            output_sql = _prod_db_raw_stk_mins_output_sql(freq=int(freq))
+            connection.execute(copy_query_to_parquet(output_sql, temporary_path))
+
+        os.replace(temporary_path, target_path)
+    except Exception:
+        if temporary_path.exists():
+            temporary_path.unlink()
+        raise
     return {
         "query_count": 1,
         "returned_stock_code_count": returned_stock_code_count,
@@ -2340,6 +2335,15 @@ def _materialize_raw_stk_mins_partition(
             duckdb=duckdb,
             partition_key=partition_key,
         )
+        if config.prod_completion_reference is None:
+            raise AssertionError("prod_completion_reference is required for prod_db raw.")
+        source_coverage = validate_stk_mins_prod_completion_reference(
+            prod_postgres=prod_postgres,
+            partition_key=partition_key,
+            freq=freq,
+            stock_codes=stock_codes,
+            completion_reference=config.prod_completion_reference,
+        )
         write_result = write_raw_stk_mins_partition_from_prod_db(
             lake_root=lake_root.root(),
             duckdb=duckdb,
@@ -2384,6 +2388,26 @@ def _materialize_raw_stk_mins_partition(
             freq=freq,
         )
     )
+    if config.prod_completion_reference is not None:
+        extra_metadata.update(
+            {
+                "goldenshare/prod_completion_task_run_id": (
+                    config.prod_completion_reference.task_run_id
+                ),
+                "goldenshare/prod_completion_ended_at": (
+                    config.prod_completion_reference.ended_at
+                ),
+                "goldenshare/prod_completion_expected_code_count": (
+                    config.prod_completion_reference.expected_code_count
+                ),
+                "goldenshare/prod_completion_reference_fingerprint": (
+                    config.prod_completion_reference.reference_fingerprint
+                ),
+                "goldenshare/prod_completion_frequency_present_code_count": (
+                    source_coverage.present_code_count
+                ),
+            }
+        )
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=write_result.raw_file_path,

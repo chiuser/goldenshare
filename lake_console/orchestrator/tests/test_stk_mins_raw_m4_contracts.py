@@ -16,6 +16,13 @@ from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
     StkMinsBatchReadiness,
     StkMinsDateReadiness,
 )
+from orchestrator.defs.asset_guards.stk_mins_prod_readiness import (
+    StkMinsProdSourceReadiness,
+)
+from orchestrator.defs.asset_guards.stk_mins_stock_universe import (
+    load_current_listed_stock_codes_for_stk_mins,
+    stk_mins_stock_code_set_hash,
+)
 from orchestrator.defs.checks import stk_mins_checks
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet
 from orchestrator.defs.duckdb_sql import duckdb_string
@@ -36,6 +43,12 @@ from orchestrator.defs.prod_db.stk_mins import (
     validate_prod_stk_mins_duckdb_attach_options_contract,
     validate_prod_stk_mins_duckdb_source_contract,
     validate_prod_stk_mins_select_contract,
+    ProdStkMinsCodeCoverageProbe,
+    ProdStkMinsFrequencyCoverage,
+)
+from orchestrator.defs.prod_db.stk_mins_task_run import (
+    ProdStkMinsFullMarketTaskRun,
+    ProdStkMinsTaskRunProbe,
 )
 from orchestrator.defs.resources import DuckDBResource, TushareResult
 from orchestrator.defs.run_contracts.configs import (
@@ -45,6 +58,7 @@ from orchestrator.defs.run_contracts.configs import (
     parse_stock_mins_raw_config,
 )
 from orchestrator.defs.run_contracts.stk_mins import (
+    build_prod_stk_mins_completion_reference,
     derive_stk_mins_exchange_from_ts_code,
 )
 from orchestrator.defs.sensors import (
@@ -79,6 +93,18 @@ class _AfterRawWindowDateTime(datetime):
     @classmethod
     def now(cls, tz=None):
         return cls(2026, 5, 29, 19, 35, tzinfo=tz)
+
+
+class _BeforeRawWindowDateTime(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return cls(2026, 5, 29, 19, 29, tzinfo=tz)
+
+
+class _AfterMidnightDateTime(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return cls(2026, 5, 30, 0, 5, tzinfo=tz)
 
 
 class _FakeTushare:
@@ -157,6 +183,7 @@ class _StockMinsRawSensorContext:
         self.resources = SimpleNamespace(
             lake_root=_LakeRoot(lake_root),
             duckdb=_SensorDuckDBResource(),
+            prod_postgres=_FakeProdPostgres(),
         )
 
     def cleanup(self) -> None:
@@ -269,6 +296,70 @@ def _stock_basic_sensor_status(
                 reason=reason,
             ),
         ),
+    )
+
+
+def _prod_completion_reference():
+    return build_prod_stk_mins_completion_reference(
+        task_run_id=101,
+        trade_date=PARTITION_KEY,
+        ended_at="2026-05-29T19:30:00+08:00",
+        expected_code_count=1,
+        expected_code_hash=stk_mins_stock_code_set_hash(("600000.SH",)),
+        frequency_code_counts={freq: 1 for freq in (1, 5, 15, 30, 60)},
+        coverage_observed_at="2026-05-29T19:35:00+08:00",
+    )
+
+
+def _prod_source_readiness(*, ready: bool = True) -> StkMinsProdSourceReadiness:
+    task_run = ProdStkMinsFullMarketTaskRun(
+        task_run_id=101,
+        trade_date=PARTITION_KEY,
+        ended_at="2026-05-29T19:30:00+08:00",
+        unit_total=5,
+        unit_done=5,
+        unit_failed=0,
+        progress_percent=100.0,
+        rows_fetched=5,
+        rows_saved=5,
+        rows_rejected=0,
+    )
+    task_run_status = ProdStkMinsTaskRunProbe(
+        ready=ready,
+        reason_code=("prod_ops_task_run_ready" if ready else "prod_ops_task_run_missing"),
+        task_run=task_run if ready else None,
+        candidate_task_run_id=101 if ready else None,
+        candidate_status="success" if ready else None,
+        candidate_reason_code=None,
+        elapsed_ms=1,
+    )
+    frequency_coverages = tuple(
+        ProdStkMinsFrequencyCoverage(
+            freq=freq,
+            expected_code_count=1,
+            present_code_count=1 if ready else 0,
+            missing_code_count=0 if ready else 1,
+            missing_code_samples=() if ready else ("600000.SH",),
+        )
+        for freq in (1, 5, 15, 30, 60)
+    )
+    coverage_status = ProdStkMinsCodeCoverageProbe(
+        ready=ready,
+        reason_code=(
+            "prod_source_code_coverage_ready"
+            if ready
+            else "prod_source_code_coverage_incomplete"
+        ),
+        frequency_coverages=frequency_coverages,
+        first_missing_freq=None if ready else 1,
+        elapsed_ms=1,
+    )
+    return StkMinsProdSourceReadiness(
+        ready=ready,
+        reason_code=("prod_source_ready" if ready else coverage_status.reason_code),
+        task_run_status=task_run_status,
+        coverage_status=coverage_status,
+        completion_reference=_prod_completion_reference() if ready else None,
     )
 
 
@@ -478,7 +569,7 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
                     )
                 )
 
-            codes = stk_mins.load_current_listed_stock_codes_for_stk_mins(
+            codes = load_current_listed_stock_codes_for_stk_mins(
                 lake_root=root,
                 duckdb=DuckDBResource(),
                 partition_key=PARTITION_KEY,
@@ -697,6 +788,52 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
                     (1, 300, 900.0, "BSE", 3.0),
                 ],
             )
+
+    def test_prod_db_path_rejects_incomplete_code_coverage_without_replacing_target(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            source_path = lake_root / "prod_source.parquet"
+            _write_prod_stk_mins_source_file(
+                source_path,
+                rows_sql="""
+                SELECT
+                  '600000.SH'::VARCHAR AS ts_code,
+                  1::INTEGER AS freq,
+                  TIMESTAMP '2026-05-29 09:30:00' AS trade_time,
+                  10.0::DOUBLE AS open,
+                  10.0::DOUBLE AS close,
+                  10.1::DOUBLE AS high,
+                  9.9::DOUBLE AS low,
+                  100::BIGINT AS vol,
+                  1234.5::DOUBLE AS amount
+                """,
+            )
+            target_path = raw_stk_mins_path(lake_root, 1, PARTITION_KEY)
+            _write_raw_stk_mins_file(target_path, open_value=7.0)
+
+            with patch.object(
+                stk_mins,
+                "build_prod_stk_mins_duckdb_source_sql",
+                lambda **_kwargs: f"SELECT * FROM read_parquet('{source_path.as_posix()}')",
+            ), self.assertRaisesRegex(RuntimeError, "source coverage is incomplete"):
+                stk_mins._write_raw_stk_mins_rows_from_prod_db_source(
+                    duckdb=DuckDBResource(),
+                    source_sql=f"SELECT * FROM read_parquet('{source_path.as_posix()}')",
+                    target_path=target_path,
+                    freq=1,
+                    partition_key=PARTITION_KEY,
+                    stock_codes=("000001.SZ", "600000.SH"),
+                    load_postgres_extension=False,
+                )
+
+            self.assertFalse(target_path.with_name("part-000.parquet.tmp").exists())
+            with DuckDBResource().connect() as connection:
+                open_value = connection.execute(
+                    f"SELECT open FROM read_parquet('{target_path.as_posix()}')"
+                ).fetchone()[0]
+            self.assertEqual(open_value, 7.0)
 
     def test_prod_db_path_does_not_use_python_row_fetch_or_executemany(self) -> None:
         source = Path(stk_mins.__file__).read_text()
@@ -1040,8 +1177,12 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         self.assertNotIn("silver_stk_mins", prod_selection_text)
         self.assertNotIn("silver_stock_basic", prod_selection_text)
 
-    def test_stock_mins_prod_job_run_config_sets_source_only(self) -> None:
-        run_config = build_stock_mins_raw_update_job_run_config(source="prod_db")
+    def test_stock_mins_prod_job_run_config_requires_completion_reference(self) -> None:
+        completion_reference = _prod_completion_reference()
+        run_config = build_stock_mins_raw_update_job_run_config(
+            source="prod_db",
+            prod_completion_reference=completion_reference,
+        )
         self.assertEqual(
             sorted(run_config["ops"]),
             [
@@ -1061,9 +1202,11 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
                         "write_mode": {
                             "reuse_existing": {},
                         },
+                        "prod_completion_reference": completion_reference.to_config_dict(),
                     }
                 },
             )
+        self.assertIsNone(stock_mins_raw_update_from_prod_job.config)
 
     def test_stock_mins_raw_config_selector_contract(self) -> None:
         @dg.asset(name="sample_stock_mins_raw", config_schema=STOCK_MINS_RAW_CONFIG_SCHEMA)
@@ -1122,13 +1265,19 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             )
 
     def test_stock_mins_raw_config_parser_rejects_unsafe_repair_config(self) -> None:
-        self.assertEqual(
-            parse_stock_mins_raw_config({}).write_mode,
-            "reuse_existing",
+        with self.assertRaisesRegex(ValueError, "requires prod_completion_reference"):
+            parse_stock_mins_raw_config({})
+        parsed_prod = parse_stock_mins_raw_config(
+            {
+                "source": "prod_db",
+                "write_mode": {"reuse_existing": {}},
+                "prod_completion_reference": _prod_completion_reference().to_config_dict(),
+            }
         )
+        self.assertEqual(parsed_prod.source, "prod_db")
         self.assertEqual(
-            parse_stock_mins_raw_config({}).source,
-            "prod_db",
+            parsed_prod.prod_completion_reference,
+            _prod_completion_reference(),
         )
         self.assertEqual(
             parse_stock_mins_raw_config(
@@ -1250,9 +1399,12 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             "orchestrator.defs.sensors.stock_mins_raw_sensor.stock_basic_ready_for_trade_date",
             return_value=stock_basic_status,
         ) as stock_basic_ready_mock, patch(
-            "orchestrator.defs.sensors.stock_mins_raw_sensor.stock_basic_ready_without_freshness",
-            create=True,
-        ) as stock_basic_without_freshness_mock:
+            "orchestrator.defs.sensors.stock_mins_raw_sensor.load_current_listed_stock_codes_for_stk_mins",
+            return_value=("600000.SH",),
+        ) as stock_codes_mock, patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor.stk_mins_prod_source_ready_for_trade_date",
+            return_value=_prod_source_readiness(),
+        ) as prod_source_ready_mock:
             result = _stock_mins_raw_sensor_result(context)
 
         self.assertEqual(len(result.run_requests), 1)
@@ -1264,12 +1416,67 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         )
         raw_batch_mock.assert_called_once()
         stock_basic_ready_mock.assert_called_once_with(context.instance, PARTITION_KEY)
-        stock_basic_without_freshness_mock.assert_not_called()
-        self.assertFalse(
-            hasattr(
-                stock_mins_raw_sensor_module,
-                "stock_basic_ready_without_freshness",
-            )
+        stock_codes_mock.assert_called_once()
+        prod_source_ready_mock.assert_called_once()
+        self.assertFalse(hasattr(stock_mins_raw_sensor_module, "stock_basic_ready_without_freshness"))
+        expected_config = build_stock_mins_raw_update_job_run_config(
+            source="prod_db",
+            prod_completion_reference=_prod_completion_reference(),
+        )
+        self.assertEqual(request.run_config, expected_config)
+
+    def test_stock_mins_raw_sensor_does_not_read_prod_before_1930(self) -> None:
+        context = _StockMinsRawSensorContext()
+        raw_status = _raw_stk_mins_lake_status(ready=False)
+        with patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor.datetime",
+            _BeforeRawWindowDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor.batch_raw_stk_mins_lake_readiness",
+            return_value=_raw_stk_mins_batch_status(raw_status),
+        ), patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor.load_current_listed_stock_codes_for_stk_mins",
+            side_effect=AssertionError("sensor must not read the stock universe before 19:30"),
+        ), patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor.stk_mins_prod_source_ready_for_trade_date",
+            side_effect=AssertionError("sensor must not read prod before 19:30"),
+        ):
+            result = _stock_mins_raw_sensor_result(context)
+
+        self.assertEqual(result.run_requests, [])
+        self.assertIn("19:30", _skip_message(result))
+        cursor = json.loads(result.cursor)
+        self.assertEqual(cursor["details"]["reason_code"], "run_window_not_started")
+        self.assertLess(len(result.cursor), 3072)
+
+    def test_stock_mins_raw_sensor_does_not_auto_recover_after_midnight(self) -> None:
+        context = _StockMinsRawSensorContext()
+        raw_status = _raw_stk_mins_lake_status(ready=False)
+        with patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor.datetime",
+            _AfterMidnightDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor.batch_raw_stk_mins_lake_readiness",
+            return_value=_raw_stk_mins_batch_status(raw_status),
+        ), patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor.load_current_listed_stock_codes_for_stk_mins",
+            side_effect=AssertionError("historical recovery must not load a source universe"),
+        ), patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor.stk_mins_prod_source_ready_for_trade_date",
+            side_effect=AssertionError("historical recovery must not query prod"),
+        ):
+            result = _stock_mins_raw_sensor_result(context)
+
+        self.assertEqual(result.run_requests, [])
+        self.assertIn("受控历史 recovery", _skip_message(result))
+        cursor = json.loads(result.cursor)
+        self.assertEqual(
+            cursor["details"]["reason_code"],
+            "historical_raw_recovery_required",
+        )
+        self.assertEqual(
+            cursor["details"]["blocked_component"],
+            "historical_raw_recovery",
         )
 
     def test_stock_mins_raw_sensor_skips_when_stock_basic_not_fresh(self) -> None:
@@ -1374,7 +1581,11 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         for fragment in forbidden_cursor_fragments:
             self.assertNotIn(fragment, raw_cursor_text)
 
-        request = _run_request_for_trade_date("2026-05-29")
+        completion_reference = _prod_completion_reference()
+        request = _run_request_for_trade_date(
+            "2026-05-29",
+            prod_completion_reference=completion_reference,
+        )
         self.assertEqual(request.partition_key, "2026-05-29")
         self.assertEqual(
             request.run_key,
@@ -1383,7 +1594,10 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         self.assertEqual(request.tags, {})
         self.assertEqual(
             request.run_config,
-            build_stock_mins_raw_update_job_run_config(source="prod_db"),
+            build_stock_mins_raw_update_job_run_config(
+                source="prod_db",
+                prod_completion_reference=completion_reference,
+            ),
         )
         self.assertEqual(
             STOCK_MINS_RAW_SENSOR_JOB_NAME,

@@ -224,8 +224,9 @@ class StkMinsRawReplaceFromProdTests(unittest.TestCase):
             "filters_json": {"freq": ["1min", "5min", "15min", "30min", "60min"]},
         }
 
-        self.assertTrue(
-            recovery._task_run_row_is_full_market(
+        task_run["id"] = 1
+        self.assertIsNotNone(
+            recovery.full_market_stk_mins_task_run_from_row(
                 task_run,
                 trade_date=TRADE_DATE,
             )
@@ -234,20 +235,20 @@ class StkMinsRawReplaceFromProdTests(unittest.TestCase):
         with_code_filter = {**task_run, "filters_json": {**task_run["filters_json"], "ts_code": "000001.SZ"}}
         incomplete = {**task_run, "unit_done": 29354}
         zero_units = {**task_run, "unit_total": 0, "unit_done": 0}
-        self.assertFalse(
-            recovery._task_run_row_is_full_market(
+        self.assertIsNone(
+            recovery.full_market_stk_mins_task_run_from_row(
                 with_code_filter,
                 trade_date=TRADE_DATE,
             )
         )
-        self.assertFalse(
-            recovery._task_run_row_is_full_market(
+        self.assertIsNone(
+            recovery.full_market_stk_mins_task_run_from_row(
                 incomplete,
                 trade_date=TRADE_DATE,
             )
         )
-        self.assertFalse(
-            recovery._task_run_row_is_full_market(
+        self.assertIsNone(
+            recovery.full_market_stk_mins_task_run_from_row(
                 zero_units,
                 trade_date=TRADE_DATE,
             )

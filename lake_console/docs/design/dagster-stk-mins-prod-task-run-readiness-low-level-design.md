@@ -1,6 +1,6 @@
 # Dagster 股票分钟线 Prod TaskRun 完成门禁 LLD
 
-**状态：R2 raw 受控替换已完成；R3 在 silver 覆盖能力缺失处停止；R3A Silver 受控替换代码与本地验证完成，待正式只读 plan / 维护窗口审批**
+**状态：2026-07-27 的 R2 raw、R3A Silver、R3B 下游重建与 R4 最终验收均已完成；未来日常的 TaskRun + prod 覆盖双门禁代码与本地验证已完成，待正式只读演练和启用决策**
 **日期：2026-07-28**
 **范围：`stock_mins_raw_update_from_prod_job` 的 prod 完成门禁与 2026-07-27 受控重建**
 
@@ -28,13 +28,14 @@ prod 使用 `ops.task_run` 记录运营任务。相关字段包括：
 
 `stk_mins` 的 prod planner 按“目标股票代码 × 选择的分钟频度”生成 unit。因此完整日常任务会留下五频度、全市场范围的计划与完成计数。
 
-### 2.2 当前 DG 缺口
+### 2.2 已完成的 DG 日常防护
 
-1. `stock_mins_raw_sensor` 目前只检查本地交易日、raw 连续性与 `stock_basic` readiness；没有读取 prod 的任务完成状态。
-2. sensor 当前最短评估间隔为 600 秒，日常窗口从 19:30 开始。
-3. prod raw writer 仅统计 `empty_stock_code_count`，当前不会因缺股票代码而拒绝写入。
-4. 正常 raw job 的 `write_mode` 为 `reuse_existing`。因此已写入的半成品不会因后续普通重试自动覆盖。
-5. 2026-07-27 证明 TaskRun `success` 不可单独作为完整性证明：全市场 TaskRun `6544` 在 `20:51:33+08` 以 `29,355 / 29,355` unit、零 reject 成功结束；随后 `6578` 在 `23:34:34+08` 对 `688825.SH`、`920176.BJ` 做五频度补跑，新增恰好 642 个不重复分钟键。最终 prod 原始表才达到完整状态。
+1. `stock_mins_raw_sensor` 先做既有交易日/raw 连续性与 `stock_basic` readiness；当前日仅在 19:30 后才读取 prod TaskRun，再做五频度代码覆盖，两个门都通过才提交原有 raw job。
+2. sensor 的最短评估间隔已由 600 秒收敛为 900 秒；跨日仍未就绪的历史日期会明确要求受控 recovery，不会被日常 sensor 静默补跑。
+3. `source=prod_db` 的 raw run 必须携带 sensor 冻结的 `ProdStkMinsCompletionReference`。五个 asset 在写入前按同一 TaskRun ID 复核，并只复核各自频度的代码覆盖；手工空配置会 fail closed。
+4. prod raw writer 在 staging promote 前要求返回股票代码数等于当日预期股票代码数；少代码时删除临时文件，既有正式文件不变。
+5. 正常 raw job 的 `write_mode` 仍为 `reuse_existing`。因此已写入的半成品不会因后续普通重试自动覆盖，历史五频度替换仍只允许经 R1 离线 recovery CLI。
+6. 2026-07-27 证明 TaskRun `success` 不可单独作为完整性证明：全市场 TaskRun `6544` 在 `20:51:33+08` 以 `29,355 / 29,355` unit、零 reject 成功结束；随后 `6578` 在 `23:34:34+08` 对 `688825.SH`、`920176.BJ` 做五频度补跑，新增恰好 642 个不重复分钟键。最终 prod 原始表才达到完整状态。
 
 ### 2.3 本次明确授权的边界
 
@@ -77,11 +78,12 @@ rows_rejected = 0
 ```text
 时间范围：D 09:00:00 <= trade_time < D 19:00:00
 频度：1 / 5 / 15 / 30 / 60
-字段：freq、ts_code、trade_time
-判定：每个频度都覆盖全部预期 ts_code；每个频度无重复 (ts_code, trade_time)
+字段：仅 `freq`、`ts_code`、`trade_time`
+算法：对每个预期 `(freq, ts_code)` 用主键索引 `EXISTS` 探测当天 `09:00–19:00` 是否至少存在一条分钟记录
+判定：每个频度都覆盖全部预期 ts_code；prod 中额外代码不阻断
 ```
 
-这不是对分钟值的重新计算，也不是全表状态扫描。查询只比较 DG 将要导出的代码集合和分钟键身份：缺任意预期代码、重复键、日期/频度不符、查询异常都视为 prod 尚未完整。prod 中不属于 DG 当前集合的额外代码不阻断，因为 DG 不会导出它们。
+这不是对分钟值的重新计算，也不是全表状态扫描。查询只比较 DG 将要导出的代码集合和 prod 当日是否存在对应频度记录：缺任意预期代码或查询异常都视为 prod 尚未完整。源表主键 `(ts_code, freq, trade_time)` 已保证源端不存在空主键或重复分钟键；不在 sensor 重做全分钟键聚合。raw writer 的 staging 文件校验承担 Lake 输出侧的空键、重复键、schema、日期和频度事实验证。prod 中不属于 DG 当前集合的额外代码不阻断，因为 DG 不会导出它们。
 
 只有第 3.1 节与本节同时通过，才产生 `ProdStkMinsCompletionReference`。reference 记录全市场 TaskRun ID、结束时间、预期代码 count/hash、各频度覆盖计数与观察时间；不记录完整代码列表、TaskRun JSON 或分钟键列表。
 
@@ -158,7 +160,7 @@ prod TaskRun 合格后，writer 仍用既有 staging -> 校验 -> `os.replace` �
 5. 任一 backup/promote 异常必须恢复所有已移动的原文件；成功后的 quarantine 保留，物理删除另行审批；
 6. 现有 `stock_mins_raw_update_from_prod_job` 在 recovery 成功后仍只使用普通 `reuse_existing` 路径，重新记录五个 raw materialization 并执行既有结构性 checks；它不承担文件替换责任。
 
-该 CLI 是本次历史事故的受控恢复入口，日常 sensor 永不自动调用它。未来日常 TaskRun + prod 覆盖双门禁仍按第 4 节、5.1 节和下文“后续日常开发”单独实现，不能借这次恢复 CLI 混入 active definitions。
+该 CLI 是本次历史事故的受控恢复入口，日常 sensor 永不自动调用它。日常 TaskRun + prod 覆盖双门禁已按第 4 节、5.1 节和第 6.2 节独立落入 active definitions；它不会借 recovery CLI 混入日常路径。
 
 ## 6. 代码级改动点
 
@@ -171,21 +173,22 @@ prod TaskRun 合格后，writer 仍用既有 staging -> 校验 -> `os.replace` �
 | `tests/test_stk_mins_raw_replace_from_prod.py` | 临时 Lake fixture 覆盖缺频度、hash/重复键、staging 失败、promote 回滚、stale/repeated apply 和 plan 零 Lake 写入。 |
 | 本 LLD | 将历史修复从活跃 raw job 的 write mode 纠正为离线 recovery CLI，并记录它与 R2/R3 的责任边界。 |
 
-R1 不修改 `assets/stk_mins.py`、`run_contracts/configs.py`、job、sensor、asset/check 名称或 Definitions。
+R1 当时不修改 `assets/stk_mins.py`、`run_contracts/configs.py`、job、sensor、asset/check 名称或 Definitions；后续第 6.2 节的日常门禁改动与 R1 保持独立。
 
-### 6.2 后续日常完成门禁（本轮不实施）
+### 6.2 当前日常完成门禁（代码与本地验证完成）
 
 | 文件 | 改动 |
 |---|---|
-| `defs/prod_db/stk_mins_task_run.py` | 新增只读 TaskRun SQL builder、投影行模型、JSON 解析与 `ProdStkMinsTaskRunStatus`。只访问 `ops.task_run`。 |
-| `defs/prod_db/stk_mins.py` | 在既有 prod raw source contract 内新增有界代码覆盖 SQL/read model；只投影 `freq`、`ts_code`、`trade_time`，按给定日期和 DG 代码集合判定五频度覆盖与重复键。 |
-| `defs/run_contracts/stk_mins.py` | 定义五频度集合、19:30 起始、24:00 截止、900 秒间隔，以及 completion reference 的规范化/hash。 |
-| `defs/run_contracts/configs.py` | 扩展 raw config schema 与 builder，传最小 `prod_completion_reference`；不承载 2026-07-27 历史 replace。 |
-| `defs/sensors/stock_mins_raw_sensor.py` | 在 `stock_basic` gate 后读取 TaskRun 完成状态；合格才构造 RunRequest；cursor 加入紧凑 prod status；15 分钟间隔与截止语义。 |
-| `defs/assets/stk_mins.py` | prod full-day 写入前复核 completion reference；把空代码从 metadata 变成写入失败。历史五频度 replace 由 R1 离线 CLI 独占。 |
-| `defs/resources.py` | 不新增 resource；复用 `ProdPostgresResource.connect_readonly_transaction()`。 |
-| `lake_console/AGENTS.md` | 记录本专项唯一的 `ops.task_run` 只读白名单与字段/用途限制。 |
-| 现有分钟线 LLD 与本文件 | 同步完成门禁、半成品恢复和运维边界；不改旧事件历史。 |
+| `defs/prod_db/stk_mins_task_run.py` | 已新增只读 TaskRun SQL、显式投影行模型和共享纯解析函数 `full_market_stk_mins_task_run_from_row(...)`。只访问 `ops.task_run`。 |
+| `defs/prod_db/stk_mins.py` | 已新增有界代码覆盖 read model：只用 `EXISTS` 读取 `freq`、`ts_code`、`trade_time`；不扫描 OHLC、成交量或全分钟键。 |
+| `defs/asset_guards/stk_mins_stock_universe.py` | 已抽取 raw writer 与门禁共用的当日股票集合、严格归一化与稳定 MD5 hash。 |
+| `defs/asset_guards/stk_mins_prod_readiness.py` | 已组合 TaskRun 与五频度覆盖，并提供 asset 写前按 TaskRun ID/单频度的二次复核。 |
+| `defs/run_contracts/stk_mins.py` | 已定义 19:30 起始、900 秒间隔与不可变 `ProdStkMinsCompletionReference` 的规范化/hash。 |
+| `defs/run_contracts/configs.py` | 已扩展 raw config schema、parser 与 builder；`source=prod_db` 缺少 completion reference 必须 fail closed，Tushare repair 不受影响。 |
+| `defs/jobs/stock_mins_raw_update.py` | 保留 job 名称和 selection，但移除无法在 definitions 阶段构造的静态 prod config；只有 sensor 传入的 reference config 才能运行 prod 路径。 |
+| `defs/sensors/stock_mins_raw_sensor.py` | 已在 `stock_basic` gate 后读取 TaskRun 和完整五频度覆盖；cursor 只记录紧凑门禁事实；跨日历史缺口明确进入受控 recovery。 |
+| `defs/assets/stk_mins.py` | 已在 prod full-day 写入前复核 completion reference，且 staging promote 前把少代码从 metadata 变成写入失败。历史五频度 replace 仍由 R1 离线 CLI 独占。 |
+| `lake_console/AGENTS.md` 与相关 tests | 已记录窄白名单，并新增 TaskRun、覆盖查询、sensor 时间窗口、writer、config 与静态门禁测试；不改旧事件历史。 |
 
 ## 7. 性能预算
 
@@ -193,13 +196,13 @@ R1 不修改 `assets/stk_mins.py`、`run_contracts/configs.py`、job、sensor、
 |---|---|---|
 | raw sensor，19:30 前 | 不读 prod；仅保留既有轻量窗口判断 | 0 条 prod SQL。 |
 | raw sensor，未出现全市场成功任务 | 1 条 `ops.task_run` 有界查询，最多 20 条候选；既有 10 日 Lake batch readiness | 不读分钟源表，不读取 task node/issue/history。查询异常立即 skip。 |
-| raw sensor，已出现全市场成功任务 | 上述 TaskRun 查询 + 1 条五频度代码覆盖查询 | 只扫描 DG 预期代码对应的 `freq/ts_code/trade_time` 身份字段；缺代码/重复键立即 skip。 |
+| raw sensor，已出现全市场成功任务 | 上述 TaskRun 查询 + 1 条五频度 `(freq, ts_code)` 主键存在性覆盖查询 | 不扫描 OHLC、成交量或全分钟键；缺代码立即 skip，源主键承担重复/空键约束。 |
 | 同日等待 | 最多约 18 次（19:30 至 23:45） | 仅在已有全市场成功 TaskRun 后才重复代码覆盖查询；15 分钟最短间隔。 |
 | raw job | 5 次按 TaskRun ID 的主键读取 + 5 次单频度代码覆盖复核 + 既有五频度导出 | TaskRun 不合格或代码覆盖不闭合即不 promote。 |
 | R1 历史 recovery plan | 1 次本地 `silver_stock_basic` code scan、最多 20 条 `ops.task_run` 候选、1 次五频度聚合身份查询、5 个现有 raw 文件 SHA-256 | 只读；任一 TaskRun、coverage、时间范围、target 文件异常即 stop。 |
 | R1 历史 recovery apply | 5 个 prod 全量导出、5 个 staging Parquet、5 个旧 raw quarantine、5 次 promote | 已冻结规模为 1,776,093 行、约 5 个单日文件；DuckDB `COPY` 写入，无 Python 行循环。任一 staging 或 promote 异常完整回滚已移动原文件。 |
 
-正式开发前必须用 fake prod cursor 的测试和一次经批准的只读 `EXPLAIN`/限量查询验证：TaskRun 过滤可命中 `resource_key, requested_at` 索引；全市场成功后的代码覆盖查询仅处理五频度与 DG 预期代码集合，稳定 tick 总预算小于 5 秒。达不到即停止，先优化已有表索引或查询形状；不得退回“TaskRun 成功即完整”的错误口径。
+开发前性能测算已完成：对 2026-07-27 的 5,533 个预期代码、5 个频度、27,665 个预期组合，索引 `EXISTS` 覆盖查询服务端约 `0.57s`、客户端约 `0.72s`；同日 TaskRun 查询服务端约 `0.68ms`、客户端约 `176ms`。稳定 tick 总预算 `<5s`。后续正式只读演练必须复核这一预算；若超出，不得退回“TaskRun 成功即完整”或全分钟键聚合，必须先优化查询形状或索引。
 
 ## 8. 测试与静态门禁
 
@@ -208,7 +211,7 @@ R1 不修改 `assets/stk_mins.py`、`run_contracts/configs.py`、job、sensor、
 - 合格全市场五频度成功 TaskRun 可触发 run；
 - running、failed、partial_success、缺结束时间、拒绝行、未完成单元、非 100% 进度、零行均 skip；
 - 单频度、代码子集、日期不匹配、JSON 异常均 skip；
-- 全市场成功但 prod 缺预期代码、重复分钟键或代码覆盖查询异常均 skip；后续代码子集补跑使覆盖闭合后才可触发；
+- 全市场成功但 prod 缺预期代码或代码覆盖查询异常均 skip；后续代码子集补跑使覆盖闭合后才可触发；源主键保证 prod 分钟键结构；
 - 19:30 前不查询 prod；19:30 后每 tick 查询一次；24:00 后不再提交 run；
 - cursor 包含简短中文 summary / next_action / reason code，不包含完整 JSON、代码列表或 SQL；
 - asset 的 reference 缺失/变化/失效均 fail closed；
@@ -219,7 +222,7 @@ R1 不修改 `assets/stk_mins.py`、`run_contracts/configs.py`、job、sensor、
 ### 8.2 静态门禁
 
 - 生产 source probe 只允许 `ops.task_run` 与 `raw_tushare.stk_mins` 的最小身份字段，禁止 `ops.task_run_node`、`ops.schedule`、`ops.*` 通配访问；
-- 禁止 `SELECT *`、禁止以 OHLC/成交量/全量分钟行扫描判断 prod ready；
+- TaskRun/覆盖门禁禁止 `SELECT *`，覆盖查询禁止 OHLC/成交量/全量分钟行扫描；writer 使用既有明确源字段投影后才输出 Lake；
 - 禁止 sensor 写 Lake、发起历史 replace 或绕过 completion reference；
 - 禁止 active raw job/run config 取得历史 recovery replace 的兼容分支；
 - 禁止 cursor 写 TaskRun JSON、完整 filters、完整 plan snapshot 或代码全集；
@@ -272,9 +275,11 @@ P8  只读最终审计：五频度 source/Lake code coverage、checks、Dagster 
 
 本次执行已获得单独维护窗口批准，且没有重复运行全量 R0 审计。执行事实如下：
 
-1. 维护开始时，6 个相关 sensor 为 `RUNNING`，`stock_mins_qfq_daily_update_job_sensor`
-   按当前 Definitions 的 `default_status=STOPPED` 且无 instance state；7 个相关 job 无 active run。
-   维护期间只暂停前述 6 个，停止点触发后已全部恢复，QFQ daily sensor 保持原有停止状态。
+1. R2 raw 维护开始时，6 个相关 sensor 为 `RUNNING`；当进入 R3A 时，必须以正式
+   instance 的实时状态而不是 Definitions 的默认值为准。R3A 预检发现
+   `stock_mins_qfq_daily_sensor` 此时也已是 `RUNNING`，因此本轮纳入维护窗口的是 7 个
+   数据 sensor；7 个相关 job 均无 active run。R2 当时仅暂停了其维护开始时运行的 6 个，
+   停止点触发后已全部恢复；R3A 则按本轮预检实际状态暂停并恢复了全部 7 个。
 2. recovery CLI 的首份 plan 暴露实现偏差：TaskRun `6544` 的 `unit_total=29,355` 是
    prod 全市场 planner 的执行单元数，不等于 DG 当前 5,533 代码乘五频度。LLD 第 3.1 节
    原口径正确，工具已改为只验证 unit 正数、完成闭合、五频度全市场身份和零 reject；DG
@@ -363,8 +368,9 @@ silver 五频度受控 replace**：五个 staging 全部校验后，整体 quara
 1. 本地 fixture 测试和静态门禁已通过。正式执行前，先单独运行只读 R3A plan；它冻结五个 raw、
    四个参考输入和五个既有 Silver 目标的文件存在性、字节数与 SHA-256。随后另行只读核验分区日期、
    活跃 run 和现有 check 状态；任一证据异常即停止。
-2. 维护窗口中仅暂停当前原本运行的六个相关 sensor，记录状态且不启动原本停止的 QFQ daily
-   sensor；确认七个相关 job 无 active run。
+2. 维护窗口中只暂停预检时实际为 `RUNNING` 的相关数据 sensor，数量不由
+   Definitions 的 `default_status` 推断；确认七个相关 job 无 active run。完成后只恢复这批
+   原本运行的 sensor，交易日注册 sensor 不在本轮触碰范围。
 3. 另行批准 `apply` 后运行 recovery CLI。五个 staging 和整体 promote 成功后，保留 quarantine，
    不物理删除。
 4. 用显式 `reuse_existing` config 运行既有 `stock_mins_silver_update_job[2026-07-27]`。它只
@@ -390,8 +396,62 @@ silver 五频度受控 replace**：五个 staging 全部校验后，整体 quara
 
 已完成的本地验证包括：恢复 CLI 的 plan 零写入、staging 十条 rule 诊断、stale plan 拒绝、诊断
 失败不触碰正式目标、五频度 quarantine/promote、promote 中途回滚、显式 `reuse_existing` 零
-Parquet 字节变化、默认 `write_new` fail-closed、job selection 与 sensor 隔离静态门禁。R3A 尚未运行
-正式 plan 或 apply，未触碰正式 Lake、Dagster instance、prod 或 sensor 状态。
+Parquet 字节变化、默认 `write_new` fail-closed、job selection 与 sensor 隔离静态门禁。
+
+R3A 已于 2026-07-28 的受控维护窗口完成，执行证据如下：
+
+1. 正式只读 plan：
+   `/private/tmp/stk_mins_silver_replace_from_raw_plan_20260728_082817.json`，输入 9 个文件、
+   目标 5 个文件、`should_stop=false`，fingerprint 为
+   `17e7e4fed0196c0afc3892bfca15087c568bfa6e8118da72b500a7c480cb893c`。
+2. Dagster 预检：
+   `/private/tmp/stk_mins_20260727_r3a_preflight_20260728_082653.json`。7 个相关 sensor 当时均为
+   `RUNNING`、7 个相关 job 无 active run；20 个 Silver check 均是失败 run
+   `d76288be-4d96-4bf7-a2d7-45f9a5be8500` 留下的预期 `PLANNED` 记录，未发现新的 failed check。
+3. 7 个数据 sensor 在
+   `/private/tmp/stk_mins_20260727_r3a_sensor_pause_20260728_082726.json` 中暂停。apply 报告为
+   `/private/tmp/stk_mins_silver_replace_from_raw_apply_20260728_082823.json`：五个频度均通过十条
+   staging rule 并完成 promote，recovery run id 为
+   `70c5f3d5-3857-4fa9-b840-3d632fba9e3f`；旧 Silver 文件保留在
+   `/Volumes/datasource/data_lake/_quarantine/stk_mins_silver_replace_from_raw/trade_date=2026-07-27/recovery_run_id=70c5f3d5-3857-4fa9-b840-3d632fba9e3f/manifest.json`。
+4. 显式 `reuse_existing` 状态核验 run
+   `33fc6520-9a55-4164-9d31-987c9bbbe9d6` 成功：5 个 Silver materialization 均绑定该 run，20 条
+   blocking check 全部 `SUCCEEDED/passed=true`。最终只读审计
+   `/private/tmp/stk_mins_20260727_r3a_post_audit_20260728_082948.json` 证明 raw/参考输入 hash 未变，
+   当前目标 hash 与已验证 staging 输出一致，因此没有调用恢复工具。
+5. 7 个 sensor 已按维护前状态恢复为 `RUNNING`，证据为
+   `/private/tmp/stk_mins_20260727_r3a_sensor_restore_20260728_083007.json`。R3B 开始前再次执行了
+   独立预检和暂停，未把 R3A 的恢复状态当作后续写入阶段的默认许可。
+
+### 9.5 R3B / R4：下游重建、prod serving 同步与最终验收（已完成）
+
+1. R3B 预检报告为 `/private/tmp/stk_mins_20260727_r3b_preflight_20260728_083836.json`：7 个数据
+   sensor 均为 `RUNNING`、7 个相关 job 无 active run。随后仅暂停这 7 个 sensor，证据为
+   `/private/tmp/stk_mins_20260727_r3b_sensor_pause_20260728_083903.json`。
+2. QFQ 日更 run `f5569417-bd87-4dba-9d07-2f2ce0c69167` 成功。7 个 QFQ asset 在
+   `2026-07-27` 分区均重新 materialize，28 条现行 blocking check 全绿；只读审计为
+   `/private/tmp/stk_mins_20260727_r3b_qfq_daily_audit_20260728_084637.json`。
+3. QFQ factor repair run `96bb23db-04f2-4673-a6ce-6a2108a9c8d7` 成功。它只处理实际变化的 6 个代码
+   `002926.SZ`、`300806.SZ`、`300962.SZ`、`600196.SH`、`600780.SH`、`688663.SH`，范围为
+   `2014-01-02` 至 `2026-07-27`，上游 batch 为
+   `qfq_factor_repair:2026-07-27:ee1e6e35aa68`；7 条 completion check 全绿，见
+   `/private/tmp/stk_mins_20260727_r3b_factor_repair_audit_20260728_084902.json`。
+4. MACD/KDJ daily run `5202cc2a-6492-47ba-8443-6133c595a8be` 成功。7 个 indicator 与 7 个 state
+   asset 均重新 materialize，28 条现行 blocking check 全绿，见
+   `/private/tmp/stk_mins_20260727_r3b_macd_kdj_daily_audit_20260728_090113.json`。
+5. MACD/KDJ repair run `ff441876-2ca2-4844-8789-5a0efeb25b7b` 完全由上一项 factor repair metadata
+   生成的配置驱动，未手填或扩大范围。14 条 completion check 都绑定同一 QFQ batch、6-code hash 和
+   `2026-07-27` 触发日分区；readiness gate 为 ready，见
+   `/private/tmp/stk_mins_20260727_r3b_macd_kdj_repair_audit_20260728_090757.json`。
+6. 财富 job `gold_wealth_market_turnover_update_job[2026-07-27]` run
+   `a340e0b3-3833-4ce2-9c08-70badd6d2771` 成功：先生成 Lake gold 五频度快照并通过唯一 integrity
+   check，再事务替换 prod `core_serving.wealth_market_turnover_snapshot` 的当天五行并 read-back。
+7. R4 最终只读审计
+   `/private/tmp/stk_mins_20260727_r3b_final_audit_20260728_091205.json` 已确认：五频度
+   `1/5/15/30/60`、5 条 Lake gold 与 prod serving 逐字段一致，`points_json` hash 为
+   `6d17cb24eab508520d498fba31eeaaa6`，且上述四个上游 run 均为 `SUCCESS`。随后 7 个 sensor 已恢复为
+   `RUNNING`，证据为 `/private/tmp/stk_mins_20260727_r3b_sensor_restore_20260728_091242.json`。
+   raw/Silver quarantine 仍按既有 manifest 保留，未作物理删除。
 
 ## 10. 不做的事
 
@@ -407,5 +467,6 @@ Parquet 字节变化、默认 `write_new` fail-closed、job selection 与 sensor
 1. 已完成：`lake_raw_reader` 已获 `ops` schema USAGE 和 `ops.task_run` 的 18 个显式字段 SELECT；DML 权限为 false。
 2. 已完成：实际 TaskRun JSON 已证明 `time_input_json`、`filters_json`、`plan_snapshot_json` 能区分全市场五频度任务与代码子集补跑。
 3. 已完成但形成设计纠偏：TaskRun `success` 满足 unit、行数和 reject 口径，仍可能在后续出现代码子集补跑。因此生产门禁必须保留第 3.2 节代码覆盖，不能仅依赖 TaskRun status。
-4. 已完成：R1 离线 recovery CLI 与临时 Lake fixture 测试。它仍须单独审批 R2 的 sensor 暂停、CLI apply 与后续 job；R1 本身未触碰正式 Lake、Dagster instance 或 prod 写入。
-5. 仍待完成：未来日常 TaskRun + prod 代码覆盖双门禁、asset 二次复核和部署；它们与 R1 历史恢复分开开发、分开验收。
+4. 已完成：R1 离线 recovery CLI 与临时 Lake fixture 测试，以及经单独批准的 R2 raw、R3A Silver、R3B
+   下游重建和 R4 最终验收。原始 raw/Silver quarantine 均保留，物理删除仍须另行审批。
+5. 已完成本地代码与测试：未来日常 TaskRun + prod 代码覆盖双门禁、asset 二次复核、900 秒 interval 与窄白名单。仍待独立审批：`dg check defs`、正式 instance 只读 source 演练，以及 sensor 启用后的首日观察；本轮未执行这些动作。

@@ -12,6 +12,7 @@ from orchestrator.defs.run_contracts.sensor_tags import (
 DEFS_DIR = Path("src/orchestrator/defs")
 AUDITS_DIR = Path("src/orchestrator/audits")
 ASSETS_DIR = DEFS_DIR / "assets"
+ASSET_GUARDS_DIR = DEFS_DIR / "asset_guards"
 CHECKS_DIR = DEFS_DIR / "checks"
 CATALOG_DIR = DEFS_DIR / "catalog"
 JOBS_DIR = DEFS_DIR / "jobs"
@@ -1980,6 +1981,108 @@ class RunContractStaticGateTests(unittest.TestCase):
             for fragment in forbidden_fragments
             if fragment in source
         )
+
+        self.assertEqual(issues, [])
+
+    def test_stock_mins_prod_completion_gate_stays_narrow_and_indexed(self) -> None:
+        task_run_path = DEFS_DIR / "prod_db" / "stk_mins_task_run.py"
+        coverage_path = DEFS_DIR / "prod_db" / "stk_mins.py"
+        readiness_path = ASSET_GUARDS_DIR / "stk_mins_prod_readiness.py"
+        sensor_path = SENSORS_DIR / "stock_mins_raw_sensor.py"
+        asset_path = ASSETS_DIR / "stk_mins.py"
+        issues = []
+
+        task_run_source = task_run_path.read_text()
+        required_task_run_fragments = (
+            "connect_readonly_transaction",
+            "FROM ops.task_run",
+            "PROD_STK_MINS_TASK_RUN_COLUMNS",
+            "time_input_json ->> 'trade_date'",
+            "full_market_stk_mins_task_run_from_row",
+        )
+        forbidden_task_run_fragments = (
+            "SELECT *",
+            "ops.task_run_node",
+            "ops.schedule",
+            "ops.task_run_issue",
+        )
+        issues.extend(
+            f"{task_run_path} misses narrow TaskRun gate fragment: {fragment}"
+            for fragment in required_task_run_fragments
+            if fragment not in task_run_source
+        )
+        issues.extend(
+            f"{task_run_path} contains forbidden TaskRun access: {fragment}"
+            for fragment in forbidden_task_run_fragments
+            if fragment in task_run_source
+        )
+
+        coverage_source = coverage_path.read_text()
+        coverage_function = coverage_source[
+            coverage_source.index("def load_prod_stk_mins_code_coverage") : coverage_source.index(
+                "def _trade_day_window"
+            )
+        ]
+        required_coverage_fragments = (
+            "EXISTS (",
+            "FROM raw_tushare.stk_mins",
+            "PROD_STK_MINS_COVERAGE_SAMPLE_LIMIT",
+            "connect_readonly_transaction",
+        )
+        forbidden_coverage_fragments = (
+            "SELECT *",
+            "GROUP BY ts_code, freq, trade_time",
+            " AS open",
+            " AS close",
+            " AS high",
+            " AS low",
+            " AS vol",
+            " AS amount",
+        )
+        issues.extend(
+            f"{coverage_path} misses indexed coverage fragment: {fragment}"
+            for fragment in required_coverage_fragments
+            if fragment not in coverage_function
+        )
+        issues.extend(
+            f"{coverage_path} contains forbidden coverage scan: {fragment}"
+            for fragment in forbidden_coverage_fragments
+            if fragment in coverage_function
+        )
+
+        readiness_source = readiness_path.read_text()
+        sensor_source = sensor_path.read_text()
+        asset_source = asset_path.read_text()
+        for path, source, required in (
+            (
+                readiness_path,
+                readiness_source,
+                "validate_stk_mins_prod_completion_reference",
+            ),
+            (
+                sensor_path,
+                sensor_source,
+                "stk_mins_prod_source_ready_for_trade_date",
+            ),
+            (
+                asset_path,
+                asset_source,
+                "returned_stock_code_count != len(requested_stock_codes)",
+            ),
+        ):
+            if required not in source:
+                issues.append(f"{path} misses required prod completion gate: {required}")
+        for fragment in (
+            "stk_mins_raw_replace_from_prod",
+            "full_market_stk_mins_task_run_from_row",
+            '"stock_codes":',
+            '"task_run_json":',
+            '"filters_json":',
+        ):
+            if fragment in sensor_source:
+                issues.append(f"{sensor_path} contains forbidden prod cursor/runtime data: {fragment}")
+        if "STK_MINS_RAW_SENSOR_MINIMUM_INTERVAL_SECONDS" not in sensor_source:
+            issues.append(f"{sensor_path} must use the shared 900-second interval contract")
 
         self.assertEqual(issues, [])
 

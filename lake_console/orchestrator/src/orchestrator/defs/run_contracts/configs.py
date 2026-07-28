@@ -9,6 +9,8 @@ from typing import Literal
 import dagster as dg
 from pydantic import Field
 
+from orchestrator.defs.run_contracts.stk_mins import ProdStkMinsCompletionReference
+
 
 class IndexDailyRawConfig(dg.Config):
     write_mode: Literal["replace"] = Field(
@@ -60,14 +62,31 @@ class ParsedStockMinsRawConfig:
     source: StockMinsRawSource
     write_mode: StockMinsRawWriteMode
     merge_repair: StockMinsMergeRepairConfig | None = None
+    prod_completion_reference: ProdStkMinsCompletionReference | None = None
 
     def validate(self) -> "ParsedStockMinsRawConfig":
-        if self.merge_repair is None:
+        if self.write_mode == "merge_repair":
+            if self.source != "tushare" or self.merge_repair is None:
+                raise ValueError("merge_repair write_mode only supports source=tushare.")
+            if self.prod_completion_reference is not None:
+                raise ValueError(
+                    "merge_repair must not carry prod_completion_reference."
+                )
+            start_time = _parse_hms_time(self.merge_repair.start_time)
+            end_time = _parse_hms_time(self.merge_repair.end_time)
+            if start_time > end_time:
+                raise ValueError(
+                    "merge_repair.start_time must not be later than end_time."
+                )
             return self
-        start_time = _parse_hms_time(self.merge_repair.start_time)
-        end_time = _parse_hms_time(self.merge_repair.end_time)
-        if start_time > end_time:
-            raise ValueError("merge_repair.start_time must not be later than end_time.")
+        if self.source == "prod_db" and self.prod_completion_reference is None:
+            raise ValueError(
+                "source=prod_db reuse_existing requires prod_completion_reference."
+            )
+        if self.source != "prod_db" and self.prod_completion_reference is not None:
+            raise ValueError(
+                "prod_completion_reference is only valid for source=prod_db."
+            )
         return self
 
 
@@ -181,6 +200,37 @@ STOCK_MINS_RAW_CONFIG_SCHEMA = dg.Shape(
             default_value={"reuse_existing": {}},
             is_required=False,
             description="股票分钟线 raw 写入模式；reuse_existing 与 merge_repair 互斥。",
+        ),
+        "prod_completion_reference": dg.Field(
+            dg.Shape(
+                {
+                    "task_run_id": dg.Field(int),
+                    "trade_date": dg.Field(str),
+                    "ended_at": dg.Field(str),
+                    "full_market": dg.Field(bool),
+                    "frequency_set_hash": dg.Field(str),
+                    "expected_code_count": dg.Field(int),
+                    "expected_code_hash": dg.Field(str),
+                    "frequency_code_counts": dg.Field(
+                        dg.Shape(
+                            {
+                                "1": dg.Field(int),
+                                "5": dg.Field(int),
+                                "15": dg.Field(int),
+                                "30": dg.Field(int),
+                                "60": dg.Field(int),
+                            }
+                        )
+                    ),
+                    "coverage_observed_at": dg.Field(str),
+                    "reference_fingerprint": dg.Field(str),
+                }
+            ),
+            is_required=False,
+            description=(
+                "仅 prod_db 全日更新使用的最小完成依据；必须由 raw sensor 构造，"
+                "不包含代码列表或 TaskRun JSON。"
+            ),
         ),
     }
 )
@@ -378,8 +428,14 @@ def build_gold_stock_daily_qfq_factor_repair_run_config(
 def build_stock_mins_raw_update_job_run_config(
     *,
     source: StockMinsRawSource,
+    prod_completion_reference: ProdStkMinsCompletionReference | None = None,
 ) -> dict[str, object]:
     normalized_source = _normalize_stock_mins_raw_source(source)
+    reference_config = (
+        prod_completion_reference.to_config_dict()
+        if prod_completion_reference is not None
+        else None
+    )
     return {
         "ops": {
             op_name: {
@@ -388,6 +444,11 @@ def build_stock_mins_raw_update_job_run_config(
                     "write_mode": {
                         "reuse_existing": {},
                     },
+                    **(
+                        {"prod_completion_reference": reference_config}
+                        if reference_config is not None
+                        else {}
+                    ),
                 }
             }
             for op_name in STOCK_MINS_RAW_ASSET_OP_NAMES
@@ -451,6 +512,13 @@ def parse_stock_mins_raw_config(
 ) -> ParsedStockMinsRawConfig:
     config = dict(raw_config or {})
     source = _normalize_stock_mins_raw_source(config.get("source", "prod_db"))
+    prod_completion_reference = (
+        ProdStkMinsCompletionReference.from_config_mapping(
+            config.get("prod_completion_reference")
+        )
+        if "prod_completion_reference" in config
+        else None
+    )
     write_mode_config = config.get("write_mode", {"reuse_existing": {}})
     if not isinstance(write_mode_config, Mapping):
         raise ValueError("write_mode must be a selector mapping.")
@@ -466,7 +534,8 @@ def parse_stock_mins_raw_config(
         return ParsedStockMinsRawConfig(
             source=source,
             write_mode="reuse_existing",
-        )
+            prod_completion_reference=prod_completion_reference,
+        ).validate()
 
     repair_config = write_mode_config["merge_repair"]
     if source != "tushare":
@@ -488,6 +557,7 @@ def parse_stock_mins_raw_config(
                 field_name="end_time",
             ),
         ),
+        prod_completion_reference=prod_completion_reference,
     ).validate()
 
 

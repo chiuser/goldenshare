@@ -20,6 +20,11 @@ from time import perf_counter
 from typing import Protocol
 
 from orchestrator.defs.assets import stk_mins as stk_mins_assets
+from orchestrator.defs.asset_guards.stk_mins_stock_universe import (
+    load_current_listed_stock_codes_for_stk_mins,
+    normalize_stk_mins_stock_codes,
+    stk_mins_stock_code_set_hash,
+)
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
@@ -34,6 +39,9 @@ from orchestrator.defs.prod_db.stk_mins import (
     validate_prod_stk_mins_duckdb_attach_options_contract,
     validate_prod_stk_mins_duckdb_source_contract,
     validate_prod_stk_mins_select_contract,
+)
+from orchestrator.defs.prod_db.stk_mins_task_run import (
+    full_market_stk_mins_task_run_from_row,
 )
 from orchestrator.defs.resources import DuckDBResource, ProdPostgresResource
 from orchestrator.defs.run_contracts.stk_mins import STK_MINS_FREQS
@@ -196,20 +204,21 @@ class ProdStkMinsRawReplaceSource:
     ) -> StkMinsRecoveryTaskRun | None:
         rows = self._task_run_rows(trade_date=trade_date)
         for row in rows:
-            if _task_run_row_is_full_market(
+            task_run = full_market_stk_mins_task_run_from_row(
                 row,
                 trade_date=trade_date,
-            ):
+            )
+            if task_run is not None:
                 return StkMinsRecoveryTaskRun(
-                    task_run_id=int(row["id"]),
-                    ended_at=_datetime_text(row["ended_at"]),
-                    unit_total=int(row["unit_total"]),
-                    unit_done=int(row["unit_done"]),
-                    unit_failed=int(row["unit_failed"]),
-                    progress_percent=float(row["progress_percent"]),
-                    rows_fetched=int(row["rows_fetched"]),
-                    rows_saved=int(row["rows_saved"]),
-                    rows_rejected=int(row["rows_rejected"]),
+                    task_run_id=task_run.task_run_id,
+                    ended_at=task_run.ended_at,
+                    unit_total=task_run.unit_total,
+                    unit_done=task_run.unit_done,
+                    unit_failed=task_run.unit_failed,
+                    progress_percent=task_run.progress_percent,
+                    rows_fetched=task_run.rows_fetched,
+                    rows_saved=task_run.rows_saved,
+                    rows_rejected=task_run.rows_rejected,
                 )
         return None
 
@@ -689,8 +698,7 @@ def apply_stk_mins_raw_replace_from_prod(
 def stock_code_set_hash(stock_codes: Sequence[str]) -> str:
     """Return the stable MD5 code-set identity used by the frozen R0 baseline."""
 
-    normalized = _normalize_stock_codes(stock_codes)
-    return hashlib.md5(",".join(normalized).encode("utf-8"), usedforsecurity=False).hexdigest()
+    return stk_mins_stock_code_set_hash(stock_codes)
 
 
 def _expected_stock_codes(
@@ -699,88 +707,13 @@ def _expected_stock_codes(
     duckdb: DuckDBResource,
     trade_date: str,
 ) -> tuple[str, ...]:
-    return _normalize_stock_codes(
-        stk_mins_assets.load_current_listed_stock_codes_for_stk_mins(
+    return normalize_stk_mins_stock_codes(
+        load_current_listed_stock_codes_for_stk_mins(
             lake_root=lake_root,
             duckdb=duckdb,
             partition_key=trade_date,
         )
     )
-
-
-def _normalize_stock_codes(values: Sequence[str]) -> tuple[str, ...]:
-    normalized = tuple(sorted({str(value).strip() for value in values if str(value).strip()}))
-    if not normalized:
-        raise StkMinsRawReplaceFromProdError("Expected stock code set is empty.")
-    if len(normalized) != len(values):
-        raise StkMinsRawReplaceFromProdError(
-            "Expected stock code set contains blank or duplicate values."
-        )
-    return normalized
-
-
-def _task_run_row_is_full_market(
-    row: Mapping[str, object],
-    *,
-    trade_date: str,
-) -> bool:
-    if (
-        row.get("task_type") != "dataset_action"
-        or row.get("resource_key") != "stk_mins"
-        or row.get("action") != "maintain"
-        or row.get("status") != "success"
-        or row.get("ended_at") is None
-    ):
-        return False
-    time_input = _json_mapping(row.get("time_input_json"))
-    filters = _json_mapping(row.get("filters_json"))
-    if time_input.get("trade_date") != trade_date:
-        return False
-    if _normalize_requested_freqs(filters.get("freq")) != _expected_freq_labels():
-        return False
-    if _has_explicit_code_filter(filters.get("ts_code")):
-        return False
-    return (
-        _int(row.get("unit_total")) > 0
-        and _int(row.get("unit_done")) == _int(row.get("unit_total"))
-        and _int(row.get("unit_failed")) == 0
-        and _float(row.get("progress_percent")) == 100.0
-        and _int(row.get("rows_fetched")) > 0
-        and _int(row.get("rows_saved")) > 0
-        and _int(row.get("rows_rejected")) == 0
-    )
-
-
-def _json_mapping(value: object) -> Mapping[str, object]:
-    if isinstance(value, Mapping):
-        return value
-    if isinstance(value, str):
-        try:
-            decoded = json.loads(value)
-        except json.JSONDecodeError:
-            return {}
-        return decoded if isinstance(decoded, Mapping) else {}
-    return {}
-
-
-def _normalize_requested_freqs(value: object) -> tuple[str, ...]:
-    if not isinstance(value, (list, tuple)):
-        return ()
-    return tuple(sorted({str(item).strip().lower() for item in value if str(item).strip()}))
-
-
-def _expected_freq_labels() -> tuple[str, ...]:
-    return tuple(sorted(f"{freq}min" for freq in STK_MINS_RECOVERY_FREQS))
-
-
-def _has_explicit_code_filter(value: object) -> bool:
-    if value is None:
-        return False
-    if isinstance(value, str):
-        return bool(value.strip())
-    if isinstance(value, Sequence):
-        return any(str(item).strip() for item in value)
-    return True
 
 
 def _plan_stop_reasons(

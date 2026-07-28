@@ -1,4 +1,4 @@
-from datetime import datetime, time
+from datetime import datetime
 
 import dagster as dg
 
@@ -11,6 +11,13 @@ from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
     StkMinsBatchReadiness,
     StkMinsDateReadiness,
     batch_raw_stk_mins_lake_readiness,
+)
+from orchestrator.defs.asset_guards.stk_mins_prod_readiness import (
+    StkMinsProdSourceReadiness,
+    stk_mins_prod_source_ready_for_trade_date,
+)
+from orchestrator.defs.asset_guards.stk_mins_stock_universe import (
+    load_current_listed_stock_codes_for_stk_mins,
 )
 from orchestrator.defs.partitions import cn_a_stock_mins_trade_days
 from orchestrator.defs.paths import silver_trade_calendar_path
@@ -39,6 +46,9 @@ from orchestrator.defs.run_contracts.sensor_tags import (
 from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_CONTINUITY_WINDOW_LIMIT,
     STK_MINS_RAW_HISTORY_START_DATE,
+    STK_MINS_RAW_RUN_START as STOCK_MINS_RAW_RUN_START,
+    STK_MINS_RAW_SENSOR_MINIMUM_INTERVAL_SECONDS,
+    ProdStkMinsCompletionReference,
 )
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
@@ -51,7 +61,6 @@ from orchestrator.defs.sensors.stock_mins_trade_day_sensor import (
 
 
 STOCK_MINS_RAW_SENSOR_JOB_NAME = "stock_mins_raw_update_from_prod_job"
-STOCK_MINS_RAW_RUN_START = time(19, 30)
 STOCK_MINS_RAW_SOURCE = "prod_db"
 
 
@@ -135,6 +144,21 @@ def _cursor_summary_and_next_action(
             f"未触发：股票分钟线 raw 在 {target_trade_date} 已有未通过状态。",
             "先查看 raw_stk_mins gate_statuses 和 failed check，人工确认后再修复。",
         )
+    if blocked_component == "prod_ops_task_run":
+        return (
+            f"未触发：股票分钟线 raw 在 {target_trade_date} 等待 prod 全市场完成记录。",
+            "等待 prod 的 stk_mins 全市场任务成功结束后，15 分钟后重新检查。",
+        )
+    if blocked_component == "prod_stk_mins_coverage":
+        return (
+            f"未触发：股票分钟线 raw 在 {target_trade_date} 的 prod 五频度代码覆盖尚未完整。",
+            "等待 prod 补齐缺失代码后，15 分钟后重新检查。",
+        )
+    if blocked_component == "historical_raw_recovery":
+        return (
+            f"未触发：股票分钟线 raw 的 {target_trade_date} 已错过当日自动窗口。",
+            "不要自动补跑；请使用受控 stk_mins raw recovery 流程处理历史缺口。",
+        )
     if reason_code == "run_window_not_started":
         return (
             "未触发：股票分钟线 raw 日常更新窗口尚未开始。",
@@ -163,7 +187,9 @@ def _cursor_payload(
     stock_basic_status: DatasetReadinessStatus | None = None,
     continuity_status: StockMinsContinuityStatus | None = None,
     raw_batch_status: StkMinsBatchReadiness | None = None,
+    prod_source_status: StkMinsProdSourceReadiness | None = None,
     blocked_fallback: int = 0,
+    reason_code_override: str | None = None,
 ) -> str:
     decision = (
         SensorCursorDecision.REQUEST_RUNS
@@ -185,6 +211,19 @@ def _cursor_payload(
                 )
         elif stock_basic_status is not None and not stock_basic_status.ready:
             blocked_count = 1
+        elif prod_source_status is not None and not prod_source_status.ready:
+            coverage_status = prod_source_status.coverage_status
+            blocked_count = max(
+                1,
+                sum(
+                    coverage.missing_code_count
+                    for coverage in (
+                        coverage_status.frequency_coverages
+                        if coverage_status is not None
+                        else ()
+                    )
+                ),
+            )
         elif (
             continuity_status is not None
             and continuity_status.first_missing_registered_date
@@ -198,15 +237,22 @@ def _cursor_payload(
     else:
         blocked_count = blocked_fallback
 
-    reason_code = None
+    reason_code = reason_code_override
     blocked_component = None
-    if continuity_status is not None:
+    if reason_code is None and continuity_status is not None:
         if continuity_status.first_missing_registered_date is not None:
             reason_code = "missing_registered_partition"
             blocked_component = "cn_a_stock_mins_trade_days"
     if reason_code is None and stock_basic_status is not None and not stock_basic_status.ready:
         reason_code = "stock_basic_not_ready"
         blocked_component = "stock_basic"
+    if reason_code is None and prod_source_status is not None and not prod_source_status.ready:
+        reason_code = prod_source_status.reason_code
+        blocked_component = (
+            "prod_ops_task_run"
+            if prod_source_status.coverage_status is None
+            else "prod_stk_mins_coverage"
+        )
     if reason_code is None and continuity_status is not None:
         if continuity_status.first_not_ready_reason is not None:
             reason_code = continuity_status.first_not_ready_reason
@@ -226,6 +272,9 @@ def _cursor_payload(
             reason_code = "no_registered_partition"
         else:
             reason_code = "all_ready"
+    if reason == "historical_raw_recovery_required":
+        reason_code = "historical_raw_recovery_required"
+        blocked_component = "historical_raw_recovery"
     summary, next_action = _cursor_summary_and_next_action(
         selected_trade_date=selected_trade_date,
         target_trade_date=target_trade_date,
@@ -270,12 +319,60 @@ def _cursor_payload(
                 "source": STOCK_MINS_RAW_SOURCE,
                 "source_window_started": source_window_started,
                 "stock_basic_freshness_required": True,
+                "prod_source": _compact_prod_source_status(prod_source_status),
             },
         ),
     )
 
 
-def _run_request_for_trade_date(trade_date: str):
+def _compact_prod_source_status(
+    status: StkMinsProdSourceReadiness | None,
+) -> dict[str, object] | None:
+    if status is None:
+        return None
+    task_run = status.task_run_status.task_run
+    coverage_status = status.coverage_status
+    first_missing = None
+    if coverage_status is not None and coverage_status.first_missing_freq is not None:
+        coverage_by_freq = coverage_status.coverage_by_freq()
+        coverage = coverage_by_freq[coverage_status.first_missing_freq]
+        first_missing = {
+            "freq": coverage.freq,
+            "missing_code_count": coverage.missing_code_count,
+            "missing_code_samples": list(coverage.missing_code_samples),
+        }
+    return {
+        "ready": status.ready,
+        "reason_code": status.reason_code,
+        "task_run_id": task_run.task_run_id if task_run is not None else None,
+        "candidate_task_run_id": status.task_run_status.candidate_task_run_id,
+        "candidate_status": status.task_run_status.candidate_status,
+        "task_run_elapsed_ms": status.task_run_status.elapsed_ms,
+        "coverage_elapsed_ms": (
+            coverage_status.elapsed_ms if coverage_status is not None else None
+        ),
+        "frequency_present_code_counts": (
+            {
+                str(coverage.freq): coverage.present_code_count
+                for coverage in coverage_status.frequency_coverages
+            }
+            if coverage_status is not None
+            else {}
+        ),
+        "first_missing": first_missing,
+        "error_type": (
+            coverage_status.error_type
+            if coverage_status is not None
+            else status.task_run_status.error_type
+        ),
+    }
+
+
+def _run_request_for_trade_date(
+    trade_date: str,
+    *,
+    prod_completion_reference: ProdStkMinsCompletionReference,
+):
     return build_run_request(
         run_key=build_asset_update_run_key(
             subject="stock_mins_raw_update_from_prod",
@@ -284,6 +381,7 @@ def _run_request_for_trade_date(trade_date: str):
         partition_key=trade_date,
         run_config=build_stock_mins_raw_update_job_run_config(
             source=STOCK_MINS_RAW_SOURCE,
+            prod_completion_reference=prod_completion_reference,
         ),
     )
 
@@ -291,14 +389,17 @@ def _run_request_for_trade_date(trade_date: str):
 @dg.sensor(
     job_name=STOCK_MINS_RAW_SENSOR_JOB_NAME,
     default_status=dg.DefaultSensorStatus.STOPPED,
-    minimum_interval_seconds=600,
+    minimum_interval_seconds=STK_MINS_RAW_SENSOR_MINIMUM_INTERVAL_SECONDS,
     tags=build_sensor_tags(
         sensor_domain=SensorDomain.QUOTE_DATA,
         target_layer=SensorTargetLayer.RAW,
         role=SensorRole.ASSET_UPDATE,
     ),
-    required_resource_keys={"lake_root", "duckdb"},
-    description="股票分钟线交易日分区和基础信息 freshness/checks 就绪后，触发五频度 prod DB raw 更新任务。",
+    required_resource_keys={"lake_root", "duckdb", "prod_postgres"},
+    description=(
+        "股票分钟线交易日分区、基础信息、prod 全市场 TaskRun 与五频度代码覆盖"
+        "全部就绪后，触发五频度 prod DB raw 更新任务。"
+    ),
 )
 def stock_mins_raw_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
@@ -368,22 +469,6 @@ def stock_mins_raw_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResul
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    if not source_window_started:
-        reason = "股票分钟线 raw 日常更新窗口尚未到 19:30，暂不触发。"
-        cursor = _cursor_payload(
-            evaluated_at=evaluated_at,
-            registered_trade_day_count=len(registered_trade_days),
-            target_trade_date=target_trade_date,
-            selected_trade_date=None,
-            reason=reason,
-            source_window_started=source_window_started,
-            raw_status=raw_status,
-            continuity_status=continuity_status,
-            raw_batch_status=raw_batch_status,
-            blocked_fallback=1,
-        )
-        return dg.SensorResult(skip_reason=reason, cursor=cursor)
-
     if selection.selected_trade_date is None:
         if continuity_status.blocked_reason == "materialized_check_problem":
             reason = (
@@ -406,6 +491,44 @@ def stock_mins_raw_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResul
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
     selected_trade_date = selection.selected_trade_date
+    if selected_trade_date != evaluated_at.date().isoformat():
+        reason = "historical_raw_recovery_required"
+        cursor = _cursor_payload(
+            evaluated_at=evaluated_at,
+            registered_trade_day_count=len(registered_trade_days),
+            target_trade_date=target_trade_date,
+            selected_trade_date=None,
+            reason=reason,
+            source_window_started=source_window_started,
+            raw_status=raw_status,
+            continuity_status=continuity_status,
+            raw_batch_status=raw_batch_status,
+        )
+        return dg.SensorResult(
+            skip_reason=(
+                "最早未就绪股票分钟线 raw 分区已错过当日自动窗口，"
+                "请使用受控历史 recovery 流程处理。"
+            ),
+            cursor=cursor,
+        )
+
+    if not source_window_started:
+        reason = "股票分钟线 raw 日常更新窗口尚未到 19:30，暂不触发。"
+        cursor = _cursor_payload(
+            evaluated_at=evaluated_at,
+            registered_trade_day_count=len(registered_trade_days),
+            target_trade_date=target_trade_date,
+            selected_trade_date=None,
+            reason=reason,
+            source_window_started=source_window_started,
+            raw_status=raw_status,
+            continuity_status=continuity_status,
+            raw_batch_status=raw_batch_status,
+            blocked_fallback=1,
+            reason_code_override="run_window_not_started",
+        )
+        return dg.SensorResult(skip_reason=reason, cursor=cursor)
+
     stock_basic_status = stock_basic_ready_for_trade_date(
         context.instance,
         selected_trade_date,
@@ -426,6 +549,34 @@ def stock_mins_raw_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResul
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
+    stock_codes = load_current_listed_stock_codes_for_stk_mins(
+        lake_root=context.resources.lake_root.root(),
+        duckdb=context.resources.duckdb,
+        partition_key=selected_trade_date,
+    )
+    prod_source_status = stk_mins_prod_source_ready_for_trade_date(
+        prod_postgres=context.resources.prod_postgres,
+        trade_date=selected_trade_date,
+        stock_codes=stock_codes,
+        observed_at=evaluated_at,
+    )
+    if not prod_source_status.ready or prod_source_status.completion_reference is None:
+        reason = "prod 股票分钟线源端尚未满足全市场完成与代码覆盖门禁。"
+        cursor = _cursor_payload(
+            evaluated_at=evaluated_at,
+            registered_trade_day_count=len(registered_trade_days),
+            target_trade_date=target_trade_date,
+            selected_trade_date=None,
+            reason=reason,
+            source_window_started=source_window_started,
+            raw_status=raw_status,
+            stock_basic_status=stock_basic_status,
+            continuity_status=continuity_status,
+            raw_batch_status=raw_batch_status,
+            prod_source_status=prod_source_status,
+        )
+        return dg.SensorResult(skip_reason=reason, cursor=cursor)
+
     reason = "股票分钟线 raw 门禁已满足，提交五频度 prod DB raw 更新。"
     cursor = _cursor_payload(
         evaluated_at=evaluated_at,
@@ -438,8 +589,14 @@ def stock_mins_raw_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResul
         stock_basic_status=stock_basic_status,
         continuity_status=continuity_status,
         raw_batch_status=raw_batch_status,
+        prod_source_status=prod_source_status,
     )
     return dg.SensorResult(
-        run_requests=[_run_request_for_trade_date(selected_trade_date)],
+        run_requests=[
+            _run_request_for_trade_date(
+                selected_trade_date,
+                prod_completion_reference=prod_source_status.completion_reference,
+            )
+        ],
         cursor=cursor,
     )
