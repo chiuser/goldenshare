@@ -25,6 +25,7 @@ from orchestrator.defs.paths import (
     raw_dc_member_path,
     raw_index_basic_path,
     raw_index_daily_path,
+    raw_index_global_path,
     raw_namechange_path,
     raw_stock_basic_path,
     raw_stock_daily_path,
@@ -38,6 +39,7 @@ from orchestrator.defs.paths import (
     silver_dc_member_path,
     silver_index_basic_path,
     silver_index_daily_path,
+    silver_index_global_path,
     silver_namechange_path,
     silver_stk_mins_path,
     silver_stock_basic_path,
@@ -65,6 +67,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_WEALTH_MARKET_TURNOVER_SCHEMA,
     RAW_STK_MINS_SCHEMA,
     RAW_INDEX_DAILY_SCHEMA,
+    RAW_INDEX_GLOBAL_SCHEMA,
     RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     RAW_TUSHARE_NAMECHANGE_SCHEMA,
@@ -79,6 +82,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_DC_MEMBER_SCHEMA,
     SILVER_INDEX_BASIC_SCHEMA,
     SILVER_INDEX_DAILY_SCHEMA,
+    SILVER_INDEX_GLOBAL_SCHEMA,
     SILVER_NAMECHANGE_SCHEMA,
     SILVER_STK_MINS_SCHEMA,
     SILVER_STOCK_BASIC_SCHEMA,
@@ -104,6 +108,10 @@ from orchestrator.defs.run_contracts.dc_board import (
 )
 from orchestrator.defs.run_contracts.dc_daily_technical import (
     DC_DAILY_TECHNICAL_CHECKS,
+)
+from orchestrator.defs.run_contracts.index_global import (
+    INDEX_GLOBAL_RAW_CHECKS,
+    INDEX_GLOBAL_SILVER_CHECKS,
 )
 from orchestrator.defs.run_contracts.dc_daily_technical_serving import (
     CH_DC_DAILY_TECHNICAL_CHECKS,
@@ -184,6 +192,8 @@ class PartitionModel(str, Enum):
     TRADE_DATE_PARTITION_SILVER_INDEX_DAILY = (
         "trade_date_partition_silver_index_daily"
     )
+    TRADE_DATE_PARTITION_RAW_INDEX_GLOBAL = "trade_date_partition_raw_index_global"
+    TRADE_DATE_PARTITION_SILVER_INDEX_GLOBAL = "trade_date_partition_silver_index_global"
     TRADE_DATE_PARTITION_RAW_DC_INDEX = "trade_date_partition_raw_dc_index"
     TRADE_DATE_PARTITION_RAW_DC_MEMBER = "trade_date_partition_raw_dc_member"
     TRADE_DATE_PARTITION_RAW_DC_DAILY = "trade_date_partition_raw_dc_daily"
@@ -678,6 +688,24 @@ PARTITION_MODEL_DEFINITIONS = (
         "index_daily",
         "trade_date",
         PartitionPhysicalLayout.PARTITION_FILE,
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_RAW_INDEX_GLOBAL,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.RAW,
+        "index_global",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="自然日分区；允许海外市场尚未发布时生成固定 schema 空文件。",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_SILVER_INDEX_GLOBAL,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.SILVER,
+        "index_global",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="自然日分区；Silver 与 Raw 同日对齐，允许空分区。",
     ),
     _model(
         PartitionModel.TRADE_DATE_PARTITION_RAW_DC_INDEX,
@@ -1597,6 +1625,50 @@ LAKE_ASSET_CATALOG += (
         batch_grain="trade_date",
         write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
         bootstrap_sources=(IngestionSource.OLD_LAKE_BOOTSTRAP,),
+    ),
+    _tushare_raw_entry(
+        asset_key="raw_index_global",
+        dataset_id="index_global",
+        group_name="index",
+        data_domain=DataDomain.INDEX_TOPIC,
+        data_contract="tushare_index_global_raw_by_trade_date",
+        column_schema=RAW_INDEX_GLOBAL_SCHEMA,
+        path_template=lake_path_template(
+            raw_index_global_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_RAW_INDEX_GLOBAL,
+        source_api="index_global",
+        source_doc="docs/sources/tushare/指数专题/0211_国际指数.md",
+        blocking_check_names=INDEX_GLOBAL_RAW_CHECKS,
+        batch_grain="one_date_one_step",
+        bootstrap_sources=(IngestionSource.TUSHARE_API,),
+        source_request_policy="index_global_bounded_step_pagination",
+        performance_notes=(
+            "One natural date and one probe step per run; five steps are "
+            "serialized and each step uses bounded pagination. Empty source "
+            "observations are valid and do not imply 21-code coverage."
+        ),
+    ),
+    _derived_entry(
+        asset_key="silver_index_global",
+        dataset_id="index_global",
+        layer=AssetLayer.SILVER,
+        data_domain=DataDomain.INDEX_TOPIC,
+        group_name="index",
+        data_contract="silver_index_global_by_trade_date",
+        column_schema=SILVER_INDEX_GLOBAL_SCHEMA,
+        path_template=lake_path_template(
+            silver_index_global_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_SILVER_INDEX_GLOBAL,
+        blocking_check_names=INDEX_GLOBAL_SILVER_CHECKS,
+        batch_grain="trade_date",
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        notes=(
+            "Reads only same-date Raw; empty natural-day Raw/Silver partitions "
+            "are valid when the source published no rows."
+        ),
     ),
     _tushare_raw_entry(
         asset_key="raw_tushare_dc_index",

@@ -2,12 +2,16 @@
 
 ## 1. 文档状态
 
-- 状态：方案口径已冻结，已完成代码级前置审计；进入代码前还必须完成 P1 真实请求验证。
+- 状态：方案口径已冻结，P1 真实请求验证、P2 Raw contract/phase merge/staging、P3 临时湖五阶段联调、P4 Silver writer/contract/临时联调和 P5 正式 Dagster definitions 已完成；下一步进入 P6 自然日分区注册与 Raw sensor 设计。
 - 数据集：`index_global`，中文展示名为“国际指数日线”。
 - 数据源：Tushare `index_global`。
 - 本文不执行代码、不写正式湖、不写 Dagster 数据库、不启用 sensor。
-- 当前仓库尚未实现 `index_global` 的 asset、check、job、sensor、catalog 或 schema；本文件和 LLD 是实现前约束，不代表功能已上线。
-- 代码实现前必须继续通过本地 fake/临时湖测试和 Tushare 最小真实请求验证。
+- 当前仓库已接入 `index_global` 的 active Raw/Silver asset、core check、job、catalog、partition model 和 governance mapping；sensor、正式 Bootstrap、正式湖写入和 Dagster event 仍未启用。P5 只完成 definitions 接入，不代表数据已上线。
+- P1 真实验证报告：`/private/tmp/index_global_p1_tushare_validation_20260728.json`。
+- P2 本地验证：`tests/test_index_global_contracts.py`、`tests/test_index_global_raw_io.py` 共 11 项通过；相关静态/回归测试共 99 项通过。
+- P3 本地与临时湖验证：相关测试共 105 项通过；真实 Tushare 五阶段报告为 `/private/tmp/index_global_p3_real_validation_p3-real-20260728204238.json`。
+- P4 Silver 定向/Raw 回归验证：28 项通过；真实 Raw -> Silver 临时湖报告为 `/private/tmp/index_global_p4_real_validation_20260728204238.json`。
+- P2/P3/P4/P5 没有写正式 lake、Dagster 数据库或 Dagster event；P5 只完成 active definitions 的本地加载和契约测试，sensor 仍留在后续阶段。
 
 ## 1.1 数据集说明卡
 
@@ -216,6 +220,18 @@ AS51 SENSEX IBOVESPA RTS TWII CKLSE SPTSX CSX5P RUT
 - Silver 只做 trim、日期转换和 `change -> change_amount`；不把 NULL 擅自填 0。
 - `close/high/low/open/pre_close` 的非负、`pct_chg`/`swing` 的 finite 规则必须在 P1 后形成明确 SQL predicate，并写入 core check 的 `failed_rule_names`；未确认前不写猜测式范围检查。
 
+### 3.3 P1 真实请求验证结论
+
+P1 已使用 `tushareMcp.index_global` 和同一 Tushare HTTP API 的只读最小分页请求完成验证，完整证据见：
+`/private/tmp/index_global_p1_tushare_validation_20260728.json`。
+
+- `20220101` 点查返回 0 行；`20220103` 返回 16 行；`20220104` 返回 21 行，且 21 个代码与固定身份集合完全一致；
+- 不传 `fields` 的默认结果包含 11 个字段，不包含 `amount`；显式请求 12 个业务字段后 `amount` 可返回，但单个指数的 `amount` 可以为 NULL；
+- `trade_date` 点查返回该日期当前已发布的全部指数；`start_date=20220103,end_date=20220104` 为闭区间，返回 37 行，按日期分别为 16/21 行；
+- 不传日期的请求和只传 `ts_code=XIN9` 的请求都返回 4000 行页，属于宽历史查询，不能进入日常同步路径；
+- MCP 函数封装没有暴露 `limit/offset`，因此 P1 的分页实测通过同一 Tushare HTTP API 完成：`limit=2` 时 `offset=0/2` 返回不重叠页，越过数据范围返回空页；`XIN9` 的 `offset=0/1` 也返回连续历史行；
+- P1 没有发现字段、日期边界、空结果或固定代码集合冲突。正式实现仍必须在 `TushareResource.call()` 外层复用 bounded pagination policy，不能复用 MCP 的无分页调用结果作为完成依据。
+
 ## 4. 目标数据集边界
 
 ### 4.1 本专项包含
@@ -271,6 +287,49 @@ merge 的 rank 只存在于本次 DuckDB 临时查询，不写入 Raw schema：
 - 当前阶段空结果不删除已有行；目标不存在时才生成固定 schema 的空文件；
 - rank 相同且字段相同只保留一行，字段不同以当前阶段行覆盖并计入 `replaced_row_count`；
 - retry 和 late-empty 仍视为当前阶段的新输入，不依赖未持久化的 `probe_sequence`。
+
+### 5.1 P2 实现记录
+
+P2 已落地以下稳定职责代码：
+
+- `orchestrator/defs/run_contracts/asset_column_schemas.py`：增加 `RAW_INDEX_GLOBAL_SCHEMA`，固定 12 个 Raw 源字段及类型；
+- `orchestrator/defs/run_contracts/index_global.py`：集中定义字段、21 个身份代码、phase 集合、日期归一化、行合同和有限数值校验；
+- `orchestrator/defs/paths.py`：增加 Raw 目标路径和 `run_id + trade_date + probe_phase` staging 路径，并拒绝不安全路径组件；
+- `orchestrator/defs/assets/index_global_raw.py`：实现 Raw writer 核心 `merge_index_global_phase(...)`，并由 P5 外层 active asset wrapper 调用；writer 通过 DuckDB 临时表、窗口去重、staging 回读和 `os.replace` 完成原子 promote；
+- `tests/test_index_global_contracts.py`、`tests/test_index_global_raw_io.py`：覆盖字段/日期/身份/重复键边界、五阶段覆盖、空阶段、空分区、错误目标保护和数值失败不覆盖。
+
+P2 的运行规模是有界的：单阶段最多 21 行，DuckDB 只建立当前日期的临时表，正式 writer 不扫描 Dagster event history、不调用 Tushare、不写正式湖。已有目标合同错误、当前阶段字段/日期/主键/数值错误或 staging 回读不一致时，`os.replace` 不会发生。目标已存在且当前阶段为空时直接 no-op；目标不存在且当前阶段为空时仍生成固定 schema 的空 Parquet。
+
+P2/P3/P4 的 writer 和临时联调保持正式湖与 Dagster instance 隔离；P5 在复用这些 writer 的基础上接入 active Raw/Silver asset、core check 和 job，但本地验证仍不调用 `dg`、不写正式湖或 Dagster event。
+
+### 5.2 P3 临时湖联调记录
+
+P3 在 `orchestrator/defs/assets/index_global_raw.py` 增加 `fetch_index_global_phase(...)` 和串行的 `run_index_global_phase_sequence(...)`：请求显式传递 `trade_date`、`limit`、递增 `offset` 和 12 个业务字段，并复用 `execute_bounded_pages(...)` 的限流、重试、空页终止、跨页重复和预算门禁。fetch 结果通过 Raw contract 校验后，才进入 P2 merge writer。
+
+真实验证固定使用临时 lake 和历史日期 `2022-01-04`：五个 phase 各返回 21 行、各 1 页，总请求 5 次、重试 0 次，最终文件 21 行，五个阶段均完成原子 promote。源端 `amount` 空值在 Tushare/Pandas 结果中表现为 `NaN`，P3 将其规范化为 Parquet `NULL`；真正的非数值和无穷值仍 fail-closed。验证报告保存于 `/private/tmp/index_global_p3_real_validation_p3-real-20260728204238.json`。
+
+P3 仍不调用 `dg`、不写正式 lake、Dagster DB 或 event；P4 在同一隔离边界内继续完成 Silver writer 和临时 Raw -> Silver 联调。
+
+### 5.3 P4 Silver writer 与临时湖联调记录
+
+P4 已在 `orchestrator/defs/assets/index_global_silver.py` 落地 Silver writer 核心，P5 再增加 active Silver asset wrapper。`write_silver_index_global_partition(...)` 只读取同日 Raw，先校验 Raw schema，再用 DuckDB set-based SQL 完成日期转换、代码规范化和 `change -> change_amount` 映射；`amount`、`vol` 等源站允许为空的值保持 `NULL`。身份代码、分区日期、有限数值和主键冲突均在写 staging 前 fail-closed；完全相同的重复键可去重，冲突重复键直接拒绝。
+
+P4 新增 `SILVER_INDEX_GLOBAL_SCHEMA`、Silver 目标路径和 `run_id/trade_date` staging 路径。空 Raw 也会输出固定 12 列 Silver schema 的空 Parquet。staging 回读会再次校验 schema、行数、分区日期、身份集合、唯一键和有限数值，全部通过后才 `os.replace`；任何异常都会清理 staging，已有 Silver 目标不被覆盖。
+
+定向测试 `tests/test_index_global_silver.py` 与 P2/P3 Raw 测试合计 28 项通过，覆盖正常转换、`change_amount`、空分区、重复键、冲突键、非法代码、日期越界、缺 Raw、目标保护和 staging 路径安全。真实临时联调复用 P3 的 `/private/tmp/index_global_p3_real_lake_p3-real-20260728204238`，日期 `2022-01-04` 的 Raw 21 行全部转换为 Silver 21 行，拒绝 0、去重 0、回读 21 行，耗时约 19ms，staging 残留 0；报告为 `/private/tmp/index_global_p4_real_validation_20260728204238.json`。
+
+P4 仍不调用 `dg`、不写正式 lake、Dagster DB 或 event；P5 已完成 active Raw/Silver asset、core check 和 job 的定义接入，但仍未启用 sensor、写正式湖或补录 event。
+
+### 5.4 P5 正式 Dagster definitions 接入记录
+
+P5 已将经过 P2/P3/P4 验证的 writer 接入 Dagster definitions：
+
+- `orchestrator/defs/assets/index_global_raw.py`：`raw_index_global` 使用 `cn_global_index_trade_days`，读取 typed `IndexGlobalRawConfig`，每次只处理一个自然日和一个 `probe_phase`，并把请求、分页、重试、合并和目标摘要写入 materialization metadata；不把完整返回行写入 metadata。
+- `orchestrator/defs/assets/index_global_silver.py`：`silver_index_global` 使用同一分区定义，声明依赖同日 `raw_index_global`，只调用既有 Silver writer，不在 asset 内访问 Tushare、Prod DB 或 Dagster event history。
+- `orchestrator/defs/checks/index_global_checks.py`：新增 `raw_index_global_core_check` 和 `silver_index_global_core_check`，均显式绑定 `cn_global_index_trade_days` 且 `blocking=True`。检查文件、固定 schema、分区日期、身份字段、业务键唯一性和有限数值；自然日空文件在这些规则通过时允许通过，不执行 21 个指数全覆盖或 row-count-positive 硬门禁。
+- `orchestrator/defs/jobs/index_global.py`：新增 `raw_index_global_update_job` 和 `silver_index_global_update_job`，均为单分区 job，只选择对应 asset 与 core check，不选择其它资产，不新增 sensor。
+
+P5 同步完成 `cn_global_index_trade_days`、两个 partition model、catalog、中文名、schema、路径、统一 contract 和治理映射登记。P5 定向测试与既有静态门禁共 `123 passed`、`72 subtests passed`；验证未运行 `dg`，未写正式 lake、Dagster 数据库或 Dagster event。下一阶段 P6 才处理自然日分区注册、五阶段 Raw sensor、late-empty 和 Silver final-phase 触发。
 
 ## 6. 核心检查设计
 
@@ -489,10 +548,10 @@ Raw 的 `americas` run 成功是 Silver 的唯一日常触发信号。它保证 
 
 ## 10. 实施顺序
 
-1. P1：Tushare `index_global` 请求和分页真实验证；
-2. P2：Raw contract、phase merge writer、staging 和原子替换；
-3. P3：临时湖 Raw 五阶段联调；
-4. P4：Silver writer 和 Silver contract；
+1. P1：Tushare `index_global` 请求和分页真实验证（已完成，报告见 3.3）；
+2. P2：Raw contract、phase merge writer、staging 和原子替换（已完成，见 P2 实现记录）；
+3. P3：临时湖 Raw 五阶段联调（已完成，见 P3 临时湖联调记录）；
+4. P4：Silver writer、Silver contract 和 Raw -> Silver 临时湖联调（已完成）；
 5. P5：正式 Raw/Silver asset、core check、job；
 6. P6：自然日注册和五阶段 Raw sensor；
 7. P7：phase replay、failed run retry 和 late-empty reprobe；

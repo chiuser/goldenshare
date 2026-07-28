@@ -254,6 +254,12 @@ SILVER_DC_BOARD_CHECKS = (
     "silver_dc_member_core_check",
     "silver_dc_daily_core_check",
 )
+INDEX_GLOBAL_RAW_CHECKS = (
+    "raw_index_global_core_check",
+)
+INDEX_GLOBAL_SILVER_CHECKS = (
+    "silver_index_global_core_check",
+)
 GOLD_STOCK_DAILY_QFQ_CHECKS = (
     "gold_stock_daily_qfq_contract_check",
 )
@@ -461,6 +467,18 @@ ASSET_CHECK_GOVERNANCE: dict[str, dict[str, AssetCheckGovernanceRule]] = {
         (SILVER_DC_BOARD_CHECKS[2],),
         category=MOVE_TO_SENSOR_LAKE_READINESS,
         phase="M6",
+        retention_allowed=True,
+    ),
+    "raw_index_global": _rules(
+        INDEX_GLOBAL_RAW_CHECKS,
+        category=MOVE_TO_SENSOR_LAKE_READINESS,
+        phase="INDEX_GLOBAL_P5",
+        retention_allowed=True,
+    ),
+    "silver_index_global": _rules(
+        INDEX_GLOBAL_SILVER_CHECKS,
+        category=MOVE_TO_SENSOR_LAKE_READINESS,
+        phase="INDEX_GLOBAL_P5",
         retention_allowed=True,
     ),
     "gold_stock_daily_qfq": _rules(

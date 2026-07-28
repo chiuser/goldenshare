@@ -346,6 +346,69 @@ def raw_index_daily_staging_path(
     )
 
 
+def _validate_staging_component(value: str, *, name: str) -> str:
+    if not value or value in {".", ".."} or "/" in value or "\\" in value:
+        raise ValueError(f"index_global {name} must be a safe non-empty path component")
+    return value
+
+
+def raw_index_global_path(root: Path, trade_date: str) -> Path:
+    return lake_path(
+        root,
+        RAW,
+        "index_global",
+        f"trade_date={trade_date}",
+        "part-000.parquet",
+    )
+
+
+def raw_index_global_staging_path(
+    root: Path,
+    run_id: str,
+    trade_date: str,
+    probe_phase: str,
+) -> Path:
+    safe_run_id = _validate_staging_component(run_id, name="run_id")
+    safe_phase = _validate_staging_component(probe_phase, name="probe_phase")
+    return lake_path(
+        root,
+        RAW,
+        "index_global",
+        "_staging",
+        f"run_id={safe_run_id}",
+        f"trade_date={trade_date}",
+        f"probe_phase={safe_phase}",
+        "part-000.parquet",
+    )
+
+
+def silver_index_global_path(root: Path, trade_date: str) -> Path:
+    return lake_path(
+        root,
+        SILVER,
+        "index_global",
+        f"trade_date={trade_date}",
+        "part-000.parquet",
+    )
+
+
+def silver_index_global_staging_path(
+    root: Path,
+    run_id: str,
+    trade_date: str,
+) -> Path:
+    safe_run_id = _validate_staging_component(run_id, name="run_id")
+    return lake_path(
+        root,
+        SILVER,
+        "index_global",
+        "_staging",
+        f"run_id={safe_run_id}",
+        f"trade_date={trade_date}",
+        "part-000.parquet",
+    )
+
+
 def silver_index_daily_path(root: Path, partition_key: str) -> Path:
     return lake_path(
         root,

@@ -4,6 +4,8 @@
 
 本文是 [`dagster-index-global-data-onboarding-plan.md`](./dagster-index-global-data-onboarding-plan.md) 的代码级设计。目标是把 Tushare `index_global` 接入 Dagster Lake，形成 Raw/Silver 两层、自然日分区、同日五阶段刷新和低开销自动触发链路。
 
+当前进度：P1 真实请求验证、P2 Raw contract/路径/phase merge/staging、P3 真实 bounded fetch 临时湖五阶段联调、P4 Silver writer/contract/临时 Raw -> Silver 联调和 P5 active Raw/Silver definitions 接入已完成；P6 及之后的 sensor、Bootstrap 和正式湖写入尚未开始。
+
 本 LLD 不实现 Gold 指标，也不在本阶段执行正式 Bootstrap、Dagster event 补录或 sensor 启用。
 
 硬边界：
@@ -46,20 +48,35 @@
 
 不复用：A 股指数 source readiness、A 股指数 code coverage readiness、Prod DB 读取、A 股连续性 selector。
 
+### 2.2.1 P2 已落地实现
+
+P2 的稳定 writer 核心位于 `orchestrator/defs/assets/index_global_raw.py`，P5 在同一模块外层增加了 active Dagster asset wrapper。`merge_index_global_phase(...)` 接收已经验证的单阶段行，不负责调用 Tushare；它通过 `DuckDBResource` 建立当前日期的 `existing_rows`/`phase_rows` 临时表，用 `merge_rank=0/1` 的 set-based 查询选择最终行，再把固定列集合写入唯一 staging 路径。staging 通过 schema、分区日期、身份集合、业务主键、有限数值和行数回读校验后才 `os.replace`。
+
+P2 的本地验证覆盖 11 项 Raw contract/临时湖测试；另运行 99 项静态与既有 dc_board 相关回归测试。P2 没有调用 `dg`、Tushare、正式 lake 或 Dagster instance。P3 已在此 writer 之上接入 bounded fetcher，并完成临时 lake 五阶段顺序、分页结果和真实字段映射验证。
+
+### 2.2.2 P3 已落地实现
+
+P3 在同一稳定 Raw writer 模块中增加 `fetch_index_global_phase(...)` 和
+`run_index_global_phase_sequence(...)`。fetcher 显式构造 `trade_date`、`limit`、`offset`、`fields`，复用 `execute_bounded_pages(...)`；分页结果先检查列集合，再检查日期、固定身份代码和业务主键，只有 ready 结果才进入 `merge_index_global_phase(...)`。五阶段入口按 `asia_1 -> asia_2 -> asia_3 -> europe -> americas` 串行执行，不并发放大 Tushare 请求。
+
+真实临时湖样本使用 `2022-01-04`：五个 phase 各 21 行、各 1 页，总请求 5 次、重试 0 次，最终 Raw 21 行，全部 staging 原子 promote。真实报告为 `/private/tmp/index_global_p3_real_validation_p3-real-20260728204238.json`。验证还确认 Tushare/Pandas 空数值会以 `NaN` 进入 Python，P3 将其转换为 Parquet `NULL`；非数值和无穷值仍拒绝。P3 总计通过 105 项定向/静态测试，未调用 `dg`，未写正式 lake、Dagster DB 或 event。
+
+P3/P4 只完成 writer 和临时湖联调；P5 已接入 active Raw/Silver asset、core check 和 job，但尚未启用 sensor、Bootstrap 或正式湖写入。P4 的 Silver writer 核心仍由 P5 的 active Silver asset wrapper 调用。
+
 ### 2.3 数据卡和代码登记落点
 
-本 LLD 的正式名称固定为“国际指数日线”，稳定 `dataset_id=index_global`。当前代码尚无以下任何实现，必须按顺序补齐：
+本 LLD 的正式名称固定为“国际指数日线”，稳定 `dataset_id=index_global`。P2 已完成 Raw schema、统一 contract、路径 helper 和 writer 核心；P5 已补齐以下 active definition、catalog 和治理登记：
 
 | 目标 | 代码落点 |
 | --- | --- |
 | 中文名称 | `orchestrator/defs/catalog/name_mapping.py` 增加 `index_global` |
-| 路径 | `orchestrator/defs/paths.py` 增加 `raw_index_global_path`、`silver_index_global_path` |
-| schema | `orchestrator/defs/run_contracts/asset_column_schemas.py` 增加 Raw/Silver schema |
-| 统一合同 | `orchestrator/defs/run_contracts/index_global.py` 集中定义代码集合、phase、typed config、预算和 metadata 口径 |
+| 路径 | P2 已增加 `raw_index_global_path`、Raw staging helper；P4 已增加 `silver_index_global_path`、Silver staging helper |
+| schema | P2 已增加 `RAW_INDEX_GLOBAL_SCHEMA`；P4 已增加 `SILVER_INDEX_GLOBAL_SCHEMA` |
+| 统一合同 | P2 已增加 `orchestrator/defs/run_contracts/index_global.py` 的字段、代码集合、phase 和校验合同；P5 已补齐 typed config、请求预算和 materialization metadata 摘要，P6-P7 继续补齐 sensor/repair 侧合同 |
 | partition | `orchestrator/defs/partitions.py` 增加唯一 `cn_global_index_trade_days` |
 | Catalog | `orchestrator/defs/catalog/lake_assets.py` 增加两个 `PartitionModel`、两个 `PartitionModelDefinition` 和两个 `LakeAssetCatalogEntry` |
 | governance | `tests/test_asset_check_incremental_governance.py` 增加两个 core check 的治理映射 |
-| asset/check/job/sensor | 分别放在 `orchestrator/defs/assets/`、`checks/`、`jobs/`、`sensors/`，由 `orchestrator/definitions.py` 的 `load_from_defs_folder` 自动装配 |
+| asset/check/job/sensor | P5 已分别落在 `orchestrator/defs/assets/`、`checks/`、`jobs/`；P6-P7 再增加 `sensors/`，均由 `orchestrator/definitions.py` 的 `load_from_defs_folder` 自动装配 |
 
 Catalog 事实必须与 definition metadata、tags、schema、path、partition model、blocking checks、write/event/performance policy 一致。不存在“先写 asset，后补 catalog”的阶段。
 
@@ -85,6 +102,18 @@ Catalog 事实必须与 definition metadata、tags、schema、path、partition m
 5. phase merge 临时 rank 固定为既有行 `0`、当前阶段行 `1`，不写入 Parquet，不引入 `probe_sequence`。
 6. late-empty 使用独立、默认 `STOPPED` 的 sensor，最近 3 日、每日期最多 2 次，超限转离线审计。
 7. 配置集中在 `run_contracts/index_global.py`，Bootstrap 采用最多 20 日串行批次，并在执行前后记录请求、页数、重试、行数、耗时、磁盘和内存预算。
+
+### 2.5 P5 正式 Definitions 接入记录
+
+P5 的实现边界是把已经通过 P2/P3/P4 验证的 Raw/Silver writer 接入可加载的 Dagster definitions，不改变 writer 的数据语义：
+
+1. `raw_index_global` 和 `silver_index_global` 均使用 `cn_global_index_trade_days`，同一自然日是两层的唯一 partition unit。Raw asset 通过 `IndexGlobalRawConfig` 接收 `trade_date`、`probe_phase`、`slot_key`、`attempt` 和 `late_empty_attempt`，并在进入 writer 前校验 partition/config 一致性。
+2. `raw_index_global` 每次只运行一个自然日的一个探测阶段；`silver_index_global` 声明同日 Raw 依赖并调用现有 DuckDB Silver writer。两个 asset 只返回小型 materialization metadata，不写完整代码列表、逐行结果或 event history。
+3. `raw_index_global_core_check`、`silver_index_global_core_check` 都显式绑定 `cn_global_index_trade_days` 且 `blocking=True`。它们执行文件存在、schema、分区日期、身份字段、业务键唯一和有限数值规则；自然日空文件只要上述规则通过就可以通过，不把 21 指数覆盖或 row count positive 误设为核心硬门禁。
+4. `raw_index_global_update_job`、`silver_index_global_update_job` 均为单分区 job，只选择对应 asset 与 core check，禁止多分区聚合 check，未新增 sensor。
+5. P5 同步完成 `PartitionModel`、catalog、中文名、schema、路径、统一 contract 和治理映射。定向回归结果为 `123 passed`、`72 subtests passed`；没有运行 `dg`，没有写正式 lake、Dagster DB 或 Dagster event。
+
+P6 仍必须单独完成自然日分区注册、五阶段 Raw sensor、late-empty sensor、Silver final-phase sensor 和默认 STOPPED 状态验收；不能因为 P5 definitions 已加载就自动启用日常同步。
 
 ## 3. 数据合同
 
@@ -274,6 +303,21 @@ late_empty_attempt: int     # 普通 phase 为 0，late-empty 为 1/2
 本轮不新增环境变量和运营输入项。修改这些常量必须同时更新方案、测试基线和性能报告；token 仍由 `TushareResource` 的 `dg.EnvVar("TUSHARE_TOKEN")` 提供。
 
 ## 5. Tushare 请求封装
+
+### 5.0 P1 实测基线
+
+P1 已完成真实只读验证，报告为：
+`/private/tmp/index_global_p1_tushare_validation_20260728.json`。
+
+实测固定为以下事实：
+
+- `20220101` 返回空结果，`20220103` 返回 16 行，`20220104` 返回 21 行；2022-01-04 的返回代码集合与 21 个固定代码完全一致；
+- 默认字段没有 `amount`，显式请求业务字段集合后可以返回 `amount`，但不同指数的 `amount` 允许 NULL；
+- 点查按日期返回当前已发布结果，日期区间为闭区间；
+- 不传日期或只传 `ts_code` 会返回最多 4000 行宽历史结果，正式每日同步不能采用这种请求形态；
+- MCP wrapper 没有 `limit/offset` 参数，因此分页用同一 Tushare HTTP API 进行了最小只读验证：offset 递增得到不重叠页，空页可作为终止条件。
+
+因此 P2 的实现门禁已经明确：日常请求必须显式传 `trade_date`、12 个业务字段、`limit` 和递增 `offset`，并通过现有 bounded request policy 统一处理空页、重复页、字段漂移、重试和请求预算。P1 只记录请求样本和耗时，不代表 P2 writer 的生产 SLO 已通过。
 
 ### 5.1 字段合同
 
@@ -668,8 +712,8 @@ Silver 只读取同日期 Raw：
 
 ```sql
 SELECT
-  CAST(trim(ts_code) AS VARCHAR) AS ts_code,
-  CAST(strptime(trade_date, '%Y%m%d') AS DATE) AS trade_date,
+  upper(trim(CAST(ts_code AS VARCHAR))) AS ts_code,
+  CAST(try_strptime(NULLIF(trim(CAST(trade_date AS VARCHAR)), ''), '%Y%m%d') AS DATE) AS trade_date,
   CAST(open AS DOUBLE) AS open,
   CAST(high AS DOUBLE) AS high,
   CAST(low AS DOUBLE) AS low,
@@ -681,10 +725,20 @@ SELECT
   CAST(vol AS DOUBLE) AS vol,
   CAST(amount AS DOUBLE) AS amount
 FROM read_parquet(...)
-WHERE trade_date = :partition_trade_date
 ```
 
-Silver 允许空 Raw 生成空 Silver，但必须保留固定 schema 和分区文件。
+实现文件为 `orchestrator/defs/assets/index_global_silver.py`，P4 提供 writer 核心，P5 在同一模块外层增加 active Dagster asset wrapper。writer 在 DuckDB 中先检查 Raw 合同，再执行上面的 set-based normalization；不会用 `WHERE` 静默丢弃日期错误，而是把非法日期和分区外日期归类为拒绝并 fail-closed。业务键 `(ts_code, trade_date)` 的完全相同重复行可去重，值冲突直接失败。
+
+Silver 允许空 Raw 生成空 Silver，但必须保留固定 schema 和分区文件。staging 回读仍需通过 Silver schema、日期/身份、唯一键、有限数值和行数检查，全部通过后才原子替换目标文件；失败路径不会覆盖已有目标。
+
+P4 新增：
+
+- `SILVER_INDEX_GLOBAL_SCHEMA`：固定 Silver 12 列，`trade_date` 为 `DATE`，`change` 标准化为 `change_amount`；
+- `silver_index_global_path(...)`：`silver/index_global/trade_date={trade_date}/part-000.parquet`；
+- `silver_index_global_staging_path(...)`：按 `run_id/trade_date` 隔离 staging；
+- `IndexGlobalSilverWriteResult`：记录源行数、输出行数、去重数、拒绝原因、耗时和 promote 结果。
+
+P4 定向测试和 P2/P3 Raw 回归共 28 项通过；真实临时 Raw -> Silver 联调报告为 `/private/tmp/index_global_p4_real_validation_20260728204238.json`，21 行 Raw 转换为 21 行 Silver，schema、回读行数和 staging 清理均通过。P5 的 active Silver asset 只调用此 writer，不改变其清洗和原子替换语义。
 
 ### 8.2 Silver Core Check
 
@@ -885,11 +939,11 @@ Bootstrap 不使用 Dagster event history，不运行 `dg launch`，不写正式
 
 ## 13. 实施顺序与验收
 
-1. 请求字段、分页和 bounded policy 真实验证；
+1. 请求字段、分页和 bounded policy 真实验证（已完成，证据见 5.0）；
 2. Raw schema 和 phase merge writer；
 3. Raw 临时湖五阶段联调；
-4. Silver writer 和空分区处理；
-5. Raw/Silver definitions、core checks、jobs；
+4. Silver writer 和空分区处理（已完成，P4）；
+5. Raw/Silver definitions、core checks、jobs（已完成，P5）；
 6. 自然日注册 sensor；
 7. Raw 五阶段 sensor；
 8. failed run retry sensor 和 late-empty reprobe；
