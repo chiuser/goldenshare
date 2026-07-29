@@ -13,6 +13,7 @@ from orchestrator.defs.jobs.index_global import (
 )
 from orchestrator.defs.partitions import cn_global_index_trade_days
 from orchestrator.defs.paths import silver_index_global_path
+from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.index_global import (
     build_index_global_silver_run_config,
     parse_index_global_raw_run_config,
@@ -34,6 +35,9 @@ def _skip(code: str, detail: str) -> dg.SkipReason:
 
 def evaluate_silver_index_global_sensor(
     context: dg.RunStatusSensorContext,
+    *,
+    lake_root: LakeRootResource | None = None,
+    duckdb: DuckDBResource | None = None,
 ) -> dg.RunRequest | dg.SkipReason:
     dagster_run = context.dagster_run
     run_config = getattr(dagster_run, "run_config", None)
@@ -54,10 +58,10 @@ def evaluate_silver_index_global_sensor(
     if trade_date not in registered:
         return _skip("partition_not_registered", trade_date)
 
-    lake_root = context.resources.lake_root
-    lake_root.ensure_available_for_run()
-    path = silver_index_global_path(lake_root.root(), trade_date)
-    duckdb_resource = context.resources.duckdb
+    lake_root_resource = lake_root or context.resources.lake_root
+    lake_root_resource.ensure_available_for_run()
+    path = silver_index_global_path(lake_root_resource.root(), trade_date)
+    duckdb_resource = duckdb or context.resources.duckdb
     with duckdb_resource.connect() as connection:
         status = silver_index_global_file_status(
             connection,
@@ -94,8 +98,14 @@ def evaluate_silver_index_global_sensor(
 )
 def silver_index_global_update_job_sensor(
     context: dg.RunStatusSensorContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
 ) -> dg.RunRequest | dg.SkipReason:
-    return evaluate_silver_index_global_sensor(context)
+    return evaluate_silver_index_global_sensor(
+        context,
+        lake_root=lake_root,
+        duckdb=duckdb,
+    )
 
 
 __all__ = ["evaluate_silver_index_global_sensor", "silver_index_global_update_job_sensor"]

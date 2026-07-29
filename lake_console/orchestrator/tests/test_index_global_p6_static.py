@@ -1,5 +1,9 @@
 from pathlib import Path
 
+from orchestrator.defs.sensors.silver_index_global_sensor import (
+    silver_index_global_update_job_sensor,
+)
+
 
 DEFS = Path("src/orchestrator/defs")
 
@@ -50,3 +54,10 @@ def test_silver_sensor_invalid_existing_file_is_fail_closed():
     source = (DEFS / "sensors" / "silver_index_global_sensor.py").read_text()
     assert "silver_existing_check_failed" in source
     assert "silver_index_global_file_status" in source
+
+
+def test_silver_sensor_declares_resources_used_by_its_evaluator():
+    assert silver_index_global_update_job_sensor.required_resource_keys == {
+        "lake_root",
+        "duckdb",
+    }
