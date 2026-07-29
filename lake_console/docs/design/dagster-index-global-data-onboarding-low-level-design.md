@@ -4,9 +4,9 @@
 
 本文是 [`dagster-index-global-data-onboarding-plan.md`](./dagster-index-global-data-onboarding-plan.md) 的代码级设计。目标是把 Tushare `index_global` 接入 Dagster Lake，形成 Raw/Silver 两层、自然日分区、同日五阶段刷新和低开销自动触发链路。
 
-当前进度：P1 真实请求验证、P2 Raw contract/路径/phase merge/staging、P3 真实 bounded fetch 临时湖五阶段联调、P4 Silver writer/contract/临时 Raw -> Silver 联调、P5 active Raw/Silver definitions 接入、P6 专属自然日注册/五阶段 Raw sensor/Silver final-phase 触发、P7A Bootstrap 只读目标审计、P7B 全量源请求审计、正式 Raw/Silver 生成和全量文件对账均已完成；P8 Dagster event 验收仍未开始。
+当前进度：P1 真实请求验证、P2 Raw contract/路径/phase merge/staging、P3 真实 bounded fetch 临时湖五阶段联调、P4 Silver writer/contract/临时 Raw -> Silver 联调、P5 active Raw/Silver definitions 接入、P6 专属自然日注册/五阶段 Raw sensor/Silver final-phase 触发、P7A Bootstrap 只读目标审计、P7B 全量源请求审计、正式 Raw/Silver 生成和全量文件对账、P8 Dagster 分区注册和事件验收均已完成；P9 sensor 运行观察尚未开始。
 
-本 LLD 不实现 Gold 指标；正式 Raw/Silver Bootstrap 已由独立 apply CLI 按本 LLD 门禁完成，Dagster event 补录和 sensor 启用仍属于后续阶段；P6 sensor 保持默认停止。
+本 LLD 不实现 Gold 指标；正式 Raw/Silver Bootstrap 已由独立 apply CLI 按本 LLD 门禁完成，P8 已由独立事件 CLI 完成动态分区和 runless event 补录；P6/P9 sensor 仍保持默认停止，P9 仅负责后续人工启用与运行观察。
 
 硬边界：
 
@@ -1056,7 +1056,83 @@ apply 期间共执行 8,350 次请求、8,350 页、0 次重试；请求阶段�
 - 单阶段异常不覆盖已有目标；
 - 后阶段 merge 不丢前阶段数据。
 
-## 13. 实施顺序与验收
+## 13. P8 Dagster 事件补录实现与验收
+
+### 13.1 入口与硬边界
+
+P8 的实现位于：
+
+- `orchestrator/defs/bootstrap/index_global_bootstrap_events.py`：冻结计划、分区注册、runless materialization/check 写入和幂等报告；
+- `orchestrator/defs/bootstrap/index_global_bootstrap_events_cli.py`：`dry-run`、`register-partitions`、`apply` 三个显式命令；
+- `tests/test_index_global_bootstrap_events.py`：分区注册、事件计划、最近 20 日范围和确认门禁测试。
+
+命令边界固定如下：
+
+| 命令 | 允许写入 | 禁止动作 |
+| --- | --- | --- |
+| `dry-run` | `/private/tmp` JSON 报告 | Dagster DB、lake、event、dynamic partition |
+| `register-partitions --confirm-partition-write` | 指定 dynamic partition set | materialization、check、job、sensor、lake |
+| `apply --confirm-event-write` | runless materialization/check event | dynamic partition、job、sensor、lake |
+
+CLI 不提供隐式 apply；两个确认参数互斥。事件入口不调用 `dg`，不访问 Tushare、Prod DB 或 sensor 热路径。
+
+### 13.2 冻结日期与事件范围
+
+P8 只接受 P7 final reconciliation 报告中的完整 date plan，并校验：
+
+- fingerprint=`1e4868df643ab6b35f0b76405a823bda240386dab78c7f8d274dacb7a5579492`；
+- expected natural dates 数量为 1,670，范围为 `2022-01-01..2026-07-28`；
+- Raw/Silver audit 各自 `expected_file_count=1670`、`missing_count=0`、`invalid_existing_count=0`、`valid_existing_count=1670`；
+- 目标 Parquet 通过一次 DuckDB 批量行数读取，Python 只构造有限 metadata 摘要，不逐文件调用 Dagster API。
+
+事件数量按以下固定矩阵计算：
+
+| 事件 | 范围 | 数量 |
+| --- | --- | ---: |
+| `raw_index_global` materialization | 全部 1,670 个自然日 | 1,670 |
+| `silver_index_global` materialization | 全部 1,670 个自然日 | 1,670 |
+| `raw_index_global_core_check` | 最近 20 个自然日 `2026-07-09..2026-07-28` | 20 |
+| `silver_index_global_core_check` | 最近 20 个自然日 `2026-07-09..2026-07-28` | 20 |
+
+空自然日仍生成 materialization；由于 `index_global` 允许自然日合法空文件，最近 20 日 check 对空文件也按 core contract 通过处理。历史日期不补 check event，避免把事件数量扩大到无必要的全历史检查矩阵。
+
+### 13.3 写入顺序与 partition 归属
+
+materialization 使用 `instance.report_runless_asset_event(dg.AssetMaterialization(...))`，每条事件显式设置 `asset_key` 和 `partition=trade_date`。所有 3,340 条 materialization 完成后，check writer 才执行。
+
+每个最近日期的 check 写入前，通过有界 `fetch_materializations(asset_key, asset_partitions=[trade_date], limit=1)` 读取刚写入的 materialization，构造 `AssetCheckEvaluationTargetMaterializationData`，再写入：
+
+- `check_name` 保持现有 core check 名称；
+- `partition=trade_date`；
+- `blocking=True`、`passed=True`；
+- `target_materialization_data` 指向同资产、同分区的 materialization storage id；
+- metadata 使用 `build_check_metadata(CheckScope.RECONCILIATION, ...)`，保留报告路径、分区、行数和 fingerprint。
+
+因此不会产生“check 成功但 partition 为空”或“check 指向其它日期 materialization”的历史归属错误。P8 不新增 check，不拆分字段级 check，不写 phase 级历史 event。
+
+### 13.4 实际验收
+
+实际报告：
+
+- `/private/tmp/index_global_p8_partition_registration_20260729.json`；
+- `/private/tmp/index_global_p8_pre_event_dry_run_20260729.json`；
+- `/private/tmp/index_global_p8_event_apply_20260729.json`；
+- `/private/tmp/index_global_p8_post_event_dry_run_20260729.json`。
+
+结果：分区注册 1,670；事件写入 `3,340 + 40 = 3,380`，跳过 0；串行写入及扫描约 35.1 秒。SQL 只读验收确认 Raw/Silver materialization 各 1,670 条、分区非空；两类 core check 各 20 条，全部有 partition、target materialization 存在且 target partition 一致；20 日窗口外没有本轮 check event。post dry-run 的四类 planned count 全部为 0。
+
+### 13.5 中断恢复
+
+P8 event apply 不依赖事务回滚。中断后只能重新执行 P8 dry-run：
+
+1. 已存在且可读的 materialization 按分区跳过；
+2. 最近 20 日已通过且有 target 的 check 跳过；
+3. 只继续补剩余缺口；
+4. 任意湖文件、日期计划或分区注册校验失败时 fail-closed。
+
+不允许直接 SQL 插入 `event_logs` / `asset_check_executions`，也不允许通过运行 normal asset/job 代替事件补录。P9 sensor 仍需单独启用和观察。
+
+## 14. 实施顺序与验收
 
 1. 请求字段、分页和 bounded policy 真实验证（已完成，证据见 5.0）；
 2. Raw schema 和 phase merge writer；
@@ -1067,8 +1143,8 @@ apply 期间共执行 8,350 次请求、8,350 页、0 次重试；请求阶段�
 7. Bootstrap dry-run（已完成）；
 8. P7B 全量 Tushare 源请求 dry-run 和性能/配额对账（已完成，报告见 10.2）；
 9. 经单独批准后正式 Raw/Silver 生成和对账（已完成，报告见 10.3）；
-10. Dagster event 验收；
-11. 手动启用 sensors 并观察三个实际运行日。
+10. Dagster event 验收（已完成：P8）；
+11. 手动启用 sensors 并观察三个实际运行日（未开始）。
 
 进入正式写入前必须同时满足：
 
@@ -1079,9 +1155,9 @@ apply 期间共执行 8,350 次请求、8,350 页、0 次重试；请求阶段�
 - sensor 热路径无网络和 event history 调用；
 - 性能数据在预算内；
 - 无未解释的字段、行数或覆盖冲突；
-- Dagster event 补录和 sensor 启用仍需后续单独批准。
+- Dagster event 补录已由 P8 完成；后续只需按单独批准的 P9 口径启用 sensor 并观察实际运行。
 
-## 14. 实现前置验收命令
+## 15. 实现前置验收命令
 
 代码实现阶段至少补充并执行：
 
