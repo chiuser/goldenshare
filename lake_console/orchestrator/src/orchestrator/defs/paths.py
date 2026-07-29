@@ -4,6 +4,10 @@ from orchestrator.defs.run_contracts.stk_mins import (
     normalize_stk_mins_freq,
     normalize_stk_mins_qfq_freq,
 )
+from orchestrator.defs.run_contracts.index_mins import (
+    normalize_index_mins_silver_freq,
+    normalize_index_mins_source_freq,
+)
 
 DEFAULT_LAKE_ROOT = "/Volumes/datasource/data_lake"
 PATH_TEMPLATE_LAKE_ROOT = Path("data_lake")
@@ -341,6 +345,30 @@ def raw_index_daily_staging_path(
         "index_daily",
         "_staging",
         f"run_id={run_id}",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
+def raw_index_mins_path(root: Path, source_freq: str, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        RAW,
+        "tushare",
+        "index_mins",
+        f"freq={normalize_index_mins_source_freq(source_freq)}",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
+def silver_index_mins_path(root: Path, freq: int | str, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        SILVER,
+        "quote",
+        "index_mins",
+        f"freq={normalize_index_mins_silver_freq(freq)}",
         f"trade_date={partition_key}",
         "part-000.parquet",
     )

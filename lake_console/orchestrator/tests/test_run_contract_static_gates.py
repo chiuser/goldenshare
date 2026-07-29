@@ -4965,6 +4965,29 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_index_mins_p4_keeps_writer_definition_and_check_boundaries(self) -> None:
+        pure_writer_sources = (
+            (ASSETS_DIR / "index_mins.py").read_text(),
+            (ASSETS_DIR / "index_mins_silver.py").read_text(),
+        )
+        active_asset_source = (
+            (ASSETS_DIR / "index_mins_raw.py").read_text()
+            + (ASSETS_DIR / "index_mins_silver_defs.py").read_text()
+        )
+        check_source = (CHECKS_DIR / "index_mins_checks.py").read_text()
+        job_source = (JOBS_DIR / "index_mins.py").read_text()
+
+        for source in pure_writer_sources:
+            self.assertNotIn("@dg.asset", source)
+            self.assertNotIn("@dg.asset_check", source)
+        self.assertIn("@dg.asset(", active_asset_source)
+        self.assertIn("partitions_def=cn_a_index_mins_trade_days", active_asset_source)
+        self.assertIn("partitions_def=cn_a_index_mins_trade_days", check_source)
+        self.assertIn("blocking=True", check_source)
+        self.assertNotIn("get_event_records", check_source)
+        self.assertNotIn("get_event_records", job_source)
+        self.assertIn("AssetSelection.checks_for_assets", job_source)
+
     def test_asset_check_incremental_governance_matrix_exists(self) -> None:
         path = Path("tests/test_asset_check_incremental_governance.py")
         source = path.read_text()

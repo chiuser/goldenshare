@@ -26,6 +26,7 @@ from orchestrator.defs.paths import (
     raw_index_basic_path,
     raw_index_daily_path,
     raw_index_global_path,
+    raw_index_mins_path,
     raw_namechange_path,
     raw_stock_basic_path,
     raw_stock_daily_path,
@@ -40,6 +41,7 @@ from orchestrator.defs.paths import (
     silver_index_basic_path,
     silver_index_daily_path,
     silver_index_global_path,
+    silver_index_mins_path,
     silver_namechange_path,
     silver_stk_mins_path,
     silver_stock_basic_path,
@@ -68,6 +70,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_STK_MINS_SCHEMA,
     RAW_INDEX_DAILY_SCHEMA,
     RAW_INDEX_GLOBAL_SCHEMA,
+    RAW_INDEX_MINS_SCHEMA,
     RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     RAW_TUSHARE_NAMECHANGE_SCHEMA,
@@ -83,6 +86,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_INDEX_BASIC_SCHEMA,
     SILVER_INDEX_DAILY_SCHEMA,
     SILVER_INDEX_GLOBAL_SCHEMA,
+    SILVER_INDEX_MINS_SCHEMA,
     SILVER_NAMECHANGE_SCHEMA,
     SILVER_STK_MINS_SCHEMA,
     SILVER_STOCK_BASIC_SCHEMA,
@@ -194,6 +198,8 @@ class PartitionModel(str, Enum):
     )
     TRADE_DATE_PARTITION_RAW_INDEX_GLOBAL = "trade_date_partition_raw_index_global"
     TRADE_DATE_PARTITION_SILVER_INDEX_GLOBAL = "trade_date_partition_silver_index_global"
+    TRADE_DATE_PARTITION_RAW_INDEX_MINS = "trade_date_partition_raw_index_mins"
+    TRADE_DATE_PARTITION_SILVER_INDEX_MINS = "trade_date_partition_silver_index_mins"
     TRADE_DATE_PARTITION_RAW_DC_INDEX = "trade_date_partition_raw_dc_index"
     TRADE_DATE_PARTITION_RAW_DC_MEMBER = "trade_date_partition_raw_dc_member"
     TRADE_DATE_PARTITION_RAW_DC_DAILY = "trade_date_partition_raw_dc_daily"
@@ -706,6 +712,24 @@ PARTITION_MODEL_DEFINITIONS = (
         "trade_date",
         PartitionPhysicalLayout.PARTITION_FILE,
         notes="自然日分区；Silver 与 Raw 同日对齐，允许空分区。",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_RAW_INDEX_MINS,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.RAW,
+        "index_mins",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="指数分钟线五个源频率共用专属交易日分区。",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_SILVER_INDEX_MINS,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.SILVER,
+        "index_mins",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="指数分钟线 Silver 原生及派生频率共用专属交易日分区。",
     ),
     _model(
         PartitionModel.TRADE_DATE_PARTITION_RAW_DC_INDEX,
@@ -1669,6 +1693,74 @@ LAKE_ASSET_CATALOG += (
             "Reads only same-date Raw; empty natural-day Raw/Silver partitions "
             "are valid when the source published no rows."
         ),
+    ),
+    *tuple(
+        _entry(
+            asset_key=f"raw_index_mins_{freq}m",
+            dataset_id="index_mins",
+            layer=AssetLayer.RAW,
+            data_domain=DataDomain.QUOTE_DATA,
+            group_name="index",
+            source_system=SourceSystem.PROD_CORE_DB,
+            data_contract="prod_core_index_mins_by_frequency_trade_date",
+            data_contract_source=DataContractSource.PROD_SERVING_CONTRACT,
+            column_schema=RAW_INDEX_MINS_SCHEMA,
+            path_template=lake_path_template(
+                raw_index_mins_path(
+                    PATH_TEMPLATE_LAKE_ROOT,
+                    f"{freq}min",
+                    PATH_TEMPLATE_PARTITION_KEY,
+                )
+            ),
+            partition_model=PartitionModel.TRADE_DATE_PARTITION_RAW_INDEX_MINS,
+            source_api=None,
+            source_doc="docs/sources/tushare/指数专题/0419_股票历史分钟行情.md",
+            ingestion_sources=(IngestionSource.PROD_DB_READONLY,),
+            default_daily_ingestion_source=IngestionSource.PROD_DB_READONLY,
+            bootstrap_sources=(IngestionSource.PROD_DB_READONLY,),
+            blocking_check_names=(f"raw_index_mins_{freq}m_core_check",),
+            write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+            event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+            performance_contract=_perf(
+                batch_grain="freq/trade_date",
+                compute_engine=ComputeEngine.DUCKDB_SQL,
+                source_request_policy="prod_db_one_readonly_range_query_per_frequency",
+                notes=(
+                    "One read-only Prod range query per frequency; active pool "
+                    "exact-code validation occurs before staging promotion."
+                ),
+            ),
+        )
+        for freq in (1, 5, 15, 30, 60)
+    ),
+    *tuple(
+        _derived_entry(
+            asset_key=f"silver_index_mins_{freq}m",
+            dataset_id="index_mins",
+            layer=AssetLayer.SILVER,
+            data_domain=DataDomain.QUOTE_DATA,
+            group_name="index",
+            data_contract="standardized_index_minute_bars",
+            column_schema=SILVER_INDEX_MINS_SCHEMA,
+            path_template=lake_path_template(
+                silver_index_mins_path(
+                    PATH_TEMPLATE_LAKE_ROOT,
+                    f"{freq}min",
+                    PATH_TEMPLATE_PARTITION_KEY,
+                )
+            ),
+            partition_model=PartitionModel.TRADE_DATE_PARTITION_SILVER_INDEX_MINS,
+            blocking_check_names=(f"silver_index_mins_{freq}m_core_check",),
+            batch_grain="freq/trade_date",
+            write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+            event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+            bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+            notes=(
+                "Native frequencies preserve source vwap; derived 90m/120m "
+                "use fixed complete windows and write vwap as NULL."
+            ),
+        )
+        for freq in (1, 5, 15, 30, 60, 90, 120)
     ),
     _tushare_raw_entry(
         asset_key="raw_tushare_dc_index",

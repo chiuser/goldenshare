@@ -18,6 +18,9 @@ cn_a_stock_mins_silver_trade_days = dg.DynamicPartitionsDefinition(
 )
 cn_a_index_trade_days = dg.DynamicPartitionsDefinition(name="cn_a_index_trade_days")
 cn_a_index_ts_codes = dg.DynamicPartitionsDefinition(name="cn_a_index_ts_codes")
+cn_a_index_mins_trade_days = dg.DynamicPartitionsDefinition(
+    name="cn_a_index_mins_trade_days"
+)
 
 # Dedicated board-data partition sets.  They intentionally do not reuse the
 # broader index partition set: the three source domains have different

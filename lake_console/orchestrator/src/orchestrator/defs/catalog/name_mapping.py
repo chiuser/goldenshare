@@ -22,6 +22,7 @@ DATASET_CHINESE_NAMES = MappingProxyType(
         "suspend_d": "每日停复牌信息",
         "index_basic": "指数基本信息",
         "index_daily": "指数日线行情",
+        "index_mins": "指数历史分钟行情",
         "index_global": "国际指数日线",
         "dc_index": "东方财富板块分类",
         "dc_member": "东方财富板块成分",
