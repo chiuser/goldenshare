@@ -1,7 +1,7 @@
 # 指数分钟线 `index_mins` Dagster 数据集接入方案
 
 更新时间：2026-07-29
-状态：P0 方案/LLD、P1、P2、P3、P4 已完成；尚未进入 P5
+状态：P0 方案/LLD、P1、P2、P3、P4、P5 已完成；下一步进入 P6
 适用范围：`lake_console/orchestrator` 正式 Dagster 数据湖
 
 ## 1. 目标与冻结结论
@@ -353,9 +353,21 @@ P4 已完成，实际定义边界为：
 - `assets/index_mins_raw.py` 提供五个 Prod-backed Raw asset；`assets/index_mins_silver_defs.py` 提供五个原生和两个派生 Silver asset。
 - `checks/index_mins_checks.py` 提供 12 个显式绑定 `cn_a_index_mins_trade_days` 的 blocking check。
 - `jobs/index_mins.py` 提供 Raw/Silver 两个单分区 job，只做 asset 与 check selection。
-- `catalog/lake_assets.py` 与治理矩阵已登记 12 个 asset/check 对；P5 sensor 尚未接入，因此治理规则的 `participates_in_sensor_readiness` 暂为 false。
+- `catalog/lake_assets.py` 与治理矩阵已登记 12 个 asset/check 对；P5 使用独立的 batch lake readiness helper，不复用 shared `AssetReadinessSpec` 注册表，因此治理规则的 `participates_in_sensor_readiness` 保持 false，避免同一语义被两套 readiness 机制重复声明。
 
 P4 只完成定义和本地/临时湖验证，不启用 sensor、不执行正式 job、不写正式 Lake 或 Dagster event。
+
+### P5 实现映射与验收
+
+P5 已完成，仍未启用 sensor、未执行正式 job、未写正式 Lake、Dagster DB 或 event：
+
+- `asset_guards/index_mins_lake_readiness.py` 提供 Raw/Silver 两个 batch readiness。输入由 sensor 复用同一个 DuckDB connection，窗口最多 10 个 expected trade dates；Raw 最多扫描 50 个频率文件，Silver 在目标和源均存在时最多扫描 140 个文件，不读取 Dagster event history。
+- `sensors/index_mins_partition_sensor.py` 只从 `silver_trade_calendar` 注册 `cn_a_index_mins_trade_days`，使用 `2025-01-02` 起点，支持停机 catch-up，不探测 Prod 明细。
+- `sensors/index_mins_sensor.py` 提供 Raw/Silver 两个默认 `STOPPED` sensor。Raw 只有在首个 lake 缺口确认后才读取 Prod active pool 和五个聚合 source probe；Silver 先确认 Raw frontier，不访问 Prod。
+- 两个更新 sensor 每 tick 最多提交一个单分区 RunRequest，使用统一 run key、tags、`build_sensor_cursor` 和 ASCII `reason_code`；cursor 测试小于 8 KB，sensor 测试确认不调用 `get_event_records`。
+- 现有 12 个 blocking check 仍只负责当前分区文件核心质量；sensor 热路径由 P5 batch readiness 负责连续性选择，不新增高基数 check。
+
+P5 本地验证通过：readiness、sensor、definition、check、治理和静态门禁全量回归为 141 passed、84 subtests passed；未启动 `dg`，未执行正式 Lake、Dagster DB 或 event 写入。
 
 ## 8. 性能、Bootstrap 与事件
 
@@ -454,7 +466,7 @@ PYTHONPATH=src uv run --project . python -m orchestrator.defs.bootstrap.index_mi
 | P2 | Raw writer、staging、原子替换、临时测试（已完成；P1/P2 专项 23 tests 通过，单频 Prod 只读 smoke 通过） |
 | P3 | Silver 原生/90m/120m writer 与 fixture（已完成；7 tests passed） |
 | P4 | asset/check/catalog/schema/governance/job（已完成） |
-| P5 | 专属分区、readiness、Raw/Silver sensor，默认 STOPPED |
+| P5 | 专属分区、readiness、Raw/Silver sensor，默认 STOPPED（已完成） |
 | P6 | Bootstrap dry-run 与性能回归 |
 | P7 | 正式 Raw/Silver Bootstrap 与文件对账，单独批准 |
 | P8 | materialization 全量补、最近 20 日 check 补，单独批准 |
@@ -462,7 +474,7 @@ PYTHONPATH=src uv run --project . python -m orchestrator.defs.bootstrap.index_mi
 
 验收必须覆盖：source/written/normalized/output 行数解释、目标 schema/date/PK、staging 清零、event partition、最近 20 日 ready、连续 3 日无超时。
 
-当前下一步为 P5：实现专属分区注册、batch readiness 和默认 STOPPED 的 Raw/Silver sensor。P5 之前仍不启用 sensor，不执行正式 Bootstrap 或事件写入。
+当前下一步为 P6：执行 Bootstrap dry-run 与性能回归。P5 仍保持所有 sensor 默认 STOPPED，不执行正式 Bootstrap 或事件写入。
 
 风险处理：
 
@@ -484,14 +496,14 @@ PYTHONPATH=src uv run --project . python -m orchestrator.defs.bootstrap.index_mi
 - [ ] 源文档、显式字段请求和 MCP 真实结果已对账；字段差异已记录。
 - [ ] 配置项审计和 source contract 测试已完成。
 - [x] 五 Raw/七 Silver asset names 与单分区 check 名称已锁定。
-- [x] P4 定义/治理/核心 check 回归已通过：132 项相关测试通过；正式 Lake、Dagster DB、event 和 sensor 均未执行。
+- [x] P4/P5 定义、治理、核心 check、readiness 和 sensor 回归已通过：141 passed、84 subtests passed；正式 Lake、Dagster DB、event 和 sensor 均未执行。
 - [ ] active pool 空/重复/非法/漂移/查询失败负例已覆盖。
 - [x] 原生 vwap 保留、派生 vwap NULL fixture 已覆盖。
-- [ ] 最近 10 日期 readiness 性能测试已完成，event history 调用为 0。
+- [x] 最近 10 日期 readiness 性能测试已完成，event history 调用为 0；Raw/Silver readiness 与 sensor 测试通过。
 - [ ] Bootstrap 请求量、连接数、分页、磁盘、内存和单批耗时预算已测量。
 - [ ] 命令示例已经过真实 parser/help 对账；默认 dry-run 不写入。
 - [ ] 前端分组、数据集卡片、详情字段和命令提示已对齐 catalog，不由页面硬编码。
-- [ ] M3-M6 既有测试和静态门禁回归已通过。
+- [x] M3-M6 既有测试和静态门禁回归已通过；P5 新增 readiness/sensor 测试通过。
 - [ ] P0 文档与代码事实再次对账，未解释冲突已清零。
 
 任何源字段、active pool、日期起点、窗口规则或性能预算冲突，必须停止并更新方案，不得靠兼容补丁绕过。

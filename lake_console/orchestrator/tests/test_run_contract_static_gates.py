@@ -2673,7 +2673,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 58)
+        self.assertEqual(sensor_definition_count, 61)
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:
@@ -4987,6 +4987,30 @@ class RunContractStaticGateTests(unittest.TestCase):
         self.assertNotIn("get_event_records", check_source)
         self.assertNotIn("get_event_records", job_source)
         self.assertIn("AssetSelection.checks_for_assets", job_source)
+
+    def test_index_mins_p5_uses_dedicated_bounded_sensor_contracts(self) -> None:
+        readiness_source = (
+            ASSET_GUARDS_DIR / "index_mins_lake_readiness.py"
+        ).read_text()
+        partition_sensor_source = (
+            SENSORS_DIR / "index_mins_partition_sensor.py"
+        ).read_text()
+        sensor_source = (SENSORS_DIR / "index_mins_sensor.py").read_text()
+        combined = "\n".join(
+            (readiness_source, partition_sensor_source, sensor_source)
+        )
+
+        self.assertIn("INDEX_MINS_SENSOR_WINDOW_LIMIT", readiness_source)
+        self.assertIn("cn_a_index_mins_trade_days", combined)
+        self.assertIn("build_sensor_cursor", sensor_source)
+        self.assertIn("load_expected_trade_date_window", sensor_source)
+        self.assertIn("select_first_not_ready_trade_date", sensor_source)
+        self.assertIn("batch_raw_index_mins_lake_readiness", sensor_source)
+        self.assertIn("batch_silver_index_mins_lake_readiness", sensor_source)
+        self.assertIn("default_status=dg.DefaultSensorStatus.STOPPED", partition_sensor_source)
+        self.assertIn("default_status=dg.DefaultSensorStatus.STOPPED", sensor_source)
+        self.assertNotIn("get_event_records", combined)
+        self.assertNotIn("TushareResource", combined)
 
     def test_asset_check_incremental_governance_matrix_exists(self) -> None:
         path = Path("tests/test_asset_check_incremental_governance.py")

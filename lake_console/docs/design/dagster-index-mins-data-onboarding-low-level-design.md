@@ -1,7 +1,7 @@
 # `index_mins` 指数分钟线 Dagster 低层设计（LLD）
 
 更新时间：2026-07-29
-状态：P0 设计完成；P1/P2/P3/P4 已编码并通过本地/临时湖验证；P5 尚未开始
+状态：P0 设计完成；P1/P2/P3/P4/P5 已编码并通过本地/临时湖验证；下一步进入 P6
 对应方案：[dagster-index-mins-data-onboarding-plan.md](./dagster-index-mins-data-onboarding-plan.md)
 
 ## 1. LLD 约束
@@ -467,7 +467,7 @@ P4 已完成，实际定义边界为：
 | 七个 Silver asset | `defs/assets/index_mins_silver_defs.py` | 原生依赖对应 Raw；90m/120m 分别依赖 30m/60m Silver；调用 P3 writer |
 | 12 个 core check | `defs/checks/index_mins_checks.py` | 每 asset 一个 `blocking=True`、显式 `cn_a_index_mins_trade_days` 的 check |
 | Raw/Silver job | `defs/jobs/index_mins.py` | 只做 asset + `checks_for_assets` selection，不调用业务 writer |
-| catalog/governance | `defs/catalog/lake_assets.py`、`tests/test_asset_check_incremental_governance.py` | 12 个 asset/check 一一对应；P5 前 readiness participation 保持 false |
+| catalog/governance | `defs/catalog/lake_assets.py`、`tests/test_asset_check_incremental_governance.py` | 12 个 asset/check 一一对应；P5 使用独立 batch readiness，治理矩阵不重复声明 shared readiness |
 
 核心 check 只读当前分区 Parquet，并复用 P3 的 schema、日期、主键、值域和派生窗口语义；不访问 Prod、不扫描 event history、不拆成高基数 check event。P4 定义/治理/核心 check 回归通过；没有正式 Lake、Dagster DB 或 event 写入。
 
@@ -481,9 +481,14 @@ P4 已完成，实际定义边界为：
 - 不读取 event history、不请求 Prod 明细。
 - 不复用 `cn_a_index_trade_days`。
 
+P5 已实现于 `defs/sensors/index_mins_partition_sensor.py`。它调用
+`build_calendar_only_partition_registration_result(...)`，只读交易日历和专属
+dynamic partition，不访问 Prod 明细、不读取 event history，默认状态为
+`STOPPED`，最小 tick 间隔为 600 秒。
+
 ### 8.4 Raw/Silver sensors
 
-Raw/Silver sensor 默认 STOPPED，分别使用现有：
+P5 已实现 Raw/Silver 两个默认 STOPPED sensor，分别使用现有：
 
 - `build_sensor_tags`
 - `build_sensor_cursor`
@@ -493,6 +498,13 @@ Raw/Silver sensor 默认 STOPPED，分别使用现有：
 Raw：最近 10 日期的 batch lake readiness + 单次 Prod aggregate source probe；source ready 才提交五资产 run。Silver：Raw 五频 ready 后，提交最早 Silver 缺口；90m/120m 由本地窗口规则决定。
 
 cursor 只保留 decision、target、reason_code、blocked_component、expected/registered、frontier、query count、elapsed 和有限样本；小于 8 KB，reason 为 ASCII。每 tick 最多一个 RunRequest。
+
+具体实现与门禁：
+
+- `defs/asset_guards/index_mins_lake_readiness.py` 的两个 batch helper 接收外部 DuckDB connection，最多处理最近 10 个 expected dates，不创建自己的 event/history 查询。Raw 每日最多 5 个源文件；Silver 逐一校验 7 个目标及其原生/派生源，所有路径都受当前窗口约束。
+- 缺物理文件返回 `materialized=False`，可作为自动触发目标；文件存在但 schema、日期、主键、值域或派生窗口失败返回 `materialized=True, checks_passed=False`，sensor 只 skip，不自动覆盖。
+- `raw_index_mins_update_job_sensor` 在确认第一个 Raw lake 缺口后才读取 Prod `ops.index_series_active` 和五频聚合 source probe；已有坏文件不会触发 Prod 请求。`silver_index_mins_update_job_sensor` 只有 Raw frontier 严格覆盖 Silver 目标日期时才提交请求。
+- 两个更新 sensor 每 tick 最多一个 RunRequest，使用 `build_asset_update_run_key` 和 `build_sensor_cursor`；不调用 `instance.get_event_records`，不调用 Tushare，Silver sensor 不访问 Prod。partition registration、Raw update、Silver update 三个 sensor 都保持 `STOPPED`。
 
 ## 9. Bootstrap、事件与测试
 
@@ -588,7 +600,7 @@ tests/test_run_contract_static_gates.py
 2. P2：Raw writer、staging、原子替换、临时 parquet smoke（已完成）。
 3. P3：Silver native/90m/120m writer 与 fixture（已完成）。
 4. P4：asset/check/catalog/schema/governance/job（已完成）。
-5. P5：专属分区、batch readiness、Raw/Silver sensors，默认 STOPPED。
+5. P5：专属分区、batch readiness、Raw/Silver sensors，默认 STOPPED（已完成）。
 6. P6：Bootstrap dry-run 与性能回归。
 7. P7：正式 Raw/Silver Bootstrap 与文件对账，单独批准。
 8. P8：materialization 全量补、最近 20 日 checks 补，单独批准。
@@ -596,7 +608,7 @@ tests/test_run_contract_static_gates.py
 
 任一阶段发现源字段、active pool、日期起点、窗口规则或性能预算冲突，停止当前阶段并回写方案。
 
-P4 已完成：五个 Raw asset、七个 Silver asset、12 个单分区 blocking check、两份 job、catalog 和 governance 映射已落地，并通过定义、治理、核心 check 和临时湖回归。P5 才实现 readiness 和 sensor；在 P5 完成前不启用 sensor、不做正式 Bootstrap 或事件写入。
+P5 已完成：在 P4 的五个 Raw asset、七个 Silver asset、12 个单分区 blocking check 和两份 job 基础上，增加专属交易日注册 sensor、Raw/Silver batch readiness 和两个默认 STOPPED 更新 sensor。P5 只完成本地/临时湖验证，未启用 sensor、未执行正式 Bootstrap 或事件写入。
 
 ## 11. 回滚与边界
 
@@ -607,6 +619,6 @@ P4 已完成：五个 Raw asset、七个 Silver asset、12 个单分区 blocking
 - Prod 源缺失：source probe not ready，等待。
 - 派生窗口不完整：不写目标。
 - schema 漂移：staging 校验停止，旧文件不动。
-- sensor 过慢：停止启用，重做 batch readiness，不提高 RPC timeout。
+- sensor 过慢：停止启用，重做 batch readiness，不提高 RPC timeout。P5 已用单连接、10 日窗口、无 event history 的测试门禁约束该风险；正式湖磁盘和 Bootstrap 总预算仍在 P6 验证。
 
 回滚只清理当前 run 临时 staging；不删除既有 Parquet、Dagster event 或 Prod 数据。
