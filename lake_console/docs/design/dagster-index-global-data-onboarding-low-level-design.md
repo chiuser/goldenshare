@@ -4,9 +4,9 @@
 
 本文是 [`dagster-index-global-data-onboarding-plan.md`](./dagster-index-global-data-onboarding-plan.md) 的代码级设计。目标是把 Tushare `index_global` 接入 Dagster Lake，形成 Raw/Silver 两层、自然日分区、同日五阶段刷新和低开销自动触发链路。
 
-当前进度：P1 真实请求验证、P2 Raw contract/路径/phase merge/staging、P3 真实 bounded fetch 临时湖五阶段联调、P4 Silver writer/contract/临时 Raw -> Silver 联调、P5 active Raw/Silver definitions 接入、P6 专属自然日注册/五阶段 Raw sensor/Silver final-phase 触发、P7A Bootstrap 只读目标审计、P7B 全量源请求审计、正式 Raw/Silver 生成和全量文件对账、P8 Dagster 分区注册和事件验收均已完成；P9 sensor 运行观察尚未开始。
+当前进度：P1 真实请求验证、P2 Raw contract/路径/phase merge/staging、P3 真实 bounded fetch 临时湖五阶段联调、P4 Silver writer/contract/临时 Raw -> Silver 联调、P5 active Raw/Silver definitions 接入、P6 专属自然日注册/五阶段 Raw sensor/Silver final-phase 触发、P7A Bootstrap 只读目标审计、P7B 全量源请求审计、正式 Raw/Silver 生成和全量文件对账、P8 Dagster 分区注册和事件验收均已完成；P9 已完成实例启用和首个实际运行日验证，多交易日观察尚未完成。
 
-本 LLD 不实现 Gold 指标；正式 Raw/Silver Bootstrap 已由独立 apply CLI 按本 LLD 门禁完成，P8 已由独立事件 CLI 完成动态分区和 runless event 补录；P6/P9 sensor 仍保持默认停止，P9 仅负责后续人工启用与运行观察。
+本 LLD 不实现 Gold 指标；正式 Raw/Silver Bootstrap 已由独立 apply CLI 按本 LLD 门禁完成，P8 已由独立事件 CLI 完成动态分区和 runless event 补录；P6 的代码定义和 P9 的运行时实例状态均保留可区分的安全边界：代码默认值仍为 `STOPPED`，P9 已在正式实例中显式启用，当前负责运行观察。
 
 硬边界：
 
@@ -1130,7 +1130,37 @@ P8 event apply 不依赖事务回滚。中断后只能重新执行 P8 dry-run：
 3. 只继续补剩余缺口；
 4. 任意湖文件、日期计划或分区注册校验失败时 fail-closed。
 
-不允许直接 SQL 插入 `event_logs` / `asset_check_executions`，也不允许通过运行 normal asset/job 代替事件补录。P9 sensor 仍需单独启用和观察。
+不允许直接 SQL 插入 `event_logs` / `asset_check_executions`，也不允许通过运行 normal asset/job 代替事件补录。P9 sensor 启用必须在 P8 对账通过后单独执行，并继续保留运行观察记录。
+
+### 13.6 P9 实例启用与首个运行日收尾（2026-07-29）
+
+P9 的开发和正式链路收尾已完成，当前只剩连续运行观察，不再新增 index_global 代码或 Dagster definition。
+
+2026-07-29 的正式实例只读审计确认：
+
+- `global_index_trade_day_partition_sensor`、`raw_index_global_update_job_sensor`、`raw_index_global_retry_sensor`、`raw_index_global_late_empty_sensor`、`silver_index_global_retry_sensor`、`silver_index_global_update_job_sensor` 均为 `RUNNING`；
+- 代码中的 `default_status=STOPPED` 仍然保留，表示新环境默认不自动启用，不代表当前实例状态；
+- `cn_global_index_trade_days` 已注册到 `2026-07-29`，共 1,671 个自然日分区；
+- 当次审计时 Raw/Silver 各有 1,670 个正式文件，最新文件为 `2026-07-28`。这是正常的阶段边界：`2026-07-29` 的 `asia_1` 窗口尚未到达，不能把“尚未到触发时间”判为缺数。
+
+`2026-07-28` 的首个完整运行日事实如下：
+
+| 链路 | 结果 | 分区/范围 |
+| --- | --- | --- |
+| Raw `asia_1`、`asia_2`、`asia_3`、`europe`、`americas` | 5 个 phase run 全部成功 | `2026-07-28` |
+| Raw core check | 全部通过 | `partition=2026-07-28` |
+| Silver final-phase run | 自动触发并成功 | `partition=2026-07-28` |
+| Silver core check | 通过 | `partition=2026-07-28` |
+| Raw/Silver 文件行数 | 各 21 行 | `2026-07-28` |
+
+四个美国指数 `DJI`、`SPX`、`IXIC`、`RUT` 均在 Raw 和 Silver 中存在，字段值对账一致。`amount` 或 `vol` 的 NULL 属于当前源合同允许值，不构成失败。该次审计没有发现活跃运行、重复 run key、错误 partition check 或未解释失败。
+
+P9 当前结论：
+
+1. 数据集开发、Bootstrap、Raw/Silver 文件对账、专属自然日分区注册、materialization/check event 补录和 sensor 启用均已完成；
+2. normal Raw/Silver 日常链路已经有首个实际成功运行日证据；
+3. 仍需继续记录至少 3 个实际交易日的运行结果，重点观察 phase replay、失败重试、late-empty、Silver final-phase gate、请求耗时、cursor 大小和 Dagster UI 状态；
+4. 观察期间不应通过提高 RPC timeout 掩盖 sensor 热路径超时，也不应重新引入 Dagster event history 深扫。
 
 ## 14. 实施顺序与验收
 
@@ -1144,7 +1174,7 @@ P8 event apply 不依赖事务回滚。中断后只能重新执行 P8 dry-run：
 8. P7B 全量 Tushare 源请求 dry-run 和性能/配额对账（已完成，报告见 10.2）；
 9. 经单独批准后正式 Raw/Silver 生成和对账（已完成，报告见 10.3）；
 10. Dagster event 验收（已完成：P8）；
-11. 手动启用 sensors 并观察三个实际运行日（未开始）。
+11. 手动启用 sensors 并完成首个实际运行日验证（已完成）；继续观察至少三个实际运行日后完成 P9 运维收口。
 
 进入正式写入前必须同时满足：
 
@@ -1155,7 +1185,7 @@ P8 event apply 不依赖事务回滚。中断后只能重新执行 P8 dry-run：
 - sensor 热路径无网络和 event history 调用；
 - 性能数据在预算内；
 - 无未解释的字段、行数或覆盖冲突；
-- Dagster event 补录已由 P8 完成；后续只需按单独批准的 P9 口径启用 sensor 并观察实际运行。
+- Dagster event 补录已由 P8 完成；P9 已按单独批准口径启用 sensor 并完成首个实际运行日验证，后续只需完成多交易日运行观察。
 
 ## 15. 实现前置验收命令
 

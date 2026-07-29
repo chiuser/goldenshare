@@ -2,11 +2,11 @@
 
 ## 1. 文档状态
 
-- 状态：方案口径已冻结，P1 真实请求验证、P2 Raw contract/phase merge/staging、P3 临时湖五阶段联调、P4 Silver writer/contract/临时联调、P5 正式 Dagster definitions、P6 自然日分区注册/五阶段 Raw sensor/Silver final-phase 触发、P7A Bootstrap 只读目标审计、P7B 全量 Tushare 源请求审计、正式 Raw/Silver 生成与全量文件对账、P8 Dagster 分区注册与事件验收均已完成；P9 sensor 手动启用和连续运行观察尚未开始。
+- 状态：方案口径已冻结，P1 真实请求验证、P2 Raw contract/phase merge/staging、P3 临时湖五阶段联调、P4 Silver writer/contract/临时联调、P5 正式 Dagster definitions、P6 自然日分区注册/五阶段 Raw sensor/Silver final-phase 触发、P7A Bootstrap 只读目标审计、P7B 全量 Tushare 源请求审计、正式 Raw/Silver 生成与全量文件对账、P8 Dagster 分区注册与事件验收均已完成；P9 已完成实例启用和首个实际运行日验证，多交易日观察仍在进行。
 - 数据集：`index_global`，中文展示名为“国际指数日线”。
 - 数据源：Tushare `index_global`。
-- 本文记录设计和验证；正式 Raw/Silver Bootstrap 与 P8 Dagster 控制面补录已完成，sensor 仍保持默认停止，后续只剩按单独批准的 P9 运行观察。
-- 当前仓库已接入 `index_global` 的 active Raw/Silver asset、core check、job、专属自然日分区注册 sensor、五阶段 Raw sensor、failed-run retry sensor、late-empty sensor、Silver final-phase/retry sensor、catalog、partition model 和 governance mapping。相关 sensor 代码仍默认 `STOPPED`；正式 Raw/Silver 文件和 P8 Dagster 事件已经完成，Definitions、湖文件和事件状态仍需分开看待。
+- 本文记录设计和验证；正式 Raw/Silver Bootstrap 与 P8 Dagster 控制面补录已完成，P9 已在正式实例中显式启用相关 sensor，当前进入日常运行观察。
+- 当前仓库已接入 `index_global` 的 active Raw/Silver asset、core check、job、专属自然日分区注册 sensor、五阶段 Raw sensor、failed-run retry sensor、late-empty sensor、Silver final-phase/retry sensor、catalog、partition model 和 governance mapping。sensor 定义仍保留默认 `STOPPED` 安全值；正式实例当前状态与代码默认值分开管理。正式 Raw/Silver 文件和 P8 Dagster 事件已经完成，Definitions、湖文件和事件状态仍需分开看待。
 - P1 真实验证报告：`/private/tmp/index_global_p1_tushare_validation_20260728.json`。
 - P2 本地验证：`tests/test_index_global_contracts.py`、`tests/test_index_global_raw_io.py` 共 11 项通过；相关静态/回归测试共 99 项通过。
 - P3 本地与临时湖验证：相关测试共 105 项通过；真实 Tushare 五阶段报告为 `/private/tmp/index_global_p3_real_validation_p3-real-20260728204238.json`。
@@ -18,6 +18,9 @@
 - 正式 apply 实现位于 `orchestrator/defs/bootstrap/index_global_bootstrap_apply.py` 和 `index_global_bootstrap_apply_cli.py`；CLI 要求 `--confirm-lake-write`、P7B fingerprint 和目标冲突校验，Raw 每个日期先在正式 Lake 同文件系统临时目录完成五阶段 merge，全部成功后才原子 promote，Raw 全量对账通过后才写 Silver。apply 不访问 Dagster instance、不写 Dagster event、不启用 sensor。
 - P7 正式 apply 报告前缀为 `/private/tmp/index_global_m7_*_20260728_233746.json`：Raw/Silver 各生成 1,670 个文件，正式对账均为 missing=0、invalid=0；两层各有 23,849 行、1,201 个非空日期和 469 个合法空自然日文件，Raw/Silver 行级字段对账差异为 0，staging 临时目录残留为 0，最终 `should_stop=false`。Raw/Silver 文件大小分别约 3.89 MB / 3.88 MB；P7 未写 Dagster event、dynamic partition 或 sensor 状态。
 - P8 已完成：使用 `/private/tmp/index_global_p8_partition_registration_20260729.json` 注册精确的 1,670 个 `cn_global_index_trade_days` 分区，范围为 `2022-01-01..2026-07-28`，没有注册 `2026-07-29`。正式事件报告为 `/private/tmp/index_global_p8_event_apply_20260729.json`，写入 3,340 条 partitioned materialization（Raw/Silver 各 1,670）和 40 条 partitioned core check（最近 20 个自然日各 20），串行耗时约 35.1 秒。post dry-run `/private/tmp/index_global_p8_post_event_dry_run_20260729.json` 显示四类计划待写数量均为 0；数据库只读对账确认 check 的 target materialization 存在且 target partition 一致，20 日之外没有本轮 check event。
+- P9 首次运行验证已完成：2026-07-29 只读审计时，正式实例中 `global_index_trade_day_partition_sensor`、`raw_index_global_update_job_sensor`、`raw_index_global_retry_sensor`、`raw_index_global_late_empty_sensor`、`silver_index_global_retry_sensor`、`silver_index_global_update_job_sensor` 均为 `RUNNING`；`cn_global_index_trade_days` 共 1,671 个分区，范围为 `2022-01-01..2026-07-29`。截至该次审计，Raw/Silver 文件各 1,670 个，最新文件日期为 `2026-07-28`，符合 2026-07-29 亚洲阶段尚未到达的时间边界。
+- P9 首个已完成自然日 `2026-07-28` 的运行事实：五个 Raw phase run（`asia_1`、`asia_2`、`asia_3`、`europe`、`americas`）均成功，Raw core check 均按 `2026-07-28` 分区通过；随后 Silver 自动触发并成功，Silver core check 也按 `2026-07-28` 分区通过。Raw 和 Silver 当日各 21 行，当前没有活跃运行、重复提交或未解释失败。美国指数 `DJI`、`SPX`、`IXIC`、`RUT` 均存在于两层文件中，Raw/Silver 字段对账一致；`amount` 或 `vol` 的源站 NULL 属于已冻结合同允许值。
+- P9 收尾结论：代码开发、Bootstrap、文件对账、分区注册、事件补录、sensor 启用和首个实际运行日验证均已完成；当前不再有 index_global 的新增开发任务。后续只保留至少连续 3 个实际交易日的运行观察和性能记录，观察项包括 sensor tick、phase run、请求/重试、cursor、partitioned check 归属和 Assets 页面状态。
 
 ## 1.1 数据集说明卡
 
@@ -560,7 +563,7 @@ Bootstrap writer，不启动 `dg`，不运行 job/sensor，不触碰 Raw/Silver 
 - 只读 DB 对账：两资产 materialization 各 1,670 条且无空 partition；两类 check 各 20 条且无空 partition、无空 target、无 target 类型错误、无 target partition 不一致；20 日之外没有本轮 check event；
 - P8 事件 metadata 只记录数据集、层、分区、P7 reconciliation 报告路径和 date-plan fingerprint，不记录逐行数据或源站请求明细。
 
-P8 失败恢复口径：事件写入不是事务性 lake 操作，若进程中断，禁止手工 SQL 补写；重新执行 dry-run，工具按已有 materialization 和最近 20 日 ready check 幂等跳过，继续补齐缺口。P9 之前不得启用 sensor。
+P8 失败恢复口径：事件写入不是事务性 lake 操作，若进程中断，禁止手工 SQL 补写；重新执行 dry-run，工具按已有 materialization 和最近 20 日 ready check 幂等跳过，继续补齐缺口。P8 完成后，P9 才能在单独批准下启用 sensor。
 
 ## 9. 测试门禁
 
@@ -604,7 +607,7 @@ P8 失败恢复口径：事件写入不是事务性 lake 操作，若进程中�
 7. P7A：Bootstrap dry-run（已完成：自然日计划、fingerprint、目标冲突和请求预算审计）；
 8. P7B：全量源请求审计已完成；正式 Raw/Silver 生成和全量文件对账已完成，报告见 P7 apply 记录；
 9. P8：Dagster event 验收（已完成：分区注册、全历史 materialization、最近 20 个自然日 check）；
-10. P9：手动启用 sensor，观察至少三个实际运行日。
+10. P9：手动启用 sensor并完成首个实际运行日验证；继续观察至少三个实际运行日后收口。
 
 任何阶段不得在前一阶段失败时跳过门禁进入下一阶段。
 
