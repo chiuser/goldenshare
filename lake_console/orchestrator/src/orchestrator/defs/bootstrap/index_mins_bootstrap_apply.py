@@ -35,7 +35,10 @@ from orchestrator.defs.paths import (
     silver_index_basic_path,
     silver_index_mins_path,
 )
-from orchestrator.defs.prod_db.index_mins import IndexMinsActivePool
+from orchestrator.defs.prod_db.index_mins import (
+    IndexMinsActivePool,
+    load_prod_index_mins_active_pool,
+)
 from orchestrator.defs.resources import DuckDBResource, ProdPostgresResource
 from orchestrator.defs.run_contracts.index_mins import (
     INDEX_MINS_BOOTSTRAP_DISK_SAFETY_MULTIPLIER,
@@ -108,12 +111,14 @@ def load_historical_index_mins_code_scopes(
     connection: Any,
     lake_root: Path,
     trade_dates: Sequence[str],
+    base_codes: Sequence[object] | None = None,
 ) -> dict[str, IndexMinsActivePool]:
     """Derive one valid index code set per date from ``silver_index_basic``.
 
-    The snapshot is small (the current index universe, not minute history), so
-    returning the grouped code sets is bounded.  The minute rows themselves
-    remain in Prod and are streamed by each existing Raw writer.
+    When ``base_codes`` is supplied, it is the frozen current active-pool
+    universe and the index-basic lifecycle snapshot only determines which of
+    those codes were valid on each historical date.  The minute rows
+    themselves remain in Prod and are streamed by each existing Raw writer.
     """
 
     source_path = silver_index_basic_path(lake_root)
@@ -137,16 +142,43 @@ def load_historical_index_mins_code_scopes(
     values_sql = ", ".join(
         f"(DATE '{value}')" for value in normalized_dates
     )
+    base_code_sql = ""
+    base_code_join_sql = ""
+    if base_codes is not None:
+        try:
+            normalized_base_codes = normalize_index_mins_codes(
+                base_codes,
+                reject_duplicates=True,
+            )
+        except ValueError as error:
+            raise IndexMinsBootstrapApplyError(
+                "historical index scope base code set is invalid"
+            ) from error
+        code_values_sql = ", ".join(
+            "('" + code.replace("'", "''") + "')"
+            for code in normalized_base_codes
+        )
+        base_code_sql = f"""
+        , effective_codes(ts_code) AS (
+          VALUES {code_values_sql}
+        )
+        """
+        base_code_join_sql = (
+            "JOIN effective_codes "
+            "ON effective_codes.ts_code = CAST(index_basic.ts_code AS VARCHAR)"
+        )
     rows = connection.execute(
         f"""
         WITH expected(trade_date) AS (
           VALUES {values_sql}
         )
+        {base_code_sql}
         SELECT
           CAST(expected.trade_date AS VARCHAR) AS trade_date,
           CAST(index_basic.ts_code AS VARCHAR) AS ts_code
         FROM expected
         CROSS JOIN {read_parquet(source_path, hive_partitioning=False)} AS index_basic
+        {base_code_join_sql}
         WHERE try_cast(index_basic.ts_code AS VARCHAR) IS NOT NULL
           AND trim(CAST(index_basic.ts_code AS VARCHAR)) != ''
           AND try_cast(index_basic.list_date AS DATE) IS NOT NULL
@@ -460,6 +492,9 @@ def run_bootstrap_apply(
     source_scope_loader: Callable[..., dict[str, IndexMinsActivePool]] = (
         load_historical_index_mins_code_scopes
     ),
+    active_pool_loader: Callable[..., IndexMinsActivePool] | None = (
+        load_prod_index_mins_active_pool
+    ),
 ) -> dict[str, object]:
     """Generate all missing index_mins Raw/Silver files after strict gates."""
 
@@ -510,11 +545,37 @@ def run_bootstrap_apply(
             lake_root=lake_root,
             source_empty_scope=source_empty_scope,
         )
-        scopes = source_scope_loader(
-            connection=connection,
-            lake_root=lake_root,
-            trade_dates=date_plan.expected_trade_dates,
-        )
+        if source_scope_loader is load_historical_index_mins_code_scopes:
+            if active_pool_loader is None:
+                raise IndexMinsBootstrapApplyError(
+                    "historical index scope requires an active pool loader"
+                )
+            try:
+                active_pool = active_pool_loader(prod_postgres=prod_postgres)
+            except Exception as error:  # noqa: BLE001 - apply must fail closed.
+                raise IndexMinsBootstrapApplyError(
+                    f"historical active pool query failed: {type(error).__name__}"
+                ) from error
+            if (
+                int(source_report.get("active_pool_count") or 0) != active_pool.code_count
+                or str(source_report.get("active_pool_hash") or "")
+                != active_pool.code_set_hash
+            ):
+                raise IndexMinsBootstrapApplyError(
+                    "current active pool does not match the frozen P6 source report"
+                )
+            scopes = source_scope_loader(
+                connection=connection,
+                lake_root=lake_root,
+                trade_dates=date_plan.expected_trade_dates,
+                base_codes=active_pool.codes,
+            )
+        else:
+            scopes = source_scope_loader(
+                connection=connection,
+                lake_root=lake_root,
+                trade_dates=date_plan.expected_trade_dates,
+            )
 
     if tuple(sorted(scopes)) != tuple(sorted(date_plan.expected_trade_dates)):
         raise IndexMinsBootstrapApplyError("historical source scope does not cover every date")

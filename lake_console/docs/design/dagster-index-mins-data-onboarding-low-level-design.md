@@ -610,7 +610,7 @@ P6 代码级实现：
 
 固定门禁：最多 800 日期、4,000 source probe queries、300 秒 source probe、9,600 个目标文件、磁盘估算乘 1.25 安全系数。上述是固定代码合同，不是运营配置项。
 
-P6A/P6B 真实只读验收：冻结范围为 `2025-01-02..2026-07-27`、378 个 expected dates、530 个 active code；Raw/Silver 目标分别为 1,890/2,646 个且全部缺失，磁盘剩余约 2.55 TB。coverage-only 单次全频全日期聚合 88,383 ms，完整 planner dry-run 88,635 ms，查询预算与 300 秒时间预算通过。历史 code scope 按 index basic 上市/终止日期解释为 526/528/530，非空频率日期行无不一致。source-empty 仍为 15m 一天、30m 四天、60m 五天，故 planner 仍 fail-closed。
+P6A/P6B 真实只读验收：冻结范围为 `2025-01-02..2026-07-27`、378 个 expected dates、530 个 active code；Raw/Silver 目标分别为 1,890/2,646 个且全部缺失，磁盘剩余约 2.55 TB。coverage-only 单次全频全日期聚合 88,383 ms，完整 planner dry-run 88,635 ms，查询预算与 300 秒时间预算通过。历史 code scope 固定为“冻结的 530 个 active pool 与 index basic 上市/终止日期的交集”，非空频率日期的 Prod exact code-set 对账无不一致，日期代码数为 526/528/530。source-empty 仍为 15m 一天、30m 四天、60m 五天，故 planner 仍 fail-closed。
 
 正式 Bootstrap 的 apply runner 必须把这 10 个 source-empty 原生频率作为明确例外处理：不调用空源 Raw writer、不生成伪造的 Raw 文件；Raw 对账只对有源频率计入 expected 文件数。对应的 10 个 Silver fallback 文件必须在 apply 前已完成 bounded fallback 审计并存在，apply 只复用它们；其余 Silver（包括 90m/120m）继续按正常 writer 顺序生成。缺少任一 fallback 文件、已有目标非法或出现临时 staging 文件时，必须在任何新 writer 调用前 fail-closed。
 

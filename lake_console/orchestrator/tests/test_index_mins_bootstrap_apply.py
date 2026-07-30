@@ -378,6 +378,35 @@ def test_historical_scope_uses_list_and_exp_dates(tmp_path: Path) -> None:
     assert scopes["2025-07-25"].codes == ("000001.SH", "000002.SH")
 
 
+def test_historical_scope_intersects_frozen_active_pool(tmp_path: Path) -> None:
+    lake = tmp_path / "lake"
+    lake.mkdir()
+    path = silver_index_basic_path(lake)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = duckdb.connect(":memory:")
+    try:
+        connection.execute(
+            """
+            COPY (SELECT * FROM (VALUES
+              ('000001.SH', DATE '2025-01-01', NULL::DATE),
+              ('000002.SH', DATE '2025-07-21', NULL::DATE),
+              ('000003.SH', DATE '2025-01-01', NULL::DATE)
+            ) AS t(ts_code, list_date, exp_date)) TO ? (FORMAT PARQUET)
+            """,
+            [str(path)],
+        )
+        scopes = load_historical_index_mins_code_scopes(
+            connection=connection,
+            lake_root=lake,
+            trade_dates=("2025-07-24",),
+            base_codes=("000001.SH", "000002.SH"),
+        )
+    finally:
+        connection.close()
+
+    assert scopes["2025-07-24"].codes == ("000001.SH", "000002.SH")
+
+
 def test_cli_requires_explicit_lake_write_confirmation() -> None:
     assert main(
         [
