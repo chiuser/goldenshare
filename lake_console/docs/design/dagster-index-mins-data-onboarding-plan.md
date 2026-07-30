@@ -471,6 +471,15 @@ P6 实现与真实验收结果：
 
 P8 单独处理事件：materialization 全量补；blocking check 只补最近 20 日；每条 event 带正确 partition。
 
+P8 已完成（2026-07-30）：
+
+- 新增 `orchestrator/defs/bootstrap/index_mins_bootstrap_events.py` 和对应 CLI。工具只消费 P7 final reconciliation report 与已验证 Lake 文件，不运行 job/sensor，不写 Lake。
+- 由于专属动态分区此前尚未注册，先显式注册 `cn_a_index_mins_trade_days` 的 378 个冻结日期；注册后没有额外日期。
+- 全量补入 `4,526` 条 materialization：Raw `1,880` 条、Silver `2,646` 条；10 个 source-empty Raw 频率组合没有伪造事件。
+- 最近 20 个专属交易日补入 `240` 条 blocking check：12 个 asset/check × 20；所有 event 均显式带 partition。
+- post dry-run 为 `should_stop=false`，计划剩余 materialization/check/event 均为 `0`；数据库核验显示 12 个 asset 的 materialization 数量与有效文件数一致，240 条 check 无空 partition、无空 target，target materialization 的 partition 与 check partition 全部一致；active run 为 `0`。
+- P8 报告：注册 `/private/tmp/index_mins_bootstrap_events_p8_partition_registration_20260730.json`，注册前 dry-run `/private/tmp/index_mins_bootstrap_events_p8_pre_registration_20260730.json`，apply `/private/tmp/index_mins_bootstrap_events_p8_apply_20260730.json`，post dry-run `/private/tmp/index_mins_bootstrap_events_p8_post_dry_run_20260730.json`。
+
 ## 9. 请求策略、数据量、命令与前端
 
 ### 9.1 输入、输出和类型合同

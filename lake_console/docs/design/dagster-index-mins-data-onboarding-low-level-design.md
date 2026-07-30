@@ -633,13 +633,33 @@ P7 正式 Bootstrap 已完成（2026-07-30）：
 
 ### 9.2 Event backfill
 
-P8 单独执行：
+P8 已完成（2026-07-30）。实现入口为：
+
+~~~text
+defs/bootstrap/index_mins_bootstrap_events.py
+defs/bootstrap/index_mins_bootstrap_events_cli.py
+~~~
+
+入口只消费 P7 final reconciliation report 和已验证的 Lake 文件，不调用 job/sensor、不写 Lake。事件写入必须显式提供 `--confirm-event-write`；分区注册必须显式提供 `--confirm-partition-write`。
+
+实际执行口径：
 
 - 所有成功 Raw/Silver 分区补 materialization。
 - blocking check 只补最近 20 个专属交易日。
 - 每条 event 显式带正确 partition。
 - 事件补录前必须通过 Lake 文件对账。
 - 不从 check history 推导业务事实。
+- Raw source-empty 的 10 个频率/日期组合不生成 Raw materialization/check event；它们只由已对账的 Silver fallback 文件贡献 Silver materialization/check event。
+- `cn_a_index_mins_trade_days` 先按 P7 冻结日期计划注册 378 个分区，注册集合与日期计划精确一致。
+
+P8 验收结果：有效 Raw `1,880` 个 materialization、Silver `2,646` 个 materialization、最近 20 日 `240` 个 blocking check，共 `4,766` 个 runless event；apply 耗时约 `75.4s`。post dry-run 的剩余计划为 0，12 个 asset 的 materialization 与文件集合一致，check 的 partition、target materialization 和 partition 一致性全部通过，未产生空 partition 或未绑定 materialization 的 check；执行前后 active run 均为 0。
+
+报告路径：
+
+- `/private/tmp/index_mins_bootstrap_events_p8_partition_registration_20260730.json`
+- `/private/tmp/index_mins_bootstrap_events_p8_pre_registration_20260730.json`
+- `/private/tmp/index_mins_bootstrap_events_p8_apply_20260730.json`
+- `/private/tmp/index_mins_bootstrap_events_p8_post_dry_run_20260730.json`
 
 ### 9.3 测试矩阵
 
