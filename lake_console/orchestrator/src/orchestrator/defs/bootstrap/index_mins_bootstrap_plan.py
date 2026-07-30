@@ -357,12 +357,19 @@ def _audit_targets(
     connection: Any,
     lake_root: Path,
     expected_trade_dates: Sequence[str],
+    raw_source_empty_scope: Mapping[str, Sequence[int]] | None = None,
 ) -> tuple[IndexMinsTargetAudit, ...]:
+    source_empty_by_date = {
+        str(trade_date): {int(frequency) for frequency in frequencies}
+        for trade_date, frequencies in (raw_source_empty_scope or {}).items()
+    }
     specs = {
         "raw": tuple(
             (source_freq, trade_date, raw_index_mins_path(lake_root, source_freq, trade_date))
             for trade_date in expected_trade_dates
             for source_freq in INDEX_MINS_SOURCE_FREQS
+            if int(source_freq[:-3])
+            not in source_empty_by_date.get(str(trade_date), set())
         ),
         "silver": tuple(
             (f"{frequency}min", trade_date, silver_index_mins_path(lake_root, frequency, trade_date))
@@ -396,6 +403,7 @@ def audit_index_mins_targets(
     connection: Any,
     lake_root: Path,
     expected_trade_dates: Sequence[str],
+    raw_source_empty_scope: Mapping[str, Sequence[int]] | None = None,
 ) -> tuple[IndexMinsTargetAudit, ...]:
     """Audit only the expected index_mins Raw/Silver target files.
 
@@ -408,6 +416,7 @@ def audit_index_mins_targets(
         connection=connection,
         lake_root=lake_root,
         expected_trade_dates=expected_trade_dates,
+        raw_source_empty_scope=raw_source_empty_scope,
     )
 
 

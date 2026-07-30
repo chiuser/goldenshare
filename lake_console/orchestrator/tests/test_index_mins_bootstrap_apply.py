@@ -197,6 +197,16 @@ def _write_silver_file(*, lake_root, freq, partition_key, **_kwargs):
     }
 
 
+def _write_existing_fallback_targets(root: Path) -> None:
+    for trade_date, frequencies in INDEX_MINS_APPROVED_SOURCE_EMPTY_FALLBACK_SCOPE.items():
+        for frequency in frequencies:
+            _write_silver_file(
+                lake_root=root,
+                freq=frequency,
+                partition_key=trade_date,
+            )
+
+
 def test_apply_runs_raw_then_silver_with_bounded_batches(tmp_path: Path) -> None:
     lake = tmp_path / "lake"
     lake.mkdir()
@@ -204,6 +214,7 @@ def test_apply_runs_raw_then_silver_with_bounded_batches(tmp_path: Path) -> None
     reports.mkdir()
     _write_calendar(lake)
     source_report, fallback_report = _build_reports(lake, reports)
+    _write_existing_fallback_targets(lake)
 
     report = run_bootstrap_apply(
         lake_root=lake,
@@ -226,8 +237,50 @@ def test_apply_runs_raw_then_silver_with_bounded_batches(tmp_path: Path) -> None
     assert len(report["silver_records"]) == 35
     assert report["raw_audit"]["missing_count"] == 0
     assert report["silver_audit"]["missing_count"] == 0
-    assert len(list((lake / "raw/tushare/index_mins").rglob("part-000.parquet"))) == 25
+    assert report["raw_audit"]["expected_file_count"] == 15
+    assert len(list((lake / "raw/tushare/index_mins").rglob("part-000.parquet"))) == 15
     assert len(list((lake / "silver/quote/index_mins").rglob("part-000.parquet"))) == 35
+
+    source_empty_records = [
+        record
+        for record in report["raw_records"]
+        if record["write_mode"] == "source_empty_exempt"
+    ]
+    assert len(source_empty_records) == 10
+    assert all(record["skipped"] is True for record in source_empty_records)
+    assert sum(
+        record["write_mode"] == "reuse_existing_fallback"
+        for record in report["silver_records"]
+    ) == 10
+
+
+def test_apply_requires_prevalidated_fallback_targets_before_writing(tmp_path: Path) -> None:
+    lake = tmp_path / "lake"
+    lake.mkdir()
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    _write_calendar(lake)
+    source_report, fallback_report = _build_reports(lake, reports)
+    calls: list[str] = []
+
+    def raw_writer(**kwargs):
+        calls.append(kwargs["partition_key"])
+        raise AssertionError("writer must not run before fallback target validation")
+
+    with pytest.raises(IndexMinsBootstrapApplyError, match="fallback targets are missing"):
+        run_bootstrap_apply(
+            lake_root=lake,
+            duckdb_resource=_MemoryDuckDB(),
+            prod_postgres=_FakeProd(),
+            source_report_path=source_report,
+            fallback_report_path=fallback_report,
+            output_dir=reports,
+            end_date="2025-08-01",
+            raw_writer=raw_writer,
+            source_scope_loader=_scope_loader,
+        )
+    assert calls == []
+    assert not (lake / "raw").exists()
 
 
 def test_apply_rejects_source_fingerprint_before_writing(tmp_path: Path) -> None:

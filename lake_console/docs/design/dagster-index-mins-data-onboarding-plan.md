@@ -1,7 +1,7 @@
 # 指数分钟线 `index_mins` Dagster 数据集接入方案
 
 更新时间：2026-07-30
-状态：P0 方案/LLD、P1、P2、P3、P4、P5 已完成；P6A/P6B source scope 冻结与只读性能验证已完成；P6 当前仍因 15m/30m/60m 的已审计 source-empty 日期等待 fallback Bootstrap 处理；P3 follow-up 的 fallback writer、只读 readiness 与 native reconcile 已完成本地实现和临时湖测试，fallback 仅用于开发期 Bootstrap/历史修复，正式日常 sensor 仍不调用
+状态：P0 方案/LLD、P1、P2、P3、P4、P5 已完成；P6A/P6B source scope 冻结与只读性能验证已完成；5 个 source-empty 日期组合的 5m Raw fallback 与 10 个 Silver fallback 已完成审计；P7 apply runner 已补齐 source-empty Raw 豁免和 Silver fallback 复用，正式 Raw/Silver Bootstrap 与文件对账仍待执行。fallback 仅用于开发期 Bootstrap/历史修复，正式日常 sensor 仍不调用。
 适用范围：`lake_console/orchestrator` 正式 Dagster 数据湖
 
 ## 1. 目标与冻结结论
@@ -467,7 +467,7 @@ P6 实现与真实验收结果：
 - P6B 目标冲突审计使用一个 DuckDB connection；正式 Lake Raw `1,890` 个目标、Silver `2,646` 个目标均缺失，未发现错误存量文件。磁盘剩余约 `2.55 TB`，保守估算本批约 `71.9 GB`，磁盘门禁通过。
 - 源覆盖结果为：`1min/5min` 全部 `378` 个日期有数据；`15min` 缺 `2025-07-11`；`30min` 缺 `2025-07-04/07-11/07-18/08-01`；`60min` 缺 `2025-07-04/07-11/07-18/07-25/08-01`。这些日期进入已实现的 5m fallback 开发期入口，不把空源伪造成 Raw 原生数据。
 
-结论：P6A/P6B 的 source scope 和 coverage 性能门禁已通过；当前 dry-run 仍 `should_stop=true`，唯一阻断项是上述 5 个 source-empty 日期组合，不是查询性能或历史代码范围误判。P7 仍不能直接开始，必须先按既定 fallback 入口处理并审计这些日期，再重新执行 dry-run；禁止用提高 timeout、全量主键 distinct 或把当前 active pool 硬套历史的方式绕过门禁。
+结论：P6A/P6B 的 source scope 和 coverage 性能门禁已通过；原 dry-run 的唯一阻断项是上述 5 个 source-empty 日期组合，不是查询性能或历史代码范围误判。fallback 已按既定入口完成并通过专项审计；P7 apply runner 不再把这些原生空频率当成可写的 Raw 缺口，而是显式豁免 Raw、复用已验收的 Silver fallback。禁止用提高 timeout、全量主键 distinct 或把当前 active pool 硬套历史的方式绕过门禁。
 
 P8 单独处理事件：materialization 全量补；blocking check 只补最近 20 日；每条 event 带正确 partition。
 
@@ -506,7 +506,7 @@ Prod 范围 SQL 不需要 `limit/offset` 分页；流式读取由 named cursor �
 
 P6 实测基线为 530 个指数、五频合计约 170,130 行/最新交易日，原始表约 63,501,920 行、约 16 GB（表约 7.7 GB，索引约 8.9 GB）。以上是容量与性能审计事实，不是写死的产量合同；正式 Bootstrap 若重新进入，仍必须以当次 dry-run 为准。
 
-截至 2026-07-30、以 Prod 最新 `2026-07-27` 为结束日期的真实日期计划为 378 个交易日：Raw 为 `378 x 5 = 1,890` 个文件，Silver 为 `378 x 7 = 2,646` 个文件，合计 4,536 个分区文件。正式日历还包含未来日期，但 Bootstrap 默认排除未来日期；历史起点、结束日期和文件数仍以 dry-run 报告为准。P6B 的全历史 coverage-only 扫描已在 300 秒门禁内完成，但 source-empty 日期仍需 fallback 处理后才能进入 P7。
+截至 2026-07-30、以 Prod 最新 `2026-07-27` 为结束日期的真实日期计划为 378 个交易日：逻辑 Raw 网格为 `378 x 5 = 1,890`，其中 10 个已审计 source-empty 原生频率不生成 Raw 文件，因此正式 Raw 对账的有效文件数为 `1,880`；Silver 为 `378 x 7 = 2,646` 个文件，合计预期物理文件为 4,526 个。正式日历还包含未来日期，但 Bootstrap 默认排除未来日期；历史起点、结束日期和文件数仍以冻结 date-plan 与 source report 为准。
 
 该规模低于当前小文件 warning 门槛，但每日继续增长。第一版不做 compact；如果未来超过 10,000 文件或单日文件过小，必须另开 compact 方案，不能在 writer 中偷偷合并历史文件。
 
@@ -552,7 +552,7 @@ PYTHONPATH=src uv run --project . python -m orchestrator.defs.bootstrap.index_mi
 
 验收必须覆盖：source/written/normalized/output 行数解释、目标 schema/date/PK、staging 清零、event partition、最近 20 日 ready、连续 3 日无超时。
 
-当前状态为 P6 source-empty 阻断：P6A/P6B 工具、scope、coverage-only 查询和性能回归已完成；P3 follow-up 的 fallback writer/readiness/repair 已完成本地验证。fallback 只用于开发期和明确的历史修复，不会改变普通 Silver sensor 的 Raw 依赖，也不自动触发长期 repair。P7 仍需先完成 5 个 source-empty 日期组合的 fallback 处理与重跑对账，之后再申请正式 Bootstrap；P8 才处理事件补录。
+当前状态为 P7 正式写入前置：P6A/P6B 工具、scope、coverage-only 查询和性能回归已完成；P3 follow-up 的 fallback writer/readiness/repair 已完成本地验证，5 个 source-empty 日期组合已完成正式 fallback 文件和专项对账。apply runner 已在本地测试中验证：不写空源 Raw、复用 10 个 Silver fallback、其余 Raw/Silver 按批串行生成，缺 fallback 文件会在 writer 前停止。fallback 不会改变普通 Silver sensor 的 Raw 依赖，也不自动触发长期 repair。P7 正式 Bootstrap 仍需单独批准；P8 才处理事件补录。
 
 风险处理：
 

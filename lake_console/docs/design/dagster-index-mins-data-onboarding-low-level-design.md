@@ -612,6 +612,8 @@ P6 代码级实现：
 
 P6A/P6B 真实只读验收：冻结范围为 `2025-01-02..2026-07-27`、378 个 expected dates、530 个 active code；Raw/Silver 目标分别为 1,890/2,646 个且全部缺失，磁盘剩余约 2.55 TB。coverage-only 单次全频全日期聚合 88,383 ms，完整 planner dry-run 88,635 ms，查询预算与 300 秒时间预算通过。历史 code scope 按 index basic 上市/终止日期解释为 526/528/530，非空频率日期行无不一致。source-empty 仍为 15m 一天、30m 四天、60m 五天，故 planner 仍 fail-closed。
 
+正式 Bootstrap 的 apply runner 必须把这 10 个 source-empty 原生频率作为明确例外处理：不调用空源 Raw writer、不生成伪造的 Raw 文件；Raw 对账只对有源频率计入 expected 文件数。对应的 10 个 Silver fallback 文件必须在 apply 前已完成 bounded fallback 审计并存在，apply 只复用它们；其余 Silver（包括 90m/120m）继续按正常 writer 顺序生成。缺少任一 fallback 文件、已有目标非法或出现临时 staging 文件时，必须在任何新 writer 调用前 fail-closed。
+
 正式顺序：
 
 1. Raw 按最多 20 日/批串行生成。
@@ -712,8 +714,8 @@ tests/test_run_contract_static_gates.py
 4. P3 follow-up：`15m/30m/60m` source-empty 5m fallback、source precedence、partial-source fail-closed 和 native reappearance bounded repair 已完成；只作为开发期/历史修复入口，不进入普通 sensor。
 5. P4：asset/check/catalog/schema/governance/job（定义已完成；fallback 接入前不宣称 Silver fallback 已上线）。
 6. P5：专属分区、batch readiness、Raw/Silver sensors，默认 STOPPED（基础能力已完成；fallback readiness 为独立维护入口，普通 sensor 不接入）。
-7. P6A/P6B：source scope 冻结、coverage-only Bootstrap dry-run 与性能回归（coverage 查询通过；source-empty 日期阻断后续 Bootstrap）。
-8. P7：正式 Raw/Silver Bootstrap 与文件对账，单独批准；fallback 目标日期必须先完成源范围审计。
+7. P6A/P6B：source scope 冻结、coverage-only Bootstrap dry-run 与性能回归（coverage 查询通过；source-empty 日期组合已完成 bounded fallback 处理）。
+8. P7：正式 Raw/Silver Bootstrap 与文件对账，apply runner 已实现 source-empty Raw 豁免和 Silver fallback 复用；正式写入仍需单独批准。
 9. P8：materialization 全量补、最近 20 日 checks 补，单独批准。
 10. P9：手动启用 sensor，观察连续 3 个交易日。
 

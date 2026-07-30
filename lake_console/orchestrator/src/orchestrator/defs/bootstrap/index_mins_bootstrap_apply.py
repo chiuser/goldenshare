@@ -31,7 +31,9 @@ from orchestrator.defs.bootstrap.index_mins_bootstrap_plan import (
 )
 from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.paths import (
+    raw_index_mins_path,
     silver_index_basic_path,
+    silver_index_mins_path,
 )
 from orchestrator.defs.prod_db.index_mins import IndexMinsActivePool
 from orchestrator.defs.resources import DuckDBResource, ProdPostgresResource
@@ -240,7 +242,7 @@ def _validate_source_reports(
     fallback_report: Mapping[str, Any],
     date_plan: IndexMinsDatePlan,
     lake_root: Path,
-) -> None:
+) -> dict[str, tuple[int, ...]]:
     if source_report.get("schema_version") != _REPORT_SCHEMA_VERSION:
         raise IndexMinsBootstrapApplyError("P6 source report schema version is unsupported")
     if source_report.get("should_stop") is not True:
@@ -294,11 +296,11 @@ def _validate_source_reports(
         raise IndexMinsBootstrapApplyError("fallback report schema version is unsupported")
     if fallback_report.get("status") != "completed":
         raise IndexMinsBootstrapApplyError("fallback report is not completed")
-    if fallback_report.get("full_dry_run_reexecuted") is not False:
+    if fallback_report.get("full_dry_run_reexecuted", False) is not False:
         raise IndexMinsBootstrapApplyError("fallback report unexpectedly re-ran full dry-run")
-    if fallback_report.get("full_bootstrap_started") is not False:
+    if fallback_report.get("full_bootstrap_started", False) is not False:
         raise IndexMinsBootstrapApplyError("fallback report unexpectedly started full Bootstrap")
-    if fallback_report.get("dagster_event_write") is not False:
+    if fallback_report.get("dagster_event_write", False) is not False:
         raise IndexMinsBootstrapApplyError("fallback report contains Dagster event writes")
     fallback_dates = tuple(str(value) for value in fallback_report.get("dates", ()))
     if fallback_dates != tuple(INDEX_MINS_APPROVED_SOURCE_EMPTY_FALLBACK_SCOPE):
@@ -319,6 +321,7 @@ def _validate_source_reports(
         raise IndexMinsBootstrapApplyError(
             "fallback report target frequencies do not match approved scope"
         )
+    return observed_empty
 
 
 def _load_json(path: Path) -> Mapping[str, Any]:
@@ -394,6 +397,32 @@ def _validate_preflight_targets(
             )
 
 
+def _validate_fallback_targets_present(
+    *,
+    lake_root: Path,
+    source_empty_scope: Mapping[str, Sequence[int]],
+) -> None:
+    """Require the separately audited Silver fallback files before apply.
+
+    The native Raw frequencies are intentionally absent for source-empty dates;
+    the corresponding Silver partitions must already have passed the bounded
+    fallback audit and therefore must be present before the full Bootstrap can
+    continue.
+    """
+
+    missing: list[str] = []
+    for trade_date, frequencies in source_empty_scope.items():
+        for frequency in frequencies:
+            target_path = silver_index_mins_path(lake_root, frequency, trade_date)
+            if not target_path.is_file():
+                missing.append(str(target_path))
+    if missing:
+        raise IndexMinsBootstrapApplyError(
+            "approved Silver fallback targets are missing: "
+            + ", ".join(missing[:10])
+        )
+
+
 def _write_stage_report(
     path: Path,
     base: Mapping[str, object],
@@ -454,7 +483,7 @@ def run_bootstrap_apply(
             lake_root=lake_root,
             end_date=end_date,
         )
-        _validate_source_reports(
+        source_empty_scope = _validate_source_reports(
             source_report=source_report,
             fallback_report=fallback_report,
             date_plan=date_plan,
@@ -476,6 +505,10 @@ def run_bootstrap_apply(
         _validate_preflight_targets(
             preflight_audits,
             _temporary_target_files(lake_root),
+        )
+        _validate_fallback_targets_present(
+            lake_root=lake_root,
+            source_empty_scope=source_empty_scope,
         )
         scopes = source_scope_loader(
             connection=connection,
@@ -502,6 +535,31 @@ def run_bootstrap_apply(
             for trade_date in batch_dates:
                 active_pool = scopes[trade_date]
                 for source_freq in INDEX_MINS_SOURCE_FREQS:
+                    frequency = int(source_freq[:-3])
+                    if frequency in source_empty_scope.get(trade_date, ()):
+                        raw_records.append(
+                            {
+                                "partition_key": trade_date,
+                                "trade_date": trade_date,
+                                "source_freq": source_freq,
+                                "source_method": "prod_db_raw_index_mins",
+                                "write_mode": "source_empty_exempt",
+                                "source_empty_reason": "source_probe_target_frequency_empty",
+                                "target_path": str(
+                                    raw_index_mins_path(
+                                        lake_root,
+                                        source_freq,
+                                        trade_date,
+                                    )
+                                ),
+                                "source_scope_count": active_pool.code_count,
+                                "source_scope_hash": active_pool.code_set_hash,
+                                "source_row_count": 0,
+                                "written_row_count": 0,
+                                "skipped": True,
+                            }
+                        )
+                        continue
                     result = raw_writer(
                         lake_root=lake_root,
                         duckdb=duckdb_resource,
@@ -534,6 +592,7 @@ def run_bootstrap_apply(
                 connection=connection,
                 lake_root=lake_root,
                 expected_trade_dates=date_plan.expected_trade_dates,
+                raw_source_empty_scope=source_empty_scope,
             )
         raw_audit = _audit_by_layer(raw_audits, "raw")
         _write_json(
@@ -548,6 +607,26 @@ def run_bootstrap_apply(
             batch_dates = date_plan.expected_trade_dates[batch_start : batch_start + batch_size]
             for trade_date in batch_dates:
                 for silver_freq in INDEX_MINS_SILVER_FREQS:
+                    if silver_freq in source_empty_scope.get(trade_date, ()):
+                        silver_records.append(
+                            {
+                                "trade_date": trade_date,
+                                "silver_freq": f"{silver_freq}min",
+                                "source_freq": "5min",
+                                "source_mode": "derived_fallback",
+                                "source_empty_reason": "source_probe_target_frequency_empty",
+                                "write_mode": "reuse_existing_fallback",
+                                "silver_file_path": str(
+                                    silver_index_mins_path(
+                                        lake_root,
+                                        silver_freq,
+                                        trade_date,
+                                    )
+                                ),
+                                "skipped": True,
+                            }
+                        )
+                        continue
                     result = silver_writer(
                         lake_root=lake_root,
                         duckdb=duckdb_resource,
@@ -572,6 +651,7 @@ def run_bootstrap_apply(
                 connection=connection,
                 lake_root=lake_root,
                 expected_trade_dates=date_plan.expected_trade_dates,
+                raw_source_empty_scope=source_empty_scope,
             )
         _write_json(
             paths["silver_audit"],
