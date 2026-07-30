@@ -391,6 +391,26 @@ def _audit_targets(
     return tuple(audits)
 
 
+def audit_index_mins_targets(
+    *,
+    connection: Any,
+    lake_root: Path,
+    expected_trade_dates: Sequence[str],
+) -> tuple[IndexMinsTargetAudit, ...]:
+    """Audit only the expected index_mins Raw/Silver target files.
+
+    This public wrapper is intentionally separate from :func:`run_dry_run` so
+    the approved apply path can re-check target safety without re-running the
+    expensive Prod source coverage probe.
+    """
+
+    return _audit_targets(
+        connection=connection,
+        lake_root=lake_root,
+        expected_trade_dates=expected_trade_dates,
+    )
+
+
 def _audit_target_layer(
     *,
     connection: Any,
@@ -644,6 +664,7 @@ __all__ = [
     "IndexMinsDatePlan",
     "IndexMinsDiskBudget",
     "IndexMinsTargetAudit",
+    "audit_index_mins_targets",
     "build_date_plan",
     "run_dry_run",
     "write_report",
