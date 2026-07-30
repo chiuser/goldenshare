@@ -1,12 +1,12 @@
 # `index_mins` 指数分钟线 Dagster 低层设计（LLD）
 
 更新时间：2026-07-30
-状态：P0 设计完成；P1/P2/P3/P4/P5 已编码并通过本地/临时湖验证；P6A/P6B source scope 冻结、coverage-only probe 与真实只读性能验证已完成；P6 当前仍被已审计 source-empty 日期阻断；P3 follow-up 的 source-empty 5m fallback writer、只读 readiness、开发期 repair 和 native reconcile 已完成本地/临时湖验证
+状态：P0 设计完成；P1/P2/P3/P4/P5/P6A/P6B/P7 已完成；P7 已完成正式 Raw/Silver Bootstrap 与全量文件对账。Bootstrap 覆盖 `2025-01-02..2026-07-27` 的 378 个交易日，Raw 有效文件 1,880 个、Silver 文件 2,646 个，缺失和非法文件均为 0；P3 follow-up 的 source-empty 5m fallback writer、只读 readiness、开发期 repair 和 native reconcile 已完成正式 fallback 验收
 对应方案：[dagster-index-mins-data-onboarding-plan.md](./dagster-index-mins-data-onboarding-plan.md)
 
 ## 1. LLD 约束
 
-本 LLD 把方案硬口径落到模块、函数、SQL、测试和阶段验收。P1/P2/P3 已完成合同、Prod 只读验证、Raw/Silver writer 和临时 fixture；仍不新增 active Dagster definition，不写正式 Lake，不读写正式 Dagster instance。
+本 LLD 把方案硬口径落到模块、函数、SQL、测试和阶段验收。P1/P2/P3 已完成合同、Prod 只读验证、Raw/Silver writer 和临时 fixture；P4/P5 已完成正式 definition、readiness 和 sensor 边界；P7 已完成正式 Lake 文件生成与对账，但仍未写 Dagster event 或启用 sensor。
 
 硬约束：
 
@@ -176,7 +176,7 @@ P3 将 Silver 设计落到纯 writer 模块，不提前把业务逻辑放进 ass
 
 P3 测试文件：`tests/test_index_mins_silver_writer.py`。本地 fixture 共 `7 passed`，覆盖 native vwap、90m/120m 锚点和聚合、非窗口源 bar、缺窗口、混合 exchange、staging 清理、错误目标不覆盖和无 active Dagster definition。测试只使用临时 lake/DuckDB，不调用 Prod、Tushare、Dagster instance 或 event API。
 
-530 个代码的临时性能样本中，原生五频 writer 各耗时约 `11.211-15.432 ms`，90m/120m 派生 writer 分别约 `21.159/20.926 ms`；含临时 fixture 物理文件生成的整轮耗时约 `3.155 s`。P6A/P6B 又完成了真实 Prod scope 与 source coverage 验证：coverage-only 全范围单查询约 `88.4 s`，低于 `300 s` 硬预算；历史代码范围按 `silver_index_basic.list_date/exp_date` 修正后无代码数不一致。当前仍因 15m/30m/60m 的已审计 source-empty 日期不能直接进入 P7。
+530 个代码的临时性能样本中，原生五频 writer 各耗时约 `11.211-15.432 ms`，90m/120m 派生 writer 分别约 `21.159/20.926 ms`；含临时 fixture 物理文件生成的整轮耗时约 `3.155 s`。P6A/P6B 又完成了真实 Prod scope 与 source coverage 验证：coverage-only 全范围单查询约 `88.4 s`，低于 `300 s` 硬预算；历史代码范围按 `silver_index_basic.list_date/exp_date` 修正后无代码数不一致。已审计的 15m/30m/60m source-empty 组合由 P7 apply runner 按明确 Raw 豁免和 Silver fallback 复用处理。
 
 P3 follow-up 已实现 `15m/30m/60m` 的 source-empty fallback。该能力仍必须遵守以下合同，不能简化为“目标文件不存在就从 5m 生成”：
 
@@ -599,7 +599,7 @@ defs/bootstrap/index_mins_bootstrap_plan.py
 defs/bootstrap/index_mins_bootstrap_cli.py
 ~~~
 
-dry-run 输出日期计划 fingerprint、active pool hash、逐日五频 source coverage、Raw/Silver 目标冲突、预计文件数/行数/磁盘/查询/耗时；不写 Lake、Dagster DB、dynamic partitions 或 event。CLI 只有 `dry-run` 子命令，不提供 apply 或确认写入参数。
+dry-run 输出日期计划 fingerprint、active pool hash、逐日五频 source coverage、Raw/Silver 目标冲突、预计文件数/行数/磁盘/查询/耗时；不写 Lake、Dagster DB、dynamic partitions 或 event。只读 CLI 只有 `dry-run` 子命令；正式写入使用独立的 `index_mins_bootstrap_apply_cli`，必须显式提供 `--confirm-lake-write`，不与 dry-run 共用隐式写入路径。
 
 P6 代码级实现：
 
@@ -610,7 +610,7 @@ P6 代码级实现：
 
 固定门禁：最多 800 日期、4,000 source probe queries、300 秒 source probe、9,600 个目标文件、磁盘估算乘 1.25 安全系数。上述是固定代码合同，不是运营配置项。
 
-P6A/P6B 真实只读验收：冻结范围为 `2025-01-02..2026-07-27`、378 个 expected dates、530 个 active code；Raw/Silver 目标分别为 1,890/2,646 个且全部缺失，磁盘剩余约 2.55 TB。coverage-only 单次全频全日期聚合 88,383 ms，完整 planner dry-run 88,635 ms，查询预算与 300 秒时间预算通过。历史 code scope 固定为“冻结的 530 个 active pool 与 index basic 上市/终止日期的交集”，非空频率日期的 Prod exact code-set 对账无不一致，日期代码数为 526/528/530。source-empty 仍为 15m 一天、30m 四天、60m 五天，故 planner 仍 fail-closed。
+P6A/P6B 真实只读验收：冻结范围为 `2025-01-02..2026-07-27`、378 个 expected dates、530 个 active code；Raw/Silver 目标分别为 1,890/2,646 个且全部缺失，磁盘剩余约 2.55 TB。coverage-only 单次全频全日期聚合 88,383 ms，完整 planner dry-run 88,635 ms，查询预算与 300 秒时间预算通过。历史 code scope 固定为“冻结的 530 个 active pool 与 index basic 上市/终止日期的交集”，非空频率日期的 Prod exact code-set 对账无不一致，日期代码数为 526/528/530。source-empty 为 15m 一天、30m 四天、60m 五天，继续由 planner 标记为例外。
 
 正式 Bootstrap 的 apply runner 必须把这 10 个 source-empty 原生频率作为明确例外处理：不调用空源 Raw writer、不生成伪造的 Raw 文件；Raw 对账只对有源频率计入 expected 文件数。对应的 10 个 Silver fallback 文件必须在 apply 前已完成 bounded fallback 审计并存在，apply 只复用它们；其余 Silver（包括 90m/120m）继续按正常 writer 顺序生成。缺少任一 fallback 文件、已有目标非法或出现临时 staging 文件时，必须在任何新 writer 调用前 fail-closed。
 
@@ -621,6 +621,15 @@ P6A/P6B 真实只读验收：冻结范围为 `2025-01-02..2026-07-27`、378 个 
 3. Silver native 完成后生成 90m/120m。
 4. 失败日期停止当前批次，成功日期报告可续跑。
 5. 错误目标不覆盖。
+
+P7 正式 Bootstrap 已完成（2026-07-30）：
+
+- Raw batch 记录 `1,890` 个逻辑频率/日期记录，其中 `1,866` 个复用或已完成文件、`14` 个新文件通过 staging 原子替换、`10` 个 source-empty 记录按 Raw 豁免处理；最终有效 Raw 文件 `1,880/1,880`。
+- Silver batch 记录 `2,646` 个目标，其中 `10` 个复用既有 fallback、`2,636` 个通过 staging 原子替换；最终 Silver 文件 `2,646/2,646`。
+- Raw audit：缺失 `0`、非法 `0`、扫描 `1,880` 文件、行数 `64,176,112`。
+- Silver audit：缺失 `0`、非法 `0`、扫描 `2,646` 文件、行数 `65,217,604`。
+- 最终报告 `should_stop=false`，`dagster_event_write=false`，没有临时 staging 残留。执行过程中一次 Prod DB 连接超时触发 fail-closed，之后从成功文件续跑完成，没有不完整文件覆盖。
+- 报告路径：`/private/tmp/index_mins_bootstrap_apply_20260730/index_mins_bootstrap_final_20260730_212459.json`；Raw/Silver batch 和 audit 报告同目录、同 `20260730_212459` 后缀。
 
 ### 9.2 Event backfill
 
@@ -715,7 +724,7 @@ tests/test_run_contract_static_gates.py
 5. P4：asset/check/catalog/schema/governance/job（定义已完成；fallback 接入前不宣称 Silver fallback 已上线）。
 6. P5：专属分区、batch readiness、Raw/Silver sensors，默认 STOPPED（基础能力已完成；fallback readiness 为独立维护入口，普通 sensor 不接入）。
 7. P6A/P6B：source scope 冻结、coverage-only Bootstrap dry-run 与性能回归（coverage 查询通过；source-empty 日期组合已完成 bounded fallback 处理）。
-8. P7：正式 Raw/Silver Bootstrap 与文件对账，apply runner 已实现 source-empty Raw 豁免和 Silver fallback 复用；正式写入仍需单独批准。
+8. P7：正式 Raw/Silver Bootstrap 与文件对账（已完成；Raw 1,880/1,880、Silver 2,646/2,646，缺失/非法均为 0）。
 9. P8：materialization 全量补、最近 20 日 checks 补，单独批准。
 10. P9：手动启用 sensor，观察连续 3 个交易日。
 
@@ -723,7 +732,7 @@ tests/test_run_contract_static_gates.py
 
 P5 已完成：在 P4 的五个 Raw asset、七个 Silver asset、12 个单分区 blocking check 和两份 job 基础上，增加专属交易日注册 sensor、Raw/Silver batch readiness 和两个默认 STOPPED 更新 sensor。P5 只完成本地/临时湖验证，未启用 sensor、未执行正式 Bootstrap 或事件写入。
 
-P6 已完成工具与回归：本轮相关 Prod/Bootstrap/static 测试 `108 passed`；60 日期临时 dry-run 使用 1 个 bounded fake source aggregate query 且未写正式目标。真实正式 dry-run 使用 coverage-only probe，性能通过但因 5 个 source-empty 日期组合保持 fail-closed。P3 follow-up 的 fallback writer/readiness/repair 已完成本地验证，但只用于开发期和明确的历史修复，不进入普通 Silver sensor 的长期自动触发。
+P6 已完成工具与回归：本轮相关 Prod/Bootstrap/static 测试 `108 passed`；60 日期临时 dry-run 使用 1 个 bounded fake source aggregate query 且未写正式目标。真实正式 dry-run 使用 coverage-only probe，性能通过；5 个 source-empty 日期组合由 P3 follow-up fallback 和 P7 apply runner 的显式豁免处理。P7 正式 Bootstrap 与文件对账已完成，未写 Dagster event，P3 follow-up 仍不进入普通 Silver sensor 的长期自动触发。
 
 ## 11. 回滚与边界
 
@@ -736,6 +745,6 @@ P6 已完成工具与回归：本轮相关 Prod/Bootstrap/static 测试 `108 pas
 - 目标频率源全局为空：只有 5m 完整时允许 `derived_fallback`；目标频率部分存在但不完整时直接 fail-closed。
 - native 目标频率后续补回：必须走 bounded repair/reconcile 校验 source revision 后替换 fallback，不由普通 writer 静默覆盖。
 - schema 漂移：staging 校验停止，旧文件不动。
-- sensor 过慢：停止启用，重做 batch readiness，不提高 RPC timeout。P5 已用单连接、10 日窗口、无 event history 的测试门禁约束该风险；P6B coverage-only 全历史 source scan 已通过 300 秒预算，P7 仍必须等待 source-empty fallback 处理和重新对账。
+- sensor 过慢：停止启用，重做 batch readiness，不提高 RPC timeout。P5 已用单连接、10 日窗口、无 event history 的测试门禁约束该风险；P6B coverage-only 全历史 source scan 已通过 300 秒预算；P7 已完成 source-empty fallback 处理和 Raw/Silver 全量对账。
 
 回滚只清理当前 run 临时 staging；不删除既有 Parquet、Dagster event 或 Prod 数据。

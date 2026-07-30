@@ -1,7 +1,7 @@
 # 指数分钟线 `index_mins` Dagster 数据集接入方案
 
 更新时间：2026-07-30
-状态：P0 方案/LLD、P1、P2、P3、P4、P5 已完成；P6A/P6B source scope 冻结与只读性能验证已完成；5 个 source-empty 日期组合的 5m Raw fallback 与 10 个 Silver fallback 已完成审计；P7 apply runner 已补齐 source-empty Raw 豁免和 Silver fallback 复用，正式 Raw/Silver Bootstrap 与文件对账仍待执行。fallback 仅用于开发期 Bootstrap/历史修复，正式日常 sensor 仍不调用。
+状态：P0 方案/LLD、P1、P2、P3、P4、P5、P6A/P6B、P7 已完成；P7 已完成正式 Raw/Silver Bootstrap 与全量文件对账。Bootstrap 覆盖 `2025-01-02..2026-07-27` 的 378 个交易日，Raw 有效文件 1,880 个、Silver 文件 2,646 个，缺失和非法文件均为 0。5 个 source-empty 日期组合继续按已批准的 Raw 豁免和 Silver fallback 口径处理。fallback 仅用于开发期 Bootstrap/历史修复，正式日常 sensor 仍不调用；P8 事件补录仍需单独批准。
 适用范围：`lake_console/orchestrator` 正式 Dagster 数据湖
 
 ## 1. 目标与冻结结论
@@ -457,7 +457,7 @@ P5 本地验证通过：readiness、sensor、definition、check、治理和静�
 
 不可接受：代码×频率 Tushare fan-out、sensor 逐日 event 深扫、文件存在冒充 ready、row count 冒充派生完整性、active pool 失败后继续写、未校验覆盖目标。
 
-Bootstrap dry-run 为独立 CLI，只生成日期计划、active hash、源 coverage、目标冲突、行数/文件数/磁盘/耗时报告。P6 CLI 只有 `dry-run`，没有 apply 写入路径。Raw 全量对账通过后才生成 Silver。
+Bootstrap dry-run 为独立 CLI，只生成日期计划、active hash、源 coverage、目标冲突、行数/文件数/磁盘/耗时报告。P6 只读 CLI 只有 `dry-run`；P7 使用独立的 apply CLI，并要求显式写入确认。Raw 全量对账通过后才生成 Silver。
 
 P6 实现与真实验收结果：
 
@@ -522,10 +522,10 @@ PYTHONPATH=src uv run --project . python -m orchestrator.defs.bootstrap.index_mi
   --lake-root /Volumes/datasource/data_lake \
   --output /private/tmp/index_mins_bootstrap_dry_run_<timestamp>.json
 
-# P6 不提供正式写入命令；P7 必须另行设计并审批
+# P6 只读 CLI 不提供正式写入命令；P7 使用独立 apply CLI，并单独审批
 ```
 
-`dry-run` 不写 Lake、Dagster DB、dynamic partitions 或 event；当前 CLI 没有 `apply` 路径。正式日常通过后续单分区 job/sensor 运行，不提供绕过 partition、active pool 或 core check 的命令。所有命令示例必须用真实 CLI help 和测试对账，不能让文档命令与 parser 漂移。
+`dry-run` 不写 Lake、Dagster DB、dynamic partitions 或 event；正式 apply 不与 dry-run 共用隐式写入路径，必须使用独立入口和 `--confirm-lake-write`。正式日常通过后续单分区 job/sensor 运行，不提供绕过 partition、active pool 或 core check 的命令。所有命令示例必须用真实 CLI help 和测试对账，不能让文档命令与 parser 漂移。
 
 ### 9.5 前端展示
 
@@ -545,14 +545,24 @@ PYTHONPATH=src uv run --project . python -m orchestrator.defs.bootstrap.index_mi
 | P3 follow-up | `15m/30m/60m` source-empty 5m fallback writer、只读 readiness、开发期 repair 和 native reconcile 已完成；不进入普通 sensor 日常链路 |
 | P4 | asset/check/catalog/schema/governance/job（已完成） |
 | P5 | 专属分区、普通 readiness、Raw/Silver sensor，默认 STOPPED（已完成；fallback readiness 为独立维护入口，不接入普通 sensor） |
-| P6A/P6B | source scope 冻结、coverage-only dry-run 与性能回归（已完成；全历史 coverage 88.4s 通过，source-empty 日期仍阻断 P7） |
-| P7 | 正式 Raw/Silver Bootstrap 与文件对账，单独批准 |
+| P6A/P6B | source scope 冻结、coverage-only dry-run 与性能回归（已完成；全历史 coverage 88.4s 通过；source-empty 由独立 fallback 处理） |
+| P7 | 正式 Raw/Silver Bootstrap 与文件对账（已完成；Raw 1,880/1,880、Silver 2,646/2,646，缺失/非法均为 0） |
 | P8 | materialization 全量补、最近 20 日 check 补，单独批准 |
 | P9 | 手动启用 sensor，观察连续 3 个交易日 |
 
 验收必须覆盖：source/written/normalized/output 行数解释、目标 schema/date/PK、staging 清零、event partition、最近 20 日 ready、连续 3 日无超时。
 
-当前状态为 P7 正式写入前置：P6A/P6B 工具、scope、coverage-only 查询和性能回归已完成；P3 follow-up 的 fallback writer/readiness/repair 已完成本地验证，5 个 source-empty 日期组合已完成正式 fallback 文件和专项对账。apply runner 已在本地测试中验证：不写空源 Raw、复用 10 个 Silver fallback、其余 Raw/Silver 按批串行生成，缺 fallback 文件会在 writer 前停止。fallback 不会改变普通 Silver sensor 的 Raw 依赖，也不自动触发长期 repair。P7 正式 Bootstrap 仍需单独批准；P8 才处理事件补录。
+当前状态为 P7 已完成：P6A/P6B 工具、scope、coverage-only 查询和性能回归已完成；P3 follow-up 的 fallback writer/readiness/repair 已完成正式 fallback 文件和专项对账。正式 apply runner 已按“source-empty Raw 豁免、10 个 Silver fallback 复用、其余 Raw/Silver 分批串行、每日期 staging 原子替换”的口径完成 Bootstrap。最终 Raw 对账为 `1,880/1,880`，Silver 对账为 `2,646/2,646`，两层缺失和非法文件均为 0，临时文件为 0；全程未写 Dagster DB/event，未启用 sensor。P8 只处理事件补录，仍需单独批准。
+
+P7 正式报告（2026-07-30）：
+
+- Raw batch：`/private/tmp/index_mins_bootstrap_apply_20260730/index_mins_bootstrap_raw_batch_20260730_212459.json`
+- Raw audit：`/private/tmp/index_mins_bootstrap_apply_20260730/index_mins_bootstrap_raw_audit_20260730_212459.json`
+- Silver batch：`/private/tmp/index_mins_bootstrap_apply_20260730/index_mins_bootstrap_silver_batch_20260730_212459.json`
+- Silver audit：`/private/tmp/index_mins_bootstrap_apply_20260730/index_mins_bootstrap_silver_audit_20260730_212459.json`
+- Final：`/private/tmp/index_mins_bootstrap_apply_20260730/index_mins_bootstrap_final_20260730_212459.json`
+
+最终审计记录 Raw 行数 `64,176,112`、Silver 行数 `65,217,604`；`should_stop=false`，`dagster_event_write=false`。本次执行中途经历一次 Prod DB 连接超时，执行器 fail-closed 停止，之后从已成功文件续跑并完成，未覆盖不完整目标。
 
 风险处理：
 
@@ -580,7 +590,7 @@ PYTHONPATH=src uv run --project . python -m orchestrator.defs.bootstrap.index_mi
 - [x] `15m/30m/60m` source-empty 5m fallback 的 source precedence、完整性、`vwap=NULL`、partial-source fail-closed 和 native reappearance repair fixture 已覆盖。
 - [x] 最近 10 日期 readiness 性能测试已完成，event history 调用为 0；Raw/Silver readiness 与 sensor 测试通过。
 - [x] Bootstrap 请求量、连接数、分页、磁盘、内存和单批耗时预算已测量；P6B coverage-only 全历史 source probe 在 300 秒内完成，source-empty 日期仍 fail-closed。
-- [x] 命令示例已经过真实 parser/help 对账；CLI 只有 dry-run，不写入。
+- [x] P6 只读命令示例已经过真实 parser/help 对账；P7 apply 使用独立 CLI 和显式写入确认。
 - [ ] 前端分组、数据集卡片、详情字段和命令提示已对齐 catalog，不由页面硬编码。
 - [x] M3-M6 既有测试和静态门禁回归已通过；P5 新增 readiness/sensor 测试通过。
 - [x] P0 文档与代码事实已再次对账；未解释的历史 source scope 冲突已明确为 P7 前置阻断。
