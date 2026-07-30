@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   actionSupportsTriggerDayPointPolicy,
   actionSupportsRemoteIndexDailyProbe,
+  actionSupportsRemoteIndexMinsProbe,
   actionSupportsRemoteKplListProbe,
   actionSupportsRemoteProbeCondition,
   actionSupportsRemoteStkMinsProbe,
@@ -14,6 +15,7 @@ import {
   formatScheduleRule,
   getScheduleTimeFieldLabel,
   hasRequiredVisibleParameters,
+  hasCompleteIndexMinsProbeFreqs,
   parseCronExpression,
   resolveEffectiveCalendarPolicy,
   shouldShowScheduleTimingFields,
@@ -209,6 +211,19 @@ describe("自动任务日期策略", () => {
     expect(actionSupportsRemoteProbeCondition("dataset_action", "daily.maintain", "remote_index_daily_ready")).toBe(false);
     expect(actionSupportsRemoteProbeCondition("dataset_action", "stk_mins.maintain", "remote_index_daily_ready")).toBe(false);
     expect(formatProbeConditionLabel("remote_index_daily_ready")).toBe("源站已有指数日线");
+  });
+
+  it("only enables strict remote index_mins source probing for index_mins maintain", () => {
+    expect(actionSupportsRemoteIndexMinsProbe("dataset_action", "index_mins.maintain")).toBe(true);
+    expect(actionSupportsRemoteIndexMinsProbe("dataset_action", "index_daily.maintain")).toBe(false);
+    expect(actionSupportsRemoteIndexMinsProbe("workflow", "index_mins.maintain")).toBe(false);
+    expect(actionSupportsRemoteProbeCondition("dataset_action", "index_mins.maintain", "remote_index_mins_ready")).toBe(true);
+    expect(actionSupportsRemoteProbeCondition("dataset_action", "index_mins.maintain", "freshness_latest_open")).toBe(false);
+    expect(actionSupportsRemoteProbeCondition("dataset_action", "daily.maintain", "freshness_latest_open")).toBe(true);
+    expect(formatProbeConditionLabel("remote_index_mins_ready")).toBe("源站已有指数分钟行情");
+    expect(hasCompleteIndexMinsProbeFreqs(["1min", "5min", "15min", "30min", "60min"])).toBe(true);
+    expect(hasCompleteIndexMinsProbeFreqs(["1min", "5min", "15min", "30min"])).toBe(false);
+    expect(hasCompleteIndexMinsProbeFreqs(["1min", "5min", "15min", "30min", "60min", "60min"])).toBe(false);
   });
 
   it("only enables remote kpl_list source probing for kpl_list maintain", () => {

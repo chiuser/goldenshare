@@ -1090,6 +1090,54 @@ def test_ops_schedule_remote_index_daily_probe_mode_creates_probe_rule(app_clien
     assert rule["on_success_action_json"]["request"]["filters"] == {"ts_code": ["000001.SH", "399001.SZ"]}
 
 
+def test_ops_schedule_remote_index_mins_probe_mode_creates_probe_rule(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    create_response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "index_mins.maintain",
+            "display_name": "指数分钟行情源站就绪后同步",
+            "schedule_type": "cron",
+            "trigger_mode": "probe",
+            "cron_expr": "*/5 15-18 * * 1-5",
+            "timezone": "Asia/Shanghai",
+            "probe_config": {
+                "source_key": "tushare",
+                "window_start": "15:20",
+                "window_end": "18:30",
+                "probe_interval_seconds": 300,
+                "max_triggers_per_day": 1,
+                "condition_kind": "remote_index_mins_ready",
+            },
+            "params_json": {
+                "time_input": {"mode": "point"},
+                "filters": {"freq": ["1min", "5min", "15min", "30min", "60min"]},
+            },
+        },
+    )
+
+    assert create_response.status_code == 200
+    created = create_response.json()
+    assert created["probe_config"]["condition_kind"] == "remote_index_mins_ready"
+    probe_response = app_client.get(
+        f"/api/v1/ops/probes?schedule_id={created['id']}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert probe_response.status_code == 200
+    rule = probe_response.json()["items"][0]
+    assert rule["dataset_key"] == "index_mins"
+    assert rule["probe_condition_json"] == {"type": "remote_index_mins_ready"}
+    assert rule["on_success_action_json"]["action_key"] == "index_mins.maintain"
+    assert rule["on_success_action_json"]["request"]["filters"] == {
+        "freq": ["1min", "5min", "15min", "30min", "60min"],
+    }
+
+
 def test_ops_schedule_remote_kpl_list_probe_mode_creates_probe_rule(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
@@ -1299,6 +1347,110 @@ def test_ops_schedule_remote_index_daily_probe_mode_rejects_invalid_binding(
 
     assert response.status_code == 422
     assert response.json()["message"] == expected_message
+
+
+@pytest.mark.parametrize(
+    ("payload_patch", "expected_message"),
+    [
+        (
+            {"target_key": "index_daily.maintain"},
+            "源站指数分钟行情探测只支持指数历史分钟行情维护",
+        ),
+        (
+            {"probe_config": {"condition_kind": "remote_index_mins_ready", "probe_interval_seconds": 299}},
+            "源站指数分钟行情探测最小间隔为 300 秒",
+        ),
+        (
+            {
+                "params_json": {
+                    "time_input": {"mode": "point"},
+                    "filters": {"freq": ["1min", "5min", "15min", "30min"]},
+                },
+            },
+            "源站指数分钟行情探测必须完整配置 1min/5min/15min/30min/60min",
+        ),
+        (
+            {
+                "params_json": {
+                    "time_input": {"mode": "point", "trade_date": "2026-05-29"},
+                    "filters": {"freq": ["1min", "5min", "15min", "30min", "60min"]},
+                },
+            },
+            "源站指数分钟行情探测不能与固定维护日期混用",
+        ),
+    ],
+)
+def test_ops_schedule_remote_index_mins_probe_mode_rejects_invalid_binding(
+    app_client,
+    user_factory,
+    payload_patch,
+    expected_message,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+    payload = {
+        "target_type": "dataset_action",
+        "target_key": "index_mins.maintain",
+        "display_name": "错误指数分钟行情源站探测",
+        "schedule_type": "cron",
+        "trigger_mode": "probe",
+        "cron_expr": "*/5 15-18 * * 1-5",
+        "timezone": "Asia/Shanghai",
+        "probe_config": {
+            "source_key": "tushare",
+            "window_start": "15:20",
+            "window_end": "18:30",
+            "probe_interval_seconds": 300,
+            "max_triggers_per_day": 1,
+            "condition_kind": "remote_index_mins_ready",
+        },
+        "params_json": {
+            "time_input": {"mode": "point"},
+            "filters": {"freq": ["1min", "5min", "15min", "30min", "60min"]},
+        },
+    }
+    payload.update(payload_patch)
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json=payload,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == expected_message
+
+
+def test_ops_schedule_index_mins_rejects_local_freshness_probe(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "index_mins.maintain",
+            "display_name": "错误本地分钟线探测",
+            "schedule_type": "cron",
+            "trigger_mode": "probe",
+            "cron_expr": "*/5 15-18 * * 1-5",
+            "timezone": "Asia/Shanghai",
+            "probe_config": {
+                "window_start": "15:20",
+                "window_end": "18:30",
+                "probe_interval_seconds": 300,
+                "max_triggers_per_day": 1,
+                "condition_kind": "freshness_latest_open",
+            },
+            "params_json": {"time_input": {"mode": "point"}, "filters": {}},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "指数历史分钟行情必须使用“源站已有指数分钟行情”探测条件"
 
 
 @pytest.mark.parametrize(

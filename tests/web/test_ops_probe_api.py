@@ -14,6 +14,12 @@ from src.ops.services.index_daily_remote_probe_service import (
     IndexDailyRemoteReadinessProbeResult,
     IndexDailyRemoteReadinessProbeService,
 )
+from src.ops.services.index_mins_remote_probe_service import (
+    DEFAULT_INDEX_MINS_SAMPLE_CODES,
+    INDEX_MINS_REMOTE_READY_CONDITION,
+    IndexMinsRemoteReadinessProbeResult,
+    IndexMinsRemoteReadinessProbeService,
+)
 from src.ops.services.kpl_list_remote_probe_service import (
     KPL_LIST_REMOTE_READY_CONDITION,
     KplListRemoteReadinessProbeResult,
@@ -1152,3 +1158,415 @@ def test_probe_runtime_remote_kpl_list_retries_failed_target_task(
     assert result.triggered_rules == 1
     assert len(task_runs) == 1
     assert task_runs[0].time_input_json["trade_date"] == "2026-05-29"
+
+
+def test_index_mins_remote_probe_requires_all_representative_samples_in_active_pool(db_session, monkeypatch) -> None:
+    class FakeIndexSeriesActiveDAO:
+        def list_active_codes(self, resource):
+            assert resource == "index_mins"
+            return DEFAULT_INDEX_MINS_SAMPLE_CODES[:-1]
+
+    class FakeDAOFactory:
+        def __init__(self, session):
+            del session
+            self.index_series_active = FakeIndexSeriesActiveDAO()
+
+    monkeypatch.setattr("src.ops.services.index_mins_remote_probe_service.DAOFactory", FakeDAOFactory)
+
+    with pytest.raises(ValueError, match="指数分钟线代表样本未配置完整：399699.SZ"):
+        IndexMinsRemoteReadinessProbeService._resolve_sample_codes(db_session)
+
+
+def test_index_mins_remote_probe_rejects_direct_partial_frequency_rule(db_session, probe_rule_factory) -> None:
+    rule = probe_rule_factory(
+        dataset_key="index_mins",
+        source_key="tushare",
+        probe_condition_json={"type": INDEX_MINS_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "index_mins.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {"freq": ["1min", "5min"]},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+
+    with pytest.raises(ValueError, match="源站指数分钟行情探测必须完整配置 1min/5min/15min/30min/60min"):
+        IndexMinsRemoteReadinessProbeService().evaluate(
+            db_session,
+            rule,
+            current=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc),
+        )
+
+
+def test_index_mins_remote_probe_builds_all_requests_from_resolver(db_session, probe_rule_factory, monkeypatch) -> None:
+    class FakeTradeCalendarDAO:
+        def __init__(self, session):
+            del session
+
+        def fetch_by_pk(self, exchange, business_date):
+            del exchange
+            del business_date
+            return SimpleNamespace(is_open=True, pretrade_date=date(2026, 5, 28))
+
+    class FakeIndexSeriesActiveDAO:
+        def list_active_codes(self, resource):
+            assert resource == "index_mins"
+            return DEFAULT_INDEX_MINS_SAMPLE_CODES
+
+    class FakeIndexBasicDAO:
+        @staticmethod
+        def get_by_ts_code(ts_code):
+            return SimpleNamespace(name=ts_code)
+
+    class FakeDAOFactory:
+        def __init__(self, session):
+            del session
+            self.index_series_active = FakeIndexSeriesActiveDAO()
+            self.index_basic = FakeIndexBasicDAO()
+
+    calls: list[dict] = []
+
+    class FakeConnector:
+        def call(self, api_name, params=None, fields=None):
+            request_params = dict(params or {})
+            calls.append({"api_name": api_name, "params": request_params, "fields": tuple(fields or ())})
+            return [{"ts_code": request_params["ts_code"], "trade_time": "2026-05-29 15:00:00"}]
+
+    monkeypatch.setattr("src.ops.services.index_mins_remote_probe_service.TradeCalendarDAO", FakeTradeCalendarDAO)
+    monkeypatch.setattr("src.ops.services.index_mins_remote_probe_service.DAOFactory", FakeDAOFactory)
+    monkeypatch.setattr("src.foundation.ingestion.unit_planner.DAOFactory", FakeDAOFactory)
+    monkeypatch.setattr(
+        "src.ops.services.index_mins_remote_probe_service.create_source_connector",
+        lambda _source_key: FakeConnector(),
+    )
+    rule = probe_rule_factory(
+        dataset_key="index_mins",
+        source_key="tushare",
+        probe_condition_json={"type": INDEX_MINS_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "index_mins.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {"freq": ["1min", "5min", "15min", "30min", "60min"]},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+
+    result = IndexMinsRemoteReadinessProbeService().evaluate(
+        db_session,
+        rule,
+        current=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.matched is True
+    assert result.payload["latest_open_date"] == "2026-05-29"
+    assert result.payload["sample_request_count"] == 75
+    assert len(result.payload["sample_hits"]) == 75
+    assert len(calls) == 75
+    assert calls[0] == {
+        "api_name": "idx_mins",
+        "params": {
+            "ts_code": "000001.SH",
+            "freq": "1min",
+            "start_date": "2026-05-29 09:00:00",
+            "end_date": "2026-05-29 19:00:00",
+            "limit": 1,
+            "offset": 0,
+        },
+        "fields": ("ts_code", "trade_time"),
+    }
+    assert calls[-1]["params"]["ts_code"] == "399699.SZ"
+    assert calls[-1]["params"]["freq"] == "60min"
+
+
+def test_index_mins_remote_probe_stops_on_first_missing_sample(db_session, probe_rule_factory, monkeypatch) -> None:
+    class FakeTradeCalendarDAO:
+        def __init__(self, session):
+            del session
+
+        def fetch_by_pk(self, exchange, business_date):
+            del exchange
+            del business_date
+            return SimpleNamespace(is_open=True, pretrade_date=date(2026, 5, 28))
+
+    class FakeIndexSeriesActiveDAO:
+        def list_active_codes(self, resource):
+            assert resource == "index_mins"
+            return DEFAULT_INDEX_MINS_SAMPLE_CODES
+
+    class FakeIndexBasicDAO:
+        @staticmethod
+        def get_by_ts_code(ts_code):
+            return SimpleNamespace(name=ts_code)
+
+    class FakeDAOFactory:
+        def __init__(self, session):
+            del session
+            self.index_series_active = FakeIndexSeriesActiveDAO()
+            self.index_basic = FakeIndexBasicDAO()
+
+    calls: list[dict] = []
+
+    class FakeConnector:
+        def call(self, api_name, params=None, fields=None):
+            del api_name
+            del fields
+            request_params = dict(params or {})
+            calls.append(request_params)
+            if request_params["freq"] == "1min":
+                return [{"ts_code": request_params["ts_code"], "trade_time": "2026-05-29 15:00:00"}]
+            return []
+
+    monkeypatch.setattr("src.ops.services.index_mins_remote_probe_service.TradeCalendarDAO", FakeTradeCalendarDAO)
+    monkeypatch.setattr("src.ops.services.index_mins_remote_probe_service.DAOFactory", FakeDAOFactory)
+    monkeypatch.setattr("src.foundation.ingestion.unit_planner.DAOFactory", FakeDAOFactory)
+    monkeypatch.setattr(
+        "src.ops.services.index_mins_remote_probe_service.create_source_connector",
+        lambda _source_key: FakeConnector(),
+    )
+    rule = probe_rule_factory(
+        dataset_key="index_mins",
+        source_key="tushare",
+        probe_condition_json={"type": INDEX_MINS_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "index_mins.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {"freq": ["1min", "5min", "15min", "30min", "60min"]},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+
+    result = IndexMinsRemoteReadinessProbeService().evaluate(
+        db_session,
+        rule,
+        current=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.matched is False
+    assert result.payload["sample_request_count"] == 2
+    assert result.payload["first_missing_sample"] == {"ts_code": "000001.SH", "freq": "5min"}
+    assert [item["freq"] for item in calls] == ["1min", "5min"]
+
+
+def test_probe_runtime_remote_index_mins_hit_creates_task_run_with_latest_open_date(
+    db_session,
+    ops_schedule_factory,
+    probe_rule_factory,
+    monkeypatch,
+) -> None:
+    schedule = ops_schedule_factory(target_key="index_mins.maintain", trigger_mode="probe")
+    rule = probe_rule_factory(
+        schedule_id=schedule.id,
+        dataset_key="index_mins",
+        source_key="tushare",
+        probe_condition_json={"type": INDEX_MINS_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "index_mins.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {"freq": ["1min", "5min", "15min", "30min", "60min"], "source_key": "tushare"},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+    service = ProbeRuntimeService()
+    monkeypatch.setattr(
+        service.index_mins_remote_probe,
+        "evaluate",
+        lambda session, rule, current: IndexMinsRemoteReadinessProbeResult(
+            matched=True,
+            message="源站已返回目标交易日指数分钟行情",
+            payload={"latest_open_date": "2026-05-29"},
+        ),
+    )
+
+    task_runs, result = service.run_once(db_session, now=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc), limit=10)
+
+    assert result.triggered_rules == 1
+    assert len(task_runs) == 1
+    assert task_runs[0].resource_key == "index_mins"
+    assert task_runs[0].schedule_id == schedule.id
+    assert task_runs[0].time_input_json == {"mode": "point", "trade_date": "2026-05-29"}
+    assert task_runs[0].filters_json == {"freq": ["1min", "5min", "15min", "30min", "60min"]}
+    run_log = db_session.scalar(select(ProbeRunLog).where(ProbeRunLog.probe_rule_id == rule.id))
+    assert run_log is not None
+    assert run_log.condition_matched is True
+
+
+def test_index_mins_remote_probe_stops_after_first_empty_response(db_session, probe_rule_factory, monkeypatch) -> None:
+    class FakeTradeCalendarDAO:
+        def __init__(self, session):
+            del session
+
+        def fetch_by_pk(self, exchange, business_date):
+            del exchange
+            del business_date
+            return SimpleNamespace(is_open=True, pretrade_date=date(2026, 5, 28))
+
+    class FakeIndexSeriesActiveDAO:
+        def list_active_codes(self, resource):
+            assert resource == "index_mins"
+            return DEFAULT_INDEX_MINS_SAMPLE_CODES
+
+    class FakeIndexBasicDAO:
+        @staticmethod
+        def get_by_ts_code(ts_code):
+            return SimpleNamespace(name=ts_code)
+
+    class FakeDAOFactory:
+        def __init__(self, session):
+            del session
+            self.index_series_active = FakeIndexSeriesActiveDAO()
+            self.index_basic = FakeIndexBasicDAO()
+
+    connector_calls: list[dict] = []
+
+    class FakeConnector:
+        def call(self, api_name, params=None, fields=None):
+            del api_name
+            del fields
+            connector_calls.append(dict(params or {}))
+            return []
+
+    monkeypatch.setattr("src.ops.services.index_mins_remote_probe_service.TradeCalendarDAO", FakeTradeCalendarDAO)
+    monkeypatch.setattr("src.ops.services.index_mins_remote_probe_service.DAOFactory", FakeDAOFactory)
+    monkeypatch.setattr("src.foundation.ingestion.unit_planner.DAOFactory", FakeDAOFactory)
+    monkeypatch.setattr(
+        "src.ops.services.index_mins_remote_probe_service.create_source_connector",
+        lambda _source_key: FakeConnector(),
+    )
+    rule = probe_rule_factory(
+        dataset_key="index_mins",
+        source_key="tushare",
+        probe_condition_json={"type": INDEX_MINS_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "index_mins.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {"freq": ["1min", "5min", "15min", "30min", "60min"]},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+
+    result = IndexMinsRemoteReadinessProbeService().evaluate(
+        db_session,
+        rule,
+        current=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.matched is False
+    assert result.payload["sample_request_count"] == 1
+    assert result.payload["first_missing_sample"] == {"ts_code": "000001.SH", "freq": "1min"}
+    assert len(connector_calls) == 1
+
+
+def test_index_mins_remote_probe_rejects_stale_source_row(db_session, probe_rule_factory, monkeypatch) -> None:
+    class FakeTradeCalendarDAO:
+        def __init__(self, session):
+            del session
+
+        def fetch_by_pk(self, exchange, business_date):
+            del exchange
+            del business_date
+            return SimpleNamespace(is_open=True, pretrade_date=date(2026, 5, 28))
+
+    class FakeIndexSeriesActiveDAO:
+        def list_active_codes(self, resource):
+            assert resource == "index_mins"
+            return DEFAULT_INDEX_MINS_SAMPLE_CODES
+
+    class FakeIndexBasicDAO:
+        @staticmethod
+        def get_by_ts_code(ts_code):
+            return SimpleNamespace(name=ts_code)
+
+    class FakeDAOFactory:
+        def __init__(self, session):
+            del session
+            self.index_series_active = FakeIndexSeriesActiveDAO()
+            self.index_basic = FakeIndexBasicDAO()
+
+    class FakeConnector:
+        def call(self, api_name, params=None, fields=None):
+            del api_name
+            del params
+            del fields
+            return [{"ts_code": "000001.SH", "trade_time": "2026-05-28 15:00:00"}]
+
+    monkeypatch.setattr("src.ops.services.index_mins_remote_probe_service.TradeCalendarDAO", FakeTradeCalendarDAO)
+    monkeypatch.setattr("src.ops.services.index_mins_remote_probe_service.DAOFactory", FakeDAOFactory)
+    monkeypatch.setattr("src.foundation.ingestion.unit_planner.DAOFactory", FakeDAOFactory)
+    monkeypatch.setattr(
+        "src.ops.services.index_mins_remote_probe_service.create_source_connector",
+        lambda _source_key: FakeConnector(),
+    )
+    rule = probe_rule_factory(
+        dataset_key="index_mins",
+        source_key="tushare",
+        probe_condition_json={"type": INDEX_MINS_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "index_mins.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {"freq": ["1min", "5min", "15min", "30min", "60min"]},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+
+    result = IndexMinsRemoteReadinessProbeService().evaluate(
+        db_session,
+        rule,
+        current=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.matched is False
+    assert result.payload["sample_request_count"] == 1
+
+
+def test_probe_runtime_remote_index_mins_error_does_not_create_task_run(db_session, probe_rule_factory, monkeypatch) -> None:
+    rule = probe_rule_factory(
+        dataset_key="index_mins",
+        source_key="tushare",
+        probe_condition_json={"type": INDEX_MINS_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "index_mins.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {"freq": ["1min", "5min", "15min", "30min", "60min"]},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+    service = ProbeRuntimeService()
+
+    def raise_source_error(session, rule, current):
+        del session
+        del rule
+        del current
+        raise RuntimeError("source unavailable")
+
+    monkeypatch.setattr(service.index_mins_remote_probe, "evaluate", raise_source_error)
+
+    task_runs, result = service.run_once(db_session, now=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc), limit=10)
+
+    assert result.triggered_rules == 0
+    assert task_runs == []
+    assert db_session.scalar(select(TaskRun).where(TaskRun.resource_key == "index_mins")) is None
+    run_log = db_session.scalar(select(ProbeRunLog).where(ProbeRunLog.probe_rule_id == rule.id))
+    assert run_log is not None
+    assert run_log.status == "failed"
+    assert run_log.result_code == "error"

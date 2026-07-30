@@ -17,6 +17,13 @@ from src.ops.services.index_daily_remote_probe_service import (
     INDEX_DAILY_DATASET_KEY,
     INDEX_DAILY_REMOTE_READY_CONDITION,
 )
+from src.ops.services.index_mins_remote_probe_service import (
+    INDEX_MINS_ACTION_KEY,
+    INDEX_MINS_ALLOWED_FREQS,
+    INDEX_MINS_DATASET_KEY,
+    INDEX_MINS_MIN_PROBE_INTERVAL_SECONDS,
+    INDEX_MINS_REMOTE_READY_CONDITION,
+)
 from src.ops.services.kpl_list_remote_probe_service import (
     KPL_LIST_ACTION_KEY,
     KPL_LIST_DATASET_KEY,
@@ -35,6 +42,7 @@ FRESHNESS_LATEST_OPEN_CONDITION = "freshness_latest_open"
 REMOTE_SOURCE_PROBE_CONDITIONS = {
     STK_MINS_REMOTE_READY_CONDITION,
     INDEX_DAILY_REMOTE_READY_CONDITION,
+    INDEX_MINS_REMOTE_READY_CONDITION,
     KPL_LIST_REMOTE_READY_CONDITION,
 }
 SUPPORTED_PROBE_CONDITIONS = {FRESHNESS_LATEST_OPEN_CONDITION, *REMOTE_SOURCE_PROBE_CONDITIONS}
@@ -113,6 +121,8 @@ class ScheduleProbeBindingService:
             self._validate_remote_stk_mins_schedule(schedule=schedule, filters=filters)
         if condition_kind == INDEX_DAILY_REMOTE_READY_CONDITION:
             self._validate_remote_index_daily_schedule(schedule=schedule)
+        if condition_kind == INDEX_MINS_REMOTE_READY_CONDITION:
+            self._validate_remote_index_mins_schedule(schedule=schedule, filters=filters, interval=interval)
         if condition_kind == KPL_LIST_REMOTE_READY_CONDITION:
             self._validate_remote_kpl_list_schedule(schedule=schedule)
         dataset_targets = self._resolve_dataset_targets(schedule=schedule, config=config)
@@ -190,6 +200,12 @@ class ScheduleProbeBindingService:
 
     @staticmethod
     def _validate_freshness_latest_open_dataset(dataset_key: str) -> None:
+        if dataset_key == INDEX_MINS_DATASET_KEY:
+            raise WebAppError(
+                status_code=422,
+                code="validation_error",
+                message="指数历史分钟行情必须使用“源站已有指数分钟行情”探测条件",
+            )
         definition = get_dataset_definition(dataset_key)
         if definition.observability.freshness_policy != CONTINUOUS_OPEN_DAY:
             raise WebAppError(
@@ -233,6 +249,34 @@ class ScheduleProbeBindingService:
         dataset_key = cls._dataset_from_action_target(schedule.target_key)
         if dataset_key != INDEX_DAILY_DATASET_KEY:
             raise WebAppError(status_code=422, code="validation_error", message="源站指数日线探测只支持指数日线行情维护")
+
+    @classmethod
+    def _validate_remote_index_mins_schedule(cls, *, schedule: OpsSchedule, filters: dict, interval: int) -> None:
+        trigger_mode = cls._normalize_trigger_mode(schedule.trigger_mode)
+        if trigger_mode not in {"probe", "schedule_probe_fallback"}:
+            raise WebAppError(status_code=422, code="validation_error", message="源站指数分钟行情探测只支持探测触发或定时 + 探测兜底")
+        if schedule.target_type != "dataset_action" or schedule.target_key != INDEX_MINS_ACTION_KEY:
+            raise WebAppError(status_code=422, code="validation_error", message="源站指数分钟行情探测只支持指数历史分钟行情维护")
+        if schedule.calendar_policy:
+            raise WebAppError(status_code=422, code="validation_error", message="源站指数分钟行情探测不能与日期策略混用")
+        if cls._has_fixed_time_input(dict(schedule.params_json or {})):
+            raise WebAppError(status_code=422, code="validation_error", message="源站指数分钟行情探测不能与固定维护日期混用")
+        freqs = [str(item).strip() for item in split_multi_values(filters.get("freq")) if str(item).strip()]
+        if len(freqs) != len(INDEX_MINS_ALLOWED_FREQS) or set(freqs) != set(INDEX_MINS_ALLOWED_FREQS):
+            raise WebAppError(
+                status_code=422,
+                code="validation_error",
+                message="源站指数分钟行情探测必须完整配置 1min/5min/15min/30min/60min",
+            )
+        if interval < INDEX_MINS_MIN_PROBE_INTERVAL_SECONDS:
+            raise WebAppError(
+                status_code=422,
+                code="validation_error",
+                message="源站指数分钟行情探测最小间隔为 300 秒",
+            )
+        dataset_key = cls._dataset_from_action_target(schedule.target_key)
+        if dataset_key != INDEX_MINS_DATASET_KEY:
+            raise WebAppError(status_code=422, code="validation_error", message="源站指数分钟行情探测只支持指数历史分钟行情维护")
 
     @classmethod
     def _validate_remote_kpl_list_schedule(cls, *, schedule: OpsSchedule) -> None:

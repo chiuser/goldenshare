@@ -1,6 +1,6 @@
 # 指数历史分钟行情（index_mins）数据集开发说明
 
-文档状态：已落地
+文档状态：数据集已落地；源站探测触发已实现，待生产验收
 适用数据集：`index_mins`
 源接口：Tushare `idx_mins`
 源接口文档：[/Users/congming/github/goldenshare/docs/sources/tushare/指数专题/0419_股票历史分钟行情.md](/Users/congming/github/goldenshare/docs/sources/tushare/指数专题/0419_股票历史分钟行情.md)
@@ -30,6 +30,8 @@
 5. 禁止把 `limit`、`offset` 暴露给运营用户填写。
 6. 禁止让状态写入失败影响 `raw_tushare.index_mins` 的业务数据写入事务。
 7. 禁止把 `idx_mins` 的“只传 ts_code + freq 会返回一段默认数据”建模成平台主维护方式，因为这个默认窗口不清晰，不能表达明确运营意图。
+8. 禁止用本地 freshness 条件代替源站就绪探测。`freshness_latest_open` 只能回答“本地是否已有最新数据”，不能证明 Tushare 是否已产出当天指数分钟行情。
+9. 源站探测只负责决定是否创建正式维护任务；不得直接写 `raw_tushare.index_mins`、不得绕过 `DatasetActionResolver` 拼接源接口参数、不得改变分钟线业务写入事务。
 
 ### 0.3 开发前置硬检查
 
@@ -71,6 +73,21 @@
 3. 默认维护代码池使用 `ops.index_series_active.resource = "index_mins"`，不是 `index_daily` 全池。
 4. 源端分页能力存在，但分页不是事务边界。
 
+#### 0.3.0.1 源站就绪探测样本复核
+
+复核日期：2026-07-31。使用 `idx_mins` 的 `ts_code/trade_time` 显式字段，请求窗口为 `2026-07-30 14:00:00 ~ 19:00:00`。
+
+| 样本 | 频率 | 结果 | 最近返回时间 | 用途 |
+| --- | --- | --- | --- | --- |
+| `000001.SH` | `1min` | 有数据 | `2026-07-30 15:00:00` | 验证 1 分钟频率 |
+| `000001.SH` | `5min` | 有数据 | `2026-07-30 15:00:00` | 验证 5 分钟频率 |
+| `000001.SH` | `15min` | 有数据 | `2026-07-30 15:00:00` | 验证 15 分钟频率 |
+| `000001.SH` | `30min` | 有数据 | `2026-07-30 15:00:00` | 验证 30 分钟频率 |
+| `000001.SH` | `60min` | 有数据 | `2026-07-30 15:00:00` | 验证 60 分钟频率 |
+| `399001.SZ`、`000300.SH`、`000016.SH`、`000905.SH` | `60min` | 均有数据 | `2026-07-30 15:00:00` | 验证多市场代表指数可用 |
+
+结论：7.4.2 固定的 15 个代表指数已完成五种频率共 75 个组合的实测验证，全部返回 `2026-07-30 15:00:00`。实现时仍必须从 `resource=index_mins` 激活池校验全部 15 个代码存在；任一缺失属于运营配置错误，不能静默替换样本。
+
 #### 0.3.1 三层语义拆分表
 
 | 语义层 | 必须回答的问题 | 本数据集答案 | 是否已从代码/源文档核验 |
@@ -98,7 +115,7 @@
 | dataset cards | 卡片状态、最近同步、原始层状态 | 是 | 通过 catalog + freshness 自动展示；不在前端拼字段 | `frontend/src/features/data-sources/**`、`src/ops/queries/catalog_query_service.py` |
 | snapshot rebuild | freshness cache 投影 | 是 | 新 raw ORM 必须能被 registry 发现，snapshot rebuild 才能统计行数和最近时间 | `src/foundation/models/table_model_registry.py`、`src/ops/services/dataset_status_snapshot_service.py` |
 | date completeness audit | `audit_applicable`、`bucket_rule`、`not_applicable_reason` | 是 | V1 明确 `audit_applicable=False`，原因写分钟线完整性规则尚未建模 | `src/ops/queries/date_completeness_query_service.py` |
-| 自动任务 / calendar policy | `date_selection_rule`、默认时间模式 | 是 | V1 启用自动任务，但不加入 workflow；自动任务参数与手动维护一致，`freq` 未选按全选处理 | `src/ops/services/schedule_definition_service.py` |
+| 自动任务 / calendar policy | `date_selection_rule`、默认时间模式 | 是 | 已启用自动任务但不加入 workflow；源站探测触发待新增，届时必须显式配置全部五个 `freq`，不能把“未选即全选”用于探测 | `src/ops/services/schedule_definition_service.py`、`src/ops/services/schedule_probe_binding_service.py` |
 | 前端时间控件 | point/range/none/month 控件与选择规则 | 是 | 使用现有 point/range 交易日控件；`freq` 用枚举选择 | `frontend/src/features/tasks/**` |
 | 测试与文档 | 单测、集成测试、文档索引 | 是 | 新增真实探测测试、definition/request/unit/writer/ops 测试，更新 README | `tests/integration/test_tushare_idx_mins_active_pool_probe.py`、`docs/README.md` |
 
@@ -301,7 +318,7 @@
 说明：
 
 1. `raw_tushare.index_mins` 是唯一物理业务数据表。
-2. `core_serving.index_minute_bar` 是只读 view，不是 writer 写入目标，也不作为 TaskRun/freshness 主观测表。
+2. 当前 `serving_table=None`，没有 `core_serving.index_minute_bar` view；TaskRun 与 freshness 直接以 raw 表的写入和 `trade_time` 观测为准。
 3. DAO 可以复用 `GenericDAO`。
 
 ### 4.6 `planning`
@@ -473,36 +490,9 @@ CREATE INDEX ix_raw_tushare_index_mins_freq_trade_time
 2. `exchange` 可空，不进入唯一约束。
 3. 数值字段可空，不进入查询主索引。
 
-### 5.2 serving view
+### 5.2 serving 层
 
-建议 view：`core_serving.index_minute_bar`
-
-用途：
-
-1. 对上层查询提供稳定的指数分钟线读取入口。
-2. 避免再复制一份 core 物理表，节省服务器空间。
-3. 可以在 view 中补出 `trade_date = trade_time::date` 供查询使用。
-
-示意：
-
-```sql
-CREATE OR REPLACE VIEW core_serving.index_minute_bar AS
-SELECT
-    ts_code,
-    trade_time,
-    trade_time::date AS trade_date,
-    freq,
-    exchange,
-    open,
-    high,
-    low,
-    close,
-    vol,
-    amount,
-    vwap,
-    'tushare'::varchar(32) AS source
-FROM raw_tushare.index_mins;
-```
+当前没有 serving 表或 view。`index_mins` 保持 `raw_only_upsert`，上层如需消费分钟行情，应通过后续明确立项的查询契约建设，不得在本数据集维护链路中隐式补建第二层数据。
 
 ---
 
@@ -648,17 +638,121 @@ A股指数行情 / 指数历史分钟行情
 
 ### 7.3 自动任务
 
-V1 接入自动任务，但不接入 workflow。
+已接入自动任务，但不接入 workflow。
 
 自动任务配置口径：
 
 1. 维护对象：`指数历史分钟行情`。
 2. 时间模式：沿用 point/range，由调度日期策略生成实际交易日或区间。
-3. 频率：支持 `1min/5min/15min/30min/60min` 多选；未选择时按全选处理。
+3. 频率：普通自动任务支持 `1min/5min/15min/30min/60min` 多选；未选择时按全选处理。使用源站探测触发时必须显式配置全部五个频率，拒绝空值和部分频率。
 4. 指数代码：默认不填，使用 `resource=index_mins` 的 530 个激活指数；填写时必须限制在该激活池内。
 5. workflow：不接入现有 workflow，避免把分钟线维护塞进日级工作流。
 
-### 7.4 日期完整性审计
+普通定时任务不受探测条件限制。凡 `index_mins` 使用探测触发，本地 `freshness_latest_open` 不再可选，必须使用下一节的源站专用条件。
+
+### 7.4 源站就绪探测触发（已实现，待生产验收）
+
+#### 7.4.1 目标与边界
+
+新增条件 key：`remote_index_mins_ready`，页面显示为“源站已有指数分钟行情”。它只回答“源站是否已经完整产出 15 个代表指数的全部五种分钟频率”，不判断 530 个激活指数是否已经全部产出，也不替代分钟线完整性审计。
+
+适用范围固定为：
+
+1. 仅 `target_type=dataset_action` 且 `target_key=index_mins.maintain`。
+2. 仅 `trigger_mode=probe` 或 `schedule_probe_fallback`；不支持 workflow。
+3. 自动任务必须显式配置完整频率集合 `1min/5min/15min/30min/60min`。未选择 `freq` 的“默认全选”只适用于普通维护；空值或部分频率均不得绑定源站探测，避免探测结论与正式维护范围不一致。
+4. 不允许固定 `trade_date`、`start_date/end_date` 或 `calendar_policy`。目标日期只能由交易日历确定为探测当日的开市日。
+5. 不新增表、迁移、公共 API、业务数据写入或状态副本；探测日志继续写现有 `ops.probe_run_log`。
+
+#### 7.4.2 探测样本与命中规则
+
+固定代表指数集合如下。启动探测前必须确认全部 15 个代码均仍在 `ops.index_series_active(resource='index_mins')`；任一缺失即以配置错误记录 ProbeRunLog，不能悄悄换成其他代码。
+
+| 指数名称 | 代码 | 覆盖特征 |
+| --- | --- | --- |
+| 上证指数 | `000001.SH` | 沪市综合基准 |
+| B股指数 | `000003.SH` | 沪市 B 股规模 |
+| 工业指数 | `000004.SH` | 沪市行业 |
+| 红利指数 | `000015.SH` | 沪市策略 |
+| 治理指数 | `000019.SH` | 沪市主题 |
+| 180成长 | `000028.SH` | 沪市风格 |
+| 新指数 | `399100.SZ` | 深市综合基准 |
+| 深证成指 | `399001.SZ` | 深市规模基准 |
+| 农林指数 | `399231.SZ` | 深市行业 |
+| 创质量 | `399269.SZ` | 深市策略 |
+| 创价值 | `399295.SZ` | 深市风格 |
+| 深市精选 | `399013.SZ` | 深市主题 |
+| 央视500 | `000855.SH` | 沪市少见联合发布方 |
+| 新丝路 | `399429.SZ` | 深市少见联合发布方 |
+| 金融科技 | `399699.SZ` | 深市少见联合发布方 |
+
+探测样本是固定系统事实，不受自动任务 `filters.ts_code` 覆盖。这样无论正式任务是默认激活池还是局部指数维护，探测结论都表达同一件事：Tushare 的指数分钟源是否已完整产出这一组跨沪深、跨分类的代表数据。
+
+对每个代表指数和每个固定频率：
+
+1. 用一个候选代码构造 `DatasetActionRequest(action=maintain, time_input=point)`。
+2. 必须经 `DatasetActionResolver -> build_index_mins_units -> _idx_mins_params` 得到正式请求参数；Ops 只能额外覆盖探测专用的 `limit=1`、`offset=0` 和字段 `ts_code,trade_time`。
+3. 返回行必须同时满足 `ts_code` 等于当前代表指数且 `trade_time` 落在目标交易日，才视为该“代码 + 频率”组合命中。
+4. 按表中代码顺序、每个代码的 `1min/5min/15min/30min/60min` 顺序串行请求。任一组合空响应、返回旧日期或源端报错，立即停止本轮，不再请求后续组合。
+5. 全部 `15 个代码 x 5 个频率 = 75` 个组合均命中，才算整个条件命中；任一组合未命中则仅记录 miss，不创建 TaskRun。
+6. `probe_interval_seconds` 最小值为 `300`。默认值也是 `300`，保证完整 75 次严格验证不会被更短周期重复触发。
+
+这是一条比股票分钟线更严格的源站就绪规则：它仍然不承诺 530 个激活指数全部齐备，但不接受“个别样本或个别频率已产出”就开始正式维护。2026-07-30 已对固定 15 个代码的全部 75 个组合实测，全部返回目标日 `15:00` 数据。
+
+#### 7.4.3 运行时序
+
+```mermaid
+flowchart TD
+    A["ProbeRuntime 进入探测窗口"] --> B["交易日历确认当天开市"]
+    B -- "否或缺日历" --> C["记录 miss，不创建任务"]
+    B -- "是" --> D["校验自动任务已显式配置全部五个频率"]
+    D --> E["按固定顺序串行请求 15 x 5 组合"]
+    E --> F{"当前组合同时命中代码和目标日?"}
+    F -- "否" --> G["立即停止本轮，记录 miss"]
+    F -- "是" --> H{"已完成 75 个组合?"}
+    H -- "否" --> E
+    H -- "是" --> I["检查同 schedule、同目标日是否已有有效 TaskRun"]
+    I -- "是" --> J["记录 deduplicated，不重复创建"]
+    I -- "否" --> K["创建普通 index_mins.maintain TaskRun"]
+    K --> L["主 worker 按既有 planner、writer 正常维护"]
+```
+
+命中后创建的 TaskRun 必须是常规维护请求：
+
+```json
+{
+  "dataset_key": "index_mins",
+  "action": "maintain",
+  "time_input": {"mode": "point", "trade_date": "<latest_open_date>"},
+  "filters": {"freq": ["1min", "5min", "15min", "30min", "60min"], "ts_code": "<可选，继承自动任务>"},
+  "trigger_source": "probe",
+  "request_payload": {"run_scope": "probe_triggered"}
+}
+```
+
+其中 `request_payload.run_scope` 由 ProbeRuntime 在创建 TaskRun 时写入，不是前端或 Ops 自行拼装的源接口参数。探测 miss、源端异常、非交易日、样本配置错误均不得创建 TaskRun、不得刷新 freshness、不得写 raw 表。`schedule_probe_fallback` 沿用既有“当天已有有效 probe TaskRun 时不再兜底重复创建”的去重语义。
+
+#### 7.4.4 实现边界与改动点
+
+| 模块 | 计划改动 | 不改什么 |
+| --- | --- | --- |
+| `src/ops/services/index_mins_remote_probe_service.py` | 新增独立的 `IndexMinsRemoteReadinessProbeService`，封装交易日、样本、resolver 请求和目标日行校验 | 不写 raw/core，不直接拼 `start_date/end_date` |
+| `src/ops/services/schedule_probe_binding_service.py` | 登记 `remote_index_mins_ready` 并做 action/完整五频/日期策略/最小 300 秒间隔硬校验 | 不改其他数据集的 probe 语义 |
+| `src/ops/services/operations_probe_runtime_service.py` | 注入并分派新服务；复用既有命中入队、TaskRun 去重和 ProbeRunLog | 不改 worker、ingestion 或 TaskRun 表结构 |
+| `frontend/src/pages/ops-v21-task-auto-tab.tsx` | 仅在 `index_mins.maintain` 展示“源站已有指数分钟行情”；移除该动作下误导性的本地 freshness 条件 | 不改非 `index_mins` 自动任务交互 |
+| 测试与 Ops API 文档 | 补 binding、probe service/runtime 和页面可见性测试；补 condition key 与日志字段说明 | 不新增 API 路由或数据库迁移 |
+
+探测使用 `create_source_connector("tushare")`，与正式同步共享 `TushareHttpClient` 的进程级 `idx_mins=100 次/分钟` 限速器。一次固定为最多 75 次串行请求；首个未命中就快速结束，完整轮次仍在 100 次/分钟限速以内，且远低于正式分钟线维护请求量。
+
+#### 7.4.5 验收与测试
+
+1. 绑定校验：拒绝非 `index_mins.maintain`、workflow、普通 schedule、空 `freq`、部分频率、固定日期/区间和 `calendar_policy`。
+2. 源站服务：非交易日不请求源站；固定 15 个样本任一不在激活池时报配置错误；75 个目标日组合全部命中才允许创建任务；旧日期行和空响应均为 miss，并立即停止本轮。
+3. 请求契约：测试样本请求来自 resolver，且只加 `limit=1/offset=0` 与 `ts_code,trade_time` 字段，不能在 Ops 自行拼源接口时间。
+4. 运行时：命中后 TaskRun 的目标日期、`freq` 和 `ts_code` 过滤与自动任务一致；同 schedule 同日有效任务去重；miss/error 不创建 TaskRun。
+5. 前端：仅 `index_mins.maintain` 可见该条件；保存条件 key 正确；提示文案明确“15 个代表指数的五个频率均需命中”。
+
+### 7.5 日期完整性审计
 
 V1 不接入。原因：
 
@@ -683,6 +777,9 @@ V1 不接入。原因：
 | Ops catalog 测试 | 数据源页、手动任务分组能看到 `index_mins` | `tests/ops/test_dataset_catalog_views.py` |
 | Freshness 测试 | `trade_time` 能进入最近同步展示 | `tests/ops/test_freshness_query_service.py` |
 | 真实源接口探测 | 530 个激活指数探测可复跑 | `tests/integration/test_tushare_idx_mins_active_pool_probe.py` |
+| 源站探测绑定测试 | `remote_index_mins_ready` 的 action、`freq`、日期策略边界正确 | `tests/web/test_ops_probe_api.py`、`tests/web/test_ops_schedule_api.py` |
+| 源站探测运行时测试 | 样本命中、miss、错误、TaskRun 去重和日期注入正确 | `tests/web/test_ops_probe_api.py` |
+| 自动任务页面测试 | 仅指数分钟线展示专用条件，不显示误导性的本地 freshness 条件 | `frontend/src/pages/ops-v21-task-auto-tab.test.tsx` |
 
 ### 8.2 最小真实同步验收
 
@@ -737,7 +834,7 @@ RUN_TUSHARE_IDX_MINS_ACTIVE_POOL_PROBE=1 pytest -q tests/integration/test_tushar
 
 ---
 
-## 9. 实施里程碑
+## 9. 原始接入里程碑（历史记录，已完成）
 
 ### M1：文档评审与决策冻结
 
@@ -749,7 +846,7 @@ RUN_TUSHARE_IDX_MINS_ACTIVE_POOL_PROBE=1 pytest -q tests/integration/test_tushar
 1. 新增 `RawIndexMins` ORM。
 2. 新增 Alembic 迁移，迁移前先确认真实 head。
 3. 注册 DAO。
-4. 新增 `core_serving.index_minute_bar` view。
+4. 采用 raw-only 存储；当前不新增 `core_serving` view。
 
 ### M3：DatasetDefinition
 
@@ -781,7 +878,29 @@ RUN_TUSHARE_IDX_MINS_ACTIVE_POOL_PROBE=1 pytest -q tests/integration/test_tushar
 
 ---
 
-## 10. 已拍板决策
+## 10. 源站探测触发落地里程碑（已实现，待生产验收）
+
+### M7.1：探测服务与绑定约束
+
+1. 已新增独立 `IndexMinsRemoteReadinessProbeService`，不复用股票分钟线的证券池逻辑。
+2. 已注册 `remote_index_mins_ready`，完成 action、触发模式、完整五频、时间输入、日期策略和最小 300 秒间隔校验。
+3. 复用 `DatasetActionResolver` 和现有 Tushare connector；不改 `DatasetDefinition`、planner、request builder、writer 或表结构。
+
+### M7.2：运行时与自动任务页面
+
+1. 已在 `ProbeRuntimeService` 分派新条件，沿用现有 TaskRun 创建、ProbeRunLog 和兜底去重机制。
+2. 自动任务页面仅对 `index_mins.maintain` 展示新条件，并禁用该动作下的本地 freshness 条件。
+3. 不改变其他数据集、workflow 或手动任务。
+
+### M7.3：测试与最小生产验收
+
+1. 补齐 7.4.5 的服务、运行时、绑定和前端测试。
+2. 用一个完整五频自动任务做最小验收：75 个组合任一未产出时只记录 miss；全部产出后只创建一个当天 TaskRun；同日后续探测或兜底不重复创建。
+3. 验收时记录 ProbeRunLog 的命中时间、样本命中、TaskRun ID 和正式任务的 `fetched/written/rejected`，但不以探测结果代替分钟线完整性结论。
+
+---
+
+## 11. 已拍板决策
 
 ### D1：内部数据集 key
 
@@ -801,14 +920,14 @@ RUN_TUSHARE_IDX_MINS_ACTIVE_POOL_PROBE=1 pytest -q tests/integration/test_tushar
 2. `freq` 未选择时，planner 按全选处理。
 3. 扇开维度为 `ts_code x freq x time_window`。
 
-### D3：表名与 view 名
+### D3：表名与 serving 层
 
 结论：
 
 - 物理表：`raw_tushare.index_mins`
-- serving view：`core_serving.index_minute_bar`
+- 不建 serving 表或 view。
 
-理由：物理表贴近数据集 key；view 名表达对上查询语义，避免上层直接依赖 raw 表。
+理由：当前存储事实是 `raw_only_upsert` 且 `serving_table=None`。未经单独查询契约评审，不在维护链路中额外增加数据层或 view。
 
 ### D4：V1 是否启用自动任务
 
@@ -833,3 +952,13 @@ RUN_TUSHARE_IDX_MINS_ACTIVE_POOL_PROBE=1 pytest -q tests/integration/test_tushar
 结论：本轮不接日期完整性审计。
 
 理由：分钟线完整性需要交易时段、freq、指数是否实际产出、停牌/异常时段等规则，不适合套现有日期完整性审计。
+
+### D8：源站探测触发
+
+结论：采用 7.4 的完整口径：
+
+1. 条件 key 为 `remote_index_mins_ready`，仅用于 `index_mins.maintain` 的 `probe` / `schedule_probe_fallback` 自动任务。
+2. 代表指数固定为 7.4.2 的 15 个代码，运行时必须全部存在于 `resource=index_mins` 激活池。
+3. 自动任务必须显式配置 `1min/5min/15min/30min/60min` 全部五个频率；15 个代表指数的每一个频率都返回目标交易日分钟行情后，才创建一个正式任务。
+4. 2026-07-30 已对 15 x 5 共 75 个组合实测，全部命中目标日 `15:00` 数据。
+5. 该条件不承诺全量 530 个激活指数齐备，也不引入分钟线完整性审计。

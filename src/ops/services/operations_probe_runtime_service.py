@@ -24,6 +24,11 @@ from src.ops.services.index_daily_remote_probe_service import (
     INDEX_DAILY_REMOTE_READY_CONDITION,
     IndexDailyRemoteReadinessProbeService,
 )
+from src.ops.services.index_mins_remote_probe_service import (
+    INDEX_MINS_ACTION_KEY,
+    INDEX_MINS_REMOTE_READY_CONDITION,
+    IndexMinsRemoteReadinessProbeService,
+)
 from src.ops.services.kpl_list_remote_probe_service import (
     KPL_LIST_ACTION_KEY,
     KPL_LIST_REMOTE_READY_CONDITION,
@@ -51,6 +56,7 @@ class ProbeRuntimeService:
         self.freshness_query = OpsFreshnessQueryService()
         self.stk_mins_remote_probe = StkMinsRemoteReadinessProbeService()
         self.index_daily_remote_probe = IndexDailyRemoteReadinessProbeService()
+        self.index_mins_remote_probe = IndexMinsRemoteReadinessProbeService()
         self.kpl_list_remote_probe = KplListRemoteReadinessProbeService()
 
     def run_once(self, session: Session, *, now: datetime | None = None, limit: int = 100) -> tuple[list[TaskRun], ProbeTickResult]:
@@ -152,6 +158,9 @@ class ProbeRuntimeService:
             return result.matched, result.message, result.payload
         if condition_type == INDEX_DAILY_REMOTE_READY_CONDITION:
             result = self.index_daily_remote_probe.evaluate(session, rule, current=current)
+            return result.matched, result.message, result.payload
+        if condition_type == INDEX_MINS_REMOTE_READY_CONDITION:
+            result = self.index_mins_remote_probe.evaluate(session, rule, current=current)
             return result.matched, result.message, result.payload
         if condition_type == KPL_LIST_REMOTE_READY_CONDITION:
             result = self.kpl_list_remote_probe.evaluate(session, rule, current=current)
@@ -370,6 +379,8 @@ class ProbeRuntimeService:
             return STK_MINS_ACTION_KEY
         if condition_type == INDEX_DAILY_REMOTE_READY_CONDITION:
             return INDEX_DAILY_ACTION_KEY
+        if condition_type == INDEX_MINS_REMOTE_READY_CONDITION:
+            return INDEX_MINS_ACTION_KEY
         if condition_type == KPL_LIST_REMOTE_READY_CONDITION:
             return KPL_LIST_ACTION_KEY
         return None
@@ -380,6 +391,8 @@ class ProbeRuntimeService:
             return "源站分钟行情探测"
         if condition_type == INDEX_DAILY_REMOTE_READY_CONDITION:
             return "源站指数日线探测"
+        if condition_type == INDEX_MINS_REMOTE_READY_CONDITION:
+            return "源站指数分钟行情探测"
         if condition_type == KPL_LIST_REMOTE_READY_CONDITION:
             return "源站开盘啦榜单探测"
         return "源站探测"
@@ -390,6 +403,8 @@ class ProbeRuntimeService:
             return "源站分钟行情探测只支持股票历史分钟行情维护"
         if condition_type == INDEX_DAILY_REMOTE_READY_CONDITION:
             return "源站指数日线探测只支持指数日线行情维护"
+        if condition_type == INDEX_MINS_REMOTE_READY_CONDITION:
+            return "源站指数分钟行情探测只支持指数历史分钟行情维护"
         if condition_type == KPL_LIST_REMOTE_READY_CONDITION:
             return "源站开盘啦榜单探测只支持开盘啦榜单维护"
         return f"不支持的探测条件：{condition_type}"
