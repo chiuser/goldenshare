@@ -60,6 +60,11 @@ class IndexMinsSilverWriteResult:
     invalid_row_count: int
     elapsed_ms: float
     write_mode: str
+    source_mode: str = "native"
+    source_empty_reason: str | None = None
+    lower_source_row_count: int | None = None
+    derived_row_count: int | None = None
+    source_revision: str | None = None
 
     def to_metadata(self) -> dict[str, object]:
         return {
@@ -78,6 +83,11 @@ class IndexMinsSilverWriteResult:
             "invalid_row_count": self.invalid_row_count,
             "elapsed_ms": round(self.elapsed_ms, 3),
             "write_mode": self.write_mode,
+            "source_mode": self.source_mode,
+            "source_empty_reason": self.source_empty_reason,
+            "lower_source_row_count": self.lower_source_row_count,
+            "derived_row_count": self.derived_row_count,
+            "source_revision": self.source_revision,
             "validation": "set_based_staging_readback_passed",
         }
 

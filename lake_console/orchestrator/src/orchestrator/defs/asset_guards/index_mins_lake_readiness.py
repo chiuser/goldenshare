@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from time import perf_counter
 
@@ -11,6 +11,10 @@ from orchestrator.defs.assets.index_mins_silver import (
     _derived_diagnostics,
     _native_source_sql,
     _validate_relation,
+)
+from orchestrator.defs.assets.index_mins_silver_repair import (
+    IndexMinsSilverFallbackRequest,
+    validate_silver_index_mins_source_empty_fallback,
 )
 from orchestrator.defs.checks.index_mins_checks import (
     _raw_invalid_predicate,
@@ -33,9 +37,9 @@ from orchestrator.defs.run_contracts.index_mins import (
     INDEX_MINS_SOURCE_FREQ_BY_ASSET_FREQ,
     source_freq_for_index_mins_derived_freq,
 )
+
 _RAW_CHECK_NAMES = tuple(
-    f"raw_index_mins_{frequency}m_core_check"
-    for frequency in INDEX_MINS_ASSET_FREQS
+    f"raw_index_mins_{frequency}m_core_check" for frequency in INDEX_MINS_ASSET_FREQS
 )
 _SILVER_CHECK_NAMES = tuple(
     f"silver_index_mins_{frequency}m_core_check"
@@ -179,7 +183,9 @@ def _raw_status_for_trade_date(
             if not _schema_matches(connection, path, RAW_INDEX_MINS_SCHEMA):
                 failed_rules.append(f"{frequency}m:schema_matches_contract")
             relation = read_parquet(path, hive_partitioning=False)
-            row_count = int(connection.execute(f"SELECT count(*) FROM {relation}").fetchone()[0])
+            row_count = int(
+                connection.execute(f"SELECT count(*) FROM {relation}").fetchone()[0]
+            )
             checked_row_count += row_count
             invalid_count = int(
                 connection.execute(
@@ -323,7 +329,9 @@ def _silver_status_for_trade_date(
             if not source_path.exists():
                 failed_rules.append(f"{silver_frequency}m:source_file_exists")
             else:
-                source_schema = SILVER_INDEX_MINS_SCHEMA if derived else RAW_INDEX_MINS_SCHEMA
+                source_schema = (
+                    SILVER_INDEX_MINS_SCHEMA if derived else RAW_INDEX_MINS_SCHEMA
+                )
                 _assert_schema(
                     connection,
                     source_path,
@@ -340,11 +348,15 @@ def _silver_status_for_trade_date(
                     require_null_vwap=False,
                 )
                 if source_validation.row_count <= 0:
-                    failed_rules.append(f"{silver_frequency}m:source_row_count_positive")
+                    failed_rules.append(
+                        f"{silver_frequency}m:source_row_count_positive"
+                    )
                 if source_validation.invalid_row_count:
                     failed_rules.append(f"{silver_frequency}m:source_value_domain")
                 if source_validation.duplicate_key_count:
-                    failed_rules.append(f"{silver_frequency}m:source_business_key_unique")
+                    failed_rules.append(
+                        f"{silver_frequency}m:source_business_key_unique"
+                    )
                 if derived:
                     diagnostics = _derived_diagnostics(
                         connection,
@@ -354,11 +366,17 @@ def _silver_status_for_trade_date(
                     )
                     expected_row_count = int(diagnostics["generated_window_count"])
                     if diagnostics["incomplete_window_count"]:
-                        failed_rules.append(f"{silver_frequency}m:derived_window_complete")
+                        failed_rules.append(
+                            f"{silver_frequency}m:derived_window_complete"
+                        )
                     if diagnostics["exchange_mismatch_window_count"]:
-                        failed_rules.append(f"{silver_frequency}m:derived_exchange_unique")
+                        failed_rules.append(
+                            f"{silver_frequency}m:derived_exchange_unique"
+                        )
                     if diagnostics["generated_window_count"] <= 0:
-                        failed_rules.append(f"{silver_frequency}m:derived_window_generated")
+                        failed_rules.append(
+                            f"{silver_frequency}m:derived_window_generated"
+                        )
                 else:
                     expected_row_count = source_validation.row_count
             target_validation = _validate_relation(
@@ -371,8 +389,13 @@ def _silver_status_for_trade_date(
             checked_row_count += target_validation.row_count
             if target_validation.row_count <= 0:
                 failed_rules.append(f"{silver_frequency}m:row_count_positive")
-            if expected_row_count is not None and target_validation.row_count != expected_row_count:
-                failed_rules.append(f"{silver_frequency}m:output_row_count_matches_source_or_windows")
+            if (
+                expected_row_count is not None
+                and target_validation.row_count != expected_row_count
+            ):
+                failed_rules.append(
+                    f"{silver_frequency}m:output_row_count_matches_source_or_windows"
+                )
             if target_validation.invalid_row_count:
                 failed_rules.append(f"{silver_frequency}m:output_value_domain")
             if target_validation.duplicate_key_count:
@@ -387,7 +410,9 @@ def _silver_status_for_trade_date(
     if failed_rules:
         missing_rules = [
             f"{frequency}m:file_exists"
-            for frequency, path in zip(INDEX_MINS_SILVER_FREQS, target_paths, strict=True)
+            for frequency, path in zip(
+                INDEX_MINS_SILVER_FREQS, target_paths, strict=True
+            )
             if not path.exists()
         ]
         return (
@@ -457,7 +482,138 @@ def batch_silver_index_mins_lake_readiness(
     )
 
 
+def batch_silver_index_mins_fallback_lake_readiness(
+    *,
+    connection,
+    lake_root: Path,
+    expected_trade_dates: Sequence[str],
+    registered_trade_days: Sequence[str],
+    fallback_requests_by_trade_date: Mapping[str, IndexMinsSilverFallbackRequest],
+) -> ContinuityBatchReadiness:
+    """Read-only readiness for explicit source-empty fallback repairs.
+
+    This helper is deliberately not called by the normal Silver sensor.  A
+    fallback request is an audited maintenance scope and must carry the
+    source-empty declaration, effective code set, and source revision.
+    """
+
+    started_at = perf_counter()
+    expected = _bounded_expected_dates(expected_trade_dates)
+    registered = {str(value) for value in registered_trade_days}
+    statuses: dict[str, ContinuityDateReadiness] = {}
+    scanned_file_count = 0
+    for trade_date in expected:
+        request = fallback_requests_by_trade_date.get(trade_date)
+        if trade_date not in registered:
+            statuses[trade_date] = _failure_status(
+                trade_date=trade_date,
+                check_names=_SILVER_CHECK_NAMES,
+                failed_rules=("registered_partition_missing",),
+                failed_row_count=0,
+                scanned_file_count=0,
+                layer="silver_fallback",
+            )
+            statuses[trade_date].summary["reason_code"] = "registered_partition_missing"
+            continue
+        if request is None:
+            statuses[trade_date] = _failure_status(
+                trade_date=trade_date,
+                check_names=_SILVER_CHECK_NAMES,
+                failed_rules=("fallback_request_missing",),
+                failed_row_count=0,
+                scanned_file_count=0,
+                layer="silver_fallback",
+            )
+            statuses[trade_date].summary["reason_code"] = "fallback_request_missing"
+            continue
+        try:
+            fallback_status = validate_silver_index_mins_source_empty_fallback(
+                connection=connection,
+                lake_root=lake_root,
+                request=request,
+            )
+            source_path = raw_index_mins_path(
+                lake_root,
+                "5min",
+                trade_date,
+            )
+            target_paths = tuple(
+                silver_index_mins_path(lake_root, frequency, trade_date)
+                for frequency in request.target_frequencies
+            )
+            scanned_file_count += int(source_path.exists()) + sum(
+                int(path.exists()) for path in target_paths
+            )
+            if fallback_status.reason_code == "fallback_target_missing":
+                missing_paths = tuple(
+                    silver_index_mins_path(lake_root, frequency, trade_date)
+                    for frequency in fallback_status.missing_target_frequencies
+                )
+                statuses[trade_date] = _missing_status(
+                    trade_date=trade_date,
+                    check_names=tuple(
+                        f"silver_index_mins_{frequency}m_core_check"
+                        for frequency in fallback_status.missing_target_frequencies
+                    ),
+                    missing_paths=missing_paths,
+                    layer="silver_fallback",
+                )
+                statuses[trade_date].summary.update(
+                    {
+                        "source_mode": "derived_fallback",
+                        "source_revision": fallback_status.source_revision,
+                    }
+                )
+            elif fallback_status.ready:
+                statuses[trade_date] = _ready_status(
+                    trade_date=trade_date,
+                    layer="silver_fallback",
+                    checked_row_count=fallback_status.checked_row_count,
+                    scanned_file_count=int(source_path.exists())
+                    + sum(int(path.exists()) for path in target_paths),
+                    extra={
+                        "source_mode": "derived_fallback",
+                        "source_revision": fallback_status.source_revision,
+                        "reason_code": fallback_status.reason_code,
+                    },
+                )
+            else:
+                statuses[trade_date] = _failure_status(
+                    trade_date=trade_date,
+                    check_names=_SILVER_CHECK_NAMES,
+                    failed_rules=(fallback_status.reason_code,),
+                    failed_row_count=1,
+                    scanned_file_count=int(source_path.exists())
+                    + sum(int(path.exists()) for path in target_paths),
+                    layer="silver_fallback",
+                )
+                statuses[trade_date].summary.update(
+                    {
+                        "reason_code": fallback_status.reason_code,
+                        "source_mode": "derived_fallback",
+                    }
+                )
+        except Exception as error:  # noqa: BLE001 - maintenance readiness fails closed.
+            statuses[trade_date] = _failure_status(
+                trade_date=trade_date,
+                check_names=_SILVER_CHECK_NAMES,
+                failed_rules=("fallback_contract_or_source_revision",),
+                failed_row_count=1,
+                scanned_file_count=0,
+                layer="silver_fallback",
+                error=error,
+            )
+            statuses[trade_date].summary["reason_code"] = "fallback_validation_error"
+    return ContinuityBatchReadiness(
+        expected_trade_dates=expected,
+        statuses_by_trade_date=statuses,
+        elapsed_ms=round((perf_counter() - started_at) * 1000),
+        scanned_file_count=scanned_file_count,
+    )
+
+
 __all__ = [
     "batch_raw_index_mins_lake_readiness",
     "batch_silver_index_mins_lake_readiness",
+    "batch_silver_index_mins_fallback_lake_readiness",
 ]

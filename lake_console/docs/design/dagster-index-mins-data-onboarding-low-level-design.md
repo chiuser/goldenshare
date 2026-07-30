@@ -1,7 +1,7 @@
 # `index_mins` 指数分钟线 Dagster 低层设计（LLD）
 
-更新时间：2026-07-29
-状态：P0 设计完成；P1/P2/P3/P4/P5 已编码并通过本地/临时湖验证；下一步进入 P6
+更新时间：2026-07-30
+状态：P0 设计完成；P1/P2/P3/P4/P5 已编码并通过本地/临时湖验证；P6A/P6B source scope 冻结、coverage-only probe 与真实只读性能验证已完成；P6 当前仍被已审计 source-empty 日期阻断；P3 follow-up 的 source-empty 5m fallback writer、只读 readiness、开发期 repair 和 native reconcile 已完成本地/临时湖验证
 对应方案：[dagster-index-mins-data-onboarding-plan.md](./dagster-index-mins-data-onboarding-plan.md)
 
 ## 1. LLD 约束
@@ -11,12 +11,14 @@
 硬约束：
 
 1. Raw 日常和 Bootstrap 只读 Prod DB；不在 Dagster 生产路径中调用裸 Tushare。
-2. Raw 五频、Silver 七频，均为独立单分区 asset。
+2. Raw 五频、Silver 七频，均为独立单分区 asset；Silver `15m/30m/60m` 采用“原生源优先、目标频率明确全空时 5m fallback”的选择规则。fallback 不通过普通 Silver asset job 绕过对应 Raw asset 依赖，而由独立 bounded repair/bootstrap 入口执行。
 3. 每个 asset 一个单分区合并 blocking core check。
 4. 所有目标文件都走 `_tmp -> validate -> atomic replace`。
 5. Sensor 只做最近 10 日期 batch lake readiness + 有界 source probe，不读 event history。
-6. 90m/120m 只由本地原生 Silver 派生，`vwap=NULL`。
+6. 90m/120m 只由本地原生 Silver 派生，`vwap=NULL`；`15m/30m/60m` fallback 也固定 `vwap=NULL`，且只使用同日 5m。
 7. 不新增 status manifest、summary/readiness asset、数据库表或持久化 active-pool entity。
+
+fallback 已通过独立 bounded maintenance 入口实现，但不接入普通 Silver asset/job/sensor：现有 `silver_index_mins_{15m,30m,60m}` 仍分别依赖对应 Raw asset，普通 Silver sensor 仍要求五个 Raw 频率全部 ready。fallback 只用于开发期 Bootstrap、已审计历史缺口修复和 native source reappearance 的一次性 reconcile；缺口处理完成后不作为长期自动任务运行，也不改变普通日常触发链路。
 
 ## 2. 当前代码影响面审计
 
@@ -75,6 +77,11 @@ INDEX_MINS_DERIVED_FREQS = (90, 120)
 INDEX_MINS_SENSOR_WINDOW_LIMIT = 10
 INDEX_MINS_BOOTSTRAP_BATCH_SIZE = 20
 INDEX_MINS_SOURCE_PAGE_LIMIT = 8000
+INDEX_MINS_BOOTSTRAP_MAX_EXPECTED_DATES = 800
+INDEX_MINS_BOOTSTRAP_MAX_SOURCE_PROBE_QUERIES = 4000
+INDEX_MINS_BOOTSTRAP_MAX_SOURCE_PROBE_MS = 300000
+INDEX_MINS_BOOTSTRAP_MAX_TARGET_FILES = 9600
+INDEX_MINS_BOOTSTRAP_DISK_SAFETY_MULTIPLIER = 1.25
 ~~~
 
 `1/5/...` 是 asset/内部 alias，`1min/5min/...` 是源字段/路径值，只允许通过一个双向 mapping 转换。硬编码任何第二份 mapping 都是静态门禁错误。
@@ -150,7 +157,7 @@ P2 测试文件：
 
 P2 专项回归共 `23 passed`。真实临时湖 smoke 读取 Prod 的 `2026-07-27`：`5min` 为 25,970 source/written rows、`1min` 为 127,730 source/written rows，两次均为 530 expected/returned codes，缺失/额外/重复/越界均为 0、单次 query，耗时约 8.369 秒和 15.948 秒；输出仅位于 `/private/tmp/index_mins_p2_smoke_20260729` 与 `/private/tmp/index_mins_p2_smoke_20260729_1min`。
 
-P2 明确没有把 exact code-set 明细下沉到 source probe 或 cursor。writer 只在单日/单频 staging 内做集合差异，性能边界为单频一个源查询、一个 DuckDB connection、一个 staging 文件；五频和 20 日 Bootstrap 总预算留到 P6 真实回归。
+P2 明确没有把 exact code-set 明细下沉到 source probe 或 cursor。writer 只在单日/单频 staging 内做集合差异，性能边界为单频一个源查询、一个 DuckDB connection、一个 staging 文件；P6B 的历史 source probe 使用 coverage-only 聚合，完整代码集与主键唯一性仍由单日 writer/湖对账完成。
 
 ### 3.6 P3 Silver writer 实现映射与验收证据
 
@@ -158,7 +165,7 @@ P3 将 Silver 设计落到纯 writer 模块，不提前把业务逻辑放进 ass
 
 | 设计点 | 实现位置 | 关键约束 |
 |---|---|---|
-| 七频合同 | `defs/run_contracts/index_mins.py` | 原生 `1/5/15/30/60min`，派生 `90/120min`；派生源分别固定为 `30min/60min` |
+| 七频合同 | `defs/run_contracts/index_mins.py` | `1/5/15/30/60min` 五个源优先频率、`90/120min` 派生；`15/30/60` 的空源 fallback 固定从 `5min` 派生 |
 | Silver 路径 | `defs/paths.py:silver_index_mins_path` | `silver/quote/index_mins/freq=<freq>/trade_date=<date>/part-000.parquet` |
 | 原生标准化 | `defs/assets/index_mins_silver.py:_native_normalized_sql` | trim/uppercase、类型固定、日期/freq/PK/OHLC/数值校验，native vwap 保留 |
 | 90m 窗口 | `defs/assets/index_mins_silver.py:_derived_diagnostics`、`_derived_output_sql` | 固定 3 个窗口，最后窗口 2 根；按 anchor 判断，不以总行数冒充完整 |
@@ -169,7 +176,24 @@ P3 将 Silver 设计落到纯 writer 模块，不提前把业务逻辑放进 ass
 
 P3 测试文件：`tests/test_index_mins_silver_writer.py`。本地 fixture 共 `7 passed`，覆盖 native vwap、90m/120m 锚点和聚合、非窗口源 bar、缺窗口、混合 exchange、staging 清理、错误目标不覆盖和无 active Dagster definition。测试只使用临时 lake/DuckDB，不调用 Prod、Tushare、Dagster instance 或 event API。
 
-530 个代码的临时性能样本中，原生五频 writer 各耗时约 `11.211-15.432 ms`，90m/120m 派生 writer 分别约 `21.159/20.926 ms`；含临时 fixture 物理文件生成的整轮耗时约 `3.155 s`。该样本不替代 P6 正式湖性能验收，P6 仍需测量五频连续运行、文件大小、磁盘增量、20 日批次和峰值内存。
+530 个代码的临时性能样本中，原生五频 writer 各耗时约 `11.211-15.432 ms`，90m/120m 派生 writer 分别约 `21.159/20.926 ms`；含临时 fixture 物理文件生成的整轮耗时约 `3.155 s`。P6A/P6B 又完成了真实 Prod scope 与 source coverage 验证：coverage-only 全范围单查询约 `88.4 s`，低于 `300 s` 硬预算；历史代码范围按 `silver_index_basic.list_date/exp_date` 修正后无代码数不一致。当前仍因 15m/30m/60m 的已审计 source-empty 日期不能直接进入 P7。
+
+P3 follow-up 已实现 `15m/30m/60m` 的 source-empty fallback。该能力仍必须遵守以下合同，不能简化为“目标文件不存在就从 5m 生成”：
+
+1. 先以 Prod source probe/源范围事实判断目标日期和目标频率是否全局为空。只有 `source_row_count == 0` 才可进入 fallback；目标频率存在部分行但 code 集合、时间窗口、字段或主键不完整时，必须直接失败。
+2. fallback 只读同日 `5min`，按 effective code set 验证每个代码的完整 5m 时间集合、无重复 key、日期和频率正确；固定使用区间 `(target_time-N, target_time]`，每代码目标行数为 15m=17、30m=9、60m=5。
+3. 通过一次 DuckDB set-based SQL 生成 Silver；OHLC 为首开/末收/最高/最低，`vol/amount` 求和，`exchange` 组内唯一，`vwap` 为 NULL。失败时不创建或替换目标文件。
+4. `source_mode=derived_fallback`、`source_freq=5min`、`source_empty_reason`、lower source rows 和 derived rows 只写 materialization metadata，不新增 schema 列和高基数 check。
+5. 如果 Prod 后续补回 native 目标频率，必须由显式 bounded repair/reconcile 重建该 Silver 分区；普通 writer 的 existing-file skip 不能阻止 native source 恢复，也不能静默覆盖旧 fallback。
+
+实现映射：
+
+- `defs/assets/index_mins_silver_repair.py::repair_silver_index_mins_source_empty(...)`：开发期/Bootstrap fallback writer；只接受显式 source-empty scope、effective code set 和 source revision，不是 Dagster asset/job/sensor。
+- `validate_silver_index_mins_source_empty_fallback(...)`：单日期只读合同校验；`batch_silver_index_mins_fallback_lake_readiness(...)`：有界批量 readiness 校验。两者都不读取 Dagster event history，也不调用 Tushare/Prod 明细。
+- `reconcile_silver_index_mins_native_partition(...)`：native source 后续补回时的显式 bounded reconcile；普通 Silver writer 仍保持已有目标 skip。
+- `tests/test_index_mins_silver_repair.py`、`tests/test_index_mins_fallback_readiness.py`：覆盖完整 5m 正向生成、部分源 fail-closed、目标保护、native reconcile、目标全缺/部分存在/ready 和注册缺口。
+
+这些入口只用于开发期 Bootstrap、已审计历史缺口修复或 native source reappearance 的一次性 reconcile。缺口关闭后不持续运行，不接入普通 Silver sensor，也不改变日常 Silver 的 Raw 依赖。
 
 ## 4. Schema 与路径
 
@@ -188,7 +212,7 @@ low          DOUBLE    最低点位
 vol          DOUBLE    成交量
 amount       DOUBLE    成交金额
 exchange     VARCHAR   交易所
-vwap         DOUBLE    源端成交均价；derived 固定 NULL
+vwap         DOUBLE    native 为源端成交均价；所有 derived/fallback 固定 NULL
 ~~~
 
 Raw/Silver 都不增加 `trade_date`、`source`、`fetched_at` 等系统列。稳定 schema 放 definition metadata 的 `dagster/column_schema`；materialization 只放 observed columns 和本次事实。
@@ -202,7 +226,7 @@ raw_index_mins_path(lake_root, source_freq, trade_date)
 silver_index_mins_path(lake_root, silver_freq, trade_date)
 ~~~
 
-约束：只接受 allowlist 频率；日期必须是 ISO；文件固定 `part-000.parquet`；不扫描历史、不隐式 fallback。
+约束：只接受 allowlist 频率；日期必须是 ISO；文件固定 `part-000.parquet`；路径 helper 不扫描历史、不自行决定 fallback。fallback 由 Silver source-selection contract 显式选择。
 
 路径：
 
@@ -361,7 +385,7 @@ source/written 不一致、任何核心计数非零或 staging 回读失败，�
 
 ## 7. Silver Asset、Writer、指标语义
 
-### 7.1 Native Silver
+### 7.1 Native Silver 与 source precedence
 
 五个原生 asset 读取同日对应 Raw，通过一次 DuckDB set-based SQL 标准化：
 
@@ -382,6 +406,52 @@ FROM read_parquet(?)
 ~~~
 
 检查日期、频率、主键、数值有限性、OHLC 关系。主键冲突按 reason code 拒绝，不静默 `DISTINCT`。
+
+对 `15m/30m/60m`，Silver writer 在进入实际转换前必须完成 source selection。普通 asset job 只处理 native source；source-empty 分支由独立 bounded repair/bootstrap 入口调用同一 writer contract：
+
+~~~text
+目标频率源存在且 source contract 通过 -> source_mode=native
+目标频率 source_row_count == 0 且 5m contract 通过 -> source_mode=derived_fallback（仅 bounded repair/bootstrap）
+目标频率有部分行但 source contract 不通过 -> fail-closed
+~~~
+
+这里的“目标频率源为空”是源范围合同中的全局空结果，不是某个指数没有返回数据，也不是目标 Silver 文件缺失。不能用“目标文件不存在”直接触发 fallback。
+
+### 7.1.1 15m/30m/60m 的 5m fallback
+
+该小节是 P3 follow-up 的实现合同。实现位于独立模块 `defs/assets/index_mins_silver_repair.py`；普通 `index_mins_silver.py` 不增加覆盖开关，不创建新的 Dagster active definition。
+
+输入固定为同日 5m 源，目标频率和窗口参数如下：
+
+| target freq | source freq | window | expected bars/code |
+|---|---|---|---:|
+| `15min` | `5min` | `(target_time - 15m, target_time]` | 17 |
+| `30min` | `5min` | `(target_time - 30m, target_time]` | 9 |
+| `60min` | `5min` | `(target_time - 60m, target_time]` | 5 |
+
+实现顺序固定：
+
+1. 校验目标日期已在专属分区计划内，并校验 bounded repair/bootstrap 输入中的目标频率 source 事实为全局空；5m 源文件存在且 schema/日期/frequency 合同通过。不能用目标 Raw 文件缺失单独推导 source-empty。
+2. 用 DuckDB set-based SQL 检查 effective code set 的 5m 完整时间集合和重复 key。5m 的时间标签按 interval-end 解释；不以总行数替代具体时间集合检查。
+3. 在同一 DuckDB connection 中完成窗口聚合，只生成目标频率的 Silver 行；禁止 Python 逐代码/逐行计算。
+4. 所有目标行完成 schema、日期、频率、PK、OHLC、数值有限性和 exchange 单值检查后，写入独立 staging；回读通过后才按文件原子 promote。
+
+聚合 SQL 语义固定为：
+
+~~~sql
+first(open ORDER BY trade_time) AS open,
+last(close ORDER BY trade_time) AS close,
+max(high) AS high,
+min(low) AS low,
+sum(vol) AS vol,
+sum(amount) AS amount,
+CASE WHEN COUNT(DISTINCT exchange) = 1 THEN min(exchange) ELSE NULL END AS exchange,
+CAST(NULL AS DOUBLE) AS vwap
+~~~
+
+任一代码缺 5m bar、出现重复 key、时间标签不在固定窗口、出现跨日期/频率数据或 exchange 混合时，整日 fail-closed；已有目标文件保持不变。输出 metadata 必须包含 `source_mode=derived_fallback`、`source_freq=5min`、目标频率、`source_empty_reason`、`lower_source_row_count` 和 `derived_row_count`，不增加 schema 列。
+
+如果同日 Prod 后续补回目标频率，native source 必须优先。由于普通 writer 的“已有文件正确则 skip”语义不能自动替换 fallback，必须由独立 bounded repair/reconcile 入口校验 source revision 后重建该日期；该入口不属于本轮普通 sensor 热路径。
 
 ### 7.2 90m
 
@@ -406,7 +476,7 @@ FROM read_parquet(?)
 
 ### 7.4 OHLC/VWAP
 
-DuckDB 聚合必须等窗口完整后执行：
+90m/120m 以及 15m/30m/60m fallback 的 DuckDB 聚合都必须等窗口完整后执行：
 
 ~~~sql
 first(open ORDER BY trade_time) AS open,
@@ -438,7 +508,8 @@ silver_index_mins_{1m,5m,15m,30m,60m,90m,120m}_core_check
 - blocking=True。
 - 只读当前 Lake 文件，必要时读取同日 Raw。
 - 一次 set-based 汇总 file/schema/freq/date/PK/identity/value。
-- 派生频率再检查窗口/anchor/vwap NULL。
+- `90m/120m` 以及 `15m/30m/60m` fallback 再检查窗口/anchor/vwap NULL；native `15m/30m/60m` 不要求 vwap 为 NULL。
+- readiness/check 必须能解释 `source_mode=native` 与 `source_mode=derived_fallback`，但不新增 check event；source mode 以当前 materialization metadata 和文件事实为诊断信息。
 - failure metadata 含 reason code、计数、有限样本。
 
 禁止 multi-partition 聚合 check、Prod DB 查询、event history 扫描、字段级高基数 check。
@@ -456,6 +527,16 @@ silver_index_mins_update_job
 ~~~
 
 jobs 只做 selection、description、executor；不能调用 SQL、Prod、Tushare 或 writer。
+
+source-empty fallback 不加入上述普通 Silver job 的 asset dependency 语义。已增加非 active Dagster 的 bounded repair/bootstrap 执行入口，其输入至少包含：
+
+- `trade_date`
+- `target_frequencies`（只能是 `15/30/60` 的子集）
+- `source_empty_frequencies`（来自有界源审计，不由文件缺失推断）
+- `source_revision` 或等价的源范围 fingerprint
+- `effective_code_set_hash`
+
+该入口只读取同日 5m Raw、写入目标 Silver staging，并在所有目标文件通过回读后原子 promote。它不选择 Raw asset，不把合成结果写回 Raw，不在普通 Silver sensor 中自动提交，也不增加长期 repair job/sensor；开发期或明确历史修复完成后不再运行。native source 后续恢复时使用同模块的显式 reconcile 入口。
 
 ### 8.2.1 P4 实现映射与验收
 
@@ -504,20 +585,32 @@ cursor 只保留 decision、target、reason_code、blocked_component、expected/
 - `defs/asset_guards/index_mins_lake_readiness.py` 的两个 batch helper 接收外部 DuckDB connection，最多处理最近 10 个 expected dates，不创建自己的 event/history 查询。Raw 每日最多 5 个源文件；Silver 逐一校验 7 个目标及其原生/派生源，所有路径都受当前窗口约束。
 - 缺物理文件返回 `materialized=False`，可作为自动触发目标；文件存在但 schema、日期、主键、值域或派生窗口失败返回 `materialized=True, checks_passed=False`，sensor 只 skip，不自动覆盖。
 - `raw_index_mins_update_job_sensor` 在确认第一个 Raw lake 缺口后才读取 Prod `ops.index_series_active` 和五频聚合 source probe；已有坏文件不会触发 Prod 请求。`silver_index_mins_update_job_sensor` 只有 Raw frontier 严格覆盖 Silver 目标日期时才提交请求。
+- 普通 `silver_index_mins_update_job_sensor` 仍要求五个 Raw 频率覆盖目标日期；它不负责判断 source-empty，也不提交 fallback repair。source-empty 目标由独立 bounded repair/bootstrap 入口按审计范围处理。
 - 两个更新 sensor 每 tick 最多一个 RunRequest，使用 `build_asset_update_run_key` 和 `build_sensor_cursor`；不调用 `instance.get_event_records`，不调用 Tushare，Silver sensor 不访问 Prod。partition registration、Raw update、Silver update 三个 sensor 都保持 `STOPPED`。
 
 ## 9. Bootstrap、事件与测试
 
 ### 9.1 Bootstrap
 
-新增非 active Dagster 的 dry-run planner/CLI：
+P6 已实现非 active Dagster 的只读 dry-run planner/CLI：
 
 ~~~text
 defs/bootstrap/index_mins_bootstrap_plan.py
 defs/bootstrap/index_mins_bootstrap_cli.py
 ~~~
 
-dry-run 输出日期计划、active hash、源 coverage、目标冲突、预计行数/文件数/磁盘/查询/耗时；不写 Lake、Dagster DB、dynamic partitions 或 event。apply 必须有独立 `--confirm-lake-write`。
+dry-run 输出日期计划 fingerprint、active pool hash、逐日五频 source coverage、Raw/Silver 目标冲突、预计文件数/行数/磁盘/查询/耗时；不写 Lake、Dagster DB、dynamic partitions 或 event。CLI 只有 `dry-run` 子命令，不提供 apply 或确认写入参数。
+
+P6 代码级实现：
+
+- `defs/bootstrap/index_mins_bootstrap_plan.py`：校验 Silver 交易日历的非法/重复 SSE open date，排除未来日期，计算 date-plan fingerprint；使用同一 DuckDB connection 批量审计目标文件。
+- `defs/bootstrap/index_mins_bootstrap_cli.py`：只读 CLI，默认报告路径为 `/private/tmp/index_mins_bootstrap_dry_run_<timestamp>.json`。
+- `defs/prod_db/index_mins.py::probe_prod_index_mins_source_coverage_dates(...)`：Bootstrap 使用 coverage-only 语义，通过一个只读连接和一次 `freq + trade_date` 聚合查询生成逐日五频 coverage，设置 query/time budget；不做全历史主键 distinct，不把全历史行装入 Python。`probe_prod_index_mins_source_dates(...)` 仍保留给单日/严格路径，继续检查完整代码覆盖与主键唯一性。
+- 目标路径存在但不是合法 Parquet、schema/日期/频率/主键/值域不正确时归类为 `invalid_existing`，不存在才归类为 `missing`。
+
+固定门禁：最多 800 日期、4,000 source probe queries、300 秒 source probe、9,600 个目标文件、磁盘估算乘 1.25 安全系数。上述是固定代码合同，不是运营配置项。
+
+P6A/P6B 真实只读验收：冻结范围为 `2025-01-02..2026-07-27`、378 个 expected dates、530 个 active code；Raw/Silver 目标分别为 1,890/2,646 个且全部缺失，磁盘剩余约 2.55 TB。coverage-only 单次全频全日期聚合 88,383 ms，完整 planner dry-run 88,635 ms，查询预算与 300 秒时间预算通过。历史 code scope 按 index basic 上市/终止日期解释为 526/528/530，非空频率日期行无不一致。source-empty 仍为 15m 一天、30m 四天、60m 五天，故 planner 仍 fail-closed。
 
 正式顺序：
 
@@ -569,6 +662,23 @@ Silver：
 - exchange 多值失败。
 - 输出主键和日期。
 
+`15m/30m/60m` fallback 还必须覆盖：
+
+- 目标频率 source 全局为空时选择 fallback；目标频率有合法完整源时 native 优先。
+- 目标频率部分返回但 code 不完整、窗口不完整、字段/主键错误时 fail-closed，不能静默 fallback。
+- 5m 每 code 的具体时间集合、重复 key、日期/频率和 effective code set 校验；不能只检查总行数。
+- 15m/30m/60m 的期望输出 17/9/5 行，窗口聚合 OHLC/vol/amount 语义正确，fallback vwap 全为 NULL。
+- staging 或回读失败时已有目标不变，且 `source_mode/source_freq/source_empty_reason` 只写 metadata。
+- native 目标频率后续恢复时，普通 writer 不自动覆盖 fallback；bounded repair/reconcile 能按 source revision 重新生成 native Silver。
+
+Fallback 性能门禁：
+
+- fallback 是源端空结果的受控例外路径，不是日常每个日期都执行的全量路径；正常 native 日期不得额外扫描 5m。
+- sensor 热路径不读取 5m 明细、不调用 Tushare/Prod 明细、不扫描 Dagster event history；只消费有界的目标频率 source-empty 分类。
+- 单个 fallback 日期只建立一个 DuckDB connection，读取同日 5m，执行一次 set-based 完整性检查和一次 set-based 聚合；禁止逐代码、逐行 Python 计算。
+- 单日最多生成 `15m/30m/60m` 三个独立 staging 文件，不跨日期缓存数据；记录 source/lower-source/derived rows、扫描文件数、DuckDB elapsed、staging 写入/回读耗时。
+- 若出现无界文件匹配、重复扫描同一源文件或接近 Dagster user-code RPC deadline，必须 fail-closed，不通过调大 timeout 放行。
+
 Sensor/performance：
 
 - 专属分区缺口只影响注册。
@@ -599,16 +709,19 @@ tests/test_run_contract_static_gates.py
 1. P1：频率/字段/Prod SQL/source probe contract（已完成）。
 2. P2：Raw writer、staging、原子替换、临时 parquet smoke（已完成）。
 3. P3：Silver native/90m/120m writer 与 fixture（已完成）。
-4. P4：asset/check/catalog/schema/governance/job（已完成）。
-5. P5：专属分区、batch readiness、Raw/Silver sensors，默认 STOPPED（已完成）。
-6. P6：Bootstrap dry-run 与性能回归。
-7. P7：正式 Raw/Silver Bootstrap 与文件对账，单独批准。
-8. P8：materialization 全量补、最近 20 日 checks 补，单独批准。
-9. P9：手动启用 sensor，观察连续 3 个交易日。
+4. P3 follow-up：`15m/30m/60m` source-empty 5m fallback、source precedence、partial-source fail-closed 和 native reappearance bounded repair 已完成；只作为开发期/历史修复入口，不进入普通 sensor。
+5. P4：asset/check/catalog/schema/governance/job（定义已完成；fallback 接入前不宣称 Silver fallback 已上线）。
+6. P5：专属分区、batch readiness、Raw/Silver sensors，默认 STOPPED（基础能力已完成；fallback readiness 为独立维护入口，普通 sensor 不接入）。
+7. P6A/P6B：source scope 冻结、coverage-only Bootstrap dry-run 与性能回归（coverage 查询通过；source-empty 日期阻断后续 Bootstrap）。
+8. P7：正式 Raw/Silver Bootstrap 与文件对账，单独批准；fallback 目标日期必须先完成源范围审计。
+9. P8：materialization 全量补、最近 20 日 checks 补，单独批准。
+10. P9：手动启用 sensor，观察连续 3 个交易日。
 
 任一阶段发现源字段、active pool、日期起点、窗口规则或性能预算冲突，停止当前阶段并回写方案。
 
 P5 已完成：在 P4 的五个 Raw asset、七个 Silver asset、12 个单分区 blocking check 和两份 job 基础上，增加专属交易日注册 sensor、Raw/Silver batch readiness 和两个默认 STOPPED 更新 sensor。P5 只完成本地/临时湖验证，未启用 sensor、未执行正式 Bootstrap 或事件写入。
+
+P6 已完成工具与回归：本轮相关 Prod/Bootstrap/static 测试 `108 passed`；60 日期临时 dry-run 使用 1 个 bounded fake source aggregate query 且未写正式目标。真实正式 dry-run 使用 coverage-only probe，性能通过但因 5 个 source-empty 日期组合保持 fail-closed。P3 follow-up 的 fallback writer/readiness/repair 已完成本地验证，但只用于开发期和明确的历史修复，不进入普通 Silver sensor 的长期自动触发。
 
 ## 11. 回滚与边界
 
@@ -618,7 +731,9 @@ P5 已完成：在 P4 的五个 Raw asset、七个 Silver asset、12 个单分�
 - active pool 漂移：记录 hash/差异，停止当前范围。
 - Prod 源缺失：source probe not ready，等待。
 - 派生窗口不完整：不写目标。
+- 目标频率源全局为空：只有 5m 完整时允许 `derived_fallback`；目标频率部分存在但不完整时直接 fail-closed。
+- native 目标频率后续补回：必须走 bounded repair/reconcile 校验 source revision 后替换 fallback，不由普通 writer 静默覆盖。
 - schema 漂移：staging 校验停止，旧文件不动。
-- sensor 过慢：停止启用，重做 batch readiness，不提高 RPC timeout。P5 已用单连接、10 日窗口、无 event history 的测试门禁约束该风险；正式湖磁盘和 Bootstrap 总预算仍在 P6 验证。
+- sensor 过慢：停止启用，重做 batch readiness，不提高 RPC timeout。P5 已用单连接、10 日窗口、无 event history 的测试门禁约束该风险；P6B coverage-only 全历史 source scan 已通过 300 秒预算，P7 仍必须等待 source-empty fallback 处理和重新对账。
 
 回滚只清理当前 run 临时 staging；不删除既有 Parquet、Dagster event 或 Prod 数据。

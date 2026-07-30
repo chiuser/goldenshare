@@ -7,19 +7,23 @@ from orchestrator.defs.prod_db.index_mins import (
     PROD_INDEX_MINS_DUCKDB_ATTACH_OPTIONS,
     PROD_INDEX_MINS_DUCKDB_ATTACHED_DATABASE,
     PROD_INDEX_MINS_RANGE_QUERY,
+    PROD_INDEX_MINS_SOURCE_ALL_FREQ_COVERAGE_QUERY,
     PROD_INDEX_MINS_SOURCE_PROBE_QUERY,
     build_prod_index_mins_duckdb_source_sql,
     build_prod_index_mins_range_query,
     load_prod_index_mins_active_pool,
     probe_prod_index_mins_source,
+    probe_prod_index_mins_source_coverage_dates,
+    probe_prod_index_mins_source_dates,
     validate_prod_index_mins_query_contract,
 )
 
 
 class FakeCursor:
-    def __init__(self, *, pages=(), aggregate_rows=(), error_on_execute=False):
+    def __init__(self, *, pages=(), aggregate_rows=(), range_rows=(), error_on_execute=False):
         self.pages = list(pages)
         self.aggregate_rows = list(aggregate_rows)
+        self.range_rows = list(range_rows)
         self.error_on_execute = error_on_execute
         self.executed = []
         self.fetchmany_calls = []
@@ -47,6 +51,8 @@ class FakeCursor:
         return self.aggregate_rows.pop(0)
 
     def fetchall(self):
+        if self.range_rows:
+            return list(self.range_rows)
         raise AssertionError("active pool loader must use bounded fetchmany")
 
 
@@ -232,6 +238,85 @@ class IndexMinsProdDbTests(unittest.TestCase):
         self.assertFalse(readiness.ready)
         self.assertEqual(readiness.reason_code, "prod_index_mins_source_query_error")
         self.assertEqual(readiness.scan_error_code, "RuntimeError")
+
+    def test_source_probe_dates_reuses_one_connection_for_all_dates(self) -> None:
+        rows = [
+            (
+                "1min",
+                trade_date.date(),
+                10,
+                2,
+                10,
+                trade_date.replace(hour=9, minute=30),
+                trade_date.replace(hour=15),
+            )
+            for trade_date in (datetime(2026, 7, 28), datetime(2026, 7, 29))
+            for _ in range(2)
+        ]
+        cursor = FakeCursor(range_rows=rows)
+        resource = FakeProdPostgres(FakeConnection(cursor))
+        result = probe_prod_index_mins_source_dates(
+            prod_postgres=resource,
+            trade_dates=("2026-07-28", "2026-07-29"),
+            effective_codes=("000001.SH", "399001.SZ"),
+        )
+
+        self.assertEqual(resource.connection_count, 1)
+        self.assertEqual(result.connection_count, 1)
+        self.assertEqual(result.query_count, 1)
+        self.assertEqual(len(cursor.executed), 1)
+        self.assertEqual(
+            tuple(item.trade_date for item in result.readiness_by_date),
+            ("2026-07-28", "2026-07-29"),
+        )
+
+    def test_source_coverage_probe_does_not_require_historical_exact_code_set(self) -> None:
+        rows = [
+            (
+                source_freq,
+                datetime(2026, 7, 28).date(),
+                10,
+                1,
+                datetime(2026, 7, 28, 9, 30),
+                datetime(2026, 7, 28, 15, 0),
+            )
+            for source_freq in ("1min", "5min", "15min", "30min", "60min")
+        ]
+        cursor = FakeCursor(range_rows=rows)
+        resource = FakeProdPostgres(FakeConnection(cursor))
+
+        result = probe_prod_index_mins_source_coverage_dates(
+            prod_postgres=resource,
+            trade_dates=("2026-07-28",),
+            effective_codes=("000001.SH", "399001.SZ"),
+        )
+
+        self.assertTrue(result.ready)
+        self.assertEqual(result.probe_mode, "coverage_only")
+        self.assertEqual(result.query_count, 1)
+        self.assertEqual(len(cursor.executed), 1)
+        self.assertEqual(cursor.executed[0][0], PROD_INDEX_MINS_SOURCE_ALL_FREQ_COVERAGE_QUERY)
+        self.assertTrue(
+            all(item.distinct_key_count is None for item in result.readiness_by_date[0].frequency_coverages)
+        )
+        self.assertTrue(
+            all(item.duplicate_key_count is None for item in result.readiness_by_date[0].frequency_coverages)
+        )
+        self.assertTrue(
+            all(not item.code_coverage_checked for item in result.readiness_by_date[0].frequency_coverages)
+        )
+
+    def test_source_probe_dates_rejects_query_budget_before_connecting(self) -> None:
+        cursor = FakeCursor(aggregate_rows=_aggregate_rows())
+        resource = FakeProdPostgres(FakeConnection(cursor))
+        with self.assertRaises(ValueError):
+            probe_prod_index_mins_source_dates(
+                prod_postgres=resource,
+                trade_dates=("2026-07-28", "2026-07-29"),
+                effective_codes=("000001.SH", "399001.SZ"),
+                max_query_count=0,
+            )
+        self.assertEqual(resource.connection_count, 0)
 
 
 if __name__ == "__main__":
