@@ -24,6 +24,7 @@ from orchestrator.defs.sensors.stock_identity_map_sensor import (
 from orchestrator.seeds.basic.stock_identity_mappings import (
     STOCK_IDENTITY_MAPPINGS_SEED_COLUMNS,
     STOCK_IDENTITY_MAPPINGS_SEED_PATH,
+    StockIdentityMappingSeedRow,
     load_stock_identity_mapping_seed,
 )
 
@@ -184,6 +185,38 @@ class StockIdentityMapActiveAssetTests(unittest.TestCase):
             result.rows[0]["identity_source"],
             STOCK_LIFECYCLE_IDENTITY_SOURCE,
         )
+
+    def test_namechange_seed_can_target_delisted_lifecycle_code(self) -> None:
+        seed_rows = (
+            StockIdentityMappingSeedRow(
+                latest_ts_code="920305.BJ",
+                source_ts_code="835305.BJ",
+                valid_from=date(2021, 8, 26),
+                valid_to=None,
+                identity_source="namechange",
+                confidence="inferred",
+                reason="manually confirmed historical identity",
+            ),
+        )
+
+        result = build_stock_identity_map_rows(
+            lifecycle_rows=(
+                {
+                    "ts_code": "920305.BJ",
+                    "list_date": date(2021, 8, 26),
+                    "delist_date": date(2026, 7, 30),
+                },
+            ),
+            seed_rows=seed_rows,
+            namechange_codes={"920305.BJ"},
+            created_at=datetime(2026, 7, 30, tzinfo=ZoneInfo("Asia/Shanghai")),
+        )
+
+        seed_row = next(
+            row for row in result.rows if row["source_ts_code"] == "835305.BJ"
+        )
+        self.assertEqual(seed_row["latest_ts_code"], "920305.BJ")
+        self.assertEqual(seed_row["effective_delist_date"], date(2026, 7, 30))
 
 
 class StockIdentityMapSensorDecisionTests(unittest.TestCase):

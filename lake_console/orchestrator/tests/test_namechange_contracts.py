@@ -6,7 +6,10 @@ import unittest
 import duckdb
 
 from orchestrator.defs.assets import namechange as namechange_assets
-from orchestrator.defs.assets.namechange import NAMECHANGE_RAW_COLUMN_TYPES
+from orchestrator.defs.assets.namechange import (
+    NAMECHANGE_RAW_COLUMN_TYPES,
+    build_silver_namechange_supported_codes,
+)
 from orchestrator.defs.checks.namechange_checks import (
     raw_namechange_overlap_interval_observed,
 )
@@ -20,6 +23,7 @@ from orchestrator.defs.tushare_api_io import (
     fetch_tushare_full_file_distinct_to_raw,
     fetch_tushare_namechange_announcement_windows_to_raw,
 )
+from orchestrator.seeds.basic.stock_identity_mappings import StockIdentityMappingSeedRow
 
 
 class FakeTushareResource:
@@ -53,6 +57,49 @@ class WindowedFakeTushareResource:
 
 
 class NamechangeContractTests(unittest.TestCase):
+    def test_silver_scope_keeps_only_namechange_seeded_historical_targets(self) -> None:
+        seed_rows = (
+            StockIdentityMappingSeedRow(
+                latest_ts_code="920305.BJ",
+                source_ts_code="835305.BJ",
+                valid_from=date(2021, 8, 26),
+                valid_to=None,
+                identity_source="namechange",
+                confidence="inferred",
+                reason="manually confirmed historical identity",
+            ),
+            StockIdentityMappingSeedRow(
+                latest_ts_code="920001.BJ",
+                source_ts_code="830001.BJ",
+                valid_from=date(2021, 8, 26),
+                valid_to=None,
+                identity_source="bse_mapping",
+                confidence="confirmed",
+                reason="unrelated BSE mapping",
+            ),
+        )
+        supported_codes = build_silver_namechange_supported_codes(
+            current_listed_stock_names={"000001.SZ": "平安银行"},
+            seed_rows=seed_rows,
+        )
+        raw_rows = [
+            _row("000001.SZ", "平安银行", "19910403", None, None),
+            _row("920305.BJ", "云创退", "20260709", None, "20260701"),
+            _row("920001.BJ", "无关北交所代码", "20210101", None, None),
+            _row("600000.SH", "未引用退市代码", "20000101", None, None),
+        ]
+        timeline = build_latest_announcement_namechange_timeline(
+            [row for row in raw_rows if row["ts_code"] in supported_codes],
+            stock_basic_names={"000001.SZ": "平安银行"},
+        )
+
+        self.assertEqual(supported_codes, frozenset({"000001.SZ", "920305.BJ"}))
+        self.assertEqual(timeline.blocking_conflict_count, 0)
+        self.assertEqual(
+            {row["ts_code"] for row in timeline.rows},
+            {"000001.SZ", "920305.BJ"},
+        )
+
     def test_raw_asset_uses_namechange_announcement_window_reader(self) -> None:
         source = Path(namechange_assets.__file__).read_text()
 

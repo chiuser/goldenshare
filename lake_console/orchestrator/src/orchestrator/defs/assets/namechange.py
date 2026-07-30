@@ -1,4 +1,5 @@
 import os
+from collections.abc import Mapping, Sequence
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -44,6 +45,10 @@ from orchestrator.defs.run_contracts.metadata import (
 )
 from orchestrator.defs.tushare_api_io import (
     fetch_tushare_namechange_announcement_windows_to_raw,
+)
+from orchestrator.seeds.basic.stock_identity_mappings import (
+    StockIdentityMappingSeedRow,
+    load_stock_identity_mapping_seed,
 )
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
@@ -96,6 +101,23 @@ def _read_current_listed_stock_names(connection, path: Path) -> dict[str, str]:
         """
     ).fetchall()
     return {str(row[0]): str(row[1]) for row in rows}
+
+
+def build_silver_namechange_supported_codes(
+    *,
+    current_listed_stock_names: Mapping[str, str],
+    seed_rows: Sequence[StockIdentityMappingSeedRow],
+) -> frozenset[str]:
+    """Keep current names plus seed-backed historical identity explanations."""
+
+    namechange_seed_latest_codes = {
+        seed_row.latest_ts_code
+        for seed_row in seed_rows
+        if seed_row.identity_source == "namechange"
+    }
+    return frozenset(current_listed_stock_names) | frozenset(
+        namechange_seed_latest_codes
+    )
 
 
 def _replace_silver_rows(
@@ -253,15 +275,31 @@ def silver_namechange(
         raise FileNotFoundError(f"Missing silver stock basic file: {stock_basic_path}")
 
     LOGGER.stdout("namechange_silver_started")
+    seed_rows = load_stock_identity_mapping_seed()
     with connect_configured_duckdb() as connection:
         raw_rows = _read_raw_rows(connection, raw_path)
         current_listed_stock_names = _read_current_listed_stock_names(
             connection, stock_basic_path
         )
 
+    namechange_seed_latest_codes = {
+        seed_row.latest_ts_code
+        for seed_row in seed_rows
+        if seed_row.identity_source == "namechange"
+    }
+    supported_codes = build_silver_namechange_supported_codes(
+        current_listed_stock_names=current_listed_stock_names,
+        seed_rows=seed_rows,
+    )
+    seed_historical_codes = namechange_seed_latest_codes - set(
+        current_listed_stock_names
+    )
     filtered_rows = [
-        row for row in raw_rows if str(row.get("ts_code")) in current_listed_stock_names
+        row for row in raw_rows if str(row.get("ts_code")) in supported_codes
     ]
+    seed_historical_raw_row_count = sum(
+        1 for row in filtered_rows if str(row.get("ts_code")) in seed_historical_codes
+    )
 
     timeline = build_latest_announcement_namechange_timeline(
         filtered_rows,
@@ -300,6 +338,8 @@ def silver_namechange(
         raw_source_row_count=len(raw_rows),
         row_count=row_count,
         current_listed_stock_count=len(current_listed_stock_names),
+        namechange_seed_support_code_count=len(namechange_seed_latest_codes),
+        retained_seed_historical_code_count=len(seed_historical_codes),
         selected_event_count=timeline.selected_event_count,
     )
 
@@ -312,9 +352,12 @@ def silver_namechange(
                 "summary": "已生成股票曾用名标准时间线，确保同一股票同一天最多命中一个名称区间。",
                 "next_action": "等待 silver_namechange blocking checks 通过后供身份映射和历史名称解释使用。",
                 "result_status": "written",
-                "input_summary": "输入为 raw_tushare_namechange 与 silver_stock_basic 当前股票池。",
+                "input_summary": (
+                    "输入为 raw_tushare_namechange、silver_stock_basic 当前股票池，"
+                    "以及 versioned namechange identity seed 引用的历史目标代码。"
+                ),
                 "filter_summary": (
-                    f"raw {len(raw_rows)} 行，按当前股票池过滤 "
+                    f"raw {len(raw_rows)} 行，按当前股票池与 namechange seed 目标代码过滤 "
                     f"{len(raw_rows) - len(filtered_rows)} 行，输出 {row_count} 条时间线区间。"
                 ),
                 "diagnostic_ref": "完整 canonicalization 诊断看 silver_namechange checks 和 run stdout。",
@@ -323,6 +366,14 @@ def silver_namechange(
                 "source_row_count": timeline.source_row_count,
                 "raw_source_row_count": len(raw_rows),
                 "current_listed_stock_count": len(current_listed_stock_names),
+                "namechange_seed_support_code_count": len(namechange_seed_latest_codes),
+                "retained_seed_historical_code_count": len(seed_historical_codes),
+                "seed_historical_raw_row_count": seed_historical_raw_row_count,
+                "seed_historical_timeline_row_count": sum(
+                    1
+                    for row in timeline.rows
+                    if str(row.get("ts_code")) in seed_historical_codes
+                ),
                 "filtered_delisted_row_count": len(raw_rows) - len(filtered_rows),
                 "selected_event_count": timeline.selected_event_count,
                 "duplicate_removed_count": 0,

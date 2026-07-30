@@ -34,7 +34,7 @@
 
 这意味着：
 
-1. 更新 `silver_stock_basic` 和 `silver_namechange` 后，`stock_identity_map_sensor` 会在 17:30 后检查 freshness 与 checks，满足条件才触发 `stock_identity_map_update_job`。
+1. `silver_stock_lifecycle` 与 `silver_namechange` 更新后，`stock_identity_map_sensor` 会在 17:30 后检查各自的 ready 语义，满足条件才触发 `stock_identity_map_update_job`。
 2. 旧湖 manifest 只是历史初始化来源，不是长期运行时依赖。
 3. identity map 的日常维护入口已经收敛到 active asset / checks / job / sensor。
 
@@ -79,24 +79,24 @@
 
 长期生成 `silver_stock_identity_map` 需要以下来源。
 
-### 5.1 `silver_stock_basic`
+### 5.1 `silver_stock_lifecycle`
 
-用途：生成标准代码自身映射。
+用途：生成标准代码自身映射，以及为 versioned seed 的标准目标代码提供历史生命周期解释。
 
 规则：
 
 ```text
-latest_ts_code = stock_basic.ts_code
-source_ts_code = stock_basic.ts_code
-identity_source = stock_basic
+latest_ts_code = stock_lifecycle.ts_code
+source_ts_code = stock_lifecycle.ts_code
+identity_source = stock_lifecycle
 confidence = confirmed
 ```
 
 维护含义：
 
-1. 新股进入 `silver_stock_basic` 后，应在 identity map 中新增自身映射。
-2. 股票生命周期字段来自 `silver_stock_basic.list_date` / `delist_date`。
-3. 当前 `silver_stock_basic` 只保留 `list_status='L'` 的当前上市股票，因此 identity map 第一版也应服务当前上市股票主线；如未来需要覆盖退市股票，必须先调整 stock basic 基础事实口径。
+1. 新股进入生命周期事实后，应在 identity map 中新增自身映射。
+2. 股票生命周期字段来自 `silver_stock_lifecycle.list_date` / `delist_date`。
+3. 退市股票仍保留在生命周期事实中，因此历史代码映射可以继续被解释；当前上市股票池不是 identity map 的生命周期事实源。
 
 ### 5.2 BSE / 代码迁移映射
 
@@ -113,7 +113,7 @@ confidence = confirmed
 
 1. 该来源不能靠 `namechange` 猜。
 2. 第一版可以用受版本控制的 seed 或单独基础资产承载，但必须有明确字段契约和 review 入口。
-3. 生成 identity map 前，BSE 映射中的 `latest_ts_code` 必须能在 `silver_stock_basic` 中找到。
+3. 生成 identity map 前，BSE 映射中的 `latest_ts_code` 必须能在 `silver_stock_lifecycle` 中找到。
 
 ### 5.3 `silver_namechange`
 
@@ -132,6 +132,8 @@ confidence = inferred
 2. 普通改名只说明同一股票的名称历史，不等于发生代码身份迁移。
 3. 只有当名称时间线能解释某个历史 `source_ts_code -> latest_ts_code` 关系时，才允许生成 inferred 映射。
 4. inferred 映射不能覆盖 `stock_basic` 或 `bse_mapping` confirmed 映射。
+5. `silver_namechange` 的正式保留集合为“当前 `silver_stock_basic` 代码”与“`identity_source=namechange` 的 versioned seed `latest_ts_code`”的并集。第二部分只为保留人工确认映射的可审计解释依据，不代表将所有退市股票重新纳入当前股票池。
+6. seed 目标代码不在当前股票池时，名称冲突消解不伪造当前名称；时间线仍按 raw 曾用名事实做 canonicalization。若同一开始日存在无法按既有规则消解的冲突，继续 fail closed。
 
 ### 5.4 `stk_mins` 源代码集合
 
@@ -152,7 +154,7 @@ confidence = inferred
 1. 数据规模只有几千行，整表重建成本低。
 2. 映射规则依赖多个基础事实，增量补丁容易留下历史污染。
 3. 全量重建更容易做唯一性、冲突和覆盖检查。
-4. 上游 `silver_stock_basic` / `silver_namechange` 更新后，identity map 的正确结果是“重新合成后的完整事实”，不是局部 append。
+4. 上游 `silver_stock_lifecycle` / `silver_namechange` 更新后，identity map 的正确结果是“重新合成后的完整事实”，不是局部 append。
 
 目标路径固定：
 
@@ -173,7 +175,7 @@ confidence = inferred
 
 建议优先级：
 
-1. `stock_basic / confirmed`
+1. `stock_lifecycle / confirmed`
 2. `bse_mapping / confirmed`
 3. `namechange / inferred`
 
@@ -183,7 +185,7 @@ confidence = inferred
 2. confirmed 与 inferred 冲突：保留 confirmed，inferred 进入冲突样本，check 失败或由设计确认后改规则。
 3. inferred 与 inferred 冲突：直接失败，等待人工确认规则或 seed。
 4. 任何冲突都不能在消费者侧临时修。
-5. 当前 seed 从已验证 identity map 的非自映射行抽取，但只保留 `latest_ts_code` 仍在当前 `silver_stock_basic` 上市股票池中的映射。审计时排除的两条退市主线样本为 `706055.SH -> 600680.SH`、`839680.BJ -> 920680.BJ`；第一版不服务退市股票历史覆盖。
+5. versioned seed 是人工确认的历史映射事实。每个 `latest_ts_code` 必须存在于 `silver_stock_lifecycle`；其中 `identity_source=namechange` 的目标代码还必须存在于 `silver_namechange`。退市不会自动删除已确认的 seed 行，也不会让当前股票池过滤删除其名称时间线依据。
 
 ## 8. Checks 设计
 
@@ -197,18 +199,18 @@ confidence = inferred
 | `silver_stock_identity_map_source_ts_code_present` | `source_ts_code` 必须非空 |
 | `silver_stock_identity_map_source_ts_code_unique` | 每个源代码只能出现一次 |
 | `silver_stock_identity_map_latest_ts_code_present` | 标准代码必须非空 |
-| `silver_stock_identity_map_latest_code_exists_in_stock_basic` | 标准代码必须存在于 `silver_stock_basic` |
+| `silver_stock_identity_map_latest_code_exists_in_stock_lifecycle` | 标准代码必须存在于 `silver_stock_lifecycle`，包含退市历史股票 |
 | `silver_stock_identity_map_known_identity_source` | `identity_source` 只能是允许枚举 |
 | `silver_stock_identity_map_known_confidence` | `confidence` 只能是允许枚举 |
 | `silver_stock_identity_map_date_ranges_valid` | `valid_to` 不能早于 `valid_from` |
 | `silver_stock_identity_map_conflicting_mapping_absent` | 同一源代码不能映射到多个标准代码 |
-| `silver_stock_identity_map_seed_latest_code_explainable` | seed 中的标准代码必须能在 `silver_stock_basic` 当前上市股票池中解释 |
+| `silver_stock_identity_map_seed_latest_code_explainable` | seed 中的标准代码必须能在 `silver_stock_lifecycle` 中解释 |
 
 ### 8.2 WARN checks / metadata
 
 | 项目 | 目的 |
 |---|---|
-| 来源分布 | 统计 `stock_basic` / `bse_mapping` / `namechange` 行数 |
+| 来源分布 | 统计 `stock_lifecycle` / `bse_mapping` / `namechange` 行数 |
 | 置信度分布 | 统计 confirmed / inferred 行数 |
 | 新增/删除样本 | 观察本次重建相对上一版变化 |
 | inferred 样本 | 方便人工复核 namechange 推断映射 |
@@ -243,7 +245,7 @@ silver_stock_identity_map checks
 
 禁止：
 
-1. 不顺手更新 `silver_stock_basic`。
+1. 不顺手更新 `silver_stock_lifecycle`。
 2. 不顺手更新 `silver_namechange`。
 3. 不触发分钟线。
 4. 不读取旧湖 manifest。
@@ -254,7 +256,7 @@ silver_stock_identity_map checks
 
 设计原因：
 
-1. 新股上市会先进入 `silver_stock_basic`。
+1. 新股上市会先进入 `silver_stock_lifecycle`。
 2. 股票名称事实会进入 `silver_namechange`。
 3. `stk_mins` 生产依赖身份映射；如果 identity map 更新不及时，新股或历史代码映射会导致分钟线标准化失败。
 4. 因此 identity map 不能只靠人工偶尔更新，也不能塞进分钟线 job 里顺手更新。
@@ -265,20 +267,20 @@ silver_stock_identity_map checks
 2. sensor 默认 `STOPPED`，每 10 分钟评估一次。
 3. 每天上海时间 17:30 前直接 skip，不检查上游、不提交 run。
 4. 17:30 后才检查基础事实 readiness。
-5. 该口径与 stock_basic raw/silver 日更 sensors 使用的最新 `cn_a_stock_trade_days` 目标交易日集合一致，也能早于 19:30 后的 `stk_mins` raw 日常更新窗口完成。
+5. 该口径与基础股票事实使用的 `cn_a_stock_trade_days` 目标交易日集合一致，也能早于 19:30 后的 `stk_mins` raw 日常更新窗口完成。
 
 触发条件：
 
 1. 当天是已注册的股票交易日，且来自 `cn_a_stock_trade_days`。
-2. `silver_stock_basic` 已 materialized，且 blocking checks 全部通过，并满足当天 freshness。
-3. `silver_namechange` 已 materialized，且 blocking checks 全部通过，并满足当天 freshness。
+2. `silver_stock_lifecycle` 已 materialized，且 blocking checks 全部通过；它是历史生命周期 full snapshot，不要求按目标交易日 freshness。
+3. `silver_namechange` 已 materialized，且 blocking checks 全部通过，并满足目标交易日 freshness。
 4. BSE / namechange inferred 非自映射 seed 文件存在且通过 loader 校验。
-5. 当天尚未成功运行过 `stock_identity_map_update_job`，或当前 `silver_stock_identity_map` 的 materialization 时间早于 `silver_stock_basic` / `silver_namechange` 的最新 materialization。
+5. 当前 `silver_stock_identity_map` 尚未 ready，或其 materialization storage id 早于两个上游最新 materialization storage id；已 materialized 但 blocking checks 未绿时不自动重跑。
 
 sensor 行为：
 
 1. 满足条件时发出 `stock_identity_map_update_job` 的 `RunRequest`。
-2. 不满足条件时返回中文 `SkipReason`，说明是 `stock_basic` 未 ready、`namechange` 未 ready、BSE 映射未 ready，还是当天已完成。
+2. 不满足条件时返回中文 `SkipReason`，说明是 `silver_stock_lifecycle` 未 ready、`silver_namechange` 未 ready、identity map checks 未绿，还是当前映射已跟上上游。
 3. sensor 不调用 Tushare，不写 parquet，不读取旧湖 manifest。
 4. sensor 不触发分钟线；分钟线由自己的 job/sensor 在 identity map ready 后继续推进。
 
@@ -288,7 +290,7 @@ run key 建议：
 stock_identity_map:{trade_date}
 ```
 
-cursor 只记录观测信息，例如 `evaluated_at`、`target_trade_date`、`stock_basic_ready`、`namechange_ready`、`identity_map_current`。正确性仍以 materialization 和 blocking checks 为准。
+cursor 只记录观测信息，例如 `evaluated_at`、`target_trade_date`、`silver_stock_lifecycle` / `silver_namechange` gate 摘要、`identity_map_current`。正确性仍以 materialization 和 blocking checks 为准。
 
 ## 10. 和 `namechange` 的关系
 
@@ -339,7 +341,7 @@ namechange 更新
 
 ### IM-0：现状审计
 
-目标：确认当前旧 manifest、当前 `silver_stock_basic`、当前 `silver_namechange`、BSE 映射来源和分钟线源代码集合之间的差异。
+目标：确认当前旧 manifest、当前 `silver_stock_lifecycle`、当前 `silver_namechange`、BSE 映射来源和分钟线源代码集合之间的差异。
 
 输出：
 
@@ -365,7 +367,7 @@ namechange 更新
 
 目标：新增 `silver_stock_identity_map` active asset。
 
-当前状态：已实现。asset 只读 `silver_stock_basic`、`silver_namechange` 和版本化 seed；不读取旧湖 manifest。
+当前状态：已实现。asset 只读 `silver_stock_lifecycle`、`silver_namechange` 和版本化 seed；不读取旧湖 manifest。
 
 要求：
 
@@ -390,14 +392,14 @@ namechange 更新
 
 目标：新增 `stock_identity_map_sensor`。
 
-当前状态：已实现。sensor 使用 `cn_a_stock_trade_days` 最新已注册交易日，17:30 前直接 skip；17:30 后等待 `silver_stock_basic` 与 `silver_namechange` ready，且 identity map stale 时提交 `stock_identity_map_update_job`。
+当前状态：已实现。sensor 使用 `cn_a_stock_trade_days` 最新已注册交易日，17:30 前直接 skip；17:30 后等待 `silver_stock_lifecycle` 与 `silver_namechange` ready，且 identity map stale 时提交 `stock_identity_map_update_job`。
 
 要求：
 
 1. sensor 默认 `STOPPED`。
 2. 只在交易日基础事实 ready 后触发 `stock_identity_map_update_job`。
 3. 只提交 identity map job，不触发 `stock_basic`、`namechange` 或 `stk_mins`。
-4. 目标交易日读取 `cn_a_stock_trade_days`，并且 17:30 后才开始检查 `stock_basic` / `namechange` freshness；不能只看历史上 materialized 过。
+4. 目标交易日读取 `cn_a_stock_trade_days`，并且 17:30 后才开始检查 `silver_stock_lifecycle` 的 checks、`silver_namechange` 的 target-date readiness；不能只看历史上 materialized 过。
 5. BSE 映射第一版作为静态 seed，seed 文件存在且校验通过即可视为 ready。
 
 ### IM-5：旧 bootstrap 收口
@@ -406,21 +408,48 @@ namechange 更新
 
 不删除历史 run/event，不删除已有 parquet，除非另起清理方案并经确认。
 
+### IM-6：退市目标代码的 namechange 解释依据
+
+触发背景：`920305.BJ` 于 2026-07-30 退市后，不再属于当前 `silver_stock_basic`，但 versioned seed 仍有人工确认的 `835305.BJ -> 920305.BJ` namechange 映射。旧实现先按当前股票池裁剪 `silver_namechange`，再要求 seed 目标代码存在于该时间线，造成 `stock_identity_map_update_job` 在写入前 fail closed。
+
+当前状态：已实现并在 2026-07-30 正式验收。`silver_namechange_update_job` run `65e10e23-dd64-417d-99dd-6fbe5e46401d` 成功写入 12,147 条时间线，`920305.BJ` 保留 3 条记录，三条 blocking check 全绿；随后 `stock_identity_map_update_job` run `7ca5d351-4dbc-4290-b913-3fa1c6a76626` 成功写入 6,124 行，三条 blocking check 全绿，`835305.BJ -> 920305.BJ` 的 `namechange/inferred` 映射已落盘。
+
+实现口径：
+
+1. `silver_namechange` 在读取 raw 与当前股票池后，同步只读加载 versioned seed。
+2. 仅提取 `identity_source=namechange` 的 `latest_ts_code`，与当前股票池代码求并集，作为名称时间线的保留集合。
+3. 不改变 raw/silver schema、路径、full-snapshot 写入策略、job、sensor、check 名称或 readiness 语义。
+4. metadata 必须分别记录当前股票池代码数、seed namechange 支持代码数、其中不在当前股票池的代码数，以及实际纳入时间线的 raw/silver 行数；不得记录完整代码清单。
+5. `silver_stock_identity_map` 与其 reference-domain check 已以 `silver_stock_lifecycle` 为标准代码解释事实，本专项不新增或修改 check。
+
+性能与失败语义：
+
+1. seed 当前只有数百行，集合构建为内存去重，不新增网络、DuckDB 扫描或 Dagster 状态读取。
+2. raw 仍只读取一次；仅放宽 Python 侧行过滤集合，写入规模最多增加 seed 引用目标代码的名称记录。
+3. seed 缺失、格式无效、时间线冲突或 namechange seed 目标在 raw 中没有可解释记录时，原有 fail-closed 链路保持有效，不写半成品。
+
+测试门禁：
+
+1. 当前股票池之外、但被 `namechange` seed 引用的目标代码必须进入保留集合并可生成时间线。
+2. 当前股票池之外、且未被 `namechange` seed 引用的代码必须继续被过滤。
+3. `bse_mapping` seed 不得扩大 `silver_namechange` 保留集合。
+4. `build_stock_identity_map_rows(...)` 必须能接受该退市目标代码的时间线依据，并保持 lifecycle reference-domain 语义。
+
 ## 14. 验收标准
 
 1. `silver_stock_identity_map` 可由新湖基础事实重建，不依赖旧湖 manifest。
 2. `source_ts_code` 唯一。
-3. `latest_ts_code` 都能在 `silver_stock_basic` 中找到。
+3. `latest_ts_code` 都能在 `silver_stock_lifecycle` 中找到。
 4. confirmed 映射不被 inferred 覆盖。
 5. 分钟线源代码集合可以被 identity map 解释。
 6. `stock_identity_map_update_job` 不更新其它基础资产。
-7. `stock_identity_map_sensor` 能在 `cn_a_stock_trade_days` 最新已注册交易日、17:30 后且 `stock_basic` / `namechange` ready 时触发整表重建。
+7. `stock_identity_map_sensor` 能在 `cn_a_stock_trade_days` 最新已注册交易日、17:30 后且 `silver_stock_lifecycle` / `silver_namechange` ready 时触发整表重建。
 8. 下游只读消费该 asset，不再自行实现映射规则。
 
 ## 15. 当前后续事项
 
 1. BSE 映射第一版按静态 seed 维护；后续如需改为 active asset，另起设计。
-2. 第一版只服务当前上市股票主线；如需覆盖退市股票历史映射，必须先调整 stock basic 基础事实口径并重做 seed 审计。
+2. 对人工确认的 `namechange` seed，退市目标代码的时间线依据由 IM-6 的受控并集保留；不因此把所有退市股票加入当前股票池或自动扩展 seed。
 3. `namechange` inferred 映射第一版仍由人工确认后写入 seed；不从 `silver_namechange` 自动推断新增映射。
 4. 分钟线源代码覆盖审计的正式来源仍需在分钟线 silver 开发前确认；本轮不把分钟线覆盖集合写入 identity map check。
-5. `stock_basic` / `namechange` freshness 第一版按 materialization 本地日期不早于 `cn_a_stock_trade_days` 最新目标交易日判断；如后续需要更精确运行日期 tag 或 freshness metadata，另起设计。
+5. `silver_stock_lifecycle` 按 full snapshot + blocking checks 判断 ready，`silver_namechange` 按 materialization 本地日期不早于 `cn_a_stock_trade_days` 最新目标交易日判断 freshness；如后续需要更精确运行日期 tag 或 freshness metadata，另起设计。
