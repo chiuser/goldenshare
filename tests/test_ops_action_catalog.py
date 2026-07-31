@@ -57,6 +57,21 @@ def test_research_report_catalog_and_workflow_scope() -> None:
     assert "research_report" not in workflow_dataset_keys
 
 
+def test_idx_factor_pro_catalog_and_workflow_scope() -> None:
+    item = resolve_default_dataset_catalog_item("idx_factor_pro")
+    workflow_dataset_keys = {
+        step.dataset_key
+        for workflow in WORKFLOW_DEFINITION_REGISTRY.values()
+        for step in workflow.steps
+        if step.dataset_key is not None
+    }
+
+    assert item.group_key == "index_market_data"
+    assert item.group_label == "A股指数行情"
+    assert item.item_order == 45
+    assert "idx_factor_pro" not in workflow_dataset_keys
+
+
 def test_workflow_steps_reference_dataset_action_keys() -> None:
     dataset_keys = {definition.dataset_key for definition in list_dataset_definitions()}
     for workflow in WORKFLOW_DEFINITION_REGISTRY.values():

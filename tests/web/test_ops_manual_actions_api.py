@@ -72,6 +72,15 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert actions["etf_sh_cons.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
     assert actions["etf_sh_cons.maintain"]["time_form"]["default_mode"] == "point"
     assert [item["mode"] for item in actions["etf_sh_cons.maintain"]["time_form"]["modes"]] == ["point", "range"]
+    assert actions["idx_factor_pro.maintain"]["display_name"] == "维护指数技术因子(专业版)"
+    assert actions["idx_factor_pro.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
+    assert actions["idx_factor_pro.maintain"]["time_form"]["default_mode"] == "point"
+    assert [item["mode"] for item in actions["idx_factor_pro.maintain"]["time_form"]["modes"]] == ["point", "range"]
+    idx_factor_pro_modes = _time_modes(actions["idx_factor_pro.maintain"])
+    assert idx_factor_pro_modes["point"]["control"] == "trade_date"
+    assert idx_factor_pro_modes["point"]["selection_rule"] == "trading_day_only"
+    assert idx_factor_pro_modes["range"]["control"] == "trade_date_range"
+    assert idx_factor_pro_modes["range"]["selection_rule"] == "trading_day_only"
     assert actions["daily.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
     assert actions["daily.maintain"]["time_form"]["default_mode"] == "point"
     assert [item["mode"] for item in actions["daily.maintain"]["time_form"]["modes"]] == ["point", "range"]
@@ -151,6 +160,7 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
 
     assert [item["key"] for item in actions["bse_mapping.maintain"]["filters"]] == ["o_code", "n_code"]
     assert [item["key"] for item in actions["bak_basic.maintain"]["filters"]] == ["ts_code"]
+    assert actions["idx_factor_pro.maintain"]["filters"] == []
     assert [item["key"] for item in actions["namechange.maintain"]["filters"]] == ["ts_code"]
     st_filters = {item["key"]: item for item in actions["st.maintain"]["filters"]}
     assert list(st_filters) == ["ts_code"]

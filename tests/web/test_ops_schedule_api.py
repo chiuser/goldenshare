@@ -84,6 +84,31 @@ def test_ops_schedule_create_allows_daily_workflow_without_static_trade_date(app
     assert response.json()["params_json"] == {}
 
 
+def test_ops_schedule_create_allows_idx_factor_pro_without_static_trade_date(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "idx_factor_pro.maintain",
+            "display_name": "指数技术因子更新",
+            "schedule_type": "cron",
+            "cron_expr": "0 19 * * 1-5",
+            "timezone": "Asia/Shanghai",
+            "params_json": {},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["target_key"] == "idx_factor_pro.maintain"
+    assert response.json()["target_display_name"] == "指数技术因子(专业版)"
+    assert response.json()["params_json"] == {}
+
+
 def test_ops_schedule_create_allows_reference_data_refresh_without_static_date(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})

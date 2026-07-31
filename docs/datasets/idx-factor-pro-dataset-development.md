@@ -1,6 +1,6 @@
 # 指数技术因子（专业版）`idx_factor_pro` 数据集接入方案
 
-状态：开发中；M1 Foundation 主链已完成并通过本地门禁，Ops 目录、源站探测与自动任务页面待实现
+状态：开发中；M1 Foundation 主链和 M2 Ops 目录/任务入口已完成，源站探测与自动任务页面待实现
 
 更新时间：2026-08-01
 
@@ -11,7 +11,7 @@
 | 阶段 | 状态 | 已验证结果 |
 | --- | --- | --- |
 | M1：Foundation 主链 | 已完成 | `DatasetDefinition`、request builder、raw ORM、serving view ORM、DAO、Alembic、freshness 映射与 raw-only writer 护栏已落地；定向测试 210 项通过，Definition lint 通过。 |
-| M2：Ops 目录与任务入口 | 待开始 | 仅增加 `index_market_data` 展示目录；不修改既有 workflow。 |
+| M2：Ops 目录与任务入口 | 已完成 | 已配置 `index_market_data` 第 45 位；手动任务和自动任务配置由 Definition 派生，测试确认没有 `ts_code` 输入，也未进入任何既有 workflow。 |
 | M3：源站探测后端 | 待开始 | 仅在当日开市且源站已有返回时创建标准单日 TaskRun。 |
 | M4：自动任务页面 | 待开始 | 仅展示本数据集的源站探测条件，不暴露 `ts_code`。 |
 | M5：全量验证与发布验收 | 待开始 | 迁移与真实单日同步必须在获得部署授权后执行。 |

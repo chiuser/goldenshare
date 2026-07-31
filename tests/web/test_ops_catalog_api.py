@@ -36,6 +36,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert "etf_sh_cons.maintain" in actions
     assert "index_weight.maintain" in actions
     assert "index_mins.maintain" in actions
+    assert "idx_factor_pro.maintain" in actions
     assert "maintenance.rebuild_dm" in actions
     legacy_keys = [
         "sync" + "_daily.daily",
@@ -176,6 +177,18 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert list(index_mins_params) == ["trade_date", "start_date", "end_date", "ts_code", "freq"]
     assert index_mins_params["freq"]["multi_value"] is True
     assert index_mins_params["freq"]["default_value"] == ["1min", "5min", "15min", "30min", "60min"]
+
+    idx_factor_pro = actions["idx_factor_pro.maintain"]
+    assert idx_factor_pro["target_display_name"] == "指数技术因子(专业版)"
+    assert idx_factor_pro["group_key"] == "index_market_data"
+    assert idx_factor_pro["group_label"] == "A股指数行情"
+    assert idx_factor_pro["freshness_policy"] == "continuous_open_day"
+    assert idx_factor_pro["schedule_enabled"] is True
+    assert [param["key"] for param in idx_factor_pro["parameters"]] == [
+        "trade_date",
+        "start_date",
+        "end_date",
+    ]
 
     assert actions["maintenance.rebuild_dm"]["action_type"] == "maintenance_action"
     assert actions["maintenance.rebuild_dm"]["display_name"] == "刷新数据集市快照"
