@@ -416,7 +416,8 @@ export function actionSupportsRemoteProbeCondition(actionType: string, actionKey
   return conditionKind === FRESHNESS_LATEST_OPEN_CONDITION && !actionSupportsRemoteIndexMinsProbe(actionType, actionKey);
 }
 
-export function hasCompleteIndexMinsProbeFreqs(value: unknown): boolean {
+export function hasCompleteIndexMinsProbeFilters(filters: unknown): boolean {
+  const value = isPlainRecord(filters) ? filters.freq : undefined;
   const rawValues = Array.isArray(value)
     ? value
     : typeof value === "string"
@@ -1292,7 +1293,7 @@ export function OpsAutomationPage() {
       if (!actionSupportsRemoteProbeCondition(form.action_type, form.action_key, form.probe_condition_kind)) {
         throw new Error("当前维护对象不支持该探测条件。");
       }
-      if (selectedRemoteIndexMinsProbe && !hasCompleteIndexMinsProbeFreqs(resolvedParamsJson.filters)) {
+      if (selectedRemoteIndexMinsProbe && !hasCompleteIndexMinsProbeFilters(resolvedParamsJson.filters)) {
         throw new Error("源站指数分钟行情探测必须完整选择 1min、5min、15min、30min、60min。");
       }
       if (selectedRemoteIndexMinsProbe && Number(form.probe_interval_seconds || "0") < 300) {
