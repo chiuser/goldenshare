@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import Integer, String
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.foundation.dao.base_dao import BaseDAO
@@ -47,3 +48,13 @@ def test_bulk_upsert_raises_when_conflict_key_missing() -> None:
 
     with pytest.raises(ValueError, match="缺少写入主键字段：id"):
         dao.bulk_upsert([{"value": "missing-id"}])
+
+
+def test_bulk_insert_ignore_conflicts_does_not_replace_existing_row() -> None:
+    session = DummySession()
+    dao = BaseDAO(session, DummyRow)
+
+    dao.bulk_insert_ignore_conflicts([{"id": 1, "value": "new"}])
+
+    statement = session.statements[0].compile(dialect=postgresql.dialect())
+    assert "ON CONFLICT DO NOTHING" in str(statement)

@@ -412,10 +412,9 @@ class DatasetWriter:
                     rows=derived_rows,
                 )
             else:
-                rows_written = self._replace_index_period_serving_rows(
+                rows_written = self._replace_index_period_derived_rows_preserving_api(
                     core_dao=core_dao,
                     rows=derived_rows,
-                    keep_api=True,
                 )
             conflict_strategy = "derived_daily_fallback"
 
@@ -614,6 +613,65 @@ class DatasetWriter:
         if not deduped_rows:
             return 0
         return core_dao.bulk_insert(deduped_rows)
+
+    def _replace_index_period_derived_rows_preserving_api(
+        self,
+        *,
+        core_dao,
+        rows: list[dict[str, Any]],
+    ) -> int:
+        """Refresh derived rows only when no API row already owns the same period."""
+        deduped_rows = self._dedupe_index_period_rows(rows)
+        if not deduped_rows:
+            return 0
+        model = core_dao.model
+        period_keys = [(row["ts_code"], row["period_start_date"]) for row in deduped_rows]
+        trade_keys = [(row["ts_code"], row["trade_date"]) for row in deduped_rows]
+        api_rows = self.session.execute(
+            select(model.ts_code, model.period_start_date, model.trade_date).where(
+                model.source == "api",
+                or_(
+                    tuple_(model.ts_code, model.period_start_date).in_(period_keys),
+                    tuple_(model.ts_code, model.trade_date).in_(trade_keys),
+                ),
+            )
+        ).all()
+        api_period_keys = {
+            (str(ts_code).strip().upper(), period_start_date)
+            for ts_code, period_start_date, _trade_date in api_rows
+        }
+        api_trade_keys = {
+            (str(ts_code).strip().upper(), trade_date)
+            for ts_code, _period_start_date, trade_date in api_rows
+        }
+        derived_rows = [
+            row
+            for row in deduped_rows
+            if (
+                str(row["ts_code"]).strip().upper(),
+                row["period_start_date"],
+            )
+            not in api_period_keys
+            and (
+                str(row["ts_code"]).strip().upper(),
+                row["trade_date"],
+            )
+            not in api_trade_keys
+        ]
+        if not derived_rows:
+            return 0
+        period_keys = [(row["ts_code"], row["period_start_date"]) for row in derived_rows]
+        trade_keys = [(row["ts_code"], row["trade_date"]) for row in derived_rows]
+        self.session.execute(
+            delete(model).where(
+                or_(
+                    tuple_(model.ts_code, model.period_start_date).in_(period_keys),
+                    tuple_(model.ts_code, model.trade_date).in_(trade_keys),
+                )
+            ).where(model.source != "api")
+        )
+        # A concurrent writer may win after the API check; never fail or overwrite it.
+        return core_dao.bulk_insert_ignore_conflicts(derived_rows)
 
     @staticmethod
     def _dedupe_index_period_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:

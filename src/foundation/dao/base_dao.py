@@ -71,6 +71,20 @@ class BaseDAO(Generic[ModelT]):
             written += result.rowcount if result.rowcount and result.rowcount > 0 else len(batch)
         return written
 
+    def bulk_insert_ignore_conflicts(self, rows: list[dict[str, Any]]) -> int:
+        """Insert rows and leave conflicting records unchanged."""
+        if not rows:
+            return 0
+        table_columns = {column.name for column in self.model.__table__.columns}
+        filtered_rows = [{key: value for key, value in row.items() if key in table_columns} for row in rows]
+        batch_size = self._resolve_batch_size(filtered_rows)
+        written = 0
+        for batch in chunked(filtered_rows, batch_size):
+            statement = insert(self.model).values(batch).on_conflict_do_nothing()
+            result = self.session.execute(statement)
+            written += max(int(result.rowcount or 0), 0)
+        return written
+
     def _resolve_batch_size(self, rows: list[dict[str, Any]]) -> int:
         configured_batch_size = max(int(self.settings.sync_batch_size), 1)
         if not rows:

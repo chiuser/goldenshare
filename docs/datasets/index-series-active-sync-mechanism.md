@@ -87,7 +87,8 @@ active 池表：`ops.index_series_active`
 4. active 池命中的 API 行写入 serving，来源标记为 `source='api'`。
 5. 对 active 池中接口未返回的代码，使用已存在的 `core_serving.index_daily_serving` 日线数据派生补齐，来源标记为 `source='derived_daily'`。
 6. 显式传入非 active `ts_code` 时，raw 可以写入，serving 不得写入，也不得触发日线派生写入 serving。
-7. 派生补齐发生在周线任务内。
+7. 显式传入 active `ts_code` 但源端本次空返回时，已有 API 周线必须保留；只有不存在 API 周线时，才允许写入或刷新日线派生周线。
+8. 派生补齐发生在周线任务内。
 
 ### 3.3 `index_monthly`
 
@@ -100,7 +101,8 @@ active 池表：`ops.index_series_active`
 5. active 池命中的 API 行写入 serving，来源标记为 `source='api'`。
 6. 对 active 池中接口未返回的代码，使用已存在的 `core_serving.index_daily_serving` 日线数据派生补齐，来源标记为 `source='derived_daily'`。
 7. 显式传入非 active `ts_code` 时，raw 可以写入，serving 不得写入，也不得触发日线派生写入 serving。
-8. 派生补齐发生在月线任务内。
+8. 显式传入 active `ts_code` 但源端本次空返回时，已有 API 月线必须保留；只有不存在 API 月线时，才允许写入或刷新日线派生月线。
+9. 派生补齐发生在月线任务内。
 
 ---
 

@@ -22,6 +22,7 @@ class _StubDao:
         self.model = model
         self.bulk_upsert_calls: list[list[dict]] = []
         self.bulk_insert_calls: list[list[dict]] = []
+        self.bulk_insert_ignore_conflicts_calls: list[list[dict]] = []
         self.deleted_ranges: list[tuple[date, date]] = []
 
     def bulk_upsert(self, rows: list[dict], conflict_columns=None):  # type: ignore[no-untyped-def]
@@ -32,17 +33,22 @@ class _StubDao:
         self.bulk_insert_calls.append(rows)
         return len(rows)
 
+    def bulk_insert_ignore_conflicts(self, rows: list[dict]) -> int:
+        self.bulk_insert_ignore_conflicts_calls.append(rows)
+        return len(rows)
+
     def delete_by_date_range(self, start_date: date, end_date: date) -> None:
         self.deleted_ranges.append((start_date, end_date))
 
 
 class _StubSession:
-    def __init__(self) -> None:
+    def __init__(self, *, api_rows: list[tuple[str, date, date]] | None = None) -> None:
         self.execute_calls: list[object] = []
+        self.api_rows = api_rows or []
 
     def execute(self, statement, params=None):  # type: ignore[no-untyped-def]
         self.execute_calls.append(statement)
-        return SimpleNamespace(mappings=lambda: [])
+        return SimpleNamespace(mappings=lambda: [], all=lambda: list(self.api_rows))
 
 
 def _index_row(ts_code: str, trade_date: date) -> dict:
@@ -304,3 +310,107 @@ def test_index_period_explicit_non_active_ts_code_writes_raw_only(mocker) -> Non
     assert result.rows_written == 0
     assert result.rejected_reason_counts == {}
     derived_mock.assert_not_called()
+
+
+def test_index_monthly_empty_explicit_active_response_keeps_existing_api_row(mocker) -> None:
+    trade_date = date(2026, 4, 30)
+    period_start_date = date(2026, 4, 1)
+    raw_dao = _StubDao(model=RawIndexMonthlyBar)
+    serving_dao = _StubDao(model=IndexMonthlyServing)
+    dao = SimpleNamespace(
+        raw_index_monthly_bar=raw_dao,
+        index_monthly_serving=serving_dao,
+        index_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["000001.SH"])),
+        trade_calendar=SimpleNamespace(
+            settings=SimpleNamespace(default_exchange="SSE"),
+            get_open_dates=mocker.Mock(return_value=[period_start_date]),
+        ),
+    )
+    _patch_writer_dao(mocker, dao)
+    writer = DatasetWriter(
+        session=_StubSession(api_rows=[("000001.SH", period_start_date, trade_date)])  # type: ignore[arg-type]
+    )
+    mocker.patch.object(
+        writer,
+        "_build_index_period_derived_rows",
+        return_value=[
+            {
+                **_index_row("000001.SH", trade_date),
+                "period_start_date": period_start_date,
+                "change_amount": 1,
+                "source": "derived_daily",
+            }
+        ],
+    )
+
+    result = writer.write(
+        definition=get_dataset_definition("index_monthly"),
+        batch=NormalizedBatch(
+            unit_id="u-index-monthly-empty-api",
+            rows_normalized=[],
+            rows_rejected=0,
+            rejected_reasons={},
+        ),
+        plan_unit=_plan_unit(
+            dataset_key="index_monthly",
+            trade_date=trade_date,
+            request_params={"ts_code": "000001.SH", "trade_date": "20260430"},
+        ),
+        run_profile="point_incremental",
+    )
+
+    assert serving_dao.bulk_insert_calls == []
+    assert serving_dao.bulk_insert_ignore_conflicts_calls == []
+    assert len(writer.session.execute_calls) == 1  # type: ignore[union-attr]
+    assert result.rows_written == 0
+
+
+def test_index_monthly_empty_explicit_active_response_replaces_derived_row(mocker) -> None:
+    trade_date = date(2026, 4, 30)
+    period_start_date = date(2026, 4, 1)
+    raw_dao = _StubDao(model=RawIndexMonthlyBar)
+    serving_dao = _StubDao(model=IndexMonthlyServing)
+    dao = SimpleNamespace(
+        raw_index_monthly_bar=raw_dao,
+        index_monthly_serving=serving_dao,
+        index_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["000001.SH"])),
+        trade_calendar=SimpleNamespace(
+            settings=SimpleNamespace(default_exchange="SSE"),
+            get_open_dates=mocker.Mock(return_value=[period_start_date]),
+        ),
+    )
+    _patch_writer_dao(mocker, dao)
+    writer = DatasetWriter(session=_StubSession())  # type: ignore[arg-type]
+    mocker.patch.object(
+        writer,
+        "_build_index_period_derived_rows",
+        return_value=[
+            {
+                **_index_row("000001.SH", trade_date),
+                "period_start_date": period_start_date,
+                "change_amount": 1,
+                "source": "derived_daily",
+            }
+        ],
+    )
+
+    result = writer.write(
+        definition=get_dataset_definition("index_monthly"),
+        batch=NormalizedBatch(
+            unit_id="u-index-monthly-empty-derived",
+            rows_normalized=[],
+            rows_rejected=0,
+            rejected_reasons={},
+        ),
+        plan_unit=_plan_unit(
+            dataset_key="index_monthly",
+            trade_date=trade_date,
+            request_params={"ts_code": "000001.SH", "trade_date": "20260430"},
+        ),
+        run_profile="point_incremental",
+    )
+
+    assert serving_dao.bulk_insert_calls == []
+    assert [row["source"] for row in serving_dao.bulk_insert_ignore_conflicts_calls[0]] == ["derived_daily"]
+    assert len(writer.session.execute_calls) == 2  # type: ignore[union-attr]
+    assert result.rows_written == 1
