@@ -1,6 +1,6 @@
 # 指数技术因子（专业版）`idx_factor_pro` 低层设计 v1
 
-状态：开发中；M1 Foundation 主链、M2 Ops 目录/任务入口、M3 源站探测后端和 M4 自动任务页面已完成，后续按第 11 节顺序继续实施
+状态：开发完成，待部署验收；M1 至 M5 本地实现与门禁均已完成，待用户授权执行迁移和真实单日同步验收
 
 更新时间：2026-08-01
 
@@ -17,6 +17,8 @@
 同日已完成 M3 源站探测后端：新增 `IdxFactorProRemoteReadinessProbeService`，空 filters 的 point 意图经 resolver 生成 `trade_date` 后，以 `limit=1/offset=0` 检查源端第一行。只有交易日历确认当天开市且返回目标日、非空 `ts_code` 时才创建标准 TaskRun。ProbeRule 被重建时，运行时也会按同 schedule、同目标日的有效 probe TaskRun 去重。绑定服务在非 probe 触发模式的早返回前额外拒绝本条件，防止 `trigger_mode=schedule` 绕过“只允许 probe/fallback”的硬约束。
 
 同日已完成 M4 自动任务页面：`idx_factor_pro.maintain` 只显示“源站已有指数技术因子”，并将它作为该动作的默认探测条件；本地 `freshness_latest_open` 不再是可选项。页面说明只表达“源端已经开始返回当天数据”，不宣称全量指数已齐备；纯 probe 隐藏执行时间、fallback 显示兜底执行时间的既有语义保持不变。
+
+同日完成 M5 本地验证与契约收口：Alembic 当前唯一 head 为 `20260801_000120`；`idx_factor_pro` 的 Definition、planner、source client、normalizer、writer、模型、Ops catalog/manual/probe/schedule/runtime 与架构回归共 399 项通过；Ruff、Definition lint、前端定向测试/类型检查与文档检查通过。`ops-api-reference-v1.md` 已登记 `remote_idx_factor_pro_ready` 的约束与请求示例。生产迁移和真实单日同步尚未执行，必须等待用户部署授权。
 
 ## 1. 本 LLD 固定的边界
 
@@ -681,20 +683,37 @@ uv run ruff check \
   src/ops/services/idx_factor_pro_remote_probe_service.py \
   src/ops/services/schedule_probe_binding_service.py \
   src/ops/services/operations_probe_runtime_service.py \
-  tests
+  tests/test_dataset_definition_registry.py \
+  tests/test_fields_constants.py \
+  tests/test_dataset_action_resolver.py \
+  tests/test_dataset_source_client.py \
+  tests/test_dataset_normalizer.py \
+  tests/test_dataset_writer_idx_factor_pro.py \
+  tests/test_idx_factor_pro_model.py \
+  tests/test_ops_action_catalog.py \
+  tests/web/test_ops_catalog_api.py \
+  tests/web/test_ops_manual_actions_api.py \
+  tests/web/test_ops_probe_api.py \
+  tests/web/test_ops_schedule_api.py \
+  tests/web/test_ops_runtime.py \
+  tests/architecture/test_dataset_runtime_registry_guardrails.py \
+  tests/architecture/test_ops_dataset_catalog_view.py \
+  tests/architecture/test_subsystem_dependency_matrix.py
 
 uv run pytest -q \
   tests/test_dataset_definition_registry.py \
   tests/test_fields_constants.py \
   tests/test_dataset_action_resolver.py \
   tests/test_dataset_source_client.py \
+  tests/test_dataset_normalizer.py \
   tests/test_dataset_writer_idx_factor_pro.py \
-  tests/test_extended_models.py \
+  tests/test_idx_factor_pro_model.py \
   tests/test_ops_action_catalog.py \
   tests/web/test_ops_catalog_api.py \
   tests/web/test_ops_manual_actions_api.py \
   tests/web/test_ops_probe_api.py \
   tests/web/test_ops_schedule_api.py \
+  tests/web/test_ops_runtime.py \
   tests/architecture/test_dataset_runtime_registry_guardrails.py \
   tests/architecture/test_ops_dataset_catalog_view.py \
   tests/architecture/test_subsystem_dependency_matrix.py
