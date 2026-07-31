@@ -1,0 +1,56 @@
+{
+  "capturedAt": "2026-07-30T23:13:33.038Z",
+  "methods": [
+    {
+      "method": "cua.move",
+      "documentEvents": [
+        {
+          "type": "pointermove",
+          "target": "stock-detail-chart-toolbar",
+          "x": 900,
+          "y": 120
+        },
+        {
+          "type": "mousemove",
+          "target": "stock-detail-chart-toolbar",
+          "x": 900,
+          "y": 120
+        }
+      ]
+    },
+    {
+      "method": "cdp.Input.dispatchMouseEvent",
+      "documentEvents": [
+        {
+          "type": "pointermove",
+          "target": "CANVAS",
+          "x": 600,
+          "y": 380
+        },
+        {
+          "type": "mousemove",
+          "target": "CANVAS",
+          "x": 600,
+          "y": 380
+        },
+        {
+          "type": "pointermove",
+          "target": "stock-detail-chart-toolbar",
+          "x": 900,
+          "y": 120
+        },
+        {
+          "type": "mousemove",
+          "target": "stock-detail-chart-toolbar",
+          "x": 900,
+          "y": 120
+        }
+      ]
+    }
+  ],
+  "result": {
+    "tooltipStillVisible": true,
+    "crosshairStillVisible": true
+  },
+  "conclusion": "Both native-input paths emit pointermove/mousemove at the destination but emit no mouseout/pointerout/mouseleave transition. The React onMouseLeave handler therefore cannot be observed through this bridge."
+}

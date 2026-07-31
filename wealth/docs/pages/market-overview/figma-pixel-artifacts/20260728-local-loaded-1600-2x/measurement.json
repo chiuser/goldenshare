@@ -1,0 +1,622 @@
+{
+  "anchors": {
+    "breadcrumb": {
+      "rect": {
+        "height": 28,
+        "width": 1564,
+        "x": 18,
+        "y": 70
+      },
+      "selector": "[aria-label=\"Breadcrumb\"]",
+      "style": {
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px none rgb(229, 238, 249)",
+        "borderRadius": "0px",
+        "boxShadow": "none",
+        "boxSizing": "border-box",
+        "color": "rgb(229, 238, 249)",
+        "display": "flex",
+        "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "gap": "18px",
+        "gridTemplateColumns": "none",
+        "gridTemplateRows": "none",
+        "height": "28px",
+        "letterSpacing": "normal",
+        "lineHeight": "normal",
+        "margin": "0px 0px 12px",
+        "overflow": "visible",
+        "padding": "0px",
+        "position": "static",
+        "width": "1564px"
+      }
+    },
+    "breadth": {
+      "rect": {
+        "height": 374,
+        "width": 513.328125,
+        "x": 18,
+        "y": 746.390625
+      },
+      "selector": "[aria-label=\"涨跌分布\"]",
+      "style": {
+        "backgroundColor": "rgba(16, 24, 39, 0.92)",
+        "backgroundImage": "none",
+        "border": "1px solid rgba(148, 163, 184, 0.16)",
+        "borderRadius": "12px",
+        "boxShadow": "rgba(0, 0, 0, 0.26) 0px 8px 24px 0px",
+        "boxSizing": "border-box",
+        "color": "rgb(229, 238, 249)",
+        "display": "block",
+        "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "gridTemplateRows": "none",
+        "height": "374px",
+        "letterSpacing": "normal",
+        "lineHeight": "normal",
+        "margin": "0px",
+        "overflow": "visible",
+        "padding": "12px",
+        "position": "static",
+        "width": "513.328px"
+      }
+    },
+    "leaderboard": {
+      "rect": {
+        "height": 473.21875,
+        "width": 776,
+        "x": 806,
+        "y": 1132.390625
+      },
+      "selector": "[aria-label=\"榜单速览\"]",
+      "style": {
+        "backgroundColor": "rgba(16, 24, 39, 0.92)",
+        "backgroundImage": "none",
+        "border": "1px solid rgba(148, 163, 184, 0.16)",
+        "borderRadius": "12px",
+        "boxShadow": "rgba(0, 0, 0, 0.26) 0px 8px 24px 0px",
+        "boxSizing": "border-box",
+        "color": "rgb(229, 238, 249)",
+        "display": "block",
+        "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "gridTemplateRows": "none",
+        "height": "473.219px",
+        "letterSpacing": "normal",
+        "lineHeight": "normal",
+        "margin": "0px",
+        "overflow": "visible",
+        "padding": "12px",
+        "position": "static",
+        "width": "776px"
+      }
+    },
+    "limit-board": {
+      "rect": {
+        "height": 566.5,
+        "width": 1564,
+        "x": 18,
+        "y": 1617.609375
+      },
+      "selector": "[aria-label=\"涨跌停统计与分布\"]",
+      "style": {
+        "backgroundColor": "rgba(16, 24, 39, 0.92)",
+        "backgroundImage": "none",
+        "border": "1px solid rgba(148, 163, 184, 0.16)",
+        "borderRadius": "12px",
+        "boxShadow": "rgba(0, 0, 0, 0.26) 0px 8px 24px 0px",
+        "boxSizing": "border-box",
+        "color": "rgb(229, 238, 249)",
+        "display": "block",
+        "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "gridTemplateRows": "none",
+        "height": "566.5px",
+        "letterSpacing": "normal",
+        "lineHeight": "normal",
+        "margin": "0px",
+        "overflow": "visible",
+        "padding": "12px",
+        "position": "static",
+        "width": "1564px"
+      }
+    },
+    "major-indices": {
+      "rect": {
+        "height": 252,
+        "width": 776,
+        "x": 806,
+        "y": 482.390625
+      },
+      "selector": "[aria-label=\"主要指数\"]",
+      "style": {
+        "backgroundColor": "rgba(16, 24, 39, 0.92)",
+        "backgroundImage": "none",
+        "border": "1px solid rgba(148, 163, 184, 0.16)",
+        "borderRadius": "12px",
+        "boxShadow": "rgba(0, 0, 0, 0.26) 0px 8px 24px 0px",
+        "boxSizing": "border-box",
+        "color": "rgb(229, 238, 249)",
+        "display": "block",
+        "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "gridTemplateRows": "none",
+        "height": "252px",
+        "letterSpacing": "normal",
+        "lineHeight": "normal",
+        "margin": "0px",
+        "overflow": "visible",
+        "padding": "12px",
+        "position": "static",
+        "width": "776px"
+      }
+    },
+    "market-news": {
+      "rect": {
+        "height": 268,
+        "width": 776,
+        "x": 18,
+        "y": 202.390625
+      },
+      "selector": "[aria-label=\"新闻速览\"]",
+      "style": {
+        "backgroundColor": "rgba(16, 24, 39, 0.92)",
+        "backgroundImage": "none",
+        "border": "1px solid rgba(148, 163, 184, 0.16)",
+        "borderRadius": "12px",
+        "boxShadow": "rgba(0, 0, 0, 0.26) 0px 8px 24px 0px",
+        "boxSizing": "border-box",
+        "color": "rgb(229, 238, 249)",
+        "display": "grid",
+        "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "gap": "8px",
+        "gridTemplateColumns": "750px",
+        "gridTemplateRows": "28px 220px",
+        "height": "268px",
+        "letterSpacing": "normal",
+        "lineHeight": "normal",
+        "margin": "0px",
+        "overflow": "hidden",
+        "padding": "10px 12px",
+        "position": "static",
+        "width": "776px"
+      }
+    },
+    "market-style": {
+      "rect": {
+        "height": 374,
+        "width": 513.3359375,
+        "x": 543.328125,
+        "y": 746.390625
+      },
+      "selector": "[aria-label=\"市场风格\"]",
+      "style": {
+        "backgroundColor": "rgba(16, 24, 39, 0.92)",
+        "backgroundImage": "none",
+        "border": "1px solid rgba(148, 163, 184, 0.16)",
+        "borderRadius": "12px",
+        "boxShadow": "rgba(0, 0, 0, 0.26) 0px 8px 24px 0px",
+        "boxSizing": "border-box",
+        "color": "rgb(229, 238, 249)",
+        "display": "block",
+        "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "gridTemplateRows": "none",
+        "height": "374px",
+        "letterSpacing": "normal",
+        "lineHeight": "normal",
+        "margin": "0px",
+        "overflow": "visible",
+        "padding": "12px",
+        "position": "static",
+        "width": "513.336px"
+      }
+    },
+    "market-summary": {
+      "rect": {
+        "height": 252,
+        "width": 776,
+        "x": 18,
+        "y": 482.390625
+      },
+      "selector": "[aria-label=\"今日市场客观总结\"]",
+      "style": {
+        "backgroundColor": "rgba(16, 24, 39, 0.92)",
+        "backgroundImage": "none",
+        "border": "1px solid rgba(148, 163, 184, 0.16)",
+        "borderRadius": "12px",
+        "boxShadow": "rgba(0, 0, 0, 0.26) 0px 8px 24px 0px",
+        "boxSizing": "border-box",
+        "color": "rgb(229, 238, 249)",
+        "display": "block",
+        "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "gridTemplateRows": "none",
+        "height": "252px",
+        "letterSpacing": "normal",
+        "lineHeight": "normal",
+        "margin": "0px",
+        "overflow": "visible",
+        "padding": "14px 16px",
+        "position": "static",
+        "width": "776px"
+      }
+    },
+    "money-flow": {
+      "rect": {
+        "height": 473.21875,
+        "width": 776,
+        "x": 18,
+        "y": 1132.390625
+      },
+      "selector": "[aria-label=\"大盘资金流向\"]",
+      "style": {
+        "backgroundColor": "rgba(16, 24, 39, 0.92)",
+        "backgroundImage": "none",
+        "border": "1px solid rgba(148, 163, 184, 0.16)",
+        "borderRadius": "12px",
+        "boxShadow": "rgba(0, 0, 0, 0.26) 0px 8px 24px 0px",
+        "boxSizing": "border-box",
+        "color": "rgb(229, 238, 249)",
+        "display": "block",
+        "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "gridTemplateRows": "none",
+        "height": "473.219px",
+        "letterSpacing": "normal",
+        "lineHeight": "normal",
+        "margin": "0px",
+        "overflow": "visible",
+        "padding": "12px",
+        "position": "static",
+        "width": "776px"
+      }
+    },
+    "page-shell": {
+      "rect": {
+        "height": 4286.609375,
+        "width": 1600,
+        "x": 0,
+        "y": 56
+      },
+      "selector": "main.page-shell",
+      "style": {
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px none rgb(229, 238, 249)",
+        "borderRadius": "0px",
+        "boxShadow": "none",
+        "boxSizing": "border-box",
+        "color": "rgb(229, 238, 249)",
+        "display": "block",
+        "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "gridTemplateRows": "none",
+        "height": "4286.61px",
+        "letterSpacing": "normal",
+        "lineHeight": "normal",
+        "margin": "0px",
+        "overflow": "visible",
+        "padding": "14px 18px 34px",
+        "position": "static",
+        "width": "1600px"
+      }
+    },
+    "sector-overview": {
+      "rect": {
+        "height": 501,
+        "width": 1564,
+        "x": 18,
+        "y": 3653.609375
+      },
+      "selector": "[aria-label=\"板块速览\"]",
+      "style": {
+        "backgroundColor": "rgba(16, 24, 39, 0.92)",
+        "backgroundImage": "none",
+        "border": "1px solid rgba(148, 163, 184, 0.16)",
+        "borderRadius": "12px",
+        "boxShadow": "rgba(0, 0, 0, 0.26) 0px 8px 24px 0px",
+        "boxSizing": "border-box",
+        "color": "rgb(229, 238, 249)",
+        "display": "block",
+        "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "gridTemplateRows": "none",
+        "height": "501px",
+        "letterSpacing": "normal",
+        "lineHeight": "normal",
+        "margin": "0px",
+        "overflow": "visible",
+        "padding": "12px",
+        "position": "static",
+        "width": "1564px"
+      }
+    },
+    "shortcut-bar": {
+      "rect": {
+        "height": 80.390625,
+        "width": 1564,
+        "x": 18,
+        "y": 110
+      },
+      "selector": "[aria-label=\"ShortcutBar / 页面内快捷入口\"]",
+      "style": {
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px none rgb(229, 238, 249)",
+        "borderRadius": "0px",
+        "boxShadow": "none",
+        "boxSizing": "border-box",
+        "color": "rgb(229, 238, 249)",
+        "display": "grid",
+        "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "gap": "10px",
+        "gridTemplateColumns": "252.328px 252.336px 252.328px 252.336px 252.336px 252.328px",
+        "gridTemplateRows": "80.3906px",
+        "height": "80.3906px",
+        "letterSpacing": "normal",
+        "lineHeight": "normal",
+        "margin": "0px 0px 12px",
+        "overflow": "visible",
+        "padding": "0px",
+        "position": "static",
+        "width": "1564px"
+      }
+    },
+    "state-baseline": {
+      "rect": {
+        "height": 142,
+        "width": 1564,
+        "x": 18,
+        "y": 4166.609375
+      },
+      "selector": "[aria-label=\"状态样式基线\"]",
+      "style": {
+        "backgroundColor": "rgba(16, 24, 39, 0.92)",
+        "backgroundImage": "none",
+        "border": "1px solid rgba(148, 163, 184, 0.16)",
+        "borderRadius": "12px",
+        "boxShadow": "rgba(0, 0, 0, 0.26) 0px 8px 24px 0px",
+        "boxSizing": "border-box",
+        "color": "rgb(229, 238, 249)",
+        "display": "block",
+        "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "gridTemplateRows": "none",
+        "height": "142px",
+        "letterSpacing": "normal",
+        "lineHeight": "normal",
+        "margin": "0px",
+        "overflow": "visible",
+        "padding": "12px",
+        "position": "static",
+        "width": "1564px"
+      }
+    },
+    "stock-news": {
+      "rect": {
+        "height": 268,
+        "width": 776,
+        "x": 806,
+        "y": 202.390625
+      },
+      "selector": "[aria-label=\"个股新闻\"]",
+      "style": {
+        "backgroundColor": "rgba(16, 24, 39, 0.92)",
+        "backgroundImage": "none",
+        "border": "1px solid rgba(148, 163, 184, 0.16)",
+        "borderRadius": "12px",
+        "boxShadow": "rgba(0, 0, 0, 0.26) 0px 8px 24px 0px",
+        "boxSizing": "border-box",
+        "color": "rgb(229, 238, 249)",
+        "display": "grid",
+        "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "gap": "8px",
+        "gridTemplateColumns": "750px",
+        "gridTemplateRows": "28px 220px",
+        "height": "268px",
+        "letterSpacing": "normal",
+        "lineHeight": "normal",
+        "margin": "0px",
+        "overflow": "hidden",
+        "padding": "10px 12px",
+        "position": "static",
+        "width": "776px"
+      }
+    },
+    "streak-ladder": {
+      "rect": {
+        "height": 1445.5,
+        "width": 1564,
+        "x": 18,
+        "y": 2196.109375
+      },
+      "selector": "[aria-label=\"连板天梯\"]",
+      "style": {
+        "backgroundColor": "rgba(16, 24, 39, 0.92)",
+        "backgroundImage": "none",
+        "border": "1px solid rgba(148, 163, 184, 0.16)",
+        "borderRadius": "12px",
+        "boxShadow": "rgba(0, 0, 0, 0.26) 0px 8px 24px 0px",
+        "boxSizing": "border-box",
+        "color": "rgb(229, 238, 249)",
+        "display": "block",
+        "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "gridTemplateRows": "none",
+        "height": "1445.5px",
+        "letterSpacing": "normal",
+        "lineHeight": "normal",
+        "margin": "0px",
+        "overflow": "visible",
+        "padding": "12px",
+        "position": "static",
+        "width": "1564px"
+      }
+    },
+    "top-market-bar": {
+      "rect": {
+        "height": 56,
+        "width": 1600,
+        "x": 0,
+        "y": 0
+      },
+      "selector": "header",
+      "style": {
+        "backgroundColor": "rgba(10, 16, 32, 0.94)",
+        "backgroundImage": "none",
+        "border": "",
+        "borderRadius": "0px",
+        "boxShadow": "none",
+        "boxSizing": "border-box",
+        "color": "rgb(229, 238, 249)",
+        "display": "grid",
+        "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "gap": "12px",
+        "gridTemplateColumns": "168px 460px 872px 28px",
+        "gridTemplateRows": "55px",
+        "height": "56px",
+        "letterSpacing": "normal",
+        "lineHeight": "normal",
+        "margin": "0px",
+        "overflow": "visible",
+        "padding": "0px 18px",
+        "position": "sticky",
+        "width": "1600px"
+      }
+    },
+    "turnover": {
+      "rect": {
+        "height": 374,
+        "width": 513.328125,
+        "x": 1068.6640625,
+        "y": 746.390625
+      },
+      "selector": "[aria-label=\"成交额总览\"]",
+      "style": {
+        "backgroundColor": "rgba(16, 24, 39, 0.92)",
+        "backgroundImage": "none",
+        "border": "1px solid rgba(148, 163, 184, 0.16)",
+        "borderRadius": "12px",
+        "boxShadow": "rgba(0, 0, 0, 0.26) 0px 8px 24px 0px",
+        "boxSizing": "border-box",
+        "color": "rgb(229, 238, 249)",
+        "display": "block",
+        "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+        "fontSize": "13px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "gridTemplateColumns": "none",
+        "gridTemplateRows": "none",
+        "height": "374px",
+        "letterSpacing": "normal",
+        "lineHeight": "normal",
+        "margin": "0px",
+        "overflow": "visible",
+        "padding": "12px",
+        "position": "static",
+        "width": "513.328px"
+      }
+    }
+  },
+  "capturedAt": "2026-07-29T00:32:03.207Z",
+  "loadedState": {
+    "errorMarkerCount": 0,
+    "hasDebugPanel": false,
+    "hasLoginForm": false,
+    "hasMain": true
+  },
+  "rootCustomProperties": {
+    "--cs-color-text-primary": "#e5eef9",
+    "--cs-font-family-base": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\",\n    \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+    "--cs-layout-content-min-width": "1460px"
+  },
+  "source": {
+    "body": {
+      "background": "radial-gradient(circle at 18% -12%, rgba(184, 135, 46, 0.16), rgba(0, 0, 0, 0) 28%) repeat scroll 0% 0% / auto padding-box border-box, radial-gradient(circle at 82% 0%, rgba(90, 167, 255, 0.1), rgba(0, 0, 0, 0) 24%) repeat scroll 0% 0% / auto padding-box border-box, rgba(0, 0, 0, 0) linear-gradient(rgb(7, 11, 18) 0%, rgb(8, 13, 22) 55%, rgb(6, 9, 17) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "color": "rgb(229, 238, 249)",
+      "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", \"Segoe UI\", sans-serif",
+      "fontSize": "13px"
+    },
+    "page": {
+      "height": 4343,
+      "width": 1600
+    },
+    "title": "财势乾坤",
+    "url": "http://127.0.0.1:5173/wealth/",
+    "viewport": {
+      "dpr": 1,
+      "height": 1200,
+      "width": 1600
+    }
+  },
+  "stylesheetSources": [
+    {
+      "href": null,
+      "inline": true
+    },
+    {
+      "href": null,
+      "inline": true
+    },
+    {
+      "href": null,
+      "inline": true
+    },
+    {
+      "href": null,
+      "inline": true
+    },
+    {
+      "href": null,
+      "inline": true
+    },
+    {
+      "href": null,
+      "inline": true
+    }
+  ]
+}

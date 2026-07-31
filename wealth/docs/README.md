@@ -16,13 +16,25 @@ docs/
     stock-detail/
 ```
 
+## 文档优先级
+
+发生冲突时，按以下顺序处理：
+
+1. 用户最新明确指令。
+2. 当前实际页面的 DOM、CSS、共享组件与已验证交互行为。
+3. `system/` 下的当前系统基线。
+4. `pages/` 下的页面设计、模块三件套和编码门禁。
+5. `reference/` 中的 Drive 原始资料。
+
+第 2 项是当前视觉事实源。`reference/` 只保留历史设计意图、原型与评审记录，不能覆盖已落地页面的真实尺寸、布局、组件结构、交互、数据模型或 API 契约。
+
 ## Drive 原始资料
 
 - [Drive 原始资料索引](./reference/README.md)
-- [市场总览 V4 Showcase 原型（当前生效）](./reference/showcase/market-overview-v4.html)
-- [市场总览 V1.1 Showcase 原型](./reference/showcase/market-overview-v1.1.html)
-- [Design Token 原始文档 v0.2.7（当前生效）](./reference/design/03-design-tokens-v0.2.7.md)
-- [组件规范原始文档 v0.7（当前生效）](./reference/design/04-component-guidelines-v0.7.md)
+- [市场总览 V4 Showcase 原型（历史视觉参考）](./reference/showcase/market-overview-v4.html)
+- [市场总览 V1.1 Showcase 原型（历史视觉参考）](./reference/showcase/market-overview-v1.1.html)
+- [Design Token 原始文档 v0.2.7（历史参考）](./reference/design/03-design-tokens-v0.2.7.md)
+- [组件规范原始文档 v0.7（历史参考）](./reference/design/04-component-guidelines-v0.7.md)
 - [市场总览 API 草案 v0.5（历史参考，不作为实现契约）](./reference/api/market-overview-api-v0.5.md)
 - [P0 数据字典 v0.5（历史参考，不作为实现契约）](./reference/api/p0-data-dictionary-v0.5.md)
 - [Codex 实现提示词原始文档](./reference/codex/market-overview-codex-prompt-v1.md)
@@ -32,20 +44,16 @@ docs/
 
 注意：`reference/api/**`、旧 Codex prompt、旧产品稿中的 API 路径和字段结构是历史输入材料，不再作为当前工程实现契约。当前 API、数据模型、字段映射、测试门禁以 `system/` 与 `pages/` 下的当前基线和模块三件套为准。
 
-编码前的优先级：
+编码前应先读取当前页面实现和系统基线，再按需使用 `reference/` 中的 Showcase、Design Token、组件规范和 review 变更单补足视觉/产品背景。`reference/api/**` 不得直接作为实现依据。
 
-1. 用户最新指令。
-2. `system/` 与 `pages/` 中的工程化基线、模块三件套和编码门禁。
-3. `reference/` 中的 Drive 原始资料，其中 Showcase、Design Token、组件规范和 review 变更单可作为视觉/产品背景参考；`reference/api/**` 不得直接作为实现依据。
+当前页面事实源：
 
-如果 `reference/` 与 baseline 摘要冲突，先停下说明冲突，不要擅自选择一个继续写代码。
-
-当前市场总览页面还原与实现，默认以以下版本作为生效事实源：
-
-1. Showcase：`reference/showcase/market-overview-v4.html`
-2. Design Token：`reference/design/03-design-tokens-v0.2.7.md`
-3. Component Guidelines：`reference/design/04-component-guidelines-v0.7.md`
-4. API/数据字典：以 `pages/market-overview/*-benchmark-requirement-v1.md`、`*-implementation-design-v1.md`、`*-m2-coding-gate-v1.md` 和 `pages/market-overview/api-contract-baseline.md` 为准；`reference/api/*` 仅保留历史参考。
+1. 全局 token 与基础工具样式：`../src/styles/design-tokens.css`、`../src/styles/global.css`。
+2. 共享顶部栏：`../src/shared/ui/top-market-bar/`。
+3. 市场总览：`../src/pages/market-overview/` 与 `../src/features/market-overview/`。
+4. 股票详情：`../src/pages/stock-detail/` 与 `../src/features/stock-detail/`。
+5. 当前正式视觉与组件规则：[设计系统基线](./system/design-system-baseline.md)、[组件规范基线](./system/component-guidelines-baseline.md)。
+6. API/数据字典：以 `pages/market-overview/*-benchmark-requirement-v1.md`、`*-implementation-design-v1.md`、`*-m2-coding-gate-v1.md` 和 `pages/market-overview/api-contract-baseline.md` 为准；`reference/api/*` 仅保留历史参考。
 
 ## 系统级文档
 
@@ -53,8 +61,8 @@ docs/
 - [工程架构规范](./system/engineering-architecture.md)
 - [模块级渐进替换开发规范 v1](./system/module-incremental-delivery-spec-v1.md)
 - [模块交付通用清单 v1](./system/module-delivery-checklist-v1.md)
-- [设计系统基线](./system/design-system-baseline.md)
-- [组件规范基线](./system/component-guidelines-baseline.md)
+- [财势乾坤行情系统 Design System v1](./system/design-system-baseline.md)
+- [财势乾坤行情系统组件规范 v1](./system/component-guidelines-baseline.md)
 - [异常码注册表（统一管理）](./system/exception-code-registry.md)
 - [策略配置中心 v1（统一策略读取）](./system/strategy-config-center-v1.md)
 - [策略配置中心 M1 编码门禁 v1](./system/strategy-config-center-m1-coding-gate-v1.md)
@@ -93,9 +101,20 @@ docs/
 - [新闻速览与个股新闻 M2 编码前门禁 v1](./pages/market-overview/market-news-m2-coding-gate-v1.md)
 - [市场总览 Codex 实现提示词基线](./pages/market-overview/implementation-prompt-baseline.md)
 - [市场总览 homepage 代码架构设计](./pages/market-overview/implementation-architecture-v1.md)
+- [市场总览原生 Figma 设计稿还原计划 v1（历史准备稿，不得继续执行）](./pages/market-overview/market-overview-figma-reconstruction-plan-v1.md)
+- [市场总览 Figma 像素级还原审计 v1](./pages/market-overview/market-overview-figma-pixel-audit-v1.md)
+- [市场总览 Figma 像素级还原执行计划 v2（执行中，M0-M6 已完成，M7 验收持续进行）](./pages/market-overview/market-overview-figma-pixel-reconstruction-plan-v2.md)
+- [市场总览 Figma 像素级验收账本 v1](./pages/market-overview/market-overview-figma-pixel-verification-ledger-v1.md)
+- [市场总览 Figma 像素级执行运行手册 v1](./pages/market-overview/market-overview-figma-pixel-execution-runbook-v1.md)
 - [股票详情页标杆需求 v1](./pages/stock-detail/stock-detail-benchmark-requirement-v1.md)
 - [股票详情页技术实施方案 v1](./pages/stock-detail/stock-detail-implementation-design-v1.md)
 - [股票详情页 M2 编码前门禁 v1](./pages/stock-detail/stock-detail-m2-coding-gate-v1.md)
+- [股票详情分钟线与分钟技术指标 API 标杆需求 v1](./pages/stock-detail/stock-detail-minutes-api-benchmark-requirement-v1.md)
+- [股票详情分钟线与分钟技术指标 API 技术实施方案 v1](./pages/stock-detail/stock-detail-minutes-api-implementation-design-v1.md)
+- [股票详情分钟线与分钟技术指标 API LLD v1](./pages/stock-detail/stock-detail-minutes-api-low-level-design-v1.md)
+- [股票详情分钟线与分钟技术指标 API M2 编码前门禁 v1](./pages/stock-detail/stock-detail-minutes-api-m2-coding-gate-v1.md)
+- [股票详情页 Figma 像素级还原执行计划 v1（M0-M7 已完成）](./pages/stock-detail/stock-detail-figma-pixel-reconstruction-plan-v1.md)
+- [股票详情页 Figma 像素级验收台账 v1](./pages/stock-detail/stock-detail-figma-pixel-verification-ledger-v1.md)
 
 ## 模块开发模板
 

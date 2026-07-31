@@ -29,6 +29,18 @@ wealth/
 - 已完成真实接入的模块继续保持真实 API；未完成模块才允许保留 mock。
 - 新模块必须按“三件套 + 模块级渐进替换”流程推进，禁止参考旧聚合 API 直接编码。
 
+### 视觉事实优先级
+
+发生视觉、组件或交互冲突时，必须按以下顺序处理：
+
+1. 用户最新明确指令。
+2. 当前实际页面的 DOM、CSS、共享组件与已验证交互行为。
+3. `wealth/docs/system/design-system-baseline.md` 与 `component-guidelines-baseline.md`。
+4. 当前页面级设计文档、模块三件套和验收账本。
+5. `wealth/docs/reference/**` 的历史 HTML、Design、Showcase 和组件集合页。
+
+当前代码/CSS 是页面还原的第一事实源。历史资料只能用于补足未覆盖状态和设计意图，不能覆盖当前页面的尺寸、布局、样式、组件边界、数据模型或 API 契约。
+
 ---
 
 ## 动代码前必读
@@ -86,7 +98,7 @@ wealth/
 49. `wealth/docs/templates/coding-gate-template.md`
 50. 当前目标目录中的更近 `AGENTS.md`（如未来新增）
 
-实现市场总览 homepage 前，还必须额外读取：
+实现市场总览 homepage 前，还必须额外读取当前 `src/pages/market-overview/**`、`src/features/market-overview/**`、`src/shared/ui/top-market-bar/**` 与 `src/styles/**`。以下原始资料只在需要追溯视觉意图或历史评审时按需读取：
 
 1. `wealth/docs/reference/showcase/market-overview-v4.html`
 2. `wealth/docs/reference/design/03-design-tokens-v0.2.7.md`
@@ -99,7 +111,7 @@ wealth/
 
 注意：`wealth/docs/reference/api/**` 不在 homepage 开发必读清单中。只有做历史追溯时才读取，读取后也不得作为当前 API 或数据模型依据。
 
-实现股票详情页前，还必须额外读取：
+实现股票详情页前，还必须额外读取当前 `src/pages/stock-detail/**`、`src/features/stock-detail/**`、`src/shared/ui/top-market-bar/**` 与 `src/styles/**`。以下原始资料只在需要追溯视觉意图或历史评审时按需读取：
 
 1. `wealth/docs/pages/stock-detail/stock-detail-benchmark-requirement-v1.md`
 2. `wealth/docs/pages/stock-detail/stock-detail-implementation-design-v1.md`
@@ -186,7 +198,7 @@ wealth/
 
 ## 设计与体验硬约束
 
-1. 市场总览必须高保真参考当前生效原型 `market-overview-v4.html`。
+1. 市场总览和股票详情页必须高保真遵循当前实际页面 CSS、组件结构与已验证交互；历史 Showcase 仅作补充参考。
 2. 默认深色金融终端风。
 3. A 股红涨绿跌：红色表示上涨、正值、净流入、涨停；绿色表示下跌、负值、净流出、跌停。
 4. 行情色不能复用系统 success/error 语义。
@@ -196,8 +208,8 @@ wealth/
 8. 不展示市场温度分数、情绪指数、资金面分数、风险指数作为首页核心结论。
 9. 不允许基于个人审美重排模块、删模块或重做视觉。
 10. Showcase 中未确认的小瑕疵只能记录为待确认项，不得擅自改版。
-11. homepage 首批实现目标是高保真还原，不是重新设计；交互、布局、模块顺序、组件密度、颜色气质默认全部跟随当前生效 Showcase。
-12. 任何偏离 Showcase 或设计规范的想法只能列为待拍板项，不允许直接写进代码。
+11. 高保真任务必须先量测当前实际页面，再建立或更新设计稿；不能凭历史 HTML 估算尺寸或自行补全细节。
+12. 任何偏离当前实际页面、Design System 或已确认页面设计的想法只能列为待拍板项，不允许直接写进代码。
 
 ---
 

@@ -1,6 +1,6 @@
 # 市场总览页面基线
 
-## 来源
+## 来源与优先级
 
 本页面基线来自 Drive：
 
@@ -11,6 +11,8 @@
 财势乾坤/codex/market-overview-codex-prompt-v1.md
 wealth/docs/reference/showcase/market-overview-v1.8.html（仅新闻速览与个股新闻视觉参考）
 ```
+
+以上资料保留历史页面结构、产品意图与未覆盖状态。发生冲突时，以“用户最新指令 -> 当前市场总览 DOM/CSS/已验证交互 -> `wealth/docs/system/design-system-baseline.md` -> 本文 -> Drive 原始资料”为准。
 
 ## 页面定位
 
@@ -26,15 +28,17 @@ wealth/docs/reference/showcase/market-overview-v1.8.html（仅新闻速览与个
 /market/overview
 ```
 
-## 实现基线
+## 历史原型边界
 
-必须高保真参考：
+历史主原型为：
 
 ```text
 market-overview-v1.1.html
 ```
 
-不要使用旧版：
+它不是当前实现的最高事实源。实际页面已经存在或已验证的尺寸、布局、模块结构、交互与样式，必须优先遵循当前代码/CSS；只有当前实现没有覆盖的细节，才可回查本原型并在方案中说明。
+
+不要使用旧版作为新实现依据：
 
 ```text
 market-overview-v1.html
@@ -65,7 +69,7 @@ market-overview-v1.2.html
 13. 连板天梯
 14. 板块速览
 
-模块顺序以 `market-overview-v1.1.html` 为准。
+本文记录的模块顺序用于解释历史页面意图；当前模块顺序和网格以 `MarketOverviewPage` 及其 CSS 为准。
 
 新闻板块新增需求已经吸收到新闻模块三件套；视觉参考保留在 `wealth/docs/reference/showcase/market-overview-v1.8.html`。该版本只用于校验“新闻速览 + 个股新闻”两个独立新闻面板，不改变其它已落地模块口径。
 

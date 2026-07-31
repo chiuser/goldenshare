@@ -1,0 +1,24 @@
+{
+  "capturedAt": "2026-07-30T23:45:50.912Z",
+  "source": "manual-user-mouse-leave",
+  "page": "http://127.0.0.1:5173/wealth/market/stock/300169.SZ",
+  "viewport": {
+    "width": 761,
+    "height": 800,
+    "devicePixelRatio": 2,
+    "layoutScrollWidth": 1460,
+    "layoutScrollHeight": 800
+  },
+  "domState": {
+    "ready": "complete",
+    "app": true,
+    "tooltip": null,
+    "crosshair": null,
+    "dateLabel": null
+  },
+  "screenshot": {
+    "path": "interactions/mouse-leave-full.png",
+    "bytes": 78972,
+    "sha256": "c8d71fe8916d589ee0ecbc7bde3b1a4028368a4c77c0bb22cc533df7d26a0bac"
+  }
+}

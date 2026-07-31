@@ -24,7 +24,7 @@ Drive 原提示词中的“现有前端项目”已按用户最新决策修正�
 
 这不是视觉重设计任务，也不是静态 HTML 复制任务。
 
-页面实现必须工程化承接 `market-overview-v1.1.html`：
+页面实现必须工程化承接当前已验收市场总览页面；`market-overview-v1.1.html` 仅用于补足未被当前代码表达的历史视觉意图：
 
 - 视觉
 - 布局
@@ -52,7 +52,7 @@ Drive 原提示词中的“现有前端项目”已按用户最新决策修正�
 2. 已接真实 API 的模块必须保持真实 API；未接模块才允许保留本地 mock adapter。
 3. 路由规划为 `/market/overview`。
 4. 模块 API 统一对齐 `/api/v1/wealth/market/{module}`；整页聚合接口如需恢复必须单独评审。
-5. 高保真参考当前生效 Showcase。
+5. 高保真以当前页面 DOM/CSS、共享组件与已验证交互为准；历史 Showcase 只能作为补充参考。
 6. 保证红涨绿跌。
 7. 覆盖 loading / empty / error / data delayed / loaded。
 8. 补最小 smoke 测试。

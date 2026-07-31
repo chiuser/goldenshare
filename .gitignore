@@ -245,3 +245,18 @@ capture/*
 
 # Production cleanup backups
 reports/us_hot_market_cleanup_20260508/
+
+# Wealth Figma pixel-reconstruction captures
+# Keep only the active, reproducible capture runs referenced by the final
+# reconstruction plans and verification ledgers. Blocked, replayed, and
+# intermediate screenshot captures are local audit scratch data.
+wealth/docs/pages/market-overview/figma-pixel-artifacts/*
+!wealth/docs/pages/market-overview/figma-pixel-artifacts/20260728-local-loaded-1600-2x/
+!wealth/docs/pages/market-overview/figma-pixel-artifacts/20260728-local-loaded-1600-2x/**
+!wealth/docs/pages/market-overview/figma-pixel-artifacts/20260729-m7-module-verification/
+!wealth/docs/pages/market-overview/figma-pixel-artifacts/20260729-m7-module-verification/**
+!wealth/docs/pages/market-overview/figma-pixel-artifacts/20260729-local-sector-overview-dynamic-1603/
+!wealth/docs/pages/market-overview/figma-pixel-artifacts/20260729-local-sector-overview-dynamic-1603/**
+wealth/docs/pages/stock-detail/figma-pixel-artifacts/*
+!wealth/docs/pages/stock-detail/figma-pixel-artifacts/stock-detail-300169-1600x1200-20260730T225124014Z/
+!wealth/docs/pages/stock-detail/figma-pixel-artifacts/stock-detail-300169-1600x1200-20260730T225124014Z/**

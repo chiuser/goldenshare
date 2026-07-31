@@ -1,0 +1,130 @@
+{
+  "m7Supplements" : {
+    "streak-ladder" : {
+      "figmaExport" : "../figma/streak-ladder-106-122-m7.png",
+      "overlay" : "../figma/streak-ladder-106-122-overlay-m7.png",
+      "reason" : "The historical full-page crop is disqualified because sticky TopMarketBar was duplicated by stitched full-page capture. M7 uses a two-viewport source stitch without the sticky bar.",
+      "source" : "streak-ladder-m7-source.png"
+    },
+    "sector-overview" : {
+      "figmaExport" : "../figma/sector-overview-106-123-m7-source-changed.png",
+      "reason" : "The current local source has changed visible Top5, flow, and heatmap facts from the frozen Figma sample. Geometry remains usable, but no overlay is valid until the user approves a dynamic-content baseline update.",
+      "source" : "sector-overview-m7-source.png",
+      "status" : "SOURCE_CHANGED"
+    }
+  },
+  "crops" : [
+    {
+      "height" : 28,
+      "name" : "breadcrumb",
+      "width" : 1564,
+      "x" : 18,
+      "y" : 70
+    },
+    {
+      "height" : 374,
+      "name" : "breadth",
+      "width" : 514,
+      "x" : 18,
+      "y" : 746
+    },
+    {
+      "height" : 474,
+      "name" : "leaderboard",
+      "width" : 776,
+      "x" : 806,
+      "y" : 1132
+    },
+    {
+      "height" : 567,
+      "name" : "limit-board",
+      "width" : 1564,
+      "x" : 18,
+      "y" : 1617
+    },
+    {
+      "height" : 252,
+      "name" : "major-indices",
+      "width" : 776,
+      "x" : 806,
+      "y" : 482
+    },
+    {
+      "height" : 268,
+      "name" : "market-news",
+      "width" : 776,
+      "x" : 18,
+      "y" : 202
+    },
+    {
+      "height" : 374,
+      "name" : "market-style",
+      "width" : 514,
+      "x" : 543,
+      "y" : 746
+    },
+    {
+      "height" : 252,
+      "name" : "market-summary",
+      "width" : 776,
+      "x" : 18,
+      "y" : 482
+    },
+    {
+      "height" : 474,
+      "name" : "money-flow",
+      "width" : 776,
+      "x" : 18,
+      "y" : 1132
+    },
+    {
+      "height" : 501,
+      "name" : "sector-overview",
+      "width" : 1564,
+      "x" : 18,
+      "y" : 3653
+    },
+    {
+      "height" : 81,
+      "name" : "shortcut-bar",
+      "width" : 1564,
+      "x" : 18,
+      "y" : 110
+    },
+    {
+      "height" : 142,
+      "name" : "state-baseline",
+      "width" : 1564,
+      "x" : 18,
+      "y" : 4166
+    },
+    {
+      "height" : 268,
+      "name" : "stock-news",
+      "width" : 776,
+      "x" : 806,
+      "y" : 202
+    },
+    {
+      "height" : 1446,
+      "name" : "streak-ladder",
+      "width" : 1564,
+      "x" : 18,
+      "y" : 2196
+    },
+    {
+      "height" : 56,
+      "name" : "top-market-bar",
+      "width" : 1600,
+      "x" : 0,
+      "y" : 0
+    },
+    {
+      "height" : 374,
+      "name" : "turnover",
+      "width" : 514,
+      "x" : 1068,
+      "y" : 746
+    }
+  ]
+}

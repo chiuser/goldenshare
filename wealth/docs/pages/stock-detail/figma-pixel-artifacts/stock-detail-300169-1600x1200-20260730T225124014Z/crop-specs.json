@@ -1,0 +1,92 @@
+[
+  {
+    "path": "modules/top-market-bar.png",
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 1600,
+      "height": 56
+    }
+  },
+  {
+    "path": "modules/breadcrumb-action-bar.png",
+    "rect": {
+      "x": 0,
+      "y": 56,
+      "width": 1600,
+      "height": 42
+    }
+  },
+  {
+    "path": "modules/chart-toolbar.png",
+    "rect": {
+      "x": 0,
+      "y": 98,
+      "width": 1600,
+      "height": 44
+    }
+  },
+  {
+    "path": "modules/chart-workbench.png",
+    "rect": {
+      "x": 10,
+      "y": 152,
+      "width": 1193,
+      "height": 1038
+    }
+  },
+  {
+    "path": "modules/chart-kline.png",
+    "rect": {
+      "x": 11,
+      "y": 153,
+      "width": 1191,
+      "height": 464
+    }
+  },
+  {
+    "path": "modules/chart-macd.png",
+    "rect": {
+      "x": 11,
+      "y": 617,
+      "width": 1191,
+      "height": 179
+    }
+  },
+  {
+    "path": "modules/chart-volume.png",
+    "rect": {
+      "x": 11,
+      "y": 796,
+      "width": 1191,
+      "height": 179
+    }
+  },
+  {
+    "path": "modules/chart-kdj.png",
+    "rect": {
+      "x": 11,
+      "y": 975,
+      "width": 1191,
+      "height": 179
+    }
+  },
+  {
+    "path": "modules/indicator-bar.png",
+    "rect": {
+      "x": 11,
+      "y": 1155,
+      "width": 1191,
+      "height": 34
+    }
+  },
+  {
+    "path": "modules/info-rail.png",
+    "rect": {
+      "x": 1213,
+      "y": 152,
+      "width": 377,
+      "height": 1038
+    }
+  }
+]
