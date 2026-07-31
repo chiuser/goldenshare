@@ -7,7 +7,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.biz.schemas.wealth.market.context import MarketPageContextDto
 
-
 StockDetailStatusValue = Literal["READY", "DELAYED", "EMPTY", "ERROR"]
 StockDirectionValue = Literal["UP", "DOWN", "FLAT", "UNKNOWN"]
 
@@ -80,6 +79,7 @@ class StockDetailCapabilitiesDto(BaseModel):
 
     supportsRealtime: bool = False
     supportsMinute: bool = False
+    minuteFrequencies: list[Literal[1, 5, 15, 30, 60, 90, 120]] = Field(default_factory=list)
     supportsWeeklyMonthly: bool = False
     supportsUserActions: bool = False
     unsupportedActions: list[str] = Field(default_factory=lambda: ["自选", "提醒", "交易计划", "诊股"])

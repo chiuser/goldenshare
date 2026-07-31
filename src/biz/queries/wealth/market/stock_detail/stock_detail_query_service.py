@@ -4,8 +4,13 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from src.biz.queries.wealth.market.context.market_page_context_query import MarketPageContext, MarketPageContextQuery
-from src.biz.queries.wealth.market.stock_detail.stock_detail_query import StockDetailQuery
+from src.biz.queries.wealth.market.context.market_page_context_query import (
+    MarketPageContext,
+    MarketPageContextQuery,
+)
+from src.biz.queries.wealth.market.stock_detail.stock_detail_query import (
+    StockDetailQuery,
+)
 from src.biz.schemas.wealth.market.context import MarketPageContextDto
 from src.biz.schemas.wealth.market.stock_detail import (
     StockChartDefaultsDto,
@@ -22,6 +27,11 @@ from src.biz.services.wealth.market.stock_detail.stock_detail_field_mapper impor
     build_kline_bar,
     build_quote,
 )
+from src.foundation.config.local_minute_capability import (
+    SUPPORTED_MINUTE_FREQS,
+    resolve_local_minute_capability,
+)
+from src.foundation.config.settings import get_settings
 from src.foundation.models.core_serving.security_serving import Security
 
 
@@ -52,13 +62,17 @@ class StockDetailQueryService:
             expected_trade_date=context.trade_date,
         )
         observed_trade_date = factor_row["trade_date"] if factor_row is not None else None
+        minute_capability = resolve_local_minute_capability(get_settings())
 
         return StockDetailPageInitResponseDto(
             pageContext=self._to_context_dto(context),
             stock=self._to_stock_identity(security),
             quote=build_quote(factor_row) if factor_row is not None else None,
             chartDefaults=StockChartDefaultsDto(),
-            capabilities=StockDetailCapabilitiesDto(),
+            capabilities=StockDetailCapabilitiesDto(
+                supportsMinute=minute_capability.enabled,
+                minuteFrequencies=list(SUPPORTED_MINUTE_FREQS) if minute_capability.enabled else [],
+            ),
             dataStatus=build_data_status(
                 expected_trade_date=context.trade_date,
                 observed_trade_date=observed_trade_date,
