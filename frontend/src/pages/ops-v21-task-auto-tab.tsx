@@ -96,10 +96,12 @@ const REMOTE_STK_MINS_READY_CONDITION = "remote_stk_mins_ready";
 const REMOTE_INDEX_DAILY_READY_CONDITION = "remote_index_daily_ready";
 const REMOTE_INDEX_MINS_READY_CONDITION = "remote_index_mins_ready";
 const REMOTE_KPL_LIST_READY_CONDITION = "remote_kpl_list_ready";
+const REMOTE_IDX_FACTOR_PRO_READY_CONDITION = "remote_idx_factor_pro_ready";
 const STK_MINS_ACTION_KEY = "stk_mins.maintain";
 const INDEX_DAILY_ACTION_KEY = "index_daily.maintain";
 const INDEX_MINS_ACTION_KEY = "index_mins.maintain";
 const KPL_LIST_ACTION_KEY = "kpl_list.maintain";
+const IDX_FACTOR_PRO_ACTION_KEY = "idx_factor_pro.maintain";
 const INDEX_MINS_REMOTE_PROBE_FREQS = ["1min", "5min", "15min", "30min", "60min"];
 const DEFAULT_PARAM_LABELS = new Map([
   ["trade_date", "维护日期"],
@@ -361,6 +363,7 @@ export function formatProbeConditionLabel(conditionKind: string | null | undefin
   if (conditionKind === REMOTE_INDEX_DAILY_READY_CONDITION) return "源站已有指数日线";
   if (conditionKind === REMOTE_INDEX_MINS_READY_CONDITION) return "源站已有指数分钟行情";
   if (conditionKind === REMOTE_KPL_LIST_READY_CONDITION) return "源站已有开盘啦榜单";
+  if (conditionKind === REMOTE_IDX_FACTOR_PRO_READY_CONDITION) return "源站已有指数技术因子";
   return "最新业务日命中最新交易日";
 }
 
@@ -400,6 +403,10 @@ export function actionSupportsRemoteKplListProbe(actionType: string, actionKey: 
   return actionType === "dataset_action" && actionKey === KPL_LIST_ACTION_KEY;
 }
 
+export function actionSupportsRemoteIdxFactorProProbe(actionType: string, actionKey: string): boolean {
+  return actionType === "dataset_action" && actionKey === IDX_FACTOR_PRO_ACTION_KEY;
+}
+
 export function actionSupportsRemoteProbeCondition(actionType: string, actionKey: string, conditionKind: string): boolean {
   if (conditionKind === REMOTE_STK_MINS_READY_CONDITION) {
     return actionSupportsRemoteStkMinsProbe(actionType, actionKey);
@@ -413,7 +420,12 @@ export function actionSupportsRemoteProbeCondition(actionType: string, actionKey
   if (conditionKind === REMOTE_KPL_LIST_READY_CONDITION) {
     return actionSupportsRemoteKplListProbe(actionType, actionKey);
   }
-  return conditionKind === FRESHNESS_LATEST_OPEN_CONDITION && !actionSupportsRemoteIndexMinsProbe(actionType, actionKey);
+  if (conditionKind === REMOTE_IDX_FACTOR_PRO_READY_CONDITION) {
+    return actionSupportsRemoteIdxFactorProProbe(actionType, actionKey);
+  }
+  return conditionKind === FRESHNESS_LATEST_OPEN_CONDITION
+    && !actionSupportsRemoteIndexMinsProbe(actionType, actionKey)
+    && !actionSupportsRemoteIdxFactorProProbe(actionType, actionKey);
 }
 
 export function hasCompleteIndexMinsProbeFilters(filters: unknown): boolean {
@@ -429,10 +441,31 @@ export function hasCompleteIndexMinsProbeFilters(filters: unknown): boolean {
     && INDEX_MINS_REMOTE_PROBE_FREQS.every((freq) => freqs.includes(freq));
 }
 
-function defaultProbeConditionForAction(actionType: string, actionKey: string): string {
-  return actionSupportsRemoteIndexMinsProbe(actionType, actionKey)
-    ? REMOTE_INDEX_MINS_READY_CONDITION
-    : FRESHNESS_LATEST_OPEN_CONDITION;
+export function defaultProbeConditionForAction(actionType: string, actionKey: string): string {
+  if (actionSupportsRemoteIndexMinsProbe(actionType, actionKey)) return REMOTE_INDEX_MINS_READY_CONDITION;
+  if (actionSupportsRemoteIdxFactorProProbe(actionType, actionKey)) return REMOTE_IDX_FACTOR_PRO_READY_CONDITION;
+  return FRESHNESS_LATEST_OPEN_CONDITION;
+}
+
+export function buildProbeConditionOptions(actionType: string, actionKey: string) {
+  if (actionSupportsRemoteIndexMinsProbe(actionType, actionKey)) {
+    return [{ value: REMOTE_INDEX_MINS_READY_CONDITION, label: "源站已有指数分钟行情" }];
+  }
+  if (actionSupportsRemoteIdxFactorProProbe(actionType, actionKey)) {
+    return [{ value: REMOTE_IDX_FACTOR_PRO_READY_CONDITION, label: "源站已有指数技术因子" }];
+  }
+  return [
+    { value: FRESHNESS_LATEST_OPEN_CONDITION, label: "最新业务日命中最新交易日" },
+    ...(actionSupportsRemoteStkMinsProbe(actionType, actionKey)
+      ? [{ value: REMOTE_STK_MINS_READY_CONDITION, label: "源站已有分钟行情" }]
+      : []),
+    ...(actionSupportsRemoteIndexDailyProbe(actionType, actionKey)
+      ? [{ value: REMOTE_INDEX_DAILY_READY_CONDITION, label: "源站已有指数日线" }]
+      : []),
+    ...(actionSupportsRemoteKplListProbe(actionType, actionKey)
+      ? [{ value: REMOTE_KPL_LIST_READY_CONDITION, label: "源站已有开盘啦榜单" }]
+      : []),
+  ];
 }
 
 function formatParamValue(value: unknown): string {
@@ -885,8 +918,6 @@ export function OpsAutomationPage() {
     () => actionSupportsTriggerDayPointPolicy(selectedAction),
     [selectedAction],
   );
-  const selectedActionSupportsRemoteStkMinsProbe = actionSupportsRemoteStkMinsProbe(form.action_type, form.action_key);
-  const selectedActionSupportsRemoteIndexDailyProbe = actionSupportsRemoteIndexDailyProbe(form.action_type, form.action_key);
   const selectedActionSupportsRemoteIndexMinsProbe = actionSupportsRemoteIndexMinsProbe(form.action_type, form.action_key);
   const selectedActionSupportsRemoteKplListProbe = actionSupportsRemoteKplListProbe(form.action_type, form.action_key);
   const selectedRemoteIndexMinsProbe = selectedActionSupportsRemoteIndexMinsProbe
@@ -896,21 +927,8 @@ export function OpsAutomationPage() {
   const showScheduleTimingFields = shouldShowScheduleTimingFields(form.trigger_mode);
   const scheduleTimeFieldLabel = getScheduleTimeFieldLabel(form.trigger_mode);
   const probeConditionOptions = useMemo(
-    () => [
-      ...(selectedActionSupportsRemoteIndexMinsProbe
-        ? [{ value: REMOTE_INDEX_MINS_READY_CONDITION, label: "源站已有指数分钟行情" }]
-        : [{ value: FRESHNESS_LATEST_OPEN_CONDITION, label: "最新业务日命中最新交易日" }]),
-      ...(selectedActionSupportsRemoteStkMinsProbe
-        ? [{ value: REMOTE_STK_MINS_READY_CONDITION, label: "源站已有分钟行情" }]
-        : []),
-      ...(selectedActionSupportsRemoteIndexDailyProbe
-        ? [{ value: REMOTE_INDEX_DAILY_READY_CONDITION, label: "源站已有指数日线" }]
-        : []),
-      ...(selectedActionSupportsRemoteKplListProbe
-        ? [{ value: REMOTE_KPL_LIST_READY_CONDITION, label: "源站已有开盘啦榜单" }]
-        : []),
-    ],
-    [selectedActionSupportsRemoteIndexDailyProbe, selectedActionSupportsRemoteIndexMinsProbe, selectedActionSupportsRemoteKplListProbe, selectedActionSupportsRemoteStkMinsProbe],
+    () => buildProbeConditionOptions(form.action_type, form.action_key),
+    [form.action_key, form.action_type],
   );
   const effectiveCalendarPolicy = useMemo(
     () =>
@@ -2039,6 +2057,11 @@ export function OpsAutomationPage() {
               {form.probe_condition_kind === REMOTE_KPL_LIST_READY_CONDITION ? (
                 <Text size="xs" c="dimmed">
                   系统会在探测窗口内请求“竞价”样本；源站在次日发布前一开市日榜单后，再自动发起该目标交易日的正式维护任务。
+                </Text>
+              ) : null}
+              {form.probe_condition_kind === REMOTE_IDX_FACTOR_PRO_READY_CONDITION ? (
+                <Text size="xs" c="dimmed">
+                  系统会检查源站是否已返回当天的一条指数技术因子；返回后自动发起当天的正式全量维护任务。
                 </Text>
               ) : null}
               <Grid>

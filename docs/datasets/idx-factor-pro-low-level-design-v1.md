@@ -1,6 +1,6 @@
 # 指数技术因子（专业版）`idx_factor_pro` 低层设计 v1
 
-状态：开发中；M1 Foundation 主链、M2 Ops 目录/任务入口和 M3 源站探测后端已完成，后续按第 11 节顺序继续实施
+状态：开发中；M1 Foundation 主链、M2 Ops 目录/任务入口、M3 源站探测后端和 M4 自动任务页面已完成，后续按第 11 节顺序继续实施
 
 更新时间：2026-08-01
 
@@ -14,7 +14,9 @@
 
 同日已完成 M2 Ops 目录与任务入口：`idx_factor_pro` 显式归入 Ops `index_market_data` 第 45 位；手动任务和可配置自动任务继续由 Definition 派生，不新增页面或 API 特例；测试确认没有 `ts_code` 过滤输入，且它不在任何既有 workflow。
 
-同日已完成 M3 源站探测后端：新增 `IdxFactorProRemoteReadinessProbeService`，空 filters 的 point 意图经 resolver 生成 `trade_date` 后，以 `limit=1/offset=0` 检查源端第一行。只有交易日历确认当天开市且返回目标日、非空 `ts_code` 时才创建标准 TaskRun。ProbeRule 被重建时，运行时也会按同 schedule、同目标日的有效 probe TaskRun 去重。绑定服务在非 probe 触发模式的早返回前额外拒绝本条件，防止 `trigger_mode=schedule` 绕过“只允许 probe/fallback”的硬约束。自动任务页面条件尚未实现；后续必须继续遵守本 LLD 第 1.2 节边界。
+同日已完成 M3 源站探测后端：新增 `IdxFactorProRemoteReadinessProbeService`，空 filters 的 point 意图经 resolver 生成 `trade_date` 后，以 `limit=1/offset=0` 检查源端第一行。只有交易日历确认当天开市且返回目标日、非空 `ts_code` 时才创建标准 TaskRun。ProbeRule 被重建时，运行时也会按同 schedule、同目标日的有效 probe TaskRun 去重。绑定服务在非 probe 触发模式的早返回前额外拒绝本条件，防止 `trigger_mode=schedule` 绕过“只允许 probe/fallback”的硬约束。
+
+同日已完成 M4 自动任务页面：`idx_factor_pro.maintain` 只显示“源站已有指数技术因子”，并将它作为该动作的默认探测条件；本地 `freshness_latest_open` 不再是可选项。页面说明只表达“源端已经开始返回当天数据”，不宣称全量指数已齐备；纯 probe 隐藏执行时间、fallback 显示兜底执行时间的既有语义保持不变。
 
 ## 1. 本 LLD 固定的边界
 

@@ -4,12 +4,15 @@ import {
   actionSupportsTriggerDayPointPolicy,
   actionSupportsRemoteIndexDailyProbe,
   actionSupportsRemoteIndexMinsProbe,
+  actionSupportsRemoteIdxFactorProProbe,
   actionSupportsRemoteKplListProbe,
   actionSupportsRemoteProbeCondition,
   actionSupportsRemoteStkMinsProbe,
   actionSupportsTriggerDaySingleRangePolicy,
   buildProbeRunQueryPath,
   buildCronExpression,
+  buildProbeConditionOptions,
+  defaultProbeConditionForAction,
   formatProbeConditionLabel,
   formatProbeRunCount,
   formatScheduleRule,
@@ -234,6 +237,24 @@ describe("自动任务日期策略", () => {
     expect(actionSupportsRemoteProbeCondition("dataset_action", "kpl_list.maintain", "remote_kpl_list_ready")).toBe(true);
     expect(actionSupportsRemoteProbeCondition("dataset_action", "daily.maintain", "remote_kpl_list_ready")).toBe(false);
     expect(formatProbeConditionLabel("remote_kpl_list_ready")).toBe("源站已有开盘啦榜单");
+  });
+
+  it("only enables remote idx_factor_pro source probing for idx_factor_pro maintain", () => {
+    expect(actionSupportsRemoteIdxFactorProProbe("dataset_action", "idx_factor_pro.maintain")).toBe(true);
+    expect(actionSupportsRemoteIdxFactorProProbe("dataset_action", "index_daily.maintain")).toBe(false);
+    expect(actionSupportsRemoteIdxFactorProProbe("workflow", "idx_factor_pro.maintain")).toBe(false);
+    expect(actionSupportsRemoteProbeCondition("dataset_action", "idx_factor_pro.maintain", "remote_idx_factor_pro_ready")).toBe(true);
+    expect(actionSupportsRemoteProbeCondition("dataset_action", "idx_factor_pro.maintain", "freshness_latest_open")).toBe(false);
+    expect(actionSupportsRemoteProbeCondition("dataset_action", "index_daily.maintain", "remote_idx_factor_pro_ready")).toBe(false);
+    expect(defaultProbeConditionForAction("dataset_action", "idx_factor_pro.maintain")).toBe("remote_idx_factor_pro_ready");
+    expect(formatProbeConditionLabel("remote_idx_factor_pro_ready")).toBe("源站已有指数技术因子");
+    expect(buildProbeConditionOptions("dataset_action", "idx_factor_pro.maintain")).toEqual([
+      { value: "remote_idx_factor_pro_ready", label: "源站已有指数技术因子" },
+    ]);
+    expect(buildProbeConditionOptions("dataset_action", "index_daily.maintain")).toEqual([
+      { value: "freshness_latest_open", label: "最新业务日命中最新交易日" },
+      { value: "remote_index_daily_ready", label: "源站已有指数日线" },
+    ]);
   });
 
   it("hides schedule timing fields for pure probe and relabels fallback timing", () => {
