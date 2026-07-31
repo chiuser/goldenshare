@@ -42,8 +42,8 @@ wealth 5173
 
 当前 Gold 合同已核对：
 
-- 分钟线：`gold/quote/stk_mins_qfq/freq={freq}m/ts_code={ts_code}/year={year}/part-000.parquet`
-- 指标：`gold/indicator/stk_mins_qfq_macd_kdj/freq={freq}m/ts_code={ts_code}/year={year}/part-000.parquet`
+- 分钟线：`gold/quote/stk_mins_qfq/freq={freq}/ts_code={ts_code}/year={year}/part-000.parquet`
+- 指标：`gold/indicator/stk_mins_qfq_macd_kdj/freq={freq}/ts_code={ts_code}/year={year}/part-000.parquet`
 - `freq` 为整数 `1/5/15/30/60/90/120`。
 - `trade_date` 为 DATE，`trade_time` 为 TIMESTAMP。
 

@@ -105,9 +105,9 @@ v1 不增加独立 `expectedEndDate` 参数：调用方传入的 `endDate` 既�
 
 ### 6.2 路径与 schema
 
-分钟线路径为 `gold/quote/stk_mins_qfq/freq={freq}m/ts_code={ts_code}/year={year}/part-000.parquet`。
+分钟线路径为 `gold/quote/stk_mins_qfq/freq={freq}/ts_code={ts_code}/year={year}/part-000.parquet`。
 
-指标路径为 `gold/indicator/stk_mins_qfq_macd_kdj/freq={freq}m/ts_code={ts_code}/year={year}/part-000.parquet`。
+指标路径为 `gold/indicator/stk_mins_qfq_macd_kdj/freq={freq}/ts_code={ts_code}/year={year}/part-000.parquet`。
 
 路径 resolve 后必须仍位于 configured root 下。请求只扫描日期涉及的年份文件，最多 3 个年份。
 

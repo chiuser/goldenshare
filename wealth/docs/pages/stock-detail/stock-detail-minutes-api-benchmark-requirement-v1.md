@@ -43,13 +43,13 @@ GET /api/v1/wealth/market/stock-detail/minute-indicators
 分钟线：
 
 ```text
-gold/quote/stk_mins_qfq/freq={freq}m/ts_code={ts_code}/year={year}/part-000.parquet
+gold/quote/stk_mins_qfq/freq={freq}/ts_code={ts_code}/year={year}/part-000.parquet
 ```
 
 分钟指标：
 
 ```text
-gold/indicator/stk_mins_qfq_macd_kdj/freq={freq}m/ts_code={ts_code}/year={year}/part-000.parquet
+gold/indicator/stk_mins_qfq_macd_kdj/freq={freq}/ts_code={ts_code}/year={year}/part-000.parquet
 ```
 
 当前支持频率为 `1/5/15/30/60/90/120m`，全部按前复权口径读取。指标只读 Gold 输出，不在 HTTP 请求中重新计算，不读取 state 文件。
