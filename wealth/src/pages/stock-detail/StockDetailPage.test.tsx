@@ -6,7 +6,7 @@ import { WealthRouter } from "../../app/routes/WealthRouter";
 import { StockDetailPage } from "./StockDetailPage";
 
 describe("StockDetailPage", () => {
-  function mockStockDetailFetch({ fail = false }: { fail?: boolean } = {}) {
+  function mockStockDetailFetch({ fail = false, supportsMinute = false }: { fail?: boolean; supportsMinute?: boolean } = {}) {
     const pageInit = {
       pageContext: {
         market: "CN_A",
@@ -56,7 +56,8 @@ describe("StockDetailPage", () => {
       },
       capabilities: {
         supportsRealtime: false,
-        supportsMinute: false,
+        supportsMinute,
+        minuteFrequencies: supportsMinute ? [1, 5, 15, 30, 60, 90, 120] : [],
         supportsWeeklyMonthly: false,
         supportsUserActions: false,
         unsupportedActions: ["自选", "提醒", "交易计划", "诊股"],
@@ -120,11 +121,62 @@ describe("StockDetailPage", () => {
       dataStatus: pageInit.dataStatus,
     };
 
+    const minuteBars = {
+      tsCode: "603806.SH",
+      freq: 5,
+      bars: [
+        {
+          tsCode: "603806.SH",
+          freq: 5,
+          tradeDate: "2026-05-29",
+          tradeTime: "2026-05-29T14:55:00+08:00",
+          open: 19,
+          high: 19.2,
+          low: 18.9,
+          close: 19.1,
+          vol: 1200,
+          amount: 22800,
+          exchange: "SSE",
+        },
+      ],
+      meta: { count: 1, limit: 500, hasMore: false },
+      dataStatus: {
+        status: "READY",
+        expectedEndDate: "2026-05-29",
+        observedEndDate: "2026-05-29",
+        message: null,
+      },
+    };
+    const minuteIndicators = {
+      tsCode: "603806.SH",
+      freq: 5,
+      items: [
+        {
+          tsCode: "603806.SH",
+          freq: 5,
+          tradeDate: "2026-05-29",
+          tradeTime: "2026-05-29T14:55:00+08:00",
+          macdDif: null,
+          macdDea: null,
+          macd: null,
+          kdjK: null,
+          kdjD: null,
+          kdjJ: null,
+          paramsKey: "macd_12_26_9__kdj_9_3_3",
+          indicatorVersion: 1,
+        },
+      ],
+      meta: { count: 1, limit: 500, hasMore: false },
+      dataStatus: minuteBars.dataStatus,
+    };
+
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (fail) return new Response(JSON.stringify({ code: "internal_error", message: "接口失败" }), { status: 500 });
       if (url.includes("/page-init")) return new Response(JSON.stringify(pageInit), { status: 200 });
       if (url.includes("/kline")) return new Response(JSON.stringify(kline), { status: 200 });
+      if (supportsMinute && url.includes("/minutes")) return new Response(JSON.stringify(minuteBars), { status: 200 });
+      if (supportsMinute && url.includes("/minute-indicators")) return new Response(JSON.stringify(minuteIndicators), { status: 200 });
       return new Response("{}", { status: 404 });
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -176,6 +228,32 @@ describe("StockDetailPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "主力密码" }));
     expect(screen.getByText("主力密码 指标暂未支持")).toBeInTheDocument();
+  });
+
+  it("loads both minute endpoints with one shared bounded request window", async () => {
+    const fetchMock = mockStockDetailFetch({ supportsMinute: true });
+    render(<StockDetailPage tsCode="603806.SH" />);
+
+    expect(await screen.findByText("福斯特 603806.SH")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "5分" }));
+
+    await waitFor(() => {
+      const minuteRequests = fetchMock.mock.calls
+        .map(([input]) => String(input))
+        .filter((url) => url.includes("/stock-detail/minutes") || url.includes("/stock-detail/minute-indicators"));
+      expect(minuteRequests).toHaveLength(2);
+    });
+
+    const minuteRequests = fetchMock.mock.calls
+      .map(([input]) => String(input))
+      .filter((url) => url.includes("/stock-detail/minutes") || url.includes("/stock-detail/minute-indicators"));
+    expect(minuteRequests[0]).toContain("freq=5");
+    expect(minuteRequests[0]).toContain("endDate=2026-05-29");
+    expect(minuteRequests[0]).toContain("limit=500");
+    expect(minuteRequests[1]).toContain("freq=5");
+    expect(minuteRequests.some((url) => url.includes("/stock-detail/minute-indicators"))).toBe(true);
+    expect(screen.getByLabelText("分钟图表区")).toBeInTheDocument();
+    expect(screen.getByText("分钟K线")).toBeInTheDocument();
   });
 
   it("shows error state instead of mock quote when real api fails", async () => {

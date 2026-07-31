@@ -3,6 +3,7 @@ import { STOCK_INDICATOR_TABS, STOCK_PERIOD_OPTIONS } from "../model/stockDetail
 import type { StockCandlePoint, StockDetailViewModel, StockPeriodKey } from "../model/stockDetailTypes";
 import { getStockDetailViewModel } from "./stockDetailMockAdapter";
 import type { StockDetailKlineResponseDto, StockDetailPageInitResponseDto, StockQuoteSnapshotDto } from "./stockDetailApiTypes";
+import { minuteFrequencyFromPeriodKey } from "./stockMinuteViewModelAdapter";
 
 function valueOrZero(value: number | null | undefined): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
@@ -72,6 +73,7 @@ export function buildStockDetailViewModel(
 
   const scaffold = getStockDetailViewModel(pageInit.stock.tsCode);
   const availablePeriods = new Set<StockPeriodKey>(pageInit.chartDefaults.availablePeriods);
+  const minuteFrequencies = new Set(pageInit.capabilities.minuteFrequencies ?? []);
   const availableIndicators = new Set<string>(pageInit.chartDefaults.availableIndicatorTabs);
   const quote = pageInit.quote;
 
@@ -98,10 +100,15 @@ export function buildStockDetailViewModel(
       volumeText: formatVolumeText(quote.vol),
       amountText: formatAmountText(quote.amount),
     },
-    periods: STOCK_PERIOD_OPTIONS.map((period) => ({
-      ...period,
-      supported: availablePeriods.has(period.key),
-    })),
+    periods: STOCK_PERIOD_OPTIONS.map((period) => {
+      const minuteFrequency = minuteFrequencyFromPeriodKey(period.key);
+      return {
+        ...period,
+        supported:
+          availablePeriods.has(period.key) ||
+          (pageInit.capabilities.supportsMinute && minuteFrequency !== null && minuteFrequencies.has(minuteFrequency)),
+      };
+    }),
     activePeriod: pageInit.chartDefaults.defaultPeriod,
     chart: {
       candles: kline.bars.map(toCandlePoint),

@@ -1,5 +1,7 @@
 import type { MarketDirection } from "../../../shared/model/market";
 
+export type StockMinuteFrequency = 1 | 5 | 15 | 30 | 60 | 90 | 120;
+
 export interface StockDetailPageContextDto {
   market: "CN_A";
   tradeDate: string;
@@ -53,6 +55,7 @@ export interface StockChartDefaultsDto {
 export interface StockDetailCapabilitiesDto {
   supportsRealtime: boolean;
   supportsMinute: boolean;
+  minuteFrequencies?: StockMinuteFrequency[];
   supportsWeeklyMonthly: boolean;
   supportsUserActions: boolean;
   unsupportedActions: string[];

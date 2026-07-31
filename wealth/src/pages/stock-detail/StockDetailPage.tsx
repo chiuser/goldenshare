@@ -1,16 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchStockDetailKline, fetchStockDetailPageInit } from "../../features/stock-detail/api/stockDetailApiClient";
+import { fetchStockMinuteBars, fetchStockMinuteIndicators } from "../../features/stock-detail/api/stockMinuteApiClient";
+import { buildStockMinuteChartViewModel, minuteFrequencyFromPeriodKey } from "../../features/stock-detail/api/stockMinuteViewModelAdapter";
 import { getStockDetailViewModel } from "../../features/stock-detail/api/stockDetailMockAdapter";
 import { buildStockDetailViewModel } from "../../features/stock-detail/api/stockDetailViewModelAdapter";
 import { StockChartWorkspace } from "../../features/stock-detail/chart/StockChartWorkspace";
+import { StockMinuteChartWorkspace } from "../../features/stock-detail/chart/StockMinuteChartWorkspace";
 import { StockBreadcrumbActionBar } from "../../features/stock-detail/layout/StockBreadcrumbActionBar";
 import { StockChartToolbar } from "../../features/stock-detail/layout/StockChartToolbar";
 import { StockInfoRail } from "../../features/stock-detail/sidebar/StockInfoRail";
 import { StockDetailToast } from "../../features/stock-detail/ui/StockDetailToast";
 import { TopMarketBar } from "../../shared/ui/top-market-bar/TopMarketBar";
-import type { StockDetailViewModel } from "../../features/stock-detail/model/stockDetailTypes";
-import type { StockPeriodKey } from "../../features/stock-detail/model/stockDetailTypes";
+import type { StockDetailViewModel, StockPeriodKey } from "../../features/stock-detail/model/stockDetailTypes";
+import type { StockDetailPageInitResponseDto, StockMinuteFrequency } from "../../features/stock-detail/api/stockDetailApiTypes";
+import type { StockMinuteChartViewModel } from "../../features/stock-detail/api/stockMinuteViewModelAdapter";
 import "./stock-detail-page.css";
 
 interface StockDetailPageProps {
@@ -20,7 +24,13 @@ interface StockDetailPageProps {
 export function StockDetailPage({ tsCode }: StockDetailPageProps) {
   const scaffoldViewModel = useMemo(() => getStockDetailViewModel(tsCode), [tsCode]);
   const [viewModel, setViewModel] = useState<StockDetailViewModel | null>(null);
+  const [pageInit, setPageInit] = useState<StockDetailPageInitResponseDto | null>(null);
   const [activePeriod, setActivePeriod] = useState<StockPeriodKey>("day");
+  const [minuteChart, setMinuteChart] = useState<StockMinuteChartViewModel | null>(null);
+  const [minuteLoadState, setMinuteLoadState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [minuteError, setMinuteError] = useState("");
+  const minuteCacheRef = useRef(new Map<StockMinuteFrequency, StockMinuteChartViewModel>());
+  const minuteControllerRef = useRef<AbortController | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState("");
   const [toast, setToast] = useState("");
@@ -34,6 +44,12 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
     setLoadState("loading");
     setErrorMessage("");
     setViewModel(null);
+    setPageInit(null);
+    setMinuteChart(null);
+    setMinuteLoadState("idle");
+    setMinuteError("");
+    minuteCacheRef.current.clear();
+    minuteControllerRef.current?.abort();
 
     async function loadStockDetail() {
       try {
@@ -50,6 +66,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
           { signal: controller.signal },
         );
         const nextViewModel = buildStockDetailViewModel(pageInit, kline);
+        setPageInit(pageInit);
         setViewModel(nextViewModel);
         setActivePeriod(nextViewModel.activePeriod);
         setLoadState("ready");
@@ -62,8 +79,61 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
 
     void loadStockDetail();
 
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      minuteControllerRef.current?.abort();
+    };
   }, [tsCode]);
+
+  async function handlePeriodChange(period: StockPeriodKey) {
+    setActivePeriod(period);
+    if (period === "day") {
+      minuteControllerRef.current?.abort();
+      setMinuteChart(null);
+      setMinuteLoadState("idle");
+      setMinuteError("");
+      return;
+    }
+
+    const frequency = minuteFrequencyFromPeriodKey(period);
+    if (!frequency || !pageInit?.capabilities.supportsMinute) return;
+    const cached = minuteCacheRef.current.get(frequency);
+    if (cached) {
+      setMinuteChart(cached);
+      setMinuteLoadState("ready");
+      setMinuteError("");
+      return;
+    }
+
+    minuteControllerRef.current?.abort();
+    const controller = new AbortController();
+    minuteControllerRef.current = controller;
+    setMinuteChart(null);
+    setMinuteLoadState("loading");
+    setMinuteError("");
+
+    const params = {
+      tsCode,
+      freq: frequency,
+      endDate: pageInit.pageContext.tradeDate,
+      limit: 500,
+    } as const;
+    try {
+      const [bars, indicators] = await Promise.all([
+        fetchStockMinuteBars(params, { signal: controller.signal }),
+        fetchStockMinuteIndicators(params, { signal: controller.signal }),
+      ]);
+      if (controller.signal.aborted) return;
+      const nextMinuteChart = buildStockMinuteChartViewModel(bars, indicators);
+      minuteCacheRef.current.set(frequency, nextMinuteChart);
+      setMinuteChart(nextMinuteChart);
+      setMinuteLoadState("ready");
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      setMinuteLoadState("error");
+      setMinuteError(error instanceof Error ? error.message : "分钟数据加载失败");
+    }
+  }
 
   function showToast(message: string) {
     setToast(message);
@@ -90,17 +160,21 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
       <StockChartToolbar
         activePeriod={activePeriod}
         onAction={showToast}
-        onPeriodChange={setActivePeriod}
+        onPeriodChange={handlePeriodChange}
         periods={viewModel.periods}
         stock={viewModel.stock}
       />
       <main className="stock-detail-main-content" aria-label="MainContent">
-        <StockChartWorkspace
-          activePeriod={activePeriod}
-          candles={viewModel.chart.candles}
-          indicatorTabs={viewModel.indicatorTabs}
-          onAction={showToast}
-        />
+        {activePeriod === "day" ? (
+          <StockChartWorkspace
+            activePeriod={activePeriod}
+            candles={viewModel.chart.candles}
+            indicatorTabs={viewModel.indicatorTabs}
+            onAction={showToast}
+          />
+        ) : (
+          <StockMinuteChartWorkspace data={minuteChart} loadState={minuteLoadState} errorMessage={minuteError} />
+        )}
         <StockInfoRail onAction={showToast} viewModel={viewModel} />
       </main>
       <StockDetailToast message={toast} />

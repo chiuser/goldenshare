@@ -795,3 +795,245 @@ debug metadata 只允许包含：dataset、freq、scanned_file_count、row_count
 | v1 | 2026-07-31 | 初版，细化配置、reader、API、前端和性能实现 |
 | v1.1 | 2026-07-31 | 冻结 500 根默认返回、显式频率、DELAYED 状态和 local-lake 依赖边界 |
 | v1.2 | 2026-07-31 | 补齐代码级文件落点、函数签名、窗口/cursor、响应、前端时间模型和测试门禁 |
+
+## 15. 符号级实施矩阵
+
+本节是开发时的执行清单。实现必须优先修改表中指定的符号，不得把分钟查询逻辑塞回既有日线查询模块，也不得在 API 层直接拼接 Lake 路径或 SQL。
+
+| 层 | 文件 | 必须实现/修改的符号 | 责任 | 禁止事项 |
+|---|---|---|---|---|
+| 配置 | `src/foundation/config/settings.py` | `Settings.wealth_local_lake_minute_api_enabled`、`Settings.goldenshare_lake_root` | 读取两个配置项；默认关闭、本地显式开启 | 不在路由、前端常量或 `.env` 之外新增第二套配置来源 |
+| 能力 | `src/foundation/config/local_minute_capability.py` | `resolve_local_minute_capability()`、`LocalMinuteCapability` | 校验环境、flag、root、DuckDB 可导入性 | 不扫描 Lake，不创建 reader，不访问业务模块 |
+| Lake reader | `src/foundation/clients/local_lake/stock_mins_reader.py` | `MinuteReadRequest`、`MinuteReadPage`、`StockMinsLakeReader.read_bars()`、`read_indicators()` | 路径、schema、SQL、cursor、bounded result | 不访问 Dagster、Prod DB、Tushare；不写文件 |
+| page-init | `src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py` | `StockDetailQueryService.build_page_init()` | 把 capability 转为 `supportsMinute` 和七频 `minuteFrequencies` | 不按某个股票当天是否有文件决定全局能力 |
+| page-init schema | `src/biz/schemas/wealth/market/stock_detail.py` | `StockDetailCapabilitiesDto` | 暴露 `minuteFrequencies`，默认空列表 | 不改变日线 `chartDefaults` 与 quote/kline 字段 |
+| 路由装配 | `src/app/api/v1/router.py` | `_include_local_minute_router()` | 仅 local capability true 时延迟导入并挂载分钟 router | 远程 profile 不导入分钟 API/reader/DuckDB |
+| API | `src/biz/api/wealth/market/stock_detail_minutes.py` | `get_stock_minute_bars()`、`get_stock_minute_indicators()` | 参数解析、权限依赖、异常转换、调用 service | 不创建 DuckDB connection，不读取 Lake |
+| 查询协议 | `src/biz/queries/wealth/market/stock_detail_minutes/stock_detail_minutes_query.py` | `StockMinuteQueryWindow`、`resolve_stock_minute_query_window()` | 计算 query end 与 expected end | 不把北京时间今天误当成页面 expected trade day |
+| Query service | `src/biz/queries/wealth/market/stock_detail_minutes/stock_detail_minutes_query_service.py` | `StockMinuteQueryService.read_bars()`、`read_indicators()` | reader 调用、status、DTO、响应体门禁 | 不重算指标，不合并两个数据集事实 |
+| API schema | `src/biz/schemas/wealth/market/stock_detail_minutes.py` | `StockMinutesResponseDto`、`StockMinuteIndicatorsResponseDto` 及子 DTO | 固定 lowerCamelCase 响应、NULL 指标 | 不加入 `preClose/change/pctChg`，不允许额外字段静默进入响应 |
+| 前端类型 | `wealth/src/features/stock-detail/api/stockMinuteApiTypes.ts` | `StockMinuteFrequency`、bars/indicators DTO | 对齐后端响应 | 不复用日线 Kline DTO |
+| 前端 client | `wealth/src/features/stock-detail/api/stockMinuteApiClient.ts` | `fetchStockMinuteBars()`、`fetchStockMinuteIndicators()` | 同参数、同 cursor、错误 code 保留 | 不回退 mock，不把分钟请求并入日线 client |
+| 前端 adapter | `wealth/src/features/stock-detail/api/stockMinuteViewModelAdapter.ts` | `buildStockMinuteChartViewModel()`、`minuteFrequencyFromPeriodKey()` | 时间键合并、NULL 保持、频率映射 | 不将 NULL 转 0，不用 indicators 创建伪造 bar |
+| 前端 workspace | `wealth/src/features/stock-detail/chart/StockMinuteChartWorkspace.tsx` | `StockMinuteChartWorkspace()` | K 线、MACD、成交量、KDJ 四窗格 | 不改写既有日线 workspace 的时间模型 |
+| 页面编排 | `wealth/src/pages/stock-detail/StockDetailPage.tsx` | `handlePeriodChange()`、分钟 request/cache/controller 状态 | 周期切换、并发请求、取消、缓存 | 不因分钟失败清空股票身份、日线和右侧信息 |
+
+### 15.1 请求到响应的固定调用链
+
+```text
+StockDetailPage.handlePeriodChange("m5")
+  -> fetchStockMinuteBars(params, { signal })
+  -> GET /api/v1/wealth/market/stock-detail/minutes
+  -> get_stock_minute_bars()
+  -> StockMinuteQueryService.read_bars()
+  -> StockMinsLakeReader.read_bars(MinuteReadRequest)
+  -> build_stock_mins_qfq_paths()
+  -> _validate_file_schema() for each selected year file
+  -> _query_rows() with LIMIT(limit + 1)
+  -> StockMinutesResponseDto
+
+StockDetailPage.handlePeriodChange("m5")
+  -> fetchStockMinuteIndicators(params, { signal })
+  -> GET /api/v1/wealth/market/stock-detail/minute-indicators
+  -> get_stock_minute_indicators()
+  -> StockMinuteQueryService.read_indicators()
+  -> StockMinsLakeReader.read_indicators(MinuteReadRequest)
+  -> StockMinuteIndicatorsResponseDto
+  -> buildStockMinuteChartViewModel(bars, indicators)
+  -> StockMinuteChartWorkspace
+```
+
+两个请求必须使用同一个 `tsCode/freq/startDate/endDate/limit/cursor`。首屏 `cursor` 为空、`endDate=pageInit.pageContext.tradeDate`、`limit=500`；响应回来后只在当前组件仍然处于同一个频率且 `AbortSignal` 未取消时更新 state。
+
+## 16. Reader 逐步算法与失败边界
+
+`StockMinsLakeReader._read()` 的顺序必须固定，后续实现或重构不得交换这些门禁的顺序：
+
+1. `_normalize_request()`：规范化大写代码、整数频率、日期顺序、limit 和 cursor 绑定关系。
+2. `_request_years()`：用请求日期计算最多 3 个自然年；没有日期时使用北京时间今天，并从该年向前取最多 3 年。
+3. `build_stock_mins_qfq_paths()`：只生成 bars 或 indicators 对应的真实物理布局；路径 `resolve()` 后必须在 root 内；只返回存在的普通 Parquet 文件。
+4. 没有目标文件时立即返回空页，不创建 DuckDB 连接；service 再根据是否有显式 `endDate` 判定 `EMPTY` 或 `DELAYED`。
+5. 导入 DuckDB 并建立本次调用唯一的 `:memory:` connection；所有 schema 检查和业务查询复用该 connection。
+6. 对每个选中文件执行显式 projection 的 `DESCRIBE SELECT ... FROM read_parquet(?)`。缺列、字段顺序不一致、类型不匹配或文件不可读统一抛 `MinuteSourceContractError`。
+7. 使用 `_query_rows()`：只投影合同字段，绑定代码、频率、起止日期和 cursor 边界；按 `(trade_date, trade_time)` 倒序；`LIMIT=request.limit + 1`。
+8. 结果只允许保留 `limit` 行；有第 `limit+1` 行时生成下一页 cursor；最终返回前反转为时间升序。
+9. 对返回页做有限结果检查：代码和频率一致、日期在范围内、时间键严格递增、行数不超过 limit；违反时抛 `MinuteQueryError`。
+10. `finally` 关闭 DuckDB connection；不把连接、绝对路径、SQL 或完整行数据放入响应。
+
+错误边界固定为：
+
+| 失败点 | 异常 | HTTP | code |
+|---|---|---:|---|
+| 参数、日期、cursor、频率、年份或 limit | `MinuteRequestError` | 400 | `SM_REQUEST_INVALID` |
+| 文件缺失 | 正常空页 | 200 | 显式 endDate 时 `DELAYED`，否则 `EMPTY` |
+| 文件无法读取、字段/类型/合同错误 | `MinuteSourceContractError` | 503 | `SM_SOURCE_CONTRACT_INVALID` |
+| DuckDB 执行、结果结构或 IO 错误 | `MinuteQueryError` | 503 | `SM_QUERY_FAILED` |
+| local capability 未配置 | `WebAppError` | 503 | `SM_LOCAL_LAKE_NOT_CONFIGURED` |
+
+## 17. 前端状态机与并发规则
+
+### 17.1 页面状态
+
+| 状态 | 进入条件 | 允许展示 | 禁止行为 |
+|---|---|---|---|
+| `idle` | 日线激活或尚未切换分钟 | 日线/空状态 | 不发送分钟请求 |
+| `loading` | 切换到未缓存频率并发请求两个接口 | 保留身份区和右侧信息，图表区显示 loading | 不显示旧频率数据冒充新频率 |
+| `ready` | 两个请求成功且 adapter 合并完成 | 四窗格和当前 status | 不把 NULL 指标补成 0 |
+| `error` | 任一请求失败且未被取消 | 图表区错误；页面其余区域保持 | 不回退 mock，不清空 page-init |
+| `delayed/empty` | API 200 且 `dataStatus` 返回对应状态 | K 线和状态文案按实际数据显示 | 不把 delayed 当 HTTP error |
+
+### 17.2 取消、缓存和竞态
+
+1. 新的分钟频率请求开始前，调用 `minuteControllerRef.current?.abort()`。
+2. 请求成功后先检查本次 controller 的 `signal.aborted`；已取消请求不得写入 `minuteChart`、`minuteCacheRef` 或错误状态。
+3. 日线切换必须取消当前分钟请求、清空当前分钟图表和错误状态，但不清除 page-init/daily view model。
+4. `tsCode` 改变时清空分钟 cache 并取消在途请求。
+5. 组件卸载时同时取消 page-init controller 和分钟 controller，防止卸载后 setState。
+6. cache key 固定为 `StockMinuteFrequency`；不同代码不得复用同一 cache。
+
+### 17.3 时间键硬约束
+
+adapter 内部匹配键固定为“`tradeDate` + `tradeTime` 的本地时分秒部分 + 时区偏移”，例如 `2026-07-31T09:30:00+08:00`。后端当前返回的 `tradeTime` 已是完整 ISO 字符串，因此实现必须先取 `tradeTime` 的时间部分再拼接，不能直接重复拼接完整 ISO 字符串，也不能只使用 `tradeTime`；否则跨交易日同一时刻会产生碰撞或键语义不一致。`StockMinuteChartPoint.key` 必须使用该完整键。传给 lightweight-charts 的 `timestamp` 只用于排序和绘图，不替代业务匹配键。
+
+## 18. 代码与文档对账门禁
+
+当前工作区已完成 M0-M2 后端能力，M3 前端实现处于联调阶段。进入 M4 前必须完成以下对账；“代码能编译”不等于对账通过：
+
+### 18.1 必须修正/确认的实现点
+
+1. `StockDetailPage` 的 `useEffect` cleanup 必须同时 abort `minuteControllerRef.current`；否则切换股票或卸载页面时可能出现旧请求回写。
+2. `stockMinuteViewModelAdapter.ts` 的 `StockMinuteChartPoint.key` 必须改成完整时间键 `${tradeDate}T${tradeTime}`。
+3. `StockMinuteChartWorkspace.tsx` 的未使用类型导入必须通过 typecheck/lint 清理。
+4. indicators 返回 `DELAYED/EMPTY` 而 bars 有数据时，workspace 状态文案必须优先展示 indicator status，不得仅展示 bars 的 READY 文案。
+5. `StockMinsLakeReader` 当前对每个文件做 `DESCRIBE`，业务查询使用 `LIMIT+1` bounded fetch；性能报告必须分别记录 schema 查询和业务查询耗时，不能把它们合并成“单次查询”而掩盖开销。
+
+### 18.2 代码级验收矩阵
+
+| 验收项 | 代码位置 | 证据 |
+|---|---|---|
+| local/prod 路由隔离 | `local_minute_capability.py`、`src/app/api/v1/router.py` | prod 路径 404；`duckdb` 未导入 |
+| 七频且 freq 无默认值 | API `Query()`、frontend frequency union | 缺 freq 400；1/5/15/30/60/90/120 全覆盖 |
+| 500 根 bounded | reader `_query_rows()`、client/page params | SQL limit=501；前端 limit=500 |
+| cursor 无 offset | reader cursor 编解码和 `<` 谓词 | 连续两页无重复/遗漏 |
+| NULL 指标保留 | schema/service/adapter/chart | JSON null、图表不画 0 |
+| delayed 200 | `StockMinuteQueryService._to_status()` | 显式 endDate 且源缺失/落后时 200/DELAYED |
+| 错误不伪装 delayed | API exception mapping | schema/IO -> 503/ERROR |
+| 无额外字段 | Pydantic `extra=forbid`、explicit projection | `preClose/change/pctChg` 不出现 |
+| 请求不写入 | reader/service/api 调用链 | 无 write、Dagster、event API |
+
+## 19. 可直接执行的开发步骤
+
+每一步完成后先运行本步测试，再进入下一步；任一步失败停止，不用放宽门禁掩盖问题。
+
+### D1：M3 前端契约和 adapter
+
+修改：
+
+```text
+wealth/src/features/stock-detail/api/stockMinuteApiTypes.ts
+wealth/src/features/stock-detail/api/stockMinuteApiClient.ts
+wealth/src/features/stock-detail/api/stockMinuteViewModelAdapter.ts
+```
+
+验收：七频 union、两个 endpoint、共同参数、完整时间键、NULL 保留、指标差集不生成伪造 bar。
+
+测试：
+
+```bash
+cd /Users/congming/github/goldenshare/wealth
+npm run typecheck
+npm test -- --run src/features/stock-detail/api/stockMinuteViewModelAdapter.test.ts
+```
+
+### D2：M3 页面与图表
+
+修改：
+
+```text
+wealth/src/pages/stock-detail/StockDetailPage.tsx
+wealth/src/features/stock-detail/chart/StockMinuteChartWorkspace.tsx
+wealth/src/pages/stock-detail/stock-detail-page.css
+```
+
+验收：页面保持 page-init -> 日线顺序；切换分钟只影响图表区；并发请求可取消；缓存按频率隔离；四个窗格可挂载。
+
+测试：
+
+```bash
+cd /Users/congming/github/goldenshare/wealth
+npm test -- --run src/pages/stock-detail/StockDetailPage.test.tsx src/features/stock-detail/chart/StockMinuteChartWorkspace.test.tsx
+npm run typecheck
+npm run build
+```
+
+### D3：后端完整回归
+
+```bash
+cd /Users/congming/github/goldenshare
+PYTHONPATH=. uv run --extra dev --extra local-lake python -m pytest -q \
+  tests/test_local_minute_capability.py \
+  tests/test_stock_mins_reader.py \
+  tests/web/test_stock_detail_minutes_api.py \
+  tests/web/test_wealth_stock_detail_api.py \
+  tests/lake_console/test_settings.py \
+  tests/architecture/test_subsystem_dependency_matrix.py
+```
+
+### D4：本地真实 API 与远程负向验证
+
+本地必须显式设置：
+
+```bash
+APP_ENV=dev \
+GOLDENSHARE_ENV_FILE=/path/to/local.env \
+WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED=true \
+GOLDENSHARE_LAKE_ROOT=/Volumes/datasource/data_lake \
+uv run --extra dev --extra local-lake ...
+```
+
+验证：
+
+1. `601878.SH` 或当前存在分钟文件的真实代码，七频各请求一次；默认 limit=500。
+2. 记录每次 HTTP 状态、`dataStatus`、返回行数、`hasMore`、`scannedFileCount`、elapsed。
+3. 至少验证一个缺文件代码的显式 `endDate` 得到 `200/DELAYED`。
+4. `APP_ENV=prod` 且 local flag true、root 为空时，分钟路由不挂载，且进程不导入 DuckDB。
+5. 日线 page-init/kline 在 local/prod 两种 profile 都保持原响应字段和状态。
+
+### D5：最终报告与提交门禁
+
+报告必须记录：
+
+- 真实测试时间、代码 commit、环境 profile；
+- 七频请求参数和返回行数；
+- 单接口 P50/P95/P99、最大 elapsed；
+- schema 查询耗时、业务查询耗时、DuckDB connection 数；
+- response bytes、5MB 边界结果；
+- 远程 404/未导入 DuckDB 证据；
+- 测试命令和结果；
+- 未通过项和后续修复。
+
+提交前执行：
+
+```bash
+git diff --check
+git status --short
+```
+
+只允许将本专项文件分组提交，不得把 market-overview、Dagster 文档、报告、Figma 产物或其它脏改带入提交。
+
+## 20. 当前阶段结论
+
+当前可以继续 M3，但不能把 M3 视为已完成。后端 M0-M2 已有本地真实 API smoke；前端 M3 需要先完成 D1/D2 的时间键、取消竞态和指标状态文案收口，再运行前端测试与 build。通过 D3-D5 后，才进入 M4 的真实页面联调和远程构建负向验证。
+
+| 项目 | 当前状态 |
+|---|---|
+| API/reader/config 后端 | 已实现并有单测、真实 TestClient smoke |
+| 前端分钟 client/adapter/page/workspace | 已实现草稿，待 D1/D2 收口与测试 |
+| 完整前端回归 | 待执行 |
+| 真实浏览器页面联调 | 待执行 |
+| 远程 prod 隔离验证 | 后端 route/import smoke 已有，待最终报告复核 |
+| 正式完成 | 未完成 |
+
+## 21. 版本记录补充
+
+| v1.3 | 2026-07-31 | 增加符号级实施矩阵、调用链、reader 算法、前端状态机、代码对账门禁和可直接执行的 D1-D5 步骤 |

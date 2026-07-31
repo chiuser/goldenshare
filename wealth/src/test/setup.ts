@@ -20,6 +20,7 @@ HTMLCanvasElement.prototype.getContext = function getContext() {
     fillText: () => {},
     lineTo: () => {},
     moveTo: () => {},
+    measureText: () => ({ width: 0 }),
     restore: () => {},
     save: () => {},
     setLineDash: () => {},
