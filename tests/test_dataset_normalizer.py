@@ -4,6 +4,8 @@ from datetime import date
 from datetime import datetime
 from decimal import Decimal
 
+import pytest
+
 from src.foundation.datasets.registry import get_dataset_definition
 from src.foundation.ingestion.normalizer import DatasetNormalizer
 from src.foundation.ingestion.source_client import SourceFetchResult
@@ -86,6 +88,54 @@ def test_cyq_chips_normalizer_rejects_missing_price() -> None:
     assert batch.rows_rejected == 1
     assert batch.rejected_reasons == {"normalize.required_field_missing:price": 1}
     assert batch.rows_normalized == []
+
+
+def test_idx_factor_pro_normalizer_parses_trade_date_and_numeric_fields() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("idx_factor_pro"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-idx-factor-pro",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "ts_code": "000001.SH",
+                    "trade_date": "20260424",
+                    "open": "10.1200",
+                    "pct_change": "1.2300",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    assert batch.rows_normalized[0]["trade_date"] == date(2026, 4, 24)
+    assert batch.rows_normalized[0]["open"] == Decimal("10.1200")
+    assert batch.rows_normalized[0]["pct_change"] == Decimal("1.2300")
+
+
+@pytest.mark.parametrize(
+    ("row", "reason"),
+    (
+        ({"trade_date": "20260424"}, "normalize.required_field_missing:ts_code"),
+        ({"ts_code": "000001.SH"}, "normalize.required_field_missing:trade_date"),
+    ),
+)
+def test_idx_factor_pro_normalizer_rejects_missing_identity_fields(row: dict[str, str], reason: str) -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("idx_factor_pro"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-idx-factor-pro-missing-identity",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[row],
+        ),
+    )
+
+    assert batch.rows_normalized == []
+    assert batch.rejected_reasons == {reason: 1}
 
 
 def test_etf_sh_cons_normalizer_keeps_source_text_facts() -> None:

@@ -46,6 +46,7 @@ FRESHNESS_POLICY_BY_DATASET: dict[str, FreshnessPolicy] = {
     "index_basic": SNAPSHOT_RUN_TRACE,
     "index_daily": CONTINUOUS_OPEN_DAY,
     "index_daily_basic": CONTINUOUS_OPEN_DAY,
+    "idx_factor_pro": CONTINUOUS_OPEN_DAY,
     "index_mins": CONTINUOUS_OPEN_DAY,
     "index_monthly": PERIOD_BUCKET,
     "index_weekly": PERIOD_BUCKET,

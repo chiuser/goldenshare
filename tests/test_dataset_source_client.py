@@ -287,6 +287,41 @@ def test_cyq_chips_source_client_uses_offset_limit_pagination(monkeypatch) -> No
     ]
 
 
+def test_idx_factor_pro_source_client_pages_full_trade_date_result(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    first_page = [{"ts_code": f"000{index:04d}.SH", "trade_date": "20260424"} for index in range(8000)]
+    connector = PaginatedConnector(
+        {
+            0: first_page,
+            8000: [{"ts_code": "399300.SZ", "trade_date": "20260424"}],
+        }
+    )
+    monkeypatch.setattr(source_client_module, "create_source_connector", lambda source_key: connector)
+    definition = get_dataset_definition("idx_factor_pro")
+
+    result = DatasetSourceClient().fetch(
+        definition=definition,
+        unit=PlanUnitSnapshot(
+            unit_id="idx-factor-pro-u1",
+            dataset_key="idx_factor_pro",
+            source_key="tushare",
+            trade_date=None,
+            request_params={"trade_date": "20260424"},
+            progress_context={},
+            pagination_policy="offset_limit",
+            page_limit=8000,
+        ),
+    )
+
+    assert result.request_count == 2
+    assert len(result.rows_raw) == 8001
+    assert [call["params"] for call in connector.calls] == [
+        {"trade_date": "20260424", "offset": 0, "limit": 8000},
+        {"trade_date": "20260424", "offset": 8000, "limit": 8000},
+    ]
+    assert all(call["api_name"] == "idx_factor_pro" for call in connector.calls)
+    assert all(call["fields"] == definition.source.source_fields for call in connector.calls)
+
+
 def test_index_mins_source_client_passes_fields_and_fills_missing_freq(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     connector = RecordingConnector(rows=[{"ts_code": "000001.SH", "trade_time": "2026-04-30 15:00:00"}])
     monkeypatch.setattr(source_client_module, "create_source_connector", lambda source_key: connector)

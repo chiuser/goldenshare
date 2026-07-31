@@ -12,6 +12,7 @@ from src.foundation.ingestion.request_builders import (
     _cyq_chips_params,
     _etf_sh_cons_params,
     _index_daily_params,
+    _idx_factor_pro_params,
     _stk_factor_pro_params,
 )
 
@@ -148,6 +149,69 @@ def test_index_daily_request_builder_requires_ts_code() -> None:
 
     with pytest.raises(ValueError, match="指数日线缺少指数代码"):
         _index_daily_params(request, date(2026, 4, 24), {})
+
+
+def test_idx_factor_pro_point_plan_uses_one_full_market_trade_date_unit(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="idx_factor_pro",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "point_incremental"
+    assert plan.planning.universe_policy == "no_pool"
+    assert plan.planning.unit_count == 1
+    assert plan.filters == {"trade_date": date(2026, 4, 24)}
+    assert plan.units[0].trade_date == date(2026, 4, 24)
+    assert plan.units[0].request_params == {"trade_date": "20260424"}
+    assert plan.units[0].pagination_policy == "offset_limit"
+    assert plan.units[0].page_limit == 8000
+
+
+def test_idx_factor_pro_range_plan_expands_only_open_trade_dates(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        trade_calendar=SimpleNamespace(
+            get_open_dates=mocker.Mock(return_value=[date(2026, 4, 22), date(2026, 4, 24)])
+        )
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="idx_factor_pro",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_date=date(2026, 4, 21), end_date=date(2026, 4, 24)),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "range_rebuild"
+    assert [unit.trade_date for unit in plan.units] == [date(2026, 4, 22), date(2026, 4, 24)]
+    assert [unit.request_params for unit in plan.units] == [
+        {"trade_date": "20260422"},
+        {"trade_date": "20260424"},
+    ]
+    fake_dao.trade_calendar.get_open_dates.assert_called_once_with("SSE", date(2026, 4, 21), date(2026, 4, 24))
+
+
+def test_idx_factor_pro_rejects_hidden_ts_code_filter(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="idx_factor_pro",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+        filters={"ts_code": "000001.SH"},
+    )
+
+    with pytest.raises(IngestionValidationError, match="存在未定义参数：ts_code"):
+        resolver.build_plan(request)
+
+
+def test_idx_factor_pro_request_builder_requires_trade_date_anchor() -> None:
+    with pytest.raises(ValueError, match="指数技术因子\\(专业版\\)缺少交易日锚点"):
+        _idx_factor_pro_params(SimpleNamespace(), None, {})
 
 
 def test_cyq_chips_default_point_request_uses_tushare_active_equity_pool(mocker) -> None:

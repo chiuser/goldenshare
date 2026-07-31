@@ -49,6 +49,7 @@ from src.foundation.models.core.dc_daily import DcDaily
 from src.foundation.models.core.dc_hot import DcHot
 from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.dc_member import DcMember
+from src.foundation.models.core.index_factor_pro import IndexFactorPro
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
 from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
 from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
@@ -86,6 +87,7 @@ from src.foundation.models.raw.raw_index_basic import RawIndexBasic
 from src.foundation.models.raw.raw_index_daily_basic import RawIndexDailyBasic
 from src.foundation.models.raw.raw_index_daily import RawIndexDaily
 from src.foundation.models.raw.raw_index_mins import RawIndexMins
+from src.foundation.models.raw.raw_idx_factor_pro import RawIdxFactorPro
 from src.foundation.models.raw.raw_index_monthly_bar import RawIndexMonthlyBar
 from src.foundation.models.raw.raw_irm_qa_sh import RawIrmQaSh
 from src.foundation.models.raw.raw_irm_qa_sz import RawIrmQaSz
@@ -181,6 +183,7 @@ class DAOFactory:
         self.index_monthly_serving = GenericDAO(session, IndexMonthlyServing)
         self.index_weight = IndexWeightDAO(session)
         self.index_daily_basic = IndexDailyBasicDAO(session)
+        self.index_factor_pro = GenericDAO(session, IndexFactorPro)
         self.moneyflow_std = GenericDAO(session, MoneyflowStd)
         self.ths_index = GenericDAO(session, ThsIndex)
         self.ths_member = GenericDAO(session, ThsMember)
@@ -231,6 +234,7 @@ class DAOFactory:
         self.raw_index_basic = GenericDAO(session, RawIndexBasic)
         self.raw_index_daily = GenericDAO(session, RawIndexDaily)
         self.raw_index_mins = GenericDAO(session, RawIndexMins)
+        self.raw_idx_factor_pro = GenericDAO(session, RawIdxFactorPro)
         self.raw_index_weekly_bar = GenericDAO(session, RawIndexWeeklyBar)
         self.raw_index_monthly_bar = GenericDAO(session, RawIndexMonthlyBar)
         self.raw_index_weight = GenericDAO(session, RawIndexWeight)

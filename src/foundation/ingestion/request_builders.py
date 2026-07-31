@@ -572,6 +572,14 @@ def _index_daily_basic_params(request, anchor_date: date | None, enum_values: di
     return params
 
 
+def _idx_factor_pro_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del request
+    del enum_values
+    if anchor_date is None:
+        raise ValueError("指数技术因子(专业版)缺少交易日锚点")
+    return {"trade_date": anchor_date.strftime("%Y%m%d")}
+
+
 def _index_daily_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     ts_code = enum_values.get("ts_code") or request.params.get("ts_code")
     if ts_code in (None, ""):
@@ -1136,6 +1144,7 @@ __all__ = [
     "_stk_holdernumber_params",
     "_dc_index_params",
     "_index_daily_basic_params",
+    "_idx_factor_pro_params",
     "_index_daily_params",
     "_index_weight_params",
     "_index_weekly_params",

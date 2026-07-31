@@ -1,10 +1,20 @@
 # 指数技术因子（专业版）`idx_factor_pro` 数据集接入方案
 
-状态：基础接入与源站探测方案已确认；LLD 待评审
+状态：开发中；M1 Foundation 主链已完成并通过本地门禁，Ops 目录、源站探测与自动任务页面待实现
 
 更新时间：2026-08-01
 
 依据：[数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)、[指数技术因子（专业版）源文档](</Users/congming/github/goldenshare/docs/sources/tushare/指数专题/0358_指数技术因子(专业版).md>)、[数据集日期模型消费指南](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)。
+
+## 实施进度
+
+| 阶段 | 状态 | 已验证结果 |
+| --- | --- | --- |
+| M1：Foundation 主链 | 已完成 | `DatasetDefinition`、request builder、raw ORM、serving view ORM、DAO、Alembic、freshness 映射与 raw-only writer 护栏已落地；定向测试 210 项通过，Definition lint 通过。 |
+| M2：Ops 目录与任务入口 | 待开始 | 仅增加 `index_market_data` 展示目录；不修改既有 workflow。 |
+| M3：源站探测后端 | 待开始 | 仅在当日开市且源站已有返回时创建标准单日 TaskRun。 |
+| M4：自动任务页面 | 待开始 | 仅展示本数据集的源站探测条件，不暴露 `ts_code`。 |
+| M5：全量验证与发布验收 | 待开始 | 迁移与真实单日同步必须在获得部署授权后执行。 |
 
 ## 1. 结论与范围
 

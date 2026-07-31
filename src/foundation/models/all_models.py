@@ -40,6 +40,7 @@ from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.dc_member import DcMember
 from src.foundation.models.core.index_basic import IndexBasic
 from src.foundation.models.core.index_daily_basic import IndexDailyBasic
+from src.foundation.models.core.index_factor_pro import IndexFactorPro
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
 from src.foundation.models.core.index_monthly_bar import IndexMonthlyBar
 from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
@@ -105,6 +106,7 @@ from src.foundation.models.raw.raw_index_basic import RawIndexBasic
 from src.foundation.models.raw.raw_index_daily_basic import RawIndexDailyBasic
 from src.foundation.models.raw.raw_index_daily import RawIndexDaily
 from src.foundation.models.raw.raw_index_mins import RawIndexMins
+from src.foundation.models.raw.raw_idx_factor_pro import RawIdxFactorPro
 from src.foundation.models.raw.raw_index_monthly_bar import RawIndexMonthlyBar
 from src.foundation.models.raw.raw_index_weight import RawIndexWeight
 from src.foundation.models.raw.raw_irm_qa_sh import RawIrmQaSh
@@ -187,6 +189,7 @@ __all__ = [
     "DcMember",
     "IndexBasic",
     "IndexDailyBasic",
+    "IndexFactorPro",
     "IndexDailyServing",
     "IndexMonthlyBar",
     "IndexMonthlyServing",
@@ -223,6 +226,7 @@ __all__ = [
     "RawIndexDailyBasic",
     "RawIndexDaily",
     "RawIndexMins",
+    "RawIdxFactorPro",
     "RawIndexMonthlyBar",
     "RawIndexWeight",
     "RawIrmQaSh",

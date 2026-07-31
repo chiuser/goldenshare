@@ -1,12 +1,16 @@
 # 指数技术因子（专业版）`idx_factor_pro` 低层设计 v1
 
-状态：待评审（源站探测口径已确认）
+状态：开发中；M1 Foundation 主链已完成，后续按第 11 节顺序继续实施
 
 更新时间：2026-08-01
 
 上游方案：[指数技术因子（专业版）`idx_factor_pro` 数据集接入方案](/Users/congming/github/goldenshare/docs/datasets/idx-factor-pro-dataset-development.md)
 
 源站事实：[指数技术因子（专业版）源文档](</Users/congming/github/goldenshare/docs/sources/tushare/指数专题/0358_指数技术因子(专业版).md>)
+
+## 实施进度
+
+2026-08-01 已完成 M1 Foundation 主链：Definition、交易日 request builder、raw 表与 serving view ORM、DAOFactory、Alembic revision `20260801_000120`、freshness 映射，以及 Definition/resolver/source pagination/normalizer/writer/model-view 契约测试。未实现 Ops catalog、源站探测、自动任务页面或 workflow 改动；后续必须继续遵守本 LLD 第 1.2 节边界。
 
 ## 1. 本 LLD 固定的边界
 
