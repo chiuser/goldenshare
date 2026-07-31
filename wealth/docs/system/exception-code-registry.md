@@ -134,6 +134,16 @@
 | `NEWS_CHANNEL_RULE_INVALID` | `marketNews` | error | false | true | 新闻频道分类规则不可用 | `core_serving_light.news.channels` 无法支撑 `公司/非公司` 分类 | 停止编码/发布，必须先确认真实频道取值 | biz-api | Phase-1 | active |
 | `NEWS_QUERY_FAILED` | `marketNews` | error | false | true | 新闻模块查询失败 | SQL/服务异常 | 模块 error，保留其他模块渲染 | biz-api | Phase-1 | active |
 
+## 6. 股票详情分钟模块（Phase-2）
+
+| code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `SM_LOCAL_LAKE_NOT_CONFIGURED` | `stockDetailMinutes` | error | false | true | 本地分钟能力未完成运行配置 | 本地开关开启但 Lake root 不可读或 `local-lake` DuckDB 依赖不可用 | 本地启动失败；不以数据空态伪装 | app/biz-api | Phase-2 | active |
+| `SM_SOURCE_NOT_READY` | `stockDetailMinutes` | warn | false | true | 分钟源数据尚未覆盖调用方期望日期 | 目标文件缺失、查询范围无文件，或 observed end 早于显式 `endDate` | HTTP 200；返回 `dataStatus=DELAYED`，保留页面其它内容 | biz-api | Phase-2 | active |
+| `SM_SOURCE_CONTRACT_INVALID` | `stockDetailMinutes` | error | false | true | 分钟 Lake 文件不符合固定 schema/身份/时间键契约 | Parquet schema、代码、频率、日期或时间键校验失败 | 分钟模块 error；不返回可疑数据 | biz-api | Phase-2 | active |
+| `SM_QUERY_FAILED` | `stockDetailMinutes` | error | false | true | 本地分钟查询执行失败 | DuckDB、文件读取或结果校验异常 | 分钟模块 error；保留股票身份、日线和右侧信息 | biz-api | Phase-2 | active |
+| `SM_REQUEST_INVALID` | `stockDetailMinutes` | error | false | true | 分钟查询请求不合法 | 代码、频率、日期范围、cursor 或 limit 不合法 | HTTP 400；保留其它页面内容 | biz-api | Phase-2 | active |
+
 ---
 
 ## 7. 变更规则
