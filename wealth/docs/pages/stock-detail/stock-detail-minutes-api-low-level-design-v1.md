@@ -1,4 +1,4 @@
-# 股票详情分钟线与分钟技术指标 API LLD v1.5
+# 股票详情分钟线与分钟技术指标 API LLD v1.6
 
 > 方案：[分钟 API 技术实施方案](./stock-detail-minutes-api-implementation-design-v1.md)
 > 需求：[分钟 API 标杆需求](./stock-detail-minutes-api-benchmark-requirement-v1.md)
@@ -660,9 +660,10 @@ interface StockMinuteChartPoint {
 4. 复用日线的受控 pointer-drag 行为。`pointerdown` 记录 `pointerId/startX/startRange`；`pointermove` 用容器宽度把 `deltaX` 换算为 logical-range 平移，范围始终 clamp 到 `[0, data.points.length - 1]`；`pointerup/cancel` 清理 drag state。拖动发生在任意窗格都必须同步四图，不发新请求、不加载 cursor 下一页。保持 `handleScroll=false`、`handleScale=false`。
 5. `timeVisible=true`。lightweight-charts 使用 UTC timestamp 作为内部排序键；tooltip 直接从 `tradeTime` 保留的 `+08:00` 语义格式化北京时间，不通过浏览器 `Date` 重新解释。时间轴继续使用图表库对同一 timestamp 的现有显示行为，本轮不额外改变其标签密度或格式。
 6. 建立 `timestamp -> { point, index }` Map，所有图表订阅 `subscribeCrosshairMove()`。命中某时间点时更新 `hoverIndex/isChartHovering/sharedCrosshair`，并将 crosshair 同步到有有效价格值的其他窗格；未命中、NULL 指标或离开时不得伪造 0 值。
-7. K 线窗格内新增 `MinuteKlineTooltip`，复用日线 `.kline-tooltip`、`.left/.right`、`.tooltip-grid` 样式。字段固定为：时间、开盘、最高、最低、收盘、成交量、成交额、DIF、DEA、MACD、K、D、J。`formatNullable()` 将 NULL 指标显示为 `--`。不得展示接口未返回的 `preClose/change/pctChg/turnover`。
-8. tooltip 侧边由 crosshair x 坐标决定：超过当前容器宽度 `62%` 置 `left`，否则 `right`。tooltip 只在 `isChartHovering=true` 时显示；频率切换时重置 hover 到新数据末点和初始 90 根范围。
-9. 同一 `time` 不能出现重复点；重复键在 adapter 中 fail closed。MACD/KDJ line/histogram 对 NULL 点跳过，不把 NULL 画成 0。当一整段指标都为空时，指标窗显示 delayed/empty 状态，不隐藏 OHLCV 主图。频率切换只更换数据和标题，不改变页面路由。
+7. K 线窗格内新增 `MinuteKlineTooltip`，复用日线 `.kline-tooltip`、`.left/.right`、`.tooltip-grid` 样式和行顺序。字段固定为：时间、开盘、收盘、最高、最低、成交量、成交额。分钟源 `vol` 的单位为股、`amount` 的单位为元，分别使用股/万股/亿股和元/万元/亿元格式化；不得复用日线手/千元的换算。收盘、最高、最低按相对本根开盘价着色，开盘为 `flat`；没有昨收时不得伪造日线方向口径。
+8. MACD/KDJ 不进入 K 线 tooltip。共享 crosshair 更新 `hoverIndex` 后，MACD、成交量、KDJ 面板标题自动展示同一时间点的值；`formatNullable()` 将 NULL 指标显示为 `--`。不得展示接口未返回的 `preClose/change/pctChg/turnover`。
+9. tooltip 侧边由 crosshair x 坐标决定：超过当前容器宽度 `62%` 置 `left`，否则 `right`。tooltip 只在 `isChartHovering=true` 时显示；频率切换时重置 hover 到新数据末点和初始 90 根范围。
+10. 同一 `time` 不能出现重复点；重复键在 adapter 中 fail closed。MACD/KDJ line/histogram 对 NULL 点跳过，不把 NULL 画成 0。当一整段指标都为空时，指标窗显示 delayed/empty 状态，不隐藏 OHLCV 主图。频率切换只更换数据和标题，不改变页面路由。
 
 ## 9. 测试与验证
 
@@ -708,7 +709,7 @@ wealth/src/features/stock-detail/chart/StockMinuteChartWorkspace.test.tsx
 4. NULL 指标保持 NULL，不转 0。
 5. 500 个分钟点加载后，四窗格初始逻辑范围只显示末尾 90 点，不调用 `fitContent()`。
 6. 在任意分钟窗格拖动后，四个 chart 的 logical range 同步且不越过已加载点范围；该动作不发出新的 bars/indicators 请求。
-7. crosshair 命中时分钟 K 线 tooltip 展示真实 OHLCV、amount 和指标字段；NULL 指标为 `--`，不出现日线专属字段。
+7. crosshair 命中时分钟 K 线 tooltip 按日线顺序展示真实 OHLCV/amount 并使用正确的股/元单位；MACD/KDJ 标题同步更新，NULL 指标为 `--`，不出现日线专属字段。
 8. bars/indicators 时间差集不制造伪造 bar。
 9. API error 不回退 mock。
 10. delayed/empty 不污染已有日线页面状态。
@@ -811,6 +812,7 @@ debug metadata 只允许包含：dataset、freq、scanned_file_count、row_count
 | v1.3 | 2026-07-31 | 增加符号级实施矩阵、调用链、reader 算法、前端状态机、代码对账门禁和可直接执行的 D1-D5 步骤 |
 | v1.4 | 2026-07-31 | 完成 M0-M4 实现、真实 API/分页/隔离验证和浏览器页面联调，回写最终验收证据 |
 | v1.5 | 2026-07-31 | 细化并实施分钟图首屏 90 点、四窗格受控拖动和真实字段 tooltip 的代码级交互口径 |
+| v1.6 | 2026-07-31 | 修正分钟 tooltip 对齐：复用日线顺序与方向色，按分钟源股/元单位展示量额，指标保留在同步面板标题 |
 
 ## 15. 符号级实施矩阵
 
@@ -1100,8 +1102,9 @@ M0-M5 已完成。分钟图已在不改变 API 契约的前提下完成 90 点�
 - 本地分钟 API 返回 `dataStatus=READY`、`count=500`、`hasMore=true`；前端没有降低接口缓冲量。
 - `StockMinuteChartWorkspace` 组件测试证明 500 点的初始逻辑范围为 `410..499`，四个图都不调用 `fitContent()`。
 - 真实浏览器页面保留 K 线、MACD、成交量、KDJ 四窗格，共 28 个 canvas；从任意图区域拖动后，分钟 endpoint 请求数保持 `2 -> 2`。
-- 悬停 K 线时 tooltip 显示北京时间、OHLC、成交量、成交额和 MACD/KDJ；不显示 `preClose/change/pctChg/turnover`，浏览器 console error 为 `0`。
-- 截图：`/private/tmp/stock_minute_chart_interaction_20260731.png`。
+- 悬停 K 线时 tooltip 按日线顺序显示北京时间、OHLC、成交量、成交额；MACD/KDJ 面板标题同步更新。不显示 `preClose/change/pctChg/turnover`，浏览器 console error 为 `0`。
+- 日线 tooltip 对齐后的前端视觉回归使用受控 mock minute API：分钟 `vol` 按股/万股/亿股、`amount` 按元/万元/亿元显示，收盘、最高、最低相对本根开盘价着色；mock 页面无 console error。
+- 截图：`/private/tmp/stock_minute_tooltip_aligned_20260731.png`。
 
 ## 23. 后续边界
 

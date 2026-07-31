@@ -154,8 +154,9 @@ v1 不增加独立 `expectedEndDate` 参数：调用方传入的 `endDate` 既�
 3. 四个窗格维持同一受控逻辑范围。用户在任意窗格按住并左右拖动时，按横向像素差平移该逻辑范围，并 clamp 在当前已加载的 `0..pointCount-1` 内；拖动不得发起新 API 请求，也不实现 cursor 自动翻页。
 4. 保持 `handleScroll=false`、`handleScale=false`。分钟图的横向浏览只使用与日线一致的 pointer-drag 逻辑，避免四个窗格各自滚动而失去对齐。
 5. 所有窗格订阅同一 crosshair 语义，悬停时间点同步到 K 线、MACD、成交量和 KDJ。K 线面板展示 tooltip，位置在鼠标超过容器宽度 62% 时切换到左侧，避免被右边界遮挡。
-6. tooltip 只展示分钟数据实际拥有的字段：北京时间、开高低收、成交量、成交额、DIF/DEA/MACD、K/D/J；指标为 NULL 时显示 `--`。不得伪造日线的 `preClose/change/pctChg/turnover` 等字段。
-7. 该交互改动不修改 API 参数、500 根返回量、cursor、后端数据读取或 local/prod 隔离边界。
+6. K 线 tooltip 与日线保持同一信息层级和顺序：北京时间、开盘、收盘、最高、最低、成交量、成交额。分钟源的 `vol` 为股、`amount` 为元，格式化后分别显示股/万股/亿股和元/万元/亿元；不得套用日线手/千元的换算。收盘、最高、最低以本根开盘价着色，开盘为中性。
+7. MACD/KDJ 不塞进 K 线 tooltip；共享 crosshair 已使四个面板的标题指标随悬停点更新。指标 NULL 仍显示 `--`。不得伪造日线的 `preClose/change/pctChg/turnover` 等字段。
+8. 该交互改动不修改 API 参数、500 根返回量、cursor、后端数据读取或 local/prod 隔离边界。
 
 ## 9. 状态与异常
 
@@ -202,3 +203,4 @@ v1 不增加独立 `expectedEndDate` 参数：调用方传入的 `endDate` 既�
 | v1.1 | 2026-07-31 | 冻结 500 根默认返回、显式频率、DELAYED 状态和 local-lake 依赖边界 |
 | v1.2 | 2026-07-31 | 明确 `endDate` 的期望日语义并同步指标响应契约 |
 | v1.3 | 2026-07-31 | 冻结分钟首屏 90 根、四窗格受控拖动和基于真实字段的同步 tooltip 口径 |
+| v1.4 | 2026-07-31 | 对齐日线 tooltip 行顺序、方向色与样式，同时按分钟源股/元单位格式化量额 |

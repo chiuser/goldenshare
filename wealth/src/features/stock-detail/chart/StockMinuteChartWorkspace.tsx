@@ -13,6 +13,8 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 
+import { directionClass } from "../../../shared/lib/marketDirection";
+import type { MarketDirection } from "../../../shared/model/market";
 import type { StockMinuteChartPoint, StockMinuteChartViewModel } from "../api/stockMinuteViewModelAdapter";
 
 interface StockMinuteChartWorkspaceProps {
@@ -421,28 +423,22 @@ function MinutePanel({
 }
 
 function MinuteKlineTooltip({ point, side }: { point: StockMinuteChartPoint; side: "left" | "right" }) {
-  const rows: Array<[string, string]> = [
-    ["时间", formatMinuteTradeTime(point.tradeTime)],
-    ["开盘", formatNumber(point.open)],
-    ["最高", formatNumber(point.high)],
-    ["最低", formatNumber(point.low)],
-    ["收盘", formatNumber(point.close)],
-    ["成交量", formatNumber(point.volume)],
-    ["成交额", formatNumber(point.amount)],
-    ["DIF", formatNullable(point.macdDif)],
-    ["DEA", formatNullable(point.macdDea)],
-    ["MACD", formatNullable(point.macd)],
-    ["K", formatNullable(point.kdjK)],
-    ["D", formatNullable(point.kdjD)],
-    ["J", formatNullable(point.kdjJ)],
+  const rows: Array<[string, string, string]> = [
+    ["时间", formatMinuteTradeTime(point.tradeTime), "secondary"],
+    ["开盘", formatNumber(point.open), "flat"],
+    ["收盘", formatNumber(point.close), directionClass(resolveMinuteCandleDirection(point.close, point.open))],
+    ["最高", formatNumber(point.high), directionClass(resolveMinuteCandleDirection(point.high, point.open))],
+    ["最低", formatNumber(point.low), directionClass(resolveMinuteCandleDirection(point.low, point.open))],
+    ["成交量", formatMinuteTooltipVolume(point.volume), "secondary"],
+    ["成交额", formatMinuteTooltipAmount(point.amount), "secondary"],
   ];
   return (
     <div aria-label="分钟K线数据提示" className={`kline-tooltip ${side}`}>
       <div className="tooltip-grid">
-        {rows.map(([label, value]) => (
+        {rows.map(([label, value, tone]) => (
           <div className="tooltip-row" key={label}>
             <span>{label}</span>
-            <b>{value}</b>
+            <b className={tone}>{value}</b>
           </div>
         ))}
       </div>
@@ -473,6 +469,27 @@ function statusMessageFor(status: string): string {
 function formatMinuteTradeTime(value: string): string {
   const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/.exec(value);
   return match ? `${match[1]?.replaceAll("-", "")} ${match[2]}` : value;
+}
+
+function resolveMinuteCandleDirection(value: number, open: number): MarketDirection {
+  if (!Number.isFinite(value) || !Number.isFinite(open)) return "UNKNOWN";
+  if (value > open) return "UP";
+  if (value < open) return "DOWN";
+  return "FLAT";
+}
+
+function formatMinuteTooltipVolume(value: number): string {
+  if (!Number.isFinite(value)) return "--";
+  if (value >= 100_000_000) return `${(value / 100_000_000).toFixed(2)}亿股`;
+  if (value >= 10_000) return `${(value / 10_000).toFixed(2)}万股`;
+  return `${Math.round(value)}股`;
+}
+
+function formatMinuteTooltipAmount(value: number): string {
+  if (!Number.isFinite(value)) return "--";
+  if (value >= 100_000_000) return `${(value / 100_000_000).toFixed(2)}亿元`;
+  if (value >= 10_000) return `${(value / 10_000).toFixed(2)}万元`;
+  return `${value.toFixed(2)}元`;
 }
 
 function formatNumber(value: number): string {

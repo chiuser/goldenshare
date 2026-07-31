@@ -117,10 +117,16 @@ describe("StockMinuteChartWorkspace", () => {
     expect(visibleRanges[0].to).toBeLessThanOrEqual(499);
   });
 
-  it("shows a synchronized tooltip with only real minute fields", () => {
+  it("matches the daily tooltip order while preserving minute units and field boundaries", () => {
     const data = makeMinuteData(100);
     const hoveredPoint = data.points[98]!;
     hoveredPoint.macdDif = null;
+    hoveredPoint.open = 10;
+    hoveredPoint.close = 11;
+    hoveredPoint.high = 11.5;
+    hoveredPoint.low = 9.5;
+    hoveredPoint.volume = 764_100;
+    hoveredPoint.amount = 7_294_676;
     render(<StockMinuteChartWorkspace loadState="ready" data={data} />);
 
     const klineHost = screen.getByLabelText("分钟K线").querySelector(".chart-host");
@@ -132,10 +138,14 @@ describe("StockMinuteChartWorkspace", () => {
     const tooltip = screen.getByLabelText("分钟K线数据提示");
     expect(tooltip).toHaveClass("left");
     expect(within(tooltip).getByText("20260731 11:08")).toBeInTheDocument();
-    expect(within(tooltip).getByText("成交额")).toBeInTheDocument();
-    expect(within(tooltip).getByText("--")).toBeInTheDocument();
+    expect(within(tooltip).getByText("10.00")).toHaveClass("flat");
+    expect(within(tooltip).getByText("11.00")).toHaveClass("up");
+    expect(within(tooltip).getByText("76.41万股")).toBeInTheDocument();
+    expect(within(tooltip).getByText("729.47万元")).toBeInTheDocument();
     expect(within(tooltip).queryByText("涨幅")).not.toBeInTheDocument();
     expect(within(tooltip).queryByText("换手率")).not.toBeInTheDocument();
+    expect(within(tooltip).queryByText("DIF")).not.toBeInTheDocument();
+    expect(screen.getByText("DIF:--")).toBeInTheDocument();
     expect(chartMock.charts[0].setCrosshairPosition).toHaveBeenCalled();
     expect(chartMock.charts[2].setCrosshairPosition).toHaveBeenCalled();
   });
