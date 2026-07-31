@@ -24,6 +24,11 @@ from src.ops.services.index_daily_remote_probe_service import (
     INDEX_DAILY_REMOTE_READY_CONDITION,
     IndexDailyRemoteReadinessProbeService,
 )
+from src.ops.services.idx_factor_pro_remote_probe_service import (
+    IDX_FACTOR_PRO_ACTION_KEY,
+    IDX_FACTOR_PRO_REMOTE_READY_CONDITION,
+    IdxFactorProRemoteReadinessProbeService,
+)
 from src.ops.services.index_mins_remote_probe_service import (
     INDEX_MINS_ACTION_KEY,
     INDEX_MINS_REMOTE_READY_CONDITION,
@@ -56,6 +61,7 @@ class ProbeRuntimeService:
         self.freshness_query = OpsFreshnessQueryService()
         self.stk_mins_remote_probe = StkMinsRemoteReadinessProbeService()
         self.index_daily_remote_probe = IndexDailyRemoteReadinessProbeService()
+        self.idx_factor_pro_remote_probe = IdxFactorProRemoteReadinessProbeService()
         self.index_mins_remote_probe = IndexMinsRemoteReadinessProbeService()
         self.kpl_list_remote_probe = KplListRemoteReadinessProbeService()
 
@@ -158,6 +164,9 @@ class ProbeRuntimeService:
             return result.matched, result.message, result.payload
         if condition_type == INDEX_DAILY_REMOTE_READY_CONDITION:
             result = self.index_daily_remote_probe.evaluate(session, rule, current=current)
+            return result.matched, result.message, result.payload
+        if condition_type == IDX_FACTOR_PRO_REMOTE_READY_CONDITION:
+            result = self.idx_factor_pro_remote_probe.evaluate(session, rule, current=current)
             return result.matched, result.message, result.payload
         if condition_type == INDEX_MINS_REMOTE_READY_CONDITION:
             result = self.index_mins_remote_probe.evaluate(session, rule, current=current)
@@ -344,18 +353,19 @@ class ProbeRuntimeService:
 
     def _has_effective_target_task(self, session: Session, rule: ProbeRule, *, probe_payload: dict | None) -> bool:
         condition_type = str((rule.probe_condition_json or {}).get("type") or "freshness_latest_open")
-        if condition_type != KPL_LIST_REMOTE_READY_CONDITION or rule.schedule_id is None:
+        if condition_type not in {KPL_LIST_REMOTE_READY_CONDITION, IDX_FACTOR_PRO_REMOTE_READY_CONDITION} or rule.schedule_id is None:
             return False
         target_trade_date = self._parse_probe_target_trade_date(
             probe_payload,
             condition_type=condition_type,
             condition_label=self._remote_source_probe_label(condition_type),
         )
+        resource_key = "kpl_list" if condition_type == KPL_LIST_REMOTE_READY_CONDITION else "idx_factor_pro"
         time_inputs = session.scalars(
             select(TaskRun.time_input_json)
             .where(TaskRun.schedule_id == rule.schedule_id)
             .where(TaskRun.trigger_source == "probe")
-            .where(TaskRun.resource_key == "kpl_list")
+            .where(TaskRun.resource_key == resource_key)
             .where(TaskRun.action == "maintain")
             .where(TaskRun.status.in_(("queued", "running", "canceling", "success", "partial_success")))
         )
@@ -379,6 +389,8 @@ class ProbeRuntimeService:
             return STK_MINS_ACTION_KEY
         if condition_type == INDEX_DAILY_REMOTE_READY_CONDITION:
             return INDEX_DAILY_ACTION_KEY
+        if condition_type == IDX_FACTOR_PRO_REMOTE_READY_CONDITION:
+            return IDX_FACTOR_PRO_ACTION_KEY
         if condition_type == INDEX_MINS_REMOTE_READY_CONDITION:
             return INDEX_MINS_ACTION_KEY
         if condition_type == KPL_LIST_REMOTE_READY_CONDITION:
@@ -391,6 +403,8 @@ class ProbeRuntimeService:
             return "源站分钟行情探测"
         if condition_type == INDEX_DAILY_REMOTE_READY_CONDITION:
             return "源站指数日线探测"
+        if condition_type == IDX_FACTOR_PRO_REMOTE_READY_CONDITION:
+            return "源站指数技术因子探测"
         if condition_type == INDEX_MINS_REMOTE_READY_CONDITION:
             return "源站指数分钟行情探测"
         if condition_type == KPL_LIST_REMOTE_READY_CONDITION:
@@ -403,6 +417,8 @@ class ProbeRuntimeService:
             return "源站分钟行情探测只支持股票历史分钟行情维护"
         if condition_type == INDEX_DAILY_REMOTE_READY_CONDITION:
             return "源站指数日线探测只支持指数日线行情维护"
+        if condition_type == IDX_FACTOR_PRO_REMOTE_READY_CONDITION:
+            return "源站指数技术因子探测只支持指数技术因子（专业版）维护"
         if condition_type == INDEX_MINS_REMOTE_READY_CONDITION:
             return "源站指数分钟行情探测只支持指数历史分钟行情维护"
         if condition_type == KPL_LIST_REMOTE_READY_CONDITION:

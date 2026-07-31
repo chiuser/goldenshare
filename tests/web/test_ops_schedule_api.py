@@ -1374,6 +1374,114 @@ def test_ops_schedule_remote_index_daily_probe_mode_rejects_invalid_binding(
     assert response.json()["message"] == expected_message
 
 
+def test_ops_schedule_remote_idx_factor_pro_probe_mode_creates_empty_filter_rule(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "idx_factor_pro.maintain",
+            "display_name": "指数技术因子源站探测",
+            "schedule_type": "cron",
+            "trigger_mode": "probe",
+            "cron_expr": "*/5 15-18 * * 1-5",
+            "timezone": "Asia/Shanghai",
+            "probe_config": {
+                "source_key": "tushare",
+                "window_start": "15:20",
+                "window_end": "18:30",
+                "probe_interval_seconds": 300,
+                "max_triggers_per_day": 1,
+                "condition_kind": "remote_idx_factor_pro_ready",
+            },
+            "params_json": {"time_input": {"mode": "point"}, "filters": {}},
+        },
+    )
+
+    assert response.status_code == 200
+    created = response.json()
+    probe_response = app_client.get(
+        f"/api/v1/ops/probes?schedule_id={created['id']}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert probe_response.status_code == 200
+    rule = probe_response.json()["items"][0]
+    assert rule["dataset_key"] == "idx_factor_pro"
+    assert rule["probe_condition_json"] == {"type": "remote_idx_factor_pro_ready"}
+    assert rule["on_success_action_json"]["action_key"] == "idx_factor_pro.maintain"
+    assert rule["on_success_action_json"]["request"]["filters"] == {}
+
+
+@pytest.mark.parametrize(
+    ("payload_patch", "expected_message"),
+    [
+        ({"target_key": "index_daily.maintain"}, "源站指数技术因子探测只支持指数技术因子（专业版）维护"),
+        (
+            {"target_type": "workflow", "target_key": "daily_market_close_maintenance"},
+            "源站指数技术因子探测只支持指数技术因子（专业版）维护",
+        ),
+        ({"trigger_mode": "schedule"}, "源站指数技术因子探测只支持探测触发或定时 + 探测兜底"),
+        ({"calendar_policy": "monthly_last_day"}, "每月最后一天策略只支持自然月末数据集"),
+        (
+            {"params_json": {"time_input": {"mode": "point"}, "filters": {"ts_code": "000001.SH"}}},
+            "源站指数技术因子探测不支持维护参数",
+        ),
+        (
+            {"params_json": {"time_input": {"mode": "range", "start_date": "2026-05-01", "end_date": "2026-05-29"}, "filters": {}}},
+            "源站指数技术因子探测不能与固定维护日期混用",
+        ),
+        (
+            {"probe_config": {"condition_kind": "remote_idx_factor_pro_ready", "probe_interval_seconds": 299}},
+            "源站指数技术因子探测最小间隔为 300 秒",
+        ),
+        (
+            {"probe_config": {"condition_kind": "remote_idx_factor_pro_ready", "max_triggers_per_day": 2}},
+            "源站指数技术因子探测每日最多触发 1 次",
+        ),
+    ],
+)
+def test_ops_schedule_remote_idx_factor_pro_probe_mode_rejects_invalid_binding(
+    app_client,
+    user_factory,
+    payload_patch,
+    expected_message,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+    payload = {
+        "target_type": "dataset_action",
+        "target_key": "idx_factor_pro.maintain",
+        "display_name": "错误指数技术因子源站探测",
+        "schedule_type": "cron",
+        "trigger_mode": "probe",
+        "cron_expr": "*/5 15-18 * * 1-5",
+        "timezone": "Asia/Shanghai",
+        "probe_config": {
+            "source_key": "tushare",
+            "window_start": "15:20",
+            "window_end": "18:30",
+            "probe_interval_seconds": 300,
+            "max_triggers_per_day": 1,
+            "condition_kind": "remote_idx_factor_pro_ready",
+        },
+        "params_json": {"time_input": {"mode": "point"}, "filters": {}},
+    }
+    payload.update(payload_patch)
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json=payload,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == expected_message
+
+
 @pytest.mark.parametrize(
     ("payload_patch", "expected_message"),
     [

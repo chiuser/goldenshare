@@ -17,6 +17,11 @@ from src.ops.services.index_daily_remote_probe_service import (
     INDEX_DAILY_DATASET_KEY,
     INDEX_DAILY_REMOTE_READY_CONDITION,
 )
+from src.ops.services.idx_factor_pro_remote_probe_service import (
+    IDX_FACTOR_PRO_ACTION_KEY,
+    IDX_FACTOR_PRO_DATASET_KEY,
+    IDX_FACTOR_PRO_REMOTE_READY_CONDITION,
+)
 from src.ops.services.index_mins_remote_probe_service import (
     INDEX_MINS_ACTION_KEY,
     INDEX_MINS_ALLOWED_FREQS,
@@ -44,6 +49,7 @@ REMOTE_SOURCE_PROBE_CONDITIONS = {
     INDEX_DAILY_REMOTE_READY_CONDITION,
     INDEX_MINS_REMOTE_READY_CONDITION,
     KPL_LIST_REMOTE_READY_CONDITION,
+    IDX_FACTOR_PRO_REMOTE_READY_CONDITION,
 }
 SUPPORTED_PROBE_CONDITIONS = {FRESHNESS_LATEST_OPEN_CONDITION, *REMOTE_SOURCE_PROBE_CONDITIONS}
 TIME_PARAM_KEYS = {"trade_date", "ann_date", "month", "start_date", "end_date", "start_month", "end_month"}
@@ -74,6 +80,7 @@ class ScheduleProbeBindingService:
         if schedule.status != "active":
             return
         if trigger_mode not in {"probe", "schedule_probe_fallback"}:
+            self._validate_remote_idx_factor_pro_non_probe_schedule(schedule=schedule)
             return
 
         templates = self._build_templates(schedule=schedule)
@@ -125,6 +132,13 @@ class ScheduleProbeBindingService:
             self._validate_remote_index_mins_schedule(schedule=schedule, filters=filters, interval=interval)
         if condition_kind == KPL_LIST_REMOTE_READY_CONDITION:
             self._validate_remote_kpl_list_schedule(schedule=schedule)
+        if condition_kind == IDX_FACTOR_PRO_REMOTE_READY_CONDITION:
+            self._validate_remote_idx_factor_pro_schedule(
+                schedule=schedule,
+                filters=filters,
+                interval=interval,
+                max_daily=max_daily,
+            )
         dataset_targets = self._resolve_dataset_targets(schedule=schedule, config=config)
         templates: list[ProbeRuleTemplate] = []
         for dataset_key, step_key in dataset_targets:
@@ -135,7 +149,11 @@ class ScheduleProbeBindingService:
                 "action_key": get_dataset_action_key(dataset_key, "maintain"),
                 "request": {
                     "time_input": {"mode": "point"},
-                    "filters": dict(filters) if condition_kind in REMOTE_SOURCE_PROBE_CONDITIONS else {},
+                    "filters": (
+                        {}
+                        if condition_kind == IDX_FACTOR_PRO_REMOTE_READY_CONDITION
+                        else dict(filters) if condition_kind in REMOTE_SOURCE_PROBE_CONDITIONS else {}
+                    ),
                     "run_scope": "probe_triggered",
                 },
             }
@@ -292,6 +310,50 @@ class ScheduleProbeBindingService:
         dataset_key = cls._dataset_from_action_target(schedule.target_key)
         if dataset_key != KPL_LIST_DATASET_KEY:
             raise WebAppError(status_code=422, code="validation_error", message="源站开盘啦榜单探测只支持开盘啦榜单维护")
+
+    @classmethod
+    def _validate_remote_idx_factor_pro_schedule(
+        cls,
+        *,
+        schedule: OpsSchedule,
+        filters: dict,
+        interval: int,
+        max_daily: int,
+    ) -> None:
+        trigger_mode = cls._normalize_trigger_mode(schedule.trigger_mode)
+        if trigger_mode not in {"probe", "schedule_probe_fallback"}:
+            raise WebAppError(status_code=422, code="validation_error", message="源站指数技术因子探测只支持探测触发或定时 + 探测兜底")
+        if schedule.target_type != "dataset_action" or schedule.target_key != IDX_FACTOR_PRO_ACTION_KEY:
+            raise WebAppError(status_code=422, code="validation_error", message="源站指数技术因子探测只支持指数技术因子（专业版）维护")
+        if filters:
+            raise WebAppError(status_code=422, code="validation_error", message="源站指数技术因子探测不支持维护参数")
+        if schedule.calendar_policy:
+            raise WebAppError(status_code=422, code="validation_error", message="源站指数技术因子探测不能与日期策略混用")
+        if cls._has_fixed_time_input(dict(schedule.params_json or {})):
+            raise WebAppError(status_code=422, code="validation_error", message="源站指数技术因子探测不能与固定维护日期混用")
+        if interval < 300:
+            raise WebAppError(status_code=422, code="validation_error", message="源站指数技术因子探测最小间隔为 300 秒")
+        if max_daily != 1:
+            raise WebAppError(status_code=422, code="validation_error", message="源站指数技术因子探测每日最多触发 1 次")
+        dataset_key = cls._dataset_from_action_target(schedule.target_key)
+        if dataset_key != IDX_FACTOR_PRO_DATASET_KEY:
+            raise WebAppError(status_code=422, code="validation_error", message="源站指数技术因子探测只支持指数技术因子（专业版）维护")
+
+    @classmethod
+    def _validate_remote_idx_factor_pro_non_probe_schedule(cls, *, schedule: OpsSchedule) -> None:
+        config = dict(schedule.probe_config_json or {})
+        condition_kind = str(config.get("condition_kind") or FRESHNESS_LATEST_OPEN_CONDITION)
+        if condition_kind != IDX_FACTOR_PRO_REMOTE_READY_CONDITION:
+            return
+        filters = cls._extract_schedule_filters(dict(schedule.params_json or {}))
+        interval = max(int(config.get("probe_interval_seconds") or 300), 30)
+        max_daily = max(int(config.get("max_triggers_per_day") or 1), 1)
+        cls._validate_remote_idx_factor_pro_schedule(
+            schedule=schedule,
+            filters=filters,
+            interval=interval,
+            max_daily=max_daily,
+        )
 
     @staticmethod
     def _extract_schedule_filters(params_json: dict) -> dict:

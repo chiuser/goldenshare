@@ -14,6 +14,11 @@ from src.ops.services.index_daily_remote_probe_service import (
     IndexDailyRemoteReadinessProbeResult,
     IndexDailyRemoteReadinessProbeService,
 )
+from src.ops.services.idx_factor_pro_remote_probe_service import (
+    IDX_FACTOR_PRO_REMOTE_READY_CONDITION,
+    IdxFactorProRemoteReadinessProbeResult,
+    IdxFactorProRemoteReadinessProbeService,
+)
 from src.ops.services.index_mins_remote_probe_service import (
     DEFAULT_INDEX_MINS_SAMPLE_CODES,
     INDEX_MINS_REMOTE_READY_CONDITION,
@@ -581,6 +586,198 @@ def test_index_daily_remote_probe_builds_sample_request_from_resolver(db_session
     ]
 
 
+def test_idx_factor_pro_remote_probe_builds_empty_filter_request_from_resolver(
+    db_session,
+    probe_rule_factory,
+    monkeypatch,
+) -> None:
+    class FakeTradeCalendarDAO:
+        def __init__(self, session):
+            del session
+
+        def fetch_by_pk(self, exchange, business_date):
+            del exchange
+            del business_date
+            return SimpleNamespace(is_open=True)
+
+    calls: list[dict] = []
+
+    class FakeConnector:
+        def call(self, api_name, params=None, fields=None):
+            calls.append({"api_name": api_name, "params": dict(params or {}), "fields": tuple(fields or ())})
+            return [{"ts_code": "000001.SH", "trade_date": "20260529"}]
+
+    monkeypatch.setattr("src.ops.services.idx_factor_pro_remote_probe_service.TradeCalendarDAO", FakeTradeCalendarDAO)
+    monkeypatch.setattr(
+        "src.ops.services.idx_factor_pro_remote_probe_service.create_source_connector",
+        lambda _source_key: FakeConnector(),
+    )
+    rule = probe_rule_factory(
+        dataset_key="idx_factor_pro",
+        source_key=None,
+        probe_condition_json={"type": IDX_FACTOR_PRO_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "idx_factor_pro.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+
+    result = IdxFactorProRemoteReadinessProbeService().evaluate(
+        db_session,
+        rule,
+        current=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.matched is True
+    assert result.payload["business_date"] == "2026-05-29"
+    assert result.payload["latest_open_date"] == "2026-05-29"
+    assert result.payload["sample_request_count"] == 1
+    assert result.payload["matched_ts_code"] == "000001.SH"
+    assert result.payload["matched_trade_date"] == "20260529"
+    assert calls == [
+        {
+            "api_name": "idx_factor_pro",
+            "params": {"trade_date": "20260529", "limit": 1, "offset": 0},
+            "fields": ("ts_code", "trade_date"),
+        }
+    ]
+
+
+@pytest.mark.parametrize("is_open", [None, False])
+def test_idx_factor_pro_remote_probe_skips_missing_or_closed_business_date(
+    db_session,
+    probe_rule_factory,
+    trade_calendar_factory,
+    monkeypatch,
+    is_open,
+) -> None:
+    if is_open is False:
+        trade_calendar_factory(exchange="SSE", trade_date=date(2026, 5, 29), is_open=False)
+    connector_calls: list[dict] = []
+
+    def create_connector(_source_key):
+        connector_calls.append({"source_key": _source_key})
+        raise AssertionError("non-trading probe result must not call Tushare")
+
+    monkeypatch.setattr("src.ops.services.idx_factor_pro_remote_probe_service.create_source_connector", create_connector)
+    rule = probe_rule_factory(
+        dataset_key="idx_factor_pro",
+        source_key=None,
+        probe_condition_json={"type": IDX_FACTOR_PRO_REMOTE_READY_CONDITION, "exchange": "SSE"},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "idx_factor_pro.maintain",
+            "request": {"time_input": {"mode": "point"}, "filters": {}},
+        },
+    )
+
+    result = IdxFactorProRemoteReadinessProbeService().evaluate(
+        db_session,
+        rule,
+        current=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.matched is False
+    assert result.payload["sample_request_count"] == 0
+    assert result.payload["latest_open_date"] is None
+    assert result.payload["is_open"] is is_open
+    assert connector_calls == []
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        [],
+        [{"ts_code": "000001.SH", "trade_date": "20260528"}],
+        [{"ts_code": "", "trade_date": "20260529"}],
+    ],
+)
+def test_idx_factor_pro_remote_probe_miss_does_not_accept_incomplete_source_row(
+    db_session,
+    probe_rule_factory,
+    monkeypatch,
+    rows,
+) -> None:
+    class FakeTradeCalendarDAO:
+        def __init__(self, session):
+            del session
+
+        def fetch_by_pk(self, exchange, business_date):
+            del exchange
+            del business_date
+            return SimpleNamespace(is_open=True)
+
+    class FakeConnector:
+        def call(self, api_name, params=None, fields=None):
+            del api_name
+            del params
+            del fields
+            return rows
+
+    monkeypatch.setattr("src.ops.services.idx_factor_pro_remote_probe_service.TradeCalendarDAO", FakeTradeCalendarDAO)
+    monkeypatch.setattr(
+        "src.ops.services.idx_factor_pro_remote_probe_service.create_source_connector",
+        lambda _source_key: FakeConnector(),
+    )
+    rule = probe_rule_factory(
+        dataset_key="idx_factor_pro",
+        source_key=None,
+        probe_condition_json={"type": IDX_FACTOR_PRO_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "idx_factor_pro.maintain",
+            "request": {"time_input": {"mode": "point"}, "filters": {}},
+        },
+    )
+
+    result = IdxFactorProRemoteReadinessProbeService().evaluate(
+        db_session,
+        rule,
+        current=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.matched is False
+    assert result.message == "源站尚未返回目标交易日指数技术因子"
+    assert result.payload["sample_request_count"] == 1
+
+
+@pytest.mark.parametrize(
+    ("request_payload", "expected_message"),
+    [
+        ({"time_input": {"mode": "point"}, "filters": {"ts_code": "000001.SH"}}, "源站指数技术因子探测不支持维护参数"),
+        ({"time_input": {"mode": "point", "trade_date": "2026-05-29"}, "filters": {}}, "源站指数技术因子探测不能与固定维护日期混用"),
+    ],
+)
+def test_idx_factor_pro_remote_probe_rejects_invalid_direct_rule(
+    db_session,
+    probe_rule_factory,
+    request_payload,
+    expected_message,
+) -> None:
+    rule = probe_rule_factory(
+        dataset_key="idx_factor_pro",
+        source_key=None,
+        probe_condition_json={"type": IDX_FACTOR_PRO_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "idx_factor_pro.maintain",
+            "request": request_payload,
+        },
+    )
+
+    with pytest.raises(ValueError, match=expected_message):
+        IdxFactorProRemoteReadinessProbeService().evaluate(
+            db_session,
+            rule,
+            current=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc),
+        )
+
+
 def test_stk_mins_remote_probe_skips_closed_business_date(
     db_session,
     probe_rule_factory,
@@ -941,6 +1138,107 @@ def test_probe_runtime_remote_index_daily_miss_does_not_create_task_run(db_sessi
     assert result.triggered_rules == 0
     assert task_runs == []
     assert db_session.scalar(select(TaskRun).where(TaskRun.resource_key == "index_daily")) is None
+
+
+def test_probe_runtime_remote_idx_factor_pro_hit_creates_one_empty_filter_task_run(
+    db_session,
+    ops_schedule_factory,
+    probe_rule_factory,
+    monkeypatch,
+) -> None:
+    schedule = ops_schedule_factory(target_key="idx_factor_pro.maintain", trigger_mode="schedule_probe_fallback")
+    common = {
+        "dataset_key": "idx_factor_pro",
+        "source_key": "tushare",
+        "probe_condition_json": {"type": IDX_FACTOR_PRO_REMOTE_READY_CONDITION},
+        "on_success_action_json": {
+            "action_type": "dataset_action",
+            "action_key": "idx_factor_pro.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {},
+                "run_scope": "probe_triggered",
+            },
+        },
+    }
+    first_rule = probe_rule_factory(schedule_id=schedule.id, **common)
+    second_rule = probe_rule_factory(schedule_id=schedule.id, **common)
+
+    service = ProbeRuntimeService()
+    monkeypatch.setattr(
+        service.idx_factor_pro_remote_probe,
+        "evaluate",
+        lambda session, rule, current: IdxFactorProRemoteReadinessProbeResult(
+            matched=True,
+            message="源站已返回目标交易日指数技术因子",
+            payload={"latest_open_date": "2026-05-29"},
+        ),
+    )
+
+    task_runs, result = service.run_once(db_session, now=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc), limit=10)
+
+    assert result.triggered_rules == 1
+    assert len(task_runs) == 1
+    task_run = task_runs[0]
+    assert task_run.resource_key == "idx_factor_pro"
+    assert task_run.schedule_id == schedule.id
+    assert task_run.time_input_json == {"mode": "point", "trade_date": "2026-05-29"}
+    assert task_run.filters_json == {}
+    logs = list(
+        db_session.scalars(
+            select(ProbeRunLog)
+            .where(ProbeRunLog.probe_rule_id.in_((first_rule.id, second_rule.id)))
+            .order_by(ProbeRunLog.probe_rule_id.asc())
+        )
+    )
+    assert [item.result_code for item in logs] == ["hit", "deduplicated"]
+    assert logs[0].triggered_task_run_id == task_run.id
+    assert logs[1].triggered_task_run_id is None
+
+
+def test_probe_runtime_remote_idx_factor_pro_source_error_only_writes_probe_log(
+    db_session,
+    probe_rule_factory,
+    trade_calendar_factory,
+    monkeypatch,
+) -> None:
+    trade_calendar_factory(exchange="SSE", trade_date=date(2026, 5, 29), is_open=True)
+
+    class FailingConnector:
+        def call(self, api_name, params=None, fields=None):
+            del api_name
+            del params
+            del fields
+            raise RuntimeError("Tushare unavailable")
+
+    monkeypatch.setattr(
+        "src.ops.services.idx_factor_pro_remote_probe_service.create_source_connector",
+        lambda _source_key: FailingConnector(),
+    )
+    rule = probe_rule_factory(
+        dataset_key="idx_factor_pro",
+        source_key="tushare",
+        probe_condition_json={"type": IDX_FACTOR_PRO_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "idx_factor_pro.maintain",
+            "request": {"time_input": {"mode": "point"}, "filters": {}},
+        },
+    )
+
+    task_runs, result = ProbeRuntimeService().run_once(
+        db_session,
+        now=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc),
+        limit=10,
+    )
+
+    assert result.triggered_rules == 0
+    assert task_runs == []
+    assert db_session.scalar(select(TaskRun).where(TaskRun.resource_key == "idx_factor_pro")) is None
+    run_log = db_session.scalar(select(ProbeRunLog).where(ProbeRunLog.probe_rule_id == rule.id))
+    assert run_log is not None
+    assert run_log.status == "failed"
+    assert run_log.result_code == "error"
 
 
 def test_kpl_list_remote_probe_uses_release_target_and_resolver_request_params(
