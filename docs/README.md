@@ -191,6 +191,8 @@ docs/
 - [stk_mins clean 2024-10-30 多频率混入 1min 专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-20241030-multifreq-repair-plan-v1.md)
 - [股票历史分钟行情存储瘦身方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)
 - [股票技术面因子（专业版）](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-dataset-development.md)
+- [指数技术因子（专业版）](/Users/congming/github/goldenshare/docs/datasets/idx-factor-pro-dataset-development.md)
+- [指数技术因子（专业版）低层设计 LLD v1](/Users/congming/github/goldenshare/docs/datasets/idx-factor-pro-low-level-design-v1.md)
 - [股票技术面因子（专业版）Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-prod-raw-db-lake-export-plan.md)
 - [每日停复牌信息](/Users/congming/github/goldenshare/docs/datasets/suspend-d-dataset-development.md)
 - [ST 股票列表](/Users/congming/github/goldenshare/docs/datasets/stock-st-dataset-development.md)

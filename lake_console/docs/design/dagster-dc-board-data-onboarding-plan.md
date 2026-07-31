@@ -1,6 +1,6 @@
 # Dagster `dc_index` / `dc_member` / `dc_daily` 数据集接入技术方案
 
-> 状态：M3 Raw 写入能力、M4 Raw Dagster definition、M5 Silver writer/asset/check、M6 Silver Dagster 接入、M7A 只读 Bootstrap dry-run、M7E 临时 lake 样本联调、M7F-M7I 正式 Raw/Silver Bootstrap 与对账、M8 Dagster 事件补录与验收均已完成。M9-R 已完成专属分区、同日 Lake 关系和 writer 基础闭环的代码落地；其中“有限小页 source probe 可提交 Raw run”的日常触发口径已被 M10 取代。M10“稳定 prod 基线 + 完整 Tushare 对照”与 M10.1“`dc_member` 成功但不完整响应的单轮定向重试”均已完成代码与本地 contract、writer、sensor、性能、静态门禁验证；二者均不改变 prod 基线、Tushare 业务来源或 sensor 热路径。正式 prod source-finalization 审计、`dg check defs` 和 sensor 启用仍须逐项批准。本轮未运行真实 Dagster job/sensor，也未写 Lake、prod 或 Dagster DB。
+> 状态：M3 Raw 写入能力、M4 Raw Dagster definition、M5 Silver writer/asset/check、M6 Silver Dagster 接入、M7A 只读 Bootstrap dry-run、M7E 临时 lake 样本联调、M7F-M7I 正式 Raw/Silver Bootstrap 与对账、M8 Dagster 事件补录与验收均已完成。M9-R 已完成专属分区、同日 Lake 关系和 writer 基础闭环的代码落地；其中“有限小页 source probe 可提交 Raw run”的日常触发口径已被 M10 取代。M10“稳定 prod 基线 + 完整 Tushare 对照”与 M10.1“`dc_member` 成功但不完整响应的单轮定向重试”均已完成代码与本地验证。2026-07-26 已完成 2026-07-24 的正式历史恢复；2026-07-27 已完成历史 member check 状态纠偏，并启用当前 code location 的 raw index sensor。该传感器已按稳定 prod 基线门禁自然完成 `2026-07-27` 的 Raw index/daily/member 更新；没有写 prod。
 >
 > 依据：新增数据集接入模板、`lake_console/orchestrator/CODING_STANDARDS.md`、
 > `dagster-data-pipeline-performance-governance.md`、现有 `index_daily` / `stk_nineturn`
@@ -467,7 +467,7 @@ Tushare 请求。实际 index writer 会再做一次完整 Tushare 对照，以�
 member 的约千次请求仍只发生在实际 member job，不进入 sensor。任何 prod/Tushare 调用超时、请求预算越界或
 对照不一致都 fail closed，下一 tick 再尝试；不得调大 Dagster RPC timeout。
 
-#### 5.5.6 M10.1：`dc_member` 成功但不完整响应的恢复边界（代码与本地验证已完成）
+#### 5.5.6 M10.1：`dc_member` 成功但不完整响应的恢复边界（代码、本地验证与历史恢复已完成）
 
 M10 已能阻止“当天目录尚未完整”时过早提交 Raw index run，但 2026-07-24 的运行事实说明，`dc_member`
 还存在另一类源端短暂异常：**请求没有报网络错误，却少返回了部分成员关系**。两次 writer run 分别在约
@@ -537,6 +537,39 @@ sensor retry，必须另立 M10.2 方案并单独评估 Dagster run-key、cursor
 4. 性能测试锁定完整 probe 的调用次数、prod 行数、DuckDB 差集耗时和 600 秒 sensor 间隔；稳定日 sensor
    目标小于 10 秒，任何路径不得出现按日期循环、Dagster event-history 扫描或全量 member 热路径请求。
 5. M10 既有代码与本地 fake prod/Tushare 回归、静态门禁和性能测试已通过；其中 M10 定向回归 `99` 条，资产治理与 cursor contract 回归 `18` 条，Bootstrap/M7 样本调用也已通过。M10.1 已新增共享 request session、missing-only replace retry、聚合 materialization diagnostics 和静态门禁；本地定向 suite 共 `120` 条通过，覆盖首轮无差异零额外请求、仅缺失 pair 的定向重试成功、多个板块排序重试、重试后仍缺失、extra/重复/日期/请求错误不重试、跨轮总请求数/总耗时不足时不 promote，以及 sensor 热路径零新增 member 请求。正式环境只读 source-finalization 审计、`dg check defs` 和 sensor 启用仍须单独批准。M10/M10.1 均不包含 Lake 回补、prod 写入或历史 event 补录。
+
+#### 5.5.8 2026-07-24 正式历史恢复记录
+
+2026-07-26 按 M10/M10.1 进行了受控恢复，报告如下：
+
+- `dg check defs` 成功加载当前 definitions；prod reference 为 `1,022` 条 index、`1,022` 条 daily、`91,900` 条 member pair，fingerprint 为 `d4443e37...d52c35d`；完整 Tushare index/daily 对照为零差异。
+- 已存在且正确的 Raw index/Raw daily、Silver index/Silver daily 和 Gold technical 没有重跑。仅运行 `raw_tushare_dc_member_update_job[2026-07-24]`（run `f1071ca3-2868-4265-81c4-3b992c2aa010`）和 `silver_dc_member_update_job[2026-07-24]`（run `3e4acedd-13ab-4ac8-a993-1fd1ede4b066`）。
+- M10.1 首轮发现 `38` 个 missing pair，聚合为一个板块 `BK0477.DC`；定向轮增加 `1` 次请求后恢复全部 `38` 个 pair。最终 Raw member 为 `91,900` 行，prod 双向差集均为 `0`，总请求 `1,023`、耗时约 `170.7s`。
+- 7 个资产文件、materialization 与 blocking check 均为 ready；Raw/Silver/Gold 的同日 code-set 关系均为零差异。最终报告：`/private/tmp/dc_20260724_m10_recovery_final_audit_20260726_195812.json`。
+- 恢复期间暂停的当前 code location 6 个 dependent sensor 已恢复为 `RUNNING`；当日 `raw_tushare_dc_index_update_job_sensor` 按恢复前状态保持 `STOPPED`。该历史状态已在 2026-07-27 的日常启用记录中更新。
+
+#### 5.5.9 2026-07-27 状态纠偏与当前日 Raw 启动记录
+
+2026-07-23 的 `raw_tushare_dc_member` 曾在 member check 执行时与当时的 raw index 文件不一致，留下了
+`same_day_board_relation_integrity` 失败事件。随后同日 raw index 被重新 materialize，当前 Lake 文件已经一致，但旧
+check 状态不会自行重算。经现有 `raw_tushare_dc_member_core_check` 的同一套 DuckDB 语义复核，member 文件
+`91,728` 行、同日关系差异为 `0`，因此只补录了一条绑定既有 member materialization `6815686` 的 runless
+passed check event；没有重拉 Tushare、没有重写 Lake，旧失败事件保留为历史证据。计划与执行报告分别为：
+`/private/tmp/dc_member_status_recovery_plan_20260727_211617.json`、
+`/private/tmp/dc_member_status_recovery_apply_20260727_211622.json`。
+
+随后，使用当前存活 code server 启动 `raw_tushare_dc_index_update_job_sensor`。第一次 prod 快照在
+21:17 记录 `1,022` 条 index、`1,022` 条 daily、`91,581` 条 member pair；第二次快照在 21:27 得到相同
+fingerprint `58ff4253...564d8d4`，并通过完整 Tushare index/daily 对照，才自然提交 index run。实际结果：
+
+- `raw_tushare_dc_index_update_job[2026-07-27]`：`57cb42f2-cabf-42e1-9969-36fca4aa1311`，成功。
+- `raw_tushare_dc_daily_update_job[2026-07-27]`：`880af581-9e0c-4655-a6df-19c0067201f8`，成功。
+- `raw_tushare_dc_member_update_job[2026-07-27]`：`1956c1ed-0c2c-4ea9-b823-fe100a6b7297`，成功；写入
+  `91,581` 条 member pair，`1,022` 次请求、零缺失/额外 pair、零定向重试，核心 check 通过。
+
+本次仅写入一条历史 check 状态事件，并把 index sensor 从 `STOPPED` 置为 `RUNNING`；没有手工提交日常 run，
+daily/member 均由既有依赖 sensor 在同日 raw index ready 后自然触发。sensor 启动报告：
+`/private/tmp/dc_member_status_recovery_start_index_sensor_20260727_211747.json`。
 
 ## 6. Check 设计
 

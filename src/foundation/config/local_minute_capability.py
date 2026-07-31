@@ -6,7 +6,6 @@ from pathlib import Path
 
 from src.foundation.config.settings import Settings
 
-
 SUPPORTED_MINUTE_FREQS = (1, 5, 15, 30, 60, 90, 120)
 
 

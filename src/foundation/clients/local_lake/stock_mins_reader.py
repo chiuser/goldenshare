@@ -5,12 +5,13 @@ import binascii
 import json
 import re
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, time as clock_time
+from datetime import date, datetime
+from datetime import time as clock_time
 from pathlib import Path
-from typing import Any, Literal, Sequence
+from typing import Any, Literal
 from zoneinfo import ZoneInfo
-
 
 SUPPORTED_MINUTE_FREQS = (1, 5, 15, 30, 60, 90, 120)
 MAX_MINUTE_LIMIT = 10_000

@@ -1,7 +1,7 @@
 # 指数分钟线 `index_mins` Dagster 数据集接入方案
 
-更新时间：2026-07-30
-状态：P0 方案/LLD、P1、P2、P3、P4、P5、P6A/P6B、P7 已完成；P7 已完成正式 Raw/Silver Bootstrap 与全量文件对账。Bootstrap 覆盖 `2025-01-02..2026-07-27` 的 378 个交易日，Raw 有效文件 1,880 个、Silver 文件 2,646 个，缺失和非法文件均为 0。5 个 source-empty 日期组合继续按已批准的 Raw 豁免和 Silver fallback 口径处理。fallback 仅用于开发期 Bootstrap/历史修复，正式日常 sensor 仍不调用；P8 事件补录仍需单独批准。
+更新时间：2026-07-31
+状态：P0 方案/LLD、P1、P2、P3、P4、P5、P6A/P6B、P7、P8 已完成；P7 已完成正式 Raw/Silver Bootstrap 与全量文件对账，P8 已完成动态分区注册、materialization 全量补录、最近 20 个交易日 check 补录和事件归属验收。Bootstrap 覆盖 `2025-01-02..2026-07-27` 的 378 个交易日，Raw 有效文件 1,880 个、Silver 文件 2,646 个，缺失和非法文件均为 0。5 个 source-empty 日期组合继续按已批准的 Raw 豁免和 Silver fallback 口径处理。fallback 仅用于开发期 Bootstrap/历史修复，正式日常 sensor 仍不调用；当前待推进阶段为 P9 sensor 启用与连续交易日观察。
 适用范围：`lake_console/orchestrator` 正式 Dagster 数据湖
 
 ## 1. 目标与冻结结论
@@ -469,7 +469,7 @@ P6 实现与真实验收结果：
 
 结论：P6A/P6B 的 source scope 和 coverage 性能门禁已通过；原 dry-run 的唯一阻断项是上述 5 个 source-empty 日期组合，不是查询性能或历史代码范围误判。fallback 已按既定入口完成并通过专项审计；P7 apply runner 不再把这些原生空频率当成可写的 Raw 缺口，而是显式豁免 Raw、复用已验收的 Silver fallback。禁止用提高 timeout、全量主键 distinct 或把当前 active pool 硬套历史的方式绕过门禁。
 
-P8 单独处理事件：materialization 全量补；blocking check 只补最近 20 日；每条 event 带正确 partition。
+P8 处理事件：materialization 全量补；blocking check 只补最近 20 日；每条 event 带正确 partition。
 
 P8 已完成（2026-07-30）：
 
@@ -556,12 +556,12 @@ PYTHONPATH=src uv run --project . python -m orchestrator.defs.bootstrap.index_mi
 | P5 | 专属分区、普通 readiness、Raw/Silver sensor，默认 STOPPED（已完成；fallback readiness 为独立维护入口，不接入普通 sensor） |
 | P6A/P6B | source scope 冻结、coverage-only dry-run 与性能回归（已完成；全历史 coverage 88.4s 通过；source-empty 由独立 fallback 处理） |
 | P7 | 正式 Raw/Silver Bootstrap 与文件对账（已完成；Raw 1,880/1,880、Silver 2,646/2,646，缺失/非法均为 0） |
-| P8 | materialization 全量补、最近 20 日 check 补，单独批准 |
-| P9 | 手动启用 sensor，观察连续 3 个交易日 |
+| P8 | materialization 全量补、最近 20 日 check 补（已完成；4,526 条 materialization + 240 条 check） |
+| P9 | 手动启用专属分区/Raw/Silver sensor，观察连续 3 个交易日（待执行） |
 
 验收必须覆盖：source/written/normalized/output 行数解释、目标 schema/date/PK、staging 清零、event partition、最近 20 日 ready、连续 3 日无超时。
 
-当前状态为 P7 已完成：P6A/P6B 工具、scope、coverage-only 查询和性能回归已完成；P3 follow-up 的 fallback writer/readiness/repair 已完成正式 fallback 文件和专项对账。正式 apply runner 已按“source-empty Raw 豁免、10 个 Silver fallback 复用、其余 Raw/Silver 分批串行、每日期 staging 原子替换”的口径完成 Bootstrap。最终 Raw 对账为 `1,880/1,880`，Silver 对账为 `2,646/2,646`，两层缺失和非法文件均为 0，临时文件为 0；全程未写 Dagster DB/event，未启用 sensor。P8 只处理事件补录，仍需单独批准。
+当前状态为 P8 已完成：P6A/P6B 工具、scope、coverage-only 查询和性能回归已完成；P3 follow-up 的 fallback writer/readiness/repair 已完成正式 fallback 文件和专项对账。正式 apply runner 已按“source-empty Raw 豁免、10 个 Silver fallback 复用、其余 Raw/Silver 分批串行、每日期 staging 原子替换”的口径完成 Bootstrap。最终 Raw 对账为 `1,880/1,880`，Silver 对账为 `2,646/2,646`，两层缺失和非法文件均为 0，临时文件为 0。随后已注册 `cn_a_index_mins_trade_days` 的 378 个冻结分区（`2025-01-02..2026-07-27`），补入 4,526 条 materialization 和最近 20 个交易日的 240 条 blocking check；post dry-run 剩余计划为 0，check partition 与 target materialization 归属全部通过，active run 为 0。当前未启用 sensor；下一步仅是 P9 的分阶段启用和至少 3 个实际交易日观察。
 
 P7 正式报告（2026-07-30）：
 

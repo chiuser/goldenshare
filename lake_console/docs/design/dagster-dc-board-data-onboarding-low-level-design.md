@@ -3,7 +3,7 @@
 > 本文基于 [`dagster-dc-board-data-onboarding-plan.md`](./dagster-dc-board-data-onboarding-plan.md)。
 > 方案文档冻结业务口径；本文冻结文件、函数、SQL、事务、测试和推进顺序。
 >
-> 当前状态：M3 Raw-only writer/staging、M4 Raw Dagster definitions、M5 Silver writer/asset/check、M6 Silver Dagster 接入、M7A 只读 Bootstrap dry-run、M7E 临时 lake 样本联调、M7F-M7I 正式 Raw/Silver Bootstrap 与对账、M8 Dagster 事件补录与验收均已实现并通过验证。M9-R 的专属分区、Lake core check、同日关系和基础 writer closure 已落地；其 `limit=1` 小页 source probe 已退出正式触发语义。M10“稳定 prod 基线 + 完整 Tushare 对照”已完成代码和本地验证，尚待正式 prod source-finalization 审计、definitions 加载验证和 sensor 启用；本轮未运行真实 Dagster job/sensor，也未写 Lake、prod 或 Dagster DB。
+> 当前状态：M3 Raw-only writer/staging、M4 Raw Dagster definitions、M5 Silver writer/asset/check、M6 Silver Dagster 接入、M7A 只读 Bootstrap dry-run、M7E 临时 lake 样本联调、M7F-M7I 正式 Raw/Silver Bootstrap 与对账、M8 Dagster 事件补录与验收均已实现并通过验证。M9-R 的专属分区、Lake core check、同日关系和基础 writer closure 已落地；其 `limit=1` 小页 source probe 已退出正式触发语义。M10/M10.1 已完成代码、本地验证、2026-07-24 正式历史恢复及 2026-07-27 当前日 Raw 启动验证。当前 code location 的 raw index sensor 为 `RUNNING`；它已通过稳定 prod 基线和完整 Tushare 对照后，自然完成同日 Raw index/daily/member 更新。
 
 > **当前阅读口径**：M3-M8 章节中的共享 `cn_a_index_trade_days` 是阶段性历史实现记录，不是
 > 当前板块链路的目标。专属 partition set、日历注册、Lake core check 和同日关系以 M9-R 为准；日常
@@ -1163,7 +1163,7 @@ M9-R 通过条件：
 
 本轮本地回归：板块 Raw/Silver/Gold 定义、readiness、source probe、分区注册、关系审计、临时 lake 和静态门禁共 `155 passed`；未运行 `dg`、未启用 sensor、未写正式 lake 或 Dagster event。
 
-### M10：稳定 prod 基线与完整 Tushare 对照（M10/M10.1 代码完成，待正式审计/启用）
+### M10：稳定 prod 基线与完整 Tushare 对照（M10/M10.1 代码完成，2026-07-24 历史恢复已验证）
 
 M10 是本 LLD 当前唯一的 Raw 日常 source-finalization 方案。它的目标是拒绝“源端能返回少量行但尚未
 发布完整当天目录”的中间状态；不增加 Dagster 事件、check、资产、job、sensor、分区或 Lake 状态文件。
@@ -1182,8 +1182,8 @@ M10 是本 LLD 当前唯一的 Raw 日常 source-finalization 方案。它的目
    做 raw-index/Tushare/prod 三方闭环，member 做同日候选与 pair 差集。任何失败保留正式 Parquet 原样。
 5. **T4 本地验证（已完成）**：全部 fake prod/Tushare 正负向测试、静态门禁和性能测试通过；M10 定向回归 `99` 条，资产治理与 cursor contract 回归 `18` 条，Bootstrap/M7 样本调用通过。确认没有新 check、
    event、asset、job 或 member sensor 全量请求。
-6. **T5 正式只读审计（待单独批准）**：读取当前 prod reference 与 Tushare 对照，输出请求数、行数、hash、耗时。
-   通过后才单独决定 Definitions 验证和 sensor 启用策略；M10 本身不写 Lake、prod、Dagster DB 或动态分区。
+6. **T5 正式历史恢复验证（2026-07-26 已完成）**：`dg check defs` 成功；对 2026-07-24 读取 prod reference 与完整 Tushare index/daily 对照，均为零 identity 差异。随后只重建缺失的 Raw/Silver member，并以全链路文件、check、code-set 与 prod pair 双向差集审计收口。该验证写入 Lake 和 Dagster event，但没有写 prod 或动态分区。
+7. **T6 当前日启动验证（2026-07-27 已完成）**：先用正式 `raw_tushare_dc_member_core_check` 的同一函数复核 2026-07-23 当前文件事实，确认 member/index 同日关系差异为零后，只补录一条绑定既有 materialization `6815686` 的 runless passed check event。随后通过当前存活 code server 启动 raw index sensor；第一、二份 prod 快照相隔超过 300 秒且 fingerprint 均为 `58ff4253...564d8d4`，完整 Tushare index/daily 对照通过，才自然提交 `raw_tushare_dc_index_update_job[2026-07-27]`。该 index run、依赖的 raw daily run 和 raw member run 均成功；member 产出 91,581 行、1022 次请求、零 pair 差异、零定向重试，核心 check passed。没有 prod 写入或手工提交日常 run。
 
 #### M10.1：`dc_member` 成功但不完整响应的一轮定向重试（代码与本地验证已完成）
 
@@ -1238,7 +1238,10 @@ M10 是本 LLD 当前唯一的 Raw 日常 source-finalization 方案。它的目
 `execute_bounded_code_pages(...)` 保持单轮 API 与调用方行为不变。member writer 在进入 pair diff 前复用既有
 结构校验，pair 仅 missing 时以临时 repair-code 表替换受影响板块的首轮行，最终差异归零才调用既有 promote。
 成功 materialization 新增的都是聚合诊断字段，失败文本最多包含 20 个 pair 样本。定向回归
-`120 passed`，未运行 `dg check defs`、job、sensor 或正式实例。
+`120 passed`。2026-07-26 的正式历史恢复中，Raw member run `f1071ca3-2868-4265-81c4-3b992c2aa010` 首轮仅缺
+`38` 个 pair，定向重试 `BK0477.DC` 一次后差集归零；Silver member run
+`3e4acedd-13ab-4ac8-a993-1fd1ede4b066` 成功，最终全链路审计报告为
+`/private/tmp/dc_20260724_m10_recovery_final_audit_20260726_195812.json`。
 
 **明确不做。** M10.1 不提升 `1,200` 次或 `600s` 限额，不把 prod 作为 fallback source，不做全量第二遍
 扫描，不新增 production check/event/状态表，也不改变同日失败 run 的 run-key 去重语义。若一轮定向重试仍因

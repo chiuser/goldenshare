@@ -1,8 +1,8 @@
 from src.foundation.clients.local_lake.stock_mins_reader import (
+    MinuteQueryError,
+    MinuteReaderError,
     MinuteReadPage,
     MinuteReadRequest,
-    MinuteReaderError,
-    MinuteQueryError,
     MinuteRequestError,
     MinuteSourceContractError,
     StockMinsLakeReader,
@@ -10,10 +10,10 @@ from src.foundation.clients.local_lake.stock_mins_reader import (
 )
 
 __all__ = [
+    "MinuteQueryError",
     "MinuteReadPage",
     "MinuteReadRequest",
     "MinuteReaderError",
-    "MinuteQueryError",
     "MinuteRequestError",
     "MinuteSourceContractError",
     "StockMinsLakeReader",

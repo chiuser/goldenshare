@@ -1,12 +1,12 @@
 # `index_mins` 指数分钟线 Dagster 低层设计（LLD）
 
-更新时间：2026-07-30
-状态：P0 设计完成；P1/P2/P3/P4/P5/P6A/P6B/P7 已完成；P7 已完成正式 Raw/Silver Bootstrap 与全量文件对账。Bootstrap 覆盖 `2025-01-02..2026-07-27` 的 378 个交易日，Raw 有效文件 1,880 个、Silver 文件 2,646 个，缺失和非法文件均为 0；P3 follow-up 的 source-empty 5m fallback writer、只读 readiness、开发期 repair 和 native reconcile 已完成正式 fallback 验收
+更新时间：2026-07-31
+状态：P0 设计完成；P1/P2/P3/P4/P5/P6A/P6B/P7/P8 已完成；P7 已完成正式 Raw/Silver Bootstrap 与全量文件对账，P8 已完成动态分区注册、materialization 全量补录、最近 20 个交易日 check 补录和事件归属验收。Bootstrap 覆盖 `2025-01-02..2026-07-27` 的 378 个交易日，Raw 有效文件 1,880 个、Silver 文件 2,646 个，缺失和非法文件均为 0；P3 follow-up 的 source-empty 5m fallback writer、只读 readiness、开发期 repair 和 native reconcile 已完成正式 fallback 验收。当前仅剩 P9 的 sensor 分阶段启用与连续交易日观察。
 对应方案：[dagster-index-mins-data-onboarding-plan.md](./dagster-index-mins-data-onboarding-plan.md)
 
 ## 1. LLD 约束
 
-本 LLD 把方案硬口径落到模块、函数、SQL、测试和阶段验收。P1/P2/P3 已完成合同、Prod 只读验证、Raw/Silver writer 和临时 fixture；P4/P5 已完成正式 definition、readiness 和 sensor 边界；P7 已完成正式 Lake 文件生成与对账，但仍未写 Dagster event 或启用 sensor。
+本 LLD 把方案硬口径落到模块、函数、SQL、测试和阶段验收。P1/P2/P3 已完成合同、Prod 只读验证、Raw/Silver writer 和临时 fixture；P4/P5 已完成正式 definition、readiness 和 sensor 边界；P7 已完成正式 Lake 文件生成与对账；P8 已完成专属动态分区注册、runless materialization/check event 补录和 partition 归属验收，但 sensor 仍未启用。
 
 硬约束：
 
@@ -745,14 +745,14 @@ tests/test_run_contract_static_gates.py
 6. P5：专属分区、batch readiness、Raw/Silver sensors，默认 STOPPED（基础能力已完成；fallback readiness 为独立维护入口，普通 sensor 不接入）。
 7. P6A/P6B：source scope 冻结、coverage-only Bootstrap dry-run 与性能回归（coverage 查询通过；source-empty 日期组合已完成 bounded fallback 处理）。
 8. P7：正式 Raw/Silver Bootstrap 与文件对账（已完成；Raw 1,880/1,880、Silver 2,646/2,646，缺失/非法均为 0）。
-9. P8：materialization 全量补、最近 20 日 checks 补，单独批准。
-10. P9：手动启用 sensor，观察连续 3 个交易日。
+9. P8：materialization 全量补、最近 20 日 checks 补（已完成；4,526 条 materialization、240 条 check）。
+10. P9：手动启用专属分区/Raw/Silver sensor，观察连续 3 个交易日（待执行）。
 
 任一阶段发现源字段、active pool、日期起点、窗口规则或性能预算冲突，停止当前阶段并回写方案。
 
 P5 已完成：在 P4 的五个 Raw asset、七个 Silver asset、12 个单分区 blocking check 和两份 job 基础上，增加专属交易日注册 sensor、Raw/Silver batch readiness 和两个默认 STOPPED 更新 sensor。P5 只完成本地/临时湖验证，未启用 sensor、未执行正式 Bootstrap 或事件写入。
 
-P6 已完成工具与回归：本轮相关 Prod/Bootstrap/static 测试 `108 passed`；60 日期临时 dry-run 使用 1 个 bounded fake source aggregate query 且未写正式目标。真实正式 dry-run 使用 coverage-only probe，性能通过；5 个 source-empty 日期组合由 P3 follow-up fallback 和 P7 apply runner 的显式豁免处理。P7 正式 Bootstrap 与文件对账已完成，未写 Dagster event，P3 follow-up 仍不进入普通 Silver sensor 的长期自动触发。
+P6 已完成工具与回归：本轮相关 Prod/Bootstrap/static 测试 `108 passed`；60 日期临时 dry-run 使用 1 个 bounded fake source aggregate query 且未写正式目标。真实正式 dry-run 使用 coverage-only probe，性能通过；5 个 source-empty 日期组合由 P3 follow-up fallback 和 P7 apply runner 的显式豁免处理。P7 正式 Bootstrap 与文件对账已完成，P8 已完成事件补录与归属验收；P3 follow-up 仍不进入普通 Silver sensor 的长期自动触发。当前 `cn_a_index_mins_trade_days` 已注册至 `2026-07-27`，后续日期由 P9 专属分区注册与 Raw/Silver 日常链路负责。
 
 ## 11. 回滚与边界
 
