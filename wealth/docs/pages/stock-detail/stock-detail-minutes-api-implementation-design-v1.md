@@ -145,6 +145,18 @@ v1 不增加独立 `expectedEndDate` 参数：调用方传入的 `endDate` 既�
 6. 指标 NULL 保持 NULL，不用 0 替换。
 7. real 请求失败显示分钟模块 error，不静默回退 mock。
 
+### 8.1 分钟图表可视范围、拖动与 tooltip
+
+分钟 API 首屏仍请求并缓存最近 `500` 根，作为有限横向浏览缓冲；它不是首屏应同时绘制的根数。前端初始可视范围固定与日线一致：只显示末尾 `90` 根。
+
+1. 非空分钟数据加载后，四个窗格必须统一设置逻辑范围：`from=max(0, pointCount-90)`、`to=pointCount-1`。数据少于 90 根时显示全部。
+2. 正常非空路径不得调用 `fitContent()`；它会把 500 根全部压进首屏。仅无数据的降级分支允许保持图表库默认状态。
+3. 四个窗格维持同一受控逻辑范围。用户在任意窗格按住并左右拖动时，按横向像素差平移该逻辑范围，并 clamp 在当前已加载的 `0..pointCount-1` 内；拖动不得发起新 API 请求，也不实现 cursor 自动翻页。
+4. 保持 `handleScroll=false`、`handleScale=false`。分钟图的横向浏览只使用与日线一致的 pointer-drag 逻辑，避免四个窗格各自滚动而失去对齐。
+5. 所有窗格订阅同一 crosshair 语义，悬停时间点同步到 K 线、MACD、成交量和 KDJ。K 线面板展示 tooltip，位置在鼠标超过容器宽度 62% 时切换到左侧，避免被右边界遮挡。
+6. tooltip 只展示分钟数据实际拥有的字段：北京时间、开高低收、成交量、成交额、DIF/DEA/MACD、K/D/J；指标为 NULL 时显示 `--`。不得伪造日线的 `preClose/change/pctChg/turnover` 等字段。
+7. 该交互改动不修改 API 参数、500 根返回量、cursor、后端数据读取或 local/prod 隔离边界。
+
 ## 9. 状态与异常
 
 建议先在 `wealth/docs/system/exception-code-registry.md` 登记：
@@ -180,6 +192,7 @@ v1 不增加独立 `expectedEndDate` 参数：调用方传入的 `endDate` 既�
 3. M2：backend schema、query service、两个真实 route。
 4. M3：wealth client、adapter、分钟图表入口。
 5. M4：本地真实联调和远程负向验证。
+6. M5：分钟图首屏、受控拖动和 tooltip 交互收口。
 
 ## 12. 版本记录
 
@@ -188,3 +201,4 @@ v1 不增加独立 `expectedEndDate` 参数：调用方传入的 `endDate` 既�
 | v1 | 2026-07-31 | 初版，细化 local/prod 隔离、reader、接口和性能方案 |
 | v1.1 | 2026-07-31 | 冻结 500 根默认返回、显式频率、DELAYED 状态和 local-lake 依赖边界 |
 | v1.2 | 2026-07-31 | 明确 `endDate` 的期望日语义并同步指标响应契约 |
+| v1.3 | 2026-07-31 | 冻结分钟首屏 90 根、四窗格受控拖动和基于真实字段的同步 tooltip 口径 |
