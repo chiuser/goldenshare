@@ -778,15 +778,15 @@ debug metadata 只允许包含：dataset、freq、scanned_file_count、row_count
 7. P95、响应体、文件扫描数和连接数满足门禁。
 8. 后端真实 route、前端真实 API 和远程负向测试全部通过。
 
-## 13. 开发前仍需执行但不再需要产品拍板的事项
+## 13. 开发前事项的完成状态
 
-以下是实施动作，不是新的产品口径：
+以下事项已在 M0-M4 完成，不再作为开发前阻断项：
 
-1. 将异常码写入中央 registry。
-2. 按 `local-lake` extra 更新 `pyproject.toml`/lock。
-3. 用真实 Gold 文件确认 90m/120m 的实际覆盖长度。
-4. 跑 500 根和 5MB payload 性能基准。
-5. 对现有 `StockDetailPage` 的 day/minute 分支做真实 FastAPI + 前端 smoke。
+1. 异常码已写入中央 registry。
+2. `local-lake` optional extra 已加入项目配置并锁定依赖。
+3. 真实 Gold 文件已确认 1m/5m/15m/30m/60m/90m/120m 的读取路径和覆盖能力。
+4. 500 根请求、`LIMIT + 1`、cursor 分页和响应体大小门禁已通过真实 API 验证。
+5. 现有 `StockDetailPage` 的 day/minute 分支已通过真实 FastAPI、Vite、Playwright 页面联调。
 
 ## 14. 版本记录
 
@@ -795,6 +795,8 @@ debug metadata 只允许包含：dataset、freq、scanned_file_count、row_count
 | v1 | 2026-07-31 | 初版，细化配置、reader、API、前端和性能实现 |
 | v1.1 | 2026-07-31 | 冻结 500 根默认返回、显式频率、DELAYED 状态和 local-lake 依赖边界 |
 | v1.2 | 2026-07-31 | 补齐代码级文件落点、函数签名、窗口/cursor、响应、前端时间模型和测试门禁 |
+| v1.3 | 2026-07-31 | 增加符号级实施矩阵、调用链、reader 算法、前端状态机、代码对账门禁和可直接执行的 D1-D5 步骤 |
+| v1.4 | 2026-07-31 | 完成 M0-M4 实现、真实 API/分页/隔离验证和浏览器页面联调，回写最终验收证据 |
 
 ## 15. 符号级实施矩阵
 
@@ -897,7 +899,7 @@ adapter 内部匹配键固定为“`tradeDate` + `tradeTime` 的本地时分秒�
 
 ## 18. 代码与文档对账门禁
 
-当前工作区已完成 M0-M2 后端能力，M3 前端实现处于联调阶段。进入 M4 前必须完成以下对账；“代码能编译”不等于对账通过：
+M0-M4 已完成。以下门禁已逐项对账；“代码能编译”不等于对账通过：
 
 ### 18.1 必须修正/确认的实现点
 
@@ -1023,17 +1025,65 @@ git status --short
 
 ## 20. 当前阶段结论
 
-当前可以继续 M3，但不能把 M3 视为已完成。后端 M0-M2 已有本地真实 API smoke；前端 M3 需要先完成 D1/D2 的时间键、取消竞态和指标状态文案收口，再运行前端测试与 build。通过 D3-D5 后，才进入 M4 的真实页面联调和远程构建负向验证。
+M0-M4 已完成，可以开始使用本地服务验证分钟行情页面。实现边界仍保持：本地 profile 才挂载分钟路由，远程/prod profile 不挂载分钟路由，也不导入 DuckDB。
 
 | 项目 | 当前状态 |
 |---|---|
-| API/reader/config 后端 | 已实现并有单测、真实 TestClient smoke |
-| 前端分钟 client/adapter/page/workspace | 已实现草稿，待 D1/D2 收口与测试 |
-| 完整前端回归 | 待执行 |
-| 真实浏览器页面联调 | 待执行 |
-| 远程 prod 隔离验证 | 后端 route/import smoke 已有，待最终报告复核 |
-| 正式完成 | 未完成 |
+| API/reader/config 后端 | 已实现；单测和真实本地 HTTP smoke 通过 |
+| 前端分钟 client/adapter/page/workspace | 已实现；类型检查、单测、构建和页面联调通过 |
+| 完整前端回归 | 13 个测试文件、59 个测试通过；typecheck/build 通过 |
+| 真实浏览器页面联调 | 7 个频率逐一点击；每频率 bars/indicators 均 200；4 个图表窗格有 canvas；无 console error |
+| 远程 prod 隔离验证 | `APP_ENV=prod` 且本地 lake root 为空时分钟路由数为 0，DuckDB 未导入 |
+| 正式完成 | M0-M4 完成；待用户在本地运行环境中按需启用配置 |
 
-## 21. 版本记录补充
+## 21. M4 验收证据
 
-| v1.3 | 2026-07-31 | 增加符号级实施矩阵、调用链、reader 算法、前端状态机、代码对账门禁和可直接执行的 D1-D5 步骤 |
+### 21.1 真实本地 API
+
+验证时间：`2026-07-31 21:47 Asia/Shanghai`；profile：local-enabled；代码：`601878.SH`；请求结束日：`2026-07-31`。
+
+- 频率：`1/5/15/30/60/90/120` 全部验证。
+- bars 和 minute-indicators 每个频率均返回 HTTP `200`、`count=500`、`hasMore=true`。
+- 每次最多扫描 3 个年度 Parquet 文件；reader 最大耗时约 `24ms`，HTTP 最大耗时约 `47ms`。
+- 最大响应体约 `163KB`，远低于 5MB 上限。
+- cursor 两页验证：两页各 3 行、cursor 存在、无 key 重叠、6 个业务时间键唯一，第二页严格早于第一页。
+- 缺失代码 `999999.SH` 在显式 `endDate` 下返回 HTTP `200`、`dataStatus=DELAYED`、`count=0`。
+- 省略 `freq` 返回 HTTP `422`，证明频率没有默认值。
+- 返回字段不包含 `preClose/change/pctChg`。
+
+详细机器报告：`/private/tmp/stock_minute_api_m4_report_20260731.json`。
+
+### 21.2 本地页面与七频交互
+
+- 页面：`http://127.0.0.1:5173/wealth/market/stock/601878.SH`。
+- 7 个频率按钮均可见，并逐一触发 bars + indicators 请求。
+- 7 个频率对应的 14 个分钟请求均为 HTTP `200`。
+- 分钟页面渲染出 K 线、MACD、成交量、KDJ 四个窗格，共检测到 28 个 canvas。
+- 浏览器 console error 数量为 `0`。
+- 截图：`/private/tmp/stock_minute_ui_all_freq_smoke_20260731.png`。
+
+### 21.3 prod 负向隔离
+
+在 `APP_ENV=prod`、`WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED=true`、`GOLDENSHARE_LAKE_ROOT` 为空时：
+
+- 分钟路由数量为 `0`；
+- `duckdb` 不在已导入模块中；
+- 日线相关路由仍由原有 API 装配。
+
+### 21.4 自动化回归
+
+- 后端分钟能力、reader、API、设置和依赖矩阵测试：`26 passed`。
+- 前端全量 Vitest：`13 files / 59 tests passed`。
+- `npm run typecheck`：通过。
+- `npm run build`：通过；仅保留既有 Vite chunk size warning。
+
+## 22. 后续边界
+
+本专项代码和文档已达到可交付状态。后续只需在本地 profile 配置：
+
+```env
+WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED=true
+GOLDENSHARE_LAKE_ROOT=/Volumes/datasource/data_lake
+```
+
+远程部署继续保持分钟能力关闭，不要求远程 prod DB 提供分钟文件。业务层后续如需增加 `preClose/change/pctChg`，应另开 API contract 版本，不在本版本中隐式扩字段。
