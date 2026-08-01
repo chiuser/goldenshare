@@ -7,12 +7,14 @@ from zoneinfo import ZoneInfo
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.datasets.source_release_policies import (
     NEXT_CALENDAR_DAY_0830_RELEASE,
+    NEXT_OPEN_DAY_0930_RELEASE,
     SAME_DAY_RELEASE,
 )
 
 
 BUSINESS_TIMEZONE = ZoneInfo("Asia/Shanghai")
 KPL_LIST_RELEASE_TIME = time(8, 30)
+MARGIN_RELEASE_DEADLINE = time(9, 30)
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,6 +22,7 @@ class DatasetReleaseTarget:
     target_trade_date: date | None
     is_resolved: bool
     reason: str | None = None
+    is_release_due: bool = True
 
 
 class DatasetReleaseTargetService:
@@ -51,6 +54,20 @@ class DatasetReleaseTargetService:
                 if local_now >= release_at:
                     return DatasetReleaseTarget(candidate, True)
             return DatasetReleaseTarget(None, False, "尚无已到源端发布时间的开市日")
+
+        if definition.source.release_policy == NEXT_OPEN_DAY_0930_RELEASE:
+            # The previous open day is knowable from the start of the next open day.
+            # Its release deadline only controls freshness, not source probing.
+            if local_now.date() not in candidates:
+                return DatasetReleaseTarget(None, False, "当前不是可发布的开市日", False)
+            previous_open_dates = [value for value in candidates if value < local_now.date()]
+            if not previous_open_dates:
+                return DatasetReleaseTarget(None, False, "交易日历缺少前一开市日", False)
+            return DatasetReleaseTarget(
+                previous_open_dates[-1],
+                True,
+                is_release_due=local_now.time() >= MARGIN_RELEASE_DEADLINE,
+            )
 
         return DatasetReleaseTarget(None, False, f"不支持的源端发布策略：{definition.source.release_policy}")
 

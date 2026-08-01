@@ -73,8 +73,12 @@ def test_dataset_definition_projects_kpl_list_next_day_source_release_fact() -> 
     assert all(
         item.source.release_policy == "same_day"
         for item in list_dataset_definitions()
-        if item.dataset_key != "kpl_list"
+        if item.dataset_key not in {"kpl_list", "margin"}
     )
+
+
+def test_dataset_definition_projects_margin_next_open_day_release_fact() -> None:
+    assert get_dataset_definition("margin").source.release_policy == "next_open_day_0930"
 
 
 def test_dataset_definition_projects_ths_daily_valuation_fields() -> None:

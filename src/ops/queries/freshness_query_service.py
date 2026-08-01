@@ -36,6 +36,7 @@ from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.action_catalog import get_workflow_definition
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse, OpsFreshnessSummary
 from src.ops.services.dataset_release_target_service import DatasetReleaseTarget, DatasetReleaseTargetService
+from src.foundation.datasets.source_release_policies import NEXT_OPEN_DAY_0930_RELEASE
 
 
 STATUS_PRIORITY = {"stale": 0, "lagging": 1, "unconfirmed": 2, "unknown": 3, "disabled": 4, "fresh": 5}
@@ -387,12 +388,20 @@ class OpsFreshnessQueryService:
         definition = get_dataset_definition(projection.resource_key)
         if date_model.date_axis == "trade_open_day":
             if date_model.bucket_rule == "every_open_day":
-                if definition.source.release_policy == NEXT_CALENDAR_DAY_0830_RELEASE:
-                    return self.release_target_service.resolve(
+                if definition.source.release_policy in {NEXT_CALENDAR_DAY_0830_RELEASE, NEXT_OPEN_DAY_0930_RELEASE}:
+                    release_target = self.release_target_service.resolve(
                         definition=definition,
                         now=reference_now,
                         open_trade_dates=open_trade_dates,
                     )
+                    if definition.source.release_policy == NEXT_OPEN_DAY_0930_RELEASE:
+                        return DatasetReleaseTarget(
+                            release_target.target_trade_date,
+                            release_target.is_resolved and release_target.is_release_due,
+                            release_target.reason,
+                            release_target.is_release_due,
+                        )
+                    return release_target
                 return DatasetReleaseTarget(latest_open_date, True)
             if date_model.bucket_rule == "week_last_open_day":
                 return DatasetReleaseTarget(

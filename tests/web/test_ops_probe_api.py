@@ -30,6 +30,11 @@ from src.ops.services.kpl_list_remote_probe_service import (
     KplListRemoteReadinessProbeResult,
     KplListRemoteReadinessProbeService,
 )
+from src.ops.services.margin_remote_probe_service import (
+    MARGIN_REMOTE_READY_CONDITION,
+    MarginRemoteReadinessProbeResult,
+    MarginRemoteReadinessProbeService,
+)
 from src.ops.services.stk_mins_remote_probe_service import (
     STK_MINS_REMOTE_READY_CONDITION,
     StkMinsRemoteReadinessProbeResult,
@@ -1456,6 +1461,284 @@ def test_probe_runtime_remote_kpl_list_retries_failed_target_task(
     assert result.triggered_rules == 1
     assert len(task_runs) == 1
     assert task_runs[0].time_input_json["trade_date"] == "2026-05-29"
+
+
+def test_margin_remote_probe_requires_all_exchange_rows_from_resolver(db_session, probe_rule_factory, monkeypatch) -> None:
+    calls: list[dict] = []
+
+    class FakeTradeCalendarDAO:
+        def __init__(self, session):
+            del session
+
+        def get_open_dates(self, exchange, start_date, end_date):
+            del exchange
+            del start_date
+            del end_date
+            return [date(2026, 5, 28), date(2026, 5, 29)]
+
+    class FakeConnector:
+        def call(self, api_name, *, params, fields):
+            calls.append({"api_name": api_name, "params": dict(params), "fields": tuple(fields)})
+            return [{"trade_date": "20260528", "exchange_id": params["exchange_id"]}]
+
+    monkeypatch.setattr("src.ops.services.margin_remote_probe_service.TradeCalendarDAO", FakeTradeCalendarDAO)
+    monkeypatch.setattr(
+        "src.ops.services.margin_remote_probe_service.create_source_connector",
+        lambda source_key: FakeConnector(),
+    )
+    rule = probe_rule_factory(
+        dataset_key="margin",
+        source_key="tushare",
+        probe_condition_json={"type": MARGIN_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "margin.maintain",
+            "request": {"time_input": {"mode": "point"}, "filters": {}, "run_scope": "probe_triggered"},
+        },
+    )
+
+    result = MarginRemoteReadinessProbeService().evaluate(
+        db_session,
+        rule,
+        current=datetime(2026, 5, 29, 1, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.matched is True
+    assert result.payload["target_trade_date"] == "2026-05-28"
+    assert result.payload["matched_exchanges"] == ["SSE", "SZSE", "BSE"]
+    assert result.payload["sample_request_count"] == 3
+    assert calls == [
+        {
+            "api_name": "margin",
+            "params": {"trade_date": "20260528", "exchange_id": "SSE", "limit": 1, "offset": 0},
+            "fields": ("trade_date", "exchange_id"),
+        },
+        {
+            "api_name": "margin",
+            "params": {"trade_date": "20260528", "exchange_id": "SZSE", "limit": 1, "offset": 0},
+            "fields": ("trade_date", "exchange_id"),
+        },
+        {
+            "api_name": "margin",
+            "params": {"trade_date": "20260528", "exchange_id": "BSE", "limit": 1, "offset": 0},
+            "fields": ("trade_date", "exchange_id"),
+        },
+    ]
+
+
+def test_margin_remote_probe_miss_does_not_create_task_run(db_session, probe_rule_factory, monkeypatch) -> None:
+    class FakeTradeCalendarDAO:
+        def __init__(self, session):
+            del session
+
+        def get_open_dates(self, exchange, start_date, end_date):
+            del exchange
+            del start_date
+            del end_date
+            return [date(2026, 5, 28), date(2026, 5, 29)]
+
+    class FakeConnector:
+        def call(self, api_name, *, params, fields):
+            del api_name
+            del fields
+            return [] if params["exchange_id"] == "BSE" else [{"trade_date": "20260528", "exchange_id": params["exchange_id"]}]
+
+    monkeypatch.setattr("src.ops.services.margin_remote_probe_service.TradeCalendarDAO", FakeTradeCalendarDAO)
+    monkeypatch.setattr(
+        "src.ops.services.margin_remote_probe_service.create_source_connector",
+        lambda source_key: FakeConnector(),
+    )
+    rule = probe_rule_factory(
+        dataset_key="margin",
+        probe_condition_json={"type": MARGIN_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "margin.maintain",
+            "request": {"time_input": {"mode": "point"}, "filters": {}},
+        },
+    )
+
+    result = MarginRemoteReadinessProbeService().evaluate(
+        db_session,
+        rule,
+        current=datetime(2026, 5, 29, 1, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.matched is False
+    assert result.payload["missing_exchanges"] == ["BSE"]
+
+
+def test_probe_runtime_remote_margin_hit_creates_task_run_for_release_target(
+    db_session,
+    ops_schedule_factory,
+    probe_rule_factory,
+    monkeypatch,
+) -> None:
+    schedule = ops_schedule_factory(target_key="margin.maintain", trigger_mode="probe")
+    rule = probe_rule_factory(
+        schedule_id=schedule.id,
+        dataset_key="margin",
+        source_key="tushare",
+        probe_condition_json={"type": MARGIN_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "margin.maintain",
+            "request": {"time_input": {"mode": "point"}, "filters": {}, "run_scope": "probe_triggered"},
+        },
+        window_start=None,
+        window_end=None,
+    )
+    service = ProbeRuntimeService()
+    monkeypatch.setattr(
+        service.margin_remote_probe,
+        "evaluate",
+        lambda session, rule, current: MarginRemoteReadinessProbeResult(
+            matched=True,
+            message="源站已完整发布融资融券汇总",
+            payload={"target_trade_date": "2026-05-28"},
+        ),
+    )
+
+    task_runs, result = service.run_once(db_session, now=datetime(2026, 5, 29, 1, 0, tzinfo=timezone.utc), limit=10)
+
+    assert result.triggered_rules == 1
+    assert len(task_runs) == 1
+    assert task_runs[0].resource_key == "margin"
+    assert task_runs[0].time_input_json == {"mode": "point", "trade_date": "2026-05-28"}
+    run_log = db_session.scalar(select(ProbeRunLog).where(ProbeRunLog.probe_rule_id == rule.id))
+    assert run_log is not None
+    assert run_log.result_code == "hit"
+
+
+def test_probe_runtime_remote_margin_skips_existing_effective_target_task(
+    db_session,
+    ops_schedule_factory,
+    probe_rule_factory,
+    task_run_factory,
+    monkeypatch,
+) -> None:
+    schedule = ops_schedule_factory(target_key="margin.maintain", trigger_mode="probe")
+    rule = probe_rule_factory(
+        schedule_id=schedule.id,
+        dataset_key="margin",
+        source_key="tushare",
+        probe_condition_json={"type": MARGIN_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "margin.maintain",
+            "request": {"time_input": {"mode": "point"}, "filters": {}, "run_scope": "probe_triggered"},
+        },
+        window_start=None,
+        window_end=None,
+    )
+    task_run_factory(
+        resource_key="margin",
+        trigger_source="probe",
+        schedule_id=schedule.id,
+        status="success",
+        time_input_json={"mode": "point", "trade_date": "2026-05-28"},
+    )
+    service = ProbeRuntimeService()
+    monkeypatch.setattr(
+        service.margin_remote_probe,
+        "evaluate",
+        lambda session, rule, current: MarginRemoteReadinessProbeResult(
+            matched=True,
+            message="源站已完整发布融资融券汇总",
+            payload={"target_trade_date": "2026-05-28"},
+        ),
+    )
+
+    task_runs, result = service.run_once(db_session, now=datetime(2026, 5, 29, 1, 0, tzinfo=timezone.utc), limit=10)
+
+    assert result.triggered_rules == 0
+    assert task_runs == []
+    run_log = db_session.scalar(select(ProbeRunLog).where(ProbeRunLog.probe_rule_id == rule.id))
+    assert run_log is not None
+    assert run_log.result_code == "deduplicated"
+
+
+def test_probe_runtime_remote_margin_retries_failed_target_task(
+    db_session,
+    ops_schedule_factory,
+    probe_rule_factory,
+    task_run_factory,
+    monkeypatch,
+) -> None:
+    schedule = ops_schedule_factory(target_key="margin.maintain", trigger_mode="probe")
+    probe_rule_factory(
+        schedule_id=schedule.id,
+        dataset_key="margin",
+        source_key="tushare",
+        probe_condition_json={"type": MARGIN_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "margin.maintain",
+            "request": {"time_input": {"mode": "point"}, "filters": {}, "run_scope": "probe_triggered"},
+        },
+        window_start=None,
+        window_end=None,
+    )
+    task_run_factory(
+        resource_key="margin",
+        trigger_source="probe",
+        schedule_id=schedule.id,
+        status="failed",
+        time_input_json={"mode": "point", "trade_date": "2026-05-28"},
+    )
+    service = ProbeRuntimeService()
+    monkeypatch.setattr(
+        service.margin_remote_probe,
+        "evaluate",
+        lambda session, rule, current: MarginRemoteReadinessProbeResult(
+            matched=True,
+            message="源站已完整发布融资融券汇总",
+            payload={"target_trade_date": "2026-05-28"},
+        ),
+    )
+
+    task_runs, result = service.run_once(db_session, now=datetime(2026, 5, 29, 1, 0, tzinfo=timezone.utc), limit=10)
+
+    assert result.triggered_rules == 1
+    assert len(task_runs) == 1
+    assert task_runs[0].time_input_json["trade_date"] == "2026-05-28"
+
+
+def test_probe_runtime_remote_margin_error_only_records_probe_log(
+    db_session,
+    ops_schedule_factory,
+    probe_rule_factory,
+    monkeypatch,
+) -> None:
+    schedule = ops_schedule_factory(target_key="margin.maintain", trigger_mode="probe")
+    rule = probe_rule_factory(
+        schedule_id=schedule.id,
+        dataset_key="margin",
+        source_key="tushare",
+        probe_condition_json={"type": MARGIN_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "margin.maintain",
+            "request": {"time_input": {"mode": "point"}, "filters": {}, "run_scope": "probe_triggered"},
+        },
+        window_start=None,
+        window_end=None,
+    )
+    service = ProbeRuntimeService()
+    monkeypatch.setattr(
+        service.margin_remote_probe,
+        "evaluate",
+        lambda session, rule, current: (_ for _ in ()).throw(RuntimeError("source unavailable")),
+    )
+
+    task_runs, result = service.run_once(db_session, now=datetime(2026, 5, 29, 1, 0, tzinfo=timezone.utc), limit=10)
+
+    assert result.triggered_rules == 0
+    assert task_runs == []
+    run_log = db_session.scalar(select(ProbeRunLog).where(ProbeRunLog.probe_rule_id == rule.id))
+    assert run_log is not None
+    assert run_log.status == "failed"
+    assert run_log.result_code == "error"
 
 
 def test_index_mins_remote_probe_requires_all_representative_samples_in_active_pool(db_session, monkeypatch) -> None:

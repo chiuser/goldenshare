@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy import create_engine
@@ -13,6 +14,9 @@ from src.ops.dataset_definition_projection import get_dataset_freshness_projecti
 from src.ops.dataset_observation_registry import OBSERVED_DATE_MODEL_REGISTRY
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
+
+
+SHANGHAI = ZoneInfo("Asia/Shanghai")
 
 
 @pytest.fixture()
@@ -134,6 +138,33 @@ def test_kpl_list_freshness_is_unconfirmed_when_release_target_cannot_use_calend
 
     assert target.is_resolved is False
     assert item.freshness_status == "unconfirmed"
+
+
+def test_margin_freshness_waits_for_next_open_day_release_deadline() -> None:
+    service = OpsFreshnessQueryService()
+    projection = get_dataset_freshness_projection("margin")
+    assert projection is not None
+    open_trade_dates = [date(2026, 7, 30), date(2026, 7, 31)]
+
+    before_deadline = service._expected_business_date_target_for_projection(
+        projection,
+        reference_date=date(2026, 7, 31),
+        reference_now=datetime(2026, 7, 31, 9, 0, tzinfo=SHANGHAI),
+        latest_open_date=date(2026, 7, 31),
+        open_trade_dates=open_trade_dates,
+    )
+    after_deadline = service._expected_business_date_target_for_projection(
+        projection,
+        reference_date=date(2026, 7, 31),
+        reference_now=datetime(2026, 7, 31, 9, 30, tzinfo=SHANGHAI),
+        latest_open_date=date(2026, 7, 31),
+        open_trade_dates=open_trade_dates,
+    )
+
+    assert before_deadline.target_trade_date == date(2026, 7, 30)
+    assert before_deadline.is_resolved is False
+    assert after_deadline.target_trade_date == date(2026, 7, 30)
+    assert after_deadline.is_resolved is True
 
 
 def test_build_freshness_rebases_cached_snapshot_without_live_scanning(db_session: Session, monkeypatch) -> None:

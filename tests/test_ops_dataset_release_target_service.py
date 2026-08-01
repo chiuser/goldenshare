@@ -63,6 +63,41 @@ def test_same_day_release_target_uses_latest_open_day() -> None:
     assert result.is_resolved is True
 
 
+def test_margin_release_target_separates_target_day_from_release_deadline() -> None:
+    service = DatasetReleaseTargetService()
+    definition = get_dataset_definition("margin")
+    open_trade_dates = [date(2026, 7, 30), date(2026, 7, 31)]
+
+    before_deadline = service.resolve(
+        definition=definition,
+        now=datetime(2026, 7, 31, 9, 0, tzinfo=SHANGHAI),
+        open_trade_dates=open_trade_dates,
+    )
+    at_deadline = service.resolve(
+        definition=definition,
+        now=datetime(2026, 7, 31, 9, 30, tzinfo=SHANGHAI),
+        open_trade_dates=open_trade_dates,
+    )
+
+    assert before_deadline.target_trade_date == date(2026, 7, 30)
+    assert before_deadline.is_resolved is True
+    assert before_deadline.is_release_due is False
+    assert at_deadline.target_trade_date == date(2026, 7, 30)
+    assert at_deadline.is_resolved is True
+    assert at_deadline.is_release_due is True
+
+
+def test_margin_release_target_only_applies_on_next_open_day() -> None:
+    result = DatasetReleaseTargetService().resolve(
+        definition=get_dataset_definition("margin"),
+        now=datetime(2026, 8, 1, 9, 30, tzinfo=SHANGHAI),
+        open_trade_dates=[date(2026, 7, 31)],
+    )
+
+    assert result.target_trade_date is None
+    assert result.is_resolved is False
+
+
 def test_release_target_does_not_guess_when_calendar_has_no_open_day() -> None:
     result = DatasetReleaseTargetService().resolve(
         definition=get_dataset_definition("kpl_list"),

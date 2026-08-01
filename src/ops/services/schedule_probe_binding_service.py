@@ -34,6 +34,11 @@ from src.ops.services.kpl_list_remote_probe_service import (
     KPL_LIST_DATASET_KEY,
     KPL_LIST_REMOTE_READY_CONDITION,
 )
+from src.ops.services.margin_remote_probe_service import (
+    MARGIN_ACTION_KEY,
+    MARGIN_DATASET_KEY,
+    MARGIN_REMOTE_READY_CONDITION,
+)
 from src.ops.services.stk_mins_remote_probe_service import (
     STK_MINS_ACTION_KEY,
     STK_MINS_ALLOWED_FREQS,
@@ -50,6 +55,7 @@ REMOTE_SOURCE_PROBE_CONDITIONS = {
     INDEX_MINS_REMOTE_READY_CONDITION,
     KPL_LIST_REMOTE_READY_CONDITION,
     IDX_FACTOR_PRO_REMOTE_READY_CONDITION,
+    MARGIN_REMOTE_READY_CONDITION,
 }
 SUPPORTED_PROBE_CONDITIONS = {FRESHNESS_LATEST_OPEN_CONDITION, *REMOTE_SOURCE_PROBE_CONDITIONS}
 TIME_PARAM_KEYS = {"trade_date", "ann_date", "month", "start_date", "end_date", "start_month", "end_month"}
@@ -81,6 +87,7 @@ class ScheduleProbeBindingService:
             return
         if trigger_mode not in {"probe", "schedule_probe_fallback"}:
             self._validate_remote_idx_factor_pro_non_probe_schedule(schedule=schedule)
+            self._validate_remote_margin_non_probe_schedule(schedule=schedule)
             return
 
         templates = self._build_templates(schedule=schedule)
@@ -136,6 +143,15 @@ class ScheduleProbeBindingService:
             self._validate_remote_idx_factor_pro_schedule(
                 schedule=schedule,
                 filters=filters,
+                interval=interval,
+                max_daily=max_daily,
+            )
+        if condition_kind == MARGIN_REMOTE_READY_CONDITION:
+            self._validate_remote_margin_schedule(
+                schedule=schedule,
+                filters=filters,
+                window_start=window_start,
+                window_end=window_end,
                 interval=interval,
                 max_daily=max_daily,
             )
@@ -223,6 +239,12 @@ class ScheduleProbeBindingService:
                 status_code=422,
                 code="validation_error",
                 message="指数历史分钟行情必须使用“源站已有指数分钟行情”探测条件",
+            )
+        if dataset_key == MARGIN_DATASET_KEY:
+            raise WebAppError(
+                status_code=422,
+                code="validation_error",
+                message="融资融券汇总必须使用“源站已完整发布融资融券汇总”探测条件",
             )
         definition = get_dataset_definition(dataset_key)
         if definition.observability.freshness_policy != CONTINUOUS_OPEN_DAY:
@@ -353,6 +375,51 @@ class ScheduleProbeBindingService:
             filters=filters,
             interval=interval,
             max_daily=max_daily,
+        )
+
+    @classmethod
+    def _validate_remote_margin_schedule(
+        cls,
+        *,
+        schedule: OpsSchedule,
+        filters: dict,
+        window_start: str,
+        window_end: str,
+        interval: int,
+        max_daily: int,
+    ) -> None:
+        if cls._normalize_trigger_mode(schedule.trigger_mode) != "probe":
+            raise WebAppError(status_code=422, code="validation_error", message="源站融资融券汇总探测只支持探测触发")
+        if schedule.target_type != "dataset_action" or schedule.target_key != MARGIN_ACTION_KEY:
+            raise WebAppError(status_code=422, code="validation_error", message="源站融资融券汇总探测只支持融资融券汇总维护")
+        if filters:
+            raise WebAppError(status_code=422, code="validation_error", message="源站融资融券汇总探测不支持维护参数")
+        if schedule.calendar_policy:
+            raise WebAppError(status_code=422, code="validation_error", message="源站融资融券汇总探测不能与日期策略混用")
+        if cls._has_fixed_time_input(dict(schedule.params_json or {})):
+            raise WebAppError(status_code=422, code="validation_error", message="源站融资融券汇总探测不能与固定维护日期混用")
+        if window_start != "09:00" or window_end != "09:30":
+            raise WebAppError(status_code=422, code="validation_error", message="源站融资融券汇总探测窗口必须为 09:00~09:30")
+        if interval != 300:
+            raise WebAppError(status_code=422, code="validation_error", message="源站融资融券汇总探测间隔必须为 300 秒")
+        if max_daily != 1:
+            raise WebAppError(status_code=422, code="validation_error", message="源站融资融券汇总探测每日最多触发 1 次")
+        if cls._dataset_from_action_target(schedule.target_key) != MARGIN_DATASET_KEY:
+            raise WebAppError(status_code=422, code="validation_error", message="源站融资融券汇总探测只支持融资融券汇总维护")
+
+    @classmethod
+    def _validate_remote_margin_non_probe_schedule(cls, *, schedule: OpsSchedule) -> None:
+        config = dict(schedule.probe_config_json or {})
+        if str(config.get("condition_kind") or FRESHNESS_LATEST_OPEN_CONDITION) != MARGIN_REMOTE_READY_CONDITION:
+            return
+        filters = cls._extract_schedule_filters(dict(schedule.params_json or {}))
+        cls._validate_remote_margin_schedule(
+            schedule=schedule,
+            filters=filters,
+            window_start=cls._normalize_time(config.get("window_start") or "15:30"),
+            window_end=cls._normalize_time(config.get("window_end") or "17:00"),
+            interval=max(int(config.get("probe_interval_seconds") or 300), 30),
+            max_daily=max(int(config.get("max_triggers_per_day") or 1), 1),
         )
 
     @staticmethod

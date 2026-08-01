@@ -6,6 +6,7 @@ import {
   actionSupportsRemoteIndexMinsProbe,
   actionSupportsRemoteIdxFactorProProbe,
   actionSupportsRemoteKplListProbe,
+  actionSupportsRemoteMarginProbe,
   actionSupportsRemoteProbeCondition,
   actionSupportsRemoteStkMinsProbe,
   actionSupportsTriggerDaySingleRangePolicy,
@@ -254,6 +255,19 @@ describe("自动任务日期策略", () => {
     expect(buildProbeConditionOptions("dataset_action", "index_daily.maintain")).toEqual([
       { value: "freshness_latest_open", label: "最新业务日命中最新交易日" },
       { value: "remote_index_daily_ready", label: "源站已有指数日线" },
+    ]);
+  });
+
+  it("only enables strict remote margin source probing for margin maintain", () => {
+    expect(actionSupportsRemoteMarginProbe("dataset_action", "margin.maintain")).toBe(true);
+    expect(actionSupportsRemoteMarginProbe("dataset_action", "daily.maintain")).toBe(false);
+    expect(actionSupportsRemoteMarginProbe("workflow", "margin.maintain")).toBe(false);
+    expect(actionSupportsRemoteProbeCondition("dataset_action", "margin.maintain", "remote_margin_ready")).toBe(true);
+    expect(actionSupportsRemoteProbeCondition("dataset_action", "margin.maintain", "freshness_latest_open")).toBe(false);
+    expect(defaultProbeConditionForAction("dataset_action", "margin.maintain")).toBe("remote_margin_ready");
+    expect(formatProbeConditionLabel("remote_margin_ready")).toBe("源站已完整发布融资融券汇总");
+    expect(buildProbeConditionOptions("dataset_action", "margin.maintain")).toEqual([
+      { value: "remote_margin_ready", label: "源站已完整发布融资融券汇总" },
     ]);
   });
 

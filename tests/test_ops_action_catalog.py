@@ -143,7 +143,6 @@ def test_workflow_time_contracts_match_step_requirements() -> None:
         "bak_basic",
         "cyq_perf",
         "stk_factor_pro",
-        "margin",
         "stk_limit",
         "stock_st",
         "limit_list_d",

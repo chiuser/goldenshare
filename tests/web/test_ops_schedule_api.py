@@ -6,8 +6,10 @@ from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 import pytest
+from sqlalchemy import select
 
 from src.app.exceptions import WebAppError
+from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.services.schedule_probe_binding_service import ScheduleProbeBindingService
 
 
@@ -1586,6 +1588,37 @@ def test_ops_schedule_index_mins_rejects_local_freshness_probe(app_client, user_
     assert response.json()["message"] == "指数历史分钟行情必须使用“源站已有指数分钟行情”探测条件"
 
 
+def test_ops_schedule_margin_rejects_local_freshness_probe(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "margin.maintain",
+            "display_name": "错误本地融资融券探测",
+            "schedule_type": "cron",
+            "trigger_mode": "probe",
+            "cron_expr": "*/5 9 * * 1-5",
+            "timezone": "Asia/Shanghai",
+            "probe_config": {
+                "window_start": "09:00",
+                "window_end": "09:30",
+                "probe_interval_seconds": 300,
+                "max_triggers_per_day": 1,
+                "condition_kind": "freshness_latest_open",
+            },
+            "params_json": {"time_input": {"mode": "point"}, "filters": {}},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "融资融券汇总必须使用“源站已完整发布融资融券汇总”探测条件"
+
+
 @pytest.mark.parametrize(
     ("payload_patch", "expected_message"),
     [
@@ -1652,6 +1685,109 @@ def test_ops_schedule_remote_kpl_list_probe_mode_rejects_invalid_binding(
 
     assert response.status_code == 422
     assert response.json()["message"] == expected_message
+
+
+@pytest.mark.parametrize(
+    ("payload_patch", "expected_message"),
+    [
+        ({"trigger_mode": "schedule_probe_fallback"}, "源站融资融券汇总探测只支持探测触发"),
+        (
+            {"target_type": "workflow", "target_key": "daily_market_close_maintenance"},
+            "源站融资融券汇总探测只支持融资融券汇总维护",
+        ),
+        (
+            {"params_json": {"time_input": {"mode": "point"}, "filters": {"exchange_id": ["SSE"]}}},
+            "源站融资融券汇总探测不支持维护参数",
+        ),
+        (
+            {"probe_config": {"window_start": "09:05", "window_end": "09:30", "probe_interval_seconds": 300, "max_triggers_per_day": 1, "condition_kind": "remote_margin_ready"}},
+            "源站融资融券汇总探测窗口必须为 09:00~09:30",
+        ),
+        (
+            {"probe_config": {"window_start": "09:00", "window_end": "09:30", "probe_interval_seconds": 600, "max_triggers_per_day": 1, "condition_kind": "remote_margin_ready"}},
+            "源站融资融券汇总探测间隔必须为 300 秒",
+        ),
+        (
+            {"probe_config": {"window_start": "09:00", "window_end": "09:30", "probe_interval_seconds": 300, "max_triggers_per_day": 2, "condition_kind": "remote_margin_ready"}},
+            "源站融资融券汇总探测每日最多触发 1 次",
+        ),
+    ],
+)
+def test_ops_schedule_remote_margin_probe_rejects_invalid_binding(
+    app_client,
+    user_factory,
+    payload_patch,
+    expected_message,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+    payload = {
+        "target_type": "dataset_action",
+        "target_key": "margin.maintain",
+        "display_name": "融资融券汇总源站探测",
+        "schedule_type": "cron",
+        "trigger_mode": "probe",
+        "cron_expr": "*/5 9 * * 1-5",
+        "timezone": "Asia/Shanghai",
+        "probe_config": {
+            "source_key": "tushare",
+            "window_start": "09:00",
+            "window_end": "09:30",
+            "probe_interval_seconds": 300,
+            "max_triggers_per_day": 1,
+            "condition_kind": "remote_margin_ready",
+        },
+        "params_json": {"time_input": {"mode": "point"}, "filters": {}},
+    }
+    payload.update(payload_patch)
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json=payload,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == expected_message
+
+
+def test_ops_schedule_remote_margin_probe_creates_fixed_probe_rule(app_client, user_factory, db_session) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "margin.maintain",
+            "display_name": "融资融券汇总源站探测",
+            "schedule_type": "cron",
+            "trigger_mode": "probe",
+            "cron_expr": "*/5 9 * * 1-5",
+            "timezone": "Asia/Shanghai",
+            "probe_config": {
+                "source_key": "tushare",
+                "window_start": "09:00",
+                "window_end": "09:30",
+                "probe_interval_seconds": 300,
+                "max_triggers_per_day": 1,
+                "condition_kind": "remote_margin_ready",
+            },
+            "params_json": {"time_input": {"mode": "point"}, "filters": {}},
+        },
+    )
+
+    assert response.status_code == 200
+    schedule_id = response.json()["id"]
+    rules = db_session.scalars(select(ProbeRule).where(ProbeRule.schedule_id == schedule_id)).all()
+    assert len(rules) == 1
+    assert rules[0].probe_condition_json == {"type": "remote_margin_ready"}
+    assert rules[0].window_start == "09:00"
+    assert rules[0].window_end == "09:30"
+    assert rules[0].probe_interval_seconds == 300
 
 
 def test_schedule_probe_binding_rejects_remote_index_daily_probe_with_calendar_policy() -> None:

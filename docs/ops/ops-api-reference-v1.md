@@ -1393,6 +1393,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 4. `remote_index_mins_ready`：仅用于 `index_mins.maintain`。自动任务必须显式选择 `1min/5min/15min/30min/60min`，探测按 15 个固定代表指数和五个频率串行验证；任一组合未返回目标交易日数据即停止本轮，全部 75 项命中后才创建 TaskRun。最小探测间隔为 300 秒；不支持本地 freshness 作为该数据集的探测条件。
 5. `remote_idx_factor_pro_ready`：仅用于 `idx_factor_pro.maintain`，在探测窗口内请求 Tushare 当日指数技术因子的一条最小样本；样本具有非空 `ts_code` 且 `trade_date` 命中最新开市日后，才创建正式全市场单日维护 TaskRun。必须使用空 `filters`、point 时间意图、无 `calendar_policy`；最小探测间隔为 300 秒、每日最多触发一次。此条件不以本地 freshness 代替源站就绪判断。
 6. `remote_kpl_list_ready`：仅用于 `kpl_list.maintain`，以“竞价”样本确认源站已在次日 08:30 发布前一开市日榜单；命中后只为该目标交易日创建一次有效的 `kpl_list.maintain` TaskRun。此条件只支持探测触发，不支持定时兜底。
+7. `remote_margin_ready`：仅用于 `margin.maintain`。在下一个开市日 `09:00~09:30` 验证 SSE、SZSE、BSE 是否均返回前一开市日数据；三者齐备才创建一个 `margin.maintain(point=D)` TaskRun。此条件只能使用纯探测、空维护参数、无日期策略、固定 `300` 秒间隔与每日一次触发；09:30 前 freshness 保持 `unconfirmed`。
 
 `remote_stk_mins_ready` 示例：
 
@@ -1531,6 +1532,27 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
     "time_input": {"mode": "point"},
     "filters": {}
   }
+}
+```
+
+`remote_margin_ready` 示例：
+
+```json
+{
+  "target_type": "dataset_action",
+  "target_key": "margin.maintain",
+  "schedule_type": "cron",
+  "trigger_mode": "probe",
+  "cron_expr": "*/5 9 * * 1-5",
+  "timezone": "Asia/Shanghai",
+  "probe_config": {
+    "window_start": "09:00",
+    "window_end": "09:30",
+    "probe_interval_seconds": 300,
+    "max_triggers_per_day": 1,
+    "condition_kind": "remote_margin_ready"
+  },
+  "params_json": {"time_input": {"mode": "point"}, "filters": {}}
 }
 ```
 
