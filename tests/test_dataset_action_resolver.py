@@ -1042,7 +1042,39 @@ def test_dataset_action_resolver_builds_month_point_plan(mocker) -> None:
     assert plan.run_profile == "point_incremental"
     assert plan.time_scope.mode == "point"
     assert plan.time_scope.start == "202604"
+    assert plan.planning.unit_count == 1
+    assert plan.units[0].trade_date == date(2026, 4, 30)
     assert plan.units[0].request_params == {"month": "202604"}
+
+
+def test_dataset_action_resolver_expands_month_range_to_monthly_broker_recommend_units(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    get_open_dates = mocker.patch.object(
+        resolver.unit_planner.dao.trade_calendar,
+        "get_open_dates",
+        side_effect=AssertionError("month_or_range must not query the trading calendar"),
+    )
+    request = DatasetActionRequest(
+        dataset_key="broker_recommend",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_month="2026-06", end_month="2026-08"),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "range_rebuild"
+    assert plan.time_scope.start == "202606"
+    assert plan.time_scope.end == "202608"
+    assert plan.planning.unit_count == 3
+    assert [unit.trade_date for unit in plan.units] == [date(2026, 6, 30), date(2026, 7, 31), date(2026, 8, 31)]
+    assert [unit.request_params for unit in plan.units] == [
+        {"month": "202606"},
+        {"month": "202607"},
+        {"month": "202608"},
+    ]
+    assert {unit.pagination_policy for unit in plan.units} == {"offset_limit"}
+    assert {unit.page_limit for unit in plan.units} == {1000}
+    get_open_dates.assert_not_called()
 
 
 def test_dataset_action_resolver_builds_anns_d_point_and_range_units(mocker) -> None:

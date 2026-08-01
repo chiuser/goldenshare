@@ -109,6 +109,8 @@ class DatasetUnitPlanner:
                     retryable=False,
                 )
             )
+        if date_model.input_shape == "month_or_range":
+            return self._expand_calendar_month_ends(request.start_date, request.end_date)
         if date_model.date_axis == "natural_day":
             if date_model.bucket_rule == "week_friday":
                 return self._expand_calendar_week_fridays(request.start_date, request.end_date)
