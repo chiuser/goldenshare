@@ -259,7 +259,7 @@ DATASET_ROWS = (
                  'std_table': None,
                  'serving_table': 'core_serving_light.news',
                  'raw_table': 'raw_tushare.news',
-                 'conflict_columns': ('row_key_hash',),
+                 'conflict_columns': ('news_time', 'row_key_hash'),
                  'write_path': 'raw_only_upsert'},
      'planning': {'universe_policy': 'no_pool',
                   'enum_fanout_fields': ('src',),

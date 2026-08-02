@@ -273,6 +273,8 @@ docs/
 
 ## 8. 文档治理
 
+- [生产 PostgreSQL 存储空间优化治理专项 v1（一期已完成，二期新闻快讯冷热分层代码完成，待生产迁移）](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v1.md)
+- [新闻快讯冷热分层 LLD v1（代码完成，待生产迁移）](/Users/congming/github/goldenshare/docs/governance/prod-news-cold-storage-partition-lld-v1.md)
 - [文档信息架构与待整合清单 v1](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md)
 - [文档维护基线 v1](/Users/congming/github/goldenshare/docs/governance/docs-maintenance-baseline-v1.md)
 - [工程风险登记簿](/Users/congming/github/goldenshare/docs/governance/engineering-risk-register.md)

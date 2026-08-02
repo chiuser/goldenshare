@@ -273,6 +273,15 @@ def test_dataset_definition_projects_cyq_chips_raw_view_facts() -> None:
     assert definition.capabilities.get_action("maintain").supported_time_modes == ("point", "range")
 
 
+def test_dataset_definition_projects_news_partition_compatible_conflict_key() -> None:
+    definition = get_dataset_definition("news")
+
+    assert definition.storage.raw_table == "raw_tushare.news"
+    assert definition.storage.target_table == "core_serving_light.news"
+    assert definition.storage.write_path == "raw_only_upsert"
+    assert definition.storage.conflict_columns == ("news_time", "row_key_hash")
+
+
 def test_dataset_definition_projects_stk_limit_subject_completeness_facts() -> None:
     definition = get_dataset_definition("stk_limit")
 
