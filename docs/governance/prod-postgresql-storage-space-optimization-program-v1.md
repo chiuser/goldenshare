@@ -1,9 +1,9 @@
 # 生产 PostgreSQL 存储空间优化治理专项 v1
 
-状态：一期已执行并验收；第二期首项“新闻快讯冷热分层”代码开发完成，待生产执行授权
+状态：一期已执行并验收；新闻快讯分区方案已撤回，整表下沉待单独实施
 更新时间：2026-08-02
 范围：生产 PostgreSQL `goldenshare` 的 SSD/HDD 存储分层。
-不在范围：删除、清空业务数据；改变数据集请求语义；修改 API 或前端业务行为。第二期允许为单表冷热分层重建表结构，但必须以完整数据复制、最终切换和逐项验收为前提。
+不在范围：删除、清空业务数据；改变数据集请求语义；修改 API 或前端业务行为。
 
 ---
 
@@ -199,91 +199,24 @@ ALTER INDEX <目标索引> SET TABLESPACE pg_default;
 
 ## 6. 后续阶段
 
-### 第二期：高收益未分区表的冷热分层设计
+### 第二期：高收益未分区表的存储方案
 
-目标是对 `index_mins`、新闻、日线、资金流等未分区大表，单独设计年份分区与迁移方案，使 2026 数据继续留在 SSD、历史数据迁入 HDD。每张表必须先完成：
+目标是对 `index_mins`、新闻、日线、资金流等未分区大表，按读写活跃度选择分区或整表迁移方案。每张表必须先完成：
 
 1. 当前读写路径与 Biz API 消费者审计。
 2. 分区键、唯一键、索引、view、外键与写入冲突策略审计。
 3. 无业务数据删除的迁移方式、锁窗口、回滚空间和最终验收设计。
 4. 单表 LLD、测试与生产维护窗口评审。
 
-第二期不允许复用一期的“直接整表迁移”手段。
+### 6.1 新闻快讯 `raw_tushare.news`：分区方案撤回
 
-### 6.1 第二期首项：新闻快讯 `raw_tushare.news` 冷热分层
+状态：已撤回，正在恢复单表契约；尚未执行新的整表迁移。
 
-状态：方案与代码开发完成；待生产执行授权。
-目标：只将新闻快讯 2026 年前的历史数据下沉到 `gs_raw_cold_hdd`；2026 年及以后持续写入 SSD。`core_serving_light.news`、财富端市场新闻和个股新闻 API 的表名、字段与查询方式保持不变。
-
-#### 6.1.1 审计事实
-
-审计时间：2026-08-02。审计方式：CodeGraph、当前代码、`bash scripts/psql-remote.sh` 只读查询。
-
-| 项目 | 事实 |
-| --- | --- |
-| 当前表 | `raw_tushare.news`，单表、未分区，位于 `pg_default` |
-| 当前规模 | 8,565,019 行，约 6.92GiB，包含 heap、Toast 与索引 |
-| 时间范围 | 2022-01-01 至 2026-08-02 |
-| 历史规模 | 2022 至 2025 年共 7,276,479 行，占约 84.96%；按当前总量比例估算可释放约 5.88GiB SSD |
-| 当前维护频率 | `news.maintain` 每 30 分钟成功执行一次，不能直接整表下沉 |
-| 业务消费 | `core_serving_light.news` 直出 `raw_tushare.news`；财富端市场新闻、个股新闻查询均按 `news_time` 读取该 view |
-| 当前幂等键 | `row_key_hash`；其生成内容包含 `src`、`news_time`、标题、正文、频道和评分 |
-| 无业务依赖字段 | 当前 `id` 仅为 raw 表代理主键；代码、view、Biz 查询和外键审计均未发现业务消费者 |
-
-同一新闻分组不一起迁移：`raw_tushare.major_news` 当前全部为 2026 数据且每小时维护；`raw_tushare.cctv_news` 仅约 59MB，收益不足。
-
-#### 6.1.2 最终结构与写入口径
-
-`raw_tushare.news` 改为按 `news_time` 的年度 RANGE 分区父表：
-
-| 分区 | tablespace | 作用 |
-| --- | --- | --- |
-| `news_p2022` 至 `news_p2025` | `gs_raw_cold_hdd` | 已冻结历史新闻 |
-| `news_p2026` | `pg_default` | 当前热数据与 30 分钟维护写入 |
-| `news_p2027` 至 `news_p2030` | `pg_default` | 未来热分区，避免跨年无分区可写 |
-
-最终业务行标识为 `(news_time, row_key_hash)`：
-
-1. `row_key_hash` 的当前生成规则已包含 `news_time`，因此重复获取同一源站记录仍落入同一分区、同一冲突键。
-2. 当前逻辑中，源站修订正文、标题、频道或评分会产生新 hash；新结构保持该现有行为，不额外合并或删除新闻版本。
-3. PostgreSQL 分区表的唯一键必须包含分区键，不能保留旧的全局 `UNIQUE(row_key_hash)`；写入冲突目标同步收口为 `(news_time, row_key_hash)`。
-4. 删除没有业务消费者的代理列 `id`，不保留无意义的全局主键。所有 view 和 Biz DTO 本来只使用 `row_key_hash`、时间与新闻字段。
-
-保留每个叶分区的两组访问索引：`(news_time DESC)` 服务时间窗口与最新时间查询，`(src, news_time DESC)` 服务来源过滤。历史分区的 heap 与全部索引必须一并位于 HDD；热分区整体保留 SSD。
-
-#### 6.1.3 开发范围
-
-| 层 | 必须修改 | 不修改 |
-| --- | --- | --- |
-| Foundation model | `RawNews` 的最终复合行标识与分区事实 | `RawMajorNews`、`RawCctvNews` |
-| DatasetDefinition / writer | `news` 的 raw conflict key 改为 `(news_time, row_key_hash)`；保留 `raw_only_upsert` | 请求参数、unit、分页、事务边界、新闻来源扇出 |
-| Alembic | 只预建空分区父表与年度分区；不复制数据、不切换 view | 其他业务表、Ops 表、数据集表 |
-| Biz / API | 不改查询接口；用现有 view 名称获得分区裁剪 | DTO、路由、前端 |
-| 测试 | model、DAO upsert、writer conflict key、view 查询和迁移后历史/当年读取 | 无关数据集测试 |
-
-#### 6.1.4 生产切换步骤
-
-1. **开发与本地验证**：先完成 model、Definition、DAO/writer、受控迁移 CLI 和仅预建空 stage 的 Alembic；用空库验证分区、冲突写入、view 查询和索引结构。不得先修改生产表。
-2. **生产预建与历史复制**：创建独立的分区目标表和 2022 至 2030 年分区；历史数据按年份复制到对应分区。复制期间线上仍读写旧 `raw_tushare.news`，不引入双写或兼容代码。
-3. **最终切换门禁**：暂停 `news.maintain` 的自动触发与人工新建；确认没有 `queued`、`running`、`canceling` 的 `news` TaskRun，且没有长事务访问旧表。
-4. **短暂停写切换**：锁定旧表，复制最后增量，核对旧表与新分区表的总行数、按年行数、时间范围、hash 集合抽样和索引；随后原子替换为最终表名，并重建 `core_serving_light.news` 指向新表。此时财富端读请求可能短暂等待锁，但恢复后仍使用原 API 和 view。
-5. **恢复写入与真实验证**：完成原子切换后再重启新写入冲突键的 worker，恢复 `news.maintain`；运行一次最小新闻快讯维护，确认源端、归一化、写入、分区归属、view 读取和财富端 API 都一致。
-6. **旧表退场**：仅在数据核对、真实维护和 API 验收全部通过后，在同一变更闭环删除旧 relation；不得长期保留旧表、双写或兼容 view。执行删除前必须获得该次生产操作的明确授权。
-
-#### 6.1.5 硬门禁与验收
-
-1. 不允许 `ALTER TABLE raw_tushare.news SET TABLESPACE ...`；这会把 2026 热数据一起迁往 HDD。
-2. 不允许以“复制后删除”替代数据核对；旧 relation 删除前必须完成总行数、年度行数、时间边界、hash 抽样、索引和 view/API 读取验收。
-3. 生产切换前必须有可用 SSD 空间容纳 2026 热分区与切换阶段临时对象，HDD 空间容纳约 5.88GiB 历史数据及索引；实际容量以执行前 catalog 复核为准。
-4. 只暂停新闻快讯写入，不停止其他数据集任务；Ops 状态写入不得影响新闻业务数据事务。
-5. 验收后，2022 至 2025 分区及其全部索引位于 `gs_raw_cold_hdd`，2026 至 2030 年分区及其全部索引位于 `pg_default`，`core_serving_light.news` 和财富端两个新闻 API 继续可读。
-
-#### 6.1.6 需要的生产授权
-
-本节只记录方案，不是执行授权。开始生产实施前必须单独确认：
-
-1. 允许在维护窗口内短暂停止 `news.maintain` 写入并短暂阻塞新闻读取，以完成最后增量复制与表名切换。
-2. 允许在全部核验通过后删除旧的未分区 `raw_tushare.news` relation；不保留长期备份表或兼容链路。
+1. 已创建的 `raw_tushare.news_partitioned_stage` 始终为 0 行。首次复制因年度分区边界误用 UTC 而失败，事务已回滚；旧 `raw_tushare.news` 未被修改、未复制、未切换、未删除。
+2. 新闻规范化结果使用 `Asia/Shanghai` 时间。2022-01-01 的早间新闻在 UTC 仍属于 2021 年，说明该分区设计没有正确表达新闻的业务时间边界，不能继续修补后上线。
+3. 代码恢复为原单表事实：`id` 是主键，`row_key_hash` 是全局唯一幂等键；`core_serving_light.news`、财富端市场新闻和个股新闻 API 继续读取同一张 `raw_tushare.news`。
+4. 退场迁移只允许删除确认 0 行的 stage；stage 非空时必须失败，绝不删除任何复制数据或旧业务表。
+5. 后续若实施用户已接受性能取舍的整表下沉，必须另行完成短维护窗口、表与全部索引的逐对象 tablespace 迁移、view/API 读取验证和一次真实 `news.maintain` 写入验证。该方案不再引入分区、复制切换或新的写入契约。
 
 ### 第三期：持续治理
 
@@ -303,4 +236,3 @@ ALTER INDEX <目标索引> SET TABLESPACE pg_default;
 1. [Prod 每日筹码分布 HDD Tablespace 迁移方案 v1（已执行）](/Users/congming/github/goldenshare/docs/ops/prod-cyq-chips-hdd-tablespace-migration-plan-v1.md)
 2. [股票历史分钟行情 tablespace 冷热分层记录 v1](/Users/congming/github/goldenshare/docs/ops/stk-mins-tablespace-layout-v1.md)
 3. [文档维护基线 v1](/Users/congming/github/goldenshare/docs/governance/docs-maintenance-baseline-v1.md)
-4. [新闻快讯冷热分层 LLD v1](/Users/congming/github/goldenshare/docs/governance/prod-news-cold-storage-partition-lld-v1.md)

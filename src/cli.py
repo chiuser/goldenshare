@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 
 import typer
@@ -57,7 +57,6 @@ from src.foundation.ingestion.linter import lint_all_dataset_definitions
 from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY, build_dataset_maintain_service
 from src.foundation.realtime.runtime_config_seed_service import RealtimeRuntimeConfigSeedService
 from src.foundation.services.migration import RawTushareBootstrapService
-from src.foundation.services.migration import NewsColdStorageMigrationService
 from src.foundation.services.migration import StockStMissingDateRepairService
 from src.foundation.serving import ServingPublishService, validate_serving_coverage
 from src.ops.models.ops.task_run import TaskRun
@@ -129,96 +128,6 @@ def main() -> None:
 @app.command("init-db")
 def init_db() -> None:
     command.upgrade(_alembic_config(), "head")
-
-
-def _echo_news_cold_storage_summary(name: str, summary) -> None:  # type: ignore[no-untyped-def]
-    year_rows = ", ".join(f"{year}:{row_count}" for year, row_count in summary.rows_by_year) or "-"
-    typer.echo(
-        f"{name}: rows={summary.row_count} "
-        f"earliest={summary.earliest_news_time} latest={summary.latest_news_time} years={year_rows}"
-    )
-
-
-@app.command("migrate-news-cold-storage")
-def migrate_news_cold_storage(
-    operation: str = typer.Argument(..., help="prepare | copy | verify | cutover"),
-    apply: bool = typer.Option(False, "--apply", help="显式执行 copy 或 cutover；默认只预览。"),
-    copy_started_at: str | None = typer.Option(
-        None,
-        "--copy-started-at",
-        help="copy --apply 输出的数据库时间，cutover --apply 必填，必须包含时区。",
-    ),
-    drop_retired_table: bool = typer.Option(
-        False,
-        "--drop-retired-table",
-        help="cutover --apply 必填；确认最终切换后删除旧 news relation。",
-    ),
-) -> None:
-    operation = operation.lower()
-    if operation not in {"prepare", "copy", "verify", "cutover"}:
-        raise typer.BadParameter("operation 只允许 prepare、copy、verify 或 cutover。", param_hint="operation")
-    if operation != "cutover" and (copy_started_at is not None or drop_retired_table):
-        raise typer.BadParameter("--copy-started-at 和 --drop-retired-table 只允许用于 cutover。")
-
-    parsed_copy_started_at: datetime | None = None
-    if operation == "cutover" and apply:
-        if copy_started_at is None:
-            raise typer.BadParameter("cutover --apply 必须提供 --copy-started-at。", param_hint="--copy-started-at")
-        try:
-            parsed_copy_started_at = datetime.fromisoformat(copy_started_at)
-        except ValueError as error:
-            raise typer.BadParameter("--copy-started-at 必须是 ISO 8601 时间。", param_hint="--copy-started-at") from error
-        if parsed_copy_started_at.tzinfo is None:
-            raise typer.BadParameter("--copy-started-at 必须包含时区偏移。", param_hint="--copy-started-at")
-        if not drop_retired_table:
-            raise typer.BadParameter("cutover --apply 必须显式提供 --drop-retired-table。", param_hint="--drop-retired-table")
-
-    with SessionLocal() as session:
-        service = NewsColdStorageMigrationService()
-        if operation == "prepare":
-            result = service.prepare(session)
-            typer.echo(f"news cold storage stage ready: partitions={len(result.partition_tablespaces)}")
-            for partition_name, tablespace_name in result.partition_tablespaces:
-                typer.echo(f" - {partition_name}: {tablespace_name}")
-            return
-        if operation == "copy":
-            result = service.copy(session, apply=apply)
-            typer.echo(f"news cold storage copy: applied={result.applied} rows_affected={result.rows_affected}")
-            _echo_news_cold_storage_summary("source", result.source)
-            _echo_news_cold_storage_summary("stage_before_copy", result.stage_before_copy)
-            if result.copy_started_at is not None:
-                typer.echo(f"copy_started_at={result.copy_started_at.isoformat()}")
-            return
-        if operation == "verify":
-            result = service.verify(session)
-            typer.echo(f"news cold storage verify: consistent={result.is_consistent}")
-            _echo_news_cold_storage_summary("source", result.source)
-            _echo_news_cold_storage_summary("stage", result.stage)
-            typer.echo(
-                "key_difference: "
-                f"source_missing_from_stage={result.source_missing_from_stage} "
-                f"stage_missing_from_source={result.stage_missing_from_source}"
-            )
-            if not result.is_consistent:
-                raise typer.Exit(code=1)
-            return
-
-        result = service.cutover(
-            session,
-            apply=apply,
-            copy_started_at=parsed_copy_started_at,
-            drop_retired_table=drop_retired_table,
-        )
-        if apply:
-            typer.echo(
-                "news cold storage cutover: applied=true "
-                f"copy_started_at={result.copy_started_at.isoformat()} tail_rows_affected={result.tail_rows_affected}"
-            )
-            return
-        typer.echo(
-            "news cold storage cutover preview: "
-            f"consistent={result.is_consistent}; no lock, rename, view switch, or drop was executed"
-        )
 
 
 @app.command("bootstrap-raw-tushare")
