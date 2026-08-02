@@ -85,6 +85,8 @@ def delivery_mode_label(delivery_mode: str) -> str:
         return "多源融合"
     if delivery_mode == "raw_collection":
         return "原始采集"
+    if delivery_mode == "raw_with_serving_view":
+        return "原始数据直出"
     if delivery_mode == "raw_with_serving_light_view":
         return "轻量服务直出"
     if delivery_mode == "core_direct":
@@ -99,6 +101,8 @@ def delivery_mode_tone(delivery_mode: str) -> str:
         return "info"
     if delivery_mode == "raw_collection":
         return "neutral"
+    if delivery_mode == "raw_with_serving_view":
+        return "success"
     if delivery_mode == "raw_with_serving_light_view":
         return "success"
     if delivery_mode == "core_direct":

@@ -993,6 +993,19 @@ def test_dataset_definition_storage_layer_facts_are_explicit() -> None:
     assert get_dataset_definition("index_mins").storage.serving_table is None
     assert get_dataset_definition("cyq_chips").storage.layer_plan == "raw->serving_view"
     assert get_dataset_definition("cyq_chips").storage.serving_table == "core_serving.equity_cyq_chips"
+    for dataset_key, raw_dao_name, raw_table, serving_table in (
+        ("cyq_perf", "raw_cyq_perf", "raw_tushare.cyq_perf", "core_serving.equity_cyq_perf"),
+        ("stk_nineturn", "raw_stk_nineturn", "raw_tushare.stk_nineturn", "core_serving.equity_nineturn"),
+    ):
+        definition = get_dataset_definition(dataset_key)
+        assert definition.storage.raw_dao_name == raw_dao_name
+        assert definition.storage.core_dao_name == raw_dao_name
+        assert definition.storage.target_table == raw_table
+        assert definition.storage.raw_table == raw_table
+        assert definition.storage.serving_table == serving_table
+        assert definition.storage.delivery_mode == "raw_with_serving_view"
+        assert definition.storage.layer_plan == "raw->serving_view"
+        assert definition.storage.write_path == "raw_only_upsert"
 
 
 def test_dataset_definition_projection_only_owns_freshness_projection() -> None:
@@ -1004,6 +1017,19 @@ def test_dataset_definition_projection_only_owns_freshness_projection() -> None:
     assert projection.primary_action_key == "daily.maintain"
     assert dataset_definition_projection.delivery_mode_label("single_source_serving") == "单源服务"
     assert dataset_definition_projection.delivery_mode_tone("single_source_serving") == "success"
+    assert dataset_definition_projection.delivery_mode_label("raw_with_serving_view") == "原始数据直出"
+    assert dataset_definition_projection.delivery_mode_tone("raw_with_serving_view") == "success"
+
+
+def test_raw_serving_view_definitions_project_raw_freshness_targets() -> None:
+    for dataset_key, raw_table in (
+        ("cyq_perf", "raw_tushare.cyq_perf"),
+        ("stk_nineturn", "raw_tushare.stk_nineturn"),
+    ):
+        projection = dataset_definition_projection.get_dataset_freshness_projection(dataset_key)
+        assert projection is not None
+        assert projection.target_table == raw_table
+        assert projection.raw_table == raw_table
 
 
 def test_dataset_definition_source_keys_are_explicit_fact() -> None:

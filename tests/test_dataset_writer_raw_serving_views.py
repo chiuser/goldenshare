@@ -1,0 +1,70 @@
+from __future__ import annotations
+
+from datetime import date
+from types import SimpleNamespace
+
+import pytest
+
+from src.foundation.datasets.registry import get_dataset_definition
+from src.foundation.ingestion.normalizer import NormalizedBatch
+from src.foundation.ingestion.writer import DatasetWriter
+from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
+from src.foundation.models.raw.raw_stk_nineturn import RawStkNineTurn
+
+
+class _RecordingRawDao:
+    def __init__(self, model: type) -> None:
+        self.model = model
+        self.calls: list[tuple[list[dict], list[str] | None]] = []
+
+    def bulk_upsert(self, rows: list[dict], conflict_columns=None):  # type: ignore[no-untyped-def]
+        self.calls.append((rows, list(conflict_columns or []) or None))
+        return len(rows)
+
+
+@pytest.mark.parametrize(
+    ("dataset_key", "raw_dao_name", "raw_model", "row", "target_table"),
+    (
+        (
+            "cyq_perf",
+            "raw_cyq_perf",
+            RawCyqPerf,
+            {"ts_code": "000001.SZ", "trade_date": date(2026, 8, 3), "winner_rate": 0.5},
+            "raw_tushare.cyq_perf",
+        ),
+        (
+            "stk_nineturn",
+            "raw_stk_nineturn",
+            RawStkNineTurn,
+            {"ts_code": "000001.SZ", "trade_date": date(2026, 8, 3), "freq": "daily"},
+            "raw_tushare.stk_nineturn",
+        ),
+    ),
+)
+def test_raw_serving_view_datasets_only_upsert_raw_table(
+    mocker,
+    dataset_key: str,
+    raw_dao_name: str,
+    raw_model: type,
+    row: dict,
+    target_table: str,
+) -> None:
+    raw_dao = _RecordingRawDao(raw_model)
+    mocker.patch(
+        "src.foundation.ingestion.writer.DAOFactory",
+        return_value=SimpleNamespace(**{raw_dao_name: raw_dao}),
+    )
+    definition = get_dataset_definition(dataset_key)
+    batch = NormalizedBatch(
+        unit_id=f"{dataset_key}-u1",
+        rows_normalized=[row],
+        rows_rejected=0,
+        rejected_reasons={},
+    )
+
+    result = DatasetWriter(session=mocker.Mock()).write(definition=definition, batch=batch)
+
+    assert definition.storage.core_dao_name == raw_dao_name
+    assert raw_dao.calls == [(batch.rows_normalized, None)]
+    assert result.target_table == target_table
+    assert result.rows_written == 1

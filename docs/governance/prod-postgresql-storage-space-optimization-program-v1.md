@@ -1,6 +1,6 @@
 # 生产 PostgreSQL 存储空间优化治理专项 v1
 
-状态：一期与新闻快讯整表下沉均已执行并验收；重复 core 物理表收口第一批待实施
+状态：一期、新闻快讯整表下沉与融资融券交易明细全量 HDD 落盘均已执行并验收；重复 core 物理表收口第一批待实施
 更新时间：2026-08-03
 范围：生产 PostgreSQL `goldenshare` 的 SSD/HDD 存储分层与重复物理存储治理。
 不在范围：删除、清空 raw 业务数据；改变数据集请求语义；修改 API 或前端业务行为。
@@ -14,7 +14,7 @@
 1. 将确认属于冷数据的 PostgreSQL 关系迁移到现有 HDD tablespace `gs_raw_cold_hdd`。
 2. 对 HDD 迁移，保持 schema、表名、索引名、view 定义、DAO、API 和数据集写入契约不变。
 3. 对重复 core 收口，保持 `core_serving` 查询名称、ORM、DAO、API 和数据集外部契约不变；允许删除其重复物理表和索引，并改为同名 view。
-4. 当前年份持续读写的数据留在 SSD；不能为了释放空间而把热数据整体降到 HDD。
+4. 当前年份持续读写的数据留在 SSD；不能为了释放空间而把热数据整体降到 HDD。第 6.3 节已获明确决策的 `margin_detail` 是唯一例外，不得把该例外泛化到其它表。
 5. 每次迁移只处理明确白名单中的表和索引，先验证，再进入下一批。
 6. 对仅复制 raw 业务字段的 serving 物理表，可改为 raw-backed serving view，删除重复写入和重复物理表；下游仍只读取原 `core_serving` 名称。
 
@@ -288,7 +288,7 @@ ALTER INDEX raw_tushare.idx_raw_tushare_news_src_time
 
 ### 6.2 重复 core 物理表收口第一批：`cyq_perf` 与 `stk_nineturn`
 
-状态：待实施。
+状态：研发完成，待生产切换。
 
 #### 6.2.1 目标与固定边界
 
@@ -331,10 +331,46 @@ ALTER INDEX raw_tushare.idx_raw_tushare_news_src_time
 #### 6.2.4 验收标准
 
 1. `raw_tushare.cyq_perf` 与 `raw_tushare.stk_nineturn` 是唯一写入目标；执行期间没有 core DAO `bulk_upsert`。
-2. `core_serving.equity_cyq_perf` 与 `core_serving.equity_nineturn` 均为 view，字段、主键查询语义和原表名保持可用。
+2. `core_serving.equity_cyq_perf` 与 `core_serving.equity_nineturn` 均为 view，业务字段、主键字段和原表名查询语义保持可用。
 3. 迁移前后的受控全量一致性校验无差异；raw 索引定义不退化。
 4. Ops、数据湖 raw 导出和两数据集维护任务均通过定向回归；SSD 可用空间增加接近 2.8GiB。
 5. 不产生业务数据删除、清空、复制搬运、HDD tablespace 变更或 API 路由变化。
+
+#### 6.2.5 研发完成记录
+
+1. 两个 DatasetDefinition 已改为 `raw_only_upsert`，写入与 freshness 目标均为各自的 raw 表；`core_serving` 表名保留为 view 查询契约。
+2. Alembic `20260803_000124` 已接当前 head `20260802_000123`。迁移先验证四个关系均为预期物理表，再无 `CASCADE` 删除两张 core 物理表并创建固定字段 view；自动 downgrade 被明确禁止，物理 core 重建只能使用单独批准的迁移。
+3. Ops 已将 `raw_with_serving_view` 统一展示为“原始数据直出”。
+4. 已增加 raw-only writer、freshness 投影、Ops 展示和迁移 fail-closed 语义测试；生产切换仍必须完成第 6.2.3 节的受控一致性校验与维护窗口门禁。
+
+### 6.3 融资融券交易明细 `core_serving.equity_margin_detail`：全部叶分区下沉 HDD
+
+状态：已执行并验收；尚未创建任何 `margin_detail` 业务 TaskRun 或自动排程。
+
+#### 6.3.1 已确认事实与决策
+
+1. 2026-08-03 生产只读 catalog 显示 Alembic revision 为 `20260802_000123`。`core_serving.equity_margin_detail` 已存在，父表为 partitioned relation，统计行数为 0、大小为 0 bytes；19 个叶分区与其索引合计仅约 456 KB，尚未写入业务数据。
+2. 叶分区为 `equity_margin_detail_p2010` 至 `..._p2027` 与 `..._pmax`，共 19 个；当前有 57 个叶分区物理索引，均位于 `pg_default`。父表及 3 个 partitioned index 为逻辑对象，不承接叶数据块，不能替代叶对象的迁移验收。
+3. `gs_raw_cold_hdd` 已存在，位置为 `/data/disk/postgresql/tablespaces/gs_stk_mins_hdd`。审计时 HDD `/data/disk` 可用约 324 GB；按 `margin_detail` 历史规模初估约 2.56 GiB，容量充足。
+4. 已明确选择：在首次业务写入前，将全部 19 个叶分区与全部 57 个叶分区物理索引迁至 `gs_raw_cold_hdd`；历史回补和后续自动增量均写 HDD。接受相对 SSD 更高的读写延迟；该例外不改变其它热数据仍留 SSD 的默认原则。
+5. 本次只改变 PostgreSQL 关系文件的 tablespace，不创建/复制/删除/清空业务数据，也不修改 schema、表名、索引名、ORM、DAO、DatasetDefinition、API、前端或 TaskRun 语义。
+
+#### 6.3.2 执行门禁、操作与验收
+
+1. 执行前在同一维护窗口重新确认：目标表和全部叶分区仍为空、HDD 空间与 tablespace 可用、没有 `margin_detail` 的 queued/running/canceling TaskRun、没有相关长事务或锁；从 `pg_inherits` 与 `pg_index` 重新生成叶分区和物理索引白名单。数量或名称变化即停止。
+2. 逐叶分区执行 `SET lock_timeout = '15s'` 后的 `ALTER TABLE <leaf> SET TABLESPACE gs_raw_cold_hdd`；每个对象单独自动提交、立即复验，不能使用 `ALTER ... ALL IN TABLESPACE`。
+3. 按执行时重新枚举出的白名单，逐个执行 `ALTER INDEX <leaf-index> SET TABLESPACE gs_raw_cold_hdd`。不得遗漏主键或任一二级索引，也不把父级 partitioned index 当作物理叶索引移动的替代。
+4. 验收必须证明：19 个叶分区和全部叶索引均为 `gs_raw_cold_hdd`，白名单外对象未被改变，表/索引名称不变，目标统计行数仍为 0，SSD/HDD 空间变化符合空关系迁移量级。全部验收通过前不得创建 `margin_detail` 的手工或自动业务 TaskRun。
+5. 若锁无法在 15 秒内获得、对象数不符或迁移失败，立即停止；不自动重试、不终止会话、不启动数据写入。若后续性能不可接受，只能在重新确认 SSD 可用空间后按已完成对象逐个 `SET TABLESPACE pg_default` 回滚。
+
+#### 6.3.3 执行记录
+
+执行日期：2026-08-03。
+
+1. 执行前重做门禁：叶分区 19 个、物理叶索引 57 个、业务行数 0、相关 active TaskRun 为 0、无外部目标锁或长事务，且执行用户具备目标 tablespace 的 `CREATE` 权限。
+2. 按白名单逐对象完成父表默认 tablespace、3 个父级 partitioned index、19 个叶分区和 57 个物理叶索引的 `SET TABLESPACE gs_raw_cold_hdd`；每条 DDL 使用 `lock_timeout='15s'` 并在完成后立即校验，未发生超时或失败。
+3. 独立连接最终复验：叶分区 `19/19`、物理叶索引 `57/57` 位于 `gs_raw_cold_hdd`，父表默认 tablespace 同为该目标，业务行数仍为 0。
+4. 没有复制、删除、清空、重建或写入任何业务数据；由于迁移对象为空，SSD/HDD 的文件系统可用空间前后未出现有意义变化。
 
 ### 第三期：持续治理
 

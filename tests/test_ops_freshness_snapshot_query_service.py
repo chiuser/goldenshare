@@ -229,8 +229,9 @@ def test_observed_model_registry_covers_equity_daily_business_date_tables() -> N
         "core_serving.equity_margin_detail",
         "core_serving.equity_stk_limit",
         "core_serving.equity_stock_st",
-        "core_serving.equity_nineturn",
         "core_serving.equity_suspend_d",
+        "raw_tushare.cyq_perf",
+        "raw_tushare.stk_nineturn",
     }
     missing_tables = expected_tables - set(OBSERVED_DATE_MODEL_REGISTRY)
     assert not missing_tables
