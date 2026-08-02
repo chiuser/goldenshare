@@ -46,6 +46,33 @@ def test_copy_preview_does_not_execute_write_sql(mocker) -> None:
     session.commit.assert_not_called()
 
 
+def test_stage_primary_key_catalog_query_uses_a_valid_non_reserved_alias(mocker) -> None:
+    service = NewsColdStorageMigrationService()
+    session = mocker.Mock()
+    columns_result = mocker.Mock()
+    columns_result.scalars.return_value.all.return_value = [
+        "src",
+        "news_time",
+        "title",
+        "content",
+        "channels",
+        "score",
+        "row_key_hash",
+        "api_name",
+        "fetched_at",
+        "raw_payload",
+    ]
+    primary_key_result = mocker.Mock()
+    primary_key_result.scalars.return_value.all.return_value = ["news_time", "row_key_hash"]
+    session.execute.side_effect = [columns_result, primary_key_result]
+
+    service._validate_stage_columns(session)
+
+    primary_key_sql = str(session.execute.call_args_list[1].args[0])
+    assert "FROM pg_constraint constraint_item" in primary_key_sql
+    assert "FROM pg_constraint constraint\n" not in primary_key_sql
+
+
 def test_copy_apply_uses_partition_compatible_conflict_key(mocker) -> None:
     service = NewsColdStorageMigrationService()
     session = mocker.Mock()

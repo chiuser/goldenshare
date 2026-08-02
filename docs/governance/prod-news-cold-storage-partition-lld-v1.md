@@ -125,6 +125,8 @@ ON CONFLICT (news_time, row_key_hash) DO UPDATE SET ...;
 
 新代码的复合冲突键对旧单表不存在可用约束，因此第 3 步的硬门禁是新闻快讯写入必须已暂停，且没有在途新闻 TaskRun。满足该门禁后可以使用标准部署脚本：新 worker 不会领取新闻快讯写入，其他数据集不受影响。
 
+所有远程迁移 CLI 必须与 systemd unit 使用相同环境文件：`GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env .venv/bin/goldenshare migrate-news-cold-storage <operation>`。直接运行 CLI 会回退到本地默认数据库连接，不能用于生产迁移。
+
 ## 8. 删除门禁
 
 生产切换验收结束后，必须删除本次专用 `news_cold_storage` CLI/service 及其测试，并把本文更新为最终运行结构；保留最终表模型、Definition 与运行文档。不得让一次性迁移工具长期成为系统能力。

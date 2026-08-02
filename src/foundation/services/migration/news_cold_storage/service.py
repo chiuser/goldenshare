@@ -214,15 +214,15 @@ class NewsColdStorageMigrationService:
             text(
                 """
                 SELECT attribute.attname
-                FROM pg_constraint constraint
-                JOIN pg_class relation ON relation.oid = constraint.conrelid
+                FROM pg_constraint constraint_item
+                JOIN pg_class relation ON relation.oid = constraint_item.conrelid
                 JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
-                JOIN unnest(constraint.conkey) WITH ORDINALITY AS key_column(attnum, ordinal_position) ON TRUE
+                JOIN unnest(constraint_item.conkey) WITH ORDINALITY AS key_column(attnum, ordinal_position) ON TRUE
                 JOIN pg_attribute attribute
                   ON attribute.attrelid = relation.oid AND attribute.attnum = key_column.attnum
                 WHERE namespace.nspname = 'raw_tushare'
                   AND relation.relname = 'news_partitioned_stage'
-                  AND constraint.contype = 'p'
+                  AND constraint_item.contype = 'p'
                 ORDER BY key_column.ordinal_position
                 """
             )
