@@ -61,6 +61,7 @@ FRESHNESS_POLICY_BY_DATASET: dict[str, FreshnessPolicy] = {
     "limit_step": CONTINUOUS_OPEN_DAY,
     "major_news": EVENT_RUN_TRACE,
     "margin": CONTINUOUS_OPEN_DAY,
+    "margin_detail": CONTINUOUS_OPEN_DAY,
     "moneyflow": CONTINUOUS_OPEN_DAY,
     "moneyflow_cnt_ths": CONTINUOUS_OPEN_DAY,
     "moneyflow_dc": CONTINUOUS_OPEN_DAY,

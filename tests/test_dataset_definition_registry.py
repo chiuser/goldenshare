@@ -28,7 +28,7 @@ def test_dataset_definition_registry_covers_runtime_registry() -> None:
     runtime_keys = set(DATASET_RUNTIME_REGISTRY)
 
     assert definition_keys == runtime_keys
-    assert len(definition_keys) == 75
+    assert len(definition_keys) == 76
 
 
 def test_dataset_definition_registry_covers_freshness_policy_mapping() -> None:
@@ -44,7 +44,7 @@ def test_dataset_definition_universe_policy_current_state_is_explicit() -> None:
 
     assert Counter(policies.values()) == Counter(
         {
-            "no_pool": 66,
+            "no_pool": 67,
             "pool": 9,
         }
     )
@@ -73,12 +73,33 @@ def test_dataset_definition_projects_kpl_list_next_day_source_release_fact() -> 
     assert all(
         item.source.release_policy == "same_day"
         for item in list_dataset_definitions()
-        if item.dataset_key not in {"kpl_list", "margin"}
+        if item.dataset_key not in {"kpl_list", "margin", "margin_detail"}
     )
 
 
 def test_dataset_definition_projects_margin_next_open_day_release_fact() -> None:
     assert get_dataset_definition("margin").source.release_policy == "next_open_day_0930"
+    assert get_dataset_definition("margin_detail").source.release_policy == "next_open_day_0930"
+
+
+def test_dataset_definition_projects_margin_detail_direct_serving_facts() -> None:
+    definition = get_dataset_definition("margin_detail")
+
+    assert definition.source.api_name == "margin_detail"
+    assert definition.source.request_builder_key == "_margin_detail_params"
+    assert definition.storage.raw_dao_name is None
+    assert definition.storage.raw_table is None
+    assert definition.storage.core_dao_name == "equity_margin_detail"
+    assert definition.storage.target_table == "core_serving.equity_margin_detail"
+    assert definition.storage.layer_plan == "source->serving"
+    assert definition.storage.write_path == "serving_direct_upsert"
+    assert definition.storage.conflict_columns == ("trade_date", "ts_code")
+    assert definition.planning.pagination_policy == "offset_limit"
+    assert definition.planning.page_limit == 1000
+    assert definition.completeness.scope == "date_bucket"
+    ts_code = definition.input_model.filters[0]
+    assert ts_code.name == "ts_code"
+    assert ts_code.scoped_repair_policy == "existing_point_bucket_only"
 
 
 def test_dataset_definition_projects_ths_daily_valuation_fields() -> None:
@@ -924,10 +945,11 @@ def test_dataset_definition_storage_raw_table_is_explicit_fact() -> None:
     missing = [
         row["identity"]["dataset_key"]
         for row in ALL_DATASET_ROWS
-        if not str(row["storage"].get("raw_table") or "").strip()
+        if "raw_table" not in row["storage"]
     ]
 
     assert not missing
+    assert get_dataset_definition("margin_detail").storage.raw_table is None
     assert get_dataset_definition("biying_equity_daily").storage.raw_table == "raw_biying.equity_daily"
     assert get_dataset_definition("limit_list_d").storage.raw_table == "raw_tushare.limit_list"
     assert get_dataset_definition("stk_holdernumber").storage.raw_table == "raw_tushare.holdernumber"

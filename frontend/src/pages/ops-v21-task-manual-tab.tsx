@@ -154,8 +154,12 @@ function findManualAction(actions: ManualAction[], actionId: string) {
   return actions.find((action) => action.action_key === actionId) || null;
 }
 
-function findTimeModeConfig(action: ManualAction, mode: string | null | undefined): ManualActionTimeModeConfig | null {
-  const modes = Array.isArray(action.time_form.modes) ? action.time_form.modes : [];
+function findTimeModeConfig(
+  action: ManualAction,
+  mode: string | null | undefined,
+  availableModes?: ManualActionTimeModeConfig[],
+): ManualActionTimeModeConfig | null {
+  const modes = availableModes || (Array.isArray(action.time_form.modes) ? action.time_form.modes : []);
   if (mode) {
     const matched = modes.find((item) => item.mode === mode);
     if (matched) {
@@ -193,9 +197,29 @@ export function resolveDraftOnDomainChange(current: ManualDraft, nextDomain: str
   return buildEmptyDraft();
 }
 
-function shouldRenderTimeSection(action: ManualAction) {
-  const modes = Array.isArray(action.time_form.modes) ? action.time_form.modes : [];
+function shouldRenderTimeSection(action: ManualAction, availableModes?: ManualActionTimeModeConfig[]) {
+  const modes = availableModes || (Array.isArray(action.time_form.modes) ? action.time_form.modes : []);
   return !(modes.length === 1 && modes[0]?.control === "none");
+}
+
+function getEffectiveTimeModes(
+  action: ManualAction,
+  fieldValues: Record<string, string | string[]>,
+): ManualActionTimeModeConfig[] {
+  const declaredModes = Array.isArray(action.time_form.modes) ? action.time_form.modes : [];
+  const activeRules = (action.conditional_time_rules || []).filter(
+    (rule) => !isEmptyFieldValue(fieldValues[rule.filter_key]),
+  );
+  return declaredModes.filter((mode) => activeRules.every((rule) => rule.allowed_time_modes.includes(mode.mode)));
+}
+
+function getActiveConditionalTimeRules(
+  action: ManualAction,
+  fieldValues: Record<string, string | string[]>,
+) {
+  return (action.conditional_time_rules || []).filter(
+    (rule) => !isEmptyFieldValue(fieldValues[rule.filter_key]),
+  );
 }
 
 function isCalendarDateMode(modeConfig: ManualActionTimeModeConfig | null) {
@@ -414,7 +438,7 @@ function buildManualActionRequest(action: ManualAction, draft: ManualDraft): Ops
     }
   }
 
-  const modeConfig = findTimeModeConfig(action, draft.time_mode);
+  const modeConfig = findTimeModeConfig(action, draft.time_mode, getEffectiveTimeModes(action, fieldValues));
   if (!modeConfig || modeConfig.mode === "none") {
     return { time_input: { mode: "none" }, filters };
   }
@@ -542,17 +566,28 @@ export function OpsManualTaskTab() {
     () => findManualAction(manualActions, draft.action_id),
     [draft.action_id, manualActions],
   );
-  const selectedTimeMode = useMemo(
-    () => selectedAction ? findTimeModeConfig(selectedAction, draft.time_mode) : null,
-    [draft.time_mode, selectedAction],
-  );
   const effectiveFieldValues = useMemo(
     () => selectedAction ? mergeDefaultFieldValues(selectedAction, draft.field_values) : draft.field_values,
     [draft.field_values, selectedAction],
   );
+  const effectiveTimeModes = useMemo(
+    () => selectedAction ? getEffectiveTimeModes(selectedAction, effectiveFieldValues) : [],
+    [effectiveFieldValues, selectedAction],
+  );
+  const selectedTimeMode = useMemo(
+    () => selectedAction ? findTimeModeConfig(selectedAction, draft.time_mode, effectiveTimeModes) : null,
+    [draft.time_mode, effectiveTimeModes, selectedAction],
+  );
+  const activeConditionalTimeRules = useMemo(
+    () => selectedAction ? getActiveConditionalTimeRules(selectedAction, effectiveFieldValues) : [],
+    [effectiveFieldValues, selectedAction],
+  );
   const selectedCalendarDateRule = useMemo(() => inferCalendarDateRule(selectedTimeMode), [selectedTimeMode]);
   const selectedTradeDateRule = useMemo(() => inferTradeDateRule(selectedTimeMode), [selectedTimeMode]);
-  const showTimeSection = useMemo(() => selectedAction ? shouldRenderTimeSection(selectedAction) : false, [selectedAction]);
+  const showTimeSection = useMemo(
+    () => selectedAction ? shouldRenderTimeSection(selectedAction, effectiveTimeModes) : false,
+    [effectiveTimeModes, selectedAction],
+  );
   const singleTradeCalendar = useTradeCalendarField({ value: draft.selected_date });
   const rangeStartTradeCalendar = useTradeCalendarField({ value: draft.start_date });
   const rangeEndTradeCalendar = useTradeCalendarField({ value: draft.end_date });
@@ -566,6 +601,15 @@ export function OpsManualTaskTab() {
       setSelectedDomain(selectedAction.groupLabel);
     }
   }, [selectedAction, selectedDomain, setSelectedDomain]);
+
+  useEffect(() => {
+    if (!selectedAction || !effectiveTimeModes.length) {
+      return;
+    }
+    if (!effectiveTimeModes.some((mode) => mode.mode === draft.time_mode)) {
+      setDraft((current) => ({ ...current, time_mode: effectiveTimeModes[0].mode }));
+    }
+  }, [draft.time_mode, effectiveTimeModes, selectedAction, setDraft]);
 
   useEffect(() => {
     if (prefillActionAppliedRef.current) {
@@ -792,9 +836,9 @@ export function OpsManualTaskTab() {
                     <Stack gap="xs">
                       <Text fw={700}>第二步：选择时间范围</Text>
 
-                      {selectedAction.time_form.modes.length > 1 ? (
+                      {effectiveTimeModes.length > 1 ? (
                         <SimpleGrid cols={{ base: 1, md: 2 }}>
-                          {selectedAction.time_form.modes.map((mode) => (
+                          {effectiveTimeModes.map((mode) => (
                             <Button
                               key={mode.mode}
                               variant={selectedTimeMode?.mode === mode.mode ? "filled" : "light"}
@@ -805,6 +849,10 @@ export function OpsManualTaskTab() {
                           ))}
                         </SimpleGrid>
                       ) : null}
+
+                      {activeConditionalTimeRules.map((rule) => (
+                        <Text c="dimmed" size="sm" key={rule.filter_key}>{rule.help_text}</Text>
+                      ))}
 
                       {!selectedTimeMode || selectedTimeMode.control === "none" ? null : isPointMode(selectedTimeMode) ? (
                         isMonthMode(selectedTimeMode) ? (

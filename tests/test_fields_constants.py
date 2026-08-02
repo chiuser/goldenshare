@@ -65,6 +65,19 @@ def test_dataset_definition_source_fields_cover_market_and_board_resources() -> 
         "rzrqye",
         "rqyl",
     )
+    assert tuple(_source_fields("margin_detail")) == (
+        "trade_date",
+        "ts_code",
+        "name",
+        "rzye",
+        "rqye",
+        "rzmre",
+        "rqyl",
+        "rzche",
+        "rqchl",
+        "rqmcl",
+        "rzrqye",
+    )
     assert tuple(_source_fields("ths_index")) == ("ts_code", "name", "count", "exchange", "list_date", "type")
     assert tuple(_source_fields("dc_member")) == ("trade_date", "ts_code", "con_code", "name")
     assert "idx_type" in _source_fields("dc_index")

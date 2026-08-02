@@ -740,6 +740,16 @@ def _margin_params(request, anchor_date: date | None, enum_values: dict[str, Any
     return params
 
 
+def _margin_detail_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("缺少日期锚点")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
 def _limit_step_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     if anchor_date is None:
         raise ValueError("缺少日期锚点")

@@ -20,8 +20,8 @@ class IngestionCodebookEntry:
         }
 
 
-INGESTION_CODEBOOK_VERSION: Final[str] = "2026-05-03.v1"
-INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-05-03T00:00:00Z"
+INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-02.v1"
+INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-02T00:00:00Z"
 
 INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("dataset_mismatch", "请求数据集与定义不一致", "validator", "检查 dataset_key 与定义绑定"),
@@ -53,6 +53,10 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("universe_empty", "规划范围为空", "planner", "检查股票池/板块池或上游基础数据"),
     IngestionCodebookEntry("unknown_universe_policy", "未知的规划范围策略", "planner", "检查 planning.universe_policy 配置"),
     IngestionCodebookEntry("request_builder_not_found", "请求参数构造器不存在", "planner", "检查 source.request_builder_key 与注册函数"),
+    IngestionCodebookEntry("scoped_repair_policy_invalid", "定点补录策略非法", "planner", "检查筛选字段的 scoped_repair_policy 定义"),
+    IngestionCodebookEntry("scoped_repair_code_invalid", "定点补录证券代码非法", "planner", "使用一个 6 位数字.(SH|SZ|BJ) 格式的证券代码"),
+    IngestionCodebookEntry("scoped_repair_point_required", "定点补录仅支持单个日期", "planner", "改为按单个交易日补录"),
+    IngestionCodebookEntry("scoped_repair_bucket_missing", "定点补录日期桶尚未建立", "planner", "先完成该交易日的全市场维护，再补录单只证券"),
     IngestionCodebookEntry("source_adapter_not_found", "数据源适配器不存在", "source", "检查 source_key 与适配器映射"),
     IngestionCodebookEntry("source_timeout", "上游请求超时", "source", "稍后重试或降低并发"),
     IngestionCodebookEntry("source_http_error", "上游 HTTP 异常", "source", "检查状态码和请求参数"),
@@ -61,6 +65,9 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("source_auth_error", "上游鉴权失败", "source", "检查凭据配置"),
     IngestionCodebookEntry("payload_invalid", "上游 payload 不合法", "normalize", "检查字段结构与解析逻辑"),
     IngestionCodebookEntry("all_rows_rejected", "本批次全部行被拒绝", "normalize", "查看 reason 分布并修正数据或规则"),
+    IngestionCodebookEntry("normalize.unit_date_expected_missing", "执行单元缺少日期锚点", "normalize", "检查执行计划的 trade_date"),
+    IngestionCodebookEntry("normalize.unit_date_mismatch", "源数据日期与执行单元不一致", "normalize", "检查请求参数与源端返回日期"),
+    IngestionCodebookEntry("normalize.duplicate_conflict_key_inconsistent", "同一主键出现不一致数据", "normalize", "检查分页结果与源端一致性"),
     IngestionCodebookEntry("dao_not_found", "写入 DAO 路由缺失", "writer", "检查 storage.write_path 与 DAOFactory 注册"),
     IngestionCodebookEntry("write_failed", "写入异常", "writer", "检查数据库约束、冲突策略和目标表结构"),
     IngestionCodebookEntry("internal_error", "未归类内部错误", "runtime", "查看完整堆栈定位内部异常"),
@@ -78,6 +85,7 @@ INGESTION_REASON_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("normalize.empty_not_allowed", "非空字段为空", "normalize", "检查空字符串/空白值处理"),
     IngestionCodebookEntry("normalize.row_transform_failed", "行转换失败", "normalize", "检查 row_transform 逻辑"),
     IngestionCodebookEntry("normalize.payload_invalid", "行内容不符合约束", "normalize", "检查字段类型与结构"),
+    IngestionCodebookEntry("normalize.duplicate_conflict_key_in_batch", "同批次完全相同行去重", "normalize", "检查分页结果是否重叠"),
     IngestionCodebookEntry("write.filtered_by_business_rule", "被业务规则过滤", "writer", "检查策略过滤条件"),
     IngestionCodebookEntry("write.duplicate_conflict_key_in_batch", "同批次冲突键去重", "writer", "检查批次主键冲突"),
     IngestionCodebookEntry("write.target_constraint_filtered", "目标约束导致未写入", "writer", "检查目标表唯一约束/校验规则"),

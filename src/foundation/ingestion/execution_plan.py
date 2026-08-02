@@ -76,7 +76,7 @@ class PlanPlanning:
 @dataclass(frozen=True, slots=True)
 class PlanWriting:
     target_table: str
-    raw_dao_name: str
+    raw_dao_name: str | None
     core_dao_name: str
     raw_conflict_columns: tuple[str, ...] | None
     conflict_columns: tuple[str, ...] | None

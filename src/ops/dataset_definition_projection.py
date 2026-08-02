@@ -16,7 +16,7 @@ class DatasetFreshnessProjection:
     domain_display_name: str
     target_table: str
     freshness_policy: str
-    raw_table: str
+    raw_table: str | None
     observed_date_column: str | None = None
     primary_action_key: str | None = None
 
@@ -107,6 +107,7 @@ def delivery_mode_tone(delivery_mode: str) -> str:
 
 
 LAYER_STAGE_DISPLAY_NAMES = {
+    "source": "源端",
     "raw": "原始层",
     "std": "标准层",
     "resolution": "融合层",

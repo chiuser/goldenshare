@@ -322,6 +322,71 @@ def test_idx_factor_pro_source_client_pages_full_trade_date_result(monkeypatch) 
     assert all(call["fields"] == definition.source.source_fields for call in connector.calls)
 
 
+def test_margin_detail_source_client_pages_all_explicit_source_fields(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    definition = get_dataset_definition("margin_detail")
+    first_page = [
+        {
+            "trade_date": "20260730",
+            "ts_code": f"{index:06d}.SZ",
+            "name": "样本",
+            "rzye": 1,
+            "rqye": 2,
+            "rzmre": 3,
+            "rqyl": 4,
+            "rzche": 5,
+            "rqchl": 6,
+            "rqmcl": 7,
+            "rzrqye": 8,
+        }
+        for index in range(1000)
+    ]
+    connector = PaginatedConnector(
+        {
+            0: first_page,
+            1000: [
+                {
+                    "trade_date": "20260730",
+                    "ts_code": "600000.SH",
+                    "name": "浦发银行",
+                    "rzye": 1,
+                    "rqye": 2,
+                    "rzmre": 3,
+                    "rqyl": 4,
+                    "rzche": 5,
+                    "rqchl": 6,
+                    "rqmcl": 7,
+                    "rzrqye": 8,
+                }
+            ],
+        }
+    )
+    monkeypatch.setattr(source_client_module, "create_source_connector", lambda source_key: connector)
+
+    result = DatasetSourceClient().fetch(
+        definition=definition,
+        unit=PlanUnitSnapshot(
+            unit_id="margin-detail-u1",
+            dataset_key="margin_detail",
+            source_key="tushare",
+            trade_date=None,
+            request_params={"trade_date": "20260730"},
+            progress_context={},
+            pagination_policy="offset_limit",
+            page_limit=1000,
+        ),
+    )
+
+    assert result.request_count == 2
+    assert len(result.rows_raw) == 1001
+    assert [call["params"] for call in connector.calls] == [
+        {"trade_date": "20260730", "offset": 0, "limit": 1000},
+        {"trade_date": "20260730", "offset": 1000, "limit": 1000},
+    ]
+    assert all(call["api_name"] == "margin_detail" for call in connector.calls)
+    assert all(call["fields"] == definition.source.source_fields for call in connector.calls)
+    assert all(set(definition.source.source_fields).issubset(row) for row in result.rows_raw)
+
+
 def test_index_mins_source_client_passes_fields_and_fills_missing_freq(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     connector = RecordingConnector(rows=[{"ts_code": "000001.SH", "trade_time": "2026-04-30 15:00:00"}])
     monkeypatch.setattr(source_client_module, "create_source_connector", lambda source_key: connector)

@@ -14,6 +14,7 @@ from src.foundation.datasets.registry import list_dataset_definitions
 from src.ops.catalog.dataset_catalog_view_resolver import DatasetCatalogViewResolver
 from src.ops.schemas.catalog import ActionParameterResponse
 from src.ops.schemas.manual_action import (
+    ManualActionConditionalTimeRuleResponse,
     ManualActionDateModelResponse,
     ManualActionGroupResponse,
     ManualActionItemResponse,
@@ -33,6 +34,9 @@ TIME_PARAM_KEYS = {
     "ann_date",
 }
 INTERNAL_PARAM_KEYS = {"offset", "limit"}
+SCOPED_REPAIR_TIME_RULES = {
+    "existing_point_bucket_only": (("point",), "股票代码补录仅支持一个已存在日期桶。"),
+}
 
 @dataclass(frozen=True, slots=True)
 class ManualActionRoute:
@@ -49,6 +53,7 @@ class ManualActionRoute:
     date_model: DatasetDateModel | None
     time_form: ManualActionTimeFormResponse
     filters: tuple[ActionParameter, ...]
+    conditional_time_rules: tuple[ManualActionConditionalTimeRuleResponse, ...] = ()
     workflow: WorkflowDefinition | None = None
 
 
@@ -107,6 +112,7 @@ class ManualActionQueryService:
             date_model=date_model,
             time_form=time_form,
             filters=filters,
+            conditional_time_rules=self._conditional_time_rules(definition.input_model.filters),
         )
 
     def _build_workflow_route(self, workflow: WorkflowDefinition) -> ManualActionRoute:
@@ -370,6 +376,25 @@ class ManualActionQueryService:
             default_value=param.default_value,
         )
 
+    @staticmethod
+    def _conditional_time_rules(
+        fields: Iterable[DatasetInputField],
+    ) -> tuple[ManualActionConditionalTimeRuleResponse, ...]:
+        rules: list[ManualActionConditionalTimeRuleResponse] = []
+        for field in fields:
+            spec = SCOPED_REPAIR_TIME_RULES.get(field.scoped_repair_policy)
+            if spec is None:
+                continue
+            allowed_time_modes, help_text = spec
+            rules.append(
+                ManualActionConditionalTimeRuleResponse(
+                    filter_key=field.name,
+                    allowed_time_modes=list(allowed_time_modes),
+                    help_text=help_text,
+                )
+            )
+        return tuple(rules)
+
     def _to_response_item(self, route: ManualActionRoute) -> ManualActionItemResponse:
         keywords = [route.action_key, route.display_name]
         if route.resource_key:
@@ -385,6 +410,7 @@ class ManualActionQueryService:
             resource_display_name=route.resource_display_name,
             date_model=self._to_date_model_response(route.date_model),
             time_form=route.time_form,
+            conditional_time_rules=list(route.conditional_time_rules),
             filters=[self._to_param_response(param) for param in route.filters],
             search_keywords=list(dict.fromkeys(keywords)),
             action_order=route.action_order,

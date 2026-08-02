@@ -31,8 +31,27 @@ VOLUME_COLUMNS = (
 )
 
 
+def _existing_volume_columns(inspector: sa.Inspector) -> tuple[str, ...]:
+    """Return the historical columns that are present in this database.
+
+    ``raw_tushare.moneyflow`` existed in pre-consolidation deployments but is
+    not created by the clean migration baseline.  Keep the type correction for
+    those deployments without making a clean install depend on that legacy
+    table.
+    """
+
+    if not inspector.has_table(TABLE_NAME, schema=RAW_SCHEMA):
+        return ()
+
+    present_columns = {
+        column["name"] for column in inspector.get_columns(TABLE_NAME, schema=RAW_SCHEMA)
+    }
+    return tuple(column for column in VOLUME_COLUMNS if column in present_columns)
+
+
 def upgrade() -> None:
-    for column in VOLUME_COLUMNS:
+    inspector = sa.inspect(op.get_bind())
+    for column in _existing_volume_columns(inspector):
         op.alter_column(
             TABLE_NAME,
             column,
@@ -45,7 +64,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    for column in VOLUME_COLUMNS:
+    inspector = sa.inspect(op.get_bind())
+    for column in _existing_volume_columns(inspector):
         op.alter_column(
             TABLE_NAME,
             column,

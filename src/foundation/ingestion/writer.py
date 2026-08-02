@@ -71,22 +71,7 @@ class DatasetWriter:
                             unit_id=batch.unit_id,
                         )
                     )
-        raw_dao = getattr(self.dao, definition.storage.raw_dao_name, None)
-        core_dao = getattr(self.dao, definition.storage.core_dao_name, None)
-        if raw_dao is None or core_dao is None:
-            raise IngestionWriteError(
-                StructuredError(
-                    error_code="dao_not_found",
-                    error_type="write",
-                    phase="writer",
-                    message=(
-                        f"DAO not found: raw={definition.storage.raw_dao_name} "
-                        f"core={definition.storage.core_dao_name}"
-                    ),
-                    retryable=False,
-                    unit_id=batch.unit_id,
-                )
-            )
+        raw_dao, core_dao = self._resolve_write_daos(definition=definition, unit_id=batch.unit_id)
 
         try:
             if definition.storage.write_path == "raw_index_period_serving_upsert":
@@ -120,6 +105,12 @@ class DatasetWriter:
                     rows_skipped=batch.rows_rejected,
                     target_table=definition.storage.target_table,
                     conflict_strategy="upsert",
+                )
+            if definition.storage.write_path == "serving_direct_upsert":
+                return self._write_serving_direct_upsert(
+                    definition=definition,
+                    batch=batch,
+                    core_dao=core_dao,
                 )
             if definition.storage.write_path == "raw_std_publish_moneyflow":
                 return self._write_moneyflow_std_publish(
@@ -192,6 +183,56 @@ class DatasetWriter:
             rows_skipped=batch.rows_rejected,
             target_table=definition.storage.target_table,
             conflict_strategy="upsert",
+            rows_rejected=sum(rejected_reason_counts.values()),
+            rejected_reason_counts=rejected_reason_counts,
+            rejected_reason_samples=rejected_reason_samples,
+        )
+
+    def _resolve_write_daos(self, *, definition: DatasetDefinition, unit_id: str):  # type: ignore[no-untyped-def]
+        if definition.storage.write_path == "serving_direct_upsert":
+            core_dao = getattr(self.dao, definition.storage.core_dao_name, None)
+            if core_dao is not None:
+                return None, core_dao
+            raise self._dao_not_found_error(definition=definition, unit_id=unit_id)
+
+        raw_dao = getattr(self.dao, definition.storage.raw_dao_name, None)
+        core_dao = getattr(self.dao, definition.storage.core_dao_name, None)
+        if raw_dao is not None and core_dao is not None:
+            return raw_dao, core_dao
+        raise self._dao_not_found_error(definition=definition, unit_id=unit_id)
+
+    @staticmethod
+    def _dao_not_found_error(*, definition: DatasetDefinition, unit_id: str) -> IngestionWriteError:
+        return IngestionWriteError(
+            StructuredError(
+                error_code="dao_not_found",
+                error_type="write",
+                phase="writer",
+                message=(
+                    f"DAO not found: raw={definition.storage.raw_dao_name} "
+                    f"core={definition.storage.core_dao_name}"
+                ),
+                retryable=False,
+                unit_id=unit_id,
+            )
+        )
+
+    def _write_serving_direct_upsert(self, *, definition: DatasetDefinition, batch: NormalizedBatch, core_dao) -> WriteResult:  # type: ignore[no-untyped-def]
+        rows = self._coerce_rows_for_dao(batch.rows_normalized, core_dao)
+        conflict_columns = self._materialize_conflict_columns(core_dao, definition.storage.conflict_columns)
+        rows_upserted = core_dao.bulk_upsert(rows, conflict_columns=list(conflict_columns) or None)
+        rejected_reason_counts, rejected_reason_samples = self._duplicate_reason_diagnostics(
+            rows=batch.rows_normalized,
+            conflict_columns=conflict_columns,
+            unit_id=batch.unit_id,
+        )
+        return WriteResult(
+            unit_id=batch.unit_id,
+            rows_written=rows_upserted,
+            rows_upserted=rows_upserted,
+            rows_skipped=batch.rows_rejected,
+            target_table=definition.storage.target_table,
+            conflict_strategy="serving_direct_upsert",
             rows_rejected=sum(rejected_reason_counts.values()),
             rejected_reason_counts=rejected_reason_counts,
             rejected_reason_samples=rejected_reason_samples,

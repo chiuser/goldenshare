@@ -75,6 +75,7 @@ OPS_DATASET_DEFAULT_VIEW = DatasetCatalogView(
         DatasetCatalogItem("stk_period_bar_month", "equity_market", 90),
         DatasetCatalogItem("stk_period_bar_adj_month", "equity_market", 100),
         DatasetCatalogItem("margin", "equity_market", 110),
+        DatasetCatalogItem("margin_detail", "equity_market", 115),
         DatasetCatalogItem("top_list", "equity_market", 120),
         DatasetCatalogItem("dc_index", "board_theme", 10),
         DatasetCatalogItem("dc_member", "board_theme", 20),

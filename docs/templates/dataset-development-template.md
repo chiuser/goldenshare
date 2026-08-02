@@ -35,10 +35,13 @@
 10. 不得把源接口可选参数自动暴露为运营输入。只有当它对应明确用户意图、不会导致数据缺失、并经过真实请求证明时，才允许进入 `input_model`。
 11. 不得在没有真实样本行数证明的情况下宣布数据集完成。源端拉取、normalizer、writer、目标表行数、reject 原因必须能对上。
 12. 若同步引入 Dagster sensor，不得自定义报告型 cursor。cursor 只能做本 tick 调度路标：说明触发或跳过原因、阻断组件、目标日期和下一步动作；完整诊断放到 Dagster asset/check metadata 或审计报告。
+13. 不得为 direct-serving 数据集伪造空 raw 表、影子 DAO 或双写兼容层；必须把“无 raw 层”作为 storage、writer、projection 与页面共同支持的正式契约。
+14. 不得仅在后端拒绝某个 filter 与时间模式的非法组合；若 filter 会约束 point/range/none、单值或已有桶条件，必须经通用 API contract 驱动前端控件，同时保持后端为最终裁决。
+15. 不得只在创建自动排程时校验源站 release/probe 限制；runtime 入队前还必须校验 target、日期和 filters，防止历史配置或直接写库绕过。
 
 ### 0.3 开发前置硬检查
 
-下面三张表未填写完成前，不得进入编码。
+下面四张表未填写完成前，不得进入编码。
 
 #### 0.3.0 源接口真实行为验证表
 
@@ -50,7 +53,10 @@
 | 只传对象过滤 |  |  | 是 / 否 |  | 是否能拉该对象全集 |
 | 只传时间点 |  |  | 是 / 否 |  | 是否会漏历史/空日期数据 |
 | 传时间区间 |  |  | 是 / 否 |  | 是否完整、是否需要切窗 |
-| 分页第二页 |  |  | 是 / 否 |  | `limit/offset` 是否真实生效 |
+| 默认字段 |  |  | 不适用 |  | 默认是否缺少需要落库的字段 |
+| 显式请求全部文档字段 / 业务关键字段 |  |  | 不适用 |  | `fields` 是否返回所有目标字段和身份字段 |
+| 分页第二页及后续短页 |  |  | 是 / 否 |  | `limit/offset` 是否真实生效、结束条件是否正确 |
+| 单页基准与分页合并对账 |  |  | 是 / 否 |  | 在不截断的同一业务范围内，唯一键集合是否完全相等 |
 
 强约束：
 
@@ -59,6 +65,8 @@
 3. 如果只传对象过滤能返回该对象全历史，`ts_code` 等对象字段只能作为 filter，不能因此引入日期 fan-out。
 4. 如果时间点/区间只是源端过滤能力，不是完整维护能力，不得把它放进 `supported_time_modes`。
 5. 如果源端返回重复行，必须说明幂等键如何去重；去重可以接受，但 reject 计数和原因必须在验收中说清楚。
+6. 分页实测必须通过项目实际 connector；若 MCP / SDK 包装器未暴露 `limit/offset`，该包装器只能证明源端其他行为，不能替代第二页和页合并验证。
+7. 对可能达到源端单次上限的接口，不能以无日期或宽区间请求当全量基准；基准请求必须确认不截断。
 
 #### 0.3.1 三层语义拆分表
 
@@ -93,7 +101,11 @@
 | snapshot rebuild | `dataset_status_snapshot` freshness 缓存 |  |  |  |
 | date completeness audit | `audit_applicable`、`bucket_rule`、`not_applicable_reason` |  |  |  |
 | 自动任务 / calendar policy | `date_selection_rule`、默认时间模式 |  |  |  |
+| source release / Probe | release policy、目标业务日、固定样本、排程绑定、runtime 入队和同日去重 |  |  |  |
 | 前端时间控件 | point/range/none/month 控件与选择规则 |  |  |  |
+| Ops 展示目录 | `dataset_catalog_views.py` 的分组、顺序、可见性 |  |  |  |
+| 数据源页 / 分层展示 | raw 表、target/serving 表、layer plan、delivery mode 的 null / fallback 语义 |  |  |  |
+| shared storage / writer | `raw_*` 字段可空性、write path DAO 依赖、Definition linter、既有 write path 回归 |  |  |  |
 | 测试与文档 | 现有单测、方案文档、开发文档 |  |  |  |
 
 停手条件：
@@ -103,6 +115,8 @@
 3. 如果文档口径和当前代码实现不一致，先记录差异，再决定改文档还是改代码；禁止两边继续脱节。
 4. 如果改动会让某个 workflow 的 step 时间模式不匹配，必须同步调整 workflow；不得把 no-time 数据集塞进 point/range workflow。
 5. 如果改动会让数据源卡片或 freshness 从“按业务日判断”变成“按运行健康判断”，必须同步更新 snapshot / dataset cards 测试。
+6. 如果新增 direct-serving 或改变 storage/write path，必须列出所有 raw/core 既有 write path，并验证本次 Optional 字段、DAO 分派和序列化不会使旧路径静默失效。
+7. 如果自动维护依赖源端晚发布，必须同时审计 schedule API、binding service 和 probe runtime；只列 Probe service 文件不算完成。
 
 #### 0.3.3 源字段端到端对账表
 
@@ -122,6 +136,7 @@
 6. 如果发现源站文档更新导致字段缺失，例如新增估值字段、分类字段，优先补齐字段链路；若需要重建表，必须先取得明确确认，再新增 Alembic 迁移。
 7. 对支持 `fields` 的 Tushare 接口，字段验证必须拆成三步：不传 `fields` 看默认返回、按源文档字段显式请求、按业务关键字段补充请求。不得因为一次手写 `fields` 没带某字段，或默认返回没出现某字段，就判断源接口不支持该字段。
 8. `freq/category/type/market/hot_type/is_new/time/trade_time` 等会影响身份、主键、Redis key、幂等、分组、频率、市场或时间语义的字段，即使源文档未列出或默认返回未出现，也必须显式放入 `fields` 做真实请求验证；验证结果必须写入“真实样本是否返回”和备注。
+9. direct-serving 可在 raw ORM、raw 迁移 / 真实表列明确填写“不适用（有意无 raw 层）”；不得留空，也不得为通过表格校验新建 raw 镜像。
 
 ---
 
@@ -129,7 +144,7 @@
 
 1. 固定源站事实：官方文档、输入参数、输出字段、分页、限速、更新时间。
 2. 填完“0.3.0 源接口真实行为验证表”、“0.3.1 三层语义拆分表”、“0.3.2 DatasetDefinition 消费者审计表”和“0.3.3 源字段端到端对账表”。
-3. 新增或更新 `docs/sources/**` 源站文档；Tushare 文档必须同步 `docs/sources/tushare/docs_index.csv`。
+3. 新增源站文档，或在真实验证改变已知源端事实时更新 `docs/sources/**`；Tushare 文档新增/修改必须同步 `docs/sources/tushare/docs_index.csv`。已有且未变化的源文档要在方案中引用并记录已核验，不重复新建。
 4. 完成本文档，明确 `DatasetDefinition` 十段事实和执行/落库/观测方案。
 5. 新增 SQLAlchemy ORM 模型、DAO、Alembic 迁移；确认 ORM 能被 `table_model_registry()` 自动发现。
 6. 在正确的 `src/foundation/datasets/definitions/<domain>.py` 中新增 `DATASET_ROWS` 定义。
@@ -349,6 +364,7 @@
 - 时间字段必须与 `date_model.input_shape` 一致。
 - 给用户看的 `display_name` 必须是中文业务名，不得暴露内部字段含义。
 - 枚举多选如果要默认展开，必须同步配置 `planning.enum_fanout_defaults`。
+- 如果某 filter 会限制可选时间模式、是否多值或“只能补录已存在日期桶”等执行边界，必须在字段级声明通用约束；Manual Action API 必须返回可消费的条件规则，前端随筛选值切换控件，planner / validator 同时做权威拒绝。禁止只按 `dataset_key` 写 UI 分支。
 
 ### 4.6 `storage`
 
@@ -386,6 +402,9 @@
 - raw 与 serving/core 的冲突列可以不同，必须分别说明。不要为了省事把 serving 口径硬套到 raw。
 - 共表数据集如果依赖 `freq/type/source_variant` 等固定身份字段，必须填写 `row_identity_filters`，避免不同逻辑数据互相覆盖。
 - 只要修改主键、唯一键或冲突列，就必须用真实样本验证同一日期同一代码下是否存在多行变体。
+- 若选择 direct-serving，`raw_dao_name` 与 `raw_table` 必须显式为 `None`，`target_table=serving_table`，且 write path 只解析 core/serving DAO；Definition builder / linter、writer、freshness projection、snapshot、card schema 与前端展示都必须支持该 null 语义。
+- direct-serving 页面不能显示伪造 raw 表或“—”掩盖事实：在通用来源卡片中应回退展示 target/serving 表，并明确这是服务表；raw-backed 数据集展示不得回归。
+- 任何新 write path 都必须声明：所需 DAO、禁止访问的 DAO、空 batch 语义、冲突键、事务边界，以及对所有既有 write path 的回归范围。
 
 常见 `write_path`：
 - `raw_only_upsert`
@@ -426,6 +445,7 @@
 - 必须估算单个 unit 的最大写入行数：
 - 必须估算单个数据库事务的最大写入行数：
 - 若单个 unit 可能形成超大事务，必须先调整 unit 拆分规则，不能靠分页掩盖事务风险。
+- `transaction.write_volume_assessment` 必须写入以上实测基准、分页大小、单事务范围和超量时的停止 / 复核策略；不能留空或只写“数据量可控”。
 
 ### 4.8 `normalization`
 
@@ -581,6 +601,13 @@
 - 限速策略：
 - 源端错误映射：
 
+分页硬约束：
+
+1. 每一页都必须带同一份 `DatasetDefinition.source.source_fields`；不能只在第一页或 probe 中显式请求字段。
+2. 必须记录 `offset/limit` 序列、每页行数、终止 short page、页合并行数和唯一业务键数。
+3. 对达到或可能达到源端上限的范围，分页合并的唯一键集合必须与一个已证明不截断的同范围基准请求完全相等；任意漏键、额外键或内容冲突都阻断写入/上线。
+4. 在 DAO `bulk_upsert` 前检测同批冲突键：完全相同可按明确定义去重；内容不一致必须以结构化错误使 unit 失败，不能依赖 DAO 的最后一行覆盖。
+
 ### 6.4 Normalizer
 
 - 字段类型转换：
@@ -600,6 +627,8 @@
 - 冲突列：
 - 事务边界：每个 unit 一个业务数据事务
 
+如果 source client 先累积完整分页结果再写入，必须明确内存上限和单事务行数；分页不是把一个业务 unit 拆成多个可部分提交的业务事务的理由，除非方案另行定义并证明可恢复 / 不污染完整性。
+
 ### 6.6 结构化错误与 codebook
 
 - 新增 `error_code`：
@@ -615,10 +644,11 @@
 ### 7.1 手动任务
 
 - `GET /api/v1/ops/manual-actions` 是否能看到该数据集：
-- 分组是否来自 `DatasetDefinition.domain`：
+- 分组、顺序和可见性是否来自 `src/ops/catalog/dataset_catalog_views.py` / catalog resolver（而非 `DatasetDefinition.domain`）：
 - 名称是否来自 `DatasetDefinition.display_name`：
 - 时间控件是否由 `date_model` 正确派生：
 - filter 控件是否由 `input_model.filters` 正确派生：
+- 如 filter 会改变时间模式、单值范围或补录条件：API 条件规则、前端即时限制、后端绕过校验是否三者一致：
 - 提交的 `time_input` 是否仍是用户意图，而不是源接口参数：
 - 提交接口：`POST /api/v1/ops/manual-actions/<dataset_key>.maintain/task-runs`
 
@@ -628,6 +658,12 @@
 - 自动任务是否只选择数据集动作，不暴露底层执行路径：
 - 如果有 `calendar_policy`，它生成的是哪种调度意图：
 - 是否确认自动任务没有提前展开日期模型或生成源接口参数：
+- 如源端是晚发布 / 不确定发布：是否有独立 source readiness probe；目标日期如何由交易日历求出：
+- 即使与已有数据集发布时间相同，若 API、fields、样本或完整性条件不同，是否保持独立 probe service / condition，而只复用通用 TaskRun、日期目标和日志能力：
+- probe schedule 的固定 target、window、interval、max triggers、filters 和 trigger mode：
+- schedule API / binding service 是否拒绝非法配置，probe runtime 入队前是否再次强制 action、目标日期和 filters：
+- 同一 schedule / 目标日期的 probe TaskRun 去重条件；failed 任务的重试口径：
+- 生产排程是迁移 seed、配置文件还是 Ops 持久化记录；创建 / 启用所需的明确授权：
 - 是否需要放入 workflow：如需要，使用 `docs/templates/workflow-development-template.md` 另写方案。
 - 如另接入 Dagster sensor：是否已按 `lake_console/docs/templates/dagster-dataset-onboarding-template.html` 设计 cursor 的 `reason_code`、`blocked_component`、短中文 `summary`、`next_action`、长度预算和禁止字段：
 
@@ -656,6 +692,7 @@
 - `date_model.observed_field` 是否存在于目标 ORM 模型：
 - 无日期数据集是否明确展示最近同步迹象而非新鲜/滞后：
 - 数据源卡片是否显示正确 source：
+- direct-serving 时 `raw_table=None` 是否贯穿 projection、snapshot、schema 和页面；来源页是否明确显示 target/serving 表而不显示伪造 raw 表或“—”：
 - `ops-rebuild-dataset-status` 后是否能生成正确快照：
 
 ### 7.5 日期完整性审计
@@ -683,6 +720,7 @@
   - filter / enum 参数映射
   - 不产生非法 ALL sentinel
   - connector payload 中的 `fields` 等于 `DatasetDefinition.source_fields`
+  - 对分页接口，真实 connector 或等价测试替身覆盖第二页、short page 和页合并唯一键对账
 - Normalizer：
   - date / decimal / required fields
   - row transform 可注册并可执行
@@ -691,15 +729,20 @@
   - 幂等 upsert
   - conflict_columns
   - 单 unit 事务边界
+  - 同批冲突键的相同 / 不同内容处理
+  - direct-serving 时不解析 raw DAO；raw/core 既有路径完整回归
 - Ops API：
   - manual-actions
   - catalog
   - task-runs
   - freshness / dataset-cards
+  - 如有 source probe：schedule API、binding、runtime action / filters 防篡改、目标日期去重
 - Frontend（如显示或交互变化）：
   - 页面能看到动作
   - 表单控件正确
   - 任务详情和数据状态展示正确
+  - filter 条件改变时间模式时即时更新且后端拒绝绕过请求
+  - direct-serving 卡片显示 target/serving 表，raw-backed 卡片无回归
 
 ### 8.2 必跑命令
 
@@ -709,6 +752,7 @@ pytest -q tests/test_dataset_definition_registry.py tests/test_dataset_action_re
 pytest -q tests/architecture/test_dataset_runtime_registry_guardrails.py tests/architecture/test_dataset_maintenance_refactor_guardrails.py tests/architecture/test_arch_no_all_sentinel.py
 GOLDENSHARE_ENV_FILE=.env.web.local goldenshare ingestion-lint-definitions
 python3 scripts/check_docs_integrity.py
+git diff --check
 ```
 
 按改动范围追加：
@@ -716,8 +760,8 @@ python3 scripts/check_docs_integrity.py
 ```bash
 pytest -q tests/test_dataset_normalizer.py
 pytest -q tests/test_dataset_writer_<dataset>.py
-pytest -q tests/web/test_ops_manual_actions_api.py tests/web/test_ops_catalog_api.py tests/web/test_ops_freshness_api.py
-cd frontend && npm run typecheck
+pytest -q tests/web/test_ops_manual_actions_api.py tests/web/test_ops_catalog_api.py tests/web/test_ops_freshness_api.py tests/web/test_ops_schedule_api.py tests/web/test_ops_probe_api.py
+cd frontend && npm run typecheck && npm run test && npm run build
 ```
 
 ### 8.3 验收勾选
@@ -737,10 +781,14 @@ cd frontend && npm run typecheck
 - [ ] `DatasetActionResolver` 测试覆盖该数据集的时间输入归一化
 - [ ] 测试覆盖 `TaskRun.time_input_json -> DatasetActionResolver.build_plan() -> PlanUnit.request_params`
 - [ ] 单事务写入量已真实评估并写入 `transaction.write_volume_assessment`
+- [ ] 分页已用项目实际 connector（或同等请求层）验证第二页、short page 和分页合并唯一键集合；未用无日期/宽区间截断结果充当基准
 - [ ] request builder、unit planner、normalizer、writer 均有测试
+- [ ] 同批冲突键不会被 DAO 静默最后一行覆盖；冲突的结构化错误和样本可追溯
 - [ ] reject reason code 和 rejected reason samples 可解释，任何 reject 都有字段和值样本
 - [ ] TaskRun 详情展示可读，无重复错误信息
-- [ ] 数据源卡片和数据状态页展示正确
+- [ ] 数据源卡片和数据状态页展示正确；direct-serving 的无 raw 层与 target/serving fallback 已验证，raw-backed 页面无回归
+- [ ] 若 filter 有条件时间 / 范围约束：Manual Action API、前端控件与 resolver / planner 拒绝逻辑一致
+- [ ] 若使用 source readiness probe：schedule API、binding service、runtime 防篡改和按目标日期去重都已覆盖；生产 schedule 的创建权限和持久化来源已确认
 - [ ] 如接入 Dagster sensor，cursor 已遵守 Dagster 数据集接入模板：不写报告型 batch/readiness 明细，能一眼看出触发或 skip 原因
 - [ ] 门禁命令已通过并记录输出
 
@@ -750,6 +798,7 @@ cd frontend && npm run typecheck
 
 - Alembic 迁移：
 - 发布顺序：
+- 如需生产排程 / probe rule：创建入口、持久化位置、启用顺序和授权人；不得在 Alembic 中隐式 seed：
 - 是否需要重建数据状态：`goldenshare ops-rebuild-dataset-status`
 - 最小真实同步命令：
 - 验收查询 SQL：

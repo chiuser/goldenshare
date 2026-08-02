@@ -22,6 +22,7 @@ from src.foundation.models.core.equity_stock_st import EquityStockSt
 from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core.equity_nineturn import EquityNineTurn
 from src.foundation.models.core.equity_margin import EquityMargin
+from src.foundation.models.core_serving.equity_margin_detail import EquityMarginDetail
 from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core_serving.stk_period_bar import StkPeriodBar
 from src.foundation.models.core_serving.stk_period_bar_adj import StkPeriodBarAdj
@@ -177,6 +178,15 @@ def test_margin_serving_model_matches_expected_keys() -> None:
         "idx_equity_margin_trade_date",
         "idx_equity_margin_exchange_trade_date",
     }
+
+
+def test_margin_detail_serving_model_matches_expected_keys() -> None:
+    assert [column.name for column in EquityMarginDetail.__table__.primary_key.columns] == ["trade_date", "ts_code"]
+    assert {index.name for index in EquityMarginDetail.__table__.indexes} == {
+        "idx_equity_margin_detail_trade_date",
+        "idx_equity_margin_detail_ts_code_trade_date_desc",
+    }
+    assert EquityMarginDetail.__table__.columns["name"].nullable is True
 
 
 def test_cyq_perf_serving_model_matches_expected_keys() -> None:

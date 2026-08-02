@@ -92,6 +92,16 @@ function isBizTableCard(item: DatasetCard): boolean {
   return item.delivery_mode === "biz_table_snapshot";
 }
 
+function resolveTableLabel(item: DatasetCard, isBizTable: boolean): string {
+  if (isBizTable) {
+    return item.target_table || "—";
+  }
+  if (item.raw_table_label) {
+    return item.raw_table_label;
+  }
+  return item.target_table ? `服务表：${item.target_table}` : "—";
+}
+
 function buildLastSyncText(item: DatasetCard, hasActiveTaskRun: boolean): string {
   if (hasActiveTaskRun) {
     return item.active_task_run_started_at
@@ -132,7 +142,7 @@ export function OpsV21SourcePage({
       return {
         datasetKey: item.card_key,
         displayName: item.display_name,
-        tableLabel: isBizTable ? item.target_table || "—" : item.raw_table_label || "—",
+        tableLabel: resolveTableLabel(item, isBizTable),
         status,
         lastSyncLabel: item.last_success_label || (isBizTable ? "最近构建成功时间" : "最近维护成功时间"),
         lastSyncText: buildLastSyncText(item, hasActiveTaskRun),

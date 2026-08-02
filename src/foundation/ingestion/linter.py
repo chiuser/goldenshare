@@ -7,6 +7,10 @@ from src.foundation.datasets.source_release_policies import SUPPORTED_SOURCE_REL
 from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY
 
 
+SUPPORTED_SCOPED_REPAIR_POLICIES = {"existing_point_bucket_only"}
+SUPPORTED_DUPLICATE_KEY_POLICIES = {"allow", "dedupe_identical_reject_conflicting"}
+
+
 @dataclass(frozen=True, slots=True)
 class IngestionLintIssue:
     dataset_key: str
@@ -41,6 +45,32 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
             )
         if not definition.storage.target_table.strip():
             issues.append(IngestionLintIssue(dataset_key, "missing_target_table", "target_table 不能为空"))
+        storage = definition.storage
+        if storage.write_path == "serving_direct_upsert":
+            if storage.raw_dao_name is not None:
+                issues.append(
+                    IngestionLintIssue(dataset_key, "direct_serving_raw_dao_forbidden", "serving_direct_upsert 不得配置 raw_dao_name")
+                )
+            if storage.raw_table is not None:
+                issues.append(
+                    IngestionLintIssue(dataset_key, "direct_serving_raw_table_forbidden", "serving_direct_upsert 不得配置 raw_table")
+                )
+            if not storage.core_dao_name.strip():
+                issues.append(
+                    IngestionLintIssue(dataset_key, "direct_serving_core_dao_missing", "serving_direct_upsert 必须配置 core_dao_name")
+                )
+            if storage.layer_plan != "source->serving":
+                issues.append(
+                    IngestionLintIssue(dataset_key, "direct_serving_layer_plan_invalid", "serving_direct_upsert 的 layer_plan 必须为 source->serving")
+                )
+            if storage.serving_table != storage.target_table:
+                issues.append(
+                    IngestionLintIssue(dataset_key, "direct_serving_target_mismatch", "serving_direct_upsert 的 serving_table 必须等于 target_table")
+                )
+        elif storage.raw_dao_name is None or storage.raw_table is None:
+            issues.append(
+                IngestionLintIssue(dataset_key, "raw_storage_required", "非 serving_direct_upsert 写入路径必须配置 raw DAO 和 raw 表")
+            )
         if definition.transaction.commit_policy != "unit":
             issues.append(
                 IngestionLintIssue(
@@ -65,6 +95,59 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
                         dataset_key,
                         "fanout_field_missing",
                         f"enum_fanout_fields 引用了未定义 filter: {fanout_field}",
+                )
+            )
+        quality = definition.quality
+        if quality.unit_date_field is not None:
+            if quality.unit_date_field not in definition.source.source_fields:
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "unit_date_field_not_in_source",
+                        "quality.unit_date_field 必须是 source_fields 中的字段",
+                    )
+                )
+            if quality.unit_date_field not in definition.normalization.date_fields:
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "unit_date_field_not_normalized",
+                        "quality.unit_date_field 必须配置为 normalization.date_fields",
+                    )
+                )
+        if quality.duplicate_key_policy not in SUPPORTED_DUPLICATE_KEY_POLICIES:
+            issues.append(
+                IngestionLintIssue(
+                    dataset_key,
+                    "invalid_duplicate_key_policy",
+                    f"quality.duplicate_key_policy 不支持：{quality.duplicate_key_policy}",
+                )
+            )
+        elif quality.duplicate_key_policy != "allow":
+            conflict_columns = set(storage.conflict_columns or ())
+            if not conflict_columns:
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "duplicate_key_policy_conflict_columns_missing",
+                        "严格 duplicate_key_policy 必须配置 storage.conflict_columns",
+                    )
+                )
+            elif not conflict_columns.issubset(set(definition.normalization.required_fields)):
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "duplicate_key_policy_identity_not_required",
+                        "严格 duplicate_key_policy 的 conflict_columns 必须全部为 normalization.required_fields",
+                    )
+                )
+        for field in definition.input_model.filters:
+            if field.scoped_repair_policy not in (None, *SUPPORTED_SCOPED_REPAIR_POLICIES):
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "invalid_scoped_repair_policy",
+                        f"filter {field.name} 的 scoped_repair_policy 不支持：{field.scoped_repair_policy}",
                     )
                 )
     missing_runtime = sorted(definition_keys - runtime_keys)

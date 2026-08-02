@@ -42,3 +42,17 @@ def test_lint_rejects_invalid_source_release_policy(monkeypatch) -> None:
     assert [(issue.dataset_key, issue.code) for issue in report.issues] == [
         ("daily", "invalid_source_release_policy")
     ]
+
+
+def test_lint_rejects_raw_storage_on_direct_serving_write_path(monkeypatch) -> None:
+    definition = get_dataset_definition("margin_detail")
+    definition = replace(definition, storage=replace(definition.storage, raw_table="raw_tushare.margin_detail"))
+    monkeypatch.setattr(linter_module, "list_dataset_definitions", lambda: (definition,))
+    monkeypatch.setattr(linter_module, "DATASET_RUNTIME_REGISTRY", {definition.dataset_key: object()})
+
+    report = lint_all_dataset_definitions()
+
+    assert report.passed is False
+    assert [(issue.dataset_key, issue.code) for issue in report.issues] == [
+        ("margin_detail", "direct_serving_raw_table_forbidden")
+    ]

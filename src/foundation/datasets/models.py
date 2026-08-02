@@ -99,6 +99,7 @@ class DatasetInputField:
     multi_value: bool = False
     display_name: str = ""
     description: str = ""
+    scoped_repair_policy: str | None = None
 
     @property
     def display_label(self) -> str:
@@ -130,14 +131,14 @@ class DatasetInputModel:
 
 @dataclass(frozen=True, slots=True)
 class DatasetStorageDefinition:
-    raw_dao_name: str
+    raw_dao_name: str | None
     core_dao_name: str
     target_table: str
     delivery_mode: str
     layer_plan: str
     std_table: str | None
     serving_table: str | None
-    raw_table: str
+    raw_table: str | None
     raw_conflict_columns: tuple[str, ...] | None = None
     conflict_columns: tuple[str, ...] | None = None
     write_path: str = "raw_core_upsert"
@@ -192,6 +193,8 @@ class DatasetObservability:
 class DatasetQualityPolicy:
     reject_policy: str = "record_rejections"
     required_fields: tuple[str, ...] = ()
+    unit_date_field: str | None = None
+    duplicate_key_policy: str = "allow"
 
 
 @dataclass(frozen=True, slots=True)

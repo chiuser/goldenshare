@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from calendar import monthrange
 from datetime import date, timedelta
+import re
 from typing import Any, Callable
 
 from sqlalchemy import func, select
@@ -23,6 +24,8 @@ from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStoc
 
 CYQ_CHIPS_RANGE_WINDOW_DAYS = 1095
 ETF_SH_CONS_RESOURCE = "etf_sh_cons"
+SCOPED_REPAIR_POLICY_EXISTING_POINT_BUCKET_ONLY = "existing_point_bucket_only"
+_TS_CODE_PATTERN = re.compile(r"^\d{6}\.(SH|SZ|BJ)$")
 
 
 class DatasetUnitPlanner:
@@ -32,6 +35,7 @@ class DatasetUnitPlanner:
         self.settings = get_settings()
 
     def plan(self, request: ValidatedDatasetActionRequest, definition: DatasetDefinition) -> tuple[PlanUnitSnapshot, ...]:
+        self._validate_scoped_repair_request(request, definition)
         builder_key = definition.planning.unit_builder_key or "generic"
         builder = _CUSTOM_UNIT_BUILDERS.get(builder_key)
         if builder is None:
@@ -51,6 +55,56 @@ class DatasetUnitPlanner:
                 )
             )
         return tuple(units)
+
+    def _validate_scoped_repair_request(
+        self,
+        request: ValidatedDatasetActionRequest,
+        definition: DatasetDefinition,
+    ) -> None:
+        for field in definition.input_model.filters:
+            policy = field.scoped_repair_policy
+            value = request.params.get(field.name)
+            if policy is None or value in (None, "", []):
+                continue
+            if policy == SCOPED_REPAIR_POLICY_EXISTING_POINT_BUCKET_ONLY:
+                self._validate_existing_point_bucket_repair(
+                    request=request,
+                    definition=definition,
+                    field_name=field.name,
+                    value=value,
+                )
+                continue
+            raise self._planning_error("scoped_repair_policy_invalid", f"不支持的定点补录策略：{policy}")
+
+    def _validate_existing_point_bucket_repair(
+        self,
+        *,
+        request: ValidatedDatasetActionRequest,
+        definition: DatasetDefinition,
+        field_name: str,
+        value: Any,
+    ) -> None:
+        if not isinstance(value, str) or not _TS_CODE_PATTERN.fullmatch(value.strip().upper()):
+            raise self._planning_error(
+                "scoped_repair_code_invalid",
+                f"{field_name} 仅支持一个 6 位数字.(SH|SZ|BJ) 格式的证券代码",
+            )
+        if request.run_profile != "point_incremental" or request.trade_date is None:
+            raise self._planning_error(
+                "scoped_repair_point_required",
+                f"填写 {field_name} 时仅支持单个交易日补录",
+            )
+        target_dao = getattr(self.dao, definition.storage.core_dao_name, None)
+        model = getattr(target_dao, "model", None)
+        trade_date_column = getattr(model, "trade_date", None)
+        if trade_date_column is None:
+            raise self._planning_error("dao_not_found", f"定点补录目标表缺少 trade_date：{definition.storage.target_table}")
+        existing = self.session.scalar(select(trade_date_column).where(trade_date_column == request.trade_date).limit(1))
+        if existing is None:
+            raise self._planning_error(
+                "scoped_repair_bucket_missing",
+                f"{request.trade_date.isoformat()} 尚未建立全市场日期桶，不能进行单证券补录",
+            )
 
     def _build_generic_units(
         self,

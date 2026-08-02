@@ -250,6 +250,41 @@ describe("V2.1 数据源详情页", () => {
     expect(screen.queryByText("失败")).not.toBeInTheDocument();
   });
 
+  it("direct-serving 数据集明确展示服务表，而不是伪造 raw 表", async () => {
+    apiRequest.mockImplementation(async (url: string) => {
+      if (url === "/api/v1/ops/dataset-cards?source_key=tushare") {
+        return {
+          total: 1,
+          groups: [
+            {
+              group_key: "equity_market",
+              group_label: "A股行情",
+              group_order: 2,
+              items: [
+                card({
+                  card_key: "margin_detail",
+                  dataset_key: "margin_detail",
+                  detail_dataset_key: "margin_detail",
+                  resource_key: "margin_detail",
+                  display_name: "融资融券交易明细",
+                  raw_table: null,
+                  raw_table_label: null,
+                  target_table: "core_serving.equity_margin_detail",
+                }),
+              ],
+            },
+          ],
+        };
+      }
+      throw new Error(`unexpected url: ${url}`);
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("融资融券交易明细")).toBeInTheDocument();
+    expect(await screen.findByText("服务表：core_serving.equity_margin_detail")).toBeInTheDocument();
+  });
+
   it("支持 Biz 数据集只读卡片展示", async () => {
     apiRequest.mockImplementation(async (url: string) => {
       if (url === "/api/v1/ops/dataset-cards?source_key=biz_tableset") {

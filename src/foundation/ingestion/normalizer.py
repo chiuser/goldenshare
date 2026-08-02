@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import InvalidOperation
 from typing import Any
 
@@ -57,7 +58,13 @@ class DatasetNormalizer:
         "list_date",
     )
 
-    def normalize(self, *, definition: DatasetDefinition, fetch_result: SourceFetchResult) -> NormalizedBatch:
+    def normalize(
+        self,
+        *,
+        definition: DatasetDefinition,
+        fetch_result: SourceFetchResult,
+        expected_unit_date: date | None = None,
+    ) -> NormalizedBatch:
         row_transform = None
         if definition.normalization.row_transform_name:
             row_transform = globals().get(definition.normalization.row_transform_name)
@@ -156,7 +163,21 @@ class DatasetNormalizer:
                 )
                 continue
 
+            self._validate_unit_date(
+                definition=definition,
+                row=normalized,
+                expected_unit_date=expected_unit_date,
+                unit_id=fetch_result.unit_id,
+            )
+
             rows_normalized.append(normalized)
+        rows_normalized = self._apply_duplicate_key_policy(
+            definition=definition,
+            rows=rows_normalized,
+            rejected_reasons=rejected_reasons,
+            rejected_samples=rejected_samples,
+            unit_id=fetch_result.unit_id,
+        )
         return NormalizedBatch(
             unit_id=fetch_result.unit_id,
             rows_normalized=rows_normalized,
@@ -164,6 +185,102 @@ class DatasetNormalizer:
             rejected_reasons=rejected_reasons,
             rejected_samples=rejected_samples,
         )
+
+    @classmethod
+    def _validate_unit_date(
+        cls,
+        *,
+        definition: DatasetDefinition,
+        row: dict[str, Any],
+        expected_unit_date: date | None,
+        unit_id: str,
+    ) -> None:
+        field_name = definition.quality.unit_date_field
+        if field_name is None:
+            return
+        if expected_unit_date is None:
+            raise IngestionNormalizeError(
+                StructuredError(
+                    error_code="normalize.unit_date_expected_missing",
+                    error_type="normalize",
+                    phase="normalizer",
+                    message=f"数据集 {definition.dataset_key} 启用了单元日期校验，但执行单元没有日期锚点",
+                    retryable=False,
+                    unit_id=unit_id,
+                )
+            )
+        actual_date = row.get(field_name)
+        if actual_date == expected_unit_date:
+            return
+        raise IngestionNormalizeError(
+            StructuredError(
+                error_code="normalize.unit_date_mismatch",
+                error_type="normalize",
+                phase="normalizer",
+                message=f"源数据 {field_name} 与执行单元日期不一致",
+                retryable=False,
+                unit_id=unit_id,
+                details={
+                    "field": field_name,
+                    "expected": cls._sample_scalar(expected_unit_date),
+                    "actual": cls._sample_scalar(actual_date),
+                    "row": cls._sample_row(row=row, field=field_name),
+                },
+            )
+        )
+
+    @classmethod
+    def _apply_duplicate_key_policy(
+        cls,
+        *,
+        definition: DatasetDefinition,
+        rows: list[dict[str, Any]],
+        rejected_reasons: dict[str, int],
+        rejected_samples: dict[str, list[dict[str, Any]]],
+        unit_id: str,
+    ) -> list[dict[str, Any]]:
+        if definition.quality.duplicate_key_policy == "allow":
+            return rows
+        conflict_columns = tuple(definition.storage.conflict_columns or ())
+        unique_rows: list[dict[str, Any]] = []
+        seen: dict[tuple[Any, ...], dict[str, Any]] = {}
+        for row in rows:
+            key = tuple(row[column] for column in conflict_columns)
+            existing = seen.get(key)
+            if existing is None:
+                seen[key] = row
+                unique_rows.append(row)
+                continue
+            if existing != row:
+                raise IngestionNormalizeError(
+                    StructuredError(
+                        error_code="normalize.duplicate_conflict_key_inconsistent",
+                        error_type="normalize",
+                        phase="normalizer",
+                        message="同一冲突键出现不一致的源数据，拒绝写入该执行单元",
+                        retryable=False,
+                        unit_id=unit_id,
+                        details={
+                            "conflict_columns": list(conflict_columns),
+                            "conflict_key": {
+                                column: cls._sample_scalar(key[index]) for index, column in enumerate(conflict_columns)
+                            },
+                            "first_row": cls._sample_row(row=existing, field=None),
+                            "conflicting_row": cls._sample_row(row=row, field=None),
+                        },
+                    )
+                )
+            cls._record_rejection(
+                rejected_reasons,
+                rejected_samples,
+                "normalize.duplicate_conflict_key_in_batch",
+                row=row,
+                unit_id=unit_id,
+                field=",".join(conflict_columns),
+                value={column: key[index] for index, column in enumerate(conflict_columns)},
+                message="同一冲突键出现完全相同的重复行，已在写入前去重。",
+            )
+        return unique_rows
 
     @staticmethod
     def raise_if_all_rejected(batch: NormalizedBatch) -> None:

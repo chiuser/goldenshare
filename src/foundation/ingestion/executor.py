@@ -139,7 +139,7 @@ class IngestionExecutor:
         for unit in units:
             self._ensure_not_canceled(cancel_checker=cancel_checker, run_id=request.run_id)
             try:
-                fetched = self.source_client.fetch(definition=definition, unit=unit)
+                source_result = self.source_client.fetch(definition=definition, unit=unit)
             except Exception as exc:
                 self._handle_unit_exception(
                     request=request,
@@ -150,6 +150,7 @@ class IngestionExecutor:
                     total_units=total_units,
                     exc=exc,
                 )
+                continue
             self._process_fetched_unit(
                 request=request,
                 definition=definition,
@@ -157,7 +158,7 @@ class IngestionExecutor:
                 state=state,
                 unit=unit,
                 total_units=total_units,
-                fetched=fetched,
+                source_result=source_result,
             )
 
     def _run_units_with_concurrent_fetch(
@@ -216,7 +217,7 @@ class IngestionExecutor:
                             state=state,
                             unit=unit,
                             total_units=total_units,
-                            fetched=future.result(),
+                            source_result=future.result(),
                         )
                         submit_next(executor)
             except Exception:
@@ -233,13 +234,17 @@ class IngestionExecutor:
         state: _RunState,
         unit: PlanUnitSnapshot,
         total_units: int,
-        fetched,
+        source_result,
     ) -> None:  # type: ignore[no-untyped-def]
         unit_rows_fetched = 0
         unit_rows_written = 0
         unit_rows_rejected = 0
         try:
-            normalized = self.normalizer.normalize(definition=definition, fetch_result=fetched)
+            normalized = self.normalizer.normalize(
+                definition=definition,
+                fetch_result=source_result,
+                expected_unit_date=unit.trade_date,
+            )
             self.normalizer.raise_if_all_rejected(normalized)
             written = self.writer.write(
                 definition=definition,
@@ -247,7 +252,7 @@ class IngestionExecutor:
                 plan_unit=unit,
                 run_profile=request.run_profile,
             )
-            unit_rows_fetched = len(fetched.rows_raw)
+            unit_rows_fetched = len(source_result.rows_raw)
             unit_rows_written = written.rows_written
             unit_rows_rejected = normalized.rows_rejected + int(written.rows_rejected or 0)
             state.rows_fetched += unit_rows_fetched

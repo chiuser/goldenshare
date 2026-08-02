@@ -158,7 +158,7 @@ def test_ops_progress_failure_does_not_rollback_committed_business_rows() -> Non
             return SourceFetchResult(unit_id=unit.unit_id, request_count=1, retry_count=0, latency_ms=0, rows_raw=[{}])
 
     class StubNormalizer:
-        def normalize(self, *, definition, fetch_result):  # type: ignore[no-untyped-def]
+        def normalize(self, *, definition, fetch_result, expected_unit_date=None):  # type: ignore[no-untyped-def]
             return NormalizedBatch(
                 unit_id=fetch_result.unit_id,
                 rows_normalized=[{"trade_date": "2026-04-24", "ts_code": "000001.SZ"}],
@@ -241,7 +241,7 @@ def test_executor_merges_normalizer_and_writer_rejected_reasons() -> None:
             return SourceFetchResult(unit_id=unit.unit_id, request_count=1, retry_count=0, latency_ms=0, rows_raw=[{}, {}, {}])
 
     class StubNormalizer:
-        def normalize(self, *, definition, fetch_result):  # type: ignore[no-untyped-def]
+        def normalize(self, *, definition, fetch_result, expected_unit_date=None):  # type: ignore[no-untyped-def]
             return NormalizedBatch(
                 unit_id=fetch_result.unit_id,
                 rows_normalized=[{"row_key_hash": "a"}, {"row_key_hash": "b"}],
@@ -324,6 +324,45 @@ def test_executor_merges_normalizer_and_writer_rejected_reasons() -> None:
     assert captured[0][0].rejected_reason_samples == summary.rejected_reason_samples
 
 
+def test_executor_serial_fetch_failure_does_not_process_missing_source_result() -> None:
+    class StubSession:
+        def __init__(self) -> None:
+            self.rollback_count = 0
+
+        def rollback(self) -> None:
+            self.rollback_count += 1
+
+    class FailingSourceClient:
+        def fetch(self, *, definition, unit):  # type: ignore[no-untyped-def]
+            raise RuntimeError("source boom")
+
+    class GuardNormalizer:
+        def normalize(self, **kwargs):  # type: ignore[no-untyped-def]
+            pytest.fail("源端请求失败后不得进入 normalizer")
+
+    session = StubSession()
+    executor = IngestionExecutor(session)
+    executor.source_client = FailingSourceClient()  # type: ignore[assignment]
+    executor.normalizer = GuardNormalizer()  # type: ignore[assignment]
+    request = ValidatedDatasetActionRequest(
+        request_id="r-1",
+        dataset_key="major_news",
+        action="maintain",
+        run_profile="no_time_refresh",
+        trigger_source="test",
+    )
+    unit = PlanUnitSnapshot("u-fail", "major_news", "tushare", None, {}, {})
+
+    with pytest.raises(IngestionError, match="source boom"):
+        executor.run(
+            request=request,
+            definition=get_dataset_definition("major_news"),
+            units=(unit,),
+        )
+
+    assert session.rollback_count == 1
+
+
 def test_executor_concurrent_fetch_keeps_write_commit_and_progress_on_main_thread() -> None:
     main_thread = threading.current_thread().name
     captured_messages: list[str] = []
@@ -370,7 +409,7 @@ def test_executor_concurrent_fetch_keeps_write_commit_and_progress_on_main_threa
         def __init__(self) -> None:
             self.threads: list[str] = []
 
-        def normalize(self, *, definition, fetch_result):  # type: ignore[no-untyped-def]
+        def normalize(self, *, definition, fetch_result, expected_unit_date=None):  # type: ignore[no-untyped-def]
             self.threads.append(threading.current_thread().name)
             return NormalizedBatch(
                 unit_id=fetch_result.unit_id,
@@ -465,7 +504,7 @@ def test_executor_concurrent_fetch_failure_stops_new_submission_and_does_not_wri
             return SourceFetchResult(unit_id=unit.unit_id, request_count=1, retry_count=0, latency_ms=0, rows_raw=[{}])
 
     class StubNormalizer:
-        def normalize(self, *, definition, fetch_result):  # type: ignore[no-untyped-def]
+        def normalize(self, *, definition, fetch_result, expected_unit_date=None):  # type: ignore[no-untyped-def]
             return NormalizedBatch(unit_id=fetch_result.unit_id, rows_normalized=[{}], rows_rejected=0, rejected_reasons={})
 
         def raise_if_all_rejected(self, normalized):  # type: ignore[no-untyped-def]

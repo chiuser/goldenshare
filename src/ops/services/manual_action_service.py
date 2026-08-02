@@ -87,6 +87,7 @@ class ManualActionTaskRunResolver:
         mode_config = self.route.time_form.find_mode(mode)
         if mode_config is None:
             raise WebAppError(status_code=422, code="validation_error", message=f"不支持的时间模式：{mode}")
+        self._validate_conditional_time_rules(filters=filters, mode=mode_config.mode)
 
         if self.route.action_type == "dataset_action":
             time_params = self._resolve_dataset_action_time(mode_config=mode_config, time_input=time_input)
@@ -117,6 +118,13 @@ class ManualActionTaskRunResolver:
                 target_key=workflow.key,
             )
         raise WebAppError(status_code=422, code="validation_error", message="不支持的手动任务类型")
+
+    def _validate_conditional_time_rules(self, *, filters: dict[str, Any], mode: str) -> None:
+        for rule in self.route.conditional_time_rules:
+            if self._is_empty(filters.get(rule.filter_key)):
+                continue
+            if mode not in rule.allowed_time_modes:
+                raise WebAppError(status_code=422, code="validation_error", message=rule.help_text)
 
     @staticmethod
     def _dataset_time_input_payload(

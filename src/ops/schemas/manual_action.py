@@ -58,6 +58,12 @@ class ManualActionTimeFormResponse(BaseModel):
         return next((item for item in self.modes if item.mode == mode), None)
 
 
+class ManualActionConditionalTimeRuleResponse(BaseModel):
+    filter_key: str
+    allowed_time_modes: list[ManualActionTimeMode]
+    help_text: str
+
+
 class ManualActionItemResponse(BaseModel):
     action_key: str
     action_type: str
@@ -67,6 +73,7 @@ class ManualActionItemResponse(BaseModel):
     resource_display_name: str | None = None
     date_model: ManualActionDateModelResponse | None = None
     time_form: ManualActionTimeFormResponse
+    conditional_time_rules: list[ManualActionConditionalTimeRuleResponse] = Field(default_factory=list)
     filters: list[ActionParameterResponse]
     search_keywords: list[str]
     action_order: int

@@ -34,9 +34,31 @@ VOLUME_COLUMNS = (
 )
 
 
+def _existing_volume_columns(
+    inspector: sa.Inspector,
+    *,
+    schema_name: str,
+    table_name: str,
+) -> tuple[str, ...]:
+    """Return columns that exist on an optional historical target table."""
+
+    if not inspector.has_table(table_name, schema=schema_name):
+        return ()
+
+    present_columns = {
+        column["name"] for column in inspector.get_columns(table_name, schema=schema_name)
+    }
+    return tuple(column for column in VOLUME_COLUMNS if column in present_columns)
+
+
 def upgrade() -> None:
+    inspector = sa.inspect(op.get_bind())
     for schema_name, table_name in TARGETS:
-        for column in VOLUME_COLUMNS:
+        for column in _existing_volume_columns(
+            inspector,
+            schema_name=schema_name,
+            table_name=table_name,
+        ):
             op.alter_column(
                 table_name,
                 column,
@@ -49,8 +71,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    inspector = sa.inspect(op.get_bind())
     for schema_name, table_name in TARGETS:
-        for column in VOLUME_COLUMNS:
+        for column in _existing_volume_columns(
+            inspector,
+            schema_name=schema_name,
+            table_name=table_name,
+        ):
             op.alter_column(
                 table_name,
                 column,

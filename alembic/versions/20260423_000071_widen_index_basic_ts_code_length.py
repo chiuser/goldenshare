@@ -17,40 +17,43 @@ down_revision = "20260423_000070"
 branch_labels = None
 depends_on = None
 
+TARGETS = (
+    ("raw_tushare", "index_basic"),
+    ("core_serving", "index_basic"),
+)
+
+
+def _existing_targets(inspector: sa.Inspector) -> tuple[tuple[str, str], ...]:
+    """Keep widening legacy targets without breaking a clean baseline install."""
+
+    return tuple(
+        (schema_name, table_name)
+        for schema_name, table_name in TARGETS
+        if inspector.has_table(table_name, schema=schema_name)
+    )
+
 
 def upgrade() -> None:
-    op.alter_column(
-        "index_basic",
-        "ts_code",
-        schema="raw_tushare",
-        existing_type=sa.String(length=16),
-        type_=sa.String(length=32),
-        existing_nullable=False,
-    )
-    op.alter_column(
-        "index_basic",
-        "ts_code",
-        schema="core_serving",
-        existing_type=sa.String(length=16),
-        type_=sa.String(length=32),
-        existing_nullable=False,
-    )
+    inspector = sa.inspect(op.get_bind())
+    for schema_name, table_name in _existing_targets(inspector):
+        op.alter_column(
+            table_name,
+            "ts_code",
+            schema=schema_name,
+            existing_type=sa.String(length=16),
+            type_=sa.String(length=32),
+            existing_nullable=False,
+        )
 
 
 def downgrade() -> None:
-    op.alter_column(
-        "index_basic",
-        "ts_code",
-        schema="core_serving",
-        existing_type=sa.String(length=32),
-        type_=sa.String(length=16),
-        existing_nullable=False,
-    )
-    op.alter_column(
-        "index_basic",
-        "ts_code",
-        schema="raw_tushare",
-        existing_type=sa.String(length=32),
-        type_=sa.String(length=16),
-        existing_nullable=False,
-    )
+    inspector = sa.inspect(op.get_bind())
+    for schema_name, table_name in reversed(_existing_targets(inspector)):
+        op.alter_column(
+            table_name,
+            "ts_code",
+            schema=schema_name,
+            existing_type=sa.String(length=32),
+            type_=sa.String(length=16),
+            existing_nullable=False,
+        )

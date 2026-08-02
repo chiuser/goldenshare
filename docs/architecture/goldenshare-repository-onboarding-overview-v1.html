@@ -741,7 +741,7 @@
 
           <div class="callout danger">
             <strong>不要恢复旧任务链路：</strong>
-            任务记录、任务详情、重试、停止和手动提交统一消费 <code>/api/v1/ops/task-runs*</code> 与 <code>/api/v1/ops/manual-actions/{action_key}/task-runs</code>。不得恢复旧 <code>/api/v1/ops/executions*</code>、旧 steps/events/logs 或 <code>sync_run_log</code> 作为页面事实源。
+            任务记录、任务详情、重试、停止和手动提交统一消费 <code>/api/v1/ops/task-runs*</code> 与 <code>/api/v1/ops/manual-actions/{action_key}/task-runs</code>。不得恢复已废弃的 executions 路径、旧 steps/events/logs 或历史同步运行日志作为页面事实源。
           </div>
         </div>
       </section>

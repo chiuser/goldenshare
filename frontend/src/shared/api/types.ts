@@ -595,6 +595,11 @@ export interface OpsManualActionsResponse {
           date_field?: string | null;
         }>;
       };
+      conditional_time_rules?: Array<{
+        filter_key: string;
+        allowed_time_modes: Array<"point" | "range" | "none">;
+        help_text: string;
+      }>;
       filters: Array<{
         key: string;
         display_name: string;

@@ -769,6 +769,41 @@ describe("手动任务页", () => {
     expect(screen.queryByText(/未配置显示名称/)).not.toBeInTheDocument();
   });
 
+  it("筛选条件声明仅支持单日时会自动切换并恢复时间选项", async () => {
+    const conditionalActions = JSON.parse(JSON.stringify(mockManualActions));
+    const action = conditionalActions.groups
+      .find((group: { group_key: string }) => group.group_key === "equity_market")
+      .actions.find((item: { action_key: string }) => item.action_key === "stk_factor_pro.maintain");
+    action.conditional_time_rules = [
+      {
+        filter_key: "ts_code",
+        allowed_time_modes: ["point"],
+        help_text: "股票代码补录仅支持一个已存在日期桶。",
+      },
+    ];
+    vi.mocked(apiRequest).mockImplementation(async (path: string) => {
+      if (path === "/api/v1/ops/manual-actions") {
+        return conditionalActions;
+      }
+      throw new Error(`unexpected path: ${path}`);
+    });
+
+    renderPage("/app/ops/v21/datasets/tasks?tab=manual&action_key=stk_factor_pro.maintain&action_type=dataset_action");
+
+    expect((await screen.findAllByText("维护股票技术面因子(专业版)")).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "处理一个时间区间" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("股票代码"), { target: { value: "600000.SH" } });
+
+    expect(await screen.findByText("股票代码补录仅支持一个已存在日期桶。")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("button", { name: "处理一个时间区间" })).not.toBeInTheDocument());
+    expect(screen.getByLabelText("选择日期")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("股票代码"), { target: { value: "" } });
+
+    expect(await screen.findByRole("button", { name: "处理一个时间区间" })).toBeInTheDocument();
+  });
+
   it("manual-actions 某个分组缺失 actions 时，不会在浏览器返回后整页崩溃", async () => {
     vi.mocked(apiRequest).mockImplementation(async (path: string) => {
       if (path === "/api/v1/ops/manual-actions") {

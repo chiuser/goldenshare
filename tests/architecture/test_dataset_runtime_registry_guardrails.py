@@ -45,6 +45,7 @@ EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
         "cyq_chips",
         "cyq_perf",
         "margin",
+        "margin_detail",
         "limit_list_d",
         "limit_list_ths",
         "limit_step",
