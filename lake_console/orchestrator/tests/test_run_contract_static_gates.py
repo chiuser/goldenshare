@@ -219,6 +219,27 @@ def _is_allowed_sensor_run_key_value(path: Path, node: ast.AST) -> bool:
 
 
 class RunContractStaticGateTests(unittest.TestCase):
+    def test_dc_industry_hierarchy_is_manual_seed_snapshot_without_automatic_consumers(self) -> None:
+        asset_source = (DEFS_DIR / "assets" / "dc_industry_hierarchy.py").read_text()
+        check_source = (DEFS_DIR / "checks" / "dc_industry_hierarchy_checks.py").read_text()
+        job_source = (JOBS_DIR / "dc_industry_hierarchy.py").read_text()
+        self.assertNotIn("@dg.sensor", asset_source)
+        self.assertNotIn("deps=[silver_dc_index]", asset_source)
+        self.assertNotIn("dynamic_partitions", asset_source)
+        self.assertNotIn("@dg.sensor", check_source)
+        self.assertEqual(job_source.count("AssetSelection.assets"), 1)
+        self.assertEqual(job_source.count("AssetSelection.checks_for_assets"), 1)
+        for forbidden_fragment in (
+            "TushareResource",
+            "ProdPostgresResource",
+            "silver_dc_member",
+            "SELECT *",
+            "executemany",
+            "DynamicPartitionsDefinition",
+            "fuzzy",
+        ):
+            self.assertNotIn(forbidden_fragment, asset_source)
+
     def test_dc_board_m3_writers_keep_raw_only_bounded_boundary(self) -> None:
         writer_path = DEFS_DIR / "assets" / "dc_board.py"
         bootstrap_path = DEFS_DIR / "bootstrap" / "dc_board_bootstrap.py"

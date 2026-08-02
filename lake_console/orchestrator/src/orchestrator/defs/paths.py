@@ -491,6 +491,17 @@ def silver_dc_index_path(root: Path, trade_date: str) -> Path:
     )
 
 
+def silver_dc_industry_hierarchy_path(root: Path) -> Path:
+    return lake_path(
+        root,
+        SILVER,
+        "board",
+        "dc_industry_hierarchy",
+        "full",
+        "part-000.parquet",
+    )
+
+
 def silver_dc_member_path(root: Path, trade_date: str) -> Path:
     return lake_path(
         root,

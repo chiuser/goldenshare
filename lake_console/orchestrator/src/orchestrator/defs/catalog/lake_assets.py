@@ -37,6 +37,7 @@ from orchestrator.defs.paths import (
     silver_adj_factor_path,
     silver_dc_daily_path,
     silver_dc_index_path,
+    silver_dc_industry_hierarchy_path,
     silver_dc_member_path,
     silver_index_basic_path,
     silver_index_daily_path,
@@ -82,6 +83,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_ADJ_FACTOR_SCHEMA,
     SILVER_DC_DAILY_SCHEMA,
     SILVER_DC_INDEX_SCHEMA,
+    SILVER_DC_INDUSTRY_HIERARCHY_SCHEMA,
     SILVER_DC_MEMBER_SCHEMA,
     SILVER_INDEX_BASIC_SCHEMA,
     SILVER_INDEX_DAILY_SCHEMA,
@@ -167,6 +169,9 @@ class PartitionModel(str, Enum):
     FULL_FILE_RAW_NAMECHANGE = "full_file_raw_namechange"
     FULL_FILE_SILVER_NAMECHANGE = "full_file_silver_namechange"
     FULL_FILE_SILVER_STOCK_IDENTITY_MAP = "full_file_silver_stock_identity_map"
+    FULL_FILE_SILVER_DC_INDUSTRY_HIERARCHY = (
+        "full_file_silver_dc_industry_hierarchy"
+    )
     FULL_FILE_RAW_INDEX_BASIC = "full_file_raw_index_basic"
     FULL_FILE_SILVER_INDEX_BASIC = "full_file_silver_index_basic"
 
@@ -347,6 +352,9 @@ SILVER_STOCK_IDENTITY_MAP_CHECKS = (
     "silver_stock_identity_map_contract_check",
     "silver_stock_identity_map_key_integrity_check",
     "silver_stock_identity_map_reference_domain_check",
+)
+SILVER_DC_INDUSTRY_HIERARCHY_CHECKS = (
+    "silver_dc_industry_hierarchy_core_check",
 )
 RAW_SUSPEND_D_CHECKS = (
     "raw_suspend_d_contract_check",
@@ -580,6 +588,14 @@ PARTITION_MODEL_DEFINITIONS = (
         PartitionModelFamily.FULL_FILE,
         AssetLayer.SILVER,
         "stock_identity_map",
+        None,
+        PartitionPhysicalLayout.SINGLE_FILE,
+    ),
+    _model(
+        PartitionModel.FULL_FILE_SILVER_DC_INDUSTRY_HIERARCHY,
+        PartitionModelFamily.FULL_FILE,
+        AssetLayer.SILVER,
+        "dc_industry_hierarchy",
         None,
         PartitionPhysicalLayout.SINGLE_FILE,
     ),
@@ -1161,6 +1177,39 @@ LAKE_ASSET_CATALOG = (
         blocking_check_names=SILVER_STOCK_IDENTITY_MAP_CHECKS,
         batch_grain="single_file",
         write_policy=WritePolicy.SINGLE_FILE_ATOMIC_REPLACE,
+    ),
+    _entry(
+        asset_key="silver_dc_industry_hierarchy",
+        dataset_id="dc_industry_hierarchy",
+        layer=AssetLayer.SILVER,
+        data_domain=DataDomain.BASIC_DATA,
+        group_name="board",
+        source_system=SourceSystem.SEED,
+        data_contract="eastmoney_dc_industry_hierarchy_with_board_codes_full_snapshot",
+        data_contract_source=DataContractSource.SEED_CONTRACT,
+        column_schema=SILVER_DC_INDUSTRY_HIERARCHY_SCHEMA,
+        path_template=lake_path_template(
+            silver_dc_industry_hierarchy_path(PATH_TEMPLATE_LAKE_ROOT)
+        ),
+        partition_model=PartitionModel.FULL_FILE_SILVER_DC_INDUSTRY_HIERARCHY,
+        source_api=None,
+        source_doc=None,
+        ingestion_sources=(IngestionSource.SEED_FILE,),
+        default_daily_ingestion_source=None,
+        bootstrap_sources=(),
+        blocking_check_names=SILVER_DC_INDUSTRY_HIERARCHY_CHECKS,
+        write_policy=WritePolicy.SINGLE_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.DAGSTER_RUN_ONLY,
+        performance_contract=_perf(
+            batch_grain="full_snapshot",
+            compute_engine=ComputeEngine.DUCKDB_SQL,
+            source_request_policy="manual_seed_and_single_reference_file",
+            notes=(
+                "Manual snapshot reads one versioned seed CSV and one explicitly selected "
+                "silver_dc_index reference partition."
+            ),
+        ),
+        notes="分类事实来自版本化东财行业层级 seed；silver_dc_index 仅补齐当前 BK 代码。",
     ),
     _tushare_raw_entry(
         asset_key="raw_tushare_suspend_d",

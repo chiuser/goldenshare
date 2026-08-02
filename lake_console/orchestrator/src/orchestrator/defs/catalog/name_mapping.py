@@ -25,6 +25,7 @@ DATASET_CHINESE_NAMES = MappingProxyType(
         "index_mins": "指数历史分钟行情",
         "index_global": "国际指数日线",
         "dc_index": "东方财富板块分类",
+        "dc_industry_hierarchy": "东方财富行业层级",
         "dc_member": "东方财富板块成分",
         "dc_daily": "东方财富板块行情",
         "dc_daily_technical": "板块日线技术指标",

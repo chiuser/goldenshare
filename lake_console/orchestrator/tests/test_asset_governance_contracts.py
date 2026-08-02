@@ -56,6 +56,7 @@ from orchestrator.defs.assets.stock_basic import (
 )
 from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
 from orchestrator.defs.assets.stock_identity_map import silver_stock_identity_map
+from orchestrator.defs.assets.dc_industry_hierarchy import silver_dc_industry_hierarchy
 from orchestrator.defs.assets.stock_daily import (
     STOCK_DAILY_RAW_COLUMN_TYPES,
     raw_tushare_stock_daily,
@@ -221,6 +222,7 @@ ACTIVE_ASSET_DEFINITIONS = (
     raw_tushare_namechange,
     silver_namechange,
     silver_stock_identity_map,
+    silver_dc_industry_hierarchy,
     raw_tushare_suspend_d,
     silver_stock_suspend_daily,
     raw_tushare_stock_daily,

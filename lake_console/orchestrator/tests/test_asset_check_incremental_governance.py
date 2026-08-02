@@ -124,6 +124,9 @@ SILVER_STOCK_IDENTITY_MAP_CHECKS = (
     "silver_stock_identity_map_key_integrity_check",
     "silver_stock_identity_map_reference_domain_check",
 )
+SILVER_DC_INDUSTRY_HIERARCHY_CHECKS = (
+    "silver_dc_industry_hierarchy_core_check",
+)
 RAW_SUSPEND_D_CHECKS = (
     "raw_suspend_d_contract_check",
     "raw_suspend_d_partition_allowed_check",
@@ -404,6 +407,12 @@ ASSET_CHECK_GOVERNANCE: dict[str, dict[str, AssetCheckGovernanceRule]] = {
         category=MERGE_BLOCKING_DAGSTER,
         phase="P5",
         readiness=True,
+        retention_allowed=True,
+    ),
+    "silver_dc_industry_hierarchy": _rules(
+        SILVER_DC_INDUSTRY_HIERARCHY_CHECKS,
+        category=MERGE_BLOCKING_DAGSTER,
+        phase="DC_INDUSTRY_HIERARCHY_P1",
         retention_allowed=True,
     ),
     "raw_tushare_suspend_d": _rules(

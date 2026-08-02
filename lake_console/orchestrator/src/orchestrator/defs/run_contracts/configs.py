@@ -31,6 +31,12 @@ class DcBoardIndexReferenceConfig(dg.Config):
     )
 
 
+class DcIndustryHierarchyConfig(dg.Config):
+    reference_trade_date: str = Field(
+        description="补齐行业 BK 代码所用 silver_dc_index 交易日，格式 YYYY-MM-DD。",
+    )
+
+
 class GoldStockDailyQfqFactorRepairConfig(dg.Config):
     qfq_factor_trade_date: str = Field(
         description="股票日线前复权 repair 的复权因子交易日，格式 YYYY-MM-DD。",
@@ -305,6 +311,25 @@ def build_raw_index_daily_update_job_run_config(
             "raw_index_daily": {
                 "config": {
                     "write_mode": write_mode,
+                }
+            }
+        }
+    }
+
+
+def build_silver_dc_industry_hierarchy_update_job_run_config(
+    *,
+    reference_trade_date: str,
+) -> dict[str, object]:
+    normalized_reference_trade_date = normalize_iso_trade_date(
+        reference_trade_date,
+        field_name="reference_trade_date",
+    )
+    return {
+        "ops": {
+            "silver_dc_industry_hierarchy": {
+                "config": {
+                    "reference_trade_date": normalized_reference_trade_date,
                 }
             }
         }
