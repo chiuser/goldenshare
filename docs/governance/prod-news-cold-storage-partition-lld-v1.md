@@ -118,12 +118,12 @@ ON CONFLICT (news_time, row_key_hash) DO UPDATE SET ...;
 
 1. 完成并提交本 LLD 对应代码，但不自动发布。
 2. 新维护窗口内暂停新闻快讯自动与人工写入，等待在途 TaskRun 清零。
-3. 将新代码放到生产目录但不重启 worker；手动执行 `goldenshare init-db`，只预建空 stage。
-4. 保持运行中的旧 worker 继续处理其他数据集工作；新闻快讯仍保持暂停。
+3. 在新闻快讯自动与人工写入仍暂停、在途 TaskRun 已清零的前提下，使用标准部署脚本发布新代码；普通 Alembic 只预建空 stage。
+4. 新 worker 可继续处理其他数据集工作；新闻快讯仍保持暂停。
 5. 使用 CLI 依次执行 `prepare`、`copy --apply`、`verify`；全量复制可在更长的计划窗口内进行。
 6. 最终短窗口执行 `cutover --apply --copy-started-at ... --drop-retired-table`，再通过部署脚本以 `--skip-migration` 重启服务，最后恢复 `news.maintain`。
 
-第 3 步不能使用会重启 worker 的普通部署。新代码的复合冲突键对旧单表不存在可用约束，因此在切换完成前，运行中的必须是旧 worker；暂停新闻快讯写入是前置门禁。其他数据集不受该限制。
+新代码的复合冲突键对旧单表不存在可用约束，因此第 3 步的硬门禁是新闻快讯写入必须已暂停，且没有在途新闻 TaskRun。满足该门禁后可以使用标准部署脚本：新 worker 不会领取新闻快讯写入，其他数据集不受影响。
 
 ## 8. 删除门禁
 
