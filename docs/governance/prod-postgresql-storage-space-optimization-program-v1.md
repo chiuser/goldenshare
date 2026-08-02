@@ -1,6 +1,6 @@
 # 生产 PostgreSQL 存储空间优化治理专项 v1
 
-状态：一期、新闻快讯整表下沉与融资融券交易明细全量 HDD 落盘均已执行并验收；重复 core 物理表收口第一批待实施
+状态：一期、新闻快讯整表下沉、融资融券交易明细全量 HDD 落盘与重复 core 物理表收口第一批均已执行并验收
 更新时间：2026-08-03
 范围：生产 PostgreSQL `goldenshare` 的 SSD/HDD 存储分层与重复物理存储治理。
 不在范围：删除、清空 raw 业务数据；改变数据集请求语义；修改 API 或前端业务行为。
@@ -288,7 +288,7 @@ ALTER INDEX raw_tushare.idx_raw_tushare_news_src_time
 
 ### 6.2 重复 core 物理表收口第一批：`cyq_perf` 与 `stk_nineturn`
 
-状态：研发完成，待生产切换。
+状态：已执行并验收。
 
 #### 6.2.1 目标与固定边界
 
@@ -336,12 +336,13 @@ ALTER INDEX raw_tushare.idx_raw_tushare_news_src_time
 4. Ops、数据湖 raw 导出和两数据集维护任务均通过定向回归；SSD 可用空间增加接近 2.8GiB。
 5. 不产生业务数据删除、清空、复制搬运、HDD tablespace 变更或 API 路由变化。
 
-#### 6.2.5 研发完成记录
+#### 6.2.5 研发与生产切换完成记录
 
 1. 两个 DatasetDefinition 已改为 `raw_only_upsert`，写入与 freshness 目标均为各自的 raw 表；`core_serving` 表名保留为 view 查询契约。
 2. Alembic `20260803_000124` 已接当前 head `20260802_000123`。迁移先验证四个关系均为预期物理表，再无 `CASCADE` 删除两张 core 物理表并创建固定字段 view；自动 downgrade 被明确禁止，物理 core 重建只能使用单独批准的迁移。
 3. Ops 已将 `raw_with_serving_view` 统一展示为“原始数据直出”。
-4. 已增加 raw-only writer、freshness 投影、Ops 展示和迁移 fail-closed 语义测试；生产切换仍必须完成第 6.2.3 节的受控一致性校验与维护窗口门禁。
+4. 已增加 raw-only writer、freshness 投影、Ops 展示和迁移 fail-closed 语义测试；生产切换前已完成两组数据逐年精确计数与业务字段对账，全部差异为零。
+5. 2026-08-03 已先将 Foundation worker 切换到 raw-only 写入版本，再应用 `20260803_000124`。切换后两个 `core_serving` 对象均为 view，字段契约、raw 索引和最小读取均正常；SSD 可用空间由约 21GB 增至约 24GB。
 
 ### 6.3 融资融券交易明细 `core_serving.equity_margin_detail`：全部叶分区下沉 HDD
 
