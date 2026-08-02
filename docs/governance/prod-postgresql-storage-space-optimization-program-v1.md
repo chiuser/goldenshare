@@ -1,9 +1,9 @@
 # 生产 PostgreSQL 存储空间优化治理专项 v1
 
-状态：一期与新闻快讯整表下沉均已执行并验收
-更新时间：2026-08-02
-范围：生产 PostgreSQL `goldenshare` 的 SSD/HDD 存储分层。
-不在范围：删除、清空业务数据；改变数据集请求语义；修改 API 或前端业务行为。
+状态：一期与新闻快讯整表下沉均已执行并验收；重复 core 物理表收口第一批待实施
+更新时间：2026-08-03
+范围：生产 PostgreSQL `goldenshare` 的 SSD/HDD 存储分层与重复物理存储治理。
+不在范围：删除、清空 raw 业务数据；改变数据集请求语义；修改 API 或前端业务行为。
 
 ---
 
@@ -12,9 +12,11 @@
 在不改变下游访问方式的前提下，缓解生产 SSD 容量压力：
 
 1. 将确认属于冷数据的 PostgreSQL 关系迁移到现有 HDD tablespace `gs_raw_cold_hdd`。
-2. 保持 schema、表名、索引名、view 定义、DAO、API 和数据集写入契约不变。
-3. 当前年份持续读写的数据留在 SSD；不能为了释放空间而把热数据整体降到 HDD。
-4. 每次迁移只处理明确白名单中的表和索引，先验证，再进入下一批。
+2. 对 HDD 迁移，保持 schema、表名、索引名、view 定义、DAO、API 和数据集写入契约不变。
+3. 对重复 core 收口，保持 `core_serving` 查询名称、ORM、DAO、API 和数据集外部契约不变；允许删除其重复物理表和索引，并改为同名 view。
+4. 当前年份持续读写的数据留在 SSD；不能为了释放空间而把热数据整体降到 HDD。
+5. 每次迁移只处理明确白名单中的表和索引，先验证，再进入下一批。
+6. 对仅复制 raw 业务字段的 serving 物理表，可改为 raw-backed serving view，删除重复写入和重复物理表；下游仍只读取原 `core_serving` 名称。
 
 这里的“下游透明”只表示 SQL 与应用契约不变。历史数据迁到 HDD 后，访问该历史数据的 I/O 延迟可能升高；这属于预期性能取舍，不能被表名不变掩盖。
 
@@ -284,6 +286,56 @@ ALTER INDEX raw_tushare.idx_raw_tushare_news_src_time
 5. SSD 可用空间从执行前约 14GB 增至约 21GB，HDD 可用空间从约 331GB 降至约 324GB；该差异与 7,089 MB 新闻关系迁移相符。
 6. 新闻自动任务继续保持 paused。本轮未恢复排程，也未发起真实 `news.maintain` 写入验收；恢复排程和一次小窗口写入验证需由运营单独确认后执行。
 
+### 6.2 重复 core 物理表收口第一批：`cyq_perf` 与 `stk_nineturn`
+
+状态：待实施。
+
+#### 6.2.1 目标与固定边界
+
+本批不是 HDD 迁移，而是删除无业务转换的重复 core 存储。只处理下列两个数据集：
+
+| 数据集 | raw 表 | 当前 core 物理表 | 当前 core 占用 | 结论 |
+| --- | --- | --- | ---: | --- |
+| `cyq_perf` 每日筹码及胜率 | `raw_tushare.cyq_perf` | `core_serving.equity_cyq_perf` | 约 2.0GiB | 第一批实施 |
+| `stk_nineturn` 神奇九转 | `raw_tushare.stk_nineturn` | `core_serving.equity_nineturn` | 约 0.8GiB | 第一批实施 |
+
+预计释放约 2.8GiB SSD。该收益来自删除两张 core 物理表及其重复索引，不移动 raw 表、不迁移到 HDD、不清空任何 raw 数据。
+
+固定边界：
+
+1. 只修改 `cyq_perf` 与 `stk_nineturn` 的 `DatasetDefinition` 存储事实、对应 Alembic、Ops 交付模式展示和定向测试；不顺手处理其它结构候选。
+2. 两个数据集改为 `raw_only_upsert`、`raw->serving_view` 与 `raw_with_serving_view`；`target_table` 指向 raw 表，写入只落 raw。
+3. 原 `core_serving` 名称必须保留为普通 view。业务、Ops、数据湖和 ORM 查询继续使用原名称，不允许改为直接查询 raw。
+4. view 只投影当前 serving ORM 的业务字段；`fetched_at` 映射为 `created_at`、`updated_at`，满足 `TimestampMixin` 查询契约。
+5. `core_dao_name` 改为同一 raw DAO，沿用现有 `cyq_chips` 的 raw-only 写入模式；不修改共享 `DatasetWriter`，不新增兼容写入。
+6. core ORM 查询模型可以保留，表示 `core_serving` view 契约；必须删除的是 core 物理表、其索引和对它的写入，不是下游查询名称。
+
+#### 6.2.2 已完成审计
+
+1. 两组 raw/core 的业务字段、字段类型和主键完全一致。core 仅额外保存 `created_at`、`updated_at`。
+2. 两组 raw 表已有与 core 等价的主键和二级索引：
+   - `cyq_perf`：`(ts_code, trade_date)` 主键、`trade_date`、`(ts_code, trade_date)` 索引。
+   - `stk_nineturn`：`(ts_code, trade_date)` 主键、`trade_date` 索引。
+3. 代码与生产 catalog 审计均未发现这两张 core 表的 Biz 直接查询、数据库 view 依赖或外键依赖。数据湖的对应同步策略已经直接读取 raw。
+4. `raw_with_serving_view` 是现有正式交付模式，已用于 `cyq_chips` 与 `etf_sh_cons`，不是临时兼容设计。
+5. 当前 Ops 的 `delivery_mode_label()` 尚未映射 `raw_with_serving_view`，会返回“未定义”。本批必须将其收口为“原始数据直出”，并补后端投影测试；这是保证 Ops 展示事实正确的必要改动，不新增页面功能。
+
+#### 6.2.3 实施顺序
+
+1. **代码与测试先行**：将两个 Definition 切到 raw-only/view 口径，增加 writer 测试，证明写入只调用 raw DAO；补 view ORM 字段、Ops 投影和既有 raw 查询链路回归。
+2. **迁移前门禁**：确认真实 Alembic head；确认两数据集无 `queued`、`running`、`canceling` TaskRun，无长事务或目标关系锁；确认 raw/core 行数与业务字段在受控维护窗口内全量一致。任一差异立即停止，不以 view 切换掩盖历史数据差异。
+3. **同一发布窗口切换**：停止相关旧 worker 写入入口后，部署包含代码与迁移的同一版本。迁移按每个关系执行：先删除同名 core 物理表及其索引，再创建同名 raw-backed view。不得出现旧 worker 向 view 执行 upsert 的中间窗口。
+4. **发布后验收**：确认两个 `core_serving` 对象的 `relkind='v'`；确认 raw 表仍在、索引不变、view 可按日期和代码读取；确认 Ops 卡片展示“原始数据直出”；通过一次后续正常维护验证 raw 写入、view 查询和 TaskRun 结果均正常。
+5. **异常处理**：任一迁移、校验或正常维护失败时立即停止，不删除 raw 数据、不自动重建 core 表。只有在明确确认原因和 SSD 空间后，才允许以单独变更恢复物理 core 表。
+
+#### 6.2.4 验收标准
+
+1. `raw_tushare.cyq_perf` 与 `raw_tushare.stk_nineturn` 是唯一写入目标；执行期间没有 core DAO `bulk_upsert`。
+2. `core_serving.equity_cyq_perf` 与 `core_serving.equity_nineturn` 均为 view，字段、主键查询语义和原表名保持可用。
+3. 迁移前后的受控全量一致性校验无差异；raw 索引定义不退化。
+4. Ops、数据湖 raw 导出和两数据集维护任务均通过定向回归；SSD 可用空间增加接近 2.8GiB。
+5. 不产生业务数据删除、清空、复制搬运、HDD tablespace 变更或 API 路由变化。
+
 ### 第三期：持续治理
 
 1. 每季度复查 SSD/HDD 容量、tablespace 分布和数据集读写活跃度。
@@ -293,7 +345,7 @@ ALTER INDEX raw_tushare.idx_raw_tushare_news_src_time
 ## 7. 本专项的边界
 
 1. 本文档不是对任何表的自动迁移授权；每次生产 DDL 仍需要用户明确确认。
-2. 一期不修改 `DatasetDefinition`、ingestion、writer、DAO、Ops、Biz、API 或前端。
+2. HDD 一期不修改 `DatasetDefinition`、ingestion、writer、DAO、Ops、Biz、API 或前端；第 6.2 节仅允许按其白名单修改对应 Definition、迁移、Ops 交付模式投影和测试。
 3. 一期不迁移任何 `core_serving` 主服务表，不迁移当前年份的 `stk_mins` 分区。
 4. 一期不删除、清空、重建、归档或导出任何业务表数据。
 
