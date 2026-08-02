@@ -1,6 +1,6 @@
 # 生产 PostgreSQL 存储空间优化治理专项 v1
 
-状态：一期已执行并验收；新闻快讯分区方案已撤回且单表契约已在生产恢复，整表下沉待单独实施
+状态：一期与新闻快讯整表下沉均已执行并验收
 更新时间：2026-08-02
 范围：生产 PostgreSQL `goldenshare` 的 SSD/HDD 存储分层。
 不在范围：删除、清空业务数据；改变数据集请求语义；修改 API 或前端业务行为。
@@ -208,15 +208,81 @@ ALTER INDEX <目标索引> SET TABLESPACE pg_default;
 3. 无业务数据删除的迁移方式、锁窗口、回滚空间和最终验收设计。
 4. 单表 LLD、测试与生产维护窗口评审。
 
-### 6.1 新闻快讯 `raw_tushare.news`：分区方案撤回
+### 6.1 新闻快讯 `raw_tushare.news`：整表下沉到 HDD
 
-状态：已撤回；单表契约与空 stage 已在生产恢复，尚未执行新的整表迁移。
+状态：已执行并验收。
 
-1. 已创建的 `raw_tushare.news_partitioned_stage` 始终为 0 行。首次复制因年度分区边界误用 UTC 而失败，事务已回滚；旧 `raw_tushare.news` 未被修改、未复制、未切换、未删除。
-2. 新闻规范化结果使用 `Asia/Shanghai` 时间。2022-01-01 的早间新闻在 UTC 仍属于 2021 年，说明该分区设计没有正确表达新闻的业务时间边界，不能继续修补后上线。
-3. 代码已恢复为原单表事实：`id` 是主键，`row_key_hash` 是全局唯一幂等键；`core_serving_light.news`、财富端市场新闻和个股新闻 API 继续读取同一张 `raw_tushare.news`。
-4. 生产退场迁移已在确认 stage 为 0 行后删除 stage 及其 9 个空子分区；旧业务表、4 个索引、view 和 8,565,264 行新闻数据均未变化。
-5. 后续若实施用户已接受性能取舍的整表下沉，必须另行完成短维护窗口、表与全部索引的逐对象 tablespace 迁移、view/API 读取验证和一次真实 `news.maintain` 写入验证。该方案不再引入分区、复制切换或新的写入契约。
+#### 6.1.1 已确认事实与固定边界
+
+1. 分区方案已撤回。生产只保留原单表 `raw_tushare.news`：`id` 是主键，`row_key_hash` 是全局唯一幂等键；`core_serving_light.news`、财富端市场新闻和个股新闻 API 继续读取同一张表。
+2. 生产当前有 8,565,264 行新闻，关系总量为 7,432,847,360 bytes（约 7,089 MB），全部位于 SSD `pg_default`。其中有 1 个表 heap 和 4 个索引：`news_pkey`、`uq_raw_tushare_news_row_key_hash`、`idx_raw_tushare_news_time`、`idx_raw_tushare_news_src_time`。
+3. 目标 tablespace 是现有 `gs_raw_cold_hdd`；执行用户 `goldenshare_user` 同时拥有新闻表所有权和该 tablespace 的 `CREATE` 权限。审计时 SSD 可用约 14GB，HDD 可用约 331GB。
+4. 当前新闻自动任务 `ops.schedule.id=19` 为 `paused`，没有 `queued`、`running` 或 `canceling` 的新闻 TaskRun，也没有持有新闻表的锁。这只是本次审计事实；执行前必须重新检查，不能沿用。
+5. 本期只移动 PostgreSQL 关系文件位置。不创建新表，不复制、删除或重写新闻数据，不改变 ORM、DAO、DatasetDefinition、view、API、写入事务或自动任务语义。
+6. 整表下沉包含 2026 年新闻，属于已确认的性能取舍：表名和 SQL 契约不变，但新闻查询与写入将读取 HDD，延迟可能上升。
+
+#### 6.1.2 为什么采用整表迁移
+
+1. 新闻表未分区，无法只移动非 2026 数据而不引入新的分区、复制与切换链路。
+2. 之前的分区 stage 始终为 0 行。其失败根因是新闻时间使用 `Asia/Shanghai`，而分区边界误用 UTC；该路线已删除，不再修补。
+3. PostgreSQL 原生 `ALTER TABLE ... SET TABLESPACE` 只移动表 heap，不会自动移动索引；因此必须明确移动 1 个表和全部 4 个索引。这样保持现有表名、主键、唯一键、view 与下游查询全部不变，是本目标下最短且不引入新架构的路径。
+
+#### 6.1.3 执行前门禁
+
+以下项目必须在同一个维护窗口、DDL 前重新通过；任一项失败则本轮停止，不等待锁、不终止其他会话、不改配置：
+
+1. 确认 `/` 与 `/data/disk` 的可用空间仍分别不低于审计值，并确认 `gs_raw_cold_hdd` 存在。
+2. 确认自动任务仍是 paused，且没有新闻相关的 `queued`、`running`、`canceling` TaskRun；维护窗口内不得从页面手动创建新闻任务。
+3. 确认 `raw_tushare.news` 没有已授予或等待中的关系锁，也没有超过 30 秒的活动查询。
+4. 从 `pg_index` 重新枚举新闻表索引。只有索引清单仍恰为本节列出的 4 个对象时才执行；出现新增或缺失索引必须停止并重新评估。
+5. 确认 `raw_tushare.news`、`core_serving_light.news` 存在，且 stage 表不存在；本次不接触任何 stage 或旧分区对象。
+
+#### 6.1.4 生产执行步骤
+
+1. 对每条 DDL 单独执行 `SET lock_timeout = '15s'` 后的一个 `ALTER`。15 秒内无法取得锁即失败退出；不使用 `ALTER ... ALL IN TABLESPACE`，避免扩大锁范围。
+2. 先移动 heap：
+
+```sql
+ALTER TABLE raw_tushare.news SET TABLESPACE gs_raw_cold_hdd;
+```
+
+3. 立即确认 heap 位于 `gs_raw_cold_hdd`、行数与迁移前一致、view 可读，再按以下顺序逐个移动索引：
+
+```sql
+ALTER INDEX raw_tushare.news_pkey
+  SET TABLESPACE gs_raw_cold_hdd;
+ALTER INDEX raw_tushare.uq_raw_tushare_news_row_key_hash
+  SET TABLESPACE gs_raw_cold_hdd;
+ALTER INDEX raw_tushare.idx_raw_tushare_news_time
+  SET TABLESPACE gs_raw_cold_hdd;
+ALTER INDEX raw_tushare.idx_raw_tushare_news_src_time
+  SET TABLESPACE gs_raw_cold_hdd;
+```
+
+4. 每个对象移动后都重新检查其 tablespace、磁盘空间和锁状态。任一 DDL 失败时立刻停止，不自动继续、不自动回迁、不尝试重建。
+5. 全部 5 个对象验收通过后，恢复新闻自动任务，再由运营发起一次小窗口 `news.maintain`，验证真实 upsert 与 view/API 查询。恢复排程和真实写入验收必须在迁移 DDL 成功后单独确认执行。
+
+#### 6.1.5 验收与异常处置
+
+验收必须同时满足：
+
+1. 表 heap 与全部 4 个索引均位于 `gs_raw_cold_hdd`；表名、索引名、行数、`core_serving_light.news` 定义均不变。
+2. 市场新闻和个股新闻 API 的最小只读请求可用；Ops 任务详情和数据集卡片可正常读取新闻状态。
+3. 真实小窗口 `news.maintain` 成功，写入与 view 查询正常，未出现新增 reject 或约束错误。
+4. SSD 释放量与 7,089 MB 量级相符，HDD 使用量对应增加；数值受 WAL、并发写入和文件系统展示粒度影响，不以单次 `df` 精确差值作为唯一标准。
+
+若 heap 或任何索引迁移后出现不可接受的性能问题，只能在再次确认 SSD 空间足够后，按已完成对象反向单独执行 `SET TABLESPACE pg_default`。不得通过删除、清空、重建或复制切换处理异常。
+
+#### 6.1.6 执行记录
+
+执行日期：2026-08-02。
+
+1. DDL 前确认新闻自动任务仍为 paused、没有运行中新闻 TaskRun、没有新闻表锁；所有 5 个对象都位于 `pg_default`。
+2. 已按本节顺序逐对象执行 1 次 `ALTER TABLE` 和 4 次 `ALTER INDEX`，每条 DDL 均成功完成；没有复制、删除、清空、重建或切换任何业务数据。
+3. 执行后表 heap 与全部 4 个索引均位于 `gs_raw_cold_hdd`。新闻行数仍为 8,565,264，最早和最新新闻时间仍分别为 `2022-01-01 00:00:47+08` 与 `2026-08-02 19:59:39+08`。
+4. `core_serving_light.news` 的 view 定义未变；新闻快讯当天的 100 条最小样本可读，其中公司新闻 5 条、市场新闻 95 条。Web、Ops worker、Ops scheduler 健康检查均正常。
+5. SSD 可用空间从执行前约 14GB 增至约 21GB，HDD 可用空间从约 331GB 降至约 324GB；该差异与 7,089 MB 新闻关系迁移相符。
+6. 新闻自动任务继续保持 paused。本轮未恢复排程，也未发起真实 `news.maintain` 写入验收；恢复排程和一次小窗口写入验证需由运营单独确认后执行。
 
 ### 第三期：持续治理
 
