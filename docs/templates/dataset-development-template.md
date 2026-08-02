@@ -41,7 +41,7 @@
 
 ### 0.3 开发前置硬检查
 
-下面四张表未填写完成前，不得进入编码。
+下面四张验证 / 审计表与 0.3.4 硬需求追溯账本未填写完成前，不得进入编码。
 
 #### 0.3.0 源接口真实行为验证表
 
@@ -138,22 +138,40 @@
 8. `freq/category/type/market/hot_type/is_new/time/trade_time` 等会影响身份、主键、Redis key、幂等、分组、频率、市场或时间语义的字段，即使源文档未列出或默认返回未出现，也必须显式放入 `fields` 做真实请求验证；验证结果必须写入“真实样本是否返回”和备注。
 9. direct-serving 可在 raw ORM、raw 迁移 / 真实表列明确填写“不适用（有意无 raw 层）”；不得留空，也不得为通过表格校验新建 raw 镜像。
 
+#### 0.3.4 硬需求追溯账本
+
+这是整个交付的控制面：把用户已定口径、LLD 中的“必须 / 仅 / 固定 / 禁止 / 不得”逐条编号；一条需求不能仅以“相关测试已通过”结案。设计、编码、每个里程碑和交付前都必须更新此表。
+
+| ID | 硬需求与依据 | 影响层 / 消费者 | 后端权威约束 | 前端表现与直接消费者 | 实现文件 | 正向测试 | 反向测试 | 真实验证 / 浏览器路径 | 计划阶段 | 状态 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `REQ-001` |  |  |  |  |  |  |  |  |  | 未开始 / 已实现待验 / 已验证 / 不适用 |
+
+填写与阻断规则：
+
+1. 每条独立业务结果占一行；不得把“唯一 condition、固定窗口、禁止筛选、runtime 防绕过、页面隐藏控件”合并成一句。一个条件在 API、binding、runtime 与页面有消费者时，这些消费者都必须写入同一行或拆成可独立验收的多行。
+2. `前端表现与直接消费者` 不能用“前端已适配”代替真实文件和行为。任何会改变控件可见性、可编辑性、默认值、可选项或提交 payload 的约束，都必须列出具体页面 / shared helper，并由真实用户路径验证；helper 单测不能替代浏览器交互验证。
+3. 每条“允许”至少有正向测试，每条“仅 / 禁止 / 固定 / 不得”至少有反向测试。后端拒绝不等于前端已完成；前端隐藏不等于后端已防绕过。
+4. `不适用` 必须写明为什么该消费者确实不存在，并给出已审计代码位置；不能用空白或“暂不处理”结案。
+5. 只有本阶段全部关联行均为“已验证”，才可标记该阶段完成。缺少前端、浏览器、真实 connector 或最小真实同步证据时，只能报告对应子项完成，禁止宣布整体完成。
+6. 提交前必须按追溯账本复核 `git diff`：每个“实现文件”要么出现在本次 / 已引用的前序提交中，要么明确说明已存在且给出验证证据；任何未覆盖行都是 blocker。
+
 ---
 
 ## 1. 标准交付流程
 
 1. 固定源站事实：官方文档、输入参数、输出字段、分页、限速、更新时间。
-2. 填完“0.3.0 源接口真实行为验证表”、“0.3.1 三层语义拆分表”、“0.3.2 DatasetDefinition 消费者审计表”和“0.3.3 源字段端到端对账表”。
+2. 填完“0.3.0 源接口真实行为验证表”、“0.3.1 三层语义拆分表”、“0.3.2 DatasetDefinition 消费者审计表”、“0.3.3 源字段端到端对账表”和“0.3.4 硬需求追溯账本”。
 3. 新增源站文档，或在真实验证改变已知源端事实时更新 `docs/sources/**`；Tushare 文档新增/修改必须同步 `docs/sources/tushare/docs_index.csv`。已有且未变化的源文档要在方案中引用并记录已核验，不重复新建。
 4. 完成本文档，明确 `DatasetDefinition` 十段事实和执行/落库/观测方案。
 5. 新增 SQLAlchemy ORM 模型、DAO、Alembic 迁移；确认 ORM 能被 `table_model_registry()` 自动发现。
 6. 在正确的 `src/foundation/datasets/definitions/<domain>.py` 中新增 `DATASET_ROWS` 定义。
 7. 补齐 ingestion 能力：request builder、unit builder、row transform、writer 路径、分页、reject reason、codebook。
 8. 确认 Ops 派生能力：manual actions、catalog、workflow、freshness、dataset cards、TaskRun 详情；新增数据集必须配置 `src/ops/catalog/dataset_catalog_views.py`。
-9. 补测试：definition、resolver、unit planner、normalizer、writer、Ops API、架构门禁。
-10. 本地执行门禁并记录命令。
-11. 发版前在开发库跑最小真实同步或真实样本 dry-run，确认业务数据、TaskRun 详情、数据状态和数据源卡片一致。
-12. 验收必须记录：源端 fetched 行数、normalized 行数、written 行数、rejected 行数、reject reason code、目标表实际行数。任何一项对不上，不能标完成。
+9. 补测试：definition、resolver、unit planner、normalizer、writer、Ops API、架构门禁；有用户可见交互时补浏览器路径测试。
+10. 在每个里程碑前后按 0.3.4 对照实际代码、测试与 `git diff`，未验证行不得跨阶段结案。
+11. 本地执行门禁并记录命令。
+12. 发版前在开发库跑最小真实同步或真实样本 dry-run，确认业务数据、TaskRun 详情、数据状态和数据源卡片一致。
+13. 验收必须记录：源端 fetched 行数、normalized 行数、written 行数、rejected 行数、reject reason code、目标表实际行数。任何一项对不上，不能标完成。
 
 ---
 
@@ -664,6 +682,7 @@
 - schedule API / binding service 是否拒绝非法配置，probe runtime 入队前是否再次强制 action、目标日期和 filters：
 - 同一 schedule / 目标日期的 probe TaskRun 去重条件；failed 任务的重试口径：
 - 生产排程是迁移 seed、配置文件还是 Ops 持久化记录；创建 / 启用所需的明确授权：
+- 若 probe / schedule 有固定 target、condition、窗口、频率、触发上限或禁止 filters：是否已在 0.3.4 分别映射 schedule API、binding、runtime、自动任务表单、浏览器用户路径和反向绕过测试：
 - 是否需要放入 workflow：如需要，使用 `docs/templates/workflow-development-template.md` 另写方案。
 - 如另接入 Dagster sensor：是否已按 `lake_console/docs/templates/dagster-dataset-onboarding-template.html` 设计 cursor 的 `reason_code`、`blocked_component`、短中文 `summary`、`next_action`、长度预算和禁止字段：
 
@@ -743,6 +762,8 @@
   - 任务详情和数据状态展示正确
   - filter 条件改变时间模式时即时更新且后端拒绝绕过请求
   - direct-serving 卡片显示 target/serving 表，raw-backed 卡片无回归
+  - 自动任务 / probe 有固定或禁止配置时：选择该动作后只出现允许的 condition；固定值已回填并不可编辑；不允许的日期、filters、trigger mode 与 calendar policy 不出现；提交前 payload 与后端固定契约一致
+  - 上述用户可见限制必须由 Playwright（或等价真实浏览器）从“新建 / 编辑 -> 选择动作”完整验证
 
 ### 8.2 必跑命令
 
@@ -762,10 +783,13 @@ pytest -q tests/test_dataset_normalizer.py
 pytest -q tests/test_dataset_writer_<dataset>.py
 pytest -q tests/web/test_ops_manual_actions_api.py tests/web/test_ops_catalog_api.py tests/web/test_ops_freshness_api.py tests/web/test_ops_schedule_api.py tests/web/test_ops_probe_api.py
 cd frontend && npm run typecheck && npm run test && npm run build
+# 如有页面交互改动：运行覆盖该用户路径的 Playwright spec，并在 0.3.4 记录 spec 与结果
 ```
 
 ### 8.3 验收勾选
 
+- [ ] 0.3.4 硬需求追溯账本已填写；本阶段所有关联行均为“已验证”，不存在空白或未解释的“不适用”
+- [ ] 每次里程碑 / 提交前已将追溯账本与实际 `git diff`、前序提交和测试文件对账；不存在未覆盖消费者
 - [ ] 源站文档与 docs index 已更新
 - [ ] 0.3.3 源字段端到端对账表已填完，源文档、真实样本、`source_fields`、ORM、迁移、真实表、Lake 白名单口径一致
 - [ ] DatasetDefinition 十段事实完整
@@ -789,8 +813,19 @@ cd frontend && npm run typecheck && npm run test && npm run build
 - [ ] 数据源卡片和数据状态页展示正确；direct-serving 的无 raw 层与 target/serving fallback 已验证，raw-backed 页面无回归
 - [ ] 若 filter 有条件时间 / 范围约束：Manual Action API、前端控件与 resolver / planner 拒绝逻辑一致
 - [ ] 若使用 source readiness probe：schedule API、binding service、runtime 防篡改和按目标日期去重都已覆盖；生产 schedule 的创建权限和持久化来源已确认
+- [ ] 若自动任务 / probe 有用户可见固定或禁止配置：已从新建 / 编辑页面完整走通浏览器测试，验证唯一选项、固定值、隐藏 / 禁用控件和提交 payload
 - [ ] 如接入 Dagster sensor，cursor 已遵守 Dagster 数据集接入模板：不写报告型 batch/readiness 明细，能一眼看出触发或 skip 原因
 - [ ] 门禁命令已通过并记录输出
+
+### 8.4 阶段完成记录
+
+每个项目里程碑单独填写，不能以一个后端测试集代表整个阶段。
+
+| 阶段 | 本阶段追溯 ID | 已验证代码 / 提交 | 已验证测试与真实证据 | 未完成项 / 风险 | 结论 |
+| --- | --- | --- | --- | --- | --- |
+| M0 / 设计验证 |  |  |  |  | 未开始 / 部分完成 / 已完成 |
+
+完成判定：只要本阶段任一追溯行未验证，结论必须是“部分完成”，并列出缺口与下一步；禁止写“阶段完成，后续再补前端 / 测试 / 实测”。
 
 ---
 
