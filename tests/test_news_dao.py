@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
 from types import SimpleNamespace
 
 from src.foundation.dao.news_dao import RawNewsDAO
@@ -15,7 +14,7 @@ class DummySession:
         return SimpleNamespace(rowcount=1)
 
 
-def test_raw_news_bulk_upsert_does_not_update_composite_identity() -> None:
+def test_raw_news_bulk_upsert_does_not_update_surrogate_id() -> None:
     session = DummySession()
     dao = RawNewsDAO(session)
 
@@ -24,15 +23,13 @@ def test_raw_news_bulk_upsert_does_not_update_composite_identity() -> None:
             {
                 "row_key_hash": "hash-1",
                 "src": "sina",
-                "news_time": datetime.fromisoformat("2026-04-24T10:11:12+08:00"),
+                "news_time": "2026-04-24 10:11:12+08:00",
                 "title": "快讯标题",
                 "content": "快讯正文",
             }
         ],
-        conflict_columns=["news_time", "row_key_hash"],
+        conflict_columns=["row_key_hash"],
     )
 
     sql = str(session.statements[0])
-    assert "ON CONFLICT (news_time, row_key_hash)" in sql
-    assert "news_time = excluded.news_time" not in sql
-    assert "row_key_hash = excluded.row_key_hash" not in sql
+    assert "id = excluded.id" not in sql

@@ -12,5 +12,5 @@ def test_retract_news_partitioned_stage_only_drops_an_empty_stage() -> None:
     assert 'down_revision = "20260802_000121"' in content
     assert "select count(*) from raw_tushare.news_partitioned_stage" in normalized
     assert "stage 非空" in content
-    assert "drop table raw_tushare.news_partitioned_stage" in normalized
-    assert "drop table raw_tushare.news\"" not in normalized
+    drop_statements = [line.strip() for line in content.splitlines() if "DROP TABLE" in line]
+    assert drop_statements == ['op.execute("DROP TABLE raw_tushare.news_partitioned_stage")']
