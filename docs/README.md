@@ -164,7 +164,7 @@ docs/
 - [ETF 申赎清单低层设计 LLD v1](/Users/congming/github/goldenshare/docs/datasets/etf-sh-cons-low-level-design-v1.md)
 - [基金复权因子](/Users/congming/github/goldenshare/docs/datasets/fund-adj-dataset-development.md)
 - [融资融券交易汇总](/Users/congming/github/goldenshare/docs/datasets/margin-dataset-development.md)
-- [融资融券交易明细低层设计 LLD v1（M0–M3 最小真实同步已完成）](/Users/congming/github/goldenshare/docs/datasets/margin-detail-low-level-design-v1.md)
+- [融资融券交易明细低层设计 LLD v1（M0–M4 已完成，待 M5 生产启用授权）](/Users/congming/github/goldenshare/docs/datasets/margin-detail-low-level-design-v1.md)
 - [每日涨跌停价格](/Users/congming/github/goldenshare/docs/datasets/stk-limit-dataset-development.md)
 - [股票开盘集合竞价](/Users/congming/github/goldenshare/docs/datasets/stk-auction-o-dataset-development.md)
 - [股票收盘集合竞价](/Users/congming/github/goldenshare/docs/datasets/stk-auction-c-dataset-development.md)

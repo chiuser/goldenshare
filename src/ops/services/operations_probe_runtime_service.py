@@ -44,6 +44,11 @@ from src.ops.services.margin_remote_probe_service import (
     MARGIN_REMOTE_READY_CONDITION,
     MarginRemoteReadinessProbeService,
 )
+from src.ops.services.margin_detail_remote_probe_service import (
+    MARGIN_DETAIL_ACTION_KEY,
+    MARGIN_DETAIL_REMOTE_READY_CONDITION,
+    MarginDetailRemoteReadinessProbeService,
+)
 from src.ops.services.stk_mins_remote_probe_service import (
     STK_MINS_ACTION_KEY,
     STK_MINS_REMOTE_READY_CONDITION,
@@ -70,6 +75,7 @@ class ProbeRuntimeService:
         self.index_mins_remote_probe = IndexMinsRemoteReadinessProbeService()
         self.kpl_list_remote_probe = KplListRemoteReadinessProbeService()
         self.margin_remote_probe = MarginRemoteReadinessProbeService()
+        self.margin_detail_remote_probe = MarginDetailRemoteReadinessProbeService()
 
     def run_once(self, session: Session, *, now: datetime | None = None, limit: int = 100) -> tuple[list[TaskRun], ProbeTickResult]:
         current = now or datetime.now(timezone.utc)
@@ -183,6 +189,9 @@ class ProbeRuntimeService:
         if condition_type == MARGIN_REMOTE_READY_CONDITION:
             result = self.margin_remote_probe.evaluate(session, rule, current=current)
             return result.matched, result.message, result.payload
+        if condition_type == MARGIN_DETAIL_REMOTE_READY_CONDITION:
+            result = self.margin_detail_remote_probe.evaluate(session, rule, current=current)
+            return result.matched, result.message, result.payload
         if condition_type != "freshness_latest_open":
             raise ValueError(f"不支持的探测条件：{condition_type}")
         definition = get_dataset_definition(rule.dataset_key)
@@ -235,9 +244,17 @@ class ProbeRuntimeService:
                 condition_type=condition_type,
                 condition_label=self._remote_source_probe_label(condition_type),
             )
-            time_input = {**time_input, "mode": "point", "trade_date": target_trade_date.isoformat()}
+            if condition_type == MARGIN_DETAIL_REMOTE_READY_CONDITION:
+                # A persisted rule can be edited outside the schedule API.  The detail
+                # probe must always create exactly one full-market point task, so do
+                # not preserve a stale range/fixed-date value from a tampered request.
+                time_input = {"mode": "point", "trade_date": target_trade_date.isoformat()}
+            else:
+                time_input = {**time_input, "mode": "point", "trade_date": target_trade_date.isoformat()}
         filters = dict(request.get("filters") or {})
         filters.pop("source_key", None)
+        if condition_type == MARGIN_DETAIL_REMOTE_READY_CONDITION:
+            filters = {}
         return self.task_run_service.create_task_run(
             session,
             context=TaskRunCreateContext(
@@ -349,7 +366,11 @@ class ProbeRuntimeService:
         condition_type: str,
         condition_label: str,
     ) -> date:
-        payload_key = "target_trade_date" if condition_type in {KPL_LIST_REMOTE_READY_CONDITION, MARGIN_REMOTE_READY_CONDITION} else "latest_open_date"
+        payload_key = "target_trade_date" if condition_type in {
+            KPL_LIST_REMOTE_READY_CONDITION,
+            MARGIN_REMOTE_READY_CONDITION,
+            MARGIN_DETAIL_REMOTE_READY_CONDITION,
+        } else "latest_open_date"
         value = (probe_payload or {}).get(payload_key)
         if isinstance(value, datetime):
             return value.date()
@@ -362,7 +383,12 @@ class ProbeRuntimeService:
 
     def _has_effective_target_task(self, session: Session, rule: ProbeRule, *, probe_payload: dict | None) -> bool:
         condition_type = str((rule.probe_condition_json or {}).get("type") or "freshness_latest_open")
-        if condition_type not in {KPL_LIST_REMOTE_READY_CONDITION, IDX_FACTOR_PRO_REMOTE_READY_CONDITION, MARGIN_REMOTE_READY_CONDITION} or rule.schedule_id is None:
+        if condition_type not in {
+            KPL_LIST_REMOTE_READY_CONDITION,
+            IDX_FACTOR_PRO_REMOTE_READY_CONDITION,
+            MARGIN_REMOTE_READY_CONDITION,
+            MARGIN_DETAIL_REMOTE_READY_CONDITION,
+        } or rule.schedule_id is None:
             return False
         target_trade_date = self._parse_probe_target_trade_date(
             probe_payload,
@@ -373,6 +399,7 @@ class ProbeRuntimeService:
             KPL_LIST_REMOTE_READY_CONDITION: "kpl_list",
             IDX_FACTOR_PRO_REMOTE_READY_CONDITION: "idx_factor_pro",
             MARGIN_REMOTE_READY_CONDITION: "margin",
+            MARGIN_DETAIL_REMOTE_READY_CONDITION: "margin_detail",
         }[condition_type]
         time_inputs = session.scalars(
             select(TaskRun.time_input_json)
@@ -410,6 +437,8 @@ class ProbeRuntimeService:
             return KPL_LIST_ACTION_KEY
         if condition_type == MARGIN_REMOTE_READY_CONDITION:
             return MARGIN_ACTION_KEY
+        if condition_type == MARGIN_DETAIL_REMOTE_READY_CONDITION:
+            return MARGIN_DETAIL_ACTION_KEY
         return None
 
     @staticmethod
@@ -426,6 +455,8 @@ class ProbeRuntimeService:
             return "源站开盘啦榜单探测"
         if condition_type == MARGIN_REMOTE_READY_CONDITION:
             return "源站融资融券汇总探测"
+        if condition_type == MARGIN_DETAIL_REMOTE_READY_CONDITION:
+            return "源站融资融券交易明细探测"
         return "源站探测"
 
     @staticmethod
@@ -442,4 +473,6 @@ class ProbeRuntimeService:
             return "源站开盘啦榜单探测只支持开盘啦榜单维护"
         if condition_type == MARGIN_REMOTE_READY_CONDITION:
             return "源站融资融券汇总探测只支持融资融券汇总维护"
+        if condition_type == MARGIN_DETAIL_REMOTE_READY_CONDITION:
+            return "源站融资融券交易明细探测只支持融资融券交易明细维护"
         return f"不支持的探测条件：{condition_type}"

@@ -1,6 +1,6 @@
 # 融资融券交易明细（`margin_detail`）低层设计 LLD v1
 
-状态：M0–M2 已实现并完成代码回归；M3 最小真实同步与全量对账已完成；M3 的幂等 / 定点补录扩展验证及 M4–M5 待实施
+状态：M0–M4 已完成；M5（生产启用）待明确运维授权
 最后更新：2026-08-03
 数据集：`margin_detail`（融资融券交易明细）
 源接口：`tushare.margin_detail`
@@ -91,6 +91,16 @@ CodeGraph 审计覆盖 DatasetDefinition 注册、resolver → unit planner → 
 | 目标表 | 同日写前 0 行，写后 4,418 行、4,418 个唯一主键。所有 4,418 行的 11 个 source-field 键和值均与归一化结果逐键相等。 |
 
 为使该空库验证可重复，M3 同时修正了三条历史迁移对已退役表的无条件 `ALTER TABLE` 假设：`20260421_000068`、`20260421_000069`、`20260423_000071` 现在只在对应历史表 / 列仍存在时执行类型修正。现存旧表仍保持原修正语义；clean baseline 不再因这些已不由迁移链创建的旧表失败。该修正经过针对性测试，并由本次完整迁移链验证。
+
+#### M3 隔离验证库扩展写入验证（2026-08-03）
+
+同一隔离库随后完成第 10.3 节第 5–7 项；所有请求仍使用项目实际 connector 和固定 11 字段，未改动生产数据或排程。
+
+| 验证 | 实测结果 | 结论 |
+| --- | --- | --- |
+| 同日 full point 重跑 | 再次取得并 upsert 4,418 行，0 reject；目标仍为 4,418 个唯一键，日期桶、最小/最大日期和 11 个字段值均不变 | 幂等重跑不扩大或污染日期桶。 |
+| 已有桶定点补录 | `2026-07-30 + 600000.SH` 仅请求 / 写入 1 行，0 reject；目标总行数、日期桶、最小/最大日期和其他键均不变 | 单证券补录只能修复已有 full-market 日期桶。 |
+| 不存在桶定点补录 | `2026-07-29 + 600000.SH` 在请求源端前以 `scoped_repair_bucket_missing` 拒绝；源请求数 0，目标表快照不变 | 不会用单证券结果伪造全市场日期完整性。 |
 
 ### 2.3 源接口字段契约
 
@@ -483,6 +493,14 @@ params_json.filters = {}
 
 生产启用并不通过 Alembic 自动生成 schedule：部署代码、迁移和最小真实同步验收完成后，才由运营在既有 Ops 排程接口创建独立 `ops.schedule`，并由 binding service 派生 `ops.probe_rule`。创建前须读取当前 `margin` 的持久化排程作为控制面参考，但不能复用其 id、不能复制其 target 或通过代码 seed；本节的 condition、filters 和窗口才是 `margin_detail` 的唯一硬约束。
 
+#### M4 实施与验证记录（2026-08-03）
+
+已新增独立的 `MarginDetailRemoteReadinessProbeService`，只复用 `DatasetReleaseTargetService` 和通用 TaskRun / ProbeRunLog 机制；它不调用 `MarginRemoteReadinessProbeService`，也不走会拒绝未建日期桶补录的 scoped-repair resolver。探测直接构造只读的 `trade_date + ts_code` 源请求，因而可在首次全市场写入前验证三样本发布状态。
+
+`operations_probe_runtime_service.py` 同时作为最后一道防线：即使持久化规则被绕过 API 篡改为带 `ts_code` 或 range 日期，命中后仍只会创建 `point=D`、`filters={}` 的 full-market TaskRun。schedule binding 层拒绝 workflow、fallback、generic freshness、calendar policy、固定日期、筛选条件和错误窗口 / 间隔 / 最大触发数。
+
+`tests/web/test_margin_detail_remote_probe.py` 已通过 23 项验证，覆盖三样本及完整字段、日期/代码精确性、字段键缺失、周末和国庆长假后的 `D -> N`、miss/error、runtime 清洗、同日有效任务去重、failed 重试、schedule API 和 direct validator 的全部固定约束。M4 未创建任何生产 `ops.schedule` 或 `ops.probe_rule`。
+
 ## 8. Ops、freshness 与完整性语义
 
 ### 8.1 手工入口
@@ -617,9 +635,9 @@ cd frontend && npm run typecheck && npm run test && npm run build
 
 1. M0（已完成）：核验源文档、MCP 的默认/显式字段/时间请求与项目实际 connector 的分页；确认 Alembic head 为 `20260802_000122`，并完成第 6.3 节的 6,000 基准与 1,000 分页等价对账。
 2. M1（已完成）：实现并测试 shared direct-serving storage contract、linter、projection nullable 以及 raw-backed write path / 前端卡片的回归。
-3. M2（已完成）：实现 serving 表、ORM/DAO、Definition、catalog、planner/request builder、分页完整性保护、scoped repair 的 API / Web 约束；新增迁移 revision 为 `20260802_000123`，尚未应用。
-4. M3（本次最小真实同步已完成）：已在隔离库完成第 6.3 节分页证据复核和第 10.3 节第 1–4 项的首轮全市场 point 同步及逐项对账；第 5–7 项的额外写入验证仍待单独授权。
-5. M4：实现独立 probe 与 schedule API / runtime 双重门禁；用模拟 clock 验证周末/节假日后 `D -> N` 时序与同日去重。
+3. M2（已完成）：实现 serving 表、ORM/DAO、Definition、catalog、planner/request builder、分页完整性保护、scoped repair 的 API / Web 约束；新增迁移 revision 为 `20260802_000123`，随后已在 M3 隔离库从空库应用至 head，未在生产应用。
+4. M3（已完成）：已在隔离库完成第 6.3 节分页证据复核和第 10.3 节第 1–7 项全量对账，包括 full 重跑幂等、已有桶单证券补录和不存在桶的零写入拒绝。
+5. M4（已完成）：已实现独立 probe 与 schedule API / runtime 双重门禁；以模拟 clock 验证周末/节假日后的 `D -> N`，以及同日去重和 failed 重试。
 6. M5：经明确运维授权后，在 Ops API 创建独立 probe schedule；它首次全通过后只创建一个正式全市场 point TaskRun。观察 TaskRun、ProbeRunLog、freshness/card 和日期审计，再安排按年历史回补。
 
 上线前需要完成配置项审计。默认不新增环境变量或运营开关；若实施发现必须新增，须先列出名称、默认值、持久化位置、全部消费者、依赖关系、生效方式、运维可见性和测试门禁，不能把 page size、样本代码或窗口散落为多处常量。
@@ -646,4 +664,4 @@ cd frontend && npm run typecheck && npm run test && npm run build
 | direct-serving 改动破坏旧 raw 线路 | 按 write path 选择 DAO，全量既有 write path 回归。 |
 | 历史回补耗时或触及配额 | 一年一批、预先测算页数/耗时、达到不可接受量级即停下确认。 |
 
-本文已记录 M0 的真实分页基准及 M3 隔离库首轮全市场同步的全量对账。M3 的幂等与定点补录扩展验证、M4 的独立 probe/schedule、M5 的生产启用均尚未执行；未验证项不得写成已完成。
+本文已记录 M0 的真实分页基准、M3 隔离库完整写入对账和 M4 的独立 probe/schedule/runtime 验证。M5 的生产启用尚未执行：不得创建生产排程、部署或触发生产同步，直到获得新的明确运维授权。
