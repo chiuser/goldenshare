@@ -7,6 +7,7 @@ import {
   actionSupportsRemoteIdxFactorProProbe,
   actionSupportsRemoteKplListProbe,
   actionSupportsRemoteMarginProbe,
+  actionSupportsRemoteMarginDetailProbe,
   actionSupportsRemoteProbeCondition,
   actionSupportsRemoteStkMinsProbe,
   actionSupportsTriggerDaySingleRangePolicy,
@@ -17,6 +18,7 @@ import {
   formatProbeConditionLabel,
   formatProbeRunCount,
   formatScheduleRule,
+  getStrictRemoteMarginProbeConfig,
   getScheduleTimeFieldLabel,
   hasRequiredVisibleParameters,
   hasCompleteIndexMinsProbeFilters,
@@ -269,6 +271,31 @@ describe("自动任务日期策略", () => {
     expect(buildProbeConditionOptions("dataset_action", "margin.maintain")).toEqual([
       { value: "remote_margin_ready", label: "源站已完整发布融资融券汇总" },
     ]);
+    expect(getStrictRemoteMarginProbeConfig("dataset_action", "margin.maintain")).toEqual({
+      conditionKind: "remote_margin_ready",
+      label: "融资融券汇总",
+      description: "系统会在下一个开市日 09:00 至 09:30 依次验证 SSE、SZSE、BSE 是否均已返回前一开市日数据；全部齐备后才发起正式维护任务。",
+    });
+  });
+
+  it("only enables strict remote margin-detail probing for margin_detail maintain", () => {
+    expect(actionSupportsRemoteMarginDetailProbe("dataset_action", "margin_detail.maintain")).toBe(true);
+    expect(actionSupportsRemoteMarginDetailProbe("dataset_action", "margin.maintain")).toBe(false);
+    expect(actionSupportsRemoteMarginDetailProbe("workflow", "margin_detail.maintain")).toBe(false);
+    expect(actionSupportsRemoteProbeCondition("dataset_action", "margin_detail.maintain", "remote_margin_detail_ready")).toBe(true);
+    expect(actionSupportsRemoteProbeCondition("dataset_action", "margin_detail.maintain", "freshness_latest_open")).toBe(false);
+    expect(actionSupportsRemoteProbeCondition("dataset_action", "margin.maintain", "remote_margin_detail_ready")).toBe(false);
+    expect(defaultProbeConditionForAction("dataset_action", "margin_detail.maintain")).toBe("remote_margin_detail_ready");
+    expect(formatProbeConditionLabel("remote_margin_detail_ready")).toBe("源站已完整发布融资融券交易明细");
+    expect(buildProbeConditionOptions("dataset_action", "margin_detail.maintain")).toEqual([
+      { value: "remote_margin_detail_ready", label: "源站已完整发布融资融券交易明细" },
+    ]);
+    expect(getStrictRemoteMarginProbeConfig("dataset_action", "margin_detail.maintain")).toEqual({
+      conditionKind: "remote_margin_detail_ready",
+      label: "融资融券交易明细",
+      description: "系统会在下一个开市日 09:00 至 09:30 依次验证 SSE、SZSE、BSE 的代表证券是否均已返回前一开市日数据；全部齐备后才发起正式全市场维护任务。",
+    });
+    expect(getStrictRemoteMarginProbeConfig("dataset_action", "daily.maintain")).toBeNull();
   });
 
   it("hides schedule timing fields for pure probe and relabels fallback timing", () => {

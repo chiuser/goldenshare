@@ -556,7 +556,9 @@ params_json.filters = {}
 
 `operations_probe_runtime_service.py` 同时作为最后一道防线：即使持久化规则被绕过 API 篡改为带 `ts_code` 或 range 日期，命中后仍只会创建 `point=D`、`filters={}` 的 full-market TaskRun。schedule binding 层拒绝 workflow、fallback、generic freshness、calendar policy、固定日期、筛选条件和错误窗口 / 间隔 / 最大触发数。
 
-`tests/web/test_margin_detail_remote_probe.py` 已通过 23 项验证，覆盖三样本及完整字段、日期/代码精确性、字段键缺失、周末和国庆长假后的 `D -> N`、miss/error、runtime 清洗、同日有效任务去重、failed 重试、schedule API 和 direct validator 的全部固定约束。M4 未创建任何生产 `ops.schedule` 或 `ops.probe_rule`。
+2026-08-03 的前端缺口修复将 `frontend/src/pages/ops-v21-task-auto-tab.tsx` 的严格远端两融 probe 映射收敛为同一通用配置：`margin_detail.maintain` 只可选择 `remote_margin_detail_ready`，页面固定并禁用 `09:00~09:30 / 300 秒 / 每日 1 次`，隐藏固定维护日期和全部筛选项；汇总与明细共用该呈现规则，仍不增加页面级 dataset-key 分支。前端仅表达后端已存在的固定契约，不能由 UI 改写它。
+
+`tests/web/test_margin_detail_remote_probe.py` 已通过 23 项后端验证，覆盖三样本及完整字段、日期/代码精确性、字段键缺失、周末和国庆长假后的 `D -> N`、miss/error、runtime 清洗、同日有效任务去重、failed 重试、schedule API 和 direct validator 的全部固定约束；`frontend/src/pages/ops-v21-task-auto-tab.test.tsx` 覆盖明细 condition 的唯一性、默认选择、非本数据集拒绝和严格展示配置；`frontend/e2e/smoke-visual.spec.ts` 使用 API mock 覆盖创建页面的唯一条件、固定窗口、禁用输入及日期/筛选项隐藏。M4 未创建任何生产 `ops.schedule` 或 `ops.probe_rule`。
 
 ## 8. Ops、freshness 与完整性语义
 
@@ -618,7 +620,7 @@ TaskRun 详情和 Ops 页面只解释这些通用结构化字段，不按 `datas
 | Ops probe | `ops/services/margin_detail_remote_probe_service.py`、`operations_probe_runtime_service.py`、`schedule_probe_binding_service.py` | 独立 condition、三样本 probe、schedule / runtime 双层严格口径和同日去重。 |
 | Ops manual API | `ops/schemas/manual_action.py`、`ops/queries/manual_action_query_service.py`、`ops/services/manual_action_service.py` | `conditional_time_rules` 的响应、UI 同步与后端权威校验。 |
 | Ops projections | `ops/dataset_definition_projection.py`、freshness/card/snapshot 相关 consumer | `raw_table=None` 类型和序列化兼容；`source` layer 显示名。 |
-| Frontend | `frontend/src/shared/api/types.ts`、`ops-v21-task-manual-tab.tsx`、`ops-v21-source-page.tsx` | 条件 time mode、直出表 fallback；无 dataset-key 分支。 |
+| Frontend | `frontend/src/shared/api/types.ts`、`ops-v21-task-manual-tab.tsx`、`ops-v21-task-auto-tab.tsx`、`ops-v21-source-page.tsx` | 手工条件 time mode、自动任务严格 remote probe 映射、直出表 fallback；无页面级 dataset-key 分支。 |
 | Tests | `tests/**`、`tests/web/**`、`frontend/src/pages/**/*.test.tsx` | 见第 10 节。 |
 | Docs | 本文和 `docs/README.md`；实现后更新数据集接入状态 | 实现与事实一致。 |
 

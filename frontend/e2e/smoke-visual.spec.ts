@@ -109,6 +109,32 @@ test.describe("Phase 2 smoke and visual gate", () => {
     await expect(page).toHaveScreenshot();
   });
 
+  test("task center auto locks the margin-detail source readiness contract", async ({ page }) => {
+    await setAdminSession(page);
+    await installApiMocks(page, "task-auto");
+    await page.goto("/app/ops/automation");
+    await page.getByRole("button", { name: "新建自动任务" }).click();
+
+    await page.getByRole("textbox", { name: "先选数据分组" }).click();
+    await page.getByRole("option", { name: "融资融券", exact: true }).click();
+    await page.getByRole("textbox", { name: "再选执行对象" }).click();
+    await page.getByRole("option", { name: "【数据】融资融券交易明细", exact: true }).click();
+
+    await expect(page.getByRole("textbox", { name: "触发方式" })).toHaveValue("探测触发");
+    await expect(page.getByRole("textbox", { name: "探测条件" })).toHaveValue("源站已完整发布融资融券交易明细");
+    await expect(page.getByText(/代表证券是否均已返回前一开市日数据/)).toBeVisible();
+    await expect(page.getByLabel("探测窗口开始")).toHaveValue("09:00");
+    await expect(page.getByLabel("探测窗口结束")).toHaveValue("09:30");
+    await expect(page.getByLabel("探测频率（秒）")).toHaveValue("300");
+    await expect(page.getByLabel("每日触发上限")).toHaveValue("1");
+    await expect(page.getByLabel("探测窗口开始")).toBeDisabled();
+    await expect(page.getByLabel("探测窗口结束")).toBeDisabled();
+    await expect(page.getByLabel("探测频率（秒）")).toBeDisabled();
+    await expect(page.getByLabel("每日触发上限")).toBeDisabled();
+    await expect(page.getByText("可选：固定维护日期")).not.toBeVisible();
+    await expect(page.getByText("可选：附加筛选条件")).not.toBeVisible();
+  });
+
   test("task detail keeps the progress and execution node baseline", async ({ page }) => {
     await setAdminSession(page);
     await installApiMocks(page, "task-detail");

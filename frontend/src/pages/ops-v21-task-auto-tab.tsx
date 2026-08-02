@@ -98,12 +98,14 @@ const REMOTE_INDEX_MINS_READY_CONDITION = "remote_index_mins_ready";
 const REMOTE_KPL_LIST_READY_CONDITION = "remote_kpl_list_ready";
 const REMOTE_IDX_FACTOR_PRO_READY_CONDITION = "remote_idx_factor_pro_ready";
 const REMOTE_MARGIN_READY_CONDITION = "remote_margin_ready";
+const REMOTE_MARGIN_DETAIL_READY_CONDITION = "remote_margin_detail_ready";
 const STK_MINS_ACTION_KEY = "stk_mins.maintain";
 const INDEX_DAILY_ACTION_KEY = "index_daily.maintain";
 const INDEX_MINS_ACTION_KEY = "index_mins.maintain";
 const KPL_LIST_ACTION_KEY = "kpl_list.maintain";
 const IDX_FACTOR_PRO_ACTION_KEY = "idx_factor_pro.maintain";
 const MARGIN_ACTION_KEY = "margin.maintain";
+const MARGIN_DETAIL_ACTION_KEY = "margin_detail.maintain";
 const INDEX_MINS_REMOTE_PROBE_FREQS = ["1min", "5min", "15min", "30min", "60min"];
 const DEFAULT_PARAM_LABELS = new Map([
   ["trade_date", "维护日期"],
@@ -367,6 +369,7 @@ export function formatProbeConditionLabel(conditionKind: string | null | undefin
   if (conditionKind === REMOTE_KPL_LIST_READY_CONDITION) return "源站已有开盘啦榜单";
   if (conditionKind === REMOTE_IDX_FACTOR_PRO_READY_CONDITION) return "源站已有指数技术因子";
   if (conditionKind === REMOTE_MARGIN_READY_CONDITION) return "源站已完整发布融资融券汇总";
+  if (conditionKind === REMOTE_MARGIN_DETAIL_READY_CONDITION) return "源站已完整发布融资融券交易明细";
   return "最新业务日命中最新交易日";
 }
 
@@ -414,6 +417,37 @@ export function actionSupportsRemoteMarginProbe(actionType: string, actionKey: s
   return actionType === "dataset_action" && actionKey === MARGIN_ACTION_KEY;
 }
 
+export function actionSupportsRemoteMarginDetailProbe(actionType: string, actionKey: string): boolean {
+  return actionType === "dataset_action" && actionKey === MARGIN_DETAIL_ACTION_KEY;
+}
+
+type StrictRemoteMarginProbeConfig = {
+  conditionKind: string;
+  label: string;
+  description: string;
+};
+
+export function getStrictRemoteMarginProbeConfig(
+  actionType: string,
+  actionKey: string,
+): StrictRemoteMarginProbeConfig | null {
+  if (actionSupportsRemoteMarginProbe(actionType, actionKey)) {
+    return {
+      conditionKind: REMOTE_MARGIN_READY_CONDITION,
+      label: "融资融券汇总",
+      description: "系统会在下一个开市日 09:00 至 09:30 依次验证 SSE、SZSE、BSE 是否均已返回前一开市日数据；全部齐备后才发起正式维护任务。",
+    };
+  }
+  if (actionSupportsRemoteMarginDetailProbe(actionType, actionKey)) {
+    return {
+      conditionKind: REMOTE_MARGIN_DETAIL_READY_CONDITION,
+      label: "融资融券交易明细",
+      description: "系统会在下一个开市日 09:00 至 09:30 依次验证 SSE、SZSE、BSE 的代表证券是否均已返回前一开市日数据；全部齐备后才发起正式全市场维护任务。",
+    };
+  }
+  return null;
+}
+
 export function actionSupportsRemoteProbeCondition(actionType: string, actionKey: string, conditionKind: string): boolean {
   if (conditionKind === REMOTE_STK_MINS_READY_CONDITION) {
     return actionSupportsRemoteStkMinsProbe(actionType, actionKey);
@@ -433,10 +467,14 @@ export function actionSupportsRemoteProbeCondition(actionType: string, actionKey
   if (conditionKind === REMOTE_MARGIN_READY_CONDITION) {
     return actionSupportsRemoteMarginProbe(actionType, actionKey);
   }
+  if (conditionKind === REMOTE_MARGIN_DETAIL_READY_CONDITION) {
+    return actionSupportsRemoteMarginDetailProbe(actionType, actionKey);
+  }
   return conditionKind === FRESHNESS_LATEST_OPEN_CONDITION
     && !actionSupportsRemoteIndexMinsProbe(actionType, actionKey)
     && !actionSupportsRemoteIdxFactorProProbe(actionType, actionKey)
-    && !actionSupportsRemoteMarginProbe(actionType, actionKey);
+    && !actionSupportsRemoteMarginProbe(actionType, actionKey)
+    && !actionSupportsRemoteMarginDetailProbe(actionType, actionKey);
 }
 
 export function hasCompleteIndexMinsProbeFilters(filters: unknown): boolean {
@@ -456,6 +494,7 @@ export function defaultProbeConditionForAction(actionType: string, actionKey: st
   if (actionSupportsRemoteIndexMinsProbe(actionType, actionKey)) return REMOTE_INDEX_MINS_READY_CONDITION;
   if (actionSupportsRemoteIdxFactorProProbe(actionType, actionKey)) return REMOTE_IDX_FACTOR_PRO_READY_CONDITION;
   if (actionSupportsRemoteMarginProbe(actionType, actionKey)) return REMOTE_MARGIN_READY_CONDITION;
+  if (actionSupportsRemoteMarginDetailProbe(actionType, actionKey)) return REMOTE_MARGIN_DETAIL_READY_CONDITION;
   return FRESHNESS_LATEST_OPEN_CONDITION;
 }
 
@@ -468,6 +507,9 @@ export function buildProbeConditionOptions(actionType: string, actionKey: string
   }
   if (actionSupportsRemoteMarginProbe(actionType, actionKey)) {
     return [{ value: REMOTE_MARGIN_READY_CONDITION, label: "源站已完整发布融资融券汇总" }];
+  }
+  if (actionSupportsRemoteMarginDetailProbe(actionType, actionKey)) {
+    return [{ value: REMOTE_MARGIN_DETAIL_READY_CONDITION, label: "源站已完整发布融资融券交易明细" }];
   }
   return [
     { value: FRESHNESS_LATEST_OPEN_CONDITION, label: "最新业务日命中最新交易日" },
@@ -935,13 +977,16 @@ export function OpsAutomationPage() {
   );
   const selectedActionSupportsRemoteIndexMinsProbe = actionSupportsRemoteIndexMinsProbe(form.action_type, form.action_key);
   const selectedActionSupportsRemoteKplListProbe = actionSupportsRemoteKplListProbe(form.action_type, form.action_key);
-  const selectedActionSupportsRemoteMarginProbe = actionSupportsRemoteMarginProbe(form.action_type, form.action_key);
+  const strictRemoteMarginProbeConfig = useMemo(
+    () => getStrictRemoteMarginProbeConfig(form.action_type, form.action_key),
+    [form.action_key, form.action_type],
+  );
   const selectedRemoteIndexMinsProbe = selectedActionSupportsRemoteIndexMinsProbe
     && form.probe_condition_kind === REMOTE_INDEX_MINS_READY_CONDITION;
   const selectedRemoteKplListProbe = selectedActionSupportsRemoteKplListProbe
     && form.probe_condition_kind === REMOTE_KPL_LIST_READY_CONDITION;
-  const selectedRemoteMarginProbe = selectedActionSupportsRemoteMarginProbe
-    && form.probe_condition_kind === REMOTE_MARGIN_READY_CONDITION;
+  const selectedStrictRemoteMarginProbe = strictRemoteMarginProbeConfig !== null
+    && form.probe_condition_kind === strictRemoteMarginProbeConfig.conditionKind;
   const showScheduleTimingFields = shouldShowScheduleTimingFields(form.trigger_mode);
   const scheduleTimeFieldLabel = getScheduleTimeFieldLabel(form.trigger_mode);
   const probeConditionOptions = useMemo(
@@ -971,27 +1016,28 @@ export function OpsAutomationPage() {
     }
   }, [form.action_key, form.action_type, form.probe_condition_kind, setForm]);
   useEffect(() => {
-    if ((selectedRemoteKplListProbe || selectedRemoteMarginProbe) && form.trigger_mode !== "probe") {
+    if ((selectedRemoteKplListProbe || selectedStrictRemoteMarginProbe) && form.trigger_mode !== "probe") {
       setForm((current) => ({
         ...current,
         trigger_mode: "probe",
         schedule_type: current.schedule_type === "once" ? "cron" : current.schedule_type,
       }));
     }
-  }, [form.trigger_mode, selectedRemoteKplListProbe, selectedRemoteMarginProbe, setForm]);
+  }, [form.trigger_mode, selectedRemoteKplListProbe, selectedStrictRemoteMarginProbe, setForm]);
   useEffect(() => {
-    if (!selectedRemoteMarginProbe) return;
+    if (!selectedStrictRemoteMarginProbe || strictRemoteMarginProbeConfig === null) return;
     setForm((current) => ({
       ...current,
       probe_window_start: "09:00",
       probe_window_end: "09:30",
       probe_interval_seconds: "300",
       probe_max_triggers_per_day: "1",
-      field_values: Object.fromEntries(
-        Object.entries(current.field_values).filter(([key]) => key !== "exchange_id"),
-      ),
+      selected_date: "",
+      start_date: "",
+      end_date: "",
+      field_values: {},
     }));
-  }, [selectedRemoteMarginProbe, setForm]);
+  }, [selectedStrictRemoteMarginProbe, strictRemoteMarginProbeConfig, setForm]);
   const singleTradeCalendar = useTradeCalendarField({ value: form.selected_date });
   const rangeStartTradeCalendar = useTradeCalendarField({ value: form.start_date });
   const rangeEndTradeCalendar = useTradeCalendarField({ value: form.end_date });
@@ -1003,10 +1049,10 @@ export function OpsAutomationPage() {
         ? (selectedAction?.parameters || []).filter(
           (param) => !INTERNAL_PARAM_KEYS.has(param.key)
             && !DATE_PARAM_KEYS.has(param.key)
-            && !(selectedRemoteMarginProbe && param.key === "exchange_id"),
+            && !selectedStrictRemoteMarginProbe,
         )
         : [],
-    [form.action_type, selectedAction, selectedRemoteMarginProbe],
+    [form.action_type, selectedAction, selectedStrictRemoteMarginProbe, strictRemoteMarginProbeConfig],
   );
   const selectedActionHasRequiredParameters = useMemo(
     () => hasRequiredVisibleParameters(selectedAction?.parameters),
@@ -1350,14 +1396,14 @@ export function OpsAutomationPage() {
       if (selectedRemoteIndexMinsProbe && Number(form.probe_interval_seconds || "0") < 300) {
         throw new Error("源站指数分钟行情探测最小间隔为 300 秒。");
       }
-      if (selectedRemoteMarginProbe && (
+      if (selectedStrictRemoteMarginProbe && (
         form.trigger_mode !== "probe"
         || form.probe_window_start !== "09:00"
         || form.probe_window_end !== "09:30"
         || Number(form.probe_interval_seconds || "0") !== 300
         || Number(form.probe_max_triggers_per_day || "0") !== 1
       )) {
-        throw new Error("融资融券汇总源站探测固定为 09:00~09:30、每 300 秒探测、每日最多触发 1 次。");
+        throw new Error(`${strictRemoteMarginProbeConfig?.label || "融资融券"}源站探测固定为 09:00~09:30、每 300 秒探测、每日最多触发 1 次。`);
       }
       const scheduleType = form.schedule_type;
       const cronExpr = scheduleType === "cron"
@@ -1919,7 +1965,7 @@ export function OpsAutomationPage() {
           </SimpleGrid>
           <Select
             label="触发方式"
-            data={selectedRemoteKplListProbe ? [
+            data={(selectedRemoteKplListProbe || selectedStrictRemoteMarginProbe) ? [
               { value: "probe", label: "探测触发" },
             ] : [
               { value: "schedule", label: "定时触发" },
@@ -2106,9 +2152,9 @@ export function OpsAutomationPage() {
                   系统会检查源站是否已返回当天的一条指数技术因子；返回后自动发起当天的正式全量维护任务。
                 </Text>
               ) : null}
-              {selectedRemoteMarginProbe ? (
+              {selectedStrictRemoteMarginProbe && strictRemoteMarginProbeConfig ? (
                 <Text size="xs" c="dimmed">
-                  系统会在下一个开市日 09:00 至 09:30 依次验证 SSE、SZSE、BSE 是否均已返回前一开市日数据；全部齐备后才发起正式维护任务。
+                  {strictRemoteMarginProbeConfig.description}
                 </Text>
               ) : null}
               <Grid>
@@ -2118,7 +2164,7 @@ export function OpsAutomationPage() {
                     placeholder="15:30"
                     type="time"
                     value={form.probe_window_start}
-                    disabled={selectedRemoteMarginProbe}
+                    disabled={selectedStrictRemoteMarginProbe}
                     onChange={(event) => setForm((current) => ({ ...current, probe_window_start: event.currentTarget.value }))}
                   />
                 </Grid.Col>
@@ -2128,7 +2174,7 @@ export function OpsAutomationPage() {
                     placeholder="17:00"
                     type="time"
                     value={form.probe_window_end}
-                    disabled={selectedRemoteMarginProbe}
+                    disabled={selectedStrictRemoteMarginProbe}
                     onChange={(event) => setForm((current) => ({ ...current, probe_window_end: event.currentTarget.value }))}
                   />
                 </Grid.Col>
@@ -2138,7 +2184,7 @@ export function OpsAutomationPage() {
                     placeholder="300"
                     type="number"
                     value={form.probe_interval_seconds}
-                    disabled={selectedRemoteMarginProbe}
+                    disabled={selectedStrictRemoteMarginProbe}
                     onChange={(event) => setForm((current) => ({ ...current, probe_interval_seconds: event.currentTarget.value }))}
                   />
                 </Grid.Col>
@@ -2148,7 +2194,7 @@ export function OpsAutomationPage() {
                     placeholder="1"
                     type="number"
                     value={form.probe_max_triggers_per_day}
-                    disabled={selectedRemoteMarginProbe}
+                    disabled={selectedStrictRemoteMarginProbe}
                     onChange={(event) => setForm((current) => ({ ...current, probe_max_triggers_per_day: event.currentTarget.value }))}
                   />
                 </Grid.Col>
@@ -2178,7 +2224,7 @@ export function OpsAutomationPage() {
               </Accordion.Control>
               <Accordion.Panel>
                 <Stack gap="md">
-                  {(!policyGeneratesTimeInput(effectiveCalendarPolicy) && (supportsSingleDay || supportsDateRange)) ? (
+                  {(!selectedStrictRemoteMarginProbe && !policyGeneratesTimeInput(effectiveCalendarPolicy) && (supportsSingleDay || supportsDateRange)) ? (
                     <Stack gap="xs">
                       <Text fw={700} size="sm">可选：固定维护日期</Text>
                       {(supportsSingleDay && supportsDateRange) ? (
