@@ -1,6 +1,6 @@
 # 融资融券交易明细（`margin_detail`）低层设计 LLD v1
 
-状态：M0–M4 已完成；M5（生产启用）待明确运维授权
+状态：M0–M4 已完成；生产 HDD 落盘已完成并验收；M5a 待运营手工发起，M5b 仍待单独授权
 最后更新：2026-08-03
 数据集：`margin_detail`（融资融券交易明细）
 源接口：`tushare.margin_detail`
@@ -24,6 +24,7 @@
 7. `margin_detail` 的发布探测、Probe condition、服务类、调度约束和测试必须独立于 `margin`，只复用通用 TaskRun / ProbeRunLog / 日期目标能力；不得复用或扩展 `MarginRemoteReadinessProbeService`。
 8. Ops 中归入既有的“**A股行情**”目录；Definition 的领域显示名使用现有统一口径“**股票行情**”。不新增专用页面或 dataset-key 前端分支。
 9. 直出 serving 不能让现有来源页显示伪造 raw 表或“—”：当 `raw_table=None` 时，来源页必须明确展示服务表 `core_serving.equity_margin_detail`。
+10. 在历史数据首次写入前，全部物理叶分区（`p2010`–`p2027`、`pmax`）及其物理索引迁至 HDD tablespace `gs_raw_cold_hdd`；未来自动增量同样写 HDD。这是对“热数据留 SSD”默认原则的明确例外，接受相应读写延迟取舍。
 
 本期不接入 Lake，不新增对外业务 API，不做派生指标，也不修改既有 `margin` 数据集。
 
@@ -54,9 +55,9 @@ CodeGraph 审计覆盖 DatasetDefinition 注册、resolver → unit planner → 
 
 | 验证项 | 实测结果 | 实现含义 |
 | --- | --- | --- |
-| 无业务参数 | 返回正好 6,000 行，覆盖 `20260731`、`20260730` 两日 | 无日期约束必然截断，禁止作为同步方式。 |
+| 无业务参数 | 单次默认 MCP 请求返回正好 6,000 行，覆盖 `20260731`、`20260730` 两日 | 未分页的无日期请求不能作为全量同步依据；是否可完整翻页须另行实测。 |
 | 单日 2026-07-30 | 4,418 行，SH 1,992、SZ 2,098、BJ 328；`(trade_date, ts_code)` 无重复 | 全市场单日可由单一按日 unit 获取；主键成立。 |
-| 两日区间 2026-07-30 至 2026-07-31 | 正好 6,000 行，其中 2026-07-30 仅 4,007 行、2026-07-31 1,993 行 | 区间请求会静默截断，正式 range 必须拆成逐日 unit。 |
+| 两日区间 2026-07-30 至 2026-07-31 | 单次默认 MCP 请求正好 6,000 行，其中 2026-07-30 仅 4,007 行、2026-07-31 1,993 行 | 未分页区间响应不完整；不能据此推断带 `limit/offset` 的区间分页也不完整，补充实测见下文。 |
 | 非交易日 2026-08-01 | 0 行 | 空结果不能作为交易日数据已发布的成功证据。 |
 | 默认字段 | 单只证券单日实际返回 10 列，缺少 `name` | 默认字段不完整，禁止省略 `fields`。 |
 | 显式 11 字段 | 返回完整 11 列，含 `name=浦发银行` | 全链路固定使用显式字段列表。 |
@@ -76,6 +77,21 @@ CodeGraph 审计覆盖 DatasetDefinition 注册、resolver → unit planner → 
 | 两种结果的主键集合 | — | — | 完全相等 | 无漏键、重复键或额外键。 |
 
 分页合并的市场分布为 SH 1,992、SZ 2,098、BJ 328。该结果与 MCP 单日实测一致，未发现需要修订本地源文档或索引的差异。
+
+#### 区间分页补充验证（2026-08-03）
+
+本验证只调用项目的 `TushareSourceConnector -> TushareHttpClient`，不创建数据库 session、TaskRun、normalizer 或 writer，也不写入本地或远程数据库。目的是核验“单次区间响应达到 6,000 行”究竟是单次响应限制，还是区间结果集上限。
+
+所有请求显式传入固定 11 字段，页大小均为 `limit=1000`：
+
+| 请求 | offset / 页大小 | 行数 | 唯一主键 | 结论 |
+| --- | --- | ---: | ---: | --- |
+| 区间 `start_date=20260730,end_date=20260731` | `0,1000,2000,3000,4000,5000,6000` / `1000,1000,1000,1000,1000,1000,411` | 6,411 | 6,411 | 在 offset 6,000 后仍有 411 行，所有行均含 11 字段，无重复键。 |
+| 单日 `trade_date=20260730` | `0,1000,2000,3000,4000` / `1000,1000,1000,1000,418` | 4,418 | 4,418 | 与 M0 基线一致。 |
+| 单日 `trade_date=20260731` | `0,1000` / `1000,993` | 1,993 | 1,993 | short page 正常结束。 |
+| 区间主键集合与两单日并集 | — | 6,411 vs. 6,411 | 完全相等 | `missing=0`、`extra=0`。 |
+
+因此，已修正此前“区间请求会静默截断”的错误表述：已证明的事实是**未分页的单次区间响应最多取到 6,000 行**；在上述超过 6,000 行的两日样本中，项目 connector 的 `limit/offset` 区间分页可继续取得数据，并与按日分页结果完全等价。该单一样本尚不证明任意年度区间的分页行为、峰值内存、重试/恢复语义或写入事务边界均适合改为区间 unit。
 
 #### M3 隔离验证库最小真实同步证据（2026-08-03）
 
@@ -232,7 +248,7 @@ Ops / TaskRun / ProbeRunLog / snapshot 状态写入必须与 serving 业务写�
 不得传入：start_date、end_date、limit、offset、任意 exchange 参数
 ```
 
-区间并不映射为源接口 `start_date/end_date`。range 由 planner 展开为多个交易日，每个 unit 都只提交一个 `trade_date`；这直接规避源端两日请求已实测会在 6,000 行处截断的问题。
+区间当前并不映射为源接口 `start_date/end_date`。range 由 planner 展开为多个交易日，每个 unit 都只提交一个 `trade_date`；这是为了保持按日的内存、事务、重跑与日期完整性边界，不是因为源接口的区间 `limit/offset` 分页已被证明不可用。第 2.2 节的补充验证证明两日区间可分页超过 6,000 行；若要改为区间 source unit，仍须先完成第 6.4 节列出的独立设计和验证。
 
 同步修改 `src/ops/catalog/dataset_catalog_views.py`：新增 `DatasetCatalogItem("margin_detail", "equity_market", 115)`。这是唯一的 Ops 展示分类来源：手工任务中心、数据集卡片和数据集详情均会经 catalog resolver 呈现为“A股行情”；Definition 的“股票行情”则用于 freshness / 数据域展示，两个标签各自沿用现有用途，不能互相替代。
 
@@ -376,6 +392,14 @@ equity_margin_detail -> GenericDAO(session, EquityMarginDetail)
 
 以已实测 2026-07-30 的 4,418 行估算，250 个开市日约 110 万行/年。直出模式只保存一个 serving 副本；若改为 raw + serving 双写，行存储会至少翻倍且增加写入放大，故不采用。
 
+### 5.5 生产 HDD 落盘决策（2026-08-03）
+
+生产 catalog 已确认 Alembic revision `20260802_000123` 已应用：父表 `core_serving.equity_margin_detail` 是空的 partitioned relation，全部叶分区统计行数为 0、当前总大小仅约 456 KB。叶分区 `p2010`–`p2027` 与 `pmax` 共 19 个，及其 57 个物理索引当前均在 `pg_default`；HDD tablespace `gs_raw_cold_hdd` 位于 `/data/disk/postgresql/tablespaces/gs_stk_mins_hdd`，当时机械盘可用约 324 GB。
+
+2026-08-03 已在同一空表、无任务、无外部锁的维护窗口完成迁移：父表默认 tablespace、3 个父级 partitioned index、19 个叶分区和 57 个物理索引均设为 `gs_raw_cold_hdd`；每个 DDL 后均立即校验。独立连接复验结果为叶分区 `19/19`、物理索引 `57/57` 均在目标 tablespace，业务行数仍为 0。父表和 3 个 partitioned index 是逻辑对象、没有承接业务数据块，不能以其 tablespace 取代叶分区/物理索引的迁移验收。此操作不改表名、主键、ORM、DAO、请求语义或 TaskRun 语义，也不迁移或复制业务行。
+
+执行前已在同一维护窗口重新确认：目标为空、HDD tablespace/空间可用、没有 `margin_detail` 的 queued/running/canceling TaskRun、没有长事务或外部锁，且叶分区/物理索引白名单为 `19/57`。每条 `ALTER TABLE ... SET TABLESPACE` 或 `ALTER INDEX ... SET TABLESPACE` 均带 `lock_timeout='15s'` 单独执行并立即复验，未发生超时或失败。由于关系为空，执行前后文件系统可用空间未出现有意义变化。若后续性能不可接受，只能在重新确认 SSD 容量后逐对象反向迁回 `pg_default`。
+
 ## 6. 请求、分页、事务与回补
 
 ### 6.1 正式单元与请求
@@ -418,13 +442,46 @@ M2 已通过 `DatasetQualityPolicy` 的声明式 `unit_date_field=trade_date` �
 | 合并结果 | 页合并行数、唯一 `(trade_date,ts_code)` 数、SH/SZ/BJ 各自数量。 |
 | 等价结论 | 分页合并的 unique key 集合必须与基准请求完全相等；任何漏键、重复键或额外键都阻断上线。 |
 
-不得使用两日 range 或无日期请求作为该验收的“全量基准”，因为它们已经实测会在 6,000 行处截断。
+本节仍以单日为验收基准，因为它验证的是当前按日 unit 的正式实现。未分页的两日 range 或无日期响应不能作为全量基准；第 2.2 节补充验证已证明两日 range 在显式 `limit/offset` 分页时可以超过 6,000 行，但这不改变当前运行时的 unit 契约。
 
-### 6.4 回补范围与性能门禁
+### 6.4 回补范围、年度 TaskRun 与源端请求边界
 
-历史回补从 2010 年开始，以“一个自然年一个 TaskRun 批次、内部逐交易日 unit”推进。每个批次开始前先以只读探测测得该年份的实际交易日数量、每日最大行数、页数、源端配额与预估耗时；记录后再创建业务任务。
+历史回补从 2010 年开始，以“一个自然年一个 TaskRun 批次、内部逐交易日 unit”推进。年度 TaskRun 可以、也应当以运营侧时间窗口配置，例如 `time_input={mode: range, start_date: 2020-01-01, end_date: 2020-12-31}`，并保持 `filters={}`。
 
-禁止一次提交 2010 年至今的无界历史任务。若某年的任一天超过 1,000 行的预估页数或源端限流使完成时间不可接受，必须暂停并报告测得量级，等待调整并发/节流计划，而不是改成会截断的宽区间请求。
+这两个日期只表达 TaskRun 的计划范围：当前 `DatasetActionResolver -> generic planner` 依据交易日历将其展开为逐开市日 unit，`_margin_detail_params()` 也只会为每个 unit 生成 `trade_date=YYYYMMDD`。这是当前正式实现的执行契约，而不是对源接口不支持区间分页的判断。源文档允许 `start_date/end_date`；2026-08-03 的项目 connector 实测已证明两日区间可经 `limit/offset` 取得超过 6,000 行的完整主键集合。2010 全年 MCP 单次默认请求的 6,000 行和 68 个交易日，仅证明未分页年度响应不完整。
+
+当前仍保持按日 source unit，原因是完整性与资源边界：`DatasetSourceClient` 会先把一个 unit 的所有页累积在内存中，之后才进入归一化和单次 unit 写入。若把整年直接设计为一个区间 unit，按当前初估会在一个 unit 内累积约 671 万行、约 8,009 页，并将失败重跑、拒绝原因、事务粒度和日期 completeness 全部放大到年度级。要改为区间 source unit，必须另行设计有界区间切分、页/日期级 checkpoint、内存上限、跨日期质量对账和写入事务边界；不能仅因两日分页验证通过就改动正式执行模型。
+
+禁止一次提交 2010 年至今的无界历史任务。每个年度批次必须在开始前完成第 6.5 节只读预估；若实测源端限流或耗时不可接受，必须暂停并报告测得量级，等待明确的节流决策。不得把未分页的宽区间响应当作完整数据；若未来选择区间 unit，则必须先完成上一段所列的独立设计与全量对账验证。
+
+### 6.5 M5a 前的只读规模、存储和配额预估（2026-08-03）
+
+本次只读预估使用 `tushareMcp` 和隔离验证库，不创建 TaskRun、不写生产数据。SSE 交易日历显示 2010–2025 共 3,886 个开市日（每年 238–245 日）。对每年最后一个开市日显式请求固定 11 字段，结果如下；`页数`按正式 `page_limit=1000` 和“short page 停止”规则估算。
+
+| 年份 | 开市日数 | 样本交易日 | 样本行数 | 估计单日请求数 |
+| --- | ---: | --- | ---: | ---: |
+| 2010 | 242 | 2010-12-31 | 89 | 1 |
+| 2011 | 244 | 2011-12-30 | 276 | 1 |
+| 2012 | 243 | 2012-12-31 | 276 | 1 |
+| 2013 | 238 | 2013-12-31 | 700 | 1 |
+| 2014 | 245 | 2014-12-31 | 897 | 1 |
+| 2015 | 244 | 2015-12-31 | 913 | 1 |
+| 2016 | 244 | 2016-12-30 | 970 | 1 |
+| 2017 | 244 | 2017-12-29 | 970 | 1 |
+| 2018 | 243 | 2018-12-28 | 994 | 1 |
+| 2019 | 244 | 2019-12-31 | 1,738 | 2 |
+| 2020 | 243 | 2020-12-31 | 1,992 | 2 |
+| 2021 | 243 | 2021-12-31 | 2,407 | 3 |
+| 2022 | 242 | 2022-12-30 | 3,316 | 4 |
+| 2023 | 242 | 2023-12-29 | 3,841 | 4 |
+| 2024 | 242 | 2024-12-31 | 3,980 | 4 |
+| 2025 | 243 | 2025-12-31 | 4,283 | 5 |
+
+若把每年的单一样本当作全年日均值，2010–2025 的初步规模为约 671 万行、约 8,009 次源请求。隔离验证库中 4,418 行的 2026 分区实际占用 1,810,432 B（约 410 B/行，含索引；元组本身平均 123 B）；按同一比例外推，16 年 serving 表约 2.56 GiB。以上均为**规划初值，不是容量上限或配额承诺**：年度末样本不能代表年内峰值，生产索引膨胀、并发和源站返回分布也会改变结果。
+
+源文档只声明该接口需要 2,000 积分权限，没有提供每分钟、每日或按调用计费的公开额度；因此当前只能估计请求量，不能推断账户配额或完成耗时。M5a 执行前，每个年度须额外以首个、中位和最后一个开市日做三点只读样本，记录行数、页数、响应耗时、重试和限流；运营根据配置账户的实际限额确认节流后，才创建该年度 TaskRun。
+
+每个实际年度批次完成时，沿用既有 TaskRun 和日期完整性审计完成运营验收：记录 TaskRun ID、时间窗口、终态、`unit_done/unit_total`、累计 `rows_fetched/rows_saved/rows_rejected`、reject reason，以及目标表的日期覆盖和实际行数。M3 已完成模板要求的最小真实同步全链路对账；M5a 不新增逐页持久化账本、原始数据镜像或新的运行时功能。若 TaskRun 失败或出现未解释的 reject，当前批次不得验收，应依据既有错误详情定位并重跑相关日期或批次。
 
 ## 7. 源端发布时间与独立 readiness probe
 
@@ -635,10 +692,11 @@ cd frontend && npm run typecheck && npm run test && npm run build
 
 1. M0（已完成）：核验源文档、MCP 的默认/显式字段/时间请求与项目实际 connector 的分页；确认 Alembic head 为 `20260802_000122`，并完成第 6.3 节的 6,000 基准与 1,000 分页等价对账。
 2. M1（已完成）：实现并测试 shared direct-serving storage contract、linter、projection nullable 以及 raw-backed write path / 前端卡片的回归。
-3. M2（已完成）：实现 serving 表、ORM/DAO、Definition、catalog、planner/request builder、分页完整性保护、scoped repair 的 API / Web 约束；新增迁移 revision 为 `20260802_000123`，随后已在 M3 隔离库从空库应用至 head，未在生产应用。
+3. M2（已完成）：实现 serving 表、ORM/DAO、Definition、catalog、planner/request builder、分页完整性保护、scoped repair 的 API / Web 约束；新增迁移 revision 为 `20260802_000123`，随后已在 M3 隔离库从空库应用至 head。生产已应用该 revision，`core_serving.equity_margin_detail` 仍为空，且第 5.5 节的 HDD 落盘已完成并验收。
 4. M3（已完成）：已在隔离库完成第 6.3 节分页证据复核和第 10.3 节第 1–7 项全量对账，包括 full 重跑幂等、已有桶单证券补录和不存在桶的零写入拒绝。
 5. M4（已完成）：已实现独立 probe 与 schedule API / runtime 双重门禁；以模拟 clock 验证周末/节假日后的 `D -> N`，以及同日去重和 failed 重试。
-6. M5：经明确运维授权后，在 Ops API 创建独立 probe schedule；它首次全通过后只创建一个正式全市场 point TaskRun。观察 TaskRun、ProbeRunLog、freshness/card 和日期审计，再安排按年历史回补。
+6. M5a（生产历史回补，待运营手工发起）：生产 revision `20260802_000123`、第 5.5 节 HDD 落盘与运行时代码部署均已完成；发布后的只读核验确认 `margin_detail` 的 TaskRun、schedule、probe_rule 与业务行数均为 0。不创建 `ops.schedule` 或 `ops.probe_rule`。按第 6.4 节逐年提交无筛选 range TaskRun，并按第 6.5 节用既有 TaskRun 指标和目标表日期完整性审计验收每年批次。历史回补到切换日 `C` 后，在仍未启用 schedule 的前提下，以无筛选 range 完成 `C+1` 至最近已完整发布交易日 `D` 的 cutover catch-up，消除历史耗时期间形成的近期缺口。
+7. M5b（生产自动增量，待明确授权）：仅在 M5a 的所有年度批次和 cutover catch-up 均验收通过后，才通过 Ops API 创建唯一的 `remote_margin_detail_ready` probe schedule。其首次全通过只创建一个无筛选 `point=D` TaskRun；观察 TaskRun、ProbeRunLog、freshness/card 和日期审计后，才视为自动增量已启用。
 
 上线前需要完成配置项审计。默认不新增环境变量或运营开关；若实施发现必须新增，须先列出名称、默认值、持久化位置、全部消费者、依赖关系、生效方式、运维可见性和测试门禁，不能把 page size、样本代码或窗口散落为多处常量。
 
@@ -650,7 +708,7 @@ cd frontend && npm run typecheck && npm run test && npm run build
 - 不在 `raw_tushare` 建任何兼容表、view 或影子表。
 - 不把 `ts_code` 扩展为批量、通配符或多证券输入。
 - 不用自然日“昨天”、收盘后 workflow 或固定历史日期绕过 readiness。
-- 不以本接口可选 `start_date/end_date` 推导按区间源请求；已实测其会丢数据。
+- 不因本接口可选 `start_date/end_date` 或两日分页样本通过，就未经设计审计地改为年度区间 source unit；当前实现按日执行，未分页宽区间响应也不能视为完整。
 - 不在 V1 以静态全市场股票列表声明“明细齐全”；融资融券标的范围需要独立的权威范围事实才能做矩阵审计。
 
 ### 已知风险与处理
@@ -664,4 +722,4 @@ cd frontend && npm run typecheck && npm run test && npm run build
 | direct-serving 改动破坏旧 raw 线路 | 按 write path 选择 DAO，全量既有 write path 回归。 |
 | 历史回补耗时或触及配额 | 一年一批、预先测算页数/耗时、达到不可接受量级即停下确认。 |
 
-本文已记录 M0 的真实分页基准、M3 隔离库完整写入对账和 M4 的独立 probe/schedule/runtime 验证。M5 的生产启用尚未执行：不得创建生产排程、部署或触发生产同步，直到获得新的明确运维授权。
+本文已记录 M0 的真实分页基准、M3 隔离库完整写入对账、M4 的独立 probe/schedule/runtime 验证，以及 M5a 的只读历史规模初估。生产 schema migration、HDD 落盘与运行时代码部署均已完成，目标表仍为空；尚未创建生产排程或触发生产同步。M5a 只能由运营按年度手工发起，M5b 仍须在 M5a 完整验收后单独授权。
