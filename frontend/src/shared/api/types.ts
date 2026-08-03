@@ -244,18 +244,13 @@ export interface ScheduleDetailResponse {
   timezone: string;
   calendar_policy: string | null;
   probe_config: {
-    source_key: string | null;
-    source_display_name: string;
+    source: "system_default";
+    source_label: string;
     window_start: string | null;
     window_end: string | null;
     probe_interval_seconds: number;
     max_triggers_per_day: number;
     condition_kind: string;
-    workflow_dataset_keys: string[];
-    workflow_dataset_targets: Array<{
-      dataset_key: string;
-      dataset_display_name: string;
-    }>;
   } | null;
   params_json: Record<string, unknown>;
   retry_policy_json: Record<string, unknown>;
@@ -580,10 +575,6 @@ export interface OpsCatalogResponse {
       depends_on: string[];
       default_params: Record<string, unknown>;
     }>;
-  }>;
-  sources: Array<{
-    source_key: string;
-    display_name: string;
   }>;
 }
 

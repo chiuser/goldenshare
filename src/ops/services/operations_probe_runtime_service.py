@@ -15,6 +15,7 @@ from src.foundation.datasets.registry import (
 from src.foundation.dao.trade_calendar_dao import TradeCalendarDAO
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.probe_run_log import ProbeRunLog
+from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.foundation.config.settings import get_settings
@@ -105,25 +106,32 @@ class ProbeRuntimeService:
             result_code = "miss"
             result_reason = skip_reason
             try:
-                matched, message, payload = self._evaluate_rule(session, rule, current=current)
-                rule.last_probed_at = started_at
-                if matched:
-                    if self._has_effective_target_task(session, rule, probe_payload=payload):
-                        message = "目标交易日已存在有效探测任务，不重复创建"
-                        result_code = "deduplicated"
-                        result_reason = "effective_target_task_exists"
-                    else:
-                        task_run = self._enqueue_on_match(session, rule, probe_payload=payload)
-                        task_run_id = task_run.id
-                        task_run_correlation_id = str(task_run.id)
-                        task_runs.append(task_run)
-                        triggered += 1
-                        rule.last_triggered_at = datetime.now(timezone.utc)
-                        result_code = "hit"
-                        result_reason = "condition_hit"
+                if self._has_forbidden_target(session, rule):
+                    status = "failed"
+                    message = "探测规则只能绑定数据集维护动作，已拒绝执行"
+                    payload = {"reason_code": "probe_rule.target_forbidden"}
+                    result_code = "configuration_error"
+                    result_reason = "probe_rule.target_forbidden"
                 else:
-                    result_code = "miss"
-                    result_reason = "condition_miss"
+                    matched, message, payload = self._evaluate_rule(session, rule, current=current)
+                    rule.last_probed_at = started_at
+                    if matched:
+                        if self._has_effective_target_task(session, rule, probe_payload=payload):
+                            message = "目标交易日已存在有效探测任务，不重复创建"
+                            result_code = "deduplicated"
+                            result_reason = "effective_target_task_exists"
+                        else:
+                            task_run = self._enqueue_on_match(session, rule, probe_payload=payload)
+                            task_run_id = task_run.id
+                            task_run_correlation_id = str(task_run.id)
+                            task_runs.append(task_run)
+                            triggered += 1
+                            rule.last_triggered_at = datetime.now(timezone.utc)
+                            result_code = "hit"
+                            result_reason = "condition_hit"
+                    else:
+                        result_code = "miss"
+                        result_reason = "condition_miss"
             except Exception as exc:  # pragma: no cover - defensive
                 status = "failed"
                 matched = False
@@ -160,6 +168,15 @@ class ProbeRuntimeService:
             triggered_rules=triggered,
             created_task_runs=len(task_runs),
         )
+
+    @staticmethod
+    def _has_forbidden_target(session: Session, rule: ProbeRule) -> bool:
+        if rule.workflow_key is not None or rule.step_key is not None:
+            return True
+        if rule.schedule_id is None:
+            return False
+        schedule = session.get(OpsSchedule, rule.schedule_id)
+        return schedule is not None and schedule.target_type != "dataset_action"
 
     def _evaluate_rule(
         self,

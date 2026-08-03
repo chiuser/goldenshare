@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from src.app.exceptions import WebAppError
 from src.ops.models.ops.probe_rule import ProbeRule
+from src.ops.services.schedule_automation_capability_resolver import ScheduleAutomationCapabilityResolver
 from src.ops.services.schedule_probe_binding_service import ScheduleProbeBindingService
 
 
@@ -87,7 +88,8 @@ def test_ops_schedule_create_allows_daily_workflow_without_static_trade_date(app
     assert response.json()["params_json"] == {}
 
 
-def test_ops_schedule_create_allows_idx_factor_pro_without_static_trade_date(app_client, user_factory) -> None:
+@pytest.mark.parametrize("target_key", ["index_mins.maintain", "idx_factor_pro.maintain", "margin.maintain", "margin_detail.maintain"])
+def test_ops_schedule_rejects_schedule_mode_for_source_ready_actions(app_client, user_factory, target_key: str) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
@@ -97,8 +99,8 @@ def test_ops_schedule_create_allows_idx_factor_pro_without_static_trade_date(app
         headers={"Authorization": f"Bearer {token}"},
         json={
             "target_type": "dataset_action",
-            "target_key": "idx_factor_pro.maintain",
-            "display_name": "指数技术因子更新",
+            "target_key": target_key,
+            "display_name": "源站就绪数据集错误定时触发",
             "schedule_type": "cron",
             "cron_expr": "0 19 * * 1-5",
             "timezone": "Asia/Shanghai",
@@ -106,10 +108,8 @@ def test_ops_schedule_create_allows_idx_factor_pro_without_static_trade_date(app
         },
     )
 
-    assert response.status_code == 200
-    assert response.json()["target_key"] == "idx_factor_pro.maintain"
-    assert response.json()["target_display_name"] == "指数技术因子(专业版)"
-    assert response.json()["params_json"] == {}
+    assert response.status_code == 422
+    assert response.json()["code"] == "trigger_mode.forbidden"
 
 
 def test_ops_schedule_create_allows_reference_data_refresh_without_static_date(app_client, user_factory) -> None:
@@ -925,18 +925,13 @@ def test_ops_schedule_probe_mode_rejects_workflow_target(app_client, user_factor
             "cron_expr": "0 19 * * 1-5",
             "timezone": "Asia/Shanghai",
             "probe_config": {
-                "source_key": "tushare",
-                "window_start": "15:30",
-                "window_end": "17:00",
-                "probe_interval_seconds": 180,
-                "max_triggers_per_day": 1,
-                "workflow_dataset_keys": ["daily", "daily_basic"],
+                "condition_kind": "freshness_latest_open",
             },
         },
     )
 
     assert response.status_code == 422
-    assert response.json()["message"] == "工作流自动任务只支持普通定时触发"
+    assert response.json()["code"] == "trigger_mode.forbidden"
 
 
 def test_ops_schedule_schedule_mode_rejects_workflow_probe_config(app_client, user_factory) -> None:
@@ -956,14 +951,43 @@ def test_ops_schedule_schedule_mode_rejects_workflow_probe_config(app_client, us
             "cron_expr": "0 19 * * 1-5",
             "timezone": "Asia/Shanghai",
             "probe_config": {
-                "source_key": "tushare",
-                "workflow_dataset_keys": ["daily", "not_a_dataset"],
+                "condition_kind": "freshness_latest_open",
             },
         },
     )
 
     assert response.status_code == 422
-    assert response.json()["message"] == "工作流自动任务不支持探测配置"
+    assert response.json()["code"] == "probe_config.forbidden"
+
+
+@pytest.mark.parametrize(
+    ("probe_config", "error_type"),
+    [
+        ({"source_key": "tushare"}, "source_key.operator_forbidden"),
+        ({"workflow_dataset_keys": ["daily"]}, "workflow_dataset_keys.operator_forbidden"),
+    ],
+)
+def test_ops_schedule_rejects_operator_owned_probe_fields(app_client, user_factory, probe_config, error_type) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    token = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"}).json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "margin_detail.maintain",
+            "display_name": "禁止运营端来源字段",
+            "schedule_type": "cron",
+            "trigger_mode": "probe",
+            "cron_expr": "*/5 9 * * 1-5",
+            "timezone": "Asia/Shanghai",
+            "probe_config": probe_config,
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == error_type
 
 
 def test_ops_schedule_schedule_mode_allows_workflow_without_probe_config(app_client, user_factory, db_session) -> None:
@@ -1006,6 +1030,32 @@ def test_schedule_probe_binding_pauses_invalid_legacy_workflow_without_validatio
     session.execute.assert_called_once()
 
 
+def test_schedule_probe_binding_keeps_existing_rule_when_new_configuration_is_invalid(
+    db_session,
+    ops_schedule_factory,
+    probe_rule_factory,
+) -> None:
+    schedule = ops_schedule_factory(
+        target_key="margin_detail.maintain",
+        trigger_mode="probe",
+        probe_config_json={
+            "condition_kind": "remote_margin_detail_ready",
+            "window_start": "09:05",
+            "window_end": "09:30",
+            "probe_interval_seconds": 300,
+            "max_triggers_per_day": 1,
+        },
+        params_json={"time_input": {"mode": "point"}, "filters": {}},
+    )
+    existing = probe_rule_factory(schedule_id=schedule.id, dataset_key="margin_detail", source_key="tushare")
+
+    with pytest.raises(WebAppError) as error:
+        ScheduleProbeBindingService().sync_for_schedule(db_session, schedule=schedule, actor_user_id=None)
+
+    assert error.value.code == "probe_window.forbidden"
+    assert db_session.scalar(select(ProbeRule).where(ProbeRule.id == existing.id)) is not None
+
+
 def test_ops_schedule_remote_stk_mins_probe_mode_creates_probe_rule(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
@@ -1023,7 +1073,6 @@ def test_ops_schedule_remote_stk_mins_probe_mode_creates_probe_rule(app_client, 
             "cron_expr": "*/5 15-18 * * 1-5",
             "timezone": "Asia/Shanghai",
             "probe_config": {
-                "source_key": "tushare",
                 "window_start": "15:20",
                 "window_end": "18:30",
                 "probe_interval_seconds": 300,
@@ -1073,7 +1122,6 @@ def test_ops_schedule_remote_index_daily_probe_mode_creates_probe_rule(app_clien
             "cron_expr": "*/5 15-18 * * 1-5",
             "timezone": "Asia/Shanghai",
             "probe_config": {
-                "source_key": "tushare",
                 "window_start": "15:20",
                 "window_end": "18:30",
                 "probe_interval_seconds": 300,
@@ -1123,7 +1171,6 @@ def test_ops_schedule_remote_index_mins_probe_mode_creates_probe_rule(app_client
             "cron_expr": "*/5 15-18 * * 1-5",
             "timezone": "Asia/Shanghai",
             "probe_config": {
-                "source_key": "tushare",
                 "window_start": "15:20",
                 "window_end": "18:30",
                 "probe_interval_seconds": 300,
@@ -1171,7 +1218,6 @@ def test_ops_schedule_remote_kpl_list_probe_mode_creates_probe_rule(app_client, 
             "cron_expr": "*/30 * * * *",
             "timezone": "Asia/Shanghai",
             "probe_config": {
-                "source_key": "tushare",
                 "window_start": "08:35",
                 "window_end": "23:30",
                 "probe_interval_seconds": 1800,
@@ -1203,27 +1249,27 @@ def test_ops_schedule_remote_kpl_list_probe_mode_creates_probe_rule(app_client, 
 
 
 @pytest.mark.parametrize(
-    ("payload_patch", "expected_message"),
+    ("payload_patch", "expected_code"),
     [
         (
             {
                 "target_type": "workflow",
                 "target_key": "daily_market_close_maintenance",
             },
-            "工作流自动任务只支持普通定时触发",
+            "trigger_mode.forbidden",
         ),
         (
             {
                 "target_type": "dataset_action",
                 "target_key": "daily.maintain",
             },
-            "源站分钟行情探测只支持股票历史分钟行情维护",
+            "condition.unsupported",
         ),
         (
             {
                 "params_json": {"time_input": {"mode": "point"}, "filters": {}},
             },
-            "股票历史分钟行情 缺少必填参数：分钟周期",
+            "validation_error",
         ),
         (
             {
@@ -1232,7 +1278,7 @@ def test_ops_schedule_remote_kpl_list_probe_mode_creates_probe_rule(app_client, 
                     "filters": {"freq": ["1min"]},
                 },
             },
-            "源站分钟行情探测不能与固定维护日期混用",
+            "time_input.forbidden",
         ),
     ],
 )
@@ -1240,7 +1286,7 @@ def test_ops_schedule_remote_stk_mins_probe_mode_rejects_invalid_binding(
     app_client,
     user_factory,
     payload_patch,
-    expected_message,
+    expected_code,
 ) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
@@ -1255,7 +1301,6 @@ def test_ops_schedule_remote_stk_mins_probe_mode_rejects_invalid_binding(
         "cron_expr": "*/5 15-18 * * 1-5",
         "timezone": "Asia/Shanghai",
         "probe_config": {
-            "source_key": "tushare",
             "window_start": "15:20",
             "window_end": "18:30",
             "probe_interval_seconds": 300,
@@ -1276,31 +1321,31 @@ def test_ops_schedule_remote_stk_mins_probe_mode_rejects_invalid_binding(
     )
 
     assert response.status_code == 422
-    assert response.json()["message"] == expected_message
+    assert response.json()["code"] == expected_code
 
 
 @pytest.mark.parametrize(
-    ("payload_patch", "expected_message"),
+    ("payload_patch", "expected_code"),
     [
         (
             {
                 "target_type": "workflow",
                 "target_key": "daily_market_close_maintenance",
             },
-            "工作流自动任务只支持普通定时触发",
+            "trigger_mode.forbidden",
         ),
         (
             {
                 "target_type": "dataset_action",
                 "target_key": "daily.maintain",
             },
-            "源站指数日线探测只支持指数日线行情维护",
+            "condition.unsupported",
         ),
         (
             {
                 "calendar_policy": "trigger_day_point",
             },
-            "触发日单日策略只支持新闻快讯和新闻通讯",
+            "validation_error",
         ),
         (
             {
@@ -1309,7 +1354,7 @@ def test_ops_schedule_remote_stk_mins_probe_mode_rejects_invalid_binding(
                     "filters": {},
                 },
             },
-            "源站指数日线探测不能与固定维护日期混用",
+            "time_input.forbidden",
         ),
         (
             {
@@ -1318,7 +1363,7 @@ def test_ops_schedule_remote_stk_mins_probe_mode_rejects_invalid_binding(
                     "filters": {},
                 },
             },
-            "源站指数日线探测不能与固定维护日期混用",
+            "time_input.forbidden",
         ),
     ],
 )
@@ -1326,7 +1371,7 @@ def test_ops_schedule_remote_index_daily_probe_mode_rejects_invalid_binding(
     app_client,
     user_factory,
     payload_patch,
-    expected_message,
+    expected_code,
 ) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
@@ -1341,7 +1386,6 @@ def test_ops_schedule_remote_index_daily_probe_mode_rejects_invalid_binding(
         "cron_expr": "*/5 15-18 * * 1-5",
         "timezone": "Asia/Shanghai",
         "probe_config": {
-            "source_key": "tushare",
             "window_start": "15:20",
             "window_end": "18:30",
             "probe_interval_seconds": 300,
@@ -1362,7 +1406,7 @@ def test_ops_schedule_remote_index_daily_probe_mode_rejects_invalid_binding(
     )
 
     assert response.status_code == 422
-    assert response.json()["message"] == expected_message
+    assert response.json()["code"] == expected_code
 
 
 def test_ops_schedule_remote_idx_factor_pro_probe_mode_creates_empty_filter_rule(app_client, user_factory) -> None:
@@ -1381,7 +1425,6 @@ def test_ops_schedule_remote_idx_factor_pro_probe_mode_creates_empty_filter_rule
             "cron_expr": "*/5 15-18 * * 1-5",
             "timezone": "Asia/Shanghai",
             "probe_config": {
-                "source_key": "tushare",
                 "window_start": "15:20",
                 "window_end": "18:30",
                 "probe_interval_seconds": 300,
@@ -1407,30 +1450,30 @@ def test_ops_schedule_remote_idx_factor_pro_probe_mode_creates_empty_filter_rule
 
 
 @pytest.mark.parametrize(
-    ("payload_patch", "expected_message"),
+    ("payload_patch", "expected_code"),
     [
-        ({"target_key": "index_daily.maintain"}, "源站指数技术因子探测只支持指数技术因子（专业版）维护"),
+        ({"target_key": "index_daily.maintain"}, "condition.unsupported"),
         (
             {"target_type": "workflow", "target_key": "daily_market_close_maintenance"},
-            "工作流自动任务只支持普通定时触发",
+            "trigger_mode.forbidden",
         ),
-        ({"trigger_mode": "schedule"}, "源站指数技术因子探测只支持探测触发或定时 + 探测兜底"),
-        ({"calendar_policy": "monthly_last_day"}, "每月最后一天策略只支持自然月末数据集"),
+        ({"trigger_mode": "schedule"}, "trigger_mode.forbidden"),
+        ({"calendar_policy": "monthly_last_day"}, "validation_error"),
         (
             {"params_json": {"time_input": {"mode": "point"}, "filters": {"ts_code": "000001.SH"}}},
-            "源站指数技术因子探测不支持维护参数",
+            "filters.forbidden",
         ),
         (
             {"params_json": {"time_input": {"mode": "range", "start_date": "2026-05-01", "end_date": "2026-05-29"}, "filters": {}}},
-            "源站指数技术因子探测不能与固定维护日期混用",
+            "time_input.forbidden",
         ),
         (
             {"probe_config": {"condition_kind": "remote_idx_factor_pro_ready", "probe_interval_seconds": 299}},
-            "源站指数技术因子探测最小间隔为 300 秒",
+            "probe_config.invalid",
         ),
         (
             {"probe_config": {"condition_kind": "remote_idx_factor_pro_ready", "max_triggers_per_day": 2}},
-            "源站指数技术因子探测每日最多触发 1 次",
+            "probe_config.forbidden",
         ),
     ],
 )
@@ -1438,7 +1481,7 @@ def test_ops_schedule_remote_idx_factor_pro_probe_mode_rejects_invalid_binding(
     app_client,
     user_factory,
     payload_patch,
-    expected_message,
+    expected_code,
 ) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
@@ -1452,7 +1495,6 @@ def test_ops_schedule_remote_idx_factor_pro_probe_mode_rejects_invalid_binding(
         "cron_expr": "*/5 15-18 * * 1-5",
         "timezone": "Asia/Shanghai",
         "probe_config": {
-            "source_key": "tushare",
             "window_start": "15:20",
             "window_end": "18:30",
             "probe_interval_seconds": 300,
@@ -1470,19 +1512,19 @@ def test_ops_schedule_remote_idx_factor_pro_probe_mode_rejects_invalid_binding(
     )
 
     assert response.status_code == 422
-    assert response.json()["message"] == expected_message
+    assert response.json()["code"] == expected_code
 
 
 @pytest.mark.parametrize(
-    ("payload_patch", "expected_message"),
+    ("payload_patch", "expected_code"),
     [
         (
             {"target_key": "index_daily.maintain"},
-            "源站指数分钟行情探测只支持指数历史分钟行情维护",
+            "condition.unsupported",
         ),
         (
             {"probe_config": {"condition_kind": "remote_index_mins_ready", "probe_interval_seconds": 299}},
-            "源站指数分钟行情探测最小间隔为 300 秒",
+            "probe_config.invalid",
         ),
         (
             {
@@ -1491,7 +1533,7 @@ def test_ops_schedule_remote_idx_factor_pro_probe_mode_rejects_invalid_binding(
                     "filters": {"freq": ["1min", "5min", "15min", "30min"]},
                 },
             },
-            "源站指数分钟行情探测必须完整配置 1min/5min/15min/30min/60min",
+            "filters.incomplete",
         ),
         (
             {
@@ -1500,7 +1542,7 @@ def test_ops_schedule_remote_idx_factor_pro_probe_mode_rejects_invalid_binding(
                     "filters": {"freq": ["1min", "5min", "15min", "30min", "60min"]},
                 },
             },
-            "源站指数分钟行情探测不能与固定维护日期混用",
+            "time_input.forbidden",
         ),
     ],
 )
@@ -1508,7 +1550,7 @@ def test_ops_schedule_remote_index_mins_probe_mode_rejects_invalid_binding(
     app_client,
     user_factory,
     payload_patch,
-    expected_message,
+    expected_code,
 ) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
@@ -1522,7 +1564,6 @@ def test_ops_schedule_remote_index_mins_probe_mode_rejects_invalid_binding(
         "cron_expr": "*/5 15-18 * * 1-5",
         "timezone": "Asia/Shanghai",
         "probe_config": {
-            "source_key": "tushare",
             "window_start": "15:20",
             "window_end": "18:30",
             "probe_interval_seconds": 300,
@@ -1543,7 +1584,7 @@ def test_ops_schedule_remote_index_mins_probe_mode_rejects_invalid_binding(
     )
 
     assert response.status_code == 422
-    assert response.json()["message"] == expected_message
+    assert response.json()["code"] == expected_code
 
 
 def test_ops_schedule_index_mins_rejects_local_freshness_probe(app_client, user_factory) -> None:
@@ -1574,7 +1615,7 @@ def test_ops_schedule_index_mins_rejects_local_freshness_probe(app_client, user_
     )
 
     assert response.status_code == 422
-    assert response.json()["message"] == "指数历史分钟行情必须使用“源站已有指数分钟行情”探测条件"
+    assert response.json()["code"] == "condition.unsupported"
 
 
 def test_ops_schedule_margin_rejects_local_freshness_probe(app_client, user_factory) -> None:
@@ -1605,22 +1646,22 @@ def test_ops_schedule_margin_rejects_local_freshness_probe(app_client, user_fact
     )
 
     assert response.status_code == 422
-    assert response.json()["message"] == "融资融券汇总必须使用“源站已完整发布融资融券汇总”探测条件"
+    assert response.json()["code"] == "condition.unsupported"
 
 
 @pytest.mark.parametrize(
-    ("payload_patch", "expected_message"),
+    ("payload_patch", "expected_code"),
     [
         (
             {"trigger_mode": "schedule_probe_fallback"},
-            "源站开盘啦榜单探测只支持探测触发",
+            "trigger_mode.forbidden",
         ),
         (
             {
                 "target_type": "workflow",
                 "target_key": "daily_market_close_maintenance",
             },
-            "工作流自动任务只支持普通定时触发",
+            "trigger_mode.forbidden",
         ),
         (
             {
@@ -1629,7 +1670,7 @@ def test_ops_schedule_margin_rejects_local_freshness_probe(app_client, user_fact
                     "filters": {},
                 },
             },
-            "源站开盘啦榜单探测不能与固定维护日期混用",
+            "time_input.forbidden",
         ),
     ],
 )
@@ -1637,7 +1678,7 @@ def test_ops_schedule_remote_kpl_list_probe_mode_rejects_invalid_binding(
     app_client,
     user_factory,
     payload_patch,
-    expected_message,
+    expected_code,
 ) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
@@ -1652,7 +1693,6 @@ def test_ops_schedule_remote_kpl_list_probe_mode_rejects_invalid_binding(
         "cron_expr": "*/30 * * * *",
         "timezone": "Asia/Shanghai",
         "probe_config": {
-            "source_key": "tushare",
             "window_start": "08:35",
             "window_end": "23:30",
             "probe_interval_seconds": 1800,
@@ -1673,32 +1713,32 @@ def test_ops_schedule_remote_kpl_list_probe_mode_rejects_invalid_binding(
     )
 
     assert response.status_code == 422
-    assert response.json()["message"] == expected_message
+    assert response.json()["code"] == expected_code
 
 
 @pytest.mark.parametrize(
-    ("payload_patch", "expected_message"),
+    ("payload_patch", "expected_code"),
     [
-        ({"trigger_mode": "schedule_probe_fallback"}, "源站融资融券汇总探测只支持探测触发"),
+        ({"trigger_mode": "schedule_probe_fallback"}, "trigger_mode.forbidden"),
         (
             {"target_type": "workflow", "target_key": "daily_market_close_maintenance"},
-            "工作流自动任务只支持普通定时触发",
+            "trigger_mode.forbidden",
         ),
         (
             {"params_json": {"time_input": {"mode": "point"}, "filters": {"exchange_id": ["SSE"]}}},
-            "源站融资融券汇总探测不支持维护参数",
+            "filters.forbidden",
         ),
         (
             {"probe_config": {"window_start": "09:05", "window_end": "09:30", "probe_interval_seconds": 300, "max_triggers_per_day": 1, "condition_kind": "remote_margin_ready"}},
-            "源站融资融券汇总探测窗口必须为 09:00~09:30",
+            "probe_window.forbidden",
         ),
         (
             {"probe_config": {"window_start": "09:00", "window_end": "09:30", "probe_interval_seconds": 600, "max_triggers_per_day": 1, "condition_kind": "remote_margin_ready"}},
-            "源站融资融券汇总探测间隔必须为 300 秒",
+            "probe_config.forbidden",
         ),
         (
             {"probe_config": {"window_start": "09:00", "window_end": "09:30", "probe_interval_seconds": 300, "max_triggers_per_day": 2, "condition_kind": "remote_margin_ready"}},
-            "源站融资融券汇总探测每日最多触发 1 次",
+            "probe_config.forbidden",
         ),
     ],
 )
@@ -1706,7 +1746,7 @@ def test_ops_schedule_remote_margin_probe_rejects_invalid_binding(
     app_client,
     user_factory,
     payload_patch,
-    expected_message,
+    expected_code,
 ) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
@@ -1720,7 +1760,6 @@ def test_ops_schedule_remote_margin_probe_rejects_invalid_binding(
         "cron_expr": "*/5 9 * * 1-5",
         "timezone": "Asia/Shanghai",
         "probe_config": {
-            "source_key": "tushare",
             "window_start": "09:00",
             "window_end": "09:30",
             "probe_interval_seconds": 300,
@@ -1738,7 +1777,7 @@ def test_ops_schedule_remote_margin_probe_rejects_invalid_binding(
     )
 
     assert response.status_code == 422
-    assert response.json()["message"] == expected_message
+    assert response.json()["code"] == expected_code
 
 
 def test_ops_schedule_remote_margin_probe_creates_fixed_probe_rule(app_client, user_factory, db_session) -> None:
@@ -1758,7 +1797,6 @@ def test_ops_schedule_remote_margin_probe_creates_fixed_probe_rule(app_client, u
             "cron_expr": "*/5 9 * * 1-5",
             "timezone": "Asia/Shanghai",
             "probe_config": {
-                "source_key": "tushare",
                 "window_start": "09:00",
                 "window_end": "09:30",
                 "probe_interval_seconds": 300,
@@ -1779,14 +1817,22 @@ def test_ops_schedule_remote_margin_probe_creates_fixed_probe_rule(app_client, u
     assert rules[0].probe_interval_seconds == 300
 
 
-def test_schedule_probe_binding_rejects_remote_index_daily_probe_with_calendar_policy() -> None:
+def test_schedule_automation_capability_rejects_remote_index_daily_probe_with_calendar_policy() -> None:
     schedule = SimpleNamespace(
         trigger_mode="probe",
         target_type="dataset_action",
         target_key="index_daily.maintain",
         calendar_policy="monthly_last_day",
         params_json={"time_input": {"mode": "point"}, "filters": {}},
+        probe_config_json={
+            "window_start": "15:20",
+            "window_end": "18:30",
+            "probe_interval_seconds": 300,
+            "max_triggers_per_day": 1,
+            "condition_kind": "remote_index_daily_ready",
+        },
+        timezone="Asia/Shanghai",
     )
 
-    with pytest.raises(WebAppError, match="源站指数日线探测不能与日期策略混用"):
-        ScheduleProbeBindingService._validate_remote_index_daily_schedule(schedule=schedule)
+    with pytest.raises(WebAppError, match="日期策略混用"):
+        ScheduleAutomationCapabilityResolver().validate_schedule(schedule)

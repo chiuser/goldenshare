@@ -4,12 +4,10 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session, aliased
 
 from src.app.models.app_user import AppUser
-from src.foundation.datasets.source_registry import get_source_display_name
 from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.action_catalog import get_manual_action_key_for_target, get_target_display_name
 from src.app.exceptions import WebAppError
-from src.ops.dataset_labels import get_dataset_display_name
 from src.ops.schemas.schedule import (
     ScheduleDetailResponse,
     ScheduleListItem,
@@ -164,21 +162,15 @@ class ScheduleQueryService:
         if not probe_config_json:
             return None
         payload = dict(probe_config_json)
-        source_display_name = get_source_display_name(payload.get("source_key") or "all")
-        if source_display_name is None:
-            raise WebAppError(status_code=422, code="validation_error", message="探测源缺少显示名称")
-        payload["source_display_name"] = source_display_name
-        payload["workflow_dataset_targets"] = [
-            _probe_dataset_target(dataset_key)
-            for dataset_key in _normalize_dataset_keys(payload.get("workflow_dataset_keys"))
-        ]
-        return payload
-
-
-def _normalize_dataset_keys(value: object) -> list[str]:
-    if not isinstance(value, list):
-        return []
-    return [str(item).strip() for item in value if str(item).strip()]
+        return {
+            "source": "system_default",
+            "source_label": "系统默认来源",
+            "window_start": payload.get("window_start"),
+            "window_end": payload.get("window_end"),
+            "probe_interval_seconds": payload.get("probe_interval_seconds") or 300,
+            "max_triggers_per_day": payload.get("max_triggers_per_day") or 1,
+            "condition_kind": payload.get("condition_kind") or "freshness_latest_open",
+        }
 
 
 def _require_target_display_name(target_type: str, target_key: str) -> str:
@@ -186,13 +178,3 @@ def _require_target_display_name(target_type: str, target_key: str) -> str:
     if display_name is None:
         raise WebAppError(status_code=422, code="validation_error", message="自动任务目标缺少显示名称")
     return display_name
-
-
-def _probe_dataset_target(dataset_key: str) -> dict[str, str]:
-    display_name = get_dataset_display_name(dataset_key)
-    if display_name is None:
-        raise WebAppError(status_code=422, code="validation_error", message="探测数据集缺少显示名称")
-    return {
-        "dataset_key": dataset_key,
-        "dataset_display_name": display_name,
-    }

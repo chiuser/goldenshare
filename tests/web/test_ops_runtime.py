@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
+import pytest
 from sqlalchemy import select
 
 from src.foundation.ingestion import DatasetActionRequest, DatasetTimeInput
@@ -569,6 +570,49 @@ def test_task_run_dispatcher_runs_daily_market_close_workflow_with_bak_basic_ste
     assert task_run.unit_total == len(WORKFLOW_DEFINITION_REGISTRY["daily_market_close_maintenance"].steps)
     assert task_run.unit_done == len(WORKFLOW_DEFINITION_REGISTRY["daily_market_close_maintenance"].steps)
     assert task_run.progress_percent == 100
+
+
+@pytest.mark.parametrize("workflow_key", ["index_extension_maintenance", "index_kline_maintenance_pipeline"])
+def test_task_run_dispatcher_runs_index_daily_inside_workflow_without_probe_rule(
+    db_session,
+    task_run_factory,
+    monkeypatch,
+    workflow_key: str,
+) -> None:
+    dispatched_dataset_keys: list[str] = []
+
+    def fake_build_plan(self, request):  # type: ignore[no-untyped-def]
+        return SimpleNamespace(dataset_key=request.dataset_key, run_profile="range_rebuild")
+
+    def fake_run_dataset_action_plan(self, session, task_run, action_request, plan):  # type: ignore[no-untyped-def]
+        dispatched_dataset_keys.append(action_request.dataset_key)
+        return 1, 1, 0, {}, {}, f"{action_request.dataset_key}:ok"
+
+    monkeypatch.setattr("src.ops.runtime.task_run_dispatcher.DatasetActionResolver.build_plan", fake_build_plan)
+    monkeypatch.setattr(TaskRunDispatcher, "_run_dataset_action_plan", fake_run_dataset_action_plan)
+    monkeypatch.setattr(TaskRunDispatcher, "_run_maintenance_action", lambda *args: (0, 0, "maintenance:ok"))
+
+    task_run = task_run_factory(
+        task_type="workflow",
+        resource_key=None,
+        title="指数维护工作流",
+        status="running",
+        time_input_json={"mode": "range", "start_date": "2026-04-01", "end_date": "2026-04-30"},
+        request_payload_json={
+            "target_type": "workflow",
+            "target_key": workflow_key,
+            "time_input": {"mode": "range", "start_date": "2026-04-01", "end_date": "2026-04-30"},
+            "filters": {},
+        },
+    )
+
+    outcome = TaskRunDispatcher().dispatch(db_session, task_run)
+
+    assert outcome.status == "success"
+    assert dispatched_dataset_keys[0] == "index_daily"
+    assert len(dispatched_dataset_keys) == sum(
+        step.dataset_key is not None for step in WORKFLOW_DEFINITION_REGISTRY[workflow_key].steps
+    )
 
 
 def test_worker_claims_queued_task_run_and_marks_success(db_session, task_run_factory) -> None:

@@ -489,6 +489,8 @@ def probe_rule_factory(db_session: Session) -> Callable[..., ProbeRule]:
         timezone_name: str = "Asia/Shanghai",
         created_by_user_id: int | None = None,
         updated_by_user_id: int | None = None,
+        workflow_key: str | None = None,
+        step_key: str | None = None,
     ) -> ProbeRule:
         next_id = (db_session.scalar(select(func.max(ProbeRule.id))) or 0) + 1
         rule = ProbeRule(
@@ -507,6 +509,8 @@ def probe_rule_factory(db_session: Session) -> Callable[..., ProbeRule]:
             timezone_name=timezone_name,
             created_by_user_id=created_by_user_id,
             updated_by_user_id=updated_by_user_id,
+            workflow_key=workflow_key,
+            step_key=step_key,
         )
         db_session.add(rule)
         db_session.commit()

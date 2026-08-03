@@ -11,7 +11,7 @@
 
 1. 已新增 `remote_index_daily_ready` 探测条件，只允许绑定 `index_daily.maintain`。
 2. 已新增 `IndexDailyRemoteReadinessProbeService`，探测参数经 `DatasetActionResolver -> _index_daily_params()` 生成，再追加 `limit=1/offset=0` 和最小字段。
-3. 已接入 Schedule API、Direct Probe API、Probe Runtime 和自动任务页面。
+3. 已接入 Schedule API、Probe Runtime 和自动任务页面；ProbeRule 仅由 schedule binding 生成，Probe API 只读。
 4. 已补后端与前端定向测试；生产环境仍需创建自动任务后观察真实探测记录与 TaskRun 触发。
 5. 2026-06-25 生产验收发现两个收口问题并已纳入实现口径：探测日志必须绑定稳定 `schedule_id`，避免 ProbeRule 重建后详情页丢历史；`schedule_probe_fallback` 当天已有 probe 发起的有效 TaskRun 时不得重复创建兜底 scheduled TaskRun。
 
@@ -107,7 +107,6 @@ StkMinsRemoteReadinessProbeService
 ProbeRule
 OpsSchedule
 ScheduleProbeConfig
-OpsProbeCommandService
 DatasetActionResolver
 build_index_daily_units
 _index_daily_params
@@ -197,14 +196,9 @@ docs/sources/tushare/指数专题/0095_指数日线行情.md
 | `src/ops/services/operations_probe_runtime_service.py:173` | 只有 STK 条件会注入 `latest_open_date` | 改成远程源站条件都注入最新开市日 |
 | `src/ops/services/operations_probe_runtime_service.py:278` | 缺 `latest_open_date` 的错误文案写死为分钟行情 | 改为通用文案或按 condition label 传入 |
 
-### 4.4 Direct Probe API 链路
+### 4.4 ProbeRule 写入边界
 
-| 文件 | 当前事实 | 必改点 |
-| --- | --- | --- |
-| `src/ops/services/probe_service.py:47` | 创建 ProbeRule 时会校验 remote condition binding | 需要纳入 `remote_index_daily_ready` |
-| `src/ops/services/probe_service.py:135` | 更新 ProbeRule 时也会校验 remote condition binding | 需要纳入 `remote_index_daily_ready` |
-| `src/ops/services/probe_service.py:248` | 非 `remote_stk_mins_ready` 直接 return | 新条件不能漏过校验 |
-| `src/ops/services/probe_service.py:257` | direct API 只检查 `time_input.trade_date` | 新条件要拒绝固定日期和 range |
+ProbeRule 不提供 direct CRUD。`remote_index_daily_ready` 的 target、日期、filters 和来源校验统一由 `ScheduleAutomationCapabilityResolver` 和 `ScheduleProbeBindingService` 完成；读取接口只用于规则和运行日志观测。
 
 ### 4.5 现有 STK 远程探测服务
 
@@ -413,40 +407,9 @@ def _has_fixed_time_input(params_json: dict) -> bool:
 
 说明：STK 现有逻辑可以继续只检查 `trade_date`，但为了避免以后同类问题，建议远程探测统一用 `_has_fixed_time_input()`。这不是兼容逻辑，是把源站探测的日期所有权收口到 probe runtime。
 
-### 5.4 Direct Probe API 校验
+### 5.4 自动任务 binding 校验
 
-修改：
-
-```text
-src/ops/services/probe_service.py
-```
-
-当前 `_validate_remote_condition_binding()` 只认识 `remote_stk_mins_ready`。如果直接通过 `/api/v1/ops/probes` 创建 `remote_index_daily_ready`，会绕过绑定校验，直到 runtime 才失败。因此需要纳入 direct Probe API 校验。
-
-设计：
-
-```python
-if condition_kind == STK_MINS_REMOTE_READY_CONDITION:
-    return _validate_remote_stk_mins_binding(...)
-if condition_kind == INDEX_DAILY_REMOTE_READY_CONDITION:
-    return _validate_remote_index_daily_binding(...)
-return
-```
-
-`_validate_remote_index_daily_binding()` 校验：
-
-1. `dataset_key == "index_daily"`。
-2. `action_type == "dataset_action"`。
-3. `action_key == "index_daily.maintain"`。
-4. `request.time_input.mode` 只能为空或 `point`。
-5. `request.time_input` 不允许有 `trade_date/start_date/end_date`。
-
-错误文案：
-
-```text
-源站指数日线探测只支持指数日线行情维护
-源站指数日线探测不能与固定维护日期混用
-```
+`ScheduleAutomationCapabilityResolver` 根据 `dataset_action + index_daily.maintain` 返回唯一 `remote_index_daily_ready` capability。`ScheduleProbeBindingService` 必须先校验，再删除旧 rule 并生成新的 system-default ProbeRule；任何 direct ProbeRule 写请求均不可用。
 
 ### 5.5 Runtime 分发与入队
 
@@ -668,7 +631,7 @@ frontend/src/pages/ops-v21-task-auto-tab.test.tsx
 | --- | --- | --- |
 | M1 | `src/ops/services/index_daily_remote_probe_service.py` | 新增指数日线专用探测服务 |
 | M2 | `src/ops/services/schedule_probe_binding_service.py` | 增加 condition、绑定校验、filters 继承 |
-| M3 | `src/ops/services/probe_service.py` | Direct Probe API 增加新 condition 校验 |
+| M3 | `src/ops/services/schedule_automation_capability_resolver.py` | 自动任务 capability 集中校验并生成受控 binding |
 | M4 | `src/ops/services/operations_probe_runtime_service.py` | 增加 runtime 分发和 latest_open_date 注入 |
 | M5 | `frontend/src/pages/ops-v21-task-auto-tab.tsx` | 增加选项、说明、保存前校验与重置逻辑 |
 | M6 | `docs/ops/ops-api-reference-v1.md` | 更新 condition_kind 文档与示例 |
@@ -679,7 +642,7 @@ frontend/src/pages/ops-v21-task-auto-tab.test.tsx
 后端：
 
 ```bash
-uv run ruff check src/ops/services/index_daily_remote_probe_service.py src/ops/services/schedule_probe_binding_service.py src/ops/services/probe_service.py src/ops/services/operations_probe_runtime_service.py tests/web/test_ops_schedule_api.py tests/web/test_ops_probe_api.py
+uv run ruff check src/ops/services/index_daily_remote_probe_service.py src/ops/services/schedule_automation_capability_resolver.py src/ops/services/schedule_probe_binding_service.py src/ops/services/operations_probe_runtime_service.py tests/web/test_ops_schedule_api.py tests/web/test_ops_probe_api.py
 uv run pytest -q tests/web/test_ops_schedule_api.py tests/web/test_ops_probe_api.py
 ```
 
@@ -712,7 +675,7 @@ uv run python scripts/check_docs_integrity.py
 本地验证结果：
 
 ```text
-uv run ruff check src/ops/services/index_daily_remote_probe_service.py src/ops/services/operations_probe_runtime_service.py src/ops/services/probe_service.py src/ops/services/schedule_probe_binding_service.py tests/web/test_ops_probe_api.py tests/web/test_ops_schedule_api.py
+uv run ruff check src/ops/services/index_daily_remote_probe_service.py src/ops/services/operations_probe_runtime_service.py src/ops/services/schedule_automation_capability_resolver.py src/ops/services/schedule_probe_binding_service.py tests/web/test_ops_probe_api.py tests/web/test_ops_schedule_api.py
 All checks passed.
 
 uv run pytest -q tests/web/test_ops_probe_api.py tests/web/test_ops_schedule_api.py
@@ -730,7 +693,7 @@ npm --prefix frontend test -- --run src/pages/ops-v21-task-auto-tab.test.tsx
 | Ops 自己拼参数 | 探测服务必须经 `DatasetActionResolver`，测试断言 connector 参数来自 resolver |
 | 源站只有部分指数更新就误触发 | 默认样本 5 个必须全部命中 |
 | 非交易日误触发 | 交易日历缺失或非开市直接 miss |
-| Direct Probe API 绕过 Schedule 校验 | `OpsProbeCommandService` 同步增加新 condition 校验 |
+| ProbeRule 写入绕过自动任务校验 | 删除 Probe API 写端点；仅 binding 可生成 rule |
 | 前端切换维护对象后保留不兼容条件 | 通用 helper 校验当前 action 与 condition，自动重置 |
 
 ## 13. 不做事项

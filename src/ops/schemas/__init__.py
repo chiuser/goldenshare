@@ -23,14 +23,11 @@ from src.ops.schemas.manual_action import (
 )
 from src.ops.schemas.overview import OpsOverviewKpis, OpsOverviewResponse, OpsOverviewSummaryResponse
 from src.ops.schemas.probe import (
-    CreateProbeRuleRequest,
-    DeleteProbeRuleResponse as DeleteProbeRuleResponse,
     ProbeRuleDetailResponse,
     ProbeRuleListItem,
     ProbeRuleListResponse,
     ProbeRunLogItem,
     ProbeRunLogListResponse,
-    UpdateProbeRuleRequest,
 )
 from src.ops.schemas.resolution_release import (
     CreateResolutionReleaseRequest,
@@ -104,14 +101,12 @@ from src.ops.schemas.task_run import (
 )
 
 __all__ = [
-    "CreateProbeRuleRequest",
     "CreateReviewActiveIndexRequest",
     "CreateResolutionReleaseRequest",
     "CreateScheduleRequest",
     "CreateStdCleansingRuleRequest",
     "CreateStdMappingRuleRequest",
     "CreateTaskRunRequest",
-    "DeleteProbeRuleResponse",
     "DeleteScheduleResponse",
     "DatasetFreshnessItem",
     "DatasetCardGroup",
@@ -189,7 +184,6 @@ __all__ = [
     "TaskRunTimeInput",
     "TaskRunTimeScope",
     "TaskRunViewResponse",
-    "UpdateProbeRuleRequest",
     "UpdateResolutionReleaseStatusRequest",
     "UpdateScheduleRequest",
     "UpdateStdCleansingRuleRequest",

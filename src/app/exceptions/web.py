@@ -26,6 +26,15 @@ def _error_payload(request: Request, *, code: str, message: str) -> dict[str, st
     }
 
 
+def _operator_forbidden_validation_error(exc: RequestValidationError) -> tuple[str, str] | None:
+    """Keep explicitly registered operator-owned field errors observable to API clients."""
+    for error in exc.errors():
+        code = str(error.get("type") or "")
+        if code.endswith(".operator_forbidden"):
+            return code, str(error.get("msg") or "运营端不能提交该字段")
+    return None
+
+
 def install_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(WebAppError)
     async def handle_web_app_error(request: Request, exc: WebAppError) -> JSONResponse:
@@ -36,9 +45,14 @@ def install_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def handle_validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+        operator_error = _operator_forbidden_validation_error(exc)
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content=_error_payload(request, code="validation_error", message=str(exc.errors())),
+            content=_error_payload(
+                request,
+                code=operator_error[0] if operator_error else "validation_error",
+                message=operator_error[1] if operator_error else str(exc.errors()),
+            ),
         )
 
     @app.exception_handler(StarletteHTTPException)

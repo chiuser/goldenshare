@@ -28,7 +28,6 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     actions = {item["key"]: item for item in payload["actions"]}
     workflow_keys = {item["key"] for item in payload["workflows"]}
     workflows = {item["key"]: item for item in payload["workflows"]}
-    sources = {item["source_key"]: item for item in payload["sources"]}
 
     assert "daily.maintain" in actions
     assert "dc_hot.maintain" in actions
@@ -66,9 +65,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
         "start_date",
         "end_date",
     ]
-    assert sources["tushare"]["display_name"] == "Tushare"
-    assert sources["biying"]["display_name"] == "Biying"
-    assert sources["all"]["display_name"] == "全部来源"
+    assert "sources" not in payload
 
     daily = actions["daily.maintain"]
     assert daily["action_type"] == "dataset_action"
@@ -243,7 +240,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
             {
                 "kind": "remote_margin_detail_ready",
                 "label": "源站已完整发布融资融券交易明细",
-                "description": "确认上一交易日三个市场明细完整后创建全市场单日维护任务。",
+                "description": "确认三个市场代表证券均已返回上一开市日数据后，创建全市场单日维护任务。",
                 "allowed_trigger_modes": ["probe"],
                 "calendar_policy": "forbidden",
                 "time_input": "forbidden",

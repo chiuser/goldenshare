@@ -1,6 +1,6 @@
 # Ops 自动任务能力契约收敛方案 v1
 
-状态：P1–P2 已完成；P3–P4 待开发
+状态：P1–P3 已完成；P4 待开发
 日期：2026-08-03
 适用范围：`src/ops/**`、`frontend/src/pages/ops-v21-task-auto-tab.tsx`、`GET /api/v1/ops/catalog`。
 配套 LLD：[Ops 自动任务能力契约 LLD v1](/Users/congming/github/goldenshare/docs/ops/ops-automation-capability-contract-lld-v1.md)。
@@ -172,9 +172,11 @@ resolve(target_type, target_key) -> AutomationCapability | null
 | --- | --- | --- |
 | P1（已完成） | capability 类型、resolver、workflow probe 旧字段/路径清理 | 81 个目标可解析；workflow 仅 schedule；7 条规则逐项断言 |
 | P2（已完成） | Catalog API 的只读 capability 投影、前端 API 类型 | 所有目标字段完整；API 契约测试通过 |
-| P3 | 请求 schema、binding/runtime 收口、前端删除白名单 | `source_key` 422；workflow probe 422；workflow 内 `index_daily` 直接执行回归；直接绕过 422 |
+| P3（已完成） | 请求 schema、binding/runtime 收口、前端删除白名单与旧 ProbeRule 写链 | `source_key` 422；workflow probe 422；workflow 内 `index_daily` 直接执行回归；直接绕过 422；Probe API 只读 |
 | P4 | 只读预检与发布验证 | 28 schedule / 6 ProbeRule 零 mismatch；无写入、无 TaskRun |
 
 `source_key` 的拒绝与来源控件删除不得拆入 P2：它同时涉及 request schema、binding 持久化语义和自动任务页。P2 只先发布向后兼容的只读 capability 字段；P3 再以一个可运行闭环删除可写来源和前端白名单。这样任何已提交阶段都不会出现“页面仍提交 source、API 已拒绝”的断链。
+
+P3 实现补充：旧 `/ops/probes` 的规则 CRUD 已删除，仅保留规则和运行日志的只读查询。这样 `ProbeRule.source_key`、condition、on-success action 只能由 `ScheduleProbeBindingService` 从已验证 intent 派生，不能通过遗留 direct API 绕过自动任务 capability。
 
 开发开始前必须按 LLD 的追溯账本逐条映射实现、正反测试和浏览器验证；任一硬约束没有落点时不得进入 P4。

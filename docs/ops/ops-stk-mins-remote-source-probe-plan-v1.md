@@ -517,9 +517,9 @@ frontend/src/pages/ops-v21-task-auto-tab.tsx
 3. `src/ops/services/operations_probe_runtime_service.py`
    - 运行时支持 `remote_stk_mins_ready`。
    - 探测命中后，用 payload 中的 `latest_open_date` 创建正式 `stk_mins.maintain` TaskRun。
-4. `src/ops/services/probe_service.py`
-   - 直接 Probe API 创建/更新规则时，同样禁止把 `remote_stk_mins_ready` 绑定到非 `stk_mins.maintain`。
-   - 校验 `freq` 必填、禁止固定 `trade_date`。
+4. `src/ops/services/schedule_automation_capability_resolver.py`
+   - `remote_stk_mins_ready` 的目标、`freq` 和日期边界由自动任务 capability 集中校验。
+   - ProbeRule 只由 schedule binding 生成，Probe API 不提供规则创建或更新。
 5. `frontend/src/pages/ops-v21-task-auto-tab.tsx`
    - 仅 `stk_mins.maintain` 自动任务展示“源站已有分钟行情”。
    - 详情页展示探测条件中文名。

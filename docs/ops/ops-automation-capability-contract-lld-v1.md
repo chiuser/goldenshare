@@ -1,6 +1,6 @@
 # Ops 自动任务能力契约 LLD v1
 
-状态：P1–P2 已完成；P3–P4 待开发
+状态：P1–P3 已完成；P4 待开发
 日期：2026-08-03
 上位方案：[Ops 自动任务能力契约收敛方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-automation-capability-contract-plan-v1.md)。
 
@@ -14,7 +14,7 @@
 | `AC-002` | capability 按 `target_type + target_key` 解析 | resolver | 直接 `index_daily` 与 workflow 中 `index_daily` 覆盖 |
 | `AC-003` | workflow 仅 `schedule`，禁止 probe/fallback/ProbeRule/`workflow_dataset_keys` | resolver + binding + request schema | workflow probe 全部 422；无 workflow rule |
 | `AC-004` | source-ready dataset 可在 workflow 内直接执行 | workflow dispatcher | 两个现有指数 workflow 不建 rule，步骤回归通过 |
-| `AC-005` | probe 来源为系统默认，不可编辑 | request schema + binding + Catalog | 无 source Select；提交 `source_key` 为 422 |
+| `AC-005` | probe 来源为系统默认，不可编辑 | request schema + binding + Catalog | 无 source Select；提交 `source_key` 为 422；无 ProbeRule 写 API |
 | `AC-006` | 前端不再按 action key/condition 维护特殊规则 | Catalog capability | 仅靠 contract fixture 即能渲染 |
 | `AC-007` | 直接 API 不可绕过单独 dataset action 的 probe 限制 | resolver + binding | remote-only normal schedule 为 422 |
 | `AC-008` | Runtime 7 类探测及防篡改不变 | Probe Runtime | 7 类回归、detail 全市场单日回归 |
@@ -223,7 +223,7 @@ git diff --check
 
 1. P1：实现 immutable registry、resolver 和后端正反测试。
 2. P2：实现 Catalog 的只读 capability 投影、前端 API 类型与契约测试；旧页面仍使用原有字段，不能在本阶段让 request/response 断链。
-3. P3：联合实现 request schema、binding/runtime 和自动任务页：删除可写 `source_key`、`workflow_dataset_keys`、来源 Select 与 action-key/condition 特例，并以正反例验证端到端约束。
+3. P3（已完成）：联合实现 request schema、binding/runtime 和自动任务页：删除可写 `source_key`、`workflow_dataset_keys`、来源 Select 与 action-key/condition 特例；删除旧 ProbeRule CRUD，只保留只读规则/运行日志查询，并以正反例验证端到端约束。
 4. P4：实现并执行只读 preflight；仅 28 条 schedule / 6 条 ProbeRule 零 mismatch 时完成发布验证；不创建 TaskRun、不修改既有排程。
 
 禁止保留 workflow probe、`workflow_dataset_keys`、`probe_trigger_enabled`、frontend fallback 或可写 source；禁止把 dataset action 的 probe 条件用于 workflow 步骤；禁止通过 migration、seed 或批量 PATCH 重建存量 schedule/ProbeRule。

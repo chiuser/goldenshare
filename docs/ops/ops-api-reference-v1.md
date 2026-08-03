@@ -766,33 +766,9 @@ curl -H "Authorization: Bearer <TOKEN>" \
 {"total": 4, "items": [{"id": 31, "name": "日线探测", "status": "active"}]}
 ```
 
-### 5.2 POST /api/v1/ops/probes
+ProbeRule 仅由自动任务的 schedule binding 创建和维护；本接口不提供创建、修改、暂停、恢复或删除规则的写入端点。
 
-- 功能：创建 probe 规则。
-- Body：`CreateProbeRuleRequest`
-- 说明：`on_success_action_json` 如需触发数据集维护，使用 `action_type/action_key/request`，不得再写旧动作字段。
-- 返回：`ProbeRuleDetailResponse`
-- 示例：
-
-```bash
-curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
-  "http://127.0.0.1:8000/api/v1/ops/probes" \
-  -d '{
-    "name":"日线探测",
-    "dataset_key":"daily",
-    "source_key":"tushare",
-    "window_start":"15:30",
-    "window_end":"17:00",
-    "probe_interval_seconds":300,
-    "max_triggers_per_day":1
-  }'
-```
-
-```json
-{"id": 31, "name": "日线探测", "status": "active"}
-```
-
-### 5.3 GET /api/v1/ops/probes/runs
+### 5.2 GET /api/v1/ops/probes/runs
 
 - 功能：分页查询 probe 运行日志（全局）。
 - Query 参数：
@@ -811,7 +787,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 {"total": 10, "items": [{"id": 1, "schedule_id": 12, "status": "success", "triggered_task_run_id": 285}]}
 ```
 
-### 5.4 GET /api/v1/ops/probes/{probe_rule_id}
+### 5.3 GET /api/v1/ops/probes/{probe_rule_id}
 
 - 功能：读取 probe 规则详情。
 - Path 参数：`probe_rule_id:int`
@@ -827,73 +803,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 {"id": 31, "dataset_key": "daily", "status": "active"}
 ```
 
-### 5.5 PATCH /api/v1/ops/probes/{probe_rule_id}
-
-- 功能：更新 probe 规则（部分字段）。
-- Path 参数：`probe_rule_id:int`
-- Body：`UpdateProbeRuleRequest`
-- 返回：`ProbeRuleDetailResponse`
-- 示例：
-
-```bash
-curl -X PATCH -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
-  "http://127.0.0.1:8000/api/v1/ops/probes/31" \
-  -d '{"probe_interval_seconds":120,"window_end":"16:30"}'
-```
-
-```json
-{"id": 31, "probe_interval_seconds": 120}
-```
-
-### 5.6 POST /api/v1/ops/probes/{probe_rule_id}/pause
-
-- 功能：暂停 probe 规则。
-- Path 参数：`probe_rule_id:int`
-- 返回：`ProbeRuleDetailResponse`
-- 示例：
-
-```bash
-curl -X POST -H "Authorization: Bearer <TOKEN>" \
-  "http://127.0.0.1:8000/api/v1/ops/probes/31/pause"
-```
-
-```json
-{"id": 31, "status": "paused"}
-```
-
-### 5.7 POST /api/v1/ops/probes/{probe_rule_id}/resume
-
-- 功能：恢复 probe 规则。
-- Path 参数：`probe_rule_id:int`
-- 返回：`ProbeRuleDetailResponse`
-- 示例：
-
-```bash
-curl -X POST -H "Authorization: Bearer <TOKEN>" \
-  "http://127.0.0.1:8000/api/v1/ops/probes/31/resume"
-```
-
-```json
-{"id": 31, "status": "active"}
-```
-
-### 5.8 DELETE /api/v1/ops/probes/{probe_rule_id}
-
-- 功能：删除 probe 规则。
-- Path 参数：`probe_rule_id:int`
-- 返回：`DeleteProbeRuleResponse`
-- 示例：
-
-```bash
-curl -X DELETE -H "Authorization: Bearer <TOKEN>" \
-  "http://127.0.0.1:8000/api/v1/ops/probes/31"
-```
-
-```json
-{"id": 31, "status": "deleted"}
-```
-
-### 5.9 GET /api/v1/ops/probes/{probe_rule_id}/runs
+### 5.4 GET /api/v1/ops/probes/{probe_rule_id}/runs
 
 - 功能：查询某条 probe 规则的运行日志。
 - Path 参数：`probe_rule_id:int`
@@ -1383,7 +1293,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 - `CreateScheduleRequest`：`target_type, target_key, display_name, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, probe_config, params_json, retry_policy_json, concurrency_policy_json, next_run_at`
 - `UpdateScheduleRequest`：`target_type, target_key, display_name, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, probe_config, params_json, retry_policy_json, concurrency_policy_json, next_run_at`
 - `SchedulePreviewRequest`：`schedule_type, cron_expr, timezone, calendar_policy, next_run_at, count`
-- `ScheduleProbeConfig`：`source_key, window_start, window_end, probe_interval_seconds, max_triggers_per_day, condition_kind, workflow_dataset_keys`
+- `ScheduleProbeConfig`：`window_start, window_end, probe_interval_seconds, max_triggers_per_day, condition_kind`；`source_key` 和 `workflow_dataset_keys` 不可提交，分别返回 `422 source_key.operator_forbidden` 与 `422 workflow_dataset_keys.operator_forbidden`。
 
 `ScheduleProbeConfig.condition_kind` 当前支持：
 
@@ -1394,6 +1304,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 5. `remote_idx_factor_pro_ready`：仅用于 `idx_factor_pro.maintain`，在探测窗口内请求 Tushare 当日指数技术因子的一条最小样本；样本具有非空 `ts_code` 且 `trade_date` 命中最新开市日后，才创建正式全市场单日维护 TaskRun。必须使用空 `filters`、point 时间意图、无 `calendar_policy`；最小探测间隔为 300 秒、每日最多触发一次。此条件不以本地 freshness 代替源站就绪判断。
 6. `remote_kpl_list_ready`：仅用于 `kpl_list.maintain`，以“竞价”样本确认源站已在次日 08:30 发布前一开市日榜单；命中后只为该目标交易日创建一次有效的 `kpl_list.maintain` TaskRun。此条件只支持探测触发，不支持定时兜底。
 7. `remote_margin_ready`：仅用于 `margin.maintain`。在下一个开市日 `09:00~09:30` 验证 SSE、SZSE、BSE 是否均返回前一开市日数据；三者齐备才创建一个 `margin.maintain(point=D)` TaskRun。此条件只能使用纯探测、空维护参数、无日期策略、固定 `300` 秒间隔与每日一次触发；09:30 前 freshness 保持 `unconfirmed`。
+8. `remote_margin_detail_ready`：仅用于 `margin_detail.maintain`。与融资融券汇总相同，在下一个开市日 `09:00~09:30` 验证三个市场的代表证券；三者齐备才创建一个全市场 `margin_detail(point=D)` TaskRun。只能使用纯探测、空维护参数、无日期策略、固定 `300` 秒间隔与每日一次触发。
 
 `remote_stk_mins_ready` 示例：
 
@@ -1407,7 +1318,6 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
   "cron_expr": "*/5 15-18 * * 1-5",
   "timezone": "Asia/Shanghai",
   "probe_config": {
-    "source_key": "tushare",
     "window_start": "15:20",
     "window_end": "18:30",
     "probe_interval_seconds": 300,
@@ -1438,7 +1348,6 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
   "timezone": "Asia/Shanghai",
   "calendar_policy": null,
   "probe_config": {
-    "source_key": "tushare",
     "window_start": "16:00",
     "window_end": "20:00",
     "probe_interval_seconds": 300,
@@ -1467,7 +1376,6 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
   "timezone": "Asia/Shanghai",
   "calendar_policy": null,
   "probe_config": {
-    "source_key": "tushare",
     "window_start": "16:00",
     "window_end": "20:00",
     "probe_interval_seconds": 300,
@@ -1496,7 +1404,6 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
   "timezone": "Asia/Shanghai",
   "calendar_policy": null,
   "probe_config": {
-    "source_key": "tushare",
     "window_start": "15:20",
     "window_end": "18:30",
     "probe_interval_seconds": 300,
@@ -1521,7 +1428,6 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
   "cron_expr": "*/30 * * * *",
   "timezone": "Asia/Shanghai",
   "probe_config": {
-    "source_key": "tushare",
     "window_start": "08:35",
     "window_end": "23:30",
     "probe_interval_seconds": 1800,
@@ -1558,8 +1464,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 
 ### 11.2 Probe
 
-- `CreateProbeRuleRequest`：`name, dataset_key, source_key, status, window_start, window_end, probe_interval_seconds, probe_condition_json, on_success_action_json, max_triggers_per_day, timezone_name`
-- `UpdateProbeRuleRequest`：`name, dataset_key, source_key, status, window_start, window_end, probe_interval_seconds, probe_condition_json, on_success_action_json, max_triggers_per_day, timezone_name`
+ProbeRule 没有对外写入 request；规则只由 `OpsSchedule` 的自动任务 capability 和 binding 生成。Probe API 仅提供规则与运行日志的只读查询。
 
 ### 11.3 发布与规则
 
@@ -1584,9 +1489,9 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 
 ### 12.1 目录与模式
 
-- `OpsCatalogResponse`：`actions, workflows, sources`
-- `ActionCatalogItem`：`key, action_type, display_name, target_key, target_display_name, group_key, group_label, group_order, item_order, domain_key, domain_display_name, freshness_policy, date_selection_rule, description, target_tables, manual_enabled, schedule_enabled, retry_enabled, schedule_binding_count, active_schedule_count, parameters`
-- `WorkflowCatalogItem`：`key, display_name, description, group_key, group_label, group_order, domain_key, domain_display_name, parallel_policy, default_schedule_policy, schedule_enabled, manual_enabled, schedule_binding_count, active_schedule_count, parameters, steps`
+- `OpsCatalogResponse`：`actions, workflows`
+- `ActionCatalogItem`：`key, action_type, display_name, target_key, target_display_name, group_key, group_label, group_order, item_order, domain_key, domain_display_name, freshness_policy, date_selection_rule, description, target_tables, manual_enabled, schedule_enabled, automation_capability, retry_enabled, schedule_binding_count, active_schedule_count, parameters`
+- `WorkflowCatalogItem`：`key, display_name, description, group_key, group_label, group_order, domain_key, domain_display_name, parallel_policy, default_schedule_policy, schedule_enabled, automation_capability, manual_enabled, schedule_binding_count, active_schedule_count, parameters, steps`
 - `ActionParameterResponse`：`key, display_name, param_type, description, required, options, multi_value`
 - `WorkflowStepCatalogItem`：`step_key, action_key, dataset_key, display_name, depends_on, default_params`
 - `DatasetCardListResponse`：`total, groups`
@@ -1619,6 +1524,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 - `ScheduleRevisionItem`：`id, object_type, object_id, action, before_json, after_json, changed_by_username, changed_at`
 - `SchedulePreviewResponse`：`schedule_type, timezone, preview_times`
 - `DeleteScheduleResponse`：`id, status`
+- `ScheduleProbeConfigResponse`：`source, source_label, window_start, window_end, probe_interval_seconds, max_triggers_per_day, condition_kind`；其中 `source` 固定为 `system_default`。
 
 ### 12.4 Probe
 
@@ -1627,7 +1533,6 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 - `ProbeRuleDetailResponse`：`id, schedule_id, name, dataset_key, trigger_mode, workflow_key, step_key, rule_version, source_key, status, window_start, window_end, probe_interval_seconds, probe_condition_json, on_success_action_json, max_triggers_per_day, timezone_name, last_probed_at, last_triggered_at, created_at, updated_at, created_by_username, updated_by_username`
 - `ProbeRunLogListResponse`：`items, total`
 - `ProbeRunLogItem`：`id, probe_rule_id, schedule_id, probe_rule_name, dataset_key, dataset_display_name, source_key, source_display_name, status, condition_matched, message, payload_json, probed_at, triggered_task_run_id, duration_ms, rule_version, result_code, result_reason, correlation_id`
-- `DeleteProbeRuleResponse`：`id, status`
 
 ### 12.5 发布与规则
 

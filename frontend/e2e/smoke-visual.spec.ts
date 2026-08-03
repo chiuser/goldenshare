@@ -122,7 +122,7 @@ test.describe("Phase 2 smoke and visual gate", () => {
 
     await expect(page.getByRole("textbox", { name: "触发方式" })).toHaveValue("探测触发");
     await expect(page.getByRole("textbox", { name: "探测条件" })).toHaveValue("源站已完整发布融资融券交易明细");
-    await expect(page.getByText(/代表证券是否均已返回前一开市日数据/)).toBeVisible();
+    await expect(page.getByText("确认三个市场代表证券均已返回上一开市日数据后，创建全市场单日维护任务。")).toBeVisible();
     await expect(page.getByLabel("探测窗口开始")).toHaveValue("09:00");
     await expect(page.getByLabel("探测窗口结束")).toHaveValue("09:30");
     await expect(page.getByLabel("探测频率（秒）")).toHaveValue("300");

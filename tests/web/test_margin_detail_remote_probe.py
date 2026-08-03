@@ -18,6 +18,7 @@ from src.ops.services.margin_detail_remote_probe_service import (
     MarginDetailRemoteReadinessProbeService,
 )
 from src.ops.services.operations_probe_runtime_service import ProbeRuntimeService
+from src.ops.services.schedule_automation_capability_resolver import ScheduleAutomationCapabilityResolver
 
 
 MARGIN_DETAIL_FIELDS = get_dataset_definition("margin_detail").source.source_fields
@@ -48,7 +49,6 @@ def _margin_detail_schedule_payload(*, probe_config: dict | None = None, params_
         "timezone": "Asia/Shanghai",
         "probe_config": probe_config
         or {
-            "source_key": "tushare",
             "window_start": "09:00",
             "window_end": "09:30",
             "probe_interval_seconds": 300,
@@ -437,33 +437,33 @@ def test_ops_schedule_margin_detail_probe_creates_fixed_empty_filter_rule(app_cl
 
 
 @pytest.mark.parametrize(
-    ("payload_patch", "expected_message"),
+    ("payload_patch", "expected_code"),
     (
-        ({"trigger_mode": "schedule_probe_fallback"}, "源站融资融券交易明细探测只支持探测触发"),
+        ({"trigger_mode": "schedule_probe_fallback"}, "trigger_mode.forbidden"),
         (
             {"target_type": "workflow", "target_key": "daily_market_close_maintenance"},
-            "工作流自动任务只支持普通定时触发",
+            "trigger_mode.forbidden",
         ),
         (
             {"params_json": {"time_input": {"mode": "point"}, "filters": {"ts_code": "600000.SH"}}},
-            "源站融资融券交易明细探测不支持维护参数",
+            "filters.forbidden",
         ),
         (
             {"params_json": {"time_input": {"mode": "range", "start_date": "2026-05-01", "end_date": "2026-05-28"}, "filters": {}}},
-            "源站融资融券交易明细探测不能与固定维护日期混用",
+            "time_input.forbidden",
         ),
-        ({"calendar_policy": "monthly_last_day"}, "每月最后一天策略只支持自然月末数据集"),
+        ({"calendar_policy": "monthly_last_day"}, "validation_error"),
         (
             {"probe_config": {"window_start": "09:05", "window_end": "09:30", "probe_interval_seconds": 300, "max_triggers_per_day": 1, "condition_kind": MARGIN_DETAIL_REMOTE_READY_CONDITION}},
-            "源站融资融券交易明细探测窗口必须为 09:00~09:30",
+            "probe_window.forbidden",
         ),
         (
             {"probe_config": {"window_start": "09:00", "window_end": "09:30", "probe_interval_seconds": 600, "max_triggers_per_day": 1, "condition_kind": MARGIN_DETAIL_REMOTE_READY_CONDITION}},
-            "源站融资融券交易明细探测间隔必须为 300 秒",
+            "probe_config.forbidden",
         ),
         (
             {"probe_config": {"window_start": "09:00", "window_end": "09:30", "probe_interval_seconds": 300, "max_triggers_per_day": 2, "condition_kind": MARGIN_DETAIL_REMOTE_READY_CONDITION}},
-            "源站融资融券交易明细探测每日最多触发 1 次",
+            "probe_config.forbidden",
         ),
     ),
 )
@@ -471,7 +471,7 @@ def test_ops_schedule_margin_detail_probe_rejects_invalid_binding(
     app_client,
     user_factory,
     payload_patch,
-    expected_message,
+    expected_code,
 ) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
@@ -485,7 +485,7 @@ def test_ops_schedule_margin_detail_probe_rejects_invalid_binding(
     )
 
     assert response.status_code == 422
-    assert response.json()["message"] == expected_message
+    assert response.json()["code"] == expected_code
 
 
 def test_ops_schedule_margin_detail_rejects_generic_freshness_condition(app_client, user_factory) -> None:
@@ -501,7 +501,7 @@ def test_ops_schedule_margin_detail_rejects_generic_freshness_condition(app_clie
     )
 
     assert response.status_code == 422
-    assert response.json()["message"] == "融资融券交易明细必须使用“源站已完整发布融资融券交易明细”探测条件"
+    assert response.json()["code"] == "condition.unsupported"
 
 
 def test_schedule_binding_rejects_margin_detail_probe_calendar_policy() -> None:
@@ -511,16 +511,15 @@ def test_schedule_binding_rejects_margin_detail_probe_calendar_policy() -> None:
         target_key="margin_detail.maintain",
         calendar_policy="monthly_last_day",
         params_json={"time_input": {"mode": "point"}, "filters": {}},
+        probe_config_json={
+            "window_start": "09:00",
+            "window_end": "09:30",
+            "probe_interval_seconds": 300,
+            "max_triggers_per_day": 1,
+            "condition_kind": MARGIN_DETAIL_REMOTE_READY_CONDITION,
+        },
+        timezone="Asia/Shanghai",
     )
 
-    with pytest.raises(WebAppError, match="源站融资融券交易明细探测不能与日期策略混用"):
-        from src.ops.services.schedule_probe_binding_service import ScheduleProbeBindingService
-
-        ScheduleProbeBindingService._validate_remote_margin_detail_schedule(
-            schedule=schedule,
-            filters={},
-            window_start="09:00",
-            window_end="09:30",
-            interval=300,
-            max_daily=1,
-        )
+    with pytest.raises(WebAppError, match="日期策略混用"):
+        ScheduleAutomationCapabilityResolver().validate_schedule(schedule)

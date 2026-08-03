@@ -2,26 +2,18 @@ import { describe, expect, it } from "vitest";
 
 import {
   actionSupportsTriggerDayPointPolicy,
-  actionSupportsRemoteIndexDailyProbe,
-  actionSupportsRemoteIndexMinsProbe,
-  actionSupportsRemoteIdxFactorProProbe,
-  actionSupportsRemoteKplListProbe,
-  actionSupportsRemoteMarginProbe,
-  actionSupportsRemoteMarginDetailProbe,
-  actionSupportsRemoteProbeCondition,
-  actionSupportsRemoteStkMinsProbe,
   actionSupportsTriggerDaySingleRangePolicy,
   buildProbeRunQueryPath,
   buildCronExpression,
-  buildProbeConditionOptions,
-  defaultProbeConditionForAction,
-  formatProbeConditionLabel,
   formatProbeRunCount,
   formatScheduleRule,
-  getStrictRemoteMarginProbeConfig,
+  defaultProbeConditionForCapability,
+  getProbeCondition,
+  getProbeConditionOptions,
   getScheduleTimeFieldLabel,
+  hasCompleteRequiredProbeFilters,
   hasRequiredVisibleParameters,
-  hasCompleteIndexMinsProbeFilters,
+  isTriggerModeAllowed,
   parseCronExpression,
   resolveEffectiveCalendarPolicy,
   shouldShowScheduleTimingFields,
@@ -193,109 +185,86 @@ describe("自动任务日期策略", () => {
     );
   });
 
-  it("only enables remote stk_mins source probing for stk_mins maintain", () => {
-    expect(actionSupportsRemoteStkMinsProbe("dataset_action", "stk_mins.maintain")).toBe(true);
-    expect(actionSupportsRemoteStkMinsProbe("dataset_action", "daily.maintain")).toBe(false);
-    expect(actionSupportsRemoteStkMinsProbe("workflow", "stk_mins.maintain")).toBe(false);
-    expect(formatProbeConditionLabel("remote_stk_mins_ready")).toBe("源站已有分钟行情");
-    expect(formatProbeConditionLabel("freshness_latest_open")).toBe("最新业务日命中最新交易日");
-    expect(formatProbeRunCount(4)).toBe("已探测：4 次");
-    expect(formatProbeRunCount(undefined)).toBe("已探测：—");
-    expect(buildProbeRunQueryPath({ scheduleId: 12, datasetKey: "stk_mins", limit: 1 })).toBe(
-      "/api/v1/ops/probes/runs?schedule_id=12&dataset_key=stk_mins&limit=1",
-    );
-    expect(buildProbeRunQueryPath({ scheduleId: 12, datasetKey: "stk_mins", conditionMatched: true, limit: 1 })).toBe(
-      "/api/v1/ops/probes/runs?schedule_id=12&dataset_key=stk_mins&condition_matched=true&limit=1",
-    );
-  });
+  const marginDetailCapability = {
+    version: 1,
+    default_trigger_mode: "probe",
+    trigger_options: [{ mode: "probe", allowed_schedule_types: ["cron", "once"] }],
+    probe_conditions: [
+      {
+        kind: "remote_margin_detail_ready",
+        label: "源站已完整发布融资融券交易明细",
+        description: "确认三个市场代表证券均已返回上一开市日数据后，创建全市场单日维护任务。",
+        allowed_trigger_modes: ["probe"],
+        calendar_policy: "forbidden",
+        time_input: "forbidden",
+        filters: {
+          mode: "forbidden",
+          required_fields: [],
+          allowed_values: {},
+          require_complete_allowed_values: false,
+        },
+        probe: {
+          source: "system_default",
+          source_label: "系统默认来源",
+          window: { mode: "fixed", start: "09:00", end: "09:30" },
+          probe_interval_seconds: { mode: "fixed", value: 300 },
+          max_triggers_per_day: { mode: "fixed", value: 1 },
+        },
+      },
+    ],
+  };
 
-  it("only enables remote index_daily source probing for index_daily maintain", () => {
-    expect(actionSupportsRemoteIndexDailyProbe("dataset_action", "index_daily.maintain")).toBe(true);
-    expect(actionSupportsRemoteIndexDailyProbe("dataset_action", "daily.maintain")).toBe(false);
-    expect(actionSupportsRemoteIndexDailyProbe("workflow", "index_daily.maintain")).toBe(false);
-    expect(actionSupportsRemoteProbeCondition("dataset_action", "index_daily.maintain", "remote_index_daily_ready")).toBe(true);
-    expect(actionSupportsRemoteProbeCondition("dataset_action", "daily.maintain", "remote_index_daily_ready")).toBe(false);
-    expect(actionSupportsRemoteProbeCondition("dataset_action", "stk_mins.maintain", "remote_index_daily_ready")).toBe(false);
-    expect(formatProbeConditionLabel("remote_index_daily_ready")).toBe("源站已有指数日线");
-  });
-
-  it("only enables strict remote index_mins source probing for index_mins maintain", () => {
-    expect(actionSupportsRemoteIndexMinsProbe("dataset_action", "index_mins.maintain")).toBe(true);
-    expect(actionSupportsRemoteIndexMinsProbe("dataset_action", "index_daily.maintain")).toBe(false);
-    expect(actionSupportsRemoteIndexMinsProbe("workflow", "index_mins.maintain")).toBe(false);
-    expect(actionSupportsRemoteProbeCondition("dataset_action", "index_mins.maintain", "remote_index_mins_ready")).toBe(true);
-    expect(actionSupportsRemoteProbeCondition("dataset_action", "index_mins.maintain", "freshness_latest_open")).toBe(false);
-    expect(actionSupportsRemoteProbeCondition("dataset_action", "daily.maintain", "freshness_latest_open")).toBe(true);
-    expect(formatProbeConditionLabel("remote_index_mins_ready")).toBe("源站已有指数分钟行情");
-    expect(hasCompleteIndexMinsProbeFilters({ freq: ["1min", "5min", "15min", "30min", "60min"] })).toBe(true);
-    expect(hasCompleteIndexMinsProbeFilters({ freq: ["1min", "5min", "15min", "30min"] })).toBe(false);
-    expect(hasCompleteIndexMinsProbeFilters({ freq: ["1min", "5min", "15min", "30min", "60min", "60min"] })).toBe(false);
-    expect(hasCompleteIndexMinsProbeFilters(["1min", "5min", "15min", "30min", "60min"])).toBe(false);
-  });
-
-  it("only enables remote kpl_list source probing for kpl_list maintain", () => {
-    expect(actionSupportsRemoteKplListProbe("dataset_action", "kpl_list.maintain")).toBe(true);
-    expect(actionSupportsRemoteKplListProbe("dataset_action", "daily.maintain")).toBe(false);
-    expect(actionSupportsRemoteKplListProbe("workflow", "kpl_list.maintain")).toBe(false);
-    expect(actionSupportsRemoteProbeCondition("dataset_action", "kpl_list.maintain", "remote_kpl_list_ready")).toBe(true);
-    expect(actionSupportsRemoteProbeCondition("dataset_action", "daily.maintain", "remote_kpl_list_ready")).toBe(false);
-    expect(formatProbeConditionLabel("remote_kpl_list_ready")).toBe("源站已有开盘啦榜单");
-  });
-
-  it("only enables remote idx_factor_pro source probing for idx_factor_pro maintain", () => {
-    expect(actionSupportsRemoteIdxFactorProProbe("dataset_action", "idx_factor_pro.maintain")).toBe(true);
-    expect(actionSupportsRemoteIdxFactorProProbe("dataset_action", "index_daily.maintain")).toBe(false);
-    expect(actionSupportsRemoteIdxFactorProProbe("workflow", "idx_factor_pro.maintain")).toBe(false);
-    expect(actionSupportsRemoteProbeCondition("dataset_action", "idx_factor_pro.maintain", "remote_idx_factor_pro_ready")).toBe(true);
-    expect(actionSupportsRemoteProbeCondition("dataset_action", "idx_factor_pro.maintain", "freshness_latest_open")).toBe(false);
-    expect(actionSupportsRemoteProbeCondition("dataset_action", "index_daily.maintain", "remote_idx_factor_pro_ready")).toBe(false);
-    expect(defaultProbeConditionForAction("dataset_action", "idx_factor_pro.maintain")).toBe("remote_idx_factor_pro_ready");
-    expect(formatProbeConditionLabel("remote_idx_factor_pro_ready")).toBe("源站已有指数技术因子");
-    expect(buildProbeConditionOptions("dataset_action", "idx_factor_pro.maintain")).toEqual([
-      { value: "remote_idx_factor_pro_ready", label: "源站已有指数技术因子" },
-    ]);
-    expect(buildProbeConditionOptions("dataset_action", "index_daily.maintain")).toEqual([
-      { value: "freshness_latest_open", label: "最新业务日命中最新交易日" },
-      { value: "remote_index_daily_ready", label: "源站已有指数日线" },
-    ]);
-  });
-
-  it("only enables strict remote margin source probing for margin maintain", () => {
-    expect(actionSupportsRemoteMarginProbe("dataset_action", "margin.maintain")).toBe(true);
-    expect(actionSupportsRemoteMarginProbe("dataset_action", "daily.maintain")).toBe(false);
-    expect(actionSupportsRemoteMarginProbe("workflow", "margin.maintain")).toBe(false);
-    expect(actionSupportsRemoteProbeCondition("dataset_action", "margin.maintain", "remote_margin_ready")).toBe(true);
-    expect(actionSupportsRemoteProbeCondition("dataset_action", "margin.maintain", "freshness_latest_open")).toBe(false);
-    expect(defaultProbeConditionForAction("dataset_action", "margin.maintain")).toBe("remote_margin_ready");
-    expect(formatProbeConditionLabel("remote_margin_ready")).toBe("源站已完整发布融资融券汇总");
-    expect(buildProbeConditionOptions("dataset_action", "margin.maintain")).toEqual([
-      { value: "remote_margin_ready", label: "源站已完整发布融资融券汇总" },
-    ]);
-    expect(getStrictRemoteMarginProbeConfig("dataset_action", "margin.maintain")).toEqual({
-      conditionKind: "remote_margin_ready",
-      label: "融资融券汇总",
-      description: "系统会在下一个开市日 09:00 至 09:30 依次验证 SSE、SZSE、BSE 是否均已返回前一开市日数据；全部齐备后才发起正式维护任务。",
-    });
-  });
-
-  it("only enables strict remote margin-detail probing for margin_detail maintain", () => {
-    expect(actionSupportsRemoteMarginDetailProbe("dataset_action", "margin_detail.maintain")).toBe(true);
-    expect(actionSupportsRemoteMarginDetailProbe("dataset_action", "margin.maintain")).toBe(false);
-    expect(actionSupportsRemoteMarginDetailProbe("workflow", "margin_detail.maintain")).toBe(false);
-    expect(actionSupportsRemoteProbeCondition("dataset_action", "margin_detail.maintain", "remote_margin_detail_ready")).toBe(true);
-    expect(actionSupportsRemoteProbeCondition("dataset_action", "margin_detail.maintain", "freshness_latest_open")).toBe(false);
-    expect(actionSupportsRemoteProbeCondition("dataset_action", "margin.maintain", "remote_margin_detail_ready")).toBe(false);
-    expect(defaultProbeConditionForAction("dataset_action", "margin_detail.maintain")).toBe("remote_margin_detail_ready");
-    expect(formatProbeConditionLabel("remote_margin_detail_ready")).toBe("源站已完整发布融资融券交易明细");
-    expect(buildProbeConditionOptions("dataset_action", "margin_detail.maintain")).toEqual([
+  it("derives probe controls from the catalog capability", () => {
+    expect(isTriggerModeAllowed(marginDetailCapability as never, "probe")).toBe(true);
+    expect(isTriggerModeAllowed(marginDetailCapability as never, "schedule")).toBe(false);
+    expect(defaultProbeConditionForCapability(marginDetailCapability as never)).toBe("remote_margin_detail_ready");
+    expect(getProbeConditionOptions(marginDetailCapability as never)).toEqual([
       { value: "remote_margin_detail_ready", label: "源站已完整发布融资融券交易明细" },
     ]);
-    expect(getStrictRemoteMarginProbeConfig("dataset_action", "margin_detail.maintain")).toEqual({
-      conditionKind: "remote_margin_detail_ready",
-      label: "融资融券交易明细",
-      description: "系统会在下一个开市日 09:00 至 09:30 依次验证 SSE、SZSE、BSE 的代表证券是否均已返回前一开市日数据；全部齐备后才发起正式全市场维护任务。",
-    });
-    expect(getStrictRemoteMarginProbeConfig("dataset_action", "daily.maintain")).toBeNull();
+    expect(getProbeCondition(marginDetailCapability as never, "remote_margin_detail_ready")?.probe.source).toBe(
+      "system_default",
+    );
+    expect(formatProbeRunCount(4)).toBe("已探测：4 次");
+    expect(formatProbeRunCount(undefined)).toBe("已探测：—");
+    expect(buildProbeRunQueryPath({ scheduleId: 12, datasetKey: "margin_detail", limit: 1 })).toBe(
+      "/api/v1/ops/probes/runs?schedule_id=12&dataset_key=margin_detail&limit=1",
+    );
+  });
+
+  it("requires the catalog-declared complete index-minutes frequencies", () => {
+    const indexMinsCapability = {
+      ...marginDetailCapability,
+      probe_conditions: [
+        {
+          ...marginDetailCapability.probe_conditions[0],
+          kind: "remote_index_mins_ready",
+          filters: {
+            mode: "required_allowed_values",
+            required_fields: ["freq"],
+            allowed_values: { freq: ["1min", "5min", "15min", "30min", "60min"] },
+            require_complete_allowed_values: true,
+          },
+          probe: {
+            ...marginDetailCapability.probe_conditions[0].probe,
+          },
+        },
+      ],
+    };
+    const condition = getProbeCondition(indexMinsCapability as never, "remote_index_mins_ready");
+    expect(hasCompleteRequiredProbeFilters(condition as never, { freq: ["1min", "5min", "15min", "30min", "60min"] })).toBe(true);
+    expect(hasCompleteRequiredProbeFilters(condition as never, { freq: ["1min", "5min"] })).toBe(false);
+  });
+
+  it("keeps workflow capabilities schedule-only", () => {
+    const workflowCapability = {
+      version: 1,
+      default_trigger_mode: "schedule",
+      trigger_options: [{ mode: "schedule", allowed_schedule_types: ["cron", "once"] }],
+      probe_conditions: [],
+    };
+    expect(isTriggerModeAllowed(workflowCapability as never, "schedule")).toBe(true);
+    expect(isTriggerModeAllowed(workflowCapability as never, "probe")).toBe(false);
+    expect(defaultProbeConditionForCapability(workflowCapability as never)).toBe("");
   });
 
   it("hides schedule timing fields for pure probe and relabels fallback timing", () => {

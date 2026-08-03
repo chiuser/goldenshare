@@ -119,12 +119,6 @@ class WorkflowCatalogItem(BaseModel):
     steps: list[WorkflowStepCatalogItem]
 
 
-class SourceCatalogItem(BaseModel):
-    source_key: str
-    display_name: str
-
-
 class OpsCatalogResponse(BaseModel):
     actions: list[ActionCatalogItem]
     workflows: list[WorkflowCatalogItem]
-    sources: list[SourceCatalogItem]

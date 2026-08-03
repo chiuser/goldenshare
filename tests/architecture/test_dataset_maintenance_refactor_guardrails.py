@@ -411,11 +411,8 @@ def test_task_run_runtime_messages_do_not_emit_internal_field_tokens() -> None:
     assert not violations, "TaskRun 查询与运行时不得向前端返回英文内部字段文案:\n" + "\n".join(violations)
 
 
-def test_probe_validation_messages_do_not_emit_internal_field_tokens() -> None:
-    paths = (
-        REPO_ROOT / "src/ops/services/probe_service.py",
-        REPO_ROOT / "src/ops/queries/probe_query_service.py",
-    )
+def test_probe_query_messages_do_not_emit_internal_field_tokens() -> None:
+    paths = (REPO_ROOT / "src/ops/queries/probe_query_service.py",)
     forbidden_snippets = (
         "Probe rule does not exist",
         "cannot be empty",

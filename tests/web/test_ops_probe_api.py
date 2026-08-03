@@ -53,85 +53,39 @@ def test_ops_probe_list_rejects_non_admin(app_client, user_factory) -> None:
     assert response.json()["code"] == "forbidden"
 
 
-def test_ops_probe_create_list_update_pause_resume_delete(app_client, user_factory, db_session) -> None:
-    from sqlalchemy import select
-
-    from src.ops.models.ops.config_revision import ConfigRevision
-
+def test_ops_probe_rule_write_endpoints_are_not_available(app_client, user_factory, probe_rule_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
+    rule = probe_rule_factory(dataset_key="daily", source_key="tushare")
 
     create = app_client.post(
         "/api/v1/ops/probes",
         headers={"Authorization": f"Bearer {token}"},
-        json={
-            "name": "收盘后日线探测",
-            "dataset_key": "daily",
-            "source_key": "tushare",
-            "window_start": "15:30",
-            "window_end": "17:30",
-            "probe_interval_seconds": 180,
-            "probe_condition_json": {"metric": "max_trade_date", "op": ">=", "value": "today"},
-            "on_success_action_json": {"action_type": "workflow", "action_key": "daily_market_close_maintenance"},
-            "max_triggers_per_day": 2,
-            "timezone_name": "Asia/Shanghai",
-        },
+        json={"source_key": "tushare"},
     )
-    assert create.status_code == 200
-    created = create.json()
-    probe_rule_id = created["id"]
-    assert created["status"] == "active"
-    assert created["dataset_key"] == "daily"
-    assert created["probe_interval_seconds"] == 180
-    assert created["created_by_username"] == "admin"
+    assert create.status_code == 405
 
     listed = app_client.get("/api/v1/ops/probes?dataset_key=daily", headers={"Authorization": f"Bearer {token}"})
     assert listed.status_code == 200
-    listed_payload = listed.json()
-    assert listed_payload["total"] == 1
-    assert listed_payload["items"][0]["id"] == probe_rule_id
-    assert listed_payload["items"][0]["source_display_name"] == "Tushare"
+    assert listed.json()["items"][0]["id"] == rule.id
 
-    updated = app_client.patch(
-        f"/api/v1/ops/probes/{probe_rule_id}",
-        headers={"Authorization": f"Bearer {token}"},
-        json={"name": "收盘后探测（更新）", "probe_interval_seconds": 120},
-    )
-    assert updated.status_code == 200
-    assert updated.json()["name"] == "收盘后探测（更新）"
-    assert updated.json()["probe_interval_seconds"] == 120
-
-    paused = app_client.post(f"/api/v1/ops/probes/{probe_rule_id}/pause", headers={"Authorization": f"Bearer {token}"})
-    assert paused.status_code == 200
-    assert paused.json()["status"] == "paused"
-
-    resumed = app_client.post(f"/api/v1/ops/probes/{probe_rule_id}/resume", headers={"Authorization": f"Bearer {token}"})
-    assert resumed.status_code == 200
-    assert resumed.json()["status"] == "active"
-
-    deleted = app_client.delete(f"/api/v1/ops/probes/{probe_rule_id}", headers={"Authorization": f"Bearer {token}"})
-    assert deleted.status_code == 200
-    assert deleted.json()["id"] == probe_rule_id
-    assert deleted.json()["status"] == "deleted"
-
-    detail_after_delete = app_client.get(f"/api/v1/ops/probes/{probe_rule_id}", headers={"Authorization": f"Bearer {token}"})
-    assert detail_after_delete.status_code == 404
-    assert detail_after_delete.json()["code"] == "not_found"
-    assert detail_after_delete.json()["message"] == "探测规则不存在"
-
-    revisions = list(
-        db_session.scalars(
-            select(ConfigRevision)
-            .where(ConfigRevision.object_type == "probe_rule")
-            .where(ConfigRevision.object_id == str(probe_rule_id))
-            .order_by(ConfigRevision.id.asc())
+    for method, path in (
+        ("patch", f"/api/v1/ops/probes/{rule.id}"),
+        ("post", f"/api/v1/ops/probes/{rule.id}/pause"),
+        ("post", f"/api/v1/ops/probes/{rule.id}/resume"),
+        ("delete", f"/api/v1/ops/probes/{rule.id}"),
+    ):
+        request = getattr(app_client, method)
+        response = (
+            request(path, headers={"Authorization": f"Bearer {token}"})
+            if method == "delete"
+            else request(path, headers={"Authorization": f"Bearer {token}"}, json={})
         )
-    )
-    assert [item.action for item in revisions] == ["created", "updated", "paused", "resumed", "deleted"]
+        assert response.status_code in {404, 405}
 
 
-def test_ops_probe_create_returns_readable_validation_message(app_client, user_factory) -> None:
+def test_ops_probe_write_endpoint_is_not_available_for_invalid_payload(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
@@ -153,11 +107,10 @@ def test_ops_probe_create_returns_readable_validation_message(app_client, user_f
         },
     )
 
-    assert response.status_code == 422
-    assert response.json()["message"] == "探测规则名称不能为空"
+    assert response.status_code == 405
 
 
-def test_ops_probe_create_rejects_invalid_remote_stk_mins_condition(app_client, user_factory) -> None:
+def test_ops_probe_write_endpoint_cannot_bypass_stk_mins_binding(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
@@ -183,11 +136,10 @@ def test_ops_probe_create_rejects_invalid_remote_stk_mins_condition(app_client, 
         },
     )
 
-    assert response.status_code == 422
-    assert response.json()["message"] == "源站分钟行情探测只支持股票历史分钟行情维护"
+    assert response.status_code == 405
 
 
-def test_ops_probe_create_rejects_invalid_remote_index_daily_condition(app_client, user_factory) -> None:
+def test_ops_probe_write_endpoint_cannot_bypass_index_daily_binding(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
@@ -213,11 +165,10 @@ def test_ops_probe_create_rejects_invalid_remote_index_daily_condition(app_clien
         },
     )
 
-    assert response.status_code == 422
-    assert response.json()["message"] == "源站指数日线探测只支持指数日线行情维护"
+    assert response.status_code == 405
 
 
-def test_ops_probe_create_rejects_invalid_remote_kpl_list_condition(app_client, user_factory) -> None:
+def test_ops_probe_write_endpoint_cannot_bypass_kpl_list_binding(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
@@ -243,8 +194,7 @@ def test_ops_probe_create_rejects_invalid_remote_kpl_list_condition(app_client, 
         },
     )
 
-    assert response.status_code == 422
-    assert response.json()["message"] == "源站开盘啦榜单探测只支持开盘啦榜单维护"
+    assert response.status_code == 405
 
 
 def test_ops_probe_run_log_list_supports_rule_and_dataset_filters(
@@ -334,6 +284,43 @@ def test_ops_probe_run_log_list_supports_rule_and_dataset_filters(
     assert by_schedule_hit_payload["total"] == 2
     assert {item["schedule_id"] for item in by_schedule_hit_payload["items"]} == {schedule.id}
     assert {item["triggered_task_run_id"] for item in by_schedule_hit_payload["items"]} == {101, triggered_task.id}
+
+
+def test_probe_runtime_rejects_legacy_workflow_probe_rule_without_creating_task_run(
+    db_session,
+    ops_schedule_factory,
+    probe_rule_factory,
+) -> None:
+    schedule = ops_schedule_factory(
+        target_type="workflow",
+        target_key="daily_market_close_maintenance",
+        trigger_mode="schedule",
+    )
+    rule = probe_rule_factory(
+        schedule_id=schedule.id,
+        dataset_key="daily",
+        source_key="tushare",
+        window_start=None,
+        window_end=None,
+        workflow_key="daily_market_close_maintenance",
+    )
+
+    task_runs, result = ProbeRuntimeService().run_once(
+        db_session,
+        now=datetime(2026, 5, 29, 1, 0, tzinfo=timezone.utc),
+        limit=10,
+    )
+
+    assert result.processed_rules == 1
+    assert result.triggered_rules == 0
+    assert task_runs == []
+    assert db_session.scalars(select(TaskRun)).all() == []
+    run_log = db_session.scalar(select(ProbeRunLog).where(ProbeRunLog.probe_rule_id == rule.id))
+    assert run_log is not None
+    assert run_log.status == "failed"
+    assert run_log.result_code == "configuration_error"
+    assert run_log.result_reason == "probe_rule.target_forbidden"
+    assert run_log.payload_json["reason_code"] == "probe_rule.target_forbidden"
 
 
 def test_probe_runtime_requires_explicit_action_key(db_session, probe_rule_factory) -> None:

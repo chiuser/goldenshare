@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from src.foundation.datasets.freshness_policies import CONTINUOUS_OPEN_DAY
+from src.foundation.ingestion.plan_helpers import split_multi_values
 from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
+from src.app.exceptions import WebAppError
 from src.ops.action_catalog import action_is_schedulable, get_maintenance_action, get_workflow_definition
 from src.ops.services.idx_factor_pro_remote_probe_service import (
     IDX_FACTOR_PRO_ACTION_KEY,
@@ -35,6 +37,9 @@ from src.ops.services.stk_mins_remote_probe_service import (
     STK_MINS_REMOTE_READY_CONDITION,
 )
 
+if TYPE_CHECKING:
+    from src.ops.models.ops.schedule import OpsSchedule
+
 
 TriggerMode = Literal["schedule", "probe", "schedule_probe_fallback"]
 ScheduleType = Literal["cron", "once"]
@@ -53,6 +58,13 @@ REMOTE_SOURCE_PROBE_CONDITIONS = frozenset(
 )
 SUPPORTED_PROBE_CONDITIONS = frozenset({FRESHNESS_LATEST_OPEN_CONDITION, *REMOTE_SOURCE_PROBE_CONDITIONS})
 DEFAULT_SCHEDULE_TYPES: tuple[ScheduleType, ...] = ("cron", "once")
+TIME_PARAM_KEYS = {"trade_date", "ann_date", "month", "start_date", "end_date", "start_month", "end_month"}
+PARAM_RESERVED_KEYS = {"dataset_key", "action", "time_input", "filters"}
+DEFAULT_PROBE_WINDOW_START = "15:30"
+DEFAULT_PROBE_WINDOW_END = "17:00"
+DEFAULT_PROBE_INTERVAL_SECONDS = 300
+DEFAULT_MAX_TRIGGERS_PER_DAY = 1
+MINIMUM_PROBE_INTERVAL_SECONDS = 30
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +121,23 @@ class AutomationCapability:
     default_trigger_mode: TriggerMode
     trigger_options: tuple[TriggerModeCapability, ...]
     probe_conditions: tuple[ProbeConditionCapability, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ValidatedAutomationIntent:
+    """A validated automatic-task configuration, ready for a binding to persist."""
+
+    capability: AutomationCapability
+    trigger_mode: TriggerMode
+    dataset_key: str | None
+    condition: ProbeConditionCapability | None
+    source_key: str | None
+    window_start: str | None
+    window_end: str | None
+    probe_interval_seconds: int | None
+    max_triggers_per_day: int | None
+    timezone_name: str | None
+    filters: dict
 
 
 def _operator_probe_config(
@@ -169,6 +198,79 @@ class ScheduleAutomationCapabilityResolver:
                 raise ValueError("源端探测条件与数据集维护动作不匹配")
         return definition.source.source_key_default
 
+    def validate_schedule(self, schedule: OpsSchedule) -> ValidatedAutomationIntent:
+        """Validate an active automatic-task intent without mutating schedules or rules."""
+        capability = self.resolve(target_type=schedule.target_type, target_key=schedule.target_key)
+        if capability is None:
+            raise WebAppError(status_code=422, code="capability.missing", message="自动任务目标不支持排程")
+
+        trigger_mode = self._normalize_trigger_mode(schedule.trigger_mode)
+        allowed_modes = {option.mode for option in capability.trigger_options}
+        if trigger_mode not in allowed_modes:
+            raise WebAppError(status_code=422, code="trigger_mode.forbidden", message="该自动任务目标不支持所选触发方式")
+
+        config = dict(schedule.probe_config_json or {})
+        if trigger_mode == "schedule":
+            if config:
+                raise WebAppError(status_code=422, code="probe_config.forbidden", message="普通定时触发不支持探测配置")
+            return ValidatedAutomationIntent(
+                capability=capability,
+                trigger_mode=trigger_mode,
+                dataset_key=None,
+                condition=None,
+                source_key=None,
+                window_start=None,
+                window_end=None,
+                probe_interval_seconds=None,
+                max_triggers_per_day=None,
+                timezone_name=None,
+                filters={},
+            )
+
+        if schedule.target_type != "dataset_action":
+            raise WebAppError(status_code=422, code="probe_rule.target_forbidden", message="探测触发只能绑定数据集维护动作")
+        if not config:
+            raise WebAppError(status_code=422, code="probe_config.required", message="探测触发必须配置探测条件")
+
+        condition_kind = str(config.get("condition_kind") or "").strip()
+        condition = next((item for item in capability.probe_conditions if item.kind == condition_kind), None)
+        if condition is None:
+            raise WebAppError(status_code=422, code="condition.unsupported", message="该自动任务目标不支持所选探测条件")
+        if trigger_mode not in condition.allowed_trigger_modes:
+            raise WebAppError(status_code=422, code="trigger_mode.forbidden", message="探测条件不支持所选触发方式")
+
+        dataset_key = self._dataset_key_for_action(schedule.target_key)
+        filters = self._extract_schedule_filters(dict(schedule.params_json or {}))
+        self._validate_condition_scope(schedule=schedule, dataset_key=dataset_key, condition=condition, filters=filters)
+        window_start, window_end = self._resolve_probe_window(config=config, condition=condition)
+        probe_interval_seconds = self._resolve_probe_integer(
+            config=config,
+            field_name="probe_interval_seconds",
+            capability=condition.probe.probe_interval_seconds,
+            default=DEFAULT_PROBE_INTERVAL_SECONDS,
+            minimum=MINIMUM_PROBE_INTERVAL_SECONDS,
+        )
+        max_triggers_per_day = self._resolve_probe_integer(
+            config=config,
+            field_name="max_triggers_per_day",
+            capability=condition.probe.max_triggers_per_day,
+            default=DEFAULT_MAX_TRIGGERS_PER_DAY,
+            minimum=1,
+        )
+        return ValidatedAutomationIntent(
+            capability=capability,
+            trigger_mode=trigger_mode,
+            dataset_key=dataset_key,
+            condition=condition,
+            source_key=self.system_source_for(condition_kind=condition.kind, dataset_key=dataset_key),
+            window_start=window_start,
+            window_end=window_end,
+            probe_interval_seconds=probe_interval_seconds,
+            max_triggers_per_day=max_triggers_per_day,
+            timezone_name=str(config.get("timezone_name") or schedule.timezone or "Asia/Shanghai").strip() or "Asia/Shanghai",
+            filters=filters,
+        )
+
     @staticmethod
     def action_key_for_remote_condition(condition_kind: str) -> str | None:
         return {
@@ -180,6 +282,154 @@ class ScheduleAutomationCapabilityResolver:
             MARGIN_REMOTE_READY_CONDITION: MARGIN_ACTION_KEY,
             MARGIN_DETAIL_REMOTE_READY_CONDITION: MARGIN_DETAIL_ACTION_KEY,
         }.get(condition_kind)
+
+    @staticmethod
+    def _normalize_trigger_mode(value: str | None) -> TriggerMode:
+        mode = str(value or "schedule").strip().lower()
+        if mode not in SUPPORTED_TRIGGER_MODES:
+            raise WebAppError(status_code=422, code="trigger_mode.forbidden", message=f"不支持的触发方式：{mode}")
+        return mode  # type: ignore[return-value]
+
+    @staticmethod
+    def _dataset_key_for_action(target_key: str) -> str:
+        try:
+            definition, action = get_dataset_definition_by_action_key(target_key)
+        except KeyError as exc:
+            raise WebAppError(status_code=422, code="capability.missing", message="数据集维护动作无效") from exc
+        if action != "maintain":
+            raise WebAppError(status_code=422, code="capability.missing", message="探测触发只能绑定数据集维护动作")
+        return definition.dataset_key
+
+    def _validate_condition_scope(
+        self,
+        *,
+        schedule: OpsSchedule,
+        dataset_key: str,
+        condition: ProbeConditionCapability,
+        filters: dict,
+    ) -> None:
+        expected_action_key = self.action_key_for_remote_condition(condition.kind)
+        if expected_action_key is not None and schedule.target_key != expected_action_key:
+            raise WebAppError(status_code=422, code="condition.unsupported", message="源端探测条件与数据集维护动作不匹配")
+        if condition.kind == FRESHNESS_LATEST_OPEN_CONDITION:
+            definition = get_dataset_definition(dataset_key)
+            if definition.observability.freshness_policy != CONTINUOUS_OPEN_DAY:
+                raise WebAppError(
+                    status_code=422,
+                    code="condition.unsupported",
+                    message=f"{definition.display_name} 不支持“最新业务日命中最新交易日”探测条件",
+                )
+        if condition.calendar_policy == "forbidden" and schedule.calendar_policy:
+            raise WebAppError(status_code=422, code="calendar_policy.forbidden", message="该源端探测不能与日期策略混用")
+        if condition.time_input == "forbidden" and self._has_fixed_time_input(dict(schedule.params_json or {})):
+            raise WebAppError(status_code=422, code="time_input.forbidden", message="该源端探测不能与固定维护日期混用")
+        self._validate_filters(filters=filters, capability=condition.filters)
+
+    @staticmethod
+    def _validate_filters(*, filters: dict, capability: FilterCapability) -> None:
+        if capability.mode == "dataset_default":
+            return
+        if capability.mode == "forbidden":
+            if filters:
+                raise WebAppError(status_code=422, code="filters.forbidden", message="该源端探测不支持维护参数")
+            return
+        allowed_values = {field: set(values) for field, values in capability.allowed_values}
+        for field in capability.required_fields:
+            values = [str(value).strip() for value in split_multi_values(filters.get(field)) if str(value).strip()]
+            if not values:
+                raise WebAppError(status_code=422, code="filters.incomplete", message=f"该源端探测必须配置参数：{field}")
+            allowed = allowed_values.get(field, set())
+            if allowed and any(value not in allowed for value in values):
+                raise WebAppError(status_code=422, code="filters.incomplete", message=f"参数 {field} 包含不支持的取值")
+            if capability.require_complete_allowed_values and (len(values) != len(allowed) or set(values) != allowed):
+                raise WebAppError(status_code=422, code="filters.incomplete", message=f"参数 {field} 必须完整配置允许取值")
+        unexpected_fields = set(filters) - set(capability.required_fields)
+        if unexpected_fields:
+            raise WebAppError(status_code=422, code="filters.forbidden", message="该源端探测包含不支持的维护参数")
+
+    @staticmethod
+    def _resolve_probe_window(*, config: dict, condition: ProbeConditionCapability) -> tuple[str, str]:
+        configured_start = ScheduleAutomationCapabilityResolver._normalize_time(
+            config.get("window_start") or DEFAULT_PROBE_WINDOW_START
+        )
+        configured_end = ScheduleAutomationCapabilityResolver._normalize_time(
+            config.get("window_end") or DEFAULT_PROBE_WINDOW_END
+        )
+        capability = condition.probe.window
+        if capability.mode != "fixed":
+            return configured_start, configured_end
+        assert capability.start is not None and capability.end is not None
+        if configured_start != capability.start or configured_end != capability.end:
+            raise WebAppError(status_code=422, code="probe_window.forbidden", message="该源端探测窗口由系统固定")
+        return capability.start, capability.end
+
+    @staticmethod
+    def _resolve_probe_integer(
+        *,
+        config: dict,
+        field_name: str,
+        capability: ProbeIntegerCapability,
+        default: int,
+        minimum: int,
+    ) -> int:
+        try:
+            configured = int(config.get(field_name) or default)
+        except (TypeError, ValueError) as exc:
+            raise WebAppError(status_code=422, code="probe_config.invalid", message=f"探测配置 {field_name} 必须是整数") from exc
+        if configured < minimum:
+            raise WebAppError(status_code=422, code="probe_config.invalid", message=f"探测配置 {field_name} 不能小于 {minimum}")
+        if capability.mode == "fixed":
+            assert capability.value is not None
+            if configured != capability.value:
+                raise WebAppError(status_code=422, code="probe_config.forbidden", message=f"探测配置 {field_name} 由系统固定")
+            return capability.value
+        if capability.mode == "minimum":
+            assert capability.value is not None
+            if configured < capability.value:
+                raise WebAppError(
+                    status_code=422,
+                    code="probe_config.invalid",
+                    message=f"探测配置 {field_name} 不能小于 {capability.value}",
+                )
+        return configured
+
+    @staticmethod
+    def _extract_schedule_filters(params_json: dict) -> dict:
+        declared_filters = params_json.get("filters")
+        if isinstance(declared_filters, dict):
+            return {str(key): value for key, value in declared_filters.items() if value not in (None, "", [], {})}
+        return {
+            str(key): value
+            for key, value in params_json.items()
+            if key not in PARAM_RESERVED_KEYS and key not in TIME_PARAM_KEYS and value not in (None, "", [], {})
+        }
+
+    @staticmethod
+    def _has_fixed_time_input(params_json: dict) -> bool:
+        if any(params_json.get(key) not in (None, "") for key in TIME_PARAM_KEYS):
+            return True
+        time_input = params_json.get("time_input")
+        return isinstance(time_input, dict) and any(time_input.get(key) not in (None, "") for key in TIME_PARAM_KEYS)
+
+    @staticmethod
+    def _normalize_time(value: object) -> str:
+        text = str(value or "").strip()
+        if len(text) == 5 and text[2] == ":":
+            hour, minute = text.split(":")
+        elif len(text) == 8 and text[2] == ":" and text[5] == ":":
+            hour, minute, second = text.split(":")
+            if second != "00":
+                raise WebAppError(status_code=422, code="probe_config.invalid", message="探测窗口时间必须精确到分钟")
+        else:
+            raise WebAppError(status_code=422, code="probe_config.invalid", message="探测窗口时间格式必须为 HH:mm")
+        try:
+            normalized_hour = int(hour)
+            normalized_minute = int(minute)
+        except ValueError as exc:
+            raise WebAppError(status_code=422, code="probe_config.invalid", message="探测窗口时间格式必须为 HH:mm") from exc
+        if not 0 <= normalized_hour <= 23 or not 0 <= normalized_minute <= 59:
+            raise WebAppError(status_code=422, code="probe_config.invalid", message="探测窗口时间格式必须为 HH:mm")
+        return f"{normalized_hour:02d}:{normalized_minute:02d}"
 
     def _resolve_dataset_action(self, target_key: str) -> AutomationCapability | None:
         try:
@@ -311,7 +561,7 @@ class ScheduleAutomationCapabilityResolver:
             MARGIN_DETAIL_ACTION_KEY: ProbeConditionCapability(
                 kind=MARGIN_DETAIL_REMOTE_READY_CONDITION,
                 label="源站已完整发布融资融券交易明细",
-                description="确认上一交易日三个市场明细完整后创建全市场单日维护任务。",
+                description="确认三个市场代表证券均已返回上一开市日数据后，创建全市场单日维护任务。",
                 allowed_trigger_modes=("probe",),
                 calendar_policy="forbidden",
                 time_input="forbidden",
