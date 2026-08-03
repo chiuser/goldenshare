@@ -43,7 +43,7 @@ class ScheduleProbeBindingService:
 
         intent = self.capability_resolver.validate_schedule(schedule)
         session.execute(delete(ProbeRule).where(ProbeRule.schedule_id == schedule.id))
-        template = self._build_template(intent)
+        template = self.build_template(intent)
         if template is None:
             return
 
@@ -72,7 +72,7 @@ class ScheduleProbeBindingService:
         )
 
     @staticmethod
-    def _build_template(intent: ValidatedAutomationIntent) -> ProbeRuleTemplate | None:
+    def build_template(intent: ValidatedAutomationIntent) -> ProbeRuleTemplate | None:
         if intent.condition is None:
             return None
         assert intent.dataset_key is not None

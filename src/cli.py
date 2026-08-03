@@ -19,6 +19,7 @@ from src.cli_parts.ingestion_handlers import (
     run_ingestion_snapshot as _run_ingestion_snapshot_impl,
 )
 from src.cli_parts.ops_handlers import (
+    run_ops_audit_schedule_automation_capability as _run_ops_audit_schedule_automation_capability_impl,
     run_ops_cleanup_etf_fund_daily_serving as _run_ops_cleanup_etf_fund_daily_serving_impl,
     run_ops_date_completeness_scheduler_tick as _run_ops_date_completeness_scheduler_tick_impl,
     run_ops_date_completeness_worker_run as _run_ops_date_completeness_worker_run_impl,
@@ -62,6 +63,7 @@ from src.foundation.serving import ServingPublishService, validate_serving_cover
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.runtime import OperationsScheduler, OperationsWorker, TaskRunCompletionWorker
 from src.ops.services.operations_daily_health_report_service import DailyHealthReportService
+from src.ops.services.schedule_automation_capability_audit_service import ScheduleAutomationCapabilityAuditService
 from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
 from src.ops.services.operations_default_single_source_seed_service import DefaultSingleSourceSeedService
 from src.ops.services.etf_series_active_seed_service import EtfSeriesActiveSeedService
@@ -312,6 +314,24 @@ def ops_rebuild_dataset_status() -> None:
     _run_ops_rebuild_dataset_status_impl(
         session_local=SessionLocal,
         dataset_status_snapshot_service_cls=DatasetStatusSnapshotService,
+        echo_fn=typer.echo,
+    )
+
+
+@app.command("ops-audit-schedule-automation-capability")
+def ops_audit_schedule_automation_capability(
+    batch_size: int = typer.Option(100, min=1, max=1_000, help="每页最多读取的配置行数。"),
+    max_records: int = typer.Option(100, min=1, max=1_000, help="schedule 与 ProbeRule 各自的只读扫描上限。"),
+    expected_schedule_count: int | None = typer.Option(None, help="可选：期望的 schedule 数量。"),
+    expected_probe_rule_count: int | None = typer.Option(None, help="可选：期望的 ProbeRule 数量。"),
+) -> None:
+    _run_ops_audit_schedule_automation_capability_impl(
+        session_local=SessionLocal,
+        service_cls=ScheduleAutomationCapabilityAuditService,
+        batch_size=batch_size,
+        max_records=max_records,
+        expected_schedule_count=expected_schedule_count,
+        expected_probe_rule_count=expected_probe_rule_count,
         echo_fn=typer.echo,
     )
 

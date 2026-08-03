@@ -186,7 +186,9 @@ Runtime 保留 7 个探测器的显式 condition dispatch。防御性约束：
 
 ### 4.3 只读 preflight
 
-`ScheduleAutomationCapabilityAuditService` 稳定排序分页扫描 schedule/ProbeRule，不 commit、不 update、不调用 binding。它检查 capability、trigger、condition、日期/日历、filters、窗口、间隔、上限、内部 source、父子关系和 action 一致性。
+`ScheduleAutomationCapabilityAuditService` 对 `ops.schedule` 和 `ops.probe_rule` 做字段白名单、稳定 `id` keyset 分页扫描，不 commit、不 update、不调用 binding。它检查 capability、trigger、schedule type、condition、日期/日历、filters、窗口、间隔、上限、内部 source、父子关系和 action 一致性；CLI 默认每类最多扫描 100 行，硬上限 1000 行，超过本次上限失败关闭。
+
+`goldenshare ops-audit-schedule-automation-capability` 是唯一执行入口。它在 `REPEATABLE READ, READ ONLY` 事务中运行，完成后只 rollback；可用 `--expected-schedule-count 28 --expected-probe-rule-count 6` 把本次发布基线变成非零退出门禁。
 
 建议 reason code：`capability.missing`、`trigger_mode.forbidden`、`condition.unsupported`、`source_key.operator_forbidden`、`probe_rule.target_forbidden`、`probe_rule.missing`、`probe_rule.orphan`、`probe_rule.mismatch`、`filters.forbidden`、`filters.incomplete`。
 

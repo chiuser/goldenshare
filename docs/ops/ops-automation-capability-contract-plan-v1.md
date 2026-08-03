@@ -147,7 +147,7 @@ resolve(target_type, target_key) -> AutomationCapability | null
 
 ## 7. 存量配置、风险与发布
 
-新增只读 capability audit，稳定排序分页扫描 schedule 和 ProbeRule：
+新增只读 capability audit，稳定排序分页扫描 schedule 和 ProbeRule（`goldenshare ops-audit-schedule-automation-capability` 在 `REPEATABLE READ, READ ONLY` 事务中运行，完成后 rollback）：
 
 1. 目标、trigger、condition、日期/日历、filters、窗口、间隔和上限必须符合 capability。
 2. 仅 dataset probe/fallback schedule 可以有正确的一条 ProbeRule。

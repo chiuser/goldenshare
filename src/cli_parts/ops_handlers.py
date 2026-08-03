@@ -7,12 +7,41 @@ from pathlib import Path
 from typing import Callable
 
 import typer
+from sqlalchemy import text
 
 
 def run_ops_rebuild_dataset_status(*, session_local, dataset_status_snapshot_service_cls, echo_fn: Callable[[str], None]) -> None:
     with session_local() as session:
         count = dataset_status_snapshot_service_cls().rebuild_all(session, strict=True)
         echo_fn(f"ops-rebuild-dataset-status: rebuilt={count}")
+
+
+def run_ops_audit_schedule_automation_capability(
+    *,
+    session_local,
+    service_cls,
+    batch_size: int,
+    max_records: int,
+    expected_schedule_count: int | None,
+    expected_probe_rule_count: int | None,
+    echo_fn: Callable[[str], None],
+) -> None:
+    with session_local() as session:
+        session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
+        try:
+            report = service_cls().audit(
+                session,
+                batch_size=batch_size,
+                max_records=max_records,
+                expected_schedule_count=expected_schedule_count,
+                expected_probe_rule_count=expected_probe_rule_count,
+            )
+        finally:
+            session.rollback()
+
+    echo_fn(report.to_json())
+    if not report.passed:
+        raise typer.Exit(code=1)
 
 
 def run_ops_daily_health_report(
