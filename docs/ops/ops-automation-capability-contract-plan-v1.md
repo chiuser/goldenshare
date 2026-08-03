@@ -1,6 +1,6 @@
 # Ops 自动任务能力契约收敛方案 v1
 
-状态：P1–P3 已完成；P4 待开发
+状态：P1–P3 已完成；P4 已执行只读预检但未通过，待运营拍板修复两条历史规则
 日期：2026-08-03
 适用范围：`src/ops/**`、`frontend/src/pages/ops-v21-task-auto-tab.tsx`、`GET /api/v1/ops/catalog`。
 配套 LLD：[Ops 自动任务能力契约 LLD v1](/Users/congming/github/goldenshare/docs/ops/ops-automation-capability-contract-lld-v1.md)。
@@ -156,6 +156,8 @@ resolve(target_type, target_key) -> AutomationCapability | null
 
 生产 28 条 schedule、6 条 ProbeRule 必须零 mismatch；不一致时逐条评审，禁止自动修复。
 
+2026-08-03 已用 `REPEATABLE READ, READ ONLY` 执行正式预检：数量为 28 / 6，分页各一页，未创建 TaskRun、未修改任何配置；但未通过零 mismatch 门禁。`ops.probe_rule` 的 10（父 schedule 31，`index_mins.maintain`）和 12（父 schedule 33，`margin.maintain`）的 `source_key` 都是 `NULL`，而两个数据集当前的系统默认来源均为 `tushare`。这是 P3 之前按旧绑定语义创建的历史记录；需在后续经运营明确授权后，用当前 binding 语义重建这两条规则或进行等价的定点修复，禁止自动处理。
+
 发布顺序：先实现 resolver、Catalog、binding 和预检；只读预检通过后，前端完全切为 contract 驱动；最后复核 Catalog、持久化配置和浏览器表单。全程不创建 TaskRun、不修改存量自动任务。`margin_detail` 的第一条自动任务仍属于 M5b 的独立授权。
 
 | 风险 | 控制 |
@@ -173,7 +175,7 @@ resolve(target_type, target_key) -> AutomationCapability | null
 | P1（已完成） | capability 类型、resolver、workflow probe 旧字段/路径清理 | 81 个目标可解析；workflow 仅 schedule；7 条规则逐项断言 |
 | P2（已完成） | Catalog API 的只读 capability 投影、前端 API 类型 | 所有目标字段完整；API 契约测试通过 |
 | P3（已完成） | 请求 schema、binding/runtime 收口、前端删除白名单与旧 ProbeRule 写链 | `source_key` 422；workflow probe 422；workflow 内 `index_daily` 直接执行回归；直接绕过 422；Probe API 只读 |
-| P4 | 只读预检与发布验证 | 28 schedule / 6 ProbeRule 零 mismatch；无写入、无 TaskRun |
+| P4（预检未通过） | 只读预检与发布验证 | 已确认 28 schedule / 6 ProbeRule；两条历史 rule 的 `source_key=NULL`，待明确授权定点修复后重跑零 mismatch 门禁；无写入、无 TaskRun |
 
 `source_key` 的拒绝与来源控件删除不得拆入 P2：它同时涉及 request schema、binding 持久化语义和自动任务页。P2 只先发布向后兼容的只读 capability 字段；P3 再以一个可运行闭环删除可写来源和前端白名单。这样任何已提交阶段都不会出现“页面仍提交 source、API 已拒绝”的断链。
 
