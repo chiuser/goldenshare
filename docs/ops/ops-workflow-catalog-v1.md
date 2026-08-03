@@ -277,7 +277,17 @@
 | `depends_on` | `list(step.depends_on)` | 依赖步骤 |
 | `default_params` | `step.default_params` | 步骤默认参数 |
 
-### 6.4 当前未暴露到 catalog API 的 workflow 字段
+### 6.4 已拍板的自动任务 probe 边界（待开发）
+
+按 [Ops 自动任务能力契约收敛方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-automation-capability-contract-plan-v1.md) 的已确认口径：
+
+1. workflow 自动任务只能普通 `schedule` 触发；不得使用 `probe` 或 `schedule_probe_fallback`，也不得派生 `ops.probe_rule`。
+2. workflow 可以包含支持源端 probe 的 dataset action；它在 workflow 中始终按工作流传入的日期和参数直接执行，不使用该数据集单独自动任务的 probe。
+3. `WorkflowDefinition.probe_trigger_enabled` 是当前未被运行链路消费的历史字段；该方案实施时删除，不得据此新增 UI 或 API 能力。
+
+因此，`index_extension_maintenance` 与 `index_kline_maintenance_pipeline` 中的 `index_daily` 步骤保留，但不会获得 `remote_index_daily_ready` 的 workflow probe。
+
+### 6.5 当前未暴露到 catalog API 的 workflow 字段
 
 下列字段存在于 `WorkflowDefinition` 或 `WorkflowStepDefinition`，但当前 `GET /api/v1/ops/catalog` 不返回：
 

@@ -90,6 +90,8 @@ docs/
 - [手动维护动作模型收敛方案 v2](/Users/congming/github/goldenshare/docs/ops/ops-manual-action-model-alignment-plan-v2.md)
 - [Ops 手动维护时间模式升级方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-manual-action-time-mode-upgrade-plan-v1.md)
 - [Ops 自动任务日期策略方案 v1（第一期已落地）](/Users/congming/github/goldenshare/docs/ops/ops-schedule-calendar-policy-plan-v1.md)
+- [Ops 自动任务能力契约收敛方案 v1（已拍板，待开发）](/Users/congming/github/goldenshare/docs/ops/ops-automation-capability-contract-plan-v1.md)
+- [Ops 自动任务能力契约 LLD v1（已拍板，待开发）](/Users/congming/github/goldenshare/docs/ops/ops-automation-capability-contract-lld-v1.md)
 - [Ops 新闻日内高频自动任务方案 v1（已实现，待实际配置验收）](/Users/congming/github/goldenshare/docs/ops/ops-intraday-news-high-frequency-schedule-plan-v1.md)
 - [Ops 数据集展示目录配置方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-dataset-catalog-view-plan-v1.md)
 - [Ops Biz 表数据源展示方案 v1（已确认）](/Users/congming/github/goldenshare/docs/ops/ops-biz-table-source-display-plan-v1.md)
