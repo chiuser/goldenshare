@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -14,6 +14,55 @@ class ActionParameterResponse(BaseModel):
     options: list[str]
     multi_value: bool
     default_value: Any | None = None
+
+
+class TriggerModeCapabilityResponse(BaseModel):
+    mode: Literal["schedule", "probe", "schedule_probe_fallback"]
+    allowed_schedule_types: list[Literal["cron", "once"]]
+
+
+class FilterCapabilityResponse(BaseModel):
+    mode: Literal["dataset_default", "forbidden", "required_allowed_values"]
+    required_fields: list[str]
+    allowed_values: dict[str, list[str]]
+    require_complete_allowed_values: bool
+
+
+class ProbeWindowCapabilityResponse(BaseModel):
+    mode: Literal["operator_default", "fixed"]
+    start: str | None
+    end: str | None
+
+
+class ProbeIntegerCapabilityResponse(BaseModel):
+    mode: Literal["operator_default", "minimum", "fixed"]
+    value: int | None
+
+
+class ProbeConfigCapabilityResponse(BaseModel):
+    source: Literal["system_default"]
+    source_label: str
+    window: ProbeWindowCapabilityResponse
+    probe_interval_seconds: ProbeIntegerCapabilityResponse
+    max_triggers_per_day: ProbeIntegerCapabilityResponse
+
+
+class ProbeConditionCapabilityResponse(BaseModel):
+    kind: str
+    label: str
+    description: str
+    allowed_trigger_modes: list[Literal["probe", "schedule_probe_fallback"]]
+    calendar_policy: Literal["dataset_default", "forbidden"]
+    time_input: Literal["dataset_default", "forbidden"]
+    filters: FilterCapabilityResponse
+    probe: ProbeConfigCapabilityResponse
+
+
+class AutomationCapabilityResponse(BaseModel):
+    version: Literal[1]
+    default_trigger_mode: Literal["schedule", "probe", "schedule_probe_fallback"]
+    trigger_options: list[TriggerModeCapabilityResponse]
+    probe_conditions: list[ProbeConditionCapabilityResponse]
 
 
 class ActionCatalogItem(BaseModel):
@@ -34,6 +83,7 @@ class ActionCatalogItem(BaseModel):
     target_tables: list[str]
     manual_enabled: bool
     schedule_enabled: bool
+    automation_capability: AutomationCapabilityResponse | None
     retry_enabled: bool
     schedule_binding_count: int = 0
     active_schedule_count: int = 0
@@ -61,6 +111,7 @@ class WorkflowCatalogItem(BaseModel):
     parallel_policy: str
     default_schedule_policy: str | None = None
     schedule_enabled: bool
+    automation_capability: AutomationCapabilityResponse | None
     manual_enabled: bool
     schedule_binding_count: int = 0
     active_schedule_count: int = 0

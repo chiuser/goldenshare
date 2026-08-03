@@ -193,6 +193,87 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert actions["maintenance.rebuild_dm"]["action_type"] == "maintenance_action"
     assert actions["maintenance.rebuild_dm"]["display_name"] == "刷新数据集市快照"
 
+    catalog_items = [*actions.values(), *workflows.values()]
+    assert sum(item["schedule_enabled"] for item in catalog_items) == 81
+    assert all(
+        (item["automation_capability"] is not None) is item["schedule_enabled"]
+        for item in catalog_items
+    )
+
+    daily_capability = actions["daily.maintain"]["automation_capability"]
+    assert daily_capability == {
+        "version": 1,
+        "default_trigger_mode": "schedule",
+        "trigger_options": [
+            {"mode": "schedule", "allowed_schedule_types": ["cron", "once"]},
+            {"mode": "probe", "allowed_schedule_types": ["cron", "once"]},
+            {"mode": "schedule_probe_fallback", "allowed_schedule_types": ["cron", "once"]},
+        ],
+        "probe_conditions": [
+            {
+                "kind": "freshness_latest_open",
+                "label": "最新业务日命中最新交易日",
+                "description": "最新业务日达到最新开市交易日后创建维护任务。",
+                "allowed_trigger_modes": ["probe", "schedule_probe_fallback"],
+                "calendar_policy": "dataset_default",
+                "time_input": "dataset_default",
+                "filters": {
+                    "mode": "dataset_default",
+                    "required_fields": [],
+                    "allowed_values": {},
+                    "require_complete_allowed_values": False,
+                },
+                "probe": {
+                    "source": "system_default",
+                    "source_label": "系统默认来源",
+                    "window": {"mode": "operator_default", "start": None, "end": None},
+                    "probe_interval_seconds": {"mode": "operator_default", "value": None},
+                    "max_triggers_per_day": {"mode": "operator_default", "value": None},
+                },
+            }
+        ],
+    }
+
+    margin_detail_capability = actions["margin_detail.maintain"]["automation_capability"]
+    assert margin_detail_capability == {
+        "version": 1,
+        "default_trigger_mode": "probe",
+        "trigger_options": [{"mode": "probe", "allowed_schedule_types": ["cron", "once"]}],
+        "probe_conditions": [
+            {
+                "kind": "remote_margin_detail_ready",
+                "label": "源站已完整发布融资融券交易明细",
+                "description": "确认上一交易日三个市场明细完整后创建全市场单日维护任务。",
+                "allowed_trigger_modes": ["probe"],
+                "calendar_policy": "forbidden",
+                "time_input": "forbidden",
+                "filters": {
+                    "mode": "forbidden",
+                    "required_fields": [],
+                    "allowed_values": {},
+                    "require_complete_allowed_values": False,
+                },
+                "probe": {
+                    "source": "system_default",
+                    "source_label": "系统默认来源",
+                    "window": {"mode": "fixed", "start": "09:00", "end": "09:30"},
+                    "probe_interval_seconds": {"mode": "fixed", "value": 300},
+                    "max_triggers_per_day": {"mode": "fixed", "value": 1},
+                },
+            }
+        ],
+    }
+    for workflow in workflows.values():
+        if workflow["schedule_enabled"]:
+            assert workflow["automation_capability"] == {
+                "version": 1,
+                "default_trigger_mode": "schedule",
+                "trigger_options": [{"mode": "schedule", "allowed_schedule_types": ["cron", "once"]}],
+                "probe_conditions": [],
+            }
+        else:
+            assert workflow["automation_capability"] is None
+
 
 def test_ops_catalog_includes_schedule_binding_counts(app_client, user_factory, ops_schedule_factory) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)

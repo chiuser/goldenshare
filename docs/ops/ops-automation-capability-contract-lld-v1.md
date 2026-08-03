@@ -1,6 +1,6 @@
 # Ops 自动任务能力契约 LLD v1
 
-状态：P1 已完成；P2–P4 待开发
+状态：P1–P2 已完成；P3–P4 待开发
 日期：2026-08-03
 上位方案：[Ops 自动任务能力契约收敛方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-automation-capability-contract-plan-v1.md)。
 
@@ -221,9 +221,9 @@ git diff --check
 
 ## 6. 实施顺序和禁止项
 
-1. 实现 immutable registry、resolver 和后端正反测试。
-2. 实现 Catalog/请求 schema/binding 与只读 preflight，先完成存量预检。
-3. 后端与前端联合发布，前端删除所有 action-key、condition、source 特例。
-4. 仅零 mismatch 时完成发布验证；不创建 TaskRun、不修改既有排程。
+1. P1：实现 immutable registry、resolver 和后端正反测试。
+2. P2：实现 Catalog 的只读 capability 投影、前端 API 类型与契约测试；旧页面仍使用原有字段，不能在本阶段让 request/response 断链。
+3. P3：联合实现 request schema、binding/runtime 和自动任务页：删除可写 `source_key`、`workflow_dataset_keys`、来源 Select 与 action-key/condition 特例，并以正反例验证端到端约束。
+4. P4：实现并执行只读 preflight；仅 28 条 schedule / 6 条 ProbeRule 零 mismatch 时完成发布验证；不创建 TaskRun、不修改既有排程。
 
 禁止保留 workflow probe、`workflow_dataset_keys`、`probe_trigger_enabled`、frontend fallback 或可写 source；禁止把 dataset action 的 probe 条件用于 workflow 步骤；禁止通过 migration、seed 或批量 PATCH 重建存量 schedule/ProbeRule。

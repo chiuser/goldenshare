@@ -473,6 +473,46 @@ export interface TaskRunIssueDetailResponse {
   occurred_at: string;
 }
 
+export interface OpsAutomationCapability {
+  version: 1;
+  default_trigger_mode: "schedule" | "probe" | "schedule_probe_fallback";
+  trigger_options: Array<{
+    mode: "schedule" | "probe" | "schedule_probe_fallback";
+    allowed_schedule_types: Array<"cron" | "once">;
+  }>;
+  probe_conditions: Array<{
+    kind: string;
+    label: string;
+    description: string;
+    allowed_trigger_modes: Array<"probe" | "schedule_probe_fallback">;
+    calendar_policy: "dataset_default" | "forbidden";
+    time_input: "dataset_default" | "forbidden";
+    filters: {
+      mode: "dataset_default" | "forbidden" | "required_allowed_values";
+      required_fields: string[];
+      allowed_values: Record<string, string[]>;
+      require_complete_allowed_values: boolean;
+    };
+    probe: {
+      source: "system_default";
+      source_label: string;
+      window: {
+        mode: "operator_default" | "fixed";
+        start: string | null;
+        end: string | null;
+      };
+      probe_interval_seconds: {
+        mode: "operator_default" | "minimum" | "fixed";
+        value: number | null;
+      };
+      max_triggers_per_day: {
+        mode: "operator_default" | "minimum" | "fixed";
+        value: number | null;
+      };
+    };
+  }>;
+}
+
 export interface OpsCatalogResponse {
   actions: Array<{
     key: string;
@@ -494,6 +534,7 @@ export interface OpsCatalogResponse {
     active_schedule_count: number;
     manual_enabled?: boolean;
     schedule_enabled?: boolean;
+    automation_capability: OpsAutomationCapability | null;
     retry_enabled?: boolean;
     parameters?: Array<{
       key: string;
@@ -520,6 +561,7 @@ export interface OpsCatalogResponse {
     active_schedule_count: number;
     manual_enabled?: boolean;
     schedule_enabled?: boolean;
+    automation_capability: OpsAutomationCapability | null;
     parameters?: Array<{
       key: string;
       display_name: string;

@@ -9,7 +9,6 @@ from src.foundation.datasets.source_registry import list_source_selection_defini
 from src.ops.catalog.dataset_catalog_view_resolver import DatasetCatalogViewResolver
 from src.ops.action_catalog import (
     MaintenanceActionDefinition,
-    WorkflowDefinition,
     dataset_field_default_value,
     list_maintenance_actions,
     list_workflow_definitions,
@@ -18,15 +17,27 @@ from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.schemas.catalog import (
     ActionCatalogItem,
     ActionParameterResponse,
+    AutomationCapabilityResponse,
+    FilterCapabilityResponse,
     OpsCatalogResponse,
+    ProbeConditionCapabilityResponse,
+    ProbeConfigCapabilityResponse,
+    ProbeIntegerCapabilityResponse,
+    ProbeWindowCapabilityResponse,
     SourceCatalogItem,
+    TriggerModeCapabilityResponse,
     WorkflowCatalogItem,
     WorkflowStepCatalogItem,
+)
+from src.ops.services.schedule_automation_capability_resolver import (
+    AutomationCapability,
+    ScheduleAutomationCapabilityResolver,
 )
 
 
 class OpsCatalogQueryService:
     def build_catalog(self, session: Session) -> OpsCatalogResponse:
+        capability_resolver = ScheduleAutomationCapabilityResolver()
         binding_rows = session.execute(
             select(
                 OpsSchedule.target_type,
@@ -46,11 +57,11 @@ class OpsCatalogQueryService:
         return OpsCatalogResponse(
             actions=[
                 *[
-                    self._build_dataset_action_catalog_item(definition, bindings)
+                    self._build_dataset_action_catalog_item(definition, bindings, capability_resolver)
                     for definition in list_dataset_definitions()
                 ],
                 *[
-                    self._build_maintenance_action_catalog_item(action, bindings)
+                    self._build_maintenance_action_catalog_item(action, bindings, capability_resolver)
                     for action in list_maintenance_actions()
                 ],
             ],
@@ -67,6 +78,9 @@ class OpsCatalogQueryService:
                     parallel_policy=workflow.parallel_policy,
                     default_schedule_policy=workflow.default_schedule_policy,
                     schedule_enabled=workflow.schedule_enabled,
+                    automation_capability=self._automation_capability_response(
+                        capability_resolver.resolve(target_type="workflow", target_key=workflow.key)
+                    ),
                     manual_enabled=workflow.manual_enabled,
                     schedule_binding_count=bindings.get(("workflow", workflow.key), {}).get("schedule_binding_count", 0),
                     active_schedule_count=bindings.get(("workflow", workflow.key), {}).get("active_schedule_count", 0),
@@ -107,6 +121,7 @@ class OpsCatalogQueryService:
         self,
         action: MaintenanceActionDefinition,
         bindings: dict[tuple[str, str], dict[str, int]],
+        capability_resolver: ScheduleAutomationCapabilityResolver,
     ) -> ActionCatalogItem:
         return ActionCatalogItem(
             key=action.key,
@@ -126,6 +141,9 @@ class OpsCatalogQueryService:
             target_tables=list(action.target_tables),
             manual_enabled=action.manual_enabled,
             schedule_enabled=action.schedule_enabled,
+            automation_capability=self._automation_capability_response(
+                capability_resolver.resolve(target_type="maintenance_action", target_key=action.key)
+            ),
             retry_enabled=action.retry_enabled,
             schedule_binding_count=bindings.get(("maintenance_action", action.key), {}).get("schedule_binding_count", 0),
             active_schedule_count=bindings.get(("maintenance_action", action.key), {}).get("active_schedule_count", 0),
@@ -148,6 +166,7 @@ class OpsCatalogQueryService:
         self,
         definition: DatasetDefinition,
         bindings: dict[tuple[str, str], dict[str, int]],
+        capability_resolver: ScheduleAutomationCapabilityResolver,
     ) -> ActionCatalogItem:
         action = definition.capabilities.get_action("maintain")
         action_key = definition.action_key("maintain")
@@ -170,6 +189,9 @@ class OpsCatalogQueryService:
             target_tables=[definition.storage.target_table],
             manual_enabled=bool(action and action.manual_enabled),
             schedule_enabled=bool(action and action.schedule_enabled),
+            automation_capability=self._automation_capability_response(
+                capability_resolver.resolve(target_type="dataset_action", target_key=action_key)
+            ),
             retry_enabled=bool(action and action.retry_enabled),
             schedule_binding_count=bindings.get(("dataset_action", action_key), {}).get("schedule_binding_count", 0),
             active_schedule_count=bindings.get(("dataset_action", action_key), {}).get("active_schedule_count", 0),
@@ -179,6 +201,58 @@ class OpsCatalogQueryService:
                     enum_fanout_defaults=definition.planning.enum_fanout_defaults,
                 )
                 for field in (*definition.input_model.time_fields, *definition.input_model.filters)
+            ],
+        )
+
+    @staticmethod
+    def _automation_capability_response(
+        capability: AutomationCapability | None,
+    ) -> AutomationCapabilityResponse | None:
+        if capability is None:
+            return None
+        return AutomationCapabilityResponse(
+            version=capability.version,
+            default_trigger_mode=capability.default_trigger_mode,
+            trigger_options=[
+                TriggerModeCapabilityResponse(
+                    mode=option.mode,
+                    allowed_schedule_types=list(option.allowed_schedule_types),
+                )
+                for option in capability.trigger_options
+            ],
+            probe_conditions=[
+                ProbeConditionCapabilityResponse(
+                    kind=condition.kind,
+                    label=condition.label,
+                    description=condition.description,
+                    allowed_trigger_modes=list(condition.allowed_trigger_modes),
+                    calendar_policy=condition.calendar_policy,
+                    time_input=condition.time_input,
+                    filters=FilterCapabilityResponse(
+                        mode=condition.filters.mode,
+                        required_fields=list(condition.filters.required_fields),
+                        allowed_values={field: list(values) for field, values in condition.filters.allowed_values},
+                        require_complete_allowed_values=condition.filters.require_complete_allowed_values,
+                    ),
+                    probe=ProbeConfigCapabilityResponse(
+                        source=condition.probe.source,
+                        source_label=condition.probe.source_label,
+                        window=ProbeWindowCapabilityResponse(
+                            mode=condition.probe.window.mode,
+                            start=condition.probe.window.start,
+                            end=condition.probe.window.end,
+                        ),
+                        probe_interval_seconds=ProbeIntegerCapabilityResponse(
+                            mode=condition.probe.probe_interval_seconds.mode,
+                            value=condition.probe.probe_interval_seconds.value,
+                        ),
+                        max_triggers_per_day=ProbeIntegerCapabilityResponse(
+                            mode=condition.probe.max_triggers_per_day.mode,
+                            value=condition.probe.max_triggers_per_day.value,
+                        ),
+                    ),
+                )
+                for condition in capability.probe_conditions
             ],
         )
 
