@@ -1,6 +1,6 @@
 # Ops 自动任务能力契约 LLD v1
 
-状态：P1–P3 已完成；P4 已执行只读预检但未通过，待运营拍板修复两条历史规则
+状态：P1–P4 已完成
 日期：2026-08-03
 上位方案：[Ops 自动任务能力契约收敛方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-automation-capability-contract-plan-v1.md)。
 
@@ -190,7 +190,7 @@ Runtime 保留 7 个探测器的显式 condition dispatch。防御性约束：
 
 `goldenshare ops-audit-schedule-automation-capability` 是唯一执行入口。它在 `REPEATABLE READ, READ ONLY` 事务中运行，完成后只 rollback；可用 `--expected-schedule-count 28 --expected-probe-rule-count 6` 把本次发布基线变成非零退出门禁。
 
-2026-08-03 的正式预检已读取 28 条 schedule、6 条 ProbeRule（均为一页），未写库、未创建 TaskRun，但因两条历史记录未通过：ProbeRule 10（schedule 31，`index_mins.maintain`）和 12（schedule 33，`margin.maintain`）的 `source_key` 是 `NULL`，按当前 `DatasetDefinition` 及 resolver 均应为 `tushare`。它们来自 P3 前“父任务空 source 写入空 rule source”的旧 binding 语义。P4 保持失败关闭；未经运营明确授权不得自动重绑、PATCH 或迁移修复。
+2026-08-03 的首次正式预检读取 28 条 schedule、6 条 ProbeRule（均为一页），未创建 TaskRun，但发现两条历史记录未通过：ProbeRule 10（schedule 31，`index_mins.maintain`）和 12（schedule 33，`margin.maintain`）的 `source_key` 是 `NULL`，按当前 `DatasetDefinition` 及 resolver 均应为 `tushare`。它们来自 P3 前“父任务空 source 写入空 rule source”的旧 binding 语义。经运营明确授权后，以 `id + schedule_id + dataset_key + source_key IS NULL` 乐观条件在单一事务中仅回填这两个 `source_key`，并断言恰好影响 2 行；未重绑、PATCH schedule、迁移或创建 TaskRun。重跑同一只读门禁后为 28 / 6、各一页、零 mismatch，P4 通过。
 
 建议 reason code：`capability.missing`、`trigger_mode.forbidden`、`condition.unsupported`、`source_key.operator_forbidden`、`probe_rule.target_forbidden`、`probe_rule.missing`、`probe_rule.orphan`、`probe_rule.mismatch`、`filters.forbidden`、`filters.incomplete`。
 
@@ -228,6 +228,6 @@ git diff --check
 1. P1：实现 immutable registry、resolver 和后端正反测试。
 2. P2：实现 Catalog 的只读 capability 投影、前端 API 类型与契约测试；旧页面仍使用原有字段，不能在本阶段让 request/response 断链。
 3. P3（已完成）：联合实现 request schema、binding/runtime 和自动任务页：删除可写 `source_key`、`workflow_dataset_keys`、来源 Select 与 action-key/condition 特例；删除旧 ProbeRule CRUD，只保留只读规则/运行日志查询，并以正反例验证端到端约束。
-4. P4：实现并执行只读 preflight；仅 28 条 schedule / 6 条 ProbeRule 零 mismatch 时完成发布验证；不创建 TaskRun、不修改既有排程。2026-08-03 已执行，发现两条 `source_key=NULL` 的历史 rule，当前未通过，待定点修复授权后重跑。
+4. P4（已完成）：实现并执行只读 preflight；仅 28 条 schedule / 6 条 ProbeRule 零 mismatch 时完成发布验证；不创建 TaskRun、不修改既有排程。2026-08-03 经授权仅定点回填两条历史 rule 的 `source_key` 后重跑通过。
 
 禁止保留 workflow probe、`workflow_dataset_keys`、`probe_trigger_enabled`、frontend fallback 或可写 source；禁止把 dataset action 的 probe 条件用于 workflow 步骤；禁止通过 migration、seed 或批量 PATCH 重建存量 schedule/ProbeRule。
