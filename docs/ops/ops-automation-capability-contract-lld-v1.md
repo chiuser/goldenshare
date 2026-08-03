@@ -218,7 +218,7 @@ pytest -q tests/web/test_ops_catalog_api.py tests/web/test_ops_schedule_api.py t
 npm --prefix frontend run typecheck
 npm --prefix frontend run test
 npm --prefix frontend run build
-npm --prefix frontend run test:smoke:ci
+(cd frontend && npm run test:smoke:ci)
 python3 scripts/check_docs_integrity.py
 git diff --check
 ```
