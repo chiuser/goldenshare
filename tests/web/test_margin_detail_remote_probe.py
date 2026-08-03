@@ -442,7 +442,7 @@ def test_ops_schedule_margin_detail_probe_creates_fixed_empty_filter_rule(app_cl
         ({"trigger_mode": "schedule_probe_fallback"}, "源站融资融券交易明细探测只支持探测触发"),
         (
             {"target_type": "workflow", "target_key": "daily_market_close_maintenance"},
-            "源站融资融券交易明细探测只支持融资融券交易明细维护",
+            "工作流自动任务只支持普通定时触发",
         ),
         (
             {"params_json": {"time_input": {"mode": "point"}, "filters": {"ts_code": "600000.SH"}}},

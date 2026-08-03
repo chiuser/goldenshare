@@ -10,7 +10,6 @@ from src.foundation.ingestion.plan_helpers import split_multi_values
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.schedule import OpsSchedule
 from src.foundation.datasets.registry import get_dataset_action_key, get_dataset_definition, get_dataset_definition_by_action_key
-from src.ops.action_catalog import get_workflow_definition
 from src.app.exceptions import WebAppError
 from src.ops.services.index_daily_remote_probe_service import (
     INDEX_DAILY_ACTION_KEY,
@@ -50,20 +49,14 @@ from src.ops.services.stk_mins_remote_probe_service import (
     STK_MINS_DATASET_KEY,
     STK_MINS_REMOTE_READY_CONDITION,
 )
+from src.ops.services.schedule_automation_capability_resolver import (
+    FRESHNESS_LATEST_OPEN_CONDITION,
+    REMOTE_SOURCE_PROBE_CONDITIONS,
+    SUPPORTED_PROBE_CONDITIONS,
+    SUPPORTED_TRIGGER_MODES,
+)
 
 
-SUPPORTED_TRIGGER_MODES = {"schedule", "probe", "schedule_probe_fallback"}
-FRESHNESS_LATEST_OPEN_CONDITION = "freshness_latest_open"
-REMOTE_SOURCE_PROBE_CONDITIONS = {
-    STK_MINS_REMOTE_READY_CONDITION,
-    INDEX_DAILY_REMOTE_READY_CONDITION,
-    INDEX_MINS_REMOTE_READY_CONDITION,
-    KPL_LIST_REMOTE_READY_CONDITION,
-    IDX_FACTOR_PRO_REMOTE_READY_CONDITION,
-    MARGIN_REMOTE_READY_CONDITION,
-    MARGIN_DETAIL_REMOTE_READY_CONDITION,
-}
-SUPPORTED_PROBE_CONDITIONS = {FRESHNESS_LATEST_OPEN_CONDITION, *REMOTE_SOURCE_PROBE_CONDITIONS}
 TIME_PARAM_KEYS = {"trade_date", "ann_date", "month", "start_date", "end_date", "start_month", "end_month"}
 PARAM_RESERVED_KEYS = {"dataset_key", "action", "time_input", "filters"}
 
@@ -88,9 +81,14 @@ class ProbeRuleTemplate:
 class ScheduleProbeBindingService:
     def sync_for_schedule(self, session: Session, *, schedule: OpsSchedule, actor_user_id: int | None) -> None:
         trigger_mode = self._normalize_trigger_mode(schedule.trigger_mode)
-        session.execute(delete(ProbeRule).where(ProbeRule.schedule_id == schedule.id))
         if schedule.status != "active":
+            session.execute(delete(ProbeRule).where(ProbeRule.schedule_id == schedule.id))
             return
+        if schedule.target_type == "workflow":
+            self._validate_workflow_schedule(schedule=schedule, trigger_mode=trigger_mode)
+            session.execute(delete(ProbeRule).where(ProbeRule.schedule_id == schedule.id))
+            return
+        session.execute(delete(ProbeRule).where(ProbeRule.schedule_id == schedule.id))
         if trigger_mode not in {"probe", "schedule_probe_fallback"}:
             self._validate_remote_idx_factor_pro_non_probe_schedule(schedule=schedule)
             self._validate_remote_margin_non_probe_schedule(schedule=schedule)
@@ -171,7 +169,7 @@ class ScheduleProbeBindingService:
                 interval=interval,
                 max_daily=max_daily,
             )
-        dataset_targets = self._resolve_dataset_targets(schedule=schedule, config=config)
+        dataset_targets = self._resolve_dataset_targets(schedule=schedule)
         templates: list[ProbeRuleTemplate] = []
         for dataset_key, step_key in dataset_targets:
             if condition_kind == FRESHNESS_LATEST_OPEN_CONDITION:
@@ -194,7 +192,7 @@ class ScheduleProbeBindingService:
                 ProbeRuleTemplate(
                     dataset_key=dataset_key,
                     trigger_mode="task_run",
-                    workflow_key=schedule.target_key if schedule.target_type == "workflow" else None,
+                    workflow_key=None,
                     step_key=step_key,
                     source_key=source_key,
                     window_start=window_start,
@@ -209,30 +207,10 @@ class ScheduleProbeBindingService:
             )
         return templates
 
-    def _resolve_dataset_targets(self, *, schedule: OpsSchedule, config: dict) -> list[tuple[str, str | None]]:
+    def _resolve_dataset_targets(self, *, schedule: OpsSchedule) -> list[tuple[str, str | None]]:
         if schedule.target_type == "dataset_action":
             return [(self._dataset_from_action_target(schedule.target_key), None)]
-        if schedule.target_type == "maintenance_action":
-            raise WebAppError(status_code=422, code="validation_error", message="探测排程只能绑定数据集维护或工作流")
-        if schedule.target_type == "workflow":
-            raw_dataset_keys = [str(item).strip() for item in (config.get("workflow_dataset_keys") or []) if str(item).strip()]
-            if raw_dataset_keys:
-                return sorted({(self._dataset_from_key(item), None) for item in raw_dataset_keys})
-            workflow = get_workflow_definition(schedule.target_key)
-            if workflow is None:
-                raise WebAppError(status_code=404, code="not_found", message="工作流不存在")
-            dataset_targets = []
-            for step in workflow.steps:
-                dataset_key = step.dataset_key
-                if dataset_key is None:
-                    try:
-                        definition, _action = get_dataset_definition_by_action_key(step.action_key)
-                    except KeyError:
-                        continue
-                    dataset_key = definition.dataset_key
-                dataset_targets.append((dataset_key, step.step_key))
-            return sorted(set(dataset_targets))
-        raise WebAppError(status_code=422, code="validation_error", message="不支持的探测排程目标类型")
+        raise WebAppError(status_code=422, code="validation_error", message="探测排程只能绑定数据集维护动作")
 
     @staticmethod
     def _dataset_from_action_target(target_key: str) -> str:
@@ -243,11 +221,11 @@ class ScheduleProbeBindingService:
         return definition.dataset_key
 
     @staticmethod
-    def _dataset_from_key(dataset_key: str) -> str:
-        try:
-            return get_dataset_definition(dataset_key).dataset_key
-        except KeyError as exc:
-            raise WebAppError(status_code=422, code="validation_error", message="工作流探测数据集无效") from exc
+    def _validate_workflow_schedule(*, schedule: OpsSchedule, trigger_mode: str) -> None:
+        if trigger_mode != "schedule":
+            raise WebAppError(status_code=422, code="validation_error", message="工作流自动任务只支持普通定时触发")
+        if dict(schedule.probe_config_json or {}):
+            raise WebAppError(status_code=422, code="validation_error", message="工作流自动任务不支持探测配置")
 
     @staticmethod
     def _validate_freshness_latest_open_dataset(dataset_key: str) -> None:

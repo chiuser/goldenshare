@@ -1,6 +1,6 @@
 # Ops 自动任务能力契约收敛方案 v1
 
-状态：已拍板，待开发
+状态：P1 已完成；P2–P4 待开发
 日期：2026-08-03
 适用范围：`src/ops/**`、`frontend/src/pages/ops-v21-task-auto-tab.tsx`、`GET /api/v1/ops/catalog`。
 配套 LLD：[Ops 自动任务能力契约 LLD v1](/Users/congming/github/goldenshare/docs/ops/ops-automation-capability-contract-lld-v1.md)。
@@ -170,7 +170,7 @@ resolve(target_type, target_key) -> AutomationCapability | null
 
 | 阶段 | 交付 | 验收 |
 | --- | --- | --- |
-| P1 | capability 类型、resolver、workflow probe 旧字段/路径清理 | 81 个目标可解析；workflow 仅 schedule；7 条规则逐项断言 |
+| P1（已完成） | capability 类型、resolver、workflow probe 旧字段/路径清理 | 81 个目标可解析；workflow 仅 schedule；7 条规则逐项断言 |
 | P2 | Catalog API、请求 schema、前端类型 | 字段完整；`source_key` 不可写；API 契约测试通过 |
 | P3 | binding/runtime 收口、前端删除白名单 | workflow probe 422；workflow 内 `index_daily` 直接执行回归；直接绕过 422 |
 | P4 | 只读预检与发布验证 | 28 schedule / 6 ProbeRule 零 mismatch；无写入、无 TaskRun |

@@ -283,7 +283,7 @@
 
 1. workflow 自动任务只能普通 `schedule` 触发；不得使用 `probe` 或 `schedule_probe_fallback`，也不得派生 `ops.probe_rule`。
 2. workflow 可以包含支持源端 probe 的 dataset action；它在 workflow 中始终按工作流传入的日期和参数直接执行，不使用该数据集单独自动任务的 probe。
-3. `WorkflowDefinition.probe_trigger_enabled` 是当前未被运行链路消费的历史字段；该方案实施时删除，不得据此新增 UI 或 API 能力。
+3. `WorkflowDefinition.probe_trigger_enabled` 是未被运行链路消费的历史字段，已在该方案 P1 删除；不得重新引入 UI 或 API 能力。
 
 因此，`index_extension_maintenance` 与 `index_kline_maintenance_pipeline` 中的 `index_daily` 步骤保留，但不会获得 `remote_index_daily_ready` 的 workflow probe。
 
@@ -293,7 +293,6 @@
 
 - `WorkflowDefinition.workflow_profile`
 - `WorkflowDefinition.failure_policy_default`
-- `WorkflowDefinition.probe_trigger_enabled`
 - `WorkflowDefinition.resume_supported`
 - `WorkflowStepDefinition.failure_policy_override`
 - `WorkflowStepDefinition.params_override`

@@ -3,6 +3,7 @@ from __future__ import annotations
 from calendar import monthrange
 from datetime import datetime
 from types import SimpleNamespace
+from unittest.mock import Mock
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -907,12 +908,12 @@ def test_ops_schedule_preview_returns_once_next_run(app_client, user_factory) ->
     assert payload["preview_times"][0].startswith("2099-01-01T01:00:00")
 
 
-def test_ops_schedule_probe_mode_creates_probe_rules_for_workflow(app_client, user_factory) -> None:
+def test_ops_schedule_probe_mode_rejects_workflow_target(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
 
-    create_response = app_client.post(
+    response = app_client.post(
         "/api/v1/ops/schedules",
         headers={"Authorization": f"Bearer {token}"},
         json={
@@ -923,46 +924,22 @@ def test_ops_schedule_probe_mode_creates_probe_rules_for_workflow(app_client, us
             "trigger_mode": "probe",
             "cron_expr": "0 19 * * 1-5",
             "timezone": "Asia/Shanghai",
-                "probe_config": {
-                    "source_key": "tushare",
-                    "window_start": "15:30",
-                    "window_end": "17:00",
-                    "probe_interval_seconds": 180,
-                    "max_triggers_per_day": 1,
-                    "workflow_dataset_keys": ["daily", "daily_basic"],
-                },
+            "probe_config": {
+                "source_key": "tushare",
+                "window_start": "15:30",
+                "window_end": "17:00",
+                "probe_interval_seconds": 180,
+                "max_triggers_per_day": 1,
+                "workflow_dataset_keys": ["daily", "daily_basic"],
             },
-        )
-    assert create_response.status_code == 200
-    created = create_response.json()
-    assert created["trigger_mode"] == "probe"
-    assert created["probe_config"]["source_display_name"] == "Tushare"
-    assert created["probe_config"]["workflow_dataset_targets"] == [
-        {"dataset_key": "daily", "dataset_display_name": "股票日线"},
-        {"dataset_key": "daily_basic", "dataset_display_name": "每日指标"},
-    ]
-
-    probe_response = app_client.get(
-        f"/api/v1/ops/probes?schedule_id={created['id']}",
-        headers={"Authorization": f"Bearer {token}"},
+        },
     )
-    assert probe_response.status_code == 200
-    probe_payload = probe_response.json()
-    assert probe_payload["total"] == 2
-    dataset_keys = sorted(item["dataset_key"] for item in probe_payload["items"])
-    assert dataset_keys == ["daily", "daily_basic"]
-    names = sorted(item["name"] for item in probe_payload["items"])
-    assert names == ["收盘探测触发 / 每日指标", "收盘探测触发 / 股票日线"]
-    assert all(item["trigger_mode"] == "task_run" for item in probe_payload["items"])
-    assert all(item["workflow_key"] == "daily_market_close_maintenance" for item in probe_payload["items"])
-    assert all(item["rule_version"] == 1 for item in probe_payload["items"])
-    assert all(item["on_success_action_json"]["action_type"] == "dataset_action" for item in probe_payload["items"])
-    assert all("action_key" in item["on_success_action_json"] for item in probe_payload["items"])
-    assert all("dataset_key" not in item["on_success_action_json"]["request"] for item in probe_payload["items"])
-    assert all("action" not in item["on_success_action_json"]["request"] for item in probe_payload["items"])
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "工作流自动任务只支持普通定时触发"
 
 
-def test_ops_schedule_probe_mode_rejects_unknown_workflow_dataset_key(app_client, user_factory) -> None:
+def test_ops_schedule_schedule_mode_rejects_workflow_probe_config(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
@@ -975,7 +952,7 @@ def test_ops_schedule_probe_mode_rejects_unknown_workflow_dataset_key(app_client
             "target_key": "daily_market_close_maintenance",
             "display_name": "错误探测触发",
             "schedule_type": "cron",
-            "trigger_mode": "probe",
+            "trigger_mode": "schedule",
             "cron_expr": "0 19 * * 1-5",
             "timezone": "Asia/Shanghai",
             "probe_config": {
@@ -986,10 +963,10 @@ def test_ops_schedule_probe_mode_rejects_unknown_workflow_dataset_key(app_client
     )
 
     assert response.status_code == 422
-    assert response.json()["code"] == "validation_error"
+    assert response.json()["message"] == "工作流自动任务不支持探测配置"
 
 
-def test_ops_schedule_probe_mode_rejects_non_continuous_open_day_dataset(app_client, user_factory) -> None:
+def test_ops_schedule_schedule_mode_allows_workflow_without_probe_config(app_client, user_factory, db_session) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
@@ -1000,21 +977,33 @@ def test_ops_schedule_probe_mode_rejects_non_continuous_open_day_dataset(app_cli
         json={
             "target_type": "workflow",
             "target_key": "daily_market_close_maintenance",
-            "display_name": "错误探测触发",
+            "display_name": "收盘直接触发",
             "schedule_type": "cron",
-            "trigger_mode": "probe",
+            "trigger_mode": "schedule",
             "cron_expr": "0 19 * * 1-5",
             "timezone": "Asia/Shanghai",
-            "probe_config": {
-                "source_key": "tushare",
-                "workflow_dataset_keys": ["stock_basic"],
-            },
         },
     )
 
-    assert response.status_code == 422
-    assert response.json()["code"] == "validation_error"
-    assert response.json()["message"] == "股票主数据 不支持“最新业务日命中最新交易日”探测条件"
+    assert response.status_code == 200
+    schedule_id = response.json()["id"]
+    assert db_session.scalars(select(ProbeRule).where(ProbeRule.schedule_id == schedule_id)).all() == []
+
+
+def test_schedule_probe_binding_pauses_invalid_legacy_workflow_without_validation() -> None:
+    session = Mock()
+    schedule = SimpleNamespace(
+        id=42,
+        status="paused",
+        target_type="workflow",
+        target_key="daily_market_close_maintenance",
+        trigger_mode="probe",
+        probe_config_json={"workflow_dataset_keys": ["daily"]},
+    )
+
+    ScheduleProbeBindingService().sync_for_schedule(session, schedule=schedule, actor_user_id=None)
+
+    session.execute.assert_called_once()
 
 
 def test_ops_schedule_remote_stk_mins_probe_mode_creates_probe_rule(app_client, user_factory) -> None:
@@ -1221,7 +1210,7 @@ def test_ops_schedule_remote_kpl_list_probe_mode_creates_probe_rule(app_client, 
                 "target_type": "workflow",
                 "target_key": "daily_market_close_maintenance",
             },
-            "源站分钟行情探测只支持股票历史分钟行情维护",
+            "工作流自动任务只支持普通定时触发",
         ),
         (
             {
@@ -1298,7 +1287,7 @@ def test_ops_schedule_remote_stk_mins_probe_mode_rejects_invalid_binding(
                 "target_type": "workflow",
                 "target_key": "daily_market_close_maintenance",
             },
-            "源站指数日线探测只支持指数日线行情维护",
+            "工作流自动任务只支持普通定时触发",
         ),
         (
             {
@@ -1423,7 +1412,7 @@ def test_ops_schedule_remote_idx_factor_pro_probe_mode_creates_empty_filter_rule
         ({"target_key": "index_daily.maintain"}, "源站指数技术因子探测只支持指数技术因子（专业版）维护"),
         (
             {"target_type": "workflow", "target_key": "daily_market_close_maintenance"},
-            "源站指数技术因子探测只支持指数技术因子（专业版）维护",
+            "工作流自动任务只支持普通定时触发",
         ),
         ({"trigger_mode": "schedule"}, "源站指数技术因子探测只支持探测触发或定时 + 探测兜底"),
         ({"calendar_policy": "monthly_last_day"}, "每月最后一天策略只支持自然月末数据集"),
@@ -1631,7 +1620,7 @@ def test_ops_schedule_margin_rejects_local_freshness_probe(app_client, user_fact
                 "target_type": "workflow",
                 "target_key": "daily_market_close_maintenance",
             },
-            "源站开盘啦榜单探测只支持开盘啦榜单维护",
+            "工作流自动任务只支持普通定时触发",
         ),
         (
             {
@@ -1693,7 +1682,7 @@ def test_ops_schedule_remote_kpl_list_probe_mode_rejects_invalid_binding(
         ({"trigger_mode": "schedule_probe_fallback"}, "源站融资融券汇总探测只支持探测触发"),
         (
             {"target_type": "workflow", "target_key": "daily_market_close_maintenance"},
-            "源站融资融券汇总探测只支持融资融券汇总维护",
+            "工作流自动任务只支持普通定时触发",
         ),
         (
             {"params_json": {"time_input": {"mode": "point"}, "filters": {"exchange_id": ["SSE"]}}},

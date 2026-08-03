@@ -103,7 +103,6 @@ class WorkflowDefinition:
     workflow_profile: str = "point_incremental"
     time_regime: WorkflowTimeRegime = "trade_open_day"
     failure_policy_default: str = "fail_fast"
-    probe_trigger_enabled: bool = False
     resume_supported: bool = True
 
 

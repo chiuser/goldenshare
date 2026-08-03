@@ -1,6 +1,6 @@
 # Ops 自动任务能力契约 LLD v1
 
-状态：已拍板，待开发
+状态：P1 已完成；P2–P4 待开发
 日期：2026-08-03
 上位方案：[Ops 自动任务能力契约收敛方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-automation-capability-contract-plan-v1.md)。
 
