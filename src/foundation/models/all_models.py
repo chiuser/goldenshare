@@ -12,6 +12,8 @@ from src.foundation.models.core.equity_block_trade import EquityBlockTrade
 from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_margin_detail import EquityMarginDetail
+from src.foundation.models.core_serving.fund_company_current import FundCompanyCurrent
+from src.foundation.models.core_serving.fund_company_observation import FundCompanyObservation
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
 from src.foundation.models.core.equity_dividend import EquityDividend
 from src.foundation.models.core.equity_factor_pro import EquityFactorPro
@@ -49,6 +51,8 @@ from src.foundation.models.core.index_weight import IndexWeight
 from src.foundation.models.core.index_weekly_bar import IndexWeeklyBar
 from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
 from src.foundation.models.core_serving.wealth_market_turnover_snapshot import WealthMarketTurnoverSnapshot
+from src.foundation.models.core_serving.mkt_idx_bmk_current import MktIdxBmkCurrent
+from src.foundation.models.core_serving.mkt_idx_bmk_observation import MktIdxBmkObservation
 from src.foundation.models.core.kpl_concept_cons import KplConceptCons
 from src.foundation.models.core.kpl_list import KplList
 from src.foundation.models.core.broker_recommend import BrokerRecommend
@@ -182,6 +186,8 @@ __all__ = [
     "EtfBasic",
     "EtfIndex",
     "FundDailyBar",
+    "FundCompanyCurrent",
+    "FundCompanyObservation",
     "FundAdjFactor",
     "HkSecurity",
     "DcDaily",
@@ -198,6 +204,8 @@ __all__ = [
     "IndexWeeklyBar",
     "IndexWeeklyServing",
     "WealthMarketTurnoverSnapshot",
+    "MktIdxBmkCurrent",
+    "MktIdxBmkObservation",
     "KplConceptCons",
     "KplList",
     "BrokerRecommend",

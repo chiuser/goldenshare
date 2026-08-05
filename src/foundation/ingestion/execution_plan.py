@@ -82,6 +82,8 @@ class PlanWriting:
     conflict_columns: tuple[str, ...] | None
     write_path: str
     serving_conflict_resolution_policy: str = "none"
+    observation_dao_name: str | None = None
+    observation_table: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

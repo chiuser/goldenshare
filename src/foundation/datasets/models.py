@@ -139,6 +139,8 @@ class DatasetStorageDefinition:
     std_table: str | None
     serving_table: str | None
     raw_table: str | None
+    observation_dao_name: str | None = None
+    observation_table: str | None = None
     raw_conflict_columns: tuple[str, ...] | None = None
     conflict_columns: tuple[str, ...] | None = None
     write_path: str = "raw_core_upsert"

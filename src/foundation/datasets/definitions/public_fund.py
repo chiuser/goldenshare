@@ -1,0 +1,162 @@
+from __future__ import annotations
+
+from src.foundation.datasets.public_fund_contracts import FUND_COMPANY_SOURCE_FIELDS, MKT_IDX_BMK_SOURCE_FIELDS
+
+
+_OBSERVED_SNAPSHOT_DATE_MODEL = {
+    "date_axis": "none",
+    "bucket_rule": "not_applicable",
+    "window_mode": "none",
+    "input_shape": "none",
+    "observed_field": None,
+    "audit_applicable": False,
+    "not_applicable_reason": "no-time full source snapshot; freshness records successful snapshot runs only",
+}
+
+_OBSERVED_SNAPSHOT_INPUT_MODEL = {
+    "time_fields": (),
+    "filters": (),
+    "required_groups": (),
+    "mutually_exclusive_groups": (),
+    "dependencies": (),
+}
+
+_OBSERVED_SNAPSHOT_PLANNING = {
+    "universe_policy": "no_pool",
+    "enum_fanout_fields": (),
+    "enum_fanout_defaults": {},
+    "pagination_policy": "offset_limit",
+    "page_limit": 64,
+    "chunk_size": None,
+    "max_units_per_execution": None,
+    "unit_builder_key": "generic",
+    "fetch_concurrency": 1,
+}
+
+_OBSERVED_SNAPSHOT_CAPABILITIES = {
+    "actions": (
+        {
+            "action": "maintain",
+            "manual_enabled": True,
+            "schedule_enabled": True,
+            "retry_enabled": True,
+            "supported_time_modes": ("none",),
+        },
+    ),
+}
+
+
+DATASET_ROWS = (
+    {
+        "identity": {
+            "dataset_key": "fund_company",
+            "display_name": "基金管理人",
+            "description": "维护公募基金管理人完整源记录快照。",
+            "aliases": (),
+        },
+        "domain": {"domain_key": "public_fund", "domain_display_name": "公募基金"},
+        "source": {
+            "source_key_default": "tushare",
+            "source_keys": ("tushare",),
+            "adapter_key": "tushare",
+            "api_name": "fund_company",
+            "source_fields": FUND_COMPANY_SOURCE_FIELDS,
+            "source_doc_id": "tushare.fund_company",
+            "request_builder_key": "_public_fund_snapshot_params",
+            "base_params": {},
+        },
+        "date_model": dict(_OBSERVED_SNAPSHOT_DATE_MODEL),
+        "input_model": dict(_OBSERVED_SNAPSHOT_INPUT_MODEL),
+        "storage": {
+            "raw_dao_name": None,
+            "core_dao_name": "fund_company_current",
+            "target_table": "core_serving.fund_company_current",
+            "delivery_mode": "single_source_serving",
+            "layer_plan": "source->serving",
+            "std_table": None,
+            "serving_table": "core_serving.fund_company_current",
+            "raw_table": None,
+            "observation_dao_name": "fund_company_observation",
+            "observation_table": "core_serving.fund_company_observation",
+            "raw_conflict_columns": None,
+            "conflict_columns": ("source_entity_key", "source_content_hash"),
+            "write_path": "serving_observed_snapshot_refresh",
+        },
+        "planning": dict(_OBSERVED_SNAPSHOT_PLANNING),
+        "normalization": {
+            "date_fields": (),
+            "decimal_fields": ("reg_capital", "employees"),
+            "required_fields": ("source_entity_key",),
+            "row_transform_name": "_fund_company_observed_snapshot_row_transform",
+        },
+        "capabilities": dict(_OBSERVED_SNAPSHOT_CAPABILITIES),
+        "observability": {"progress_label": "fund_company", "observed_field": None, "audit_applicable": False},
+        "quality": {
+            "reject_policy": "record_rejections",
+            "required_fields": ("source_entity_key",),
+            "unit_date_field": None,
+            "duplicate_key_policy": "allow",
+        },
+        "transaction": {
+            "commit_policy": "unit",
+            "idempotent_write_required": True,
+            "write_volume_assessment": "当前实测完整快照 204 行，page_limit=64，单 unit 全页累积后在一个事务中写入 current 与 observation；无最大页数，短页结束。",
+        },
+    },
+    {
+        "identity": {
+            "dataset_key": "mkt_idx_bmk",
+            "display_name": "基金业绩基准库",
+            "description": "维护公募基金业绩基准指数完整源记录快照。",
+            "aliases": (),
+        },
+        "domain": {"domain_key": "public_fund", "domain_display_name": "公募基金"},
+        "source": {
+            "source_key_default": "tushare",
+            "source_keys": ("tushare",),
+            "adapter_key": "tushare",
+            "api_name": "mkt_idx_bmk",
+            "source_fields": MKT_IDX_BMK_SOURCE_FIELDS,
+            "source_doc_id": "tushare.mkt_idx_bmk",
+            "request_builder_key": "_public_fund_snapshot_params",
+            "base_params": {},
+        },
+        "date_model": dict(_OBSERVED_SNAPSHOT_DATE_MODEL),
+        "input_model": dict(_OBSERVED_SNAPSHOT_INPUT_MODEL),
+        "storage": {
+            "raw_dao_name": None,
+            "core_dao_name": "mkt_idx_bmk_current",
+            "target_table": "core_serving.mkt_idx_bmk_current",
+            "delivery_mode": "single_source_serving",
+            "layer_plan": "source->serving",
+            "std_table": None,
+            "serving_table": "core_serving.mkt_idx_bmk_current",
+            "raw_table": None,
+            "observation_dao_name": "mkt_idx_bmk_observation",
+            "observation_table": "core_serving.mkt_idx_bmk_observation",
+            "raw_conflict_columns": None,
+            "conflict_columns": ("source_entity_key", "source_content_hash"),
+            "write_path": "serving_observed_snapshot_refresh",
+        },
+        "planning": dict(_OBSERVED_SNAPSHOT_PLANNING),
+        "normalization": {
+            "date_fields": (),
+            "decimal_fields": (),
+            "required_fields": ("ts_code", "source_entity_key"),
+            "row_transform_name": "_mkt_idx_bmk_observed_snapshot_row_transform",
+        },
+        "capabilities": dict(_OBSERVED_SNAPSHOT_CAPABILITIES),
+        "observability": {"progress_label": "mkt_idx_bmk", "observed_field": None, "audit_applicable": False},
+        "quality": {
+            "reject_policy": "record_rejections",
+            "required_fields": ("ts_code", "source_entity_key"),
+            "unit_date_field": None,
+            "duplicate_key_policy": "allow",
+        },
+        "transaction": {
+            "commit_policy": "unit",
+            "idempotent_write_required": True,
+            "write_volume_assessment": "当前实测完整快照 141 行，page_limit=64，单 unit 全页累积后在一个事务中写入 current 与 observation；无最大页数，短页结束。",
+        },
+    },
+)

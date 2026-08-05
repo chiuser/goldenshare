@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from src.foundation.ingestion.codebook import INGESTION_CODEBOOK_UPDATED_AT, INGESTION_CODEBOOK_VERSION
+
 
 def test_ops_ingestion_codebook_requires_admin(app_client, user_factory) -> None:
     user_factory(username="viewer", password="secret", is_admin=False)
@@ -21,8 +23,8 @@ def test_ops_ingestion_codebook_returns_backend_dictionary(app_client, user_fact
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["version"] == "2026-04-26.v1"
-    assert payload["updated_at"] == "2026-04-26T00:00:00Z"
+    assert payload["version"] == INGESTION_CODEBOOK_VERSION
+    assert payload["updated_at"] == INGESTION_CODEBOOK_UPDATED_AT
     assert any(item["code"] == "forbidden_sentinel" for item in payload["error_codes"])
     assert any(item["code"] == "all_rows_rejected" for item in payload["error_codes"])
     assert any(item["code"] == "normalize.required_field_missing" for item in payload["reason_codes"])

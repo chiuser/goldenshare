@@ -28,7 +28,7 @@ def test_dataset_definition_registry_covers_runtime_registry() -> None:
     runtime_keys = set(DATASET_RUNTIME_REGISTRY)
 
     assert definition_keys == runtime_keys
-    assert len(definition_keys) == 76
+    assert len(definition_keys) == 78
 
 
 def test_dataset_definition_registry_covers_freshness_policy_mapping() -> None:
@@ -44,7 +44,7 @@ def test_dataset_definition_universe_policy_current_state_is_explicit() -> None:
 
     assert Counter(policies.values()) == Counter(
         {
-            "no_pool": 67,
+            "no_pool": 69,
             "pool": 9,
         }
     )
@@ -100,6 +100,55 @@ def test_dataset_definition_projects_margin_detail_direct_serving_facts() -> Non
     ts_code = definition.input_model.filters[0]
     assert ts_code.name == "ts_code"
     assert ts_code.scoped_repair_policy == "existing_point_bucket_only"
+
+
+def test_dataset_definition_projects_public_fund_observed_snapshot_facts() -> None:
+    fund_company = get_dataset_definition("fund_company")
+    benchmark = get_dataset_definition("mkt_idx_bmk")
+
+    assert fund_company.domain.domain_key == "public_fund"
+    assert fund_company.source.source_fields == (
+        "name",
+        "shortname",
+        "short_enname",
+        "province",
+        "city",
+        "address",
+        "phone",
+        "office",
+        "website",
+        "chairman",
+        "manager",
+        "reg_capital",
+        "setup_date",
+        "end_date",
+        "employees",
+        "main_business",
+        "org_code",
+        "credit_code",
+    )
+    assert benchmark.source.source_fields == (
+        "ts_code",
+        "symbol",
+        "name",
+        "fullname",
+        "bmk_level",
+        "bmk_type",
+        "bmk_src",
+        "idx_type",
+    )
+    for definition in (fund_company, benchmark):
+        assert definition.date_model.input_shape == "none"
+        assert definition.input_model.filters == ()
+        assert definition.planning.pagination_policy == "offset_limit"
+        assert definition.planning.page_limit == 64
+        assert definition.planning.fetch_concurrency == 1
+        assert definition.storage.raw_dao_name is None
+        assert definition.storage.raw_table is None
+        assert definition.storage.write_path == "serving_observed_snapshot_refresh"
+        assert definition.storage.conflict_columns == ("source_entity_key", "source_content_hash")
+        assert definition.quality.duplicate_key_policy == "allow"
+        assert definition.capabilities.get_action("maintain").supported_time_modes == ("none",)
 
 
 def test_dataset_definition_projects_ths_daily_valuation_fields() -> None:
@@ -574,9 +623,11 @@ def test_no_time_dataset_definitions_do_not_expose_time_inputs() -> None:
         "bse_mapping",
         "etf_basic",
         "etf_index",
+        "fund_company",
         "hk_basic",
         "index_basic",
         "namechange",
+        "mkt_idx_bmk",
         "st",
         "stock_basic",
         "stock_company",

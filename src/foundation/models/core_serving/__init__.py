@@ -5,6 +5,8 @@ from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
 from src.foundation.models.core_serving.fund_daily_bar import FundDailyBar
+from src.foundation.models.core_serving.fund_company_current import FundCompanyCurrent
+from src.foundation.models.core_serving.fund_company_observation import FundCompanyObservation
 from src.foundation.models.core_serving.index_basic import IndexBasic
 from src.foundation.models.core_serving.index_daily_basic import IndexDailyBasic
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
@@ -17,6 +19,8 @@ from src.foundation.models.core_serving.stk_period_bar_adj import StkPeriodBarAd
 from src.foundation.models.core_serving.ths_member import ThsMember
 from src.foundation.models.core_serving.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.wealth_market_turnover_snapshot import WealthMarketTurnoverSnapshot
+from src.foundation.models.core_serving.mkt_idx_bmk_current import MktIdxBmkCurrent
+from src.foundation.models.core_serving.mkt_idx_bmk_observation import MktIdxBmkObservation
 
 __all__ = [
     "Security",
@@ -25,6 +29,8 @@ __all__ = [
     "EquityDailyBasic",
     "EtfBasic",
     "FundDailyBar",
+    "FundCompanyCurrent",
+    "FundCompanyObservation",
     "IndexBasic",
     "IndexDailyBasic",
     "TradeCalendar",
@@ -38,4 +44,6 @@ __all__ = [
     "IndexWeeklyServing",
     "IndexMonthlyServing",
     "WealthMarketTurnoverSnapshot",
+    "MktIdxBmkCurrent",
+    "MktIdxBmkObservation",
 ]

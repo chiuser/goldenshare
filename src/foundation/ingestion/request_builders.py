@@ -21,6 +21,14 @@ def _format_yyyymmdd(value: Any) -> str:
 def _has_value(value: Any) -> bool:
     return value not in (None, "")
 
+
+def _public_fund_snapshot_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del anchor_date
+    del enum_values
+    if request.run_profile != "snapshot_refresh":
+        raise ValueError("公募基金参考快照只支持不填写日期的全量维护")
+    return {}
+
 def _trade_cal_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     exchange = str(request.params.get("exchange") or get_settings().default_exchange)
     if request.run_profile == "point_incremental" and anchor_date is not None:
@@ -1119,6 +1127,7 @@ __all__ = [
     "ALL_MARGIN_EXCHANGE_IDS",
     "ALL_MONEYFLOW_IND_DC_CONTENT_TYPES",
     "_trade_cal_params",
+    "_public_fund_snapshot_params",
     "_stk_limit_params",
     "_stk_auction_o_params",
     "_stk_auction_c_params",

@@ -46,7 +46,48 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
         if not definition.storage.target_table.strip():
             issues.append(IngestionLintIssue(dataset_key, "missing_target_table", "target_table 不能为空"))
         storage = definition.storage
-        if storage.write_path == "serving_direct_upsert":
+        if storage.write_path == "serving_observed_snapshot_refresh":
+            if storage.raw_dao_name is not None:
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "observed_snapshot_raw_dao_forbidden",
+                        "serving_observed_snapshot_refresh 不得配置 raw_dao_name",
+                    )
+                )
+            if storage.raw_table is not None or storage.std_table is not None:
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "observed_snapshot_raw_or_std_table_forbidden",
+                        "serving_observed_snapshot_refresh 不得配置 raw_table 或 std_table",
+                    )
+                )
+            if not storage.core_dao_name.strip() or not storage.observation_dao_name or not storage.observation_table:
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "observed_snapshot_dao_or_table_missing",
+                        "serving_observed_snapshot_refresh 必须配置 current 与 observation DAO/表",
+                    )
+                )
+            if storage.observation_table == storage.target_table:
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "observed_snapshot_table_not_distinct",
+                        "observation_table 必须与 current target_table 不同",
+                    )
+                )
+            if storage.conflict_columns != ("source_entity_key", "source_content_hash"):
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "observed_snapshot_conflict_columns_invalid",
+                        "观察快照 conflict_columns 必须为 source_entity_key, source_content_hash",
+                    )
+                )
+        elif storage.write_path == "serving_direct_upsert":
             if storage.raw_dao_name is not None:
                 issues.append(
                     IngestionLintIssue(dataset_key, "direct_serving_raw_dao_forbidden", "serving_direct_upsert 不得配置 raw_dao_name")

@@ -158,6 +158,10 @@ docs/
 - [Tushare 数据集接入盘点（2026-05-03）](/Users/congming/github/goldenshare/docs/datasets/tushare-dataset-integration-audit-2026-05-03.md)
 
 主要数据集开发说明：
+- [公募基金九数据集接入总览与分批推进计划 v1（B0/B1 已实现并完成隔离验证，待生产迁移）](/Users/congming/github/goldenshare/docs/datasets/public-fund-nine-dataset-onboarding-program-plan-v1.md)
+- [公募基金 B0：观察快照直出最小地基 LLD v1（已实现）](/Users/congming/github/goldenshare/docs/datasets/public-fund-b0-observed-snapshot-foundation-low-level-design-v1.md)
+- [公募基金 B1：基金管理人与业绩基准库 LLD v1（已实现并完成隔离验证）](/Users/congming/github/goldenshare/docs/datasets/public-fund-b1-static-reference-low-level-design-v1.md)
+- 公募基金接入发现审计：[基金管理人](/Users/congming/github/goldenshare/docs/datasets/fund-company-onboarding-discovery-audit.md) 与 [基金业绩基准库](/Users/congming/github/goldenshare/docs/datasets/fund-performance-benchmark-onboarding-discovery-audit.md) 已进入 B1 LLD；其余七项仍未进入 LLD：[基金列表](/Users/congming/github/goldenshare/docs/datasets/fund-basic-onboarding-discovery-audit.md)、[基金经理](/Users/congming/github/goldenshare/docs/datasets/fund-manager-onboarding-discovery-audit.md)、[基金规模](/Users/congming/github/goldenshare/docs/datasets/fund-share-onboarding-discovery-audit.md)、[基金净值](/Users/congming/github/goldenshare/docs/datasets/fund-nav-onboarding-discovery-audit.md)、[基金分红](/Users/congming/github/goldenshare/docs/datasets/fund-div-onboarding-discovery-audit.md)、[基金持仓](/Users/congming/github/goldenshare/docs/datasets/fund-portfolio-onboarding-discovery-audit.md)、[基金技术面因子](/Users/congming/github/goldenshare/docs/datasets/fund-factor-pro-onboarding-discovery-audit.md)
 - [BIYING 股票日线](/Users/congming/github/goldenshare/docs/datasets/biying-equity-daily-dataset-development.md)
 - [BIYING 资金流向](/Users/congming/github/goldenshare/docs/datasets/biying-moneyflow-dataset-development.md)
 - [ETF 基准指数列表](/Users/congming/github/goldenshare/docs/datasets/etf-index-dataset-development.md)

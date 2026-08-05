@@ -20,6 +20,7 @@ from src.foundation.dao.index_weight_dao import IndexWeightDAO
 from src.foundation.dao.index_weekly_bar_dao import IndexWeeklyBarDAO
 from src.foundation.dao.major_news_dao import RawMajorNewsDAO
 from src.foundation.dao.news_dao import RawNewsDAO
+from src.foundation.dao.observed_snapshot_dao import ObservedSnapshotDAO
 from src.foundation.dao.row_key_hash_dao import RowKeyHashDAO
 from src.foundation.dao.security_dao import SecurityDAO
 from src.foundation.dao.stk_period_bar_adj_dao import StkPeriodBarAdjDAO
@@ -30,6 +31,8 @@ from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
 from src.foundation.models.core.equity_limit_list import EquityLimitList
 from src.foundation.models.core.equity_margin import EquityMargin
 from src.foundation.models.core_serving.equity_margin_detail import EquityMarginDetail
+from src.foundation.models.core_serving.fund_company_current import FundCompanyCurrent
+from src.foundation.models.core_serving.fund_company_observation import FundCompanyObservation
 from src.foundation.models.core.equity_factor_pro import EquityFactorPro
 from src.foundation.models.core.equity_stk_limit import EquityStkLimit
 from src.foundation.models.core.equity_stock_st import EquityStockSt
@@ -54,6 +57,8 @@ from src.foundation.models.core.index_factor_pro import IndexFactorPro
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
 from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
 from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
+from src.foundation.models.core_serving.mkt_idx_bmk_current import MktIdxBmkCurrent
+from src.foundation.models.core_serving.mkt_idx_bmk_observation import MktIdxBmkObservation
 from src.foundation.models.core_serving.equity_auction_close import EquityAuctionClose
 from src.foundation.models.core_serving.equity_auction_open import EquityAuctionOpen
 from src.foundation.models.core_multi.moneyflow_std import MoneyflowStd
@@ -175,6 +180,10 @@ class DAOFactory:
         self.us_security = GenericDAO(session, UsSecurity)
         self.fund_daily_bar = GenericDAO(session, FundDailyBar)
         self.fund_adj_factor = GenericDAO(session, FundAdjFactor)
+        self.fund_company_current = ObservedSnapshotDAO(session, FundCompanyCurrent)
+        self.fund_company_observation = ObservedSnapshotDAO(session, FundCompanyObservation)
+        self.mkt_idx_bmk_current = ObservedSnapshotDAO(session, MktIdxBmkCurrent)
+        self.mkt_idx_bmk_observation = ObservedSnapshotDAO(session, MktIdxBmkObservation)
         self.stk_period_bar = StkPeriodBarDAO(session)
         self.stk_period_bar_adj = StkPeriodBarAdjDAO(session)
         self.index_basic = IndexBasicDAO(session)

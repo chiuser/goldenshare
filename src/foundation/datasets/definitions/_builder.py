@@ -101,6 +101,20 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
         date_model=date_model,
         row=row.get("completeness"),
     )
+    storage = DatasetStorageDefinition(**storage_row)
+    planning = DatasetPlanningDefinition(**planning_row)
+    normalization = DatasetNormalizationDefinition(**row["normalization"])
+    quality = DatasetQualityPolicy(**row["quality"])
+    _validate_observed_snapshot_storage(
+        dataset_key=identity.dataset_key,
+        date_model=date_model,
+        input_model=row["input_model"],
+        source_fields=source_row["source_fields"],
+        storage=storage,
+        planning=planning,
+        normalization=normalization,
+        quality=quality,
+    )
     return DatasetDefinition(
         identity=identity,
         domain=DatasetDomain(**row["domain"]),
@@ -113,17 +127,90 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
             mutually_exclusive_groups=tuple(tuple(item) for item in row["input_model"].get("mutually_exclusive_groups", ())),
             dependencies=tuple(tuple(item) for item in row["input_model"].get("dependencies", ())),
         ),
-        storage=DatasetStorageDefinition(**storage_row),
-        planning=DatasetPlanningDefinition(**planning_row),
-        normalization=DatasetNormalizationDefinition(**row["normalization"]),
+        storage=storage,
+        planning=planning,
+        normalization=normalization,
         capabilities=DatasetCapabilities(
             actions=tuple(DatasetActionCapability(**action) for action in row["capabilities"]["actions"]),
         ),
         observability=DatasetObservability(**observability_row),
-        quality=DatasetQualityPolicy(**row["quality"]),
+        quality=quality,
         transaction=DatasetTransactionDefinition(**transaction_row),
         completeness=completeness,
     )
+
+
+def _validate_observed_snapshot_storage(
+    *,
+    dataset_key: str,
+    date_model: DatasetDateModel,
+    input_model: dict[str, Any],
+    source_fields: Iterable[str],
+    storage: DatasetStorageDefinition,
+    planning: DatasetPlanningDefinition,
+    normalization: DatasetNormalizationDefinition,
+    quality: DatasetQualityPolicy,
+) -> None:
+    """Reject definitions that could replace a complete snapshot with a partial one."""
+    if storage.write_path != "serving_observed_snapshot_refresh":
+        return
+
+    invalid: list[str] = []
+    if (
+        date_model.date_axis != "none"
+        or date_model.bucket_rule != "not_applicable"
+        or date_model.input_shape != "none"
+        or date_model.window_mode != "none"
+        or date_model.observed_field is not None
+        or date_model.audit_applicable
+    ):
+        invalid.append("必须是无时间、无日期审计的数据集")
+    if input_model.get("time_fields") or input_model.get("filters"):
+        invalid.append("不得暴露时间或业务筛选输入")
+    if planning.universe_policy != "no_pool" or planning.enum_fanout_fields:
+        invalid.append("必须是单个完整快照单元，不得对象池或枚举 fan-out")
+    if storage.raw_dao_name is not None or storage.raw_table is not None or storage.std_table is not None:
+        invalid.append("不得配置 raw/std 存储")
+    if not storage.core_dao_name.strip() or not storage.observation_dao_name or not storage.observation_table:
+        invalid.append("必须配置 current 与 observation DAO/表")
+    if storage.serving_table != storage.target_table:
+        invalid.append("serving_table 必须等于 current target_table")
+    if storage.observation_table == storage.target_table:
+        invalid.append("observation_table 必须与 current target_table 不同")
+    if storage.layer_plan != "source->serving":
+        invalid.append("layer_plan 必须为 source->serving")
+    if storage.raw_conflict_columns is not None:
+        invalid.append("不得配置 raw_conflict_columns")
+    if storage.conflict_columns != ("source_entity_key", "source_content_hash"):
+        invalid.append("conflict_columns 必须为 source_entity_key, source_content_hash")
+    raw_source_fields = tuple(source_fields)
+    normalized_source_fields = tuple(str(item).strip() for item in raw_source_fields if str(item).strip())
+    if not normalized_source_fields:
+        invalid.append("必须声明显式 source_fields")
+    elif len(normalized_source_fields) != len(raw_source_fields):
+        invalid.append("source_fields 不得包含空白字段")
+    elif any(not isinstance(item, str) or item != item.strip() for item in raw_source_fields):
+        invalid.append("source_fields 必须是无前后空白的字符串")
+    elif len(normalized_source_fields) != len(set(normalized_source_fields)):
+        invalid.append("source_fields 不得重复")
+    reserved_source_fields = {
+        "source_entity_key",
+        "source_content_hash",
+        "observed_at",
+        "first_observed_at",
+        "last_observed_at",
+        "created_at",
+        "updated_at",
+    }
+    conflicting_source_fields = sorted(set(normalized_source_fields) & reserved_source_fields)
+    if conflicting_source_fields:
+        invalid.append(f"source_fields 不得占用协议元数据列：{', '.join(conflicting_source_fields)}")
+    if "source_entity_key" not in normalization.required_fields:
+        invalid.append("normalization.required_fields 必须包含 source_entity_key")
+    if quality.duplicate_key_policy != "allow":
+        invalid.append("duplicate_key_policy 必须为 allow，由 writer 检测完全重复源记录")
+    if invalid:
+        raise ValueError(f"数据集定义 {dataset_key} 的观察快照写入契约非法：{'；'.join(invalid)}")
 
 
 def _build_completeness_definition(

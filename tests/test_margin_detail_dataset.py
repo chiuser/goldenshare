@@ -64,6 +64,8 @@ def test_margin_detail_point_and_range_plan_use_day_scoped_source_requests(mocke
     )
 
     assert point_plan.writing.write_path == "serving_direct_upsert"
+    assert point_plan.writing.observation_dao_name is None
+    assert point_plan.writing.observation_table is None
     assert point_plan.units[0].request_params == {"trade_date": "20260730"}
     assert point_plan.units[0].pagination_policy == "offset_limit"
     assert point_plan.units[0].page_limit == 1000

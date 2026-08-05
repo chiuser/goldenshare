@@ -13,7 +13,7 @@ DISPATCHER_PATH = REPO_ROOT / "src/ops/runtime/task_run_dispatcher.py"
 WORKER_PATH = REPO_ROOT / "src/ops/runtime/worker.py"
 NORMALIZER_PATH = INGESTION_ROOT / "normalizer.py"
 
-ERROR_CODE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
+ERROR_CODE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)*$")
 REASON_CODE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+(?::[a-z0-9_]+)?$")
 
 
@@ -49,7 +49,7 @@ def _collect_string_literals(node: ast.AST) -> list[str]:
 
 
 def _looks_like_error_code(text: str) -> bool:
-    return "_" in text and bool(ERROR_CODE_PATTERN.fullmatch(text))
+    return ("_" in text or "." in text) and bool(ERROR_CODE_PATTERN.fullmatch(text))
 
 
 def _extract_error_codes_from_file(path: Path) -> set[str]:

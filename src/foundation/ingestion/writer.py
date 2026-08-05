@@ -18,6 +18,12 @@ from src.foundation.ingestion.errors import IngestionWriteError, StructuredError
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot
 from src.foundation.ingestion.moneyflow_publish import publish_moneyflow_serving_for_keys
 from src.foundation.ingestion.normalizer import DatasetNormalizer, NormalizedBatch
+from src.foundation.ingestion.observed_snapshot import (
+    ObservedSnapshotHashError,
+    SourceFieldMissingError,
+    compute_source_content_hash,
+    utc_now,
+)
 from src.foundation.ingestion.sentinel_guard import (
     find_forbidden_business_sentinel_in_row_context,
     should_guard_dataset_rows,
@@ -71,9 +77,14 @@ class DatasetWriter:
                             unit_id=batch.unit_id,
                         )
                     )
-        raw_dao, core_dao = self._resolve_write_daos(definition=definition, unit_id=batch.unit_id)
-
         try:
+            if definition.storage.write_path == "serving_observed_snapshot_refresh":
+                return self._write_serving_observed_snapshot_refresh(
+                    definition=definition,
+                    batch=batch,
+                )
+
+            raw_dao, core_dao = self._resolve_write_daos(definition=definition, unit_id=batch.unit_id)
             if definition.storage.write_path == "raw_index_period_serving_upsert":
                 return self._write_index_period_serving(
                     definition=definition,
@@ -164,6 +175,8 @@ class DatasetWriter:
                 ),
                 unit_id=batch.unit_id,
             )
+        except IngestionWriteError:
+            raise
         except Exception as exc:
             raise IngestionWriteError(
                 StructuredError(
@@ -201,6 +214,13 @@ class DatasetWriter:
             return raw_dao, core_dao
         raise self._dao_not_found_error(definition=definition, unit_id=unit_id)
 
+    def _resolve_observed_snapshot_daos(self, *, definition: DatasetDefinition, unit_id: str):  # type: ignore[no-untyped-def]
+        current_dao = getattr(self.dao, definition.storage.core_dao_name, None)
+        observation_dao = getattr(self.dao, definition.storage.observation_dao_name, None)
+        if current_dao is not None and observation_dao is not None:
+            return current_dao, observation_dao
+        raise self._dao_not_found_error(definition=definition, unit_id=unit_id)
+
     @staticmethod
     def _dao_not_found_error(*, definition: DatasetDefinition, unit_id: str) -> IngestionWriteError:
         return IngestionWriteError(
@@ -210,7 +230,8 @@ class DatasetWriter:
                 phase="writer",
                 message=(
                     f"DAO not found: raw={definition.storage.raw_dao_name} "
-                    f"core={definition.storage.core_dao_name}"
+                    f"core={definition.storage.core_dao_name} "
+                    f"observation={definition.storage.observation_dao_name}"
                 ),
                 retryable=False,
                 unit_id=unit_id,
@@ -236,6 +257,162 @@ class DatasetWriter:
             rows_rejected=sum(rejected_reason_counts.values()),
             rejected_reason_counts=rejected_reason_counts,
             rejected_reason_samples=rejected_reason_samples,
+        )
+
+    def _write_serving_observed_snapshot_refresh(
+        self,
+        *,
+        definition: DatasetDefinition,
+        batch: NormalizedBatch,
+    ) -> WriteResult:
+        if batch.rows_rejected:
+            raise self._observed_snapshot_error(
+                code="write.snapshot_rows_rejected",
+                unit_id=batch.unit_id,
+                message="完整观察快照存在归一化拒绝行，不能用部分结果替换 current projection",
+                details={"rows_rejected": batch.rows_rejected},
+            )
+        if not batch.rows_normalized:
+            raise self._observed_snapshot_error(
+                code="write.snapshot_empty",
+                unit_id=batch.unit_id,
+                message="完整观察快照为空，拒绝清空现有 current projection",
+            )
+
+        current_dao, observation_dao = self._resolve_observed_snapshot_daos(
+            definition=definition,
+            unit_id=batch.unit_id,
+        )
+        self._validate_observed_snapshot_dao_contract(
+            definition=definition,
+            current_dao=current_dao,
+            observation_dao=observation_dao,
+            unit_id=batch.unit_id,
+        )
+
+        snapshot_rows: list[dict[str, Any]] = []
+        seen_keys: set[tuple[str, str]] = set()
+        for row in batch.rows_normalized:
+            source_entity_key = row.get("source_entity_key")
+            if not isinstance(source_entity_key, str) or not source_entity_key.strip():
+                raise self._observed_snapshot_error(
+                    code="write.source_entity_key_missing",
+                    unit_id=batch.unit_id,
+                    message="完整观察快照行缺少非空 source_entity_key",
+                )
+            try:
+                source_content_hash = compute_source_content_hash(
+                    row=row,
+                    source_fields=definition.source.source_fields,
+                )
+            except SourceFieldMissingError as exc:
+                raise self._observed_snapshot_error(
+                    code="write.source_field_missing",
+                    unit_id=batch.unit_id,
+                    message=str(exc),
+                    details={"field": exc.field},
+                ) from exc
+            except ObservedSnapshotHashError as exc:
+                raise self._observed_snapshot_error(
+                    code="write.snapshot_content_hash_invalid",
+                    unit_id=batch.unit_id,
+                    message=str(exc),
+                ) from exc
+
+            identity = (source_entity_key, source_content_hash)
+            if identity in seen_keys:
+                raise self._observed_snapshot_error(
+                    code="write.snapshot_duplicate_record",
+                    unit_id=batch.unit_id,
+                    message="完整观察快照存在无法表示的重复源记录",
+                    details={"source_entity_key": source_entity_key, "source_content_hash": source_content_hash},
+                )
+            seen_keys.add(identity)
+            snapshot_rows.append({**row, "source_content_hash": source_content_hash})
+
+        current_rows = self._coerce_rows_for_dao(snapshot_rows, current_dao)
+        observation_rows = self._coerce_rows_for_dao(snapshot_rows, observation_dao)
+        observed_at = utc_now()
+        observation_result = observation_dao.record_observations(observation_rows, observed_at=observed_at)
+        current_written = current_dao.replace_current_snapshot(current_rows, observed_at=observed_at)
+        expected_rows = len(snapshot_rows)
+        if observation_result.rows_observed != expected_rows or current_written != expected_rows:
+            raise self._observed_snapshot_error(
+                code="write.snapshot_persistence_incomplete",
+                unit_id=batch.unit_id,
+                message="完整观察快照写入行数与已验证源记录数不一致",
+                details={
+                    "expected_rows": expected_rows,
+                    "observation_rows_observed": observation_result.rows_observed,
+                    "current_rows_written": current_written,
+                },
+            )
+        return WriteResult(
+            unit_id=batch.unit_id,
+            rows_written=expected_rows,
+            rows_upserted=expected_rows,
+            rows_skipped=0,
+            target_table=definition.storage.target_table,
+            conflict_strategy="serving_observed_snapshot_refresh",
+        )
+
+    @classmethod
+    def _validate_observed_snapshot_dao_contract(
+        cls,
+        *,
+        definition: DatasetDefinition,
+        current_dao,
+        observation_dao,
+        unit_id: str,
+    ) -> None:  # type: ignore[no-untyped-def]
+        current_table = getattr(getattr(current_dao, "model", None), "__table__", None)
+        observation_table = getattr(getattr(observation_dao, "model", None), "__table__", None)
+        if current_table is None or observation_table is None:
+            raise cls._observed_snapshot_error(
+                code="write.snapshot_storage_invalid",
+                unit_id=unit_id,
+                message="观察快照 DAO 必须显式绑定 ORM model",
+            )
+        if current_table.fullname == observation_table.fullname:
+            raise cls._observed_snapshot_error(
+                code="write.snapshot_storage_invalid",
+                unit_id=unit_id,
+                message="current 与 observation DAO 不能绑定同一张表",
+            )
+        source_fields = set(definition.source.source_fields)
+        current_columns = {column.name for column in current_table.columns}
+        observation_columns = {column.name for column in observation_table.columns}
+        protocol_columns = {"source_entity_key", "source_content_hash"}
+        current_missing = sorted((source_fields | protocol_columns | {"observed_at"}) - current_columns)
+        observation_missing = sorted(
+            (source_fields | protocol_columns | {"first_observed_at", "last_observed_at"}) - observation_columns
+        )
+        if current_missing or observation_missing:
+            raise cls._observed_snapshot_error(
+                code="write.snapshot_storage_invalid",
+                unit_id=unit_id,
+                message="观察快照目标表缺少协议或显式 source field 列",
+                details={"current_missing": current_missing, "observation_missing": observation_missing},
+            )
+
+    @staticmethod
+    def _observed_snapshot_error(
+        *,
+        code: str,
+        unit_id: str,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> IngestionWriteError:
+        return IngestionWriteError(
+            StructuredError(
+                error_code=code,
+                error_type="write",
+                phase="writer",
+                message=message,
+                retryable=False,
+                unit_id=unit_id,
+                details=details or {},
+            )
         )
 
     def _write_index_daily_serving(

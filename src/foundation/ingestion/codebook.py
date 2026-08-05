@@ -20,8 +20,8 @@ class IngestionCodebookEntry:
         }
 
 
-INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-02.v1"
-INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-02T00:00:00Z"
+INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-05.v1"
+INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-05T00:00:00Z"
 
 INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("dataset_mismatch", "请求数据集与定义不一致", "validator", "检查 dataset_key 与定义绑定"),
@@ -65,10 +65,19 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("source_auth_error", "上游鉴权失败", "source", "检查凭据配置"),
     IngestionCodebookEntry("payload_invalid", "上游 payload 不合法", "normalize", "检查字段结构与解析逻辑"),
     IngestionCodebookEntry("all_rows_rejected", "本批次全部行被拒绝", "normalize", "查看 reason 分布并修正数据或规则"),
+    IngestionCodebookEntry("normalize.row_transform_failed", "行转换配置或执行失败", "normalize", "检查 row_transform_name 与转换函数"),
     IngestionCodebookEntry("normalize.unit_date_expected_missing", "执行单元缺少日期锚点", "normalize", "检查执行计划的 trade_date"),
     IngestionCodebookEntry("normalize.unit_date_mismatch", "源数据日期与执行单元不一致", "normalize", "检查请求参数与源端返回日期"),
     IngestionCodebookEntry("normalize.duplicate_conflict_key_inconsistent", "同一主键出现不一致数据", "normalize", "检查分页结果与源端一致性"),
     IngestionCodebookEntry("dao_not_found", "写入 DAO 路由缺失", "writer", "检查 storage.write_path 与 DAOFactory 注册"),
+    IngestionCodebookEntry("write.snapshot_rows_rejected", "完整观察快照存在拒绝行", "writer", "先解决拒绝原因，不能用部分结果替换当前快照"),
+    IngestionCodebookEntry("write.snapshot_empty", "完整观察快照为空", "writer", "检查源端返回与字段请求，不能清空当前快照"),
+    IngestionCodebookEntry("write.source_entity_key_missing", "观察快照实体键缺失", "writer", "检查数据集行转换的 source_entity_key"),
+    IngestionCodebookEntry("write.source_field_missing", "显式请求字段缺失", "writer", "检查 source_fields 与源端返回字段"),
+    IngestionCodebookEntry("write.snapshot_content_hash_invalid", "观察快照内容哈希失败", "writer", "检查 source field 类型与哈希序列化"),
+    IngestionCodebookEntry("write.snapshot_duplicate_record", "完整观察快照存在重复源记录", "writer", "检查源端分页重叠或身份规则，不能静默去重"),
+    IngestionCodebookEntry("write.snapshot_storage_invalid", "观察快照存储契约无效", "writer", "检查 current/observation ORM 与完整 source field 列"),
+    IngestionCodebookEntry("write.snapshot_persistence_incomplete", "观察快照持久化行数不一致", "writer", "检查 DAO 写入结果；事务将回滚"),
     IngestionCodebookEntry("write_failed", "写入异常", "writer", "检查数据库约束、冲突策略和目标表结构"),
     IngestionCodebookEntry("internal_error", "未归类内部错误", "runtime", "查看完整堆栈定位内部异常"),
     IngestionCodebookEntry("dispatcher_error", "调度器执行异常", "runtime", "检查任务调度链路和步骤事件"),

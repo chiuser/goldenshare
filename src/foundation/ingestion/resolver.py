@@ -89,6 +89,8 @@ class DatasetActionResolver:
                 conflict_columns=definition.storage.conflict_columns,
                 write_path=definition.storage.write_path,
                 serving_conflict_resolution_policy=definition.storage.serving_conflict_resolution_policy,
+                observation_dao_name=definition.storage.observation_dao_name,
+                observation_table=definition.storage.observation_table,
             ),
             transaction=PlanTransactionPolicy(
                 commit_policy=definition.transaction.commit_policy,

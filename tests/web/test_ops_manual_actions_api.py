@@ -57,12 +57,18 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert leader_board_group["group_label"] == "榜单"
     etf_fund_group = next(group for group in payload["groups"] if group["group_key"] == "etf_fund")
     assert etf_fund_group["group_label"] == "ETF基金"
+    public_fund_group = next(group for group in payload["groups"] if group["group_key"] == "public_fund")
+    assert public_fund_group["group_label"] == "公募基金"
     workflow_group = next(group for group in payload["groups"] if group["group_key"] == "workflow")
     assert workflow_group["group_label"] == "工作流"
 
     actions = _actions_by_key(payload)
     assert any(action["action_key"] == "dc_hot.maintain" for action in leader_board_group["actions"])
     assert any(action["action_key"] == "etf_sh_cons.maintain" for action in etf_fund_group["actions"])
+    assert [action["action_key"] for action in public_fund_group["actions"]] == [
+        "fund_company.maintain",
+        "mkt_idx_bmk.maintain",
+    ]
     assert actions["daily.maintain"]["display_name"] == "维护股票日线"
     assert actions["cyq_chips.maintain"]["display_name"] == "维护每日筹码分布"
     assert actions["cyq_chips.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
@@ -143,6 +149,10 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     st_modes = _time_modes(actions["st.maintain"])
     assert st_modes["none"]["control"] == "none"
     assert st_modes["none"]["selection_rule"] == "none"
+    for action_key in ("fund_company.maintain", "mkt_idx_bmk.maintain"):
+        assert actions[action_key]["date_model"]["input_shape"] == "none"
+        assert [item["mode"] for item in actions[action_key]["time_form"]["modes"]] == ["none"]
+        assert actions[action_key]["filters"] == []
 
     single_code_actions = (
         "daily.maintain",
@@ -300,6 +310,23 @@ def test_ops_manual_action_task_run_supports_trade_cal_default_none_mode(app_cli
     assert payload["run"]["resource_key"] == "trade_cal"
     assert payload["run"]["time_input"] == {"mode": "none"}
     assert payload["run"]["filters"] == {}
+
+
+def test_ops_manual_action_task_run_supports_public_fund_full_snapshots(app_client, user_factory) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    for action_key, dataset_key in (("fund_company.maintain", "fund_company"), ("mkt_idx_bmk.maintain", "mkt_idx_bmk")):
+        response = app_client.post(
+            f"/api/v1/ops/manual-actions/{action_key}/task-runs",
+            headers=headers,
+            json={"time_input": {"mode": "none"}, "filters": {}},
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["run"]["resource_key"] == dataset_key
+        assert payload["run"]["time_input"] == {"mode": "none"}
+        assert payload["run"]["filters"] == {}
 
 
 def test_ops_manual_action_task_run_supports_bse_mapping_snapshot_filters(app_client, user_factory) -> None:

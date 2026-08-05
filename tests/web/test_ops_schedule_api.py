@@ -1836,3 +1836,28 @@ def test_schedule_automation_capability_rejects_remote_index_daily_probe_with_ca
 
     with pytest.raises(WebAppError, match="日期策略混用"):
         ScheduleAutomationCapabilityResolver().validate_schedule(schedule)
+
+
+@pytest.mark.parametrize("target_key", ("fund_company.maintain", "mkt_idx_bmk.maintain"))
+def test_schedule_automation_capability_keeps_public_fund_snapshots_schedule_only(target_key: str) -> None:
+    resolver = ScheduleAutomationCapabilityResolver()
+    capability = resolver.resolve(target_type="dataset_action", target_key=target_key)
+    assert capability is not None
+    assert [item.mode for item in capability.trigger_options] == ["schedule"]
+    assert capability.probe_conditions == ()
+
+    schedule = SimpleNamespace(
+        trigger_mode="schedule",
+        target_type="dataset_action",
+        target_key=target_key,
+        calendar_policy=None,
+        params_json={"time_input": {"mode": "none"}, "filters": {}},
+        probe_config_json={},
+        timezone="Asia/Shanghai",
+    )
+    assert resolver.validate_schedule(schedule).trigger_mode == "schedule"
+
+    schedule.trigger_mode = "probe"
+    schedule.probe_config_json = {"condition_kind": "remote_margin_ready"}
+    with pytest.raises(WebAppError, match="不支持所选触发方式"):
+        resolver.validate_schedule(schedule)

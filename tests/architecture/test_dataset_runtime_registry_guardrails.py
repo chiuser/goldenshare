@@ -11,6 +11,7 @@ from src.foundation.datasets.definitions import (
     MARKET_FUND_ROWS,
     MONEYFLOW_ROWS,
     NEWS_ROWS,
+    PUBLIC_FUND_ROWS,
     REFERENCE_MASTER_ROWS,
     list_defined_datasets,
 )
@@ -29,6 +30,7 @@ EXPECTED_DOMAIN_FILES = {
     "news",
     "reference_master",
     "low_frequency",
+    "public_fund",
 }
 
 EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
@@ -110,6 +112,7 @@ EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
     },
     "low_frequency": {"dividend", "stk_holdernumber"},
     "news": {"cctv_news", "major_news", "news", "anns_d", "irm_qa_sh", "irm_qa_sz"},
+    "public_fund": {"fund_company", "mkt_idx_bmk"},
 }
 
 LEGACY_ROUTE_TOGGLE_TOKENS = (
@@ -137,6 +140,7 @@ def test_definition_domain_keys_match_guardrail_matrix() -> None:
         "news": {row["identity"]["dataset_key"] for row in NEWS_ROWS},
         "reference_master": {row["identity"]["dataset_key"] for row in REFERENCE_MASTER_ROWS},
         "low_frequency": {row["identity"]["dataset_key"] for row in LOW_FREQUENCY_ROWS},
+        "public_fund": {row["identity"]["dataset_key"] for row in PUBLIC_FUND_ROWS},
     }
     assert set(actual_by_domain) == EXPECTED_DOMAIN_FILES
     for domain, expected_keys in EXPECTED_DOMAIN_KEYS.items():
