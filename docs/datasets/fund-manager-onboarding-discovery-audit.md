@@ -1,6 +1,6 @@
 # 基金经理（`fund_manager`）接入发现审计
 
-状态：**B3-M0、LLD、B3-M1 与 B3-M2 隔离 PostgreSQL 验收通过；生产部署与 migration 已完成，首次生产同步尚未执行，未创建任务**
+状态：**B3-M0 至 B3-M3 均已通过；生产部署、migration、首次完整同步与五段对账完成，尚未创建 schedule**
 首次审计：2026-08-03；源端复审：2026-08-06
 截图菜单：基金经理
 源文档：[基金经理](../sources/tushare/公募基金/0208_基金经理.md)
@@ -12,7 +12,7 @@
 
 本轮已补齐旧审计缺失的 short-page 证据。2026-08-06 实测全集为 84,357 行：`limit=5000` 为 `16×5000 + 4357`，`limit=4000` 为 `21×4000 + 357`，两次结果的完整 10 字段行多重集完全一致。该行数只是一时点基线，不是永久 SLA。
 
-B3-M0、LLD、B3-M1 与 B3-M2 均已通过，生产部署、migration 与真实 HDD placement 也已完成。无参单 unit 全量快照、5,000 行分页、批内任职身份唯一性和 B0 writer 容量/事务阈值均已落到代码、自动化和隔离 PostgreSQL 实测；下一门禁是首次生产完整同步与五段对账。
+B3-M0 至 B3-M3 均已通过。生产 TaskRun `#7515` 首次完整同步与独立源端只读对账证明：fetched/normalized/written/current/observation 均为 84,357，reject 0，17 页完整分页和全部 10 个 source fields 闭环，三方实体键与全字段内容哈希摘要一致；尚未创建 schedule 或 probe。
 
 ## 2. 源端契约
 
@@ -145,7 +145,7 @@ MCP 另行验证 `ann_date=20260617` 为 89 行，所有行的 `ann_date` 都匹
 2. 页大小固定 5,000，不设置最大页数或行数上限。
 3. 同一 `source_entity_key` 的单批重复/冲突由 opt-in quality contract 在 normalizer fail closed；不改变 B0 writer 与 B1/B2 的全局语义。
 4. 84,357/100,000 行的内存、事务和原子回滚阈值已在隔离 PostgreSQL 实测通过；带 SQL 计数的真实全量峰值 RSS 657,178,624 bytes、事务 28.558 秒、256 条 B3 SQL，100,000 行 fixture 峰值 RSS 702,906,368 bytes、事务 36.241 秒、301 条 B3 SQL，两处故障回滚后全表指纹不变。
-5. 自动任务实际频率与 cron/once 时间继续延后。它不影响 B3 编码、隔离验证或首次生产同步；B3 不自动创建任务。
+5. 自动任务实际频率与 cron/once 时间继续延后。它不影响 B3 开发验收；B3 不自动创建任务。
 
 ## 9. 当前禁止项与下一步
 
@@ -153,6 +153,6 @@ MCP 另行验证 `ann_date=20260617` 为 89 行，所有行的 `ann_date` 都匹
 - 禁止按姓名，或按姓名加空出生年份，自动合并不同基金的经理。
 - 禁止截断 `resume`，禁止只拉第一页，禁止设置固定最大页数后把截断当成功。
 - 禁止局部过滤结果替换全量 current，禁止未完成所有页或存在 reject 时提交业务数据。
-- B3-M2 已完成；生产 migration 已升级到 `20260806_000127`，10 个 B3 relation 已核验位于 `/dev/vdb` 挂载的 `gs_raw_cold_hdd`。首次生产同步仍需后续单独授权。
+- B3-M3 已完成：生产 migration 为 `20260806_000127`，10 个 B3 relation 位于 `/dev/vdb` 挂载的 `gs_raw_cold_hdd`；TaskRun `#7515` 与独立源端对账全部通过。
 
-下一步是在用户单独授权后继续 B3-M3：做首次无参完整同步及源端、归一化、写入、拒绝原因、current/observation 的完整对账；不得提前创建 schedule。
+下一步只有延后的运营决策：若需要自动更新，由运营另行拍板频率与 cron/once 后手工创建普通 schedule。若继续公募基金专项开发，则进入 B4，先推进 `fund_share`。

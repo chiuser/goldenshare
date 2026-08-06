@@ -1,6 +1,6 @@
 # 公募基金 B3：基金经理（`fund_manager`）LLD v1
 
-状态：**B3-M0、LLD、B3-M1 与 B3-M2 隔离 PostgreSQL 验收通过；B3-M3 已完成生产部署与 migration，首次生产同步尚未执行，未创建 schedule。**
+状态：**B3-M0 至 B3-M3 均已通过；生产部署、migration、首次完整同步与五段对账完成，尚未创建 schedule。**
 日期：2026-08-06
 上游总览：[公募基金九数据集接入总览与分批推进计划 v1](public-fund-nine-dataset-onboarding-program-plan-v1.md)
 依赖：[B0 观察快照直出最小地基 LLD](public-fund-b0-observed-snapshot-foundation-low-level-design-v1.md)、[B2 基金列表 LLD](public-fund-b2-fund-basic-low-level-design-v1.md)
@@ -287,9 +287,15 @@ batch_unique_key_fields: tuple[str, ...] = ()
 - 远程仓库从 `556e3a39` fast-forward 到 `7ab4807a`，部署后工作区干净；六个既有服务均为 active，Web 入口仍为 `python -m src.app.web.run`，`/api/health` 与 `/api/v1/health` 均返回成功。
 - Alembic 从 `20260806_000126` 升级到 `20260806_000127`；两张 B3 表、两个主键索引、一个 current 唯一索引和五个二级索引共 10 个 relation 全部位于 `gs_raw_cold_hdd`。
 - `gs_raw_cold_hdd` 的生产位置为 `/data/disk/postgresql/tablespaces/gs_stk_mins_hdd`，挂载设备 `/dev/vdb`、文件系统 ext4；迁移后约有 323 GB 可用空间。所有 B3 relation 的 `pg_relation_filepath` 均位于该 tablespace。
-- `fund_manager_current` 与 `fund_manager_observation` 均为 0 行；`fund_manager` 的 schedule、probe 均为 0，迁移没有创建任务或同步数据。
+- migration 后、首次同步前，`fund_manager_current` 与 `fund_manager_observation` 均为 0 行；`fund_manager` 的 schedule、probe 均为 0，迁移没有创建任务或同步数据。
 
-B3-M3 仍未完成：首次生产无参完整同步及源端、归一化、写入、拒绝原因、current/observation 对账需要单独授权后执行。
+运营管理员通过既有 Manual Action → TaskRun → worker 主链创建唯一一次首次完整同步 TaskRun `#7515`。任务参数为 `trigger_source=manual`、`time_input={"mode":"none"}`、`filters={}`、`schedule_id=NULL`；plan 为 `snapshot_refresh` 的一个无参 unit。任务于 23:26:57 +08:00 开始、23:28:06 +08:00 成功结束，节点耗时 69,688 ms，`unit_total=unit_done=1`、`unit_failed=0`。
+
+独立源端只读对账重新通过项目 connector 拉取当前完整快照：17 次请求、0 retry，offset 为 `0..80000`、页长 `16×5000 + 4357`；每页显式请求同一 10 fields，除 `limit/offset` 外无业务参数。对账结果为 fetched 84,357、normalized 84,357、written 84,357、reject 0，current/observation 各 84,357 行和 84,357 个实体。source/current/observation 的实体键与全字段内容哈希摘要均为 `2a16e2eb37218fc9a2b18bab8d4115d2`，两张目标表逐行重算 source content hash 的 mismatch 均为 0。
+
+生产 worker 自本次部署重启后的峰值内存为 588,939,264 bytes，低于 1 GiB 门禁；同步前 WAL LSN 至验收结束的增量为 249,059,576 bytes。current/observation 的 total relation size 分别为 86,622,208 与 88,596,480 bytes，10 个 relation 仍全部位于 `/dev/vdb` 上的 `gs_raw_cold_hdd`，磁盘仍有约 323 GB 可用。验收结束后活动 TaskRun、活动日期完整性任务、`fund_manager` schedule 和 probe 均为 0，六个生产服务及两个健康接口正常。
+
+至此 B3-M3 完成。自动任务频率仍由运营后续单独拍板，不属于 B3 开发退出条件。
 
 ## 7. 配置项审计
 
@@ -338,11 +344,11 @@ CodeGraph 已覆盖 Definition → resolver/unit → request/source → normaliz
 | B3-REQ-008 | direct-serving current+observation，无 raw/FK | Definition、ORM、B0 writer | 完整快照写两表、内容变化保留版本 | linter拒绝 raw/std；未知 fund_basic code 仍可写 | M1 自动化与 M2 实库通过 |
 | B3-REQ-009 | current 单实体唯一，observation 允许跨次版本 | current unique index、两表主键、quality gate | 同实体内容后续变化替换 current并新增观察版本 | 同批两版本被拒绝、数据库 unique 作最后防线 | M1 自动化与 M2 重复同步通过 |
 | B3-REQ-010 | 表、PK、全部索引 HDD；WAL留 SSD | migration | 隔离/生产查 relation tablespace 与物理路径 | HDD 不存在时建表前失败；不改 `pg_wal` | M2 fail-closed 与 M3 生产 `/dev/vdb` placement 通过；migration 未改 WAL |
-| B3-REQ-011 | 84,357/100,000 行内存与耗时达标 | M2 容量 harness、B0 writer/DAO/executor | RSS、180s事务、240s端到端均通过 | 任一超限则 M2 失败，不截断、不上线 | M2 真实 84,357 与 fixture 100,000 行通过 |
+| B3-REQ-011 | 84,357/100,000 行内存与耗时达标 | M2 容量 harness、B0 writer/DAO/executor | RSS、180s事务、240s端到端均通过 | 任一超限则 M2 失败，不截断、不上线 | M2 容量与 M3 生产 84,357 行通过；生产 worker 峰值 588,939,264 bytes，任务约 69.7 秒 |
 | B3-REQ-012 | observation/current 单事务原子性 | executor、writer、DAO | 一次 commit，完整对账 | 两个故障点 rollback 后集合/时间不变 | M1 SQLite 与 M2 PostgreSQL 双故障注入通过 |
 | B3-REQ-013 | 公募基金分组，手动 + schedule/retry，无 probe/workflow/seed | Ops Catalog、Definition capability、API | manual 与 cron/once capability可见 | probe/workflow请求拒绝；无 seed 记录 | M1 API 自动化通过；频率延后 |
 | B3-REQ-014 | snapshot freshness，无日期 completeness | freshness policies、cards projection | 卡片显示目标表和最近快照 | 不产生 expected date bucket/raw table | M1 API 自动化通过 |
-| B3-REQ-015 | 首次同步五段对账且不自动建任务 | M2/M3 release runbook | fetched/normalized/written/reject/current/observation闭环 | 任一差异停止；schedule 数量不增加 | M2 隔离闭环；待 M3 生产闭环 |
+| B3-REQ-015 | 首次同步五段对账且不自动建任务 | M2/M3 release runbook | fetched/normalized/written/reject/current/observation闭环 | 任一差异停止；schedule 数量不增加 | M2 隔离与 M3 生产 TaskRun `#7515` 均闭环；schedule/probe 为 0 |
 
 ## 10. 实现文件与测试计划
 
@@ -380,7 +386,7 @@ CodeGraph 已覆盖 Definition → resolver/unit → request/source → normaliz
 | B3-M0 | 源端复审与 LLD | **已完成**：无参全集、10 fields、两种页大小、身份候选、过滤语义、容量与全消费者审计闭环；本文追溯账本无未决开发口径。 |
 | B3-M1 | Definition、身份/质量、ORM/DAO、migration、Ops 与单元/集成测试 | **已完成**：本地定向测试、B0/B1/B2回归、migration静态门禁、Definition lint、docs完整性通过；未触发远程写。 |
 | B3-M2 | 隔离 PostgreSQL migration、HDD 与最小真实同步 | **已完成**：真实全量五段对账、重复同步、84,357/100,000 容量阈值、tablespace fail-closed/placement 及两处原子回滚全部通过。 |
-| B3-M3 | 生产 migration 与首次完整同步 | **进行中**：生产部署、migration、真实 HDD 路径与空表/无任务核验通过；首次完整同步、五段对账和同步 WAL 水位尚未执行；不创建 schedule。 |
+| B3-M3 | 生产 migration 与首次完整同步 | **已完成**：生产部署、migration、真实 HDD、TaskRun `#7515` 首次完整同步、五段对账、WAL/内存/磁盘记录全部通过；未创建 schedule/probe。 |
 | 后续运营 | 创建自动任务 | 运营另行拍板频率和 cron/once 后手工创建；不是 B3 开发退出条件。 |
 
 生产顺序只能是：部署已验收代码 → 获得生产 migration 授权 → 应用 migration → 核验全部 relation 位于 HDD → 手动首次无参完整同步 → 五段对账与资源记录 → 结束。不得在 migration 中 seed schedule，不得因未确定自动频率阻塞 B3-M1 至 M3。
@@ -391,4 +397,4 @@ CodeGraph 已覆盖 Definition → resolver/unit → request/source → normaliz
 
 B3-M2 已通过本机隔离 PostgreSQL 验收。无参单 unit 全量快照、5,000 行 short-page 分页、四字段任职身份与批内唯一性 fail-closed、全部显式字段落库、84,357/100,000 行容量和单事务原子性均有真实数据库证据。隔离验证没有发现需要修改 B0 writer 或其他共享主链的问题。
 
-B3-M3 的生产部署、migration 和 `gs_raw_cold_hdd` 真实机械盘路径核验已经完成。下一门禁是单独授权首次生产无参完整同步与五段对账；自动任务频率仍是延后运营决策，不阻塞首次生产同步。
+B3-M0 至 B3-M3 已全部通过，隔离与生产证据均已闭环；未发现需要修改 B0 共享主链的问题。B3 只剩延后的运营决策：是否以及何时手工创建普通 cron/once schedule。若继续本专项开发，下一批为 B4，先从 `fund_share` 的 LLD 与实现门禁开始。
