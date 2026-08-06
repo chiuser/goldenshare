@@ -28,7 +28,7 @@ def test_dataset_definition_registry_covers_runtime_registry() -> None:
     runtime_keys = set(DATASET_RUNTIME_REGISTRY)
 
     assert definition_keys == runtime_keys
-    assert len(definition_keys) == 78
+    assert len(definition_keys) == 79
 
 
 def test_dataset_definition_registry_covers_freshness_policy_mapping() -> None:
@@ -44,7 +44,7 @@ def test_dataset_definition_universe_policy_current_state_is_explicit() -> None:
 
     assert Counter(policies.values()) == Counter(
         {
-            "no_pool": 69,
+            "no_pool": 70,
             "pool": 9,
         }
     )
@@ -105,6 +105,7 @@ def test_dataset_definition_projects_margin_detail_direct_serving_facts() -> Non
 def test_dataset_definition_projects_public_fund_observed_snapshot_facts() -> None:
     fund_company = get_dataset_definition("fund_company")
     benchmark = get_dataset_definition("mkt_idx_bmk")
+    fund_basic = get_dataset_definition("fund_basic")
 
     assert fund_company.domain.domain_key == "public_fund"
     assert fund_company.source.source_fields == (
@@ -137,11 +138,37 @@ def test_dataset_definition_projects_public_fund_observed_snapshot_facts() -> No
         "bmk_src",
         "idx_type",
     )
-    for definition in (fund_company, benchmark):
+    assert fund_basic.source.source_fields == (
+        "ts_code",
+        "name",
+        "management",
+        "custodian",
+        "fund_type",
+        "found_date",
+        "due_date",
+        "list_date",
+        "issue_date",
+        "delist_date",
+        "issue_amount",
+        "m_fee",
+        "c_fee",
+        "duration_year",
+        "p_value",
+        "min_amount",
+        "exp_return",
+        "benchmark",
+        "status",
+        "invest_type",
+        "type",
+        "trustee",
+        "purc_startdate",
+        "redm_startdate",
+        "market",
+    )
+    for definition in (fund_company, benchmark, fund_basic):
         assert definition.date_model.input_shape == "none"
         assert definition.input_model.filters == ()
         assert definition.planning.pagination_policy == "offset_limit"
-        assert definition.planning.page_limit == 64
         assert definition.planning.fetch_concurrency == 1
         assert definition.storage.raw_dao_name is None
         assert definition.storage.raw_table is None
@@ -149,6 +176,9 @@ def test_dataset_definition_projects_public_fund_observed_snapshot_facts() -> No
         assert definition.storage.conflict_columns == ("source_entity_key", "source_content_hash")
         assert definition.quality.duplicate_key_policy == "allow"
         assert definition.capabilities.get_action("maintain").supported_time_modes == ("none",)
+    assert fund_company.planning.page_limit == benchmark.planning.page_limit == 64
+    assert fund_basic.planning.page_limit == 2_000
+    assert fund_basic.quality.required_distinct_values == {"market": ("E", "O")}
 
 
 def test_dataset_definition_projects_ths_daily_valuation_fields() -> None:
@@ -621,9 +651,10 @@ def test_no_time_dataset_definitions_do_not_expose_time_inputs() -> None:
 
     assert {definition.dataset_key for definition in no_time_definitions} == {
         "bse_mapping",
-        "etf_basic",
-        "etf_index",
-        "fund_company",
+            "etf_basic",
+            "etf_index",
+            "fund_basic",
+            "fund_company",
         "hk_basic",
         "index_basic",
         "namechange",

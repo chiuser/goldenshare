@@ -178,6 +178,12 @@ class DatasetNormalizer:
             rejected_samples=rejected_samples,
             unit_id=fetch_result.unit_id,
         )
+        if not rejected_reasons:
+            self._validate_required_distinct_values(
+                definition=definition,
+                rows=rows_normalized,
+                unit_id=fetch_result.unit_id,
+            )
         return NormalizedBatch(
             unit_id=fetch_result.unit_id,
             rows_normalized=rows_normalized,
@@ -185,6 +191,41 @@ class DatasetNormalizer:
             rejected_reasons=rejected_reasons,
             rejected_samples=rejected_samples,
         )
+
+    @staticmethod
+    def _validate_required_distinct_values(
+        *,
+        definition: DatasetDefinition,
+        rows: list[dict[str, Any]],
+        unit_id: str,
+    ) -> None:
+        if not rows:
+            return
+        for field_name, required_values in definition.quality.required_distinct_values.items():
+            observed_values = {
+                str(row[field_name]).strip()
+                for row in rows
+                if row.get(field_name) is not None and str(row[field_name]).strip()
+            }
+            missing_values = [value for value in required_values if value not in observed_values]
+            if not missing_values:
+                continue
+            raise IngestionNormalizeError(
+                StructuredError(
+                    error_code="normalize.required_distinct_values_missing",
+                    error_type="normalize",
+                    phase="normalizer",
+                    message=f"完整批次字段 {field_name} 缺少必要取值：{', '.join(missing_values)}",
+                    retryable=False,
+                    unit_id=unit_id,
+                    details={
+                        "field": field_name,
+                        "required_values": list(required_values),
+                        "observed_values": sorted(observed_values),
+                        "missing_values": missing_values,
+                    },
+                )
+            )
 
     @classmethod
     def _validate_unit_date(

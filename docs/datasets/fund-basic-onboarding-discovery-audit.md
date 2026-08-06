@@ -1,7 +1,7 @@
 # 公募基金列表（`fund_basic`）接入发现审计
 
-状态：发现审计完成，**未进入 LLD、未建表、未写入远程数据**
-首次审计：2026-08-03；复审：2026-08-05
+状态：发现审计与 B2 LLD 完成，**B2-M1 代码和本地自动化验证已完成；migration 未应用，未创建任务、未写入远程数据**
+首次审计：2026-08-03；复审：2026-08-06
 截图菜单：基金列表
 源文档：[公募基金列表](../sources/tushare/公募基金/0019_公募基金列表.md)
 
@@ -9,7 +9,7 @@
 
 `fund_basic` 是“基金列表”的明确接口，覆盖场内和场外基金。其 `benchmark` 是“某只基金当前业绩比较基准”的源端文本；它与独立的 [`mkt_idx_bmk` 基准指数库](fund-performance-benchmark-onboarding-discovery-audit.md) 是两类事实，不能互相替代。
 
-场外全市场分页已验证：`market=O`、25 个显式字段、`limit=2000` 从 offset `0` 连续到 `28000`，末页 1,447 行，合计 **29,447 个唯一 `.OF` 代码**。本结论同时由 `tushareMcp` 和项目 `TushareHttpClient` 验证；此前 15,000 行只是未分页单页上限，不能再表述为场外范围阻断。
+全市场分页已验证：不传 `market`、25 个显式字段、`limit=2000` 从 offset `0` 连续到 `32000`，末页 342 行，合计 **32,342 个唯一 `ts_code`**。同一时点分别请求 E/O 得到 E=2,883、O=29,459；两者逐行多重集并集与无 market 分页完全一致。此前 15,000 行只是未分页单页上限，不能再表述为全市场基准。
 
 ## 源端事实与实测
 
@@ -17,11 +17,13 @@
 | --- | --- | --- |
 | 参数 | `ts_code`、`market`、`status`；无时间参数 | 主模型只能是快照，不能设计日期增量。 |
 | 默认字段 | 25 个文档字段均返回 | 实现仍必须显式请求全部字段。 |
-| 无业务参数 | 15,000 行：E 1,174、O 13,826；与文档所称 `market` 默认 E 不一致 | 默认请求既被截断，又不是稳定市场口径。 |
-| `market=E` | 2,879 行，完整返回当前样本 | 场内范围看似未触顶，仍须以项目 connector 再验证。 |
-| `market=O` 分页 | `limit=2000` 共 15 页：14 页满 2,000、末页 1,447；29,447 个唯一 `.OF` | 场外全市场可由 `offset_limit` 完整枚举。 |
+| 无业务参数、未分页 | 恰好 15,000 行，E/O 混合；与文档所称 `market` 默认 E 不一致 | 单页被截断，不能作为全量基准。 |
+| `market=E` 分页 | `2000 + 883`；2,883 个唯一 `ts_code` | 场内分片翻至 short page。 |
+| `market=O` 分页 | `limit=2000` 共 15 页：14 页满 2,000、末页 1,459；29,459 个唯一 `ts_code` | 场外分片翻至 short page。 |
+| 无 market 分页 | `limit=2000` 共 17 页：16 页满 2,000、末页 342；32,342 个唯一 `ts_code` | 一个请求范围可完整枚举 E/O。 |
+| 全集 A/B 对账 | 无 market 的25字段逐行多重集与显式 E+O 并集完全相等；缺失/额外均为0 | B2 可使用一个完整快照 unit。 |
 | 单代码 | `510300.SH` 显式全字段返回 1 行 | `ts_code` 可作为手工精确查询，不证明全市场完整性。 |
-| 分页 | MCP 实际接受未列出的 `limit/offset`；项目客户端同样验证到 short page | Definition 使用 `offset_limit`，每页固定全量字段。 |
+| 分页 | 项目 connector 已验证第二页、后续 offset、short page 与 A/B 并集；当前 MCP schema 未暴露 `limit/offset` | Definition 使用 `offset_limit`，每页固定全量字段；分页证据以项目 connector 为准。 |
 
 已确认、后续 Definition 必须原样使用的 `source_fields`：
 
@@ -38,8 +40,8 @@ invest_type, type, trustee, purc_startdate, redm_startdate, market
 
 | 维度 | 当前建议 | 不能提前决定的内容 |
 | --- | --- | --- |
-| 时间语义 | `none` / snapshot refresh；全市场至少包含场外 O，并以 E/O 市场作为源端分片 | 无。 |
-| 执行 unit | 每个市场一个完整分页快照 unit；不传 `status`，保留源端返回的上市、发行、摘牌和空状态记录 | 不可用无参数单页充当全量基准。 |
+| 时间语义 | `none` / snapshot refresh；完整保存 E/O 源记录 | 无。 |
+| 执行 unit | 一个不传 `market/status` 的完整分页快照 unit；`page_limit=2000`，short page 结束 | E/O 不得拆成两个 unit，否则现有 B0 writer 会让后一个 unit 覆盖前一个市场。 |
 | freshness / completeness | 不做连续日期 audit；只观察最近成功快照 | 快照刷新频率和源站发布时点尚无证据。 |
 | 存储 | 所有业务字段均必须落表；物理表、所有叶分区和索引固定落 HDD tablespace `gs_raw_cold_hdd`，禁止落 SSD | direct-serving / raw->serving 在 LLD 固化。 |
 | Ops/UI | 新建“公募基金”分组，不复用“ETF基金”；支持手动任务和普通定时自动任务，不接 probe | 需在 Definition/自动化契约中保证页面不暴露 probe。 |
@@ -53,9 +55,9 @@ invest_type, type, trustee, purc_startdate, redm_startdate, market
 3. **业绩基准文本**：`benchmark` 作为本表源字段原样保存；它不是可结构化解析出的基准库主键。独立 `mkt_idx_bmk` 仍按自己的源端事实接入，不能以它替代本字段。
 4. **Ops 与物理存储已定**：归入“公募基金”；仅手动 + 普通定时任务、无 probe；所有叶分区及索引放 HDD。
 5. **身份与历史版本已定**：逻辑身份为 `ts_code`。维护当前记录，并为同一 `ts_code` 的源字段内容变化保留观察版本；每个版本保存全部 25 个源字段、内容散列和首次/最后一次观察时间。观察历史只能从接入日开始追溯，观察时间不是源端生效时间。
-6. **仍需 LLD 落实**：共享的 versioned direct-serving 写入契约、HDD DDL、快照频率，以及不影响 freshness 语义而彻底隐藏/拒绝 probe 的通用自动化契约。
+6. **LLD 已落实**：B2 使用一个完整 unit、B0 versioned direct-serving、HDD DDL、普通 schedule capability 和无 probe 契约；具体 schedule 频率继续由运营后置配置。
 
-## 进入 LLD 前必须补的证据
+## B2 LLD 已关闭的前置证据
 
-- 为 E/O 两个市场补历史规模、字段端到端、写入量和 short-page 证据。
-- 在 LLD 中固定表/分区/索引 HDD DDL、快照频率、direct-serving 写入路径与普通定时任务时间。
+- E/O 与无 market 的项目 connector 分页、short page、25 字段、唯一代码集合和逐行多重集对账已完成。
+- [B2 LLD](public-fund-b2-fund-basic-low-level-design-v1.md) 已固定单 unit、批次 E/O 完整性防护、表/索引 HDD DDL、direct-serving 和普通 schedule capability；不在代码中 seed 具体时间。

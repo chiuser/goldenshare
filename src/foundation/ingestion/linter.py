@@ -139,6 +139,32 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
                 )
             )
         quality = definition.quality
+        for field_name, required_values in quality.required_distinct_values.items():
+            if not str(field_name).strip() or field_name not in definition.source.source_fields:
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "required_distinct_field_invalid",
+                        f"quality.required_distinct_values 引用了无效 source field: {field_name}",
+                    )
+                )
+            normalized_values = tuple(str(value).strip() for value in required_values)
+            if not normalized_values or any(not value for value in normalized_values):
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "required_distinct_values_empty",
+                        f"quality.required_distinct_values[{field_name}] 必须声明非空取值",
+                    )
+                )
+            elif len(normalized_values) != len(set(normalized_values)):
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "required_distinct_values_duplicate",
+                        f"quality.required_distinct_values[{field_name}] 不得包含重复取值",
+                    )
+                )
         if quality.unit_date_field is not None:
             if quality.unit_date_field not in definition.source.source_fields:
                 issues.append(

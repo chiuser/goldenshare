@@ -41,6 +41,7 @@ FRESHNESS_POLICY_BY_DATASET: dict[str, FreshnessPolicy] = {
     "etf_index": SNAPSHOT_RUN_TRACE,
     "etf_sh_cons": CONTINUOUS_OPEN_DAY,
     "fund_adj": CONTINUOUS_OPEN_DAY,
+    "fund_basic": SNAPSHOT_RUN_TRACE,
     "fund_company": SNAPSHOT_RUN_TRACE,
     "fund_daily": CONTINUOUS_OPEN_DAY,
     "hk_basic": SNAPSHOT_RUN_TRACE,

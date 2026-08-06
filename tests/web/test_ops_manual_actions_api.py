@@ -68,6 +68,7 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert [action["action_key"] for action in public_fund_group["actions"]] == [
         "fund_company.maintain",
         "mkt_idx_bmk.maintain",
+        "fund_basic.maintain",
     ]
     assert actions["daily.maintain"]["display_name"] == "维护股票日线"
     assert actions["cyq_chips.maintain"]["display_name"] == "维护每日筹码分布"
@@ -149,7 +150,7 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     st_modes = _time_modes(actions["st.maintain"])
     assert st_modes["none"]["control"] == "none"
     assert st_modes["none"]["selection_rule"] == "none"
-    for action_key in ("fund_company.maintain", "mkt_idx_bmk.maintain"):
+    for action_key in ("fund_company.maintain", "mkt_idx_bmk.maintain", "fund_basic.maintain"):
         assert actions[action_key]["date_model"]["input_shape"] == "none"
         assert [item["mode"] for item in actions[action_key]["time_form"]["modes"]] == ["none"]
         assert actions[action_key]["filters"] == []
@@ -315,7 +316,11 @@ def test_ops_manual_action_task_run_supports_trade_cal_default_none_mode(app_cli
 def test_ops_manual_action_task_run_supports_public_fund_full_snapshots(app_client, user_factory) -> None:
     headers = _admin_headers(app_client, user_factory)
 
-    for action_key, dataset_key in (("fund_company.maintain", "fund_company"), ("mkt_idx_bmk.maintain", "mkt_idx_bmk")):
+    for action_key, dataset_key in (
+        ("fund_company.maintain", "fund_company"),
+        ("mkt_idx_bmk.maintain", "mkt_idx_bmk"),
+        ("fund_basic.maintain", "fund_basic"),
+    ):
         response = app_client.post(
             f"/api/v1/ops/manual-actions/{action_key}/task-runs",
             headers=headers,

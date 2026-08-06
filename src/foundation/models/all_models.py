@@ -14,6 +14,8 @@ from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_margin_detail import EquityMarginDetail
 from src.foundation.models.core_serving.fund_company_current import FundCompanyCurrent
 from src.foundation.models.core_serving.fund_company_observation import FundCompanyObservation
+from src.foundation.models.core_serving.fund_basic_current import FundBasicCurrent
+from src.foundation.models.core_serving.fund_basic_observation import FundBasicObservation
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
 from src.foundation.models.core.equity_dividend import EquityDividend
 from src.foundation.models.core.equity_factor_pro import EquityFactorPro
@@ -186,6 +188,8 @@ __all__ = [
     "EtfBasic",
     "EtfIndex",
     "FundDailyBar",
+    "FundBasicCurrent",
+    "FundBasicObservation",
     "FundCompanyCurrent",
     "FundCompanyObservation",
     "FundAdjFactor",

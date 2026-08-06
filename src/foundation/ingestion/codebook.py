@@ -68,6 +68,12 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("normalize.row_transform_failed", "行转换配置或执行失败", "normalize", "检查 row_transform_name 与转换函数"),
     IngestionCodebookEntry("normalize.unit_date_expected_missing", "执行单元缺少日期锚点", "normalize", "检查执行计划的 trade_date"),
     IngestionCodebookEntry("normalize.unit_date_mismatch", "源数据日期与执行单元不一致", "normalize", "检查请求参数与源端返回日期"),
+    IngestionCodebookEntry(
+        "normalize.required_distinct_values_missing",
+        "完整批次缺少必要分类取值",
+        "normalize",
+        "检查源端完整性和分页范围，禁止用部分结果替换完整快照",
+    ),
     IngestionCodebookEntry("normalize.duplicate_conflict_key_inconsistent", "同一主键出现不一致数据", "normalize", "检查分页结果与源端一致性"),
     IngestionCodebookEntry("dao_not_found", "写入 DAO 路由缺失", "writer", "检查 storage.write_path 与 DAOFactory 注册"),
     IngestionCodebookEntry("write.snapshot_rows_rejected", "完整观察快照存在拒绝行", "writer", "先解决拒绝原因，不能用部分结果替换当前快照"),

@@ -35,6 +35,34 @@ MKT_IDX_BMK_SOURCE_FIELDS = (
     "idx_type",
 )
 
+FUND_BASIC_SOURCE_FIELDS = (
+    "ts_code",
+    "name",
+    "management",
+    "custodian",
+    "fund_type",
+    "found_date",
+    "due_date",
+    "list_date",
+    "issue_date",
+    "delist_date",
+    "issue_amount",
+    "m_fee",
+    "c_fee",
+    "duration_year",
+    "p_value",
+    "min_amount",
+    "exp_return",
+    "benchmark",
+    "status",
+    "invest_type",
+    "type",
+    "trustee",
+    "purc_startdate",
+    "redm_startdate",
+    "market",
+)
+
 
 def fund_company_identity(row: Mapping[str, Any]) -> tuple[str, str]:
     """Return the conservative source-record entity key and its basis.
@@ -63,6 +91,11 @@ def fund_company_identity(row: Mapping[str, Any]) -> tuple[str, str]:
 
 
 def mkt_idx_bmk_identity(row: Mapping[str, Any]) -> tuple[str, str]:
+    ts_code = _normalized_text(row.get("ts_code"), uppercase=True)
+    return ts_code, "ts_code"
+
+
+def fund_basic_identity(row: Mapping[str, Any]) -> tuple[str, str]:
     ts_code = _normalized_text(row.get("ts_code"), uppercase=True)
     return ts_code, "ts_code"
 

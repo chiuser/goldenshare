@@ -87,6 +87,16 @@ def test_ops_dataset_cards_returns_authoritative_card_fields(app_client, user_fa
     assert "raw_sources" not in card
     assert "status_updated_at" not in card
 
+    fund_basic = cards["fund_basic"]
+    assert fund_basic["display_name"] == "基金列表"
+    assert fund_basic["group_key"] == "public_fund"
+    assert fund_basic["group_label"] == "公募基金"
+    assert fund_basic["freshness_policy"] == "snapshot_run_trace"
+    assert fund_basic["raw_table_label"] is None
+    assert fund_basic["target_table"] == "core_serving.fund_basic_current"
+    assert fund_basic["primary_action_key"] == "fund_basic.maintain"
+    assert fund_basic["probe_total"] == 0
+
 
 def test_ops_dataset_cards_main_status_uses_freshness(app_client, user_factory, db_session) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
