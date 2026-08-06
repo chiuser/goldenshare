@@ -28,7 +28,7 @@ def test_dataset_definition_registry_covers_runtime_registry() -> None:
     runtime_keys = set(DATASET_RUNTIME_REGISTRY)
 
     assert definition_keys == runtime_keys
-    assert len(definition_keys) == 79
+    assert len(definition_keys) == 80
 
 
 def test_dataset_definition_registry_covers_freshness_policy_mapping() -> None:
@@ -44,7 +44,7 @@ def test_dataset_definition_universe_policy_current_state_is_explicit() -> None:
 
     assert Counter(policies.values()) == Counter(
         {
-            "no_pool": 70,
+            "no_pool": 71,
             "pool": 9,
         }
     )
@@ -106,6 +106,7 @@ def test_dataset_definition_projects_public_fund_observed_snapshot_facts() -> No
     fund_company = get_dataset_definition("fund_company")
     benchmark = get_dataset_definition("mkt_idx_bmk")
     fund_basic = get_dataset_definition("fund_basic")
+    fund_manager = get_dataset_definition("fund_manager")
 
     assert fund_company.domain.domain_key == "public_fund"
     assert fund_company.source.source_fields == (
@@ -165,7 +166,19 @@ def test_dataset_definition_projects_public_fund_observed_snapshot_facts() -> No
         "redm_startdate",
         "market",
     )
-    for definition in (fund_company, benchmark, fund_basic):
+    assert fund_manager.source.source_fields == (
+        "ts_code",
+        "ann_date",
+        "name",
+        "gender",
+        "birth_year",
+        "edu",
+        "nationality",
+        "begin_date",
+        "end_date",
+        "resume",
+    )
+    for definition in (fund_company, benchmark, fund_basic, fund_manager):
         assert definition.date_model.input_shape == "none"
         assert definition.input_model.filters == ()
         assert definition.planning.pagination_policy == "offset_limit"
@@ -178,6 +191,8 @@ def test_dataset_definition_projects_public_fund_observed_snapshot_facts() -> No
         assert definition.capabilities.get_action("maintain").supported_time_modes == ("none",)
     assert fund_company.planning.page_limit == benchmark.planning.page_limit == 64
     assert fund_basic.planning.page_limit == 2_000
+    assert fund_manager.planning.page_limit == 5_000
+    assert fund_manager.quality.batch_unique_key_fields == ("source_entity_key",)
     assert fund_basic.quality.required_distinct_values == {"market": ("E", "O")}
 
 
@@ -655,6 +670,7 @@ def test_no_time_dataset_definitions_do_not_expose_time_inputs() -> None:
             "etf_index",
             "fund_basic",
             "fund_company",
+            "fund_manager",
         "hk_basic",
         "index_basic",
         "namechange",

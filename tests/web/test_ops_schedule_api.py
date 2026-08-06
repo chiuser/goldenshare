@@ -1838,7 +1838,15 @@ def test_schedule_automation_capability_rejects_remote_index_daily_probe_with_ca
         ScheduleAutomationCapabilityResolver().validate_schedule(schedule)
 
 
-@pytest.mark.parametrize("target_key", ("fund_company.maintain", "mkt_idx_bmk.maintain", "fund_basic.maintain"))
+@pytest.mark.parametrize(
+    "target_key",
+    (
+        "fund_company.maintain",
+        "mkt_idx_bmk.maintain",
+        "fund_basic.maintain",
+        "fund_manager.maintain",
+    ),
+)
 def test_schedule_automation_capability_keeps_public_fund_snapshots_schedule_only(target_key: str) -> None:
     resolver = ScheduleAutomationCapabilityResolver()
     capability = resolver.resolve(target_type="dataset_action", target_key=target_key)

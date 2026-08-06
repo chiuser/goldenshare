@@ -39,6 +39,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert "fund_company.maintain" in actions
     assert "mkt_idx_bmk.maintain" in actions
     assert "fund_basic.maintain" in actions
+    assert "fund_manager.maintain" in actions
     assert "maintenance.rebuild_dm" in actions
     legacy_keys = [
         "sync" + "_daily.daily",
@@ -194,7 +195,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert actions["maintenance.rebuild_dm"]["display_name"] == "刷新数据集市快照"
 
     catalog_items = [*actions.values(), *workflows.values()]
-    assert sum(item["schedule_enabled"] for item in catalog_items) == 84
+    assert sum(item["schedule_enabled"] for item in catalog_items) == 85
     assert all(
         (item["automation_capability"] is not None) is item["schedule_enabled"]
         for item in catalog_items

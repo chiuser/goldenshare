@@ -6,6 +6,7 @@ from typing import Any
 
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.ingestion.errors import IngestionNormalizeError, StructuredError
+from src.foundation.ingestion.observed_snapshot import ObservedSnapshotHashError, compute_source_content_hash
 from src.foundation.ingestion.row_transforms import *  # noqa: F403
 from src.foundation.ingestion.sentinel_guard import (
     find_forbidden_business_sentinel_in_row_context,
@@ -178,6 +179,11 @@ class DatasetNormalizer:
             rejected_samples=rejected_samples,
             unit_id=fetch_result.unit_id,
         )
+        self._validate_batch_unique_keys(
+            definition=definition,
+            rows=rows_normalized,
+            unit_id=fetch_result.unit_id,
+        )
         if not rejected_reasons:
             self._validate_required_distinct_values(
                 definition=definition,
@@ -191,6 +197,81 @@ class DatasetNormalizer:
             rejected_reasons=rejected_reasons,
             rejected_samples=rejected_samples,
         )
+
+    @classmethod
+    def _validate_batch_unique_keys(
+        cls,
+        *,
+        definition: DatasetDefinition,
+        rows: list[dict[str, Any]],
+        unit_id: str,
+    ) -> None:
+        key_fields = definition.quality.batch_unique_key_fields
+        if not key_fields:
+            return
+
+        seen: dict[tuple[Any, ...], tuple[int, dict[str, Any]]] = {}
+        source_fields = definition.source.source_fields
+        for row_index, row in enumerate(rows):
+            key = tuple(row[field_name] for field_name in key_fields)
+            existing = seen.get(key)
+            if existing is None:
+                seen[key] = (row_index, row)
+                continue
+
+            first_row_index, first_row = existing
+            source_rows_equal = all(
+                field_name in first_row
+                and field_name in row
+                and first_row[field_name] == row[field_name]
+                for field_name in source_fields
+            )
+            error_code = (
+                "normalize.batch_unique_key_duplicate"
+                if source_rows_equal
+                else "normalize.batch_unique_key_conflicting"
+            )
+            message = (
+                "完整批次的唯一实体键出现完全重复源行"
+                if source_rows_equal
+                else "完整批次的唯一实体键对应多条不同源内容"
+            )
+            raise IngestionNormalizeError(
+                StructuredError(
+                    error_code=error_code,
+                    error_type="normalize",
+                    phase="normalizer",
+                    message=message,
+                    retryable=False,
+                    unit_id=unit_id,
+                    details={
+                        "key_fields": list(key_fields),
+                        "key_values": {
+                            field_name: cls._sample_scalar(key[index])
+                            for index, field_name in enumerate(key_fields)
+                        },
+                        "first_row_index": first_row_index,
+                        "duplicate_row_index": row_index,
+                        "first_content_signature": cls._source_content_signature(
+                            row=first_row,
+                            source_fields=source_fields,
+                        ),
+                        "duplicate_content_signature": cls._source_content_signature(
+                            row=row,
+                            source_fields=source_fields,
+                        ),
+                        "first_row": cls._sample_row(row=first_row, field=None),
+                        "duplicate_row": cls._sample_row(row=row, field=None),
+                    },
+                )
+            )
+
+    @staticmethod
+    def _source_content_signature(*, row: dict[str, Any], source_fields: tuple[str, ...]) -> str:
+        try:
+            return compute_source_content_hash(row=row, source_fields=source_fields)
+        except ObservedSnapshotHashError as exc:
+            return f"unavailable:{type(exc).__name__}:{exc}"
 
     @staticmethod
     def _validate_required_distinct_values(

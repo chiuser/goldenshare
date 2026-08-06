@@ -15,7 +15,12 @@ from src.foundation.services.transform.top_list_payload import build_top_list_pa
 from src.foundation.services.transform.dividend_hash import build_dividend_event_key_hash, build_dividend_row_key_hash
 from src.foundation.services.transform.holdernumber_hash import build_holdernumber_event_key_hash, build_holdernumber_row_key_hash
 from src.foundation.ingestion.constants import MONEYFLOW_VOLUME_FIELDS
-from src.foundation.datasets.public_fund_contracts import fund_basic_identity, fund_company_identity, mkt_idx_bmk_identity
+from src.foundation.datasets.public_fund_contracts import (
+    fund_basic_identity,
+    fund_company_identity,
+    fund_manager_identity,
+    mkt_idx_bmk_identity,
+)
 
 
 class RowTransformReject(ValueError):
@@ -81,6 +86,15 @@ def _fund_basic_observed_snapshot_row_transform(row: dict[str, Any]) -> dict[str
     source_entity_key, identity_basis = fund_basic_identity(transformed)
     transformed["source_entity_key"] = source_entity_key
     transformed["identity_basis"] = identity_basis
+    return transformed
+
+
+def _fund_manager_observed_snapshot_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    source_entity_key, identity_basis, manager_identity_key = fund_manager_identity(transformed)
+    transformed["source_entity_key"] = source_entity_key
+    transformed["identity_basis"] = identity_basis
+    transformed["manager_identity_key"] = manager_identity_key
     return transformed
 
 
@@ -821,6 +835,7 @@ __all__ = [
     "_fund_company_observed_snapshot_row_transform",
     "_mkt_idx_bmk_observed_snapshot_row_transform",
     "_fund_basic_observed_snapshot_row_transform",
+    "_fund_manager_observed_snapshot_row_transform",
     "_trade_cal_row_transform",
     "_stock_basic_row_transform",
     "_bse_mapping_row_transform",

@@ -139,6 +139,32 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
                 )
             )
         quality = definition.quality
+        batch_unique_key_fields = quality.batch_unique_key_fields
+        normalized_batch_unique_fields = tuple(str(field_name).strip() for field_name in batch_unique_key_fields)
+        if batch_unique_key_fields and any(not field_name for field_name in normalized_batch_unique_fields):
+            issues.append(
+                IngestionLintIssue(
+                    dataset_key,
+                    "batch_unique_key_field_invalid",
+                    "quality.batch_unique_key_fields 不得包含空字段名",
+                )
+            )
+        if len(normalized_batch_unique_fields) != len(set(normalized_batch_unique_fields)):
+            issues.append(
+                IngestionLintIssue(
+                    dataset_key,
+                    "batch_unique_key_fields_duplicate",
+                    "quality.batch_unique_key_fields 不得包含重复字段",
+                )
+            )
+        if not set(normalized_batch_unique_fields).issubset(set(definition.normalization.required_fields)):
+            issues.append(
+                IngestionLintIssue(
+                    dataset_key,
+                    "batch_unique_key_field_not_required",
+                    "quality.batch_unique_key_fields 必须全部属于 normalization.required_fields",
+                )
+            )
         for field_name, required_values in quality.required_distinct_values.items():
             if not str(field_name).strip() or field_name not in definition.source.source_fields:
                 issues.append(

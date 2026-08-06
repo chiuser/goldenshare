@@ -198,6 +198,7 @@ class DatasetQualityPolicy:
     unit_date_field: str | None = None
     duplicate_key_policy: str = "allow"
     required_distinct_values: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    batch_unique_key_fields: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

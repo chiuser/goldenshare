@@ -69,6 +69,7 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
         "fund_company.maintain",
         "mkt_idx_bmk.maintain",
         "fund_basic.maintain",
+        "fund_manager.maintain",
     ]
     assert actions["daily.maintain"]["display_name"] == "维护股票日线"
     assert actions["cyq_chips.maintain"]["display_name"] == "维护每日筹码分布"
@@ -150,7 +151,12 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     st_modes = _time_modes(actions["st.maintain"])
     assert st_modes["none"]["control"] == "none"
     assert st_modes["none"]["selection_rule"] == "none"
-    for action_key in ("fund_company.maintain", "mkt_idx_bmk.maintain", "fund_basic.maintain"):
+    for action_key in (
+        "fund_company.maintain",
+        "mkt_idx_bmk.maintain",
+        "fund_basic.maintain",
+        "fund_manager.maintain",
+    ):
         assert actions[action_key]["date_model"]["input_shape"] == "none"
         assert [item["mode"] for item in actions[action_key]["time_form"]["modes"]] == ["none"]
         assert actions[action_key]["filters"] == []
@@ -320,6 +326,7 @@ def test_ops_manual_action_task_run_supports_public_fund_full_snapshots(app_clie
         ("fund_company.maintain", "fund_company"),
         ("mkt_idx_bmk.maintain", "mkt_idx_bmk"),
         ("fund_basic.maintain", "fund_basic"),
+        ("fund_manager.maintain", "fund_manager"),
     ):
         response = app_client.post(
             f"/api/v1/ops/manual-actions/{action_key}/task-runs",
@@ -332,6 +339,29 @@ def test_ops_manual_action_task_run_supports_public_fund_full_snapshots(app_clie
         assert payload["run"]["resource_key"] == dataset_key
         assert payload["run"]["time_input"] == {"mode": "none"}
         assert payload["run"]["filters"] == {}
+
+
+@pytest.mark.parametrize(
+    "payload",
+    (
+        {"time_input": {"mode": "none"}, "filters": {"ts_code": "000001.OF"}},
+        {"time_input": {"mode": "point", "trade_date": "2026-08-06"}, "filters": {}},
+    ),
+)
+def test_ops_manual_action_task_run_rejects_scoped_fund_manager_snapshots(
+    app_client,
+    user_factory,
+    payload: dict,
+) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/fund_manager.maintain/task-runs",
+        headers=headers,
+        json=payload,
+    )
+
+    assert response.status_code == 422
 
 
 def test_ops_manual_action_task_run_supports_bse_mapping_snapshot_filters(app_client, user_factory) -> None:

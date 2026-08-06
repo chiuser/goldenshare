@@ -20,8 +20,8 @@ class IngestionCodebookEntry:
         }
 
 
-INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-05.v1"
-INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-05T00:00:00Z"
+INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-06.v1"
+INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-06T00:00:00Z"
 
 INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("dataset_mismatch", "请求数据集与定义不一致", "validator", "检查 dataset_key 与定义绑定"),
@@ -73,6 +73,18 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
         "完整批次缺少必要分类取值",
         "normalize",
         "检查源端完整性和分页范围，禁止用部分结果替换完整快照",
+    ),
+    IngestionCodebookEntry(
+        "normalize.batch_unique_key_duplicate",
+        "完整批次的唯一实体键出现完全重复源行",
+        "normalize",
+        "检查源端分页重叠和实体身份规则，禁止静默去重",
+    ),
+    IngestionCodebookEntry(
+        "normalize.batch_unique_key_conflicting",
+        "完整批次的唯一实体键对应不同源内容",
+        "normalize",
+        "核验源端冲突记录和实体身份规则，禁止任意选择一行",
     ),
     IngestionCodebookEntry("normalize.duplicate_conflict_key_inconsistent", "同一主键出现不一致数据", "normalize", "检查分页结果与源端一致性"),
     IngestionCodebookEntry("dao_not_found", "写入 DAO 路由缺失", "writer", "检查 storage.write_path 与 DAOFactory 注册"),

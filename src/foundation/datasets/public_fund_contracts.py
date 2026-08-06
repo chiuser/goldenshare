@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from typing import Any, Mapping
 
 FUND_COMPANY_SOURCE_FIELDS = (
@@ -63,6 +64,19 @@ FUND_BASIC_SOURCE_FIELDS = (
     "market",
 )
 
+FUND_MANAGER_SOURCE_FIELDS = (
+    "ts_code",
+    "ann_date",
+    "name",
+    "gender",
+    "birth_year",
+    "edu",
+    "nationality",
+    "begin_date",
+    "end_date",
+    "resume",
+)
+
 
 def fund_company_identity(row: Mapping[str, Any]) -> tuple[str, str]:
     """Return the conservative source-record entity key and its basis.
@@ -100,6 +114,26 @@ def fund_basic_identity(row: Mapping[str, Any]) -> tuple[str, str]:
     return ts_code, "ts_code"
 
 
+def fund_manager_identity(row: Mapping[str, Any]) -> tuple[str, str, str | None]:
+    assignment_parts = (
+        _normalized_text(row.get("ts_code"), uppercase=True),
+        _normalized_text(row.get("ann_date")),
+        _normalized_text(row.get("name")),
+        _normalized_text(row.get("begin_date")),
+    )
+    source_entity_key = f"assignment:{_sha256_json_parts(assignment_parts)}"
+
+    manager_parts = (
+        _normalized_text(row.get("name")),
+        _normalized_text(row.get("gender"), uppercase=True),
+        _normalized_text(row.get("birth_year")),
+    )
+    manager_identity_key = None
+    if all(manager_parts):
+        manager_identity_key = f"manager:{_sha256_json_parts(manager_parts)}"
+    return source_entity_key, "assignment_fields", manager_identity_key
+
+
 def _normalized_text(value: object, *, uppercase: bool = False) -> str:
     text = str(value or "").strip()
     return text.upper() if uppercase else text
@@ -107,3 +141,8 @@ def _normalized_text(value: object, *, uppercase: bool = False) -> str:
 
 def _sha256_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _sha256_json_parts(parts: tuple[str, ...]) -> str:
+    encoded = json.dumps(parts, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
