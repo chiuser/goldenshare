@@ -1,6 +1,6 @@
 # 公募基金 B3：基金经理（`fund_manager`）LLD v1
 
-状态：**B3-M0、LLD 审计与 B3-M1 本地实现/验证通过；B3-M2 尚未开始，未应用迁移、未写数据库、未创建 schedule。**
+状态：**B3-M0、LLD、B3-M1 与 B3-M2 隔离 PostgreSQL 验收通过；尚未执行 B3-M3 生产迁移/首次同步，未创建 schedule。**
 日期：2026-08-06
 上游总览：[公募基金九数据集接入总览与分批推进计划 v1](public-fund-nine-dataset-onboarding-program-plan-v1.md)
 依赖：[B0 观察快照直出最小地基 LLD](public-fund-b0-observed-snapshot-foundation-low-level-design-v1.md)、[B2 基金列表 LLD](public-fund-b2-fund-basic-low-level-design-v1.md)
@@ -250,6 +250,35 @@ batch_unique_key_fields: tuple[str, ...] = ()
 
 如果 B0 writer 在 84,357/100,000 行下未通过门禁，B3 不进入生产 migration。后续方案必须保持“完整快照原子可见”；任何 staging 或流式改造都是新的共享 contract 变更，需要重新做 CodeGraph 全消费者审计和独立 LLD，不在 B3-M1 中临时实现。
 
+### 6.4 B3-M2 隔离 PostgreSQL 实测结果
+
+2026-08-06 在本机全新 PostgreSQL 18.4 临时集群的两个独立数据库完成验收。验证数据库和业务数据均只位于 `/private/tmp/goldenshare_b3_m2.5h6yzC`，没有连接或写入生产环境；临时 `gs_raw_cold_hdd` 仅用于证明 relation 的 tablespace 归属契约，路径不是生产机械盘。生产真实 HDD 路径仍必须在 B3-M3 单独核验。
+
+迁移与物理归属证据：
+
+- 从空库升级至真实 Alembic head `20260806_000127` 成功。
+- 隐藏 `gs_raw_cold_hdd` 后执行 B3 revision，迁移在建表前以明确错误失败；revision 保持 `20260806_000126`，B3 表数量为 0，没有半迁移对象。
+- 恢复 tablespace 后升级成功；2 张表、2 个主键索引、1 个 current 唯一索引和 5 个二级索引，共 10 个 relation 全部位于 `gs_raw_cold_hdd`。
+- 临时集群的 `data_directory` 与 tablespace 路径分离，未修改 `pg_wal`；生产 WAL/SSD 与 tablespace 真实路径仍是 M3 门禁。
+
+真实无参完整同步对账：
+
+| 阶段 / 指标 | 实测结果 |
+| --- | --- |
+| 源端分页 | 17 次请求；offset 为 `0..80000`、步长 5,000；页长为 `16×5000 + 4357`；每页显式同一 10 fields；业务参数只有通用 `limit/offset`；0 retry |
+| 源端 | 84,357 行；84,357 行都包含全部 10 个 source fields |
+| 归一化 | 接受 84,357 行；拒绝 0；reason code 为空；`source_entity_key + source_content_hash` 唯一 84,357 组 |
+| 写入 | `rows_written=84,357`；一个业务 commit；current 与 observation 各 84,357 行、各 84,357 个实体 |
+| 集合与内容 | source/normalized/current/observation 的实体键和全字段内容哈希集合一致；两张目标表重新计算全字段 hash 的 mismatch 均为 0 |
+| 资源 | 带 SQL 计数的复跑：source latency 4.528 秒；事务 28.558 秒；端到端 34.505 秒；峰值 RSS 657,178,624 bytes；WAL LSN 增量 228,565,384 bytes |
+| SQL 批次 | `SYNC_BATCH_SIZE=1000`；85 次 observation existing-key 查询、85 次 observation upsert、1 次 current delete、85 次 current insert，共 256 条涉及 B3 业务表的 SQL；DAO 内无 commit |
+
+相同完整快照第二次同步仍为一个 commit、84,357 行写入语义；current 集合不变、observation 不增行，`first_observed_at` 保持，全部 `last_observed_at` 与 current `observed_at` 前进。带 SQL 计数的第二轮仍为 256 条 B3 SQL，事务 33.735 秒、端到端 35.122 秒、峰值 RSS 759,611,392 bytes。整个过程中 `fund_manager` 的 TaskRun、schedule、probe 记录均为 0。
+
+100,000 行确定性容量 fixture 在另一空库完成完整 source result → normalizer → writer/DAO → commit 链路：归一化与写入均为 100,000 行、零拒绝，两表各 100,000 行且只提交一次；100 次 observation 查询、100 次 observation upsert、1 次 current delete、100 次 current insert，共 301 条 B3 SQL。事务 36.241 秒、端到端 38.068 秒、峰值 RSS 702,906,368 bytes、WAL LSN 增量 370,328,184 bytes。该轮起始可用内存估算为 19,713,899,888 bytes，因此实际门限仍取较严格的 1 GiB，容量结果通过内存与耗时门禁。
+
+两处 PostgreSQL 故障注入均返回 `write_failed`：一处在 observation upsert 后、current 替换前失败；另一处在 current 替换执行后失败。两次由 executor rollback 后，current/observation 的行数、主键与观察时间全表指纹均与失败前一致。至此 B3-M2 的完整性、容量和原子性门禁全部通过，不需要改造 B0 共享写入主链。
+
 ## 7. 配置项审计
 
 B3 不新增配置项。
@@ -288,20 +317,20 @@ CodeGraph 已覆盖 Definition → resolver/unit → request/source → normaliz
 | ID | 硬需求 | 代码落点 | 正向测试 | 反向测试 / 真实验收 | 当前状态 |
 | --- | --- | --- | --- | --- | --- |
 | B3-REQ-001 | 一个无参、无时间、无 filters 的完整快照 unit | Definition、resolver/planner、request builder | plan 只有 1 unit，params={} | time/filter/enum fan-out 配置被 linter/API 拒绝 | M1 自动化通过 |
-| B3-REQ-002 | 10 fields 每页显式请求并全部落两表 | contracts、Definition、ORM、migration | 每页 fields 完全相同；两模型列齐全 | 缺任一 source field 时 writer 整批失败 | M1 自动化通过；待 M2 实库 |
+| B3-REQ-002 | 10 fields 每页显式请求并全部落两表 | contracts、Definition、ORM、migration | 每页 fields 完全相同；两模型列齐全 | 缺任一 source field 时 writer 整批失败 | M1 自动化与 M2 真实同步通过 |
 | B3-REQ-003 | 5,000 行分页，无最大页数，short page 终止 | B3 planning、source client | offsets 0..80000、末页4357 fixture | 固定页数/未到 short page 不得成功 | M0 实测与 M1 84,357 行 fixture 通过 |
 | B3-REQ-004 | 四字段任职身份，源字段不改写 | contracts、row transform | 规范化键稳定且原值往返 | 三字段冲突 fixture、空必填字段 reject | M1 自动化通过 |
 | B3-REQ-005 | 单批实体键唯一，冲突不得进 writer | quality policy、normalizer、linter、codebook | 唯一键批次通过 | 同键同内容/异内容分别结构化失败；B1/B2 行为不变 | M1 自动化与回归通过 |
 | B3-REQ-006 | 人员键仅 name+gender+birth_year 全非空时生成 | contracts、row transform、ORM | 完整三字段跨基金得到同一派生键 | 缺 birth_year 时为 NULL；同名不同属性不合并 | M1 自动化通过 |
-| B3-REQ-007 | resume 和全部源字符串保真 | source fields、ORM/DDL | 728 字符及 Unicode 原样往返 | 无长度截断、无摘要/JSON列 | M1 SQLite/模型通过；待 M2 PostgreSQL |
-| B3-REQ-008 | direct-serving current+observation，无 raw/FK | Definition、ORM、B0 writer | 完整快照写两表、内容变化保留版本 | linter拒绝 raw/std；未知 fund_basic code 仍可写 | M1 自动化通过；待 M2 实库 |
-| B3-REQ-009 | current 单实体唯一，observation 允许跨次版本 | current unique index、两表主键、quality gate | 同实体内容后续变化替换 current并新增观察版本 | 同批两版本被拒绝、数据库 unique 作最后防线 | M1 自动化通过；待 M2 实库 |
-| B3-REQ-010 | 表、PK、全部索引 HDD；WAL留 SSD | migration | 隔离/生产查 relation tablespace 与物理路径 | HDD 不存在时建表前失败；不改 `pg_wal` | M1 migration 静态门禁通过；待 M2/M3 物理核验 |
-| B3-REQ-011 | 84,357/100,000 行内存与耗时达标 | M2 容量 harness、B0 writer/DAO/executor | RSS、180s事务、240s端到端均通过 | 任一超限则 M2 失败，不截断、不上线 | 阈值固定，待 M2 实测 |
-| B3-REQ-012 | observation/current 单事务原子性 | executor、writer、DAO | 一次 commit，完整对账 | 两个故障点 rollback 后集合/时间不变 | M1 SQLite 故障注入通过；待 M2 PostgreSQL |
+| B3-REQ-007 | resume 和全部源字符串保真 | source fields、ORM/DDL | 728 字符及 Unicode 原样往返 | 无长度截断、无摘要/JSON列 | M1 模型与 M2 PostgreSQL 全字段 hash 通过 |
+| B3-REQ-008 | direct-serving current+observation，无 raw/FK | Definition、ORM、B0 writer | 完整快照写两表、内容变化保留版本 | linter拒绝 raw/std；未知 fund_basic code 仍可写 | M1 自动化与 M2 实库通过 |
+| B3-REQ-009 | current 单实体唯一，observation 允许跨次版本 | current unique index、两表主键、quality gate | 同实体内容后续变化替换 current并新增观察版本 | 同批两版本被拒绝、数据库 unique 作最后防线 | M1 自动化与 M2 重复同步通过 |
+| B3-REQ-010 | 表、PK、全部索引 HDD；WAL留 SSD | migration | 隔离/生产查 relation tablespace 与物理路径 | HDD 不存在时建表前失败；不改 `pg_wal` | M2 逻辑 placement/fail-closed 通过；待 M3 核验生产真实 HDD/WAL |
+| B3-REQ-011 | 84,357/100,000 行内存与耗时达标 | M2 容量 harness、B0 writer/DAO/executor | RSS、180s事务、240s端到端均通过 | 任一超限则 M2 失败，不截断、不上线 | M2 真实 84,357 与 fixture 100,000 行通过 |
+| B3-REQ-012 | observation/current 单事务原子性 | executor、writer、DAO | 一次 commit，完整对账 | 两个故障点 rollback 后集合/时间不变 | M1 SQLite 与 M2 PostgreSQL 双故障注入通过 |
 | B3-REQ-013 | 公募基金分组，手动 + schedule/retry，无 probe/workflow/seed | Ops Catalog、Definition capability、API | manual 与 cron/once capability可见 | probe/workflow请求拒绝；无 seed 记录 | M1 API 自动化通过；频率延后 |
 | B3-REQ-014 | snapshot freshness，无日期 completeness | freshness policies、cards projection | 卡片显示目标表和最近快照 | 不产生 expected date bucket/raw table | M1 API 自动化通过 |
-| B3-REQ-015 | 首次同步五段对账且不自动建任务 | M2/M3 release runbook | fetched/normalized/written/reject/current/observation闭环 | 任一差异停止；schedule 数量不增加 | 设计固定，待 M2/M3 |
+| B3-REQ-015 | 首次同步五段对账且不自动建任务 | M2/M3 release runbook | fetched/normalized/written/reject/current/observation闭环 | 任一差异停止；schedule 数量不增加 | M2 隔离闭环；待 M3 生产闭环 |
 
 ## 10. 实现文件与测试计划
 
@@ -337,8 +366,8 @@ CodeGraph 已覆盖 Definition → resolver/unit → request/source → normaliz
 | 阶段 | 内容 | 退出门禁 |
 | --- | --- | --- |
 | B3-M0 | 源端复审与 LLD | **已完成**：无参全集、10 fields、两种页大小、身份候选、过滤语义、容量与全消费者审计闭环；本文追溯账本无未决开发口径。 |
-| B3-M1 | Definition、身份/质量、ORM/DAO、migration、Ops 与单元/集成测试 | 本地定向测试、B0/B1/B2回归、migration静态门禁、Definition lint、docs完整性通过；不触发远程写。 |
-| B3-M2 | 隔离 PostgreSQL migration、HDD 与最小真实同步 | 真实全量五段对账、重复同步、84,357/100,000 容量阈值及两处原子回滚全部通过。 |
+| B3-M1 | Definition、身份/质量、ORM/DAO、migration、Ops 与单元/集成测试 | **已完成**：本地定向测试、B0/B1/B2回归、migration静态门禁、Definition lint、docs完整性通过；未触发远程写。 |
+| B3-M2 | 隔离 PostgreSQL migration、HDD 与最小真实同步 | **已完成**：真实全量五段对账、重复同步、84,357/100,000 容量阈值、tablespace fail-closed/placement 及两处原子回滚全部通过。 |
 | B3-M3 | 生产 migration 与首次完整同步 | 生产 tablespace 真实 HDD 路径、首次完整同步五段对账、表/索引/WAL水位记录通过；不创建 schedule。 |
 | 后续运营 | 创建自动任务 | 运营另行拍板频率和 cron/once 后手工创建；不是 B3 开发退出条件。 |
 
@@ -348,6 +377,6 @@ CodeGraph 已覆盖 Definition → resolver/unit → request/source → normaliz
 
 ## 12. LLD 审计结论
 
-B3-M1 已完成并通过本地代码门禁。四项关键口径均已落地：无参单 unit 全量快照、5,000 行 short-page 分页、四字段任职身份与批内唯一性 fail-closed、84,357/100,000 行的内存和单事务验收阈值。当前迁移只生成到 Alembic head，尚未应用到任何 PostgreSQL 数据库。
+B3-M2 已通过本机隔离 PostgreSQL 验收。无参单 unit 全量快照、5,000 行 short-page 分页、四字段任职身份与批内唯一性 fail-closed、全部显式字段落库、84,357/100,000 行容量和单事务原子性均有真实数据库证据。隔离验证没有发现需要修改 B0 writer 或其他共享主链的问题。
 
-当前没有阻塞编码的产品拍板项。自动任务频率仍是唯一延后运营决策，但 B3 不自动创建 schedule，因此不影响开发、隔离验证或首次生产同步。若 M2 性能门禁失败，新的原子 staging/流式方案将成为独立架构拍板项；在实测失败发生前，不提前改造 B0 共享主链。
+下一门禁是 B3-M3，必须单独授权生产 migration、生产 `gs_raw_cold_hdd` 真实机械盘路径核验、首次无参完整同步与生产五段对账。自动任务频率仍是唯一延后运营决策，但 B3-M3 不自动创建 schedule，因此不阻塞首次生产同步。
