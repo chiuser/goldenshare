@@ -1,12 +1,17 @@
 from pathlib import Path
 
-from orchestrator.defs.run_contracts.stk_mins import (
-    normalize_stk_mins_freq,
-    normalize_stk_mins_qfq_freq,
-)
 from orchestrator.defs.run_contracts.index_mins import (
     normalize_index_mins_silver_freq,
     normalize_index_mins_source_freq,
+)
+from orchestrator.defs.run_contracts.major_index_mins import (
+    normalize_major_index_mins_silver_freq,
+    normalize_major_index_mins_source_freq,
+    normalize_major_index_mins_trade_date,
+)
+from orchestrator.defs.run_contracts.stk_mins import (
+    normalize_stk_mins_freq,
+    normalize_stk_mins_qfq_freq,
 )
 
 DEFAULT_LAKE_ROOT = "/Volumes/datasource/data_lake"
@@ -360,6 +365,98 @@ def raw_index_mins_path(root: Path, source_freq: str, partition_key: str) -> Pat
         f"trade_date={partition_key}",
         "part-000.parquet",
     )
+
+
+def raw_major_index_mins_path(
+    root: Path,
+    source_freq: str,
+    partition_key: str,
+) -> Path:
+    return lake_path(
+        root,
+        RAW,
+        "tushare",
+        "major_index_mins",
+        f"freq={normalize_major_index_mins_source_freq(source_freq)}",
+        f"trade_date={_major_index_mins_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def raw_major_index_mins_staging_path(
+    root: Path,
+    run_id: str,
+    source_freq: str,
+    partition_key: str,
+) -> Path:
+    safe_run_id = str(run_id).strip()
+    if (
+        not safe_run_id
+        or safe_run_id in {".", ".."}
+        or "/" in safe_run_id
+        or "\\" in safe_run_id
+    ):
+        raise ValueError("major_index_mins run_id must be a safe non-empty path component")
+    return lake_path(
+        root,
+        RAW,
+        "tushare",
+        "major_index_mins",
+        "_staging",
+        f"run_id={safe_run_id}",
+        f"freq={normalize_major_index_mins_source_freq(source_freq)}",
+        f"trade_date={_major_index_mins_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def silver_major_index_mins_path(
+    root: Path,
+    freq: int | str,
+    partition_key: str,
+) -> Path:
+    return lake_path(
+        root,
+        SILVER,
+        "quote",
+        "major_index_mins",
+        f"freq={normalize_major_index_mins_silver_freq(freq)}",
+        f"trade_date={_major_index_mins_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def silver_major_index_mins_staging_path(
+    root: Path,
+    run_id: str,
+    freq: int | str,
+    partition_key: str,
+) -> Path:
+    safe_run_id = str(run_id).strip()
+    if (
+        not safe_run_id
+        or safe_run_id in {".", ".."}
+        or "/" in safe_run_id
+        or "\\" in safe_run_id
+    ):
+        raise ValueError("major_index_mins run_id must be a safe non-empty path component")
+    return lake_path(
+        root,
+        SILVER,
+        "quote",
+        "major_index_mins",
+        "_staging",
+        f"run_id={safe_run_id}",
+        f"freq={normalize_major_index_mins_silver_freq(freq)}",
+        f"trade_date={_major_index_mins_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def _major_index_mins_partition_component(partition_key: str) -> str:
+    if partition_key == PATH_TEMPLATE_PARTITION_KEY:
+        return partition_key
+    return normalize_major_index_mins_trade_date(partition_key)
 
 
 def silver_index_mins_path(root: Path, freq: int | str, partition_key: str) -> Path:

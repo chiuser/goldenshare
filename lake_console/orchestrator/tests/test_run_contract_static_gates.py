@@ -2694,7 +2694,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 61)
+        self.assertEqual(sensor_definition_count, 64)
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:
@@ -5008,6 +5008,204 @@ class RunContractStaticGateTests(unittest.TestCase):
         self.assertNotIn("get_event_records", check_source)
         self.assertNotIn("get_event_records", job_source)
         self.assertIn("AssetSelection.checks_for_assets", job_source)
+
+    def test_major_index_mins_p4_keeps_definition_and_check_boundaries(self) -> None:
+        io_dir = DEFS_DIR / "io"
+        pure_writer_sources = (
+            (io_dir / "major_index_mins_raw_writer.py").read_text(),
+            (io_dir / "major_index_mins_silver_writer.py").read_text(),
+        )
+        active_asset_source = (ASSETS_DIR / "major_index_mins_raw.py").read_text() + (
+            ASSETS_DIR / "major_index_mins_silver.py"
+        ).read_text()
+        check_source = (CHECKS_DIR / "major_index_mins_checks.py").read_text()
+        job_source = (JOBS_DIR / "major_index_mins.py").read_text()
+
+        for source in pure_writer_sources:
+            self.assertNotIn("@dg.asset", source)
+            self.assertNotIn("@dg.asset_check", source)
+            self.assertNotIn("report_runless_asset_event", source)
+        self.assertIn("@dg.asset(", active_asset_source)
+        self.assertIn(
+            "partitions_def=cn_major_index_mins_trade_days",
+            active_asset_source,
+        )
+        self.assertIn(
+            "partitions_def=cn_major_index_mins_trade_days",
+            check_source,
+        )
+        self.assertIn("blocking=True", check_source)
+        self.assertNotIn("get_event_records", check_source)
+        self.assertNotIn("get_event_records", job_source)
+        self.assertIn("AssetSelection.checks_for_assets", job_source)
+
+    def test_major_index_mins_p5_uses_dedicated_bounded_sensor_contracts(
+        self,
+    ) -> None:
+        readiness_source = (
+            ASSET_GUARDS_DIR / "major_index_mins_lake_readiness.py"
+        ).read_text()
+        source_probe = (
+            ASSET_GUARDS_DIR / "major_index_mins_source_probe.py"
+        ).read_text()
+        partition_sensor = (
+            SENSORS_DIR / "major_index_mins_partition_sensor.py"
+        ).read_text()
+        sensor_source = (SENSORS_DIR / "major_index_mins_sensor.py").read_text()
+
+        for fragment in (
+            "MAJOR_INDEX_MINS_DAILY_PROBE_WINDOW_LIMIT",
+            "validate_major_index_mins_relation",
+            "batch_raw_major_index_mins_lake_readiness",
+            "batch_silver_major_index_mins_lake_readiness",
+        ):
+            self.assertIn(fragment, readiness_source)
+        self.assertIn("MAJOR_INDEX_MINS_DAILY_CODES", source_probe)
+        self.assertIn('"15:00:00"', source_probe)
+        self.assertIn("execute_bounded_code_pages", source_probe)
+        self.assertIn("cn_major_index_mins_trade_days", partition_sensor)
+        self.assertIn(
+            "build_calendar_only_partition_registration_result",
+            partition_sensor,
+        )
+        for fragment in (
+            "load_expected_trade_date_window",
+            "select_first_not_ready_trade_date",
+            "build_sensor_cursor",
+            "build_run_request",
+            "build_asset_update_run_key",
+            "default_status=dg.DefaultSensorStatus.STOPPED",
+        ):
+            self.assertIn(fragment, sensor_source)
+        self.assertNotIn("get_event_records", readiness_source)
+        self.assertNotIn("get_event_records", sensor_source)
+        self.assertNotIn("prod_postgres", sensor_source)
+
+    def test_major_index_mins_p6_bootstrap_separates_plan_stage_and_promote(
+        self,
+    ) -> None:
+        planner_source = (
+            DEFS_DIR / "bootstrap/major_index_mins_bootstrap_plan.py"
+        ).read_text()
+        cli_source = (
+            DEFS_DIR / "bootstrap/major_index_mins_bootstrap_cli.py"
+        ).read_text()
+        stage_source = (
+            DEFS_DIR / "bootstrap/major_index_mins_bootstrap_stage.py"
+        ).read_text()
+        stage_cli_source = (
+            DEFS_DIR / "bootstrap/major_index_mins_bootstrap_stage_cli.py"
+        ).read_text()
+        apply_source = (
+            DEFS_DIR / "bootstrap/major_index_mins_bootstrap_apply.py"
+        ).read_text()
+        apply_cli_source = (
+            DEFS_DIR / "bootstrap/major_index_mins_bootstrap_apply_cli.py"
+        ).read_text()
+
+        for fragment in (
+            "MAJOR_INDEX_MINS_BOOTSTRAP_MAX_REQUESTS",
+            "MAJOR_INDEX_MINS_BOOTSTRAP_WINDOW_TRADING_DAYS",
+        ):
+            self.assertIn(fragment, planner_source)
+        self.assertIn('subparsers.add_parser("dry-run")', cli_source)
+        self.assertNotIn("TushareResource", planner_source + cli_source)
+        for fragment in (
+            "fetch_major_index_mins_window",
+            "source_window_sidecar_path",
+            "parquet_sha256",
+            "os.replace",
+        ):
+            self.assertIn(fragment, stage_source)
+        self.assertIn('subparsers.add_parser("stage-source")', stage_cli_source)
+        self.assertIn("--confirm-source-request", stage_cli_source)
+        self.assertIn('subparsers.add_parser("audit-staging")', stage_cli_source)
+        self.assertIn("audit_source_staging", apply_source)
+        self.assertNotIn("TushareResource", apply_source + apply_cli_source)
+        self.assertIn("--confirm-lake-write", apply_cli_source)
+        self.assertIn("--confirm-staging-write", apply_cli_source)
+        for forbidden in (
+            "report_runless_asset_event",
+            "get_event_records",
+            "confirm-lake-write",
+            'add_parser("apply")',
+            "@dg.asset",
+            "@dg.sensor",
+        ):
+            self.assertNotIn(forbidden, planner_source + cli_source)
+        for forbidden in (
+            "report_runless_asset_event",
+            "get_event_records",
+            "@dg.asset",
+            "@dg.sensor",
+        ):
+            self.assertNotIn(
+                forbidden,
+                stage_source + stage_cli_source + apply_source + apply_cli_source,
+            )
+
+    def test_major_index_mins_p7b_fallback_is_bounded_bootstrap_only(
+        self,
+    ) -> None:
+        contract_source = (
+            DEFS_DIR / "run_contracts/major_index_mins.py"
+        ).read_text()
+        fallback_source = (
+            DEFS_DIR / "bootstrap/major_index_mins_silver_fallback.py"
+        ).read_text()
+        active_sources = "\n".join(
+            path.read_text()
+            for path in (
+                ASSETS_DIR / "major_index_mins_raw.py",
+                ASSETS_DIR / "major_index_mins_silver.py",
+                CHECKS_DIR / "major_index_mins_checks.py",
+                ASSET_GUARDS_DIR / "major_index_mins_lake_readiness.py",
+                JOBS_DIR / "major_index_mins.py",
+                SENSORS_DIR / "major_index_mins_sensor.py",
+            )
+        )
+
+        for fragment in (
+            "MAJOR_INDEX_MINS_NON_BSE_FALLBACK_REVISION",
+            "MAJOR_INDEX_MINS_NON_BSE_FALLBACK_RULES",
+            "MajorIndexMinsHistoricalFallbackRule",
+            "major_index_mins_historical_fallback_fingerprint",
+            "major_index_mins_historical_fallback_rule",
+        ):
+            self.assertIn(fragment, contract_source)
+        for fragment in (
+            "source_window_parquet_path",
+            "validate_major_index_mins_fallback_source",
+            "build_major_index_mins_fallback_relation",
+            "write_major_index_mins_fallback_sample",
+            "write_major_index_mins_fallback_samples",
+            "with duckdb_resource.connect() as connection",
+            "fallback_window_map",
+            "hive_partitioning=false",
+            "os.replace",
+            "source_request_count=0",
+            "dagster_event_query_count=0",
+        ):
+            self.assertIn(fragment, fallback_source)
+        for forbidden in (
+            "TushareResource",
+            "ProdPostgres",
+            "get_event_records",
+            "report_runless_asset_event",
+            "@dg.asset",
+            "@dg.asset_check",
+            "@dg.job",
+            "@dg.sensor",
+        ):
+            self.assertNotIn(forbidden, fallback_source)
+        self.assertNotIn(
+            "MAJOR_INDEX_MINS_NON_BSE_FALLBACK_REVISION",
+            active_sources,
+        )
+        self.assertNotIn(
+            "write_major_index_mins_fallback_sample",
+            active_sources,
+        )
 
     def test_index_mins_p5_uses_dedicated_bounded_sensor_contracts(self) -> None:
         readiness_source = (

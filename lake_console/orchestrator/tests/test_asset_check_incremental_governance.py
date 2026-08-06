@@ -21,6 +21,12 @@ from orchestrator.defs.run_contracts.index_mins import (
     INDEX_MINS_RAW_CHECKS,
     INDEX_MINS_SILVER_CHECKS,
 )
+from orchestrator.defs.run_contracts.major_index_mins import (
+    MAJOR_INDEX_MINS_RAW_ASSET_KEYS,
+    MAJOR_INDEX_MINS_RAW_CHECKS,
+    MAJOR_INDEX_MINS_SILVER_ASSET_KEYS,
+    MAJOR_INDEX_MINS_SILVER_CHECKS,
+)
 
 
 DEFS_DIR = Path("src/orchestrator/defs")
@@ -292,6 +298,39 @@ def _index_mins_asset_rules() -> dict[str, dict[str, AssetCheckGovernanceRule]]:
             retention_allowed=True,
         )
     return rules
+
+
+def _major_index_mins_asset_rules() -> dict[
+    str, dict[str, AssetCheckGovernanceRule]
+]:
+    rules: dict[str, dict[str, AssetCheckGovernanceRule]] = {}
+    for asset_key, check_name in zip(
+        MAJOR_INDEX_MINS_RAW_ASSET_KEYS,
+        MAJOR_INDEX_MINS_RAW_CHECKS,
+        strict=True,
+    ):
+        rules[asset_key] = _rules(
+            (check_name,),
+            category=MOVE_TO_SENSOR_LAKE_READINESS,
+            phase="MAJOR_INDEX_MINS_P5",
+            readiness=False,
+            retention_allowed=True,
+        )
+    for asset_key, check_name in zip(
+        MAJOR_INDEX_MINS_SILVER_ASSET_KEYS,
+        MAJOR_INDEX_MINS_SILVER_CHECKS,
+        strict=True,
+    ):
+        rules[asset_key] = _rules(
+            (check_name,),
+            category=MOVE_TO_SENSOR_LAKE_READINESS,
+            phase="MAJOR_INDEX_MINS_P5",
+            readiness=False,
+            retention_allowed=True,
+        )
+    return rules
+
+
 GOLD_STOCK_DAILY_QFQ_CHECKS = (
     "gold_stock_daily_qfq_contract_check",
 )
@@ -520,6 +559,7 @@ ASSET_CHECK_GOVERNANCE: dict[str, dict[str, AssetCheckGovernanceRule]] = {
         retention_allowed=True,
     ),
     **_index_mins_asset_rules(),
+    **_major_index_mins_asset_rules(),
     "gold_stock_daily_qfq": _rules(
         GOLD_STOCK_DAILY_QFQ_CHECKS,
         category=MOVE_TO_SENSOR_LAKE_READINESS,

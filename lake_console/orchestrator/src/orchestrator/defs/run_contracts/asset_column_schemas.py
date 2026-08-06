@@ -154,6 +154,34 @@ SILVER_INDEX_MINS_SCHEMA = (
     ColumnContract("vwap", "DOUBLE", "原生保留；90m/120m 派生固定为空"),
 )
 
+RAW_MAJOR_INDEX_MINS_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "主要指数代码"),
+    ColumnContract("freq", "VARCHAR", "源端分钟频率"),
+    ColumnContract("trade_time", "TIMESTAMP", "分钟 bar 时间"),
+    ColumnContract("open", "DOUBLE", "分钟 bar 开盘点位"),
+    ColumnContract("close", "DOUBLE", "分钟 bar 收盘点位"),
+    ColumnContract("high", "DOUBLE", "分钟 bar 最高点位"),
+    ColumnContract("low", "DOUBLE", "分钟 bar 最低点位"),
+    ColumnContract("vol", "DOUBLE", "成交量"),
+    ColumnContract("amount", "DOUBLE", "成交金额"),
+    ColumnContract("exchange", "VARCHAR", "交易所代码"),
+    ColumnContract("vwap", "DOUBLE", "源端成交均价，可为空"),
+)
+
+SILVER_MAJOR_INDEX_MINS_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "标准化主要指数代码"),
+    ColumnContract("freq", "VARCHAR", "原生或派生分钟频率"),
+    ColumnContract("trade_time", "TIMESTAMP", "分钟 bar 时间"),
+    ColumnContract("open", "DOUBLE", "分钟 bar 开盘点位"),
+    ColumnContract("close", "DOUBLE", "分钟 bar 收盘点位"),
+    ColumnContract("high", "DOUBLE", "分钟 bar 最高点位"),
+    ColumnContract("low", "DOUBLE", "分钟 bar 最低点位"),
+    ColumnContract("vol", "DOUBLE", "成交量"),
+    ColumnContract("amount", "DOUBLE", "成交金额"),
+    ColumnContract("exchange", "VARCHAR", "交易所代码"),
+    ColumnContract("vwap", "DOUBLE", "原生保留；90m/120m 固定为空"),
+)
+
 RAW_INDEX_GLOBAL_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "Tushare 国际指数代码"),
     ColumnContract("trade_date", "VARCHAR", "Tushare 原始交易日，YYYYMMDD 字符串"),

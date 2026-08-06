@@ -27,6 +27,7 @@ from orchestrator.defs.paths import (
     raw_index_daily_path,
     raw_index_global_path,
     raw_index_mins_path,
+    raw_major_index_mins_path,
     raw_namechange_path,
     raw_stock_basic_path,
     raw_stock_daily_path,
@@ -43,6 +44,7 @@ from orchestrator.defs.paths import (
     silver_index_daily_path,
     silver_index_global_path,
     silver_index_mins_path,
+    silver_major_index_mins_path,
     silver_namechange_path,
     silver_stk_mins_path,
     silver_stock_basic_path,
@@ -72,6 +74,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_INDEX_DAILY_SCHEMA,
     RAW_INDEX_GLOBAL_SCHEMA,
     RAW_INDEX_MINS_SCHEMA,
+    RAW_MAJOR_INDEX_MINS_SCHEMA,
     RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     RAW_TUSHARE_NAMECHANGE_SCHEMA,
@@ -89,6 +92,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_INDEX_DAILY_SCHEMA,
     SILVER_INDEX_GLOBAL_SCHEMA,
     SILVER_INDEX_MINS_SCHEMA,
+    SILVER_MAJOR_INDEX_MINS_SCHEMA,
     SILVER_NAMECHANGE_SCHEMA,
     SILVER_STK_MINS_SCHEMA,
     SILVER_STOCK_BASIC_SCHEMA,
@@ -205,6 +209,12 @@ class PartitionModel(str, Enum):
     TRADE_DATE_PARTITION_SILVER_INDEX_GLOBAL = "trade_date_partition_silver_index_global"
     TRADE_DATE_PARTITION_RAW_INDEX_MINS = "trade_date_partition_raw_index_mins"
     TRADE_DATE_PARTITION_SILVER_INDEX_MINS = "trade_date_partition_silver_index_mins"
+    TRADE_DATE_PARTITION_RAW_MAJOR_INDEX_MINS = (
+        "trade_date_partition_raw_major_index_mins"
+    )
+    TRADE_DATE_PARTITION_SILVER_MAJOR_INDEX_MINS = (
+        "trade_date_partition_silver_major_index_mins"
+    )
     TRADE_DATE_PARTITION_RAW_DC_INDEX = "trade_date_partition_raw_dc_index"
     TRADE_DATE_PARTITION_RAW_DC_MEMBER = "trade_date_partition_raw_dc_member"
     TRADE_DATE_PARTITION_RAW_DC_DAILY = "trade_date_partition_raw_dc_daily"
@@ -746,6 +756,24 @@ PARTITION_MODEL_DEFINITIONS = (
         "trade_date",
         PartitionPhysicalLayout.PARTITION_FILE,
         notes="指数分钟线 Silver 原生及派生频率共用专属交易日分区。",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_RAW_MAJOR_INDEX_MINS,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.RAW,
+        "major_index_mins",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="主要指数分钟线五个源频率共用专属交易日分区。",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_SILVER_MAJOR_INDEX_MINS,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.SILVER,
+        "major_index_mins",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="主要指数分钟线 Silver 原生及派生频率共用专属交易日分区。",
     ),
     _model(
         PartitionModel.TRADE_DATE_PARTITION_RAW_DC_INDEX,
@@ -1807,6 +1835,74 @@ LAKE_ASSET_CATALOG += (
             notes=(
                 "Native frequencies preserve source vwap; derived 90m/120m "
                 "use fixed complete windows and write vwap as NULL."
+            ),
+        )
+        for freq in (1, 5, 15, 30, 60, 90, 120)
+    ),
+    *tuple(
+        _entry(
+            asset_key=f"raw_major_index_mins_{freq}m",
+            dataset_id="major_index_mins",
+            layer=AssetLayer.RAW,
+            data_domain=DataDomain.QUOTE_DATA,
+            group_name="index",
+            source_system=SourceSystem.TUSHARE,
+            data_contract="tushare_major_index_mins_exact_session",
+            data_contract_source=DataContractSource.TUSHARE_RAW_CONTRACT,
+            column_schema=RAW_MAJOR_INDEX_MINS_SCHEMA,
+            path_template=lake_path_template(
+                raw_major_index_mins_path(
+                    PATH_TEMPLATE_LAKE_ROOT,
+                    f"{freq}min",
+                    PATH_TEMPLATE_PARTITION_KEY,
+                )
+            ),
+            partition_model=PartitionModel.TRADE_DATE_PARTITION_RAW_MAJOR_INDEX_MINS,
+            source_api="idx_mins",
+            source_doc="docs/sources/tushare/指数专题/0419_股票历史分钟行情.md",
+            ingestion_sources=(IngestionSource.TUSHARE_API,),
+            default_daily_ingestion_source=IngestionSource.TUSHARE_API,
+            bootstrap_sources=(IngestionSource.TUSHARE_API,),
+            blocking_check_names=(f"raw_major_index_mins_{freq}m_core_check",),
+            write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+            event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+            performance_contract=_perf(
+                batch_grain="freq/trade_date",
+                compute_engine=ComputeEngine.TUSHARE_RESOURCE,
+                source_request_policy="bounded_code_pages_11_codes_per_frequency",
+                notes=(
+                    "Explicit fields and bounded pagination; exact code/session "
+                    "validation occurs before staging promotion."
+                ),
+            ),
+        )
+        for freq in (1, 5, 15, 30, 60)
+    ),
+    *tuple(
+        _derived_entry(
+            asset_key=f"silver_major_index_mins_{freq}m",
+            dataset_id="major_index_mins",
+            layer=AssetLayer.SILVER,
+            data_domain=DataDomain.QUOTE_DATA,
+            group_name="index",
+            data_contract="standardized_major_index_minute_bars",
+            column_schema=SILVER_MAJOR_INDEX_MINS_SCHEMA,
+            path_template=lake_path_template(
+                silver_major_index_mins_path(
+                    PATH_TEMPLATE_LAKE_ROOT,
+                    f"{freq}min",
+                    PATH_TEMPLATE_PARTITION_KEY,
+                )
+            ),
+            partition_model=PartitionModel.TRADE_DATE_PARTITION_SILVER_MAJOR_INDEX_MINS,
+            blocking_check_names=(f"silver_major_index_mins_{freq}m_core_check",),
+            batch_grain="freq/trade_date",
+            write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+            event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+            bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+            notes=(
+                "Native frequencies preserve source vwap; 90m/120m use "
+                "exchange-aware complete windows and NULL vwap."
             ),
         )
         for freq in (1, 5, 15, 30, 60, 90, 120)
