@@ -1,6 +1,6 @@
 # 公募基金九数据集接入总览与分批推进计划 v1
 
-状态：**B0/B1 已实现并通过隔离与生产验收；B1 尚未创建 schedule。B2 LLD、M1 与 M2 隔离验证已通过，待生产验收；B3 及后续批次待进入。**
+状态：**B0/B1/B2 已实现并通过隔离与生产验收；B1/B2 均尚未创建 schedule。B3 及后续批次待进入。**
 确认日期：2026-08-05
 适用范围：Tushare 公募基金菜单的九个数据集接入 Prod
 
@@ -63,7 +63,7 @@ flowchart LR
 | --- | --- | --- | --- | --- |
 | B0 | 无业务数据集；仅最小共享能力 | 仅“完整无时间快照的当前源记录 + 观察版本”直出写入协议；不含 HDD、Catalog、分页或基金身份 | 本专项确认 | LLD、全量消费者审计、正反向测试；不允许产生业务表写入 |
 | B1 | `fund_company`、`mkt_idx_bmk` | 小型无时间分页快照、观察版本、HDD 物理表与公募基金 Ops 条目 | B0 验收 | ✅ 项目 connector 实测全量/短页行为、全部字段、身份与版本、迁移、Ops/API、两次隔离真实同步及生产首次完整同步五段对账闭环；尚未创建 schedule；两表不做文本关联 |
-| B2 | `fund_basic` | E/O 全市场分页主数据、25 字段 | ✅ B1 生产迁移与首次生产同步对账通过 | ✅ LLD、M1 与 M2 隔离验收通过：单个无 market 完整分页 unit、25 字段、17 页、32,342 行、0 reject，source/current/observation 双向差集为 0；待生产 migration、HDD 物理路径与首次生产同步验收；`fund_portfolio` 仅可使用生产已验收对象池 |
+| B2 | `fund_basic` | E/O 全市场分页主数据、25 字段 | ✅ B1 生产迁移与首次生产同步对账通过 | ✅ LLD、M1/M2/M3 验收通过：生产单个无 market 完整分页 unit、25 字段、17 页、32,342 行、0 reject，source/current/observation 六向差集为 0，6 个 relation 位于生产 HDD；`fund_portfolio` 可使用该生产已验收对象池；尚未创建 schedule |
 | B3 | `fund_manager` | 任职事实、分页快照、跨基金聚合字段 | B2 验收 | 全量翻至 short page；`resume` 保真；出生年份缺失不跨基金合并；最小同步与身份/版本对账闭环 |
 | B4 | 先 `fund_share`，后 `fund_div` | 通用自然日 fan-out；逐日分页与事件散列 | B2 验收；同批内 `fund_share` 先验收 | `fund_share` 保留 SH/SZ/O；`fund_div` 使用全日期签名和显式空值标记；自然日无事件不计作缺数；各自对账闭环 |
 | B5 | `fund_nav` | E/O 来源分片身份、相对时间、日任务与 90 日修订、按 unit 活动租约防重 | B4 验收 | 通用逐自然日展开、相对时间策略、重叠拒绝/跳过均有后端和前端验证；E/O 全源分页、版本修订和两条自动任务分别验收 |
@@ -86,7 +86,7 @@ flowchart LR
 - 未完成对应批次 LLD 和门禁前，不创建 Definition、表、迁移、自动任务或远程回补。
 - 不把 `fund_nav` 的相对时间/重叠规则复制为数据集 key 特例；不把 `fund_portfolio` 的页流式逻辑复制成单接口私有实现。
 - `fund_portfolio` 尚未完成历史 `period` 盘点，禁止用样本基金起始日期或“固定 57 个季度”估算回补量。
-- B0/B1 已完成实现、生产迁移与首次完整生产同步五段对账；B1 schedule 仍需运营明确给出频率与 cron/once 意图后手工创建。B2 已通过 LLD、M1 与 M2 隔离验证；生产 migration、HDD 物理路径复核、首次生产同步和 schedule 仍须后续单独授权。
+- B0/B1/B2 已完成实现、生产迁移与首次完整生产同步五段对账；B1/B2 schedule 均需运营明确给出频率与 cron/once 意图后手工创建。B2 验收已解除 B3/B4/B7 的对象池前置门禁，但各批仍须先完成自己的 LLD 与源端审计。
 
 ## 8. 依据与维护规则
 

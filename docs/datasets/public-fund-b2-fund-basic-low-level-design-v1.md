@@ -1,6 +1,6 @@
 # 公募基金 B2：基金列表（`fund_basic`）LLD v1
 
-状态：**LLD、B2-M1 与 B2-M2 隔离验证已通过。尚未应用生产 migration，未创建任务或写入远程数据。**
+状态：**LLD、B2-M1、B2-M2 隔离验证与 B2-M3 生产验收均已通过；尚未创建 schedule。**
 日期：2026-08-06
 上游总览：[公募基金九数据集接入总览与分批推进计划 v1](public-fund-nine-dataset-onboarding-program-plan-v1.md)
 依赖：[B0 观察快照直出最小地基 LLD](public-fund-b0-observed-snapshot-foundation-low-level-design-v1.md)、[B1 基金管理人与业绩基准库 LLD](public-fund-b1-static-reference-low-level-design-v1.md)
@@ -22,7 +22,6 @@ B2 只接入 Tushare `fund_basic`，采用 B0 已实现的“current 完整快�
 - 不暴露 `ts_code`、`market`、`status` 或其他运营 filters，避免局部请求替换全量 current。
 - 不创建 raw/core/EAV/JSON 镜像，不关联或解析 `benchmark` 到 `mkt_idx_bmk`。
 - 不修改 B1 的分页、身份、表或同步语义。
-- 不进行生产 migration、首次同步或远程数据写入；这些需要后续单独授权。
 
 ## 1. 已定口径与硬需求
 
@@ -235,12 +234,12 @@ current 额外保存 `observed_at`；observation 保存 `first_observed_at`、`l
 | B2-REQ-006 | 身份 `ts_code`，保留内容观察版本 | contracts、row transforms、B0 writer | 同 code 内容变化保留两版本 | 空 code reject；完全重复源行整批失败 | 代码与 SQLite 集成已验证 |
 | B2-REQ-007 | `benchmark` 原文保存且不关联基准库 | source fields、两模型 | 长文本原样往返 fixture | 无外键、无解析字段、无 join writer | 代码与自动化已验证 |
 | B2-REQ-008 | direct-serving，无 raw/std | Definition、B0 writer | current/observation写入 | linter拒绝 raw DAO/table | 代码与 SQLite 集成已验证 |
-| B2-REQ-009 | 表、PK、索引全部 HDD；WAL不改 | migration | PostgreSQL隔离库查 tablespace | HDD不存在时建表前失败；downgrade拒绝删表 | 隔离库 fail-closed 与 6 个 relation placement 已验证；生产物理介质待 B2-M3 |
+| B2-REQ-009 | 表、PK、索引全部 HDD；WAL不改 | migration | PostgreSQL隔离库查 tablespace | HDD不存在时建表前失败；downgrade拒绝删表 | 隔离库 fail-closed 与生产 6 个 relation 的 HDD placement 均已验证 |
 | B2-REQ-010 | 手动 + schedule + retry，无 probe/workflow/seed | Definition、Catalog、Ops resolver | manual与cron/once capability可见 | probe请求、workflow使用、自动seed均不存在/被拒绝 | API contract 自动化已验证 |
 | B2-REQ-011 | 公募基金分组排序稳定 | Ops Catalog | group内出现 fund_basic | 不改前端分组白名单、Catalog缺项测试失败 | API contract 自动化已验证 |
 | B2-REQ-012 | 空、reject、缺字段、重复源行全量失败 | normalizer、B0 writer | 完整快照成功 | 四类失败均 rollback，不改变旧current | B2 fixture 与 B0 回归已验证 |
-| B2-REQ-013 | 单事务规模已评估且不得截断 | transaction assessment | 32,342行/17页/约19.82MiB实测 | 不设页数/行数 cap；资源不足须整批失败，不当作永久SLA | 隔离 PostgreSQL 单事务真实同步与全量对账已验证 |
-| B2-REQ-014 | 不创建生产任务或写生产数据 | release流程 | 不适用 | git diff/migration/tests中无seed；本阶段无远程写 | 持续门禁 |
+| B2-REQ-013 | 单事务规模已评估且不得截断 | transaction assessment | 32,342行/17页/约19.82MiB实测 | 不设页数/行数 cap；资源不足须整批失败，不当作永久SLA | 隔离与生产 PostgreSQL 单事务真实同步、全量对账均已验证 |
+| B2-REQ-014 | 生产首次同步只走一次手动完整快照；不创建自动任务 | release流程、Manual Action、TaskRun | `#7472` 手动任务成功 | `schedule_id=NULL`、对应 schedule 为 0；无 probe/workflow | 生产验收已验证 |
 
 前端表现均由已有 catalog/manual-action/automation capability contract 派生；本批没有 B2 专用前端消费者，因此浏览器只需验证“公募基金 → 基金列表”可见、无时间/filters、自动任务仅普通 schedule。生产任务创建不属于代码验收。
 
@@ -282,7 +281,7 @@ current 额外保存 `observed_at`；observation 保存 `first_observed_at`、`l
 | B2-M0 | LLD、源端与影响面冻结 | 本文、真实分页/字段/规模证据、CodeGraph消费者审计通过 |
 | B2-M1 | Definition、quality、identity、ORM/DAO、migration、Ops实现 | **已完成**：定向单元、SQLite集成、迁移静态测试及共享链路回归通过；未触发远程写 |
 | B2-M2 | 隔离 PostgreSQL migration与最小真实同步 | **已完成**：单次真实完整同步五段对账、`gs_raw_cold_hdd` placement；重复同步/内容变化由 B2-M1 集成测试验证 |
-| B2-M3 | 生产发布验收 | 单独授权生产 migration和首次完整同步；不自动创建 schedule |
+| B2-M3 | 生产发布验收 | **已完成**：生产 migration、HDD 物理路径、Manual Action 首次完整同步与五段对账通过；未创建 schedule |
 
 生产发布顺序必须是：部署代码 → 获得生产迁移授权 → 应用 migration → Manual Action首次完整同步 → fetched/normalized/written/rejected/current/observation 对账 → 运营另行决定是否创建 cron/once schedule。
 
@@ -310,6 +309,26 @@ current 额外保存 `observed_at`；observation 保存 `first_observed_at`、`l
 
 首次写入已经成功提交后，验收输出脚本曾因把 SQLAlchemy `Result` 直接转换为 `dict` 报类型错误；该错误发生在业务提交之后，未触发第二次写入。随后用修正后的只读源端分页与目标 SQL 重新构造 32,342 个 key+hash，并完成上述三方集合对账。用户本轮只授权一次真实写入，因此未执行第二次真实同步；重复同源快照和内容变化的观察版本语义继续由 B2-M1 的 SQLite 集成测试覆盖。
 
+### 9.2 B2-M3 生产发布验收证据（2026-08-06）
+
+生产部署提交为 `556e3a39`，Alembic head 已推进到 `20260806_000126`。`fund_basic_current`、`fund_basic_observation`、两个主键索引和两个二级索引共 6 个 relation 均显式位于 `gs_raw_cold_hdd`；`pg_tablespace_location` 为 `/data/disk/postgresql/tablespaces/gs_stk_mins_hdd`，挂载设备 `/dev/vdb` 由操作系统报告 `ROTA=1`。WAL 配置未修改。
+
+运营管理员通过既有 Manual Action → TaskRun → worker 主链创建唯一一次首次完整同步 `#7472`。任务参数为 `time_input={"mode":"none"}`、`filters={}`、`trigger_source=manual`、`schedule_id=NULL`；plan snapshot 为 `snapshot_refresh`、一个 `fund_basic:none:0` unit、`request_params={}`。任务于 2026-08-06 15:51:38 +08:00 开始，15:52:35 +08:00 成功结束，节点耗时 56,999 ms。
+
+| 对账段 | 生产结果 |
+| --- | --- |
+| 源端 fetched | 32,342 行；17 次分页请求；`page_limit=2000`；retry 0；E=2,883、O=29,459 |
+| source fields | 25 字段逐页显式请求；32,342 行均不缺 source field；无业务请求参数 |
+| normalized | 接受 32,342；reject 0；reason `{}`；唯一 key+hash 32,342 |
+| writer / TaskRun | `rows_saved=32,342`；`unit_total=unit_done=1`、`unit_failed=0`；状态 `success` |
+| target | current 32,342；observation 32,342；两表各 32,342 个实体和 key+hash |
+| 全字段实存 | 分别从 current、observation 的 25 个实际列重新计算内容哈希，32,342 行均为 0 mismatch |
+| 集合对账 | source/current、source/observation、current/observation 的 key+hash 六个方向差集全部为 0 |
+| Ops 边界 | `fund_basic` TaskRun 共 1 条且已成功，无活动任务；对应 schedule 为 0；未创建 probe/workflow |
+| 运行健康 | web、worker、scheduler 均为 `active`；`/api/health` 与 `/api/v1/health` 均返回 prod `ok` |
+
+生产只执行了一次业务同步。后续为集合对账进行的源端请求均为只读；第一次只读报告因引用了错误的 normalizer 诊断属性名而在输出阶段失败，修正后重新执行只读对账，没有再次调用 writer，也没有创建第二条 TaskRun。
+
 ## 10. LLD 审计结论
 
 - 源端、分页、字段、身份、数据规模与单事务边界均有当前真实证据。
@@ -319,4 +338,4 @@ current 额外保存 `observed_at`；observation 保存 `first_observed_at`、`l
 - Definition、存储、HDD、Ops、前端派生、测试、发布和禁止项均已映射真实代码消费者。
 - 没有尚待业务拍板的项目；schedule频率可继续后置，不影响实现。
 
-结论：**B2-M0、B2-M1 和 B2-M2 隔离验证门禁均已通过；生产机械盘物理 placement、生产 migration、首次生产同步和任务配置仍未授权。**
+结论：**B2-M0 至 B2-M3 均已通过，`fund_basic` 已完成生产 migration、HDD placement、首次完整同步和全量对账。尚未创建 schedule；其频率与 cron/once 配置继续由运营后置决定。**

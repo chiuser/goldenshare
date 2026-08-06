@@ -1,6 +1,6 @@
 # 公募基金列表（`fund_basic`）接入发现审计
 
-状态：发现审计与 B2 LLD 完成，**B2-M1 与 B2-M2 隔离验证已通过；生产 migration 未应用，未创建任务、未写入远程数据**
+状态：发现审计与 B2 LLD 完成，**B2-M1 至 B2-M3 均已通过；生产首次完整同步与五段对账完成，尚未创建 schedule**
 首次审计：2026-08-03；复审：2026-08-06
 截图菜单：基金列表
 源文档：[公募基金列表](../sources/tushare/公募基金/0019_公募基金列表.md)
@@ -46,7 +46,7 @@ invest_type, type, trustee, purc_startdate, redm_startdate, market
 | 存储 | 所有业务字段均必须落表；物理表、所有叶分区和索引固定落 HDD tablespace `gs_raw_cold_hdd`，禁止落 SSD | direct-serving / raw->serving 在 LLD 固化。 |
 | Ops/UI | 新建“公募基金”分组，不复用“ETF基金”；支持手动任务和普通定时自动任务，不接 probe | 需在 Definition/自动化契约中保证页面不暴露 probe。 |
 
-当前仓库只有 ETF 专用的 `fund_daily` / `fund_adj` / `etf_*`，没有 `fund_basic` 的 Definition、DAO、表、动作或前端条目；不得把 ETF 活跃池当成公募基金全量代码池。
+接入前仓库只有 ETF 专用的 `fund_daily` / `fund_adj` / `etf_*`，没有 `fund_basic` 的 Definition、DAO、表、动作或前端条目；B2 已按独立全市场对象池完成接入，未复用 ETF 活跃池。
 
 ## 已定口径与剩余设计门禁
 
@@ -62,3 +62,4 @@ invest_type, type, trustee, purc_startdate, redm_startdate, market
 - E/O 与无 market 的项目 connector 分页、short page、25 字段、唯一代码集合和逐行多重集对账已完成。
 - [B2 LLD](public-fund-b2-fund-basic-low-level-design-v1.md) 已固定单 unit、批次 E/O 完整性防护、表/索引 HDD DDL、direct-serving 和普通 schedule capability；不在代码中 seed 具体时间。
 - 2026-08-06 已在全新隔离 PostgreSQL 18.4 实例验证 migration 缺少 `gs_raw_cold_hdd` 时 fail-closed、6 个 B2 relation 均绑定目标 tablespace，并完成一次 32,342 行真实完整快照：17 页、25 字段逐页显式请求、0 reject，source/current/observation key+hash 双向差集均为 0。隔离环境只证明 catalog placement，生产机械盘物理路径仍须在生产授权后复核。
+- 2026-08-06 生产 migration 已推进到 `20260806_000126`，6 个 relation 均位于 `/data/disk` 下 `gs_raw_cold_hdd`，设备 `/dev/vdb` 报告 `ROTA=1`。Manual Action TaskRun `#7472` 首次完整同步成功：fetched/accepted/written/current/observation 均为 32,342，reject 0，25 个实际列重算哈希 0 mismatch，三方 key+hash 六向差集为 0；未创建 schedule、probe 或 workflow。
