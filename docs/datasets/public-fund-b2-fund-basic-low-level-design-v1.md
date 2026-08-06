@@ -1,6 +1,6 @@
 # 公募基金 B2：基金列表（`fund_basic`）LLD v1
 
-状态：**LLD 审计已通过；B2-M1 代码与本地自动化验证已完成。尚未应用 B2 migration，未创建任务或写入远程数据。**
+状态：**LLD、B2-M1 与 B2-M2 隔离验证已通过。尚未应用生产 migration，未创建任务或写入远程数据。**
 日期：2026-08-06
 上游总览：[公募基金九数据集接入总览与分批推进计划 v1](public-fund-nine-dataset-onboarding-program-plan-v1.md)
 依赖：[B0 观察快照直出最小地基 LLD](public-fund-b0-observed-snapshot-foundation-low-level-design-v1.md)、[B1 基金管理人与业绩基准库 LLD](public-fund-b1-static-reference-low-level-design-v1.md)
@@ -235,11 +235,11 @@ current 额外保存 `observed_at`；observation 保存 `first_observed_at`、`l
 | B2-REQ-006 | 身份 `ts_code`，保留内容观察版本 | contracts、row transforms、B0 writer | 同 code 内容变化保留两版本 | 空 code reject；完全重复源行整批失败 | 代码与 SQLite 集成已验证 |
 | B2-REQ-007 | `benchmark` 原文保存且不关联基准库 | source fields、两模型 | 长文本原样往返 fixture | 无外键、无解析字段、无 join writer | 代码与自动化已验证 |
 | B2-REQ-008 | direct-serving，无 raw/std | Definition、B0 writer | current/observation写入 | linter拒绝 raw DAO/table | 代码与 SQLite 集成已验证 |
-| B2-REQ-009 | 表、PK、索引全部 HDD；WAL不改 | migration | PostgreSQL隔离库查 tablespace | HDD不存在时建表前失败；downgrade拒绝删表 | DDL与静态测试已验证；隔离库待 B2-M2 |
+| B2-REQ-009 | 表、PK、索引全部 HDD；WAL不改 | migration | PostgreSQL隔离库查 tablespace | HDD不存在时建表前失败；downgrade拒绝删表 | 隔离库 fail-closed 与 6 个 relation placement 已验证；生产物理介质待 B2-M3 |
 | B2-REQ-010 | 手动 + schedule + retry，无 probe/workflow/seed | Definition、Catalog、Ops resolver | manual与cron/once capability可见 | probe请求、workflow使用、自动seed均不存在/被拒绝 | API contract 自动化已验证 |
 | B2-REQ-011 | 公募基金分组排序稳定 | Ops Catalog | group内出现 fund_basic | 不改前端分组白名单、Catalog缺项测试失败 | API contract 自动化已验证 |
 | B2-REQ-012 | 空、reject、缺字段、重复源行全量失败 | normalizer、B0 writer | 完整快照成功 | 四类失败均 rollback，不改变旧current | B2 fixture 与 B0 回归已验证 |
-| B2-REQ-013 | 单事务规模已评估且不得截断 | transaction assessment | 32,342行/17页/约19.82MiB实测 | 不设页数/行数 cap；资源不足须整批失败，不当作永久SLA | 真实证据、代码与自动化已验证 |
+| B2-REQ-013 | 单事务规模已评估且不得截断 | transaction assessment | 32,342行/17页/约19.82MiB实测 | 不设页数/行数 cap；资源不足须整批失败，不当作永久SLA | 隔离 PostgreSQL 单事务真实同步与全量对账已验证 |
 | B2-REQ-014 | 不创建生产任务或写生产数据 | release流程 | 不适用 | git diff/migration/tests中无seed；本阶段无远程写 | 持续门禁 |
 
 前端表现均由已有 catalog/manual-action/automation capability contract 派生；本批没有 B2 专用前端消费者，因此浏览器只需验证“公募基金 → 基金列表”可见、无时间/filters、自动任务仅普通 schedule。生产任务创建不属于代码验收。
@@ -281,12 +281,34 @@ current 额外保存 `observed_at`；observation 保存 `first_observed_at`、`l
 | --- | --- | --- |
 | B2-M0 | LLD、源端与影响面冻结 | 本文、真实分页/字段/规模证据、CodeGraph消费者审计通过 |
 | B2-M1 | Definition、quality、identity、ORM/DAO、migration、Ops实现 | **已完成**：定向单元、SQLite集成、迁移静态测试及共享链路回归通过；未触发远程写 |
-| B2-M2 | 隔离 PostgreSQL migration与最小真实同步 | 单独授权；五段对账、HDD placement、重复同步/内容变化验证 |
+| B2-M2 | 隔离 PostgreSQL migration与最小真实同步 | **已完成**：单次真实完整同步五段对账、`gs_raw_cold_hdd` placement；重复同步/内容变化由 B2-M1 集成测试验证 |
 | B2-M3 | 生产发布验收 | 单独授权生产 migration和首次完整同步；不自动创建 schedule |
 
 生产发布顺序必须是：部署代码 → 获得生产迁移授权 → 应用 migration → Manual Action首次完整同步 → fetched/normalized/written/rejected/current/observation 对账 → 运营另行决定是否创建 cron/once schedule。
 
 迁移不提供自动 downgrade 删除源事实。若首次同步失败，保留空表或上一版 current，修复后重试；禁止 truncate/drop/rebuild。若完整性校验缺 E/O，必须停止并重新验证源行为，不能关闭校验绕过。
+
+### 9.1 B2-M2 隔离 PostgreSQL 验收证据（2026-08-06）
+
+本轮使用全新临时 PostgreSQL 18.4 实例和独立数据库 `goldenshare_b2_m2`，未连接远程或生产数据库。先把 B1 已使用的临时 tablespace 改名，使 `gs_raw_cold_hdd` 不存在，再尝试应用 `20260806_000126`：migration 按预期抛出 `B2 公募基金列表快照表要求 PostgreSQL tablespace`，Alembic 保持 `20260805_000125`，两张 B2 表均未创建。恢复 tablespace 名称后升级成功，Alembic head 为 `20260806_000126`。
+
+物理关系的 PostgreSQL catalog 验收结果：`fund_basic_current`、`fund_basic_observation` 两张表，两个主键索引和两个二级索引，共 6 个 relation 的 `reltablespace` 均解析为 `gs_raw_cold_hdd`。隔离实例中该 tablespace 位于临时验证目录；本机没有机械盘挂载，因此这一步证明 DDL 与 catalog placement，不冒充生产服务器物理机械盘证据。生产阶段仍须复核 `pg_tablespace_location` 指向生产 HDD；隔离实例的 WAL 仍位于独立 `data_directory/pg_wal`，未迁入该 tablespace。
+
+随后通过 `DatasetActionResolver -> DatasetSourceClient -> DatasetNormalizer -> DatasetWriter` 执行一个真实完整 snapshot unit。源端与目标对账如下；这些数量是当次样本，不是永久 SLA：
+
+| 对账段 | 当次结果 |
+| --- | --- |
+| 计划 | `snapshot_refresh`；`unit_count=1`；`trade_date=None`；`request_params={}`；`page_limit=2000` |
+| 源端 fetched | 32,342 行；17 次请求；offset `0..32000`；页长 `16×2000 + 342`；retry 0 |
+| source fields | 每页显式请求同一 25 字段；每行 25 个源字段均存在；无 `market/status/ts_code` 业务请求参数 |
+| normalized | 接受 32,342，reject 0，reason `{}`；key+hash 32,342 |
+| writer / commit | 32,342 行在一个 unit 事务内提交；writer 的完整快照协议在 current/observation 任一写入量不等于 32,342 时会拒绝提交 |
+| target | current 32,342；observation 32,342；distinct entity 32,342；E=2,883、O=29,459 |
+| 集合对账 | source/current、source/observation、current/observation 的 `(source_entity_key, source_content_hash)` 双向差集全部为 0 |
+| 存储量 | current 含索引 20,307,968 B；observation 含索引 20,930,560 B |
+| Ops 边界 | 隔离库 `fund_basic` TaskRun 为 0，schedule 总数为 0；未创建 probe/workflow/schedule |
+
+首次写入已经成功提交后，验收输出脚本曾因把 SQLAlchemy `Result` 直接转换为 `dict` 报类型错误；该错误发生在业务提交之后，未触发第二次写入。随后用修正后的只读源端分页与目标 SQL 重新构造 32,342 个 key+hash，并完成上述三方集合对账。用户本轮只授权一次真实写入，因此未执行第二次真实同步；重复同源快照和内容变化的观察版本语义继续由 B2-M1 的 SQLite 集成测试覆盖。
 
 ## 10. LLD 审计结论
 
@@ -297,4 +319,4 @@ current 额外保存 `observed_at`；observation 保存 `first_observed_at`、`l
 - Definition、存储、HDD、Ops、前端派生、测试、发布和禁止项均已映射真实代码消费者。
 - 没有尚待业务拍板的项目；schedule频率可继续后置，不影响实现。
 
-结论：**B2-M0 设计门禁和 B2-M1 本地实现门禁均已通过；可以在单独授权后进入 B2-M2 隔离 PostgreSQL migration、HDD placement 与最小真实同步验证。生产迁移、生产同步和任务配置仍未授权。**
+结论：**B2-M0、B2-M1 和 B2-M2 隔离验证门禁均已通过；生产机械盘物理 placement、生产 migration、首次生产同步和任务配置仍未授权。**

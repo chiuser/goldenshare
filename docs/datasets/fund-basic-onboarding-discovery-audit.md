@@ -1,6 +1,6 @@
 # 公募基金列表（`fund_basic`）接入发现审计
 
-状态：发现审计与 B2 LLD 完成，**B2-M1 代码和本地自动化验证已完成；migration 未应用，未创建任务、未写入远程数据**
+状态：发现审计与 B2 LLD 完成，**B2-M1 与 B2-M2 隔离验证已通过；生产 migration 未应用，未创建任务、未写入远程数据**
 首次审计：2026-08-03；复审：2026-08-06
 截图菜单：基金列表
 源文档：[公募基金列表](../sources/tushare/公募基金/0019_公募基金列表.md)
@@ -61,3 +61,4 @@ invest_type, type, trustee, purc_startdate, redm_startdate, market
 
 - E/O 与无 market 的项目 connector 分页、short page、25 字段、唯一代码集合和逐行多重集对账已完成。
 - [B2 LLD](public-fund-b2-fund-basic-low-level-design-v1.md) 已固定单 unit、批次 E/O 完整性防护、表/索引 HDD DDL、direct-serving 和普通 schedule capability；不在代码中 seed 具体时间。
+- 2026-08-06 已在全新隔离 PostgreSQL 18.4 实例验证 migration 缺少 `gs_raw_cold_hdd` 时 fail-closed、6 个 B2 relation 均绑定目标 tablespace，并完成一次 32,342 行真实完整快照：17 页、25 字段逐页显式请求、0 reject，source/current/observation key+hash 双向差集均为 0。隔离环境只证明 catalog placement，生产机械盘物理路径仍须在生产授权后复核。
