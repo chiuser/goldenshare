@@ -1,6 +1,6 @@
 # 公募基金 B1：基金管理人与业绩基准库 LLD v1
 
-状态：**实现完成；B0 观察快照 contract 已作为既有共享地基复用。隔离验证通过；未建生产表、未创建任务、未写入远程数据**
+状态：**实现完成；B0 观察快照 contract 已作为既有共享地基复用。隔离验证与生产迁移、首次完整同步、五段对账均通过；尚未创建 schedule。**
 日期：2026-08-05
 上游：[公募基金九数据集接入总览与分批推进计划 v1](public-fund-nine-dataset-onboarding-program-plan-v1.md)
 依赖：[B0 观察快照直出最小地基 LLD](public-fund-b0-observed-snapshot-foundation-low-level-design-v1.md)
@@ -217,7 +217,20 @@ Catalog resolver 已对所有 registry dataset 强制要求显式项目，缺失
 | Ops backend | Catalog group/order/items、manual action 无日期/filters、schedule-only capability、probe 创建请求被拒绝。 |
 | Frontend contract | 不修改生产 JSX/TS，也不新增 dataset-key 前端白名单；后端 API 回归验证 catalog、无时间 action 与 schedule-only capability。浏览器已启动本仓库 `frontend/` 并到达登录页（无前端 console warning/error）；因本轮无登录授权，不提交凭据或创建任务。 |
 
-实现验证已运行 B1/registry 69 项、B0/source-client/action-resolver/架构 167 项、Ops API 120 项、Definition lint、文档完整性和 `git diff --check`。本批没有前端源码改动，因此不把前端 typecheck/test/build 作为 B1 代码门禁。最小真实同步已在隔离验证库完成五段对账；在生产迁移和首次真实同步获授权前，不得在 Prod 启用 schedule。
+实现验证已运行 B1/registry 69 项、B0/source-client/action-resolver/架构 167 项、Ops API 120 项、Definition lint、文档完整性和 `git diff --check`。本批没有前端源码改动，因此不把前端 typecheck/test/build 作为 B1 代码门禁。最小真实同步已在隔离验证库完成五段对账；生产迁移与首次真实同步的验收事实见下一节。B1 仍未启用 schedule。
+
+### 7.1.1 生产首次完整同步与五段对账（2026-08-05）
+
+生产发布已将数据库推进到 migration `20260805_000125`。运营管理员以既有 Manual Action → TaskRun 主链创建两个无时间、无 filters 的完整快照任务；未走旧 CLI 直连同步，未使用 probe、workflow 或 schedule。
+
+| 数据集 | TaskRun | 分页证据 | 源端 fetched | 归一化接受 | 写入 | reject / reason | current / observation 实际行数 |
+| --- | ---:| --- | ---:| ---:| ---:| --- | --- |
+| `fund_company` | `#7401` | `page_limit=64`、short page 终止；`64 + 64 + 64 + 12` | 204 | 204 | 204 | 0 / `{}` | 204 / 204 |
+| `mkt_idx_bmk` | `#7402` | `page_limit=64`、short page 终止；`64 + 64 + 13` | 141 | 141 | 141 | 0 / `{}` | 141 / 141 |
+
+两项 TaskRun 均为 `success`，`unit_total=unit_done=1`、`unit_failed=0`，且 plan snapshot 显示 `snapshot_refresh`、一个 `none` unit、`request_params={}`。两对 current/observation 的 `(source_entity_key, source_content_hash)` 集合双向差集均为 0。`fund_company` 有 204 条源记录、203 个实体键，证明同一信用代码的不同 source-content 变体没有被合并或丢弃。四张实际写入表仍全部位于 `gs_raw_cold_hdd`。
+
+这只是当次生产源端基线，不将 204/141 固化为未来同步的成功阈值；后续完整快照仍以当次 fetched、accepted、written、reject 与两表行数五段对账为准。
 
 ## 8. 风险与拒绝策略
 
@@ -236,4 +249,4 @@ Catalog resolver 已对所有 registry dataset 强制要求显式项目，缺失
 
 开工前必须满足：B0 已实现并通过测试；当前 Alembic head 已确认；HDD tablespace 只读验证通过；本 LLD 及两份源文档的分页事实无冲突。
 
-完成结果：四表迁移的 fail-closed/HDD placement 已在隔离验证库验证；两条 Definition、ORM/DAO、Catalog/API contract 均通过测试；两次真实小快照已完成对账；没有自动创建 schedule/probe/workflow，也没有新增 user-facing API 或跨表文本关联。下一阶段仅在获得生产迁移授权后进行生产 migration、首次完整同步、生产五段对账，最后由运营手工创建普通 cron/once schedule。
+完成结果：四表迁移的 fail-closed/HDD placement 已在隔离验证库及生产验证；两条 Definition、ORM/DAO、Catalog/API contract 均通过测试；隔离两次真实小快照与生产首次完整同步五段对账均已闭环；没有自动创建 schedule/probe/workflow，也没有新增 user-facing API 或跨表文本关联。下一步只有在运营明确给出频率与 cron/once 意图后，才手工创建普通 schedule。
