@@ -1,6 +1,6 @@
 # 公募基金 B3：基金经理（`fund_manager`）LLD v1
 
-状态：**B3-M0、LLD、B3-M1 与 B3-M2 隔离 PostgreSQL 验收通过；尚未执行 B3-M3 生产迁移/首次同步，未创建 schedule。**
+状态：**B3-M0、LLD、B3-M1 与 B3-M2 隔离 PostgreSQL 验收通过；B3-M3 已完成生产部署与 migration，首次生产同步尚未执行，未创建 schedule。**
 日期：2026-08-06
 上游总览：[公募基金九数据集接入总览与分批推进计划 v1](public-fund-nine-dataset-onboarding-program-plan-v1.md)
 依赖：[B0 观察快照直出最小地基 LLD](public-fund-b0-observed-snapshot-foundation-low-level-design-v1.md)、[B2 基金列表 LLD](public-fund-b2-fund-basic-low-level-design-v1.md)
@@ -279,6 +279,18 @@ batch_unique_key_fields: tuple[str, ...] = ()
 
 两处 PostgreSQL 故障注入均返回 `write_failed`：一处在 observation upsert 后、current 替换前失败；另一处在 current 替换执行后失败。两次由 executor rollback 后，current/observation 的行数、主键与观察时间全表指纹均与失败前一致。至此 B3-M2 的完整性、容量和原子性门禁全部通过，不需要改造 B0 共享写入主链。
 
+### 6.5 B3-M3 生产部署与 migration 证据
+
+2026-08-06 发布生产 commit `7ab4807a`。部署和 migration 被拆成两个独立写阶段：代码部署明确跳过 migration、默认单源 seed、moneyflow seed 与 realtime collector 重启；部署完成并再次确认无活动任务后，单独执行 `goldenshare init-db`。
+
+- 部署前、migration 前和 migration 后，`ops.task_run` 的 `queued/running/canceling`、日期完整性任务的 `queued/running` 以及非空闲业务数据库会话均为 0。
+- 远程仓库从 `556e3a39` fast-forward 到 `7ab4807a`，部署后工作区干净；六个既有服务均为 active，Web 入口仍为 `python -m src.app.web.run`，`/api/health` 与 `/api/v1/health` 均返回成功。
+- Alembic 从 `20260806_000126` 升级到 `20260806_000127`；两张 B3 表、两个主键索引、一个 current 唯一索引和五个二级索引共 10 个 relation 全部位于 `gs_raw_cold_hdd`。
+- `gs_raw_cold_hdd` 的生产位置为 `/data/disk/postgresql/tablespaces/gs_stk_mins_hdd`，挂载设备 `/dev/vdb`、文件系统 ext4；迁移后约有 323 GB 可用空间。所有 B3 relation 的 `pg_relation_filepath` 均位于该 tablespace。
+- `fund_manager_current` 与 `fund_manager_observation` 均为 0 行；`fund_manager` 的 schedule、probe 均为 0，迁移没有创建任务或同步数据。
+
+B3-M3 仍未完成：首次生产无参完整同步及源端、归一化、写入、拒绝原因、current/observation 对账需要单独授权后执行。
+
 ## 7. 配置项审计
 
 B3 不新增配置项。
@@ -325,7 +337,7 @@ CodeGraph 已覆盖 Definition → resolver/unit → request/source → normaliz
 | B3-REQ-007 | resume 和全部源字符串保真 | source fields、ORM/DDL | 728 字符及 Unicode 原样往返 | 无长度截断、无摘要/JSON列 | M1 模型与 M2 PostgreSQL 全字段 hash 通过 |
 | B3-REQ-008 | direct-serving current+observation，无 raw/FK | Definition、ORM、B0 writer | 完整快照写两表、内容变化保留版本 | linter拒绝 raw/std；未知 fund_basic code 仍可写 | M1 自动化与 M2 实库通过 |
 | B3-REQ-009 | current 单实体唯一，observation 允许跨次版本 | current unique index、两表主键、quality gate | 同实体内容后续变化替换 current并新增观察版本 | 同批两版本被拒绝、数据库 unique 作最后防线 | M1 自动化与 M2 重复同步通过 |
-| B3-REQ-010 | 表、PK、全部索引 HDD；WAL留 SSD | migration | 隔离/生产查 relation tablespace 与物理路径 | HDD 不存在时建表前失败；不改 `pg_wal` | M2 逻辑 placement/fail-closed 通过；待 M3 核验生产真实 HDD/WAL |
+| B3-REQ-010 | 表、PK、全部索引 HDD；WAL留 SSD | migration | 隔离/生产查 relation tablespace 与物理路径 | HDD 不存在时建表前失败；不改 `pg_wal` | M2 fail-closed 与 M3 生产 `/dev/vdb` placement 通过；migration 未改 WAL |
 | B3-REQ-011 | 84,357/100,000 行内存与耗时达标 | M2 容量 harness、B0 writer/DAO/executor | RSS、180s事务、240s端到端均通过 | 任一超限则 M2 失败，不截断、不上线 | M2 真实 84,357 与 fixture 100,000 行通过 |
 | B3-REQ-012 | observation/current 单事务原子性 | executor、writer、DAO | 一次 commit，完整对账 | 两个故障点 rollback 后集合/时间不变 | M1 SQLite 与 M2 PostgreSQL 双故障注入通过 |
 | B3-REQ-013 | 公募基金分组，手动 + schedule/retry，无 probe/workflow/seed | Ops Catalog、Definition capability、API | manual 与 cron/once capability可见 | probe/workflow请求拒绝；无 seed 记录 | M1 API 自动化通过；频率延后 |
@@ -368,7 +380,7 @@ CodeGraph 已覆盖 Definition → resolver/unit → request/source → normaliz
 | B3-M0 | 源端复审与 LLD | **已完成**：无参全集、10 fields、两种页大小、身份候选、过滤语义、容量与全消费者审计闭环；本文追溯账本无未决开发口径。 |
 | B3-M1 | Definition、身份/质量、ORM/DAO、migration、Ops 与单元/集成测试 | **已完成**：本地定向测试、B0/B1/B2回归、migration静态门禁、Definition lint、docs完整性通过；未触发远程写。 |
 | B3-M2 | 隔离 PostgreSQL migration、HDD 与最小真实同步 | **已完成**：真实全量五段对账、重复同步、84,357/100,000 容量阈值、tablespace fail-closed/placement 及两处原子回滚全部通过。 |
-| B3-M3 | 生产 migration 与首次完整同步 | 生产 tablespace 真实 HDD 路径、首次完整同步五段对账、表/索引/WAL水位记录通过；不创建 schedule。 |
+| B3-M3 | 生产 migration 与首次完整同步 | **进行中**：生产部署、migration、真实 HDD 路径与空表/无任务核验通过；首次完整同步、五段对账和同步 WAL 水位尚未执行；不创建 schedule。 |
 | 后续运营 | 创建自动任务 | 运营另行拍板频率和 cron/once 后手工创建；不是 B3 开发退出条件。 |
 
 生产顺序只能是：部署已验收代码 → 获得生产 migration 授权 → 应用 migration → 核验全部 relation 位于 HDD → 手动首次无参完整同步 → 五段对账与资源记录 → 结束。不得在 migration 中 seed schedule，不得因未确定自动频率阻塞 B3-M1 至 M3。
@@ -379,4 +391,4 @@ CodeGraph 已覆盖 Definition → resolver/unit → request/source → normaliz
 
 B3-M2 已通过本机隔离 PostgreSQL 验收。无参单 unit 全量快照、5,000 行 short-page 分页、四字段任职身份与批内唯一性 fail-closed、全部显式字段落库、84,357/100,000 行容量和单事务原子性均有真实数据库证据。隔离验证没有发现需要修改 B0 writer 或其他共享主链的问题。
 
-下一门禁是 B3-M3，必须单独授权生产 migration、生产 `gs_raw_cold_hdd` 真实机械盘路径核验、首次无参完整同步与生产五段对账。自动任务频率仍是唯一延后运营决策，但 B3-M3 不自动创建 schedule，因此不阻塞首次生产同步。
+B3-M3 的生产部署、migration 和 `gs_raw_cold_hdd` 真实机械盘路径核验已经完成。下一门禁是单独授权首次生产无参完整同步与五段对账；自动任务频率仍是延后运营决策，不阻塞首次生产同步。
