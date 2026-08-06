@@ -19,6 +19,7 @@ from src.foundation.datasets.public_fund_contracts import (
     fund_basic_identity,
     fund_company_identity,
     fund_manager_identity,
+    fund_share_identity,
     mkt_idx_bmk_identity,
 )
 
@@ -95,6 +96,14 @@ def _fund_manager_observed_snapshot_row_transform(row: dict[str, Any]) -> dict[s
     transformed["source_entity_key"] = source_entity_key
     transformed["identity_basis"] = identity_basis
     transformed["manager_identity_key"] = manager_identity_key
+    return transformed
+
+
+def _fund_share_observed_fact_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    source_entity_key, identity_basis = fund_share_identity(transformed)
+    transformed["source_entity_key"] = source_entity_key
+    transformed["identity_basis"] = identity_basis
     return transformed
 
 
@@ -836,6 +845,7 @@ __all__ = [
     "_mkt_idx_bmk_observed_snapshot_row_transform",
     "_fund_basic_observed_snapshot_row_transform",
     "_fund_manager_observed_snapshot_row_transform",
+    "_fund_share_observed_fact_row_transform",
     "_trade_cal_row_transform",
     "_stock_basic_row_transform",
     "_bse_mapping_row_transform",

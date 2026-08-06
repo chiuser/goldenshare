@@ -662,6 +662,64 @@ def test_ops_schedule_create_supports_trigger_day_point_for_news_datasets(app_cl
         assert payload["cron_expr"] == "*/3 * * * *"
 
 
+@pytest.mark.parametrize(
+    "cron_expr",
+    ("0 19 * * *", "0 19 * * 1", "0 19 1 * *", "*/3 * * * *"),
+)
+def test_ops_schedule_create_supports_definition_declared_trigger_day_point_for_fund_share(
+    app_client,
+    user_factory,
+    cron_expr: str,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "fund_share.maintain",
+            "display_name": "基金规模自动维护",
+            "schedule_type": "cron",
+            "cron_expr": cron_expr,
+            "timezone": "Asia/Shanghai",
+            "calendar_policy": "trigger_day_point",
+            "params_json": {"time_input": {"mode": "point"}},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["target_key"] == "fund_share.maintain"
+    assert payload["calendar_policy"] == "trigger_day_point"
+    assert payload["cron_expr"] == cron_expr
+
+
+def test_ops_schedule_create_rejects_fund_share_cron_without_definition_policy(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "fund_share.maintain",
+            "display_name": "基金规模自动维护",
+            "schedule_type": "cron",
+            "cron_expr": "0 19 * * *",
+            "timezone": "Asia/Shanghai",
+            "params_json": {"time_input": {"mode": "point"}},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "该数据集周期任务必须使用系统声明的日期策略：trigger_day_point"
+
+
 def test_ops_schedule_create_rejects_trigger_day_point_below_min_interval(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
@@ -707,7 +765,7 @@ def test_ops_schedule_create_rejects_trigger_day_point_for_unsupported_dataset(a
     )
 
     assert response.status_code == 422
-    assert response.json()["message"] == "触发日单日策略只支持新闻快讯和新闻通讯"
+    assert response.json()["message"] == "触发日单日策略未由该数据集 Definition 声明"
 
 
 def test_ops_schedule_create_rejects_trigger_day_point_with_fixed_date(app_client, user_factory) -> None:

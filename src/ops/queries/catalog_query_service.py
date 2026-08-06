@@ -17,6 +17,7 @@ from src.ops.schemas.catalog import (
     ActionCatalogItem,
     ActionParameterResponse,
     AutomationCapabilityResponse,
+    CalendarPolicyCapabilityResponse,
     FilterCapabilityResponse,
     OpsCatalogResponse,
     ProbeConditionCapabilityResponse,
@@ -247,6 +248,16 @@ class OpsCatalogQueryService:
                     ),
                 )
                 for condition in capability.probe_conditions
+            ],
+            calendar_policy_rules=[
+                CalendarPolicyCapabilityResponse(
+                    policy=rule.policy,
+                    schedule_types=list(rule.schedule_types),
+                    cron_repeat_modes=list(rule.cron_repeat_modes),
+                    explicit_time_input=rule.explicit_time_input,
+                    generated_time_mode=rule.generated_time_mode,
+                )
+                for rule in capability.calendar_policy_rules
             ],
         )
 

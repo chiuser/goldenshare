@@ -87,6 +87,47 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
                         "观察快照 conflict_columns 必须为 source_entity_key, source_content_hash",
                     )
                 )
+        elif storage.write_path == "serving_observed_fact_scope_refresh":
+            if storage.raw_dao_name is not None or storage.raw_table is not None or storage.std_table is not None:
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "observed_fact_raw_or_std_forbidden",
+                        "serving_observed_fact_scope_refresh 不得配置 raw DAO/raw/std 表",
+                    )
+                )
+            if not storage.core_dao_name.strip() or not storage.observation_dao_name or not storage.observation_table:
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "observed_fact_dao_or_table_missing",
+                        "serving_observed_fact_scope_refresh 必须配置 current 与 observation DAO/表",
+                    )
+                )
+            if storage.observation_table == storage.target_table:
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "observed_fact_table_not_distinct",
+                        "observation_table 必须与 current target_table 不同",
+                    )
+                )
+            if storage.conflict_columns != ("source_entity_key", "source_content_hash"):
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "observed_fact_conflict_columns_invalid",
+                        "按范围观察事实 conflict_columns 必须为 source_entity_key, source_content_hash",
+                    )
+                )
+            if not definition.quality.unit_date_field or definition.quality.batch_unique_key_fields != ("source_entity_key",):
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "observed_fact_scope_contract_invalid",
+                        "按范围观察事实必须声明 unit_date_field 与唯一 source_entity_key",
+                    )
+                )
         elif storage.write_path == "serving_direct_upsert":
             if storage.raw_dao_name is not None:
                 issues.append(

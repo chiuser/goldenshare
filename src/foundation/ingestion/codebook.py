@@ -20,8 +20,8 @@ class IngestionCodebookEntry:
         }
 
 
-INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-06.v1"
-INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-06T00:00:00Z"
+INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-07.v1"
+INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-07T00:00:00Z"
 
 INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("dataset_mismatch", "请求数据集与定义不一致", "validator", "检查 dataset_key 与定义绑定"),
@@ -96,6 +96,12 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("write.snapshot_duplicate_record", "完整观察快照存在重复源记录", "writer", "检查源端分页重叠或身份规则，不能静默去重"),
     IngestionCodebookEntry("write.snapshot_storage_invalid", "观察快照存储契约无效", "writer", "检查 current/observation ORM 与完整 source field 列"),
     IngestionCodebookEntry("write.snapshot_persistence_incomplete", "观察快照持久化行数不一致", "writer", "检查 DAO 写入结果；事务将回滚"),
+    IngestionCodebookEntry("write.fact_rows_rejected", "按范围观察事实存在拒绝行", "writer", "先解决拒绝原因，不能用部分结果替换当前范围"),
+    IngestionCodebookEntry("write.fact_scope_invalid", "按范围观察事实的日期范围非法", "writer", "检查执行单元日期与源行日期是否一致"),
+    IngestionCodebookEntry("write.fact_duplicate_record", "按范围观察事实存在重复实体", "writer", "检查分页重叠或实体身份规则，禁止静默选取"),
+    IngestionCodebookEntry("write.fact_content_hash_invalid", "按范围观察事实内容哈希失败", "writer", "检查 source field 类型与哈希序列化"),
+    IngestionCodebookEntry("write.fact_storage_invalid", "按范围观察事实存储契约无效", "writer", "检查 current/observation ORM、scope 与完整 source field 列"),
+    IngestionCodebookEntry("write.fact_persistence_incomplete", "按范围观察事实持久化行数不一致", "writer", "检查 DAO 写入结果；事务将回滚"),
     IngestionCodebookEntry("write_failed", "写入异常", "writer", "检查数据库约束、冲突策略和目标表结构"),
     IngestionCodebookEntry("internal_error", "未归类内部错误", "runtime", "查看完整堆栈定位内部异常"),
     IngestionCodebookEntry("dispatcher_error", "调度器执行异常", "runtime", "检查任务调度链路和步骤事件"),

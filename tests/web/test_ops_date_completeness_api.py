@@ -131,6 +131,12 @@ def test_date_completeness_rules_are_grouped_by_applicability(app_client, user_f
     assert unsupported["stock_basic"]["not_applicable_reason"] == "snapshot/master dataset"
     assert unsupported["stock_basic"]["data_range"]["label"] == "—"
     assert "stock_basic" not in supported
+    assert unsupported["fund_share"]["audit_applicable"] is False
+    assert unsupported["fund_share"]["group_key"] == "public_fund"
+    assert unsupported["fund_share"]["not_applicable_reason"] == (
+        "基金规模按源端实际变动日记录；不要求每个自然日都有数据，不做连续日期完整性审计。"
+    )
+    assert "fund_share" not in supported
 
 
 def test_date_completeness_rules_cover_special_date_models(app_client, user_factory) -> None:

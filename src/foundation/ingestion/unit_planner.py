@@ -483,6 +483,34 @@ def _expand_natural_dates(start_date: date, end_date: date) -> list[date]:
     return dates
 
 
+def _build_natural_day_point_units(
+    planner: DatasetUnitPlanner,
+    request: ValidatedDatasetActionRequest,
+    definition: DatasetDefinition,
+) -> list[PlanUnitSnapshot]:
+    request_builder = planner._resolve_request_builder(definition)
+    if request.run_profile == "point_incremental":
+        if request.trade_date is None:
+            raise DatasetUnitPlanner._planning_error("missing_anchor_fields", "自然日单日维护缺少日期")
+        anchors = [request.trade_date]
+    elif request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise DatasetUnitPlanner._planning_error("range_required", "自然日区间维护必须同时填写开始日期和结束日期")
+        anchors = _expand_natural_dates(request.start_date, request.end_date)
+    else:
+        raise DatasetUnitPlanner._planning_error("run_profile_unsupported", f"自然日逐日维护不支持运行模式：{request.run_profile}")
+    return build_plan_units(
+        request=request,
+        definition=definition,
+        anchors=anchors,
+        enum_combinations=[{}],
+        request_builder=request_builder,
+        pagination_policy_override=definition.planning.pagination_policy,
+        page_limit_override=definition.planning.page_limit,
+        progress_context_builder=planner._build_generic_progress_context,
+    )
+
+
 def _build_dividend_units(planner: DatasetUnitPlanner, request: ValidatedDatasetActionRequest, definition: DatasetDefinition) -> list[PlanUnitSnapshot]:
     request_builder = planner._resolve_request_builder(definition)
     if request.run_profile == "snapshot_refresh":
@@ -1368,6 +1396,7 @@ _CUSTOM_UNIT_BUILDERS: dict[str, Callable[[DatasetUnitPlanner, ValidatedDatasetA
     "build_cctv_news_units": _build_cctv_news_units,
     "build_dc_member_units": _build_dc_member_units,
     "build_major_news_units": _build_major_news_units,
+    "build_natural_day_point_units": _build_natural_day_point_units,
     "build_news_units": _build_news_units,
     "build_dividend_units": _build_dividend_units,
     "build_index_daily_units": _build_index_daily_units,

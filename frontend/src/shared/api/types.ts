@@ -475,6 +475,18 @@ export interface OpsAutomationCapability {
     mode: "schedule" | "probe" | "schedule_probe_fallback";
     allowed_schedule_types: Array<"cron" | "once">;
   }>;
+  calendar_policy_rules: Array<{
+    policy:
+      | "monthly_last_day"
+      | "monthly_last_trading_day"
+      | "monthly_window_current_month"
+      | "trigger_day_single_range"
+      | "trigger_day_point";
+    schedule_types: Array<"cron" | "once">;
+    cron_repeat_modes: Array<"daily" | "weekly" | "monthly" | "intraday_interval">;
+    explicit_time_input: "allowed" | "forbidden";
+    generated_time_mode: "point" | "range";
+  }>;
   probe_conditions: Array<{
     kind: string;
     label: string;

@@ -77,6 +77,15 @@ FUND_MANAGER_SOURCE_FIELDS = (
     "resume",
 )
 
+FUND_SHARE_SOURCE_FIELDS = (
+    "ts_code",
+    "trade_date",
+    "fd_share",
+    "total_share",
+    "fund_type",
+    "market",
+)
+
 
 def fund_company_identity(row: Mapping[str, Any]) -> tuple[str, str]:
     """Return the conservative source-record entity key and its basis.
@@ -132,6 +141,13 @@ def fund_manager_identity(row: Mapping[str, Any]) -> tuple[str, str, str | None]
     if all(manager_parts):
         manager_identity_key = f"manager:{_sha256_json_parts(manager_parts)}"
     return source_entity_key, "assignment_fields", manager_identity_key
+
+
+def fund_share_identity(row: Mapping[str, Any]) -> tuple[str, str]:
+    ts_code = _normalized_text(row.get("ts_code"), uppercase=True)
+    trade_date = row.get("trade_date")
+    trade_date_text = trade_date.isoformat() if hasattr(trade_date, "isoformat") else _normalized_text(trade_date)
+    return f"share:{_sha256_json_parts((ts_code, trade_date_text))}", "ts_code_trade_date"
 
 
 def _normalized_text(value: object, *, uppercase: bool = False) -> str:

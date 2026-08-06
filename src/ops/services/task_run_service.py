@@ -23,6 +23,7 @@ from src.ops.action_catalog import (
 )
 from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.task_run import TaskRun
+from src.ops.services.dataset_schedule_time_policy_resolver import DatasetScheduleTimePolicyResolver
 
 
 MONTHLY_LAST_DAY_POLICY = "monthly_last_day"
@@ -292,6 +293,13 @@ class TaskRunCommandService:
             TRIGGER_DAY_POINT_POLICY,
         }:
             raise WebAppError(status_code=422, code="validation_error", message=f"不支持的日期策略：{normalized_policy}")
+        policy_rule = DatasetScheduleTimePolicyResolver().rule_for_policy(
+            definition=definition,
+            action="maintain",
+            policy=normalized_policy,
+        )
+        if policy_rule is None:
+            raise WebAppError(status_code=422, code="validation_error", message="数据集 Definition 未声明该日期策略")
         if normalized_policy == MONTHLY_LAST_DAY_POLICY:
             if definition.date_model.bucket_rule != "month_last_calendar_day":
                 raise WebAppError(status_code=422, code="validation_error", message="每月最后一天策略只支持自然月末数据集")
@@ -325,12 +333,6 @@ class TaskRunCommandService:
                 "trade_date": trade_date.isoformat(),
             }
         if normalized_policy == TRIGGER_DAY_SINGLE_RANGE_POLICY:
-            if not self._supports_trigger_day_single_range_policy(definition):
-                raise WebAppError(
-                    status_code=422,
-                    code="validation_error",
-                    message="触发日单日区间策略只支持自然日公告区间且仅支持区间维护的数据集",
-                )
             if self._has_explicit_time_boundary(params_json) or self._has_fixed_ann_date(params_json):
                 raise WebAppError(
                     status_code=422,
@@ -350,8 +352,6 @@ class TaskRunCommandService:
                 "end_date": trigger_date.isoformat(),
             }
         if normalized_policy == TRIGGER_DAY_POINT_POLICY:
-            if not self._supports_trigger_day_point_policy(definition):
-                raise WebAppError(status_code=422, code="validation_error", message="触发日单日策略只支持新闻快讯和新闻通讯")
             if self._has_explicit_time_boundary(params_json):
                 raise WebAppError(status_code=422, code="validation_error", message="触发日单日策略不能与固定维护日期或窗口混用")
             if scheduled_at is None:
@@ -506,27 +506,6 @@ class TaskRunCommandService:
             date_model.date_axis == "month_window"
             and date_model.bucket_rule == "month_window_has_data"
             and date_model.input_shape == "start_end_month_window"
-        )
-
-    @staticmethod
-    def _supports_trigger_day_single_range_policy(definition: DatasetDefinition) -> bool:
-        action = definition.capabilities.get_action("maintain")
-        date_model = definition.date_model
-        return bool(
-            action is not None
-            and tuple(action.supported_time_modes) == ("range",)
-            and date_model.date_axis == "natural_day"
-            and date_model.input_shape == "ann_date_or_start_end"
-        )
-
-    @staticmethod
-    def _supports_trigger_day_point_policy(definition: DatasetDefinition) -> bool:
-        action = definition.capabilities.get_action("maintain")
-        return bool(
-            definition.dataset_key in {"news", "major_news"}
-            and action is not None
-            and "point" in tuple(action.supported_time_modes)
-            and definition.date_model.input_shape == "trade_date_or_start_end"
         )
 
     @staticmethod

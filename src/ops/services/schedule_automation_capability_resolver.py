@@ -36,6 +36,10 @@ from src.ops.services.stk_mins_remote_probe_service import (
     STK_MINS_ALLOWED_FREQS,
     STK_MINS_REMOTE_READY_CONDITION,
 )
+from src.ops.services.dataset_schedule_time_policy_resolver import (
+    DatasetScheduleTimePolicyCapability,
+    DatasetScheduleTimePolicyResolver,
+)
 
 if TYPE_CHECKING:
     from src.ops.models.ops.schedule import OpsSchedule
@@ -121,6 +125,7 @@ class AutomationCapability:
     default_trigger_mode: TriggerMode
     trigger_options: tuple[TriggerModeCapability, ...]
     probe_conditions: tuple[ProbeConditionCapability, ...]
+    calendar_policy_rules: tuple[DatasetScheduleTimePolicyCapability, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -438,6 +443,10 @@ class ScheduleAutomationCapabilityResolver:
             return None
         if action != "maintain" or not action_is_schedulable("dataset_action", target_key):
             return None
+        calendar_policy_rules = DatasetScheduleTimePolicyResolver().resolve(
+            definition=definition,
+            action=action,
+        )
 
         remote_condition = self._remote_condition_for_action(target_key)
         if remote_condition is not None:
@@ -449,6 +458,7 @@ class ScheduleAutomationCapabilityResolver:
                     for mode in remote_condition.allowed_trigger_modes
                 ),
                 probe_conditions=(remote_condition,),
+                calendar_policy_rules=calendar_policy_rules,
             )
 
         if definition.observability.freshness_policy == CONTINUOUS_OPEN_DAY:
@@ -471,16 +481,21 @@ class ScheduleAutomationCapabilityResolver:
                     TriggerModeCapability(mode="schedule_probe_fallback", allowed_schedule_types=DEFAULT_SCHEDULE_TYPES),
                 ),
                 probe_conditions=(freshness_condition,),
+                calendar_policy_rules=calendar_policy_rules,
             )
-        return self._schedule_only_capability()
+        return self._schedule_only_capability(calendar_policy_rules=calendar_policy_rules)
 
     @staticmethod
-    def _schedule_only_capability() -> AutomationCapability:
+    def _schedule_only_capability(
+        *,
+        calendar_policy_rules: tuple[DatasetScheduleTimePolicyCapability, ...] = (),
+    ) -> AutomationCapability:
         return AutomationCapability(
             version=1,
             default_trigger_mode="schedule",
             trigger_options=(TriggerModeCapability(mode="schedule", allowed_schedule_types=DEFAULT_SCHEDULE_TYPES),),
             probe_conditions=(),
+            calendar_policy_rules=calendar_policy_rules,
         )
 
     @staticmethod

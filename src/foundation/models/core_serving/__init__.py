@@ -11,6 +11,8 @@ from src.foundation.models.core_serving.fund_company_current import FundCompanyC
 from src.foundation.models.core_serving.fund_company_observation import FundCompanyObservation
 from src.foundation.models.core_serving.fund_manager_current import FundManagerCurrent
 from src.foundation.models.core_serving.fund_manager_observation import FundManagerObservation
+from src.foundation.models.core_serving.fund_share_current import FundShareCurrent
+from src.foundation.models.core_serving.fund_share_observation import FundShareObservation
 from src.foundation.models.core_serving.index_basic import IndexBasic
 from src.foundation.models.core_serving.index_daily_basic import IndexDailyBasic
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
@@ -39,6 +41,8 @@ __all__ = [
     "FundCompanyObservation",
     "FundManagerCurrent",
     "FundManagerObservation",
+    "FundShareCurrent",
+    "FundShareObservation",
     "IndexBasic",
     "IndexDailyBasic",
     "TradeCalendar",

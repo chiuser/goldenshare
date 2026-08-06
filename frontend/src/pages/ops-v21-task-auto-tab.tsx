@@ -293,9 +293,15 @@ export function formatScheduleRule(
     return `每月最后一天 ${parsed.repeatTime}，维护当月自然月窗口`;
   }
   if (calendarPolicy === "trigger_day_point") {
-    return parsed.repeatMode === "intraday_interval"
-      ? `每 ${parsed.intradayIntervalMinutes} 分钟，维护触发日`
-      : cronExpr || "未设置";
+    const base =
+      parsed.repeatMode === "intraday_interval"
+        ? `每 ${parsed.intradayIntervalMinutes} 分钟`
+        : parsed.repeatMode === "daily"
+          ? `每天 ${parsed.repeatTime}`
+          : parsed.repeatMode === "weekly"
+            ? `每周 ${parsed.repeatWeekdays.map((item) => weekdayLabel[item] || item).join("、")} ${parsed.repeatTime}`
+            : `每月 ${parsed.repeatMonthDay} 日 ${parsed.repeatTime}`;
+    return `${base}，维护触发日`;
   }
   if (calendarPolicy === "trigger_day_single_range") {
     const base =
@@ -488,44 +494,24 @@ function usesCalendarDateControl(rule: string | null | undefined): boolean {
   return rule === CALENDAR_WEEK_FRIDAY_SELECTION_RULE || rule === "month_end";
 }
 
-export function actionSupportsMonthlyLastDayPolicy(action: CatalogAction | null | undefined): boolean {
-  return action?.action_type === "dataset_action" && action.date_selection_rule === "month_end";
-}
-
-export function actionSupportsMonthlyLastTradingDayPolicy(action: CatalogAction | null | undefined): boolean {
-  return action?.action_type === "dataset_action" && action.date_selection_rule === "month_last_trading_day";
-}
-
-export function actionSupportsMonthlyWindowPolicy(action: CatalogAction | null | undefined): boolean {
-  return action?.action_type === "dataset_action" && action.date_selection_rule === "month_window";
-}
-
-export function actionSupportsTriggerDaySingleRangePolicy(action: CatalogAction | null | undefined): boolean {
-  if (action?.action_type !== "dataset_action" || action.date_selection_rule !== "calendar_day") {
-    return false;
-  }
-  const paramKeys = new Set((action.parameters || []).map((param) => param.key));
-  return (
-    paramKeys.has("ann_date")
-    && paramKeys.has("start_date")
-    && paramKeys.has("end_date")
-    && !paramKeys.has("trade_date")
-  );
-}
-
-export function actionSupportsTriggerDayPointPolicy(action: CatalogAction | null | undefined): boolean {
-  return (
-    action?.action_type === "dataset_action"
-    && (action.target_key === "news" || action.target_key === "major_news")
+export function capabilitySupportsCalendarPolicy(
+  capability: AutomationCapability | null | undefined,
+  policy: Exclude<CalendarPolicy, "">,
+  scheduleType: "cron" | "once",
+  repeatMode: RepeatMode,
+): boolean {
+  return Boolean(
+    capability?.calendar_policy_rules?.some(
+      (rule) =>
+        rule.policy === policy
+        && rule.schedule_types.includes(scheduleType)
+        && (scheduleType !== "cron" || rule.cron_repeat_modes.includes(repeatMode)),
+    ),
   );
 }
 
 function policyGeneratesTimeInput(calendarPolicy: CalendarPolicy): boolean {
-  return (
-    calendarPolicy === "monthly_window_current_month"
-    || calendarPolicy === "trigger_day_single_range"
-    || calendarPolicy === "trigger_day_point"
-  );
+  return calendarPolicy !== "";
 }
 
 export function shouldShowScheduleTimingFields(triggerMode: TriggerMode): boolean {
@@ -547,43 +533,15 @@ export function hasRequiredVisibleParameters(parameters: CatalogActionParameter[
 export function resolveEffectiveCalendarPolicy(args: {
   scheduleType: string;
   repeatMode: RepeatMode;
-  selectedAction: CatalogAction | null | undefined;
+  automationCapability: AutomationCapability | null | undefined;
 }): CalendarPolicy {
-  if (
-    args.scheduleType === "cron"
-    && args.repeatMode === "intraday_interval"
-    && actionSupportsTriggerDayPointPolicy(args.selectedAction)
-  ) {
-    return "trigger_day_point";
-  }
-  if (
-    args.scheduleType === "cron"
-    && args.repeatMode === "monthly"
-    && actionSupportsMonthlyLastTradingDayPolicy(args.selectedAction)
-  ) {
-    return "monthly_last_trading_day";
-  }
-  if (
-    args.scheduleType === "cron"
-    && args.repeatMode === "monthly"
-    && actionSupportsMonthlyLastDayPolicy(args.selectedAction)
-  ) {
-    return "monthly_last_day";
-  }
-  if (
-    args.scheduleType === "cron"
-    && args.repeatMode === "monthly"
-    && actionSupportsMonthlyWindowPolicy(args.selectedAction)
-  ) {
-    return "monthly_window_current_month";
-  }
-  if (
-    args.scheduleType === "cron"
-    && actionSupportsTriggerDaySingleRangePolicy(args.selectedAction)
-  ) {
-    return "trigger_day_single_range";
-  }
-  return "";
+  const scheduleType = args.scheduleType === "once" ? "once" : "cron";
+  const rule = args.automationCapability?.calendar_policy_rules?.find(
+    (item) =>
+      item.schedule_types.includes(scheduleType)
+      && (scheduleType !== "cron" || item.cron_repeat_modes.includes(args.repeatMode)),
+  );
+  return (rule?.policy as CalendarPolicy | undefined) || "";
 }
 
 function findCatalogAction(catalog: OpsCatalogResponse | undefined, actionType: string, actionKey: string): CatalogAction | null {
@@ -819,21 +777,15 @@ export function OpsAutomationPage() {
     () => usesCalendarDateControl(selectedAction?.date_selection_rule),
     [selectedAction?.date_selection_rule],
   );
-  const selectedActionUsesMonthlyLastDayPolicy = useMemo(
-    () => actionSupportsMonthlyLastDayPolicy(selectedAction),
-    [selectedAction],
-  );
-  const selectedActionUsesMonthlyLastTradingDayPolicy = useMemo(
-    () => actionSupportsMonthlyLastTradingDayPolicy(selectedAction),
-    [selectedAction],
-  );
-  const selectedActionUsesMonthlyWindowPolicy = useMemo(
-    () => actionSupportsMonthlyWindowPolicy(selectedAction),
-    [selectedAction],
-  );
-  const selectedActionUsesTriggerDayPointPolicy = useMemo(
-    () => actionSupportsTriggerDayPointPolicy(selectedAction),
-    [selectedAction],
+  const selectedActionSupportsIntraday = useMemo(
+    () =>
+      capabilitySupportsCalendarPolicy(
+        selectedAutomationCapability,
+        "trigger_day_point",
+        "cron",
+        "intraday_interval",
+      ),
+    [selectedAutomationCapability],
   );
   const selectedProbeCondition = getProbeCondition(selectedAutomationCapability, form.probe_condition_kind);
   const selectedProbeForbidsTimeInput = selectedProbeCondition?.time_input === "forbidden";
@@ -849,15 +801,15 @@ export function OpsAutomationPage() {
       resolveEffectiveCalendarPolicy({
         scheduleType: form.schedule_type,
         repeatMode: form.repeat_mode,
-        selectedAction,
+        automationCapability: selectedAutomationCapability,
     }),
-    [form.repeat_mode, form.schedule_type, selectedAction],
+    [form.repeat_mode, form.schedule_type, selectedAutomationCapability],
   );
   useEffect(() => {
-    if (form.repeat_mode === "intraday_interval" && !selectedActionUsesTriggerDayPointPolicy) {
+    if (form.repeat_mode === "intraday_interval" && !selectedActionSupportsIntraday) {
       setForm((current) => ({ ...current, repeat_mode: "daily" }));
     }
-  }, [form.repeat_mode, selectedActionUsesTriggerDayPointPolicy, setForm]);
+  }, [form.repeat_mode, selectedActionSupportsIntraday, setForm]);
   useEffect(() => {
     if (selectedAutomationCapability && !isTriggerModeAllowed(selectedAutomationCapability, form.trigger_mode)) {
       setForm((current) => ({
@@ -1013,10 +965,11 @@ export function OpsAutomationPage() {
         timeInput.mode = "range";
         timeInput.start_month = params.start_month;
         timeInput.end_month = params.end_month;
-      } else if (effectiveCalendarPolicy === "trigger_day_point") {
-        timeInput.mode = "point";
       } else if (policyGeneratesTimeInput(effectiveCalendarPolicy)) {
-        timeInput.mode = "range";
+        const policyRule = selectedAutomationCapability?.calendar_policy_rules?.find(
+          (rule) => rule.policy === effectiveCalendarPolicy,
+        );
+        timeInput.mode = policyRule?.generated_time_mode || "none";
       } else if (supportsSingleDay) {
         timeInput.mode = "point";
       } else {
@@ -1040,6 +993,7 @@ export function OpsAutomationPage() {
     form.action_type,
     form.start_date,
     selectedActionParameters,
+    selectedAutomationCapability,
     selectedAction,
     supportsDateRange,
     supportsSingleDay,
@@ -1062,7 +1016,10 @@ export function OpsAutomationPage() {
         effectiveCalendarPolicy,
         form.intraday_interval_minutes,
       );
-      const triggerDaySuffix = effectiveCalendarPolicy === "trigger_day_single_range" ? "，维护触发日" : "";
+      const triggerDaySuffix =
+        effectiveCalendarPolicy === "trigger_day_single_range" || effectiveCalendarPolicy === "trigger_day_point"
+          ? "，维护触发日"
+          : "";
       const detail =
         form.repeat_mode === "intraday_interval"
           ? `每 ${form.intraday_interval_minutes} 分钟，维护触发日`
@@ -1076,7 +1033,7 @@ export function OpsAutomationPage() {
                   ? `每月最后一个交易日 ${form.repeat_time}`
                 : effectiveCalendarPolicy === "monthly_window_current_month"
                   ? `每月最后一天 ${form.repeat_time}，维护当月自然月窗口`
-                  : effectiveCalendarPolicy === "trigger_day_single_range"
+                  : effectiveCalendarPolicy === "trigger_day_single_range" || effectiveCalendarPolicy === "trigger_day_point"
                     ? `每月 ${form.repeat_month_day} 日 ${form.repeat_time}，维护触发日`
                     : `每月 ${form.repeat_month_day} 日 ${form.repeat_time}`;
       return {
@@ -1841,7 +1798,7 @@ export function OpsAutomationPage() {
                       { value: "daily", label: "每天" },
                       { value: "weekly", label: "每周" },
                       { value: "monthly", label: "每月" },
-                      ...(selectedActionUsesTriggerDayPointPolicy ? [{ value: "intraday_interval", label: "每 N 分钟" }] : []),
+                      ...(selectedActionSupportsIntraday ? [{ value: "intraday_interval", label: "每 N 分钟" }] : []),
                     ]}
                     value={form.repeat_mode}
                     onChange={(value) => setForm((current) => ({ ...current, repeat_mode: (value as RepeatMode) || "daily" }))}
@@ -1849,7 +1806,7 @@ export function OpsAutomationPage() {
                   {form.repeat_mode === "intraday_interval" ? (
                     <TextInput
                       label="间隔分钟"
-                      description="仅新闻快讯、新闻通讯可用；最小 3 分钟。每次触发维护当天数据。"
+                      description="仅当前数据集能力允许时可用；最小 3 分钟。每次触发维护当天数据。"
                       placeholder="3"
                       type="number"
                       min={3}
@@ -1876,7 +1833,7 @@ export function OpsAutomationPage() {
                     />
                   ) : null}
                   {form.repeat_mode === "monthly" ? (
-                    selectedActionUsesMonthlyLastTradingDayPolicy ? (
+                    effectiveCalendarPolicy === "monthly_last_trading_day" ? (
                       <Select
                         label="每月执行日期"
                         description="该维护对象按每月最后一个交易日作为业务日期。"
@@ -1884,7 +1841,7 @@ export function OpsAutomationPage() {
                         value="monthly_last_trading_day"
                         readOnly
                       />
-                    ) : selectedActionUsesMonthlyLastDayPolicy ? (
+                    ) : effectiveCalendarPolicy === "monthly_last_day" ? (
                       <Select
                         label="每月执行日期"
                         description="该维护对象按自然月最后一天作为业务日期。"
@@ -1892,7 +1849,7 @@ export function OpsAutomationPage() {
                         value="monthly_last_day"
                         readOnly
                       />
-                    ) : selectedActionUsesMonthlyWindowPolicy ? (
+                    ) : effectiveCalendarPolicy === "monthly_window_current_month" ? (
                       <Select
                         label="每月执行日期"
                         description="该维护对象按自然月窗口维护，系统会自动生成当月第一天到最后一天。"

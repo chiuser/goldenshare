@@ -209,12 +209,22 @@ class DatasetTransactionDefinition:
 
 
 @dataclass(frozen=True, slots=True)
+class DatasetScheduleTimePolicy:
+    policy: str
+    schedule_types: tuple[str, ...]
+    cron_repeat_modes: tuple[str, ...]
+    explicit_time_input: str
+    generated_time_mode: str
+
+
+@dataclass(frozen=True, slots=True)
 class DatasetActionCapability:
     action: str
     manual_enabled: bool
     schedule_enabled: bool
     retry_enabled: bool
     supported_time_modes: tuple[str, ...]
+    schedule_time_policy: DatasetScheduleTimePolicy | None = None
 
 
 @dataclass(frozen=True, slots=True)

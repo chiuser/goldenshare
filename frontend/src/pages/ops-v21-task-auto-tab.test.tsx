@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  actionSupportsTriggerDayPointPolicy,
-  actionSupportsTriggerDaySingleRangePolicy,
   buildProbeRunQueryPath,
   buildCronExpression,
+  capabilitySupportsCalendarPolicy,
   formatProbeRunCount,
   formatScheduleRule,
   defaultProbeConditionForCapability,
@@ -20,94 +19,86 @@ import {
 } from "./ops-v21-task-auto-tab";
 
 describe("自动任务日期策略", () => {
-  const monthlyCalendarAction = {
-    action_type: "dataset_action",
-    date_selection_rule: "month_end",
-  };
-  const monthlyTradingAction = {
-    action_type: "dataset_action",
-    date_selection_rule: "month_last_trading_day",
-  };
-  const monthlyWindowAction = {
-    action_type: "dataset_action",
-    date_selection_rule: "month_window",
-  };
-  const annDateRangeAction = {
-    action_type: "dataset_action",
-    date_selection_rule: "calendar_day",
-    parameters: [
-      { key: "start_date" },
-      { key: "end_date" },
-      { key: "ann_date" },
+  const capability = (policy: string, cronRepeatModes: string[]) => ({
+    calendar_policy_rules: [
+      {
+        policy,
+        schedule_types: ["cron"],
+        cron_repeat_modes: cronRepeatModes,
+        explicit_time_input: "forbidden",
+        generated_time_mode: policy === "trigger_day_single_range" ? "range" : "point",
+      },
     ],
-  };
-  const naturalDayTradeDateAction = {
-    action_type: "dataset_action",
-    target_key: "daily",
-    date_selection_rule: "calendar_day",
-    parameters: [
-      { key: "trade_date" },
-      { key: "start_date" },
-      { key: "end_date" },
-    ],
-  };
-  const newsAction = {
-    action_type: "dataset_action",
-    target_key: "news",
-    date_selection_rule: "calendar_day",
-    parameters: [
-      { key: "trade_date" },
-      { key: "start_date" },
-      { key: "end_date" },
-    ],
-  };
+  });
+
+  const monthlyCalendarCapability = capability("monthly_last_day", ["monthly"]);
+  const monthlyTradingCapability = capability("monthly_last_trading_day", ["monthly"]);
+  const monthlyWindowCapability = capability("monthly_window_current_month", ["monthly"]);
+  const annDateRangeCapability = capability("trigger_day_single_range", ["daily", "weekly", "monthly"]);
+  const newsCapability = capability("trigger_day_point", ["intraday_interval"]);
+  const fundShareCapability = capability("trigger_day_point", ["daily", "weekly", "monthly", "intraday_interval"]);
+  const noCalendarPolicyCapability = { calendar_policy_rules: [] };
 
   it("recommends monthly calendar policies from dataset date selection rules", () => {
     expect(
       resolveEffectiveCalendarPolicy({
         scheduleType: "cron",
         repeatMode: "monthly",
-        selectedAction: monthlyCalendarAction as never,
+        automationCapability: monthlyCalendarCapability as never,
       }),
     ).toBe("monthly_last_day");
     expect(
       resolveEffectiveCalendarPolicy({
         scheduleType: "cron",
         repeatMode: "monthly",
-        selectedAction: monthlyTradingAction as never,
+        automationCapability: monthlyTradingCapability as never,
       }),
     ).toBe("monthly_last_trading_day");
     expect(
       resolveEffectiveCalendarPolicy({
         scheduleType: "cron",
         repeatMode: "monthly",
-        selectedAction: monthlyWindowAction as never,
+        automationCapability: monthlyWindowCapability as never,
       }),
     ).toBe("monthly_window_current_month");
     expect(
       resolveEffectiveCalendarPolicy({
         scheduleType: "once",
         repeatMode: "monthly",
-        selectedAction: monthlyCalendarAction as never,
+        automationCapability: monthlyCalendarCapability as never,
       }),
     ).toBe("");
   });
 
   it("recommends trigger-day single-range policy for ann_date range-only datasets", () => {
-    expect(actionSupportsTriggerDaySingleRangePolicy(annDateRangeAction as never)).toBe(true);
-    expect(actionSupportsTriggerDaySingleRangePolicy(naturalDayTradeDateAction as never)).toBe(false);
+    expect(
+      capabilitySupportsCalendarPolicy(
+        annDateRangeCapability as never,
+        "trigger_day_single_range",
+        "cron",
+        "daily",
+      ),
+    ).toBe(true);
+    expect(
+      capabilitySupportsCalendarPolicy(
+        noCalendarPolicyCapability as never,
+        "trigger_day_single_range",
+        "cron",
+        "daily",
+      ),
+    ).toBe(false);
     expect(
       resolveEffectiveCalendarPolicy({
         scheduleType: "cron",
         repeatMode: "daily",
-        selectedAction: annDateRangeAction as never,
+        automationCapability: annDateRangeCapability as never,
       }),
     ).toBe("trigger_day_single_range");
     expect(
       resolveEffectiveCalendarPolicy({
         scheduleType: "once",
         repeatMode: "daily",
-        selectedAction: annDateRangeAction as never,
+        automationCapability: annDateRangeCapability as never,
       }),
     ).toBe("");
   });
@@ -154,23 +145,25 @@ describe("自动任务日期策略", () => {
     expect(formatScheduleRule("cron", "0 19 * * *", null, "trigger_day_single_range")).toBe("每天 19:00，维护触发日");
   });
 
-  it("supports trigger-day point policy only for intraday news schedules", () => {
-    expect(actionSupportsTriggerDayPointPolicy(newsAction as never)).toBe(true);
-    expect(actionSupportsTriggerDayPointPolicy(naturalDayTradeDateAction as never)).toBe(false);
+  it("uses backend capability rules for news and fund-share trigger-day point schedules", () => {
+    expect(capabilitySupportsCalendarPolicy(newsCapability as never, "trigger_day_point", "cron", "intraday_interval")).toBe(true);
+    expect(capabilitySupportsCalendarPolicy(newsCapability as never, "trigger_day_point", "cron", "daily")).toBe(false);
+    expect(capabilitySupportsCalendarPolicy(fundShareCapability as never, "trigger_day_point", "cron", "daily")).toBe(true);
+    expect(capabilitySupportsCalendarPolicy(noCalendarPolicyCapability as never, "trigger_day_point", "cron", "daily")).toBe(false);
     expect(
       resolveEffectiveCalendarPolicy({
         scheduleType: "cron",
         repeatMode: "intraday_interval",
-        selectedAction: newsAction as never,
+        automationCapability: newsCapability as never,
       }),
     ).toBe("trigger_day_point");
     expect(
       resolveEffectiveCalendarPolicy({
         scheduleType: "cron",
-        repeatMode: "intraday_interval",
-        selectedAction: naturalDayTradeDateAction as never,
+        repeatMode: "daily",
+        automationCapability: fundShareCapability as never,
       }),
-    ).toBe("");
+    ).toBe("trigger_day_point");
   });
 
   it("builds and formats intraday interval cron for trigger_day_point", () => {

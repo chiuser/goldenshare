@@ -58,11 +58,26 @@ class ProbeConditionCapabilityResponse(BaseModel):
     probe: ProbeConfigCapabilityResponse
 
 
+class CalendarPolicyCapabilityResponse(BaseModel):
+    policy: Literal[
+        "monthly_last_day",
+        "monthly_last_trading_day",
+        "monthly_window_current_month",
+        "trigger_day_single_range",
+        "trigger_day_point",
+    ]
+    schedule_types: list[Literal["cron", "once"]]
+    cron_repeat_modes: list[Literal["daily", "weekly", "monthly", "intraday_interval"]]
+    explicit_time_input: Literal["allowed", "forbidden"]
+    generated_time_mode: Literal["point", "range"]
+
+
 class AutomationCapabilityResponse(BaseModel):
     version: Literal[1]
     default_trigger_mode: Literal["schedule", "probe", "schedule_probe_fallback"]
     trigger_options: list[TriggerModeCapabilityResponse]
     probe_conditions: list[ProbeConditionCapabilityResponse]
+    calendar_policy_rules: list[CalendarPolicyCapabilityResponse]
 
 
 class ActionCatalogItem(BaseModel):

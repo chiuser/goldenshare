@@ -83,6 +83,12 @@ class DatasetWriter:
                     definition=definition,
                     batch=batch,
                 )
+            if definition.storage.write_path == "serving_observed_fact_scope_refresh":
+                return self._write_serving_observed_fact_scope_refresh(
+                    definition=definition,
+                    batch=batch,
+                    plan_unit=plan_unit,
+                )
 
             raw_dao, core_dao = self._resolve_write_daos(definition=definition, unit_id=batch.unit_id)
             if definition.storage.write_path == "raw_index_period_serving_upsert":
@@ -356,6 +362,136 @@ class DatasetWriter:
             conflict_strategy="serving_observed_snapshot_refresh",
         )
 
+    def _write_serving_observed_fact_scope_refresh(
+        self,
+        *,
+        definition: DatasetDefinition,
+        batch: NormalizedBatch,
+        plan_unit: PlanUnitSnapshot | None,
+    ) -> WriteResult:
+        scope_field = definition.quality.unit_date_field
+        scope_value = plan_unit.trade_date if plan_unit is not None else None
+        if not scope_field or scope_value is None:
+            raise self._observed_snapshot_error(
+                code="write.fact_scope_invalid",
+                unit_id=batch.unit_id,
+                message="按范围观察事实写入缺少执行单元日期范围",
+            )
+        if batch.rows_rejected:
+            raise self._observed_snapshot_error(
+                code="write.fact_rows_rejected",
+                unit_id=batch.unit_id,
+                message="按范围观察事实存在归一化拒绝行，不能用部分结果替换 current projection",
+                details={"rows_rejected": batch.rows_rejected},
+            )
+        if not batch.rows_normalized:
+            return WriteResult(
+                unit_id=batch.unit_id,
+                rows_written=0,
+                rows_upserted=0,
+                rows_skipped=0,
+                target_table=definition.storage.target_table,
+                conflict_strategy="serving_observed_fact_scope_refresh",
+            )
+
+        current_dao, observation_dao = self._resolve_observed_snapshot_daos(
+            definition=definition,
+            unit_id=batch.unit_id,
+        )
+        self._validate_observed_snapshot_dao_contract(
+            definition=definition,
+            current_dao=current_dao,
+            observation_dao=observation_dao,
+            unit_id=batch.unit_id,
+            error_code="write.fact_storage_invalid",
+        )
+        current_columns = {column.name for column in current_dao.model.__table__.columns}
+        observation_columns = {column.name for column in observation_dao.model.__table__.columns}
+        if scope_field not in current_columns or scope_field not in observation_columns:
+            raise self._observed_snapshot_error(
+                code="write.fact_storage_invalid",
+                unit_id=batch.unit_id,
+                message=f"按范围观察事实目标表缺少 scope 列：{scope_field}",
+            )
+
+        fact_rows: list[dict[str, Any]] = []
+        seen_entity_keys: set[str] = set()
+        for row in batch.rows_normalized:
+            if row.get(scope_field) != scope_value:
+                raise self._observed_snapshot_error(
+                    code="write.fact_scope_invalid",
+                    unit_id=batch.unit_id,
+                    message="按范围观察事实行日期与执行单元范围不一致",
+                    details={"scope_field": scope_field, "expected": str(scope_value), "actual": str(row.get(scope_field))},
+                )
+            source_entity_key = row.get("source_entity_key")
+            if not isinstance(source_entity_key, str) or not source_entity_key.strip():
+                raise self._observed_snapshot_error(
+                    code="write.source_entity_key_missing",
+                    unit_id=batch.unit_id,
+                    message="按范围观察事实行缺少非空 source_entity_key",
+                )
+            if source_entity_key in seen_entity_keys:
+                raise self._observed_snapshot_error(
+                    code="write.fact_duplicate_record",
+                    unit_id=batch.unit_id,
+                    message="按范围观察事实中同一逻辑实体出现多条源记录",
+                    details={"source_entity_key": source_entity_key},
+                )
+            seen_entity_keys.add(source_entity_key)
+            try:
+                source_content_hash = compute_source_content_hash(
+                    row=row,
+                    source_fields=definition.source.source_fields,
+                )
+            except SourceFieldMissingError as exc:
+                raise self._observed_snapshot_error(
+                    code="write.source_field_missing",
+                    unit_id=batch.unit_id,
+                    message=str(exc),
+                    details={"field": exc.field},
+                ) from exc
+            except ObservedSnapshotHashError as exc:
+                raise self._observed_snapshot_error(
+                    code="write.fact_content_hash_invalid",
+                    unit_id=batch.unit_id,
+                    message=str(exc),
+                ) from exc
+            fact_rows.append({**row, "source_content_hash": source_content_hash})
+
+        current_rows = self._coerce_rows_for_dao(fact_rows, current_dao)
+        observation_rows = self._coerce_rows_for_dao(fact_rows, observation_dao)
+        current_dao.acquire_scope_lock(scope_field=scope_field, scope_value=scope_value)
+        observed_at = utc_now()
+        observation_result = observation_dao.record_observations(observation_rows, observed_at=observed_at)
+        current_written = current_dao.replace_current_scope(
+            current_rows,
+            observed_at=observed_at,
+            scope_field=scope_field,
+            scope_value=scope_value,
+            scope_lock_acquired=True,
+        )
+        expected_rows = len(fact_rows)
+        if observation_result.rows_observed != expected_rows or current_written != expected_rows:
+            raise self._observed_snapshot_error(
+                code="write.fact_persistence_incomplete",
+                unit_id=batch.unit_id,
+                message="按范围观察事实写入行数与已验证源记录数不一致",
+                details={
+                    "expected_rows": expected_rows,
+                    "observation_rows_observed": observation_result.rows_observed,
+                    "current_rows_written": current_written,
+                },
+            )
+        return WriteResult(
+            unit_id=batch.unit_id,
+            rows_written=expected_rows,
+            rows_upserted=expected_rows,
+            rows_skipped=0,
+            target_table=definition.storage.target_table,
+            conflict_strategy="serving_observed_fact_scope_refresh",
+        )
+
     @classmethod
     def _validate_observed_snapshot_dao_contract(
         cls,
@@ -364,18 +500,19 @@ class DatasetWriter:
         current_dao,
         observation_dao,
         unit_id: str,
+        error_code: str = "write.snapshot_storage_invalid",
     ) -> None:  # type: ignore[no-untyped-def]
         current_table = getattr(getattr(current_dao, "model", None), "__table__", None)
         observation_table = getattr(getattr(observation_dao, "model", None), "__table__", None)
         if current_table is None or observation_table is None:
             raise cls._observed_snapshot_error(
-                code="write.snapshot_storage_invalid",
+                code=error_code,
                 unit_id=unit_id,
                 message="观察快照 DAO 必须显式绑定 ORM model",
             )
         if current_table.fullname == observation_table.fullname:
             raise cls._observed_snapshot_error(
-                code="write.snapshot_storage_invalid",
+                code=error_code,
                 unit_id=unit_id,
                 message="current 与 observation DAO 不能绑定同一张表",
             )
@@ -389,7 +526,7 @@ class DatasetWriter:
         )
         if current_missing or observation_missing:
             raise cls._observed_snapshot_error(
-                code="write.snapshot_storage_invalid",
+                code=error_code,
                 unit_id=unit_id,
                 message="观察快照目标表缺少协议或显式 source field 列",
                 details={"current_missing": current_missing, "observation_missing": observation_missing},

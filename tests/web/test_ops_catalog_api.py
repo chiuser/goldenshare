@@ -40,6 +40,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert "mkt_idx_bmk.maintain" in actions
     assert "fund_basic.maintain" in actions
     assert "fund_manager.maintain" in actions
+    assert "fund_share.maintain" in actions
     assert "maintenance.rebuild_dm" in actions
     legacy_keys = [
         "sync" + "_daily.daily",
@@ -195,7 +196,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert actions["maintenance.rebuild_dm"]["display_name"] == "刷新数据集市快照"
 
     catalog_items = [*actions.values(), *workflows.values()]
-    assert sum(item["schedule_enabled"] for item in catalog_items) == 85
+    assert sum(item["schedule_enabled"] for item in catalog_items) == 86
     assert all(
         (item["automation_capability"] is not None) is item["schedule_enabled"]
         for item in catalog_items
@@ -233,6 +234,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
                 },
             }
         ],
+        "calendar_policy_rules": [],
     }
 
     margin_detail_capability = actions["margin_detail.maintain"]["automation_capability"]
@@ -263,6 +265,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
                 },
             }
         ],
+        "calendar_policy_rules": [],
     }
     for workflow in workflows.values():
         if workflow["schedule_enabled"]:
@@ -271,9 +274,30 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
                 "default_trigger_mode": "schedule",
                 "trigger_options": [{"mode": "schedule", "allowed_schedule_types": ["cron", "once"]}],
                 "probe_conditions": [],
+                "calendar_policy_rules": [],
             }
         else:
             assert workflow["automation_capability"] is None
+
+    fund_share = actions["fund_share.maintain"]
+    assert fund_share["group_key"] == "public_fund"
+    assert fund_share["group_label"] == "公募基金"
+    assert fund_share["freshness_policy"] == "event_run_trace"
+    assert [param["key"] for param in fund_share["parameters"]] == ["trade_date", "start_date", "end_date"]
+    assert fund_share["automation_capability"]["default_trigger_mode"] == "schedule"
+    assert fund_share["automation_capability"]["trigger_options"] == [
+        {"mode": "schedule", "allowed_schedule_types": ["cron", "once"]}
+    ]
+    assert fund_share["automation_capability"]["probe_conditions"] == []
+    assert fund_share["automation_capability"]["calendar_policy_rules"] == [
+        {
+            "policy": "trigger_day_point",
+            "schedule_types": ["cron"],
+            "cron_repeat_modes": ["daily", "weekly", "monthly", "intraday_interval"],
+            "explicit_time_input": "forbidden",
+            "generated_time_mode": "point",
+        }
+    ]
 
 
 def test_ops_catalog_includes_schedule_binding_counts(app_client, user_factory, ops_schedule_factory) -> None:

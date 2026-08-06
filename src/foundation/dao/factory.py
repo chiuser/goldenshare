@@ -37,6 +37,8 @@ from src.foundation.models.core_serving.fund_company_current import FundCompanyC
 from src.foundation.models.core_serving.fund_company_observation import FundCompanyObservation
 from src.foundation.models.core_serving.fund_manager_current import FundManagerCurrent
 from src.foundation.models.core_serving.fund_manager_observation import FundManagerObservation
+from src.foundation.models.core_serving.fund_share_current import FundShareCurrent
+from src.foundation.models.core_serving.fund_share_observation import FundShareObservation
 from src.foundation.models.core.equity_factor_pro import EquityFactorPro
 from src.foundation.models.core.equity_stk_limit import EquityStkLimit
 from src.foundation.models.core.equity_stock_st import EquityStockSt
@@ -190,6 +192,8 @@ class DAOFactory:
         self.fund_company_observation = ObservedSnapshotDAO(session, FundCompanyObservation)
         self.fund_manager_current = ObservedSnapshotDAO(session, FundManagerCurrent)
         self.fund_manager_observation = ObservedSnapshotDAO(session, FundManagerObservation)
+        self.fund_share_current = ObservedSnapshotDAO(session, FundShareCurrent)
+        self.fund_share_observation = ObservedSnapshotDAO(session, FundShareObservation)
         self.mkt_idx_bmk_current = ObservedSnapshotDAO(session, MktIdxBmkCurrent)
         self.mkt_idx_bmk_observation = ObservedSnapshotDAO(session, MktIdxBmkObservation)
         self.stk_period_bar = StkPeriodBarDAO(session)

@@ -18,6 +18,8 @@ from src.foundation.models.core_serving.fund_basic_current import FundBasicCurre
 from src.foundation.models.core_serving.fund_basic_observation import FundBasicObservation
 from src.foundation.models.core_serving.fund_manager_current import FundManagerCurrent
 from src.foundation.models.core_serving.fund_manager_observation import FundManagerObservation
+from src.foundation.models.core_serving.fund_share_current import FundShareCurrent
+from src.foundation.models.core_serving.fund_share_observation import FundShareObservation
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
 from src.foundation.models.core.equity_dividend import EquityDividend
 from src.foundation.models.core.equity_factor_pro import EquityFactorPro
@@ -175,6 +177,7 @@ __all__ = [
     "EquityHolderNumber",
     "EquityLimitList",
     "EquityMargin",
+    "EquityMarginDetail",
     "EquityMoneyflow",
     "EquityMoneyflowThs",
     "EquityMoneyflowDc",
@@ -194,6 +197,8 @@ __all__ = [
     "FundBasicObservation",
     "FundManagerCurrent",
     "FundManagerObservation",
+    "FundShareCurrent",
+    "FundShareObservation",
     "FundCompanyCurrent",
     "FundCompanyObservation",
     "FundAdjFactor",

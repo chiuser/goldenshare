@@ -438,6 +438,35 @@ def test_scheduler_trigger_day_point_policy_uses_due_schedule_day_for_news_task_
     assert refreshed.next_run_at.replace(tzinfo=timezone.utc) == datetime(2026, 5, 13, 16, 6, tzinfo=timezone.utc)
 
 
+def test_scheduler_trigger_day_point_policy_uses_due_schedule_day_for_fund_share_task_run(
+    db_session,
+    ops_schedule_factory,
+) -> None:
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="fund_share.maintain",
+        display_name="基金规模自动维护",
+        schedule_type="cron",
+        cron_expr="0 19 * * *",
+        timezone_name="Asia/Shanghai",
+        calendar_policy="trigger_day_point",
+        params_json={"time_input": {"mode": "point"}},
+        next_run_at=datetime(2026, 5, 14, 11, 0, tzinfo=timezone.utc),
+    )
+
+    created = OperationsScheduler().run_once(
+        db_session,
+        now=datetime(2026, 5, 14, 11, 0, tzinfo=timezone.utc),
+    )
+
+    assert len(created) == 1
+    task_run = created[0]
+    assert task_run.schedule_id == schedule.id
+    assert task_run.resource_key == "fund_share"
+    assert task_run.time_input_json == {"mode": "point", "trade_date": "2026-05-14"}
+    assert task_run.request_payload_json["time_input"] == {"mode": "point", "trade_date": "2026-05-14"}
+
+
 def test_scheduler_defaults_daily_workflow_to_point_mode_when_schedule_has_no_time_params(db_session, ops_schedule_factory) -> None:
     schedule = ops_schedule_factory(
         target_type="workflow",

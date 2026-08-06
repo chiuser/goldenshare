@@ -112,7 +112,7 @@ EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
     },
     "low_frequency": {"dividend", "stk_holdernumber"},
     "news": {"cctv_news", "major_news", "news", "anns_d", "irm_qa_sh", "irm_qa_sz"},
-    "public_fund": {"fund_basic", "fund_company", "fund_manager", "mkt_idx_bmk"},
+    "public_fund": {"fund_basic", "fund_company", "fund_manager", "fund_share", "mkt_idx_bmk"},
 }
 
 LEGACY_ROUTE_TOGGLE_TOKENS = (

@@ -26,6 +26,7 @@ from src.ops.action_catalog import (
 )
 from src.app.exceptions import WebAppError
 from src.foundation.datasets.registry import get_dataset_definition_by_action_key
+from src.ops.services.dataset_schedule_time_policy_resolver import DatasetScheduleTimePolicyResolver
 
 
 MONTHLY_LAST_DAY_POLICY = "monthly_last_day"
@@ -33,7 +34,6 @@ MONTHLY_LAST_TRADING_DAY_POLICY = "monthly_last_trading_day"
 MONTHLY_WINDOW_CURRENT_MONTH_POLICY = "monthly_window_current_month"
 TRIGGER_DAY_SINGLE_RANGE_POLICY = "trigger_day_single_range"
 TRIGGER_DAY_POINT_POLICY = "trigger_day_point"
-TRIGGER_DAY_POINT_TARGET_KEYS = {"news.maintain", "major_news.maintain"}
 MIN_INTRADAY_INTERVAL_MINUTES = 3
 SUPPORTED_CALENDAR_POLICIES = {
     MONTHLY_LAST_DAY_POLICY,
@@ -350,6 +350,14 @@ class OperationsScheduleService:
         schedules = list(session.scalars(stmt))
         task_runs: list[TaskRun] = []
         for schedule in schedules:
+            self._validate_calendar_policy(
+                target_type=schedule.target_type,
+                target_key=schedule.target_key,
+                schedule_type=schedule.schedule_type,
+                cron_expr=schedule.cron_expr,
+                calendar_policy=self._normalize_calendar_policy(schedule.calendar_policy),
+                params_json=dict(schedule.params_json or {}),
+            )
             if schedule.trigger_mode == "schedule_probe_fallback" and self._has_effective_probe_task_for_schedule_day(
                 session,
                 schedule=schedule,
@@ -613,145 +621,74 @@ class OperationsScheduleService:
         calendar_policy: str | None,
         params_json: dict,
     ) -> None:
+        if target_type != "dataset_action":
+            if calendar_policy is None:
+                return
+            raise WebAppError(status_code=422, code="validation_error", message="日期策略只支持数据集维护任务")
+        try:
+            definition, action = get_dataset_definition_by_action_key(target_key)
+        except KeyError as exc:
+            raise WebAppError(status_code=422, code="validation_error", message="数据集维护动作不存在") from exc
+
+        resolver = DatasetScheduleTimePolicyResolver()
+        required_rule = resolver.required_policy_for_schedule(
+            definition=definition,
+            action=action,
+            schedule_type=schedule_type,
+            cron_expr=cron_expr,
+        )
+        if required_rule is not None and calendar_policy != required_rule.policy:
+            raise WebAppError(
+                status_code=422,
+                code="validation_error",
+                message=f"该数据集周期任务必须使用系统声明的日期策略：{required_rule.policy}",
+            )
         if calendar_policy is None:
             return
-        if calendar_policy == MONTHLY_LAST_DAY_POLICY:
-            if schedule_type != "cron":
-                raise WebAppError(status_code=422, code="validation_error", message="每月最后一天策略只支持周期执行")
-            if target_type != "dataset_action":
-                raise WebAppError(status_code=422, code="validation_error", message="每月最后一天策略只支持数据集维护任务")
-            try:
-                definition, _action = get_dataset_definition_by_action_key(target_key)
-            except KeyError as exc:
-                raise WebAppError(status_code=422, code="validation_error", message="数据集维护动作不存在") from exc
-            if definition.date_model.bucket_rule != "month_last_calendar_day":
-                raise WebAppError(
-                    status_code=422,
-                    code="validation_error",
-                    message="每月最后一天策略只支持自然月末数据集",
-                )
-            if OperationsScheduleService._has_fixed_trade_date(params_json):
-                raise WebAppError(
-                    status_code=422,
-                    code="validation_error",
-                    message="每月最后一天策略不能与固定维护日期混用",
-                )
-            return
-        if calendar_policy == MONTHLY_LAST_TRADING_DAY_POLICY:
-            if schedule_type != "cron":
-                raise WebAppError(status_code=422, code="validation_error", message="每月最后交易日策略只支持周期执行")
-            if target_type != "dataset_action":
-                raise WebAppError(status_code=422, code="validation_error", message="每月最后交易日策略只支持数据集维护任务")
-            try:
-                definition, _action = get_dataset_definition_by_action_key(target_key)
-            except KeyError as exc:
-                raise WebAppError(status_code=422, code="validation_error", message="数据集维护动作不存在") from exc
-            if definition.date_model.bucket_rule != "month_last_open_day":
-                raise WebAppError(
-                    status_code=422,
-                    code="validation_error",
-                    message="每月最后交易日策略只支持交易日月末数据集",
-                )
-            if OperationsScheduleService._has_fixed_trade_date(params_json):
-                raise WebAppError(
-                    status_code=422,
-                    code="validation_error",
-                    message="每月最后交易日策略不能与固定维护日期混用",
-                )
-            return
-        if calendar_policy == MONTHLY_WINDOW_CURRENT_MONTH_POLICY:
-            if schedule_type != "cron":
-                raise WebAppError(status_code=422, code="validation_error", message="自然月窗口策略只支持周期执行")
-            if target_type != "dataset_action":
-                raise WebAppError(status_code=422, code="validation_error", message="自然月窗口策略只支持数据集维护任务")
-            try:
-                definition, _action = get_dataset_definition_by_action_key(target_key)
-            except KeyError as exc:
-                raise WebAppError(status_code=422, code="validation_error", message="数据集维护动作不存在") from exc
-            date_model = definition.date_model
-            if not (
-                date_model.date_axis == "month_window"
-                and date_model.bucket_rule == "month_window_has_data"
-                and date_model.input_shape == "start_end_month_window"
-            ):
-                raise WebAppError(
-                    status_code=422,
-                    code="validation_error",
-                    message="自然月窗口策略只支持月窗口数据集",
-                )
-            if OperationsScheduleService._has_explicit_time_boundary(params_json):
-                raise WebAppError(
-                    status_code=422,
-                    code="validation_error",
-                    message="自然月窗口策略不能与固定维护日期或窗口混用",
-                )
-            return
-        if calendar_policy == TRIGGER_DAY_SINGLE_RANGE_POLICY:
-            if schedule_type != "cron":
-                raise WebAppError(status_code=422, code="validation_error", message="触发日单日区间策略只支持周期执行")
-            if target_type != "dataset_action":
-                raise WebAppError(status_code=422, code="validation_error", message="触发日单日区间策略只支持数据集维护任务")
-            try:
-                definition, action = get_dataset_definition_by_action_key(target_key)
-            except KeyError as exc:
-                raise WebAppError(status_code=422, code="validation_error", message="数据集维护动作不存在") from exc
-            if not OperationsScheduleService._supports_trigger_day_single_range_policy(definition=definition, action=action):
-                raise WebAppError(
-                    status_code=422,
-                    code="validation_error",
-                    message="触发日单日区间策略只支持自然日公告区间且仅支持区间维护的数据集",
-                )
-            if OperationsScheduleService._has_explicit_time_boundary(params_json) or OperationsScheduleService._has_fixed_ann_date(params_json):
-                raise WebAppError(
-                    status_code=422,
-                    code="validation_error",
-                    message="触发日单日区间策略不能与固定维护日期或窗口混用",
-                )
-            return
-        if calendar_policy == TRIGGER_DAY_POINT_POLICY:
-            if schedule_type != "cron":
-                raise WebAppError(status_code=422, code="validation_error", message="触发日单日策略只支持周期执行")
-            if target_type != "dataset_action":
-                raise WebAppError(status_code=422, code="validation_error", message="触发日单日策略只支持数据集维护任务")
-            if target_key not in TRIGGER_DAY_POINT_TARGET_KEYS:
-                raise WebAppError(status_code=422, code="validation_error", message="触发日单日策略只支持新闻快讯和新闻通讯")
-            try:
-                definition, action = get_dataset_definition_by_action_key(target_key)
-            except KeyError as exc:
-                raise WebAppError(status_code=422, code="validation_error", message="数据集维护动作不存在") from exc
-            if not OperationsScheduleService._supports_trigger_day_point_policy(definition=definition, action=action):
-                raise WebAppError(status_code=422, code="validation_error", message="触发日单日策略只支持新闻快讯和新闻通讯")
-            if OperationsScheduleService._has_explicit_time_boundary(params_json):
-                raise WebAppError(
-                    status_code=422,
-                    code="validation_error",
-                    message="触发日单日策略不能与固定维护日期或窗口混用",
-                )
+        rule = resolver.rule_for_policy(definition=definition, action=action, policy=calendar_policy)
+        if rule is None:
+            unsupported_messages = {
+                MONTHLY_LAST_DAY_POLICY: "每月最后一天策略只支持自然月末数据集",
+                MONTHLY_LAST_TRADING_DAY_POLICY: "每月最后交易日策略只支持交易日月末数据集",
+                MONTHLY_WINDOW_CURRENT_MONTH_POLICY: "自然月窗口策略只支持月窗口数据集",
+                TRIGGER_DAY_SINGLE_RANGE_POLICY: "触发日单日区间策略只支持自然日公告区间且仅支持区间维护的数据集",
+                TRIGGER_DAY_POINT_POLICY: "触发日单日策略未由该数据集 Definition 声明",
+            }
+            raise WebAppError(
+                status_code=422,
+                code="validation_error",
+                message=unsupported_messages.get(calendar_policy, f"不支持的日期策略：{calendar_policy}"),
+            )
+        if schedule_type not in rule.schedule_types:
+            labels = {
+                MONTHLY_LAST_DAY_POLICY: "每月最后一天",
+                MONTHLY_LAST_TRADING_DAY_POLICY: "每月最后交易日",
+                MONTHLY_WINDOW_CURRENT_MONTH_POLICY: "自然月窗口",
+                TRIGGER_DAY_SINGLE_RANGE_POLICY: "触发日单日区间",
+                TRIGGER_DAY_POINT_POLICY: "触发日单日",
+            }
+            raise WebAppError(
+                status_code=422,
+                code="validation_error",
+                message=f"{labels[calendar_policy]}策略只支持周期执行",
+            )
+        repeat_mode = resolver.classify_cron_repeat_mode(cron_expr) if schedule_type == "cron" else None
+        if rule.declared_by_action and repeat_mode not in rule.cron_repeat_modes:
+            raise WebAppError(status_code=422, code="validation_error", message="当前周期类型不支持该数据集声明的日期策略")
+        if rule.explicit_time_input == "forbidden" and (
+            OperationsScheduleService._has_explicit_time_boundary(params_json)
+            or OperationsScheduleService._has_fixed_ann_date(params_json)
+        ):
+            conflict_messages = {
+                MONTHLY_LAST_DAY_POLICY: "每月最后一天策略不能与固定维护日期混用",
+                MONTHLY_LAST_TRADING_DAY_POLICY: "每月最后交易日策略不能与固定维护日期混用",
+                MONTHLY_WINDOW_CURRENT_MONTH_POLICY: "自然月窗口策略不能与固定维护日期或窗口混用",
+                TRIGGER_DAY_SINGLE_RANGE_POLICY: "触发日单日区间策略不能与固定维护日期或窗口混用",
+                TRIGGER_DAY_POINT_POLICY: "触发日单日策略不能与固定维护日期或窗口混用",
+            }
+            raise WebAppError(status_code=422, code="validation_error", message=conflict_messages[calendar_policy])
+        if calendar_policy == TRIGGER_DAY_POINT_POLICY and repeat_mode == "intraday_interval":
             OperationsScheduleService._validate_intraday_interval_cron(cron_expr)
-            return
-        raise WebAppError(status_code=422, code="validation_error", message=f"不支持的日期策略：{calendar_policy}")
-
-    @staticmethod
-    def _supports_trigger_day_single_range_policy(*, definition, action: str) -> bool:  # type: ignore[no-untyped-def]
-        maintain_action = definition.capabilities.get_action(action)
-        date_model = definition.date_model
-        return bool(
-            maintain_action is not None
-            and tuple(maintain_action.supported_time_modes) == ("range",)
-            and date_model.date_axis == "natural_day"
-            and date_model.input_shape == "ann_date_or_start_end"
-        )
-
-    @staticmethod
-    def _supports_trigger_day_point_policy(*, definition, action: str) -> bool:  # type: ignore[no-untyped-def]
-        maintain_action = definition.capabilities.get_action(action)
-        date_model = definition.date_model
-        return bool(
-            definition.dataset_key in {"news", "major_news"}
-            and maintain_action is not None
-            and "point" in tuple(maintain_action.supported_time_modes)
-            and date_model.input_shape == "trade_date_or_start_end"
-        )
 
     @staticmethod
     def _validate_intraday_interval_cron(cron_expr: str | None) -> int:
