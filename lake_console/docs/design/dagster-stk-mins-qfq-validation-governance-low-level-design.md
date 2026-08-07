@@ -4,6 +4,8 @@
 
 状态：代码收敛完成；QFQ/MACD-KDJ 范围内本地验证通过。全仓共享治理测试目前受无关的 `dc_board` 未提交 catalog 变更阻塞，详见第 15 节；不得启用或初始化已撤销的 as-of basis 方案。
 
+> 2026-08-07 后续修正：本文“derived 写入算法不变”只描述 2026-07-15 的 check 治理范围，不再代表 90m/120m 窗口业务合同正确。集合竞价锚点修复、90m/120m 全历史重建及 MACD/KDJ/state 重算以[统一修复与重建 LLD](./dagster-derived-minute-bars-90-120-contract-rebuild-low-level-design.md)为准；production check 仍不增加公式自检。
+
 ## 1. 结论
 
 QFQ 的计算公式正确性由受保护的测试金样本证明；生产 check 不重复计算 QFQ OHLC。check 只验证真实运行时可能偏离预期的输入、文件和状态事实。

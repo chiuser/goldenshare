@@ -2230,6 +2230,12 @@ def write_gold_stk_mins_qfq_derived_asset_partition(
             f"target_freq={normalized_freq}, partition={partition_key}, "
             f"mismatch_window_count={exchange_mismatch_window_count}."
         )
+    if incomplete_window_count:
+        raise RuntimeError(
+            "Gold stk_mins qfq derived source windows are incomplete or invalid: "
+            f"target_freq={normalized_freq}, partition={partition_key}, "
+            f"incomplete_window_count={incomplete_window_count}."
+        )
     if generated_window_count <= 0:
         raise RuntimeError(
             "Gold stk_mins qfq derived generation produced no rows: "

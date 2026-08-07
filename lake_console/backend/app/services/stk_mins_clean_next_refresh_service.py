@@ -305,13 +305,7 @@ def _format_derived_rebuild_requirements(requirements: dict[int, dict[str, Any]]
         end_date = item["end_date"]
         item["start_date"] = start_date.isoformat()
         item["end_date"] = end_date.isoformat()
-        item["command"] = (
-            "lake_console/.venv/bin/python -m lake_console.backend.app.cli "
-            "rebuild-stk-mins-derived-from-clean-range "
-            f"--target-freqs {target_freq} "
-            f"--start-date {start_date.isoformat()} "
-            f"--end-date {end_date.isoformat()}"
-        )
+        item["rebuild_owner"] = "orchestrator"
         formatted.append(item)
     return formatted
 

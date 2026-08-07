@@ -1,5 +1,7 @@
 # Dagster 主要指数历史分钟线接入 LLD
 
+> 2026-08-07 修正：90m/120m 第一上午 bar 必须使用 `09:30.close` 作为 open/高低价锚点并包含竞价 `vol/amount`；90m 输出 `11:00/14:00/15:00`，120m 输出 `11:30/15:00`。旧窗口与历史文件必须按[统一修复与重建 LLD](./dagster-derived-minute-bars-90-120-contract-rebuild-low-level-design.md)替换。
+
 ## 1. LLD 范围
 
 本文将 `major_index_mins` 方案细化到模块、常量、函数、SQL、事务、sensor 和测试级别。本文只设计新链路，不改当前 `index_mins` 代码。
@@ -296,7 +298,7 @@ Silver 必须再次执行日期、频率、Silver scope、主键和严格 domain
 metadata。历史 OHLC 修正只允许命中 P7C 冻结的精确白名单；未知日期、代码、频率或
 时间点的 OHLC 异常继续 fail closed。
 
-派生 90/120 分钟继续使用交易时段窗口表，不跨午休拼接，不跨日期聚合。每个派生 bar 的 open/high/low/close、vol、amount、vwap 语义与现有 `index_mins` Silver writer 一致。
+派生 90/120 分钟使用统一交易 bar 窗口合同，不跨日期聚合。第一上午 bar 单独使用 `09:30.close` 作为 open/高低价锚点并包含竞价 `vol/amount`；后续窗口按明确 source 时间集合聚合。90m 第二窗口可包含午休前后的三根有序交易 bar，但午休期间没有虚构 source 行。完整规则以统一修复 LLD 为准。
 
 ## 5. Sensor 详细算法
 
@@ -607,7 +609,7 @@ rows=staging rows。非北证行继续执行 session grid、OHLC 和 finite/non-
 
 ### 13.3 90m/120m
 
-`90m` 只从 Silver 30m，`120m` 只从 Silver 60m。窗口定义复用当前 `index_mins` 的 helper；不得跨日期或午休拼接。每个窗口必须完整，输出 open=first、close=last、high=max、low=min、vol/amount=sum；vwap 按源能力保留或 NULL，必须由 fixture 锁定。缺完整窗口时不写该窗口，不把部分窗口标 ready。
+`90m` 只从 Silver 30m，`120m` 只从 Silver 60m，并复用唯一共享窗口合同。90m 输出 `11:00/14:00/15:00`；120m 输出 `11:30/15:00`。第一上午 bar 的 open 使用 `09:30.close`，high/low 包含该价格锚点，vol/amount 包含 09:30 竞价行一次；其它窗口为 first open、last close、max/min、sum。每个 anchor 和常规 source 时间集合必须完整；缺任何一项时不写该窗口，不把部分窗口标 ready。派生 vwap 继续为 NULL。
 
 ## 14. Asset、check、job 与 Definition 细节
 
@@ -697,7 +699,7 @@ def raw_major_index_mins_update_job_sensor(context):
 | contract | 11 code scope、五频、字段、路径、起止日 | 重复 scope、未知 code、scope empty 误写 |
 | Tushare | 显式 fields、单页、多页、空页 | offset 不增、满页截断、跨页重复、列漂移、错误分类 |
 | Raw | source/staging 回读相等，五频独立 promote | 任一频率失败覆盖目标、目标冲突、预算超限 |
-| Silver | native、90m/120m完整窗口 | 跨午休/跨日、partial window、vwap误填 |
+| Silver | native、90m/120m 固定 source 时间集合 | 错误 source 时间集合、跨日期、缺竞价锚点、非法 partial window、vwap 误填 |
 | check | partitioned core check 通过/失败 | 无 partition、multi-partition 聚合、超大 metadata |
 | sensor | request/skip/blocked/ready，最多一个 run | event history/Tushare 五频/Prod 调用、cursor >8KB |
 | catalog | 12 条 exact entry、12 条 governance mapping | 少映射、多映射、中文名缺失、旧 partition 误复用 |
@@ -852,8 +854,8 @@ P3 已完成，执行日期为 `2026-08-05`。实现和测试仅使用临时 Lak
 - SH/SZ 五频日行数固定为 `241/49/17/9/5`，首行 `09:30`、末行 `15:00`。
 - BSE 五频日行数固定为 `271/55/19/10/6`，首行 `09:30`、末行 `15:30`。
 - 三个交易所都拒绝午休时段行；原生 Silver 必须 exact code set + exact session grid，不接受只看行数。
-- 90m 以 30m 为源。SH/SZ 输出 `11:00/14:00/15:00`；BSE 输出 `11:00/14:00/15:30`，第三窗包含 `14:30/15:00/15:30`。
-- 120m 以 60m 为源，三个交易所都只输出 `10:30/14:00` 两个完整窗口；BSE 的 `15:00/15:30` 不是完整 120m 窗口，不生成伪 K 线。
+- 90m 以 30m 为源。正式 Silver 只覆盖 SH/SZ，输出 `11:00/14:00/15:00`；第一根使用 09:30 竞价锚点加 `10:00/10:30/11:00`。
+- 120m 以 60m 为源。正式 Silver 只覆盖 SH/SZ，输出 `11:30/15:00`；第一根使用 09:30 竞价锚点加 `10:30/11:30`，第二根使用 `14:00/15:00`。旧 `10:30/14:00` 输出已废止。
 - 派生窗口 `open/close/high/low/vol/amount` 使用 DuckDB set-based 聚合，派生 `vwap` 固定为 `NULL`。
 
 ### 23.2 写入和共用质量门禁

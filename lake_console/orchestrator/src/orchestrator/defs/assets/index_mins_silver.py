@@ -25,9 +25,14 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_INDEX_MINS_SCHEMA,
     SILVER_INDEX_MINS_SCHEMA,
 )
+from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
+    AUCTION_ANCHOR_ROLE,
+    REGULAR_SOURCE_ROLE,
+    cn_a_derived_minute_completion_predicate,
+    cn_a_derived_minute_window_map_sql,
+)
 from orchestrator.defs.run_contracts.index_mins import (
     INDEX_MINS_DERIVED_FREQS,
-    index_mins_derived_windows,
     normalize_index_mins_silver_freq,
     source_freq_for_index_mins_derived_freq,
 )
@@ -611,11 +616,14 @@ def _derived_diagnostics(
     silver_freq: str,
     partition_key: str,
 ) -> dict[str, int]:
-    window_map = _window_map_sql(silver_freq)
-    completion = _completion_predicate(
-        silver_freq,
-        "source_row_count",
-        "window_id",
+    window_map = cn_a_derived_minute_window_map_sql(silver_freq)
+    completion = cn_a_derived_minute_completion_predicate(
+        regular_row_count_column="coalesce(actual.regular_row_count, 0)",
+        regular_time_count_column="coalesce(actual.regular_time_count, 0)",
+        anchor_row_count_column="coalesce(actual.anchor_row_count, 0)",
+        anchor_time_count_column="coalesce(actual.anchor_time_count, 0)",
+        expected_regular_count_column="expected.expected_regular_count",
+        expected_anchor_count_column="expected.expected_anchor_count",
     )
     row = connection.execute(
         f"""
@@ -629,15 +637,30 @@ def _derived_diagnostics(
           {window_map}
         ), expected_windows AS (
           SELECT days.ts_code, days.trade_date, map.window_id,
-                 count(*) AS expected_source_row_count
+                 max(map.target_time) AS target_time,
+                 max(map.expected_regular_count) AS expected_regular_count,
+                 max(map.expected_anchor_count) AS expected_anchor_count
           FROM source_stock_days days CROSS JOIN window_map map
           GROUP BY days.ts_code, days.trade_date, map.window_id
         ), actual_windows AS (
           SELECT source_rows.ts_code,
                  CAST(source_rows.trade_time AS DATE) AS trade_date,
                  map.window_id,
-                 max(source_rows.trade_time) AS trade_time,
-                 count(*) AS source_row_count,
+                 max(source_rows.trade_time) FILTER (
+                   WHERE map.source_role = '{REGULAR_SOURCE_ROLE}'
+                 ) AS trade_time,
+                 count(*) FILTER (
+                   WHERE map.source_role = '{REGULAR_SOURCE_ROLE}'
+                 ) AS regular_row_count,
+                 count(DISTINCT strftime(source_rows.trade_time, '%H:%M:%S')) FILTER (
+                   WHERE map.source_role = '{REGULAR_SOURCE_ROLE}'
+                 ) AS regular_time_count,
+                 count(*) FILTER (
+                   WHERE map.source_role = '{AUCTION_ANCHOR_ROLE}'
+                 ) AS anchor_row_count,
+                 count(DISTINCT strftime(source_rows.trade_time, '%H:%M:%S')) FILTER (
+                   WHERE map.source_role = '{AUCTION_ANCHOR_ROLE}'
+                 ) AS anchor_time_count,
                  count(DISTINCT coalesce(source_rows.exchange, '<NULL>')) AS exchange_count
           FROM source_rows
           INNER JOIN window_map map
@@ -646,9 +669,11 @@ def _derived_diagnostics(
           GROUP BY source_rows.ts_code, CAST(source_rows.trade_time AS DATE), map.window_id
         ), status AS (
           SELECT expected.ts_code, expected.trade_date, expected.window_id,
-                 coalesce(actual.source_row_count, 0) AS source_row_count,
                  coalesce(actual.exchange_count, 0) AS exchange_count,
-                 actual.trade_time
+                 actual.trade_time,
+                 actual.trade_time IS NOT NULL
+                   AND strftime(actual.trade_time, '%H:%M:%S') = expected.target_time
+                   AND ({completion}) AS generated
           FROM expected_windows expected
           LEFT JOIN actual_windows actual
             ON expected.ts_code = actual.ts_code
@@ -659,16 +684,9 @@ def _derived_diagnostics(
           (SELECT count(*) FROM source_rows
            WHERE CAST(trade_time AS DATE) = CAST(? AS DATE)),
           count(*),
-          count(*) FILTER (
-            WHERE source_row_count > 0
-              AND NOT ({completion})
-          ) + count(*) FILTER (WHERE source_row_count = 0),
-          count(*) FILTER (WHERE source_row_count > 0 AND exchange_count > 1),
-          count(*) FILTER (
-            WHERE source_row_count > 0
-              AND ({completion})
-              AND exchange_count = 1
-          )
+          count(*) FILTER (WHERE NOT generated),
+          count(*) FILTER (WHERE exchange_count > 1),
+          count(*) FILTER (WHERE generated AND exchange_count = 1)
         FROM status
         """,
         [partition_key, partition_key, partition_key],
@@ -683,11 +701,14 @@ def _derived_diagnostics(
 
 
 def _derived_output_sql(*, source_sql: str, silver_freq: str, partition_key: str) -> str:
-    window_map = _window_map_sql(silver_freq)
-    completion = _completion_predicate(
-        silver_freq,
-        "source_row_count",
-        "window_id",
+    window_map = cn_a_derived_minute_window_map_sql(silver_freq)
+    completion = cn_a_derived_minute_completion_predicate(
+        regular_row_count_column="regular_row_count",
+        regular_time_count_column="regular_time_count",
+        anchor_row_count_column="anchor_row_count",
+        anchor_time_count_column="anchor_time_count",
+        expected_regular_count_column="expected_regular_count",
+        expected_anchor_count_column="expected_anchor_count",
     )
     return f"""
     WITH source_rows AS (
@@ -695,15 +716,8 @@ def _derived_output_sql(*, source_sql: str, silver_freq: str, partition_key: str
     ), window_map AS (
       {window_map}
     ), windowed_rows AS (
-      SELECT source_rows.*, map.window_id, map.target_time,
-             row_number() OVER (
-               PARTITION BY source_rows.ts_code, CAST(source_rows.trade_time AS DATE), map.window_id
-               ORDER BY source_rows.trade_time
-             ) AS ascending_row_number,
-             row_number() OVER (
-               PARTITION BY source_rows.ts_code, CAST(source_rows.trade_time AS DATE), map.window_id
-               ORDER BY source_rows.trade_time DESC
-             ) AS descending_row_number
+      SELECT source_rows.*, map.window_id, map.target_time, map.source_role,
+             map.expected_regular_count, map.expected_anchor_count
       FROM source_rows
       INNER JOIN window_map map
         ON strftime(source_rows.trade_time, '%H:%M:%S') = map.source_time
@@ -711,16 +725,64 @@ def _derived_output_sql(*, source_sql: str, silver_freq: str, partition_key: str
     ), aggregated AS (
       SELECT ts_code,
              '{silver_freq}'::VARCHAR AS freq,
-             max(trade_time) AS trade_time,
-             max(open) FILTER (WHERE ascending_row_number = 1) AS open,
-             max(close) FILTER (WHERE descending_row_number = 1) AS close,
-             max(high) AS high,
-             min(low) AS low,
+             max(trade_time) FILTER (
+               WHERE source_role = '{REGULAR_SOURCE_ROLE}'
+             ) AS trade_time,
+             CASE
+               WHEN max(expected_anchor_count) = 1 THEN max(close) FILTER (
+                 WHERE source_role = '{AUCTION_ANCHOR_ROLE}'
+               )
+               ELSE arg_min(open, trade_time) FILTER (
+                 WHERE source_role = '{REGULAR_SOURCE_ROLE}'
+               )
+             END AS open,
+             arg_max(close, trade_time) FILTER (
+               WHERE source_role = '{REGULAR_SOURCE_ROLE}'
+             ) AS close,
+             CASE
+               WHEN max(expected_anchor_count) = 1 THEN greatest(
+                 max(close) FILTER (
+                   WHERE source_role = '{AUCTION_ANCHOR_ROLE}'
+                 ),
+                 max(high) FILTER (
+                   WHERE source_role = '{REGULAR_SOURCE_ROLE}'
+                 )
+               )
+               ELSE max(high) FILTER (
+                 WHERE source_role = '{REGULAR_SOURCE_ROLE}'
+               )
+             END AS high,
+             CASE
+               WHEN max(expected_anchor_count) = 1 THEN least(
+                 min(close) FILTER (
+                   WHERE source_role = '{AUCTION_ANCHOR_ROLE}'
+                 ),
+                 min(low) FILTER (
+                   WHERE source_role = '{REGULAR_SOURCE_ROLE}'
+                 )
+               )
+               ELSE min(low) FILTER (
+                 WHERE source_role = '{REGULAR_SOURCE_ROLE}'
+               )
+             END AS low,
              sum(vol) AS vol,
              sum(amount) AS amount,
              max(exchange) AS exchange,
-             count(*) AS source_row_count,
              count(DISTINCT coalesce(exchange, '<NULL>')) AS exchange_count,
+             count(*) FILTER (
+               WHERE source_role = '{REGULAR_SOURCE_ROLE}'
+             ) AS regular_row_count,
+             count(DISTINCT strftime(trade_time, '%H:%M:%S')) FILTER (
+               WHERE source_role = '{REGULAR_SOURCE_ROLE}'
+             ) AS regular_time_count,
+             count(*) FILTER (
+               WHERE source_role = '{AUCTION_ANCHOR_ROLE}'
+             ) AS anchor_row_count,
+             count(DISTINCT strftime(trade_time, '%H:%M:%S')) FILTER (
+               WHERE source_role = '{AUCTION_ANCHOR_ROLE}'
+             ) AS anchor_time_count,
+             max(expected_regular_count) AS expected_regular_count,
+             max(expected_anchor_count) AS expected_anchor_count,
              window_id,
              max(target_time) AS target_time
       FROM windowed_rows
@@ -731,35 +793,8 @@ def _derived_output_sql(*, source_sql: str, silver_freq: str, partition_key: str
     FROM aggregated
     WHERE exchange_count = 1
       AND strftime(trade_time, '%H:%M:%S') = target_time
-      AND ({completion.replace('count(*)', 'source_row_count')})
+      AND ({completion})
     ORDER BY ts_code, trade_time
     """
-
-
-def _window_map_sql(silver_freq: str) -> str:
-    values = ",\n          ".join(
-        f"('{source_time}', {window_id}, '{target_time}')"
-        for source_time, window_id, target_time in index_mins_derived_windows(silver_freq)
-    )
-    return (
-        "SELECT * FROM (VALUES\n          "
-        f"{values}"
-        ") AS windows(source_time, window_id, target_time)"
-    )
-
-
-def _completion_predicate(
-    silver_freq: str,
-    source_row_count: str,
-    window_id: str,
-) -> str:
-    if int(normalize_index_mins_silver_freq(silver_freq)[:-3]) == 90:
-        return (
-            f"({source_row_count} = 3 OR "
-            f"({window_id} = 3 AND {source_row_count} = 2))"
-        )
-    return f"{source_row_count} = 2"
-
-
 def _elapsed_ms(started_at: float) -> float:
     return (perf_counter() - started_at) * 1000

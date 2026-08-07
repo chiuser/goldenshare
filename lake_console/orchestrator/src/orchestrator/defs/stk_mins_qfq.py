@@ -13,6 +13,12 @@ from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, duckdb_string, read_parquet
 from orchestrator.defs.paths import gold_stk_mins_qfq_path
 from orchestrator.defs.run_contracts.asset_column_schemas import GOLD_STK_MINS_QFQ_SCHEMA
+from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
+    AUCTION_ANCHOR_ROLE,
+    REGULAR_SOURCE_ROLE,
+    cn_a_derived_minute_completion_predicate,
+    cn_a_derived_minute_window_map_sql,
+)
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 from orchestrator.defs.run_contracts.run_keys import build_batch_id
 from orchestrator.defs.run_contracts.stk_mins import (
@@ -42,24 +48,6 @@ QFQ_FACTOR_REPAIR_REASONS = (
 )
 QFQ_FACTOR_REPAIR_METADATA_SAMPLE_LIMIT = 20
 QFQ_FACTOR_REPAIR_AUTO_MACD_KDJ_CODE_LIMIT = 500
-GOLD_STK_MINS_QFQ_DERIVED_WINDOWS = {
-    90: (
-        ("10:00:00", 1, "11:00:00"),
-        ("10:30:00", 1, "11:00:00"),
-        ("11:00:00", 1, "11:00:00"),
-        ("11:30:00", 2, "14:00:00"),
-        ("13:30:00", 2, "14:00:00"),
-        ("14:00:00", 2, "14:00:00"),
-        ("14:30:00", 3, "15:00:00"),
-        ("15:00:00", 3, "15:00:00"),
-    ),
-    120: (
-        ("09:30:00", 1, "10:30:00"),
-        ("10:30:00", 1, "10:30:00"),
-        ("11:30:00", 2, "14:00:00"),
-        ("14:00:00", 2, "14:00:00"),
-    ),
-}
 
 
 def gold_stk_mins_qfq_factor_repair_codes_hash(
@@ -381,9 +369,12 @@ def build_gold_stk_mins_qfq_derived_select_sql(
         stock_filter = f"AND ts_code IN ({_string_values_sql(stock_codes)})"
     window_rows_sql = _derived_window_rows_sql(normalized_target_freq)
     completion_predicate = _derived_window_completion_predicate(
-        normalized_target_freq,
-        source_row_count_column="source_row_count",
-        window_id_column="window_id",
+        regular_row_count_column="regular_row_count",
+        regular_time_count_column="regular_time_count",
+        anchor_row_count_column="anchor_row_count",
+        anchor_time_count_column="anchor_time_count",
+        expected_regular_count_column="expected_regular_count",
+        expected_anchor_count_column="expected_anchor_count",
     )
     return f"""
 WITH source_rows AS (
@@ -412,14 +403,9 @@ windowed_rows AS (
     source_rows.*,
     window_map.window_id,
     window_map.target_time,
-    row_number() OVER (
-      PARTITION BY source_rows.ts_code, source_rows.trade_date, window_map.window_id
-      ORDER BY source_rows.trade_time
-    ) AS ascending_row_number,
-    row_number() OVER (
-      PARTITION BY source_rows.ts_code, source_rows.trade_date, window_map.window_id
-      ORDER BY source_rows.trade_time DESC
-    ) AS descending_row_number
+    window_map.source_role,
+    window_map.expected_regular_count,
+    window_map.expected_anchor_count
   FROM source_rows
   INNER JOIN window_map
     ON strftime(source_rows.trade_time, '%H:%M:%S') = window_map.source_time
@@ -429,16 +415,64 @@ aggregated_windows AS (
     ts_code,
     {normalized_target_freq} AS freq,
     trade_date,
-    max(trade_time) AS trade_time,
-    max(open) FILTER (WHERE ascending_row_number = 1) AS open,
-    max(close) FILTER (WHERE descending_row_number = 1) AS close,
-    max(high) AS high,
-    min(low) AS low,
+    max(trade_time) FILTER (
+      WHERE source_role = {duckdb_string(REGULAR_SOURCE_ROLE)}
+    ) AS trade_time,
+    CASE
+      WHEN max(expected_anchor_count) = 1 THEN max(close) FILTER (
+        WHERE source_role = {duckdb_string(AUCTION_ANCHOR_ROLE)}
+      )
+      ELSE arg_min(open, trade_time) FILTER (
+        WHERE source_role = {duckdb_string(REGULAR_SOURCE_ROLE)}
+      )
+    END AS open,
+    arg_max(close, trade_time) FILTER (
+      WHERE source_role = {duckdb_string(REGULAR_SOURCE_ROLE)}
+    ) AS close,
+    CASE
+      WHEN max(expected_anchor_count) = 1 THEN greatest(
+        max(close) FILTER (
+          WHERE source_role = {duckdb_string(AUCTION_ANCHOR_ROLE)}
+        ),
+        max(high) FILTER (
+          WHERE source_role = {duckdb_string(REGULAR_SOURCE_ROLE)}
+        )
+      )
+      ELSE max(high) FILTER (
+        WHERE source_role = {duckdb_string(REGULAR_SOURCE_ROLE)}
+      )
+    END AS high,
+    CASE
+      WHEN max(expected_anchor_count) = 1 THEN least(
+        min(close) FILTER (
+          WHERE source_role = {duckdb_string(AUCTION_ANCHOR_ROLE)}
+        ),
+        min(low) FILTER (
+          WHERE source_role = {duckdb_string(REGULAR_SOURCE_ROLE)}
+        )
+      )
+      ELSE min(low) FILTER (
+        WHERE source_role = {duckdb_string(REGULAR_SOURCE_ROLE)}
+      )
+    END AS low,
     sum(vol) AS vol,
     sum(amount) AS amount,
     max(exchange) AS exchange,
-    count(*) AS source_row_count,
     count(DISTINCT exchange) AS exchange_count,
+    count(*) FILTER (
+      WHERE source_role = {duckdb_string(REGULAR_SOURCE_ROLE)}
+    ) AS regular_row_count,
+    count(DISTINCT strftime(trade_time, '%H:%M:%S')) FILTER (
+      WHERE source_role = {duckdb_string(REGULAR_SOURCE_ROLE)}
+    ) AS regular_time_count,
+    count(*) FILTER (
+      WHERE source_role = {duckdb_string(AUCTION_ANCHOR_ROLE)}
+    ) AS anchor_row_count,
+    count(DISTINCT strftime(trade_time, '%H:%M:%S')) FILTER (
+      WHERE source_role = {duckdb_string(AUCTION_ANCHOR_ROLE)}
+    ) AS anchor_time_count,
+    max(expected_regular_count) AS expected_regular_count,
+    max(expected_anchor_count) AS expected_anchor_count,
     max(target_time) AS target_time,
     max(window_id) AS window_id
   FROM windowed_rows
@@ -480,9 +514,19 @@ def build_gold_stk_mins_qfq_derived_diagnostics_sql(
         stock_filter = f"AND ts_code IN ({_string_values_sql(stock_codes)})"
     window_rows_sql = _derived_window_rows_sql(normalized_target_freq)
     completion_predicate = _derived_window_completion_predicate(
-        normalized_target_freq,
-        source_row_count_column="actual_windows.source_row_count",
-        window_id_column="expected_windows.window_id",
+        regular_row_count_column="coalesce(actual_windows.regular_row_count, 0)",
+        regular_time_count_column="coalesce(actual_windows.regular_time_count, 0)",
+        anchor_row_count_column="coalesce(actual_windows.anchor_row_count, 0)",
+        anchor_time_count_column="coalesce(actual_windows.anchor_time_count, 0)",
+        expected_regular_count_column="expected_windows.expected_regular_count",
+        expected_anchor_count_column="expected_windows.expected_anchor_count",
+    )
+    invalid_source_predicate = (
+        build_gold_stk_mins_qfq_derived_source_invalid_predicate_sql(
+            source_alias="source_rows",
+            source_freq=source_freq,
+            window_map_alias="window_map",
+        )
     )
     return f"""
 WITH source_rows AS (
@@ -491,29 +535,46 @@ WITH source_rows AS (
     CAST(freq AS INTEGER) AS freq,
     CAST(trade_date AS DATE) AS trade_date,
     CAST(trade_time AS TIMESTAMP) AS trade_time,
+    CAST(open AS DOUBLE) AS open,
+    CAST(high AS DOUBLE) AS high,
+    CAST(low AS DOUBLE) AS low,
+    CAST(close AS DOUBLE) AS close,
+    CAST(vol AS DOUBLE) AS vol,
+    CAST(amount AS DOUBLE) AS amount,
     CAST(exchange AS VARCHAR) AS exchange
   FROM {source}
-  WHERE CAST(freq AS INTEGER) = {source_freq}
-    AND CAST(trade_date AS DATE) IN ({partition_dates_sql})
+  WHERE CAST(trade_date AS DATE) IN ({partition_dates_sql})
     {stock_filter}
-),
-source_stock_days AS (
-  SELECT DISTINCT ts_code, trade_date
-  FROM source_rows
 ),
 window_map AS (
   {window_rows_sql}
+),
+source_stock_days AS (
+  SELECT
+    source_rows.ts_code,
+    source_rows.trade_date,
+    count(*) FILTER (
+      WHERE {invalid_source_predicate}
+    ) AS invalid_source_row_count
+  FROM source_rows
+  GROUP BY source_rows.ts_code, source_rows.trade_date
 ),
 expected_windows AS (
   SELECT
     source_stock_days.ts_code,
     source_stock_days.trade_date,
+    source_stock_days.invalid_source_row_count,
     window_map.window_id,
     max(window_map.target_time) AS target_time,
-    count(*) AS expected_source_row_count
+    max(window_map.expected_regular_count) AS expected_regular_count,
+    max(window_map.expected_anchor_count) AS expected_anchor_count
   FROM source_stock_days
   CROSS JOIN window_map
-  GROUP BY source_stock_days.ts_code, source_stock_days.trade_date, window_map.window_id
+  GROUP BY
+    source_stock_days.ts_code,
+    source_stock_days.trade_date,
+    source_stock_days.invalid_source_row_count,
+    window_map.window_id
 ),
 windowed_rows AS (
   SELECT
@@ -522,7 +583,8 @@ windowed_rows AS (
     source_rows.trade_time,
     source_rows.exchange,
     window_map.window_id,
-    window_map.target_time
+    window_map.target_time,
+    window_map.source_role
   FROM source_rows
   INNER JOIN window_map
     ON strftime(source_rows.trade_time, '%H:%M:%S') = window_map.source_time
@@ -532,9 +594,22 @@ actual_windows AS (
     ts_code,
     trade_date,
     window_id,
-    max(trade_time) AS trade_time,
+    max(trade_time) FILTER (
+      WHERE source_role = {duckdb_string(REGULAR_SOURCE_ROLE)}
+    ) AS trade_time,
     max(target_time) AS target_time,
-    count(*) AS source_row_count,
+    count(*) FILTER (
+      WHERE source_role = {duckdb_string(REGULAR_SOURCE_ROLE)}
+    ) AS regular_row_count,
+    count(DISTINCT strftime(trade_time, '%H:%M:%S')) FILTER (
+      WHERE source_role = {duckdb_string(REGULAR_SOURCE_ROLE)}
+    ) AS regular_time_count,
+    count(*) FILTER (
+      WHERE source_role = {duckdb_string(AUCTION_ANCHOR_ROLE)}
+    ) AS anchor_row_count,
+    count(DISTINCT strftime(trade_time, '%H:%M:%S')) FILTER (
+      WHERE source_role = {duckdb_string(AUCTION_ANCHOR_ROLE)}
+    ) AS anchor_time_count,
     count(DISTINCT exchange) AS exchange_count
   FROM windowed_rows
   GROUP BY ts_code, trade_date, window_id
@@ -545,11 +620,17 @@ window_status AS (
     expected_windows.trade_date,
     expected_windows.window_id,
     expected_windows.target_time,
-    expected_windows.expected_source_row_count,
-    coalesce(actual_windows.source_row_count, 0) AS source_row_count,
+    expected_windows.expected_regular_count,
+    expected_windows.expected_anchor_count,
+    expected_windows.invalid_source_row_count,
+    coalesce(actual_windows.regular_row_count, 0) AS regular_row_count,
+    coalesce(actual_windows.regular_time_count, 0) AS regular_time_count,
+    coalesce(actual_windows.anchor_row_count, 0) AS anchor_row_count,
+    coalesce(actual_windows.anchor_time_count, 0) AS anchor_time_count,
     coalesce(actual_windows.exchange_count, 0) AS exchange_count,
     actual_windows.trade_time,
-    actual_windows.source_row_count IS NOT NULL
+    actual_windows.trade_time IS NOT NULL
+      AND expected_windows.invalid_source_row_count = 0
       AND strftime(actual_windows.trade_time, '%H:%M:%S') = expected_windows.target_time
       AND ({completion_predicate}) AS generated
   FROM expected_windows
@@ -565,10 +646,7 @@ SELECT
   (SELECT count(*) FROM source_stock_days) AS source_stock_day_count,
   count(*) AS expected_window_count,
   count(*) FILTER (WHERE generated AND exchange_count = 1) AS generated_window_count,
-  count(*) FILTER (
-    WHERE source_row_count > 0
-      AND NOT generated
-  ) AS incomplete_window_count,
+  count(*) FILTER (WHERE NOT generated) AS incomplete_window_count,
   count(*) FILTER (WHERE exchange_count > 1) AS exchange_mismatch_window_count
 FROM window_status
 """
@@ -598,9 +676,12 @@ def build_gold_stk_mins_qfq_derived_coverage_sql(
         stock_filter = f"AND ts_code IN ({_string_values_sql(stock_codes)})"
     window_rows_sql = _derived_window_rows_sql(normalized_target_freq)
     completion_predicate = _derived_window_completion_predicate(
-        normalized_target_freq,
-        source_row_count_column="actual_windows.source_row_count",
-        window_id_column="expected_windows.window_id",
+        regular_row_count_column="actual_windows.regular_row_count",
+        regular_time_count_column="actual_windows.regular_time_count",
+        anchor_row_count_column="actual_windows.anchor_row_count",
+        anchor_time_count_column="actual_windows.anchor_time_count",
+        expected_regular_count_column="expected_windows.expected_regular_count",
+        expected_anchor_count_column="expected_windows.expected_anchor_count",
     )
     return f"""
 WITH source_rows AS (
@@ -627,7 +708,9 @@ expected_windows AS (
     source_stock_days.ts_code,
     source_stock_days.trade_date,
     window_map.window_id,
-    max(window_map.target_time) AS target_time
+    max(window_map.target_time) AS target_time,
+    max(window_map.expected_regular_count) AS expected_regular_count,
+    max(window_map.expected_anchor_count) AS expected_anchor_count
   FROM source_stock_days
   CROSS JOIN window_map
   GROUP BY source_stock_days.ts_code, source_stock_days.trade_date, window_map.window_id
@@ -639,7 +722,8 @@ windowed_rows AS (
     source_rows.trade_time,
     source_rows.exchange,
     window_map.window_id,
-    window_map.target_time
+    window_map.target_time,
+    window_map.source_role
   FROM source_rows
   INNER JOIN window_map
     ON strftime(source_rows.trade_time, '%H:%M:%S') = window_map.source_time
@@ -649,10 +733,23 @@ actual_windows AS (
     ts_code,
     trade_date,
     window_id,
-    max(trade_time) AS trade_time,
+    max(trade_time) FILTER (
+      WHERE source_role = {duckdb_string(REGULAR_SOURCE_ROLE)}
+    ) AS trade_time,
     max(target_time) AS target_time,
     max(exchange) AS exchange,
-    count(*) AS source_row_count,
+    count(*) FILTER (
+      WHERE source_role = {duckdb_string(REGULAR_SOURCE_ROLE)}
+    ) AS regular_row_count,
+    count(DISTINCT strftime(trade_time, '%H:%M:%S')) FILTER (
+      WHERE source_role = {duckdb_string(REGULAR_SOURCE_ROLE)}
+    ) AS regular_time_count,
+    count(*) FILTER (
+      WHERE source_role = {duckdb_string(AUCTION_ANCHOR_ROLE)}
+    ) AS anchor_row_count,
+    count(DISTINCT strftime(trade_time, '%H:%M:%S')) FILTER (
+      WHERE source_role = {duckdb_string(AUCTION_ANCHOR_ROLE)}
+    ) AS anchor_time_count,
     count(DISTINCT exchange) AS exchange_count
   FROM windowed_rows
   GROUP BY ts_code, trade_date, window_id
@@ -1326,42 +1423,78 @@ def _read_parquet_paths(paths: Sequence[Path]) -> str:
 
 
 def _derived_window_rows_sql(target_freq: int) -> str:
-    rows = GOLD_STK_MINS_QFQ_DERIVED_WINDOWS.get(target_freq)
-    if rows is None:
-        allowed = ", ".join(str(freq) for freq in STK_MINS_QFQ_DERIVED_FREQS)
-        raise ValueError(f"Unsupported derived qfq freq: {target_freq}. Allowed: {allowed}.")
-    value_rows = ",\n    ".join(
-        "("
-        f"{duckdb_string(source_time)}, "
-        f"{window_id}, "
-        f"{duckdb_string(target_time)}"
-        ")"
-        for source_time, window_id, target_time in rows
-    )
+    return cn_a_derived_minute_window_map_sql(target_freq)
+
+
+def build_gold_stk_mins_qfq_derived_source_invalid_predicate_sql(
+    *,
+    source_alias: str,
+    source_freq: int,
+    window_map_alias: str,
+) -> str:
+    for alias in (source_alias, window_map_alias):
+        if not alias.replace("_", "").isalnum():
+            raise ValueError(f"Invalid DuckDB SQL alias: {alias!r}.")
     return f"""
-  SELECT *
-  FROM (
-    VALUES
-    {value_rows}
-  ) AS rows(source_time, window_id, target_time)
-"""
+{source_alias}.ts_code IS NULL
+OR trim({source_alias}.ts_code) = ''
+OR {source_alias}.freq IS NULL
+OR {source_alias}.freq <> {int(source_freq)}
+OR {source_alias}.trade_time IS NULL
+OR CAST({source_alias}.trade_time AS DATE) <> {source_alias}.trade_date
+OR NOT EXISTS (
+  SELECT 1
+  FROM {window_map_alias}
+  WHERE {window_map_alias}.source_time = strftime(
+    {source_alias}.trade_time,
+    '%H:%M:%S'
+  )
+)
+OR {source_alias}.open IS NULL
+OR {source_alias}.high IS NULL
+OR {source_alias}.low IS NULL
+OR {source_alias}.close IS NULL
+OR NOT isfinite({source_alias}.open)
+OR NOT isfinite({source_alias}.high)
+OR NOT isfinite({source_alias}.low)
+OR NOT isfinite({source_alias}.close)
+OR {source_alias}.open <= 0
+OR {source_alias}.high <= 0
+OR {source_alias}.low <= 0
+OR {source_alias}.close <= 0
+OR {source_alias}.high < {source_alias}.low
+OR {source_alias}.open < {source_alias}.low
+OR {source_alias}.open > {source_alias}.high
+OR {source_alias}.close < {source_alias}.low
+OR {source_alias}.close > {source_alias}.high
+OR {source_alias}.vol IS NULL
+OR {source_alias}.amount IS NULL
+OR NOT isfinite({source_alias}.vol)
+OR NOT isfinite({source_alias}.amount)
+OR {source_alias}.vol < 0
+OR {source_alias}.amount < 0
+OR {source_alias}.exchange IS NULL
+OR trim({source_alias}.exchange) = ''
+""".strip()
 
 
 def _derived_window_completion_predicate(
-    target_freq: int,
     *,
-    source_row_count_column: str,
-    window_id_column: str,
+    regular_row_count_column: str,
+    regular_time_count_column: str,
+    anchor_row_count_column: str,
+    anchor_time_count_column: str,
+    expected_regular_count_column: str,
+    expected_anchor_count_column: str,
 ) -> str:
-    if target_freq == 90:
-        return (
-            f"({source_row_count_column} = 3 OR "
-            f"({window_id_column} = 3 AND {source_row_count_column} = 2))"
-        )
-    if target_freq == 120:
-        return f"{source_row_count_column} = 2"
-    allowed = ", ".join(str(freq) for freq in STK_MINS_QFQ_DERIVED_FREQS)
-    raise ValueError(f"Unsupported derived qfq freq: {target_freq}. Allowed: {allowed}.")
+    return cn_a_derived_minute_completion_predicate(
+        regular_row_count_column=regular_row_count_column,
+        regular_time_count_column=regular_time_count_column,
+        anchor_row_count_column=anchor_row_count_column,
+        anchor_time_count_column=anchor_time_count_column,
+        expected_regular_count_column=expected_regular_count_column,
+        expected_anchor_count_column=expected_anchor_count_column,
+    )
 
 
 def _string_values_sql(values: Sequence[str]) -> str:

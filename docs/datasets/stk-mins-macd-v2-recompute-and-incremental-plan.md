@@ -1057,7 +1057,7 @@ lake-console audit-stk-mins-clean-completeness \
 如果输出 `failed` 或 `needs_review`，后续命令必须停止：
 
 ```text
-rebuild-stk-mins-derived-from-clean-range
+Dagster 90m/120m 正式重建入口
 rebuild-stk-mins-research-from-clean-range
 compute-stk-mins-indicator-range
 ```
@@ -1191,14 +1191,9 @@ MACD worker 就读不到完整连续序列。
 
 ### 7.6 CLI
 
-新增或调整：
+2026-08-07 修正：旧 backend derived CLI 已删除。90m/120m 正式重建必须使用 Dagster orchestrator 统一窗口合同；research 重排仍使用现有 research 维护入口。
 
 ```bash
-lake-console rebuild-stk-mins-derived-from-clean-range \
-  --target-freqs 90,120 \
-  --start-date 2009-01-01 \
-  --end-date 2026-05-07
-
 lake-console rebuild-stk-mins-research-from-clean-range \
   --freqs 1,5,15,30,60,90,120 \
   --start-month 2009-01 \
@@ -1608,11 +1603,6 @@ lake-console audit-stk-mins-by-date-clean-next \
 lake-console rebuild-stk-mins-by-date-clean-next-range \
   --dry-run \
   --freqs 1,5,15,30,60 \
-  --start-date 2009-01-01 \
-  --end-date 2026-05-07
-
-lake-console rebuild-stk-mins-derived-from-clean-range \
-  --target-freqs 90,120 \
   --start-date 2009-01-01 \
   --end-date 2026-05-07
 

@@ -292,8 +292,8 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
             "15:00:00",
         ])
         self.assertEqual([row["trade_time"].strftime("%H:%M:%S") for row in rows_120[:2]], [
-            "10:30:00",
-            "14:00:00",
+            "11:30:00",
+            "15:00:00",
         ])
 
     def test_generate_rejects_native_freq_and_existing_targets(self) -> None:
@@ -371,6 +371,49 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
         self.assertEqual(report.failed_partition_count, 0)
         self.assertEqual(report.reported_event_count, 0)
         self.assertEqual(materializations, [])
+
+    def test_bootstrap_batch_audit_rejects_invalid_derived_source_day(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            _write_valid_derived_sources(lake_root)
+            history_plan = plan_stk_mins_qfq_derived_history(
+                lake_root=lake_root,
+                registered_partition_keys=[DATE_1, DATE_2],
+                freqs=[120],
+                duckdb_resource=DuckDBResource(),
+            )
+            batch = history_plan.batches[0]
+            source_path = gold_stk_mins_qfq_path(
+                lake_root,
+                60,
+                STOCK_A,
+                2014,
+            )
+            rows = _read_gold_rows(source_path)
+            rows.append(
+                _gold_row(
+                    ts_code=STOCK_A,
+                    freq=60,
+                    trade_date=DATE_1,
+                    trade_time="09:31:00",
+                    open_=10.0,
+                )
+            )
+            _write_rows(source_path, rows=rows)
+            source_paths = derived_events._source_qfq_paths_for_batch(
+                lake_root,
+                batch,
+            )
+
+            with duckdb.connect(database=":memory:") as connection:
+                diagnostics = derived_events._batch_derived_diagnostics_counts(
+                    connection,
+                    batch=batch,
+                    source_paths=source_paths,
+                )
+
+        self.assertGreater(diagnostics[DATE_1]["incomplete_window_count"], 0)
+        self.assertEqual(diagnostics[DATE_2]["incomplete_window_count"], 0)
 
     def test_report_events_make_derived_partition_ready(self) -> None:
         with TemporaryDirectory() as temp_dir:

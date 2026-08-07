@@ -210,7 +210,7 @@ def complete_raw_and_clean_next_stages(*, run: dict[str, Any], summary: dict[str
     if review_stage is not None:
         review_stage["stage_status"] = "waiting_confirmation"
         review_stage["stage_status_label"] = "等待确认"
-        review_stage["display_summary"] = "raw 与 clean_next/gate 已完成，请确认是否继续生成 90/120 分钟线。"
+        review_stage["display_summary"] = "raw 与 clean_next/gate 已完成，请确认是否继续重排 research by month。"
         review_stage["metrics"] = {
             **dict(review_stage.get("metrics") or {}),
             "raw_written_rows": int(summary.get("written_rows") or 0),
@@ -227,7 +227,7 @@ def complete_raw_and_clean_next_stages(*, run: dict[str, Any], summary: dict[str
             "errors": [],
             "progress": {
                 **dict(run.get("progress") or {}),
-                "summary": "raw 与 clean_next/gate 已完成，等待人工确认是否继续生成 90/120。",
+                "summary": "raw 与 clean_next/gate 已完成，等待人工确认是否继续重排 research by month。",
             },
         },
         current_stage=review_stage,
@@ -247,85 +247,6 @@ def _clean_next_passed_partition_count(clean_next_refresh: dict[str, Any]) -> in
         return int(clean_next_refresh.get("partitions") or 0)
 
     return 0
-
-
-def start_derived_90_120_stage(*, run: dict[str, Any]) -> dict[str, Any]:
-    stages = deepcopy(list(run.get("pipeline_stages") or []))
-    stage = _stage_by_key(stages, "derived_90_120_build")
-    if stage is not None:
-        stage["stage_status"] = "running"
-        stage["stage_status_label"] = "执行中"
-        stage["display_summary"] = "正在从 clean_next 生成 90/120 分钟线。"
-    return _with_runtime_fields(
-        {
-            **run,
-            "status": "running",
-            "run_status": "running",
-            "pipeline_stages": stages,
-            "progress": {
-                **dict(run.get("progress") or {}),
-                "summary": "正在生成 derived 90/120 分钟线。",
-            },
-        },
-        current_stage=stage,
-    )
-
-
-def complete_derived_90_120_stage(*, run: dict[str, Any], summary: dict[str, Any]) -> dict[str, Any]:
-    stages = deepcopy(list(run.get("pipeline_stages") or []))
-    derived_stage = _stage_by_key(stages, "derived_90_120_build")
-    if derived_stage is not None:
-        derived_stage["stage_status"] = "passed"
-        derived_stage["stage_status_label"] = "已通过"
-        derived_stage["display_summary"] = (
-            f"derived 90/120 生成完成：{int(summary.get('trade_date_count') or 0)} 个交易日，"
-            f"{len(summary.get('targets') or [])} 个目标频率，"
-            f"写入 {int(summary.get('written_rows') or 0):,} 行。"
-        )
-        derived_stage["output_summary"] = {
-            "run_id": summary.get("run_id"),
-            "operation": summary.get("operation"),
-            "start_date": summary.get("start_date"),
-            "end_date": summary.get("end_date"),
-            "trade_dates": summary.get("trade_dates") or [],
-            "targets": summary.get("targets") or [],
-        }
-        derived_stage["metrics"] = {
-            **dict(derived_stage.get("metrics") or {}),
-            "trade_date_count": int(summary.get("trade_date_count") or 0),
-            "target_count": len(summary.get("targets") or []),
-            "source_rows": int(summary.get("source_rows") or 0),
-            "written_rows": int(summary.get("written_rows") or 0),
-            "elapsed_seconds": summary.get("elapsed_seconds"),
-        }
-
-    review_stage = _stage_by_key(stages, "derived_review")
-    if review_stage is not None:
-        review_stage["stage_status"] = "waiting_confirmation"
-        review_stage["stage_status_label"] = "等待确认"
-        review_stage["display_summary"] = "derived 90/120 已完成，请确认是否继续重排 research by month。"
-        review_stage["metrics"] = {
-            **dict(review_stage.get("metrics") or {}),
-            "derived_written_rows": int(summary.get("written_rows") or 0),
-        }
-
-    dataset_results = list(run.get("dataset_results") or [])
-    dataset_results.append(_dataset_result_from_stk_mins_derived_summary(summary))
-    return _with_runtime_fields(
-        {
-            **run,
-            "status": "waiting_confirmation",
-            "run_status": "waiting_confirmation",
-            "pipeline_stages": stages,
-            "dataset_results": dataset_results,
-            "errors": [],
-            "progress": {
-                **dict(run.get("progress") or {}),
-                "summary": "derived 90/120 已完成，等待人工确认是否继续重排 research by month。",
-            },
-        },
-        current_stage=review_stage,
-    )
 
 
 def start_research_month_rebuild_stage(*, run: dict[str, Any]) -> dict[str, Any]:
@@ -421,7 +342,7 @@ def complete_research_month_and_final_validation(*, run: dict[str, Any], summary
             "errors": [],
             "progress": {
                 **dict(run.get("progress") or {}),
-                "summary": "stk_mins_sync 已完成：raw、clean_next/gate、derived、research by month 与最终校验均已通过。",
+                "summary": "stk_mins_sync 已完成：raw、clean_next/gate、research by month 与最终校验均已通过。",
             },
         },
         current_stage=None,
@@ -620,22 +541,6 @@ def _dataset_result_from_stk_mins_summary(summary: dict[str, Any]) -> dict[str, 
         "written_rows": summary.get("written_rows"),
         "affected_partition_count": len(summary.get("affected_partitions") or []),
         "clean_next_refresh": summary.get("clean_next_refresh"),
-        "elapsed_seconds": summary.get("elapsed_seconds"),
-    }
-
-
-def _dataset_result_from_stk_mins_derived_summary(summary: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "dataset_key": "stk_mins",
-        "status": str(summary.get("status") or "success"),
-        "operation": summary.get("operation"),
-        "run_id": summary.get("run_id"),
-        "start_date": summary.get("start_date"),
-        "end_date": summary.get("end_date"),
-        "trade_date_count": summary.get("trade_date_count"),
-        "targets": summary.get("targets"),
-        "source_rows": summary.get("source_rows"),
-        "written_rows": summary.get("written_rows"),
         "elapsed_seconds": summary.get("elapsed_seconds"),
     }
 

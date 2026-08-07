@@ -8,6 +8,10 @@ import hashlib
 import re
 
 from orchestrator.defs.run_contracts.configs import normalize_iso_trade_date
+from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
+    DerivedMinuteWindow,
+    cn_a_derived_minute_windows,
+)
 
 
 INDEX_MINS_HISTORY_START_DATE = "2025-01-02"
@@ -155,25 +159,6 @@ INDEX_MINS_RAW_CHECKS = tuple(
 INDEX_MINS_SILVER_CHECKS = tuple(
     f"{asset_name}_core_check" for asset_name in INDEX_MINS_SILVER_ASSET_NAMES
 )
-INDEX_MINS_DERIVED_WINDOWS = {
-    90: (
-        ("10:00:00", 1, "11:00:00"),
-        ("10:30:00", 1, "11:00:00"),
-        ("11:00:00", 1, "11:00:00"),
-        ("11:30:00", 2, "14:00:00"),
-        ("13:30:00", 2, "14:00:00"),
-        ("14:00:00", 2, "14:00:00"),
-        ("14:30:00", 3, "15:00:00"),
-        ("15:00:00", 3, "15:00:00"),
-    ),
-    120: (
-        ("09:30:00", 1, "10:30:00"),
-        ("10:30:00", 1, "10:30:00"),
-        ("11:30:00", 2, "14:00:00"),
-        ("14:00:00", 2, "14:00:00"),
-    ),
-}
-
 _INDEX_MINS_CODE_RE = re.compile(r"^[0-9A-Z]{1,12}\.[A-Z0-9]{2,8}$")
 
 
@@ -254,12 +239,12 @@ def fallback_source_times_for_index_mins() -> tuple[str, ...]:
     return INDEX_MINS_FALLBACK_SOURCE_TIMES
 
 
-def index_mins_derived_windows(value: object) -> tuple[tuple[str, int, str], ...]:
+def index_mins_derived_windows(value: object) -> tuple[DerivedMinuteWindow, ...]:
     normalized = normalize_index_mins_silver_freq(value)
     frequency = int(normalized[:-3])
     try:
-        return INDEX_MINS_DERIVED_WINDOWS[frequency]
-    except KeyError as error:
+        return cn_a_derived_minute_windows(frequency)
+    except ValueError as error:
         raise ValueError(f"index_mins frequency is not derived: {value!r}.") from error
 
 

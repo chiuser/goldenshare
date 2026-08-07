@@ -44,7 +44,7 @@
 | A-3 | 架构文档第 6 章早期 API 表仍列 `datasets/{dataset_key}`、`validate`、`query/sample` 为第一版建议 | `docs/architecture/local-lake-console-architecture-plan-v1.md` 第 6 章 | 第 11 章已经明确正式 API 和后置 API；开发依据应以第 11 章为准。 | 后续做文档清扫时，把第 6 章改成“历史建议/已被第 11 章替代”。 |
 | A-4 | `/api/lake/validate`、`/api/lake/query/sample`、文件级 metadata 还未实现 | 第 11.6 已列为后置 API | 当前模型/API 第一批不需要这些接口。 | 用户明确启动 Health、Validate、DuckDB sample 或文件级详情方案时再设计。 |
 | A-5 | 前端存在展示兜底格式化，如 `formatDateOrMonthRange()` 在 `coverage_label` 为空时自行拼范围 | `lake_console/frontend/src/utils/format.ts` | 正常后端会返回 `coverage_label`；当前只是兜底展示，不会改变主事实。 | 若进入“前端零事实拼装”严格清扫，可移除或降级为异常兜底。 |
-| A-6 | 业务命令内部读写、补数、派生、指标重算链路仍有可优化或需审计事项 | `sync-stk-mins-range`、`derive-stk-mins`、`rebuild-*research*`、indicator services | 这些属于数据生产链路，不是总览页模型/API 的当前开发范围。 | 只有当模型字段变更导致命令不可运行，或用户明确启动对应命令治理任务时，才转为 B 类。 |
+| A-6 | 业务命令内部读写、补数、指标重算链路仍有可优化或需审计事项 | `sync-stk-mins-range`、`rebuild-*research*`、indicator services；90m/120m backend 派生入口已删除 | 这些属于数据生产链路，不是总览页模型/API 的当前开发范围。 | 只有当模型字段变更导致命令不可运行，或用户明确启动对应命令治理任务时，才转为 B 类。 |
 | A-7 | `PhysicalAsset` 全量递归扫描仍后置 | `lake_console/backend/app/services/filesystem_scanner.py` 的 `_physical_assets()` | 当前不做递归扫描全湖每个目录/文件，避免拖慢总览页；但已把已登记节点父目录和系统文件从“未登记资产”误判中拆出。 | 后续如果要做 Storage / Cost 或真实硬盘资产治理页，再单独设计快速索引、缓存或离线统计方案。 |
 
 ## 4. 明确不纳入本轮的事项

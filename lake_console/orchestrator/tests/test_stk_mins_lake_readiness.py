@@ -17,6 +17,7 @@ from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
 )
 from orchestrator.defs.checks.stk_mins_checks import (
     GOLD_STK_MINS_QFQ_CONTRACT_CHECK,
+    GOLD_STK_MINS_QFQ_DERIVED_SOURCE_COVERAGE_CHECK,
     RAW_STK_MINS_CONTRACT_CHECK,
     RAW_STK_MINS_KEY_INTEGRITY_CHECK,
     RAW_STK_MINS_VALUE_DOMAIN_CHECK,
@@ -42,8 +43,10 @@ from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_QFQ_FREQS,
     qfq_source_freq_for_derived_freq,
 )
+from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
+    cn_a_derived_minute_window_rows,
+)
 from orchestrator.defs.stk_mins_qfq import (
-    GOLD_STK_MINS_QFQ_DERIVED_WINDOWS,
     build_gold_stk_mins_qfq_derived_select_sql,
 )
 
@@ -426,16 +429,8 @@ def _write_gold_qfq_ready_inputs(
         1: ("09:31:00",),
         5: ("09:35:00",),
         15: ("09:45:00",),
-        30: tuple(
-            source_time
-            for source_time, _window_id, _target_time
-            in GOLD_STK_MINS_QFQ_DERIVED_WINDOWS[90]
-        ),
-        60: tuple(
-            source_time
-            for source_time, _window_id, _target_time
-            in GOLD_STK_MINS_QFQ_DERIVED_WINDOWS[120]
-        ),
+        30: tuple(dict.fromkeys(row[0] for row in cn_a_derived_minute_window_rows(90))),
+        60: tuple(dict.fromkeys(row[0] for row in cn_a_derived_minute_window_rows(120))),
     }
     for freq, trade_times in native_times.items():
         _write_silver_file_for_times(
@@ -1004,16 +999,8 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
                 1: ("09:31:00",),
                 5: ("09:35:00",),
                 15: ("09:45:00",),
-                30: tuple(
-                    source_time
-                    for source_time, _window_id, _target_time
-                    in GOLD_STK_MINS_QFQ_DERIVED_WINDOWS[90]
-                ),
-                60: tuple(
-                    source_time
-                    for source_time, _window_id, _target_time
-                    in GOLD_STK_MINS_QFQ_DERIVED_WINDOWS[120]
-                ),
+                30: tuple(dict.fromkeys(row[0] for row in cn_a_derived_minute_window_rows(90))),
+                60: tuple(dict.fromkeys(row[0] for row in cn_a_derived_minute_window_rows(120))),
             }
             for freq, trade_times in native_times.items():
                 _write_silver_file_for_times(
@@ -1081,6 +1068,43 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         self.assertTrue(status.materialized)
         self.assertNotIn(
             "gold_stk_mins_qfq_formula_matches_silver_adj_factor",
+            status.failed_check_names,
+        )
+
+    def test_gold_qfq_batch_readiness_rejects_invalid_derived_source_day(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+            lake_root = Path(directory)
+            trade_date = "2026-06-15"
+            _write_gold_qfq_ready_inputs(
+                connection,
+                lake_root,
+                trade_date=trade_date,
+            )
+            source_times = tuple(
+                dict.fromkeys(row[0] for row in cn_a_derived_minute_window_rows(120))
+            )
+            _write_gold_qfq_file_for_times(
+                connection,
+                lake_root,
+                trade_date=trade_date,
+                freq=60,
+                trade_times=(*source_times, "09:31:00"),
+            )
+
+            batch_status = batch_gold_stk_mins_qfq_lake_readiness(
+                connection=connection,
+                lake_root=lake_root,
+                expected_trade_dates=(trade_date,),
+                registered_trade_days=(trade_date,),
+            )
+
+        status = batch_status.status_for_trade_date(trade_date)
+        self.assertFalse(status.ready)
+        self.assertTrue(status.materialized)
+        self.assertIn(
+            GOLD_STK_MINS_QFQ_DERIVED_SOURCE_COVERAGE_CHECK,
             status.failed_check_names,
         )
 

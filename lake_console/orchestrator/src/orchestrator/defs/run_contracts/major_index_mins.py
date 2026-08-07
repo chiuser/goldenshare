@@ -7,6 +7,11 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 
+from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
+    DerivedMinuteWindow,
+    cn_a_derived_minute_windows,
+)
+
 MAJOR_INDEX_MINS_SOURCE_FREQS = (
     "1min",
     "5min",
@@ -153,68 +158,23 @@ def major_index_mins_session_times(
     return tuple(times)
 
 
-@dataclass(frozen=True, slots=True)
-class MajorIndexMinsDerivedWindow:
-    source_time: str
-    window_id: int
-    target_time: str
-    expected_source_count: int
-
-
-_MAJOR_INDEX_MINS_DERIVED_WINDOWS = {
-    ("90min", "CN"): (
-        MajorIndexMinsDerivedWindow("10:00:00", 1, "11:00:00", 3),
-        MajorIndexMinsDerivedWindow("10:30:00", 1, "11:00:00", 3),
-        MajorIndexMinsDerivedWindow("11:00:00", 1, "11:00:00", 3),
-        MajorIndexMinsDerivedWindow("11:30:00", 2, "14:00:00", 3),
-        MajorIndexMinsDerivedWindow("13:30:00", 2, "14:00:00", 3),
-        MajorIndexMinsDerivedWindow("14:00:00", 2, "14:00:00", 3),
-        MajorIndexMinsDerivedWindow("14:30:00", 3, "15:00:00", 2),
-        MajorIndexMinsDerivedWindow("15:00:00", 3, "15:00:00", 2),
-    ),
-    ("90min", "BSE"): (
-        MajorIndexMinsDerivedWindow("10:00:00", 1, "11:00:00", 3),
-        MajorIndexMinsDerivedWindow("10:30:00", 1, "11:00:00", 3),
-        MajorIndexMinsDerivedWindow("11:00:00", 1, "11:00:00", 3),
-        MajorIndexMinsDerivedWindow("11:30:00", 2, "14:00:00", 3),
-        MajorIndexMinsDerivedWindow("13:30:00", 2, "14:00:00", 3),
-        MajorIndexMinsDerivedWindow("14:00:00", 2, "14:00:00", 3),
-        MajorIndexMinsDerivedWindow("14:30:00", 3, "15:30:00", 3),
-        MajorIndexMinsDerivedWindow("15:00:00", 3, "15:30:00", 3),
-        MajorIndexMinsDerivedWindow("15:30:00", 3, "15:30:00", 3),
-    ),
-    ("120min", "CN"): (
-        MajorIndexMinsDerivedWindow("09:30:00", 1, "10:30:00", 2),
-        MajorIndexMinsDerivedWindow("10:30:00", 1, "10:30:00", 2),
-        MajorIndexMinsDerivedWindow("11:30:00", 2, "14:00:00", 2),
-        MajorIndexMinsDerivedWindow("14:00:00", 2, "14:00:00", 2),
-    ),
-    ("120min", "BSE"): (
-        MajorIndexMinsDerivedWindow("09:30:00", 1, "10:30:00", 2),
-        MajorIndexMinsDerivedWindow("10:30:00", 1, "10:30:00", 2),
-        MajorIndexMinsDerivedWindow("11:30:00", 2, "14:00:00", 2),
-        MajorIndexMinsDerivedWindow("14:00:00", 2, "14:00:00", 2),
-    ),
-}
-
-
 def major_index_mins_derived_windows(
     *,
     silver_freq: str,
     exchange: str,
-) -> tuple[MajorIndexMinsDerivedWindow, ...]:
+) -> tuple[DerivedMinuteWindow, ...]:
     normalized_freq = normalize_major_index_mins_silver_freq(silver_freq)
     if normalized_freq not in {"90min", "120min"}:
         raise MajorIndexMinsContractError(
             f"major-index minute frequency is not derived: {silver_freq!r}"
         )
     normalized_exchange = str(exchange).strip().upper()
-    market = "BSE" if normalized_exchange == "BSE" else "CN"
-    if normalized_exchange not in {"XSHG", "XSHE", "BSE"}:
+    if normalized_exchange not in {"XSHG", "XSHE"}:
         raise MajorIndexMinsContractError(
-            f"unsupported major-index minute exchange: {exchange!r}"
+            "derived major-index minute Silver only supports XSHG/XSHE; "
+            f"got {exchange!r}."
         )
-    return _MAJOR_INDEX_MINS_DERIVED_WINDOWS[(normalized_freq, market)]
+    return cn_a_derived_minute_windows(normalized_freq)
 
 
 def source_freq_for_major_index_mins_derived_freq(value: object) -> str:

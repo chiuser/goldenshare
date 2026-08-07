@@ -1,11 +1,17 @@
 # 指数历史分钟行情 Lake 双模式接入方案 v1
 
 - 版本：v1
-- 状态：双模式已落地；本地 `1min -> 15/30/60min` 补数已落地；`90/120min` derived 层已落地；research 层已落地（2026-05-10）
-- 更新时间：2026-05-10
+- 状态：双模式已落地；本地 `1min -> 15/30/60min` 补数已落地；90/120 历史结果因集合竞价锚点口径错误必须重建
+- 更新时间：2026-08-07
 - 数据集：`index_mins`
 - 对应生产数据集开发文档：[指数历史分钟行情（index_mins）数据集开发说明](/Users/congming/github/goldenshare/docs/datasets/index-mins-dataset-development.md)
 - 源接口文档：[0419_股票历史分钟行情.md](/Users/congming/github/goldenshare/docs/sources/tushare/指数专题/0419_股票历史分钟行情.md)
+
+> 2026-08-07 修正：`90min` / `120min` 第一根上午 K 线必须使用
+> `09:30.close` 作为 open 和高低价锚点，并将 `09:30.vol/amount` 各计入一次。
+> 修复范围、上下游影响和正式重建流程以
+> [90m/120m 统一修复与重建 LLD](../../lake_console/docs/design/dagster-derived-minute-bars-90-120-contract-rebuild-low-level-design.md)
+> 为准；本方案中与该 LLD 冲突的历史实现不得继续用于生成正式数据。
 
 ---
 
@@ -819,17 +825,17 @@ ts_code, freq, trade_time, close, open, high, low, vol, amount, exchange, vwap
 
 | 派生频率 | 输入 | 规则 |
 | --- | --- | --- |
-| `90min` | `30min` | 跳过 `09:30` 首根，按有效 30 分钟 bar 顺序每 3 根聚合；允许自然尾部不足 3 根保留 |
-| `120min` | `60min` | 按有效 60 分钟 bar 顺序每 2 根聚合；自然尾部不足 2 根直接丢弃 |
+| `90min` | `30min` | 第一根使用 `09:30.close` 作为竞价锚点，并聚合 `10:00、10:30、11:00`；其余窗口按固定时间集合聚合 |
+| `120min` | `60min` | 第一根使用 `09:30.close` 作为竞价锚点，并聚合 `10:30、11:30`；下午聚合 `14:00、15:00` |
 
 必须写死的语义：
 
-1. `90min` 的 `09:30` bar 不参与聚合，因为它代表开盘集合竞价语义。
-2. `90min` 第一根由：
+1. `09:30` 是集合竞价 K 线。它不作为普通区间 bar 使用，但其 `close` 必须作为第一根上午派生 K 线的 `open` 和 high/low 候选值，`vol/amount` 必须各计入一次；`09:30.open/high/low` 不进入派生公式。
+2. `90min` 第一根由竞价锚点与以下普通 30 分钟 bar 共同形成：
    - `10:00`
    - `10:30`
    - `11:00`
-   聚合，锚点写 `11:00`
+   输出时间写 `11:00`
 3. `90min` 第二根由：
    - `11:30`
    - `13:30`
@@ -839,15 +845,15 @@ ts_code, freq, trade_time, close, open, high, low, vol, amount, exchange, vwap
    - `14:30`
    - `15:00`
    聚合，虽然实际只有 60 分钟，仍作为 `freq=90min` 的自然尾部 bar 保留，锚点写 `15:00`
-5. `120min` 第一根由：
-   - `09:30`
+5. `120min` 第一根由竞价锚点与以下普通 60 分钟 bar 共同形成：
    - `10:30`
-   聚合，锚点写 `10:30`
-6. `120min` 第二根由：
    - `11:30`
+   输出时间写 `11:30`
+6. `120min` 第二根由：
    - `14:00`
-   聚合，允许跨午休，锚点写 `14:00`
-7. `120min` 的 `15:00` 尾部 `60min` bar 第一版不保留，因为不足 2 根
+   - `15:00`
+   输出时间写 `15:00`
+7. 除已明确接受的 `90min` 第三根外，任一固定窗口缺少必要 source bar 都必须 fail closed，不得用相邻 bar 补位，也不得生成部分结果。
 
 由此得到每 code 每日的派生行数：
 
@@ -909,27 +915,9 @@ raw_tushare/index_mins_by_date/freq=60min/trade_date=YYYY-MM-DD/
       - 先取桶内最后一根输入 bar 的 `vwap`
       - 若仍为空，再退回最后一根 `close`
 
-### 10.7 derived 的命令面设计
+### 10.7 derived 的执行边界
 
-建议新增两条命令：
-
-```bash
-lake-console derive-index-mins --trade-date 2025-07-11 --targets 90min,120min
-```
-
-```bash
-lake-console derive-index-mins-range --start-date 2025-01-02 --end-date 2026-05-08 --targets 90min,120min
-```
-
-第一版规则：
-
-1. 只支持：
-   - `90min`
-   - `120min`
-2. 单日命令用于调试和补单日
-3. 区间命令内部先展开开市日，再逐日派生
-4. 区间命令开始写入前，应先检查目标范围内所有源分区都存在且满足 completeness gate；缺任一源日则整次失败
-5. derived 分区允许重建覆盖，因为它是纯本地可重复推导结果
+2026-08-07 起，backend 单日/区间 derived CLI 已删除。正式 90m/120m 只允许由 Dagster orchestrator 的 Silver writer、历史 bootstrap 和独立重建入口生成；任何本地调试都必须复用同一共享窗口合同，不能恢复第二套 backend 命令。
 
 ### 10.8 derived 的 provenance
 

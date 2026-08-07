@@ -185,23 +185,10 @@ lake-console sync-dataset daily \
   --end-date 2026-04-30
 ```
 
-Generate local 90/120 minute derived bars from existing 30/60 minute by-date partitions:
-
-```bash
-lake-console derive-stk-mins \
-  --trade-date 2026-04-24 \
-  --targets 90,120
-```
-
-Generate local 90/120 minute derived bars for a date range. The command reads the
-local trading calendar and derives open trading days only:
-
-```bash
-lake-console derive-stk-mins-range \
-  --start-date 2026-04-01 \
-  --end-date 2026-04-30 \
-  --targets 90,120
-```
+The legacy backend commands that generated 90/120 minute bars were removed on
+2026-08-07. Formal 90/120 minute bars are written only by the Dagster
+orchestrator under the shared auction-anchor contract; do not recreate a local
+backend writer.
 
 Rebuild the research layout for long single-symbol or small-basket queries:
 

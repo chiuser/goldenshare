@@ -2,7 +2,7 @@
 
 - 版本：v1
 - 状态：历史实现说明；MACD 全市场正式重算需按 v2 方案重新收口
-- 更新时间：2026-05-10
+- 更新时间：2026-08-07
 - 适用范围：`lake_console` 本地 Parquet Lake
 - 首个指标：`MACD(12,26,9)`
 - 后续指标：`MA`、`BOLL`、其他基于分钟线的本地派生指标
@@ -12,7 +12,7 @@
   - [Local Lake Console 数据集模型 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-dataset-model-v1.md)
   - [股票分钟线 MACD v2 重算与增量可靠性方案](/Users/congming/github/goldenshare/docs/datasets/stk-mins-macd-v2-recompute-and-incremental-plan.md)
 
-> 当前说明：本文件记录 MACD v1 主链与经验沉淀。由于本地 Lake 已发现股票代码变更、北交所代码切换、源分钟线补数后指标未重算等问题，后续正式 MACD 全量重算与增量链路以 v2 方案为准。v1 文档不得再作为“当前 MACD 已完整可用”的依据。
+> 当前说明：本文件记录 MACD v1 主链与经验沉淀。由于本地 Lake 已发现股票代码变更、北交所代码切换、源分钟线补数后指标未重算等问题，后续正式 MACD 全量重算与增量链路以 v2 方案为准。2026-08-07 又确认旧 90m/120m 集合竞价窗口合同错误，backend 派生写入口已删除；正式派生分钟线只由 Dagster orchestrator 生成。v1 文档不得再作为“当前 MACD 已完整可用”或“旧派生命令仍可执行”的依据。
 
 ---
 
@@ -40,7 +40,7 @@
 
 ---
 
-## 2. 当前代码事实
+## 2. 修正后的代码事实
 
 当前 `lake_console` 已具备：
 
@@ -48,12 +48,12 @@
 |---|---|
 | 原始分钟线落盘 | `raw_tushare/stk_mins_by_date/freq=*/trade_date=*/*.parquet` |
 | 正式 clean 基准 | `research/stk_mins_by_date_clean_next/freq=*/trade_date=*/*.parquet` |
-| 90/120 分钟线派生 | `derived/stk_mins_by_date/freq=90|120/trade_date=*/*.parquet` |
+| 正式 90/120 分钟线派生 | Dagster `gold_stk_mins_qfq_90m/120m`，共享窗口合同见统一修复 LLD |
 | 研究层重排 | `research/stk_mins_by_symbol_month/freq=*/trade_month=*/bucket=*/*.parquet` |
 | 临时写入 | `_tmp/{run_id} -> 校验 -> replace` |
 | 执行记录 | `manifest/sync_runs.jsonl` |
-| 关键服务 | `StkMinsDerivedService`、`StkMinsResearchService` |
-| CLI | `sync-stk-mins`、`sync-stk-mins-range`、`derive-stk-mins`、`rebuild-stk-mins-research` |
+| 关键服务 | backend 仅保留 `StkMinsResearchService`；正式派生 writer 位于 orchestrator |
+| CLI | `sync-stk-mins`、`sync-stk-mins-range`、`rebuild-stk-mins-research`；backend 派生 CLI 已删除 |
 
 这意味着指标系统应该复用现有 Lake 物理分层，而不是另起一套 `data/minute_kline` 目录。
 
@@ -106,7 +106,7 @@ research/stk_mins_by_symbol_month/
 
 1. `90` 来自 `30` 分钟线。
 2. `120` 来自 `60` 分钟线。
-3. 指标系统通过 by-month research 读取它们；该层必须由 `derived/stk_mins_by_date` 重排生成。
+3. 本节描述的是 v1 历史 research 读取模型；当前正式 MACD/KDJ 直接消费 Dagster Gold QFQ，并在 90m/120m QFQ 修复后从基线顺序重建。
 
 ### 3.3 前复权口径
 
@@ -1008,7 +1008,7 @@ bucket = stable_hash(ts_code) % 32
    - `sync-stk-mins` 单股票单日 raw 分区替换。
    - `sync-stk-mins` 全市场单日 raw 分区替换。
    - `sync-stk-mins-range` 全市场区间 raw 分区替换。
-   - `derive-stk-mins` / `derive-stk-mins-range` derived 分区替换。
+   - Dagster orchestrator 的正式 derived 分区替换；旧 backend derived CLI 已删除。
 4. 第一版 queue 只记录 `pending` 并给出建议命令，不自动消费，不后台启动重 IO 任务。
 5. 手动重算完成后，通过 `mark-indicator-recalc-done` 关闭对应 queue。
 

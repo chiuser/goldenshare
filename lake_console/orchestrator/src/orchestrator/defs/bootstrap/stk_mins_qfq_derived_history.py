@@ -397,6 +397,12 @@ def _validate_derived_history_estimate(
             f"target_freq={estimate.target_freq}, year={estimate.year}, "
             f"mismatch_window_count={estimate.exchange_mismatch_window_count}."
         )
+    if estimate.incomplete_window_count:
+        raise RuntimeError(
+            "Gold qfq derived history source windows are incomplete or invalid: "
+            f"target_freq={estimate.target_freq}, year={estimate.year}, "
+            f"incomplete_window_count={estimate.incomplete_window_count}."
+        )
     if estimate.generated_window_count <= 0:
         raise RuntimeError(
             "Gold qfq derived history generation would produce no rows: "

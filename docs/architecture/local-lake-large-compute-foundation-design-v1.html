@@ -1786,8 +1786,8 @@ qfq baseline 发布后至少写入：
           <td>可接受，但如果未来源频率数量扩大，需要重新评估批量写 queue。</td>
         </tr>
         <tr>
-          <td><code>derive-stk-mins --trade-date --targets</code></td>
-          <td>单交易日派生 90/120。</td>
+          <td>Dagster 90m/120m 单日派生</td>
+          <td>单交易日派生 90/120；backend CLI 已删除。</td>
           <td><code>len(targets)</code>，当前目标集合最多 <code>2</code> 个：<code>90,120</code>。</td>
           <td>单分区 API。</td>
           <td>合理。每个派生目标只发布一个 <code>freq + trade_date</code> 分区。</td>
@@ -1800,8 +1800,8 @@ qfq baseline 发布后至少写入：
           <td>这不是“小范围”。执行大区间前必须评估耗时；后续若频繁跑大区间，应改为批量 queue 写入。</td>
         </tr>
         <tr>
-          <td><code>derive-stk-mins-range</code> / <code>rebuild-stk-mins-derived-from-clean-range</code></td>
-          <td>区间派生 90/120。</td>
+          <td>Dagster 90m/120m 历史重建</td>
+          <td>区间派生 90/120；只允许使用 orchestrator 专项入口。</td>
           <td><code>len(targets) × open_trade_dates</code>；当前目标最多 2 个。</td>
           <td>当前由 <code>derive_day</code> 循环逐分区调用单分区 API。</td>
           <td>大历史区间不是“小范围”；若一次覆盖多年，应在执行前评估是否需要批量 queue。</td>

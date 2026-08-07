@@ -49,8 +49,20 @@ class IndexMinsContractTests(unittest.TestCase):
         self.assertEqual(normalize_index_mins_silver_freq("120min"), "120min")
         self.assertEqual(source_freq_for_index_mins_derived_freq(90), "30min")
         self.assertEqual(source_freq_for_index_mins_derived_freq(120), "60min")
-        self.assertEqual(len(index_mins_derived_windows(90)), 8)
-        self.assertEqual(len(index_mins_derived_windows(120)), 4)
+        windows_90 = index_mins_derived_windows(90)
+        windows_120 = index_mins_derived_windows(120)
+        self.assertEqual(len(windows_90), 3)
+        self.assertEqual(len(windows_120), 2)
+        self.assertEqual(
+            tuple(window.target_time for window in windows_90),
+            ("11:00:00", "14:00:00", "15:00:00"),
+        )
+        self.assertEqual(
+            tuple(window.target_time for window in windows_120),
+            ("11:30:00", "15:00:00"),
+        )
+        self.assertEqual(windows_90[0].auction_anchor_time, "09:30:00")
+        self.assertEqual(windows_120[0].auction_anchor_time, "09:30:00")
         with self.assertRaises(ValueError):
             source_freq_for_index_mins_derived_freq(60)
 

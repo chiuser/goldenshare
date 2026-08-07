@@ -229,22 +229,14 @@ def test_clean_next_refresh_range_publishes_gate_queue_and_derived_hints(tmp_pat
             "target_freq": 90,
             "start_date": "2026-05-08",
             "end_date": "2026-05-08",
-            "command": (
-                "lake_console/.venv/bin/python -m lake_console.backend.app.cli "
-                "rebuild-stk-mins-derived-from-clean-range --target-freqs 90 "
-                "--start-date 2026-05-08 --end-date 2026-05-08"
-            ),
+            "rebuild_owner": "orchestrator",
         },
         {
             "source_freq": 60,
             "target_freq": 120,
             "start_date": "2026-05-08",
             "end_date": "2026-05-08",
-            "command": (
-                "lake_console/.venv/bin/python -m lake_console.backend.app.cli "
-                "rebuild-stk-mins-derived-from-clean-range --target-freqs 120 "
-                "--start-date 2026-05-08 --end-date 2026-05-08"
-            ),
+            "rebuild_owner": "orchestrator",
         },
     ]
     assert {row["status"] for row in gate_rows} == {"passed"}

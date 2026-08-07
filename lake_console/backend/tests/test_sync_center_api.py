@@ -174,7 +174,6 @@ def test_stk_mins_sync_plan_returns_readonly_pipeline_contract(monkeypatch, tmp_
     _patch_settings(monkeypatch, lake_root)
     _run_background_inline(monkeypatch)
     _mock_stk_mins_pipeline_sync(monkeypatch)
-    _mock_stk_mins_pipeline_derived(monkeypatch)
     _mock_stk_mins_pipeline_research(monkeypatch)
     client = TestClient(create_app())
 
@@ -197,8 +196,8 @@ def test_stk_mins_sync_plan_returns_readonly_pipeline_contract(monkeypatch, tmp_
     assert plan["affected_trade_dates"] == ["2026-05-08", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14"]
     assert plan["affected_months"] == ["2026-05"]
     assert plan["normalized_parameters"]["freqs"] == [1, 5, 15, 30, 60]
-    assert plan["normalized_parameters"]["derived_freqs"] == [90, 120]
-    assert plan["normalized_parameters"]["research_freqs"] == [1, 5, 15, 30, 60, 90, 120]
+    assert "derived_freqs" not in plan["normalized_parameters"]
+    assert plan["normalized_parameters"]["research_freqs"] == [1, 5, 15, 30, 60]
     assert plan["dataset_plans"][0]["mode"] == "staged_pipeline_plan"
     assert plan["dataset_plans"][0]["status"] == "plan_only"
     assert plan["blockers"] == []
@@ -211,25 +210,19 @@ def test_stk_mins_sync_plan_returns_readonly_pipeline_contract(monkeypatch, tmp_
         "raw_sync",
         "clean_next_refresh",
         "clean_next_review",
-        "derived_90_120_build",
-        "derived_review",
         "research_month_rebuild",
         "final_validation",
     ]
     assert stages["plan_preflight"]["stage_status"] == "passed"
     assert stages["plan_preflight"]["stage_status_label"] == "已通过"
     assert stages["clean_next_review"]["requires_confirmation"] is True
-    assert stages["clean_next_review"]["next_action"]["label"] == "继续生成 90/120"
-    assert stages["derived_review"]["requires_confirmation"] is True
-    assert stages["derived_review"]["next_action"]["action"] == "continue"
-    assert stages["derived_review"]["next_action"]["label"] == "继续重排 research by month"
+    assert stages["clean_next_review"]["next_action"]["label"] == "继续重排 research by month"
 
     missing_paths = plan["backup_plan"]["path_missing_before_write"]
     assert "raw_tushare/stk_mins_by_date/freq=1/trade_date=2026-05-08" in missing_paths
     assert "research/stk_mins_by_date_clean_next/freq=60/trade_date=2026-05-14" in missing_paths
-    assert "derived/stk_mins_by_date/freq=90/trade_date=2026-05-08" in missing_paths
-    assert "derived/stk_mins_by_date/freq=120/trade_date=2026-05-14" in missing_paths
-    assert "research/stk_mins_by_symbol_month/freq=120/trade_month=2026-05" in missing_paths
+    assert "research/stk_mins_by_symbol_month/freq=60/trade_month=2026-05" in missing_paths
+    assert not any(path.startswith("derived/stk_mins_by_date/") for path in missing_paths)
     assert (lake_root / "manifest" / "lake_jobs" / "plans" / f"{plan['plan_token']}.json").exists()
 
     run_response = client.post(
@@ -248,7 +241,7 @@ def test_stk_mins_sync_plan_returns_readonly_pipeline_contract(monkeypatch, tmp_
     assert detail["run_status"] == "waiting_confirmation"
     assert detail["current_stage_key"] == "clean_next_review"
     assert detail["requires_confirmation"] is True
-    assert detail["next_action"]["label"] == "继续生成 90/120"
+    assert detail["next_action"]["label"] == "继续重排 research by month"
     assert detail["backup"]["status"] == "success"
     assert detail["dataset_results"][0]["dataset_key"] == "stk_mins"
     assert detail["pipeline_stages"][0]["stage_key"] == "plan_preflight"
@@ -283,30 +276,7 @@ def test_stk_mins_sync_plan_returns_readonly_pipeline_contract(monkeypatch, tmp_
         json={"confirm_continue": True, "operator": "tester"},
     )
     assert continue_response.status_code == 200
-    continued = continue_response.json()
-    assert continued["run_status"] == "waiting_confirmation"
-    assert continued["current_stage_key"] == "derived_review"
-    derived_stage = next(stage for stage in continued["pipeline_stages"] if stage["stage_key"] == "derived_90_120_build")
-    assert derived_stage["stage_status"] == "passed"
-    assert derived_stage["metrics"]["written_rows"] == 80
-    assert continued["next_action"]["action"] == "continue"
-    assert continued["next_action"]["label"] == "继续重排 research by month"
-
-    continued_events = client.get(run["events_url"]).json()["items"]
-    assert [item["event_type"] for item in continued_events][-4:] == [
-        "pipeline_continue_confirmed",
-        "derived_90_120_started",
-        "derived_90_120_progress",
-        "derived_review_waiting",
-    ]
-    assert client.get("/api/lake/sync/lock").json()["status"] == "idle"
-
-    final_response = client.post(
-        f"/api/lake/sync/runs/{run['run_id']}/continue",
-        json={"confirm_continue": True, "operator": "tester"},
-    )
-    assert final_response.status_code == 200
-    finished = final_response.json()
+    finished = continue_response.json()
     assert finished["run_status"] == "success"
     assert finished["current_stage_key"] is None
     research_stage = next(stage for stage in finished["pipeline_stages"] if stage["stage_key"] == "research_month_rebuild")
@@ -316,8 +286,8 @@ def test_stk_mins_sync_plan_returns_readonly_pipeline_contract(monkeypatch, tmp_
     assert final_stage["stage_status"] == "passed"
     assert final_stage["metrics"]["source_rows"] == 700
 
-    final_events = client.get(run["events_url"]).json()["items"]
-    assert [item["event_type"] for item in final_events][-4:] == [
+    completed_events = client.get(run["events_url"]).json()["items"]
+    assert [item["event_type"] for item in completed_events][-4:] == [
         "pipeline_continue_confirmed",
         "research_month_rebuild_started",
         "research_month_rebuild_progress",
@@ -383,7 +353,6 @@ def test_stk_mins_sync_continue_and_abort_only_change_pipeline_state(monkeypatch
     _patch_settings(monkeypatch, lake_root)
     _run_background_inline(monkeypatch)
     _mock_stk_mins_pipeline_sync(monkeypatch)
-    _mock_stk_mins_pipeline_derived(monkeypatch)
     _mock_stk_mins_pipeline_research(monkeypatch)
     client = TestClient(create_app())
     plan = client.post(
@@ -415,24 +384,9 @@ def test_stk_mins_sync_continue_and_abort_only_change_pipeline_state(monkeypatch
         "run_status": "waiting_confirmation",
         "current_stage_key": "clean_next_review",
         "requires_confirmation": True,
-        "next_action": {"action": "continue", "label": "继续生成 90/120"},
+        "next_action": {"action": "continue", "label": "继续重排 research by month"},
     }
     LakeJobStateStore(lake_root).write_run(waiting_detail)
-
-    continue_response = client.post(
-        f"/api/lake/sync/runs/{run['run_id']}/continue",
-        json={"confirm_continue": True, "operator": "tester"},
-    )
-    assert continue_response.status_code == 200
-    continued = continue_response.json()
-    assert continued["run_status"] == "waiting_confirmation"
-    assert continued["current_stage_key"] == "derived_review"
-    assert continued["requires_confirmation"] is True
-    clean_review = next(stage for stage in continued["pipeline_stages"] if stage["stage_key"] == "clean_next_review")
-    derived_stage = next(stage for stage in continued["pipeline_stages"] if stage["stage_key"] == "derived_90_120_build")
-    assert clean_review["stage_status"] == "passed"
-    assert clean_review["confirmed_by"] == "tester"
-    assert derived_stage["stage_status"] == "passed"
 
     abort_response = client.post(
         f"/api/lake/sync/runs/{run['run_id']}/abort",
@@ -850,31 +804,6 @@ def _mock_stk_mins_pipeline_sync(monkeypatch) -> None:
 
     monkeypatch.setattr(sync_center, "TushareLakeClient", FakeTushareClient)
     monkeypatch.setattr(sync_center, "TushareStkMinsSyncService", FakeStkMinsSyncService)
-
-
-def _mock_stk_mins_pipeline_derived(monkeypatch) -> None:
-    class FakeStkMinsDerivedService:
-        def __init__(self, *, lake_root: Path, progress) -> None:  # type: ignore[no-untyped-def]
-            self.progress = progress
-
-        def derive_range(self, *, start_date, end_date, targets):  # type: ignore[no-untyped-def]
-            self.progress("[derive_stk_mins_range] fake derived completed")
-            return {
-                "dataset_key": "stk_mins",
-                "operation": "derive_stk_mins_range",
-                "run_id": "fake-derived-range",
-                "start_date": start_date.isoformat(),
-                "end_date": end_date.isoformat(),
-                "trade_dates": [start_date.isoformat(), end_date.isoformat()],
-                "trade_date_count": 2 if start_date != end_date else 1,
-                "targets": targets,
-                "source_rows": 200,
-                "written_rows": 80,
-                "day_summaries": [],
-                "elapsed_seconds": 0.2,
-            }
-
-    monkeypatch.setattr(sync_center, "StkMinsDerivedService", FakeStkMinsDerivedService)
 
 
 def _mock_stk_mins_pipeline_research(monkeypatch) -> None:

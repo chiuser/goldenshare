@@ -55,7 +55,7 @@ class StkMinsPipelinePlanner:
         warnings: list[dict[str, Any]] = [
             {
                 "code": "PIPELINE_REQUIRES_MANUAL_CONFIRMATIONS",
-                "message": "当前按分阶段方式执行：clean_next 和 derived 完成后都会停下等待人工确认，确认后再继续扩大写入范围。",
+                "message": "当前按分阶段方式执行：clean_next 完成后会停下等待人工确认，再继续扩大 research 写入范围。",
             }
         ]
         trade_dates: list[date] = []
@@ -126,12 +126,10 @@ class StkMinsPipelinePlanner:
 
         affected_trade_dates = [item.isoformat() for item in trade_dates]
         affected_months = _months_from_trade_dates(trade_dates)
-        derived_freqs = _derived_freqs_for(selected_freqs)
-        research_freqs = sorted(set(selected_freqs) | set(derived_freqs))
+        research_freqs = selected_freqs
         write_paths = _build_write_paths(
             trade_dates=trade_dates,
             raw_freqs=selected_freqs,
-            derived_freqs=derived_freqs,
             research_freqs=research_freqs,
             trade_months=affected_months,
         )
@@ -140,7 +138,6 @@ class StkMinsPipelinePlanner:
             blocker_count=len(blockers),
             trade_date_count=len(trade_dates),
             raw_freqs=selected_freqs,
-            derived_freqs=derived_freqs,
             research_freqs=research_freqs,
             affected_months=affected_months,
             backup_plan=backup_plan,
@@ -169,13 +166,13 @@ class StkMinsPipelinePlanner:
                 "freqs": selected_freqs,
                 "affected_trade_dates": affected_trade_dates,
                 "affected_months": affected_months,
-                "derived_freqs": derived_freqs,
                 "research_freqs": research_freqs,
             },
             "status": "plan_only",
             "notes": [
                 "计划生成阶段只读，不请求 Tushare，不写 Lake，不创建 Kopia snapshot。",
-                "启动 run 后会先创建 Kopia 写前备份，再执行 raw + clean_next/gate，并停在 clean_next_review；人工确认后生成 90/120 并停在 derived_review；再次确认后重排 research by month 并执行最终校验。",
+                "启动 run 后会先创建 Kopia 写前备份，再执行 raw + clean_next/gate，并停在 clean_next_review；人工确认后仅重排本轮原生频率的 research by month 并执行最终校验。",
+                "90/120 分钟线由 Dagster orchestrator 正式链路生成，Sync Center 不提供第二套派生写入口。",
             ],
             "estimate": sync_estimate,
         }
@@ -200,7 +197,6 @@ class StkMinsPipelinePlanner:
                 "mode": normalized_mode,
                 "affected_trade_dates": affected_trade_dates,
                 "affected_months": affected_months,
-                "derived_freqs": derived_freqs,
                 "research_freqs": research_freqs,
                 "security_universe": security_universe,
             },
@@ -218,7 +214,6 @@ class StkMinsPipelinePlanner:
                 "trade_date_count": len(trade_dates),
                 "affected_month_count": len(affected_months),
                 "raw_freq_count": len(selected_freqs),
-                "derived_freq_count": len(derived_freqs),
                 "research_freq_count": len(research_freqs),
                 "request_count": request_count,
                 "write_path_count": len(write_paths),
@@ -247,15 +242,6 @@ def _resolve_freqs(freqs: list[int] | None) -> list[int]:
     return selected
 
 
-def _derived_freqs_for(raw_freqs: list[int]) -> list[int]:
-    derived: list[int] = []
-    if 30 in raw_freqs:
-        derived.append(90)
-    if 60 in raw_freqs:
-        derived.append(120)
-    return derived
-
-
 def _months_from_trade_dates(trade_dates: list[date]) -> list[str]:
     return sorted({item.strftime("%Y-%m") for item in trade_dates})
 
@@ -264,7 +250,6 @@ def _build_write_paths(
     *,
     trade_dates: list[date],
     raw_freqs: list[int],
-    derived_freqs: list[int],
     research_freqs: list[int],
     trade_months: list[str],
 ) -> list[str]:
@@ -274,9 +259,6 @@ def _build_write_paths(
             date_text = trade_date.isoformat()
             paths.append(f"raw_tushare/stk_mins_by_date/freq={freq}/trade_date={date_text}")
             paths.append(f"research/stk_mins_by_date_clean_next/freq={freq}/trade_date={date_text}")
-    for freq in derived_freqs:
-        for trade_date in trade_dates:
-            paths.append(f"derived/stk_mins_by_date/freq={freq}/trade_date={trade_date.isoformat()}")
     for freq in research_freqs:
         for trade_month in trade_months:
             paths.append(f"research/stk_mins_by_symbol_month/freq={freq}/trade_month={trade_month}")
@@ -331,7 +313,6 @@ def _build_pipeline_stages(
     blocker_count: int,
     trade_date_count: int,
     raw_freqs: list[int],
-    derived_freqs: list[int],
     research_freqs: list[int],
     affected_months: list[str],
     backup_plan: dict[str, Any],
@@ -392,37 +373,14 @@ def _build_pipeline_stages(
             key="clean_next_review",
             title="clean_next 结果确认",
             status="pending",
-            summary="待 clean_next/gate 完成后确认是否继续生成 90/120。",
+            summary="待 clean_next/gate 完成后确认是否继续重排 research by month。",
             metrics={"requires_confirmation": True},
             requires_confirmation=True,
-            confirmation_prompt="确认继续生成 90/120 分钟线。",
-            next_action={"action": "continue", "label": "继续生成 90/120"},
+            confirmation_prompt="确认继续重排 research by month。",
+            next_action={"action": "continue", "label": "继续重排 research by month"},
         ),
         _stage(
             order=6,
-            key="derived_90_120_build",
-            title="生成 90/120 分钟线",
-            status="pending" if derived_freqs else "skipped",
-            summary=(
-                f"待生成 derived：目标频率 {','.join(str(item) for item in derived_freqs)}。"
-                if derived_freqs
-                else "未选择 30/60 raw 频率，本轮不生成 90/120。"
-            ),
-            metrics={"derived_freqs": derived_freqs, "trade_date_count": trade_date_count},
-        ),
-        _stage(
-            order=7,
-            key="derived_review",
-            title="derived 结果确认",
-            status="pending" if derived_freqs else "skipped",
-            summary="待 derived 完成后确认是否继续重排 research by month。" if derived_freqs else "本轮没有 derived 输出，不需要确认。",
-            metrics={"requires_confirmation": bool(derived_freqs)},
-            requires_confirmation=bool(derived_freqs),
-            confirmation_prompt="确认继续重排 research by month。" if derived_freqs else None,
-            next_action={"action": "continue", "label": "继续重排 research by month"} if derived_freqs else None,
-        ),
-        _stage(
-            order=8,
             key="research_month_rebuild",
             title="重排 research by month",
             status="pending",
@@ -430,11 +388,11 @@ def _build_pipeline_stages(
             metrics={"research_freqs": research_freqs, "affected_month_count": len(affected_months)},
         ),
         _stage(
-            order=9,
+            order=7,
             key="final_validation",
             title="最终校验",
             status="pending",
-            summary="待校验 raw、clean_next、derived、research 是否对齐。",
+            summary="待校验 raw、clean_next 与 research 是否对齐。",
             metrics={},
         ),
     ]

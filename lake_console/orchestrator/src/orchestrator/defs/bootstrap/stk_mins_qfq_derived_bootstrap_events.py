@@ -39,6 +39,7 @@ from orchestrator.defs.stk_mins_qfq import (
     _derived_window_completion_predicate,
     _derived_window_rows_sql,
     build_gold_stk_mins_qfq_derived_coverage_sql,
+    build_gold_stk_mins_qfq_derived_source_invalid_predicate_sql,
 )
 
 
@@ -485,9 +486,19 @@ def _batch_derived_diagnostics_counts(
     selected_values_sql = _values_sql(batch.partition_keys)
     window_rows_sql = _derived_window_rows_sql(batch.target_freq)
     completion_predicate = _derived_window_completion_predicate(
-        batch.target_freq,
-        source_row_count_column="coalesce(actual_windows.source_row_count, 0)",
-        window_id_column="expected_windows.window_id",
+        regular_row_count_column="coalesce(actual_windows.regular_row_count, 0)",
+        regular_time_count_column="coalesce(actual_windows.regular_time_count, 0)",
+        anchor_row_count_column="coalesce(actual_windows.anchor_row_count, 0)",
+        anchor_time_count_column="coalesce(actual_windows.anchor_time_count, 0)",
+        expected_regular_count_column="expected_windows.expected_regular_count",
+        expected_anchor_count_column="expected_windows.expected_anchor_count",
+    )
+    invalid_source_predicate = (
+        build_gold_stk_mins_qfq_derived_source_invalid_predicate_sql(
+            source_alias="selected_source_rows",
+            source_freq=batch.source_freq,
+            window_map_alias="window_map",
+        )
     )
     rows = connection.execute(
         f"""
@@ -495,12 +506,18 @@ def _batch_derived_diagnostics_counts(
         source_rows AS (
           SELECT
             CAST(ts_code AS VARCHAR) AS ts_code,
+            CAST(freq AS INTEGER) AS freq,
             CAST(trade_date AS DATE) AS trade_date,
             strftime(CAST(trade_date AS DATE), '%Y-%m-%d') AS partition_key,
             CAST(trade_time AS TIMESTAMP) AS trade_time,
+            CAST(open AS DOUBLE) AS open,
+            CAST(high AS DOUBLE) AS high,
+            CAST(low AS DOUBLE) AS low,
+            CAST(close AS DOUBLE) AS close,
+            CAST(vol AS DOUBLE) AS vol,
+            CAST(amount AS DOUBLE) AS amount,
             CAST(exchange AS VARCHAR) AS exchange
           FROM {source}
-          WHERE CAST(freq AS INTEGER) = {batch.source_freq}
         ),
         selected_source_rows AS (
           SELECT source_rows.*
@@ -508,27 +525,37 @@ def _batch_derived_diagnostics_counts(
           INNER JOIN selected
             ON source_rows.partition_key = selected.partition_key
         ),
-        source_stock_days AS (
-          SELECT DISTINCT partition_key, ts_code, trade_date
-          FROM selected_source_rows
-        ),
         window_map AS (
           {window_rows_sql}
+        ),
+        source_stock_days AS (
+          SELECT
+            partition_key,
+            ts_code,
+            trade_date,
+            count(*) FILTER (
+              WHERE {invalid_source_predicate}
+            ) AS invalid_source_row_count
+          FROM selected_source_rows
+          GROUP BY partition_key, ts_code, trade_date
         ),
         expected_windows AS (
           SELECT
             source_stock_days.partition_key,
             source_stock_days.ts_code,
             source_stock_days.trade_date,
+            source_stock_days.invalid_source_row_count,
             window_map.window_id,
             max(window_map.target_time) AS target_time,
-            count(*) AS expected_source_row_count
+            max(window_map.expected_regular_count) AS expected_regular_count,
+            max(window_map.expected_anchor_count) AS expected_anchor_count
           FROM source_stock_days
           CROSS JOIN window_map
           GROUP BY
             source_stock_days.partition_key,
             source_stock_days.ts_code,
             source_stock_days.trade_date,
+            source_stock_days.invalid_source_row_count,
             window_map.window_id
         ),
         windowed_rows AS (
@@ -539,7 +566,8 @@ def _batch_derived_diagnostics_counts(
             selected_source_rows.trade_time,
             selected_source_rows.exchange,
             window_map.window_id,
-            window_map.target_time
+            window_map.target_time,
+            window_map.source_role
           FROM selected_source_rows
           INNER JOIN window_map
             ON strftime(selected_source_rows.trade_time, '%H:%M:%S')
@@ -551,9 +579,18 @@ def _batch_derived_diagnostics_counts(
             ts_code,
             trade_date,
             window_id,
-            max(trade_time) AS trade_time,
+            max(trade_time) FILTER (WHERE source_role = 'regular') AS trade_time,
             max(target_time) AS target_time,
-            count(*) AS source_row_count,
+            count(*) FILTER (WHERE source_role = 'regular') AS regular_row_count,
+            count(DISTINCT strftime(trade_time, '%H:%M:%S')) FILTER (
+              WHERE source_role = 'regular'
+            ) AS regular_time_count,
+            count(*) FILTER (
+              WHERE source_role = 'auction_anchor'
+            ) AS anchor_row_count,
+            count(DISTINCT strftime(trade_time, '%H:%M:%S')) FILTER (
+              WHERE source_role = 'auction_anchor'
+            ) AS anchor_time_count,
             count(DISTINCT exchange) AS exchange_count
           FROM windowed_rows
           GROUP BY partition_key, ts_code, trade_date, window_id
@@ -562,11 +599,16 @@ def _batch_derived_diagnostics_counts(
           SELECT
             expected_windows.partition_key,
             expected_windows.window_id,
-            coalesce(actual_windows.source_row_count, 0) AS source_row_count,
+            expected_windows.invalid_source_row_count,
+            coalesce(actual_windows.regular_row_count, 0) AS regular_row_count,
+            coalesce(actual_windows.regular_time_count, 0) AS regular_time_count,
+            coalesce(actual_windows.anchor_row_count, 0) AS anchor_row_count,
+            coalesce(actual_windows.anchor_time_count, 0) AS anchor_time_count,
             coalesce(actual_windows.exchange_count, 0) AS exchange_count,
             actual_windows.trade_time,
             expected_windows.target_time,
-            actual_windows.source_row_count IS NOT NULL
+            actual_windows.trade_time IS NOT NULL
+              AND expected_windows.invalid_source_row_count = 0
               AND strftime(actual_windows.trade_time, '%H:%M:%S')
                 = expected_windows.target_time
               AND ({completion_predicate}) AS generated
@@ -592,8 +634,7 @@ def _batch_derived_diagnostics_counts(
             count(*) AS expected_window_count,
             count(*) FILTER (WHERE generated AND exchange_count = 1)
               AS generated_window_count,
-            count(*) FILTER (WHERE source_row_count > 0 AND NOT generated)
-              AS incomplete_window_count,
+            count(*) FILTER (WHERE NOT generated) AS incomplete_window_count,
             count(*) FILTER (WHERE exchange_count > 1)
               AS exchange_mismatch_window_count
           FROM window_status

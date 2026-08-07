@@ -24,13 +24,18 @@ from orchestrator.defs.paths import (
     silver_major_index_mins_staging_path,
 )
 from orchestrator.defs.resources import DuckDBResource
+from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
+    AUCTION_ANCHOR_ROLE,
+    REGULAR_SOURCE_ROLE,
+    cn_a_derived_minute_completion_predicate,
+    cn_a_derived_minute_window_map_sql,
+)
 from orchestrator.defs.run_contracts.major_index_mins import (
     MAJOR_INDEX_MINS_RAW_COLUMN_TYPES,
     MAJOR_INDEX_MINS_SOURCE_COLUMNS,
     MAJOR_INDEX_MINS_SOURCE_FREQS,
     effective_raw_request_codes_for_date,
     effective_silver_codes_for_date,
-    major_index_mins_derived_windows,
     major_index_mins_historical_fallback_rule,
     normalize_major_index_mins_silver_freq,
     normalize_major_index_mins_trade_date,
@@ -216,57 +221,89 @@ def _ordered_output_sql(relation_sql: str) -> str:
 def _prepare_derived_window_map(connection, *, silver_freq: str) -> None:
     connection.execute("DROP TABLE IF EXISTS derived_window_map")
     connection.execute(
-        "CREATE TEMP TABLE derived_window_map("
-        "exchange VARCHAR NOT NULL, source_time TIME NOT NULL, "
-        "window_id INTEGER NOT NULL, target_time TIME NOT NULL, "
-        "expected_source_count INTEGER NOT NULL, "
-        "PRIMARY KEY(exchange, source_time))"
-    )
-    rows: list[tuple[object, ...]] = []
-    for exchange in ("XSHG", "XSHE", "BSE"):
-        rows.extend(
-            (
-                exchange,
-                window.source_time,
-                window.window_id,
-                window.target_time,
-                window.expected_source_count,
-            )
-            for window in major_index_mins_derived_windows(
-                silver_freq=silver_freq,
-                exchange=exchange,
-            )
-        )
-    connection.executemany(
-        "INSERT INTO derived_window_map VALUES (?, ?, ?, ?, ?)",
-        rows,
+        "CREATE TEMP TABLE derived_window_map AS "
+        f"{cn_a_derived_minute_window_map_sql(silver_freq)}"
     )
 
 
 def _derived_aggregate_sql(*, source_sql: str, silver_freq: str) -> str:
+    completion = cn_a_derived_minute_completion_predicate(
+        regular_row_count_column="regular_row_count",
+        regular_time_count_column="regular_time_count",
+        anchor_row_count_column="anchor_row_count",
+        anchor_time_count_column="anchor_time_count",
+        expected_regular_count_column="expected_regular_count",
+        expected_anchor_count_column="expected_anchor_count",
+    )
     return f"""
     WITH windowed AS (
       SELECT source_rows.*, window_map.window_id, window_map.target_time,
-             window_map.expected_source_count
+             window_map.source_role, window_map.expected_regular_count,
+             window_map.expected_anchor_count
       FROM ({source_sql}) source_rows
       INNER JOIN derived_window_map window_map
-        ON source_rows.exchange = window_map.exchange
-       AND CAST(source_rows.trade_time AS TIME) = window_map.source_time
+        ON CAST(source_rows.trade_time AS TIME) = CAST(window_map.source_time AS TIME)
     ), aggregated AS (
       SELECT
         ts_code,
         '{silver_freq}'::VARCHAR AS freq,
         CAST(CAST(trade_time AS DATE) AS VARCHAR) || ' ' ||
           CAST(max(target_time) AS VARCHAR) AS target_timestamp,
-        arg_min(open, trade_time)::DOUBLE AS open,
-        arg_max(close, trade_time)::DOUBLE AS close,
-        max(high)::DOUBLE AS high,
-        min(low)::DOUBLE AS low,
+        CASE
+          WHEN max(expected_anchor_count) = 1 THEN max(close) FILTER (
+            WHERE source_role = '{AUCTION_ANCHOR_ROLE}'
+          )
+          ELSE arg_min(open, trade_time) FILTER (
+            WHERE source_role = '{REGULAR_SOURCE_ROLE}'
+          )
+        END::DOUBLE AS open,
+        arg_max(close, trade_time) FILTER (
+          WHERE source_role = '{REGULAR_SOURCE_ROLE}'
+        )::DOUBLE AS close,
+        CASE
+          WHEN max(expected_anchor_count) = 1 THEN greatest(
+            max(close) FILTER (
+              WHERE source_role = '{AUCTION_ANCHOR_ROLE}'
+            ),
+            max(high) FILTER (
+              WHERE source_role = '{REGULAR_SOURCE_ROLE}'
+            )
+          )
+          ELSE max(high) FILTER (
+            WHERE source_role = '{REGULAR_SOURCE_ROLE}'
+          )
+        END::DOUBLE AS high,
+        CASE
+          WHEN max(expected_anchor_count) = 1 THEN least(
+            min(close) FILTER (
+              WHERE source_role = '{AUCTION_ANCHOR_ROLE}'
+            ),
+            min(low) FILTER (
+              WHERE source_role = '{REGULAR_SOURCE_ROLE}'
+            )
+          )
+          ELSE min(low) FILTER (
+            WHERE source_role = '{REGULAR_SOURCE_ROLE}'
+          )
+        END::DOUBLE AS low,
         sum(vol)::DOUBLE AS vol,
         sum(amount)::DOUBLE AS amount,
         max(exchange)::VARCHAR AS exchange,
-        count(*)::INTEGER AS source_row_count,
-        max(expected_source_count)::INTEGER AS expected_source_count
+        count(DISTINCT exchange)::INTEGER AS exchange_count,
+        count(*) FILTER (
+          WHERE source_role = '{REGULAR_SOURCE_ROLE}'
+        )::INTEGER AS regular_row_count,
+        count(DISTINCT CAST(trade_time AS TIME)) FILTER (
+          WHERE source_role = '{REGULAR_SOURCE_ROLE}'
+        )::INTEGER AS regular_time_count,
+        count(*) FILTER (
+          WHERE source_role = '{AUCTION_ANCHOR_ROLE}'
+        )::INTEGER AS anchor_row_count,
+        count(DISTINCT CAST(trade_time AS TIME)) FILTER (
+          WHERE source_role = '{AUCTION_ANCHOR_ROLE}'
+        )::INTEGER AS anchor_time_count,
+        max(expected_regular_count)::INTEGER AS expected_regular_count,
+        max(expected_anchor_count)::INTEGER AS expected_anchor_count
       FROM windowed
       GROUP BY ts_code, CAST(trade_time AS DATE), window_id
     )
@@ -283,7 +320,8 @@ def _derived_aggregate_sql(*, source_sql: str, silver_freq: str) -> str:
       exchange,
       CAST(NULL AS DOUBLE) AS vwap
     FROM aggregated
-    WHERE source_row_count = expected_source_count
+    WHERE exchange_count = 1
+      AND ({completion})
     """
 
 
@@ -298,8 +336,7 @@ def _derived_diagnostics(
             SELECT count(*) FROM (
               SELECT expected.ts_code, window_map.window_id
               FROM expected_codes expected
-              INNER JOIN derived_window_map window_map
-                ON expected.expected_exchange = window_map.exchange
+              CROSS JOIN derived_window_map window_map
               GROUP BY expected.ts_code, window_map.window_id
             ) expected_windows
             """

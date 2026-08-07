@@ -62,7 +62,7 @@ commandExamples(dataset)
 但当前实现存在两个问题：
 
 1. 命令示例由前端 `commandExamples()` 硬编码。
-2. `stk_mins` 示例里存在与当前 CLI 不一致的风险，例如旧示例 `rebuild-stk-mins-derived` 已不符合当前命令命名，当前真实派生命令是 `derive-stk-mins`。
+2. `stk_mins` 示例必须过滤已删除命令；90m/120m 正式派生已收敛到 Dagster orchestrator，不再提供 backend CLI。
 
 这说明页面方向是对的，但数据来源还不符合规划。
 
@@ -115,7 +115,6 @@ lake_console/backend/app/cli/
 | `clean-tmp` | 审计或清理 `_tmp` run 目录 |
 | `sync-stk-mins` | 同步单股票单日分钟线 |
 | `sync-stk-mins-range` | 同步区间分钟线 |
-| `derive-stk-mins` | 从 30/60 分钟线派生 90/120 分钟线 |
 | `rebuild-stk-mins-research` | 重排 research 层 |
 
 命令示例页面必须以这些真实命令为准，不允许继续保留旧命令名。
@@ -175,7 +174,7 @@ lake_console/backend/app/cli/
 | 用户想同步日线单日 | 选择 `A股行情 -> daily`，看到 `lake-console sync-dataset daily --trade-date ...` |
 | 用户想同步资金流区间 | 选择 `资金流向 -> moneyflow`，看到区间命令 |
 | 用户想同步分钟线全市场 | 选择 `A股行情 -> stk_mins`，看到 `sync-stk-mins-range` |
-| 用户想生成 90/120 分钟线 | 选择 `stk_mins`，看到 `derive-stk-mins` |
+| 用户想维护 90/120 分钟线 | 转到 Dagster orchestrator 专项，不展示 backend 写命令 |
 | 用户想清理临时目录 | 选择维护分组，看到 `clean-tmp --dry-run` 与清理命令 |
 
 ---
@@ -338,7 +337,6 @@ display_name = "Lake 维护命令"
 | 同步单股票单日分钟线 | 适合小范围验证或补单只股票 | `lake-console sync-stk-mins --ts-code 600000.SH --freq 30 --trade-date 2026-04-24` |
 | 同步单股票区间分钟线 | 适合补旧代码或小范围历史缺口；按 freq 定窗口请求，并按 ts_code 合并写入分区 | `lake-console sync-stk-mins-range --ts-code 300114.SZ --freqs 1,5,15,30,60 --start-date 2010-08-27 --end-date 2025-02-16` |
 | 同步全市场区间分钟线 | 按本地交易日历展开交易日，写入 `stk_mins_by_date` | `lake-console sync-stk-mins-range --all-market --freqs 1,5,15,30,60 --start-date 2026-04-01 --end-date 2026-04-30` |
-| 派生 90/120 分钟线 | 从 30/60 分钟线生成本地派生层 | `lake-console derive-stk-mins --trade-date 2026-04-24 --targets 90,120` |
 | 重建 research 月分区 | 把 by_date 数据重排为 by_symbol_month，适合单股长周期回测 | `lake-console rebuild-stk-mins-research --freq 30 --trade-month 2026-04` |
 
 #### 5.5.7 `lake_maintenance`

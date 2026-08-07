@@ -5,7 +5,6 @@ from datetime import date
 
 from lake_console.backend.app.cli.commands.common import add_lake_root_arg, parse_freqs, parse_int_csv, print_json, settings_from_args
 from lake_console.backend.app.cli.progress import StkMinsTerminalProgress
-from lake_console.backend.app.services.stk_mins_derived_service import StkMinsDerivedService
 from lake_console.backend.app.services.stk_mins_clean_next_gate_backfill_service import StkMinsCleanNextGateBackfillService
 from lake_console.backend.app.services.stk_mins_clean_next_refresh_service import CleanNextRefreshService
 from lake_console.backend.app.services.stk_mins_clean_service import StkMinsCleanService
@@ -36,29 +35,6 @@ def register_stk_mins_commands(subparsers: argparse._SubParsersAction[argparse.A
     range_parser.add_argument("--freqs", default=None, help="多个分钟周期，逗号分隔，例如 1,5,15,30,60；全市场和单股票区间模式均可用")
     range_parser.add_argument("--part-rows", default=DEFAULT_PART_ROWS, type=int, help="全市场模式下每个 Parquet part 的最大行数")
     range_parser.set_defaults(handler=_handle_sync_stk_mins_range)
-
-    derive_parser = subparsers.add_parser("derive-stk-mins", help="从 30/60 分钟线派生 90/120 分钟线")
-    add_lake_root_arg(derive_parser)
-    derive_parser.add_argument("--trade-date", required=True, type=date.fromisoformat, help="交易日，格式 YYYY-MM-DD")
-    derive_parser.add_argument("--targets", default="90,120", help="派生目标，逗号分隔，当前支持 90,120")
-    derive_parser.set_defaults(handler=_handle_derive_stk_mins)
-
-    derive_range_parser = subparsers.add_parser("derive-stk-mins-range", help="按本地交易日历批量派生 90/120 分钟线")
-    add_lake_root_arg(derive_range_parser)
-    derive_range_parser.add_argument("--start-date", required=True, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD")
-    derive_range_parser.add_argument("--end-date", required=True, type=date.fromisoformat, help="结束日期，格式 YYYY-MM-DD")
-    derive_range_parser.add_argument("--targets", default="90,120", help="派生目标，逗号分隔，当前支持 90,120")
-    derive_range_parser.set_defaults(handler=_handle_derive_stk_mins_range)
-
-    derive_from_clean_range_parser = subparsers.add_parser(
-        "rebuild-stk-mins-derived-from-clean-range",
-        help="从 clean 30/60 分钟线批量重建 derived 90/120 分钟线",
-    )
-    add_lake_root_arg(derive_from_clean_range_parser)
-    derive_from_clean_range_parser.add_argument("--start-date", required=True, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD")
-    derive_from_clean_range_parser.add_argument("--end-date", required=True, type=date.fromisoformat, help="结束日期，格式 YYYY-MM-DD")
-    derive_from_clean_range_parser.add_argument("--target-freqs", default="90,120", help="派生目标，逗号分隔，当前支持 90,120")
-    derive_from_clean_range_parser.set_defaults(handler=_handle_rebuild_stk_mins_derived_from_clean_range)
 
     research_parser = subparsers.add_parser("rebuild-stk-mins-research", help="把 by_date 分区重排为 by_symbol_month research 层")
     add_lake_root_arg(research_parser)
@@ -224,38 +200,6 @@ def _handle_sync_stk_mins_range(args: argparse.Namespace) -> int:
     finally:
         if progress:
             progress.finish()
-    print_json(summary)
-    return 0
-
-
-def _handle_derive_stk_mins(args: argparse.Namespace) -> int:
-    settings = settings_from_args(args)
-    targets = parse_int_csv(args.targets, allowed={90, 120}, label="targets")
-    summary = StkMinsDerivedService(lake_root=settings.lake_root).derive_day(trade_date=args.trade_date, targets=targets)
-    print_json(summary)
-    return 0
-
-
-def _handle_derive_stk_mins_range(args: argparse.Namespace) -> int:
-    settings = settings_from_args(args)
-    targets = parse_int_csv(args.targets, allowed={90, 120}, label="targets")
-    summary = StkMinsDerivedService(lake_root=settings.lake_root).derive_range(
-        start_date=args.start_date,
-        end_date=args.end_date,
-        targets=targets,
-    )
-    print_json(summary)
-    return 0
-
-
-def _handle_rebuild_stk_mins_derived_from_clean_range(args: argparse.Namespace) -> int:
-    settings = settings_from_args(args)
-    targets = parse_int_csv(args.target_freqs, allowed={90, 120}, label="target-freqs")
-    summary = StkMinsDerivedService(lake_root=settings.lake_root).derive_range(
-        start_date=args.start_date,
-        end_date=args.end_date,
-        targets=targets,
-    )
     print_json(summary)
     return 0
 

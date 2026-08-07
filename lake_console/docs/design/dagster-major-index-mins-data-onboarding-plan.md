@@ -1,5 +1,7 @@
 # Dagster 主要指数历史分钟线接入方案
 
+> 2026-08-07 修正：现有 90m/120m 集合竞价窗口合同不正确，主要指数 Silver 的两个派生频率必须按[统一修复与重建 LLD](./dagster-derived-minute-bars-90-120-contract-rebuild-low-level-design.md)全历史重建。本文此前记录的 P3/P7/P8 文件和事件验收只证明旧合同执行完整，不再证明派生 K 线业务语义正确。
+
 ## 1. 目标与边界
 
 新增独立数据集 `major_index_mins`，用于保存主要指数历史分钟线：
@@ -415,7 +417,7 @@ Bootstrap 必须六阶段，请求只发生一次：
 
 P1 还纠正了一个旧文档事实：`899050.BJ` 的最早分钟数据是 `2022-11-21 09:30:00`，不是 `2022-12-15`；`2025-10-30` 有数据、`2025-10-31` 起为空的停止边界不变。
 
-P3 已用真实源样本冻结 session：SH/SZ 五频日行数为 `241/49/17/9/5`，BSE 为 `271/55/19/10/6`，BSE 收盘为 `15:30`。90m 对 BSE 的第三窗延伸到 `15:30`；120m 只输出两个完整窗口，不把 `15:00/15:30` 尾部伪造成 120m。完整报告见 `/private/tmp/major_index_mins_p3_session_probe_20260805.json`。
+P3 已用真实源样本冻结 source session：SH/SZ 五频日行数为 `241/49/17/9/5`，BSE 为 `271/55/19/10/6`，BSE 收盘为 `15:30`。该报告只保留源端时间集合证据。P7C 后北证50已固定不进入任何 Silver 频率；SH/SZ 的 90m/120m 目标窗口以 2026-08-07 统一修复 LLD 为准，旧 P3 派生目标时间不再有效。完整源 session 报告见 `/private/tmp/major_index_mins_p3_session_probe_20260805.json`。
 
 P4 已注册 Raw 5、Silver 7、每资产一个 partitioned blocking core check、Raw/Silver 两个 job、12 个 Catalog/governance 条目、两个 PartitionModel 和中文名。P5 已补齐专属分区注册、Raw/Silver 10 日 lake readiness、10 代码收盘探针和默认停止状态的 sensors。真实 `2026-08-04` 探针为 10 次请求、0 重试、约 4.09 秒；120 文件联合 readiness 经分组复用 expected tables 后由约 13.43 秒降至约 1.84 秒。
 

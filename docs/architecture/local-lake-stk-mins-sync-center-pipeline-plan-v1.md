@@ -1,8 +1,8 @@
 # Local Lake 股票分钟线同步中心可视化流水线方案 v1
 
 - 版本：v1
-- 状态：已落地；第 1 步“后端只读计划模型与 API 契约”、第 2 步“前端阶段化展示，只接只读 plan”、第 3 步“状态型 run 与人工确认/停止契约”、第 4 步“Kopia 写前备份”、第 5 步“raw + clean_next 到第一个确认点”、第 6 步“derived 90/120 到第二个确认点”和第 7 步“research by month 与最终校验”已实现
-- 更新时间：2026-05-16
+- 状态：已落地并于 2026-08-07 收敛；Sync Center 只负责 raw、clean_next/gate、人工确认、research by month 和最终校验，不再生成 90m/120m
+- 更新时间：2026-08-07
 - 适用范围：`lake_console` 数据湖同步中心中的 `stk_mins_sync` 专项入口
 
 ---
@@ -12,7 +12,7 @@
 本文只解决一个问题：
 
 ```text
-把股票分钟线从 raw 同步到 clean_next、90/120 分钟派生、research by month 的过程，
+把股票分钟线从 raw 同步到 clean_next、research by month 的过程，
 放进数据湖同步中心，并让运营能看到每一步、确认每一步，而不是执行一个黑盒命令。
 ```
 
@@ -24,7 +24,7 @@
 | --- | --- |
 | `raw_tushare/stk_mins_by_date` | 覆盖 |
 | `research/stk_mins_by_date_clean_next` 与 gate | 覆盖 |
-| `derived/stk_mins_by_date` 的 `90/120min` | 覆盖 |
+| 90m/120m 派生 | 不覆盖；正式写入只由 Dagster orchestrator 负责 |
 | `research/stk_mins_by_symbol_month` | 覆盖 |
 | 分钟技术指标计算 | 不覆盖，后置 |
 | `index_mins` | 不覆盖，另行专项 |
@@ -42,10 +42,10 @@
 | 同步中心 runner 会拒绝 `stk_mins_sync` | `lake_console/backend/app/services/sync_profile_runner.py` | 仍只负责普通 DB 同步和本地参考数据刷新；`stk_mins_sync` 由专项流水线执行 |
 | 前端已接入 `stk_mins_sync` | `lake_console/frontend/src/pages/SyncCenterPage.tsx` | 可以生成计划、启动 run、查看阶段、人工确认继续 |
 | `sync-stk-mins-range` 会触发 raw 到 clean_next | `lake_console/backend/app/services/tushare_stk_mins_sync_service.py` | raw 写完后会刷新 clean_next 和 gate |
-| `90/120min` 派生是独立服务 | `lake_console/backend/app/services/stk_mins_derived_service.py` | 在 `clean_next_review` 人工确认后由 Sync Center 调用 |
-| research by month 是独立服务 | `lake_console/backend/app/services/stk_mins_research_service.py` | 在 `derived_review` 人工确认后由 Sync Center 调用 |
+| 90m/120m 派生 | `lake_console/orchestrator` | backend 写入口已删除，Sync Center 不生成派生分钟线 |
+| research by month 是独立服务 | `lake_console/backend/app/services/stk_mins_research_service.py` | 在 `clean_next_review` 人工确认后由 Sync Center 调用 |
 | 现有同步中心有 plan、run、events、lock、Kopia 备份基础设施 | `lake_console/backend/app/api/sync_center.py`、`lake_console/backend/app/services/lake_job_state.py` | 已被 `stk_mins_sync` 专项流水线复用 |
-| `stk_mins_sync` 长任务执行方式 | `lake_console/backend/app/api/sync_center.py` | raw、derived、research 写入阶段均由后台任务执行，关键节点释放锁并等待人工确认 |
+| `stk_mins_sync` 长任务执行方式 | `lake_console/backend/app/api/sync_center.py` | raw 和 research 写入阶段由后台任务执行，在 clean_next 后释放锁并等待人工确认 |
 
 当前 Sync Center 真实链路是：
 
@@ -55,13 +55,11 @@ flowchart LR
   B --> C["raw_tushare/stk_mins_by_date"]
   C --> D["refresh clean_next + gate"]
   D --> E["clean_next_review 人工确认"]
-  E --> F["derived/stk_mins_by_date 90/120"]
-  F --> G["derived_review 人工确认"]
-  G --> H["research/stk_mins_by_symbol_month"]
-  H --> I["final_validation"]
+  E --> F["research/stk_mins_by_symbol_month"]
+  F --> G["final_validation"]
 ```
 
-底层 `sync-stk-mins-range` 仍只负责 raw + clean_next/gate；Sync Center 的 `stk_mins_sync` 专项流水线负责在人工确认后继续调用 derived 与 research 服务。
+底层 `sync-stk-mins-range` 负责 raw + clean_next/gate；Sync Center 在人工确认后只继续调用 research 服务。90m/120m 由 Dagster 专项链路生成和治理。
 
 ---
 
@@ -81,8 +79,6 @@ flowchart LR
 | 写入前是否已做 Kopia 备份 | 备份节点 |
 | raw 每个频率同步到哪里 | raw 同步节点 |
 | clean_next 与 gate 是否通过 | clean_next 节点 |
-| 是否继续生成 90/120 | 人工确认节点 |
-| 90/120 是否完整 | derived 节点 |
 | 是否继续重排 by month | 人工确认节点 |
 | research by month 行数是否与来源一致 | research 节点 |
 | 最终是否可供研究层消费 | 最终校验节点 |
@@ -99,7 +95,7 @@ flowchart LR
 4. 不做技术指标自动计算。
 5. 不做一键恢复，恢复继续通过 Kopia 页面和命令完成。
 6. 不在同步中心暴露 SQL、表名、字段名或任意 where 条件。
-7. 不改变现有 raw、clean_next、derived、research 的业务写入规则。
+7. 不改变现有 raw、clean_next、research 的业务写入规则；不从 Sync Center 写 90m/120m。
 
 ---
 
@@ -113,7 +109,7 @@ flowchart LR
 | --- | --- |
 | 以数据集为单位执行 | 以流水线阶段执行 |
 | 多数任务一次请求很快返回 | 分钟线可能长时间运行 |
-| 失败后通常只影响一个数据集分区 | 失败可能影响 raw、clean_next、derived、research 多层 |
+| 失败后通常只影响一个数据集分区 | 失败可能影响 raw、clean_next、research 多层 |
 | 页面主要看数据集结果 | 页面必须看阶段、门禁、人工确认 |
 
 建议新增专项执行器：
@@ -139,10 +135,8 @@ StkMinsPipelineState
 | 3 | `raw_sync` | 同步 raw 分钟线 | 是 | 否 | 执行 raw 全市场分钟线同步 |
 | 4 | `clean_next_refresh` | 刷新 clean_next | 是 | 否 | 刷新正式 clean_next 与 gate |
 | 5 | `clean_next_review` | clean_next 结果确认 | 否 | 是 | 运营查看 raw/clean/gate 结果后确认是否继续 |
-| 6 | `derived_90_120_build` | 生成 90/120 分钟线 | 是 | 否 | 生成 derived 层 `90/120min` |
-| 7 | `derived_review` | derived 结果确认 | 否 | 是 | 运营查看 90/120 结果后确认是否继续 |
-| 8 | `research_month_rebuild` | 重排 research by month | 是 | 否 | 重排 `research/stk_mins_by_symbol_month` |
-| 9 | `final_validation` | 最终校验 | 否 | 否 | 检查 raw/clean/gate/derived/research 是否对齐 |
+| 6 | `research_month_rebuild` | 重排 research by month | 是 | 否 | 重排 `research/stk_mins_by_symbol_month` |
+| 7 | `final_validation` | 最终校验 | 否 | 否 | 检查 raw/clean/gate/research 是否对齐 |
 
 阶段图：
 
@@ -152,12 +146,9 @@ flowchart TD
   B --> C["同步 raw 分钟线"]
   C --> D["刷新 clean_next 与 gate"]
   D --> E{"确认 clean_next 结果"}
-  E -->|继续| F["生成 90/120 分钟线"]
+  E -->|继续| F["重排 research by month"]
   E -->|停止| X["任务停在 clean_next 已完成"]
-  F --> G{"确认 derived 结果"}
-  G -->|继续| H["重排 research by month"]
-  G -->|停止| Y["任务停在 derived 已完成"]
-  H --> I["最终校验"]
+  F --> G["最终校验"]
 ```
 
 ---
@@ -202,10 +193,10 @@ flowchart TD
     "gate_failed_count": 0
   },
   "requires_confirmation": true,
-  "confirmation_prompt": "确认继续生成 90/120 分钟线。",
+  "confirmation_prompt": "确认继续重排 research by month。",
   "next_action": {
     "action": "continue",
-    "label": "继续生成 90/120"
+    "label": "继续重排 research by month"
   }
 }
 ```
@@ -353,13 +344,13 @@ flowchart TD
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ 数据湖同步中心 / 股票分钟线专项                         锁：运行中  备份：已完成 │
-│ raw -> clean_next -> 90/120 -> research by month             run_20260515_xxx │
+│ raw -> clean_next -> research by month                       run_20260515_xxx │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ 日期：2026-05-08 ~ 2026-05-14   频率：1/5/15/30/60   模式：人工确认推进        │
 ├───────────────┬──────────────────────────────────────────────────────────────┤
 │ 配置区         │ 阶段进度                                                     │
 │               │                                                              │
-│ Profile        │  ✓ 计划检查  ✓ 写前备份  ● 同步 raw  ○ clean_next  ○ derived │
+│ Profile        │  ✓ 计划检查  ✓ 写前备份  ● 同步 raw  ○ clean_next  ○ research│
 │ 股票分钟线专项 │                                                              │
 │               │                                                              │
 │ 起始日期        │ ┌────┬────────────────────┬──────────┬──────────────────┬──────┐ │
@@ -370,10 +361,9 @@ flowchart TD
 │               │ │ 3  │ 同步 raw 分钟线       │ 执行中    │ freq=1 处理中     │ 详情 │ │
 │ 频率            │ │ 4  │ 刷新 clean_next/gate  │ 待执行    │ -                │ -    │ │
 │ 1 / 5 / 15     │ │ 5  │ clean_next 结果确认   │ 待执行    │ -                │ -    │ │
-│ 30 / 60        │ │ 6  │ 生成 90/120           │ 待执行    │ -                │ -    │ │
-│               │ │ 7  │ derived 结果确认      │ 待执行    │ -                │ -    │ │
-│ [生成计划]      │ │ 8  │ 重排 research by month│ 待执行    │ -                │ -    │ │
-│ [启动执行]      │ │ 9  │ 最终校验              │ 待执行    │ -                │ -    │ │
+│ 30 / 60        │ │ 6  │ 重排 research by month│ 待执行    │ -                │ -    │ │
+│ [生成计划]      │ │ 7  │ 最终校验              │ 待执行    │ -                │ -    │ │
+│ [启动执行]      │ │    │                       │           │                  │      │ │
 │               │ └────┴────────────────────┴──────────┴──────────────────┴──────┘ │
 ├───────────────┴──────────────────────────────────────────────────────────────┤
 │ 事件流：12:01 写前备份完成 · 12:03 raw freq=1 开始 · 12:08 写入 1327428 行       │
@@ -423,11 +413,11 @@ flowchart TD
 
 ### 9.3 人工确认态
 
-当 clean_next 或 derived 阶段完成后，页面必须明确停住，不自动继续。
+当 clean_next 阶段完成后，页面必须明确停住，不自动继续。
 
 ```text
 ┌────┬────────────────────┬──────────────┬──────────────────────────────┬──────────────┐
-│ 5  │ clean_next 结果确认 │ 等待确认       │ gate 35/35 通过，raw/clean 行数一致 │ 继续生成90/120 │
+│ 5  │ clean_next 结果确认 │ 等待确认       │ gate 35/35 通过，raw/clean 行数一致 │ 继续重排research │
 └────┴────────────────────┴──────────────┴──────────────────────────────┴──────────────┘
 ```
 
@@ -442,8 +432,7 @@ flowchart TD
 
 | 阶段 | 按钮文案 |
 | --- | --- |
-| `clean_next_review` | `继续生成 90/120` |
-| `derived_review` | `继续重排 research by month` |
+| `clean_next_review` | `继续重排 research by month` |
 | 任意确认态 | `停止后续写入` |
 
 ### 9.4 详情抽屉
@@ -475,7 +464,7 @@ clean_next 确认抽屉示例：
 │ 12:31 clean_next refresh completed           │
 │ 12:31 gate published                         │
 ├────────────────────────────────────────────┤
-│ [停止后续写入]                 [继续生成90/120] │
+│ [停止后续写入]          [继续重排research by month] │
 └────────────────────────────────────────────┘
 ```
 
@@ -487,7 +476,6 @@ clean_next 确认抽屉示例：
 | 写前备份 | Kopia snapshot id、备份路径、新建路径、失败原因 |
 | raw 同步 | freq、窗口、请求数、写入行数、quota、失败股票或窗口 |
 | clean_next | raw rows、clean rows、gate 状态、问题分区 |
-| derived | 90/120 输出行数、来源 30/60 覆盖、缺失分区 |
 | research | 影响月份、freq、source rows、research rows、bucket 数 |
 | 最终校验 | 各层最终通过情况、可消费到哪个交易日和月份 |
 
@@ -531,11 +519,10 @@ clean_next 确认抽屉示例：
 为避免页面看起来“像成功了但其实没跑完”，UI 必须遵守：
 
 1. `raw_sync` 已通过不等于整条链路可用于 research。
-2. `clean_next_refresh` 已通过不等于已经生成 90/120。
-3. `derived_90_120_build` 已通过不等于 research by month 已经重排。
-4. 只有 `final_validation` 已通过，才能展示“本轮链路完成”。
-5. 如果停在人工确认点，顶部状态必须显示 `等待确认`，不能显示 `成功`。
-6. 如果运营停止后续阶段，顶部状态必须显示停在哪一层，不能显示失败，也不能显示成功。
+2. `clean_next_refresh` 已通过不等于 research by month 已经重排。
+3. 只有 `final_validation` 已通过，才能展示“本轮链路完成”。
+4. 如果停在人工确认点，顶部状态必须显示 `等待确认`，不能显示 `成功`。
+5. 如果运营停止后续阶段，顶部状态必须显示停在哪一层，不能显示失败，也不能显示成功。
 
 ---
 
@@ -549,8 +536,6 @@ clean_next 确认抽屉示例：
 | --- | --- |
 | `raw_tushare/stk_mins_by_date/freq=*/trade_date=*` | 本次会替换或新增的 raw 分区 |
 | `research/stk_mins_by_date_clean_next/freq=*/trade_date=*` | 本次会刷新或新增的 clean_next 分区 |
-| `derived/stk_mins_by_date/freq=90/trade_date=*` | 本次会生成或替换的 90 分钟分区 |
-| `derived/stk_mins_by_date/freq=120/trade_date=*` | 本次会生成或替换的 120 分钟分区 |
 | `research/stk_mins_by_symbol_month/freq=*/trade_month=*` | 本次会重排的月度 research 分区 |
 
 如果目标路径写前不存在，不能假装已经备份。必须在备份结果里记录：
@@ -587,9 +572,8 @@ path_missing_before_write
 | --- | --- |
 | 计划检查失败 | 不创建 run |
 | Kopia 备份失败 | 不写任何数据 |
-| raw 同步失败 | 停止后续 clean_next、derived、research |
-| clean_next gate 不通过 | 停在 `clean_next_review`，不继续生成 90/120 |
-| derived 缺源或行数异常 | 停止 research by month |
+| raw 同步失败 | 停止后续 clean_next、research |
+| clean_next gate 不通过 | 停在 `clean_next_review`，不继续重排 research by month |
 | research by month 行数不一致 | run 失败，保留备份点和事件 |
 | 人工点击停止 | run 进入 `cancelled` 或 `stopped_after_stage` |
 
@@ -606,15 +590,14 @@ path_missing_before_write
 3. 启动 run 前必须完成 Kopia 写前备份。
 4. 页面能看到每个阶段状态。
 5. clean_next 完成后默认停下等待人工确认。
-6. derived 完成后默认停下等待人工确认。
-7. run 详情能展示 raw、clean_next、derived、research 的关键行数和校验结果。
-8. 前端不拼接路径、不推断成功失败、不自行拼装展示字段。
-9. 失败后不会自动继续扩大写入范围。
-10. 技术指标计算仍然不被本 profile 自动触发。
+6. run 详情能展示 raw、clean_next、research 的关键行数和校验结果。
+7. 前端不拼接路径、不推断成功失败、不自行拼装展示字段。
+8. 失败后不会自动继续扩大写入范围。
+9. 90m/120m 和技术指标计算都不被本 profile 自动触发。
 
 ### 13.1 真实 API 验收记录
 
-2026-05-16 已通过 Sync Center API 完成一轮真实写入验收。
+2026-05-16 曾通过 Sync Center API 完成一轮旧链路写入验收。该记录只作为历史执行证据；其中 90m/120m 使用的是后来确认错误的窗口合同，不能再作为数据正确性证明，也不能复用其 backend 写入路径。
 
 | 项目 | 结果 |
 | --- | --- |
@@ -625,7 +608,7 @@ path_missing_before_write
 | Kopia 写前备份 | 成功，snapshot ids：`k6268cd8aa292ec7219b995ae301aa2ca`、`kf163d0d1b2391d8d6107e2e5f0d4fbde` |
 | raw 同步 | 成功，写入 `1,768,239` 行 |
 | clean_next/gate | 成功，5 个分区全部 `passed`，`issue_count=0` |
-| derived | 成功，`90/120` 写入 `27,549` 行 |
+| 旧 90m/120m 派生 | 当时写入 `27,549` 行；2026-08-07 已判定业务合同失效 |
 | research by month | 成功，`2026-05`、7 个频率写入 `14,366,684` 行 |
 | final_validation | 成功，`source_rows=14,366,684`，`written_rows=14,366,684` |
 | 技术指标 | 未触发，符合本专项边界 |
@@ -637,7 +620,7 @@ path_missing_before_write
 | raw `2026-05-15` | `1/5/15/30/60` 分区均存在 |
 | clean_next `2026-05-15` | `1/5/15/30/60` 分区均存在，行数与 raw 一致 |
 | gate `2026-05-15` | `1/5/15/30/60` 均为 `passed` |
-| derived `2026-05-15` | `90/120` 分区均存在 |
+| 旧派生 `2026-05-15` | 文件曾存在，但只证明旧算法写入完成，不证明新合同正确 |
 | research `2026-05` | `1/5/15/30/60/90/120` 均存在 32 个 bucket |
 
 本轮发现并已修复一个展示口径问题：`clean_next_refresh` 阶段曾错误显示 `0 个分区已通过`。原因是阶段文案读取了旧字段 `affected_partitions`，真实 summary 使用 `partition_results` 和 `gate.updated_partitions`。修复后阶段文案从真实分区结果统计通过数量。
@@ -651,11 +634,11 @@ path_missing_before_write
 | 日期 | 优先选一个单日。若要立刻执行，用 `2026-05-15`；若要验证“新增空白日期”，等下一个已收盘交易日再执行 |
 | raw 频率 | `60` |
 | 预计请求单元 | 约 `5,512`，是全五频 `27,560` 的约 20% |
-| 会触发的 derived | `120` |
-| 会重排的 research | `60/120` 的 `2026-05` 月级 research |
-| 覆盖目的 | 验证 Kopia、raw、clean_next/gate、一个 derived 目标、research by month、final_validation、人工确认节点 |
+| 会触发的派生分钟线 | 无；90m/120m 由 orchestrator 独立维护 |
+| 会重排的 research | 所选原生频率的 `2026-05` 月级 research |
+| 覆盖目的 | 验证 Kopia、raw、clean_next/gate、research by month、final_validation、人工确认节点 |
 
-如果必须同时覆盖 `90` 和 `120` 两个派生目标，则把 raw 频率改为 `30,60`。这会把请求单元提高到约 `11,024`，仍明显小于全五频，但耗时约为单频的两倍。
+本冒烟不再覆盖 90m/120m。两个派生频率的生成和验收必须走 Dagster 统一窗口合同专项。
 
 ---
 
@@ -663,7 +646,7 @@ path_missing_before_write
 
 第一步只做文档评审，不写代码。
 
-2026-05-16 开发进度：第 1 步“后端计划模型与 API 契约”、第 2 步“前端阶段化展示，只接只读 plan”、第 3 步“状态型 run 与人工确认/停止契约”、第 4 步“Kopia 写前备份”、第 5 步“raw + clean_next 到第一个确认点”、第 6 步“derived 90/120 到第二个确认点”和第 7 步“research by month 与最终校验”已落地。当前 `stk_mins_sync` 支持生成只读计划，返回 `pipeline_stages`、`affected_trade_dates`、`affected_months`、`backup_plan`、`warnings` 等字段；前端只展示后端返回的阶段标题、状态、摘要和指标，不拼接路径、不推断阶段结论；创建 run 会获取同步中心锁、执行 Kopia 写前备份、调用现有 `TushareStkMinsSyncService.sync_range()` 完成 raw 写入与 clean_next/gate 刷新，然后释放锁并停在 `clean_next_review` 等待人工确认；人工确认后会重新获取同步中心锁，调用现有 `StkMinsDerivedService.derive_range()` 从 clean_next 生成 90/120，再释放锁并停在 `derived_review` 等待人工确认；再次确认后调用现有 `StkMinsResearchService.rebuild_range()` 重排 research by month，并在 source rows 与 written rows 一致时自动通过 `final_validation` 结束 run；仍不触发技术指标。
+2026-08-07 收敛结果：`stk_mins_sync` 继续支持只读计划、阶段状态、Kopia 写前备份、raw 写入、clean_next/gate、`clean_next_review` 人工确认、research by month 和 `final_validation`。人工确认后直接进入 research；Sync Center 不再生成 90m/120m，也不触发技术指标。正式 90m/120m 写入只由 Dagster orchestrator 负责。
 
 后续建议按以下顺序推进：
 
@@ -674,7 +657,7 @@ path_missing_before_write
 | 3 | run 状态扩展，支持阶段和人工确认 | 否 |
 | 4 | 接入 Kopia 写前备份 | 否 |
 | 5 | 接入 raw + clean_next 到第一个确认点 | 是 |
-| 6 | 接入 derived 90/120 到第二个确认点 | 是 |
-| 7 | 接入 research by month 与最终校验 | 是 |
+| 6 | 接入 research by month 与最终校验 | 是 |
+| 7 | 将 90m/120m 写入职责收敛到 Dagster orchestrator | 否 |
 
 每一步都必须保持同步中心已有普通 profile 可用，不能为了 `stk_mins_sync` 破坏 `prod_db_daily`、`prod_db_snapshot_refresh`、`prod_db_manual_backfill`、`lake_reference_refresh`。

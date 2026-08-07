@@ -105,6 +105,16 @@ def _read_gold_rows(path: Path) -> list[dict[str, object]]:
     return [dict(zip(columns, row, strict=True)) for row in rows]
 
 
+def _complete_60m_rows() -> list[dict[str, object]]:
+    return [
+        _gold_row("09:30:00", freq=60, open_=10, close=10.5, vol=1),
+        _gold_row("10:30:00", freq=60, open_=11, close=11.5, vol=2),
+        _gold_row("11:30:00", freq=60, open_=12, close=12.5, vol=3),
+        _gold_row("14:00:00", freq=60, open_=13, close=13.5, vol=4),
+        _gold_row("15:00:00", freq=60, open_=14, close=14.5, vol=5),
+    ]
+
+
 class StkMinsQfqM11DerivedAssetTests(unittest.TestCase):
     def test_gold_qfq_path_accepts_derived_freqs_but_raw_silver_reject_them(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -156,11 +166,11 @@ class StkMinsQfqM11DerivedAssetTests(unittest.TestCase):
             "14:00:00",
             "15:00:00",
         ])
-        self.assertEqual(rows[0]["open"], 10)
+        self.assertEqual(rows[0]["open"], 9.5)
         self.assertEqual(rows[0]["close"], 12.5)
         self.assertEqual(rows[0]["high"], 20)
         self.assertEqual(rows[0]["low"], 8)
-        self.assertEqual(rows[0]["vol"], 6)
+        self.assertEqual(rows[0]["vol"], 106)
         self.assertEqual(rows[2]["open"], 16)
         self.assertEqual(rows[2]["close"], 17.5)
 
@@ -190,13 +200,12 @@ class StkMinsQfqM11DerivedAssetTests(unittest.TestCase):
         self.assertEqual(result.source_freq, 60)
         self.assertEqual(result.row_count, 2)
         self.assertEqual([row["trade_time"].strftime("%H:%M:%S") for row in rows], [
-            "10:30:00",
-            "14:00:00",
+            "11:30:00",
+            "15:00:00",
         ])
-        self.assertEqual(rows[0]["open"], 10)
-        self.assertEqual(rows[0]["close"], 11.5)
-        self.assertEqual(rows[0]["vol"], 3)
-        self.assertNotIn("15:00:00", [row["trade_time"].strftime("%H:%M:%S") for row in rows])
+        self.assertEqual(rows[0]["open"], 10.5)
+        self.assertEqual(rows[0]["close"], 12.5)
+        self.assertEqual(rows[0]["vol"], 6)
 
     def test_derived_generation_fails_when_window_exchange_is_inconsistent(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -217,6 +226,65 @@ class StkMinsQfqM11DerivedAssetTests(unittest.TestCase):
                     freq=120,
                     partition_key=TRADE_DATE,
                 )
+
+    def test_derived_generation_fails_closed_for_incomplete_or_invalid_source(
+        self,
+    ) -> None:
+        invalid_cases: dict[str, list[dict[str, object]]] = {}
+
+        missing_anchor = _complete_60m_rows()
+        invalid_cases["missing_anchor"] = missing_anchor[1:]
+
+        duplicate_anchor = _complete_60m_rows()
+        duplicate_anchor.append(dict(duplicate_anchor[0]))
+        invalid_cases["duplicate_anchor"] = duplicate_anchor
+
+        missing_regular = _complete_60m_rows()
+        invalid_cases["missing_regular"] = [
+            row for row in missing_regular if not str(row["trade_time"]).endswith("11:30:00")
+        ]
+
+        cross_date = _complete_60m_rows()
+        cross_date[0]["trade_time"] = "2026-06-02 09:30:00"
+        invalid_cases["cross_date"] = cross_date
+
+        invalid_values = _complete_60m_rows()
+        invalid_values[0]["vol"] = -1.0
+        invalid_cases["invalid_values"] = invalid_values
+
+        unexpected_time = _complete_60m_rows()
+        unexpected_time.append(
+            _gold_row("09:31:00", freq=60, open_=10, close=10.5)
+        )
+        invalid_cases["unexpected_time"] = unexpected_time
+
+        for case_name, rows in invalid_cases.items():
+            with self.subTest(case_name=case_name), TemporaryDirectory() as temp_dir:
+                lake_root = Path(temp_dir)
+                target_path = gold_stk_mins_qfq_path(
+                    lake_root,
+                    120,
+                    STOCK_A,
+                    2026,
+                )
+                _write_rows(
+                    gold_stk_mins_qfq_path(lake_root, 60, STOCK_A, 2026),
+                    schema=GOLD_STK_MINS_QFQ_SCHEMA,
+                    rows=rows,
+                )
+
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "incomplete or invalid",
+                ):
+                    write_gold_stk_mins_qfq_derived_asset_partition(
+                        lake_root=lake_root,
+                        duckdb=DuckDBResource(),
+                        freq=120,
+                        partition_key=TRADE_DATE,
+                    )
+
+                self.assertFalse(target_path.exists())
 
 
 if __name__ == "__main__":

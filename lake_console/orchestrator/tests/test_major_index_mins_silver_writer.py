@@ -90,6 +90,12 @@ def _write_raw(
             low_value = value - 0.5
             vol_value = value * 10
             amount_value = value * 100
+            if anomaly == "derived_anchor_literal" and source_time == "09:30:00":
+                open_value = 999.0
+                high_value = 1000.0
+                low_value = 0.1
+                vol_value = 7.0
+                amount_value = 70.0
             if (
                 anomaly == "opening_sentinel"
                 and trade_date == "2022-02-07"
@@ -507,7 +513,12 @@ def test_bootstrap_only_fallback_rejects_unpublished_scope(
 
 
 def test_derived_90m_excludes_bse_from_silver(tmp_path: Path) -> None:
-    _write_raw(tmp_path, trade_date="2025-10-30", freq="30min")
+    _write_raw(
+        tmp_path,
+        trade_date="2025-10-30",
+        freq="30min",
+        anomaly="derived_anchor_literal",
+    )
     write_major_index_mins_silver_partition(
         lake_root_path=tmp_path,
         duckdb_resource=_MemoryDuckDB(),
@@ -523,16 +534,23 @@ def test_derived_90m_excludes_bse_from_silver(tmp_path: Path) -> None:
         run_id="p3-derived-90",
     )
 
-    sh_times = [row[2].strftime("%H:%M:%S") for row in _rows(result.target_path, "000001.SH")]
+    sh_rows = _rows(result.target_path, "000001.SH")
+    sh_times = [row[2].strftime("%H:%M:%S") for row in sh_rows]
     bj_rows = _rows(result.target_path, "899050.BJ")
     assert sh_times == ["11:00:00", "14:00:00", "15:00:00"]
+    assert sh_rows[0][3:9] == (1.5, 4.5, 5.0, 1.5, 97.0, 970.0)
     assert bj_rows == []
     assert result.expected_window_count == 30
     assert result.generated_window_count == 30
 
 
 def test_derived_120m_drops_incomplete_exchange_tail(tmp_path: Path) -> None:
-    _write_raw(tmp_path, trade_date="2025-10-30", freq="60min")
+    _write_raw(
+        tmp_path,
+        trade_date="2025-10-30",
+        freq="60min",
+        anomaly="derived_anchor_literal",
+    )
     write_major_index_mins_silver_partition(
         lake_root_path=tmp_path,
         duckdb_resource=_MemoryDuckDB(),
@@ -551,17 +569,17 @@ def test_derived_120m_drops_incomplete_exchange_tail(tmp_path: Path) -> None:
     for code in ("000001.SH", "399001.SZ"):
         rows = _rows(result.target_path, code)
         assert [row[2].strftime("%H:%M:%S") for row in rows] == [
-            "10:30:00",
-            "14:00:00",
+            "11:30:00",
+            "15:00:00",
         ]
         assert all(row[10] is None for row in rows)
     assert _rows(result.target_path, "000001.SH")[0][3:9] == (
-        1.0,
-        2.5,
-        3.0,
-        0.5,
-        30.0,
-        300.0,
+        1.5,
+        3.5,
+        4.0,
+        1.5,
+        57.0,
+        570.0,
     )
     assert _rows(result.target_path, "899050.BJ") == []
     assert result.expected_window_count == 20

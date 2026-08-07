@@ -1,7 +1,7 @@
 # 指数分钟线 `index_mins` Dagster 数据集接入方案
 
-更新时间：2026-07-31
-状态：P0 方案/LLD、P1、P2、P3、P4、P5、P6A/P6B、P7、P8 已完成；P7 已完成正式 Raw/Silver Bootstrap 与全量文件对账，P8 已完成动态分区注册、materialization 全量补录、最近 20 个交易日 check 补录和事件归属验收。Bootstrap 覆盖 `2025-01-02..2026-07-27` 的 378 个交易日，Raw 有效文件 1,880 个、Silver 文件 2,646 个，缺失和非法文件均为 0。5 个 source-empty 日期组合继续按已批准的 Raw 豁免和 Silver fallback 口径处理。fallback 仅用于开发期 Bootstrap/历史修复，正式日常 sensor 仍不调用；当前待推进阶段为 P9 sensor 启用与连续交易日观察。
+更新时间：2026-08-07
+状态：P0 方案/LLD、P1、P2、P3、P4、P5、P6A/P6B、P7、P8 已完成；P7 已完成正式 Raw/Silver Bootstrap 与全量文件对账，P8 已完成动态分区注册、materialization 全量补录、最近 20 个交易日 check 补录和事件归属验收。Bootstrap 覆盖 `2025-01-02..2026-07-27` 的 378 个交易日，Raw 有效文件 1,880 个、Silver 文件 2,646 个，缺失和非法文件均为 0。5 个 source-empty 日期组合继续按已批准的 Raw 豁免和 Silver fallback 口径处理。fallback 仅用于开发期 Bootstrap/历史修复，正式日常 sensor 仍不调用。2026-08-07 审计确认现有 90m/120m 集合竞价窗口合同错误，两个频率都必须按[统一修复与重建 LLD](./dagster-derived-minute-bars-90-120-contract-rebuild-low-level-design.md)全历史重建；本文旧窗口描述已同步修正，既有 P7/P8 事件验收不再代表 90m/120m 业务语义正确。
 适用范围：`lake_console/orchestrator` 正式 Dagster 数据湖
 
 ## 1. 目标与冻结结论
@@ -182,8 +182,8 @@ P3 已完成，但仍保持纯 writer 边界：没有新增 active Dagster defin
 
 P3 的派生窗口不是按总行数整除推断，而是按集中窗口表匹配源时刻：
 
-- 90m 使用 `30min` 的 `10:00/10:30/11:00`、`11:30/13:30/14:00`、`14:30/15:00` 三个窗口；最后一个窗口要求两根源 bar。
-- 120m 使用 `60min` 的 `09:30/10:30`、`11:30/14:00` 两个窗口；未进入窗口的源 bar 不参与聚合。
+- 90m 使用 30m source。第一根以 `09:30.close` 为 open/高低价锚点并包含竞价 `vol/amount`，再聚合 `10:00/10:30/11:00`，输出 `11:00`；后两根为 `11:30/13:30/14:00 -> 14:00`、`14:30/15:00 -> 15:00`。
+- 120m 使用 60m source。第一根以 `09:30.close` 为 open/高低价锚点并包含竞价 `vol/amount`，再聚合 `10:30/11:30`，输出 `11:30`；第二根为 `14:00/15:00 -> 15:00`。旧 `10:30/14:00` 目标时间已废止。
 - 窗口缺 bar 或窗口内 exchange 出现多个值时 fail-closed；不产生目标文件，不覆盖已有文件。
 - 原生 Silver 保留源端 vwap；派生 Silver 的 vwap 固定为 NULL。
 

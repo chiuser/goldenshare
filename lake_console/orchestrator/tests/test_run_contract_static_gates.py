@@ -10,6 +10,8 @@ from orchestrator.defs.run_contracts.sensor_tags import (
 
 
 DEFS_DIR = Path("src/orchestrator/defs")
+LAKE_CONSOLE_DIR = Path(__file__).resolve().parents[2]
+BACKEND_DIR = LAKE_CONSOLE_DIR / "backend"
 AUDITS_DIR = Path("src/orchestrator/audits")
 ASSETS_DIR = DEFS_DIR / "assets"
 ASSET_GUARDS_DIR = DEFS_DIR / "asset_guards"
@@ -5587,6 +5589,86 @@ class RunContractStaticGateTests(unittest.TestCase):
         for forbidden in ("TushareResource", "DuckDBResource", "read_parquet("):
             if forbidden in job_source:
                 issues.append(f"stk_nineturn job contains forbidden {forbidden}")
+
+        self.assertEqual(issues, [])
+
+    def test_derived_minute_bars_use_one_contract_and_legacy_writers_are_removed(
+        self,
+    ) -> None:
+        contract_path = DEFS_DIR / "run_contracts" / "cn_a_derived_minute_bars.py"
+        contract_source = contract_path.read_text(encoding="utf-8")
+        consumer_paths = (
+            DEFS_DIR / "stk_mins_qfq.py",
+            DEFS_DIR / "assets" / "index_mins_silver.py",
+            DEFS_DIR / "io" / "major_index_mins_silver_writer.py",
+        )
+        issues = []
+
+        for fragment in (
+            'target_time="11:00:00"',
+            'regular_source_times=("10:00:00", "10:30:00", "11:00:00")',
+            'target_time="11:30:00"',
+            'regular_source_times=("10:30:00", "11:30:00")',
+            'auction_anchor_time="09:30:00"',
+            "AUCTION_ANCHOR_ROLE",
+            "REGULAR_SOURCE_ROLE",
+        ):
+            if fragment not in contract_source:
+                issues.append(f"derived minute contract misses {fragment}")
+
+        for path in consumer_paths:
+            source = path.read_text(encoding="utf-8")
+            if "run_contracts.cn_a_derived_minute_bars" not in source:
+                issues.append(f"derived writer does not use shared contract: {path}")
+            if "cn_a_derived_minute_window_map_sql" not in source:
+                issues.append(f"derived writer does not use shared window map: {path}")
+            if "cn_a_derived_minute_completion_predicate" not in source:
+                issues.append(f"derived writer lacks exact completion gate: {path}")
+
+        qfq_strict_batch_paths = (
+            DEFS_DIR / "stk_mins_qfq.py",
+            DEFS_DIR / "asset_guards" / "stk_mins_lake_readiness.py",
+            DEFS_DIR
+            / "bootstrap"
+            / "stk_mins_qfq_derived_bootstrap_events.py",
+        )
+        for path in qfq_strict_batch_paths:
+            source = path.read_text(encoding="utf-8")
+            if (
+                "build_gold_stk_mins_qfq_derived_source_invalid_predicate_sql"
+                not in source
+            ):
+                issues.append(
+                    f"qfq derived path lacks strict source-day quality gate: {path}"
+                )
+
+        active_python_sources = "\n".join(
+            path.read_text(encoding="utf-8")
+            for root in (DEFS_DIR, BACKEND_DIR / "app")
+            for path in root.rglob("*.py")
+        )
+        for forbidden in (
+            "GOLD_STK_MINS_QFQ_DERIVED_WINDOWS",
+            "INDEX_MINS_DERIVED_WINDOWS",
+            "_MAJOR_INDEX_MINS_DERIVED_WINDOWS",
+            "StkMinsDerivedService",
+            "IndexMinsDerivedService",
+            "stk-mins-derived-build",
+            "stk-mins-derived-verify",
+            "index-mins-derived-build",
+            "index-mins-derived-verify",
+            'stage_key="derived_90_120_build"',
+            'stage_key="derived_review"',
+        ):
+            if forbidden in active_python_sources:
+                issues.append(f"legacy derived implementation remains: {forbidden}")
+
+        for removed_path in (
+            BACKEND_DIR / "app" / "services" / "stk_mins_derived_service.py",
+            BACKEND_DIR / "app" / "services" / "index_mins_derived_service.py",
+        ):
+            if removed_path.exists():
+                issues.append(f"legacy derived writer still exists: {removed_path}")
 
         self.assertEqual(issues, [])
 

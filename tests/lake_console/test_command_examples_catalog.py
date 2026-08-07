@@ -33,7 +33,14 @@ def test_command_examples_use_registered_cli_commands():
 
 
 def test_command_examples_do_not_reference_removed_commands():
-    removed_commands = {"rebuild-stk-mins-derived"}
+    removed_commands = {
+        "derive-index-mins",
+        "derive-index-mins-range",
+        "derive-stk-mins",
+        "derive-stk-mins-range",
+        "rebuild-stk-mins-derived",
+        "rebuild-stk-mins-derived-from-clean-range",
+    }
     all_command_text = "\n".join(
         example.command
         for definition in list_dataset_definitions()

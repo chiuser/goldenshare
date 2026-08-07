@@ -138,7 +138,7 @@ lake_console/backend/app/
 | `cli/commands/status.py` | `init`、`status` |
 | `cli/commands/catalog.py` | `list-datasets` |
 | `cli/commands/sync_dataset.py` | `plan-sync`、`sync-dataset` |
-| `cli/commands/stk_mins.py` | `sync-stk-mins`、`sync-stk-mins-range`、`derive-stk-mins`、`rebuild-stk-mins-research` |
+| `cli/commands/stk_mins.py` | `sync-stk-mins`、`sync-stk-mins-range`、`rebuild-stk-mins-research`；90m/120m 正式派生由 orchestrator 负责 |
 | `cli/commands/maintenance.py` | `clean-tmp` |
 
 ### 4.3 兼容要求
@@ -156,7 +156,6 @@ lake-console sync-stock-basic
 lake-console sync-trade-cal
 lake-console sync-stk-mins
 lake-console sync-stk-mins-range
-lake-console derive-stk-mins
 lake-console rebuild-stk-mins-research
 ```
 

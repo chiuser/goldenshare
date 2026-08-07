@@ -345,8 +345,8 @@
     <div class="danger">
       <strong>必须对齐已落地 Sync Center：</strong>
       当前 <code>stk_mins_sync</code> 已经实现
-      <code>Kopia 写前备份 -> raw -> clean_next gate -> derived 90/120 -> by-month research</code>
-      的分阶段链路。qfq 发布不能另起一套锁、备份、gate 或下游重建实现；它是一次改变
+      <code>Kopia 写前备份 -> raw -> clean_next gate -> by-month research</code>
+      的 backend 分阶段链路。90m/120m 已收敛到 Dagster orchestrator，不再由 Sync Center 写入。qfq 发布不能另起一套锁、备份、gate 或下游重建实现；它是一次改变
       <code>clean_next</code> 价格语义的维护动作，必须复用或扩展现有 Sync Center 的
       <code>LakeJobLockService</code>、Kopia 备份、<code>clean_next_partition_gate</code>
       和下游 derived/by-month 服务。
@@ -750,7 +750,7 @@ lake-console finalize-stk-mins-qfq-publish \
     <h3>8.3 发布后</h3>
     <ol>
       <li>重写 clean_next gate，并写入本次 <code>publish_id</code> / <code>write_revision</code>。</li>
-      <li>记录 <code>derived/stk_mins_by_date</code> 需要全量重建；后续执行必须复用现有 <code>StkMinsDerivedService</code>，不得再实现第二套 derived builder。</li>
+      <li>记录正式 90m/120m QFQ 及指标需要全量重建；后续执行必须使用 Dagster orchestrator 的唯一共享窗口合同，不得在 backend 实现第二套 derived builder。</li>
       <li>记录 <code>research/stk_mins_by_symbol_month</code> 需要全量重建；后续执行必须复用现有 <code>StkMinsResearchService</code>，不得再实现第二套 by-month builder。</li>
       <li>记录 indicator 相关结果已失效，但本期不实现 MACD / MA / BOLL 计算与清理。</li>
     </ol>
@@ -766,7 +766,7 @@ lake-console finalize-stk-mins-qfq-publish \
     <p>clean_next 发布后，下游必须按顺序重建，不能跳步。下列顺序是发布后的后续专项顺序，不属于本期 qfq 实现范围。</p>
     <pre>1. publish qfq clean_next
 2. audit clean_next
-3. rebuild derived 90/120 from clean_next（复用现有 StkMinsDerivedService）
+3. rebuild 正式 90/120 QFQ（只使用 Dagster orchestrator 共享窗口合同）
 4. rebuild stk_mins_by_symbol_month from clean_next + derived（复用现有 StkMinsResearchService）
 5. review MACD / MA / BOLL 方案
 6. 清理旧 indicator 结果与 state

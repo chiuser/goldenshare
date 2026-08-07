@@ -589,11 +589,8 @@ research/index_mins_by_symbol_month/     # 指数分钟线研究层，按月和�
 | `sync-trade-cal` | 同步本地交易日历；支持全量分页快照或显式区间刷新，供区间分钟线同步使用 |
 | `sync-stk-mins-range` | 基于本地交易日历按开市日循环同步分钟线 |
 | `repair-index-mins-from-1m` | 用本地 `1 分钟` 正式分区修补 `index_mins` 的 `15/30/60` 分钟 source gap |
-| `derive-index-mins` | 从正式 `30/60min` 分区派生 `index_mins` 的 `90/120min` |
-| `derive-index-mins-range` | 按交易日历批量派生 `index_mins` 的 `90/120min` |
 | `rebuild-stk-mins-research` | 重排 research 层 |
 | `rebuild-index-mins-research` | 重排 `index_mins` research 层 |
-| `derive-stk-mins` | 生成 90/120 |
 
 ### 6.2 Services
 
@@ -1483,25 +1480,9 @@ lake-console rebuild-stk-mins-research \
 4. 已写文件数。
 5. 当前临时目录和最终目录。
 
-### 12.4 `derive-stk-mins`
+### 12.4 90m/120m 派生边界
 
-示例：
-
-```bash
-lake-console derive-stk-mins \
-  --trade-date 2026-04-24 \
-  --targets 90,120 \
-  --lake-root /Volumes/TushareData/goldenshare-tushare-lake
-```
-
-进度输出必须显示：
-
-1. 输入分区。
-2. 输出分区。
-3. 当前股票或批次。
-4. 输入行数。
-5. 输出行数。
-6. 缺失窗口数量。
+backend 派生 CLI 已于 2026-08-07 删除。正式 90m/120m 由 Dagster orchestrator 统一生成和治理，backend 不再提供写入命令。
 
 ---
 

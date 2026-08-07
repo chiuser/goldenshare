@@ -1,7 +1,7 @@
 # `index_mins` 指数分钟线 Dagster 低层设计（LLD）
 
-更新时间：2026-07-31
-状态：P0 设计完成；P1/P2/P3/P4/P5/P6A/P6B/P7/P8 已完成；P7 已完成正式 Raw/Silver Bootstrap 与全量文件对账，P8 已完成动态分区注册、materialization 全量补录、最近 20 个交易日 check 补录和事件归属验收。Bootstrap 覆盖 `2025-01-02..2026-07-27` 的 378 个交易日，Raw 有效文件 1,880 个、Silver 文件 2,646 个，缺失和非法文件均为 0；P3 follow-up 的 source-empty 5m fallback writer、只读 readiness、开发期 repair 和 native reconcile 已完成正式 fallback 验收。当前仅剩 P9 的 sensor 分阶段启用与连续交易日观察。
+更新时间：2026-08-07
+状态：P0 设计完成；P1/P2/P3/P4/P5/P6A/P6B/P7/P8 已完成。2026-08-07 只读审计确认 90m/120m 集合竞价窗口合同错误，现有两个派生频率的历史文件、materialization/check 状态需要按[统一修复与重建 LLD](./dagster-derived-minute-bars-90-120-contract-rebuild-low-level-design.md)重新生成；P7/P8 对原生五频和 source-empty fallback 的验收仍有效，但不再作为 90m/120m 正确性证明。
 对应方案：[dagster-index-mins-data-onboarding-plan.md](./dagster-index-mins-data-onboarding-plan.md)
 
 ## 1. LLD 约束
@@ -15,7 +15,7 @@
 3. 每个 asset 一个单分区合并 blocking core check。
 4. 所有目标文件都走 `_tmp -> validate -> atomic replace`。
 5. Sensor 只做最近 10 日期 batch lake readiness + 有界 source probe，不读 event history。
-6. 90m/120m 只由本地原生 Silver 派生，`vwap=NULL`；`15m/30m/60m` fallback 也固定 `vwap=NULL`，且只使用同日 5m。
+6. 90m/120m 只由本地原生 Silver 派生，`vwap=NULL`；第一上午 bar 使用 `09:30.close` 作为 open/高低价锚点并包含竞价 `vol/amount`，完整窗口见统一修复 LLD。`15m/30m/60m` fallback 也固定 `vwap=NULL`，且只使用同日 5m。
 7. 不新增 status manifest、summary/readiness asset、数据库表或持久化 active-pool entity。
 
 fallback 已通过独立 bounded maintenance 入口实现，但不接入普通 Silver asset/job/sensor：现有 `silver_index_mins_{15m,30m,60m}` 仍分别依赖对应 Raw asset，普通 Silver sensor 仍要求五个 Raw 频率全部 ready。fallback 只用于开发期 Bootstrap、已审计历史缺口修复和 native source reappearance 的一次性 reconcile；缺口处理完成后不作为长期自动任务运行，也不改变普通日常触发链路。
@@ -168,9 +168,9 @@ P3 将 Silver 设计落到纯 writer 模块，不提前把业务逻辑放进 ass
 | 七频合同 | `defs/run_contracts/index_mins.py` | `1/5/15/30/60min` 五个源优先频率、`90/120min` 派生；`15/30/60` 的空源 fallback 固定从 `5min` 派生 |
 | Silver 路径 | `defs/paths.py:silver_index_mins_path` | `silver/quote/index_mins/freq=<freq>/trade_date=<date>/part-000.parquet` |
 | 原生标准化 | `defs/assets/index_mins_silver.py:_native_normalized_sql` | trim/uppercase、类型固定、日期/freq/PK/OHLC/数值校验，native vwap 保留 |
-| 90m 窗口 | `defs/assets/index_mins_silver.py:_derived_diagnostics`、`_derived_output_sql` | 固定 3 个窗口，最后窗口 2 根；按 anchor 判断，不以总行数冒充完整 |
-| 120m 窗口 | 同上 | 固定 2 个窗口，每个 2 根；额外源 bar 不进入目标 |
-| 聚合 | `_derived_output_sql` | first open、last close、max high、min low、sum vol/amount、exchange 单值、vwap NULL |
+| 90m 窗口 | `defs/assets/index_mins_silver.py:_derived_diagnostics`、`_derived_output_sql` | 输出 `11:00/14:00/15:00`；第一根为 09:30 竞价锚点加三根常规 30m，最后窗口为两根常规 30m |
+| 120m 窗口 | 同上 | 输出 `11:30/15:00`；第一根为 09:30 竞价锚点加两根常规 60m，第二根为两根常规 60m |
+| 聚合 | `_derived_output_sql` | 第一上午 bar 的 open 使用 `09:30.close`，high/low 包含该锚点，vol/amount 包含竞价行一次；其它窗口为 first open、last close、max/min、sum；exchange 单值、vwap NULL |
 | staging/回读 | `write_silver_index_mins_partition` | staging schema/row/PK/domain 回读后才 `os.replace`；目标错误或竞争出现时停止 |
 | 派生失败 | `_derived_diagnostics` | 缺 bar、混合 exchange、无完整窗口均 fail-closed，旧目标不动 |
 
@@ -455,13 +455,13 @@ CAST(NULL AS DOUBLE) AS vwap
 
 ### 7.2 90m
 
-源 `30min`，沿用股票分钟线已批准窗口：
+源 `30min`，窗口口径如下：
 
-| source bars | target anchor | required rows |
-|---|---|---:|
-| 10:00,10:30,11:00 | 11:00 | 3 |
-| 11:30,13:30,14:00 | 14:00 | 3 |
-| 14:30,15:00 | 15:00 | 2 |
+| 竞价锚点 | 常规 source bars | target anchor | 完整性 |
+|---|---|---|---:|
+| `09:30.close/vol/amount` | 10:00,10:30,11:00 | 11:00 | 1 anchor + 3 regular |
+| 无 | 11:30,13:30,14:00 | 14:00 | 3 regular |
+| 无 | 14:30,15:00 | 15:00 | 2 regular |
 
 每个 code 独立判断，窗口不完整则不写目标。
 
@@ -469,10 +469,12 @@ CAST(NULL AS DOUBLE) AS vwap
 
 源 `60min`：
 
-| source bars | target anchor | required rows |
-|---|---|---:|
-| 09:30,10:30 | 10:30 | 2 |
-| 11:30,14:00 | 14:00 | 2 |
+| 竞价锚点 | 常规 source bars | target anchor | 完整性 |
+|---|---|---|---:|
+| `09:30.close/vol/amount` | 10:30,11:30 | 11:30 | 1 anchor + 2 regular |
+| 无 | 14:00,15:00 | 15:00 | 2 regular |
+
+第一上午窗口不得读取 `09:30.open/high/low`，也不得丢弃 09:30 的成交量和成交额。旧 `09:30/10:30 -> 10:30`、`11:30/14:00 -> 14:00` 规则已废止。
 
 ### 7.4 OHLC/VWAP
 

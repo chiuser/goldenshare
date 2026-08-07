@@ -696,11 +696,7 @@ lake-console sync-stk-mins-range \
   --start-date 2026-04-01 \
   --end-date 2026-04-30
 
-# 生成 90/120 分钟线
-lake-console derive-stk-mins-range \
-  --start-date 2026-04-01 \
-  --end-date 2026-04-30 \
-  --targets 90,120</pre>
+# 90/120 分钟线由 Dagster orchestrator 统一生成；backend 不再提供派生命令</pre>
       </div>
     </section>
 

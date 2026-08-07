@@ -245,6 +245,7 @@ class StkMinsQfqFormulaGoldenContractsTests(unittest.TestCase):
                         amount=vol * 10.0,
                     )
                     for time, open_, high, low, close, vol in (
+                        ("09:30:00", 999.0, 1000.0, -1000.0, 9.5, 9.0),
                         ("10:00:00", 10.0, 11.0, 9.0, 10.5, 1.0),
                         ("10:30:00", 11.0, 12.0, 10.0, 11.5, 2.0),
                         ("11:00:00", 12.0, 20.0, 8.0, 12.5, 3.0),
@@ -280,9 +281,65 @@ class StkMinsQfqFormulaGoldenContractsTests(unittest.TestCase):
                 for row in rows
             ],
             [
-                ("11:00:00", 10.0, 20.0, 8.0, 12.5, 6.0, 60.0),
+                ("11:00:00", 9.5, 20.0, 8.0, 12.5, 15.0, 150.0),
                 ("14:00:00", 13.0, 16.0, 12.0, 15.5, 15.0, 150.0),
                 ("15:00:00", 16.0, 18.0, 15.0, 17.5, 15.0, 150.0),
+            ],
+        )
+
+    def test_derived_120m_uses_auction_close_without_auction_price_envelope(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            source_path = Path(temp_dir) / "source.parquet"
+            _write_rows(
+                source_path,
+                schema=GOLD_STK_MINS_QFQ_SCHEMA,
+                rows=[
+                    _silver_row(
+                        trade_date=TRADE_DATE,
+                        trade_time=time,
+                        freq=60,
+                        open_=open_,
+                        high=high,
+                        low=low,
+                        close=close,
+                        vol=vol,
+                        amount=vol * 10.0,
+                    )
+                    for time, open_, high, low, close, vol in (
+                        ("09:30:00", 999.0, 1000.0, -1000.0, 9.5, 9.0),
+                        ("10:30:00", 10.0, 11.0, 9.0, 10.5, 1.0),
+                        ("11:30:00", 11.0, 20.0, 8.0, 11.5, 2.0),
+                        ("14:00:00", 12.0, 13.0, 11.0, 12.5, 3.0),
+                        ("15:00:00", 13.0, 14.0, 12.0, 13.5, 4.0),
+                    )
+                ],
+                order_by="trade_time",
+            )
+
+            rows = _query_rows(
+                build_gold_stk_mins_qfq_derived_select_sql(
+                    source_qfq_paths=[source_path],
+                    target_freq=120,
+                    partition_keys=[TRADE_DATE],
+                )
+            )
+
+        self.assertEqual(
+            [
+                (
+                    row["trade_time"].strftime("%H:%M:%S"),
+                    row["open"],
+                    row["high"],
+                    row["low"],
+                    row["close"],
+                    row["vol"],
+                    row["amount"],
+                )
+                for row in rows
+            ],
+            [
+                ("11:30:00", 9.5, 20.0, 8.0, 11.5, 12.0, 120.0),
+                ("15:00:00", 12.0, 14.0, 11.0, 13.5, 7.0, 70.0),
             ],
         )
 

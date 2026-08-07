@@ -19,8 +19,10 @@ from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_QFQ_NATIVE_FREQS,
     qfq_source_freq_for_derived_freq,
 )
+from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
+    cn_a_derived_minute_window_rows,
+)
 from orchestrator.defs.stk_mins_qfq import (
-    GOLD_STK_MINS_QFQ_DERIVED_WINDOWS,
     build_gold_stk_mins_qfq_derived_select_sql,
 )
 from tests.test_stk_mins_lake_readiness import (
@@ -76,17 +78,9 @@ def _write_silver_ready_window(
 
 def _native_trade_times(freq: int) -> tuple[str, ...]:
     if freq == 30:
-        return tuple(
-            source_time
-            for source_time, _window_id, _target_time
-            in GOLD_STK_MINS_QFQ_DERIVED_WINDOWS[90]
-        )
+        return tuple(dict.fromkeys(row[0] for row in cn_a_derived_minute_window_rows(90)))
     if freq == 60:
-        return tuple(
-            source_time
-            for source_time, _window_id, _target_time
-            in GOLD_STK_MINS_QFQ_DERIVED_WINDOWS[120]
-        )
+        return tuple(dict.fromkeys(row[0] for row in cn_a_derived_minute_window_rows(120)))
     return {
         1: ("09:31:00",),
         5: ("09:35:00",),
