@@ -380,7 +380,7 @@ function mockSuccessfulMarketFetch(
   turnoverPayloadInput = turnoverPayload,
   leaderboardsPayloadInput = leaderboardsPayload,
 ) {
-  vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+  return vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const url = toUrlString(input);
     const contextResponse = maybeContextResponse(url);
     if (contextResponse) return contextResponse;
@@ -445,6 +445,25 @@ describe("MarketOverviewPage", () => {
     expect(screen.getByLabelText("主要指数")).toBeInTheDocument();
     expect(screen.getByLabelText("涨跌停统计与分布")).toBeInTheDocument();
     expect(screen.getByLabelText("板块速览")).toBeInTheDocument();
+  });
+
+  it("uses the URL tradeDate for page context and all date-driven real modules", async () => {
+    const fetchMock = mockSuccessfulMarketFetch();
+    render(<MarketOverviewPage search="?tradeDate=2026-04-28" />);
+
+    await screen.findByLabelText("今日市场客观总结");
+    await waitFor(() => {
+      const requestUrls = fetchMock.mock.calls.map(([input]) => toUrlString(input));
+      const contextRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/context"));
+      expect(contextRequest).toBeDefined();
+      expect(new URL(contextRequest as string).searchParams.get("tradeDate")).toBe("2026-04-28");
+
+      ["summary", "major-indices", "breadth", "style", "turnover", "leaderboards"].forEach((modulePath) => {
+        const request = requestUrls.find((url) => url.includes(`/api/v1/wealth/market/${modulePath}`));
+        expect(request).toBeDefined();
+        expect(new URL(request as string).searchParams.get("tradeDate")).toBe("2026-04-28");
+      });
+    });
   });
 
   it("keeps leaderboard Top10 columns and range switching behavior", async () => {

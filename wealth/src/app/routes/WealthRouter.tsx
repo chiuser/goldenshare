@@ -40,7 +40,7 @@ export function WealthRouter() {
     return <StockDetailPage tsCode={stockDetailTsCode} />;
   }
 
-  return <MarketOverviewPage />;
+  return <MarketOverviewPage search={location.search} />;
 }
 
 function parseStockDetailTsCode(pathname: string): string | null {

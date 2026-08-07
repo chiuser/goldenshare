@@ -138,7 +138,23 @@ function buildHeaderTickers(
   return mapped.length > 0 ? mapped : fallback;
 }
 
-export function MarketOverviewPage() {
+interface MarketOverviewPageProps {
+  search?: string;
+}
+
+function readRouteSearch(search: string | undefined): string {
+  if (search !== undefined) return search;
+  return typeof window === "undefined" ? "" : window.location.search;
+}
+
+function readOptionalQueryValue(search: string, key: string): string | undefined {
+  const value = new URLSearchParams(search).get(key)?.trim();
+  return value || undefined;
+}
+
+export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
+  const routeSearch = readRouteSearch(search);
+  const requestedTradeDate = useMemo(() => readOptionalQueryValue(routeSearch, "tradeDate"), [routeSearch]);
   const [overview, setOverview] = useState<MarketOverview | null>(null);
   const [pageContext, setPageContext] = useState<MarketPageContextViewModel | null>(null);
   const [pageContextViewState, setPageContextViewState] = useState<"loading" | "ready" | "error">("loading");
@@ -219,9 +235,8 @@ export function MarketOverviewPage() {
   const headerTickers = useMemo(() => buildHeaderTickers(overview, majorIndices), [overview, majorIndices]);
   const pageDebugEnabled = useMemo(() => {
     if (!import.meta.env.DEV) return false;
-    if (typeof window === "undefined") return false;
-    return new URLSearchParams(window.location.search).get("debug") === "1";
-  }, []);
+    return readOptionalQueryValue(routeSearch, "debug") === "1";
+  }, [routeSearch]);
   const overviewDebugInfo = useMemo(() => {
     if (!pageDebugEnabled) return null;
     const moduleItems = [
@@ -278,7 +293,7 @@ export function MarketOverviewPage() {
     setPageContextViewState("loading");
     setPageContextErrorMessage(null);
 
-    fetchMarketPageContext({ market: "CN_A" }, { signal: abortController.signal })
+    fetchMarketPageContext({ market: "CN_A", tradeDate: requestedTradeDate }, { signal: abortController.signal })
       .then((payload) => {
         if (!canceled) {
           setPageContext(buildMarketPageContextViewModelFromApi(payload));
@@ -308,7 +323,7 @@ export function MarketOverviewPage() {
       canceled = true;
       abortController.abort();
     };
-  }, []);
+  }, [requestedTradeDate]);
 
   useEffect(() => {
     fetchMarketOverviewMock().then((response) => {

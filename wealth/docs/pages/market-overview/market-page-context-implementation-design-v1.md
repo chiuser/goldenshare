@@ -357,6 +357,23 @@ fetchMarketLimitUp({ market: "CN_A", tradeDate: pageContext.tradeDate, debug })
 fetchMarketStreakLadder({ market: "CN_A", tradeDate: pageContext.tradeDate, debug })
 ```
 
+### 8.2.1 URL 回看日期覆盖
+
+市场总览支持可选查询参数：
+
+```text
+/wealth/market/overview?tradeDate=YYYY-MM-DD
+```
+
+规则：
+
+1. `MarketOverviewPage` 从路由 `search` 读取 `tradeDate`，只把它传给 `GET /api/v1/wealth/market/context`。
+2. context 响应的 `pageContext.tradeDate` 仍是页面唯一日期事实源；页面不直接把 URL 值分散传给各模块。
+3. 所有按交易日的真实模块继续只消费 `pageContext.tradeDate`，因此一次回看请求的页面数据日期一致。
+4. 不传 `tradeDate` 时，后端继续按默认交易日规则处理，当前 `20:00` 盘后切换口径不变。
+5. `tradeDate` 非法时由 context API 按既有参数校验返回页面级 error；前端不得静默回退到默认日期。
+6. 新闻速览和个股新闻仍使用自然时间窗口，不跟随该参数。
+
 ## 8.3 页面 header 字段调整
 
 当前：
@@ -458,6 +475,7 @@ wealth/src/test/market-overview-page-context.smoke.test.tsx
 2. Header 展示 context 的 `tradeDate/generatedAt`。
 3. 至少一个真实模块请求携带 `tradeDate=context.tradeDate`。
 4. context 失败时页面展示 error，不继续请求模块。
+5. `?tradeDate=YYYY-MM-DD` 必须先传入 context，再由 context 返回的 `pageContext.tradeDate` 扇出到所有按交易日真实模块。
 
 ## 10.3 回归
 
@@ -496,6 +514,7 @@ cd wealth && npm run build
 2. Header 改用 context。
 3. 所有真实模块请求显式传 `tradeDate=context.tradeDate`。
 4. context 失败时页面停止模块请求并展示 error。
+5. 支持 `?tradeDate=YYYY-MM-DD` 回看日期覆盖，但不改变未传参数时的默认交易日切换规则。
 
 不做：
 
