@@ -1,6 +1,6 @@
 # 公募基金 B4：基金规模（`fund_share`）LLD v1
 
-状态：**B4-FS-M2 已通过：隔离 PostgreSQL migration、HDD tablespace、真实最小同步与五段对账、重复同步幂等、10,000 行容量/回滚和 advisory lock 门禁均已闭环。尚未进入生产 migration、生产同步、自动任务或历史回补；下一步仅可在再次明确授权后进入 B4-FS-M3。**
+状态：**B4-FS-M3 已通过：生产 migration、真实 HDD 路径、正式 TaskRun `#7556` 首次最小同步及完整对账均已闭环。`2026-07-07` 的 source/accepted/written/current/observation 均为 1,673，reject 0；未创建自动任务、probe、workflow，也未执行历史回补。**
 设计日期：2026-08-07
 上游接口：Tushare `fund_share`
 源文档：[基金规模数据](../sources/tushare/公募基金/0207_基金规模数据.md)（doc_id=207）
@@ -18,7 +18,7 @@ B4 先只实现 `fund_share`，不同时实现 `fund_div`。`fund_share` 是按�
 5. 自然日零行是合法成功 no-op，不删除已经存在的数据，也不触发日期完整性缺失告警。
 6. 两张 direct-serving 表及全部索引显式落 `gs_raw_cold_hdd`；PostgreSQL WAL 继续使用现有 SSD。
 
-本轮不包含：`fund_div`、历史回补、生产迁移、首次生产同步、自动创建 schedule、workflow、probe、Lake/Dagster 或业务查询 API。实际 cron 时间和历史回补起止范围继续延后，不阻塞 B4-FS-M1 的代码实现。
+B4-FS-M1 的代码范围不包含：`fund_div`、历史回补、生产迁移、首次生产同步、自动创建 schedule、workflow、probe、Lake/Dagster 或业务查询 API。生产迁移与首次最小同步随后经独立授权在 B4-FS-M3 完成；其余边界保持不变，实际 cron 时间和历史回补起止范围继续延后。
 
 ## 2. 设计依据与已验证事实
 
@@ -376,7 +376,7 @@ API 必须返回上述固定能力；前端只渲染 capability，自动隐藏�
 - 两个后端 `_supports_trigger_day_point_policy` 数据集白名单；
 - 前端 `actionSupportsTriggerDayPointPolicy` 白名单。
 
-迁移必须保持 news/major_news 现有 cron 行为和最小 3 分钟的 interval 防护。`fund_share` 的具体 cron 表达式暂不创建；普通 daily/weekly/monthly cron 均由现有 schedule 机制承载，若使用 `*/N` 分钟型 cron，仍受既有最小间隔限制。该 contract 改造不得重新配置、改写或删除现有 schedule 记录；部署后用只读审计证明已有 schedule 的 capability、cron、启停状态和下一次运行时间未发生变化。
+迁移必须保持 news/major_news 现有 cron 行为和最小 3 分钟的 interval 防护。`fund_share` 的具体 cron 表达式暂不创建；普通 daily/weekly/monthly cron 均由现有 schedule 机制承载，若使用 `*/N` 分钟型 cron，仍受既有最小间隔限制。该 contract 改造不得重新配置、改写或删除现有 schedule 记录；发布验收应在部署前后分别留存 schedule 配置快照，并运行只读 capability 审计。`next_run_at` 会随 scheduler 正常推进，不能用静态相等作为正确性条件；应核对 cron、启停、calendar policy 等持久化意图未被发布过程改写。
 
 ### 9.3 freshness、cards 与审计
 
@@ -495,7 +495,7 @@ B4 不新增环境变量、Settings 或页面常量。若实施中发现必须�
 
 - 在缺少 `gs_raw_cold_hdd` 的 fail-closed 库中，migration 在创建 B4 表前按预期失败；Alembic head 保持 `20260806_000127`，B4 表数量为 0，没有回退默认 tablespace。
 - 在真实验收库和容量验收库中，migration 均到达 `20260807_000128`。两张表、两个主键索引、一个 current 唯一索引和五个二级索引共 10 个 relation，系统目录中的 tablespace 均为 `gs_raw_cold_hdd`，relation path 均位于该 tablespace 路径。
-- 隔离 tablespace 指向 `/private/tmp/goldenshare_b4_m2.IEJjql/hdd_tablespace`；集群 `data_directory` 为独立的 `/private/tmp/goldenshare_b4_m2.IEJjql/data`，`pg_wal` 未改为 tablespace 或单独链接。隔离环境只验证迁移和 placement contract，生产机械盘的真实物理路径仍由 M3 复核。
+- 隔离 tablespace 指向 `/private/tmp/goldenshare_b4_m2.IEJjql/hdd_tablespace`；集群 `data_directory` 为独立的 `/private/tmp/goldenshare_b4_m2.IEJjql/data`，`pg_wal` 未改为 tablespace 或单独链接。该阶段只验证迁移和 placement contract；生产 M3 后续已确认真实路径为 `/data/disk/postgresql/tablespaces/gs_stk_mins_hdd`，见 13.3.1。
 - 首次曾并行启动两个“从零应用全部历史 migration”的隔离库，其中容量库在旧 migration `20260427_000080` 因临时集群 `max_locks_per_transaction` 资源不足而整事务回滚；改为串行应用后成功。故障不发生在 B4 migration，未留下半迁移对象，也不改变生产必须串行、逐库应用 migration 的口径。
 
 #### 13.2.2 真实最小同步与五段对账
@@ -523,14 +523,54 @@ B4 不新增环境变量、Settings 或页面常量。若实施中发现必须�
 
 ### 13.3 B4-FS-M3：生产首次同步
 
-仅在 M2 通过并再次明确授权后：
+B4-FS-M3 已于 2026-08-07 按独立授权完成，未把部署、migration、业务同步和自动任务混成一个授权。生产验收如下。
 
-1. 只读确认生产没有活动 TaskRun/日期任务，部署版本和 migration head 正确；
-2. 应用 production migration，核验 tablespace 的真实 HDD 路径和所有 relation；
-3. 通过正式 TaskRun 同步一个经只读预检确认的最小真实日期；
-4. 完成源端、归一化、写入、reject reason、current/observation 的完整对账与摘要；
-5. 核验业务提交与 TaskRun/状态写入隔离，服务健康且没有自动产生 schedule/probe/workflow；
-6. 把真实结果反向写回本 LLD 和总计划。
+#### 13.3.1 只读预检、版本与物理落盘
+
+- 远程分支为 `dev-interface`，部署 HEAD `2264fbe0` 包含 B4 提交 `0514d6e7`；工作区干净，六个生产服务均为 active，Web 健康检查返回 prod 正常。
+- migration 已到 `20260807_000128`。同步前 `fund_share_current` 与 `fund_share_observation` 均为 0 行；活动 TaskRun、活动日期完整性任务、`fund_share` schedule/probe/历史 TaskRun 均为 0。
+- 两张表、两个主键索引、一个 current 唯一索引和五个二级索引共 10 个 relation，系统目录均报告 tablespace=`gs_raw_cold_hdd`，relation path 全部位于该 tablespace。
+- tablespace 真实路径为 `/data/disk/postgresql/tablespaces/gs_stk_mins_hdd`；`/data/disk` 挂载于 `/dev/vdb`，验收时可用空间 323 GiB。PostgreSQL 主数据目录仍位于根盘 `/dev/vda2`，B4 没有迁移共享 WAL。
+- 生产应用数据库角色无权读取 `data_directory` 设置；该只读目录信息改由主机 `findmnt`/路径解析核验，不影响 relation tablespace、业务行数或同步验收结论。
+
+#### 13.3.2 正式 TaskRun 与五段对账
+
+正式同步前先通过生产 connector 做无写入预检，日期固定为 `2026-07-07`：
+
+- 只生成一个 point unit，请求业务参数只有 `trade_date=20260707`；connector 追加 `limit=2000, offset=0`。
+- 唯一一页返回 1,673 行，以短页结束；每页显式 fields 均为 `ts_code, trade_date, fd_share, total_share, fund_type, market`。
+- accepted=1,673、reject=0、缺字段=0、实体键唯一数=1,673；市场 SH/SZ/O=`953/718/2`。
+- source 内容摘要为 `6bd1c1a21780c557e2bbe90450616c1f83ddfab566e7d89f3083ded3b6ed6463`。
+
+随后仅通过 `ManualActionCommandService` 创建正式 TaskRun `#7556`，未直接 SQL 写业务表：
+
+| 项目 | 生产结果 |
+| --- | --- |
+| resource/action | `fund_share / maintain` |
+| trigger/time input | `manual` / `point: 2026-07-07` |
+| filters/schedule | `{}` / `null` |
+| 状态与 unit | success；`1/1/0` |
+| requested/started/ended | `10:49:07.380707` / `10:49:07.969608` / `10:49:09.064834`（Asia/Shanghai） |
+| fetched/saved/rejected | `1,673 / 1,673 / 0` |
+| reject reasons | `{}` |
+
+任务完成后又由独立只读脚本重新拉取源端、重新归一化并按日期读取目标表，17 项门禁全部通过：
+
+- source、accepted、TaskRun fetched/saved、current、observation 六个计数均为 1,673，reject 0；
+- source/current/observation 三份内容摘要完全一致，三方六向身份差集均为 0；
+- current/observation 从六个 source fields 重算的内容散列错误均为 0；
+- 三方市场分组均为 SH/SZ/O=`953/718/2`；首次 observation 的 `first_observed_at=last_observed_at`；
+- 验收后 current relation 总大小为 1,245,184 bytes，observation 为 1,294,336 bytes，仅记录本次最小样本，不外推历史容量。
+
+#### 13.3.3 运行状态与停止边界
+
+同步后活动 TaskRun、活动日期完整性任务、`fund_share` schedule 和 probe 均为 0；六个服务继续 active，Web 健康检查正常。worker 本次观测 `MemoryPeak=182,329,344` bytes，低于 M2 已冻结的 512 MiB 单 unit 门禁。
+
+部署后的 automation capability 只读审计连续执行两次，第二次以首次读到的 29 条 schedule、7 条 ProbeRule 作为期望计数；两次均为一页、零 issue、`passed=true`。B4 migration 只创建 fund_share 表与索引，不含 ops schedule/probe DML，因此没有迁移主动重配任务的路径。
+
+本轮部署发生在 M3 验收接手之前，没有留下同一时点的部署前逐字段快照，因而不能把“29/7 当前有效”夸大为“每条 cron/启停字段与部署前逐字相同”；`next_run_at` 本身也会正常推进。该证据缺口不影响 fund_share schema、HDD 和业务数据五段对账，但已将“部署前后快照”明确保留为后续共享 contract 发布门禁。
+
+M3 只证明生产 schema、HDD placement、单日完整同步和运行链路可用；它不授权历史回补、自动任务创建或 `fund_div` 开发。
 
 ### 13.4 历史回补与自动任务门禁
 
@@ -554,8 +594,8 @@ M3 不等于获准回补历史或创建自动任务。两者分开授权：
 | --- | --- | --- |
 | B4-FS-M0 | 源文档、MCP/connector、分页、日期、字段、市场和代码影响面复审 | 已完成 |
 | B4-FS-M1 | 按本 LLD 编码并完成本地自动化/前端回归 | 已完成 |
-| B4-FS-M2 | 隔离 PostgreSQL migration、HDD、真实同步、容量/并发/回滚验收 | 已完成；未连接生产 |
-| B4-FS-M3 | 生产 migration、HDD、首次最小真实同步与对账 | 待单独授权 |
+| B4-FS-M2 | 隔离 PostgreSQL migration、HDD、真实同步、容量/并发/回滚验收 | 已完成 |
+| B4-FS-M3 | 生产 migration、HDD、首次最小真实同步与对账 | 已完成；TaskRun `#7556`，1,673 行，reject 0 |
 | B4-FS-M4 | 只读历史规模预算、历史回补和自动 schedule | 不在当前范围，分别拍板 |
 
 每个 milestone 都是授权边界。M1 完成后不得自行进入隔离库；M2 完成后不得自行进入生产；M3 完成后不得自行回补历史或创建 schedule。
@@ -570,14 +610,14 @@ M3 不等于获准回补历史或创建自动任务。两者分开授权：
 - 不分区避免破坏实体/版本唯一 contract。
 - schedule capability 单一事实源避免再次出现新增数据集漏改前端或后端白名单。
 
-### 15.2 仍需后续拍板但不阻塞 M3
+### 15.2 仍需后续拍板
 
 - 实际自动任务频率、cron 时间、相对日期和滚动修订窗口；
 - 历史回补起止日期、批量大小和磁盘/WAL 停止阈值；
 - 是否以及何时进入 B4 的 `fund_div`。
 
-### 15.3 开工判断
+### 15.3 当前判断
 
-LLD 已覆盖 source contract、三层时间语义、unit/request、身份/完整性、事务/current/observation、表/索引/HDD、Ops/UI、schedule 能力、配置、性能和分阶段验收。M2 已用隔离 PostgreSQL 关闭 migration、物理 placement、真实数据完整性、容量、事务回滚和并发锁风险；没有遗留会改变 B4-FS-M3 生产首次同步结构的待拍板项。
+LLD 已覆盖 source contract、三层时间语义、unit/request、身份/完整性、事务/current/observation、表/索引/HDD、Ops/UI、schedule 能力、配置、性能和分阶段验收。M2 已关闭隔离环境的容量、事务回滚和并发风险；M3 又以正式 TaskRun 与独立只读复核关闭了生产 migration、物理 placement和单日完整同步风险。
 
-因此，**B4-FS-M2 已通过，当前应停止在生产边界。下一步只有在用户再次明确授权后才进入 B4-FS-M3；本次授权不包含生产 migration、生产同步、历史回补或 schedule 创建。**
+因此，**B4-FS-M3 已通过，`fund_share` 的首次生产接入闭环。当前停止在 B4-FS-M4 / `fund_div` 之前；历史回补、schedule 创建与 `fund_div` 均须分别获得后续授权。**

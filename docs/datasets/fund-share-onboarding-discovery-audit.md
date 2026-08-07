@@ -1,13 +1,13 @@
 # 基金规模（`fund_share`）接入发现审计
 
-状态：**B4-M0 源端与代码复审、B4-FS-M1 实现及 B4-FS-M2 隔离验收均已通过。隔离 PostgreSQL 已完成 migration/HDD placement、真实最小同步与五段对账、重复幂等、10,000 行容量/回滚及 advisory lock 门禁；未连接或写入生产数据库。**
+状态：**B4-M0、B4-FS-M1、B4-FS-M2 与 B4-FS-M3 均已通过。生产 migration/HDD placement、正式 TaskRun `#7556` 首次最小同步及独立完整对账已闭环；未创建 schedule、probe、workflow，也未执行历史回补。**
 首次审计：2026-08-03；本轮复审：2026-08-07
 截图菜单：基金规模
 源文档：[基金规模数据](../sources/tushare/公募基金/0207_基金规模数据.md)（doc_id=207）
 
 ## 1. 审计结论
 
-`fund_share` 是公募基金份额/规模变动的带日期源事实，不是基金净值或基金主数据。B4 可以继续进入 LLD，但旧审计有两点必须纠正：
+`fund_share` 是公募基金份额/规模变动的带日期源事实，不是基金净值或基金主数据。下列两项纠偏已写入正式 LLD，并在 B4-FS-M1 至 M3 中完成实现与验收：
 
 1. **区间请求支持分页。** 两日和七个自然日样本均已用项目实际 connector 证明：区间 `limit/offset` 分页结果与逐日结果完整行多重集一致。逐日 unit 是为了限制单事务、隔离失败和支持单日补录，不是因为区间分页会漏数。
 2. **日期轴必须是自然日。** 周日 2026-07-05 返回 6 条 O 市场记录；按交易日历展开会真实漏数。自然日零行是合法情况，不应判为缺失或同步失败。
@@ -44,7 +44,7 @@
 2. 七日市场为 SH/SZ/O=`4,766/3,584/43`，代码后缀与市场映射全部一致；身份仍以 `(ts_code, trade_date)` 为准，`market` 必须保真但不需要进入实体键。
 3. 七日 `fund_type` 除 ETF/空值外还出现 `(带固定封闭期)`，不能写死 ETF 枚举。
 4. 单日峰值样本为 1,696 行，紧凑 JSON 约 0.20 MB；七日区间为 8,393 行、约 1.00 MB。`page_limit=2000` 可减少日常请求，但必须保留无页数上限、短页结束的通用分页。
-5. 历年同日抽样行数从 2011 年 66 行增长到 2026 年 1,673 行，历史总量仍需在 LLD/M2 前做只读容量估算，不能用当前单日乘固定年数冒充精确规模。
+5. 历年同日抽样行数从 2011 年 66 行增长到 2026 年 1,673 行；任何历史回补授权前仍须做逐年只读容量预算，不能用当前单日乘固定年数冒充精确规模。
 
 ## 3. 三层时间语义
 
@@ -58,17 +58,17 @@
 
 ## 4. 当前代码与影响面审计
 
-| 消费方 | 当前事实 | B4 LLD 必须处理 |
+| 消费方 | M0 发现 | B4 已落地结果 |
 | --- | --- | --- |
-| Definition/registry | `public_fund.py` 目前只有 B1/B2/B3 四项 | 新增 `fund_share`；六字段、natural-day point/range、无 filters、分页 2,000。 |
-| resolver/unit planner | generic 对 `natural_day + not_applicable/every_natural_day` 的 range 当前只生成一个无锚点 unit | 不改 generic 全局行为；新增可显式选择的通用自然日 point-fanout builder，避免影响现有 70+ Definition。 |
+| Definition/registry | M0 时 `public_fund.py` 只有 B1/B2/B3 四项 | 已新增 `fund_share`；六字段、natural-day point/range、无 filters、分页 2,000。 |
+| resolver/unit planner | generic 对 `natural_day + not_applicable/every_natural_day` 的 range 原先只生成一个无锚点 unit | 未改 generic 全局行为；新增 Definition 显式选择的自然日 point-fanout builder，避免影响其余 Definition。 |
 | request builder | `_daily_params` 已按 anchor 生成单一 `trade_date`，且未配置 filter 时不会产生 `ts_code` | 可复用；不得使用会在 range 下生成 `start_date/end_date` 的 `_trade_date_or_start_end_params`。 |
 | source client | `offset_limit` 每页都携带 `definition.source.source_fields`，短页结束，无最大页数 | 直接复用；Definition 固定 `page_limit=2000`、并发 1。 |
 | normalizer | 支持日期/Decimal、unit date 一致性和 batch 唯一键 fail-closed | `trade_date` 与 `fd_share/total_share` 归一化；要求 `ts_code/trade_date/fd_share/market/source_entity_key`，按 source_entity_key 检查完全重复与冲突。 |
-| B0 snapshot writer | 会清空并整体替换 current；空快照必须失败 | **不能复用为 fund_share 写路径。** fund_share 需要“仅替换本 unit 涉及实体 + observation 版本”的 observed-fact upsert；合法空日必须 0 行成功且不删除历史。 |
-| ORM/DAO/migration | 尚无 fund_share 表或 DAO | LLD 已决定使用 direct-serving current + observation、全字段与观察元数据、非分区 HDD 表/索引，以保留实体和版本唯一约束。 |
-| Ops Catalog/UI | “公募基金”分组已存在，当前顺序到 fund_manager=40 | 增加 fund_share=50；手动页面由 date model 显示自然日 point/range，不新增前端 dataset-key 字段白名单。 |
-| 自动任务 | schedule-only capability 已存在；但 `trigger_day_point` 仍由后端和前端各自维护 news/major_news 白名单 | 普通 daily cron 要动态生成触发日 point，不能把 fund_share 再追加到两份白名单。LLD 必须把 calendar-policy 能力纳入后端 capability contract，并让运行时验证与前端渲染消费同一契约。 |
+| B0 snapshot writer | 会清空并整体替换 current；空快照必须失败 | 未复用为 fund_share 写路径；新增显式 opt-in 的 scoped observed-fact writer，合法空日 0 行成功且不删除历史。 |
+| ORM/DAO/migration | M0 时尚无 fund_share 表或 DAO | 已落 direct-serving current + observation、全字段与观察元数据、非分区 HDD 表/索引，并完成隔离与生产 migration 验收。 |
+| Ops Catalog/UI | “公募基金”分组已存在，M0 时顺序到 fund_manager=40 | 已增加 fund_share=50；手动页面由 date model 显示自然日 point/range，未新增前端 dataset-key 字段白名单。 |
+| 自动任务 | schedule-only capability 已存在；`trigger_day_point` 原先由后端和前端各自维护 news/major_news 白名单 | 已将 calendar-policy 收敛到 Definition/API capability contract，运行时验证和前端渲染消费同一契约；本轮未创建 fund_share schedule。 |
 | workflow/probe | workflow 显式定义，不会因新增 Definition 自动加入；probe capability 由 resolver 决定 | 不加入 workflow、不提供 probe；后端必须拒绝 probe/fallback。 |
 | freshness/cards/audit | target ORM 与 observed_field 驱动数据状态；`not_applicable` 不进入日期完整性任务 | freshness 采用事件/运行轨迹，而非连续开市日；卡片展示 serving 表且无伪 raw 表。 |
 
@@ -91,8 +91,10 @@
 
 B4-M0 已通过，[正式 LLD](public-fund-b4-fund-share-low-level-design-v1.md) 已冻结三项新增能力的最小边界：Definition 显式 opt-in 的自然日逐日 unit、按日期作用域原子替换 current 的观察型时序事实 writer/DAO、由 Definition/API 单一事实驱动的自动任务 calendar-policy capability。三项均不得用 `fund_share` key 分支改变无关数据集。
 
-LLD 最终选择非分区 HDD current/observation 表，以保留 `(source_entity_key, source_content_hash)` 版本主键和 current `source_entity_key` 唯一防线；同时规定空自然日成功 no-op，非空日按日期完整替换 current，observation 保留接入后的内容版本。实际 cron 时间、历史回补起止日期和 B4 后续 `fund_div` 仍可延后拍板，不阻塞 B4-FS-M1。
+LLD 最终选择非分区 HDD current/observation 表，以保留 `(source_entity_key, source_content_hash)` 版本主键和 current `source_entity_key` 唯一防线；同时规定空自然日成功 no-op，非空日按日期完整替换 current，observation 保留接入后的内容版本。该设计已完成 M1–M3；实际 cron 时间、历史回补起止日期和 B4 后续 `fund_div` 仍须分别拍板。
 
 B4-FS-M2 的真实证据为：2026-07-04 `0/0/0/0/0/0` 合法 no-op；2026-07-05 fetched/accepted/written/current/observation 均为 6、reject 0 且全部为 O；2026-07-07 五段行数均为 1,673、reject 0，SH/SZ/O=`953/718/2`。源端、归一化、current、observation 的实体/内容散列与市场分组一致；相同快照重跑不增加 current/observation 版本。10,000 行分页、资源门禁、两处故障回滚和 PostgreSQL 同日期 advisory lock 也均通过，详细证据见 LLD 13.2。
 
-下一步只有在用户再次明确授权后才进入 B4-FS-M3 生产 migration、生产 HDD 路径核验和首次生产最小同步；历史回补和 schedule 创建仍需分别授权。
+B4-FS-M3 已在生产完成：migration head=`20260807_000128`，10 个 relation 均位于真实 HDD tablespace；正式 TaskRun `#7556` 对 `2026-07-07` 同步成功，source/accepted/written/current/observation 均为 1,673、reject 0，SH/SZ/O=`953/718/2`。独立复核的 source/current/observation 摘要一致、六向差集与目标散列错误均为 0。详细证据见 LLD 13.3。
+
+下一步可单独拍板 `fund_div`，或进入 B4-FS-M4 的历史规模只读预算、回补及 schedule 决策；三者互不自动授权。
