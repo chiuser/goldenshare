@@ -24,6 +24,8 @@ class IngestionRunContext(Protocol):
         rows_fetched: int | None = None,
         rows_saved: int | None = None,
         rows_rejected: int | None = None,
+        rows_deduplicated: int | None = None,
+        ingestion_diagnostics: dict[str, Any] | None = None,
         rejected_reason_counts: dict[str, int] | None = None,
         rejected_reason_samples: dict[str, list[dict[str, Any]]] | None = None,
         current_object: dict[str, Any] | None = None,

@@ -42,6 +42,7 @@ from src.ops.services.dataset_schedule_time_policy_resolver import (
 )
 
 if TYPE_CHECKING:
+    from src.foundation.datasets.models import DatasetDefinition
     from src.ops.models.ops.schedule import OpsSchedule
 
 
@@ -126,6 +127,16 @@ class AutomationCapability:
     trigger_options: tuple[TriggerModeCapability, ...]
     probe_conditions: tuple[ProbeConditionCapability, ...]
     calendar_policy_rules: tuple[DatasetScheduleTimePolicyCapability, ...]
+    time_input_contract: "AutomationTimeInputContract | None" = None
+
+
+@dataclass(frozen=True, slots=True)
+class AutomationTimeInputContract:
+    supported_modes: tuple[Literal["none", "point", "range"], ...]
+    point_field: str | None
+    range_start_field: str | None
+    range_end_field: str | None
+    granularity: Literal["none", "day", "month"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -447,6 +458,7 @@ class ScheduleAutomationCapabilityResolver:
             definition=definition,
             action=action,
         )
+        time_input_contract = self._time_input_contract(definition=definition, action=action)
 
         remote_condition = self._remote_condition_for_action(target_key)
         if remote_condition is not None:
@@ -459,6 +471,7 @@ class ScheduleAutomationCapabilityResolver:
                 ),
                 probe_conditions=(remote_condition,),
                 calendar_policy_rules=calendar_policy_rules,
+                time_input_contract=time_input_contract,
             )
 
         if definition.observability.freshness_policy == CONTINUOUS_OPEN_DAY:
@@ -482,13 +495,18 @@ class ScheduleAutomationCapabilityResolver:
                 ),
                 probe_conditions=(freshness_condition,),
                 calendar_policy_rules=calendar_policy_rules,
+                time_input_contract=time_input_contract,
             )
-        return self._schedule_only_capability(calendar_policy_rules=calendar_policy_rules)
+        return self._schedule_only_capability(
+            calendar_policy_rules=calendar_policy_rules,
+            time_input_contract=time_input_contract,
+        )
 
     @staticmethod
     def _schedule_only_capability(
         *,
         calendar_policy_rules: tuple[DatasetScheduleTimePolicyCapability, ...] = (),
+        time_input_contract: AutomationTimeInputContract | None = None,
     ) -> AutomationCapability:
         return AutomationCapability(
             version=1,
@@ -496,6 +514,34 @@ class ScheduleAutomationCapabilityResolver:
             trigger_options=(TriggerModeCapability(mode="schedule", allowed_schedule_types=DEFAULT_SCHEDULE_TYPES),),
             probe_conditions=(),
             calendar_policy_rules=calendar_policy_rules,
+            time_input_contract=time_input_contract,
+        )
+
+    @staticmethod
+    def _time_input_contract(*, definition: DatasetDefinition, action: str) -> AutomationTimeInputContract:
+        capability = definition.capabilities.get_action(action)
+        modes = tuple(capability.supported_time_modes) if capability is not None else ()
+        time_fields = {field.name for field in definition.input_model.time_fields}
+        point_field = next((field for field in ("ann_date", "trade_date", "month") if field in time_fields), None)
+        if {"start_date", "end_date"}.issubset(time_fields):
+            range_start_field, range_end_field = "start_date", "end_date"
+        elif {"start_month", "end_month"}.issubset(time_fields):
+            range_start_field, range_end_field = "start_month", "end_month"
+        else:
+            range_start_field, range_end_field = None, None
+        granularity: Literal["none", "day", "month"]
+        if point_field == "month" or range_start_field == "start_month":
+            granularity = "month"
+        elif point_field is not None or range_start_field is not None:
+            granularity = "day"
+        else:
+            granularity = "none"
+        return AutomationTimeInputContract(
+            supported_modes=modes,  # type: ignore[arg-type]
+            point_field=point_field,
+            range_start_field=range_start_field,
+            range_end_field=range_end_field,
+            granularity=granularity,
         )
 
     @staticmethod

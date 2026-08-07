@@ -18,6 +18,7 @@ from src.foundation.ingestion.constants import MONEYFLOW_VOLUME_FIELDS
 from src.foundation.datasets.public_fund_contracts import (
     fund_basic_identity,
     fund_company_identity,
+    fund_div_identity,
     fund_manager_identity,
     fund_share_identity,
     mkt_idx_bmk_identity,
@@ -105,6 +106,39 @@ def _fund_share_observed_fact_row_transform(row: dict[str, Any]) -> dict[str, An
     transformed["source_entity_key"] = source_entity_key
     transformed["identity_basis"] = identity_basis
     return transformed
+
+
+_FUND_DIV_NUMERIC_FIELDS = ("div_cash", "base_unit", "ear_distr", "ear_amount")
+
+
+def _fund_div_immutable_fact_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    for field_name in _FUND_DIV_NUMERIC_FIELDS:
+        value = transformed.get(field_name)
+        if value is None:
+            continue
+        if not _decimal_fits_numeric_30_10(value):
+            raise RowTransformReject(
+                f"normalize.numeric_precision_overflow:{field_name}",
+                f"字段 {field_name} 无法由 NUMERIC(30,10) 精确保存",
+            )
+    source_entity_key, identity_basis = fund_div_identity(transformed)
+    transformed["source_entity_key"] = source_entity_key
+    transformed["identity_basis"] = identity_basis
+    return transformed
+
+
+def _decimal_fits_numeric_30_10(value: Decimal) -> bool:
+    if not value.is_finite():
+        return False
+    normalized = value.normalize()
+    if normalized.is_zero():
+        return True
+    sign, digits, exponent = normalized.as_tuple()
+    del sign
+    integer_digits = max(len(digits) + exponent, 0)
+    fractional_digits = max(-exponent, 0)
+    return integer_digits <= 20 and fractional_digits <= 10
 
 
 def _trade_cal_row_transform(row: dict[str, Any]) -> dict[str, Any]:
@@ -846,6 +880,7 @@ __all__ = [
     "_fund_basic_observed_snapshot_row_transform",
     "_fund_manager_observed_snapshot_row_transform",
     "_fund_share_observed_fact_row_transform",
+    "_fund_div_immutable_fact_row_transform",
     "_trade_cal_row_transform",
     "_stock_basic_row_transform",
     "_bse_mapping_row_transform",

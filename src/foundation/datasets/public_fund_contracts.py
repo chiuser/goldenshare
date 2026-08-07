@@ -86,6 +86,41 @@ FUND_SHARE_SOURCE_FIELDS = (
     "market",
 )
 
+FUND_DIV_SOURCE_FIELDS = (
+    "ts_code",
+    "ann_date",
+    "imp_anndate",
+    "base_date",
+    "div_proc",
+    "record_date",
+    "ex_date",
+    "pay_date",
+    "earpay_date",
+    "net_ex_date",
+    "div_cash",
+    "base_unit",
+    "ear_distr",
+    "ear_amount",
+    "account_date",
+    "base_year",
+)
+
+FUND_DIV_IDENTITY_FIELDS = (
+    "ts_code",
+    "ann_date",
+    "imp_anndate",
+    "base_date",
+    "record_date",
+    "ex_date",
+    "pay_date",
+    "earpay_date",
+    "net_ex_date",
+    "account_date",
+    "base_year",
+)
+
+FUND_DIV_IDENTITY_BASIS = "fund_div_full_event_dates_v1"
+
 
 def fund_company_identity(row: Mapping[str, Any]) -> tuple[str, str]:
     """Return the conservative source-record entity key and its basis.
@@ -148,6 +183,25 @@ def fund_share_identity(row: Mapping[str, Any]) -> tuple[str, str]:
     trade_date = row.get("trade_date")
     trade_date_text = trade_date.isoformat() if hasattr(trade_date, "isoformat") else _normalized_text(trade_date)
     return f"share:{_sha256_json_parts((ts_code, trade_date_text))}", "ts_code_trade_date"
+
+
+def fund_div_identity(row: Mapping[str, Any]) -> tuple[str, str]:
+    canonical_parts = []
+    for field_name in FUND_DIV_IDENTITY_FIELDS:
+        value = row.get(field_name)
+        if field_name == "ts_code" and value is not None:
+            value = str(value).strip().upper()
+        canonical_parts.append(_canonical_identity_part(value))
+    encoded = json.dumps(canonical_parts, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    return f"fund_div:{_sha256_text(encoded)}", FUND_DIV_IDENTITY_BASIS
+
+
+def _canonical_identity_part(value: object) -> dict[str, str | bool]:
+    if value is None:
+        return {"is_null": True}
+    if hasattr(value, "isoformat"):
+        value = value.isoformat()  # type: ignore[union-attr]
+    return {"is_null": False, "value": str(value)}
 
 
 def _normalized_text(value: object, *, uppercase: bool = False) -> str:

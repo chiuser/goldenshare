@@ -61,6 +61,8 @@ function createTaskRunView(status = "failed") {
       rows_fetched: 6,
       rows_saved: 5,
       rows_rejected: 1,
+      rows_deduplicated: 0,
+      ingestion_diagnostics: {},
       rejected_reason_counts: {
         "normalize.required_field_missing:trade_date": 1,
       },
@@ -144,6 +146,8 @@ function createTaskRunView(status = "failed") {
         rows_fetched: 6,
         rows_saved: 5,
         rows_rejected: 1,
+        rows_deduplicated: 0,
+        ingestion_diagnostics: {},
         rejected_reason_counts: {
           "normalize.required_field_missing:trade_date": 1,
         },
@@ -336,5 +340,40 @@ describe("任务详情页", () => {
     expect(await screen.findByText("560")).toBeInTheDocument();
     expect(await screen.findByText("570")).toBeInTheDocument();
     expect(await screen.findByText(/哪些来自接口、哪些由日线补齐/)).toBeInTheDocument();
+  });
+
+  it("展示完全重复去重和不可变事实核对结果", async () => {
+    const view = createTaskRunView("success");
+    view.run.resource_key = "fund_div";
+    view.run.title = "公募基金分红";
+    view.progress.rows_fetched = 141;
+    view.progress.rows_saved = 74;
+    view.progress.rows_rejected = 0;
+    view.progress.rows_deduplicated = 67;
+    view.progress.ingestion_diagnostics = {
+      source: {
+        pagination: {
+          unit_count_with_pagination: 1,
+          total_page_count: 1,
+          total_rows_merged: 141,
+          multi_page_unit_count: 0,
+          max_pages_per_unit: 1,
+          short_page_unit_count: 1,
+        },
+      },
+      persistence: { immutable_fact: { rows_inserted_new: 74, rows_matched_existing: 0 } },
+    };
+    view.nodes[0].rows_deduplicated = 67;
+    apiRequest.mockResolvedValue(view);
+
+    renderPage();
+
+    expect(await screen.findByText("完全重复去重")).toBeInTheDocument();
+    expect(await screen.findByText("67")).toBeInTheDocument();
+    expect(await screen.findByText("不可变事实核对")).toBeInTheDocument();
+    expect(await screen.findByText("源端分页")).toBeInTheDocument();
+    expect(await screen.findByText(/共 1 个单元、1 页，合并 141 行/)).toBeInTheDocument();
+    expect(await screen.findByText(/首次插入 74 条，已存在且内容一致 0 条/)).toBeInTheDocument();
+    expect(await screen.findByText(/完全重复去重 67/)).toBeInTheDocument();
   });
 });

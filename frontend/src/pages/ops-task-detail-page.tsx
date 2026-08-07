@@ -116,6 +116,52 @@ function formatPercentLabel(value: number, total: number) {
   return `${Math.round((value / total) * 100)}%`;
 }
 
+function diagnosticCount(
+  diagnostics: Record<string, unknown> | undefined,
+  key: "rows_inserted_new" | "rows_matched_existing",
+) {
+  if (!diagnostics) {
+    return 0;
+  }
+  const persistence = diagnostics.persistence;
+  if (!persistence || typeof persistence !== "object") {
+    return 0;
+  }
+  const immutableFact = (persistence as Record<string, unknown>).immutable_fact;
+  if (!immutableFact || typeof immutableFact !== "object") {
+    return 0;
+  }
+  const value = (immutableFact as Record<string, unknown>)[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function paginationDiagnostic(diagnostics: Record<string, unknown> | undefined) {
+  const source = diagnostics?.source;
+  const pagination = source && typeof source === "object"
+    ? (source as Record<string, unknown>).pagination
+    : null;
+  if (!pagination || typeof pagination !== "object") {
+    return null;
+  }
+  const record = pagination as Record<string, unknown>;
+  const count = (key: string) => {
+    const value = record[key];
+    return typeof value === "number" && Number.isFinite(value) ? value : 0;
+  };
+  const unitCount = count("unit_count_with_pagination");
+  if (unitCount <= 0) {
+    return null;
+  }
+  return {
+    unitCount,
+    pageCount: count("total_page_count"),
+    rowsMerged: count("total_rows_merged"),
+    multiPageUnits: count("multi_page_unit_count"),
+    maxPagesPerUnit: count("max_pages_per_unit"),
+    shortPageUnits: count("short_page_unit_count"),
+  };
+}
+
 function formatPeriodSourceTitle(resourceKey: string | null) {
   if (resourceKey === "index_monthly") {
     return "月线结果来源";
@@ -225,7 +271,9 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
       width: "22%",
       render: (item) => (
         <Text size="sm">
-          {`读取 ${item.rows_fetched}，保存 ${item.rows_saved}，拒绝 ${item.rows_rejected}`}
+          {`读取 ${item.rows_fetched}，保存 ${item.rows_saved}，拒绝 ${item.rows_rejected}${
+            (item.rows_deduplicated ?? 0) > 0 ? `，完全重复去重 ${item.rows_deduplicated}` : ""
+          }`}
         </Text>
       ),
     },
@@ -362,7 +410,7 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
                       ) : null}
                     </Stack>
                   ) : null}
-                  <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+                  <SimpleGrid cols={{ base: 1, sm: 2, xl: 4 }} spacing="md">
                     <MetricPanel label="读取">
                       <Text fw={700}>{view.progress.rows_fetched.toLocaleString()}</Text>
                     </MetricPanel>
@@ -379,7 +427,27 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
                         ) : null}
                       </Stack>
                     </MetricPanel>
+                    <MetricPanel label="完全重复去重">
+                      <Text fw={700}>{(view.progress.rows_deduplicated ?? 0).toLocaleString()}</Text>
+                    </MetricPanel>
                   </SimpleGrid>
+                  {paginationDiagnostic(view.progress.ingestion_diagnostics) ? (
+                    <AlertBar tone="info" title="源端分页">
+                      {(() => {
+                        const diagnostic = paginationDiagnostic(view.progress.ingestion_diagnostics)!;
+                        return `共 ${diagnostic.unitCount.toLocaleString()} 个单元、${diagnostic.pageCount.toLocaleString()} 页，`
+                          + `合并 ${diagnostic.rowsMerged.toLocaleString()} 行；多页单元 ${diagnostic.multiPageUnits.toLocaleString()} 个，`
+                          + `短页结束 ${diagnostic.shortPageUnits.toLocaleString()} 个，单元最高 ${diagnostic.maxPagesPerUnit.toLocaleString()} 页。`;
+                      })()}
+                    </AlertBar>
+                  ) : null}
+                  {diagnosticCount(view.progress.ingestion_diagnostics, "rows_inserted_new") > 0
+                  || diagnosticCount(view.progress.ingestion_diagnostics, "rows_matched_existing") > 0 ? (
+                    <AlertBar tone="info" title="不可变事实核对">
+                      {`首次插入 ${diagnosticCount(view.progress.ingestion_diagnostics, "rows_inserted_new").toLocaleString()} 条，`
+                      + `已存在且内容一致 ${diagnosticCount(view.progress.ingestion_diagnostics, "rows_matched_existing").toLocaleString()} 条。`}
+                    </AlertBar>
+                  ) : null}
                   {periodSourceSummary ? (
                     <Stack gap="sm">
                       <Group justify="space-between" align="flex-start">

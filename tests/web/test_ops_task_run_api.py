@@ -325,6 +325,31 @@ def test_ops_task_run_view_returns_display_current_object_for_running_task(
     assert {"label": "证券代码", "value": "920429.BJ"} in current_object["fields"]
 
 
+def test_ops_task_run_view_labels_fund_div_time_as_announcement_date(
+    app_client,
+    user_factory,
+    task_run_factory,
+) -> None:
+    admin = user_factory(username="admin", password="secret", is_admin=True)
+    task_run = task_run_factory(
+        requested_by_user_id=admin.id,
+        resource_key="fund_div",
+        title="基金分红",
+        status="running",
+        current_object_json={
+            "time": {"mode": "point", "start": "2026-08-07", "end": "2026-08-07", "field": "ann_date"},
+        },
+    )
+
+    response = app_client.get(f"/api/v1/ops/task-runs/{task_run.id}/view", headers=auth_headers(app_client))
+
+    assert response.status_code == 200
+    current_object = response.json()["progress"]["current_object"]
+    assert current_object["title"] == "正在处理：2026-08-07"
+    assert {"label": "公告日期", "value": "2026-08-07"} in current_object["fields"]
+    assert not any(field["label"] == "交易日期" for field in current_object["fields"])
+
+
 def test_ops_task_run_view_resolves_dataset_attribute_title_from_definition(
     app_client,
     user_factory,

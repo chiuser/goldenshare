@@ -18,6 +18,7 @@ from src.ops.schemas.catalog import (
     ActionParameterResponse,
     AutomationCapabilityResponse,
     CalendarPolicyCapabilityResponse,
+    AutomationTimeInputContractResponse,
     FilterCapabilityResponse,
     OpsCatalogResponse,
     ProbeConditionCapabilityResponse,
@@ -256,9 +257,21 @@ class OpsCatalogQueryService:
                     cron_repeat_modes=list(rule.cron_repeat_modes),
                     explicit_time_input=rule.explicit_time_input,
                     generated_time_mode=rule.generated_time_mode,
+                    generated_time_field=rule.generated_time_field,
                 )
                 for rule in capability.calendar_policy_rules
             ],
+            time_input_contract=(
+                AutomationTimeInputContractResponse(
+                    supported_modes=list(capability.time_input_contract.supported_modes),
+                    point_field=capability.time_input_contract.point_field,
+                    range_start_field=capability.time_input_contract.range_start_field,
+                    range_end_field=capability.time_input_contract.range_end_field,
+                    granularity=capability.time_input_contract.granularity,
+                )
+                if capability.time_input_contract is not None
+                else None
+            ),
         )
 
     @staticmethod

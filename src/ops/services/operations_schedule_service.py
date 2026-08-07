@@ -273,6 +273,20 @@ class OperationsScheduleService:
             session.refresh(schedule)
             return schedule
 
+        schedule.calendar_policy = self._normalize_calendar_policy(schedule.calendar_policy)
+        self._validate_calendar_policy(
+            target_type=schedule.target_type,
+            target_key=schedule.target_key,
+            schedule_type=schedule.schedule_type,
+            cron_expr=schedule.cron_expr,
+            calendar_policy=schedule.calendar_policy,
+            params_json=dict(schedule.params_json or {}),
+        )
+        self.task_run_service.validate_schedule_target(
+            target_type=schedule.target_type,
+            target_key=schedule.target_key,
+            params_json=dict(schedule.params_json or {}),
+        )
         before = self._snapshot(schedule)
         if schedule.schedule_type == "once":
             if schedule.next_run_at is None:
@@ -676,8 +690,10 @@ class OperationsScheduleService:
         if rule.declared_by_action and repeat_mode not in rule.cron_repeat_modes:
             raise WebAppError(status_code=422, code="validation_error", message="当前周期类型不支持该数据集声明的日期策略")
         if rule.explicit_time_input == "forbidden" and (
-            OperationsScheduleService._has_explicit_time_boundary(params_json)
-            or OperationsScheduleService._has_fixed_ann_date(params_json)
+            OperationsScheduleService._has_declared_time_input(
+                params_json,
+                definition=definition,
+            )
         ):
             conflict_messages = {
                 MONTHLY_LAST_DAY_POLICY: "每月最后一天策略不能与固定维护日期混用",
@@ -711,13 +727,6 @@ class OperationsScheduleService:
         if interval_minutes < MIN_INTRADAY_INTERVAL_MINUTES:
             raise WebAppError(status_code=422, code="validation_error", message="日内高频策略最小间隔为 3 分钟")
         return interval_minutes
-
-    @staticmethod
-    def _has_fixed_ann_date(params_json: dict) -> bool:
-        if params_json.get("ann_date") not in (None, ""):
-            return True
-        time_input = params_json.get("time_input")
-        return isinstance(time_input, dict) and time_input.get("ann_date") not in (None, "")
 
     def _next_monthly_last_trading_day_occurrence(
         self,
@@ -778,8 +787,17 @@ class OperationsScheduleService:
         return isinstance(time_input, dict) and time_input.get("trade_date") not in (None, "")
 
     @staticmethod
-    def _has_explicit_time_boundary(params_json: dict) -> bool:
-        time_keys = {"trade_date", "start_date", "end_date", "start_month", "end_month"}
+    def _has_declared_time_input(params_json: dict, *, definition) -> bool:  # type: ignore[no-untyped-def]
+        time_keys = {
+            "trade_date",
+            "ann_date",
+            "month",
+            "start_date",
+            "end_date",
+            "start_month",
+            "end_month",
+            *(field.name for field in definition.input_model.time_fields),
+        }
         if any(params_json.get(key) not in (None, "") for key in time_keys):
             return True
         time_input = params_json.get("time_input")

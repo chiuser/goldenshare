@@ -199,6 +199,7 @@ class DatasetQualityPolicy:
     duplicate_key_policy: str = "allow"
     required_distinct_values: dict[str, tuple[str, ...]] = field(default_factory=dict)
     batch_unique_key_fields: tuple[str, ...] = ()
+    source_multiplicity_policy: str = "reject"
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,6 +216,7 @@ class DatasetScheduleTimePolicy:
     cron_repeat_modes: tuple[str, ...]
     explicit_time_input: str
     generated_time_mode: str
+    generated_time_field: str = "trade_date"
 
 
 @dataclass(frozen=True, slots=True)

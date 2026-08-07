@@ -119,6 +119,8 @@ class DatasetActionResolver:
     def _normalize_time_input(cls, time_input: DatasetTimeInput, input_shape: str) -> DatasetTimeInput:
         mode = str(time_input.mode or "none").strip() or "none"
         normalized = replace(time_input, mode=mode)
+        if mode == "point" and input_shape == "ann_date_or_start_end" and normalized.ann_date is not None:
+            normalized = replace(normalized, trade_date=normalized.ann_date, date_field="ann_date")
         if mode == "point" and input_shape == "month_or_range":
             month = cls._normalize_month(normalized.month)
             return replace(normalized, month=month, trade_date=cls._month_end_date(month))

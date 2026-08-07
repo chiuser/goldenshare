@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 class TaskRunTimeInput(BaseModel):
     mode: str = "none"
     trade_date: str | None = None
+    ann_date: str | None = None
     start_date: str | None = None
     end_date: str | None = None
     month: str | None = None
@@ -67,6 +68,7 @@ class TaskRunListItem(BaseModel):
     rows_fetched: int
     rows_saved: int
     rows_rejected: int
+    rows_deduplicated: int = 0
     primary_issue_id: int | None = None
     primary_issue_title: str | None = None
 
@@ -157,6 +159,8 @@ class TaskRunProgress(BaseModel):
     rows_fetched: int
     rows_saved: int
     rows_rejected: int
+    rows_deduplicated: int = 0
+    ingestion_diagnostics: dict[str, Any] = Field(default_factory=dict)
     rejected_reason_counts: dict[str, int] = Field(default_factory=dict)
     rejected_reasons: list[TaskRunRejectionReasonItem] = Field(default_factory=list)
     current_object: TaskRunDisplayObject | None = None
@@ -189,6 +193,8 @@ class TaskRunNodeItem(BaseModel):
     rows_fetched: int
     rows_saved: int
     rows_rejected: int
+    rows_deduplicated: int = 0
+    ingestion_diagnostics: dict[str, Any] = Field(default_factory=dict)
     rejected_reason_counts: dict[str, int] = Field(default_factory=dict)
     rejected_reasons: list[TaskRunRejectionReasonItem] = Field(default_factory=list)
     issue_id: int | None = None

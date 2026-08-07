@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 from time import perf_counter
 
@@ -19,12 +20,14 @@ class SourceFetchResult:
         retry_count: int,
         latency_ms: int,
         rows_raw: list[dict],
+        pagination_diagnostics: dict | None = None,
     ) -> None:
         self.unit_id = unit_id
         self.request_count = request_count
         self.retry_count = retry_count
         self.latency_ms = latency_ms
         self.rows_raw = rows_raw
+        self.pagination_diagnostics = dict(pagination_diagnostics or {})
 
 
 class DatasetSourceClient:
@@ -32,6 +35,7 @@ class DatasetSourceClient:
 
     def __init__(self, error_mapper: IngestionErrorMapper | None = None) -> None:
         self.error_mapper = error_mapper or IngestionErrorMapper()
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def fetch(self, *, definition: DatasetDefinition, unit: PlanUnitSnapshot) -> SourceFetchResult:
         connector = create_source_connector(str(unit.source_key or definition.source.adapter_key))
@@ -39,7 +43,7 @@ class DatasetSourceClient:
         pagination_policy = unit.pagination_policy or definition.planning.pagination_policy
 
         started_at = perf_counter()
-        rows_raw, request_count, retry_count = self._fetch_rows_with_pagination(
+        rows_raw, request_count, retry_count, pagination_diagnostics = self._fetch_rows_with_pagination(
             definition=definition,
             unit=unit,
             connector=connector,
@@ -53,6 +57,7 @@ class DatasetSourceClient:
             retry_count=retry_count,
             latency_ms=latency_ms,
             rows_raw=rows_raw,
+            pagination_diagnostics=pagination_diagnostics,
         )
 
     def _fetch_rows_with_pagination(
@@ -63,7 +68,7 @@ class DatasetSourceClient:
         connector,
         pagination_policy: str | None,
         page_limit: int | None,
-    ) -> tuple[list[dict], int, int]:
+    ) -> tuple[list[dict], int, int, dict]:
         if pagination_policy != "offset_limit" or page_limit is None:
             rows, retries = self._fetch_page(
                 definition=definition,
@@ -72,12 +77,14 @@ class DatasetSourceClient:
                 offset=None,
                 page_limit=None,
             )
-            return rows, 1, retries
+            return rows, 1, retries, {}
 
         rows_raw: list[dict] = []
         request_count = 0
         retry_count = 0
         offset = 0
+        terminal_offset = 0
+        terminal_page_rows = 0
         while True:
             rows, retries = self._fetch_page(
                 definition=definition,
@@ -89,10 +96,31 @@ class DatasetSourceClient:
             request_count += 1
             retry_count += retries
             rows_raw.extend(rows)
-            if len(rows) < page_limit:
+            is_short_page = len(rows) < page_limit
+            terminal_offset = offset
+            terminal_page_rows = len(rows)
+            self.logger.info(
+                "dataset_source_page api_name=%s unit_id=%s ann_date=%s offset=%s limit=%s page_rows=%s is_short_page=%s",
+                definition.source.api_name,
+                unit.unit_id,
+                unit.request_params.get("ann_date"),
+                offset,
+                page_limit,
+                len(rows),
+                is_short_page,
+            )
+            if is_short_page:
                 break
             offset += page_limit
-        return rows_raw, request_count, retry_count
+        return rows_raw, request_count, retry_count, {
+            "policy": "offset_limit",
+            "page_limit": page_limit,
+            "page_count": request_count,
+            "total_rows_merged": len(rows_raw),
+            "terminal_offset": terminal_offset,
+            "terminal_page_rows": terminal_page_rows,
+            "observed_short_page": terminal_page_rows < page_limit,
+        }
 
     def _fetch_page(
         self,

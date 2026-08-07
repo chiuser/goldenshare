@@ -22,6 +22,19 @@ class _RunState:
     rows_written: int = 0
     rows_committed: int = 0
     rows_rejected: int = 0
+    rows_deduplicated: int = 0
+    rows_inserted: int = 0
+    rows_matched: int = 0
+    scope_existing_count: int = 0
+    scope_source_unique_count: int = 0
+    pagination_unit_count: int = 0
+    pagination_total_page_count: int = 0
+    pagination_total_rows_merged: int = 0
+    pagination_multi_page_unit_count: int = 0
+    pagination_max_pages_per_unit: int = 0
+    pagination_short_page_unit_count: int = 0
+    pagination_units: list[dict[str, Any]] = field(default_factory=list)
+    pagination_units_truncated: bool = False
     rejected_reason_counts: dict[str, int] = field(default_factory=dict)
     rejected_reason_samples: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     unit_done: int = 0
@@ -42,6 +55,8 @@ class IngestionRunSummary:
         rows_written: int,
         rows_committed: int,
         rows_rejected: int,
+        rows_deduplicated: int,
+        ingestion_diagnostics: dict[str, Any],
         rejected_reason_counts: dict[str, int],
         rejected_reason_samples: dict[str, list[dict[str, Any]]],
         result_date: date | None,
@@ -57,6 +72,8 @@ class IngestionRunSummary:
         self.rows_written = rows_written
         self.rows_committed = rows_committed
         self.rows_rejected = rows_rejected
+        self.rows_deduplicated = rows_deduplicated
+        self.ingestion_diagnostics = ingestion_diagnostics
         self.rejected_reason_counts = rejected_reason_counts
         self.rejected_reason_samples = rejected_reason_samples
         self.result_date = result_date
@@ -118,6 +135,8 @@ class IngestionExecutor:
             rows_written=state.rows_written,
             rows_committed=state.rows_committed,
             rows_rejected=state.rows_rejected,
+            rows_deduplicated=state.rows_deduplicated,
+            ingestion_diagnostics=self._build_ingestion_diagnostics(state),
             rejected_reason_counts=state.rejected_reason_counts,
             rejected_reason_samples=state.rejected_reason_samples,
             result_date=self._resolve_result_date(request),
@@ -239,7 +258,9 @@ class IngestionExecutor:
         unit_rows_fetched = 0
         unit_rows_written = 0
         unit_rows_rejected = 0
+        unit_rows_deduplicated = 0
         try:
+            self._record_pagination_diagnostics(state, unit=unit, source_result=source_result)
             normalized = self.normalizer.normalize(
                 definition=definition,
                 fetch_result=source_result,
@@ -255,9 +276,15 @@ class IngestionExecutor:
             unit_rows_fetched = len(source_result.rows_raw)
             unit_rows_written = written.rows_written
             unit_rows_rejected = normalized.rows_rejected + int(written.rows_rejected or 0)
+            unit_rows_deduplicated = int(normalized.rows_deduplicated or 0)
             state.rows_fetched += unit_rows_fetched
             state.rows_written += unit_rows_written
             state.rows_rejected += unit_rows_rejected
+            state.rows_deduplicated += unit_rows_deduplicated
+            state.rows_inserted += int(written.rows_inserted or 0)
+            state.rows_matched += int(written.rows_matched or 0)
+            state.scope_existing_count += int(written.scope_existing_count or 0)
+            state.scope_source_unique_count += int(written.scope_source_unique_count or 0)
             for reason_code, count in normalized.rejected_reasons.items():
                 state.rejected_reason_counts[reason_code] = state.rejected_reason_counts.get(reason_code, 0) + int(count or 0)
             self._merge_reason_samples(state.rejected_reason_samples, normalized.rejected_samples)
@@ -280,6 +307,7 @@ class IngestionExecutor:
                 unit_rows_fetched=unit_rows_fetched,
                 unit_rows_written=unit_rows_written,
                 unit_rows_rejected=unit_rows_rejected,
+                unit_rows_deduplicated=unit_rows_deduplicated,
             )
 
     def _handle_unit_exception(
@@ -307,6 +335,7 @@ class IngestionExecutor:
                 unit_rows_fetched=0,
                 unit_rows_written=0,
                 unit_rows_rejected=0,
+                unit_rows_deduplicated=0,
             )
 
     def _record_unit_exception(self, *, state: _RunState, unit: PlanUnitSnapshot, exc: BaseException) -> None:
@@ -332,6 +361,7 @@ class IngestionExecutor:
         unit_rows_fetched: int,
         unit_rows_written: int,
         unit_rows_rejected: int,
+        unit_rows_deduplicated: int,
     ) -> None:
         observer.report_progress(
             run_id=request.run_id,
@@ -343,6 +373,8 @@ class IngestionExecutor:
             rows_written=state.rows_written,
             rows_committed=state.rows_committed,
             rows_rejected=state.rows_rejected,
+            rows_deduplicated=state.rows_deduplicated,
+            ingestion_diagnostics=self._build_ingestion_diagnostics(state),
             rejected_reason_counts=state.rejected_reason_counts,
             rejected_reason_samples=state.rejected_reason_samples,
             current_object=self._build_current_object(unit),
@@ -359,6 +391,7 @@ class IngestionExecutor:
                 unit_rows_written=unit_rows_written,
                 unit_rows_committed=unit_rows_written,
                 unit_rows_rejected=unit_rows_rejected,
+                unit_rows_deduplicated=unit_rows_deduplicated,
                 rejected_reason_counts=state.rejected_reason_counts,
             ),
         )
@@ -415,6 +448,7 @@ class IngestionExecutor:
         unit_rows_written: int | None = None,
         unit_rows_committed: int | None = None,
         unit_rows_rejected: int | None = None,
+        unit_rows_deduplicated: int | None = None,
     ) -> str:
         context_parts = cls._build_progress_context_parts(
             unit=unit,
@@ -424,6 +458,7 @@ class IngestionExecutor:
             unit_rows_written=unit_rows_written,
             unit_rows_committed=unit_rows_committed,
             unit_rows_rejected=unit_rows_rejected,
+            unit_rows_deduplicated=unit_rows_deduplicated,
         )
         saved_rows = rows_committed if rows_committed is not None else rows_written
         message_parts = [
@@ -525,6 +560,7 @@ class IngestionExecutor:
         unit_rows_written: int | None,
         unit_rows_committed: int | None,
         unit_rows_rejected: int | None,
+        unit_rows_deduplicated: int | None = None,
     ) -> list[str]:
         parts: list[str] = []
         if unit_rows_fetched is not None:
@@ -534,7 +570,59 @@ class IngestionExecutor:
             parts.append(f"保存 {int(unit_rows_saved or 0)}")
         if unit_rows_rejected is not None and unit_rows_rejected > 0:
             parts.append(f"拒绝 {int(unit_rows_rejected or 0)}")
+        if unit_rows_deduplicated is not None and unit_rows_deduplicated > 0:
+            parts.append(f"完全重复去重 {int(unit_rows_deduplicated or 0)}")
         return parts
+
+    @staticmethod
+    def _record_pagination_diagnostics(state: _RunState, *, unit: PlanUnitSnapshot, source_result: Any) -> None:
+        diagnostics = getattr(source_result, "pagination_diagnostics", None)
+        if not isinstance(diagnostics, dict) or not diagnostics:
+            return
+        page_count = max(int(diagnostics.get("page_count") or 0), 0)
+        rows_merged = max(int(diagnostics.get("total_rows_merged") or 0), 0)
+        state.pagination_unit_count += 1
+        state.pagination_total_page_count += page_count
+        state.pagination_total_rows_merged += rows_merged
+        state.pagination_multi_page_unit_count += int(page_count > 1)
+        state.pagination_max_pages_per_unit = max(state.pagination_max_pages_per_unit, page_count)
+        state.pagination_short_page_unit_count += int(bool(diagnostics.get("observed_short_page")))
+        if len(state.pagination_units) >= 3:
+            state.pagination_units_truncated = True
+            return
+        state.pagination_units.append(
+            {
+                "unit_id": unit.unit_id,
+                "page_count": page_count,
+                "terminal_offset": diagnostics.get("terminal_offset"),
+                "terminal_page_rows": diagnostics.get("terminal_page_rows"),
+            }
+        )
+
+    @staticmethod
+    def _build_ingestion_diagnostics(state: _RunState) -> dict[str, Any]:
+        return {
+            "source": {
+                "pagination": {
+                    "unit_count_with_pagination": state.pagination_unit_count,
+                    "total_page_count": state.pagination_total_page_count,
+                    "total_rows_merged": state.pagination_total_rows_merged,
+                    "multi_page_unit_count": state.pagination_multi_page_unit_count,
+                    "max_pages_per_unit": state.pagination_max_pages_per_unit,
+                    "short_page_unit_count": state.pagination_short_page_unit_count,
+                    "unit_samples": [dict(item) for item in state.pagination_units],
+                    "truncated": state.pagination_units_truncated,
+                },
+            },
+            "persistence": {
+                "immutable_fact": {
+                    "rows_inserted_new": state.rows_inserted,
+                    "rows_matched_existing": state.rows_matched,
+                    "scope_existing_count": state.scope_existing_count,
+                    "scope_source_unique_count": state.scope_source_unique_count,
+                },
+            },
+        }
 
     @staticmethod
     def _format_progress_value(value) -> str | None:  # type: ignore[no-untyped-def]
@@ -555,8 +643,9 @@ class IngestionExecutor:
     def _build_current_object(cls, unit: PlanUnitSnapshot) -> dict:
         context = dict(unit.progress_context or {})
         request_params = dict(unit.request_params or {})
-        if unit.trade_date is not None and "trade_date" not in context:
-            context["trade_date"] = unit.trade_date.isoformat()
+        date_field = str(context.get("date_field") or "trade_date")
+        if unit.trade_date is not None and date_field not in context:
+            context[date_field] = unit.trade_date.isoformat()
         for key in ("ts_code", "index_code", "board_code", "freq", "start_date", "end_date"):
             value = request_params.get(key)
             if value not in (None, "") and key not in context:
@@ -601,8 +690,10 @@ class IngestionExecutor:
                 "start": str(context.get("start_date") or "").strip(),
                 "end": str(context.get("end_date") or "").strip(),
                 "mode": "range",
+                "field": str(context.get("date_field") or "trade_date"),
             }
-        if context.get("trade_date") not in (None, ""):
-            trade_date = str(context.get("trade_date") or "").strip()
-            return {"start": trade_date, "end": trade_date, "mode": "point"}
+        date_field = str(context.get("date_field") or "trade_date")
+        if context.get(date_field) not in (None, ""):
+            point_date = str(context.get(date_field) or "").strip()
+            return {"start": point_date, "end": point_date, "mode": "point", "field": date_field}
         return {}

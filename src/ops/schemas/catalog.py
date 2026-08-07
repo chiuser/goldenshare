@@ -70,6 +70,15 @@ class CalendarPolicyCapabilityResponse(BaseModel):
     cron_repeat_modes: list[Literal["daily", "weekly", "monthly", "intraday_interval"]]
     explicit_time_input: Literal["allowed", "forbidden"]
     generated_time_mode: Literal["point", "range"]
+    generated_time_field: Literal["trade_date", "ann_date", "start_date_end_date"]
+
+
+class AutomationTimeInputContractResponse(BaseModel):
+    supported_modes: list[Literal["none", "point", "range"]]
+    point_field: str | None
+    range_start_field: str | None
+    range_end_field: str | None
+    granularity: Literal["none", "day", "month"]
 
 
 class AutomationCapabilityResponse(BaseModel):
@@ -78,6 +87,7 @@ class AutomationCapabilityResponse(BaseModel):
     trigger_options: list[TriggerModeCapabilityResponse]
     probe_conditions: list[ProbeConditionCapabilityResponse]
     calendar_policy_rules: list[CalendarPolicyCapabilityResponse]
+    time_input_contract: AutomationTimeInputContractResponse | None = None
 
 
 class ActionCatalogItem(BaseModel):

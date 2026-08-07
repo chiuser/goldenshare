@@ -70,6 +70,8 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
         "mkt_idx_bmk.maintain",
         "fund_basic.maintain",
         "fund_manager.maintain",
+        "fund_share.maintain",
+        "fund_div.maintain",
     ]
     assert actions["daily.maintain"]["display_name"] == "维护股票日线"
     assert actions["cyq_chips.maintain"]["display_name"] == "维护每日筹码分布"

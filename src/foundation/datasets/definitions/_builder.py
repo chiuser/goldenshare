@@ -145,7 +145,12 @@ def _build_action_capability(row: dict[str, Any]) -> DatasetActionCapability:
     action_row = dict(row)
     schedule_time_policy = action_row.get("schedule_time_policy")
     if schedule_time_policy is not None:
-        policy = DatasetScheduleTimePolicy(**schedule_time_policy)
+        policy_row = dict(schedule_time_policy)
+        policy_row.setdefault(
+            "generated_time_field",
+            "trade_date" if policy_row.get("generated_time_mode") == "point" else "start_date_end_date",
+        )
+        policy = DatasetScheduleTimePolicy(**policy_row)
         if policy.policy not in {
             "monthly_last_day",
             "monthly_last_trading_day",
@@ -164,6 +169,12 @@ def _build_action_capability(row: dict[str, Any]) -> DatasetActionCapability:
             raise ValueError("schedule time policy 的 explicit_time_input 非法")
         if policy.generated_time_mode not in {"point", "range"}:
             raise ValueError("schedule time policy 的 generated_time_mode 非法")
+        if policy.generated_time_field not in {"trade_date", "ann_date", "start_date_end_date"}:
+            raise ValueError("schedule time policy 的 generated_time_field 非法")
+        if policy.generated_time_mode == "point" and policy.generated_time_field not in {"trade_date", "ann_date"}:
+            raise ValueError("point schedule time policy 必须生成 trade_date 或 ann_date")
+        if policy.generated_time_mode == "range" and policy.generated_time_field != "start_date_end_date":
+            raise ValueError("range schedule time policy 必须生成 start_date/end_date")
         action_row["schedule_time_policy"] = policy
     capability = DatasetActionCapability(**action_row)
     if capability.schedule_time_policy is not None and not capability.schedule_enabled:
@@ -200,6 +211,17 @@ def _validate_observed_serving_storage(
         )
     elif storage.write_path == "serving_observed_fact_scope_refresh":
         _validate_observed_fact_scope_storage(
+            dataset_key=dataset_key,
+            date_model=date_model,
+            input_model=input_model,
+            source_fields=source_fields,
+            storage=storage,
+            planning=planning,
+            normalization=normalization,
+            quality=quality,
+        )
+    elif storage.write_path == "serving_immutable_fact_insert":
+        _validate_immutable_fact_storage(
             dataset_key=dataset_key,
             date_model=date_model,
             input_model=input_model,
@@ -296,18 +318,22 @@ def _validate_observed_fact_scope_storage(
     quality: DatasetQualityPolicy,
 ) -> None:
     invalid: list[str] = []
+    expected_scope_field = {
+        "trade_date_or_start_end": "trade_date",
+        "ann_date_or_start_end": "ann_date",
+    }.get(date_model.input_shape)
     if (
         date_model.date_axis != "natural_day"
         or date_model.bucket_rule != "not_applicable"
         or date_model.window_mode != "point_or_range"
-        or date_model.input_shape != "trade_date_or_start_end"
-        or date_model.observed_field != "trade_date"
+        or expected_scope_field is None
+        or date_model.observed_field != expected_scope_field
         or date_model.audit_applicable
     ):
         invalid.append("必须是按自然日 point/range 输入且不做连续日期审计的数据集")
     time_field_names = tuple(str(field.get("name") or "").strip() for field in input_model.get("time_fields", ()))
-    if time_field_names != ("trade_date", "start_date", "end_date") or input_model.get("filters"):
-        invalid.append("只能暴露 trade_date/start_date/end_date，不得暴露业务筛选输入")
+    if time_field_names != (expected_scope_field, "start_date", "end_date") or input_model.get("filters"):
+        invalid.append(f"只能暴露 {expected_scope_field}/start_date/end_date，不得暴露业务筛选输入")
     if planning.universe_policy != "no_pool" or planning.enum_fanout_fields:
         invalid.append("每个日期必须是一个全市场单元，不得对象池或枚举 fan-out")
     if planning.pagination_policy != "offset_limit" or not planning.page_limit:
@@ -329,18 +355,83 @@ def _validate_observed_fact_scope_storage(
         invalid.append("必须声明非空且无空白项的显式 source_fields")
     elif len(normalized_source_fields) != len(set(normalized_source_fields)):
         invalid.append("source_fields 不得重复")
-    if "trade_date" not in normalized_source_fields:
-        invalid.append("source_fields 必须包含 scope 字段 trade_date")
+    if expected_scope_field not in normalized_source_fields:
+        invalid.append(f"source_fields 必须包含 scope 字段 {expected_scope_field}")
     if "source_entity_key" not in normalization.required_fields:
         invalid.append("normalization.required_fields 必须包含 source_entity_key")
-    if quality.unit_date_field != "trade_date":
-        invalid.append("quality.unit_date_field 必须为 trade_date")
+    if quality.unit_date_field != expected_scope_field:
+        invalid.append(f"quality.unit_date_field 必须为 {expected_scope_field}")
     if quality.batch_unique_key_fields != ("source_entity_key",):
         invalid.append("batch_unique_key_fields 必须为 source_entity_key")
     if quality.duplicate_key_policy != "allow":
         invalid.append("duplicate_key_policy 必须为 allow，由完整批次唯一性门禁处理")
     if invalid:
         raise ValueError(f"数据集定义 {dataset_key} 的按范围观察事实写入契约非法：{'；'.join(invalid)}")
+
+
+def _validate_immutable_fact_storage(
+    *,
+    dataset_key: str,
+    date_model: DatasetDateModel,
+    input_model: dict[str, Any],
+    source_fields: Iterable[str],
+    storage: DatasetStorageDefinition,
+    planning: DatasetPlanningDefinition,
+    normalization: DatasetNormalizationDefinition,
+    quality: DatasetQualityPolicy,
+) -> None:
+    invalid: list[str] = []
+    expected_scope_field = {
+        "trade_date_or_start_end": "trade_date",
+        "ann_date_or_start_end": "ann_date",
+    }.get(date_model.input_shape)
+    if (
+        date_model.date_axis != "natural_day"
+        or date_model.bucket_rule != "not_applicable"
+        or date_model.window_mode != "point_or_range"
+        or expected_scope_field is None
+        or date_model.observed_field != expected_scope_field
+        or date_model.audit_applicable
+    ):
+        invalid.append("必须是按自然日 point/range 输入且不做连续日期审计的事件事实")
+    time_fields = tuple(str(field.get("name") or "").strip() for field in input_model.get("time_fields", ()))
+    if time_fields != (expected_scope_field, "start_date", "end_date") or input_model.get("filters"):
+        invalid.append(f"只能暴露 {expected_scope_field}/start_date/end_date，不得暴露业务筛选输入")
+    if planning.universe_policy != "no_pool" or planning.enum_fanout_fields:
+        invalid.append("每个日期必须是一个全市场单元，不得对象池或枚举 fan-out")
+    if planning.pagination_policy != "offset_limit" or not planning.page_limit:
+        invalid.append("必须使用声明 page_limit 的 offset_limit 分页")
+    if storage.raw_dao_name is not None or storage.raw_table is not None or storage.std_table is not None:
+        invalid.append("不得配置 raw DAO/raw/std 表")
+    if storage.observation_dao_name is not None or storage.observation_table is not None:
+        invalid.append("不可变事实不得配置 observation DAO/表")
+    if not str(storage.core_dao_name or "").strip() or storage.serving_table != storage.target_table:
+        invalid.append("必须配置唯一 serving DAO 且 serving_table 等于 target_table")
+    if storage.layer_plan != "source->serving" or storage.raw_conflict_columns is not None:
+        invalid.append("必须 direct-serving 且不得配置 raw_conflict_columns")
+    if storage.conflict_columns != ("source_entity_key",):
+        invalid.append("conflict_columns 必须仅为 source_entity_key")
+
+    raw_source_fields = tuple(source_fields)
+    normalized_source_fields = tuple(str(item).strip() for item in raw_source_fields if str(item).strip())
+    if not normalized_source_fields or len(normalized_source_fields) != len(raw_source_fields):
+        invalid.append("必须声明非空且无空白项的显式 source_fields")
+    elif len(normalized_source_fields) != len(set(normalized_source_fields)):
+        invalid.append("source_fields 不得重复")
+    if expected_scope_field not in normalized_source_fields:
+        invalid.append(f"source_fields 必须包含 scope 字段 {expected_scope_field}")
+    if expected_scope_field not in normalization.date_fields:
+        invalid.append(f"normalization.date_fields 必须包含 scope 字段 {expected_scope_field}")
+    if quality.unit_date_field != expected_scope_field:
+        invalid.append(f"quality.unit_date_field 必须为 {expected_scope_field}")
+    if quality.batch_unique_key_fields != ("source_entity_key",):
+        invalid.append("batch_unique_key_fields 必须为 source_entity_key")
+    if quality.source_multiplicity_policy not in {"reject", "deduplicate_identical"}:
+        invalid.append("source_multiplicity_policy 非法")
+    if "source_entity_key" not in normalization.required_fields:
+        invalid.append("normalization.required_fields 必须包含 source_entity_key")
+    if invalid:
+        raise ValueError(f"数据集定义 {dataset_key} 的不可变事实写入契约非法：{'；'.join(invalid)}")
 
 
 def _build_completeness_definition(

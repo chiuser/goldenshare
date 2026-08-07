@@ -415,6 +415,7 @@ class TaskRunDispatcher:
             time_input=DatasetTimeInput(
                 mode=str(time_payload.get("mode") or "none").strip() or "none",
                 trade_date=self._optional_date(time_payload.get("trade_date")),
+                ann_date=self._optional_date(time_payload.get("ann_date")),
                 start_date=self._optional_date(time_payload.get("start_date")),
                 end_date=self._optional_date(time_payload.get("end_date")),
                 month=self._optional_text(time_payload.get("month")),
@@ -431,6 +432,8 @@ class TaskRunDispatcher:
 
     def _prepare_dataset_action_request(self, session: Session, request: DatasetActionRequest) -> DatasetActionRequest:
         time_input = request.time_input
+        if time_input.mode == "point" and time_input.trade_date is None and time_input.ann_date is not None:
+            return replace(request, time_input=replace(time_input, trade_date=time_input.ann_date, date_field="ann_date"))
         if time_input.mode != "point" or time_input.trade_date is not None or time_input.month:
             return request
         trade_date = self._resolve_default_trade_date(session)

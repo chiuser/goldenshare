@@ -34,6 +34,8 @@ class TaskRunNode(TimestampMixin, Base):
     rows_fetched: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
     rows_saved: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
     rows_rejected: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
+    rows_deduplicated: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
+    ingestion_diagnostics_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     rejected_reason_counts_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     rejected_reason_samples_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     issue_id: Mapped[int | None] = mapped_column(BigInteger)

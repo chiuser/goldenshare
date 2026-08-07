@@ -134,7 +134,6 @@ class ManualActionTaskRunResolver:
     ) -> dict[str, Any]:
         payload = {"mode": mode_config.mode, **time_params}
         if "ann_date" in time_params:
-            payload["trade_date"] = time_params["ann_date"]
             payload["date_field"] = "ann_date"
         elif mode_config.mode == "range" and mode_config.date_field == "ann_date":
             payload["date_field"] = "ann_date"

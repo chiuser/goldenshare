@@ -41,6 +41,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert "fund_basic.maintain" in actions
     assert "fund_manager.maintain" in actions
     assert "fund_share.maintain" in actions
+    assert "fund_div.maintain" in actions
     assert "maintenance.rebuild_dm" in actions
     legacy_keys = [
         "sync" + "_daily.daily",
@@ -196,7 +197,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert actions["maintenance.rebuild_dm"]["display_name"] == "刷新数据集市快照"
 
     catalog_items = [*actions.values(), *workflows.values()]
-    assert sum(item["schedule_enabled"] for item in catalog_items) == 86
+    assert sum(item["schedule_enabled"] for item in catalog_items) == 87
     assert all(
         (item["automation_capability"] is not None) is item["schedule_enabled"]
         for item in catalog_items
@@ -235,6 +236,13 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
             }
         ],
         "calendar_policy_rules": [],
+        "time_input_contract": {
+            "supported_modes": ["point", "range"],
+            "point_field": "trade_date",
+            "range_start_field": "start_date",
+            "range_end_field": "end_date",
+            "granularity": "day",
+        },
     }
 
     margin_detail_capability = actions["margin_detail.maintain"]["automation_capability"]
@@ -266,6 +274,13 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
             }
         ],
         "calendar_policy_rules": [],
+        "time_input_contract": {
+            "supported_modes": ["point", "range"],
+            "point_field": "trade_date",
+            "range_start_field": "start_date",
+            "range_end_field": "end_date",
+            "granularity": "day",
+        },
     }
     for workflow in workflows.values():
         if workflow["schedule_enabled"]:
@@ -275,6 +290,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
                 "trigger_options": [{"mode": "schedule", "allowed_schedule_types": ["cron", "once"]}],
                 "probe_conditions": [],
                 "calendar_policy_rules": [],
+                "time_input_contract": None,
             }
         else:
             assert workflow["automation_capability"] is None
@@ -294,8 +310,26 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
             "policy": "trigger_day_point",
             "schedule_types": ["cron"],
             "cron_repeat_modes": ["daily", "weekly", "monthly", "intraday_interval"],
+                "explicit_time_input": "forbidden",
+                "generated_time_mode": "point",
+                "generated_time_field": "trade_date",
+            }
+        ]
+
+    fund_div = actions["fund_div.maintain"]
+    assert fund_div["group_key"] == "public_fund"
+    assert fund_div["group_label"] == "公募基金"
+    assert fund_div["freshness_policy"] == "event_run_trace"
+    assert [param["key"] for param in fund_div["parameters"]] == ["ann_date", "start_date", "end_date"]
+    assert fund_div["automation_capability"]["probe_conditions"] == []
+    assert fund_div["automation_capability"]["calendar_policy_rules"] == [
+        {
+            "policy": "trigger_day_point",
+            "schedule_types": ["cron"],
+            "cron_repeat_modes": ["daily", "weekly", "monthly"],
             "explicit_time_input": "forbidden",
             "generated_time_mode": "point",
+            "generated_time_field": "ann_date",
         }
     ]
 

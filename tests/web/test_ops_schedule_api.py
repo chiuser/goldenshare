@@ -308,6 +308,33 @@ def test_ops_schedule_list_update_pause_and_resume(app_client, user_factory, ops
     assert revision_actions == ["resumed", "paused", "updated"]
 
 
+def test_ops_schedule_resume_revalidates_fund_div_time_contract(app_client, user_factory, ops_schedule_factory) -> None:
+    admin = user_factory(username="admin", password="secret", is_admin=True)
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="fund_div.maintain",
+        display_name="基金分红自动维护",
+        status="paused",
+        schedule_type="cron",
+        cron_expr="0 19 * * *",
+        timezone_name="Asia/Shanghai",
+        calendar_policy="trigger_day_point",
+        params_json={"time_input": {"mode": "point", "trade_date": "2026-08-07"}},
+        created_by_user_id=admin.id,
+        updated_by_user_id=admin.id,
+    )
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        f"/api/v1/ops/schedules/{schedule.id}/resume",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "触发日单日策略不能与固定维护日期或窗口混用"
+
+
 def test_ops_schedule_delete_removes_schedule_and_records_revision(app_client, user_factory, ops_schedule_factory) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     schedule = ops_schedule_factory(

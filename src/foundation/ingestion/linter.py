@@ -9,6 +9,7 @@ from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY
 
 SUPPORTED_SCOPED_REPAIR_POLICIES = {"existing_point_bucket_only"}
 SUPPORTED_DUPLICATE_KEY_POLICIES = {"allow", "dedupe_identical_reject_conflicting"}
+SUPPORTED_SOURCE_MULTIPLICITY_POLICIES = {"reject", "deduplicate_identical"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,7 +138,7 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
                 issues.append(
                     IngestionLintIssue(dataset_key, "direct_serving_raw_table_forbidden", "serving_direct_upsert 不得配置 raw_table")
                 )
-            if not storage.core_dao_name.strip():
+            if not str(storage.core_dao_name or "").strip():
                 issues.append(
                     IngestionLintIssue(dataset_key, "direct_serving_core_dao_missing", "serving_direct_upsert 必须配置 core_dao_name")
                 )
@@ -148,6 +149,43 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
             if storage.serving_table != storage.target_table:
                 issues.append(
                     IngestionLintIssue(dataset_key, "direct_serving_target_mismatch", "serving_direct_upsert 的 serving_table 必须等于 target_table")
+                )
+        elif storage.write_path == "serving_immutable_fact_insert":
+            if storage.raw_dao_name is not None or storage.raw_table is not None or storage.std_table is not None:
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "immutable_fact_raw_or_std_forbidden",
+                        "serving_immutable_fact_insert 不得配置 raw DAO/raw/std 表",
+                    )
+                )
+            if storage.observation_dao_name is not None or storage.observation_table is not None:
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "immutable_fact_observation_forbidden",
+                        "serving_immutable_fact_insert 不得配置 observation DAO/表",
+                    )
+                )
+            if storage.conflict_columns != ("source_entity_key",):
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "immutable_fact_conflict_columns_invalid",
+                        "不可变事实 conflict_columns 必须仅为 source_entity_key",
+                    )
+                )
+            if not storage.core_dao_name.strip():
+                issues.append(
+                    IngestionLintIssue(dataset_key, "immutable_fact_core_dao_missing", "不可变事实必须配置 core_dao_name")
+                )
+            if storage.layer_plan != "source->serving":
+                issues.append(
+                    IngestionLintIssue(dataset_key, "immutable_fact_layer_plan_invalid", "不可变事实的 layer_plan 必须为 source->serving")
+                )
+            if storage.serving_table != storage.target_table:
+                issues.append(
+                    IngestionLintIssue(dataset_key, "immutable_fact_target_mismatch", "不可变事实的 serving_table 必须等于 target_table")
                 )
         elif storage.raw_dao_name is None or storage.raw_table is None:
             issues.append(
@@ -180,6 +218,14 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
                 )
             )
         quality = definition.quality
+        if quality.source_multiplicity_policy not in SUPPORTED_SOURCE_MULTIPLICITY_POLICIES:
+            issues.append(
+                IngestionLintIssue(
+                    dataset_key,
+                    "source_multiplicity_policy_invalid",
+                    f"quality.source_multiplicity_policy 不支持：{quality.source_multiplicity_policy}",
+                )
+            )
         batch_unique_key_fields = quality.batch_unique_key_fields
         normalized_batch_unique_fields = tuple(str(field_name).strip() for field_name in batch_unique_key_fields)
         if batch_unique_key_fields and any(not field_name for field_name in normalized_batch_unique_fields):

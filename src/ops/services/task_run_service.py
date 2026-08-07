@@ -333,7 +333,7 @@ class TaskRunCommandService:
                 "trade_date": trade_date.isoformat(),
             }
         if normalized_policy == TRIGGER_DAY_SINGLE_RANGE_POLICY:
-            if self._has_explicit_time_boundary(params_json) or self._has_fixed_ann_date(params_json):
+            if self._has_declared_time_input(params_json, definition=definition):
                 raise WebAppError(
                     status_code=422,
                     code="validation_error",
@@ -352,7 +352,7 @@ class TaskRunCommandService:
                 "end_date": trigger_date.isoformat(),
             }
         if normalized_policy == TRIGGER_DAY_POINT_POLICY:
-            if self._has_explicit_time_boundary(params_json):
+            if self._has_declared_time_input(params_json, definition=definition):
                 raise WebAppError(status_code=422, code="validation_error", message="触发日单日策略不能与固定维护日期或窗口混用")
             if scheduled_at is None:
                 raise WebAppError(status_code=422, code="validation_error", message="触发日单日策略缺少计划触发时间")
@@ -360,11 +360,17 @@ class TaskRunCommandService:
                 scheduled_at=scheduled_at,
                 timezone_name=timezone_name,
             )
-            return {
+            generated_field = policy_rule.generated_time_field
+            if generated_field not in {"trade_date", "ann_date"}:
+                raise WebAppError(status_code=422, code="validation_error", message="数据集 Definition 的触发日字段声明非法")
+            generated_time_input = {
                 **dict(time_input or {}),
                 "mode": "point",
-                "trade_date": trigger_date.isoformat(),
+                generated_field: trigger_date.isoformat(),
             }
+            if generated_field != "trade_date":
+                generated_time_input["date_field"] = generated_field
+            return generated_time_input
         if not self._supports_month_window_policy(definition):
             raise WebAppError(status_code=422, code="validation_error", message="自然月窗口策略只支持月窗口数据集")
         if self._has_explicit_time_boundary(params_json):
@@ -391,6 +397,10 @@ class TaskRunCommandService:
             action = definition.capabilities.get_action(context.action)
             if action is None:
                 raise WebAppError(status_code=422, code="validation_error", message="数据集不支持该维护动作")
+            TaskRunCommandService._validate_dataset_time_input_fields(
+                definition=definition,
+                time_input=dict(context.time_input or {}),
+            )
             TaskRunCommandService._validate_required_dataset_filters(definition, context.filters)
             return
         if context.task_type == "workflow":
@@ -431,7 +441,6 @@ class TaskRunCommandService:
         if params_json.get("ann_date") not in (None, ""):
             return {
                 "mode": "point",
-                "trade_date": params_json["ann_date"],
                 "ann_date": params_json["ann_date"],
                 "date_field": "ann_date",
             }
@@ -509,11 +518,45 @@ class TaskRunCommandService:
         )
 
     @staticmethod
-    def _has_fixed_ann_date(params_json: dict[str, Any]) -> bool:
-        if params_json.get("ann_date") not in (None, ""):
+    def _has_declared_time_input(params_json: dict[str, Any], *, definition: DatasetDefinition) -> bool:
+        time_keys = {
+            "trade_date",
+            "ann_date",
+            "month",
+            "start_date",
+            "end_date",
+            "start_month",
+            "end_month",
+            *(field.name for field in definition.input_model.time_fields),
+        }
+        if any(params_json.get(key) not in (None, "") for key in time_keys):
             return True
         time_input = params_json.get("time_input")
-        return isinstance(time_input, dict) and time_input.get("ann_date") not in (None, "")
+        return isinstance(time_input, dict) and any(time_input.get(key) not in (None, "") for key in time_keys)
+
+    @staticmethod
+    def _validate_dataset_time_input_fields(
+        *,
+        definition: DatasetDefinition,
+        time_input: dict[str, Any],
+    ) -> None:
+        declared_fields = {field.name for field in definition.input_model.time_fields}
+        if definition.date_model.date_axis in {"month_key", "month_window"}:
+            declared_fields.update({"month", "start_month", "end_month"})
+        if definition.date_model.date_axis == "week_key":
+            declared_fields.update({"week", "start_week", "end_week"})
+        supplied_fields = {
+            key
+            for key, value in time_input.items()
+            if key not in {"mode", "date_field"} and value not in (None, "")
+        }
+        undeclared_fields = sorted(supplied_fields - declared_fields)
+        if undeclared_fields:
+            raise WebAppError(
+                status_code=422,
+                code="validation_error",
+                message=f"{definition.display_name} 不支持时间字段：{'、'.join(undeclared_fields)}",
+            )
 
     @staticmethod
     def _month_last_day_for_schedule(*, scheduled_at: datetime, timezone_name: str | None) -> date:

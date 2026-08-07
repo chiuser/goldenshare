@@ -9,6 +9,7 @@ from typing import Any
 class DatasetTimeInput:
     mode: str
     trade_date: date | None = None
+    ann_date: date | None = None
     start_date: date | None = None
     end_date: date | None = None
     month: str | None = None

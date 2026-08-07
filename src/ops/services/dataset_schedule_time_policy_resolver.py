@@ -24,6 +24,7 @@ class DatasetScheduleTimePolicyCapability:
     cron_repeat_modes: tuple[CronRepeatMode, ...]
     explicit_time_input: Literal["allowed", "forbidden"]
     generated_time_mode: Literal["point", "range"]
+    generated_time_field: Literal["trade_date", "ann_date", "start_date_end_date"] = "trade_date"
     declared_by_action: bool = False
 
 
@@ -48,6 +49,7 @@ class DatasetScheduleTimePolicyResolver:
                     cron_repeat_modes=declared.cron_repeat_modes,  # type: ignore[arg-type]
                     explicit_time_input=declared.explicit_time_input,  # type: ignore[arg-type]
                     generated_time_mode=declared.generated_time_mode,  # type: ignore[arg-type]
+                    generated_time_field=declared.generated_time_field,  # type: ignore[arg-type]
                     declared_by_action=True,
                 ),
             )
@@ -129,4 +131,5 @@ class DatasetScheduleTimePolicyResolver:
             cron_repeat_modes=cron_repeat_modes,
             explicit_time_input="forbidden",
             generated_time_mode=generated_time_mode,
+            generated_time_field="trade_date" if generated_time_mode == "point" else "start_date_end_date",
         )

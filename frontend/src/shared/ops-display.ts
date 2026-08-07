@@ -94,6 +94,7 @@ const eventTypeLabelMap: Record<string, string> = {
 };
 
 const unitKindLabelMap: Record<string, string> = {
+  ann_date: "公告日期",
   ts_code: "证券代码",
   trade_date: "交易日期",
   index_code: "指数代码",

@@ -14,6 +14,7 @@ from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_margin_detail import EquityMarginDetail
 from src.foundation.models.core_serving.fund_company_current import FundCompanyCurrent
 from src.foundation.models.core_serving.fund_company_observation import FundCompanyObservation
+from src.foundation.models.core_serving.fund_div import FundDiv
 from src.foundation.models.core_serving.fund_basic_current import FundBasicCurrent
 from src.foundation.models.core_serving.fund_basic_observation import FundBasicObservation
 from src.foundation.models.core_serving.fund_manager_current import FundManagerCurrent
@@ -199,6 +200,7 @@ __all__ = [
     "FundManagerObservation",
     "FundShareCurrent",
     "FundShareObservation",
+    "FundDiv",
     "FundCompanyCurrent",
     "FundCompanyObservation",
     "FundAdjFactor",

@@ -23,6 +23,8 @@ class DatasetMaintainResult:
     rows_fetched: int = 0
     rows_written: int = 0
     rows_rejected: int = 0
+    rows_deduplicated: int = 0
+    ingestion_diagnostics: dict[str, Any] = field(default_factory=dict)
     rejected_reason_counts: dict[str, int] = field(default_factory=dict)
     rejected_reason_samples: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     trade_date: date | None = None
@@ -38,6 +40,7 @@ class DatasetMaintainService:
             "trigger_source",
             "source_key",
             "trade_date",
+            "ann_date",
             "start_date",
             "end_date",
             "correlation_id",
@@ -87,9 +90,10 @@ class DatasetMaintainService:
         *,
         default_time_mode: str | None = None,
         trade_date: date | None = None,
+        ann_date: date | None = None,
         **kwargs: Any,
     ) -> DatasetMaintainResult:
-        return self._run("MAINTAIN", default_time_mode=default_time_mode, trade_date=trade_date, **kwargs)
+        return self._run("MAINTAIN", default_time_mode=default_time_mode, trade_date=trade_date, ann_date=ann_date, **kwargs)
 
     def _run(self, run_mode: str, *, default_time_mode: str | None, **kwargs: Any) -> DatasetMaintainResult:
         run_id = kwargs.pop("run_id", None)
@@ -97,6 +101,7 @@ class DatasetMaintainService:
             default_time_mode=default_time_mode,
             run_id=run_id,
             trade_date=kwargs.get("trade_date"),
+            ann_date=kwargs.get("ann_date"),
             start_date=kwargs.get("start_date"),
             end_date=kwargs.get("end_date"),
             month=kwargs.get("month"),
@@ -132,6 +137,8 @@ class DatasetMaintainService:
                 rows_fetched=summary.rows_fetched,
                 rows_written=committed_rows,
                 rows_rejected=summary.rows_rejected,
+                rows_deduplicated=summary.rows_deduplicated,
+                ingestion_diagnostics=dict(summary.ingestion_diagnostics or {}),
                 rejected_reason_counts=dict(summary.rejected_reason_counts or {}),
                 rejected_reason_samples=dict(summary.rejected_reason_samples or {}),
                 trade_date=summary.result_date,
@@ -158,6 +165,7 @@ class DatasetMaintainService:
         default_time_mode: str | None,
         run_id: int | None,
         trade_date: date | None,
+        ann_date: date | None,
         start_date: date | None,
         end_date: date | None,
         month: str | None,
@@ -166,7 +174,7 @@ class DatasetMaintainService:
         filters: dict[str, Any],
         trigger_source: str,
     ) -> DatasetActionRequest:
-        if trade_date is not None or month is not None:
+        if trade_date is not None or ann_date is not None or month is not None:
             mode = "point"
         elif start_date is not None or end_date is not None or start_month is not None or end_month is not None:
             mode = "range"
@@ -180,6 +188,7 @@ class DatasetMaintainService:
             time_input=DatasetTimeInput(
                 mode=mode,
                 trade_date=trade_date,
+                ann_date=ann_date,
                 start_date=start_date,
                 end_date=end_date,
                 month=str(month).strip() if month not in (None, "") else None,
@@ -277,6 +286,8 @@ class DatasetMaintainService:
                     rows_fetched=progress_snapshot.rows_fetched,
                     rows_saved=rows_saved,
                     rows_rejected=progress_snapshot.rows_rejected,
+                    rows_deduplicated=getattr(progress_snapshot, "rows_deduplicated", 0),
+                    ingestion_diagnostics=getattr(progress_snapshot, "ingestion_diagnostics", {}),
                     rejected_reason_counts=getattr(progress_snapshot, "rejected_reason_counts", {}),
                     rejected_reason_samples=getattr(progress_snapshot, "rejected_reason_samples", {}),
                     current_object=progress_snapshot.current_object,

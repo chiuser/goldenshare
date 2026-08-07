@@ -176,6 +176,8 @@ class TaskRunQueryService:
                 rows_fetched=task_run.rows_fetched,
                 rows_saved=task_run.rows_saved,
                 rows_rejected=task_run.rows_rejected,
+                rows_deduplicated=task_run.rows_deduplicated,
+                ingestion_diagnostics=dict(task_run.ingestion_diagnostics_json or {}),
                 rejected_reason_counts=rejected_reason_counts,
                 rejected_reasons=self._rejection_reason_items(rejected_reason_counts, rejected_reason_samples),
                 current_object=self._display_current_object(
@@ -252,6 +254,7 @@ class TaskRunQueryService:
             rows_fetched=task_run.rows_fetched,
             rows_saved=task_run.rows_saved,
             rows_rejected=task_run.rows_rejected,
+            rows_deduplicated=task_run.rows_deduplicated,
             primary_issue_id=task_run.primary_issue_id,
             primary_issue_title=issue_title,
         )
@@ -453,7 +456,7 @@ class TaskRunQueryService:
             (code_label, entity.get("code")),
             (name_label, entity.get("name")),
             ("对象类型", cls._entity_kind_label(kind)),
-            ("处理范围", cls._time_label(time)),
+            (cls._time_field_label(time), cls._time_label(time)),
             ("频率", attributes.get("freq")),
             ("类型", attributes.get("enum_value")),
         ]
@@ -469,6 +472,14 @@ class TaskRunQueryService:
             seen.add(key)
             fields.append(TaskRunDisplayField(label=label, value=text))
         return fields
+
+    @classmethod
+    def _time_field_label(cls, time: dict) -> str:
+        field = cls._text(time.get("field"))
+        return {
+            "ann_date": "公告日期",
+            "trade_date": "交易日期",
+        }.get(field or "", "处理范围")
 
     @staticmethod
     def _entity_field_labels(kind: str | None) -> tuple[str, str]:
@@ -514,6 +525,8 @@ class TaskRunQueryService:
             rows_fetched=node.rows_fetched,
             rows_saved=node.rows_saved,
             rows_rejected=node.rows_rejected,
+            rows_deduplicated=node.rows_deduplicated,
+            ingestion_diagnostics=dict(node.ingestion_diagnostics_json or {}),
             rejected_reason_counts=rejected_reason_counts,
             rejected_reasons=cls._rejection_reason_items(rejected_reason_counts, rejected_reason_samples),
             issue_id=node.issue_id,

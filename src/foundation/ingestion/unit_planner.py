@@ -131,7 +131,7 @@ class DatasetUnitPlanner:
                     universe_values=universe_values,
                     pagination_policy_override=definition.planning.pagination_policy,
                     page_limit_override=definition.planning.page_limit,
-                    progress_context_builder=self._build_generic_progress_context,
+                    progress_context_builder=self._progress_context_builder(definition),
                 )
             )
         return units
@@ -265,15 +265,32 @@ class DatasetUnitPlanner:
         codes = [str(item).strip().upper() for item in self.session.scalars(stmt.distinct().order_by(DcIndex.ts_code)) if str(item).strip()]
         return sorted(set(codes))
 
+    @classmethod
+    def _progress_context_builder(cls, definition: DatasetDefinition):  # type: ignore[no-untyped-def]
+        date_field = definition.date_model.observed_field
+        return lambda anchor, merged_values, request_params: cls._build_generic_progress_context(
+            anchor,
+            merged_values,
+            request_params,
+            date_field=date_field,
+        )
+
     @staticmethod
-    def _build_generic_progress_context(anchor: date | None, merged_values: dict[str, Any], request_params: dict[str, Any]) -> dict[str, Any]:
+    def _build_generic_progress_context(
+        anchor: date | None,
+        merged_values: dict[str, Any],
+        request_params: dict[str, Any],
+        *,
+        date_field: str | None = "trade_date",
+    ) -> dict[str, Any]:
         context: dict[str, Any] = {}
         for key in ("ts_code", "con_code", "index_code", "board_code", "freq", "start_date", "end_date"):
             value = merged_values.get(key, request_params.get(key))
             if value not in (None, ""):
                 context[key] = value
-        if anchor is not None:
-            context.setdefault("trade_date", anchor.isoformat())
+        if anchor is not None and date_field:
+            context.setdefault(date_field, anchor.isoformat())
+            context["date_field"] = date_field
         if len(merged_values) == 1:
             key, value = next(iter(merged_values.items()))
             if value not in (None, "") and key not in {"ts_code", "con_code", "index_code", "board_code"}:
@@ -507,7 +524,7 @@ def _build_natural_day_point_units(
         request_builder=request_builder,
         pagination_policy_override=definition.planning.pagination_policy,
         page_limit_override=definition.planning.page_limit,
-        progress_context_builder=planner._build_generic_progress_context,
+        progress_context_builder=planner._progress_context_builder(definition),
     )
 
 

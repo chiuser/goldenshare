@@ -36,6 +36,11 @@ import type {
 import { formatDateTimeLabel } from "../shared/date-format";
 import { buildManualTaskHref } from "../shared/ops-links";
 import {
+  hasDeclaredRangeParameters,
+  resolvePointTimeParameter,
+  resolveRangeTimeFields,
+} from "../shared/ops-time-capability";
+import {
   formatRevisionActionLabel,
   formatScheduleTypeLabel,
   formatTimezoneLabel,
@@ -85,7 +90,7 @@ type ParsedCronExpression = {
 };
 
 const INTERNAL_PARAM_KEYS = new Set(["offset", "limit"]);
-const DATE_PARAM_KEYS = new Set(["trade_date", "start_date", "end_date"]);
+const DATE_PARAM_KEYS = new Set(["trade_date", "ann_date", "start_date", "end_date"]);
 const PARAM_RESERVED_KEYS = new Set(["dataset_key", "action", "time_input", "filters"]);
 const DEFAULT_PARAM_LABELS = new Map([
   ["trade_date", "维护日期"],
@@ -882,20 +887,25 @@ export function OpsAutomationPage() {
     }
   }, [selectedActionHasRequiredParameters]);
 
-  const supportsSingleDay = useMemo(
-    () =>
-      (form.action_type === "maintenance_action" || form.action_type === "dataset_action")
-      && Boolean(selectedAction?.parameters?.some((param) => param.key === "trade_date")),
-    [form.action_type, selectedAction],
+  const pointDateParam = useMemo(
+    () => {
+      if (form.action_type !== "maintenance_action" && form.action_type !== "dataset_action") {
+        return undefined;
+      }
+      return resolvePointTimeParameter(selectedAutomationCapability, selectedAction?.parameters);
+    },
+    [form.action_type, selectedAction, selectedAutomationCapability],
+  );
+  const supportsSingleDay = Boolean(pointDateParam);
+  const rangeTimeFields = useMemo(
+    () => resolveRangeTimeFields(selectedAutomationCapability),
+    [selectedAutomationCapability],
   );
   const supportsDateRange = useMemo(
     () =>
         (form.action_type === "maintenance_action" || form.action_type === "dataset_action")
-      && Boolean(
-        selectedAction?.parameters?.some((param) => param.key === "start_date")
-        && selectedAction?.parameters?.some((param) => param.key === "end_date"),
-      ),
-    [form.action_type, selectedAction],
+      && hasDeclaredRangeParameters(selectedAutomationCapability, selectedAction?.parameters),
+    [form.action_type, selectedAction, selectedAutomationCapability],
   );
 
   const resolvedParamsJson = useMemo(() => {
@@ -929,19 +939,23 @@ export function OpsAutomationPage() {
     if (!policyGeneratesTimeInput(effectiveCalendarPolicy) && supportsSingleDay && supportsDateRange) {
       if (form.date_mode === "single_day") {
         if (form.selected_date) {
-          params.trade_date = form.selected_date;
+          params[pointDateParam?.key || "trade_date"] = form.selected_date;
         }
       } else if (form.start_date && form.end_date) {
-        params.start_date = form.start_date;
-        params.end_date = form.end_date;
+        if (rangeTimeFields) {
+          params[rangeTimeFields.start] = form.start_date;
+          params[rangeTimeFields.end] = form.end_date;
+        }
       }
     } else if (!policyGeneratesTimeInput(effectiveCalendarPolicy) && supportsSingleDay) {
       if (form.selected_date) {
-        params.trade_date = form.selected_date;
+        params[pointDateParam?.key || "trade_date"] = form.selected_date;
       }
     } else if (!policyGeneratesTimeInput(effectiveCalendarPolicy) && supportsDateRange && form.start_date && form.end_date) {
-      params.start_date = form.start_date;
-      params.end_date = form.end_date;
+      if (rangeTimeFields) {
+        params[rangeTimeFields.start] = form.start_date;
+        params[rangeTimeFields.end] = form.end_date;
+      }
     }
     if (form.action_type === "dataset_action" && selectedAction) {
       if (!selectedAction.target_key) {
@@ -954,13 +968,17 @@ export function OpsAutomationPage() {
       if (params.trade_date) {
         timeInput.mode = "point";
         timeInput.trade_date = params.trade_date;
+      } else if (params.ann_date) {
+        timeInput.mode = "point";
+        timeInput.ann_date = params.ann_date;
+        timeInput.date_field = "ann_date";
       } else if (params.month) {
         timeInput.mode = "point";
         timeInput.month = params.month;
-      } else if (params.start_date || params.end_date) {
+      } else if (rangeTimeFields && (params[rangeTimeFields.start] || params[rangeTimeFields.end])) {
         timeInput.mode = "range";
-        timeInput.start_date = params.start_date;
-        timeInput.end_date = params.end_date;
+        timeInput[rangeTimeFields.start] = params[rangeTimeFields.start];
+        timeInput[rangeTimeFields.end] = params[rangeTimeFields.end];
       } else if (params.start_month || params.end_month) {
         timeInput.mode = "range";
         timeInput.start_month = params.start_month;
@@ -970,6 +988,9 @@ export function OpsAutomationPage() {
           (rule) => rule.policy === effectiveCalendarPolicy,
         );
         timeInput.mode = policyRule?.generated_time_mode || "none";
+        if (policyRule?.generated_time_field === "ann_date") {
+          timeInput.date_field = "ann_date";
+        }
       } else if (supportsSingleDay) {
         timeInput.mode = "point";
       } else {
@@ -995,6 +1016,8 @@ export function OpsAutomationPage() {
     selectedActionParameters,
     selectedAutomationCapability,
     selectedAction,
+    pointDateParam,
+    rangeTimeFields,
     supportsDateRange,
     supportsSingleDay,
   ]);

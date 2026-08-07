@@ -306,6 +306,7 @@ export interface TaskRunListResponse {
     rows_fetched: number;
     rows_saved: number;
     rows_rejected: number;
+    rows_deduplicated: number;
     progress_percent: number | null;
     primary_issue_id: number | null;
     primary_issue_title: string | null;
@@ -398,6 +399,8 @@ export interface TaskRunViewResponse {
     rows_fetched: number;
     rows_saved: number;
     rows_rejected: number;
+    rows_deduplicated: number;
+    ingestion_diagnostics: Record<string, unknown>;
     rejected_reason_counts: Record<string, number>;
     rejected_reasons: TaskRunRejectionReasonItem[];
     current_object: TaskRunDisplayObject | null;
@@ -428,6 +431,8 @@ export interface TaskRunViewResponse {
     rows_fetched: number;
     rows_saved: number;
     rows_rejected: number;
+    rows_deduplicated: number;
+    ingestion_diagnostics: Record<string, unknown>;
     rejected_reason_counts: Record<string, number>;
     rejected_reasons: TaskRunRejectionReasonItem[];
     issue_id: number | null;
@@ -486,7 +491,15 @@ export interface OpsAutomationCapability {
     cron_repeat_modes: Array<"daily" | "weekly" | "monthly" | "intraday_interval">;
     explicit_time_input: "allowed" | "forbidden";
     generated_time_mode: "point" | "range";
+    generated_time_field: "trade_date" | "ann_date" | "start_date_end_date";
   }>;
+  time_input_contract: {
+    supported_modes: Array<"none" | "point" | "range">;
+    point_field: string | null;
+    range_start_field: string | null;
+    range_end_field: string | null;
+    granularity: "none" | "day" | "month";
+  } | null;
   probe_conditions: Array<{
     kind: string;
     label: string;

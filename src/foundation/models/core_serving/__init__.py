@@ -9,6 +9,7 @@ from src.foundation.models.core_serving.fund_basic_current import FundBasicCurre
 from src.foundation.models.core_serving.fund_basic_observation import FundBasicObservation
 from src.foundation.models.core_serving.fund_company_current import FundCompanyCurrent
 from src.foundation.models.core_serving.fund_company_observation import FundCompanyObservation
+from src.foundation.models.core_serving.fund_div import FundDiv
 from src.foundation.models.core_serving.fund_manager_current import FundManagerCurrent
 from src.foundation.models.core_serving.fund_manager_observation import FundManagerObservation
 from src.foundation.models.core_serving.fund_share_current import FundShareCurrent
@@ -39,6 +40,7 @@ __all__ = [
     "FundBasicObservation",
     "FundCompanyCurrent",
     "FundCompanyObservation",
+    "FundDiv",
     "FundManagerCurrent",
     "FundManagerObservation",
     "FundShareCurrent",

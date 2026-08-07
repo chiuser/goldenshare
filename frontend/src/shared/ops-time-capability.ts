@@ -1,4 +1,4 @@
-import type { OpsCatalogResponse } from "./api/types";
+import type { OpsAutomationCapability, OpsCatalogResponse } from "./api/types";
 
 type CatalogActionParameter = NonNullable<OpsCatalogResponse["actions"][number]["parameters"]>[number];
 
@@ -18,6 +18,7 @@ export type TimeCapability = {
 
 const TIME_POINT_KEYS: Array<{ key: string; granularity: TimeGranularity }> = [
   { key: "trade_date", granularity: "day" },
+  { key: "ann_date", granularity: "day" },
   { key: "week", granularity: "week" },
   { key: "month", granularity: "month" },
 ];
@@ -30,6 +31,7 @@ const TIME_RANGE_KEYS: Array<{ start: string; end: string; granularity: TimeGran
 
 export const TIME_PARAM_KEYS = new Set([
   "trade_date",
+  "ann_date",
   "start_date",
   "end_date",
   "week",
@@ -80,4 +82,39 @@ export function getTimeModeLabels(capability: TimeCapability): { point: string; 
     point: "只处理一天",
     range: "处理一个时间区间",
   };
+}
+
+export type OpsTimeParameter = { key: string };
+
+export function resolvePointTimeParameter<T extends OpsTimeParameter>(
+  capability: OpsAutomationCapability | null | undefined,
+  parameters: T[] | null | undefined,
+): T | undefined {
+  const pointField = capability?.time_input_contract?.point_field;
+  if (!pointField) {
+    return undefined;
+  }
+  return parameters?.find((parameter) => parameter.key === pointField);
+}
+
+export function resolveRangeTimeFields(
+  capability: OpsAutomationCapability | null | undefined,
+): { start: string; end: string } | null {
+  const contract = capability?.time_input_contract;
+  if (!contract?.range_start_field || !contract.range_end_field) {
+    return null;
+  }
+  return { start: contract.range_start_field, end: contract.range_end_field };
+}
+
+export function hasDeclaredRangeParameters(
+  capability: OpsAutomationCapability | null | undefined,
+  parameters: OpsTimeParameter[] | null | undefined,
+): boolean {
+  const range = resolveRangeTimeFields(capability);
+  if (!range) {
+    return false;
+  }
+  const names = new Set((parameters || []).map((parameter) => parameter.key));
+  return names.has(range.start) && names.has(range.end);
 }

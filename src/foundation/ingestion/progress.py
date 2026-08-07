@@ -15,6 +15,8 @@ class ProgressSnapshot:
     rows_written: int
     rows_committed: int = 0
     rows_rejected: int = 0
+    rows_deduplicated: int = 0
+    ingestion_diagnostics: dict[str, Any] = field(default_factory=dict)
     current_object: dict[str, Any] = field(default_factory=dict)
     rejected_reason_counts: dict[str, int] = field(default_factory=dict)
     rejected_reason_samples: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
@@ -37,6 +39,8 @@ class IngestionObserver:
         message: str,
         rows_committed: int = 0,
         rows_rejected: int = 0,
+        rows_deduplicated: int = 0,
+        ingestion_diagnostics: dict[str, Any] | None = None,
         current_object: dict[str, Any] | None = None,
         rejected_reason_counts: dict[str, int] | None = None,
         rejected_reason_samples: dict[str, list[dict[str, Any]]] | None = None,
@@ -53,6 +57,8 @@ class IngestionObserver:
             rows_written=rows_written,
             rows_committed=rows_committed,
             rows_rejected=rows_rejected,
+            rows_deduplicated=rows_deduplicated,
+            ingestion_diagnostics=dict(ingestion_diagnostics or {}),
             current_object=dict(current_object or {}),
             rejected_reason_counts=dict(rejected_reason_counts or {}),
             rejected_reason_samples=dict(rejected_reason_samples or {}),

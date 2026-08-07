@@ -25,12 +25,14 @@ class NormalizedBatch:
         rows_rejected: int,
         rejected_reasons: dict[str, int],
         rejected_samples: dict[str, list[dict[str, Any]]] | None = None,
+        rows_deduplicated: int = 0,
     ) -> None:
         self.unit_id = unit_id
         self.rows_normalized = rows_normalized
         self.rows_rejected = rows_rejected
         self.rejected_reasons = rejected_reasons
         self.rejected_samples = rejected_samples or {}
+        self.rows_deduplicated = rows_deduplicated
 
 
 class DatasetNormalizer:
@@ -172,6 +174,11 @@ class DatasetNormalizer:
             )
 
             rows_normalized.append(normalized)
+        rows_normalized, rows_deduplicated = self._apply_source_multiplicity_policy(
+            definition=definition,
+            rows=rows_normalized,
+            unit_id=fetch_result.unit_id,
+        )
         rows_normalized = self._apply_duplicate_key_policy(
             definition=definition,
             rows=rows_normalized,
@@ -196,7 +203,55 @@ class DatasetNormalizer:
             rows_rejected=sum(rejected_reasons.values()),
             rejected_reasons=rejected_reasons,
             rejected_samples=rejected_samples,
+            rows_deduplicated=rows_deduplicated,
         )
+
+    @staticmethod
+    def _apply_source_multiplicity_policy(
+        *,
+        definition: DatasetDefinition,
+        rows: list[dict[str, Any]],
+        unit_id: str,
+    ) -> tuple[list[dict[str, Any]], int]:
+        policy = definition.quality.source_multiplicity_policy
+        if policy == "reject":
+            return rows, 0
+        if policy != "deduplicate_identical":
+            raise IngestionNormalizeError(
+                StructuredError(
+                    error_code="normalize.source_multiplicity_policy_invalid",
+                    error_type="normalize",
+                    phase="normalizer",
+                    message=f"不支持的源端重复记录策略：{policy}",
+                    retryable=False,
+                    unit_id=unit_id,
+                )
+            )
+
+        unique_rows: list[dict[str, Any]] = []
+        seen_hashes: set[str] = set()
+        for row in rows:
+            try:
+                content_hash = compute_source_content_hash(
+                    row=row,
+                    source_fields=definition.source.source_fields,
+                )
+            except ObservedSnapshotHashError as exc:
+                raise IngestionNormalizeError(
+                    StructuredError(
+                        error_code="normalize.source_content_hash_invalid",
+                        error_type="normalize",
+                        phase="normalizer",
+                        message=str(exc),
+                        retryable=False,
+                        unit_id=unit_id,
+                    )
+                ) from exc
+            if content_hash in seen_hashes:
+                continue
+            seen_hashes.add(content_hash)
+            unique_rows.append(row)
+        return unique_rows, len(rows) - len(unique_rows)
 
     @classmethod
     def _validate_batch_unique_keys(

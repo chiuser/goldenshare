@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import json
 from typing import Any
 
 from sqlalchemy import select
@@ -33,6 +34,8 @@ class TaskRunIngestionContext(IngestionRunContext):
         rows_fetched: int | None = None,
         rows_saved: int | None = None,
         rows_rejected: int | None = None,
+        rows_deduplicated: int | None = None,
+        ingestion_diagnostics: dict[str, Any] | None = None,
         rejected_reason_counts: dict[str, int] | None = None,
         rejected_reason_samples: dict[str, list[dict[str, Any]]] | None = None,
         current_object: dict[str, Any] | None = None,
@@ -51,6 +54,10 @@ class TaskRunIngestionContext(IngestionRunContext):
             task_run.rows_fetched = int(rows_fetched if rows_fetched is not None else task_run.rows_fetched or 0)
             task_run.rows_saved = int(rows_saved if rows_saved is not None else task_run.rows_saved or 0)
             task_run.rows_rejected = int(rows_rejected if rows_rejected is not None else task_run.rows_rejected or 0)
+            task_run.rows_deduplicated = int(
+                rows_deduplicated if rows_deduplicated is not None else task_run.rows_deduplicated or 0
+            )
+            task_run.ingestion_diagnostics_json = self._sanitize_ingestion_diagnostics(ingestion_diagnostics)
             task_run.rejected_reason_counts_json = self._sanitize_reason_counts(rejected_reason_counts)
             task_run.rejected_reason_samples_json = self._sanitize_reason_samples(rejected_reason_samples)
             task_run.current_object_json = self._sanitize_current_object(current_object)
@@ -71,6 +78,8 @@ class TaskRunIngestionContext(IngestionRunContext):
         node.rows_fetched = task_run.rows_fetched
         node.rows_saved = task_run.rows_saved
         node.rows_rejected = task_run.rows_rejected
+        node.rows_deduplicated = task_run.rows_deduplicated
+        node.ingestion_diagnostics_json = dict(task_run.ingestion_diagnostics_json or {})
         node.rejected_reason_counts_json = dict(task_run.rejected_reason_counts_json or {})
         node.rejected_reason_samples_json = dict(task_run.rejected_reason_samples_json or {})
 
@@ -121,3 +130,42 @@ class TaskRunIngestionContext(IngestionRunContext):
             if isinstance(value.get(key), dict)
         }
         return allowed
+
+    @staticmethod
+    def _sanitize_ingestion_diagnostics(value: dict[str, Any] | None) -> dict[str, Any]:
+        if not isinstance(value, dict):
+            return {}
+        try:
+            normalized = json.loads(json.dumps(value, ensure_ascii=False, default=str))
+        except (TypeError, ValueError):
+            return {"truncated": True, "reason": "not_json_serializable"}
+        if not isinstance(normalized, dict):
+            return {}
+        source = normalized.get("source")
+        pagination = source.get("pagination") if isinstance(source, dict) else None
+        if isinstance(pagination, dict) and isinstance(pagination.get("unit_samples"), list):
+            original_samples = list(pagination["unit_samples"])
+            pagination["unit_samples"] = original_samples[:3]
+            if len(original_samples) > 3:
+                pagination["truncated"] = True
+        encoded = json.dumps(normalized, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        if len(encoded) <= 16 * 1024:
+            return normalized
+        if isinstance(pagination, dict):
+            pagination["unit_samples"] = []
+            pagination["truncated"] = True
+        normalized["truncated"] = True
+        normalized["original_bytes"] = len(encoded)
+        compact = json.dumps(normalized, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        if len(compact) <= 16 * 1024:
+            return normalized
+        persistence = normalized.get("persistence")
+        immutable_fact = persistence.get("immutable_fact") if isinstance(persistence, dict) else None
+        return {
+            "truncated": True,
+            "original_bytes": len(encoded),
+            "source": {"pagination": pagination if isinstance(pagination, dict) else {}},
+            "persistence": {
+                "immutable_fact": immutable_fact if isinstance(immutable_fact, dict) else {},
+            },
+        }

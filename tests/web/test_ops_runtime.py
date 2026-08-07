@@ -464,7 +464,43 @@ def test_scheduler_trigger_day_point_policy_uses_due_schedule_day_for_fund_share
     assert task_run.schedule_id == schedule.id
     assert task_run.resource_key == "fund_share"
     assert task_run.time_input_json == {"mode": "point", "trade_date": "2026-05-14"}
-    assert task_run.request_payload_json["time_input"] == {"mode": "point", "trade_date": "2026-05-14"}
+
+
+def test_scheduler_trigger_day_point_policy_uses_ann_date_for_fund_div_task_run(
+    db_session,
+    ops_schedule_factory,
+) -> None:
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="fund_div.maintain",
+        display_name="基金分红自动维护",
+        schedule_type="cron",
+        cron_expr="0 19 * * *",
+        timezone_name="Asia/Shanghai",
+        calendar_policy="trigger_day_point",
+        params_json={"time_input": {"mode": "point"}},
+        next_run_at=datetime(2026, 5, 14, 11, 0, tzinfo=timezone.utc),
+    )
+
+    created = OperationsScheduler().run_once(
+        db_session,
+        now=datetime(2026, 5, 14, 11, 0, tzinfo=timezone.utc),
+    )
+
+    assert len(created) == 1
+    task_run = created[0]
+    assert task_run.schedule_id == schedule.id
+    assert task_run.resource_key == "fund_div"
+    assert task_run.time_input_json == {
+        "mode": "point",
+        "ann_date": "2026-05-14",
+        "date_field": "ann_date",
+    }
+    assert task_run.request_payload_json["time_input"] == {
+        "mode": "point",
+        "ann_date": "2026-05-14",
+        "date_field": "ann_date",
+    }
 
 
 def test_scheduler_defaults_daily_workflow_to_point_mode_when_schedule_has_no_time_params(db_session, ops_schedule_factory) -> None:
@@ -776,6 +812,11 @@ def test_task_run_progress_updates_current_running_node_rows(db_session, task_ru
         rows_fetched=10514,
         rows_saved=10514,
         rows_rejected=0,
+        rows_deduplicated=67,
+        ingestion_diagnostics={
+            "source": {"pagination": {"unit_samples": [{"unit_id": "fund-div", "page_count": 1}]}},
+            "persistence": {"immutable_fact": {"rows_inserted_new": 74, "rows_matched_existing": 0}},
+        },
         rejected_reason_counts={},
         current_object={"entity": {"kind": "date", "name": "2026-04-24"}, "time": {}, "attributes": {}},
     )
@@ -787,6 +828,41 @@ def test_task_run_progress_updates_current_running_node_rows(db_session, task_ru
     assert node.rows_fetched == 10514
     assert node.rows_saved == 10514
     assert node.rows_rejected == 0
+    assert task_run.rows_deduplicated == 67
+    assert node.rows_deduplicated == 67
+    assert task_run.ingestion_diagnostics_json["persistence"]["immutable_fact"] == {
+        "rows_inserted_new": 74,
+        "rows_matched_existing": 0,
+    }
+    assert node.ingestion_diagnostics_json == task_run.ingestion_diagnostics_json
+
+
+def test_ingestion_diagnostics_are_bounded_to_16_kib() -> None:
+    diagnostics = {
+        "source": {
+            "pagination": {
+                "unit_count_with_pagination": 1,
+                "total_page_count": 1,
+                "total_rows_merged": 74,
+                "multi_page_unit_count": 0,
+                "max_pages_per_unit": 1,
+                "short_page_unit_count": 1,
+                "unit_samples": [{"unit_id": "x", "payload": "a" * 20_000}],
+            }
+        },
+        "persistence": {"immutable_fact": {"rows_inserted_new": 74, "rows_matched_existing": 0}},
+    }
+
+    sanitized = TaskRunIngestionContext._sanitize_ingestion_diagnostics(diagnostics)
+
+    assert sanitized["truncated"] is True
+    assert sanitized["source"]["pagination"]["unit_samples"] == []
+    assert sanitized["source"]["pagination"]["total_rows_merged"] == 74
+    assert sanitized["persistence"]["immutable_fact"] == {
+        "rows_inserted_new": 74,
+        "rows_matched_existing": 0,
+    }
+    assert sanitized["original_bytes"] > 16 * 1024
 
 
 def test_task_run_progress_updates_rejected_reason_counts(db_session, task_run_factory, task_run_node_factory) -> None:
