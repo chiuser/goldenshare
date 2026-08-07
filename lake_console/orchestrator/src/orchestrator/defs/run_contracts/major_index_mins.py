@@ -298,6 +298,8 @@ MAJOR_INDEX_MINS_SOURCE_SCOPES = (
 MAJOR_INDEX_MINS_CODES = tuple(
     scope.ts_code for scope in MAJOR_INDEX_MINS_SOURCE_SCOPES
 )
+MAJOR_INDEX_MINS_RAW_SOURCE_CODES = MAJOR_INDEX_MINS_CODES
+MAJOR_INDEX_MINS_SILVER_EXCLUDED_CODES = ("899050.BJ",)
 MAJOR_INDEX_MINS_DAILY_CODES = tuple(
     scope.ts_code
     for scope in MAJOR_INDEX_MINS_SOURCE_SCOPES
@@ -332,7 +334,7 @@ def major_index_mins_source_scope(
     return scope
 
 
-def effective_codes_for_date(
+def effective_raw_request_codes_for_date(
     trade_date: str | date,
     *,
     scopes: Sequence[MajorIndexMinsSourceScope] = MAJOR_INDEX_MINS_SOURCE_SCOPES,
@@ -345,6 +347,21 @@ def effective_codes_for_date(
             for code, scope in scope_map.items()
             if scope.eligible_on(normalized_date)
         )
+    )
+
+
+def effective_silver_codes_for_date(
+    trade_date: str | date,
+    *,
+    scopes: Sequence[MajorIndexMinsSourceScope] = MAJOR_INDEX_MINS_SOURCE_SCOPES,
+) -> tuple[str, ...]:
+    return tuple(
+        code
+        for code in effective_raw_request_codes_for_date(
+            trade_date,
+            scopes=scopes,
+        )
+        if code not in MAJOR_INDEX_MINS_SILVER_EXCLUDED_CODES
     )
 
 
@@ -395,7 +412,7 @@ class MajorIndexMinsHistoricalFallbackRule:
             raise MajorIndexMinsContractError(
                 "historical non-BSE fallback must not include a BJ code."
             )
-        effective_codes = set(effective_codes_for_date(normalized_date))
+        effective_codes = set(effective_silver_codes_for_date(normalized_date))
         invalid_codes = tuple(
             code for code in normalized_codes if code not in effective_codes
         )
@@ -560,7 +577,107 @@ def major_index_mins_historical_fallback_fingerprint() -> str:
     )
 
 
-def source_scope_hash_for_date(
+MAJOR_INDEX_MINS_SILVER_CLEANUP_REVISION = "major_index_mins_silver_cleanup_v1"
+MAJOR_INDEX_MINS_OPENING_SENTINEL_CODES = (
+    "000001.SH",
+    "000016.SH",
+    "000300.SH",
+    "000688.SH",
+    "000852.SH",
+    "000905.SH",
+)
+MAJOR_INDEX_MINS_399001_ENVELOPE_5M_DATES = (
+    "2016-12-16",
+    "2016-12-19",
+    "2016-12-20",
+    "2016-12-21",
+    "2016-12-22",
+    "2016-12-23",
+    "2016-12-26",
+    "2016-12-27",
+    "2016-12-28",
+    "2016-12-29",
+    "2016-12-30",
+    "2017-01-04",
+    "2017-01-05",
+    "2017-01-06",
+    "2017-01-09",
+    "2017-01-10",
+    "2017-01-11",
+    "2017-01-12",
+    "2017-01-13",
+    "2017-01-16",
+    "2017-01-17",
+    "2017-01-18",
+    "2017-01-19",
+    "2017-01-20",
+    "2017-01-23",
+    "2017-01-24",
+    "2017-01-25",
+)
+MAJOR_INDEX_MINS_399001_ENVELOPE_LONGER_FREQ_DATES = tuple(
+    value
+    for value in MAJOR_INDEX_MINS_399001_ENVELOPE_5M_DATES
+    if value != "2017-01-04"
+)
+
+
+def major_index_mins_silver_ohlc_cleanup_scope_rows(
+) -> tuple[tuple[str, str, str, str, str], ...]:
+    sentinel_rows = tuple(
+        (code, frequency, "2022-02-07", "09:30:00", "opening_sentinel")
+        for code in MAJOR_INDEX_MINS_OPENING_SENTINEL_CODES
+        for frequency in MAJOR_INDEX_MINS_SOURCE_FREQS
+    )
+    envelope_rows = tuple(
+        (
+            "399001.SZ",
+            frequency,
+            trade_date,
+            "09:30:00",
+            "ohlc_envelope",
+        )
+        for frequency, trade_dates in (
+            ("5min", MAJOR_INDEX_MINS_399001_ENVELOPE_5M_DATES),
+            ("15min", MAJOR_INDEX_MINS_399001_ENVELOPE_LONGER_FREQ_DATES),
+            ("30min", MAJOR_INDEX_MINS_399001_ENVELOPE_LONGER_FREQ_DATES),
+            ("60min", MAJOR_INDEX_MINS_399001_ENVELOPE_LONGER_FREQ_DATES),
+        )
+        for trade_date in trade_dates
+    )
+    return sentinel_rows + envelope_rows
+
+
+def major_index_mins_silver_cleanup_fingerprint() -> str:
+    return _sha256_payload(
+        {
+            "revision": MAJOR_INDEX_MINS_SILVER_CLEANUP_REVISION,
+            "rows": major_index_mins_silver_ohlc_cleanup_scope_rows(),
+        }
+    )
+
+
+def raw_scope_hash_for_partition(
+    trade_date: str | date,
+    freq: object,
+    *,
+    scopes: Sequence[MajorIndexMinsSourceScope] = MAJOR_INDEX_MINS_SOURCE_SCOPES,
+) -> str:
+    normalized_date = normalize_major_index_mins_trade_date(trade_date)
+    normalized_freq = normalize_major_index_mins_source_freq(freq)
+    return _sha256_payload(
+        {
+            "trade_date": normalized_date,
+            "frequency": normalized_freq,
+            "expected_codes": effective_raw_request_codes_for_date(
+                normalized_date,
+                scopes=scopes,
+            ),
+        }
+    )
+
+
+def silver_scope_hash_for_date(
     trade_date: str | date,
     *,
     scopes: Sequence[MajorIndexMinsSourceScope] = MAJOR_INDEX_MINS_SOURCE_SCOPES,
@@ -569,7 +686,7 @@ def source_scope_hash_for_date(
     return _sha256_payload(
         {
             "trade_date": normalized_date,
-            "expected_codes": effective_codes_for_date(
+            "expected_codes": effective_silver_codes_for_date(
                 normalized_date,
                 scopes=scopes,
             ),

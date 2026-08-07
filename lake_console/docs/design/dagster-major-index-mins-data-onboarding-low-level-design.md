@@ -734,8 +734,8 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 planner、可恢复 source staging、只读 staging audit、临时 Raw/Silver build/audit 和跨
 文件系统安全 promote 已完成本地 fake-source 全链路测试；P7 source staging 也已一次性
 完成。P7B 非北证 bounded Silver fallback 的代码、真实 retained-staging 临时重建和
-独立 post-audit 均已通过；P7C 口径已经拍板，下一步只允许实现第 29 节并做真实临时样本。
-P7C 实现验收前禁止完整临时湖 build、正式 promote 和事件补录。若源站/项目 wrapper
+独立 post-audit 均已通过；P7C 合同、P7D 完整临时湖、P7E 正式 promote 与 P8 runless
+event 补录也已依次完成。当前只剩 P9 sensor 启用与连续交易日观察。若源站/项目 wrapper
 与本文冲突，必须保留 staging 事实、更新本文与方案后再继续，不得在代码中静默放宽语义。
 
 ## 20. P0 开工审计记录
@@ -1020,11 +1020,11 @@ promote 不重新请求 Tushare。考虑 staging root 与正式 lake 可能位�
 实际起点为 `2022-12-15`，而其它频率从 `2022-11-21` 开始；`2024-10-30` 的 BSE
 5/30/60min 是与 1min 逐字段完全一致的错误一分钟网格。
 
-P7B 的 130 个非北证缺口已经完成 bounded Silver fallback。P7C 已冻结：北证50只在
+P7B 的 130 个非北证缺口已经完成 bounded Silver fallback。P7C 已完成：北证50只在
 Raw 保存源事实，Silver 所有频率固定排除；因此 BSE availability、错误网格和负值不再
-需要 Silver repair。非北证 OHLC 与 exchange 清洗仍须按第 29 节实现和验证。不得重新
-请求 Tushare；P7C 代码和真实临时样本通过前不得执行完整 `build-temp`、promote 或
-事件补录。
+需要 Silver repair。非北证 OHLC 与 exchange 清洗已按第 29 节实现并通过真实样本。
+该段审计完成时只放行了 P7D `build-temp`；后续 P7E promote 和 P8 事件补录已分别获得
+批准并完成，实际结果见第 31、32 节。
 
 ## 28. P7B 非北证历史 Silver fallback 代码级设计
 
@@ -1334,9 +1334,11 @@ connection 中把每个唯一 source partition 物化为一次临时 relation，
 1. [已完成] 实现 28.2-28.7 的合同、helper、测试和静态门禁；未写正式 lake；
 2. [已完成] 从 retained staging 执行 P7B 全量临时重建，生成专项报告；
 3. [已完成] P7C 只读审计并冻结“BSE Raw-only、Silver 排除、非北证异常精确清洗”；
-4. [下一步] 实现 P7C 合同和真实临时样本验证，通过后才执行 P7D 完整临时湖；
-5. P7D 全量对账通过后，P7E 正式 promote 仍需单独批准；
-6. P8/P9 顺序不变。
+4. [已完成] 实现 P7C 合同并通过 retained-staging 真实临时样本；
+5. [已完成] 执行 P7D 完整临时湖构建与全量对账；
+6. [已完成] P7E 正式 promote 与正式 lake post audit；
+7. [已完成] P8 全量 materialization、最近 20 日 check event 和分区归属验收；
+8. [下一步] P9 手动启用 sensor 并观察连续交易日。
 
 P7B 实现结果：版本化合同固定 15 条规则、130 个非北证 scope 和 10 个唯一低频源分区；
 纯 Bootstrap helper 只读取 `MajorIndexMinsSourcePlan` 指定的 retained source path，使用
@@ -1511,3 +1513,304 @@ date-only output scope 永不包含 BSE。日常最近 10 日热路径仍使用�
 
 P7C 代码与真实临时样本全部通过后，才允许执行 P7D 完整临时湖。P7D 仍不等于正式
 promote；P7E 的正式 lake 写入需要单独批准。
+
+### 29.7 实现与真实样本验收
+
+P7C 已完成以下实现：
+
+- 删除旧 `effective_codes_for_date()` / `source_scope_hash_for_date()`，所有生产消费者迁移
+  到 Raw/Silver 分层 scope 和 hash；
+- 拆分 `validate_major_index_mins_raw_relation()` 与
+  `validate_major_index_mins_silver_relation()`；
+- Raw validator 对 BSE 只执行文件结构安全规则，对非北证继续执行严格 session/domain
+  规则，并精确放行 P7B source-empty scope；
+- Silver writer 固定先排除 `899050.BJ`，再按 135 行显式白名单修正 OHLC，并按代码后缀
+  派生 exchange；
+- check、10 日 batch readiness、Bootstrap plan/build/audit 和 fallback validator 已迁移到
+  同一套分层语义；check 数仍为 Raw 5 + Silver 7，没有新增事件类型。
+
+本地回归共 `169 passed`。真实样本复用 retained staging，报告为：
+
+```text
+/private/tmp/major_index_mins_p7c_retained_staging_sample_20260806_v2.json
+```
+
+验收结果：
+
+| 项目 | 结果 |
+| --- | ---: |
+| retained source 集合扫描 | 5 次，每个原生频率 1 次 |
+| 临时 Raw / Silver 分区 | 119 / 121 |
+| 总耗时 | 22,466.261 ms |
+| Raw BSE 事实行 | 1,445 |
+| Raw BSE 负 vol/amount | 5，全部保留 |
+| Raw BSE 错误 1min 网格事实 | 813，全部保留 |
+| Silver BSE 行 | 0 |
+| Raw sentinel / envelope | 30 / 105，精确命中 |
+| Silver 未清理 sentinel / envelope | 0 / 0 |
+| Silver exchange 错误 | 0 |
+| Silver code scope 差异 | 0 |
+| Tushare / Dagster event query | 0 / 0 |
+| 正式 lake / Dagster DB/event 写入 | 0 / 0 |
+
+首次 v1 样本按门禁停止于 `2024-10-30 / 15min`：该 scope 本来就是 P7B 已发布的
+source-empty 目标，不能冒充 P7C 原生样本。v2 保留该日 1/5/30/60min 的 BSE 原始事实
+验证；15min 继续由 P7B fallback 专项覆盖。该停止证明边界按设计 fail closed，不是新的
+数据缺口。
+
+P7C 验收完成，P7D 已按第 30 节执行并通过；P7E 已按第 31 节执行并通过。
+
+## 30. P7D 完整临时 Raw/Silver 构建与全量对账
+
+### 30.1 实现收口
+
+P7D 对 `major_index_mins_bootstrap_apply.py` 的临时构建路径做了以下收口：
+
+1. source staging audit 显式拆分 `transport_ready` 与 `business_contract_ready`。只有窗口
+   缺失、损坏、sidecar 行数/hash 不一致或 staging 残留属于 transport 阻断；历史源业务
+   异常继续保留 reason code，由 P7B/P7C 的精确合同处理，不能伪装成源数据天然健康；
+2. Raw 逐日期、逐原生频率保存源事实。精确 source-empty scope 允许合法 0 行 Raw，
+   未发布的 0 行分区继续 fail closed；
+3. 15 条发布 fallback 规则先生成独立、带 revision 的临时样本。Silver 原生频率只在
+   显式 Bootstrap 入口合并对应 fallback，普通日常 writer 不具备自动 fallback 能力；
+4. Silver 原生五频完成后再生成 90m/120m，全部输出排除 `899050.BJ`；
+5. 串行构建复用一个 DuckDB connection，但每个目标文件仍使用独立 staging、回读验证
+   和原子替换；
+6. build report 是原子 checkpoint。中断后只允许按冻结 date/source fingerprint 的
+   确定性前缀续跑，并检查 checkpoint 对应文件存在；最终完整 `audit-temp` 仍是硬门禁，
+   checkpoint 不能替代内容验收。
+
+这些改动不创建 asset/job/sensor/check，不访问 Dagster instance，不增加 Tushare 请求，
+也不允许 `build-temp` 接收正式 lake root 作为 promote 入口。
+
+### 30.2 正式执行命令与边界
+
+P7D 使用：
+
+```bash
+PYTHONPATH=src uv run --project . python -m \
+  orchestrator.defs.bootstrap.major_index_mins_bootstrap_apply_cli build-temp \
+  --calendar-lake-root /Volumes/datasource/data_lake \
+  --staging-root /Volumes/datasource/data_lake_staging/major_index_mins_p7_20260805 \
+  --end-date 2026-08-04 \
+  --confirm-staging-write \
+  --output /private/tmp/major_index_mins_p7d_temporary_lake_build_20260806.json
+
+PYTHONPATH=src uv run --project . python -m \
+  orchestrator.defs.bootstrap.major_index_mins_bootstrap_apply_cli audit-temp \
+  --calendar-lake-root /Volumes/datasource/data_lake \
+  --staging-root /Volumes/datasource/data_lake_staging/major_index_mins_p7_20260805 \
+  --end-date 2026-08-04 \
+  --output /private/tmp/major_index_mins_p7d_temporary_lake_audit_20260806.json
+```
+
+日期计划仍为 4,271 个交易日，fingerprint 为
+`c77aabafa4943a1efc03e3829732c0ef4d5c38ed277bcffcf39867e5ee5c4a67`；source plan
+fingerprint 为 `c587ad88725aa4f188e4604294c12f3a03febf2cb82fe877db923a7a23914688`。
+本轮未执行 Tushare 请求、`dg launch`、sensor tick、runless event、dynamic partition 或
+正式 lake promote。
+
+### 30.3 构建与全量审计结果
+
+| 项目 | 结果 |
+| --- | ---: |
+| Raw files | 21,355 / 21,355 |
+| Raw rows | 10,016,287 |
+| Raw bytes | 472,820,318 |
+| Silver files | 29,897 / 29,897 |
+| Silver rows | 9,917,572 |
+| Silver bytes | 486,056,568 |
+| fallback rules / rows | 15 / 1,482 |
+| Raw missing / invalid | 0 / 0 |
+| Silver missing / invalid | 0 / 0 |
+| Silver distinct codes | 10 |
+| Silver `899050.BJ` rows | 0 |
+| staging residual | 0 |
+| Tushare / Dagster event query | 0 / 0 |
+| 正式 lake / Dagster DB/event 写入 | 0 / 0 |
+
+完整 build 报告耗时 `8,288,855.894ms`。其中已有 19,212 个 Raw 文件通过 checkpoint
+复用，本次补写 2,143 个 Raw 文件；Silver 29,897 个文件全部在本轮生成。完整 target
+audit 对 Raw 和 Silver 分别耗时 `3,125,247.198ms` 与 `3,235,248.205ms`，合计约
+106 分钟。它是开发期一次性深审计，禁止进入 sensor/readiness 日常热路径，也不应在
+P7E 无条件重复；P7E 应复用本报告并在 promote 后执行针对正式目标的必要 post audit。
+
+source staging 最终为 `transport_ready=true`、`business_contract_ready=false`。后者保留
+`source_expected_row_count_mismatch`、identity/numeric/session/OHLC 等历史源事实，不是
+P7D 失败：这些异常已经由 Raw-only BSE、精确 OHLC 清洗和发布 fallback 合同处理，并由
+51,252 个目标文件的严格 validator 逐一验收。未知范围异常仍会 fail closed。
+
+### 30.4 阶段结论
+
+P7D 已完成。临时湖在冻结计划下文件、行数、schema、分区、主键、代码范围、session、
+值域和 fallback provenance 全部通过。P7E 已按第 31 节完成，P8 已按第 32 节完成；
+P9 sensor 启用仍未执行，必须单独批准。
+
+## 31. P7E 正式 lake promote 与 post audit
+
+### 31.1 Preflight 与写入边界
+
+正式执行前确认：
+
+- P7D build/audit 报告的 date/source fingerprint、51,252 个目标计数和零正式写入一致；
+- P7D audit 后 Raw/Silver 临时文件变化数为 0；
+- 正式 Raw/Silver 目标文件数均为 0；
+- Dagster active runs 为 0，三个主要指数分钟线 sensor 没有运行态记录；
+- `/Volumes/datasource` 可用空间约 2.3 TiB；
+- 没有其它 major-index-mins Bootstrap/promote 进程。
+
+P7E 只允许 `_copy_atomic()`：源文件复制到目标目录内唯一 `.tmp`，校验 source/target
+size 和 SHA-256 后 `os.replace()`。中途失败不删除已成功目标；重跑时仅允许 hash 完全
+相同的目标复用，任何差异都 fail closed。P7E 不调用 Dagster instance，不写 event、run
+或动态分区。
+
+### 31.2 执行结果
+
+正式报告：
+
+```text
+/private/tmp/major_index_mins_p7e_formal_lake_promote_20260806.json
+```
+
+| 项目 | 结果 |
+| --- | ---: |
+| Raw promoted / reused | 21,355 / 0 |
+| Raw post-audit files / rows / bytes | 21,355 / 10,016,287 / 472,820,318 |
+| Silver promoted / reused | 29,897 / 0 |
+| Silver post-audit files / rows / bytes | 29,897 / 9,917,572 / 486,056,568 |
+| post-audit missing / invalid | 0 / 0 |
+| Raw / Silver distinct codes | 11 / 10 |
+| Silver `899050.BJ` rows | 0 |
+| 正式 target tmp/staging residual | 0 |
+| Dagster event/check/partition writes | 0 / 0 / 0 |
+| active runs after promote | 0 |
+| elapsed | 11,417,256.707ms |
+
+`should_stop=false`，failure samples 为空。正式湖与 P7D 临时湖的文件数、行数和 bytes
+逐层完全一致。P7E 完成不代表 Dagster 已识别历史分区；Assets 页面在 P8 前显示 0 个
+materialized partitions 属于阶段设计，不得通过手工 job 重跑替代事件补录。
+
+### 31.3 报告复用性能修复
+
+首次 P7E 实际报告显示 `temporary_audit_mode=live_deep_audit`。根因是 CLI 虽然解析了
+`--validated-build-report` 和 `--validated-temp-audit-report`，却误把参数传入
+`build-temp` 分支，没有传入 `promote_temporary_lake()`。因此本次重复执行了 source 和
+temporary target 深审计，总耗时约 190 分钟；这是性能浪费，不是数据正确性失败。
+
+修复后 promote 的 report reuse 门禁同时验证：
+
+1. build report 的 staging root、date/source fingerprint、fallback fingerprint、目标
+   计数、`source_transport_ready` 和零正式写入；
+2. source plan 的 2,662 个 window parquet 与 sidecar 均存在，且修改时间不晚于 build
+   report；
+3. target audit 为 ready，Raw/Silver expected/valid 数完全一致，missing/invalid 为 0；
+4. 51,252 个临时目标都存在，且修改时间不晚于 target audit report；
+5. 两份报告必须同时提供，任何单边参数或报告后变更均 fail closed；
+6. 正式目标冲突检查、逐文件 size/hash 和正式 lake 完整 post audit 不得跳过。
+
+新增 CLI 参数转发测试，防止再次出现“命令行参数存在但未进入执行函数”。P7E 已完成，
+该修复只服务幂等恢复和后续维护，不触发第二次正式 promote。
+
+### 31.4 阶段结论
+
+P7E 已完成，正式数据湖文件事实已由 P8 采用直写补录模式完成事件登记：全量补
+materialization，只对最近 20 个 `cn_major_index_mins_trade_days` 补 core check event，
+并验证 event partition 归属；全过程没有运行历史 asset jobs，也没有重新生成已验收的
+Parquet。实际实现和验收见第 32 节。
+
+## 32. P8 动态分区与 runless event 补录
+
+### 32.1 实现边界
+
+P8 新增两个非 active definition 模块：
+
+```text
+defs/bootstrap/major_index_mins_bootstrap_events.py
+defs/bootstrap/major_index_mins_bootstrap_events_cli.py
+```
+
+CLI 仅提供以下显式阶段：
+
+```text
+dry-run
+register-partitions
+sample
+apply
+post-audit
+```
+
+`register-partitions` 必须传 `--confirm-partition-write`；`sample/apply` 必须传
+`--confirm-event-write`；只读命令拒绝写入确认参数。工具不导入或执行 asset job/sensor，
+不写 Parquet，不删除 event，不创建 run。
+
+### 32.2 Preflight 与文件事实门禁
+
+每次计划生成都执行以下有界验证：
+
+1. 从 `/private/tmp/major_index_mins_p6_dry_run_20260805.json` 重建 4,271 日冻结计划，
+   fingerprint 必须为
+   `c77aabafa4943a1efc03e3829732c0ef4d5c38ed277bcffcf39867e5ee5c4a67`；
+2. P7E 报告的正式 lake root、文件数、行数、fingerprint、失败样本必须与当前计划一致；
+3. P7D fallback 报告必须精确证明 15 个 Raw source-empty 日期/频率，未知 0 行文件一律
+   fail closed；
+4. 12 个资产共 51,252 个 expected 文件必须完整，且不得晚于 P7E 报告发生修改；
+5. 使用一个 DuckDB connection、12 次 `parquet_file_metadata` 批量查询取得行数，不逐行
+   扫描分钟数据；
+6. active runs 必须为 0；动态分区必须为冻结日期集合的精确子集，禁止 unexpected key；
+7. 已有 materialization 按 asset/date 有界查询；最近 20 日 check 只有在 passed、blocking
+   且 target storage id 等于 latest materialization 时才算 ready。
+
+事件 metadata 只保存有限聚合。15 个合法 source-empty Raw 文件写
+`source_empty_exempt=true`，不得将其报告成正行数或创建虚假 core check；这 15 个历史
+日期不在本次最近 20 日 check 窗口。
+
+### 32.3 写入与归属合同
+
+- 先注册全部 4,271 个 `cn_major_index_mins_trade_days`；
+- 每个文件写一条显式 `partition` 的 materialization；
+- 只对最近 20 日、12 个资产写 240 条 core check evaluation；
+- 每条 check 的 `target_materialization_data.storage_id` 必须指向同一资产、同一分区的
+  latest materialization；
+- sample 固定从最近 20 日选择一个日期，先验证 12 条 materialization 和 12 条 check；
+- full apply 按资产串行，每个资产独立报告，允许幂等续跑；
+- 最终 post-audit 必须得到 planned materialization/check 均为 0。
+
+### 32.4 正式执行结果
+
+实际报告：
+
+```text
+/private/tmp/major_index_mins_p8_event_dry_run_20260807_v2.json
+/private/tmp/major_index_mins_p8_partition_registration_20260807_v2.json
+/private/tmp/major_index_mins_p8_event_sample_20260807.json
+/private/tmp/major_index_mins_p8_event_sample_post_audit_20260807.json
+/private/tmp/major_index_mins_p8_apply_raw_1m_20260807.json
+/private/tmp/major_index_mins_p8_apply_raw_5m_20260807.json
+/private/tmp/major_index_mins_p8_apply_raw_15m_20260807.json
+/private/tmp/major_index_mins_p8_apply_raw_30m_20260807.json
+/private/tmp/major_index_mins_p8_apply_raw_60m_20260807.json
+/private/tmp/major_index_mins_p8_apply_silver_1m_20260807.json
+/private/tmp/major_index_mins_p8_apply_silver_5m_20260807.json
+/private/tmp/major_index_mins_p8_apply_silver_15m_20260807.json
+/private/tmp/major_index_mins_p8_apply_silver_30m_20260807.json
+/private/tmp/major_index_mins_p8_apply_silver_60m_20260807.json
+/private/tmp/major_index_mins_p8_apply_silver_90m_20260807.json
+/private/tmp/major_index_mins_p8_apply_silver_120m_20260807.json
+/private/tmp/major_index_mins_p8_event_post_audit_20260807.json
+```
+
+| 项目 | 结果 |
+| --- | ---: |
+| registered partitions | 4,271 |
+| Raw / Silver materializations | 21,355 / 29,897 |
+| materializations total | 51,252 |
+| Raw / Silver recent checks | 100 / 140 |
+| checks total | 240 |
+| planned events after post-audit | 0 |
+| active runs | 0 |
+| formal lake writes | 0 |
+
+最终 post-audit 对每个资产确认 4,271 个 materialization 和最近 20 日 20 条 ready check；
+所有 check 均绑定对应 latest materialization，`precondition_errors=[]`、
+`should_stop=false`。P8 已完成。下一阶段只剩 P9：手动启用三个 sensor，并观察至少
+3 个实际交易日；P8 完成不会自动改变 sensor 默认 STOPPED 状态。

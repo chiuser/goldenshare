@@ -9,8 +9,8 @@ from time import perf_counter
 
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
 from orchestrator.defs.io.major_index_mins_quality import (
-    prepare_major_index_mins_expected_tables,
-    validate_major_index_mins_relation,
+    prepare_major_index_mins_raw_expected_tables,
+    validate_major_index_mins_raw_relation,
 )
 from orchestrator.defs.paths import (
     raw_major_index_mins_path,
@@ -25,10 +25,11 @@ from orchestrator.defs.run_contracts.major_index_mins import (
     MAJOR_INDEX_MINS_SOURCE_FREQS,
     MajorIndexMinsSourceRevision,
     build_major_index_mins_source_revision,
-    effective_codes_for_date,
+    effective_raw_request_codes_for_date,
     major_index_mins_source_scope,
     normalize_major_index_mins_source_freq,
     normalize_major_index_mins_trade_date,
+    raw_scope_hash_for_partition,
 )
 from orchestrator.defs.tushare_request_policy import (
     TushareRequestPolicy,
@@ -91,6 +92,7 @@ class MajorIndexMinsRawWriteResult:
     retry_count: int
     elapsed_ms: float
     source_revision: str | None
+    scope_hash: str
 
     def to_details(self) -> dict[str, object]:
         return {
@@ -106,6 +108,7 @@ class MajorIndexMinsRawWriteResult:
             "retry_count": self.retry_count,
             "elapsed_ms": round(self.elapsed_ms, 3),
             "source_revision": self.source_revision,
+            "scope_hash": self.scope_hash,
         }
 
 
@@ -330,7 +333,11 @@ def write_major_index_mins_raw_partition(
     started_at = perf_counter()
     normalized_freq = normalize_major_index_mins_source_freq(source_freq)
     normalized_partition = normalize_major_index_mins_trade_date(partition_key)
-    expected_codes = effective_codes_for_date(normalized_partition)
+    expected_codes = effective_raw_request_codes_for_date(normalized_partition)
+    scope_hash = raw_scope_hash_for_partition(
+        normalized_partition,
+        normalized_freq,
+    )
     if not expected_codes:
         raise MajorIndexMinsRawValidationError(
             f"source scope is empty for {normalized_partition}."
@@ -349,12 +356,13 @@ def write_major_index_mins_raw_partition(
 
     if target_path.exists():
         with duckdb_resource.connect() as connection:
-            prepare_major_index_mins_expected_tables(
+            prepare_major_index_mins_raw_expected_tables(
                 connection,
                 expected_codes=expected_codes,
                 frequency=normalized_freq,
+                partition_key=normalized_partition,
             )
-            existing_validation = validate_major_index_mins_relation(
+            existing_validation = validate_major_index_mins_raw_relation(
                 connection,
                 relation_sql=read_parquet(target_path, hive_partitioning=False),
                 expected_codes=expected_codes,
@@ -380,6 +388,7 @@ def write_major_index_mins_raw_partition(
             retry_count=0,
             elapsed_ms=_elapsed_ms(started_at),
             source_revision=None,
+            scope_hash=scope_hash,
         )
 
     fetch_result = fetch_major_index_mins_window(
@@ -396,12 +405,13 @@ def write_major_index_mins_raw_partition(
         with duckdb_resource.connect() as connection:
             _create_source_table(connection)
             _insert_source_rows(connection, fetch_result.rows)
-            prepare_major_index_mins_expected_tables(
+            prepare_major_index_mins_raw_expected_tables(
                 connection,
                 expected_codes=expected_codes,
                 frequency=normalized_freq,
+                partition_key=normalized_partition,
             )
-            source_validation = validate_major_index_mins_relation(
+            source_validation = validate_major_index_mins_raw_relation(
                 connection,
                 relation_sql="major_index_mins_source",
                 expected_codes=expected_codes,
@@ -414,7 +424,7 @@ def write_major_index_mins_raw_partition(
                     f"errors={source_validation.errors!r}"
                 )
             connection.execute(copy_query_to_parquet(_raw_output_sql(), staging_path))
-            staging_validation = validate_major_index_mins_relation(
+            staging_validation = validate_major_index_mins_raw_relation(
                 connection,
                 relation_sql=read_parquet(staging_path, hive_partitioning=False),
                 expected_codes=expected_codes,
@@ -456,4 +466,5 @@ def write_major_index_mins_raw_partition(
         retry_count=fetch_result.retry_count,
         elapsed_ms=_elapsed_ms(started_at),
         source_revision=fetch_result.source_revision.revision,
+        scope_hash=scope_hash,
     )

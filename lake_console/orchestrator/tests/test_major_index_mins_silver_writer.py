@@ -7,9 +7,14 @@ import duckdb
 import pytest
 
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet
+from orchestrator.defs.io.major_index_mins_quality import (
+    prepare_major_index_mins_raw_expected_tables,
+    validate_major_index_mins_raw_relation,
+)
 from orchestrator.defs.io.major_index_mins_silver_writer import (
     MajorIndexMinsSilverValidationError,
     write_major_index_mins_silver_partition,
+    write_major_index_mins_silver_partition_with_historical_fallback,
 )
 from orchestrator.defs.paths import (
     raw_major_index_mins_path,
@@ -17,8 +22,10 @@ from orchestrator.defs.paths import (
 )
 from orchestrator.defs.run_contracts.major_index_mins import (
     MAJOR_INDEX_MINS_SOURCE_COLUMNS,
-    effective_codes_for_date,
+    effective_raw_request_codes_for_date,
+    effective_silver_codes_for_date,
     major_index_mins_exchange_for_code,
+    major_index_mins_historical_fallback_rule,
     major_index_mins_session_times,
 )
 
@@ -33,17 +40,43 @@ class _MemoryDuckDB:
             connection.close()
 
 
+def _empty_raw_relation(connection) -> str:
+    connection.execute(
+        """
+        CREATE TEMP TABLE empty_raw (
+          ts_code VARCHAR,
+          freq VARCHAR,
+          trade_time TIMESTAMP,
+          open DOUBLE,
+          close DOUBLE,
+          high DOUBLE,
+          low DOUBLE,
+          vol DOUBLE,
+          amount DOUBLE,
+          exchange VARCHAR,
+          vwap DOUBLE
+        )
+        """
+    )
+    return "empty_raw"
+
+
 def _write_raw(
     root: Path,
     *,
     trade_date: str,
     freq: str,
     omit: tuple[str, str] | None = None,
+    anomaly: str | None = None,
+    source_exchange: str | None = "contract",
+    omit_codes: frozenset[str] = frozenset(),
 ) -> Path:
     path = raw_major_index_mins_path(root, freq, trade_date)
     path.parent.mkdir(parents=True, exist_ok=True)
     rows = []
-    for code in effective_codes_for_date(trade_date):
+    for code in effective_raw_request_codes_for_date(trade_date):
+        if code in omit_codes:
+            continue
         exchange = major_index_mins_exchange_for_code(code)
         for index, source_time in enumerate(
             major_index_mins_session_times(exchange=exchange, source_freq=freq)
@@ -51,18 +84,54 @@ def _write_raw(
             if omit == (code, source_time):
                 continue
             value = float(index + 1)
+            open_value = value
+            close_value = value + 0.5
+            high_value = value + 1.0
+            low_value = value - 0.5
+            vol_value = value * 10
+            amount_value = value * 100
+            if (
+                anomaly == "opening_sentinel"
+                and trade_date == "2022-02-07"
+                and source_time == "09:30:00"
+                and code
+                in {
+                    "000001.SH",
+                    "000016.SH",
+                    "000300.SH",
+                    "000688.SH",
+                    "000852.SH",
+                    "000905.SH",
+                }
+            ):
+                high_value = 0.0
+                low_value = 0.0
+            if (
+                anomaly in {"known_envelope", "unknown_envelope"}
+                and code == "399001.SZ"
+                and source_time == "09:30:00"
+            ):
+                high_value = close_value
+                low_value = close_value
+            if (
+                anomaly == "bse_negative"
+                and code == "899050.BJ"
+                and source_time == "15:30:00"
+            ):
+                vol_value = -10.0
+                amount_value = -100.0
             rows.append(
                 (
                     f" {code.lower()} ",
                     f" {freq} ",
                     f"{trade_date} {source_time}",
-                    value,
-                    value + 0.5,
-                    value + 1.0,
-                    value - 0.5,
-                    value * 10,
-                    value * 100,
-                    exchange,
+                    open_value,
+                    close_value,
+                    high_value,
+                    low_value,
+                    vol_value,
+                    amount_value,
+                    exchange if source_exchange == "contract" else source_exchange,
                     value + 0.25,
                 )
             )
@@ -97,6 +166,75 @@ def _write_raw(
     return path
 
 
+def _write_fallback_file(
+    root: Path,
+    *,
+    trade_date: str,
+    freq: str,
+) -> tuple[Path, tuple[str, ...]]:
+    rule = major_index_mins_historical_fallback_rule(
+        trade_date=trade_date,
+        target_freq=freq,
+    )
+    assert rule is not None
+    path = root / "fallback" / freq / trade_date / "part-000.parquet"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rows = []
+    for code in rule.target_codes:
+        exchange = major_index_mins_exchange_for_code(code)
+        for index, source_time in enumerate(
+            major_index_mins_session_times(
+                exchange=exchange,
+                source_freq=freq,
+            )
+        ):
+            value = float(index + 10)
+            rows.append(
+                (
+                    code,
+                    freq,
+                    f"{trade_date} {source_time}",
+                    value,
+                    value + 0.5,
+                    value + 1.0,
+                    value - 0.5,
+                    value * 10,
+                    value * 100,
+                    exchange,
+                    None,
+                )
+            )
+    with duckdb.connect(":memory:") as connection:
+        connection.execute(
+            """
+            CREATE TABLE fallback_rows (
+              ts_code VARCHAR,
+              freq VARCHAR,
+              trade_time TIMESTAMP,
+              open DOUBLE,
+              close DOUBLE,
+              high DOUBLE,
+              low DOUBLE,
+              vol DOUBLE,
+              amount DOUBLE,
+              exchange VARCHAR,
+              vwap DOUBLE
+            )
+            """
+        )
+        connection.executemany(
+            "INSERT INTO fallback_rows VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            rows,
+        )
+        connection.execute(
+            copy_query_to_parquet(
+                "SELECT * FROM fallback_rows ORDER BY ts_code, trade_time",
+                path,
+            )
+        )
+    return path, rule.target_codes
+
+
 def _rows(path: Path, code: str) -> list[tuple[object, ...]]:
     with duckdb.connect(":memory:") as connection:
         return connection.execute(
@@ -120,6 +258,63 @@ def test_real_session_fixtures_cover_sh_sz_and_bj() -> None:
             assert times[-1] == ("15:30:00" if exchange == "BSE" else "15:00:00")
             assert "12:00:00" not in times
             assert "13:00:00" not in times
+
+
+def test_raw_empty_partition_is_only_allowed_for_full_published_fallback() -> None:
+    with duckdb.connect(":memory:") as connection:
+        relation = _empty_raw_relation(connection)
+        published_date = "2009-05-05"
+        published_codes = effective_raw_request_codes_for_date(published_date)
+        prepare_major_index_mins_raw_expected_tables(
+            connection,
+            expected_codes=published_codes,
+            frequency="15min",
+            partition_key=published_date,
+        )
+        published = validate_major_index_mins_raw_relation(
+            connection,
+            relation_sql=relation,
+            expected_codes=published_codes,
+            frequency="15min",
+            partition_key=published_date,
+        )
+        assert published.errors == ()
+
+        published_with_bse_date = "2024-10-30"
+        published_with_bse_codes = effective_raw_request_codes_for_date(
+            published_with_bse_date
+        )
+        prepare_major_index_mins_raw_expected_tables(
+            connection,
+            expected_codes=published_with_bse_codes,
+            frequency="15min",
+            partition_key=published_with_bse_date,
+        )
+        published_with_bse = validate_major_index_mins_raw_relation(
+            connection,
+            relation_sql=relation,
+            expected_codes=published_with_bse_codes,
+            frequency="15min",
+            partition_key=published_with_bse_date,
+        )
+        assert published_with_bse.errors == ()
+
+        unknown_date = "2026-08-04"
+        unknown_codes = effective_raw_request_codes_for_date(unknown_date)
+        prepare_major_index_mins_raw_expected_tables(
+            connection,
+            expected_codes=unknown_codes,
+            frequency="15min",
+            partition_key=unknown_date,
+        )
+        unknown = validate_major_index_mins_raw_relation(
+            connection,
+            relation_sql=relation,
+            expected_codes=unknown_codes,
+            frequency="15min",
+            partition_key=unknown_date,
+        )
+        assert "row_count" in unknown.errors
 
 
 def test_native_silver_normalizes_and_preserves_vwap(tmp_path: Path) -> None:
@@ -151,6 +346,76 @@ def test_native_silver_normalizes_and_preserves_vwap(tmp_path: Path) -> None:
     assert MAJOR_INDEX_MINS_SOURCE_COLUMNS == observed_columns
 
 
+def test_native_silver_cleans_only_published_ohlc_scopes(tmp_path: Path) -> None:
+    _write_raw(
+        tmp_path,
+        trade_date="2022-02-07",
+        freq="5min",
+        anomaly="opening_sentinel",
+        source_exchange=None,
+    )
+    sentinel = write_major_index_mins_silver_partition(
+        lake_root_path=tmp_path,
+        duckdb_resource=_MemoryDuckDB(),
+        freq="5min",
+        partition_key="2022-02-07",
+        run_id="p7c-sentinel",
+    )
+    sentinel_row = _rows(sentinel.target_path, "000001.SH")[0]
+    assert sentinel_row[5:7] == (1.5, 1.0)
+    assert sentinel_row[9] == "XSHG"
+
+    _write_raw(
+        tmp_path,
+        trade_date="2017-01-04",
+        freq="5min",
+        anomaly="known_envelope",
+        source_exchange="nan",
+    )
+    envelope = write_major_index_mins_silver_partition(
+        lake_root_path=tmp_path,
+        duckdb_resource=_MemoryDuckDB(),
+        freq="5min",
+        partition_key="2017-01-04",
+        run_id="p7c-envelope",
+    )
+    envelope_row = _rows(envelope.target_path, "399001.SZ")[0]
+    assert envelope_row[5:7] == (1.5, 1.0)
+    assert envelope_row[9] == "XSHE"
+
+    _write_raw(
+        tmp_path,
+        trade_date="2017-02-03",
+        freq="5min",
+        anomaly="unknown_envelope",
+    )
+    with pytest.raises(MajorIndexMinsSilverValidationError, match="invalid_rows"):
+        write_major_index_mins_silver_partition(
+            lake_root_path=tmp_path,
+            duckdb_resource=_MemoryDuckDB(),
+            freq="5min",
+            partition_key="2017-02-03",
+            run_id="p7c-unknown-envelope",
+        )
+
+
+def test_bse_negative_source_fact_is_raw_only(tmp_path: Path) -> None:
+    _write_raw(
+        tmp_path,
+        trade_date="2023-07-11",
+        freq="60min",
+        anomaly="bse_negative",
+    )
+    result = write_major_index_mins_silver_partition(
+        lake_root_path=tmp_path,
+        duckdb_resource=_MemoryDuckDB(),
+        freq="60min",
+        partition_key="2023-07-11",
+        run_id="p7c-bse-negative",
+    )
+    assert _rows(result.target_path, "899050.BJ") == []
+
+
 def test_native_silver_rejects_incomplete_session_without_target(tmp_path: Path) -> None:
     _write_raw(
         tmp_path,
@@ -176,7 +441,72 @@ def test_native_silver_rejects_incomplete_session_without_target(tmp_path: Path)
     ).exists()
 
 
-def test_derived_90m_uses_exchange_specific_final_window(tmp_path: Path) -> None:
+def test_bootstrap_only_fallback_merges_exact_published_scope(
+    tmp_path: Path,
+) -> None:
+    trade_date = "2024-10-30"
+    freq = "15min"
+    fallback_path, fallback_codes = _write_fallback_file(
+        tmp_path,
+        trade_date=trade_date,
+        freq=freq,
+    )
+    _write_raw(
+        tmp_path,
+        trade_date=trade_date,
+        freq=freq,
+        omit_codes=frozenset(fallback_codes),
+    )
+
+    result = write_major_index_mins_silver_partition_with_historical_fallback(
+        lake_root_path=tmp_path,
+        duckdb_resource=_MemoryDuckDB(),
+        freq=freq,
+        partition_key=trade_date,
+        run_id="p7d-explicit-fallback",
+        historical_fallback_path=fallback_path,
+        historical_fallback_codes=fallback_codes,
+    )
+
+    assert result.source_mode == "native_with_historical_fallback"
+    assert result.output_row_count == len(
+        effective_silver_codes_for_date(trade_date)
+    ) * len(
+        major_index_mins_session_times(
+            exchange="XSHG",
+            source_freq=freq,
+        )
+    )
+    assert _rows(result.target_path, fallback_codes[0])
+    assert _rows(result.target_path, "899050.BJ") == []
+
+
+def test_bootstrap_only_fallback_rejects_unpublished_scope(
+    tmp_path: Path,
+) -> None:
+    fallback_path, fallback_codes = _write_fallback_file(
+        tmp_path,
+        trade_date="2024-10-30",
+        freq="15min",
+    )
+    _write_raw(tmp_path, trade_date="2026-08-04", freq="15min")
+
+    with pytest.raises(
+        MajorIndexMinsSilverValidationError,
+        match="published native scope",
+    ):
+        write_major_index_mins_silver_partition_with_historical_fallback(
+            lake_root_path=tmp_path,
+            duckdb_resource=_MemoryDuckDB(),
+            freq="15min",
+            partition_key="2026-08-04",
+            run_id="p7d-unpublished-fallback",
+            historical_fallback_path=fallback_path,
+            historical_fallback_codes=fallback_codes,
+        )
+
+
+def test_derived_90m_excludes_bse_from_silver(tmp_path: Path) -> None:
     _write_raw(tmp_path, trade_date="2025-10-30", freq="30min")
     write_major_index_mins_silver_partition(
         lake_root_path=tmp_path,
@@ -195,13 +525,10 @@ def test_derived_90m_uses_exchange_specific_final_window(tmp_path: Path) -> None
 
     sh_times = [row[2].strftime("%H:%M:%S") for row in _rows(result.target_path, "000001.SH")]
     bj_rows = _rows(result.target_path, "899050.BJ")
-    bj_times = [row[2].strftime("%H:%M:%S") for row in bj_rows]
     assert sh_times == ["11:00:00", "14:00:00", "15:00:00"]
-    assert bj_times == ["11:00:00", "14:00:00", "15:30:00"]
-    assert all(row[1] == "90min" and row[10] is None for row in bj_rows)
-    assert bj_rows[-1][3:9] == (8.0, 10.5, 11.0, 7.5, 270.0, 2700.0)
-    assert result.expected_window_count == 33
-    assert result.generated_window_count == 33
+    assert bj_rows == []
+    assert result.expected_window_count == 30
+    assert result.generated_window_count == 30
 
 
 def test_derived_120m_drops_incomplete_exchange_tail(tmp_path: Path) -> None:
@@ -221,7 +548,7 @@ def test_derived_120m_drops_incomplete_exchange_tail(tmp_path: Path) -> None:
         run_id="p3-derived-120",
     )
 
-    for code in ("000001.SH", "399001.SZ", "899050.BJ"):
+    for code in ("000001.SH", "399001.SZ"):
         rows = _rows(result.target_path, code)
         assert [row[2].strftime("%H:%M:%S") for row in rows] == [
             "10:30:00",
@@ -236,30 +563,27 @@ def test_derived_120m_drops_incomplete_exchange_tail(tmp_path: Path) -> None:
         30.0,
         300.0,
     )
-    assert result.expected_window_count == 22
-    assert result.generated_window_count == 22
+    assert _rows(result.target_path, "899050.BJ") == []
+    assert result.expected_window_count == 20
+    assert result.generated_window_count == 20
 
 
-def test_derived_source_session_failure_does_not_create_target(tmp_path: Path) -> None:
+def test_bse_source_session_failure_does_not_block_silver(tmp_path: Path) -> None:
     _write_raw(
         tmp_path,
         trade_date="2025-10-30",
         freq="30min",
         omit=("899050.BJ", "15:30:00"),
     )
-    with pytest.raises(MajorIndexMinsSilverValidationError, match="session grid"):
-        write_major_index_mins_silver_partition(
-            lake_root_path=tmp_path,
-            duckdb_resource=_MemoryDuckDB(),
-            freq="30min",
-            partition_key="2025-10-30",
-            run_id="p3-bad-native",
-        )
-    assert not silver_major_index_mins_path(
-        tmp_path,
-        "30min",
-        "2025-10-30",
-    ).exists()
+    result = write_major_index_mins_silver_partition(
+        lake_root_path=tmp_path,
+        duckdb_resource=_MemoryDuckDB(),
+        freq="30min",
+        partition_key="2025-10-30",
+        run_id="p3-bse-source-gap",
+    )
+    assert result.output_row_count == 90
+    assert _rows(result.target_path, "899050.BJ") == []
 
 
 def test_invalid_existing_silver_target_is_not_overwritten(tmp_path: Path) -> None:

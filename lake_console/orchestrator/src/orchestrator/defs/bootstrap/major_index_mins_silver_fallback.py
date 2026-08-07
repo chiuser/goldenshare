@@ -25,8 +25,8 @@ from orchestrator.defs.duckdb_sql import (
     read_parquet,
 )
 from orchestrator.defs.io.major_index_mins_quality import (
-    prepare_major_index_mins_expected_tables,
-    validate_major_index_mins_relation,
+    prepare_major_index_mins_silver_expected_tables,
+    validate_major_index_mins_silver_relation,
 )
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.major_index_mins import (
@@ -346,12 +346,12 @@ def validate_major_index_mins_fallback_source(
     rule: MajorIndexMinsHistoricalFallbackRule,
 ) -> MajorIndexMinsFallbackSourceValidation:
     published = _require_published_rule(rule)
-    prepare_major_index_mins_expected_tables(
+    prepare_major_index_mins_silver_expected_tables(
         connection,
         expected_codes=published.target_codes,
         frequency=published.source_freq,
     )
-    validation = validate_major_index_mins_relation(
+    validation = validate_major_index_mins_silver_relation(
         connection,
         relation_sql=source_relation_sql,
         expected_codes=published.target_codes,
@@ -482,12 +482,12 @@ def _validate_output(
     relation_sql: str,
     rule: MajorIndexMinsHistoricalFallbackRule,
 ) -> int:
-    prepare_major_index_mins_expected_tables(
+    prepare_major_index_mins_silver_expected_tables(
         connection,
         expected_codes=rule.target_codes,
         frequency=rule.target_freq,
     )
-    validation = validate_major_index_mins_relation(
+    validation = validate_major_index_mins_silver_relation(
         connection,
         relation_sql=relation_sql,
         expected_codes=rule.target_codes,
@@ -712,7 +712,11 @@ def write_major_index_mins_fallback_samples(
 
     started_at = perf_counter()
     safe_run_id = _safe_run_id(run_id)
-    rules = MAJOR_INDEX_MINS_NON_BSE_FALLBACK_RULES
+    rules = tuple(
+        rule
+        for rule in MAJOR_INDEX_MINS_NON_BSE_FALLBACK_RULES
+        if rule.trade_date in date_plan.expected_trade_dates
+    )
     results: list[MajorIndexMinsFallbackWriteResult] = []
     failure_samples: list[Mapping[str, object]] = []
     source_row_count = 0
@@ -721,11 +725,6 @@ def write_major_index_mins_fallback_samples(
         tuple[str, str], list[MajorIndexMinsHistoricalFallbackRule]
     ] = defaultdict(list)
     for rule in rules:
-        if rule.trade_date not in date_plan.expected_trade_dates:
-            raise MajorIndexMinsHistoricalFallbackError(
-                "published fallback date is outside the frozen date plan: "
-                f"{rule.trade_date}."
-            )
         grouped_rules[(rule.trade_date, rule.source_freq)].append(rule)
 
     try:

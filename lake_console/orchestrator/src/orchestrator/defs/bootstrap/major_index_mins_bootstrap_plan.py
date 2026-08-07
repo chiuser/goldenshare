@@ -15,8 +15,10 @@ from time import perf_counter
 
 from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.io.major_index_mins_quality import (
-    prepare_major_index_mins_expected_tables,
-    validate_major_index_mins_relation,
+    prepare_major_index_mins_raw_expected_tables,
+    prepare_major_index_mins_silver_expected_tables,
+    validate_major_index_mins_raw_relation,
+    validate_major_index_mins_silver_relation,
 )
 from orchestrator.defs.paths import (
     raw_major_index_mins_path,
@@ -33,7 +35,8 @@ from orchestrator.defs.run_contracts.major_index_mins import (
     MAJOR_INDEX_MINS_SILVER_FREQS,
     MAJOR_INDEX_MINS_SOURCE_FREQS,
     MAJOR_INDEX_MINS_SOURCE_SCOPES,
-    effective_codes_for_date,
+    effective_raw_request_codes_for_date,
+    effective_silver_codes_for_date,
     major_index_mins_exchange_for_code,
     major_index_mins_session_times,
 )
@@ -348,7 +351,11 @@ def audit_bootstrap_targets(
         existing_bytes = 0
         invalid_samples: list[Mapping[str, object]] = []
         for trade_date in date_plan.expected_trade_dates:
-            expected_codes = effective_codes_for_date(trade_date)
+            expected_codes = (
+                effective_raw_request_codes_for_date(trade_date)
+                if layer == "raw"
+                else effective_silver_codes_for_date(trade_date)
+            )
             for frequency in frequencies:
                 path = path_builder(lake_root, frequency, trade_date)
                 if not path.exists():
@@ -356,19 +363,35 @@ def audit_bootstrap_targets(
                     continue
                 existing_bytes += path.stat().st_size
                 try:
-                    prepare_major_index_mins_expected_tables(
-                        connection,
-                        expected_codes=expected_codes,
-                        frequency=frequency,
-                    )
-                    validation = validate_major_index_mins_relation(
-                        connection,
-                        relation_sql=read_parquet(path, hive_partitioning=False),
-                        expected_codes=expected_codes,
-                        frequency=frequency,
-                        partition_key=trade_date,
-                        require_null_vwap=frequency in {"90min", "120min"},
-                    )
+                    relation_sql = read_parquet(path, hive_partitioning=False)
+                    if layer == "raw":
+                        prepare_major_index_mins_raw_expected_tables(
+                            connection,
+                            expected_codes=expected_codes,
+                            frequency=frequency,
+                            partition_key=trade_date,
+                        )
+                        validation = validate_major_index_mins_raw_relation(
+                            connection,
+                            relation_sql=relation_sql,
+                            expected_codes=expected_codes,
+                            frequency=frequency,
+                            partition_key=trade_date,
+                        )
+                    else:
+                        prepare_major_index_mins_silver_expected_tables(
+                            connection,
+                            expected_codes=expected_codes,
+                            frequency=frequency,
+                        )
+                        validation = validate_major_index_mins_silver_relation(
+                            connection,
+                            relation_sql=relation_sql,
+                            expected_codes=expected_codes,
+                            frequency=frequency,
+                            partition_key=trade_date,
+                            require_null_vwap=frequency in {"90min", "120min"},
+                        )
                     existing_row_count += validation.row_count
                     if validation.errors:
                         raise MajorIndexMinsBootstrapPlanError(
@@ -407,7 +430,7 @@ def audit_bootstrap_targets(
 def _derived_expected_rows(date_plan: MajorIndexMinsDatePlan) -> int:
     total = 0
     for trade_date in date_plan.expected_trade_dates:
-        for code in effective_codes_for_date(trade_date):
+        for code in effective_silver_codes_for_date(trade_date):
             exchange = major_index_mins_exchange_for_code(code)
             total += len(
                 major_index_mins_session_times(

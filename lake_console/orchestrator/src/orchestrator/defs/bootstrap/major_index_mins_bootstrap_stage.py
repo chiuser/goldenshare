@@ -85,7 +85,8 @@ class MajorIndexMinsSourceStagingAudit:
     invalid_window_count: int
     expected_row_count: int
     source_row_count: int
-    row_count_mismatch_count: int
+    expected_row_count_mismatch_count: int
+    sidecar_row_count_mismatch_count: int
     duplicate_key_count: int
     identity_invalid_count: int
     numeric_invalid_count: int
@@ -97,8 +98,10 @@ class MajorIndexMinsSourceStagingAudit:
     request_count: int
     page_count: int
     retry_count: int
-    ready: bool
-    stop_reason_codes: tuple[str, ...]
+    transport_ready: bool
+    business_contract_ready: bool
+    transport_stop_reason_codes: tuple[str, ...]
+    business_contract_reason_codes: tuple[str, ...]
     elapsed_ms: float
     failure_samples: tuple[Mapping[str, object], ...]
     sentinel_samples: tuple[Mapping[str, object], ...]
@@ -472,7 +475,8 @@ def audit_source_staging(
     missing = 0
     invalid = 0
     source_rows = 0
-    row_mismatches = 0
+    expected_row_mismatches = 0
+    sidecar_row_mismatches = 0
     duplicates = 0
     identity_invalid = 0
     numeric_invalid = 0
@@ -591,9 +595,11 @@ def audit_source_staging(
                 other_ohlc_invalid += int(other_ohlc_count or 0)
                 missing_sessions += len(expected_timestamps - actual_timestamps)
                 extra_sessions += len(actual_timestamps - expected_timestamps)
-                row_mismatches += int(
+                expected_row_mismatches += int(
                     row_count != window.expected_row_count
-                    or row_count != int(sidecar["source_row_count"])
+                )
+                sidecar_row_mismatches += int(
+                    row_count != int(sidecar["source_row_count"])
                 )
                 request_count += int(sidecar["request_count"])
                 page_count += int(sidecar["page_count"])
@@ -636,27 +642,32 @@ def audit_source_staging(
                         }
                     )
 
-    stop_reasons: list[str] = []
+    transport_stop_reasons: list[str] = []
     if missing:
-        stop_reasons.append("source_staging_incomplete")
+        transport_stop_reasons.append("source_staging_incomplete")
     if invalid:
-        stop_reasons.append("source_staging_invalid")
-    if row_mismatches or source_rows != source_plan.expected_row_count:
-        stop_reasons.append("source_row_count_mismatch")
-    if duplicates:
-        stop_reasons.append("source_duplicate_key")
-    if identity_invalid:
-        stop_reasons.append("source_identity_invalid")
-    if numeric_invalid:
-        stop_reasons.append("source_numeric_invalid")
-    if missing_sessions or extra_sessions:
-        stop_reasons.append("source_session_grid_mismatch")
-    if sentinel_count:
-        stop_reasons.append("source_ohlc_policy_required")
-    if other_ohlc_invalid:
-        stop_reasons.append("source_ohlc_invalid")
+        transport_stop_reasons.append("source_staging_invalid")
+    if sidecar_row_mismatches:
+        transport_stop_reasons.append("source_sidecar_row_count_mismatch")
     if residual_paths:
-        stop_reasons.append("source_staging_residual")
+        transport_stop_reasons.append("source_staging_residual")
+
+    business_contract_reasons: list[str] = []
+    if expected_row_mismatches or source_rows != source_plan.expected_row_count:
+        business_contract_reasons.append("source_expected_row_count_mismatch")
+    if duplicates:
+        business_contract_reasons.append("source_duplicate_key")
+    if identity_invalid:
+        business_contract_reasons.append("source_identity_invalid")
+    if numeric_invalid:
+        business_contract_reasons.append("source_numeric_invalid")
+    if missing_sessions or extra_sessions:
+        business_contract_reasons.append("source_session_grid_mismatch")
+    if sentinel_count:
+        business_contract_reasons.append("source_ohlc_policy_required")
+    if other_ohlc_invalid:
+        business_contract_reasons.append("source_ohlc_invalid")
+    transport_ready = not transport_stop_reasons
     return MajorIndexMinsSourceStagingAudit(
         generated_at=datetime.now(timezone.utc).isoformat(),
         staging_root=str(staging_root),
@@ -668,7 +679,8 @@ def audit_source_staging(
         invalid_window_count=invalid,
         expected_row_count=source_plan.expected_row_count,
         source_row_count=source_rows,
-        row_count_mismatch_count=row_mismatches,
+        expected_row_count_mismatch_count=expected_row_mismatches,
+        sidecar_row_count_mismatch_count=sidecar_row_mismatches,
         duplicate_key_count=duplicates,
         identity_invalid_count=identity_invalid,
         numeric_invalid_count=numeric_invalid,
@@ -680,8 +692,12 @@ def audit_source_staging(
         request_count=request_count,
         page_count=page_count,
         retry_count=retry_count,
-        ready=not stop_reasons,
-        stop_reason_codes=tuple(stop_reasons),
+        transport_ready=transport_ready,
+        business_contract_ready=(
+            transport_ready and not business_contract_reasons
+        ),
+        transport_stop_reason_codes=tuple(transport_stop_reasons),
+        business_contract_reason_codes=tuple(business_contract_reasons),
         elapsed_ms=(perf_counter() - started_at) * 1000,
         failure_samples=tuple(
             (

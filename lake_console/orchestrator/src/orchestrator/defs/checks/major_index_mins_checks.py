@@ -13,8 +13,10 @@ from orchestrator.defs.assets.major_index_mins_silver import (
 )
 from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.io.major_index_mins_quality import (
-    prepare_major_index_mins_expected_tables,
-    validate_major_index_mins_relation,
+    prepare_major_index_mins_raw_expected_tables,
+    prepare_major_index_mins_silver_expected_tables,
+    validate_major_index_mins_raw_relation,
+    validate_major_index_mins_silver_relation,
 )
 from orchestrator.defs.partitions import cn_major_index_mins_trade_days
 from orchestrator.defs.paths import (
@@ -25,9 +27,11 @@ from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.major_index_mins import (
     MAJOR_INDEX_MINS_RAW_CHECKS,
     MAJOR_INDEX_MINS_SILVER_CHECKS,
-    effective_codes_for_date,
+    effective_raw_request_codes_for_date,
+    effective_silver_codes_for_date,
     normalize_major_index_mins_silver_freq,
-    source_scope_hash_for_date,
+    raw_scope_hash_for_partition,
+    silver_scope_hash_for_date,
 )
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 
@@ -103,8 +107,16 @@ def evaluate_major_index_mins_core_check(
         )
     else:
         raise ValueError(f"unsupported major-index minute check layer: {layer!r}")
-    expected_codes = effective_codes_for_date(partition_key)
-    scope_hash = source_scope_hash_for_date(partition_key)
+    expected_codes = (
+        effective_raw_request_codes_for_date(partition_key)
+        if layer == "raw"
+        else effective_silver_codes_for_date(partition_key)
+    )
+    scope_hash = (
+        raw_scope_hash_for_partition(partition_key, normalized_frequency)
+        if layer == "raw"
+        else silver_scope_hash_for_date(partition_key)
+    )
     if not path.exists():
         return _result(
             passed=False,
@@ -119,19 +131,34 @@ def evaluate_major_index_mins_core_check(
         )
     try:
         with duckdb_resource.connect() as connection:
-            prepare_major_index_mins_expected_tables(
-                connection,
-                expected_codes=expected_codes,
-                frequency=normalized_frequency,
-            )
-            validation = validate_major_index_mins_relation(
-                connection,
-                relation_sql=read_parquet(path, hive_partitioning=False),
-                expected_codes=expected_codes,
-                frequency=normalized_frequency,
-                partition_key=partition_key,
-                require_null_vwap=normalized_frequency in {"90min", "120min"},
-            )
+            if layer == "raw":
+                prepare_major_index_mins_raw_expected_tables(
+                    connection,
+                    expected_codes=expected_codes,
+                    frequency=normalized_frequency,
+                    partition_key=partition_key,
+                )
+                validation = validate_major_index_mins_raw_relation(
+                    connection,
+                    relation_sql=read_parquet(path, hive_partitioning=False),
+                    expected_codes=expected_codes,
+                    frequency=normalized_frequency,
+                    partition_key=partition_key,
+                )
+            else:
+                prepare_major_index_mins_silver_expected_tables(
+                    connection,
+                    expected_codes=expected_codes,
+                    frequency=normalized_frequency,
+                )
+                validation = validate_major_index_mins_silver_relation(
+                    connection,
+                    relation_sql=read_parquet(path, hive_partitioning=False),
+                    expected_codes=expected_codes,
+                    frequency=normalized_frequency,
+                    partition_key=partition_key,
+                    require_null_vwap=normalized_frequency in {"90min", "120min"},
+                )
         failed_row_count = (
             validation.invalid_row_count
             + validation.duplicate_key_count

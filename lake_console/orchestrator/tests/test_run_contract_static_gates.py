@@ -219,9 +219,13 @@ def _is_allowed_sensor_run_key_value(path: Path, node: ast.AST) -> bool:
 
 
 class RunContractStaticGateTests(unittest.TestCase):
-    def test_dc_industry_hierarchy_is_manual_seed_snapshot_without_automatic_consumers(self) -> None:
+    def test_dc_industry_hierarchy_is_manual_seed_snapshot_without_automatic_consumers(
+        self,
+    ) -> None:
         asset_source = (DEFS_DIR / "assets" / "dc_industry_hierarchy.py").read_text()
-        check_source = (DEFS_DIR / "checks" / "dc_industry_hierarchy_checks.py").read_text()
+        check_source = (
+            DEFS_DIR / "checks" / "dc_industry_hierarchy_checks.py"
+        ).read_text()
         job_source = (JOBS_DIR / "dc_industry_hierarchy.py").read_text()
         self.assertNotIn("@dg.sensor", asset_source)
         self.assertNotIn("deps=[silver_dc_index]", asset_source)
@@ -2040,9 +2044,9 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         coverage_source = coverage_path.read_text()
         coverage_function = coverage_source[
-            coverage_source.index("def load_prod_stk_mins_code_coverage") : coverage_source.index(
-                "def _trade_day_window"
-            )
+            coverage_source.index(
+                "def load_prod_stk_mins_code_coverage"
+            ) : coverage_source.index("def _trade_day_window")
         ]
         required_coverage_fragments = (
             "EXISTS (",
@@ -2092,7 +2096,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             ),
         ):
             if required not in source:
-                issues.append(f"{path} misses required prod completion gate: {required}")
+                issues.append(
+                    f"{path} misses required prod completion gate: {required}"
+                )
         for fragment in (
             "stk_mins_raw_replace_from_prod",
             "full_market_stk_mins_task_run_from_row",
@@ -2101,9 +2107,13 @@ class RunContractStaticGateTests(unittest.TestCase):
             '"filters_json":',
         ):
             if fragment in sensor_source:
-                issues.append(f"{sensor_path} contains forbidden prod cursor/runtime data: {fragment}")
+                issues.append(
+                    f"{sensor_path} contains forbidden prod cursor/runtime data: {fragment}"
+                )
         if "STK_MINS_RAW_SENSOR_MINIMUM_INTERVAL_SECONDS" not in sensor_source:
-            issues.append(f"{sensor_path} must use the shared 900-second interval contract")
+            issues.append(
+                f"{sensor_path} must use the shared 900-second interval contract"
+            )
 
         self.assertEqual(issues, [])
 
@@ -4991,10 +5001,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             (ASSETS_DIR / "index_mins.py").read_text(),
             (ASSETS_DIR / "index_mins_silver.py").read_text(),
         )
-        active_asset_source = (
-            (ASSETS_DIR / "index_mins_raw.py").read_text()
-            + (ASSETS_DIR / "index_mins_silver_defs.py").read_text()
-        )
+        active_asset_source = (ASSETS_DIR / "index_mins_raw.py").read_text() + (
+            ASSETS_DIR / "index_mins_silver_defs.py"
+        ).read_text()
         check_source = (CHECKS_DIR / "index_mins_checks.py").read_text()
         job_source = (JOBS_DIR / "index_mins.py").read_text()
 
@@ -5055,7 +5064,8 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         for fragment in (
             "MAJOR_INDEX_MINS_DAILY_PROBE_WINDOW_LIMIT",
-            "validate_major_index_mins_relation",
+            "validate_major_index_mins_raw_relation",
+            "validate_major_index_mins_silver_relation",
             "batch_raw_major_index_mins_lake_readiness",
             "batch_silver_major_index_mins_lake_readiness",
         ):
@@ -5215,9 +5225,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             SENSORS_DIR / "index_mins_partition_sensor.py"
         ).read_text()
         sensor_source = (SENSORS_DIR / "index_mins_sensor.py").read_text()
-        combined = "\n".join(
-            (readiness_source, partition_sensor_source, sensor_source)
-        )
+        combined = "\n".join((readiness_source, partition_sensor_source, sensor_source))
 
         self.assertIn("INDEX_MINS_SENSOR_WINDOW_LIMIT", readiness_source)
         self.assertIn("cn_a_index_mins_trade_days", combined)
@@ -5226,7 +5234,9 @@ class RunContractStaticGateTests(unittest.TestCase):
         self.assertIn("select_first_not_ready_trade_date", sensor_source)
         self.assertIn("batch_raw_index_mins_lake_readiness", sensor_source)
         self.assertIn("batch_silver_index_mins_lake_readiness", sensor_source)
-        self.assertIn("default_status=dg.DefaultSensorStatus.STOPPED", partition_sensor_source)
+        self.assertIn(
+            "default_status=dg.DefaultSensorStatus.STOPPED", partition_sensor_source
+        )
         self.assertIn("default_status=dg.DefaultSensorStatus.STOPPED", sensor_source)
         self.assertNotIn("get_event_records", combined)
         self.assertNotIn("TushareResource", combined)

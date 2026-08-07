@@ -92,8 +92,9 @@ def main(argv: list[str] | None = None) -> int:
             )
             write_source_staging_audit(report, output)
             print(output)
-            print(f"ready={report.ready}")
-            return 0 if report.ready else 3
+            print(f"transport_ready={report.transport_ready}")
+            print(f"business_contract_ready={report.business_contract_ready}")
+            return 0 if report.transport_ready else 3
         raise AssertionError("unsupported command")
     except (
         MajorIndexMinsBootstrapPlanError,

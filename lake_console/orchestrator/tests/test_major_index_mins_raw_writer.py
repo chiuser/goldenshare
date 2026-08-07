@@ -19,7 +19,7 @@ from orchestrator.defs.paths import (
 from orchestrator.defs.resources import TushareResult
 from orchestrator.defs.run_contracts.major_index_mins import (
     MAJOR_INDEX_MINS_SOURCE_COLUMNS,
-    effective_codes_for_date,
+    effective_raw_request_codes_for_date,
     major_index_mins_exchange_for_code,
     major_index_mins_session_times,
 )
@@ -99,7 +99,7 @@ def _all_rows(*, high: float = 1.2) -> dict[str, list[dict[str, object]]]:
                 source_freq="60min",
             )
         ]
-        for code in effective_codes_for_date("2026-08-04")
+        for code in effective_raw_request_codes_for_date("2026-08-04")
     }
 
 
@@ -116,7 +116,7 @@ def _daily_1min_rows() -> dict[str, list[dict[str, object]]]:
                 source_freq="1min",
             )
         ]
-        for code in effective_codes_for_date("2026-08-04")
+        for code in effective_raw_request_codes_for_date("2026-08-04")
     }
 
 

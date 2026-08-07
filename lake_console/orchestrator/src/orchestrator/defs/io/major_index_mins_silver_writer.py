@@ -1,15 +1,22 @@
 """DuckDB Silver writer for major-index minute bars."""
 
 import os
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
 
-from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
+from orchestrator.defs.duckdb_sql import (
+    copy_query_to_parquet,
+    duckdb_string,
+    read_parquet,
+)
 from orchestrator.defs.io.major_index_mins_quality import (
     MajorIndexMinsRelationValidation,
-    prepare_major_index_mins_expected_tables,
-    validate_major_index_mins_relation,
+    prepare_major_index_mins_raw_expected_tables,
+    prepare_major_index_mins_silver_expected_tables,
+    validate_major_index_mins_raw_relation,
+    validate_major_index_mins_silver_relation,
 )
 from orchestrator.defs.paths import (
     raw_major_index_mins_path,
@@ -21,10 +28,13 @@ from orchestrator.defs.run_contracts.major_index_mins import (
     MAJOR_INDEX_MINS_RAW_COLUMN_TYPES,
     MAJOR_INDEX_MINS_SOURCE_COLUMNS,
     MAJOR_INDEX_MINS_SOURCE_FREQS,
-    effective_codes_for_date,
+    effective_raw_request_codes_for_date,
+    effective_silver_codes_for_date,
     major_index_mins_derived_windows,
+    major_index_mins_historical_fallback_rule,
     normalize_major_index_mins_silver_freq,
     normalize_major_index_mins_trade_date,
+    silver_scope_hash_for_date,
     source_freq_for_major_index_mins_derived_freq,
 )
 
@@ -50,6 +60,7 @@ class MajorIndexMinsSilverWriteResult:
     generated_window_count: int
     incomplete_window_count: int
     elapsed_ms: float
+    scope_hash: str
 
     def to_details(self) -> dict[str, object]:
         return {
@@ -67,6 +78,7 @@ class MajorIndexMinsSilverWriteResult:
             "generated_window_count": self.generated_window_count,
             "incomplete_window_count": self.incomplete_window_count,
             "elapsed_ms": round(self.elapsed_ms, 3),
+            "scope_hash": self.scope_hash,
         }
 
 
@@ -101,6 +113,81 @@ def _assert_physical_schema(connection, *, relation_sql: str, label: str) -> Non
 def _normalized_source_sql(relation_sql: str) -> str:
     select_sql = _relation_select(relation_sql)
     return f"""
+    WITH normalized AS (
+      SELECT
+        upper(trim(CAST(ts_code AS VARCHAR)))::VARCHAR AS ts_code,
+        trim(CAST(freq AS VARCHAR))::VARCHAR AS freq,
+        CAST(trade_time AS TIMESTAMP) AS trade_time,
+        CAST(open AS DOUBLE) AS open,
+        CAST(close AS DOUBLE) AS close,
+        CAST(high AS DOUBLE) AS high,
+        CAST(low AS DOUBLE) AS low,
+        CAST(vol AS DOUBLE) AS vol,
+        CAST(amount AS DOUBLE) AS amount,
+        CAST(vwap AS DOUBLE) AS vwap
+      FROM ({select_sql}) source_rows
+    )
+    SELECT
+      normalized.ts_code,
+      normalized.freq,
+      normalized.trade_time,
+      normalized.open,
+      normalized.close,
+      CASE
+        WHEN cleanup.cleanup_kind = 'opening_sentinel'
+         AND normalized.high = 0
+         AND normalized.low = 0
+         AND normalized.open > 0
+         AND normalized.close > 0
+          THEN greatest(normalized.open, normalized.close)
+        WHEN cleanup.cleanup_kind = 'ohlc_envelope'
+         AND (normalized.high < greatest(
+                normalized.open, normalized.close, normalized.low
+              )
+              OR normalized.low > least(
+                normalized.open, normalized.close, normalized.high
+              ))
+          THEN greatest(normalized.high, normalized.open, normalized.close)
+        ELSE normalized.high
+      END::DOUBLE AS high,
+      CASE
+        WHEN cleanup.cleanup_kind = 'opening_sentinel'
+         AND normalized.high = 0
+         AND normalized.low = 0
+         AND normalized.open > 0
+         AND normalized.close > 0
+          THEN least(normalized.open, normalized.close)
+        WHEN cleanup.cleanup_kind = 'ohlc_envelope'
+         AND (normalized.high < greatest(
+                normalized.open, normalized.close, normalized.low
+              )
+              OR normalized.low > least(
+                normalized.open, normalized.close, normalized.high
+              ))
+          THEN least(normalized.low, normalized.open, normalized.close)
+        ELSE normalized.low
+      END::DOUBLE AS low,
+      normalized.vol,
+      normalized.amount,
+      CASE
+        WHEN right(normalized.ts_code, 3) = '.SH' THEN 'XSHG'
+        WHEN right(normalized.ts_code, 3) = '.SZ' THEN 'XSHE'
+        ELSE NULL
+      END::VARCHAR AS exchange,
+      normalized.vwap
+    FROM normalized
+    LEFT JOIN major_index_mins_cleanup_scope cleanup
+      ON cleanup.ts_code = normalized.ts_code
+     AND cleanup.frequency = normalized.freq
+     AND cleanup.trade_date = CAST(normalized.trade_time AS DATE)
+     AND cleanup.source_time = CAST(normalized.trade_time AS TIME)
+    WHERE normalized.ts_code <> '899050.BJ'
+    """
+
+
+def _normalized_raw_validation_sql(relation_sql: str) -> str:
+    select_sql = _relation_select(relation_sql)
+    return f"""
     SELECT
       upper(trim(CAST(ts_code AS VARCHAR)))::VARCHAR AS ts_code,
       trim(CAST(freq AS VARCHAR))::VARCHAR AS freq,
@@ -111,7 +198,7 @@ def _normalized_source_sql(relation_sql: str) -> str:
       CAST(low AS DOUBLE) AS low,
       CAST(vol AS DOUBLE) AS vol,
       CAST(amount AS DOUBLE) AS amount,
-      upper(trim(CAST(exchange AS VARCHAR)))::VARCHAR AS exchange,
+      CAST(exchange AS VARCHAR) AS exchange,
       CAST(vwap AS DOUBLE) AS vwap
     FROM ({select_sql}) source_rows
     """
@@ -127,6 +214,7 @@ def _ordered_output_sql(relation_sql: str) -> str:
 
 
 def _prepare_derived_window_map(connection, *, silver_freq: str) -> None:
+    connection.execute("DROP TABLE IF EXISTS derived_window_map")
     connection.execute(
         "CREATE TEMP TABLE derived_window_map("
         "exchange VARCHAR NOT NULL, source_time TIME NOT NULL, "
@@ -250,20 +338,24 @@ def _elapsed_ms(started_at: float) -> float:
     return (perf_counter() - started_at) * 1000
 
 
-def write_major_index_mins_silver_partition(
+def _write_major_index_mins_silver_partition(
     *,
     lake_root_path: Path,
     duckdb_resource: DuckDBResource,
     freq: int | str,
     partition_key: str,
     run_id: str,
+    historical_fallback_path: Path | None,
+    historical_fallback_codes: Sequence[str],
 ) -> MajorIndexMinsSilverWriteResult:
     """Write one native or derived Silver partition through staging."""
 
     started_at = perf_counter()
     silver_freq = normalize_major_index_mins_silver_freq(freq)
     normalized_partition = normalize_major_index_mins_trade_date(partition_key)
-    expected_codes = effective_codes_for_date(normalized_partition)
+    raw_expected_codes = effective_raw_request_codes_for_date(normalized_partition)
+    expected_codes = effective_silver_codes_for_date(normalized_partition)
+    scope_hash = silver_scope_hash_for_date(normalized_partition)
     if not expected_codes:
         raise MajorIndexMinsSilverValidationError(
             f"source scope is empty for {normalized_partition}."
@@ -275,6 +367,31 @@ def write_major_index_mins_silver_partition(
         else silver_freq
     )
     source_mode = "derived" if derived else "native"
+    normalized_fallback_codes = tuple(
+        sorted({str(code).strip().upper() for code in historical_fallback_codes})
+    )
+    if historical_fallback_path is not None:
+        published_rule = major_index_mins_historical_fallback_rule(
+            trade_date=normalized_partition,
+            target_freq=silver_freq,
+        )
+        if derived or published_rule is None:
+            raise MajorIndexMinsSilverValidationError(
+                "historical fallback is only allowed for a published native scope."
+            )
+        if normalized_fallback_codes != tuple(sorted(published_rule.target_codes)):
+            raise MajorIndexMinsSilverValidationError(
+                "historical fallback codes do not match the published scope."
+            )
+        if not historical_fallback_path.is_file():
+            raise MajorIndexMinsSilverValidationError(
+                f"historical fallback file is missing: {historical_fallback_path}"
+            )
+        source_mode = "native_with_historical_fallback"
+    elif normalized_fallback_codes:
+        raise MajorIndexMinsSilverValidationError(
+            "historical fallback codes require an explicit fallback file."
+        )
     source_path = (
         silver_major_index_mins_path(
             lake_root_path,
@@ -314,20 +431,71 @@ def write_major_index_mins_silver_partition(
                 relation_sql=source_relation,
                 label="major-index minute Silver source",
             )
-            source_sql = _normalized_source_sql(source_relation)
-            prepare_major_index_mins_expected_tables(
-                connection,
-                expected_codes=expected_codes,
-                frequency=source_freq,
-            )
-            source_validation = validate_major_index_mins_relation(
-                connection,
-                relation_sql=source_sql,
-                expected_codes=expected_codes,
-                frequency=source_freq,
-                partition_key=normalized_partition,
-            )
+            if derived:
+                prepare_major_index_mins_silver_expected_tables(
+                    connection,
+                    expected_codes=expected_codes,
+                    frequency=source_freq,
+                )
+                source_validation = validate_major_index_mins_silver_relation(
+                    connection,
+                    relation_sql=source_relation,
+                    expected_codes=expected_codes,
+                    frequency=source_freq,
+                    partition_key=normalized_partition,
+                )
+            else:
+                prepare_major_index_mins_raw_expected_tables(
+                    connection,
+                    expected_codes=raw_expected_codes,
+                    frequency=source_freq,
+                    partition_key=normalized_partition,
+                )
+                source_validation = validate_major_index_mins_raw_relation(
+                    connection,
+                    relation_sql=_normalized_raw_validation_sql(source_relation),
+                    expected_codes=raw_expected_codes,
+                    frequency=source_freq,
+                    partition_key=normalized_partition,
+                )
             _require_clean(source_validation, label="Silver source")
+            source_sql = _normalized_source_sql(source_relation)
+            if historical_fallback_path is not None:
+                fallback_relation = read_parquet(
+                    historical_fallback_path,
+                    hive_partitioning=False,
+                )
+                _assert_physical_schema(
+                    connection,
+                    relation_sql=fallback_relation,
+                    label="major-index minute historical fallback",
+                )
+                prepare_major_index_mins_silver_expected_tables(
+                    connection,
+                    expected_codes=normalized_fallback_codes,
+                    frequency=silver_freq,
+                )
+                fallback_validation = validate_major_index_mins_silver_relation(
+                    connection,
+                    relation_sql=fallback_relation,
+                    expected_codes=normalized_fallback_codes,
+                    frequency=silver_freq,
+                    partition_key=normalized_partition,
+                    require_null_vwap=True,
+                )
+                _require_clean(
+                    fallback_validation,
+                    label="historical fallback",
+                )
+                fallback_code_sql = ", ".join(
+                    duckdb_string(code) for code in normalized_fallback_codes
+                )
+                source_sql = f"""
+                SELECT * FROM ({source_sql}) native_rows
+                WHERE ts_code NOT IN ({fallback_code_sql})
+                UNION ALL
+                SELECT * FROM {fallback_relation}
+                """
 
             expected_window_count = 0
             generated_window_count = 0
@@ -353,12 +521,12 @@ def write_major_index_mins_silver_partition(
                     )
                 output_sql = _ordered_output_sql(derived_sql)
 
-            prepare_major_index_mins_expected_tables(
+            prepare_major_index_mins_silver_expected_tables(
                 connection,
                 expected_codes=expected_codes,
                 frequency=silver_freq,
             )
-            output_validation = validate_major_index_mins_relation(
+            output_validation = validate_major_index_mins_silver_relation(
                 connection,
                 relation_sql=output_sql,
                 expected_codes=expected_codes,
@@ -375,7 +543,7 @@ def write_major_index_mins_silver_partition(
                     relation_sql=target_relation,
                     label="existing major-index minute Silver target",
                 )
-                target_validation = validate_major_index_mins_relation(
+                target_validation = validate_major_index_mins_silver_relation(
                     connection,
                     relation_sql=target_relation,
                     expected_codes=expected_codes,
@@ -400,6 +568,7 @@ def write_major_index_mins_silver_partition(
                     generated_window_count=generated_window_count,
                     incomplete_window_count=incomplete_window_count,
                     elapsed_ms=_elapsed_ms(started_at),
+                    scope_hash=scope_hash,
                 )
 
             target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -411,7 +580,7 @@ def write_major_index_mins_silver_partition(
                 relation_sql=staging_relation,
                 label="major-index minute Silver staging",
             )
-            staging_validation = validate_major_index_mins_relation(
+            staging_validation = validate_major_index_mins_silver_relation(
                 connection,
                 relation_sql=staging_relation,
                 expected_codes=expected_codes,
@@ -452,4 +621,49 @@ def write_major_index_mins_silver_partition(
         generated_window_count=generated_window_count,
         incomplete_window_count=incomplete_window_count,
         elapsed_ms=_elapsed_ms(started_at),
+        scope_hash=scope_hash,
+    )
+
+
+def write_major_index_mins_silver_partition(
+    *,
+    lake_root_path: Path,
+    duckdb_resource: DuckDBResource,
+    freq: int | str,
+    partition_key: str,
+    run_id: str,
+) -> MajorIndexMinsSilverWriteResult:
+    """Write one ordinary native or derived Silver partition through staging."""
+
+    return _write_major_index_mins_silver_partition(
+        lake_root_path=lake_root_path,
+        duckdb_resource=duckdb_resource,
+        freq=freq,
+        partition_key=partition_key,
+        run_id=run_id,
+        historical_fallback_path=None,
+        historical_fallback_codes=(),
+    )
+
+
+def write_major_index_mins_silver_partition_with_historical_fallback(
+    *,
+    lake_root_path: Path,
+    duckdb_resource: DuckDBResource,
+    freq: int | str,
+    partition_key: str,
+    run_id: str,
+    historical_fallback_path: Path,
+    historical_fallback_codes: Sequence[str],
+) -> MajorIndexMinsSilverWriteResult:
+    """Write one published Bootstrap-only native fallback partition."""
+
+    return _write_major_index_mins_silver_partition(
+        lake_root_path=lake_root_path,
+        duckdb_resource=duckdb_resource,
+        freq=freq,
+        partition_key=partition_key,
+        run_id=run_id,
+        historical_fallback_path=historical_fallback_path,
+        historical_fallback_codes=historical_fallback_codes,
     )

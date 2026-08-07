@@ -52,6 +52,8 @@ def _parser() -> argparse.ArgumentParser:
     promote.add_argument(
         "--formal-lake-root", type=Path, default=Path(DEFAULT_LAKE_ROOT)
     )
+    promote.add_argument("--validated-build-report", type=Path)
+    promote.add_argument("--validated-temp-audit-report", type=Path)
     promote.add_argument("--confirm-lake-write", action="store_true")
     return parser
 
@@ -116,6 +118,10 @@ def main(argv: list[str] | None = None) -> int:
                 source_plan=source_plan,
                 duckdb_resource=duckdb_resource,
                 output_path=output,
+                validated_build_report_path=args.validated_build_report,
+                validated_target_audit_report_path=(
+                    args.validated_temp_audit_report
+                ),
             )
             print(output)
             print(f"should_stop={report.should_stop}")

@@ -11,8 +11,10 @@ from orchestrator.defs.asset_guards.bounded_continuity import (
 )
 from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.io.major_index_mins_quality import (
-    prepare_major_index_mins_expected_tables,
-    validate_major_index_mins_relation,
+    prepare_major_index_mins_raw_expected_tables,
+    prepare_major_index_mins_silver_expected_tables,
+    validate_major_index_mins_raw_relation,
+    validate_major_index_mins_silver_relation,
 )
 from orchestrator.defs.paths import (
     raw_major_index_mins_path,
@@ -24,7 +26,9 @@ from orchestrator.defs.run_contracts.major_index_mins import (
     MAJOR_INDEX_MINS_SILVER_CHECKS,
     MAJOR_INDEX_MINS_SILVER_FREQS,
     MAJOR_INDEX_MINS_SOURCE_FREQS,
-    effective_codes_for_date,
+    effective_raw_request_codes_for_date,
+    effective_silver_codes_for_date,
+    major_index_mins_historical_fallback_rule,
 )
 
 
@@ -159,31 +163,63 @@ def _batch_readiness(
     for frequency_index, (frequency, check_name) in enumerate(
         zip(frequencies, check_names, strict=True)
     ):
-        grouped_dates: dict[tuple[str, ...], list[str]] = {}
+        grouped_dates: dict[tuple[tuple[str, ...], tuple[str, ...]], list[str]] = {}
         for trade_date, state in states.items():
             if state.paths[frequency_index].exists() and state.scan_error is None:
+                expected_codes = (
+                    effective_raw_request_codes_for_date(trade_date)
+                    if layer == "raw"
+                    else effective_silver_codes_for_date(trade_date)
+                )
+                fallback = (
+                    major_index_mins_historical_fallback_rule(
+                        trade_date=trade_date,
+                        target_freq=frequency,
+                    )
+                    if layer == "raw"
+                    else None
+                )
                 grouped_dates.setdefault(
-                    effective_codes_for_date(trade_date), []
+                    (expected_codes, fallback.target_codes if fallback else ()), []
                 ).append(trade_date)
-        for expected_codes, trade_dates in grouped_dates.items():
-            prepare_major_index_mins_expected_tables(
-                connection,
-                expected_codes=expected_codes,
-                frequency=frequency,
-            )
+        for (expected_codes, _relaxed_codes), trade_dates in grouped_dates.items():
+            if layer == "raw":
+                prepare_major_index_mins_raw_expected_tables(
+                    connection,
+                    expected_codes=expected_codes,
+                    frequency=frequency,
+                    partition_key=trade_dates[0],
+                )
+            else:
+                prepare_major_index_mins_silver_expected_tables(
+                    connection,
+                    expected_codes=expected_codes,
+                    frequency=frequency,
+                )
             for trade_date in trade_dates:
                 state = states[trade_date]
                 try:
-                    validation = validate_major_index_mins_relation(
-                        connection,
-                        relation_sql=read_parquet(
-                            state.paths[frequency_index],
-                            hive_partitioning=False,
-                        ),
-                        expected_codes=expected_codes,
-                        frequency=frequency,
-                        partition_key=trade_date,
-                        require_null_vwap=frequency in {"90min", "120min"},
+                    relation_sql = read_parquet(
+                        state.paths[frequency_index],
+                        hive_partitioning=False,
+                    )
+                    validation = (
+                        validate_major_index_mins_raw_relation(
+                            connection,
+                            relation_sql=relation_sql,
+                            expected_codes=expected_codes,
+                            frequency=frequency,
+                            partition_key=trade_date,
+                        )
+                        if layer == "raw"
+                        else validate_major_index_mins_silver_relation(
+                            connection,
+                            relation_sql=relation_sql,
+                            expected_codes=expected_codes,
+                            frequency=frequency,
+                            partition_key=trade_date,
+                            require_null_vwap=frequency in {"90min", "120min"},
+                        )
                     )
                     state.checked_row_count += validation.row_count
                     if validation.errors:

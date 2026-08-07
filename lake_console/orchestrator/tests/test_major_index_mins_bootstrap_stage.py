@@ -3,6 +3,8 @@ from __future__ import annotations
 from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import duckdb
 import pytest
@@ -12,6 +14,7 @@ from orchestrator.defs.bootstrap.major_index_mins_bootstrap_apply import (
     audit_temporary_lake,
     build_temporary_lake_from_staging,
     promote_temporary_lake,
+    write_target_audit,
 )
 from orchestrator.defs.bootstrap.major_index_mins_bootstrap_plan import (
     MajorIndexMinsSourcePlan,
@@ -26,6 +29,9 @@ from orchestrator.defs.bootstrap.major_index_mins_bootstrap_stage import (
 )
 from orchestrator.defs.bootstrap.major_index_mins_bootstrap_stage_cli import (
     main as stage_main,
+)
+from orchestrator.defs.bootstrap.major_index_mins_bootstrap_apply_cli import (
+    main as apply_main,
 )
 from orchestrator.defs.paths import (
     raw_major_index_mins_path,
@@ -181,11 +187,12 @@ def test_source_staging_is_atomic_resumable_and_request_free_to_audit(
         source_plan=source_plan,
         duckdb_resource=_MemoryDuckDB(),
     )
-    assert audit.ready is True
+    assert audit.transport_ready is True
+    assert audit.business_contract_ready is True
     assert audit.source_row_count == source_plan.expected_row_count
 
 
-def test_opening_sentinel_is_retained_and_blocks_temporary_lake(
+def test_opening_sentinel_is_transport_ready_but_unknown_scope_blocks_build(
     tmp_path: Path,
 ) -> None:
     calendar_root = tmp_path / "calendar"
@@ -215,18 +222,22 @@ def test_opening_sentinel_is_retained_and_blocks_temporary_lake(
         source_plan=source_plan,
         duckdb_resource=_MemoryDuckDB(),
     )
-    assert audit.ready is False
+    assert audit.transport_ready is True
+    assert audit.business_contract_ready is False
     assert audit.opening_ohlc_sentinel_count == 1
-    assert "source_ohlc_policy_required" in audit.stop_reason_codes
+    assert (
+        "source_ohlc_policy_required"
+        in audit.business_contract_reason_codes
+    )
     assert source_window_parquet_path(staging_root, date_plan, window).is_file()
-    with pytest.raises(MajorIndexMinsBootstrapApplyError):
-        build_temporary_lake_from_staging(
-            staging_root=staging_root,
-            date_plan=date_plan,
-            source_plan=source_plan,
-            duckdb_resource=_MemoryDuckDB(),
-            output_path=tmp_path / "build.json",
-        )
+    build = build_temporary_lake_from_staging(
+        staging_root=staging_root,
+        date_plan=date_plan,
+        source_plan=source_plan,
+        duckdb_resource=_MemoryDuckDB(),
+        output_path=tmp_path / "build.json",
+    )
+    assert build.should_stop is True
 
 
 def test_source_staging_audit_counts_null_exchange_as_invalid_identity(
@@ -261,9 +272,10 @@ def test_source_staging_audit_counts_null_exchange_as_invalid_identity(
         duckdb_resource=_MemoryDuckDB(),
     )
 
-    assert audit.ready is False
+    assert audit.transport_ready is True
+    assert audit.business_contract_ready is False
     assert audit.identity_invalid_count == window.expected_row_count
-    assert "source_identity_invalid" in audit.stop_reason_codes
+    assert "source_identity_invalid" in audit.business_contract_reason_codes
 
 
 def test_full_clean_fixture_builds_audits_and_promotes_without_new_requests(
@@ -297,6 +309,23 @@ def test_full_clean_fixture_builds_audits_and_promotes_without_new_requests(
     assert build.raw_written_count == 5
     assert build.silver_written_count == 7
     assert len(tushare.calls) == call_count
+
+    resumed = build_temporary_lake_from_staging(
+        staging_root=staging_root,
+        date_plan=date_plan,
+        source_plan=source_plan,
+        duckdb_resource=_MemoryDuckDB(),
+        output_path=tmp_path / "build.json",
+    )
+    assert resumed.should_stop is False
+    assert resumed.checkpoint_resumed_raw_count == 5
+    assert resumed.checkpoint_resumed_silver_count == 7
+    assert resumed.raw_written_count == 0
+    assert resumed.raw_reused_count == 5
+    assert resumed.silver_written_count == 0
+    assert resumed.silver_reused_count == 7
+    assert len(tushare.calls) == call_count
+
     audits = audit_temporary_lake(
         staging_root=staging_root,
         date_plan=date_plan,
@@ -304,6 +333,8 @@ def test_full_clean_fixture_builds_audits_and_promotes_without_new_requests(
     )
     assert all(audit.missing_count == 0 for audit in audits)
     assert all(audit.invalid_existing_count == 0 for audit in audits)
+    audit_report_path = tmp_path / "audit.json"
+    write_target_audit(audits, audit_report_path)
 
     promote = promote_temporary_lake(
         staging_root=staging_root,
@@ -312,14 +343,93 @@ def test_full_clean_fixture_builds_audits_and_promotes_without_new_requests(
         source_plan=source_plan,
         duckdb_resource=_MemoryDuckDB(),
         output_path=tmp_path / "promote.json",
+        validated_build_report_path=tmp_path / "build.json",
+        validated_target_audit_report_path=audit_report_path,
     )
     assert promote.should_stop is False
+    assert promote.source_audit_mode == "validated_build_report_reuse"
+    assert promote.temporary_audit_mode == "validated_report_reuse"
     assert promote.raw_promoted_count == 5
     assert promote.silver_promoted_count == 7
+    assert promote.post_raw_valid_count == 5
+    assert promote.post_silver_valid_count == 7
     assert raw_major_index_mins_path(formal_root, "1min", dates[0]).is_file()
     assert silver_major_index_mins_path(formal_root, "120min", dates[0]).is_file()
     assert len(tushare.calls) == call_count
 
+    with pytest.raises(
+        MajorIndexMinsBootstrapApplyError,
+        match="must be provided together",
+    ):
+        promote_temporary_lake(
+            staging_root=staging_root,
+            formal_lake_root=tmp_path / "incomplete-report-pair",
+            date_plan=date_plan,
+            source_plan=source_plan,
+            duckdb_resource=_MemoryDuckDB(),
+            output_path=tmp_path / "incomplete-promote.json",
+            validated_build_report_path=tmp_path / "build.json",
+        )
+
+    source_window_sidecar_path(
+        staging_root,
+        date_plan,
+        source_plan.windows[0],
+    ).touch()
+    with pytest.raises(
+        MajorIndexMinsBootstrapApplyError,
+        match="source staging changed after temporary build",
+    ):
+        promote_temporary_lake(
+            staging_root=staging_root,
+            formal_lake_root=tmp_path / "changed-source",
+            date_plan=date_plan,
+            source_plan=source_plan,
+            duckdb_resource=_MemoryDuckDB(),
+            output_path=tmp_path / "changed-source-promote.json",
+            validated_build_report_path=tmp_path / "build.json",
+            validated_target_audit_report_path=audit_report_path,
+        )
+
 
 def test_stage_cli_requires_confirmation_before_loading_plans() -> None:
     assert stage_main(["stage-source", "--staging-root", "/tmp/unused"]) == 2
+
+
+def test_promote_cli_forwards_validated_reports_to_promote_only(tmp_path: Path) -> None:
+    build_report = tmp_path / "build.json"
+    audit_report = tmp_path / "audit.json"
+    output = tmp_path / "promote.json"
+    with (
+        patch(
+            "orchestrator.defs.bootstrap.major_index_mins_bootstrap_apply_cli._plans",
+            return_value=(object(), object(), object()),
+        ),
+        patch(
+            "orchestrator.defs.bootstrap.major_index_mins_bootstrap_apply_cli.promote_temporary_lake",
+            return_value=SimpleNamespace(should_stop=False),
+        ) as promote,
+    ):
+        exit_code = apply_main(
+            [
+                "promote",
+                "--staging-root",
+                str(tmp_path / "staging"),
+                "--formal-lake-root",
+                str(tmp_path / "formal"),
+                "--validated-build-report",
+                str(build_report),
+                "--validated-temp-audit-report",
+                str(audit_report),
+                "--confirm-lake-write",
+                "--output",
+                str(output),
+            ]
+        )
+
+    assert exit_code == 0
+    assert promote.call_args.kwargs["validated_build_report_path"] == build_report
+    assert (
+        promote.call_args.kwargs["validated_target_audit_report_path"]
+        == audit_report
+    )

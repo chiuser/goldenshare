@@ -221,7 +221,7 @@ Silver sensor 只读取 Raw/Silver lake readiness，不调用 Tushare、Prod DB 
 7. P6：Bootstrap dry-run、请求量/磁盘/耗时验证；
 8. P7A：一次性 source staging 与只读源事实审计；
 9. P7B：非北证 bounded Silver fallback 合同、实现、样本和性能验证；
-10. P7C：北证 availability、错误时间网格和源异常值合同；
+10. P7C：Raw-only BSE、Raw/Silver scope 拆分和非北证精确清洗合同；
 11. P7D：完整临时 Raw/Silver build 与全量文件对账；
 12. P7E：单独批准后 promote 正式 lake；
 13. P8：补 materialization、最近 20 日 check event；
@@ -395,7 +395,7 @@ Bootstrap 必须六阶段，请求只发生一次：
 | P6 | 无请求 Bootstrap plan dry-run + staging 工具开发 | 精确预算、目标冲突、staging/audit 本地测试通过；Tushare 请求为 0 |
 | P7A | 一次性 source staging 与只读源事实审计 | 请求窗口不重复，保留完整源事实 |
 | P7B | 非北证 bounded Silver fallback | 130 个 scope 全部可重建，0 次源请求，无范围扩大 |
-| P7C | 北证和源异常合同 | 所有剩余异常有明确 Raw/Silver 口径和反例测试 |
+| P7C | Raw-only BSE 和非北证精确清洗 | Raw/Silver scope 分离，北证不进入 Silver，已知异常精确修正，未知异常 fail closed |
 | P7D | 完整临时 Raw/Silver lake 与全量对账 | 无未解释行数/缺失/冲突 |
 | P7E | 正式 promote 与 post audit | 需单独批准，正式目标逐文件对账 |
 | P8 | materialization 全量、check 最近 20 日 | partition attribution 正确 |
@@ -436,9 +436,10 @@ P6 首版全量请求式 dry-run 执行至第 160 个源窗口并 fail-closed。
 | P6 | 完成 | 无请求 plan dry-run、可恢复 source staging、只读 staging audit、临时 Raw/Silver build/audit、hash + 目标目录原子 promote 已实现；fake-source 完整链路证明续跑不重复请求 |
 | P7A | 完成 | 2,662/2,662 窗口已落 staging，2,662 次请求、0 重试、10,016,287 行；未写正式 lake/event |
 | P7B | 完成 | retained staging 真实重建 15 个文件、1,482 行，独立 post-audit 违规为 0；耗时约 2.764 秒，整批 1 个 DuckDB connection、0 次源请求、0 次 event history 查询 |
-| P7C | 合同已冻结，待实现 | BSE Raw-only、Silver 永久排除；非北证 30 行 sentinel、105 行 envelope 和 exchange 派生规则已明确 |
-| P7D/P7E | 未开始 | P7C 代码和真实临时样本通过前禁止完整临时湖构建和正式 promote |
-| P8 | 未开始 | 仅在 P7 临时 Raw/Silver 全量对账和正式 promote 通过后补事件 |
+| P7C | 完成 | Raw/Silver scope、hash、validator 已拆分；BSE Raw-only；30 行 sentinel、105 行 envelope 和 exchange 派生已通过 retained-staging 真实临时样本 |
+| P7D | 完成 | retained staging 已生成 Raw 21,355、Silver 29,897 个临时文件并完成逐文件全量对账；缺失/无效均为 0，正式 lake/DB/event 写入为 0 |
+| P7E | 完成 | 51,252 个临时目标已逐文件原子 promote；正式 Raw/Silver 全量 post audit 缺失/无效均为 0，Dagster 写入为 0 |
+| P8 | 完成 | 注册 4,271 个专属动态分区；12 个资产全量补 51,252 条 materialization，并只对最近 20 日补 240 条 partitioned core check event；最终候选为 0 |
 
 P0 CodeGraph 影响面：现有 `index_mins` 的 Raw/Silver writer、bounded readiness、三个 sensor、Bootstrap/event 模式；共享注册点为 `partitions.py`、`paths.py`、`asset_column_schemas.py`、`lake_assets.py`、`name_mapping.py` 和治理/definitions/static-gate 测试。没有前端/API/生产 `DatasetDefinition` 消费者。
 
@@ -452,8 +453,9 @@ P0 CodeGraph 影响面：现有 `index_mins` 的 Raw/Silver writer、bounded rea
 
 当前门禁已拆分：非北证 source-empty/frequency fallback 已完成 P7B 代码、真实临时重建
 和独立 post-audit；P7C 已拍板 BSE Raw-only、Silver 永久排除，不再开发 BSE fallback
-或业务 check。非北证 OHLC 白名单清洗和 exchange 派生按 LLD 第 29 节实现。实现和真实
-临时样本通过前，不执行完整临时湖 build，不 promote，不补事件，也不重复请求 Tushare。
+或业务 check。非北证 OHLC 白名单清洗和 exchange 派生按 LLD 第 29 节实现。P7D 已复用
+同一 retained staging 完成完整临时湖 build 和全量对账；仍不 promote、不补事件，也不
+重复请求 Tushare。
 
 ## 21. P7B-P7E 修正后的推进计划
 
@@ -500,18 +502,108 @@ P7C 合同已经冻结：
 5. Silver `exchange` 统一按 `ts_code` 后缀派生，Raw 保留 NULL/`nan` 源事实；
 6. Check 仍为 Raw 5 + Silver 7，每 asset 一条合并 check，不按代码或规则拆分。
 
-具体函数、SQL、白名单、测试和性能门禁以 LLD 第 29 节为准。P7C 当前状态是“合同已
-拍板、代码待实现”，不是完整临时湖已经放行。
+具体函数、SQL、白名单、测试和性能门禁以 LLD 第 29 节为准。P7C 已完成代码迁移和
+retained-staging 真实临时样本验收；P7D/P7E 正式文件发布和 P8 事件补录也已按阶段
+完成，三者的报告和写入边界彼此独立。
 
 ### 21.4 P7D-P9 顺序
 
-1. P7D 从同一 retained staging 构建完整临时 Raw/Silver，先原生频率和 fallback，
-   再生成 90/120min；执行全量文件、行数、scope、session、主键和 provenance 对账；
-2. P7E 经单独批准才 promote 正式 lake，并执行正式 lake post audit；
-3. P8 全量补成功分区 materialization，只补最近 20 个专属分区的 core check event；
+1. [已完成] P7D 从同一 retained staging 构建完整临时 Raw/Silver，先原生频率和
+   fallback，再生成 90/120min；执行全量文件、行数、scope、session、主键和
+   provenance 对账；
+2. [已完成] P7E 经单独批准 promote 正式 lake，并执行正式 lake post audit；
+3. [已完成] P8 全量补成功分区 materialization，只补最近 20 个专属分区的 core check event；
 4. P9 最后手动启用三个 sensor，连续观察至少 3 个交易日。
 
 P7B 已完成。真实执行报告为
 `/private/tmp/major_index_mins_p7b_fallback_report_20260806.json`：15 条规则全部通过，
 读取 5,072 行源数据并生成 1,482 行目标数据，耗时约 2.764 秒；独立 post-audit 违规为
-0。当前下一步是实现并验证 P7C 合同；仍不授权完整临时湖或正式 lake 写入。
+0。P7C 已完成。P7D 真实执行报告为：
+
+```text
+/private/tmp/major_index_mins_p7d_temporary_lake_build_20260806.json
+/private/tmp/major_index_mins_p7d_temporary_lake_build_20260806_fallback.json
+/private/tmp/major_index_mins_p7d_temporary_lake_audit_20260806.json
+```
+
+临时根固定为
+`/Volumes/datasource/data_lake_staging/major_index_mins_p7_20260805`。Raw 共 21,355 个
+文件、10,016,287 行、472,820,318 bytes；Silver 共 29,897 个文件、9,917,572 行、
+486,056,568 bytes。全量逐文件审计缺失/无效均为 0，Silver 只含 10 个非北证代码，
+`899050.BJ` 为 0 行；15 条 fallback 规则生成 1,482 行。完整 build 约 8,288,856ms，
+全量 target audit 约 6,360,495ms。Tushare 请求、正式 lake、Dagster DB/event 写入均为
+0，staging 临时残留为 0。
+
+source staging 的 `transport_ready=true`，历史源业务异常仍按原事实报告为
+`business_contract_ready=false`；P7C 的精确清洗、Raw-only BSE 和 P7B fallback 已在
+最终 Raw/Silver validator 中逐文件验收，不允许把 transport 完整误写成原始业务数据
+天然无异常。P7D 已完成。P7E 已在单独批准后完成，正式报告为：
+
+```text
+/private/tmp/major_index_mins_p7e_formal_lake_promote_20260806.json
+```
+
+正式 Raw 21,355 个文件、10,016,287 行、472,820,318 bytes；正式 Silver 29,897 个
+文件、9,917,572 行、486,056,568 bytes。全部文件由 staging 逐文件复制，在目标目录内
+完成临时文件、size/hash 校验和原子替换；post audit 的缺失/无效均为 0。Silver 仍只含
+10 个非北证代码，`899050.BJ` 为 0 行；正式目标 staging/tmp 残留为 0。Dagster
+materialization/check event、专属动态分区和 run 写入均为 0。
+
+本次执行总耗时 `11,417,256.707ms`。执行时发现 CLI 已解析 P7D 报告参数但误传给
+`build-temp` 分支，导致实际 promote 报告为 `temporary_audit_mode=live_deep_audit`，重复
+执行了 source/temporary 深审计；这增加耗时但没有削弱正确性。参数路由已修正并增加专门
+测试；report reuse 还会验证 build/source/target fingerprint、计数、零写入以及所有 source
+window/sidecar 和 target 文件自报告后未变化。后续幂等 promote 不再无条件重跑这两段
+深审计，但正式 lake post audit 仍保留。P7E 和 P8 均已完成；下一步只剩 P9 手动启用
+三个 sensor 并做连续交易日观察。
+
+## 22. P8 Dagster 事件补录实际结果
+
+P8 使用独立 runless 维护入口，不运行历史 asset job，不改写已经通过 P7E 验收的
+Parquet。工具实现位于：
+
+```text
+orchestrator/defs/bootstrap/major_index_mins_bootstrap_events.py
+orchestrator/defs/bootstrap/major_index_mins_bootstrap_events_cli.py
+```
+
+执行顺序固定为 dry-run、动态分区注册、最近日期 sample、sample post-audit、12 个资产
+串行 apply、最终 post-audit。每次写入前同时核验冻结日期计划、P7E 正式报告、P7D
+fallback 报告、文件数量和修改时间、active runs、动态分区集合及现有 latest event；工具
+支持按资产幂等恢复，但不提供 job/sensor/lake 写入路径。
+
+实际结果：
+
+| 项目 | 结果 |
+| --- | ---: |
+| `cn_major_index_mins_trade_days` 注册分区 | 4,271 |
+| 日期范围 | 2009-01-05 至 2026-08-04 |
+| Raw materialization | 21,355 |
+| Silver materialization | 29,897 |
+| materialization 合计 | 51,252 |
+| 最近 20 日 Raw core checks | 100 |
+| 最近 20 日 Silver core checks | 140 |
+| core check 合计 | 240 |
+| 最终缺失 materialization / check | 0 / 0 |
+| active runs | 0 |
+
+15 个历史 Raw source-empty 日期/频率没有被伪装成非空数据。P8 只在 P7D fallback 报告
+精确证明的范围内允许 0 行 Raw 文件，并在 materialization metadata 中写入
+`source_empty_exempt=true`；这些日期不在最近 20 日 check 窗口内。Silver 仍由低频
+fallback 生成并通过 P7D/P7E 文件验收。
+
+主要报告：
+
+```text
+/private/tmp/major_index_mins_p8_event_dry_run_20260807_v2.json
+/private/tmp/major_index_mins_p8_partition_registration_20260807_v2.json
+/private/tmp/major_index_mins_p8_event_sample_20260807.json
+/private/tmp/major_index_mins_p8_event_sample_post_audit_20260807.json
+/private/tmp/major_index_mins_p8_apply_<asset>_20260807.json
+/private/tmp/major_index_mins_p8_event_post_audit_20260807.json
+```
+
+最终 post-audit 对 12 个资产逐一确认：每个资产 4,271 个 materialized partitions、最近
+20 日 20 条 ready check，check 均指向对应分区的 latest materialization；剩余计划事件
+为 0，`should_stop=false`。P8 没有创建 Dagster run、没有运行 sensor、没有修改数据湖
+文件。P9 仍需单独启用和观察。

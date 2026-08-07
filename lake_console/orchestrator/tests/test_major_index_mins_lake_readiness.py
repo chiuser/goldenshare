@@ -23,7 +23,7 @@ from orchestrator.defs.paths import (
 from orchestrator.defs.run_contracts.major_index_mins import (
     MAJOR_INDEX_MINS_SILVER_FREQS,
     MAJOR_INDEX_MINS_SOURCE_FREQS,
-    effective_codes_for_date,
+    effective_raw_request_codes_for_date,
     major_index_mins_exchange_for_code,
     major_index_mins_session_times,
 )
@@ -52,7 +52,7 @@ def _write_raw(
     path = raw_major_index_mins_path(root, frequency, trade_date)
     path.parent.mkdir(parents=True, exist_ok=True)
     rows = []
-    for code in effective_codes_for_date(trade_date):
+    for code in effective_raw_request_codes_for_date(trade_date):
         if code == omit_code:
             continue
         exchange = major_index_mins_exchange_for_code(code)
@@ -150,7 +150,11 @@ def test_missing_raw_file_is_actionable_not_materialized(tmp_path: Path) -> None
 
 def test_existing_invalid_raw_file_blocks_automatic_overwrite(tmp_path: Path) -> None:
     _write_all_raw(tmp_path)
-    _write_raw(tmp_path, "60min", omit_code=effective_codes_for_date(TRADE_DATE)[-1])
+    _write_raw(
+        tmp_path,
+        "60min",
+        omit_code=effective_raw_request_codes_for_date(TRADE_DATE)[-1],
+    )
     with duckdb.connect(":memory:") as connection:
         batch = batch_raw_major_index_mins_lake_readiness(
             connection=connection,
@@ -181,12 +185,14 @@ def test_raw_readiness_reuses_expected_tables_for_same_scope_dates(
     trade_dates = ("2026-08-03", TRADE_DATE)
     for trade_date in trade_dates:
         _write_all_raw(tmp_path, trade_date=trade_date)
-    original = major_index_mins_lake_readiness.prepare_major_index_mins_expected_tables
+    original = (
+        major_index_mins_lake_readiness.prepare_major_index_mins_raw_expected_tables
+    )
     with (
         duckdb.connect(":memory:") as connection,
         patch.object(
             major_index_mins_lake_readiness,
-            "prepare_major_index_mins_expected_tables",
+            "prepare_major_index_mins_raw_expected_tables",
             wraps=original,
         ) as prepare,
     ):

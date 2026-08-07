@@ -12,7 +12,7 @@ from orchestrator.defs.duckdb_sql import copy_query_to_parquet
 from orchestrator.defs.paths import raw_major_index_mins_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.major_index_mins import (
-    effective_codes_for_date,
+    effective_raw_request_codes_for_date,
     major_index_mins_exchange_for_code,
     major_index_mins_session_times,
 )
@@ -25,7 +25,7 @@ def _write_raw(root: Path, *, omit_last_code: bool = False) -> Path:
     path = raw_major_index_mins_path(root, "60min", PARTITION_KEY)
     path.parent.mkdir(parents=True, exist_ok=True)
     rows = []
-    expected_codes = effective_codes_for_date(PARTITION_KEY)
+    expected_codes = effective_raw_request_codes_for_date(PARTITION_KEY)
     if omit_last_code:
         expected_codes = expected_codes[:-1]
     for code in expected_codes:
