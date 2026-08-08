@@ -2,11 +2,12 @@
 
 更新时间：2026-08-08
 
-状态：源码审计已完成；适配设计待评审；尚未开发、尚未物化新资产、尚未运行正式回测。
+状态：源码审计已完成；G0 的 D01～D09 已于 2026-08-08 按推荐项确认，`score_profile_v1` 仍待评审；尚未开发、尚未物化新资产、尚未运行正式回测。四浪 MACD 案例已明确移出当前通用主线。
 
 关联文档：
 
-- [指数四浪反弹失效与趋势反转量化回测方案 v1](/Users/congming/github/goldenshare/docs/datasets/index-wave4-trend-reversal-backtest-plan-v1.md)
+- [通用波浪识别 G0 合同冻结评审稿 v1（D01～D09 已确认，D10 待评审）](/Users/congming/github/goldenshare/lake_console/docs/design/index-wave-g0-generic-contract-v1.md)
+- [指数四浪反弹失效与趋势反转量化回测方案 v1（独立专项案例，暂缓实施）](/Users/congming/github/goldenshare/docs/datasets/index-wave4-trend-reversal-backtest-plan-v1.md)
 - [主要指数分钟线接入 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-major-index-mins-data-onboarding-low-level-design.md)
 - [90/120 分钟派生合同重建 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-derived-minute-bars-90-120-contract-rebuild-low-level-design.md)
 - [Dagster Asset Schema 合同](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-asset-schema-contract-design.md)
@@ -16,7 +17,9 @@
 
 ## 0. 这份文档解决什么问题
 
-我们此前从“120 分钟 MACD(7,52,7) 上穿零轴是否容易对应四浪反弹结束”出发，已经形成一份可回放、可做历史统计的四浪专项方案。但四浪只是波浪理论中的一个局部状态。若要把它做成后续持续观察能力，前置问题应该升级为：
+我们此前围绕“120 分钟 MACD(7,52,7) 上穿零轴是否容易对应四浪反弹结束”形成了一份可回放、可做历史统计的专项方案。它帮助我们识别了 `confirmed_at`、无未来函数、场景修正和概率校准等共性问题，但它只是一个学习案例，不能反过来定义通用波浪识别系统。
+
+当前主线只回答一个更基础的问题：
 
 > 在每一个历史时点，只使用当时已经可见的 K 线，系统能否同时维护多个可能的浪型解释，并在新行情到来后确认、降级、失效或替换这些解释？
 
@@ -24,7 +27,7 @@
 
 1. 系统学习开源技术分析项目，重点逐类阅读 ta4j 的 Elliott Wave 源码、测试和示例。
 2. 审计这些实现能解决什么、不能解决什么，尤其检查未来函数、未确认末端、置信度误读和 A 股适配问题。
-3. 对照 Goldenshare 当前代码、Lake 资产和既有四浪回测协议，给出可实施但尚未获批的适配方向。
+3. 对照 Goldenshare 当前代码和 Lake 资产，给出场景无关、可实施但尚未获批的通用适配方向；四浪方案只作为未来专项模块的边界核验样本。
 
 它不是一份“照抄 ta4j 的开发任务单”，也不是一份波浪理论正确性的证明。它是开发前的源码学习记录、适配差距表和决策依据。
 
@@ -38,16 +41,21 @@
 4. 第 8 节：看 Goldenshare 现在已经具备什么数据，缺什么能力。
 5. 第 9～12 节：看哪些代码思想可借鉴、哪些必须重写，以及如何验证。
 
-### 0.2 与四浪回测方案的边界
+### 0.2 通用主线与四浪专项的边界
 
 两份文档不能互相替代：
 
 | 文档 | 负责的问题 | 不负责的问题 |
 | --- | --- | --- |
-| 四浪回测方案 | 冻结 `P0→P1→P2→P3`、MACD 触发、四浪延续/结构反转/未决标签、统计口径 | 通用波浪引擎源码选型和完整工程架构 |
-| 本文 | 开源源码学习、在线浪型识别模型、Goldenshare 适配差距、工程路线 | 修改已冻结的四浪统计结论，或宣称任何交易规则有效 |
+| 四浪回测方案 | 保存 `P0→P1→P2→P3`、特殊 MACD 触发、三类结果标签和统计口径，供未来独立专项使用 | 定义通用波浪引擎、默认指标行为或当前开发顺序 |
+| 本文 | 开源源码学习、通用在线浪型识别模型、Goldenshare 适配差距、通用工程路线 | 内置某个专项的事件、观察期、结果类别或交易结论 |
 
-如果后续适配设计改变了四浪方案的事件定义、确认时点或数据合同，必须同步修改原四浪方案，不能让两份文档各自形成不同事实。
+边界规则如下：
+
+1. 通用内核可以把某个候选结构标为 Wave 4，但不因此计算 `MACD(7,52,7)`，也不生成四浪专项的 `P0/P1/P2/P3` 事件与三分类结果。
+2. 专项模块只能消费通用内核的版本化 pivot、swing 和 scenario 快照，不能反向修改 pivot 确认、浪型规则或默认 MACD 参数。
+3. 每个专项自行定义事件、观察期、结果空间和校准器；通用概率框架只提供版本化、样本外校准与展示门禁。
+4. 若未来共享合同发生变化，两份文档必须同步更新；专项语义变化不应污染通用合同。
 
 ---
 
@@ -59,7 +67,7 @@
 
 但结论不是“直接引入 ta4j 即可”。推荐结论是：
 
-> 以 ta4j 0.23.0 的领域模型和因果回放思路为主要参考，吸收 current master 对“已确认浪”和“形成中末端浪”的分离设计；不把 ta4j Java 运行时直接嵌入 Goldenshare V1，也不逐行移植其大型 Runner。先在现有 Lake/Dagster 体系内实现一个范围受控、可逐时点回放、明确保存 `extreme_at` 与 `confirmed_at` 的指数波浪研究内核。
+> 以 ta4j 0.23.0 的领域模型和因果回放思路为主要参考，吸收 current master 对“已确认浪”和“形成中末端浪”的分离设计；第一版不把 ta4j Java 运行时直接嵌入 Goldenshare，也不逐行移植其大型 Runner。先在现有 Lake/Dagster 体系内实现一个范围受控、可逐时点回放、明确保存 `extreme_at` 与 `confirmed_at` 的通用波浪研究内核。
 
 ### 1.2 为什么不能直接采用
 
@@ -72,7 +80,7 @@
 
 ### 1.3 Goldenshare 当前是否具备启动条件
 
-具备“指数 V1 研究内核”的数据前提，但不具备“直接上线持续观测”的软件前提：
+具备“用主要指数验证第一版通用研究内核”的数据前提，但不具备“直接上线持续观测”的软件前提：
 
 - 已具备：修复后的主要指数 120 分钟线、指数日线、市场宽度、涨跌幅分布和市场成交额等上游事实。
 - 已具备：主要指数 120 分钟线从 2009-01-05 到 2026-08-04 的历史覆盖，且固定输出 `11:30/15:00` 两根 bar。
@@ -83,12 +91,14 @@
 
 第一阶段只做以下范围：
 
-1. 研究对象固定为既有方案中的非北交所主要指数池。
-2. 主周期固定为 120 分钟，日线只承担大级别确认和市场状态特征。
-3. 拐点检测先只实现已冻结的 `ATR(14) × 1.5` 因果 ZigZag；其他检测器只作为对照实验。
-4. 同时输出多个场景，不强迫系统给出唯一数浪答案。
-5. 已确认拐点与形成中末端严格分离；正式四浪回测只允许消费 confirmed-only 输出。
-6. 不做交易下单、不做自动投资建议；启发式分数保留原名，另行实现经过样本外验证的概率校准层，二者不得混用。
+1. 通用内核不绑定指数、股票、日线或 120 分钟；输入合同由 `ts_code/freq/as_of` 和规范 K 线序列描述。
+2. 首轮工程验证可使用已审计的非北交所主要指数 120 分钟数据，原因是范围小、历史长、数据合同清楚；这只是验证数据集，不是通用模型的语义边界。
+3. 拐点检测先实现一个版本化的 `ATR(14) × 1.5` 因果 ZigZag profile，其他检测器作为对照；参数属于 detector contract，不属于波浪理论真值。
+4. 第一版覆盖基础推动浪、基础修正浪和替代场景，不以“四浪结束”作为唯一目标，也不追求一次覆盖所有复杂变体。
+5. 同时输出多个场景，不强迫系统给出唯一数浪答案；已确认拐点与形成中末端严格分离。
+6. 日线和 120 分钟分别作为独立周期运行同一通用内核；跨周期关系是后续组合/展示能力，不在内核中硬编码“120 分钟触发、日线确认”。
+7. 通用层实现启发式解释与概率校准基础设施，但只有定义了结果空间、观察期并通过样本外验证的具体模块才能输出概率；任何启发式分数都不得伪装成概率。
+8. 不做交易下单、不做自动投资建议。
 
 ---
 
@@ -390,7 +400,7 @@ index, price, type
 - 必须等待未来若干根 bar，但只要把确认时点写成“候选点 + lookforward”，就不属于未来函数。
 - 固定窗口不能适应高波动和低波动状态。
 
-适配建议：保留为对照检测器，不作为 V1 主检测器。
+适配建议：保留为对照检测器，不作为第一版主 detector profile。
 
 #### 6.5.2 ZigZagSwingDetector
 
@@ -419,7 +429,7 @@ threshold(t) = clamp(SMA(ATR(period), smoothing) × atrMultiplier,
 
 它与我们既有 `ATR(14) × 1.5` ZigZag 方向相符，但不能因此直接宣告参数相同：必须逐项冻结 ATR 初值、平滑、阈值锚点、高低价/收盘确认、相等判断和第一 pivot 初始化。
 
-适配建议：V1 只实现我们已经冻结的参数和语义；ta4j 的 min/max clamp 与 smoothing 作为后续敏感性实验，不混入主假设。
+适配建议：第一版只实现一个经过评审的基线 profile；ta4j 的 min/max clamp 与 smoothing 作为后续敏感性实验，不混入基线。
 
 #### 6.5.4 SlopeChangeSwingDetector
 
@@ -427,7 +437,7 @@ threshold(t) = clamp(SMA(ATR(period), smoothing) × atrMultiplier,
 
 优点：对圆弧顶、圆弧底可能比 ZigZag 更敏感；源码明确保证评估到 `index` 时不读取更晚 bar。
 
-缺点：参数更多，确认延迟更复杂；不应在 V1 与 ATR ZigZag 同时调参，否则会形成巨大的数据窥探空间。
+缺点：参数更多，确认延迟更复杂；不应在第一版与 ATR ZigZag 同时调参，否则会形成巨大的数据窥探空间。
 
 适配建议：作为 V2 鲁棒性对照。
 
@@ -533,7 +543,7 @@ bullishDirection
 - Wave 5：从 Wave 4 末端投影 Wave 1 的 `1.0` 或 `0.618` 倍。
 - Corrective C：从 B 末端投影 A 的 `1.0` 或 `1.618` 倍。
 
-失效位的默认计算较粗：推动浪若已进入 Wave 2～5，通常仍以 Wave 1 起点作为失效参考；修正结构以 Wave A 起点为参考。它不能直接替代我们“反弹越过 P2、回踩不破、再创新高”这类阶段化趋势反转定义。
+失效位的默认计算较粗：推动浪若已进入 Wave 2～5，通常仍以 Wave 1 起点作为失效参考；修正结构以 Wave A 起点为参考。它也不能直接替代具体模块的阶段化失效定义，例如未来四浪专项中的“反弹越过 P2、回踩不破、再创新高”。
 
 ### 6.10 `ElliottConfidence`：可解释，但不是概率
 
@@ -557,13 +567,14 @@ heuristic score + score breakdown + scenario competition
 -> out-of-sample calibration + uncertainty interval
 ```
 
-概率校准是正式能力，不是可选报表。第一版概率目标与既有四浪回测标签保持一致：在冻结的主要观察期（当前方案为 60 个交易日）内，输出
-`wave4_continuation`、`structural_reversal` 和 `unresolved` 三类概率，三者之和为 1。这里的概率回答的是“同类历史条件下，固定期限内分别落入哪一类结果”，不回答明日涨跌，也不是买卖建议。
+概率校准是正式能力，不是可选报表，但通用波浪内核不能预设某一种结果空间。每个可校准模块必须先冻结自己的 `outcome_space_version`、观察期和标签生成规则，然后输出该结果空间内总和为 1 的概率分布。这里的概率只回答“同类历史条件下，在该模块定义的固定期限内分别落入哪一类结果”，不回答明日涨跌，也不是买卖建议。
 
-V1 推荐采用以下两层基线：
+进一步逐类核验 ta4j 0.23.0 源码后，Goldenshare 不能原样复制其聚合细节：time、alternation 和无有效 channel 等证据不足情形会回填中性 `0.5`；channel scorer 还会用当前时点的一组静态上下界检查全部 swing 端点，缺少逐端点的时间投影语义。G0 的 `score_profile_v1` 推荐稿因此改为：缺失证据不打分、显式保存 coverage；V1 暂不把 channel 计入总分；用 `ranking_score` 同时考虑贴合度与证据覆盖。完整公式和字面夹具以 G0 主合同第 11、14 节为准。
+
+第一版校准评估框架推荐采用以下两层基线：
 
 1. 以分箱后的历史发生率和区间作为最简单、可审计的参照基线。
-2. 以带正则的多项逻辑回归把主/备场景的启发式分数、分数差和因素明细映射到三分类概率；若独立校准集样本充足，再比较时间缩放或按类单调校准，最终方法只按样本外 Brier score、log loss 和可靠性曲线选择。
+2. 以与结果空间匹配的校准模型，把主/备场景的启发式分数、分数差和因素明细映射到概率分布；多分类场景可先使用带正则的多项逻辑回归。若独立校准集样本充足，再比较时间缩放或按类单调校准，最终方法只按样本外 Brier score、log loss 和可靠性曲线选择。
 
 禁止随机切分相邻快照。训练、校准、测试必须按时间顺序切分，并按事件去重；同一场景连续多个 as-of 不能同时散落到训练集和测试集。模型或标签合同一旦变更，旧校准器不得继续沿用。
 
@@ -585,17 +596,17 @@ ta4j 定义了从大到小的九个相对浪级，并给出推荐历史跨度。
 
 必须注意：degree 主要是元数据和历史窗口启发式，不是模型从数据中学习出来的真实时间尺度。同一 120 分钟序列可以同时存在不同级别结构，但不能仅因枚举名叫 `MINOR` 就断言它是某种固定自然天数。
 
-Goldenshare V1 应把浪级定义为可复现的检测尺度合同，例如由 ATR 阈值、最小 swing bars 和历史窗口共同决定，而不是只保存一个文学化名称。
+Goldenshare 第一版应把浪级定义为可复现的检测尺度合同，例如由 ATR 阈值、最小 swing bars 和历史窗口共同决定，而不是只保存一个文学化名称。
 
 ### 6.13 多级别分析
 
-Runner 可以分析基准 degree，并结合更高/更低 degree 的兼容性重新排序场景。这个思想与我们“120 分钟触发、日线确认”相似，但实现不能简单等同：
+Runner 可以分析基准 degree，并结合更高/更低 degree 的兼容性重新排序场景。这个思想适合用于通用的多尺度场景比较，但不能简单等同于“120 分钟触发、日线确认”：
 
 - ta4j 的 higher/lower degree 通常仍来自同一 BarSeries 的不同配置。
 - 我们的日线是真实独立 K 线资产，并带有独立交易日合同。
 - 120 分钟 `as_of=11:30` 时，当日日线尚未收盘，不能消费当日最终日线。
 
-因此日线确认必须明确可见性：
+若某个组合模块同时消费 120 分钟和日线，则必须明确日线可见性：
 
 ```text
 120m as_of = 某日 11:30 -> 日线最多使用前一交易日
@@ -623,7 +634,8 @@ series.beginIndex ... decisionIndex
 不能直接采用：
 
 - 它的标签是通用 `TARGET_FIRST/INVALIDATION_FIRST/NEITHER`。
-- 我们已经冻结的是 `wave4_continuation/structural_reversal/unresolved`，需要检查 `P2` 突破、回踩、HH/HL 和 `P3_fail` 等结构。
+- 它的结果空间仍由 ta4j 自身的 target/invalidation 合同定义，不能充当通用波浪系统的唯一标签；每个研究模块必须有自己的版本化 outcome contract。
+- 四浪专项若未来启用，还需要检查 `P2` 突破、回踩、HH/HL 和 `P3_fail` 等结构，不能复用该通用标签器冒充专项标签。
 - ta4j 0.23.0 的默认 Runner 仍会加入 forming terminal，因此“用了 prefix selector”不代表输出天然 confirmed-only。
 
 ### 6.15 0.23.0 的 provisional 风险与 master 的修正
@@ -665,7 +677,7 @@ ta4j 提供 BTC、ETH、S&P 500 锚点、策略和校准示例，部分宏观校
 它不能证明：
 
 - 波浪理论在 A 股主要指数上有统计优势。
-- 120 分钟 `7,52,7` 与 ta4j 默认场景分数存在稳定关系。
+- 任一专项指标（包括四浪案例中的 120 分钟 `7,52,7`）与 ta4j 默认场景分数存在稳定关系。
 - confidence 已经是可交易概率。
 - 参数离开示例资产后仍有效。
 
@@ -693,16 +705,16 @@ ta4j 提供 BTC、ETH、S&P 500 锚点、策略和校准示例，部分宏观校
 
 | 等级 | 风险 | 源码证据 | 对本项目的影响 | 处理决定 |
 | --- | --- | --- | --- | --- |
-| A0 | pivot 缺少 `confirmed_at` | `SwingPivot(index, price, type)` | 无法证明历史时点何时可见，四浪回测会失真 | 必须重新设计领域模型 |
+| A0 | pivot 缺少 `confirmed_at` | `SwingPivot(index, price, type)` | 无法证明历史时点何时可见，任何历史回放都会失真 | 必须重新设计领域模型 |
 | A0 | 0.23.0 默认混入 forming terminal | Runner 无条件追加末端延伸 | confirmed-only 场景可能被污染 | 不直接使用稳定版 Runner 输出 |
 | A1 | confidence 易被误解为概率 | 固定权重；PredictionProvider 使用 `probability` 名称承载归一化复合分 | 可能把规则自评分误报成胜率 | 字段必须叫 `heuristic_score`，另做校准 |
 | A1 | 经典规则有硬软混合 | Wave2/4/3 规则进入结构分和惩罚 | 与研究规则含义不透明 | 建立显式 hard/soft 规则表 |
 | A1 | 场景 ID 不稳定 | 按生成顺序生成 id | 每日快照无法可靠追踪同一场景 | 用内容哈希生成稳定 key |
-| A1 | 默认失效位较粗 | 多阶段仍以 Wave1/A 起点为主 | 不能覆盖四浪失败到趋势反转的结构转换 | 使用阶段化失效/升级规则 |
+| A1 | 默认失效位较粗 | 多阶段仍以 Wave1/A 起点为主 | 不能完整表达不同阶段和场景的失效/升级 | 使用场景化、阶段化失效规则 |
 | A1 | 未经 A 股校准 | 示例集中在海外指数和加密资产 | 参数与排序的外部有效性未知 | 训练/验证/样本外分开报告 |
 | A2 | Runner 责任集中 | 0.23.0 约 3,722 行 | 移植后难维护、难独立测试 | 不逐行移植，拆成纯内核组件 |
-| A2 | Java 25 运行时 | POM release 25 | 为小范围指数研究引入新运行壳成本高 | V1 保持 Python/DuckDB，必要时再 benchmark |
-| A2 | 组合搜索成本 | 多起点、多类型、多分解 | 扩展到全市场分钟线可能爆炸 | V1 限 10 指数、有限 pivots/scenarios |
+| A2 | Java 25 运行时 | POM release 25 | 为小范围验证引入新运行壳成本高 | 第一版保持 Python/DuckDB，必要时再 benchmark |
+| A2 | 组合搜索成本 | 多起点、多类型、多分解 | 扩展到全市场分钟线可能爆炸 | 首轮验证限 10 指数、有限 pivots/scenarios |
 | A2 | 许可证元数据不完整 | GitHub NOASSERTION、无标准 LICENSE 文件 | 复制或分发前有合规不确定性 | 学习后独立实现；复制前再法律核验 |
 
 ---
@@ -787,7 +799,7 @@ Writer 用临时 window map 做集合聚合，并检查每个指数、每个窗�
 - 第一版排除北证 50。
 - `000680.SH` 有分钟线但当前缺少主要指数日线，因此只能参加纯分钟探索，不能进入需要日线确认的主样本分母。
 
-### 8.5 指数日线确认资产
+### 8.5 指数日线输入资产
 
 `gold_market_major_indices_daily` 从 `silver_index_daily` 与版本化主要指数 seed 连接，输出：
 
@@ -799,7 +811,7 @@ change_amount, pct_chg, vol, amount
 
 其 checks 覆盖文件、schema、分区日期、seed 行数、代码覆盖、唯一性、排序和价格合法性。分钟与全部可用日线确认资产的共同窗口为 2014-01-02～2026-08-04，共 3,060 个交易日。
 
-日线适合承担大级别趋势和收盘确认，不适合替代 120 分钟触发。特别是 11:30 运行时不能使用当日尚未闭合的日线。
+日线适合独立识别大级别结构，也可被未来跨周期模块用作收盘上下文，但不在通用内核中充当 120 分钟的固定确认层。任何 11:30 组合分析都不能使用当日尚未闭合的日线。
 
 ### 8.6 市场状态辅助资产
 
@@ -831,7 +843,7 @@ Lake Console 旧 backend 还存在股票分钟线 MACD 研究服务：
 - 研究重排服务和 CLI 对 indicator 与参数做了硬限制：只允许 `macd` 和 `12_26_9`。
 - 物理路径使用旧的 `derived/**`、`research/**`、manifest 体系，不是当前 `raw/silver/gold + LAKE_ASSET_CATALOG` Dagster 主线。
 
-全仓检索只有四浪方案文档出现 `7,52,7`，当前业务代码没有该参数的正式资产、用户参数切换能力或研究结果。因此：
+对业务代码和测试的当前检索未发现 `7,52,7`；该参数只存在于四浪专项及其边界说明等研究文档中。当前业务代码没有该参数的正式资产、用户参数切换能力或研究结果。因此：
 
 1. 不能把现有 `12,26,9` 数据改名后用于本实验。
 2. 股票指标资产不能直接替代指数研究输入；基础 EMA 递推思想可作为公式参考，但不应继续扩展旧 backend 研究链。
@@ -870,20 +882,20 @@ Lake Console 旧 backend 还存在股票分钟线 MACD 研究服务：
 
 | 能力 | ta4j 现状 | Goldenshare 要求 | 决策 |
 | --- | --- | --- | --- |
-| 输入 K 线 | 通用 BarSeries | 规范 120m，11:30/15:00；A 股交易日 | 自建 adapter，不重采样 |
-| ATR ZigZag | 已有 adaptive detector | 固定 `ATR14 × 1.5` 且口径冻结 | 学习状态机，按本项目合同重写 |
+| 输入 K 线 | 通用 BarSeries | 周期无关的规范 K 线合同；首轮用 120m 验证 | 自建 adapter，不在内核重采样 |
+| ATR ZigZag | 已有 adaptive detector | 版本化 detector profile；首个基线为 `ATR14 × 1.5` | 学习状态机，按本项目合同重写 |
 | pivot 极值 | index/price/type | extreme 与 confirmed 双时点 | 必须扩展 |
 | forming endpoint | 0.23.0 混入；master 可分离 | 永远不得伪装成 confirmed | 从模型层分表/分字段 |
 | swing | from/to/price/degree | 还要 pivot key、确认时点、模型版本 | 扩展 |
-| 场景 | impulse/corrective，多候选 | 四浪专项 + 通用浪型，保留备选 | 借鉴结构，重写规则合同 |
+| 场景 | impulse/corrective，多候选 | 通用推动/修正浪和备选；专项外挂 | 借鉴结构，重写规则合同 |
 | 场景 ID | 生成顺序 ID | 跨快照稳定追踪 | 内容哈希 |
 | 硬规则 | 部分硬剪枝、部分打分 | 每条规则性质显式 | 重写 |
 | confidence | 五因素启发式分数 | 可解释分数 + 样本外校准 | 保留明细，禁止称概率 |
 | 失效位 | 通用且较粗 | 阶段化失效/升级 | 重写 |
 | 目标位 | Fibonacci 投影 | 可作为特征，不先验认定有效 | 可选输出，单独回测 |
-| 多级别 | 同序列 degree 组合 | 120m + 独立日线 as-of 可见性 | 自建跨周期 adapter |
-| walk-forward | prefix selector + outcome label | `confirmed_at`、三分类标签、去重 | 借鉴框架，重写 labeler |
-| 运行时 | Java 25/Maven | Python/DuckDB/Dagster 主线 | V1 不嵌入 Java |
+| 多级别 | 同序列 degree 组合 | 同周期多 degree；跨周期为独立组合层 | 自建 degree 与跨周期 adapter |
+| walk-forward | prefix selector + outcome label | `confirmed_at`、模块化结果空间、事件去重 | 借鉴框架，重写 replay/labeler |
+| 运行时 | Java 25/Maven | Python/DuckDB/Dagster 主线 | 第一版不嵌入 Java |
 | 持续观测 | 结果对象 | 版本化 Parquet + Dagster checks + API | Goldenshare 原生实现 |
 
 ---
@@ -894,7 +906,7 @@ Lake Console 旧 backend 还存在股票分钟线 MACD 研究服务：
 
 | 路线 | 优点 | 主要代价 | 结论 |
 | --- | --- | --- | --- |
-| A. 直接嵌入 ta4j Java | 最快获得大量现成功能 | 新运行时；0.23.0 语义不合；字段缺口；A 股校准缺失；服务/IPC 复杂 | 不推荐 V1 |
+| A. 直接嵌入 ta4j Java | 最快获得大量现成功能 | 新运行时；0.23.0 语义不合；字段缺口；A 股校准缺失；服务/IPC 复杂 | 不推荐第一版 |
 | B. 逐行翻译 ta4j Runner 到 Python | 表面上保留完整功能 | 会复制 3,000+ 行集中职责和隐含规则；难证明等价 | 不推荐 |
 | C. 吸收领域模型，按冻结规则重建小内核 | 合同清晰、贴合 Lake、无未来函数可证明、范围可控 | 前期需要认真定义字段与测试 | 推荐 |
 
@@ -902,20 +914,21 @@ Lake Console 旧 backend 还存在股票分钟线 MACD 研究服务：
 
 ```mermaid
 flowchart TB
-    M120["silver_major_index_mins_120m"] --> AD["120m Bar Adapter<br/>不重采样"]
-    D1["gold_market_major_indices_daily"] --> DF["Daily as-of Feature Adapter"]
-    BR["breadth / distribution / turnover"] --> MF["Market Feature Adapter"]
-    AD --> PE["Causal Pivot Engine<br/>ATR14 × 1.5"]
+    BARS["Canonical Bar Source<br/>按 ts_code/freq/as_of"] --> AD["Bar Adapter<br/>不在内核重采样"]
+    AD --> PE["Causal Pivot Engine<br/>版本化 detector profile"]
     PE --> PC["Pivot Confirmations"]
-    PC --> SG["Scenario Generator"]
-    DF --> SG
-    MF --> SG
-    SG --> SS["Scenario Snapshots"]
-    SS --> BT["Walk-forward Labeler<br/>严格隔离未来"]
+    PC --> SW["Confirmed Swings"]
+    SW --> SG["Generic Scenario Generator<br/>推动/修正/备选"]
+    SG --> SS["Generic Scenario Snapshots"]
+    SS --> MOD["Optional Analysis Modules<br/>各自定义事件/结果/期限"]
+    MOD --> BT["Walk-forward Labeler<br/>严格隔离未来"]
     SS --> API["只读查询 API"]
+    MOD --> API
     API --> UI["持续观测界面"]
     BT --> REP["回测报告 / 校准结果"]
 ```
+
+日线、120 分钟和未来其他受支持周期都通过相同 Bar Adapter 独立运行。市场宽度、成交额、特殊 MACD 等上下文只能由显式分析模块按 `as_of` 消费，不能进入 pivot 事实生成，也不能改变通用场景历史。
 
 ### 10.3 代码边界建议
 
@@ -924,11 +937,19 @@ flowchart TB
 ```text
 lake_console/orchestrator/src/orchestrator/
   analysis/index_wave/                 # 候选新增纯领域包，无 Dagster import
-    pivot_confirmation.py
-    wave_scenario_generation.py
-    wave_rule_evaluation.py
-    wave_walk_forward.py
-    wave_models.py
+    core/
+      bar_context.py
+      pivot_confirmation.py
+      swing_construction.py
+      wave_scenario_generation.py
+      wave_rule_evaluation.py
+      wave_replay.py
+      wave_models.py
+    calibration/
+      contracts.py                      # 场景无关概率/标签合同
+      evaluation.py
+    modules/                            # 后续专项；不进入首期通用内核
+      wave4_end/                        # 候选示例，当前暂不实现
 
   defs/
     assets/index_wave.py               # 只编排 IO 和调用纯内核
@@ -940,11 +961,12 @@ lake_console/orchestrator/src/orchestrator/
     paths.py
 ```
 
-为什么建议新建纯领域包：
+为什么建议新建纯领域包并分离 `core/modules`：
 
 - `defs/**` 应聚焦 Dagster 定义和强相关合同。
 - 算法需要能在单元测试和 walk-forward 中独立运行，不应伪造 Dagster context。
 - 后续若性能要求改用 NumPy/Numba/Rust/Java，只替换内核，不改变资产合同。
+- 通用内核不认识 `7,52,7`、`P0/P1/P2/P3`、60 日三分类等专项语义；专项模块只能消费公开的通用快照合同。
 
 新增 `analysis` 顶层包属于架构决定，必须先评审；本文没有创建该目录。
 
@@ -966,11 +988,12 @@ Bar（输入事实）
 stateDiagram-v2
     [*] --> Candidate
     Candidate --> Candidate: 更新更高/更低极值
-    Candidate --> Confirmed: 反转达到阈值
-    Confirmed --> Active: 进入一个或多个场景
+    Candidate --> Active: confirmed pivots 达到最小阶段
     Active --> Active: 新 bar 到来但场景仍成立
+    Active --> Completed: grammar 完整且硬规则通过
     Active --> Invalidated: 触及硬失效条件
     Active --> Superseded: 更优场景替换但未触及硬失效
+    Completed --> Superseded: 新结构解释接续或替代
     Invalidated --> [*]
     Superseded --> [*]
 ```
@@ -979,7 +1002,7 @@ stateDiagram-v2
 
 ### 10.5 推荐资产最小集
 
-为了避免一开始制造过多状态资产，V1 建议只保留两个正式研究资产；未来标签单独作为回测产物：
+为了避免一开始制造过多状态资产，通用主线建议只保留两个正式研究资产；未来标签由具体分析模块单独形成回测产物：
 
 #### 资产 1：`gold_index_wave_pivot_confirmations`
 
@@ -989,7 +1012,7 @@ stateDiagram-v2
 
 ```text
 gold/technical/index_wave_pivot_confirmations/
-  freq=120min/trade_date=<YYYY-MM-DD>/data.parquet
+  freq=<freq>/trade_date=<YYYY-MM-DD>/data.parquet
 ```
 
 #### 资产 2：`gold_index_wave_scenario_snapshots`
@@ -1000,14 +1023,14 @@ gold/technical/index_wave_pivot_confirmations/
 
 ```text
 gold/technical/index_wave_scenario_snapshots/
-  freq=120min/trade_date=<YYYY-MM-DD>/data.parquet
+  freq=<freq>/trade_date=<YYYY-MM-DD>/data.parquet
 ```
 
 #### 回测产物：`index_wave_outcome_labels`
 
-未来标签必须与在线输入物理、代码和权限上分离，防止被场景生成器误读。若后续登记为正式 Gold 资产，应使用独立 dataset/asset key 和显式 `label_horizon/version`；V1 可以先作为版本化研究报告产物。
+未来标签必须与在线输入物理、代码和权限上分离，防止被场景生成器误读。若后续登记为正式 Gold 资产，应使用独立 dataset/asset key，并显式保存 `analysis_module_key/outcome_space_version/horizon`；首期可以先作为版本化研究报告产物。
 
-不建议 V1 立即新增 transition 资产。场景状态变化可由相邻 snapshots 计算；只有确认告警、解释审计或查询性能确实需要后，再把 transition 升级为正式事实。
+不建议第一版立即新增 transition 资产。场景状态变化可由相邻 snapshots 计算；只有确认告警、解释审计或查询性能确实需要后，再把 transition 升级为正式事实。
 
 ### 10.6 pivot confirmation 字段合同
 
@@ -1016,24 +1039,27 @@ gold/technical/index_wave_scenario_snapshots/
 | `model_version` | VARCHAR | 算法与规则版本 |
 | `data_snapshot_id` | VARCHAR | 输入数据快照 |
 | `ts_code` | VARCHAR | 指数代码 |
-| `freq` | VARCHAR | 首期固定 `120min` |
+| `freq` | VARCHAR | 输入 K 线周期；首轮验证使用 `120min`，合同不固定周期 |
 | `degree_key` | VARCHAR | 可复现尺度合同 key |
 | `pivot_key` | VARCHAR | 内容哈希稳定身份 |
 | `pivot_type` | VARCHAR | `HIGH/LOW` |
-| `extreme_at` | TIMESTAMP | 极值实际发生时点 |
+| `extreme_at` | TIMESTAMPTZ | 极值实际发生时点 |
+| `extreme_trade_date` | DATE | 极值所在交易日 |
 | `extreme_bar_index` | BIGINT | 在规范序列中的索引 |
 | `extreme_price` | DOUBLE | high 或 low 极值 |
-| `confirmed_at` | TIMESTAMP | 最早可确认时点 |
+| `confirmed_at` | TIMESTAMPTZ | 最早可确认时点 |
+| `confirmation_trade_date` | DATE | 确认所在交易日；资产按此日期分区 |
 | `confirmed_bar_index` | BIGINT | 确认 bar 索引 |
 | `confirmation_price` | DOUBLE | 用于确认的 close |
 | `threshold_type` | VARCHAR | `ATR_ABSOLUTE` 等 |
-| `atr_period` | INTEGER | V1 固定 14 |
-| `atr_multiplier` | DOUBLE | V1 固定 1.5 |
+| `atr_period` | INTEGER | detector profile 参数；首个基线为 14 |
+| `atr_multiplier` | DOUBLE | detector profile 参数；首个基线为 1.5 |
 | `threshold_at_extreme` | DOUBLE | 锚定极值 bar 的阈值 |
 | `detector_key` | VARCHAR | 算法名称 |
 | `detector_version` | VARCHAR | 算法语义版本 |
 | `source_asset_key` | VARCHAR | `silver_major_index_mins_120m` |
-| `source_partition` | DATE | 来源分区 |
+| `extreme_source_partition` | DATE | 极值所在来源分区 |
+| `confirmation_source_partition` | DATE | 确认所在来源分区；可与极值分区不同 |
 | `created_at` | TIMESTAMPTZ | 生成时间，不参与交易逻辑 |
 
 必要不变量：
@@ -1051,14 +1077,14 @@ pivot_key 不得依赖 run_id 或排名
 | 字段组 | 关键字段 | 说明 |
 | --- | --- | --- |
 | 身份 | `model_version,data_snapshot_id,ts_code,freq,as_of,degree_key` | 可复现输入和时点 |
-| 场景 | `scenario_key,scenario_type,current_phase,direction,rank` | 稳定身份和当前解释 |
-| 结构 | `start_pivot_key,end_pivot_key,pivot_keys_json,wave_count` | 可还原参与结构 |
+| 场景 | `scenario_key,scenario_lineage_key,parent_scenario_key,scenario_type,current_phase,direction,rank` | 精确结构身份、演化链和当前解释 |
+| 结构 | `start_pivot_key,end_pivot_key,pivot_keys_json,confirmed_wave_count` | 可还原参与结构 |
 | 状态 | `scenario_status,uses_provisional,valid_from_as_of` | confirmed-only 与 forming 严格区分 |
 | 评分 | `heuristic_score,score_spread,fibonacci_score,time_score,alternation_score,channel_score,completeness_score` | 不使用 probability 命名 |
 | 规则 | `hard_rule_passed,hard_violations_json,soft_penalties_json` | 解释为什么保留/淘汰 |
 | 失效 | `invalidation_price,invalidation_rule` | 阶段化失效语义 |
 | 目标 | `primary_target,targets_json` | 仅作研究特征 |
-| 跨周期 | `daily_visible_through,breadth_visible_through,market_feature_version` | 防止偷看未闭合日线 |
+| 输入可见性 | `bar_visible_through` | 当前 `freq` 最晚闭合输入；通用快照不绑定其他周期 |
 | 来源 | `source_asset_key,engine_key,engine_version` | 追溯算法和数据 |
 
 `scenario_key` 推荐对以下内容做规范化哈希：
@@ -1070,36 +1096,76 @@ ts_code + freq + degree_key + scenario_type + direction
 
 排名和启发式分数不进入 key，因为它们会随新 bar 和备选场景变化。
 
-### 10.7.1 概率校准合同（已确认必须实现）
+由于 ordered pivots 在结构延长后必然变化，`scenario_key` 表示“精确结构身份”，不能单独承担演化链身份。G0 进一步增加：
 
-概率是从历史结果学习出的独立事实，不写回 `heuristic_score`，也不覆盖场景排序。建议单独形成 probability snapshot，至少保存：
+```text
+scenario_lineage_key = hash(
+  ts_code + freq + degree_key + scenario_type + direction
+  + start_pivot_key + hard-rule profile version
+)
+parent_scenario_key = 直接延长前的 scenario_key
+```
+
+相同结构跨 as-of 复用同一 `scenario_key`；新增 confirmed pivot 后产生新 `scenario_key`，通过相同 lineage 和 parent 关系追踪“同一解释怎样随行情延长”。精确定义以 [通用波浪识别 G0 合同冻结评审稿 v1](/Users/congming/github/goldenshare/lake_console/docs/design/index-wave-g0-generic-contract-v1.md) 为准。
+
+### 10.7.1 分析模块合同
+
+分析模块是通用快照的只读消费者。它可以增加指标、市场宽度、跨周期上下文和自己的状态转换，但不能覆写通用 pivot、swing、scenario、rank 或 heuristic score。
+
+这里的“模块”也包括一个应随通用系统实现的内置研究模块 `wave_scenario_progression`。它不关心四浪或特殊指标，只根据版本化浪型语法定义“先到达下一结构里程碑、先触及硬失效、观察期内仍未决”三类结果，用来校准通用 `heuristic_score`。观察期必须按 `degree_key` 以 bar 数冻结并经过敏感性验证，不能借用四浪专项的 60 个交易日。其他业务案例仍作为后续可选模块。
+
+每个模块至少声明：
 
 | 字段组 | 关键字段 | 说明 |
 | --- | --- | --- |
-| 身份 | `ts_code,as_of,horizon_trading_days,label_version` | 概率对应哪个指数、时点、观察期和标签合同 |
+| 身份 | `analysis_module_key,module_version,module_snapshot_id` | 模块及其不可混用的版本 |
+| 通用输入 | `scenario_key,scenario_lineage_key,scenario_model_version,scenario_data_snapshot_id` | 精确指向消费的通用场景快照及其演化链 |
+| 时点 | `ts_code,freq,as_of` | 模块判断对应的标的、周期和可见时点 |
+| 资格 | `eligibility_status,eligibility_reasons_json` | 为什么适用或不适用，不能把无资格样本静默删除 |
+| 模块状态 | `module_state,event_key,event_type` | 仅属于该模块的状态和稳定事件身份 |
+| 附加上下文 | `context_visible_through_json,context_versions_json,feature_values_json` | 逐输入记录可见截止点和版本，防止跨周期偷看 |
+| 解释 | `hard_evaluations_json,soft_evaluations_json,invalidation_json` | 模块规则结果，不回写通用规则 |
+| 结果合同 | `outcome_space_version,horizon_value,horizon_unit,label_version` | 若该模块需要概率，必须先冻结这些定义 |
+
+在线 module snapshot 只保存当时判断，不能带未来 outcome label。历史 labeler 在物理和代码边界上独立运行，并通过 `event_key/module_snapshot_id` 关联。通用内核没有默认专项，也不得在识别到某一 `current_phase` 后自动启用模块。
+
+### 10.7.2 概率校准合同（已确认必须实现）
+
+概率是从历史结果学习出的独立事实，不写回 `heuristic_score`，也不覆盖场景排序。通用系统负责“怎样安全地保存和验证概率”，具体分析模块负责“概率究竟预测什么”。因此不能在通用合同里固定四浪三分类或 60 个交易日。
+
+建议单独形成 probability snapshot，至少保存：
+
+| 字段组 | 关键字段 | 说明 |
+| --- | --- | --- |
+| 身份 | `analysis_module_key,scenario_key,scenario_lineage_key,ts_code,freq,as_of` | 哪个模块、场景演化链、标的、周期和判断时点 |
+| 结果合同 | `outcome_space_version,horizon_value,horizon_unit,label_version` | 模块冻结的互斥结果集合、观察期及标签生成规则 |
 | 上游版本 | `scenario_model_version,scenario_data_snapshot_id` | 指向产生特征的场景版本和数据快照 |
 | 校准版本 | `calibration_model_version,calibration_method,calibration_data_snapshot_id` | 能完整复现训练和校准过程 |
-| 三类概率 | `p_wave4_continuation,p_structural_reversal,p_unresolved` | 均在 `[0,1]`，且总和为 1 |
-| 不确定性 | `probability_intervals_json,calibration_sample_count` | 按事件分组 bootstrap 或等价方法得到的区间及有效样本数 |
-| 适用状态 | `calibration_status,calibration_visible_through` | `CALIBRATED/INSUFFICIENT_SAMPLE/STALE` 及训练数据可见截止点 |
+| 概率输出 | `outcome_probabilities_json,primary_outcome_key` | 以稳定 outcome key 保存完整分布，不新增场景专属列 |
+| 不确定性 | `outcome_intervals_json,calibration_sample_count` | 按事件分组 bootstrap 或等价方法得到的区间及有效样本数 |
+| 适用状态 | `calibration_status,calibration_visible_through` | `CALIBRATED/NOT_FITTED/INSUFFICIENT_SAMPLE/STALE/VERSION_MISMATCH` 及训练数据可见截止点 |
 | 输入解释 | `heuristic_score,score_spread,feature_values_json` | 记录本次概率使用的启发式输入，不让前端重新计算 |
 
 必须遵守以下口径：
 
-1. `unresolved` 是真实第三类，不得删除后在其余两类间重新归一化。
-2. 概率只使用 `as_of` 当时可见的特征；结果标签从决策 bar 的下一根开始观察。
-3. 校准集的标签必须已在 `calibration_visible_through` 前完整成熟，不能使用观察期尚未结束的样本。
-4. 若有效样本不足、版本不匹配或校准过期，返回状态而不返回伪精确概率；不得退化为 `heuristic_score × 100%`。
-5. 第一版先报告总体校准；市场状态或指数分组只有在各组样本门槛和样本外结果通过后才能单独展示。
+1. 每个模块必须先声明互斥且覆盖观察窗口全部可能结果的 outcome space；无法判定的样本必须由该模块显式定义为 `unresolved/other` 等结果，不能丢弃后重新归一化。
+2. `outcome_probabilities_json` 必须只包含该版本声明的 outcome keys，每项在 `[0,1]`，总和在数值容差内等于 1。
+3. 概率只使用 `as_of` 当时可见的特征；结果标签从模块定义的决策时点之后开始观察。通用场景生成器不得读取 outcome label。
+4. 校准集的标签必须已在 `calibration_visible_through` 前完整成熟，不能使用观察期尚未结束的样本。
+5. 若模块未定义结果合同、有效样本不足、版本不匹配或校准过期，返回状态而不返回伪精确概率；不得退化为 `heuristic_score × 100%`。
+6. 训练、校准、测试按时间和事件组隔离；同一场景的连续快照不能跨集合泄漏。
+7. 市场状态、指数或周期分组只有在各组样本门槛和样本外结果通过后才能单独展示，否则使用通过门禁的总体校准或明确标记样本不足。
 
-最小验收指标包括：样本外 Brier score、multiclass log loss、ECE/可靠性分箱、各类召回与基准发生率。概率模型至少应与“永远输出训练期基准发生率”的朴素模型比较；若未改善预测质量或校准度，则保留研究结果但不得进入用户界面。
+最小验收指标包括：样本外 Brier score、log loss、ECE/可靠性分箱、各类召回与基准发生率；二分类和多分类按各自合同计算。概率模型至少应与“永远输出训练期基准发生率”的朴素模型比较；若未改善预测质量或校准度，则保留研究结果但不得进入用户界面。
+
+第一版通用 `wave_scenario_progression` 可以声明 `next_phase_confirmed/scenario_invalidated/unresolved`；未来四浪专项可以声明自己的三类 outcome 和 60 个交易日观察期；另一个“推动浪是否延长”模块又可以声明不同的结果空间和周期。它们复用同一概率基础设施，但不能共享标签列、样本分母或校准器。
 
 ### 10.8 forming terminal 的严格合同
 
-V1 有两种安全选择：
+通用场景资产有两种安全选择：
 
 1. 正式资产完全不保存 forming terminal，只输出 confirmed-only 场景。
-2. scenario snapshot 可额外保存 `forming_leg_from_pivot/forming_extreme_at/forming_extreme_price`，但必须 `uses_provisional=true`，且不增加 confirmed `wave_count`。
+2. scenario snapshot 可额外保存 `forming_leg_from_pivot/forming_extreme_at/forming_extreme_price`，但必须 `uses_provisional=true`，且不增加 `confirmed_wave_count`。
 
 推荐第二种用于持续观察、第一种用于正式回测过滤。任何默认查询和回测必须显式写：
 
@@ -1109,26 +1175,25 @@ WHERE uses_provisional = false
 
 前端可以用虚线显示形成中腿，但图例必须说明它会变化。
 
-### 10.9 硬规则和软规则建议
+### 10.9 通用硬规则、软规则与专项规则
 
-V1 先围绕下跌三浪后的四浪场景建立最小规则，不追求覆盖所有 Elliott 复杂形态。
+第一版规则按职责分三层，不能把某个案例的结构直接写进通用引擎：
 
-| 规则 | V1 性质 | 解释 |
-| --- | --- | --- |
-| pivot 高低必须交替 | HARD | 否则不是有效 swing 序列 |
-| `P1 < P0`、`P2 < P0`、`P3 < P1` | HARD | 既有下跌推动结构合同 |
-| `P2 > P1` | HARD | 二浪必须形成反弹高点 |
-| 每个 P 点在使用时已 confirmed | HARD | 无未来函数 |
-| Wave 2 不越过 Wave 1 起点 | HARD | V1 经典推动浪底线 |
-| Wave 3 不能是 1/3/5 中最短 | 暂缓 | 在 P3 时 Wave 5 未形成，不能提前判断 |
-| Wave 4 与 Wave 1 区域重叠 | SOFT/分形态 | 斜向结构等例外需后续独立定义，不能粗暴一刀切 |
-| Fibonacci 浪幅比例 | SOFT | 用于评分和分层统计，不预设有效 |
-| 二四浪交替 | SOFT | 只有 Wave 4 结构逐步形成后才能评价 |
-| 通道贴合 | SOFT | 作为特征，不作为价格事实 |
-| 越过 `P2` 后形成 HL+HH | SCENARIO TRANSITION | 从四浪反弹升级为结构反转候选 |
-| 跌破 `P3_fail` | HARD INVALIDATION | 反转场景失效或四浪延续得到支持 |
+| 层级 | 第一版性质 | 例子 | 归属 |
+| --- | --- | --- | --- |
+| 序列不变量 | HARD | K 线排序唯一；pivot 高低交替；`confirmed_at >= extreme_at` | 通用 core |
+| 浪型语法 | HARD | 方向序列合法；Wave 2 不越过 Wave 1 起点；已知阶段的失效条件 | 通用 scenario grammar，按版本冻结 |
+| 经典形态特征 | SOFT | Fibonacci 比例、时间比例、二四浪交替、通道贴合、结构完整度 | 通用评分，不先验当作概率 |
+| 生命周期规则 | HARD | 形成中端点不冒充 confirmed；新证据只能新增快照、失效或替代旧场景 | 通用 core |
+| 事件与结果规则 | MODULE-SPECIFIC | 指标触发、突破/回踩、观察期、结果类别 | 独立分析模块 |
 
-### 10.10 与既有四浪 `P0→P3` 的映射
+通用规则还必须处理“当前证据不足”：例如 Wave 3 是否为最短浪，在 Wave 5 尚未形成时不能提前断言。规则求值结果应允许 `PASS/FAIL/NOT_YET_EVALUABLE`，不能把未知强行记为通过或失败。
+
+第一版只实现基础推动浪、基础修正浪和替代解释。复杂组合调整、斜向三角形等形态可保留扩展接口，但未定义完整语法和夹具前不得输出确定标签。
+
+### 10.10 延后专项示例：四浪 `P0→P3` 如何消费通用内核
+
+本节只说明未来专项的接入方式，用于证明通用合同可扩展；它不属于当前通用内核的规则、资产验收或开发阶段。
 
 既有方案中的下跌结构：
 
@@ -1156,9 +1221,11 @@ P0 --下跌--> P1 --反弹--> P2 --下跌--> P3 --反弹--> t0
 3. 再次形成 higher high；
 4. 日线和市场广度达到既有方案的确认条件；
 
-则场景可以从 `WAVE4_REBOUND` 升级为 `STRUCTURAL_REVERSAL_CANDIDATE`。升级使用的是新证据，不得回头把历史 P3 改成“当时已经知道的牛市起点”。
+则四浪专项模块可以把自身状态从 `WAVE4_REBOUND` 升级为 `STRUCTURAL_REVERSAL_CANDIDATE`。升级使用的是新证据，不得回头把历史 P3 改成“当时已经知道的牛市起点”，也不得覆写通用 scenario snapshot。
 
-### 10.11 MACD(7,52,7) 四浪专项的适配方式
+### 10.11 延后专项示例：MACD(7,52,7) 的使用边界
+
+本专项当前暂缓实施；以下口径只在未来显式启动 `wave4_end` 模块时生效，不进入通用波浪识别默认流程。
 
 必须先冻结产品使用边界：
 
@@ -1197,10 +1264,10 @@ DIF(t-1) <= 0 < DIF(t)
 
 #### 历史 bootstrap
 
-历史任务必须按每个指数的完整时间序列顺序运行，因为 pivot 和 EMA 都有状态。推荐：
+历史任务必须按每个标的、每个周期的完整时间序列顺序运行，因为 pivot 和场景状态具有顺序依赖；某个专项若使用 EMA 等指标，再由该模块维护自己的指标状态。推荐：
 
-1. DuckDB 批量读取所有需要的 120 分钟 Parquet，只投影必要字段并排序。
-2. 每个 `ts_code` 在内存中顺序运行小型状态机。
+1. DuckDB 批量读取选定验证范围内的规范 K 线 Parquet，只投影必要字段并排序。
+2. 每个 `ts_code/freq` 在内存中顺序运行小型状态机。
 3. 对每个历史 as-of 产生确认事件和场景快照。
 4. 先写 staging，完成 schema、行数、不变量和前缀一致性验证后再原子 promote。
 5. 历史事件补录和 Dagster materialization 状态与物理文件分开审批。
@@ -1209,9 +1276,9 @@ DIF(t-1) <= 0 < DIF(t)
 
 #### 日常增量
 
-日常任务每个交易日最多处理两个新 120 分钟 bar。正确流程：
+日常任务按 `ts_code/freq` 处理上游新闭合的 bar。首轮 120 分钟验证中，每个正常交易日每个指数是两根 bar；通用流程不把这个数量写死：
 
-1. 等待 `silver_major_index_mins_120m` 目标分区 materialized，blocking checks 全过且 freshness 合格。
+1. 等待所选规范 K 线上游目标分区 materialized，blocking checks 全过且 freshness 合格。
 2. 读取上一个已确认状态和当天新 bar；或在数据量很小时从安全窗口重放并做前缀一致性检查。
 3. 生成当天 pivot confirmation 和 scenario snapshot 分区。
 4. 运行 blocking checks。
@@ -1221,14 +1288,14 @@ DIF(t-1) <= 0 < DIF(t)
 
 ### 10.13 Dagster readiness 和自动化
 
-波浪下游 readiness 不等于“120m Parquet 文件存在”。至少需要：
+波浪下游 readiness 不等于“K 线 Parquet 文件存在”。至少需要：
 
 ```text
 upstream materialized
 + upstream blocking checks passed
 + upstream freshness acceptable
 + model_version 与预期一致
-+ 当日 11:30/15:00 as-of 数量符合交易时段
++ 该 freq 的已闭合 bar 数量和 as-of 符合上游交易时段合同
 ```
 
 首期建议使用 asset sensor 或 bounded polling sensor 观察上游合格事件，再请求同一交易日分区；不要先写固定时间 schedule 假定上游一定完成。
@@ -1237,19 +1304,19 @@ upstream materialized
 
 ### 10.14 性能边界
 
-当前 V1 只有约 60,844 条主要指数 120 分钟历史行，顺序状态机规模很小。Python 逐 bar 计算在这个受控范围内可以接受，但仍需基准测试并遵守以下边界：
+首轮验证数据约有 60,844 条主要指数 120 分钟历史行，顺序状态机规模很小。Python 逐 bar 计算在这个受控范围内可以接受，但仍需基准测试并遵守以下边界：
 
 - 大文件扫描、过滤、排序、join、聚合由 DuckDB 做。
 - Python 只处理投影后的、按指数排序的有限序列和状态机，不逐 Parquet 文件做业务聚合。
 - 场景搜索限制最大 pivot 数、起点数、浪级数和 `max_scenarios`。
 - 记录读取行数、输出行数、每指数耗时、峰值内存、候选分支和剪枝数量。
-- 若未来扩展到 5,000+ 股票的 1/5 分钟数据，必须重新 benchmark；不能把“指数 V1 可用”外推成“全市场可用”。
+- 若未来扩展到 5,000+ 股票的 1/5 分钟数据，必须重新 benchmark；不能把“主要指数首轮验证可用”外推成“全市场可用”。
 
 建议第一版预算：
 
 | 项目 | 初始门禁 |
 | --- | --- |
-| 目标指数 | 10 个非北交所池；需日线确认的主样本当前 9 个 |
+| 验证对象 | 10 个非北交所主要指数；不把缺少日线当成纯 120 分钟内核的排除条件 |
 | 输入行 | 以当前快照约 60,844 条为基准 |
 | confirmed pivots | 每指数设置合理上限并报告，不静默截断 |
 | 单 as-of 场景 | 默认最多 5 个，另记录生成和剪枝总数 |
@@ -1261,14 +1328,14 @@ upstream materialized
 持续观察界面不是第一阶段前置，但数据合同应支持未来展示：
 
 - 指数详情页只保留一个当前周期图表工作区，通过顶部周期按钮在日 K、120 分钟等周期之间切换，不并排展示多张周期 K 线。
-- 右侧“技术分析走势”Tab 展示当前周期的技术分析；紧凑的跨周期文字矩阵可以保留，但不等于增加第二张周期图。
+- 右侧“技术分析走势”Tab 展示当前周期的通用浪型分析；用户切换日 K 或 120 分钟时，读取对应 `freq/as_of` 的独立结果，不在默认页把一个周期硬编码成另一个周期的确认层。
 - K 线上的 confirmed pivot 用实心标记。
 - forming terminal 用虚线和不同颜色，明确“会变化”。
 - 同时展示主场景和最多若干备选场景。
-- 显示 `as_of`、模型版本、数据截止时点和日线可见截止日。
-- 周期选择与 MACD 参数选择必须是两个独立状态。MACD 默认 `12,26,9`；仅在用户明确选择四浪专项参数时使用 `7,52,7`，且界面必须显示当前参数。当前版本没有参数调整能力。
-- confidence 显示为“启发式评分”；概率区单独显示固定观察期的三类校准概率、不确定性区间、有效样本数和校准状态，二者不能混为一个百分比。
+- 显示 `as_of`、模型版本、数据截止时点和当前周期；若启用了跨周期组合模块，再显示各输入周期的 `visible_through`。
+- confidence 显示为“启发式评分”；只有当前分析模块存在通过门禁的校准器时，概率区才按该模块的结果空间显示观察期、完整概率分布、不确定性区间、有效样本数和校准状态，二者不能混为一个百分比。
 - 显示硬规则、软扣分、失效位和最近一次场景变更原因。
+- 特殊场景放在右侧 Tab 内的显式模块入口中，不占用通用浪型默认视图。四浪专项尚未启动；若未来进入该模块，MACD 参数选择仍与 K 线周期独立，默认参数保持 `12,26,9`，不得自动切成 `7,52,7`。
 - 前端只消费后端事实，不自行数浪、拼装 latest 或推断 readiness。
 
 任何“买入/卖出”按钮、自动下单或个性化投资建议不属于本项目研究范围。
@@ -1281,38 +1348,39 @@ upstream materialized
 
 1. **前缀不变性**：在 `t` 已确认的 pivot，用 `t+n` 数据重放时，其 `pivot_key/extreme_at/confirmed_at` 不变。
 2. **确认时点顺序**：`confirmed_at >= extreme_at`。
-3. **输入可见性**：任一快照所有分钟输入 `trade_time <= as_of`。
-4. **日线可见性**：11:30 快照不读取当日最终日线；15:00 是否使用当日日线必须由固定收盘后口径决定。
-5. **forming 隔离**：形成中端点不能出现在 confirmed pivot 资产，也不能增加 confirmed wave count。
+3. **输入可见性**：任一快照所有输入 bar 的结束时间 `<= as_of`。
+4. **跨周期可见性**：只有组合模块消费其他周期；它必须记录每个输入的 `visible_through`，不得读取尚未闭合的 bar。
+5. **forming 隔离**：形成中端点不能出现在 confirmed pivot 资产，也不能增加 `confirmed_wave_count`。
 6. **确定性**：同一数据快照、模型版本和参数产生相同 key、同排名和同分数。
 7. **方向交替**：同一尺度 confirmed pivots 必须 HIGH/LOW 交替。
-8. **同 bar 歧义保守**：目标和失效同 bar 触碰时，不假设有利的日内顺序。
-9. **下一 bar 标签**：结果标签从决策 bar 的下一根开始观察。
-10. **样本资格不漂移**：缺日线的 `000680.SH` 不能静默进入既有分母。
+8. **规则未知可表达**：尚无足够摆动验证的规则返回 `NOT_YET_EVALUABLE`，不得偷看未来补判。
+9. **结果侧隔离**：模块 outcome label 只能在回测侧生成，不能进入通用场景特征。
+10. **同事件不泄漏**：同一事件派生的连续快照不得跨训练、校准和测试集合。
 
 ### 11.2 必须有的测试层级
 
 #### 单元测试
 
-- ATR、EMA、DIF、DEA、MACD 公式金标。
+- ATR 和 detector profile 的公式金标；EMA/MACD 等只在使用它们的专项模块中测试。
 - ZigZag 初始化、极值更新、阈值锚定、确认、相等价格和双向歧义。
 - pivot key 和 scenario key 稳定性。
 - 硬规则逐条正反例。
 - 软规则只扣分、不误淘汰。
+- `PASS/FAIL/NOT_YET_EVALUABLE` 三态规则求值。
 
 #### 性质测试
 
 - 随机序列的 confirmed pivot 前缀不变。
-- 全量与增量 MACD 完全一致。
+- 全量与增量 pivot、swing、scenario snapshot 完全一致。
 - 输入重复或乱序必须被拒绝或规范化后产生确定结果。
 - 所有输出时间都不晚于 as-of，标签端未来列不进入特征端。
 
 #### 夹具测试
 
-- 人工构造标准推动浪、失败四浪、趋势反转、平台、尖峰、圆弧、缺口。
+- 人工构造上涨/下跌推动浪、基础修正浪、未完成结构、替代场景、平台、尖峰、圆弧和缺口。
 - 2016-01-07 提前收市样本。
 - `09:30` 竞价锚点、11:30/15:00 两 bar 真实合同。
-- `000680.SH` 日线缺失资格。
+- 同一行情在日线与 120 分钟独立运行、结果互不覆盖的样本。
 
 #### 集成测试
 
@@ -1325,12 +1393,13 @@ upstream materialized
 
 - 训练、验证、样本外按时间切分。
 - 参数敏感性，而不是只报最优参数。
-- `7,52,7` 与 `12,26,9` 同事件池比较。
-- unresolved 单独报告，不强行判成成功或失败。
-- 置信区间、事件去重和每指数贡献度。
+- 每个分析模块分别冻结结果空间、观察期、分母和基准模型；通用内核不提供默认“成功”定义。
+- 模块声明的 `unresolved/other` 等结果必须单独报告，不强行判成成功或失败。
+- 置信区间、事件去重和每标的贡献度。
 - 概率校准使用严格的时间顺序训练/校准/样本外切分，同一事件的连续快照不得跨集合泄漏。
-- 概率模型报告 Brier score、multiclass log loss、ECE/可靠性曲线，并与训练期基准发生率比较。
-- 分指数、分市场状态的概率只有在各组有效样本门槛通过后才报告；否则回退到总体校准或标记样本不足。
+- 概率模型按 outcome space 报告 Brier score、log loss、ECE/可靠性曲线，并与训练期基准发生率比较。
+- 分标的、分周期、分市场状态的概率只有在各组有效样本门槛通过后才报告；否则回退到总体校准或标记样本不足。
+- 四浪 `7,52,7` 对照只属于未来专项测试，不进入通用内核验收。
 
 ### 11.3 建议的 asset checks
 
@@ -1346,8 +1415,8 @@ upstream materialized
 | hard rule audit | 是 | ACTIVE 场景无硬违规 |
 | source/model lineage | 是 | snapshot、model、source asset 不为空 |
 | scenario count diagnostics | 否/观察 | 候选数异常、全部为空、分数分布漂移 |
-| probability simplex | 是 | 三类概率均在 `[0,1]` 且总和为 1 |
-| calibration lineage/status | 是 | 标签、场景、校准版本完整；样本不足或过期时不输出伪概率 |
+| probability contract/simplex | 是 | outcome keys 与声明版本一致；各项在 `[0,1]` 且总和为 1 |
+| calibration lineage/status | 是 | 模块、结果空间、标签、场景、校准版本完整；样本不足或过期时不输出伪概率 |
 
 ---
 
@@ -1355,38 +1424,43 @@ upstream materialized
 
 本文只完成审计。若用户批准开发，建议按以下门禁推进，每一阶段都可单独停止。
 
-### P0：规则合同冻结
+### G0：通用合同冻结
+
+状态：进行中。D01～D09 已于 2026-08-08 按推荐项确认，并已回写 [通用波浪识别 G0 合同冻结评审稿 v1](/Users/congming/github/goldenshare/lake_console/docs/design/index-wave-g0-generic-contract-v1.md)；当前只剩 D10 `score_profile_v1` 待评审，确认后才能标记冻结。
 
 交付：
 
-- ATR、ZigZag、pivot confirmation、forming、scenario key 的精确定义。
-- 四浪最小 hard/soft 规则表。
-- `as_of` 和日线可见性表。
-- 字段 schema 草案和 10 组人工夹具。
+- 规范 bar、detector profile、pivot confirmation、swing、forming 和 scenario key 的精确定义。
+- 基础推动浪/修正浪的 hard rule、soft feature 和 `NOT_YET_EVALUABLE` 规则表。
+- `as_of`、单周期运行和跨周期可见性合同。
+- 分析模块接口，以及场景无关的 outcome/probability/calibration 版本合同。
+- 字段 schema 草案和覆盖上涨、下跌、未完成与替代解释的人工夹具。
 
 验收：任何字段和规则都能回答“什么时候可见、违反后怎样处理、如何回放”。
 
-### P1：纯内核原型
+### G1：纯内核原型
 
 交付：
 
-- 无 Dagster 依赖的 bar adapter、pivot engine、scenario generator、walk-forward replay。
+- 无 Dagster 依赖的 bar adapter、pivot engine、swing builder、scenario generator、lifecycle tracker 和 replay。
 - confirmed-only 与 provisional 两套明确输出。
-- 单元、性质、金标测试。
+- 通用模块接口、`wave_scenario_progression` 标签器与校准评估 harness；不实现四浪专项标签。
+- 单元、性质和金标测试。
 
 验收：前缀不变性、全量/增量一致性和人工结构夹具全部通过。
 
-### P2：真实数据只读对照
+### G2：真实数据只读对照
 
 交付：
 
-- 对 10 个主要指数当前 120 分钟快照只读运行。
-- pivot 密度、确认延迟、场景数、空结果、性能和异常样本报告。
+- 对主要指数日线和 120 分钟数据分别只读运行，不互相充当默认确认层。
+- 各周期的 pivot 密度、确认延迟、场景数、空结果、性能和异常样本报告。
+- 按时间切分验证 `wave_scenario_progression` 的基准发生率、样本外校准和概率门禁；未通过时保留启发式评分但不展示概率。
 - 与简单 Fractal、jbn 批量 ZigZag 或 ta4j 小样本输出做解释性对照。
 
-验收：不写正式 Lake；每个差异能解释到算法语义，不能只比较图像“看起来像”。
+验收：不写正式 Lake；每个差异能解释到算法语义，不能只比较图像“看起来像”；通用概率必须优于朴素基准并满足样本外校准要求，否则明确失败而不是调标签。
 
-### P3：Dagster 资产 LLD
+### G3：Dagster 资产 LLD
 
 交付：
 
@@ -1396,7 +1470,7 @@ upstream materialized
 
 验收：设计评审通过后才可编码 Dagster 写链。
 
-### P4：历史 bootstrap 与一致性验收
+### G4：历史 bootstrap 与一致性验收
 
 交付：
 
@@ -1406,18 +1480,7 @@ upstream materialized
 
 验收：单独审批 promote；物理文件和 Dagster events 分阶段验收。
 
-### P5：正式四浪回测
-
-交付：
-
-- 按原方案生成事件和三分类标签。
-- `7,52,7` vs `12,26,9`、有/无场景评分、分阶段特征消融。
-- 训练/验证/样本外结果、置信区间、失败样本和 unresolved。
-- 建立启发式分数到三分类概率的版本化校准层，保存样本量、区间、训练截止点和校准指标。
-
-验收：统计结论不能由训练区间最佳参数替代样本外结果；未通过样本外校准门禁的概率不得进入持续观测 API。
-
-### P6：持续观测
+### G5：通用持续观测
 
 交付：
 
@@ -1425,27 +1488,37 @@ upstream materialized
 - 只读 API 和面向研究者的解释界面。
 - 至少多个实际交易日的自动化稳定性观察。
 
-验收：形成中腿、已确认浪、三类校准概率和 heuristic score 均清晰区分；概率附带观察期、区间、样本数和版本，无交易指令。
+验收：形成中腿、已确认浪和 heuristic score 清晰区分；通用 `wave_scenario_progression` 只有通过门禁才显示概率。若其他模块已有合格概率，同样必须附带模块名、结果空间、观察期、区间、样本数和版本，无交易指令。
+
+### M0：专项分析模块立项门——通用主线完成后另行评审
+
+四浪结束、推动浪延长、复杂修正等都属于专项模块，不是 G0～G5 的必经步骤。每个专项需另行评审：事件定义、附加指标、结果空间、观察期、样本分母、校准器和 UI 入口。
+
+四浪 `MACD(7,52,7)` 是候选专项示例。只有在 G1 的通用内核稳定、G4 的版本化历史快照可复现、通用概率合同通过门禁后，才按独立四浪文档启动；不因通用引擎识别出 Wave 4 就自动执行。
 
 ---
 
-## 13. 尚待评审的具体决策
+## 13. 已确认方向与剩余评审
+
+本节保留源码审计阶段形成的高层方向，精确实现口径以 G0 主合同的编号决策为准。D01～D09 已确认；当前唯一未决实现项是 D10 `score_profile_v1`。
 
 | 决策 | 推荐选项 | 原因 |
 | --- | --- | --- |
-| V1 是否直接引入 ta4j | 否 | 字段和 provisional 语义不符合；Java 25 运行时成本高 |
-| 主摆动检测器 | `ATR14 × 1.5` 因果 ZigZag | 与既有四浪方案一致，减少搜索空间 |
-| 是否同时调 Fractal/Slope/Prominence | 不在主模型中 | 防止第一版参数爆炸；只做鲁棒性对照 |
+| 第一版是否直接引入 ta4j | 否 | 字段和 provisional 语义不符合；Java 25 运行时成本高 |
+| 通用内核是否绑定周期/标的 | 否 | 同一因果合同应可分别运行于日线、120 分钟和后续受支持序列 |
+| 首个 detector profile | `ATR14 × 1.5` 因果 ZigZag | 参数少、可复现，适合作为首个验证基线；不是永久唯一算法 |
+| 是否同时调 Fractal/Slope/Prominence | 不在首个主 profile 中 | 防止第一版参数爆炸；只做鲁棒性对照 |
 | 是否保留多场景 | 是，默认最多 5 个 | 波浪存在替代解释，避免唯一答案伪确定性 |
 | forming terminal 是否展示 | 可展示，但明确 provisional | 支持持续观察；正式回测必须排除 |
 | confidence 字段名 | `heuristic_score` | 防止误读为概率 |
 | 是否实现概率校准层 | 是，独立于 heuristic score | 用户已确认是正式能力；必须通过时间样本外校准后才可展示 |
-| 第一版概率目标 | 60 个交易日内三分类分布 | 与既有回测标签一致，并保留 unresolved |
+| 首个通用概率模块 | `wave_scenario_progression` | 校准“下一结构里程碑/硬失效/未决”，观察 bar 数按 degree 在 G0 冻结；不借用四浪标签和 60 日窗口 |
+| 后续专项概率 | 各自定义 | 每个专项定义 outcome space、观察期和校准器，不能复用通用或其他专项分母 |
 | 指数详情图表布局 | 单一图表工作区，顶部切换周期 | 与现有 Figma Index Detail 交互一致，不并排展示日 K 与 120 分钟 K 线 |
 | MACD 默认参数 | 所有周期默认 `12,26,9` | 120 分钟不自动绑定特殊参数 |
-| `7,52,7` 的启用方式 | 四浪专项中由用户明确手动选择 | 这是使用特例，不是周期默认；当前尚无参数调整功能 |
+| `7,52,7` 是否进入通用内核 | 否 | 只属于暂缓的四浪专项；当前尚无参数调整功能 |
 | 是否建立稳定 scenario key | 是 | 追踪每日场景演化所必需 |
-| 第一版是否做复杂修正浪 | 否，只留扩展接口 | 四浪前置最小闭环优先 |
+| 第一版是否做复杂修正浪 | 否，只留扩展接口 | 先证明基础推动/修正语法和生命周期正确 |
 | 第一版是否覆盖个股 | 否 | 指数样本小、数据合同已验收；个股规模和复权另行评审 |
 | 是否立即做前端 | 否 | 先证明算法因果性和数据合同 |
 | 是否创建 transition 资产 | 暂不 | 相邻快照可推导；先避免状态资产膨胀 |
@@ -1485,23 +1558,21 @@ upstream materialized
 1. ta4j 是当前候选中最系统、最值得深入学习的 Elliott Wave 开源实现。
 2. 它的核心架构——可插拔摆动检测、多场景、评分分解、失效位、多级别和 walk-forward——适合成为我们的设计参考。
 3. 它的稳定版输出模型不能直接满足 Goldenshare 的无未来函数证据要求，尤其缺少 `confirmed_at`，并混入形成中末端。
-4. Goldenshare 修复后的主要指数 120 分钟线已满足启动小范围研究内核的数据门槛。
+4. Goldenshare 修复后的主要指数 120 分钟线适合作为通用内核的首个小范围验证数据集；这不把内核限定为 120 分钟或指数专用。
 5. 当前仓库没有通用波浪引擎，旧 MACD 研究链也不应成为新主实现。
 
 ### 15.2 推荐下一步
 
-下一步不是马上写完整波浪系统，而是评审并冻结 P0：
+下一步不是马上写完整波浪系统，也不是启动四浪专项，而是完成 D10 评审并冻结 G0。D01～D09 已确认；剩余评审重点是：
 
-- pivot confirmation 精确定义；
-- confirmed 与 provisional 边界；
-- 四浪最小 hard/soft 规则；
-- scenario key 和两张资产 schema；
-- as-of 日线可见性；
-- K 线周期与 MACD 参数的独立状态合同，以及特殊参数的显式启用边界；
-- 三分类概率目标、时间切分、校准版本和展示门禁；
-- 10 组人工金标夹具。
+- `score_profile_v1` 的比例函数和 Fibonacci 目标带；
+- 证据不足时不回填 0/0.5 的缺失语义；
+- 推动与锯齿的 grammar 专属权重；
+- V1 暂不把 channel 计入总分；
+- `heuristic_score/score_coverage/ranking_score` 三者的职责；
+- F33～F43 的评分字面夹具。
 
-P0 通过后，再开发一个只读纯内核原型，在真实 120 分钟数据上审计 pivot 和场景质量。只有这个原型的因果性、稳定性和性能都通过，才值得设计正式 Dagster 资产与持续观测功能。
+G0 通过后，再开发一个只读纯内核原型，分别在真实日线和 120 分钟数据上审计 pivot 与场景质量。只有这个原型的因果性、稳定性和性能都通过，才值得设计正式 Dagster 资产与持续观测功能；四浪案例继续保留为后续专项，不进入本轮验收。
 
 ---
 
@@ -1512,7 +1583,7 @@ P0 通过后，再开发一个只读纯内核原型，在真实 120 分钟数据
 | `SwingDetector` | 检测 pivots/swings | 插件接口、按 index 分析 | 返回模型缺确认时点 |
 | `SwingPivot` | pivot 值对象 | 简单不可变对象 | 字段不足 |
 | `ZigZagStateIndicator` | 因果 ZigZag 状态 | high/low 极值、close 确认、阈值锚定 | 需把确认事件显式输出 |
-| `AdaptiveZigZagSwingDetector` | ATR 自适应阈值 | volatility scaling | clamp/smoothing 不进入 V1 主参数 |
+| `AdaptiveZigZagSwingDetector` | ATR 自适应阈值 | volatility scaling | clamp/smoothing 不进入第一版基线 profile |
 | `FractalSwingDetector` | 固定前后窗口确认 | 确定性对照 | 固定尺度不适应波动状态 |
 | `SlopeChangeSwingDetector` | 斜率持续变化确认 | 圆弧转折、因果性 | 参数多，后续再研究 |
 | `CompositeSwingDetector` | 多检测器共识 | tolerance/quorum | 共识确认时间需重定义 |
@@ -1522,7 +1593,7 @@ P0 通过后，再开发一个只读纯内核原型，在真实 120 分钟数据
 | `ElliottScenarioSet` | 排序和共识 | 主/备场景、分差 | ID 不适合长期追踪 |
 | `ElliottWaveAnalysisRunner` | 组合完整分析 | 端到端参考 | 体量大、职责集中、稳定版 provisional 混入 |
 | `ElliottWaveWalkForwardContext` | 历史前缀选择 | 防未来数据进入输入 | 不能自动修正 Runner 语义 |
-| `ElliottWaveOutcomeLabeler` | 未来目标/失效标签 | 下一 bar、同 bar 保守 | 标签与四浪方案不同 |
+| `ElliottWaveOutcomeLabeler` | 未来目标/失效标签 | 下一 bar、同 bar 保守 | 结果空间不是通用合同，需由模块重写 |
 | `EmpiricalElliottWaveForecastIndicator` | 历史相似场景预测 | 远期研究方向 | snapshot 功能，未做 A 股验证 |
 
 ## 附录 B：源码链接
@@ -1539,6 +1610,11 @@ P0 通过后，再开发一个只读纯内核原型，在真实 120 分钟数据
 - [ZigZagStateIndicator](https://github.com/ta4j/ta4j/blob/896d7138a9d1818fe6725b89b433ba7860b8f654/ta4j-core/src/main/java/org/ta4j/core/indicators/zigzag/ZigZagStateIndicator.java)
 - [ElliottScenarioGenerator](https://github.com/ta4j/ta4j/blob/896d7138a9d1818fe6725b89b433ba7860b8f654/ta4j-core/src/main/java/org/ta4j/core/indicators/elliott/ElliottScenarioGenerator.java)
 - [ElliottConfidence](https://github.com/ta4j/ta4j/blob/896d7138a9d1818fe6725b89b433ba7860b8f654/ta4j-core/src/main/java/org/ta4j/core/indicators/elliott/ElliottConfidence.java)
+- [ElliottConfidenceScorer](https://github.com/ta4j/ta4j/blob/896d7138a9d1818fe6725b89b433ba7860b8f654/ta4j-core/src/main/java/org/ta4j/core/indicators/elliott/ElliottConfidenceScorer.java)
+- [ConfidenceProfiles](https://github.com/ta4j/ta4j/blob/896d7138a9d1818fe6725b89b433ba7860b8f654/ta4j-core/src/main/java/org/ta4j/core/indicators/elliott/confidence/ConfidenceProfiles.java)
+- [ElliottFibonacciValidator](https://github.com/ta4j/ta4j/blob/896d7138a9d1818fe6725b89b433ba7860b8f654/ta4j-core/src/main/java/org/ta4j/core/indicators/elliott/ElliottFibonacciValidator.java)
+- [ElliottChannelIndicator](https://github.com/ta4j/ta4j/blob/896d7138a9d1818fe6725b89b433ba7860b8f654/ta4j-core/src/main/java/org/ta4j/core/indicators/elliott/ElliottChannelIndicator.java)
+- [ChannelAdherenceFactor](https://github.com/ta4j/ta4j/blob/896d7138a9d1818fe6725b89b433ba7860b8f654/ta4j-core/src/main/java/org/ta4j/core/indicators/elliott/confidence/ChannelAdherenceFactor.java)
 - [ElliottWaveAnalysisRunner](https://github.com/ta4j/ta4j/blob/896d7138a9d1818fe6725b89b433ba7860b8f654/ta4j-core/src/main/java/org/ta4j/core/indicators/elliott/ElliottWaveAnalysisRunner.java)
 - [ElliottWaveWalkForwardContext](https://github.com/ta4j/ta4j/blob/896d7138a9d1818fe6725b89b433ba7860b8f654/ta4j-core/src/main/java/org/ta4j/core/indicators/elliott/walkforward/ElliottWaveWalkForwardContext.java)
 - [ElliottWaveOutcomeLabeler](https://github.com/ta4j/ta4j/blob/896d7138a9d1818fe6725b89b433ba7860b8f654/ta4j-core/src/main/java/org/ta4j/core/indicators/elliott/walkforward/ElliottWaveOutcomeLabeler.java)
@@ -1557,6 +1633,6 @@ current master 前瞻差异：
 1. 修改任何业务代码、schema、asset、job、sensor、API 或前端。
 2. 执行 Dagster materialize、backfill、runless event 或动态分区写入。
 3. 写入 Lake、prod、远程数据库或 Tushare。
-4. 运行正式四浪回测或得出交易结论。
+4. 运行正式四浪回测、其他专项回测或得出交易结论。
 5. 引入 ta4j、TA-Lib、vectorbt 等新依赖。
 6. 创建分支、worktree、commit 或 push。
