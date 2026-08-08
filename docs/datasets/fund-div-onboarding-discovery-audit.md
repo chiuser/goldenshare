@@ -1,7 +1,7 @@
 # 基金分红（`fund_div`）接入发现审计
 
-状态：**B4-FD-M0/M1/M2 已完成；隔离 PostgreSQL migration、HDD tablespace placement、真实同步与完整对账、10,000 行容量、回滚和 advisory lock 均通过。生产 migration/同步、历史回补与 schedule 仍未授权**
-首次审计：2026-08-03；复审：2026-08-05、2026-08-07
+状态：**B4-FD-M0/M1/M2/M3 已完成；隔离与生产 migration/HDD placement、正式 TaskRun 首次同步、幂等重跑和完整对账均通过。历史回补与 schedule 仍未授权**
+首次审计：2026-08-03；复审：2026-08-05、2026-08-07、2026-08-08
 截图菜单：基金分红
 源文档：[公募基金分红](../sources/tushare/公募基金/0120_公募基金分红.md)
 LLD：[公募基金 B4：基金分红 LLD v1](public-fund-b4-fund-div-low-level-design-v1.md)
@@ -148,7 +148,18 @@ pay_date, earpay_date, net_ex_date, account_date, base_year
 - 10,000 行容量为 `2000×5+0`，单事务 `1.918s`、端到端 `2.510s`、峰值 RSS `276,873,216` bytes、WAL 增量 `6,912,280` bytes。分页失败、identity/content 冲突、scope regression、partial reject、持久化不完整和数据库异常均原子回滚；同日 advisory lock、异日非阻塞、NUMERIC 精确 round-trip 与 Ops 状态写失败不影响业务提交均通过。
 - 隔离阶段未创建 TaskRun、schedule 或 probe；M2 未写生产库。
 
-B4-FD-M2 已通过。当前不授权生产 migration/同步、历史回补或 schedule。
+B4-FD-M2 已通过。
+
+### 7.2 B4-FD-M3 生产验收结果（2026-08-08）
+
+- 生产部署 HEAD=`56779912`，Alembic head 已为 `20260807_000130`；预检时目标表为空，且全局活动 TaskRun、活动日期完整性任务、非空闲业务会话、`fund_div` 历史 TaskRun/schedule/probe 均为 0。migration 已由现有部署流程应用，本轮没有重复执行 DDL。
+- 表、主键和两个二级索引共 4 个 relation 均位于 `gs_raw_cold_hdd`。真实路径为 `/data/disk/postgresql/tablespaces/gs_stk_mins_hdd`，挂载设备 `/dev/vdb`、文件系统 ext4，验收时可用约 319 GiB；共享 WAL 未迁移。
+- 生产 connector 只读预检 `20201215` 得到 `141 fetched / 74 unique / 67 deduplicated / 0 reject`，单个 2,000 行短页、0 retry、16 个显式字段缺失键为 0，OF/SH=`72/2`。
+- 正式 TaskRun `#7653` 首次同步成功：`141 fetched / 74 saved / 67 deduplicated / 0 reject`，`74 inserted / 0 matched`；TaskRun `#7654` 幂等重跑成功：同样 `141/74/67/0`，`0 inserted / 74 matched`。
+- 两轮独立源端复核与目标表比较均得到摘要 `6c9e80c38bcacd81ec71e9e0a0c97cf1ebe5390410d67a687799538906af6b37`；双向身份差集、同实体内容冲突和目标 16 字段重算 hash mismatch 均为 0。目标保持 74 行，`ingested_at` 没有被重跑更新。
+- 数据状态快照按事件事实展示 `2020-12-15`，没有连续自然日缺口；验收结束后活动任务、schedule、probe 均为 0，六个服务和两个健康接口正常。
+
+B4-FD-M3 已通过。当前仍不授权历史预算/回补或 schedule。
 
 ## 8. 拍板结论与后续项
 
@@ -163,4 +174,4 @@ B4-FD-M2 已通过。当前不授权生产 migration/同步、历史回补或 sc
 4. 历史回补起止日期、限流和 HDD/索引/WAL/耗时停止阈值，放在 B4-FD-M4a 只读预算后决定；单 TaskRun 上限固定为 366 个自然日 unit。
 5. 实际自动任务运行时点、维护 D/D-1 以及是否增加短滚动窗口，放在多时点发布观测后决定。
 
-前三项已经关闭设计门禁，B4-FD-M1/M2 也已完成。下一独立授权边界是 B4-FD-M3 生产只读预检、migration、真实 HDD 路径、正式 TaskRun 首次同步与对账。
+前三项已经关闭设计门禁，B4-FD-M1/M2/M3 也已完成。下一独立授权边界是 B4-FD-M4a 历史规模、配额、耗时与 HDD/索引/WAL 只读预算；历史回补和 schedule 仍须分别授权。
