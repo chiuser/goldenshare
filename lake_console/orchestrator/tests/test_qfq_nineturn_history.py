@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -9,6 +10,9 @@ import duckdb
 
 from orchestrator.defs.bootstrap.qfq_nineturn_history import (
     QfqNineturnHistoryError,
+    _normalize_partitioned_batch,
+    _spec_for_asset,
+    _write_compact_history_state,
     build_qfq_nineturn_history,
     load_qfq_nineturn_history_plan,
     plan_qfq_nineturn_history,
@@ -30,6 +34,150 @@ from tests.qfq_nineturn_history_fixture import (
 
 
 class QfqNineturnHistoryTests(unittest.TestCase):
+    def test_compact_history_state_carries_seed_for_code_absent_in_current_year(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            context_path = root / "previous_context.parquet"
+            seed_path = root / "previous_seed.parquet"
+            source_path = root / "current_source.parquet"
+            with duckdb.connect() as connection:
+                connection.execute(
+                    f"""
+                    COPY (
+                      SELECT * FROM (VALUES
+                        ('000001.SZ', NULL::INTEGER, DATE '2024-12-26', NULL::TIMESTAMP,
+                         TIMESTAMP '2024-12-26', 6.0),
+                        ('000001.SZ', NULL::INTEGER, DATE '2024-12-27', NULL::TIMESTAMP,
+                         TIMESTAMP '2024-12-27', 7.0),
+                        ('000001.SZ', NULL::INTEGER, DATE '2024-12-30', NULL::TIMESTAMP,
+                         TIMESTAMP '2024-12-30', 8.0),
+                        ('000001.SZ', NULL::INTEGER, DATE '2024-12-31', NULL::TIMESTAMP,
+                         TIMESTAMP '2024-12-31', 9.0),
+                        ('000002.SZ', NULL::INTEGER, DATE '2024-12-31', NULL::TIMESTAMP,
+                         TIMESTAMP '2024-12-31', 20.0)
+                      ) rows(ts_code, freq, trade_date, trade_time, bar_time, close_qfq)
+                    ) TO '{context_path}' (FORMAT PARQUET)
+                    """
+                )
+                connection.execute(
+                    f"""
+                    COPY (
+                      SELECT * FROM (VALUES
+                        ('000001.SZ', 1, 8),
+                        ('000002.SZ', -1, 3)
+                      ) rows(ts_code, seed_direction, seed_count)
+                    ) TO '{seed_path}' (FORMAT PARQUET)
+                    """
+                )
+                connection.execute(
+                    f"""
+                    COPY (
+                      SELECT '000002.SZ'::VARCHAR AS ts_code,
+                             DATE '2025-01-02' AS trade_date,
+                             19.0::DOUBLE AS close
+                    ) TO '{source_path}' (FORMAT PARQUET)
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE TABLE current_output AS
+                    SELECT '000002.SZ'::VARCHAR AS ts_code,
+                           DATE '2025-01-02' AS trade_date,
+                           19.0::DOUBLE AS close_qfq,
+                           0::INTEGER AS up_count,
+                           4::INTEGER AS down_count,
+                           NULL::VARCHAR AS nine_up_turn,
+                           NULL::VARCHAR AS nine_down_turn
+                    """
+                )
+
+                next_context, next_seed, context_rows, seed_rows = (
+                    _write_compact_history_state(
+                        connection,
+                        table_name="current_output",
+                        source_paths=(source_path,),
+                        context_path=context_path,
+                        seed_path=seed_path,
+                        spec=_spec_for_asset("gold_stock_daily_qfq_nineturn"),
+                        state_root=root / "state",
+                        year=2025,
+                    )
+                )
+                seeds = connection.execute(
+                    f"""
+                    SELECT ts_code, seed_direction, seed_count
+                    FROM read_parquet('{next_seed}')
+                    ORDER BY ts_code
+                    """
+                ).fetchall()
+                context_codes = connection.execute(
+                    f"SELECT DISTINCT ts_code FROM read_parquet('{next_context}') ORDER BY ts_code"
+                ).fetchall()
+
+            self.assertEqual(context_rows, 6)
+            self.assertEqual(seed_rows, 2)
+            self.assertEqual(seeds, [("000001.SZ", 1, 8), ("000002.SZ", -1, 4)])
+            self.assertEqual(context_codes, [("000001.SZ",), ("000002.SZ",)])
+
+    def test_normalize_partitioned_batch_merges_multiple_shards(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            trade_date = "2026-08-07"
+            source_dir = root / "partitioned" / f"partition_trade_date={trade_date}"
+            source_dir.mkdir(parents=True)
+            normalized_root = root / "normalized"
+            with duckdb.connect() as connection:
+                for shard, ts_code in enumerate(("000002.SZ", "000001.SZ")):
+                    connection.execute(
+                        f"""
+                        COPY (
+                          SELECT
+                            CAST('{ts_code}' AS VARCHAR) AS ts_code,
+                            DATE '{trade_date}' AS trade_date,
+                            CAST(10.0 + {shard} AS DOUBLE) AS close_qfq,
+                            CAST({shard + 1} AS INTEGER) AS up_count,
+                            CAST(0 AS INTEGER) AS down_count,
+                            CAST(NULL AS VARCHAR) AS nine_up_turn,
+                            CAST(NULL AS VARCHAR) AS nine_down_turn
+                        ) TO '{source_dir / f"shard-{shard}.parquet"}' (FORMAT PARQUET)
+                        """
+                    )
+
+                normalized = _normalize_partitioned_batch(
+                    connection=connection,
+                    partitioned_root=root / "partitioned",
+                    normalized_root=normalized_root,
+                    expected_dates=(trade_date,),
+                    spec=_spec_for_asset("gold_stock_daily_qfq_nineturn"),
+                )
+                target = normalized[trade_date]
+                rows = connection.execute(
+                    f"SELECT ts_code, trade_date FROM read_parquet('{target}')"
+                ).fetchall()
+                columns = tuple(
+                    row[0]
+                    for row in connection.execute(
+                        f"DESCRIBE SELECT * FROM read_parquet('{target}')"
+                    ).fetchall()
+                )
+
+            self.assertEqual(tuple(target.parent.glob("*.parquet")), (target,))
+            self.assertEqual(
+                rows,
+                [("000001.SZ", date(2026, 8, 7)), ("000002.SZ", date(2026, 8, 7))],
+            )
+            self.assertEqual(
+                columns,
+                tuple(
+                    column.name
+                    for column in _spec_for_asset(
+                        "gold_stock_daily_qfq_nineturn"
+                    ).schema
+                ),
+            )
+
     def test_plan_is_read_only_and_freezes_expected_scale(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)

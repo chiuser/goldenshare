@@ -910,12 +910,28 @@ def _build_history_batch(
         """
     )
     staged_by_date = _normalize_partitioned_batch(
+        connection=connection,
         partitioned_root=partitioned_root,
         normalized_root=batch_root / "normalized",
         expected_dates=batch.trade_dates,
+        spec=spec,
     )
     for trade_date, staged in staged_by_date.items():
         _assert_partition_contract(connection, staged, spec, trade_date)
+
+    state_root = staging_root / batch.asset_key / "state"
+    next_context, next_seed, context_row_count, seed_row_count = (
+        _write_compact_history_state(
+            connection,
+            table_name=table_name,
+            source_paths=batch.source_paths,
+            context_path=context_path,
+            seed_path=seed_path,
+            spec=spec,
+            state_root=state_root,
+            year=batch.year,
+        )
+    )
 
     promoted: list[Path] = []
     reused = 0
@@ -937,52 +953,6 @@ def _build_history_batch(
         for target in reversed(promoted):
             target.unlink(missing_ok=True)
         raise
-
-    state_root = staging_root / batch.asset_key / "state"
-    state_root.mkdir(parents=True, exist_ok=True)
-    next_context = state_root / f"context_{batch.year}.parquet"
-    next_seed = state_root / f"seed_{batch.year}.parquet"
-    context_rows_sql = _history_context_rows_sql(
-        source_paths=batch.source_paths,
-        context_path=context_path,
-        freq=spec.freq,
-    )
-    connection.execute(
-        copy_query_to_parquet(
-            f"""
-            SELECT ts_code, freq, trade_date, trade_time, bar_time, close_qfq
-            FROM ({context_rows_sql})
-            QUALIFY ROW_NUMBER() OVER (
-              PARTITION BY ts_code ORDER BY bar_time DESC
-            ) <= {QFQ_NINETURN_COMPARISON_LAG}
-            ORDER BY ts_code, bar_time
-            """,
-            next_context,
-        )
-    )
-    order_column = "trade_date" if spec.freq is None else "trade_time"
-    connection.execute(
-        copy_query_to_parquet(
-            f"""
-            SELECT
-              CAST(ts_code AS VARCHAR) AS ts_code,
-              CASE WHEN up_count > 0 THEN 1 WHEN down_count > 0 THEN -1 ELSE 0 END
-                AS seed_direction,
-              greatest(CAST(up_count AS INTEGER), CAST(down_count AS INTEGER))
-                AS seed_count
-            FROM {table_name}
-            QUALIFY ROW_NUMBER() OVER (
-              PARTITION BY ts_code ORDER BY {order_column} DESC
-            ) = 1
-            ORDER BY ts_code
-            """,
-            next_seed,
-        )
-    )
-    context_row_count = _count_rows(connection, (next_context,))
-    seed_row_count = _count_rows(connection, (next_seed,))
-    if context_row_count > seed_row_count * QFQ_NINETURN_COMPARISON_LAG:
-        raise QfqNineturnHistoryError("Compact context exceeded its fixed row bound.")
     return (
         QfqNineturnHistoryBatchResult(
             asset_key=batch.asset_key,
@@ -1171,6 +1141,134 @@ def _history_context_rows_sql(
     """
 
 
+def _write_compact_history_state(
+    connection: duckdb.DuckDBPyConnection,
+    *,
+    table_name: str,
+    source_paths: Sequence[Path],
+    context_path: Path | None,
+    seed_path: Path | None,
+    spec: _AssetSpec,
+    state_root: Path,
+    year: int,
+) -> tuple[Path, Path, int, int]:
+    state_root.mkdir(parents=True, exist_ok=True)
+    next_context = state_root / f"context_{year}.parquet"
+    next_seed = state_root / f"seed_{year}.parquet"
+    context_rows_sql = _history_context_rows_sql(
+        source_paths=source_paths,
+        context_path=context_path,
+        freq=spec.freq,
+    )
+    connection.execute(
+        copy_query_to_parquet(
+            f"""
+            SELECT ts_code, freq, trade_date, trade_time, bar_time, close_qfq
+            FROM ({context_rows_sql})
+            QUALIFY ROW_NUMBER() OVER (
+              PARTITION BY ts_code ORDER BY bar_time DESC
+            ) <= {QFQ_NINETURN_COMPARISON_LAG}
+            ORDER BY ts_code, bar_time
+            """,
+            next_context,
+        )
+    )
+    order_column = "trade_date" if spec.freq is None else "trade_time"
+    current_seed_sql = f"""
+    SELECT
+      CAST(ts_code AS VARCHAR) AS ts_code,
+      CASE WHEN up_count > 0 THEN 1 WHEN down_count > 0 THEN -1 ELSE 0 END
+        AS seed_direction,
+      greatest(CAST(up_count AS INTEGER), CAST(down_count AS INTEGER)) AS seed_count
+    FROM {table_name}
+    QUALIFY ROW_NUMBER() OVER (
+      PARTITION BY ts_code ORDER BY {order_column} DESC
+    ) = 1
+    """
+    seed_rows_sql = current_seed_sql
+    if seed_path is not None:
+        seed_rows_sql = f"""
+        WITH current_seed AS (
+          {current_seed_sql}
+        ),
+        previous_seed AS (
+          SELECT
+            CAST(ts_code AS VARCHAR) AS ts_code,
+            CAST(seed_direction AS INTEGER) AS seed_direction,
+            CAST(seed_count AS INTEGER) AS seed_count
+          FROM {read_parquet(seed_path, hive_partitioning=False)}
+        )
+        SELECT * FROM current_seed
+        UNION ALL
+        SELECT previous_seed.*
+        FROM previous_seed
+        LEFT JOIN current_seed USING (ts_code)
+        WHERE current_seed.ts_code IS NULL
+        """
+    connection.execute(
+        copy_query_to_parquet(
+            f"SELECT * FROM ({seed_rows_sql}) ORDER BY ts_code",
+            next_seed,
+        )
+    )
+    context_relation = read_parquet(next_context, hive_partitioning=False)
+    seed_relation = read_parquet(next_seed, hive_partitioning=False)
+    state_row = connection.execute(
+        f"""
+        SELECT
+          (SELECT count(*) FROM {context_relation}) AS context_row_count,
+          (SELECT count(*) FROM {seed_relation}) AS seed_row_count,
+          (
+            SELECT coalesce(sum(row_count - 1), 0)
+            FROM (
+              SELECT ts_code, count(*) AS row_count
+              FROM {seed_relation}
+              GROUP BY ts_code
+              HAVING count(*) > 1
+            )
+          ) AS duplicate_seed_count,
+          (
+            SELECT coalesce(max(row_count), 0)
+            FROM (
+              SELECT ts_code, count(*) AS row_count
+              FROM {context_relation}
+              GROUP BY ts_code
+            )
+          ) AS max_context_rows_per_code,
+          (
+            SELECT count(*) FROM (
+              (SELECT DISTINCT ts_code FROM {context_relation}
+               EXCEPT
+               SELECT ts_code FROM {seed_relation})
+              UNION ALL
+              (SELECT ts_code FROM {seed_relation}
+               EXCEPT
+               SELECT DISTINCT ts_code FROM {context_relation})
+            )
+          ) AS code_set_difference_count
+        """
+    ).fetchone()
+    context_row_count = int(state_row[0])
+    seed_row_count = int(state_row[1])
+    duplicate_seed_count = int(state_row[2])
+    max_context_rows_per_code = int(state_row[3])
+    code_set_difference_count = int(state_row[4])
+    if (
+        duplicate_seed_count
+        or max_context_rows_per_code > QFQ_NINETURN_COMPARISON_LAG
+        or code_set_difference_count
+        or context_row_count > seed_row_count * QFQ_NINETURN_COMPARISON_LAG
+    ):
+        raise QfqNineturnHistoryError(
+            "Compact history state contract failed: "
+            f"context_rows={context_row_count}, seed_rows={seed_row_count}, "
+            f"duplicate_seed={duplicate_seed_count}, "
+            f"max_context_rows_per_code={max_context_rows_per_code}, "
+            f"code_set_difference={code_set_difference_count}."
+        )
+    return next_context, next_seed, context_row_count, seed_row_count
+
+
 def _target_path(lake_root: Path, spec: _AssetSpec, trade_date: str) -> Path:
     if spec.freq is None:
         return gold_stock_daily_qfq_nineturn_path(lake_root, trade_date)
@@ -1209,22 +1307,39 @@ def _assert_batch_key_equality(
 
 def _normalize_partitioned_batch(
     *,
+    connection: duckdb.DuckDBPyConnection,
     partitioned_root: Path,
     normalized_root: Path,
     expected_dates: Sequence[str],
+    spec: _AssetSpec,
 ) -> dict[str, Path]:
     normalized: dict[str, Path] = {}
     expected_date_set = set(expected_dates)
+    output_columns = ", ".join(column.name for column in spec.schema)
+    order_columns = (
+        "ts_code, trade_date" if spec.freq is None else "ts_code, freq, trade_time"
+    )
     for trade_date in expected_dates:
         source_dir = partitioned_root / f"partition_trade_date={trade_date}"
-        parquet_files = tuple(source_dir.glob("*.parquet"))
-        if len(parquet_files) != 1:
+        parquet_files = tuple(sorted(source_dir.glob("*.parquet"), key=str))
+        if not parquet_files:
             raise QfqNineturnHistoryError(
-                f"Expected exactly one staged parquet for {trade_date}; got {len(parquet_files)}."
+                f"Expected staged parquet rows for {trade_date}; got 0 files."
             )
         target = normalized_root / f"trade_date={trade_date}" / "part-000.parquet"
         target.parent.mkdir(parents=True, exist_ok=True)
-        os.replace(parquet_files[0], target)
+        connection.execute(
+            f"""
+            COPY (
+              SELECT {output_columns}
+              FROM {_read_paths(parquet_files)}
+              ORDER BY {order_columns}
+            ) TO {duckdb_string(target)} (
+              FORMAT PARQUET,
+              COMPRESSION ZSTD
+            )
+            """
+        )
         normalized[trade_date] = target
     unexpected = tuple(
         path

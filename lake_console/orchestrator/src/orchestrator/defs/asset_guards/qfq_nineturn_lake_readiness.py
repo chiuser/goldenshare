@@ -158,20 +158,14 @@ def _prepare_source_relations(
     specs: Sequence[QfqNineturnReadinessSpec],
 ) -> Mapping[int | None, str]:
     relations: dict[int | None, str] = {}
+    date_values = ", ".join(
+        f"DATE {duckdb_string(trade_date)}" for trade_date in expected_trade_dates
+    )
     for spec in specs:
-        source_paths = tuple(
-            sorted(
-                {
-                    path
-                    for trade_date in expected_trade_dates
-                    for path in qfq_nineturn_source_paths_for_partition(
-                        lake_root=lake_root,
-                        partition_key=trade_date,
-                        freq=spec.freq,
-                    )
-                    if path.is_file()
-                }
-            )
+        source_paths = _source_paths_for_expected_dates(
+            lake_root=lake_root,
+            expected_trade_dates=expected_trade_dates,
+            freq=spec.freq,
         )
         relation_name = (
             "qfq_nineturn_daily_source"
@@ -185,29 +179,68 @@ def _prepare_source_relations(
                 if spec.freq is None
                 else "ts_code, freq, trade_date, trade_time"
             )
+            freq_predicate = (
+                ""
+                if spec.freq is None
+                else f"AND CAST(freq AS INTEGER) = {spec.freq}"
+            )
             connection.execute(
                 f"""
-                CREATE OR REPLACE TEMP VIEW {relation_name} AS
+                CREATE OR REPLACE TEMP TABLE {relation_name} AS
                 SELECT {source_columns} FROM read_parquet(
                   [{path_values}],
                   hive_partitioning=false,
                   union_by_name=true
                 )
+                WHERE CAST(trade_date AS DATE) IN ({date_values})
+                  {freq_predicate}
                 """
             )
         else:
+            empty_columns = (
+                "NULL::VARCHAR AS ts_code, NULL::DATE AS trade_date"
+                if spec.freq is None
+                else "NULL::VARCHAR AS ts_code, NULL::INTEGER AS freq, "
+                "NULL::DATE AS trade_date, NULL::TIMESTAMP AS trade_time"
+            )
             connection.execute(
                 f"""
-                CREATE OR REPLACE TEMP VIEW {relation_name} AS
-                SELECT NULL::VARCHAR AS ts_code,
-                  NULL::INTEGER AS freq,
-                  NULL::DATE AS trade_date,
-                  NULL::TIMESTAMP AS trade_time
+                CREATE OR REPLACE TEMP TABLE {relation_name} AS
+                SELECT {empty_columns}
                 WHERE false
                 """
             )
         relations[spec.freq] = relation_name
     return relations
+
+
+def _source_paths_for_expected_dates(
+    *,
+    lake_root: Path,
+    expected_trade_dates: Sequence[str],
+    freq: int | None,
+) -> tuple[Path, ...]:
+    if freq is None:
+        partition_keys = expected_trade_dates
+    else:
+        partition_keys = tuple(
+            f"{year}-01-01"
+            for year in sorted({trade_date[:4] for trade_date in expected_trade_dates})
+        )
+    return tuple(
+        sorted(
+            {
+                path
+                for partition_key in partition_keys
+                for path in qfq_nineturn_source_paths_for_partition(
+                    lake_root=lake_root,
+                    partition_key=partition_key,
+                    freq=freq,
+                )
+                if path.is_file()
+            }
+        )
+    )
 
 
 def _audit_spec(

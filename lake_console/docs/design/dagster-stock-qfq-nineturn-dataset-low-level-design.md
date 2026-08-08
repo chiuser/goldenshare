@@ -1,6 +1,6 @@
 # 股票前复权九转资产族低层设计
 
-状态：P0 至 P5 已完成；五个资产、五个聚合 check、catalog、专用 readiness、两个 job、两个默认停止的 sensor 及离线历史工具已落地并通过 Definitions/正式只读 preflight；未执行正式 Lake、Dagster event 或动态分区写入
+状态：P0 至 P6C 已完成；P6D readiness 性能门禁已通过；五个资产历史 Lake、全历史 materialization 与最近 20 日聚合 check 已落地；两个 sensor 仍未启用
 
 上位方案：
 [`dagster-stock-qfq-nineturn-dataset-plan.md`](./dagster-stock-qfq-nineturn-dataset-plan.md)
@@ -924,6 +924,77 @@ P5 已执行本地完整门禁、Definitions 加载验证和正式环境只读 p
 
 P5 全程只读取正式 Lake 与 Dagster instance，并仅向 `/private/tmp` 写报告；没有写 Lake、Dagster event/check、run、cursor、动态分区或 prod，也没有启停 sensor 或提交 job。
 
+### 18.7 P6A 正式写入前样本门禁
+
+P6A 已完成正式历史源只读复核和只写 `/private/tmp` 的真实年度样本，没有进入正式 Lake 写入：
+
+1. 新鲜只读计划为 `/private/tmp/qfq_nineturn_history_plan_20260808_122656.json`，fingerprint 仍为 `28ff31a548e0a555afefaca33a307e652c7da8ff76550598b15485ea913af4dc`，`should_stop=false`。计划仍为 5 个资产、65 个年度批次、214,577 个源文件、232,471,723 行、15,315 个目标文件，已有正式目标文件为 0；只读扫描耗时 112.480 秒。
+2. 第一次正式源样本发现 DuckDB 对真实年度数据执行 `PARTITION_BY (trade_date)` 时，同一交易日可能产生多个 Parquet shard。旧 helper 把“每个日期只能有一个 staging shard”错误当成契约，因此样本在正式写入前主动停止；正式 Lake 未被写入。
+3. history helper 已改为接受同日一个或多个 staging shard，并使用 DuckDB 显式字段投影和稳定主键排序，将它们列式合并为唯一 `part-000.parquet`。合并仍发生在 staging 内，输出继续执行 schema、日期、频度、空 key、重复 key 和 source/output key 校验；不使用 Python 逐行合并，也不改变年度扫描、正式目标路径或原子 promote 边界。
+4. 修复后的正式源样本报告为 `/private/tmp/qfq_nineturn_p6_sample_20260808_123444.json`。样本覆盖五个资产各自的 2014 年批次，共生成 1,225 个临时目标文件、10,463,797 行、86,156,316 bytes；五批 source/output 行数逐批一致，`should_stop=false`，耗时 81.091 秒。真实样本约为 8.23 bytes/row，据此校准的全历史输出约 1.78 GiB，staging 约同量级；即便两者同时存在，也远低于当前约 2.3 TiB 可用空间。
+5. 新增多 shard 同日合并回归测试后，九转资产族、bootstrap、governance、性能和静态门禁共 157 个用例全部通过，相关文件 `ruff check` 与 `git diff --check` 通过。
+6. 两个九转 job 无活动 run，两个 sensor 未运行。P6A 没有写正式 Lake、Dagster event/check、动态分区或 prod，也没有启停 sensor。
+
+P6 下一写入边界为 P6B 正式历史 Lake build。必须单独批准后，才可使用上述新鲜 plan 和 fingerprint 写入 15,315 个正式目标文件；完成聚合文件审计前不得进入 runless event 补录。
+
+### 18.8 P6B 首次执行停止与恢复口径
+
+P6B 首次正式 build 在 compact state 校验处停止，没有进入 runless event 或 sensor 阶段：
+
+1. 第一次 build 完成 13 个日线年度批次和 30m 的 2014 年批次后，在 30m 2015 年批次触发 `Compact context exceeded its fixed row bound`。只读审计确认正式 Lake 当时新增了完整日线 3,063 个分区和 30m 的 2014-2015 年 489 个分区，共 3,552 个文件；其它分钟频度为 0。
+2. 根因不是阈值过小，而是旧 helper 只为当年出现过的代码生成下一年度 seed，却为历史出现过的代码保留 4 根 context。整年无数据的代码会丢 seed，若以后重新出现，其九转连续计数可能错误。
+3. helper 已改为让当年无数据的代码继续携带上一年度 seed，并增加 context/seed 代码集合、seed 唯一性和每代码 context 行数校验。compact state 现在必须在当前年度正式分区 promote 前生成并通过契约，state 失败不会再留下当前年度半批文件。
+4. 修复后的跨年正式源样本为 `/private/tmp/qfq_nineturn_p6_sample_20260808_125040.json`，覆盖五个资产各自连续两个年度，共 10 个批次、2,445 个临时分区、21,025,279 行，`should_stop=false`。完整回归增至 158 个用例并全部通过。
+5. 新鲜恢复计划 `/private/tmp/qfq_nineturn_history_plan_20260808_125226.json` 确认 65 个批次的源文件、行数、字节、hash、日期和代码事实与原计划完全一致，唯一变化是识别出上述 3,552 个已有目标，`should_stop=false`。
+6. 恢复 build 在复用 `gold_stock_daily_qfq_nineturn[2016-01-11]` 时发现旧输出与修正后的跨年结果不一致并停止。这证明受旧 seed 语义影响的部分文件不能继续复用。五个新资产仍无 materialization/check，两个 job 无活动 run，两个 sensor 未启用。
+
+恢复必须先把本轮新建的 `gold/indicator/stock_daily_qfq_nineturn` 与 `gold/indicator/stk_mins_qfq_nineturn` 两个根目录整体原子移动到同卷 quarantine，保留完整回滚证据，再生成 existing target 为 0 的新鲜计划并从零重建。禁止直接删除、就地覆盖冲突文件或继续补剩余分区；quarantine apply 属于 P6B 内新增的明确正式 Lake 治理边界，需单独确认。
+
+P6B 恢复与最终结果已完成：
+
+1. 3,552 个失败输出、185,042,243 bytes 已按 manifest fingerprint `a7ad55fbe81868daa1fd28c1ecc3cc8478b598a80bb4eb436bca989dab62d951` 原子移动到 `/Volumes/datasource/data_lake/_quarantine/qfq_nineturn_p6b_failed_20260808_130229`。计划与执行报告分别为 `/private/tmp/qfq_nineturn_p6b_quarantine_plan_20260808_130229.json` 和 `/private/tmp/qfq_nineturn_p6b_quarantine_apply_20260808_130303.json`。
+2. 隔离后的新鲜计划为 `/private/tmp/qfq_nineturn_history_plan_20260808_130414.json`，existing target 恢复为 0，源端 65 个批次事实与原计划完全一致，fingerprint 恢复为 `28ff31a548e0a555afefaca33a307e652c7da8ff76550598b15485ea913af4dc`。
+3. 修正后的正式 build run id 为 `75dd720b-bf27-4550-b0ef-092951bdbf37`，完成 65 个年度批次、15,315 个目标文件、232,471,723 行，零复用，耗时 510.000 秒。正式输出实际占用 1,782,333,668 bytes，约 1.66 GiB。
+4. 最终聚合审计为 `/private/tmp/qfq_nineturn_history_final_audit_20260808_131457.json`，`should_stop=false`。五个资产各有 3,063 个分区；日线、30m、60m、90m、120m 行数分别为 11,622,020、104,576,189、58,245,695、34,804,311、23,223,508，逐资产 source/output 行数一致。缺文件、schema 错误、重复 key、空 key、分区日期错位和频度错位均为 0。
+5. P6B 没有写 Dagster materialization/check、run、cursor 或 dynamic partitions，也没有启停 sensor。下一阶段只能先生成 P6C runless event 只读计划；event apply 仍需单独批准。
+
+### 18.9 P6C runless event 只读计划
+
+P6C 只读计划已生成，正式 Dagster DB 尚未写入：
+
+1. 计划报告为 `/private/tmp/qfq_nineturn_events_plan_20260808_131827.json`，候选 manifest 为 `/private/tmp/qfq_nineturn_events_manifest_20260808_131827.jsonl`。
+2. 计划 fingerprint 为 `7c1caba91c5dee35f30111a921a06a2c4c3943fc9fcb4895f287f700674633bc`，物理文件 fingerprint 为 `0e0068aa85833c5ef55b1839192a70f2447a02c5d053ece7984e13200dd14848`，并绑定 P6B 最终审计 SHA-256。
+3. 候选为全历史 15,315 条 materialization，以及五个资产各最近 20 个交易日的一条聚合 integrity check，共 100 条 check event；总计 15,415 条。没有历史全量 check，也不新增 check 名称。
+4. 现有 materialization/check 为 0，`should_stop=false`。event apply、post-audit 与 sensor 启用仍是后续独立边界。
+
+P6C 正式 apply 已完成：
+
+1. event batch id 为 `4ebe7f19-8e8f-4a06-aaa7-7e979bf19bcd`，实际追加 15,315 条 materialization 和 100 条最近窗口聚合 check，共 15,415 条 event，耗时 370.379 秒。
+2. apply 后计划 `/private/tmp/qfq_nineturn_events_plan_20260808_133743.json` 的 materialization/check/event 候选均为 0，`should_stop=false`；所有 check 均绑定本轮对应分区 materialization。
+3. P6C 没有运行 job、写 Lake、修改 dynamic partitions 或启用 sensor。
+
+### 18.10 P6D 初步只读 readiness 验收
+
+P6D 初步报告为 `/private/tmp/qfq_nineturn_p6d_readiness_audit_20260808_134036.json`：
+
+1. 五个资产的 expected/materialized partition 均为 3,063，missing/extra 均为 0；event post-plan 候选为 0。
+2. 日线最近 10 个交易日全部 ready，耗时 55.46 ms。
+3. 分钟最近 5 个交易日的 30/60/90/120m 全部 ready，但耗时 11,076.53 ms，超过已冻结的 `<10s` sensor readiness 性能门禁。
+4. 两个 job 无活动 run，两个 sensor 均无 instance state、未运行。数据和状态正确，但该次分钟 readiness 性能未通过，因此先停止 sensor 启用。
+
+独立重复测量确认该问题不是单次冷缓存波动。优化前五次独立 DuckDB 连接耗时为 `11,132.56 / 9,353.20 / 9,356.90 / 10,107.61 / 10,093.88 ms`，其中三次超过 10 秒，均值为 10,008.83 ms。
+
+代码级 profiling 冻结了真实读取模型：最近 5 日四频度共有 20 个目标文件；每个频度需要枚举 5,553 个按股票年度保存的普通 QFQ 源文件，共 22,212 个唯一源文件。旧实现对同一年度目录按日期重复枚举，并把源定义为 lazy temp view，导致后续 20 次逐日期/频度 integrity audit 重复打开同一批年度文件。实测路径准备约 2.42 秒，20 次 audit 合计约 8.60 秒。
+
+P6D 只优化读取模型，不改变 integrity 语义：
+
+1. 分钟源路径改为每个频度、每个年度只枚举一次；跨年窗口按 distinct year 处理，日线仍按实际日期文件处理。
+2. 每个频度一次读取年度 Parquet，只投影 `ts_code/freq/trade_date/trade_time`，并把窗口内日期物化为 DuckDB 临时表。
+3. 目标文件 schema、分区/频度、重复键、空键、值域和 source/output 双向 identity coverage 继续调用同一 `audit_qfq_nineturn_integrity(...)`，没有删减或降级 check。
+4. 不新增 Lake 文件、state/readiness asset、数据库表、cache manifest、cursor 字段或 Dagster event。
+
+优化后的正式 Lake 五次独立连接重测为 `4,746.74 / 3,265.10 / 3,530.56 / 3,021.27 / 3,304.18 ms`；最小值 3,021.27 ms，中位数 3,304.18 ms，最大值 4,746.74 ms，均值 3,573.57 ms，五次均低于 10 秒且最近 5 日全部 ready。P6D readiness 性能门禁已通过；两个 sensor 仍未启用，启用和自然触发观察继续作为独立正式操作。
+
 ## 19. 建议验证命令
 
 开发后本地测试：
@@ -958,6 +1029,9 @@ Lake 写入、runless event 和 sensor 启用均属于 P6，需后续分别批�
 4. P3 jobs、sensors、cursor，并同步 topology 与 run-contract 两份治理文档。已完成。
 5. P4 bootstrap/rebuild/events 工具。已完成代码与本地临时环境验证。
 6. P5 本地全量测试、`dg check defs` 与正式只读 preflight。已完成。
-7. P6 经批准的历史写入、runless events、日常 sensor 启用。
+7. P6A 正式源只读复核和 `/private/tmp` 年度样本。已完成。
+8. P6B 经批准的历史 Lake 写入和聚合文件审计。
+9. P6C 经批准的 runless events。
+10. P6D readiness 性能收口已完成；经批准的日常 sensor 启用与自然触发观察仍待执行。
 
 每一阶段只在前一阶段验收全绿后进入；P0 性能门禁不通过时不得靠增加 timeout 继续。

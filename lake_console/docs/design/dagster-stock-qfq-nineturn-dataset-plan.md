@@ -1,6 +1,6 @@
 # 股票前复权九转资产族接入方案
 
-状态：P0 至 P5 已完成；五个资产、五个聚合 check、catalog、专用 readiness、两个 job、两个默认停止的 sensor 与离线历史工具已落地并通过 Definitions/正式只读 preflight；未执行历史 Lake 或 Dagster event 写入
+状态：P0 至 P6C 已完成；P6D readiness 性能门禁已通过；历史 Lake、全历史 materialization 与最近 20 日聚合 check 已落地；两个 sensor 仍未启用
 
 代码级设计见：
 [`dagster-stock-qfq-nineturn-dataset-low-level-design.md`](./dagster-stock-qfq-nineturn-dataset-low-level-design.md)
@@ -276,6 +276,8 @@ P0 实测结果：
 | 5 日四分钟目标 readiness | 1.152 s | 通过 |
 | 5 日四频度上游 QFQ 完整 readiness | 6.309 s | 通过 |
 
+P6D 正式 Lake 验收发现，历史文件落地后分钟目标 readiness 的旧 lazy-view 读取模型会对同一批按股票年度保存的源文件重复打开。优化前五次独立连接耗时范围为 9.353 至 11.133 秒，三次超过 10 秒。读取模型收敛为“每频度/年度枚举一次 + 窗口身份键临时表”后，五次独立连接耗时为 3.021 至 4.747 秒，均值 3.574 秒，五次均通过 `<10s` 门禁。目标文件和 source/output 的完整 integrity 语义未改变，也没有新增持久化状态实体。
+
 现有通用分钟 QFQ readiness 会扫描 1/5/15/30/60/90/120m 全部七个频度，5 日实测 16.267 秒，不得直接进入本专项 sensor 热路径。实现必须复用同一套正式 blocking-check 语义，但只读取本专项需要的 30/60/90/120m；不得通过弱化检查换取性能。
 
 P0 增量公式样本使用最近 5 个交易日的有界上下文验证读取、窗口和写入形状；样本信号数量不是公式正确性证据。公式正确性仍以已有 4,610,961 次转移零差异审计和 P1 的人工字面量金样本为准。
@@ -320,7 +322,10 @@ P0 增量公式样本使用最近 5 个交易日的有界上下文验证读取�
 | P3 | 两个 job、两个 sensor、cursor 和治理文档同步 | 已完成；sensor 默认 STOPPED |
 | P4 | 历史 bootstrap/rebuild/events 工具与 dry-run | 已完成代码与本地临时环境验证；正式写入未执行 |
 | P5 | `dg check defs` 和正式只读 preflight | 已完成；零正式写入 |
-| P6 | 历史 Lake 写入、runless event、sensor 启用 | 每类写入单独批准 |
+| P6A | 新鲜只读 plan 与正式源年度样本 | 已完成；零正式写入 |
+| P6B | 历史 Lake 写入与聚合文件审计 | 已完成 |
+| P6C | runless event 补录与状态审计 | 已完成 |
+| P6D | readiness 性能收口；sensor 启用与自然触发观察 | 性能已通过；启用待单独批准 |
 
 P0 已于 2026-08-08 完成并通过，正式报告为 `/private/tmp/qfq_nineturn_p0_profile_20260808_102030.json`。P1 已完成稳定 contract、schema、正式/staging path、全历史和增量 calculator、原子 writer 内核及受保护金样本。
 
@@ -334,7 +339,17 @@ P4 已实现默认只读的历史 plan、按年度集合计算的 bootstrap、�
 
 P5 已完成：`dg check defs` 全绿；正式只读 plan 冻结 5 个资产、65 个年度批次、214,577 个源文件、232,471,723 行和 15,315 个目标分区，源端 key/年份/频度契约全绿且无目标冲突。正式 Dagster instance 对账确认两套动态分区均完整覆盖 3,063 个源日期，五个新资产无历史 event/check，两个 job 无活动 run，两个 sensor 未启用。报告分别为 `/private/tmp/qfq_nineturn_history_plan_20260808_115819.json` 与 `/private/tmp/qfq_nineturn_p5_preflight_20260808_120003.json`。
 
-下一阶段为 P6。历史 Lake 写入、runless event 补录和 sensor 启用是三个不同的正式写入边界，必须分别获得明确批准，不能因为 P5 只读验收通过而自动执行。
+P6A 已完成。新鲜只读计划为 `/private/tmp/qfq_nineturn_history_plan_20260808_122656.json`，规模与 fingerprint 保持不变。正式源年度样本先发现并阻断了 DuckDB 同日多 shard 问题；history helper 随后改为在 staging 内使用 DuckDB 合并同日 shards 为唯一、排序稳定的 `part-000.parquet`。修复后样本报告为 `/private/tmp/qfq_nineturn_p6_sample_20260808_123444.json`，覆盖五个资产的 2014 年批次，共 1,225 个临时文件、10,463,797 行，逐批 source/output 行数一致，`should_stop=false`。样本实测约 8.23 bytes/row，校准后的全历史输出约 1.78 GiB，staging 约同量级，磁盘空间充足。正式 Lake 仍没有九转目标文件。
+
+下一阶段为 P6B 正式历史 Lake 写入。历史 Lake 写入、runless event 补录和 sensor 启用仍是三个不同的正式写入边界，必须分别获得明确批准；P6A 通过不能自动授权后续写入。
+
+P6B 首次 build 已按 fail-closed 停止。真实跨年数据暴露出旧 compact state 只保留历史 context、却丢失当年未出现代码 seed 的缺陷；修复后五个资产连续两年真实样本与 158 个回归用例均通过。首次执行留下 3,552 个本轮新建文件，恢复复用时又在日线 `2016-01-11` 证明旧输出与修正结果不一致，因此这些文件不能作为正确历史继续复用。当前未写任何 Dagster event/check，job/sensor 均未运行。P6B 恢复必须先把两个新九转目标根整体移入同卷 quarantine，再从 existing target 为 0 的新鲜计划完整重建；禁止直接删除或就地覆盖冲突文件。
+
+P6B 已完成恢复和正式历史 Lake 重建。3,552 个失败输出已连同逐文件 SHA-256 manifest 原子隔离到 `/Volumes/datasource/data_lake/_quarantine/qfq_nineturn_p6b_failed_20260808_130229`；修正后的 build 从 existing target 为 0 的新鲜计划生成 15,315 个正式文件、232,471,723 行，实际约 1.66 GiB。最终审计 `/private/tmp/qfq_nineturn_history_final_audit_20260808_131457.json` 为 `should_stop=false`，五个资产各 3,063 个分区，所有文件、行数、schema、key、日期和频度契约全绿。P6B 没有写 Dagster event/check 或启用 sensor；下一阶段为 P6C runless event 独立审批。
+
+P6C 只读计划已完成，报告为 `/private/tmp/qfq_nineturn_events_plan_20260808_131827.json`，`should_stop=false`。计划只补全历史 15,315 条 materialization 和五个资产各最近 20 日的 100 条聚合 check，共 15,415 条 event；不补全历史 check。正式 event apply 仍待单独批准。
+
+P6C 正式 apply 已完成：实际写入 15,315 条 materialization 和 100 条最近窗口聚合 check，post-plan `/private/tmp/qfq_nineturn_events_plan_20260808_133743.json` 的剩余候选为 0、`should_stop=false`。P6D 初步只读验收确认五个资产各 3,063 个分区完整，日线最近 10 日和分钟最近 5 日均 ready；分钟 readiness 初测 11.08 秒且重复测量三次越过 `<10s` 门禁。代码级 profiling 证明瓶颈来自同一年度源文件被逐日期重复枚举和扫描；改为每频度/年度一次枚举并物化最近窗口身份键后，正式 Lake 五次独立重测为 3.021 至 4.747 秒，全部通过，完整 integrity 语义不变。两个 sensor 仍未启用，启用与自然触发观察需单独批准。
 
 ## 11. 开发前停止条件
 
