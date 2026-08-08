@@ -1,0 +1,123 @@
+"""Causal, timeframe-independent Elliott-wave research core."""
+
+from .bars import (
+    CanonicalBar,
+    ContinuityStatus,
+    InputContractError,
+    adapt_canonical_rows,
+    validate_canonical_bars,
+)
+from .calibration import (
+    CalibrationEvaluation,
+    CalibrationRecord,
+    CalibrationStatus,
+    ProbabilitySnapshot,
+    build_probability_snapshot,
+    evaluate_calibration_gate,
+    validate_probability_simplex,
+    validate_temporal_split,
+)
+from .grammar import (
+    GenerationStatus,
+    GrammarProfileKey,
+    RuleEvaluation,
+    RuleStatus,
+    ScenarioStatus,
+    evaluate_grammar,
+)
+from .pivot import (
+    PivotConfirmation,
+    PivotDetectionResult,
+    PivotType,
+    detect_pivots,
+    wilder_atr,
+)
+from .profiles import BASE_DEGREE_PROFILE, CAUSAL_ATR_PROFILE, DetectorProfile
+from .progression import (
+    AnalysisModuleSnapshot,
+    LabelingResult,
+    LabelingStatus,
+    OutcomeLabel,
+    ProgressionObservation,
+    ProgressionOutcome,
+    build_module_snapshot,
+    label_progression,
+)
+from .replay import (
+    IncrementalWaveReplay,
+    WaveReplayResult,
+    iter_wave_replay,
+    replay_wave,
+)
+from .scenarios import (
+    ScenarioGenerationResult,
+    ScenarioLifecycleTracker,
+    ScenarioSnapshot,
+    generate_scenarios,
+)
+from .scoring import (
+    SCORE_PROFILE_V1,
+    FeatureEvaluation,
+    FeatureStatus,
+    ScenarioScore,
+    ScoreProfile,
+    proximity,
+    score_scenario,
+)
+from .swings import ConfirmedSwing, Direction, FormingLeg
+
+__all__ = [
+    "BASE_DEGREE_PROFILE",
+    "CAUSAL_ATR_PROFILE",
+    "SCORE_PROFILE_V1",
+    "AnalysisModuleSnapshot",
+    "CalibrationEvaluation",
+    "CalibrationRecord",
+    "CalibrationStatus",
+    "CanonicalBar",
+    "ConfirmedSwing",
+    "ContinuityStatus",
+    "DetectorProfile",
+    "Direction",
+    "FeatureEvaluation",
+    "FeatureStatus",
+    "FormingLeg",
+    "GenerationStatus",
+    "GrammarProfileKey",
+    "IncrementalWaveReplay",
+    "InputContractError",
+    "LabelingResult",
+    "LabelingStatus",
+    "OutcomeLabel",
+    "PivotConfirmation",
+    "PivotDetectionResult",
+    "PivotType",
+    "ProbabilitySnapshot",
+    "ProgressionObservation",
+    "ProgressionOutcome",
+    "RuleEvaluation",
+    "RuleStatus",
+    "ScenarioGenerationResult",
+    "ScenarioLifecycleTracker",
+    "ScenarioScore",
+    "ScenarioSnapshot",
+    "ScenarioStatus",
+    "ScoreProfile",
+    "WaveReplayResult",
+    "adapt_canonical_rows",
+    "build_module_snapshot",
+    "build_probability_snapshot",
+    "detect_pivots",
+    "evaluate_calibration_gate",
+    "evaluate_grammar",
+    "generate_scenarios",
+    "label_progression",
+    "iter_wave_replay",
+    "proximity",
+    "replay_wave",
+    "score_scenario",
+    "validate_canonical_bars",
+    "validate_probability_simplex",
+    "validate_temporal_split",
+    "wilder_atr",
+]

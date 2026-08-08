@@ -1,14 +1,16 @@
 # 通用波浪识别 G0 冻结合同 v1
 
 - 版本：v1-frozen
-- 状态：G0 已完成；D01～D10 已于 2026-08-08 确认并冻结
+- 状态：G0 已完成并保持冻结；G1 已按本合同实现并通过验收
 - 更新时间：2026-08-08
 - 适用范围：通用、因果、可回放的波浪识别研究内核
-- 当前动作边界：本次确认只冻结 G0 合同，不构成 G1 开发、Dagster 资产或正式 Lake 读写授权
+- 当前动作边界：用户已授权并完成 G1；尚未授权 G2、Dagster 资产或正式 Lake 读写
+- 后续范围澄清：通用内核从 G1 起必须与 K 线周期无关；当前开发线程止于 G4，API、Wealth 与正式界面由其他线程后续集成
 
 关联文档：
 
 - [波浪浪型识别开源源码学习与 Goldenshare 适配审计 v1](/Users/congming/github/goldenshare/lake_console/docs/design/elliott-wave-source-study-and-goldenshare-adaptation-audit-v1.md)
+- [通用波浪识别 G1 纯内核实现与验收记录 v1](/Users/congming/github/goldenshare/lake_console/docs/design/index-wave-g1-core-implementation-and-acceptance-v1.md)
 - [指数四浪反弹失效与趋势反转量化回测方案 v1（独立专项案例，暂缓实施）](/Users/congming/github/goldenshare/docs/datasets/index-wave4-trend-reversal-backtest-plan-v1.md)
 - [Dagster 数据管道性能治理规范](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-data-pipeline-performance-governance.md)
 - [Dagster Asset Schema 合同](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-asset-schema-contract-design.md)
@@ -33,11 +35,11 @@ Canonical Bar
 其中四项边界已经由前序讨论确认：
 
 1. 通用内核不内置四浪 MACD 案例；`MACD(7,52,7)` 仍是未来专项。
-2. 日线与 120 分钟分别独立运行，不在通用内核里互相确认。
+2. 日线、120 分钟、60 分钟、30 分钟及后续受支持周期分别独立运行同一内核；任何周期都不在通用内核里默认确认另一个周期。
 3. 系统保留多个候选解释，不伪装成唯一正确数浪。
 4. 启发式分数必须通过独立历史结果校准后，才可能成为概率。
 
-第 15 节的 D01～D10 已全部确认并回写正文。本文现在是 G1 必须遵守的冻结合同；冻结只代表定义完整，不代表启发式参数已经被 A 股历史样本验证，也不构成 G1 开发授权。
+第 15 节的 D01～D10 已全部确认并回写正文。G1 已按本文实现并通过 F01～F44；合同冻结和测试通过仍不代表启发式参数已经被 A 股历史样本验证，也不自动授权 G2 读取真实数据。
 
 ---
 
@@ -59,7 +61,7 @@ Canonical Bar
 本稿依据以下当前事实：
 
 - 源码学习结论：ta4j 的因果 ZigZag、多场景和 walk-forward 思路值得吸收，但原模型缺少完整 `confirmed_at` 与 Goldenshare 所需的版本身份。
-- 当前代码审计：仓库内尚无正式 pivot、wave、scenario 或概率校准引擎；这不是给现有类增加几个字段。
+- G0 冻结时的代码审计：仓库内当时尚无正式 pivot、wave、scenario 或概率校准引擎；G1 后已新增独立纯领域包，而不是给旧指标类增加字段。
 - 当前输入能力：主要指数日线和已修复的 120 分钟线可作为后续 G2 验证输入，但不在 G0 被读取或重算。
 - 当前指标边界：已有 MACD 计算与股票分钟指标链不属于波浪事实源，本轮不修改，也不复用为波浪内核。
 - 仓库治理：算法正确性以后由独立金标和性质测试证明；正式资产 check 不应二次重算全量算法来证明公式。
@@ -80,7 +82,7 @@ Canonical Bar
 - 运行 materialize、backfill、bootstrap、runless event；
 - 写入正式 Lake 或生产数据库。
 
-### 1.4 当前代码影响面结论
+### 1.4 G0 冻结时的代码影响面结论
 
 CodeGraph 与当前代码核验得到的边界是：
 
@@ -90,8 +92,8 @@ CodeGraph 与当前代码核验得到的边界是：
 | 指数日线资产 | 提供未来日线规范输入 | 否 |
 | backend MACD calculator | 公式参考或未来专项外围能力 | 否 |
 | Dagster catalog/schema/paths | G3 才设计正式资产 | 否 |
-| Wealth / Index Detail 前端 | G5 才消费只读结果 | 否 |
-| pivot/wave/scenario engine | 当前不存在 | 本轮只定义合同 |
+| Wealth / Index Detail 前端 | 由其他线程在 G4 结果合同稳定后消费 | 否 |
+| pivot/wave/scenario engine | G0 冻结时不存在；G1 后已新增纯领域包 | G0 本轮只定义合同 |
 
 因此，本稿不改变 `foundation/ops/biz/app` 依赖矩阵，也不把 Lake Console 代码引入生产主系统。
 
@@ -99,7 +101,7 @@ CodeGraph 与当前代码核验得到的边界是：
 
 ## 2. 不可违反的总约束
 
-后续 G1～G5 的任何实现都必须满足下表。
+当前线程 G1～G4 以及后续其他线程的消费实现都必须满足下表。
 
 | 编号 | 硬约束 | 违反后的处理 |
 | --- | --- | --- |
@@ -114,7 +116,7 @@ CodeGraph 与当前代码核验得到的边界是：
 | C09 | `heuristic_score` 只用于排序和解释 | 禁止改名或展示为胜率、置信概率 |
 | C10 | outcome label 只能在回测侧使用未来生成 | 在线内核和场景生成器不得读取标签 |
 | C11 | 概率必须绑定模块、结果空间、期限、标签和校准版本 | 任一版本缺失时不得返回概率 |
-| C12 | 日线和 120 分钟是独立运行实例 | 跨周期信息只能由显式模块按可见时点消费 |
+| C12 | 每个 `ts_code/freq` 都是独立运行实例，核心算法不得硬编码某个周期或每天 bar 数 | 跨周期信息只能由显式模块按可见时点消费；新增周期若要求修改 pivot/swing/scenario 核心则验收失败 |
 | C13 | 通用内核不识别 `7,52,7`、`P0/P1/P2/P3` 或四浪专项三分类 | 这些语义只能出现在后续专项模块 |
 | C14 | 波浪结果是研究假设，不是交易指令 | 不产出买卖、仓位或自动下单字段 |
 | C15 | 未支持的复杂形态必须返回 `UNSUPPORTED` | 禁止套入最相近的已支持标签 |
@@ -146,6 +148,7 @@ bar_visible_through <= as_of
 
 - 对 120 分钟序列，正常交易日可分别在 `11:30` 和 `15:00` 形成快照。
 - 对日线序列，adapter 把交易日规范成该市场当日收盘 bar 的结束时点。
+- 对 60 分钟、30 分钟及后续周期，adapter 必须按各自已经冻结的上游交易时段合同提供 `bar_end_at` 和连续性；核心算法不得猜测每天 bar 数或自行重采样。
 - 上游文件即使在更晚时间才到达，也只能影响何时运行，不能把 `as_of` 改成写文件时间。
 - 回测前缀必须用 `bars[bar_end_at <= as_of]` 构造，不能先读取全历史再从最终结果中筛选。
 
@@ -159,11 +162,11 @@ ts_code + freq + degree_key + as_of
 + score_profile_version + engine_version
 ```
 
-一次运行只允许一个 `freq`。日线结果不能覆盖 120 分钟结果，120 分钟结果也不能默认引用日线。
+一次运行只允许一个 `freq`。任一周期的结果都不能覆盖、复用或默认引用另一个周期的 pivot、scenario、状态或概率校准器。
 
 ### 3.4 跨周期可见性
 
-若未来某个分析模块同时消费日线和 120 分钟，必须逐输入保存：
+若未来某个分析模块同时消费多个周期，必须逐输入保存：
 
 ```json
 {
@@ -177,6 +180,8 @@ ts_code + freq + degree_key + as_of
 ---
 
 ## 4. Canonical Bar 合同
+
+`Canonical Bar` 是 Bar Adapter 交给纯内核的周期无关内存接口，不是新的行情来源。G1 不为它创建数据库表、Parquet 或 Dagster asset；日线、120 分钟、60 分钟和 30 分钟只有通过各自 adapter 的闭合时点、连续性和来源版本检查后，才转换为同一字段合同。新增周期原则上只能新增或调整 adapter/profile，不得修改 pivot、swing、scenario 核心语义。
 
 ### 4.1 字段
 
@@ -493,6 +498,8 @@ G1 每个 `freq` 只启用一个基线 degree：
 ```text
 degree_key = BASE_ATR14_1P5_V1
 ```
+
+该基线可由日线、120 分钟、60 分钟和 30 分钟分别运行，但“使用同一首轮基线”不代表参数或概率可以跨周期共享。G2 及后续周期扩展必须分别报告 pivot 密度、确认延迟、场景稳定性和校准质量；需要不同参数时新增版本化 profile，不在核心代码中按 `freq` 分支。
 
 合同保留多 degree 扩展能力，但第一版不同时搜索多个 ATR 倍数，避免把参数搜索误写成“天然浪级”。多 degree 要在 G2 单独做稳定性和计算量评审后再启用。
 
@@ -884,7 +891,7 @@ primary_horizon = 20 bars
 sensitivity_horizons = 10 / 40 bars
 ```
 
-日线的 20 bars 与 120 分钟的 20 bars 是两个不同频率的模块样本，不直接混成同一校准器。10/40 bars 只用于敏感性报告，不替代 20 bars 主标签。
+不同 `freq` 的 20 bars 是不同时间尺度的模块样本，日线、120 分钟、60 分钟和 30 分钟不得直接混成同一校准器。10/40 bars 只用于各周期自己的敏感性报告，不替代 20 bars 主标签。
 
 ### 12.4 Label 合同
 
@@ -925,7 +932,7 @@ sensitivity_horizons = 10 / 40 bars
 2. 同一 `event_key/scenario_lineage_key` 派生的连续快照必须整体进入同一集合。
 3. 校准数据的所有 label 必须在 `calibration_visible_through` 前成熟。
 4. 测试集只能在参数、标签和门禁冻结后打开一次。
-5. 日线、120 分钟和不同 outcome space 默认使用不同校准器。
+5. 每个 `freq` 和不同 outcome space 默认使用不同校准器；任何一个周期的概率结果都不得直接复用于另一个周期。
 
 ### 12.7 已确认的第一版展示门禁
 
@@ -1070,7 +1077,13 @@ scenario 测试直接输入已确认 pivots，以便把 grammar 与 detector 解
 
 所有断言比较使用公式计算值；展示层可四舍五入，但排序必须使用未展示舍入前的值。
 
-### 14.5 硬约束到测试的映射
+### 14.5 周期无关性夹具
+
+| ID | 输入 | 字面 expected |
+| --- | --- | --- |
+| F44 | 将同一规范价格序列分别包装成 `1d/120min/60min/30min` 的闭合 Canonical Bars | 除包含 `freq/bar_end_at` 的稳定身份外，pivot 相对位置、方向、规则状态、场景类型和全量/增量一致性相同；核心不得读取每天 bar 数或跨周期复用状态 |
+
+### 14.6 硬约束到测试的映射
 
 | 硬约束 | 必须覆盖的金标/门禁 |
 | --- | --- |
@@ -1079,13 +1092,13 @@ scenario 测试直接输入已确认 pivots，以便把 grammar 与 detector 解
 | C03 confirmed 事实不静默改写 | F17、F18、F20、F21 |
 | C04 forming 隔离 | F06、F17 |
 | C05 pivot 高低交替 | F09～F16、F19 |
-| C06 确定性 | F05、F18、F19、F20、F33～F43 |
+| C06 确定性 | F05、F18、F19、F20、F33～F44 |
 | C07 hard/soft/未知三态 | F12、F13、F23、F40、F42 |
 | C08 多场景 | F16、F21 |
 | C09 heuristic 不是 probability | F27、F39、F41 |
 | C10 outcome 与在线特征隔离 | F28 |
 | C11 概率版本和 simplex | F25、F26、F27 |
-| C12 单周期独立、跨周期显式可见 | F22 |
+| C12 周期无关内核、单周期独立、跨周期显式可见 | F22、F44 |
 | C13 通用内核不含四浪专项 | F29 |
 | C14 不产出交易指令 | F30 |
 | C15 未支持形态不误标 | F31 |
@@ -1124,9 +1137,9 @@ D01～D10 共同构成 G0 V1 冻结基线。后续修改任何一项都必须升
 | 场景怎样随行情修正？ | snapshot 不覆盖；key + lineage + parent 形成演化链 | 已冻结 |
 | 怎样逐时点回放？ | 使用 `bar_end_at<=as_of` 的前缀并保存完整版本 | 已冻结 |
 | 怎样避免分数冒充概率？ | 独立 outcome、label、calibrator 和展示门禁 | 已冻结 |
-| 日线和 120 分钟怎样共存？ | 单周期独立；跨周期只进显式模块 | 已冻结 |
+| 日线、120、60、30 分钟及后续周期怎样共存？ | 同一周期无关内核分别运行；单周期状态独立，跨周期只进显式模块 | 已冻结并补充周期无关验收 |
 | 四浪案例是否污染通用能力？ | C13 明确禁止 | 已冻结边界 |
-| 算法正反例是否明确？ | F01～F43，并逐条映射 C01～C16 | 合同已冻结，待 G1 落成测试文件 |
+| 算法正反例是否明确？ | F01～F44，并逐条映射 C01～C16 | 已落成测试文件并全部通过 |
 | 所有数值和公式是否已拍板？ | D01～D10 已确认；`score_profile_v1` 使用 §11 冻结口径 | 已冻结 |
 
 G0 完成条件对账：
@@ -1134,12 +1147,12 @@ G0 完成条件对账：
 1. D01～D10 全部确认：已完成。
 2. 本文状态改为 `v1-frozen`：已完成。
 3. 上游源码审计文档逐条对账且无相反口径：已完成。
-4. G1 仍保持独立授权门禁：未获得用户明确批准前不得开发。
+4. G1 独立授权门禁：用户已明确批准，现已完成；实现与验收见 G1 记录。
 
 ---
 
 ## 17. 下一步
 
-G0 已结束。本次不自动进入 G1。
+G0 保持冻结，G1 已完成。本次不自动进入 G2。
 
-用户另行批准开始 G1 后，第一轮只实现无 Dagster 依赖的纯内核和 F01～F43 金标测试；不得同时新增正式 Lake 资产、API、前端或四浪专项模块。
+用户另行批准 G2 后，第一轮只对主要指数日线和 120 分钟数据做真实数据只读对照，不写正式 Lake。60/30 分钟继续等待各自竞价锚点合同冻结；API、Wealth、正式界面和四浪专项仍不进入当前阶段。

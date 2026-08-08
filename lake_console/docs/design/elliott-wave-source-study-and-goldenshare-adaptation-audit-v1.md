@@ -2,11 +2,12 @@
 
 更新时间：2026-08-08
 
-状态：源码审计已完成；G0 的 D01～D10 已于 2026-08-08 全部确认，G0 V1 合同已冻结；尚未开发 G1、尚未物化新资产、尚未运行正式回测。四浪 MACD 案例已明确移出当前通用主线。
+状态：源码审计和 G0 已完成；D01～D10 已于 2026-08-08 冻结；G1 周期无关纯内核与 F01～F44 已实现并通过验收。尚未开始 G2 真实数据只读对照，尚未物化新资产，也未运行正式回测。当前开发线程范围仍为 G1～G4，API、Wealth 和正式界面由其他线程后续集成；四浪 MACD 案例继续位于通用主线之外。
 
 关联文档：
 
 - [通用波浪识别 G0 冻结合同 v1（D01～D10 已确认）](/Users/congming/github/goldenshare/lake_console/docs/design/index-wave-g0-generic-contract-v1.md)
+- [通用波浪识别 G1 纯内核实现与验收记录 v1](/Users/congming/github/goldenshare/lake_console/docs/design/index-wave-g1-core-implementation-and-acceptance-v1.md)
 - [指数四浪反弹失效与趋势反转量化回测方案 v1（独立专项案例，暂缓实施）](/Users/congming/github/goldenshare/docs/datasets/index-wave4-trend-reversal-backtest-plan-v1.md)
 - [主要指数分钟线接入 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-major-index-mins-data-onboarding-low-level-design.md)
 - [90/120 分钟派生合同重建 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-derived-minute-bars-90-120-contract-rebuild-low-level-design.md)
@@ -27,7 +28,7 @@
 
 1. 系统学习开源技术分析项目，重点逐类阅读 ta4j 的 Elliott Wave 源码、测试和示例。
 2. 审计这些实现能解决什么、不能解决什么，尤其检查未来函数、未确认末端、置信度误读和 A 股适配问题。
-3. 对照 Goldenshare 当前代码和 Lake 资产，给出场景无关、可实施但尚未获批的通用适配方向；四浪方案只作为未来专项模块的边界核验样本。
+3. 对照 Goldenshare 当前代码和 Lake 资产给出场景无关的通用适配方向；该方向后来已获批并完成 G1 纯内核，四浪方案仍只作为未来专项模块的边界核验样本。
 
 它不是一份“照抄 ta4j 的开发任务单”，也不是一份波浪理论正确性的证明。它是开发前的源码学习记录、适配差距表和决策依据。
 
@@ -91,12 +92,12 @@
 
 第一阶段只做以下范围：
 
-1. 通用内核不绑定指数、股票、日线或 120 分钟；输入合同由 `ts_code/freq/as_of` 和规范 K 线序列描述。
-2. 首轮工程验证可使用已审计的非北交所主要指数 120 分钟数据，原因是范围小、历史长、数据合同清楚；这只是验证数据集，不是通用模型的语义边界。
+1. 通用内核不绑定指数、股票或任何 K 线周期；输入合同只由 `ts_code/freq/as_of` 和规范 K 线序列描述。日线、120 分钟、60 分钟、30 分钟及后续周期必须复用同一 pivot/swing/scenario 核心。
+2. G2 第一轮工程验证使用已审计的非北交所主要指数日线和 120 分钟数据，原因是范围小、历史长、数据合同清楚；这只是验证数据集，不是通用模型的语义边界。60 分钟和 30 分钟在各自 Canonical Bar/竞价锚点合同冻结后再扩展，不要求重写内核。
 3. 拐点检测先实现一个版本化的 `ATR(14) × 1.5` 因果 ZigZag profile，其他检测器作为对照；参数属于 detector contract，不属于波浪理论真值。
 4. 第一版覆盖基础推动浪、基础修正浪和替代场景，不以“四浪结束”作为唯一目标，也不追求一次覆盖所有复杂变体。
 5. 同时输出多个场景，不强迫系统给出唯一数浪答案；已确认拐点与形成中末端严格分离。
-6. 日线和 120 分钟分别作为独立周期运行同一通用内核；跨周期关系是后续组合/展示能力，不在内核中硬编码“120 分钟触发、日线确认”。
+6. 每个 `ts_code/freq` 分别作为独立实例运行同一通用内核；跨周期关系只属于显式组合模块，不在内核中硬编码“某周期触发、另一周期确认”。不同周期的 detector profile、历史状态和概率校准器不得默认共享。
 7. 通用层实现启发式解释与概率校准基础设施，但只有定义了结果空间、观察期并通过样本外验证的具体模块才能输出概率；任何启发式分数都不得伪装成概率。
 8. 不做交易下单、不做自动投资建议。
 
@@ -155,7 +156,7 @@
 
 | 术语 | 白话解释 | 本文中的严格含义 |
 | --- | --- | --- |
-| K 线 / bar | 某一段时间内的开高低收和成交数据 | 本项目主研究周期为 120 分钟，每个正常交易日两根 |
+| K 线 / bar | 某一段时间内的开高低收和成交数据 | 通用内核不绑定周期；G2 第一轮验证日线和 120 分钟，之后可扩展 60/30 分钟 |
 | 极值点 | 一段走势中的最高点或最低点 | `extreme_at/extreme_price`，发生时未必已确认 |
 | 拐点 / pivot | 被后续价格运动确认的重要极值 | 必须具有 `confirmed_at` |
 | 摆动 / swing | 相邻两个已确认拐点之间的涨跌段 | 起点和终点都必须可追溯到 pivot |
@@ -779,6 +780,8 @@ Writer 用临时 window map 做集合聚合，并检查每个指数、每个窗�
 
 这套合同满足波浪价格结构的基础要求。后续波浪内核不得自行再次切 120 分钟自然时钟桶，否则会重新引入已经修复的错误。
 
+60 分钟和 30 分钟的现有 Silver 正常日分别有 5 行和 9 行，其中包含 `09:30` 竞价锚点。它在 120 分钟合同中用于构造上午第一根 bar 的开盘和价格包络，不是一根独立的 120 分钟 bar。未来把 60/30 分钟接入波浪研究前，必须单独冻结各自 Bar Adapter 的分析语义：竞价锚点是独立 Canonical Bar，还是并入第一根常规 bar。该问题属于周期输入合同，核心引擎不得自行猜测；它不阻塞 G1 的周期无关纯内核，也不进入 G2 第一轮日线/120 分钟验收。
+
 ### 8.4 当前历史覆盖快照
 
 既有四浪方案在 2026-08-08 已完成正式 Lake 只读审计，截止日冻结为 2026-08-04：
@@ -850,17 +853,17 @@ Lake Console 旧 backend 还存在股票分钟线 MACD 研究服务：
 3. 四浪专项研究结果必须把 `params_key=7_52_7`、公式版本、预热规则和输入资产写入研究合同；这不改变产品 MACD 的默认参数。
 4. 最好用独立公式夹具与 TA-Lib/手算序列对照，避免复用实现和 expected 同源导致“共同出错”。
 
-### 8.8 当前是否存在波浪引擎
+### 8.8 G0 审计时是否存在波浪引擎
 
-对业务代码、Lake orchestrator、backend 和 frontend 的 `elliott/zigzag/波浪/浪型/四浪` 检索未发现现成正式实现。当前不存在：
+G0 审计时，对业务代码、Lake orchestrator、backend 和 frontend 的 `elliott/zigzag/波浪/浪型/四浪` 检索未发现现成正式实现。G1 后已经新增 `orchestrator.analysis.index_wave` 内存纯内核，但以下正式消费与持久化能力仍不存在：
 
-- pivot confirmation 事实表。
-- 多场景 scenario 快照。
-- stable scenario key。
+- pivot confirmation 正式事实表。
+- 多场景 scenario 正式快照资产。
+- 跨运行可查询的 stable scenario key 持久化结果。
 - wave state API。
 - 波浪持续观测 UI。
 
-因此这是新增研究能力，不是给现有模块加一个参数。开发前必须单独评审合同、资产、性能和可见性。
+因此它一直是新增研究能力，不是给现有模块加一个参数。G1 已完成算法合同；正式资产、性能、可见性和消费接口仍必须按 G2～G4 及后续集成门禁分别评审。
 
 ### 8.9 CodeGraph 影响面结论
 
@@ -922,13 +925,13 @@ flowchart TB
     SG --> SS["Generic Scenario Snapshots"]
     SS --> MOD["Optional Analysis Modules<br/>各自定义事件/结果/期限"]
     MOD --> BT["Walk-forward Labeler<br/>严格隔离未来"]
-    SS --> API["只读查询 API"]
-    MOD --> API
-    API --> UI["持续观测界面"]
+    SS -. 其他线程后续集成 .-> API["只读查询 API"]
+    MOD -. 其他线程后续集成 .-> API
+    API -. 其他线程后续集成 .-> UI["持续观测界面"]
     BT --> REP["回测报告 / 校准结果"]
 ```
 
-日线、120 分钟和未来其他受支持周期都通过相同 Bar Adapter 独立运行。市场宽度、成交额、特殊 MACD 等上下文只能由显式分析模块按 `as_of` 消费，不能进入 pivot 事实生成，也不能改变通用场景历史。
+日线、120 分钟、60 分钟、30 分钟和未来其他受支持周期都通过相同 Canonical Bar 接口独立运行。各周期可以有不同 adapter 与版本化 detector profile，但不得修改 pivot、swing、scenario 核心语义。市场宽度、成交额、特殊 MACD 等上下文只能由显式分析模块按 `as_of` 消费，不能进入 pivot 事实生成，也不能改变通用场景历史。图中的 API/UI 只保留为结果合同的未来消费者，不属于当前 G1～G4 开发线程。
 
 ### 10.3 代码边界建议
 
@@ -968,7 +971,7 @@ lake_console/orchestrator/src/orchestrator/
 - 后续若性能要求改用 NumPy/Numba/Rust/Java，只替换内核，不改变资产合同。
 - 通用内核不认识 `7,52,7`、`P0/P1/P2/P3`、60 日三分类等专项语义；专项模块只能消费公开的通用快照合同。
 
-新增 `analysis` 顶层包属于架构决定，必须先评审；本文没有创建该目录。
+新增 `analysis` 顶层包属于架构决定。用户批准 G1 后，已按该边界创建 `analysis/index_wave` 纯领域包；它没有 Dagster import，也没有把代码放回旧 backend 指标链。实际文件与验收见 G1 实现记录。
 
 ### 10.4 在线状态模型
 
@@ -1323,7 +1326,9 @@ upstream materialized
 | 历史全量 | 单进程先建立基线；必须输出 elapsed/memory |
 | 日常增量 | 目标为分钟级内完成，不以牺牲一致性换速度 |
 
-### 10.15 API 与界面边界
+### 10.15 API 与界面后续交接边界（不属于当前 G1～G4 线程）
+
+本节只保存未来消费方必须遵守的结果语义，避免其他线程自行数浪或重新解释概率；当前线程不实现 API、Wealth 页面、图表组件或前端交互。
 
 持续观察界面不是第一阶段前置，但数据合同应支持未来展示：
 
@@ -1422,7 +1427,7 @@ upstream materialized
 
 ## 12. 分阶段实施和验收标准
 
-本文只完成审计。若用户批准开发，建议按以下门禁推进，每一阶段都可单独停止。
+本文只完成审计。若用户批准开发，当前线程只按 G1～G4 门禁推进并在 G4 验收后停止；原 G5 的 API、Wealth 和正式界面由其他线程消费冻结结果合同。每一阶段都可单独停止。
 
 ### G0：通用合同冻结
 
@@ -1440,20 +1445,24 @@ upstream materialized
 
 ### G1：纯内核原型
 
+状态：已完成。实现位于 `orchestrator.analysis.index_wave`，F01～F44 及附加静态、校准、ATR 集成和历史时区测试共 69 项通过。详细对账见 [G1 纯内核实现与验收记录](./index-wave-g1-core-implementation-and-acceptance-v1.md)。
+
 交付：
 
 - 无 Dagster 依赖的 bar adapter、pivot engine、swing builder、scenario generator、lifecycle tracker 和 replay。
+- 同一核心分别接受 `1d/120min/60min/30min` Canonical Bars；不得硬编码交易时点、每天 bar 数或按 `freq` 分叉 pivot/swing/scenario 规则。
 - confirmed-only 与 provisional 两套明确输出。
 - 通用模块接口、`wave_scenario_progression` 标签器与校准评估 harness；不实现四浪专项标签。
 - 单元、性质和金标测试。
 
-验收：前缀不变性、全量/增量一致性和人工结构夹具全部通过。
+验收：前缀不变性、全量/增量一致性和 F01～F44 人工结构夹具全部通过；相同规范价格序列在不同 `freq` 下的结构语义一致，只有包含周期/时点的稳定身份不同。
 
 ### G2：真实数据只读对照
 
 交付：
 
 - 对主要指数日线和 120 分钟数据分别只读运行，不互相充当默认确认层。
+- 60 分钟和 30 分钟不作为 G2 第一轮门禁；它们在竞价锚点与 Canonical Bar 合同另行冻结后按相同报告模板扩展，不得因此修改 G1 核心。
 - 各周期的 pivot 密度、确认延迟、场景数、空结果、性能和异常样本报告。
 - 按时间切分验证 `wave_scenario_progression` 的基准发生率、样本外校准和概率门禁；未通过时保留启发式评分但不展示概率。
 - 与简单 Fractal、jbn 批量 ZigZag 或 ta4j 小样本输出做解释性对照。
@@ -1480,7 +1489,11 @@ upstream materialized
 
 验收：单独审批 promote；物理文件和 Dagster events 分阶段验收。
 
-### G5：通用持续观测
+G4 是当前开发线程的终点。完成标准是周期无关内核、真实数据只读验证、正式资产 LLD、历史快照 bootstrap 和增量一致性均可复现；不以 API 或 Wealth 页面是否完成作为本线程验收条件。
+
+### 后续集成阶段（原 G5，其他线程负责）
+
+状态：不属于当前 G1～G4 开发线程。本节仅保留未来消费方的交接验收，不授权本线程开发 API、Wealth 或正式界面。
 
 交付：
 
@@ -1492,7 +1505,7 @@ upstream materialized
 
 ### M0：专项分析模块立项门——通用主线完成后另行评审
 
-四浪结束、推动浪延长、复杂修正等都属于专项模块，不是 G0～G5 的必经步骤。每个专项需另行评审：事件定义、附加指标、结果空间、观察期、样本分母、校准器和 UI 入口。
+四浪结束、推动浪延长、复杂修正等都属于专项模块，不是 G0～G4 或后续界面集成的必经步骤。每个专项需另行评审：事件定义、附加指标、结果空间、观察期、样本分母、校准器和 UI 入口。
 
 四浪 `MACD(7,52,7)` 是候选专项示例。只有在 G1 的通用内核稳定、G4 的版本化历史快照可复现、通用概率合同通过门禁后，才按独立四浪文档启动；不因通用引擎识别出 Wave 4 就自动执行。
 
@@ -1505,7 +1518,8 @@ upstream materialized
 | 决策 | 已确认选项 | 原因 |
 | --- | --- | --- |
 | 第一版是否直接引入 ta4j | 否 | 字段和 provisional 语义不符合；Java 25 运行时成本高 |
-| 通用内核是否绑定周期/标的 | 否 | 同一因果合同应可分别运行于日线、120 分钟和后续受支持序列 |
+| 通用内核是否绑定周期/标的 | 否 | 同一因果合同必须分别运行于日线、120、60、30 分钟和后续受支持序列；新增周期只扩展 adapter/profile，不修改核心 |
+| 当前开发线程终点 | G4 | 完成内核、回测、资产设计和历史一致性；API、Wealth 与正式界面由其他线程后续集成 |
 | 首个 detector profile | `ATR14 × 1.5` 因果 ZigZag | 参数少、可复现，适合作为首个验证基线；不是永久唯一算法 |
 | 是否同时调 Fractal/Slope/Prominence | 不在首个主 profile 中 | 防止第一版参数爆炸；只做鲁棒性对照 |
 | 是否保留多场景 | 是，默认最多 5 个 | 波浪存在替代解释，避免唯一答案伪确定性 |
@@ -1520,7 +1534,7 @@ upstream materialized
 | 是否建立稳定 scenario key | 是 | 追踪每日场景演化所必需 |
 | 第一版是否做复杂修正浪 | 否，只留扩展接口 | 先证明基础推动/修正语法和生命周期正确 |
 | 第一版是否覆盖个股 | 否 | 指数样本小、数据合同已验收；个股规模和复权另行评审 |
-| 是否立即做前端 | 否 | 先证明算法因果性和数据合同 |
+| 是否由当前线程做前端 | 否 | 当前线程止于 G4；API、Wealth 与正式界面由其他线程消费冻结结果合同 |
 | 是否创建 transition 资产 | 暂不 | 相邻快照可推导；先避免状态资产膨胀 |
 
 ---
@@ -1563,9 +1577,9 @@ upstream materialized
 
 ### 15.2 推荐下一步
 
-G0 已冻结，下一步也不是启动四浪专项。只有用户另行批准开始 G1 后，才开发无 Dagster 依赖的纯内核原型和 F01～F43 金标测试；G1 不同时新增正式 Lake 资产、API 或前端。
+G0 保持冻结，G1 已通过；下一步仍不是启动四浪专项。本次不自动进入 G2。
 
-G1 通过后，再分别在真实日线和 120 分钟数据上只读审计 pivot 与场景质量。只有纯内核的因果性、稳定性和性能都通过，才值得设计正式 Dagster 资产与持续观测功能；四浪案例继续保留为后续专项，不进入通用主线验收。
+用户另行批准 G2 后，第一轮分别在真实日线和 120 分钟数据上只读审计 pivot 与场景质量；60/30 分钟在各自竞价锚点和 Canonical Bar 合同冻结后沿用同一内核扩展。当前线程后续继续完成 G3 正式 Dagster 资产 LLD 与 G4 历史 bootstrap/一致性验收后停止；API、Wealth 与正式界面交由其他线程。四浪案例继续保留为后续专项，不进入通用主线验收。
 
 ---
 
@@ -1619,13 +1633,13 @@ current master 前瞻差异：
 - [ProminenceSwingDetector](https://github.com/ta4j/ta4j/blob/63d17a6ef98da5f320ee971672a9137dde60fd62/ta4j-core/src/main/java/org/ta4j/core/analysis/elliott/swing/ProminenceSwingDetector.java)
 - [EmpiricalElliottWaveForecastIndicator](https://github.com/ta4j/ta4j/blob/63d17a6ef98da5f320ee971672a9137dde60fd62/ta4j-core/src/main/java/org/ta4j/core/indicators/elliott/EmpiricalElliottWaveForecastIndicator.java)
 
-## 附录 C：本文未执行的动作
+## 附录 C：当前实施边界
 
-为了保持审计与实施边界，本次明确没有：
+源码审计完成后，用户另行批准并已完成 G1 纯内核代码，因此“没有修改任何代码”不再是当前事实。G1 之后仍明确没有：
 
-1. 修改任何业务代码、schema、asset、job、sensor、API 或前端。
+1. 修改任何 schema、asset、job、sensor、API 或前端。
 2. 执行 Dagster materialize、backfill、runless event 或动态分区写入。
 3. 写入 Lake、prod、远程数据库或 Tushare。
-4. 运行正式四浪回测、其他专项回测或得出交易结论。
+4. 运行 G2 正式真实数据对照、四浪回测或其他专项回测，也未得出交易结论。
 5. 引入 ta4j、TA-Lib、vectorbt 等新依赖。
 6. 创建分支、worktree、commit 或 push。
