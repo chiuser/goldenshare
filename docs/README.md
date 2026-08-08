@@ -187,6 +187,7 @@ docs/
 - [指数历史分钟行情](/Users/congming/github/goldenshare/docs/datasets/index-mins-dataset-development.md)
 - [指数历史分钟行情 Lake 双模式接入方案 v1](/Users/congming/github/goldenshare/docs/datasets/index-mins-dual-source-lake-plan-v1.md)
 - [指数四浪反弹失效与趋势反转量化回测方案 v1](/Users/congming/github/goldenshare/docs/datasets/index-wave4-trend-reversal-backtest-plan-v1.md)
+- [波浪浪型识别开源源码学习与 Goldenshare 适配审计 v1（源码审计完成，适配设计待评审）](/Users/congming/github/goldenshare/lake_console/docs/design/elliott-wave-source-study-and-goldenshare-adaptation-audit-v1.md)
 - [股票历史分钟行情 Parquet Lake 方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md)
 - [股票历史分钟行情 Lake 股票池生命周期过滤方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-security-universe-filter-plan-v1.md)
 - [stk_mins clean_next 与新湖股票日线代码集合审计 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-next-vs-silver-stock-daily-code-audit-v1.md)
