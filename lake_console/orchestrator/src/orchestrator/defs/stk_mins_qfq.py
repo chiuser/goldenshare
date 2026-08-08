@@ -17,6 +17,7 @@ from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
     AUCTION_ANCHOR_ROLE,
     REGULAR_SOURCE_ROLE,
     cn_a_derived_minute_completion_predicate,
+    cn_a_derived_minute_ignored_source_time_predicate_sql,
     cn_a_derived_minute_window_map_sql,
 )
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
@@ -1435,6 +1436,11 @@ def build_gold_stk_mins_qfq_derived_source_invalid_predicate_sql(
     for alias in (source_alias, window_map_alias):
         if not alias.replace("_", "").isalnum():
             raise ValueError(f"Invalid DuckDB SQL alias: {alias!r}.")
+    ignored_source_time_predicate = (
+        cn_a_derived_minute_ignored_source_time_predicate_sql(
+            trade_time_column=f"{source_alias}.trade_time",
+        )
+    )
     return f"""
 {source_alias}.ts_code IS NULL
 OR trim({source_alias}.ts_code) = ''
@@ -1442,12 +1448,15 @@ OR {source_alias}.freq IS NULL
 OR {source_alias}.freq <> {int(source_freq)}
 OR {source_alias}.trade_time IS NULL
 OR CAST({source_alias}.trade_time AS DATE) <> {source_alias}.trade_date
-OR NOT EXISTS (
-  SELECT 1
-  FROM {window_map_alias}
-  WHERE {window_map_alias}.source_time = strftime(
-    {source_alias}.trade_time,
-    '%H:%M:%S'
+OR (
+  NOT ({ignored_source_time_predicate})
+  AND NOT EXISTS (
+    SELECT 1
+    FROM {window_map_alias}
+    WHERE {window_map_alias}.source_time = strftime(
+      {source_alias}.trade_time,
+      '%H:%M:%S'
+    )
   )
 )
 OR {source_alias}.open IS NULL

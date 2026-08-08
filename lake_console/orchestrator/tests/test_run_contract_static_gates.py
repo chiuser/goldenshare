@@ -5612,6 +5612,8 @@ class RunContractStaticGateTests(unittest.TestCase):
             'auction_anchor_time="09:30:00"',
             "AUCTION_ANCHOR_ROLE",
             "REGULAR_SOURCE_ROLE",
+            'CN_A_DERIVED_MINUTE_IGNORED_SOURCE_TIMES = ("15:30:00",)',
+            "cn_a_derived_minute_ignored_source_time_predicate_sql",
         ):
             if fragment not in contract_source:
                 issues.append(f"derived minute contract misses {fragment}")
@@ -5641,6 +5643,10 @@ class RunContractStaticGateTests(unittest.TestCase):
                 issues.append(
                     f"qfq derived path lacks strict source-day quality gate: {path}"
                 )
+        if "cn_a_derived_minute_ignored_source_time_predicate_sql" not in (
+            DEFS_DIR / "stk_mins_qfq.py"
+        ).read_text(encoding="utf-8"):
+            issues.append("qfq derived path does not use shared after-hours rule")
 
         active_python_sources = "\n".join(
             path.read_text(encoding="utf-8")

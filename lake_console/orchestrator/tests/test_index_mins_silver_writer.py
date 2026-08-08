@@ -196,7 +196,14 @@ class IndexMinsSilverWriterTests(unittest.TestCase):
             _write_raw(
                 root,
                 "60min",
-                ("09:30:00", "10:30:00", "11:30:00", "14:00:00", "15:00:00"),
+                (
+                    "09:30:00",
+                    "10:30:00",
+                    "11:30:00",
+                    "14:00:00",
+                    "15:00:00",
+                    "15:30:00",
+                ),
                 literal_auction_anchor=True,
             )
             index_mins_silver.write_silver_index_mins_partition(
@@ -216,12 +223,14 @@ class IndexMinsSilverWriterTests(unittest.TestCase):
             self.assertEqual(result.expected_window_count, 2)
             self.assertEqual(result.generated_window_count, 2)
             self.assertEqual(result.written_row_count, 2)
+            self.assertEqual(result.source_row_count, 6)
             rows = _read_rows(result.silver_file_path)
             self.assertEqual([row[2].strftime("%H:%M:%S") for row in rows], [
                 "11:30:00",
                 "15:00:00",
             ])
             self.assertEqual(rows[0][3:9], (1.5, 3.5, 4.0, 1.5, 57.0, 570.0))
+            self.assertEqual(rows[1][3:9], (4.0, 5.5, 6.0, 3.5, 90.0, 900.0))
             self.assertTrue(all(row[1] == "120min" and row[10] is None for row in rows))
 
     def test_incomplete_derived_window_fails_without_target_or_staging(self) -> None:

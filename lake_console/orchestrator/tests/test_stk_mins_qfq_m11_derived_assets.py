@@ -207,6 +207,60 @@ class StkMinsQfqM11DerivedAssetTests(unittest.TestCase):
         self.assertEqual(rows[0]["close"], 12.5)
         self.assertEqual(rows[0]["vol"], 6)
 
+    def test_derived_generation_ignores_1530_after_hours_for_all_exchanges(
+        self,
+    ) -> None:
+        for exchange in ("SSE", "SZSE", "BSE"):
+            with self.subTest(exchange=exchange), TemporaryDirectory() as temp_dir:
+                lake_root = Path(temp_dir)
+                source_rows = [
+                    {**row, "exchange": exchange}
+                    for row in _complete_60m_rows()
+                ]
+                source_rows.append(
+                    _gold_row(
+                        "15:30:00",
+                        freq=60,
+                        open_=100,
+                        high=110,
+                        low=90,
+                        close=105,
+                        vol=1000,
+                        amount=10000,
+                        exchange=exchange,
+                    )
+                )
+                _write_rows(
+                    gold_stk_mins_qfq_path(lake_root, 60, STOCK_A, 2026),
+                    schema=GOLD_STK_MINS_QFQ_SCHEMA,
+                    rows=source_rows,
+                )
+
+                result = write_gold_stk_mins_qfq_derived_asset_partition(
+                    lake_root=lake_root,
+                    duckdb=DuckDBResource(),
+                    freq=120,
+                    partition_key=TRADE_DATE,
+                )
+                rows = _read_gold_rows(
+                    gold_stk_mins_qfq_path(lake_root, 120, STOCK_A, 2026)
+                )
+
+                self.assertEqual(result.source_row_count, 6)
+                self.assertEqual(result.incomplete_window_count, 0)
+                self.assertEqual(len(rows), 2)
+                self.assertEqual(
+                    [row["trade_time"].strftime("%H:%M:%S") for row in rows],
+                    ["11:30:00", "15:00:00"],
+                )
+                self.assertEqual(rows[1]["open"], 13)
+                self.assertEqual(rows[1]["high"], 15)
+                self.assertEqual(rows[1]["low"], 12)
+                self.assertEqual(rows[1]["close"], 14.5)
+                self.assertEqual(rows[1]["vol"], 9)
+                self.assertEqual(rows[1]["amount"], 2000)
+                self.assertEqual(rows[1]["exchange"], exchange)
+
     def test_derived_generation_fails_when_window_exchange_is_inconsistent(self) -> None:
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)

@@ -4,8 +4,10 @@ import pytest
 
 from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
     AUCTION_ANCHOR_ROLE,
+    CN_A_DERIVED_MINUTE_IGNORED_SOURCE_TIMES,
     REGULAR_SOURCE_ROLE,
     cn_a_derived_minute_completion_predicate,
+    cn_a_derived_minute_ignored_source_time_predicate_sql,
     cn_a_derived_minute_target_times,
     cn_a_derived_minute_window_map_sql,
     cn_a_derived_minute_window_rows,
@@ -77,6 +79,22 @@ def test_target_times_and_completion_predicate_are_exact() -> None:
         "regular_rows = expected_regular AND regular_times = expected_regular "
         "AND anchor_rows = expected_anchor AND anchor_times = expected_anchor"
     )
+
+
+def test_1530_after_hours_is_ignored_without_exchange_branching() -> None:
+    assert CN_A_DERIVED_MINUTE_IGNORED_SOURCE_TIMES == ("15:30:00",)
+    predicate = cn_a_derived_minute_ignored_source_time_predicate_sql(
+        trade_time_column="source_rows.trade_time",
+    )
+    assert predicate == (
+        "strftime(source_rows.trade_time, '%H:%M:%S') IN ('15:30:00')"
+    )
+    assert "exchange" not in predicate.lower()
+
+    with pytest.raises(ValueError):
+        cn_a_derived_minute_ignored_source_time_predicate_sql(
+            trade_time_column="source_rows.trade_time OR true",
+        )
 
 
 def test_invalid_frequency_is_rejected() -> None:

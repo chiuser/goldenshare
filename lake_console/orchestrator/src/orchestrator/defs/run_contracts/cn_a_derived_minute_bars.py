@@ -8,6 +8,7 @@ from dataclasses import dataclass
 AUCTION_ANCHOR_ROLE = "auction_anchor"
 REGULAR_SOURCE_ROLE = "regular"
 CN_A_DERIVED_MINUTE_FREQS = (90, 120)
+CN_A_DERIVED_MINUTE_IGNORED_SOURCE_TIMES = ("15:30:00",)
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,6 +160,28 @@ def cn_a_derived_minute_window_map_sql(value: object) -> str:
 """
 
 
+def cn_a_derived_minute_ignored_source_time_predicate_sql(
+    *,
+    trade_time_column: str,
+) -> str:
+    identifier_parts = str(trade_time_column).strip().split(".")
+    if not identifier_parts or any(
+        not part or not part.replace("_", "").isalnum()
+        for part in identifier_parts
+    ):
+        raise ValueError(
+            f"invalid derived minute trade-time column: {trade_time_column!r}."
+        )
+    ignored_values = ", ".join(
+        f"'{source_time}'"
+        for source_time in CN_A_DERIVED_MINUTE_IGNORED_SOURCE_TIMES
+    )
+    return (
+        f"strftime({trade_time_column}, '%H:%M:%S') "
+        f"IN ({ignored_values})"
+    )
+
+
 def cn_a_derived_minute_completion_predicate(
     *,
     regular_row_count_column: str,
@@ -177,6 +200,7 @@ def cn_a_derived_minute_completion_predicate(
 
 
 def _validate_contract() -> None:
+    mapped_source_times: set[str] = set()
     for target_freq, windows in CN_A_DERIVED_MINUTE_WINDOWS.items():
         if not windows:
             raise RuntimeError(f"derived minute contract is empty: {target_freq}.")
@@ -197,6 +221,11 @@ def _validate_contract() -> None:
                 raise RuntimeError("derived minute source times must be unique per window.")
             if window.target_time != window.regular_source_times[-1]:
                 raise RuntimeError("derived minute target must be the last regular source time.")
+            mapped_source_times.update(source_times)
+    if mapped_source_times.intersection(CN_A_DERIVED_MINUTE_IGNORED_SOURCE_TIMES):
+        raise RuntimeError(
+            "ignored derived minute source times must not belong to a regular window."
+        )
 
 
 _validate_contract()
@@ -205,10 +234,12 @@ _validate_contract()
 __all__ = [
     "AUCTION_ANCHOR_ROLE",
     "CN_A_DERIVED_MINUTE_FREQS",
+    "CN_A_DERIVED_MINUTE_IGNORED_SOURCE_TIMES",
     "CN_A_DERIVED_MINUTE_WINDOWS",
     "DerivedMinuteWindow",
     "REGULAR_SOURCE_ROLE",
     "cn_a_derived_minute_completion_predicate",
+    "cn_a_derived_minute_ignored_source_time_predicate_sql",
     "cn_a_derived_minute_target_times",
     "cn_a_derived_minute_window_map_sql",
     "cn_a_derived_minute_window_rows",
