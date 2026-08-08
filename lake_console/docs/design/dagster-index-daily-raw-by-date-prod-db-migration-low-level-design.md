@@ -2,6 +2,8 @@
 
 状态：P-1 至 P9C-2 已完成；包括 P8 旧 by-code quarantine 最终物理删除，以及 P9C-2 四个 mixed run 的精确 Dagster 状态治理。`raw_index_daily_update_job_sensor` 与 `silver_index_daily_sensor` 已启用，`2026-06-23` 首个自动 raw+silver 日更已成功。
 
+> **后续单代码历史补录（2026-08-08）：** Prod 已补齐 `000680.SH` 科创综指 `2020-01-02..2025-01-16` 的 1223 个开市日，但 DG 同期 Raw/Silver 文件是“文件存在、目标代码缺行”。该场景不能复用普通 `raw_index_daily` 历史 backfill，因为正式 Raw 会按当前注册代码全集做 exact coverage 并整文件 replace。专用补录、11 个日级主要指数 seed、Gold 全历史重建和 runless event 审批边界，以 [科创综指指数日线历史补录 LLD](./dagster-index-daily-000680-history-supplement-low-level-design.md) 为准。
+
 最新代码落点：
 
 - P1/P2：`c38e0eea feat: add index daily raw by-date asset`
