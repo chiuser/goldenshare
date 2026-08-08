@@ -316,6 +316,11 @@ def _rows_fingerprint(rows: Sequence[Sequence[object]]) -> str:
     ).hexdigest()
 
 
+def _json_compatible(value: object) -> object:
+    """Normalize tuples and other JSON containers before frozen-plan comparison."""
+    return json.loads(json.dumps(value, ensure_ascii=True, sort_keys=True))
+
+
 def audit_candidate(
     connection: Any,
     *,
@@ -512,7 +517,8 @@ def run_source_staging(
         boundary_close=boundary_close,
         following_pre_close=following_pre_close,
     )
-    if not audit.passed or audit.to_dict() != plan["source_audit"]:
+    source_audit = _json_compatible(audit.to_dict())
+    if not audit.passed or source_audit != plan["source_audit"]:
         raise IndexDaily000680HistorySupplementApplyError(
             "Current source audit differs from the frozen green plan."
         )
@@ -523,7 +529,7 @@ def run_source_staging(
         "plan_hash": expected_plan_hash,
         "source_path": str(target_path),
         "source_sha256": file_sha256(target_path),
-        "source_audit": audit.to_dict(),
+        "source_audit": source_audit,
     }
 
 

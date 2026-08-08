@@ -12,6 +12,9 @@ from orchestrator.defs.assets.index_daily import (
 from orchestrator.defs.bootstrap import (
     index_daily_000680_history_supplement_apply as apply,
 )
+from orchestrator.defs.bootstrap.index_daily_000680_history_supplement_plan import (
+    SupplementSourceAudit,
+)
 from orchestrator.defs.duckdb_sql import INDEX_DAILY_RAW_COLUMNS
 from tests._index_daily_000680_history_supplement_helpers import (
     frozen_plan_payload,
@@ -92,6 +95,59 @@ def test_batch_selection_rejects_more_than_100_dates() -> None:
             start_date=None,
             end_date=None,
         )
+
+
+def test_source_staging_accepts_json_loaded_audit_samples(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rows = (_raw_row(apply.TARGET_CODE),)
+    audit = SupplementSourceAudit(
+        row_count=1223,
+        distinct_date_count=1223,
+        min_trade_date="2020-01-02",
+        max_trade_date="2025-01-16",
+        duplicate_key_count=0,
+        null_critical_row_count=0,
+        invalid_ohlc_row_count=0,
+        unexpected_code_count=0,
+        unexpected_date_count=0,
+        expected_date_missing_count=0,
+        unexpected_date_samples=(),
+        missing_date_samples=(),
+        date_fingerprint="date-fingerprint",
+        boundary_close=10.5,
+        following_pre_close=10.5,
+        boundary_matches=True,
+    )
+    payload = frozen_plan_payload()
+    payload["source_audit"] = audit.to_dict()
+    payload["plan_hash"] = apply.compute_frozen_plan_hash(payload)
+    plan_path = tmp_path / "plan.json"
+    write_plan(plan_path, payload)
+    loaded = apply.load_frozen_plan(
+        plan_path,
+        expected_plan_hash=str(payload["plan_hash"]),
+    )
+    source_path = tmp_path / "staging" / "source.parquet"
+    monkeypatch.setattr(
+        apply,
+        "read_prod_source_rows",
+        lambda _resource: (rows, 10.5, 10.5),
+    )
+    monkeypatch.setattr(apply, "build_source_audit", lambda **_kwargs: audit)
+    monkeypatch.setattr(apply, "source_staging_path", lambda _plan: source_path)
+
+    report = apply.run_source_staging(
+        plan=loaded,
+        expected_plan_hash=str(payload["plan_hash"]),
+        duckdb_resource=apply.DuckDBResource(),
+        prod_postgres=apply.ProdPostgresResource(),
+        apply=True,
+    )
+
+    assert report["source_audit"] == loaded["source_audit"]
+    assert source_path.is_file()
 
 
 def test_raw_candidate_preserves_non_target_rows_and_is_idempotent(
