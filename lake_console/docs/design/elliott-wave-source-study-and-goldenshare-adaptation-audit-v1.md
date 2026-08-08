@@ -2,11 +2,11 @@
 
 更新时间：2026-08-08
 
-状态：源码审计已完成；G0 的 D01～D09 已于 2026-08-08 按推荐项确认，`score_profile_v1` 仍待评审；尚未开发、尚未物化新资产、尚未运行正式回测。四浪 MACD 案例已明确移出当前通用主线。
+状态：源码审计已完成；G0 的 D01～D10 已于 2026-08-08 全部确认，G0 V1 合同已冻结；尚未开发 G1、尚未物化新资产、尚未运行正式回测。四浪 MACD 案例已明确移出当前通用主线。
 
 关联文档：
 
-- [通用波浪识别 G0 合同冻结评审稿 v1（D01～D09 已确认，D10 待评审）](/Users/congming/github/goldenshare/lake_console/docs/design/index-wave-g0-generic-contract-v1.md)
+- [通用波浪识别 G0 冻结合同 v1（D01～D10 已确认）](/Users/congming/github/goldenshare/lake_console/docs/design/index-wave-g0-generic-contract-v1.md)
 - [指数四浪反弹失效与趋势反转量化回测方案 v1（独立专项案例，暂缓实施）](/Users/congming/github/goldenshare/docs/datasets/index-wave4-trend-reversal-backtest-plan-v1.md)
 - [主要指数分钟线接入 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-major-index-mins-data-onboarding-low-level-design.md)
 - [90/120 分钟派生合同重建 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-derived-minute-bars-90-120-contract-rebuild-low-level-design.md)
@@ -569,7 +569,7 @@ heuristic score + score breakdown + scenario competition
 
 概率校准是正式能力，不是可选报表，但通用波浪内核不能预设某一种结果空间。每个可校准模块必须先冻结自己的 `outcome_space_version`、观察期和标签生成规则，然后输出该结果空间内总和为 1 的概率分布。这里的概率只回答“同类历史条件下，在该模块定义的固定期限内分别落入哪一类结果”，不回答明日涨跌，也不是买卖建议。
 
-进一步逐类核验 ta4j 0.23.0 源码后，Goldenshare 不能原样复制其聚合细节：time、alternation 和无有效 channel 等证据不足情形会回填中性 `0.5`；channel scorer 还会用当前时点的一组静态上下界检查全部 swing 端点，缺少逐端点的时间投影语义。G0 的 `score_profile_v1` 推荐稿因此改为：缺失证据不打分、显式保存 coverage；V1 暂不把 channel 计入总分；用 `ranking_score` 同时考虑贴合度与证据覆盖。完整公式和字面夹具以 G0 主合同第 11、14 节为准。
+进一步逐类核验 ta4j 0.23.0 源码后，Goldenshare 不能原样复制其聚合细节：time、alternation 和无有效 channel 等证据不足情形会回填中性 `0.5`；channel scorer 还会用当前时点的一组静态上下界检查全部 swing 端点，缺少逐端点的时间投影语义。G0 冻结的 `score_profile_v1` 因此采用：缺失证据不打分、显式保存 coverage；V1 暂不把 channel 计入总分；用 `ranking_score` 同时考虑贴合度与证据覆盖。完整公式和字面夹具以 G0 主合同第 11、14 节为准。
 
 第一版校准评估框架推荐采用以下两层基线：
 
@@ -1076,11 +1076,11 @@ pivot_key 不得依赖 run_id 或排名
 
 | 字段组 | 关键字段 | 说明 |
 | --- | --- | --- |
-| 身份 | `model_version,data_snapshot_id,ts_code,freq,as_of,degree_key` | 可复现输入和时点 |
+| 身份 | `model_version,score_profile_version,data_snapshot_id,ts_code,freq,as_of,degree_key` | 可复现输入、评分合同和时点 |
 | 场景 | `scenario_key,scenario_lineage_key,parent_scenario_key,scenario_type,current_phase,direction,rank` | 精确结构身份、演化链和当前解释 |
 | 结构 | `start_pivot_key,end_pivot_key,pivot_keys_json,confirmed_wave_count` | 可还原参与结构 |
 | 状态 | `scenario_status,uses_provisional,valid_from_as_of` | confirmed-only 与 forming 严格区分 |
-| 评分 | `heuristic_score,score_spread,fibonacci_score,time_score,alternation_score,channel_score,completeness_score` | 不使用 probability 命名 |
+| 评分 | `ranking_score,heuristic_score,score_coverage,score_spread,fibonacci_score,time_score,alternation_score,channel_score,completeness_score` | 同时保存排序证据量、贴合度与覆盖率，不使用 probability 命名 |
 | 规则 | `hard_rule_passed,hard_violations_json,soft_penalties_json` | 解释为什么保留/淘汰 |
 | 失效 | `invalidation_price,invalidation_rule` | 阶段化失效语义 |
 | 目标 | `primary_target,targets_json` | 仅作研究特征 |
@@ -1106,7 +1106,7 @@ scenario_lineage_key = hash(
 parent_scenario_key = 直接延长前的 scenario_key
 ```
 
-相同结构跨 as-of 复用同一 `scenario_key`；新增 confirmed pivot 后产生新 `scenario_key`，通过相同 lineage 和 parent 关系追踪“同一解释怎样随行情延长”。精确定义以 [通用波浪识别 G0 合同冻结评审稿 v1](/Users/congming/github/goldenshare/lake_console/docs/design/index-wave-g0-generic-contract-v1.md) 为准。
+相同结构跨 as-of 复用同一 `scenario_key`；新增 confirmed pivot 后产生新 `scenario_key`，通过相同 lineage 和 parent 关系追踪“同一解释怎样随行情延长”。精确定义以 [通用波浪识别 G0 冻结合同 v1](/Users/congming/github/goldenshare/lake_console/docs/design/index-wave-g0-generic-contract-v1.md) 为准。
 
 ### 10.7.1 分析模块合同
 
@@ -1119,7 +1119,7 @@ parent_scenario_key = 直接延长前的 scenario_key
 | 字段组 | 关键字段 | 说明 |
 | --- | --- | --- |
 | 身份 | `analysis_module_key,module_version,module_snapshot_id` | 模块及其不可混用的版本 |
-| 通用输入 | `scenario_key,scenario_lineage_key,scenario_model_version,scenario_data_snapshot_id` | 精确指向消费的通用场景快照及其演化链 |
+| 通用输入 | `scenario_key,scenario_lineage_key,scenario_model_version,scenario_score_profile_version,scenario_data_snapshot_id` | 精确指向消费的通用场景快照、评分合同及其演化链 |
 | 时点 | `ts_code,freq,as_of` | 模块判断对应的标的、周期和可见时点 |
 | 资格 | `eligibility_status,eligibility_reasons_json` | 为什么适用或不适用，不能把无资格样本静默删除 |
 | 模块状态 | `module_state,event_key,event_type` | 仅属于该模块的状态和稳定事件身份 |
@@ -1139,12 +1139,12 @@ parent_scenario_key = 直接延长前的 scenario_key
 | --- | --- | --- |
 | 身份 | `analysis_module_key,scenario_key,scenario_lineage_key,ts_code,freq,as_of` | 哪个模块、场景演化链、标的、周期和判断时点 |
 | 结果合同 | `outcome_space_version,horizon_value,horizon_unit,label_version` | 模块冻结的互斥结果集合、观察期及标签生成规则 |
-| 上游版本 | `scenario_model_version,scenario_data_snapshot_id` | 指向产生特征的场景版本和数据快照 |
+| 上游版本 | `scenario_model_version,scenario_score_profile_version,scenario_data_snapshot_id` | 指向产生特征的场景、评分合同和数据快照 |
 | 校准版本 | `calibration_model_version,calibration_method,calibration_data_snapshot_id` | 能完整复现训练和校准过程 |
 | 概率输出 | `outcome_probabilities_json,primary_outcome_key` | 以稳定 outcome key 保存完整分布，不新增场景专属列 |
 | 不确定性 | `outcome_intervals_json,calibration_sample_count` | 按事件分组 bootstrap 或等价方法得到的区间及有效样本数 |
 | 适用状态 | `calibration_status,calibration_visible_through` | `CALIBRATED/NOT_FITTED/INSUFFICIENT_SAMPLE/STALE/VERSION_MISMATCH` 及训练数据可见截止点 |
-| 输入解释 | `heuristic_score,score_spread,feature_values_json` | 记录本次概率使用的启发式输入，不让前端重新计算 |
+| 输入解释 | `ranking_score,heuristic_score,score_coverage,score_spread,feature_values_json` | 记录本次概率使用的启发式输入，不让前端重新计算 |
 
 必须遵守以下口径：
 
@@ -1426,7 +1426,7 @@ upstream materialized
 
 ### G0：通用合同冻结
 
-状态：进行中。D01～D09 已于 2026-08-08 按推荐项确认，并已回写 [通用波浪识别 G0 合同冻结评审稿 v1](/Users/congming/github/goldenshare/lake_console/docs/design/index-wave-g0-generic-contract-v1.md)；当前只剩 D10 `score_profile_v1` 待评审，确认后才能标记冻结。
+状态：已完成。D01～D10 已于 2026-08-08 全部确认，并已回写 [通用波浪识别 G0 冻结合同 v1](/Users/congming/github/goldenshare/lake_console/docs/design/index-wave-g0-generic-contract-v1.md)。合同冻结不代表参数已经通过样本外验证，也不自动授权 G1 开发。
 
 交付：
 
@@ -1498,11 +1498,11 @@ upstream materialized
 
 ---
 
-## 13. 已确认方向与剩余评审
+## 13. 已确认方向
 
-本节保留源码审计阶段形成的高层方向，精确实现口径以 G0 主合同的编号决策为准。D01～D09 已确认；当前唯一未决实现项是 D10 `score_profile_v1`。
+本节保留源码审计阶段形成的高层方向，精确实现口径以 G0 主合同的编号决策为准。D01～D10 已全部确认；后续变更必须升级合同或 profile version，不能静默修改冻结口径。
 
-| 决策 | 推荐选项 | 原因 |
+| 决策 | 已确认选项 | 原因 |
 | --- | --- | --- |
 | 第一版是否直接引入 ta4j | 否 | 字段和 provisional 语义不符合；Java 25 运行时成本高 |
 | 通用内核是否绑定周期/标的 | 否 | 同一因果合同应可分别运行于日线、120 分钟和后续受支持序列 |
@@ -1563,16 +1563,9 @@ upstream materialized
 
 ### 15.2 推荐下一步
 
-下一步不是马上写完整波浪系统，也不是启动四浪专项，而是完成 D10 评审并冻结 G0。D01～D09 已确认；剩余评审重点是：
+G0 已冻结，下一步也不是启动四浪专项。只有用户另行批准开始 G1 后，才开发无 Dagster 依赖的纯内核原型和 F01～F43 金标测试；G1 不同时新增正式 Lake 资产、API 或前端。
 
-- `score_profile_v1` 的比例函数和 Fibonacci 目标带；
-- 证据不足时不回填 0/0.5 的缺失语义；
-- 推动与锯齿的 grammar 专属权重；
-- V1 暂不把 channel 计入总分；
-- `heuristic_score/score_coverage/ranking_score` 三者的职责；
-- F33～F43 的评分字面夹具。
-
-G0 通过后，再开发一个只读纯内核原型，分别在真实日线和 120 分钟数据上审计 pivot 与场景质量。只有这个原型的因果性、稳定性和性能都通过，才值得设计正式 Dagster 资产与持续观测功能；四浪案例继续保留为后续专项，不进入本轮验收。
+G1 通过后，再分别在真实日线和 120 分钟数据上只读审计 pivot 与场景质量。只有纯内核的因果性、稳定性和性能都通过，才值得设计正式 Dagster 资产与持续观测功能；四浪案例继续保留为后续专项，不进入通用主线验收。
 
 ---
 

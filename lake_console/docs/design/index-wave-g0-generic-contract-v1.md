@@ -1,10 +1,10 @@
-# 通用波浪识别 G0 合同冻结评审稿 v1
+# 通用波浪识别 G0 冻结合同 v1
 
-- 版本：v0.2-review
-- 状态：G0 进行中；D01～D09 已于 2026-08-08 按推荐项确认，尚待 D10 `score_profile_v1` 评审后冻结
+- 版本：v1-frozen
+- 状态：G0 已完成；D01～D10 已于 2026-08-08 确认并冻结
 - 更新时间：2026-08-08
 - 适用范围：通用、因果、可回放的波浪识别研究内核
-- 当前动作边界：只写合同，不开发 G1 算法，不新增 Dagster 资产，不读写正式 Lake
+- 当前动作边界：本次确认只冻结 G0 合同，不构成 G1 开发、Dagster 资产或正式 Lake 读写授权
 
 关联文档：
 
@@ -19,7 +19,7 @@
 
 G0 不负责“把波浪数出来”，而是先冻结以后所有实现都不能含糊的语言：输入 K 线是什么、一个拐点什么时候才可见、形成中的腿怎样变化、一个浪型场景怎样延长或失效、启发式分数怎样与概率分开，以及历史上某一天的判断怎样被完整重放。
 
-本评审稿已经把这些概念收敛为六层合同：
+本合同已经把这些概念收敛为六层结构：
 
 ```text
 Canonical Bar
@@ -37,7 +37,7 @@ Canonical Bar
 3. 系统保留多个候选解释，不伪装成唯一正确数浪。
 4. 启发式分数必须通过独立历史结果校准后，才可能成为概率。
 
-第 15 节的 D01～D09 已确认，并已回写正文。当前只剩 D10 `score_profile_v1` 需要评审；它未确认前，本文仍是评审稿，不是已冻结合同，也不构成 G1 开发授权。
+第 15 节的 D01～D10 已全部确认并回写正文。本文现在是 G1 必须遵守的冻结合同；冻结只代表定义完整，不代表启发式参数已经被 A 股历史样本验证，也不构成 G1 开发授权。
 
 ---
 
@@ -155,7 +155,8 @@ bar_visible_through <= as_of
 
 ```text
 ts_code + freq + degree_key + as_of
-+ detector_profile_version + grammar_profile_version + engine_version
++ detector_profile_version + grammar_profile_version
++ score_profile_version + engine_version
 ```
 
 一次运行只允许一个 `freq`。日线结果不能覆盖 120 分钟结果，120 分钟结果也不能默认引用日线。
@@ -580,7 +581,7 @@ feature_reason
 feature_profile_version
 ```
 
-第 11 节给出 `score_profile_v1` 的完整推荐稿。它是可解释、可回放的工程基线，不是由当前本地数据拟合出的最优参数；D10 未确认前，G1 不得实现或声称已经冻结最终 heuristic score。
+第 11 节冻结 `score_profile_v1`。它是可解释、可回放的工程基线，不是由当前本地数据拟合出的最优参数；G2 必须把“合同已冻结”和“样本外有效”作为两件不同的事验证。
 
 ---
 
@@ -632,7 +633,7 @@ rank、分数、forming extreme、as_of、run_id 和 created_at 不进入这两�
 
 | 字段组 | 关键字段 |
 | --- | --- |
-| 身份 | `model_version,data_snapshot_id,ts_code,freq,as_of,degree_key` |
+| 身份 | `model_version,score_profile_version,data_snapshot_id,ts_code,freq,as_of,degree_key` |
 | 结构 | `scenario_key,scenario_lineage_key,parent_scenario_key,scenario_type,direction,ordered_pivot_keys` |
 | 阶段 | `current_phase,confirmed_wave_count,scenario_status,status_changed_at,valid_from_as_of` |
 | 排名 | `rank,ranking_score,heuristic_score,score_coverage,score_spread` |
@@ -677,10 +678,10 @@ rank、分数、forming extreme、as_of、run_id 和 created_at 不进入这两�
 
 ### 11.2 `score_profile_v1` 的来源和边界
 
-推荐 profile key：
+已确认的 profile key：
 
 ```text
-score_profile_version = SCORE_PROFILE_V1_REVIEW
+score_profile_version = SCORE_PROFILE_V1
 source_baseline = TA4J_0_23_0
 empirical_status = NOT_FITTED
 ```
@@ -904,7 +905,7 @@ sensitivity_horizons = 10 / 40 bars
 | --- | --- |
 | 身份 | `analysis_module_key,module_snapshot_id,scenario_key,scenario_lineage_key,ts_code,freq,as_of` |
 | 结果合同 | `outcome_space_version,horizon_value,horizon_unit,label_version` |
-| 上游 | `scenario_model_version,scenario_data_snapshot_id,feature_contract_version` |
+| 上游 | `scenario_model_version,scenario_score_profile_version,scenario_data_snapshot_id,feature_contract_version` |
 | 校准 | `calibration_model_version,calibration_method,calibration_data_snapshot_id` |
 | 输出 | `outcome_probabilities_json,primary_outcome_key` |
 | 不确定性 | `outcome_intervals_json,calibration_sample_count` |
@@ -960,7 +961,8 @@ model_version + data_snapshot_id + pivot_key
 主键候选：
 
 ```text
-model_version + data_snapshot_id + ts_code + freq + as_of + degree_key + scenario_key
+model_version + score_profile_version + data_snapshot_id
++ ts_code + freq + as_of + degree_key + scenario_key
 ```
 
 必要字段沿用第 10.4 节；`scenario_key/scenario_lineage_key/parent_scenario_key` 不得合并成一个字段。
@@ -1093,7 +1095,7 @@ scenario 测试直接输入已确认 pivots，以便把 grammar 与 detector 解
 
 ## 15. G0 决策记录
 
-D01～D09 已由用户在 2026-08-08 明确选择推荐项。确认不是一句摘要：每项都已经回写到正文合同、夹具或门禁。D10 是本轮补齐的评分合同推荐稿，尚未获得确认。
+D01～D09 由用户在 2026-08-08 明确选择推荐项；D10 随后按第 11 节方案确认。确认不是一句摘要：每项都已经回写到正文合同、夹具或门禁。
 
 | 编号 | 决策 | 合同结果 | 状态 | 落点 |
 | --- | --- | --- | --- | --- |
@@ -1106,9 +1108,9 @@ D01～D09 已由用户在 2026-08-08 明确选择推荐项。确认不是一句�
 | D07 | 通用 progression 期限 | 20 bars 为主，10/40 bars 做敏感性 | `CONFIRMED` | §12.3 |
 | D08 | 同 bar outcome 冲突 | `INVALIDATION_FIRST` | `CONFIRMED` | §12.2、F24 |
 | D09 | 概率展示门禁 | 200 校准 + 100 样本外 + 各关键类 20；优于基准且 ECE<=0.10 | `CONFIRMED` | §12.7 |
-| D10 | `score_profile_v1` | 采用 §11 的公式、缺失语义、grammar 权重、channel 排除和 `ranking_score` | `PENDING_REVIEW` | §11、F33～F43 |
+| D10 | `score_profile_v1` | 采用 §11 的公式、缺失语义、grammar 权重、channel 排除和 `ranking_score` | `CONFIRMED` | §11、F33～F43 |
 
-D10 未确认前，hard rule、生命周期、outcome 和概率合同可继续保持已确认口径，但 G0 不能标记“全部冻结”，G1 也不得实现评分器。
+D01～D10 共同构成 G0 V1 冻结基线。后续修改任何一项都必须升级对应 contract/profile version，并按新版本完整重放；不得在 `v1-frozen` 名义下静默调参。
 
 ---
 
@@ -1116,30 +1118,28 @@ D10 未确认前，hard rule、生命周期、outcome 和概率合同可继续�
 
 | 验收问题 | 本稿答案 | 状态 |
 | --- | --- | --- |
-| 一个字段什么时候可见？ | 第 3、4、6、7 节按 bar/extreme/confirm/as-of 定义 | 已草拟 |
-| 违反规则后怎样处理？ | 输入 fail closed；hard rule INVALIDATED；soft rule 只扣分 | 已草拟 |
-| 形成中端点怎样变化？ | 只在 forming leg，不能进入 confirmed 事实 | 已草拟 |
-| 场景怎样随行情修正？ | snapshot 不覆盖；key + lineage + parent 形成演化链 | 已草拟 |
-| 怎样逐时点回放？ | 使用 `bar_end_at<=as_of` 的前缀并保存完整版本 | 已草拟 |
-| 怎样避免分数冒充概率？ | 独立 outcome、label、calibrator 和展示门禁 | 已草拟 |
-| 日线和 120 分钟怎样共存？ | 单周期独立；跨周期只进显式模块 | 已草拟 |
+| 一个字段什么时候可见？ | 第 3、4、6、7 节按 bar/extreme/confirm/as-of 定义 | 已冻结 |
+| 违反规则后怎样处理？ | 输入 fail closed；hard rule INVALIDATED；soft rule 只扣分 | 已冻结 |
+| 形成中端点怎样变化？ | 只在 forming leg，不能进入 confirmed 事实 | 已冻结 |
+| 场景怎样随行情修正？ | snapshot 不覆盖；key + lineage + parent 形成演化链 | 已冻结 |
+| 怎样逐时点回放？ | 使用 `bar_end_at<=as_of` 的前缀并保存完整版本 | 已冻结 |
+| 怎样避免分数冒充概率？ | 独立 outcome、label、calibrator 和展示门禁 | 已冻结 |
+| 日线和 120 分钟怎样共存？ | 单周期独立；跨周期只进显式模块 | 已冻结 |
 | 四浪案例是否污染通用能力？ | C13 明确禁止 | 已冻结边界 |
-| 算法正反例是否明确？ | F01～F43，并逐条映射 C01～C16 | 已草拟，待 G1 落成文件 |
-| 所有数值和公式是否已拍板？ | D01～D09 已确认；`score_profile_v1` 已形成可逐项核验的推荐稿 | 待 D10 确认 |
+| 算法正反例是否明确？ | F01～F43，并逐条映射 C01～C16 | 合同已冻结，待 G1 落成测试文件 |
+| 所有数值和公式是否已拍板？ | D01～D10 已确认；`score_profile_v1` 使用 §11 冻结口径 | 已冻结 |
 
-G0 的完成条件是：
+G0 完成条件对账：
 
-1. D10 获得确认或替换结论；
-2. 本文状态由 `v0.2-review` 改为 `v1-frozen`；
-3. 上游源码审计文档逐条对账且无相反口径；
-4. 用户另行批准后，才进入 G1 纯内核开发。
+1. D01～D10 全部确认：已完成。
+2. 本文状态改为 `v1-frozen`：已完成。
+3. 上游源码审计文档逐条对账且无相反口径：已完成。
+4. G1 仍保持独立授权门禁：未获得用户明确批准前不得开发。
 
 ---
 
 ## 17. 下一步
 
-下一轮仍属于 G0，不写算法代码：
+G0 已结束。本次不自动进入 G1。
 
-1. 只评审 D10：§11 的比例函数、缺失语义、grammar 权重、channel 暂不计分和 `ranking_score`。
-2. D10 确认后，将文档状态改为 `v1-frozen` 并完成上游文档最终对账。
-3. 用户另行批准进入 G1 后，再把 F01～F43 落成 JSON/代码金标和纯内核测试。
+用户另行批准开始 G1 后，第一轮只实现无 Dagster 依赖的纯内核和 F01～F43 金标测试；不得同时新增正式 Lake 资产、API、前端或四浪专项模块。
