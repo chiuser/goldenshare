@@ -1,0 +1,834 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dagster 指数技术数据资产接入方案 v1</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --paper: #ffffff;
+      --ink: #172033;
+      --muted: #5b6880;
+      --line: #d9e1ec;
+      --blue: #205fc5;
+      --blue-soft: #edf4ff;
+      --green: #177a4d;
+      --green-soft: #ecf8f1;
+      --gold: #9b6818;
+      --gold-soft: #fff7e7;
+      --red: #b33838;
+      --red-soft: #fff0f0;
+      --code: #f2f5f9;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.72 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      width: min(1240px, calc(100% - 40px));
+      margin: 32px auto 72px;
+    }
+    header, section {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 8px 28px rgb(30 55 90 / 6%);
+    }
+    header { padding: 34px 38px; }
+    section { margin-top: 18px; padding: 28px 32px; }
+    h1, h2, h3, h4 { line-height: 1.35; margin: 0; }
+    h1 { font-size: 30px; }
+    h2 { font-size: 22px; margin-bottom: 16px; }
+    h3 { font-size: 18px; margin: 22px 0 10px; }
+    h4 { font-size: 16px; margin: 18px 0 8px; }
+    p { margin: 8px 0; }
+    ul, ol { margin: 8px 0; padding-left: 24px; }
+    li + li { margin-top: 5px; }
+    code {
+      background: var(--code);
+      border-radius: 5px;
+      padding: 2px 5px;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.92em;
+    }
+    pre {
+      overflow-x: auto;
+      background: #111a2a;
+      color: #e9effa;
+      border-radius: 10px;
+      padding: 18px;
+      line-height: 1.55;
+    }
+    pre code { background: transparent; padding: 0; }
+    a { color: var(--blue); }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 13px;
+      font-weight: 700;
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+    .tag.review { background: var(--gold-soft); color: var(--gold); }
+    .lead { color: var(--muted); font-size: 16px; margin-top: 12px; }
+    .callout {
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      background: var(--blue-soft);
+      padding: 14px 16px;
+      margin: 14px 0;
+    }
+    .callout.good { border-color: var(--green); background: var(--green-soft); }
+    .callout.warn { border-color: var(--gold); background: var(--gold-soft); }
+    .callout.danger { border-color: var(--red); background: var(--red-soft); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 16px;
+      background: #fbfcfe;
+    }
+    .table-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 4px;
+      min-width: 780px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      vertical-align: top;
+      text-align: left;
+    }
+    th { background: #f3f6fa; font-weight: 700; }
+    .decision { font-weight: 700; color: var(--blue); }
+    .reject { color: var(--red); font-weight: 700; }
+    .small { color: var(--muted); font-size: 13px; }
+    .checklist td:last-child { width: 76px; text-align: center; }
+    @media (max-width: 800px) {
+      main { width: min(100% - 20px, 1240px); margin-top: 12px; }
+      header, section { padding: 22px 18px; }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dagster 指数技术数据资产接入方案 v1</h1>
+    <p class="lead">
+      同一轮规划两个独立数据产品：DG 日线主要指数池的 Tushare 日级技术因子
+      <code>idx_factor_pro</code>，以及由主要指数分钟线 Silver 同日有效池计算的分钟技术指标。
+      两个对象池因源数据可用性而有意分离：日级产品读取现行 <code>seeds/market/major_indices.cn_a.csv</code>，
+      分钟产品读取 <code>effective_silver_codes_for_date(trade_date)</code>；禁止把两者强行统一。各数据集的历史起点仍由自己的 coverage contract 定义。
+      本文只做设计和实施门禁，不执行 Dagster、建分区、拉全量或写 Lake。
+    </p>
+    <div class="meta">
+      <span class="tag review">状态：已拍板，LLD 已完成</span>
+      <span class="tag">文档日期：2026-08-08</span>
+      <span class="tag">范围：DG / Raw / Silver / Gold</span>
+      <span class="tag">源接口：idx_factor_pro</span>
+    </div>
+    <p class="small">代码级实施合同：<a href="./dagster-index-technical-datasets-onboarding-low-level-design-v1.html">Dagster 指数技术数据资产接入 LLD v1</a>。</p>
+  </header>
+
+  <section>
+    <h2>1. 结论先行</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>数据产品 A：指数日级技术因子</h3>
+        <p><strong>建议资产：</strong><code>raw_tushare_idx_factor_pro</code> + <code>silver_index_factor_pro</code>。</p>
+        <p><strong>事实范围：</strong>严格使用现行 DG 日线主要指数 seed；seed 保持不变，包含 <code>899050.BJ</code> 北证50，不包含 <code>000680.SH</code> 科创综指。</p>
+        <p><strong>日常请求：</strong>每个交易日一次全源请求，返回后只选择对象池内 10 指数。</p>
+        <p><strong>历史请求：</strong>固定 10 个代码逐个执行区间分页，禁止按约 8800 个交易日扇出。</p>
+      </div>
+      <div class="card">
+        <h3>数据产品 B：主要指数分钟技术指标</h3>
+        <p><strong>建议资产：</strong>每频率一组 Gold 指标资产 + Gold 递归状态资产。</p>
+        <p><strong>上游：</strong>只读现有 <code>silver_major_index_mins_{freq}m</code>。</p>
+        <p><strong>事实范围：</strong>逐日严格承接上游 Silver 的有效代码集合；当前日期排除 <code>899050.BJ</code>、包含 <code>000680.SH</code>，历史日期允许少于 10 个。</p>
+        <p><strong>计算：</strong>DuckDB 向量化 SQL；MACD/KDJ 严格承接前一交易日 state。</p>
+        <p><strong>物理切片：</strong>继续按 <code>freq/trade_date</code>，不照搬股票的“股票-年份文件”。</p>
+      </div>
+    </div>
+    <div class="callout good">
+      <strong>两个产品不能合并成一个资产。</strong>日级因子是 Tushare 已计算并提供的源事实；分钟指标是从
+      Silver 分钟 bar 派生的 Gold 结果。它们的来源、更新方式、历史恢复和质量门禁都不同。
+    </div>
+  </section>
+
+  <section>
+    <h2>2. 审计依据与当前事实</h2>
+    <h3>2.1 已审计入口</h3>
+    <ul>
+      <li>仓库根、<code>src</code>、<code>lake_console</code>、<code>orchestrator</code> 的 AGENTS 规则。</li>
+      <li><a href="../templates/dagster-dataset-onboarding-template.html">Dagster 数据集资产接入综合模板</a>。</li>
+      <li><a href="./dagster-data-pipeline-performance-governance.md">Dagster 数据管道性能治理规范</a>。</li>
+      <li>Tushare 本地文档：<code>docs/sources/tushare/指数专题/0358_指数技术因子(专业版).md</code>。</li>
+      <li>Foundation 当前 <code>idx_factor_pro</code> 链路仅用于确认系统边界；本轮不修改、不迁移、不替换，也不删除。</li>
+      <li>DG 当前主要指数分钟线 Raw/Silver 资产、专属分区、路径、checks、jobs、sensors、bootstrap。</li>
+      <li>DG 当前股票分钟线 MACD/KDJ 指标、state、repair、baseline event 和 Asset Catalog 实现。</li>
+      <li>CodeGraph 覆盖以上入口、调用链、jobs/sensors/checks/bootstrap 和 catalog 消费者。</li>
+    </ul>
+
+    <h3>2.2 <code>idx_factor_pro</code> 当前事实</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>证据</th><th>结果</th><th>设计影响</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>本地源文档</td>
+            <td>接口提供全历史；89 个输出字段；单次最多 8000 行；支持 <code>trade_date</code>、<code>ts_code</code>、日期区间、<code>limit/offset</code>。</td>
+            <td>Raw 必须显式冻结 89 字段；分页上限固定 8000。</td>
+          </tr>
+          <tr>
+            <td>Tushare MCP：<code>trade_date=20260807</code></td>
+            <td>返回 3772 行、3772 个唯一指数代码。</td>
+            <td>日常增量一次日期请求即可覆盖目标 10 指数；写 Raw 前必须过滤并对账对象池。</td>
+          </tr>
+          <tr>
+            <td>Tushare MCP：不传业务参数</td>
+            <td>返回 0 行。</td>
+            <td>不能使用“无参数全量快照”模型。</td>
+          </tr>
+          <tr>
+            <td>Tushare MCP：只传日期区间</td>
+            <td><code>20260806..20260807</code> 返回 0 行。</td>
+            <td>不能使用“无代码纯区间”拉历史；固定对象池历史必须带 <code>ts_code</code>。</td>
+          </tr>
+          <tr>
+            <td>Tushare MCP：只传 <code>000001.SH</code></td>
+            <td>正好返回 8000 行，最早只到 1993-09-15。</td>
+            <td>证明单代码历史超过一页；历史按代码拉取必须使用 <code>limit/offset</code> 完整分页。</td>
+          </tr>
+          <tr>
+            <td>MCP 能力边界</td>
+            <td>当前 MCP 入参未暴露 <code>limit/offset</code>。</td>
+            <td>分页已由源文档和现有 connector 佐证，但编码前仍要用直接 connector 做分页实测门禁。</td>
+          </tr>
+          <tr>
+            <td>生产 PostgreSQL 只读审计</td>
+            <td>约 133 万行、1.06 GB，范围仅 2025-01-02..2026-08-07；最新日 2964 个唯一代码。</td>
+            <td>只作为源端差异审计证据；Foundation/PostgreSQL 链路不属于 DG 接入范围，也不作为 DG bootstrap 主源。</td>
+          </tr>
+          <tr>
+            <td>最新日指数族对账</td>
+            <td>prod 相比源端缺少 CSI 624 个、CNI 89 个、NH 95 个；SH、SZ、CI、SI、BJ 数量一致。</td>
+            <td>说明不能从 prod 推导 DG 对象池；DG 必须以已冻结的 10 指数合同过滤和验收。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout good">
+      <strong>系统边界已确认：</strong>Foundation 是独立的数据维护系统，本轮 DG 设计与它没有迁移关系。
+      本方案不会删除 Foundation 代码，不会停用 PostgreSQL 表/视图、任务或 readiness，也不要求 Foundation
+      与 DG 二选一。DG 只新增自己的 Lake 资产与运行链路。
+    </div>
+
+    <h3>2.3 主要指数分钟线上游当前事实</h3>
+    <ul>
+      <li>Raw 原生频率：<code>1/5/15/30/60m</code>；Silver 频率：<code>1/5/15/30/60/90/120m</code>。</li>
+      <li>Raw 请求合同当前有 11 个 source scope；<code>899050.BJ</code> 的 Raw 历史事实保留到源端停止日 <code>2025-10-30</code>。</li>
+      <li>Silver 始终排除 <code>899050.BJ</code>，并按 <code>effective_silver_codes_for_date(trade_date)</code> 结合各指数源端起始日生成同日有效池；当前日期为 10 个，历史日期可以少于 10 个。</li>
+      <li>分区：<code>cn_major_index_mins_trade_days</code>；历史起点：<code>2009-01-05</code>。</li>
+      <li>路径：<code>silver/quote/major_index_mins/freq={freq}/trade_date={date}/part-000.parquet</code>。</li>
+      <li>Silver 字段只有 bar 事实：代码、频率、时间、OHLC、成交量、成交额、交易所、vwap；当前没有技术指标。</li>
+      <li>分钟指标频率已拍板为 <code>1/5/15/30/60/90/120m</code> 全部纳入；90m/120m 上游合同在当前工作区仍有未提交修改，因此其提交、测试和数据验收是分钟指标实施的前置门禁。</li>
+      <li>历史基线约 2662 个 source windows、1002 万原生分钟行；90m/120m 会再增加少量派生 bar。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>3. 目标资产拓扑与层级边界</h2>
+    <pre><code>Tushare idx_factor_pro
+  -> raw_tushare_idx_factor_pro       (Raw, trade_date)
+  -> silver_index_factor_pro          (Silver, trade_date)
+
+silver_major_index_mins_{1,5,15,30,60,90,120}m
+  -> gold_major_index_mins_technical_{freq}m
+  -> gold_major_index_mins_technical_state_{freq}m
+
+注意：日级 idx_factor_pro 不参与分钟指标计算；分钟指标也不反写日级因子。</code></pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>资产族</th><th>层级</th><th>长期事实</th><th>不承担</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>idx_factor_pro</code></td>
+            <td>Raw</td>
+            <td>现行日线主要指数 seed 有效范围内的 Tushare 89 字段源事实。</td>
+            <td>不改字段名、不计算指标、不保存对象池外行。</td>
+          </tr>
+          <tr>
+            <td><code>index_factor_pro</code></td>
+            <td>Silver</td>
+            <td>标准化日期和类型后的指数日级技术因子事实。</td>
+            <td>不二次计算 Tushare 已给出的技术因子。</td>
+          </tr>
+          <tr>
+            <td><code>major_index_mins_technical</code></td>
+            <td>Gold</td>
+            <td>上游 Silver 同日有效指数、每频率、每分钟 bar 的技术指标。</td>
+            <td>不复制 OHLC，不写复权语义，不做实时流。</td>
+          </tr>
+          <tr>
+            <td><code>major_index_mins_technical_state</code></td>
+            <td>Gold</td>
+            <td>下一交易日递推 MACD/KDJ 所需的末态。</td>
+            <td>不对业务 API 直接开放，不作为行情事实。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>4. 数据产品 A：指数日级技术因子</h2>
+    <h3>4.1 数据集说明卡</h3>
+    <div class="table-wrap">
+      <table>
+        <tbody>
+          <tr><th>中文名</th><td>指数技术因子（专业版）</td></tr>
+          <tr><th>源接口</th><td><code>idx_factor_pro</code></td></tr>
+          <tr><th>dataset_id</th><td><code>idx_factor_pro</code>（Raw） / <code>index_factor_pro</code>（Silver）</td></tr>
+          <tr><th>数据域 / group</th><td><code>index_topic</code> / <code>index</code></td></tr>
+          <tr><th>分区</th><td>新增专属 <code>cn_major_index_factor_trade_days</code>，每个开放交易日一个分区；不得复用通用指数日线分区。</td></tr>
+          <tr><th>对象池</th><td><code>major_indices.cn_a.csv</code> 是日级产品唯一身份与排序事实源；本产品 Raw/Silver 只读取该 seed，不得读取分钟池或维护重复列表。</td></tr>
+          <tr><th>主键</th><td><code>(ts_code, trade_date)</code></td></tr>
+          <tr><th>空结果</th><td>已开放交易日返回 0 行视为失败；非交易日不注册分区、不发请求。</td></tr>
+          <tr><th>下游</th><td>指数详情页日 K 技术指标、技术分析服务、历史研究；本轮不接 Wealth API。</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>4.2 日级对象池（保持现行 seed 不变）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ts_code</th><th>指数名称</th><th>当前 DG 口径</th></tr></thead>
+        <tbody>
+          <tr><td><code>000001.SH</code></td><td>上证指数</td><td>纳入</td></tr>
+          <tr><td><code>399001.SZ</code></td><td>深证成指</td><td>纳入</td></tr>
+          <tr><td><code>399006.SZ</code></td><td>创业板指</td><td>纳入</td></tr>
+          <tr><td><code>000688.SH</code></td><td>科创50</td><td>纳入</td></tr>
+          <tr><td><code>000300.SH</code></td><td>沪深300</td><td>纳入</td></tr>
+          <tr><td><code>000905.SH</code></td><td>中证500</td><td>纳入</td></tr>
+          <tr><td><code>000852.SH</code></td><td>中证1000</td><td>纳入</td></tr>
+          <tr><td><code>899050.BJ</code></td><td>北证50</td><td>纳入；日线数据完整</td></tr>
+          <tr><td><code>000510.SH</code></td><td>中证A500</td><td>纳入</td></tr>
+          <tr><td><code>000016.SH</code></td><td>上证50</td><td>纳入</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout warn">
+      <strong>日线池与分钟池不得合并。</strong><code>idx_factor_pro</code> 是日级数据集，必须跟随上表日线 seed，
+      因而包含 <code>899050.BJ</code>、不包含 <code>000680.SH</code>。分钟 Silver 因北证50分钟源已停止更新而排除
+      <code>899050.BJ</code>；分钟源合同另行从 <code>2025-01-20</code> 起纳入 <code>000680.SH</code>。这两项是分钟数据源
+      可用性合同，不是对日线 seed 的替换、配置漂移或兼容逻辑。
+    </div>
+
+    <h3>4.3 请求合同</h3>
+    <pre><code># 日常增量：每个交易日只发一组分页请求，返回后过滤当日日线 seed 有效代码
+api_name = "idx_factor_pro"
+params = {
+  "trade_date": partition_key.replace("-", ""),
+  "limit": 8000,
+  "offset": page_index * 8000,
+}
+
+# 历史 bootstrap：固定 10 个代码逐个做区间分页
+params = {
+  "ts_code": approved_ts_code,
+  "start_date": approved_start_date,
+  "end_date": approved_end_date,
+  "limit": 8000,
+  "offset": page_index * 8000,
+}
+
+停止条件：当前页行数 &lt; 8000
+禁止：日常增量按 10 个代码扇出、历史按约 8800 个交易日扇出、无分页的单代码全历史请求</code></pre>
+    <ul>
+      <li>日常 Raw asset 对一个 <code>trade_date</code> 获取源端当日结果，按 <code>active_major_indices_seed_rows(trade_date)</code> 筛选后写入同日 staging。</li>
+      <li>日常对账分别记录 <code>source_rows</code>、<code>selected_rows</code>、<code>written_rows</code>；只要求 <code>selected_rows = written_rows</code>，不能错误要求全源行都写入。</li>
+      <li>历史 bootstrap 按 10 个 <code>ts_code</code> 分页落 run-scoped source staging，再由 DuckDB 按 <code>trade_date</code> 重排到正式分区结构。</li>
+      <li>分页完成后先校验字段、日期、对象池、主键、重复与行数，再 <code>os.replace</code> 原子提升为正式文件。</li>
+      <li>请求字段必须显式传完整 89 字段；不依赖源端默认字段。</li>
+      <li>直接 connector 实测必须覆盖“代码 + 日期区间 + <code>offset=0</code>”、下一页、短页终止和重复页防护；未通过前不得执行历史 bootstrap。</li>
+    </ul>
+
+    <h3>4.4 字段合同</h3>
+    <p><strong>89 个源字段完整保留，字段分组如下：</strong></p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>分组</th><th>字段</th><th>Raw / Silver 处理</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>身份与行情（11）</td>
+            <td><code>ts_code, trade_date, open, high, low, close, pre_close, change, pct_change, vol, amount</code></td>
+            <td>Raw 日期为 <code>VARCHAR YYYYMMDD</code>；Silver 仅把日期转 <code>DATE</code>，其余字段名不改。</td>
+          </tr>
+          <tr>
+            <td>ASI/ATR/BBI/BIAS/BOLL</td>
+            <td><code>asi_bfq, asit_bfq, atr_bfq, bbi_bfq, bias1_bfq, bias2_bfq, bias3_bfq, boll_lower_bfq, boll_mid_bfq, boll_upper_bfq</code></td>
+            <td>数值列 <code>DOUBLE</code>；允许源端业务空值。</td>
+          </tr>
+          <tr>
+            <td>BRAR/CCI/CR/DFMA/DMI</td>
+            <td><code>brar_ar_bfq, brar_br_bfq, cci_bfq, cr_bfq, dfma_dif_bfq, dfma_difma_bfq, dmi_adx_bfq, dmi_adxr_bfq, dmi_mdi_bfq, dmi_pdi_bfq</code></td>
+            <td>原名保留，不把 <code>_bfq</code> 改写成复权模式。</td>
+          </tr>
+          <tr>
+            <td>趋势天数/DPO/EMA</td>
+            <td><code>downdays, updays, dpo_bfq, madpo_bfq, ema_bfq_5, ema_bfq_10, ema_bfq_20, ema_bfq_30, ema_bfq_60, ema_bfq_90, ema_bfq_250</code></td>
+            <td>全部按源事实承接；不在 Silver 重算。</td>
+          </tr>
+          <tr>
+            <td>EMV/EXPMA/KDJ</td>
+            <td><code>emv_bfq, maemv_bfq, expma_12_bfq, expma_50_bfq, kdj_bfq, kdj_d_bfq, kdj_k_bfq</code></td>
+            <td>KDJ 的 <code>kdj_bfq</code> 按源定义作为 J 值，不自行改名。</td>
+          </tr>
+          <tr>
+            <td>通道与区间</td>
+            <td><code>ktn_down_bfq, ktn_mid_bfq, ktn_upper_bfq, lowdays, topdays, taq_down_bfq, taq_mid_bfq, taq_up_bfq, xsii_td1_bfq, xsii_td2_bfq, xsii_td3_bfq, xsii_td4_bfq</code></td>
+            <td>完整保留，供后续指数详情通道能力选择；本轮不决定 UI 展示哪一种。</td>
+          </tr>
+          <tr>
+            <td>MA/MACD</td>
+            <td><code>ma_bfq_5, ma_bfq_10, ma_bfq_20, ma_bfq_30, ma_bfq_60, ma_bfq_90, ma_bfq_250, macd_bfq, macd_dea_bfq, macd_dif_bfq</code></td>
+            <td>采用源值，不做二次公式计算。</td>
+          </tr>
+          <tr>
+            <td>其它专业因子</td>
+            <td><code>mass_bfq, ma_mass_bfq, mfi_bfq, mtm_bfq, mtmma_bfq, obv_bfq, psy_bfq, psyma_bfq, roc_bfq, maroc_bfq, rsi_bfq_6, rsi_bfq_12, rsi_bfq_24, trix_bfq, trma_bfq, vr_bfq, wr_bfq, wr1_bfq</code></td>
+            <td>完整保留，数值统一 <code>DOUBLE</code>。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout warn">
+      <strong>空值口径：</strong>实测存在部分指数某些 OHLC/因子为空。Blocking check 只强制
+      <code>ts_code</code>、<code>trade_date</code> 非空和主键唯一；不能为了“看起来完整”擅自填 0 或删除整行。
+    </div>
+
+    <h3>4.5 路径、Catalog 与写入</h3>
+    <pre><code>raw/tushare/idx_factor_pro/trade_date=YYYY-MM-DD/part-000.parquet
+silver/index/index_factor_pro/trade_date=YYYY-MM-DD/part-000.parquet</code></pre>
+    <ul>
+      <li>新增路径函数、Raw/Silver schema、对应 <code>PartitionModel</code> 与 <code>PartitionModelDefinition</code>。</li>
+      <li>先在 <code>defs/catalog/name_mapping.py</code> 登记中文名，再在 <code>defs/catalog/lake_assets.py</code> 登记两个正式资产。</li>
+      <li>Raw 性能合同：<code>batch_grain=trade_date</code>、<code>TUSHARE_RESOURCE</code>、禁止 Python 行循环。</li>
+      <li>Silver 性能合同：<code>batch_grain=trade_date</code>、<code>DUCKDB_SQL</code>、分区文件原子替换。</li>
+    </ul>
+
+    <h3>4.6 Checks</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Check</th><th>属性</th><th>级别</th><th>关键证据</th></tr></thead>
+        <tbody>
+          <tr><td>Raw contract</td><td>89 字段及类型完全匹配。</td><td>Blocking</td><td>observed/expected columns、差异样本。</td></tr>
+          <tr><td>Raw partition date</td><td>全部行属于目标交易日。</td><td>Blocking</td><td>mismatch count、日期样本。</td></tr>
+          <tr><td>Raw object pool</td><td>所有代码属于当日日线 seed 有效池；目标日应覆盖当日已具备源数据资格的代码。</td><td>Blocking</td><td>unknown/missing codes、代码样本。</td></tr>
+          <tr><td>Raw key integrity</td><td>关键字段非空、<code>(ts_code, trade_date)</code> 唯一。</td><td>Blocking</td><td>null/duplicate count、代码样本。</td></tr>
+          <tr><td>Raw selection parity</td><td>日常模式 <code>selected_rows = written_rows</code>；历史模式每代码分页源行与 Raw 主键集合一致。</td><td>Blocking</td><td>page_count、source/selected/written rows、missing/extra keys。</td></tr>
+          <tr><td>Silver contract</td><td>日期类型和 89 字段完整。</td><td>Blocking</td><td>schema diff。</td></tr>
+          <tr><td>Silver source parity</td><td>Raw/Silver 主键和行数一致。</td><td>Blocking</td><td>missing/extra keys。</td></tr>
+          <tr><td>Nullable ratio drift</td><td>各因子空值率异常变化。</td><td>WARN</td><td>字段空值率 TopN，不阻塞合法空值。</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>4.7 Job、Sensor 与日常更新</h3>
+    <ul>
+      <li><code>raw_tushare_idx_factor_pro_update_job</code>：只选择 Raw asset + Raw checks。</li>
+      <li><code>silver_index_factor_pro_update_job</code>：只选择 Silver asset + Silver checks。</li>
+      <li>交易日分区注册复用指数资产族注册器，不在 sensor 中创建任意历史分区。</li>
+      <li>Raw sensor 先检查时间窗口、分区注册、Lake readiness，再做同日最小源探测；单 tick 最多提交 1 个分区。</li>
+      <li>Silver 由 Raw 成功且 blocking checks 通过后触发；下游不得顺手重拉 Raw。</li>
+      <li>sensor 默认 <code>STOPPED</code>；cursor 使用统一 helper，写明目标日期、阻塞组件、原因和下一步。</li>
+    </ul>
+
+    <h3>4.8 历史 Bootstrap 与规模</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>维度</th><th>预估</th><th>门禁</th></tr></thead>
+        <tbody>
+          <tr><td>历史范围</td><td>每个批准代码从源端实际最早可用日到批准截止日，不强行共用一个起点。</td><td>M0 逐代码探测并冻结 <code>first_available_trade_date</code>，不能沿用分钟线起点猜测。</td></tr>
+          <tr><td>源请求/页</td><td>10 个代码分别分页；按每页 8000 行粗估约 12-20 个页面请求。</td><td>直接 connector 实测后 dry-run，冻结代码、区间、页预算和计划 hash。</td></tr>
+          <tr><td>源行数</td><td>按 10 个指数历史长度粗估约 4-6 万行。</td><td>全量前逐代码抽样并以 source count 校准，禁止把估算当验收值。</td></tr>
+          <tr><td>文件数</td><td>Raw + Silver 合计约 17400-17800 个正式 Parquet。</td><td>不得产生每指数文件。</td></tr>
+          <tr><td>磁盘峰值</td><td>数据行只有数万级，但逐日小文件开销占主导；初始工作预算按 Raw + Silver 合计低于 1 GB。</td><td>以 20 日和 1 年样本实测压缩率、文件开销和 staging 峰值；可用空间低于 2 倍峰值时拒绝执行。</td></tr>
+          <tr><td>理论源端耗时</td><td>请求量为十几页量级，源端网络时间应为分钟级而非小时级。</td><td>记录每代码页数、限流等待和总 elapsed；超出 dry-run 预算立即停止。</td></tr>
+          <tr><td>事件补录</td><td>远大于 100 分区。</td><td>必须 Direct Lake Bootstrap + 批量 Runless Event Backfill，不逐分区跑 Dagster。</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ol>
+      <li>冻结 10 指数、每代码起止日期、分页计划和请求预算，dry-run 不写正式 Lake。</li>
+      <li>选择短历史和长历史代码执行分页样本：验证 offset、短页终止、重复页防护和源端总数。</li>
+      <li>按代码写入 run-scoped source staging，并用 DuckDB 重排成逐交易日 Raw/Silver 样本，校准压缩率和小文件开销。</li>
+      <li>按代码批次拉取并写临时根目录；所有代码源端/Raw 主键对账通过后再原子提升。</li>
+      <li>全量文件审计通过后，批量登记 dynamic partitions 并补 materialization/check events。</li>
+      <li>最终对账：日期、文件、行数、主键、schema、最新日源端样本。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>5. 数据产品 B：主要指数分钟技术指标</h2>
+    <h3>5.1 数据集说明卡</h3>
+    <div class="table-wrap">
+      <table>
+        <tbody>
+          <tr><th>中文名</th><td>主要指数分钟技术指标 / 主要指数分钟技术指标状态</td></tr>
+          <tr><th>dataset_id</th><td><code>major_index_mins_technical</code> / <code>major_index_mins_technical_state</code></td></tr>
+          <tr><th>来源</th><td><code>silver_major_index_mins_{freq}m</code>，不调用 Tushare。</td></tr>
+          <tr><th>层级 / 数据域 / group</th><td><code>gold</code> / <code>derived_metric</code> / <code>index</code></td></tr>
+          <tr><th>分区</th><td><code>cn_major_index_mins_trade_days</code>，与上游同一交易日。</td></tr>
+          <tr><th>对象池</th><td>严格使用上游 Silver 同日输出 scope，不在指标层另建指数池。</td></tr>
+          <tr><th>下游</th><td>指数详情页分钟 K 技术指标与后续技术分析服务；本轮不接 API。</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>5.2 建议指标合同</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>指标</th><th>第一版参数</th><th>计算输入</th><th>状态/回看</th></tr></thead>
+        <tbody>
+          <tr><td>MA</td><td>5/10/20/30/60/90/250</td><td><code>close</code></td><td>读取当前与必要的历史 Silver 分区，最多回看 249 根。</td></tr>
+          <tr><td>BOLL</td><td>20, 2</td><td><code>close</code></td><td>回看 19 根；总体标准差口径必须由金样本冻结。</td></tr>
+          <tr><td>MACD</td><td>12/26/9</td><td><code>close</code></td><td>承接前一交易日 fast EMA、slow EMA、DEA。</td></tr>
+          <tr><td>KDJ</td><td>9/3/3</td><td><code>high/low/close</code></td><td>承接前一交易日 K/D，J = 3K - 2D。</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout warn">
+      <strong>不使用 qfq 命名。</strong>指数点位没有股票前复权/后复权切换。所有字段使用
+      <code>ma_*</code>、<code>boll_*</code>、<code>macd_*</code>、<code>kdj_*</code>，不得复制股票资产的
+      <code>_qfq</code> 后缀。
+    </div>
+
+    <h3>5.3 指标与状态字段</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>资产</th><th>字段</th><th>主键</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>指标</td>
+            <td>
+              <code>ts_code, freq, trade_date, trade_time</code>；
+              <code>ma_5, ma_10, ma_20, ma_30, ma_60, ma_90, ma_250</code>；
+              <code>boll_upper, boll_mid, boll_lower</code>；
+              <code>macd_dif, macd_dea, macd</code>；
+              <code>kdj_k, kdj_d, kdj_j</code>；
+              <code>params_key, indicator_version</code>。
+            </td>
+            <td><code>(ts_code, freq, trade_time)</code></td>
+          </tr>
+          <tr>
+            <td>递归状态</td>
+            <td>
+              <code>ts_code, freq, trade_date, last_trade_time</code>；
+              <code>macd_ema_fast, macd_ema_slow, macd_dea</code>；
+              <code>kdj_k, kdj_d</code>；
+              <code>params_key, indicator_version</code>。
+            </td>
+            <td><code>(ts_code, freq, trade_date)</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small">指标资产不重复保存 OHLC/成交字段。消费端以 <code>ts_code/freq/trade_time</code> 与 Silver bar 关联，避免两份行情事实漂移。</p>
+
+    <h3>5.4 物理路径与写入</h3>
+    <pre><code>gold/indicator/major_index_mins_technical/
+  freq={1|5|15|30|60|90|120}/trade_date=YYYY-MM-DD/part-000.parquet
+
+gold/indicator/major_index_mins_technical_state/
+  freq={1|5|15|30|60|90|120}/trade_date=YYYY-MM-DD/part-000.parquet</code></pre>
+    <ul>
+      <li>每个频率、交易日、资产只写一个文件，文件内代码集合必须与同日 Silver 有效池完全一致；当前日期通常为 10 个，历史日期允许因源起始日少于 10 个。</li>
+      <li>计算使用 DuckDB SQL；禁止把分钟行拉回 Python 循环计算。</li>
+      <li>每个目标文件先写 run-scoped staging，完整校验后 <code>os.replace</code>。</li>
+      <li>若任一 blocking check 失败，不提升指标文件或 state 文件；已有健康文件不被覆盖。</li>
+      <li>状态资产是次日递推门禁：缺失或参数版本不一致时，日常增量必须停止，不能静默从默认值重启。</li>
+    </ul>
+
+    <h3>5.5 计算流程</h3>
+    <ol>
+      <li>加载目标日期 Silver 单频率文件，并校验其 blocking checks 已通过。</li>
+      <li>读取该频率所需的有限历史 Silver 文件：按每个代码排序，截取当前日之前最多 249 根 bar。</li>
+      <li>读取严格前一开放交易日的同频 state；仅历史首日允许按冻结种子初始化。</li>
+      <li>一次 DuckDB query 生成 MA/BOLL/MACD/KDJ replacement relation。</li>
+      <li>写指标 staging 和当日 state staging；执行 schema、key、source parity、有限值、warm-up 与 state continuity checks。</li>
+      <li>指标文件与 state 文件位于不同正式目录，不能宣称跨目录原子提交；必须按 LLD 的顺序提升、partial fail closed 与 repair rollback 协议处理半提交风险。</li>
+    </ol>
+
+    <h3>5.6 Checks</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Check</th><th>属性</th><th>级别</th></tr></thead>
+        <tbody>
+          <tr><td>指标 schema</td><td>字段、类型、params_key、version。</td><td>Blocking</td></tr>
+          <tr><td>输入输出覆盖</td><td>每个 Silver <code>(ts_code, trade_time)</code> 恰好一条指标行。</td><td>Blocking</td></tr>
+          <tr><td>分区/频率</td><td>所有行属于目标日期和目标频率。</td><td>Blocking</td></tr>
+          <tr><td>唯一性</td><td><code>(ts_code, freq, trade_time)</code> 唯一。</td><td>Blocking</td></tr>
+          <tr><td>无未来数据</td><td>任何窗口和 state 不得读取目标 bar 之后的数据。</td><td>Blocking</td></tr>
+          <tr><td>公式域与有限值</td><td>生产 check 只校验字段域、有限值、warm-up 和状态连续性；不在热路径重算完整公式。</td><td>Blocking</td></tr>
+          <tr><td>状态连续性</td><td>前态来自严格前一交易日，末态时间等于当日最后 bar。</td><td>Blocking</td></tr>
+          <tr><td>合法空值</td><td>历史 warm-up 期允许长周期 MA/BOLL 为空，其余非有限值报警。</td><td>Blocking + WARN 分拆</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>5.7 Job、Sensor 与恢复</h3>
+    <ul>
+      <li>建议一个 <code>gold_major_index_mins_technical_daily_update_job</code> 选择本轮批准的全部频率指标与 state assets/checks。</li>
+      <li>run-status sensor 监听主要指数 Silver 更新成功；再次核验同日全部上游 checks 后，只提交目标交易日一次。</li>
+      <li>日常 sensor 必须按日期顺序推进；前一日 state 未 ready 时跳过并明确写出阻塞日期。</li>
+      <li>历史 bootstrap 直接扫描现有 Silver Parquet，按交易日有序批量计算，不产生 Tushare 请求。</li>
+      <li>历史数据重写、算法版本升级或 90/120 合同变化时，使用显式 repair 起点向后重算；不能只修单日。</li>
+      <li>大范围历史文件完成后使用批量 Runless Event Backfill；逐日 event log 扫描禁止进入热路径。</li>
+    </ul>
+
+    <h3>5.8 规模与性能预算</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>项目</th><th>估算</th><th>实施门禁</th></tr></thead>
+        <tbody>
+          <tr><td>历史输入</td><td>原生五频约 1002 万行；加 90/120 后约增加 1%-2%。</td><td>以现有 Silver 最终 inventory 为准，不读取 source staging。</td></tr>
+          <tr><td>输出行</td><td>与批准频率的 Silver bar 一一对应，约 1000 万级。</td><td>input/output key parity 必须为 1:1。</td></tr>
+          <tr><td>日常输入</td><td>同日 Silver 有效指数、7 频；最多回看 MA250 所需的有限历史文件。</td><td>记录实际代码数、扫描文件数、行数、DuckDB elapsed、spill。</td></tr>
+          <tr><td>文件数</td><td>指标与 state 各为“交易日数 × 频率数”；全七频约 3.7 万文件。</td><td>不再按指数拆文件。</td></tr>
+          <tr><td>磁盘</td><td>初估指标 1-2 GB，state 远小于指标。</td><td>先做 20 日和 1 年基准，再冻结全量空间预算。</td></tr>
+          <tr><td>重算成本</td><td>算法或上游合同变化需要从最早受影响日向后有序重算。</td><td>repair dry-run 必须先输出日期数、输入文件数、目标文件数和峰值空间。</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>6. 明确拒绝的方案</h2>
+    <ul>
+      <li><span class="reject">拒绝</span>从生产 PostgreSQL 的 <code>raw_tushare.idx_factor_pro</code> 直接迁全历史：范围和最新日均不完整。</li>
+      <li><span class="reject">拒绝</span>首批保存 Tushare 当日返回的全部约 3772 个指数：日级因子只保存日线 seed 当日有效池。</li>
+      <li><span class="reject">拒绝</span>单代码全历史不分页：<code>000001.SH</code> 已实测撞到 8000 行并发生截断。</li>
+      <li><span class="reject">拒绝</span>固定 10 指数仍按约 8800 个交易日拉历史：请求量远高于按 10 代码区间分页。</li>
+      <li><span class="reject">拒绝</span>依赖纯 <code>start_date/end_date</code> 拉全市场：真实请求返回 0 行。</li>
+      <li><span class="reject">拒绝</span>在 Silver 重算 Tushare 日级因子：会制造第二套算法事实。</li>
+      <li><span class="reject">拒绝</span>把指数分钟指标命名成 <code>qfq</code>：指数不存在股票复权语义。</li>
+      <li><span class="reject">拒绝</span>在 Python 中逐行计算千万级分钟指标。</li>
+      <li><span class="reject">拒绝</span>状态缺失时从默认值静默继续：会让后续全链指标永久漂移。</li>
+      <li><span class="reject">拒绝</span>一边接入数据资产一边顺手改 Wealth API、指数详情页或技术分析结论。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>7. 已确认口径（待拍板已清零）</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>编号</th><th>需要决定</th><th>选项</th><th>建议</th><th>影响</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>A1</td>
+            <td><code>idx_factor_pro</code> 数据范围</td>
+            <td>已确认：DG 日线主要指数 seed</td>
+            <td class="decision">保持现行日线 seed 不变</td>
+            <td><code>idx_factor_pro</code> 包含北证50、不包含科创综指；coverage key 集合必须等于日线 seed。</td>
+          </tr>
+          <tr>
+            <td>A2</td>
+            <td>日级因子历史起点</td>
+            <td>每代码源端最早可用日 / 统一 2009-01-05 / 自定义</td>
+            <td class="decision">每代码源端最早可用日</td>
+            <td>决定各代码历史长度；请求量由分页数决定，不再按交易日数计算。</td>
+          </tr>
+          <tr>
+            <td>A3</td>
+            <td>日级字段命名</td>
+            <td>保留 89 个 Tushare 原名 / Silver 业务改名</td>
+            <td class="decision">保留原名，Silver 只改类型</td>
+            <td>避免大批映射和 Tushare 专业因子语义被重新解释。</td>
+          </tr>
+          <tr>
+            <td>B0</td>
+            <td>分钟指标对象池</td>
+            <td>已确认：严格承接主要指数分钟 Silver 同日有效池</td>
+            <td class="decision"><code>effective_silver_codes_for_date(trade_date)</code></td>
+            <td>当前排除北证50、包含科创综指；历史按源起始日可以少于 10 个，禁止读取日线 seed 代替。</td>
+          </tr>
+          <tr>
+            <td>B1</td>
+            <td>分钟指标首批频率</td>
+            <td>已拍板：<code>1/5/15/30/60/90/120</code> 全部纳入</td>
+            <td class="decision">七个频率一次完成</td>
+            <td>90/120 不再是后续可选项；但必须先完成其 Silver 上游合同提交、测试与历史样本验收，Gold 指标不得依赖未收口事实。</td>
+          </tr>
+          <tr>
+            <td>B2</td>
+            <td>分钟指标集合</td>
+            <td>仅 MACD/KDJ / MA+BOLL+MACD+KDJ / 更多专业指标</td>
+            <td class="decision">MA+BOLL+MACD+KDJ</td>
+            <td>正好覆盖当前详情页图表核心能力；更多指标应按明确产品需求另增。</td>
+          </tr>
+          <tr>
+            <td>B3</td>
+            <td>分钟“通道”定义</td>
+            <td>本轮仅 BOLL / 同时做 Keltner、Donchian、薛斯通道</td>
+            <td class="decision">本轮仅 BOLL</td>
+            <td>截图中的“通道”算法尚未被产品口径确定，不能用外观猜公式。</td>
+          </tr>
+          <tr>
+            <td>B4</td>
+            <td>物理切片</td>
+            <td><code>freq/trade_date</code> / 指数-年份</td>
+            <td class="decision"><code>freq/trade_date</code></td>
+            <td>只有 10 个指数，且上游按日分区；按指数拆文件只会增加文件和修复复杂度。</td>
+          </tr>
+          <tr>
+            <td>B5</td>
+            <td>日常 job 粒度</td>
+            <td>一个日期运行全部批准频率 / 每频率独立 job</td>
+            <td class="decision">一个日期运行全部批准频率</td>
+            <td>与现有主要指数 Raw/Silver 及股票指标模式一致，运营入口更简单；每频率仍有独立 asset/check。</td>
+          </tr>
+          <tr>
+            <td>B6</td>
+            <td>本轮交付边界</td>
+            <td>只完成 Lake assets / 同时接 ClickHouse、API、指数详情页</td>
+            <td class="decision">只完成 Lake assets</td>
+            <td>先让数据事实稳定并完成历史对账，再单独设计 serving/API，避免数据接入和产品接口互相绑死。</td>
+          </tr>
+          <tr>
+            <td>B7</td>
+            <td>九转序列是否并入</td>
+            <td>并入技术指标 / 独立数据产品</td>
+            <td class="decision">不并入，本轮不做</td>
+            <td>九转有独立公式、状态、UI 标记和回测口径，应延续独立资产设计。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>8. 拍板后的实施里程碑</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Milestone</th><th>交付内容</th><th>关键门禁</th></tr></thead>
+        <tbody>
+          <tr><td>M0 合同冻结</td><td>冻结两套有意不同的对象池：日级因子读取现行日线 seed，分钟指标读取同日 Silver 有效池；直接 connector 验证“代码 + 区间 + 分页”；逐日线 seed 代码冻结源端首日，并要求 coverage key 集合与日线 seed 完全一致；冻结字段和算法金样本；完成 90/120 Silver 上游合同提交与验收。</td><td>不得修改日线 seed；测试必须证明日线池包含 <code>899050.BJ</code>、分钟池排除它且当前包含 <code>000680.SH</code>；无源证据不编码；七个频率的上游必须全部稳定。</td></tr>
+          <tr><td>M1 Catalog/Contract</td><td>中文名、Catalog entries、partition models、schemas、paths、run contracts。</td><td>Catalog 静态门禁通过，所有正式 asset 先登记。</td></tr>
+          <tr><td>M2 日级 Raw</td><td><code>idx_factor_pro</code> Raw writer、asset、checks、日常日期请求与历史代码分页测试。</td><td>真实单日 <code>selected_rows = written_rows</code>；历史每代码 source/Raw key parity。</td></tr>
+          <tr><td>M3 日级 Silver</td><td>日期/类型标准化、Silver asset/checks。</td><td>Raw/Silver key parity，89 字段无丢失。</td></tr>
+          <tr><td>M4 日级自动化</td><td>jobs、source probe、sensors、cursor/readiness。</td><td>单 tick 1 分区，默认 STOPPED，无历史吞吐。</td></tr>
+          <tr><td>M5 分钟指标核心</td><td>DuckDB 公式、指标/state writers、路径与双文件提交协议。</td><td>公式金样本在测试中验证；生产门禁覆盖无未来数据、有限值、warm-up 与严格前态。</td></tr>
+          <tr><td>M6 分钟资产自动化</td><td>Gold assets/checks/job/run-status sensor/repair 计划。</td><td>只消费健康 Silver，不顺手补上游。</td></tr>
+          <tr><td>M7 历史 Bootstrap</td><td>两个资产族 dry-run/sample/batch/final audit/runless events。</td><td>正式执行前单独申请批准；空间、配额、文件、事件预算明确。</td></tr>
+          <tr><td>M8 收口</td><td>Definitions、拓扑/运行文档、测试矩阵、开发模板 checklist 对账。</td><td>代码、Catalog、文档、UI 描述无漂移。</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>9. 测试与验收矩阵</h2>
+    <h3>9.1 静态与单元测试</h3>
+    <ul>
+      <li>Catalog：identity、中文名、source、path、partition、checks、event/write/performance policy。</li>
+      <li>Tushare request：日常只生成 <code>trade_date + limit + offset</code>，历史只对批准 10 代码生成 <code>ts_code + start/end + limit + offset</code>。</li>
+      <li>请求负向门禁：禁止日常按代码扇出、禁止历史按交易日扇出、禁止对象池外代码、禁止无分页单代码全历史。</li>
+      <li>Raw/Silver writers：全源过滤、对象池校验、分页、多页去重、短页终止、原子替换、失败不覆盖。</li>
+      <li>分钟公式：上涨、下跌、平盘、跨日、历史 warm-up、零振幅 KDJ、缺前态、参数版本变化。</li>
+      <li>checks：每个 blocking 属性单独失败；metadata 含数量、范围、样本和下一步。</li>
+      <li>jobs/sensors：selection、run_key、cursor、单 tick、上游 not-ready、前态缺失、已 materialized 但 check 失败。</li>
+      <li>bootstrap：dry-run、批次计划 hash、空间拒绝、重复执行、部分失败恢复、runless event 批量预算。</li>
+    </ul>
+
+    <h3>9.2 真实最小验收</h3>
+    <div class="table-wrap">
+      <table class="checklist">
+        <thead><tr><th>阶段</th><th>证据</th><th>状态</th></tr></thead>
+        <tbody>
+          <tr><td><code>idx_factor_pro</code> 单日</td><td>源端总行数、选中 10 指数行数、Raw/Silver 行数、missing/extra codes、主键数、文件大小。</td><td>待开发</td></tr>
+          <tr><td><code>idx_factor_pro</code> 历史分页</td><td>长历史/短历史代码的页数、offset、短页终止、source/Raw key parity、日期重排与压缩率。</td><td>待开发</td></tr>
+          <tr><td>分钟指标单日</td><td>同日 Silver 有效代码 × 批准频率 input/output parity、state continuity；当前日期预期 10 个，历史按合同可少于 10 个。</td><td>待开发</td></tr>
+          <tr><td>分钟指标小批</td><td>20 日递推与一次性全段计算结果一致。</td><td>待开发</td></tr>
+          <tr><td>历史全量</td><td>日期/文件/行数/schema/check/event inventory 和失败恢复报告。</td><td>需另行批准</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>9.3 计划中的验证命令</h3>
+    <pre><code>cd /Users/congming/github/goldenshare/lake_console/orchestrator
+.venv/bin/python -B -m unittest discover -s tests
+.venv/bin/ruff check
+
+cd /Users/congming/github/goldenshare
+python3 scripts/check_docs_integrity.py
+git diff --check
+git status --short</code></pre>
+    <div class="callout danger">
+      <strong>执行门禁：</strong>包括 <code>dg check defs</code>、正式 Dagster instance、dynamic partitions、job、sensor、
+      materialize、backfill、runless event、Tushare 全历史请求和任何 Lake 写入，都不在本方案阶段执行；进入相应里程碑前必须列出命令、读写范围和影响并重新获得批准。
+    </div>
+  </section>
+
+  <section>
+    <h2>10. 配置项审计</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>配置</th><th>来源</th><th>消费者</th><th>默认/生效</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>TUSHARE_TOKEN</code></td><td>环境变量</td><td>Raw <code>idx_factor_pro</code> resource</td><td>启动时注入</td><td>敏感值不写日志、metadata 或文档。</td></tr>
+          <tr><td>page limit = 8000</td><td>run contract 常量</td><td>request/page helper</td><td>代码发布生效</td><td>源接口固定上限，不暴露给运营。</td></tr>
+          <tr><td>指标 params key/version</td><td>run contract 常量</td><td>writer/check/state/repair</td><td>代码发布生效</td><td>算法变更必须升级版本并触发历史重算评审。</td></tr>
+          <tr><td>历史起点</td><td><code>idx_factor_pro</code> 专属 coverage contract，key 集合必须等于 seed</td><td>partition/bootstrap/sensor window</td><td>M0 源探测后随代码发布生效</td><td>每个指数独立首日，不是运营日常输入，也不污染其他数据集的生效日期。</td></tr>
+          <tr><td>日级批准指数集合</td><td><code>seeds/market/major_indices.cn_a.csv</code>：第 4.2 节现行日线 10 指数</td><td>现有主要指数日线资产及新日级 Raw/Silver、日级 jobs/checks/bootstrap</td><td>现行代码事实，不做 seed 变更</td><td>包含 <code>899050.BJ</code>，不包含 <code>000680.SH</code>；日级消费者统一读取 seed。</td></tr>
+          <tr><td>分钟批准指数集合</td><td><code>effective_silver_codes_for_date(trade_date)</code></td><td>分钟 Gold/state、jobs、checks、bootstrap</td><td>随分钟 Silver contract 代码发布生效</td><td>同日与 Silver 完全一致；当前排除 <code>899050.BJ</code>、包含 <code>000680.SH</code>，历史允许少于 10 个。</td></tr>
+          <tr><td>批准频率集合</td><td>run contract 常量：<code>1/5/15/30/60/90/120</code></td><td>assets/jobs/checks/sensors/catalog</td><td>代码发布时生效</td><td>已拍板；消费者必须统一，禁止散落重复列表。</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>本轮不新增运营可修改配置文件，不新增页面参数，也不把 Tushare 内部分页参数暴露给运营。</p>
+  </section>
+
+  <section>
+    <h2>11. 接入模板最终对账</h2>
+    <div class="table-wrap">
+      <table class="checklist">
+        <thead><tr><th>模板门禁</th><th>本方案落点</th><th>状态</th></tr></thead>
+        <tbody>
+          <tr><td>数据产品与层级边界</td><td>第 1、3、4、5 节</td><td>已设计</td></tr>
+          <tr><td>源契约与真实请求</td><td>第 2.2、4.3 节</td><td>代码区间分页待补实测</td></tr>
+          <tr><td>字段与类型</td><td>第 4.4、5.3 节</td><td>已设计</td></tr>
+          <tr><td>Catalog/名称/路径/分区</td><td>第 4.5、5.4 节</td><td>已设计</td></tr>
+          <tr><td>Checks</td><td>第 4.6、5.6 节</td><td>已设计</td></tr>
+          <tr><td>Job/Sensor/Readiness</td><td>第 4.7、5.7 节</td><td>已设计</td></tr>
+          <tr><td>性能预算</td><td>第 4.8、5.8 节</td><td>样本待校准</td></tr>
+          <tr><td>Bootstrap/恢复/Runless event</td><td>第 4.8、5.7 节</td><td>已设计，执行待批准</td></tr>
+          <tr><td>配置审计</td><td>第 10 节</td><td>已设计</td></tr>
+          <tr><td>开发切片与验收</td><td>第 8、9 节</td><td>已设计</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+</body>
+</html>
