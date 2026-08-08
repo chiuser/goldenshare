@@ -19,6 +19,9 @@
 6. 分钟线池继续使用自己的 source scope / Silver 有效池，不读取日级 seed；本方案不得改变分钟线排除北证50的既有合同。
 7. Wealth 市场总览的 10 张主要指数卡由 `src/biz/services/wealth/config/definitions/major_indices.cn_a.v1.json` 独立配置。本次 DG seed 变更不会自动把页面改成 11 张卡，也不得修改该配置。
 8. 物理数据写入、dynamic partition 注册、runless event 回放是不同审批阶段；本 LLD 本身不授权任何写入。
+9. 管理员已拍板：`000680.SH` 的日级 seed `effective_start_date` 固定为 `2020-01-02`。
+10. 管理员已拍板：`000680.SH` 追加为 `rank=11`，原 rank 1..10 的代码和顺序保持不变。
+11. 本任务不创建文件备份；写入安全依赖候选文件完整校验、`os.replace()` 原子提升、逐文件 checkpoint 和幂等续跑。
 
 ## 2. 当前事实审计
 
@@ -208,12 +211,16 @@ run-scoped staging 不能写入正式 Raw/Silver/Gold 路径。建议根目录�
 ```text
 /Volumes/datasource/data_lake_staging/index_daily_000680_history_supplement/run_id={run_id}/
   source/part-000.parquet
+  candidate/raw/...
+  candidate/silver/...
+  candidate/gold/...
   manifest/plan.json
   manifest/source-audit.json
   manifest/raw-audit.json
   manifest/silver-audit.json
   manifest/gold-audit.json
   manifest/events-plan.json
+  manifest/checkpoints.json
 ```
 
 `plan.json` 至少包含：
@@ -284,31 +291,26 @@ ORDER BY ts_code;
 
 禁止仅比较总行数。总行数一致不能证明其他代码未被篡改。
 
-### 7.3 备份和回滚
+### 7.3 候选校验、原子提升与失败恢复
 
-正式写入前必须调用现有 `KopiaPrewriteBackupService`，但不能把 4045 个正式文件逐个放入 `snapshot_paths`。当前服务会对每个 `snapshot_path` 分别执行一次 `kopia snapshot create`；若把正式文件逐项传入，将产生 4045 个 snapshot，备份时间、仓库元数据和恢复操作都不可接受。
+本任务不创建文件备份。每个正式文件只能通过“生成候选文件 -> 完整校验 -> 原子提升”进入正式湖：
 
-本任务采用 **run-scoped backup bundle + 单一聚合 snapshot**：
+1. 候选文件写入 `/Volumes/datasource/data_lake_staging/index_daily_000680_history_supplement/run_id={run_id}/candidate/{layer}/...`，不得写入 DG 正式根 `/Volumes/datasource/data_lake`，也不得直接修改正式 Parquet；
+2. 提升前必须校验候选文件的 schema、分区日期、主键唯一性、目标行、总行数和非目标 fingerprint；
+3. manifest 必须在提升前记录正式路径、候选路径、候选 hash、目标行 hash、非目标 fingerprint 和计划状态；
+4. 任一候选校验失败时 fail closed，该文件不得提升；
+5. 校验全部通过后，使用同一文件系统上的临时文件和 `os.replace()` 原子替换正式路径；
+6. 每次替换后立即验证正式文件 hash 等于候选 hash，再把该文件 checkpoint 标记为 completed；
+7. 一个批次全部完成并通过批次审计前，不得删除 source staging、manifest 和 checkpoint。
 
-1. 在正式写入前创建 `manifest/index_daily_000680_history_supplement/prewrite/{run_id}/files/`；
-2. 按 Raw、Silver、Gold 的正式相对路径层级，把全部待替换文件放入该 bundle；
-3. 同一文件系统内优先创建 hard link，必须验证 source/bundle 的 device、size 和 hash；禁止复制后继续修改原 inode，正式提升只能使用临时文件 + `os.replace()`；
-4. `backup_paths` 记录全部正式受影响路径，用于审计和恢复映射；
-5. `snapshot_paths` 只包含上述 run-scoped bundle 根目录，因此每个执行批次只创建 1 个 Kopia snapshot；
-6. bundle manifest 记录正式路径、bundle 路径、文件大小、hash、snapshot id 和创建时间；
-7. 任一 hard link、hash 或 Kopia 步骤失败时 fail closed，不得开始正式文件替换。
+失败恢复采用向前修复，不恢复旧文件副本：
 
-若部署环境不能证明正式 Lake 与 bundle 位于同一文件系统，不得静默改成逐文件 snapshot；必须在执行计划中明确改用受控 copy bundle，重新计算临时空间并取得该批次批准。
-
-回滚按层执行：
-
-1. 停止 apply；
-2. 从本次 Kopia snapshot 恢复 run-scoped bundle；
-3. 按 bundle manifest 把每个文件恢复到 run-scoped staging，校验 hash 后用 `os.replace()` 原子恢复正式路径；
-4. 再跑物理审计，确认恢复后的 fingerprint 等于 prewrite manifest；
-5. 若已回放 runless events，另行生成反向/校正事件方案，不得假装旧事件不存在。
-
-Bootstrap 代码不得跨层直接 import Lake Console Web API，也不得复制一套 Kopia subprocess 实现。实现时应把现有 `KopiaPrewriteBackupService` 下沉为 backend 与 orchestrator 可共用的基础模块，或通过已审计的独立 CLI 边界调用；bundle 构建只负责组织待备份文件，不重新实现 Kopia。
+1. 进程在 `os.replace()` 前终止时，正式路径仍是旧文件；重跑重新生成并校验候选文件；
+2. 进程在 `os.replace()` 后终止时，正式路径已是完整新文件；重跑通过目标行 hash、非目标 fingerprint 和 candidate hash 判定该文件已完成；
+3. 批次只完成一部分时，从首个未完成 checkpoint 继续；已完成文件必须通过幂等校验，不得重复改变非目标数据；
+4. Raw、Silver、Gold 都必须能从冻结 source、正式 helper 和 seed 确定性重建，不允许依赖人工编辑 Parquet；
+5. 若正式文件与候选 hash 不一致，立即停止后续提升，保留 staging/manifest，重新生成该分区并完成物理审计后再继续；
+6. runless events 只在全部物理文件验收通过后规划，因此文件阶段失败不需要撤销已写事件。
 
 ## 8. Silver 重建
 
@@ -426,7 +428,7 @@ Materialization events 可以覆盖全部被重写分区。Check events 只能�
 
 ## 11. 性能与批次设计
 
-Source 只有 1223 行，数据库读取不是瓶颈；主要成本是 4045 个分区文件的 bundle 组织、重写和验收：
+Source 只有 1223 行，数据库读取不是瓶颈；主要成本是 4045 个分区文件的候选生成、原子提升和验收：
 
 ```text
 1223 Raw + 1223 Silver + 1599 Gold = 4045 file promotions
@@ -441,7 +443,7 @@ Source 只有 1223 行，数据库读取不是瓶颈；主要成本是 4045 个�
 5. 重跑已完成批次必须幂等；
 6. 不通过 Dagster 启动 4045 个历史 runs；
 7. runless event 读取 formal instance 时必须批量查询/规划，不做逐分区全历史扫描循环。
-8. 每个写入批次只允许 1 个 run-scoped Kopia bundle snapshot；禁止 4045 个逐文件 snapshot，也禁止直接 snapshot 整个 Raw/Silver/Gold 大根目录。
+8. 每个文件完成候选校验后独立原子提升并立即写 checkpoint；禁止攒到全任务结束后一次性替换。
 
 ## 12. 实施里程碑
 
@@ -450,7 +452,7 @@ Source 只有 1223 行，数据库读取不是瓶颈；主要成本是 4045 个�
 | M0 合同冻结 | 复跑 Prod/Lake/instance 只读审计；冻结日期、行数、seed、文件数和 plan hash | 1223 source dates、1223 Raw/Silver target、Gold latest date 已确认 |
 | M1 工具开发 | 开发 plan/apply/audit/events 四条链路和测试 | dry-run 不写文件/instance，静态门禁全绿 |
 | M2 Source staging | 从 Prod 提取 1223 行并生成 manifest | source blocking gates 全绿 |
-| M3 样本补录 | 只处理 `2020-01-02`、一个中间日、`2025-01-16` | Raw/Silver/Gold 样本、Kopia、回滚、幂等验证通过 |
+| M3 样本补录 | 只处理 `2020-01-02`、一个中间日、`2025-01-16` | Raw/Silver/Gold 候选校验、原子提升、故障恢复和幂等验证通过 |
 | M4 Raw/Silver 全量 | 分批补 1223 个 Raw，并重建 1223 个 Silver | 每批 checkpoint 与全区间物理审计通过 |
 | M5 Seed/Gold | 发布 11 指数 seed，重建全部有效 Gold 日期 | 所有日期 active seed coverage/rank/checks 通过 |
 | M6 全量对账 | Prod -> Raw -> Silver -> Gold 对账 | 无缺日、无重复、无非目标漂移、无旧 seed 口径 |
@@ -478,7 +480,7 @@ M3、M4、M5、M7 都是独立写入审批点；前一阶段完成不自动授�
 5. 幂等重跑总行数不变；
 6. 非目标代码 fingerprint 前后相等；
 7. atomic replace 失败时正式文件不变；
-8. prewrite bundle 完整映射受影响文件，Kopia `snapshot_paths` 恰好 1 个，hash 不一致时拒绝 apply；
+8. 候选文件未通过完整合同校验时拒绝提升，正式文件 hash 与候选 hash 不一致时停止批次；
 9. Silver 使用正式 helper，行数/schema/key 与 Raw 一致；
 10. seed 恰好 11，保留 899050，新增 000680，原 10 个顺序不变；
 11. `000680.SH` 在 2020-01-02 前 inactive、当日起 active；
@@ -531,7 +533,7 @@ uv run pytest -q \
 6. 禁止把日级 seed 与分钟线对象池合并。
 7. 禁止移除 `899050.BJ` 或把 Wealth 首页配置改成 11 个。
 8. 禁止在物理审计完成前写 runless events。
-9. 禁止在没有 Kopia snapshot 和回滚记录时写正式湖。
+9. 禁止跳过候选文件完整校验直接替换正式湖文件。
 10. 禁止把本 LLD 中的示例命令视为已获执行授权。
 
 ## 16. 计划对账
@@ -543,7 +545,7 @@ uv run pytest -q \
 | 补 DG 历史数据 | 第 6-8 节：Prod staging -> Raw 单代码 merge -> Silver 正式 helper |
 | 科创综指纳入日级主要指数 | 第 9 节：seed 10 -> 11，保留北证50，科创综指 2020-01-02 生效 |
 | 不影响首页 10 卡 | 第 1、14、15 节：Wealth 配置独立且不在本轮范围 |
-| 安全可恢复 | 第 7.2、7.3、12、13 节：非目标 fingerprint、单一聚合 Kopia snapshot、样本批次、幂等、回滚 |
+| 安全可恢复 | 第 7.2、7.3、12、13 节：非目标 fingerprint、候选校验、原子提升、逐文件 checkpoint 和幂等续跑 |
 | 后续技术因子不漂移 | 第 9.4 节：日级技术因子跟随 11 指数 seed，分钟技术指标仍保持独立对象池 |
 
 ## 17. 关联文档
