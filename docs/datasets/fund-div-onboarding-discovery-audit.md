@@ -1,6 +1,6 @@
 # 基金分红（`fund_div`）接入发现审计
 
-状态：**B4-FD-M0 源端复审完成；B4-FD-M1 已按 LLD 实现并通过本地门禁；migration 仅已生成、从未应用，隔离/生产迁移与远程写入仍未授权**
+状态：**B4-FD-M0/M1/M2 已完成；隔离 PostgreSQL migration、HDD tablespace placement、真实同步与完整对账、10,000 行容量、回滚和 advisory lock 均通过。生产 migration/同步、历史回补与 schedule 仍未授权**
 首次审计：2026-08-03；复审：2026-08-05、2026-08-07
 截图菜单：基金分红
 源文档：[公募基金分红](../sources/tushare/公募基金/0120_公募基金分红.md)
@@ -52,7 +52,7 @@ ear_distr, ear_amount, account_date, base_year
 | `20260617` | 50 / 50 / 22 / 0 | 122 | 0 |
 | `20201215` | 50 / 50 / 41 / 0 | 141 | 0 |
 
-运行时接受 `limit/offset`，但当前 MCP schema 没有公开这两个参数。实现必须采用 `offset_limit`、每页重复显式 16 字段、满页后按固定 `page_limit` 递增 offset、短页结束、无任意最大页数；M1/M2 还要用项目 source client 重做证据。
+运行时接受 `limit/offset`，但当前 MCP schema 没有公开这两个参数。实现采用 `offset_limit`、每页重复显式 16 字段、满页后按固定 `page_limit` 递增 offset、短页结束、无任意最大页数；B4-FD-M2 已用项目 source client 复现 `50/50/22` 与 `50/50/41`，并验证 10,000 行正式 2,000 行分页路径。
 
 2026-08-07 对 `19990329/20191104/20201215/20211215/20230110/20260617` 共 476 个源行做字段剖面：`ts_code/ann_date` 均非空；可空最明显的是 `earpay_date` 462 行为空、`ear_amount` 362 行为空、`account_date` 178 行为空。四个数值样本最大为 10 个整数位、4 位小数；`base_year` 的非空样本都是 8 字符完整日期。详见 LLD 9.1；这些是代表样本，不是源端永久上限。
 
@@ -138,7 +138,17 @@ pay_date, earpay_date, net_ex_date, account_date, base_year
 | 过滤 | 首版不暴露 `ts_code/ex_date/pay_date`。 |
 | 历史 | 先做年度规模与配额预算，再单独授权回补。 |
 
-本轮不授权 Definition、表、migration、TaskRun、schedule、生产同步或历史回补。
+### 7.1 B4-FD-M2 隔离验收结果（2026-08-07）
+
+- 全新 PostgreSQL 18.4 隔离集群只监听 `127.0.0.1:55408`。缺少 `gs_raw_cold_hdd` 时，`000130` 在建 schema/table 前失败且版本保持 `000129`；完整隔离库从零迁移到唯一 head `000130`。
+- `fund_div` 表、主键和两个二级索引共 4 个 relation 全部绑定隔离 `gs_raw_cold_hdd`；`pg_wal` 仍在集群 data directory，不随 tablespace 迁移。隔离路径只证明 placement contract，生产机械盘真实路径仍须 M3 核验。
+- 项目 connector 的 `page_limit=50` A/B 与 2,000 行正式基线多重集一致：`20260617=122`、`20201215=141`，每页显式 16 字段且只传 `ann_date/limit/offset`。
+- `20201215` 首次完整对账为 `141 fetched = 74 unique + 67 deduplicated + 0 reject`，`74 saved = 74 inserted + 0 matched`，目标 scope 74；重跑为 `74 saved = 0 inserted + 74 matched`，目标集合不变。
+- `20260617` 为 122/122/122/0/122，目标 OF/SH/SZ=`116/4/2`；周六 `20260613=40`，空日 `20260614=0` 合法 no-op。
+- 10,000 行容量为 `2000×5+0`，单事务 `1.918s`、端到端 `2.510s`、峰值 RSS `276,873,216` bytes、WAL 增量 `6,912,280` bytes。分页失败、identity/content 冲突、scope regression、partial reject、持久化不完整和数据库异常均原子回滚；同日 advisory lock、异日非阻塞、NUMERIC 精确 round-trip 与 Ops 状态写失败不影响业务提交均通过。
+- 隔离阶段未创建 TaskRun、schedule 或 probe；M2 未写生产库。
+
+B4-FD-M2 已通过。当前不授权生产 migration/同步、历史回补或 schedule。
 
 ## 8. 拍板结论与后续项
 
@@ -153,4 +163,4 @@ pay_date, earpay_date, net_ex_date, account_date, base_year
 4. 历史回补起止日期、限流和 HDD/索引/WAL/耗时停止阈值，放在 B4-FD-M4a 只读预算后决定；单 TaskRun 上限固定为 366 个自然日 unit。
 5. 实际自动任务运行时点、维护 D/D-1 以及是否增加短滚动窗口，放在多时点发布观测后决定。
 
-前三项已经关闭 M1 的设计门禁；编码仍需用户单独授权。
+前三项已经关闭设计门禁，B4-FD-M1/M2 也已完成。下一独立授权边界是 B4-FD-M3 生产只读预检、migration、真实 HDD 路径、正式 TaskRun 首次同步与对账。

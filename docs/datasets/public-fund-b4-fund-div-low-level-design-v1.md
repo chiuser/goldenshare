@@ -1,6 +1,6 @@
 # 公募基金 B4：基金分红（`fund_div`）低层设计 v1
 
-状态：**B4-FD-M0 源端复审完成；B4-FD-M1 已按本 LLD 实现并通过本地自动化、前端构建与静态门禁；两个 migration 仅已生成、从未应用，B4-FD-M2 尚未授权**
+状态：**B4-FD-M0/M1/M2 已完成；隔离 PostgreSQL migration、HDD tablespace placement、真实同步与完整对账、10,000 行容量、回滚和 advisory lock 均通过。生产 migration/同步、历史回补与 schedule 仍未授权**
 编写日期：2026-08-07
 适用范围：`fund_div / 基金分红` 接入 Goldenshare Prod
 
@@ -161,7 +161,7 @@ MCP schema 未公开 `limit/offset`，但运行时和项目 connector 实测生�
 
 工程验收使用 10,000 行合成单日作为容量门禁，约为当前抽样峰值的 62.5 倍；它是回归标准，不是源端 SLA。历史年度行数、总分页数、实际耗时、积分/限流、HDD/索引/WAL 水位在 B4-FD-M4a 单独只读测算。
 
-源文档要求至少 400 积分。本轮研究凭据已能成功调用，只能证明当前审计环境具备权限，不能替代隔离/生产凭据预检。当前代码对 `fund_div` 没有接口专属限速，使用 `TUSHARE_MAX_CALLS_PER_MINUTE=280` 的默认值；若每个自然日仅一页，366 个串行请求的纯限速理论下界约 78.4 秒，尚未计网络、重试、归一化和事务时间。M2/M3 必须分别用对应环境凭据验证权限，M2 还要记录真实年度执行耗时；不得把理论下界当成 SLA。
+源文档要求至少 400 积分。本轮研究凭据已能成功调用，只能证明当前审计环境具备权限，不能替代隔离/生产凭据预检。当前代码对 `fund_div` 没有接口专属限速，使用 `TUSHARE_MAX_CALLS_PER_MINUTE=280` 的默认值；若每个自然日仅一页，366 个串行请求的纯限速理论下界约 78.4 秒，尚未计网络、重试、归一化和事务时间。M2/M3 分别用对应环境凭据验证接口权限；真实年度请求量、耗时与资源水位属于 M4a 历史预算，不得在 M2 最小同步中越权执行，也不得把理论下界当成 SLA。
 
 ## 5. exact duplicate：已拍板为唯一事实去重
 
@@ -770,6 +770,50 @@ CodeGraph 的定向 impact 结果显示，`NormalizedBatch` 直接/间接影响 
 | 首次 | 141 | 74 | 67 | 74 | 0 | 0 | 74 | `141 = 74 + 67 + 0`；`74 = 74 + 0` |
 | 幂等重跑 | 141 | 74 | 67 | 0 | 74 | 0 | 74 | `141 = 74 + 67 + 0`；`74 = 0 + 74` |
 
+#### 16.1.1 migration 与物理 placement（2026-08-07）
+
+B4-FD-M2 在全新本机 PostgreSQL 18.4 隔离集群完成，连接固定为 `127.0.0.1:55408`，集群数据目录为 `/private/tmp/goldenshare_b4_fd_m2.yHxriF/data`，未连接生产数据库。
+
+- 缺少 `gs_raw_cold_hdd` 的专用失败库先固定在 `20260807_000129`，再执行 `000130`；migration 在建 schema/table 前按预期失败，Alembic 版本仍为 `000129`，`core_serving` schema 和 `fund_div` 表均不存在。
+- 创建隔离 tablespace 后，另一个全新数据库从零串行迁移到唯一 head `20260807_000130`。
+- `core_serving.fund_div`、`pk_core_serving_fund_div`、`idx_fund_div_ann_date_ts_code`、`idx_fund_div_ts_code_ann_date` 共 4 个 relation 的有效 tablespace 均为 `gs_raw_cold_hdd`，relation path 均经 `pg_tblspc` 指向 `/private/tmp/goldenshare_b4_fd_m2.yHxriF/hdd_tablespace`。
+- `pg_wal` 仍是隔离集群 data directory 下的普通目录，没有链接到 tablespace；没有 `fund_div_current/fund_div_observation` 表。
+
+该路径只证明 migration 的 tablespace 绑定和 WAL 边界，不证明 `/private/tmp` 是机械盘。生产介质和 tablespace 真实挂载路径仍必须在 M3 单独核验。
+
+#### 16.1.2 真实 connector、同步与完整对账
+
+MCP 再次显式请求 16 字段得到：`20260617=122/122 unique`，`20201215=141/74 unique/67 exact duplicate`。项目 connector 的只读 A/B 结果如下，分页多重集与正式 2,000 行单页基线双向一致，每页 fields 完整且参数仅含 `ann_date/limit/offset`：
+
+| 公告日 | `page_limit=50` | `page_limit=2000` | 多重集差异 |
+| --- | --- | --- | --- |
+| `20260617` | `50/50/22`，offset `0/50/100` | `122` | 0 |
+| `20201215` | `50/50/41`，offset `0/50/100` | `141` | 0 |
+
+正式 Definition 的 `page_limit=2000` 真实同步结果：
+
+| 运行 | fetched | unique/saved | deduplicated | inserted | matched | reject | target scope |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `20260617` 首次 | 122 | 122 | 0 | 122 | 0 | 0 | 122 |
+| `20201215` 首次 | 141 | 74 | 67 | 74 | 0 | 0 | 74 |
+| `20201215` 重跑 | 141 | 74 | 67 | 0 | 74 | 0 | 74 |
+| 周六 `20260613` | 40 | 40 | 0 | 40 | 0 | 0 | 40 |
+| 空日 `20260614` | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+每次均为一个短页、一个业务 commit、0 reject。源端唯一归一化集合与目标 `(source_entity_key, source_content_hash)` 集合相等，目标 16 字段重算 content hash 差异为 0。`20260617` 目标后缀为 OF/SH/SZ=`116/4/2`，没有市场裁剪；`20201215` 去重后的目标后缀为 OF/SH=`72/2`。整个隔离阶段 `fund_div` 的 TaskRun、schedule、probe 始终均为 0。
+
+#### 16.1.3 容量、失败原子性与 PostgreSQL 门禁
+
+- 10,000 行合成公告日经正式 source client、normalizer、writer、DAO 和单事务执行，页序为 `2000/2000/2000/2000/2000/0`，offset 为 `0/2000/4000/6000/8000/10000`。fetched/unique/saved/inserted/target 均为 10,000，deduplicated/reject/matched 均为 0，目标散列差异为 0。
+- 本次数据库事务 `1.918s`，端到端 `2.510s`，峰值 RSS `276,873,216` bytes，WAL 增量 `6,912,280` bytes；均通过 60 秒事务、120 秒端到端和 512 MiB/可用内存 10% 门禁。该样本不外推历史回补容量。
+- 第二页注入失败时只发生 offset `0/2000` 两次调用，目标 scope 为 0，全表指纹不变；合成普通 `RuntimeError` 按现有 codebook 归类为 `internal_error`，不影响“完整分页完成前零写入”的结论。
+- 批内 identity 冲突、数据库同 identity 不同 content、scope regression、partial reject、INSERT 后数量不完整、INSERT 后数据库异常均得到预期结构化错误，失败前后全表指纹不变。
+- 新公告日插入后旧公告日事实仍保留；`NUMERIC(30,10)` 的 `12345678901234567890.1234567890` 精确 round-trip，超限 fixture fail-closed。
+- 相同 `ann_date` 的第二个事务在首事务释放前被 transaction-scoped advisory lock 阻塞，释放后取得锁；不同 `ann_date` 不互相阻塞。
+- 注入 Ops progress 写入失败后，业务事实仍成功提交并可完整回查，符合“状态写失败不得影响业务事务”。
+
+以上门禁全部通过，B4-FD-M2 没有发现需要修改生产代码的问题。
+
 ### 16.2 B4-FD-M3 生产
 
 经独立授权后：
@@ -788,8 +832,8 @@ M3 不创建 schedule、不回补历史。
 | 阶段 | 内容 | 当前状态 |
 | --- | --- | --- |
 | B4-FD-M0 | 源端请求矩阵、字段、分页、自然日、重复、不可变公告事实与 LLD | 源端复审、业务拍板和 LLD 审计已完成 |
-| B4-FD-M1 | Definition、immutable fact contract、request/identity、单表 ORM/DAO、migration、Ops 与本地测试 | **已实现并通过本地门禁；migration 未应用** |
-| B4-FD-M2 | 隔离 PG migration、HDD、合成多页、真实单页/重复/空日、容量、锁、回滚与对账 | 未授权 |
+| B4-FD-M1 | Definition、immutable fact contract、request/identity、单表 ORM/DAO、migration、Ops 与本地测试 | **已实现并通过本地门禁** |
+| B4-FD-M2 | 隔离 PG migration、HDD、合成多页、真实单页/重复/空日、容量、锁、回滚与对账 | **已完成；全部门禁通过** |
 | B4-FD-M3 | 生产只读预检、migration、真实 HDD、首次生产同步与对账 | 未授权 |
 | B4-FD-M4a | 历史逐年规模、配额、耗时、HDD/索引/WAL 只读预算 | 未授权 |
 | B4-FD-M4b | 按年分批历史回补 | 未授权，须单独批准 |
@@ -801,34 +845,34 @@ M3 不创建 schedule、不回补历史。
 
 | ID | 硬需求与依据 | 影响层 / 消费者 | 后端权威约束 | 前端表现与直接消费者 | 实现文件 | 正向测试 | 反向测试 | 真实验证 / 浏览器路径 | 计划阶段 | 状态 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| FD-001 | 显式请求并保存全部 16 个源字段 | source、normalizer、ORM、DAO | Definition 的 `source_fields` 是唯一字段事实源，每页强制携带 | Catalog/详情只消费 Definition/TaskRun 投影，不自选源字段 | `definitions/public_fund.py`、`fund_div` model、新 migration | 16 字段逐列 E2E 与 null/Decimal/DATE | 缺字段或错字段阻断 unit | `20260617`、`20201215` 默认与显式多重集一致；M2 再跑项目 connector | M0/M1/M2 | M1 本地实现与自动化门禁完成；M2 待真实验证 |
-| FD-002 | OF/SH/SZ 全市场，不按后缀裁剪 | request、normalizer、目标事实查询 | request 无市场参数；quality 不设后缀白名单 | 无市场筛选控件 | `public_fund.py`、`normalizer.py` | 混合 OF/SH/SZ fixture 全部保留 | 任一后缀被过滤即失败 | `20260617` 实测 OF 116、SZ 2、SH 4 | M0/M1/M2 | M1 本地实现与自动化门禁完成；M2 待真实验证 |
-| FD-003 | 输入为 ann_date point 或自然日 range；range 逐日 fan-out | Definition、resolver、planner、manual/auto UI | `ann_date_or_start_end` + `build_natural_day_point_units` | 手动页显示“公告日期”单日/范围；自动页从 API time contract 渲染 | `public_fund.py`、`unit_planner.py`、manual/auto task pages | point 1 unit；含周末 range 逐自然日 | no-time、start>end、交易日过滤均拒绝 | 周六 `20260613=40`、`20070414=7`；浏览器提交 payload 验收 | M0/M1/M2 | M1 本地实现与自动化门禁完成；M2 待真实验证 |
-| FD-004 | 每个 unit 的源请求只传 ann_date | request builder、connector | `_fund_div_params` 只产出 `ann_date=YYYYMMDD` | 不向运营暴露源参数 | `request_builders.py` | point/range unit 请求快照 | 禁止 `start/end/ts_code/ex_date/pay_date` 进入 source params | MCP 参数矩阵；M2 捕获真实 connector payload | M0/M1/M2 | M1 本地实现与自动化门禁完成；M2 待真实验证 |
-| FD-005 | offset 分页；满页按 2000 递增，短页结束，无任意页数上限，页轨迹可追踪 | source client、执行器、TaskRun diagnostics | `offset_limit/page_limit=2000`；每页同 fields；完整页序列进无 token 结构化日志；每 unit 精确摘要留在 SourceFetchResult，TaskRun 存六个精确聚合+最多 3 个 unit samples | 详情通用展示聚合和有限样本，不伪装完整逐 unit 清单 | `public_fund.py`、`source_client.py`、`tushare_client.py`、ingestion diagnostics/API/detail UI | 0/2000/... 合成多页、短页、366-unit 聚合与截断 fixture | 第二页失败、漏 fields、提前上限、泄露 token、聚合丢数、状态写失败影响业务均不得发生 | M0 用 limit 50 证明 runtime 分页和真实多重集；M2 合成 2000 多页并对照日志/SourceFetchResult/TaskRun | M0/M1/M2 | M1 本地实现与自动化门禁完成；M2 待真实验证 |
-| FD-006 | 任一页失败不得写入部分事实 | connector、executor、writer | 完整分页返回前不调用 writer；一个 unit 一个事务 | TaskRun 显示失败，不把部分行显示成已保存 | `source_client.py`、`executor.py`、`writer.py` | 全部分页成功后一次进入 immutable writer | 第二页/末页异常时 writer 零调用、事实表不变 | M2 故障注入并回查表 | M1/M2 | M1 本地实现与自动化门禁完成；M2 待真实验证 |
-| FD-007 | 事件身份使用完整日期签名和显式 null 标记 | transform、normalizer、DAO | 版本化 canonical hash；源字段原值不改写 | TaskRun 冲突样本经 codebook 展示 | `row_transforms.py`、`normalizer.py` | hash 稳定、null/空值规则、跨次修订 | 短键碰撞、非法日期、缺 ts_code/ann_date 拒绝 | `159816.SZ` 短键相同但 net_ex/base_unit 不同的双行样本 | M0/M1/M2 | M1 本地实现与自动化门禁完成；M2 待真实验证 |
-| FD-008 | exact duplicate 保留一条唯一事实 | multiplicity contract、normalizer、TaskRun | `deduplicate_identical`；业务表无 count/ordinal；运行级 `rows_deduplicated` | 详情区分 fetched、deduplicated、written、reject | `models.py`、`normalizer.py`、运行摘要、TaskRun schema/API/UI | 固定 fixture 验证 141/74/67/0 | 计为 reject、生成 occurrence、依赖页序编号均失败 | `20201215` 连续三次均 141/74/67；M2 目标表验收 74 | M0/M1/M2 | M1 本地实现与自动化门禁完成；M2 待真实验证 |
-| FD-009 | 同 event、不同 source content 的批内冲突 fail-closed | normalizer、codebook、writer | multiplicity 阶段后执行 event 唯一性门禁；结构化 error | 详情页显示统一中文原因，不写 dataset-key 文案 | `normalizer.py`、`codebook.py`、TaskRun detail | 无冲突批正常发布 | 冲突 fixture 整 unit 失败且事实表不变 | M2 注入两条同 event 不同 content | M1/M2 | M1 本地实现与自动化门禁完成；M2 待真实验证 |
-| FD-010 | 业务修订以新公告形成新事实；单表不可变保存 | storage Definition、writer、model | 只建 `core_serving.fund_div`；新公告普通 INSERT，旧公告永久保留；不建 current/observation | 数据状态显示源端公告事实，不伪造观察版本 | `public_fund.py`、fund_div model、`writer.py` | 新公告同步后新旧事实并存 | migration 不得创建 current/observation；不得 UPDATE/DELETE 旧事实 | M2 定向两公告日对账 | M1/M2 | M1 本地实现与自动化门禁完成；M2 待真实验证 |
-| FD-011 | 按 ann_date 原子对照并只插入新事实，同日加 advisory lock | writer、`ImmutableFactDAO`、PostgreSQL | 新 `serving_immutable_fact_insert`；同 hash 幂等；不同 hash、scope regression、持久化不完整均 fail-closed；单 unit 单事务 | TaskRun 只显示提交后的保存与 inserted/matched 计数 | `writer.py`、`definitions/_builder.py`、`immutable_fact_dao.py` | 首次 INSERT、相同源重跑幂等、异日隔离 | 禁止 update/delete/upsert/ignore conflict；跨日行、reject、内容冲突、源端回退、DB 异常均回滚 | M2 并发锁、SQL 路径与表集合对账 | M1/M2 | M1 本地实现与自动化门禁完成；M2 待真实验证 |
-| FD-012 | 真空公告日成功 no-op；既有事实不能因空/缩减源结果消失 | writer、DAO | 空源+空目标成功；空源+非空目标或源集合少 identity 均 `write.immutable_scope_regression` | 真空日显示成功 0；回退显示结构化失败 | `writer.py`、`immutable_fact_dao.py`、codebook | `20260614` 空源空目标成功 | 空响应或缩减集合删除/忽略既有事实必须失败 | M2 空日与回退 fixture 回查 | M0/M1/M2 | M1 本地实现与自动化门禁完成；M2 待真实验证 |
-| FD-013 | 事件型数据不做连续自然日 completeness | freshness、cards、date audit、snapshot rebuild | `bucket_rule=not_applicable/audit=false`，排除连续桶审计/重建 | 卡片显示事件运行轨迹，不报“缺一天” | Definition/freshness projection、audit/rebuild guards、dataset card | 非空/空日均生成正确运行轨迹 | 空日不得生成缺数告警或连续桶 | M2 后重建状态并浏览卡片 | M1/M2 | M1 本地实现与自动化门禁完成；M2 待真实验证 |
-| FD-014 | 表、主键和全部索引在 HDD；共享 WAL 留 SSD | ORM/migration/DB | migration 先断言 `gs_raw_cold_hdd`，不回退默认盘 | Ops 不提供存储位置编辑项 | fund_div models、`alembic/versions/<fund_div migration>` | migration metadata/placement | tablespace 缺失时零建表；禁止默认 SSD | M2/M3 查 relation/index tablespace 与真实路径 | M1/M2/M3 | M1 静态门禁完成；M2/M3 待真实 HDD 验证 |
-| FD-015 | 单 TaskRun 最多 366 个自然日 unit | Definition、validator、resolver、planner | `max_units_per_execution=366`，执行前完整拒绝超限 | 手动/自动表单显示后端错误，不静默截断 | `public_fund.py`、validator/resolver | 365/366 日范围允许 | 367 日拒绝且零 source 请求 | M2 验证 366 unit 耗时/配额/失败恢复 | M1/M2 | M1 本地实现与自动化门禁完成；M2 待真实验证 |
+| FD-001 | 显式请求并保存全部 16 个源字段 | source、normalizer、ORM、DAO | Definition 的 `source_fields` 是唯一字段事实源，每页强制携带 | Catalog/详情只消费 Definition/TaskRun 投影，不自选源字段 | `definitions/public_fund.py`、`fund_div` model、新 migration | 16 字段逐列 E2E 与 null/Decimal/DATE | 缺字段或错字段阻断 unit | `20260617`、`20201215` 默认与显式多重集一致；M2 再跑项目 connector | M0/M1/M2 | M1 本地门禁与 M2 隔离真实验收均完成 |
+| FD-002 | OF/SH/SZ 全市场，不按后缀裁剪 | request、normalizer、目标事实查询 | request 无市场参数；quality 不设后缀白名单 | 无市场筛选控件 | `public_fund.py`、`normalizer.py` | 混合 OF/SH/SZ fixture 全部保留 | 任一后缀被过滤即失败 | `20260617` 实测 OF 116、SZ 2、SH 4 | M0/M1/M2 | M1 本地门禁与 M2 隔离真实验收均完成 |
+| FD-003 | 输入为 ann_date point 或自然日 range；range 逐日 fan-out | Definition、resolver、planner、manual/auto UI | `ann_date_or_start_end` + `build_natural_day_point_units` | 手动页显示“公告日期”单日/范围；自动页从 API time contract 渲染 | `public_fund.py`、`unit_planner.py`、manual/auto task pages | point 1 unit；含周末 range 逐自然日 | no-time、start>end、交易日过滤均拒绝 | 周六 `20260613=40`、`20070414=7`；浏览器提交 payload 验收 | M0/M1/M2 | M1 本地门禁与 M2 隔离真实验收均完成 |
+| FD-004 | 每个 unit 的源请求只传 ann_date | request builder、connector | `_fund_div_params` 只产出 `ann_date=YYYYMMDD` | 不向运营暴露源参数 | `request_builders.py` | point/range unit 请求快照 | 禁止 `start/end/ts_code/ex_date/pay_date` 进入 source params | MCP 参数矩阵；M2 捕获真实 connector payload | M0/M1/M2 | M1 本地门禁与 M2 隔离真实验收均完成 |
+| FD-005 | offset 分页；满页按 2000 递增，短页结束，无任意页数上限，页轨迹可追踪 | source client、执行器、TaskRun diagnostics | `offset_limit/page_limit=2000`；每页同 fields；完整页序列进无 token 结构化日志；每 unit 精确摘要留在 SourceFetchResult，TaskRun 存六个精确聚合+最多 3 个 unit samples | 详情通用展示聚合和有限样本，不伪装完整逐 unit 清单 | `public_fund.py`、`source_client.py`、`tushare_client.py`、ingestion diagnostics/API/detail UI | 0/2000/... 合成多页、短页、366-unit 聚合与截断 fixture | 第二页失败、漏 fields、提前上限、泄露 token、聚合丢数、状态写失败影响业务均不得发生 | M0 limit 50；M2 合成 2,000 多页与 service diagnostics；M3 正式 TaskRun 投影 | M0/M1/M2/M3 | M1 本地门禁与 M2 隔离 source/service 验收完成；正式 TaskRun 留待 M3 |
+| FD-006 | 任一页失败不得写入部分事实 | connector、executor、writer | 完整分页返回前不调用 writer；一个 unit 一个事务 | TaskRun 显示失败，不把部分行显示成已保存 | `source_client.py`、`executor.py`、`writer.py` | 全部分页成功后一次进入 immutable writer | 第二页/末页异常时 writer 零调用、事实表不变 | M2 故障注入并回查表 | M1/M2 | M1 本地门禁与 M2 隔离真实验收均完成 |
+| FD-007 | 事件身份使用完整日期签名和显式 null 标记 | transform、normalizer、DAO | 版本化 canonical hash；源字段原值不改写 | TaskRun 冲突样本经 codebook 展示 | `row_transforms.py`、`normalizer.py` | hash 稳定、null/空值规则、跨次修订 | 短键碰撞、非法日期、缺 ts_code/ann_date 拒绝 | `159816.SZ` 短键相同但 net_ex/base_unit 不同的双行样本 | M0/M1/M2 | M1 本地门禁与 M2 隔离真实验收均完成 |
+| FD-008 | exact duplicate 保留一条唯一事实 | multiplicity contract、normalizer、TaskRun | `deduplicate_identical`；业务表无 count/ordinal；运行级 `rows_deduplicated` | 详情区分 fetched、deduplicated、written、reject | `models.py`、`normalizer.py`、运行摘要、TaskRun schema/API/UI | 固定 fixture 验证 141/74/67/0 | 计为 reject、生成 occurrence、依赖页序编号均失败 | `20201215` 连续三次均 141/74/67；M2 目标表验收 74 | M0/M1/M2 | M1 本地门禁与 M2 隔离真实验收均完成 |
+| FD-009 | 同 event、不同 source content 的批内冲突 fail-closed | normalizer、codebook、writer | multiplicity 阶段后执行 event 唯一性门禁；结构化 error | 详情页显示统一中文原因，不写 dataset-key 文案 | `normalizer.py`、`codebook.py`、TaskRun detail | 无冲突批正常发布 | 冲突 fixture 整 unit 失败且事实表不变 | M2 注入两条同 event 不同 content | M1/M2 | M1 本地门禁与 M2 隔离真实验收均完成 |
+| FD-010 | 业务修订以新公告形成新事实；单表不可变保存 | storage Definition、writer、model | 只建 `core_serving.fund_div`；新公告普通 INSERT，旧公告永久保留；不建 current/observation | 数据状态显示源端公告事实，不伪造观察版本 | `public_fund.py`、fund_div model、`writer.py` | 新公告同步后新旧事实并存 | migration 不得创建 current/observation；不得 UPDATE/DELETE 旧事实 | M2 定向两公告日对账 | M1/M2 | M1 本地门禁与 M2 隔离真实验收均完成 |
+| FD-011 | 按 ann_date 原子对照并只插入新事实，同日加 advisory lock | writer、`ImmutableFactDAO`、PostgreSQL | 新 `serving_immutable_fact_insert`；同 hash 幂等；不同 hash、scope regression、持久化不完整均 fail-closed；单 unit 单事务 | TaskRun 只显示提交后的保存与 inserted/matched 计数 | `writer.py`、`definitions/_builder.py`、`immutable_fact_dao.py` | 首次 INSERT、相同源重跑幂等、异日隔离 | 禁止 update/delete/upsert/ignore conflict；跨日行、reject、内容冲突、源端回退、DB 异常均回滚 | M2 并发锁、SQL 路径与表集合对账 | M1/M2 | M1 本地门禁与 M2 隔离真实验收均完成 |
+| FD-012 | 真空公告日成功 no-op；既有事实不能因空/缩减源结果消失 | writer、DAO | 空源+空目标成功；空源+非空目标或源集合少 identity 均 `write.immutable_scope_regression` | 真空日显示成功 0；回退显示结构化失败 | `writer.py`、`immutable_fact_dao.py`、codebook | `20260614` 空源空目标成功 | 空响应或缩减集合删除/忽略既有事实必须失败 | M2 空日与回退 fixture 回查 | M0/M1/M2 | M1 本地门禁与 M2 隔离真实验收均完成 |
+| FD-013 | 事件型数据不做连续自然日 completeness | freshness、cards、date audit、snapshot rebuild | `bucket_rule=not_applicable/audit=false`，排除连续桶审计/重建 | 卡片显示事件运行轨迹，不报“缺一天” | Definition/freshness projection、audit/rebuild guards、dataset card | 非空/空日均生成正确运行轨迹 | 空日不得生成缺数告警或连续桶 | M1 API/UI fixture；M2 真实空日/非空日；M3 部署后浏览卡片 | M1/M2/M3 | M1 契约门禁与 M2 真实自然日语义完成；M3 浏览验收待授权 |
+| FD-014 | 表、主键和全部索引在 HDD；共享 WAL 留 SSD | ORM/migration/DB | migration 先断言 `gs_raw_cold_hdd`，不回退默认盘 | Ops 不提供存储位置编辑项 | fund_div models、`alembic/versions/<fund_div migration>` | migration metadata/placement | tablespace 缺失时零建表；禁止默认 SSD | M2/M3 查 relation/index tablespace 与真实路径 | M1/M2/M3 | M2 已验证 4 个 relation 的隔离 tablespace placement 且 WAL 未改；生产真实 HDD 路径仍待 M3 |
+| FD-015 | 单 TaskRun 最多 366 个自然日 unit | Definition、validator、resolver、planner | `max_units_per_execution=366`，执行前完整拒绝超限 | 手动/自动表单显示后端错误，不静默截断 | `public_fund.py`、validator/resolver | 365/366 日范围允许 | 367 日拒绝且零 source 请求 | M1 验证 366/367 边界；M4a 量化真实年度耗时/配额/恢复 | M1/M4a | M1 边界门禁完成；真实年度预算未授权，不属于 M2 最小同步 |
 | FD-016 | Ops 归入“公募基金”，排序紧随 fund_share | Catalog、manual/auto lists | Catalog view + Definition 注册是权威 | 手动/自动页均显示基金分红，分组不进 ETF基金 | `dataset_catalog_views.py`、Catalog query、两类任务页 | 顺序/唯一性 API 测试 | 不得出现重复分组或旧组 | 浏览器核对两个入口 | M1 | M1 本地实现与自动化门禁完成 |
 | FD-017 | 手动任务支持 ann_date point/range | manual action query/service、frontend | Manual Action API 从 Definition 派生 DateField；TaskRun schema 保留 ann_date/date_field | `ops-v21-task-manual-tab.tsx` 按 DateField 渲染与提交 | `manual_action_query_service.py`、`manual_action_service.py`、`schemas/task_run.py`、manual page | point/range 提交正确 `time_input` | no-time、start>end、367 日绕过被拒绝 | 浏览器创建前检查请求 payload，不实际提交远程任务 | M1 | M1 本地实现与自动化门禁完成 |
 | FD-018 | once/cron 的时间字段由 Definition contract 派生，不固定 trade_date | schedule capability、binding/runtime、auto UI | API 返回 `time_input_contract/generated_time_field`；create/update/resume/runtime 共同校验 | `ops-time-capability.ts` 与 auto page 按 contract 构造 ann_date | `schemas/catalog.py`、`schemas/task_run.py`、capability resolver/query、`operations_schedule_service.py`、`task_run_service.py`、`shared/api/types.ts`、`ops-time-capability.ts`、auto page | fund_div once/cron 生成 ann_date；fund_share 保持 trade_date | 伪造 trade_date、丢 ann_date、非法 mode 均拒绝 | 浏览器验收 once/cron payload；既有 schedule 快照不变 | M1 | M1 本地实现与自动化门禁完成 |
-| FD-019 | progress、TaskRun 和 Issue 使用公告日期语义 | planner、executor、TaskRun query/API/detail | progress 从 `observed_field` 派生 `ann_date/date_field`；文案读取 date_field，后端输出结构化 unit kind | 详情显示“公告日期”，不得显示“交易日期” | `unit_planner.py`、`executor.py`、`task_run_query_service.py`、`shared/ops-display.ts`、`ops-task-detail-page.tsx` | ann_date progress/issue/current object | fund_div context 丢 ann_date 或残留伪 trade_date 即失败 | 浏览器 fixture 详情；M2 真实 TaskRun | M1/M2 | M1 本地实现与自动化门禁完成；M2 待真实验证 |
+| FD-019 | progress、TaskRun 和 Issue 使用公告日期语义 | planner、executor、TaskRun query/API/detail | progress 从 `observed_field` 派生 `ann_date/date_field`；文案读取 date_field，后端输出结构化 unit kind | 详情显示“公告日期”，不得显示“交易日期” | `unit_planner.py`、`executor.py`、`task_run_query_service.py`、`shared/ops-display.ts`、`ops-task-detail-page.tsx` | ann_date progress/issue/current object | fund_div context 丢 ann_date 或残留伪 trade_date 即失败 | M1 浏览器 fixture；M3 隔离范围外的正式 TaskRun | M1/M3 | M1 代码/API/UI 门禁完成；真实 TaskRun 留给经授权的 M3 |
 | FD-020 | 首版不暴露 ts_code/ex_date/pay_date filters | Definition input、manual/schedule validators/UI | filters 为空；后端拒绝额外参数 | 手动/自动页无这些控件 | `public_fund.py`、manual/schedule validators、task pages | 合法无 filter 请求 | 绕过 UI 提交任一 filter 被拒绝 | 源端 AND 缩小结果反例；浏览器无控件 | M0/M1 | M1 本地实现与自动化门禁完成 |
 | FD-021 | 允许 manual、普通 once/cron 与 retry | Definition、Catalog、manual/schedule/retry API | 只声明三类能力，普通 schedule 使用 cron/once | 页面显示手动、普通自动与重试入口 | `public_fund.py`、Catalog/capability/retry services、task pages | 三类合法路径 capability/API 测试 | 未声明的 trigger mode 不得混入 | API + 浏览器能力浏览验收 | M1 | M1 本地实现与自动化门禁完成 |
 | FD-022 | 禁止 probe 与 schedule_probe_fallback | Definition、schedule API/binding/runtime | capability 不声明 probe condition；API 与 runtime 防绕过 | 自动页不显示 probe/fallback | `public_fund.py`、capability resolver、schedule binding/runtime | 普通 schedule 仍可用 | probe/fallback 创建、更新和 runtime 绕过均拒绝 | API 反向请求 + 浏览器无入口 | M1 | M1 本地实现与自动化门禁完成 |
 | FD-023 | 禁止加入 workflow | Definition、workflow registry/API/runtime | workflow eligibility/registry 均不包含 fund_div；运行时拒绝拼接 | 页面无 workflow 入口 | `public_fund.py`、workflow registry/service/API | 独立 manual/schedule 正常 | workflow 定义/执行绕过均拒绝 | registry 审计 + API 反向测试 | M1 | M1 本地实现与自动化门禁完成 |
 | FD-024 | 不自动 seed schedule，不在 M1 猜 D/D-1/lookback | schedule storage、release process | 无 migration seed、无 fund_div 相对日特例；只保存后续运营明确意图 | 部署后默认无 fund_div 自动任务 | Definition/migration audit、schedule query | 部署后 dataset 可选但无 active schedule | 隐式 seed 或相对日期特例必须失败 | M3 前后只读 schedule 快照 | M1/M3/M4c | M1 已完成；M3/M4c 待授权验证 |
-| FD-025 | pagination、去重、immutable persistence 与 reject 分离 | source/normalizer/writer、summary/progress、TaskRun API/UI | 有界 pagination diagnostics + 独立 `rows_deduplicated` + inserted/matched/scope 计数；`rows_saved` 表示已成功对照的唯一事实 | 详情显示分页、源行、去重、已保存、新增、幂等命中、reject | source client、normalizer/executor/writer/progress/service、TaskRun model/schema/query、detail UI | 首次/重跑分别验证 74/0 与 0/74 inserted/matched，saved 均为 74 | 禁止无限 JSON、token 泄露、把去重当 reject、幂等重跑 saved=0 | M2 对照结构化日志、TaskRun、健康报告与事实表 | M1/M2 | M1 本地实现与自动化门禁完成；M2 待真实验证 |
-| FD-026 | Ops 状态/诊断写失败不得影响业务事务 | progress adapter、TaskRun/Node、business writer | 状态使用隔离 session，异常仅回滚状态事务；不得传播至 business commit | 页面可暂缺进度，但业务成功状态须可后续审计修复 | `task_run_ingestion_context.py`、executor/service、TaskRun models | 状态正常时主/节点同步 | 注入状态写失败后业务事实仍提交且可对账 | M2 故障注入并回查两类事务 | M1/M2 | M1 本地实现与自动化门禁完成；M2 待真实验证 |
+| FD-025 | pagination、去重、immutable persistence 与 reject 分离 | source/normalizer/writer、summary/progress、TaskRun API/UI | 有界 pagination diagnostics + 独立 `rows_deduplicated` + inserted/matched/scope 计数；`rows_saved` 表示已成功对照的唯一事实 | 详情显示分页、源行、去重、已保存、新增、幂等命中、reject | source client、normalizer/executor/writer/progress/service、TaskRun model/schema/query、detail UI | 首次/重跑分别验证 74/0 与 0/74 inserted/matched，saved 均为 74 | 禁止无限 JSON、token 泄露、把去重当 reject、幂等重跑 saved=0 | M2 对照 service diagnostics 与事实表；M3 正式 TaskRun/健康报告 | M1/M2/M3 | M2 已闭环首次/重跑结构化诊断与目标事实；正式 TaskRun/健康报告留待 M3 |
+| FD-026 | Ops 状态/诊断写失败不得影响业务事务 | progress adapter、TaskRun/Node、business writer | 状态使用隔离 session，异常仅回滚状态事务；不得传播至 business commit | 页面可暂缺进度，但业务成功状态须可后续审计修复 | `task_run_ingestion_context.py`、executor/service、TaskRun models | 状态正常时主/节点同步 | 注入状态写失败后业务事实仍提交且可对账 | M2 故障注入并回查两类事务 | M1/M2 | M1 本地门禁与 M2 隔离真实验收均完成 |
 | FD-027 | 历史回补必须先做独立预算并单独授权 | M4a/M4b、Ops TaskRun | 历史按自然年拆分，每批不超过 366；不随 M3 隐式执行 | 历史任务仅在授权后由运营创建/观察 | M4a 审计文档与后续 TaskRun 计划 | 年度计划覆盖闭区间且无重叠/遗漏 | 单 TaskRun 10,000 日或部署即回补必须被禁止 | M4a 源请求量、配额、HDD/索引/WAL、耗时预算 | M4a/M4b | 边界已冻结；预算未授权 |
-| FD-028 | 四个数值字段必须精确保存，禁止 NUMERIC 静默舍入/溢出 | normalizer、ORM/migration、writer/codebook | `Decimal(str(value))`；NUMERIC(30,10) 写前精度门禁，超限结构化 reject 并使 unit fail-closed | TaskRun 通过 reason code 显示字段与处理建议 | `normalizer.py`、`codebook.py`、fund_div models/migration | 样本边界与 20 整数位/10 小数位精确写回 | 21 整数位、11 小数位及非数值输入拒绝，事实表不变 | 476 行字段剖面；M2 DB round-trip 与溢出 fixture | M0/M1/M2 | M1 本地实现与自动化门禁完成；M2 待真实验证 |
+| FD-028 | 四个数值字段必须精确保存，禁止 NUMERIC 静默舍入/溢出 | normalizer、ORM/migration、writer/codebook | `Decimal(str(value))`；NUMERIC(30,10) 写前精度门禁，超限结构化 reject 并使 unit fail-closed | TaskRun 通过 reason code 显示字段与处理建议 | `normalizer.py`、`codebook.py`、fund_div models/migration | 样本边界与 20 整数位/10 小数位精确写回 | 21 整数位、11 小数位及非数值输入拒绝，事实表不变 | 476 行字段剖面；M2 DB round-trip 与溢出 fixture | M0/M1/M2 | M1 本地门禁与 M2 隔离真实验收均完成 |
 
 ## 19. 发布、回滚与风险
 
@@ -860,9 +904,9 @@ M3 不创建 schedule、不回补历史。
 
 ## 20. 后续仍需拍板
 
-没有阻塞 B4-FD-M1 的业务项。以下只阻塞对应后续阶段：
+没有阻塞 B4-FD-M3 生产发布验收的新增业务拍板项。以下只阻塞对应后续阶段：
 
 1. 历史安全起点是否采用 `19980327`，以及 HDD/索引/WAL、耗时和配额停止阈值；在 M4a 后决定。单 TaskRun 上限固定为 366 个自然日 unit。
 2. 自动任务维护 D、D-1 还是滚动窗口，以及实际 cron 时刻；在 M4c 多时点观察后决定。
 
-B4-FD-M1 已完成；下一授权边界是 B4-FD-M2。未经明确授权，不得应用 migration、连接隔离 PostgreSQL、执行真实同步或创建 TaskRun/schedule。
+B4-FD-M2 已完成；下一授权边界是 B4-FD-M3。未经明确授权，不得执行生产只读预检、生产 migration、生产 TaskRun/同步；历史预算、历史回补和 schedule 仍须分别授权。
