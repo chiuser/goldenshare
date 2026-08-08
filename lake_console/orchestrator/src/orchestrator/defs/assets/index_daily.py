@@ -25,8 +25,8 @@ from orchestrator.defs.paths import (
     silver_index_daily_path,
 )
 from orchestrator.defs.prod_db.index_daily import (
-    PROD_INDEX_DAILY_DUCKDB_ATTACHED_DATABASE,
     PROD_INDEX_DAILY_DUCKDB_ATTACH_OPTIONS,
+    PROD_INDEX_DAILY_DUCKDB_ATTACHED_DATABASE,
     build_prod_index_daily_duckdb_source_sql,
     index_code_set_hash,
     normalize_index_codes,
@@ -39,14 +39,14 @@ from orchestrator.defs.resources import (
     LakeRootResource,
     ProdPostgresResource,
 )
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    RAW_INDEX_DAILY_SCHEMA,
+    SILVER_INDEX_DAILY_SCHEMA,
+)
 from orchestrator.defs.run_contracts.asset_tags import (
     AssetLayer,
     DataDomain,
     build_asset_tags,
-)
-from orchestrator.defs.run_contracts.asset_column_schemas import (
-    RAW_INDEX_DAILY_SCHEMA,
-    SILVER_INDEX_DAILY_SCHEMA,
 )
 from orchestrator.defs.run_contracts.configs import (
     IndexDailyRawConfig,
@@ -58,7 +58,6 @@ from orchestrator.defs.run_contracts.metadata import (
     build_materialization_metadata,
 )
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
-
 
 INDEX_DAILY_RAW_COLUMN_TYPES = {column.name: column.type for column in RAW_INDEX_DAILY_SCHEMA}
 
@@ -538,7 +537,7 @@ def _load_duckdb_postgres_extension(connection) -> None:
             connection.execute("INSTALL postgres")
             connection.execute("LOAD postgres")
             return
-        except Exception as install_error:  # noqa: BLE001
+        except Exception as install_error:
             raise RuntimeError(
                 "DuckDB postgres extension is required for prod DB index_daily "
                 "extraction. Install/load the DuckDB postgres extension before "
@@ -703,7 +702,6 @@ def materialize_silver_index_daily_partition_from_raw_by_date(
     log: DgStdoutLogger | None = None,
 ) -> SilverIndexDailyWriteResult:
     normalized_partition_key = normalize_iso_trade_date(partition_key)
-    source_trade_date = normalized_partition_key.replace("-", "")
     raw_path = raw_index_daily_path(lake_root_path, normalized_partition_key)
     if not raw_path.exists():
         raise FileNotFoundError(
@@ -711,53 +709,96 @@ def materialize_silver_index_daily_partition_from_raw_by_date(
             f"{raw_path}"
         )
 
-    target_path = silver_index_daily_path(lake_root_path, normalized_partition_key)
-    duckdb_resource = duckdb
-    with duckdb_resource.connect() as connection:
-        normalized_sql = _index_daily_by_date_normalized_select(
-            raw_path,
-            source_trade_date,
-        )
-        conflict_key_count = _conflict_key_count_from_normalized_sql(
-            connection,
-            normalized_sql,
-        )
-        if conflict_key_count:
-            raise RuntimeError(
-                "raw_index_daily has conflicting duplicate rows for "
-                f"{normalized_partition_key}: "
-                f"{_conflict_sample_keys_from_normalized_sql(connection, normalized_sql)}"
-            )
+    return materialize_silver_index_daily_partition_from_raw_file(
+        raw_path=raw_path,
+        target_path=silver_index_daily_path(lake_root_path, normalized_partition_key),
+        duckdb=duckdb,
+        partition_key=normalized_partition_key,
+        log=log,
+    )
 
-        raw_row_count = int(
-            connection.execute(
-                f"SELECT count(*) FROM ({normalized_sql}) normalized"
-            ).fetchone()[0]
-        )
-        if raw_row_count <= 0:
-            raise RuntimeError(
-                "raw_index_daily contains no rows for silver_index_daily "
-                f"partition {normalized_partition_key}."
-            )
-        duplicate_removed_count = _duplicate_removed_count_from_normalized_sql(
+
+def materialize_silver_index_daily_partition_from_raw_file(
+    *,
+    raw_path: Path,
+    target_path: Path,
+    duckdb: DuckDBResource,
+    partition_key: str,
+    log: DgStdoutLogger | None = None,
+) -> SilverIndexDailyWriteResult:
+    """Run the formal Silver normalization against an explicit Raw/target pair."""
+
+    with duckdb.connect() as connection:
+        return write_silver_index_daily_partition_from_raw_file(
             connection,
-            normalized_sql,
+            raw_path=raw_path,
+            target_path=target_path,
+            partition_key=partition_key,
+            log=log,
         )
-        duplicate_sample_rows = _duplicate_sample_rows_from_normalized_sql(
-            connection,
-            normalized_sql,
+
+
+def write_silver_index_daily_partition_from_raw_file(
+    connection,
+    *,
+    raw_path: Path,
+    target_path: Path,
+    partition_key: str,
+    log: DgStdoutLogger | None = None,
+) -> SilverIndexDailyWriteResult:
+    """Connection-reusing form of the formal Silver normalization writer."""
+
+    normalized_partition_key = normalize_iso_trade_date(partition_key)
+    source_trade_date = normalized_partition_key.replace("-", "")
+    if not raw_path.exists():
+        raise FileNotFoundError(
+            "Missing raw_index_daily file for silver_index_daily: " f"{raw_path}"
         )
-        _replace_parquet_from_query(
-            connection,
-            f"""
-            SELECT DISTINCT *
-            FROM ({normalized_sql}) normalized
-            ORDER BY ts_code
-            """,
-            target_path,
+
+    normalized_sql = _index_daily_by_date_normalized_select(
+        raw_path,
+        source_trade_date,
+    )
+    conflict_key_count = _conflict_key_count_from_normalized_sql(
+        connection,
+        normalized_sql,
+    )
+    if conflict_key_count:
+        raise RuntimeError(
+            "raw_index_daily has conflicting duplicate rows for "
+            f"{normalized_partition_key}: "
+            f"{_conflict_sample_keys_from_normalized_sql(connection, normalized_sql)}"
         )
-        columns = tuple(_column_names(connection, target_path))
-        row_count = _row_count(connection, target_path)
+
+    raw_row_count = int(
+        connection.execute(
+            f"SELECT count(*) FROM ({normalized_sql}) normalized"
+        ).fetchone()[0]
+    )
+    if raw_row_count <= 0:
+        raise RuntimeError(
+            "raw_index_daily contains no rows for silver_index_daily "
+            f"partition {normalized_partition_key}."
+        )
+    duplicate_removed_count = _duplicate_removed_count_from_normalized_sql(
+        connection,
+        normalized_sql,
+    )
+    duplicate_sample_rows = _duplicate_sample_rows_from_normalized_sql(
+        connection,
+        normalized_sql,
+    )
+    _replace_parquet_from_query(
+        connection,
+        f"""
+        SELECT DISTINCT *
+        FROM ({normalized_sql}) normalized
+        ORDER BY ts_code
+        """,
+        target_path,
+    )
+    columns = tuple(_column_names(connection, target_path))
+    row_count = _row_count(connection, target_path)
 
     if log:
         log.stdout(

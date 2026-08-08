@@ -1,9 +1,22 @@
 # 科创综指 `000680.SH` 指数日线历史补录 LLD
 
-> 状态：设计完成，尚未开发、尚未执行。
+> 状态：M0 只读合同冻结完成；M1 工具与测试完成；M2 及后续写入阶段尚未执行。
 > 审计日期：2026-08-08。
 > 适用范围：DG 正式湖 `raw_index_daily`、`silver_index_daily`、`gold_market_major_indices_daily`，以及日级主要指数 seed。
 > 不在本轮范围：Tushare 重新请求、Prod 数据写入、分钟线对象池、Wealth 首页 10 指数配置、正式 Dagster instance 写入。
+
+### 当前实施状态（2026-08-08）
+
+本轮只推进 M0、M1，未进入 M2：
+
+1. M0 已使用正式 Prod 只读连接、正式湖和正式 Dagster instance 完成 planner dry-run；报告位于 `/private/tmp/index_daily_000680_history_supplement_plan_m0_m1_20260808.json`。
+2. 冻结 `plan_hash=91a28572b8d55f5de0043eb63f5de3116ba25764afc68f821f49043c5eb6090b`，`should_stop=false`。
+3. source 为 1223 行、1223 个 distinct dates、零缺日、零重复、零关键字段空值、零非法 OHLC；边界 `2025-01-16.close = 2025-01-17.pre_close = 1090.4478`。
+4. 目标文件为 Raw 1223、Silver 1223、Gold 1599；物理文件均存在，历史目标行当前均为 0。
+5. 正式 instance 的目标 1223 个日期分区零缺失，`000680.SH` 已注册，当前注册指数代码 820 个。
+6. 当前日级 seed 仍为 10 个；M1 没有修改 seed。seed 发布和 Gold 全历史写入仍属于 M5 独立审批点。
+7. dry-run 报告中的 `formal_lake/source_staging/dagster_db/dynamic_partitions/dagster_events` 写入计数全部为 0。
+8. M1 已完成 plan/apply/audit/events 四条链路和显式 CLI；没有执行 source staging、候选提升、正式湖替换、partition 注册或 runless event。
 
 ## 1. 目标与冻结口径
 
@@ -160,12 +173,14 @@ dynamic partition reconciliation + runless events
 | `defs/bootstrap/index_daily_000680_history_supplement_plan_cli.py` | dry-run CLI；只输出计划和审计结果 |
 | `defs/bootstrap/index_daily_000680_history_supplement_apply.py` | 执行 source staging、Raw merge、Silver rebuild、Gold rebuild |
 | `defs/bootstrap/index_daily_000680_history_supplement_apply_cli.py` | 显式 `--apply --expected-plan-hash` 写入入口 |
-| `defs/bootstrap/index_daily_000680_history_supplement_events.py` | 物理验收后规划/回放 materialization 与 check events |
+| `defs/bootstrap/index_daily_000680_history_supplement_audit.py` | 只读物理审计 Raw/Silver/Gold 目标行、重复键、跨层 fingerprint 与冻结 plan hash |
+| `defs/bootstrap/index_daily_000680_history_supplement_audit_cli.py` | 只读物理审计 CLI；只向显式报告路径写 JSON |
+| `defs/bootstrap/index_daily_000680_history_supplement_events.py` | 物理验收后规划/回放 runless materialization；check event 数固定为 0，禁止伪造绿色 check |
 | `defs/bootstrap/index_daily_000680_history_supplement_events_cli.py` | 独立 event dry-run/apply 入口 |
 
 命名必须表达真实任务；不得使用 `temp`、`phase`、`fix` 或隐含兼容语义的文件名。
 
-### 5.2 修改正式合同
+### 5.2 后续修改正式合同（M5，当前未执行）
 
 | 文件 | 修改 |
 |---|---|
@@ -314,17 +329,18 @@ ORDER BY ts_code;
 
 ## 8. Silver 重建
 
-Raw 补录成功后，按同一 1223 日期集合调用：
+Raw 补录成功后，按同一 1223 日期集合调用正式 Silver 归一化 writer：
 
 ```python
-materialize_silver_index_daily_partitions_from_raw_by_date(
-    lake_root_path=lake_root,
-    duckdb=duckdb,
-    partition_keys=target_dates,
+write_silver_index_daily_partition_from_raw_file(
+    connection,
+    raw_path=raw_candidate_or_formal_path,
+    target_path=silver_candidate_path,
+    partition_key=target_date,
 )
 ```
 
-Silver 不新增旁路 SQL。必须复用正式 normalization、冲突重复检测、字段合同和原子替换能力。
+正式 asset 也通过同一 writer 执行。Silver 不新增旁路 SQL，继续复用正式 normalization、冲突重复检测、字段合同和原子替换能力；bootstrap 批次复用同一个 DuckDB connection。
 
 每个 Silver 分区验收：
 
@@ -449,8 +465,8 @@ Source 只有 1223 行，数据库读取不是瓶颈；主要成本是 4045 个�
 
 | Milestone | 工作 | 退出条件 |
 |---|---|---|
-| M0 合同冻结 | 复跑 Prod/Lake/instance 只读审计；冻结日期、行数、seed、文件数和 plan hash | 1223 source dates、1223 Raw/Silver target、Gold latest date 已确认 |
-| M1 工具开发 | 开发 plan/apply/audit/events 四条链路和测试 | dry-run 不写文件/instance，静态门禁全绿 |
+| M0 合同冻结 | **已完成**：复跑 Prod/Lake/instance 只读审计；冻结日期、行数、seed、文件数和 plan hash | 1223 source dates、1223 Raw/Silver target、1599 Gold target、plan hash 已确认；正式写入为 0 |
+| M1 工具开发 | **已完成**：开发 plan/apply/audit/events 四条链路、显式 CLI 和测试 | planner dry-run 不写 formal Lake/instance；专项与既有回归全绿 |
 | M2 Source staging | 从 Prod 提取 1223 行并生成 manifest | source blocking gates 全绿 |
 | M3 样本补录 | 只处理 `2020-01-02`、一个中间日、`2025-01-16` | Raw/Silver/Gold 候选校验、原子提升、故障恢复和幂等验证通过 |
 | M4 Raw/Silver 全量 | 分批补 1223 个 Raw，并重建 1223 个 Silver | 每批 checkpoint 与全区间物理审计通过 |
@@ -469,6 +485,7 @@ M3、M4、M5、M7 都是独立写入审批点；前一阶段完成不自动授�
 
 - `tests/test_index_daily_000680_history_supplement_plan.py`
 - `tests/test_index_daily_000680_history_supplement_apply.py`
+- `tests/test_index_daily_000680_history_supplement_audit.py`
 - `tests/test_index_daily_000680_history_supplement_events.py`
 
 必须覆盖：
@@ -495,7 +512,7 @@ M3、M4、M5、M7 都是独立写入审批点；前一阶段完成不自动授�
 
 ```bash
 cd lake_console/orchestrator
-uv run pytest -q \
+PYTHONPATH=src uv run --with pytest python -m pytest -q \
   tests/test_market_major_indices_seed_contracts.py \
   tests/test_market_major_indices_checks.py \
   tests/test_market_major_indices_lake_readiness.py \
@@ -508,6 +525,13 @@ uv run pytest -q \
 ```
 
 再执行仓库规定的 orchestrator 全量静态/定义加载门禁。
+
+M1 当前验证结果：
+
+- 专项测试：18 passed；
+- 既有指数日线/主要指数回归：76 passed，7 subtests passed；
+- `python -m py_compile`：M1 八个模块与四组测试通过；
+- planner dry-run：`should_stop=false`，全部正式写入计数为 0。
 
 ## 14. 最终验收矩阵
 

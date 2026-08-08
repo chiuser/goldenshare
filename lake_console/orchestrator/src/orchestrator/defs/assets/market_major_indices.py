@@ -5,11 +5,11 @@ from typing import Any
 
 import dagster as dg
 
-from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.index_daily import (
     INDEX_DAILY_SILVER_COLUMNS,
     silver_index_daily,
 )
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     count_parquet_query,
@@ -26,13 +26,13 @@ from orchestrator.defs.paths import (
     silver_index_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA,
+)
 from orchestrator.defs.run_contracts.asset_tags import (
     AssetLayer,
     DataDomain,
     build_asset_tags,
-)
-from orchestrator.defs.run_contracts.asset_column_schemas import (
-    GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA,
 )
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
@@ -45,7 +45,6 @@ from orchestrator.seeds.market.major_indices import (
     load_major_indices_seed,
 )
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
-
 
 MARKET_MAJOR_INDICES_DAILY_COLUMNS = tuple(
     column.name for column in GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA
@@ -97,7 +96,7 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
     os.replace(temporary_path, target_path)
 
 
-def _create_major_indices_seed_table(
+def create_major_indices_seed_table(
     connection, table_name: str = "major_indices_seed"
 ) -> int:
     rows = load_major_indices_seed()
@@ -126,6 +125,58 @@ def _create_major_indices_seed_table(
         ],
     )
     return len(rows)
+
+
+def write_gold_market_major_indices_daily_partition(
+    connection,
+    *,
+    seed_table_name: str,
+    seed_count: int,
+    silver_path: Path,
+    target_path: Path,
+    partition_key: str,
+) -> dict[str, Any]:
+    """Write one Gold partition using the same contract as the formal asset."""
+
+    active_seed_rows = active_major_indices_seed_rows(partition_key)
+    if not silver_path.exists():
+        raise FileNotFoundError(
+            "Missing silver_index_daily partition before generating major indices: "
+            f"{silver_path}"
+        )
+    missing_count, missing_samples = _missing_seed_codes_in_silver(
+        connection,
+        seed_table_name=seed_table_name,
+        silver_path=silver_path,
+        partition_key=partition_key,
+    )
+    if missing_count:
+        raise RuntimeError(
+            "silver_index_daily is missing major index rows for "
+            f"{partition_key}: {missing_samples}"
+        )
+    _replace_parquet_from_query(
+        connection,
+        _major_indices_daily_select_sql(
+            seed_table_name=seed_table_name,
+            silver_path=silver_path,
+            partition_key=partition_key,
+        ),
+        target_path,
+    )
+    return {
+        "partition_key": partition_key,
+        "file_path": str(target_path),
+        "output_row_count": _row_count(connection, target_path),
+        "output_columns": _column_names(connection, target_path),
+        "seed_row_count": seed_count,
+        "active_seed_row_count": len(active_seed_rows),
+        "inactive_seed_row_count": seed_count - len(active_seed_rows),
+        "active_seed_codes": [row.ts_code for row in active_seed_rows],
+        "seed_columns": list(MAJOR_INDICES_SEED_COLUMNS),
+        "source_asset": "silver_index_daily",
+        "source_file_path": str(silver_path),
+    }
 
 
 def _active_seed_filter_sql(partition_key: str, *, seed_alias: str = "seed") -> str:
@@ -292,55 +343,22 @@ def gold_market_major_indices_daily(
     )
 
     with connect_configured_duckdb() as connection:
-        seed_count = _create_major_indices_seed_table(connection)
+        seed_count = create_major_indices_seed_table(connection)
         for partition_key in partition_keys:
-            active_seed_rows = active_major_indices_seed_rows(partition_key)
             silver_path = silver_index_daily_path(lake_root.root(), partition_key)
-            if not silver_path.exists():
-                raise FileNotFoundError(
-                    f"Missing silver_index_daily partition before generating major indices: "
-                    f"{silver_path}"
-                )
-
-            missing_count, missing_samples = _missing_seed_codes_in_silver(
-                connection,
-                seed_table_name="major_indices_seed",
-                silver_path=silver_path,
-                partition_key=partition_key,
-            )
-            if missing_count:
-                raise RuntimeError(
-                    "silver_index_daily is missing major index rows for "
-                    f"{partition_key}: {missing_samples}"
-                )
-
             target_path = gold_market_major_indices_daily_path(
                 lake_root.root(), partition_key
             )
-            _replace_parquet_from_query(
-                connection,
-                _major_indices_daily_select_sql(
+            partition_metadata[partition_key] = (
+                write_gold_market_major_indices_daily_partition(
+                    connection,
                     seed_table_name="major_indices_seed",
+                    seed_count=seed_count,
                     silver_path=silver_path,
+                    target_path=target_path,
                     partition_key=partition_key,
-                ),
-                target_path,
+                )
             )
-            columns = _column_names(connection, target_path)
-            row_count = _row_count(connection, target_path)
-            partition_metadata[partition_key] = {
-                "partition_key": partition_key,
-                "file_path": str(target_path),
-                "output_row_count": row_count,
-                "output_columns": columns,
-                "seed_row_count": seed_count,
-                "active_seed_row_count": len(active_seed_rows),
-                "inactive_seed_row_count": seed_count - len(active_seed_rows),
-                "active_seed_codes": [row.ts_code for row in active_seed_rows],
-                "seed_columns": list(MAJOR_INDICES_SEED_COLUMNS),
-                "source_asset": "silver_index_daily",
-                "source_file_path": str(silver_path),
-            }
 
     total_row_count = sum(
         item["output_row_count"] for item in partition_metadata.values()
