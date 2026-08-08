@@ -1,6 +1,6 @@
 # 公募基金九数据集接入总览与分批推进计划 v1
 
-状态：**B0/B1/B2/B3 已实现并通过隔离与生产验收；B4 的 fund_share 与 fund_div 均已完成 M0 至 M3。fund_share 生产 TaskRun `#7556` 首次同步通过；fund_div 生产 TaskRun `#7653/#7654` 首次插入、幂等重跑及完整对账通过。公募基金数据集均未由本专项自动创建 schedule。**
+状态：**B0/B1/B2/B3 已实现并通过隔离与生产验收；B4 的 fund_share 与 fund_div 均已完成 M0 至 M3。B7 fund_portfolio 已完成 M0 与 [LLD](public-fund-b7-fund-portfolio-low-level-design-v1.md)，当前待单独授权 M1；未编码、未迁移、未同步。公募基金数据集均未由本专项自动创建 schedule。**
 确认日期：2026-08-08
 适用范围：Tushare 公募基金菜单的九个数据集接入 Prod
 
@@ -20,7 +20,7 @@
 | 基金分红 | `fund_div` | 公告日事件事实 | [审计](fund-div-onboarding-discovery-audit.md) / [B4 LLD](public-fund-b4-fund-div-low-level-design-v1.md) |
 | 基金净值 | `fund_nav` | 高优先级日度净值与修订 | [审计](fund-nav-onboarding-discovery-audit.md) |
 | 基金技术面因子（专业版） | `fund_factor_pro` | 宽表日度技术因子 | [审计](fund-factor-pro-onboarding-discovery-audit.md) |
-| 基金持仓 | `fund_portfolio` | 季度持仓明细 | [审计](fund-portfolio-onboarding-discovery-audit.md) |
+| 基金持仓 | `fund_portfolio` | 季度持仓明细 | [审计](fund-portfolio-onboarding-discovery-audit.md) / [B7 LLD](public-fund-b7-fund-portfolio-low-level-design-v1.md) |
 
 ## 2. 已定的全局口径
 
@@ -37,7 +37,7 @@
 - **由简单到复杂**：先静态小快照，再全市场分页主数据，再日度/事件模型，最后高量宽表和季度持仓。
 - **每批只引入一种新的共享复杂度**：不在同一批同时引入新分页语义、新时间调度和大规模历史回补。
 - **先建立上游再使用下游**：`fund_basic` 完整对象池验收后，才可启动 `fund_portfolio`。
-- **不以代码特例解决共性问题**：版本化直出、自然日展开、相对时间、活动 unit 防重和页流式写入，若进入实现，必须是有契约和回归测试的共享能力。
+- **不以代码特例解决共性问题**：版本化直出、自然日展开、相对时间、活动 unit 防重和页流式处理，若进入实现，必须是有契约和回归测试的显式 opt-in 能力。分页流式化只降低内存，不得把源分页擅自变成业务提交边界。
 - **LLD 按批编写**：只为当前获准推进的批次编写 LLD；其他未进入批次不得提前用猜测冻结实施细节。
 
 ## 4. 批次依赖
@@ -57,18 +57,20 @@ flowchart LR
 
 `B3` 与 `B4` 在 B2 验收后可分别排期，但默认串行推进，避免同时扩大迁移、Ops/UI 和真实同步排查面。
 
+2026-08-08 已批准 B7 在 B5/B6 前推进。B7 只依赖已生产验收的 B0/B2；B6 与 B7 的限制仍只是大历史回补不得并发，不构成当前 M0/LLD 阻塞。
+
 ## 5. 分批推进计划
 
 | 批次 | 数据集与范围 | 本批新增复杂度 | 进入条件 | 退出门禁 |
 | --- | --- | --- | --- | --- |
 | B0 | 无业务数据集；仅最小共享能力 | 仅“完整无时间快照的当前源记录 + 观察版本”直出写入协议；不含 HDD、Catalog、分页或基金身份 | 本专项确认 | LLD、全量消费者审计、正反向测试；不允许产生业务表写入 |
 | B1 | `fund_company`、`mkt_idx_bmk` | 小型无时间分页快照、观察版本、HDD 物理表与公募基金 Ops 条目 | B0 验收 | ✅ 项目 connector 实测全量/短页行为、全部字段、身份与版本、迁移、Ops/API、两次隔离真实同步及生产首次完整同步五段对账闭环；尚未创建 schedule；两表不做文本关联 |
-| B2 | `fund_basic` | E/O 全市场分页主数据、25 字段 | ✅ B1 生产迁移与首次生产同步对账通过 | ✅ LLD、M1/M2/M3 验收通过：生产单个无 market 完整分页 unit、25 字段、17 页、32,342 行、0 reject，source/current/observation 六向差集为 0，6 个 relation 位于生产 HDD；`fund_portfolio` 可使用该生产已验收对象池；尚未创建 schedule |
+| B2 | `fund_basic` | E/O 全市场分页主数据、25 字段 | ✅ B1 生产迁移与首次生产同步对账通过 | ✅ LLD、M1/M2/M3 验收通过：生产单个无 market 完整分页 unit、25 字段、17 页、32,342 行、0 reject，source/current/observation 六向差集为 0，6 个 relation 位于生产 HDD；B7 批次前置已满足，但 `fund_portfolio` 全市场主请求不以该对象池过滤源结果；尚未创建 schedule |
 | B3 | `fund_manager` | 任职事实、分页快照、跨基金聚合辅助字段 | ✅ B2 验收；✅ M0 源端复审；✅ [LLD](public-fund-b3-fund-manager-low-level-design-v1.md)；✅ M1 Definition、身份/唯一性、显式表/HDD migration、Ops 与本地回归；✅ M2 隔离 migration、真实 84,357 行和 100,000 行容量/原子性验收；✅ M3 生产部署、migration、真实 HDD、TaskRun `#7515` 首次同步与完整对账 | ✅ fetched/normalized/written/current/observation 均为 84,357，reject 0，source/current/observation 哈希摘要一致；schedule 频率延后 |
 | B4 | 先 `fund_share`，后 `fund_div` | Definition 显式 opt-in 的自然日 point fan-out；`fund_share` 按日期作用域刷新 current/observation，`fund_div` 单表不可变只插入；Definition/API 单一事实驱动的自动任务 calendar-policy；逐日分页、事件散列与 exact duplicate 去重 | ✅ B2 验收；✅ `fund_share` M0/LLD/M1；✅ M2 隔离 migration、10 个 HDD relation、真实 `0/6/1,673` 行五段对账、10,000 行容量/回滚/advisory lock；✅ M3 migration `20260807_000128`、10 个生产 HDD relation、TaskRun `#7556` 首次 1,673 行完整对账、三方摘要一致；✅ `fund_div` M0 请求/字段/分页/自然日/exact duplicate 复审；✅ 不可变事实方案与 LLD；✅ M1 Definition、单表 ORM/DAO、writer、Ops/API/UI 与本地门禁；✅ M2 migration `000129/000130`、4 个隔离 HDD relation、真实 `122/141→74/40/0` 对账、10,000 行容量/回滚/advisory lock；✅ M3 生产 4 个 HDD relation、TaskRun `#7653/#7654` 首次 `74 inserted` 与幂等 `74 matched`、源端/目标摘要和三类差集闭环 | `fund_share` 与 `fund_div` 均已完成生产首次同步验收，均未做历史回补或 schedule。`fund_div` 下一边界为 M4a 历史只读预算；历史回补与 schedule 继续分别授权 |
 | B5 | `fund_nav` | E/O 来源分片身份、相对时间、日任务与 90 日修订、按 unit 活动租约防重 | B4 验收 | 通用逐自然日展开、相对时间策略、重叠拒绝/跳过均有后端和前端验证；E/O 全源分页、版本修订和两条自动任务分别验收 |
 | B6 | `fund_factor_pro` | 90 列宽表、交易日历史、容量与限流治理 | B5 验收；HDD/WAL 容量预检通过 | 90 字段和双日期字段校验；历史任务限速、分页、HDD/WAL 水位、停止阈值与最小真实同步对账闭环；不与 B7 大回补并发 |
-| B7 | `fund_portfolio` | `(period, ts_code)` 逻辑 unit、2,000 行页流式写入、报告期历史盘点、全源 A/B 对账 | B2、B0 验收；报告期历史规模盘点与容量/配额预算完成 | 不设页数上限；short page 成功语义、页失败幂等重放、全源基线 A/B 与逐基金身份并集一致；单报告期全链路对账后才允许历史回补 |
+| B7 | `fund_portfolio` | 季度报告期、全市场单遍分页、2,000 行页流式处理、UNLOGGED 非服务中间态、整期原子发布、fail-closed 单事实表与大规模历史治理 | ✅ B2/B0；✅ M0 显式 8 字段、113 个连续非空季度、生产背景池 32,342、HDD/WAL 与当前代码影响面；✅ [LLD](public-fund-b7-fund-portfolio-low-level-design-v1.md) 固定季度输入、staged stream、32 个 HDD hash leaves、定向补录、Ops/UI/schedule 与测试门禁；待授权 M1 | 不设页数上限；short page 才结束；同身份同内容幂等去重、同身份不同内容整期失败；stage page commit 不算业务提交；源端/归一化/stage/提交/reject/目标集合对账；单报告期验收后才允许历史回补 |
 
 ## 6. 各批 LLD 的最低交付物
 
@@ -85,7 +87,7 @@ flowchart LR
 
 - 未完成对应批次 LLD 和门禁前，不创建 Definition、表、迁移、自动任务或远程回补。
 - 不把 `fund_nav` 的相对时间/重叠规则复制为数据集 key 特例；不把 `fund_portfolio` 的页流式逻辑复制成单接口私有实现。
-- `fund_portfolio` 尚未完成历史 `period` 盘点，禁止用样本基金起始日期或“固定 57 个季度”估算回补量。
+- `fund_portfolio` 已确认 `19980630..20260630` 连续 113 个非空季度；该结果只证明报告期清单，不等于逐期精确行数。禁止重新使用样本基金起点、“固定 57 个季度”或把 2025Q2 行数冒充所有季度精确规模。
 - B0/B1/B2/B3 已完成实现、生产迁移与首次完整生产同步五段对账；B4 `fund_share` 与 `fund_div` 也均已完成 M0 至 M3。`fund_share` TaskRun `#7556` 为 1,673 行且 reject 0；`fund_div` TaskRun `#7653/#7654` 为 `141 fetched / 74 saved / 67 deduplicated / 0 reject`，首次 `74 inserted`、重跑 `74 matched`，目标摘要与源端一致。M4 历史预算/回补和 schedule 继续分别受独立授权边界约束。所有 schedule 均需运营明确给出频率与 cron/once 意图后手工创建。
 
 ## 8. 依据与维护规则
