@@ -63,11 +63,19 @@ def build_confirmed_swings(
         if start.pivot_type is PivotType.LOW and end.pivot_type is PivotType.HIGH:
             direction = Direction.UP
             if end.extreme_price <= start.extreme_price:
-                raise ValueError("UP swing must end above its start")
+                raise ValueError(
+                    "UP swing must end above its start: "
+                    f"{start.extreme_at.isoformat()}={start.extreme_price} -> "
+                    f"{end.extreme_at.isoformat()}={end.extreme_price}"
+                )
         elif start.pivot_type is PivotType.HIGH and end.pivot_type is PivotType.LOW:
             direction = Direction.DOWN
             if end.extreme_price >= start.extreme_price:
-                raise ValueError("DOWN swing must end below its start")
+                raise ValueError(
+                    "DOWN swing must end below its start: "
+                    f"{start.extreme_at.isoformat()}={start.extreme_price} -> "
+                    f"{end.extreme_at.isoformat()}={end.extreme_price}"
+                )
         else:
             raise ValueError("adjacent confirmed pivots must alternate")
         if end_index <= start_index or confirmation_index < end_index:

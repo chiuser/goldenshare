@@ -89,6 +89,7 @@ def iter_wave_replay(
         degree=degree,
         continuity_status=continuity_status,
         created_at=created_at,
+        retain_snapshots=False,
     )
     for bar in validated:
         yield incremental.append(bar)
@@ -104,11 +105,13 @@ class IncrementalWaveReplay:
         degree: DegreeProfile,
         continuity_status: ContinuityStatus = ContinuityStatus.COMPLETE,
         created_at: datetime | None = None,
+        retain_snapshots: bool = True,
     ) -> None:
         self._detector = detector
         self._degree = degree
         self._continuity_status = continuity_status
         self._created_at = created_at
+        self._retain_snapshots = retain_snapshots
         self._bars: list[CanonicalBar] = []
         self._pivot_engine = CausalPivotEngine(
             profile=detector,
@@ -159,7 +162,8 @@ class IncrementalWaveReplay:
             confirmed_scenarios=scenarios,
             provisional_scenarios=provisional,
         )
-        self._snapshots.append(snapshot)
+        if self._retain_snapshots:
+            self._snapshots.append(snapshot)
         return snapshot
 
 

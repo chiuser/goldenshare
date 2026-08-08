@@ -2,12 +2,13 @@
 
 更新时间：2026-08-08
 
-状态：源码审计和 G0 已完成；D01～D10 已于 2026-08-08 冻结；G1 周期无关纯内核与 F01～F44 已实现并通过验收；主要指数 30/60 分钟直接分析时过滤 `09:30` 竞价行的口径已补充冻结，adapter 尚未实现。尚未开始 G2 真实数据只读对照，尚未物化新资产，也未运行正式回测。当前开发线程范围仍为 G1～G4，API、Wealth 和正式界面由其他线程后续集成；四浪 MACD 案例继续位于通用主线之外。
+状态：源码审计和 G0 已完成；D01～D10 已于 2026-08-08 冻结；G1 周期无关纯内核与 F01～F44 已实现并通过验收；G2 第一轮日线/120 分钟真实数据只读验证已执行，日线概率门禁通过，120 分钟概率门禁失败且有 1 个价格跳空合同缺口。主要指数 30/60 分钟直接分析时过滤 `09:30` 竞价行的口径已冻结，adapter 尚未实现。尚未物化新资产，也未运行四浪专项回测。当前开发线程范围仍为 G1～G4，API、Wealth 和正式界面由其他线程后续集成；四浪 MACD 案例继续位于通用主线之外。
 
 关联文档：
 
 - [通用波浪识别 G0 冻结合同 v1（D01～D10 已确认）](/Users/congming/github/goldenshare/lake_console/docs/design/index-wave-g0-generic-contract-v1.md)
 - [通用波浪识别 G1 纯内核实现与验收记录 v1](/Users/congming/github/goldenshare/lake_console/docs/design/index-wave-g1-core-implementation-and-acceptance-v1.md)
+- [通用波浪识别 G2 真实数据只读验证与概率校准记录 v1](/Users/congming/github/goldenshare/lake_console/docs/design/index-wave-g2-readonly-real-data-validation-v1.md)
 - [指数四浪反弹失效与趋势反转量化回测方案 v1（独立专项案例，暂缓实施）](/Users/congming/github/goldenshare/docs/datasets/index-wave4-trend-reversal-backtest-plan-v1.md)
 - [主要指数分钟线接入 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-major-index-mins-data-onboarding-low-level-design.md)
 - [90/120 分钟派生合同重建 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-derived-minute-bars-90-120-contract-rebuild-low-level-design.md)

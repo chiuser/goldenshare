@@ -1,16 +1,17 @@
 # 通用波浪识别 G0 冻结合同 v1
 
 - 版本：v1-frozen
-- 状态：G0 已完成并保持冻结；G1 已按本合同实现并通过验收；30/60 分钟竞价行过滤口径已补充冻结，adapter 尚未实现
+- 状态：G0 已完成并保持冻结；G1 已验收；G2 第一轮真实数据只读验证已执行；30/60 分钟 adapter 尚未实现
 - 更新时间：2026-08-08
 - 适用范围：通用、因果、可回放的波浪识别研究内核
-- 当前动作边界：用户已授权并完成 G1；尚未授权 G2、Dagster 资产或正式 Lake 读写
+- 当前动作边界：用户已授权并执行 G2 第一轮只读研究；未授权 Dagster 资产、正式 Lake 写入、API、Wealth 或界面接入
 - 后续范围澄清：通用内核从 G1 起必须与 K 线周期无关；当前开发线程止于 G4，API、Wealth 与正式界面由其他线程后续集成
 
 关联文档：
 
 - [波浪浪型识别开源源码学习与 Goldenshare 适配审计 v1](/Users/congming/github/goldenshare/lake_console/docs/design/elliott-wave-source-study-and-goldenshare-adaptation-audit-v1.md)
 - [通用波浪识别 G1 纯内核实现与验收记录 v1](/Users/congming/github/goldenshare/lake_console/docs/design/index-wave-g1-core-implementation-and-acceptance-v1.md)
+- [通用波浪识别 G2 真实数据只读验证与概率校准记录 v1](/Users/congming/github/goldenshare/lake_console/docs/design/index-wave-g2-readonly-real-data-validation-v1.md)
 - [指数四浪反弹失效与趋势反转量化回测方案 v1（独立专项案例，暂缓实施）](/Users/congming/github/goldenshare/docs/datasets/index-wave4-trend-reversal-backtest-plan-v1.md)
 - [Dagster 数据管道性能治理规范](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-data-pipeline-performance-governance.md)
 - [Dagster Asset Schema 合同](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-asset-schema-contract-design.md)
@@ -40,7 +41,7 @@ Canonical Bar
 4. 启发式分数必须通过独立历史结果校准后，才可能成为概率。
 5. 主要指数 30/60 分钟直接进入波浪分析时，`09:30` 集合竞价行只在 adapter 中过滤：不生成独立 Canonical Bar，也不并入第一根常规 K 线；该规则不改变上游 Silver 和 90/120 分钟派生合同。
 
-第 15 节的 D01～D10 已全部确认并回写正文。G1 已按本文实现并通过 F01～F44；合同冻结和测试通过仍不代表启发式参数已经被 A 股历史样本验证，也不自动授权 G2 读取真实数据。
+第 15 节的 D01～D10 已全部确认并回写正文。G1 已按本文实现并通过 F01～F44。此后用户另行授权了 G2 第一轮只读研究；日线概率门禁通过，120 分钟概率门禁失败，并发现 1 个价格跳空下的 detector/swing 合同缺口。合同冻结、测试和单轮样本结果仍不代表波浪理论已被证明有效。
 
 ---
 
@@ -1172,6 +1173,6 @@ G0 完成条件对账：
 
 ## 17. 下一步
 
-G0 保持冻结，G1 已完成。本次不自动进入 G2。
+G0 保持冻结，G1 已完成，G2 第一轮日线/120 分钟真实数据只读对照已经执行，详见 [G2 记录](./index-wave-g2-readonly-real-data-validation-v1.md)。
 
-用户另行批准 G2 后，第一轮只对主要指数日线和 120 分钟数据做真实数据只读对照，不写正式 Lake。60/30 分钟直接过滤 `09:30` 竞价行的合同已经冻结，待专用 adapter 实现和验收后再扩展；API、Wealth、正式界面和四浪专项仍不进入当前阶段。
+下一轮不得自动开始。应先评审 G2 发现的跨休市价格跳空下 pivot 修正或分段语义；60/30 分钟直接过滤 `09:30` 竞价行的合同已经冻结，待专用 adapter 实现和验收后再扩展。API、Wealth、正式界面和四浪专项仍不进入当前阶段。
