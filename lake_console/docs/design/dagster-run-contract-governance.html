@@ -550,6 +550,14 @@
       <code>cn_a_stk_nineturn_trade_days</code>，不提交 <code>RunRequest</code>，默认
       <code>STOPPED</code>；它不能冒充共享股票交易日分区的维护者，也不能把“注册分区”和“生产九转数据”混在一个 sensor 里。
     </p>
+    <p>
+      前复权九转生产 sensor 的确定分类是：<code>gold_stock_daily_qfq_nineturn_update_job_sensor</code>
+      与 <code>gold_stk_mins_qfq_nineturn_update_job_sensor</code> 均使用
+      <code>quote_data / gold / asset_update</code>，默认 <code>STOPPED</code>，每个 tick
+      最多提交一个日期。它们只使用统一 <code>build_asset_update_run_key(...)</code> 和
+      <code>build_run_request(...)</code>，不写自定义 run tags 或深层 run config；具体 readiness
+      与性能边界以<a href="dagster-stock-qfq-nineturn-dataset-low-level-design.md">前复权九转 LLD</a>为准。
+    </p>
   </section>
 
   <section>
@@ -1178,6 +1186,14 @@ ops:
     <div class="note">
       <strong>M7 已实施口径：</strong>所有会写 cursor 的普通 sensor 已统一使用
       <code>build_sensor_cursor(...)</code> 写出 v1 结构。指数 raw sensor 只保留本 tick 的目标交易日、阻断组件、raw readiness 摘要与 prod source 最小证据；不保存跨 tick code offset、批量 status samples 或完整 readiness 报告。正确性仍由本次 raw 文件事实、prod source 探针和 <code>run_key</code> 去重保证。
+    </div>
+    <div class="note">
+      <strong>前复权九转 P3 口径：</strong>两个九转 sensor 的 cursor 只保留目标日期、
+      <code>reason_code</code>、<code>blocked_component</code>、短中文摘要、下一步动作、
+      有界 frontier 和必要计数，正常 request/skip 小于 2KB。禁止写入完整 readiness、
+      路径/code 列表、factor repair metadata、<code>status_samples</code> 或报告型
+      <code>to_cursor_details()</code>。目标 materialized 但 check failed 时只提示人工修复，
+      不通过 cursor 状态自动覆盖。
     </div>
 
     <table>

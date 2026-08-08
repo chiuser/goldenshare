@@ -63,6 +63,10 @@ from orchestrator.defs.assets.stock_daily import (
     silver_stock_daily,
 )
 from orchestrator.defs.assets.stock_daily_qfq import gold_stock_daily_qfq
+from orchestrator.defs.assets.qfq_nineturn import (
+    GOLD_STK_MINS_QFQ_NINETURN_ASSETS,
+    gold_stock_daily_qfq_nineturn,
+)
 from orchestrator.defs.assets.stk_nineturn import (
     raw_tushare_stk_nineturn,
     silver_stock_nineturn_daily,
@@ -159,7 +163,6 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA,
     GOLD_MARKET_BREADTH_DAILY_SCHEMA,
     GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA,
-    GOLD_STOCK_DAILY_QFQ_SCHEMA,
     GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA,
     GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA,
     GOLD_STK_MINS_QFQ_SCHEMA,
@@ -232,6 +235,7 @@ ACTIVE_ASSET_DEFINITIONS = (
     raw_tushare_adj_factor,
     silver_adj_factor,
     gold_stock_daily_qfq,
+    gold_stock_daily_qfq_nineturn,
     raw_stk_mins_1m,
     raw_stk_mins_5m,
     raw_stk_mins_15m,
@@ -249,6 +253,7 @@ ACTIVE_ASSET_DEFINITIONS = (
     gold_stk_mins_qfq_60m,
     gold_stk_mins_qfq_90m,
     gold_stk_mins_qfq_120m,
+    *GOLD_STK_MINS_QFQ_NINETURN_ASSETS,
     *GOLD_STK_MINS_QFQ_MACD_KDJ_ASSETS,
     raw_tushare_index_basic,
     silver_index_basic,
@@ -417,7 +422,9 @@ class AssetGovernanceContractTests(unittest.TestCase):
             len(entries),
             len(ACTIVE_ASSETS_BY_KEY) + len(CONTRACT_ONLY_CATALOG_ASSET_KEYS),
         )
-        self.assertEqual(tuple(entry.asset_key for entry in entries), list_lake_asset_keys())
+        self.assertEqual(
+            tuple(entry.asset_key for entry in entries), list_lake_asset_keys()
+        )
         self.assertEqual(
             set(list_lake_asset_keys()),
             set(ACTIVE_ASSETS_BY_KEY) | CONTRACT_ONLY_CATALOG_ASSET_KEYS,
@@ -499,6 +506,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
             gold_stk_mins_qfq_60m,
             gold_stk_mins_qfq_90m,
             gold_stk_mins_qfq_120m,
+            *GOLD_STK_MINS_QFQ_NINETURN_ASSETS,
         )
 
         for asset in raw_assets:
@@ -525,6 +533,11 @@ class AssetGovernanceContractTests(unittest.TestCase):
                         spec.partitions_def,
                         cn_a_stock_mins_silver_trade_days,
                     )
+
+        self.assertEqual(
+            gold_stock_daily_qfq_nineturn.partitions_def,
+            cn_a_stock_trade_days,
+        )
 
         self.assertEqual(
             raw_tushare_stk_nineturn.partitions_def,
@@ -633,10 +646,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         )
         self.assertEqual(
             RAW_STK_NINETURN_COLUMN_TYPES,
-            {
-                column.name: column.type
-                for column in RAW_TUSHARE_STK_NINETURN_SCHEMA
-            },
+            {column.name: column.type for column in RAW_TUSHARE_STK_NINETURN_SCHEMA},
         )
         self.assertEqual(
             SILVER_STOCK_NINETURN_DAILY_COLUMNS,
@@ -644,10 +654,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         )
         self.assertEqual(
             SILVER_STOCK_NINETURN_DAILY_COLUMN_TYPES,
-            {
-                column.name: column.type
-                for column in SILVER_STOCK_NINETURN_DAILY_SCHEMA
-            },
+            {column.name: column.type for column in SILVER_STOCK_NINETURN_DAILY_SCHEMA},
         )
         self.assertEqual(
             ADJ_FACTOR_RAW_REQUIRED_COLUMNS,
@@ -690,10 +697,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         )
         self.assertEqual(
             INDEX_DAILY_RAW_COLUMN_TYPES,
-            {
-                column.name: column.type
-                for column in RAW_INDEX_DAILY_SCHEMA
-            },
+            {column.name: column.type for column in RAW_INDEX_DAILY_SCHEMA},
         )
         self.assertEqual(
             TRADE_CALENDAR_SILVER_REQUIRED_COLUMNS,

@@ -12,6 +12,7 @@ from orchestrator.defs.asset_guards.adj_factor_lake_readiness import (
 )
 from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
     batch_gold_stk_mins_qfq_lake_readiness,
+    batch_gold_stk_mins_qfq_nineturn_upstream_lake_readiness,
     batch_raw_stk_mins_lake_readiness,
     batch_silver_stk_mins_lake_readiness,
 )
@@ -52,7 +53,9 @@ from orchestrator.defs.stk_mins_qfq import (
 
 
 def _trade_dates(count: int, *, start: date = date(2026, 4, 1)) -> tuple[str, ...]:
-    return tuple((start + timedelta(days=offset)).isoformat() for offset in range(count))
+    return tuple(
+        (start + timedelta(days=offset)).isoformat() for offset in range(count)
+    )
 
 
 def _write_raw_file(
@@ -401,8 +404,12 @@ def _write_derived_qfq_file(
     ts_code: str = "000001.SZ",
 ) -> None:
     source_freq = qfq_source_freq_for_derived_freq(target_freq)
-    source_path = gold_stk_mins_qfq_path(lake_root, source_freq, ts_code, trade_date[:4])
-    target_path = gold_stk_mins_qfq_path(lake_root, target_freq, ts_code, trade_date[:4])
+    source_path = gold_stk_mins_qfq_path(
+        lake_root, source_freq, ts_code, trade_date[:4]
+    )
+    target_path = gold_stk_mins_qfq_path(
+        lake_root, target_freq, ts_code, trade_date[:4]
+    )
     target_path.parent.mkdir(parents=True, exist_ok=True)
     derived_sql = build_gold_stk_mins_qfq_derived_select_sql(
         source_qfq_paths=[source_path],
@@ -430,7 +437,9 @@ def _write_gold_qfq_ready_inputs(
         5: ("09:35:00",),
         15: ("09:45:00",),
         30: tuple(dict.fromkeys(row[0] for row in cn_a_derived_minute_window_rows(90))),
-        60: tuple(dict.fromkeys(row[0] for row in cn_a_derived_minute_window_rows(120))),
+        60: tuple(
+            dict.fromkeys(row[0] for row in cn_a_derived_minute_window_rows(120))
+        ),
     }
     for freq, trade_times in native_times.items():
         _write_silver_file_for_times(
@@ -454,6 +463,8 @@ def _write_gold_qfq_ready_inputs(
             trade_date=trade_date,
             target_freq=target_freq,
         )
+
+
 def _write_silver_ready_inputs(
     connection,
     lake_root: Path,
@@ -479,7 +490,10 @@ def _write_silver_ready_inputs(
 
 class StkMinsLakeReadinessTests(unittest.TestCase):
     def test_raw_batch_readiness_returns_ready_for_complete_window(self) -> None:
-        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
             lake_root = Path(directory)
             trade_dates = _trade_dates(60)
             for trade_date in trade_dates:
@@ -501,17 +515,24 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         self.assertEqual(batch_status.expected_count, 60)
         self.assertEqual(batch_status.freq_count, len(STK_MINS_FREQS))
         self.assertGreaterEqual(batch_status.elapsed_ms, 0)
-        self.assertTrue(all(status.ready for status in batch_status.statuses_by_trade_date.values()))
+        self.assertTrue(
+            all(status.ready for status in batch_status.statuses_by_trade_date.values())
+        )
         self.assertEqual(
             batch_status.status_for_trade_date(trade_dates[-1]).checked_row_count,
             len(STK_MINS_FREQS),
         )
 
     def test_raw_batch_readiness_marks_missing_file_as_not_materialized(self) -> None:
-        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
             lake_root = Path(directory)
             for freq in STK_MINS_FREQS[:-1]:
-                _write_raw_file(connection, lake_root, trade_date="2026-06-15", freq=freq)
+                _write_raw_file(
+                    connection, lake_root, trade_date="2026-06-15", freq=freq
+                )
 
             batch_status = batch_raw_stk_mins_lake_readiness(
                 connection=connection,
@@ -554,7 +575,10 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
                 "check": RAW_STK_MINS_VALUE_DOMAIN_CHECK,
             },
         )
-        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
             lake_root = Path(directory)
             for case in cases:
                 for freq in STK_MINS_FREQS:
@@ -581,11 +605,18 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
             self.assertFalse(status.checks_passed)
             self.assertIn(case["check"], status.failed_check_names)
 
-    def test_raw_batch_readiness_fails_closed_for_unregistered_or_unknown_date(self) -> None:
-        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+    def test_raw_batch_readiness_fails_closed_for_unregistered_or_unknown_date(
+        self,
+    ) -> None:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
             lake_root = Path(directory)
             for freq in STK_MINS_FREQS:
-                _write_raw_file(connection, lake_root, trade_date="2026-06-15", freq=freq)
+                _write_raw_file(
+                    connection, lake_root, trade_date="2026-06-15", freq=freq
+                )
 
             batch_status = batch_raw_stk_mins_lake_readiness(
                 connection=connection,
@@ -603,7 +634,10 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         self.assertIn("status_missing", unknown_status.failed_check_names[0])
 
     def test_adj_factor_batch_readiness_returns_ready_for_complete_window(self) -> None:
-        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
             lake_root = Path(directory)
             trade_dates = _trade_dates(3)
             _write_adj_factor_stock_lifecycle_file(connection, lake_root)
@@ -624,7 +658,10 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         )
 
     def test_adj_factor_batch_readiness_detects_blocking_failures(self) -> None:
-        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
             lake_root = Path(directory)
             _write_adj_factor_stock_lifecycle_file(connection, lake_root)
             _write_adj_factor_files(
@@ -655,13 +692,20 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         second_status = batch_status.status_for_trade_date("2026-06-16")
         self.assertFalse(first_status.ready)
         self.assertTrue(first_status.materialized)
-        self.assertIn("raw_adj_factor_partition_date_matches", first_status.failed_check_names)
+        self.assertIn(
+            "raw_adj_factor_partition_date_matches", first_status.failed_check_names
+        )
         self.assertFalse(second_status.ready)
         self.assertTrue(second_status.materialized)
-        self.assertIn("raw_adj_factor_positive_factor", second_status.failed_check_names)
+        self.assertIn(
+            "raw_adj_factor_positive_factor", second_status.failed_check_names
+        )
 
     def test_silver_batch_readiness_returns_ready_for_complete_window(self) -> None:
-        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
             lake_root = Path(directory)
             trade_dates = _trade_dates(60)
             _write_stock_lifecycle_file(connection, lake_root)
@@ -685,19 +729,28 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         self.assertEqual(batch_status.dataset, "silver_stk_mins")
         self.assertEqual(batch_status.expected_count, 60)
         self.assertGreaterEqual(batch_status.elapsed_ms, 0)
-        self.assertTrue(all(status.ready for status in batch_status.statuses_by_trade_date.values()))
+        self.assertTrue(
+            all(status.ready for status in batch_status.statuses_by_trade_date.values())
+        )
         self.assertEqual(
             batch_status.status_for_trade_date(trade_dates[-1]).checked_row_count,
             len(STK_MINS_FREQS),
         )
 
-    def test_silver_batch_readiness_marks_missing_file_as_not_materialized(self) -> None:
-        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+    def test_silver_batch_readiness_marks_missing_file_as_not_materialized(
+        self,
+    ) -> None:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
             lake_root = Path(directory)
             _write_stock_lifecycle_file(connection, lake_root)
             _write_silver_ready_inputs(connection, lake_root, trade_date="2026-06-15")
             for freq in STK_MINS_FREQS[:-1]:
-                _write_silver_file(connection, lake_root, trade_date="2026-06-15", freq=freq)
+                _write_silver_file(
+                    connection, lake_root, trade_date="2026-06-15", freq=freq
+                )
 
             batch_status = batch_silver_stk_mins_lake_readiness(
                 connection=connection,
@@ -744,7 +797,10 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
                 "check": SILVER_STK_MINS_VALUE_DOMAIN_CHECK,
             },
         )
-        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
             lake_root = Path(directory)
             _write_stock_lifecycle_file(connection, lake_root)
             for case in cases:
@@ -777,7 +833,9 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
             self.assertFalse(status.checks_passed)
             self.assertIn(case["check"], status.failed_check_names)
 
-    def test_silver_batch_readiness_checks_stock_daily_suspend_and_lifecycle(self) -> None:
+    def test_silver_batch_readiness_checks_stock_daily_suspend_and_lifecycle(
+        self,
+    ) -> None:
         cases = (
             {
                 "trade_date": "2026-06-15",
@@ -801,7 +859,10 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
                 "check": SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK,
             },
         )
-        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
             lake_root = Path(directory)
             _write_stock_lifecycle_file(connection, lake_root, ts_code="000001.SZ")
             for case in cases:
@@ -834,8 +895,13 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
             self.assertTrue(status.materialized)
             self.assertIn(case["check"], status.failed_check_names)
 
-    def test_silver_batch_readiness_accepts_delisted_stock_inside_lifecycle(self) -> None:
-        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+    def test_silver_batch_readiness_accepts_delisted_stock_inside_lifecycle(
+        self,
+    ) -> None:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
             lake_root = Path(directory)
             _write_stock_lifecycle_file(
                 connection,
@@ -870,10 +936,15 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
 
         status = batch_status.status_for_trade_date("2026-04-10")
         self.assertTrue(status.ready)
-        self.assertNotIn(SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK, status.failed_check_names)
+        self.assertNotIn(
+            SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK, status.failed_check_names
+        )
 
     def test_silver_batch_readiness_rejects_delist_effective_date_rows(self) -> None:
-        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
             lake_root = Path(directory)
             _write_stock_lifecycle_file(
                 connection,
@@ -926,8 +997,13 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         self.assertFalse(status.ready)
         self.assertIn("status_missing", status.failed_check_names[0])
 
-    def test_gold_qfq_batch_readiness_returns_ready_for_native_and_derived(self) -> None:
-        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+    def test_gold_qfq_batch_readiness_returns_ready_for_native_and_derived(
+        self,
+    ) -> None:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
             lake_root = Path(directory)
             _write_gold_qfq_ready_inputs(
                 connection,
@@ -948,10 +1024,43 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         self.assertTrue(status.ready)
         self.assertEqual(status.expected_file_count, len(STK_MINS_QFQ_FREQS))
 
+    def test_nineturn_upstream_readiness_uses_only_required_four_freqs(self) -> None:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
+            lake_root = Path(directory)
+            _write_gold_qfq_ready_inputs(
+                connection,
+                lake_root,
+                trade_date="2026-06-15",
+            )
+            gold_stk_mins_qfq_path(
+                lake_root,
+                1,
+                "000001.SZ",
+                "2026",
+            ).unlink()
+
+            batch_status = batch_gold_stk_mins_qfq_nineturn_upstream_lake_readiness(
+                connection=connection,
+                lake_root=lake_root,
+                expected_trade_dates=("2026-06-15",),
+                registered_trade_days=("2026-06-15",),
+            )
+
+        status = batch_status.status_for_trade_date("2026-06-15")
+        self.assertTrue(status.ready)
+        self.assertEqual(batch_status.freq_count, 4)
+        self.assertEqual(status.expected_file_count, 4)
+
     def test_gold_qfq_batch_readiness_marks_missing_file_as_not_materialized(
         self,
     ) -> None:
-        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
             lake_root = Path(directory)
             _write_gold_qfq_ready_inputs(
                 connection,
@@ -983,7 +1092,10 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     def test_gold_qfq_batch_readiness_marks_missing_target_date_rows_as_not_materialized(
         self,
     ) -> None:
-        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
             lake_root = Path(directory)
             _write_gold_qfq_ready_inputs(
                 connection,
@@ -999,8 +1111,14 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
                 1: ("09:31:00",),
                 5: ("09:35:00",),
                 15: ("09:45:00",),
-                30: tuple(dict.fromkeys(row[0] for row in cn_a_derived_minute_window_rows(90))),
-                60: tuple(dict.fromkeys(row[0] for row in cn_a_derived_minute_window_rows(120))),
+                30: tuple(
+                    dict.fromkeys(row[0] for row in cn_a_derived_minute_window_rows(90))
+                ),
+                60: tuple(
+                    dict.fromkeys(
+                        row[0] for row in cn_a_derived_minute_window_rows(120)
+                    )
+                ),
             }
             for freq, trade_times in native_times.items():
                 _write_silver_file_for_times(
@@ -1040,7 +1158,10 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
             )
 
     def test_gold_qfq_batch_readiness_does_not_recalculate_qfq_prices(self) -> None:
-        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
             lake_root = Path(directory)
             _write_gold_qfq_ready_inputs(
                 connection,
@@ -1074,7 +1195,10 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     def test_gold_qfq_batch_readiness_rejects_invalid_derived_source_day(
         self,
     ) -> None:
-        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
             lake_root = Path(directory)
             trade_date = "2026-06-15"
             _write_gold_qfq_ready_inputs(
@@ -1109,7 +1233,10 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         )
 
     def test_gold_qfq_batch_readiness_does_not_call_single_date_helpers(self) -> None:
-        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
             lake_root = Path(directory)
             _write_gold_qfq_ready_inputs(
                 connection,
@@ -1126,12 +1253,16 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
                 patch.object(
                     lake_readiness_module,
                     "_gold_qfq_native_counts_for_trade_date",
-                    side_effect=AssertionError("batch must not call per-date native counts"),
+                    side_effect=AssertionError(
+                        "batch must not call per-date native counts"
+                    ),
                 ),
                 patch.object(
                     lake_readiness_module,
                     "_gold_qfq_derived_counts_for_trade_date",
-                    side_effect=AssertionError("batch must not call per-date derived counts"),
+                    side_effect=AssertionError(
+                        "batch must not call per-date derived counts"
+                    ),
                 ),
             ):
                 batch_status = batch_gold_stk_mins_qfq_lake_readiness(

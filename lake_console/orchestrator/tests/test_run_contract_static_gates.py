@@ -221,6 +221,47 @@ def _is_allowed_sensor_run_key_value(path: Path, node: ast.AST) -> bool:
 
 
 class RunContractStaticGateTests(unittest.TestCase):
+    def test_qfq_nineturn_p1_keeps_formula_and_writer_boundaries(self) -> None:
+        contract_path = DEFS_DIR / "run_contracts" / "qfq_nineturn.py"
+        calculator_path = DEFS_DIR / "qfq_nineturn.py"
+        paths_path = DEFS_DIR / "paths.py"
+        contract_source = contract_path.read_text()
+        calculator_source = calculator_path.read_text()
+        paths_source = paths_path.read_text()
+
+        for required in (
+            "QFQ_NINETURN_COMPARISON_LAG = 4",
+            "QFQ_NINETURN_SIGNAL_THRESHOLD = 9",
+            "QFQ_NINETURN_VERSION = 1",
+            "QFQ_NINETURN_MINUTE_FREQS = (30, 60, 90, 120)",
+        ):
+            self.assertIn(required, contract_source)
+            self.assertNotIn(required, calculator_source)
+        for required in (
+            "build_gold_stock_daily_qfq_nineturn_select_sql",
+            "build_gold_stk_mins_qfq_nineturn_select_sql",
+            "copy_query_to_parquet",
+            "os.replace",
+            "build_qfq_nineturn_source_fingerprint",
+            "DuckDBResource",
+        ):
+            self.assertIn(required, calculator_source)
+        for forbidden in (
+            "WITH RECURSIVE",
+            "duckdb.connect(",
+            "iterrows(",
+            "itertuples(",
+            "qfq_nineturn_state",
+            "os.environ",
+            "@dg.asset",
+            "@dg.asset_check",
+            "@dg.sensor",
+            "define_asset_job",
+            "report_runless_asset_event",
+        ):
+            self.assertNotIn(forbidden, calculator_source)
+        self.assertIn("normalize_qfq_nineturn_minute_freq", paths_source)
+
     def test_dc_industry_hierarchy_is_manual_seed_snapshot_without_automatic_consumers(
         self,
     ) -> None:
@@ -2706,7 +2747,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 64)
+        self.assertEqual(sensor_definition_count, 66)
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:
@@ -5630,9 +5671,7 @@ class RunContractStaticGateTests(unittest.TestCase):
         qfq_strict_batch_paths = (
             DEFS_DIR / "stk_mins_qfq.py",
             DEFS_DIR / "asset_guards" / "stk_mins_lake_readiness.py",
-            DEFS_DIR
-            / "bootstrap"
-            / "stk_mins_qfq_derived_bootstrap_events.py",
+            DEFS_DIR / "bootstrap" / "stk_mins_qfq_derived_bootstrap_events.py",
         )
         for path in qfq_strict_batch_paths:
             source = path.read_text(encoding="utf-8")
@@ -5732,6 +5771,64 @@ class RunContractStaticGateTests(unittest.TestCase):
             issues.append(
                 "historical materialization CLI must require explicit --apply"
             )
+        self.assertEqual(issues, [])
+
+    def test_qfq_nineturn_checks_and_readiness_do_not_recalculate_formula(self) -> None:
+        check_source = (DEFS_DIR / "checks" / "qfq_nineturn_checks.py").read_text(
+            encoding="utf-8"
+        )
+        readiness_source = (
+            DEFS_DIR / "asset_guards" / "qfq_nineturn_lake_readiness.py"
+        ).read_text(encoding="utf-8")
+        issues = []
+        for forbidden in (
+            "LAG(close",
+            "segment_id",
+            "QFQ_NINETURN_COMPARISON_LAG",
+            "build_gold_stock_daily_qfq_nineturn_select_sql",
+            "build_gold_stk_mins_qfq_nineturn_select_sql",
+        ):
+            if forbidden in check_source or forbidden in readiness_source:
+                issues.append(
+                    f"qfq nineturn production validation recalculates formula: {forbidden}"
+                )
+        if "batch_gold_stk_mins_qfq_lake_readiness(" in readiness_source:
+            issues.append(
+                "qfq nineturn readiness must not call the default seven-frequency helper"
+            )
+        self.assertEqual(issues, [])
+
+    def test_qfq_nineturn_jobs_and_sensors_keep_p3_boundaries(self) -> None:
+        daily_sensor_source = (
+            DEFS_DIR / "sensors" / "stock_daily_qfq_nineturn_sensor.py"
+        ).read_text(encoding="utf-8")
+        minute_sensor_source = (
+            DEFS_DIR / "sensors" / "stk_mins_qfq_nineturn_sensor.py"
+        ).read_text(encoding="utf-8")
+        job_source = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (
+                DEFS_DIR / "jobs" / "stock_daily_qfq_nineturn_update.py",
+                DEFS_DIR / "jobs" / "stk_mins_qfq_nineturn_update.py",
+            )
+        )
+        issues = []
+        if "batch_gold_stk_mins_qfq_nineturn_upstream_lake_readiness(" not in (
+            minute_sensor_source
+        ):
+            issues.append("minute qfq nineturn sensor misses four-frequency readiness")
+        for forbidden in (
+            "batch_gold_stk_mins_qfq_lake_readiness(",
+            "to_cursor_details(",
+            "status_samples",
+            "raw_tushare",
+            "prod_postgres",
+        ):
+            if forbidden in daily_sensor_source or forbidden in minute_sensor_source:
+                issues.append(f"qfq nineturn sensor contains forbidden {forbidden}")
+        for forbidden in ("duckdb", "paths import", "write_", "select "):
+            if forbidden.lower() in job_source.lower():
+                issues.append(f"qfq nineturn job contains forbidden {forbidden}")
         self.assertEqual(issues, [])
 
 

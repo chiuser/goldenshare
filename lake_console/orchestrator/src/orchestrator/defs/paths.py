@@ -9,6 +9,9 @@ from orchestrator.defs.run_contracts.major_index_mins import (
     normalize_major_index_mins_source_freq,
     normalize_major_index_mins_trade_date,
 )
+from orchestrator.defs.run_contracts.qfq_nineturn import (
+    normalize_qfq_nineturn_minute_freq,
+)
 from orchestrator.defs.run_contracts.stk_mins import (
     normalize_stk_mins_freq,
     normalize_stk_mins_qfq_freq,
@@ -177,6 +180,41 @@ def gold_stk_mins_qfq_path(root: Path, freq: int | str, ts_code: str, year: int 
     )
 
 
+def gold_stk_mins_qfq_nineturn_path(
+    root: Path,
+    freq: int | str,
+    partition_key: str,
+) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "indicator",
+        "stk_mins_qfq_nineturn",
+        f"freq={normalize_qfq_nineturn_minute_freq(freq)}",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
+def gold_stk_mins_qfq_nineturn_staging_path(
+    root: Path,
+    run_id: str,
+    freq: int | str,
+    partition_key: str,
+) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "indicator",
+        "stk_mins_qfq_nineturn",
+        "_staging",
+        _qfq_nineturn_run_id_part(run_id),
+        f"freq={normalize_qfq_nineturn_minute_freq(freq)}",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
 def gold_stk_mins_qfq_macd_kdj_path(
     root: Path,
     freq: int | str,
@@ -264,6 +302,43 @@ def gold_stock_daily_qfq_path(root: Path, partition_key: str) -> Path:
         f"trade_date={partition_key}",
         "part-000.parquet",
     )
+
+
+def gold_stock_daily_qfq_nineturn_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "indicator",
+        "stock_daily_qfq_nineturn",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
+def gold_stock_daily_qfq_nineturn_staging_path(
+    root: Path,
+    run_id: str,
+    partition_key: str,
+) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "indicator",
+        "stock_daily_qfq_nineturn",
+        "_staging",
+        _qfq_nineturn_run_id_part(run_id),
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
+def _qfq_nineturn_run_id_part(run_id: str) -> str:
+    normalized = str(run_id).strip()
+    if not normalized or "/" in normalized:
+        raise ValueError(
+            "QFQ nine-turn run_id must be non-empty and must not contain '/'."
+        )
+    return f"run_id={normalized}"
 
 
 def gold_dc_daily_technical_path(root: Path, partition_key: str) -> Path:

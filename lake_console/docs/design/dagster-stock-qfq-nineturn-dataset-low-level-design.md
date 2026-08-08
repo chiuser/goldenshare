@@ -1,6 +1,6 @@
 # 股票前复权九转资产族低层设计
 
-状态：代码级设计已完成，待 P0 profiling 和开发批准
+状态：P0 至 P5 已完成；五个资产、五个聚合 check、catalog、专用 readiness、两个 job、两个默认停止的 sensor 及离线历史工具已落地并通过 Definitions/正式只读 preflight；未执行正式 Lake、Dagster event 或动态分区写入
 
 上位方案：
 [`dagster-stock-qfq-nineturn-dataset-plan.md`](./dagster-stock-qfq-nineturn-dataset-plan.md)
@@ -76,6 +76,7 @@ gold_stk_mins_qfq_nineturn_update_job_sensor
 ```text
 orchestrator/src/orchestrator/defs/run_contracts/qfq_nineturn.py
 orchestrator/src/orchestrator/defs/qfq_nineturn.py
+orchestrator/src/orchestrator/defs/qfq_nineturn_integrity.py
 orchestrator/src/orchestrator/defs/assets/qfq_nineturn.py
 orchestrator/src/orchestrator/defs/checks/qfq_nineturn_checks.py
 orchestrator/src/orchestrator/defs/asset_guards/qfq_nineturn_lake_readiness.py
@@ -93,11 +94,13 @@ orchestrator/src/orchestrator/defs/bootstrap/qfq_nineturn_events_cli.py
 
 ```text
 orchestrator/src/orchestrator/defs/paths.py
+orchestrator/src/orchestrator/defs/asset_guards/stk_mins_lake_readiness.py
 orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py
 orchestrator/src/orchestrator/defs/catalog/name_mapping.py
 orchestrator/src/orchestrator/defs/catalog/lake_assets.py
 orchestrator/tests/test_asset_governance_contracts.py
 orchestrator/tests/test_run_contract_static_gates.py
+orchestrator/tests/test_stk_mins_lake_readiness.py
 ```
 
 Definitions 通过现有 `load_from_defs_folder` 自动发现，不新增手工 definitions 列表。
@@ -210,6 +213,19 @@ def gold_stk_mins_qfq_nineturn_path(
     freq: int | str,
     partition_key: str,
 ) -> Path
+
+def gold_stock_daily_qfq_nineturn_staging_path(
+    root: Path,
+    run_id: str,
+    partition_key: str,
+) -> Path
+
+def gold_stk_mins_qfq_nineturn_staging_path(
+    root: Path,
+    run_id: str,
+    freq: int | str,
+    partition_key: str,
+) -> Path
 ```
 
 返回：
@@ -226,7 +242,7 @@ gold/indicator/stock_daily_qfq_nineturn/_staging/run_id=<run_id>/trade_date=<dat
 gold/indicator/stk_mins_qfq_nineturn/_staging/run_id=<run_id>/freq=<freq>/trade_date=<date>/part-000.parquet
 ```
 
-writer 使用 `.tmp -> contract validate -> os.replace`，失败时删除 staging，原目标文件保持不变。
+writer 使用 `staging -> contract validate -> source fingerprint recheck -> os.replace`，失败时删除 staging，原目标文件保持不变。
 
 ## 7. 计算 SQL
 
@@ -273,6 +289,17 @@ nine_down_turn = CASE WHEN down_count >= 9 THEN '-9' END
 6. fallback 代码超过 `QFQ_NINETURN_FALLBACK_CODE_LIMIT` 时 fail closed，要求离线恢复；不得把大量历史扫描塞进普通日常 run。
 
 日线 fallback 通过全历史日线 QFQ 文件投影指定代码；分钟 fallback 直接读取指定代码的 QFQ 股票年份文件。禁止 Python 按 bar 循环。
+
+P1 已将上述计算口径落为四个纯 SQL builder：
+
+```python
+build_gold_stock_daily_qfq_nineturn_select_sql(...)
+build_gold_stk_mins_qfq_nineturn_select_sql(...)
+build_gold_stock_daily_qfq_nineturn_partition_select_sql(...)
+build_gold_stk_mins_qfq_nineturn_partition_select_sql(...)
+```
+
+前两个用于全历史精确计算和 fallback；后两个只计算目标分区，接收上一九转分区作为种子，并要求调用方显式传入需要精确重算的 code-scoped fallback。builder 不自行判断资产 readiness，也不读取 Dagster event。
 
 ### 7.3 上游并发保护
 
@@ -430,6 +457,15 @@ readiness 复刻聚合 check 的文件、schema、键、值域和 source key cov
 - 分钟 sensor 最多 5 个日期，按 4 个频度批量执行。
 - 不逐日期读取 Dagster event history。
 - selected date 的 factor repair 状态复用现有 bounded helper。
+
+分钟上游 QFQ readiness 必须只验证 30/60/90/120m，同时完整保留现有 QFQ blocking checks 语义。实现方式固定为：
+
+1. 在 `stk_mins_lake_readiness.py` 把现有七频度 batch 的内部计算抽成可显式接收 native/derived frequency tuple 的共享私有内核。
+2. 现有公开 `batch_gold_stk_mins_qfq_lake_readiness(...)` 继续固定传入全部七频度，签名、消费者和结果语义保持不变。
+3. `qfq_nineturn_lake_readiness.py` 新增九转专用上游入口，只传 native `(30, 60)` 和 derived `(90, 120)`。
+4. 禁止复制一份 QFQ SQL，禁止用 Dagster materialization-only 或缺少 check event 代替 Lake 完整语义。
+
+P0 中现有七频度 helper 的 5 日窗口实测为 16.267 秒，不满足本专项预算；用同一内核限定为四个所需频度后实测 6.309 秒、五日全部 ready。静态门禁必须禁止新 sensor 直接调用七频度公开 helper。
 
 ## 11. Jobs
 
@@ -603,12 +639,20 @@ blocking check 必须与第 2.2 节五个名称完全一致。
 
 ```text
 python -m orchestrator.defs.bootstrap.qfq_nineturn_history_cli plan
-python -m orchestrator.defs.bootstrap.qfq_nineturn_history_cli build --apply
-python -m orchestrator.defs.bootstrap.qfq_nineturn_events_cli plan
-python -m orchestrator.defs.bootstrap.qfq_nineturn_events_cli report --apply
+python -m orchestrator.defs.bootstrap.qfq_nineturn_history_cli build \
+  --plan-report <reviewed plan> \
+  --plan-fingerprint <reviewed fingerprint> \
+  --apply
+python -m orchestrator.defs.bootstrap.qfq_nineturn_events_cli plan \
+  --history-plan <history plan> \
+  --history-audit <final audit>
+python -m orchestrator.defs.bootstrap.qfq_nineturn_events_cli report \
+  --plan-report <reviewed event plan> \
+  --plan-fingerprint <reviewed fingerprint> \
+  --apply
 ```
 
-默认均只读。`--apply` 还必须要求新鲜 plan path 和 fingerprint。
+默认均只读。全量 build、scoped rebuild 和 runless event report 都必须要求新鲜 plan path 与 fingerprint；CLI 不能提供绕过 plan 的直接写入口。
 
 ### 14.2 History plan
 
@@ -631,12 +675,15 @@ stop reasons
 
 按 `asset/freq/year` 分批：
 
-1. 读取该年 source 和上一年尾部计算上下文。
+1. 读取该年 source，以及上一批生成的两份紧凑临时状态：每个代码最多 4 根尾部 source bar、每个代码 1 条末尾方向/计数种子。仅有 4 根尾部 bar 只能恢复跨年比较方向，不能恢复已累计计数，禁止据此把新年首段静默重置为 1。
 2. DuckDB 一次计算该批所有代码，不在 Python 中逐 bar 递推。
 3. `COPY ... PARTITION_BY (trade_date)` 写 staging。
 4. 每个 trade_date 恰好生成一个 Parquet，规范化为 `part-000.parquet`。
 5. 校验 source/output key 差异为 0 后原子 promote。
-6. 每个年度完成后写 progress report。
+6. 从本批 source/output 生成下一批紧凑上下文和计数种子；它们只存在于 bootstrap staging/progress 目录，不是新 asset、state 数据集或正式 Lake 契约。
+7. 每个年度完成后写 progress report。
+
+该模式使每个 source 年份只被业务计算读取一次。跨年附加状态的上界为每个历史代码 5 行，不随已完成年份增长；禁止为计算某一年反复扫描从 2014 年到该年的全部历史。
 
 ### 14.4 Runless events
 
@@ -647,7 +694,7 @@ stop reasons
 - check evaluation 必须绑定本轮或现有目标 materialization。
 - 已有一致 event 跳过；已有失败或冲突状态停止。
 
-按当前约 3,062 个日线 QFQ 分区静态估算，materialization 上界约为 `5 * 3,062 = 15,310` 条；checks 固定上界为 `5 * 20 = 100` 条。P0 必须用真实各频度日期集合替换该估算。
+P0 已确认五个资产各有 3,063 个实际日期，因此正式上界为 15,315 条 materialization 加 100 条最近窗口 check，共 15,415 条。不得为更早分区补 check。
 
 ## 15. 上游历史修正策略
 
@@ -658,12 +705,17 @@ stop reasons
 若非等比例历史修正被确认，使用离线 history CLI 的 scoped rebuild 模式：
 
 ```text
---asset-family daily|minute
---freqs 30 60 90 120
---stock-codes-file <approved file>
---start-date <date>
---end-date <date>
---apply
+python -m orchestrator.defs.bootstrap.qfq_nineturn_history_cli plan-rebuild \
+  --asset-family daily|minute \
+  --freqs 30 60 90 120 \
+  --stock-codes-file <approved file> \
+  --start-date <date> \
+  --end-date <date>
+
+python -m orchestrator.defs.bootstrap.qfq_nineturn_history_cli rebuild \
+  --plan-report <reviewed plan> \
+  --plan-fingerprint <reviewed fingerprint> \
+  --apply
 ```
 
 scoped rebuild 仍按完整代码序列计算，不能从 `start-date` 把老股票计数归零。它只替换明确范围内目标日期文件中的受影响代码行，并保留其它代码行；所有 staging 文件先完整生成再逐分区原子替换。
@@ -718,6 +770,8 @@ tests/test_qfq_nineturn_performance.py
 
 覆盖 5 个 rule 的正反例，并锁定 check 不调用公式 helper。目标 materialized 但 check failed 时两个 sensor 都不得自动重跑。
 
+同时在 `test_stk_mins_lake_readiness.py` 锁定频度参数化内核：旧七频度公开 helper 结果不变；九转专用入口只返回 30/60/90/120m，任一所需频度失败仍 fail closed，1/5/15m 状态不影响九转门禁。性能测试使用 5 日容量样本，四频度完整语义必须小于 10 秒。
+
 ### 16.4 Sensor
 
 覆盖：
@@ -751,6 +805,8 @@ tests/test_qfq_nineturn_performance.py
 9. 公式 lag、threshold、version 和 minute freqs 只能在 `run_contracts/qfq_nineturn.py` 定义，生产消费者不得重复字面常量。
 10. 禁止九转生产代码通过环境变量、`Settings`、Dagster config 或 CLI 参数改变公式口径。
 11. 两个 sensor 的 description、中文 cursor 摘要和 definition tags 必须满足数据集接入模板的人类可读契约。
+12. 九转分钟 sensor/readiness 禁止直接调用默认七频度 `batch_gold_stk_mins_qfq_lake_readiness(...)`；必须调用固定 30/60/90/120m 的专用入口。
+13. 现有七频度公开 helper 的签名、默认频度集合和既有消费者不得因本专项改变。
 
 ## 18. P0 Profiling 门禁
 
@@ -770,6 +826,104 @@ profiling 只读 QFQ 和现有 Dagster 分区注册事实，报告写 `/private/
 
 若普通增量只有扫描全历史才能正确完成，或任何热路径超过预算，停止开发。优先调整 DuckDB 读取模型，不默认增加 state asset。
 
+### 18.1 P0 实际结果
+
+P0 于 2026-08-08 完成，报告：
+
+```text
+/private/tmp/qfq_nineturn_p0_profile_20260808_102030.json
+```
+
+报告 `decision=pass`、`stop_reasons=[]`，没有 Lake、Dagster event、动态分区或 prod 写入。临时 Parquet 只写入 `/private/tmp`，测量完成后已删除。
+
+历史真实基线：
+
+| Asset | Source 文件 | Source 行数 | 实际日期 | 历史代码 | Source 字节 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| daily | 3,063 | 11,622,020 | 3,063 | 5,553 | 819,518,029 |
+| 30m | 52,881 | 104,576,189 | 3,063 | 5,553 | 3,755,888,912 |
+| 60m | 52,876 | 58,245,695 | 3,063 | 5,553 | 2,380,613,616 |
+| 90m | 52,881 | 34,804,311 | 3,063 | 5,553 | 1,582,122,815 |
+| 120m | 52,876 | 23,223,508 | 3,063 | 5,553 | 1,160,259,185 |
+
+五个频度范围均为 `2014-01-02` 至 `2026-08-07`，空 key 为 0。目标预计 15,315 个文件、232,471,723 行、985,229,462 字节；按最新样本压缩比给出的正负 20% 区间为 788,183,569 至 1,182,275,354 字节。Lake 可用空间约 2.53 TB，不构成阻断。
+
+最新日 `2026-08-07` 行数为 daily 5,535、30m 49,815、60m 27,675、90m 16,605、120m 11,070；公式原型输出与 source key 一一对应，五个 check 原型全部通过。
+
+| 热路径 | 预算 | P0 实测 | 结果 |
+| --- | ---: | ---: | --- |
+| 日线增量公式 + 临时写入 | 15 s | 13.7 ms | 通过 |
+| 四分钟增量公式 + 临时写入 | 30 s | 2.459 s | 通过 |
+| 最新日五个 checks | 10 s | 1.111 s | 通过 |
+| 10 日 daily 目标 readiness | 3 s | 18.6 ms | 通过 |
+| 5 日四分钟目标 readiness | 10 s | 1.152 s | 通过 |
+| 5 日四频度上游 QFQ readiness | 10 s | 6.309 s | 通过 |
+
+增量公式测量使用最近 5 个交易日的有界上下文，目的是验证日常文件打开、窗口计算和 Parquet 写入形状，不把临时样本的 signal count 当作公式正确性证据。公式正确性由 P1 受保护金样本承担。
+
+### 18.2 P1 实际结果
+
+P1 已完成以下代码边界：
+
+1. `run_contracts/qfq_nineturn.py` 集中定义公式、频度、窗口、fallback 上限和不可变写入结果；没有新增环境变量、Settings、resource 或 Dagster config。
+2. `asset_column_schemas.py` 新增日线与分钟九转 schema；`paths.py` 新增正式目标与同卷 staging helper，分钟路径只接受 30/60/90/120m。
+3. `qfq_nineturn.py` 实现全历史与目标分区两套 set-based SQL。目标分区入口支持上一分区种子、真新股从 0 开始、显式老股票 code-scoped fallback，并在 fallback 超过 500 个代码时 fail closed。
+4. 通用 writer 通过 `DuckDBResource` 写 staging，校验 schema、主键、分区日期、频度和值域；再复核由相对路径、文件大小和纳秒 mtime 组成的 source fingerprint，只有前后一致时才原子替换目标。
+5. 受保护金样本用人工字面 expected 锁定少于 5 根、上涨/下跌 1 至 11、相等与方向切换重置、跨年和停牌间隔、四个分钟频度、正比例缩放、上一分区种子、真新股和老股票 fallback。
+
+本阶段没有新增 asset、check、job、sensor、catalog 或 readiness，没有访问正式 Lake、Dagster instance、prod DB 或 dynamic partitions。聚焦测试与全仓静态门禁共 110 个用例通过；新文件 `ruff check` 通过。Definitions 治理测试留到 P2 新资产和 catalog 同时落地后执行。
+
+### 18.3 P2 实际结果
+
+P2 已完成以下 Definition 与热路径边界：
+
+1. `assets/qfq_nineturn.py` 定义一个日线资产和四个分钟资产，沿用已冻结的交易日分区、上游依赖和分钟 writer pool；运行时通过 P1 的 source plan 选择有界正常输入，只有缺少有效种子的老代码才进入 code-scoped fallback。
+2. `qfq_nineturn_integrity.py` 提供 formula-free 共享审计，固定验证 file contract、partition alignment、key integrity、value domain 和 source key coverage；`checks/qfq_nineturn_checks.py` 只生成每资产一条聚合 blocking check，不调用九转公式。
+3. `qfq_nineturn_lake_readiness.py` 复用同一审计语义。日线窗口最多 10 个交易日，分钟窗口最多 5 个交易日；源文件按频度一次预加载且只投影身份字段，不逐日重复读取完整价格列。
+4. `stk_mins_lake_readiness.py` 的内部 QFQ batch 内核支持显式频度集合；原公开七频度 helper 的签名和行为不变，新专用入口只检查 30/60/90/120m，因此 1/5/15m 的状态不会误阻断本资产族。
+5. catalog 新增五条 derived Gold 记录、两种 trade-date partition model 和中文名；blocking check 名称与 Definition 一一对应。没有新增 job、sensor、cursor、resource、配置项或 Dagster 状态实体。
+
+验证结果：九转资产、check、readiness、source plan、公式金样本、writer、现有 QFQ readiness 和静态门禁共 141 个用例通过。全局 `test_asset_governance_contracts` 仍有 4 项失败，差异来自同一工作区中另一个尚未收敛的指数分钟线/主要指数分钟线专项：catalog 已包含 26 个相关资产，但测试的 active-definition 清单尚未接入；九转五个资产已正确纳入清单且未出现在差异中。本专项未越界修改该专项。
+
+P2 没有访问正式 Lake、Dagster instance、prod DB 或 dynamic partitions，也没有运行 job、sensor、materialize、backfill 或 runless event。
+
+### 18.4 P3 实际结果
+
+P3 已完成以下运行入口与治理边界：
+
+1. 新增两个纯 asset-selection job：日线 job 只选择日线九转资产与聚合 check；分钟 job 只选择四个分钟九转资产与 checks，并使用 in-process executor。job 文件没有 SQL、path 或 writer。
+2. 日线 sensor 固定读取最近 10 个股票交易日，按注册缺口、目标 readiness、同日普通 QFQ、必要 factor repair 和上一九转分区顺序 fail closed；无需 repair 时不会等待一个本来就不存在的 repair event。
+3. 分钟 sensor 固定读取最近 5 个分钟 Silver 交易日，selected date 的上游只调用 30/60/90/120m 专用 QFQ readiness，再等待同日 factor repair 和上一九转分区；没有退回七频度扫描。
+4. 两个 sensor 均默认 `STOPPED`、最短间隔 600 秒、每 tick 最多一个 `RunRequest`，run key 由统一 builder 生成。LLD 没有冻结额外钟点，因此 P3 不擅自增加固定时刻；正式运行窗口由已冻结的注册分区、上游 QFQ、factor repair 和上一分区门禁共同确定。
+5. cursor 使用 v1 模板，只保留目标、阻断组件、短中文摘要、下一步、有界 frontier 和必要计数；普通 request/skip 小于 2KB，不包含完整 readiness、路径/code 列表、factor repair metadata 或报告型 `to_cursor_details()`。
+6. topology 与 run-contract 治理文档已登记五个资产、两个 job、两个 sensor、分类 tags、run request/run key、cursor 和默认停止边界。
+
+P3 聚焦 job/sensor/静态门禁新增 19 个用例；与 P1/P2 九转用例合并验证共 160 个用例通过。新改 Python 文件 `ruff check` 通过。全局 asset governance 的既有外部阻断仍来自同一工作区的指数分钟线/主要指数分钟线专项，本阶段未越界修改。
+
+P3 没有访问正式 Lake、Dagster instance、prod DB 或 dynamic partitions，也没有运行 job、sensor、materialize、backfill、runless event 或 `dg check defs`。
+
+### 18.5 P4 实际结果
+
+P4 已完成四个非 active 离线模块：历史 plan/build、scoped rebuild plan/apply、runless event plan/report 及对应 CLI。它们不注册 asset、check、job、sensor、resource 或动态分区；默认路径只写 `/private/tmp` 报告，所有正式写入口都要求显式 `--apply`、reviewed plan path 和 fingerprint。
+
+历史 build 没有按年份反复重扫累计历史。每个 `asset/freq/year` 批次只对当年 source 做一次九转计算，并携带每个代码最多 4 根 source bar 和 1 条方向/计数种子；因此跨年序列不会归零，附加状态固定为每个代码最多 5 行，不随历史年份增长。每个年度先生成完整 staging、验证 source/output key、schema、日期、频度和主键，再逐分区原子 promote；已有且逐行一致的目标可幂等复用。
+
+scoped rebuild 必须先生成包含代码集合、资产/频度、日期范围、目标文件身份和完整 source plan fingerprint 的专用只读计划；apply 从完整代码历史计算，只替换批准日期内批准代码，保留其它代码行，并把原文件备份到同卷 quarantine。runless event 工具只计划全部物理分区的 materialization 和每资产最近 20 日的聚合 check，已有失败且绑定当前 materialization 的 check 会阻断 apply。
+
+P4 新增 16 个 history/events/governance/performance 用例；与 P1-P3 相关用例及全仓静态门禁合并运行 156 个用例全部通过，`ruff check` 通过。测试只使用临时 Lake 和 ephemeral Dagster instance；没有读取或写入正式 Lake、正式 Dagster DB、prod、动态分区，也没有运行 `dg check defs`。
+
+### 18.6 P5 实际结果
+
+P5 已执行本地完整门禁、Definitions 加载验证和正式环境只读 preflight：
+
+1. 九转资产族与全仓静态门禁共 156 个用例全部通过；P4 相关文件 `ruff check` 和 `git diff --check` 通过。
+2. `uv run dg check defs` 通过，组件 YAML 与全部 Definitions 均成功加载。五个资产、五个 check、两个 job 和两个 sensor 可由现有 `load_from_defs_folder` 正常发现，无需手工 Definitions 清单。
+3. 正式历史只读 plan 为 `/private/tmp/qfq_nineturn_history_plan_20260808_115819.json`，fingerprint 为 `28ff31a548e0a555afefaca33a307e652c7da8ff76550598b15485ea913af4dc`。实际规模为 5 个资产、65 个年度批次、214,577 个源文件、232,471,723 行、9,698,402,557 bytes；预计生成 15,315 个目标文件、232,471,723 行，估算目标与 staging 各约 1,162,358,615 bytes。源端空 key、重复 key、年份错位、频度错位均为 0，已有目标文件为 0；聚合只读扫描耗时 66.508 秒，历史重扫倍数为 1。
+4. 正式 Dagster instance 只读报告为 `/private/tmp/qfq_nineturn_p5_preflight_20260808_120003.json`。日线和四个分钟资产各有 3,063 个源交易日，范围均为 `2014-01-02` 至 `2026-08-07`；`cn_a_stock_trade_days` 与 `cn_a_stock_mins_silver_trade_days` 均完整覆盖对应日期，注册缺口为 0。五个新资产均无既有 materialization/check，两个 job 无活动 run，两个 sensor 无 instance state、未运行；最终 `should_stop=false`。
+5. 额外抽查全仓 asset governance 的五条相关门禁时，两条通过，三条仍被同一工作区中尚未收口的 `index_mins/major_index_mins` catalog 与 active-definition 清单差异阻断（catalog 94、测试 active 清单 68，以及对应 blocking-check 映射差异）。九转资产已经进入实际清单且 `dg check defs` 通过，本专项不越界修改该外部专项；该结果不改变上述九转 P5 验收事实。
+
+P5 全程只读取正式 Lake 与 Dagster instance，并仅向 `/private/tmp` 写报告；没有写 Lake、Dagster event/check、run、cursor、动态分区或 prod，也没有启停 sensor 或提交 job。
+
 ## 19. 建议验证命令
 
 开发后本地测试：
@@ -781,27 +935,29 @@ uv run python -m unittest \
   tests.test_qfq_nineturn_writer \
   tests.test_qfq_nineturn_checks \
   tests.test_qfq_nineturn_readiness \
+  tests.test_qfq_nineturn_source_plan \
+  tests.test_qfq_nineturn_assets \
+  tests.test_qfq_nineturn_jobs \
   tests.test_stock_daily_qfq_nineturn_sensor \
   tests.test_stk_mins_qfq_nineturn_sensor \
   tests.test_qfq_nineturn_history \
   tests.test_qfq_nineturn_events \
   tests.test_qfq_nineturn_governance \
   tests.test_qfq_nineturn_performance \
-  tests.test_asset_governance_contracts \
   tests.test_run_contract_static_gates
 git diff --check
 ```
 
-`dg check defs`、正式 instance 只读 preflight、Lake 写入、runless event 和 sensor 启用均需后续单独批准。
+Lake 写入、runless event 和 sensor 启用均属于 P6，需后续分别批准。
 
 ## 20. 实施顺序
 
-1. P0 只读 profiling。
-2. P1 contract、schema、path、公式金样本和 calculator。
-3. P2 assets、checks、catalog、readiness。
-4. P3 jobs、sensors、cursor、治理测试，并同步 topology 与 run-contract 两份治理文档。
-5. P4 bootstrap/rebuild/events 工具。
-6. P5 本地全量测试和经批准的 `dg check defs`。
+1. P0 只读 profiling。已完成。
+2. P1 contract、schema、path、公式金样本、calculator 和原子 writer 内核。已完成。
+3. P2 assets、checks、catalog、readiness。已完成。
+4. P3 jobs、sensors、cursor，并同步 topology 与 run-contract 两份治理文档。已完成。
+5. P4 bootstrap/rebuild/events 工具。已完成代码与本地临时环境验证。
+6. P5 本地全量测试、`dg check defs` 与正式只读 preflight。已完成。
 7. P6 经批准的历史写入、runless events、日常 sensor 启用。
 
 每一阶段只在前一阶段验收全绿后进入；P0 性能门禁不通过时不得靠增加 timeout 继续。

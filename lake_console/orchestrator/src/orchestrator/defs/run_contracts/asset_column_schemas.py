@@ -321,6 +321,18 @@ GOLD_STK_MINS_QFQ_SCHEMA = (
     ColumnContract("exchange", "VARCHAR", "标准交易所代码，沿用 silver 分钟线事实"),
 )
 
+GOLD_STK_MINS_QFQ_NINETURN_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "标准股票代码"),
+    ColumnContract("freq", "INTEGER", "分钟频度，允许值为 30、60、90 或 120"),
+    ColumnContract("trade_date", "DATE", "交易日"),
+    ColumnContract("trade_time", "TIMESTAMP", "分钟 bar 时间"),
+    ColumnContract("close_qfq", "DOUBLE", "九转使用的前复权收盘价"),
+    ColumnContract("up_count", "INTEGER", "连续上九转计数"),
+    ColumnContract("down_count", "INTEGER", "连续下九转计数"),
+    ColumnContract("nine_up_turn", "VARCHAR", "上九转信号，+9 或空"),
+    ColumnContract("nine_down_turn", "VARCHAR", "下九转信号，-9 或空"),
+)
+
 GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "标准股票代码"),
     ColumnContract(
@@ -415,6 +427,16 @@ GOLD_STOCK_DAILY_QFQ_SCHEMA = (
     ColumnContract("pct_chg", "DOUBLE", "前复权涨跌幅，百分比；首个可用交易日为 0"),
     ColumnContract("vol", "DOUBLE", "成交量，沿用 silver_stock_daily 事实"),
     ColumnContract("amount", "DOUBLE", "成交额，沿用 silver_stock_daily 事实"),
+)
+
+GOLD_STOCK_DAILY_QFQ_NINETURN_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "标准股票代码"),
+    ColumnContract("trade_date", "DATE", "交易日"),
+    ColumnContract("close_qfq", "DOUBLE", "九转使用的前复权收盘价"),
+    ColumnContract("up_count", "INTEGER", "连续上九转计数"),
+    ColumnContract("down_count", "INTEGER", "连续下九转计数"),
+    ColumnContract("nine_up_turn", "VARCHAR", "上九转信号，+9 或空"),
+    ColumnContract("nine_down_turn", "VARCHAR", "下九转信号，-9 或空"),
 )
 
 GOLD_DC_DAILY_TECHNICAL_SCHEMA = (

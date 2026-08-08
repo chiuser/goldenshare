@@ -1,6 +1,6 @@
 # 股票前复权九转资产族接入方案
 
-状态：设计口径已冻结，尚未进入代码开发、历史写入或正式 Dagster 操作
+状态：P0 至 P5 已完成；五个资产、五个聚合 check、catalog、专用 readiness、两个 job、两个默认停止的 sensor 与离线历史工具已落地并通过 Definitions/正式只读 preflight；未执行历史 Lake 或 Dagster event 写入
 
 代码级设计见：
 [`dagster-stock-qfq-nineturn-dataset-low-level-design.md`](./dagster-stock-qfq-nineturn-dataset-low-level-design.md)
@@ -231,18 +231,29 @@ rebuild 只按明确代码和日期范围执行，使用 staging、manifest 和�
 
 ## 7. 性能预算
 
-2026-08-06 当前 Lake 只读样本：
+2026-08-08 完成正式 P0 只读 profiling，最新业务日期为 `2026-08-07`：
 
 | 频度 | 当日行数 | 股票数 |
 | --- | ---: | ---: |
-| daily | 5,533 | 5,533 |
-| 30m | 49,797 | 5,533 |
-| 60m | 27,665 | 5,533 |
-| 90m | 16,599 | 5,533 |
-| 120m | 11,066 | 5,533 |
-| 合计 | 110,660 | 5,533 |
+| daily | 5,535 | 5,535 |
+| 30m | 49,815 | 5,535 |
+| 60m | 27,675 | 5,535 |
+| 90m | 16,605 | 5,535 |
+| 120m | 11,070 | 5,535 |
+| 合计 | 110,700 | 5,535 |
 
-当前四个分钟 QFQ 最新日只读投影共打开相应股票年份文件并统计，实测约 2.3 秒。该结果只作为静态设计基线，不等于新计算性能验收。
+五个上游的历史范围均为 `2014-01-02` 至 `2026-08-07`，均有 3,063 个实际交易日、5,553 个历史股票代码且空 key 为 0：
+
+| 频度 | Source 文件数 | Source 行数 | Source 大小 |
+| --- | ---: | ---: | ---: |
+| daily | 3,063 | 11,622,020 | 0.82 GB |
+| 30m | 52,881 | 104,576,189 | 3.76 GB |
+| 60m | 52,876 | 58,245,695 | 2.38 GB |
+| 90m | 52,881 | 34,804,311 | 1.58 GB |
+| 120m | 52,876 | 23,223,508 | 1.16 GB |
+| 合计 | 214,577 | 232,471,723 | 9.70 GB |
+
+目标历史预计生成 15,315 个按日文件、232,471,723 行，预计约 0.99 GB；按最新样本压缩比给出的合理区间为 0.79 至 1.18 GB。年度最大批次是 2025 年，五个资产合计约 26,255,887 行。历史状态预计为 15,315 条 materialization 加最近窗口 100 条 check，共 15,415 条 runless event。
 
 正式性能门禁：
 
@@ -253,6 +264,21 @@ rebuild 只按明确代码和日期范围执行，使用 staging、manifest 和�
 | 日线 asset | 当日源、必要滞后上下文、上一输出种子 | 1 parquet | 小于 15 秒 |
 | 四分钟 asset job | 4 个频度的当日源和必要上下文 | 4 parquet | 合计小于 30 秒 |
 | Check | 5 个目标文件和源 key 投影 | 5 check events | 合计小于 10 秒 |
+
+P0 实测结果：
+
+| 路径 | 实测 | 结论 |
+| --- | ---: | --- |
+| 日线增量公式与临时 Parquet 写入 | 13.7 ms | 通过 |
+| 四分钟增量公式与临时 Parquet 写入 | 2.459 s | 通过 |
+| 最新日五个聚合 check 原型 | 1.111 s | 通过 |
+| 10 日 daily 目标 readiness | 18.6 ms | 通过 |
+| 5 日四分钟目标 readiness | 1.152 s | 通过 |
+| 5 日四频度上游 QFQ 完整 readiness | 6.309 s | 通过 |
+
+现有通用分钟 QFQ readiness 会扫描 1/5/15/30/60/90/120m 全部七个频度，5 日实测 16.267 秒，不得直接进入本专项 sensor 热路径。实现必须复用同一套正式 blocking-check 语义，但只读取本专项需要的 30/60/90/120m；不得通过弱化检查换取性能。
+
+P0 增量公式样本使用最近 5 个交易日的有界上下文验证读取、窗口和写入形状；样本信号数量不是公式正确性证据。公式正确性仍以已有 4,610,961 次转移零差异审计和 P1 的人工字面量金样本为准。
 
 超过预算时 fail closed 并进入只读 profiling，不通过增加 state 资产、调大 gRPC timeout 或弱化 check 绕过。
 
@@ -289,12 +315,26 @@ rebuild 只按明确代码和日期范围执行，使用 staging、manifest 和�
 | 阶段 | 内容 | 写入边界 |
 | --- | --- | --- |
 | P0 | 只读 profiling，冻结历史规模、增量读取模型和性能 | 零正式写入 |
-| P1 | schema、path、contract、calculator 和金样本测试 | 只改代码/测试 |
-| P2 | 五个 asset、五个聚合 check、catalog | 只改代码/测试 |
-| P3 | 两个 job、两个 sensor、readiness、cursor 和治理文档同步 | sensor 默认 STOPPED |
-| P4 | 历史 bootstrap/rebuild 工具与 dry-run | 默认只读 |
-| P5 | `dg check defs` 和正式只读 preflight | 需单独批准 |
+| P1 | schema、path、contract、calculator、原子 writer 内核和金样本测试 | 已完成，只改代码/测试 |
+| P2 | 五个 asset、五个聚合 check、catalog、目标 readiness 和四频度上游 QFQ readiness | 已完成，只改代码/测试 |
+| P3 | 两个 job、两个 sensor、cursor 和治理文档同步 | 已完成；sensor 默认 STOPPED |
+| P4 | 历史 bootstrap/rebuild/events 工具与 dry-run | 已完成代码与本地临时环境验证；正式写入未执行 |
+| P5 | `dg check defs` 和正式只读 preflight | 已完成；零正式写入 |
 | P6 | 历史 Lake 写入、runless event、sensor 启用 | 每类写入单独批准 |
+
+P0 已于 2026-08-08 完成并通过，正式报告为 `/private/tmp/qfq_nineturn_p0_profile_20260808_102030.json`。P1 已完成稳定 contract、schema、正式/staging path、全历史和增量 calculator、原子 writer 内核及受保护金样本。
+
+P2 已完成五个资产、五个聚合 blocking check、五条 catalog 记录、目标文件 readiness，以及只读取 30/60/90/120m 的上游 QFQ readiness。生产 check/readiness 共享同一套不重算公式的文件、键、值域和 source key coverage 诊断；现有七频度 QFQ readiness 的公开接口和语义保持不变。P2 定向测试与全仓静态门禁共 141 个用例通过。全局 asset governance 测试仍被同一工作区中尚未收敛的指数分钟线/主要指数分钟线 catalog 与 active-definition 清单差异阻断，九转五个资产不在该差异集合中；该外部问题不在本专项 P2 范围内。
+
+P3 已完成两个纯 asset-selection job、两个默认 `STOPPED` 的 bounded sensor、紧凑 cursor 和 topology/run-contract 治理文档同步。日线最近窗口为 10 日；分钟最近窗口为 5 日，且上游 QFQ 热路径只读取 30/60/90/120m。两个 sensor 均等待同日 QFQ、factor repair 和上一九转分区 ready，每 tick 最多提交一个日期；目标 check 已失败时不自动覆盖。方案没有冻结额外钟点，因此实现没有擅自增加固定时刻，正式运行窗口由这些数据门禁决定。
+
+P3 与 P1/P2 合并验证共 160 个九转相关用例通过，未运行正式 Dagster、写 Lake、写 event 或修改动态分区。
+
+P4 已实现默认只读的历史 plan、按年度集合计算的 bootstrap、带独立 plan/fingerprint 的 scoped rebuild，以及全历史 materialization + 最近 20 日 check 的 runless event 工具。跨年计算只携带每个代码 4 根尾部 bar 和 1 条计数种子，不会重置序列，也不会随年份增长重复扫描累计历史。P4 新增用例与现有九转/静态门禁合并运行 156 个用例全部通过；测试仅使用临时 Lake 和 ephemeral Dagster instance。
+
+P5 已完成：`dg check defs` 全绿；正式只读 plan 冻结 5 个资产、65 个年度批次、214,577 个源文件、232,471,723 行和 15,315 个目标分区，源端 key/年份/频度契约全绿且无目标冲突。正式 Dagster instance 对账确认两套动态分区均完整覆盖 3,063 个源日期，五个新资产无历史 event/check，两个 job 无活动 run，两个 sensor 未启用。报告分别为 `/private/tmp/qfq_nineturn_history_plan_20260808_115819.json` 与 `/private/tmp/qfq_nineturn_p5_preflight_20260808_120003.json`。
+
+下一阶段为 P6。历史 Lake 写入、runless event 补录和 sensor 启用是三个不同的正式写入边界，必须分别获得明确批准，不能因为 P5 只读验收通过而自动执行。
 
 ## 11. 开发前停止条件
 

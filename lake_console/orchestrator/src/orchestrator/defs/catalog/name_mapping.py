@@ -14,8 +14,10 @@ DATASET_CHINESE_NAMES = MappingProxyType(
         "stock_nineturn_daily": "股票日线神奇九转",
         "adj_factor": "复权因子",
         "stock_daily_qfq": "股票日线前复权",
+        "stock_daily_qfq_nineturn": "股票日线前复权九转",
         "stk_mins": "股票分钟线",
         "stk_mins_qfq": "股票分钟线前复权",
+        "stk_mins_qfq_nineturn": "股票分钟线前复权九转",
         "stk_mins_qfq_macd_kdj": "股票分钟线前复权 MACD/KDJ",
         "stk_mins_qfq_macd_kdj_state": "股票分钟线前复权 MACD/KDJ State",
         "stock_identity_map": "股票身份映射",
@@ -50,4 +52,6 @@ def get_dataset_chinese_name(dataset_id: str) -> str:
     try:
         return DATASET_CHINESE_NAMES[dataset_id]
     except KeyError as error:
-        raise KeyError(f"Unknown dataset id for Chinese name mapping: {dataset_id!r}") from error
+        raise KeyError(
+            f"Unknown dataset id for Chinese name mapping: {dataset_id!r}"
+        ) from error

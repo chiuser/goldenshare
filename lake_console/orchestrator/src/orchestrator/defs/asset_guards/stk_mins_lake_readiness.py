@@ -897,7 +897,9 @@ def batch_raw_stk_mins_lake_readiness(
         expected_trade_dates=expected_trade_dates,
         freqs=freqs,
     )
-    existing_path_plans = tuple(path_plan for path_plan in path_plans if path_plan.path.exists())
+    existing_path_plans = tuple(
+        path_plan for path_plan in path_plans if path_plan.path.exists()
+    )
 
     schema_valid_paths: set[Path] = set()
     if full_semantics:
@@ -1013,8 +1015,7 @@ def _silver_status_for_trade_date(
         ):
             failed_check_names.append(SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK)
         if full_semantics and (
-            not path_plan.suspend_path.exists()
-            or metrics.full_day_suspend_failed_count
+            not path_plan.suspend_path.exists() or metrics.full_day_suspend_failed_count
         ):
             failed_check_names.append(SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK)
         if full_semantics and (
@@ -1064,7 +1065,9 @@ def batch_silver_stk_mins_lake_readiness(
         expected_trade_dates=expected_trade_dates,
         freqs=freqs,
     )
-    existing_path_plans = tuple(path_plan for path_plan in path_plans if path_plan.path.exists())
+    existing_path_plans = tuple(
+        path_plan for path_plan in path_plans if path_plan.path.exists()
+    )
 
     schema_valid_paths: set[Path] = set()
     if full_semantics:
@@ -1184,9 +1187,10 @@ def _gold_qfq_native_path_plans(
     *,
     lake_root: Path,
     expected_trade_dates: Sequence[str],
+    native_freqs: Sequence[int] = STK_MINS_QFQ_NATIVE_FREQS,
 ) -> tuple[_GoldQfqNativePathPlan, ...]:
     plans: list[_GoldQfqNativePathPlan] = []
-    for freq in STK_MINS_QFQ_NATIVE_FREQS:
+    for freq in native_freqs:
         silver_paths_by_date = {
             trade_date: silver_stk_mins_path(lake_root, freq, trade_date)
             for trade_date in expected_trade_dates
@@ -1367,9 +1371,7 @@ def _gold_qfq_native_batch_coverage_counts(
         }
     silver_source = _read_parquet_paths(silver_paths)
     trade_adj_source = (
-        _read_parquet_paths(trade_adj_factor_paths)
-        if trade_adj_factor_paths
-        else None
+        _read_parquet_paths(trade_adj_factor_paths) if trade_adj_factor_paths else None
     )
     trade_adj_cte = (
         f"""
@@ -1495,9 +1497,7 @@ def _gold_qfq_native_batch_identity_counts(
     gold_source = _read_parquet_paths(gold_paths, filename=True)
     silver_source = _read_parquet_paths(silver_paths)
     trade_adj_source = (
-        _read_parquet_paths(trade_adj_factor_paths)
-        if trade_adj_factor_paths
-        else None
+        _read_parquet_paths(trade_adj_factor_paths) if trade_adj_factor_paths else None
     )
     trade_adj_cte = (
         f"""
@@ -1663,7 +1663,9 @@ def _gold_qfq_native_batch_identity_counts(
             "duplicate_key_count": int(duplicate_key_count),
             "invalid_price_row_count": int(invalid_price_row_count),
             "missing_gold_identity_row_count": int(missing_gold_identity_row_count),
-            "unexpected_gold_identity_row_count": int(unexpected_gold_identity_row_count),
+            "unexpected_gold_identity_row_count": int(
+                unexpected_gold_identity_row_count
+            ),
             "exchange_mismatch_row_count": int(exchange_mismatch_row_count),
         }
         for (
@@ -1684,12 +1686,15 @@ def _gold_qfq_native_batch_counts(
     *,
     lake_root: Path,
     native_plans: Sequence[_GoldQfqNativePathPlan],
+    native_freqs: Sequence[int] = STK_MINS_QFQ_NATIVE_FREQS,
 ) -> Mapping[tuple[str, int], GoldStkMinsQfqCheckCounts]:
     counts_by_key: dict[tuple[str, int], GoldStkMinsQfqCheckCounts] = {}
-    for freq in STK_MINS_QFQ_NATIVE_FREQS:
+    for freq in native_freqs:
         freq_plans = tuple(plan for plan in native_plans if plan.freq == freq)
         data_plans = tuple(plan for plan in freq_plans if plan.silver_path.exists())
-        complete_data_plans = tuple(plan for plan in data_plans if not plan.missing_paths)
+        complete_data_plans = tuple(
+            plan for plan in data_plans if not plan.missing_paths
+        )
         partition_keys = tuple(plan.trade_date for plan in complete_data_plans)
         silver_paths = tuple(
             dict.fromkeys(plan.silver_path for plan in complete_data_plans)
@@ -1703,7 +1708,9 @@ def _gold_qfq_native_batch_counts(
         )
         existing_gold_paths = tuple(
             dict.fromkeys(
-                path for plan in complete_data_plans for path in plan.existing_gold_paths
+                path
+                for plan in complete_data_plans
+                for path in plan.existing_gold_paths
             )
         )
         silver_row_counts = _raw_path_row_counts(
@@ -1990,9 +1997,7 @@ def _gold_qfq_native_failed_check_names(
         and counts.gold_target_row_count > 0
     ):
         failed_check_names.append(GOLD_STK_MINS_QFQ_CONTRACT_CHECK)
-    if not (
-        counts.missing_file_count == 0 and counts.schema_mismatch_file_count == 0
-    ):
+    if not (counts.missing_file_count == 0 and counts.schema_mismatch_file_count == 0):
         failed_check_names.append(GOLD_STK_MINS_QFQ_CONTRACT_CHECK)
     if not (
         counts.missing_file_count == 0
@@ -2453,6 +2458,7 @@ def _gold_qfq_derived_batch_counts(
     *,
     lake_root: Path,
     expected_trade_dates: Sequence[str],
+    derived_freqs: Sequence[int] = STK_MINS_QFQ_DERIVED_FREQS,
 ) -> tuple[
     Mapping[tuple[str, int], GoldStkMinsQfqDerivedCheckCounts],
     Mapping[tuple[str, int], tuple[Path, ...]],
@@ -2463,7 +2469,7 @@ def _gold_qfq_derived_batch_counts(
         year: tuple(date for date in expected_trade_dates if date.startswith(year))
         for year in sorted({date[:4] for date in expected_trade_dates})
     }
-    for target_freq in STK_MINS_QFQ_DERIVED_FREQS:
+    for target_freq in derived_freqs:
         source_freq = qfq_source_freq_for_derived_freq(target_freq)
         for year, partition_keys in dates_by_year.items():
             source_paths = _gold_qfq_year_paths(
@@ -2546,7 +2552,9 @@ def _gold_qfq_derived_batch_counts(
                     for path in expected_paths_by_date.get(trade_date, ())
                 )
             )
-            existing_paths = tuple(path for path in complete_expected_paths if path.exists())
+            existing_paths = tuple(
+                path for path in complete_expected_paths if path.exists()
+            )
             schema_mismatch_count = 0
             if existing_paths:
                 schema_mismatch_count, _observed_schema, _schema_error = (
@@ -2564,7 +2572,9 @@ def _gold_qfq_derived_batch_counts(
                 missing_paths = missing_paths_by_date.get(trade_date, ())
                 diagnostics = diagnostics_by_date.get(trade_date, {})
                 identity = identity_counts.get(trade_date, {})
-                target_schema_mismatch_count = 0 if missing_paths else schema_mismatch_count
+                target_schema_mismatch_count = (
+                    0 if missing_paths else schema_mismatch_count
+                )
                 counts_by_key[(trade_date, target_freq)] = (
                     GoldStkMinsQfqDerivedCheckCounts(
                         source_freq=source_freq,
@@ -2595,9 +2605,7 @@ def _gold_qfq_derived_batch_counts(
                         path_mismatch_row_count=int(
                             identity.get("path_mismatch_row_count", 0)
                         ),
-                        duplicate_key_count=int(
-                            identity.get("duplicate_key_count", 0)
-                        ),
+                        duplicate_key_count=int(identity.get("duplicate_key_count", 0)),
                         invalid_price_row_count=int(
                             identity.get("invalid_price_row_count", 0)
                         ),
@@ -2776,9 +2784,7 @@ def _gold_qfq_derived_failed_check_names(
         and counts.gold_target_row_count > 0
     ):
         failed_check_names.append(GOLD_STK_MINS_QFQ_CONTRACT_CHECK)
-    if not (
-        counts.missing_file_count == 0 and counts.schema_mismatch_file_count == 0
-    ):
+    if not (counts.missing_file_count == 0 and counts.schema_mismatch_file_count == 0):
         failed_check_names.append(GOLD_STK_MINS_QFQ_CONTRACT_CHECK)
     if not (
         counts.missing_file_count == 0
@@ -2966,10 +2972,10 @@ def _gold_qfq_statuses_from_batch_counts(
     derived_counts_by_key: Mapping[tuple[str, int], GoldStkMinsQfqDerivedCheckCounts],
     derived_missing_paths_by_key: Mapping[tuple[str, int], tuple[Path, ...]],
     full_semantics: bool,
+    native_freqs: Sequence[int] = STK_MINS_QFQ_NATIVE_FREQS,
+    derived_freqs: Sequence[int] = STK_MINS_QFQ_DERIVED_FREQS,
 ) -> dict[str, StkMinsDateReadiness]:
-    native_plans_by_key = {
-        (plan.trade_date, plan.freq): plan for plan in native_plans
-    }
+    native_plans_by_key = {(plan.trade_date, plan.freq): plan for plan in native_plans}
     statuses_by_trade_date: dict[str, StkMinsDateReadiness] = {}
     for trade_date in expected_trade_dates:
         if trade_date not in registered_trade_day_set:
@@ -2986,7 +2992,7 @@ def _gold_qfq_statuses_from_batch_counts(
                     "gold_stk_mins_qfq_upstream_partition_not_registered",
                 ),
                 missing_file_paths=(),
-                expected_file_count=len(STK_MINS_QFQ_FREQS),
+                expected_file_count=len(native_freqs) + len(derived_freqs),
                 existing_file_count=0,
             )
             continue
@@ -2998,7 +3004,7 @@ def _gold_qfq_statuses_from_batch_counts(
         checked_row_count = 0
         failed_row_count = 0
 
-        for freq in STK_MINS_QFQ_NATIVE_FREQS:
+        for freq in native_freqs:
             key = (trade_date, freq)
             counts = native_counts_by_key[key]
             plan = native_plans_by_key[key]
@@ -3023,7 +3029,7 @@ def _gold_qfq_statuses_from_batch_counts(
             if full_semantics:
                 failed_check_names.extend(_gold_qfq_native_failed_check_names(counts))
 
-        for freq in STK_MINS_QFQ_DERIVED_FREQS:
+        for freq in derived_freqs:
             key = (trade_date, freq)
             counts = derived_counts_by_key[key]
             expected_file_count += counts.expected_file_count
@@ -3113,6 +3119,49 @@ def batch_gold_stk_mins_qfq_lake_readiness(
     registered_trade_days: Sequence[str],
     full_semantics: bool = True,
 ) -> StkMinsBatchReadiness:
+    return _batch_gold_stk_mins_qfq_lake_readiness_for_freqs(
+        connection=connection,
+        lake_root=lake_root,
+        expected_trade_dates=expected_trade_dates,
+        registered_trade_days=registered_trade_days,
+        native_freqs=STK_MINS_QFQ_NATIVE_FREQS,
+        derived_freqs=STK_MINS_QFQ_DERIVED_FREQS,
+        dataset="gold_stk_mins_qfq",
+        full_semantics=full_semantics,
+    )
+
+
+def batch_gold_stk_mins_qfq_nineturn_upstream_lake_readiness(
+    *,
+    connection,
+    lake_root: Path,
+    expected_trade_dates: Sequence[str],
+    registered_trade_days: Sequence[str],
+    full_semantics: bool = True,
+) -> StkMinsBatchReadiness:
+    return _batch_gold_stk_mins_qfq_lake_readiness_for_freqs(
+        connection=connection,
+        lake_root=lake_root,
+        expected_trade_dates=expected_trade_dates,
+        registered_trade_days=registered_trade_days,
+        native_freqs=(30, 60),
+        derived_freqs=(90, 120),
+        dataset="gold_stk_mins_qfq_nineturn_upstream",
+        full_semantics=full_semantics,
+    )
+
+
+def _batch_gold_stk_mins_qfq_lake_readiness_for_freqs(
+    *,
+    connection,
+    lake_root: Path,
+    expected_trade_dates: Sequence[str],
+    registered_trade_days: Sequence[str],
+    native_freqs: Sequence[int],
+    derived_freqs: Sequence[int],
+    dataset: str,
+    full_semantics: bool,
+) -> StkMinsBatchReadiness:
     started_at = perf_counter()
     expected_trade_dates = _normalize_trade_dates(expected_trade_dates)
     registered_trade_day_set = set(_normalize_trade_dates(registered_trade_days))
@@ -3121,17 +3170,20 @@ def batch_gold_stk_mins_qfq_lake_readiness(
         connection,
         lake_root=lake_root,
         expected_trade_dates=expected_trade_dates,
+        native_freqs=native_freqs,
     )
     native_counts_by_key = _gold_qfq_native_batch_counts(
         connection,
         lake_root=lake_root,
         native_plans=native_plans,
+        native_freqs=native_freqs,
     )
     derived_counts_by_key, derived_missing_paths_by_key = (
         _gold_qfq_derived_batch_counts(
             connection,
             lake_root=lake_root,
             expected_trade_dates=expected_trade_dates,
+            derived_freqs=derived_freqs,
         )
     )
     statuses_by_trade_date = _gold_qfq_statuses_from_batch_counts(
@@ -3142,14 +3194,16 @@ def batch_gold_stk_mins_qfq_lake_readiness(
         derived_counts_by_key=derived_counts_by_key,
         derived_missing_paths_by_key=derived_missing_paths_by_key,
         full_semantics=full_semantics,
+        native_freqs=native_freqs,
+        derived_freqs=derived_freqs,
     )
     elapsed_ms = (perf_counter() - started_at) * 1000
     return StkMinsBatchReadiness(
-        dataset="gold_stk_mins_qfq",
+        dataset=dataset,
         expected_start_date=expected_start_date,
         expected_end_date=expected_end_date,
         expected_count=len(expected_trade_dates),
-        freq_count=len(STK_MINS_QFQ_FREQS),
+        freq_count=len(native_freqs) + len(derived_freqs),
         elapsed_ms=elapsed_ms,
         statuses_by_trade_date=statuses_by_trade_date,
     )

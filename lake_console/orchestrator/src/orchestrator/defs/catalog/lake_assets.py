@@ -15,7 +15,9 @@ from orchestrator.defs.paths import (
     gold_stk_mins_qfq_macd_kdj_path,
     gold_stk_mins_qfq_macd_kdj_state_path,
     gold_stk_mins_qfq_path,
+    gold_stk_mins_qfq_nineturn_path,
     gold_stock_daily_qfq_path,
+    gold_stock_daily_qfq_nineturn_path,
     gold_stock_return_distribution_path,
     gold_wealth_market_turnover_path,
     lake_path_template,
@@ -67,7 +69,9 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA,
     GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA,
     GOLD_STK_MINS_QFQ_SCHEMA,
+    GOLD_STK_MINS_QFQ_NINETURN_SCHEMA,
     GOLD_STOCK_DAILY_QFQ_SCHEMA,
+    GOLD_STOCK_DAILY_QFQ_NINETURN_SCHEMA,
     GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
     GOLD_WEALTH_MARKET_TURNOVER_SCHEMA,
     RAW_STK_MINS_SCHEMA,
@@ -173,19 +177,13 @@ class PartitionModel(str, Enum):
     FULL_FILE_RAW_NAMECHANGE = "full_file_raw_namechange"
     FULL_FILE_SILVER_NAMECHANGE = "full_file_silver_namechange"
     FULL_FILE_SILVER_STOCK_IDENTITY_MAP = "full_file_silver_stock_identity_map"
-    FULL_FILE_SILVER_DC_INDUSTRY_HIERARCHY = (
-        "full_file_silver_dc_industry_hierarchy"
-    )
+    FULL_FILE_SILVER_DC_INDUSTRY_HIERARCHY = "full_file_silver_dc_industry_hierarchy"
     FULL_FILE_RAW_INDEX_BASIC = "full_file_raw_index_basic"
     FULL_FILE_SILVER_INDEX_BASIC = "full_file_silver_index_basic"
 
     TRADE_DATE_PARTITION_RAW_STOCK_DAILY = "trade_date_partition_raw_stock_daily"
-    TRADE_DATE_PARTITION_SILVER_STOCK_DAILY = (
-        "trade_date_partition_silver_stock_daily"
-    )
-    TRADE_DATE_PARTITION_RAW_STK_NINETURN = (
-        "trade_date_partition_raw_stk_nineturn"
-    )
+    TRADE_DATE_PARTITION_SILVER_STOCK_DAILY = "trade_date_partition_silver_stock_daily"
+    TRADE_DATE_PARTITION_RAW_STK_NINETURN = "trade_date_partition_raw_stk_nineturn"
     TRADE_DATE_PARTITION_SILVER_STOCK_NINETURN_DAILY = (
         "trade_date_partition_silver_stock_nineturn_daily"
     )
@@ -193,6 +191,12 @@ class PartitionModel(str, Enum):
     TRADE_DATE_PARTITION_SILVER_ADJ_FACTOR = "trade_date_partition_silver_adj_factor"
     TRADE_DATE_PARTITION_GOLD_STOCK_DAILY_QFQ = (
         "trade_date_partition_gold_stock_daily_qfq"
+    )
+    TRADE_DATE_PARTITION_GOLD_STOCK_DAILY_QFQ_NINETURN = (
+        "trade_date_partition_gold_stock_daily_qfq_nineturn"
+    )
+    TRADE_DATE_PARTITION_GOLD_STOCK_MINS_QFQ_NINETURN = (
+        "trade_date_partition_gold_stock_mins_qfq_nineturn"
     )
     TRADE_DATE_PARTITION_GOLD_DC_DAILY_TECHNICAL = (
         "trade_date_partition_gold_dc_daily_technical"
@@ -202,11 +206,11 @@ class PartitionModel(str, Enum):
         "trade_date_partition_silver_stock_suspend_daily"
     )
     TRADE_DATE_PARTITION_RAW_INDEX_DAILY = "trade_date_partition_raw_index_daily"
-    TRADE_DATE_PARTITION_SILVER_INDEX_DAILY = (
-        "trade_date_partition_silver_index_daily"
-    )
+    TRADE_DATE_PARTITION_SILVER_INDEX_DAILY = "trade_date_partition_silver_index_daily"
     TRADE_DATE_PARTITION_RAW_INDEX_GLOBAL = "trade_date_partition_raw_index_global"
-    TRADE_DATE_PARTITION_SILVER_INDEX_GLOBAL = "trade_date_partition_silver_index_global"
+    TRADE_DATE_PARTITION_SILVER_INDEX_GLOBAL = (
+        "trade_date_partition_silver_index_global"
+    )
     TRADE_DATE_PARTITION_RAW_INDEX_MINS = "trade_date_partition_raw_index_mins"
     TRADE_DATE_PARTITION_SILVER_INDEX_MINS = "trade_date_partition_silver_index_mins"
     TRADE_DATE_PARTITION_RAW_MAJOR_INDEX_MINS = (
@@ -327,9 +331,7 @@ class LakeAssetCatalogEntry:
     notes: str = ""
 
 
-RAW_TRADE_CALENDAR_CHECKS = (
-    "raw_trade_calendar_contract_check",
-)
+RAW_TRADE_CALENDAR_CHECKS = ("raw_trade_calendar_contract_check",)
 SILVER_TRADE_CALENDAR_CHECKS = (
     "silver_trade_calendar_required_columns_non_null",
     "silver_trade_calendar_unique_exchange_trade_date",
@@ -363,9 +365,7 @@ SILVER_STOCK_IDENTITY_MAP_CHECKS = (
     "silver_stock_identity_map_key_integrity_check",
     "silver_stock_identity_map_reference_domain_check",
 )
-SILVER_DC_INDUSTRY_HIERARCHY_CHECKS = (
-    "silver_dc_industry_hierarchy_core_check",
-)
+SILVER_DC_INDUSTRY_HIERARCHY_CHECKS = ("silver_dc_industry_hierarchy_core_check",)
 RAW_SUSPEND_D_CHECKS = (
     "raw_suspend_d_contract_check",
     "raw_suspend_d_partition_allowed_check",
@@ -408,8 +408,9 @@ SILVER_ADJ_FACTOR_CHECKS = (
     "silver_adj_factor_lifecycle_coverage_check",
     "silver_adj_factor_partition_allowed_check",
 )
-GOLD_STOCK_DAILY_QFQ_CHECKS = (
-    "gold_stock_daily_qfq_contract_check",
+GOLD_STOCK_DAILY_QFQ_CHECKS = ("gold_stock_daily_qfq_contract_check",)
+GOLD_STOCK_DAILY_QFQ_NINETURN_CHECKS = (
+    "gold_stock_daily_qfq_nineturn_integrity_check",
 )
 RAW_STK_MINS_CHECKS = (
     "raw_stk_mins_contract_check",
@@ -435,6 +436,10 @@ GOLD_STK_MINS_QFQ_DERIVED_CHECKS = (
     "gold_stk_mins_qfq_derived_source_coverage_check",
     *GOLD_STK_MINS_QFQ_BASE_CHECKS,
 )
+GOLD_STK_MINS_QFQ_NINETURN_CHECKS_BY_FREQ = {
+    freq: (f"gold_stk_mins_qfq_nineturn_{freq}m_integrity_check",)
+    for freq in (30, 60, 90, 120)
+}
 GOLD_STK_MINS_QFQ_MACD_KDJ_CHECKS = (
     "gold_stk_mins_qfq_macd_kdj_contract_check",
     "gold_stk_mins_qfq_macd_kdj_source_coverage_check",
@@ -494,9 +499,7 @@ PROD_CH_SHARE_FACT_MARKET_BREADTH_DAILY_CHECKS = (
     "prod_ch_share_fact_market_breadth_row_matches_local",
     "prod_ch_share_fact_market_breadth_updated_at_not_older_than_local",
 )
-LAKE_ROOT_HEALTH_CHECKS = (
-    "lake_root_health_ready",
-)
+LAKE_ROOT_HEALTH_CHECKS = ("lake_root_health_ready",)
 
 
 def _perf(
@@ -678,6 +681,22 @@ PARTITION_MODEL_DEFINITIONS = (
         PartitionModelFamily.TRADE_DATE_PARTITION,
         AssetLayer.GOLD,
         "stock_daily_qfq",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_GOLD_STOCK_DAILY_QFQ_NINETURN,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.GOLD,
+        "stock_daily_qfq_nineturn",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_GOLD_STOCK_MINS_QFQ_NINETURN,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.GOLD,
+        "stk_mins_qfq_nineturn",
         "trade_date",
         PartitionPhysicalLayout.PARTITION_FILE,
     ),
@@ -1092,7 +1111,9 @@ LAKE_ASSET_CATALOG = (
         data_domain=DataDomain.BASIC_DATA,
         data_contract="source_mirror",
         column_schema=RAW_TUSHARE_TRADE_CALENDAR_SCHEMA,
-        path_template=lake_path_template(raw_trade_calendar_path(PATH_TEMPLATE_LAKE_ROOT)),
+        path_template=lake_path_template(
+            raw_trade_calendar_path(PATH_TEMPLATE_LAKE_ROOT)
+        ),
         partition_model=PartitionModel.FULL_FILE_RAW_TRADE_CALENDAR,
         source_api="trade_cal",
         source_doc="docs/sources/tushare/股票数据/基础数据/0026_交易日历.md",
@@ -1184,7 +1205,9 @@ LAKE_ASSET_CATALOG = (
         group_name="basic",
         data_contract="standardized_namechange_event_timeline_full_snapshot",
         column_schema=SILVER_NAMECHANGE_SCHEMA,
-        path_template=lake_path_template(silver_namechange_path(PATH_TEMPLATE_LAKE_ROOT)),
+        path_template=lake_path_template(
+            silver_namechange_path(PATH_TEMPLATE_LAKE_ROOT)
+        ),
         partition_model=PartitionModel.FULL_FILE_SILVER_NAMECHANGE,
         blocking_check_names=SILVER_NAMECHANGE_CHECKS,
         batch_grain="single_file",
@@ -1367,7 +1390,9 @@ LAKE_ASSET_CATALOG = (
         data_contract="standardized_stock_daily_quote",
         column_schema=SILVER_STOCK_DAILY_SCHEMA,
         path_template=lake_path_template(
-            silver_stock_daily_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+            silver_stock_daily_path(
+                PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY
+            )
         ),
         partition_model=PartitionModel.TRADE_DATE_PARTITION_SILVER_STOCK_DAILY,
         blocking_check_names=SILVER_STOCK_DAILY_CHECKS,
@@ -1432,6 +1457,30 @@ LAKE_ASSET_CATALOG = (
             "bootstrap may use runless full-history materialization events and "
             "recent-window ordinary check events."
         ),
+    ),
+    _derived_entry(
+        asset_key="gold_stock_daily_qfq_nineturn",
+        dataset_id="stock_daily_qfq_nineturn",
+        layer=AssetLayer.GOLD,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="quote",
+        data_contract="qfq_stock_daily_nineturn",
+        column_schema=GOLD_STOCK_DAILY_QFQ_NINETURN_SCHEMA,
+        path_template=lake_path_template(
+            gold_stock_daily_qfq_nineturn_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        partition_model=(
+            PartitionModel.TRADE_DATE_PARTITION_GOLD_STOCK_DAILY_QFQ_NINETURN
+        ),
+        blocking_check_names=GOLD_STOCK_DAILY_QFQ_NINETURN_CHECKS,
+        batch_grain="trade_date",
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        notes="Fixed-formula non-repainting nine-turn output derived from daily QFQ bars.",
     ),
     _derived_entry(
         asset_key="gold_dc_daily_technical",
@@ -1591,6 +1640,35 @@ LAKE_ASSET_CATALOG += tuple(
 
 LAKE_ASSET_CATALOG += tuple(
     _derived_entry(
+        asset_key=f"gold_stk_mins_qfq_nineturn_{freq}m",
+        dataset_id="stk_mins_qfq_nineturn",
+        layer=AssetLayer.GOLD,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="quote",
+        data_contract="qfq_stock_minute_nineturn",
+        column_schema=GOLD_STK_MINS_QFQ_NINETURN_SCHEMA,
+        path_template=lake_path_template(
+            gold_stk_mins_qfq_nineturn_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                freq,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        partition_model=(
+            PartitionModel.TRADE_DATE_PARTITION_GOLD_STOCK_MINS_QFQ_NINETURN
+        ),
+        blocking_check_names=GOLD_STK_MINS_QFQ_NINETURN_CHECKS_BY_FREQ[freq],
+        batch_grain="freq/trade_date",
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        notes="Fixed-formula non-repainting nine-turn output derived from same-frequency QFQ bars.",
+    )
+    for freq in (30, 60, 90, 120)
+)
+
+LAKE_ASSET_CATALOG += tuple(
+    _derived_entry(
         asset_key=f"gold_stk_mins_qfq_macd_kdj_{freq}m",
         dataset_id="stk_mins_qfq_macd_kdj",
         layer=AssetLayer.GOLD,
@@ -1719,7 +1797,9 @@ LAKE_ASSET_CATALOG += (
         data_contract="active_index_daily",
         column_schema=SILVER_INDEX_DAILY_SCHEMA,
         path_template=lake_path_template(
-            silver_index_daily_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+            silver_index_daily_path(
+                PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY
+            )
         ),
         partition_model=PartitionModel.TRADE_DATE_PARTITION_SILVER_INDEX_DAILY,
         blocking_check_names=SILVER_INDEX_DAILY_CHECKS,
@@ -1759,7 +1839,9 @@ LAKE_ASSET_CATALOG += (
         data_contract="silver_index_global_by_trade_date",
         column_schema=SILVER_INDEX_GLOBAL_SCHEMA,
         path_template=lake_path_template(
-            silver_index_global_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+            silver_index_global_path(
+                PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY
+            )
         ),
         partition_model=PartitionModel.TRADE_DATE_PARTITION_SILVER_INDEX_GLOBAL,
         blocking_check_names=INDEX_GLOBAL_SILVER_CHECKS,
@@ -2300,7 +2382,9 @@ def list_lake_asset_keys() -> tuple[str, ...]:
 def list_lake_asset_entries_by_dataset_id(
     dataset_id: str,
 ) -> tuple[LakeAssetCatalogEntry, ...]:
-    return tuple(entry for entry in LAKE_ASSET_CATALOG if entry.dataset_id == dataset_id)
+    return tuple(
+        entry for entry in LAKE_ASSET_CATALOG if entry.dataset_id == dataset_id
+    )
 
 
 def _validate_catalog() -> None:
