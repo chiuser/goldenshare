@@ -712,7 +712,7 @@ def materialize_silver_index_daily_partition_from_raw_by_date(
     return materialize_silver_index_daily_partition_from_raw_file(
         raw_path=raw_path,
         target_path=silver_index_daily_path(lake_root_path, normalized_partition_key),
-        duckdb=duckdb,
+        duckdb_resource=duckdb,
         partition_key=normalized_partition_key,
         log=log,
     )
@@ -722,13 +722,13 @@ def materialize_silver_index_daily_partition_from_raw_file(
     *,
     raw_path: Path,
     target_path: Path,
-    duckdb: DuckDBResource,
+    duckdb_resource: DuckDBResource,
     partition_key: str,
     log: DgStdoutLogger | None = None,
 ) -> SilverIndexDailyWriteResult:
     """Run the formal Silver normalization against an explicit Raw/target pair."""
 
-    with duckdb.connect() as connection:
+    with duckdb_resource.connect() as connection:
         return write_silver_index_daily_partition_from_raw_file(
             connection,
             raw_path=raw_path,
