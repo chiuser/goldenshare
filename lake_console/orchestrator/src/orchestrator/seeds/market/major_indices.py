@@ -6,8 +6,7 @@ from datetime import date
 from functools import cache
 from pathlib import Path
 
-
-EXPECTED_MAJOR_INDICES_COUNT = 10
+EXPECTED_MAJOR_INDICES_COUNT = 11
 MAJOR_INDICES_SEED_COLUMNS = (
     "rank",
     "ts_code",

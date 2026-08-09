@@ -6,6 +6,19 @@ from unittest import mock
 
 from orchestrator.seeds.market import major_indices as seed_module
 
+ORIGINAL_MAJOR_INDEX_CODES = (
+    "000001.SH",
+    "399001.SZ",
+    "399006.SZ",
+    "000688.SH",
+    "000300.SH",
+    "000905.SH",
+    "000852.SH",
+    "899050.BJ",
+    "000510.SH",
+    "000016.SH",
+)
+
 
 def _current_seed_rows() -> list[dict[str, str]]:
     rows = []
@@ -42,14 +55,26 @@ class MarketMajorIndicesSeedContractTests(unittest.TestCase):
     def test_current_seed_file_has_expected_contract(self) -> None:
         seed_rows = seed_module.load_major_indices_seed()
 
+        self.assertEqual(seed_module.EXPECTED_MAJOR_INDICES_COUNT, 11)
         self.assertEqual(len(seed_rows), seed_module.EXPECTED_MAJOR_INDICES_COUNT)
         self.assertEqual(
             [row.rank for row in seed_rows],
             list(range(1, seed_module.EXPECTED_MAJOR_INDICES_COUNT + 1)),
         )
         self.assertEqual(len({row.ts_code for row in seed_rows}), len(seed_rows))
+        self.assertEqual(
+            tuple(row.ts_code for row in seed_rows[:10]),
+            ORIGINAL_MAJOR_INDEX_CODES,
+        )
+        self.assertEqual(seed_rows[7].ts_code, "899050.BJ")
+        self.assertEqual(seed_rows[10].rank, 11)
+        self.assertEqual(seed_rows[10].ts_code, "000680.SH")
+        self.assertEqual(seed_rows[10].effective_start_date.isoformat(), "2020-01-02")
         for row in seed_rows:
-            self.assertLessEqual(row.effective_start_date, row.effective_end_date or row.effective_start_date)
+            self.assertLessEqual(
+                row.effective_start_date,
+                row.effective_end_date or row.effective_start_date,
+            )
 
     def test_active_seed_rows_follow_effective_date_boundaries(self) -> None:
         expected_codes_by_trade_date = {
@@ -82,6 +107,27 @@ class MarketMajorIndicesSeedContractTests(unittest.TestCase):
                 "000852.SH",
                 "000016.SH",
             ),
+            "2020-01-01": (
+                "000001.SH",
+                "399001.SZ",
+                "399006.SZ",
+                "000688.SH",
+                "000300.SH",
+                "000905.SH",
+                "000852.SH",
+                "000016.SH",
+            ),
+            "2020-01-02": (
+                "000001.SH",
+                "399001.SZ",
+                "399006.SZ",
+                "000688.SH",
+                "000300.SH",
+                "000905.SH",
+                "000852.SH",
+                "000016.SH",
+                "000680.SH",
+            ),
             "2022-12-19": (
                 "000001.SH",
                 "399001.SZ",
@@ -92,6 +138,7 @@ class MarketMajorIndicesSeedContractTests(unittest.TestCase):
                 "000852.SH",
                 "899050.BJ",
                 "000016.SH",
+                "000680.SH",
             ),
             "2024-09-23": (
                 "000001.SH",
@@ -104,6 +151,7 @@ class MarketMajorIndicesSeedContractTests(unittest.TestCase):
                 "899050.BJ",
                 "000510.SH",
                 "000016.SH",
+                "000680.SH",
             ),
         }
 
@@ -154,9 +202,11 @@ class MarketMajorIndicesSeedContractTests(unittest.TestCase):
             seed_path = Path(temp_dir) / "major_indices.cn_a.csv"
             _write_seed_file(seed_path, rows, fieldnames=fieldnames)
             seed_module.load_major_indices_seed.cache_clear()
-            with mock.patch.object(seed_module, "MAJOR_INDICES_SEED_PATH", seed_path):
-                with self.assertRaisesRegex(RuntimeError, expected_message):
-                    seed_module.load_major_indices_seed()
+            with (
+                mock.patch.object(seed_module, "MAJOR_INDICES_SEED_PATH", seed_path),
+                self.assertRaisesRegex(RuntimeError, expected_message),
+            ):
+                seed_module.load_major_indices_seed()
             seed_module.load_major_indices_seed.cache_clear()
 
 

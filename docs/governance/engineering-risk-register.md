@@ -40,6 +40,7 @@
 | RISK-2026-05-17-009 | P1 | `dc_member` 的板块代码展开依赖 `dc_index`；历史实现曾在 planner 阶段远程 fallback，且依赖来源藏在 `dc_index_board_codes` selector 中 | `dc_member.maintain`、`dc_index` 前置维护、DatasetActionResolver、板块成分数据完整性 | Closed | [Dataset Universe 模型收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-universe-model-refactor-plan-v1.md)、[board_hotspot 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/board_hotspot.py) |
 | RISK-2026-05-17-010 | P1 | `ths_member` 的板块代码展开依赖本地 `ths_index`；历史实现中依赖来源、字段和空池失败语义藏在 `ths_index_board_codes` selector 中 | `ths_member.maintain`、`ths_index` 前置维护、DatasetActionResolver、同花顺板块成分数据完整性 | Closed | [Dataset Universe 模型收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-universe-model-refactor-plan-v1.md)、[board_hotspot 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/board_hotspot.py) |
 | RISK-2026-05-24-011 | P0 | Dagster dynamic partition 范围扩展先于生产消费者切换，导致股票链路误跑指数历史范围交易日 | Dagster orchestrator、本地新湖股票 raw/silver/gold 分区、Dagster run/event/check 观测记录 | Closed | [Dagster asset/job topology](/Users/congming/github/goldenshare/lake_console/docs/architecture/dagster-asset-job-topology.html)、[Dagster run contract governance](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-run-contract-governance.html)、[数据资产接入模板](/Users/congming/github/goldenshare/lake_console/docs/templates/dagster-dataset-onboarding-template.html) |
+| RISK-2026-08-09-012 | P0 | `000680.SH` 历史补录 Gold apply 未在写入前核验当前日级主要指数 seed 的路径、SHA256 与行数是否仍等于冻结 plan，seed 漂移时可能按未审批对象池批量重写 1599 个 Gold 分区 | `index_daily_000680_history_supplement` M5、`gold_market_major_indices_daily` 正式湖文件、日级主要指数对象池 | Closed | [科创综指 `000680.SH` 指数日线历史补录 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-index-daily-000680-history-supplement-low-level-design.md) |
 
 ---
 
@@ -602,3 +603,36 @@
 3. 股票相关物理文件范围复查通过：`raw_tushare_stock_daily`、`raw_tushare_suspend_d`、`silver_stock_daily`、`silver_stock_suspend_daily`、`gold_market_breadth_daily` 均保持 `2014-01-02` 至 `2026-05-22` 范围，无 2014 年以前或未来分区。
 4. 代码层已补充 `cn_a_stock_trade_days`、`cn_a_index_trade_days`，并把股票与指数生产链路从全局分区中拆出。
 5. 文档层已同步 orchestrator AGENTS、run contract governance、asset/job topology 和数据资产接入模板。
+
+---
+
+## 15. RISK-2026-08-09-012 处理要求
+
+风险说明：
+
+1. 冻结 plan 已记录日级主要指数 seed 的绝对路径、SHA256、当前行数和目标行数。
+2. `run_gold_batch(...)` 当前只比较 plan 内的 `current_count` 与 `target_count`，没有重新读取并核验执行时的 seed 文件。
+3. Gold writer 会通过 `load_major_indices_seed()` 读取执行时的当前 seed；如果 plan 冻结后 seed 内容、路径或行数漂移，实际写入对象池可能与审批时冻结对象池不同。
+4. M5 最多会重建 1599 个 Gold 分区，因此该缺口可能造成批量事实污染，不能依赖事后对账发现。
+
+处理要求：
+
+1. Gold apply 在选择日期、创建候选文件或写正式湖之前，必须核验当前 seed 路径等于 plan 路径。
+2. 当前 seed 文件 SHA256 必须等于 plan 冻结值，当前解析行数必须等于 plan `current_count`，且 `current_count == target_count == 11`。
+3. 任一不一致必须 fail closed，且不得创建 Gold candidate、checkpoint 或修改正式 Gold 文件。
+4. 门禁只作用于 Gold 阶段，不得破坏已完成的旧 plan Raw/Silver 审计与 checkpoint 读取。
+5. 测试必须覆盖 seed hash 漂移、路径漂移、行数漂移和合法冻结 seed 四类路径。
+
+关闭门禁：
+
+1. Gold apply 已在所有写入动作前完成 seed 路径、SHA256、解析行数和目标行数核验。
+2. 负向测试证明 seed 漂移时不会调用 Gold writer，也不会产生正式文件改动。
+3. 专项 apply 测试与主要指数 seed/readiness/check 回归通过。
+
+关闭证据（2026-08-09）：
+
+1. `run_gold_batch(...)` 在选择批次日期、创建 DuckDB 连接、调用 Gold writer 或写 checkpoint 前先执行 `require_frozen_seed_contract(...)`。
+2. `require_frozen_seed_contract(...)` 对冻结路径、当前文件 SHA256、`current_count == target_count == 11` 和 seed 实际解析行数做 fail-closed 核验。
+3. 专项测试覆盖合法 seed、路径漂移、哈希漂移、行数漂移和 writer 不得调用：`17 passed`。
+4. 主要指数 seed、input readiness、lake readiness、checks 与 batch readiness 回归：`30 passed, 7 subtests passed`。
+5. 相关 Python 文件 Ruff 静态检查通过。

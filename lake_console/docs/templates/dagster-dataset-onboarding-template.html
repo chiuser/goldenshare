@@ -1309,10 +1309,9 @@ dataset_update_job = dg.define_asset_job(
 
   <section>
     <h2>17. 验收命令与检查</h2>
-    <pre><code>cd /Users/congming/github/goldenshare
-cd lake_console/orchestrator
-.venv/bin/python -B -m unittest discover -s tests
-.venv/bin/ruff check
+    <pre><code>cd /Users/congming/github/goldenshare/lake_console/orchestrator
+uv run python -m pytest -q tests/&lt;target_test_file.py&gt;
+uv run ruff check src tests
 cd /Users/congming/github/goldenshare
 python3 scripts/check_docs_integrity.py
 git diff --check

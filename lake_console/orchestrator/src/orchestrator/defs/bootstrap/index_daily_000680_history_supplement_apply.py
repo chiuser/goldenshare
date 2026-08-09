@@ -24,6 +24,7 @@ from orchestrator.defs.assets.market_major_indices import (
 )
 from orchestrator.defs.bootstrap.index_daily_000680_history_supplement_plan import (
     DEFAULT_STAGING_ROOT,
+    EXPECTED_TARGET_SEED_COUNT,
     MAX_BATCH_DATE_COUNT,
     SUPPLEMENT_NAME,
     TARGET_CODE,
@@ -50,6 +51,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_INDEX_DAILY_SCHEMA,
     SILVER_INDEX_DAILY_SCHEMA,
 )
+from orchestrator.seeds.market import major_indices as major_indices_seed
 
 FORMAL_LAKE_ROOT = Path("/Volumes/datasource/data_lake")
 
@@ -78,6 +80,40 @@ class CandidateAudit:
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> CandidateAudit:
+        observed_columns = payload.get("observed_columns")
+        if not isinstance(observed_columns, list):
+            raise IndexDaily000680HistorySupplementApplyError(
+                "Checkpoint audit observed_columns must be a list."
+            )
+        try:
+            return cls(
+                layer=str(payload["layer"]),
+                partition_key=str(payload["partition_key"]),
+                formal_path=str(payload["formal_path"]),
+                candidate_path=str(payload["candidate_path"]),
+                before_row_count=int(payload["before_row_count"]),
+                after_row_count=int(payload["after_row_count"]),
+                target_row_count=int(payload["target_row_count"]),
+                duplicate_key_count=int(payload["duplicate_key_count"]),
+                invalid_partition_row_count=int(payload["invalid_partition_row_count"]),
+                before_non_target_fingerprint=str(
+                    payload["before_non_target_fingerprint"]
+                ),
+                after_non_target_fingerprint=str(
+                    payload["after_non_target_fingerprint"]
+                ),
+                target_row_fingerprint=str(payload["target_row_fingerprint"]),
+                candidate_sha256=str(payload["candidate_sha256"]),
+                observed_columns=tuple(str(value) for value in observed_columns),
+                passed=payload["passed"] is True,
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise IndexDaily000680HistorySupplementApplyError(
+                "Checkpoint audit payload is invalid."
+            ) from error
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,6 +234,48 @@ def require_frozen_plan_contract(
         )
 
 
+def require_frozen_seed_contract(plan: Mapping[str, Any]) -> None:
+    seed = plan.get("seed")
+    if not isinstance(seed, Mapping):
+        raise IndexDaily000680HistorySupplementApplyError(
+            "Frozen supplement plan has no seed contract."
+        )
+    planned_seed_path = Path(str(seed.get("file_path") or "")).resolve()
+    current_seed_path = major_indices_seed.MAJOR_INDICES_SEED_PATH.resolve()
+    if planned_seed_path != current_seed_path:
+        raise IndexDaily000680HistorySupplementApplyError(
+            "Current major-index seed path differs from the frozen plan."
+        )
+    if not current_seed_path.is_file():
+        raise IndexDaily000680HistorySupplementApplyError(
+            f"Current major-index seed file is missing: {current_seed_path}"
+        )
+    if file_sha256(current_seed_path) != str(seed.get("file_hash") or ""):
+        raise IndexDaily000680HistorySupplementApplyError(
+            "Current major-index seed hash differs from the frozen plan."
+        )
+    planned_current_count = int(seed.get("current_count") or 0)
+    planned_target_count = int(seed.get("target_count") or 0)
+    if (
+        planned_current_count != EXPECTED_TARGET_SEED_COUNT
+        or planned_target_count != EXPECTED_TARGET_SEED_COUNT
+    ):
+        raise IndexDaily000680HistorySupplementApplyError(
+            "Gold apply requires a frozen 11-index seed contract."
+        )
+    major_indices_seed.load_major_indices_seed.cache_clear()
+    try:
+        current_seed_count = len(major_indices_seed.load_major_indices_seed())
+    except (OSError, RuntimeError, ValueError) as error:
+        raise IndexDaily000680HistorySupplementApplyError(
+            "Current major-index seed cannot satisfy its formal contract."
+        ) from error
+    if current_seed_count != planned_current_count:
+        raise IndexDaily000680HistorySupplementApplyError(
+            "Current major-index seed row count differs from the frozen plan."
+        )
+
+
 def _date_from_target_path(value: str) -> str:
     for part in Path(value).parts:
         if part.startswith("trade_date="):
@@ -274,6 +352,137 @@ def checkpoint_path(plan: Mapping[str, Any], layer: str) -> Path:
         / f"run_id={plan['run_id']}"
         / "manifest"
         / f"{layer}-checkpoints.json"
+    )
+
+
+def _formal_layer_path(
+    plan: Mapping[str, Any], layer: str, partition_key: str
+) -> Path:
+    lake_root = Path(str(plan["lake_root"]))
+    if layer == "raw":
+        return raw_index_daily_path(lake_root, partition_key)
+    if layer == "silver":
+        return silver_index_daily_path(lake_root, partition_key)
+    if layer == "gold":
+        return gold_market_major_indices_daily_path(lake_root, partition_key)
+    raise IndexDaily000680HistorySupplementApplyError(
+        f"Unsupported checkpoint layer: {layer}"
+    )
+
+
+def load_checkpoint_audits(
+    plan: Mapping[str, Any],
+    *,
+    layer: str,
+    expected_plan_hash: str,
+    verify_dates: Sequence[str] | None = None,
+) -> tuple[CandidateAudit, ...]:
+    path = checkpoint_path(plan, layer)
+    if not path.exists():
+        return ()
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise IndexDaily000680HistorySupplementApplyError(
+            f"Cannot read {layer} checkpoint: {path}"
+        ) from error
+    if not isinstance(payload, Mapping):
+        raise IndexDaily000680HistorySupplementApplyError(
+            f"{layer} checkpoint must be a JSON object."
+        )
+    if payload.get("schema_version") != 1:
+        raise IndexDaily000680HistorySupplementApplyError(
+            f"Unsupported {layer} checkpoint schema version."
+        )
+    if payload.get("layer") != layer or payload.get("plan_hash") != expected_plan_hash:
+        raise IndexDaily000680HistorySupplementApplyError(
+            f"{layer} checkpoint does not belong to the frozen plan."
+        )
+    if payload.get("checkpoint_path") != str(path) or payload.get("passed") is not True:
+        raise IndexDaily000680HistorySupplementApplyError(
+            f"{layer} checkpoint contract is invalid."
+        )
+    selected_dates = payload.get("selected_dates")
+    audit_payloads = payload.get("audits")
+    if not isinstance(selected_dates, list) or not isinstance(audit_payloads, list):
+        raise IndexDaily000680HistorySupplementApplyError(
+            f"{layer} checkpoint dates and audits must be lists."
+        )
+    audits = tuple(
+        CandidateAudit.from_dict(value)
+        for value in audit_payloads
+        if isinstance(value, Mapping)
+    )
+    if len(audits) != len(audit_payloads):
+        raise IndexDaily000680HistorySupplementApplyError(
+            f"{layer} checkpoint contains a non-object audit."
+        )
+    audit_dates = tuple(audit.partition_key for audit in audits)
+    normalized_dates = tuple(str(value) for value in selected_dates)
+    if (
+        normalized_dates != audit_dates
+        or len(set(audit_dates)) != len(audit_dates)
+        or payload.get("promoted_count") != len(audits)
+    ):
+        raise IndexDaily000680HistorySupplementApplyError(
+            f"{layer} checkpoint completion set is inconsistent."
+        )
+    planned_dates = set(_plan_dates(plan, layer))
+    dates_requiring_file_verification = (
+        planned_dates if verify_dates is None else set(verify_dates)
+    )
+    if not dates_requiring_file_verification.issubset(planned_dates):
+        raise IndexDaily000680HistorySupplementApplyError(
+            f"{layer} checkpoint verification dates are outside the frozen plan."
+        )
+    for audit in audits:
+        expected_formal = _formal_layer_path(plan, layer, audit.partition_key)
+        expected_candidate = candidate_path(plan, layer, audit.partition_key)
+        if (
+            audit.layer != layer
+            or audit.partition_key not in planned_dates
+            or not audit.passed
+            or Path(audit.formal_path) != expected_formal
+            or Path(audit.candidate_path) != expected_candidate
+        ):
+            raise IndexDaily000680HistorySupplementApplyError(
+                f"{layer} checkpoint audit contract changed for {audit.partition_key}."
+            )
+        if audit.partition_key not in dates_requiring_file_verification:
+            continue
+        if not expected_formal.is_file() or not expected_candidate.is_file():
+            raise IndexDaily000680HistorySupplementApplyError(
+                f"{layer} checkpoint file is missing for {audit.partition_key}."
+            )
+        if (
+            file_sha256(expected_formal) != audit.candidate_sha256
+            or file_sha256(expected_candidate) != audit.candidate_sha256
+        ):
+            raise IndexDaily000680HistorySupplementApplyError(
+                f"{layer} checkpoint hash drifted for {audit.partition_key}."
+            )
+    return audits
+
+
+def cumulative_checkpoint_report(
+    *,
+    plan: Mapping[str, Any],
+    layer: str,
+    expected_plan_hash: str,
+    audits_by_date: Mapping[str, CandidateAudit],
+) -> LayerBatchReport:
+    completed_dates = tuple(
+        partition_key
+        for partition_key in _plan_dates(plan, layer)
+        if partition_key in audits_by_date
+    )
+    return LayerBatchReport(
+        layer=layer,
+        plan_hash=expected_plan_hash,
+        selected_dates=completed_dates,
+        audits=tuple(audits_by_date[value] for value in completed_dates),
+        promoted_count=len(completed_dates),
+        checkpoint_path=str(checkpoint_path(plan, layer)),
     )
 
 
@@ -587,14 +796,27 @@ def _build_raw_candidate(
     return audit
 
 
-def _checkpoint(report: LayerBatchReport) -> None:
+def _checkpoint(
+    report: LayerBatchReport,
+    *,
+    replace_fn: Callable[[str | Path, str | Path], None] = os.replace,
+) -> None:
     path = Path(report.checkpoint_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
+    incoming = path.with_name(f".{path.name}.incoming")
+    if incoming.exists():
+        incoming.unlink()
+    incoming.write_text(
         json.dumps(report.to_dict(), ensure_ascii=False, indent=2, sort_keys=True)
         + "\n",
         encoding="utf-8",
     )
+    try:
+        replace_fn(incoming, path)
+    except Exception:
+        if incoming.exists():
+            incoming.unlink()
+        raise
 
 
 def run_raw_batch(
@@ -613,9 +835,22 @@ def run_raw_batch(
     )
     lake_root = Path(str(plan["lake_root"]))
     source_path = source_staging_path(plan)
-    audits: list[CandidateAudit] = []
+    completed = {
+        audit.partition_key: audit
+        for audit in load_checkpoint_audits(
+            plan,
+            layer="raw",
+            expected_plan_hash=expected_plan_hash,
+            verify_dates=dates,
+        )
+    }
+    selected_audits: list[CandidateAudit] = []
+    promoted_count = 0
     with duckdb_resource.connect() as connection:
         for partition_key in dates:
+            if partition_key in completed:
+                selected_audits.append(completed[partition_key])
+                continue
             formal_path = raw_index_daily_path(lake_root, partition_key)
             candidate = candidate_path(plan, "raw", partition_key)
             audit = _build_raw_candidate(
@@ -630,17 +865,25 @@ def run_raw_batch(
                 formal_path=formal_path,
                 expected_sha256=audit.candidate_sha256,
             )
-            audits.append(audit)
-            report = LayerBatchReport(
-                layer="raw",
-                plan_hash=expected_plan_hash,
-                selected_dates=dates,
-                audits=tuple(audits),
-                promoted_count=len(audits),
-                checkpoint_path=str(checkpoint_path(plan, "raw")),
+            completed[partition_key] = audit
+            selected_audits.append(audit)
+            promoted_count += 1
+            _checkpoint(
+                cumulative_checkpoint_report(
+                    plan=plan,
+                    layer="raw",
+                    expected_plan_hash=expected_plan_hash,
+                    audits_by_date=completed,
+                )
             )
-            _checkpoint(report)
-    return report
+    return LayerBatchReport(
+        layer="raw",
+        plan_hash=expected_plan_hash,
+        selected_dates=dates,
+        audits=tuple(selected_audits),
+        promoted_count=promoted_count,
+        checkpoint_path=str(checkpoint_path(plan, "raw")),
+    )
 
 
 def run_silver_batch(
@@ -658,9 +901,22 @@ def run_silver_batch(
         plan, layer="silver", start_date=start_date, end_date=end_date
     )
     lake_root = Path(str(plan["lake_root"]))
-    audits: list[CandidateAudit] = []
+    completed = {
+        audit.partition_key: audit
+        for audit in load_checkpoint_audits(
+            plan,
+            layer="silver",
+            expected_plan_hash=expected_plan_hash,
+            verify_dates=dates,
+        )
+    }
+    selected_audits: list[CandidateAudit] = []
+    promoted_count = 0
     with duckdb_resource.connect() as connection:
         for partition_key in dates:
+            if partition_key in completed:
+                selected_audits.append(completed[partition_key])
+                continue
             raw_path = raw_index_daily_path(lake_root, partition_key)
             formal_path = silver_index_daily_path(lake_root, partition_key)
             candidate = candidate_path(plan, "silver", partition_key)
@@ -686,17 +942,25 @@ def run_silver_batch(
                 formal_path=formal_path,
                 expected_sha256=audit.candidate_sha256,
             )
-            audits.append(audit)
-            report = LayerBatchReport(
-                layer="silver",
-                plan_hash=expected_plan_hash,
-                selected_dates=dates,
-                audits=tuple(audits),
-                promoted_count=len(audits),
-                checkpoint_path=str(checkpoint_path(plan, "silver")),
+            completed[partition_key] = audit
+            selected_audits.append(audit)
+            promoted_count += 1
+            _checkpoint(
+                cumulative_checkpoint_report(
+                    plan=plan,
+                    layer="silver",
+                    expected_plan_hash=expected_plan_hash,
+                    audits_by_date=completed,
+                )
             )
-            _checkpoint(report)
-    return report
+    return LayerBatchReport(
+        layer="silver",
+        plan_hash=expected_plan_hash,
+        selected_dates=dates,
+        audits=tuple(selected_audits),
+        promoted_count=promoted_count,
+        checkpoint_path=str(checkpoint_path(plan, "silver")),
+    )
 
 
 def run_gold_batch(
@@ -710,18 +974,28 @@ def run_gold_batch(
 ) -> LayerBatchReport:
     require_explicit_apply(apply)
     require_frozen_plan_contract(plan, expected_plan_hash=expected_plan_hash)
-    if int(plan["seed"]["current_count"]) != int(plan["seed"]["target_count"]):
-        raise IndexDaily000680HistorySupplementApplyError(
-            "Gold apply is blocked until the frozen plan observes the released 11-index seed."
-        )
+    require_frozen_seed_contract(plan)
     dates = select_batch_dates(
         plan, layer="gold", start_date=start_date, end_date=end_date
     )
     lake_root = Path(str(plan["lake_root"]))
-    audits: list[CandidateAudit] = []
+    completed = {
+        audit.partition_key: audit
+        for audit in load_checkpoint_audits(
+            plan,
+            layer="gold",
+            expected_plan_hash=expected_plan_hash,
+            verify_dates=dates,
+        )
+    }
+    selected_audits: list[CandidateAudit] = []
+    promoted_count = 0
     with duckdb_resource.connect() as connection:
         seed_count = create_major_indices_seed_table(connection)
         for partition_key in dates:
+            if partition_key in completed:
+                selected_audits.append(completed[partition_key])
+                continue
             silver_path = silver_index_daily_path(lake_root, partition_key)
             formal_path = gold_market_major_indices_daily_path(
                 lake_root, partition_key
@@ -751,17 +1025,25 @@ def run_gold_batch(
                 formal_path=formal_path,
                 expected_sha256=audit.candidate_sha256,
             )
-            audits.append(audit)
-            report = LayerBatchReport(
-                layer="gold",
-                plan_hash=expected_plan_hash,
-                selected_dates=dates,
-                audits=tuple(audits),
-                promoted_count=len(audits),
-                checkpoint_path=str(checkpoint_path(plan, "gold")),
+            completed[partition_key] = audit
+            selected_audits.append(audit)
+            promoted_count += 1
+            _checkpoint(
+                cumulative_checkpoint_report(
+                    plan=plan,
+                    layer="gold",
+                    expected_plan_hash=expected_plan_hash,
+                    audits_by_date=completed,
+                )
             )
-            _checkpoint(report)
-    return report
+    return LayerBatchReport(
+        layer="gold",
+        plan_hash=expected_plan_hash,
+        selected_dates=dates,
+        audits=tuple(selected_audits),
+        promoted_count=promoted_count,
+        checkpoint_path=str(checkpoint_path(plan, "gold")),
+    )
 
 
 def write_report(report: Mapping[str, object] | LayerBatchReport, output: Path) -> None:

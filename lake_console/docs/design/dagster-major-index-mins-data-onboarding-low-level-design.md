@@ -711,7 +711,7 @@ def raw_major_index_mins_update_job_sensor(context):
 
 ```bash
 cd /Users/congming/github/goldenshare/lake_console/orchestrator
-PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+uv run python -m pytest -q \
   tests/test_major_index_mins_contracts.py \
   tests/test_major_index_mins_tushare_probe.py \
   tests/test_major_index_mins_raw_writer.py \
@@ -722,6 +722,7 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
   tests/test_major_index_mins_sensors.py \
   tests/test_major_index_mins_definitions.py \
   tests/test_run_contract_static_gates.py
+uv run ruff check src tests
 ```
 
 只读定义检查为 `dg check defs`。P6 plan dry-run 禁止请求 Tushare；P7 source staging 的真实请求必须单独批准并记录报告。开发阶段禁止正式 lake、Dagster DB/event、sensor tick 和正式 Bootstrap。
@@ -1590,7 +1591,7 @@ P7D 对 `major_index_mins_bootstrap_apply.py` 的临时构建路径做了以下�
 P7D 使用：
 
 ```bash
-PYTHONPATH=src uv run --project . python -m \
+uv run python -m \
   orchestrator.defs.bootstrap.major_index_mins_bootstrap_apply_cli build-temp \
   --calendar-lake-root /Volumes/datasource/data_lake \
   --staging-root /Volumes/datasource/data_lake_staging/major_index_mins_p7_20260805 \
@@ -1598,7 +1599,7 @@ PYTHONPATH=src uv run --project . python -m \
   --confirm-staging-write \
   --output /private/tmp/major_index_mins_p7d_temporary_lake_build_20260806.json
 
-PYTHONPATH=src uv run --project . python -m \
+uv run python -m \
   orchestrator.defs.bootstrap.major_index_mins_bootstrap_apply_cli audit-temp \
   --calendar-lake-root /Volumes/datasource/data_lake \
   --staging-root /Volumes/datasource/data_lake_staging/major_index_mins_p7_20260805 \

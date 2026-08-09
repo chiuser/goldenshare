@@ -1,22 +1,29 @@
 # 科创综指 `000680.SH` 指数日线历史补录 LLD
 
-> 状态：M0 只读合同冻结完成；M1 工具与测试完成；M2 及后续写入阶段尚未执行。
-> 审计日期：2026-08-08。
+> 状态：M0、M1、M2、M3、M4、M5 已完成；Raw/Silver 历史补录、11 指数日级 seed 发布和 1599 个 Gold 分区重建均已通过 checkpoint 深验、合同对账与幂等重跑。M6、M7 尚未执行。
+> 审计日期：2026-08-09。
 > 适用范围：DG 正式湖 `raw_index_daily`、`silver_index_daily`、`gold_market_major_indices_daily`，以及日级主要指数 seed。
 > 不在本轮范围：Tushare 重新请求、Prod 数据写入、分钟线对象池、Wealth 首页 10 指数配置、正式 Dagster instance 写入。
 
-### 当前实施状态（2026-08-08）
+### 当前实施状态（2026-08-09）
 
-本轮只推进 M0、M1，未进入 M2：
+M0、M1、M2、M3、M4、M5 已完成，物理湖写入已验收：
 
-1. M0 已使用正式 Prod 只读连接、正式湖和正式 Dagster instance 完成 planner dry-run；报告位于 `/private/tmp/index_daily_000680_history_supplement_plan_m0_m1_20260808.json`。
-2. 冻结 `plan_hash=91a28572b8d55f5de0043eb63f5de3116ba25764afc68f821f49043c5eb6090b`，`should_stop=false`。
+1. M5 冻结计划位于 `/Volumes/datasource/data_lake_staging/index_daily_000680_history_supplement/run_id=m5-20260809/manifest/plan.json`。
+2. M5 冻结 `plan_hash=9682418678919443c9f49a006f8581c3524e09be680b58c29bad0e6401526249`，`should_stop=false`。
 3. source 为 1223 行、1223 个 distinct dates、零缺日、零重复、零关键字段空值、零非法 OHLC；边界 `2025-01-16.close = 2025-01-17.pre_close = 1090.4478`。
-4. 目标文件为 Raw 1223、Silver 1223、Gold 1599；物理文件均存在，历史目标行当前均为 0。
+4. 目标文件为 Raw 1223、Silver 1223、Gold 1599；物理文件均存在。Raw/Silver 目标历史行各 1223，Gold `000680.SH` 目标行 1599。
 5. 正式 instance 的目标 1223 个日期分区零缺失，`000680.SH` 已注册，当前注册指数代码 820 个。
-6. 当前日级 seed 仍为 10 个；M1 没有修改 seed。seed 发布和 Gold 全历史写入仍属于 M5 独立审批点。
-7. dry-run 报告中的 `formal_lake/source_staging/dagster_db/dynamic_partitions/dagster_events` 写入计数全部为 0。
-8. M1 已完成 plan/apply/audit/events 四条链路和显式 CLI；没有执行 source staging、候选提升、正式湖替换、partition 注册或 runless event。
+6. 日级 seed 已从 10 个增至 11 个；保留 `899050.BJ`，追加 `000680.SH` 为 rank 11，`effective_start_date=2020-01-02`，seed SHA256 为 `963eeb727f5c1029b8933395a68e3c28084c4e655105cb2b6c15b9300f752bcd`。
+7. M2 已把 1223 行 source 写入 run-scoped staging；Parquet SHA256 为 `647af89ef8f5f98d7a02a3ee9a6e5864efa88ce853056e542f467308f328117f`，独立 DuckDB 审计与 source blocking gates 全绿。
+8. M3 已且只处理 `2020-01-02`、`2022-07-13`、`2025-01-16` 的 Raw/Silver；6 个正式文件均通过候选校验、原子提升和幂等重跑。
+9. M5 在任何 Gold 候选生成和正式 writer 调用前强制核验冻结 seed 的路径、SHA256、行数和解析合同，任一漂移均 fail closed。
+10. M5 先验证 `2020-01-02`、`2022-07-13`、`2025-01-16` 三个 Gold 样本日，再按最多 100 个交易日一批重建全部 1599 个 Gold 日期；三个样本日和 16 个全量批次全部通过。
+11. M4 开始前已修正累计 checkpoint 与断点续跑语义；执行代码文件 SHA256 为 `6b8a64a543227aad29a94e53c043e13a9f94884f63ecaa2a54cfe93d3700a664`，checkpoint schema 继续使用 v1，没有新增兼容格式。
+12. M4 已按最多 100 个交易日一批完成 13 个 Raw 批次和 13 个 Silver 批次；两层累计 checkpoint 均为 1223/1223。
+13. source、Raw、Silver 的 1223 行目标数据逐行一致；Raw/Silver 各 978623 行、零重复键、零错误分区、每个目标日期恰好 1 行 `000680.SH`。
+14. M5 的 Gold 累计 checkpoint 为 1599/1599；全量合同核验得到 expected/actual 均为 15726 行、零缺失、零意外行、零重复键、零重复 rank、零错误分区。
+15. M5 的 16 个幂等批次新增 promotion 均为 0；本阶段未写 Dagster event/check history、未注册 dynamic partition、未修改分钟线对象池或 Wealth 首页配置。
 
 ## 1. 目标与冻结口径
 
@@ -76,7 +83,7 @@ Prod Serving 当前全量事实：
 
 `2025-01-17.pre_close = 2025-01-16.close`，补录段与 DG 现有尾部在价格口径上连续。
 
-### 2.2 DG 正式湖审计
+### 2.2 M0 执行前 DG 正式湖审计基线
 
 正式湖根：`/Volumes/datasource/data_lake`。
 
@@ -180,7 +187,7 @@ dynamic partition reconciliation + runless events
 
 命名必须表达真实任务；不得使用 `temp`、`phase`、`fix` 或隐含兼容语义的文件名。
 
-### 5.2 后续修改正式合同（M5，当前未执行）
+### 5.2 M5 已实施的正式合同
 
 | 文件 | 修改 |
 |---|---|
@@ -467,21 +474,147 @@ Source 只有 1223 行，数据库读取不是瓶颈；主要成本是 4045 个�
 |---|---|---|
 | M0 合同冻结 | **已完成**：复跑 Prod/Lake/instance 只读审计；冻结日期、行数、seed、文件数和 plan hash | 1223 source dates、1223 Raw/Silver target、1599 Gold target、plan hash 已确认；正式写入为 0 |
 | M1 工具开发 | **已完成**：开发 plan/apply/audit/events 四条链路、显式 CLI 和测试 | planner dry-run 不写 formal Lake/instance；专项与既有回归全绿 |
-| M2 Source staging | 从 Prod 提取 1223 行并生成 manifest | source blocking gates 全绿 |
-| M3 样本补录 | 只处理 `2020-01-02`、一个中间日、`2025-01-16` | Raw/Silver/Gold 候选校验、原子提升、故障恢复和幂等验证通过 |
-| M4 Raw/Silver 全量 | 分批补 1223 个 Raw，并重建 1223 个 Silver | 每批 checkpoint 与全区间物理审计通过 |
-| M5 Seed/Gold | 发布 11 指数 seed，重建全部有效 Gold 日期 | 所有日期 active seed coverage/rank/checks 通过 |
+| M2 Source staging | **已完成**：从 Prod 提取 1223 行并生成 manifest | source blocking gates 全绿；正式湖与 Dagster instance 写入为 0 |
+| M3 Raw/Silver 样本补录 | **已完成**：只处理 `2020-01-02`、`2022-07-13`、`2025-01-16` | Raw/Silver 候选校验、原子提升、跨层对账和幂等验证通过；Gold/seed/event/partition 写入为 0 |
+| M4 Raw/Silver 全量 | **已完成**：分 13 批补齐 1223 个 Raw，并分 13 批重建 1223 个 Silver | 累计 checkpoint、全量哈希、跨层对账和 26 批幂等重跑全部通过；Gold/seed/instance 写入为 0 |
+| M5 Seed/Gold | **已完成**：发布 11 指数 seed；先对 M3 三个样本日验证 Gold，再分 16 批重建 1599 个有效 Gold 日期 | 三日样本、1599/1599 累计 checkpoint、active seed coverage/rank 合同和 16 批幂等重跑全部通过；instance/event 写入为 0 |
 | M6 全量对账 | Prod -> Raw -> Silver -> Gold 对账 | 无缺日、无重复、无非目标漂移、无旧 seed 口径 |
 | M7 instance/event | 注册缺失 dynamic keys，补 runless events | 单独审批；event planner 与执行报告一致 |
 | M8 收口 | 更新文档、运行手册和最终验收报告 | 计划逐条对账，无未解释差异 |
 
-M3、M4、M5、M7 都是独立写入审批点；前一阶段完成不自动授权下一阶段。
+M3、M4、M5、M7 都是独立写入审批点；M5 已按单独审批完成，但不自动授权 M6 全量跨层对账或 M7 instance/event 写入。
+
+### 12.1 M3 执行冻结
+
+M3 只验证 Raw/Silver 物理补录链路，固定范围如下：
+
+| 维度 | 冻结值 |
+|---|---:|
+| 指数对象 | 1：`000680.SH` |
+| 样本日期 | 3：`2020-01-02`、`2022-07-13`、`2025-01-16` |
+| source 行数 | 1223；按目标日期裁剪为每日 1 行 |
+| 正式分区替换 | 6：Raw 3 + Silver 3 |
+| 候选文件 | 6：Raw 3 + Silver 3 |
+| Gold/seed/event/partition 写入 | 0 |
+| 原子边界 | 每个候选文件校验通过后独立 `os.replace()` |
+| 单次失败重试成本 | 最多重建并重新校验当前 1 个分区文件 |
+
+M3 性能与拒绝门禁：
+
+1. 每个样本日只扫描该日一个 Raw 正式文件、一个 Silver 正式文件和对应候选文件，不扫描 1223 个正式历史分区；
+2. source staging 仅 1223 行、约 86 KiB，所有变换使用 DuckDB set operation，不产生可观测 spill；
+3. 任一命令选择超过 1 个冻结样本日、正式文件缺失、schema/key/date/目标行校验失败、非目标 fingerprint 变化或候选 hash 漂移时立即停止；
+4. Raw 三日全部通过后才允许进入 Silver；Silver 三日全部通过后执行同范围幂等重跑；
+5. `run_gold_batch` 在 seed `current_count != target_count` 时的阻断是正式门禁，M3 不得绕过、放宽或用临时 seed 规避；
+6. M3 不执行 Dagster 命令，不读取或写入 event/check history，不注册 dynamic partition。
+
+### 12.2 M3 实际验收证据
+
+M3 使用冻结的 `plan_hash=6ccc360fc1432a127c2ad62cbcfb36f88549d52ce33522bd9e1a6ce22ff2a177` 和 source SHA256 `647af89ef8f5f98d7a02a3ee9a6e5864efa88ce853056e542f467308f328117f` 执行。正式结果如下：
+
+| 层 | 日期 | 首次写入前/后总行数 | 幂等重跑前/后总行数 | 目标行 | 重复键 | 非目标 fingerprint | candidate/formal hash |
+|---|---|---:|---:|---:|---:|---|---|
+| Raw | 2020-01-02 | 795 / 796 | 796 / 796 | 1 | 0 | 不变 | 相等 |
+| Raw | 2022-07-13 | 787 / 788 | 788 / 788 | 1 | 0 | 不变 | 相等 |
+| Raw | 2025-01-16 | 815 / 816 | 816 / 816 | 1 | 0 | 不变 | 相等 |
+| Silver | 2020-01-02 | 795 / 796 | 796 / 796 | 1 | 0 | 不变 | 相等 |
+| Silver | 2022-07-13 | 787 / 788 | 788 / 788 | 1 | 0 | 不变 | 相等 |
+| Silver | 2025-01-16 | 815 / 816 | 816 / 816 | 1 | 0 | 不变 | 相等 |
+
+终审结果：
+
+1. source、Raw、Silver 三个样本均为 3 行；source -> Raw 匹配 3、差异 0，Raw -> Silver 匹配 3、差异 0；
+2. 6 个 candidate 文件与对应正式文件 SHA256 逐一相等，正式路径不存在遗留 `.incoming` 文件；
+3. seed SHA256 仍为 `9c4cfd9efedc30584602839319a56ebec20ec4dde0273006a6022ddd887673e1`，与冻结计划一致；
+4. 三个样本日 Gold `000680.SH` 行数均为 0；candidate 目录只有 Raw 3 文件和 Silver 3 文件，没有 Gold candidate；
+5. 分日期首次审计和幂等审计保存在同一 run 的 `manifest/*-audit-*.json` 与 `manifest/*-idempotency-audit-*.json` 中；
+6. 专项 apply/audit 测试共 10 项通过，atomic replace 失败、候选校验失败等故障路径由测试覆盖，未通过破坏正式文件模拟故障。
+
+### 12.3 M4 checkpoint 修正与实际验收证据
+
+M4 开始前先修正了 M3 暴露的覆盖式 checkpoint 问题：
+
+1. `raw-checkpoints.json`、`silver-checkpoints.json` 改为按冻结计划日期顺序保存累计完成集合，不再只保留最近一次 CLI 调用；
+2. 每个分区原子提升成功后，立即把新的累计 checkpoint 写入 `.incoming`，再用 `os.replace()` 原子替换正式 checkpoint；checkpoint 替换失败时保留上一版；
+3. 恢复执行时校验 checkpoint 的 schema、plan hash、日期集合、路径和审计合同；只对本批将跳过的已完成日期执行 candidate/formal 文件哈希深验，避免 13 个批次重复扫描所有历史文件；
+4. M4 全部完成后不限定日期，对两层 1223 条 checkpoint 审计执行一次全量 candidate/formal SHA256 深验；
+5. 新增累计续跑、Silver 跨批累计、已完成日期跳过、历史哈希漂移阻断、checkpoint 原子替换失败保护和按批哈希范围测试；专项测试共 24 项通过，Ruff 通过。
+
+M4 继续使用冻结 `plan_hash=6ccc360fc1432a127c2ad62cbcfb36f88549d52ce33522bd9e1a6ce22ff2a177` 和 source SHA256 `647af89ef8f5f98d7a02a3ee9a6e5864efa88ce853056e542f467308f328117f`。checkpoint 修正不改变 source、目标日期、目标路径、字段映射或分区写入算法；本轮执行代码文件 SHA256 为 `6b8a64a543227aad29a94e53c043e13a9f94884f63ecaa2a54cfe93d3700a664`。
+
+正式执行结果：
+
+| 层 | 批次数 | 日期数 | 首次 M4 新 promotion | 最终累计 checkpoint | 幂等重跑批次 | 幂等新增 promotion |
+|---|---:|---:|---:|---:|---:|---:|
+| Raw | 13 | 1223 | 1222 | 1223 | 13 | 0 |
+| Silver | 13 | 1223 | 1222 | 1223 | 13 | 0 |
+
+`2025-01-16` 已存在于 M3 最后一版 checkpoint，因此 M4 首轮每层新增 1222 次 promotion，最终累计 1223 次；其余两个 M3 样本日因旧 checkpoint 未保留累计状态而按幂等算法重新生成并提升，没有增加目标行或改变非目标数据。
+
+全量物理审计：
+
+| 审计项 | Raw | Silver |
+|---|---:|---:|
+| 正式文件数 | 1223 | 1223 |
+| 正式层总行数 | 978623 | 978623 |
+| `000680.SH` 行数 | 1223 | 1223 |
+| distinct target dates | 1223 | 1223 |
+| 重复键 | 0 | 0 |
+| 错误日期分区 | 0 | 0 |
+| candidate/formal 全量哈希 | 1223/1223 相等 | 1223/1223 相等 |
+| 残留 `.incoming` | 0 | 0 |
+
+跨层与禁止项结果：
+
+1. source -> Raw 规范化 1223 行逐行一致，Raw -> Silver 规范化 1223 行逐行一致；
+2. Raw 13 批和 Silver 13 批全部幂等重跑，所有报告 `promoted_count=0`；
+3. Gold `000680.SH` 目标行仍为 0；没有 `gold-checkpoints.json`，没有 Gold candidate 目录；
+4. 日级 seed SHA256 仍为 `9c4cfd9efedc30584602839319a56ebec20ec4dde0273006a6022ddd887673e1`，与冻结计划一致；
+5. 没有执行 Dagster 命令，没有写 event/check history，没有注册 dynamic partition；
+6. 运行证据保存在同一 run 的 `manifest/m4-raw-batch-*.json`、`manifest/m4-silver-batch-*.json`、`manifest/m4-idempotent-*-batch-*.json` 和 `manifest/m4-raw-silver-audit.json`。
+
+关键 manifest SHA256：
+
+| 文件 | SHA256 |
+|---|---|
+| `raw-checkpoints.json` | `eab2bd1535781d052eca7036266143004ce48b456a2b47b7b69fc2a62f9150fc` |
+| `silver-checkpoints.json` | `2c7d2309e9458f72a464a979e52ac2ebb20daea1e4d290e6e569377d6431d728` |
+| `m4-raw-silver-audit.json` | `c5ed55827e41c7978b5e7554b782921c132b7580f5920f639b87895b18e2f669` |
+
+M4 完成后，管理员已单独批准 M5 的 11 指数 seed 发布、三日 Gold 样本和 1599 个 Gold 分区重建；后续 M6、M7 仍须按各自边界独立推进。
+
+### 12.4 M5 Seed/Gold 实际验收证据
+
+M5 使用独立冻结计划执行，未复用 M2 的 10 指数 seed 计划：
+
+| 维度 | 冻结值 / 结果 |
+|---|---|
+| plan | `/Volumes/datasource/data_lake_staging/index_daily_000680_history_supplement/run_id=m5-20260809/manifest/plan.json` |
+| plan hash | `9682418678919443c9f49a006f8581c3524e09be680b58c29bad0e6401526249` |
+| 日级 seed | 11 行；SHA256 `963eeb727f5c1029b8933395a68e3c28084c4e655105cb2b6c15b9300f752bcd` |
+| Gold 目标日期 | 1599：`2020-01-02..2026-08-07` |
+| 样本日期 | `2020-01-02`、`2022-07-13`、`2025-01-16` |
+| 全量批次 | 16；每批最多 100 个交易日，最后一批 99 个 |
+| Gold checkpoint | `/Volumes/datasource/data_lake_staging/index_daily_000680_history_supplement/run_id=m5-20260809/manifest/gold-checkpoints.json` |
+| checkpoint SHA256 | `73ac747e372482c0a53908f3912230d2b4d85762db575c06506a34c430a13fb6` |
+
+执行与幂等结果：
+
+1. 三个样本日首次执行各 promotion 1 次，紧随其后的幂等重跑各为 0；样本累计 promotion 为 3。
+2. 16 个首次全量批次共选择 1599 个日期，新增 promotion 1596；与三个已完成样本合计得到 1599/1599。
+3. 16 个全量幂等批次再次选择 1599 个日期，新增 promotion 合计为 0，所有批次 `passed=true`。
+4. Gold checkpoint 深验读取 1599 条审计记录，全部通过；candidate 与 formal 文件均存在且 SHA256 逐一相等，最早/最晚日期为 `2020-01-02` / `2026-08-07`。
+5. set-based DuckDB 合同核验将每个日期的 active seed 集合与正式 Gold 的 `(trade_date, rank, ts_code)` 逐行对比：expected rows 15726、actual rows 15726、missing 0、unexpected 0、duplicate key groups 0、duplicate rank groups 0、invalid partition rows 0、null rank rows 0。
+6. `000680.SH` 在 Gold 中共 1599 行、1599 个 distinct dates，日期范围 `2020-01-02..2026-08-07`。
+7. M5 没有修改分钟线 seed、分钟线 source scope、Wealth 首页 10 指数配置；没有执行 Dagster event/check 写入或 dynamic partition 注册。
+
+M5 完成只证明日级 seed 与 Gold 物理合同已收敛，不等同于 M6 的 Prod -> Raw -> Silver -> Gold 全量字段对账，也不授权 M7 instance/event 写入。
 
 ## 13. 测试门禁
 
 ### 13.1 新增测试
 
-建议新增：
+已新增：
 
 - `tests/test_index_daily_000680_history_supplement_plan.py`
 - `tests/test_index_daily_000680_history_supplement_apply.py`
@@ -511,8 +644,8 @@ M3、M4、M5、M7 都是独立写入审批点；前一阶段完成不自动授�
 至少运行：
 
 ```bash
-cd lake_console/orchestrator
-PYTHONPATH=src uv run --with pytest python -m pytest -q \
+cd /Users/congming/github/goldenshare/lake_console/orchestrator
+uv run python -m pytest -q \
   tests/test_market_major_indices_seed_contracts.py \
   tests/test_market_major_indices_checks.py \
   tests/test_market_major_indices_lake_readiness.py \
@@ -522,6 +655,7 @@ PYTHONPATH=src uv run --with pytest python -m pytest -q \
   tests/test_index_daily_checks.py \
   tests/test_index_daily_raw_file_readiness.py \
   tests/test_silver_index_daily_sensor.py
+uv run ruff check src tests
 ```
 
 再执行仓库规定的 orchestrator 全量静态/定义加载门禁。
@@ -532,6 +666,14 @@ M1 当前验证结果：
 - 既有指数日线/主要指数回归：76 passed，7 subtests passed；
 - `python -m py_compile`：M1 八个模块与四组测试通过；
 - planner dry-run：`should_stop=false`，全部正式写入计数为 0。
+
+M5 当前验证结果：
+
+- 指数日线、主要指数 seed/readiness/check/sensor 与补录 plan/apply/audit 相关回归：101 passed，9 subtests passed；
+- M5 目标代码 Ruff 门禁通过；
+- `uv run ruff check src tests` 全仓检查仍有 907 项既有跨任务问题，首批包括 `test_suspend_d_sensor.py`、`test_tushare_request_policy.py` 和 wealth turnover 测试；这些文件不属于 M5，未在本轮越界修改；
+- 活跃 LLD 与数据集接入模板中的旧测试环境与旧命令口径已清零，统一从 orchestrator 目录通过项目 `uv` 环境执行；
+- Gold checkpoint 深验、set-based active seed 合同核验和 16 批幂等重跑结果见第 12.4 节。
 
 ## 14. 最终验收矩阵
 
