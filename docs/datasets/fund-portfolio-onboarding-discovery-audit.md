@@ -1,7 +1,7 @@
 # 基金持仓（`fund_portfolio`）接入发现审计
 
-状态：**B7-M0 已完成；[B7 LLD](public-fund-b7-fund-portfolio-low-level-design-v1.md) 已完成并通过当前代码影响面审计，待单独授权 B7-M1。未编码、未建表、未调用新的 Tushare 请求、未写入远程数据。**
-首次审计：2026-08-03；复审：2026-08-05、2026-08-08
+状态：**B7-M0 发现审计、[B7 LLD](public-fund-b7-fund-portfolio-low-level-design-v1.md)、M1 编码与本地门禁、M2 隔离 PostgreSQL 验收、M3 生产 migration/HDD/TaskRun/五段对账/幂等复跑均已通过。尚未历史回补或创建 schedule；历史规模与配额预估必须另行授权。**
+首次审计：2026-08-03；复审：2026-08-05、2026-08-08；M3 生产验收：2026-08-10
 截图菜单：基金持仓
 源文档：[公募基金持仓数据](../sources/tushare/公募基金/0121_公募基金持仓数据.md)
 
@@ -69,13 +69,15 @@ stk_float_ratio
 - 当前 187 行 MCP JSON 样本平均约 181.3 bytes/行，只能说明传输文本量。若最终“表 + 全部索引”按 400/600/800 bytes/行做规划带宽，历史场景约为 55.3/82.9/110.5 GiB；真实值必须由 M2 的 PostgreSQL 大样本得到，LLD 不得把这些带宽写成实测值。
 - 集群配置为 `max_wal_size=1 GiB`、`checkpoint_timeout=300s`、`full_page_writes=on`、`wal_compression=off`、`wal_level=replica`；WAL 累计统计不能分摊到 B7。应用数据库角色无权读取 `pg_ls_waldir/data_directory`，M2/M3 必须使用对应环境的主机只读水位和单事务 LSN 差量。
 
-### 当前代码影响面
+### M0 时点的代码影响面（已由 M1 实现取代）
 
-- 当前代码中没有 `fund_portfolio` Definition、request builder、ORM、DAO、migration、Ops item 或测试；Alembic 真实 head 为 `20260807_000130`。
+- M0 时点代码中尚无 `fund_portfolio` Definition、request builder、ORM、DAO、migration、Ops item 或测试；当时 Alembic head 为 `20260807_000130`。
 - `src/foundation/ingestion/source_client.py` 的 `SourceFetchResult.rows_raw` 是完整 list，offset 循环使用 `rows_raw.extend(rows)`；不能直接执行 131 万行全市场 unit。
 - `src/foundation/ingestion/executor.py` 只接受完整 fetch result，并在 normalizer/writer 后以 unit 为边界 commit/rollback。分页流式化会影响 source client、executor、normalizer/writer 调用方式、progress/TaskRun diagnostics、取消与重试语义。
 - 当前通用 `DatasetUnitPlanner._resolve_universe_values` 只直接支持 `no_pool`；B7 若使用对象池必须增加从 `fund_basic_current` 读取稳定全量代码的声明式 source/custom builder，禁止把基金代码池写成 dataset-key 分支或 ETF 池复用。
 - CodeGraph 影响面确认 `DatasetSourceClient` 直接影响 `IngestionExecutor` 的串行/并发 fetch 主链；`IngestionExecutor` 再影响 unit commit、progress、pagination diagnostics 和错误回滚。B7 流式能力必须显式 opt-in，现有数据集默认 list-fetch 路径不得改变。
+
+上述条目是 M0 编码前快照，不是当前代码现状。M1 已用 Definition 显式 opt-in 实现 staged stream，并新增 final/stage 显式列 ORM、专用 DAO、migration、Ops/UI 契约和回归测试；实现证据与当前文件清单以 B7 LLD 为准。
 
 ## 建议的接入轮廓（非 LLD）
 
@@ -117,3 +119,10 @@ stk_float_ratio
 3. 同一报告期的 `ann_date` 多版本是完整源事实：`period=20250630` 样本中早期公告仅 10/13/15 行，后续公告补足到 187/274/340 行；任何仅按早期公告日增量的设计都会漏源记录。
 4. 当前实现的 `DatasetSourceClient` 先将所有页累积为 `rows_raw`，`IngestionExecutor` 才归一化并在外层逻辑 unit 末尾 commit。流式分页必须改为“页级读取/归一化/写入、unit 级提交”；这会影响共享 source client、executor、事务 lint、进度/TaskRun 对账和相关测试，必须显式 opt-in，不能改变其他数据集默认路径，也不能只按 `fund_portfolio` key 写分支。
 5. LLD 已取消逐基金代码切片主路径：全市场一个 `period` 是一个 unit；`period + ts_code` 只做已有 period 的单基金补录。B7 staged publisher 使用由 Definition write path 选择的 execution 级 advisory lock，避免多个 B7 TaskRun 同时消耗配额或污染暂存态，不在 source client/executor 中按 dataset key 特判。
+
+## M2/M3 验收补充证据
+
+- M2 在隔离 PostgreSQL 验证 32 个 HDD 叶分区、UNLOGGED stage、1,312,798 行合成容量、幂等、中断/最终事务回滚与 advisory lock；`period=19980630` 真实最小 scope 为 42 行、0 reject。
+- M3 生产 Alembic head 到达 `20260810_000131`；final parent、32 leaves、66 个 final indexes、UNLOGGED stage 与 2 个 stage indexes 全部位于 `gs_raw_cold_hdd`，非 HDD 物理对象数为 0。
+- 生产 TaskRun `#7813` 为 `42 fetched / 42 saved / 0 deduplicated / 0 rejected`，首次 `42 inserted`；`#7814` 幂等复跑 `0 inserted / 42 matched`。两次均无 TaskRun issue，源端与目标端规范集合摘要一致，目标 content hash 重算不一致为 0，stage 最终为 0。
+- M3 仅用 3 次单页 Tushare 请求完成生产 connector 基线、首跑与幂等复跑，未扫描历史。该单页 scope 不能消除长分页 offset 漂移风险；M4a/M4b 仍需独立检查请求预算、HDD 容量和 SSD/WAL 停止阈值。

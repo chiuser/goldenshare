@@ -1,17 +1,17 @@
 # 公募基金 B7：基金持仓（`fund_portfolio`）低层设计 v1
 
-状态：**B7-M1 编码与本地门禁、B7-M2 隔离 PostgreSQL migration/HDD/容量/锁/回滚/真实最小同步均已通过。尚未执行生产 migration、生产同步、历史回补或 schedule 创建；下一门禁是独立授权的 B7-M3。**
+状态：**B7-M1 编码与本地门禁、B7-M2 隔离 PostgreSQL 验收、B7-M3 生产 migration/HDD 物理落点/首次正式 TaskRun/五段对账/幂等复跑均已通过。尚未回补历史或创建 schedule；下一门禁仅能是独立授权的 B7-M4a 历史规模与配额只读预估，或转入其他未开发数据集。**
 
-确认日期：2026-08-08；M1 实现与本地验收：2026-08-10；M2 隔离验收：2026-08-10
+确认日期：2026-08-08；M1 实现与本地验收：2026-08-10；M2 隔离验收：2026-08-10；M3 生产验收：2026-08-10
 
 ## 1. 结论先行
 
-B7 的 M1/M2 已完成，实现并验证了 `fund_portfolio` 的季度报告期接入，以及它必需的两项显式 opt-in 能力：
+B7 的 M1/M2/M3 已完成，实现并验证了 `fund_portfolio` 的季度报告期接入，以及它必需的两项显式 opt-in 能力：
 
 1. 自然季度末输入：运营选择一个报告期，或用起止日期展开为离散季度末；禁止把季度报告期伪装成逐日任务。
 2. 页级暂存、整期发布：源端每 2,000 行读取并归一化到非服务暂存表，收到 short page 且完成全量校验后，才在一个业务事务中发布该报告期。
 
-没有阻塞 M3 的设计待拍板项。下列事项继续后置，不影响生产首次小窗验收：
+M3 生产首次小窗验收已通过。下列事项继续后置，不影响当前已上线能力：
 
 - 历史回补是否从 2014Q1 开始；LLD 只提供按季度末、单任务最多四期的能力，不自动回补。
 - 自动任务最终采用每周还是每月 cron；LLD 只允许普通 weekly/monthly cron 或 once，不创建任何 schedule。
@@ -672,17 +672,34 @@ npm --prefix frontend run build
 - 源身份与 final 身份双向差集均为 0；final 42 行按规范算法只读重算 `source_content_hash`，不一致 0 行。
 - 初版审计脚本曾直接读取 normalizer 行中的不存在的 `source_content_hash`，产生 42/42 的伪差集；该指标已判为验证脚本错误，不作为数据结论，并由上述只读重算结果纠正。未为纠正脚本再次请求源站。
 
-### 16.2 B7-M3 生产
+### 16.2 B7-M3 生产（2026-08-10 已通过）
 
-需再次单独授权：
+生产只读预检时，远程代码为 `56779912`，Alembic head 为 `20260807_000130`；无 queued/running/canceling TaskRun，无正在运行的日期完整性审计，无非 idle 应用会话。`fund_portfolio` 的 schedule 和 probe rule 均为 0，target/stage 表尚不存在。`gs_raw_cold_hdd` 真实路径为 `/data/disk/postgresql/tablespaces/gs_stk_mins_hdd`；SSD/WAL 所在根盘剩余约 `21.25 GB`（使用率 91%），HDD 剩余约 `342.55 GB`。应用角色无权执行 `pg_ls_waldir()`，因此 M3 记录的是 WAL 所在根文件系统剩余容量，不把它误写成已测得精确 WAL 目录字节数。
 
-1. 只读检查生产无冲突任务、真实 Alembic head、HDD 路径/容量、SSD WAL 水位。
-2. 应用 migration。
-3. 检查 parent/leaves/index/stage 的实际 tablespace。
-4. 用正式 TaskRun 同步一个获批 period。
-5. 完成五段对账、双向集合差集、hash 冲突、TaskRun diagnostics 和幂等重跑。
+生产部署后远程代码为 `3d9c9811`，工作区干净，Alembic 成功从 `20260807_000130` 到达 `20260810_000131`；六个 systemd 服务和两个健康检查均通过。部署通用默认源治理 seed 为新数据集创建了 1 条 mapping rule、1 条 cleansing rule、1 条 resolution policy 和 1 条 source status；它们是源治理元数据，不是 schedule、probe 或 TaskRun。
 
-M3 不创建 schedule、不回补历史。
+物理落点从 PostgreSQL system catalog 核验：
+
+- `core_serving.fund_portfolio` 包含 1 个 partition parent、32 个物理叶分区、2 个 parent partitioned index 和 64 个物理叶索引。
+- `foundation.fund_portfolio_stage` 为 1 个 UNLOGGED 表，带 2 个物理索引。
+- 上述所有对象均显式属于 `gs_raw_cold_hdd`；所有可物理定位的 leaf/index/stage 对象都能解析到 `pg_tblspc` 路径，非 HDD 对象数为 0。
+
+正式验收固定 `period=19980630`。本次 M3 只产生 3 次 Tushare 请求：1 次生产 connector 只读基线、1 次首次 TaskRun、1 次幂等 TaskRun；每次都是 1 个 short page，未扫描历史。只读基线显式请求全部 8 个 fields，参数仅为 `period=19980630`，`limit=2000`、`offset=0`：源端 42 行，归一化前 42，唯一 42，deduplicated 0，reject 0，reason `{}`。按排序后的“完整身份 + 内容散列”计算的规范摘要为 `bf447451342cb7b8ba20f64e8446c5743977d1f5ddab633287e741dbce3a652c`。
+
+首次正式 TaskRun `#7813` 成功：
+
+- unit `1/1/0`，fetched/saved/deduplicated/rejected 为 `42/42/0/0`，reject reason `{}`，TaskRun issue 0。
+- diagnostics 记录 1 页、terminal offset 0、terminal rows 42、retry 0、以 short page 结束。
+- persistence 为 `normalized_before_dedupe=42`、`inserted_new=42`、`matched_existing=0`、`scope_existing_count=0`、`scope_source_unique_count=42`、`final_scope_count=42`。
+- 源端与目标表均为 42 个唯一身份，规范摘要一致，目标表重算 `source_content_hash` 不一致为 0，stage 清理后为 0。
+
+幂等复跑 TaskRun `#7814` 成功：
+
+- unit `1/1/0`，fetched/saved/deduplicated/rejected 仍为 `42/42/0/0`，reject reason `{}`，TaskRun issue 0。
+- `inserted_new=0`、`matched_existing=42`、`scope_existing_count=42`、`scope_source_unique_count=42`、`final_scope_count=42`。
+- target 仍为 42 行，所有 `ingested_at` 保持首次写入时间 `2026-08-10 11:53:32.502846+08`，摘要不变，stage 为 0。
+
+源端与目标端的规范集合计数均为 42且摘要相同，因而本次有界单页 scope 的双向集合差异为 0。该证据仅验收了这个单页 period；它不是 A/B 快照证明，也不消除长分页中源端变动导致 offset 漂移的已知风险。M3 未创建 schedule、probe 或 workflow，未回补历史。
 
 ## 17. 里程碑与授权边界
 
@@ -690,9 +707,9 @@ M3 不创建 schedule、不回补历史。
 | --- | --- | --- |
 | B7-M0 | 源端、历史存在性、分页、容量、代码影响面 | 已完成 |
 | B7-LLD | 本文与硬口径审计 | 本轮完成 |
-| B7-M1 | Definition、季度契约、staged stream、表/DAO/migration、Ops/UI、测试 | 已完成编码与本地门禁；migration 未应用 |
+| B7-M1 | Definition、季度契约、staged stream、表/DAO/migration、Ops/UI、测试 | 已完成编码与本地门禁 |
 | B7-M2 | 隔离 migration、HDD、真实小窗、131 万行容量/回滚/锁 | 已完成并通过（2026-08-10） |
-| B7-M3 | 生产预检、migration、首次 period、对账/幂等 | 待独立授权 |
+| B7-M3 | 生产预检、migration、首次 period、对账/幂等 | 已完成并通过（2026-08-10，TaskRun `#7813/#7814`） |
 | B7-M4a | 历史起点、逐期规模/额度只读预算 | 待独立授权；不能按日扫描 |
 | B7-M4b | 按年、每任务最多四期历史回补 | 待独立授权；不得与 B6 大回补并发 |
 | B7-M5 | 运营手工创建 weekly/monthly cron 或 once | 频率拍板后另行授权 |
@@ -703,9 +720,9 @@ M3 不创建 schedule、不回补历史。
 
 | 硬口径 | 代码落点 | 测试/验收 |
 | --- | --- | --- |
-| 全市场单遍 `period` 主路径 | Definition/request builder/planner | 请求参数负向测试、M2 真实 scope |
-| 8 fields 显式请求并保存 | contracts/source client/normalizer/ORM | 每页 fields、缺字段、E2E schema |
-| 2,000 分页、无页上限、short page | Definition/source iterator | offset/空尾页/长分页测试 |
+| 全市场单遍 `period` 主路径 | Definition/request builder/planner | 请求参数负向测试、M2 真实 scope、M3 `#7813/#7814` |
+| 8 fields 显式请求并保存 | contracts/source client/normalizer/ORM | 每页 fields、缺字段、E2E schema、M3 生产 connector 基线 |
+| 2,000 分页、无页上限、short page | Definition/source iterator | offset/空尾页/长分页测试、M3 单页 diagnostics |
 | 页级暂存、unit 业务发布 | executor/staged publisher/stage DAO | 中途失败 final 不变、rows_committed=0 |
 | 不做 A/B 双遍 | source path 仅一条 iterator | request count 与 diagnostics |
 | 一季度一个 unit，范围只展开季度末 | date model/unit planner | point/range/非法日期/最多四期 |
@@ -713,10 +730,10 @@ M3 不创建 schedule、不回补历史。
 | 同身份同内容去重 | normalizer/stage unique/hash | 页内/跨页 duplicate |
 | 同身份异内容 fail-closed | stage/final conflict SQL | 冲突 final 不变 |
 | 单事实表，无 observation/raw/core 镜像 | storage/ORM/migration | registry/schema audit |
-| 32 个 HDD hash leaves，stage/index HDD | migration | pg catalog placement |
-| WAL 留 SSD，stage UNLOGGED | migration/运行审计 | relpersistence/LSN 差量 |
-| 公募基金分组，手动+普通定时，无 probe/workflow | catalog/capability/UI | API/前端正反向测试 |
-| 不自动创建任务 | 无 seed/config mutation | schedule 表只读检查 |
+| 32 个 HDD hash leaves，stage/index HDD | migration | M2/M3 `pg_class/pg_tablespace/pg_partition_tree` 物理落点 |
+| WAL 留 SSD，stage UNLOGGED | migration/运行审计 | M2 relpersistence/LSN 差量；M3 SSD 根盘水位 |
+| 公募基金分组，手动+普通定时，无 probe/workflow | catalog/capability/UI | API/前端正反向测试；M3 TaskRun 正式主链 |
+| 不自动创建任务 | 无 schedule/probe seed | M3 schedule/probe 表只读检查均为 0 |
 
 ## 19. 发布、回滚与剩余风险
 
@@ -724,7 +741,7 @@ M3 不创建 schedule、不回补历史。
 
 - M1 全部测试与计划对账通过。
 - M2 真实小窗、131 万行容量、HDD、WAL、回滚、锁已全部通过。
-- M3 前再次确认生产无任务、磁盘水位和 migration head。
+- M3 已确认生产无冲突任务、磁盘水位和 migration head，并完成发布验收。
 - 任一 reject、集合差异、scope regression 或 content conflict 都不得放行。
 
 ### 19.2 回滚
@@ -737,12 +754,12 @@ M3 不创建 schedule、不回补历史。
 ### 19.3 剩余风险
 
 1. **单遍 offset 漂移**：源端没有 snapshot ID；长分页期间新增/排序变化可能导致首次同步遗漏或重复。exact duplicate 和既有 scope regression 能发现一部分问题，但不能证明首次单遍绝对静止。这是用户选择不做 A/B 后保留的已知风险，文档和验收不得把“可能完整”写成“绝对证明”。
-2. **首次大事务 WAL**：M2 的 1,312,798 行合成首次发布产生 `643,120,480` bytes WAL，说明生产 M3 与历史回补前必须实测 SSD 水位并保留停止阈值；M2 数据不能直接等同生产行宽与压缩效果。
+2. **首次大事务 WAL**：M2 的 1,312,798 行合成首次发布产生 `643,120,480` bytes WAL，而 M3 只验收了 42 行小 scope。历史回补前必须重新实测 SSD 水位并保留停止阈值；M2 数据不能直接等同生产行宽与压缩效果。
 3. **真实历史容量未知**：113 期存在性已证明，但逐期精确行数未扫描。历史回补前仍需 M4a 预算，不能每天或逐基金浪费额度。
 4. **比例字段语义**：`stk_float_ratio` 已见异常大值；只保真，不向终端用户解释为百分比。
 5. **自动任务成本**：一次最新季度可能约 657 次请求；因此 contract 禁止 daily/intraday，最终 weekly/monthly 频率仍需运营拍板。
 
-## 20. 后续待拍板（均不阻塞 M3）
+## 20. M3 之后的待拍板项
 
 1. 历史起点是否正式定为 2014Q1；若是，M4a/M4b 以 50 个离散季度、按年四期执行。
 2. schedule 采用 weekly 还是 monthly，以及具体 cron 时间；不得在 B7-M1/M2/M3 自动创建。
@@ -760,4 +777,10 @@ M1 已逐项落地：
 
 ## 22. B7-M2 验收结论（2026-08-10）
 
-B7-M2 通过。M1 的 staged stream、集合发布、不可变冲突、事务回滚、advisory lock、HDD fail-closed 与物理落点均获得真实 PostgreSQL 证据；最小真实同步的五段数量一致且没有 reject。当前允许进入独立授权的 B7-M3，但本结论不授权生产 migration、生产同步、历史回补或 schedule 创建。
+B7-M2 通过。M1 的 staged stream、集合发布、不可变冲突、事务回滚、advisory lock、HDD fail-closed 与物理落点均获得真实 PostgreSQL 证据；最小真实同步的五段数量一致且没有 reject。M2 在当时只放行独立授权的 B7-M3，不曾授权生产 migration、生产同步、历史回补或 schedule 创建；M3 后续已在独立授权下完成，见第 23 节。
+
+## 23. B7-M3 生产验收结论（2026-08-10）
+
+B7-M3 通过。生产 migration 已到达 `20260810_000131`，final parent/32 leaves/66 个 final indexes 与 UNLOGGED stage/2 个 stage indexes 全部物理落于 `gs_raw_cold_hdd`。TaskRun `#7813/#7814` 完成了 42 行单页 scope 的首次写入和幂等复跑：源端、归一化、业务提交、reject 和目标表对账一致，无 reject、无 TaskRun issue、无 hash 不一致，stage 最终为 0。
+
+本结论只放行已部署的单季度同步能力，不授权历史规模扫描、历史回补或 schedule 创建。长分页 offset 漂移、生产历史行宽/容量和 SSD/WAL 水位仍是 M4a/M4b 的独立门禁。
