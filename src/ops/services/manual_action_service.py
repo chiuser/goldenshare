@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 
 from src.app.auth.domain import AuthenticatedUser
 from src.app.exceptions import WebAppError
+from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
+from src.foundation.ingestion.errors import IngestionError
 from src.ops.action_catalog import ActionParameter
 from src.ops.queries.manual_action_query_service import ManualActionQueryService, ManualActionRoute
 from src.ops.schemas.manual_action import (
@@ -15,6 +17,7 @@ from src.ops.schemas.manual_action import (
     ManualActionTimeInput,
     ManualActionTimeModeResponse,
 )
+from src.ops.services.ingestion_error_presentation import present_ingestion_error
 from src.ops.services.task_run_service import TaskRunCommandService, TaskRunCreateContext
 
 
@@ -59,6 +62,8 @@ class ManualActionCommandService:
                 requested_by_user_id=user.id,
             )
             return task_run.id
+        if resolved.task_type == "dataset_action":
+            self._preflight_dataset_action(session, user=user, resolved=resolved)
         task_run = self.task_run_service.create_task_run(
             session,
             context=TaskRunCreateContext(
@@ -73,6 +78,59 @@ class ManualActionCommandService:
             ),
         )
         return task_run.id
+
+    @staticmethod
+    def _preflight_dataset_action(
+        session: Session,
+        *,
+        user: AuthenticatedUser,
+        resolved: ResolvedManualTaskRun,
+    ) -> None:
+        if resolved.resource_key is None:
+            raise WebAppError(status_code=422, code="validation_error", message="手动任务资源路由未配置")
+        time_input = dict(resolved.time_input)
+        request = DatasetActionRequest(
+            dataset_key=resolved.resource_key,
+            action=resolved.action,
+            time_input=DatasetTimeInput(
+                mode=str(time_input.get("mode") or "none").strip() or "none",
+                trade_date=ManualActionCommandService._optional_date(time_input.get("trade_date")),
+                ann_date=ManualActionCommandService._optional_date(time_input.get("ann_date")),
+                start_date=ManualActionCommandService._optional_date(time_input.get("start_date")),
+                end_date=ManualActionCommandService._optional_date(time_input.get("end_date")),
+                month=ManualActionCommandService._optional_text(time_input.get("month")),
+                start_month=ManualActionCommandService._optional_text(time_input.get("start_month")),
+                end_month=ManualActionCommandService._optional_text(time_input.get("end_month")),
+                date_field=ManualActionCommandService._optional_text(time_input.get("date_field")),
+            ),
+            filters=dict(resolved.filters),
+            trigger_source="manual",
+            requested_by_user_id=user.id,
+        )
+        try:
+            DatasetActionResolver(session).build_plan(request)
+        except IngestionError as exc:
+            presentation = present_ingestion_error(exc.structured_error)
+            raise WebAppError(
+                status_code=422,
+                code=exc.structured_error.error_code,
+                message=presentation.operator_message,
+            ) from exc
+
+    @staticmethod
+    def _optional_date(value: Any) -> date | None:
+        if value in (None, ""):
+            return None
+        if isinstance(value, date):
+            return value
+        return datetime.strptime(str(value), "%Y-%m-%d").date()
+
+    @staticmethod
+    def _optional_text(value: Any) -> str | None:
+        if value in (None, ""):
+            return None
+        text = str(value).strip()
+        return text or None
 
 
 class ManualActionTaskRunResolver:

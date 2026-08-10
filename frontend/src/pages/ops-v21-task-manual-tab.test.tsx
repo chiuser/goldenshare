@@ -8,7 +8,12 @@ import { beforeEach, vi } from "vitest";
 import { appTheme } from "../app/theme";
 import { AuthProvider } from "../features/auth/auth-context";
 import { apiRequest } from "../shared/api/client";
-import { OpsManualTaskTab, resolveDraftOnDomainChange, shouldAutoAlignDomain } from "./ops-v21-task-manual-tab";
+import {
+  OpsManualTaskTab,
+  resolveDraftOnDomainChange,
+  shouldAutoAlignDomain,
+  validatePlanningUnitLimit,
+} from "./ops-v21-task-manual-tab";
 
 const textParam = {
   required: false,
@@ -23,13 +28,15 @@ function buildTimeForm(
     label: string;
     description: string;
     control: "none" | "trade_date" | "trade_date_range" | "calendar_date" | "calendar_date_range" | "month" | "month_range" | "month_window_range";
-    selection_rule: "none" | "trading_day_only" | "week_last_trading_day" | "month_last_trading_day" | "calendar_day" | "week_friday" | "month_end" | "month_key" | "month_window";
+    selection_rule: "none" | "trading_day_only" | "week_last_trading_day" | "month_last_trading_day" | "calendar_day" | "week_friday" | "month_end" | "quarter_end" | "month_key" | "month_window";
     date_field?: string;
   }>,
+  maxUnitsPerExecution: number | null = null,
 ) {
   return {
     default_mode: defaultMode,
     modes,
+    max_units_per_execution: maxUnitsPerExecution,
   };
 }
 
@@ -104,6 +111,25 @@ const monthPointRangeForm = buildTimeForm("point", [
     selection_rule: "month_key",
   },
 ]);
+
+const quarterPointRangeForm = buildTimeForm("point", [
+  {
+    mode: "point",
+    label: "只处理一个报告期",
+    description: "指定一个自然季度末报告期。",
+    control: "calendar_date",
+    selection_rule: "quarter_end",
+    date_field: "trade_date",
+  },
+  {
+    mode: "range",
+    label: "处理一个报告期范围",
+    description: "指定报告期范围，系统只展开范围内的自然季度末。",
+    control: "calendar_date_range",
+    selection_rule: "quarter_end",
+    date_field: "trade_date",
+  },
+], 8);
 
 const mockManualActions = {
   groups: [
@@ -391,6 +417,34 @@ const mockManualActions = {
         },
       ],
     },
+    {
+      group_key: "public_fund",
+      group_label: "公募基金",
+      group_order: 6,
+      actions: [
+        {
+          action_key: "fund_portfolio.maintain",
+          action_type: "dataset_action",
+          display_name: "维护基金持仓",
+          description: "按自然季度末维护基金持仓。",
+          resource_key: "fund_portfolio",
+          resource_display_name: "基金持仓",
+          date_model: {
+            date_axis: "natural_day",
+            bucket_rule: "calendar_quarter_end",
+            window_mode: "point_or_range",
+            input_shape: "trade_date_or_start_end",
+            observed_field: "end_date",
+            audit_applicable: false,
+            not_applicable_reason: null,
+          },
+          time_form: quarterPointRangeForm,
+          filters: [],
+          search_keywords: ["fund_portfolio", "维护基金持仓"],
+          action_order: 70,
+        },
+      ],
+    },
   ],
 };
 
@@ -551,6 +605,23 @@ describe("手动任务页", () => {
     fireEvent.click(screen.getByRole("button", { name: "只处理一天" }));
 
     expect(await screen.findByLabelText("选择日期")).toBeInTheDocument();
+  });
+
+  it("基金持仓展示八季度上限，并在请求发出前拒绝九季度范围", async () => {
+    renderPage("/app/ops/v21/datasets/tasks?tab=manual&action_key=fund_portfolio.maintain&action_type=dataset_action");
+
+    expect((await screen.findAllByText("维护基金持仓")).length).toBeGreaterThan(0);
+    expect(screen.getByText("单次最多处理 8 个季度报告期。")).toBeInTheDocument();
+    const action = mockManualActions.groups
+      .find((group) => group.group_key === "public_fund")
+      ?.actions.find((item) => item.action_key === "fund_portfolio.maintain");
+    const rangeMode = quarterPointRangeForm.modes.find((item) => item.mode === "range");
+    expect(action).toBeDefined();
+    expect(rangeMode).toBeDefined();
+    expect(() => validatePlanningUnitLimit(action as never, rangeMode as never, "2014-01-01", "2015-12-31")).not.toThrow();
+    expect(() => validatePlanningUnitLimit(action as never, rangeMode as never, "2014-01-01", "2016-03-31")).toThrow(
+      "本次范围包含 9 个季度报告期，超过单次上限 8 个。请缩小时间范围。",
+    );
   });
 
   it("显式上下文会覆盖本地草稿，正确预选要处理的数据", async () => {

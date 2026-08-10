@@ -98,7 +98,11 @@ class ManualActionQueryService:
         )
         action = definition.capabilities.get_action("maintain")
         supported_modes = tuple(action.supported_time_modes if action else ())
-        time_form = self._time_form_from_date_model(date_model, supported_time_modes=supported_modes)
+        time_form = self._time_form_from_date_model(
+            date_model,
+            supported_time_modes=supported_modes,
+            max_units_per_execution=definition.planning.max_units_per_execution,
+        )
         return ManualActionRoute(
             action_key=action_key,
             action_type="dataset_action",
@@ -191,10 +195,15 @@ class ManualActionQueryService:
         )
 
     @staticmethod
-    def _time_form(modes: list[ManualActionTimeModeResponse]) -> ManualActionTimeFormResponse:
+    def _time_form(
+        modes: list[ManualActionTimeModeResponse],
+        *,
+        max_units_per_execution: int | None = None,
+    ) -> ManualActionTimeFormResponse:
         return ManualActionTimeFormResponse(
             default_mode=modes[0].mode,
             modes=modes,
+            max_units_per_execution=max_units_per_execution,
         )
 
     @classmethod
@@ -254,9 +263,13 @@ class ManualActionQueryService:
         date_model: DatasetDateModel,
         *,
         supported_time_modes: tuple[str, ...],
+        max_units_per_execution: int | None,
     ) -> ManualActionTimeFormResponse:
         if date_model.input_shape == "none" or date_model.window_mode == "none":
-            return cls._time_form([cls._none_mode_response(description="不填写时间条件，按该维护对象默认策略执行。")])
+            return cls._time_form(
+                [cls._none_mode_response(description="不填写时间条件，按该维护对象默认策略执行。")],
+                max_units_per_execution=max_units_per_execution,
+            )
 
         modes = [
             mode_item
@@ -264,8 +277,11 @@ class ManualActionQueryService:
             if (mode_item := cls._dataset_mode_from_date_model(date_model, mode)) is not None
         ]
         if not modes:
-            return cls._time_form([cls._none_mode_response(description="不填写时间条件，按该维护对象默认策略执行。")])
-        return cls._time_form(modes)
+            return cls._time_form(
+                [cls._none_mode_response(description="不填写时间条件，按该维护对象默认策略执行。")],
+                max_units_per_execution=max_units_per_execution,
+            )
+        return cls._time_form(modes, max_units_per_execution=max_units_per_execution)
 
     @classmethod
     def _dataset_mode_from_date_model(

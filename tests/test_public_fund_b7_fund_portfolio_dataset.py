@@ -101,7 +101,7 @@ def test_fund_portfolio_definition_freezes_fields_staged_contract_and_lint() -> 
     assert definition.date_model.audit_applicable is False
     assert definition.planning.pagination_policy == "offset_limit"
     assert definition.planning.page_limit == 2_000
-    assert definition.planning.max_units_per_execution == 4
+    assert definition.planning.max_units_per_execution == 8
     assert definition.planning.fetch_concurrency == 1
     assert definition.planning.page_processing_mode == "staged_stream"
     assert definition.storage.write_path == "serving_staged_immutable_scope_publish"
@@ -128,6 +128,20 @@ def test_fund_portfolio_point_and_range_plan_only_natural_quarter_ends() -> None
         "20141231",
     ]
 
+    eight_quarters = resolver.build_plan(
+        _request(mode="range", start_date=date(2014, 1, 1), end_date=date(2015, 12, 31))
+    )
+    assert [unit.request_params["period"] for unit in eight_quarters.units] == [
+        "20140331",
+        "20140630",
+        "20140930",
+        "20141231",
+        "20150331",
+        "20150630",
+        "20150930",
+        "20151231",
+    ]
+
     with pytest.raises(IngestionValidationError) as invalid_point:
         resolver.build_plan(_request(mode="point", trade_date=date(2025, 6, 29)))
     assert invalid_point.value.structured_error.error_code == "quarter_end_required"
@@ -135,8 +149,12 @@ def test_fund_portfolio_point_and_range_plan_only_natural_quarter_ends() -> None
         resolver.build_plan(_request(mode="range", start_date=date(2014, 4, 1), end_date=date(2014, 6, 29)))
     assert empty_range.value.structured_error.error_code == "quarter_end_required"
     with pytest.raises(IngestionPlanningError) as too_many:
-        resolver.build_plan(_request(mode="range", start_date=date(2014, 1, 1), end_date=date(2015, 3, 31)))
+        resolver.build_plan(_request(mode="range", start_date=date(2014, 1, 1), end_date=date(2016, 3, 31)))
     assert too_many.value.structured_error.error_code == "units_exceeded"
+    assert too_many.value.structured_error.details == {
+        "planned_units": 9,
+        "max_units_per_execution": 8,
+    }
 
 
 def test_fund_portfolio_scoped_repair_requires_safe_single_code_point_and_existing_period() -> None:

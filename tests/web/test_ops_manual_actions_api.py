@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+from datetime import date, datetime, timezone
+
 import pytest
 from sqlalchemy import select
 
+from src.foundation.models.core_serving.security_serving import Security
 from src.ops.action_catalog import END_DATE_PARAM, START_DATE_PARAM, TRADE_DATE_PARAM, WORKFLOW_DEFINITION_REGISTRY, WorkflowDefinition
+from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.models.ops.task_run import TaskRun
 
 
@@ -74,6 +78,10 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
         "fund_div.maintain",
         "fund_portfolio.maintain",
     ]
+    fund_portfolio = actions["fund_portfolio.maintain"]
+    assert fund_portfolio["time_form"]["max_units_per_execution"] == 8
+    assert [item["mode"] for item in fund_portfolio["time_form"]["modes"]] == ["point", "range"]
+    assert all(item["selection_rule"] == "quarter_end" for item in fund_portfolio["time_form"]["modes"])
     assert actions["daily.maintain"]["display_name"] == "维护股票日线"
     assert actions["cyq_chips.maintain"]["display_name"] == "维护每日筹码分布"
     assert actions["cyq_chips.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
@@ -486,6 +494,42 @@ def test_ops_manual_action_task_run_creates_range_job_with_filters(app_client, u
     }
 
 
+def test_ops_manual_action_fund_portfolio_preflights_eight_and_rejects_nine_units(
+    app_client,
+    user_factory,
+    db_session,
+) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    accepted = app_client.post(
+        "/api/v1/ops/manual-actions/fund_portfolio.maintain/task-runs",
+        headers=headers,
+        json={
+            "time_input": {"mode": "range", "start_date": "2014-01-01", "end_date": "2015-12-31"},
+            "filters": {},
+        },
+    )
+
+    assert accepted.status_code == 200
+    accepted_id = accepted.json()["run"]["id"]
+    assert db_session.get(TaskRun, accepted_id) is not None
+
+    before_ids = set(db_session.scalars(select(TaskRun.id)).all())
+    rejected = app_client.post(
+        "/api/v1/ops/manual-actions/fund_portfolio.maintain/task-runs",
+        headers=headers,
+        json={
+            "time_input": {"mode": "range", "start_date": "2014-01-01", "end_date": "2016-03-31"},
+            "filters": {},
+        },
+    )
+
+    assert rejected.status_code == 422
+    assert rejected.json()["code"] == "units_exceeded"
+    assert rejected.json()["message"] == "本次范围会生成 9 个处理单元，超过单次上限 8 个。请缩小时间范围后重试。"
+    assert set(db_session.scalars(select(TaskRun.id)).all()) == before_ids
+
+
 def test_ops_manual_action_task_run_returns_readable_time_validation_message(app_client, user_factory) -> None:
     headers = _admin_headers(app_client, user_factory)
 
@@ -599,8 +643,10 @@ def test_ops_manual_action_task_run_applies_dc_hot_safe_defaults(app_client, use
     }
 
 
-def test_ops_manual_action_task_run_routes_stk_mins_to_minute_history(app_client, user_factory) -> None:
+def test_ops_manual_action_task_run_routes_stk_mins_to_minute_history(app_client, user_factory, db_session) -> None:
     headers = _admin_headers(app_client, user_factory)
+    db_session.add(Security(ts_code="000001.SZ", name="平安银行", list_status="L", security_type="EQUITY", source="tushare"))
+    db_session.commit()
 
     response = app_client.post(
         "/api/v1/ops/manual-actions/stk_mins.maintain/task-runs",
@@ -618,8 +664,18 @@ def test_ops_manual_action_task_run_routes_stk_mins_to_minute_history(app_client
     assert payload["run"]["filters"] == {"freq": ["30min", "60min"]}
 
 
-def test_ops_manual_action_task_run_routes_index_mins_to_minute_history(app_client, user_factory) -> None:
+def test_ops_manual_action_task_run_routes_index_mins_to_minute_history(app_client, user_factory, db_session) -> None:
     headers = _admin_headers(app_client, user_factory)
+    db_session.add(
+        IndexSeriesActive(
+            resource="index_mins",
+            ts_code="000001.SH",
+            first_seen_date=date(2026, 4, 30),
+            last_seen_date=date(2026, 4, 30),
+            last_checked_at=datetime(2026, 4, 30, tzinfo=timezone.utc),
+        )
+    )
+    db_session.commit()
 
     response = app_client.post(
         "/api/v1/ops/manual-actions/index_mins.maintain/task-runs",

@@ -627,6 +627,7 @@ export interface OpsManualActionsResponse {
       } | null;
       time_form: {
         default_mode: "point" | "range" | "none";
+        max_units_per_execution?: number | null;
         modes: Array<{
           mode: "point" | "range" | "none";
           label: string;

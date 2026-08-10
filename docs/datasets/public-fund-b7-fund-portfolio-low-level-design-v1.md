@@ -13,7 +13,7 @@ B7 的 M1/M2/M3 已完成，实现并验证了 `fund_portfolio` 的季度报告�
 
 M3 生产首次小窗验收已通过。下列事项继续后置，不影响当前已上线能力：
 
-- 历史回补是否从 2014Q1 开始；LLD 只提供按季度末、单任务最多四期的能力，不自动回补。
+- 历史回补是否从 2014Q1 开始；LLD 只提供按季度末、单任务最多八期的能力，不自动回补。历史回补仍建议按自然年四期拆批，但不再是系统硬上限。
 - 自动任务最终采用每周还是每月 cron；LLD 只允许普通 weekly/monthly cron 或 once，不创建任何 schedule。
 - `stk_float_ratio` 的业务单位；首版只保存源值，不缩放、不解释。
 
@@ -145,7 +145,7 @@ business publish scope = end_date == period
 - range `2014-01-01..2014-12-31` -> `20140331/20140630/20140930/20141231` 四个 unit。
 - range `2014-04-01..2014-06-29` -> 没有季度末，planning fail-closed，不生成空任务。
 
-一个 TaskRun 最多四个季度 unit，即最多一个自然年的工作量。超出时返回 `planning.units_exceeded`，历史回补按年拆任务。所有 unit 串行，`fetch_concurrency=1`。
+一个 TaskRun 最多八个季度 unit，即最多两年的报告期工作量。超出时返回 `units_exceeded`。历史回补仍建议按自然年四期拆任务，以便控制失败恢复范围；这是运营拆批建议，不是 planner 硬限制。所有 unit 串行，`fetch_concurrency=1`。
 
 ### 5.3 freshness / audit 语义
 
@@ -227,7 +227,7 @@ B7 专属内容保持专属：字段、身份、表、分区、SQL、DAO、报�
 - range 只枚举闭区间内的季度末，稳定升序。
 - unit request params 只含 `period` 和可选单个 `ts_code`。
 - progress context 显示 `period`，不写成 `trade_date`。
-- 范围超过四期拒绝。
+- 范围超过八期拒绝。
 
 ### 7.2 定向补录
 
@@ -560,7 +560,7 @@ B7-M1 不新增 env/Settings/数据库运行配置。
 
 - 8 fields 顺序和逐页显式 fields。
 - point 季度末成功；非季度末拒绝。
-- range 只展开季度末；空范围和超过四期拒绝。
+- range 只展开季度末；空范围和超过八期拒绝。
 - 主请求只有 `period`；定向补录只有 `period+ts_code`。
 - ann_date/start/end/symbol/market/status 不进入源请求。
 - 单个 ts_code 只允许 point；逗号、多值、无已有 period 拒绝。
@@ -711,7 +711,7 @@ npm --prefix frontend run build
 | B7-M2 | 隔离 migration、HDD、真实小窗、131 万行容量/回滚/锁 | 已完成并通过（2026-08-10） |
 | B7-M3 | 生产预检、migration、首次 period、对账/幂等 | 已完成并通过（2026-08-10，TaskRun `#7813/#7814`） |
 | B7-M4a | 历史起点、逐期规模/额度只读预算 | 待独立授权；不能按日扫描 |
-| B7-M4b | 按年、每任务最多四期历史回补 | 待独立授权；不得与 B6 大回补并发 |
+| B7-M4b | 建议按年四期拆批、系统每任务最多八期的历史回补 | 待独立授权；不得与 B6 大回补并发 |
 | B7-M5 | 运营手工创建 weekly/monthly cron 或 once | 频率拍板后另行授权 |
 
 若历史从 2014Q1 到 2026Q2，共 50 个季度；按 2025Q2 的保守统一场景约 32,850 次请求。该数字是容量场景，不是逐期精确请求量，也不授权实际请求。
@@ -725,7 +725,7 @@ npm --prefix frontend run build
 | 2,000 分页、无页上限、short page | Definition/source iterator | offset/空尾页/长分页测试、M3 单页 diagnostics |
 | 页级暂存、unit 业务发布 | executor/staged publisher/stage DAO | 中途失败 final 不变、rows_committed=0 |
 | 不做 A/B 双遍 | source path 仅一条 iterator | request count 与 diagnostics |
-| 一季度一个 unit，范围只展开季度末 | date model/unit planner | point/range/非法日期/最多四期 |
+| 一季度一个 unit，范围只展开季度末 | date model/unit planner | point/range/非法日期/八期允许、九期拒绝 |
 | ts_code 仅定向补录 | input model/planner/request/publisher | point-only、已有 period、子 scope |
 | 同身份同内容去重 | normalizer/stage unique/hash | 页内/跨页 duplicate |
 | 同身份异内容 fail-closed | stage/final conflict SQL | 冲突 final 不变 |
@@ -761,14 +761,14 @@ npm --prefix frontend run build
 
 ## 20. M3 之后的待拍板项
 
-1. 历史起点是否正式定为 2014Q1；若是，M4a/M4b 以 50 个离散季度、按年四期执行。
+1. 历史起点是否正式定为 2014Q1；若是，M4a/M4b 以 50 个离散季度、建议按年四期执行；系统单任务硬上限为八期。
 2. schedule 采用 weekly 还是 monthly，以及具体 cron 时间；不得在 B7-M1/M2/M3 自动创建。
 
 ## 21. B7-M1 实现对账（2026-08-10）
 
 M1 已逐项落地：
 
-- `DatasetDefinition` 固定季度末 point/range、单任务最多四期、显式 8 fields、`limit=2000`、单个可选 `ts_code` 定向补录与 `staged_stream` opt-in。
+- `DatasetDefinition` 固定季度末 point/range、单任务最多八期、显式 8 fields、`limit=2000`、单个可选 `ts_code` 定向补录与 `staged_stream` opt-in。
 - 通用 source page iterator 保留既有 `fetch()` 聚合行为；B7 executor 逐页归一化，只把当前页交给 stage，不累计完整报告期 Python list。
 - B7 专属 DAO 负责跨页 exact duplicate、同身份异内容拒绝、既有 scope 回退、内容冲突、集合发布与最终行数对账；共享 publisher 只负责专用连接、session advisory lock、页级 stage commit、unit 最终事务和清理。
 - final/stage 显式列 ORM、DAO factory、table registry 与 migration 已完成；migration 定义 32 个 HDD hash leaves、HDD indexes 和 HDD UNLOGGED stage，缺 tablespace fail-closed，downgrade 不删事实。
@@ -784,3 +784,21 @@ B7-M2 通过。M1 的 staged stream、集合发布、不可变冲突、事务回
 B7-M3 通过。生产 migration 已到达 `20260810_000131`，final parent/32 leaves/66 个 final indexes 与 UNLOGGED stage/2 个 stage indexes 全部物理落于 `gs_raw_cold_hdd`。TaskRun `#7813/#7814` 完成了 42 行单页 scope 的首次写入和幂等复跑：源端、归一化、业务提交、reject 和目标表对账一致，无 reject、无 TaskRun issue、无 hash 不一致，stage 最终为 0。
 
 本结论只放行已部署的单季度同步能力，不授权历史规模扫描、历史回补或 schedule 创建。长分页 offset 漂移、生产历史行宽/容量和 SSD/WAL 水位仍是 M4a/M4b 的独立门禁。
+
+## 24. TaskRun `#7817` 暴露的规划契约加固（2026-08-10）
+
+`#7817` 以 `2025-01-01..2026-08-09` 提交后展开为 6 个季度 unit，当时 Definition 硬上限为 4，因此正式 planner 在任何源端请求和业务写入之前以 `units_exceeded` 拒绝。该拒绝本身符合旧契约，但暴露出手动提交链路没有在入队前消费正式 planner、API/前端没有展示上限、worker 又把规划异常误标为 `worker_error / worker_finalize`。
+
+本轮按管理员决定把 `fund_portfolio` 的 `max_units_per_execution` 从 4 调整为 8，并固定以下契约：
+
+1. `DatasetDefinition.planning.max_units_per_execution=8` 是唯一配置事实，持久化于代码，不新增 env、数据库配置或页面常量；仅影响 `fund_portfolio`，部署后生效。
+2. 正式 planner 仍是唯一判定者。手动任务 API 在创建 TaskRun 前使用同一 `DatasetActionResolver.build_plan()` 预检；worker 执行时再次规划，以防提交后依赖状态变化。预检失败不得创建 queued TaskRun。
+3. 手动任务能力 API 从 Definition 派生并返回 `time_form.max_units_per_execution`。前端按通用 `selection_rule=quarter_end` 显示“单次最多 8 个季度报告期”，并对可准确计算的九期及以上范围提前阻断；不得按 `fund_portfolio` action key 特判。后端预检始终是最终门禁。
+4. planner 的 `units_exceeded` 必须携带 `planned_units` 与 `max_units_per_execution` 结构化详情。运行期若仍发生规划错误，TaskRun issue 保留原始 error code 和 `source_phase=planner`；未知 dispatcher 异常记录为 `dispatcher_error / worker_dispatch`，只有最终状态写入异常才使用 `worker_finalize_error / worker_finalize`。
+5. 该修改不改变 Tushare 参数、8 个 source fields、2,000 行分页、季度 unit、HDD 表、事务、历史回补授权或 schedule 状态。
+
+配置消费者与验证门禁：
+
+| 配置 | 来源/持久化 | 消费者 | 运维可见性 | 测试 |
+| --- | --- | --- | --- | --- |
+| `max_units_per_execution=8` | `fund_portfolio` Definition 代码 | unit planner、execution plan、manual capability API、manual UI | 手动任务时间区显示八季度提示；超限 API 返回 `units_exceeded` | 8 期规划/提交成功，9 期 planner/API/UI 拒绝且零 TaskRun、零源请求 |

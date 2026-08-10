@@ -54,6 +54,7 @@ class ManualActionTimeModeResponse(BaseModel):
 class ManualActionTimeFormResponse(BaseModel):
     default_mode: ManualActionTimeMode
     modes: list[ManualActionTimeModeResponse]
+    max_units_per_execution: int | None = Field(default=None, ge=1)
 
     def find_mode(self, mode: str) -> ManualActionTimeModeResponse | None:
         return next((item for item in self.modes if item.mode == mode), None)

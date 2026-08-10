@@ -15,6 +15,7 @@ from src.app.exceptions import WebAppError
 from src.foundation.config.settings import get_settings
 from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
+from src.foundation.ingestion.errors import IngestionError
 from src.foundation.ingestion.run_errors import IngestionCanceledError
 from src.foundation.ingestion.service import DatasetMaintainService
 from src.foundation.ingestion.null_runtime import NullIngestionResultStore, NullRunRecorder
@@ -23,6 +24,7 @@ from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshService
+from src.ops.services.ingestion_error_presentation import present_ingestion_error, structured_error_payload
 from src.ops.services.task_run_ingestion_context import TaskRunIngestionContext
 from src.ops.action_catalog import MaintenanceActionDefinition, get_maintenance_action, get_workflow_definition
 from src.utils import truncate_text
@@ -59,8 +61,32 @@ class TaskRunDispatcher:
         raise WebAppError(status_code=422, code="validation_error", message="不支持的任务类型")
 
     def _dispatch_dataset_action(self, session: Session, task_run: TaskRun) -> TaskRunDispatchOutcome:
-        action_request = self._prepare_dataset_action_request(session, self._build_dataset_action_request(task_run))
-        plan = DatasetActionResolver(session).build_plan(action_request)
+        try:
+            action_request = self._prepare_dataset_action_request(session, self._build_dataset_action_request(task_run))
+            plan = DatasetActionResolver(session).build_plan(action_request)
+        except IngestionError as exc:
+            session.rollback()
+            presentation = present_ingestion_error(exc.structured_error)
+            issue = self._record_issue(
+                session,
+                task_run=task_run,
+                node_id=None,
+                code=exc.structured_error.error_code,
+                title=presentation.title,
+                operator_message=presentation.operator_message,
+                suggested_action=presentation.suggested_action,
+                technical_message=str(exc),
+                source_phase=exc.structured_error.phase,
+                severity="error",
+                technical_payload={"structured_error": structured_error_payload(exc.structured_error)},
+            )
+            session.commit()
+            return TaskRunDispatchOutcome(
+                status="failed",
+                summary_message=issue.operator_message,
+                issue_id=issue.id,
+                status_reason_code=issue.code,
+            )
         node = self._create_node(
             session,
             task_run_id=task_run.id,
@@ -806,6 +832,7 @@ class TaskRunDispatcher:
         technical_message: str,
         source_phase: str,
         severity: str,
+        technical_payload: Mapping[str, Any] | None = None,
     ) -> TaskRunIssue:
         now = datetime.now(timezone.utc)
         fingerprint = self._issue_fingerprint(task_run_id=task_run.id, node_id=node_id, code=code, technical_message=technical_message)
@@ -817,6 +844,13 @@ class TaskRunDispatcher:
         if existing is not None:
             task_run.primary_issue_id = existing.id
             return existing
+        technical_payload_json = {
+            "source_phase": source_phase,
+            "node_id": node_id,
+            "task_run_id": task_run.id,
+        }
+        if technical_payload:
+            technical_payload_json.update(dict(technical_payload))
         issue = TaskRunIssue(
             task_run_id=task_run.id,
             node_id=node_id,
@@ -826,11 +860,7 @@ class TaskRunDispatcher:
             operator_message=truncate_text(operator_message, self.MAX_OPERATOR_MESSAGE_LENGTH),
             suggested_action=truncate_text(suggested_action, self.MAX_OPERATOR_MESSAGE_LENGTH),
             technical_message=truncate_text(technical_message, self.MAX_TECHNICAL_MESSAGE_LENGTH),
-            technical_payload_json={
-                "source_phase": source_phase,
-                "node_id": node_id,
-                "task_run_id": task_run.id,
-            },
+            technical_payload_json=technical_payload_json,
             object_json=self._current_object_snapshot(session, task_run.id),
             source_phase=source_phase,
             fingerprint=fingerprint,

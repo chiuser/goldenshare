@@ -266,6 +266,78 @@ function inferTradeDateRule(modeConfig: ManualActionTimeModeConfig | null): Trad
   return "any";
 }
 
+function countCalendarQuarterEnds(startDate: string, endDate: string): number | null {
+  const start = parseIsoDateParts(startDate);
+  const end = parseIsoDateParts(endDate);
+  if (!start || !end) {
+    return null;
+  }
+  const startKey = datePartsKey(start.year, start.month, start.day);
+  const endKey = datePartsKey(end.year, end.month, end.day);
+  if (startKey > endKey) {
+    return null;
+  }
+  let count = 0;
+  const quarterEnds = [
+    [3, 31],
+    [6, 30],
+    [9, 30],
+    [12, 31],
+  ] as const;
+  for (let year = start.year; year <= end.year; year += 1) {
+    for (const [month, day] of quarterEnds) {
+      const key = datePartsKey(year, month, day);
+      if (key >= startKey && key <= endKey) {
+        count += 1;
+      }
+    }
+  }
+  return count;
+}
+
+function parseIsoDateParts(value: string): { year: number; month: number; day: number } | null {
+  const matched = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!matched) {
+    return null;
+  }
+  return {
+    year: Number(matched[1]),
+    month: Number(matched[2]),
+    day: Number(matched[3]),
+  };
+}
+
+function datePartsKey(year: number, month: number, day: number): number {
+  return year * 10_000 + month * 100 + day;
+}
+
+function planningLimitHint(action: ManualAction, modeConfig: ManualActionTimeModeConfig | null): string | null {
+  const maxUnits = action.time_form.max_units_per_execution;
+  if (!maxUnits) {
+    return null;
+  }
+  if (modeConfig?.selection_rule === CALENDAR_QUARTER_END_SELECTION_RULE) {
+    return `单次最多处理 ${maxUnits} 个季度报告期。`;
+  }
+  return `单次最多生成 ${maxUnits} 个处理单元，提交时由系统按实际规划校验。`;
+}
+
+export function validatePlanningUnitLimit(
+  action: ManualAction,
+  modeConfig: ManualActionTimeModeConfig,
+  startDate: string,
+  endDate: string,
+) {
+  const maxUnits = action.time_form.max_units_per_execution;
+  if (!maxUnits || modeConfig.selection_rule !== CALENDAR_QUARTER_END_SELECTION_RULE) {
+    return;
+  }
+  const plannedUnits = countCalendarQuarterEnds(startDate, endDate);
+  if (plannedUnits !== null && plannedUnits > maxUnits) {
+    throw new Error(`本次范围包含 ${plannedUnits} 个季度报告期，超过单次上限 ${maxUnits} 个。请缩小时间范围。`);
+  }
+}
+
 function buildFieldValues(paramsJson: unknown) {
   if (!isRecord(paramsJson)) {
     return {};
@@ -477,6 +549,7 @@ function buildManualActionRequest(action: ManualAction, draft: ManualDraft): Ops
   if (!startDate || !endDate) {
     throw new Error("请选择开始日期和结束日期。");
   }
+  validatePlanningUnitLimit(action, modeConfig, startDate, endDate);
   return {
     time_input: {
       mode: "range",
@@ -595,6 +668,10 @@ export function OpsManualTaskTab() {
   const rangeStartTradeCalendar = useTradeCalendarField({ value: draft.start_date });
   const rangeEndTradeCalendar = useTradeCalendarField({ value: draft.end_date });
   const actionGuidance = useMemo(() => getActionGuidance(selectedAction), [selectedAction]);
+  const selectedPlanningLimitHint = useMemo(
+    () => selectedAction ? planningLimitHint(selectedAction, selectedTimeMode) : null,
+    [selectedAction, selectedTimeMode],
+  );
   const prefillActionAppliedRef = useRef(false);
   const prefillTaskRunAppliedRef = useRef(false);
   const prefillScheduleAppliedRef = useRef(false);
@@ -856,6 +933,10 @@ export function OpsManualTaskTab() {
                       {activeConditionalTimeRules.map((rule) => (
                         <Text c="dimmed" size="sm" key={rule.filter_key}>{rule.help_text}</Text>
                       ))}
+
+                      {selectedPlanningLimitHint ? (
+                        <Text c="dimmed" size="sm">{selectedPlanningLimitHint}</Text>
+                      ) : null}
 
                       {!selectedTimeMode || selectedTimeMode.control === "none" ? null : isPointMode(selectedTimeMode) ? (
                         isMonthMode(selectedTimeMode) ? (

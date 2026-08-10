@@ -114,7 +114,17 @@ class OperationsWorker:
             try:
                 outcome = self.dispatcher.dispatch(session, task_run)
             except Exception as exc:
-                issue = self._record_worker_issue(session, task_run_id=task_run.id, message=str(exc))
+                session.rollback()
+                issue = self._record_worker_issue(
+                    session,
+                    task_run_id=task_run.id,
+                    code="dispatcher_error",
+                    source_phase="worker_dispatch",
+                    title="任务调度异常",
+                    operator_message="任务进入执行调度时发生异常，需要开发核验调度链路。",
+                    suggested_action="先查看技术诊断并确认任务尚未开始写入，再决定是否重新提交。",
+                    message=str(exc),
+                )
                 outcome = TaskRunDispatchOutcome(
                     status="failed",
                     summary_message=issue.operator_message,
@@ -123,7 +133,17 @@ class OperationsWorker:
                 )
             return self._finalize_task_run(session, task_run.id, outcome)
         except Exception as exc:
-            issue = self._record_worker_issue(session, task_run_id=task_run.id, message=f"worker_finalize_error: {exc}")
+            session.rollback()
+            issue = self._record_worker_issue(
+                session,
+                task_run_id=task_run.id,
+                code="worker_finalize_error",
+                source_phase="worker_finalize",
+                title="任务收尾异常",
+                operator_message="任务写入最终状态时发生异常，需要开发核验任务终态。",
+                suggested_action="不要重复提交任务，先核验业务数据和任务最终状态。",
+                message=str(exc),
+            )
             return self._finalize_task_run(
                 session,
                 task_run.id,
@@ -157,7 +177,18 @@ class OperationsWorker:
         session.refresh(task_run)
         return task_run
 
-    def _record_worker_issue(self, session: Session, *, task_run_id: int, message: str) -> TaskRunIssue:
+    def _record_worker_issue(
+        self,
+        session: Session,
+        *,
+        task_run_id: int,
+        code: str,
+        source_phase: str,
+        title: str,
+        operator_message: str,
+        suggested_action: str,
+        message: str,
+    ) -> TaskRunIssue:
         task_run = session.get(TaskRun, task_run_id)
         if task_run is None:
             raise WebAppError(status_code=404, code="not_found", message="任务记录不存在")
@@ -165,15 +196,15 @@ class OperationsWorker:
             task_run_id=task_run_id,
             node_id=task_run.current_node_id,
             severity="error",
-            code="worker_error",
-            title="任务运行器异常",
-            operator_message="任务运行器在收尾时发生异常，需要开发核验任务状态。",
-            suggested_action="不要重复提交大范围任务，先确认业务数据和任务状态。",
+            code=code,
+            title=title,
+            operator_message=operator_message,
+            suggested_action=suggested_action,
             technical_message=truncate_text(message, self.MAX_TECHNICAL_MESSAGE_LENGTH),
-            technical_payload_json={"source_phase": "worker_finalize", "task_run_id": task_run_id},
+            technical_payload_json={"source_phase": source_phase, "task_run_id": task_run_id},
             object_json=dict(task_run.current_object_json or {}),
-            source_phase="worker_finalize",
-            fingerprint=f"{task_run_id}:worker_error",
+            source_phase=source_phase,
+            fingerprint=f"{task_run_id}:{code}",
             occurred_at=datetime.now(timezone.utc),
         )
         session.add(issue)

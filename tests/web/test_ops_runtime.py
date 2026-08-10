@@ -695,6 +695,39 @@ def test_worker_claims_queued_task_run_and_marks_success(db_session, task_run_fa
     assert dispatcher.calls == [task_run.id]
 
 
+def test_worker_preserves_structured_planning_error(db_session, task_run_factory) -> None:
+    task_run = task_run_factory(
+        status="queued",
+        resource_key="fund_portfolio",
+        action="maintain",
+        title="基金持仓",
+        time_input_json={
+            "mode": "range",
+            "start_date": "2014-01-01",
+            "end_date": "2016-03-31",
+        },
+        filters_json={},
+    )
+
+    result = OperationsWorker(dispatcher=TaskRunDispatcher()).run_next(db_session)
+
+    assert result is not None
+    assert result.id == task_run.id
+    assert result.status == "failed"
+    assert result.status_reason_code == "units_exceeded"
+    assert result.primary_issue_id is not None
+    issue = db_session.get(TaskRunIssue, result.primary_issue_id)
+    assert issue is not None
+    assert issue.code == "units_exceeded"
+    assert issue.source_phase == "planner"
+    assert issue.operator_message == "本次范围会生成 9 个处理单元，超过单次上限 8 个。请缩小时间范围后重试。"
+    assert issue.technical_payload_json["structured_error"]["details"] == {
+        "planned_units": 9,
+        "max_units_per_execution": 8,
+    }
+    assert db_session.scalars(select(TaskRunNode).where(TaskRunNode.task_run_id == task_run.id)).all() == []
+
+
 def test_worker_does_not_refresh_snapshot_after_workflow_success(db_session, task_run_factory, mocker) -> None:
     refresh = mocker.patch(
         "src.ops.services.operations_dataset_status_snapshot_service.DatasetStatusSnapshotService.refresh_for_target",
@@ -789,7 +822,9 @@ def test_worker_records_issue_when_dispatcher_raises(db_session, task_run_factor
     assert result.primary_issue_id is not None
     issue = db_session.get(TaskRunIssue, result.primary_issue_id)
     assert issue is not None
-    assert issue.code == "worker_error"
+    assert issue.code == "dispatcher_error"
+    assert issue.source_phase == "worker_dispatch"
+    assert issue.technical_payload_json["source_phase"] == "worker_dispatch"
     refresh.assert_not_called()
 
 

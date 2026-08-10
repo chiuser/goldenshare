@@ -695,7 +695,7 @@ DATASET_ROWS = (
             "pagination_policy": "offset_limit",
             "page_limit": 2_000,
             "chunk_size": None,
-            "max_units_per_execution": 4,
+            "max_units_per_execution": 8,
             "unit_builder_key": "generic",
             "fetch_concurrency": 1,
             "page_processing_mode": "staged_stream",

@@ -54,6 +54,10 @@ class DatasetUnitPlanner:
                     phase="planner",
                     message=f"planned units={len(units)} exceeds max_units_per_execution={max_units}",
                     retryable=False,
+                    details={
+                        "planned_units": len(units),
+                        "max_units_per_execution": max_units,
+                    },
                 )
             )
         return tuple(units)
