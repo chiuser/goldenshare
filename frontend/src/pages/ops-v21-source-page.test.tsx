@@ -282,7 +282,11 @@ describe("V2.1 数据源详情页", () => {
     renderPage();
 
     expect(await screen.findByText("融资融券交易明细")).toBeInTheDocument();
-    expect(await screen.findByText("服务表：core_serving.equity_margin_detail")).toBeInTheDocument();
+    const tableLabel = await screen.findByText("服务表：core_serving.equity_margin_detail");
+    expect(tableLabel).toBeInTheDocument();
+    expect(tableLabel).toHaveAttribute("title", "服务表：core_serving.equity_margin_detail");
+    expect(tableLabel).toHaveStyle({ fontSize: "11px", lineHeight: "1.15", overflowWrap: "anywhere" });
+    expect(tableLabel.style.webkitLineClamp).toBe("3");
   });
 
   it("支持 Biz 数据集只读卡片展示", async () => {

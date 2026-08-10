@@ -204,19 +204,33 @@ export function OpsV21SourcePage({
                   }}
                 >
                   <Stack gap={10} h="100%">
-                    <Group justify="space-between" align="center">
-                      <Stack gap={2}>
-                        <Group gap={8} align="center">
+                    <Group justify="space-between" align="center" wrap="nowrap" w="100%">
+                      <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
+                        <Group gap={8} align="center" wrap="nowrap">
                           <Box
                             w={9}
                             h={9}
                             style={{ borderRadius: "50%", background: statusDotColor(item.status), flex: "0 0 auto" }}
                           />
-                          <Text fw={700} size="sm" lineClamp={1}>
+                          <Text fw={700} size="sm" lineClamp={1} style={{ minWidth: 0 }}>
                             {item.displayName}
                           </Text>
                         </Group>
-                        <Text size="xs" c="dimmed" ml={17} lineClamp={1}>
+                        <Text
+                          c="dimmed"
+                          ml={17}
+                          title={item.tableLabel}
+                          style={{
+                            minWidth: 0,
+                            fontSize: 11,
+                            lineHeight: 1.15,
+                            display: "-webkit-box",
+                            WebkitBoxOrient: "vertical",
+                            WebkitLineClamp: 3,
+                            overflow: "hidden",
+                            overflowWrap: "anywhere",
+                          }}
+                        >
                           {item.tableLabel}
                         </Text>
                       </Stack>
