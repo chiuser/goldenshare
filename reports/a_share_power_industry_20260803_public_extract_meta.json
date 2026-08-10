@@ -1,0 +1,15 @@
+{
+  "generated_at_utc": "2026-08-03T07:41:07.957456+00:00",
+  "report_period": "20251231",
+  "source": "Tushare Pro public company disclosure aggregation",
+  "financial_api": "fina_indicator",
+  "shareholder_api": "top10_holders",
+  "universe_rows": 109,
+  "processed_positions": [
+    71,
+    109
+  ],
+  "financial_rows": 109,
+  "shareholder_rows": 1479,
+  "failures": []
+}
