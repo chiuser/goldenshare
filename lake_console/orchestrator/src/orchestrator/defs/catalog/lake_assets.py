@@ -10,14 +10,16 @@ from orchestrator.defs.paths import (
     PATH_TEMPLATE_TS_CODE,
     PATH_TEMPLATE_YEAR,
     gold_dc_daily_technical_path,
+    gold_major_index_mins_technical_path,
+    gold_major_index_mins_technical_state_path,
     gold_market_breadth_daily_path,
     gold_market_major_indices_daily_path,
     gold_stk_mins_qfq_macd_kdj_path,
     gold_stk_mins_qfq_macd_kdj_state_path,
-    gold_stk_mins_qfq_path,
     gold_stk_mins_qfq_nineturn_path,
-    gold_stock_daily_qfq_path,
+    gold_stk_mins_qfq_path,
     gold_stock_daily_qfq_nineturn_path,
+    gold_stock_daily_qfq_path,
     gold_stock_return_distribution_path,
     gold_wealth_market_turnover_path,
     lake_path_template,
@@ -25,16 +27,17 @@ from orchestrator.defs.paths import (
     raw_dc_daily_path,
     raw_dc_index_path,
     raw_dc_member_path,
+    raw_idx_factor_pro_path,
     raw_index_basic_path,
     raw_index_daily_path,
     raw_index_global_path,
     raw_index_mins_path,
     raw_major_index_mins_path,
     raw_namechange_path,
+    raw_stk_mins_path,
+    raw_stk_nineturn_path,
     raw_stock_basic_path,
     raw_stock_daily_path,
-    raw_stk_nineturn_path,
-    raw_stk_mins_path,
     raw_suspend_d_path,
     raw_trade_calendar_path,
     silver_adj_factor_path,
@@ -44,6 +47,7 @@ from orchestrator.defs.paths import (
     silver_dc_member_path,
     silver_index_basic_path,
     silver_index_daily_path,
+    silver_index_factor_pro_path,
     silver_index_global_path,
     silver_index_mins_path,
     silver_major_index_mins_path,
@@ -58,33 +62,36 @@ from orchestrator.defs.paths import (
     silver_trade_calendar_path,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
-    CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA,
     CH_DC_DAILY_TECHNICAL_SERVING_SCHEMA,
-    RAW_TUSHARE_DC_DAILY_SCHEMA,
-    RAW_TUSHARE_DC_INDEX_SCHEMA,
-    RAW_TUSHARE_DC_MEMBER_SCHEMA,
+    CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA,
+    GOLD_DC_DAILY_TECHNICAL_SCHEMA,
+    GOLD_MAJOR_INDEX_MINS_TECHNICAL_SCHEMA,
+    GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_SCHEMA,
     GOLD_MARKET_BREADTH_DAILY_SCHEMA,
     GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA,
-    GOLD_DC_DAILY_TECHNICAL_SCHEMA,
     GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA,
     GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA,
-    GOLD_STK_MINS_QFQ_SCHEMA,
     GOLD_STK_MINS_QFQ_NINETURN_SCHEMA,
-    GOLD_STOCK_DAILY_QFQ_SCHEMA,
+    GOLD_STK_MINS_QFQ_SCHEMA,
     GOLD_STOCK_DAILY_QFQ_NINETURN_SCHEMA,
+    GOLD_STOCK_DAILY_QFQ_SCHEMA,
     GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
     GOLD_WEALTH_MARKET_TURNOVER_SCHEMA,
-    RAW_STK_MINS_SCHEMA,
     RAW_INDEX_DAILY_SCHEMA,
     RAW_INDEX_GLOBAL_SCHEMA,
     RAW_INDEX_MINS_SCHEMA,
     RAW_MAJOR_INDEX_MINS_SCHEMA,
+    RAW_STK_MINS_SCHEMA,
     RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
+    RAW_TUSHARE_DC_DAILY_SCHEMA,
+    RAW_TUSHARE_DC_INDEX_SCHEMA,
+    RAW_TUSHARE_DC_MEMBER_SCHEMA,
+    RAW_TUSHARE_IDX_FACTOR_PRO_SCHEMA,
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     RAW_TUSHARE_NAMECHANGE_SCHEMA,
+    RAW_TUSHARE_STK_NINETURN_SCHEMA,
     RAW_TUSHARE_STOCK_BASIC_SCHEMA,
     RAW_TUSHARE_STOCK_DAILY_SCHEMA,
-    RAW_TUSHARE_STK_NINETURN_SCHEMA,
     RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA,
     RAW_TUSHARE_TRADE_CALENDAR_SCHEMA,
     SILVER_ADJ_FACTOR_SCHEMA,
@@ -94,6 +101,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_DC_MEMBER_SCHEMA,
     SILVER_INDEX_BASIC_SCHEMA,
     SILVER_INDEX_DAILY_SCHEMA,
+    SILVER_INDEX_FACTOR_PRO_SCHEMA,
     SILVER_INDEX_GLOBAL_SCHEMA,
     SILVER_INDEX_MINS_SCHEMA,
     SILVER_MAJOR_INDEX_MINS_SCHEMA,
@@ -123,13 +131,24 @@ from orchestrator.defs.run_contracts.dc_board import (
 from orchestrator.defs.run_contracts.dc_daily_technical import (
     DC_DAILY_TECHNICAL_CHECKS,
 )
+from orchestrator.defs.run_contracts.dc_daily_technical_serving import (
+    CH_DC_DAILY_TECHNICAL_CHECKS,
+    PROD_CH_DC_DAILY_TECHNICAL_CHECKS,
+)
+from orchestrator.defs.run_contracts.idx_factor_pro import (
+    IDX_FACTOR_PRO_RAW_CHECKS,
+    IDX_FACTOR_PRO_SILVER_CHECKS,
+)
 from orchestrator.defs.run_contracts.index_global import (
     INDEX_GLOBAL_RAW_CHECKS,
     INDEX_GLOBAL_SILVER_CHECKS,
 )
-from orchestrator.defs.run_contracts.dc_daily_technical_serving import (
-    CH_DC_DAILY_TECHNICAL_CHECKS,
-    PROD_CH_DC_DAILY_TECHNICAL_CHECKS,
+from orchestrator.defs.run_contracts.major_index_mins_technical import (
+    MAJOR_INDEX_MINS_TECHNICAL_FREQS,
+    major_index_mins_technical_asset_key,
+    major_index_mins_technical_checks,
+    major_index_mins_technical_state_asset_key,
+    major_index_mins_technical_state_checks,
 )
 from orchestrator.defs.run_contracts.metadata import SourceSystem
 
@@ -218,6 +237,18 @@ class PartitionModel(str, Enum):
     )
     TRADE_DATE_PARTITION_SILVER_MAJOR_INDEX_MINS = (
         "trade_date_partition_silver_major_index_mins"
+    )
+    TRADE_DATE_PARTITION_RAW_IDX_FACTOR_PRO = (
+        "trade_date_partition_raw_idx_factor_pro"
+    )
+    TRADE_DATE_PARTITION_SILVER_INDEX_FACTOR_PRO = (
+        "trade_date_partition_silver_index_factor_pro"
+    )
+    TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_MINS_TECHNICAL = (
+        "trade_date_partition_gold_major_index_mins_technical"
+    )
+    TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE = (
+        "trade_date_partition_gold_major_index_mins_technical_state"
     )
     TRADE_DATE_PARTITION_RAW_DC_INDEX = "trade_date_partition_raw_dc_index"
     TRADE_DATE_PARTITION_RAW_DC_MEMBER = "trade_date_partition_raw_dc_member"
@@ -793,6 +824,42 @@ PARTITION_MODEL_DEFINITIONS = (
         "trade_date",
         PartitionPhysicalLayout.PARTITION_FILE,
         notes="主要指数分钟线 Silver 原生及派生频率共用专属交易日分区。",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_RAW_IDX_FACTOR_PRO,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.RAW,
+        "idx_factor_pro",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="日级指数技术因子使用独立主要指数技术因子交易日分区。",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_SILVER_INDEX_FACTOR_PRO,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.SILVER,
+        "index_factor_pro",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="Silver 与 Raw 共用主要指数技术因子交易日分区。",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_MINS_TECHNICAL,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.GOLD,
+        "major_index_mins_technical",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="七个分钟频率共用主要指数分钟线交易日分区。",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.GOLD,
+        "major_index_mins_technical_state",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="技术指标 state 与同频 technical 共用主要指数分钟线交易日分区。",
     ),
     _model(
         PartitionModel.TRADE_DATE_PARTITION_RAW_DC_INDEX,
@@ -2329,6 +2396,128 @@ LAKE_ASSET_CATALOG += (
             source_request_policy="no_source_requests",
             notes="Infrastructure health materialization does not write parquet.",
         ),
+    ),
+)
+
+LAKE_ASSET_CATALOG += (
+    _entry(
+        asset_key="raw_tushare_idx_factor_pro",
+        dataset_id="idx_factor_pro",
+        layer=AssetLayer.RAW,
+        data_domain=DataDomain.INDEX_TOPIC,
+        group_name="index",
+        source_system=SourceSystem.TUSHARE,
+        data_contract="tushare_idx_factor_pro_approved_daily_major_indices",
+        data_contract_source=DataContractSource.TUSHARE_RAW_CONTRACT,
+        column_schema=RAW_TUSHARE_IDX_FACTOR_PRO_SCHEMA,
+        path_template=lake_path_template(
+            raw_idx_factor_pro_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_RAW_IDX_FACTOR_PRO,
+        source_api="idx_factor_pro",
+        source_doc="docs/sources/tushare/指数专题/0358_指数技术因子(专业版).md",
+        ingestion_sources=(IngestionSource.TUSHARE_API,),
+        default_daily_ingestion_source=IngestionSource.TUSHARE_API,
+        bootstrap_sources=(IngestionSource.TUSHARE_API,),
+        blocking_check_names=IDX_FACTOR_PRO_RAW_CHECKS,
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        performance_contract=_perf(
+            batch_grain="trade_date",
+            compute_engine=ComputeEngine.TUSHARE_RESOURCE,
+            source_request_policy="one_trade_date_bounded_pages_filter_11_daily_seed_codes",
+            notes=(
+                "Daily requests use trade_date plus 8000-row pagination; selection "
+                "is limited to the date-effective 11-code daily major-index seed."
+            ),
+        ),
+    ),
+    _derived_entry(
+        asset_key="silver_index_factor_pro",
+        dataset_id="index_factor_pro",
+        layer=AssetLayer.SILVER,
+        data_domain=DataDomain.INDEX_TOPIC,
+        group_name="index",
+        data_contract="standardized_index_factor_pro",
+        column_schema=SILVER_INDEX_FACTOR_PRO_SCHEMA,
+        path_template=lake_path_template(
+            silver_index_factor_pro_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_SILVER_INDEX_FACTOR_PRO,
+        blocking_check_names=IDX_FACTOR_PRO_SILVER_CHECKS,
+        batch_grain="trade_date",
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        notes="Pure date cast from the same Raw partition; fields and keys remain identical.",
+    ),
+    *tuple(
+        _derived_entry(
+            asset_key=major_index_mins_technical_asset_key(freq),
+            dataset_id="major_index_mins_technical",
+            layer=AssetLayer.GOLD,
+            data_domain=DataDomain.DERIVED_METRIC,
+            group_name="index",
+            data_contract="major_index_minute_technical_indicators_v1",
+            column_schema=GOLD_MAJOR_INDEX_MINS_TECHNICAL_SCHEMA,
+            path_template=lake_path_template(
+                gold_major_index_mins_technical_path(
+                    PATH_TEMPLATE_LAKE_ROOT,
+                    freq,
+                    PATH_TEMPLATE_PARTITION_KEY,
+                )
+            ),
+            partition_model=(
+                PartitionModel.TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_MINS_TECHNICAL
+            ),
+            blocking_check_names=major_index_mins_technical_checks(freq),
+            batch_grain="freq/trade_date",
+            write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+            event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+            bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+            notes=(
+                "Derived from the same-frequency Silver date-effective code pool; "
+                "the daily major-index seed is not a technical-asset input."
+            ),
+        )
+        for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS
+    ),
+    *tuple(
+        _derived_entry(
+            asset_key=major_index_mins_technical_state_asset_key(freq),
+            dataset_id="major_index_mins_technical_state",
+            layer=AssetLayer.GOLD,
+            data_domain=DataDomain.DERIVED_METRIC,
+            group_name="index",
+            data_contract="major_index_minute_technical_state_v1",
+            column_schema=GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_SCHEMA,
+            path_template=lake_path_template(
+                gold_major_index_mins_technical_state_path(
+                    PATH_TEMPLATE_LAKE_ROOT,
+                    freq,
+                    PATH_TEMPLATE_PARTITION_KEY,
+                )
+            ),
+            partition_model=(
+                PartitionModel.TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE
+            ),
+            blocking_check_names=major_index_mins_technical_state_checks(freq),
+            batch_grain="freq/trade_date",
+            write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+            event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+            bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+            notes=(
+                "Persists recursive state for exactly the same date-effective "
+                "Silver code pool and frequency as the paired technical asset."
+            ),
+        )
+        for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS
     ),
 )
 

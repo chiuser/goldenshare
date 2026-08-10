@@ -2,7 +2,6 @@
 
 from types import MappingProxyType
 
-
 DATASET_CHINESE_NAMES = MappingProxyType(
     {
         "stock_basic": "股票基础信息",
@@ -26,6 +25,10 @@ DATASET_CHINESE_NAMES = MappingProxyType(
         "index_daily": "指数日线行情",
         "index_mins": "指数历史分钟行情",
         "major_index_mins": "主要指数分钟线",
+        "idx_factor_pro": "指数技术因子（专业版）",
+        "index_factor_pro": "指数技术因子（专业版）标准层",
+        "major_index_mins_technical": "主要指数分钟技术指标",
+        "major_index_mins_technical_state": "主要指数分钟技术指标状态",
         "index_global": "国际指数日线",
         "dc_index": "东方财富板块分类",
         "dc_industry_hierarchy": "东方财富行业层级",

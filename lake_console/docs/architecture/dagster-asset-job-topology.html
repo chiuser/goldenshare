@@ -1145,11 +1145,11 @@
       </div>
       <div class="card">
         <strong>Sensor 按资产族拆分</strong>
-        <code>cn_a_trade_day_sensor</code> 只注册交易日；<code>index_trade_day_sensor</code> 只注册指数交易日；<code>stock_mins_trade_day_sensor</code> 只注册分钟线 raw 交易日；<code>stock_mins_silver_trade_day_sensor</code> 只注册分钟线 silver 交易日；<code>raw_index_daily_update_job_sensor</code>、<code>silver_index_daily_sensor</code>、<code>market_major_indices_daily_sensor</code>、<code>raw_suspend_d_update_job_sensor</code>、<code>silver_suspend_d_update_job_sensor</code>、<code>raw_stock_basic_update_job_sensor</code>、<code>silver_stock_basic_update_job_sensor</code>、<code>raw_namechange_update_job_sensor</code>、<code>silver_namechange_update_job_sensor</code>、<code>stock_identity_map_sensor</code>、<code>raw_stock_daily_update_job_sensor</code>、<code>silver_stock_daily_update_job_sensor</code>、<code>raw_adj_factor_update_job_sensor</code>、<code>silver_adj_factor_update_job_sensor</code>、<code>stock_mins_raw_sensor</code>、<code>stock_mins_silver_sensor</code>、<code>stock_mins_qfq_daily_sensor</code>、<code>stock_mins_qfq_factor_repair_sensor</code>、<code>gold_stock_daily_qfq_nineturn_update_job_sensor</code>、<code>gold_stk_mins_qfq_nineturn_update_job_sensor</code>、<code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor</code>、<code>gold_stk_mins_qfq_macd_kdj_repair_job_sensor</code> 分别判断本资产族是否 missing、fresh、checks passed、seed/input ready、上游 run status 或源站 ready，并提交对应 run request。Automation 页面分类使用 sensor definition tags，不通过改名、目录或 run tags 实现。
+        <code>cn_a_trade_day_sensor</code> 只注册交易日；<code>index_trade_day_sensor</code> 只注册指数交易日；<code>idx_factor_pro_trade_day_sensor</code> 只在 16:00 后注册当前开放交易日到指数技术因子专属分区；<code>stock_mins_trade_day_sensor</code> 只注册分钟线 raw 交易日；<code>stock_mins_silver_trade_day_sensor</code> 只注册分钟线 silver 交易日；<code>raw_index_daily_update_job_sensor</code>、<code>silver_index_daily_sensor</code>、<code>market_major_indices_daily_sensor</code>、<code>raw_tushare_idx_factor_pro_update_job_sensor</code>、<code>silver_index_factor_pro_update_job_sensor</code>、<code>raw_suspend_d_update_job_sensor</code>、<code>silver_suspend_d_update_job_sensor</code>、<code>raw_stock_basic_update_job_sensor</code>、<code>silver_stock_basic_update_job_sensor</code>、<code>raw_namechange_update_job_sensor</code>、<code>silver_namechange_update_job_sensor</code>、<code>stock_identity_map_sensor</code>、<code>raw_stock_daily_update_job_sensor</code>、<code>silver_stock_daily_update_job_sensor</code>、<code>raw_adj_factor_update_job_sensor</code>、<code>silver_adj_factor_update_job_sensor</code>、<code>stock_mins_raw_sensor</code>、<code>stock_mins_silver_sensor</code>、<code>stock_mins_qfq_daily_sensor</code>、<code>stock_mins_qfq_factor_repair_sensor</code>、<code>gold_stock_daily_qfq_nineturn_update_job_sensor</code>、<code>gold_stk_mins_qfq_nineturn_update_job_sensor</code>、<code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor</code>、<code>gold_stk_mins_qfq_macd_kdj_repair_job_sensor</code> 分别判断本资产族是否 missing、fresh、checks passed、seed/input ready、上游 run status 或源站 ready，并提交对应 run request。Automation 页面分类使用 sensor definition tags，不通过改名、目录或 run tags 实现。
       </div>
       <div class="card">
         <strong>Sensor 门禁必须轻量</strong>
-        <code>raw_index_daily_update_job_sensor</code> 与 <code>silver_index_daily_sensor</code> 的门禁只读最近 10 个交易日的 raw by-date 文件事实和 latest check 状态：raw 先验证 prod source 覆盖 DG 管理代码集合；silver 再验证同日 raw 文件契约与 code coverage。<code>market_major_indices_daily_sensor</code> 只查主要指数 seed code 在注册分区、<code>silver_index_basic</code> 和当日 <code>silver_index_daily</code> 中是否齐备；不在 evaluation 中读取旧 run tags/config。
+        <code>raw_index_daily_update_job_sensor</code> 与 <code>silver_index_daily_sensor</code> 的门禁只读最近 10 个交易日的 raw by-date 文件事实和 latest check 状态：raw 先验证 prod source 覆盖 DG 管理代码集合；silver 再验证同日 raw 文件契约与 code coverage。<code>market_major_indices_daily_sensor</code> 只查主要指数 seed code 在注册分区、<code>silver_index_basic</code> 和当日 <code>silver_index_daily</code> 中是否齐备。<code>idx_factor_pro</code> 的 Raw/Silver sensor 更严格地只评估当前开放交易日：Raw 目标缺失时只发一次同日 source probe，Silver 只消费同日 Raw 物理文件及 blocking checks；三者都不读 event history、不扫历史窗口、不自动 repair。
       </div>
       <div class="card">
         <strong>告警不参与生产</strong>
@@ -1206,7 +1206,13 @@
 
 7. Platform health
    - lake_root_health asset, blocking checks, lake_root_health_check_job and STOPPED lake_root_health_schedule are implemented
-   - LakeRootResource.ensure_available_for_run now performs lake root required-path and canary fail-fast checks</code></pre>
+   - LakeRootResource.ensure_available_for_run now performs lake root required-path and canary fail-fast checks
+
+8. Major-index daily technical factors
+   - raw_tushare_idx_factor_pro and silver_index_factor_pro assets/checks are implemented
+   - raw_tushare_idx_factor_pro_update_job and silver_index_factor_pro_update_job are layer-isolated
+   - idx_factor_pro_trade_day_sensor plus Raw/Silver update sensors are implemented and default to STOPPED
+   - automation is current-day only, single-run per tick, physical-file readiness based, and not yet enabled on the formal instance</code></pre>
   </section>
 </main>
 </body>

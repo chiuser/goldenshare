@@ -1,6 +1,55 @@
 """Stable column schema contracts for Dagster asset definitions."""
 
 from orchestrator.defs.run_contracts.column_schema import ColumnContract
+from orchestrator.defs.run_contracts.idx_factor_pro import (
+    IDX_FACTOR_PRO_RAW_COLUMN_TYPES,
+    IDX_FACTOR_PRO_SILVER_COLUMN_TYPES,
+    IDX_FACTOR_PRO_SOURCE_COLUMNS,
+)
+from orchestrator.defs.run_contracts.major_index_mins_technical import (
+    GOLD_MAJOR_INDEX_MINS_TECHNICAL_COLUMN_SPECS,
+    GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_COLUMN_SPECS,
+)
+
+RAW_TUSHARE_IDX_FACTOR_PRO_SCHEMA = tuple(
+    ColumnContract(
+        column,
+        IDX_FACTOR_PRO_RAW_COLUMN_TYPES[column],
+        (
+            "Tushare 原始指数代码，不得为空"
+            if column == "ts_code"
+            else "Tushare 原始交易日，YYYYMMDD 字符串，不得为空"
+            if column == "trade_date"
+            else "Tushare idx_factor_pro 原始数值字段，源端允许为空"
+        ),
+    )
+    for column in IDX_FACTOR_PRO_SOURCE_COLUMNS
+)
+
+SILVER_INDEX_FACTOR_PRO_SCHEMA = tuple(
+    ColumnContract(
+        column,
+        IDX_FACTOR_PRO_SILVER_COLUMN_TYPES[column],
+        (
+            "标准化指数代码，不得为空"
+            if column == "ts_code"
+            else "标准化交易日，不得为空"
+            if column == "trade_date"
+            else "原样保留的 idx_factor_pro 数值字段，源端允许为空"
+        ),
+    )
+    for column in IDX_FACTOR_PRO_SOURCE_COLUMNS
+)
+
+GOLD_MAJOR_INDEX_MINS_TECHNICAL_SCHEMA = tuple(
+    ColumnContract(name, type_name, description)
+    for name, type_name, description in GOLD_MAJOR_INDEX_MINS_TECHNICAL_COLUMN_SPECS
+)
+
+GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_SCHEMA = tuple(
+    ColumnContract(name, type_name, description)
+    for name, type_name, description in GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_COLUMN_SPECS
+)
 
 
 RAW_TUSHARE_TRADE_CALENDAR_SCHEMA = (

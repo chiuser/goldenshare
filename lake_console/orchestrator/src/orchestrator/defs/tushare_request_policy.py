@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from time import perf_counter, sleep
 from typing import Any, Generic, TypeVar
 
-
 TushareResponse = TypeVar("TushareResponse")
 
 TUSHARE_FAILURE_RATE_LIMIT = "rate_limit"
@@ -668,6 +667,8 @@ def execute_bounded_pages(
     policy: TushareRequestPolicy,
     scope: str,
     row_key: Callable[[Mapping[str, Any]], Hashable] | None = None,
+    consume_page: Callable[[int, Sequence[Mapping[str, Any]]], None] | None = None,
+    retain_rows: bool = True,
     clock: Callable[[], float] = perf_counter,
     sleep_fn: Callable[[float], None] = sleep,
 ) -> BoundedPageRequestResult[TushareResponse]:
@@ -675,8 +676,9 @@ def execute_bounded_pages(
 
     A short or empty page is the only successful termination condition. Full
     pages advance by ``page_size``. If ``row_key`` is supplied, duplicate keys
-    across pages fail the whole request before any caller can write a target
-    partition.
+    across pages fail the whole request before the page consumer runs. Callers
+    handling large pages may set ``retain_rows=False`` and consume each page
+    immediately without accumulating full response rows in Python.
     """
 
     if page_size <= 0:
@@ -749,7 +751,10 @@ def execute_bounded_pages(
             )
             break
 
-        rows.extend(page_rows)
+        if consume_page is not None:
+            consume_page(offset, page_rows)
+        if retain_rows:
+            rows.extend(page_rows)
         if len(page_rows) < page_size:
             break
         offset += page_size

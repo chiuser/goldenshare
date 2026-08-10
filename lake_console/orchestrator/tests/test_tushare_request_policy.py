@@ -1,14 +1,14 @@
 import unittest
 
 from orchestrator.defs.tushare_request_policy import (
-    BoundedCodePageRequestSession,
     TUSHARE_FAILURE_NON_RETRYABLE,
     TUSHARE_FAILURE_RATE_LIMIT,
     TUSHARE_FAILURE_TRANSIENT,
+    BoundedCodePageRequestSession,
     TushareRequestPolicy,
     classify_tushare_error,
-    execute_bounded_code_requests,
     execute_bounded_code_pages,
+    execute_bounded_code_requests,
     execute_bounded_pages,
 )
 
@@ -244,6 +244,35 @@ class TushareRequestPolicyTests(unittest.TestCase):
         self.assertEqual(result.page_offsets, (0, 2))
         self.assertEqual(result.page_count, 2)
         self.assertEqual(result.rows, ({"id": 1}, {"id": 2}))
+
+    def test_generic_pagination_can_stream_pages_without_retaining_rows(self) -> None:
+        consumed_pages: list[tuple[int, tuple[int, ...]]] = []
+        pages = {
+            0: [{"id": 1}, {"id": 2}],
+            2: [{"id": 3}],
+        }
+
+        result = execute_bounded_pages(
+            request_page=lambda offset: pages[offset],
+            extract_rows=lambda response: response,
+            page_size=2,
+            scope="idx_factor_pro:2026-08-07",
+            row_key=lambda row: row["id"],
+            consume_page=lambda offset, rows: consumed_pages.append(
+                (offset, tuple(int(row["id"]) for row in rows))
+            ),
+            retain_rows=False,
+            policy=TushareRequestPolicy(
+                minimum_interval_seconds=0.0,
+                max_retries=0,
+                max_requests=5,
+                max_elapsed_seconds=30.0,
+            ),
+        )
+
+        self.assertTrue(result.ready)
+        self.assertEqual(result.rows, ())
+        self.assertEqual(consumed_pages, [(0, (1, 2)), (2, (3,))])
 
     def test_generic_pagination_rejects_duplicate_rows_across_pages(self) -> None:
         result = execute_bounded_pages(

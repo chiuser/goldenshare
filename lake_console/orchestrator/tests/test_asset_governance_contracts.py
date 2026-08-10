@@ -3,17 +3,18 @@ import pkgutil
 import re
 import unittest
 
-from orchestrator.defs.assets.calendar import (
-    TRADE_CALENDAR_RAW_COLUMN_TYPES,
-    raw_tushare_trade_calendar,
-    silver_trade_calendar,
-)
+import orchestrator.defs.checks as checks_pkg
 from orchestrator.defs.assets.adj_factor import (
     ADJ_FACTOR_COLUMNS,
     ADJ_FACTOR_RAW_COLUMN_TYPES,
     ADJ_FACTOR_SILVER_COLUMN_TYPES,
     raw_tushare_adj_factor,
     silver_adj_factor,
+)
+from orchestrator.defs.assets.calendar import (
+    TRADE_CALENDAR_RAW_COLUMN_TYPES,
+    raw_tushare_trade_calendar,
+    silver_trade_calendar,
 )
 from orchestrator.defs.assets.clickhouse_serving import (
     CLICKHOUSE_MARKET_BREADTH_COLUMNS,
@@ -24,7 +25,9 @@ from orchestrator.defs.assets.dc_daily_technical_serving import (
     ch_dc_daily_technical,
     prod_ch_dc_daily_technical,
 )
-from orchestrator.defs.assets.lake_root_health import lake_root_health
+from orchestrator.defs.assets.dc_industry_hierarchy import silver_dc_industry_hierarchy
+from orchestrator.defs.assets.idx_factor_pro_raw import raw_tushare_idx_factor_pro
+from orchestrator.defs.assets.idx_factor_pro_silver import silver_index_factor_pro
 from orchestrator.defs.assets.index_basic import (
     INDEX_BASIC_RAW_COLUMN_TYPES,
     raw_tushare_index_basic,
@@ -36,11 +39,22 @@ from orchestrator.defs.assets.index_daily import (
     raw_index_daily,
     silver_index_daily,
 )
-from orchestrator.defs.assets.market_breadth import gold_market_breadth_daily
-from orchestrator.defs.assets.market_breadth import MARKET_BREADTH_DAILY_COLUMNS
+from orchestrator.defs.assets.index_global_raw import raw_index_global
+from orchestrator.defs.assets.index_global_silver import silver_index_global
+from orchestrator.defs.assets.index_mins_raw import RAW_INDEX_MINS_ASSETS
+from orchestrator.defs.assets.index_mins_silver_defs import SILVER_INDEX_MINS_ASSETS
+from orchestrator.defs.assets.lake_root_health import lake_root_health
+from orchestrator.defs.assets.major_index_mins_raw import RAW_MAJOR_INDEX_MINS_ASSETS
+from orchestrator.defs.assets.major_index_mins_silver import (
+    SILVER_MAJOR_INDEX_MINS_ASSETS,
+)
+from orchestrator.defs.assets.market_breadth import (
+    MARKET_BREADTH_DAILY_COLUMNS,
+    gold_market_breadth_daily,
+)
 from orchestrator.defs.assets.market_major_indices import (
-    MARKET_MAJOR_INDICES_DAILY_COLUMNS,
     MARKET_MAJOR_INDICES_DAILY_COLUMN_TYPES,
+    MARKET_MAJOR_INDICES_DAILY_COLUMNS,
     gold_market_major_indices_daily,
 )
 from orchestrator.defs.assets.namechange import (
@@ -49,27 +63,9 @@ from orchestrator.defs.assets.namechange import (
     raw_tushare_namechange,
     silver_namechange,
 )
-from orchestrator.defs.assets.stock_basic import (
-    STOCK_BASIC_RAW_COLUMN_TYPES,
-    raw_tushare_stock_basic,
-    silver_stock_basic,
-)
-from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
-from orchestrator.defs.assets.stock_identity_map import silver_stock_identity_map
-from orchestrator.defs.assets.dc_industry_hierarchy import silver_dc_industry_hierarchy
-from orchestrator.defs.assets.stock_daily import (
-    STOCK_DAILY_RAW_COLUMN_TYPES,
-    raw_tushare_stock_daily,
-    silver_stock_daily,
-)
-from orchestrator.defs.assets.stock_daily_qfq import gold_stock_daily_qfq
 from orchestrator.defs.assets.qfq_nineturn import (
     GOLD_STK_MINS_QFQ_NINETURN_ASSETS,
     gold_stock_daily_qfq_nineturn,
-)
-from orchestrator.defs.assets.stk_nineturn import (
-    raw_tushare_stk_nineturn,
-    silver_stock_nineturn_daily,
 )
 from orchestrator.defs.assets.stk_mins import (
     GOLD_STK_MINS_QFQ_COLUMNS,
@@ -95,9 +91,31 @@ from orchestrator.defs.assets.stk_mins import (
 from orchestrator.defs.assets.stk_mins_qfq_macd_kdj import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_ASSETS,
 )
+from orchestrator.defs.assets.stk_nineturn import (
+    raw_tushare_stk_nineturn,
+    silver_stock_nineturn_daily,
+)
+from orchestrator.defs.assets.stock_basic import (
+    STOCK_BASIC_RAW_COLUMN_TYPES,
+    raw_tushare_stock_basic,
+    silver_stock_basic,
+)
+from orchestrator.defs.assets.stock_daily import (
+    STOCK_DAILY_RAW_COLUMN_TYPES,
+    raw_tushare_stock_daily,
+    silver_stock_daily,
+)
+from orchestrator.defs.assets.stock_daily_qfq import gold_stock_daily_qfq
+from orchestrator.defs.assets.stock_identity_map import silver_stock_identity_map
+from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
 from orchestrator.defs.assets.stock_return_distribution import (
     STOCK_RETURN_DISTRIBUTION_COLUMNS,
     gold_stock_return_distribution,
+)
+from orchestrator.defs.assets.suspend_d import (
+    SUSPEND_D_RAW_COLUMN_TYPES,
+    raw_tushare_suspend_d,
+    silver_stock_suspend_daily,
 )
 from orchestrator.defs.assets.wealth_market_turnover import (
     WEALTH_MARKET_TURNOVER_COLUMNS,
@@ -106,12 +124,6 @@ from orchestrator.defs.assets.wealth_market_turnover import (
 from orchestrator.defs.assets.wealth_market_turnover_prod_core import (
     prod_core_wealth_market_turnover,
 )
-from orchestrator.defs.assets.suspend_d import (
-    SUSPEND_D_RAW_COLUMN_TYPES,
-    raw_tushare_suspend_d,
-    silver_stock_suspend_daily,
-)
-import orchestrator.defs.checks as checks_pkg
 from orchestrator.defs.catalog import (
     DATASET_CHINESE_NAMES,
     PartitionModel,
@@ -134,12 +146,12 @@ from orchestrator.defs.duckdb_sql import (
     NAMECHANGE_RAW_COLUMNS,
     NAMECHANGE_SILVER_REQUIRED_COLUMNS,
     SILVER_STOCK_IDENTITY_MAP_REQUIRED_COLUMNS,
-    STOCK_LIFECYCLE_SILVER_REQUIRED_COLUMNS,
+    STK_MINS_RAW_REQUIRED_COLUMNS,
     STOCK_BASIC_RAW_COLUMNS,
     STOCK_BASIC_SILVER_REQUIRED_COLUMNS,
     STOCK_DAILY_RAW_REQUIRED_COLUMNS,
     STOCK_DAILY_SILVER_REQUIRED_COLUMNS,
-    STK_MINS_RAW_REQUIRED_COLUMNS,
+    STOCK_LIFECYCLE_SILVER_REQUIRED_COLUMNS,
     SUSPEND_D_RAW_COLUMNS,
     SUSPEND_D_SILVER_REQUIRED_COLUMNS,
     TRADE_CALENDAR_RAW_REQUIRED_COLUMNS,
@@ -147,17 +159,10 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.partitions import (
     cn_a_index_trade_days,
-    cn_a_stock_trade_days,
     cn_a_stk_nineturn_trade_days,
     cn_a_stock_mins_silver_trade_days,
     cn_a_stock_mins_trade_days,
-)
-from orchestrator.defs.run_contracts.asset_tags import (
-    ASSET_LAYER_TAG,
-    DATA_DOMAIN_TAG,
-    AssetLayer,
-    DataDomain,
-    build_asset_tags,
+    cn_a_stock_trade_days,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA,
@@ -169,40 +174,37 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
     GOLD_WEALTH_MARKET_TURNOVER_SCHEMA,
     RAW_INDEX_DAILY_SCHEMA,
+    RAW_STK_MINS_SCHEMA,
+    RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     RAW_TUSHARE_NAMECHANGE_SCHEMA,
-    RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
-    RAW_STK_MINS_SCHEMA,
+    RAW_TUSHARE_STK_NINETURN_SCHEMA,
     RAW_TUSHARE_STOCK_BASIC_SCHEMA,
     RAW_TUSHARE_STOCK_DAILY_SCHEMA,
-    RAW_TUSHARE_STK_NINETURN_SCHEMA,
     RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA,
     RAW_TUSHARE_TRADE_CALENDAR_SCHEMA,
+    SILVER_ADJ_FACTOR_SCHEMA,
     SILVER_INDEX_BASIC_SCHEMA,
     SILVER_INDEX_DAILY_SCHEMA,
-    SILVER_ADJ_FACTOR_SCHEMA,
     SILVER_NAMECHANGE_SCHEMA,
     SILVER_STOCK_BASIC_SCHEMA,
     SILVER_STOCK_DAILY_SCHEMA,
-    SILVER_STOCK_NINETURN_DAILY_SCHEMA,
     SILVER_STOCK_IDENTITY_MAP_SCHEMA,
     SILVER_STOCK_LIFECYCLE_SCHEMA,
+    SILVER_STOCK_NINETURN_DAILY_SCHEMA,
     SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
     SILVER_TRADE_CALENDAR_SCHEMA,
 )
-from orchestrator.defs.stk_mins_qfq_macd_kdj import (
-    GOLD_STK_MINS_QFQ_MACD_KDJ_COLUMNS,
-    GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_COLUMNS,
-)
-from orchestrator.defs.stk_nineturn_contract import (
-    RAW_STK_NINETURN_COLUMNS,
-    RAW_STK_NINETURN_COLUMN_TYPES,
-    SILVER_STOCK_NINETURN_DAILY_COLUMNS,
-    SILVER_STOCK_NINETURN_DAILY_COLUMN_TYPES,
+from orchestrator.defs.run_contracts.asset_tags import (
+    ASSET_LAYER_TAG,
+    DATA_DOMAIN_TAG,
+    AssetLayer,
+    DataDomain,
+    build_asset_tags,
 )
 from orchestrator.defs.run_contracts.metadata import (
-    DATA_CONTRACT_METADATA_KEY,
     DAGSTER_COLUMN_SCHEMA_METADATA_KEY,
+    DATA_CONTRACT_METADATA_KEY,
     DATASET_ID_METADATA_KEY,
     DATASET_NAME_METADATA_KEY,
     PATH_TEMPLATE_METADATA_KEY,
@@ -211,7 +213,16 @@ from orchestrator.defs.run_contracts.metadata import (
     SOURCE_SYSTEM_METADATA_KEY,
     build_dataset_metadata,
 )
-
+from orchestrator.defs.stk_mins_qfq_macd_kdj import (
+    GOLD_STK_MINS_QFQ_MACD_KDJ_COLUMNS,
+    GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_COLUMNS,
+)
+from orchestrator.defs.stk_nineturn_contract import (
+    RAW_STK_NINETURN_COLUMN_TYPES,
+    RAW_STK_NINETURN_COLUMNS,
+    SILVER_STOCK_NINETURN_DAILY_COLUMN_TYPES,
+    SILVER_STOCK_NINETURN_DAILY_COLUMNS,
+)
 
 DAGSTER_TAG_VALUE_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,63}$")
 
@@ -259,6 +270,14 @@ ACTIVE_ASSET_DEFINITIONS = (
     silver_index_basic,
     raw_index_daily,
     silver_index_daily,
+    raw_index_global,
+    silver_index_global,
+    *RAW_INDEX_MINS_ASSETS,
+    *SILVER_INDEX_MINS_ASSETS,
+    *RAW_MAJOR_INDEX_MINS_ASSETS,
+    *SILVER_MAJOR_INDEX_MINS_ASSETS,
+    raw_tushare_idx_factor_pro,
+    silver_index_factor_pro,
     gold_market_major_indices_daily,
     gold_market_breadth_daily,
     gold_stock_return_distribution,
@@ -293,6 +312,20 @@ CONTRACT_ONLY_CATALOG_ASSET_KEYS = {
     "silver_dc_member",
     "silver_dc_daily",
     "gold_dc_daily_technical",
+    "gold_major_index_mins_technical_1m",
+    "gold_major_index_mins_technical_5m",
+    "gold_major_index_mins_technical_15m",
+    "gold_major_index_mins_technical_30m",
+    "gold_major_index_mins_technical_60m",
+    "gold_major_index_mins_technical_90m",
+    "gold_major_index_mins_technical_120m",
+    "gold_major_index_mins_technical_state_1m",
+    "gold_major_index_mins_technical_state_5m",
+    "gold_major_index_mins_technical_state_15m",
+    "gold_major_index_mins_technical_state_30m",
+    "gold_major_index_mins_technical_state_60m",
+    "gold_major_index_mins_technical_state_90m",
+    "gold_major_index_mins_technical_state_120m",
 }
 
 

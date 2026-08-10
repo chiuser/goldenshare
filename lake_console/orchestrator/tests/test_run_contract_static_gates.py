@@ -2747,7 +2747,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 66)
+        self.assertEqual(sensor_definition_count, 69)
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:
@@ -5133,6 +5133,79 @@ class RunContractStaticGateTests(unittest.TestCase):
         self.assertNotIn("get_event_records", readiness_source)
         self.assertNotIn("get_event_records", sensor_source)
         self.assertNotIn("prod_postgres", sensor_source)
+
+    def test_idx_factor_pro_m4_uses_current_date_fail_closed_automation(
+        self,
+    ) -> None:
+        job_source = (JOBS_DIR / "idx_factor_pro.py").read_text()
+        readiness_source = (
+            ASSET_GUARDS_DIR / "idx_factor_pro_lake_readiness.py"
+        ).read_text()
+        source_probe = (
+            ASSET_GUARDS_DIR / "idx_factor_pro_source_probe.py"
+        ).read_text()
+        partition_sensor = (
+            SENSORS_DIR / "idx_factor_pro_partition_sensor.py"
+        ).read_text()
+        sensor_source = (SENSORS_DIR / "idx_factor_pro_sensor.py").read_text()
+
+        for fragment in (
+            "raw_tushare_idx_factor_pro_update_job",
+            "silver_index_factor_pro_update_job",
+            "AssetSelection.checks_for_assets",
+            "cn_major_index_factor_trade_days",
+        ):
+            self.assertIn(fragment, job_source)
+        for fragment in (
+            "raw_idx_factor_pro_lake_readiness",
+            "silver_idx_factor_pro_lake_readiness",
+            "audit_idx_factor_pro_raw_partition",
+            "audit_idx_factor_pro_silver_partition",
+            "failed_idx_factor_pro_raw_check_names",
+            "failed_idx_factor_pro_silver_check_names",
+        ):
+            self.assertIn(fragment, readiness_source)
+        for fragment in (
+            "build_idx_factor_pro_daily_request",
+            "IDX_FACTOR_PRO_SOURCE_COLUMNS",
+            "source_probe_incomplete",
+            "source_probe_duplicate_key",
+            "source_probe_schema_drift",
+            "request_count=1",
+        ):
+            self.assertIn(fragment, source_probe)
+        for fragment in (
+            "SAME_DAY_PARTITION_REGISTER_START",
+            "is_sse_open_day",
+            "datetime.now(CN_A_SENSOR_TIMEZONE)",
+            "build_add_request([trade_date])",
+            "default_status=dg.DefaultSensorStatus.STOPPED",
+        ):
+            self.assertIn(fragment, partition_sensor)
+        for fragment in (
+            "IDX_FACTOR_PRO_AUTOMATION_CONTRACT_REVISION",
+            "raw_idx_factor_pro_lake_readiness",
+            "silver_idx_factor_pro_lake_readiness",
+            "probe_idx_factor_pro_source",
+            "materialized_check_failed",
+            "build_sensor_cursor",
+            "build_run_request",
+            "build_asset_update_run_key",
+            "max_run_requests_per_tick",
+            "default_status=dg.DefaultSensorStatus.STOPPED",
+        ):
+            self.assertIn(fragment, sensor_source)
+        for forbidden in (
+            "get_event_records",
+            "load_expected_trade_date_window",
+            "select_first_not_ready_trade_date",
+            "report_runless_asset_event",
+            "prod_postgres",
+        ):
+            self.assertNotIn(
+                forbidden,
+                f"{readiness_source}\n{partition_sensor}\n{sensor_source}",
+            )
 
     def test_major_index_mins_p6_bootstrap_separates_plan_stage_and_promote(
         self,

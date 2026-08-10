@@ -141,8 +141,8 @@
       本文只做设计和实施门禁，不执行 Dagster、建分区、拉全量或写 Lake。
     </p>
     <div class="meta">
-      <span class="tag review">状态：M0 已重新冻结，M1 未开始</span>
-      <span class="tag">文档日期：2026-08-09</span>
+      <span class="tag ok">状态：M1 Catalog/Contract 已完成并通过静态门禁</span>
+      <span class="tag">文档日期：2026-08-10</span>
       <span class="tag">范围：DG / Raw / Silver / Gold</span>
       <span class="tag">源接口：idx_factor_pro</span>
     </div>
@@ -158,7 +158,7 @@
       <code>2020-01-02..2026-08-07</code>。完整物理证据见
       <a href="./dagster-index-daily-000680-history-supplement-low-level-design.md">科创综指指数日线历史补录 LLD</a>。
       分钟池继续独立：当前 Silver 有效池排除北证50、包含科创综指，不能与日级 seed 合并。M0 已按当前代码、源文档、真实 connector
-      分页探测和正式湖只读样本重新冻结；M1 尚未开始。
+      分页探测和正式湖只读样本重新冻结；M1 已在不执行 Dagster、不创建动态分区、不访问源端和不写 Lake 的边界内完成。
     </div>
   </section>
 
@@ -749,10 +749,10 @@ gold/indicator/major_index_mins_technical_state/
         <thead><tr><th>Milestone</th><th>交付内容</th><th>关键门禁</th></tr></thead>
         <tbody>
           <tr><td>M0 合同冻结</td><td><strong>已完成：</strong>科创综指日线历史补录与 11 指数 seed 已发布；日级因子读取 11 指数 seed，分钟指标读取同日 Silver 有效池；真实 connector 已验证“日期点 + 代码区间 + limit/offset 分页”；11 代码源端首日、45,772 行和 13 页预算已冻结；90/120 Silver 上游合同已进入 HEAD，并完成定向测试与七频率正式湖样本只读验收。</td><td>后续编码必须证明日线池同时包含 <code>899050.BJ</code> 与 <code>000680.SH</code>、分钟池排除北证50且包含科创综指；coverage keys 必须等于 11 指数 seed；不得把 M0 证据重新解释为 M1 已开始。</td></tr>
-          <tr><td>M1 Catalog/Contract</td><td>中文名、Catalog entries、partition models、schemas、paths、run contracts。</td><td>Catalog 静态门禁通过，所有正式 asset 先登记。</td></tr>
-          <tr><td>M2 日级 Raw</td><td><code>idx_factor_pro</code> Raw writer、asset、checks、日常日期请求与历史代码分页测试。</td><td>真实单日 <code>selected_rows = written_rows</code>；历史每代码 source/Raw key parity。</td></tr>
-          <tr><td>M3 日级 Silver</td><td>日期/类型标准化、Silver asset/checks。</td><td>Raw/Silver key parity，89 字段无丢失。</td></tr>
-          <tr><td>M4 日级自动化</td><td>jobs、source probe、sensors、cursor/readiness。</td><td>单 tick 1 分区，默认 STOPPED，无历史吞吐。</td></tr>
+          <tr><td>M1 Catalog/Contract</td><td><strong>已完成：</strong>中文名、16 个 contract-only Catalog entries、partition models、schemas、paths、run contracts。</td><td>定向 contract 测试与 Catalog 治理静态门禁通过；未创建动态分区、未加载源端、未写 Lake。</td></tr>
+          <tr><td>M2 日级 Raw</td><td><strong>已完成：</strong><code>idx_factor_pro</code> 日常 Raw writer、asset、checks、按页流式消费与外置 staging 原子提升；历史代码分页只保留 request contract 门禁，正式历史写入归 M7。</td><td>2026-08-07 临时真实验收：source 3772、selected/written 11、1 request/1 page、0 retry；未写正式 Lake、未发事件。</td></tr>
+          <tr><td>M3 日级 Silver</td><td><strong>已完成：</strong>日期/数值类型标准化、Silver asset、contract/source parity/cast integrity 三项 blocking checks，并将 Catalog 切换为活跃定义。</td><td>2026-08-07 临时目录验收：Raw/Silver 各 11 行、11 个代码、89 字段，key/数值/NULL 完全一致，Silver 文件 19793 bytes；正式 Lake 执行未授权。</td></tr>
+          <tr><td>M4 日级自动化</td><td><strong>已完成：</strong>Raw/Silver layer-isolated jobs、当前开放日 partition sensor、Raw/Silver sensors、单日物理文件 readiness、单页 source probe 与 v1 compact cursor。</td><td>当前日单 tick 最多 1 分区，三个 sensor 默认 STOPPED；已有坏文件 fail closed；隔离测试与静态门禁通过，未在正式 instance 启用、未写正式 Lake。</td></tr>
           <tr><td>M5 分钟指标核心</td><td>DuckDB 公式、指标/state writers、路径与双文件提交协议。</td><td>公式金样本在测试中验证；生产门禁覆盖无未来数据、有限值、warm-up 与严格前态。</td></tr>
           <tr><td>M6 分钟资产自动化</td><td>Gold assets/checks/job/run-status sensor/repair 计划。</td><td>只消费健康 Silver，不顺手补上游。</td></tr>
           <tr><td>M7 历史 Bootstrap</td><td>两个资产族 dry-run/sample/batch/final audit/runless events。</td><td>正式执行前单独申请批准；空间、配额、文件、事件预算明确。</td></tr>
@@ -781,7 +781,7 @@ gold/indicator/major_index_mins_technical_state/
       <table class="checklist">
         <thead><tr><th>阶段</th><th>证据</th><th>状态</th></tr></thead>
         <tbody>
-          <tr><td><code>idx_factor_pro</code> 单日</td><td>源端总行数、选中 active seed 行数（目标合同发布后通常为 11）、Raw/Silver 行数、missing/extra codes、主键数、文件大小。</td><td>待开发</td></tr>
+          <tr><td><code>idx_factor_pro</code> 单日</td><td>2026-08-07 源端 3772 行，active seed 11 行，Raw 11 行，missing/extra 0，主键 11，Raw 临时文件 19120 bytes；同一 Raw 经纯 cast 生成 Silver 11 行、11 代码、89 字段，key/数值/NULL 差异 0，Silver 临时文件 19793 bytes。</td><td>M2/M3 已通过；仅系统临时目录验收，正式 Lake 执行未授权</td></tr>
           <tr><td><code>idx_factor_pro</code> 历史分页</td><td>长历史/短历史代码的页数、offset、短页终止、source/Raw key parity、日期重排与压缩率。</td><td>待开发</td></tr>
           <tr><td>分钟指标单日</td><td>同日 Silver 有效代码 × 批准频率 input/output parity、state continuity；当前日期预期 10 个，历史按合同可少于 10 个。</td><td>待开发</td></tr>
           <tr><td>分钟指标小批</td><td>20 日递推与一次性全段计算结果一致。</td><td>待开发</td></tr>

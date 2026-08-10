@@ -114,8 +114,8 @@
       MA/BOLL/MACD/KDJ Gold/state。本文不执行任务、不创建分区、不写 Lake。
     </p>
     <div class="meta">
-      <span class="tag ok">状态：M0 已重新冻结，M1 未开始</span>
-      <span class="tag">日期：2026-08-09</span>
+      <span class="tag ok">状态：M1 Catalog/Contract 已完成并通过静态门禁</span>
+      <span class="tag">日期：2026-08-10</span>
       <span class="tag">范围：lake_console/orchestrator</span>
       <span class="tag ok">90/120 Silver：HEAD 合同已存在，样本已核验</span>
     </div>
@@ -130,7 +130,8 @@
       有效集合，当前排除北证50、包含科创综指，二者不得统一。补录和全链路只读验收证据见
       <a href="./dagster-index-daily-000680-history-supplement-low-level-design.md">科创综指指数日线历史补录 LLD</a>。
       <code>idx_factor_pro</code> 默认字段、显式字段、业务关键字段、日期点、11 代码历史区间和 <code>limit/offset</code>
-      分页已经真实探测；分钟七频率合同与正式湖最近共同物理样本已经只读核验。M0 已重新冻结，M1 尚未开始。
+      分页已经真实探测；分钟七频率合同与正式湖最近共同物理样本已经只读核验。M1 已在不执行 Dagster、
+      不创建动态分区、不访问源端和不写 Lake 的边界内完成 Catalog/Contract 编码与静态验收。
     </div>
   </section>
 
@@ -406,16 +407,16 @@ silver_major_index_mins_120m ┘</code></pre>
           <tr><td><code>defs/run_contracts/idx_factor_pro.py</code></td><td>新增</td><td>89 字段、类型、page limit、coverage、keys、checks、job/sensor 名称、request builder。</td></tr>
           <tr><td><code>defs/run_contracts/asset_column_schemas.py</code></td><td>修改</td><td>新增 Raw/Silver schema。</td></tr>
           <tr><td><code>defs/paths.py</code></td><td>修改</td><td>正式与 run-scoped staging 路径函数。</td></tr>
-          <tr><td><code>defs/io/idx_factor_pro_raw_writer.py</code></td><td>新增</td><td>单日全源分页、active seed 过滤、历史按 11 个批准代码分页、DuckDB staging 与原子提升。</td></tr>
-          <tr><td><code>defs/io/idx_factor_pro_silver_writer.py</code></td><td>新增</td><td>Raw 到 Silver 仅类型转换和主键对账。</td></tr>
-          <tr><td><code>defs/assets/idx_factor_pro_raw.py</code></td><td>新增</td><td>Raw asset definition。</td></tr>
-          <tr><td><code>defs/assets/idx_factor_pro_silver.py</code></td><td>新增</td><td>Silver asset definition，显式依赖 Raw。</td></tr>
-          <tr><td><code>defs/checks/idx_factor_pro_checks.py</code></td><td>新增</td><td>Raw/Silver blocking checks 与 nullable WARN。</td></tr>
-          <tr><td><code>defs/asset_guards/idx_factor_pro_lake_readiness.py</code></td><td>新增</td><td>批量文件、schema、checks readiness；sensor hot path 不扫历史。</td></tr>
-          <tr><td><code>defs/asset_guards/idx_factor_pro_source_probe.py</code></td><td>新增</td><td>单日最小源探测，不拉历史。</td></tr>
-          <tr><td><code>defs/jobs/idx_factor_pro.py</code></td><td>新增</td><td>Raw/Silver 两个 layer-isolated asset jobs。</td></tr>
-          <tr><td><code>defs/sensors/idx_factor_pro_partition_sensor.py</code></td><td>新增</td><td>受控注册当前开放交易日到专属 partition set。</td></tr>
-          <tr><td><code>defs/sensors/idx_factor_pro_sensor.py</code></td><td>新增</td><td>Raw/Silver sensor，单 tick 最多一个 run。</td></tr>
+          <tr><td><code>defs/io/idx_factor_pro_raw_writer.py</code></td><td>M2 已完成</td><td>单日全源分页、active seed 过滤、页级 DuckDB staging 与原子提升；历史 11 代码分页和逐日重排由 M7 bootstrap 独立实现，不混入日常 writer。</td></tr>
+          <tr><td><code>defs/io/idx_factor_pro_silver_writer.py</code></td><td>M3 已完成</td><td>Raw 到 Silver 仅执行日期/数值类型转换；写入前后校验 89 字段、主键、数值与 NULL 逐项一致，并通过外置 staging 原子提升。</td></tr>
+          <tr><td><code>defs/assets/idx_factor_pro_raw.py</code></td><td>M2 已完成</td><td>Raw asset definition。</td></tr>
+          <tr><td><code>defs/assets/idx_factor_pro_silver.py</code></td><td>M3 已完成</td><td>Silver asset definition，显式且仅依赖同分区 Raw。</td></tr>
+          <tr><td><code>defs/checks/idx_factor_pro_checks.py</code></td><td>M2/M3 已完成</td><td>Raw 4 个 blocking checks 与 nullable WARN，以及 Silver contract/source parity/cast integrity 3 个 blocking checks 均已完成。</td></tr>
+          <tr><td><code>defs/asset_guards/idx_factor_pro_lake_readiness.py</code></td><td>M4 已完成</td><td>按单个目标日期读取 Raw/Silver 物理文件并执行同一套 blocking checks；不读 Dagster event history，不扫历史窗口。</td></tr>
+          <tr><td><code>defs/asset_guards/idx_factor_pro_source_probe.py</code></td><td>M4 已完成</td><td>按当天 <code>trade_date</code> 发起一次、单页、显式 89 字段的最小源探测；校验日期、schema、主键和 active code 完整性，不拉历史。</td></tr>
+          <tr><td><code>defs/jobs/idx_factor_pro.py</code></td><td>M4 已完成</td><td>Raw/Silver 两个 layer-isolated asset jobs；各自只选择本层 asset 与 checks。</td></tr>
+          <tr><td><code>defs/sensors/idx_factor_pro_partition_sensor.py</code></td><td>M4 已完成</td><td>16:00 后只注册当前开放交易日到专属 partition set；不扫描或补注册历史日期。</td></tr>
+          <tr><td><code>defs/sensors/idx_factor_pro_sensor.py</code></td><td>M4 已完成</td><td>Raw/Silver 当前日 sensor，单 tick 最多一个 run；目标文件存在但检查失败时停止，不覆盖、不 repair。</td></tr>
           <tr><td><code>defs/bootstrap/idx_factor_pro_bootstrap_plan.py</code></td><td>新增</td><td>只读计划、coverage/页数/空间预算/hash。</td></tr>
           <tr><td><code>defs/bootstrap/idx_factor_pro_bootstrap_stage.py</code></td><td>新增</td><td>按代码分页写临时根，按日重排。</td></tr>
           <tr><td><code>defs/bootstrap/idx_factor_pro_bootstrap_promote.py</code></td><td>新增</td><td>计划 hash 校验、全量审计、正式提升。</td></tr>
@@ -588,12 +589,12 @@ assert count(DISTINCT (ts_code, trade_date)) == written_rows</code></pre>
     </ul>
 
     <h3>5.6 物理路径</h3>
-    <pre><code>raw/tushare/idx_factor_pro/trade_date=YYYY-MM-DD/part-000.parquet
-raw/tushare/idx_factor_pro/_staging/run_id={run_id}/trade_date=YYYY-MM-DD/part-000.parquet
+    <pre><code>/Volumes/datasource/data_lake/raw/tushare/idx_factor_pro/trade_date=YYYY-MM-DD/part-000.parquet
+/Volumes/datasource/data_lake_staging/raw/tushare/idx_factor_pro/_staging/run_id={run_id}/trade_date=YYYY-MM-DD/part-000.parquet
 
 silver/index/index_factor_pro/trade_date=YYYY-MM-DD/part-000.parquet
 silver/index/index_factor_pro/_staging/run_id={run_id}/trade_date=YYYY-MM-DD/part-000.parquet</code></pre>
-    <p>所有 path builder 必须拒绝非 ISO 日期、空 run_id 和路径穿越；Catalog path template 只能调用正式 path builder。</p>
+    <p>日级 Raw 的 run-scoped 候选文件必须位于独立 staging 根。写前核验 staging 与正式目标处于同一文件系统，再通过 <code>os.replace()</code> 原子提升；不得把候选文件写进正式 Lake 根。所有 path builder 必须拒绝非 ISO 日期、空 run_id 和路径穿越；Catalog path template 只能调用正式 path builder。</p>
 
     <h3>5.7 Asset 定义</h3>
     <pre><code>@dg.asset(
@@ -633,6 +634,7 @@ silver/index/index_factor_pro/_staging/run_id={run_id}/trade_date=YYYY-MM-DD/par
     <p>metadata 必须使用统一 check metadata builder，包含 count、范围、最多 20 个样本和 next action；不得嵌入整份报告。</p>
 
     <h3>5.9 Job 与 Sensor</h3>
+    <p><strong>M4 代码状态：</strong>以下 jobs、readiness、source probe 与三个 sensor 已实现并通过隔离测试；三个 sensor 仍保持 <code>STOPPED</code>，本轮未在正式 Dagster instance 启用、未创建正式分区、未写正式 Lake。</p>
     <ul>
       <li>Raw job selection = Raw asset + Raw checks；不得选 Silver。</li>
       <li>Silver job selection = Silver asset + Silver checks；不得选 Raw 或调用 Tushare。</li>
@@ -648,7 +650,7 @@ silver/index/index_factor_pro/_staging/run_id={run_id}/trade_date=YYYY-MM-DD/par
       <li><strong>probe：</strong>逐 seed code 通过直接 connector 验证 start/end/limit/offset，冻结每代码源首日。</li>
       <li><strong>plan：</strong>生成 code、start/end、预估页数、空间、request budget、plan hash；只读。</li>
       <li><strong>stage：</strong>按代码分页写临时根；每页 8000 行上限；重复页或页预算超限停止。</li>
-      <li><strong>repartition：</strong>DuckDB 将 10 代码 source staging 重排为逐日 Raw，再逐日生成 Silver。</li>
+      <li><strong>repartition：</strong>DuckDB 将 11 代码 source staging 重排为逐日 Raw，再逐日生成 Silver。</li>
       <li><strong>audit：</strong>按 code/date/key/schema/file 对账；任何差异不提升。</li>
       <li><strong>promote：</strong>只允许一次明确批准的 bootstrap 命令提升正式文件。</li>
       <li><strong>events：</strong>文件验收后另行批准注册 dynamic partitions 和批量补 materialization/check events。</li>
@@ -674,46 +676,49 @@ sensor: gold_major_index_mins_technical_daily_update_job_sensor</code></pre>
 
     <h3>6.2 schema</h3>
     <h4>Technical</h4>
-    <pre><code>GOLD_MAJOR_INDEX_MINS_TECHNICAL_SCHEMA = (
-    ColumnContract("ts_code", "VARCHAR", nullable=False),
-    ColumnContract("freq", "SMALLINT", nullable=False),
-    ColumnContract("trade_date", "DATE", nullable=False),
-    ColumnContract("trade_time", "TIMESTAMP", nullable=False),
-    ColumnContract("ma_5", "DOUBLE", nullable=True),
-    ColumnContract("ma_10", "DOUBLE", nullable=True),
-    ColumnContract("ma_20", "DOUBLE", nullable=True),
-    ColumnContract("ma_30", "DOUBLE", nullable=True),
-    ColumnContract("ma_60", "DOUBLE", nullable=True),
-    ColumnContract("ma_90", "DOUBLE", nullable=True),
-    ColumnContract("ma_250", "DOUBLE", nullable=True),
-    ColumnContract("boll_mid", "DOUBLE", nullable=True),
-    ColumnContract("boll_upper", "DOUBLE", nullable=True),
-    ColumnContract("boll_lower", "DOUBLE", nullable=True),
-    ColumnContract("macd_dif", "DOUBLE", nullable=False),
-    ColumnContract("macd_dea", "DOUBLE", nullable=False),
-    ColumnContract("macd", "DOUBLE", nullable=False),
-    ColumnContract("kdj_k", "DOUBLE", nullable=False),
-    ColumnContract("kdj_d", "DOUBLE", nullable=False),
-    ColumnContract("kdj_j", "DOUBLE", nullable=False),
-    ColumnContract("observation_count", "INTEGER", nullable=False),
-    ColumnContract("params_key", "VARCHAR", nullable=False),
-    ColumnContract("indicator_version", "INTEGER", nullable=False),
+    <pre><code>GOLD_MAJOR_INDEX_MINS_TECHNICAL_COLUMN_SPECS = (
+    ("ts_code", "VARCHAR", "主要指数代码，不得为空"),
+    ("freq", "SMALLINT", "分钟频率，不得为空"),
+    ("trade_date", "DATE", "交易日，不得为空"),
+    ("trade_time", "TIMESTAMP", "分钟 bar 时间，不得为空"),
+    ("ma_5", "DOUBLE", "MA5；warm-up 未满足时允许为空"),
+    # ma_10/20/30/60/90/250 同样以 description 表达 warm-up 空值语义
+    ("boll_mid", "DOUBLE", "BOLL 中轨；warm-up 未满足时允许为空"),
+    ("boll_upper", "DOUBLE", "BOLL 上轨；warm-up 未满足时允许为空"),
+    ("boll_lower", "DOUBLE", "BOLL 下轨；warm-up 未满足时允许为空"),
+    ("macd_dif", "DOUBLE", "MACD DIF 递推值，不得为空"),
+    ("macd_dea", "DOUBLE", "MACD DEA 递推值，不得为空"),
+    ("macd", "DOUBLE", "MACD 柱值，不得为空"),
+    ("kdj_k", "DOUBLE", "KDJ K 递推值，不得为空"),
+    ("kdj_d", "DOUBLE", "KDJ D 递推值，不得为空"),
+    ("kdj_j", "DOUBLE", "KDJ J 值，不得为空"),
+    ("observation_count", "INTEGER", "累计有效观察数，不得为空"),
+    ("params_key", "VARCHAR", "参数合同标识，不得为空"),
+    ("indicator_version", "INTEGER", "技术指标合同版本，不得为空"),
+)
+GOLD_MAJOR_INDEX_MINS_TECHNICAL_SCHEMA = tuple(
+    ColumnContract(name, type_name, description)
+    for name, type_name, description in GOLD_MAJOR_INDEX_MINS_TECHNICAL_COLUMN_SPECS
 )
 
 primary key = (ts_code, freq, trade_time)</code></pre>
     <h4>State</h4>
-    <pre><code>GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_SCHEMA = (
-    ColumnContract("ts_code", "VARCHAR", nullable=False),
-    ColumnContract("freq", "SMALLINT", nullable=False),
-    ColumnContract("trade_date", "DATE", nullable=False),
-    ColumnContract("last_trade_time", "TIMESTAMP", nullable=False),
-    ColumnContract("macd_ema_fast", "DOUBLE", nullable=False),
-    ColumnContract("macd_ema_slow", "DOUBLE", nullable=False),
-    ColumnContract("macd_dea", "DOUBLE", nullable=False),
-    ColumnContract("kdj_k", "DOUBLE", nullable=False),
-    ColumnContract("kdj_d", "DOUBLE", nullable=False),
-    ColumnContract("params_key", "VARCHAR", nullable=False),
-    ColumnContract("indicator_version", "INTEGER", nullable=False),
+    <pre><code>GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_COLUMN_SPECS = (
+    ("ts_code", "VARCHAR", "主要指数代码，不得为空"),
+    ("freq", "SMALLINT", "分钟频率，不得为空"),
+    ("trade_date", "DATE", "状态所属交易日，不得为空"),
+    ("last_trade_time", "TIMESTAMP", "当日最后一根有效分钟 bar 时间，不得为空"),
+    ("macd_ema_fast", "DOUBLE", "MACD 快线 EMA 前态，不得为空"),
+    ("macd_ema_slow", "DOUBLE", "MACD 慢线 EMA 前态，不得为空"),
+    ("macd_dea", "DOUBLE", "MACD DEA 前态，不得为空"),
+    ("kdj_k", "DOUBLE", "KDJ K 前态，不得为空"),
+    ("kdj_d", "DOUBLE", "KDJ D 前态，不得为空"),
+    ("params_key", "VARCHAR", "参数合同标识，不得为空"),
+    ("indicator_version", "INTEGER", "技术指标合同版本，不得为空"),
+)
+GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_SCHEMA = tuple(
+    ColumnContract(name, type_name, description)
+    for name, type_name, description in GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_COLUMN_SPECS
 )
 
 primary key = (ts_code, freq, trade_date)</code></pre>
@@ -919,7 +924,7 @@ TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE</code></pre>
       <table>
         <thead><tr><th>资产</th><th>batch_grain</th><th>engine</th><th>Python row loop</th><th>source policy</th></tr></thead>
         <tbody>
-          <tr><td>Raw idx factor</td><td>trade_date</td><td>TUSHARE_RESOURCE + DUCKDB_SQL</td><td>禁止业务逐行循环</td><td><code>one_trade_date_bounded_pages_filter_10_codes</code></td></tr>
+          <tr><td>Raw idx factor</td><td>trade_date</td><td>TUSHARE_RESOURCE + DUCKDB_SQL</td><td>禁止业务逐行循环</td><td><code>one_trade_date_bounded_pages_filter_11_daily_seed_codes</code></td></tr>
           <tr><td>Silver idx factor</td><td>trade_date</td><td>DUCKDB_SQL</td><td>禁止</td><td>derived_from_raw_partition</td></tr>
           <tr><td>Gold technical</td><td>freq/trade_date</td><td>DUCKDB_SQL + bounded vector segment</td><td>禁止逐代码/逐 bar 循环</td><td>derived_from_same_frequency_silver</td></tr>
           <tr><td>Gold state</td><td>freq/trade_date</td><td>DUCKDB_SQL + bounded vector segment</td><td>禁止逐代码/逐 bar 循环</td><td>derived_with_previous_expected_state</td></tr>
@@ -951,9 +956,11 @@ minute technical/state:
         <tbody>
           <tr><td><code>tests/test_idx_factor_pro_contracts.py</code></td><td>89 字段、类型、seed keys、coverage keys、request、page limit、禁止参数。</td></tr>
           <tr><td><code>tests/test_idx_factor_pro_raw_writer.py</code></td><td>分页、过滤、重复页、短页、key/date、失败不覆盖、metadata。</td></tr>
+          <tr><td><code>tests/test_idx_factor_pro_raw_checks.py</code></td><td>Raw contract/scope/key/parity blocking checks 与 nullable drift WARN。</td></tr>
           <tr><td><code>tests/test_idx_factor_pro_silver_writer.py</code></td><td>纯 cast、NULL 保留、89 字段、Raw/Silver parity。</td></tr>
-          <tr><td><code>tests/test_idx_factor_pro_definitions.py</code></td><td>assets/checks/jobs/partition/Catalog 精确映射。</td></tr>
-          <tr><td><code>tests/test_idx_factor_pro_sensors.py</code></td><td>single run、readiness、probe、partial fail closed、STOPPED。</td></tr>
+          <tr><td><code>tests/test_idx_factor_pro_silver_checks.py</code></td><td>Silver contract/source parity/cast integrity 三项 blocking checks 的健康与破坏样本。</td></tr>
+          <tr><td><code>tests/test_idx_factor_pro_definitions.py</code></td><td>M2-M4 验证 Raw/Silver assets、checks、依赖、partition、Catalog 与 layer-isolated jobs 精确映射。</td></tr>
+          <tr><td><code>tests/test_idx_factor_pro_sensors.py</code></td><td>当前日分区注册、单次 source probe、单 tick 单 run、物理文件 readiness、existing-invalid fail closed、Raw 门禁、compact cursor 与三个 sensor 默认 STOPPED。</td></tr>
           <tr><td><code>tests/test_idx_factor_pro_bootstrap.py</code></td><td>plan hash、coverage、分页预算、重排、空间拒绝、promotion。</td></tr>
           <tr><td><code>tests/test_major_index_mins_technical_contracts.py</code></td><td>7 频率、schema、params/version、paths、keys。</td></tr>
           <tr><td><code>tests/test_major_index_mins_technical_formula_golden.py</code></td><td>MA/BOLL/MACD/KDJ 字面 expected fixtures。</td></tr>
@@ -1001,10 +1008,10 @@ minute technical/state:
         <thead><tr><th>Milestone</th><th>实施内容</th><th>验收</th><th>必须停止的情况</th></tr></thead>
         <tbody>
           <tr><td>M0 上游与对象池收口</td><td><strong>已完成：</strong>现行 11 指数日线 seed、分钟 Silver 独立有效池、90/120 HEAD 合同、11 代码真实分页和源端首日、七频率正式湖样本均已冻结。</td><td>日级 coverage keys 必须等于 11 指数 seed；分钟 Gold scope 必须等于同日 Silver scope；两池差异有正负门禁；M1 只能消费本节已冻结事实。</td><td>实现试图统一两池；coverage 缺任一 seed；分页合同偏离 M0 证据；把 M0 误算为 M1 完成。</td></tr>
-          <tr><td>M1 Catalog/contract</td><td>schemas、paths、partitions、run contracts、name mapping、Catalog。</td><td>治理测试与静态门禁通过。</td><td>命名、分区或对象池出现第二事实源。</td></tr>
-          <tr><td>M2 idx factor Raw</td><td>writer、asset、checks、单日 request。</td><td>真实小日期 source/selected/written 对账。</td><td>任一 reject、字段漂移、missing expected code。</td></tr>
-          <tr><td>M3 idx factor Silver</td><td>纯 cast writer、asset、checks。</td><td>89 字段、Raw/Silver key parity。</td><td>出现 rename/recalc/fill/drop。</td></tr>
-          <tr><td>M4 idx factor automation</td><td>jobs、partition sensor、Raw/Silver sensors、readiness。</td><td>单 tick 1，STOPPED，partial fail closed。</td><td>sensor 扫历史或自动 repair。</td></tr>
+          <tr><td>M1 Catalog/contract</td><td><strong>已完成：</strong>schemas、paths、partitions、run contracts、name mapping、16 个 contract-only Catalog entries。</td><td>33 个定向/治理测试与 340 个子测试通过；日线 11 指数与分钟同日 Silver 对象池均有正负门禁。</td><td>命名、分区或对象池出现第二事实源。</td></tr>
+          <tr><td>M2 idx factor Raw</td><td><strong>已完成：</strong>日常 writer、Raw asset、4 个 blocking checks、nullable WARN、页级流式请求与外置 staging 原子提升。</td><td>2026-08-07 临时真实验收：source 3772、selected 11、written 11、codes 11、1 request/1 page、0 retry、19120 bytes；未写正式 Lake、未发事件。</td><td>任一 reject、字段漂移、missing expected code；历史写入不得混入日常 writer。</td></tr>
+          <tr><td>M3 idx factor Silver</td><td><strong>已完成：</strong>纯 cast writer、Silver asset、3 个 blocking checks，并将 Catalog 从合同占位切换为活跃定义。</td><td>2026-08-07 临时目录验收：Raw 11 行、Silver 11 行、11 个代码、89 字段，日期范围 2026-08-07..2026-08-07，数值/NULL 差异 0，Silver 文件 19793 bytes；未写正式 Lake、未发事件。</td><td>出现 rename/recalc/fill/drop；Raw/Silver 任一 key、数值或 NULL 不一致。</td></tr>
+          <tr><td>M4 idx factor automation</td><td><strong>已完成：</strong>layer-isolated jobs、当前日 partition sensor、Raw/Silver sensors、单日 Lake readiness 与单页 source probe。</td><td>当前开放日单 tick 最多 1 run，三个 sensor 默认 STOPPED；existing-invalid 文件 fail closed；未启用、未写正式 Lake。</td><td>sensor 扫历史、读取 Dagster event history、自动覆盖或 repair 已存在坏文件。</td></tr>
           <tr><td>M5 minute technical core</td><td>formula、writer、state、multi-assets、checks。</td><td>golden fixtures、20 日递推、无未来数据。</td><td>前态语义不清、双文件失败不能识别。</td></tr>
           <tr><td>M6 minute automation</td><td>daily job、run-status sensor、readiness。</td><td>7 频率一个日期 run；14 assets ready。</td><td>任一频率被静默跳过或 partial target 自动覆盖。</td></tr>
           <tr><td>M7 history bootstrap</td><td>两个数据产品 dry-run/sample/batch/audit/promote/events。</td><td>文件、行数、keys、schema、state、空间、events 完整对账。</td><td>未获得执行批准、空间不足、计划 hash 变化、任何批次差异。</td></tr>
@@ -1061,7 +1068,9 @@ minute technical/state:
 uv run python -m pytest -q \
   tests/test_idx_factor_pro_contracts.py \
   tests/test_idx_factor_pro_raw_writer.py \
+  tests/test_idx_factor_pro_raw_checks.py \
   tests/test_idx_factor_pro_silver_writer.py \
+  tests/test_idx_factor_pro_silver_checks.py \
   tests/test_idx_factor_pro_definitions.py \
   tests/test_idx_factor_pro_sensors.py \
   tests/test_idx_factor_pro_bootstrap.py \

@@ -24,6 +24,9 @@ cn_a_index_mins_trade_days = dg.DynamicPartitionsDefinition(
 cn_major_index_mins_trade_days = dg.DynamicPartitionsDefinition(
     name="cn_major_index_mins_trade_days"
 )
+cn_major_index_factor_trade_days = dg.DynamicPartitionsDefinition(
+    name="cn_major_index_factor_trade_days"
+)
 
 # Dedicated board-data partition sets.  They intentionally do not reuse the
 # broader index partition set: the three source domains have different

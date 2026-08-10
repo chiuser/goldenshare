@@ -558,6 +558,16 @@
       <code>build_run_request(...)</code>，不写自定义 run tags 或深层 run config；具体 readiness
       与性能边界以<a href="dagster-stock-qfq-nineturn-dataset-low-level-design.md">前复权九转 LLD</a>为准。
     </p>
+    <p>
+      主要指数日级技术因子 M4 的确定分类是：<code>idx_factor_pro_trade_day_sensor</code>
+      使用 <code>index_topic / partition / partition_registration</code>；
+      <code>raw_tushare_idx_factor_pro_update_job_sensor</code> 使用
+      <code>index_topic / raw / asset_update</code>；
+      <code>silver_index_factor_pro_update_job_sensor</code> 使用
+      <code>index_topic / silver / asset_update</code>。三个 sensor 均默认
+      <code>STOPPED</code>，只评估当前开放交易日，单 tick 最多注册一个分区或提交一个 run；
+      readiness 只读同日物理文件并执行 blocking checks，不读 Dagster event history，也不自动覆盖或 repair 已存在的坏文件。
+    </p>
   </section>
 
   <section>
@@ -1194,6 +1204,13 @@ ops:
       路径/code 列表、factor repair metadata、<code>status_samples</code> 或报告型
       <code>to_cursor_details()</code>。目标 materialized 但 check failed 时只提示人工修复，
       不通过 cursor 状态自动覆盖。
+    </div>
+    <div class="note">
+      <strong>主要指数日级技术因子 M4 口径：</strong>partition、Raw 与 Silver 三个 sensor
+      均使用 <code>build_sensor_cursor(...)</code> 的 v1 结构；cursor 只保存当前目标日期、
+      reason code、阻断组件、目标/上游 readiness 摘要，以及一次 source probe 的有界计数。
+      它不保存历史日期列表、完整返回数据或跨 tick ready 事实；run key 由完整 job 名、
+      partition 与 contract revision 构成。
     </div>
 
     <table>

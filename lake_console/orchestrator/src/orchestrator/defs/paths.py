@@ -1,5 +1,8 @@
 from pathlib import Path
 
+from orchestrator.defs.run_contracts.idx_factor_pro import (
+    normalize_idx_factor_pro_trade_date,
+)
 from orchestrator.defs.run_contracts.index_mins import (
     normalize_index_mins_silver_freq,
     normalize_index_mins_source_freq,
@@ -8,6 +11,9 @@ from orchestrator.defs.run_contracts.major_index_mins import (
     normalize_major_index_mins_silver_freq,
     normalize_major_index_mins_source_freq,
     normalize_major_index_mins_trade_date,
+)
+from orchestrator.defs.run_contracts.major_index_mins_technical import (
+    normalize_major_index_mins_technical_freq,
 )
 from orchestrator.defs.run_contracts.qfq_nineturn import (
     normalize_qfq_nineturn_minute_freq,
@@ -18,6 +24,7 @@ from orchestrator.defs.run_contracts.stk_mins import (
 )
 
 DEFAULT_LAKE_ROOT = "/Volumes/datasource/data_lake"
+DEFAULT_LAKE_STAGING_ROOT = "/Volumes/datasource/data_lake_staging"
 PATH_TEMPLATE_LAKE_ROOT = Path("data_lake")
 PATH_TEMPLATE_PARTITION_KEY = "{partition_key}"
 PATH_TEMPLATE_TS_CODE = "{ts_code}"
@@ -426,6 +433,150 @@ def raw_index_daily_staging_path(
         "_staging",
         f"run_id={run_id}",
         f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
+def _safe_run_id_part(run_id: str, *, asset_family: str) -> str:
+    normalized = str(run_id).strip()
+    if (
+        not normalized
+        or normalized in {".", ".."}
+        or "/" in normalized
+        or "\\" in normalized
+    ):
+        raise ValueError(f"{asset_family} run_id must be a safe non-empty path component")
+    return f"run_id={normalized}"
+
+
+def _idx_factor_pro_partition_component(partition_key: str) -> str:
+    if partition_key == PATH_TEMPLATE_PARTITION_KEY:
+        return partition_key
+    return normalize_idx_factor_pro_trade_date(partition_key)
+
+
+def raw_idx_factor_pro_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        RAW,
+        "tushare",
+        "idx_factor_pro",
+        f"trade_date={_idx_factor_pro_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def raw_idx_factor_pro_staging_path(
+    staging_root: Path,
+    run_id: str,
+    partition_key: str,
+) -> Path:
+    return lake_path(
+        staging_root,
+        RAW,
+        "tushare",
+        "idx_factor_pro",
+        "_staging",
+        _safe_run_id_part(run_id, asset_family="idx_factor_pro"),
+        f"trade_date={_idx_factor_pro_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def silver_index_factor_pro_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        SILVER,
+        "index",
+        "index_factor_pro",
+        f"trade_date={_idx_factor_pro_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def silver_index_factor_pro_staging_path(
+    staging_root: Path,
+    run_id: str,
+    partition_key: str,
+) -> Path:
+    return lake_path(
+        staging_root,
+        SILVER,
+        "index",
+        "index_factor_pro",
+        "_staging",
+        _safe_run_id_part(run_id, asset_family="index_factor_pro"),
+        f"trade_date={_idx_factor_pro_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def gold_major_index_mins_technical_path(
+    root: Path,
+    freq: int | str,
+    partition_key: str,
+) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "indicator",
+        "major_index_mins_technical",
+        f"freq={normalize_major_index_mins_technical_freq(freq)}",
+        f"trade_date={_major_index_mins_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def gold_major_index_mins_technical_staging_path(
+    root: Path,
+    run_id: str,
+    freq: int | str,
+    partition_key: str,
+) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "indicator",
+        "major_index_mins_technical",
+        "_staging",
+        _safe_run_id_part(run_id, asset_family="major_index_mins_technical"),
+        f"freq={normalize_major_index_mins_technical_freq(freq)}",
+        f"trade_date={_major_index_mins_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def gold_major_index_mins_technical_state_path(
+    root: Path,
+    freq: int | str,
+    partition_key: str,
+) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "indicator",
+        "major_index_mins_technical_state",
+        f"freq={normalize_major_index_mins_technical_freq(freq)}",
+        f"trade_date={_major_index_mins_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def gold_major_index_mins_technical_state_staging_path(
+    root: Path,
+    run_id: str,
+    freq: int | str,
+    partition_key: str,
+) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "indicator",
+        "major_index_mins_technical_state",
+        "_staging",
+        _safe_run_id_part(run_id, asset_family="major_index_mins_technical_state"),
+        f"freq={normalize_major_index_mins_technical_freq(freq)}",
+        f"trade_date={_major_index_mins_partition_component(partition_key)}",
         "part-000.parquet",
     )
 

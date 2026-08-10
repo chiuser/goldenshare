@@ -12,11 +12,10 @@ from orchestrator.defs.bootstrap.stk_mins_event_history_retention import (
     STK_MINS_RETENTION_PROTECTED_CHECK_NAMES,
 )
 from orchestrator.defs.catalog import list_lake_asset_catalog_entries
-from orchestrator.defs.sensors import (
-    gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor as macd_kdj_sensor_readiness,
+from orchestrator.defs.run_contracts.idx_factor_pro import (
+    IDX_FACTOR_PRO_RAW_CHECKS,
+    IDX_FACTOR_PRO_SILVER_CHECKS,
 )
-from orchestrator.defs.sensors import readiness
-from orchestrator.defs.sensors.readiness import AssetReadinessSpec
 from orchestrator.defs.run_contracts.index_mins import (
     INDEX_MINS_RAW_CHECKS,
     INDEX_MINS_SILVER_CHECKS,
@@ -27,7 +26,18 @@ from orchestrator.defs.run_contracts.major_index_mins import (
     MAJOR_INDEX_MINS_SILVER_ASSET_KEYS,
     MAJOR_INDEX_MINS_SILVER_CHECKS,
 )
-
+from orchestrator.defs.run_contracts.major_index_mins_technical import (
+    MAJOR_INDEX_MINS_TECHNICAL_FREQS,
+    major_index_mins_technical_asset_key,
+    major_index_mins_technical_checks,
+    major_index_mins_technical_state_asset_key,
+    major_index_mins_technical_state_checks,
+)
+from orchestrator.defs.sensors import (
+    gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor as macd_kdj_sensor_readiness,
+)
+from orchestrator.defs.sensors import readiness
+from orchestrator.defs.sensors.readiness import AssetReadinessSpec
 
 DEFS_DIR = Path("src/orchestrator/defs")
 JOBS_DIR = DEFS_DIR / "jobs"
@@ -337,11 +347,59 @@ GOLD_STOCK_DAILY_QFQ_CHECKS = (
 GOLD_DC_DAILY_TECHNICAL_CHECKS = (
     "gold_dc_daily_technical_core_check",
 )
+GOLD_STOCK_DAILY_QFQ_NINETURN_CHECKS = (
+    "gold_stock_daily_qfq_nineturn_integrity_check",
+)
+GOLD_STK_MINS_QFQ_NINETURN_CHECKS_BY_FREQ = {
+    freq: (f"gold_stk_mins_qfq_nineturn_{freq}m_integrity_check",)
+    for freq in (30, 60, 90, 120)
+}
 PROD_CH_DC_DAILY_TECHNICAL_CHECKS = (
     "prod_ch_dc_daily_technical_core_check",
 )
 
-PLANNED_CATALOG_ASSET_KEYS: set[str] = set()
+PLANNED_CATALOG_ASSET_KEYS = {
+    *(
+        major_index_mins_technical_asset_key(freq)
+        for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS
+    ),
+    *(
+        major_index_mins_technical_state_asset_key(freq)
+        for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS
+    ),
+}
+
+
+def _planned_index_technical_asset_rules() -> dict[
+    str, dict[str, AssetCheckGovernanceRule]
+]:
+    rules = {
+        "silver_index_factor_pro": _rules(
+            IDX_FACTOR_PRO_SILVER_CHECKS,
+            category=MOVE_TO_SENSOR_LAKE_READINESS,
+            phase="IDX_FACTOR_PRO_M3",
+            readiness=False,
+            retention_allowed=True,
+        )
+    }
+    for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS:
+        technical_key = major_index_mins_technical_asset_key(freq)
+        rules[technical_key] = _rules(
+            major_index_mins_technical_checks(freq),
+            category=MOVE_TO_SENSOR_LAKE_READINESS,
+            phase="MAJOR_INDEX_TECHNICAL_M4",
+            readiness=False,
+            retention_allowed=True,
+        )
+        state_key = major_index_mins_technical_state_asset_key(freq)
+        rules[state_key] = _rules(
+            major_index_mins_technical_state_checks(freq),
+            category=MOVE_TO_SENSOR_LAKE_READINESS,
+            phase="MAJOR_INDEX_TECHNICAL_M4",
+            readiness=False,
+            retention_allowed=True,
+        )
+    return rules
 
 
 def _stk_mins_asset_rules() -> dict[str, dict[str, AssetCheckGovernanceRule]]:
@@ -560,6 +618,31 @@ ASSET_CHECK_GOVERNANCE: dict[str, dict[str, AssetCheckGovernanceRule]] = {
     ),
     **_index_mins_asset_rules(),
     **_major_index_mins_asset_rules(),
+    "raw_tushare_idx_factor_pro": _rules(
+        IDX_FACTOR_PRO_RAW_CHECKS,
+        category=MOVE_TO_SENSOR_LAKE_READINESS,
+        phase="IDX_FACTOR_PRO_M2",
+        readiness=False,
+        retention_allowed=True,
+    ),
+    **_planned_index_technical_asset_rules(),
+    "gold_stock_daily_qfq_nineturn": _rules(
+        GOLD_STOCK_DAILY_QFQ_NINETURN_CHECKS,
+        category=RETENTION_ONLY,
+        phase="STK_NINETURN_N3",
+        readiness=False,
+        retention_allowed=True,
+    ),
+    **{
+        f"gold_stk_mins_qfq_nineturn_{freq}m": _rules(
+            check_names,
+            category=RETENTION_ONLY,
+            phase="STK_NINETURN_N3",
+            readiness=False,
+            retention_allowed=True,
+        )
+        for freq, check_names in GOLD_STK_MINS_QFQ_NINETURN_CHECKS_BY_FREQ.items()
+    },
     "gold_stock_daily_qfq": _rules(
         GOLD_STOCK_DAILY_QFQ_CHECKS,
         category=MOVE_TO_SENSOR_LAKE_READINESS,
@@ -729,7 +812,7 @@ class AssetCheckIncrementalGovernanceTests(unittest.TestCase):
             with self.subTest(asset=asset_key):
                 rules = ASSET_CHECK_GOVERNANCE[asset_key]
                 self.assertEqual(set(rules), set(check_names))
-                for check_name, rule in rules.items():
+                for rule in rules.values():
                     self.assertIn(rule.category, GOVERNANCE_CATEGORIES)
                     self.assertTrue(rule.implementation_phase)
                     if rule.protected_reason:

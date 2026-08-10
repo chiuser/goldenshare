@@ -181,7 +181,7 @@ OHLC 精确白名单修正。
 | typed run config | 只包含 `trade_date` 隐含分区、目标 `source_freq`/asset 由 job 固定；Bootstrap 使用独立 CLI config，不写 sensor tags |
 | update run key | `build_asset_update_run_key(subject="raw_major_index_mins_update", unit_id=trade_date)`；Silver 使用 `silver_major_index_mins_update` |
 | cursor builder | 必须调用 `build_sensor_cursor()`，details 必须有 `summary`、`next_action`、ASCII `reason_code` |
-| cursor 内容 | `sensor_name/job_name/asset_family/partition_set/reason_code/frontier/evidence/performance_ms`；只写计数、日期、scope hash、probe count/elapsed、有限样本 |
+| cursor 内容 | `sensor_name/asset_family/partition_set/reason_code/frontier/evidence/performance_ms`；只写计数、日期、scope hash、probe count/elapsed、有限样本 |
 | cursor 禁止项 | 完整代码列表、完整 readiness report、路径列表、event storage id、逐页明细；总字节 <= 8192 |
 
 新增配置必须在代码、文档和测试中审计：配置名、默认值、来源、消费者和生效方式。候选配置包括 `MAJOR_INDEX_MINS_*` 常量和 `TUSHARE` 请求预算；它们优先使用版本化 run contract 常量，不新增 env 开关，除非 P1 性能验证证明运维需要可调参数。
