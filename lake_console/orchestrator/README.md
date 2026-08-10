@@ -65,9 +65,20 @@ Static code and documentation checks are allowed.
 From this directory:
 
 ```bash
-.venv/bin/python -B -m unittest discover -s tests
-ruff check tests
+uv sync --group dev
+uv run python -m pytest -q tests
+uv run ruff check --select E9,F63,F7,F82 src tests
+uv run ruff check <changed Python files>
 ```
+
+Do not add `PYTHONPATH=src` to work around import failures. The project is
+installed as an editable package in its own `.venv`; use `uv run python -m
+pytest` so the test runner and application imports always use the same Python
+environment.
+
+The repository-wide Ruff command is the current critical-error baseline. Run
+the default Ruff rules against every Python file changed by the task; broader
+pre-existing style debt is not silently attributed to the current change.
 
 From the repository root:
 

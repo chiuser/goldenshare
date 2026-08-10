@@ -70,6 +70,29 @@ https://docs.dagster.io/guides/test/asset-checks
 5. 即使只是“验证一下 evaluator / check / definitions”，只要会访问正式 instance、正式湖、正式数据库或可能干扰正在运行的任务，也必须按生产操作审批，禁止自行执行。
 6. 用户未明确批准时，任务收口只能说明“未运行验证，原因是正式 Dagster 环境执行门禁”，不能用自行试跑来替代审计。
 
+### Python 环境与静态测试命令
+
+`lake_console/orchestrator` 是独立的 `uv` 项目。测试和静态检查必须从本目录运行，并使用本项目 `.venv` 中的解释器与工具；不得依赖仓库根环境、全局 Conda 工具或手工 `PYTHONPATH`。
+
+固定命令：
+
+```bash
+cd /Users/congming/github/goldenshare/lake_console/orchestrator
+uv sync --group dev
+uv run python -m pytest -q tests/<target_test_file.py>
+uv run ruff check --select E9,F63,F7,F82 src tests
+uv run ruff check <本次修改的 Python 文件>
+```
+
+规则：
+
+1. 禁止使用裸 `pytest`、裸 `python` 或 `PYTHONPATH=src pytest ...` 运行本项目测试；统一使用 `uv run python -m pytest ...`，确保 pytest 与被测代码绑定同一个解释器。
+2. `orchestrator` 由 `uv` 以 editable package 安装，正常环境不需要设置 `PYTHONPATH`。出现 `ModuleNotFoundError` 时，禁止先追加 `PYTHONPATH` 掩盖环境问题。
+3. import 失败时，先在本目录执行 `uv run python -c "import sys, orchestrator, dagster, pytest; print(sys.executable); print(orchestrator.__file__)"`，确认解释器和项目安装状态；失败时修复 `uv` 环境，不得切换到全局 Conda 继续运行。
+4. 全仓 Ruff 先执行已可通过的致命错误基线 `E9,F63,F7,F82`；本次修改的 Python 文件还必须执行默认规则检查。不得把仓库既存风格债务伪装成本轮回归，也不得因此跳过本次改动文件的完整检查。
+5. `pytest` 与 `ruff` 必须登记在本项目 `pyproject.toml` 的 `dev` dependency group 并进入 `uv.lock`，不得依赖本机额外安装。
+6. 上述 pytest/ruff 命令只允许静态或隔离测试；任何会访问正式 Dagster instance、正式 Lake、数据库或网络的测试，仍受“正式 Dagster 环境执行门禁”约束。
+
 ### 设计确认先于代码修改门禁
 
 任何 Dagster 相关代码改动必须先完成设计确认。禁止一边想一边改、先改了再解释、先写代码再补方案。
