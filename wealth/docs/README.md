@@ -14,6 +14,7 @@ docs/
   pages/                  # 页面级：页面需求、API contract、实现提示词
     market-overview/
     stock-detail/
+    index-detail/
 ```
 
 ## 文档优先级
@@ -52,8 +53,9 @@ docs/
 2. 共享顶部栏：`../src/shared/ui/top-market-bar/`。
 3. 市场总览：`../src/pages/market-overview/` 与 `../src/features/market-overview/`。
 4. 股票详情：`../src/pages/stock-detail/` 与 `../src/features/stock-detail/`。
-5. 当前正式视觉与组件规则：[设计系统基线](./system/design-system-baseline.md)、[组件规范基线](./system/component-guidelines-baseline.md)。
-6. API/数据字典：以 `pages/market-overview/*-benchmark-requirement-v1.md`、`*-implementation-design-v1.md`、`*-m2-coding-gate-v1.md` 和 `pages/market-overview/api-contract-baseline.md` 为准；`reference/api/*` 仅保留历史参考。
+5. 指数详情（方案阶段）：`pages/index-detail/`；评审通过并进入编码后再建立对应 `src/pages/index-detail/` 与 `src/features/index-detail/`。
+6. 当前正式视觉与组件规则：[设计系统基线](./system/design-system-baseline.md)、[组件规范基线](./system/component-guidelines-baseline.md)。
+7. API/数据字典：以 `pages/market-overview/*-benchmark-requirement-v1.md`、`*-implementation-design-v1.md`、`*-m2-coding-gate-v1.md` 和 `pages/market-overview/api-contract-baseline.md` 为准；`reference/api/*` 仅保留历史参考。
 
 ## 系统级文档
 
@@ -115,6 +117,9 @@ docs/
 - [股票详情分钟线与分钟技术指标 API M2 编码前门禁 v1](./pages/stock-detail/stock-detail-minutes-api-m2-coding-gate-v1.md)
 - [股票详情页 Figma 像素级还原执行计划 v1（M0-M7 已完成）](./pages/stock-detail/stock-detail-figma-pixel-reconstruction-plan-v1.md)
 - [股票详情页 Figma 像素级验收台账 v1](./pages/stock-detail/stock-detail-figma-pixel-verification-ledger-v1.md)
+- [指数详情页标杆需求 v1（草案，待评审）](./pages/index-detail/index-detail-benchmark-requirement-v1.md)
+- [指数详情页技术实施方案 v1（草案，待评审）](./pages/index-detail/index-detail-implementation-design-v1.md)
+- [指数详情页 M2 编码前门禁 v1（草案，待评审）](./pages/index-detail/index-detail-m2-coding-gate-v1.md)
 
 ## 模块开发模板
 
