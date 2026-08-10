@@ -141,8 +141,8 @@
       本文只做设计和实施门禁，不执行 Dagster、建分区、拉全量或写 Lake。
     </p>
     <div class="meta">
-      <span class="tag review">状态：已拍板，LLD 已完成</span>
-      <span class="tag">文档日期：2026-08-08</span>
+      <span class="tag review">状态：M0 已重新冻结，M1 未开始</span>
+      <span class="tag">文档日期：2026-08-09</span>
       <span class="tag">范围：DG / Raw / Silver / Gold</span>
       <span class="tag">源接口：idx_factor_pro</span>
     </div>
@@ -150,13 +150,15 @@
   </header>
 
   <section>
-    <h2>0. 后续日级对象池决策（2026-08-08）</h2>
-    <div class="callout warn">
-      当前代码仍是科创综指历史补录前的 10 指数日级 seed；本文的后续实现目标已经更新为：
-      日级 seed 保留 <code>899050.BJ</code> 北证50，并新增 <code>000680.SH</code> 科创综指；分钟池继续独立，不能与日级 seed 合并。
-      Prod 已补齐 <code>000680.SH</code> 的 <code>2020-01-02..2025-01-16</code> 历史数据，DG 补录和 11 指数 seed 的实施合同见
+    <h2>0. M0 日级对象池与上游合同重新冻结（2026-08-09）</h2>
+    <div class="callout good">
+      科创综指补录的 M0-M6 和 M8 物理链路最小收口已经完成：现行日级 seed 为 11 指数，保留
+      <code>899050.BJ</code> 北证50，并新增 <code>000680.SH</code> 科创综指；<code>000680.SH</code>
+      已在 Raw/Silver 补齐 <code>2020-01-02..2025-01-16</code>，并在 Gold 覆盖
+      <code>2020-01-02..2026-08-07</code>。完整物理证据见
       <a href="./dagster-index-daily-000680-history-supplement-low-level-design.md">科创综指指数日线历史补录 LLD</a>。
-      补录实施前，运行态仍按 10 指数；补录与 seed 发布完成后，日级对象池统一按 11 指数执行。本文后续章节均按这一阶段合同表述。
+      分钟池继续独立：当前 Silver 有效池排除北证50、包含科创综指，不能与日级 seed 合并。M0 已按当前代码、源文档、真实 connector
+      分页探测和正式湖只读样本重新冻结；M1 尚未开始。
     </div>
   </section>
 
@@ -166,9 +168,9 @@
       <div class="card">
         <h3>数据产品 A：指数日级技术因子</h3>
         <p><strong>建议资产：</strong><code>raw_tushare_idx_factor_pro</code> + <code>silver_index_factor_pro</code>。</p>
-        <p><strong>事实范围：</strong>严格读取 DG 日线主要指数 seed；补录发布后的目标 seed 包含 <code>899050.BJ</code> 北证50和 <code>000680.SH</code> 科创综指，共 11 个。</p>
+        <p><strong>事实范围：</strong>严格读取现行 DG 日线主要指数 seed；当前同时包含 <code>899050.BJ</code> 北证50和 <code>000680.SH</code> 科创综指，共 11 个。</p>
         <p><strong>日常请求：</strong>每个交易日一次全源请求，返回后只选择当日 active seed 对象。</p>
-        <p><strong>历史请求：</strong>按批准 seed 代码逐个执行区间分页；目标合同发布后为 11 个代码，禁止按约 8800 个交易日扇出。</p>
+        <p><strong>历史请求：</strong>按批准 seed 的 11 个代码逐个执行区间分页；M0 实测共 45,772 行、13 页，禁止按约 8800 个交易日扇出。</p>
       </div>
       <div class="card">
         <h3>数据产品 B：主要指数分钟技术指标</h3>
@@ -215,24 +217,24 @@
             <td>日常增量一次日期请求即可覆盖当日 active seed；目标合同发布后通常为 11 指数，写 Raw 前必须过滤并对账对象池。</td>
           </tr>
           <tr>
-            <td>Tushare MCP：不传业务参数</td>
-            <td>返回 0 行。</td>
-            <td>不能使用“无参数全量快照”模型。</td>
+            <td>真实 connector：不传业务过滤</td>
+            <td>源端拒绝请求：<code>ts_code,trade_date至少输入一个参数</code>。</td>
+            <td>不能使用“无参数全量快照”模型；请求构造器必须保证日期点或指数代码至少存在一个。</td>
           </tr>
           <tr>
-            <td>Tushare MCP：只传日期区间</td>
-            <td><code>20260806..20260807</code> 返回 0 行。</td>
-            <td>不能使用“无代码纯区间”拉历史；固定对象池历史必须带 <code>ts_code</code>。</td>
+            <td>真实 connector：单日 <code>20260807</code></td>
+            <td><code>limit=8000</code>：第 1 页 3772 行，第 2 页 0 行；现行 11 个日级 seed 代码全部存在。</td>
+            <td>日常增量按日期分页，短页终止后过滤 active seed；禁止按 11 个代码扇出日常请求。</td>
           </tr>
           <tr>
-            <td>Tushare MCP：只传 <code>000001.SH</code></td>
-            <td>正好返回 8000 行，最早只到 1993-09-15。</td>
-            <td>证明单代码历史超过一页；历史按代码拉取必须使用 <code>limit/offset</code> 完整分页。</td>
+            <td>真实 connector：11 代码历史分页</td>
+            <td>截至 <code>20260807</code> 共 45,772 行、13 页；仅 <code>000001.SH</code> 与 <code>399001.SZ</code> 需要第 2 页。</td>
+            <td>历史按代码区间分页，<code>limit=8000</code>、offset 递增，返回条数小于 limit 时停止。</td>
           </tr>
           <tr>
             <td>MCP 能力边界</td>
-            <td>当前 MCP 入参未暴露 <code>limit/offset</code>。</td>
-            <td>分页已由源文档和现有 connector 佐证，但编码前仍要用直接 connector 做分页实测门禁。</td>
+            <td>当前 MCP schema 未暴露 <code>limit/offset</code>；默认字段、显式文档字段和业务关键字段均已实测返回。</td>
+            <td>这是 MCP 工具 schema 缺口，不是源接口不支持分页；分页合同以本地源文档和真实 connector 结果为准。</td>
           </tr>
           <tr>
             <td>生产 PostgreSQL 只读审计</td>
@@ -242,7 +244,7 @@
           <tr>
             <td>最新日指数族对账</td>
             <td>prod 相比源端缺少 CSI 624 个、CNI 89 个、NH 95 个；SH、SZ、CI、SI、BJ 数量一致。</td>
-            <td>说明不能从 prod 推导 DG 对象池；DG 必须以版本化日级 seed 过滤和验收，补录发布后目标总数为 11。</td>
+            <td>说明不能从 prod 推导 DG 对象池；DG 必须以现行版本化日级 seed 的 11 个代码过滤和验收。</td>
           </tr>
         </tbody>
       </table>
@@ -262,7 +264,8 @@
       <li>分区：<code>cn_major_index_mins_trade_days</code>；历史起点：<code>2009-01-05</code>。</li>
       <li>路径：<code>silver/quote/major_index_mins/freq={freq}/trade_date={date}/part-000.parquet</code>。</li>
       <li>Silver 字段只有 bar 事实：代码、频率、时间、OHLC、成交量、成交额、交易所、vwap；当前没有技术指标。</li>
-      <li>分钟指标频率已拍板为 <code>1/5/15/30/60/90/120m</code> 全部纳入；90m/120m 上游合同在当前工作区仍有未提交修改，因此其提交、测试和数据验收是分钟指标实施的前置门禁。</li>
+      <li>分钟指标频率已拍板为 <code>1/5/15/30/60/90/120m</code> 全部纳入；90m/120m 派生合同已进入当前 HEAD，定向合同/writer 测试 22 项通过。</li>
+      <li>正式湖七频率最近共同可核物理样本日为 <code>2026-08-04</code>：1/5/15/30/60/90/120m 文件均存在、代码数均为 10、重复主键均为 0；不得把未落盘的 <code>2026-08-07</code> 写成已验收事实。</li>
       <li>历史基线约 2662 个 source windows、1002 万原生分钟行；90m/120m 会再增加少量派生 bar。</li>
     </ul>
   </section>
@@ -330,7 +333,7 @@ silver_major_index_mins_{1,5,15,30,60,90,120}m
       </table>
     </div>
 
-    <h3>4.2 日级对象池（保持现行 seed 不变）</h3>
+    <h3>4.2 当前 11 指数日级对象池</h3>
     <div class="table-wrap">
       <table>
         <thead><tr><th>ts_code</th><th>指数名称</th><th>当前 DG 口径</th></tr></thead>
@@ -345,11 +348,12 @@ silver_major_index_mins_{1,5,15,30,60,90,120}m
           <tr><td><code>899050.BJ</code></td><td>北证50</td><td>纳入；日线数据完整</td></tr>
           <tr><td><code>000510.SH</code></td><td>中证A500</td><td>纳入</td></tr>
           <tr><td><code>000016.SH</code></td><td>上证50</td><td>纳入</td></tr>
+          <tr><td><code>000680.SH</code></td><td>科创综指</td><td>纳入；从 2020-01-02 起 active</td></tr>
         </tbody>
       </table>
     </div>
     <div class="callout warn">
-      <strong>日线池与分钟池不得合并。</strong><code>idx_factor_pro</code> 是日级数据集，必须跟随日线 seed；补录发布后
+      <strong>日线池与分钟池不得合并。</strong><code>idx_factor_pro</code> 是日级数据集，必须跟随现行 11 指数日线 seed，并
       同时包含 <code>899050.BJ</code> 和 <code>000680.SH</code>。分钟 Silver 因北证50分钟源已停止更新而排除
       <code>899050.BJ</code>；分钟源合同另行从 <code>2025-01-20</code> 起纳入 <code>000680.SH</code>。这两项是分钟数据源
       可用性合同，不是对日线 seed 的替换、配置漂移或兼容逻辑。
@@ -364,7 +368,7 @@ params = {
   "offset": page_index * 8000,
 }
 
-# 历史 bootstrap：批准 seed 代码逐个做区间分页；补录发布后为 11 个
+# 历史 bootstrap：批准 seed 的 11 个代码逐个做区间分页
 params = {
   "ts_code": approved_ts_code,
   "start_date": approved_start_date,
@@ -378,7 +382,7 @@ params = {
     <ul>
       <li>日常 Raw asset 对一个 <code>trade_date</code> 获取源端当日结果，按 <code>active_major_indices_seed_rows(trade_date)</code> 筛选后写入同日 staging。</li>
       <li>日常对账分别记录 <code>source_rows</code>、<code>selected_rows</code>、<code>written_rows</code>；只要求 <code>selected_rows = written_rows</code>，不能错误要求全源行都写入。</li>
-      <li>历史 bootstrap 按批准 seed 的 <code>ts_code</code> 分页落 run-scoped source staging；补录发布后为 11 个代码，再由 DuckDB 按 <code>trade_date</code> 重排到正式分区结构。</li>
+      <li>历史 bootstrap 按现行 seed 的 11 个 <code>ts_code</code> 分页落 run-scoped source staging，再由 DuckDB 按 <code>trade_date</code> 重排到正式分区结构。</li>
       <li>分页完成后先校验字段、日期、对象池、主键、重复与行数，再 <code>os.replace</code> 原子提升为正式文件。</li>
       <li>请求字段必须显式传完整 89 字段；不依赖源端默认字段。</li>
       <li>直接 connector 实测必须覆盖“代码 + 日期区间 + <code>offset=0</code>”、下一页、短页终止和重复页防护；未通过前不得执行历史 bootstrap。</li>
@@ -481,8 +485,8 @@ silver/index/index_factor_pro/trade_date=YYYY-MM-DD/part-000.parquet</code></pre
         <thead><tr><th>维度</th><th>预估</th><th>门禁</th></tr></thead>
         <tbody>
           <tr><td>历史范围</td><td>每个批准代码从源端实际最早可用日到批准截止日，不强行共用一个起点。</td><td>M0 逐代码探测并冻结 <code>first_available_trade_date</code>，不能沿用分钟线起点猜测。</td></tr>
-          <tr><td>源请求/页</td><td>目标 11 个代码分别分页；总页数由每代码源端历史长度决定。</td><td>直接 connector 实测后 dry-run，冻结代码、区间、页预算和计划 hash。</td></tr>
-          <tr><td>源行数</td><td>由 11 个指数各自真实首日和分页结果决定，不把旧 10 指数估算沿用为验收值。</td><td>全量前逐代码抽样并以 source count 校准，禁止把估算当验收值。</td></tr>
+          <tr><td>源请求/页</td><td>11 个代码分别分页；M0 真实 connector 探测共 13 页。</td><td>M1 必须固化已冻结的代码、区间、页预算，并由 dry-run 生成计划 hash。</td></tr>
+          <tr><td>源行数</td><td>M0 截至 <code>2026-08-07</code> 实测 45,772 行；各代码起点不同。</td><td>全量执行前仍须用 dry-run 重新核对 source count；禁止把 M0 快照当永久不变行数。</td></tr>
           <tr><td>文件数</td><td>Raw + Silver 合计约 17400-17800 个正式 Parquet。</td><td>不得产生每指数文件。</td></tr>
           <tr><td>磁盘峰值</td><td>数据行只有数万级，但逐日小文件开销占主导；初始工作预算按 Raw + Silver 合计低于 1 GB。</td><td>以 20 日和 1 年样本实测压缩率、文件开销和 staging 峰值；可用空间低于 2 倍峰值时拒绝执行。</td></tr>
           <tr><td>理论源端耗时</td><td>请求量为十几页量级，源端网络时间应为分钟级而非小时级。</td><td>记录每代码页数、限流等待和总 elapsed；超出 dry-run 预算立即停止。</td></tr>
@@ -491,7 +495,7 @@ silver/index/index_factor_pro/trade_date=YYYY-MM-DD/part-000.parquet</code></pre
       </table>
     </div>
     <ol>
-      <li>冻结补录发布后的 11 指数、每代码起止日期、分页计划和请求预算，dry-run 不写正式 Lake。</li>
+      <li>使用 M0 已冻结的 11 指数、每代码起止日期、13 页基线和请求预算生成 dry-run；dry-run 不写正式 Lake。</li>
       <li>选择短历史和长历史代码执行分页样本：验证 offset、短页终止、重复页防护和源端总数。</li>
       <li>按代码写入 run-scoped source staging，并用 DuckDB 重排成逐交易日 Raw/Silver 样本，校准压缩率和小文件开销。</li>
       <li>按代码批次拉取并写临时根目录；所有代码源端/Raw 主键对账通过后再原子提升。</li>
@@ -660,8 +664,8 @@ gold/indicator/major_index_mins_technical_state/
             <td>A1</td>
             <td><code>idx_factor_pro</code> 数据范围</td>
             <td>已确认：DG 日线主要指数 seed</td>
-            <td class="decision">保持现行日线 seed 不变</td>
-            <td><code>idx_factor_pro</code> 包含北证50、不包含科创综指；coverage key 集合必须等于日线 seed。</td>
+            <td class="decision">读取现行 11 指数日线 seed</td>
+            <td><code>idx_factor_pro</code> 同时包含北证50和科创综指；coverage key 集合必须等于日线 seed。</td>
           </tr>
           <tr>
             <td>A2</td>
@@ -710,7 +714,7 @@ gold/indicator/major_index_mins_technical_state/
             <td>物理切片</td>
             <td><code>freq/trade_date</code> / 指数-年份</td>
             <td class="decision"><code>freq/trade_date</code></td>
-            <td>只有 10 个指数，且上游按日分区；按指数拆文件只会增加文件和修复复杂度。</td>
+            <td>当前分钟池最多 10 个指数，且上游按日分区；按指数拆文件只会增加文件和修复复杂度。</td>
           </tr>
           <tr>
             <td>B5</td>
@@ -744,7 +748,7 @@ gold/indicator/major_index_mins_technical_state/
       <table>
         <thead><tr><th>Milestone</th><th>交付内容</th><th>关键门禁</th></tr></thead>
         <tbody>
-          <tr><td>M0 合同冻结</td><td>先完成科创综指日线历史补录与 seed 10 -> 11 发布；日级因子读取 11 指数 seed，分钟指标读取同日 Silver 有效池；直接 connector 验证“代码 + 区间 + 分页”；逐日线 seed 代码冻结源端首日，并要求 coverage key 集合与日线 seed 完全一致；冻结字段和算法金样本；完成 90/120 Silver 上游合同提交与验收。</td><td>测试必须证明日线池同时包含 <code>899050.BJ</code> 与 <code>000680.SH</code>、分钟池排除北证50且包含科创综指；无源证据不编码；七个频率的上游必须全部稳定。</td></tr>
+          <tr><td>M0 合同冻结</td><td><strong>已完成：</strong>科创综指日线历史补录与 11 指数 seed 已发布；日级因子读取 11 指数 seed，分钟指标读取同日 Silver 有效池；真实 connector 已验证“日期点 + 代码区间 + limit/offset 分页”；11 代码源端首日、45,772 行和 13 页预算已冻结；90/120 Silver 上游合同已进入 HEAD，并完成定向测试与七频率正式湖样本只读验收。</td><td>后续编码必须证明日线池同时包含 <code>899050.BJ</code> 与 <code>000680.SH</code>、分钟池排除北证50且包含科创综指；coverage keys 必须等于 11 指数 seed；不得把 M0 证据重新解释为 M1 已开始。</td></tr>
           <tr><td>M1 Catalog/Contract</td><td>中文名、Catalog entries、partition models、schemas、paths、run contracts。</td><td>Catalog 静态门禁通过，所有正式 asset 先登记。</td></tr>
           <tr><td>M2 日级 Raw</td><td><code>idx_factor_pro</code> Raw writer、asset、checks、日常日期请求与历史代码分页测试。</td><td>真实单日 <code>selected_rows = written_rows</code>；历史每代码 source/Raw key parity。</td></tr>
           <tr><td>M3 日级 Silver</td><td>日期/类型标准化、Silver asset/checks。</td><td>Raw/Silver key parity，89 字段无丢失。</td></tr>
@@ -763,7 +767,7 @@ gold/indicator/major_index_mins_technical_state/
     <h3>9.1 静态与单元测试</h3>
     <ul>
       <li>Catalog：identity、中文名、source、path、partition、checks、event/write/performance policy。</li>
-      <li>Tushare request：日常只生成 <code>trade_date + limit + offset</code>，历史只对批准 10 代码生成 <code>ts_code + start/end + limit + offset</code>。</li>
+      <li>Tushare request：日常只生成 <code>trade_date + limit + offset</code>，历史只对批准 11 代码生成 <code>ts_code + start/end + limit + offset</code>。</li>
       <li>请求负向门禁：禁止日常按代码扇出、禁止历史按交易日扇出、禁止对象池外代码、禁止无分页单代码全历史。</li>
       <li>Raw/Silver writers：全源过滤、对象池校验、分页、多页去重、短页终止、原子替换、失败不覆盖。</li>
       <li>分钟公式：上涨、下跌、平盘、跨日、历史 warm-up、零振幅 KDJ、缺前态、参数版本变化。</li>
@@ -788,8 +792,8 @@ gold/indicator/major_index_mins_technical_state/
 
     <h3>9.3 计划中的验证命令</h3>
     <pre><code>cd /Users/congming/github/goldenshare/lake_console/orchestrator
-.venv/bin/python -B -m unittest discover -s tests
-.venv/bin/ruff check
+uv run python -m pytest -q &lt;相关测试文件&gt;
+uv run ruff check &lt;相关 Python 文件&gt;
 
 cd /Users/congming/github/goldenshare
 python3 scripts/check_docs_integrity.py
@@ -798,6 +802,11 @@ git status --short</code></pre>
     <div class="callout danger">
       <strong>执行门禁：</strong>包括 <code>dg check defs</code>、正式 Dagster instance、dynamic partitions、job、sensor、
       materialize、backfill、runless event、Tushare 全历史请求和任何 Lake 写入，都不在本方案阶段执行；进入相应里程碑前必须列出命令、读写范围和影响并重新获得批准。
+    </div>
+    <div class="callout good">
+      <strong>M0 验证状态：</strong>M0 定向分钟合同/writer 测试和仓库级
+      <code>test_run_contract_static_gates.py</code> 均已通过；既有 <code>defs/assets/index_daily.py</code>
+      DuckDB 连接关闭问题已由独立提交 <code>2d8196f3</code> 收口。该结果只解除静态门禁，不代表 M1 已开始或获得执行授权。
     </div>
   </section>
 
@@ -810,8 +819,8 @@ git status --short</code></pre>
           <tr><td><code>TUSHARE_TOKEN</code></td><td>环境变量</td><td>Raw <code>idx_factor_pro</code> resource</td><td>启动时注入</td><td>敏感值不写日志、metadata 或文档。</td></tr>
           <tr><td>page limit = 8000</td><td>run contract 常量</td><td>request/page helper</td><td>代码发布生效</td><td>源接口固定上限，不暴露给运营。</td></tr>
           <tr><td>指标 params key/version</td><td>run contract 常量</td><td>writer/check/state/repair</td><td>代码发布生效</td><td>算法变更必须升级版本并触发历史重算评审。</td></tr>
-          <tr><td>历史起点</td><td><code>idx_factor_pro</code> 专属 coverage contract，key 集合必须等于 seed</td><td>partition/bootstrap/sensor window</td><td>M0 源探测后随代码发布生效</td><td>每个指数独立首日，不是运营日常输入，也不污染其他数据集的生效日期。</td></tr>
-          <tr><td>日级批准指数集合</td><td><code>seeds/market/major_indices.cn_a.csv</code>；补录 LLD 发布后为 11 指数</td><td>现有主要指数日线资产及新日级 Raw/Silver、日级 jobs/checks/bootstrap</td><td>科创综指补录与 seed 发布后生效</td><td>同时包含 <code>899050.BJ</code> 与 <code>000680.SH</code>；日级消费者统一读取 seed。</td></tr>
+          <tr><td>历史起点</td><td><code>idx_factor_pro</code> 专属 coverage contract，key 集合必须等于 seed</td><td>partition/bootstrap/sensor window</td><td>M0 已探测冻结；M1 随代码发布生效</td><td>每个指数独立首日，不是运营日常输入，也不污染其他数据集的生效日期。</td></tr>
+          <tr><td>日级批准指数集合</td><td><code>seeds/market/major_indices.cn_a.csv</code>；当前为 11 指数</td><td>现有主要指数日线资产及新日级 Raw/Silver、日级 jobs/checks/bootstrap</td><td>已随科创综指补录发布生效</td><td>同时包含 <code>899050.BJ</code> 与 <code>000680.SH</code>；日级消费者统一读取 seed。</td></tr>
           <tr><td>分钟批准指数集合</td><td><code>effective_silver_codes_for_date(trade_date)</code></td><td>分钟 Gold/state、jobs、checks、bootstrap</td><td>随分钟 Silver contract 代码发布生效</td><td>同日与 Silver 完全一致；当前排除 <code>899050.BJ</code>、包含 <code>000680.SH</code>，历史允许少于 10 个。</td></tr>
           <tr><td>批准频率集合</td><td>run contract 常量：<code>1/5/15/30/60/90/120</code></td><td>assets/jobs/checks/sensors/catalog</td><td>代码发布时生效</td><td>已拍板；消费者必须统一，禁止散落重复列表。</td></tr>
         </tbody>
