@@ -1,12 +1,12 @@
 # Ops TaskRun 执行观测模型重设计方案 v1
 
-状态：TaskRun 主链已上线；长分页 unit 的页级覆盖式进度扩展已于 2026-08-10 完成编码和本地验收，尚未部署 Prod
+状态：TaskRun 主链已上线；长分页 unit 的页级覆盖式进度扩展已于 2026-08-10 完成编码、本地验收并部署 Prod；尚待下一次生产长分页 TaskRun 做运行态页面验收
 日期：2026-04-26  
 适用范围：Ops 任务中心、任务详情页、任务执行运行时、Dataset Maintain 执行观测链路
 
 > 2026-05-05 修正记录：本方案的停机清表范围曾错误包含 `ops.index_series_active`。该表不是旧任务观测表，也不是可随 TaskRun 重建一起清空的派生噪声表；它会影响指数行情 `core_serving` 入库门禁。后续任何清表、重建、迁移方案不得清空该表，除非同一方案内先定义新的权威来源、重建 SQL、验收查询和回归测试。
 
-> 2026-08-10 增补：`fund_portfolio` 的长分页 TaskRun 证明“3 秒轮询”不等于“页级可观测”。原 staged-stream executor 只在整个 unit 结束时写覆盖式快照，导致一个季度完成前没有当前页和累计行数。第 12 节新增并已实现通用 paged-unit 快照契约；它不改变已上线 TaskRun 三表和失败诊断主线，部署 Prod 仍需单独授权。
+> 2026-08-10 增补：`fund_portfolio` 的长分页 TaskRun 证明“3 秒轮询”不等于“页级可观测”。原 staged-stream executor 只在整个 unit 结束时写覆盖式快照，导致一个季度完成前没有当前页和累计行数。第 12 节新增并已实现通用 paged-unit 快照契约；它不改变已上线 TaskRun 三表和失败诊断主线。该扩展已部署 Prod，尚待下一次生产长分页 TaskRun 做运行态页面验收。
 
 ---
 
@@ -1057,7 +1057,7 @@ flowchart TD
 7. 后端不再从旧内部运行日志构造任务详情。
 8. 运行中任务只通过覆盖式快照刷新，不追加 event stream。
 
-## 12. 长分页 unit 的页级覆盖式进度扩展（已实现并通过本地验收，待部署）
+## 12. 长分页 unit 的页级覆盖式进度扩展（已实现、通过本地验收并部署 Prod）
 
 ### 12.1 适用场景与边界
 
@@ -1193,4 +1193,4 @@ CodeGraph 已确认直接影响：
 
 ### 12.6 实施状态
 
-截至 2026-08-10，本节已完成 staged executor 覆盖式快照、独立 Ops 事务的有界 diagnostics、强类型 View API、任务详情页展示及自动化验收。定向后端测试、完整前端测试、生产构建和 12 项 Playwright smoke/视觉门禁均通过；延迟 fixture 已验证 `page 1 -> page 2 -> publishing -> completed` 四次轮询，未调用真实 Tushare。没有新增数据库列、业务表或 migration。部署 Prod 仍需要单独只读预检和部署授权。
+截至 2026-08-10，本节已完成 staged executor 覆盖式快照、独立 Ops 事务的有界 diagnostics、强类型 View API、任务详情页展示及自动化验收。定向后端测试、完整前端测试、生产构建和 12 项 Playwright smoke/视觉门禁均通过；延迟 fixture 已验证 `page 1 -> page 2 -> publishing -> completed` 四次轮询，未调用真实 Tushare。没有新增数据库列、业务表或 migration。提交 `14effd17` 已部署 Prod（用户确认）；本轮没有新的生产长分页 TaskRun，因此运行态页面验收仍待下一次真实多页任务完成。

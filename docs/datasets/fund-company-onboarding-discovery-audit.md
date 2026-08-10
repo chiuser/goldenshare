@@ -1,7 +1,7 @@
 # 基金管理人（`fund_company`）接入发现审计
 
-状态：发现审计完成；B1 LLD 已起草，**未开发、未建表、未写入远程数据**
-首次审计：2026-08-03；复审：2026-08-05
+状态：**发现审计、B1 LLD、代码实现、隔离验收与生产迁移/首次完整同步/五段对账均已完成；尚未创建 schedule。**
+首次审计：2026-08-03；源端复审：2026-08-05；代码与生产状态复核：2026-08-10
 截图菜单：基金管理人
 源文档：[公募基金公司](../sources/tushare/公募基金/0118_公募基金公司.md)
 
@@ -27,20 +27,20 @@ website, chairman, manager, reg_capital, setup_date, end_date, employees,
 main_business, org_code, credit_code
 ```
 
-## 建议的接入轮廓（非 LLD）
+## 已落地的接入轮廓
 
-| 层次 | 建议 |
+| 层次 | 当前实现 |
 | --- | --- |
 | 时间输入 / unit | 仅 snapshot refresh，一个全量 unit。 |
 | freshness / audit | 不做连续日期完整性；卡片显示最近一次成功快照。 |
-| 身份 / 幂等 | 非空 `credit_code` 为公司自然身份；空 `credit_code` 用规范化 `name + setup_date` 生成保守内部身份，名称变化时不自动跨记录合并。 |
-| 存储 | 全部 18 个字段均保存；物理表、叶分区和索引固定 HDD，direct-serving/raw->serving 在 LLD 固化。 |
+| 身份 / 幂等 | 非空 `credit_code` 使用规范化信用代码身份；空 `credit_code` 依次使用 `name + setup_date` 内容散列或全字段内容散列兜底，不把无法证明同一的记录自动合并。 |
+| 存储 | direct-serving；全部 18 个字段进入 `core_serving.fund_company_current` 与 `core_serving.fund_company_observation`，表和索引固定 HDD。 |
 | Ops/UI | 归入新增“公募基金”目录；不得落入现有“ETF基金”或静默“其他”。 |
-| 自动化 | 支持手动和普通定时自动任务；本期不接 probe。 |
+| 自动化 | 支持手动和普通 cron/once 定时任务；无 probe、workflow 或自动 schedule seed。 |
 
-仓库没有 `fund_company` 接入代码。通用链路已有 DatasetDefinition → resolver → source client → writer → Ops catalog 入口，但 Definition、模型、DAO、迁移、runtime guard、catalog 和前端消费者都仍待实现。
+当前仓库已具备完整接入链路：`src/foundation/datasets/definitions/public_fund.py` 注册 DatasetDefinition，B0 observed-snapshot writer 负责完整快照发布，显式 ORM/DAO 已注册，migration `20260805_000125` 创建 current/observation 两表并强制 HDD，Ops Catalog 已注册“基金管理人”。生产 TaskRun `#7401` 完成 204 行首次完整同步：source/normalized/written/current/observation 均为 204，reject 0；同一信用代码的两个源内容变体均被保留。
 
-## 已冻结的身份与版本口径（非 LLD）
+## 已落地的身份与版本口径
 
 1. 非空 `credit_code` 是公司实体的权威身份；相同信用代码但名称不同的行进入同一公司的观察版本历史，绝不静默丢弃其中一行。
 2. 对 49 条空信用代码，为了完整保存而又不把无关机构误合并，使用规范化 `name + setup_date` 作为内部保守身份；后续名称变化不自动认定为同一公司。

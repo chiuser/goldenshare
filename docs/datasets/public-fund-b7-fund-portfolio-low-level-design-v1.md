@@ -1,8 +1,8 @@
 # 公募基金 B7：基金持仓（`fund_portfolio`）低层设计 v1
 
-状态：**B7-M1 编码与本地门禁、B7-M2 隔离 PostgreSQL 验收、B7-M3 生产 migration/HDD 物理落点/首次正式 TaskRun/五段对账/幂等复跑均已通过。B7-M3.1“季度内逐页实时进度”已完成编码、后端/前端门禁和延迟 fixture 浏览器验收，尚未部署 Prod。尚未回补历史或创建 schedule；独立授权的 B7-M4a 历史规模与配额只读预估，或其他未开发数据集可分别排期，互不自动授权。**
+状态：**B7-M1 编码与本地门禁、B7-M2 隔离 PostgreSQL 验收、B7-M3 生产 migration/HDD 物理落点/首次正式 TaskRun/五段对账/幂等复跑均已通过。B7-M3.1“季度内逐页实时进度”已完成编码、后端/前端门禁、延迟 fixture 浏览器验收并部署 Prod；本轮尚未用新的生产长分页 TaskRun 做页面运行验收。尚未回补历史或创建 schedule；独立授权的 B7-M4a 历史规模与配额只读预估，或其他未开发数据集可分别排期，互不自动授权。**
 
-确认日期：2026-08-08；M1 实现与本地验收：2026-08-10；M2 隔离验收：2026-08-10；M3 生产验收：2026-08-10；M3.1 进度增强方案确认：2026-08-10
+确认日期：2026-08-08；M1 实现与本地验收：2026-08-10；M2 隔离验收：2026-08-10；M3 生产验收：2026-08-10；M3.1 进度增强方案确认与本地验收：2026-08-10；M3.1 Prod 部署：用户确认于 2026-08-10
 
 ## 1. 结论先行
 
@@ -13,7 +13,7 @@ B7 的 M1/M2/M3 已完成，实现并验证了 `fund_portfolio` 的季度报告�
 
 M3 生产首次小窗验收已通过。下列事项继续后置，不影响当前已上线能力：
 
-- 已部署 Prod 的旧版本仍只在整个季度结束或失败时收到一次 staged-stream unit 进度；当前开发分支已按第 25 节完成 B7-M3.1，部署后才会显示季度内部的当前页和累计读取量。
+- B7-M3.1 已部署 Prod，当前生产代码具备季度内部当前页、已完成页数与累计读取量展示能力；由于本轮没有新的生产长分页 TaskRun，线上运行态页面尚未再次实测。
 - 历史回补是否从 2014Q1 开始；LLD 只提供按季度末、单任务最多八期的能力，不自动回补。历史回补仍建议按自然年四期拆批，但不再是系统硬上限。
 - 自动任务最终采用每周还是每月 cron；LLD 只允许普通 weekly/monthly cron 或 once，不创建任何 schedule。
 - `stk_float_ratio` 的业务单位；首版只保存源值，不缩放、不解释。
@@ -713,7 +713,7 @@ npm --prefix frontend run build
 | B7-M1 | Definition、季度契约、staged stream、表/DAO/migration、Ops/UI、测试 | 已完成编码与本地门禁 |
 | B7-M2 | 隔离 migration、HDD、真实小窗、131 万行容量/回滚/锁 | 已完成并通过（2026-08-10） |
 | B7-M3 | 生产预检、migration、首次 period、对账/幂等 | 已完成并通过（2026-08-10，TaskRun `#7813/#7814`） |
-| B7-M3.1 | TaskRun 季度内逐页实时进度、季度完成结果与前端展示 | 编码、后端/前端门禁和延迟 fixture 浏览器验收已通过；待部署 Prod，不涉及源端同步或业务表 migration |
+| B7-M3.1 | TaskRun 季度内逐页实时进度、季度完成结果与前端展示 | 编码、后端/前端门禁和延迟 fixture 浏览器验收已通过并部署 Prod；尚待下一次生产长分页任务做运行态页面验收；不涉及源端同步或业务表 migration |
 | B7-M4a | 历史起点、逐期规模/额度只读预算 | 待独立授权；不能按日扫描 |
 | B7-M4b | 建议按年四期拆批、系统每任务最多八期的历史回补 | 待独立授权；不得与 B6 大回补并发 |
 | B7-M5 | 运营手工创建 weekly/monthly cron 或 once | 频率拍板后另行授权 |
@@ -737,7 +737,7 @@ npm --prefix frontend run build
 | 32 个 HDD hash leaves，stage/index HDD | migration | M2/M3 `pg_class/pg_tablespace/pg_partition_tree` 物理落点 |
 | WAL 留 SSD，stage UNLOGGED | migration/运行审计 | M2 relpersistence/LSN 差量；M3 SSD 根盘水位 |
 | 公募基金分组，手动+普通定时，无 probe/workflow | catalog/capability/UI | API/前端正反向测试；M3 TaskRun 正式主链 |
-| 季度内逐页实时可见，季度完成后展示源端与写入结果 | executor 覆盖式 progress、TaskRun diagnostics/API、任务详情页 | B7-M3.1 快照序列测试、API 类型测试、前端八类状态测试与延迟 fixture 浏览器验收均通过；待部署 |
+| 季度内逐页实时可见，季度完成后展示源端与写入结果 | executor 覆盖式 progress、TaskRun diagnostics/API、任务详情页 | B7-M3.1 快照序列测试、API 类型测试、前端八类状态测试与延迟 fixture 浏览器验收均通过并部署 Prod；尚待生产长分页任务运行态页面验收 |
 | 不自动创建任务 | 无 schedule/probe seed | M3 schedule/probe 表只读检查均为 0 |
 
 ## 19. 发布、回滚与剩余风险
@@ -769,7 +769,7 @@ npm --prefix frontend run build
 
 1. 历史起点是否正式定为 2014Q1；若是，M4a/M4b 以 50 个离散季度、建议按年四期执行；系统单任务硬上限为八期。
 2. schedule 采用 weekly 还是 monthly，以及具体 cron 时间；不得在 B7-M1/M2/M3 自动创建。
-3. B7-M3.1 的产品口径和编码验收均已完成，无需再次拍板；部署 Prod 仍需要独立授权。本增强不需要真实 Tushare 请求或业务数据写入。
+3. B7-M3.1 的产品口径、编码验收与 Prod 部署均已完成，无需再次拍板；尚未完成的只是下一次真实长分页任务运行时的页面观察验收。本增强部署本身不需要真实 Tushare 请求或业务数据写入。
 
 ## 21. B7-M1 实现对账（2026-08-10）
 
@@ -798,7 +798,7 @@ B7-M3 通过。生产 migration 已到达 `20260810_000131`，final parent/32 le
 
 本轮按管理员决定把 `fund_portfolio` 的 `max_units_per_execution` 从 4 调整为 8，并固定以下契约：
 
-1. `DatasetDefinition.planning.max_units_per_execution=8` 是唯一配置事实，持久化于代码，不新增 env、数据库配置或页面常量；仅影响 `fund_portfolio`，部署后生效。
+1. `DatasetDefinition.planning.max_units_per_execution=8` 是唯一配置事实，持久化于代码，不新增 env、数据库配置或页面常量；仅影响 `fund_portfolio`，已随当前生产代码生效。
 2. 正式 planner 仍是唯一判定者。手动任务 API 在创建 TaskRun 前使用同一 `DatasetActionResolver.build_plan()` 预检；worker 执行时再次规划，以防提交后依赖状态变化。预检失败不得创建 queued TaskRun。
 3. 手动任务能力 API 从 Definition 派生并返回 `time_form.max_units_per_execution`。前端按通用 `selection_rule=quarter_end` 显示“单次最多 8 个季度报告期”，并对可准确计算的九期及以上范围提前阻断；不得按 `fund_portfolio` action key 特判。后端预检始终是最终门禁。
 4. planner 的 `units_exceeded` 必须携带 `planned_units` 与 `max_units_per_execution` 结构化详情。运行期若仍发生规划错误，TaskRun issue 保留原始 error code 和 `source_phase=planner`；未知 dispatcher 异常记录为 `dispatcher_error / worker_dispatch`，只有最终状态写入异常才使用 `worker_finalize_error / worker_finalize`。
@@ -810,11 +810,11 @@ B7-M3 通过。生产 migration 已到达 `20260810_000131`，final parent/32 le
 | --- | --- | --- | --- | --- |
 | `max_units_per_execution=8` | `fund_portfolio` Definition 代码 | unit planner、execution plan、manual capability API、manual UI | 手动任务时间区显示八季度提示；超限 API 返回 `units_exceeded` | 8 期规划/提交成功，9 期 planner/API/UI 拒绝且零 TaskRun、零源请求 |
 
-## 25. B7-M3.1：季度内逐页实时进度增强（已实现并通过本地验收，待部署）
+## 25. B7-M3.1：季度内逐页实时进度增强（已实现、通过本地验收并部署 Prod）
 
 ### 25.1 问题、目标与非目标
 
-当前任务详情页在 `queued/running/canceling` 状态下每 3 秒请求一次 `GET /api/v1/ops/task-runs/{id}/view`，但 staged-stream executor 只在一个季度 unit 的 `finally` 边界调用 `_report_unit_progress()`。因此：
+M3.1 实施前，任务详情页在 `queued/running/canceling` 状态下每 3 秒请求一次 `GET /api/v1/ops/task-runs/{id}/view`，但 staged-stream executor 只在一个季度 unit 的 `finally` 边界调用 `_report_unit_progress()`。因此当时存在以下问题：
 
 1. 第一页请求前和一个季度的长分页过程中，TaskRun 没有新的分页快照。
 2. `source.pagination.unit_count_with_pagination` 只在季度 finalize 或失败后增加，前端 `paginationDiagnostic()` 在此之前返回空。
@@ -1062,7 +1062,7 @@ npm --prefix frontend run build
 
 ### 25.9 完成定义与授权边界
 
-B7-M3.1 的代码、后端测试、前端测试和延迟 fixture 浏览器验收已全部通过，可以标记为“本地实现完成”。它不需要 Tushare 真实请求、数据库 migration、生产业务数据写入或 schedule 创建；后续若要部署到 Prod，仍需按当时任务运行状态单独完成只读预检与部署授权。
+B7-M3.1 的代码、后端测试、前端测试和延迟 fixture 浏览器验收已全部通过，并已由用户确认部署 Prod。它不需要 Tushare 真实请求、数据库 migration、生产业务数据写入或 schedule 创建。部署事实不等于生产长分页运行验收；下一次真实多页 TaskRun 仍应只读观察页面快照是否按页前进。
 
 ### 25.10 实施结果（2026-08-10）
 
@@ -1071,3 +1071,4 @@ B7-M3.1 的代码、后端测试、前端测试和延迟 fixture 浏览器验收
 3. View API 已增加强类型投影；旧任务返回 `null`，非法 phase、负数和错误列表 fail-soft，不会令接口 500。
 4. 任务详情页只依据 typed contract 展示当前季度与已完成季度，不按 action key 特判；已覆盖第一页、长分页、核对、发布、完成、失败、取消、旧任务八类状态。
 5. 后端定向回归共 76 项通过；前端 137 项单元测试、生产构建和 12 项 Playwright smoke/视觉门禁通过。延迟 fixture 证明四次 3 秒轮询依次看到 `page 1 -> page 2 -> publishing -> completed`；1024px 窄屏无横向溢出；同时验证当前季度和已完成季度共存，且未调用真实 Tushare。
+6. 提交 `14effd17` 已部署 Prod（用户确认）。本轮没有发起新的 Tushare 请求或 TaskRun，因此没有新增源端/写入五段对账，也没有把“已部署”误写成“已完成生产长分页页面验收”。

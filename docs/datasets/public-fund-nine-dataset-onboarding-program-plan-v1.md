@@ -1,7 +1,7 @@
 # 公募基金九数据集接入总览与分批推进计划 v1
 
-状态：**B0/B1/B2/B3 已实现并通过隔离与生产验收；B4 的 fund_share 与 fund_div 均已完成 M0 至 M3。B7 fund_portfolio 已完成 M0、[LLD](public-fund-b7-fund-portfolio-low-level-design-v1.md)、M1 本地实现/门禁、M2 隔离验收与 M3 生产 migration/HDD/TaskRun 首次同步/五段对账/幂等复跑验收；B7-M3.1 季度内逐页实时进度已完成编码、本地自动化门禁和延迟 fixture 浏览器验收，尚未部署 Prod。B7 尚未回补历史或创建 schedule；公募基金数据集均未由本专项自动创建 schedule。**
-确认日期：2026-08-10
+状态：**九项中已有七项进入当前 DatasetDefinition/Ops/存储主链并完成生产 migration 与首次真实同步验收：`fund_company`、`mkt_idx_bmk`、`fund_basic`、`fund_manager`、`fund_share`、`fund_div`、`fund_portfolio`。B7-M3.1 季度内逐页实时进度已完成编码、本地自动化门禁并部署 Prod；本轮未以新的生产长分页 TaskRun 做页面运行验收。`fund_nav` 与 `fund_factor_pro` 仍只有发现审计，未进入 LLD、代码、建表或生产同步。历史回补与 schedule 继续按数据集独立授权。**
+确认日期：2026-08-10；代码与文档对账：2026-08-10；B7-M3.1 Prod 部署：用户确认于 2026-08-10
 适用范围：Tushare 公募基金菜单的九个数据集接入 Prod
 
 ## 1. 目标与边界
@@ -21,6 +21,22 @@
 | 基金净值 | `fund_nav` | 高优先级日度净值与修订 | [审计](fund-nav-onboarding-discovery-audit.md) |
 | 基金技术面因子（专业版） | `fund_factor_pro` | 宽表日度技术因子 | [审计](fund-factor-pro-onboarding-discovery-audit.md) |
 | 基金持仓 | `fund_portfolio` | 季度持仓明细 | [审计](fund-portfolio-onboarding-discovery-audit.md) / [B7 LLD](public-fund-b7-fund-portfolio-low-level-design-v1.md) |
+
+### 1.1 当前代码与生产接入状态
+
+本表是截至确认日期的状态投影。数据集静态事实仍以 `src/foundation/datasets/definitions/public_fund.py` 为准；生产部署与真实同步属于发布事实，不能仅从代码存在反推。
+
+| 数据集 | 当前代码事实 | 生产状态 | 尚未完成 |
+| --- | --- | --- | --- |
+| `fund_company` | Definition、18 fields、current/observation ORM/DAO、HDD migration、Ops Catalog 均存在 | TaskRun `#7401` 首次完整同步 204 行、reject 0 | 未创建 schedule；观察历史只能从接入日起积累 |
+| `mkt_idx_bmk` | Definition、8 fields、current/observation ORM/DAO、HDD migration、Ops Catalog 均存在 | TaskRun `#7402` 首次完整同步 141 行、reject 0 | 未创建 schedule；不自动关联 `fund_basic.benchmark` |
+| `fund_basic` | Definition、25 fields、current/observation ORM/DAO、HDD migration、Ops Catalog 均存在 | 17 页、32,342 行首次完整同步，reject 0 | 未创建 schedule |
+| `fund_manager` | Definition、10 fields、current/observation ORM/DAO、HDD migration、Ops Catalog 均存在 | TaskRun `#7515` 首次完整同步 84,357 行、reject 0 | 未创建 schedule |
+| `fund_share` | Definition、6 fields、按日期 current/observation ORM/DAO、HDD migration、Ops Catalog 均存在 | TaskRun `#7556` 对 `2026-07-07` 同步 1,673 行、reject 0 | 未历史回补或创建 schedule |
+| `fund_div` | Definition、16 fields、不可变事实 ORM/DAO、HDD migration、Ops Catalog 均存在 | TaskRun `#7653/#7654` 完成首次与幂等同步，目标 74 行、reject 0 | 未历史回补或创建 schedule |
+| `fund_portfolio` | Definition、8 fields、页流式 stage/final ORM/DAO、HDD migration、Ops Catalog 与 typed paged-unit progress 均存在 | M3 TaskRun `#7813/#7814` 完成 42 行首次与幂等同步；M3.1 代码已部署 Prod | 未历史回补或创建 schedule；M3.1 尚未用新的生产长分页运行做页面验收 |
+| `fund_nav` | 当前代码、迁移、Ops Catalog 均无该数据集 | 未接入 | 仅发现审计；待 B5 LLD、编码、隔离与生产验收 |
+| `fund_factor_pro` | 当前代码、迁移、Ops Catalog 均无该数据集 | 未接入 | 仅发现审计；待 B6 LLD、编码、隔离与生产验收 |
 
 ## 2. 已定的全局口径
 
@@ -70,7 +86,7 @@ flowchart LR
 | B4 | 先 `fund_share`，后 `fund_div` | Definition 显式 opt-in 的自然日 point fan-out；`fund_share` 按日期作用域刷新 current/observation，`fund_div` 单表不可变只插入；Definition/API 单一事实驱动的自动任务 calendar-policy；逐日分页、事件散列与 exact duplicate 去重 | ✅ B2 验收；✅ `fund_share` M0/LLD/M1；✅ M2 隔离 migration、10 个 HDD relation、真实 `0/6/1,673` 行五段对账、10,000 行容量/回滚/advisory lock；✅ M3 migration `20260807_000128`、10 个生产 HDD relation、TaskRun `#7556` 首次 1,673 行完整对账、三方摘要一致；✅ `fund_div` M0 请求/字段/分页/自然日/exact duplicate 复审；✅ 不可变事实方案与 LLD；✅ M1 Definition、单表 ORM/DAO、writer、Ops/API/UI 与本地门禁；✅ M2 migration `000129/000130`、4 个隔离 HDD relation、真实 `122/141→74/40/0` 对账、10,000 行容量/回滚/advisory lock；✅ M3 生产 4 个 HDD relation、TaskRun `#7653/#7654` 首次 `74 inserted` 与幂等 `74 matched`、源端/目标摘要和三类差集闭环 | `fund_share` 与 `fund_div` 均已完成生产首次同步验收，均未做历史回补或 schedule。`fund_div` 下一边界为 M4a 历史只读预算；历史回补与 schedule 继续分别授权 |
 | B5 | `fund_nav` | E/O 来源分片身份、相对时间、日任务与 90 日修订、按 unit 活动租约防重 | B4 验收 | 通用逐自然日展开、相对时间策略、重叠拒绝/跳过均有后端和前端验证；E/O 全源分页、版本修订和两条自动任务分别验收 |
 | B6 | `fund_factor_pro` | 90 列宽表、交易日历史、容量与限流治理 | B5 验收；HDD/WAL 容量预检通过 | 90 字段和双日期字段校验；历史任务限速、分页、HDD/WAL 水位、停止阈值与最小真实同步对账闭环；不与 B7 大回补并发 |
-| B7 | `fund_portfolio` | 季度报告期、全市场单遍分页、2,000 行页流式处理、UNLOGGED 非服务中间态、整期原子发布、fail-closed 单事实表与大规模历史治理 | ✅ B2/B0；✅ M0 显式 8 字段、113 个连续非空季度、生产背景池 32,342、HDD/WAL 与当前代码影响面；✅ [LLD](public-fund-b7-fund-portfolio-low-level-design-v1.md)；✅ M1 Definition、staged stream、final/stage ORM/DAO/migration、Ops/UI/schedule contract 与本地测试门禁；✅ M2 隔离 migration/HDD、1,312,798 行容量/幂等/回滚/锁、`19980630` 真实 42 行五段对账；✅ M3 生产 migration `20260810_000131`、全部 relation 物理 HDD、TaskRun `#7813/#7814` 的 42 行首次同步与幂等复跑；✅ M3.1 页级进度方案审计 | 生产单报告期的源端/归一化/提交/reject/目标集合已对账，0 reject、0 issue、stage 0、摘要一致；M3.1 尚待编码/测试/部署且不改变数据事务；未回补历史或创建 schedule，M3.1 与独立授权的 M4a 可分别排期 |
+| B7 | `fund_portfolio` | 季度报告期、全市场单遍分页、2,000 行页流式处理、UNLOGGED 非服务中间态、整期原子发布、fail-closed 单事实表与大规模历史治理 | ✅ B2/B0；✅ M0 显式 8 字段、113 个连续非空季度、生产背景池 32,342、HDD/WAL 与当前代码影响面；✅ [LLD](public-fund-b7-fund-portfolio-low-level-design-v1.md)；✅ M1 Definition、staged stream、final/stage ORM/DAO/migration、Ops/UI/schedule contract 与本地测试门禁；✅ M2 隔离 migration/HDD、1,312,798 行容量/幂等/回滚/锁、`19980630` 真实 42 行五段对账；✅ M3 生产 migration `20260810_000131`、全部 relation 物理 HDD、TaskRun `#7813/#7814` 的 42 行首次同步与幂等复跑；✅ M3.1 页级进度编码、后端/前端门禁、延迟 fixture 浏览器验收与 Prod 部署 | 生产单报告期的源端/归一化/提交/reject/目标集合已对账，0 reject、0 issue、stage 0、摘要一致；M3.1 已部署但尚未用新的生产长分页 TaskRun 做页面运行验收；未回补历史或创建 schedule，M3.1 与独立授权的 M4a 可分别排期 |
 
 ## 6. 各批 LLD 的最低交付物
 
@@ -88,7 +104,7 @@ flowchart LR
 - 未完成对应批次 LLD 和门禁前，不创建 Definition、表、迁移、自动任务或远程回补。
 - 不把 `fund_nav` 的相对时间/重叠规则复制为数据集 key 特例；不把 `fund_portfolio` 的页流式逻辑复制成单接口私有实现。
 - `fund_portfolio` 已确认 `19980630..20260630` 连续 113 个非空季度；该结果只证明报告期清单，不等于逐期精确行数。禁止重新使用样本基金起点、“固定 57 个季度”或把 2025Q2 行数冒充所有季度精确规模。
-- B0/B1/B2/B3 已完成实现、生产迁移与首次完整生产同步五段对账；B4 `fund_share` 与 `fund_div` 也均已完成 M0 至 M3。`fund_share` TaskRun `#7556` 为 1,673 行且 reject 0；`fund_div` TaskRun `#7653/#7654` 为 `141 fetched / 74 saved / 67 deduplicated / 0 reject`，首次 `74 inserted`、重跑 `74 matched`，目标摘要与源端一致。B7 `fund_portfolio` 也已完成 M0 至 M3，TaskRun `#7813/#7814` 为 `42 fetched / 42 saved / 0 deduplicated / 0 reject`，首次 `42 inserted`、重跑 `42 matched`；B7-M3.1 已完成本地开发与验收，但在部署 Prod 前不能写成线上已生效。各数据集的历史预算/回补和 schedule 继续分别受独立授权边界约束。所有 schedule 均需运营明确给出频率与 cron/once 意图后手工创建。
+- B0/B1/B2/B3 已完成实现、生产迁移与首次完整生产同步五段对账；B4 `fund_share` 与 `fund_div` 也均已完成 M0 至 M3。`fund_share` TaskRun `#7556` 为 1,673 行且 reject 0；`fund_div` TaskRun `#7653/#7654` 为 `141 fetched / 74 saved / 67 deduplicated / 0 reject`，首次 `74 inserted`、重跑 `74 matched`，目标摘要与源端一致。B7 `fund_portfolio` 也已完成 M0 至 M3，TaskRun `#7813/#7814` 为 `42 fetched / 42 saved / 0 deduplicated / 0 reject`，首次 `42 inserted`、重跑 `42 matched`；B7-M3.1 已完成本地开发、自动化验收并部署 Prod，但本轮没有新的生产长分页 TaskRun 可用于页面运行验收。各数据集的历史预算/回补和 schedule 继续分别受独立授权边界约束。所有 schedule 均需运营明确给出频率与 cron/once 意图后手工创建。
 
 ## 8. 依据与维护规则
 

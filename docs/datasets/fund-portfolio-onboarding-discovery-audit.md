@@ -1,7 +1,7 @@
 # 基金持仓（`fund_portfolio`）接入发现审计
 
-状态：**B7-M0 发现审计、[B7 LLD](public-fund-b7-fund-portfolio-low-level-design-v1.md)、M1 编码与本地门禁、M2 隔离 PostgreSQL 验收、M3 生产 migration/HDD/TaskRun/五段对账/幂等复跑均已通过。B7-M3.1 季度内逐页实时进度已完成编码、后端/前端门禁和延迟 fixture 浏览器验收，尚未部署 Prod。尚未历史回补或创建 schedule；历史规模与配额预估必须另行授权。**
-首次审计：2026-08-03；复审：2026-08-05、2026-08-08；M3 生产验收：2026-08-10
+状态：**B7-M0 发现审计、[B7 LLD](public-fund-b7-fund-portfolio-low-level-design-v1.md)、M1 编码与本地门禁、M2 隔离 PostgreSQL 验收、M3 生产 migration/HDD/TaskRun/五段对账/幂等复跑均已通过。B7-M3.1 季度内逐页实时进度已完成编码、后端/前端门禁、延迟 fixture 浏览器验收并部署 Prod；本轮尚未用新的生产长分页 TaskRun 做页面运行验收。尚未历史回补或创建 schedule；历史规模与配额预估必须另行授权。**
+首次审计：2026-08-03；复审：2026-08-05、2026-08-08；M3 生产验收：2026-08-10；M3.1 Prod 部署：用户确认于 2026-08-10
 截图菜单：基金持仓
 源文档：[公募基金持仓数据](../sources/tushare/公募基金/0121_公募基金持仓数据.md)
 
