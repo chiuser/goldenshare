@@ -17,6 +17,15 @@ from src.biz.schemas.quote import (
     QuotePageInitResponse,
     QuoteRelatedInfoResponse,
 )
+from src.biz.schemas.quote_trend_channel import TrendChannelResponse
+from src.biz.services.quote_trend_channel_query_service import (
+    QuoteTrendChannelQueryService,
+    TrendChannelComputeError,
+    TrendChannelInstrumentMissingError,
+    TrendChannelSourceChangingError,
+    TrendChannelSourceInvalidError,
+    TrendChannelSourceUnavailableError,
+)
 from src.app.auth.dependencies import require_quote_access
 from src.app.auth.domain import AuthenticatedUser
 from src.app.dependencies import get_db_session
@@ -109,6 +118,71 @@ def get_quote_detail_kline(
         )
     except ValueError as exc:
         raise WebAppError(status_code=400, code="INVALID_ARGUMENT", message=str(exc)) from exc
+
+
+@router.get(
+    "/detail/trend-channel",
+    response_model=TrendChannelResponse,
+)
+def get_quote_detail_trend_channel(
+    ts_code: str = Query(...),
+    period: str = Query(default="day"),
+    end_date: date | None = Query(default=None),
+    limit: int = Query(default=500, ge=1, le=2000),
+    _user: AuthenticatedUser | None = Depends(require_quote_access),
+    session: Session = Depends(get_db_session),
+) -> TrendChannelResponse:
+    normalized_ts_code = ts_code.strip().upper()
+    normalized_period = period.strip().lower()
+    if normalized_ts_code != "000001.SH":
+        raise WebAppError(
+            status_code=400,
+            code="UNSUPPORTED_TREND_CHANNEL_SYMBOL",
+            message="趋势通道 v1 仅支持上证指数 000001.SH",
+        )
+    if normalized_period != "day":
+        raise WebAppError(
+            status_code=400,
+            code="UNSUPPORTED_TREND_CHANNEL_PERIOD",
+            message="趋势通道 v1 仅支持正式日线周期",
+        )
+
+    try:
+        return QuoteTrendChannelQueryService().build_response(
+            session,
+            end_date=end_date,
+            limit=limit,
+        )
+    except TrendChannelInstrumentMissingError as exc:
+        raise WebAppError(
+            status_code=503,
+            code="TREND_CHANNEL_INSTRUMENT_MISSING",
+            message="上证指数基础信息暂不可用",
+        ) from exc
+    except TrendChannelSourceUnavailableError as exc:
+        raise WebAppError(
+            status_code=503,
+            code="TREND_CHANNEL_SOURCE_UNAVAILABLE",
+            message="上证指数日线数据源暂不可用",
+        ) from exc
+    except TrendChannelSourceInvalidError as exc:
+        raise WebAppError(
+            status_code=503,
+            code="TREND_CHANNEL_SOURCE_INVALID",
+            message="上证指数日线数据暂不可用于趋势通道计算",
+        ) from exc
+    except TrendChannelSourceChangingError as exc:
+        raise WebAppError(
+            status_code=503,
+            code="TREND_CHANNEL_SOURCE_CHANGING",
+            message="上证指数日线数据正在更新，请稍后重试",
+        ) from exc
+    except TrendChannelComputeError as exc:
+        raise WebAppError(
+            status_code=500,
+            code="TREND_CHANNEL_COMPUTE_FAILED",
+            message="上证指数趋势通道计算失败",
+        ) from exc
 
 
 @router.get("/detail/related-info", response_model=QuoteRelatedInfoResponse)
