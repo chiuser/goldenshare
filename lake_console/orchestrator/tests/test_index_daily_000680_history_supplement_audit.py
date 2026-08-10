@@ -73,3 +73,58 @@ def test_physical_layer_audit_rejects_duplicate_target_keys(tmp_path: Path) -> N
 
     assert result.passed is False
     assert result.target_duplicate_key_count == 1
+
+
+def test_source_staging_audit_requires_frozen_hash_and_exact_dates(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "source" / "part-000.parquet"
+    _write_raw(path, (_row(apply.TARGET_CODE),))
+    expected_sha256 = audit.file_sha256(path)
+
+    with duckdb.connect(":memory:") as connection:
+        result, rows = audit.audit_source_staging(
+            connection,
+            source_plan_hash="source-plan-hash",
+            source_path=path,
+            expected_sha256=expected_sha256,
+            expected_dates=("2020-01-02",),
+        )
+
+    assert result.passed is True
+    assert result.row_count == 1
+    assert result.target_fingerprint == audit.hash_payload(rows)
+
+
+def test_source_staging_audit_rejects_hash_drift(tmp_path: Path) -> None:
+    path = tmp_path / "source" / "part-000.parquet"
+    _write_raw(path, (_row(apply.TARGET_CODE),))
+
+    with duckdb.connect(":memory:") as connection:
+        result, _ = audit.audit_source_staging(
+            connection,
+            source_plan_hash="source-plan-hash",
+            source_path=path,
+            expected_sha256="not-the-frozen-hash",
+            expected_dates=("2020-01-02",),
+        )
+
+    assert result.passed is False
+    assert result.actual_sha256 != result.expected_sha256
+
+
+def test_source_staging_audit_rejects_unexpected_code(tmp_path: Path) -> None:
+    path = tmp_path / "source" / "part-000.parquet"
+    _write_raw(path, (_row(apply.TARGET_CODE), _row("000001.SH")))
+
+    with duckdb.connect(":memory:") as connection:
+        result, _ = audit.audit_source_staging(
+            connection,
+            source_plan_hash="source-plan-hash",
+            source_path=path,
+            expected_sha256=audit.file_sha256(path),
+            expected_dates=("2020-01-02",),
+        )
+
+    assert result.passed is False
+    assert result.unexpected_code_count == 1

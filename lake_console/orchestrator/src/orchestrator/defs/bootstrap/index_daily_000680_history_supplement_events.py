@@ -151,22 +151,39 @@ def _load_green_physical_audit(
         raise IndexDaily000680HistorySupplementEventsError(
             "Physical audit must be a JSON object."
         )
-    if payload.get("plan_hash") != expected_plan_hash or payload.get("passed") is not True:
+    if (
+        payload.get("schema_version") != 2
+        or payload.get("plan_hash") != expected_plan_hash
+        or payload.get("passed") is not True
+    ):
         raise IndexDaily000680HistorySupplementEventsError(
             "Physical audit is not green for the expected plan hash."
         )
     layers = payload.get("layers")
     cross_layer = payload.get("cross_layer")
-    if not isinstance(layers, Mapping) or not isinstance(cross_layer, Mapping):
+    source = payload.get("source")
+    if (
+        not isinstance(source, Mapping)
+        or not isinstance(layers, Mapping)
+        or not isinstance(cross_layer, Mapping)
+    ):
         raise IndexDaily000680HistorySupplementEventsError(
             "Physical audit is missing layer or cross-layer evidence."
         )
     expected_audit_hash = hash_payload(
         {
             "plan_hash": expected_plan_hash,
+            "source_plan_hash": payload.get("source_plan_hash"),
+            "source": source,
             "raw": layers.get("raw"),
             "silver": layers.get("silver"),
             "gold": layers.get("gold"),
+            "source_plan_history_matches": cross_layer.get(
+                "source_plan_history_matches"
+            ),
+            "source_raw_history_matches": cross_layer.get(
+                "source_raw_history_matches"
+            ),
             "raw_silver_history_matches": cross_layer.get(
                 "raw_silver_history_matches"
             ),

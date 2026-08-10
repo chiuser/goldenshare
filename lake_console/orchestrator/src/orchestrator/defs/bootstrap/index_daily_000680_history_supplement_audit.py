@@ -10,9 +10,11 @@ from typing import Any
 
 from orchestrator.defs.bootstrap.index_daily_000680_history_supplement_apply import (
     load_frozen_plan,
+    source_staging_path,
 )
 from orchestrator.defs.bootstrap.index_daily_000680_history_supplement_plan import (
     TARGET_CODE,
+    file_sha256,
     hash_payload,
 )
 from orchestrator.defs.resources import DuckDBResource
@@ -20,6 +22,38 @@ from orchestrator.defs.resources import DuckDBResource
 
 class IndexDaily000680HistorySupplementAuditError(RuntimeError):
     """Raised when the formal Lake cannot be audited safely."""
+
+
+@dataclass(frozen=True, slots=True)
+class SourceStagingAudit:
+    source_plan_hash: str
+    source_path: str
+    expected_sha256: str
+    actual_sha256: str
+    expected_row_count: int
+    row_count: int
+    distinct_date_count: int
+    duplicate_key_count: int
+    missing_date_count: int
+    unexpected_date_count: int
+    unexpected_code_count: int
+    target_fingerprint: str
+
+    @property
+    def passed(self) -> bool:
+        return (
+            bool(self.expected_sha256)
+            and self.actual_sha256 == self.expected_sha256
+            and self.row_count == self.expected_row_count
+            and self.distinct_date_count == self.expected_row_count
+            and self.duplicate_key_count == 0
+            and self.missing_date_count == 0
+            and self.unexpected_date_count == 0
+            and self.unexpected_code_count == 0
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self) | {"passed": self.passed}
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,9 +90,13 @@ class PhysicalLayerAudit:
 @dataclass(frozen=True, slots=True)
 class PhysicalAuditReport:
     plan_hash: str
+    source_plan_hash: str
+    source: SourceStagingAudit
     raw: PhysicalLayerAudit
     silver: PhysicalLayerAudit
     gold: PhysicalLayerAudit
+    source_plan_history_matches: bool
+    source_raw_history_matches: bool
     raw_silver_history_matches: bool
     silver_gold_matches: bool
     audit_hash: str
@@ -66,24 +104,31 @@ class PhysicalAuditReport:
     @property
     def passed(self) -> bool:
         return (
-            self.raw.passed
+            self.source.passed
+            and self.raw.passed
             and self.silver.passed
             and self.gold.passed
+            and self.source_plan_history_matches
+            and self.source_raw_history_matches
             and self.raw_silver_history_matches
             and self.silver_gold_matches
         )
 
     def to_dict(self) -> dict[str, object]:
         return {
-            "schema_version": 1,
+            "schema_version": 2,
             "target_code": TARGET_CODE,
             "plan_hash": self.plan_hash,
+            "source_plan_hash": self.source_plan_hash,
+            "source": self.source.to_dict(),
             "layers": {
                 "raw": self.raw.to_dict(),
                 "silver": self.silver.to_dict(),
                 "gold": self.gold.to_dict(),
             },
             "cross_layer": {
+                "source_plan_history_matches": self.source_plan_history_matches,
+                "source_raw_history_matches": self.source_raw_history_matches,
                 "raw_silver_history_matches": self.raw_silver_history_matches,
                 "silver_gold_matches": self.silver_gold_matches,
             },
@@ -139,6 +184,54 @@ def _canonical_target_rows(
         [[str(path) for path in paths], TARGET_CODE],
     ).fetchall()
     return tuple(tuple(value) for value in rows)
+
+
+def audit_source_staging(
+    connection: Any,
+    *,
+    source_plan_hash: str,
+    source_path: Path,
+    expected_sha256: str,
+    expected_dates: Sequence[str],
+) -> tuple[SourceStagingAudit, tuple[tuple[object, ...], ...]]:
+    expected_date_set = set(expected_dates)
+    source_exists = source_path.is_file()
+    rows = (
+        _canonical_target_rows(
+            connection,
+            layer="raw",
+            paths=(source_path,),
+        )
+        if source_exists
+        else ()
+    )
+    observed_dates = tuple(str(row[0]) for row in rows)
+    observed_date_set = set(observed_dates)
+    total_row_count = 0
+    unexpected_code_count = 0
+    if source_exists:
+        total_row_count, unexpected_code_count = connection.execute(
+            """
+            SELECT count(*), count(*) FILTER (WHERE ts_code <> ?)
+            FROM read_parquet(?, hive_partitioning=false)
+            """,
+            [TARGET_CODE, str(source_path)],
+        ).fetchone()
+    audit = SourceStagingAudit(
+        source_plan_hash=source_plan_hash,
+        source_path=str(source_path),
+        expected_sha256=expected_sha256,
+        actual_sha256=file_sha256(source_path) if source_exists else "",
+        expected_row_count=len(expected_dates),
+        row_count=int(total_row_count),
+        distinct_date_count=len(observed_date_set),
+        duplicate_key_count=max(len(rows) - len(observed_date_set), 0),
+        missing_date_count=len(expected_date_set - observed_date_set),
+        unexpected_date_count=len(observed_date_set - expected_date_set),
+        unexpected_code_count=int(unexpected_code_count),
+        target_fingerprint=hash_payload(rows),
+    )
+    return audit, rows
 
 
 def audit_layer(
@@ -207,11 +300,19 @@ def audit_formal_lake(
     *,
     plan_path: Path,
     expected_plan_hash: str,
+    source_plan_path: Path,
+    expected_source_plan_hash: str,
+    expected_source_sha256: str,
     duckdb_resource: DuckDBResource,
 ) -> PhysicalAuditReport:
     plan = load_frozen_plan(
         plan_path,
         expected_plan_hash=expected_plan_hash,
+        require_green=True,
+    )
+    source_plan = load_frozen_plan(
+        source_plan_path,
+        expected_plan_hash=expected_source_plan_hash,
         require_green=True,
     )
     targets = plan.get("targets")
@@ -227,7 +328,24 @@ def audit_formal_lake(
         lake_root / "silver" / "index_daily" / path.parent.name / path.name
         for path in gold_paths
     )
+    source_targets = source_plan.get("targets")
+    if not isinstance(source_targets, Mapping):
+        raise IndexDaily000680HistorySupplementAuditError(
+            "Frozen source plan has no targets object."
+        )
+    source_raw_paths = tuple(
+        Path(str(value)) for value in source_targets["raw_files"]
+    )
+    source_dates = tuple(_partition_key(path) for path in source_raw_paths)
+    raw_dates = tuple(_partition_key(path) for path in raw_paths)
     with duckdb_resource.connect() as connection:
+        source_audit, source_rows = audit_source_staging(
+            connection,
+            source_plan_hash=expected_source_plan_hash,
+            source_path=source_staging_path(source_plan),
+            expected_sha256=expected_source_sha256,
+            expected_dates=source_dates,
+        )
         raw_audit, raw_rows = audit_layer(
             connection,
             layer="raw",
@@ -248,21 +366,31 @@ def audit_formal_lake(
             layer="silver",
             paths=silver_gold_paths,
         )
+    source_plan_history_matches = source_dates == raw_dates
+    source_raw_matches = source_rows == raw_rows
     raw_silver_matches = raw_rows == silver_history_rows
     silver_gold_matches = silver_gold_rows == gold_rows
     payload = {
         "plan_hash": expected_plan_hash,
+        "source_plan_hash": expected_source_plan_hash,
+        "source": source_audit.to_dict(),
         "raw": raw_audit.to_dict(),
         "silver": silver_audit.to_dict(),
         "gold": gold_audit.to_dict(),
+        "source_plan_history_matches": source_plan_history_matches,
+        "source_raw_history_matches": source_raw_matches,
         "raw_silver_history_matches": raw_silver_matches,
         "silver_gold_matches": silver_gold_matches,
     }
     return PhysicalAuditReport(
         plan_hash=expected_plan_hash,
+        source_plan_hash=expected_source_plan_hash,
+        source=source_audit,
         raw=raw_audit,
         silver=silver_audit,
         gold=gold_audit,
+        source_plan_history_matches=source_plan_history_matches,
+        source_raw_history_matches=source_raw_matches,
         raw_silver_history_matches=raw_silver_matches,
         silver_gold_matches=silver_gold_matches,
         audit_hash=hash_payload(payload),

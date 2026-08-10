@@ -98,18 +98,28 @@ def write_plan(path: Path, payload: dict[str, object]) -> None:
 
 
 def write_green_physical_audit(path: Path, *, plan_hash: str) -> str:
+    source_plan_hash = "source-plan-hash"
+    source = {
+        "passed": True,
+        "row_count": 1,
+        "expected_row_count": 1,
+    }
     layers = {
         "raw": {"passed": True, "target_row_count": 1},
         "silver": {"passed": True, "target_row_count": 1},
         "gold": {"passed": True, "target_row_count": 1},
     }
     cross_layer = {
+        "source_plan_history_matches": True,
+        "source_raw_history_matches": True,
         "raw_silver_history_matches": True,
         "silver_gold_matches": True,
     }
     audit_hash = hash_payload(
         {
             "plan_hash": plan_hash,
+            "source_plan_hash": source_plan_hash,
+            "source": source,
             "raw": layers["raw"],
             "silver": layers["silver"],
             "gold": layers["gold"],
@@ -119,7 +129,10 @@ def write_green_physical_audit(path: Path, *, plan_hash: str) -> str:
     path.write_text(
         json.dumps(
             {
+                "schema_version": 2,
                 "plan_hash": plan_hash,
+                "source_plan_hash": source_plan_hash,
+                "source": source,
                 "layers": layers,
                 "cross_layer": cross_layer,
                 "audit_hash": audit_hash,

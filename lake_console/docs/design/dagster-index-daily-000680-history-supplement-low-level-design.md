@@ -1,13 +1,13 @@
 # 科创综指 `000680.SH` 指数日线历史补录 LLD
 
-> 状态：M0、M1、M2、M3、M4、M5 已完成；Raw/Silver 历史补录、11 指数日级 seed 发布和 1599 个 Gold 分区重建均已通过 checkpoint 深验、合同对账与幂等重跑。M6、M7 尚未执行。
+> 状态：M0、M1、M2、M3、M4、M5、M6 已完成；Raw/Silver 历史补录、11 指数日级 seed 发布、1599 个 Gold 分区重建和 Prod -> source staging -> Raw -> Silver -> Gold 全链路只读对账均已通过。M8 已完成物理链路最小收口；M7 Dagster instance/event 写入仍未执行，也未被本状态授权。
 > 审计日期：2026-08-09。
 > 适用范围：DG 正式湖 `raw_index_daily`、`silver_index_daily`、`gold_market_major_indices_daily`，以及日级主要指数 seed。
 > 不在本轮范围：Tushare 重新请求、Prod 数据写入、分钟线对象池、Wealth 首页 10 指数配置、正式 Dagster instance 写入。
 
 ### 当前实施状态（2026-08-09）
 
-M0、M1、M2、M3、M4、M5 已完成，物理湖写入已验收：
+M0、M1、M2、M3、M4、M5、M6 已完成，物理湖写入和全链路只读对账均已验收：
 
 1. M5 冻结计划位于 `/Volumes/datasource/data_lake_staging/index_daily_000680_history_supplement/run_id=m5-20260809/manifest/plan.json`。
 2. M5 冻结 `plan_hash=9682418678919443c9f49a006f8581c3524e09be680b58c29bad0e6401526249`，`should_stop=false`。
@@ -24,6 +24,10 @@ M0、M1、M2、M3、M4、M5 已完成，物理湖写入已验收：
 13. source、Raw、Silver 的 1223 行目标数据逐行一致；Raw/Silver 各 978623 行、零重复键、零错误分区、每个目标日期恰好 1 行 `000680.SH`。
 14. M5 的 Gold 累计 checkpoint 为 1599/1599；全量合同核验得到 expected/actual 均为 15726 行、零缺失、零意外行、零重复键、零重复 rank、零错误分区。
 15. M5 的 16 个幂等批次新增 promotion 均为 0；本阶段未写 Dagster event/check history、未注册 dynamic partition、未修改分钟线对象池或 Wealth 首页配置。
+16. M6 使用冻结的 M2 source plan/hash、source Parquet SHA256 和 M5 plan/hash 执行全链路只读审计；审计报告 `passed=true`，`audit_hash=3cca24c69028e00644828b33da11228f147af97cd7be9cf19381a4279a6741e4`。
+17. M6 重新导出当前 Prod 1223 行并与 source staging 逐键比较：`source_only=0`、`prod_only=0`；source、Raw、Silver 均为 1223 行/1223 日期，跨层 fingerprint 完全一致。
+18. M6 核验 Gold 为 1599 行/1599 日期，所有日期均满足发布后的 active seed coverage/rank 合同；正式湖、Dagster DB、dynamic partition 和 event 写入计数均为 0。
+19. M8 只完成物理链路文档、测试和验收证据收口；由于 M7 未执行，Dagster instance/event 观测链路仍保留为独立待审批阶段，不能把 M8 解释为整项任务全部关闭。
 
 ## 1. 目标与冻结口径
 
@@ -180,8 +184,8 @@ dynamic partition reconciliation + runless events
 | `defs/bootstrap/index_daily_000680_history_supplement_plan_cli.py` | dry-run CLI；只输出计划和审计结果 |
 | `defs/bootstrap/index_daily_000680_history_supplement_apply.py` | 执行 source staging、Raw merge、Silver rebuild、Gold rebuild |
 | `defs/bootstrap/index_daily_000680_history_supplement_apply_cli.py` | 显式 `--apply --expected-plan-hash` 写入入口 |
-| `defs/bootstrap/index_daily_000680_history_supplement_audit.py` | 只读物理审计 Raw/Silver/Gold 目标行、重复键、跨层 fingerprint 与冻结 plan hash |
-| `defs/bootstrap/index_daily_000680_history_supplement_audit_cli.py` | 只读物理审计 CLI；只向显式报告路径写 JSON |
+| `defs/bootstrap/index_daily_000680_history_supplement_audit.py` | 只读审计冻结 source staging、Raw/Silver/Gold 目标行、重复键、跨层 fingerprint、source SHA256 与两份冻结 plan hash |
+| `defs/bootstrap/index_daily_000680_history_supplement_audit_cli.py` | 只读物理审计 CLI；必须显式传入 source plan/hash/source SHA256，只向显式报告路径写 JSON |
 | `defs/bootstrap/index_daily_000680_history_supplement_events.py` | 物理验收后规划/回放 runless materialization；check event 数固定为 0，禁止伪造绿色 check |
 | `defs/bootstrap/index_daily_000680_history_supplement_events_cli.py` | 独立 event dry-run/apply 入口 |
 
@@ -362,7 +366,7 @@ write_silver_index_daily_partition_from_raw_file(
 
 ### 9.1 Seed 变更
 
-目标 seed：
+已发布 seed 追加行：
 
 ```csv
 11,000680.SH,,2020-01-02,
@@ -478,11 +482,11 @@ Source 只有 1223 行，数据库读取不是瓶颈；主要成本是 4045 个�
 | M3 Raw/Silver 样本补录 | **已完成**：只处理 `2020-01-02`、`2022-07-13`、`2025-01-16` | Raw/Silver 候选校验、原子提升、跨层对账和幂等验证通过；Gold/seed/event/partition 写入为 0 |
 | M4 Raw/Silver 全量 | **已完成**：分 13 批补齐 1223 个 Raw，并分 13 批重建 1223 个 Silver | 累计 checkpoint、全量哈希、跨层对账和 26 批幂等重跑全部通过；Gold/seed/instance 写入为 0 |
 | M5 Seed/Gold | **已完成**：发布 11 指数 seed；先对 M3 三个样本日验证 Gold，再分 16 批重建 1599 个有效 Gold 日期 | 三日样本、1599/1599 累计 checkpoint、active seed coverage/rank 合同和 16 批幂等重跑全部通过；instance/event 写入为 0 |
-| M6 全量对账 | Prod -> Raw -> Silver -> Gold 对账 | 无缺日、无重复、无非目标漂移、无旧 seed 口径 |
+| M6 全量对账 | **已完成**：重新核验当前 Prod，并对冻结 source staging -> Raw -> Silver -> Gold 执行全链路只读审计 | Prod/source 逐键差集均为 0；source/Raw/Silver 1223 行 fingerprint 相等；Gold 1599 日期 coverage/rank 全绿；正式写入为 0 |
 | M7 instance/event | 注册缺失 dynamic keys，补 runless events | 单独审批；event planner 与执行报告一致 |
-| M8 收口 | 更新文档、运行手册和最终验收报告 | 计划逐条对账，无未解释差异 |
+| M8 收口 | **物理链路最小收口已完成**：更新代码合同、测试、LLD 和 M6 验收证据；M7 观测链路仍单列 | 物理链路无未解释差异；不得用 M8 状态代替 M7 审批与执行 |
 
-M3、M4、M5、M7 都是独立写入审批点；M5 已按单独审批完成，但不自动授权 M6 全量跨层对账或 M7 instance/event 写入。
+M3、M4、M5、M7 都是独立写入审批点；M6 是只读全量跨层对账，已完成但不自动授权 M7 instance/event 写入。
 
 ### 12.1 M3 执行冻结
 
@@ -581,7 +585,7 @@ M4 继续使用冻结 `plan_hash=6ccc360fc1432a127c2ad62cbcfb36f88549d52ce33522b
 | `silver-checkpoints.json` | `2c7d2309e9458f72a464a979e52ac2ebb20daea1e4d290e6e569377d6431d728` |
 | `m4-raw-silver-audit.json` | `c5ed55827e41c7978b5e7554b782921c132b7580f5920f639b87895b18e2f669` |
 
-M4 完成后，管理员已单独批准 M5 的 11 指数 seed 发布、三日 Gold 样本和 1599 个 Gold 分区重建；后续 M6、M7 仍须按各自边界独立推进。
+M4 完成后，管理员已单独批准 M5 的 11 指数 seed 发布、三日 Gold 样本和 1599 个 Gold 分区重建；M6 只读对账随后已完成，M7 仍须按独立写入边界审批。
 
 ### 12.4 M5 Seed/Gold 实际验收证据
 
@@ -608,7 +612,30 @@ M5 使用独立冻结计划执行，未复用 M2 的 10 指数 seed 计划：
 6. `000680.SH` 在 Gold 中共 1599 行、1599 个 distinct dates，日期范围 `2020-01-02..2026-08-07`。
 7. M5 没有修改分钟线 seed、分钟线 source scope、Wealth 首页 10 指数配置；没有执行 Dagster event/check 写入或 dynamic partition 注册。
 
-M5 完成只证明日级 seed 与 Gold 物理合同已收敛，不等同于 M6 的 Prod -> Raw -> Silver -> Gold 全量字段对账，也不授权 M7 instance/event 写入。
+M5 完成只证明日级 seed 与 Gold 物理合同已收敛；完整的 Prod -> source staging -> Raw -> Silver -> Gold 只读对账证据见下一节。M5 与 M6 均不授权 M7 instance/event 写入。
+
+### 12.5 M6 全链路只读对账与 M8 最小收口证据
+
+M6 使用两份冻结计划和冻结 source 文件执行，未重新生成或替换任何正式数据：
+
+| 维度 | 冻结值 / 结果 |
+|---|---|
+| M2 source plan | `/Volumes/datasource/data_lake_staging/index_daily_000680_history_supplement/run_id=m2-20260809/manifest/plan.json` |
+| M2 source plan hash | `6ccc360fc1432a127c2ad62cbcfb36f88549d52ce33522bd9e1a6ce22ff2a177` |
+| source Parquet SHA256 | `647af89ef8f5f98d7a02a3ee9a6e5864efa88ce853056e542f467308f328117f` |
+| M5 plan hash | `9682418678919443c9f49a006f8581c3524e09be680b58c29bad0e6401526249` |
+| M6 report | `/private/tmp/index_daily_000680_history_supplement_m6_20260809.json` |
+| M6 report SHA256 | `71e7397bae5ac1c4defcec877f28c0b893e11a0b45cd58f7d56ffdb88f7dee2b` |
+| M6 audit hash | `3cca24c69028e00644828b33da11228f147af97cd7be9cf19381a4279a6741e4` |
+
+只读验收结果：
+
+1. 当前 Prod `000680.SH` 在 `2020-01-02..2025-01-16` 仍为 1223 行、1223 日期，重复键、越界代码和关键字段空值均为 0。
+2. 当前 Prod 全量导出与冻结 source staging 逐键比较：`source_only=0`、`prod_only=0`。
+3. source、Raw、Silver 均为 1223 行、1223 日期，fingerprint 均为 `a2daf046e03890adb4e7e9f576cf59afaa231e665c589fe408d475fb8e34bd11`。
+4. Gold 为 1599 行、1599 日期，fingerprint 为 `b3b3f050f5246066bf43b275bea9fbd4f0510c96995e9f45536f6b6db9e21fdc`；active seed coverage/rank 对账全部通过。
+5. 审计共扫描 5245 个文件引用；formal Lake、Dagster DB、dynamic partition、materialization/check event 写入计数均为 0。
+6. M8 已据此完成物理链路最小收口；`/private/tmp` 报告是本机临时验收证据，不是正式湖数据，也不替代后续 M7 的独立执行报告。
 
 ## 13. 测试门禁
 
