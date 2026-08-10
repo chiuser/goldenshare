@@ -105,6 +105,24 @@ FUND_DIV_SOURCE_FIELDS = (
     "base_year",
 )
 
+FUND_PORTFOLIO_SOURCE_FIELDS = (
+    "ts_code",
+    "ann_date",
+    "end_date",
+    "symbol",
+    "mkv",
+    "amount",
+    "stk_mkv_ratio",
+    "stk_float_ratio",
+)
+
+FUND_PORTFOLIO_IDENTITY_FIELDS = (
+    "ts_code",
+    "ann_date",
+    "end_date",
+    "symbol",
+)
+
 FUND_DIV_IDENTITY_FIELDS = (
     "ts_code",
     "ann_date",

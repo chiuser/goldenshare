@@ -20,8 +20,8 @@ class IngestionCodebookEntry:
         }
 
 
-INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-07.v1"
-INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-07T00:00:00Z"
+INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-10.v1"
+INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-10T00:00:00Z"
 
 INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("dataset_mismatch", "请求数据集与定义不一致", "validator", "检查 dataset_key 与定义绑定"),
@@ -46,6 +46,7 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("invalid_month_key", "月份参数格式非法", "validator", "使用 YYYYMM 或 YYYY-MM"),
     IngestionCodebookEntry("invalid_anchor_type", "锚点类型非法", "validator/planner", "检查 date model 与输入形状"),
     IngestionCodebookEntry("invalid_anchor_date", "锚点日期不符合规则", "validator", "按数据集日期规则选择自然周五、自然月末或其他要求日期"),
+    IngestionCodebookEntry("quarter_end_required", "报告期必须为自然季度末", "validator/planner", "选择 03-31、06-30、09-30 或 12-31"),
     IngestionCodebookEntry("units_exceeded", "执行单元数量超出限制", "planner", "缩小时间窗口或调整 unit 上限"),
     IngestionCodebookEntry("fanout_missing", "分片参数缺失且无默认值", "planner", "补齐 fanout 参数或配置默认值"),
     IngestionCodebookEntry("trade_date_anchor_required", "缺少交易日锚点", "planner", "补齐 trade_date 或 start/end 区间"),
@@ -54,9 +55,10 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("unknown_universe_policy", "未知的规划范围策略", "planner", "检查 planning.universe_policy 配置"),
     IngestionCodebookEntry("request_builder_not_found", "请求参数构造器不存在", "planner", "检查 source.request_builder_key 与注册函数"),
     IngestionCodebookEntry("scoped_repair_policy_invalid", "定点补录策略非法", "planner", "检查筛选字段的 scoped_repair_policy 定义"),
-    IngestionCodebookEntry("scoped_repair_code_invalid", "定点补录证券代码非法", "planner", "使用一个 6 位数字.(SH|SZ|BJ) 格式的证券代码"),
-    IngestionCodebookEntry("scoped_repair_point_required", "定点补录仅支持单个日期", "planner", "改为按单个交易日补录"),
+    IngestionCodebookEntry("scoped_repair_code_invalid", "定点补录对象代码非法", "planner", "使用一个合法的单一证券或基金代码"),
+    IngestionCodebookEntry("scoped_repair_point_required", "定点补录仅支持单个日期", "planner", "改为按单个日期或报告期补录"),
     IngestionCodebookEntry("scoped_repair_bucket_missing", "定点补录日期桶尚未建立", "planner", "先完成该交易日的全市场维护，再补录单只证券"),
+    IngestionCodebookEntry("scoped_repair_scope_missing", "定点补录报告期尚未建立", "planner", "先完成该报告期全市场维护，再补录单只基金"),
     IngestionCodebookEntry("source_adapter_not_found", "数据源适配器不存在", "source", "检查 source_key 与适配器映射"),
     IngestionCodebookEntry("source_timeout", "上游请求超时", "source", "稍后重试或降低并发"),
     IngestionCodebookEntry("source_http_error", "上游 HTTP 异常", "source", "检查状态码和请求参数"),
@@ -108,6 +110,15 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("write.immutable_scope_regression", "不可变事实范围回退", "writer", "核对源端本次结果是否缺行或为空"),
     IngestionCodebookEntry("write.immutable_fact_conflict", "不可变事实与已有内容冲突", "writer", "人工核对源端是否发生修订或身份规则是否错误"),
     IngestionCodebookEntry("write.immutable_persistence_incomplete", "不可变事实写入核对失败", "writer", "回滚后检查目标表约束和事务状态"),
+    IngestionCodebookEntry("write.staged_scope_busy", "基金持仓发布器已有执行占用", "staged_publisher", "等待现有任务结束后重试"),
+    IngestionCodebookEntry("staged_scope_rows_rejected", "基金持仓暂存范围存在拒绝行", "executor", "先核验拒绝原因，禁止发布部分报告期"),
+    IngestionCodebookEntry("pagination_short_page_missing", "分页未观察到终止短页", "executor", "检查分页迭代器和源端终止条件"),
+    IngestionCodebookEntry("write.staged_scope_empty", "基金持仓暂存范围为空", "staged_publisher", "检查报告期、分页和源端返回"),
+    IngestionCodebookEntry("write.stage_scope_mismatch", "基金持仓暂存行超出请求范围", "staged_publisher", "核验报告期和定向补录基金代码"),
+    IngestionCodebookEntry("write.stage_identity_content_conflict", "暂存范围存在同身份不同内容", "staged_publisher", "核验源端分页漂移和身份字段"),
+    IngestionCodebookEntry("write.immutable_content_conflict", "已发布不可变事实内容发生变化", "staged_publisher", "人工核验源端修订或身份规则"),
+    IngestionCodebookEntry("write.staged_scope_reconciliation_failed", "暂存与正式范围对账失败", "staged_publisher", "检查事务、约束和集合对账 SQL"),
+    IngestionCodebookEntry("write.staged_scope_write_failed", "暂存发布执行失败", "staged_publisher", "查看具体数据库异常并重试"),
     IngestionCodebookEntry("write.fact_scope_invalid", "按范围观察事实的日期范围非法", "writer", "检查执行单元日期与源行日期是否一致"),
     IngestionCodebookEntry("write.fact_duplicate_record", "按范围观察事实存在重复实体", "writer", "检查分页重叠或实体身份规则，禁止静默选取"),
     IngestionCodebookEntry("write.fact_content_hash_invalid", "按范围观察事实内容哈希失败", "writer", "检查 source field 类型与哈希序列化"),

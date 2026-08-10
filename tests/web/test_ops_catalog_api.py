@@ -42,6 +42,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert "fund_manager.maintain" in actions
     assert "fund_share.maintain" in actions
     assert "fund_div.maintain" in actions
+    assert "fund_portfolio.maintain" in actions
     assert "maintenance.rebuild_dm" in actions
     legacy_keys = [
         "sync" + "_daily.daily",
@@ -197,7 +198,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert actions["maintenance.rebuild_dm"]["display_name"] == "刷新数据集市快照"
 
     catalog_items = [*actions.values(), *workflows.values()]
-    assert sum(item["schedule_enabled"] for item in catalog_items) == 87
+    assert sum(item["schedule_enabled"] for item in catalog_items) == 88
     assert all(
         (item["automation_capability"] is not None) is item["schedule_enabled"]
         for item in catalog_items
@@ -330,6 +331,28 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
             "explicit_time_input": "forbidden",
             "generated_time_mode": "point",
             "generated_time_field": "ann_date",
+        }
+    ]
+
+    fund_portfolio = actions["fund_portfolio.maintain"]
+    assert fund_portfolio["group_key"] == "public_fund"
+    assert fund_portfolio["group_label"] == "公募基金"
+    assert fund_portfolio["freshness_policy"] == "event_run_trace"
+    assert [param["key"] for param in fund_portfolio["parameters"]] == [
+        "trade_date",
+        "start_date",
+        "end_date",
+        "ts_code",
+    ]
+    assert fund_portfolio["automation_capability"]["probe_conditions"] == []
+    assert fund_portfolio["automation_capability"]["calendar_policy_rules"] == [
+        {
+            "policy": "latest_completed_calendar_quarter",
+            "schedule_types": ["cron", "once"],
+            "cron_repeat_modes": ["weekly", "monthly"],
+            "explicit_time_input": "forbidden",
+            "generated_time_mode": "point",
+            "generated_time_field": "trade_date",
         }
     ]
 

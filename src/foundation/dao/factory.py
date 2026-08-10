@@ -22,6 +22,7 @@ from src.foundation.dao.major_news_dao import RawMajorNewsDAO
 from src.foundation.dao.news_dao import RawNewsDAO
 from src.foundation.dao.observed_snapshot_dao import ObservedSnapshotDAO
 from src.foundation.dao.immutable_fact_dao import ImmutableFactDAO
+from src.foundation.dao.fund_portfolio_dao import FundPortfolioDAO
 from src.foundation.dao.row_key_hash_dao import RowKeyHashDAO
 from src.foundation.dao.security_dao import SecurityDAO
 from src.foundation.dao.stk_period_bar_adj_dao import StkPeriodBarAdjDAO
@@ -37,6 +38,7 @@ from src.foundation.models.core_serving.fund_basic_observation import FundBasicO
 from src.foundation.models.core_serving.fund_company_current import FundCompanyCurrent
 from src.foundation.models.core_serving.fund_company_observation import FundCompanyObservation
 from src.foundation.models.core_serving.fund_div import FundDiv
+from src.foundation.models.core_serving.fund_portfolio import FundPortfolio
 from src.foundation.models.core_serving.fund_manager_current import FundManagerCurrent
 from src.foundation.models.core_serving.fund_manager_observation import FundManagerObservation
 from src.foundation.models.core_serving.fund_share_current import FundShareCurrent
@@ -193,6 +195,8 @@ class DAOFactory:
         self.fund_company_current = ObservedSnapshotDAO(session, FundCompanyCurrent)
         self.fund_company_observation = ObservedSnapshotDAO(session, FundCompanyObservation)
         self.fund_div = ImmutableFactDAO(session, FundDiv)
+        self.fund_portfolio = ImmutableFactDAO(session, FundPortfolio)
+        self.fund_portfolio_stage = FundPortfolioDAO(session)
         self.fund_manager_current = ObservedSnapshotDAO(session, FundManagerCurrent)
         self.fund_manager_observation = ObservedSnapshotDAO(session, FundManagerObservation)
         self.fund_share_current = ObservedSnapshotDAO(session, FundShareCurrent)

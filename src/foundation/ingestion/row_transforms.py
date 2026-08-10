@@ -128,6 +128,17 @@ def _fund_div_immutable_fact_row_transform(row: dict[str, Any]) -> dict[str, Any
     return transformed
 
 
+def _fund_portfolio_staged_fact_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    ts_code = str(transformed.get("ts_code") or "").strip().upper()
+    symbol = str(transformed.get("symbol") or "").strip()
+    if ts_code:
+        transformed["ts_code"] = ts_code
+    if symbol:
+        transformed["symbol"] = symbol
+    return transformed
+
+
 def _decimal_fits_numeric_30_10(value: Decimal) -> bool:
     if not value.is_finite():
         return False
@@ -881,6 +892,7 @@ __all__ = [
     "_fund_manager_observed_snapshot_row_transform",
     "_fund_share_observed_fact_row_transform",
     "_fund_div_immutable_fact_row_transform",
+    "_fund_portfolio_staged_fact_row_transform",
     "_trade_cal_row_transform",
     "_stock_basic_row_transform",
     "_bse_mapping_row_transform",

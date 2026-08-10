@@ -36,6 +36,7 @@ TIME_PARAM_KEYS = {
 INTERNAL_PARAM_KEYS = {"offset", "limit"}
 SCOPED_REPAIR_TIME_RULES = {
     "existing_point_bucket_only": (("point",), "股票代码补录仅支持一个已存在日期桶。"),
+    "existing_observed_point_scope_only": (("point",), "单基金补录只适用于已有报告期。"),
 }
 
 @dataclass(frozen=True, slots=True)
@@ -278,6 +279,7 @@ class ManualActionQueryService:
         selection_rule = cls._selection_rule(date_model)
         natural_day_mode = date_model.date_axis == "natural_day" or date_model.input_shape == "ann_date_or_start_end"
         point_date_field = "ann_date" if date_model.input_shape == "ann_date_or_start_end" else "trade_date"
+        quarter_mode = date_model.bucket_rule == "calendar_quarter_end"
 
         if mode == "point":
             if date_model.input_shape == "month_or_range":
@@ -292,8 +294,8 @@ class ManualActionQueryService:
                 return None
             return cls._mode_response(
                 mode="point",
-                label="只处理一天",
-                description="指定单个日期。",
+                label="只处理一个报告期" if quarter_mode else "只处理一天",
+                description="指定一个自然季度末报告期。" if quarter_mode else "指定单个日期。",
                 control="calendar_date" if natural_day_mode else "trade_date",
                 selection_rule=selection_rule,
                 date_field=point_date_field,
@@ -320,8 +322,8 @@ class ManualActionQueryService:
                 return None
             return cls._mode_response(
                 mode="range",
-                label="处理一个时间区间",
-                description="指定开始日期和结束日期。",
+                label="处理一个报告期范围" if quarter_mode else "处理一个时间区间",
+                description="指定报告期范围，系统只展开范围内的自然季度末。" if quarter_mode else "指定开始日期和结束日期。",
                 control="calendar_date_range" if natural_day_mode else "trade_date_range",
                 selection_rule=selection_rule,
                 date_field=point_date_field,

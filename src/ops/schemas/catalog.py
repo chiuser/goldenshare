@@ -65,6 +65,7 @@ class CalendarPolicyCapabilityResponse(BaseModel):
         "monthly_window_current_month",
         "trigger_day_single_range",
         "trigger_day_point",
+        "latest_completed_calendar_quarter",
     ]
     schedule_types: list[Literal["cron", "once"]]
     cron_repeat_modes: list[Literal["daily", "weekly", "monthly", "intraday_interval"]]

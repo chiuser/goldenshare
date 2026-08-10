@@ -15,6 +15,7 @@ FOUNDATION_MODEL_SCHEMAS = {
     "core_multi",
     "core_serving",
     "core_serving_light",
+    "foundation",
     "dm",
     "meta",
     "raw_biying",

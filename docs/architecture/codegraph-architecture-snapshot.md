@@ -135,12 +135,13 @@ lake_console/orchestrator/src/orchestrator/definitions.py:defs
 3. `DatasetActionResolver`：位于 `src/foundation/ingestion/resolver.py`。负责按 `DatasetDefinition.date_model.input_shape` 归一化时间输入，并生成 plan。
 4. `DatasetUnitPlanner`：位于 `src/foundation/ingestion/unit_planner.py`。负责 anchor、universe、enum fanout、分页和 request builder 解析。
 5. `request_builders`：位于 `src/foundation/ingestion/request_builders.py`。源接口参数只能在这里生成或通过这里的 builder 生成。
-6. `TaskRunDispatcher`：位于 `src/ops/runtime/task_run_dispatcher.py`。负责 TaskRun 到执行链的运行时分派、节点、issue、plan snapshot 和 summary。
-7. `ManualActionQueryService`：位于 `src/ops/queries/manual_action_query_service.py`。把 DatasetDefinition 与 workflow definition 投影为运营前端可提交的 manual actions。
-8. `wealthFetch`：位于 `wealth/src/shared/api/wealthApiClient.ts`。Wealth 前端共享鉴权 API adapter。
-9. `lakeApi.ts`：位于 `lake_console/frontend/src/services/lakeApi.ts`。Lake Console 前端共享 API adapter。
-10. `SyncProfileRunner`：位于 `lake_console/backend/app/services/sync_profile_runner.py`。本地 Lake Sync Profile 执行 adapter。
-11. `orchestrator.definitions.defs`：位于 `lake_console/orchestrator/src/orchestrator/definitions.py`。Dagster defs-folder 装配入口。
+6. `DatasetSourceClient.iter_pages` / `StagedStreamPublisher`：位于 `src/foundation/ingestion/source_client.py` 与 `src/foundation/ingestion/staged_stream.py`。前者提供通用逐页读取，后者只为 Definition 显式 opt-in 的 staged DAO 持有专用连接、锁和事务；页级 stage commit 不改变 unit 级业务提交边界。
+7. `TaskRunDispatcher`：位于 `src/ops/runtime/task_run_dispatcher.py`。负责 TaskRun 到执行链的运行时分派、节点、issue、plan snapshot 和 summary。
+8. `ManualActionQueryService`：位于 `src/ops/queries/manual_action_query_service.py`。把 DatasetDefinition 与 workflow definition 投影为运营前端可提交的 manual actions。
+9. `wealthFetch`：位于 `wealth/src/shared/api/wealthApiClient.ts`。Wealth 前端共享鉴权 API adapter。
+10. `lakeApi.ts`：位于 `lake_console/frontend/src/services/lakeApi.ts`。Lake Console 前端共享 API adapter。
+11. `SyncProfileRunner`：位于 `lake_console/backend/app/services/sync_profile_runner.py`。本地 Lake Sync Profile 执行 adapter。
+12. `orchestrator.definitions.defs`：位于 `lake_console/orchestrator/src/orchestrator/definitions.py`。Dagster defs-folder 装配入口。
 
 ## 风险点
 

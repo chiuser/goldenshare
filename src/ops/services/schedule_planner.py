@@ -14,6 +14,7 @@ SUPPORTED_CALENDAR_POLICIES = {
     "monthly_window_current_month",
     "trigger_day_single_range",
     "trigger_day_point",
+    "latest_completed_calendar_quarter",
 }
 
 
@@ -77,7 +78,7 @@ def compute_next_run_at(
     if after.tzinfo is None:
         raise WebAppError(status_code=422, code="validation_error", message="排程计算时间必须包含时区信息")
     if schedule_type == "once":
-        if calendar_policy is not None:
+        if calendar_policy not in {None, "latest_completed_calendar_quarter"}:
             raise WebAppError(status_code=422, code="validation_error", message="单次排程不支持日期策略")
         return None
     if schedule_type == "cron":
@@ -108,7 +109,7 @@ def preview_schedule_runs(
         raise WebAppError(status_code=422, code="validation_error", message="排程预览时间必须包含时区信息")
 
     if schedule_type == "once":
-        if calendar_policy is not None:
+        if calendar_policy not in {None, "latest_completed_calendar_quarter"}:
             raise WebAppError(status_code=422, code="validation_error", message="单次排程不支持日期策略")
         resolved_next_run = normalize_schedule_datetime(next_run_at, field_name="next_run_at")
         if resolved_next_run is None:

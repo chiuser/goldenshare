@@ -46,7 +46,7 @@ import {
   formatTimezoneLabel,
 } from "../shared/ops-display";
 import { usePersistentState } from "../shared/hooks/use-persistent-state";
-import { CALENDAR_WEEK_FRIDAY_SELECTION_RULE, DateField, type DateSelectionRule } from "../shared/ui/date-field";
+import { CALENDAR_QUARTER_END_SELECTION_RULE, CALENDAR_WEEK_FRIDAY_SELECTION_RULE, DateField, type DateSelectionRule } from "../shared/ui/date-field";
 import { useAuth } from "../features/auth/auth-context";
 import { ActionSummaryCard } from "../shared/ui/action-summary-card";
 import { ActivityTimeline } from "../shared/ui/activity-timeline";
@@ -80,7 +80,8 @@ type CalendarPolicy =
   | "monthly_last_trading_day"
   | "monthly_window_current_month"
   | "trigger_day_single_range"
-  | "trigger_day_point";
+  | "trigger_day_point"
+  | "latest_completed_calendar_quarter";
 type ParsedCronExpression = {
   repeatMode: RepeatMode;
   repeatTime: string;
@@ -282,7 +283,8 @@ export function formatScheduleRule(
     "0": "周日",
   };
   if (scheduleType === "once") {
-    return nextRunAt ? `单次执行：${nextRunAt.replace("T", " ").slice(0, 16)}` : "单次执行";
+    const base = nextRunAt ? `单次执行：${nextRunAt.replace("T", " ").slice(0, 16)}` : "单次执行";
+    return calendarPolicy === "latest_completed_calendar_quarter" ? `${base}，维护最近已完成季度` : base;
   }
   const parsed = parseCronExpression(cronExpr, calendarPolicy);
   if (!parsed) {
@@ -316,6 +318,12 @@ export function formatScheduleRule(
           ? `每周 ${parsed.repeatWeekdays.map((item) => weekdayLabel[item] || item).join("、")} ${parsed.repeatTime}`
           : `每月 ${parsed.repeatMonthDay} 日 ${parsed.repeatTime}`;
     return `${base}，维护触发日`;
+  }
+  if (calendarPolicy === "latest_completed_calendar_quarter") {
+    const base = parsed.repeatMode === "weekly"
+      ? `每周 ${parsed.repeatWeekdays.map((item) => weekdayLabel[item] || item).join("、")} ${parsed.repeatTime}`
+      : `每月 ${parsed.repeatMonthDay} 日 ${parsed.repeatTime}`;
+    return `${base}，维护最近已完成季度`;
   }
   if (parsed.repeatMode === "daily") {
     return `每天 ${parsed.repeatTime}`;
@@ -482,6 +490,9 @@ function toCalendarDateSelectionRule(rule: string | null | undefined): DateSelec
   if (rule === "month_end") {
     return "month_end";
   }
+  if (rule === CALENDAR_QUARTER_END_SELECTION_RULE) {
+    return CALENDAR_QUARTER_END_SELECTION_RULE;
+  }
   return "any";
 }
 
@@ -496,7 +507,7 @@ function toTradeDateSelectionRule(rule: string | null | undefined): TradeDateSel
 }
 
 function usesCalendarDateControl(rule: string | null | undefined): boolean {
-  return rule === CALENDAR_WEEK_FRIDAY_SELECTION_RULE || rule === "month_end";
+  return rule === CALENDAR_WEEK_FRIDAY_SELECTION_RULE || rule === CALENDAR_QUARTER_END_SELECTION_RULE || rule === "month_end";
 }
 
 export function capabilitySupportsCalendarPolicy(
@@ -816,6 +827,14 @@ export function OpsAutomationPage() {
     }
   }, [form.repeat_mode, selectedActionSupportsIntraday, setForm]);
   useEffect(() => {
+    if (form.schedule_type !== "cron") return;
+    const supported = selectedAutomationCapability?.calendar_policy_rules
+      ?.filter((rule) => rule.schedule_types.includes("cron"))
+      .flatMap((rule) => rule.cron_repeat_modes) || [];
+    if (!supported.length || supported.includes(form.repeat_mode)) return;
+    setForm((current) => ({ ...current, repeat_mode: supported[0] }));
+  }, [form.repeat_mode, form.schedule_type, selectedAutomationCapability, setForm]);
+  useEffect(() => {
     if (selectedAutomationCapability && !isTriggerModeAllowed(selectedAutomationCapability, form.trigger_mode)) {
       setForm((current) => ({
         ...current,
@@ -1039,17 +1058,19 @@ export function OpsAutomationPage() {
         effectiveCalendarPolicy,
         form.intraday_interval_minutes,
       );
-      const triggerDaySuffix =
+      const policySuffix =
         effectiveCalendarPolicy === "trigger_day_single_range" || effectiveCalendarPolicy === "trigger_day_point"
           ? "，维护触发日"
+          : effectiveCalendarPolicy === "latest_completed_calendar_quarter"
+            ? "，维护最近已完成季度"
           : "";
       const detail =
         form.repeat_mode === "intraday_interval"
           ? `每 ${form.intraday_interval_minutes} 分钟，维护触发日`
           : form.repeat_mode === "daily"
-          ? `每天 ${form.repeat_time}${triggerDaySuffix}`
+          ? `每天 ${form.repeat_time}${policySuffix}`
             : form.repeat_mode === "weekly"
-              ? `每周 ${form.repeat_weekdays.join("、")} ${form.repeat_time}${triggerDaySuffix}`
+              ? `每周 ${form.repeat_weekdays.join("、")} ${form.repeat_time}${policySuffix}`
               : effectiveCalendarPolicy === "monthly_last_day"
                 ? `每月最后一天 ${form.repeat_time}`
                 : effectiveCalendarPolicy === "monthly_last_trading_day"
@@ -1058,6 +1079,8 @@ export function OpsAutomationPage() {
                   ? `每月最后一天 ${form.repeat_time}，维护当月自然月窗口`
                   : effectiveCalendarPolicy === "trigger_day_single_range" || effectiveCalendarPolicy === "trigger_day_point"
                     ? `每月 ${form.repeat_month_day} 日 ${form.repeat_time}，维护触发日`
+                    : effectiveCalendarPolicy === "latest_completed_calendar_quarter"
+                      ? `每月 ${form.repeat_month_day} 日 ${form.repeat_time}，维护最近已完成季度`
                     : `每月 ${form.repeat_month_day} 日 ${form.repeat_time}`;
       return {
         title: "重复执行",

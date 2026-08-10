@@ -38,6 +38,7 @@ ManualActionSelectionRule = Literal[
     "month_end",
     "month_key",
     "month_window",
+    "quarter_end",
 ]
 
 

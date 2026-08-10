@@ -37,6 +37,17 @@ describe("自动任务日期策略", () => {
   const annDateRangeCapability = capability("trigger_day_single_range", ["daily", "weekly", "monthly"]);
   const newsCapability = capability("trigger_day_point", ["intraday_interval"]);
   const fundShareCapability = capability("trigger_day_point", ["daily", "weekly", "monthly", "intraday_interval"]);
+  const fundPortfolioCapability = {
+    calendar_policy_rules: [
+      {
+        policy: "latest_completed_calendar_quarter",
+        schedule_types: ["cron", "once"],
+        cron_repeat_modes: ["weekly", "monthly"],
+        explicit_time_input: "forbidden",
+        generated_time_mode: "point",
+      },
+    ],
+  };
   const noCalendarPolicyCapability = { calendar_policy_rules: [] };
 
   it("recommends monthly calendar policies from dataset date selection rules", () => {
@@ -176,6 +187,55 @@ describe("自动任务日期策略", () => {
     expect(() => buildCronExpression("intraday_interval", "19:00", [], "1", "trigger_day_point", "2")).toThrow(
       "日内高频策略最小间隔为 3 分钟。",
     );
+  });
+
+  it("uses the backend fund-portfolio contract for weekly, monthly, and once schedules", () => {
+    expect(
+      capabilitySupportsCalendarPolicy(
+        fundPortfolioCapability as never,
+        "latest_completed_calendar_quarter",
+        "cron",
+        "weekly",
+      ),
+    ).toBe(true);
+    expect(
+      capabilitySupportsCalendarPolicy(
+        fundPortfolioCapability as never,
+        "latest_completed_calendar_quarter",
+        "cron",
+        "daily",
+      ),
+    ).toBe(false);
+    expect(
+      resolveEffectiveCalendarPolicy({
+        scheduleType: "cron",
+        repeatMode: "monthly",
+        automationCapability: fundPortfolioCapability as never,
+      }),
+    ).toBe("latest_completed_calendar_quarter");
+    expect(
+      resolveEffectiveCalendarPolicy({
+        scheduleType: "once",
+        repeatMode: "daily",
+        automationCapability: fundPortfolioCapability as never,
+      }),
+    ).toBe("latest_completed_calendar_quarter");
+    expect(
+      formatScheduleRule(
+        "cron",
+        "0 19 * * 1",
+        null,
+        "latest_completed_calendar_quarter",
+      ),
+    ).toBe("每周 周一 19:00，维护最近已完成季度");
+    expect(
+      formatScheduleRule(
+        "once",
+        null,
+        "2099-01-01T01:00:00Z",
+        "latest_completed_calendar_quarter",
+      ),
+    ).toBe("单次执行：2099-01-01 01:00，维护最近已完成季度");
   });
 
   const marginDetailCapability = {

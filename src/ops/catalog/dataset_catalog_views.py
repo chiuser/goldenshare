@@ -108,6 +108,7 @@ OPS_DATASET_DEFAULT_VIEW = DatasetCatalogView(
         DatasetCatalogItem("fund_manager", "public_fund", 40),
         DatasetCatalogItem("fund_share", "public_fund", 50),
         DatasetCatalogItem("fund_div", "public_fund", 60),
+        DatasetCatalogItem("fund_portfolio", "public_fund", 70),
         DatasetCatalogItem("biying_moneyflow", "moneyflow", 10),
         DatasetCatalogItem("moneyflow", "moneyflow", 20),
         DatasetCatalogItem("moneyflow_dc", "moneyflow", 30),

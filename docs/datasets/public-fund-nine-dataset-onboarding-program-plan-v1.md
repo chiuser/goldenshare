@@ -1,6 +1,6 @@
 # 公募基金九数据集接入总览与分批推进计划 v1
 
-状态：**B0/B1/B2/B3 已实现并通过隔离与生产验收；B4 的 fund_share 与 fund_div 均已完成 M0 至 M3。B7 fund_portfolio 已完成 M0 与 [LLD](public-fund-b7-fund-portfolio-low-level-design-v1.md)，当前待单独授权 M1；未编码、未迁移、未同步。公募基金数据集均未由本专项自动创建 schedule。**
+状态：**B0/B1/B2/B3 已实现并通过隔离与生产验收；B4 的 fund_share 与 fund_div 均已完成 M0 至 M3。B7 fund_portfolio 已完成 M0、[LLD](public-fund-b7-fund-portfolio-low-level-design-v1.md)、M1 本地实现/门禁与 M2 隔离 migration/HDD/容量/锁/回滚/真实最小同步验收；待独立授权 M3。公募基金数据集均未由本专项自动创建 schedule。**
 确认日期：2026-08-08
 适用范围：Tushare 公募基金菜单的九个数据集接入 Prod
 
@@ -70,7 +70,7 @@ flowchart LR
 | B4 | 先 `fund_share`，后 `fund_div` | Definition 显式 opt-in 的自然日 point fan-out；`fund_share` 按日期作用域刷新 current/observation，`fund_div` 单表不可变只插入；Definition/API 单一事实驱动的自动任务 calendar-policy；逐日分页、事件散列与 exact duplicate 去重 | ✅ B2 验收；✅ `fund_share` M0/LLD/M1；✅ M2 隔离 migration、10 个 HDD relation、真实 `0/6/1,673` 行五段对账、10,000 行容量/回滚/advisory lock；✅ M3 migration `20260807_000128`、10 个生产 HDD relation、TaskRun `#7556` 首次 1,673 行完整对账、三方摘要一致；✅ `fund_div` M0 请求/字段/分页/自然日/exact duplicate 复审；✅ 不可变事实方案与 LLD；✅ M1 Definition、单表 ORM/DAO、writer、Ops/API/UI 与本地门禁；✅ M2 migration `000129/000130`、4 个隔离 HDD relation、真实 `122/141→74/40/0` 对账、10,000 行容量/回滚/advisory lock；✅ M3 生产 4 个 HDD relation、TaskRun `#7653/#7654` 首次 `74 inserted` 与幂等 `74 matched`、源端/目标摘要和三类差集闭环 | `fund_share` 与 `fund_div` 均已完成生产首次同步验收，均未做历史回补或 schedule。`fund_div` 下一边界为 M4a 历史只读预算；历史回补与 schedule 继续分别授权 |
 | B5 | `fund_nav` | E/O 来源分片身份、相对时间、日任务与 90 日修订、按 unit 活动租约防重 | B4 验收 | 通用逐自然日展开、相对时间策略、重叠拒绝/跳过均有后端和前端验证；E/O 全源分页、版本修订和两条自动任务分别验收 |
 | B6 | `fund_factor_pro` | 90 列宽表、交易日历史、容量与限流治理 | B5 验收；HDD/WAL 容量预检通过 | 90 字段和双日期字段校验；历史任务限速、分页、HDD/WAL 水位、停止阈值与最小真实同步对账闭环；不与 B7 大回补并发 |
-| B7 | `fund_portfolio` | 季度报告期、全市场单遍分页、2,000 行页流式处理、UNLOGGED 非服务中间态、整期原子发布、fail-closed 单事实表与大规模历史治理 | ✅ B2/B0；✅ M0 显式 8 字段、113 个连续非空季度、生产背景池 32,342、HDD/WAL 与当前代码影响面；✅ [LLD](public-fund-b7-fund-portfolio-low-level-design-v1.md) 固定季度输入、staged stream、32 个 HDD hash leaves、定向补录、Ops/UI/schedule 与测试门禁；待授权 M1 | 不设页数上限；short page 才结束；同身份同内容幂等去重、同身份不同内容整期失败；stage page commit 不算业务提交；源端/归一化/stage/提交/reject/目标集合对账；单报告期验收后才允许历史回补 |
+| B7 | `fund_portfolio` | 季度报告期、全市场单遍分页、2,000 行页流式处理、UNLOGGED 非服务中间态、整期原子发布、fail-closed 单事实表与大规模历史治理 | ✅ B2/B0；✅ M0 显式 8 字段、113 个连续非空季度、生产背景池 32,342、HDD/WAL 与当前代码影响面；✅ [LLD](public-fund-b7-fund-portfolio-low-level-design-v1.md)；✅ M1 Definition、staged stream、final/stage ORM/DAO/migration、Ops/UI/schedule contract 与本地测试门禁；✅ M2 隔离 migration/HDD、1,312,798 行容量/幂等/回滚/锁、`19980630` 真实 42 行五段对账；待独立授权 M3 | 不设页数上限；short page 才结束；同身份同内容幂等去重、同身份不同内容整期失败；stage page commit 不算业务提交；源端/归一化/stage/提交/reject/目标集合对账；生产单报告期验收后才允许历史回补 |
 
 ## 6. 各批 LLD 的最低交付物
 

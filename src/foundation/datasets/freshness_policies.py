@@ -46,6 +46,7 @@ FRESHNESS_POLICY_BY_DATASET: dict[str, FreshnessPolicy] = {
     "fund_daily": CONTINUOUS_OPEN_DAY,
     "fund_div": EVENT_RUN_TRACE,
     "fund_manager": SNAPSHOT_RUN_TRACE,
+    "fund_portfolio": EVENT_RUN_TRACE,
     "fund_share": EVENT_RUN_TRACE,
     "hk_basic": SNAPSHOT_RUN_TRACE,
     "index_basic": SNAPSHOT_RUN_TRACE,

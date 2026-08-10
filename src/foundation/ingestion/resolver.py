@@ -80,6 +80,7 @@ class DatasetActionResolver:
                 max_units_per_execution=definition.planning.max_units_per_execution,
                 fetch_concurrency=definition.planning.fetch_concurrency,
                 unit_count=len(units),
+                page_processing_mode=definition.planning.page_processing_mode,
             ),
             writing=PlanWriting(
                 target_table=definition.storage.target_table,
@@ -91,6 +92,8 @@ class DatasetActionResolver:
                 serving_conflict_resolution_policy=definition.storage.serving_conflict_resolution_policy,
                 observation_dao_name=definition.storage.observation_dao_name,
                 observation_table=definition.storage.observation_table,
+                stage_dao_name=definition.storage.stage_dao_name,
+                stage_table=definition.storage.stage_table,
             ),
             transaction=PlanTransactionPolicy(
                 commit_policy=definition.transaction.commit_policy,

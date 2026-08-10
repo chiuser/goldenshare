@@ -5,6 +5,8 @@ from src.foundation.datasets.public_fund_contracts import (
     FUND_COMPANY_SOURCE_FIELDS,
     FUND_DIV_SOURCE_FIELDS,
     FUND_MANAGER_SOURCE_FIELDS,
+    FUND_PORTFOLIO_IDENTITY_FIELDS,
+    FUND_PORTFOLIO_SOURCE_FIELDS,
     FUND_SHARE_SOURCE_FIELDS,
     MKT_IDX_BMK_SOURCE_FIELDS,
 )
@@ -605,6 +607,139 @@ DATASET_ROWS = (
             "write_volume_assessment": (
                 "每个公告自然日为独立 unit，page_limit=2000；完成全部分页、归一化和完全重复去重后，"
                 "在一个事务内取得 scope advisory lock，核验已有不可变事实并只 INSERT 新事实。"
+            ),
+        },
+    },
+    {
+        "identity": {
+            "dataset_key": "fund_portfolio",
+            "display_name": "基金持仓",
+            "description": "按报告期维护公募基金全市场不可变持仓披露事实。",
+            "aliases": (),
+        },
+        "domain": {"domain_key": "public_fund", "domain_display_name": "公募基金"},
+        "source": {
+            "source_key_default": "tushare",
+            "source_keys": ("tushare",),
+            "adapter_key": "tushare",
+            "api_name": "fund_portfolio",
+            "source_fields": FUND_PORTFOLIO_SOURCE_FIELDS,
+            "source_doc_id": "tushare.fund_portfolio",
+            "request_builder_key": "_fund_portfolio_params",
+            "base_params": {},
+        },
+        "date_model": {
+            "date_axis": "natural_day",
+            "bucket_rule": "calendar_quarter_end",
+            "window_mode": "point_or_range",
+            "input_shape": "trade_date_or_start_end",
+            "observed_field": "end_date",
+            "audit_applicable": False,
+            "not_applicable_reason": "基金持仓按报告期末披露；仅对实际报告期维护，不按连续自然日做完整性审计。",
+        },
+        "input_model": {
+            "time_fields": (
+                {
+                    "name": "trade_date",
+                    "field_type": "date",
+                    "display_name": "报告期",
+                    "description": "选择一个自然季度末报告期。",
+                },
+                {
+                    "name": "start_date",
+                    "field_type": "date",
+                    "display_name": "开始报告期",
+                    "description": "报告期范围起点；内部只展开范围内的自然季度末。",
+                },
+                {
+                    "name": "end_date",
+                    "field_type": "date",
+                    "display_name": "结束报告期",
+                    "description": "报告期范围终点；内部只展开范围内的自然季度末。",
+                },
+            ),
+            "filters": (
+                {
+                    "name": "ts_code",
+                    "field_type": "string",
+                    "display_name": "基金代码",
+                    "description": "仅用于已有报告期的单基金定点补录。",
+                    "scoped_repair_policy": "existing_observed_point_scope_only",
+                },
+            ),
+            "required_groups": (),
+            "mutually_exclusive_groups": (),
+            "dependencies": (),
+        },
+        "storage": {
+            "raw_dao_name": None,
+            "core_dao_name": "fund_portfolio",
+            "target_table": "core_serving.fund_portfolio",
+            "delivery_mode": "single_source_serving",
+            "layer_plan": "source->serving",
+            "std_table": None,
+            "serving_table": "core_serving.fund_portfolio",
+            "raw_table": None,
+            "observation_dao_name": None,
+            "observation_table": None,
+            "stage_dao_name": "fund_portfolio_stage",
+            "stage_table": "foundation.fund_portfolio_stage",
+            "raw_conflict_columns": None,
+            "conflict_columns": FUND_PORTFOLIO_IDENTITY_FIELDS,
+            "write_path": "serving_staged_immutable_scope_publish",
+        },
+        "planning": {
+            "universe_policy": "no_pool",
+            "enum_fanout_fields": (),
+            "enum_fanout_defaults": {},
+            "pagination_policy": "offset_limit",
+            "page_limit": 2_000,
+            "chunk_size": None,
+            "max_units_per_execution": 4,
+            "unit_builder_key": "generic",
+            "fetch_concurrency": 1,
+            "page_processing_mode": "staged_stream",
+        },
+        "normalization": {
+            "date_fields": ("ann_date", "end_date"),
+            "decimal_fields": ("mkv", "amount", "stk_mkv_ratio", "stk_float_ratio"),
+            "required_fields": FUND_PORTFOLIO_IDENTITY_FIELDS,
+            "row_transform_name": "_fund_portfolio_staged_fact_row_transform",
+        },
+        "capabilities": {
+            "actions": (
+                {
+                    "action": "maintain",
+                    "manual_enabled": True,
+                    "schedule_enabled": True,
+                    "retry_enabled": True,
+                    "supported_time_modes": ("point", "range"),
+                    "schedule_time_policy": {
+                        "policy": "latest_completed_calendar_quarter",
+                        "schedule_types": ("cron", "once"),
+                        "cron_repeat_modes": ("weekly", "monthly"),
+                        "explicit_time_input": "forbidden",
+                        "generated_time_mode": "point",
+                        "generated_time_field": "trade_date",
+                    },
+                },
+            ),
+        },
+        "observability": {"progress_label": "fund_portfolio", "observed_field": "end_date", "audit_applicable": False},
+        "quality": {
+            "reject_policy": "record_rejections",
+            "required_fields": FUND_PORTFOLIO_IDENTITY_FIELDS,
+            "unit_date_field": "end_date",
+            "duplicate_key_policy": "allow",
+            "batch_unique_key_fields": FUND_PORTFOLIO_IDENTITY_FIELDS,
+            "source_multiplicity_policy": "deduplicate_identical",
+        },
+        "transaction": {
+            "commit_policy": "unit",
+            "idempotent_write_required": True,
+            "write_volume_assessment": (
+                "2026-08-10 源端复审：完整报告期约 1,312,798 行、page_limit=2000，预计 657 次请求；"
+                "逐页归一化并提交 UNLOGGED stage，短页后在一个业务事务中集合校验并原子发布。"
             ),
         },
     },

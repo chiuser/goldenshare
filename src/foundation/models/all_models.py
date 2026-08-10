@@ -15,6 +15,8 @@ from src.foundation.models.core_serving.equity_margin_detail import EquityMargin
 from src.foundation.models.core_serving.fund_company_current import FundCompanyCurrent
 from src.foundation.models.core_serving.fund_company_observation import FundCompanyObservation
 from src.foundation.models.core_serving.fund_div import FundDiv
+from src.foundation.models.core_serving.fund_portfolio import FundPortfolio
+from src.foundation.models.staging.fund_portfolio_stage import FundPortfolioStage
 from src.foundation.models.core_serving.fund_basic_current import FundBasicCurrent
 from src.foundation.models.core_serving.fund_basic_observation import FundBasicObservation
 from src.foundation.models.core_serving.fund_manager_current import FundManagerCurrent
@@ -201,6 +203,8 @@ __all__ = [
     "FundShareCurrent",
     "FundShareObservation",
     "FundDiv",
+    "FundPortfolio",
+    "FundPortfolioStage",
     "FundCompanyCurrent",
     "FundCompanyObservation",
     "FundAdjFactor",

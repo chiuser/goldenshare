@@ -7,12 +7,13 @@ from typing import Any
 
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.ingestion.error_mapper import IngestionErrorMapper
-from src.foundation.ingestion.errors import IngestionError
+from src.foundation.ingestion.errors import IngestionError, StructuredError
 from src.foundation.ingestion.run_errors import IngestionCanceledError
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot, ValidatedDatasetActionRequest
 from src.foundation.ingestion.normalizer import DatasetNormalizer
 from src.foundation.ingestion.progress import IngestionObserver
-from src.foundation.ingestion.source_client import DatasetSourceClient
+from src.foundation.ingestion.source_client import DatasetSourceClient, SourceFetchResult
+from src.foundation.ingestion.staged_stream import StagedStreamPublisher
 from src.foundation.ingestion.writer import DatasetWriter
 
 
@@ -23,12 +24,15 @@ class _RunState:
     rows_committed: int = 0
     rows_rejected: int = 0
     rows_deduplicated: int = 0
+    rows_normalized_before_dedupe: int = 0
     rows_inserted: int = 0
     rows_matched: int = 0
     scope_existing_count: int = 0
     scope_source_unique_count: int = 0
+    final_scope_count: int = 0
     pagination_unit_count: int = 0
     pagination_total_page_count: int = 0
+    pagination_total_retry_count: int = 0
     pagination_total_rows_merged: int = 0
     pagination_multi_page_unit_count: int = 0
     pagination_max_pages_per_unit: int = 0
@@ -105,7 +109,16 @@ class IngestionExecutor:
 
         total_units = len(units)
         fetch_concurrency = definition.planning.fetch_concurrency
-        if fetch_concurrency <= 1 or total_units <= 1:
+        if definition.planning.page_processing_mode == "staged_stream":
+            self._run_staged_units_serially(
+                request=request,
+                definition=definition,
+                units=units,
+                observer=observer,
+                state=state,
+                cancel_checker=cancel_checker,
+            )
+        elif fetch_concurrency <= 1 or total_units <= 1:
             self._run_units_serially(
                 request=request,
                 definition=definition,
@@ -143,6 +156,181 @@ class IngestionExecutor:
             message=f"共 {total_units} 个单元，成功 {state.unit_done} 个，失败 {state.unit_failed} 个",
             error_counts=state.error_counts,
         )
+
+    def _run_staged_units_serially(
+        self,
+        *,
+        request: ValidatedDatasetActionRequest,
+        definition: DatasetDefinition,
+        units: tuple[PlanUnitSnapshot, ...],
+        observer: IngestionObserver,
+        state: _RunState,
+        cancel_checker,
+    ) -> None:  # type: ignore[no-untyped-def]
+        total_units = len(units)
+        with StagedStreamPublisher(outer_session=self.session, definition=definition) as publisher:
+            for unit in units:
+                unit_rows_fetched = 0
+                unit_rows_written = 0
+                unit_rows_rejected = 0
+                unit_rows_deduplicated = 0
+                unit_rows_normalized_before_dedupe = 0
+                page_count = 0
+                retry_count = 0
+                terminal_offset = None
+                terminal_page_rows = 0
+                observed_short_page = False
+                stage_run_id = publisher.begin_unit()
+                try:
+                    self._ensure_not_canceled(cancel_checker=cancel_checker, run_id=request.run_id)
+                    if unit.trade_date is None:
+                        raise IngestionError(
+                            StructuredError(
+                                error_code="quarter_end_required",
+                                error_type="planning",
+                                phase="executor",
+                                message="staged-stream unit 缺少报告期",
+                                retryable=False,
+                                unit_id=unit.unit_id,
+                            )
+                        )
+                    repair_value = unit.request_params.get("ts_code")
+                    repair_ts_code = str(repair_value).strip().upper() if repair_value not in (None, "") else None
+                    for page in self.source_client.iter_pages(definition=definition, unit=unit):
+                        self._ensure_not_canceled(cancel_checker=cancel_checker, run_id=request.run_id)
+                        page_count += 1
+                        retry_count += int(page.retry_count or 0)
+                        terminal_offset = page.offset
+                        terminal_page_rows = len(page.rows_raw)
+                        observed_short_page = page.is_short_page
+                        unit_rows_fetched += len(page.rows_raw)
+                        normalized = self.normalizer.normalize(
+                            definition=definition,
+                            fetch_result=SourceFetchResult(
+                                unit_id=unit.unit_id,
+                                request_count=1,
+                                retry_count=page.retry_count,
+                                latency_ms=page.latency_ms,
+                                rows_raw=page.rows_raw,
+                            ),
+                            expected_unit_date=unit.trade_date,
+                        )
+                        unit_rows_normalized_before_dedupe += len(normalized.rows_normalized)
+                        unit_rows_normalized_before_dedupe += int(normalized.rows_deduplicated or 0)
+                        self.normalizer.raise_if_all_rejected(normalized)
+                        if normalized.rows_rejected:
+                            unit_rows_rejected += normalized.rows_rejected
+                            for reason_code, count in normalized.rejected_reasons.items():
+                                state.rejected_reason_counts[reason_code] = state.rejected_reason_counts.get(reason_code, 0) + int(count or 0)
+                            self._merge_reason_samples(state.rejected_reason_samples, normalized.rejected_samples)
+                            raise IngestionError(
+                                StructuredError(
+                                    error_code="staged_scope_rows_rejected",
+                                    error_type="normalize",
+                                    phase="executor",
+                                    message="staged-stream scope 存在归一化拒绝行，拒绝部分发布",
+                                    retryable=False,
+                                    unit_id=unit.unit_id,
+                                    details={"rows_rejected": normalized.rows_rejected},
+                                )
+                            )
+                        if normalized.rows_normalized:
+                            stage_result = publisher.stage_page(
+                                stage_run_id=stage_run_id,
+                                period=unit.trade_date,
+                                repair_ts_code=repair_ts_code,
+                                rows=normalized.rows_normalized,
+                                page_number=page.page_number,
+                                offset=page.offset,
+                            )
+                            unit_rows_deduplicated += int(stage_result.rows_deduplicated or 0)
+                        unit_rows_deduplicated += int(normalized.rows_deduplicated or 0)
+                    if not observed_short_page:
+                        raise IngestionError(
+                            StructuredError(
+                                error_code="pagination_short_page_missing",
+                                error_type="source",
+                                phase="executor",
+                                message="staged-stream 分页未观察到终止短页",
+                                retryable=False,
+                                unit_id=unit.unit_id,
+                            )
+                        )
+                    finalized = publisher.finalize_unit(
+                        stage_run_id=stage_run_id,
+                        period=unit.trade_date,
+                        repair_ts_code=repair_ts_code,
+                    )
+                    unit_rows_written = int(finalized.rows_source_unique or 0)
+                    state.rows_fetched += unit_rows_fetched
+                    state.rows_written += unit_rows_written
+                    state.rows_committed += unit_rows_written
+                    state.rows_rejected += unit_rows_rejected
+                    state.rows_deduplicated += unit_rows_deduplicated
+                    state.rows_normalized_before_dedupe += unit_rows_normalized_before_dedupe
+                    state.rows_inserted += int(finalized.rows_inserted or 0)
+                    state.rows_matched += int(finalized.rows_matched or 0)
+                    state.scope_existing_count += int(finalized.rows_matched or 0)
+                    state.scope_source_unique_count += unit_rows_written
+                    state.final_scope_count += int(finalized.final_scope_count or 0)
+                    state.pagination_unit_count += 1
+                    state.pagination_total_page_count += page_count
+                    state.pagination_total_retry_count += retry_count
+                    state.pagination_total_rows_merged += unit_rows_fetched
+                    state.pagination_multi_page_unit_count += int(page_count > 1)
+                    state.pagination_max_pages_per_unit = max(state.pagination_max_pages_per_unit, page_count)
+                    state.pagination_short_page_unit_count += 1
+                    if len(state.pagination_units) < 3:
+                        state.pagination_units.append(
+                            {
+                                "unit_id": unit.unit_id,
+                                "page_count": page_count,
+                                "retry_count": retry_count,
+                                "terminal_offset": terminal_offset,
+                                "terminal_page_rows": terminal_page_rows,
+                            }
+                        )
+                    else:
+                        state.pagination_units_truncated = True
+                    state.unit_done += 1
+                except Exception as exc:
+                    state.rows_fetched += unit_rows_fetched
+                    state.rows_rejected += unit_rows_rejected
+                    state.rows_deduplicated += unit_rows_deduplicated
+                    state.rows_normalized_before_dedupe += unit_rows_normalized_before_dedupe
+                    state.pagination_unit_count += int(page_count > 0)
+                    state.pagination_total_page_count += page_count
+                    state.pagination_total_retry_count += retry_count
+                    state.pagination_total_rows_merged += unit_rows_fetched
+                    state.pagination_multi_page_unit_count += int(page_count > 1)
+                    state.pagination_max_pages_per_unit = max(state.pagination_max_pages_per_unit, page_count)
+                    state.pagination_short_page_unit_count += int(observed_short_page)
+                    if page_count > 0 and len(state.pagination_units) < 3:
+                        state.pagination_units.append(
+                            {
+                                "unit_id": unit.unit_id,
+                                "page_count": page_count,
+                                "retry_count": retry_count,
+                                "terminal_offset": terminal_offset,
+                                "terminal_page_rows": terminal_page_rows,
+                            }
+                        )
+                    elif page_count > 0:
+                        state.pagination_units_truncated = True
+                    self._record_unit_exception(state=state, unit=unit, exc=exc)
+                finally:
+                    self._report_unit_progress(
+                        request=request,
+                        definition=definition,
+                        observer=observer,
+                        state=state,
+                        unit=unit,
+                        total_units=total_units,
+                        unit_rows_fetched=unit_rows_fetched,
+                        unit_rows_written=unit_rows_written,
+                        unit_rows_rejected=unit_rows_rejected,
+                        unit_rows_deduplicated=unit_rows_deduplicated,
+                    )
 
     def _run_units_serially(
         self,
@@ -281,6 +469,7 @@ class IngestionExecutor:
             state.rows_written += unit_rows_written
             state.rows_rejected += unit_rows_rejected
             state.rows_deduplicated += unit_rows_deduplicated
+            state.rows_normalized_before_dedupe += len(normalized.rows_normalized) + unit_rows_deduplicated
             state.rows_inserted += int(written.rows_inserted or 0)
             state.rows_matched += int(written.rows_matched or 0)
             state.scope_existing_count += int(written.scope_existing_count or 0)
@@ -538,11 +727,16 @@ class IngestionExecutor:
         trade_date = cls._format_progress_value(context.get("trade_date"))
         if trade_date:
             parts.append(f"日期 {trade_date}")
+        date_field = cls._format_progress_value(context.get("date_field"))
+        if date_field and date_field != "trade_date":
+            observed_date = cls._format_progress_value(context.get(date_field))
+            if observed_date:
+                parts.append(f"日期 {observed_date}")
         freq = cls._format_progress_value(context.get("freq"))
         if freq:
             parts.append(f"频率 {freq}")
         start_date = cls._format_progress_value(context.get("start_date"))
-        end_date = cls._format_progress_value(context.get("end_date"))
+        end_date = None if date_field == "end_date" else cls._format_progress_value(context.get("end_date"))
         if start_date or end_date:
             parts.append(cls._range_context_part(start_date=start_date, end_date=end_date))
         enum_field = cls._format_progress_value(context.get("enum_field"))
@@ -583,6 +777,7 @@ class IngestionExecutor:
         rows_merged = max(int(diagnostics.get("total_rows_merged") or 0), 0)
         state.pagination_unit_count += 1
         state.pagination_total_page_count += page_count
+        state.pagination_total_retry_count += max(int(getattr(source_result, "retry_count", 0) or 0), 0)
         state.pagination_total_rows_merged += rows_merged
         state.pagination_multi_page_unit_count += int(page_count > 1)
         state.pagination_max_pages_per_unit = max(state.pagination_max_pages_per_unit, page_count)
@@ -606,6 +801,7 @@ class IngestionExecutor:
                 "pagination": {
                     "unit_count_with_pagination": state.pagination_unit_count,
                     "total_page_count": state.pagination_total_page_count,
+                    "total_retry_count": state.pagination_total_retry_count,
                     "total_rows_merged": state.pagination_total_rows_merged,
                     "multi_page_unit_count": state.pagination_multi_page_unit_count,
                     "max_pages_per_unit": state.pagination_max_pages_per_unit,
@@ -616,10 +812,12 @@ class IngestionExecutor:
             },
             "persistence": {
                 "immutable_fact": {
+                    "rows_normalized_before_dedupe": state.rows_normalized_before_dedupe,
                     "rows_inserted_new": state.rows_inserted,
                     "rows_matched_existing": state.rows_matched,
                     "scope_existing_count": state.scope_existing_count,
                     "scope_source_unique_count": state.scope_source_unique_count,
+                    "final_scope_count": state.final_scope_count,
                 },
             },
         }

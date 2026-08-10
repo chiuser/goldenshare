@@ -31,6 +31,8 @@ class DatasetDateModel:
             return "week_friday"
         if self.bucket_rule == "month_last_calendar_day":
             return "month_end"
+        if self.bucket_rule == "calendar_quarter_end":
+            return "quarter_end"
         if self.bucket_rule == "week_last_open_day":
             return "week_last_trading_day"
         if self.bucket_rule == "month_last_open_day":
@@ -141,6 +143,8 @@ class DatasetStorageDefinition:
     raw_table: str | None
     observation_dao_name: str | None = None
     observation_table: str | None = None
+    stage_dao_name: str | None = None
+    stage_table: str | None = None
     raw_conflict_columns: tuple[str, ...] | None = None
     conflict_columns: tuple[str, ...] | None = None
     write_path: str = "raw_core_upsert"
@@ -173,6 +177,7 @@ class DatasetPlanningDefinition:
     max_units_per_execution: int | None = None
     unit_builder_key: str = "generic"
     fetch_concurrency: int = 1
+    page_processing_mode: str = "buffer_all"
 
 
 @dataclass(frozen=True, slots=True)

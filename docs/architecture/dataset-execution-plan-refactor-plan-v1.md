@@ -353,6 +353,7 @@ request_builder:
 | `enum_fanout_fields` | `plan.planning.enum_fanout` | 定义哪些枚举字段会参与扇出。每组枚举组合都会生成独立 unit，例如 `dc_hot` 的 `market + hot_type + is_new`。 |
 | `enum_fanout_defaults` | `plan.planning.enum_defaults` | 当用户未显式传某个枚举字段时，planner 使用的默认枚举集合。它不是 UI 默认值，而是执行计划默认展开规则；例如 `dc_hot` 默认展开全部市场、热点类型和最新标记。 |
 | `pagination_policy` | `plan.planning.pagination_policy` | 定义源接口内部如何分页拉取。分页只影响单 unit 内部取数方式，不作为事务提交粒度。 |
+| `page_processing_mode` | `plan.planning.page_processing_mode` | 默认 `buffer_all`；只有经过 Definition/linter 显式门禁的数据集可使用 `staged_stream`，逐页归一化和持久化非服务暂存，最终业务提交仍以 unit 为边界。 |
 | `chunk_size` | `plan.planning.chunk_size` | 定义规划或写入过程的内部分块规模，用于控制内存和批量 SQL 大小，不等于事务边界。 |
 
 这样 `dc_hot` 的默认 `hot_type/is_new/market`、指数池扇出、板块代码扇出，都成为 definition 派生的 plan 行为，而不是散落在手动任务或旧区间执行服务中。
@@ -730,10 +731,10 @@ PlanTransactionPolicy(
 处理策略：
 
 1. 事务提交永远以业务 unit 为边界。
-2. 不引入分页级提交策略，也不把源接口分页 cursor 当作提交边界。
-3. 如果单个 unit 内分页结果过大，可以把 worker 从“完整 rows list”改为流式读取/分块处理，但最终仍在 unit 完成后统一提交。
+2. 不把源接口分页 cursor 当作业务提交边界。`staged_stream` 可逐页提交非服务暂存数据，但页级提交不得增加 serving 可见事实，也不得增加 `rows_committed`。
+3. 如果单个 unit 内分页结果过大，可以把 worker 从“完整 rows list”改为流式读取/分块处理；收到终止短页并完成整个 unit 校验后，才允许在一个最终业务事务中发布 serving 事实。
 4. 如果真实计算显示单个事务写入量不可控，必须先调整业务边界或执行策略；不能在执行中“边跑边看”。
-5. 分页内存优化不允许绕过 normalizer、writer 和 progress snapshot。
+5. 分页内存优化不允许绕过 normalizer、Definition 声明、专用 DAO 集合校验和 progress snapshot；默认 `buffer_all` 数据集不得被隐式切换。
 
 ### 6.12 迁移脚本风险
 

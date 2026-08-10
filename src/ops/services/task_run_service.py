@@ -31,6 +31,7 @@ MONTHLY_LAST_TRADING_DAY_POLICY = "monthly_last_trading_day"
 MONTHLY_WINDOW_CURRENT_MONTH_POLICY = "monthly_window_current_month"
 TRIGGER_DAY_SINGLE_RANGE_POLICY = "trigger_day_single_range"
 TRIGGER_DAY_POINT_POLICY = "trigger_day_point"
+LATEST_COMPLETED_CALENDAR_QUARTER_POLICY = "latest_completed_calendar_quarter"
 
 
 @dataclass(frozen=True, slots=True)
@@ -291,6 +292,7 @@ class TaskRunCommandService:
             MONTHLY_WINDOW_CURRENT_MONTH_POLICY,
             TRIGGER_DAY_SINGLE_RANGE_POLICY,
             TRIGGER_DAY_POINT_POLICY,
+            LATEST_COMPLETED_CALENDAR_QUARTER_POLICY,
         }:
             raise WebAppError(status_code=422, code="validation_error", message=f"不支持的日期策略：{normalized_policy}")
         policy_rule = DatasetScheduleTimePolicyResolver().rule_for_policy(
@@ -371,6 +373,16 @@ class TaskRunCommandService:
             if generated_field != "trade_date":
                 generated_time_input["date_field"] = generated_field
             return generated_time_input
+        if normalized_policy == LATEST_COMPLETED_CALENDAR_QUARTER_POLICY:
+            if self._has_declared_time_input(params_json, definition=definition):
+                raise WebAppError(status_code=422, code="validation_error", message="最近已完成季度策略不能与固定报告期混用")
+            if scheduled_at is None:
+                raise WebAppError(status_code=422, code="validation_error", message="最近已完成季度策略缺少计划触发时间")
+            period = self._latest_completed_quarter_for_schedule(
+                scheduled_at=scheduled_at,
+                timezone_name=timezone_name,
+            )
+            return {**dict(time_input or {}), "mode": "point", "trade_date": period.isoformat()}
         if not self._supports_month_window_policy(definition):
             raise WebAppError(status_code=422, code="validation_error", message="自然月窗口策略只支持月窗口数据集")
         if self._has_explicit_time_boundary(params_json):
@@ -609,6 +621,20 @@ class TaskRunCommandService:
     def _natural_day_for_schedule(*, scheduled_at: datetime, timezone_name: str | None) -> date:
         local_scheduled_at = TaskRunCommandService._local_scheduled_at(scheduled_at=scheduled_at, timezone_name=timezone_name)
         return local_scheduled_at.date()
+
+    @staticmethod
+    def _latest_completed_quarter_for_schedule(*, scheduled_at: datetime, timezone_name: str | None) -> date:
+        trigger_date = TaskRunCommandService._natural_day_for_schedule(
+            scheduled_at=scheduled_at,
+            timezone_name=timezone_name,
+        )
+        candidates = [
+            date(year, month, day)
+            for year in (trigger_date.year - 1, trigger_date.year)
+            for month, day in ((3, 31), (6, 30), (9, 30), (12, 31))
+            if date(year, month, day) < trigger_date
+        ]
+        return max(candidates)
 
     @staticmethod
     def _local_scheduled_at(*, scheduled_at: datetime, timezone_name: str | None) -> datetime:

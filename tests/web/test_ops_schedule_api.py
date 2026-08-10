@@ -747,6 +747,114 @@ def test_ops_schedule_create_rejects_fund_share_cron_without_definition_policy(a
     assert response.json()["message"] == "该数据集周期任务必须使用系统声明的日期策略：trigger_day_point"
 
 
+@pytest.mark.parametrize("cron_expr", ("0 19 * * 1", "0 19 1 * *"))
+def test_ops_schedule_create_supports_fund_portfolio_weekly_or_monthly_cron(
+    app_client,
+    user_factory,
+    cron_expr: str,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "fund_portfolio.maintain",
+            "display_name": "基金持仓自动维护",
+            "schedule_type": "cron",
+            "cron_expr": cron_expr,
+            "timezone": "Asia/Shanghai",
+            "calendar_policy": "latest_completed_calendar_quarter",
+            "params_json": {},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["calendar_policy"] == "latest_completed_calendar_quarter"
+
+
+@pytest.mark.parametrize("cron_expr", ("0 19 * * *", "*/3 * * * *"))
+def test_ops_schedule_create_rejects_fund_portfolio_daily_or_intraday_cron(
+    app_client,
+    user_factory,
+    cron_expr: str,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "fund_portfolio.maintain",
+            "display_name": "基金持仓错误频率",
+            "schedule_type": "cron",
+            "cron_expr": cron_expr,
+            "timezone": "Asia/Shanghai",
+            "calendar_policy": "latest_completed_calendar_quarter",
+            "params_json": {},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "当前周期类型不支持该数据集声明的日期策略"
+
+
+def test_ops_schedule_create_supports_fund_portfolio_once_without_fixed_period(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "fund_portfolio.maintain",
+            "display_name": "基金持仓单次维护",
+            "schedule_type": "once",
+            "next_run_at": "2099-01-01T09:00:00+08:00",
+            "timezone": "Asia/Shanghai",
+            "calendar_policy": "latest_completed_calendar_quarter",
+            "params_json": {},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["schedule_type"] == "once"
+    assert response.json()["calendar_policy"] == "latest_completed_calendar_quarter"
+
+
+def test_ops_schedule_create_requires_fund_portfolio_declared_policy(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "fund_portfolio.maintain",
+            "display_name": "基金持仓缺失系统策略",
+            "schedule_type": "cron",
+            "cron_expr": "0 19 * * 1",
+            "timezone": "Asia/Shanghai",
+            "params_json": {},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == (
+        "该数据集周期任务必须使用系统声明的日期策略：latest_completed_calendar_quarter"
+    )
+
+
 def test_ops_schedule_create_rejects_trigger_day_point_below_min_interval(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})

@@ -25,7 +25,9 @@ from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStoc
 CYQ_CHIPS_RANGE_WINDOW_DAYS = 1095
 ETF_SH_CONS_RESOURCE = "etf_sh_cons"
 SCOPED_REPAIR_POLICY_EXISTING_POINT_BUCKET_ONLY = "existing_point_bucket_only"
+SCOPED_REPAIR_POLICY_EXISTING_OBSERVED_POINT_SCOPE_ONLY = "existing_observed_point_scope_only"
 _TS_CODE_PATTERN = re.compile(r"^\d{6}\.(SH|SZ|BJ)$")
+_SAFE_SOURCE_CODE_PATTERN = re.compile(r"^[A-Z0-9][A-Z0-9._-]{0,63}$")
 
 
 class DatasetUnitPlanner:
@@ -74,6 +76,14 @@ class DatasetUnitPlanner:
                     value=value,
                 )
                 continue
+            if policy == SCOPED_REPAIR_POLICY_EXISTING_OBSERVED_POINT_SCOPE_ONLY:
+                self._validate_existing_observed_point_scope_repair(
+                    request=request,
+                    definition=definition,
+                    field_name=field.name,
+                    value=value,
+                )
+                continue
             raise self._planning_error("scoped_repair_policy_invalid", f"不支持的定点补录策略：{policy}")
 
     def _validate_existing_point_bucket_repair(
@@ -104,6 +114,43 @@ class DatasetUnitPlanner:
             raise self._planning_error(
                 "scoped_repair_bucket_missing",
                 f"{request.trade_date.isoformat()} 尚未建立全市场日期桶，不能进行单证券补录",
+            )
+
+    def _validate_existing_observed_point_scope_repair(
+        self,
+        *,
+        request: ValidatedDatasetActionRequest,
+        definition: DatasetDefinition,
+        field_name: str,
+        value: Any,
+    ) -> None:
+        normalized_value = str(value or "").strip().upper()
+        if not _SAFE_SOURCE_CODE_PATTERN.fullmatch(normalized_value):
+            raise self._planning_error(
+                "scoped_repair_code_invalid",
+                f"{field_name} 仅支持一个不含空格或分隔符的源端代码",
+            )
+        if request.run_profile != "point_incremental" or request.trade_date is None:
+            raise self._planning_error(
+                "scoped_repair_point_required",
+                f"填写 {field_name} 时仅支持单个已存在报告期补录",
+            )
+        target_dao = getattr(self.dao, definition.storage.core_dao_name, None)
+        model = getattr(target_dao, "model", None)
+        observed_field = str(definition.date_model.observed_field or "").strip()
+        observed_column = getattr(model, observed_field, None)
+        if not observed_field or observed_column is None:
+            raise self._planning_error(
+                "dao_not_found",
+                f"定点补录目标表缺少观察范围列：{definition.storage.target_table}",
+            )
+        existing = self.session.scalar(
+            select(observed_column).where(observed_column == request.trade_date).limit(1)
+        )
+        if existing is None:
+            raise self._planning_error(
+                "scoped_repair_scope_missing",
+                f"{request.trade_date.isoformat()} 尚未建立全市场报告期，不能进行单基金补录",
             )
 
     def _build_generic_units(
@@ -170,6 +217,11 @@ class DatasetUnitPlanner:
                 return self._expand_calendar_week_fridays(request.start_date, request.end_date)
             if date_model.bucket_rule == "month_last_calendar_day":
                 return self._expand_calendar_month_ends(request.start_date, request.end_date)
+            if date_model.bucket_rule == "calendar_quarter_end":
+                anchors = self._expand_calendar_quarter_ends(request.start_date, request.end_date)
+                if not anchors:
+                    raise self._planning_error("quarter_end_required", "所选范围内没有自然季度末")
+                return anchors
             return [None]
         if date_model.date_axis in {"none", "month_window"}:
             return [None]
@@ -232,6 +284,16 @@ class DatasetUnitPlanner:
                 next_month.month,
                 monthrange(next_month.year, next_month.month)[1],
             )
+        return anchors
+
+    @staticmethod
+    def _expand_calendar_quarter_ends(start_date: date, end_date: date) -> list[date]:
+        anchors: list[date] = []
+        for year in range(start_date.year, end_date.year + 1):
+            for month, day in ((3, 31), (6, 30), (9, 30), (12, 31)):
+                candidate = date(year, month, day)
+                if start_date <= candidate <= end_date:
+                    anchors.append(candidate)
         return anchors
 
     def _resolve_universe_values(

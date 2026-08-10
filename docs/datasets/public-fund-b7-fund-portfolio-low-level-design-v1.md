@@ -1,17 +1,17 @@
 # 公募基金 B7：基金持仓（`fund_portfolio`）低层设计 v1
 
-状态：**LLD 已完成并通过当前代码影响面审计；待单独授权 B7-M1。本文不授权编码、migration、Tushare 请求、隔离/生产写入、历史回补或 schedule 创建。**
+状态：**B7-M1 编码与本地门禁、B7-M2 隔离 PostgreSQL migration/HDD/容量/锁/回滚/真实最小同步均已通过。尚未执行生产 migration、生产同步、历史回补或 schedule 创建；下一门禁是独立授权的 B7-M3。**
 
-确认日期：2026-08-08
+确认日期：2026-08-08；M1 实现与本地验收：2026-08-10；M2 隔离验收：2026-08-10
 
 ## 1. 结论先行
 
-B7 可以进入 M1，实现范围是 `fund_portfolio` 的季度报告期接入，以及它必需的两项显式 opt-in 能力：
+B7 的 M1/M2 已完成，实现并验证了 `fund_portfolio` 的季度报告期接入，以及它必需的两项显式 opt-in 能力：
 
 1. 自然季度末输入：运营选择一个报告期，或用起止日期展开为离散季度末；禁止把季度报告期伪装成逐日任务。
 2. 页级暂存、整期发布：源端每 2,000 行读取并归一化到非服务暂存表，收到 short page 且完成全量校验后，才在一个业务事务中发布该报告期。
 
-没有阻塞 M1 的待拍板项。下列事项继续后置，不影响代码地基：
+没有阻塞 M3 的设计待拍板项。下列事项继续后置，不影响生产首次小窗验收：
 
 - 历史回补是否从 2014Q1 开始；LLD 只提供按季度末、单任务最多四期的能力，不自动回补。
 - 自动任务最终采用每周还是每月 cron；LLD 只允许普通 weekly/monthly cron 或 once，不创建任何 schedule。
@@ -33,7 +33,7 @@ B7 可以进入 M1，实现范围是 `fund_portfolio` 的季度报告期接入�
 
 ### 2.2 本期明确不做
 
-- 不执行新的 Tushare 探测；源端证据沿用 B7-M0。
+- 不执行广泛、逐期或大规模 Tushare 探测；M2 仅对 `19980630` 做 1 次 MCP 样本请求和 1 次项目连接器最小真实同步。
 - 不实现 A/B 双遍、snapshot ID 或“源端绝对静止”声明。
 - 不按 `ann_date`、`start_date/end_date`、`symbol` 切全量主请求。
 - 不按 `fund_basic_current` 展开 32,342 个基金请求；`fund_basic` 也不作为全市场结果的过滤器。
@@ -63,7 +63,7 @@ B7-M0 已有实测证据：
 - 默认字段与显式 8 字段在样本中行多重集一致，但生产仍必须显式传 fields。
 - 源接口没有 snapshot ID；单遍 offset 分页期间是否发生源端变化无法被绝对证明。
 
-### 3.2 当前代码依据
+### 3.2 M1 编码前代码依据
 
 CodeGraph 索引根为仓库根，当前为 2,123 个文件、36,288 个节点、82,257 条边。已审计：
 
@@ -74,14 +74,14 @@ CodeGraph 索引根为仓库根，当前为 2,123 个文件、36,288 个节点�
 - `DatasetScheduleTimePolicyResolver` -> schedule capability、schedule 校验、TaskRun 时间生成。
 - `ManualActionQueryService` -> manual action API -> `ops-v21-task-manual-tab.tsx`。
 
-当前事实：
+M1 编码前事实：
 
 - `DatasetSourceClient._fetch_rows_with_pagination()` 使用 `rows_raw.extend(rows)`，不适合 131 万行 unit。
 - `IngestionExecutor` 只接受完整 `SourceFetchResult`，随后整批 normalize/write/commit。
 - `serving_immutable_fact_insert` 要求完整批次在内存中，只支持既有自然日不可变事实；不能直接复用。
 - normalizer 已支持 `source_multiplicity_policy=deduplicate_identical` 和 batch unique 冲突，但只能发现当前内存批次内的冲突；跨页冲突必须由暂存表约束补齐。
 - 当前 `DateField` 只支持自然日、自然周五和月末；当前 planner/schedule resolver 没有季度末语义。
-- 当前 Alembic head 是 `20260807_000130`；M1 新 migration 编码前必须重新读取真实 head，不能照抄本文日期。
+- M1 编码前重新确认 Alembic head 为 `20260807_000130`；新 migration `20260810_000131` 已线性连接该真实 head。本文不把 migration 文本检查冒充 PostgreSQL 应用验收。
 
 ## 4. 源端请求契约
 
@@ -635,20 +635,42 @@ npm --prefix frontend run build
 
 ## 16. 隔离与生产验收
 
-### 16.1 B7-M2 隔离 PostgreSQL
+### 16.1 B7-M2 隔离 PostgreSQL（2026-08-10 已通过）
 
-需单独授权，且分两类验证：
+本轮使用全新的本地 PostgreSQL 18.4 隔离集群，未连接生产库。隔离 tablespace `gs_raw_cold_hdd` 的真实路径为 `/private/tmp/goldenshare_b7_m2.d1Oasv/hdd_tablespace`。从全量历史 migration 建空库时，旧迁移触发 PostgreSQL `max_locks_per_transaction` 不足；仅对该临时集群调到 `2048` 后完成，未修改本机正式实例或生产配置。生产 M3 仍必须从当时真实 head 独立预检。
 
-1. 真实源小窗：选择一个完整 `period`，完成源端、归一化、stage、reject、正式 scope 五段对账；调用预算和 period 在执行前确认。
-2. 容量门禁：用至少 1,312,798 个唯一 fixture 行验证 657 页、内存有界、stage page commit、set-based final publish、回滚与幂等重跑。
+迁移与物理落点结果：
 
-硬门禁：
+- 缺失 `gs_raw_cold_hdd` 时，B7 migration 按预期 fail-closed；Alembic version 保持 `20260807_000130`，未留下 B7 表。
+- tablespace 恢复后，隔离库到达 `20260810_000131`。
+- 32 个 final 叶分区、64 个叶索引、2 个 parent partitioned index、stage 表及其 2 个索引均实际位于 `gs_raw_cold_hdd`；stage `relpersistence=u`，final parent `relpersistence=p`。
 
-- executor 不保留跨页 rows list 或身份 dict；内存占用不得随总页数线性增长。
-- full scope 首次和重跑的集合 anti-join 均为 0。
-- 任一 reject 或模拟第 N 页失败时 final 表保持原状。
-- 测量 final table/index、stage 峰值、HDD 增量、final transaction WAL LSN 差量和耗时；不把估算值冒充实测。
-- 验证 32 leaves 和全部 indexes 的真实 HDD placement。
+1,312,798 行纯合成容量门禁结果（0 次 Tushare 调用）：
+
+| 指标 | 首次完整发布 | 同源完整重跑 |
+| --- | ---: | ---: |
+| 页数 / 页上限 | 657 / 2,000 | 657 / 2,000 |
+| stage 行数 | 1,312,798 | 1,312,798 |
+| stage 用时 | 478.790 秒 | 492.363 秒 |
+| final 发布用时 | 8.242 秒 | 1.979 秒 |
+| inserted / matched | 1,312,798 / 0 | 0 / 1,312,798 |
+| stage→final / final→stage 差集 | 0 / 0 | 0 / 0 |
+| Python RSS | 146.67 MiB 起步，199.73 MiB 峰值；40 万行后不再增长 | 199.73 MiB 峰值 |
+
+首次完整发布的物理测量：
+
+- stage 峰值 `359,432,192` bytes；final 叶表 `227,459,072` bytes，叶索引 `276,070,400` bytes。
+- 隔离 HDD tablespace 从 `2,722,112` 增至 `864,846,752` bytes；这是包含 stage、final、索引和该 tablespace 其他隔离对象的实测增量，不外推为生产永久容量。
+- UNLOGGED stage 阶段 WAL LSN 差量 `256,832` bytes；首次 final 发布 WAL LSN 差量 `643,120,480` bytes。WAL 仍位于 PostgreSQL 全局 WAL 目录，不随业务表 tablespace 迁移。
+- 同身份异内容返回 `immutable_content_conflict`，final 行数保持 1,312,798；模拟第 3 页后中断时已提交 stage 6,000 行、final 0 行；注入 final insert 失败后事务回滚，final 0 行。
+- 两条独立物理连接并发验证：第二会话得到 `staged_scope_busy`；第一会话释放后第二会话可获得 advisory lock。
+
+真实最小同步固定 `period=19980630`，调用预算为 1 次 MCP 样本请求加 1 次项目连接器请求；容量门禁没有调用源站。项目连接器请求明确携带全部 8 个 fields，参数为 `period=19980630, offset=0, limit=2000`，首个 short page 返回 42 行，因此未产生第二页请求。五段对账如下：
+
+- 源端 42 行；归一化唯一 42 行；exact duplicate 0；reject 0、reason `{}`。
+- stage/finalize scope 42 行；写入并提交 42 行；正式目标表 42 行；发布后 stage 清理为 0 行。
+- 源身份与 final 身份双向差集均为 0；final 42 行按规范算法只读重算 `source_content_hash`，不一致 0 行。
+- 初版审计脚本曾直接读取 normalizer 行中的不存在的 `source_content_hash`，产生 42/42 的伪差集；该指标已判为验证脚本错误，不作为数据结论，并由上述只读重算结果纠正。未为纠正脚本再次请求源站。
 
 ### 16.2 B7-M3 生产
 
@@ -668,8 +690,8 @@ M3 不创建 schedule、不回补历史。
 | --- | --- | --- |
 | B7-M0 | 源端、历史存在性、分页、容量、代码影响面 | 已完成 |
 | B7-LLD | 本文与硬口径审计 | 本轮完成 |
-| B7-M1 | Definition、季度契约、staged stream、表/DAO/migration、Ops/UI、测试 | 待授权 |
-| B7-M2 | 隔离 migration、HDD、真实小窗、131 万行容量/回滚/锁 | 待独立授权 |
+| B7-M1 | Definition、季度契约、staged stream、表/DAO/migration、Ops/UI、测试 | 已完成编码与本地门禁；migration 未应用 |
+| B7-M2 | 隔离 migration、HDD、真实小窗、131 万行容量/回滚/锁 | 已完成并通过（2026-08-10） |
 | B7-M3 | 生产预检、migration、首次 period、对账/幂等 | 待独立授权 |
 | B7-M4a | 历史起点、逐期规模/额度只读预算 | 待独立授权；不能按日扫描 |
 | B7-M4b | 按年、每任务最多四期历史回补 | 待独立授权；不得与 B6 大回补并发 |
@@ -701,7 +723,7 @@ M3 不创建 schedule、不回补历史。
 ### 19.1 发布门禁
 
 - M1 全部测试与计划对账通过。
-- M2 真实小窗、131 万行容量、HDD、WAL、回滚、锁全部通过。
+- M2 真实小窗、131 万行容量、HDD、WAL、回滚、锁已全部通过。
 - M3 前再次确认生产无任务、磁盘水位和 migration head。
 - 任一 reject、集合差异、scope regression 或 content conflict 都不得放行。
 
@@ -715,13 +737,27 @@ M3 不创建 schedule、不回补历史。
 ### 19.3 剩余风险
 
 1. **单遍 offset 漂移**：源端没有 snapshot ID；长分页期间新增/排序变化可能导致首次同步遗漏或重复。exact duplicate 和既有 scope regression 能发现一部分问题，但不能证明首次单遍绝对静止。这是用户选择不做 A/B 后保留的已知风险，文档和验收不得把“可能完整”写成“绝对证明”。
-2. **首次大事务 WAL**：UNLOGGED stage 不产生主要数据 WAL，但首次正式插入仍是大事务；M2/M3 必须测 LSN、SSD 水位与回滚时长。
+2. **首次大事务 WAL**：M2 的 1,312,798 行合成首次发布产生 `643,120,480` bytes WAL，说明生产 M3 与历史回补前必须实测 SSD 水位并保留停止阈值；M2 数据不能直接等同生产行宽与压缩效果。
 3. **真实历史容量未知**：113 期存在性已证明，但逐期精确行数未扫描。历史回补前仍需 M4a 预算，不能每天或逐基金浪费额度。
 4. **比例字段语义**：`stk_float_ratio` 已见异常大值；只保真，不向终端用户解释为百分比。
 5. **自动任务成本**：一次最新季度可能约 657 次请求；因此 contract 禁止 daily/intraday，最终 weekly/monthly 频率仍需运营拍板。
 
-## 20. 后续待拍板（均不阻塞 M1）
+## 20. 后续待拍板（均不阻塞 M3）
 
 1. 历史起点是否正式定为 2014Q1；若是，M4a/M4b 以 50 个离散季度、按年四期执行。
 2. schedule 采用 weekly 还是 monthly，以及具体 cron 时间；不得在 B7-M1/M2/M3 自动创建。
-3. M2 真实小窗选择哪个 period、允许多少 Tushare 请求；容量 fixture 不消耗远程额度。
+
+## 21. B7-M1 实现对账（2026-08-10）
+
+M1 已逐项落地：
+
+- `DatasetDefinition` 固定季度末 point/range、单任务最多四期、显式 8 fields、`limit=2000`、单个可选 `ts_code` 定向补录与 `staged_stream` opt-in。
+- 通用 source page iterator 保留既有 `fetch()` 聚合行为；B7 executor 逐页归一化，只把当前页交给 stage，不累计完整报告期 Python list。
+- B7 专属 DAO 负责跨页 exact duplicate、同身份异内容拒绝、既有 scope 回退、内容冲突、集合发布与最终行数对账；共享 publisher 只负责专用连接、session advisory lock、页级 stage commit、unit 最终事务和清理。
+- final/stage 显式列 ORM、DAO factory、table registry 与 migration 已完成；migration 定义 32 个 HDD hash leaves、HDD indexes 和 HDD UNLOGGED stage，缺 tablespace fail-closed，downgrade 不删事实。
+- Ops Catalog、手动报告期控件、通用 `quarter_end` 前端规则、Definition 驱动的 weekly/monthly cron 与 once 能力已经接入；没有数据集 action-key 白名单、probe、workflow 或 schedule seed。
+- 定向后端测试覆盖分页、planner、normalizer、executor、DAO、迁移文本、Catalog/manual/schedule API 与既有公募基金回归；前端 typecheck、规则检查、全量 Vitest 与 production build 通过。PostgreSQL DDL、真实 HDD placement、advisory lock 并发、131 万行容量和真实源五段对账已在 B7-M2 独立完成。
+
+## 22. B7-M2 验收结论（2026-08-10）
+
+B7-M2 通过。M1 的 staged stream、集合发布、不可变冲突、事务回滚、advisory lock、HDD fail-closed 与物理落点均获得真实 PostgreSQL 证据；最小真实同步的五段数量一致且没有 reject。当前允许进入独立授权的 B7-M3，但本结论不授权生产 migration、生产同步、历史回补或 schedule 创建。

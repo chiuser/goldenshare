@@ -34,6 +34,7 @@ MONTHLY_LAST_TRADING_DAY_POLICY = "monthly_last_trading_day"
 MONTHLY_WINDOW_CURRENT_MONTH_POLICY = "monthly_window_current_month"
 TRIGGER_DAY_SINGLE_RANGE_POLICY = "trigger_day_single_range"
 TRIGGER_DAY_POINT_POLICY = "trigger_day_point"
+LATEST_COMPLETED_CALENDAR_QUARTER_POLICY = "latest_completed_calendar_quarter"
 MIN_INTRADAY_INTERVAL_MINUTES = 3
 SUPPORTED_CALENDAR_POLICIES = {
     MONTHLY_LAST_DAY_POLICY,
@@ -41,6 +42,7 @@ SUPPORTED_CALENDAR_POLICIES = {
     MONTHLY_WINDOW_CURRENT_MONTH_POLICY,
     TRIGGER_DAY_SINGLE_RANGE_POLICY,
     TRIGGER_DAY_POINT_POLICY,
+    LATEST_COMPLETED_CALENDAR_QUARTER_POLICY,
 }
 FALLBACK_PROBE_EFFECTIVE_TASK_STATUSES = ("queued", "running", "canceling", "success", "partial_success")
 
@@ -667,6 +669,7 @@ class OperationsScheduleService:
                 MONTHLY_WINDOW_CURRENT_MONTH_POLICY: "自然月窗口策略只支持月窗口数据集",
                 TRIGGER_DAY_SINGLE_RANGE_POLICY: "触发日单日区间策略只支持自然日公告区间且仅支持区间维护的数据集",
                 TRIGGER_DAY_POINT_POLICY: "触发日单日策略未由该数据集 Definition 声明",
+                LATEST_COMPLETED_CALENDAR_QUARTER_POLICY: "最近已完成季度策略未由该数据集 Definition 声明",
             }
             raise WebAppError(
                 status_code=422,
@@ -680,6 +683,7 @@ class OperationsScheduleService:
                 MONTHLY_WINDOW_CURRENT_MONTH_POLICY: "自然月窗口",
                 TRIGGER_DAY_SINGLE_RANGE_POLICY: "触发日单日区间",
                 TRIGGER_DAY_POINT_POLICY: "触发日单日",
+                LATEST_COMPLETED_CALENDAR_QUARTER_POLICY: "最近已完成季度",
             }
             raise WebAppError(
                 status_code=422,
@@ -687,7 +691,7 @@ class OperationsScheduleService:
                 message=f"{labels[calendar_policy]}策略只支持周期执行",
             )
         repeat_mode = resolver.classify_cron_repeat_mode(cron_expr) if schedule_type == "cron" else None
-        if rule.declared_by_action and repeat_mode not in rule.cron_repeat_modes:
+        if schedule_type == "cron" and rule.declared_by_action and repeat_mode not in rule.cron_repeat_modes:
             raise WebAppError(status_code=422, code="validation_error", message="当前周期类型不支持该数据集声明的日期策略")
         if rule.explicit_time_input == "forbidden" and (
             OperationsScheduleService._has_declared_time_input(
@@ -701,6 +705,7 @@ class OperationsScheduleService:
                 MONTHLY_WINDOW_CURRENT_MONTH_POLICY: "自然月窗口策略不能与固定维护日期或窗口混用",
                 TRIGGER_DAY_SINGLE_RANGE_POLICY: "触发日单日区间策略不能与固定维护日期或窗口混用",
                 TRIGGER_DAY_POINT_POLICY: "触发日单日策略不能与固定维护日期或窗口混用",
+                LATEST_COMPLETED_CALENDAR_QUARTER_POLICY: "最近已完成季度策略不能与固定报告期混用",
             }
             raise WebAppError(status_code=422, code="validation_error", message=conflict_messages[calendar_policy])
         if calendar_policy == TRIGGER_DAY_POINT_POLICY and repeat_mode == "intraday_interval":

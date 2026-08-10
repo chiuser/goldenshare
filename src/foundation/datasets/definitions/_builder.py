@@ -157,6 +157,7 @@ def _build_action_capability(row: dict[str, Any]) -> DatasetActionCapability:
             "monthly_window_current_month",
             "trigger_day_single_range",
             "trigger_day_point",
+            "latest_completed_calendar_quarter",
         }:
             raise ValueError(f"未知 schedule time policy：{policy.policy}")
         if not policy.schedule_types or not set(policy.schedule_types).issubset({"cron", "once"}):

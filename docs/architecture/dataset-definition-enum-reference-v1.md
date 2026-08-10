@@ -169,8 +169,8 @@
 
 | 值 | 含义 | 当前数量 |
 | --- | --- | --- |
-| `pool` | 明确按对象池展开；对象池来源由 `planning.universe` 显式声明 | 7 |
-| `no_pool` | 明确不按对象池展开源站请求 | 65 |
+| `pool` | 明确按对象池展开；对象池来源由 `planning.universe` 显式声明 | 9 |
+| `no_pool` | 明确不按对象池展开源站请求 | 74 |
 | `none` | 未定义或历史未迁移占位；不能表达具体业务语义 | 0 |
 
 说明：当前 `none`、`dc_index_board_codes` 与 `ths_index_board_codes` 已清零。新增或修改数据集时，不得用 `none` 表达“没有对象池展开”；不展开必须写 `no_pool`，展开必须写 `pool` 与 `planning.universe`。
@@ -179,8 +179,17 @@
 
 | 值 | 含义 | 当前数量 |
 | --- | --- | --- |
-| `offset_limit` | 使用 `offset/limit` 分页 | 70 |
+| `offset_limit` | 使用 `offset/limit` 分页 | 81 |
 | `none` | 不使用通用分页 | 2 |
+
+#### `planning.page_processing_mode`
+
+| 值 | 含义 | 当前数量 |
+| --- | --- | --- |
+| `buffer_all` | 默认行为；完整聚合一个 unit 的分页结果后再归一化和写入 | 82 |
+| `staged_stream` | 显式 opt-in；逐页归一化并提交非服务暂存，short page 后以 unit 事务发布 serving | 1 |
+
+`staged_stream` 不等于分页业务提交。它必须同时满足 Definition linter 的 stage DAO/table、单并发、offset pagination、direct-serving 和 unit transaction 门禁；未声明的数据集继续保持 `buffer_all`。
 
 ### 6.3 `planning.enum_fanout_fields`
 

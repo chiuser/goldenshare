@@ -3,7 +3,8 @@ import type { ComponentPropsWithoutRef } from "react";
 
 // WEEK_FRIDAY_NATURAL_ANCHOR_OK: 股票周线源接口要求自然周五锚点，不是每周最后一个交易日。
 export const CALENDAR_WEEK_FRIDAY_SELECTION_RULE = "week_friday" as const;
-export type DateSelectionRule = "any" | typeof CALENDAR_WEEK_FRIDAY_SELECTION_RULE | "month_end";
+export const CALENDAR_QUARTER_END_SELECTION_RULE = "quarter_end" as const;
+export type DateSelectionRule = "any" | typeof CALENDAR_WEEK_FRIDAY_SELECTION_RULE | typeof CALENDAR_QUARTER_END_SELECTION_RULE | "month_end";
 type ExcludeDateInput = Parameters<NonNullable<ComponentPropsWithoutRef<typeof DatePickerInput>["excludeDate"]>>[0];
 
 type DateFieldProps = Omit<ComponentPropsWithoutRef<typeof DatePickerInput>, "value" | "onChange" | "type" | "excludeDate"> & {
@@ -75,6 +76,15 @@ export function isCalendarDateExcluded(value: ExcludeDateInput, selectionRule: D
   if (selectionRule === "month_end") {
     const monthLastDay = new Date(parsed.getFullYear(), parsed.getMonth() + 1, 0).getDate();
     return parsed.getDate() !== monthLastDay;
+  }
+  if (selectionRule === CALENDAR_QUARTER_END_SELECTION_RULE) {
+    const month = parsed.getMonth() + 1;
+    return !(
+      (month === 3 && parsed.getDate() === 31)
+      || (month === 6 && parsed.getDate() === 30)
+      || (month === 9 && parsed.getDate() === 30)
+      || (month === 12 && parsed.getDate() === 31)
+    );
   }
   return false;
 }

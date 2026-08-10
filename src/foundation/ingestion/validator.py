@@ -163,6 +163,9 @@ class DatasetRequestValidator:
             month_last_day = monthrange(trade_date.year, trade_date.month)[1]
             if trade_date.day != month_last_day:
                 raise self._error("invalid_anchor_date", "当前数据集要求选择自然月最后一天")
+        if date_model.bucket_rule == "calendar_quarter_end":
+            if (trade_date.month, trade_date.day) not in {(3, 31), (6, 30), (9, 30), (12, 31)}:
+                raise self._error("quarter_end_required", "基金持仓报告期必须是自然季度末")
 
     def _validate_range_rebuild_anchor(
         self,

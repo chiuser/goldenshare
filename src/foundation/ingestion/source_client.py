@@ -30,6 +30,27 @@ class SourceFetchResult:
         self.pagination_diagnostics = dict(pagination_diagnostics or {})
 
 
+class SourcePageResult:
+    def __init__(
+        self,
+        *,
+        unit_id: str,
+        page_number: int,
+        offset: int | None,
+        rows_raw: list[dict],
+        retry_count: int,
+        latency_ms: int,
+        is_short_page: bool,
+    ) -> None:
+        self.unit_id = unit_id
+        self.page_number = page_number
+        self.offset = offset
+        self.rows_raw = rows_raw
+        self.retry_count = retry_count
+        self.latency_ms = latency_ms
+        self.is_short_page = is_short_page
+
+
 class DatasetSourceClient:
     RATE_LIMIT_RETRY_SLEEP_SECONDS = 65.0
 
@@ -38,18 +59,32 @@ class DatasetSourceClient:
         self.logger = logging.getLogger(self.__class__.__name__)
 
     def fetch(self, *, definition: DatasetDefinition, unit: PlanUnitSnapshot) -> SourceFetchResult:
-        connector = create_source_connector(str(unit.source_key or definition.source.adapter_key))
-        page_limit = unit.page_limit
-        pagination_policy = unit.pagination_policy or definition.planning.pagination_policy
-
         started_at = perf_counter()
-        rows_raw, request_count, retry_count, pagination_diagnostics = self._fetch_rows_with_pagination(
-            definition=definition,
-            unit=unit,
-            connector=connector,
-            pagination_policy=pagination_policy,
-            page_limit=page_limit,
-        )
+        rows_raw: list[dict] = []
+        request_count = 0
+        retry_count = 0
+        terminal_offset: int | None = None
+        terminal_page_rows = 0
+        observed_short_page = False
+        for page in self.iter_pages(definition=definition, unit=unit):
+            request_count += 1
+            retry_count += page.retry_count
+            rows_raw.extend(page.rows_raw)
+            terminal_offset = page.offset
+            terminal_page_rows = len(page.rows_raw)
+            observed_short_page = page.is_short_page
+        pagination_policy = unit.pagination_policy or definition.planning.pagination_policy
+        pagination_diagnostics = {}
+        if pagination_policy == "offset_limit" and unit.page_limit is not None:
+            pagination_diagnostics = {
+                "policy": "offset_limit",
+                "page_limit": unit.page_limit,
+                "page_count": request_count,
+                "total_rows_merged": len(rows_raw),
+                "terminal_offset": terminal_offset,
+                "terminal_page_rows": terminal_page_rows,
+                "observed_short_page": observed_short_page,
+            }
         latency_ms = max(int((perf_counter() - started_at) * 1000), 0)
         return SourceFetchResult(
             unit_id=unit.unit_id,
@@ -60,16 +95,12 @@ class DatasetSourceClient:
             pagination_diagnostics=pagination_diagnostics,
         )
 
-    def _fetch_rows_with_pagination(
-        self,
-        *,
-        definition: DatasetDefinition,
-        unit: PlanUnitSnapshot,
-        connector,
-        pagination_policy: str | None,
-        page_limit: int | None,
-    ) -> tuple[list[dict], int, int, dict]:
+    def iter_pages(self, *, definition: DatasetDefinition, unit: PlanUnitSnapshot):  # type: ignore[no-untyped-def]
+        connector = create_source_connector(str(unit.source_key or definition.source.adapter_key))
+        page_limit = unit.page_limit
+        pagination_policy = unit.pagination_policy or definition.planning.pagination_policy
         if pagination_policy != "offset_limit" or page_limit is None:
+            started_at = perf_counter()
             rows, retries = self._fetch_page(
                 definition=definition,
                 unit=unit,
@@ -77,15 +108,21 @@ class DatasetSourceClient:
                 offset=None,
                 page_limit=None,
             )
-            return rows, 1, retries, {}
+            yield SourcePageResult(
+                unit_id=unit.unit_id,
+                page_number=1,
+                offset=None,
+                rows_raw=rows,
+                retry_count=retries,
+                latency_ms=max(int((perf_counter() - started_at) * 1000), 0),
+                is_short_page=True,
+            )
+            return
 
-        rows_raw: list[dict] = []
-        request_count = 0
-        retry_count = 0
         offset = 0
-        terminal_offset = 0
-        terminal_page_rows = 0
+        page_number = 1
         while True:
+            started_at = perf_counter()
             rows, retries = self._fetch_page(
                 definition=definition,
                 unit=unit,
@@ -93,34 +130,31 @@ class DatasetSourceClient:
                 offset=offset,
                 page_limit=page_limit,
             )
-            request_count += 1
-            retry_count += retries
-            rows_raw.extend(rows)
             is_short_page = len(rows) < page_limit
-            terminal_offset = offset
-            terminal_page_rows = len(rows)
             self.logger.info(
-                "dataset_source_page api_name=%s unit_id=%s ann_date=%s offset=%s limit=%s page_rows=%s is_short_page=%s",
+                "dataset_source_page api_name=%s unit_id=%s ann_date=%s period=%s offset=%s limit=%s page_rows=%s is_short_page=%s",
                 definition.source.api_name,
                 unit.unit_id,
                 unit.request_params.get("ann_date"),
+                unit.request_params.get("period"),
                 offset,
                 page_limit,
                 len(rows),
                 is_short_page,
             )
+            yield SourcePageResult(
+                unit_id=unit.unit_id,
+                page_number=page_number,
+                offset=offset,
+                rows_raw=rows,
+                retry_count=retries,
+                latency_ms=max(int((perf_counter() - started_at) * 1000), 0),
+                is_short_page=is_short_page,
+            )
             if is_short_page:
-                break
+                return
             offset += page_limit
-        return rows_raw, request_count, retry_count, {
-            "policy": "offset_limit",
-            "page_limit": page_limit,
-            "page_count": request_count,
-            "total_rows_merged": len(rows_raw),
-            "terminal_offset": terminal_offset,
-            "terminal_page_rows": terminal_page_rows,
-            "observed_short_page": terminal_page_rows < page_limit,
-        }
+            page_number += 1
 
     def _fetch_page(
         self,

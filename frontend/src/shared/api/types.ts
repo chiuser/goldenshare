@@ -486,7 +486,8 @@ export interface OpsAutomationCapability {
       | "monthly_last_trading_day"
       | "monthly_window_current_month"
       | "trigger_day_single_range"
-      | "trigger_day_point";
+      | "trigger_day_point"
+      | "latest_completed_calendar_quarter";
     schedule_types: Array<"cron" | "once">;
     cron_repeat_modes: Array<"daily" | "weekly" | "monthly" | "intraday_interval">;
     explicit_time_input: "allowed" | "forbidden";
@@ -647,6 +648,7 @@ export interface OpsManualActionsResponse {
             // WEEK_FRIDAY_NATURAL_ANCHOR_OK: 后端该 selection_rule 表达股票周线自然周五锚点，不是每周最后交易日。
             | "week_friday"
             | "month_end"
+            | "quarter_end"
             | "month_key"
             | "month_window"
             | "none";

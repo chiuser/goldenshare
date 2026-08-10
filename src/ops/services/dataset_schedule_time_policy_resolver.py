@@ -12,6 +12,7 @@ CalendarPolicy = Literal[
     "monthly_window_current_month",
     "trigger_day_single_range",
     "trigger_day_point",
+    "latest_completed_calendar_quarter",
 ]
 ScheduleType = Literal["cron", "once"]
 CronRepeatMode = Literal["daily", "weekly", "monthly", "intraday_interval"]
@@ -102,8 +103,7 @@ class DatasetScheduleTimePolicyResolver:
             return None
         if schedule_type != "cron":
             return declared
-        repeat_mode = self.classify_cron_repeat_mode(cron_expr)
-        return declared if repeat_mode in declared.cron_repeat_modes else None
+        return declared
 
     @staticmethod
     def classify_cron_repeat_mode(cron_expr: str | None) -> CronRepeatMode | None:

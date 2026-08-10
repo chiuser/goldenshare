@@ -28,7 +28,7 @@ import type {
 } from "../shared/api/types";
 import { usePersistentState } from "../shared/hooks/use-persistent-state";
 import { AlertBar } from "../shared/ui/alert-bar";
-import { CALENDAR_WEEK_FRIDAY_SELECTION_RULE, DateField, type DateSelectionRule } from "../shared/ui/date-field";
+import { CALENDAR_QUARTER_END_SELECTION_RULE, CALENDAR_WEEK_FRIDAY_SELECTION_RULE, DateField, type DateSelectionRule } from "../shared/ui/date-field";
 import { EmptyState } from "../shared/ui/empty-state";
 import { MonthField } from "../shared/ui/month-field";
 import { SectionCard } from "../shared/ui/section-card";
@@ -246,6 +246,9 @@ function inferCalendarDateRule(modeConfig: ManualActionTimeModeConfig | null): D
   }
   if (modeConfig.selection_rule === "month_end") {
     return "month_end";
+  }
+  if (modeConfig.selection_rule === CALENDAR_QUARTER_END_SELECTION_RULE) {
+    return CALENDAR_QUARTER_END_SELECTION_RULE;
   }
   return "any";
 }

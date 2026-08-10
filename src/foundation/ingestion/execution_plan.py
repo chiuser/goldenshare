@@ -72,6 +72,7 @@ class PlanPlanning:
     max_units_per_execution: int | None
     fetch_concurrency: int
     unit_count: int
+    page_processing_mode: str = "buffer_all"
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +86,8 @@ class PlanWriting:
     serving_conflict_resolution_policy: str = "none"
     observation_dao_name: str | None = None
     observation_table: str | None = None
+    stage_dao_name: str | None = None
+    stage_table: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

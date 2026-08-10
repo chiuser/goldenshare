@@ -7,7 +7,7 @@ from src.foundation.datasets.source_release_policies import SUPPORTED_SOURCE_REL
 from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY
 
 
-SUPPORTED_SCOPED_REPAIR_POLICIES = {"existing_point_bucket_only"}
+SUPPORTED_SCOPED_REPAIR_POLICIES = {"existing_point_bucket_only", "existing_observed_point_scope_only"}
 SUPPORTED_DUPLICATE_KEY_POLICIES = {"allow", "dedupe_identical_reject_conflicting"}
 SUPPORTED_SOURCE_MULTIPLICITY_POLICIES = {"reject", "deduplicate_identical"}
 
@@ -47,7 +47,34 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
         if not definition.storage.target_table.strip():
             issues.append(IngestionLintIssue(dataset_key, "missing_target_table", "target_table 不能为空"))
         storage = definition.storage
-        if storage.write_path == "serving_observed_snapshot_refresh":
+        staged_write = storage.write_path == "serving_staged_immutable_scope_publish"
+        if definition.planning.page_processing_mode not in {"buffer_all", "staged_stream"}:
+            issues.append(
+                IngestionLintIssue(dataset_key, "page_processing_mode_invalid", "planning.page_processing_mode 仅支持 buffer_all/staged_stream")
+            )
+        if staged_write:
+            if definition.planning.page_processing_mode != "staged_stream":
+                issues.append(IngestionLintIssue(dataset_key, "staged_page_mode_required", "staged write path 必须使用 staged_stream"))
+            if definition.planning.pagination_policy != "offset_limit" or not definition.planning.page_limit:
+                issues.append(IngestionLintIssue(dataset_key, "staged_pagination_invalid", "staged write path 必须配置正数 offset_limit/page_limit"))
+            if definition.planning.fetch_concurrency != 1 or definition.transaction.commit_policy != "unit":
+                issues.append(IngestionLintIssue(dataset_key, "staged_execution_contract_invalid", "staged write path 必须单并发且按 unit 提交"))
+            if storage.raw_dao_name is not None or storage.raw_table is not None or storage.std_table is not None:
+                issues.append(IngestionLintIssue(dataset_key, "staged_raw_or_std_forbidden", "staged write path 不得配置 raw DAO/raw/std 表"))
+            if storage.observation_dao_name is not None or storage.observation_table is not None:
+                issues.append(IngestionLintIssue(dataset_key, "staged_observation_forbidden", "staged write path 不得配置 observation DAO/表"))
+            if not storage.core_dao_name or not storage.stage_dao_name or not storage.stage_table:
+                issues.append(IngestionLintIssue(dataset_key, "staged_dao_or_table_missing", "staged write path 必须配置 serving/stage DAO 与表"))
+            if storage.serving_table != storage.target_table or storage.layer_plan != "source->serving":
+                issues.append(IngestionLintIssue(dataset_key, "staged_serving_contract_invalid", "staged write path 必须 direct-serving 且 serving_table 等于 target_table"))
+            identity_fields = tuple(storage.conflict_columns or ())
+            if not identity_fields or not set(identity_fields).issubset(set(definition.normalization.required_fields)):
+                issues.append(IngestionLintIssue(dataset_key, "staged_identity_invalid", "staged identity 必须非空且全部属于 normalization.required_fields"))
+            if definition.quality.source_multiplicity_policy != "deduplicate_identical":
+                issues.append(IngestionLintIssue(dataset_key, "staged_multiplicity_invalid", "staged write path 必须启用 exact duplicate 去重"))
+        elif storage.stage_dao_name is not None or storage.stage_table is not None or definition.planning.page_processing_mode == "staged_stream":
+            issues.append(IngestionLintIssue(dataset_key, "staged_contract_on_buffered_path", "非 staged write path 不得配置 stage 字段或 staged_stream"))
+        elif storage.write_path == "serving_observed_snapshot_refresh":
             if storage.raw_dao_name is not None:
                 issues.append(
                     IngestionLintIssue(
