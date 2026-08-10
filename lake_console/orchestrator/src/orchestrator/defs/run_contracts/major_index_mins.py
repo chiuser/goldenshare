@@ -537,7 +537,7 @@ def major_index_mins_historical_fallback_fingerprint() -> str:
     )
 
 
-MAJOR_INDEX_MINS_SILVER_CLEANUP_REVISION = "major_index_mins_silver_cleanup_v1"
+MAJOR_INDEX_MINS_SILVER_CLEANUP_REVISION = "major_index_mins_silver_cleanup_v2"
 MAJOR_INDEX_MINS_OPENING_SENTINEL_CODES = (
     "000001.SH",
     "000016.SH",
@@ -580,6 +580,26 @@ MAJOR_INDEX_MINS_399001_ENVELOPE_LONGER_FREQ_DATES = tuple(
     for value in MAJOR_INDEX_MINS_399001_ENVELOPE_5M_DATES
     if value != "2017-01-04"
 )
+MAJOR_INDEX_MINS_2017_ZERO_OHLC_OPENING_PRICES = (
+    ("000001.SH", 3335.567),
+    ("000016.SH", 2905.331),
+    ("000300.SH", 4061.355),
+    ("000852.SH", 7176.156),
+    ("000905.SH", 6293.246),
+)
+
+
+def major_index_mins_silver_opening_price_replacement_rows(
+) -> tuple[tuple[str, str, str, str, float], ...]:
+    """Return the exact published replacements for zero-valued opening OHLC."""
+
+    return (
+        ("000016.SH", "15min", "2016-10-10", "09:30:00", 2187.652),
+    ) + tuple(
+        (code, frequency, "2017-11-29", "09:30:00", price)
+        for code, price in MAJOR_INDEX_MINS_2017_ZERO_OHLC_OPENING_PRICES
+        for frequency in ("5min", "15min", "30min", "60min")
+    )
 
 
 def major_index_mins_silver_ohlc_cleanup_scope_rows(
@@ -612,7 +632,10 @@ def major_index_mins_silver_cleanup_fingerprint() -> str:
     return _sha256_payload(
         {
             "revision": MAJOR_INDEX_MINS_SILVER_CLEANUP_REVISION,
-            "rows": major_index_mins_silver_ohlc_cleanup_scope_rows(),
+            "ohlc_scope_rows": major_index_mins_silver_ohlc_cleanup_scope_rows(),
+            "opening_price_replacement_rows": (
+                major_index_mins_silver_opening_price_replacement_rows()
+            ),
         }
     )
 

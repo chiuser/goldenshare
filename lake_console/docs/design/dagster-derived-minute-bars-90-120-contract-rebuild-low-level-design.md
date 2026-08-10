@@ -775,3 +775,61 @@ P8 后续必须继续完成：至少 3 个实际交易日的 daily/factor repair
 5. 不增加 production check。
 
 进入代码开发前只需要再次确认正式执行窗口和磁盘空间；这属于运行审批，不是业务口径拍板。
+
+## 14. 2026-08-08 主要指数历史零价修复
+
+全历史只读复核发现，Tushare 当前 5/15/30/60min 源在两个已冻结开盘 scope 返回 OHLC
+四价全零，但同一行 `vol/amount` 非零，且当前 1min 返回明确集合竞价价：
+
+- `2016-10-10 / 000016.SH / 15min / 09:30`：1 行；
+- `2017-11-29 / 五个上交所主要指数 / 5/15/30/60min / 09:30`：20 行。
+
+Raw 继续保存源事实。Silver 按主要指数接入 LLD 第 29.4 节的 cleanup revision v2 精确
+替换这 21 行四价，未知零价不得自动修复。2016 行不属于 90/120 source；2017 的 30/60
+修复后必须重新生成 90/120，清除第一上午 bar 的 10 行派生污染。窗口合同本身不变：
+90min 仍为 `11:00/14:00/15:00`，120min 仍为 `11:30/15:00`，第一上午 bar 仍使用
+`09:30.close` 作为 anchor。
+
+本次正式写入边界固定如下：
+
+| 项目 | 数量/口径 |
+| --- | --- |
+| 交易日 | 2 个：2016-10-10、2017-11-29 |
+| 直接修复 Silver 行 | 21 |
+| 重新生成派生行 | 10 |
+| 目标文件 | 7 个，共 714 行、46,910 bytes（写前快照） |
+| Tushare 写入请求 | 0；只使用已冻结并实测的修复合同 |
+| staging/rollback | Lake 同文件系统；逐文件 staging，旧文件 hard-link 备份 |
+| 停止条件 | active run、源/冻结值漂移、缺文件、校验失败、目标竞争或磁盘不足 |
+
+执行必须复用正式 `silver_major_index_mins_update_job`，分区顺序固定为 2016 后 2017。
+正式执行前把 7 个旧目标移入独立 rollback 根；任一 run 或 check 失败时立即按 manifest
+恢复对应旧文件。两次 run 都成功后，必须完成 7 个目标文件逐行校验、全历史非正 OHLC
+扫描、30->90 与 60->120 精确重算对账、Dagster materialization/check 归属和 active run
+复核。修复不新增 asset/job/sensor/check，也不改变依赖矩阵。
+
+### 14.1 正式执行与验收结果
+
+本次修复已于 2026-08-08 按上述边界完成：
+
+1. rollback manifest 和旧文件保存在
+   `/Volumes/datasource/data_lake/_rollback/major_index_mins_zero_ohlc_repair_20260808`；
+   写前 21 条 Raw/1min 源证据、7 个旧目标的行数、非正 OHLC 数、大小和 SHA-256 全部
+   与冻结 preflight 一致。
+2. `2016-10-10` 正式 run 为 `62c1b995-a6d8-429f-bf16-0804f78d8f82`，状态
+   `SUCCESS`。只有 15min 使用 `staged_atomic_replace`，其它六频均为 `reuse_existing`；
+   7 个 blocking check 全部通过。
+3. `2017-11-29` 正式 run 为 `433c5ff2-d5e0-4aab-9743-b993730dc48c`，状态
+   `SUCCESS`。5/15/30/60/90/120min 使用 `staged_atomic_replace`，1min 为
+   `reuse_existing`；7 个 blocking check 全部通过。
+4. 独立文件验收确认 7 个目标仍为 714 行，非正 OHLC 为 0；21 行替换价逐行匹配，
+   `vol/amount/vwap` 与旧文件一致，未受影响的原生行双向 `EXCEPT ALL` 差异为 0。
+5. 30min->90min、60min->120min 独立重算的双向差异均为 0；七个频率的 Silver
+   全历史扫描均为 0 条非正 OHLC。
+6. 为恢复 UI latest event 顺序，`2026-08-04` 运行
+   `a68a0e26-27cb-486e-8b76-64bd1068e7b4` 成功；七频全部
+   `reuse_existing`，7 个 blocking check 全部通过，七个资产的 latest materialization
+   均回到 `2026-08-04`。
+7. `2016-10-10`、`2017-11-29`、`2026-08-04` 三个日期的 Silver batch readiness
+   全绿，共扫描 21 个文件；执行结束 active run 为 0。未修改 Raw、Prod、sensor 状态、
+   asset/job/check 数量或依赖矩阵。

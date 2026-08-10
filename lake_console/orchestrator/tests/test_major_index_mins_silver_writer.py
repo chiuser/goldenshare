@@ -90,6 +90,7 @@ def _write_raw(
             low_value = value - 0.5
             vol_value = value * 10
             amount_value = value * 100
+            vwap_value = value + 0.25
             if anomaly == "derived_anchor_literal" and source_time == "09:30:00":
                 open_value = 999.0
                 high_value = 1000.0
@@ -119,6 +120,34 @@ def _write_raw(
             ):
                 high_value = close_value
                 low_value = close_value
+            published_zero_ohlc = (
+                trade_date == "2016-10-10"
+                and freq == "15min"
+                and code == "000016.SH"
+                and source_time == "09:30:00"
+            ) or (
+                trade_date == "2017-11-29"
+                and freq in {"5min", "15min", "30min", "60min"}
+                and code
+                in {
+                    "000001.SH",
+                    "000016.SH",
+                    "000300.SH",
+                    "000852.SH",
+                    "000905.SH",
+                }
+                and source_time == "09:30:00"
+            )
+            if anomaly == "published_zero_ohlc" and published_zero_ohlc:
+                open_value = close_value = high_value = low_value = 0.0
+                if trade_date == "2016-10-10":
+                    vwap_value = 0.0
+            if (
+                anomaly == "unknown_zero_ohlc"
+                and code == "000001.SH"
+                and source_time == "09:30:00"
+            ):
+                open_value = close_value = high_value = low_value = 0.0
             if (
                 anomaly == "bse_negative"
                 and code == "899050.BJ"
@@ -138,7 +167,7 @@ def _write_raw(
                     vol_value,
                     amount_value,
                     exchange if source_exchange == "contract" else source_exchange,
-                    value + 0.25,
+                    vwap_value,
                 )
             )
     with duckdb.connect(":memory:") as connection:
@@ -403,6 +432,113 @@ def test_native_silver_cleans_only_published_ohlc_scopes(tmp_path: Path) -> None
             partition_key="2017-02-03",
             run_id="p7c-unknown-envelope",
         )
+
+
+def test_native_silver_replaces_published_zero_ohlc_openings(tmp_path: Path) -> None:
+    expected_2017 = {
+        "000001.SH": 3335.567,
+        "000016.SH": 2905.331,
+        "000300.SH": 4061.355,
+        "000852.SH": 7176.156,
+        "000905.SH": 6293.246,
+    }
+    for freq in ("5min", "15min", "30min", "60min"):
+        _write_raw(
+            tmp_path,
+            trade_date="2017-11-29",
+            freq=freq,
+            anomaly="published_zero_ohlc",
+        )
+        result = write_major_index_mins_silver_partition(
+            lake_root_path=tmp_path,
+            duckdb_resource=_MemoryDuckDB(),
+            freq=freq,
+            partition_key="2017-11-29",
+            run_id=f"zero-ohlc-{freq}",
+        )
+        for code, expected_price in expected_2017.items():
+            opening = _rows(result.target_path, code)[0]
+            assert opening[3:7] == (expected_price,) * 4
+            assert opening[7:9] == (10.0, 100.0)
+            assert opening[10] == 1.25
+        assert _rows(result.target_path, "399001.SZ")[0][3:7] == (
+            1.0,
+            1.5,
+            2.0,
+            0.5,
+        )
+
+    _write_raw(
+        tmp_path,
+        trade_date="2016-10-10",
+        freq="15min",
+        anomaly="published_zero_ohlc",
+    )
+    result_2016 = write_major_index_mins_silver_partition(
+        lake_root_path=tmp_path,
+        duckdb_resource=_MemoryDuckDB(),
+        freq="15min",
+        partition_key="2016-10-10",
+        run_id="zero-ohlc-2016",
+    )
+    opening_2016 = _rows(result_2016.target_path, "000016.SH")[0]
+    assert opening_2016[3:7] == (2187.652,) * 4
+    assert opening_2016[7:9] == (10.0, 100.0)
+    assert opening_2016[10] == 0.0
+
+
+def test_native_silver_rejects_unpublished_zero_ohlc(tmp_path: Path) -> None:
+    _write_raw(
+        tmp_path,
+        trade_date="2026-08-04",
+        freq="15min",
+        anomaly="unknown_zero_ohlc",
+    )
+    with pytest.raises(MajorIndexMinsSilverValidationError, match="invalid_rows"):
+        write_major_index_mins_silver_partition(
+            lake_root_path=tmp_path,
+            duckdb_resource=_MemoryDuckDB(),
+            freq="15min",
+            partition_key="2026-08-04",
+            run_id="unknown-zero-ohlc",
+        )
+    assert not silver_major_index_mins_path(
+        tmp_path,
+        "15min",
+        "2026-08-04",
+    ).exists()
+
+
+def test_derived_bars_use_repaired_opening_prices(tmp_path: Path) -> None:
+    for source_freq, derived_freq, expected_time in (
+        ("30min", "90min", "11:00:00"),
+        ("60min", "120min", "11:30:00"),
+    ):
+        _write_raw(
+            tmp_path,
+            trade_date="2017-11-29",
+            freq=source_freq,
+            anomaly="published_zero_ohlc",
+        )
+        write_major_index_mins_silver_partition(
+            lake_root_path=tmp_path,
+            duckdb_resource=_MemoryDuckDB(),
+            freq=source_freq,
+            partition_key="2017-11-29",
+            run_id=f"repaired-source-{source_freq}",
+        )
+        derived = write_major_index_mins_silver_partition(
+            lake_root_path=tmp_path,
+            duckdb_resource=_MemoryDuckDB(),
+            freq=derived_freq,
+            partition_key="2017-11-29",
+            run_id=f"repaired-derived-{derived_freq}",
+        )
+        first = _rows(derived.target_path, "000001.SH")[0]
+        assert first[2].strftime("%H:%M:%S") == expected_time
+        assert first[3] == 3335.567
+        assert first[5] == 3335.567
+        assert first[6] > 0
 
 
 def test_bse_negative_source_fact_is_raw_only(tmp_path: Path) -> None:

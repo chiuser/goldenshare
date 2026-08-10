@@ -99,7 +99,7 @@ def _assert_physical_schema(connection, *, relation_sql: str, label: str) -> Non
     select_sql = _relation_select(relation_sql)
     try:
         description = connection.execute(f"DESCRIBE {select_sql}").fetchall()
-    except Exception as error:  # noqa: BLE001 - normalize corrupt Parquet failures.
+    except Exception as error:  # Normalize corrupt Parquet failures.
         raise MajorIndexMinsSilverValidationError(
             f"{label} cannot be read as Parquet."
         ) from error
@@ -131,62 +131,108 @@ def _normalized_source_sql(relation_sql: str) -> str:
         CAST(amount AS DOUBLE) AS amount,
         CAST(vwap AS DOUBLE) AS vwap
       FROM ({select_sql}) source_rows
+    ), price_corrected AS (
+      SELECT
+        normalized.ts_code,
+        normalized.freq,
+        normalized.trade_time,
+        CASE WHEN replacement.replacement_price IS NOT NULL
+                  AND normalized.open = 0
+                  AND normalized.close = 0
+                  AND normalized.high = 0
+                  AND normalized.low = 0
+             THEN replacement.replacement_price
+             ELSE normalized.open END::DOUBLE AS open,
+        CASE WHEN replacement.replacement_price IS NOT NULL
+                  AND normalized.open = 0
+                  AND normalized.close = 0
+                  AND normalized.high = 0
+                  AND normalized.low = 0
+             THEN replacement.replacement_price
+             ELSE normalized.close END::DOUBLE AS close,
+        CASE WHEN replacement.replacement_price IS NOT NULL
+                  AND normalized.open = 0
+                  AND normalized.close = 0
+                  AND normalized.high = 0
+                  AND normalized.low = 0
+             THEN replacement.replacement_price
+             ELSE normalized.high END::DOUBLE AS high,
+        CASE WHEN replacement.replacement_price IS NOT NULL
+                  AND normalized.open = 0
+                  AND normalized.close = 0
+                  AND normalized.high = 0
+                  AND normalized.low = 0
+             THEN replacement.replacement_price
+             ELSE normalized.low END::DOUBLE AS low,
+        normalized.vol,
+        normalized.amount,
+        normalized.vwap
+      FROM normalized
+      LEFT JOIN major_index_mins_price_replacements replacement
+        ON replacement.ts_code = normalized.ts_code
+       AND replacement.frequency = normalized.freq
+       AND replacement.trade_date = CAST(normalized.trade_time AS DATE)
+       AND replacement.source_time = CAST(normalized.trade_time AS TIME)
     )
     SELECT
-      normalized.ts_code,
-      normalized.freq,
-      normalized.trade_time,
-      normalized.open,
-      normalized.close,
+      price_corrected.ts_code,
+      price_corrected.freq,
+      price_corrected.trade_time,
+      price_corrected.open,
+      price_corrected.close,
       CASE
         WHEN cleanup.cleanup_kind = 'opening_sentinel'
-         AND normalized.high = 0
-         AND normalized.low = 0
-         AND normalized.open > 0
-         AND normalized.close > 0
-          THEN greatest(normalized.open, normalized.close)
+         AND price_corrected.high = 0
+         AND price_corrected.low = 0
+         AND price_corrected.open > 0
+         AND price_corrected.close > 0
+          THEN greatest(price_corrected.open, price_corrected.close)
         WHEN cleanup.cleanup_kind = 'ohlc_envelope'
-         AND (normalized.high < greatest(
-                normalized.open, normalized.close, normalized.low
+         AND (price_corrected.high < greatest(
+                price_corrected.open, price_corrected.close, price_corrected.low
               )
-              OR normalized.low > least(
-                normalized.open, normalized.close, normalized.high
+              OR price_corrected.low > least(
+                price_corrected.open, price_corrected.close, price_corrected.high
               ))
-          THEN greatest(normalized.high, normalized.open, normalized.close)
-        ELSE normalized.high
+          THEN greatest(
+            price_corrected.high, price_corrected.open, price_corrected.close
+          )
+        ELSE price_corrected.high
       END::DOUBLE AS high,
       CASE
         WHEN cleanup.cleanup_kind = 'opening_sentinel'
-         AND normalized.high = 0
-         AND normalized.low = 0
-         AND normalized.open > 0
-         AND normalized.close > 0
-          THEN least(normalized.open, normalized.close)
+         AND price_corrected.high = 0
+         AND price_corrected.low = 0
+         AND price_corrected.open > 0
+         AND price_corrected.close > 0
+          THEN least(price_corrected.open, price_corrected.close)
         WHEN cleanup.cleanup_kind = 'ohlc_envelope'
-         AND (normalized.high < greatest(
-                normalized.open, normalized.close, normalized.low
+         AND (price_corrected.high < greatest(
+                price_corrected.open, price_corrected.close, price_corrected.low
               )
-              OR normalized.low > least(
-                normalized.open, normalized.close, normalized.high
+              OR price_corrected.low > least(
+                price_corrected.open, price_corrected.close, price_corrected.high
               ))
-          THEN least(normalized.low, normalized.open, normalized.close)
-        ELSE normalized.low
+          THEN least(
+            price_corrected.low, price_corrected.open, price_corrected.close
+          )
+        ELSE price_corrected.low
       END::DOUBLE AS low,
-      normalized.vol,
-      normalized.amount,
+      price_corrected.vol,
+      price_corrected.amount,
       CASE
-        WHEN right(normalized.ts_code, 3) = '.SH' THEN 'XSHG'
-        WHEN right(normalized.ts_code, 3) = '.SZ' THEN 'XSHE'
+        WHEN right(price_corrected.ts_code, 3) = '.SH' THEN 'XSHG'
+        WHEN right(price_corrected.ts_code, 3) = '.SZ' THEN 'XSHE'
         ELSE NULL
       END::VARCHAR AS exchange,
-      normalized.vwap
-    FROM normalized
+      price_corrected.vwap
+    FROM price_corrected
     LEFT JOIN major_index_mins_cleanup_scope cleanup
-      ON cleanup.ts_code = normalized.ts_code
-     AND cleanup.frequency = normalized.freq
-     AND cleanup.trade_date = CAST(normalized.trade_time AS DATE)
-     AND cleanup.source_time = CAST(normalized.trade_time AS TIME)
-    WHERE normalized.ts_code <> '899050.BJ'
+      ON cleanup.ts_code = price_corrected.ts_code
+     AND cleanup.frequency = price_corrected.freq
+     AND cleanup.trade_date = CAST(price_corrected.trade_time AS DATE)
+     AND cleanup.source_time = CAST(price_corrected.trade_time AS TIME)
+    WHERE price_corrected.ts_code <> '899050.BJ'
     """
 
 

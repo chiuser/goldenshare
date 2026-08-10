@@ -16,6 +16,7 @@ from orchestrator.defs.run_contracts.major_index_mins import (
     effective_silver_codes_for_date,
     major_index_mins_silver_cleanup_fingerprint,
     major_index_mins_silver_ohlc_cleanup_scope_rows,
+    major_index_mins_silver_opening_price_replacement_rows,
     raw_scope_hash_for_partition,
     silver_scope_hash_for_date,
 )
@@ -100,6 +101,28 @@ def test_silver_cleanup_scope_is_explicit_and_fingerprinted() -> None:
     assert sum(row[-1] == "opening_sentinel" for row in rows) == 30
     assert sum(row[-1] == "ohlc_envelope" for row in rows) == 105
     assert all(row[2] != "2017-01-04" for row in rows if row[1] != "5min")
+    replacements = major_index_mins_silver_opening_price_replacement_rows()
+    assert len(replacements) == 21
+    assert len(set(replacements)) == 21
+    assert replacements[0] == (
+        "000016.SH",
+        "15min",
+        "2016-10-10",
+        "09:30:00",
+        2187.652,
+    )
+    assert {
+        row[0] for row in replacements if row[2] == "2017-11-29"
+    } == {
+        "000001.SH",
+        "000016.SH",
+        "000300.SH",
+        "000852.SH",
+        "000905.SH",
+    }
+    assert {
+        row[1] for row in replacements if row[2] == "2017-11-29"
+    } == {"5min", "15min", "30min", "60min"}
     assert len(major_index_mins_silver_cleanup_fingerprint()) == 64
 
 

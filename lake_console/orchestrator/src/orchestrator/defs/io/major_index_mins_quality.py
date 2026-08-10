@@ -10,6 +10,7 @@ from orchestrator.defs.run_contracts.major_index_mins import (
     major_index_mins_historical_fallback_rule,
     major_index_mins_session_times,
     major_index_mins_silver_ohlc_cleanup_scope_rows,
+    major_index_mins_silver_opening_price_replacement_rows,
     normalize_major_index_mins_silver_freq,
 )
 
@@ -71,6 +72,18 @@ def _prepare_cleanup_scope(connection) -> None:
     connection.executemany(
         "INSERT INTO major_index_mins_cleanup_scope VALUES (?, ?, ?, ?, ?)",
         major_index_mins_silver_ohlc_cleanup_scope_rows(),
+    )
+    connection.execute("DROP TABLE IF EXISTS major_index_mins_price_replacements")
+    connection.execute(
+        "CREATE TEMP TABLE major_index_mins_price_replacements("
+        "ts_code VARCHAR NOT NULL, frequency VARCHAR NOT NULL, "
+        "trade_date DATE NOT NULL, source_time TIME NOT NULL, "
+        "replacement_price DOUBLE NOT NULL, "
+        "PRIMARY KEY(ts_code, frequency, trade_date, source_time))"
+    )
+    connection.executemany(
+        "INSERT INTO major_index_mins_price_replacements VALUES (?, ?, ?, ?, ?)",
+        major_index_mins_silver_opening_price_replacement_rows(),
     )
 
 
@@ -474,7 +487,7 @@ def validate_major_index_mins_silver_relation(
                OR NOT isfinite(CAST(close AS DOUBLE))
                OR NOT isfinite(CAST(high AS DOUBLE))
                OR NOT isfinite(CAST(low AS DOUBLE))
-               OR open < 0 OR close < 0 OR high < 0 OR low < 0
+               OR open <= 0 OR close <= 0 OR high <= 0 OR low <= 0
                OR high < greatest(open, close, low)
                OR low > least(open, close, high)
                OR vol IS NULL OR amount IS NULL

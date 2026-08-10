@@ -1477,6 +1477,23 @@ predicate = high < greatest(open, close, low)
 rewrite = high greatest(high, open, close); low least(low, open, close)
 ```
 
+开盘四价全零替换规则（cleanup revision v2）：
+
+| 交易日 | 代码 | 频率 | 09:30 替换价 |
+| --- | --- | --- | ---: |
+| 2016-10-10 | `000016.SH` | 15min | 2187.652 |
+| 2017-11-29 | `000001.SH` | 5/15/30/60min | 3335.567 |
+| 2017-11-29 | `000016.SH` | 5/15/30/60min | 2905.331 |
+| 2017-11-29 | `000300.SH` | 5/15/30/60min | 4061.355 |
+| 2017-11-29 | `000852.SH` | 5/15/30/60min | 7176.156 |
+| 2017-11-29 | `000905.SH` | 5/15/30/60min | 6293.246 |
+
+这 21 行必须同时满足 `open = close = high = low = 0` 才允许命中；命中后四价都写为表中
+已经由 Tushare 当前 1min、同日其它频率和本地 Raw 1min 交叉验证的 09:30 集合竞价价。
+Raw 保留 Tushare 原始返回，Silver 的 `vol/amount/vwap` 也保持原值。代码、日期、频率、
+时间或零值形态任一不匹配时不得替换。Silver post-validation 要求四价严格 `> 0`，未知
+零值继续 fail closed。
+
 实现中的日期集合必须以显式 tuple 和 revision/fingerprint 固定，不得把范围内未来新增
 日期自动视为合法。修正后的输出仍执行未放宽的 Silver schema、exact code/session、
 主键、OHLC、非负数值和 exchange 校验。
@@ -1508,6 +1525,7 @@ date-only output scope 永不包含 BSE。日常最近 10 日热路径仍使用�
 - Silver check/readiness 的 expected code count 不包含 BSE；
 - P7B 130 个非北证 fallback scope 不回退；
 - 30 行 sentinel 和 105 行 envelope 精确命中并通过严格 post-validation；
+- 21 行开盘四价全零替换精确命中，四价使用冻结值且 `vol/amount/vwap` 不变；
 - 白名单外相同形态异常不允许被自动修正；
 - `exchange` 全部由代码后缀派生；
 - definitions 仍只有 12 条 core check，不出现 BSE 专属 check；
@@ -1527,8 +1545,8 @@ P7C 已完成以下实现：
   `validate_major_index_mins_silver_relation()`；
 - Raw validator 对 BSE 只执行文件结构安全规则，对非北证继续执行严格 session/domain
   规则，并精确放行 P7B source-empty scope；
-- Silver writer 固定先排除 `899050.BJ`，再按 135 行显式白名单修正 OHLC，并按代码后缀
-  派生 exchange；
+- Silver writer 固定先排除 `899050.BJ`，再按 135 行既有 OHLC 白名单和 21 行开盘价
+  替换白名单修正 OHLC，并按代码后缀派生 exchange；
 - check、10 日 batch readiness、Bootstrap plan/build/audit 和 fallback validator 已迁移到
   同一套分层语义；check 数仍为 Raw 5 + Silver 7，没有新增事件类型。
 
