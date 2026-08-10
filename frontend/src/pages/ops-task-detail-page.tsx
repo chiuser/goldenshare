@@ -31,6 +31,7 @@ import { MetricPanel } from "../shared/ui/metric-panel";
 import { OpsTableCellText } from "../shared/ui/ops-table";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
+import { OpsTaskPagedUnitProgress } from "./ops-task-paged-unit-progress";
 
 function buildRefetchInterval(status: string | undefined) {
   return status === "queued" || status === "running" || status === "canceling" ? 3000 : false;
@@ -239,6 +240,7 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
   const headline = view ? buildStatusHeadline(view) : null;
   const successReturnHref = buildDatasetCardPageHref(view?.run.source_key);
   const periodSourceSummary = view?.progress.period_source_summary ?? null;
+  const pagedUnitProgress = view?.progress.paged_unit_progress ?? null;
   const nodeColumns: DataTableColumn<TaskRunViewResponse["nodes"][number]>[] = [
     {
       key: "sequence",
@@ -402,7 +404,7 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
                     </Text>
                   </Group>
                   <Progress value={view.progress.progress_percent ?? 0} radius="md" size="lg" color="brand" />
-                  {view.progress.current_object ? (
+                  {view.progress.current_object && !pagedUnitProgress?.active ? (
                     <Stack gap={2}>
                       <Text size="sm" fw={600}>{view.progress.current_object.title}</Text>
                       {view.progress.current_object.description ? (
@@ -431,7 +433,8 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
                       <Text fw={700}>{(view.progress.rows_deduplicated ?? 0).toLocaleString()}</Text>
                     </MetricPanel>
                   </SimpleGrid>
-                  {paginationDiagnostic(view.progress.ingestion_diagnostics) ? (
+                  {pagedUnitProgress ? <OpsTaskPagedUnitProgress progress={pagedUnitProgress} /> : null}
+                  {!pagedUnitProgress && paginationDiagnostic(view.progress.ingestion_diagnostics) ? (
                     <AlertBar tone="info" title="源端分页">
                       {(() => {
                         const diagnostic = paginationDiagnostic(view.progress.ingestion_diagnostics)!;
@@ -441,8 +444,8 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
                       })()}
                     </AlertBar>
                   ) : null}
-                  {diagnosticCount(view.progress.ingestion_diagnostics, "rows_inserted_new") > 0
-                  || diagnosticCount(view.progress.ingestion_diagnostics, "rows_matched_existing") > 0 ? (
+                  {!pagedUnitProgress && (diagnosticCount(view.progress.ingestion_diagnostics, "rows_inserted_new") > 0
+                  || diagnosticCount(view.progress.ingestion_diagnostics, "rows_matched_existing") > 0) ? (
                     <AlertBar tone="info" title="不可变事实核对">
                       {`首次插入 ${diagnosticCount(view.progress.ingestion_diagnostics, "rows_inserted_new").toLocaleString()} 条，`
                       + `已存在且内容一致 ${diagnosticCount(view.progress.ingestion_diagnostics, "rows_matched_existing").toLocaleString()} 条。`}

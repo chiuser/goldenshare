@@ -7,6 +7,7 @@ type SmokeScenario =
   | "task-manual"
   | "task-auto"
   | "task-detail"
+  | "task-detail-paged"
   | "review-index"
   | "review-board";
 
@@ -76,6 +77,7 @@ function createTaskRunView(overrides: Record<string, unknown> = {}) {
       action: item.action,
       title: item.title,
       trigger_source: item.trigger_source,
+      trigger_source_label: "手动",
       status: item.status,
       status_reason_code: null,
       requested_by_username: item.requested_by_username,
@@ -102,6 +104,8 @@ function createTaskRunView(overrides: Record<string, unknown> = {}) {
       rows_fetched: item.rows_fetched,
       rows_saved: item.rows_saved,
       rows_rejected: item.rows_rejected,
+      rows_deduplicated: 0,
+      ingestion_diagnostics: {},
       rejected_reason_counts: {},
       rejected_reasons: [],
       current_object: {
@@ -111,8 +115,9 @@ function createTaskRunView(overrides: Record<string, unknown> = {}) {
           { label: "证券代码", value: "002034.SZ" },
           { label: "交易日", value: "2026-04-17" },
         ],
-      },
+      } as Record<string, unknown> | null,
       period_source_summary: null,
+      paged_unit_progress: null as Record<string, unknown> | null,
     },
     primary_issue: null,
     nodes: [
@@ -133,6 +138,8 @@ function createTaskRunView(overrides: Record<string, unknown> = {}) {
         rows_fetched: item.rows_fetched,
         rows_saved: item.rows_saved,
         rows_rejected: item.rows_rejected,
+        rows_deduplicated: 0,
+        ingestion_diagnostics: {},
         rejected_reason_counts: {},
         rejected_reasons: [],
         issue_id: null,
@@ -825,6 +832,134 @@ function mockTaskDetail(route: Route, pathname: string) {
   return fulfillJson(route, { detail: `unhandled api: ${pathname}` }, 404);
 }
 
+function createPagedUnitResult(overrides: Record<string, unknown> = {}) {
+  return {
+    unit_id: "fund_portfolio:20250331",
+    unit_index: 1,
+    time: { field: "end_date", point: "2025-03-31" },
+    page_count: 70,
+    retry_count: 0,
+    terminal_page_rows: 730,
+    observed_short_page: true,
+    rows_fetched: 138730,
+    rows_normalized_before_dedupe: 138730,
+    rows_staged_unique: 138730,
+    rows_deduplicated: 0,
+    rows_rejected: 0,
+    rows_inserted_new: 138730,
+    rows_matched_existing: 0,
+    rows_committed: 138730,
+    final_scope_count: 138730,
+    ...overrides,
+  };
+}
+
+function mockPagedTaskDetail(route: Route, pathname: string, requestCount: number) {
+  if (pathname !== "/api/v1/ops/task-runs/1/view") {
+    return fulfillJson(route, { detail: `unhandled api: ${pathname}` }, 404);
+  }
+  const completedFirstQuarter = createPagedUnitResult();
+  const view = createTaskRunView({
+    id: 1,
+    resource_key: "fund_portfolio",
+    title: "公募基金持仓",
+    status: requestCount >= 4 ? "success" : "running",
+    time_scope: {
+      kind: "range",
+      start: "2025-03-31",
+      end: "2025-06-30",
+      label: "2025-03-31 ~ 2025-06-30",
+    },
+    time_scope_label: "2025-03-31 ~ 2025-06-30",
+    unit_total: 2,
+    unit_done: requestCount >= 4 ? 2 : 1,
+    progress_percent: requestCount >= 4 ? 100 : 50,
+    rows_saved: requestCount >= 4 ? 142000 : 138730,
+    rows_fetched: requestCount === 1 ? 138730 : requestCount === 2 ? 140730 : 142000,
+    rows_rejected: 0,
+  });
+  const activeBase = {
+    unit_id: "fund_portfolio:20250630",
+    unit_index: 2,
+    unit_total: 2,
+    time: { field: "end_date", point: "2025-06-30" },
+    page_limit: 2000,
+    unit_rows_normalized_before_dedupe: 0,
+    unit_rows_staged_unique: 0,
+    unit_rows_deduplicated: 0,
+    unit_rows_rejected: 0,
+    retry_count: 0,
+    observed_short_page: false,
+    terminal_page_rows: null,
+  };
+  if (requestCount === 1) {
+    view.progress.paged_unit_progress = {
+      active: {
+        ...activeBase,
+        phase: "processing_page",
+        current_page_number: 1,
+        completed_page_count: 0,
+        unit_rows_fetched: 0,
+      },
+      completed: [completedFirstQuarter],
+      completed_truncated: false,
+    };
+  } else if (requestCount === 2) {
+    view.progress.paged_unit_progress = {
+      active: {
+        ...activeBase,
+        phase: "processing_page",
+        current_page_number: 2,
+        completed_page_count: 1,
+        unit_rows_fetched: 2000,
+        unit_rows_normalized_before_dedupe: 2000,
+        unit_rows_staged_unique: 2000,
+      },
+      completed: [completedFirstQuarter],
+      completed_truncated: false,
+    };
+  } else if (requestCount === 3) {
+    view.progress.paged_unit_progress = {
+      active: {
+        ...activeBase,
+        phase: "publishing",
+        current_page_number: 2,
+        completed_page_count: 2,
+        unit_rows_fetched: 3270,
+        unit_rows_normalized_before_dedupe: 3270,
+        unit_rows_staged_unique: 3270,
+        observed_short_page: true,
+        terminal_page_rows: 1270,
+      },
+      completed: [completedFirstQuarter],
+      completed_truncated: false,
+    };
+  } else {
+    view.progress.current_object = null;
+    view.progress.paged_unit_progress = {
+      active: null,
+      completed: [
+        completedFirstQuarter,
+        createPagedUnitResult({
+          unit_id: "fund_portfolio:20250630",
+          unit_index: 2,
+          time: { field: "end_date", point: "2025-06-30" },
+          page_count: 2,
+          terminal_page_rows: 1270,
+          rows_fetched: 3270,
+          rows_normalized_before_dedupe: 3270,
+          rows_staged_unique: 3270,
+          rows_inserted_new: 3270,
+          rows_committed: 3270,
+          final_scope_count: 3270,
+        }),
+      ],
+      completed_truncated: false,
+    };
+  }
+  return fulfillJson(route, view);
+}
+
 function mockReviewIndex(route: Route, pathname: string) {
   if (pathname === "/api/v1/ops/review/index/active/summary") {
     return fulfillJson(route, {
@@ -904,6 +1039,7 @@ function mockReviewBoard(route: Route, pathname: string) {
 }
 
 export async function installApiMocks(page: Page, scenario: SmokeScenario) {
+  let pagedTaskDetailRequestCount = 0;
   await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());
     const { pathname } = url;
@@ -934,6 +1070,10 @@ export async function installApiMocks(page: Page, scenario: SmokeScenario) {
     }
     if (scenario === "task-detail") {
       return mockTaskDetail(route, pathname);
+    }
+    if (scenario === "task-detail-paged") {
+      pagedTaskDetailRequestCount += 1;
+      return mockPagedTaskDetail(route, pathname, pagedTaskDetailRequestCount);
     }
     if (scenario === "review-index") {
       return mockReviewIndex(route, pathname);

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -900,8 +901,137 @@ def test_ingestion_diagnostics_are_bounded_to_16_kib() -> None:
     assert sanitized["original_bytes"] > 16 * 1024
 
 
-def test_task_run_progress_updates_rejected_reason_counts(db_session, task_run_factory, task_run_node_factory) -> None:
-    task_run = task_run_factory(status="running", resource_key="dc_hot", title="东方财富热榜")
+def test_paged_unit_diagnostics_preserve_active_and_eight_completed_results() -> None:
+    completed = [
+        {
+            "unit_id": f"fund_portfolio:2025{index:02d}30",
+            "unit_index": index,
+            "time": {"field": "end_date", "point": f"2025-{index:02d}-30"},
+            "page_count": 70,
+            "retry_count": 0,
+            "terminal_page_rows": 730,
+            "observed_short_page": True,
+            "rows_fetched": 138_730,
+            "rows_normalized_before_dedupe": 138_730,
+            "rows_staged_unique": 138_730,
+            "rows_deduplicated": 0,
+            "rows_rejected": 0,
+            "rows_inserted_new": 138_730,
+            "rows_matched_existing": 0,
+            "rows_committed": 138_730,
+            "final_scope_count": 138_730,
+        }
+        for index in range(1, 9)
+    ]
+    diagnostics = {
+        "runtime": {
+            "paged_unit": {
+                "active": {
+                    "unit_id": "fund_portfolio:20251231",
+                    "unit_index": 8,
+                    "unit_total": 8,
+                    "time": {"field": "end_date", "point": "2025-12-31"},
+                    "phase": "processing_page",
+                    "current_page_number": 28,
+                    "completed_page_count": 27,
+                    "page_limit": 2_000,
+                    "unit_rows_fetched": 54_000,
+                    "unit_rows_normalized_before_dedupe": 54_000,
+                    "unit_rows_staged_unique": 54_000,
+                    "unit_rows_deduplicated": 0,
+                    "unit_rows_rejected": 0,
+                    "retry_count": 0,
+                    "observed_short_page": False,
+                    "terminal_page_rows": None,
+                },
+                "completed": completed,
+                "completed_truncated": False,
+            }
+        }
+    }
+
+    sanitized = TaskRunIngestionContext._sanitize_ingestion_diagnostics(diagnostics)
+
+    paged_unit = sanitized["runtime"]["paged_unit"]
+    assert paged_unit["active"]["current_page_number"] == 28
+    assert len(paged_unit["completed"]) == 8
+    assert paged_unit["completed_truncated"] is False
+    assert len(json.dumps(sanitized, ensure_ascii=False).encode("utf-8")) <= 16 * 1024
+
+
+def test_paged_unit_diagnostics_cap_completed_results_and_keep_core_counts() -> None:
+    completed = [
+        {
+            "unit_id": f"unit-{index}",
+            "unit_index": index,
+            "time": {"field": "end_date", "point": "2025-06-30"},
+            "page_count": index,
+            "rows_fetched": index * 100,
+            "rows_committed": index * 100,
+        }
+        for index in range(20)
+    ]
+    diagnostics = {
+        "source": {"pagination": {"unit_samples": [{"payload": "x" * 20_000}]}},
+        "persistence": {
+            "immutable_fact": {"rows_inserted_new": 100, "rows_matched_existing": 20}
+        },
+        "runtime": {"paged_unit": {"active": None, "completed": completed}},
+    }
+
+    sanitized = TaskRunIngestionContext._sanitize_ingestion_diagnostics(diagnostics)
+
+    paged_unit = sanitized["runtime"]["paged_unit"]
+    assert len(paged_unit["completed"]) == 16
+    assert paged_unit["completed_truncated"] is True
+    assert sanitized["persistence"]["immutable_fact"]["rows_inserted_new"] == 100
+    assert sanitized["persistence"]["immutable_fact"]["rows_matched_existing"] == 20
+    assert len(json.dumps(sanitized, ensure_ascii=False).encode("utf-8")) <= 16 * 1024
+
+
+def test_task_run_progress_write_failure_is_fail_soft(
+    monkeypatch, db_session, task_run_factory
+) -> None:  # type: ignore[no-untyped-def]
+    task_run = task_run_factory(
+        status="running",
+        resource_key="fund_portfolio",
+        title="公募基金持仓",
+        rows_fetched=10,
+        rows_saved=10,
+    )
+
+    def raise_on_sanitize(_value):  # type: ignore[no-untyped-def]
+        raise RuntimeError("ops diagnostics unavailable")
+
+    monkeypatch.setattr(
+        TaskRunIngestionContext,
+        "_sanitize_ingestion_diagnostics",
+        staticmethod(raise_on_sanitize),
+    )
+
+    TaskRunIngestionContext(db_session).update_progress(
+        run_id=task_run.id,
+        current=1,
+        total=2,
+        message="page progress",
+        rows_fetched=2_000,
+        rows_saved=10,
+        ingestion_diagnostics={"runtime": {"paged_unit": {"active": {}}}},
+    )
+
+    db_session.expire_all()
+    unchanged = db_session.get(TaskRun, task_run.id)
+    assert unchanged is not None
+    assert unchanged.rows_fetched == 10
+    assert unchanged.rows_saved == 10
+
+
+def test_task_run_progress_updates_rejected_reason_counts(
+    db_session, task_run_factory, task_run_node_factory
+) -> None:
+    task_run = task_run_factory(
+        status="running", resource_key="dc_hot", title="东方财富热榜"
+    )
     node = task_run_node_factory(
         task_run_id=task_run.id,
         node_key="dc_hot:maintain",

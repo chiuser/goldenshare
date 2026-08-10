@@ -365,6 +365,62 @@ export interface TaskRunPeriodSourceSummary {
   end_date: string | null;
 }
 
+export type TaskRunPagedUnitPhase =
+  | "processing_page"
+  | "reconciling"
+  | "publishing"
+  | "failed"
+  | "canceled";
+
+export interface TaskRunPagedUnitTime {
+  field: string | null;
+  point: string | null;
+}
+
+export interface TaskRunPagedUnitActive {
+  unit_id: string;
+  unit_index: number;
+  unit_total: number;
+  time: TaskRunPagedUnitTime;
+  phase: TaskRunPagedUnitPhase;
+  current_page_number: number | null;
+  completed_page_count: number;
+  page_limit: number | null;
+  unit_rows_fetched: number;
+  unit_rows_normalized_before_dedupe: number;
+  unit_rows_staged_unique: number;
+  unit_rows_deduplicated: number;
+  unit_rows_rejected: number;
+  retry_count: number;
+  observed_short_page: boolean;
+  terminal_page_rows: number | null;
+}
+
+export interface TaskRunPagedUnitResult {
+  unit_id: string;
+  unit_index: number;
+  time: TaskRunPagedUnitTime;
+  page_count: number;
+  retry_count: number;
+  terminal_page_rows: number;
+  observed_short_page: boolean;
+  rows_fetched: number;
+  rows_normalized_before_dedupe: number;
+  rows_staged_unique: number;
+  rows_deduplicated: number;
+  rows_rejected: number;
+  rows_inserted_new: number;
+  rows_matched_existing: number;
+  rows_committed: number;
+  final_scope_count: number;
+}
+
+export interface TaskRunPagedUnitProgress {
+  active: TaskRunPagedUnitActive | null;
+  completed: TaskRunPagedUnitResult[];
+  completed_truncated: boolean;
+}
+
 export interface TaskRunViewResponse {
   run: {
     id: number;
@@ -405,6 +461,7 @@ export interface TaskRunViewResponse {
     rejected_reasons: TaskRunRejectionReasonItem[];
     current_object: TaskRunDisplayObject | null;
     period_source_summary: TaskRunPeriodSourceSummary | null;
+    paged_unit_progress: TaskRunPagedUnitProgress | null;
   };
   primary_issue: {
     id: number;

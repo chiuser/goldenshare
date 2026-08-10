@@ -149,6 +149,47 @@ test.describe("Phase 2 smoke and visual gate", () => {
     await expect(page).toHaveScreenshot();
   });
 
+  test("task detail shows paged quarter progress across polling snapshots", async ({ page }) => {
+    const consoleErrors: string[] = [];
+    const phases: string[] = [];
+    let viewRequestCount = 0;
+    page.on("console", (message) => {
+      if (message.type() === "error") {
+        consoleErrors.push(message.text());
+      }
+    });
+    page.on("request", (request) => {
+      if (request.url().includes("/api/v1/ops/task-runs/1/view")) {
+        viewRequestCount += 1;
+      }
+    });
+    page.on("response", async (response) => {
+      if (!response.url().includes("/api/v1/ops/task-runs/1/view") || !response.ok()) {
+        return;
+      }
+      const payload = await response.json();
+      phases.push(payload.progress.paged_unit_progress.active?.phase ?? "completed");
+    });
+
+    await setAdminSession(page);
+    await installApiMocks(page, "task-detail-paged");
+    await page.setViewportSize({ width: 1024, height: 1200 });
+    await page.goto("/app/ops/tasks/1");
+
+    await expect(page.getByText("截至 2025-06-30｜正在处理第 1 页｜已完成 0 页｜累计读取 0 行")).toBeVisible();
+    await expect(page.getByText("截至 2025-03-31｜季度处理完成")).toBeVisible();
+    await expect(page.getByText("截至 2025-06-30｜正在处理第 2 页｜已完成 1 页｜累计读取 2,000 行")).toBeVisible({ timeout: 5000 });
+    await stabilizeUi(page);
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await expect(page).toHaveScreenshot();
+    await expect(page.getByText("截至 2025-06-30｜源端拉取完成：共 2 页、3,270 行｜正在正式写入")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("截至 2025-06-30｜季度处理完成")).toBeVisible({ timeout: 5000 });
+
+    await expect.poll(() => phases).toEqual(["processing_page", "processing_page", "publishing", "completed"]);
+    expect(viewRequestCount).toBeGreaterThanOrEqual(4);
+    expect(consoleErrors).toEqual([]);
+  });
+
   test("review index keeps the review center list baseline", async ({ page }) => {
     await setAdminSession(page);
     await installApiMocks(page, "review-index");

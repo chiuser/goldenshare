@@ -26,6 +26,10 @@ from src.ops.schemas.task_run import (
     TaskRunListItem,
     TaskRunListResponse,
     TaskRunNodeItem,
+    TaskRunPagedUnitActive,
+    TaskRunPagedUnitProgress,
+    TaskRunPagedUnitResult,
+    TaskRunPagedUnitTime,
     TaskRunPeriodSourceSummary,
     TaskRunProgress,
     TaskRunRejectionReasonItem,
@@ -38,6 +42,7 @@ from src.ops.schemas.task_run import (
 
 class TaskRunQueryService:
     MAX_VIEW_NODES = 200
+    MAX_PAGED_UNIT_RESULTS = 16
 
     def list_task_runs(
         self,
@@ -139,9 +144,16 @@ class TaskRunQueryService:
             )
         )
         time_scope = self._time_scope(dict(task_run.time_input_json or {}))
-        rejected_reason_counts = self._normalize_reason_counts(task_run.rejected_reason_counts_json)
-        rejected_reason_samples = self._normalize_reason_samples(task_run.rejected_reason_samples_json)
-        period_source_summary = self._period_source_summary(session, task_run=task_run, time_scope=time_scope)
+        rejected_reason_counts = self._normalize_reason_counts(
+            task_run.rejected_reason_counts_json
+        )
+        rejected_reason_samples = self._normalize_reason_samples(
+            task_run.rejected_reason_samples_json
+        )
+        period_source_summary = self._period_source_summary(
+            session, task_run=task_run, time_scope=time_scope
+        )
+        ingestion_diagnostics = dict(task_run.ingestion_diagnostics_json or {})
         return TaskRunViewResponse(
             run=TaskRunInfo(
                 id=task_run.id,
@@ -177,7 +189,7 @@ class TaskRunQueryService:
                 rows_saved=task_run.rows_saved,
                 rows_rejected=task_run.rows_rejected,
                 rows_deduplicated=task_run.rows_deduplicated,
-                ingestion_diagnostics=dict(task_run.ingestion_diagnostics_json or {}),
+                ingestion_diagnostics=ingestion_diagnostics,
                 rejected_reason_counts=rejected_reason_counts,
                 rejected_reasons=self._rejection_reason_items(rejected_reason_counts, rejected_reason_samples),
                 current_object=self._display_current_object(
@@ -185,6 +197,7 @@ class TaskRunQueryService:
                     status=task_run.status,
                 ),
                 period_source_summary=period_source_summary,
+                paged_unit_progress=self._paged_unit_progress(ingestion_diagnostics),
             ),
             primary_issue=self._issue_summary(primary_issue),
             nodes=[self._node_item(node) for node in nodes],
@@ -197,7 +210,135 @@ class TaskRunQueryService:
             ),
         )
 
-    def get_issue_detail(self, session: Session, *, task_run_id: int, issue_id: int) -> TaskRunIssueDetailResponse:
+    @classmethod
+    def _paged_unit_progress(cls, diagnostics: dict) -> TaskRunPagedUnitProgress | None:
+        runtime = diagnostics.get("runtime") if isinstance(diagnostics, dict) else None
+        paged_unit = runtime.get("paged_unit") if isinstance(runtime, dict) else None
+        if not isinstance(paged_unit, dict):
+            return None
+        active = cls._paged_unit_active(paged_unit.get("active"))
+        completed: list[TaskRunPagedUnitResult] = []
+        raw_completed = paged_unit.get("completed")
+        if isinstance(raw_completed, list):
+            for item in raw_completed[: cls.MAX_PAGED_UNIT_RESULTS]:
+                result = cls._paged_unit_result(item)
+                if result is not None:
+                    completed.append(result)
+        return TaskRunPagedUnitProgress(
+            active=active,
+            completed=completed,
+            completed_truncated=bool(paged_unit.get("completed_truncated"))
+            or (
+                isinstance(raw_completed, list)
+                and len(raw_completed) > cls.MAX_PAGED_UNIT_RESULTS
+            ),
+        )
+
+    @classmethod
+    def _paged_unit_active(cls, value: object) -> TaskRunPagedUnitActive | None:
+        if not isinstance(value, dict):
+            return None
+        phase = cls._text(value.get("phase"))
+        if phase not in {
+            "processing_page",
+            "reconciling",
+            "publishing",
+            "failed",
+            "canceled",
+        }:
+            return None
+        unit_id = cls._text(value.get("unit_id"))
+        if not unit_id:
+            return None
+        return TaskRunPagedUnitActive(
+            unit_id=unit_id,
+            unit_index=cls._nonnegative_int(value.get("unit_index")),
+            unit_total=cls._nonnegative_int(value.get("unit_total")),
+            time=cls._paged_unit_time(value.get("time")),
+            phase=phase,
+            current_page_number=cls._optional_nonnegative_int(
+                value.get("current_page_number")
+            ),
+            completed_page_count=cls._nonnegative_int(
+                value.get("completed_page_count")
+            ),
+            page_limit=cls._optional_nonnegative_int(value.get("page_limit")),
+            unit_rows_fetched=cls._nonnegative_int(value.get("unit_rows_fetched")),
+            unit_rows_normalized_before_dedupe=cls._nonnegative_int(
+                value.get("unit_rows_normalized_before_dedupe")
+            ),
+            unit_rows_staged_unique=cls._nonnegative_int(
+                value.get("unit_rows_staged_unique")
+            ),
+            unit_rows_deduplicated=cls._nonnegative_int(
+                value.get("unit_rows_deduplicated")
+            ),
+            unit_rows_rejected=cls._nonnegative_int(value.get("unit_rows_rejected")),
+            retry_count=cls._nonnegative_int(value.get("retry_count")),
+            observed_short_page=bool(value.get("observed_short_page")),
+            terminal_page_rows=cls._optional_nonnegative_int(
+                value.get("terminal_page_rows")
+            ),
+        )
+
+    @classmethod
+    def _paged_unit_result(cls, value: object) -> TaskRunPagedUnitResult | None:
+        if not isinstance(value, dict):
+            return None
+        unit_id = cls._text(value.get("unit_id"))
+        if not unit_id:
+            return None
+        return TaskRunPagedUnitResult(
+            unit_id=unit_id,
+            unit_index=cls._nonnegative_int(value.get("unit_index")),
+            time=cls._paged_unit_time(value.get("time")),
+            page_count=cls._nonnegative_int(value.get("page_count")),
+            retry_count=cls._nonnegative_int(value.get("retry_count")),
+            terminal_page_rows=cls._nonnegative_int(value.get("terminal_page_rows")),
+            observed_short_page=bool(value.get("observed_short_page")),
+            rows_fetched=cls._nonnegative_int(value.get("rows_fetched")),
+            rows_normalized_before_dedupe=cls._nonnegative_int(
+                value.get("rows_normalized_before_dedupe")
+            ),
+            rows_staged_unique=cls._nonnegative_int(value.get("rows_staged_unique")),
+            rows_deduplicated=cls._nonnegative_int(value.get("rows_deduplicated")),
+            rows_rejected=cls._nonnegative_int(value.get("rows_rejected")),
+            rows_inserted_new=cls._nonnegative_int(value.get("rows_inserted_new")),
+            rows_matched_existing=cls._nonnegative_int(
+                value.get("rows_matched_existing")
+            ),
+            rows_committed=cls._nonnegative_int(value.get("rows_committed")),
+            final_scope_count=cls._nonnegative_int(value.get("final_scope_count")),
+        )
+
+    @classmethod
+    def _paged_unit_time(cls, value: object) -> TaskRunPagedUnitTime:
+        record = value if isinstance(value, dict) else {}
+        return TaskRunPagedUnitTime(
+            field=cls._text(record.get("field")),
+            point=cls._text(record.get("point")),
+        )
+
+    @staticmethod
+    def _nonnegative_int(value: object) -> int:
+        try:
+            return max(int(value), 0)  # type: ignore[arg-type]
+        except (TypeError, ValueError, OverflowError):
+            return 0
+
+    @staticmethod
+    def _optional_nonnegative_int(value: object) -> int | None:
+        if value is None:
+            return None
+        try:
+            normalized = int(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError, OverflowError):
+            return None
+        return normalized if normalized >= 0 else None
+
+    def get_issue_detail(
+        self, session: Session, *, task_run_id: int, issue_id: int
+    ) -> TaskRunIssueDetailResponse:
         issue = session.scalar(
             select(TaskRunIssue)
             .where(TaskRunIssue.task_run_id == task_run_id)

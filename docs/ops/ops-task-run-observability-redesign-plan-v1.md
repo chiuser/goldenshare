@@ -1,10 +1,12 @@
 # Ops TaskRun 执行观测模型重设计方案 v1
 
-状态：已上线，代码已按 TaskRun 主链落地  
+状态：TaskRun 主链已上线；长分页 unit 的页级覆盖式进度扩展已于 2026-08-10 完成编码和本地验收，尚未部署 Prod
 日期：2026-04-26  
 适用范围：Ops 任务中心、任务详情页、任务执行运行时、Dataset Maintain 执行观测链路
 
 > 2026-05-05 修正记录：本方案的停机清表范围曾错误包含 `ops.index_series_active`。该表不是旧任务观测表，也不是可随 TaskRun 重建一起清空的派生噪声表；它会影响指数行情 `core_serving` 入库门禁。后续任何清表、重建、迁移方案不得清空该表，除非同一方案内先定义新的权威来源、重建 SQL、验收查询和回归测试。
+
+> 2026-08-10 增补：`fund_portfolio` 的长分页 TaskRun 证明“3 秒轮询”不等于“页级可观测”。原 staged-stream executor 只在整个 unit 结束时写覆盖式快照，导致一个季度完成前没有当前页和累计行数。第 12 节新增并已实现通用 paged-unit 快照契约；它不改变已上线 TaskRun 三表和失败诊断主线，部署 Prod 仍需单独授权。
 
 ---
 
@@ -1054,3 +1056,141 @@ flowchart TD
 6. 前端任务详情页不再请求旧步骤、事件、日志接口。
 7. 后端不再从旧内部运行日志构造任务详情。
 8. 运行中任务只通过覆盖式快照刷新，不追加 event stream。
+
+## 12. 长分页 unit 的页级覆盖式进度扩展（已实现并通过本地验收，待部署）
+
+### 12.1 适用场景与边界
+
+本扩展服务于一个逻辑 unit 内存在大量分页、且 unit 结束前不能形成业务提交的任务。首个落地对象是 `fund_portfolio`：一个季度最多约数百页，但业务可见性仍以完整季度为边界。
+
+它不是新的事件系统：
+
+1. 仍然只覆盖写 `task_run` 当前快照，不新增 page event、page node 或内部运行日志。
+2. 一个 TaskRun 同时最多有一个 active paged unit；已完成 unit 结果只以有界数组保留。
+3. 页级 stage commit 不得写入 `rows_saved`，也不得增加 `unit_done`。
+4. Ops 状态写入继续与业务事务隔离；观测更新失败只允许页面陈旧，禁止阻断业务提交。
+5. 没有 paged-unit diagnostics 的旧任务和其他数据集返回 `null`，页面保持原样。
+
+`fund_portfolio` 的完整数据集实现细节、字段和验收见 [B7 LLD 第 25 节](/Users/congming/github/goldenshare/docs/datasets/public-fund-b7-fund-portfolio-low-level-design-v1.md)。
+
+### 12.2 存储与 API 契约
+
+复用现有 `task_run.ingestion_diagnostics_json`：
+
+```text
+runtime.paged_unit.active       当前 unit 覆盖式快照，0 或 1 个
+runtime.paged_unit.completed    已完成 unit 的有界结果
+runtime.paged_unit.completed_truncated
+```
+
+不新增数据库列。`TaskRunIngestionContext` 必须继续执行 16 KiB 上限，并对 completed 列表设置通用上限；当前约定最多保留 16 个，B7 自身最多 8 个 unit，不应截断。
+
+View API 增加强类型投影，前端不得直接猜任意 diagnostics JSON：
+
+```json
+{
+  "progress": {
+    "unit_done": 1,
+    "unit_total": 6,
+    "rows_fetched": 192730,
+    "rows_saved": 138730,
+    "paged_unit_progress": {
+      "active": {
+        "unit_id": "fund_portfolio:20250630",
+        "unit_index": 2,
+        "unit_total": 6,
+        "time": {"field": "end_date", "point": "2025-06-30"},
+        "phase": "processing_page",
+        "current_page_number": 28,
+        "completed_page_count": 27,
+        "page_limit": 2000,
+        "unit_rows_fetched": 54000
+      },
+      "completed": [
+        {
+          "unit_id": "fund_portfolio:20250331",
+          "unit_index": 1,
+          "time": {"field": "end_date", "point": "2025-03-31"},
+          "page_count": 70,
+          "rows_fetched": 138730,
+          "rows_committed": 138730,
+          "rows_inserted_new": 138730,
+          "rows_matched_existing": 0,
+          "final_scope_count": 138730
+        }
+      ],
+      "completed_truncated": false
+    }
+  }
+}
+```
+
+后端新增独立的 `TaskRunPagedUnitProgress`、`TaskRunPagedUnitActive`、`TaskRunPagedUnitResult` schema；query service 对负数、非法 phase、错误列表和旧 JSON 做 fail-soft 归一化，不能因一条历史 diagnostics 让 view API 500。
+
+### 12.3 运行时状态与统计口径
+
+允许 phase：
+
+- `processing_page`
+- `reconciling`
+- `publishing`
+- `failed`
+- `canceled`
+
+口径：
+
+1. `current_page_number` 表示当前正在处理的页；`completed_page_count` 只包含已经 source 返回、归一化并完成 stage commit 的页。
+2. 当前页完成后，如果不是 short page，下一次覆盖写切到 `current_page_number + 1`，累计行数已经包含上一页。
+3. `rows_fetched` 可以实时包含 active unit 的源端返回；`rows_saved` 只包含已经完成业务提交的 unit。
+4. `reconciling/publishing` 表示源端分页已经结束，但业务数据尚未正式提交。
+5. 只有 final commit 后才把 active 移入 completed，并增加 `unit_done/rows_saved`。
+6. failed/canceled 不创建 completed result；最后页和累计行数保留，完整错误仍只写 `task_run_issue`。
+
+### 12.4 页面契约
+
+任务详情“当前进度”区按顺序展示：
+
+1. 任务级 unit 进度和总计数。
+2. active unit 的淡蓝色实时信息条。
+3. completed unit 的源端结果和正式写入结果，最新在前。
+
+示例：
+
+```text
+截至 2025-06-30｜正在处理第 28 页｜已完成 27 页｜累计读取 54,000 行
+
+截至 2025-03-31｜季度处理完成
+源端：70 页，读取 138,730 行，去重 0，拒绝 0
+写入：保存 138,730，首次插入 138,730，已存在且一致 0
+```
+
+页面不得：
+
+- 根据 action key 判断是否显示；只看 typed contract 是否存在。
+- 把 stage 行数写成“已保存”。
+- 在进度条重复展示 issue 技术错误。
+- 根据当前页和任意估算页数计算虚假百分比。
+- 为此引入 WebSocket/SSE；现有 3 秒轮询足够消费覆盖式快照。
+
+### 12.5 实施影响面与门禁
+
+CodeGraph 已确认直接影响：
+
+- Foundation：`IngestionRunContext.update_progress` 的实现/调用链、staged executor、progress builder 与 B7 executor tests。
+- Ops：`TaskRunIngestionContext.update_progress`、16 KiB sanitizer、TaskRun schema/query/API 和 runtime tests。
+- 前端：`TaskRunViewResponse` 类型、任务详情页及其测试；手动任务页也引用同一 view 类型，需要类型回归，但不改变行为。
+
+最小门禁：
+
+1. 第一页之前、页间、short page、publishing、completed 的快照序列测试。
+2. finalize 失败时 `rows_saved=0` 且没有 completed result。
+3. 观测写入失败不影响业务事务的隔离测试。
+4. active + 8 个 completed results 的 16 KiB sanitizer 测试。
+5. API 对新/旧/畸形 diagnostics 的投影测试。
+6. 前端 processing/reconciling/publishing/completed/failed/canceled/legacy 状态测试。
+7. 使用延迟 fixture 做浏览器验收，不调用真实源站。
+8. Foundation/Ops 依赖矩阵、前端 typecheck/rules/test/build 和文档完整性门禁全部通过。
+
+### 12.6 实施状态
+
+截至 2026-08-10，本节已完成 staged executor 覆盖式快照、独立 Ops 事务的有界 diagnostics、强类型 View API、任务详情页展示及自动化验收。定向后端测试、完整前端测试、生产构建和 12 项 Playwright smoke/视觉门禁均通过；延迟 fixture 已验证 `page 1 -> page 2 -> publishing -> completed` 四次轮询，未调用真实 Tushare。没有新增数据库列、业务表或 migration。部署 Prod 仍需要单独只读预检和部署授权。

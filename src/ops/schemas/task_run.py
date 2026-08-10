@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -151,6 +151,55 @@ class TaskRunPeriodSourceSummary(BaseModel):
     end_date: str | None = None
 
 
+class TaskRunPagedUnitTime(BaseModel):
+    field: str | None = None
+    point: str | None = None
+
+
+class TaskRunPagedUnitActive(BaseModel):
+    unit_id: str
+    unit_index: int
+    unit_total: int
+    time: TaskRunPagedUnitTime
+    phase: Literal["processing_page", "reconciling", "publishing", "failed", "canceled"]
+    current_page_number: int | None = None
+    completed_page_count: int
+    page_limit: int | None = None
+    unit_rows_fetched: int
+    unit_rows_normalized_before_dedupe: int
+    unit_rows_staged_unique: int
+    unit_rows_deduplicated: int
+    unit_rows_rejected: int
+    retry_count: int
+    observed_short_page: bool
+    terminal_page_rows: int | None = None
+
+
+class TaskRunPagedUnitResult(BaseModel):
+    unit_id: str
+    unit_index: int
+    time: TaskRunPagedUnitTime
+    page_count: int
+    retry_count: int
+    terminal_page_rows: int
+    observed_short_page: bool
+    rows_fetched: int
+    rows_normalized_before_dedupe: int
+    rows_staged_unique: int
+    rows_deduplicated: int
+    rows_rejected: int
+    rows_inserted_new: int
+    rows_matched_existing: int
+    rows_committed: int
+    final_scope_count: int
+
+
+class TaskRunPagedUnitProgress(BaseModel):
+    active: TaskRunPagedUnitActive | None = None
+    completed: list[TaskRunPagedUnitResult] = Field(default_factory=list)
+    completed_truncated: bool = False
+
+
 class TaskRunProgress(BaseModel):
     unit_total: int
     unit_done: int
@@ -165,6 +214,7 @@ class TaskRunProgress(BaseModel):
     rejected_reasons: list[TaskRunRejectionReasonItem] = Field(default_factory=list)
     current_object: TaskRunDisplayObject | None = None
     period_source_summary: TaskRunPeriodSourceSummary | None = None
+    paged_unit_progress: TaskRunPagedUnitProgress | None = None
 
 
 class TaskRunIssueSummary(BaseModel):

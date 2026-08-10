@@ -1,8 +1,8 @@
 # 公募基金 B7：基金持仓（`fund_portfolio`）低层设计 v1
 
-状态：**B7-M1 编码与本地门禁、B7-M2 隔离 PostgreSQL 验收、B7-M3 生产 migration/HDD 物理落点/首次正式 TaskRun/五段对账/幂等复跑均已通过。尚未回补历史或创建 schedule；下一门禁仅能是独立授权的 B7-M4a 历史规模与配额只读预估，或转入其他未开发数据集。**
+状态：**B7-M1 编码与本地门禁、B7-M2 隔离 PostgreSQL 验收、B7-M3 生产 migration/HDD 物理落点/首次正式 TaskRun/五段对账/幂等复跑均已通过。B7-M3.1“季度内逐页实时进度”已完成编码、后端/前端门禁和延迟 fixture 浏览器验收，尚未部署 Prod。尚未回补历史或创建 schedule；独立授权的 B7-M4a 历史规模与配额只读预估，或其他未开发数据集可分别排期，互不自动授权。**
 
-确认日期：2026-08-08；M1 实现与本地验收：2026-08-10；M2 隔离验收：2026-08-10；M3 生产验收：2026-08-10
+确认日期：2026-08-08；M1 实现与本地验收：2026-08-10；M2 隔离验收：2026-08-10；M3 生产验收：2026-08-10；M3.1 进度增强方案确认：2026-08-10
 
 ## 1. 结论先行
 
@@ -13,6 +13,7 @@ B7 的 M1/M2/M3 已完成，实现并验证了 `fund_portfolio` 的季度报告�
 
 M3 生产首次小窗验收已通过。下列事项继续后置，不影响当前已上线能力：
 
+- 已部署 Prod 的旧版本仍只在整个季度结束或失败时收到一次 staged-stream unit 进度；当前开发分支已按第 25 节完成 B7-M3.1，部署后才会显示季度内部的当前页和累计读取量。
 - 历史回补是否从 2014Q1 开始；LLD 只提供按季度末、单任务最多八期的能力，不自动回补。历史回补仍建议按自然年四期拆批，但不再是系统硬上限。
 - 自动任务最终采用每周还是每月 cron；LLD 只允许普通 weekly/monthly cron 或 once，不创建任何 schedule。
 - `stk_float_ratio` 的业务单位；首版只保存源值，不缩放、不解释。
@@ -472,6 +473,8 @@ rows_committed
 
 定向补录最后一项改为 final `(period,ts_code)` sub-scope count。
 
+截至 B7-M3，以上聚合 diagnostics 只在一个季度 unit 完成或失败的 `finally` 边界上报。虽然任务详情页在运行态每 3 秒轮询，但季度分页过程中没有新的覆盖式快照，因此页面只能在季度结束后显示“源端分页”和写入核对结果。B7-M3.1 不改变上述最终对账公式，而是在同一有界 diagnostics JSON 中增加“当前分页单元快照 + 已完成季度结果”，详见第 25 节。
+
 ### 12.2 新增结构化错误
 
 - `planning.quarter_end_required`
@@ -495,7 +498,7 @@ B7-M1 不新增 env/Settings/数据库运行配置。
 | --- | --- | --- | --- | --- |
 | source fields | Definition 代码 | 固定 8 字段 | source client、normalizer、hash | 随部署 |
 | page limit | Definition 代码 | 2,000 | planner/source client | 随部署 |
-| max units | Definition 代码 | 4 | planner | 随部署 |
+| max units | Definition 代码 | 8 | planner、手动任务能力 API、手动任务前端 | 随部署；8 期允许，9 期拒绝 |
 | page mode | Definition 代码 | `staged_stream` | executor/linter | 随部署 |
 | partition modulus | migration | 32 | PostgreSQL | migration |
 | tablespace | migration | `gs_raw_cold_hdd` | PostgreSQL | migration，缺失即失败 |
@@ -710,6 +713,7 @@ npm --prefix frontend run build
 | B7-M1 | Definition、季度契约、staged stream、表/DAO/migration、Ops/UI、测试 | 已完成编码与本地门禁 |
 | B7-M2 | 隔离 migration、HDD、真实小窗、131 万行容量/回滚/锁 | 已完成并通过（2026-08-10） |
 | B7-M3 | 生产预检、migration、首次 period、对账/幂等 | 已完成并通过（2026-08-10，TaskRun `#7813/#7814`） |
+| B7-M3.1 | TaskRun 季度内逐页实时进度、季度完成结果与前端展示 | 编码、后端/前端门禁和延迟 fixture 浏览器验收已通过；待部署 Prod，不涉及源端同步或业务表 migration |
 | B7-M4a | 历史起点、逐期规模/额度只读预算 | 待独立授权；不能按日扫描 |
 | B7-M4b | 建议按年四期拆批、系统每任务最多八期的历史回补 | 待独立授权；不得与 B6 大回补并发 |
 | B7-M5 | 运营手工创建 weekly/monthly cron 或 once | 频率拍板后另行授权 |
@@ -733,6 +737,7 @@ npm --prefix frontend run build
 | 32 个 HDD hash leaves，stage/index HDD | migration | M2/M3 `pg_class/pg_tablespace/pg_partition_tree` 物理落点 |
 | WAL 留 SSD，stage UNLOGGED | migration/运行审计 | M2 relpersistence/LSN 差量；M3 SSD 根盘水位 |
 | 公募基金分组，手动+普通定时，无 probe/workflow | catalog/capability/UI | API/前端正反向测试；M3 TaskRun 正式主链 |
+| 季度内逐页实时可见，季度完成后展示源端与写入结果 | executor 覆盖式 progress、TaskRun diagnostics/API、任务详情页 | B7-M3.1 快照序列测试、API 类型测试、前端八类状态测试与延迟 fixture 浏览器验收均通过；待部署 |
 | 不自动创建任务 | 无 schedule/probe seed | M3 schedule/probe 表只读检查均为 0 |
 
 ## 19. 发布、回滚与剩余风险
@@ -758,11 +763,13 @@ npm --prefix frontend run build
 3. **真实历史容量未知**：113 期存在性已证明，但逐期精确行数未扫描。历史回补前仍需 M4a 预算，不能每天或逐基金浪费额度。
 4. **比例字段语义**：`stk_float_ratio` 已见异常大值；只保真，不向终端用户解释为百分比。
 5. **自动任务成本**：一次最新季度可能约 657 次请求；因此 contract 禁止 daily/intraday，最终 weekly/monthly 频率仍需运营拍板。
+6. **观测写入频率**：B7-M3.1 按页覆盖写 TaskRun 快照，2025Q2 场景约 657 次观测更新。它们使用独立 Ops 事务且不生成事件流；写入失败只能造成页面短暂陈旧，绝不能中断、回滚或污染 stage/final 业务事务。自动化测试已证明进度写入异常时原 TaskRun 业务状态不被改写。
 
 ## 20. M3 之后的待拍板项
 
 1. 历史起点是否正式定为 2014Q1；若是，M4a/M4b 以 50 个离散季度、建议按年四期执行；系统单任务硬上限为八期。
 2. schedule 采用 weekly 还是 monthly，以及具体 cron 时间；不得在 B7-M1/M2/M3 自动创建。
+3. B7-M3.1 的产品口径和编码验收均已完成，无需再次拍板；部署 Prod 仍需要独立授权。本增强不需要真实 Tushare 请求或业务数据写入。
 
 ## 21. B7-M1 实现对账（2026-08-10）
 
@@ -802,3 +809,265 @@ B7-M3 通过。生产 migration 已到达 `20260810_000131`，final parent/32 le
 | 配置 | 来源/持久化 | 消费者 | 运维可见性 | 测试 |
 | --- | --- | --- | --- | --- |
 | `max_units_per_execution=8` | `fund_portfolio` Definition 代码 | unit planner、execution plan、manual capability API、manual UI | 手动任务时间区显示八季度提示；超限 API 返回 `units_exceeded` | 8 期规划/提交成功，9 期 planner/API/UI 拒绝且零 TaskRun、零源请求 |
+
+## 25. B7-M3.1：季度内逐页实时进度增强（已实现并通过本地验收，待部署）
+
+### 25.1 问题、目标与非目标
+
+当前任务详情页在 `queued/running/canceling` 状态下每 3 秒请求一次 `GET /api/v1/ops/task-runs/{id}/view`，但 staged-stream executor 只在一个季度 unit 的 `finally` 边界调用 `_report_unit_progress()`。因此：
+
+1. 第一页请求前和一个季度的长分页过程中，TaskRun 没有新的分页快照。
+2. `source.pagination.unit_count_with_pagination` 只在季度 finalize 或失败后增加，前端 `paginationDiagnostic()` 在此之前返回空。
+3. 顶部 `rows_fetched` 也只在季度完成或失败后增加，无法表达当前季度已经读取了多少行。
+4. 页面已有轮询并不是问题根因；缺失的是 Foundation -> Ops -> API 的页级覆盖式进度契约。
+
+B7-M3.1 的目标：
+
+- 第一页发起前立即显示当前报告期和“正在处理第 1 页”。
+- 每完成一页的归一化和 stage commit 后，下一次覆盖式快照显示当前页、已完成页数和当前季度累计源端行数。
+- short page 完成后显示该季度最终页数和源端总行数，并明确处于集合核对/正式发布阶段。
+- 最终业务事务 commit 后，展示该季度的源端拉取结果、去重/拒绝结果和正式写入结果。
+- 多季度 TaskRun 在处理下一季度时，仍保留本任务内已经完成季度的结果；B7 单任务最多 8 期，因此可以有界保存全部季度结果。
+- 失败或取消时冻结最后一个已知季度、页码和累计行数，问题正文仍只进入 TaskRun issue。
+
+非目标：
+
+- 不改变 Tushare 请求参数、8 个字段、`limit=2000`、offset、short-page 或 retry 语义。
+- 不把 page 变成业务提交边界，不改变整季度原子发布。
+- 不实现百分比式“页进度”；源端总页数在 short page 前未知。
+- 不新增 event/log 表，不保存 657 条分页事件，不做 WebSocket/SSE。
+- 不新增业务表、stage 表或 TaskRun 表 migration；复用现有有界 `ingestion_diagnostics_json`。
+- 不按 `fund_portfolio` action key 在 Ops/API/前端写特殊分支；只有显式产生 paged-unit progress 的执行路径才展示。
+
+### 25.2 不可违反的统计和事务口径
+
+1. `unit_done/unit_total` 只统计已经完成最终业务提交的季度。当前季度拉到第 656 页时，仍不能提前增加 `unit_done`。
+2. `progress_percent` 继续按已完成/失败 unit 计算，不用未知总页数伪造季度内百分比。
+3. `rows_fetched` 可以实时表示“已完成季度 + 当前季度源端已成功返回”的累计行数。
+4. `rows_saved/rows_committed` 只在 final scope 事务 commit 后增加；stage page commit 永远不得进入已保存指标。
+5. 当前季度的 `rows_fetched` 是源端返回累计，不等于 stage unique，更不等于 final inserted。
+6. 页面显示“季度完成”必须同时满足：观察到 short page、0 reject、集合核对成功、final 事务 commit 成功。
+7. TaskRun/TaskRunNode 进度写入继续使用独立 Ops session；任何观测写入失败只能让页面停留在旧快照，不得影响 source、stage 或 final 事务。
+
+### 25.3 页级状态机与上报时机
+
+状态机固定为：
+
+```text
+processing_page(page=1)
+  -> processing_page(page=2..N)
+  -> reconciling
+  -> publishing
+  -> completed
+
+任一处理中状态 -> failed | canceled
+```
+
+上报时机固定：
+
+1. `publisher.begin_unit()` 后、第一次源请求前：写 `processing_page`，`current_page_number=1`、`completed_page_count=0`、`unit_rows_fetched=0`。
+2. 每页完成 source 返回、归一化和 stage page commit 后：更新页内累计。若该页不是 short page，在下一次源请求前写 `processing_page`，页码为 `N+1`，已完成页数为 `N`。
+3. short page 完成 stage commit 后：写 `reconciling`，冻结最终 `page_count/terminal_page_rows/rows_fetched/observed_short_page=true`。
+4. 调用 `finalize_unit()` 前：写 `publishing`；此时 `rows_saved/rows_committed` 仍不得增加。
+5. `finalize_unit()` 成功 commit 并更新 `_RunState` 后：从 active 移入 completed result，再走正式 `_report_unit_progress()`；此时才增加 `unit_done/rows_saved/rows_committed`。
+6. source、normalize、stage 或 finalize 失败：先把 active phase 置为 `failed` 并保留最后页信息，再记录结构化 issue；不得制造 completed result。
+7. 取消：active phase 置为 `canceled`，保留已完成页数和累计读取量；重试是新 TaskRun，从 offset 0 开始，不宣称断点续传。
+
+这里的“正在处理第 N 页”覆盖该页的源请求、归一化和 stage 写入，不向运营暴露瞬时内部子步骤。每页只要求一次稳定的里程碑覆盖写，不生成两条或多条页面事件。
+
+### 25.4 Foundation diagnostics 持久化契约
+
+`IngestionProgressSnapshot` 继续使用现有 `ingestion_diagnostics`，不让 foundation 依赖 Ops schema。新增的中性结构固定放在：
+
+```json
+{
+  "runtime": {
+    "paged_unit": {
+      "active": {
+        "unit_id": "fund_portfolio:20250630",
+        "unit_index": 2,
+        "unit_total": 6,
+        "time": {"field": "end_date", "point": "2025-06-30"},
+        "phase": "processing_page",
+        "current_page_number": 28,
+        "completed_page_count": 27,
+        "page_limit": 2000,
+        "unit_rows_fetched": 54000,
+        "unit_rows_normalized_before_dedupe": 54000,
+        "unit_rows_staged_unique": 54000,
+        "unit_rows_deduplicated": 0,
+        "unit_rows_rejected": 0,
+        "retry_count": 0,
+        "observed_short_page": false,
+        "terminal_page_rows": null
+      },
+      "completed": [
+        {
+          "unit_id": "fund_portfolio:20250331",
+          "unit_index": 1,
+          "time": {"field": "end_date", "point": "2025-03-31"},
+          "page_count": 70,
+          "retry_count": 0,
+          "terminal_page_rows": 730,
+          "observed_short_page": true,
+          "rows_fetched": 138730,
+          "rows_normalized_before_dedupe": 138730,
+          "rows_staged_unique": 138730,
+          "rows_deduplicated": 0,
+          "rows_rejected": 0,
+          "rows_inserted_new": 138730,
+          "rows_matched_existing": 0,
+          "rows_committed": 138730,
+          "final_scope_count": 138730
+        }
+      ],
+      "completed_truncated": false
+    }
+  }
+}
+```
+
+约束：
+
+- `active` 只有 0 或 1 个；成功完成后置空。
+- `completed` 是 TaskRun 当前覆盖式快照中的有界结果集合，不是追加式事件流。按 `unit_index` 升序保存，前端可按降序展示。
+- 通用 sanitizer 最多保留 16 个 completed result；B7 planner 最多 8 个 unit，因此 B7 不应发生截断。
+- 全部字段都是计数、稳定 unit 身份和时间锚点；不得存源行、token、全页 payload、SQL 或错误全文。
+- 现有 `source.pagination` 与 `persistence.immutable_fact` 继续保存任务级最终聚合；paged-unit 结构负责当前/逐季度视图，二者不得互相覆盖。
+- 16 KiB 门禁继续有效。超限时优先移除旧的可选 `unit_samples`，必须尽量保留 active、B7 的最多 8 个 completed 结果和最终 inserted/matched 计数；若仍超限则标记 `truncated=true`，不能无声丢弃。
+
+为了生成完成季度结果，staged executor 需要增加 unit-local 的 inserted、matched、final scope 等局部计数；不得用已经累加多个季度的 `_RunState` 总数反推某一季度结果。
+
+### 25.5 Ops 持久化与 API 投影
+
+持久化不新增列：
+
+- `ops.task_run.ingestion_diagnostics_json` 保存任务级 aggregate、active 和 completed results。
+- 当前 running node 仍随覆盖式 progress 更新；不新增分页事件 node，也不为每一页创建 `task_run_node`。
+- `TaskRunIngestionContext._sanitize_ingestion_diagnostics()` 增加 `runtime.paged_unit.completed` 的长度和总字节门禁。
+
+API 不要求前端解析任意 JSON。`TaskRunQueryService.get_view()` 应从 diagnostics 投影强类型只读字段：
+
+```text
+progress.paged_unit_progress.active: TaskRunPagedUnitActive | null
+progress.paged_unit_progress.completed: TaskRunPagedUnitResult[]
+progress.paged_unit_progress.completed_truncated: boolean
+```
+
+后端 schema 和前端 TypeScript 类型显式定义上述字段；未知 phase 或非法负数应在 query projection 中归一化为 `null/0`，不能让脏 diagnostics 造成 500 或页面崩溃。旧 TaskRun 没有该结构时返回 `paged_unit_progress=null`，现有数据集和历史任务继续按原样展示。
+
+这属于向后兼容的 view API 增量字段，不改变手动任务提交、重试、停止、列表或 schedule 契约。
+
+### 25.6 前端展示规格
+
+任务详情页“当前进度”区调整为三层：
+
+1. **任务级进度**：保留 `unit_done / unit_total`、进度条、读取/保存/拒绝/完全重复去重四项总数。
+2. **当前季度实时状态**：当 `active` 存在时始终显示淡蓝色信息条。
+3. **已完成季度结果**：展示本 TaskRun 已完成季度的源端结果和写入结果，最新季度在前；最多 8 期。
+
+固定文案示例：
+
+```text
+当前季度
+截至 2025-06-30｜正在处理第 28 页｜已完成 27 页｜累计读取 54,000 行
+
+当前季度
+截至 2025-06-30｜源端拉取完成：共 70 页、138,730 行｜正在核对并正式写入
+
+截至 2025-03-31｜季度处理完成
+源端：70 页，读取 138,730 行，完全重复去重 0，拒绝 0
+写入：保存 138,730，首次插入 138,730，已存在且一致 0，最终范围 138,730
+```
+
+显示规则：
+
+- “累计读取”始终指当前季度 `unit_rows_fetched`，不能混入前几个季度。
+- 顶部“读取”仍是整个 TaskRun 的实时累计；“保存”只统计已正式提交季度。
+- `processing_page` 显示当前页与已完成页数；`reconciling/publishing` 不再显示“正在请求下一页”。
+- failed/canceled 保留季度、最后处理页、已完成页数和累计读取量，并使用 warning/error 语义；失败原因仍只在唯一失败原因区展示，不在进度条复制技术错误。
+- 若 active 与 completed 同时存在，先显示 active，再显示 completed。
+- 旧的任务级“源端分页/不可变事实核对”聚合条只作为最终任务汇总保留，不能替代逐季度卡；页面必须避免对同一数字重复展示两次。具体实现优先把 completed unit result 作为主阅读路径，任务聚合放在全部 unit 结束后的结果概览或折叠摘要。
+- 页面现有文件已超过 600 行。实现时应把纯展示和格式化拆到相邻的任务进度组件/helper；不新增全局组件，除非审计证明第二个页面也需要同一模式。
+- 继续复用 Mantine、`AlertBar`、`MetricPanel` 和现有 3 秒 TanStack Query 轮询；不引入第二套 UI 或实时通信依赖。
+
+### 25.7 代码落点与影响边界
+
+预计改动：
+
+| 层 | 文件/职责 | 改动 |
+| --- | --- | --- |
+| Foundation contract | `src/foundation/ingestion/progress.py` | 继续承载覆盖式 snapshot；如新增 helper/dataclass，只允许中性 paged-unit 结构，不出现 Ops/UI 文案。 |
+| Foundation executor | `src/foundation/ingestion/executor.py` | staged-stream 页循环前/季度边界上报；维护 unit-local 计数；其他 `buffer_all` 路径行为不变。 |
+| Foundation -> Ops adapter | `src/foundation/ingestion/service.py`、`src/foundation/kernel/contracts/ingestion_run_context.py`、`src/foundation/ingestion/null_runtime.py` | 优先复用现有 diagnostics 参数；只有强类型 contract 确有必要时才扩签名，并同步全部实现/调用方。 |
+| Ops persistence | `src/ops/services/task_run_ingestion_context.py` | 独立事务覆盖写、paged-unit sanitizer/16 KiB 门禁；状态失败不影响业务事务。 |
+| Ops schema/query | `src/ops/schemas/task_run.py`、`src/ops/queries/task_run_query_service.py` | 从 JSON 投影 typed `paged_unit_progress`，旧任务返回 null。 |
+| 前端 API | `frontend/src/shared/api/types.ts` | 增加明确类型，不让页面直接猜 diagnostics JSON。后续若 types 文件继续膨胀，按现行治理评估拆出 Ops types，但本轮不顺手做无关大拆分。 |
+| 前端页面 | `frontend/src/pages/ops-task-detail-page.tsx` 及相邻 helper/component | 当前季度、已完成季度、终态/失败态展示；无 action-key 特判。 |
+| 测试 | `tests/test_public_fund_b7_fund_portfolio_dataset.py`、`tests/web/test_ops_runtime.py`、TaskRun query/API tests、`frontend/src/pages/ops-task-detail-page.test.tsx` | 覆盖快照序列、事务边界、sanitize、API projection 和页面状态。 |
+
+不需要 Alembic migration，不改变 DatasetDefinition、planner、request builder、source client 请求参数、DAO、final/stage 表、HDD/WAL 或 schedule capability。
+
+CodeGraph 审计确认的直接影响面：
+
+- `IngestionRunContext.update_progress`：Foundation service、Null 实现、Ops adapter、dispatcher 与 `tests/web/test_ops_runtime.py`。
+- `_run_staged_units_serially`：executor 的 unit 状态、progress builder 与 B7 staged executor tests。
+- `TaskRunProgress`：Ops query service。
+- `TaskRunViewResponse`：后端 schema、前端 API 类型、任务详情页，以及手动任务页对同一 view 类型的读取。
+
+### 25.8 测试与验收门禁
+
+后端正向测试必须证明：
+
+1. 第一次源请求前已有 `active(period, current_page=1, completed_pages=0, rows=0)`。
+2. 两页 fixture 的快照顺序为 page 1 -> page 2 -> reconciling -> publishing -> completed。
+3. 页 1 完成后 active 显示当前季度累计行数，`rows_saved/rows_committed=0`。
+4. short page 后能看到最终页数和源端总行数；final commit 后 completed 结果的 source/normalize/stage/write 计数一致。
+5. 两个季度 fixture 在处理第二季度时仍保留第一季度 completed result，且任务级 `unit_done=1`。
+6. 最终成功后 active 为空、completed 包含全部季度，任务级聚合公式仍成立。
+7. 在第 N 页 source/normalize/stage 失败时，formal table 不变，active 冻结到正确季度/页码/累计行数，且不存在 completed result。
+8. finalize 失败时 `rows_saved/rows_committed=0`，active phase 为 failed，不能出现“季度处理完成”。
+9. progress adapter 写入失败不会改变 staged publisher/final commit 结果。
+10. sanitizer 对 active + 8 个 completed result 不截断；构造超限 payload 时有明确 `truncated`，并保留核心计数。
+11. 既有 `buffer_all` 数据集的 progress 次数和结果不变；未产生 paged-unit diagnostics 时 API 返回 null。
+
+前端测试必须覆盖：
+
+- 第一页、长分页中、source complete、publishing、completed、failed、canceled、旧任务无新字段八类状态。
+- 当前季度页码与累计行数的格式化。
+- 已完成季度的源端结果与写入结果分别显示。
+- `unit_done/progress_percent` 不因当前页增加。
+- 主页面不重复技术错误，不按 `fund_portfolio` key 判断。
+- 窄屏不溢出，数字使用 tabular/本地千分位格式。
+
+浏览器验收使用可控延迟 fixture 或本地 fake connector，不调用真实 Tushare、不消耗额度：
+
+1. 至少让一个两页季度在页面上停留于 page 1、page 2、publishing 和 completed。
+2. 检查 3 秒轮询请求、响应字段、控制台错误和布局。
+3. 截图证明当前季度实时条与已完成季度结果能同时存在。
+
+实现后最低回归：
+
+```text
+pytest -q tests/test_public_fund_b7_fund_portfolio_dataset.py
+pytest -q tests/web/test_ops_runtime.py <TaskRun query/API 定向测试>
+pytest -q tests/architecture/test_subsystem_dependency_matrix.py
+python scripts/check_docs_integrity.py
+git diff --check
+npm --prefix frontend run typecheck
+npm --prefix frontend run check:rules
+npm --prefix frontend run test
+npm --prefix frontend run build
+```
+
+### 25.9 完成定义与授权边界
+
+B7-M3.1 的代码、后端测试、前端测试和延迟 fixture 浏览器验收已全部通过，可以标记为“本地实现完成”。它不需要 Tushare 真实请求、数据库 migration、生产业务数据写入或 schedule 创建；后续若要部署到 Prod，仍需按当时任务运行状态单独完成只读预检与部署授权。
+
+### 25.10 实施结果（2026-08-10）
+
+1. Foundation staged executor 已实现第一页前、页间、`reconciling`、`publishing`、完成、失败和取消的覆盖式快照；`unit_done/rows_saved` 仍只在 final commit 后增加。
+2. Ops 继续复用独立事务和现有 JSON 列；paged-unit completed 通用上限为 16，active + B7 的 8 个 completed 结果通过 16 KiB 门禁。
+3. View API 已增加强类型投影；旧任务返回 `null`，非法 phase、负数和错误列表 fail-soft，不会令接口 500。
+4. 任务详情页只依据 typed contract 展示当前季度与已完成季度，不按 action key 特判；已覆盖第一页、长分页、核对、发布、完成、失败、取消、旧任务八类状态。
+5. 后端定向回归共 76 项通过；前端 137 项单元测试、生产构建和 12 项 Playwright smoke/视觉门禁通过。延迟 fixture 证明四次 3 秒轮询依次看到 `page 1 -> page 2 -> publishing -> completed`；1024px 窄屏无横向溢出；同时验证当前季度和已完成季度共存，且未调用真实 Tushare。

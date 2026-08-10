@@ -17,6 +17,7 @@ from src.foundation.datasets.public_fund_contracts import (
 )
 from src.foundation.datasets.registry import get_dataset_definition
 from src.foundation.ingestion.errors import (
+    IngestionError,
     IngestionNormalizeError,
     IngestionPlanningError,
     IngestionValidationError,
@@ -33,7 +34,12 @@ from src.foundation.ingestion.executor import IngestionExecutor
 from src.foundation.ingestion.linter import lint_all_dataset_definitions
 from src.foundation.ingestion.normalizer import DatasetNormalizer
 from src.foundation.ingestion.resolver import DatasetActionResolver
-from src.foundation.ingestion.source_client import DatasetSourceClient, SourceFetchResult, SourcePageResult
+from src.foundation.ingestion.run_errors import IngestionCanceledError
+from src.foundation.ingestion.source_client import (
+    DatasetSourceClient,
+    SourceFetchResult,
+    SourcePageResult,
+)
 from src.foundation.models.core_serving.fund_portfolio import FundPortfolio
 from src.foundation.models.staging.fund_portfolio_stage import FundPortfolioStage
 from src.foundation.models.table_model_registry import table_model_registry
@@ -283,6 +289,7 @@ def test_staged_executor_streams_pages_and_only_counts_rows_after_finalize(monke
             is_short_page=True,
         ),
     ]
+    snapshots = []
 
     class FakePublisher:
         instance = None
@@ -303,7 +310,7 @@ def test_staged_executor_streams_pages_and_only_counts_rows_after_finalize(monke
 
         def stage_page(self, **kwargs):  # type: ignore[no-untyped-def]
             self.stage_calls.append(dict(kwargs))
-            return SimpleNamespace(rows_deduplicated=0)
+            return SimpleNamespace(rows_staged=1, rows_deduplicated=0)
 
         def finalize_unit(self, **kwargs):  # type: ignore[no-untyped-def]
             self.finalize_calls.append(dict(kwargs))
@@ -316,8 +323,15 @@ def test_staged_executor_streams_pages_and_only_counts_rows_after_finalize(monke
 
     monkeypatch.setattr("src.foundation.ingestion.executor.StagedStreamPublisher", FakePublisher)
     executor = IngestionExecutor(Session(create_engine("sqlite+pysqlite:///:memory:")))
-    monkeypatch.setattr(executor.source_client, "iter_pages", lambda **_kwargs: iter(pages))
-    summary = executor.run(request=request, definition=definition, units=plan.units)
+    monkeypatch.setattr(
+        executor.source_client, "iter_pages", lambda **_kwargs: iter(pages)
+    )
+    summary = executor.run(
+        request=request,
+        definition=definition,
+        units=plan.units,
+        progress_reporter=lambda snapshot, _message: snapshots.append(snapshot),
+    )
 
     assert len(FakePublisher.instance.stage_calls) == 2
     assert len(FakePublisher.instance.finalize_calls) == 1
@@ -327,6 +341,62 @@ def test_staged_executor_streams_pages_and_only_counts_rows_after_finalize(monke
     persistence = summary.ingestion_diagnostics["persistence"]["immutable_fact"]
     assert persistence["rows_normalized_before_dedupe"] == 2
     assert persistence["final_scope_count"] == 2
+    assert [
+        snapshot.ingestion_diagnostics["runtime"]["paged_unit"]["active"]["phase"]
+        if snapshot.ingestion_diagnostics["runtime"]["paged_unit"]["active"] is not None
+        else "completed"
+        for snapshot in snapshots
+    ] == [
+        "processing_page",
+        "processing_page",
+        "reconciling",
+        "publishing",
+        "completed",
+    ]
+    page_two = snapshots[1]
+    assert page_two.unit_done == 0
+    assert page_two.rows_fetched == 1
+    assert page_two.rows_committed == 0
+    assert page_two.ingestion_diagnostics["runtime"]["paged_unit"]["active"] == {
+        "unit_id": plan.units[0].unit_id,
+        "unit_index": 1,
+        "unit_total": 1,
+        "time": {"field": "end_date", "point": "2025-06-30"},
+        "phase": "processing_page",
+        "current_page_number": 2,
+        "completed_page_count": 1,
+        "page_limit": 2_000,
+        "unit_rows_fetched": 1,
+        "unit_rows_normalized_before_dedupe": 1,
+        "unit_rows_staged_unique": 1,
+        "unit_rows_deduplicated": 0,
+        "unit_rows_rejected": 0,
+        "retry_count": 1,
+        "observed_short_page": False,
+        "terminal_page_rows": None,
+    }
+    completed = snapshots[-1].ingestion_diagnostics["runtime"]["paged_unit"]
+    assert completed["active"] is None
+    assert completed["completed"] == [
+        {
+            "unit_id": plan.units[0].unit_id,
+            "unit_index": 1,
+            "time": {"field": "end_date", "point": "2025-06-30"},
+            "page_count": 2,
+            "retry_count": 1,
+            "terminal_page_rows": 1,
+            "observed_short_page": True,
+            "rows_fetched": 2,
+            "rows_normalized_before_dedupe": 2,
+            "rows_staged_unique": 2,
+            "rows_deduplicated": 0,
+            "rows_rejected": 0,
+            "rows_inserted_new": 2,
+            "rows_matched_existing": 0,
+            "rows_committed": 2,
+            "final_scope_count": 2,
+        }
+    ]
 
 
 def test_staged_executor_finalize_failure_reports_zero_committed(monkeypatch) -> None:  # type: ignore[no-untyped-def]
@@ -367,7 +437,7 @@ def test_staged_executor_finalize_failure_reports_zero_committed(monkeypatch) ->
             return uuid4()
 
         def stage_page(self, **_kwargs):  # type: ignore[no-untyped-def]
-            return SimpleNamespace(rows_deduplicated=0)
+            return SimpleNamespace(rows_staged=1, rows_deduplicated=0)
 
         def finalize_unit(self, **_kwargs):  # type: ignore[no-untyped-def]
             raise IngestionWriteError(
@@ -394,6 +464,325 @@ def test_staged_executor_finalize_failure_reports_zero_committed(monkeypatch) ->
     assert snapshots[-1].rows_fetched == 1
     assert snapshots[-1].rows_written == 0
     assert snapshots[-1].rows_committed == 0
+    paged_unit = snapshots[-1].ingestion_diagnostics["runtime"]["paged_unit"]
+    assert paged_unit["active"]["phase"] == "failed"
+    assert paged_unit["active"]["completed_page_count"] == 1
+    assert paged_unit["active"]["unit_rows_fetched"] == 1
+    assert paged_unit["completed"] == []
+
+
+def test_staged_executor_keeps_completed_quarter_while_next_quarter_is_active(
+    monkeypatch,
+) -> None:  # type: ignore[no-untyped-def]
+    definition = get_dataset_definition("fund_portfolio")
+    plan = DatasetActionResolver(
+        Session(create_engine("sqlite+pysqlite:///:memory:"))
+    ).build_plan(
+        _request(mode="range", start_date=date(2025, 3, 31), end_date=date(2025, 6, 30))
+    )
+    request = ValidatedDatasetActionRequest(
+        request_id="b7-two-quarters",
+        dataset_key="fund_portfolio",
+        action="maintain",
+        run_profile="range_rebuild",
+        trigger_source="manual",
+        start_date=date(2025, 3, 31),
+        end_date=date(2025, 6, 30),
+    )
+    snapshots = []
+
+    class FakePublisher:
+        def __init__(self, **_kwargs) -> None:  # type: ignore[no-untyped-def]
+            pass
+
+        def __enter__(self):  # type: ignore[no-untyped-def]
+            return self
+
+        def __exit__(self, *_args) -> bool:  # type: ignore[no-untyped-def]
+            return False
+
+        def begin_unit(self):  # type: ignore[no-untyped-def]
+            return uuid4()
+
+        def stage_page(self, **_kwargs):  # type: ignore[no-untyped-def]
+            return SimpleNamespace(rows_staged=1, rows_deduplicated=0)
+
+        def finalize_unit(self, **_kwargs):  # type: ignore[no-untyped-def]
+            return SimpleNamespace(
+                rows_source_unique=1,
+                rows_inserted=1,
+                rows_matched=0,
+                final_scope_count=1,
+            )
+
+    def iter_pages(*, unit, **_kwargs):  # type: ignore[no-untyped-def]
+        row = _row()
+        row["end_date"] = unit.trade_date.strftime("%Y%m%d")
+        return iter(
+            [
+                SourcePageResult(
+                    unit_id=unit.unit_id,
+                    page_number=1,
+                    offset=0,
+                    rows_raw=[row],
+                    retry_count=0,
+                    latency_ms=1,
+                    is_short_page=True,
+                )
+            ]
+        )
+
+    monkeypatch.setattr(
+        "src.foundation.ingestion.executor.StagedStreamPublisher", FakePublisher
+    )
+    executor = IngestionExecutor(Session(create_engine("sqlite+pysqlite:///:memory:")))
+    monkeypatch.setattr(executor.source_client, "iter_pages", iter_pages)
+
+    summary = executor.run(
+        request=request,
+        definition=definition,
+        units=plan.units,
+        progress_reporter=lambda snapshot, _message: snapshots.append(snapshot),
+    )
+
+    second_quarter_started = next(
+        snapshot
+        for snapshot in snapshots
+        if snapshot.ingestion_diagnostics["runtime"]["paged_unit"]["active"]
+        and snapshot.ingestion_diagnostics["runtime"]["paged_unit"]["active"][
+            "unit_index"
+        ]
+        == 2
+    )
+    paged_unit = second_quarter_started.ingestion_diagnostics["runtime"]["paged_unit"]
+    assert second_quarter_started.unit_done == 1
+    assert second_quarter_started.rows_fetched == 1
+    assert paged_unit["active"]["unit_rows_fetched"] == 0
+    assert [item["unit_index"] for item in paged_unit["completed"]] == [1]
+    assert summary.unit_done == 2
+    assert summary.ingestion_diagnostics["runtime"]["paged_unit"]["active"] is None
+    assert [
+        item["unit_index"]
+        for item in summary.ingestion_diagnostics["runtime"]["paged_unit"]["completed"]
+    ] == [1, 2]
+
+
+def test_staged_executor_source_failure_freezes_last_page_without_completed_result(
+    monkeypatch,
+) -> None:  # type: ignore[no-untyped-def]
+    definition = get_dataset_definition("fund_portfolio")
+    plan = DatasetActionResolver(
+        Session(create_engine("sqlite+pysqlite:///:memory:"))
+    ).build_plan(_request(mode="point", trade_date=date(2025, 6, 30)))
+    request = ValidatedDatasetActionRequest(
+        request_id="b7-source-failure",
+        dataset_key="fund_portfolio",
+        action="maintain",
+        run_profile="point_incremental",
+        trigger_source="manual",
+        trade_date=date(2025, 6, 30),
+    )
+    snapshots = []
+
+    class FakePublisher:
+        def __init__(self, **_kwargs) -> None:  # type: ignore[no-untyped-def]
+            pass
+
+        def __enter__(self):  # type: ignore[no-untyped-def]
+            return self
+
+        def __exit__(self, *_args) -> bool:  # type: ignore[no-untyped-def]
+            return False
+
+        def begin_unit(self):  # type: ignore[no-untyped-def]
+            return uuid4()
+
+        def stage_page(self, **_kwargs):  # type: ignore[no-untyped-def]
+            return SimpleNamespace(rows_staged=1, rows_deduplicated=0)
+
+        def finalize_unit(self, **_kwargs):  # type: ignore[no-untyped-def]
+            raise AssertionError("source 失败后不得发布")
+
+    def failing_pages():
+        yield SourcePageResult(
+            unit_id=plan.units[0].unit_id,
+            page_number=1,
+            offset=0,
+            rows_raw=[_row()],
+            retry_count=0,
+            latency_ms=1,
+            is_short_page=False,
+        )
+        raise RuntimeError("source failed on page 2")
+
+    monkeypatch.setattr(
+        "src.foundation.ingestion.executor.StagedStreamPublisher", FakePublisher
+    )
+    executor = IngestionExecutor(Session(create_engine("sqlite+pysqlite:///:memory:")))
+    monkeypatch.setattr(
+        executor.source_client, "iter_pages", lambda **_kwargs: failing_pages()
+    )
+
+    with pytest.raises(IngestionError):
+        executor.run(
+            request=request,
+            definition=definition,
+            units=plan.units,
+            progress_reporter=lambda snapshot, _message: snapshots.append(snapshot),
+        )
+
+    final = snapshots[-1]
+    active = final.ingestion_diagnostics["runtime"]["paged_unit"]["active"]
+    assert final.rows_fetched == 1
+    assert final.rows_committed == 0
+    assert active["phase"] == "failed"
+    assert active["current_page_number"] == 2
+    assert active["completed_page_count"] == 1
+    assert active["unit_rows_fetched"] == 1
+    assert final.ingestion_diagnostics["runtime"]["paged_unit"]["completed"] == []
+
+
+@pytest.mark.parametrize("failure_kind", ["normalize", "stage"])
+def test_staged_executor_page_failure_does_not_count_unstaged_page_as_completed(
+    monkeypatch,
+    failure_kind: str,
+) -> None:  # type: ignore[no-untyped-def]
+    definition = get_dataset_definition("fund_portfolio")
+    plan = DatasetActionResolver(
+        Session(create_engine("sqlite+pysqlite:///:memory:"))
+    ).build_plan(_request(mode="point", trade_date=date(2025, 6, 30)))
+    request = ValidatedDatasetActionRequest(
+        request_id=f"b7-{failure_kind}-failure",
+        dataset_key="fund_portfolio",
+        action="maintain",
+        run_profile="point_incremental",
+        trigger_source="manual",
+        trade_date=date(2025, 6, 30),
+    )
+    snapshots = []
+
+    class FakePublisher:
+        def __init__(self, **_kwargs) -> None:  # type: ignore[no-untyped-def]
+            pass
+
+        def __enter__(self):  # type: ignore[no-untyped-def]
+            return self
+
+        def __exit__(self, *_args) -> bool:  # type: ignore[no-untyped-def]
+            return False
+
+        def begin_unit(self):  # type: ignore[no-untyped-def]
+            return uuid4()
+
+        def stage_page(self, **_kwargs):  # type: ignore[no-untyped-def]
+            if failure_kind == "stage":
+                raise IngestionWriteError(
+                    StructuredError(
+                        error_code="stage_page_failed",
+                        error_type="write",
+                        phase="writer",
+                        message="stage failed",
+                        retryable=False,
+                    )
+                )
+            return SimpleNamespace(rows_staged=1, rows_deduplicated=0)
+
+        def finalize_unit(self, **_kwargs):  # type: ignore[no-untyped-def]
+            raise AssertionError("分页失败后不得发布")
+
+    row = _row()
+    if failure_kind == "normalize":
+        row["end_date"] = "20250331"
+
+    monkeypatch.setattr(
+        "src.foundation.ingestion.executor.StagedStreamPublisher", FakePublisher
+    )
+    executor = IngestionExecutor(Session(create_engine("sqlite+pysqlite:///:memory:")))
+    monkeypatch.setattr(
+        executor.source_client,
+        "iter_pages",
+        lambda **_kwargs: iter(
+            [
+                SourcePageResult(
+                    unit_id=plan.units[0].unit_id,
+                    page_number=1,
+                    offset=0,
+                    rows_raw=[row],
+                    retry_count=0,
+                    latency_ms=1,
+                    is_short_page=True,
+                )
+            ]
+        ),
+    )
+
+    with pytest.raises(IngestionError):
+        executor.run(
+            request=request,
+            definition=definition,
+            units=plan.units,
+            progress_reporter=lambda snapshot, _message: snapshots.append(snapshot),
+        )
+
+    final = snapshots[-1]
+    active = final.ingestion_diagnostics["runtime"]["paged_unit"]["active"]
+    assert final.rows_fetched == 1
+    assert final.rows_committed == 0
+    assert active["phase"] == "failed"
+    assert active["current_page_number"] == 1
+    assert active["completed_page_count"] == 0
+    assert active["unit_rows_fetched"] == 1
+    assert final.ingestion_diagnostics["runtime"]["paged_unit"]["completed"] == []
+
+
+def test_staged_executor_cancellation_freezes_initial_page(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    definition = get_dataset_definition("fund_portfolio")
+    plan = DatasetActionResolver(
+        Session(create_engine("sqlite+pysqlite:///:memory:"))
+    ).build_plan(_request(mode="point", trade_date=date(2025, 6, 30)))
+    request = ValidatedDatasetActionRequest(
+        request_id="b7-canceled",
+        dataset_key="fund_portfolio",
+        action="maintain",
+        run_profile="point_incremental",
+        trigger_source="manual",
+        trade_date=date(2025, 6, 30),
+        run_id=99,
+    )
+    snapshots = []
+
+    class FakePublisher:
+        def __init__(self, **_kwargs) -> None:  # type: ignore[no-untyped-def]
+            pass
+
+        def __enter__(self):  # type: ignore[no-untyped-def]
+            return self
+
+        def __exit__(self, *_args) -> bool:  # type: ignore[no-untyped-def]
+            return False
+
+        def begin_unit(self):  # type: ignore[no-untyped-def]
+            return uuid4()
+
+    monkeypatch.setattr(
+        "src.foundation.ingestion.executor.StagedStreamPublisher", FakePublisher
+    )
+    executor = IngestionExecutor(Session(create_engine("sqlite+pysqlite:///:memory:")))
+
+    with pytest.raises(IngestionCanceledError):
+        executor.run(
+            request=request,
+            definition=definition,
+            units=plan.units,
+            progress_reporter=lambda snapshot, _message: snapshots.append(snapshot),
+            cancel_checker=lambda _run_id: True,
+        )
+
+    active = snapshots[-1].ingestion_diagnostics["runtime"]["paged_unit"]["active"]
+    assert active["phase"] == "canceled"
+    assert active["current_page_number"] == 1
+    assert active["completed_page_count"] == 0
+    assert active["unit_rows_fetched"] == 0
 
 
 def test_fund_portfolio_stage_dao_deduplicates_cross_page_and_atomically_reconciles() -> None:

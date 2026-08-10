@@ -221,8 +221,17 @@ def test_ops_task_run_view_returns_single_snapshot_and_nodes(
     assert payload["run"]["title"] == "股票日线"
     assert payload["run"]["time_scope_label"] == "2026-04-20 ~ 2026-04-24"
     assert payload["progress"]["rows_saved"] == 90
-    assert payload["progress"]["rejected_reason_counts"]["normalize.required_field_missing:trade_date"] == 7
-    assert payload["progress"]["rejected_reasons"][0]["reason_code"] == "normalize.required_field_missing"
+    assert payload["progress"]["paged_unit_progress"] is None
+    assert (
+        payload["progress"]["rejected_reason_counts"][
+            "normalize.required_field_missing:trade_date"
+        ]
+        == 7
+    )
+    assert (
+        payload["progress"]["rejected_reasons"][0]["reason_code"]
+        == "normalize.required_field_missing"
+    )
     assert payload["progress"]["rejected_reasons"][0]["field"] == "trade_date"
     assert payload["progress"]["rejected_reasons"][0]["label"] == "必填字段缺失"
     assert payload["progress"]["rejected_reasons"][0]["samples"][0]["row"]["ts_code"] == "000001.SZ"
@@ -234,6 +243,108 @@ def test_ops_task_run_view_returns_single_snapshot_and_nodes(
     assert payload["nodes"][0]["rejected_reasons"][0]["count"] == 7
     assert payload["nodes"][0]["rejected_reasons"][0]["samples"][0]["field"] == "trade_date"
     assert "unit_id" not in payload["nodes"][0]["rejected_reasons"][0]["samples"][0]
+
+
+def test_ops_task_run_view_projects_paged_unit_progress_fail_soft(
+    app_client,
+    db_session,
+    user_factory,
+    task_run_factory,
+) -> None:
+    admin = user_factory(username="admin", password="secret", is_admin=True)
+    task_run = task_run_factory(
+        requested_by_user_id=admin.id,
+        resource_key="fund_portfolio",
+        title="公募基金持仓",
+        status="running",
+        unit_total=2,
+        unit_done=1,
+        rows_fetched=138_731,
+        rows_saved=138_730,
+    )
+    task_run.ingestion_diagnostics_json = {
+        "runtime": {
+            "paged_unit": {
+                "active": {
+                    "unit_id": "fund_portfolio:20250630",
+                    "unit_index": 2,
+                    "unit_total": 2,
+                    "time": {"field": "end_date", "point": "2025-06-30"},
+                    "phase": "processing_page",
+                    "current_page_number": -2,
+                    "completed_page_count": -1,
+                    "page_limit": 2_000,
+                    "unit_rows_fetched": 1,
+                    "unit_rows_normalized_before_dedupe": 1,
+                    "unit_rows_staged_unique": 1,
+                    "unit_rows_deduplicated": -1,
+                    "unit_rows_rejected": 0,
+                    "retry_count": 0,
+                    "observed_short_page": False,
+                    "terminal_page_rows": None,
+                },
+                "completed": [
+                    {
+                        "unit_id": "fund_portfolio:20250331",
+                        "unit_index": 1,
+                        "time": {"field": "end_date", "point": "2025-03-31"},
+                        "page_count": 70,
+                        "retry_count": 0,
+                        "terminal_page_rows": 730,
+                        "observed_short_page": True,
+                        "rows_fetched": 138_730,
+                        "rows_normalized_before_dedupe": 138_730,
+                        "rows_staged_unique": 138_730,
+                        "rows_deduplicated": 0,
+                        "rows_rejected": 0,
+                        "rows_inserted_new": 138_730,
+                        "rows_matched_existing": 0,
+                        "rows_committed": 138_730,
+                        "final_scope_count": 138_730,
+                    },
+                    "invalid",
+                ],
+                "completed_truncated": False,
+            }
+        }
+    }
+    db_session.commit()
+
+    response = app_client.get(
+        f"/api/v1/ops/task-runs/{task_run.id}/view", headers=auth_headers(app_client)
+    )
+
+    assert response.status_code == 200
+    progress = response.json()["progress"]["paged_unit_progress"]
+    assert progress["active"]["phase"] == "processing_page"
+    assert progress["active"]["current_page_number"] is None
+    assert progress["active"]["completed_page_count"] == 0
+    assert progress["active"]["unit_rows_deduplicated"] == 0
+    assert len(progress["completed"]) == 1
+    assert progress["completed"][0]["rows_committed"] == 138_730
+
+    invalid_task = task_run_factory(
+        requested_by_user_id=admin.id,
+        resource_key="fund_portfolio",
+        title="公募基金持仓",
+        status="running",
+    )
+    invalid_task.ingestion_diagnostics_json = {
+        "runtime": {
+            "paged_unit": {
+                "active": {"unit_id": "invalid", "phase": "unknown"},
+                "completed": [],
+            }
+        }
+    }
+    db_session.commit()
+    response = app_client.get(
+        f"/api/v1/ops/task-runs/{invalid_task.id}/view",
+        headers=auth_headers(app_client),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["progress"]["paged_unit_progress"]["active"] is None
 
 
 def test_ops_task_run_view_returns_index_period_source_summary(

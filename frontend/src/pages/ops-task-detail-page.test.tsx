@@ -7,6 +7,11 @@ import { vi } from "vitest";
 
 import { appTheme } from "../app/theme";
 import { AuthProvider } from "../features/auth/auth-context";
+import type {
+  TaskRunPagedUnitActive,
+  TaskRunPagedUnitProgress,
+  TaskRunPagedUnitResult,
+} from "../shared/api/types";
 import { OpsTaskDetailPage } from "./ops-task-detail-page";
 
 const { apiRequest } = vi.hoisted(() => ({
@@ -25,6 +30,7 @@ function createTaskRunView(status = "failed") {
       task_type: "dataset_action",
       resource_key: "daily",
       source_key: "tushare",
+      action_key: "daily.maintain",
       action: "maintain",
       title: "股票日线",
       trigger_source: "manual",
@@ -95,6 +101,7 @@ function createTaskRunView(status = "failed") {
         start_date: string | null;
         end_date: string | null;
       },
+      paged_unit_progress: null as TaskRunPagedUnitProgress | null,
       current_object:
         status === "running"
           ? {
@@ -185,6 +192,55 @@ function createTaskRunView(status = "failed") {
       can_cancel: false,
       can_copy_params: true,
     },
+  };
+}
+
+function createPagedUnitActive(
+  phase: TaskRunPagedUnitActive["phase"],
+  overrides: Partial<TaskRunPagedUnitActive> = {},
+): TaskRunPagedUnitActive {
+  return {
+    unit_id: "fund_portfolio:20250630",
+    unit_index: 2,
+    unit_total: 6,
+    time: { field: "end_date", point: "2025-06-30" },
+    phase,
+    current_page_number: 28,
+    completed_page_count: 27,
+    page_limit: 2_000,
+    unit_rows_fetched: 54_000,
+    unit_rows_normalized_before_dedupe: 54_000,
+    unit_rows_staged_unique: 54_000,
+    unit_rows_deduplicated: 0,
+    unit_rows_rejected: 0,
+    retry_count: 0,
+    observed_short_page: false,
+    terminal_page_rows: null,
+    ...overrides,
+  };
+}
+
+function createPagedUnitResult(
+  overrides: Partial<TaskRunPagedUnitResult> = {},
+): TaskRunPagedUnitResult {
+  return {
+    unit_id: "fund_portfolio:20250331",
+    unit_index: 1,
+    time: { field: "end_date", point: "2025-03-31" },
+    page_count: 70,
+    retry_count: 0,
+    terminal_page_rows: 730,
+    observed_short_page: true,
+    rows_fetched: 138_730,
+    rows_normalized_before_dedupe: 138_730,
+    rows_staged_unique: 138_730,
+    rows_deduplicated: 0,
+    rows_rejected: 0,
+    rows_inserted_new: 138_730,
+    rows_matched_existing: 0,
+    rows_committed: 138_730,
+    final_scope_count: 138_730,
+    ...overrides,
   };
 }
 
@@ -310,6 +366,126 @@ describe("任务详情页", () => {
     );
     expect(screen.queryByText("失败原因")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "查看技术诊断" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      label: "第一页请求前",
+      active: createPagedUnitActive("processing_page", {
+        current_page_number: 1,
+        completed_page_count: 0,
+        unit_rows_fetched: 0,
+        unit_rows_normalized_before_dedupe: 0,
+        unit_rows_staged_unique: 0,
+      }),
+      expected: "截至 2025-06-30｜正在处理第 1 页｜已完成 0 页｜累计读取 0 行",
+    },
+    {
+      label: "长分页处理中",
+      active: createPagedUnitActive("processing_page"),
+      expected: "截至 2025-06-30｜正在处理第 28 页｜已完成 27 页｜累计读取 54,000 行",
+    },
+  ])("展示$label的季度页级进度", async ({ active, expected }) => {
+    const view = createTaskRunView("running");
+    view.run.resource_key = "fund_portfolio";
+    view.run.title = "公募基金持仓";
+    view.progress.unit_total = 6;
+    view.progress.unit_done = 1;
+    view.progress.progress_percent = 16;
+    view.progress.rows_fetched = 138_730 + active.unit_rows_fetched;
+    view.progress.rows_saved = 138_730;
+    view.progress.paged_unit_progress = {
+      active,
+      completed: [createPagedUnitResult()],
+      completed_truncated: false,
+    };
+    view.progress.ingestion_diagnostics = {
+      source: { pagination: { unit_count_with_pagination: 1, total_page_count: 70, total_rows_merged: 138_730 } },
+    };
+    apiRequest.mockResolvedValue(view);
+
+    renderPage();
+
+    expect(await screen.findByText(expected)).toBeInTheDocument();
+    expect(await screen.findByText("1 / 6")).toBeInTheDocument();
+    expect(await screen.findByText("16%")).toBeInTheDocument();
+    expect(await screen.findByText("截至 2025-03-31｜季度处理完成")).toBeInTheDocument();
+    expect(screen.queryByText("正在处理：美欣达（002034.SZ）")).not.toBeInTheDocument();
+    expect(screen.queryByText("源端分页")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["reconciling", "截至 2025-06-30｜源端拉取完成：共 70 页、138,730 行｜正在核对"],
+    ["publishing", "截至 2025-06-30｜源端拉取完成：共 70 页、138,730 行｜正在正式写入"],
+  ] as const)("展示 %s 阶段且不提前增加保存数", async (phase, expected) => {
+    const view = createTaskRunView("running");
+    view.progress.rows_fetched = 138_730;
+    view.progress.rows_saved = 0;
+    view.progress.paged_unit_progress = {
+      active: createPagedUnitActive(phase, {
+        current_page_number: 70,
+        completed_page_count: 70,
+        unit_rows_fetched: 138_730,
+        unit_rows_normalized_before_dedupe: 138_730,
+        unit_rows_staged_unique: 138_730,
+        observed_short_page: true,
+        terminal_page_rows: 730,
+      }),
+      completed: [],
+      completed_truncated: false,
+    };
+    apiRequest.mockResolvedValue(view);
+
+    renderPage();
+
+    expect(await screen.findByText(expected)).toBeInTheDocument();
+    expect(screen.getByText("保存").parentElement).toHaveTextContent("0");
+  });
+
+  it("按最新季度在前展示完成后的源端与写入结果", async () => {
+    const view = createTaskRunView("success");
+    view.progress.paged_unit_progress = {
+      active: null,
+      completed: [
+        createPagedUnitResult(),
+        createPagedUnitResult({
+          unit_id: "fund_portfolio:20250630",
+          unit_index: 2,
+          time: { field: "end_date", point: "2025-06-30" },
+          rows_inserted_new: 120_000,
+          rows_matched_existing: 18_730,
+        }),
+      ],
+      completed_truncated: false,
+    };
+    apiRequest.mockResolvedValue(view);
+
+    renderPage();
+
+    const titles = await screen.findAllByText(/季度处理完成/);
+    expect(titles[0]).toHaveTextContent("截至 2025-06-30｜季度处理完成");
+    expect(titles[1]).toHaveTextContent("截至 2025-03-31｜季度处理完成");
+    expect(await screen.findAllByText(/源端：70 页，读取 138,730 行/)).toHaveLength(2);
+    expect(await screen.findByText(/写入：保存 138,730，首次插入 120,000，已存在且一致 18,730/)).toBeInTheDocument();
+  });
+
+  it.each([
+    ["failed", "failed", "截至 2025-06-30｜处理停在第 28 页｜已完成 27 页｜累计读取 54,000 行"],
+    ["canceled", "canceled", "截至 2025-06-30｜停止时位于第 28 页｜已完成 27 页｜累计读取 54,000 行"],
+  ] as const)("在任务 %s 时冻结最后分页快照", async (status, phase, expected) => {
+    const view = createTaskRunView(status);
+    view.progress.paged_unit_progress = {
+      active: createPagedUnitActive(phase),
+      completed: [],
+      completed_truncated: false,
+    };
+    apiRequest.mockResolvedValue(view);
+
+    renderPage();
+
+    expect(await screen.findByText(expected)).toBeInTheDocument();
+    expect(screen.queryByText("季度处理完成")).not.toBeInTheDocument();
+    expect(screen.queryByText(/psycopg/)).not.toBeInTheDocument();
   });
 
   it("展示指数周线和月线的接口与日线派生结果来源", async () => {

@@ -39,6 +39,9 @@ class _RunState:
     pagination_short_page_unit_count: int = 0
     pagination_units: list[dict[str, Any]] = field(default_factory=list)
     pagination_units_truncated: bool = False
+    paged_unit_active: dict[str, Any] | None = None
+    paged_unit_completed: list[dict[str, Any]] = field(default_factory=list)
+    paged_unit_completed_truncated: bool = False
     rejected_reason_counts: dict[str, int] = field(default_factory=dict)
     rejected_reason_samples: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     unit_done: int = 0
@@ -87,6 +90,7 @@ class IngestionRunSummary:
 
 class IngestionExecutor:
     MAX_REASON_BUCKETS = 3
+    MAX_PAGED_UNIT_RESULTS = 16
 
     def __init__(self, session) -> None:  # type: ignore[no-untyped-def]
         self.session = session
@@ -168,21 +172,24 @@ class IngestionExecutor:
         cancel_checker,
     ) -> None:  # type: ignore[no-untyped-def]
         total_units = len(units)
-        with StagedStreamPublisher(outer_session=self.session, definition=definition) as publisher:
-            for unit in units:
+        with StagedStreamPublisher(
+            outer_session=self.session, definition=definition
+        ) as publisher:
+            for unit_index, unit in enumerate(units, start=1):
                 unit_rows_fetched = 0
                 unit_rows_written = 0
                 unit_rows_rejected = 0
                 unit_rows_deduplicated = 0
                 unit_rows_normalized_before_dedupe = 0
+                unit_rows_staged_unique = 0
                 page_count = 0
+                completed_page_count = 0
                 retry_count = 0
                 terminal_offset = None
                 terminal_page_rows = 0
                 observed_short_page = False
                 stage_run_id = publisher.begin_unit()
                 try:
-                    self._ensure_not_canceled(cancel_checker=cancel_checker, run_id=request.run_id)
                     if unit.trade_date is None:
                         raise IngestionError(
                             StructuredError(
@@ -194,10 +201,54 @@ class IngestionExecutor:
                                 unit_id=unit.unit_id,
                             )
                         )
+                    self._set_paged_unit_active(
+                        state=state,
+                        unit=unit,
+                        unit_index=unit_index,
+                        unit_total=total_units,
+                        phase="processing_page",
+                        current_page_number=1,
+                        completed_page_count=0,
+                        unit_rows_fetched=0,
+                        unit_rows_normalized_before_dedupe=0,
+                        unit_rows_staged_unique=0,
+                        unit_rows_deduplicated=0,
+                        unit_rows_rejected=0,
+                        retry_count=0,
+                        observed_short_page=False,
+                        terminal_page_rows=None,
+                    )
+                    self._report_paged_unit_progress(
+                        request=request,
+                        definition=definition,
+                        observer=observer,
+                        state=state,
+                        unit=unit,
+                        total_units=total_units,
+                        unit_rows_fetched=0,
+                        unit_rows_rejected=0,
+                        unit_rows_deduplicated=0,
+                    )
+                    self._ensure_not_canceled(
+                        cancel_checker=cancel_checker, run_id=request.run_id
+                    )
                     repair_value = unit.request_params.get("ts_code")
-                    repair_ts_code = str(repair_value).strip().upper() if repair_value not in (None, "") else None
-                    for page in self.source_client.iter_pages(definition=definition, unit=unit):
-                        self._ensure_not_canceled(cancel_checker=cancel_checker, run_id=request.run_id)
+                    repair_ts_code = (
+                        str(repair_value).strip().upper()
+                        if repair_value not in (None, "")
+                        else None
+                    )
+                    page_iterator = iter(
+                        self.source_client.iter_pages(definition=definition, unit=unit)
+                    )
+                    while True:
+                        self._ensure_not_canceled(
+                            cancel_checker=cancel_checker, run_id=request.run_id
+                        )
+                        try:
+                            page = next(page_iterator)
+                        except StopIteration:
+                            break
                         page_count += 1
                         retry_count += int(page.retry_count or 0)
                         terminal_offset = page.offset
@@ -243,8 +294,63 @@ class IngestionExecutor:
                                 page_number=page.page_number,
                                 offset=page.offset,
                             )
-                            unit_rows_deduplicated += int(stage_result.rows_deduplicated or 0)
+                            unit_rows_staged_unique += int(
+                                stage_result.rows_staged or 0
+                            )
+                            unit_rows_deduplicated += int(
+                                stage_result.rows_deduplicated or 0
+                            )
                         unit_rows_deduplicated += int(normalized.rows_deduplicated or 0)
+                        completed_page_count += 1
+                        if observed_short_page:
+                            self._set_paged_unit_active(
+                                state=state,
+                                unit=unit,
+                                unit_index=unit_index,
+                                unit_total=total_units,
+                                phase="reconciling",
+                                current_page_number=page.page_number,
+                                completed_page_count=completed_page_count,
+                                unit_rows_fetched=unit_rows_fetched,
+                                unit_rows_normalized_before_dedupe=unit_rows_normalized_before_dedupe,
+                                unit_rows_staged_unique=unit_rows_staged_unique,
+                                unit_rows_deduplicated=unit_rows_deduplicated,
+                                unit_rows_rejected=unit_rows_rejected,
+                                retry_count=retry_count,
+                                observed_short_page=True,
+                                terminal_page_rows=terminal_page_rows,
+                            )
+                        else:
+                            self._set_paged_unit_active(
+                                state=state,
+                                unit=unit,
+                                unit_index=unit_index,
+                                unit_total=total_units,
+                                phase="processing_page",
+                                current_page_number=page.page_number + 1,
+                                completed_page_count=completed_page_count,
+                                unit_rows_fetched=unit_rows_fetched,
+                                unit_rows_normalized_before_dedupe=unit_rows_normalized_before_dedupe,
+                                unit_rows_staged_unique=unit_rows_staged_unique,
+                                unit_rows_deduplicated=unit_rows_deduplicated,
+                                unit_rows_rejected=unit_rows_rejected,
+                                retry_count=retry_count,
+                                observed_short_page=False,
+                                terminal_page_rows=None,
+                            )
+                        self._report_paged_unit_progress(
+                            request=request,
+                            definition=definition,
+                            observer=observer,
+                            state=state,
+                            unit=unit,
+                            total_units=total_units,
+                            unit_rows_fetched=unit_rows_fetched,
+                            unit_rows_rejected=unit_rows_rejected,
+                            unit_rows_deduplicated=unit_rows_deduplicated,
+                        )
+                        if observed_short_page:
+                            break
                     if not observed_short_page:
                         raise IngestionError(
                             StructuredError(
@@ -256,23 +362,56 @@ class IngestionExecutor:
                                 unit_id=unit.unit_id,
                             )
                         )
+                    self._set_paged_unit_active(
+                        state=state,
+                        unit=unit,
+                        unit_index=unit_index,
+                        unit_total=total_units,
+                        phase="publishing",
+                        current_page_number=page_count,
+                        completed_page_count=completed_page_count,
+                        unit_rows_fetched=unit_rows_fetched,
+                        unit_rows_normalized_before_dedupe=unit_rows_normalized_before_dedupe,
+                        unit_rows_staged_unique=unit_rows_staged_unique,
+                        unit_rows_deduplicated=unit_rows_deduplicated,
+                        unit_rows_rejected=unit_rows_rejected,
+                        retry_count=retry_count,
+                        observed_short_page=True,
+                        terminal_page_rows=terminal_page_rows,
+                    )
+                    self._report_paged_unit_progress(
+                        request=request,
+                        definition=definition,
+                        observer=observer,
+                        state=state,
+                        unit=unit,
+                        total_units=total_units,
+                        unit_rows_fetched=unit_rows_fetched,
+                        unit_rows_rejected=unit_rows_rejected,
+                        unit_rows_deduplicated=unit_rows_deduplicated,
+                    )
                     finalized = publisher.finalize_unit(
                         stage_run_id=stage_run_id,
                         period=unit.trade_date,
                         repair_ts_code=repair_ts_code,
                     )
                     unit_rows_written = int(finalized.rows_source_unique or 0)
+                    unit_rows_inserted = int(finalized.rows_inserted or 0)
+                    unit_rows_matched = int(finalized.rows_matched or 0)
+                    unit_final_scope_count = int(finalized.final_scope_count or 0)
                     state.rows_fetched += unit_rows_fetched
                     state.rows_written += unit_rows_written
                     state.rows_committed += unit_rows_written
                     state.rows_rejected += unit_rows_rejected
                     state.rows_deduplicated += unit_rows_deduplicated
-                    state.rows_normalized_before_dedupe += unit_rows_normalized_before_dedupe
-                    state.rows_inserted += int(finalized.rows_inserted or 0)
-                    state.rows_matched += int(finalized.rows_matched or 0)
-                    state.scope_existing_count += int(finalized.rows_matched or 0)
+                    state.rows_normalized_before_dedupe += (
+                        unit_rows_normalized_before_dedupe
+                    )
+                    state.rows_inserted += unit_rows_inserted
+                    state.rows_matched += unit_rows_matched
+                    state.scope_existing_count += unit_rows_matched
                     state.scope_source_unique_count += unit_rows_written
-                    state.final_scope_count += int(finalized.final_scope_count or 0)
+                    state.final_scope_count += unit_final_scope_count
                     state.pagination_unit_count += 1
                     state.pagination_total_page_count += page_count
                     state.pagination_total_retry_count += retry_count
@@ -292,8 +431,45 @@ class IngestionExecutor:
                         )
                     else:
                         state.pagination_units_truncated = True
+                    self._complete_paged_unit(
+                        state=state,
+                        unit=unit,
+                        unit_index=unit_index,
+                        page_count=page_count,
+                        retry_count=retry_count,
+                        terminal_page_rows=terminal_page_rows,
+                        unit_rows_fetched=unit_rows_fetched,
+                        unit_rows_normalized_before_dedupe=unit_rows_normalized_before_dedupe,
+                        unit_rows_staged_unique=unit_rows_staged_unique,
+                        unit_rows_deduplicated=unit_rows_deduplicated,
+                        unit_rows_rejected=unit_rows_rejected,
+                        unit_rows_inserted=unit_rows_inserted,
+                        unit_rows_matched=unit_rows_matched,
+                        unit_rows_committed=unit_rows_written,
+                        unit_final_scope_count=unit_final_scope_count,
+                    )
                     state.unit_done += 1
                 except Exception as exc:
+                    self._fail_paged_unit(
+                        state=state,
+                        exc=exc,
+                        current_page_number=(
+                            int(state.paged_unit_active.get("current_page_number") or 0)
+                            if isinstance(state.paged_unit_active, dict)
+                            else None
+                        ),
+                        completed_page_count=completed_page_count,
+                        unit_rows_fetched=unit_rows_fetched,
+                        unit_rows_normalized_before_dedupe=unit_rows_normalized_before_dedupe,
+                        unit_rows_staged_unique=unit_rows_staged_unique,
+                        unit_rows_deduplicated=unit_rows_deduplicated,
+                        unit_rows_rejected=unit_rows_rejected,
+                        retry_count=retry_count,
+                        observed_short_page=observed_short_page,
+                        terminal_page_rows=terminal_page_rows
+                        if observed_short_page
+                        else None,
+                    )
                     state.rows_fetched += unit_rows_fetched
                     state.rows_rejected += unit_rows_rejected
                     state.rows_deduplicated += unit_rows_deduplicated
@@ -530,6 +706,11 @@ class IngestionExecutor:
     def _record_unit_exception(self, *, state: _RunState, unit: PlanUnitSnapshot, exc: BaseException) -> None:
         state.unit_failed += 1
         self.session.rollback()
+        if isinstance(exc, IngestionCanceledError):
+            state.error_counts["ingestion_canceled"] = (
+                state.error_counts.get("ingestion_canceled", 0) + 1
+            )
+            raise exc
         if isinstance(exc, IngestionError):
             error_code = exc.structured_error.error_code
             state.error_counts[error_code] = state.error_counts.get(error_code, 0) + 1
@@ -579,6 +760,182 @@ class IngestionExecutor:
                 unit_rows_fetched=unit_rows_fetched,
                 unit_rows_written=unit_rows_written,
                 unit_rows_committed=unit_rows_written,
+                unit_rows_rejected=unit_rows_rejected,
+                unit_rows_deduplicated=unit_rows_deduplicated,
+                rejected_reason_counts=state.rejected_reason_counts,
+            ),
+        )
+
+    @staticmethod
+    def _set_paged_unit_active(
+        *,
+        state: _RunState,
+        unit: PlanUnitSnapshot,
+        unit_index: int,
+        unit_total: int,
+        phase: str,
+        current_page_number: int | None,
+        completed_page_count: int,
+        unit_rows_fetched: int,
+        unit_rows_normalized_before_dedupe: int,
+        unit_rows_staged_unique: int,
+        unit_rows_deduplicated: int,
+        unit_rows_rejected: int,
+        retry_count: int,
+        observed_short_page: bool,
+        terminal_page_rows: int | None,
+    ) -> None:
+        state.paged_unit_active = {
+            "unit_id": unit.unit_id,
+            "unit_index": unit_index,
+            "unit_total": unit_total,
+            "time": {
+                "field": "end_date",
+                "point": unit.trade_date.isoformat()
+                if unit.trade_date is not None
+                else None,
+            },
+            "phase": phase,
+            "current_page_number": current_page_number,
+            "completed_page_count": completed_page_count,
+            "page_limit": unit.page_limit,
+            "unit_rows_fetched": unit_rows_fetched,
+            "unit_rows_normalized_before_dedupe": unit_rows_normalized_before_dedupe,
+            "unit_rows_staged_unique": unit_rows_staged_unique,
+            "unit_rows_deduplicated": unit_rows_deduplicated,
+            "unit_rows_rejected": unit_rows_rejected,
+            "retry_count": retry_count,
+            "observed_short_page": observed_short_page,
+            "terminal_page_rows": terminal_page_rows,
+        }
+
+    @staticmethod
+    def _fail_paged_unit(
+        *,
+        state: _RunState,
+        exc: BaseException,
+        current_page_number: int | None,
+        completed_page_count: int,
+        unit_rows_fetched: int,
+        unit_rows_normalized_before_dedupe: int,
+        unit_rows_staged_unique: int,
+        unit_rows_deduplicated: int,
+        unit_rows_rejected: int,
+        retry_count: int,
+        observed_short_page: bool,
+        terminal_page_rows: int | None,
+    ) -> None:
+        if not isinstance(state.paged_unit_active, dict):
+            return
+        state.paged_unit_active.update(
+            {
+                "phase": "canceled"
+                if isinstance(exc, IngestionCanceledError)
+                else "failed",
+                "current_page_number": current_page_number,
+                "completed_page_count": completed_page_count,
+                "unit_rows_fetched": unit_rows_fetched,
+                "unit_rows_normalized_before_dedupe": unit_rows_normalized_before_dedupe,
+                "unit_rows_staged_unique": unit_rows_staged_unique,
+                "unit_rows_deduplicated": unit_rows_deduplicated,
+                "unit_rows_rejected": unit_rows_rejected,
+                "retry_count": retry_count,
+                "observed_short_page": observed_short_page,
+                "terminal_page_rows": terminal_page_rows,
+            }
+        )
+
+    def _complete_paged_unit(
+        self,
+        *,
+        state: _RunState,
+        unit: PlanUnitSnapshot,
+        unit_index: int,
+        page_count: int,
+        retry_count: int,
+        terminal_page_rows: int,
+        unit_rows_fetched: int,
+        unit_rows_normalized_before_dedupe: int,
+        unit_rows_staged_unique: int,
+        unit_rows_deduplicated: int,
+        unit_rows_rejected: int,
+        unit_rows_inserted: int,
+        unit_rows_matched: int,
+        unit_rows_committed: int,
+        unit_final_scope_count: int,
+    ) -> None:
+        result = {
+            "unit_id": unit.unit_id,
+            "unit_index": unit_index,
+            "time": {
+                "field": "end_date",
+                "point": unit.trade_date.isoformat()
+                if unit.trade_date is not None
+                else None,
+            },
+            "page_count": page_count,
+            "retry_count": retry_count,
+            "terminal_page_rows": terminal_page_rows,
+            "observed_short_page": True,
+            "rows_fetched": unit_rows_fetched,
+            "rows_normalized_before_dedupe": unit_rows_normalized_before_dedupe,
+            "rows_staged_unique": unit_rows_staged_unique,
+            "rows_deduplicated": unit_rows_deduplicated,
+            "rows_rejected": unit_rows_rejected,
+            "rows_inserted_new": unit_rows_inserted,
+            "rows_matched_existing": unit_rows_matched,
+            "rows_committed": unit_rows_committed,
+            "final_scope_count": unit_final_scope_count,
+        }
+        if len(state.paged_unit_completed) < self.MAX_PAGED_UNIT_RESULTS:
+            state.paged_unit_completed.append(result)
+        else:
+            state.paged_unit_completed_truncated = True
+        state.paged_unit_active = None
+
+    def _report_paged_unit_progress(
+        self,
+        *,
+        request: ValidatedDatasetActionRequest,
+        definition: DatasetDefinition,
+        observer: IngestionObserver,
+        state: _RunState,
+        unit: PlanUnitSnapshot,
+        total_units: int,
+        unit_rows_fetched: int,
+        unit_rows_rejected: int,
+        unit_rows_deduplicated: int,
+    ) -> None:
+        rows_fetched = state.rows_fetched + unit_rows_fetched
+        rows_rejected = state.rows_rejected + unit_rows_rejected
+        rows_deduplicated = state.rows_deduplicated + unit_rows_deduplicated
+        observer.report_progress(
+            run_id=request.run_id,
+            dataset_key=request.dataset_key,
+            unit_total=total_units,
+            unit_done=state.unit_done,
+            unit_failed=state.unit_failed,
+            rows_fetched=rows_fetched,
+            rows_written=state.rows_written,
+            rows_committed=state.rows_committed,
+            rows_rejected=rows_rejected,
+            rows_deduplicated=rows_deduplicated,
+            ingestion_diagnostics=self._build_ingestion_diagnostics(state),
+            rejected_reason_counts=state.rejected_reason_counts,
+            rejected_reason_samples=state.rejected_reason_samples,
+            current_object=self._build_current_object(unit),
+            message=self._build_progress_message(
+                progress_label=definition.observability.progress_label,
+                current=state.unit_done + state.unit_failed,
+                total=total_units,
+                rows_fetched=rows_fetched,
+                rows_written=state.rows_written,
+                rows_committed=state.rows_committed,
+                rows_rejected=rows_rejected,
+                unit=unit,
+                unit_rows_fetched=unit_rows_fetched,
+                unit_rows_written=0,
+                unit_rows_committed=0,
                 unit_rows_rejected=unit_rows_rejected,
                 unit_rows_deduplicated=unit_rows_deduplicated,
                 rejected_reason_counts=state.rejected_reason_counts,
@@ -796,7 +1153,7 @@ class IngestionExecutor:
 
     @staticmethod
     def _build_ingestion_diagnostics(state: _RunState) -> dict[str, Any]:
-        return {
+        diagnostics = {
             "source": {
                 "pagination": {
                     "unit_count_with_pagination": state.pagination_unit_count,
@@ -821,6 +1178,17 @@ class IngestionExecutor:
                 },
             },
         }
+        if state.paged_unit_active is not None or state.paged_unit_completed:
+            diagnostics["runtime"] = {
+                "paged_unit": {
+                    "active": dict(state.paged_unit_active)
+                    if state.paged_unit_active is not None
+                    else None,
+                    "completed": [dict(item) for item in state.paged_unit_completed],
+                    "completed_truncated": state.paged_unit_completed_truncated,
+                }
+            }
+        return diagnostics
 
     @staticmethod
     def _format_progress_value(value) -> str | None:  # type: ignore[no-untyped-def]

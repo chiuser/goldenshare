@@ -1,6 +1,6 @@
 # 基金持仓（`fund_portfolio`）接入发现审计
 
-状态：**B7-M0 发现审计、[B7 LLD](public-fund-b7-fund-portfolio-low-level-design-v1.md)、M1 编码与本地门禁、M2 隔离 PostgreSQL 验收、M3 生产 migration/HDD/TaskRun/五段对账/幂等复跑均已通过。尚未历史回补或创建 schedule；历史规模与配额预估必须另行授权。**
+状态：**B7-M0 发现审计、[B7 LLD](public-fund-b7-fund-portfolio-low-level-design-v1.md)、M1 编码与本地门禁、M2 隔离 PostgreSQL 验收、M3 生产 migration/HDD/TaskRun/五段对账/幂等复跑均已通过。B7-M3.1 季度内逐页实时进度已完成编码、后端/前端门禁和延迟 fixture 浏览器验收，尚未部署 Prod。尚未历史回补或创建 schedule；历史规模与配额预估必须另行授权。**
 首次审计：2026-08-03；复审：2026-08-05、2026-08-08；M3 生产验收：2026-08-10
 截图菜单：基金持仓
 源文档：[公募基金持仓数据](../sources/tushare/公募基金/0121_公募基金持仓数据.md)
@@ -87,8 +87,8 @@ stk_float_ratio
 | 完整源范围 | 保存 Tushare 返回的全部 E/O 源事实；`fund_basic_current` 当前 32,342 只只作已验收上游背景，不参与全市场主请求过滤，也不限制定向补录代码。 |
 | 主执行路径 | **已拍板**：全市场 `period` 单遍分页写入非服务中间态，完成 short page 、字段/报告期、身份冲突和全链路数量检查后整期原子发布；`period + ts_code` 只作定向修复。不做 A/B 双遍。 |
 | 分页与事务 | 两种路径都固定 `limit=2000`、offset 递增、short page 才结束、无任意页数上限。每页可读取、归一化、写入并释放内存，但只有逻辑 unit 完成后才能形成可见业务提交；禁止把 offset page 直接计为完整业务事实。 |
-| 重试 / 观测 | 记录逻辑 unit、page/offset、累计 fetched/normalized/staged、最终 committed 与 reject；未到 short page 的数据不得显示成已提交。重试必须幂等，且不能把前几页冒充完整 scope。 |
-| 任务切片 | 一个 `period` 是一个发布 scope；LLD 固定 range 只展开季度末、单 TaskRun 最多四期，并由 staged publisher 的 PostgreSQL session advisory lock 串行化 B7 execution。 |
+| 重试 / 观测 | 最终对账记录逻辑 unit、page/offset、累计 fetched/normalized/staged、最终 committed 与 reject；B7-M3.1 再增加当前季度、当前页、已完成页数和季度累计读取量的覆盖式快照。未到 final commit 的 stage 数据不得显示成已保存。重试必须幂等，且不能把前几页冒充完整 scope。 |
+| 任务切片 | 一个 `period` 是一个发布 scope；LLD 固定 range 只展开季度末、单 TaskRun 最多八期，并由 staged publisher 的 PostgreSQL session advisory lock 串行化 B7 execution。 |
 | freshness / audit | 季度披露且有公告滞后，先用 `not_applicable`；是否建立季度披露完整性必须有基金池、报告期和发布窗口规则。 |
 | 依赖 | B2 已完成是批次进入前置，但 B7 主请求不读取 `fund_basic` 对象池；不得借用 ETF 活跃池，也不得因对象池、代码后缀或市场名称排除 Tushare 已返回的记录。 |
 | 自动化 | 支持普通定时自动任务；本期不接 probe。 |
