@@ -1,11 +1,12 @@
 # 指数详情页技术实施方案 v1
 
-> 状态：M1 后端、M2 共享图表、M3 Loaded 页面与 M4 异常状态已完成并通过验证；M5 本地分钟待推进。
+> 状态：M1–M4 与 M5-A 已完成并通过验证；M5-A 使用真实 Silver K 线与开发态 Mock 指标，M5-B 保留真实 Gold 对接。
 > 对应需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 对应门禁：[指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
 > 低层设计：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)
 > 正式 DTO：[指数详情页正式 API / DTO 合同 v1](./index-detail-api-contract-v1.md)
 > M0 审计：[指数详情页 M0 生产因子审计 v1](./index-detail-m0-production-audit-v1.md)
+> 分钟 DTO：[指数详情本地分钟 API / DTO 合同 v1](./index-detail-minutes-api-contract-v1.md)
 
 ---
 
@@ -17,7 +18,7 @@
 2. 复用市场上下文、主要指数策略配置、鉴权和通用图表能力。
 3. 日线行情/因子、权重贡献由 Wealth 模块 API 输出；仅上证指数直接消费现有 Quote 趋势通道 API，前端统一组装 ViewModel。
 4. 将股票详情图表中的通用多面板引擎提取到 `shared/charts`，股票与指数保留各自页面适配层；禁止复制 751 行图表实现。
-5. 生产只发布日线；本地分钟作为独立后置里程碑，只有 Lake 合同与本地 capability 同时通过才挂路由。
+5. 生产只发布日线；本地分钟作为独立后置里程碑，M5-A 以正式 Silver 合同与本地 capability 作为 K 线路由门禁，Gold 指标不阻塞 K 线。
 6. 技术结论和九转不纳入本轮 API，不返回 mock 或前端推导值。
 
 ## 2. 跨模块抽象门禁原则
@@ -45,6 +46,7 @@
 6. 上证趋势通道由 feature-local 旧合同 adapter 与 canvas primitive 绘制；其它 9 个指数既不展示入口，也不发请求。
 7. `IndexInfoRail.tsx` 独立实现“基本行情 / 权重股贡献 / 技术面”三页签；权重完整批次在 400px 视窗中虚拟化，Tab 切换保留缓存和滚动位置。
 8. M4 已在不重建 Loaded 页面的前提下补齐稳定四段骨架：Loading/Empty/Partial 保持双栏，Error/Forbidden/404 使用全宽 MainContent；页面级错误整页重试，趋势与权重错误局部重试，系统状态色不复用行情红绿。
+9. M5-A 已新增独立指数分钟 Reader/API/controller/provider；`DetailChartWorkspace` 以显式 `daily|minute` 时间模式复用四窗格，不复制指数分钟图表生命周期。分钟切换只替换左侧图表，右栏、权重和趋势仍保持日线语义。
 
 ### 3.2 后端现状
 
@@ -55,7 +57,7 @@
 5. `IndexWeightDAO.get_latest_weights()` 能选最近批次，但返回按 `con_code` 排序，不符合页面“按权重排序”；页面查询不能照搬排序语义。
 6. 现有趋势通道路由 `/api/v1/quote/detail/trend-channel` 和 schema 只接受 `000001.SH + day`，公式版本也是 SSE 专项；不能声称已覆盖其余 9 个指数。
 7. 当前 local minute capability 已统一管理 `APP_ENV`、`WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED`、`GOLDENSHARE_LAKE_ROOT` 和 DuckDB 依赖，无需新增第二套开关。
-8. `major_index_mins` Silver 与 `major_index_mins_technical` Gold 路径/七频率合同已进入当前工作树，但数据集文档仍要求完成正式写湖与验收；页面分钟能力必须后置。
+8. `major_index_mins` Silver 七频率正式物理文件已通过只读审计；`major_index_mins_technical` Gold 仍在独立工作流实现，M5-A 不读取其未提交代码作为事实，也不修改对应资产/writer/check。
 
 ### 3.3 CodeGraph 影响面
 
@@ -412,6 +414,8 @@ interface IndexDetailWeightsResponse {
    - 不读 state 文件，不触发 Dagster，不写 Lake。
 4. 默认 500 根，cursor 时间键翻页；指标 null 保持 null。
 5. `899050.BJ` 等历史覆盖边界按 Lake 合同返回 EMPTY/DELAYED，不从日线或其他指数补造。
+6. M5-A 前端使用隔离的开发态 Mock indicator provider，输入真实 Silver bars，显示“模拟指标”；后端不返回 Mock，真实 indicator endpoint 缺文件时仍返回 `IM_SOURCE_NOT_READY`。
+7. Mock 不是异常 fallback：provider 在 M5-A 明确选用 Mock，不先调用真实 Gold；M5-B 验收后删除 Mock 并一次性切换真实 provider。
 
 ## 7. 前端交互与状态机
 
@@ -606,7 +610,8 @@ cd wealth && npm run build
 | M2 图表共享（已完成） | 提取 shared 图表引擎，股票行为零回归 | stock tests + 浏览器对比通过 |
 | M3 页面 Loaded（已完成） | 路由、10 卡导航、日线、三 tab、贡献点、趋势 overlay | Figma Loaded 验收、真实 API 浏览器验收、全量回归通过 |
 | M4 异常状态（已完成） | 按五个 Figma 根画板实现 loading/empty/error/partial/forbidden，并补 404/delayed/module 状态变体 | 状态测试、真实浏览器逐状态截图与尺寸验收通过 |
-| M5 本地分钟 | reader、条件路由、分钟页面 | Lake 数据与性能门禁通过 |
+| M5-A 本地分钟（已完成） | reader、条件路由、真实 Silver K 线、可见开发态 Mock 指标 | Silver 数据/性能、local/prod 与视觉门禁通过 |
+| M5-B Gold 对接 | 真实 indicators、删除 Mock | 70 checks、Gold 物理覆盖/对齐/性能通过 |
 | M6 发布验收 | prod 日线能力、分钟路由不存在、全回归 | 构建/测试/生产 smoke 通过 |
 
 技术结论 API 与九转 API 不属于 M0-M6，分别立项后再扩展 DTO 与 UI。
@@ -641,6 +646,7 @@ cd wealth && npm run build
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.12 | 2026-08-11 | 完成 M5-A：新增正式 Silver Reader、独立双接口与错误映射、统一 capability 路由、本地七频率 controller/cache/竞态隔离、Mock v0 provider、共享分钟图表与局部状态；正式只读 P95、10000 根、浏览器和回归通过 | Codex |
 | v1.11 | 2026-08-11 | 完成 M4：controller 落地页面/模块状态优先级、请求中止防串标、Empty/404/403/500 映射、Delayed/Partial 动态提示与趋势/权重局部重试；五个 Figma 状态和 404/Delayed 通过 1600×1200 浏览器验收，100 项 Wealth 与 82 项后端相关回归通过 | Codex |
 | v1.10 | 2026-08-11 | 完成 M3 Loaded：独立路由与 10 卡导航、真实 API controller、null-safe adapter、三 Tab、15 项基本行情、完整权重虚拟滚动、SSE-only 趋势 primitive；通过 1600×1200 三画板、2224 行末行、9 code 零趋势请求和全量回归验收 | Codex |
 | v1.9 | 2026-08-11 | 完成 M2 shared chart 与 stock adapter；落 null-safe series、四面板同步、90 根窗口、crosshair/tooltip、可选 primitive 接口及独立回归测试，并通过全量 Wealth 测试、构建和浏览器尺寸对账 | Codex |

@@ -1,11 +1,12 @@
 # 指数详情页 M2 编码前门禁 v1
 
-> 状态：M1 后端、M2 共享图表、M3 Loaded 与 M4 异常状态条目已通过；M5 分钟仍按未勾选项阻断对应里程碑。
+> 状态：M1–M4 与 M5-A 条目已通过；M5-A 使用真实 Silver + 开发态可见 Mock 指标，Gold 门禁保留 M5-B。
 > 需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 方案：[指数详情页技术实施方案 v1](./index-detail-implementation-design-v1.md)
 > LLD：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)
 > 正式 DTO：[指数详情页正式 API / DTO 合同 v1](./index-detail-api-contract-v1.md)
 > M0 生产审计：[指数详情页 M0 生产因子审计 v1](./index-detail-m0-production-audit-v1.md)
+> 分钟 DTO：[指数详情本地分钟 API / DTO 合同 v1](./index-detail-minutes-api-contract-v1.md)
 
 ---
 
@@ -40,7 +41,7 @@
 6. [x] 状态归并与异常矩阵冻结。
 7. [x] `ID_*` / `IM_*` 异常码已登记到统一注册表。
 8. [x] shared 图表提取边界和股票回归 case 冻结。
-9. [ ] local/prod 分钟配置与路由矩阵冻结。
+9. [x] local/prod 分钟配置与路由矩阵冻结：prod/staging 404；local 仅在既有 capability 与正式 Lake 根满足时挂路由。
 10. [x] Figma 节点台账已确认：Basic Loaded `417:2`、Weights `423:2`、Technical `423:910`、Components `412:3`、交互说明 `425:178`、五态根画板已登记；Weights/Technical 的 Cover 跨页位置已显式记录。
 11. [x] 真实 API + 前端可见结果测试 case 冻结。
 12. [ ] 后端、前端、架构/产品签字完成。
@@ -71,10 +72,11 @@
 
 ### 3.2 本地分钟接口
 
-1. [ ] `freq` 必填且只能为 `1/5/15/30/60/90/120`。
-2. [ ] `limit` 默认 500，最大 10000。
-3. [ ] cursor 绑定 code/freq/date/time，不使用无界 OFFSET。
-4. [ ] prod/staging 不挂路由；访问结果为 404。
+1. [x] `freq` 必填且只能为 `1/5/15/30/60/90/120`。
+2. [x] `limit` 默认 500，最大 10000；响应上限 5MB。
+3. [x] cursor 绑定 dataset/code/freq/start/end/date/time，不使用无界 OFFSET。
+4. [x] prod/staging 不挂路由；访问结果为 404。
+5. [x] M5-A Mock 仅位于前端 indicator provider，显示“模拟指标”，不进入后端、不作真实接口 fallback。
 
 ## 4. 响应结构冻结
 
@@ -458,9 +460,9 @@ WHERE ts_code IN (:all_constituent_codes)
 ### 8.4 周期与环境
 
 1. [x] prod：日线 active；分时/周/月/所有分钟 disabled。
-2. [ ] local flag false：同 prod。
-3. [ ] local flag true + Lake ready：仅七个分钟 frequency enabled。
-4. [ ] 权重 tab 不随分钟切换成盘中贡献。
+2. [x] local flag false：同 prod。
+3. [x] local flag true + Lake ready：仅七个分钟 frequency enabled。
+4. [x] 权重 tab 不随分钟切换成盘中贡献。
 
 ### 8.5 Figma 结构与像素门禁
 
@@ -502,12 +504,13 @@ WHERE ts_code IN (:all_constituent_codes)
 9. [ ] 2024 技术因子同步完成后重跑 10 指数覆盖审计，并验证 MA null 分类随实际历史变化而变化。
 10. [ ] factor-only 主查询 + MA 历史基数条件查询的完整 Kline 链路通过索引计划、300/2000 上限和 Web-host P95 验收。
 
-### 9.4 待完成：本地分钟
+### 9.4 M5-A 已完成：本地分钟
 
-1. [ ] Silver 七频率/10 code 覆盖符合当前日期合同。
-2. [ ] Gold 指标与 Silver 时间键无重复、可对齐。
-3. [ ] `899050.BJ` 历史边界明确进入状态语义。
-4. [ ] API 只读正式 Lake `/Volumes/datasource/data_lake`，不读旧 Lake，不读 staging。
+1. [x] Silver 七频率物理文件、schema、最新时间键和当前 UI 九个可用 code 通过只读审计。
+2. [ ] M5-B：Gold 指标与 Silver 时间键无重复、可对齐，Definitions 发现全部 70 checks。
+3. [x] `899050.BJ` 明确返回分钟模块 EMPTY，不 fallback。
+4. [x] API 只读正式 Lake `/Volumes/datasource/data_lake`，不读旧 Lake，不读 staging。
+5. [x] 七频率各 10 次、默认 500 根的正式只读 P95 为 257–321ms；10000 根为 2,217,412 bytes，游标有效且低于 5MB。
 
 ## 10. 性能门禁
 
@@ -540,7 +543,7 @@ M1 实现后 50 样本跨网络服务链 P95：page-init 246.054ms、kline 300 2
 4. [x] 权重 2026-07-31、完整批次、排序、覆盖计数、不截断、公式、缺失、不归一化、不缩放。
 5. [x] 既有 SSE endpoint 全回归；上证指数请求成功，其余 9 个指数前端断言零请求。
 6. [x] auth、not-found、delayed、empty、partial、error。
-7. [ ] prod 分钟 route 不存在；local 临时真实 Parquet 可查询。
+7. [x] prod 分钟 route 不存在；local 临时真实 Parquet 可查询。
 
 ### 11.2 前端真实 API 展示
 
@@ -548,7 +551,7 @@ M1 实现后 50 样本跨网络服务链 P95：page-init 246.054ms、kline 300 2
 2. [x] 10 卡导航和 router history。
 3. [x] page loading/error/empty/partial/forbidden 分别对照 `498:516`、`501:761`、`499:579`、`502:1625`、`504:1009`。
 4. [x] 三 tab、权重懒加载缓存、10 行虚拟滚动并可到达末行、技术空字段。
-5. [ ] prod/local 周期能力。
+5. [x] prod/local 周期能力。
 6. [x] 页面无“前复权”。
 7. [x] 股票详情共享图表回归。
 8. [x] Loading 无上一标的详情值；Empty 的指数头部价格/涨跌与 15 项指标均使用 `--` 占位。
@@ -577,7 +580,7 @@ cd wealth && npm run build
 
 1. [x] Figma Loaded 结构已实现并通过 1600×1200 浏览器量测。
 2. [x] shared chart 重构范围可控。
-3. [x] 三 tab、生产日线周期与异常态已落地；本地分钟周期仍受 M5 门禁约束。
+3. [x] 三 tab、生产日线周期、异常态与 M5-A 本地七频率已落地；分钟切换不改变日频右栏和权重语义。
 4. [x] 五态逐画板结构、文案、动作、颜色与数据保留规则已落地并通过截图验收。
 
 ### 架构/产品
@@ -591,6 +594,8 @@ cd wealth && npm run build
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.13 | 2026-08-11 | 完成 M5-A 门禁：Reader/API/本地路由、七频率、Mock v0 标识、缓存与旧响应隔离、北证50局部空态、Tooltip、正式 Silver 性能与 1600×1200 无溢出验收通过；Gold 门禁继续保留 | Codex |
+| v1.12 | 2026-08-11 | 冻结 M5-A local/prod 路由、双接口、cursor/limit/5MB、正式 Silver、北证50 EMPTY 与可见开发态 Mock 边界；Gold/70 checks/对齐保留 M5-B | Codex |
 | v1.11 | 2026-08-11 | 完成 M4 门禁：五态、404、Delayed、页面/模块状态分层、整页/局部重试、请求中止防串标、动态 Partial 文案、系统状态色与 1600×1200 逐状态截图通过；100 项 Wealth 与 82 项后端相关回归通过，M5 分钟项保持未勾选 | Codex |
 | v1.10 | 2026-08-11 | 完成 M3 Loaded 门禁：真实指数路由、10 卡导航、三 Tab、15 项基本行情、权重懒加载缓存/十行虚拟滚动、SSE-only 逐日四色趋势和技术空字段通过；M4/M5 项保持未勾选 | Codex |
 | v1.9 | 2026-08-11 | 完成 M2 shared chart：通用四面板生命周期、90 根窗口、同步 crosshair/tooltip、MA/BOLL 可选线、null-safe series 与可选 primitive 接口落地；股票 adapter、全量 Wealth 测试、生产构建和 1600×1200 浏览器尺寸对账通过；趋势与指数 adapter 仍留在 M3 | Codex |

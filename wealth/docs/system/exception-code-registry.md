@@ -172,6 +172,7 @@
 2. 401/403 沿用认证层，不登记为业务 EMPTY。
 3. MA 不登记 code/date 豁免；同 code 截至该交易日的实际有效历史根数小于 N 时，`maN=null` 才属于合理历史不足。达到 N 后仍为空必须触发 `ID_FACTOR_PARTIAL`。
 4. page-init 与日线 K 线的量额唯一取 factor；不得读取或回退 daily 量额。factor 同日行/字段缺失时必须按 `ID_FACTOR_PARTIAL` 处理。
+5. M5-A 的前端开发态 Mock 指标不产生、吞并或改写 `IM_*`；真实 Silver/Gold HTTP 状态仍按本表返回，Mock 不作为错误 fallback。
 
 ---
 

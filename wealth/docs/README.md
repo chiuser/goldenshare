@@ -117,12 +117,13 @@ docs/
 - [股票详情分钟线与分钟技术指标 API M2 编码前门禁 v1](./pages/stock-detail/stock-detail-minutes-api-m2-coding-gate-v1.md)
 - [股票详情页 Figma 像素级还原执行计划 v1（M0-M7 已完成）](./pages/stock-detail/stock-detail-figma-pixel-reconstruction-plan-v1.md)
 - [股票详情页 Figma 像素级验收台账 v1](./pages/stock-detail/stock-detail-figma-pixel-verification-ledger-v1.md)
-- [指数详情页标杆需求 v1（M1-M4 完成）](./pages/index-detail/index-detail-benchmark-requirement-v1.md)
-- [指数详情页技术实施方案 v1（M1-M4 完成）](./pages/index-detail/index-detail-implementation-design-v1.md)
-- [指数详情页低层设计（LLD）v1（M1-M4 完成）](./pages/index-detail/index-detail-low-level-design-v1.md)
+- [指数详情页标杆需求 v1（M1-M5-A 完成）](./pages/index-detail/index-detail-benchmark-requirement-v1.md)
+- [指数详情页技术实施方案 v1（M1-M5-A 完成）](./pages/index-detail/index-detail-implementation-design-v1.md)
+- [指数详情页低层设计（LLD）v1（M1-M5-A 完成）](./pages/index-detail/index-detail-low-level-design-v1.md)
 - [指数详情页正式 API / DTO 合同 v1（1.1.0 已冻结）](./pages/index-detail/index-detail-api-contract-v1.md)
+- [指数详情本地分钟 API / DTO 合同 v1（M5-A 1.0.1 已冻结）](./pages/index-detail/index-detail-minutes-api-contract-v1.md)
 - [指数详情页 M0 生产因子审计 v1](./pages/index-detail/index-detail-m0-production-audit-v1.md)
-- [指数详情页 M2 编码前门禁 v1（M1-M4 条目通过，后续里程碑受控）](./pages/index-detail/index-detail-m2-coding-gate-v1.md)
+- [指数详情页 M2 编码前门禁 v1（M1-M5-A 条目通过，后续里程碑受控）](./pages/index-detail/index-detail-m2-coding-gate-v1.md)
 
 ## 模块开发模板
 

@@ -1,12 +1,13 @@
 # 指数详情页低层设计（LLD）v1
 
-> 状态：M1 后端、M2 共享图表、M3 Loaded 页面与 M4 异常状态已按冻结合同实现并通过验证；M5 尚未开始。
+> 状态：M1–M4 与 M5-A 已按冻结合同实现并通过验证；M5-A 使用真实 Silver K 线与开发态 Mock 指标，M5-B 保留真实 Gold 对接。
 > 需求依据：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 技术方案：[指数详情页技术实施方案 v1](./index-detail-implementation-design-v1.md)
 > 编码门禁：[指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
 > 正式 DTO：[指数详情页正式 API / DTO 合同 v1](./index-detail-api-contract-v1.md)
 > M0 生产审计：[指数详情页 M0 生产因子审计 v1](./index-detail-m0-production-audit-v1.md)
 > 趋势接口依据：[SSE 日线趋势通道实时计算方案 v1](../../../../docs/architecture/sse-daily-trend-channel-realtime-computation-plan-v1.md)
+> 分钟 DTO：[指数详情本地分钟 API / DTO 合同 v1](./index-detail-minutes-api-contract-v1.md)
 
 ---
 
@@ -56,7 +57,7 @@ M0 技术产物已完成，M1 后端已落地：
 5. 已新增独立 `page-init/kline/weights` schema、query、mapper、service 与正式路由；未修改股票详情、主要指数卡片或 Quote trend DTO。
 6. M1 生产只读复验显示 9 个指数当前有 630 根 factor（自 2024-01-02），A500 当前有 455 根（自 2024-09-23）；该结果只记录审计时点，不进入任何 code/date 特例。
 
-M5 开始前，当前尚未提交的 `major_index_mins_technical` Gold 合同、writer 和验收仍必须先稳定；M1-M4 不依赖该脏工作树实现。
+M5-A 不再以 Gold 物理文件作为 Silver K 线前置：当前正式 Silver 七频率已通过物理与性能只读审计；正在修改的 `major_index_mins_technical` 资产、writer、bootstrap 和测试属于独立工作流，本轮不得触碰。真实 Gold、Definitions 中 70 个 checks、物理文件和 Silver 时间键对齐在 M5-B 统一验收。
 
 ---
 
@@ -1142,7 +1143,7 @@ IndexInfoRail
 2. `WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED=true`。
 3. `GOLDENSHARE_LAKE_ROOT` 可读且指向正式 `/Volumes/datasource/data_lake` 语义根。
 4. DuckDB 可 import。
-5. Silver/Gold 当前合同已提交、正式物理验收通过。
+5. Silver 当前合同已提交且正式物理验收通过。Gold 不阻塞 M5-A bars；indicator endpoint 在正式 Gold 缺失时返回 `IM_SOURCE_NOT_READY`。
 
 任一前提不满足都不挂 index minute router。prod/staging 请求路径为 404。
 
@@ -1208,6 +1209,8 @@ local router 提供：
 请求字段与股票分钟相似但 DTO 独立：`tsCode/freq/startDate/endDate/limit/cursor`。默认 limit 500，最大 10000。
 
 Bars 与 indicators 用相同 endDate/limit 窗口。前端不能用 `Promise.all` 让 indicators 缺失清空 bars；bars READY + indicators ERROR 应显示分钟 K 线并让技术图层 PARTIAL。
+
+M5-A 前端不调用真实 indicator endpoint，而是通过独立 provider 对真实 bars 生成确定性开发 Mock：MA `5/10/20/30/60/90/250`、BOLL `20±2σ`、MACD `12/26/9`、KDJ `9/3/3`；成功生成时记录 `paramsKey=mock_index_minute_technical_v1`、`indicatorVersion=0`、`indicatorSource=mock`，图表显示“模拟指标”。若 Mock 生成失败，只保留真实 bars，记录 `indicatorSource=unavailable`，不得继续显示 Mock 标识。该 provider 仅在 Vite dev 且 page-init 宣布分钟能力时可用，不进入后端或生产。
 
 ### 16.5 已知数据范围
 
@@ -1343,6 +1346,8 @@ wealth/src/pages/index-detail/IndexDetailPage.test.tsx
 wealth/src/features/index-detail/api/indexDetailViewModelAdapter.test.ts
 wealth/src/features/index-detail/api/trendChannelAdapter.test.ts
 wealth/src/features/index-detail/chart/trendChannelGeometry.test.ts
+wealth/src/features/index-detail/api/indexMinuteViewModelAdapter.test.ts
+wealth/src/features/index-detail/controller/useIndexMinuteSeries.test.tsx
 wealth/src/shared/charts/detail-workspace/DetailChartWorkspace.test.tsx
 ```
 
@@ -1361,6 +1366,8 @@ wealth/src/shared/charts/detail-workspace/DetailChartWorkspace.test.tsx
 11. line/histogram null 不被送成 0。
 12. StockChartWorkspace 90 根、crosshair、tooltip、MA/BOLL 回归。
 13. system 状态色不使用 market up/down token。
+14. M5-A 七频率、按频率缓存、Abort/request id 防串标、北证50局部空态、Mock v0 暖机 null 与可见标识。
+15. shared chart 的 minute 时间轴、Asia/Shanghai crosshair、90 根首屏与日线模式回归。
 
 ### 19.5 真实 API 与像素验收
 
@@ -1372,6 +1379,8 @@ wealth/src/shared/charts/detail-workspace/DetailChartWorkspace.test.tsx
 6. Weights 表头固定、视窗恰好 10 行、可滚到全量末行。
 7. Partial 用至少两组不同缺失字段 fixture，证明提示非写死。
 8. M4 本机截图证据位于 `/private/tmp/goldenshare-index-detail-m4/`：`loading.png`、`empty.png`、`error.png`、`partial.png`、`forbidden.png`、`not-found.png`、`delayed.png`；临时证据不提交仓库。
+9. M5-A 本机截图证据位于 `/private/tmp/`：`goldenshare-m5-index-daily-1600x1200.png`、`goldenshare-m5-index-1min-1600x1200.png`、`goldenshare-m5-index-60min-1600x1200.png`、`goldenshare-m5-index-120min-1600x1200.png`、`goldenshare-m5-index-minute-tooltip-1600x1200.png`；临时证据不提交仓库。北证50局部空态与切回日线另由浏览器 DOM 和页面回归测试验收。
+10. 日线与分钟量测完全一致：图表 `1193.203125×1038 @ (10,152)`，右栏 `376.796875×1038 @ (1213.203125,152)`，页面 `1600×1200` 无水平/垂直溢出。
 
 验证命令：
 
@@ -1402,7 +1411,8 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 | M2（已完成） | shared chart 提取 + stock adapter | 股票视觉/交互零回归 | shared chart refactor |
 | M3（已完成） | route、10 卡导航、Loaded、三 Tab、trend primitive | Loaded 三画板、真实 API、2224 行滚动与 9 code 零趋势请求通过 | index detail loaded |
 | M4（已完成） | 五态、404、Delayed、模块 retry | 状态测试、逐画板截图、真实 Partial 与 1600×1200 尺寸验收通过 | index detail states |
-| M5 | local reader/router/minute chart | Lake 合同、性能、local/prod 矩阵 | index local minutes |
+| M5-A（已完成） | local reader/router/minute chart | Silver 合同/性能、local/prod 矩阵、可见 Mock 指标 | index local minutes |
+| M5-B | Gold 对接与删除 Mock | 70 checks 注册、Gold 物理覆盖/对齐/性能、前端真实 provider | index minute indicators |
 | M6 | 全回归与 prod smoke | prod 仅日线、无分钟 route | release verification |
 
 每个里程碑只处理一个清晰目标。M2 必须在 M3 前独立验收，M5 不得成为 M1-M4 的隐含依赖。
@@ -1445,7 +1455,7 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 | 上证 breadth 有 40 missing 样本 | 三项统计不是全覆盖 | 保留计数 + coverage + PARTIAL |
 | shared chart 改动股票 | M2 已拆为 477 行 shared engine、362 行 stock adapter，并补 null-safe series | 已通过独立组件测试、全量 Wealth 回归和 1600×1200 前后尺寸对账；M3 只新增 index adapter/primitive |
 | Figma 旧节点冲突 | `425:190` 仍有旧字段 | 永久排除出金标 |
-| Gold minute 实现尚在脏工作树 | 合同/writer 未形成稳定基线 | M5 前单独提交、验收，不引用未提交实现作为事实 |
+| Gold minute 实现尚在脏工作树 | 资产/writer/bootstrap/测试正在独立开发，正式文件未形成；70 checks 当前未被 Definitions 发现 | M5-A 隔离 Mock，不触碰该工作流；M5-B 提交稳定后做注册、物理、对齐与性能验收 |
 | 北证50无 Silver | 当前合同显式排除 | local 返回 Empty/Delayed，不 fallback |
 | shared capability 错误码含 `SM_` | 历史股票命名 | 只作启动错误；不作为 index HTTP 语义复用 |
 
@@ -1458,7 +1468,9 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 5. [x] 异常码已登记。
 6. [x] shared chart M2 的股票截图/测试基线已保存；1600×1200 前后截图及结构量测位于本机验证目录 `/private/tmp/goldenshare-index-detail-m2/`。
 7. [x] Figma `414:447` 权重行高已从节点属性实测为 40px；实现使用 400px 十行视窗。
-8. [ ] M5 开始前分钟 Gold 合同与物理数据验收通过。
+8. [x] M5-A 正式 Silver 合同与物理数据验收通过；Gold 不作为 bars 前置。
+9. [ ] M5-B 前 Gold 70 checks 注册、正式物理文件和 Silver 时间键对齐验收通过。
+10. [x] M5-A 正式 Silver 七频率性能、10000 根响应、local/prod 路由、前端缓存/竞态与 1600×1200 浏览器验收通过。
 
 ---
 
@@ -1477,6 +1489,8 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.9 | 2026-08-11 | 完成 M5-A：按日分区正式 Silver Reader、独立分钟 DTO/API、统一 capability、七频率 controller/cache、Mock v0 provider、共享 minute 时间模式、Tooltip/局部空态；正式 P95、10000 根与浏览器尺寸证据回填 | Codex |
+| v1.8 | 2026-08-11 | 冻结 M5-A/M5-B：正式 Silver 先提供本地分钟 K 线，前端使用可见且隔离的开发态 Mock 指标；Gold 脏工作流、70 checks、物理与对齐留待 M5-B | Codex |
 | v1.7 | 2026-08-11 | 完成 M4：新增页面状态解析、Empty view model、五态组件与模块状态组件；page-init/kline/trend/weights 分层归并，支持请求中止、整页/局部重试和响应驱动 Partial 文案；完成五态、404、Delayed 浏览器截图与 1600×1200 尺寸验收，并通过 100 项 Wealth 与 82 项后端相关回归 | Codex |
 | v1.6 | 2026-08-11 | 完成 M3：路由/10 卡、真实 API controller、15 项基本行情、三 Tab、权重懒加载缓存与 40px×10 虚拟滚动、逐日四色趋势 primitive 落地；通过 1600×1200 结构量测、2224 行末行、9 code 零趋势请求、83 项 Wealth 与 67 项后端回归 | Codex |
 | v1.5 | 2026-08-11 | 完成 M2：提取 shared detail chart engine/pane/types/series/formatters/CSS，股票 adapter 保留领域文案、单位与交互；新增 null 断点/省略、四面板、90 根、crosshair、tooltip、MA/BOLL 测试，并记录 1600×1200 前后结构量测完全一致 | Codex |
