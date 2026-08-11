@@ -158,9 +158,9 @@
 | `ID_SOURCE_DELAYED` | `indexDetailPageInit` | warn | false | true | 指数正式日线落后于期望交易日 | `observedTradeDate < expectedTradeDate` 且没有更高优先级 partial 原因 | HTTP 200 + DELAYED；保留数据并展示实际日期 | biz-api | Phase-3 | active |
 | `ID_FACTOR_PARTIAL` | `indexDetail` | warn | false | true | 指数详情因子字段部分缺失 | page-init 同日 factor 行/量额缺失，factor 最新日落后，可绘制 bar 的 factor 量额缺失，MA 在实际有效历史已达到对应周期后仍为空，或其它预期技术因子缺失 | HTTP 200 + PARTIAL；基本行情量额 `--`，保留 K 线并让缺线断点 | biz-api | Phase-3 | active |
 | `ID_BASIC_DAILY_PARTIAL` | `indexDetailPageInit` | warn | false | true | 基本行情日度指标部分缺失 | 同日 `index_daily_basic` 无行，或 PE/PE TTM/PB/换手率/流通市值/总市值任一为空 | 对应指标显示 `--`，其它基本行情保留，页面 PARTIAL | biz-api | Phase-3 | active |
-| `ID_BASIC_BREADTH_PARTIAL` | `indexDetailPageInit` | warn | false | true | 成分涨跌统计未覆盖完整权重批次 | 有有效权重批次，但同日成分行情缺失导致 `missingCount > 0` | 保留 up/flat/down 与 coverage，页面 PARTIAL；missing 不计入 flat | biz-api | Phase-3 | active |
+| `ID_BASIC_BREADTH_PARTIAL` | `indexDetailPageInit` | warn | false | true | A 股成分涨跌统计存在真实行情缺口 | 有有效权重批次，且页面 A 股子集中某成分同日既无有效 daily `pct_chg`，也无 `suspend_type='S'` 停牌证据，导致 `missingCount > 0` | 保留 up/flat/down 与 coverage，页面 PARTIAL；B 股排除和已证实停牌不触发，真实 missing 不计 flat | biz-api | Phase-3 | active |
 | `ID_WEIGHT_EMPTY` | `indexDetailWeights` | warn | false | true | 指数没有可用权重批次 | `max(weight.trade_date) <= contributionTradeDate` 无结果 | 权重 Tab EMPTY；不影响主图和基本行情 | biz-api | Phase-3 | active |
-| `ID_WEIGHT_CONTRIBUTION_PARTIAL` | `indexDetailWeights` | warn | false | true | 部分权重行无法计算估算贡献点 | index preClose、成分 pctChg 等贡献输入缺失 | 行保留，贡献显示 `--`，coverage 记录缺失，权重 Tab PARTIAL | biz-api | Phase-3 | active |
+| `ID_WEIGHT_CONTRIBUTION_PARTIAL` | `indexDetailWeights` | warn | false | true | 部分 A 股权重行无法计算估算贡献点 | index preClose 缺失，或页面 A 股成分同日既无有效 daily `pct_chg` 也无停牌证据 | 行保留，贡献显示 `--`，coverage 记录缺失，权重 Tab PARTIAL；已证实停牌输出贡献 0，不触发 | biz-api | Phase-3 | active |
 | `ID_QUERY_FAILED` | `indexDetail` | error | false | false | 指数详情配置、查询或映射失败 | universe 配置缺失/非法、SQL、服务或 DTO 映射出现未恢复异常 | HTTP 500 或当前 Tab 局部 error；允许重试，不用 mock/fallback 冒充成功 | biz-api | Phase-3 | active |
 | `IM_SOURCE_NOT_READY` | `indexDetailMinutes` | warn | false | true | 本地指数分钟源尚未覆盖请求范围 | 正式 Lake 分区/文件缺失，或 observed end 早于请求 endDate | HTTP 200 + DELAYED/EMPTY；保留日线和其它页面内容 | biz-api | Phase-3 | active |
 | `IM_SOURCE_CONTRACT_INVALID` | `indexDetailMinutes` | error | false | false | 本地指数分钟文件不符合冻结物理合同 | Parquet schema、code、freq、日期、时间键、版本或路径校验失败 | 分钟模块 error；不返回可疑数据，不回退旧 Lake | biz-api | Phase-3 | active |
@@ -173,6 +173,7 @@
 3. MA 不登记 code/date 豁免；同 code 截至该交易日的实际有效历史根数小于 N 时，`maN=null` 才属于合理历史不足。达到 N 后仍为空必须触发 `ID_FACTOR_PARTIAL`。
 4. page-init 与日线 K 线的量额唯一取 factor；不得读取或回退 daily 量额。factor 同日行/字段缺失时必须按 `ID_FACTOR_PARTIAL` 处理。
 5. M5-A 的前端开发态 Mock 指标不产生、吞并或改写 `IM_*`；真实 Silver/Gold HTTP 状态仍按本表返回，Mock 不作为错误 fallback。
+6. 指数详情的“完整权重批次”指官方批次中由 `Security.security_type=EQUITY`、`exchange in (SSE,SZSE,BSE)`、`curr_type=CNY` 认定的完整 A 股子集。B 股不进入 rows/coverage/total/missing；A 股 daily 值优先，只有 daily 缺失/空值且精确日 `EquitySuspendD.suspend_type='S'` 时才按 FLAT/贡献 0 解析。
 
 ---
 

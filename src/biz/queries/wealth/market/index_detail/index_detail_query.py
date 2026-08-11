@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy import and_, case, desc, func, select
 from sqlalchemy.orm import Session
 
+from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core.index_basic import IndexBasic
 from src.foundation.models.core.index_daily_basic import IndexDailyBasic
 from src.foundation.models.core.index_factor_pro import IndexFactorPro
@@ -46,6 +47,33 @@ _KLINE_FIELD_NAMES: tuple[str, ...] = (
 )
 
 KLINE_COLUMNS = tuple(getattr(IndexFactorPro, field_name) for field_name in _KLINE_FIELD_NAMES)
+
+_A_SHARE_EXCHANGES = ("SSE", "SZSE", "BSE")
+
+
+def _a_share_security_conditions() -> tuple[Any, ...]:
+    return (
+        Security.security_type == "EQUITY",
+        Security.exchange.in_(_A_SHARE_EXCHANGES),
+        Security.curr_type == "CNY",
+    )
+
+
+def _resolved_constituent_pct_chg(*, contribution_trade_date: date) -> Any:
+    is_suspended = (
+        select(EquitySuspendD.id)
+        .where(
+            EquitySuspendD.ts_code == IndexWeight.con_code,
+            EquitySuspendD.trade_date == contribution_trade_date,
+            EquitySuspendD.suspend_type == "S",
+        )
+        .exists()
+    )
+    return case(
+        (EquityDailyBar.pct_chg.is_not(None), EquityDailyBar.pct_chg),
+        (is_suspended, 0),
+        else_=None,
+    )
 
 
 class IndexDetailQuery:
@@ -151,15 +179,25 @@ class IndexDetailQuery:
         contribution_trade_date: date,
         weight_trade_date: date,
     ) -> dict[str, int]:
+        resolved_pct_chg = _resolved_constituent_pct_chg(
+            contribution_trade_date=contribution_trade_date
+        )
         statement = (
             select(
                 func.count().label("total_count"),
-                func.count(EquityDailyBar.pct_chg).label("matched_count"),
-                func.sum(case((EquityDailyBar.pct_chg > 0, 1), else_=0)).label("up_count"),
-                func.sum(case((EquityDailyBar.pct_chg == 0, 1), else_=0)).label("flat_count"),
-                func.sum(case((EquityDailyBar.pct_chg < 0, 1), else_=0)).label("down_count"),
+                func.count(resolved_pct_chg).label("matched_count"),
+                func.sum(case((resolved_pct_chg > 0, 1), else_=0)).label("up_count"),
+                func.sum(case((resolved_pct_chg == 0, 1), else_=0)).label("flat_count"),
+                func.sum(case((resolved_pct_chg < 0, 1), else_=0)).label("down_count"),
             )
             .select_from(IndexWeight)
+            .join(
+                Security,
+                and_(
+                    Security.ts_code == IndexWeight.con_code,
+                    *_a_share_security_conditions(),
+                ),
+            )
             .outerjoin(
                 EquityDailyBar,
                 and_(
@@ -259,13 +297,24 @@ class IndexDetailQuery:
         ts_code: str,
         weight_trade_date: date,
     ) -> dict[str, int]:
-        statement = select(
-            func.count().label("total_count"),
-            func.count(IndexWeight.weight).label("weight_count"),
-            func.count(func.distinct(IndexWeight.con_code)).label("distinct_constituent_count"),
-        ).where(
-            IndexWeight.index_code == ts_code,
-            IndexWeight.trade_date == weight_trade_date,
+        statement = (
+            select(
+                func.count().label("total_count"),
+                func.count(IndexWeight.weight).label("weight_count"),
+                func.count(func.distinct(IndexWeight.con_code)).label("distinct_constituent_count"),
+            )
+            .select_from(IndexWeight)
+            .join(
+                Security,
+                and_(
+                    Security.ts_code == IndexWeight.con_code,
+                    *_a_share_security_conditions(),
+                ),
+            )
+            .where(
+                IndexWeight.index_code == ts_code,
+                IndexWeight.trade_date == weight_trade_date,
+            )
         )
         row = session.execute(statement).mappings().one()
         return {
@@ -282,15 +331,24 @@ class IndexDetailQuery:
         contribution_trade_date: date,
         weight_trade_date: date,
     ) -> list[dict[str, Any]]:
+        resolved_pct_chg = _resolved_constituent_pct_chg(
+            contribution_trade_date=contribution_trade_date
+        )
         statement = (
             select(
                 IndexWeight.con_code,
                 IndexWeight.weight,
                 Security.name,
-                EquityDailyBar.pct_chg,
+                resolved_pct_chg.label("pct_chg"),
             )
             .select_from(IndexWeight)
-            .outerjoin(Security, Security.ts_code == IndexWeight.con_code)
+            .join(
+                Security,
+                and_(
+                    Security.ts_code == IndexWeight.con_code,
+                    *_a_share_security_conditions(),
+                ),
+            )
             .outerjoin(
                 EquityDailyBar,
                 and_(

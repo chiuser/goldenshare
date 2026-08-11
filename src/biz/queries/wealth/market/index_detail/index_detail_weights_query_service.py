@@ -157,7 +157,7 @@ class IndexDetailWeightsQueryService:
         if missing_count > 0:
             exceptions.append(
                 self._exception_builder.weight_contribution_partial(
-                    message="部分成分股贡献点输入缺失",
+                    message="部分 A 股成分贡献点输入缺失",
                 )
             )
         if contribution_trade_date < context.trade_date:

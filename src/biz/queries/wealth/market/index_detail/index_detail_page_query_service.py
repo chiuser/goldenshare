@@ -195,7 +195,11 @@ class IndexDetailPageQueryService:
                 )
             )
         elif breadth_missing_count:
-            exceptions.append(self._exception_builder.breadth_partial(message="部分成分股同日行情缺失"))
+            exceptions.append(
+                self._exception_builder.breadth_partial(
+                    message="部分 A 股成分同日既无有效行情也无停牌证据"
+                )
+            )
         if as_of_trade_date < context.trade_date:
             exceptions.append(
                 self._exception_builder.source_delayed(

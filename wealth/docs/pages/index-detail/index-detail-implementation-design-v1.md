@@ -26,7 +26,7 @@
 | 原则 | 本模块结论 | 设计落点 | 计划测试 |
 |---|---|---|---|
 | 事实源单一 | 名单、行情、因子、权重、贡献与通道各有唯一后端事实源 | query/service + DTO | 字段逐项源映射 |
-| 契约先行 | M0 已冻结独立 DTO `1.1.0` | schema/API types | schema extra forbid + TS typecheck |
+| 契约先行 | 独立 DTO 已提升为 `1.2.0`，字段结构不变并冻结 A 股/停牌语义 | schema/API types | schema extra forbid + TS typecheck |
 | 配置一致 | 复用 `majorIndices` 和现有 local minute 配置，不新增页面常量 | config service/capability | 10 code 与 profile 矩阵 |
 | 默认显式 | 默认日线、基本行情页签、300 根、权重完整批次 | schema defaults/adapter | 缺参、边界、负向测试 |
 | 排序确定 | 权重降序、code 次序；K 线时间升序 | query | 同权重/乱序样本 |
@@ -77,8 +77,8 @@
 3. 已确认基本行情固定展示：昨收、今开、总量、最高、最低、金额、市盈率、TTM 市盈率、市净率、换手率、流通市值、总市值、上涨数、平盘数、下跌数。
 4. `pe/pe_ttm/pb/turnover_rate/float_mv/total_mv` 进入可空契约；没有行或字段为空时前端显示 `--`，不得把 4 个未覆盖指数伪装成 0。
 5. 删除“成交状态”和“较昨日”；page-init 不再查询前一交易日成交额，也不返回 `amountChangePct`。
-6. 上涨/平盘/下跌使用 `weightTradeDate <= asOfTradeDate` 的最新完整成分批次，关联同日 `equity_daily_bar.pct_chg` 后按 `> 0 / = 0 / < 0` 聚合；无行情或 `pct_chg` 为空的成员计入 missing，不计入平盘。
-7. 2026-08-11 生产只读复核：目标日 `2026-08-10`，10 个指数均解析到 `2026-07-31` 权重批次；9 个指数完整匹配。`000001.SH` 为 total 2224、matched 2184、up 1613、flat 37、down 534、missing 40，证明 DTO 必须显式返回覆盖计数并允许 PARTIAL。
+6. 上涨/平盘/下跌使用 `weightTradeDate <= asOfTradeDate` 的最新源权重批次，但先通过 `Security` 的证券类型、交易所和币种限定 A 股；B 股不进入页面成分范围。A 股同日 `equity_daily_bar.pct_chg` 优先，日线为空且 `equity_suspend_d.suspend_type=S` 时按 0%/FLAT，二者都不存在时才计 missing。
+7. 2026-08-12 生产只读复核：10 个指数均解析到 `2026-07-31` 权重批次；上证 2224 个源权重成员中有 2184 个 A 股、40 个 B 股。页面最新日 `2026-08-11` 的 2184 个 A 股中，648 上涨、49 有效行情平盘、1485 下跌，另有 2 个确认停牌；最终 flat=51、matched=2184、missing=0。该证据证明 B 股排除和正常停牌不应触发 PARTIAL。
 
 ### 3.5 M0 指数因子审计结论
 
@@ -87,7 +87,7 @@
 3. 审计时 `000510.SH` 全表 MA250 在 2025-09-30 首次可用，此前 182 行连续为空、此后 206 行无断裂；这是 2026-08-11 生产快照，不是代码中的指数/日期特例。2024 技术因子同步后应复审。
 4. `399001.SZ`、`399006.SZ` 的 factor 量额自 2026-07-06 起连续 26 日与 daily 分叉。两个源文档单位相同，禁止倍率修正；产品方完成外部数据源核对后确认 factor 准确，基本行情与 Kline 的 `vol/amount` 均唯一取 factor。
 5. M0 的 factor 驱动、daily 同日 LEFT JOIN 旧候选查询命中两侧主键，数据库内 P95 为 300 根 1.636ms、2000-limit 2.127ms。M1 已按最终 factor-only SQL 复测：300 根 1.681ms、2000 上限实返 630 根 1.869ms，MA 历史基数查询 2.063ms。
-6. M1 复验时 9 个指数已同步到 630 根，A500 为 455 根；完整服务链 50 样本 P95 为 page-init 246.054ms、kline 300 211.169ms、kline 2000 上限 248.925ms、weights 271.337ms。当前仍没有真实 2000 行物理样本，因此该门禁继续保留。
+6. M1 复验时 9 个指数已同步到 630 根，A500 为 455 根；当时完整服务链 50 样本 P95 为 page-init 246.054ms、kline 300 211.169ms、kline 2000 上限 248.925ms、weights 271.337ms。1.2.0 于 2026-08-12 使用最终 Security A 股过滤和停牌 EXISTS 对 10 指数各复跑 5 轮：page-init P95 245.589ms、weights P95 267.319ms，最大 weights 为 2184 行/275,543B；上证最终 breadth/weights SQL 分别约 21.993ms/19.290ms，均通过既定门禁。当前仍没有真实 2000 行物理样本，因此该门禁继续保留。
 
 ### 3.6 最新 Figma 结构与状态审计
 
@@ -110,10 +110,11 @@ MarketOverview / 10 cards
   -> IndexDetailPage
        -> page-init
             -> index_daily_serving + index_daily_basic
-            -> index_weight + equity_daily_bar (仅聚合成分涨跌三项与覆盖数)
+            -> index_weight + security_serving + equity_daily_bar + equity_suspend_d
+               (仅聚合 A 股成分涨跌三项与覆盖数)
        -> kline ----------------> index_factor_pro
        -> trend-channel (仅 000001.SH) -> 既有 Quote API
-       -> weights (lazy) -------> index_weight + equity_daily_bar
+       -> weights (lazy) -------> index_weight + security_serving + equity_daily_bar + equity_suspend_d
        -> local minutes --------> Lake Silver/Gold (local only)
 ```
 
@@ -313,7 +314,7 @@ interface IndexDetailPageInitResponse {
 3. quote 先查询 `index_daily_serving.trade_date <= pageContext.tradeDate` 的最近一行作为 `asOfTradeDate` 和价格来源，再精确读取同 code、同日 `index_factor_pro.vol/amount`；不读取 daily 量额，也不为“较昨日”读取前一日成交额。
 4. 无 quote 时 `asOfTradeDate=null` 且状态 EMPTY。
 5. `dailyBasic` 只读 `trade_date = asOfTradeDate` 的一行；整行或单字段缺失都保持 `null`，由前端逐字段显示 `--`。
-6. `constituentBreadth` 只做最新有效成分批次与同日股票日线的集合聚合，不返回成分明细。无权重批次时返回 `null`；有批次但存在行情缺失时保留三项计数并令模块 `dataStatus=PARTIAL`。
+6. `constituentBreadth` 只做最新有效源权重批次中的 A 股集合聚合，不返回成分明细。A 股由 `Security.security_type=EQUITY`、`exchange in (SSE,SZSE,BSE)`、`curr_type=CNY` 定义；B 股不进入总数和缺失数。A 股日线优先，确认停牌按 0%/FLAT；只有无日线且无停牌依据的 A 股才令模块 `dataStatus=PARTIAL`。
 7. 不在 page-init 加载 K 线、权重明细或趋势历史。
 8. `supportsTrendChannel` 仅对 `000001.SH + day` 返回 true；其余指数的 `availableMainOverlays` 不包含 `TREND_CHANNEL`。
 9. `supportsTradePlanEntry=true` 只表达顶部入口存在；技术结论与任何数据状态不触发交易动作。
@@ -383,9 +384,9 @@ interface IndexDetailWeightsResponse {
 1. 解析 page-init 同口径的 `asOfTradeDate`，作为 `contributionTradeDate`。
 2. 查询指数该日 `pre_close`。
 3. 查询 `MAX(index_weight.trade_date) <= contributionTradeDate`。
-4. 取该批次全部权重，按 `weight DESC, con_code ASC` 排序，不截断。
-5. 批量查询全部成分股名称和同日 `equity_daily_bar.pct_chg`，禁止 N+1；优先使用集合 JOIN/批量查询，不按行循环请求。
-6. 后端按已冻结公式计算贡献点；不归一化、不缩放、不填 0。
+4. 以内连接 Security 取该批次完整 A 股子集，按 `weight DESC, con_code ASC` 排序，不截断；B 股不返回、不进入 coverage。
+5. 集合查询同日 `equity_daily_bar.pct_chg` 与 `equity_suspend_d`，禁止 N+1。日线值优先；无日线且确认停牌时使用 0%，否则保留 null。
+6. 后端按已冻结公式计算贡献点；不归一化、不缩放。确认停牌的 0% 是有明确事实依据的业务值，不是对未知缺失补 0。
 
 当前生产审计证据：10 个指数 raw/serving 最新批次均为 `2026-07-31`，serving 共 5274 行，无 null weight、无重复成分；批次权重和约 `99.984%~100.006%`。这说明不得对源值强制归一化，也说明当前日期基线可以使用。
 
@@ -519,9 +520,9 @@ route tsCode
 | `ID_SOURCE_DELAYED` | observed 早于完成交易日 | DELAYED，显示日期 |
 | `ID_FACTOR_PARTIAL` | page-init 同日 factor 量额缺失，或 Kline 因子缺行/缺列 | 基本行情量额 `--`、主图 PARTIAL，缺线不补 0 |
 | `ID_BASIC_DAILY_PARTIAL` | 同日 dailyBasic 缺行/缺字段 | 对应指标 `--`，页面 PARTIAL |
-| `ID_BASIC_BREADTH_PARTIAL` | 成分同日行情缺失 | 三计数保留并提示 coverage |
+| `ID_BASIC_BREADTH_PARTIAL` | A 股成分无同日行情且无停牌依据 | 三计数保留并提示 coverage；B 股/确认停牌不触发 |
 | `ID_WEIGHT_EMPTY` | 无可用权重批次 | 权重页签 EMPTY |
-| `ID_WEIGHT_CONTRIBUTION_PARTIAL` | 成分日线/指数昨收缺失 | 行显示 `--`，页签 PARTIAL |
+| `ID_WEIGHT_CONTRIBUTION_PARTIAL` | A 股成分既无日线也无停牌依据，或指数昨收缺失 | 行显示 `--`，页签 PARTIAL |
 | `ID_QUERY_FAILED` | 其它查询失败 | 对应模块 ERROR |
 | `IM_SOURCE_NOT_READY` | 本地分钟文件未覆盖 | 分钟模块 DELAYED |
 | `IM_SOURCE_CONTRACT_INVALID` | 本地 Parquet 合同错误 | 分钟模块 ERROR |
@@ -539,9 +540,9 @@ route tsCode
 | 403 | 保留页面外壳，主内容使用 Figma `504:1009` 的整页 FORBIDDEN 面板 | 不自动重试，不转换为 EMPTY；返回指数首页 |
 | 日线 EMPTY | 使用 Figma `499:579`：保留指数身份、工具栏和三 tab 壳，右栏指数专属值为 `--` | 重新加载或查看最近交易日 |
 | weights loading/error/empty | 只替换权重 tab，主图保持 | 局部重试 weights |
-| weights PARTIAL | 保留完整行；缺失贡献显示 `--` 与说明 | 不自动补 0；允许局部重试 |
+| weights PARTIAL | 保留完整 A 股行；真实缺失贡献显示 `--`；确认停牌显示 0 | 不把未知缺失补 0；允许局部重试 |
 | basic daily fields missing | 仅对应字段显示 `--`；其余基本行情保留 | 不回填、不补 0 |
-| constituent breadth PARTIAL | 保留已匹配成员计算的上涨/平盘/下跌；缺失成员不计入平盘 | 显示部分缺失状态；允许整页重试 |
+| constituent breadth PARTIAL | 保留已分类 A 股的上涨/平盘/下跌；确认停牌计平盘，真实缺失不计入三类 | 显示部分缺失状态；允许整页重试 |
 | trend/指标 error | 隐藏对应层或断点，基本行情保持 | 局部重试 trend/kline |
 | local minute empty/delayed/error | 只替换分钟图，日线缓存保持 | 局部重试或切回日线 |
 
@@ -555,10 +556,10 @@ route tsCode
 2. `MarketPageContextQuery` 默认日期、显式日期和 source delayed 三类锚点覆盖。
 3. kline 只接受 day、不接受 adjustment、升序、null 不变 0。
 4. page-init 与 kline 核心字段对照真实表。
-5. 权重解析到 2026-07-31，完整批次、排序、覆盖计数、不截断和不归一化正确。
-6. 贡献点正常、负值、零涨跌、成分日线缺失、指数昨收缺失均按公式断言。
+5. 权重解析到 2026-07-31，完整 A 股子集、B 股排除、排序、覆盖计数、不截断和不归一化正确。
+6. 贡献点正常、负值、零涨跌、确认停牌、真实 A 股行情缺失、指数昨收缺失均按公式断言。
 7. 权重和实际指数涨跌点不相等时不缩放。
-8. page-init 的 15 个基本行情字段映射正确；日度指标缺失保持 null；成分涨跌按最新有效批次和 `pct_chg > 0 / = 0 / < 0` 聚合，missing 不进入 flat。
+8. page-init 的 15 个基本行情字段映射正确；日度指标缺失保持 null；成分涨跌只取 A 股，日线优先、确认停牌进入 flat、B 股不进入 coverage，真实 missing 不进入 flat。
 9. 上证指数调用既有趋势 API 并逐交易日按相对下轨规则着色；每个交易日都有竖线，颜色切换点连续；其余 9 个指数断言无入口、无请求；旧 SSE Quote API 契约回归不变。
 10. 权限、空、延迟、查询错误、部分缺失。
 11. prod profile 分钟路由 404；local profile 真实临时 Lake 文件可查。
@@ -628,7 +629,9 @@ cd wealth && npm run build
 | 图表复用导致股票回归 | 直接改 751 行组件 | 先共享重构、单独验证、再加指数 overlay |
 | 分钟 Lake 尚未正式 ready | 页面先暴露 capability | capability + Lake 门禁，prod 永不挂路由 |
 | 贡献缺失被当 0 | adapter 使用 valueOrZero | index adapter null-safe，API coverage 明示 |
-| 全量权重导致 DOM/响应膨胀 | 直接渲染完整数组或查询逐行补名 | 单次完整批次 API + 集合查询；前端虚拟化；P95 与 1 MiB payload 门禁 |
+| 全量 A 股权重导致 DOM/响应膨胀 | 直接渲染完整数组或查询逐行补名 | 单次完整 A 股子集 API + 集合查询；前端虚拟化；P95 与 1 MiB payload 门禁 |
+| B 股被误报缺失 | 直接以源权重总数减日线匹配数 | 先按 Security 事实字段限定 A 股；B 股不进入 coverage，不用代码前缀判断 |
+| 停牌被误报缺失或无依据补 0 | 仅 LEFT JOIN 日线，或把全部 null 当平盘 | 只在同日 `suspend_type=S` 命中时使用 0%/FLAT；无停牌依据继续 PARTIAL |
 | 技术内容诱发交易含义 | 用通道自动生成建议/动作 | 客观事实与用户 action 严格分离 |
 | 状态稿被当成静态样例 | 把 Partial 三个缺失字段或上证 Loading 文案写死 | 状态组件由 capability/缺失字段驱动，Figma 只冻结结构、文案模板和视觉语义 |
 | Figma 旧说明误导字段实现 | 继续读取 `425:190` 的振幅/较昨日 | 以 Basic 组件 `414:446`、详细口径 `425:219` 和三件套 15 项清单为唯一合同 |
@@ -637,15 +640,17 @@ cd wealth && npm run build
 
 1. 趋势通道仅支持上证指数，直接消费既有 SSE API，不开发十指数适配层。
 2. 通道按短期25、长期90各自上下轨绘制；每个交易日都有竖线，颜色按当日收盘点相对各自下轨逐日决定并允许在交易日边界切换；右侧展示四个轨道值，不展示中轴。
-3. 权重 API 返回完整批次；前端固定 10 行视窗、表头固定、内部滚动并虚拟化，不提供任意 limit。
+3. 权重 API 返回完整 A 股子集；B 股不返回、不占 coverage；前端固定 10 行视窗、表头固定、内部滚动并虚拟化，不提供任意 limit。
 4. 基本行情固定 15 项；日度指标无值显示 `--`，删除“成交状态”和“较昨日”。
-5. 上涨/平盘/下跌按最新有效成分批次与同日股票涨跌幅聚合；缺失成员不计入平盘，覆盖不足时基本行情模块 PARTIAL。
+5. 上涨/平盘/下跌只按最新有效源批次中的 A 股聚合；日线优先，确认停牌计入平盘，只有无日线且无停牌依据的 A 股进入 missing/PARTIAL。
 6. 基本行情与 Kline 的成交量、成交额统一取 `index_factor_pro`；`index_daily_serving` 只保留日期/价格锚点职责，不提供量额 fallback。
 
 ## 14. 版本记录
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.14 | 2026-08-12 | 完成 A 股成分范围与停牌解析实现；回填 10 指数最终服务链 P95、上证最终 SQL 计划、2184 行 payload 及真实页面 READY 验收 | Codex |
+| v1.13 | 2026-08-12 | 统一 page-init/weights 的 A 股成分范围；B 股排除在 rows/coverage/missing 外；确认停牌按 0%/FLAT 参与 breadth 与贡献，真实 A 股缺失才触发 PARTIAL；DTO 提升为 1.2.0 | Codex |
 | v1.12 | 2026-08-11 | 完成 M5-A：新增正式 Silver Reader、独立双接口与错误映射、统一 capability 路由、本地七频率 controller/cache/竞态隔离、Mock v0 provider、共享分钟图表与局部状态；正式只读 P95、10000 根、浏览器和回归通过 | Codex |
 | v1.11 | 2026-08-11 | 完成 M4：controller 落地页面/模块状态优先级、请求中止防串标、Empty/404/403/500 映射、Delayed/Partial 动态提示与趋势/权重局部重试；五个 Figma 状态和 404/Delayed 通过 1600×1200 浏览器验收，100 项 Wealth 与 82 项后端相关回归通过 | Codex |
 | v1.10 | 2026-08-11 | 完成 M3 Loaded：独立路由与 10 卡导航、真实 API controller、null-safe adapter、三 Tab、15 项基本行情、完整权重虚拟滚动、SSE-only 趋势 primitive；通过 1600×1200 三画板、2224 行末行、9 code 零趋势请求和全量回归验收 | Codex |

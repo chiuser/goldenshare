@@ -26,7 +26,7 @@
 12. [x] 趋势通道仅支持 `000001.SH + day`，直接消费既有 Quote API；其余指数不展示、不请求，不开发适配层。
 13. [x] 趋势通道为短期25/长期90双通道；每个交易日都有竖线，按当日收盘相对各自下轨逐日着色并允许在交易日边界切换；右侧展示四轨、不展示中轴。
 14. [x] 基本行情固定展示 15 项，缺值显示 `--`；删除“成交状态”和“较昨日”。
-15. [x] 上涨/平盘/下跌按最新有效成分批次与同日股票涨跌幅 `> 0 / = 0 / < 0` 聚合；缺失成员不计入平盘。
+15. [x] 上涨/平盘/下跌只统计最新有效权重批次中的 A 股；同日 daily `pct_chg` 优先，缺 daily 且有精确日 `suspend_type='S'` 时按平盘，只有两类证据都没有才计 missing；B 股不进入 total/missing。
 16. [x] Loading、Empty、Error、Partial、Forbidden 已生成五个 `1600×1200` 完整视觉稿，根节点分别为 `498:516`、`499:579`、`501:761`、`502:1625`、`504:1009`。
 17. [x] 五态复用同一 TopMarketBar、面包屑和周期工具栏；Loading/Empty/Partial 保持双栏尺寸，Error/Forbidden 只把 MainContent 改成全宽状态面板。
 18. [x] 系统状态色冻结：Error 使用 danger-system，Partial 使用 warning，Forbidden 使用 info，不复用行情红绿。
@@ -36,7 +36,7 @@
 1. [ ] 三件套评审通过，待评审项全部签字。
 2. [x] 10 指数 `index_factor_pro` 生产覆盖与当前生产数据库内性能审计通过；真实 2000 行 API P95 仍属实现后门禁。
 3. [x] 趋势通道边界冻结：既有 SSE 契约保持不变，仅上证指数消费；无十指数适配层。
-4. [x] page-init/kline/weights 请求、响应 DTO 与核心样例已按 `1.1.0` 冻结。
+4. [x] page-init/kline/weights 请求、响应 DTO 与核心样例已按 `1.2.0` 冻结；字段集不变，收紧 A 股集合与停牌解析语义。
 5. [x] 权重 SQL、贡献公式、日期、完整批次和排序已冻结。
 6. [x] 状态归并与异常矩阵冻结。
 7. [x] `ID_*` / `IM_*` 异常码已登记到统一注册表。
@@ -59,7 +59,7 @@
 | kline | `period` | 只允许 `day`，默认 day |
 | kline | `startDate/endDate` | 可选；start 不得晚于 end |
 | kline | `limit` | 默认 300，范围 1..2000 |
-| weights | `tsCode/tradeDate/debug` | 同 page-init；返回完整权重批次，不接受 limit，不得静默截断 |
+| weights | `tsCode/tradeDate/debug` | 同 page-init；返回官方批次中的完整 A 股子集，不接受 limit，不得静默截断，不归一化 A 股权重 |
 | 既有 Quote trend-channel | `tsCode` | 固定 `000001.SH`；由 capability 控制是否请求 |
 | 既有 Quote trend-channel | `period` | 固定 day |
 | 既有 Quote trend-channel | `endDate/limit` | 沿用既有契约，不在指数详情模块扩展 |
@@ -131,11 +131,11 @@
     "upCount": 1613,
     "flatCount": 37,
     "downCount": 534,
-    "totalConstituentCount": 2224,
+    "totalConstituentCount": 2184,
     "matchedCount": 2184,
-    "missingCount": 40,
+    "missingCount": 0,
     "dataStatus": {
-      "status": "PARTIAL",
+      "status": "READY",
       "expectedTradeDate": "2026-08-10",
       "observedTradeDate": "2026-08-10"
     }
@@ -157,7 +157,7 @@
     "supportsTradePlanEntry": true
   },
   "dataStatus": {
-    "status": "PARTIAL",
+    "status": "READY",
     "expectedTradeDate": "2026-08-10",
     "observedTradeDate": "2026-08-10"
   },
@@ -329,13 +329,13 @@ LIMIT :limit;
 
 ### 5.2.1 基本行情日度指标与成分涨跌统计
 
-1. [ ] `dailyBasic` 只查询 `trade_date = asOfTradeDate` 的 `pe/pe_ttm/pb/turnover_rate/float_mv/total_mv`；无行或字段为空保持 `null`。
-2. [ ] page-init quote 的日期/价格取 latest daily，`vol/amount` 只取同 code、`trade_date=asOfTradeDate` 的 factor；factor 缺失时为 null + `ID_FACTOR_PARTIAL`，不得回退 daily。
-3. [ ] `constituentBreadth.weightTradeDate = max(index_weight.trade_date) <= asOfTradeDate`，随后对完整批次 `con_code` 与同日 `equity_daily_bar.pct_chg` 做集合聚合。
-4. [ ] `pct_chg > 0` 计入 up、`= 0` 计入 flat、`< 0` 计入 down；无行情或 `pct_chg IS NULL` 只计入 missing。
-5. [ ] `upCount + flatCount + downCount = matchedCount`，`matchedCount + missingCount = totalConstituentCount`。
-6. [ ] missing 大于 0 时保留三项计数并返回模块 PARTIAL；无权重批次时三项为不可用，不返回伪 0。
-7. [ ] page-init 不查询前一交易日成交额，不返回 `amountChangePct`。
+1. [x] `dailyBasic` 只查询 `trade_date = asOfTradeDate` 的 `pe/pe_ttm/pb/turnover_rate/float_mv/total_mv`；无行或字段为空保持 `null`。
+2. [x] page-init quote 的日期/价格取 latest daily，`vol/amount` 只取同 code、`trade_date=asOfTradeDate` 的 factor；factor 缺失时为 null + `ID_FACTOR_PARTIAL`，不得回退 daily。
+3. [x] `constituentBreadth.weightTradeDate = max(index_weight.trade_date) <= asOfTradeDate`，随后将该批次 INNER JOIN `Security`，只保留 `security_type=EQUITY`、`exchange in (SSE,SZSE,BSE)`、`curr_type=CNY` 的 A 股；禁止按代码前缀过滤。
+4. [x] A 股精确日 `equity_daily_bar.pct_chg` 非空时优先：`> 0` 计 up、`= 0` 计 flat、`< 0` 计 down；daily 缺失/空值但精确日有 `equity_suspend_d.suspend_type='S'` 时计 matched/flat；两类证据都没有才计 missing。daily 与停牌同时存在时 daily 优先。
+5. [x] `upCount + flatCount + downCount = matchedCount`，`matchedCount + missingCount = totalConstituentCount`。
+6. [x] 只有 A 股 missing 大于 0 时保留三项计数并返回模块 PARTIAL；B 股排除和已证实停牌不触发 PARTIAL；无权重批次时三项为不可用，不返回伪 0。
+7. [x] page-init 不查询前一交易日成交额，不返回 `amountChangePct`。
 
 ### 5.3 权重与贡献
 
@@ -347,29 +347,55 @@ WHERE index_code = :index_code
 ```
 
 ```sql
-SELECT index_code, trade_date, con_code, weight
-FROM core_serving.index_weight
-WHERE index_code = :index_code
-  AND trade_date = :weight_trade_date
-  AND weight IS NOT NULL
+SELECT w.index_code, w.trade_date, w.con_code, w.weight
+FROM core_serving.index_weight w
+JOIN core_serving.security_serving s
+  ON s.ts_code = w.con_code
+ AND s.security_type = 'EQUITY'
+ AND s.exchange IN ('SSE', 'SZSE', 'BSE')
+ AND s.curr_type = 'CNY'
+WHERE w.index_code = :index_code
+  AND w.trade_date = :weight_trade_date
+  AND w.weight IS NOT NULL
 ORDER BY weight DESC, con_code ASC;
 ```
 
 ```sql
-SELECT ts_code, trade_date, pct_chg
-FROM core_serving.equity_daily_bar
-WHERE ts_code IN (:all_constituent_codes)
-  AND trade_date = :contribution_trade_date;
+SELECT
+  w.con_code,
+  CASE
+    WHEN e.pct_chg IS NOT NULL THEN e.pct_chg
+    WHEN EXISTS (
+      SELECT 1
+      FROM core_serving.equity_suspend_d sd
+      WHERE sd.ts_code = w.con_code
+        AND sd.trade_date = :contribution_trade_date
+        AND sd.suspend_type = 'S'
+    ) THEN 0
+    ELSE NULL
+  END AS resolved_pct_chg
+FROM core_serving.index_weight w
+JOIN core_serving.security_serving s
+  ON s.ts_code = w.con_code
+ AND s.security_type = 'EQUITY'
+ AND s.exchange IN ('SSE', 'SZSE', 'BSE')
+ AND s.curr_type = 'CNY'
+LEFT JOIN core_serving.equity_daily_bar e
+  ON e.ts_code = w.con_code
+ AND e.trade_date = :contribution_trade_date
+WHERE w.index_code = :index_code
+  AND w.trade_date = :weight_trade_date;
 ```
 
 门禁：
 
-1. [ ] 名称查询与成分日线查询均为批量查询，无 N+1。
-2. [ ] 原始权重不归一化。
-3. [ ] 贡献点内部用 Decimal 计算，输出精度在 DTO 评审时冻结。
-4. [ ] 缺失贡献点不影响权重行展示。
-5. [ ] `sum(contributionPoint)` 不用于重写任何单行值。
-6. [ ] `rows.length = coverage.totalCount = coverage.returnedCount` 且 `isTruncated=false`；任何保护门禁触发时返回明确错误，禁止返回半批次。
+1. [x] 名称查询与成分日线查询均为集合查询，无 N+1。
+2. [x] A 股官方原始权重不归一化；B 股不进入 rows/coverage，也不在前端二次过滤。
+3. [x] 贡献点内部用 Decimal 计算，输出按 4 位 `ROUND_HALF_UP` 冻结。
+4. [x] 停牌证据解析为 `changePct=0/direction=FLAT/contributionPoint=0` 并计 available；真实缺失贡献点不影响权重行展示。
+5. [x] `sum(contributionPoint)` 不用于重写任何单行值。
+6. [x] `rows.length = coverage.totalCount = coverage.returnedCount` 且 `isTruncated=false`；任何保护门禁触发时返回明确错误，禁止返回半批次。
+7. [x] 以 1.2.0 最终 SQL 对 10 指数重跑只读查询计划与服务链性能：page-init P95 245.589ms、weights P95 267.319ms，最大 2184 行/275,543B；上证 breadth/weights SQL 约 21.993ms/19.290ms。2026-08-11 的 1.1.0 数值只作历史基线。
 
 ### 5.4 趋势通道
 
@@ -412,9 +438,9 @@ WHERE ts_code IN (:all_constituent_codes)
 | `ID_SOURCE_DELAYED` | 日线日期落后 | 200 + DELAYED |
 | `ID_FACTOR_PARTIAL` | page-init 同日 factor 量额缺失，或 Kline 因子缺失 | 200 + PARTIAL |
 | `ID_BASIC_DAILY_PARTIAL` | 同日 dailyBasic 缺行/缺字段 | page-init 基本行情模块 PARTIAL |
-| `ID_BASIC_BREADTH_PARTIAL` | 成分股当日行情缺失 | page-init 基本行情模块 PARTIAL |
+| `ID_BASIC_BREADTH_PARTIAL` | A 股成分同日既无有效 daily pct 也无停牌证据 | page-init 基本行情模块 PARTIAL；B 股排除/停牌不触发 |
 | `ID_WEIGHT_EMPTY` | 无权重批次 | weights EMPTY |
-| `ID_WEIGHT_CONTRIBUTION_PARTIAL` | 贡献输入缺失 | weights PARTIAL |
+| `ID_WEIGHT_CONTRIBUTION_PARTIAL` | preClose 缺失，或 A 股既无有效 daily pct 也无停牌证据 | weights PARTIAL；停牌贡献 0 不触发 |
 | `ID_QUERY_FAILED` | 查询异常 | 对应模块 error |
 | `IM_SOURCE_NOT_READY` | Lake 日期缺失 | minutes DELAYED |
 | `IM_SOURCE_CONTRACT_INVALID` | Parquet 合同错误 | minutes ERROR |
@@ -489,7 +515,8 @@ WHERE ts_code IN (:all_constituent_codes)
 1. [x] 10 指数 `2026-08-10` 的昨收、今开、总量、最高、最低、金额均有值。
 2. [x] PE/PE TTM/PB/换手率/流通市值/总市值只覆盖 6 个指数，合同必须可空且 UI 缺值显示 `--`。
 3. [x] 10 指数均解析到 `2026-07-31` 有效权重批次；9 个指数成分日线完整匹配。
-4. [x] `000001.SH` total 2224、matched 2184、up 1613、flat 37、down 534、missing 40；missing 不计入 flat。
+4. [x] 2026-08-12 复核上证最新页面日 `2026-08-11`、权重日 `2026-07-31`：官方源批次 2224 行，其中 Security 事实字段认定 A 股 2184 行、B 股 40 行。A 股 daily 原始计数为 up 648、flat 49、down 1485，另有 2 个精确日 `suspend_type='S'`；按冻结规则结果为 total/matched 2184、up 648、flat 51、down 1485、missing 0。B 股不计缺失，A 股权重不归一化。
+5. [x] 1.2.0 最终查询已完成只读性能复验：10 指数各 5 轮 page-init P95 245.589ms、weights P95 267.319ms；最大权重响应 2184 行/275,543B，数据库内上证最终 SQL 约 19~22ms。
 
 ### 9.3 已完成：指数因子
 
@@ -586,7 +613,7 @@ cd wealth && npm run build
 ### 架构/产品
 
 1. [x] 需求未扩散到技术结论、九转或交易流程。
-2. [x] 技术口径已逐项确认：SSE-only 趋势、逐日四轨绘制与每日竖线、权重全量滚动、基本行情 15 项、成分涨跌统计与缺失规则。
+2. [x] 技术口径已逐项确认：SSE-only 趋势、逐日四轨绘制与每日竖线、A 股完整权重滚动、基本行情 15 项、A 股成分涨跌与停牌解析规则。
 3. [x] 右侧基本行情最终展示组合已完成产品选择并同步 Figma。
 4. [x] 已由用户明确同意并完成 M1 数据与契约开发。
 
@@ -594,6 +621,8 @@ cd wealth && npm run build
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.15 | 2026-08-12 | 完成 A 股集合与停牌解析编码门禁：查询、异常、合同测试、83 项后端相关、108 项 Wealth、生产只读性能和真实页面 READY 验收全部通过 | Codex |
+| v1.14 | 2026-08-12 | 冻结 A 股成分集合与停牌解析门禁：B 股不进入 rows/coverage/missing；daily 优先，缺 daily 且有精确日停牌证据时按 flat、贡献 0；补生产只读样本、SQL 和负向测试要求，DTO 提升至 1.2.0 | Codex |
 | v1.13 | 2026-08-11 | 完成 M5-A 门禁：Reader/API/本地路由、七频率、Mock v0 标识、缓存与旧响应隔离、北证50局部空态、Tooltip、正式 Silver 性能与 1600×1200 无溢出验收通过；Gold 门禁继续保留 | Codex |
 | v1.12 | 2026-08-11 | 冻结 M5-A local/prod 路由、双接口、cursor/limit/5MB、正式 Silver、北证50 EMPTY 与可见开发态 Mock 边界；Gold/70 checks/对齐保留 M5-B | Codex |
 | v1.11 | 2026-08-11 | 完成 M4 门禁：五态、404、Delayed、页面/模块状态分层、整页/局部重试、请求中止防串标、动态 Partial 文案、系统状态色与 1600×1200 逐状态截图通过；100 项 Wealth 与 82 项后端相关回归通过，M5 分钟项保持未勾选 | Codex |

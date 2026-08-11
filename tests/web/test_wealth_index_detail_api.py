@@ -7,6 +7,7 @@ import pytest
 
 from src.biz.services.wealth.config import StrategyConfigValidationError, StrategyConfigService
 from src.foundation.config.settings import get_settings
+from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core.index_basic import IndexBasic
 from src.foundation.models.core.index_daily_basic import IndexDailyBasic
 from src.foundation.models.core.index_factor_pro import IndexFactorPro
@@ -43,6 +44,7 @@ def _ensure_index_detail_tables(db_session) -> None:
         IndexFactorPro.__table__,
         IndexWeight.__table__,
         EquityDailyBar.__table__,
+        EquitySuspendD.__table__,
         Security.__table__,
     ]:
         table.create(bind, checkfirst=True)
@@ -124,6 +126,34 @@ def _equity_daily(*, ts_code: str, pct_chg: Decimal | None) -> EquityDailyBar:
     )
 
 
+def _security(
+    *,
+    ts_code: str,
+    name: str,
+    exchange: str = "SSE",
+    curr_type: str = "CNY",
+) -> Security:
+    return Security(
+        ts_code=ts_code,
+        name=name,
+        security_type="EQUITY",
+        exchange=exchange,
+        curr_type=curr_type,
+        source="tushare",
+    )
+
+
+def _suspend_row(*, row_id: int, ts_code: str) -> EquitySuspendD:
+    return EquitySuspendD(
+        id=row_id,
+        row_key_hash=f"{ts_code}-{_TRADE_DATE.isoformat()}-S",
+        ts_code=ts_code,
+        trade_date=_TRADE_DATE,
+        suspend_timing=None,
+        suspend_type="S",
+    )
+
+
 def _seed_full_data(db_session) -> None:
     _ensure_index_detail_tables(db_session)
     db_session.add_all(
@@ -160,9 +190,10 @@ def _seed_full_data(db_session) -> None:
                 float_mv=Decimal("61120718611804.0200"),
                 total_mv=Decimal("77487881305217.3300"),
             ),
-            Security(ts_code="600001.SH", name="甲公司", security_type="EQUITY", source="tushare"),
-            Security(ts_code="600002.SH", name="乙公司", security_type="EQUITY", source="tushare"),
-            Security(ts_code="600003.SH", name="丙公司", security_type="EQUITY", source="tushare"),
+            _security(ts_code="600001.SH", name="甲公司"),
+            _security(ts_code="600002.SH", name="乙公司"),
+            _security(ts_code="600003.SH", name="丙公司"),
+            _security(ts_code="600004.SH", name="丁公司"),
             IndexWeight(
                 index_code=_INDEX_CODE,
                 trade_date=date(2026, 7, 31),
@@ -457,6 +488,102 @@ def test_kline_distinguishes_source_delay_from_factor_lag(app_client, db_session
     }
 
 
+def test_page_and_weights_use_a_shares_with_daily_first_and_suspension_fallback(
+    app_client,
+    db_session,
+) -> None:
+    _seed_full_data(db_session)
+    db_session.add_all(
+        [
+            _equity_daily(ts_code="600004.SH", pct_chg=Decimal("1.0000")),
+            _security(ts_code="600005.SH", name="停牌公司"),
+            _security(ts_code="600006.SH", name="日线优先公司"),
+            _security(ts_code="900901.SH", name="B股公司", curr_type="USD"),
+            IndexWeight(
+                index_code=_INDEX_CODE,
+                trade_date=date(2026, 7, 31),
+                con_code="600005.SH",
+                weight=Decimal("4.00000000"),
+            ),
+            IndexWeight(
+                index_code=_INDEX_CODE,
+                trade_date=date(2026, 7, 31),
+                con_code="600006.SH",
+                weight=Decimal("3.00000000"),
+            ),
+            IndexWeight(
+                index_code=_INDEX_CODE,
+                trade_date=date(2026, 7, 31),
+                con_code="900901.SH",
+                weight=Decimal("99.00000000"),
+            ),
+            _equity_daily(ts_code="600006.SH", pct_chg=Decimal("3.0000")),
+            _suspend_row(row_id=1, ts_code="600005.SH"),
+            _suspend_row(row_id=2, ts_code="600006.SH"),
+        ]
+    )
+    db_session.commit()
+
+    page_response = app_client.get(
+        "/api/v1/wealth/market/index-detail/page-init",
+        params={"tsCode": _INDEX_CODE, "tradeDate": "2026-08-10", "debug": 1},
+    )
+
+    assert page_response.status_code == 200
+    page_payload = page_response.json()
+    assert page_payload["constituentBreadth"] == {
+        "tradeDate": "2026-08-10",
+        "weightTradeDate": "2026-07-31",
+        "upCount": 3,
+        "flatCount": 2,
+        "downCount": 1,
+        "totalConstituentCount": 6,
+        "matchedCount": 6,
+        "missingCount": 0,
+        "dataStatus": {
+            "status": "READY",
+            "expectedTradeDate": "2026-08-10",
+            "observedTradeDate": "2026-08-10",
+        },
+    }
+    assert page_payload["dataStatus"]["status"] == "READY"
+    assert page_payload["debugInfo"]["exceptions"] == []
+
+    weights_response = app_client.get(
+        "/api/v1/wealth/market/index-detail/weights",
+        params={"tsCode": _INDEX_CODE, "tradeDate": "2026-08-10", "debug": 1},
+    )
+
+    assert weights_response.status_code == 200
+    weights_payload = weights_response.json()
+    codes = [row["conCode"] for row in weights_payload["rows"]]
+    assert codes == [
+        "600001.SH",
+        "600002.SH",
+        "600003.SH",
+        "600004.SH",
+        "600005.SH",
+        "600006.SH",
+    ]
+    assert "900901.SH" not in codes
+    rows_by_code = {row["conCode"]: row for row in weights_payload["rows"]}
+    assert rows_by_code["600005.SH"]["changePct"] == 0.0
+    assert rows_by_code["600005.SH"]["direction"] == "FLAT"
+    assert rows_by_code["600005.SH"]["contributionPoint"] == 0.0
+    assert rows_by_code["600006.SH"]["changePct"] == 3.0
+    assert rows_by_code["600006.SH"]["direction"] == "UP"
+    assert rows_by_code["600006.SH"]["contributionPoint"] == 0.9
+    assert weights_payload["coverage"] == {
+        "totalCount": 6,
+        "returnedCount": 6,
+        "contributionAvailableCount": 6,
+        "contributionMissingCount": 0,
+        "isTruncated": False,
+    }
+    assert weights_payload["dataStatus"]["status"] == "READY"
+    assert weights_payload["debugInfo"]["exceptions"] == []
+
+
 def test_weights_return_complete_batch_stable_sort_and_frozen_contribution(app_client, db_session) -> None:
     _seed_full_data(db_session)
 
@@ -475,7 +602,7 @@ def test_weights_return_complete_batch_stable_sort_and_frozen_contribution(app_c
         "600004.SH",
     ]
     assert [row["contributionPoint"] for row in payload["rows"]] == [6.0, -2.0, 0.0, None]
-    assert payload["rows"][-1]["name"] is None
+    assert payload["rows"][-1]["name"] == "丁公司"
     assert payload["rows"][-1]["direction"] == "UNKNOWN"
     assert payload["coverage"] == {
         "totalCount": 4,

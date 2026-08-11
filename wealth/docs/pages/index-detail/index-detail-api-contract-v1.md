@@ -1,8 +1,8 @@
 # 指数详情页正式 API / DTO 合同 v1
 
-> 合同版本：`1.1.0`
+> 合同版本：`1.2.0`
 >
-> 冻结日期：2026-08-11
+> 冻结日期：2026-08-12
 >
 > 状态：M0 已冻结；M1 必须逐字段实现，不得扩展股票详情或主要指数卡片 DTO。
 
@@ -212,14 +212,15 @@ interface IndexDetailPageInitResponseDto {
 3. quote 的日期与价格取 `index_daily_serving`：`close -> point`、`change_amount -> change`、`pct_chg -> changePct`，其余价格字段同名；`vol/amount` 唯一取同 code、`tradeDate=asOfTradeDate` 的 `index_factor_pro`。direction 按 changePct 正/负/零判定，null 为 UNKNOWN。
 4. 无 quote：`asOfTradeDate=null`、quote/dailyBasic/breadth 为 null、页面 `EMPTY`。
 5. `dailyBasic` 只查 `tradeDate=asOfTradeDate` 的 `pe/pe_ttm/pb/turnover_rate/float_mv/total_mv`；无同日行时为 null，不向前取旧值。
-6. breadth 使用 `max(weight.trade_date) <= asOfTradeDate` 的完整批次，三项只统计同日 `pct_chg > 0 / = 0 / < 0` 的已匹配成员。
-7. `upCount + flatCount + downCount = matchedCount`；`matchedCount + missingCount = totalConstituentCount`。
-8. 无权重批次时 breadth 为 null；不是三项 0。
-9. 同日 factor 行或其 `vol/amount` 缺失、dailyBasic 缺行/缺字段、breadth 为 null 或 `missingCount>0` 时 page-init 为 PARTIAL，并在 debug 分别登记 `ID_FACTOR_PARTIAL`、`ID_BASIC_DAILY_PARTIAL`、`ID_WEIGHT_EMPTY` 或 `ID_BASIC_BREADTH_PARTIAL`。
-10. 无 partial 原因且 observed 早于 expected 时为 DELAYED。
-11. `supportsTrendChannel=true` 只允许 `000001.SH`；其余 9 个 code 为 false 且 overlays 不含 `TREND_CHANNEL`。
-12. 生产和 local flag=false：periods 只有 `day`，minuteFrequencies 为空。
-13. `supportsTradePlanEntry=true` 只表示顶部入口存在；技术结论和任何数据 effect 都不得触发交易动作。
+6. breadth 先取 `max(weight.trade_date) <= asOfTradeDate` 的源权重批次，再只保留能在 `security_serving` 识别为 A 股的成分：`security_type=EQUITY`、`exchange in (SSE,SZSE,BSE)`、`curr_type=CNY`。源批次中的 B 股不属于页面成分范围，不进入 `totalConstituentCount/missingCount`，也不触发 PARTIAL。
+7. A 股成分的涨跌分类按以下优先级解析：同日 `equity_daily_bar.pct_chg` 非空时按 `> 0 / = 0 / < 0` 分类；同日行情为空但 `equity_suspend_d` 存在 `suspend_type=S` 时按 `pct_chg=0` 计入 FLAT；两者都不存在时才计入 missing。日线有值时不得被停牌记录覆盖。
+8. `matchedCount` 表示已完成涨跌分类的 A 股成分数，包括有同日涨跌幅的成员和已确认停牌并按 FLAT 处理的成员。`upCount + flatCount + downCount = matchedCount`；`matchedCount + missingCount = totalConstituentCount`。
+9. 无权重批次时 breadth 为 null；不是三项 0。
+10. 同日 factor 行或其 `vol/amount` 缺失、dailyBasic 缺行/缺字段、breadth 为 null 或真实 A 股 `missingCount>0` 时 page-init 为 PARTIAL，并在 debug 分别登记 `ID_FACTOR_PARTIAL`、`ID_BASIC_DAILY_PARTIAL`、`ID_WEIGHT_EMPTY` 或 `ID_BASIC_BREADTH_PARTIAL`。B 股被排除和已确认停牌都不是数据缺失。
+11. 无 partial 原因且 observed 早于 expected 时为 DELAYED。
+12. `supportsTrendChannel=true` 只允许 `000001.SH`；其余 9 个 code 为 false 且 overlays 不含 `TREND_CHANNEL`。
+13. 生产和 local flag=false：periods 只有 `day`，minuteFrequencies 为空。
+14. `supportsTradePlanEntry=true` 只表示顶部入口存在；技术结论和任何数据 effect 都不得触发交易动作。
 
 ## 5. `GET /kline`
 
@@ -336,7 +337,7 @@ Kline 的价格、量额与技术指标均来自同一 `IndexFactorPro` 行。�
 | `tradeDate` | ISO date | 否 | 隐藏锚点 |
 | `debug` | 0 或 1 | 否 | 默认 0 |
 
-不接受 `limit/offset/sort/weightDate`；服务必须返回完整批次。
+不接受 `limit/offset/sort/weightDate`；服务必须返回选定源权重批次中的完整 A 股子集。
 
 ### 6.2 响应
 
@@ -376,15 +377,16 @@ interface IndexDetailWeightsResponseDto {
 
 1. `contributionTradeDate` 等于 page-init 同口径 `asOfTradeDate`；完全没有指数日线时取 expected date、rows 为空、状态 EMPTY。
 2. `weightTradeDate=max(index_weight.trade_date) <= contributionTradeDate`，当前生产验收基线是 2026-07-31，但代码不硬编码。
-3. 批次出现 null weight 或重复成分时返回错误，禁止过滤后返回半批次。
-4. rows 按 `weight DESC, conCode ASC`，且 `rows.length=totalCount=returnedCount`、`isTruncated=false`。
-5. `contributionAvailableCount + contributionMissingCount = totalCount`。
-6. 名称缺失保留行，以 code 展示。
-7. 贡献公式：`indexPreClose * weight/100 * constituentPctChg/100`。
-8. 内部使用 `Decimal(str(value))`，不归一化权重、不按指数实际涨跌点缩放。
-9. 输出值按 `0.0001 + ROUND_HALF_UP` 舍入后转 JSON number；UI 独立格式化 2 位和正负号。
-10. `changePct` 只取成分同日行情；缺失时为 null。direction 只按 changePct 正/负/零判定，changePct 为 null 时才是 UNKNOWN。indexPreClose、weight 或 changePct 任一缺失时 contributionPoint 为 null，不补 0。
-11. coverage 缺失大于 0 时状态 PARTIAL，并登记 `ID_WEIGHT_CONTRIBUTION_PARTIAL`。
+3. A 股范围与 breadth 完全一致：`security_type=EQUITY`、`exchange in (SSE,SZSE,BSE)`、`curr_type=CNY`。B 股不返回，不计入 coverage；不得使用代码前缀判断 A/B 股。
+4. A 股子集出现 null weight 或重复成分时返回错误，禁止过滤异常行后返回半批次。
+5. rows 按 `weight DESC, conCode ASC`，且 `rows.length=totalCount=returnedCount`、`isTruncated=false`。
+6. `contributionAvailableCount + contributionMissingCount = totalCount`。
+7. 名称缺失保留行，以 code 展示；正常 A 股集合由 Security 身份确定，因此名称为空只属于字段缺失，不改变 A 股身份。
+8. 贡献公式：`indexPreClose * weight/100 * constituentPctChg/100`。
+9. 内部使用 `Decimal(str(value))`，不归一化权重、不按指数实际涨跌点缩放。排除 B 股后仍保留 A 股官方原始 weight，不把 A 股子集重新归一到 100%。
+10. 输出值按 `0.0001 + ROUND_HALF_UP` 舍入后转 JSON number；UI 独立格式化 2 位和正负号。
+11. `changePct` 优先取成分同日行情；同日行情为空但同日 `suspend_type=S` 时返回 `0`，`direction=FLAT`、`contributionPoint=0`，并计入 contributionAvailableCount。行情和停牌依据都不存在时才返回 null/UNKNOWN，贡献为 null。
+12. 真实 A 股贡献缺失大于 0 时状态 PARTIAL，并登记 `ID_WEIGHT_CONTRIBUTION_PARTIAL`；B 股排除和已确认停牌不得触发该异常。
 
 ## 7. 错误响应
 
@@ -425,6 +427,7 @@ interface IndexDetailErrorResponseDto {
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| `1.2.0` | 2026-08-12 | 成分范围统一收敛为 Security 事实字段识别的 A 股；B 股不进入 rows/coverage/missing；同日无行情但确认停牌的 A 股按 0%/FLAT 参与 breadth 与贡献；DTO 字段结构不变，提升版本以冻结语义变更 |
 | `1.1.0` | 2026-08-11 | 外部数据源核对确认 factor 量额准确；page-init 与 Kline 的成交量、成交额统一取 `IndexFactorPro`，禁止 daily fallback；DTO 字段结构不变 |
 | `1.0.1` | 2026-08-11 | 删除 A500/固定日期 warm-up 特例；MA null 改为依据同 code、同交易日实际有效历史根数动态判断，DTO 字段结构不变 |
 | `1.0.0` | 2026-08-11 | 首次冻结 page-init/kline/weights 独立 DTO |
