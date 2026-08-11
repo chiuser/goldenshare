@@ -1,7 +1,7 @@
 # A股业绩快报（`express`）数据集低层设计 v1
 
-状态：**M1/M2/M3 已完成；M4a 只读测算已完成，历史起点待拍板；M4b/M4c 未开始**
-编写日期：2026-08-10；M1/M2/M3/M4a 状态更新：2026-08-11
+状态：**M1/M2/M3/M4a/M4b 已完成；M4c 未开始**
+编写日期：2026-08-10；M1/M2/M3/M4a/M4b 状态更新：2026-08-11
 适用范围：Tushare `express_vip` 业绩快报接入 Goldenshare Prod
 
 ## 1. 结论先行
@@ -18,7 +18,7 @@
 4. 失败或取消不推进覆盖游标；retry 复用原 TaskRun 的同一时间窗口。
 5. 调度参数和续跑逻辑由通用 schedule capability contract 驱动，不得在前端或 Ops 服务中增加 `express` key 白名单。
 
-当前没有尚未拍板的 M1–M3 业务设计项。生产 migration、首次同步和幂等验收已经完成。M4a 已完成不调用 Tushare、不写生产数据库的规模与水位测算；容量和生产限流配置都不构成截短历史的工程理由。M4b 仍必须先拍板历史起点并独立授权；生产 cron 时间与 schedule 创建属于独立的 M4c。
+当前没有尚未拍板的 M1–M4b 业务设计项。生产 migration、首次同步和幂等验收已经完成；M4a 也已完成不调用 Tushare、不写生产数据库的规模与水位测算。M4b 已按管理员确认的 `2010-01-01` 起点完成 17 个串行 TaskRun，并回补至执行日冻结的 `D-1=2026-08-10`。生产 cron 时间与 schedule 创建仍属于独立的 M4c。
 
 ## 2. 目标、范围与明确不做
 
@@ -678,7 +678,8 @@ git diff --check
 | EX-11 | 到期 schedule 原子单次入队 | schedule service/task service | 单事务成功 | 并发不得创建 2 个 TaskRun | M1 自动化完成；M2 真实 PostgreSQL 双会话 `SKIP LOCKED` 只创建 1 个 TaskRun |
 | EX-12 | 最多 366 天且提交/runtime 预检 | Definition/manual/schedule | 366 成功 | 367 不发请求并显示正确错误 | M1 已完成 |
 | EX-13 | 五段真实对账后才能验收 | M2/M3 运行证据 | source=normalized+dedup+reject，DB 一致 | 任一差额阻断 | M2 隔离库、M3 首次正式 TaskRun 与正式幂等 TaskRun 均已通过 |
-| EX-14 | 历史回补前先做无源端扫描的规模、水位和配额测算 | M4a 只读审计记录 | 候选起点均给出 unit/批次/节拍/空间 | 未拍板起点不得进入 M4b | M4a 测算已完成；历史起点待拍板 |
+| EX-14 | 历史回补前先做无源端扫描的规模、水位和配额测算 | M4a 只读审计记录 | 候选起点均给出 unit/批次/节拍/空间 | 未拍板起点不得进入 M4b | M4a 测算完成；管理员已拍板 `2010-01-01` |
+| EX-15 | M4b 从 2010 起逐年串行回补，逐批对账后才继续 | 正式 Manual Action/TaskRun 主链 | 每年成功并完成五段对账 | 不并行、不额外源端扫描、不进入 M4c | 已完成；17/17 TaskRun、6,066/6,066 unit 和逐批五段对账全部通过 |
 
 ## 18. 里程碑与发布顺序
 
@@ -688,8 +689,8 @@ git diff --check
 | M1 | Definition、request/normalizer、ORM/DAO/migration、Ops/UI、通用 schedule contract、单元/集成/前端验证 | 代码与自动化门禁完成；真实浏览器走查待有效本地账号 |
 | M2 | 隔离 PostgreSQL migration、HDD placement、合成容量/锁/回滚、最小真实同步对账 | 已完成；使用临时目标门禁隔离到 `127.0.0.1:55410/goldenshare_express_m2`，Prod 前后只读指纹一致 |
 | M3 | 生产只读预检、migration、HDD 路径、首次单日同步与五段对账 | 已完成；`TaskRun#7923/#7928` 分别验证首次插入和正式幂等再跑，卡片/freshness/详情验收通过 |
-| M4a | 历史规模与配额只读预估 | 已完成；零 Tushare 请求、零生产写入，历史起点待拍板 |
-| M4b | 历史分段回补 | 需独立授权；每段对账 |
+| M4a | 历史规模与配额只读预估 | 已完成；零 Tushare 请求、零生产写入；后续由管理员固定历史起点为 `2010-01-01` |
+| M4b | 历史分段回补 | 已完成；17 个年度 TaskRun 串行回补至 `2026-08-10`，逐批与最终汇总对账全部通过 |
 | M4c | 运营手工创建/启用 schedule | 需独立授权；无代码 seed |
 
 发布顺序固定为：同版本部署后端+前端 -> 确认无正在运行任务 -> migration -> HDD 核验 -> 单日首次同步 -> 幂等重跑 -> 卡片/页面验收。历史和 schedule 不随 migration 自动执行。
@@ -826,14 +827,91 @@ M0 的无业务参数宽范围样本为 29,590 行，但它在不同 fields 组�
 
 WAL 在 SSD 上按日事务持续产生，但因为每个 unit 单独提交，不需要把整个历史事务的 WAL 同时保留。M4b 为 express 额外保留 **2 GiB** 瞬时 WAL 操作余量；这相当于当前 `max_wal_size` 软目标的 2 倍，但不能替代对共享 WAL、复制槽或其他写任务的实时监控。当前 SSD 可用 16.85 GiB，满足该 express 操作余量；不过总盘已使用 92%，因此每个年度批次开始前仍必须重新核验开放任务和 SSD/HDD 水位，不能沿用本次快照。
 
-#### 20.7.4 结论与唯一待拍板项
+#### 20.7.4 结论与历史起点拍板
 
 M4a 的工程结论是：即使从 `1990-01-01` 回补到 `2026-08-10`，请求量、年度批次数和 HDD/WAL 预留都没有达到必须裁剪历史的程度。源端文档和既有实测没有证明最早可用 `ann_date`，因此不得把 2014、2018 或任一有数据样本年宣称为“源端起点”。
 
-如果业务口径是“完整记录 Tushare 可返回的全部 A 股业绩快报”，M4a 推荐把 **`1990-01-01`** 拍板为 M4b 的保守覆盖起点：它是覆盖 A 股市场早期的请求边界，不是对 Tushare 最早数据日的猜测；实际早期空日会正常产生零行 unit。该方案预计 37 个年度 TaskRun、至少 13,371 次请求，M4b 必须逐年串行并逐段五段对账。
+管理员明确不采用 `1990-01-01`，M4b 历史起点固定为 **`2010-01-01`**。执行时终点冻结为 `D-1`；以 2026-08-11 为执行日时，终点为 `2026-08-10`，共 6,066 个自然日 unit、至少 6,066 次请求和 17 个年度 TaskRun。该决策表示 2010 年以前的数据不属于本轮回补范围，不能把未回补年份误报为缺失或失败。
 
-M4b 目前仍被一个业务决策阻断：是否采用 `1990-01-01`，或由运营明确给出更晚的历史起点。起点未确认前，不创建任何历史 TaskRun；M4c 的 cron 时间和 schedule 创建继续独立授权。
+M4b 已获独立授权；M4c 的 cron 时间和 schedule 创建继续独立授权，本轮不得创建或修改 schedule。
 
 | 本阶段追溯 ID | 已验证证据 | 未完成项 | 结论 |
 | --- | --- | --- | --- |
-| EX-14 | 零 Tushare 请求；生产表/TaskRun/schedule、HDD/SSD、WAL 配置只读核验；六个起点情景测算 | 历史起点需业务拍板 | **M4a 测算完成，M4b 尚不可开始** |
+| EX-14 | 零 Tushare 请求；生产表/TaskRun/schedule、HDD/SSD、WAL 配置只读核验；六个起点情景测算 | 无 | **M4a 测算完成；历史起点固定为 `2010-01-01`** |
+
+### 20.8 M4b 生产历史回补执行契约
+
+#### 20.8.1 范围与分段
+
+- `2010-01-01..2025-12-31` 按完整自然年拆为 16 个闭区间 TaskRun；2012、2016、2020、2024 各 366 个 unit，其余完整年各 365 个 unit。
+- 最后一批为 `2026-01-01..D-1`；终点在实际执行开始时冻结。若执行日仍为 2026-08-11，该批为 222 个 unit。
+- 所有区间从旧到新串行；一次只允许创建一个正式 TaskRun。上一个年度成功并通过逐批对账后，才允许创建下一个。
+- TaskRun 必须通过 `ManualActionCommandService -> DatasetActionResolver -> TaskRun` 正式主链创建，`action_key=express.maintain`、`time_input.mode=range`、`filters={}`；禁止直接写业务表或绕过 planner。
+- 本轮不部署、不迁移、不改代码/API/Definition，不创建 schedule，不额外调用 Tushare 做第二遍源端扫描。
+
+#### 20.8.2 每批执行前门禁
+
+- 当前部署包含既有 Express Definition、planner、request builder、source client、normalizer 和 immutable writer；目标 migration、HDD placement 与服务状态正确。
+- 全系统没有 queued/running/canceling TaskRun，且不存在 `express.maintain` schedule。
+- HDD 可用空间至少覆盖 512 MiB 操作预留；WAL 所在 SSD 可用空间至少覆盖 2 GiB 操作预留。
+- Definition 仍为 33 个显式 source fields、`page_limit=5000`、`fetch_concurrency=1`、`max_units_per_execution=366`。
+- 正式 resolver 只读预规划证明年度区间 unit 数、首尾日期、无重叠和无缺口；预规划不创建 TaskRun、不调用 Tushare。
+
+#### 20.8.3 逐批对账公式
+
+每个年度 TaskRun 必须同时满足：
+
+1. `status=success`、`unit_done=unit_total`、`unit_failed=0`。
+2. `unit_count_with_pagination=unit_total`、`short_page_unit_count=unit_total`、`total_rows_merged=rows_fetched`、`total_page_count>=unit_total`；多页 unit 必须最终出现短页，不设置任意页数截断。
+3. `rows_fetched = rows_normalized_before_dedupe + rows_rejected`，成功批次必须 `rows_rejected=0` 且 reject reason/sample 为空。
+4. `rows_normalized_before_dedupe = rows_written + rows_deduplicated`；完全相同源行允许去重，同身份不同内容必须失败。
+5. `rows_written = rows_inserted_new + rows_matched_existing`；年度目标表后置行数等于前置行数加 `rows_inserted_new`，也等于本批 `rows_written`。
+6. 年度目标表 `count(*)`、`count(distinct source_entity_key)` 和三元业务键唯一数一致；`ts_code/ann_date/end_date/source_entity_key` 无空值，窗口外行数不变。
+
+源端行数、分页和请求次数只使用正式 TaskRun 的运行诊断；目标表使用有界年度只读 SQL 核验。禁止为对账再请求一遍 Tushare。2025 年已存在的 `2025-04-08` 事实由本批 `rows_matched_existing` 自然验证，不单独重跑。
+
+#### 20.8.4 失败与恢复
+
+- 任一 TaskRun 失败、取消、出现 reject、分页失败、身份冲突、范围回退或写后核对不一致，立即停止后续年度。
+- 每个自然日独立提交；年度任务中途失败时保留此前成功日期，不删除、不覆盖、不清表。
+- 修复后重试同一年度完整区间；已完成日期通过 `rows_matched_existing` 幂等核对，失败日期及其后续日期继续执行。
+- `write.immutable_fact_conflict`、`write.immutable_scope_regression` 或缺字段错误必须人工审计源端样本，禁止自动忽略。
+- 若执行期间出现其他系统任务，完成当前年度并对账后暂停创建下一年度，待开放队列清空再继续。
+- 数据清理、人工改表和 M4c schedule 均不属于 M4b，必须另行授权。
+
+#### 20.8.5 实际执行与验收证据
+
+M4b 于 2026-08-11 使用已部署版本 `55a460713725c50d6f33492f68a26b772f068336` 执行。P0 重新核验 migration `20260811_000132`、三项服务、Definition、空执行队列、零 Express schedule，以及表和四个索引的 HDD placement 后，才创建 2010 年先导 TaskRun。2010 年完整对账通过后，后续年度严格从旧到新串行；执行期间出现其他系统任务时，完成当前年度对账后等待开放队列清零，再创建下一年度任务。
+
+| TaskRun | 窗口 | unit/页 | 读取/写入 | 新增 | 匹配既有 |
+| ---: | --- | ---: | ---: | ---: | ---: |
+| 7957 | 2010 | 365 | 726 | 726 | 0 |
+| 7959 | 2011 | 365 | 1,199 | 1,199 | 0 |
+| 7961 | 2012 | 366 | 1,443 | 1,443 | 0 |
+| 7962 | 2013 | 365 | 1,594 | 1,594 | 0 |
+| 7963 | 2014 | 365 | 1,479 | 1,479 | 0 |
+| 7964 | 2015 | 365 | 1,633 | 1,633 | 0 |
+| 7965 | 2016 | 366 | 1,749 | 1,749 | 0 |
+| 7968 | 2017 | 365 | 1,910 | 1,910 | 0 |
+| 7969 | 2018 | 365 | 2,323 | 2,323 | 0 |
+| 7970 | 2019 | 365 | 2,256 | 2,256 | 0 |
+| 7974 | 2020 | 366 | 2,280 | 2,280 | 0 |
+| 7975 | 2021 | 365 | 1,807 | 1,807 | 0 |
+| 7976 | 2022 | 365 | 1,644 | 1,644 | 0 |
+| 7977 | 2023 | 365 | 1,609 | 1,609 | 0 |
+| 7978 | 2024 | 366 | 1,579 | 1,579 | 0 |
+| 7979 | 2025 | 365 | 1,514 | 1,500 | 14 |
+| 7980 | `2026-01-01..2026-08-10` | 222 | 1,226 | 1,226 | 0 |
+| **合计** | `2010-01-01..2026-08-10` | **6,066** | **27,971** | **27,957** | **14** |
+
+最终正式 TaskRun 诊断和目标表只读对账证明：
+
+- 17/17 TaskRun 均为 `success`，`unit_done=unit_total`，合计 `unit_failed=0`；
+- 每个自然日都在第一页短页结束，实际 `total_page_count=6,066`、`short_page_unit_count=6,066`、`multi_page_unit_count=0`、`total_retry_count=0`，因此本轮实际 Tushare 页面请求数为 6,066；
+- `rows_fetched=rows_written=27,971`，`rows_rejected=0`、`rows_deduplicated=0`、TaskRun issue 为 0；
+- `rows_inserted_new=27,957`、`rows_matched_existing=14`。2025 年原有 14 行全部自然匹配，没有重复插入；
+- 目标表最终为 27,971 行，`count(distinct source_entity_key)` 和三元业务键唯一数也均为 27,971，必填字段缺失 0、回补窗口外记录 0；实际记录的 `ann_date` 为 `2010-01-05..2026-08-08`，而 6,066 个请求 unit 已完整覆盖批准窗口内的每个自然日；
+- P0 执行前 HDD/SSD 可用空间分别为 341,166,731,264 / 17,113,653,248 bytes，最终复核分别为 341,149,868,032 / 17,196,929,024 bytes，始终高于 512 MiB / 2 GiB 门禁。水位变化包含同期系统任务和 PostgreSQL 共享 WAL/checkpoint 影响，不归因于 Express 单一数据集；
+- 最终三项服务仍为 active，`express.maintain` schedule 仍为 0。M4b 没有部署、migration、代码/API/Definition 修改、额外源端扫描或直接业务表写入。
+
+M4b 至此完成。自动更新频率、cron 时间和 schedule 创建仍属于独立 M4c，未在本轮启动。
