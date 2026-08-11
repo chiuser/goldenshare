@@ -1,8 +1,8 @@
 # CodeGraph 架构快照
 
-生成日期：2026-06-03
+生成日期：2026-08-11
 索引根：`/Users/congming/github/goldenshare`
-索引结果：1,590 files，22,357 nodes，51,525 edges，DB 50.66 MB
+索引结果：2,230 files，38,645 nodes，88,342 edges，DB 97.10 MB
 
 本文是基于 CodeGraph 根索引生成的当前事实快照，不是新的重构方案。后续做架构分析、重构、依赖边界调整、共享 contract 修改、dispatcher/worker/service 修改前，应先回到 CodeGraph 做上下文和影响面分析。
 
@@ -24,7 +24,7 @@
 
 ### 财势乾坤行情系统：`wealth/`
 
-`wealth` 是独立行情系统前端，不共享运营后台 Shell。入口为 `wealth/src/main.tsx` 与 `wealth/src/app/App.tsx`，当前通过 `AuthProvider -> WealthRouter` 装配市场总览、股票详情等页面。共享 API adapter 是 `wealth/src/shared/api/wealthApiClient.ts` 的 `wealthFetch`，它负责鉴权请求和 401 刷新令牌。
+`wealth` 是独立行情系统前端，不共享运营后台 Shell。入口为 `wealth/src/main.tsx` 与 `wealth/src/app/App.tsx`，当前通过 `AuthProvider -> WealthRouter` 装配市场总览、股票详情等页面。共享 API adapter 是 `wealth/src/shared/api/wealthApiClient.ts` 的 `wealthFetch`，它负责鉴权请求和 401 刷新令牌。股票日线图表通过 `StockChartWorkspace -> wealth/src/shared/charts/detail-workspace/DetailChartWorkspace` 组合：前者保留股票文案与数据映射，后者承载四面板、visible range、crosshair、tooltip 定位和 null-safe series。
 
 后端对应入口在 `src/biz/api/wealth/market/**`，统一挂到 `/api/v1/wealth/market/**`。
 
@@ -179,6 +179,7 @@ lake_console/orchestrator/src/orchestrator/definitions.py:defs
 2. API adapter：`wealth/src/shared/api/wealthApiClient.ts`
 3. 市场总览：`wealth/src/features/market-overview/**`、`wealth/src/pages/market-overview/**`
 4. 股票详情：`wealth/src/features/stock-detail/**`、`wealth/src/pages/stock-detail/**`
+5. 详情共享图表：`wealth/src/shared/charts/detail-workspace/**`，当前消费者为 `StockChartWorkspace`
 
 ### 本地 Lake 管理台与新湖
 
@@ -198,6 +199,8 @@ lake_console/orchestrator/src/orchestrator/definitions.py:defs
 4. `codegraph_node`：查看 `TaskRunDispatcher._dispatch_dataset_action`、`TaskRunDispatcher._run_dataset_action_plan`、`DatasetMaintainService._run`、`IngestionExecutor.run`、`wealthFetch`、`SyncProfileRunner.run`、`sync_center.start_run`、`orchestrator.definitions.defs`。
 5. `codegraph_search`：校正 `wealthFetch`、`SyncProfileRunner`、`lakeApi` 等符号位置。
 6. `codegraph_impact`：分析 `DatasetDefinition` 与 `TaskRunDispatcher` 的代表性影响面。
+7. `codegraph query DetailChartWorkspace` / `codegraph query StockChartWorkspace`：确认 shared engine、stock adapter、测试与 `StockDetailPage` 消费者。
+8. `codegraph impact DetailChartWorkspace`：确认本轮影响局限于 Wealth 图表入口；另用 import 搜索补足 CodeGraph 对 TSX 消费关系的识别不足。
 
 ## 仍需人工确认
 

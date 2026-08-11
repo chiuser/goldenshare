@@ -1,6 +1,6 @@
 # 指数详情页技术实施方案 v1
 
-> 状态：M1 后端已完成并通过真实路由、旧契约回归和生产只读性能复验；M2 共享图表及页面实现待推进。
+> 状态：M1 后端与 M2 共享图表已完成并通过验证；M3 页面 Loaded 及后续里程碑待推进。
 > 对应需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 对应门禁：[指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
 > 低层设计：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)
@@ -490,6 +490,14 @@ route tsCode
 2. stock 当前 90 根可视窗口、crosshair 同步和 tooltip 定位必须保留。
 3. 共享重构单独提交/里程碑验证后，再接指数趋势 overlay，避免把复用重构与业务故障混在一起定位。
 
+### 8.3 M2 实施结果
+
+1. 通用生命周期已收敛到 `wealth/src/shared/charts/detail-workspace/DetailChartWorkspace.tsx`，pane、types、series、formatters 与 CSS 分文件承载。
+2. `StockChartWorkspace.tsx` 已成为股票领域 adapter，只负责股票 candle 映射、MA/BOLL 选择、中文文案、单位、tooltip 与底部指标 action。
+3. shared series 对缺失 OHLC 过滤 candle；line 缺失点写为 whitespace 断点；histogram 缺失点省略，任何缺失值都不转换为 0。
+4. shared engine 预留可选 `ISeriesPrimitive<Time>[]`，但 M2 未实现指数 adapter、趋势 geometry 或趋势请求；这些仍属于 M3。
+5. 1600×1200 浏览器前后量测完全一致：图表根容器 `1193.1953125×1038`，四面板高度 `464.078125 / 179.3046875 / 179.3046875 / 179.3046875`，底部指标栏 34px；MA/BOLL、crosshair 与 tooltip 浏览器交互通过。
+
 ## 9. 状态、异常与权限
 
 以下异常码已登记到 [wealth 异常码注册表](../../system/exception-code-registry.md)，实现不得另造同义码：
@@ -590,7 +598,7 @@ cd wealth && npm run build
 |---|---|---|
 | M0 方案冻结（已完成） | 三件套/LLD、异常码、正式 DTO、生产 factor 审计、Loaded/Components/五态 Figma 节点台账 | 审计与合同已落档 |
 | M1 数据与契约（已完成） | 按冻结 DTO 实现 page-init/kline/weights；趋势仍由前端后续直接接既有 SSE API | 真实 API、旧契约无漂移与实现后性能测试通过 |
-| M2 图表共享 | 提取 shared 图表引擎，股票行为零回归 | stock tests + 浏览器对比通过 |
+| M2 图表共享（已完成） | 提取 shared 图表引擎，股票行为零回归 | stock tests + 浏览器对比通过 |
 | M3 页面 Loaded | 路由、10 卡导航、日线、三 tab、贡献点、趋势 overlay | Figma Loaded 验收 |
 | M4 异常状态 | 按五个 Figma 根画板实现 loading/empty/error/partial/forbidden，并补 404/delayed/module 状态变体 | 状态测试与逐画板截图通过 |
 | M5 本地分钟 | reader、条件路由、分钟页面 | Lake 数据与性能门禁通过 |
@@ -628,6 +636,7 @@ cd wealth && npm run build
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.9 | 2026-08-11 | 完成 M2 shared chart 与 stock adapter；落 null-safe series、四面板同步、90 根窗口、crosshair/tooltip、可选 primitive 接口及独立回归测试，并通过全量 Wealth 测试、构建和浏览器尺寸对账 | Codex |
 | v1.8 | 2026-08-11 | 完成 M1 后端三接口与严格错误映射；补 factor/daily 源负例、动态 MA 回填测试、10 code/权重/旧契约回归及生产只读 P95；同步实际目录拆分 | Codex |
 | v1.7 | 2026-08-11 | 外部核对确认 factor 量额准确；基本行情与 Kline 的量额统一改取 factor，删除 Kline daily JOIN 和 fallback；DTO 提升为 1.1.0 | Codex |
 | v1.6 | 2026-08-11 | 修正 MA null 口径：删除 A500/固定日期 warm-up 特例；按实际有效历史根数判断，并将 DTO 合同提升为 1.0.1 | Codex |

@@ -1,6 +1,6 @@
 # 指数详情页 M2 编码前门禁 v1
 
-> 状态：M1 后端条目已通过；M2 共享图表、M3/M4 页面与 M5 分钟条目仍按未勾选项阻断对应里程碑。
+> 状态：M1 后端与 M2 共享图表条目已通过；M3/M4 页面与 M5 分钟条目仍按未勾选项阻断对应里程碑。
 > 需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 方案：[指数详情页技术实施方案 v1](./index-detail-implementation-design-v1.md)
 > LLD：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)
@@ -39,7 +39,7 @@
 5. [x] 权重 SQL、贡献公式、日期、完整批次和排序已冻结。
 6. [x] 状态归并与异常矩阵冻结。
 7. [x] `ID_*` / `IM_*` 异常码已登记到统一注册表。
-8. [ ] shared 图表提取边界和股票回归 case 冻结。
+8. [x] shared 图表提取边界和股票回归 case 冻结。
 9. [ ] local/prod 分钟配置与路由矩阵冻结。
 10. [x] Figma 节点台账已确认：Basic Loaded `417:2`、Weights `423:2`、Technical `423:910`、Components `412:3`、交互说明 `425:178`、五态根画板已登记；Weights/Technical 的 Cover 跨页位置已显式记录。
 11. [ ] 真实 API + 前端可见结果测试 case 冻结。
@@ -448,10 +448,10 @@ WHERE ts_code IN (:all_constituent_codes)
 
 ### 8.3 图表共享
 
-1. [ ] 没有复制 `StockChartWorkspace.tsx` 主实现。
-2. [ ] shared chart 不含 stock/index 业务文案。
-3. [ ] null 指标被过滤或绘制断点，不转 0。
-4. [ ] 股票详情 90 根窗口、crosshair、tooltip、MA/BOLL、四面板回归通过。
+1. [x] 没有复制 `StockChartWorkspace.tsx` 主实现。
+2. [x] shared chart 不含 stock/index 业务文案。
+3. [x] null 指标被过滤或绘制断点，不转 0。
+4. [x] 股票详情 90 根窗口、crosshair、tooltip、MA/BOLL、四面板回归通过。
 5. [ ] 上证指数趋势短/长期四轨与每日竖线可按日期对齐，无未来数据；每个交易日都有竖线，颜色切换点连续；短期红/绿、长期粉/蓝四种组合均有测试。
 6. [ ] 其余 9 个指数不渲染趋势入口、不调用趋势接口。
 
@@ -550,7 +550,7 @@ M1 实现后 50 样本跨网络服务链 P95：page-init 246.054ms、kline 300 2
 4. [ ] 三 tab、权重懒加载缓存、10 行虚拟滚动并可到达末行、技术空字段。
 5. [ ] prod/local 周期能力。
 6. [ ] 页面无“前复权”。
-7. [ ] 股票详情共享图表回归。
+7. [x] 股票详情共享图表回归。
 8. [ ] Loading 无上一标的详情值；Empty 有 17 个指数专属 `--` 占位（主价格、涨跌、15 项指标）。
 9. [ ] Partial 的 Figma fixture 仅缺金额、TTM 市盈率、平盘数，同时有另一缺失组合证明提示与占位不是写死。
 10. [ ] Error/FORBIDDEN 外层骨架尺寸不变，MainContent 为全宽面板；恢复按钮执行正确动作。
@@ -576,7 +576,7 @@ cd wealth && npm run build
 ### 前端
 
 1. [ ] Figma Loaded 结构可实现。
-2. [ ] shared chart 重构范围可控。
+2. [x] shared chart 重构范围可控。
 3. [ ] 三 tab、周期、异常态可落地。
 4. [ ] 五态逐画板结构、文案、动作、颜色与数据保留规则可落地。
 
@@ -591,6 +591,7 @@ cd wealth && npm run build
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.9 | 2026-08-11 | 完成 M2 shared chart：通用四面板生命周期、90 根窗口、同步 crosshair/tooltip、MA/BOLL 可选线、null-safe series 与可选 primitive 接口落地；股票 adapter、全量 Wealth 测试、生产构建和 1600×1200 浏览器尺寸对账通过；趋势与指数 adapter 仍留在 M3 | Codex |
 | v1.8 | 2026-08-11 | 回填 M1 实施结果：三条真实路由、严格非法参数、10 code、动态 MA、完整权重、源字段负例、旧契约回归和生产只读 P95 条目通过；保留前端/M5/真实 2000 行未通过项 | Codex |
 | v1.7 | 2026-08-11 | 外部核对确认 factor 量额准确；page-init/Kline 量额统一取 factor，增加 daily fallback 负向门禁和 factor-only 性能复验；DTO 提升为 1.1.0 | Codex |
 | v1.6 | 2026-08-11 | 修正 MA null 门禁：删除 A500/固定日期特例；增加实际历史根数、回填重分类、负向测试与完整链路性能复验；DTO 提升为 1.0.1 | Codex |
