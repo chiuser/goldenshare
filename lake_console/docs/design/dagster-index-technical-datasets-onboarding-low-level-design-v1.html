@@ -421,6 +421,8 @@ silver_major_index_mins_120m ┘</code></pre>
           <tr><td><code>defs/bootstrap/idx_factor_pro_bootstrap_stage.py</code></td><td>新增</td><td>按代码分页写临时根，按日重排。</td></tr>
           <tr><td><code>defs/bootstrap/idx_factor_pro_bootstrap_promote.py</code></td><td>新增</td><td>计划 hash 校验、全量审计、正式提升。</td></tr>
           <tr><td><code>defs/bootstrap/idx_factor_pro_bootstrap_events.py</code></td><td>新增</td><td>独立批准后才运行的分区/materialization/check event 补录。</td></tr>
+          <tr><td><code>defs/bootstrap/idx_factor_pro_bootstrap_cli.py</code></td><td>M7 已完成</td><td>提供 plan、source staging、candidate 和 formal promotion 的受控入口；三类写入分别要求 source/staging/Lake 确认参数。</td></tr>
+          <tr><td><code>defs/bootstrap/idx_factor_pro_bootstrap_events_cli.py</code></td><td>M7 已完成</td><td>提供 dry-run、register-partitions、sample、apply、post-audit；分区与 event 使用不同确认参数。</td></tr>
           <tr><td><code>defs/catalog/name_mapping.py</code></td><td>修改</td><td>登记 <code>idx_factor_pro</code> 与 <code>index_factor_pro</code> 中文名。</td></tr>
           <tr><td><code>defs/catalog/lake_assets.py</code></td><td>修改</td><td>PartitionModel/Definition 与两个 Catalog entries。</td></tr>
         </tbody>
@@ -442,7 +444,9 @@ silver_major_index_mins_120m ┘</code></pre>
           <tr><td><code>defs/jobs/gold_major_index_mins_technical_daily_update.py</code></td><td>M6 已完成</td><td>一个日期精确选择 14 assets + 70 blocking checks，不包含 Raw/Silver。</td></tr>
           <tr><td><code>defs/sensors/gold_major_index_mins_technical_daily_update_job_sensor.py</code></td><td>M6 已完成</td><td>只监听 Silver success，物理核验 7 频率、目标与严格前态后单请求推进。</td></tr>
           <tr><td><code>defs/bootstrap/major_index_mins_technical_history.py</code></td><td>新增</td><td>按日期升序计算历史，不写 Dagster events。</td></tr>
-          <tr><td><code>defs/bootstrap/major_index_mins_technical_events.py</code></td><td>新增</td><td>批准后批量补录历史 events。</td></tr>
+          <tr><td><code>defs/bootstrap/major_index_mins_technical_bootstrap_events.py</code></td><td>M7 已完成工具实现</td><td>正式文件复核、既有分钟分区门禁、全历史 materialization、最近 20 个完整交易日 70 个 blocking checks；sample/apply/post-audit 均须独立确认。</td></tr>
+          <tr><td><code>defs/bootstrap/major_index_mins_technical_bootstrap_cli.py</code></td><td>M7 已完成</td><td>提供只读 plan、candidate staging 和 formal promotion 入口；两类写入分别要求 staging/Lake 确认参数。</td></tr>
+          <tr><td><code>defs/bootstrap/major_index_mins_technical_bootstrap_events_cli.py</code></td><td>M7 已完成</td><td>提供 dry-run、sample、apply、post-audit；event 写入必须显式确认且 sample 必须指定日期。</td></tr>
           <tr><td><code>defs/catalog/name_mapping.py</code></td><td>修改</td><td>登记 technical/state 中文名。</td></tr>
           <tr><td><code>defs/catalog/lake_assets.py</code></td><td>修改</td><td>两个 PartitionModel、14 Catalog entries。</td></tr>
         </tbody>
@@ -648,6 +652,8 @@ silver/index/index_factor_pro/_staging/run_id={run_id}/trade_date=YYYY-MM-DD/par
     <h3>5.10 历史 Bootstrap</h3>
     <ol>
       <li><strong>probe：</strong>逐 seed code 通过直接 connector 验证 start/end/limit/offset，冻结每代码源首日。</li>
+      <li><strong>有效代码：</strong>当日应有代码必须同时满足日级 seed 已生效和不早于该代码的 <code>idx_factor_pro</code> 源端首日；<code>000680.SH</code> 从 <code>2025-01-17</code> 才进入，不得从日线 seed 的 <code>2020-01-02</code> 强制要求存在。</li>
+      <li><strong>源端行数：</strong>计划中的 source 行数只用于请求预算和空间测算，不作为精确相等门禁。不同交易所早期交易日历可能存在差异；source staging 必须记录实际行数与估算差值，而进入日级 seed 后仍由逐日 expected code、主键和 Raw/Silver 总行数做严格完整性校验。</li>
       <li><strong>plan：</strong>生成 code、start/end、预估页数、空间、request budget、plan hash；只读。</li>
       <li><strong>stage：</strong>按代码分页写临时根；每页 8000 行上限；重复页或页预算超限停止。</li>
       <li><strong>repartition：</strong>DuckDB 将 11 代码 source staging 重排为逐日 Raw，再逐日生成 Silver。</li>
@@ -1048,7 +1054,7 @@ minute technical/state:
           <tr><td>M4 idx factor automation</td><td><strong>已完成：</strong>layer-isolated jobs、当前日 partition sensor、Raw/Silver sensors、单日 Lake readiness 与单页 source probe。</td><td>当前开放日单 tick 最多 1 run，三个 sensor 默认 STOPPED；existing-invalid 文件 fail closed；未启用、未写正式 Lake。</td><td>sensor 扫历史、读取 Dagster event history、自动覆盖或 repair 已存在坏文件。</td></tr>
           <tr><td>M5 minute technical core</td><td><strong>已完成：</strong>MA/BOLL/MACD/KDJ 公式、DuckDB 向量 writer、逐代码 seed 与严格前态、累计 observation count、7 个双输出 multi-assets、70 个 blocking checks。</td><td>独立 golden fixture、20 日递推、未来分区排除、缺前态拒绝、重入代码不得再次 seed、已有目标拒绝、第二文件提升失败留下可识别 partial target；M5 聚焦 31 项测试通过，idx factor + major-index minutes 完整相邻回归 273 项/344 个子测试通过。</td><td>前态语义不清、双文件失败不能识别；M5 禁止提前新增 job、sensor、readiness 或 bootstrap。</td></tr>
           <tr><td>M6 minute automation</td><td><strong>已完成并修复 Definitions 注册门禁：</strong>daily job、run-status sensor 和物理 readiness 已实现；check 集合已改为单一 list 导出并通过真实项目加载门禁。</td><td>7 频率一个日期 run；项目 Definitions 精确注册 14 assets + 70 checks，daily job 精确选择同一集合；其余 partition、target、前态和 fail-closed 语义不变。</td><td>禁止退回 tuple、显式汇总、重复导出或运行时补 event 绕过模块发现；sensor 仍为 STOPPED。</td></tr>
-          <tr><td>M7 history bootstrap</td><td>两个数据产品 dry-run/sample/batch/audit/promote/events。</td><td>文件、行数、keys、schema、state、空间、events 完整对账。</td><td>未获得执行批准、空间不足、计划 hash 变化、任何批次差异。</td></tr>
+          <tr><td>M7 history bootstrap</td><td><strong>工具与测试、idx factor source staging 与 Raw/Silver candidate 已完成：</strong>两个数据产品的 frozen plan、source/candidate、audit、promotion、分区/event sample/apply/post-audit 工具及受控 CLI 已实现；<code>idx_factor_pro</code> 有效代码已叠加源端首日，分钟 writer 已拆分 source/target/staging 根。</td><td><code>plan_hash=f7e7fca7...</code>：截至 2026-08-07 从 Tushare 完成 11 指数、13 页、45,772 行 source staging；候选覆盖 2000-01-04..2026-08-07 共 6,445 日，Raw/Silver 各 6,445 文件、各 41,355 行，0 重复主键、key parity 差异 0，约 217 MB；<code>000680.SH</code> 首日为 2025-01-17。formal Lake、partitions 和 events 均未执行；下一阶段仍须单独批准。</td><td>未获得当前阶段批准、空间不足、计划 hash 变化、正式文件或 promotion report 漂移、活跃 Dagster run、缺分钟分区、任何批次差异。</td></tr>
           <tr><td>M8 收口</td><td>Definitions、全测试、文档对账、静态旧口径清零。</td><td>代码/Catalog/文档一致。</td><td>Foundation、ClickHouse、API 等计划外改动混入。</td></tr>
         </tbody>
       </table>
@@ -1136,12 +1142,12 @@ cd /Users/congming/github/goldenshare
 python3 scripts/check_docs_integrity.py
 git diff --check
 git status --short</code></pre>
-    <h3>12.2 M7 实现后追加</h3>
+    <h3>12.2 M7 当前代码门禁</h3>
     <pre><code>cd /Users/congming/github/goldenshare/lake_console/orchestrator
 uv run python -m pytest -q \
   tests/test_idx_factor_pro_bootstrap.py \
   tests/test_major_index_mins_technical_bootstrap.py</code></pre>
-    <p>M7 文件尚未实现前，不得把 bootstrap 测试命令伪装成当前可执行门禁，也不得为让命令通过而提前创建空测试或兼容入口。</p>
+    <p>以上 27 个 M7 测试现已实际通过，不是空测试或兼容入口。该结果只证明工具合同、CLI 确认参数、安全停止条件和本地临时目录执行成立，不证明 Tushare 历史请求、正式 staging、正式 Lake、dynamic partitions 或 Dagster events 已执行。</p>
     <p>进入 definitions 验证、真实 connector probe 或 Lake 样本写入前，必须按阶段重新确认命令及影响；本 LLD 不授权这些操作。</p>
     <div class="callout ok">
       <strong>仓库级门禁已收口：</strong><code>defs/assets/index_daily.py</code> 实际通过
@@ -1167,6 +1173,7 @@ uv run python -m pytest -q \
           <tr><td>双文件提交</td><td>明确非跨目录原子，采用 staging + 顺序提升 + partial fail closed + repair rollback。</td><td class="status-new">已冻结</td></tr>
           <tr><td>分钟技术核心</td><td>7 频率 technical/state 双输出、逐代码 seed、严格前态、有限历史 rolling、70 个 blocking checks；不包含历史 bootstrap。</td><td class="status-current">M5 已完成</td></tr>
           <tr><td>分钟技术自动化</td><td>Silver success 单分区触发；同日 7 Silver、目标 14 文件和前一 expected date 7 state 采用物理事实核验；目标 partial/invalid 禁止覆盖；Definitions 已精确注册 14 assets + 70 checks。</td><td class="status-current">M6 已完成并修复注册门禁，sensor 保持 STOPPED</td></tr>
+          <tr><td>M7 历史 Bootstrap</td><td>两套 frozen plan、候选构建、manifest promotion、runless event 工具及阶段确认 CLI 已落地；<code>idx_factor_pro</code> 按 Tushare 源端首日叠加日线 seed 判断，分钟历史复用现有向量 writer 并分离 source/target/staging 根。</td><td class="status-current">工具与测试已完成；全部真实读写阶段未执行</td></tr>
           <tr><td>产品决策</td><td>无待拍板项。</td><td class="status-current">已清零</td></tr>
         </tbody>
       </table>

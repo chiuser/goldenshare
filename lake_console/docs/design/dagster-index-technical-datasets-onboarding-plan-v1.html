@@ -348,7 +348,7 @@ silver_major_index_mins_{1,5,15,30,60,90,120}m
           <tr><td><code>899050.BJ</code></td><td>北证50</td><td>纳入；日线数据完整</td></tr>
           <tr><td><code>000510.SH</code></td><td>中证A500</td><td>纳入</td></tr>
           <tr><td><code>000016.SH</code></td><td>上证50</td><td>纳入</td></tr>
-          <tr><td><code>000680.SH</code></td><td>科创综指</td><td>纳入；从 2020-01-02 起 active</td></tr>
+          <tr><td><code>000680.SH</code></td><td>科创综指</td><td>日线 seed 从 2020-01-02 生效；<code>idx_factor_pro</code> 按独立源端首日从 2025-01-17 生效</td></tr>
         </tbody>
       </table>
     </div>
@@ -487,6 +487,7 @@ silver/index/index_factor_pro/trade_date=YYYY-MM-DD/part-000.parquet</code></pre
           <tr><td>历史范围</td><td>每个批准代码从源端实际最早可用日到批准截止日，不强行共用一个起点。</td><td>M0 逐代码探测并冻结 <code>first_available_trade_date</code>，不能沿用分钟线起点猜测。</td></tr>
           <tr><td>源请求/页</td><td>11 个代码分别分页；M0 真实 connector 探测共 13 页。</td><td>M1 必须固化已冻结的代码、区间、页预算，并由 dry-run 生成计划 hash。</td></tr>
           <tr><td>源行数</td><td>M0 截至 <code>2026-08-07</code> 实测 45,772 行；各代码起点不同。</td><td>全量执行前仍须用 dry-run 重新核对 source count；禁止把 M0 快照当永久不变行数。</td></tr>
+          <tr><td>源行数门禁</td><td>交易日历推导值只用于请求预算和空间估算；source staging 记录真实行数及差值。</td><td>不得因早期沪深交易日历差异放宽 seed 生效后的逐日代码集合、主键、Raw/Silver parity 与候选总行数门禁。</td></tr>
           <tr><td>文件数</td><td>Raw + Silver 合计约 17400-17800 个正式 Parquet。</td><td>不得产生每指数文件。</td></tr>
           <tr><td>磁盘峰值</td><td>数据行只有数万级，但逐日小文件开销占主导；初始工作预算按 Raw + Silver 合计低于 1 GB。</td><td>以 20 日和 1 年样本实测压缩率、文件开销和 staging 峰值；可用空间低于 2 倍峰值时拒绝执行。</td></tr>
           <tr><td>理论源端耗时</td><td>请求量为十几页量级，源端网络时间应为分钟级而非小时级。</td><td>记录每代码页数、限流等待和总 elapsed；超出 dry-run 预算立即停止。</td></tr>
@@ -768,9 +769,9 @@ gold/indicator/major_index_mins_technical_state/
           <tr><td>M2 日级 Raw</td><td><strong>已完成：</strong><code>idx_factor_pro</code> 日常 Raw writer、asset、checks、按页流式消费与外置 staging 原子提升；历史代码分页只保留 request contract 门禁，正式历史写入归 M7。</td><td>2026-08-07 临时真实验收：source 3772、selected/written 11、1 request/1 page、0 retry；未写正式 Lake、未发事件。</td></tr>
           <tr><td>M3 日级 Silver</td><td><strong>已完成：</strong>日期/数值类型标准化、Silver asset、contract/source parity/cast integrity 三项 blocking checks，并将 Catalog 切换为活跃定义。</td><td>2026-08-07 临时目录验收：Raw/Silver 各 11 行、11 个代码、89 字段，key/数值/NULL 完全一致，Silver 文件 19793 bytes；正式 Lake 执行未授权。</td></tr>
           <tr><td>M4 日级自动化</td><td><strong>已完成：</strong>Raw/Silver layer-isolated jobs、当前开放日 partition sensor、Raw/Silver sensors、单日物理文件 readiness、单页 source probe 与 v1 compact cursor。</td><td>当前日单 tick 最多 1 分区，三个 sensor 默认 STOPPED；已有坏文件 fail closed；隔离测试与静态门禁通过，未在正式 instance 启用、未写正式 Lake。</td></tr>
-          <tr><td>M5 分钟指标核心</td><td>DuckDB 公式、指标/state writers、路径与双文件提交协议。</td><td>公式金样本在测试中验证；生产门禁覆盖无未来数据、有限值、warm-up 与严格前态。</td></tr>
+          <tr><td>M5 分钟指标核心</td><td><strong>已完成：</strong>DuckDB 公式、technical/state writers、路径、逐代码 seed、严格前态与双文件提交协议。</td><td>公式金样本、20 日递推、warm-up、无未来数据、partial target 和严格前态门禁均已验证。</td></tr>
           <tr><td>M6 分钟资产自动化</td><td><strong>已完成并修复注册门禁：</strong>Gold assets、70 个 blocking checks、daily job、run-status sensor 与 readiness 已实现；2026-08-12 已将 check 集合从 tuple 收敛为 Dagster 可发现的单一 list，并补真实 Definitions/Job 门禁。</td><td>项目真实 Definitions 精确注册 14 assets、42 technical checks、28 state checks，daily job 精确选择 14 assets + 70 checks；sensor 保持 STOPPED，未访问 Dagster Instance 或正式 Lake。</td></tr>
-          <tr><td>M7 历史 Bootstrap</td><td>两个资产族 dry-run/sample/batch/final audit/runless events。</td><td>正式执行前单独申请批准；空间、配额、文件、事件预算明确。</td></tr>
+          <tr><td>M7 历史 Bootstrap</td><td><strong>工具与测试、idx factor source staging 与 Raw/Silver candidate 已完成：</strong>两个资产族 frozen plan、source/candidate、audit、promotion、sample/apply/post-audit events 工具及阶段确认 CLI 已落地。</td><td><code>plan_hash=f7e7fca7...</code>：source staging 为 11 指数、13 页、45,772 行；candidate 为 6,445 日、Raw/Silver 各 6,445 文件和 41,355 行，物理对账通过。正式 Lake、分区和 events 未执行，仍按后续阶段分别申请批准。</td></tr>
           <tr><td>M8 收口</td><td>Definitions、拓扑/运行文档、测试矩阵、开发模板 checklist 对账。</td><td>代码、Catalog、文档、UI 描述无漂移。</td></tr>
         </tbody>
       </table>
@@ -797,9 +798,9 @@ gold/indicator/major_index_mins_technical_state/
         <thead><tr><th>阶段</th><th>证据</th><th>状态</th></tr></thead>
         <tbody>
           <tr><td><code>idx_factor_pro</code> 单日</td><td>2026-08-07 源端 3772 行，active seed 11 行，Raw 11 行，missing/extra 0，主键 11，Raw 临时文件 19120 bytes；同一 Raw 经纯 cast 生成 Silver 11 行、11 代码、89 字段，key/数值/NULL 差异 0，Silver 临时文件 19793 bytes。</td><td>M2/M3 已通过；仅系统临时目录验收，正式 Lake 执行未授权</td></tr>
-          <tr><td><code>idx_factor_pro</code> 历史分页</td><td>长历史/短历史代码的页数、offset、短页终止、source/Raw key parity、日期重排与压缩率。</td><td>待开发</td></tr>
-          <tr><td>分钟指标单日</td><td>同日 Silver 有效代码 × 批准频率 input/output parity、state continuity；当前日期预期 10 个，历史按合同可少于 10 个。</td><td>待开发</td></tr>
-          <tr><td>分钟指标小批</td><td>20 日递推与一次性全段计算结果一致。</td><td>待开发</td></tr>
+          <tr><td><code>idx_factor_pro</code> 历史分页</td><td>长历史/短历史代码的页数、offset、短页终止、source/Raw key parity、日期重排与压缩率。</td><td>工具与 fake source 正负测试已完成；真实 Tushare source staging 未执行</td></tr>
+          <tr><td>分钟指标单日</td><td>同日 Silver 有效代码 × 批准频率 input/output parity、state continuity；当前日期预期 10 个，历史按合同可少于 10 个。</td><td>M5/M7 本地临时目录测试已完成；正式 Lake 未执行</td></tr>
+          <tr><td>分钟指标小批</td><td>20 日递推与一次性全段计算结果一致。</td><td>M5 代码测试已完成；M7 正式候选性能样本未执行</td></tr>
           <tr><td>历史全量</td><td>日期/文件/行数/schema/check/event inventory 和失败恢复报告。</td><td>需另行批准</td></tr>
         </tbody>
       </table>

@@ -164,7 +164,8 @@ def _build_major_index_mins_technical_assets(
             duckdb_resource=duckdb,
         )
         result = write_major_index_mins_technical_partition(
-            lake_root_path=lake_root.root(),
+            source_lake_root_path=lake_root.root(),
+            target_lake_root_path=lake_root.root(),
             staging_root_path=Path(DEFAULT_LAKE_STAGING_ROOT),
             duckdb_resource=duckdb,
             freq=freq,

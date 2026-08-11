@@ -71,7 +71,8 @@ def test_formula_golden_fixture_locks_ma_boll_macd_and_kdj(
     _write_golden_silver_partition(lake_root)
 
     result = write_major_index_mins_technical_partition(
-        lake_root_path=lake_root,
+        source_lake_root_path=lake_root,
+        target_lake_root_path=lake_root,
         staging_root_path=staging_root,
         duckdb_resource=DuckDBResource(),
         freq=FREQ,

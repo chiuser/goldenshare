@@ -50,6 +50,15 @@ def test_source_contract_freezes_89_fields_and_11_code_daily_seed() -> None:
     )
 
 
+def test_active_codes_intersect_daily_seed_with_source_first_date() -> None:
+    before_source_start = active_idx_factor_pro_daily_codes("2025-01-16")
+    on_source_start = active_idx_factor_pro_daily_codes("2025-01-17")
+
+    assert "000680.SH" not in before_source_start
+    assert "000680.SH" in on_source_start
+    assert set(on_source_start) - set(before_source_start) == {"000680.SH"}
+
+
 def test_daily_factor_uses_a_dedicated_partition_definition() -> None:
     assert cn_major_index_factor_trade_days.name == (
         "cn_major_index_factor_trade_days"

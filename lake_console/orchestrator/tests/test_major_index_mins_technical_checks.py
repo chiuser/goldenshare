@@ -71,7 +71,8 @@ def _materialize_two_days(lake_root: Path, staging_root: Path) -> None:
     _write_silver_partition(lake_root, DAY_2, 14.0)
     for index, trade_date in enumerate((DAY_1, DAY_2), start=1):
         write_major_index_mins_technical_partition(
-            lake_root_path=lake_root,
+            source_lake_root_path=lake_root,
+            target_lake_root_path=lake_root,
             staging_root_path=staging_root,
             duckdb_resource=DuckDBResource(),
             freq=FREQ,

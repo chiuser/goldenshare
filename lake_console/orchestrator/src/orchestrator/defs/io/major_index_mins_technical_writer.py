@@ -1036,7 +1036,8 @@ def _assert_same_filesystem(staging_path: Path, target_path: Path) -> None:
 
 def write_major_index_mins_technical_partition(
     *,
-    lake_root_path: Path,
+    source_lake_root_path: Path,
+    target_lake_root_path: Path,
     staging_root_path: Path,
     duckdb_resource: DuckDBResource,
     freq: int | str,
@@ -1055,7 +1056,7 @@ def write_major_index_mins_technical_partition(
     )
     source_paths = tuple(
         silver_major_index_mins_path(
-            lake_root_path,
+            source_lake_root_path,
             _technical_freq_text(normalized_freq),
             trade_date,
         )
@@ -1081,7 +1082,7 @@ def write_major_index_mins_technical_partition(
         )
     previous_state_path = (
         gold_major_index_mins_technical_state_path(
-            lake_root_path,
+            target_lake_root_path,
             normalized_freq,
             previous_trade_date,
         )
@@ -1090,7 +1091,7 @@ def write_major_index_mins_technical_partition(
     )
     previous_technical_path = (
         gold_major_index_mins_technical_path(
-            lake_root_path,
+            target_lake_root_path,
             normalized_freq,
             previous_trade_date,
         )
@@ -1103,10 +1104,10 @@ def write_major_index_mins_technical_partition(
                 f"strict previous-date input is missing: {previous_path}"
             )
     technical_path = gold_major_index_mins_technical_path(
-        lake_root_path, normalized_freq, target_date
+        target_lake_root_path, normalized_freq, target_date
     )
     state_path = gold_major_index_mins_technical_state_path(
-        lake_root_path, normalized_freq, target_date
+        target_lake_root_path, normalized_freq, target_date
     )
     technical_staging_path = gold_major_index_mins_technical_staging_path(
         staging_root_path, run_id, normalized_freq, target_date

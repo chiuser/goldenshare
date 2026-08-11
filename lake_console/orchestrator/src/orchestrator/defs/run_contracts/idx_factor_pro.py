@@ -198,8 +198,23 @@ def approved_idx_factor_pro_daily_codes() -> tuple[str, ...]:
     return codes
 
 
+def idx_factor_pro_effective_start_trade_date(ts_code: str) -> str:
+    """Return the later of the daily seed start and source coverage start."""
+
+    normalized_code = str(ts_code).strip().upper()
+    rows_by_code = {row.ts_code: row for row in load_major_indices_seed()}
+    if normalized_code not in approved_idx_factor_pro_daily_codes():
+        raise IdxFactorProContractError(
+            f"idx_factor_pro code is outside the daily seed: {ts_code!r}"
+        )
+    return max(
+        rows_by_code[normalized_code].effective_start_date.isoformat(),
+        IDX_FACTOR_PRO_FIRST_AVAILABLE_TRADE_DATES[normalized_code],
+    )
+
+
 def active_idx_factor_pro_daily_codes(trade_date: str | date) -> tuple[str, ...]:
-    """Return the date-effective daily seed without consulting minute scope."""
+    """Return codes eligible in both the daily seed and source coverage."""
 
     normalized_date = normalize_idx_factor_pro_trade_date(trade_date)
     approved_codes = set(approved_idx_factor_pro_daily_codes())
@@ -207,6 +222,8 @@ def active_idx_factor_pro_daily_codes(trade_date: str | date) -> tuple[str, ...]
         row.ts_code
         for row in active_major_indices_seed_rows(normalized_date)
         if row.ts_code in approved_codes
+        and normalized_date
+        >= IDX_FACTOR_PRO_FIRST_AVAILABLE_TRADE_DATES[row.ts_code]
     )
 
 

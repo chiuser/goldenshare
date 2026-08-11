@@ -121,7 +121,8 @@ def test_writer_seeds_first_available_date_then_requires_continuity(
     expected_dates = (DAY_1, DAY_2)
 
     day_1 = write_major_index_mins_technical_partition(
-        lake_root_path=lake_root,
+        source_lake_root_path=lake_root,
+        target_lake_root_path=lake_root,
         staging_root_path=staging_root,
         duckdb_resource=DuckDBResource(),
         freq=FREQ,
@@ -130,7 +131,8 @@ def test_writer_seeds_first_available_date_then_requires_continuity(
         expected_trade_dates=expected_dates,
     )
     day_2 = write_major_index_mins_technical_partition(
-        lake_root_path=lake_root,
+        source_lake_root_path=lake_root,
+        target_lake_root_path=lake_root,
         staging_root_path=staging_root,
         duckdb_resource=DuckDBResource(),
         freq=FREQ,
@@ -150,6 +152,40 @@ def test_writer_seeds_first_available_date_then_requires_continuity(
     assert day_2.technical_row_count == day_2.input_row_count
 
 
+def test_writer_reads_silver_from_source_root_and_writes_candidate_target_root(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "formal-lake"
+    target_root = tmp_path / "candidate-lake"
+    staging_root = tmp_path / "run-staging"
+    _write_silver_partition(
+        source_root,
+        trade_date=DAY_1,
+        codes=expected_major_index_mins_technical_codes(DAY_1),
+        first_close=10.0,
+    )
+
+    result = write_major_index_mins_technical_partition(
+        source_lake_root_path=source_root,
+        target_lake_root_path=target_root,
+        staging_root_path=staging_root,
+        duckdb_resource=DuckDBResource(),
+        freq=FREQ,
+        partition_key=DAY_1,
+        run_id="candidate-day-1",
+        expected_trade_dates=(DAY_1,),
+    )
+
+    assert result.source_paths[0].is_relative_to(source_root)
+    assert result.technical_path.is_relative_to(target_root)
+    assert result.state_path.is_relative_to(target_root)
+    assert result.technical_path.is_file()
+    assert result.state_path.is_file()
+    assert not gold_major_index_mins_technical_path(
+        source_root, FREQ, DAY_1
+    ).exists()
+
+
 def test_writer_formula_and_state_match_literal_first_day_values(
     tmp_path: Path,
 ) -> None:
@@ -163,7 +199,8 @@ def test_writer_formula_and_state_match_literal_first_day_values(
     )
 
     result = write_major_index_mins_technical_partition(
-        lake_root_path=lake_root,
+        source_lake_root_path=lake_root,
+        target_lake_root_path=lake_root,
         staging_root_path=staging_root,
         duckdb_resource=DuckDBResource(),
         freq=FREQ,
@@ -217,7 +254,8 @@ def test_writer_rejects_missing_previous_state_for_continuing_codes(
         match="strict previous-date input is missing",
     ):
         write_major_index_mins_technical_partition(
-            lake_root_path=lake_root,
+            source_lake_root_path=lake_root,
+            target_lake_root_path=lake_root,
             staging_root_path=staging_root,
             duckdb_resource=DuckDBResource(),
             freq=FREQ,
@@ -244,7 +282,8 @@ def test_writer_rejects_later_partition_without_previous_expected_date(
         match="strict previous expected trade date is unavailable",
     ):
         write_major_index_mins_technical_partition(
-            lake_root_path=lake_root,
+            source_lake_root_path=lake_root,
+            target_lake_root_path=lake_root,
             staging_root_path=staging_root,
             duckdb_resource=DuckDBResource(),
             freq=FREQ,
@@ -272,7 +311,8 @@ def test_writer_refuses_existing_paired_target(tmp_path: Path) -> None:
         match="refuses to overwrite existing target",
     ):
         write_major_index_mins_technical_partition(
-            lake_root_path=lake_root,
+            source_lake_root_path=lake_root,
+            target_lake_root_path=lake_root,
             staging_root_path=staging_root,
             duckdb_resource=DuckDBResource(),
             freq=FREQ,
@@ -316,7 +356,8 @@ def test_writer_matches_scalar_recursive_reference_across_twenty_days(
         highs.extend((first_close + 1.0, first_close + 4.0))
         lows.extend((first_close - 1.0, first_close + 2.0))
         final_result = write_major_index_mins_technical_partition(
-            lake_root_path=lake_root,
+            source_lake_root_path=lake_root,
+            target_lake_root_path=lake_root,
             staging_root_path=staging_root,
             duckdb_resource=DuckDBResource(),
             freq=FREQ,
@@ -374,7 +415,8 @@ def test_writer_does_not_scan_future_expected_partition(tmp_path: Path) -> None:
         )
 
     result = write_major_index_mins_technical_partition(
-        lake_root_path=lake_root,
+        source_lake_root_path=lake_root,
+        target_lake_root_path=lake_root,
         staging_root_path=staging_root,
         duckdb_resource=DuckDBResource(),
         freq=FREQ,
@@ -414,7 +456,8 @@ def test_writer_leaves_partial_technical_visible_when_state_promotion_fails(
 
     with pytest.raises(OSError, match="state promotion failed"):
         write_major_index_mins_technical_partition(
-            lake_root_path=lake_root,
+            source_lake_root_path=lake_root,
+            target_lake_root_path=lake_root,
             staging_root_path=staging_root,
             duckdb_resource=DuckDBResource(),
             freq=FREQ,
