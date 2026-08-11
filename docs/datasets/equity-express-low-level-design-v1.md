@@ -1,7 +1,7 @@
 # A股业绩快报（`express`）数据集低层设计 v1
 
-状态：**M1/M2/M3/M4a/M4b 已完成；M4c 未开始**
-编写日期：2026-08-10；M1/M2/M3/M4a/M4b 状态更新：2026-08-11
+状态：**M1/M2/M3/M4a/M4b 已完成；M4c 生产自动任务已正确配置，待首次计划触发与对账验收**
+编写日期：2026-08-10；M1/M2/M3/M4a/M4b/M4c 状态更新：2026-08-11
 适用范围：Tushare `express_vip` 业绩快报接入 Goldenshare Prod
 
 ## 1. 结论先行
@@ -18,7 +18,7 @@
 4. 失败或取消不推进覆盖游标；retry 复用原 TaskRun 的同一时间窗口。
 5. 调度参数和续跑逻辑由通用 schedule capability contract 驱动，不得在前端或 Ops 服务中增加 `express` key 白名单。
 
-当前没有尚未拍板的 M1–M4b 业务设计项。生产 migration、首次同步和幂等验收已经完成；M4a 也已完成不调用 Tushare、不写生产数据库的规模与水位测算。M4b 已按管理员确认的 `2010-01-01` 起点完成 17 个串行 TaskRun，并回补至执行日冻结的 `D-1=2026-08-10`。生产 cron 时间与 schedule 创建仍属于独立的 M4c。
+当前没有尚未拍板的 M1–M4b 业务设计项。生产 migration、首次同步、幂等验收和历史回补均已完成。管理员随后通过生产运营页面创建、启用并校正了 M4c 自动任务；当前不需要新增代码开发，只需完成首次计划触发和对账验收，详见 20.9。
 
 ## 2. 目标、范围与明确不做
 
@@ -643,7 +643,7 @@ Calendar capability API 的每条 rule 新增通用 `policy_parameters`，复用
 
 - M4a：只读测算选定历史起点到当前的自然日数、预计页数、限流耗时和数据/WAL/HDD 水位，不逐日打源站接口。
 - M4b：明确授权后，历史回补每次最多 366 日，分段运行并逐段对账。
-- M4c：运营手工选择 `initial_start_date`、cron 周期与时间并创建 schedule；不由 migration 或代码自动 seed。
+- M4c：运营手工选择 `initial_start_date`、cron 周期与时间并创建 schedule；不由 migration 或代码自动 seed。生产 Schedule #35 已创建并把首次覆盖日校正为 `2026-08-11`，仍需验收首次计划触发。
 
 ### 16.5 必跑门禁
 
@@ -659,7 +659,7 @@ python3 scripts/check_docs_integrity.py
 git diff --check
 ```
 
-自动任务表单有用户可见变化，M1 还必须从“新建/编辑自动任务 -> 选择业绩快报 -> 填写首次覆盖日 -> 保存 -> 查看详情”走真实浏览器验收，并验证禁止控件没有出现。
+自动任务表单有用户可见变化。生产 Schedule #35 已证明“新建自动任务 -> 选择业绩快报 -> 填写首次覆盖日 -> 保存 -> 查看详情 -> 编辑首次覆盖日”的真实页面/API 主路径可用；首次计划触发仍按 M4c 门禁验收。
 
 ## 17. 硬需求追溯账本
 
@@ -672,26 +672,27 @@ git diff --check
 | EX-05 | 三元身份和内容冲突 fail-closed | transform/writer | 新 ann_date 可并存 | 同身份不同内容阻断 | M1 已完成 |
 | EX-06 | table/PK/index 全部 HDD，WAL 不改 | migration | 真实 tablespace 路径 | 缺 HDD 不得落默认盘 | M2 隔离库 5 个 relation 均命中 `gs_raw_cold_hdd`；Prod 冷存储真实路径已只读确认 |
 | EX-07 | Ops 新增“A股财务数据” | catalog | 手动/自动均显示新组 | 不得塞入 A股行情 | M1 已完成 |
-| EX-08 | cron 可配 daily/weekly/monthly+时间 | capability/API/UI | 三种周期可保存 | once/intraday/probe/fallback 拒绝 | M1 自动化完成；浏览器走查待有效本地账号 |
+| EX-08 | cron 可配 daily/weekly/monthly+时间 | capability/API/UI | 三种周期可保存 | once/intraday/probe/fallback 拒绝 | M1 自动化完成；生产页面已实际创建工作日 20:03 cron |
 | EX-09 | 首次起点+最后成功续跑 | schedule policy/TaskRun query | success 推进 | failed/canceled/他 schedule 不推进 | M1 已完成 |
-| EX-10 | 策略参数通用契约驱动 | model/schema/query/types/UI | API 渲染 initial date | 代码无 `express` key 分支 | M1 已完成；浏览器走查待有效本地账号 |
+| EX-10 | 策略参数通用契约驱动 | model/schema/query/types/UI | API 渲染 initial date | 代码无 `express` key 分支 | M1 已完成；生产页面已保存并展示策略参数 |
 | EX-11 | 到期 schedule 原子单次入队 | schedule service/task service | 单事务成功 | 并发不得创建 2 个 TaskRun | M1 自动化完成；M2 真实 PostgreSQL 双会话 `SKIP LOCKED` 只创建 1 个 TaskRun |
 | EX-12 | 最多 366 天且提交/runtime 预检 | Definition/manual/schedule | 366 成功 | 367 不发请求并显示正确错误 | M1 已完成 |
 | EX-13 | 五段真实对账后才能验收 | M2/M3 运行证据 | source=normalized+dedup+reject，DB 一致 | 任一差额阻断 | M2 隔离库、M3 首次正式 TaskRun 与正式幂等 TaskRun 均已通过 |
 | EX-14 | 历史回补前先做无源端扫描的规模、水位和配额测算 | M4a 只读审计记录 | 候选起点均给出 unit/批次/节拍/空间 | 未拍板起点不得进入 M4b | M4a 测算完成；管理员已拍板 `2010-01-01` |
 | EX-15 | M4b 从 2010 起逐年串行回补，逐批对账后才继续 | 正式 Manual Action/TaskRun 主链 | 每年成功并完成五段对账 | 不并行、不额外源端扫描、不进入 M4c | 已完成；17/17 TaskRun、6,066/6,066 unit 和逐批五段对账全部通过 |
+| EX-16 | M4c 自动任务必须从 M4b 后一自然日连续续跑 | 生产 schedule 配置与首次 TaskRun | 首次窗口从 `2026-08-11` 开始且成功 | 起点晚于 `2026-08-11` 不得误报验收完成 | Schedule #35 起点已校正为 `2026-08-11`；待验收首次触发 |
 
 ## 18. 里程碑与发布顺序
 
 | 阶段 | 内容 | 状态/边界 |
 | --- | --- | --- |
 | M0 | 本地文档、Tushare 真实行为、当前代码和 LLD 审计 | 已完成；未编码 |
-| M1 | Definition、request/normalizer、ORM/DAO/migration、Ops/UI、通用 schedule contract、单元/集成/前端验证 | 代码与自动化门禁完成；真实浏览器走查待有效本地账号 |
+| M1 | Definition、request/normalizer、ORM/DAO/migration、Ops/UI、通用 schedule contract、单元/集成/前端验证 | 代码与自动化门禁完成；生产 Schedule #35 已实际走通新建页面/API 主路径 |
 | M2 | 隔离 PostgreSQL migration、HDD placement、合成容量/锁/回滚、最小真实同步对账 | 已完成；使用临时目标门禁隔离到 `127.0.0.1:55410/goldenshare_express_m2`，Prod 前后只读指纹一致 |
 | M3 | 生产只读预检、migration、HDD 路径、首次单日同步与五段对账 | 已完成；`TaskRun#7923/#7928` 分别验证首次插入和正式幂等再跑，卡片/freshness/详情验收通过 |
 | M4a | 历史规模与配额只读预估 | 已完成；零 Tushare 请求、零生产写入；后续由管理员固定历史起点为 `2010-01-01` |
 | M4b | 历史分段回补 | 已完成；17 个年度 TaskRun 串行回补至 `2026-08-10`，逐批与最终汇总对账全部通过 |
-| M4c | 运营手工创建/启用 schedule | 需独立授权；无代码 seed |
+| M4c | 运营手工创建/启用 schedule | 配置完成；Schedule #35 已 active，`initial_start_date=2026-08-11`，待验收首次计划触发与对账 |
 
 发布顺序固定为：同版本部署后端+前端 -> 确认无正在运行任务 -> migration -> HDD 核验 -> 单日首次同步 -> 幂等重跑 -> 卡片/页面验收。历史和 schedule 不随 migration 自动执行。
 
@@ -741,7 +742,7 @@ git diff --check
 
 ### 20.3 未完成与边界
 
-- M1 时本地独立浏览器能打开登录页，但预填测试账号无效，因此当时没有把生产旧页面冒充本地新表单验收。生产现已部署同版本；自动任务新建/编辑表单的真实浏览器路径仍留到 M4c 创建 schedule 前验收。
+- M1 时本地独立浏览器能打开登录页，但预填测试账号无效，因此当时没有把生产旧页面冒充本地新表单验收。M4c 已由管理员在生产页面实际创建并校正 Schedule #35，证明新建、详情和编辑主路径可用；首次计划触发仍待验收。
 - M2 已完成。隔离库中的 1 条 schedule 和 1 条 TaskRun 仅用于真实 PostgreSQL `SKIP LOCKED` 并发验收，没有启动 worker；M3 已在 Prod 创建正式 express TaskRun，仍未创建或修改 express schedule、probe/workflow。
 - M2 只调用 `express_vip` 2 次，均为 `ann_date=20250408` 的单页请求；未扫描其他日期、未回补历史。
 
@@ -780,7 +781,7 @@ git diff --check
 
 | 本阶段追溯 ID | 已验证证据 | 未完成项 | 结论 |
 | --- | --- | --- | --- |
-| EX-01–EX-12 | M0 源端证据、M1 代码/自动化、M2 PostgreSQL migration/placement/容量/回滚/并发与真实 connector、M3 生产 placement 和 Ops 页面 | 生产自动任务新建/编辑页属于 M4c 创建 schedule 前验收 | **M1/M2/M3 当前范围通过** |
+| EX-01–EX-12 | M0 源端证据、M1 代码/自动化、M2 PostgreSQL migration/placement/容量/回滚/并发与真实 connector、M3 生产 placement 和 Ops 页面；M4c 已实际走通生产自动任务新建/详情/编辑主路径 | 首次计划触发属于 M4c 剩余验收 | **M1/M2/M3 当前范围通过** |
 | EX-13 | M2 单日两次真实请求、五段对账、目标哈希与幂等指纹；M3 `TaskRun#7923/#7928` 首次生产同步和正式幂等再跑 | 无 | **M2/M3 均通过** |
 
 ### 20.7 M4a 历史规模与配额只读测算
@@ -914,4 +915,38 @@ M4b 于 2026-08-11 使用已部署版本 `55a460713725c50d6f33492f68a26b772f0683
 - P0 执行前 HDD/SSD 可用空间分别为 341,166,731,264 / 17,113,653,248 bytes，最终复核分别为 341,149,868,032 / 17,196,929,024 bytes，始终高于 512 MiB / 2 GiB 门禁。水位变化包含同期系统任务和 PostgreSQL 共享 WAL/checkpoint 影响，不归因于 Express 单一数据集；
 - 最终三项服务仍为 active，`express.maintain` schedule 仍为 0。M4b 没有部署、migration、代码/API/Definition 修改、额外源端扫描或直接业务表写入。
 
-M4b 至此完成。自动更新频率、cron 时间和 schedule 创建仍属于独立 M4c，未在本轮启动。
+M4b 至此完成。自动更新频率、cron 时间和 schedule 创建属于随后独立执行的 M4c；当前实际状态见 20.9。
+
+### 20.9 M4c 生产自动任务状态与剩余验收
+
+#### 20.9.1 已落地配置
+
+2026-08-11 生产只读核验确认管理员已通过运营侧创建 Schedule #35：
+
+| 配置项 | 生产实际值 |
+| --- | --- |
+| 状态 | `active` |
+| 目标 | `express.maintain` |
+| 触发方式 | 普通 `schedule`，无 probe/fallback |
+| 周期 | `3 20 * * 1,2,3,4,5`，即北京时间周一至周五 20:03 |
+| 日期策略 | `since_last_success_day_range` |
+| 时间输入 | `mode=range`，无 filters |
+| 首次覆盖日 | `2026-08-11`（管理员已于 2026-08-11 20:45 校正） |
+| 下次触发 | `2026-08-12 20:03:00+08` |
+| 已触发 TaskRun | 0 |
+
+该记录证明生产自动任务新建和详情展示主路径已经实际使用，不需要新增 schedule、resolver、worker 或前端开发。工作日 cron 也不会遗漏周末：每次成功游标会从上一成功窗口的下一自然日续跑到触发日前一天，因此周一任务会自然包含周末日期。
+
+#### 20.9.2 覆盖连续性已修正
+
+M4b 已完整请求到 `2026-08-10`，因此 M4c 的首次覆盖日必须是下一自然日 **`2026-08-11`**。首次只读审计发现 Schedule #35 一度配置为 `2026-08-12`；管理员随后通过运营页面将其校正为 `2026-08-11`。2026-08-11 复核确认 schedule 仍为 active、cron/时区/策略与下次触发时间不变，且尚未产生 TaskRun。
+
+按当前正式策略，2026-08-12 20:03 首次触发的目标结束日为 `2026-08-11`，因此应创建唯一窗口 `2026-08-11..2026-08-11`。这与 M4b 截止日连续，不再存在日期缺口。
+
+#### 20.9.3 剩余步骤与完成标准
+
+M4c 只剩以下运维验收，不需要代码开发：
+
+1. 2026-08-12 20:03 首次计划触发后确认 TaskRun 的窗口为 `2026-08-11..2026-08-11`，状态为 success、`unit_done=unit_total=1`、`unit_failed=0`，且 reject/issue 为 0。
+2. 使用正式 TaskRun 诊断和目标表增量做一次五段对账；不额外请求 Tushare。
+3. 上述验收通过后，将 M4c 标为完成。此后 Express 数据集没有剩余开发或上线步骤，只进入自动任务日常监控；任何频率调整都属于运营配置变更。
