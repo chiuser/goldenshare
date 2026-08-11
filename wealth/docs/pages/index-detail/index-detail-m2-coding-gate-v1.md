@@ -19,19 +19,26 @@
 9. [x] 当前权重验收批次为 `2026-07-31`。
 10. [x] 交易计划只允许用户主动点击，技术内容不触发交易动作。
 11. [x] 权重加载完整批次；表头固定、视窗显示 10 行、列表内部滚动并使用虚拟化渲染。
+12. [x] 趋势通道仅支持 `000001.SH + day`，直接消费既有 Quote API；其余指数不展示、不请求，不开发适配层。
+13. [x] 趋势通道为短期25/长期90双通道；每个交易日都有竖线，按当日收盘相对各自下轨逐日着色并允许在交易日边界切换；右侧展示四轨、不展示中轴。
+14. [x] 基本行情固定展示 15 项，缺值显示 `--`；删除“成交状态”和“较昨日”。
+15. [x] 上涨/平盘/下跌按最新有效成分批次与同日股票涨跌幅 `> 0 / = 0 / < 0` 聚合；缺失成员不计入平盘。
+16. [x] Loading、Empty、Error、Partial、Forbidden 已生成五个 `1600×1200` 完整视觉稿，根节点分别为 `498:516`、`499:579`、`501:761`、`502:1625`、`504:1009`。
+17. [x] 五态复用同一 TopMarketBar、面包屑和周期工具栏；Loading/Empty/Partial 保持双栏尺寸，Error/Forbidden 只把 MainContent 改成全宽状态面板。
+18. [x] 系统状态色冻结：Error 使用 danger-system，Partial 使用 warning，Forbidden 使用 info，不复用行情红绿。
 
 ## 2. 总门禁
 
 1. [ ] 三件套评审通过，待评审项全部签字。
 2. [ ] 10 指数 `index_factor_pro` 生产覆盖与性能审计通过。
-3. [ ] 趋势通道十指数适配层与旧 SSE 契约边界冻结。
+3. [x] 趋势通道边界冻结：既有 SSE 契约保持不变，仅上证指数消费；无十指数适配层。
 4. [ ] 请求/响应 DTO 与核心样例冻结。
 5. [ ] 权重 SQL、贡献公式、日期和排序冻结。
 6. [ ] 状态归并与异常矩阵冻结。
 7. [ ] `ID_*` / `IM_*` 异常码已登记到统一注册表。
 8. [ ] shared 图表提取边界和股票回归 case 冻结。
 9. [ ] local/prod 分钟配置与路由矩阵冻结。
-10. [ ] Figma Loaded 节点台账确认；`09` 状态页 `412:4` / `425:178` 已确认，Weights/Technical 根画板跨页位置需登记或归位。
+10. [x] Figma 节点台账已确认：Basic Loaded `417:2`、Weights `423:2`、Technical `423:910`、Components `412:3`、交互说明 `425:178`、五态根画板已登记；Weights/Technical 的 Cover 跨页位置已显式记录。
 11. [ ] 真实 API + 前端可见结果测试 case 冻结。
 12. [ ] 后端、前端、架构/产品签字完成。
 
@@ -49,9 +56,9 @@
 | kline | `startDate/endDate` | 可选；start 不得晚于 end |
 | kline | `limit` | 默认 300，范围 1..2000 |
 | weights | `tsCode/tradeDate/debug` | 同 page-init；返回完整权重批次，不接受 limit，不得静默截断 |
-| trend-channel | `tsCode` | 只允许 10 code |
-| trend-channel | `period` | 只允许 day |
-| trend-channel | `endDate/limit` | limit 默认 300，范围 1..2000 |
+| 既有 Quote trend-channel | `tsCode` | 固定 `000001.SH`；由 capability 控制是否请求 |
+| 既有 Quote trend-channel | `period` | 固定 day |
+| 既有 Quote trend-channel | `endDate/limit` | 沿用既有契约，不在指数详情模块扩展 |
 
 禁止：
 
@@ -74,15 +81,15 @@
 {
   "pageContext": {
     "market": "CN_A",
-    "tradeDate": "2026-08-07",
-    "prevTradeDate": "2026-08-06",
+    "tradeDate": "2026-08-10",
+    "prevTradeDate": "2026-08-07",
     "isTradingDay": true,
     "sessionStatus": "CLOSED",
     "timezone": "Asia/Shanghai",
-    "generatedAt": "2026-08-10T22:45:00+08:00",
+    "generatedAt": "2026-08-11T10:00:00+08:00",
     "source": "default"
   },
-  "asOfTradeDate": "2026-08-07",
+  "asOfTradeDate": "2026-08-10",
   "index": {
     "tsCode": "000001.SH",
     "name": "上证指数",
@@ -92,19 +99,42 @@
     "tags": ["综合指数", "SSE"]
   },
   "quote": {
-    "tradeDate": "2026-08-07",
-    "point": 3453.24,
-    "change": 13.12,
-    "changePct": 0.38,
+    "tradeDate": "2026-08-10",
+    "point": 3966.5935,
+    "change": 26.5564,
+    "changePct": 0.674,
     "direction": "UP",
-    "open": 3438.57,
-    "high": 3462.75,
-    "low": 3431.28,
-    "preClose": 3440.12,
-    "amplitude": 0.92,
-    "vol": 482000000.0,
-    "amount": 528634000.0,
-    "amountChangePct": 6.8
+    "open": 3943.816,
+    "high": 3967.5919,
+    "low": 3938.625,
+    "preClose": 3940.0371,
+    "vol": 542118110.0,
+    "amount": 1166893282.3538
+  },
+  "dailyBasic": {
+    "tradeDate": "2026-08-10",
+    "pe": 17.16,
+    "peTtm": 16.88,
+    "pb": 1.49,
+    "turnoverRate": 1.10,
+    "floatMv": 61120718611804.02,
+    "totalMv": 77487881305217.33
+  },
+  "constituentBreadth": {
+    "tradeDate": "2026-08-10",
+    "weightTradeDate": "2026-07-31",
+    "upCount": 1613,
+    "flatCount": 37,
+    "downCount": 534,
+    "totalConstituentCount": 2224,
+    "matchedCount": 2184,
+    "missingCount": 40,
+    "dataStatus": {
+      "status": "PARTIAL",
+      "expectedTradeDate": "2026-08-10",
+      "observedTradeDate": "2026-08-10",
+      "note": "constituent_daily_missing"
+    }
   },
   "chartDefaults": {
     "defaultPeriod": "day",
@@ -123,10 +153,10 @@
     "supportsUserActions": false
   },
   "dataStatus": {
-    "status": "READY",
-    "expectedTradeDate": "2026-08-07",
-    "observedTradeDate": "2026-08-07",
-    "note": null
+    "status": "PARTIAL",
+    "expectedTradeDate": "2026-08-10",
+    "observedTradeDate": "2026-08-10",
+    "note": "constituent_daily_missing"
   }
 }
 ```
@@ -241,6 +271,17 @@ interface IndexKlineBarDto {
 4. [ ] 趋势计算失败：trend endpoint 标准错误，页面保留 kline 并局部 error。
 5. [ ] 403 不能转换为 EMPTY。
 
+### 4.6 五态视觉响应合同
+
+1. [ ] LOADING：保留外层页面骨架；左图表与右栏均为 skeleton；清空上一标的详情 ViewModel，不展示旧行情或 mock；主文案固定为“正在加载指数行情”，副文案仅上证指数包含“趋势通道”，其余 9 个指数只写“正在读取日线与技术指标”。
+2. [ ] EMPTY：保留指数身份、工具栏、三个 Tab 和 Basic 卡片；主价格、涨跌与 15 个指标值全部为 `--`；提供“重新加载 / 查看最近交易日”。
+3. [ ] ERROR：保留 TopMarketBar、面包屑和工具栏；MainContent 使用 `1580×1038` 全宽错误面板；提供“重新加载 / 返回指数首页”。
+4. [ ] PARTIAL：保留 Loaded 图表和所有可用数据；仅真实缺失项显示 `--`；提示文案由缺失字段集合生成，不得写死 Figma 示例的金额、TTM 市盈率、平盘数。
+5. [ ] FORBIDDEN：保留外层页面骨架；MainContent 使用 `1580×1038` 全宽权限面板；不自动重试、不发起后续详情请求，提供“返回指数首页”。
+6. [ ] 404 没有独立像素稿，复用 ERROR 全宽壳并显示“指数不存在”；DELAYED 保留 Loaded 数据并显示实际观测日期，不伪装 EMPTY。
+7. [ ] 真实接口失败后禁止回填 mock；TopMarketBar 的全局 ticker 不属于当前指数详情旧数据，可以保留。
+8. [ ] EMPTY“重新加载”保留当前查询参数；“查看最近交易日”移除隐藏 `tradeDate` 后 replace 到同一指数路由。默认日期仍无数据时继续 EMPTY，不任意回退历史日期。
+
 ## 5. 查询草案
 
 ### 5.1 标的与完成交易日
@@ -271,6 +312,15 @@ LIMIT :limit;
 ```
 
 返回前在服务层反转为升序。必须利用 raw 基表 `(ts_code, trade_date)` 主键索引；真实 `EXPLAIN ANALYZE` 与 300/2000 根 P95 是数据门禁。
+
+### 5.2.1 基本行情日度指标与成分涨跌统计
+
+1. [ ] `dailyBasic` 只查询 `trade_date = asOfTradeDate` 的 `pe/pe_ttm/pb/turnover_rate/float_mv/total_mv`；无行或字段为空保持 `null`。
+2. [ ] `constituentBreadth.weightTradeDate = max(index_weight.trade_date) <= asOfTradeDate`，随后对完整批次 `con_code` 与同日 `equity_daily_bar.pct_chg` 做集合聚合。
+3. [ ] `pct_chg > 0` 计入 up、`= 0` 计入 flat、`< 0` 计入 down；无行情或 `pct_chg IS NULL` 只计入 missing。
+4. [ ] `upCount + flatCount + downCount = matchedCount`，`matchedCount + missingCount = totalConstituentCount`。
+5. [ ] missing 大于 0 时保留三项计数并返回模块 PARTIAL；无权重批次时三项为不可用，不返回伪 0。
+6. [ ] page-init 不查询前一交易日成交额，不返回 `amountChangePct`。
 
 ### 5.3 权重与贡献
 
@@ -308,11 +358,12 @@ WHERE ts_code IN (:all_constituent_codes)
 
 ### 5.4 趋势通道
 
-1. [ ] query 的 `tsCode` 参数参与 watermark、source rows 和 cache key。
-2. [ ] 旧 SSE endpoint 仍拒绝其他 code。
-3. [ ] 新 Wealth endpoint 只允许 10 code。
-4. [ ] 每个 code 只发布完整、稳定的正式日线快照。
-5. [ ] 中轴由服务端最新短期上下轨平均得到，内部未量化值计算后再按价格精度输出。
+1. [ ] 不新增 Wealth trend endpoint，不修改 `QuoteTrendChannelQuery`、计算器、公式版本或 cache key。
+2. [ ] 既有 SSE endpoint 继续只接受 `000001.SH + day` 并拒绝其他 code。
+3. [ ] `page-init.supportsTrendChannel` 仅对 `000001.SH + day` 为 true；其余 9 个指数无入口、无请求。
+4. [ ] 每个交易日都绘制短期/长期上轨、下轨和同日竖向连接，不能抽样省略；相邻交易日分别连接上下轨，不绘制中轴或辅助分区。
+5. [ ] 页面颜色不用趋势 `state`，而是逐日比较收盘与下轨：短期 `close < shortLower` 为绿、否则红；长期 `close < longLower` 为蓝、否则粉。交易日 `t` 的竖线和连到 `t+1` 的上下轨线段使用 `t` 日颜色，到下一日重新判定。
+6. [ ] 右侧技术页签展示短期上轨、短期下轨、长期上轨、长期下轨；缺失显示 `--`。
 
 ## 6. 状态归并门禁
 
@@ -321,6 +372,7 @@ WHERE ts_code IN (:all_constituent_codes)
 | READY | READY | READY | basic | READY |
 | READY | READY | ERROR | basic | PARTIAL；主图无通道，基本行情可用 |
 | READY | PARTIAL | READY | basic | PARTIAL；缺失指标断点，不补 0 |
+| PARTIAL | READY | READY | basic | 基本行情保留可用字段/计数；缺失字段显示 `--`，缺失成分不计入平盘 |
 | READY | READY | READY | weights loading/error | 页面 READY；权重 tab 局部 loading/error |
 | READY | EMPTY | 任意 | 任意 | EMPTY 主图；保留身份与 tab 壳 |
 | ERROR/404 | 未请求 | 未请求 | 任意 | 页面 fatal error/not-found |
@@ -330,6 +382,8 @@ WHERE ts_code IN (:all_constituent_codes)
 2. [ ] minute 状态不污染日线缓存。
 3. [ ] delayed 必须显示 observed date，不仅在 debug 中存在。
 4. [ ] 真实失败不回退 mock/scaffold 数值。
+5. [ ] 页面级状态优先级固定为：401 认证跳转 > 403 FORBIDDEN > 404/非法指数 > fatal ERROR > EMPTY > PARTIAL/DELAYED > READY。
+6. [ ] 页面级 ERROR/EMPTY/FORBIDDEN 的恢复动作与 Figma 文案一致；模块级错误只能局部重试。
 
 ## 7. 异常码登记门禁
 
@@ -342,9 +396,9 @@ WHERE ts_code IN (:all_constituent_codes)
 | `ID_SOURCE_EMPTY` | 日线无数据 | 200 + EMPTY |
 | `ID_SOURCE_DELAYED` | 日线日期落后 | 200 + DELAYED |
 | `ID_FACTOR_PARTIAL` | 因子缺失 | 200 + PARTIAL |
+| `ID_BASIC_BREADTH_PARTIAL` | 成分股当日行情缺失 | page-init 基本行情模块 PARTIAL |
 | `ID_WEIGHT_EMPTY` | 无权重批次 | weights EMPTY |
 | `ID_WEIGHT_CONTRIBUTION_PARTIAL` | 贡献输入缺失 | weights PARTIAL |
-| `ID_TREND_UNAVAILABLE` | 通道源/计算失败 | trend error/页面 PARTIAL |
 | `ID_QUERY_FAILED` | 查询异常 | 对应模块 error |
 | `IM_SOURCE_NOT_READY` | Lake 日期缺失 | minutes DELAYED |
 | `IM_SOURCE_CONTRACT_INVALID` | Parquet 合同错误 | minutes ERROR |
@@ -371,6 +425,12 @@ WHERE ts_code IN (:all_constituent_codes)
 4. [ ] 权重表头固定、视窗恰好显示 10 行、内部纵向滚动、虚拟化渲染完整批次，并展示估算说明。
 5. [ ] 技术结论和九转显示 `--`，不引用 Figma 示例文案。
 6. [ ] `+交易计划` 只绑定用户点击 toast，不被 effect/数据状态调用。
+7. [ ] 基本行情严格按顺序展示 15 项；缺值显示 `--`，不存在“成交状态”和“较昨日”。
+8. [ ] 上涨/平盘/下跌使用 API 聚合值；前端不遍历权重行重算，不把 missing 算作平盘。
+9. [ ] Loading 使用图表/右栏骨架，不只显示居中文案；不得直接复制股票详情当前简化 loading DOM。
+10. [ ] Empty 右栏保留身份和三个 Tab，主价格、涨跌及 15 个指标值均为 `--`。
+11. [ ] Error/Forbidden 使用全宽主面板但不删除外层页面壳；Partial 不清空图表或可用字段。
+12. [ ] Error/Partial/Forbidden 分别使用 `--cs-color-danger-system`、`--cs-color-warning`、`--cs-color-info`，测试断言未使用 `--cs-color-market-up/down`。
 
 ### 8.3 图表共享
 
@@ -378,7 +438,8 @@ WHERE ts_code IN (:all_constituent_codes)
 2. [ ] shared chart 不含 stock/index 业务文案。
 3. [ ] null 指标被过滤或绘制断点，不转 0。
 4. [ ] 股票详情 90 根窗口、crosshair、tooltip、MA/BOLL、四面板回归通过。
-5. [ ] 指数趋势短/长期四线可按日期对齐，无未来数据。
+5. [ ] 上证指数趋势短/长期四轨与每日竖线可按日期对齐，无未来数据；每个交易日都有竖线，颜色切换点连续；短期红/绿、长期粉/蓝四种组合均有测试。
+6. [ ] 其余 9 个指数不渲染趋势入口、不调用趋势接口。
 
 ### 8.4 周期与环境
 
@@ -386,6 +447,17 @@ WHERE ts_code IN (:all_constituent_codes)
 2. [ ] local flag false：同 prod。
 3. [ ] local flag true + Lake ready：仅七个分钟 frequency enabled。
 4. [ ] 权重 tab 不随分钟切换成盘中贡献。
+
+### 8.5 Figma 结构与像素门禁
+
+1. [ ] 页面为 `1600×1200`：TopMarketBar 56px、面包屑 42px、工具栏 44px、主内容区 1058px。
+2. [ ] Loaded/Loading/Empty/Partial 双栏保持：左 `1193.1953125×1038`、间距 10px、右 `376.796875×1038`、主内容内边距 10px。
+3. [ ] TopMarketBar 使用共享组件，不复制第二套；右栏三个 Tab 共享稳定 Header/Tabs 骨架。
+4. [ ] 页面骨架、状态内容、按钮组、指标卡片和列表使用 Auto Layout/CSS Grid/Flex；不得用大量补偿坐标模拟布局。
+5. [ ] K 线、趋势通道、九转位置、指标、坐标轴、Tooltip、十字线保留图表坐标定位，状态切换不得使其位移。
+6. [ ] 普通 UI 相对 Figma 基线偏差不超过 2px，无新增换行、裁剪、重叠或溢出。
+7. [ ] Partial 提示内部为流式布局；若以右栏覆盖层定位，必须只有一个稳定锚点，不能改变 Info Rail 组件实例结构。
+8. [ ] `425:190` 是过期概述，不进入实现或测试；Basic 字段金标只能来自 `414:446`、`425:219` 和三件套 15 项清单。
 
 ## 9. 数据审计门禁
 
@@ -396,7 +468,14 @@ WHERE ts_code IN (:all_constituent_codes)
 3. [x] 无 null weight、无批次内重复成分。
 4. [x] 权重和约 `99.984~100.006`，确认不归一化。
 
-### 9.2 待完成：指数因子
+### 9.2 已完成：基本行情字段与成分涨跌统计
+
+1. [x] 10 指数 `2026-08-10` 的昨收、今开、总量、最高、最低、金额均有值。
+2. [x] PE/PE TTM/PB/换手率/流通市值/总市值只覆盖 6 个指数，合同必须可空且 UI 缺值显示 `--`。
+3. [x] 10 指数均解析到 `2026-07-31` 有效权重批次；9 个指数成分日线完整匹配。
+4. [x] `000001.SH` total 2224、matched 2184、up 1613、flat 37、down 534、missing 40；missing 不计入 flat。
+
+### 9.3 待完成：指数因子
 
 1. [ ] 10 code 均有数据。
 2. [ ] 最新日与 index daily 对齐或状态可解释。
@@ -405,7 +484,7 @@ WHERE ts_code IN (:all_constituent_codes)
 5. [ ] MA/BOLL/MACD/KDJ 字段非空率与 warm-up 规则通过。
 6. [ ] 300/2000 根查询计划与 P95 通过。
 
-### 9.3 待完成：本地分钟
+### 9.4 待完成：本地分钟
 
 1. [ ] Silver 七频率/10 code 覆盖符合当前日期合同。
 2. [ ] Gold 指标与 Silver 时间键无重复、可对齐。
@@ -428,7 +507,7 @@ WHERE ts_code IN (:all_constituent_codes)
 
 1. [ ] 所有查询只选所需列，不 `SELECT *`。
 2. [ ] 权重名称/行情补列无 N+1。
-3. [ ] trend cache 至少容纳 10 code，key 含 source identity/code/version/watermark。
+3. [ ] 趋势接口沿用既有 SSE 单标的缓存与性能门禁，不新增十指数缓存。
 4. [ ] 超预算先优化查询/reader，不调高 timeout 掩盖。
 
 ## 11. 测试门禁
@@ -439,7 +518,7 @@ WHERE ts_code IN (:all_constituent_codes)
 2. [ ] 10 code page-init 参数化测试。
 3. [ ] kline 字段、null、排序、limit、非法 adjustment 负向测试。
 4. [ ] 权重 2026-07-31、完整批次、排序、覆盖计数、不截断、公式、缺失、不归一化、不缩放。
-5. [ ] trend 10 code + 旧 SSE endpoint 全回归。
+5. [ ] 既有 SSE endpoint 全回归；上证指数请求成功，其余 9 个指数前端断言零请求。
 6. [ ] auth、not-found、delayed、empty、partial、error。
 7. [ ] prod 分钟 route 不存在；local 临时真实 Parquet 可查询。
 
@@ -447,11 +526,15 @@ WHERE ts_code IN (:all_constituent_codes)
 
 1. [ ] 不使用 mock adapter 证明 ready。
 2. [ ] 10 卡导航和 router history。
-3. [ ] page loading/error/empty/partial/forbidden。
+3. [ ] page loading/error/empty/partial/forbidden 分别对照 `498:516`、`501:761`、`499:579`、`502:1625`、`504:1009`。
 4. [ ] 三 tab、权重懒加载缓存、10 行虚拟滚动并可到达末行、技术空字段。
 5. [ ] prod/local 周期能力。
 6. [ ] 页面无“前复权”。
 7. [ ] 股票详情共享图表回归。
+8. [ ] Loading 无上一标的详情值；Empty 有 17 个指数专属 `--` 占位（主价格、涨跌、15 项指标）。
+9. [ ] Partial 的 Figma fixture 仅缺金额、TTM 市盈率、平盘数，同时有另一缺失组合证明提示与占位不是写死。
+10. [ ] Error/FORBIDDEN 外层骨架尺寸不变，MainContent 为全宽面板；恢复按钮执行正确动作。
+11. [ ] 状态颜色 token 与行情颜色 token 语义分离。
 
 ### 11.3 命令
 
@@ -475,16 +558,21 @@ cd wealth && npm run build
 1. [ ] Figma Loaded 结构可实现。
 2. [ ] shared chart 重构范围可控。
 3. [ ] 三 tab、周期、异常态可落地。
+4. [ ] 五态逐画板结构、文案、动作、颜色与数据保留规则可落地。
 
 ### 架构/产品
 
 1. [ ] 需求未扩散到技术结论、九转或交易流程。
-2. [ ] 五个技术口径已逐项确认；其中权重全量与 10 行滚动已由产品确认，其余四项仍需签字。
-3. [ ] 同意进入 M1 数据与契约开发。
+2. [x] 技术口径已逐项确认：SSE-only 趋势、逐日四轨绘制与每日竖线、权重全量滚动、基本行情 15 项、成分涨跌统计与缺失规则。
+3. [x] 右侧基本行情最终展示组合已完成产品选择并同步 Figma。
+4. [ ] 同意进入 M1 数据与契约开发。
 
 ## 13. 版本记录
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.4 | 2026-08-11 | 登记最新 Loaded/Components/五态节点台账；补五态响应、状态优先级、Auto Layout/图表定位、系统颜色和逐画板像素/测试门禁；排除 Figma 旧概述文案 | Codex |
+| v1.3 | 2026-08-11 | 冻结逐日趋势判色/每日竖线、15 项基本行情、成分涨跌聚合与缺失规则；移除成交状态/较昨日门禁并补生产证据 | Codex |
+| v1.2 | 2026-08-11 | 趋势门禁改为仅上证指数直接消费既有 API；删除十指数适配、中轴和十指数缓存门禁；补双通道绘制/配色、成交状态与字段选择门禁 | Codex |
 | v1.1 | 2026-08-11 | 权重门禁改为完整批次、10 行虚拟滚动与不截断；确认 09 状态页并补异常恢复要求 | Codex |
 | v1 | 2026-08-10 | 首版编码门禁草案，已区分已拍板产品口径与未通过实施门禁 | Codex |
