@@ -4,6 +4,10 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from src.foundation.clients.local_lake.major_index_mins_contract import (
+    FORMAL_LAKE_ROOT,
+    major_index_minute_dataset_root,
+)
 from src.foundation.config.settings import Settings
 
 SUPPORTED_MINUTE_FREQS = (1, 5, 15, 30, 60, 90, 120)
@@ -55,3 +59,27 @@ def resolve_local_minute_capability(settings: Settings) -> LocalMinuteCapability
         ) from exc
 
     return LocalMinuteCapability(enabled=True, lake_root=lake_root, reason_code=None)
+
+
+def resolve_index_minute_capability(settings: Settings) -> LocalMinuteCapability:
+    """Resolve the stricter index-minute capability without changing stock minutes."""
+
+    capability = resolve_local_minute_capability(settings)
+    if not capability.enabled or capability.lake_root is None:
+        return capability
+
+    formal_root = FORMAL_LAKE_ROOT.resolve()
+    if capability.lake_root != formal_root:
+        raise LocalMinuteCapabilityError(
+            code="SM_LOCAL_LAKE_NOT_CONFIGURED",
+            message="指数分钟能力只允许读取正式 /Volumes/datasource/data_lake。",
+        )
+
+    silver_root = major_index_minute_dataset_root(capability.lake_root, "bars")
+    if not silver_root.is_dir() or not os.access(silver_root, os.R_OK):
+        return LocalMinuteCapability(
+            enabled=False,
+            lake_root=capability.lake_root,
+            reason_code="IM_SOURCE_NOT_READY",
+        )
+    return capability

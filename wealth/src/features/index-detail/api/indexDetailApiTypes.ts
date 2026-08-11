@@ -145,6 +145,45 @@ export interface IndexDetailKlineResponseDto {
   debugInfo: IndexDetailDebugInfoDto | null;
 }
 
+export interface IndexMinuteDataStatusDto {
+  status: "READY" | "DELAYED" | "EMPTY";
+  code: "IM_SOURCE_NOT_READY" | null;
+  expectedEndDate: string | null;
+  observedEndDate: string | null;
+  message: string | null;
+}
+
+export interface IndexMinuteBarDto {
+  tsCode: string;
+  freq: IndexDetailMinuteFrequency;
+  tradeDate: string;
+  tradeTime: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  vol: number;
+  amount: number;
+  exchange: string;
+}
+
+export interface IndexMinutesResponseDto {
+  tsCode: string;
+  freq: IndexDetailMinuteFrequency;
+  bars: IndexMinuteBarDto[];
+  meta: {
+    count: number;
+    limit: number;
+    hasMore: boolean;
+    nextCursor: string | null;
+    startDate: string | null;
+    endDate: string | null;
+    observedStartDate: string | null;
+    observedEndDate: string | null;
+  };
+  dataStatus: IndexMinuteDataStatusDto;
+}
+
 export interface IndexDetailWeightRowDto {
   conCode: string;
   name: string | null;

@@ -28,7 +28,10 @@ from src.biz.services.wealth.market.index_detail.index_detail_universe import (
     IndexDetailNotFoundError,
     IndexDetailUniverseService,
 )
-from src.foundation.config.local_minute_capability import SUPPORTED_MINUTE_FREQS, resolve_local_minute_capability
+from src.foundation.config.local_minute_capability import (
+    SUPPORTED_MINUTE_FREQS,
+    resolve_index_minute_capability,
+)
 from src.foundation.config.settings import get_settings
 
 
@@ -260,7 +263,7 @@ class IndexDetailPageQueryService:
 
     @staticmethod
     def _build_chart_defaults(*, ts_code: str) -> IndexDetailChartDefaultsDto:
-        capability = resolve_local_minute_capability(get_settings())
+        capability = resolve_index_minute_capability(get_settings())
         available_periods = ["day"]
         if capability.enabled:
             available_periods.extend(["m1", "m5", "m15", "m30", "m60", "m90", "m120"])
@@ -276,7 +279,7 @@ class IndexDetailPageQueryService:
 
     @staticmethod
     def _build_capabilities(*, ts_code: str) -> IndexDetailCapabilitiesDto:
-        capability = resolve_local_minute_capability(get_settings())
+        capability = resolve_index_minute_capability(get_settings())
         return IndexDetailCapabilitiesDto(
             supportsTimeShare=False,
             supportsWeeklyMonthly=False,

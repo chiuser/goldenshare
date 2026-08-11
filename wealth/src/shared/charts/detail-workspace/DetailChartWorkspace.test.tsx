@@ -7,10 +7,10 @@ import type { DetailChartLineDefinition, DetailChartPoint } from "./detailChartT
 
 const chartMock = vi.hoisted(() => {
   const charts: Array<Record<string, any>> = [];
-  const createChart = vi.fn(() => {
+  const createChart = vi.fn((_container?: unknown, _options?: unknown) => {
     let visibleRange: { from: number; to: number } | null = null;
     const visibleRangeHandlers: Array<() => void> = [];
-    const crosshairHandlers: Array<(param: { point?: { x: number; y: number }; time?: string }) => void> = [];
+    const crosshairHandlers: Array<(param: { point?: { x: number; y: number }; time?: string | number }) => void> = [];
     const series: Array<Record<string, any>> = [];
     const timeScale = {
       fitContent: vi.fn(),
@@ -42,11 +42,11 @@ const chartMock = vi.hoisted(() => {
       remove: vi.fn(),
       series,
       setCrosshairPosition: vi.fn(),
-      subscribeCrosshairMove: vi.fn((handler: (param: { point?: { x: number; y: number }; time?: string }) => void) => {
+      subscribeCrosshairMove: vi.fn((handler: (param: { point?: { x: number; y: number }; time?: string | number }) => void) => {
         crosshairHandlers.push(handler);
       }),
       timeScale: () => timeScale,
-      unsubscribeCrosshairMove: vi.fn((handler: (param: { point?: { x: number; y: number }; time?: string }) => void) => {
+      unsubscribeCrosshairMove: vi.fn((handler: (param: { point?: { x: number; y: number }; time?: string | number }) => void) => {
         const index = crosshairHandlers.indexOf(handler);
         if (index >= 0) crosshairHandlers.splice(index, 1);
       }),
@@ -131,15 +131,30 @@ describe("DetailChartWorkspace", () => {
     });
     expect(screen.queryByTestId("shared-tooltip")).not.toBeInTheDocument();
   });
+
+  it("uses minute time scale semantics without changing the four-pane skeleton", () => {
+    const points = makePoints(100);
+    points[98]!.time = 1_775_010_480 as DetailChartPoint["time"];
+    points[98]!.fullDate = "2026-04-01T11:08:00+08:00";
+    renderWorkspace(points, "minute");
+
+    act(() => {
+      chartMock.charts[0].crosshairHandlers[0]({ point: { x: 100, y: 40 }, time: points[98]!.time });
+    });
+    expect(document.querySelector(".detail-chart-crosshair-date-label")).toHaveTextContent("20260401 11:08");
+    expect(chartMock.createChart).toHaveBeenCalledTimes(4);
+    expect(chartMock.createChart.mock.calls[3]?.[1]).toMatchObject({
+      timeScale: { secondsVisible: false, timeVisible: true, visible: true },
+    });
+  });
 });
 
-function renderWorkspace(points: DetailChartPoint[]) {
+function renderWorkspace(points: DetailChartPoint[], timeMode: "daily" | "minute" = "daily") {
   return render(
     <DetailChartWorkspace
       ariaLabel="共享图表区"
       bottomBar={<span>bottom</span>}
       bottomBarAriaLabel="共享指标栏"
-      isDailyPeriod
       mainLines={mainLines}
       panelAriaLabels={{
         kline: "共享K线主图",
@@ -152,6 +167,7 @@ function renderWorkspace(points: DetailChartPoint[]) {
       renderPanelHeader={(panel) => <span>{panel}</span>}
       renderTooltip={(point, side) => <span data-side={side} data-testid="shared-tooltip">{point.fullDate}</span>}
       timeAxisAriaLabel="共享日线时间轴"
+      timeMode={timeMode}
     />,
   );
 }

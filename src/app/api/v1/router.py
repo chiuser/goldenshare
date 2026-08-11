@@ -23,6 +23,7 @@ from src.biz.api.wealth.market import style as wealth_market_style
 from src.biz.api.wealth.market import summary as wealth_market_summary
 from src.biz.api.wealth.market import turnover as wealth_market_turnover
 from src.foundation.config.local_minute_capability import (
+    resolve_index_minute_capability,
     resolve_local_minute_capability,
 )
 from src.foundation.config.settings import get_settings
@@ -61,6 +62,12 @@ def _include_local_minute_router(target_router: APIRouter) -> None:
         from src.biz.api.wealth.market import stock_detail_minutes
 
         target_router.include_router(stock_detail_minutes.router)
+
+    index_capability = resolve_index_minute_capability(get_settings())
+    if index_capability.enabled:
+        from src.biz.api.wealth.market import index_detail_minutes
+
+        target_router.include_router(index_detail_minutes.router)
 
 
 _include_local_minute_router(router)

@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
-import type { ISeriesPrimitive, Time } from "lightweight-charts";
+import type { ISeriesPrimitive, Time, UTCTimestamp } from "lightweight-charts";
 
 export type DetailChartPanelKey = "kline" | "macd" | "volume" | "kdj";
 export type DetailChartTooltipSide = "left" | "right";
+export type DetailChartTimeMode = "daily" | "minute";
 
 export interface DetailChartPoint {
-  time: string;
+  time: string | UTCTimestamp;
   fullDate: string;
   open: number | null;
   high: number | null;
@@ -42,7 +43,6 @@ export interface DetailChartWorkspaceProps {
   ariaLabel: string;
   bottomBar: ReactNode;
   bottomBarAriaLabel: string;
-  isDailyPeriod: boolean;
   mainLines: DetailChartLineDefinition[];
   mainPrimitives?: ISeriesPrimitive<Time>[];
   panelAriaLabels: Record<DetailChartPanelKey, string>;
@@ -51,6 +51,7 @@ export interface DetailChartWorkspaceProps {
   renderPanelHeader: (panel: Exclude<DetailChartPanelKey, "kline">, point: DetailChartPoint | null) => ReactNode;
   renderTooltip: (point: DetailChartPoint, side: DetailChartTooltipSide) => ReactNode;
   timeAxisAriaLabel: string;
+  timeMode: DetailChartTimeMode;
   visibleBars?: number;
 }
 

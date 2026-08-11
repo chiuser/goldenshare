@@ -167,7 +167,6 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
       <main className="stock-detail-main-content" aria-label="MainContent">
         {activePeriod === "day" ? (
           <StockChartWorkspace
-            activePeriod={activePeriod}
             candles={viewModel.chart.candles}
             indicatorTabs={viewModel.indicatorTabs}
             onAction={showToast}

@@ -1,5 +1,10 @@
 import type { MarketDirection } from "../../../shared/model/market";
-import type { IndexDetailDataStatusDto, IndexDetailPageInitResponseDto } from "../api/indexDetailApiTypes";
+import type {
+  IndexDetailDataStatusDto,
+  IndexDetailMinuteFrequency,
+  IndexDetailPageInitResponseDto,
+  IndexMinuteDataStatusDto,
+} from "../api/indexDetailApiTypes";
 
 export type IndexInfoTab = "basic" | "weights" | "technical";
 export type IndexMainOverlay = "MA" | "BOLL" | "TREND_CHANNEL";
@@ -49,6 +54,26 @@ export interface IndexCandlePoint {
   k: number | null;
   d: number | null;
   j: number | null;
+}
+
+export interface IndexMinuteCandlePoint extends Omit<IndexCandlePoint, "time"> {
+  time: number;
+}
+
+export interface IndexMinuteChartViewModel {
+  tsCode: string;
+  freq: IndexDetailMinuteFrequency;
+  points: IndexMinuteCandlePoint[];
+  dataStatus: IndexMinuteDataStatusDto;
+  indicatorSource: "mock" | "unavailable";
+  paramsKey: "mock_index_minute_technical_v1" | null;
+  indicatorVersion: 0 | null;
+}
+
+export interface IndexMinuteSeriesState {
+  data: IndexMinuteChartViewModel | null;
+  errorMessage: string;
+  phase: "idle" | "loading" | "ready" | "delayed" | "partial" | "empty" | "error";
 }
 
 export interface IndexBasicMetric {

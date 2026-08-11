@@ -37,7 +37,7 @@ export function IndexChartWorkspace({ trend, trendPhase, viewModel }: IndexChart
   const mainLines = useMemo(() => overlay === "MA" ? buildMaLines() : overlay === "BOLL" ? buildBollLines() : [], [overlay]);
   const primitives = useMemo(() => {
     if (overlay !== "TREND_CHANNEL" || !trend) return [];
-    const lines = buildTrendChannelLines(trend.points, points.map((point) => point.time));
+    const lines = buildTrendChannelLines(trend.points, points.map((point) => String(point.time)));
     return [new TrendChannelPanePrimitive(lines)];
   }, [overlay, points, trend]);
 
@@ -46,7 +46,6 @@ export function IndexChartWorkspace({ trend, trendPhase, viewModel }: IndexChart
       ariaLabel="指数日线图表区"
       bottomBar={<IndexIndicatorBar overlay={overlay} setOverlay={setOverlay} supportsTrend={supportsTrend && trendPhase === "ready"} />}
       bottomBarAriaLabel="指数指标栏"
-      isDailyPeriod
       mainLines={mainLines}
       mainPrimitives={primitives}
       panelAriaLabels={{ kline: "指数K线主图", macd: "MACD(12,26,9)", volume: "成交量", kdj: "KDJ(9,3,3)" }}
@@ -57,12 +56,13 @@ export function IndexChartWorkspace({ trend, trendPhase, viewModel }: IndexChart
           point={point}
           setOverlay={setOverlay}
           supportsTrend={supportsTrend && trendPhase === "ready"}
-          trendPoint={point ? trendByTime.get(point.time) : undefined}
+          trendPoint={point ? trendByTime.get(String(point.time)) : undefined}
         />
       )}
       renderPanelHeader={(panel, point) => <IndexPanelHeader panel={panel} point={point} />}
       renderTooltip={(point, side) => <IndexTooltip point={point} side={side} />}
       timeAxisAriaLabel="指数日线底部时间轴"
+      timeMode="daily"
     />
   );
 }

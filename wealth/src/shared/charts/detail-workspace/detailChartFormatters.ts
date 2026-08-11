@@ -1,6 +1,15 @@
 import type { IChartApi, Time } from "lightweight-charts";
 
-import type { DetailChartPoint, DetailChartTimeAxisMarker } from "./detailChartTypes";
+import type { DetailChartPoint, DetailChartTimeAxisMarker, DetailChartTimeMode } from "./detailChartTypes";
+
+const shanghaiMinuteFormatter = new Intl.DateTimeFormat("zh-CN", {
+  day: "2-digit",
+  hour: "2-digit",
+  hour12: false,
+  minute: "2-digit",
+  month: "2-digit",
+  timeZone: "Asia/Shanghai",
+});
 
 export function formatPriceAxisValue(value: number): string {
   return value.toFixed(2);
@@ -17,8 +26,19 @@ export function formatCompactAxisValue(value: number): string {
   return value.toFixed(0);
 }
 
-export function formatCrosshairDateLabel(point: DetailChartPoint): string {
+export function formatCrosshairDateLabel(point: DetailChartPoint, timeMode: DetailChartTimeMode): string {
+  if (timeMode === "minute") return formatMinuteTradeTime(point.fullDate);
   return point.fullDate.replaceAll("-", "");
+}
+
+export function formatShanghaiMinuteAxisLabel(time: Time): string {
+  if (typeof time !== "number") return String(time);
+  return shanghaiMinuteFormatter.format(new Date(time * 1000)).replaceAll("/", "-");
+}
+
+export function formatMinuteTradeTime(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(value);
+  return match ? `${match[1]}${match[2]}${match[3]} ${match[4]}:${match[5]}` : value;
 }
 
 export function buildDailyTimeAxisMarkers(
@@ -44,7 +64,7 @@ export function buildDailyTimeAxisMarkers(
     if (coordinate === null) continue;
 
     markers.push({
-      key: point.time,
+      key: String(point.time),
       label: isFirstPoint ? `${yearMonth.year}/${yearMonth.month}` : yearMonth.month,
       left: coordinate,
       tone: isFirstPoint ? "year" : "month",

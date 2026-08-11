@@ -1,8 +1,10 @@
 import { wealthFetch } from "../../../shared/api/wealthApiClient";
 import type {
   IndexDetailKlineResponseDto,
+  IndexDetailMinuteFrequency,
   IndexDetailPageInitResponseDto,
   IndexDetailWeightsResponseDto,
+  IndexMinutesResponseDto,
 } from "./indexDetailApiTypes";
 
 interface FetchOptions {
@@ -34,6 +36,20 @@ export function fetchIndexDetailKline(
   return fetchIndexDetail<IndexDetailKlineResponseDto>("kline", params, options);
 }
 
+export function fetchIndexDetailMinutes(
+  params: {
+    tsCode: string;
+    freq: IndexDetailMinuteFrequency;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+    cursor?: string;
+  },
+  options: FetchOptions = {},
+): Promise<IndexMinutesResponseDto> {
+  return fetchIndexDetail<IndexMinutesResponseDto>("minutes", params, options);
+}
+
 export function fetchIndexDetailWeights(
   params: { tsCode: string; tradeDate?: string; debug?: 0 | 1 },
   options: FetchOptions = {},
@@ -42,7 +58,7 @@ export function fetchIndexDetailWeights(
 }
 
 async function fetchIndexDetail<T>(
-  endpoint: "page-init" | "kline" | "weights",
+  endpoint: "page-init" | "kline" | "minutes" | "weights",
   params: Record<string, string | number | undefined>,
   options: FetchOptions,
 ): Promise<T> {

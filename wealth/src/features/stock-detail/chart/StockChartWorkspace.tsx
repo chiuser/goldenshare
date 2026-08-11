@@ -14,19 +14,16 @@ import type {
   StockCandlePoint,
   StockIndicatorTab,
   StockMainOverlay,
-  StockPeriodKey,
 } from "../model/stockDetailTypes";
 
 interface StockChartWorkspaceProps {
   candles: StockCandlePoint[];
-  activePeriod: StockPeriodKey;
   indicatorTabs: StockIndicatorTab[];
   onAction: (message: string) => void;
 }
 
 export function StockChartWorkspace({
   candles,
-  activePeriod,
   indicatorTabs,
   onAction,
 }: StockChartWorkspaceProps) {
@@ -49,7 +46,6 @@ export function StockChartWorkspace({
         />
       )}
       bottomBarAriaLabel="底部指标栏"
-      isDailyPeriod={activePeriod === "day"}
       mainLines={mainLines}
       panelAriaLabels={{
         kline: "K线主图",
@@ -69,6 +65,7 @@ export function StockChartWorkspace({
       renderPanelHeader={(panel, point) => <StockIndicatorPanelHeader panel={panel} point={point} />}
       renderTooltip={(point, side) => <StockKlineTooltip point={point} side={side} />}
       timeAxisAriaLabel="日线底部时间轴"
+      timeMode="daily"
     />
   );
 }

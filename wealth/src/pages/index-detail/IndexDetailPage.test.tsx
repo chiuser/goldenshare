@@ -8,6 +8,12 @@ vi.mock("../../features/index-detail/chart/IndexChartWorkspace", () => ({
   IndexChartWorkspace: () => <div aria-label="指数日线图表区" />,
 }));
 
+vi.mock("../../features/index-detail/chart/IndexMinuteChartWorkspace", () => ({
+  IndexMinuteChartWorkspace: ({ data, errorMessage, phase }: { data: { freq: number } | null; errorMessage: string; phase: string }) => (
+    <div aria-label="指数分钟图表区" data-freq={data?.freq ?? ""} data-phase={phase}>{errorMessage}</div>
+  ),
+}));
+
 describe("IndexDetailPage", () => {
   afterEach(() => { vi.unstubAllGlobals(); });
 
@@ -22,6 +28,7 @@ describe("IndexDetailPage", () => {
     expect(screen.queryByText("成交状态")).not.toBeInTheDocument();
     expect(screen.queryByText("较昨日")).not.toBeInTheDocument();
     expect(screen.queryByText("前复权")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "5分" })).toBeDisabled();
     expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/weights"))).toBe(false);
 
     fireEvent.click(screen.getByRole("tab", { name: "权重股贡献" }));
@@ -34,6 +41,34 @@ describe("IndexDetailPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: "权重股贡献" }));
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/weights"))).toHaveLength(1);
     expect(screen.getByLabelText("权重股滚动列表")).toHaveProperty("scrollTop", 320);
+  });
+
+  it("switches local minute periods without refreshing daily modules and reuses the period cache", async () => {
+    const local = makePageInit("000001.SH");
+    local.capabilities.supportsMinute = true;
+    local.capabilities.minuteFrequencies = [1, 5, 15, 30, 60, 90, 120];
+    local.chartDefaults.availablePeriods = ["day", "m1", "m5", "m15", "m30", "m60", "m90", "m120"];
+    const fetchMock = mockFetch("000001.SH", {
+      minutes: (url) => response(makeMinuteResponse(Number(url.searchParams.get("freq")))),
+      pageInit: () => response(local),
+    });
+    render(<IndexDetailPage search="" tsCode="000001.SH" />);
+
+    expect(await screen.findByLabelText("指数日线图表区")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "5分" }));
+    const minuteChart = await screen.findByLabelText("指数分钟图表区");
+    await waitFor(() => expect(minuteChart).toHaveAttribute("data-phase", "ready"));
+    expect(minuteChart).toHaveAttribute("data-freq", "5");
+    expect(screen.getByLabelText("IndexHeader")).toHaveTextContent("3940.04");
+
+    fireEvent.click(screen.getByRole("button", { name: "日K" }));
+    expect(screen.getByLabelText("指数日线图表区")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "5分" }));
+    await waitFor(() => expect(screen.getByLabelText("指数分钟图表区")).toHaveAttribute("data-phase", "ready"));
+
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/minutes"))).toHaveLength(1);
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/kline"))).toHaveLength(1);
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("minute-indicators"))).toBe(false);
   });
 
   it.each(["399001.SZ", "399006.SZ", "000688.SH", "000300.SH", "000905.SH", "000852.SH", "899050.BJ", "000510.SH", "000016.SH"])(
@@ -260,6 +295,7 @@ describe("IndexDetailPage", () => {
 
 interface MockFetchOptions {
   kline?: () => Response | Promise<Response>;
+  minutes?: (url: URL) => Response | Promise<Response>;
   pageInit?: () => Response | Promise<Response>;
   trend?: () => Response | Promise<Response>;
   weights?: () => Response | Promise<Response>;
@@ -275,12 +311,28 @@ function mockFetch(tsCode: string, options: MockFetchOptions = {}) {
     if (url.includes("/major-indices")) return response(majorIndices);
     if (url.includes("/index-detail/page-init")) return options.pageInit?.() ?? response(pageInit);
     if (url.includes("/index-detail/kline")) return options.kline?.() ?? response(kline);
+    if (url.includes("/index-detail/minutes")) return options.minutes?.(new URL(url)) ?? response({}, 404);
     if (url.includes("/index-detail/weights")) return options.weights?.() ?? response(weights);
     if (url.includes("/trend-channel")) return options.trend?.() ?? response(makeTrendPayload());
     return new Response("{}", { status: 404 });
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
+}
+
+function makeMinuteResponse(freq: number) {
+  return {
+    tsCode: "000001.SH",
+    freq,
+    bars: Array.from({ length: 20 }, (_, index) => ({
+      tsCode: "000001.SH", freq, tradeDate: "2026-07-31",
+      tradeTime: `2026-07-31T09:${String(30 + index).padStart(2, "0")}:00+08:00`,
+      open: 10 + index, high: 11 + index, low: 9 + index, close: 10.5 + index,
+      vol: 100 + index, amount: 1000 + index, exchange: "SSE",
+    })).reverse(),
+    meta: { count: 20, limit: 500, hasMore: false, nextCursor: null, startDate: null, endDate: "2026-07-31", observedStartDate: "2026-07-31", observedEndDate: "2026-07-31" },
+    dataStatus: { status: "READY", code: null, expectedEndDate: "2026-07-31", observedEndDate: "2026-07-31", message: null },
+  };
 }
 
 function makeWeights(pageInit: ReturnType<typeof makePageInit>, status: "READY" | "PARTIAL") {

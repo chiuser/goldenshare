@@ -19,6 +19,7 @@ import {
   formatCompactAxisValue,
   formatCrosshairDateLabel,
   formatPriceAxisValue,
+  formatShanghaiMinuteAxisLabel,
   formatSignedAxisValue,
 } from "./detailChartFormatters";
 import {
@@ -64,7 +65,6 @@ export function DetailChartWorkspace({
   ariaLabel,
   bottomBar,
   bottomBarAriaLabel,
-  isDailyPeriod,
   mainLines,
   mainPrimitives,
   panelAriaLabels,
@@ -73,6 +73,7 @@ export function DetailChartWorkspace({
   renderPanelHeader,
   renderTooltip,
   timeAxisAriaLabel,
+  timeMode,
   visibleBars = defaultVisibleBars,
 }: DetailChartWorkspaceProps) {
   const primitives = mainPrimitives ?? EMPTY_MAIN_PRIMITIVES;
@@ -98,7 +99,7 @@ export function DetailChartWorkspace({
 
     const charts: IChartApi[] = [];
     const createPaneChart = (container: HTMLDivElement, height: number, showTimeScale = false) => {
-      const chart = createChart(container, buildChartOptions(height, showTimeScale));
+      const chart = createChart(container, buildChartOptions(height, showTimeScale, timeMode));
       charts.push(chart);
       return chart;
     };
@@ -106,7 +107,7 @@ export function DetailChartWorkspace({
     const klineChart = createPaneChart(chartRefs.current.kline, 280);
     const macdChart = createPaneChart(chartRefs.current.macd, 112);
     const volumeChart = createPaneChart(chartRefs.current.volume, 112);
-    const kdjChart = createPaneChart(chartRefs.current.kdj, 112);
+    const kdjChart = createPaneChart(chartRefs.current.kdj, 112, timeMode === "minute");
     const klineSeries = klineChart.addSeries(CandlestickSeries, {
       borderDownColor: DETAIL_CHART_COLORS.down,
       borderUpColor: DETAIL_CHART_COLORS.up,
@@ -167,7 +168,7 @@ export function DetailChartWorkspace({
     addLine(kdjChart, DETAIL_CHART_COLORS.blue, (point) => point.d);
     addLine(kdjChart, DETAIL_CHART_COLORS.purple, (point) => point.j);
 
-    const pointByTime = new Map(points.map((point, index) => [point.time, { index, point }]));
+    const pointByTime = new Map(points.map((point, index) => [String(point.time), { index, point }]));
     const syncTargets: Record<DetailChartPanelKey, ChartSyncTarget> = {
       kline: { chart: klineChart, formatter: formatPriceAxisValue, series: klineSeries, valueOf: (point) => point.close },
       macd: { chart: macdChart, formatter: formatSignedAxisValue, series: macdBars, valueOf: (point) => point.macd },
@@ -225,7 +226,7 @@ export function DetailChartWorkspace({
       }
       setHoverIndex(entry.index);
       setIsChartHovering(true);
-      setSharedCrosshair({ x: pointX, label: formatCrosshairDateLabel(entry.point) });
+      setSharedCrosshair({ x: pointX, label: formatCrosshairDateLabel(entry.point, timeMode) });
 
       isSyncingCrosshair = true;
       Object.values(syncTargets).forEach(({ chart, series, valueOf }) => {
@@ -254,7 +255,7 @@ export function DetailChartWorkspace({
     const crosshairHandlers = (Object.keys(syncTargets) as DetailChartPanelKey[]).map(subscribeCrosshair);
 
     const updateTimeAxisMarkers = () => {
-      if (!isDailyPeriod) {
+      if (timeMode !== "daily") {
         setTimeAxisMarkers([]);
         return;
       }
@@ -379,7 +380,7 @@ export function DetailChartWorkspace({
       primitives.forEach((primitive) => klineSeries.detachPrimitive(primitive));
       charts.forEach((chart) => chart.remove());
     };
-  }, [candleData, isDailyPeriod, mainLines, points, primitives, visibleBars]);
+  }, [candleData, mainLines, points, primitives, timeMode, visibleBars]);
 
   return (
     <section className="detail-chart-workspace" aria-label={ariaLabel}>
@@ -416,7 +417,7 @@ export function DetailChartWorkspace({
   );
 }
 
-function buildChartOptions(height: number, showTimeScale: boolean) {
+function buildChartOptions(height: number, showTimeScale: boolean, timeMode: "daily" | "minute") {
   return {
     autoSize: true,
     height,
@@ -426,6 +427,7 @@ function buildChartOptions(height: number, showTimeScale: boolean) {
       fontFamily: "var(--cs-font-family-number)",
       textColor: DETAIL_CHART_COLORS.text,
     },
+    localization: timeMode === "minute" ? { timeFormatter: formatShanghaiMinuteAxisLabel } : undefined,
     grid: {
       horzLines: { color: DETAIL_CHART_COLORS.grid },
       vertLines: { color: "rgba(148, 163, 184, 0.08)" },
@@ -456,7 +458,9 @@ function buildChartOptions(height: number, showTimeScale: boolean) {
     timeScale: {
       borderColor: DETAIL_CHART_COLORS.axis,
       rightOffset: 1,
-      timeVisible: false,
+      secondsVisible: false,
+      tickMarkFormatter: timeMode === "minute" ? formatShanghaiMinuteAxisLabel : undefined,
+      timeVisible: timeMode === "minute",
       visible: showTimeScale,
     },
     handleScale: false,

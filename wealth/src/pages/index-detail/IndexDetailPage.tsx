@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 
 import { buildIndexDetailPath, DEFAULT_WEALTH_PATH, navigateWealth } from "../../app/routes/routerState";
 import { IndexChartWorkspace } from "../../features/index-detail/chart/IndexChartWorkspace";
+import { IndexMinuteChartWorkspace } from "../../features/index-detail/chart/IndexMinuteChartWorkspace";
 import { useIndexDetailController } from "../../features/index-detail/controller/useIndexDetailController";
+import { useIndexMinuteSeries } from "../../features/index-detail/controller/useIndexMinuteSeries";
 import { useIndexWeights } from "../../features/index-detail/controller/useIndexWeights";
 import { IndexBreadcrumbActionBar } from "../../features/index-detail/layout/IndexBreadcrumbActionBar";
 import { IndexChartToolbar } from "../../features/index-detail/layout/IndexChartToolbar";
 import { getIndexShellIdentity, getIndexShellPeriods, normalizeIndexTsCode } from "../../features/index-detail/model/indexDetailState";
-import type { IndexInfoTab } from "../../features/index-detail/model/indexDetailTypes";
+import type { IndexInfoTab, IndexPeriodKey } from "../../features/index-detail/model/indexDetailTypes";
 import { IndexInfoRail } from "../../features/index-detail/sidebar/IndexInfoRail";
 import { IndexDetailLoadingSkeleton } from "../../features/index-detail/state/IndexDetailLoadingSkeleton";
 import { IndexDetailPageState } from "../../features/index-detail/state/IndexDetailPageState";
@@ -21,6 +23,7 @@ interface IndexDetailPageProps { search: string; tsCode: string; }
 
 export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
   const controller = useIndexDetailController(tsCode, search);
+  const [activePeriod, setActivePeriod] = useState<IndexPeriodKey>("day");
   const [activeTab, setActiveTab] = useState<IndexInfoTab>("basic");
   const [toast, setToast] = useState("");
   const tickers = useTopMarketTickers();
@@ -36,10 +39,26 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
   const viewModel = controller.viewModel;
   const identity = viewModel?.identity ?? getIndexShellIdentity(normalizedTsCode);
   const periods = viewModel?.periods ?? getIndexShellPeriods();
+  const minute = useIndexMinuteSeries({
+    activePeriod,
+    enabled: viewModel?.capabilities.supportsMinute ?? false,
+    endDate: viewModel?.asOfTradeDate ?? null,
+    tsCode: normalizedTsCode,
+  });
 
   useEffect(() => {
     if (controller.phase === "loading" || controller.phase === "empty") setActiveTab("basic");
   }, [controller.phase, normalizedTsCode]);
+
+  useEffect(() => {
+    setActivePeriod("day");
+  }, [normalizedTsCode]);
+
+  useEffect(() => {
+    if (viewModel && !viewModel.periods.some((period) => period.key === activePeriod && period.supported)) {
+      setActivePeriod("day");
+    }
+  }, [activePeriod, viewModel]);
 
   function showToast(message: string) {
     setToast(message);
@@ -69,7 +88,13 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
   const pageShell = <>
     <TopMarketBar onAction={handleTopBarAction} tickers={tickers} />
     <IndexBreadcrumbActionBar identity={identity} />
-    <IndexChartToolbar identity={identity} onAction={showToast} periods={periods} />
+    <IndexChartToolbar
+      activePeriod={periods.some((period) => period.key === activePeriod && period.supported) ? activePeriod : "day"}
+      identity={identity}
+      onAction={showToast}
+      onPeriodChange={setActivePeriod}
+      periods={periods}
+    />
   </>;
 
   if (controller.phase === "loading") {
@@ -122,7 +147,16 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
             variant="empty"
           />
         ) : (
-          <IndexChartWorkspace trend={controller.trend} trendPhase={controller.trendPhase} viewModel={viewModel} />
+          activePeriod === "day" ? (
+            <IndexChartWorkspace trend={controller.trend} trendPhase={controller.trendPhase} viewModel={viewModel} />
+          ) : (
+            <IndexMinuteChartWorkspace
+              data={minute.data}
+              errorMessage={minute.errorMessage}
+              onRetry={minute.retry}
+              phase={minute.phase}
+            />
+          )
         )}
         <IndexInfoRail
           activeTab={activeTab}

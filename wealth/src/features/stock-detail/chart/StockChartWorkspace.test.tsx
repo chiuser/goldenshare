@@ -81,7 +81,6 @@ describe("StockChartWorkspace shared adapter", () => {
     const onAction = vi.fn();
     render(
       <StockChartWorkspace
-        activePeriod="day"
         candles={candles}
         indicatorTabs={indicatorTabs}
         onAction={onAction}

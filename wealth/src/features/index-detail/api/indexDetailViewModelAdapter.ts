@@ -2,7 +2,12 @@ import { directionClass } from "../../../shared/lib/marketDirection";
 import type { MarketDirection } from "../../../shared/model/market";
 import type { IndexDetailKlineResponseDto, IndexDetailPageInitResponseDto } from "./indexDetailApiTypes";
 import { INDEX_INDICATOR_TABS, INDEX_PERIOD_OPTIONS } from "../model/indexDetailConstants";
-import type { IndexBasicMetric, IndexCandlePoint, IndexDetailViewModel } from "../model/indexDetailTypes";
+import type {
+  IndexBasicMetric,
+  IndexCandlePoint,
+  IndexDetailViewModel,
+  IndexPeriodKey,
+} from "../model/indexDetailTypes";
 
 export function buildIndexDetailViewModel(
   pageInit: IndexDetailPageInitResponseDto,
@@ -26,7 +31,7 @@ export function buildIndexDetailViewModel(
     basicMetrics: buildBasicMetrics(pageInit),
     periods: INDEX_PERIOD_OPTIONS.map((period) => ({
       ...period,
-      supported: period.key === "day",
+      supported: supportsPeriod(pageInit, period.key),
     })),
     indicatorTabs: INDEX_INDICATOR_TABS.map((tab) => ({
       ...tab,
@@ -56,6 +61,14 @@ export function buildEmptyIndexDetailViewModel(pageInit: IndexDetailPageInitResp
     capabilities: pageInit.capabilities,
     dataStatus: pageInit.dataStatus,
   };
+}
+
+function supportsPeriod(pageInit: IndexDetailPageInitResponseDto, period: IndexPeriodKey): boolean {
+  if (period === "day") return true;
+  if (!import.meta.env.DEV || !pageInit.capabilities.supportsMinute) return false;
+  const match = /^m(1|5|15|30|60|90|120)$/.exec(period);
+  if (!match) return false;
+  return pageInit.capabilities.minuteFrequencies.includes(Number(match[1]) as 1 | 5 | 15 | 30 | 60 | 90 | 120);
 }
 
 export function buildBasicMetrics(pageInit: IndexDetailPageInitResponseDto): IndexBasicMetric[] {
