@@ -1,7 +1,7 @@
 # A股业绩快报（`express`）数据集低层设计 v1
 
-状态：**M1 编码与本地自动化门禁已完成；M2 已启动但因配置优先级事故暂停，隔离验收尚未完成；Prod 已提前应用空表 migration，尚无业务数据**
-编写日期：2026-08-10；M1/M2 状态更新：2026-08-11
+状态：**M1/M2/M3 已完成；生产 migration、HDD 核验、首次正式同步、五段对账、幂等再跑和 Ops 页面验收均通过**
+编写日期：2026-08-10；M1/M2/M3 状态更新：2026-08-11
 适用范围：Tushare `express_vip` 业绩快报接入 Goldenshare Prod
 
 ## 1. 结论先行
@@ -18,7 +18,7 @@
 4. 失败或取消不推进覆盖游标；retry 复用原 TaskRun 的同一时间窗口。
 5. 调度参数和续跑逻辑由通用 schedule capability contract 驱动，不得在前端或 Ops 服务中增加 `express` key 白名单。
 
-当前没有尚未拍板的 M1 业务设计项。实际历史起点、生产 cron 时间、生产迁移、首次同步与 schedule 创建都是后续的独立授权项，不属于本轮文档交付。
+当前没有尚未拍板的 M1–M3 业务设计项。生产 migration、首次同步和幂等验收已经完成；实际历史起点、M4 历史回补、生产 cron 时间与 schedule 创建仍是后续的独立授权项，不属于 M3。
 
 ## 2. 目标、范围与明确不做
 
@@ -92,7 +92,7 @@ TaskRun 任务详情与 event-run freshness
 ### 3.3 Alembic 与工作区基线
 
 - 2026-08-11 M1 编码前重新只读核验的 Alembic 唯一 head 是 `20260810_000131`；新增 migration 为 `20260811_000132`，`down_revision` 精确连接该真实 head。
-- migration 尚未在本机、隔离库或生产库应用；真实 HDD placement 仍属于 M2/M3。
+- `20260811_000132` 已在本机全新 PostgreSQL 18.4 隔离库从零迁移到唯一 head；Prod 也已提前应用该 revision，并已部署包含同一 migration 的代码版本。隔离库证明目标 relation 强制路由到 `gs_raw_cold_hdd`；Prod 只读核验的冷存储路径为 `/data/disk/postgresql/tablespaces/gs_stk_mins_hdd`。
 - 当前工作区存在与本数据集无关的用户修改；M1 对账只认本文列出的文件，不纳入或覆盖其他改动。
 
 ## 4. 源端契约复审
@@ -665,19 +665,19 @@ git diff --check
 
 | ID | 硬需求 | 代码落点 | 正向测试 | 反向测试 | 当前状态 |
 | --- | --- | --- | --- | --- | --- |
-| EX-01 | 使用 `express_vip` 全市场 | Definition/request builder | 单日返回全市场样本 | 不得调用 `express` 单股通道 | M0 实测、M1 契约已落地 |
-| EX-02 | 33 fields 逐页显式请求且全保存 | Definition/client/ORM/migration | 第二页仍有 33 fields | 默认字段/丢 `update_flag` 失败 | M1 已完成；真实同步待 M2 |
+| EX-01 | 使用 `express_vip` 全市场 | Definition/request builder | 单日返回全市场样本 | 不得调用 `express` 单股通道 | M0 实测、M1 契约已落地；M2 connector 与 M3 正式 TaskRun 均通过 |
+| EX-02 | 33 fields 逐页显式请求且全保存 | Definition/client/ORM/migration | 第二页仍有 33 fields | 默认字段/丢 `update_flag` 失败 | M1 自动化、M2 单日源端哈希对账、M3 生产字段/冻结指纹对账通过 |
 | EX-03 | point/range 逐自然日 | date model/planner | 周末仍生成 unit | 交易日展开/宽区间请求失败 | M1 已完成 |
 | EX-04 | direct-serving 单不可变事实表 | Definition/writer/DAO/model | 新公告新增、幂等重跑 | raw/current/observation/覆盖旧事实禁止 | M1 已完成 |
 | EX-05 | 三元身份和内容冲突 fail-closed | transform/writer | 新 ann_date 可并存 | 同身份不同内容阻断 | M1 已完成 |
-| EX-06 | table/PK/index 全部 HDD，WAL 不改 | migration | 真实 tablespace 路径 | 缺 HDD 不得落默认盘 | M1 静态契约完成；真实 placement 待 M2/M3 |
+| EX-06 | table/PK/index 全部 HDD，WAL 不改 | migration | 真实 tablespace 路径 | 缺 HDD 不得落默认盘 | M2 隔离库 5 个 relation 均命中 `gs_raw_cold_hdd`；Prod 冷存储真实路径已只读确认 |
 | EX-07 | Ops 新增“A股财务数据” | catalog | 手动/自动均显示新组 | 不得塞入 A股行情 | M1 已完成 |
 | EX-08 | cron 可配 daily/weekly/monthly+时间 | capability/API/UI | 三种周期可保存 | once/intraday/probe/fallback 拒绝 | M1 自动化完成；浏览器走查待有效本地账号 |
 | EX-09 | 首次起点+最后成功续跑 | schedule policy/TaskRun query | success 推进 | failed/canceled/他 schedule 不推进 | M1 已完成 |
 | EX-10 | 策略参数通用契约驱动 | model/schema/query/types/UI | API 渲染 initial date | 代码无 `express` key 分支 | M1 已完成；浏览器走查待有效本地账号 |
-| EX-11 | 到期 schedule 原子单次入队 | schedule service/task service | 单事务成功 | 并发不得创建 2 个 TaskRun | M1 代码/回滚测试完成；真实 PostgreSQL 双会话待 M2 |
+| EX-11 | 到期 schedule 原子单次入队 | schedule service/task service | 单事务成功 | 并发不得创建 2 个 TaskRun | M1 自动化完成；M2 真实 PostgreSQL 双会话 `SKIP LOCKED` 只创建 1 个 TaskRun |
 | EX-12 | 最多 366 天且提交/runtime 预检 | Definition/manual/schedule | 366 成功 | 367 不发请求并显示正确错误 | M1 已完成 |
-| EX-13 | 五段真实对账后才能验收 | M2/M3 运行证据 | source=normalized+dedup+reject，DB 一致 | 任一差额阻断 | 待独立授权 |
+| EX-13 | 五段真实对账后才能验收 | M2/M3 运行证据 | source=normalized+dedup+reject，DB 一致 | 任一差额阻断 | M2 隔离库、M3 首次正式 TaskRun 与正式幂等 TaskRun 均已通过 |
 
 ## 18. 里程碑与发布顺序
 
@@ -685,8 +685,8 @@ git diff --check
 | --- | --- | --- |
 | M0 | 本地文档、Tushare 真实行为、当前代码和 LLD 审计 | 已完成；未编码 |
 | M1 | Definition、request/normalizer、ORM/DAO/migration、Ops/UI、通用 schedule contract、单元/集成/前端验证 | 代码与自动化门禁完成；真实浏览器走查待有效本地账号 |
-| M2 | 隔离 PostgreSQL migration、HDD placement、合成容量/锁/回滚、最小真实同步对账 | 已授权并启动；因配置优先级事故暂停，尚未完成 |
-| M3 | 生产只读预检、migration、HDD 路径、首次单日同步与五段对账 | migration 已提前应用且空表/HDD placement 已只读确认；部署、真实同步和五段对账仍未授权/未完成 |
+| M2 | 隔离 PostgreSQL migration、HDD placement、合成容量/锁/回滚、最小真实同步对账 | 已完成；使用临时目标门禁隔离到 `127.0.0.1:55410/goldenshare_express_m2`，Prod 前后只读指纹一致 |
+| M3 | 生产只读预检、migration、HDD 路径、首次单日同步与五段对账 | 已完成；`TaskRun#7923/#7928` 分别验证首次插入和正式幂等再跑，卡片/freshness/详情验收通过 |
 | M4a | 历史规模与配额只读预估 | 需独立授权；不写入 |
 | M4b | 历史分段回补 | 需独立授权；每段对账 |
 | M4c | 运营手工创建/启用 schedule | 需独立授权；无代码 seed |
@@ -719,12 +719,12 @@ git diff --check
 - schedule 契约回滚：只暂停新创建的 `express` schedule，保留 TaskRun 和业务数据；现有数据集 schedule 不需迁移或重建。
 - 业务数据不使用 downgrade 删除；如需清理必须另行授权并给出逐表备份/清单。
 
-## 20. M1 阶段完成记录
+## 20. M1–M3 阶段完成记录
 
 ### 20.1 已完成
 
 - Definition 固定 `express_vip`、33 个显式字段、5,000 行分页、自然日逐日 unit、366 unit 上限和 direct-serving immutable fact 写入契约。
-- 新增三元身份 transform、显式 ORM、`ImmutableFactDAO` 注册和 HDD fail-closed migration；未应用 migration。
+- 新增三元身份 transform、显式 ORM、`ImmutableFactDAO` 注册和 HDD fail-closed migration；该 migration 已应用于隔离库和 Prod。
 - Ops Catalog 新增“A股财务数据”，手动任务支持 point/range 且无 filters；workflow/probe 均未接入。
 - 新增通用 `since_last_success_day_range` 策略参数契约；前后端从 capability 渲染 `initial_start_date`，无 `express` action-key 白名单。
 - scheduler 使用 `FOR UPDATE SKIP LOCKED` 逐条锁定到期配置，TaskRun stage 与 schedule 推进同事务提交；空窗口结构化 skip，超 366 日创建 planner issue 并暂停 schedule。
@@ -739,18 +739,44 @@ git diff --check
 
 ### 20.3 未完成与边界
 
-- 本地独立浏览器能打开登录页，但预填测试账号无效；Chrome 只有已登录的生产页面，而生产尚未部署 M1，因此没有把生产旧页面冒充本地新表单验收。真实浏览器新建/编辑/详情走查仍待一个有效本地测试账号或后续部署环境。
-- M2 已获得授权，但隔离 PostgreSQL migration、双会话锁竞争、最小真实同步和五段对账尚未完成。
-- 未创建或修改任何真实 TaskRun、schedule、probe/workflow；未调用 Tushare；未回补历史。
+- M1 时本地独立浏览器能打开登录页，但预填测试账号无效，因此当时没有把生产旧页面冒充本地新表单验收。生产现已部署同版本；自动任务新建/编辑表单的真实浏览器路径仍留到 M4c 创建 schedule 前验收。
+- M2 已完成。隔离库中的 1 条 schedule 和 1 条 TaskRun 仅用于真实 PostgreSQL `SKIP LOCKED` 并发验收，没有启动 worker；M3 已在 Prod 创建正式 express TaskRun，仍未创建或修改 express schedule、probe/workflow。
+- M2 只调用 `express_vip` 2 次，均为 `ann_date=20250408` 的单页请求；未扫描其他日期、未回补历史。
 
 ### 20.4 M2 配置优先级事故记录
 
 - M2 首次执行时，命令行虽然显式设置了隔离 `DATABASE_URL`，但 `get_settings()` 会把 `GOLDENSHARE_ENV_FILE=.env.web.local` 中的同名值作为构造参数，并临时移除同名环境变量，因此 Alembic 实际连接到了 Prod。
 - 结果是 Prod 提前应用 `20260811_000132`。只读复核确认 `core_serving.equity_express` 行数为 0；表、主键和三个二级索引均位于生产 `gs_raw_cold_hdd`，真实路径为 `/data/disk/postgresql/tablespaces/gs_stk_mins_hdd`。
 - Prod 中 `express` TaskRun、schedule 和 queued/running/canceling 任务均为 0；本轮事故没有调用 Tushare，也没有写入业务行。禁止用这次提前 migration 冒充 M2 或 M3 通过。
-- 未执行 destructive downgrade 或删表。继续 M2 前必须使用不含远程 `DATABASE_URL` 的隔离配置，并在任何 Alembic 命令前由应用设置对象和独立 SQL 连接双重断言 host、port、database 均为隔离目标。
+- 未执行 destructive downgrade 或删表。M2 恢复时使用不加载 `.env.web.local` 数据库地址的临时隔离配置，并在同一进程中同时断言应用设置对象和数据库服务端返回的 host、port、database；传入非隔离目标的负向测试在连接前失败。
+
+### 20.5 M2 隔离验收记录
+
+- 隔离环境：全新 PostgreSQL 18.4，固定目标 `127.0.0.1:55410/goldenshare_express_m2`。迁移前目标门禁负向测试确认远程 host/port/database 会在连接前被拒绝；随后从空库完整迁移到唯一 head `20260811_000132`。
+- 本机物理介质说明：`/Volumes/datasource` 被 macOS 识别为外置 SSD，因此没有把它冒充机械盘。隔离验收只证明 `equity_express`、主键索引和三个二级索引共 5 个 relation 全部显式落到独立 `gs_raw_cold_hdd` tablespace；生产冷存储的实际路径另由 Prod 只读核验确认。
+- 10,000 行容量：本地生成 10,001 条输入（含 1 条完全重复），归一化后 10,000 条、去重 1 条、插入 10,000 条、目标 10,000 条，用时 3.976 秒；验收进程峰值 RSS 为 448.12 MiB。该进程随后还构造了另一批 10,000 行用于回滚注入，因此该 RSS 是整个验收进程上界，不是单个生产 unit 的增量内存。
+- 事务回滚：第二批 10,000 行在第 2 个批量 INSERT 前注入故障；事务回滚后该 `ann_date` 目标行数为 0，证明前一批 INSERT 未部分可见。
+- 数据 scope 锁：第一会话持有同一 `ann_date` 的 advisory xact lock 时，第二会话得到 PostgreSQL `55P03`；第一会话释放后第二会话可取得锁。
+- scheduler 并发：第一会话锁住唯一到期的 express schedule，第二会话通过 `FOR UPDATE SKIP LOCKED` 创建 0 个 TaskRun；持锁会话创建 1 个，最终该 schedule 只有 1 个 TaskRun，时间窗口为 `2026-08-10..2026-08-10`，`next_run_at` 原子推进到下一次 cron。
+- 最小真实同步：项目 connector 对 `ann_date=20250408` 首次和幂等重跑各请求一次；每次参数均为 `ann_date=20250408, offset=0, limit=5000`，33 个 `source_fields` 完整携带，均返回 14 行短页。
+- 五段对账：首次 `source=14`、`normalized=14`、`deduplicated=0`、`rejected=0`、`inserted_new=14`、目标 scope `=14`；源端身份/33 字段内容哈希多重集与目标表完全一致。第二次 `source=14`、`normalized=14`、`rejected=0`、`inserted_new=0`、`matched_existing=14`、目标仍为 14，包含 `ingested_at` 的 scope 指纹不变。
+- Prod 前后只读指纹一致：revision 均为 `20260811_000132`，`core_serving.equity_express=0`，express TaskRun/schedule 均为 0，全系统 queued/running/canceling 均为 0。M2 没有向 Prod 写入任何业务或 Ops 数据。
+
+### 20.6 M3 生产验收记录
+
+- 生产预检：远端 `dev-interface` HEAD 为 `55a460713725c50d6f33492f68a26b772f068336` 且工作区干净；Web、worker、scheduler 均 active，两个健康接口通过，Web 入口为 `python -m src.app.web.run`。数据库 revision 为 `20260811_000132`，express 表/TaskRun/schedule 和全系统开放任务均为 0。
+- 生产 placement：`equity_express`、主键和三个二级索引共 5 个 relation 均位于 `gs_raw_cold_hdd`，`pg_tablespace_location()` 为 `/data/disk/postgresql/tablespaces/gs_stk_mins_hdd`。
+- 创建门禁：首次尝试因把外部只读连接看到的 `10.2.24.2` 误当作远端应用本机连接地址而在任何写入前失败；复核仍为 0 行/0 TaskRun。修正后的门禁同时校验应用解析目标、服务端返回的 `127.0.0.1:5432/goldenshare`、revision 和 5 个 relation 的生产冷盘路径，不是放宽为任意本机数据库。
+- 正式 TaskRun：通过 `ManualActionCommandService` 的正式 Manual Action 主链创建 `TaskRun#7923`，`action_key=express.maintain`、`trigger_source=manual`、`time_input={mode: point, ann_date: 2025-04-08}`、无 filters；正式 planner 在入队前完成预检。
+- 首次执行：TaskRun 成功，`unit_total=1`、`unit_done=1`、`unit_failed=0`；源端分页为 1 页、`offset=0`、终止短页 14 行、无 retry。五段结果为 `fetched=14`、`normalized_before_dedupe=14`、`deduplicated=0`、`rejected=0`、`saved/inserted_new=14`，无 reject reason、无 issue。
+- 目标核对：生产 scope/全表均为 14 行，实体键和 `(ts_code, ann_date, end_date)` 业务键均为 14 个，必填字段空值为 0；33 个显式 source fields 全部存在于 37 列目标表中，14 个实体身份和 `identity_basis` 均可从目标字段重算一致。
+- 源内容核对没有再次请求 Tushare：Prod 14 条 `(source_entity_key, source_content_hash)` 的有序指纹为 `bbd09c0b291d7c8128d3604cabdfe83a`，与 M2 中已经通过源端哈希对账的冻结隔离快照完全一致。不能用目标表读回值直接重算 `source_content_hash`：源数值在 hash 时是 `Decimal`，LLD 固定的目标列是 `FLOAT`，读回后是 `float`，类型敏感 hash 会产生伪差异；正确审计对象是源归一化 hash 与持久化 hash。
+- Ops 投影与浏览验收：后端 TaskRun 查询投影和生产页面 `/app/ops/tasks/7923` 均显示“业绩快报”、手动发起、范围 `2025-04-08`、进度 `1/1` 与 100%、读取/保存/拒绝/去重为 `14/14/0/0`、源端 1 页短页结束、不可变事实首次插入 14 条且无 issue。生产数据集页 `/app/ops/v21/datasets/tushare` 中该卡片只出现一次，位于“A股财务数据”，服务表为 `core_serving.equity_express`，最新事件日期为 `2025-04-08`；API 投影同时证明 `raw_table/raw_table_label=null`、`layer_plan=source->serving`、freshness policy 为 `event_run_trace` 且状态为 `fresh`，没有 schedule 或 probe。
+- 并发门禁：首次验收后出现用户的 `idx_factor_pro TaskRun#7924` 和 `news TaskRun#7925`，本轮没有抢占或插队；只读等待两者均成功且开放队列恢复为 0 后，才允许创建幂等任务。两次远端脚本尝试分别因交互式 shell 缺少 Web 生产环境和普通账号无权读取 `/etc/goldenshare/web.env` 而在数据库连接前失败；复核证明未创建 TaskRun、未调用 Tushare、目标仍为 14 行。最终只使用现有 sudo 授权，以 Web 服务相同的 `GOLDENSHARE_ENV_FILE` 执行门禁，没有读取/输出凭据、修改 sudoers 或更改服务配置。
+- 正式幂等 TaskRun：`TaskRun#7928` 使用与首次相同的 `express.maintain`、`ann_date=2025-04-08` 和空 filters；成功完成 `1/1` unit，耗时 80 ms，无 issue。结果为 `fetched=14`、`normalized_before_dedupe=14`、`deduplicated=0`、`rejected=0`、`inserted_new=0`、`matched_existing=14`、`scope_existing_count=14`。
+- 幂等目标核对：再跑后生产 scope/全表仍为 14 行，实体键和业务键均为 14 个，必填字段空值为 0；内容指纹仍为 `bbd09c0b291d7c8128d3604cabdfe83a`，包含 `ingested_at` 的不可变指纹在再跑前后均为 `a5931861d7b392ddf7f9c1548c7433a4`。`TaskRun#7923/#7928` 均成功，开放队列再次为 0。M3 总计仅由两个正式 TaskRun 各调用一次 `express_vip`，没有额外源端扫描。
 
 | 本阶段追溯 ID | 已验证证据 | 未完成项 | 结论 |
 | --- | --- | --- | --- |
-| EX-01–EX-12 | M0 源端证据、M1 代码、自动化测试、静态门禁与 CodeGraph 影响面 | 浏览器登录环境、M2 PostgreSQL/真实同步 | **M1 代码与自动化通过；环境验收边界已显式保留** |
-| EX-13 | 尚未执行真实同步 | M2/M3 五段对账 | **未开始，不能视为通过** |
+| EX-01–EX-12 | M0 源端证据、M1 代码/自动化、M2 PostgreSQL migration/placement/容量/回滚/并发与真实 connector、M3 生产 placement 和 Ops 页面 | 生产自动任务新建/编辑页属于 M4c 创建 schedule 前验收 | **M1/M2/M3 当前范围通过** |
+| EX-13 | M2 单日两次真实请求、五段对账、目标哈希与幂等指纹；M3 `TaskRun#7923/#7928` 首次生产同步和正式幂等再跑 | 无 | **M2/M3 均通过** |
