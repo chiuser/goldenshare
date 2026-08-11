@@ -56,6 +56,8 @@ docs/
 - [A股实时分钟流架构方案 v1（HTML，M7 已完成 / M8 待开市验收）](/Users/congming/github/goldenshare/docs/architecture/realtime-stock-minute-stream-architecture-v1.html)
 - [股票当日分时序列按需查询方案 v1（待开市验证）](/Users/congming/github/goldenshare/docs/architecture/realtime-stock-intraday-minutes-on-demand-plan-v1.md)
 - [ETF 实时日线流接入方案 v1（代码已接入 / 生产已启用 / 待开市批次验收）](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-daily-stream-plan-v1.md)
+- [上证指数日线趋势通道实时计算方案 v1（已拍板，待开发）](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-plan-v1.md)
+- [上证指数日线趋势通道实时计算 LLD v1（已拍板，待开发）](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md)
 - [ETF 活跃池设计方案 v1（核心能力已落地）](/Users/congming/github/goldenshare/docs/architecture/etf-active-pool-design-plan-v1.md)
 - [ETF 活跃池低层设计 LLD v1（核心能力已落地）](/Users/congming/github/goldenshare/docs/architecture/etf-active-pool-low-level-design-v1.md)
 - [股票周/月线自然锚点日期模型修正方案 v1（已实施）](/Users/congming/github/goldenshare/docs/architecture/stk-period-calendar-anchor-date-model-fix-plan-v1.md)
