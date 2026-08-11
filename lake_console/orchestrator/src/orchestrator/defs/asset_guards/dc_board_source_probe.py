@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import math
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import date
-import math
 from numbers import Real
-import re
 from time import perf_counter
 
-from orchestrator.defs.resources import ProdPostgresResource, TushareResource, TushareResult
+from orchestrator.defs.resources import (
+    ProdPostgresResource,
+    TushareResource,
+    TushareResult,
+)
 from orchestrator.defs.run_contracts.dc_board import (
     DC_BOARD_MAX_ELAPSED_MS,
     DC_BOARD_MAX_REQUESTS_PER_PARTITION,
@@ -32,7 +36,6 @@ from orchestrator.defs.tushare_request_policy import (
     execute_bounded_code_pages,
     execute_bounded_pages,
 )
-
 
 _RAW_TRADE_DATE_RE = re.compile(r"^\d{8}$")
 _BOARD_CODE_RE = re.compile(r"^BK\d{4}\.DC$")
@@ -234,66 +237,70 @@ def load_prod_dc_board_reference(
 
     query_count = 0
     try:
-        with prod_postgres.connect_readonly_transaction() as connection:
-            with connection.cursor() as cursor:
-                query_count += 1
-                cursor.execute(
-                    """
-                    SELECT idx_type, ts_code
-                    FROM core_serving.dc_index
-                    WHERE trade_date = %s
-                    ORDER BY idx_type, ts_code
-                    """,
-                    (partition_date,),
-                )
-                index_identity = tuple(
-                    (_normalize_identity_value(idx_type), _normalize_identity_value(ts_code))
-                    for idx_type, ts_code in cursor.fetchall()
-                )
-                query_count += 1
-                cursor.execute(
-                    """
-                    SELECT category, ts_code
-                    FROM core_serving.dc_daily
-                    WHERE trade_date = %s
-                    ORDER BY category, ts_code
-                    """,
-                    (partition_date,),
-                )
-                daily_identity = tuple(
-                    (_normalize_identity_value(category), _normalize_identity_value(ts_code))
-                    for category, ts_code in cursor.fetchall()
-                )
-                query_count += 1
-                cursor.execute(
-                    """
-                    WITH scoped AS (
-                        SELECT
-                            upper(trim(ts_code)) AS ts_code,
-                            upper(trim(con_code)) AS con_code
-                        FROM core_serving.dc_member
-                        WHERE trade_date = %s
-                    ), duplicate_pairs AS (
-                        SELECT ts_code, con_code
-                        FROM scoped
-                        GROUP BY ts_code, con_code
-                        HAVING count(*) > 1
-                    )
+        with (
+            prod_postgres.connect_readonly_transaction() as connection,
+            connection.cursor() as cursor,
+        ):
+            query_count += 1
+            cursor.execute(
+                """
+                SELECT idx_type, ts_code
+                FROM core_serving.dc_index
+                WHERE trade_date = %s
+                ORDER BY idx_type, ts_code
+                """,
+                (partition_date,),
+            )
+            index_identity = tuple(
+                (_normalize_identity_value(idx_type), _normalize_identity_value(ts_code))
+                for idx_type, ts_code in cursor.fetchall()
+            )
+            query_count += 1
+            cursor.execute(
+                """
+                SELECT category, ts_code
+                FROM core_serving.dc_daily
+                WHERE trade_date = %s
+                ORDER BY category, ts_code
+                """,
+                (partition_date,),
+            )
+            daily_identity = tuple(
+                (_normalize_identity_value(category), _normalize_identity_value(ts_code))
+                for category, ts_code in cursor.fetchall()
+            )
+            query_count += 1
+            cursor.execute(
+                """
+                WITH scoped AS (
                     SELECT
-                        count(*) AS member_row_count,
-                        count(*) FILTER (
-                            WHERE ts_code IS NULL OR ts_code = ''
-                               OR con_code IS NULL OR con_code = ''
-                        ) AS invalid_key_count,
-                        (SELECT count(*) FROM duplicate_pairs) AS duplicate_key_count,
-                        coalesce(array_agg(DISTINCT ts_code ORDER BY ts_code)
-                            FILTER (WHERE ts_code IS NOT NULL AND ts_code <> ''), ARRAY[]::text[])
-                            AS member_codes
+                        upper(trim(ts_code)) AS ts_code,
+                        upper(trim(con_code)) AS con_code
+                    FROM core_serving.dc_member
+                    WHERE trade_date = %s
+                ), duplicate_pairs AS (
+                    SELECT ts_code, con_code
                     FROM scoped
-                    """,
-                    (partition_date,),
+                    GROUP BY ts_code, con_code
+                    HAVING count(*) > 1
                 )
-                member_row_count, invalid_key_count, duplicate_key_count, member_codes = cursor.fetchone()
+                SELECT
+                    count(*) AS member_row_count,
+                    count(*) FILTER (
+                        WHERE ts_code IS NULL OR ts_code = ''
+                           OR con_code IS NULL OR con_code = ''
+                    ) AS invalid_key_count,
+                    (SELECT count(*) FROM duplicate_pairs) AS duplicate_key_count,
+                    coalesce(array_agg(DISTINCT ts_code ORDER BY ts_code)
+                        FILTER (WHERE ts_code IS NOT NULL AND ts_code <> ''), ARRAY[]::text[])
+                        AS member_codes
+                FROM scoped
+                """,
+                (partition_date,),
+            )
+            member_row_count, invalid_key_count, duplicate_key_count, member_codes = (
+                cursor.fetchone()
+            )
     except Exception as exc:  # noqa: BLE001 - source readiness must fail closed.
         return DcBoardProdReferenceResult(
             trade_date=trade_date,
@@ -414,10 +421,16 @@ def compare_tushare_index_and_daily_to_reference(
             row_key=lambda row: (row.get("idx_type"), row.get("ts_code"), row.get("trade_date")),
         )
         if not index_result.ready:
+            if index_result.budget_exceeded:
+                reason_code = "source_request_budget_exceeded"
+            elif index_result.failed_codes:
+                reason_code = "source_request_error"
+            else:
+                reason_code = "source_request_incomplete"
             return DcBoardTushareReferenceComparison(
                 trade_date=trade_date,
                 ready=False,
-                reason_code="source_request_incomplete" if not index_result.budget_exceeded else "source_request_budget_exceeded",
+                reason_code=reason_code,
                 request_count=index_result.request_count,
                 page_count=sum(index_result.page_counts.values()),
                 retry_count=index_result.retry_count,
@@ -476,10 +489,16 @@ def compare_tushare_index_and_daily_to_reference(
         retry_count = index_result.retry_count + daily_result.retry_count
         page_count = sum(index_result.page_counts.values()) + daily_result.page_count
         if not daily_result.ready:
+            if daily_result.budget_exceeded:
+                reason_code = "source_request_budget_exceeded"
+            elif daily_result.failed_pages:
+                reason_code = "source_request_error"
+            else:
+                reason_code = "source_request_incomplete"
             return DcBoardTushareReferenceComparison(
                 trade_date=trade_date,
                 ready=False,
-                reason_code="source_request_incomplete" if not daily_result.budget_exceeded else "source_request_budget_exceeded",
+                reason_code=reason_code,
                 request_count=request_count,
                 page_count=page_count,
                 retry_count=retry_count,
@@ -582,21 +601,23 @@ def load_prod_dc_member_pairs(
     """Read exact prod member pairs for a writer-only DuckDB set comparison."""
 
     partition_date = date.fromisoformat(trade_date)
-    with prod_postgres.connect_readonly_transaction() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT upper(trim(ts_code)), upper(trim(con_code))
-                FROM core_serving.dc_member
-                WHERE trade_date = %s
-                ORDER BY upper(trim(ts_code)), upper(trim(con_code))
-                """,
-                (partition_date,),
-            )
-            pairs = tuple(
-                (_normalize_identity_value(ts_code), _normalize_identity_value(con_code))
-                for ts_code, con_code in cursor.fetchall()
-            )
+    with (
+        prod_postgres.connect_readonly_transaction() as connection,
+        connection.cursor() as cursor,
+    ):
+        cursor.execute(
+            """
+            SELECT upper(trim(ts_code)), upper(trim(con_code))
+            FROM core_serving.dc_member
+            WHERE trade_date = %s
+            ORDER BY upper(trim(ts_code)), upper(trim(con_code))
+            """,
+            (partition_date,),
+        )
+        pairs = tuple(
+            (_normalize_identity_value(ts_code), _normalize_identity_value(con_code))
+            for ts_code, con_code in cursor.fetchall()
+        )
     if (
         not pairs
         or len(pairs) != len(set(pairs))

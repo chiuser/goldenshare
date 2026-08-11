@@ -13,7 +13,6 @@ from orchestrator.defs.run_contracts.dc_board import (
 )
 from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
 
-
 _TRADE_DATE = "2026-07-14"
 _RAW_TRADE_DATE = _TRADE_DATE.replace("-", "")
 _INDEX_IDENTITY = (
@@ -213,7 +212,7 @@ def test_complete_tushare_comparison_rejects_partial_daily_response():
     assert result.daily_missing_count == 1
 
 
-def test_tushare_comparison_keeps_completed_request_count_on_late_error():
+def test_tushare_comparison_counts_late_failed_request():
     result = compare_tushare_index_and_daily_to_reference(
         tushare=_FakeTushare(fail_daily=True),
         trade_date=_TRADE_DATE,
@@ -223,4 +222,4 @@ def test_tushare_comparison_keeps_completed_request_count_on_late_error():
 
     assert result.ready is False
     assert result.reason_code == "source_request_error"
-    assert result.request_count == len(DC_INDEX_TYPES)
+    assert result.request_count == len(DC_INDEX_TYPES) + 1

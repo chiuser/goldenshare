@@ -20,7 +20,6 @@ from orchestrator.defs.paths import (
 )
 from orchestrator.defs.resources import DuckDBResource
 
-
 DATES = ("2026-07-13", "2026-07-14")
 FINGERPRINTS = {
     "dc_index": "index-fingerprint",
@@ -99,6 +98,34 @@ def _write_fixture_lake(root: Path) -> None:
                            1::INTEGER AS down_num,
                            '行业板块'::VARCHAR AS idx_type,
                            NULL::VARCHAR AS level
+                    UNION ALL
+                    SELECT 'BK0002.DC'::VARCHAR,
+                           {raw_date_literal}::VARCHAR,
+                           '概念板块'::VARCHAR,
+                           NULL::VARCHAR,
+                           '000002.SZ'::VARCHAR,
+                           1.0::DOUBLE,
+                           1.0::DOUBLE,
+                           100.0::DOUBLE,
+                           1.0::DOUBLE,
+                           1::INTEGER,
+                           1::INTEGER,
+                           '概念板块'::VARCHAR,
+                           NULL::VARCHAR
+                    UNION ALL
+                    SELECT 'BK0003.DC'::VARCHAR,
+                           {raw_date_literal}::VARCHAR,
+                           '地域板块'::VARCHAR,
+                           NULL::VARCHAR,
+                           '000003.SZ'::VARCHAR,
+                           1.0::DOUBLE,
+                           1.0::DOUBLE,
+                           100.0::DOUBLE,
+                           1.0::DOUBLE,
+                           1::INTEGER,
+                           1::INTEGER,
+                           '地域板块'::VARCHAR,
+                           NULL::VARCHAR
                 ) TO '{paths['raw_index']}' (FORMAT PARQUET)
                 """
             )
@@ -128,6 +155,34 @@ def _write_fixture_lake(root: Path) -> None:
                            1.0::DOUBLE AS swing,
                            1.0::DOUBLE AS turnover_rate,
                            '行业板块'::VARCHAR AS category
+                    UNION ALL
+                    SELECT 'BK0002.DC'::VARCHAR,
+                           {raw_date_literal}::VARCHAR,
+                           10.0::DOUBLE,
+                           9.0::DOUBLE,
+                           10.0::DOUBLE,
+                           9.0::DOUBLE,
+                           1.0::DOUBLE,
+                           1.0::DOUBLE,
+                           100.0::DOUBLE,
+                           1000.0::DOUBLE,
+                           1.0::DOUBLE,
+                           1.0::DOUBLE,
+                           '概念板块'::VARCHAR
+                    UNION ALL
+                    SELECT 'BK0003.DC'::VARCHAR,
+                           {raw_date_literal}::VARCHAR,
+                           10.0::DOUBLE,
+                           9.0::DOUBLE,
+                           10.0::DOUBLE,
+                           9.0::DOUBLE,
+                           1.0::DOUBLE,
+                           1.0::DOUBLE,
+                           100.0::DOUBLE,
+                           1000.0::DOUBLE,
+                           1.0::DOUBLE,
+                           1.0::DOUBLE,
+                           '地域板块'::VARCHAR
                 ) TO '{paths['raw_daily']}' (FORMAT PARQUET)
                 """
             )
@@ -147,6 +202,34 @@ def _write_fixture_lake(root: Path) -> None:
                            1::INTEGER AS down_num,
                            '行业板块'::VARCHAR AS idx_type,
                            NULL::VARCHAR AS level
+                    UNION ALL
+                    SELECT 'BK0002.DC'::VARCHAR,
+                           {date_literal},
+                           '概念板块'::VARCHAR,
+                           NULL::VARCHAR,
+                           '000002.SZ'::VARCHAR,
+                           1.0::DOUBLE,
+                           1.0::DOUBLE,
+                           100.0::DOUBLE,
+                           1.0::DOUBLE,
+                           1::INTEGER,
+                           1::INTEGER,
+                           '概念板块'::VARCHAR,
+                           NULL::VARCHAR
+                    UNION ALL
+                    SELECT 'BK0003.DC'::VARCHAR,
+                           {date_literal},
+                           '地域板块'::VARCHAR,
+                           NULL::VARCHAR,
+                           '000003.SZ'::VARCHAR,
+                           1.0::DOUBLE,
+                           1.0::DOUBLE,
+                           100.0::DOUBLE,
+                           1.0::DOUBLE,
+                           1::INTEGER,
+                           1::INTEGER,
+                           '地域板块'::VARCHAR,
+                           NULL::VARCHAR
                 ) TO '{paths['silver_index']}' (FORMAT PARQUET)
                 """
             )
@@ -176,6 +259,34 @@ def _write_fixture_lake(root: Path) -> None:
                            1.0::DOUBLE AS swing,
                            1.0::DOUBLE AS turnover_rate,
                            '行业板块'::VARCHAR AS category
+                    UNION ALL
+                    SELECT 'BK0002.DC'::VARCHAR,
+                           {date_literal},
+                           10.0::DOUBLE,
+                           9.0::DOUBLE,
+                           10.0::DOUBLE,
+                           9.0::DOUBLE,
+                           1.0::DOUBLE,
+                           1.0::DOUBLE,
+                           100.0::DOUBLE,
+                           1000.0::DOUBLE,
+                           1.0::DOUBLE,
+                           1.0::DOUBLE,
+                           '概念板块'::VARCHAR
+                    UNION ALL
+                    SELECT 'BK0003.DC'::VARCHAR,
+                           {date_literal},
+                           10.0::DOUBLE,
+                           9.0::DOUBLE,
+                           10.0::DOUBLE,
+                           9.0::DOUBLE,
+                           1.0::DOUBLE,
+                           1.0::DOUBLE,
+                           100.0::DOUBLE,
+                           1000.0::DOUBLE,
+                           1.0::DOUBLE,
+                           1.0::DOUBLE,
+                           '地域板块'::VARCHAR
                 ) TO '{paths['silver_daily']}' (FORMAT PARQUET)
                 """
             )

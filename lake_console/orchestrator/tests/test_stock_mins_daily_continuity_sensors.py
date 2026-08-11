@@ -6,31 +6,32 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import dagster as dg
 import duckdb
 
 from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
     StkMinsBatchReadiness,
     StkMinsDateReadiness,
 )
+from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
+    GoldStkMinsQfqFactorRepairStatus,
+)
 from orchestrator.defs.partitions import (
     cn_a_stock_mins_silver_trade_days,
     cn_a_stock_mins_trade_days,
-)
-from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
-    GoldStkMinsQfqFactorRepairStatus,
 )
 from orchestrator.defs.sensors import readiness
 from orchestrator.defs.sensors import stock_mins_qfq_daily_sensor as qfq_daily_module
 from orchestrator.defs.sensors import (
     stock_mins_qfq_factor_repair_sensor as qfq_factor_repair_module,
 )
-from orchestrator.defs.sensors.stock_mins_raw_sensor import stock_mins_raw_sensor
 from orchestrator.defs.sensors.stock_mins_qfq_daily_sensor import (
     stock_mins_qfq_daily_sensor,
 )
 from orchestrator.defs.sensors.stock_mins_qfq_factor_repair_sensor import (
     stock_mins_qfq_factor_repair_sensor,
 )
+from orchestrator.defs.sensors.stock_mins_raw_sensor import stock_mins_raw_sensor
 from orchestrator.defs.sensors.stock_mins_silver_sensor import stock_mins_silver_sensor
 from orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor import (
     stock_mins_silver_trade_day_sensor,
@@ -136,6 +137,7 @@ class _Context:
         self.resources = SimpleNamespace(
             lake_root=_LakeRoot(),
             duckdb=_DuckDBResource(),
+            prod_postgres=object(),
         )
 
 
@@ -439,7 +441,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         self.assertEqual(continuity["first_missing_registered_date"], "2026-06-15")
         self.assertEqual(continuity["blocked_reason"], "missing_registered_partition")
 
-    def test_raw_sensor_submits_first_not_ready_date_not_latest_registered(
+    def test_raw_sensor_submits_current_date_after_prior_dates_are_ready(
         self,
     ) -> None:
         context = _Context(("2026-06-13", "2026-06-15", "2026-06-16"))
@@ -453,13 +455,15 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             ),
             "2026-06-15": _raw_date_status(
                 trade_date="2026-06-15",
-                ready=False,
-                reason="missing raw",
+                ready=True,
+                materialized=True,
+                checks_passed=True,
+                reason="ready",
             ),
             "2026-06-16": _raw_date_status(
                 trade_date="2026-06-16",
                 ready=False,
-                reason="should not scan",
+                reason="missing raw",
             ),
         }
 
@@ -478,25 +482,49 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             "orchestrator.defs.sensors.stock_mins_raw_sensor."
             "stock_basic_ready_for_trade_date",
             return_value=_stock_basic_status(ready=True),
-        ) as stock_basic_ready_mock:
+        ) as stock_basic_ready_mock, patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor."
+            "load_current_listed_stock_codes_for_stk_mins",
+            return_value=("600000.SH",),
+        ) as stock_codes_mock, patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor."
+            "stk_mins_prod_source_ready_for_trade_date",
+            return_value=SimpleNamespace(
+                ready=True,
+                completion_reference=object(),
+            ),
+        ) as prod_source_mock, patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor."
+            "_compact_prod_source_status",
+            return_value={"ready": True, "reason_code": "prod_source_ready"},
+        ), patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor."
+            "_run_request_for_trade_date",
+            return_value=dg.RunRequest(
+                run_key="stock_mins_raw_update_from_prod:2026-06-16",
+                partition_key="2026-06-16",
+            ),
+        ):
             result = stock_mins_raw_sensor._raw_fn(context)
 
         self.assertEqual(len(result.run_requests), 1)
         request = result.run_requests[0]
-        self.assertEqual(request.partition_key, "2026-06-15")
+        self.assertEqual(request.partition_key, "2026-06-16")
         self.assertEqual(
             request.run_key,
-            "stock_mins_raw_update_from_prod:2026-06-15",
+            "stock_mins_raw_update_from_prod:2026-06-16",
         )
         raw_batch_mock.assert_called_once()
-        stock_basic_ready_mock.assert_called_once_with(context.instance, "2026-06-15")
+        stock_basic_ready_mock.assert_called_once_with(context.instance, "2026-06-16")
+        stock_codes_mock.assert_called_once()
+        prod_source_mock.assert_called_once()
 
         cursor = json.loads(result.cursor)
         continuity = cursor["details"]["frontier"]["continuity"]
-        self.assertEqual(cursor["target_date"], "2026-06-15")
-        self.assertEqual(cursor["sample_keys"], ["2026-06-15"])
-        self.assertEqual(continuity["ready_through_date"], "2026-06-13")
-        self.assertEqual(continuity["next_actionable_date"], "2026-06-15")
+        self.assertEqual(cursor["target_date"], "2026-06-16")
+        self.assertEqual(cursor["sample_keys"], ["2026-06-16"])
+        self.assertEqual(continuity["ready_through_date"], "2026-06-15")
+        self.assertEqual(continuity["next_actionable_date"], "2026-06-16")
 
     def test_raw_sensor_blocks_materialized_check_problem_without_later_date(
         self,
@@ -552,7 +580,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         self.assertEqual(continuity["blocked_reason"], "materialized_check_problem")
 
     def test_raw_sensor_records_continuity_before_source_window(self) -> None:
-        context = _Context(("2026-06-13", "2026-06-15"))
+        context = _Context(("2026-06-13", "2026-06-15", "2026-06-16"))
         raw_statuses = {
             "2026-06-13": _raw_date_status(
                 trade_date="2026-06-13",
@@ -563,6 +591,13 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             ),
             "2026-06-15": _raw_date_status(
                 trade_date="2026-06-15",
+                ready=True,
+                materialized=True,
+                checks_passed=True,
+                reason="ready",
+            ),
+            "2026-06-16": _raw_date_status(
+                trade_date="2026-06-16",
                 ready=False,
                 reason="missing raw",
             ),
@@ -574,7 +609,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         ), patch(
             "orchestrator.defs.sensors.stock_mins_raw_sensor."
             "_load_stock_mins_raw_expected_trade_dates",
-            return_value=("2026-06-13", "2026-06-15"),
+            return_value=("2026-06-13", "2026-06-15", "2026-06-16"),
         ), patch(
             "orchestrator.defs.sensors.stock_mins_raw_sensor."
             "batch_raw_stk_mins_lake_readiness",
@@ -592,12 +627,12 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         cursor = json.loads(result.cursor)
         continuity = cursor["details"]["frontier"]["continuity"]
         self.assertFalse(cursor["details"]["evidence"]["source_window_started"])
-        self.assertEqual(continuity["first_not_ready_date"], "2026-06-15")
+        self.assertEqual(continuity["first_not_ready_date"], "2026-06-16")
 
     def test_raw_sensor_skips_when_stock_basic_not_ready_for_selected_date(
         self,
     ) -> None:
-        context = _Context(("2026-06-15",))
+        context = _Context(("2026-06-16",))
 
         with patch(
             "orchestrator.defs.sensors.stock_mins_raw_sensor.datetime",
@@ -605,14 +640,14 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         ), patch(
             "orchestrator.defs.sensors.stock_mins_raw_sensor."
             "_load_stock_mins_raw_expected_trade_dates",
-            return_value=("2026-06-15",),
+            return_value=("2026-06-16",),
         ), patch(
             "orchestrator.defs.sensors.stock_mins_raw_sensor."
             "batch_raw_stk_mins_lake_readiness",
             return_value=_raw_batch_status(
                 {
-                    "2026-06-15": _raw_date_status(
-                        trade_date="2026-06-15",
+                    "2026-06-16": _raw_date_status(
+                        trade_date="2026-06-16",
                         ready=False,
                         reason="missing raw",
                     )
@@ -627,7 +662,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("股票基础信息", _skip_message(result))
-        stock_basic_ready_mock.assert_called_once_with(context.instance, "2026-06-15")
+        stock_basic_ready_mock.assert_called_once_with(context.instance, "2026-06-16")
 
     def test_raw_sensor_skips_when_continuity_window_is_all_ready(self) -> None:
         context = _Context(("2026-06-13", "2026-06-15", "2026-06-16"))

@@ -3,8 +3,8 @@ import unittest
 from contextlib import contextmanager
 from datetime import datetime, time
 from pathlib import Path
-from types import SimpleNamespace
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import duckdb
@@ -140,10 +140,13 @@ class StockMinsTradeDayContinuitySensorTests(unittest.TestCase):
         self.assertEqual(cursor["selected_count"], 2)
         self.assertEqual(cursor["blocked_count"], 1)
         self.assertEqual(
-            cursor["details"]["selected_keys"],
+            cursor["sample_keys"],
             ["2026-06-15", "2026-06-16"],
         )
-        self.assertEqual(cursor["details"]["max_partition_keys_per_tick"], 2)
+        self.assertEqual(
+            cursor["details"]["evidence"]["max_partition_keys_per_tick"],
+            2,
+        )
         self.assertEqual(len(result.dynamic_partitions_requests), 1)
 
     def test_stock_mins_trade_day_sensor_keeps_same_day_1800_window(self) -> None:
@@ -170,8 +173,10 @@ class StockMinsTradeDayContinuitySensorTests(unittest.TestCase):
         self.assertEqual(result.dynamic_partitions_requests, [])
         self.assertIn("18:00", result.skip_reason.skip_message)
         self.assertEqual(cursor["decision"], "skip")
-        self.assertEqual(cursor["details"]["selected_keys"], [])
-        self.assertFalse(cursor["details"]["same_day_register_window_started"])
+        self.assertEqual(cursor["sample_keys"], [])
+        self.assertFalse(
+            cursor["details"]["frontier"]["same_day_register_window_started"]
+        )
 
 
 if __name__ == "__main__":
