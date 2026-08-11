@@ -1,20 +1,30 @@
 import type { IndexDetailViewModel, TrendChannelViewModel } from "../model/indexDetailTypes";
+import { IndexDetailModuleState } from "../state/IndexDetailModuleState";
 
-export function IndexTechnicalTab({ trend, viewModel }: { trend: TrendChannelViewModel | null; viewModel: IndexDetailViewModel }) {
+interface IndexTechnicalTabProps {
+  onTrendRetry: () => void;
+  trend: TrendChannelViewModel | null;
+  trendPhase: "unavailable" | "loading" | "ready" | "error";
+  viewModel: IndexDetailViewModel;
+}
+
+export function IndexTechnicalTab({ onTrendRetry, trend, trendPhase, viewModel }: IndexTechnicalTabProps) {
   const latest = trend?.points.at(-1) ?? null;
   return (
     <section className="index-technical-module" aria-label="技术面">
-      <div className="index-tab-section-title"><strong>技术面</strong><span>{viewModel.asOfTradeDate}</span></div>
+      <div className="index-tab-section-title"><strong>技术面</strong><span>{viewModel.asOfTradeDate ?? "--"}</span></div>
       <TechnicalCard title="技术结论" value="--" note="后续由独立策略 API 提供" />
       <TechnicalCard title="九转序列" value="--" note="后续由独立 API 提供" />
       <div className="index-technical-card">
         <div><strong>趋势通道</strong><span>{viewModel.capabilities.supportsTrendChannel ? "上证指数 · 日线" : "当前指数不支持"}</span></div>
-        <div className="index-technical-grid">
+        {viewModel.capabilities.supportsTrendChannel && trendPhase === "loading" ? <IndexDetailModuleState text="正在加载趋势通道…" /> : null}
+        {viewModel.capabilities.supportsTrendChannel && trendPhase === "error" ? <IndexDetailModuleState actionLabel="重试" onAction={onTrendRetry} text="趋势通道加载失败" tone="error" /> : null}
+        {trendPhase !== "loading" && trendPhase !== "error" ? <div className="index-technical-grid">
           <Metric label="短期上轨" value={format(latest?.shortUpper)} />
           <Metric label="短期下轨" value={format(latest?.shortLower)} />
           <Metric label="长期上轨" value={format(latest?.longUpper)} />
           <Metric label="长期下轨" value={format(latest?.longLower)} />
-        </div>
+        </div> : null}
       </div>
     </section>
   );

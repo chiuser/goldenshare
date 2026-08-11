@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { fetchIndexDetailWeights } from "../api/indexDetailApiClient";
 import type { IndexDetailWeightsResponseDto } from "../api/indexDetailApiTypes";
+import type { IndexModulePhase } from "../model/indexDetailTypes";
 
 const indexWeightsCache = new Map<string, IndexDetailWeightsResponseDto>();
 
@@ -15,16 +16,14 @@ export function useIndexWeights(params: {
   const cacheKey = `${tsCode.toUpperCase()}|${asOfTradeDate ?? ""}`;
   const cached = indexWeightsCache.get(cacheKey) ?? null;
   const [data, setData] = useState<IndexDetailWeightsResponseDto | null>(cached);
-  const [phase, setPhase] = useState<"idle" | "loading" | "ready" | "empty" | "error">(
-    cached ? (cached.rows.length > 0 ? "ready" : "empty") : "idle",
-  );
+  const [phase, setPhase] = useState<IndexModulePhase>(cached ? resolveWeightsPhase(cached) : "idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     const nextCached = indexWeightsCache.get(cacheKey) ?? null;
     setData(nextCached);
-    setPhase(nextCached ? (nextCached.rows.length > 0 ? "ready" : "empty") : "idle");
+    setPhase(nextCached ? resolveWeightsPhase(nextCached) : "idle");
     setErrorMessage("");
   }, [cacheKey]);
 
@@ -37,7 +36,7 @@ export function useIndexWeights(params: {
       .then((payload) => {
         indexWeightsCache.set(cacheKey, payload);
         setData(payload);
-        setPhase(payload.rows.length > 0 ? "ready" : "empty");
+        setPhase(resolveWeightsPhase(payload));
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
@@ -51,6 +50,16 @@ export function useIndexWeights(params: {
     data,
     errorMessage,
     phase,
-    retry: () => setRetryToken((value) => value + 1),
+    retry: () => {
+      indexWeightsCache.delete(cacheKey);
+      setRetryToken((value) => value + 1);
+    },
   };
+}
+
+function resolveWeightsPhase(payload: IndexDetailWeightsResponseDto): IndexModulePhase {
+  if (payload.dataStatus.status === "EMPTY" || payload.rows.length === 0) return "empty";
+  if (payload.dataStatus.status === "PARTIAL") return "partial";
+  if (payload.dataStatus.status === "DELAYED") return "delayed";
+  return "ready";
 }

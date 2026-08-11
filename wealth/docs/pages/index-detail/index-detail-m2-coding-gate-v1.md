@@ -1,6 +1,6 @@
 # 指数详情页 M2 编码前门禁 v1
 
-> 状态：M1 后端、M2 共享图表与 M3 Loaded 条目已通过；M4 异常状态与 M5 分钟仍按未勾选项阻断对应里程碑。
+> 状态：M1 后端、M2 共享图表、M3 Loaded 与 M4 异常状态条目已通过；M5 分钟仍按未勾选项阻断对应里程碑。
 > 需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 方案：[指数详情页技术实施方案 v1](./index-detail-implementation-design-v1.md)
 > LLD：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)
@@ -42,7 +42,7 @@
 8. [x] shared 图表提取边界和股票回归 case 冻结。
 9. [ ] local/prod 分钟配置与路由矩阵冻结。
 10. [x] Figma 节点台账已确认：Basic Loaded `417:2`、Weights `423:2`、Technical `423:910`、Components `412:3`、交互说明 `425:178`、五态根画板已登记；Weights/Technical 的 Cover 跨页位置已显式记录。
-11. [ ] 真实 API + 前端可见结果测试 case 冻结。
+11. [x] 真实 API + 前端可见结果测试 case 冻结。
 12. [ ] 后端、前端、架构/产品签字完成。
 
 ## 3. 请求参数门禁
@@ -276,22 +276,22 @@ interface IndexKlineBarDto {
 
 ### 4.5 EMPTY / ERROR
 
-1. [ ] 主日线空：HTTP 200 + page/kline `dataStatus=EMPTY`，保留页面空态。
-2. [ ] code 格式/其它参数非法：400 + `ID_REQUEST_INVALID`；格式合法但不在名单：404 + `ID_NOT_FOUND`。
-3. [ ] 权重无批次：weights HTTP 200 + `EMPTY`，不影响主图。
-4. [ ] 趋势计算失败：trend endpoint 标准错误，页面保留 kline 并局部 error。
-5. [ ] 403 不能转换为 EMPTY。
+1. [x] 主日线空：HTTP 200 + page/kline `dataStatus=EMPTY`，保留页面空态。
+2. [x] code 格式/其它参数非法：400 + `ID_REQUEST_INVALID`；格式合法但不在名单：404 + `ID_NOT_FOUND`。
+3. [x] 权重无批次：weights HTTP 200 + `EMPTY`，不影响主图。
+4. [x] 趋势计算失败：trend endpoint 标准错误，页面保留 kline 并局部 error。
+5. [x] 403 不能转换为 EMPTY。
 
 ### 4.6 五态视觉响应合同
 
-1. [ ] LOADING：保留外层页面骨架；左图表与右栏均为 skeleton；清空上一标的详情 ViewModel，不展示旧行情或 mock；主文案固定为“正在加载指数行情”，副文案仅上证指数包含“趋势通道”，其余 9 个指数只写“正在读取日线与技术指标”。
-2. [ ] EMPTY：保留指数身份、工具栏、三个 Tab 和 Basic 卡片；主价格、涨跌与 15 个指标值全部为 `--`；提供“重新加载 / 查看最近交易日”。
-3. [ ] ERROR：保留 TopMarketBar、面包屑和工具栏；MainContent 使用 `1580×1038` 全宽错误面板；提供“重新加载 / 返回指数首页”。
-4. [ ] PARTIAL：保留 Loaded 图表和所有可用数据；仅真实缺失项显示 `--`；提示文案由缺失字段集合生成，不得写死 Figma 示例的金额、TTM 市盈率、平盘数。
-5. [ ] FORBIDDEN：保留外层页面骨架；MainContent 使用 `1580×1038` 全宽权限面板；不自动重试、不发起后续详情请求，提供“返回指数首页”。
-6. [ ] 404 没有独立像素稿，复用 ERROR 全宽壳并显示“指数不存在”；DELAYED 保留 Loaded 数据并显示实际观测日期，不伪装 EMPTY。
-7. [ ] 真实接口失败后禁止回填 mock；TopMarketBar 的全局 ticker 不属于当前指数详情旧数据，可以保留。
-8. [ ] EMPTY“重新加载”保留当前查询参数；“查看最近交易日”移除隐藏 `tradeDate` 后 replace 到同一指数路由。默认日期仍无数据时继续 EMPTY，不任意回退历史日期。
+1. [x] LOADING：保留外层页面骨架；左图表与右栏均为 skeleton；清空上一标的详情 ViewModel，不展示旧行情或 mock；主文案固定为“正在加载指数行情”，副文案仅上证指数包含“趋势通道”，其余 9 个指数只写“正在读取日线与技术指标”。
+2. [x] EMPTY：保留指数身份、工具栏、三个 Tab 和 Basic 卡片；主价格、涨跌与 15 个指标值全部为 `--`；提供“重新加载 / 查看最近交易日”。
+3. [x] ERROR：保留 TopMarketBar、面包屑和工具栏；MainContent 使用 `1580×1038` 全宽错误面板；提供“重新加载 / 返回指数首页”。
+4. [x] PARTIAL：保留 Loaded 图表和所有可用数据；仅真实缺失项显示 `--`；提示文案由缺失字段集合生成，不得写死 Figma 示例的金额、TTM 市盈率、平盘数。
+5. [x] FORBIDDEN：保留外层页面骨架；MainContent 使用 `1580×1038` 全宽权限面板；不自动重试、不发起后续详情请求，提供“返回指数首页”。
+6. [x] 404 没有独立像素稿，复用 ERROR 全宽壳并显示“指数不存在”；DELAYED 保留 Loaded 数据并显示实际观测日期，不伪装 EMPTY。
+7. [x] 真实接口失败后禁止回填 mock；TopMarketBar 的全局 ticker 不属于当前指数详情旧数据，可以保留。
+8. [x] EMPTY“重新加载”保留当前查询参数；“查看最近交易日”移除隐藏 `tradeDate` 后 replace 到同一指数路由。默认日期仍无数据时继续 EMPTY，不任意回退历史日期。
 
 ## 5. 查询草案
 
@@ -391,12 +391,12 @@ WHERE ts_code IN (:all_constituent_codes)
 | ERROR/404 | 未请求 | 未请求 | 任意 | 页面 fatal error/not-found |
 | 403 | 未请求 | 未请求 | 任意 | FORBIDDEN |
 
-1. [ ] 权重和技术 tab 状态不覆盖页面主状态。
+1. [x] 权重和技术 tab 状态不覆盖页面主状态。
 2. [ ] minute 状态不污染日线缓存。
-3. [ ] delayed 必须显示 observed date，不仅在 debug 中存在。
-4. [ ] 真实失败不回退 mock/scaffold 数值。
-5. [ ] 页面级状态优先级固定为：401 认证跳转 > 403 FORBIDDEN > 404/非法指数 > fatal ERROR > EMPTY > PARTIAL/DELAYED > READY。
-6. [ ] 页面级 ERROR/EMPTY/FORBIDDEN 的恢复动作与 Figma 文案一致；模块级错误只能局部重试。
+3. [x] delayed 必须显示 observed date，不仅在 debug 中存在。
+4. [x] 真实失败不回退 mock/scaffold 数值。
+5. [x] 页面级状态优先级固定为：401 认证跳转 > 403 FORBIDDEN > 404/非法指数 > fatal ERROR > EMPTY > PARTIAL/DELAYED > READY。
+6. [x] 页面级 ERROR/EMPTY/FORBIDDEN 的恢复动作与 Figma 文案一致；模块级错误只能局部重试。
 
 ## 7. 异常码登记门禁
 
@@ -426,25 +426,25 @@ WHERE ts_code IN (:all_constituent_codes)
 
 ### 8.1 路由与导航
 
-1. [ ] `buildIndexDetailPath()` trim+upper+encode。
-2. [ ] router 同时支持 `/wealth/market/index/:code`，不影响 stock route。
-3. [ ] `MajorIndexPanel` 只上报码，不自行拼路径。
-4. [ ] 10 卡顺序和数据仍由 major-indices API 决定。
+1. [x] `buildIndexDetailPath()` trim+upper+encode。
+2. [x] router 同时支持 `/wealth/market/index/:code`，不影响 stock route。
+3. [x] `MajorIndexPanel` 只上报码，不自行拼路径。
+4. [x] 10 卡顺序和数据仍由 major-indices API 决定。
 
 ### 8.2 Loaded 页面
 
-1. [ ] 复用 `TopMarketBar`。
-2. [ ] 不存在“前复权”文本、按钮或 hidden action。
-3. [ ] 默认 Basic tab，三个 tab 都有 keyboard/ARIA tab 语义。
-4. [ ] 权重表头固定、视窗恰好显示 10 行、内部纵向滚动、虚拟化渲染完整批次，并展示估算说明。
-5. [ ] 技术结论和九转显示 `--`，不引用 Figma 示例文案。
-6. [ ] `+交易计划` 只绑定用户点击 toast，不被 effect/数据状态调用。
-7. [ ] 基本行情严格按顺序展示 15 项；缺值显示 `--`，不存在“成交状态”和“较昨日”。
-8. [ ] 上涨/平盘/下跌使用 API 聚合值；前端不遍历权重行重算，不把 missing 算作平盘。
-9. [ ] Loading 使用图表/右栏骨架，不只显示居中文案；不得直接复制股票详情当前简化 loading DOM。
-10. [ ] Empty 右栏保留身份和三个 Tab，主价格、涨跌及 15 个指标值均为 `--`。
-11. [ ] Error/Forbidden 使用全宽主面板但不删除外层页面壳；Partial 不清空图表或可用字段。
-12. [ ] Error/Partial/Forbidden 分别使用 `--cs-color-danger-system`、`--cs-color-warning`、`--cs-color-info`，测试断言未使用 `--cs-color-market-up/down`。
+1. [x] 复用 `TopMarketBar`。
+2. [x] 不存在“前复权”文本、按钮或 hidden action。
+3. [x] 默认 Basic tab，三个 tab 都有 keyboard/ARIA tab 语义。
+4. [x] 权重表头固定、视窗恰好显示 10 行、内部纵向滚动、虚拟化渲染完整批次，并展示估算说明。
+5. [x] 技术结论和九转显示 `--`，不引用 Figma 示例文案。
+6. [x] `+交易计划` 只绑定用户点击 toast，不被 effect/数据状态调用。
+7. [x] 基本行情严格按顺序展示 15 项；缺值显示 `--`，不存在“成交状态”和“较昨日”。
+8. [x] 上涨/平盘/下跌使用 API 聚合值；前端不遍历权重行重算，不把 missing 算作平盘。
+9. [x] Loading 使用图表/右栏骨架，不只显示居中文案；不得直接复制股票详情当前简化 loading DOM。
+10. [x] Empty 右栏保留身份和三个 Tab，主价格、涨跌及 15 个指标值均为 `--`。
+11. [x] Error/Forbidden 使用全宽主面板但不删除外层页面壳；Partial 不清空图表或可用字段。
+12. [x] Error/Partial/Forbidden 分别使用 `--cs-color-danger-system`、`--cs-color-warning`、`--cs-color-info`，测试断言未使用 `--cs-color-market-up/down`。
 
 ### 8.3 图表共享
 
@@ -452,26 +452,26 @@ WHERE ts_code IN (:all_constituent_codes)
 2. [x] shared chart 不含 stock/index 业务文案。
 3. [x] null 指标被过滤或绘制断点，不转 0。
 4. [x] 股票详情 90 根窗口、crosshair、tooltip、MA/BOLL、四面板回归通过。
-5. [ ] 上证指数趋势短/长期四轨与每日竖线可按日期对齐，无未来数据；每个交易日都有竖线，颜色切换点连续；短期红/绿、长期粉/蓝四种组合均有测试。
-6. [ ] 其余 9 个指数不渲染趋势入口、不调用趋势接口。
+5. [x] 上证指数趋势短/长期四轨与每日竖线可按日期对齐，无未来数据；每个交易日都有竖线，颜色切换点连续；短期红/绿、长期粉/蓝四种组合均有测试。
+6. [x] 其余 9 个指数不渲染趋势入口、不调用趋势接口。
 
 ### 8.4 周期与环境
 
-1. [ ] prod：日线 active；分时/周/月/所有分钟 disabled。
+1. [x] prod：日线 active；分时/周/月/所有分钟 disabled。
 2. [ ] local flag false：同 prod。
 3. [ ] local flag true + Lake ready：仅七个分钟 frequency enabled。
 4. [ ] 权重 tab 不随分钟切换成盘中贡献。
 
 ### 8.5 Figma 结构与像素门禁
 
-1. [ ] 页面为 `1600×1200`：TopMarketBar 56px、面包屑 42px、工具栏 44px、主内容区 1058px。
-2. [ ] Loaded/Loading/Empty/Partial 双栏保持：左 `1193.1953125×1038`、间距 10px、右 `376.796875×1038`、主内容内边距 10px。
-3. [ ] TopMarketBar 使用共享组件，不复制第二套；右栏三个 Tab 共享稳定 Header/Tabs 骨架。
-4. [ ] 页面骨架、状态内容、按钮组、指标卡片和列表使用 Auto Layout/CSS Grid/Flex；不得用大量补偿坐标模拟布局。
-5. [ ] K 线、趋势通道、九转位置、指标、坐标轴、Tooltip、十字线保留图表坐标定位，状态切换不得使其位移。
-6. [ ] 普通 UI 相对 Figma 基线偏差不超过 2px，无新增换行、裁剪、重叠或溢出。
-7. [ ] Partial 提示内部为流式布局；若以右栏覆盖层定位，必须只有一个稳定锚点，不能改变 Info Rail 组件实例结构。
-8. [ ] `425:190` 是过期概述，不进入实现或测试；Basic 字段金标只能来自 `414:446`、`425:219` 和三件套 15 项清单。
+1. [x] 页面为 `1600×1200`：TopMarketBar 56px、面包屑 42px、工具栏 44px、主内容区 1058px。
+2. [x] Loaded/Loading/Empty/Partial 双栏保持：左 `1193.1953125×1038`、间距 10px、右 `376.796875×1038`、主内容内边距 10px。
+3. [x] TopMarketBar 使用共享组件，不复制第二套；右栏三个 Tab 共享稳定 Header/Tabs 骨架。
+4. [x] 页面骨架、状态内容、按钮组、指标卡片和列表使用 Auto Layout/CSS Grid/Flex；不得用大量补偿坐标模拟布局。
+5. [x] K 线、趋势通道、九转位置、指标、坐标轴、Tooltip、十字线保留图表坐标定位，状态切换不得使其位移。
+6. [x] 普通 UI 相对 Figma 基线偏差不超过 2px，无新增换行、裁剪、重叠或溢出。
+7. [x] Partial 提示内部为流式布局；若以右栏覆盖层定位，必须只有一个稳定锚点，不能改变 Info Rail 组件实例结构。
+8. [x] `425:190` 是过期概述，不进入实现或测试；Basic 字段金标只能来自 `414:446`、`425:219` 和三件套 15 项清单。
 
 ## 9. 数据审计门禁
 
@@ -546,15 +546,15 @@ M1 实现后 50 样本跨网络服务链 P95：page-init 246.054ms、kline 300 2
 
 1. [x] 不使用 mock adapter 证明 ready。
 2. [x] 10 卡导航和 router history。
-3. [ ] page loading/error/empty/partial/forbidden 分别对照 `498:516`、`501:761`、`499:579`、`502:1625`、`504:1009`。
+3. [x] page loading/error/empty/partial/forbidden 分别对照 `498:516`、`501:761`、`499:579`、`502:1625`、`504:1009`。
 4. [x] 三 tab、权重懒加载缓存、10 行虚拟滚动并可到达末行、技术空字段。
 5. [ ] prod/local 周期能力。
 6. [x] 页面无“前复权”。
 7. [x] 股票详情共享图表回归。
-8. [ ] Loading 无上一标的详情值；Empty 有 17 个指数专属 `--` 占位（主价格、涨跌、15 项指标）。
-9. [ ] Partial 的 Figma fixture 仅缺金额、TTM 市盈率、平盘数，同时有另一缺失组合证明提示与占位不是写死。
-10. [ ] Error/FORBIDDEN 外层骨架尺寸不变，MainContent 为全宽面板；恢复按钮执行正确动作。
-11. [ ] 状态颜色 token 与行情颜色 token 语义分离。
+8. [x] Loading 无上一标的详情值；Empty 的指数头部价格/涨跌与 15 项指标均使用 `--` 占位。
+9. [x] Partial 以两组不同缺失组合证明提示与占位由真实响应驱动，不写死 Figma 示例字段。
+10. [x] Error/FORBIDDEN 外层骨架尺寸不变，MainContent 为全宽面板；恢复按钮执行正确动作。
+11. [x] 状态颜色 token 与行情颜色 token 语义分离。
 
 ### 11.3 命令
 
@@ -577,8 +577,8 @@ cd wealth && npm run build
 
 1. [x] Figma Loaded 结构已实现并通过 1600×1200 浏览器量测。
 2. [x] shared chart 重构范围可控。
-3. [ ] 三 tab、周期、异常态可落地。
-4. [ ] 五态逐画板结构、文案、动作、颜色与数据保留规则可落地。
+3. [x] 三 tab、生产日线周期与异常态已落地；本地分钟周期仍受 M5 门禁约束。
+4. [x] 五态逐画板结构、文案、动作、颜色与数据保留规则已落地并通过截图验收。
 
 ### 架构/产品
 
@@ -591,6 +591,7 @@ cd wealth && npm run build
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.11 | 2026-08-11 | 完成 M4 门禁：五态、404、Delayed、页面/模块状态分层、整页/局部重试、请求中止防串标、动态 Partial 文案、系统状态色与 1600×1200 逐状态截图通过；100 项 Wealth 与 82 项后端相关回归通过，M5 分钟项保持未勾选 | Codex |
 | v1.10 | 2026-08-11 | 完成 M3 Loaded 门禁：真实指数路由、10 卡导航、三 Tab、15 项基本行情、权重懒加载缓存/十行虚拟滚动、SSE-only 逐日四色趋势和技术空字段通过；M4/M5 项保持未勾选 | Codex |
 | v1.9 | 2026-08-11 | 完成 M2 shared chart：通用四面板生命周期、90 根窗口、同步 crosshair/tooltip、MA/BOLL 可选线、null-safe series 与可选 primitive 接口落地；股票 adapter、全量 Wealth 测试、生产构建和 1600×1200 浏览器尺寸对账通过；趋势与指数 adapter 仍留在 M3 | Codex |
 | v1.8 | 2026-08-11 | 回填 M1 实施结果：三条真实路由、严格非法参数、10 code、动态 MA、完整权重、源字段负例、旧契约回归和生产只读 P95 条目通过；保留前端/M5/真实 2000 行未通过项 | Codex |

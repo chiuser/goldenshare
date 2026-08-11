@@ -1,15 +1,21 @@
-import type { IndexDetailViewModel } from "../model/indexDetailTypes";
+import type { IndexDetailViewModel, IndexPeriodOption } from "../model/indexDetailTypes";
 
-export function IndexChartToolbar({ onAction, viewModel }: { onAction: (message: string) => void; viewModel: IndexDetailViewModel }) {
+interface IndexChartToolbarProps {
+  identity: IndexDetailViewModel["identity"];
+  onAction: (message: string) => void;
+  periods: IndexPeriodOption[];
+}
+
+export function IndexChartToolbar({ identity, onAction, periods }: IndexChartToolbarProps) {
   return (
     <section className="index-detail-chart-toolbar" aria-label="ChartWorkspaceToolbar">
       <div className="index-detail-toolbar-primary">
         <div className="index-detail-toolbar-identity">
-          <b>{viewModel.identity.name}</b><span>{viewModel.identity.tsCode}</span>
+          <b>{identity.name}</b><span>{identity.tsCode}</span>
         </div>
         <div className="index-detail-periods" aria-label="周期切换">
           <span className="toolbar-title">周期</span>
-          {viewModel.periods.map((period) => (
+          {periods.map((period) => (
             <button
               aria-pressed={period.key === "day"}
               className={`seg-btn ${period.key === "day" ? "active" : "unsupported"}`}

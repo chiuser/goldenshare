@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { makeKline, makePageInit, makeTrendPayload } from "../../features/index-detail/testing/indexDetailTestFixtures";
@@ -47,29 +47,259 @@ describe("IndexDetailPage", () => {
     expect(screen.getByText("当前指数不支持")).toBeInTheDocument();
     },
   );
+
+  it("renders the Figma loading skeleton without stale detail values", () => {
+    let resolvePageInit: ((value: Response) => void) | undefined;
+    mockFetch("000001.SH", { pageInit: () => new Promise((resolve) => { resolvePageInit = resolve; }) });
+    render(<IndexDetailPage search="" tsCode="000001.SH" />);
+
+    expect(screen.getByLabelText("正在加载指数行情")).toBeInTheDocument();
+    expect(screen.getByText("正在读取日线、技术指标与趋势通道")).toBeInTheDocument();
+    expect(screen.queryByText("3940.04")).not.toBeInTheDocument();
+    act(() => resolvePageInit?.(response(makePageInit())));
+  });
+
+  it("renders Empty with the stable shell, exactly fifteen placeholder metrics, and no downstream request", async () => {
+    const replaceState = vi.spyOn(window.history, "replaceState");
+    const empty = makePageInit();
+    empty.asOfTradeDate = null;
+    empty.quote = null;
+    empty.dailyBasic = null;
+    empty.constituentBreadth = null;
+    empty.dataStatus = { status: "EMPTY", expectedTradeDate: "2026-07-31", observedTradeDate: null };
+    const fetchMock = mockFetch("000001.SH", { pageInit: () => response(empty) });
+    render(<IndexDetailPage search="?tradeDate=2026-07-31" tsCode="000001.SH" />);
+
+    expect(await screen.findByText("暂无指数日线数据")).toBeInTheDocument();
+    expect(screen.getByText("上证指数 000001.SH")).toBeInTheDocument();
+    expect(document.querySelectorAll("[data-metric-key]")).toHaveLength(15);
+    expect([...document.querySelectorAll("[data-metric-key] b")].every((node) => node.textContent === "--")).toBe(true);
+    expect(screen.getByText("暂无数据")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/kline"))).toBe(false);
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/trend-channel"))).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "查看最近交易日" }));
+    expect(replaceState).toHaveBeenCalledWith({}, "", "/wealth/market/index/000001.SH");
+    replaceState.mockRestore();
+  });
+
+  it("maps 500 to the full-width Error panel and retries the whole page", async () => {
+    const fetchMock = mockFetch("000001.SH", {
+      pageInit: () => response({ code: "ID_QUERY_FAILED", message: "数据库暂时不可用" }, 500),
+    });
+    render(<IndexDetailPage search="" tsCode="000001.SH" />);
+
+    expect(await screen.findByText("指数详情加载失败")).toBeInTheDocument();
+    expect(screen.getByText("ERROR · 请求未完成")).toBeInTheDocument();
+    expect(screen.getByLabelText("MainContent")).toHaveClass("full");
+    fireEvent.click(screen.getByRole("button", { name: "重新加载" }));
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/page-init"))).toHaveLength(2));
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/kline"))).toBe(false);
+  });
+
+  it("maps 403 to Forbidden and stops kline, trend, and weights requests", async () => {
+    const fetchMock = mockFetch("000001.SH", {
+      pageInit: () => response({ code: "HTTP_403", message: "Forbidden" }, 403),
+    });
+    render(<IndexDetailPage search="" tsCode="000001.SH" />);
+
+    expect(await screen.findByText("暂无访问权限")).toBeInTheDocument();
+    expect(screen.getByText("403 · FORBIDDEN")).toBeInTheDocument();
+    expect(screen.getByLabelText("MainContent")).toHaveClass("full");
+    expect(fetchMock.mock.calls.some(([input]) => /\/index-detail\/(kline|weights)/.test(String(input)))).toBe(false);
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/trend-channel"))).toBe(false);
+  });
+
+  it("maps ID_NOT_FOUND to the 404 shell and stops downstream requests", async () => {
+    const fetchMock = mockFetch("999999.SH", {
+      pageInit: () => response({ code: "ID_NOT_FOUND", message: "指数不在正式名单" }, 404),
+    });
+    render(<IndexDetailPage search="" tsCode="999999.SH" />);
+
+    expect(await screen.findByText("指数不存在")).toBeInTheDocument();
+    expect(screen.getByText("404 · NOT FOUND")).toBeInTheDocument();
+    expect(screen.getByText("指数详情 999999.SH")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([input]) => /\/index-detail\/(kline|weights)/.test(String(input)))).toBe(false);
+  });
+
+  it("maps ID_REQUEST_INVALID to the request-error shell", async () => {
+    const fetchMock = mockFetch("000001.SH", {
+      pageInit: () => response({ code: "ID_REQUEST_INVALID", message: "tradeDate 无效" }, 400),
+    });
+    render(<IndexDetailPage search="?tradeDate=invalid" tsCode="000001.SH" />);
+
+    expect(await screen.findByText("指数请求无效")).toBeInTheDocument();
+    expect(screen.getByText("400 · INVALID REQUEST")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([input]) => /\/index-detail\/(kline|weights)/.test(String(input)))).toBe(false);
+  });
+
+  it("keeps Loaded data for Partial and derives the warning from the actual missing fields", async () => {
+    const partial = makePageInit("399001.SZ");
+    partial.quote = { ...partial.quote!, amount: null };
+    partial.dailyBasic = { ...partial.dailyBasic!, peTtm: null };
+    partial.constituentBreadth = { ...partial.constituentBreadth!, missingCount: 7, matchedCount: 2345 };
+    partial.dataStatus = { status: "PARTIAL", expectedTradeDate: "2026-07-31", observedTradeDate: "2026-07-31" };
+    mockFetch("399001.SZ", { pageInit: () => response(partial) });
+    render(<IndexDetailPage search="" tsCode="399001.SZ" />);
+
+    expect(await screen.findByLabelText("指数日线图表区")).toBeInTheDocument();
+    expect(metricValue("amount")).toBe("--");
+    expect(metricValue("peTtm")).toBe("--");
+    expect(metricValue("preClose")).not.toBe("--");
+    const notice = screen.getByLabelText("部分数据缺失");
+    expect(notice).toHaveTextContent("金额");
+    expect(notice).toHaveTextContent("TTM 市盈率");
+    expect(notice).toHaveTextContent("成分涨跌统计（缺少 7 个成分行情）");
+  });
+
+  it("generates a different Partial warning when a different field is missing", async () => {
+    const partial = makePageInit("000300.SH");
+    partial.dailyBasic = { ...partial.dailyBasic!, pb: null };
+    partial.dataStatus = { status: "PARTIAL", expectedTradeDate: "2026-07-31", observedTradeDate: "2026-07-31" };
+    mockFetch("000300.SH", { pageInit: () => response(partial) });
+    render(<IndexDetailPage search="" tsCode="000300.SH" />);
+
+    const notice = await screen.findByLabelText("部分数据缺失");
+    expect(notice).toHaveTextContent("市净率");
+    expect(notice).not.toHaveTextContent("金额、TTM 市盈率、平盘数");
+    expect(metricValue("pb")).toBe("--");
+  });
+
+  it("renders Delayed with the observed and expected dates while preserving the chart", async () => {
+    const delayed = makePageInit("399006.SZ");
+    delayed.dataStatus = { status: "DELAYED", expectedTradeDate: "2026-08-03", observedTradeDate: "2026-07-31" };
+    mockFetch("399006.SZ", { pageInit: () => response(delayed) });
+    render(<IndexDetailPage search="" tsCode="399006.SZ" />);
+
+    expect(await screen.findByLabelText("指数日线图表区")).toBeInTheDocument();
+    expect(screen.getByLabelText("数据更新延迟")).toHaveTextContent("数据更新至 2026-07-31，预期交易日为 2026-08-03");
+    expect(screen.queryByLabelText("部分数据缺失")).not.toBeInTheDocument();
+  });
+
+  it("promotes a trend failure to Partial, keeps the chart, and supports trend-only retry", async () => {
+    let trendCalls = 0;
+    const fetchMock = mockFetch("000001.SH", {
+      trend: () => {
+        trendCalls += 1;
+        return trendCalls === 1
+          ? response({ code: "ID_QUERY_FAILED", message: "趋势服务失败" }, 500)
+          : response(makeTrendPayload());
+      },
+    });
+    render(<IndexDetailPage search="" tsCode="000001.SH" />);
+
+    expect(await screen.findByLabelText("部分数据缺失")).toHaveTextContent("趋势通道");
+    expect(screen.getByLabelText("指数日线图表区")).toBeInTheDocument();
+    expect(metricValue("preClose")).not.toBe("--");
+    fireEvent.click(screen.getByRole("tab", { name: "技术面" }));
+    expect(await screen.findByText("趋势通道加载失败")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "重试" }));
+    await waitFor(() => expect(screen.queryByText("趋势通道加载失败")).not.toBeInTheDocument());
+    expect(screen.getByText("短期上轨")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/trend-channel"))).toHaveLength(2);
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/kline"))).toHaveLength(1);
+  });
+
+  it("renders weights Partial rows and retries only the weights module", async () => {
+    let weightCalls = 0;
+    const pageInit = makePageInit("000905.SH");
+    const partialWeights = makeWeights(pageInit, "PARTIAL");
+    const readyWeights = makeWeights(pageInit, "READY");
+    const fetchMock = mockFetch("000905.SH", {
+      weights: () => response(++weightCalls === 1 ? partialWeights : readyWeights),
+    });
+    render(<IndexDetailPage search="" tsCode="000905.SH" />);
+
+    await screen.findByText("深证成指 000905.SH");
+    fireEvent.click(screen.getByRole("tab", { name: "权重股贡献" }));
+    expect(await screen.findByText("部分贡献点暂不可用，缺失值保留为 --。")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "重试" }));
+    await waitFor(() => expect(screen.queryByText("部分贡献点暂不可用，缺失值保留为 --。")).not.toBeInTheDocument());
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/weights"))).toHaveLength(2);
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/kline"))).toHaveLength(1);
+  });
+
+  it("does not let a stale page-init response overwrite a newly selected index", async () => {
+    let resolveFirst: ((value: Response) => void) | undefined;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/major-indices")) return response(makeMajorIndices("399001.SZ", makePageInit("399001.SZ")));
+      if (url.includes("tsCode=000001.SH") && url.includes("/page-init")) return new Promise<Response>((resolve) => { resolveFirst = resolve; });
+      if (url.includes("tsCode=399001.SZ") && url.includes("/page-init")) return response(makePageInit("399001.SZ"));
+      if (url.includes("tsCode=399001.SZ") && url.includes("/kline")) return response(makeKline("399001.SZ"));
+      return response({}, 404);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { rerender } = render(<IndexDetailPage search="" tsCode="000001.SH" />);
+    rerender(<IndexDetailPage search="" tsCode="399001.SZ" />);
+
+    expect(await screen.findByText("深证成指 399001.SZ")).toBeInTheDocument();
+    await act(async () => { resolveFirst?.(response(makePageInit("000001.SH"))); });
+    expect(screen.queryByText("上证指数 000001.SH")).not.toBeInTheDocument();
+    expect(screen.getByText("深证成指 399001.SZ")).toBeInTheDocument();
+  });
+
+  it("removes the loaded index immediately while the next index request is pending", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/major-indices")) return response(makeMajorIndices("000001.SH", makePageInit("000001.SH")));
+      if (url.includes("tsCode=000001.SH") && url.includes("/page-init")) return response(makePageInit("000001.SH"));
+      if (url.includes("tsCode=000001.SH") && url.includes("/kline")) return response(makeKline("000001.SH"));
+      if (url.includes("tsCode=399001.SZ") && url.includes("/page-init")) return new Promise<Response>(() => undefined);
+      if (url.includes("/trend-channel")) return response(makeTrendPayload());
+      return response({}, 404);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { rerender } = render(<IndexDetailPage search="" tsCode="000001.SH" />);
+    expect(await screen.findByLabelText("IndexHeader")).toHaveTextContent("3940.04");
+
+    rerender(<IndexDetailPage search="" tsCode="399001.SZ" />);
+    expect(screen.getByLabelText("正在加载指数行情")).toBeInTheDocument();
+    expect(screen.queryByLabelText("IndexHeader")).not.toBeInTheDocument();
+  });
 });
 
-function mockFetch(tsCode: string) {
+interface MockFetchOptions {
+  kline?: () => Response | Promise<Response>;
+  pageInit?: () => Response | Promise<Response>;
+  trend?: () => Response | Promise<Response>;
+  weights?: () => Response | Promise<Response>;
+}
+
+function mockFetch(tsCode: string, options: MockFetchOptions = {}) {
   const pageInit = makePageInit(tsCode);
   const kline = makeKline(tsCode);
-  const weights = {
-    indexRef: { tsCode, name: pageInit.index.name }, contributionTradeDate: "2026-07-31", weightTradeDate: "2026-07-31", isEstimated: true,
-    rows: Array.from({ length: 24 }, (_, index) => ({ conCode: `600${String(index).padStart(3, "0")}.SH`, name: `成分股${index + 1}`, weight: 5 - index * .1, changePct: 1, contributionPoint: index % 3 === 0 ? null : .12 - index * .01, direction: index % 2 === 0 ? "UP" : "DOWN" })),
-    coverage: { totalCount: 24, returnedCount: 24, contributionAvailableCount: 16, contributionMissingCount: 8, isTruncated: false }, dataStatus: pageInit.dataStatus,
-    note: "基于最新月度权重估算，非指数公司官方归因", debugInfo: null,
-  };
-  const majorIndices = { pageStatus: { status: "READY", displayText: "已就绪" }, majorIndices: { definition: { definitionKey: "major", version: "1", fixedCount: 10 }, rows: [{ subject: { subjectType: "index", subjectCode: tsCode, subjectName: pageInit.index.name }, point: 3940.04, changePct: 1.02, direction: "UP" }] }, tradingDay: pageInit.pageContext };
+  const weights = makeWeights(pageInit, "READY");
+  const majorIndices = makeMajorIndices(tsCode, pageInit);
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
     if (url.includes("/major-indices")) return response(majorIndices);
-    if (url.includes("/index-detail/page-init")) return response(pageInit);
-    if (url.includes("/index-detail/kline")) return response(kline);
-    if (url.includes("/index-detail/weights")) return response(weights);
-    if (url.includes("/trend-channel")) return response(makeTrendPayload());
+    if (url.includes("/index-detail/page-init")) return options.pageInit?.() ?? response(pageInit);
+    if (url.includes("/index-detail/kline")) return options.kline?.() ?? response(kline);
+    if (url.includes("/index-detail/weights")) return options.weights?.() ?? response(weights);
+    if (url.includes("/trend-channel")) return options.trend?.() ?? response(makeTrendPayload());
     return new Response("{}", { status: 404 });
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
 
-function response(payload: unknown) { return new Response(JSON.stringify(payload), { status: 200, headers: { "Content-Type": "application/json" } }); }
+function makeWeights(pageInit: ReturnType<typeof makePageInit>, status: "READY" | "PARTIAL") {
+  return {
+    indexRef: { tsCode: pageInit.index.tsCode, name: pageInit.index.name }, contributionTradeDate: "2026-07-31", weightTradeDate: "2026-07-31", isEstimated: true as const,
+    rows: Array.from({ length: 24 }, (_, index) => ({ conCode: `600${String(index).padStart(3, "0")}.SH`, name: `成分股${index + 1}`, weight: 5 - index * .1, changePct: 1, contributionPoint: status === "PARTIAL" && index === 0 ? null : .12 - index * .01, direction: (index % 2 === 0 ? "UP" : "DOWN") as "UP" | "DOWN" })),
+    coverage: { totalCount: 24, returnedCount: 24, contributionAvailableCount: status === "READY" ? 24 : 23, contributionMissingCount: status === "READY" ? 0 : 1, isTruncated: false as const },
+    dataStatus: { status, expectedTradeDate: "2026-07-31", observedTradeDate: "2026-07-31" },
+    note: "基于最新月度权重估算，非指数公司官方归因" as const,
+    debugInfo: null,
+  };
+}
+
+function makeMajorIndices(tsCode: string, pageInit: ReturnType<typeof makePageInit>) {
+  return { pageStatus: { status: "READY", displayText: "已就绪" }, majorIndices: { definition: { definitionKey: "major", version: "1", fixedCount: 10 }, rows: [{ subject: { subjectType: "index", subjectCode: tsCode, subjectName: pageInit.index.name }, point: 3940.04, changePct: 1.02, direction: "UP" }] }, tradingDay: pageInit.pageContext };
+}
+
+function metricValue(key: string): string | null | undefined {
+  return document.querySelector(`[data-metric-key="${key}"] b`)?.textContent;
+}
+
+function response(payload: unknown, status = 200) { return new Response(JSON.stringify(payload), { status, headers: { "Content-Type": "application/json" } }); }

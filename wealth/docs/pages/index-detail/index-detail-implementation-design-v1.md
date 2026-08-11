@@ -1,6 +1,6 @@
 # 指数详情页技术实施方案 v1
 
-> 状态：M1 后端、M2 共享图表与 M3 Loaded 页面已完成并通过验证；M4 异常状态与 M5 本地分钟待推进。
+> 状态：M1 后端、M2 共享图表、M3 Loaded 页面与 M4 异常状态已完成并通过验证；M5 本地分钟待推进。
 > 对应需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 对应门禁：[指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
 > 低层设计：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)
@@ -44,7 +44,7 @@
 5. 指数 adapter 对价格、因子和贡献严格 null-safe；MA250 等字段只根据接口实际返回决定是否为空，不按 code、日期或固定历史长度预设。
 6. 上证趋势通道由 feature-local 旧合同 adapter 与 canvas primitive 绘制；其它 9 个指数既不展示入口，也不发请求。
 7. `IndexInfoRail.tsx` 独立实现“基本行情 / 权重股贡献 / 技术面”三页签；权重完整批次在 400px 视窗中虚拟化，Tab 切换保留缓存和滚动位置。
-8. M3 仅完成 Loaded 页面；Loading、Empty、Error、Partial、Forbidden 的稳定四段骨架、恢复动作和系统状态色仍属于 M4，不以当前过渡状态块冒充完成。
+8. M4 已在不重建 Loaded 页面的前提下补齐稳定四段骨架：Loading/Empty/Partial 保持双栏，Error/Forbidden/404 使用全宽 MainContent；页面级错误整页重试，趋势与权重错误局部重试，系统状态色不复用行情红绿。
 
 ### 3.2 后端现状
 
@@ -605,7 +605,7 @@ cd wealth && npm run build
 | M1 数据与契约（已完成） | 按冻结 DTO 实现 page-init/kline/weights；趋势仍由前端后续直接接既有 SSE API | 真实 API、旧契约无漂移与实现后性能测试通过 |
 | M2 图表共享（已完成） | 提取 shared 图表引擎，股票行为零回归 | stock tests + 浏览器对比通过 |
 | M3 页面 Loaded（已完成） | 路由、10 卡导航、日线、三 tab、贡献点、趋势 overlay | Figma Loaded 验收、真实 API 浏览器验收、全量回归通过 |
-| M4 异常状态 | 按五个 Figma 根画板实现 loading/empty/error/partial/forbidden，并补 404/delayed/module 状态变体 | 状态测试与逐画板截图通过 |
+| M4 异常状态（已完成） | 按五个 Figma 根画板实现 loading/empty/error/partial/forbidden，并补 404/delayed/module 状态变体 | 状态测试、真实浏览器逐状态截图与尺寸验收通过 |
 | M5 本地分钟 | reader、条件路由、分钟页面 | Lake 数据与性能门禁通过 |
 | M6 发布验收 | prod 日线能力、分钟路由不存在、全回归 | 构建/测试/生产 smoke 通过 |
 
@@ -641,6 +641,7 @@ cd wealth && npm run build
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.11 | 2026-08-11 | 完成 M4：controller 落地页面/模块状态优先级、请求中止防串标、Empty/404/403/500 映射、Delayed/Partial 动态提示与趋势/权重局部重试；五个 Figma 状态和 404/Delayed 通过 1600×1200 浏览器验收，100 项 Wealth 与 82 项后端相关回归通过 | Codex |
 | v1.10 | 2026-08-11 | 完成 M3 Loaded：独立路由与 10 卡导航、真实 API controller、null-safe adapter、三 Tab、15 项基本行情、完整权重虚拟滚动、SSE-only 趋势 primitive；通过 1600×1200 三画板、2224 行末行、9 code 零趋势请求和全量回归验收 | Codex |
 | v1.9 | 2026-08-11 | 完成 M2 shared chart 与 stock adapter；落 null-safe series、四面板同步、90 根窗口、crosshair/tooltip、可选 primitive 接口及独立回归测试，并通过全量 Wealth 测试、构建和浏览器尺寸对账 | Codex |
 | v1.8 | 2026-08-11 | 完成 M1 后端三接口与严格错误映射；补 factor/daily 源负例、动态 MA 回填测试、10 code/权重/旧契约回归及生产只读 P95；同步实际目录拆分 | Codex |

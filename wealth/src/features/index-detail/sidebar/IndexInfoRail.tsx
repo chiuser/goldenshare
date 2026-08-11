@@ -2,7 +2,8 @@ import { useRef, useState, type KeyboardEvent } from "react";
 
 import type { IndexDetailWeightsResponseDto } from "../api/indexDetailApiTypes";
 import { formatNullablePoint, formatNullableSignedPercent, formatNullableSignedPoint, marketDirectionClass } from "../api/indexDetailViewModelAdapter";
-import type { IndexDetailViewModel, IndexInfoTab, TrendChannelViewModel } from "../model/indexDetailTypes";
+import type { IndexDetailViewModel, IndexInfoTab, IndexModulePhase, IndexPagePhase, TrendChannelViewModel } from "../model/indexDetailTypes";
+import { IndexDetailPartialNotice } from "../state/IndexDetailPartialNotice";
 import { IndexBasicTab } from "./IndexBasicTab";
 import { IndexTechnicalTab } from "./IndexTechnicalTab";
 import { IndexWeightsTab } from "./IndexWeightsTab";
@@ -14,13 +15,17 @@ const TABS: Array<{ key: IndexInfoTab; label: string }> = [
 interface IndexInfoRailProps {
   activeTab: IndexInfoTab;
   onAction: (message: string) => void;
+  onTrendRetry: () => void;
   onTabChange: (tab: IndexInfoTab) => void;
+  pagePhase: Extract<IndexPagePhase, "ready" | "delayed" | "partial" | "empty">;
+  partialReasons: string[];
   trend: TrendChannelViewModel | null;
+  trendPhase: "unavailable" | "loading" | "ready" | "error";
   viewModel: IndexDetailViewModel;
-  weights: { data: IndexDetailWeightsResponseDto | null; errorMessage: string; phase: "idle" | "loading" | "ready" | "empty" | "error"; retry: () => void };
+  weights: { data: IndexDetailWeightsResponseDto | null; errorMessage: string; phase: IndexModulePhase; retry: () => void };
 }
 
-export function IndexInfoRail({ activeTab, onAction, onTabChange, trend, viewModel, weights }: IndexInfoRailProps) {
+export function IndexInfoRail({ activeTab, onAction, onTabChange, onTrendRetry, pagePhase, partialReasons, trend, trendPhase, viewModel, weights }: IndexInfoRailProps) {
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [weightsScrollTop, setWeightsScrollTop] = useState(0);
   const tone = marketDirectionClass(viewModel.quote.direction);
@@ -41,10 +46,12 @@ export function IndexInfoRail({ activeTab, onAction, onTabChange, trend, viewMod
         {TABS.map((tab, index) => <button aria-controls={`index-tab-${tab.key}`} aria-selected={activeTab === tab.key} className={activeTab === tab.key ? "active" : ""} key={tab.key} onClick={() => onTabChange(tab.key)} onKeyDown={(event) => onTabKeyDown(event, index)} ref={(node) => { tabRefs.current[index] = node; }} role="tab" tabIndex={activeTab === tab.key ? 0 : -1} type="button">{tab.label}</button>)}
       </div>
       <div className="index-right-tab-content" id={`index-tab-${activeTab}`} role="tabpanel">
-        {activeTab === "basic" ? <IndexBasicTab metrics={viewModel.basicMetrics} /> : null}
+        {activeTab === "basic" ? <IndexBasicTab metrics={viewModel.basicMetrics} statusLabel={pagePhase === "empty" ? "暂无数据" : "日线口径"} /> : null}
         {activeTab === "weights" ? <IndexWeightsTab {...weights} onRetry={weights.retry} onScrollTopChange={setWeightsScrollTop} scrollTop={weightsScrollTop} /> : null}
-        {activeTab === "technical" ? <IndexTechnicalTab trend={trend} viewModel={viewModel} /> : null}
+        {activeTab === "technical" ? <IndexTechnicalTab onTrendRetry={onTrendRetry} trend={trend} trendPhase={trendPhase} viewModel={viewModel} /> : null}
       </div>
+      {pagePhase === "partial" ? <IndexDetailPartialNotice reasons={partialReasons} variant="partial" /> : null}
+      {pagePhase === "delayed" ? <IndexDetailPartialNotice expectedTradeDate={viewModel.dataStatus.expectedTradeDate} observedTradeDate={viewModel.dataStatus.observedTradeDate} variant="delayed" /> : null}
     </aside>
   );
 }

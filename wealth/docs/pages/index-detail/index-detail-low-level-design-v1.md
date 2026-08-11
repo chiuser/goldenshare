@@ -1,6 +1,6 @@
 # 指数详情页低层设计（LLD）v1
 
-> 状态：M1 后端、M2 共享图表与 M3 Loaded 页面已按冻结合同实现并通过验证；M4/M5 尚未开始。
+> 状态：M1 后端、M2 共享图表、M3 Loaded 页面与 M4 异常状态已按冻结合同实现并通过验证；M5 尚未开始。
 > 需求依据：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 技术方案：[指数详情页技术实施方案 v1](./index-detail-implementation-design-v1.md)
 > 编码门禁：[指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
@@ -1371,6 +1371,7 @@ wealth/src/shared/charts/detail-workspace/DetailChartWorkspace.test.tsx
 5. 图表、坐标轴、趋势、Tooltip、十字线不得因右栏或状态切换位移。
 6. Weights 表头固定、视窗恰好 10 行、可滚到全量末行。
 7. Partial 用至少两组不同缺失字段 fixture，证明提示非写死。
+8. M4 本机截图证据位于 `/private/tmp/goldenshare-index-detail-m4/`：`loading.png`、`empty.png`、`error.png`、`partial.png`、`forbidden.png`、`not-found.png`、`delayed.png`；临时证据不提交仓库。
 
 验证命令：
 
@@ -1400,7 +1401,7 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 | M1（已完成） | schema/query/mapper/page-init/kline/weights API | 后端真实 API + 旧契约回归 + 生产只读性能复验通过 | backend index detail |
 | M2（已完成） | shared chart 提取 + stock adapter | 股票视觉/交互零回归 | shared chart refactor |
 | M3（已完成） | route、10 卡导航、Loaded、三 Tab、trend primitive | Loaded 三画板、真实 API、2224 行滚动与 9 code 零趋势请求通过 | index detail loaded |
-| M4 | 五态、404、Delayed、模块 retry | 状态测试 + 五画板截图 | index detail states |
+| M4（已完成） | 五态、404、Delayed、模块 retry | 状态测试、逐画板截图、真实 Partial 与 1600×1200 尺寸验收通过 | index detail states |
 | M5 | local reader/router/minute chart | Lake 合同、性能、local/prod 矩阵 | index local minutes |
 | M6 | 全回归与 prod smoke | prod 仅日线、无分钟 route | release verification |
 
@@ -1450,7 +1451,7 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 
 ### 22.1 进入编码前必须确认的检查项
 
-1. [x] 本 LLD 已完成产品、后端、前端评审，并按批准方案进入 M1-M3。
+1. [x] 本 LLD 已完成产品、后端、前端评审，并按批准方案进入 M1-M4。
 2. [x] 10 指数 factor 审计、最终 SQL、完整服务链和当前实返 payload P95 通过；真实 2000 行仍保留为后续门禁。
 3. [x] page-init/kline/weights DTO `1.1.0` 已冻结。
 4. [x] 贡献输出按 4 位舍入、UI 2 位的精度规则已冻结。
@@ -1476,6 +1477,7 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.7 | 2026-08-11 | 完成 M4：新增页面状态解析、Empty view model、五态组件与模块状态组件；page-init/kline/trend/weights 分层归并，支持请求中止、整页/局部重试和响应驱动 Partial 文案；完成五态、404、Delayed 浏览器截图与 1600×1200 尺寸验收，并通过 100 项 Wealth 与 82 项后端相关回归 | Codex |
 | v1.6 | 2026-08-11 | 完成 M3：路由/10 卡、真实 API controller、15 项基本行情、三 Tab、权重懒加载缓存与 40px×10 虚拟滚动、逐日四色趋势 primitive 落地；通过 1600×1200 结构量测、2224 行末行、9 code 零趋势请求、83 项 Wealth 与 67 项后端回归 | Codex |
 | v1.5 | 2026-08-11 | 完成 M2：提取 shared detail chart engine/pane/types/series/formatters/CSS，股票 adapter 保留领域文案、单位与交互；新增 null 断点/省略、四面板、90 根、crosshair、tooltip、MA/BOLL 测试，并记录 1600×1200 前后结构量测完全一致 | Codex |
 | v1.4 | 2026-08-11 | 完成 M1 后端：独立三接口、严格参数/异常映射、factor-only Kline、动态 MA 历史判断、完整权重贡献；补 10 code 真实路由、源字段负例、旧契约回归及生产只读性能复验 | Codex |

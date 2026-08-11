@@ -1,6 +1,8 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 
 import type { IndexDetailWeightsResponseDto } from "../api/indexDetailApiTypes";
+import type { IndexModulePhase } from "../model/indexDetailTypes";
+import { IndexDetailModuleState } from "../state/IndexDetailModuleState";
 
 const ROW_HEIGHT = 40;
 const VIEWPORT_HEIGHT = 400;
@@ -11,7 +13,7 @@ interface IndexWeightsTabProps {
   errorMessage: string;
   onRetry: () => void;
   onScrollTopChange: (value: number) => void;
-  phase: "idle" | "loading" | "ready" | "empty" | "error";
+  phase: IndexModulePhase;
   scrollTop: number;
 }
 
@@ -34,10 +36,12 @@ export function IndexWeightsTab({ data, errorMessage, onRetry, onScrollTopChange
     <section className="index-weights-module" aria-label="权重股贡献">
       <div className="index-tab-section-title"><strong>权重股贡献</strong><span>{data?.weightTradeDate ?? "--"}</span></div>
       <div className="index-weight-header" role="row"><span>序号 / 成分股</span><span>权重</span><span>贡献点</span></div>
-      {phase === "loading" || phase === "idle" ? <IndexWeightState text="正在加载权重股…" /> : null}
-      {phase === "error" ? <div className="index-weight-state"><span>{errorMessage}</span><button type="button" onClick={onRetry}>重试</button></div> : null}
-      {phase === "empty" ? <IndexWeightState text="暂无权重股数据" /> : null}
-      {phase === "ready" ? (
+      {phase === "loading" || phase === "idle" ? <IndexDetailModuleState text="正在加载权重股…" /> : null}
+      {phase === "error" ? <IndexDetailModuleState actionLabel="重试" onAction={onRetry} text={errorMessage} tone="error" /> : null}
+      {phase === "empty" ? <IndexDetailModuleState text="暂无权重股数据" /> : null}
+      {phase === "partial" ? <IndexWeightNotice tone="warning" text="部分贡献点暂不可用，缺失值保留为 --。" onRetry={onRetry} /> : null}
+      {phase === "delayed" ? <IndexWeightNotice tone="info" text={`权重贡献数据更新至 ${data?.dataStatus.observedTradeDate ?? "--"}。`} onRetry={onRetry} /> : null}
+      {["ready", "partial", "delayed"].includes(phase) ? (
         <div
           aria-label="权重股滚动列表"
           className="index-weight-viewport"
@@ -66,7 +70,9 @@ export function IndexWeightsTab({ data, errorMessage, onRetry, onScrollTopChange
   );
 }
 
-function IndexWeightState({ text }: { text: string }) { return <div className="index-weight-state"><span>{text}</span></div>; }
+function IndexWeightNotice({ onRetry, text, tone }: { onRetry: () => void; text: string; tone: "info" | "warning" }) {
+  return <div className={`index-weight-notice ${tone}`}><span>{text}</span><button type="button" onClick={onRetry}>重试</button></div>;
+}
 function formatPercent(value: number): string { return Number.isFinite(value) ? `${value.toFixed(2)}%` : "--"; }
 function formatContribution(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "--";

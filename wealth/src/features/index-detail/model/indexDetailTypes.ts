@@ -4,6 +4,9 @@ import type { IndexDetailDataStatusDto, IndexDetailPageInitResponseDto } from ".
 export type IndexInfoTab = "basic" | "weights" | "technical";
 export type IndexMainOverlay = "MA" | "BOLL" | "TREND_CHANNEL";
 export type IndexPeriodKey = "timeShare" | "day" | "week" | "month" | "m120" | "m90" | "m60" | "m30" | "m15" | "m5" | "m1";
+export type IndexPagePhase = "loading" | "ready" | "delayed" | "partial" | "empty" | "notFound" | "forbidden" | "error";
+export type IndexDataPagePhase = "ready" | "delayed" | "partial";
+export type IndexModulePhase = "idle" | "loading" | "ready" | "delayed" | "partial" | "empty" | "error";
 
 export interface IndexPeriodOption {
   key: IndexPeriodKey;
@@ -57,9 +60,9 @@ export interface IndexBasicMetric {
 
 export interface IndexDetailViewModel {
   pageContext: IndexDetailPageInitResponseDto["pageContext"];
-  asOfTradeDate: string;
+  asOfTradeDate: string | null;
   identity: IndexDetailPageInitResponseDto["index"];
-  quote: NonNullable<IndexDetailPageInitResponseDto["quote"]>;
+  quote: IndexQuoteDisplay;
   basicMetrics: IndexBasicMetric[];
   periods: IndexPeriodOption[];
   indicatorTabs: IndexIndicatorTab[];

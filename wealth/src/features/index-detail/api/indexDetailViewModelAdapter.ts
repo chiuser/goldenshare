@@ -17,7 +17,12 @@ export function buildIndexDetailViewModel(
     pageContext: pageInit.pageContext,
     asOfTradeDate: pageInit.asOfTradeDate,
     identity: pageInit.index,
-    quote: pageInit.quote,
+    quote: {
+      point: pageInit.quote.point,
+      change: pageInit.quote.change,
+      changePct: pageInit.quote.changePct,
+      direction: pageInit.quote.direction,
+    },
     basicMetrics: buildBasicMetrics(pageInit),
     periods: INDEX_PERIOD_OPTIONS.map((period) => ({
       ...period,
@@ -29,7 +34,27 @@ export function buildIndexDetailViewModel(
     })),
     chart: { candles: kline.bars.map(toCandlePoint) },
     capabilities: pageInit.capabilities,
-    dataStatus: kline.dataStatus,
+    dataStatus: mergeDataStatus(pageInit, kline),
+  };
+}
+
+export function buildEmptyIndexDetailViewModel(pageInit: IndexDetailPageInitResponseDto): IndexDetailViewModel {
+  return {
+    pageContext: pageInit.pageContext,
+    asOfTradeDate: null,
+    identity: pageInit.index,
+    quote: { point: null, change: null, changePct: null, direction: "UNKNOWN" },
+    basicMetrics: buildBasicMetrics({
+      ...pageInit,
+      quote: null,
+      dailyBasic: null,
+      constituentBreadth: null,
+    }),
+    periods: INDEX_PERIOD_OPTIONS.map((period) => ({ ...period, supported: period.key === "day" })),
+    indicatorTabs: INDEX_INDICATOR_TABS.map((tab) => ({ ...tab, supported: false })),
+    chart: { candles: [] },
+    capabilities: pageInit.capabilities,
+    dataStatus: pageInit.dataStatus,
   };
 }
 
@@ -166,4 +191,15 @@ function isFiniteNumber(value: number | null | undefined): value is number {
 function toIsoDate(value: string): string {
   if (/^\d{8}$/.test(value)) return `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}`;
   return value;
+}
+
+function mergeDataStatus(
+  pageInit: IndexDetailPageInitResponseDto,
+  kline: IndexDetailKlineResponseDto,
+): IndexDetailKlineResponseDto["dataStatus"] {
+  if (pageInit.dataStatus.status === "PARTIAL") return pageInit.dataStatus;
+  if (kline.dataStatus.status === "PARTIAL") return kline.dataStatus;
+  if (pageInit.dataStatus.status === "DELAYED") return pageInit.dataStatus;
+  if (kline.dataStatus.status === "DELAYED") return kline.dataStatus;
+  return kline.dataStatus;
 }
