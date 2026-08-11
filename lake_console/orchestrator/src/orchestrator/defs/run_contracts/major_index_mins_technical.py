@@ -4,6 +4,8 @@ from datetime import date
 
 from orchestrator.defs.run_contracts.major_index_mins import (
     effective_silver_codes_for_date,
+    major_index_mins_source_scope,
+    normalize_major_index_mins_trade_date,
 )
 
 MAJOR_INDEX_MINS_TECHNICAL_FREQS = (1, 5, 15, 30, 60, 90, 120)
@@ -15,6 +17,7 @@ MAJOR_INDEX_MINS_TECHNICAL_JOB_NAME = (
 MAJOR_INDEX_MINS_TECHNICAL_SENSOR_NAME = (
     f"{MAJOR_INDEX_MINS_TECHNICAL_JOB_NAME}_sensor"
 )
+MAJOR_INDEX_MINS_TECHNICAL_AUTOMATION_CONTRACT_REVISION = "v1"
 
 MA_PERIODS = (5, 10, 20, 30, 60, 90, 250)
 BOLL_PERIOD = 20
@@ -147,3 +150,27 @@ def expected_major_index_mins_technical_codes(
     """Use the minute Silver scope directly; never read the daily seed here."""
 
     return effective_silver_codes_for_date(trade_date)
+
+
+def major_index_mins_technical_seed_codes(
+    trade_date: str | date,
+) -> tuple[str, ...]:
+    """Return codes on their published first available Silver trade date."""
+
+    normalized_date = normalize_major_index_mins_trade_date(trade_date)
+    return tuple(
+        code
+        for code in expected_major_index_mins_technical_codes(normalized_date)
+        if major_index_mins_source_scope(code).source_start_date
+        == normalized_date
+    )
+
+
+def major_index_mins_technical_continuing_codes(
+    trade_date: str | date,
+) -> tuple[str, ...]:
+    """Return codes that must inherit exact previous-date recursive state."""
+
+    current_codes = set(expected_major_index_mins_technical_codes(trade_date))
+    seed_codes = set(major_index_mins_technical_seed_codes(trade_date))
+    return tuple(sorted(current_codes - seed_codes))

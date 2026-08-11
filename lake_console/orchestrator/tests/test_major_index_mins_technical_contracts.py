@@ -20,12 +20,15 @@ from orchestrator.defs.run_contracts.asset_tags import DataDomain
 from orchestrator.defs.run_contracts.major_index_mins_technical import (
     INDICATOR_VERSION,
     MA_PERIODS,
+    MAJOR_INDEX_MINS_TECHNICAL_AUTOMATION_CONTRACT_REVISION,
     MAJOR_INDEX_MINS_TECHNICAL_FREQS,
     PARAMS_KEY,
     MajorIndexMinsTechnicalContractError,
     expected_major_index_mins_technical_codes,
     major_index_mins_technical_asset_key,
     major_index_mins_technical_checks,
+    major_index_mins_technical_continuing_codes,
+    major_index_mins_technical_seed_codes,
     major_index_mins_technical_state_asset_key,
     major_index_mins_technical_state_checks,
     normalize_major_index_mins_technical_freq,
@@ -39,6 +42,7 @@ def test_contract_freezes_frequencies_parameters_and_schemas() -> None:
         "ma_5_10_20_30_60_90_250__boll_20_2__macd_12_26_9__kdj_9_3_3"
     )
     assert INDICATOR_VERSION == 1
+    assert MAJOR_INDEX_MINS_TECHNICAL_AUTOMATION_CONTRACT_REVISION == "v1"
     assert len(GOLD_MAJOR_INDEX_MINS_TECHNICAL_SCHEMA) == 23
     assert len(GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_SCHEMA) == 11
     assert tuple(column.name for column in GOLD_MAJOR_INDEX_MINS_TECHNICAL_SCHEMA[:4]) == (
@@ -78,6 +82,48 @@ def test_minute_technical_scope_delegates_to_silver_contract(monkeypatch) -> Non
         "2026-08-04"
     ) == expected_codes
     assert observed_dates == ["2026-08-04"]
+
+
+def test_seed_scope_is_per_code_and_uses_its_first_silver_date() -> None:
+    target_trade_date = "2025-01-20"
+
+    seed_codes = major_index_mins_technical_seed_codes(
+        target_trade_date,
+    )
+    continuing_codes = major_index_mins_technical_continuing_codes(
+        target_trade_date,
+    )
+
+    assert seed_codes == ("000680.SH",)
+    assert "000680.SH" not in continuing_codes
+    assert set(seed_codes).isdisjoint(continuing_codes)
+    assert set(seed_codes) | set(continuing_codes) == set(
+        expected_major_index_mins_technical_codes(target_trade_date)
+    )
+
+
+def test_first_available_minute_date_seeds_all_codes_in_scope() -> None:
+    trade_date = "2009-01-05"
+
+    assert major_index_mins_technical_seed_codes(trade_date) == (
+        expected_major_index_mins_technical_codes(trade_date)
+    )
+    assert major_index_mins_technical_continuing_codes(trade_date) == ()
+
+
+def test_code_reappearing_after_first_available_date_is_not_reseeded(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        technical_contract,
+        "effective_silver_codes_for_date",
+        lambda _trade_date: ("000680.SH",),
+    )
+
+    assert major_index_mins_technical_seed_codes("2025-01-21") == ()
+    assert major_index_mins_technical_continuing_codes("2025-01-21") == (
+        "000680.SH",
+    )
 
 
 @pytest.mark.parametrize("value", [0, 10, 240, "1min", "01", 1.0, True])

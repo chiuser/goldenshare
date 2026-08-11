@@ -8,7 +8,6 @@ from orchestrator.defs.run_contracts.sensor_tags import (
     SensorTargetLayer,
 )
 
-
 DEFS_DIR = Path("src/orchestrator/defs")
 LAKE_CONSOLE_DIR = Path(__file__).resolve().parents[2]
 BACKEND_DIR = LAKE_CONSOLE_DIR / "backend"
@@ -2315,7 +2314,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             "diagnostic_ref",
             "rule_summary",
         )
-        human_source = "\n".join((asset_source, check_source, health_source))
+        human_source = f"{asset_source}\n{check_source}\n{health_source}"
         issues.extend(
             f"lake root health readability misses fragment: {fragment}"
             for fragment in required_human_fragments
@@ -2693,12 +2692,15 @@ class RunContractStaticGateTests(unittest.TestCase):
                         issues.append(
                             f"{_node_location(path, node)} writes deep run_config"
                         )
-                elif isinstance(node, ast.Constant) and isinstance(node.value, str):
-                    if node.value in SENSOR_FORBIDDEN_STRING_LITERALS:
-                        issues.append(
-                            f"{_node_location(path, node)} uses legacy run contract "
-                            f"literal {node.value!r}"
-                        )
+                elif (
+                    isinstance(node, ast.Constant)
+                    and isinstance(node.value, str)
+                    and node.value in SENSOR_FORBIDDEN_STRING_LITERALS
+                ):
+                    issues.append(
+                        f"{_node_location(path, node)} uses legacy run contract "
+                        f"literal {node.value!r}"
+                    )
 
         self.assertEqual(issues, [])
 
@@ -2747,7 +2749,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 69)
+        self.assertEqual(sensor_definition_count, 70)
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:
@@ -3242,9 +3244,11 @@ class RunContractStaticGateTests(unittest.TestCase):
         else:
             check_refresh_source = job_source[check_refresh_start:]
             required_fragments = (
-                "selection=dg.AssetSelection.checks_for_assets(\n"
-                "        prod_ch_share_fact_market_breadth_daily\n"
-                "    )",
+                (
+                    "selection=dg.AssetSelection.checks_for_assets(\n"
+                    "        prod_ch_share_fact_market_breadth_daily\n"
+                    "    )"
+                ),
                 "config=dg.PartitionedConfig(",
                 "run_config_for_partition_key_fn=_empty_check_refresh_run_config",
                 "partitions_def=cn_a_stock_trade_days",
@@ -4868,12 +4872,14 @@ class RunContractStaticGateTests(unittest.TestCase):
 
                 checked_keys = set()
                 call_name = _call_name(node.func)
-                if call_name == "build_materialization_metadata":
-                    if _keyword_value(node, "columns") is not None:
-                        issues.append(
-                            f"{_node_location(path, node)} uses removed "
-                            "materialization columns keyword"
-                        )
+                if (
+                    call_name == "build_materialization_metadata"
+                    and _keyword_value(node, "columns") is not None
+                ):
+                    issues.append(
+                        f"{_node_location(path, node)} uses removed "
+                        "materialization columns keyword"
+                    )
                 if call_name in {
                     "build_materialization_metadata",
                     "build_check_metadata",
@@ -5134,6 +5140,64 @@ class RunContractStaticGateTests(unittest.TestCase):
         self.assertNotIn("get_event_records", sensor_source)
         self.assertNotIn("prod_postgres", sensor_source)
 
+    def test_major_index_mins_technical_m6_is_single_partition_fail_closed(
+        self,
+    ) -> None:
+        job_source = (
+            JOBS_DIR / "gold_major_index_mins_technical_daily_update.py"
+        ).read_text()
+        readiness_source = (
+            ASSET_GUARDS_DIR / "major_index_mins_technical.py"
+        ).read_text()
+        sensor_source = (
+            SENSORS_DIR
+            / "gold_major_index_mins_technical_daily_update_job_sensor.py"
+        ).read_text()
+
+        for fragment in (
+            "GOLD_MAJOR_INDEX_MINS_TECHNICAL_ASSETS",
+            "AssetSelection.checks_for_assets",
+            "cn_major_index_mins_trade_days",
+            "executor_def=dg.in_process_executor",
+        ):
+            self.assertIn(fragment, job_source)
+        for forbidden in (
+            "SILVER_MAJOR_INDEX_MINS_ASSETS",
+            "RAW_MAJOR_INDEX_MINS_ASSETS",
+            "tushare",
+        ):
+            self.assertNotIn(forbidden, job_source)
+
+        for fragment in (
+            "major_index_mins_technical_target_readiness",
+            "major_index_mins_technical_state_readiness",
+            "target_partial",
+            "state_partial",
+            "major_index_mins_technical_relation_counts",
+            "major_index_mins_technical_continuity_failure_count",
+        ):
+            self.assertIn(fragment, readiness_source)
+        for fragment in (
+            "@dg.run_status_sensor",
+            "monitored_jobs=[silver_major_index_mins_update_job]",
+            "batch_silver_major_index_mins_lake_readiness",
+            "MAJOR_INDEX_MINS_TECHNICAL_AUTOMATION_CONTRACT_REVISION",
+            "build_run_request",
+            "build_asset_update_run_key",
+            "default_status=dg.DefaultSensorStatus.STOPPED",
+        ):
+            self.assertIn(fragment, sensor_source)
+        self.assertEqual(sensor_source.count("build_run_request("), 1)
+        for forbidden in (
+            "get_event_records",
+            "build_sensor_cursor",
+            "SensorResult",
+            "report_runless_asset_event",
+            "dg.RunRequest(",
+            "prod_postgres",
+        ):
+            self.assertNotIn(forbidden, sensor_source)
+
     def test_idx_factor_pro_m4_uses_current_date_fail_closed_automation(
         self,
     ) -> None:
@@ -5341,7 +5405,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             SENSORS_DIR / "index_mins_partition_sensor.py"
         ).read_text()
         sensor_source = (SENSORS_DIR / "index_mins_sensor.py").read_text()
-        combined = "\n".join((readiness_source, partition_sensor_source, sensor_source))
+        combined = (
+            f"{readiness_source}\n{partition_sensor_source}\n{sensor_source}"
+        )
 
         self.assertIn("INDEX_MINS_SENSOR_WINDOW_LIMIT", readiness_source)
         self.assertIn("cn_a_index_mins_trade_days", combined)

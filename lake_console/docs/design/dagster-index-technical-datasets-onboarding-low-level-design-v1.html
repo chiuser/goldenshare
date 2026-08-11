@@ -439,8 +439,8 @@ silver_major_index_mins_120m ┘</code></pre>
           <tr><td><code>defs/assets/major_index_mins_technical.py</code></td><td>新增</td><td>7 个 <code>@dg.multi_asset</code>，每个产出 technical + state。</td></tr>
           <tr><td><code>defs/checks/major_index_mins_technical_checks.py</code></td><td>新增</td><td>每频率 technical/state blocking checks。</td></tr>
           <tr><td><code>defs/asset_guards/major_index_mins_technical.py</code></td><td>新增</td><td>同日 Silver readiness、前态 readiness、目标 readiness。</td></tr>
-          <tr><td><code>defs/jobs/gold_major_index_mins_technical_daily_update.py</code></td><td>新增</td><td>一个日期选择 14 assets + checks。</td></tr>
-          <tr><td><code>defs/sensors/gold_major_index_mins_technical_daily_update_job_sensor.py</code></td><td>新增</td><td>监听 Silver success，重新核验 7 频率并顺序推进。</td></tr>
+          <tr><td><code>defs/jobs/gold_major_index_mins_technical_daily_update.py</code></td><td>M6 已完成</td><td>一个日期精确选择 14 assets + 70 blocking checks，不包含 Raw/Silver。</td></tr>
+          <tr><td><code>defs/sensors/gold_major_index_mins_technical_daily_update_job_sensor.py</code></td><td>M6 已完成</td><td>只监听 Silver success，物理核验 7 频率、目标与严格前态后单请求推进。</td></tr>
           <tr><td><code>defs/bootstrap/major_index_mins_technical_history.py</code></td><td>新增</td><td>按日期升序计算历史，不写 Dagster events。</td></tr>
           <tr><td><code>defs/bootstrap/major_index_mins_technical_events.py</code></td><td>新增</td><td>批准后批量补录历史 events。</td></tr>
           <tr><td><code>defs/catalog/name_mapping.py</code></td><td>修改</td><td>登记 technical/state 中文名。</td></tr>
@@ -778,7 +778,9 @@ j(t) = 3*k(t) - 2*d(t)
       <li>writer 通过现有 major-index session contract 计算每频率每日完整 bar 数，再向前选择最少的 Silver 分区集合；禁止固定猜 250 个自然日。</li>
       <li>DuckDB 在合并历史与目标后按 <code>PARTITION BY ts_code,freq ORDER BY trade_time</code> 计算 rolling window。</li>
       <li>MACD/KDJ 必须读取严格前一 expected trade date 的 state；不能读取“最近任意一个存在 state 的日期”。</li>
-      <li>只有整体历史 bootstrap 的第一个源日期可使用 seed；日常任意中间日期缺前态必须失败。</li>
+      <li>seed 按每个 <code>(ts_code, freq)</code> 独立判断：只允许在分钟 contract 发布的该代码 <code>source_start_date</code> 使用 seed；不得用“上一交易日不在池中、目标日重新出现”推断 seed。首日之后必须读取严格前一 expected trade date 的 state，任意中间日期缺前态或代码中断后重现都必须失败。</li>
+      <li>现有 10 个主要指数分钟线以正式 Lake 当前历史起点为真实起点，不再补更早分钟历史；<code>000680.SH</code> 的分钟起点固定为 <code>2025-01-20</code>。</li>
+      <li>连续代码的 <code>observation_count</code> 读取前一日 technical 文件末行作为累计基数；当日新进入代码从 0 开始，禁止用有限历史窗口的 <code>row_number()</code> 冒充累计值。</li>
       <li>所有读取分区日期必须小于等于目标日期；检测到未来 bar 立即失败。</li>
     </ol>
 
@@ -786,7 +788,7 @@ j(t) = 3*k(t) - 2*d(t)
     <pre><code>1. CREATE TEMP TABLE source_bars AS
    SELECT ts_code, freq, trade_time::TIMESTAMP, high, low, close,
           CAST(trade_time AS DATE) AS trade_date,
-          row_number() OVER (PARTITION BY ts_code,freq ORDER BY trade_time) AS observation_count
+          row_number() OVER (PARTITION BY ts_code,freq ORDER BY trade_time) AS rolling_position
    FROM read_parquet(history_paths + target_path)
    WHERE ts_code IN minute_expected_codes
      AND trade_time::DATE &lt;= target_date;
@@ -804,7 +806,13 @@ j(t) = 3*k(t) - 2*d(t)
    承接 previous state 生成 MACD/KDJ；禁止 recursive CTE 和逐股票 Python 循环。
 
 4. CREATE TEMP TABLE target_indicator AS
-   SELECT ... FROM rolling_values JOIN recursive_values USING (...) WHERE trade_date=target_date;
+   SELECT ...,
+          previous_technical.observation_count
+            + row_number() OVER (PARTITION BY ts_code,freq ORDER BY trade_time)
+            AS observation_count
+   FROM rolling_values JOIN recursive_values USING (...)
+   LEFT JOIN previous_technical USING (ts_code,freq)
+   WHERE trade_date=target_date;
 
 5. CREATE TEMP TABLE target_state AS
    SELECT 每代码最后一根 bar 对应的递归末态。</code></pre>
@@ -844,6 +852,7 @@ j(t) = 3*k(t) - 2*d(t)
     </ol>
 
     <h3>6.9 物理路径</h3>
+    <p>正式文件以下列相对路径落在 <code>/Volumes/datasource/data_lake</code>；所有带 <code>_staging</code> 的 run-scoped 候选文件使用同一相对结构，但根目录固定为 <code>/Volumes/datasource/data_lake_staging</code>，不得写入正式 Lake 根。</p>
     <pre><code>gold/indicator/major_index_mins_technical/
   freq={1|5|15|30|60|90|120}/trade_date=YYYY-MM-DD/part-000.parquet
 
@@ -877,15 +886,16 @@ gold/indicator/major_index_mins_technical_state/_staging/
     <p>正式名称按 <code>{asset_key}_{suffix}</code> 生成并由 Catalog 精确登记；所有上述 check 均 blocking。</p>
 
     <h3>6.11 Daily Job 与 run-status sensor</h3>
+    <p><strong>M6 代码状态：</strong>daily job、物理 readiness 与 run-status sensor 已实现；sensor 保持 <code>STOPPED</code>，未在正式 Dagster instance 启用、未 materialize、未写正式 Lake。</p>
     <ol>
       <li>job selection 精确包含 7 technical + 7 state + checks，不包含 Silver、Raw 或任何 source config asset。</li>
       <li>sensor 监听 <code>silver_major_index_mins_update_job</code> 的成功事件。</li>
       <li>从 upstream run 提取唯一 partition key；没有或多个 partition 直接 Skip。</li>
-      <li>批量检查 7 个 Silver files/materializations/blocking checks，任一不 ready 则 Skip。</li>
+      <li>批量检查 7 个 Silver 文件并复用正式 blocking 语义；不读取 Dagster event history，任一不 ready 则 Skip。</li>
       <li>检查目标 14 assets：全部 ready 则 Skip；部分存在则 fail closed；全部未建立才继续。</li>
       <li>除整体历史基线首日外，批量检查严格前一 expected date 的 7 个 state assets。</li>
       <li>生成一个 RunRequest，partition key 为目标日，run_key 包含 contract revision；单 tick 最大 1。</li>
-      <li>cursor 只保存 frontier、reason code、summary、next action；禁止嵌入每代码或每文件报告。</li>
+      <li>run-status cursor 由 Dagster 框架管理，只保存其消费进度；业务 reason、summary、next action 通过当次 <code>SkipReason</code> 或纯决策对象暴露，禁止返回带自定义 cursor 的 <code>SensorResult</code>。</li>
       <li>sensor 默认 STOPPED。</li>
     </ol>
 
@@ -966,8 +976,8 @@ minute technical/state:
           <tr><td><code>tests/test_major_index_mins_technical_formula_golden.py</code></td><td>MA/BOLL/MACD/KDJ 字面 expected fixtures。</td></tr>
           <tr><td><code>tests/test_major_index_mins_technical_writer.py</code></td><td>有限历史、warm-up、前态、双文件提交、partial failure。</td></tr>
           <tr><td><code>tests/test_major_index_mins_technical_checks.py</code></td><td>每个 blocking 属性独立通过/失败。</td></tr>
-          <tr><td><code>tests/test_major_index_mins_technical_definitions.py</code></td><td>7 multi-assets、14 specs、job selection、Catalog。</td></tr>
-          <tr><td><code>tests/test_major_index_mins_technical_sensor.py</code></td><td>Silver success、前态、target partial、single request、cursor。</td></tr>
+          <tr><td><code>tests/test_major_index_mins_technical_definitions.py</code></td><td>7 multi-assets、14 specs、Silver 依赖、<code>can_subset=False</code> 双输出边界，以及 M6 job 精确选择 14 assets + checks。</td></tr>
+          <tr><td><code>tests/test_major_index_mins_technical_sensor.py</code></td><td>唯一 partition、Silver readiness、历史基线、严格前态、target partial/invalid fail closed、single revisioned request、Dagster 自管 cursor。</td></tr>
           <tr><td><code>tests/test_major_index_mins_technical_bootstrap.py</code></td><td>顺序递推、失败恢复、plan hash、事件边界。</td></tr>
         </tbody>
       </table>
@@ -977,7 +987,7 @@ minute technical/state:
     <ul>
       <li><code>tests/test_asset_governance_contracts.py</code>：16 Catalog entries、partition models、schema、blocking checks。</li>
       <li><code>tests/test_run_contract_static_gates.py</code>：禁止重复名单、逐行循环、recursive CTE、跨层 job、sensor 历史扫描和 event 写入。</li>
-      <li><code>tests/test_sensor_cursor_contracts.py</code>：新 sensor 使用 v1 compact cursor。</li>
+      <li><code>tests/test_sensor_cursor_contracts.py</code>：普通 tick sensor 继续使用 v1 compact cursor；M6 run-status sensor 使用 Dagster 自管 cursor，不得调用项目 custom cursor helper。</li>
       <li><code>tests/test_idx_factor_pro_contracts.py</code>：日级对象池等于现行 11 指数 seed，同时包含北证50和科创综指，coverage keys 完全一致。</li>
       <li><code>tests/test_major_index_mins_contracts.py</code>：Silver 当前代码集合与日线 seed 有意不同；历史 Raw 11 个 source scope、Silver 排除北证50和按日期有效范围保持显式。</li>
     </ul>
@@ -993,7 +1003,7 @@ minute technical/state:
           <tr><td>历史请求</td><td>11 代码逐个区间分页；M0 基线 45,772 行、13 页。</td><td>按日期扇出、无 offset、重复页、超过页预算。</td></tr>
           <tr><td>Silver</td><td>日期 cast，NULL 保留。</td><td>rename、fill 0、drop row、字段重算。</td></tr>
           <tr><td>MA/BOLL</td><td>warm-up 后数值等于 fixture。</td><td>提前非 NULL、BOLL 使用 sample stddev。</td></tr>
-          <tr><td>MACD/KDJ</td><td>逐日递推与全段计算一致。</td><td>缺前态时 seed、中间日跳跃、零振幅除零。</td></tr>
+          <tr><td>MACD/KDJ</td><td>每个代码只在 contract 发布的分钟 Silver 首日 seed，之后逐日递推与全段计算一致；000680 从 2025-01-20 seed。</td><td>连续代码缺前态时 seed、以“前日不在池”误判重入代码为 seed、中间日跳跃、零振幅除零。</td></tr>
           <tr><td>提交</td><td>两个 staging 验证后顺序提升。</td><td>state 失败仍标 ready、已有健康目标被普通日常覆盖。</td></tr>
           <tr><td>sensor</td><td>同日 7 Silver ready 后一个 RunRequest。</td><td>上游缺频率、partial target、previous state missing、单 tick 多 run。</td></tr>
         </tbody>
@@ -1012,8 +1022,8 @@ minute technical/state:
           <tr><td>M2 idx factor Raw</td><td><strong>已完成：</strong>日常 writer、Raw asset、4 个 blocking checks、nullable WARN、页级流式请求与外置 staging 原子提升。</td><td>2026-08-07 临时真实验收：source 3772、selected 11、written 11、codes 11、1 request/1 page、0 retry、19120 bytes；未写正式 Lake、未发事件。</td><td>任一 reject、字段漂移、missing expected code；历史写入不得混入日常 writer。</td></tr>
           <tr><td>M3 idx factor Silver</td><td><strong>已完成：</strong>纯 cast writer、Silver asset、3 个 blocking checks，并将 Catalog 从合同占位切换为活跃定义。</td><td>2026-08-07 临时目录验收：Raw 11 行、Silver 11 行、11 个代码、89 字段，日期范围 2026-08-07..2026-08-07，数值/NULL 差异 0，Silver 文件 19793 bytes；未写正式 Lake、未发事件。</td><td>出现 rename/recalc/fill/drop；Raw/Silver 任一 key、数值或 NULL 不一致。</td></tr>
           <tr><td>M4 idx factor automation</td><td><strong>已完成：</strong>layer-isolated jobs、当前日 partition sensor、Raw/Silver sensors、单日 Lake readiness 与单页 source probe。</td><td>当前开放日单 tick 最多 1 run，三个 sensor 默认 STOPPED；existing-invalid 文件 fail closed；未启用、未写正式 Lake。</td><td>sensor 扫历史、读取 Dagster event history、自动覆盖或 repair 已存在坏文件。</td></tr>
-          <tr><td>M5 minute technical core</td><td>formula、writer、state、multi-assets、checks。</td><td>golden fixtures、20 日递推、无未来数据。</td><td>前态语义不清、双文件失败不能识别。</td></tr>
-          <tr><td>M6 minute automation</td><td>daily job、run-status sensor、readiness。</td><td>7 频率一个日期 run；14 assets ready。</td><td>任一频率被静默跳过或 partial target 自动覆盖。</td></tr>
+          <tr><td>M5 minute technical core</td><td><strong>已完成：</strong>MA/BOLL/MACD/KDJ 公式、DuckDB 向量 writer、逐代码 seed 与严格前态、累计 observation count、7 个双输出 multi-assets、70 个 blocking checks。</td><td>独立 golden fixture、20 日递推、未来分区排除、缺前态拒绝、重入代码不得再次 seed、已有目标拒绝、第二文件提升失败留下可识别 partial target；M5 聚焦 31 项测试通过，idx factor + major-index minutes 完整相邻回归 273 项/344 个子测试通过。</td><td>前态语义不清、双文件失败不能识别；M5 禁止提前新增 job、sensor、readiness 或 bootstrap。</td></tr>
+          <tr><td>M6 minute automation</td><td><strong>已完成：</strong>daily job、run-status sensor、物理 readiness 与静态门禁。</td><td>7 频率一个日期 run；14 assets + 70 checks；接受 <code>dagster/partition</code> 或起止相同的单点 partition range，跨日期 range 与冲突标签 fail closed；目标全空才允许执行，partial/invalid fail closed；历史基线外严格要求前一 expected date 七频度 state ready。</td><td>任一频率被静默跳过、跨日范围触发、partial target 自动覆盖、读取事件历史或自定义 run-status cursor。</td></tr>
           <tr><td>M7 history bootstrap</td><td>两个数据产品 dry-run/sample/batch/audit/promote/events。</td><td>文件、行数、keys、schema、state、空间、events 完整对账。</td><td>未获得执行批准、空间不足、计划 hash 变化、任何批次差异。</td></tr>
           <tr><td>M8 收口</td><td>Definitions、全测试、文档对账、静态旧口径清零。</td><td>代码/Catalog/文档一致。</td><td>Foundation、ClickHouse、API 等计划外改动混入。</td></tr>
         </tbody>
@@ -1064,6 +1074,7 @@ minute technical/state:
 
   <section>
     <h2>12. 编码与验收命令</h2>
+    <h3>12.1 当前已完成 M0-M6</h3>
     <pre><code>cd /Users/congming/github/goldenshare/lake_console/orchestrator
 uv run python -m pytest -q \
   tests/test_idx_factor_pro_contracts.py \
@@ -1073,22 +1084,27 @@ uv run python -m pytest -q \
   tests/test_idx_factor_pro_silver_checks.py \
   tests/test_idx_factor_pro_definitions.py \
   tests/test_idx_factor_pro_sensors.py \
-  tests/test_idx_factor_pro_bootstrap.py \
   tests/test_major_index_mins_technical_contracts.py \
   tests/test_major_index_mins_technical_formula_golden.py \
   tests/test_major_index_mins_technical_writer.py \
   tests/test_major_index_mins_technical_checks.py \
   tests/test_major_index_mins_technical_definitions.py \
-  tests/test_major_index_mins_technical_sensor.py \
-  tests/test_major_index_mins_technical_bootstrap.py
+  tests/test_major_index_mins_technical_sensor.py
 
 uv run python -m pytest -q \
   tests/test_asset_governance_contracts.py \
   tests/test_run_contract_static_gates.py \
-  tests/test_sensor_cursor_contracts.py \
   tests/test_major_index_mins_contracts.py \
   tests/test_major_index_mins_definitions.py \
+  tests/test_sensor_cursor_contracts.py \
   tests/test_major_index_mins_sensors.py
+
+# 当前全部 idx_factor_pro / major-index minutes 相邻回归
+uv run python -m pytest -q \
+  tests/test_idx_factor_pro_*.py \
+  tests/test_major_index_mins_*.py \
+  tests/test_asset_governance_contracts.py \
+  tests/test_run_contract_static_gates.py
 
 uv run ruff check &lt;本轮相关 Python 文件&gt;
 
@@ -1096,20 +1112,26 @@ cd /Users/congming/github/goldenshare
 python3 scripts/check_docs_integrity.py
 git diff --check
 git status --short</code></pre>
+    <h3>12.2 M7 实现后追加</h3>
+    <pre><code>cd /Users/congming/github/goldenshare/lake_console/orchestrator
+uv run python -m pytest -q \
+  tests/test_idx_factor_pro_bootstrap.py \
+  tests/test_major_index_mins_technical_bootstrap.py</code></pre>
+    <p>M7 文件尚未实现前，不得把 bootstrap 测试命令伪装成当前可执行门禁，也不得为让命令通过而提前创建空测试或兼容入口。</p>
     <p>进入 definitions 验证、真实 connector probe 或 Lake 样本写入前，必须按阶段重新确认命令及影响；本 LLD 不授权这些操作。</p>
     <div class="callout ok">
       <strong>仓库级门禁已收口：</strong><code>defs/assets/index_daily.py</code> 实际通过
       <code>DuckDBResource.connect()</code> 使用集中连接配置；内部 helper 参数已改名为
       <code>duckdb_resource</code>，消除了字符串门禁把资源调用误判为模块级直连的问题。
-      <code>tests/test_run_contract_static_gates.py</code> 当前 97 项全部通过，M1 不再受该门禁阻塞。
+      <code>tests/test_run_contract_static_gates.py</code> 当前 99 项全部通过，M1-M6 不再受该门禁阻塞。
     </div>
   </section>
 
   <section>
-    <h2>13. 计划对账与编码前剩余门禁</h2>
+    <h2>13. 计划对账与当前里程碑状态</h2>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>项目</th><th>LLD 结论</th><th>编码前状态</th></tr></thead>
+        <thead><tr><th>项目</th><th>LLD 结论</th><th>当前状态</th></tr></thead>
         <tbody>
           <tr><td>对象池</td><td>两套事实源有意分离：现行日级 seed 为 11，同时保留 899050 并新增 000680；分钟 Silver 当前排除 899050、包含 000680，并按日期计算有效范围。</td><td class="status-current">M0 已冻结</td></tr>
           <tr><td>idx factor 分区</td><td>使用专属 <code>cn_major_index_factor_trade_days</code>，不复用通用 index daily。</td><td class="status-new">已设计</td></tr>
@@ -1119,6 +1141,8 @@ git status --short</code></pre>
           <tr><td>分钟公式</td><td>MA/BOLL/MACD/KDJ 参数、seed、NULL、stddev_pop 已冻结。</td><td class="status-new">已冻结</td></tr>
           <tr><td>生产 formula check</td><td>不重算公式；golden fixtures 放测试。</td><td class="status-new">已纠正</td></tr>
           <tr><td>双文件提交</td><td>明确非跨目录原子，采用 staging + 顺序提升 + partial fail closed + repair rollback。</td><td class="status-new">已冻结</td></tr>
+          <tr><td>分钟技术核心</td><td>7 频率 technical/state 双输出、逐代码 seed、严格前态、有限历史 rolling、70 个 blocking checks；不包含历史 bootstrap。</td><td class="status-current">M5 已完成</td></tr>
+          <tr><td>分钟技术自动化</td><td>Silver success 单分区触发；同日 7 Silver、目标 14 文件和前一 expected date 7 state 采用物理事实核验；目标 partial/invalid 禁止覆盖。</td><td class="status-current">M6 已完成，sensor 保持 STOPPED</td></tr>
           <tr><td>产品决策</td><td>无待拍板项。</td><td class="status-current">已清零</td></tr>
         </tbody>
       </table>
@@ -1133,7 +1157,7 @@ git status --short</code></pre>
       <li>不得让日常 idx factor 按代码扇出，或让历史按日期扇出。</li>
       <li>不得在 Silver 重命名、补值、删行或重算 Tushare 因子。</li>
       <li>不得在 Python 中逐 bar/逐代码计算分钟指标。</li>
-      <li>不得缺前态时从默认值静默重启。</li>
+      <li>不得让连续代码在缺前态时从默认值静默重启；仅允许在分钟 contract 为该代码发布的 <code>source_start_date</code> seed，代码中断后重现不得再次 seed。</li>
       <li>不得把 formula golden fixture 变成生产热路径 check。</li>
       <li>不得让 sensor 创建历史吞吐或自动 repair。</li>
       <li>不得把 ClickHouse/API/指数详情页混入本轮。</li>
