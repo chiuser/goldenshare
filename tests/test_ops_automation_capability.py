@@ -24,7 +24,7 @@ def test_every_schedulable_target_has_a_capability() -> None:
     resolver = ScheduleAutomationCapabilityResolver()
     targets = _schedulable_targets()
 
-    assert len(targets) == 88
+    assert len(targets) == 89
     assert all(resolver.resolve(target_type=target_type, target_key=target_key) is not None for target_type, target_key in targets)
     assert resolver.resolve(target_type="workflow", target_key="index_extension_maintenance") is None
 
@@ -94,3 +94,24 @@ def test_continuous_dataset_keeps_generic_freshness_probe_capability() -> None:
     assert capability is not None
     assert [option.mode for option in capability.trigger_options] == ["schedule", "probe", "schedule_probe_fallback"]
     assert [condition.kind for condition in capability.probe_conditions] == [FRESHNESS_LATEST_OPEN_CONDITION]
+
+
+def test_express_capability_is_schedule_only_and_exposes_required_policy_parameter() -> None:
+    capability = ScheduleAutomationCapabilityResolver().resolve(
+        target_type="dataset_action",
+        target_key="express.maintain",
+    )
+
+    assert capability is not None
+    assert [(option.mode, option.allowed_schedule_types) for option in capability.trigger_options] == [
+        ("schedule", ("cron",))
+    ]
+    assert capability.probe_conditions == ()
+    assert len(capability.calendar_policy_rules) == 1
+    rule = capability.calendar_policy_rules[0]
+    assert rule.policy == "since_last_success_day_range"
+    assert rule.schedule_types == ("cron",)
+    assert rule.cron_repeat_modes == ("daily", "weekly", "monthly")
+    assert [(field.name, field.field_type, field.required) for field in rule.policy_parameters] == [
+        ("initial_start_date", "date", True)
+    ]

@@ -258,6 +258,10 @@ class OpsCatalogQueryService:
                     explicit_time_input=rule.explicit_time_input,
                     generated_time_mode=rule.generated_time_mode,
                     generated_time_field=rule.generated_time_field,
+                    policy_parameters=[
+                        OpsCatalogQueryService._build_dataset_parameter(parameter, enum_fanout_defaults={})
+                        for parameter in rule.policy_parameters
+                    ],
                 )
                 for rule in capability.calendar_policy_rules
             ],

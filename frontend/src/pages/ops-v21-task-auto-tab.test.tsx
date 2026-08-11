@@ -9,8 +9,10 @@ import {
   defaultProbeConditionForCapability,
   getProbeCondition,
   getProbeConditionOptions,
+  getAllowedCronRepeatModes,
   getScheduleTimeFieldLabel,
   hasCompleteRequiredProbeFilters,
+  hasCompletePolicyParameters,
   hasRequiredVisibleParameters,
   isTriggerModeAllowed,
   parseCronExpression,
@@ -79,6 +81,11 @@ describe("自动任务日期策略", () => {
         automationCapability: monthlyCalendarCapability as never,
       }),
     ).toBe("");
+    expect(
+      getAllowedCronRepeatModes(
+        capability("since_last_success_day_range", ["daily", "weekly", "monthly"]) as never,
+      ),
+    ).toEqual(["daily", "weekly", "monthly"]);
   });
 
   it("recommends trigger-day single-range policy for ann_date range-only datasets", () => {
@@ -236,6 +243,39 @@ describe("自动任务日期策略", () => {
         "latest_completed_calendar_quarter",
       ),
     ).toBe("单次执行：2099-01-01 01:00，维护最近已完成季度");
+  });
+
+  it("requires catalog-declared success-cursor policy parameters", () => {
+    const policyParameters = [
+      {
+        key: "initial_start_date",
+        display_name: "首次覆盖开始日期",
+        param_type: "date",
+        description: "首次自动同步起点",
+        required: true,
+        options: [],
+        multi_value: false,
+        default_value: null,
+      },
+    ];
+
+    expect(hasCompletePolicyParameters(policyParameters, {})).toBe(false);
+    expect(hasCompletePolicyParameters(policyParameters, { initial_start_date: "" })).toBe(false);
+    expect(hasCompletePolicyParameters(policyParameters, { initial_start_date: "2026-08-01" })).toBe(true);
+    expect(
+      resolveEffectiveCalendarPolicy({
+        scheduleType: "cron",
+        repeatMode: "weekly",
+        automationCapability: capability("since_last_success_day_range", ["daily", "weekly", "monthly"]) as never,
+      }),
+    ).toBe("since_last_success_day_range");
+    expect(
+      resolveEffectiveCalendarPolicy({
+        scheduleType: "once",
+        repeatMode: "weekly",
+        automationCapability: capability("since_last_success_day_range", ["daily", "weekly", "monthly"]) as never,
+      }),
+    ).toBe("");
   });
 
   const marginDetailCapability = {

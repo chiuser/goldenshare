@@ -222,6 +222,7 @@ class DatasetScheduleTimePolicy:
     explicit_time_input: str
     generated_time_mode: str
     generated_time_field: str = "trade_date"
+    policy_parameters: tuple[DatasetInputField, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

@@ -15,6 +15,7 @@ SUPPORTED_CALENDAR_POLICIES = {
     "trigger_day_single_range",
     "trigger_day_point",
     "latest_completed_calendar_quarter",
+    "since_last_success_day_range",
 }
 
 

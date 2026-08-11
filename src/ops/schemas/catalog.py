@@ -66,12 +66,14 @@ class CalendarPolicyCapabilityResponse(BaseModel):
         "trigger_day_single_range",
         "trigger_day_point",
         "latest_completed_calendar_quarter",
+        "since_last_success_day_range",
     ]
     schedule_types: list[Literal["cron", "once"]]
     cron_repeat_modes: list[Literal["daily", "weekly", "monthly", "intraday_interval"]]
     explicit_time_input: Literal["allowed", "forbidden"]
     generated_time_mode: Literal["point", "range"]
     generated_time_field: Literal["trade_date", "ann_date", "start_date_end_date"]
+    policy_parameters: list[ActionParameterResponse]
 
 
 class AutomationTimeInputContractResponse(BaseModel):

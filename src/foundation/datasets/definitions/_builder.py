@@ -146,6 +146,9 @@ def _build_action_capability(row: dict[str, Any]) -> DatasetActionCapability:
     schedule_time_policy = action_row.get("schedule_time_policy")
     if schedule_time_policy is not None:
         policy_row = dict(schedule_time_policy)
+        policy_row["policy_parameters"] = tuple(
+            DatasetInputField(**field) for field in policy_row.get("policy_parameters", ())
+        )
         policy_row.setdefault(
             "generated_time_field",
             "trade_date" if policy_row.get("generated_time_mode") == "point" else "start_date_end_date",
@@ -158,6 +161,7 @@ def _build_action_capability(row: dict[str, Any]) -> DatasetActionCapability:
             "trigger_day_single_range",
             "trigger_day_point",
             "latest_completed_calendar_quarter",
+            "since_last_success_day_range",
         }:
             raise ValueError(f"未知 schedule time policy：{policy.policy}")
         if not policy.schedule_types or not set(policy.schedule_types).issubset({"cron", "once"}):
@@ -176,6 +180,11 @@ def _build_action_capability(row: dict[str, Any]) -> DatasetActionCapability:
             raise ValueError("point schedule time policy 必须生成 trade_date 或 ann_date")
         if policy.generated_time_mode == "range" and policy.generated_time_field != "start_date_end_date":
             raise ValueError("range schedule time policy 必须生成 start_date/end_date")
+        parameter_names = tuple(field.name for field in policy.policy_parameters)
+        if len(parameter_names) != len(set(parameter_names)):
+            raise ValueError("schedule time policy 的 policy_parameters 不得重名")
+        if any(field.multi_value for field in policy.policy_parameters):
+            raise ValueError("schedule time policy 暂不支持多值参数")
         action_row["schedule_time_policy"] = policy
     capability = DatasetActionCapability(**action_row)
     if capability.schedule_time_policy is not None and not capability.schedule_enabled:

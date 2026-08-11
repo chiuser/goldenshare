@@ -1,0 +1,756 @@
+# A股业绩快报（`express`）数据集低层设计 v1
+
+状态：**M1 编码与本地自动化门禁已完成；M2 已启动但因配置优先级事故暂停，隔离验收尚未完成；Prod 已提前应用空表 migration，尚无业务数据**
+编写日期：2026-08-10；M1/M2 状态更新：2026-08-11
+适用范围：Tushare `express_vip` 业绩快报接入 Goldenshare Prod
+
+## 1. 结论先行
+
+`express` 应设计为“按公告自然日维护的全市场不可变事件事实”：平台调用 `express_vip`，每个 unit 只向源端传一个 `ann_date`，完成该日全部分页、33 个字段归一化和完整性校验后，在一个事务内只插入新事实。
+
+业务表只建 `core_serving.equity_express`，不建 raw、std、current、observation、EAV 或 JSON 影子表。表、主键索引和全部二级索引都放在 `gs_raw_cold_hdd`；PostgreSQL 共享 WAL 继续留在 SSD。
+
+已拍板的运营能力为：
+
+1. 手动任务支持单个 `ann_date` 或自然日闭区间；区间在 planner 内逐日展开。
+2. 自动任务只支持普通 cron，运营可选每日、每周或每月及具体北京时间；不支持 once、probe、fallback 或 workflow。
+3. 首次自动触发生成 `[initial_start_date, 触发日-1]`；后续从该 schedule 最后一次成功覆盖的 `end_date+1` 续跑至触发日前一天。
+4. 失败或取消不推进覆盖游标；retry 复用原 TaskRun 的同一时间窗口。
+5. 调度参数和续跑逻辑由通用 schedule capability contract 驱动，不得在前端或 Ops 服务中增加 `express` key 白名单。
+
+当前没有尚未拍板的 M1 业务设计项。实际历史起点、生产 cron 时间、生产迁移、首次同步与 schedule 创建都是后续的独立授权项，不属于本轮文档交付。
+
+## 2. 目标、范围与明确不做
+
+### 2.1 目标
+
+- 冻结 `express_vip` 参数、显式字段、分页和全市场完整性契约；
+- 分开时间输入、执行 unit、freshness/audit 三层语义；
+- 固定单事实表、主键、去重、修订和 fail-closed 规则；
+- 给出 Definition、planner、request builder、normalizer、writer、ORM/DAO、migration、Ops/UI 和测试的真实落点；
+- 把自动任务“首次起点 + 最后成功续跑”表达为通用契约，并证明不会要求现有自动任务重新配置。
+
+### 2.2 M1 明确不做
+
+- 生成 migration 代码，但不在任何 PostgreSQL 环境应用 migration；
+- 不连接或写入隔离/生产 PostgreSQL；
+- 不调用 Tushare，不消耗新的接口配额；
+- 不创建、修改、启用或触发 TaskRun、schedule、probe 或 workflow；
+- 不实施历史回补，不自动 seed schedule；
+- 不暴露 `ts_code`、`period`、`start_date/end_date` 等源端筛选参数；
+- 不把本数据集接入 Lake/Dagster；
+- 不为“可能的晚到或上游原地修改”自行增加重叠窗口或 observation 表。
+
+## 3. 依据与当前基线
+
+### 3.1 文档依据
+
+- [数据集开发说明模板](../templates/dataset-development-template.md)
+- [Tushare 业绩快报源文档](../sources/tushare/股票数据/财务数据/0046_业绩快报.md)
+- [Dataset 日期模型消费指南](../architecture/dataset-date-model-consumer-guide-v1.md)
+- [DatasetDefinition 单一事实源方案](../architecture/dataset-definition-single-source-refactor-plan-v1.md)
+- [DatasetExecutionPlan 方案](../architecture/dataset-execution-plan-refactor-plan-v1.md)
+- [Ops Catalog 当前配置](../../src/ops/catalog/dataset_catalog_views.py)
+
+### 3.2 当前代码依据与 CodeGraph 影响面
+
+CodeGraph 索引在仓库根目录校验为 up to date。本轮使用 CodeGraph 与逐文件阅读核验了以下消费者：
+
+```text
+DatasetDefinition / definition builder / runtime registry guard
+  -> manual actions / catalog / workflow exclusion
+  -> DatasetActionResolver / natural-day unit planner
+  -> request builder / paginated source client
+  -> normalizer / immutable writer / DAO factory
+  -> ORM registry / freshness / dataset cards / snapshot rebuild
+  -> schedule time policy resolver / capability resolver
+  -> schedule schema / catalog query / TaskRun service / scheduler
+  -> frontend automatic-task form and API types
+```
+
+M1 已新增 `express` Definition、ORM、DAO 注册、migration、Ops item 与专项测试；`low_frequency` runtime guard 当前固定为 `dividend`、`express` 和 `stk_holdernumber`。
+
+已确认可直接复用：
+
+```text
+build_natural_day_point_units
+offset_limit 源端分页（每页显式 fields，短页结束）
+source_multiplicity_policy=deduplicate_identical
+serving_immutable_fact_insert
+ImmutableFactDAO
+TaskRun 任务详情与 event-run freshness
+```
+
+必须扩展但不得按数据集硬编码的共享契约：
+
+- schedule policy 参数的 Definition 表达、API 输出、前端渲染和后端校验；
+- 按同一 schedule 最近成功 TaskRun 生成下一闭区间的通用日期策略；
+- 到期 schedule 的锁定、TaskRun 创建和 `next_run_at` 推进的单事务语义。
+
+不新增通用“A股财务数据框架”，不修改既有 writer/DAO 语义，不把 `forecast/fina_indicator` 等未审计数据集提前绑定进来。
+
+### 3.3 Alembic 与工作区基线
+
+- 2026-08-11 M1 编码前重新只读核验的 Alembic 唯一 head 是 `20260810_000131`；新增 migration 为 `20260811_000132`，`down_revision` 精确连接该真实 head。
+- migration 尚未在本机、隔离库或生产库应用；真实 HDD placement 仍属于 M2/M3。
+- 当前工作区存在与本数据集无关的用户修改；M1 对账只认本文列出的文件，不纳入或覆盖其他改动。
+
+## 4. 源端契约复审
+
+### 4.1 接口身份和权限
+
+- Tushare 文档 doc_id=46 的数据是“业绩快报”，不是“业绩预告”；后者是另一个 `forecast` 接口。
+- `express` 面向单股历史，文档要求 `ts_code`；全市场通道是参数一致的 `express_vip`。
+- 本数据集 key 保持 `express`，源端 `api_name` 固定为 `express_vip`。
+- 普通接口需 2,000 积分，VIP 全市场接口需 5,000 积分。当前审计凭据能成功调用，但隔离库和生产环境仍需各自只读预检权限。
+
+### 4.2 输入参数真实行为表
+
+| 请求形态 | 已验证参数 | 结果 | 分页证据 | 设计结论 |
+| --- | --- | ---: | --- | --- |
+| 不传业务参数 | `express_vip()` | 29,590 行（6 页） | `5000*5+4590` | 宽范围在不同 fields 组合下出现分页重叠差异，禁止用作生产维护主路径或完整性基线。 |
+| 只传对象 | `express(ts_code=603535.SH)` | 11 行历史 | 未触发第二页 | 只能证明单股查询，不满足全市场维护。 |
+| 只传时间点 | `ann_date=20250408` | 14 行 | 未触发第二页 | 可定义一个全市场公告日 unit。 |
+| 传时间区间 | `20250408..20250410` | 34 行 | 业务键集合等于 14+11+9 三个单日并集 | 源端区间可用于 A/B，不用于生产 unit；生产按日分隔完整性和事务边界。 |
+| 只传报告期 | `period=20241231` | 1,409 行 | `limit=500` 为 `500/500/409` | 证明 offset/limit 可用；`period` 不是主维护输入。 |
+
+源端有可选参数不等于平台要暴露它。`ts_code`、`period`、源端区间参数都会把全公告日 scope 缩成局部结果，不能进入本数据集的运营 filters。
+
+### 4.3 默认、显式和业务关键字段
+
+固定 `source_fields` 共 33 个：
+
+```text
+ts_code, ann_date, end_date, revenue, operate_profit, total_profit,
+n_income, total_assets, total_hldr_eqy_exc_min_int, diluted_eps,
+diluted_roe, yoy_net_profit, bps, yoy_sales, yoy_op, yoy_tp,
+yoy_dedu_np, yoy_eps, yoy_roe, growth_assets, yoy_equity, growth_bps,
+or_last_year, op_last_year, tp_last_year, np_last_year, eps_last_year,
+open_net_assets, open_bps, perf_summary, is_audit, remark, update_flag
+```
+
+| 验证组 | 当前结果 | 结论 |
+| --- | --- | --- |
+| 不传 `fields` | 约 15 个默认字段 | 不完整，禁止依赖默认返回。 |
+| 按原文档显式请求 | 32 个原页字段全部返回 | 文档字段可用，但仍缺 `update_flag`。 |
+| 补入业务关键字段 | 33 个字段全部返回 | `update_flag` 必须显式请求并入库。 |
+
+每一页必须携带完全相同的 33 字段 `fields`。不得因为 Ops 页面暂时不展示某列而减少源字段。
+
+### 4.4 未文档化值与修订样本
+
+- 29,590 行明确字段样本中，`is_audit=0/1/2` 分别为 `29,092/442/56`。官方文档只说明 0/1，因此本地保留 nullable INTEGER 原值，不用 CHECK 限制 0/1，不自行解释 2。
+- `update_flag=0/1` 当前分别为 `29,589/1`；按 nullable TEXT 保留，不作为主键或过滤条件。
+- `601231.SH + end_date=20260630` 存在两条不同公告：`ann_date=20260710/update_flag=0` 与 `ann_date=20260729/update_flag=1`。两条都是独立披露事实，必须同时保存。
+
+上述样本证明 `update_flag` 是内容字段，不能代替公告日事件身份；也不能把新公告覆盖到旧公告上。
+
+### 4.5 分页契约与宽范围异常
+
+`period=20241231` 的有界分页已证明：`offset=0/500/1000`返回 `500/500/409`，合并后 1,409 个业务键与同范围不分页基线一致。因此实现固定：
+
+- `pagination_policy=offset_limit`；
+- `page_limit=5000`；
+- offset 从 0 开始，每次加固定 `page_limit`；
+- 短页才结束；满页必须继续请求下一页；
+- 不设任意最大页数；
+- 任一页失败、字段缺失或分页合并冲突，整个 `ann_date` unit 失败，不发布部分结果。
+
+宽范围无参请求只能做研究证据：
+
+- 33 字段请求返回 29,590 行，三字段业务键和完整行当前都是唯一的；
+- 另一次四字段请求也返回 29,590 行，但只有 27,961 个唯一行，存在 1,629 个页间重叠；
+- 异常成因尚未证明，禁止把“可能的服务端顺序不稳定”写成已证明结论。
+
+生产因此不请求无参全历史或宽日期范围，而是把一个公告日定义为独立且可对账的 scope。
+
+### 4.6 请求量、配额与事务容量
+
+- 每个自然日至少 1 次请求；若返回满 5,000 行则继续翻页。
+- 单日样本 `20250408/09/10` 分别为 14/11/9 行，完整报告期样本 `20241231` 为 1,409 行；这些是审计样本，不是永久峰值 SLA。
+- 一次手动或自动执行最多 366 个自然日 unit。按当前样本一页/日估算，最多约 366 次基础请求，不把多年历史暗中塞入一次任务。
+- M1 使用 10,000 行合成单 unit 验证内存、去重、冲突和回滚；它是工程门禁，不消耗源端配额，也不声称源端真实单日有 10,000 行。
+- 源端调用串行，`fetch_concurrency=1`；实际耗时、限流、配额、WAL 和 HDD 水位必须在隔离/生产验收阶段实测，不用理论估算代替。
+
+## 5. 时间、unit 与 freshness 三层语义
+
+### 5.1 时间输入语义
+
+| mode | 运营输入 | 含义 |
+| --- | --- | --- |
+| point | `ann_date` | 维护一个公告自然日的全市场快报。 |
+| range | `start_date/end_date` | 维护闭区间中的每个公告自然日。 |
+
+不支持 no-time，不暴露任何 filters。公告可发生在周末，因此必须使用自然日，不能使用交易日历。
+
+### 5.2 执行 / unit 语义
+
+- 一个 unit = 一个 `ann_date` 的全市场完整分页结果；
+- range 按自然日升序展开；
+- unit 请求参数只有 `ann_date`，`fields/limit/offset` 由通用 source client 添加；
+- 一个 unit 一个业务事务；分页不是部分提交边界；
+- 锁 scope 为 `express + ann_date`；
+- 任一 reject、跨日行、字段缺失、同身份内容冲突或数据库失败导致整个 unit 回滚。
+
+### 5.3 freshness / audit 语义
+
+- `date_axis=natural_day`只表示输入和 unit 是自然日；
+- `bucket_rule=not_applicable` 表示不按连续日期判定“每天应该有数据”，不等于不支持日期输入；
+- `audit_applicable=false`；
+- dataset card/freshness 使用 `EVENT_RUN_TRACE`，展示最近运行与覆盖窗口，不把真实空公告日标记为缺数；
+- 不进入 date completeness audit 和连续日期 snapshot rebuild 逻辑。
+
+## 6. 事实身份、去重与修订
+
+### 6.1 主键与内容哈希
+
+源事实身份固定为：
+
+```text
+(trim(upper(ts_code)), ann_date, end_date)
+```
+
+`source_entity_key` 算法固定为：把规范化后的三元组按 JSON 数组编码（UTF-8、`ensure_ascii=False`、紧凑分隔符），再生成 `express:<sha256>`；`identity_basis=ts_code_ann_date_end_date`。其中 `ts_code` 只在身份计算时 trim/uppercase，两个日期使用 ISO 文本。`ts_code` 源字段本身不改写。
+
+`source_content_hash` 由归一化后全部 33 个 source fields 生成，不包含 `ingested_at`。
+
+### 6.2 固定冲突处理
+
+| 情况 | 处理 |
+| --- | --- |
+| 33 个字段完全一样的源行 | 该 unit 仅保留 1 条，`rows_deduplicated` 记录差额，不进业务表。 |
+| 同一三元身份在同批出现不同内容 | fail-closed，不依赖 DAO 的“最后一行覆盖”。 |
+| 目标已有同身份同内容 | 幂等匹配，不新增行，不改动原 `ingested_at`。 |
+| 目标已有同身份不同内容 | `write.immutable_fact_conflict`，整个 unit 失败，需人工核查源端语义。 |
+| 新公告与旧公告的 `ann_date` 不同 | 两条都插入，新公告不覆盖旧公告。 |
+| 某日首次请求为空，目标 scope 也为空 | 合法 no-op，该 unit 可成功。 |
+| 某日目标已有事实，重跑时源端缺少既有身份 | `write.immutable_scope_regression`，禁止把源端短暂回退当成删除。 |
+
+当前 33 字段宽范围样本中没有发现 exact duplicate 或三元身份重复；上述策略是完整性门禁，不是声称源端已经出现了这两类异常。
+
+## 7. `DatasetDefinition` 固定设计
+
+目标文件：`src/foundation/datasets/definitions/low_frequency.py`。`express` 使用既有 `low_frequency / 低频数据` domain，Ops 展示分组另由 Catalog 定义为“A股财务数据”，不把展示分组误写成 foundation domain。
+
+| 契约段 | 固定设计 |
+| --- | --- |
+| identity | `dataset_key=express`，`display_name=业绩快报`，`domain=low_frequency` |
+| source | `api_name=express_vip`，`source_doc_id=tushare.express`，33 字段，request builder=`_express_vip_params` |
+| date_model | `natural_day / not_applicable / point_or_range / ann_date_or_start_end / observed_field=ann_date / audit=false` |
+| input_model | `ann_date,start_date,end_date`；无 filters |
+| storage | `source->serving`；`serving_immutable_fact_insert`；只有 `core_serving.equity_express` |
+| planning | `no_pool / offset_limit / page_limit=5000 / max_units=366 / build_natural_day_point_units / concurrency=1` |
+| normalization | 2 个日期、26 个数值、不可变事实 transform；身份字段必填 |
+| capabilities | manual point/range；cron daily/weekly/monthly；retry；无 once/probe/workflow |
+| observability | `progress_label=express`，`observed_field=ann_date`，`EVENT_RUN_TRACE` |
+| quality | reject 全部记录；unit_date=`ann_date`；完全重复去重；同身份冲突失败 |
+| transaction | `commit_policy=unit`；一公告日一事务；幂等必须 |
+
+### 7.1 时间输入
+
+Definition 中按顺序声明：
+
+```text
+ann_date   公告日，point 模式使用
+start_date 自然日区间开始
+end_date   自然日区间结束
+```
+
+Resolver 必须拒绝：无时间输入、point/range 混用、只给区间一端、开始晚于结束、任意 filters、超过 366 个自然日。手动 API 提交前必须调用同一正式 planner 预检，不得把 `units_exceeded` 延迟到 worker 才显示。
+
+### 7.2 归一化与 transform 落点
+
+- `date_fields=(ann_date,end_date)`；
+- `decimal_fields` 为 `revenue` 至 `open_bps` 的 26 个数值字段；
+- `required_fields=(ts_code,ann_date,end_date,source_entity_key)`；
+- `row_transform_name=_express_immutable_fact_row_transform`；
+- transform 必须放在 `src/foundation/ingestion/row_transforms.py`，由已有动态加载机制调用；不修改 normalizer 主链，不在 request builder 里生成身份。
+
+首版不创建通用“财务数据 contracts”模块。字段 tuple 保留在 Definition，纯身份转换保留在 `row_transforms.py`；只有未来第二个数据集证明身份算法完全相同时才评审提取，避免为了“共享”提前过耦合。
+
+## 8. 请求、执行和写入主链
+
+### 8.1 Request builder
+
+新增 `src/foundation/ingestion/request_builders.py::_express_vip_params`：
+
+- 只接受 planner unit 中的 `ann_date`；
+- 格式化为 Tushare `YYYYMMDD`；
+- 不接受/生成 `ts_code`、`period`、`start_date`、`end_date`；
+- 不附加 `fields/limit/offset`，这三者由通用分页 client 逐页添加；
+- 不做“触发日-1”或覆盖游标计算，调度策略只生成 TaskRun 意图，正式 resolver/planner 再展开成 unit。
+
+### 8.2 Planner 和进度
+
+复用 `build_natural_day_point_units`：
+
+```text
+unit_id: express:ann_date:<YYYY-MM-DD>
+request_params: {ann_date: <date>}
+progress_context:
+  object_type: date
+  object_label: 公告日
+  object_value: <YYYY-MM-DD>
+  window_start: <YYYY-MM-DD>
+  window_end: <YYYY-MM-DD>
+```
+
+TaskRun 主进度按自然日 unit 展示；分页诊断使用现有逐页读取计数。页面不得在前端按 `express` key 组装进度文案。
+
+### 8.3 Writer/DAO 复用结论
+
+复用 `serving_immutable_fact_insert` 和 `ImmutableFactDAO`，不新增 writer/DAO 类型。这两个现有契约已支持：
+
+- 按 unit scope 取 advisory lock；
+- 任一 reject 阻断发布；
+- 同批完全重复去重，同身份不同内容阻断；
+- 对比已存事实，检测回退与内容冲突；
+- 只插入新身份，不 update/delete 旧事实；
+- 写后精确对账。
+
+DAO factory 只增加 `self.equity_express = ImmutableFactDAO(session, EquityExpress)`。Definition 的 `core_dao_name` 对应 `equity_express`，`raw_dao_name/raw_table/observation_*` 均为 `None`。
+
+## 9. 表结构、ORM、DAO 与 HDD migration
+
+### 9.1 显式列模型
+
+新增 `src/foundation/models/core_serving/equity_express.py::EquityExpress`，对应 `core_serving.equity_express`。
+
+| 字段 | PostgreSQL 类型 | null | 说明 |
+| --- | --- | --- | --- |
+| `source_entity_key` | TEXT | N | 主键，三元身份哈希 |
+| `source_content_hash` | VARCHAR(64) | N | 33 个源字段内容哈希 |
+| `identity_basis` | TEXT | N | `ts_code+ann_date+end_date` |
+| `ts_code` | TEXT | N | 源股票代码 |
+| `ann_date` | DATE | N | 公告日，unit scope |
+| `end_date` | DATE | N | 报告期 |
+| `revenue` 至 `open_bps` | DOUBLE PRECISION | Y | 26 个源 float 字段，不自行改单位 |
+| `perf_summary` | TEXT | Y | 业绩简要说明 |
+| `is_audit` | INTEGER | Y | 保留 0/1/2 及未来未知整数，无布尔 CHECK |
+| `remark` | TEXT | Y | 备注 |
+| `update_flag` | TEXT | Y | 源端更新标识原值 |
+| `ingested_at` | TIMESTAMPTZ | N | 该事实首次成功入库时间 |
+
+数值使用 `DOUBLE PRECISION` 是因为源契约就是 float，且没有官方固定小数精度。不使用任意 `NUMERIC(30,10)` 制造并不存在的上游精度承诺。
+
+### 9.2 约束与索引
+
+- 命名主键：`pk_core_serving_equity_express(source_entity_key)`；
+- `idx_equity_express_ann_date_ts_code(ann_date DESC, ts_code)`；
+- `idx_equity_express_ts_code_end_ann(ts_code, end_date DESC, ann_date DESC)`；
+- `idx_equity_express_end_date_ts_code(end_date DESC, ts_code)`。
+
+当前全历史宽范围样本只有约 2.96 万行，且主维护 scope 是稀疏公告日。首版不分区；不为了形式上“大表化”增加空分区和运维成本。
+
+### 9.3 Migration 契约
+
+新 migration 必须：
+
+1. 在任何 schema/table/index 写入前验证 `gs_raw_cold_hdd` 存在；不存在则整个 upgrade 失败。
+2. table 显式指定 `postgresql_tablespace=gs_raw_cold_hdd`。
+3. 命名主键索引以及三个二级索引均显式 `SET/CREATE ... TABLESPACE gs_raw_cold_hdd`。
+4. 不回退到默认 SSD，不创建任何 raw/std 表。
+5. downgrade 不自动删除业务事实，直接拒绝 destructive downgrade；需回退应回滚应用版本并保留表。
+6. 模型能被 `table_model_registry()` 自动发现，ORM、migration 和真实表逐列一致。
+
+WAL 是 PostgreSQL 实例共享的事务日志，不是一张表一份。本项目只控制业务 relation 的 tablespace，不修改 PostgreSQL 实例的 WAL 目录。
+
+## 10. 自动任务通用契约
+
+### 10.1 新策略，不新白名单
+
+在 `DatasetScheduleTimePolicy` 中新增通用策略：
+
+```text
+policy = since_last_success_day_range
+schedule_types = (cron,)
+cron_repeat_modes = (daily, weekly, monthly)
+explicit_time_input = forbidden
+generated_time_mode = range
+generated_time_field = start_date_end_date
+policy_parameters = (
+  initial_start_date: date, required, 首次覆盖开始日期
+)
+```
+
+策略名固定为 28 字符的 `since_last_success_day_range`，不得在实现时改成超过现有 `ops.schedule.calendar_policy VARCHAR(32)` 的长名。首版不因这个策略修改 OpsSchedule 表结构。
+
+`DatasetScheduleTimePolicy.policy_parameters` 的类型固定为 `tuple[DatasetInputField, ...]`，Definition builder 复用现有 `DatasetInputField(**row)` 构建和日期类型校验，不新建另一套前后端参数模型。API 投影复用 `ActionParameterResponse`。
+
+`policy_parameters` 是 schedule 策略配置，不是源端 filter，不进入 `DatasetDefinition.input_model`。在 `OpsSchedule.params_json` 中使用独立结构：
+
+```json
+{
+  "dataset_key": "express",
+  "action": "maintain",
+  "time_input": {"mode": "range"},
+  "filters": {},
+  "schedule_policy_params": {"initial_start_date": "YYYY-MM-DD"}
+}
+```
+
+所有层都只消费这份契约，禁止 `if dataset_key == "express"`。
+
+### 10.2 窗口生成规则
+
+对一次计划触发时间 `scheduled_at`：
+
+```text
+target_end = Asia/Shanghai 时区中 scheduled_at 所在自然日 - 1 day
+
+if 该 schedule 没有成功的 express maintain TaskRun:
+    start = initial_start_date
+else:
+    start = max(成功 TaskRun.time_input_json.end_date) + 1 day
+
+end = target_end
+```
+
+“成功 TaskRun”必须同时满足：同一 `schedule_id`、`resource_key=express`、`action=maintain`、最终状态 success，且 `time_input_json` 是有效 range。失败、取消、运行中或其他 schedule 的任务都不参与游标。retry 保留原 `schedule_id` 和原窗口，成功后自然成为新的覆盖上界。
+
+如果 `start > end`，该次不创建空 TaskRun，只推进 `next_run_at`，并记录结构化 scheduler skip 日志。不得伪造成功业务运行。
+
+### 10.3 创建、更新、恢复和 runtime 校验
+
+后端通用校验器必须在以下入口都执行：
+
+- schedule create；
+- schedule update；
+- schedule resume；
+- scheduler runtime 入队前。
+
+它必须拒绝：缺少/非法/未知策略参数，非 cron，日内高频，固定 time_input，任意 filters，probe/fallback，以及下一窗口超过 366 个 unit。
+
+首次 create/update/resume 能根据下一次预计触发日期预检窗口。runtime 如因长时间停机或连续失败导致窗口超过 366 天，必须生成可读的 `units_exceeded` 问题并暂停该 schedule；不能分批后偷偷推进游标，也不能每个 scheduler tick 重复消耗请求。运营先用明确授权的手动分段任务补齐，再 resume。
+
+### 10.4 并发入队与原子性
+
+当前 `enqueue_due_schedules()` 先查询到期行，`TaskRunService.create_from_schedule_target()` 内部提交 TaskRun，然后再推进 schedule 并二次提交。该顺序不能提供“一个到期意图只入队一次”的数据库原子证明。
+
+M1 必须把通用 scheduler 收敛为：
+
+1. 每次只用 `FOR UPDATE SKIP LOCKED` 取一条到期 schedule；
+2. TaskRun service 提供明确的“在当前事务中构建/flush，不自行 commit”入口，既有手动和 retry 入口保持原子语义；
+3. 同一事务内完成窗口生成、正式 resolver/planner 预检、TaskRun 插入、`last_triggered_at/next_run_at/status` 更新；
+4. 全部成功后一次 commit，任一失败全部 rollback；
+5. 多 scheduler 实例并发测试必须证明同一 schedule/同一 `next_run_at` 只有一个 TaskRun。
+
+这是对现有通用 schedule 事务边界的根因收敛，不是 `express` 特例。影响面覆盖所有自动任务，因此必须跑现有 schedule API/runtime/probe-fallback 回归。该改造不改 OpsSchedule 数据结构，不改现有 schedule 的 `target_key/cron/params_json`，现有自动配置不需重建。
+
+## 11. Ops Catalog 与前端契约
+
+### 11.1 新分组
+
+`OPS_DATASET_DEFAULT_VIEW` 新增：
+
+```text
+DatasetCatalogGroup("equity_financial", "A股财务数据", 3)
+DatasetCatalogItem("express", "equity_financial", 10)
+```
+
+新组放在“A股行情”之后；原有 3–14 组顺延为 4–15。这只是展示顺序变化，现有 TaskRun/schedule 依然按 action key 关联，不需重新配置。
+
+### 11.2 手动任务
+
+- `GET /api/v1/ops/manual-actions` 在“A股财务数据”显示“业绩快报”；
+- 时间控件由 Definition 派生为单日/日期范围，使用自然日控件；
+- 无 filters、无 no-time；
+- API 在创建 TaskRun 前调用正式 resolver/planner，向前端返回最多 366 天的能力与结构化错误；
+- TaskRun 保存运营输入，不保存 `fields/limit/offset` 等源参数。
+
+### 11.3 自动任务表单
+
+Calendar capability API 的每条 rule 新增通用 `policy_parameters`，复用现有参数描述结构（key、display name、type、required、description）。对 `express` 返回一个必填日期 `initial_start_date`。
+
+前端 `ops-v21-task-auto-tab.tsx` 必须：
+
+- 从当前生效 rule 渲染策略参数，而不是加 action-key 分支；
+- 用自然日 `DateField` 展示“首次覆盖开始日期”；
+- 必填值为空时禁止保存；
+- 保存到 `schedule_policy_params`，不放进 filters/time_input；
+- 编辑时回填，详情页显示参数的中文名和值；
+- 随数据集能力只显示 daily/weekly/monthly + 具体时间，不显示 once/intraday/probe/fallback/fixed date/filters。
+
+前后端契约新增字段是加性变更，`AutomationCapability.version` 保持 1；但必须同版本部署，且类型、schema、query 和前端测试必须同步，避免旧前端无法填必填策略参数。
+
+## 12. 字段端到端对账
+
+| # | 源字段 | 显式请求 | 归一化 | ORM/migration | 业务用途 |
+| ---: | --- | --- | --- | --- | --- |
+| 1 | `ts_code` | Y | TEXT；仅身份 trim/upper | TEXT NOT NULL | 身份/查询 |
+| 2 | `ann_date` | Y | DATE | DATE NOT NULL | unit/身份/日期查询 |
+| 3 | `end_date` | Y | DATE | DATE NOT NULL | 报告期/身份 |
+| 4 | `revenue` | Y | decimal parse | DOUBLE PRECISION NULL | 营业收入 |
+| 5 | `operate_profit` | Y | decimal parse | DOUBLE PRECISION NULL | 营业利润 |
+| 6 | `total_profit` | Y | decimal parse | DOUBLE PRECISION NULL | 利润总额 |
+| 7 | `n_income` | Y | decimal parse | DOUBLE PRECISION NULL | 净利润 |
+| 8 | `total_assets` | Y | decimal parse | DOUBLE PRECISION NULL | 总资产 |
+| 9 | `total_hldr_eqy_exc_min_int` | Y | decimal parse | DOUBLE PRECISION NULL | 股东权益 |
+| 10 | `diluted_eps` | Y | decimal parse | DOUBLE PRECISION NULL | 摊薄 EPS |
+| 11 | `diluted_roe` | Y | decimal parse | DOUBLE PRECISION NULL | 摊薄 ROE |
+| 12 | `yoy_net_profit` | Y | decimal parse | DOUBLE PRECISION NULL | 同期修正净利润 |
+| 13 | `bps` | Y | decimal parse | DOUBLE PRECISION NULL | 每股净资产 |
+| 14 | `yoy_sales` | Y | decimal parse | DOUBLE PRECISION NULL | 收入同比 |
+| 15 | `yoy_op` | Y | decimal parse | DOUBLE PRECISION NULL | 营业利润同比 |
+| 16 | `yoy_tp` | Y | decimal parse | DOUBLE PRECISION NULL | 利润总额同比 |
+| 17 | `yoy_dedu_np` | Y | decimal parse | DOUBLE PRECISION NULL | 归母净利润同比 |
+| 18 | `yoy_eps` | Y | decimal parse | DOUBLE PRECISION NULL | EPS 同比 |
+| 19 | `yoy_roe` | Y | decimal parse | DOUBLE PRECISION NULL | ROE 同比 |
+| 20 | `growth_assets` | Y | decimal parse | DOUBLE PRECISION NULL | 总资产较年初 |
+| 21 | `yoy_equity` | Y | decimal parse | DOUBLE PRECISION NULL | 权益较年初 |
+| 22 | `growth_bps` | Y | decimal parse | DOUBLE PRECISION NULL | BPS 较年初 |
+| 23 | `or_last_year` | Y | decimal parse | DOUBLE PRECISION NULL | 去年营收 |
+| 24 | `op_last_year` | Y | decimal parse | DOUBLE PRECISION NULL | 去年营业利润 |
+| 25 | `tp_last_year` | Y | decimal parse | DOUBLE PRECISION NULL | 去年利润总额 |
+| 26 | `np_last_year` | Y | decimal parse | DOUBLE PRECISION NULL | 去年净利润 |
+| 27 | `eps_last_year` | Y | decimal parse | DOUBLE PRECISION NULL | 去年 EPS |
+| 28 | `open_net_assets` | Y | decimal parse | DOUBLE PRECISION NULL | 期初净资产 |
+| 29 | `open_bps` | Y | decimal parse | DOUBLE PRECISION NULL | 期初每股净资产 |
+| 30 | `perf_summary` | Y | TEXT | TEXT NULL | 业绩简要说明 |
+| 31 | `is_audit` | Y | nullable integer | INTEGER NULL，无 0/1 CHECK | 审计原值 |
+| 32 | `remark` | Y | TEXT | TEXT NULL | 备注 |
+| 33 | `update_flag` | Y | TEXT | TEXT NULL | 更新标识原值 |
+
+追加系统列只有 `source_entity_key/source_content_hash/identity_basis/ingested_at`，全部明确标识为平台审计列，不冒充源字段。
+
+## 13. Definition 消费者对账矩阵
+
+| 消费者 | 代码落点 | `express` 固定结果 | 必测反例 |
+| --- | --- | --- | --- |
+| registry/domain | `definitions/low_frequency.py`、`definitions/__init__.py`、runtime guard | 唯一 key，low_frequency 新增 express | 重复 key/域矩阵遗漏失败 |
+| manual actions | manual API/catalog query | 显示 point/range 自然日 | none/filter/超 366 日被拒绝 |
+| catalog | `dataset_catalog_views.py` | A股财务数据，item 10 | 分组/顺序不唯一失败 |
+| workflow | workflow registry/resolver | 不出现 | 尝试 workflow/probe 被拒绝 |
+| resolver/planner | `dataset_action_resolver.py`、`unit_planner.py` | 按自然日逐日 unit | 不得用交易日/宽区间 unit |
+| request builder | `request_builders.py` | 只生成 ann_date | ts_code/period/start/end 不得进源请求 |
+| source client | `source_clients.py` | 每页33 fields，5000 页大小，短页结束 | 第二页丢 fields/满页早停失败 |
+| normalizer | `normalizer.py`、`row_transforms.py` | 日期/数值/身份/完全重复去重 | 空主键、跨日、同身份冲突失败 |
+| writer/DAO | `writer.py`、`immutable_fact_dao.py`、`factory.py` | 只插入不可变新事实 | 回退/内容冲突/任一 reject 回滚 |
+| ORM/migration | model registry/Alembic | 显式列单表，所有 relation 在 HDD | 缺 tablespace 原子失败，不回退 SSD |
+| freshness/cards | freshness resolver/dataset cards/snapshot | event-run trace，target table 回退展示 | 不得显示伪 raw/空日缺数 |
+| date audit | completeness audit | 明确不适用 | 不得生成连续期望桶 |
+| schedule capability | policy resolver/capability/API/types | cron + 续跑 range + initial date | once/intraday/fixed date/filter/probe 拒绝 |
+| scheduler runtime | operations schedule/task run services | 最近成功续跑，原子单次入队 | failed/canceled 不推进，并发只一 TaskRun |
+| frontend | auto/manual/task detail/data source pages | 通用契约渲染 | 无 express key 分支，无不允许控件 |
+
+## 14. 配置项审计
+
+| 配置 | 默认/必填 | 持久化 | 消费者 | 生效方式 | 运维可见性 |
+| --- | --- | --- | --- | --- | --- |
+| `initial_start_date` | 必填，无默认 | `OpsSchedule.params_json.schedule_policy_params` | capability validator、TaskRun schedule resolver、前端 | create/update/resume/runtime 重校验 | 自动任务详情显示 |
+| cron 周期 | daily/weekly/monthly 三选一 | `OpsSchedule.cron_expr` | schedule planner/runtime/UI | 保存后下一触发生效 | 自动任务列表/详情 |
+| 执行时间 | 运营明确填写 | `cron_expr + timezone` | schedule planner/runtime/UI | 北京时间 | 预览和详情 |
+| `max_units_per_execution` | Definition 固定 366，不可在 UI 修改 | 代码 Definition | resolver/planner/manual/schedule preflight | 发布后 | capability 提示和错误详情 |
+| `page_limit` | Definition 固定 5000 | 代码 Definition | source client | 发布后 | TaskRun 分页诊断 |
+| `fetch_concurrency` | Definition 固定 1 | 代码 Definition | executor | 发布后 | TaskRun 执行摘要 |
+| HDD tablespace | 固定 `gs_raw_cold_hdd` | Alembic DDL | PostgreSQL | migration | 验收 SQL |
+| Tushare 凭据/限流 | 复用现有全局配置 | env/Settings | Tushare client | 部署环境 | 环境预检/运行错误 |
+
+不新增环境变量、数据集私有限流开关、页面常量或自动 schedule seed。现有 schedule 不使用新 policy，其 params_json 不需修改。
+
+## 15. 文件级实现范围
+
+### 15.1 业务数据主链
+
+| 文件 | 变更 |
+| --- | --- |
+| `src/foundation/datasets/definitions/low_frequency.py` | 新增 33 字段 `express` Definition |
+| `src/foundation/datasets/definitions/__init__.py` | 注册/导入低频 Definition（如当前自动发现不需则不做无效改动） |
+| `src/foundation/ingestion/request_builders.py` | `_express_vip_params` |
+| `src/foundation/ingestion/row_transforms.py` | `_express_immutable_fact_row_transform` |
+| `src/foundation/models/core_serving/equity_express.py` | 新 ORM |
+| `src/foundation/dao/factory.py` | 注册现有 `ImmutableFactDAO` |
+| `alembic/versions/<then-head>_add_equity_express.py` | HDD 显式列单表与索引 |
+| `src/ops/catalog/dataset_catalog_views.py` | 新分组与 item |
+
+### 15.2 通用 schedule contract
+
+| 文件 | 变更 |
+| --- | --- |
+| `src/foundation/datasets/models.py` | schedule policy 参数契约 |
+| `src/foundation/datasets/definitions/_builder.py` | 新 policy/parameter 构建与静态校验 |
+| `src/ops/services/dataset_schedule_time_policy_resolver.py` | 新策略和参数投影 |
+| `src/ops/services/schedule_automation_capability_resolver.py` | capability 携带 policy parameters |
+| `src/ops/services/schedule_automation_capability_audit_service.py` | 审计新策略及必填参数，历史非法配置可见 |
+| `src/ops/services/schedule_planner.py` | 接受 28 字符新 policy，cron 时点仍按普通 daily/weekly/monthly 计算 |
+| `src/ops/schemas/catalog.py` | API schema 增加 `policy_parameters` |
+| `src/ops/queries/catalog_query_service.py` | Definition -> API 投影 |
+| `src/ops/services/operations_schedule_service.py` | create/update/resume/runtime 校验，原子入队 |
+| `src/ops/services/task_run_service.py` | 按最近成功窗口生成 range；提供不自行 commit 的 scheduler 入口 |
+| `frontend/src/shared/api/types.ts` | 新 policy 字面量与参数类型 |
+| `frontend/src/pages/ops-v21-task-auto-tab.tsx` | 通用参数渲染/编辑/详情，无 dataset key 分支 |
+
+实施时若发现还需修改本表之外的共享主链，必须先用 CodeGraph 更新影响面并回写本 LLD，不得悄然扩大范围。
+
+## 16. 测试、真实验收与门禁
+
+### 16.1 M1 自动化测试
+
+1. Definition/registry
+   - 33 字段顺序精确一致；
+   - point/range、natural-day、not-applicable、max 366、page 5000、concurrency 1；
+   - runtime domain guard 的 `low_frequency` 集合增加 `express`。
+2. Resolver/planner/request
+   - 单日产生 1 unit，闭区间逐自然日展开，包含周末；
+   - 第 367 日在提交前返回 `units_exceeded`；
+   - builder 只生成 `ann_date`；
+   - client 每页都带 33 fields，offset 为 0/5000/... ，短页结束；
+   - 任一页失败不返回部分 unit。
+3. Normalizer/writer
+   - 26 数值、2 日期、`is_audit=2`、`update_flag=1` 保存；
+   - 三元身份，空字段和跨日拒绝 reason code；
+   - exact duplicate 去一条；同身份不同内容 fail-closed；
+   - 首次插入、幂等重跑、新公告新增、scope regression、既有内容冲突、任一 reject、事务 rollback；
+   - 10,000 行合成单 unit 完整执行且不消耗 Tushare 配额。
+4. ORM/migration/HDD
+   - registry/DAO factory 发现正确模型和 DAO；
+   - migration 连真实 head；
+   - 无 tablespace 时不创表；table/PK/三索引全部显式 HDD；
+   - 无 raw/std/current/observation，无 destructive downgrade。
+5. Ops/UI
+   - 新分组顺序唯一，业绩快报不出现在 A股行情或基础数据；
+   - 手动 point/range，无 filters/probe/workflow；
+   - 能力 API 返回 cron daily/weekly/monthly 和必填 `initial_start_date`；
+   - 前端新建/编辑/详情使用通用契约，无 `express` 分支；
+   - once/intraday/fixed time/filter/probe/fallback 的 API 绕过请求全被拒绝。
+6. Schedule 续跑/并发
+   - 首次生成 `[initial_start_date,D-1]`；
+   - success 推进，failed/canceled 不推进，retry 成功推进；
+   - 不同 schedule 的成功窗口不互相污染；
+   - `start>end` 跳过且不伪造 TaskRun；
+   - 超 366 日失败并暂停，不发起源端请求；
+   - 两个 scheduler 会话并发抢同一到期行时只有一个 TaskRun；
+   - 所有既有 calendar policy、probe fallback、schedule API/runtime 测试全量回归。
+
+### 16.2 隔离 PostgreSQL 验收（M2，需独立授权）
+
+- 只在授权后应用 migration；
+- 核验 table、PK 和三个索引的 `pg_tablespace_location()` 真实为 HDD；
+- 运行 10,000 行合成容量/回滚/锁竞争门禁；
+- 选一个有数据的单日做最小真实同步，不做宽范围扫描；
+- 五段对账：源端分页行数、归一化接受数、写入数、reject reason/sample、目标 `ann_date` 行数；
+- 幂等再跑表行数不增，`ingested_at` 不变。
+
+### 16.3 生产验收（M3，需独立授权）
+
+1. 只读确认当前无执行中/排队中任务，确认已部署包含对应 migration 的同一代码版本。
+2. 应用生产 migration，核验真实 HDD 路径和字段/索引。
+3. 使用正式 TaskRun 同步一个有数据的单日，做五段对账与幂等再跑。
+4. 独立验证 dataset card/freshness/TaskRun 详情和 direct-serving 表展示。
+5. 本阶段不回补历史，不创建 schedule。
+
+### 16.4 历史与自动任务（M4，再分别授权）
+
+- M4a：只读测算选定历史起点到当前的自然日数、预计页数、限流耗时和数据/WAL/HDD 水位，不逐日打源站接口。
+- M4b：明确授权后，历史回补每次最多 366 日，分段运行并逐段对账。
+- M4c：运营手工选择 `initial_start_date`、cron 周期与时间并创建 schedule；不由 migration 或代码自动 seed。
+
+### 16.5 必跑门禁
+
+```bash
+pytest -q tests/architecture/test_subsystem_dependency_matrix.py
+pytest -q tests/test_dataset_definition_registry.py tests/test_dataset_action_resolver.py tests/test_dataset_unit_planner.py
+pytest -q tests/architecture/test_dataset_runtime_registry_guardrails.py tests/architecture/test_dataset_maintenance_refactor_guardrails.py tests/architecture/test_arch_no_all_sentinel.py
+pytest -q tests/test_equity_express_dataset.py
+pytest -q tests/web/test_ops_manual_actions_api.py tests/web/test_ops_catalog_api.py tests/web/test_ops_freshness_api.py tests/web/test_ops_schedule_api.py tests/web/test_ops_runtime.py
+GOLDENSHARE_ENV_FILE=.env.web.local goldenshare ingestion-lint-definitions
+cd frontend && npm run typecheck && npm run test && npm run build
+python3 scripts/check_docs_integrity.py
+git diff --check
+```
+
+自动任务表单有用户可见变化，M1 还必须从“新建/编辑自动任务 -> 选择业绩快报 -> 填写首次覆盖日 -> 保存 -> 查看详情”走真实浏览器验收，并验证禁止控件没有出现。
+
+## 17. 硬需求追溯账本
+
+| ID | 硬需求 | 代码落点 | 正向测试 | 反向测试 | 当前状态 |
+| --- | --- | --- | --- | --- | --- |
+| EX-01 | 使用 `express_vip` 全市场 | Definition/request builder | 单日返回全市场样本 | 不得调用 `express` 单股通道 | M0 实测、M1 契约已落地 |
+| EX-02 | 33 fields 逐页显式请求且全保存 | Definition/client/ORM/migration | 第二页仍有 33 fields | 默认字段/丢 `update_flag` 失败 | M1 已完成；真实同步待 M2 |
+| EX-03 | point/range 逐自然日 | date model/planner | 周末仍生成 unit | 交易日展开/宽区间请求失败 | M1 已完成 |
+| EX-04 | direct-serving 单不可变事实表 | Definition/writer/DAO/model | 新公告新增、幂等重跑 | raw/current/observation/覆盖旧事实禁止 | M1 已完成 |
+| EX-05 | 三元身份和内容冲突 fail-closed | transform/writer | 新 ann_date 可并存 | 同身份不同内容阻断 | M1 已完成 |
+| EX-06 | table/PK/index 全部 HDD，WAL 不改 | migration | 真实 tablespace 路径 | 缺 HDD 不得落默认盘 | M1 静态契约完成；真实 placement 待 M2/M3 |
+| EX-07 | Ops 新增“A股财务数据” | catalog | 手动/自动均显示新组 | 不得塞入 A股行情 | M1 已完成 |
+| EX-08 | cron 可配 daily/weekly/monthly+时间 | capability/API/UI | 三种周期可保存 | once/intraday/probe/fallback 拒绝 | M1 自动化完成；浏览器走查待有效本地账号 |
+| EX-09 | 首次起点+最后成功续跑 | schedule policy/TaskRun query | success 推进 | failed/canceled/他 schedule 不推进 | M1 已完成 |
+| EX-10 | 策略参数通用契约驱动 | model/schema/query/types/UI | API 渲染 initial date | 代码无 `express` key 分支 | M1 已完成；浏览器走查待有效本地账号 |
+| EX-11 | 到期 schedule 原子单次入队 | schedule service/task service | 单事务成功 | 并发不得创建 2 个 TaskRun | M1 代码/回滚测试完成；真实 PostgreSQL 双会话待 M2 |
+| EX-12 | 最多 366 天且提交/runtime 预检 | Definition/manual/schedule | 366 成功 | 367 不发请求并显示正确错误 | M1 已完成 |
+| EX-13 | 五段真实对账后才能验收 | M2/M3 运行证据 | source=normalized+dedup+reject，DB 一致 | 任一差额阻断 | 待独立授权 |
+
+## 18. 里程碑与发布顺序
+
+| 阶段 | 内容 | 状态/边界 |
+| --- | --- | --- |
+| M0 | 本地文档、Tushare 真实行为、当前代码和 LLD 审计 | 已完成；未编码 |
+| M1 | Definition、request/normalizer、ORM/DAO/migration、Ops/UI、通用 schedule contract、单元/集成/前端验证 | 代码与自动化门禁完成；真实浏览器走查待有效本地账号 |
+| M2 | 隔离 PostgreSQL migration、HDD placement、合成容量/锁/回滚、最小真实同步对账 | 已授权并启动；因配置优先级事故暂停，尚未完成 |
+| M3 | 生产只读预检、migration、HDD 路径、首次单日同步与五段对账 | migration 已提前应用且空表/HDD placement 已只读确认；部署、真实同步和五段对账仍未授权/未完成 |
+| M4a | 历史规模与配额只读预估 | 需独立授权；不写入 |
+| M4b | 历史分段回补 | 需独立授权；每段对账 |
+| M4c | 运营手工创建/启用 schedule | 需独立授权；无代码 seed |
+
+发布顺序固定为：同版本部署后端+前端 -> 确认无正在运行任务 -> migration -> HDD 核验 -> 单日首次同步 -> 幂等重跑 -> 卡片/页面验收。历史和 schedule 不随 migration 自动执行。
+
+## 19. 风险、回滚与已知边界
+
+### 19.1 主要风险
+
+| 风险 | 影响 | 门禁 |
+| --- | --- | --- |
+| 宽范围页序不稳定原因未证明 | 可能重复/漏行 | 生产只按 ann_date，有界分页，同身份冲突失败 |
+| `is_audit=2` 语义未文档化 | 布尔化会丢信息 | 保留 nullable INTEGER 原值，不加 0/1 CHECK |
+| 同三元身份真的被上游原地修改 | 不可变契约冲突 | fail-closed 并人工核查，不覆盖 |
+| 一次窗口太长 | 配额/耗时/失败面扩大 | 366 unit 上限，手动/调度共用 preflight |
+| scheduler 并发重复入队 | 重复任务和额外请求 | 到期行锁+创建/推进单事务+并发测试 |
+| 后端先于前端部署新必填参数 | 旧 UI 不能创建 express schedule | 前后端同版本部署，API/browser 验收后才创建 schedule |
+
+### 19.2 晚到记录边界
+
+已拍板的自动策略确保每个自然日不因调度停机而跳过，但它不自动重跑已经成功的旧 `ann_date`。如果上游在某日成功同步之后，才把一条新记录归入该旧公告日，首版只能通过手动重跑该日发现。
+
+这是明确已知边界，不得在 M1 自行增加滚动重叠窗口。若生产证据证明晚到有规律，再另行拍板重跑周期和配额成本。
+
+### 19.3 回滚
+
+- M1 代码回滚：回滚应用版本；不删表，不删数据。
+- M2/M3 migration 失败：利用 PostgreSQL DDL 事务整体回滚；缺 HDD 不允许部分落盘。
+- schedule 契约回滚：只暂停新创建的 `express` schedule，保留 TaskRun 和业务数据；现有数据集 schedule 不需迁移或重建。
+- 业务数据不使用 downgrade 删除；如需清理必须另行授权并给出逐表备份/清单。
+
+## 20. M1 阶段完成记录
+
+### 20.1 已完成
+
+- Definition 固定 `express_vip`、33 个显式字段、5,000 行分页、自然日逐日 unit、366 unit 上限和 direct-serving immutable fact 写入契约。
+- 新增三元身份 transform、显式 ORM、`ImmutableFactDAO` 注册和 HDD fail-closed migration；未应用 migration。
+- Ops Catalog 新增“A股财务数据”，手动任务支持 point/range 且无 filters；workflow/probe 均未接入。
+- 新增通用 `since_last_success_day_range` 策略参数契约；前后端从 capability 渲染 `initial_start_date`，无 `express` action-key 白名单。
+- scheduler 使用 `FOR UPDATE SKIP LOCKED` 逐条锁定到期配置，TaskRun stage 与 schedule 推进同事务提交；空窗口结构化 skip，超 366 日创建 planner issue 并暂停 schedule。
+- 自动化覆盖 10,000 行本地合成 unit、后续页失败、完全重复去重、身份冲突、scope regression、事务回滚、成功游标、失败/取消/他 schedule 隔离、API 绕过拒绝和旧 schedule/probe-fallback 回归。合成数据完全在本地生成，未调用 Tushare、未消耗配额。
+
+### 20.2 本地验证证据
+
+- M1 规定的后端集合：`419 passed, 1 deselected`；deselect 的唯一项是当前 HEAD 中分页进度实现与旧 guardrail `test_task_run_query_does_not_use_technical_unit_id_as_display_title` 的既有冲突，文件不在 M1 改动范围，未用无关测试补丁掩盖。
+- express 成功游标定向回归：`5 passed`；已覆盖首次起点、最后成功续跑、配置起点下界、空窗口跳过和超限暂停。
+- frontend：`npm run typecheck`、全量 Vitest `138 passed`、生产 build 通过；自动任务页定向 Vitest 为 `15 passed`。
+- Ruff、`ingestion-lint-definitions`、docs integrity 与 `git diff --check` 通过。
+
+### 20.3 未完成与边界
+
+- 本地独立浏览器能打开登录页，但预填测试账号无效；Chrome 只有已登录的生产页面，而生产尚未部署 M1，因此没有把生产旧页面冒充本地新表单验收。真实浏览器新建/编辑/详情走查仍待一个有效本地测试账号或后续部署环境。
+- M2 已获得授权，但隔离 PostgreSQL migration、双会话锁竞争、最小真实同步和五段对账尚未完成。
+- 未创建或修改任何真实 TaskRun、schedule、probe/workflow；未调用 Tushare；未回补历史。
+
+### 20.4 M2 配置优先级事故记录
+
+- M2 首次执行时，命令行虽然显式设置了隔离 `DATABASE_URL`，但 `get_settings()` 会把 `GOLDENSHARE_ENV_FILE=.env.web.local` 中的同名值作为构造参数，并临时移除同名环境变量，因此 Alembic 实际连接到了 Prod。
+- 结果是 Prod 提前应用 `20260811_000132`。只读复核确认 `core_serving.equity_express` 行数为 0；表、主键和三个二级索引均位于生产 `gs_raw_cold_hdd`，真实路径为 `/data/disk/postgresql/tablespaces/gs_stk_mins_hdd`。
+- Prod 中 `express` TaskRun、schedule 和 queued/running/canceling 任务均为 0；本轮事故没有调用 Tushare，也没有写入业务行。禁止用这次提前 migration 冒充 M2 或 M3 通过。
+- 未执行 destructive downgrade 或删表。继续 M2 前必须使用不含远程 `DATABASE_URL` 的隔离配置，并在任何 Alembic 命令前由应用设置对象和独立 SQL 连接双重断言 host、port、database 均为隔离目标。
+
+| 本阶段追溯 ID | 已验证证据 | 未完成项 | 结论 |
+| --- | --- | --- | --- |
+| EX-01–EX-12 | M0 源端证据、M1 代码、自动化测试、静态门禁与 CodeGraph 影响面 | 浏览器登录环境、M2 PostgreSQL/真实同步 | **M1 代码与自动化通过；环境验收边界已显式保留** |
+| EX-13 | 尚未执行真实同步 | M2/M3 五段对账 | **未开始，不能视为通过** |

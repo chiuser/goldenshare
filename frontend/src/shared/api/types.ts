@@ -544,12 +544,23 @@ export interface OpsAutomationCapability {
       | "monthly_window_current_month"
       | "trigger_day_single_range"
       | "trigger_day_point"
-      | "latest_completed_calendar_quarter";
+      | "latest_completed_calendar_quarter"
+      | "since_last_success_day_range";
     schedule_types: Array<"cron" | "once">;
     cron_repeat_modes: Array<"daily" | "weekly" | "monthly" | "intraday_interval">;
     explicit_time_input: "allowed" | "forbidden";
     generated_time_mode: "point" | "range";
     generated_time_field: "trade_date" | "ann_date" | "start_date_end_date";
+    policy_parameters: Array<{
+      key: string;
+      display_name: string;
+      param_type: string;
+      description: string;
+      required: boolean;
+      options: string[];
+      multi_value: boolean;
+      default_value: string | string[] | number | boolean | null;
+    }>;
   }>;
   time_input_contract: {
     supported_modes: Array<"none" | "point" | "range">;

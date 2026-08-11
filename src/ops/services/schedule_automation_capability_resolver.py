@@ -64,7 +64,7 @@ REMOTE_SOURCE_PROBE_CONDITIONS = frozenset(
 SUPPORTED_PROBE_CONDITIONS = frozenset({FRESHNESS_LATEST_OPEN_CONDITION, *REMOTE_SOURCE_PROBE_CONDITIONS})
 DEFAULT_SCHEDULE_TYPES: tuple[ScheduleType, ...] = ("cron", "once")
 TIME_PARAM_KEYS = {"trade_date", "ann_date", "month", "start_date", "end_date", "start_month", "end_month"}
-PARAM_RESERVED_KEYS = {"dataset_key", "action", "time_input", "filters"}
+PARAM_RESERVED_KEYS = {"dataset_key", "action", "time_input", "filters", "schedule_policy_params"}
 DEFAULT_PROBE_WINDOW_START = "15:30"
 DEFAULT_PROBE_WINDOW_END = "17:00"
 DEFAULT_PROBE_INTERVAL_SECONDS = 300
@@ -229,6 +229,7 @@ class ScheduleAutomationCapabilityResolver:
         if trigger_mode == "schedule":
             if config:
                 raise WebAppError(status_code=422, code="probe_config.forbidden", message="普通定时触发不支持探测配置")
+            self._validate_schedule_policy_contract(schedule=schedule, capability=capability)
             return ValidatedAutomationIntent(
                 capability=capability,
                 trigger_mode=trigger_mode,
@@ -286,6 +287,39 @@ class ScheduleAutomationCapabilityResolver:
             timezone_name=str(config.get("timezone_name") or schedule.timezone or "Asia/Shanghai").strip() or "Asia/Shanghai",
             filters=filters,
         )
+
+    @staticmethod
+    def _validate_schedule_policy_contract(*, schedule: OpsSchedule, capability: AutomationCapability) -> None:
+        configured_policy = str(schedule.calendar_policy or "").strip() or None
+        declared_rules = tuple(rule for rule in capability.calendar_policy_rules if rule.declared_by_action)
+        if declared_rules and configured_policy is None:
+            raise WebAppError(
+                status_code=422,
+                code="calendar_policy.required",
+                message=f"该自动任务必须使用系统声明的日期策略：{declared_rules[0].policy}",
+            )
+        if configured_policy is None:
+            return
+        rule = next((item for item in capability.calendar_policy_rules if item.policy == configured_policy), None)
+        if rule is None:
+            raise WebAppError(status_code=422, code="calendar_policy.forbidden", message="自动任务日期策略不在 capability 允许范围内")
+        if schedule.schedule_type not in rule.schedule_types:
+            raise WebAppError(status_code=422, code="schedule_type.forbidden", message="自动任务执行方式不支持该日期策略")
+        configured_params = dict(schedule.params_json or {}).get("schedule_policy_params")
+        values = configured_params if isinstance(configured_params, dict) else {}
+        if configured_params not in (None, {}) and not isinstance(configured_params, dict):
+            raise WebAppError(status_code=422, code="calendar_policy.params_invalid", message="日期策略参数必须是对象")
+        declared_params = {field.name: field for field in rule.policy_parameters}
+        unexpected = sorted(set(values) - set(declared_params))
+        if unexpected:
+            raise WebAppError(status_code=422, code="calendar_policy.params_invalid", message="日期策略包含未声明参数")
+        missing = [field.display_label for field in declared_params.values() if field.required and values.get(field.name) in (None, "")]
+        if missing:
+            raise WebAppError(
+                status_code=422,
+                code="calendar_policy.params_required",
+                message=f"日期策略缺少必填参数：{'、'.join(missing)}",
+            )
 
     @staticmethod
     def action_key_for_remote_condition(condition_kind: str) -> str | None:
@@ -458,6 +492,15 @@ class ScheduleAutomationCapabilityResolver:
             definition=definition,
             action=action,
         )
+        declared_schedule_types = tuple(
+            dict.fromkeys(
+                schedule_type
+                for rule in calendar_policy_rules
+                if rule.declared_by_action
+                for schedule_type in rule.schedule_types
+            )
+        )
+        allowed_schedule_types = declared_schedule_types or DEFAULT_SCHEDULE_TYPES
         time_input_contract = self._time_input_contract(definition=definition, action=action)
 
         remote_condition = self._remote_condition_for_action(target_key)
@@ -466,7 +509,7 @@ class ScheduleAutomationCapabilityResolver:
                 version=1,
                 default_trigger_mode=remote_condition.allowed_trigger_modes[0],
                 trigger_options=tuple(
-                    TriggerModeCapability(mode=mode, allowed_schedule_types=DEFAULT_SCHEDULE_TYPES)
+                    TriggerModeCapability(mode=mode, allowed_schedule_types=allowed_schedule_types)
                     for mode in remote_condition.allowed_trigger_modes
                 ),
                 probe_conditions=(remote_condition,),
@@ -489,7 +532,7 @@ class ScheduleAutomationCapabilityResolver:
                 version=1,
                 default_trigger_mode="schedule",
                 trigger_options=(
-                    TriggerModeCapability(mode="schedule", allowed_schedule_types=DEFAULT_SCHEDULE_TYPES),
+                    TriggerModeCapability(mode="schedule", allowed_schedule_types=allowed_schedule_types),
                     TriggerModeCapability(mode="probe", allowed_schedule_types=DEFAULT_SCHEDULE_TYPES),
                     TriggerModeCapability(mode="schedule_probe_fallback", allowed_schedule_types=DEFAULT_SCHEDULE_TYPES),
                 ),
@@ -500,6 +543,7 @@ class ScheduleAutomationCapabilityResolver:
         return self._schedule_only_capability(
             calendar_policy_rules=calendar_policy_rules,
             time_input_contract=time_input_contract,
+            allowed_schedule_types=allowed_schedule_types,
         )
 
     @staticmethod
@@ -507,11 +551,12 @@ class ScheduleAutomationCapabilityResolver:
         *,
         calendar_policy_rules: tuple[DatasetScheduleTimePolicyCapability, ...] = (),
         time_input_contract: AutomationTimeInputContract | None = None,
+        allowed_schedule_types: tuple[ScheduleType, ...] = DEFAULT_SCHEDULE_TYPES,
     ) -> AutomationCapability:
         return AutomationCapability(
             version=1,
             default_trigger_mode="schedule",
-            trigger_options=(TriggerModeCapability(mode="schedule", allowed_schedule_types=DEFAULT_SCHEDULE_TYPES),),
+            trigger_options=(TriggerModeCapability(mode="schedule", allowed_schedule_types=allowed_schedule_types),),
             probe_conditions=(),
             calendar_policy_rules=calendar_policy_rules,
             time_input_contract=time_input_contract,

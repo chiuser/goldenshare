@@ -53,6 +53,7 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     group_keys = [group["group_key"] for group in payload["groups"]]
     assert "equity_market" in group_keys
     assert "reference_data" in group_keys
+    assert "equity_financial" in group_keys
     assert "leader_board" in group_keys
     assert "workflow" in group_keys
     equity_group = next(group for group in payload["groups"] if group["group_key"] == "equity_market")
@@ -63,6 +64,9 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert etf_fund_group["group_label"] == "ETF基金"
     public_fund_group = next(group for group in payload["groups"] if group["group_key"] == "public_fund")
     assert public_fund_group["group_label"] == "公募基金"
+    equity_financial_group = next(group for group in payload["groups"] if group["group_key"] == "equity_financial")
+    assert equity_financial_group["group_label"] == "A股财务数据"
+    assert [action["action_key"] for action in equity_financial_group["actions"]] == ["express.maintain"]
     workflow_group = next(group for group in payload["groups"] if group["group_key"] == "workflow")
     assert workflow_group["group_label"] == "工作流"
 
@@ -82,6 +86,11 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert fund_portfolio["time_form"]["max_units_per_execution"] == 8
     assert [item["mode"] for item in fund_portfolio["time_form"]["modes"]] == ["point", "range"]
     assert all(item["selection_rule"] == "quarter_end" for item in fund_portfolio["time_form"]["modes"])
+    express = actions["express.maintain"]
+    assert express["time_form"]["max_units_per_execution"] == 366
+    assert express["filters"] == []
+    assert [item["mode"] for item in express["time_form"]["modes"]] == ["point", "range"]
+    assert all(item["selection_rule"] == "calendar_day" for item in express["time_form"]["modes"])
     assert actions["daily.maintain"]["display_name"] == "维护股票日线"
     assert actions["cyq_chips.maintain"]["display_name"] == "维护每日筹码分布"
     assert actions["cyq_chips.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
@@ -527,6 +536,58 @@ def test_ops_manual_action_fund_portfolio_preflights_eight_and_rejects_nine_unit
     assert rejected.status_code == 422
     assert rejected.json()["code"] == "units_exceeded"
     assert rejected.json()["message"] == "本次范围会生成 9 个处理单元，超过单次上限 8 个。请缩小时间范围后重试。"
+    assert set(db_session.scalars(select(TaskRun.id)).all()) == before_ids
+
+
+def test_ops_manual_action_express_preflights_day_range_and_rejects_filters(
+    app_client,
+    user_factory,
+    db_session,
+) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    accepted = app_client.post(
+        "/api/v1/ops/manual-actions/express.maintain/task-runs",
+        headers=headers,
+        json={
+            "time_input": {"mode": "range", "start_date": "2025-01-01", "end_date": "2026-01-01"},
+            "filters": {},
+        },
+    )
+
+    assert accepted.status_code == 200
+    accepted_run = db_session.get(TaskRun, accepted.json()["run"]["id"])
+    assert accepted_run is not None
+    assert accepted_run.time_input_json == {
+        "mode": "range",
+        "start_date": "2025-01-01",
+        "end_date": "2026-01-01",
+        "date_field": "ann_date",
+    }
+
+    before_ids = set(db_session.scalars(select(TaskRun.id)).all())
+    too_wide = app_client.post(
+        "/api/v1/ops/manual-actions/express.maintain/task-runs",
+        headers=headers,
+        json={
+            "time_input": {"mode": "range", "start_date": "2025-01-01", "end_date": "2026-01-02"},
+            "filters": {},
+        },
+    )
+    assert too_wide.status_code == 422
+    assert too_wide.json()["code"] == "units_exceeded"
+    assert set(db_session.scalars(select(TaskRun.id)).all()) == before_ids
+
+    filtered = app_client.post(
+        "/api/v1/ops/manual-actions/express.maintain/task-runs",
+        headers=headers,
+        json={
+            "time_input": {"mode": "point", "ann_date": "2025-04-08", "date_field": "ann_date"},
+            "filters": {"ts_code": "000001.SZ"},
+        },
+    )
+    assert filtered.status_code == 422
+    assert filtered.json()["code"] == "validation_error"
     assert set(db_session.scalars(select(TaskRun.id)).all()) == before_ids
 
 

@@ -67,6 +67,7 @@ type CatalogWorkflow = OpsCatalogResponse["workflows"][number];
 type CatalogActionParameter = NonNullable<OpsCatalogResponse["actions"][number]["parameters"]>[number];
 type AutomationCapability = NonNullable<CatalogAction["automation_capability"]>;
 type ProbeConditionCapability = AutomationCapability["probe_conditions"][number];
+type PolicyParameter = AutomationCapability["calendar_policy_rules"][number]["policy_parameters"][number];
 type RepeatMode = "daily" | "weekly" | "monthly" | "intraday_interval";
 type TriggerMode = "schedule" | "probe" | "schedule_probe_fallback";
 type ProbeRunSummary = {
@@ -81,7 +82,8 @@ type CalendarPolicy =
   | "monthly_window_current_month"
   | "trigger_day_single_range"
   | "trigger_day_point"
-  | "latest_completed_calendar_quarter";
+  | "latest_completed_calendar_quarter"
+  | "since_last_success_day_range";
 type ParsedCronExpression = {
   repeatMode: RepeatMode;
   repeatTime: string;
@@ -92,7 +94,7 @@ type ParsedCronExpression = {
 
 const INTERNAL_PARAM_KEYS = new Set(["offset", "limit"]);
 const DATE_PARAM_KEYS = new Set(["trade_date", "ann_date", "start_date", "end_date"]);
-const PARAM_RESERVED_KEYS = new Set(["dataset_key", "action", "time_input", "filters"]);
+const PARAM_RESERVED_KEYS = new Set(["dataset_key", "action", "time_input", "filters", "schedule_policy_params"]);
 const DEFAULT_PARAM_LABELS = new Map([
   ["trade_date", "维护日期"],
   ["start_date", "开始日期"],
@@ -129,6 +131,7 @@ const emptyForm = {
   start_date: "",
   end_date: "",
   field_values: {} as Record<string, string | string[]>,
+  policy_field_values: {} as Record<string, string>,
 };
 
 function normalizeParamOptions(options: string[] | undefined) {
@@ -140,7 +143,7 @@ function buildFieldValues(paramsJson: Record<string, unknown> | undefined) {
     return {};
   }
   return Object.fromEntries(
-    Object.entries(paramsJson).map(([key, value]) => {
+    Object.entries(paramsJson).filter(([key]) => !PARAM_RESERVED_KEYS.has(key)).map(([key, value]) => {
       if (Array.isArray(value)) {
         return [key, value.map((item) => String(item ?? ""))];
       }
@@ -325,6 +328,14 @@ export function formatScheduleRule(
       : `每月 ${parsed.repeatMonthDay} 日 ${parsed.repeatTime}`;
     return `${base}，维护最近已完成季度`;
   }
+  if (calendarPolicy === "since_last_success_day_range") {
+    const base = parsed.repeatMode === "daily"
+      ? `每天 ${parsed.repeatTime}`
+      : parsed.repeatMode === "weekly"
+        ? `每周 ${parsed.repeatWeekdays.map((item) => weekdayLabel[item] || item).join("、")} ${parsed.repeatTime}`
+        : `每月 ${parsed.repeatMonthDay} 日 ${parsed.repeatTime}`;
+    return `${base}，续跑至触发日前一天`;
+  }
   if (parsed.repeatMode === "daily") {
     return `每天 ${parsed.repeatTime}`;
   }
@@ -396,6 +407,24 @@ export function hasCompleteRequiredProbeFilters(
   });
 }
 
+export function hasCompletePolicyParameters(
+  parameters: PolicyParameter[] | undefined,
+  values: Record<string, string>,
+): boolean {
+  return (parameters || []).every((parameter) => !parameter.required || Boolean(String(values[parameter.key] || "").trim()));
+}
+
+export function getAllowedCronRepeatModes(
+  capability: AutomationCapability | null | undefined,
+): RepeatMode[] {
+  const declared = capability?.calendar_policy_rules
+    ?.filter((rule) => rule.schedule_types.includes("cron"))
+    .flatMap((rule) => rule.cron_repeat_modes) || [];
+  return declared.length
+    ? Array.from(new Set(declared))
+    : ["daily", "weekly", "monthly"];
+}
+
 export function formatProbeRunCount(count: number | null | undefined): string {
   return typeof count === "number" ? `已探测：${count} 次` : "已探测：—";
 }
@@ -455,6 +484,11 @@ function buildReadableParamRows(params: Record<string, unknown>, labelMap: Map<s
   }
   if (isPlainRecord(params.time_input)) {
     for (const [key, value] of Object.entries(params.time_input)) {
+      pushRow(key, value);
+    }
+  }
+  if (isPlainRecord(params.schedule_policy_params)) {
+    for (const [key, value] of Object.entries(params.schedule_policy_params)) {
       pushRow(key, value);
     }
   }
@@ -578,11 +612,18 @@ function buildParamLabelMap(
   catalog: OpsCatalogResponse | undefined,
   actionType: string,
   actionKey: string,
+  calendarPolicy?: string | null,
 ): Map<string, string> {
   const action = findCatalogAction(catalog, actionType, actionKey);
   const workflow = findCatalogWorkflow(catalog, actionType, actionKey);
   const params = action?.parameters || workflow?.parameters || [];
-  return new Map(params.map((param) => [param.key, param.display_name]));
+  const policyParams = (action?.automation_capability || workflow?.automation_capability)
+    ?.calendar_policy_rules.find((rule) => rule.policy === calendarPolicy)
+    ?.policy_parameters || [];
+  return new Map([
+    ...params.map((param) => [param.key, param.display_name] as const),
+    ...policyParams.map((param) => [param.key, param.display_name] as const),
+  ]);
 }
 
 export function OpsAutomationPage() {
@@ -774,8 +815,9 @@ export function OpsAutomationPage() {
         catalogQuery.data,
         detailQuery.data?.target_type || "",
         detailQuery.data?.target_key || "",
+        detailQuery.data?.calendar_policy,
       ),
-    [catalogQuery.data, detailQuery.data?.target_key, detailQuery.data?.target_type],
+    [catalogQuery.data, detailQuery.data?.calendar_policy, detailQuery.data?.target_key, detailQuery.data?.target_type],
   );
   const selectedCalendarDateRule = useMemo<DateSelectionRule>(() => {
     if (!selectedAction) {
@@ -821,6 +863,27 @@ export function OpsAutomationPage() {
     }),
     [form.repeat_mode, form.schedule_type, selectedAutomationCapability],
   );
+  const effectiveCalendarPolicyRule = useMemo(
+    () => selectedAutomationCapability?.calendar_policy_rules?.find(
+      (rule) => rule.policy === effectiveCalendarPolicy,
+    ) || null,
+    [effectiveCalendarPolicy, selectedAutomationCapability],
+  );
+  const selectedPolicyParameters = effectiveCalendarPolicyRule?.policy_parameters || [];
+  const allowedCronRepeatModes = useMemo(
+    () => getAllowedCronRepeatModes(selectedAutomationCapability),
+    [selectedAutomationCapability],
+  );
+  const allowedScheduleTypes = useMemo(
+    () => selectedAutomationCapability?.trigger_options.find(
+      (option) => option.mode === form.trigger_mode,
+    )?.allowed_schedule_types || [],
+    [form.trigger_mode, selectedAutomationCapability],
+  );
+  useEffect(() => {
+    if (!allowedScheduleTypes.length || allowedScheduleTypes.includes(form.schedule_type as "cron" | "once")) return;
+    setForm((current) => ({ ...current, schedule_type: allowedScheduleTypes[0] }));
+  }, [allowedScheduleTypes, form.schedule_type, setForm]);
   useEffect(() => {
     if (form.repeat_mode === "intraday_interval" && !selectedActionSupportsIntraday) {
       setForm((current) => ({ ...current, repeat_mode: "daily" }));
@@ -828,12 +891,9 @@ export function OpsAutomationPage() {
   }, [form.repeat_mode, selectedActionSupportsIntraday, setForm]);
   useEffect(() => {
     if (form.schedule_type !== "cron") return;
-    const supported = selectedAutomationCapability?.calendar_policy_rules
-      ?.filter((rule) => rule.schedule_types.includes("cron"))
-      .flatMap((rule) => rule.cron_repeat_modes) || [];
-    if (!supported.length || supported.includes(form.repeat_mode)) return;
-    setForm((current) => ({ ...current, repeat_mode: supported[0] }));
-  }, [form.repeat_mode, form.schedule_type, selectedAutomationCapability, setForm]);
+    if (allowedCronRepeatModes.includes(form.repeat_mode)) return;
+    setForm((current) => ({ ...current, repeat_mode: allowedCronRepeatModes[0] }));
+  }, [allowedCronRepeatModes, form.repeat_mode, form.schedule_type, setForm]);
   useEffect(() => {
     if (selectedAutomationCapability && !isTriggerModeAllowed(selectedAutomationCapability, form.trigger_mode)) {
       setForm((current) => ({
@@ -929,6 +989,16 @@ export function OpsAutomationPage() {
 
   const resolvedParamsJson = useMemo(() => {
     const params: Record<string, unknown> = {};
+    const schedulePolicyParams = Object.fromEntries(
+      selectedPolicyParameters
+        .map((parameter) => [parameter.key, String(form.policy_field_values[parameter.key] || "").trim()] as const)
+        .filter(([, value]) => value !== ""),
+    );
+    const withPolicyParams = (value: Record<string, unknown>) => (
+      Object.keys(schedulePolicyParams).length
+        ? { ...value, schedule_policy_params: schedulePolicyParams }
+        : value
+    );
     for (const param of selectedActionParameters) {
       const rawValue = form.field_values[param.key];
       if (rawValue === undefined || rawValue === null) {
@@ -978,7 +1048,7 @@ export function OpsAutomationPage() {
     }
     if (form.action_type === "dataset_action" && selectedAction) {
       if (!selectedAction.target_key) {
-        return params;
+        return withPolicyParams(params);
       }
       const datasetKey = selectedAction.target_key;
       const timeKeys = new Set(["trade_date", "start_date", "end_date", "month", "start_month", "end_month", "ann_date"]);
@@ -1015,24 +1085,26 @@ export function OpsAutomationPage() {
       } else {
         timeInput.mode = "none";
       }
-      return {
+      return withPolicyParams({
         ...params,
         dataset_key: datasetKey,
         action: "maintain",
         time_input: timeInput,
         filters,
-      };
+      });
     }
-    return params;
+    return withPolicyParams(params);
   }, [
     form.date_mode,
     form.end_date,
     effectiveCalendarPolicy,
     form.field_values,
+    form.policy_field_values,
     form.selected_date,
     form.action_type,
     form.start_date,
     selectedActionParameters,
+    selectedPolicyParameters,
     selectedAutomationCapability,
     selectedAction,
     pointDateParam,
@@ -1097,9 +1169,12 @@ export function OpsAutomationPage() {
   }, [effectiveCalendarPolicy, form.intraday_interval_minutes, form.once_date, form.once_time, form.repeat_mode, form.repeat_month_day, form.repeat_time, form.repeat_weekdays, form.schedule_type]);
 
   const resolvedParameterRows = useMemo(() => {
-    const labelMap = new Map(selectedActionParameters.map((param) => [param.key, param.display_name]));
+    const labelMap = new Map([
+      ...selectedActionParameters.map((param) => [param.key, param.display_name] as const),
+      ...selectedPolicyParameters.map((param) => [param.key, param.display_name] as const),
+    ]);
     return buildReadableParamRows(resolvedParamsJson, labelMap);
-  }, [resolvedParamsJson, selectedActionParameters]);
+  }, [resolvedParamsJson, selectedActionParameters, selectedPolicyParameters]);
 
   const detailParameterRows = useMemo(() => (
     buildReadableParamRows(detailQuery.data?.params_json || {}, detailParamLabelMap)
@@ -1242,6 +1317,9 @@ export function OpsAutomationPage() {
       }
       if (!hasCompleteRequiredProbeFilters(selectedProbeCondition, resolvedParamsJson.filters)) {
         throw new Error("当前探测条件要求完整配置受限维护参数。");
+      }
+      if (!hasCompletePolicyParameters(selectedPolicyParameters, form.policy_field_values)) {
+        throw new Error("请填写日期策略的全部必填参数。");
       }
       const scheduleType = form.schedule_type;
       const cronExpr = scheduleType === "cron"
@@ -1407,6 +1485,11 @@ export function OpsAutomationPage() {
       start_date: startDate,
       end_date: endDate,
       field_values: buildFieldValues(paramsJson),
+      policy_field_values: isPlainRecord(paramsJson.schedule_policy_params)
+        ? Object.fromEntries(
+          Object.entries(paramsJson.schedule_policy_params).map(([key, value]) => [key, String(value ?? "")]),
+        )
+        : {},
     });
     open();
   };
@@ -1757,6 +1840,7 @@ export function OpsAutomationPage() {
                   start_date: "",
                   end_date: "",
                   field_values: {},
+                  policy_field_values: {},
                 }));
               }}
             />
@@ -1782,6 +1866,7 @@ export function OpsAutomationPage() {
                   start_date: "",
                   end_date: "",
                   field_values: {},
+                  policy_field_values: {},
                 }));
               }}
             />
@@ -1809,10 +1894,10 @@ export function OpsAutomationPage() {
             <>
               <Select
                 label={form.trigger_mode === "schedule_probe_fallback" ? "兜底执行方式" : "执行方式"}
-                data={[
-                  { value: "once", label: "单次执行" },
-                  { value: "cron", label: "按周期执行" },
-                ]}
+                data={allowedScheduleTypes.map((scheduleType) => ({
+                  value: scheduleType,
+                  label: scheduleType === "once" ? "单次执行" : "按周期执行",
+                }))}
                 value={form.schedule_type}
                 onChange={(value) => setForm((current) => ({ ...current, schedule_type: value || "once" }))}
               />
@@ -1840,12 +1925,16 @@ export function OpsAutomationPage() {
                 <Stack gap="sm">
                   <Select
                     label="重复方式"
-                    data={[
-                      { value: "daily", label: "每天" },
-                      { value: "weekly", label: "每周" },
-                      { value: "monthly", label: "每月" },
-                      ...(selectedActionSupportsIntraday ? [{ value: "intraday_interval", label: "每 N 分钟" }] : []),
-                    ]}
+                    data={allowedCronRepeatModes.map((repeatMode) => ({
+                      value: repeatMode,
+                      label: repeatMode === "daily"
+                        ? "每天"
+                        : repeatMode === "weekly"
+                          ? "每周"
+                          : repeatMode === "monthly"
+                            ? "每月"
+                            : "每 N 分钟",
+                    }))}
                     value={form.repeat_mode}
                     onChange={(value) => setForm((current) => ({ ...current, repeat_mode: (value as RepeatMode) || "daily" }))}
                   />
@@ -1931,6 +2020,52 @@ export function OpsAutomationPage() {
             value={form.timezone}
             onChange={(value) => setForm((current) => ({ ...current, timezone: value || "Asia/Shanghai" }))}
           />
+          {selectedPolicyParameters.length ? (
+            <Stack gap="sm">
+              <Text fw={700} size="sm">日期策略参数</Text>
+              <Grid>
+                {selectedPolicyParameters.map((parameter) => (
+                  <Grid.Col key={parameter.key} span={{ base: 12, md: 6 }}>
+                    {parameter.param_type === "date" ? (
+                      <DateField
+                        label={`${parameter.display_name}${parameter.required ? "（必填）" : ""}`}
+                        placeholder={parameter.description}
+                        value={form.policy_field_values[parameter.key] || ""}
+                        onChange={(value) => setForm((current) => ({
+                          ...current,
+                          policy_field_values: { ...current.policy_field_values, [parameter.key]: value },
+                        }))}
+                      />
+                    ) : parameter.param_type === "enum" ? (
+                      <Select
+                        label={`${parameter.display_name}${parameter.required ? "（必填）" : ""}`}
+                        description={parameter.description}
+                        data={normalizeParamOptions(parameter.options)}
+                        value={form.policy_field_values[parameter.key] || null}
+                        onChange={(value) => setForm((current) => ({
+                          ...current,
+                          policy_field_values: { ...current.policy_field_values, [parameter.key]: value || "" },
+                        }))}
+                      />
+                    ) : (
+                      <TextInput
+                        label={`${parameter.display_name}${parameter.required ? "（必填）" : ""}`}
+                        description={parameter.description}
+                        value={form.policy_field_values[parameter.key] || ""}
+                        onChange={(event) => setForm((current) => ({
+                          ...current,
+                          policy_field_values: {
+                            ...current.policy_field_values,
+                            [parameter.key]: event.currentTarget.value,
+                          },
+                        }))}
+                      />
+                    )}
+                  </Grid.Col>
+                ))}
+              </Grid>
+            </Stack>
+          ) : null}
           {form.trigger_mode !== "schedule" ? (
             <Stack gap="sm" p="sm" bg="var(--mantine-color-gray-0)" bd="1px solid var(--mantine-color-gray-2)" style={{ borderRadius: "var(--mantine-radius-md)" }}>
               <Text fw={700} size="sm">探测触发配置</Text>

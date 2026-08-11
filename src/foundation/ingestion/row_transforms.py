@@ -110,6 +110,8 @@ def _fund_share_observed_fact_row_transform(row: dict[str, Any]) -> dict[str, An
 
 _FUND_DIV_NUMERIC_FIELDS = ("div_cash", "base_unit", "ear_distr", "ear_amount")
 
+_EXPRESS_IDENTITY_BASIS = "ts_code_ann_date_end_date"
+
 
 def _fund_div_immutable_fact_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
@@ -125,6 +127,27 @@ def _fund_div_immutable_fact_row_transform(row: dict[str, Any]) -> dict[str, Any
     source_entity_key, identity_basis = fund_div_identity(transformed)
     transformed["source_entity_key"] = source_entity_key
     transformed["identity_basis"] = identity_basis
+    return transformed
+
+
+def _express_immutable_fact_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    ts_code = str(transformed.get("ts_code") or "").strip().upper()
+    ann_date = transformed.get("ann_date")
+    end_date = transformed.get("end_date")
+    if not ts_code:
+        raise RowTransformReject("normalize.empty_not_allowed:ts_code", "字段 ts_code 不允许为空")
+    if not isinstance(ann_date, date):
+        raise RowTransformReject("normalize.empty_not_allowed:ann_date", "字段 ann_date 不允许为空")
+    if not isinstance(end_date, date):
+        raise RowTransformReject("normalize.empty_not_allowed:end_date", "字段 end_date 不允许为空")
+    identity_payload = json.dumps(
+        [ts_code, ann_date.isoformat(), end_date.isoformat()],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    transformed["source_entity_key"] = f"express:{hashlib.sha256(identity_payload.encode('utf-8')).hexdigest()}"
+    transformed["identity_basis"] = _EXPRESS_IDENTITY_BASIS
     return transformed
 
 
@@ -892,6 +915,7 @@ __all__ = [
     "_fund_manager_observed_snapshot_row_transform",
     "_fund_share_observed_fact_row_transform",
     "_fund_div_immutable_fact_row_transform",
+    "_express_immutable_fact_row_transform",
     "_fund_portfolio_staged_fact_row_transform",
     "_trade_cal_row_transform",
     "_stock_basic_row_transform",

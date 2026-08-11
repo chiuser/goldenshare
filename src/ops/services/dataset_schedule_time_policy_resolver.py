@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from src.foundation.datasets.models import DatasetDefinition
+from src.foundation.datasets.models import DatasetDefinition, DatasetInputField
 
 
 CalendarPolicy = Literal[
@@ -13,6 +13,7 @@ CalendarPolicy = Literal[
     "trigger_day_single_range",
     "trigger_day_point",
     "latest_completed_calendar_quarter",
+    "since_last_success_day_range",
 ]
 ScheduleType = Literal["cron", "once"]
 CronRepeatMode = Literal["daily", "weekly", "monthly", "intraday_interval"]
@@ -26,6 +27,7 @@ class DatasetScheduleTimePolicyCapability:
     explicit_time_input: Literal["allowed", "forbidden"]
     generated_time_mode: Literal["point", "range"]
     generated_time_field: Literal["trade_date", "ann_date", "start_date_end_date"] = "trade_date"
+    policy_parameters: tuple[DatasetInputField, ...] = ()
     declared_by_action: bool = False
 
 
@@ -51,6 +53,7 @@ class DatasetScheduleTimePolicyResolver:
                     explicit_time_input=declared.explicit_time_input,  # type: ignore[arg-type]
                     generated_time_mode=declared.generated_time_mode,  # type: ignore[arg-type]
                     generated_time_field=declared.generated_time_field,  # type: ignore[arg-type]
+                    policy_parameters=declared.policy_parameters,
                     declared_by_action=True,
                 ),
             )

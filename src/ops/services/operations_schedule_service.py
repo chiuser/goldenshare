@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import logging
 from datetime import datetime, time, timedelta, timezone
 
 from sqlalchemy import delete, select
@@ -9,6 +11,7 @@ from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.task_run import TaskRun
+from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.services.schedule_probe_binding_service import ScheduleProbeBindingService
 from src.ops.services.schedule_planner import (
     compute_next_run_at,
@@ -17,7 +20,9 @@ from src.ops.services.schedule_planner import (
     normalize_schedule_datetime,
     preview_schedule_runs,
 )
-from src.ops.services.task_run_service import TaskRunCommandService
+from src.ops.services.task_run_service import ScheduleWindowAlreadyCovered, TaskRunCommandService
+from src.foundation.ingestion.errors import IngestionError
+from src.ops.services.ingestion_error_presentation import present_ingestion_error, structured_error_payload
 from src.ops.action_catalog import (
     action_is_schedulable,
     get_action_display_name,
@@ -35,6 +40,7 @@ MONTHLY_WINDOW_CURRENT_MONTH_POLICY = "monthly_window_current_month"
 TRIGGER_DAY_SINGLE_RANGE_POLICY = "trigger_day_single_range"
 TRIGGER_DAY_POINT_POLICY = "trigger_day_point"
 LATEST_COMPLETED_CALENDAR_QUARTER_POLICY = "latest_completed_calendar_quarter"
+SINCE_LAST_SUCCESS_DAY_RANGE_POLICY = "since_last_success_day_range"
 MIN_INTRADAY_INTERVAL_MINUTES = 3
 SUPPORTED_CALENDAR_POLICIES = {
     MONTHLY_LAST_DAY_POLICY,
@@ -43,8 +49,10 @@ SUPPORTED_CALENDAR_POLICIES = {
     TRIGGER_DAY_SINGLE_RANGE_POLICY,
     TRIGGER_DAY_POINT_POLICY,
     LATEST_COMPLETED_CALENDAR_QUARTER_POLICY,
+    SINCE_LAST_SUCCESS_DAY_RANGE_POLICY,
 }
 FALLBACK_PROBE_EFFECTIVE_TASK_STATUSES = ("queued", "running", "canceling", "success", "partial_success")
+logger = logging.getLogger(__name__)
 
 
 class OperationsScheduleService:
@@ -98,6 +106,18 @@ class OperationsScheduleService:
             next_run_at=next_run_at,
             calendar_policy=normalized_calendar_policy,
         )
+        if normalized_calendar_policy == SINCE_LAST_SUCCESS_DAY_RANGE_POLICY:
+            assert normalized_next_run_at is not None
+            self.task_run_service.validate_schedule_execution(
+                session,
+                target_type=target_type,
+                target_key=target_key,
+                params_json=normalized_params,
+                schedule_id=None,
+                calendar_policy=normalized_calendar_policy,
+                scheduled_at=normalized_next_run_at,
+                timezone_name=timezone_name,
+            )
 
         schedule = OpsSchedule(
             target_type=target_type,
@@ -222,6 +242,17 @@ class OperationsScheduleService:
             target_key=schedule.target_key,
             params_json=dict(schedule.params_json or {}),
         )
+        if schedule.calendar_policy == SINCE_LAST_SUCCESS_DAY_RANGE_POLICY and schedule.next_run_at is not None:
+            self.task_run_service.validate_schedule_execution(
+                session,
+                target_type=schedule.target_type,
+                target_key=schedule.target_key,
+                params_json=dict(schedule.params_json or {}),
+                schedule_id=schedule.id,
+                calendar_policy=schedule.calendar_policy,
+                scheduled_at=self._stored_datetime(schedule.next_run_at) or datetime.now(timezone.utc),
+                timezone_name=schedule.timezone,
+            )
 
         schedule.updated_by_user_id = updated_by_user_id
         self.probe_binding_service.sync_for_schedule(session, schedule=schedule, actor_user_id=updated_by_user_id)
@@ -306,6 +337,17 @@ class OperationsScheduleService:
                 next_run_at=self._stored_datetime(schedule.next_run_at),
                 calendar_policy=schedule.calendar_policy,
             )
+        if schedule.calendar_policy == SINCE_LAST_SUCCESS_DAY_RANGE_POLICY and schedule.next_run_at is not None:
+            self.task_run_service.validate_schedule_execution(
+                session,
+                target_type=schedule.target_type,
+                target_key=schedule.target_key,
+                params_json=dict(schedule.params_json or {}),
+                schedule_id=schedule.id,
+                calendar_policy=schedule.calendar_policy,
+                scheduled_at=self._stored_datetime(schedule.next_run_at) or datetime.now(timezone.utc),
+                timezone_name=schedule.timezone,
+            )
         schedule.status = "active"
         schedule.updated_by_user_id = updated_by_user_id
         self.probe_binding_service.sync_for_schedule(session, schedule=schedule, actor_user_id=updated_by_user_id)
@@ -354,18 +396,25 @@ class OperationsScheduleService:
 
     def enqueue_due_schedules(self, session: Session, *, now: datetime | None = None, limit: int = 100) -> list[TaskRun]:
         current_time = now or datetime.now(timezone.utc)
-        stmt = (
-            select(OpsSchedule)
-            .where(OpsSchedule.status == "active")
-            .where(OpsSchedule.trigger_mode != "probe")
-            .where(OpsSchedule.next_run_at.is_not(None))
-            .where(OpsSchedule.next_run_at <= current_time)
-            .order_by(OpsSchedule.next_run_at.asc(), OpsSchedule.id.asc())
-            .limit(limit)
-        )
-        schedules = list(session.scalars(stmt))
         task_runs: list[TaskRun] = []
-        for schedule in schedules:
+        processed_schedule_ids: set[int] = set()
+        for _ in range(max(0, limit)):
+            stmt = (
+                select(OpsSchedule)
+                .where(OpsSchedule.status == "active")
+                .where(OpsSchedule.trigger_mode != "probe")
+                .where(OpsSchedule.next_run_at.is_not(None))
+                .where(OpsSchedule.next_run_at <= current_time)
+                .order_by(OpsSchedule.next_run_at.asc(), OpsSchedule.id.asc())
+            )
+            if processed_schedule_ids:
+                stmt = stmt.where(OpsSchedule.id.not_in(processed_schedule_ids))
+            stmt = stmt.limit(1).with_for_update(skip_locked=True)
+            schedule = session.scalar(stmt)
+            if schedule is None:
+                break
+            if schedule.id is not None:
+                processed_schedule_ids.add(schedule.id)
             self._validate_calendar_policy(
                 target_type=schedule.target_type,
                 target_key=schedule.target_key,
@@ -382,18 +431,49 @@ class OperationsScheduleService:
                 self._advance_schedule_after_skipped_due_run(session, schedule=schedule, current_time=current_time)
                 continue
             scheduled_at = self._stored_datetime(schedule.next_run_at) or current_time
-            task_run = self.task_run_service.create_from_schedule_target(
-                session,
-                target_type=schedule.target_type,
-                target_key=schedule.target_key,
-                params_json=dict(schedule.params_json or {}),
-                trigger_source="scheduled",
-                requested_by_user_id=None,
-                schedule_id=schedule.id,
-                calendar_policy=schedule.calendar_policy,
-                scheduled_at=scheduled_at,
-                timezone_name=schedule.timezone,
-            )
+            try:
+                context = self.task_run_service.build_schedule_task_context(
+                    session,
+                    target_type=schedule.target_type,
+                    target_key=schedule.target_key,
+                    params_json=dict(schedule.params_json or {}),
+                    trigger_source="scheduled",
+                    requested_by_user_id=None,
+                    schedule_id=schedule.id,
+                    calendar_policy=schedule.calendar_policy,
+                    scheduled_at=scheduled_at,
+                    timezone_name=schedule.timezone,
+                )
+            except ScheduleWindowAlreadyCovered as exc:
+                logger.info(
+                    "schedule_window_already_covered schedule_id=%s target_key=%s scheduled_at=%s reason=%s",
+                    schedule.id,
+                    schedule.target_key,
+                    scheduled_at.isoformat(),
+                    str(exc),
+                )
+                self._advance_schedule_after_skipped_due_run(session, schedule=schedule, current_time=current_time)
+                continue
+            task_run = self.task_run_service.stage_task_run(session, context=context)
+            if schedule.calendar_policy == SINCE_LAST_SUCCESS_DAY_RANGE_POLICY:
+                try:
+                    self.task_run_service.preflight_dataset_context(session, context=context)
+                except IngestionError as exc:
+                    if exc.structured_error.error_code != "units_exceeded":
+                        session.rollback()
+                        raise
+                    self._mark_schedule_preflight_failure(
+                        session,
+                        schedule=schedule,
+                        task_run=task_run,
+                        error=exc,
+                        current_time=current_time,
+                        scheduled_at=scheduled_at,
+                    )
+                    session.commit()
+                    session.refresh(task_run)
+                    task_runs.append(task_run)
+                    continue
             schedule.last_triggered_at = current_time
             if schedule.schedule_type == "once":
                 schedule.status = "paused"
@@ -409,8 +489,48 @@ class OperationsScheduleService:
                     after=current_time,
                 )
             session.commit()
+            session.refresh(task_run)
             task_runs.append(task_run)
         return task_runs
+
+    @staticmethod
+    def _mark_schedule_preflight_failure(
+        session: Session,
+        *,
+        schedule: OpsSchedule,
+        task_run: TaskRun,
+        error: IngestionError,
+        current_time: datetime,
+        scheduled_at: datetime,
+    ) -> None:
+        presentation = present_ingestion_error(error.structured_error)
+        task_run.status = "failed"
+        task_run.status_reason_code = error.structured_error.error_code
+        task_run.ended_at = current_time
+        fingerprint_material = (
+            f"schedule_preflight\x1f{schedule.id}\x1f{scheduled_at.isoformat()}\x1f{error.structured_error.error_code}"
+        )
+        issue = TaskRunIssue(
+            task_run_id=task_run.id,
+            node_id=None,
+            severity="error",
+            code=error.structured_error.error_code,
+            title=presentation.title,
+            operator_message=presentation.operator_message,
+            suggested_action=presentation.suggested_action,
+            technical_message=error.structured_error.message,
+            technical_payload_json={"structured_error": structured_error_payload(error.structured_error)},
+            object_json={"schedule_id": schedule.id, "scheduled_at": scheduled_at.isoformat()},
+            source_phase=error.structured_error.phase,
+            fingerprint=hashlib.sha256(fingerprint_material.encode("utf-8")).hexdigest(),
+            occurred_at=current_time,
+        )
+        session.add(issue)
+        session.flush()
+        task_run.primary_issue_id = issue.id
+        schedule.status = "paused"
+        schedule.next_run_at = None
+        schedule.last_triggered_at = current_time
 
     def _has_effective_probe_task_for_schedule_day(
         self,
@@ -638,8 +758,10 @@ class OperationsScheduleService:
         params_json: dict,
     ) -> None:
         if target_type != "dataset_action":
-            if calendar_policy is None:
+            if calendar_policy is None and params_json.get("schedule_policy_params") in (None, {}):
                 return
+            if calendar_policy is None:
+                raise WebAppError(status_code=422, code="validation_error", message="非数据集自动任务不支持日期策略参数")
             raise WebAppError(status_code=422, code="validation_error", message="日期策略只支持数据集维护任务")
         try:
             definition, action = get_dataset_definition_by_action_key(target_key)
@@ -647,6 +769,14 @@ class OperationsScheduleService:
             raise WebAppError(status_code=422, code="validation_error", message="数据集维护动作不存在") from exc
 
         resolver = DatasetScheduleTimePolicyResolver()
+        action_capability = definition.capabilities.get_action(action)
+        declared_policy = action_capability.schedule_time_policy if action_capability is not None else None
+        if declared_policy is not None and schedule_type not in declared_policy.schedule_types:
+            raise WebAppError(
+                status_code=422,
+                code="validation_error",
+                message="当前执行方式不支持该数据集声明的日期策略",
+            )
         required_rule = resolver.required_policy_for_schedule(
             definition=definition,
             action=action,
@@ -660,6 +790,8 @@ class OperationsScheduleService:
                 message=f"该数据集周期任务必须使用系统声明的日期策略：{required_rule.policy}",
             )
         if calendar_policy is None:
+            if params_json.get("schedule_policy_params") not in (None, {}):
+                raise WebAppError(status_code=422, code="validation_error", message="未选择日期策略时不能填写日期策略参数")
             return
         rule = resolver.rule_for_policy(definition=definition, action=action, policy=calendar_policy)
         if rule is None:
@@ -670,6 +802,7 @@ class OperationsScheduleService:
                 TRIGGER_DAY_SINGLE_RANGE_POLICY: "触发日单日区间策略只支持自然日公告区间且仅支持区间维护的数据集",
                 TRIGGER_DAY_POINT_POLICY: "触发日单日策略未由该数据集 Definition 声明",
                 LATEST_COMPLETED_CALENDAR_QUARTER_POLICY: "最近已完成季度策略未由该数据集 Definition 声明",
+                SINCE_LAST_SUCCESS_DAY_RANGE_POLICY: "成功游标日区间策略未由该数据集 Definition 声明",
             }
             raise WebAppError(
                 status_code=422,
@@ -684,6 +817,7 @@ class OperationsScheduleService:
                 TRIGGER_DAY_SINGLE_RANGE_POLICY: "触发日单日区间",
                 TRIGGER_DAY_POINT_POLICY: "触发日单日",
                 LATEST_COMPLETED_CALENDAR_QUARTER_POLICY: "最近已完成季度",
+                SINCE_LAST_SUCCESS_DAY_RANGE_POLICY: "成功游标日区间",
             }
             raise WebAppError(
                 status_code=422,
@@ -693,6 +827,10 @@ class OperationsScheduleService:
         repeat_mode = resolver.classify_cron_repeat_mode(cron_expr) if schedule_type == "cron" else None
         if schedule_type == "cron" and rule.declared_by_action and repeat_mode not in rule.cron_repeat_modes:
             raise WebAppError(status_code=422, code="validation_error", message="当前周期类型不支持该数据集声明的日期策略")
+        OperationsScheduleService._validate_schedule_policy_parameters(
+            params_json=params_json,
+            rule=rule,
+        )
         if rule.explicit_time_input == "forbidden" and (
             OperationsScheduleService._has_declared_time_input(
                 params_json,
@@ -706,10 +844,46 @@ class OperationsScheduleService:
                 TRIGGER_DAY_SINGLE_RANGE_POLICY: "触发日单日区间策略不能与固定维护日期或窗口混用",
                 TRIGGER_DAY_POINT_POLICY: "触发日单日策略不能与固定维护日期或窗口混用",
                 LATEST_COMPLETED_CALENDAR_QUARTER_POLICY: "最近已完成季度策略不能与固定报告期混用",
+                SINCE_LAST_SUCCESS_DAY_RANGE_POLICY: "成功游标日区间策略不能与固定维护日期或窗口混用",
             }
             raise WebAppError(status_code=422, code="validation_error", message=conflict_messages[calendar_policy])
         if calendar_policy == TRIGGER_DAY_POINT_POLICY and repeat_mode == "intraday_interval":
             OperationsScheduleService._validate_intraday_interval_cron(cron_expr)
+
+    @staticmethod
+    def _validate_schedule_policy_parameters(*, params_json: dict, rule) -> None:  # type: ignore[no-untyped-def]
+        raw_parameters = params_json.get("schedule_policy_params")
+        configured = raw_parameters if isinstance(raw_parameters, dict) else {}
+        if raw_parameters not in (None, {}) and not isinstance(raw_parameters, dict):
+            raise WebAppError(status_code=422, code="validation_error", message="日期策略参数必须是对象")
+        declared = {field.name: field for field in rule.policy_parameters}
+        unexpected = sorted(set(configured) - set(declared))
+        if unexpected:
+            raise WebAppError(
+                status_code=422,
+                code="validation_error",
+                message=f"日期策略包含未声明参数：{'、'.join(unexpected)}",
+            )
+        missing = [field.display_label for field in declared.values() if field.required and configured.get(field.name) in (None, "")]
+        if missing:
+            raise WebAppError(
+                status_code=422,
+                code="validation_error",
+                message=f"日期策略缺少必填参数：{'、'.join(missing)}",
+            )
+        for field_name, value in configured.items():
+            field = declared[field_name]
+            if value in (None, ""):
+                continue
+            if field.input_control_type == "date":
+                try:
+                    datetime.strptime(str(value), "%Y-%m-%d")
+                except ValueError as exc:
+                    raise WebAppError(
+                        status_code=422,
+                        code="validation_error",
+                        message=f"日期策略参数 {field.display_label} 必须是 YYYY-MM-DD",
+                    ) from exc
 
     @staticmethod
     def _validate_intraday_interval_cron(cron_expr: str | None) -> int:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from calendar import monthrange
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -14,6 +14,8 @@ from src.app.exceptions import WebAppError
 from src.foundation.config.settings import get_settings
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
+from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
+from src.foundation.ingestion.errors import IngestionError
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.action_catalog import (
     WorkflowDefinition,
@@ -24,6 +26,7 @@ from src.ops.action_catalog import (
 from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.services.dataset_schedule_time_policy_resolver import DatasetScheduleTimePolicyResolver
+from src.ops.services.ingestion_error_presentation import present_ingestion_error
 
 
 MONTHLY_LAST_DAY_POLICY = "monthly_last_day"
@@ -32,6 +35,11 @@ MONTHLY_WINDOW_CURRENT_MONTH_POLICY = "monthly_window_current_month"
 TRIGGER_DAY_SINGLE_RANGE_POLICY = "trigger_day_single_range"
 TRIGGER_DAY_POINT_POLICY = "trigger_day_point"
 LATEST_COMPLETED_CALENDAR_QUARTER_POLICY = "latest_completed_calendar_quarter"
+SINCE_LAST_SUCCESS_DAY_RANGE_POLICY = "since_last_success_day_range"
+
+
+class ScheduleWindowAlreadyCovered(RuntimeError):
+    """The successful cursor already covers the generated target end date."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,7 +98,7 @@ class TaskRunCommandService:
         timezone_name: str | None = None,
     ) -> TaskRun:
         params = dict(params_json or {})
-        context = self._context_from_schedule_target(
+        context = self.build_schedule_task_context(
             session=session,
             target_type=target_type,
             target_key=target_key,
@@ -103,6 +111,33 @@ class TaskRunCommandService:
             timezone_name=timezone_name,
         )
         return self.create_task_run(session, context=context)
+
+    def build_schedule_task_context(
+        self,
+        session: Session | None,
+        *,
+        target_type: str,
+        target_key: str,
+        params_json: dict[str, Any] | None,
+        trigger_source: str,
+        requested_by_user_id: int | None,
+        schedule_id: int | None = None,
+        calendar_policy: str | None = None,
+        scheduled_at: datetime | None = None,
+        timezone_name: str | None = None,
+    ) -> TaskRunCreateContext:
+        return self._context_from_schedule_target(
+            session=session,
+            target_type=target_type,
+            target_key=target_key,
+            params_json=dict(params_json or {}),
+            trigger_source=trigger_source,
+            requested_by_user_id=requested_by_user_id,
+            schedule_id=schedule_id,
+            calendar_policy=calendar_policy,
+            scheduled_at=scheduled_at,
+            timezone_name=timezone_name,
+        )
 
     def validate_schedule_target(
         self,
@@ -124,6 +159,13 @@ class TaskRunCommandService:
         self._validate_context(context)
 
     def create_task_run(self, session: Session, *, context: TaskRunCreateContext) -> TaskRun:
+        task_run = self.stage_task_run(session, context=context)
+        session.commit()
+        session.refresh(task_run)
+        return task_run
+
+    def stage_task_run(self, session: Session, *, context: TaskRunCreateContext) -> TaskRun:
+        """Build and flush a TaskRun in the caller's transaction without committing."""
         self._validate_context(context)
         now = datetime.now(timezone.utc)
         title = self._resolve_title(context)
@@ -151,9 +193,70 @@ class TaskRunCommandService:
             queued_at=now,
         )
         session.add(task_run)
-        session.commit()
-        session.refresh(task_run)
+        session.flush()
         return task_run
+
+    @staticmethod
+    def preflight_dataset_context(session: Session, *, context: TaskRunCreateContext) -> None:
+        if context.task_type != "dataset_action" or context.resource_key is None:
+            return
+        time_input = dict(context.time_input or {})
+        request = DatasetActionRequest(
+            dataset_key=context.resource_key,
+            action=context.action,
+            time_input=DatasetTimeInput(
+                mode=str(time_input.get("mode") or "none").strip() or "none",
+                trade_date=TaskRunCommandService._optional_date(time_input.get("trade_date")),
+                ann_date=TaskRunCommandService._optional_date(time_input.get("ann_date")),
+                start_date=TaskRunCommandService._optional_date(time_input.get("start_date")),
+                end_date=TaskRunCommandService._optional_date(time_input.get("end_date")),
+                month=TaskRunCommandService._optional_text(time_input.get("month")),
+                start_month=TaskRunCommandService._optional_text(time_input.get("start_month")),
+                end_month=TaskRunCommandService._optional_text(time_input.get("end_month")),
+                date_field=TaskRunCommandService._optional_text(time_input.get("date_field")),
+            ),
+            filters=dict(context.filters or {}),
+            trigger_source=context.trigger_source,
+            requested_by_user_id=context.requested_by_user_id,
+        )
+        DatasetActionResolver(session).build_plan(request)
+
+    def validate_schedule_execution(
+        self,
+        session: Session,
+        *,
+        target_type: str,
+        target_key: str,
+        params_json: dict[str, Any],
+        schedule_id: int | None,
+        calendar_policy: str | None,
+        scheduled_at: datetime,
+        timezone_name: str,
+    ) -> None:
+        try:
+            context = self.build_schedule_task_context(
+                session,
+                target_type=target_type,
+                target_key=target_key,
+                params_json=params_json,
+                trigger_source="schedule",
+                requested_by_user_id=None,
+                schedule_id=schedule_id,
+                calendar_policy=calendar_policy,
+                scheduled_at=scheduled_at,
+                timezone_name=timezone_name,
+            )
+        except ScheduleWindowAlreadyCovered:
+            return
+        try:
+            self.preflight_dataset_context(session, context=context)
+        except IngestionError as exc:
+            presentation = present_ingestion_error(exc.structured_error)
+            raise WebAppError(
+                status_code=422,
+                code=exc.structured_error.error_code,
+                message=presentation.operator_message,
+            ) from exc
 
     def retry_task_run(self, session: Session, *, task_run_id: int, requested_by_user_id: int) -> TaskRun:
         existing = session.scalar(select(TaskRun).where(TaskRun.id == task_run_id))
@@ -221,6 +324,7 @@ class TaskRunCommandService:
                     calendar_policy=calendar_policy,
                     scheduled_at=scheduled_at,
                     timezone_name=timezone_name,
+                    schedule_id=schedule_id,
                 ),
                 filters=self._extract_filters(params_json),
                 request_payload=self._dataset_action_request_payload(params_json),
@@ -277,6 +381,7 @@ class TaskRunCommandService:
         calendar_policy: str | None,
         scheduled_at: datetime | None,
         timezone_name: str | None,
+        schedule_id: int | None = None,
     ) -> dict[str, Any]:
         time_input = self._resolve_schedule_time_input(
             target_type="dataset_action",
@@ -293,6 +398,7 @@ class TaskRunCommandService:
             TRIGGER_DAY_SINGLE_RANGE_POLICY,
             TRIGGER_DAY_POINT_POLICY,
             LATEST_COMPLETED_CALENDAR_QUARTER_POLICY,
+            SINCE_LAST_SUCCESS_DAY_RANGE_POLICY,
         }:
             raise WebAppError(status_code=422, code="validation_error", message=f"不支持的日期策略：{normalized_policy}")
         policy_rule = DatasetScheduleTimePolicyResolver().rule_for_policy(
@@ -383,6 +489,43 @@ class TaskRunCommandService:
                 timezone_name=timezone_name,
             )
             return {**dict(time_input or {}), "mode": "point", "trade_date": period.isoformat()}
+        if normalized_policy == SINCE_LAST_SUCCESS_DAY_RANGE_POLICY:
+            if self._has_declared_time_input(params_json, definition=definition):
+                raise WebAppError(
+                    status_code=422,
+                    code="validation_error",
+                    message="成功游标日区间策略不能与固定维护日期或窗口混用",
+                )
+            if scheduled_at is None:
+                raise WebAppError(status_code=422, code="validation_error", message="成功游标日区间策略缺少计划触发时间")
+            policy_params = params_json.get("schedule_policy_params")
+            if not isinstance(policy_params, dict):
+                raise WebAppError(status_code=422, code="validation_error", message="成功游标日区间策略缺少参数")
+            initial_start_date = self._optional_date(policy_params.get("initial_start_date"))
+            if initial_start_date is None:
+                raise WebAppError(status_code=422, code="validation_error", message="成功游标日区间策略缺少首次覆盖开始日期")
+            target_end = self._natural_day_for_schedule(
+                scheduled_at=scheduled_at,
+                timezone_name=timezone_name,
+            ) - timedelta(days=1)
+            last_success_end = self._last_successful_schedule_end_date(
+                session=session,
+                schedule_id=schedule_id,
+                resource_key=definition.dataset_key,
+                action="maintain",
+            )
+            cursor_start = last_success_end + timedelta(days=1) if last_success_end is not None else initial_start_date
+            start_date = max(initial_start_date, cursor_start)
+            if start_date > target_end:
+                raise ScheduleWindowAlreadyCovered(
+                    f"schedule {schedule_id or 'new'} already covers {target_end.isoformat()}"
+                )
+            return {
+                **dict(time_input or {}),
+                "mode": "range",
+                "start_date": start_date.isoformat(),
+                "end_date": target_end.isoformat(),
+            }
         if not self._supports_month_window_policy(definition):
             raise WebAppError(status_code=422, code="validation_error", message="自然月窗口策略只支持月窗口数据集")
         if self._has_explicit_time_boundary(params_json):
@@ -623,6 +766,48 @@ class TaskRunCommandService:
         return local_scheduled_at.date()
 
     @staticmethod
+    def _last_successful_schedule_end_date(
+        *,
+        session: Session | None,
+        schedule_id: int | None,
+        resource_key: str,
+        action: str,
+    ) -> date | None:
+        if session is None or schedule_id is None:
+            return None
+        values = session.scalars(
+            select(TaskRun.time_input_json)
+            .where(TaskRun.schedule_id == schedule_id)
+            .where(TaskRun.resource_key == resource_key)
+            .where(TaskRun.action == action)
+            .where(TaskRun.status == "success")
+        ).all()
+        resolved: list[date] = []
+        for value in values:
+            if not isinstance(value, dict):
+                continue
+            end_date = TaskRunCommandService._optional_date(value.get("end_date"))
+            if end_date is not None:
+                resolved.append(end_date)
+        return max(resolved) if resolved else None
+
+    @staticmethod
+    def _optional_date(value: Any) -> date | None:
+        if value in (None, ""):
+            return None
+        if isinstance(value, date):
+            return value
+        try:
+            return date.fromisoformat(str(value))
+        except ValueError as exc:
+            raise WebAppError(status_code=422, code="validation_error", message="日期必须是 YYYY-MM-DD") from exc
+
+    @staticmethod
+    def _optional_text(value: Any) -> str | None:
+        text = str(value or "").strip()
+        return text or None
+
+    @staticmethod
     def _latest_completed_quarter_for_schedule(*, scheduled_at: datetime, timezone_name: str | None) -> date:
         trigger_date = TaskRunCommandService._natural_day_for_schedule(
             scheduled_at=scheduled_at,
@@ -738,6 +923,7 @@ class TaskRunCommandService:
             "policy_version",
             "resume_from_step_key",
             "failure_policy_default",
+            "schedule_policy_params",
         }
         return {key: value for key, value in params_json.items() if key not in reserved}
 
@@ -761,6 +947,7 @@ class TaskRunCommandService:
         payload.pop("target_key", None)
         payload.pop("dataset_key", None)
         payload.pop("action", None)
+        payload.pop("schedule_policy_params", None)
         return payload
 
     def _context_from_retry(

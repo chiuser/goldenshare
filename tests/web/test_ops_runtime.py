@@ -504,6 +504,268 @@ def test_scheduler_trigger_day_point_policy_uses_ann_date_for_fund_div_task_run(
     }
 
 
+def test_scheduler_success_cursor_range_uses_initial_start_then_last_success(
+    db_session,
+    ops_schedule_factory,
+) -> None:
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="express.maintain",
+        display_name="业绩快报自动维护",
+        schedule_type="cron",
+        cron_expr="0 19 * * *",
+        timezone_name="Asia/Shanghai",
+        calendar_policy="since_last_success_day_range",
+        params_json={
+            "time_input": {"mode": "range"},
+            "schedule_policy_params": {"initial_start_date": "2026-05-10"},
+        },
+        next_run_at=datetime(2026, 5, 14, 11, 0, tzinfo=timezone.utc),
+    )
+
+    first_batch = OperationsScheduler().run_once(
+        db_session,
+        now=datetime(2026, 5, 14, 11, 0, tzinfo=timezone.utc),
+    )
+
+    assert len(first_batch) == 1
+    first = first_batch[0]
+    assert first.time_input_json == {
+        "mode": "range",
+        "start_date": "2026-05-10",
+        "end_date": "2026-05-13",
+    }
+    assert "schedule_policy_params" not in first.request_payload_json
+    first.status = "success"
+    db_session.commit()
+
+    second_batch = OperationsScheduler().run_once(
+        db_session,
+        now=datetime(2026, 5, 15, 11, 0, tzinfo=timezone.utc),
+    )
+
+    assert len(second_batch) == 1
+    second = second_batch[0]
+    assert second.schedule_id == schedule.id
+    assert second.time_input_json == {
+        "mode": "range",
+        "start_date": "2026-05-14",
+        "end_date": "2026-05-14",
+    }
+
+
+def test_scheduler_success_cursor_ignores_failed_and_other_schedule_windows(
+    db_session,
+    ops_schedule_factory,
+    task_run_factory,
+) -> None:
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="express.maintain",
+        schedule_type="cron",
+        cron_expr="0 19 * * *",
+        calendar_policy="since_last_success_day_range",
+        params_json={
+            "time_input": {"mode": "range"},
+            "schedule_policy_params": {"initial_start_date": "2026-05-01"},
+        },
+        next_run_at=datetime(2026, 5, 14, 11, 0, tzinfo=timezone.utc),
+    )
+    other_schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="express.maintain",
+        status="paused",
+    )
+    task_run_factory(
+        resource_key="express",
+        action="maintain",
+        schedule_id=schedule.id,
+        trigger_source="retry",
+        status="success",
+        time_input_json={"mode": "range", "start_date": "2026-05-01", "end_date": "2026-05-08"},
+    )
+    task_run_factory(
+        resource_key="express",
+        action="maintain",
+        schedule_id=schedule.id,
+        status="failed",
+        time_input_json={"mode": "range", "start_date": "2026-05-09", "end_date": "2026-05-12"},
+    )
+    task_run_factory(
+        resource_key="express",
+        action="maintain",
+        schedule_id=schedule.id,
+        status="canceled",
+        time_input_json={"mode": "range", "start_date": "2026-05-09", "end_date": "2026-05-12"},
+    )
+    task_run_factory(
+        resource_key="express",
+        action="maintain",
+        schedule_id=other_schedule.id,
+        status="success",
+        time_input_json={"mode": "range", "start_date": "2026-05-01", "end_date": "2026-05-12"},
+    )
+
+    created = OperationsScheduler().run_once(
+        db_session,
+        now=datetime(2026, 5, 14, 11, 0, tzinfo=timezone.utc),
+    )
+
+    assert len(created) == 1
+    assert created[0].time_input_json == {
+        "mode": "range",
+        "start_date": "2026-05-09",
+        "end_date": "2026-05-13",
+    }
+
+
+def test_scheduler_success_cursor_never_runs_before_configured_initial_start(
+    db_session,
+    ops_schedule_factory,
+    task_run_factory,
+) -> None:
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="express.maintain",
+        schedule_type="cron",
+        cron_expr="0 19 * * *",
+        calendar_policy="since_last_success_day_range",
+        params_json={
+            "time_input": {"mode": "range"},
+            "schedule_policy_params": {"initial_start_date": "2026-05-10"},
+        },
+        next_run_at=datetime(2026, 5, 14, 11, 0, tzinfo=timezone.utc),
+    )
+    task_run_factory(
+        resource_key="express",
+        action="maintain",
+        schedule_id=schedule.id,
+        status="success",
+        time_input_json={"mode": "range", "start_date": "2026-05-01", "end_date": "2026-05-05"},
+    )
+
+    created = OperationsScheduler().run_once(
+        db_session,
+        now=datetime(2026, 5, 14, 11, 0, tzinfo=timezone.utc),
+    )
+
+    assert len(created) == 1
+    assert created[0].time_input_json == {
+        "mode": "range",
+        "start_date": "2026-05-10",
+        "end_date": "2026-05-13",
+    }
+
+
+def test_scheduler_success_cursor_skips_already_covered_window_without_empty_task_run(
+    db_session,
+    ops_schedule_factory,
+    task_run_factory,
+    caplog,
+) -> None:
+    due_at = datetime(2026, 5, 14, 11, 0, tzinfo=timezone.utc)
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="express.maintain",
+        schedule_type="cron",
+        cron_expr="0 19 * * *",
+        calendar_policy="since_last_success_day_range",
+        params_json={
+            "time_input": {"mode": "range"},
+            "schedule_policy_params": {"initial_start_date": "2026-05-01"},
+        },
+        next_run_at=due_at,
+    )
+    task_run_factory(
+        resource_key="express",
+        action="maintain",
+        schedule_id=schedule.id,
+        status="success",
+        time_input_json={"mode": "range", "start_date": "2026-05-01", "end_date": "2026-05-13"},
+    )
+
+    caplog.set_level("INFO", logger="src.ops.services.operations_schedule_service")
+    created = OperationsScheduler().run_once(db_session, now=due_at)
+
+    assert created == []
+    tasks = db_session.scalars(select(TaskRun).where(TaskRun.schedule_id == schedule.id)).all()
+    assert len(tasks) == 1
+    refreshed = db_session.get(type(schedule), schedule.id)
+    assert refreshed is not None
+    assert refreshed.next_run_at is not None
+    assert refreshed.next_run_at.replace(tzinfo=timezone.utc) > due_at
+    assert "schedule_window_already_covered" in caplog.text
+
+
+def test_scheduler_success_cursor_pauses_oversized_window_with_planner_issue(
+    db_session,
+    ops_schedule_factory,
+) -> None:
+    due_at = datetime(2026, 5, 14, 11, 0, tzinfo=timezone.utc)
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="express.maintain",
+        schedule_type="cron",
+        cron_expr="0 19 * * *",
+        calendar_policy="since_last_success_day_range",
+        params_json={
+            "time_input": {"mode": "range"},
+            "schedule_policy_params": {"initial_start_date": "2025-01-01"},
+        },
+        next_run_at=due_at,
+    )
+
+    created = OperationsScheduler().run_once(db_session, now=due_at)
+
+    assert len(created) == 1
+    failed = created[0]
+    assert failed.status == "failed"
+    assert failed.status_reason_code == "units_exceeded"
+    assert failed.primary_issue_id is not None
+    issue = db_session.get(TaskRunIssue, failed.primary_issue_id)
+    assert issue is not None
+    assert issue.code == "units_exceeded"
+    assert issue.source_phase == "planner"
+    assert issue.technical_payload_json["structured_error"]["details"]["max_units_per_execution"] == 366
+    refreshed = db_session.get(type(schedule), schedule.id)
+    assert refreshed is not None
+    assert refreshed.status == "paused"
+    assert refreshed.next_run_at is None
+
+
+def test_scheduler_rolls_back_staged_task_and_schedule_advance_together(
+    db_session,
+    ops_schedule_factory,
+    monkeypatch,
+) -> None:
+    due_at = datetime(2026, 5, 14, 11, 0, tzinfo=timezone.utc)
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="stock_basic.maintain",
+        schedule_type="cron",
+        cron_expr="0 19 * * *",
+        next_run_at=due_at,
+    )
+
+    def fail_next_run(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise RuntimeError("next run calculation failed")
+
+    monkeypatch.setattr(
+        "src.ops.services.operations_schedule_service.OperationsScheduleService._resolve_next_run_at",
+        fail_next_run,
+    )
+    with pytest.raises(RuntimeError, match="next run calculation failed"):
+        OperationsScheduler().run_once(db_session, now=due_at)
+    db_session.rollback()
+
+    assert db_session.scalar(select(TaskRun).where(TaskRun.schedule_id == schedule.id)) is None
+    refreshed = db_session.get(type(schedule), schedule.id)
+    assert refreshed is not None
+    assert refreshed.last_triggered_at is None
+    assert refreshed.next_run_at is not None
+    assert refreshed.next_run_at.replace(tzinfo=timezone.utc) == due_at
+
+
 def test_scheduler_defaults_daily_workflow_to_point_mode_when_schedule_has_no_time_params(db_session, ops_schedule_factory) -> None:
     schedule = ops_schedule_factory(
         target_type="workflow",

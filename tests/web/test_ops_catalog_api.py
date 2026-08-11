@@ -43,6 +43,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert "fund_share.maintain" in actions
     assert "fund_div.maintain" in actions
     assert "fund_portfolio.maintain" in actions
+    assert "express.maintain" in actions
     assert "maintenance.rebuild_dm" in actions
     legacy_keys = [
         "sync" + "_daily.daily",
@@ -198,7 +199,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert actions["maintenance.rebuild_dm"]["display_name"] == "刷新数据集市快照"
 
     catalog_items = [*actions.values(), *workflows.values()]
-    assert sum(item["schedule_enabled"] for item in catalog_items) == 88
+    assert sum(item["schedule_enabled"] for item in catalog_items) == 89
     assert all(
         (item["automation_capability"] is not None) is item["schedule_enabled"]
         for item in catalog_items
@@ -303,7 +304,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert [param["key"] for param in fund_share["parameters"]] == ["trade_date", "start_date", "end_date"]
     assert fund_share["automation_capability"]["default_trigger_mode"] == "schedule"
     assert fund_share["automation_capability"]["trigger_options"] == [
-        {"mode": "schedule", "allowed_schedule_types": ["cron", "once"]}
+        {"mode": "schedule", "allowed_schedule_types": ["cron"]}
     ]
     assert fund_share["automation_capability"]["probe_conditions"] == []
     assert fund_share["automation_capability"]["calendar_policy_rules"] == [
@@ -311,11 +312,12 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
             "policy": "trigger_day_point",
             "schedule_types": ["cron"],
             "cron_repeat_modes": ["daily", "weekly", "monthly", "intraday_interval"],
-                "explicit_time_input": "forbidden",
-                "generated_time_mode": "point",
-                "generated_time_field": "trade_date",
-            }
-        ]
+            "explicit_time_input": "forbidden",
+            "generated_time_mode": "point",
+            "generated_time_field": "trade_date",
+            "policy_parameters": [],
+        }
+    ]
 
     fund_div = actions["fund_div.maintain"]
     assert fund_div["group_key"] == "public_fund"
@@ -331,6 +333,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
             "explicit_time_input": "forbidden",
             "generated_time_mode": "point",
             "generated_time_field": "ann_date",
+            "policy_parameters": [],
         }
     ]
 
@@ -353,6 +356,42 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
             "explicit_time_input": "forbidden",
             "generated_time_mode": "point",
             "generated_time_field": "trade_date",
+            "policy_parameters": [],
+        }
+    ]
+
+    express = actions["express.maintain"]
+    assert express["target_display_name"] == "业绩快报"
+    assert express["group_key"] == "equity_financial"
+    assert express["group_label"] == "A股财务数据"
+    assert express["group_order"] == 3
+    assert express["freshness_policy"] == "event_run_trace"
+    assert [param["key"] for param in express["parameters"]] == ["ann_date", "start_date", "end_date"]
+    assert express["automation_capability"]["default_trigger_mode"] == "schedule"
+    assert express["automation_capability"]["trigger_options"] == [
+        {"mode": "schedule", "allowed_schedule_types": ["cron"]}
+    ]
+    assert express["automation_capability"]["probe_conditions"] == []
+    assert express["automation_capability"]["calendar_policy_rules"] == [
+        {
+            "policy": "since_last_success_day_range",
+            "schedule_types": ["cron"],
+            "cron_repeat_modes": ["daily", "weekly", "monthly"],
+            "explicit_time_input": "forbidden",
+            "generated_time_mode": "range",
+            "generated_time_field": "start_date_end_date",
+            "policy_parameters": [
+                {
+                    "key": "initial_start_date",
+                    "display_name": "首次覆盖开始日期",
+                    "param_type": "date",
+                    "description": "首次自动同步从该自然日开始；后续从最后成功窗口的下一日续跑。",
+                    "required": True,
+                    "options": [],
+                    "multi_value": False,
+                    "default_value": None,
+                }
+            ],
         }
     ]
 

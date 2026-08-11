@@ -747,6 +747,145 @@ def test_ops_schedule_create_rejects_fund_share_cron_without_definition_policy(a
     assert response.json()["message"] == "该数据集周期任务必须使用系统声明的日期策略：trigger_day_point"
 
 
+def test_ops_schedule_create_supports_express_success_cursor_policy(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "express.maintain",
+            "display_name": "业绩快报自动维护",
+            "schedule_type": "cron",
+            "cron_expr": "0 19 * * *",
+            "timezone": "Asia/Shanghai",
+            "calendar_policy": "since_last_success_day_range",
+            "params_json": {
+                "time_input": {"mode": "range"},
+                "schedule_policy_params": {"initial_start_date": "2026-08-01"},
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["target_key"] == "express.maintain"
+    assert payload["calendar_policy"] == "since_last_success_day_range"
+    assert payload["params_json"]["schedule_policy_params"] == {"initial_start_date": "2026-08-01"}
+
+
+@pytest.mark.parametrize(
+    ("schedule_patch", "params_json", "expected_message"),
+    (
+        ({}, {"time_input": {"mode": "range"}}, "日期策略缺少必填参数"),
+        (
+            {},
+            {
+                "time_input": {"mode": "range"},
+                "schedule_policy_params": {"initial_start_date": "2026/08/01"},
+            },
+            "必须是 YYYY-MM-DD",
+        ),
+        (
+            {},
+            {
+                "time_input": {"mode": "range"},
+                "schedule_policy_params": {"initial_start_date": "2026-08-01", "unknown": "value"},
+            },
+            "日期策略包含未声明参数",
+        ),
+        (
+            {},
+            {
+                "time_input": {"mode": "range", "start_date": "2026-08-01", "end_date": "2026-08-02"},
+                "schedule_policy_params": {"initial_start_date": "2026-08-01"},
+            },
+            "不能与固定维护日期或窗口混用",
+        ),
+        (
+            {},
+            {
+                "time_input": {"mode": "range"},
+                "filters": {"ts_code": "000001.SZ"},
+                "schedule_policy_params": {"initial_start_date": "2026-08-01"},
+            },
+            "未定义参数",
+        ),
+        (
+            {"cron_expr": "*/3 * * * *"},
+            {
+                "time_input": {"mode": "range"},
+                "schedule_policy_params": {"initial_start_date": "2026-08-01"},
+            },
+            "当前周期类型不支持",
+        ),
+        (
+            {"schedule_type": "once", "cron_expr": None, "next_run_at": "2026-08-12T11:00:00Z"},
+            {
+                "time_input": {"mode": "range"},
+                "schedule_policy_params": {"initial_start_date": "2026-08-01"},
+            },
+            "当前执行方式不支持",
+        ),
+        (
+            {
+                "trigger_mode": "probe",
+                "probe_config": {"condition_kind": "freshness_latest_open"},
+            },
+            {
+                "time_input": {"mode": "range"},
+                "schedule_policy_params": {"initial_start_date": "2026-08-01"},
+            },
+            "不支持所选触发方式",
+        ),
+        (
+            {
+                "trigger_mode": "schedule_probe_fallback",
+                "probe_config": {"condition_kind": "freshness_latest_open"},
+            },
+            {
+                "time_input": {"mode": "range"},
+                "schedule_policy_params": {"initial_start_date": "2026-08-01"},
+            },
+            "不支持所选触发方式",
+        ),
+    ),
+)
+def test_ops_schedule_create_rejects_invalid_express_success_cursor_configuration(
+    app_client,
+    user_factory,
+    schedule_patch: dict,
+    params_json: dict,
+    expected_message: str,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+    payload = {
+        "target_type": "dataset_action",
+        "target_key": "express.maintain",
+        "display_name": "业绩快报自动维护",
+        "schedule_type": "cron",
+        "cron_expr": "0 19 * * *",
+        "timezone": "Asia/Shanghai",
+        "calendar_policy": "since_last_success_day_range",
+        "params_json": params_json,
+        **schedule_patch,
+    }
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json=payload,
+    )
+
+    assert response.status_code == 422
+    assert expected_message in response.json()["message"]
+
+
 @pytest.mark.parametrize("cron_expr", ("0 19 * * 1", "0 19 1 * *"))
 def test_ops_schedule_create_supports_fund_portfolio_weekly_or_monthly_cron(
     app_client,
