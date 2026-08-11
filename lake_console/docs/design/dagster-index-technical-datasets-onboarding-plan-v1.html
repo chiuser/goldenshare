@@ -622,6 +622,21 @@ gold/indicator/major_index_mins_technical_state/
       <li>大范围历史文件完成后使用批量 Runless Event Backfill；逐日 event log 扫描禁止进入热路径。</li>
     </ul>
 
+    <h3>5.7.1 M6 Definitions 注册缺陷修复（2026-08-12）</h3>
+    <div class="callout warn">
+      <strong>修复前事实与根因：</strong><code>major_index_mins_technical_checks.py</code> 已创建 42 个 technical checks 和
+      28 个 state checks，但两个模块级集合使用 <code>tuple</code> 导出。当前项目使用的 Dagster 1.13.8
+      Definitions 模块加载器只自动展开模块级 <code>list</code>，不展开 <code>tuple</code>，因此项目真实
+      <code>defs()</code> 当时能发现 14 个目标 assets，却发现 0 个目标 checks。对象工厂测试通过不能证明注册成功。
+    </div>
+    <ul>
+      <li><strong>唯一修复：</strong>保留现有两个公开常量名和 check 工厂，将模块级集合直接改为单一 <code>list[dg.AssetChecksDefinition]</code>；禁止再增加一份 list、显式 Definitions 汇总或兼容导出。</li>
+      <li><strong>不变边界：</strong>70 个 check 的名称、asset key、blocking 属性、partition definition、执行逻辑、job/sensor 业务语义均不改变。</li>
+      <li><strong>真实门禁：</strong>通过项目入口 <code>orchestrator.definitions.defs()</code> 加载 Definitions，必须精确发现 42 + 28 = 70 个目标 checks 和 14 个目标 assets，并通过 <code>Definitions.validate_loadable()</code>。</li>
+      <li><strong>Job 门禁：</strong>对项目真实 AssetGraph 解析 daily job selection，必须精确选择 14 个目标 assets 和 70 个目标 checks，不允许仅检查 selection 的字符串表示。</li>
+      <li><strong>执行边界：</strong>本修复只做静态 Definitions/Job 校验，不访问 Dagster Instance，不启动 sensor/job，不 materialize，不补 event，不读写正式 Lake。</li>
+    </ul>
+
     <h3>5.8 规模与性能预算</h3>
     <div class="table-wrap">
       <table>
@@ -754,7 +769,7 @@ gold/indicator/major_index_mins_technical_state/
           <tr><td>M3 日级 Silver</td><td><strong>已完成：</strong>日期/数值类型标准化、Silver asset、contract/source parity/cast integrity 三项 blocking checks，并将 Catalog 切换为活跃定义。</td><td>2026-08-07 临时目录验收：Raw/Silver 各 11 行、11 个代码、89 字段，key/数值/NULL 完全一致，Silver 文件 19793 bytes；正式 Lake 执行未授权。</td></tr>
           <tr><td>M4 日级自动化</td><td><strong>已完成：</strong>Raw/Silver layer-isolated jobs、当前开放日 partition sensor、Raw/Silver sensors、单日物理文件 readiness、单页 source probe 与 v1 compact cursor。</td><td>当前日单 tick 最多 1 分区，三个 sensor 默认 STOPPED；已有坏文件 fail closed；隔离测试与静态门禁通过，未在正式 instance 启用、未写正式 Lake。</td></tr>
           <tr><td>M5 分钟指标核心</td><td>DuckDB 公式、指标/state writers、路径与双文件提交协议。</td><td>公式金样本在测试中验证；生产门禁覆盖无未来数据、有限值、warm-up 与严格前态。</td></tr>
-          <tr><td>M6 分钟资产自动化</td><td>Gold assets/checks/job/run-status sensor/repair 计划。</td><td>只消费健康 Silver，不顺手补上游。</td></tr>
+          <tr><td>M6 分钟资产自动化</td><td><strong>已完成并修复注册门禁：</strong>Gold assets、70 个 blocking checks、daily job、run-status sensor 与 readiness 已实现；2026-08-12 已将 check 集合从 tuple 收敛为 Dagster 可发现的单一 list，并补真实 Definitions/Job 门禁。</td><td>项目真实 Definitions 精确注册 14 assets、42 technical checks、28 state checks，daily job 精确选择 14 assets + 70 checks；sensor 保持 STOPPED，未访问 Dagster Instance 或正式 Lake。</td></tr>
           <tr><td>M7 历史 Bootstrap</td><td>两个资产族 dry-run/sample/batch/final audit/runless events。</td><td>正式执行前单独申请批准；空间、配额、文件、事件预算明确。</td></tr>
           <tr><td>M8 收口</td><td>Definitions、拓扑/运行文档、测试矩阵、开发模板 checklist 对账。</td><td>代码、Catalog、文档、UI 描述无漂移。</td></tr>
         </tbody>

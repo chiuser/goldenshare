@@ -437,7 +437,7 @@ silver_major_index_mins_120m ┘</code></pre>
           <tr><td><code>defs/paths.py</code></td><td>修改</td><td>technical/state 正式与 staging path。</td></tr>
           <tr><td><code>defs/io/major_index_mins_technical_writer.py</code></td><td>新增</td><td>有限历史读取、DuckDB 指标计算、state 递推、双文件提交协议。</td></tr>
           <tr><td><code>defs/assets/major_index_mins_technical.py</code></td><td>新增</td><td>7 个 <code>@dg.multi_asset</code>，每个产出 technical + state。</td></tr>
-          <tr><td><code>defs/checks/major_index_mins_technical_checks.py</code></td><td>新增</td><td>每频率 technical/state blocking checks。</td></tr>
+          <tr><td><code>defs/checks/major_index_mins_technical_checks.py</code></td><td>M6 已修复</td><td>每频率 technical/state blocking checks；两个公开集合使用 Dagster 模块加载器可发现的单一 <code>list[dg.AssetChecksDefinition]</code> 导出。</td></tr>
           <tr><td><code>defs/asset_guards/major_index_mins_technical.py</code></td><td>新增</td><td>同日 Silver readiness、前态 readiness、目标 readiness。</td></tr>
           <tr><td><code>defs/jobs/gold_major_index_mins_technical_daily_update.py</code></td><td>M6 已完成</td><td>一个日期精确选择 14 assets + 70 blocking checks，不包含 Raw/Silver。</td></tr>
           <tr><td><code>defs/sensors/gold_major_index_mins_technical_daily_update_job_sensor.py</code></td><td>M6 已完成</td><td>只监听 Silver success，物理核验 7 频率、目标与严格前态后单请求推进。</td></tr>
@@ -899,6 +899,30 @@ gold/indicator/major_index_mins_technical_state/_staging/
       <li>sensor 默认 STOPPED。</li>
     </ol>
 
+    <h3>6.11.1 Definitions 注册缺陷与唯一修复</h3>
+    <div class="callout warn">
+      <strong>修复前失败事实：</strong>模块对象工厂能够生成 42 个 technical checks 和 28 个 state checks，
+      但项目入口 <code>orchestrator.definitions.defs()</code> 当时的静态加载结果是 14 个目标 assets、0 个目标 checks。
+      根因不是 check 逻辑或 job selection，而是两个模块级集合使用 <code>tuple</code>；Dagster 1.13.8 的
+      Python module loader 只自动展开模块级 <code>list</code>。
+    </div>
+    <p><strong>代码级修复：</strong></p>
+    <ol>
+      <li>在 <code>defs/checks/major_index_mins_technical_checks.py</code> 中保留
+        <code>GOLD_MAJOR_INDEX_MINS_TECHNICAL_CHECK_DEFINITIONS</code> 与
+        <code>GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_CHECK_DEFINITIONS</code> 两个公开名称。</li>
+      <li>两个集合分别直接构造为 <code>list[dg.AssetChecksDefinition]</code>，元素仍由现有工厂生成；不得保留 tuple 并额外新增 list，不得在 <code>definitions.py</code> 手工拼接，也不得增加兼容层。</li>
+      <li>禁止修改任何 check name、asset key、<code>blocking=True</code>、共享分钟 dynamic partitions、evaluator、asset、job、sensor、readiness 或 Lake 路径。</li>
+    </ol>
+    <p><strong>新增静态门禁：</strong></p>
+    <ul>
+      <li>从项目真实 <code>defs()</code> 加载 Definitions，目标 check keys 必须与合同生成的期望集合完全相等：technical 42、state 28，总数 70，无缺失、无重复、无额外项。</li>
+      <li>逐项校验 70 个 checks 的 asset binding、blocking 属性和 partition definition；同时确认 14 个目标 assets 仍全部注册。</li>
+      <li>执行 <code>dg.Definitions.validate_loadable(defs)</code>，证明完整 Definitions 可加载。</li>
+      <li>在同一真实 AssetGraph 上解析 <code>gold_major_index_mins_technical_daily_update_job</code>，结果必须精确为 14 assets + 70 checks。</li>
+      <li>测试仅构建静态 Definitions/AssetGraph；禁止连接 Dagster Instance、执行 job/sensor/check/materialization 或写入 Lake/events。</li>
+    </ul>
+
     <h3>6.12 历史 Bootstrap 与修复</h3>
     <ul>
       <li>输入只能是已健康的 Silver 日期集合；不调用 Tushare，不顺手修 Silver。</li>
@@ -976,7 +1000,7 @@ minute technical/state:
           <tr><td><code>tests/test_major_index_mins_technical_formula_golden.py</code></td><td>MA/BOLL/MACD/KDJ 字面 expected fixtures。</td></tr>
           <tr><td><code>tests/test_major_index_mins_technical_writer.py</code></td><td>有限历史、warm-up、前态、双文件提交、partial failure。</td></tr>
           <tr><td><code>tests/test_major_index_mins_technical_checks.py</code></td><td>每个 blocking 属性独立通过/失败。</td></tr>
-          <tr><td><code>tests/test_major_index_mins_technical_definitions.py</code></td><td>7 multi-assets、14 specs、Silver 依赖、<code>can_subset=False</code> 双输出边界，以及 M6 job 精确选择 14 assets + checks。</td></tr>
+          <tr><td><code>tests/test_major_index_mins_technical_definitions.py</code></td><td>7 multi-assets、14 specs、Silver 依赖、<code>can_subset=False</code> 双输出边界；通过项目真实 <code>defs()</code> 精确验证 14 assets、42 technical checks、28 state checks、<code>validate_loadable</code>，并解析 M6 job 最终选择的 14 assets + 70 checks。</td></tr>
           <tr><td><code>tests/test_major_index_mins_technical_sensor.py</code></td><td>唯一 partition、Silver readiness、历史基线、严格前态、target partial/invalid fail closed、single revisioned request、Dagster 自管 cursor。</td></tr>
           <tr><td><code>tests/test_major_index_mins_technical_bootstrap.py</code></td><td>顺序递推、失败恢复、plan hash、事件边界。</td></tr>
         </tbody>
@@ -1023,7 +1047,7 @@ minute technical/state:
           <tr><td>M3 idx factor Silver</td><td><strong>已完成：</strong>纯 cast writer、Silver asset、3 个 blocking checks，并将 Catalog 从合同占位切换为活跃定义。</td><td>2026-08-07 临时目录验收：Raw 11 行、Silver 11 行、11 个代码、89 字段，日期范围 2026-08-07..2026-08-07，数值/NULL 差异 0，Silver 文件 19793 bytes；未写正式 Lake、未发事件。</td><td>出现 rename/recalc/fill/drop；Raw/Silver 任一 key、数值或 NULL 不一致。</td></tr>
           <tr><td>M4 idx factor automation</td><td><strong>已完成：</strong>layer-isolated jobs、当前日 partition sensor、Raw/Silver sensors、单日 Lake readiness 与单页 source probe。</td><td>当前开放日单 tick 最多 1 run，三个 sensor 默认 STOPPED；existing-invalid 文件 fail closed；未启用、未写正式 Lake。</td><td>sensor 扫历史、读取 Dagster event history、自动覆盖或 repair 已存在坏文件。</td></tr>
           <tr><td>M5 minute technical core</td><td><strong>已完成：</strong>MA/BOLL/MACD/KDJ 公式、DuckDB 向量 writer、逐代码 seed 与严格前态、累计 observation count、7 个双输出 multi-assets、70 个 blocking checks。</td><td>独立 golden fixture、20 日递推、未来分区排除、缺前态拒绝、重入代码不得再次 seed、已有目标拒绝、第二文件提升失败留下可识别 partial target；M5 聚焦 31 项测试通过，idx factor + major-index minutes 完整相邻回归 273 项/344 个子测试通过。</td><td>前态语义不清、双文件失败不能识别；M5 禁止提前新增 job、sensor、readiness 或 bootstrap。</td></tr>
-          <tr><td>M6 minute automation</td><td><strong>已完成：</strong>daily job、run-status sensor、物理 readiness 与静态门禁。</td><td>7 频率一个日期 run；14 assets + 70 checks；接受 <code>dagster/partition</code> 或起止相同的单点 partition range，跨日期 range 与冲突标签 fail closed；目标全空才允许执行，partial/invalid fail closed；历史基线外严格要求前一 expected date 七频度 state ready。</td><td>任一频率被静默跳过、跨日范围触发、partial target 自动覆盖、读取事件历史或自定义 run-status cursor。</td></tr>
+          <tr><td>M6 minute automation</td><td><strong>已完成并修复 Definitions 注册门禁：</strong>daily job、run-status sensor 和物理 readiness 已实现；check 集合已改为单一 list 导出并通过真实项目加载门禁。</td><td>7 频率一个日期 run；项目 Definitions 精确注册 14 assets + 70 checks，daily job 精确选择同一集合；其余 partition、target、前态和 fail-closed 语义不变。</td><td>禁止退回 tuple、显式汇总、重复导出或运行时补 event 绕过模块发现；sensor 仍为 STOPPED。</td></tr>
           <tr><td>M7 history bootstrap</td><td>两个数据产品 dry-run/sample/batch/audit/promote/events。</td><td>文件、行数、keys、schema、state、空间、events 完整对账。</td><td>未获得执行批准、空间不足、计划 hash 变化、任何批次差异。</td></tr>
           <tr><td>M8 收口</td><td>Definitions、全测试、文档对账、静态旧口径清零。</td><td>代码/Catalog/文档一致。</td><td>Foundation、ClickHouse、API 等计划外改动混入。</td></tr>
         </tbody>
@@ -1142,7 +1166,7 @@ uv run python -m pytest -q \
           <tr><td>生产 formula check</td><td>不重算公式；golden fixtures 放测试。</td><td class="status-new">已纠正</td></tr>
           <tr><td>双文件提交</td><td>明确非跨目录原子，采用 staging + 顺序提升 + partial fail closed + repair rollback。</td><td class="status-new">已冻结</td></tr>
           <tr><td>分钟技术核心</td><td>7 频率 technical/state 双输出、逐代码 seed、严格前态、有限历史 rolling、70 个 blocking checks；不包含历史 bootstrap。</td><td class="status-current">M5 已完成</td></tr>
-          <tr><td>分钟技术自动化</td><td>Silver success 单分区触发；同日 7 Silver、目标 14 文件和前一 expected date 7 state 采用物理事实核验；目标 partial/invalid 禁止覆盖。</td><td class="status-current">M6 已完成，sensor 保持 STOPPED</td></tr>
+          <tr><td>分钟技术自动化</td><td>Silver success 单分区触发；同日 7 Silver、目标 14 文件和前一 expected date 7 state 采用物理事实核验；目标 partial/invalid 禁止覆盖；Definitions 已精确注册 14 assets + 70 checks。</td><td class="status-current">M6 已完成并修复注册门禁，sensor 保持 STOPPED</td></tr>
           <tr><td>产品决策</td><td>无待拍板项。</td><td class="status-current">已清零</td></tr>
         </tbody>
       </table>

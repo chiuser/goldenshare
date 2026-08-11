@@ -437,7 +437,7 @@ def _build_technical_check(
     freq: int,
     name: str,
     check_kind: str,
-) -> dg.AssetsDefinition:
+) -> dg.AssetChecksDefinition:
     asset_key = major_index_mins_technical_asset_key(freq)
 
     @dg.asset_check(
@@ -479,7 +479,7 @@ def _build_state_check(
     freq: int,
     name: str,
     check_kind: str,
-) -> dg.AssetsDefinition:
+) -> dg.AssetChecksDefinition:
     state_key = major_index_mins_technical_state_asset_key(freq)
     technical_key = major_index_mins_technical_asset_key(freq)
 
@@ -518,7 +518,9 @@ def _build_state_check(
     return check
 
 
-GOLD_MAJOR_INDEX_MINS_TECHNICAL_CHECK_DEFINITIONS = tuple(
+GOLD_MAJOR_INDEX_MINS_TECHNICAL_CHECK_DEFINITIONS: list[
+    dg.AssetChecksDefinition
+] = [
     _build_technical_check(freq=freq, name=name, check_kind=check_kind)
     for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS
     for name, check_kind in zip(
@@ -526,9 +528,11 @@ GOLD_MAJOR_INDEX_MINS_TECHNICAL_CHECK_DEFINITIONS = tuple(
         _TECHNICAL_CHECK_KINDS,
         strict=True,
     )
-)
+]
 
-GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_CHECK_DEFINITIONS = tuple(
+GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_CHECK_DEFINITIONS: list[
+    dg.AssetChecksDefinition
+] = [
     _build_state_check(freq=freq, name=name, check_kind=check_kind)
     for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS
     for name, check_kind in zip(
@@ -536,7 +540,7 @@ GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_CHECK_DEFINITIONS = tuple(
         _STATE_CHECK_KINDS,
         strict=True,
     )
-)
+]
 
 __all__ = [
     "GOLD_MAJOR_INDEX_MINS_TECHNICAL_CHECK_DEFINITIONS",
