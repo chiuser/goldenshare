@@ -1,6 +1,6 @@
 # 指数详情页 M2 编码前门禁 v1
 
-> 状态：M1 后端与 M2 共享图表条目已通过；M3/M4 页面与 M5 分钟条目仍按未勾选项阻断对应里程碑。
+> 状态：M1 后端、M2 共享图表与 M3 Loaded 条目已通过；M4 异常状态与 M5 分钟仍按未勾选项阻断对应里程碑。
 > 需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 方案：[指数详情页技术实施方案 v1](./index-detail-implementation-design-v1.md)
 > LLD：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)
@@ -371,12 +371,12 @@ WHERE ts_code IN (:all_constituent_codes)
 
 ### 5.4 趋势通道
 
-1. [ ] 不新增 Wealth trend endpoint，不修改 `QuoteTrendChannelQuery`、计算器、公式版本或 cache key。
-2. [ ] 既有 SSE endpoint 继续只接受 `000001.SH + day` 并拒绝其他 code。
-3. [ ] `page-init.supportsTrendChannel` 仅对 `000001.SH + day` 为 true；其余 9 个指数无入口、无请求。
-4. [ ] 每个交易日都绘制短期/长期上轨、下轨和同日竖向连接，不能抽样省略；相邻交易日分别连接上下轨，不绘制中轴或辅助分区。
-5. [ ] 页面颜色不用趋势 `state`，而是逐日比较收盘与下轨：短期 `close < shortLower` 为绿、否则红；长期 `close < longLower` 为蓝、否则粉。交易日 `t` 的竖线和连到 `t+1` 的上下轨线段使用 `t` 日颜色，到下一日重新判定。
-6. [ ] 右侧技术页签展示短期上轨、短期下轨、长期上轨、长期下轨；缺失显示 `--`。
+1. [x] 不新增 Wealth trend endpoint，不修改 `QuoteTrendChannelQuery`、计算器、公式版本或 cache key。
+2. [x] 既有 SSE endpoint 继续只接受 `000001.SH + day` 并拒绝其他 code。
+3. [x] `page-init.supportsTrendChannel` 仅对 `000001.SH + day` 为 true；其余 9 个指数无入口、无请求。
+4. [x] 每个交易日都绘制短期/长期上轨、下轨和同日竖向连接，不能抽样省略；相邻交易日分别连接上下轨，不绘制中轴或辅助分区。
+5. [x] 页面颜色不用趋势 `state`，而是逐日比较收盘与下轨：短期 `close < shortLower` 为绿、否则红；长期 `close < longLower` 为蓝、否则粉。交易日 `t` 的竖线和连到 `t+1` 的上下轨线段使用 `t` 日颜色，到下一日重新判定。
+6. [x] 右侧技术页签展示短期上轨、短期下轨、长期上轨、长期下轨；缺失显示 `--`。
 
 ## 6. 状态归并门禁
 
@@ -538,18 +538,18 @@ M1 实现后 50 样本跨网络服务链 P95：page-init 246.054ms、kline 300 2
 2. [x] 10 code page-init 参数化测试。
 3. [x] kline 字段、null、排序、limit、非法 adjustment 负向测试。
 4. [x] 权重 2026-07-31、完整批次、排序、覆盖计数、不截断、公式、缺失、不归一化、不缩放。
-5. [ ] 既有 SSE endpoint 全回归；上证指数请求成功，其余 9 个指数前端断言零请求。
+5. [x] 既有 SSE endpoint 全回归；上证指数请求成功，其余 9 个指数前端断言零请求。
 6. [x] auth、not-found、delayed、empty、partial、error。
 7. [ ] prod 分钟 route 不存在；local 临时真实 Parquet 可查询。
 
 ### 11.2 前端真实 API 展示
 
-1. [ ] 不使用 mock adapter 证明 ready。
-2. [ ] 10 卡导航和 router history。
+1. [x] 不使用 mock adapter 证明 ready。
+2. [x] 10 卡导航和 router history。
 3. [ ] page loading/error/empty/partial/forbidden 分别对照 `498:516`、`501:761`、`499:579`、`502:1625`、`504:1009`。
-4. [ ] 三 tab、权重懒加载缓存、10 行虚拟滚动并可到达末行、技术空字段。
+4. [x] 三 tab、权重懒加载缓存、10 行虚拟滚动并可到达末行、技术空字段。
 5. [ ] prod/local 周期能力。
-6. [ ] 页面无“前复权”。
+6. [x] 页面无“前复权”。
 7. [x] 股票详情共享图表回归。
 8. [ ] Loading 无上一标的详情值；Empty 有 17 个指数专属 `--` 占位（主价格、涨跌、15 项指标）。
 9. [ ] Partial 的 Figma fixture 仅缺金额、TTM 市盈率、平盘数，同时有另一缺失组合证明提示与占位不是写死。
@@ -575,14 +575,14 @@ cd wealth && npm run build
 
 ### 前端
 
-1. [ ] Figma Loaded 结构可实现。
+1. [x] Figma Loaded 结构已实现并通过 1600×1200 浏览器量测。
 2. [x] shared chart 重构范围可控。
 3. [ ] 三 tab、周期、异常态可落地。
 4. [ ] 五态逐画板结构、文案、动作、颜色与数据保留规则可落地。
 
 ### 架构/产品
 
-1. [ ] 需求未扩散到技术结论、九转或交易流程。
+1. [x] 需求未扩散到技术结论、九转或交易流程。
 2. [x] 技术口径已逐项确认：SSE-only 趋势、逐日四轨绘制与每日竖线、权重全量滚动、基本行情 15 项、成分涨跌统计与缺失规则。
 3. [x] 右侧基本行情最终展示组合已完成产品选择并同步 Figma。
 4. [x] 已由用户明确同意并完成 M1 数据与契约开发。
@@ -591,6 +591,7 @@ cd wealth && npm run build
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.10 | 2026-08-11 | 完成 M3 Loaded 门禁：真实指数路由、10 卡导航、三 Tab、15 项基本行情、权重懒加载缓存/十行虚拟滚动、SSE-only 逐日四色趋势和技术空字段通过；M4/M5 项保持未勾选 | Codex |
 | v1.9 | 2026-08-11 | 完成 M2 shared chart：通用四面板生命周期、90 根窗口、同步 crosshair/tooltip、MA/BOLL 可选线、null-safe series 与可选 primitive 接口落地；股票 adapter、全量 Wealth 测试、生产构建和 1600×1200 浏览器尺寸对账通过；趋势与指数 adapter 仍留在 M3 | Codex |
 | v1.8 | 2026-08-11 | 回填 M1 实施结果：三条真实路由、严格非法参数、10 code、动态 MA、完整权重、源字段负例、旧契约回归和生产只读 P95 条目通过；保留前端/M5/真实 2000 行未通过项 | Codex |
 | v1.7 | 2026-08-11 | 外部核对确认 factor 量额准确；page-init/Kline 量额统一取 factor，增加 daily fallback 负向门禁和 factor-only 性能复验；DTO 提升为 1.1.0 | Codex |

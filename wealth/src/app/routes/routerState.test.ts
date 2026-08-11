@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildStockDetailPath } from "./routerState";
+import { buildIndexDetailPath, buildStockDetailPath } from "./routerState";
 
 describe("buildStockDetailPath", () => {
   it("normalizes stock code case", () => {
@@ -13,5 +13,12 @@ describe("buildStockDetailPath", () => {
 
   it("encodes path segment characters", () => {
     expect(buildStockDetailPath("abc/def.sz")).toBe("/wealth/market/stock/ABC%2FDEF.SZ");
+  });
+});
+
+describe("buildIndexDetailPath", () => {
+  it("normalizes, trims and encodes index codes", () => {
+    expect(buildIndexDetailPath(" 000001.sh ")).toBe("/wealth/market/index/000001.SH");
+    expect(buildIndexDetailPath("abc/def.sz")).toBe("/wealth/market/index/ABC%2FDEF.SZ");
   });
 });

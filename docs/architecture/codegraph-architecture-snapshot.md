@@ -2,7 +2,7 @@
 
 生成日期：2026-08-11
 索引根：`/Users/congming/github/goldenshare`
-索引结果：2,230 files，38,645 nodes，88,342 edges，DB 97.10 MB
+索引结果：2,258 files，38,946 nodes，89,060 edges，DB 97.10 MB
 
 本文是基于 CodeGraph 根索引生成的当前事实快照，不是新的重构方案。后续做架构分析、重构、依赖边界调整、共享 contract 修改、dispatcher/worker/service 修改前，应先回到 CodeGraph 做上下文和影响面分析。
 
@@ -24,7 +24,7 @@
 
 ### 财势乾坤行情系统：`wealth/`
 
-`wealth` 是独立行情系统前端，不共享运营后台 Shell。入口为 `wealth/src/main.tsx` 与 `wealth/src/app/App.tsx`，当前通过 `AuthProvider -> WealthRouter` 装配市场总览、股票详情等页面。共享 API adapter 是 `wealth/src/shared/api/wealthApiClient.ts` 的 `wealthFetch`，它负责鉴权请求和 401 刷新令牌。股票日线图表通过 `StockChartWorkspace -> wealth/src/shared/charts/detail-workspace/DetailChartWorkspace` 组合：前者保留股票文案与数据映射，后者承载四面板、visible range、crosshair、tooltip 定位和 null-safe series。
+`wealth` 是独立行情系统前端，不共享运营后台 Shell。入口为 `wealth/src/main.tsx` 与 `wealth/src/app/App.tsx`，当前通过 `AuthProvider -> WealthRouter` 装配市场总览、股票详情和指数详情。共享 API adapter 是 `wealth/src/shared/api/wealthApiClient.ts` 的 `wealthFetch`，它负责鉴权请求和 401 刷新令牌。股票与指数日线分别通过 `StockChartWorkspace -> DetailChartWorkspace`、`IndexChartWorkspace -> DetailChartWorkspace` 组合；领域 adapter 保留各自文案和数据映射，共享引擎承载四面板、visible range、crosshair、tooltip 定位和 null-safe series。指数趋势通道以 `TrendChannelPanePrimitive` 附着在共享主图 series，不进入股票 adapter。
 
 后端对应入口在 `src/biz/api/wealth/market/**`，统一挂到 `/api/v1/wealth/market/**`。
 
@@ -98,7 +98,20 @@ wealth/src/shared/api/wealthApiClient.ts:wealthFetch
   -> src.foundation.models.core/core_serving/core_serving_light
 ```
 
-`wealthFetch` 是 Wealth 前端真实 API 模块的共享 adapter。CodeGraph 显示它被 market overview 的 breadth、context、indices、leaderboards、limit-up、money-flow、news、sectors、style、summary、turnover 等模块调用。
+指数详情前端链为：
+
+```text
+MarketOverviewPage / TopMarketBar
+  -> buildIndexDetailPath
+  -> WealthRouter
+  -> IndexDetailPage
+  -> useIndexDetailController
+  -> index-detail page-init / kline
+  -> 000001.SH 时并行读取既有 quote trend-channel
+  -> IndexChartWorkspace / IndexInfoRail
+```
+
+`wealthFetch` 是 Wealth 前端真实 API 模块的共享 adapter。CodeGraph 显示它被 market overview 的 breadth、context、indices、leaderboards、limit-up、money-flow、news、sectors、style、summary、turnover，以及 index detail 的 page-init、kline、weights、SSE-only trend 客户端调用。
 
 ### Lake Console Sync Center 链
 
@@ -201,6 +214,7 @@ lake_console/orchestrator/src/orchestrator/definitions.py:defs
 6. `codegraph_impact`：分析 `DatasetDefinition` 与 `TaskRunDispatcher` 的代表性影响面。
 7. `codegraph query DetailChartWorkspace` / `codegraph query StockChartWorkspace`：确认 shared engine、stock adapter、测试与 `StockDetailPage` 消费者。
 8. `codegraph impact DetailChartWorkspace`：确认本轮影响局限于 Wealth 图表入口；另用 import 搜索补足 CodeGraph 对 TSX 消费关系的识别不足。
+9. `codegraph query/impact IndexDetailPage`、`codegraph query useIndexDetailController`、`codegraph impact buildIndexDetailPath/MajorIndexPanel/TrendChannelPanePrimitive`：确认 M3 新入口、导航消费者、真实请求控制器和趋势 primitive 的影响面；另用 import 搜索补足 CodeGraph 对 TSX import 的识别不足。
 
 ## 仍需人工确认
 

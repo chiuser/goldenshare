@@ -8,10 +8,10 @@ interface MajorIndexPanelProps {
   viewState: "loading" | "ready" | "error";
   indices?: MajorIndexViewItem[];
   errorMessage?: string;
-  onAction: (message: string) => void;
+  onIndexSelect: (tsCode: string) => void;
 }
 
-export function MajorIndexPanel({ viewState, indices, errorMessage, onAction }: MajorIndexPanelProps) {
+export function MajorIndexPanel({ viewState, indices, errorMessage, onIndexSelect }: MajorIndexPanelProps) {
   const rows = indices ?? [];
 
   return (
@@ -40,7 +40,7 @@ export function MajorIndexPanel({ viewState, indices, errorMessage, onAction }: 
               className={indexNumber === 0 ? "index-card selected" : "index-card"}
               key={index.code}
               type="button"
-              onClick={() => onAction(`进入详情：${index.code}`)}
+              onClick={() => onIndexSelect(index.code)}
             >
               <span className="index-name">
                 <span>{index.name}</span>

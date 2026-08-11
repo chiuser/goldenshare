@@ -89,7 +89,7 @@ import {
   type MarketTurnoverViewModel,
 } from "../../features/market-overview/turnover/api/marketTurnoverAdapter";
 import { fetchMarketTurnover, type TurnoverDebugInfo } from "../../features/market-overview/turnover/api/marketTurnoverApi";
-import { buildStockDetailPath, navigateWealth } from "../../app/routes/routerState";
+import { buildIndexDetailPath, buildStockDetailPath, navigateWealth } from "../../app/routes/routerState";
 import { SkeletonBlock } from "../../shared/ui/SkeletonBlock";
 import { TopMarketBar } from "../../shared/ui/top-market-bar/TopMarketBar";
 import "./market-overview-page.css";
@@ -1000,6 +1000,10 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
     navigateWealth(buildStockDetailPath(tsCode));
   }
 
+  function openIndexDetail(tsCode: string) {
+    navigateWealth(buildIndexDetailPath(tsCode));
+  }
+
   if (pageContextViewState === "error") {
     return (
       <main className="page-shell">
@@ -1062,7 +1066,7 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
                 viewState={majorIndicesViewState}
                 indices={majorIndices?.indices}
                 errorMessage={majorIndicesErrorMessage ?? undefined}
-                onAction={showToast}
+                onIndexSelect={openIndexDetail}
               />
             }
           />

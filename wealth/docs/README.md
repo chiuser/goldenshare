@@ -53,7 +53,7 @@ docs/
 2. 共享顶部栏：`../src/shared/ui/top-market-bar/`。
 3. 市场总览：`../src/pages/market-overview/` 与 `../src/features/market-overview/`。
 4. 股票详情：`../src/pages/stock-detail/` 与 `../src/features/stock-detail/`。
-5. 指数详情：`pages/index-detail/`；M1 后端已在仓库根 `src/biz/**/index_detail` 落地，M2 已在 `../src/shared/charts/detail-workspace/` 提取共享图表并完成股票 adapter 回归；指数页面与 feature 在 M3 建立。
+5. 指数详情：`pages/index-detail/`；M1 后端已在仓库根 `src/biz/**/index_detail` 落地，M2 已在 `../src/shared/charts/detail-workspace/` 提取共享图表，M3 已在 `../src/pages/index-detail/` 与 `../src/features/index-detail/` 建立 Loaded 页面、三 Tab 与趋势 primitive。
 6. 当前正式视觉与组件规则：[设计系统基线](./system/design-system-baseline.md)、[组件规范基线](./system/component-guidelines-baseline.md)。
 7. API/数据字典：以 `pages/market-overview/*-benchmark-requirement-v1.md`、`*-implementation-design-v1.md`、`*-m2-coding-gate-v1.md` 和 `pages/market-overview/api-contract-baseline.md` 为准；`reference/api/*` 仅保留历史参考。
 
@@ -117,12 +117,12 @@ docs/
 - [股票详情分钟线与分钟技术指标 API M2 编码前门禁 v1](./pages/stock-detail/stock-detail-minutes-api-m2-coding-gate-v1.md)
 - [股票详情页 Figma 像素级还原执行计划 v1（M0-M7 已完成）](./pages/stock-detail/stock-detail-figma-pixel-reconstruction-plan-v1.md)
 - [股票详情页 Figma 像素级验收台账 v1](./pages/stock-detail/stock-detail-figma-pixel-verification-ledger-v1.md)
-- [指数详情页标杆需求 v1（M1/M2 完成）](./pages/index-detail/index-detail-benchmark-requirement-v1.md)
-- [指数详情页技术实施方案 v1（M1/M2 完成）](./pages/index-detail/index-detail-implementation-design-v1.md)
-- [指数详情页低层设计（LLD）v1（M1/M2 完成）](./pages/index-detail/index-detail-low-level-design-v1.md)
+- [指数详情页标杆需求 v1（M1-M3 完成）](./pages/index-detail/index-detail-benchmark-requirement-v1.md)
+- [指数详情页技术实施方案 v1（M1-M3 完成）](./pages/index-detail/index-detail-implementation-design-v1.md)
+- [指数详情页低层设计（LLD）v1（M1-M3 完成）](./pages/index-detail/index-detail-low-level-design-v1.md)
 - [指数详情页正式 API / DTO 合同 v1（1.1.0 已冻结）](./pages/index-detail/index-detail-api-contract-v1.md)
 - [指数详情页 M0 生产因子审计 v1](./pages/index-detail/index-detail-m0-production-audit-v1.md)
-- [指数详情页 M2 编码前门禁 v1（M1/M2 条目通过，后续里程碑受控）](./pages/index-detail/index-detail-m2-coding-gate-v1.md)
+- [指数详情页 M2 编码前门禁 v1（M1-M3 条目通过，后续里程碑受控）](./pages/index-detail/index-detail-m2-coding-gate-v1.md)
 
 ## 模块开发模板
 

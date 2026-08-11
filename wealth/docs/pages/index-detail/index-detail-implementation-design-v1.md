@@ -1,6 +1,6 @@
 # 指数详情页技术实施方案 v1
 
-> 状态：M1 后端与 M2 共享图表已完成并通过验证；M3 页面 Loaded 及后续里程碑待推进。
+> 状态：M1 后端、M2 共享图表与 M3 Loaded 页面已完成并通过验证；M4 异常状态与 M5 本地分钟待推进。
 > 对应需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 对应门禁：[指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
 > 低层设计：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)
@@ -37,16 +37,14 @@
 
 ### 3.1 前端现状
 
-1. `WealthRouter.tsx` 只解析股票详情路由，没有指数详情路由。
-2. `routerState.ts` 只有 `buildStockDetailPath()`。
-3. `MajorIndexPanel.tsx` 已使用按钮并提示“点击指数卡进入指数详情”，但当前点击只调用 `onAction("进入详情：code")` 弹 toast。
-4. `StockDetailPage.tsx` 已形成 `page-init -> kline` 真实 API 加载、日线默认、本地分钟按 capability 解锁的参考链路。
-5. `StockInfoRail.tsx` 只有“盘口 / 资料”两页签，不能直接改名复用为指数三页签。
-6. `StockChartWorkspace.tsx` 为 751 行、类型与文案绑定 stock；直接复制会形成第二套图表引擎。
-7. `stockDetailViewModelAdapter.ts` 会把技术因子 `null` 转为 0。指数详情不得复用此空值策略，否则会在指标图上制造零值尖峰。
-8. `TopMarketBar` 已是 shared 组件，应原样复用。
-9. `StockDetailPage.tsx` 当前页面级只实现 loading/error；`StockMinuteChartWorkspace.tsx` 实现模块级 loading/empty/delayed/error；401 由 `wealthFetch + AuthProvider` 清理会话并触发登录跳转。403、PARTIAL、权重局部重试不能声称“股票详情已现成”，必须按指数详情最新 Figma 状态机补齐。
-10. 股票详情当前 loading/error 只保留 TopMarketBar 和通用状态面板，不包含指数详情最新设计中的面包屑、工具栏、双栏骨架和恢复动作；指数详情不能机械复制该 DOM，只复用系统状态色、认证行为和错误恢复语言。
+1. M3 已在 `WealthRouter.tsx` 增加 `/wealth/market/index/:tsCode` 解析，并由 `routerState.ts` 的 `buildIndexDetailPath()` 统一执行 trim、upper、encode。
+2. `MajorIndexPanel.tsx` 只上报 `tsCode`，`MarketOverviewPage.tsx` 负责导航；10 张卡不再用 toast 模拟详情入口。
+3. `IndexDetailPage.tsx` 只组合 TopMarketBar、页面骨架、controller、图表和右栏；真实请求生命周期位于 `features/index-detail/controller`。
+4. `IndexChartWorkspace.tsx` 通过 M2 的 `DetailChartWorkspace` 适配指数数据，没有复制股票图表生命周期；股票仍由 `StockChartWorkspace.tsx` 独立适配。
+5. 指数 adapter 对价格、因子和贡献严格 null-safe；MA250 等字段只根据接口实际返回决定是否为空，不按 code、日期或固定历史长度预设。
+6. 上证趋势通道由 feature-local 旧合同 adapter 与 canvas primitive 绘制；其它 9 个指数既不展示入口，也不发请求。
+7. `IndexInfoRail.tsx` 独立实现“基本行情 / 权重股贡献 / 技术面”三页签；权重完整批次在 400px 视窗中虚拟化，Tab 切换保留缓存和滚动位置。
+8. M3 仅完成 Loaded 页面；Loading、Empty、Error、Partial、Forbidden 的稳定四段骨架、恢复动作和系统状态色仍属于 M4，不以当前过渡状态块冒充完成。
 
 ### 3.2 后端现状
 
@@ -174,13 +172,20 @@ wealth/src/
       indexDetailApiClient.ts
       indexDetailApiTypes.ts
       indexDetailViewModelAdapter.ts
-      indexDetailMinuteApiClient.ts
+      trendChannelApiClient.ts
+      trendChannelAdapter.ts
+      indexDetailMinuteApiClient.ts             # M5
+    controller/
+      useIndexDetailController.ts
+      useIndexWeights.ts
     model/
       indexDetailTypes.ts
       indexDetailConstants.ts
     chart/
       IndexChartWorkspace.tsx
-      IndexMinuteChartWorkspace.tsx
+      TrendChannelPanePrimitive.ts
+      trendChannelGeometry.ts
+      IndexMinuteChartWorkspace.tsx             # M5
     layout/
       IndexBreadcrumbActionBar.tsx
       IndexChartToolbar.tsx
@@ -421,7 +426,7 @@ route tsCode
   -> render Basic tab (default)
 ```
 
-权重接口在首次点击“权重股”时加载完整批次；成功后按 `tsCode + contributionTradeDate + weightTradeDate` 缓存在页面生命周期内。技术页签仅在上证指数复用已加载趋势数据；其余指数显示不支持。所有指数都不请求不存在的“技术结论 API”。
+权重接口在首次点击“权重股”时加载完整批次；成功后按 `tsCode + asOfTradeDate` 缓存。技术页签仅在上证指数复用已加载趋势数据；其余指数显示不支持。所有指数都不请求不存在的“技术结论 API”。
 
 ### 7.2 周期切换
 
@@ -599,7 +604,7 @@ cd wealth && npm run build
 | M0 方案冻结（已完成） | 三件套/LLD、异常码、正式 DTO、生产 factor 审计、Loaded/Components/五态 Figma 节点台账 | 审计与合同已落档 |
 | M1 数据与契约（已完成） | 按冻结 DTO 实现 page-init/kline/weights；趋势仍由前端后续直接接既有 SSE API | 真实 API、旧契约无漂移与实现后性能测试通过 |
 | M2 图表共享（已完成） | 提取 shared 图表引擎，股票行为零回归 | stock tests + 浏览器对比通过 |
-| M3 页面 Loaded | 路由、10 卡导航、日线、三 tab、贡献点、趋势 overlay | Figma Loaded 验收 |
+| M3 页面 Loaded（已完成） | 路由、10 卡导航、日线、三 tab、贡献点、趋势 overlay | Figma Loaded 验收、真实 API 浏览器验收、全量回归通过 |
 | M4 异常状态 | 按五个 Figma 根画板实现 loading/empty/error/partial/forbidden，并补 404/delayed/module 状态变体 | 状态测试与逐画板截图通过 |
 | M5 本地分钟 | reader、条件路由、分钟页面 | Lake 数据与性能门禁通过 |
 | M6 发布验收 | prod 日线能力、分钟路由不存在、全回归 | 构建/测试/生产 smoke 通过 |
@@ -636,6 +641,7 @@ cd wealth && npm run build
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.10 | 2026-08-11 | 完成 M3 Loaded：独立路由与 10 卡导航、真实 API controller、null-safe adapter、三 Tab、15 项基本行情、完整权重虚拟滚动、SSE-only 趋势 primitive；通过 1600×1200 三画板、2224 行末行、9 code 零趋势请求和全量回归验收 | Codex |
 | v1.9 | 2026-08-11 | 完成 M2 shared chart 与 stock adapter；落 null-safe series、四面板同步、90 根窗口、crosshair/tooltip、可选 primitive 接口及独立回归测试，并通过全量 Wealth 测试、构建和浏览器尺寸对账 | Codex |
 | v1.8 | 2026-08-11 | 完成 M1 后端三接口与严格错误映射；补 factor/daily 源负例、动态 MA 回填测试、10 code/权重/旧契约回归及生产只读 P95；同步实际目录拆分 | Codex |
 | v1.7 | 2026-08-11 | 外部核对确认 factor 量额准确；基本行情与 Kline 的量额统一改取 factor，删除 Kline daily JOIN 和 fallback；DTO 提升为 1.1.0 | Codex |

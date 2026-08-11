@@ -524,7 +524,7 @@ describe("MarketOverviewPage", () => {
     expect(window.location.pathname).toBe("/wealth/market/stock/002085.SZ");
   });
 
-  it("keeps non-stock market overview entries from navigating to stock detail", async () => {
+  it("navigates major indices to index detail while keeping sector entries on overview", async () => {
     window.history.pushState({}, "", "/wealth/market/overview");
     render(<MarketOverviewPage />);
 
@@ -537,8 +537,8 @@ describe("MarketOverviewPage", () => {
       throw new Error("major index button is missing");
     }
     fireEvent.click(indexButton);
-    expect(window.location.pathname).toBe("/wealth/market/overview");
-    expect(screen.getByText("进入详情：000001.SH")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/wealth/market/index/000001.SH");
+    window.history.replaceState({}, "", "/wealth/market/overview");
 
     const sectorSection = await screen.findByLabelText("板块速览");
     await waitFor(() => {
