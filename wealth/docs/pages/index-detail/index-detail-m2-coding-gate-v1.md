@@ -1,8 +1,11 @@
 # 指数详情页 M2 编码前门禁 v1
 
-> 状态：草案，待评审；所有未勾选项完成前禁止进入编码。
+> 状态：M1 后端条目已通过；M2 共享图表、M3/M4 页面与 M5 分钟条目仍按未勾选项阻断对应里程碑。
 > 需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 方案：[指数详情页技术实施方案 v1](./index-detail-implementation-design-v1.md)
+> LLD：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)
+> 正式 DTO：[指数详情页正式 API / DTO 合同 v1](./index-detail-api-contract-v1.md)
+> M0 生产审计：[指数详情页 M0 生产因子审计 v1](./index-detail-m0-production-audit-v1.md)
 
 ---
 
@@ -30,12 +33,12 @@
 ## 2. 总门禁
 
 1. [ ] 三件套评审通过，待评审项全部签字。
-2. [ ] 10 指数 `index_factor_pro` 生产覆盖与性能审计通过。
+2. [x] 10 指数 `index_factor_pro` 生产覆盖与当前生产数据库内性能审计通过；真实 2000 行 API P95 仍属实现后门禁。
 3. [x] 趋势通道边界冻结：既有 SSE 契约保持不变，仅上证指数消费；无十指数适配层。
-4. [ ] 请求/响应 DTO 与核心样例冻结。
-5. [ ] 权重 SQL、贡献公式、日期和排序冻结。
-6. [ ] 状态归并与异常矩阵冻结。
-7. [ ] `ID_*` / `IM_*` 异常码已登记到统一注册表。
+4. [x] page-init/kline/weights 请求、响应 DTO 与核心样例已按 `1.1.0` 冻结。
+5. [x] 权重 SQL、贡献公式、日期、完整批次和排序已冻结。
+6. [x] 状态归并与异常矩阵冻结。
+7. [x] `ID_*` / `IM_*` 异常码已登记到统一注册表。
 8. [ ] shared 图表提取边界和股票回归 case 冻结。
 9. [ ] local/prod 分钟配置与路由矩阵冻结。
 10. [x] Figma 节点台账已确认：Basic Loaded `417:2`、Weights `423:2`、Technical `423:910`、Components `412:3`、交互说明 `425:178`、五态根画板已登记；Weights/Technical 的 Cover 跨页位置已显式记录。
@@ -62,9 +65,9 @@
 
 禁止：
 
-1. [ ] kline 不接受 `adjustment`。
-2. [ ] 不接受前端传 EMA 周期、通道公式、贡献公式或权重日期。
-3. [ ] 不允许前端传 Lake path、SQL、指标参数或任意指数 code。
+1. [x] kline 不接受 `adjustment`。
+2. [x] 不接受前端传 EMA 周期、通道公式、贡献公式或权重日期。
+3. [x] 不允许前端传 Lake path、SQL、指标参数或任意指数 code。
 
 ### 3.2 本地分钟接口
 
@@ -132,8 +135,7 @@
     "dataStatus": {
       "status": "PARTIAL",
       "expectedTradeDate": "2026-08-10",
-      "observedTradeDate": "2026-08-10",
-      "note": "constituent_daily_missing"
+      "observedTradeDate": "2026-08-10"
     }
   },
   "chartDefaults": {
@@ -150,14 +152,14 @@
     "supportsTrendChannel": true,
     "supportsNineTurn": false,
     "supportsTechnicalConclusion": false,
-    "supportsUserActions": false
+    "supportsTradePlanEntry": true
   },
   "dataStatus": {
     "status": "PARTIAL",
     "expectedTradeDate": "2026-08-10",
-    "observedTradeDate": "2026-08-10",
-    "note": "constituent_daily_missing"
-  }
+    "observedTradeDate": "2026-08-10"
+  },
+  "debugInfo": null
 }
 ```
 
@@ -189,10 +191,16 @@ interface IndexKlineBarDto {
 
 门禁：
 
-1. [ ] 所有 warm-up/源缺失值保持 `null`。
+1. [ ] 所有历史不足/源缺失值保持 `null`，不补 0、不向前填充、不临时重算 MA。
 2. [ ] `pct_change -> changePct` 映射集中在后端 mapper。
 3. [ ] `kdj_bfq -> j`、`kdj_k_bfq -> k`、`kdj_d_bfq -> d` 固定。
 4. [ ] 不返回 MA15/MA120，不临时计算。
+5. [x] DTO 源已冻结：Kline 价格/量额/技术指标均取 factor；page-init `vol/amount` 取 `asOfTradeDate` 同日 factor；禁止 daily 量额 fallback/倍率换算。
+6. [x] MA null 口径不含 code/date 特例：同 code 截至该日有效历史根数小于 N 才属于合理历史不足；达到 N 后仍为空则 PARTIAL。
+7. [ ] 正向测试：有效历史为 249 根且 `ma250=null` 时保留 null，不因该字段单独标记 PARTIAL。
+8. [ ] 负向测试：有效历史达到 250 根但 `ma250=null` 时返回 null + `ID_FACTOR_PARTIAL`。
+9. [ ] 回填测试：加入更早历史后，同一 bar 无需修改 code/date 规则即可按新历史根数重新分类。
+10. [ ] 静态审计：kline service/mapper 中不存在 `000510.SH`、`2025-09-30` 或其它 MA warm-up 特例。
 
 ### 4.3 权重正常样例
 
@@ -208,33 +216,35 @@ interface IndexKlineBarDto {
       "name": "贵州茅台",
       "weight": 5.43,
       "changePct": 1.26,
-      "contributionPoint": 2.353,
+      "contributionPoint": 2.3537,
       "direction": "UP"
     }
   ],
   "coverage": {
-    "totalCount": 300,
-    "returnedCount": 300,
-    "contributionAvailableCount": 300,
+    "totalCount": 1,
+    "returnedCount": 1,
+    "contributionAvailableCount": 1,
     "contributionMissingCount": 0,
     "isTruncated": false
   },
   "dataStatus": {
     "status": "READY",
     "expectedTradeDate": "2026-08-07",
-    "observedTradeDate": "2026-08-07",
-    "note": null
+    "observedTradeDate": "2026-08-07"
   },
-  "note": "基于最新月度权重估算，非指数公司官方归因"
+  "note": "基于最新月度权重估算，非指数公司官方归因",
+  "debugInfo": null
 }
 ```
 
-该样例特意说明：`3440.12 × 5.43% × 1.26% ≈ 2.35`，不是 Figma 示例中的 `+4.18`。Figma 数值只作视觉占位，不能进入业务测试金标。
+该样例是单行最小 contract fixture，因此 coverage 为 1；生产响应必须返回完整批次。公式特意说明：`3440.12 × 5.43% × 1.26% = 2.3537`（四位舍入），不是 Figma 示例中的 `+4.18`。Figma 数值只作视觉占位，不能进入业务测试金标。
 
 ### 4.4 权重 PARTIAL 样例
 
 ```json
 {
+  "indexRef": { "tsCode": "000300.SH", "name": "沪深300" },
+  "contributionTradeDate": "2026-08-07",
   "weightTradeDate": "2026-07-31",
   "isEstimated": true,
   "rows": [
@@ -248,25 +258,26 @@ interface IndexKlineBarDto {
     }
   ],
   "coverage": {
-    "totalCount": 300,
-    "returnedCount": 300,
-    "contributionAvailableCount": 299,
+    "totalCount": 1,
+    "returnedCount": 1,
+    "contributionAvailableCount": 0,
     "contributionMissingCount": 1,
     "isTruncated": false
   },
   "dataStatus": {
     "status": "PARTIAL",
     "expectedTradeDate": "2026-08-07",
-    "observedTradeDate": "2026-08-07",
-    "note": "constituent_daily_missing"
-  }
+    "observedTradeDate": "2026-08-07"
+  },
+  "note": "基于最新月度权重估算，非指数公司官方归因",
+  "debugInfo": null
 }
 ```
 
 ### 4.5 EMPTY / ERROR
 
 1. [ ] 主日线空：HTTP 200 + page/kline `dataStatus=EMPTY`，保留页面空态。
-2. [ ] 标的非法/不在名单：404 + `ID_NOT_FOUND`。
+2. [ ] code 格式/其它参数非法：400 + `ID_REQUEST_INVALID`；格式合法但不在名单：404 + `ID_NOT_FOUND`。
 3. [ ] 权重无批次：weights HTTP 200 + `EMPTY`，不影响主图。
 4. [ ] 趋势计算失败：trend endpoint 标准错误，页面保留 kline 并局部 error。
 5. [ ] 403 不能转换为 EMPTY。
@@ -297,30 +308,32 @@ interface IndexKlineBarDto {
 
 ```sql
 SELECT
-  ts_code, trade_date,
-  open, high, low, close, pre_close, change, pct_change, vol, amount,
-  ma_bfq_5, ma_bfq_10, ma_bfq_20, ma_bfq_30, ma_bfq_60, ma_bfq_90, ma_bfq_250,
-  boll_upper_bfq, boll_mid_bfq, boll_lower_bfq,
-  macd_dif_bfq, macd_dea_bfq, macd_bfq,
-  kdj_k_bfq, kdj_d_bfq, kdj_bfq
-FROM core_serving.index_factor_pro
-WHERE ts_code = :ts_code
-  AND trade_date <= :end_date
-  AND (:start_date IS NULL OR trade_date >= :start_date)
-ORDER BY trade_date DESC
+  f.ts_code, f.trade_date,
+  f.open, f.high, f.low, f.close, f.pre_close, f.change, f.pct_change,
+  f.vol, f.amount,
+  f.ma_bfq_5, f.ma_bfq_10, f.ma_bfq_20, f.ma_bfq_30, f.ma_bfq_60, f.ma_bfq_90, f.ma_bfq_250,
+  f.boll_upper_bfq, f.boll_mid_bfq, f.boll_lower_bfq,
+  f.macd_dif_bfq, f.macd_dea_bfq, f.macd_bfq,
+  f.kdj_k_bfq, f.kdj_d_bfq, f.kdj_bfq
+FROM core_serving.index_factor_pro AS f
+WHERE f.ts_code = :ts_code
+  AND f.trade_date <= :end_date
+  AND (:start_date IS NULL OR f.trade_date >= :start_date)
+ORDER BY f.trade_date DESC
 LIMIT :limit;
 ```
 
-返回前在服务层反转为升序。必须利用 raw 基表 `(ts_code, trade_date)` 主键索引；真实 `EXPLAIN ANALYZE` 与 300/2000 根 P95 是数据门禁。
+返回前在服务层反转为升序。价格、量额与技术指标全部取 factor；禁止 daily 量额 fallback 或倍率修正。查询必须利用 factor `(ts_code, trade_date)` 主键索引。M0 旧候选 joined 查询的数据库内 P95 为 300 根 1.636ms、2000-limit 2.127ms，可作保守参考；factor-only 精确 SQL、真实 2000 行与 API P95 仍是实现后门禁。
 
 ### 5.2.1 基本行情日度指标与成分涨跌统计
 
 1. [ ] `dailyBasic` 只查询 `trade_date = asOfTradeDate` 的 `pe/pe_ttm/pb/turnover_rate/float_mv/total_mv`；无行或字段为空保持 `null`。
-2. [ ] `constituentBreadth.weightTradeDate = max(index_weight.trade_date) <= asOfTradeDate`，随后对完整批次 `con_code` 与同日 `equity_daily_bar.pct_chg` 做集合聚合。
-3. [ ] `pct_chg > 0` 计入 up、`= 0` 计入 flat、`< 0` 计入 down；无行情或 `pct_chg IS NULL` 只计入 missing。
-4. [ ] `upCount + flatCount + downCount = matchedCount`，`matchedCount + missingCount = totalConstituentCount`。
-5. [ ] missing 大于 0 时保留三项计数并返回模块 PARTIAL；无权重批次时三项为不可用，不返回伪 0。
-6. [ ] page-init 不查询前一交易日成交额，不返回 `amountChangePct`。
+2. [ ] page-init quote 的日期/价格取 latest daily，`vol/amount` 只取同 code、`trade_date=asOfTradeDate` 的 factor；factor 缺失时为 null + `ID_FACTOR_PARTIAL`，不得回退 daily。
+3. [ ] `constituentBreadth.weightTradeDate = max(index_weight.trade_date) <= asOfTradeDate`，随后对完整批次 `con_code` 与同日 `equity_daily_bar.pct_chg` 做集合聚合。
+4. [ ] `pct_chg > 0` 计入 up、`= 0` 计入 flat、`< 0` 计入 down；无行情或 `pct_chg IS NULL` 只计入 missing。
+5. [ ] `upCount + flatCount + downCount = matchedCount`，`matchedCount + missingCount = totalConstituentCount`。
+6. [ ] missing 大于 0 时保留三项计数并返回模块 PARTIAL；无权重批次时三项为不可用，不返回伪 0。
+7. [ ] page-init 不查询前一交易日成交额，不返回 `amountChangePct`。
 
 ### 5.3 权重与贡献
 
@@ -387,7 +400,7 @@ WHERE ts_code IN (:all_constituent_codes)
 
 ## 7. 异常码登记门禁
 
-以下 code 目前只是方案候选，登记前不得进入代码：
+以下 code 已登记到 [wealth 异常码注册表](../../system/exception-code-registry.md)，实现必须使用登记语义：
 
 | code | 触发 | 预期 |
 |---|---|---|
@@ -395,7 +408,8 @@ WHERE ts_code IN (:all_constituent_codes)
 | `ID_NOT_FOUND` | 非 10 code/身份不存在 | 404 |
 | `ID_SOURCE_EMPTY` | 日线无数据 | 200 + EMPTY |
 | `ID_SOURCE_DELAYED` | 日线日期落后 | 200 + DELAYED |
-| `ID_FACTOR_PARTIAL` | 因子缺失 | 200 + PARTIAL |
+| `ID_FACTOR_PARTIAL` | page-init 同日 factor 量额缺失，或 Kline 因子缺失 | 200 + PARTIAL |
+| `ID_BASIC_DAILY_PARTIAL` | 同日 dailyBasic 缺行/缺字段 | page-init 基本行情模块 PARTIAL |
 | `ID_BASIC_BREADTH_PARTIAL` | 成分股当日行情缺失 | page-init 基本行情模块 PARTIAL |
 | `ID_WEIGHT_EMPTY` | 无权重批次 | weights EMPTY |
 | `ID_WEIGHT_CONTRIBUTION_PARTIAL` | 贡献输入缺失 | weights PARTIAL |
@@ -404,9 +418,9 @@ WHERE ts_code IN (:all_constituent_codes)
 | `IM_SOURCE_CONTRACT_INVALID` | Parquet 合同错误 | minutes ERROR |
 | `IM_QUERY_FAILED` | DuckDB/IO 错误 | minutes ERROR |
 
-1. [ ] code、module、severity、frontendAction 已登记。
-2. [ ] 旧股票分钟 `SM_*` 不被复用成指数分钟新语义。
-3. [ ] 401/403 沿用认证层语义，不自造业务 EMPTY。
+1. [x] code、module、severity、frontendAction 已登记。
+2. [x] 旧股票分钟 `SM_*` 不被复用成指数分钟新语义。
+3. [x] 401/403 沿用认证层语义，不自造业务 EMPTY。
 
 ## 8. 前端门禁
 
@@ -475,14 +489,18 @@ WHERE ts_code IN (:all_constituent_codes)
 3. [x] 10 指数均解析到 `2026-07-31` 有效权重批次；9 个指数成分日线完整匹配。
 4. [x] `000001.SH` total 2224、matched 2184、up 1613、flat 37、down 534、missing 40；missing 不计入 flat。
 
-### 9.3 待完成：指数因子
+### 9.3 已完成：指数因子
 
-1. [ ] 10 code 均有数据。
-2. [ ] 最新日与 index daily 对齐或状态可解释。
-3. [ ] 每 code 至少覆盖默认 300 根；MA250 warm-up 可解释。
-4. [ ] OHLC/量额与日线源抽样一致。
-5. [ ] MA/BOLL/MACD/KDJ 字段非空率与 warm-up 规则通过。
-6. [ ] 300/2000 根查询计划与 P95 通过。
+1. [x] 10 code 均有 388 行，日期范围 2025-01-02 ~ 2026-08-10，无重复主键。
+2. [x] 10 code 最新日均与 index daily 对齐到 2026-08-10。
+3. [x] 每 code 至少覆盖默认 300 根；审计时 `000510.SH` 有 182 行 MA250 前缀空值，但该结果仅为 2026-08-11 快照，不进入代码规则。
+4. [x] 最近 300 根 OHLC/昨收/涨跌/涨跌幅同日最大绝对差为 0。
+5. [x] 发现 `399001.SZ`、`399006.SZ` 自 2026-07-06 起 26 日量额分叉；外部核对确认 factor 准确，基本行情与 Kline 量额统一取 factor，不做换算或 daily fallback。
+6. [x] MA/BOLL/MACD/KDJ 除上述 MA250 快照空值外均满足最近 300 根覆盖；MA 合理历史不足按实际根数动态判断。
+7. [x] 旧候选 factor/daily join 命中两侧主键；数据库内 P95：300 根 1.636ms、2000-limit 2.127ms，作为更复杂查询的保守参考。
+8. [ ] 真实 2000 行响应体与 Web-host 端到端 P95：当前 factor 仅 388 行，待 API 落地且数据具备后验收。
+9. [ ] 2024 技术因子同步完成后重跑 10 指数覆盖审计，并验证 MA null 分类随实际历史变化而变化。
+10. [ ] factor-only 主查询 + MA 历史基数条件查询的完整 Kline 链路通过索引计划、300/2000 上限和 Web-host P95 验收。
 
 ### 9.4 待完成：本地分钟
 
@@ -505,21 +523,23 @@ WHERE ts_code IN (:all_constituent_codes)
 | weights 行数 | 当前有效批次全量 | 不截断；响应体目标不超过 1 MiB |
 | minute 默认/最大 | 500 | 10000 |
 
-1. [ ] 所有查询只选所需列，不 `SELECT *`。
-2. [ ] 权重名称/行情补列无 N+1。
-3. [ ] 趋势接口沿用既有 SSE 单标的缓存与性能门禁，不新增十指数缓存。
-4. [ ] 超预算先优化查询/reader，不调高 timeout 掩盖。
+1. [x] 所有 M1 查询只选所需列，不 `SELECT *`。
+2. [x] 权重名称/行情补列使用集合 LEFT JOIN，无 N+1。
+3. [x] M1 未修改趋势接口或新增十指数缓存。
+4. [x] M1 当前实现链 P95 全部低于硬门禁，未调整 timeout；page-init 跨网络 P95 仍需在生产 Web-host 同拓扑复核 200ms 目标。
+
+M1 实现后 50 样本跨网络服务链 P95：page-init 246.054ms、kline 300 211.169ms、kline 2000 上限实返 455~630 行 248.925ms、weights 271.337ms；最大 payload 分别为 1,653 B、162,606 B、337,689 B、276,419 B。page-init 通过 500ms 硬门禁但高于 200ms 目标；本机跨网络结果不替代生产 Web-host 同拓扑验收。真实 2000 行仍未具备物理数据，不得标成已验收。
 
 ## 11. 测试门禁
 
 ### 11.1 后端真实 API
 
-1. [ ] 真实 FastAPI route，禁止只 mock query/service。
-2. [ ] 10 code page-init 参数化测试。
-3. [ ] kline 字段、null、排序、limit、非法 adjustment 负向测试。
-4. [ ] 权重 2026-07-31、完整批次、排序、覆盖计数、不截断、公式、缺失、不归一化、不缩放。
+1. [x] 真实 FastAPI route，禁止只 mock query/service。
+2. [x] 10 code page-init 参数化测试。
+3. [x] kline 字段、null、排序、limit、非法 adjustment 负向测试。
+4. [x] 权重 2026-07-31、完整批次、排序、覆盖计数、不截断、公式、缺失、不归一化、不缩放。
 5. [ ] 既有 SSE endpoint 全回归；上证指数请求成功，其余 9 个指数前端断言零请求。
-6. [ ] auth、not-found、delayed、empty、partial、error。
+6. [x] auth、not-found、delayed、empty、partial、error。
 7. [ ] prod 分钟 route 不存在；local 临时真实 Parquet 可查询。
 
 ### 11.2 前端真实 API 展示
@@ -549,9 +569,9 @@ cd wealth && npm run build
 
 ### 后端
 
-1. [ ] 数据源和查询可实现。
-2. [ ] DTO、状态、异常无歧义。
-3. [ ] 贡献公式与趋势复用边界正确。
+1. [x] 数据源和查询已按 M1 实现并通过生产只读复验。
+2. [x] DTO、状态、异常已由真实路由测试冻结。
+3. [x] 贡献公式已实现；趋势复用边界保持既有 SSE-only 合同不变。
 
 ### 前端
 
@@ -565,12 +585,16 @@ cd wealth && npm run build
 1. [ ] 需求未扩散到技术结论、九转或交易流程。
 2. [x] 技术口径已逐项确认：SSE-only 趋势、逐日四轨绘制与每日竖线、权重全量滚动、基本行情 15 项、成分涨跌统计与缺失规则。
 3. [x] 右侧基本行情最终展示组合已完成产品选择并同步 Figma。
-4. [ ] 同意进入 M1 数据与契约开发。
+4. [x] 已由用户明确同意并完成 M1 数据与契约开发。
 
 ## 13. 版本记录
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.8 | 2026-08-11 | 回填 M1 实施结果：三条真实路由、严格非法参数、10 code、动态 MA、完整权重、源字段负例、旧契约回归和生产只读 P95 条目通过；保留前端/M5/真实 2000 行未通过项 | Codex |
+| v1.7 | 2026-08-11 | 外部核对确认 factor 量额准确；page-init/Kline 量额统一取 factor，增加 daily fallback 负向门禁和 factor-only 性能复验；DTO 提升为 1.1.0 | Codex |
+| v1.6 | 2026-08-11 | 修正 MA null 门禁：删除 A500/固定日期特例；增加实际历史根数、回填重分类、负向测试与完整链路性能复验；DTO 提升为 1.0.1 | Codex |
+| v1.5 | 2026-08-11 | 完成 M0 数据/契约门禁：登记异常码、冻结 DTO 1.0.0、记录 10 指数 factor 覆盖/索引/P95、深市量额分叉、当时 A500 MA250 空值与真实 2000 行性能待验项；量额最终来源已由 v1.7 修订 | Codex |
 | v1.4 | 2026-08-11 | 登记最新 Loaded/Components/五态节点台账；补五态响应、状态优先级、Auto Layout/图表定位、系统颜色和逐画板像素/测试门禁；排除 Figma 旧概述文案 | Codex |
 | v1.3 | 2026-08-11 | 冻结逐日趋势判色/每日竖线、15 项基本行情、成分涨跌聚合与缺失规则；移除成交状态/较昨日门禁并补生产证据 | Codex |
 | v1.2 | 2026-08-11 | 趋势门禁改为仅上证指数直接消费既有 API；删除十指数适配、中轴和十指数缓存门禁；补双通道绘制/配色、成交状态与字段选择门禁 | Codex |

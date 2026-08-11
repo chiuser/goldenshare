@@ -134,7 +134,7 @@
 | `NEWS_CHANNEL_RULE_INVALID` | `marketNews` | error | false | true | 新闻频道分类规则不可用 | `core_serving_light.news.channels` 无法支撑 `公司/非公司` 分类 | 停止编码/发布，必须先确认真实频道取值 | biz-api | Phase-1 | active |
 | `NEWS_QUERY_FAILED` | `marketNews` | error | false | true | 新闻模块查询失败 | SQL/服务异常 | 模块 error，保留其他模块渲染 | biz-api | Phase-1 | active |
 
-## 6. 股票详情分钟模块（Phase-2）
+## 7. 股票详情分钟模块（Phase-2）
 
 | code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -146,7 +146,36 @@
 
 ---
 
-## 7. 变更规则
+## 8. 指数详情模块（Phase-3）
+
+> 正式 DTO 语义见 [指数详情页正式 API / DTO 合同 v1](../pages/index-detail/index-detail-api-contract-v1.md)。`ID_*` 服务正式日线详情，`IM_*` 仅供后续本地指数分钟独立合同使用。
+
+| code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `ID_REQUEST_INVALID` | `indexDetail` | error | false | false | 指数详情请求不合法 | code/date/period/limit/debug/cursor 等参数无法按冻结合同解析 | HTTP 400；请求错误壳或分钟局部错误，不继续派发后续请求 | biz-api | Phase-3 | active |
+| `ID_NOT_FOUND` | `indexDetail` | warn | false | false | 指数不属于详情页正式名单或身份缺失 | code 不属于 `majorIndices/CN_A` 10 code，或名单内 code 无基础身份 | HTTP 404；全页 not-found 壳，返回指数首页 | biz-api | Phase-3 | active |
+| `ID_SOURCE_EMPTY` | `indexDetailPageInit` | warn | false | true | 指数正式日线无可用观测行 | `index_daily_serving` 在期望日期及之前无该 code 行 | HTTP 200 + EMPTY；保留身份、工具栏和右栏空态 | biz-api | Phase-3 | active |
+| `ID_SOURCE_DELAYED` | `indexDetailPageInit` | warn | false | true | 指数正式日线落后于期望交易日 | `observedTradeDate < expectedTradeDate` 且没有更高优先级 partial 原因 | HTTP 200 + DELAYED；保留数据并展示实际日期 | biz-api | Phase-3 | active |
+| `ID_FACTOR_PARTIAL` | `indexDetail` | warn | false | true | 指数详情因子字段部分缺失 | page-init 同日 factor 行/量额缺失，factor 最新日落后，可绘制 bar 的 factor 量额缺失，MA 在实际有效历史已达到对应周期后仍为空，或其它预期技术因子缺失 | HTTP 200 + PARTIAL；基本行情量额 `--`，保留 K 线并让缺线断点 | biz-api | Phase-3 | active |
+| `ID_BASIC_DAILY_PARTIAL` | `indexDetailPageInit` | warn | false | true | 基本行情日度指标部分缺失 | 同日 `index_daily_basic` 无行，或 PE/PE TTM/PB/换手率/流通市值/总市值任一为空 | 对应指标显示 `--`，其它基本行情保留，页面 PARTIAL | biz-api | Phase-3 | active |
+| `ID_BASIC_BREADTH_PARTIAL` | `indexDetailPageInit` | warn | false | true | 成分涨跌统计未覆盖完整权重批次 | 有有效权重批次，但同日成分行情缺失导致 `missingCount > 0` | 保留 up/flat/down 与 coverage，页面 PARTIAL；missing 不计入 flat | biz-api | Phase-3 | active |
+| `ID_WEIGHT_EMPTY` | `indexDetailWeights` | warn | false | true | 指数没有可用权重批次 | `max(weight.trade_date) <= contributionTradeDate` 无结果 | 权重 Tab EMPTY；不影响主图和基本行情 | biz-api | Phase-3 | active |
+| `ID_WEIGHT_CONTRIBUTION_PARTIAL` | `indexDetailWeights` | warn | false | true | 部分权重行无法计算估算贡献点 | index preClose、成分 pctChg 等贡献输入缺失 | 行保留，贡献显示 `--`，coverage 记录缺失，权重 Tab PARTIAL | biz-api | Phase-3 | active |
+| `ID_QUERY_FAILED` | `indexDetail` | error | false | false | 指数详情配置、查询或映射失败 | universe 配置缺失/非法、SQL、服务或 DTO 映射出现未恢复异常 | HTTP 500 或当前 Tab 局部 error；允许重试，不用 mock/fallback 冒充成功 | biz-api | Phase-3 | active |
+| `IM_SOURCE_NOT_READY` | `indexDetailMinutes` | warn | false | true | 本地指数分钟源尚未覆盖请求范围 | 正式 Lake 分区/文件缺失，或 observed end 早于请求 endDate | HTTP 200 + DELAYED/EMPTY；保留日线和其它页面内容 | biz-api | Phase-3 | active |
+| `IM_SOURCE_CONTRACT_INVALID` | `indexDetailMinutes` | error | false | false | 本地指数分钟文件不符合冻结物理合同 | Parquet schema、code、freq、日期、时间键、版本或路径校验失败 | 分钟模块 error；不返回可疑数据，不回退旧 Lake | biz-api | Phase-3 | active |
+| `IM_QUERY_FAILED` | `indexDetailMinutes` | error | false | false | 本地指数分钟查询执行失败 | DuckDB、文件 IO 或结果校验异常 | 分钟模块 error；保留日线和右栏，允许局部重试 | biz-api | Phase-3 | active |
+
+补充规则：
+
+1. 分钟参数/cursor 非法继续使用 `ID_REQUEST_INVALID`；不新增同义 `IM_REQUEST_INVALID`。
+2. 401/403 沿用认证层，不登记为业务 EMPTY。
+3. MA 不登记 code/date 豁免；同 code 截至该交易日的实际有效历史根数小于 N 时，`maN=null` 才属于合理历史不足。达到 N 后仍为空必须触发 `ID_FACTOR_PARTIAL`。
+4. page-init 与日线 K 线的量额唯一取 factor；不得读取或回退 daily 量额。factor 同日行/字段缺失时必须按 `ID_FACTOR_PARTIAL` 处理。
+
+---
+
+## 9. 变更规则
 
 1. 已上线的 `code` 不允许重用为新语义。
 2. 废弃码必须保留历史记录，`status=deprecated`，并补替代码。

@@ -1,8 +1,11 @@
 # 指数详情页技术实施方案 v1
 
-> 状态：草案，待评审；本轮不写业务代码。
+> 状态：M1 后端已完成并通过真实路由、旧契约回归和生产只读性能复验；M2 共享图表及页面实现待推进。
 > 对应需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 对应门禁：[指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
+> 低层设计：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)
+> 正式 DTO：[指数详情页正式 API / DTO 合同 v1](./index-detail-api-contract-v1.md)
+> M0 审计：[指数详情页 M0 生产因子审计 v1](./index-detail-m0-production-audit-v1.md)
 
 ---
 
@@ -22,12 +25,12 @@
 | 原则 | 本模块结论 | 设计落点 | 计划测试 |
 |---|---|---|---|
 | 事实源单一 | 名单、行情、因子、权重、贡献与通道各有唯一后端事实源 | query/service + DTO | 字段逐项源映射 |
-| 契约先行 | 三件套评审后才冻结 DTO | schema/API types | schema extra forbid + TS typecheck |
+| 契约先行 | M0 已冻结独立 DTO `1.1.0` | schema/API types | schema extra forbid + TS typecheck |
 | 配置一致 | 复用 `majorIndices` 和现有 local minute 配置，不新增页面常量 | config service/capability | 10 code 与 profile 矩阵 |
 | 默认显式 | 默认日线、基本行情页签、300 根、权重完整批次 | schema defaults/adapter | 缺参、边界、负向测试 |
 | 排序确定 | 权重降序、code 次序；K 线时间升序 | query | 同权重/乱序样本 |
 | 性能前置 | 小查询、权重全量批次与虚拟化、趋势缓存、分钟限页 | query/cache/reader | P95 与 payload 门禁 |
-| 状态标准化 | 页面状态与各模块状态分开 | response dataStatus | READY/DELAYED/EMPTY/PARTIAL/ERROR |
+| 状态标准化 | 页面状态与各模块状态分开 | response dataStatus + HTTP error | 成功态 READY/DELAYED/EMPTY/PARTIAL；Error/Forbidden 走 HTTP |
 | 用户结果优先 | 真实 API + 浏览器可见结果为验收 | web tests + frontend tests | 无 mock 回退、10 路由、页签 |
 
 ## 3. 当前代码与设计审计
@@ -50,7 +53,7 @@
 1. `GET /api/v1/wealth/market/major-indices` 已由 `majorIndices` 策略配置驱动 10 个指数及顺序。
 2. 股票详情已在 `src/biz/{api,queries,schemas,services}/wealth/market/stock_detail` 建立可参考的分层。
 3. `QuoteQueryService` 能读取指数日/周/月线并临时计算指标，但它属于旧 Quote 大服务；本模块不继续扩写该服务。
-4. `core_serving.index_factor_pro` 已有 ORM 与完整 bfq 指标字段，但 10 指数生产覆盖尚未成为本页已验收事实，必须在编码前审计。
+4. `core_serving.index_factor_pro` 已有 ORM 与完整 bfq 指标字段；M0 已完成 10 指数当前快照覆盖、同日一致性和最终查询性能审计，MA 历史不足必须运行时按实际有效历史判断。
 5. `IndexWeightDAO.get_latest_weights()` 能选最近批次，但返回按 `con_code` 排序，不符合页面“按权重排序”；页面查询不能照搬排序语义。
 6. 现有趋势通道路由 `/api/v1/quote/detail/trend-channel` 和 schema 只接受 `000001.SH + day`，公式版本也是 SSE 专项；不能声称已覆盖其余 9 个指数。
 7. 当前 local minute capability 已统一管理 `APP_ENV`、`WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED`、`GOLDENSHARE_LAKE_ROOT` 和 DuckDB 依赖，无需新增第二套开关。
@@ -77,7 +80,16 @@
 6. 上涨/平盘/下跌使用 `weightTradeDate <= asOfTradeDate` 的最新完整成分批次，关联同日 `equity_daily_bar.pct_chg` 后按 `> 0 / = 0 / < 0` 聚合；无行情或 `pct_chg` 为空的成员计入 missing，不计入平盘。
 7. 2026-08-11 生产只读复核：目标日 `2026-08-10`，10 个指数均解析到 `2026-07-31` 权重批次；9 个指数完整匹配。`000001.SH` 为 total 2224、matched 2184、up 1613、flat 37、down 534、missing 40，证明 DTO 必须显式返回覆盖计数并允许 PARTIAL。
 
-### 3.5 最新 Figma 结构与状态审计
+### 3.5 M0 指数因子审计结论
+
+1. 10 个 code 各有 388 行 factor，日期范围均为 2025-01-02 ~ 2026-08-10；最新日与 daily 对齐，无重复主键。
+2. 最近 300 根的 OHLC、昨收、涨跌、涨跌幅完全一致；MA/BOLL/MACD/KDJ 除 `000510.SH` 的 MA250 当前有 94 个空值外均 300/300 非空。
+3. 审计时 `000510.SH` 全表 MA250 在 2025-09-30 首次可用，此前 182 行连续为空、此后 206 行无断裂；这是 2026-08-11 生产快照，不是代码中的指数/日期特例。2024 技术因子同步后应复审。
+4. `399001.SZ`、`399006.SZ` 的 factor 量额自 2026-07-06 起连续 26 日与 daily 分叉。两个源文档单位相同，禁止倍率修正；产品方完成外部数据源核对后确认 factor 准确，基本行情与 Kline 的 `vol/amount` 均唯一取 factor。
+5. M0 的 factor 驱动、daily 同日 LEFT JOIN 旧候选查询命中两侧主键，数据库内 P95 为 300 根 1.636ms、2000-limit 2.127ms。M1 已按最终 factor-only SQL 复测：300 根 1.681ms、2000 上限实返 630 根 1.869ms，MA 历史基数查询 2.063ms。
+6. M1 复验时 9 个指数已同步到 630 根，A500 为 455 根；完整服务链 50 样本 P95 为 page-init 246.054ms、kline 300 211.169ms、kline 2000 上限 248.925ms、weights 271.337ms。当前仍没有真实 2000 行物理样本，因此该门禁继续保留。
+
+### 3.6 最新 Figma 结构与状态审计
 
 当前设计结构已按节点树重新核验：
 
@@ -125,16 +137,19 @@ src/biz/
   queries/wealth/market/index_detail/
     __init__.py
     index_detail_query.py
-    index_detail_query_service.py
-    index_detail_minutes_query_service.py
+    index_detail_page_query_service.py
+    index_detail_kline_query_service.py
+    index_detail_weights_query_service.py
   schemas/wealth/market/
     index_detail.py
     index_detail_minutes.py
   services/wealth/market/index_detail/
     __init__.py
+    index_detail_universe.py
     index_detail_field_mapper.py
     index_weight_contribution_builder.py
     index_detail_status_resolver.py
+    index_detail_exception_builder.py
 
 src/foundation/clients/local_lake/
   major_index_mins_reader.py              # 只读 Silver/Gold
@@ -277,10 +292,10 @@ interface IndexDetailPageInitResponse {
     supportsTrendChannel: boolean;
     supportsNineTurn: false;
     supportsTechnicalConclusion: false;
-    supportsUserActions: false;
+    supportsTradePlanEntry: true;
   };
   dataStatus: DataStatusDto;
-  debugInfo?: unknown;
+  debugInfo: IndexDetailDebugInfoDto | null;
 }
 ```
 
@@ -288,12 +303,13 @@ interface IndexDetailPageInitResponse {
 
 1. `tsCode` 必须属于当前 `majorIndices` 配置，否则 404。
 2. 不在服务层根据 `sessionStatus` 再减一天；`MarketPageContextQuery.pageContext.tradeDate` 已是默认期望完成日。
-3. quote 查询 `index_daily_serving.trade_date <= pageContext.tradeDate` 的最近一行；最新行日期是 `asOfTradeDate`，不再为“较昨日”额外读取前一日成交额。
+3. quote 先查询 `index_daily_serving.trade_date <= pageContext.tradeDate` 的最近一行作为 `asOfTradeDate` 和价格来源，再精确读取同 code、同日 `index_factor_pro.vol/amount`；不读取 daily 量额，也不为“较昨日”读取前一日成交额。
 4. 无 quote 时 `asOfTradeDate=null` 且状态 EMPTY。
 5. `dailyBasic` 只读 `trade_date = asOfTradeDate` 的一行；整行或单字段缺失都保持 `null`，由前端逐字段显示 `--`。
 6. `constituentBreadth` 只做最新有效成分批次与同日股票日线的集合聚合，不返回成分明细。无权重批次时返回 `null`；有批次但存在行情缺失时保留三项计数并令模块 `dataStatus=PARTIAL`。
 7. 不在 page-init 加载 K 线、权重明细或趋势历史。
 8. `supportsTrendChannel` 仅对 `000001.SH + day` 返回 true；其余指数的 `availableMainOverlays` 不包含 `TREND_CHANNEL`。
+9. `supportsTradePlanEntry=true` 只表达顶部入口存在；技术结论与任何数据状态不触发交易动作。
 
 ### 6.2 `GET /index-detail/kline`
 
@@ -310,9 +326,9 @@ interface IndexDetailKlineRequest {
 }
 ```
 
-明确不接受 `adjustment`。响应 bars 从 `index_factor_pro` 读取 bfq OHLC、MA、BOLL、MACD、KDJ；时间升序，warm-up 空值保持 `null`。API 不返回 `MA15/MA120`，不在请求链计算源表没有的指标。
+明确不接受 `adjustment`。响应 bars 的日期、价格、涨跌、`vol/amount` 与 MA/BOLL/MACD/KDJ 全部从 `index_factor_pro` 同一行读取；时间升序，源空值保持 `null`。API 不返回 `MA15/MA120`，不在请求链计算源表没有的指标，不用 daily 量额 fallback 或倍率换算。
 
-编码前必须用 10 个指数和至少 300 个交易日完成生产覆盖审计：代码覆盖、日期覆盖、关键字段非空率、OHLC 与 `index_daily_serving` 同日一致性。审计不通过则本里程碑停在门禁，不做 fallback。
+10 指数至少 300 根的当前生产快照覆盖审计已在 M0 完成；实施必须保持审计报告冻结的源选择和通用 MA 历史判断。禁止硬编码 `000510.SH`、`2025-09-30` 或任何固定 warm-up 起止日。
 
 ### 6.3 `GET /index-detail/weights`
 
@@ -351,7 +367,7 @@ interface IndexDetailWeightsResponse {
   };
   dataStatus: DataStatusDto;
   note: "基于最新月度权重估算，非指数公司官方归因";
-  debugInfo?: unknown;
+  debugInfo: IndexDetailDebugInfoDto | null;
 }
 ```
 
@@ -476,7 +492,7 @@ route tsCode
 
 ## 9. 状态、异常与权限
 
-建议在评审后登记以下异常码；未登记前不得编码：
+以下异常码已登记到 [wealth 异常码注册表](../../system/exception-code-registry.md)，实现不得另造同义码：
 
 | code | 场景 | 页面行为 |
 |---|---|---|
@@ -484,7 +500,9 @@ route tsCode
 | `ID_NOT_FOUND` | 不属于 10 指数或基础信息不存在 | 404 页面 |
 | `ID_SOURCE_EMPTY` | 日线主源无数据 | 页面 EMPTY |
 | `ID_SOURCE_DELAYED` | observed 早于完成交易日 | DELAYED，显示日期 |
-| `ID_FACTOR_PARTIAL` | 技术因子缺行/缺列 | 主图 PARTIAL，缺线不补 0 |
+| `ID_FACTOR_PARTIAL` | page-init 同日 factor 量额缺失，或 Kline 因子缺行/缺列 | 基本行情量额 `--`、主图 PARTIAL，缺线不补 0 |
+| `ID_BASIC_DAILY_PARTIAL` | 同日 dailyBasic 缺行/缺字段 | 对应指标 `--`，页面 PARTIAL |
+| `ID_BASIC_BREADTH_PARTIAL` | 成分同日行情缺失 | 三计数保留并提示 coverage |
 | `ID_WEIGHT_EMPTY` | 无可用权重批次 | 权重页签 EMPTY |
 | `ID_WEIGHT_CONTRIBUTION_PARTIAL` | 成分日线/指数昨收缺失 | 行显示 `--`，页签 PARTIAL |
 | `ID_QUERY_FAILED` | 其它查询失败 | 对应模块 ERROR |
@@ -570,8 +588,8 @@ cd wealth && npm run build
 
 | 里程碑 | 内容 | 退出条件 |
 |---|---|---|
-| M0 方案冻结 | 三件套评审、异常码、Loaded/Components/五态 Figma 节点台账 | 门禁签字 |
-| M1 数据与契约 | 10 指数 factor 覆盖审计、DTO、page-init/kline/weights；接入既有 SSE trend API | 真实 API 测试通过 |
+| M0 方案冻结（已完成） | 三件套/LLD、异常码、正式 DTO、生产 factor 审计、Loaded/Components/五态 Figma 节点台账 | 审计与合同已落档 |
+| M1 数据与契约（已完成） | 按冻结 DTO 实现 page-init/kline/weights；趋势仍由前端后续直接接既有 SSE API | 真实 API、旧契约无漂移与实现后性能测试通过 |
 | M2 图表共享 | 提取 shared 图表引擎，股票行为零回归 | stock tests + 浏览器对比通过 |
 | M3 页面 Loaded | 路由、10 卡导航、日线、三 tab、贡献点、趋势 overlay | Figma Loaded 验收 |
 | M4 异常状态 | 按五个 Figma 根画板实现 loading/empty/error/partial/forbidden，并补 404/delayed/module 状态变体 | 状态测试与逐画板截图通过 |
@@ -585,7 +603,9 @@ cd wealth && npm run build
 | 风险 | 触发条件 | 缓解 |
 |---|---|---|
 | 趋势接口只支持 SSE | 误把通道入口暴露给其余 9 个指数 | capability 仅对 `000001.SH` 开启；其余指数不展示、不请求，不开发适配层 |
-| factor 生产覆盖不足 | 新 view 没有 10 指数/历史不够 | 编码前真实审计，失败即停，不 fallback |
+| factor 实际历史仍少于 2000 根 | 当前 9 个指数 630 根、A500 455 根，仍不足以证明真实 2000 行 API payload | M1 已验收 2000 上限请求的当前实返 455~630 行；真实 2000 行保留为发布前门禁 |
+| 深市两源量额分叉 | 399001/399006 自 2026-07-06 起 factor 与 daily 不同 | 外部核对确认 factor 准确；指数详情统一取 factor，禁止 daily fallback 或倍率换算 |
+| 历史回填会改变 MA 可计算边界 | 把当前 A500 空值前缀固化为 code/date 规则 | 按实际有效历史根数动态判断；2024 同步完成后复审，不改代码特例 |
 | Figma 与数据语义冲突 | 示例贡献点不可复算、全市场成交说明不成立 | 以冻结公式和真实源语义覆盖示例文案 |
 | 图表复用导致股票回归 | 直接改 751 行组件 | 先共享重构、单独验证、再加指数 overlay |
 | 分钟 Lake 尚未正式 ready | 页面先暴露 capability | capability + Lake 门禁，prod 永不挂路由 |
@@ -602,11 +622,16 @@ cd wealth && npm run build
 3. 权重 API 返回完整批次；前端固定 10 行视窗、表头固定、内部滚动并虚拟化，不提供任意 limit。
 4. 基本行情固定 15 项；日度指标无值显示 `--`，删除“成交状态”和“较昨日”。
 5. 上涨/平盘/下跌按最新有效成分批次与同日股票涨跌幅聚合；缺失成员不计入平盘，覆盖不足时基本行情模块 PARTIAL。
+6. 基本行情与 Kline 的成交量、成交额统一取 `index_factor_pro`；`index_daily_serving` 只保留日期/价格锚点职责，不提供量额 fallback。
 
 ## 14. 版本记录
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.8 | 2026-08-11 | 完成 M1 后端三接口与严格错误映射；补 factor/daily 源负例、动态 MA 回填测试、10 code/权重/旧契约回归及生产只读 P95；同步实际目录拆分 | Codex |
+| v1.7 | 2026-08-11 | 外部核对确认 factor 量额准确；基本行情与 Kline 的量额统一改取 factor，删除 Kline daily JOIN 和 fallback；DTO 提升为 1.1.0 | Codex |
+| v1.6 | 2026-08-11 | 修正 MA null 口径：删除 A500/固定日期 warm-up 特例；按实际有效历史根数判断，并将 DTO 合同提升为 1.0.1 | Codex |
+| v1.5 | 2026-08-11 | 完成 M0：链接正式 DTO/审计并登记异常码；记录深市量额分叉、当时 A500 MA250 空值与真实 2000 行性能待验项；量额最终来源已由 v1.7 修订 | Codex |
 | v1.4 | 2026-08-11 | 按最新 Figma 节点树补齐五态完整页面合同、状态组件拆分、系统颜色与逐画板测试；登记 1600×1200 骨架尺寸和旧概述文案冲突 | Codex |
 | v1.3 | 2026-08-11 | 冻结逐交易日趋势判色和每日竖线；基本行情改为 15 项并删除成交状态/较昨日；补成分涨跌聚合 DTO、缺失规则与生产复核证据 | Codex |
 | v1.2 | 2026-08-11 | 趋势通道收敛为仅上证指数直接调用既有 API；删除十指数适配层与中轴设计；补双通道绘制/颜色规则、成交状态和生产字段审计 | Codex |

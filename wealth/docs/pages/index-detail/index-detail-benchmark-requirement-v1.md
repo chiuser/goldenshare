@@ -1,6 +1,6 @@
 # 指数详情页标杆需求 v1
 
-> 状态：草案，待评审。
+> 状态：M1 后端已完成；M2 共享图表、M3/M4 页面与 M5 本地分钟仍按本文门禁推进。
 > 用途：冻结“财势乾坤 / 指数详情页”的产品范围、数据口径、交互边界与验收标准。
 > 本文是业务与体验事实源，不是实现代码。
 
@@ -11,6 +11,8 @@
 3. [主要指数标杆需求 v1](../market-overview/major-indices-benchmark-requirement-v1.md)
 4. [上证指数日线趋势通道实时计算方案 v1](../../../../docs/architecture/sse-daily-trend-channel-realtime-computation-plan-v1.md)
 5. [主要指数分钟数据集开发文档](../../../../docs/datasets/major-index-mins-dataset-development.md)
+6. [指数详情页正式 API / DTO 合同 v1](./index-detail-api-contract-v1.md)
+7. [指数详情页 M0 生产因子审计 v1](./index-detail-m0-production-audit-v1.md)
 
 ---
 
@@ -193,9 +195,10 @@ estimatedContributionPoint
 |---|---|---|---|
 | 允许访问的指数名单 | `majorIndices` 策略配置 | 固定 10 个 code | 非名单标的 404 |
 | 指数身份 | `core_serving.index_basic` | `ts_code/name/market/category/publisher` | 名称缺失时展示 code |
-| 日线报价 | `core_serving.index_daily_serving` | 最新已完成交易日 | 无行 EMPTY |
+| 日线报价日期与价格 | `core_serving.index_daily_serving` | 最新已完成交易日；不使用其量额 | 无行 EMPTY |
 | 指数日度指标 | `core_serving.index_daily_basic` | 与 `asOfTradeDate` 同日的 PE/PE TTM/PB/换手率/流通市值/总市值 | 单字段无值显示 `--`，不回填 |
-| 日线技术因子 | `core_serving.index_factor_pro` | bfq/指数无复权 | 缺列或缺行 PARTIAL，不补 0 |
+| 日线 K 线与技术因子 | `core_serving.index_factor_pro` | bfq/指数无复权；日期、OHLC、涨跌、量额与 MA/BOLL/MACD/KDJ | 缺列或缺行 PARTIAL，不补 0 |
+| 基本行情总量/金额 | 同日 `core_serving.index_factor_pro` | 与 Kline 使用同一 factor 量额事实 | 同日行/字段缺失为 null + PARTIAL，不 fallback/换算 |
 | 权重 | `core_serving.index_weight` | 最新批次且不晚于贡献日 | 无批次 EMPTY |
 | 成分股名称 | `core_serving.security_serving` | 按 `con_code` 补名 | 展示 code |
 | 成分股涨跌幅 | `core_serving.equity_daily_bar` | 与贡献日同日 | contributionPoint 为 null |
@@ -204,7 +207,7 @@ estimatedContributionPoint
 | 本地分钟行情 | Lake Silver `major_index_mins` | 仅 local capability 开启 | 模块 EMPTY/DELAYED |
 | 本地分钟指标 | Lake Gold `major_index_mins_technical` | 仅 local capability 开启 | 指标缺失保持 null |
 
-日线技术因子在进入编码前必须完成 10 指数生产覆盖审计；未通过时不得以 API 内临时计算或前端计算替代。
+M0 已完成 10 指数当前生产快照覆盖审计。审计时 `000510.SH` 有 182 行 MA250 前缀空值，但 2024 技术因子正在同步，该现象只作为时点记录，不是合法 warm-up 的固定 code/date 规则。MA 是否因历史不足为 null 必须按同一 code 截至该交易日的实际有效历史根数动态判断。深证成指、创业板指 factor 量额与 daily 分叉；外部数据源核对确认 factor 准确，因此基本行情和 Kline 的量额统一取 factor。不得用倍率修正、daily fallback、API 临时计算或前端换算替代。
 
 ## 6. 时间与状态语义
 
@@ -295,6 +298,10 @@ GET /api/v1/wealth/market/index-detail/minute-indicators
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.8 | 2026-08-11 | 回填 M1 后端完成状态；实现未改变产品字段、趋势边界、权重公式或状态口径，真实 2000 行与前端像素验收继续保留 | Codex |
+| v1.7 | 2026-08-11 | 外部核对确认 factor 量额准确；基本行情与 Kline 的成交量、成交额统一取 factor，禁止 daily fallback；DTO 合同提升为 1.1.0 | Codex |
+| v1.6 | 2026-08-11 | 修正 MA null 口径：A500 空值仅为生产快照观察；删除 code/date 特例，改为按实际有效历史根数动态判断 | Codex |
+| v1.5 | 2026-08-11 | 完成 M0 数据/合同冻结：记录深市量额分叉与当时 A500 MA250 空值现象；量额最终来源已由 v1.7 修订 | Codex |
 | v1.4 | 2026-08-11 | 登记最新 Loaded/Components/States 节点树；冻结五个完整状态的页面骨架、文案、动作、颜色和数据保留规则；登记 Figma 旧基本行情概述文案冲突 | Codex |
 | v1.3 | 2026-08-11 | 趋势通道改为逐交易日判色并要求每日竖线；基本行情冻结 15 项，删除成交状态/较昨日；冻结成分涨跌统计与缺失处理，并补生产复核证据 | Codex |
 | v1.2 | 2026-08-11 | 趋势通道收敛为仅上证指数直接消费现有 API；冻结双通道绘制/颜色规则、四轨展示和成交状态占位；补生产日线/每日指标字段审计 | Codex |
