@@ -1,77 +1,73 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { DetailChartWorkspaceProps } from "../../../shared/charts/detail-workspace/detailChartTypes";
 import type { StockMinuteChartViewModel } from "../api/stockMinuteViewModelAdapter";
 
 import { StockMinuteChartWorkspace } from "./StockMinuteChartWorkspace";
 
-const chartMock = vi.hoisted(() => {
-  const charts: Array<Record<string, any>> = [];
-  const createChart = vi.fn(() => {
-    let visibleRange: { from: number; to: number } | null = null;
-    const visibleRangeHandlers: Array<() => void> = [];
-    const crosshairHandlers: Array<(param: { point?: { x: number; y: number }; time?: number }) => void> = [];
-    const timeScale = {
-      fitContent: vi.fn(),
-      getVisibleLogicalRange: vi.fn(() => visibleRange),
-      setVisibleLogicalRange: vi.fn((range: { from: number; to: number }) => {
-        visibleRange = range;
-        visibleRangeHandlers.forEach((handler) => handler());
-      }),
-      subscribeVisibleLogicalRangeChange: vi.fn((handler: () => void) => visibleRangeHandlers.push(handler)),
-      unsubscribeVisibleLogicalRangeChange: vi.fn((handler: () => void) => {
-        const index = visibleRangeHandlers.indexOf(handler);
-        if (index >= 0) visibleRangeHandlers.splice(index, 1);
-      }),
-    };
-    const chart = {
-      addSeries: vi.fn(() => ({ setData: vi.fn() })),
-      clearCrosshairPosition: vi.fn(),
-      crosshairHandlers,
-      remove: vi.fn(),
-      setCrosshairPosition: vi.fn(),
-      subscribeCrosshairMove: vi.fn((handler: (param: { point?: { x: number; y: number }; time?: number }) => void) => crosshairHandlers.push(handler)),
-      timeScale: () => timeScale,
-      unsubscribeCrosshairMove: vi.fn((handler: (param: { point?: { x: number; y: number }; time?: number }) => void) => {
-        const index = crosshairHandlers.indexOf(handler);
-        if (index >= 0) crosshairHandlers.splice(index, 1);
-      }),
-    };
-    charts.push(chart);
-    return chart;
-  });
-  return {
-    charts,
-    createChart,
-    reset: () => {
-      charts.splice(0, charts.length);
-      createChart.mockClear();
-    },
-  };
-});
+const workspaceMock = vi.hoisted(() => ({
+  props: [] as DetailChartWorkspaceProps[],
+  reset() {
+    this.props.splice(0, this.props.length);
+  },
+}));
 
-vi.mock("lightweight-charts", () => ({
-  CandlestickSeries: "CandlestickSeries",
-  ColorType: { Solid: "Solid" },
-  CrosshairMode: { Normal: 0 },
-  HistogramSeries: "HistogramSeries",
-  LineSeries: "LineSeries",
-  createChart: chartMock.createChart,
+vi.mock("../../../shared/charts/detail-workspace/DetailChartWorkspace", () => ({
+  DetailChartWorkspace: (props: DetailChartWorkspaceProps) => {
+    workspaceMock.props.push(props);
+    const latest = props.points.at(-1) ?? null;
+    return (
+      <div aria-label={props.ariaLabel} data-testid="shared-detail-workspace">
+        {props.topRightAccessory}
+        {props.renderMainHeader(latest)}
+        {props.renderPanelHeader("macd", latest)}
+        {props.renderPanelHeader("volume", latest)}
+        {props.renderPanelHeader("kdj", latest)}
+      </div>
+    );
+  },
 }));
 
 describe("StockMinuteChartWorkspace", () => {
-  beforeEach(() => {
-    chartMock.reset();
+  beforeEach(() => workspaceMock.reset());
+
+  it("maps the complete minute contract into shared points without fabricating daily fields", () => {
+    const data = makeMinuteData(2);
+    data.points[1]!.macdDif = null;
+    data.points[1]!.kdjJ = null;
+
+    render(<StockMinuteChartWorkspace loadState="ready" data={data} />);
+
+    const props = latestWorkspaceProps();
+    expect(props.points).toHaveLength(2);
+    expect(props.points[1]).toMatchObject({
+      time: data.points[1]!.timestamp,
+      fullDate: data.points[1]!.tradeTime,
+      open: data.points[1]!.open,
+      high: data.points[1]!.high,
+      low: data.points[1]!.low,
+      close: data.points[1]!.close,
+      volume: data.points[1]!.volume,
+      amount: data.points[1]!.amount,
+      dif: null,
+      dea: data.points[1]!.macdDea,
+      macd: data.points[1]!.macd,
+      k: data.points[1]!.kdjK,
+      d: data.points[1]!.kdjD,
+      j: null,
+      preClose: null,
+      changePct: null,
+      amplitude: null,
+      turnoverRate: null,
+      overlays: {},
+    });
+    expect(props.mainLines).toEqual([]);
   });
 
-  it("keeps null indicators out of chart values and shows indicator delay status", () => {
+  it("selects the frozen M1 display strategies and keeps the status accessory", () => {
     const data = makeMinuteData(1);
     data.points[0]!.macdDif = null;
-    data.points[0]!.macdDea = null;
-    data.points[0]!.macd = null;
-    data.points[0]!.kdjK = null;
-    data.points[0]!.kdjD = null;
-    data.points[0]!.kdjJ = null;
     data.indicatorStatus = {
       status: "DELAYED",
       expectedEndDate: "2026-07-31",
@@ -81,75 +77,67 @@ describe("StockMinuteChartWorkspace", () => {
 
     render(<StockMinuteChartWorkspace loadState="ready" data={data} />);
 
-    expect(screen.getByText("指标尚未覆盖页面期望交易日。")).toBeInTheDocument();
-    expect(screen.getByText("DIF:--")).toBeInTheDocument();
-    expect(screen.getByLabelText("分钟K线")).toBeInTheDocument();
-    expect(screen.getByLabelText("MACD(12,26,9)")).toBeInTheDocument();
-  });
-
-  it("keeps 500 loaded points but makes only the latest 90 visible initially", () => {
-    render(<StockMinuteChartWorkspace loadState="ready" data={makeMinuteData(500)} />);
-
-    expect(chartMock.charts).toHaveLength(4);
-    chartMock.charts.forEach((chart) => {
-      expect(chart.timeScale().getVisibleLogicalRange()).toEqual({ from: 410, to: 499 });
-      expect(chart.timeScale().fitContent).not.toHaveBeenCalled();
+    const props = latestWorkspaceProps();
+    expect(props).toMatchObject({
+      ariaLabel: "分钟图表区",
+      crosshairPresentation: "native-axis-labels",
+      timeAxisAriaLabel: "股票分钟底部时间轴",
+      timeAxisPlacement: "each-pane",
+      timeMode: "minute",
     });
+    expect("bottomBar" in props).toBe(false);
+    expect(screen.getByRole("status")).toHaveTextContent("指标尚未覆盖页面期望交易日。");
+    expect(screen.getByRole("status")).toHaveTextContent("freq=5");
+    expect(screen.getByText("DIF:--")).toBeInTheDocument();
   });
 
-  it("drags all minute panes through the same bounded logical range", () => {
-    render(<StockMinuteChartWorkspace loadState="ready" data={makeMinuteData(500)} />);
-
-    const chartArea = screen.getByLabelText("分钟图表区").querySelector(".stock-detail-charts-area");
-    const klineHost = screen.getByLabelText("分钟K线").querySelector(".chart-host");
-    expect(chartArea).not.toBeNull();
-    expect(klineHost).not.toBeNull();
-    Object.defineProperty(klineHost!, "clientWidth", { configurable: true, value: 500 });
-
-    fireEvent.mouseDown(chartArea!, { button: 0, clientX: 250 });
-    fireEvent.mouseMove(window, { clientX: 350 });
-    fireEvent.mouseUp(window);
-
-    const visibleRanges = chartMock.charts.map((chart) => chart.timeScale().getVisibleLogicalRange());
-    expect(visibleRanges).toEqual(Array(4).fill(visibleRanges[0]));
-    expect(visibleRanges[0].from).toBeLessThan(410);
-    expect(visibleRanges[0].from).toBeGreaterThanOrEqual(0);
-    expect(visibleRanges[0].to).toBeLessThanOrEqual(499);
-  });
-
-  it("matches the daily tooltip order while preserving minute units and field boundaries", () => {
-    const data = makeMinuteData(100);
-    const hoveredPoint = data.points[98]!;
-    hoveredPoint.macdDif = null;
-    hoveredPoint.open = 10;
-    hoveredPoint.close = 11;
-    hoveredPoint.high = 11.5;
-    hoveredPoint.low = 9.5;
-    hoveredPoint.volume = 764_100;
-    hoveredPoint.amount = 7_294_676;
+  it("preserves minute tooltip field order, units and candle-relative colors", () => {
+    const data = makeMinuteData(1);
+    const source = data.points[0]!;
+    source.open = 10;
+    source.close = 11;
+    source.high = 11.5;
+    source.low = 9.5;
+    source.volume = 764_100;
+    source.amount = 7_294_676;
     render(<StockMinuteChartWorkspace loadState="ready" data={data} />);
 
-    const klineHost = screen.getByLabelText("分钟K线").querySelector(".chart-host");
-    Object.defineProperty(klineHost!, "clientWidth", { configurable: true, value: 400 });
-    act(() => {
-      chartMock.charts[0].crosshairHandlers[0]({ point: { x: 300, y: 40 }, time: hoveredPoint.timestamp });
-    });
+    const props = latestWorkspaceProps();
+    render(<>{props.renderTooltip(props.points[0]!, "left")}</>);
 
     const tooltip = screen.getByLabelText("分钟K线数据提示");
     expect(tooltip).toHaveClass("left");
-    expect(within(tooltip).getByText("20260731 11:08")).toBeInTheDocument();
+    const rows = within(tooltip).getAllByRole("generic").filter((node) => node.classList.contains("tooltip-row"));
+    expect(rows.map((row) => row.querySelector("span")?.textContent)).toEqual([
+      "时间", "开盘", "收盘", "最高", "最低", "成交量", "成交额",
+    ]);
+    expect(within(tooltip).getByText("20260731 09:30")).toBeInTheDocument();
     expect(within(tooltip).getByText("10.00")).toHaveClass("flat");
     expect(within(tooltip).getByText("11.00")).toHaveClass("up");
     expect(within(tooltip).getByText("76.41万股")).toBeInTheDocument();
     expect(within(tooltip).getByText("729.47万元")).toBeInTheDocument();
     expect(within(tooltip).queryByText("涨幅")).not.toBeInTheDocument();
     expect(within(tooltip).queryByText("换手率")).not.toBeInTheDocument();
-    expect(within(tooltip).queryByText("DIF")).not.toBeInTheDocument();
-    expect(screen.getByText("DIF:--")).toBeInTheDocument();
-    expect(chartMock.charts[0].setCrosshairPosition).toHaveBeenCalled();
-    expect(chartMock.charts[2].setCrosshairPosition).toHaveBeenCalled();
+  });
+
+  it.each([
+    ["idle", undefined, "暂无分钟数据"],
+    ["loading", undefined, "正在加载分钟数据"],
+    ["error", "读取失败", "读取失败"],
+  ] as const)("keeps the %s module state outside the loaded shared chart", (loadState, errorMessage, expected) => {
+    render(<StockMinuteChartWorkspace loadState={loadState} data={null} errorMessage={errorMessage} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent(expected);
+    expect(screen.queryByTestId("shared-detail-workspace")).not.toBeInTheDocument();
+    expect(workspaceMock.props).toHaveLength(0);
   });
 });
+
+function latestWorkspaceProps(): DetailChartWorkspaceProps {
+  const props = workspaceMock.props.at(-1);
+  if (!props) throw new Error("DetailChartWorkspace was not rendered");
+  return props;
+}
 
 function makeMinuteData(count: number): StockMinuteChartViewModel {
   return {

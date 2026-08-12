@@ -4,6 +4,8 @@ import type { ISeriesPrimitive, Time, UTCTimestamp } from "lightweight-charts";
 export type DetailChartPanelKey = "kline" | "macd" | "volume" | "kdj";
 export type DetailChartTooltipSide = "left" | "right";
 export type DetailChartTimeMode = "daily" | "minute";
+export type DetailChartTimeAxisPlacement = "bottom-pane" | "each-pane";
+export type DetailChartCrosshairPresentation = "synchronized-overlay" | "native-axis-labels";
 
 export interface DetailChartPoint {
   time: string | UTCTimestamp;
@@ -39,10 +41,9 @@ export interface DetailChartAxisFloatLabelState {
   value: string;
 }
 
-export interface DetailChartWorkspaceProps {
+interface DetailChartWorkspaceBaseProps {
   ariaLabel: string;
-  bottomBar: ReactNode;
-  bottomBarAriaLabel: string;
+  crosshairPresentation?: DetailChartCrosshairPresentation;
   mainLines: DetailChartLineDefinition[];
   mainPrimitives?: ISeriesPrimitive<Time>[];
   panelAriaLabels: Record<DetailChartPanelKey, string>;
@@ -51,9 +52,17 @@ export interface DetailChartWorkspaceProps {
   renderPanelHeader: (panel: Exclude<DetailChartPanelKey, "kline">, point: DetailChartPoint | null) => ReactNode;
   renderTooltip: (point: DetailChartPoint, side: DetailChartTooltipSide) => ReactNode;
   timeAxisAriaLabel: string;
+  timeAxisPlacement?: DetailChartTimeAxisPlacement;
   timeMode: DetailChartTimeMode;
+  topRightAccessory?: ReactNode;
   visibleBars?: number;
 }
+
+type DetailChartBottomBarProps =
+  | { bottomBar: ReactNode; bottomBarAriaLabel: string }
+  | { bottomBar?: never; bottomBarAriaLabel?: never };
+
+export type DetailChartWorkspaceProps = DetailChartWorkspaceBaseProps & DetailChartBottomBarProps;
 
 export interface DetailChartTimeAxisMarker {
   key: string;

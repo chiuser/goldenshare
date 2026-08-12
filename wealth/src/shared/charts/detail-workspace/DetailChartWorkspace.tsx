@@ -31,8 +31,10 @@ import {
 } from "./detailChartSeries";
 import type {
   DetailChartAxisFloatLabelState,
+  DetailChartCrosshairPresentation,
   DetailChartPanelKey,
   DetailChartPoint,
+  DetailChartTimeAxisPlacement,
   DetailChartTimeAxisMarker,
   DetailChartWorkspaceProps,
 } from "./detailChartTypes";
@@ -65,6 +67,7 @@ export function DetailChartWorkspace({
   ariaLabel,
   bottomBar,
   bottomBarAriaLabel,
+  crosshairPresentation = "synchronized-overlay",
   mainLines,
   mainPrimitives,
   panelAriaLabels,
@@ -73,7 +76,9 @@ export function DetailChartWorkspace({
   renderPanelHeader,
   renderTooltip,
   timeAxisAriaLabel,
+  timeAxisPlacement = "bottom-pane",
   timeMode,
+  topRightAccessory,
   visibleBars = defaultVisibleBars,
 }: DetailChartWorkspaceProps) {
   const primitives = mainPrimitives ?? EMPTY_MAIN_PRIMITIVES;
@@ -98,16 +103,20 @@ export function DetailChartWorkspace({
     if (!chartRefs.current.kline || !chartRefs.current.macd || !chartRefs.current.volume || !chartRefs.current.kdj) return;
 
     const charts: IChartApi[] = [];
-    const createPaneChart = (container: HTMLDivElement, height: number, showTimeScale = false) => {
-      const chart = createChart(container, buildChartOptions(height, showTimeScale, timeMode));
+    const createPaneChart = (container: HTMLDivElement, height: number, panel: DetailChartPanelKey) => {
+      const showTimeScale = timeMode === "minute" && (timeAxisPlacement === "each-pane" || panel === "kdj");
+      const chart = createChart(
+        container,
+        buildChartOptions(height, showTimeScale, timeMode, crosshairPresentation),
+      );
       charts.push(chart);
       return chart;
     };
 
-    const klineChart = createPaneChart(chartRefs.current.kline, 280);
-    const macdChart = createPaneChart(chartRefs.current.macd, 112);
-    const volumeChart = createPaneChart(chartRefs.current.volume, 112);
-    const kdjChart = createPaneChart(chartRefs.current.kdj, 112, timeMode === "minute");
+    const klineChart = createPaneChart(chartRefs.current.kline, 280, "kline");
+    const macdChart = createPaneChart(chartRefs.current.macd, 112, "macd");
+    const volumeChart = createPaneChart(chartRefs.current.volume, 112, "volume");
+    const kdjChart = createPaneChart(chartRefs.current.kdj, 112, "kdj");
     const klineSeries = klineChart.addSeries(CandlestickSeries, {
       borderDownColor: DETAIL_CHART_COLORS.down,
       borderUpColor: DETAIL_CHART_COLORS.up,
@@ -183,6 +192,10 @@ export function DetailChartWorkspace({
       pointY: number | undefined,
       formatter: (value: number) => string,
     ) => {
+      if (crosshairPresentation === "native-axis-labels") {
+        setAxisFloatLabel(null);
+        return;
+      }
       const host = chartRefs.current[panel];
       if (!host || pointY === undefined || pointY < 0 || pointY > host.clientHeight) {
         setAxisFloatLabel(null);
@@ -380,11 +393,12 @@ export function DetailChartWorkspace({
       primitives.forEach((primitive) => klineSeries.detachPrimitive(primitive));
       charts.forEach((chart) => chart.remove());
     };
-  }, [candleData, mainLines, points, primitives, timeMode, visibleBars]);
+  }, [candleData, crosshairPresentation, mainLines, points, primitives, timeAxisPlacement, timeMode, visibleBars]);
 
   return (
     <section className="detail-chart-workspace" aria-label={ariaLabel}>
       <div className="detail-chart-area" ref={chartsAreaRef} onMouseLeave={() => setIsChartHovering(false)}>
+        {topRightAccessory}
         {timeAxisMarkers.length > 0 ? <DailyTimeAxis ariaLabel={timeAxisAriaLabel} markers={timeAxisMarkers} /> : null}
         {sharedCrosshair !== null ? (
           <>
@@ -412,12 +426,42 @@ export function DetailChartWorkspace({
           />
         ))}
       </div>
-      <div className="detail-chart-indicator-bar" aria-label={bottomBarAriaLabel}>{bottomBar}</div>
+      {bottomBar === undefined ? (
+        <div aria-hidden="true" className="detail-chart-indicator-bar detail-chart-indicator-spacer" />
+      ) : (
+        <div className="detail-chart-indicator-bar" aria-label={bottomBarAriaLabel}>{bottomBar}</div>
+      )}
     </section>
   );
 }
 
-function buildChartOptions(height: number, showTimeScale: boolean, timeMode: "daily" | "minute") {
+function buildChartOptions(
+  height: number,
+  showTimeScale: boolean,
+  timeMode: "daily" | "minute",
+  crosshairPresentation: DetailChartCrosshairPresentation,
+) {
+  const usesNativeAxisLabels = crosshairPresentation === "native-axis-labels";
+  const crosshair = crosshairPresentation === "native-axis-labels"
+    ? { mode: CrosshairMode.Normal }
+    : {
+        mode: CrosshairMode.Normal,
+        vertLine: {
+          color: "rgba(247, 199, 107, 0.72)",
+          labelBackgroundColor: "#1e293b",
+          labelVisible: false,
+          visible: false,
+          style: LineStyle.Dotted,
+          width: 1 as const,
+        },
+        horzLine: {
+          color: "rgba(247, 199, 107, 0.52)",
+          labelBackgroundColor: "#1e293b",
+          labelVisible: false,
+          style: LineStyle.Dotted,
+          width: 1 as const,
+        },
+      };
   return {
     autoSize: true,
     height,
@@ -427,30 +471,16 @@ function buildChartOptions(height: number, showTimeScale: boolean, timeMode: "da
       fontFamily: "var(--cs-font-family-number)",
       textColor: DETAIL_CHART_COLORS.text,
     },
-    localization: timeMode === "minute" ? { timeFormatter: formatShanghaiMinuteAxisLabel } : undefined,
+    localization: timeMode === "minute" && !usesNativeAxisLabels
+      ? { timeFormatter: formatShanghaiMinuteAxisLabel }
+      : undefined,
     grid: {
       horzLines: { color: DETAIL_CHART_COLORS.grid },
       vertLines: { color: "rgba(148, 163, 184, 0.08)" },
     },
-    crosshair: {
-      mode: CrosshairMode.Normal,
-      vertLine: {
-        color: "rgba(247, 199, 107, 0.72)",
-        labelBackgroundColor: "#1e293b",
-        labelVisible: false,
-        visible: false,
-        style: LineStyle.Dotted,
-        width: 1 as const,
-      },
-      horzLine: {
-        color: "rgba(247, 199, 107, 0.52)",
-        labelBackgroundColor: "#1e293b",
-        labelVisible: false,
-        style: LineStyle.Dotted,
-        width: 1 as const,
-      },
-    },
+    crosshair,
     rightPriceScale: {
+      autoScale: true,
       borderColor: DETAIL_CHART_COLORS.axis,
       minimumWidth: rightPriceScaleWidth,
       scaleMargins: { bottom: 0.12, top: 0.12 },
@@ -459,7 +489,9 @@ function buildChartOptions(height: number, showTimeScale: boolean, timeMode: "da
       borderColor: DETAIL_CHART_COLORS.axis,
       rightOffset: 1,
       secondsVisible: false,
-      tickMarkFormatter: timeMode === "minute" ? formatShanghaiMinuteAxisLabel : undefined,
+      tickMarkFormatter: timeMode === "minute" && !usesNativeAxisLabels
+        ? formatShanghaiMinuteAxisLabel
+        : undefined,
       timeVisible: timeMode === "minute",
       visible: showTimeScale,
     },

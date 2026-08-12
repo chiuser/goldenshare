@@ -147,6 +147,67 @@ describe("DetailChartWorkspace", () => {
       timeScale: { secondsVisible: false, timeVisible: true, visible: true },
     });
   });
+
+  it("supports the stock-minute native axes strategy without changing the 90-bar lifecycle", () => {
+    render(
+      <DetailChartWorkspace
+        ariaLabel="共享图表区"
+        crosshairPresentation="native-axis-labels"
+        mainLines={mainLines}
+        panelAriaLabels={{
+          kline: "共享K线主图",
+          macd: "共享MACD",
+          volume: "共享成交量",
+          kdj: "共享KDJ",
+        }}
+        points={makePoints(100)}
+        renderMainHeader={() => <span>main</span>}
+        renderPanelHeader={(panel) => <span>{panel}</span>}
+        renderTooltip={(point) => <span>{point.fullDate}</span>}
+        timeAxisAriaLabel="共享分钟时间轴"
+        timeAxisPlacement="each-pane"
+        timeMode="minute"
+        topRightAccessory={<span role="status">READY</span>}
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("READY");
+    const spacer = document.querySelector(".detail-chart-indicator-spacer");
+    expect(spacer).toHaveAttribute("aria-hidden", "true");
+    expect(chartMock.createChart).toHaveBeenCalledTimes(4);
+    chartMock.createChart.mock.calls.forEach((call) => {
+      const options = call[1] as Record<string, any>;
+      expect(call[1]).toMatchObject({
+        crosshair: { mode: 0 },
+        localization: undefined,
+        rightPriceScale: { autoScale: true },
+        timeScale: { secondsVisible: false, tickMarkFormatter: undefined, timeVisible: true, visible: true },
+      });
+      expect(options.crosshair).not.toHaveProperty("vertLine");
+    });
+    chartMock.charts.forEach((chart) => {
+      expect(chart.timeScale().getVisibleLogicalRange()).toEqual({ from: 10, to: 99 });
+    });
+  });
+
+  it("keeps the existing synchronized-overlay and bottom-pane defaults", () => {
+    renderWorkspace(makePoints(100), "minute");
+
+    expect(chartMock.createChart.mock.calls.slice(0, 3).every((call) => {
+      const options = call[1] as Record<string, any>;
+      return options.timeScale.visible === false;
+    })).toBe(true);
+    expect(chartMock.createChart.mock.calls[3]?.[1]).toMatchObject({
+      crosshair: {
+        horzLine: { labelVisible: false },
+        vertLine: { labelVisible: false, visible: false },
+      },
+      rightPriceScale: { autoScale: true },
+      timeScale: { visible: true },
+    });
+    expect(screen.getByLabelText("共享指标栏")).toHaveTextContent("bottom");
+    expect(document.querySelector(".detail-chart-indicator-spacer")).not.toBeInTheDocument();
+  });
 });
 
 function renderWorkspace(points: DetailChartPoint[], timeMode: "daily" | "minute" = "daily") {

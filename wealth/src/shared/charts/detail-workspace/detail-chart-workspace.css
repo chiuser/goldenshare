@@ -260,6 +260,12 @@
   padding: 0 8px;
 }
 
+.detail-chart-indicator-spacer {
+  background: transparent;
+  border-top: 0;
+  padding: 0;
+}
+
 .detail-chart-indicator-tabs {
   align-items: center;
   display: flex;
