@@ -197,7 +197,15 @@ Raw sensor 热路径：
 5. 北证50不参与日常探测和日常阻断；
 6. sensor 每 tick 最多一个 RunRequest，cursor 只保存小型 ASCII 原因和 frontier。
 
-Raw writer 仍会对五个频率执行完整 source contract；若某频率缺失，整日不替换文件。该失败由下一次 bounded sensor probe 或人工重试恢复，不把不完整结果落湖。
+Raw writer 仍会对每个频率执行完整 source contract，单个频率只有在自身源数据完整、
+staging 回读通过后才原子写入；五个 Raw asset 是同一 job 内的独立 step，因此某个频率
+失败时，其它已完成频率可以保留，失败频率不得留下半成品。原先“下一次 bounded sensor
+probe 可自动恢复”的表述不成立：首次 run key 已被失败 run 占用，继续提交同一 key 会被
+Dagster 去重。2026-08-12 事故后，正式恢复口径调整为：首次运行沿用原 asset-update key；
+只有已存在失败 run、目标仍是缺文件且恰好一个 Raw 频率缺失时，才对该缺失频率执行 10
+代码收盘探针，并使用统一 repair-attempt run key 做最多 3 次受控重试。已有文件但 core
+check 失败、多频率同时缺失、已有成功 run 却仍缺文件或重试耗尽，均 fail closed 并要求
+人工处理。
 
 Silver sensor 只读取 Raw/Silver lake readiness，不调用 Tushare、Prod DB 或事件历史；Raw 已物化但 core check 失败时禁止自动覆盖。
 
@@ -205,8 +213,11 @@ Silver sensor 只读取 Raw/Silver lake readiness，不调用 Tushare、Prod DB 
 
 - Bootstrap 单请求最大 8,000 行，窗口上限和二分策略固定；
 - Bootstrap 预计请求量在 5,000 次以内，dry-run 必须给出精确值，超限停止；
-- 日常 Raw 最多 50 个数据请求，sensor 最多 10 个轻量探测请求；
+- 日常 Raw 最多 50 个数据请求；首次 sensor probe 固定 10 个 `1min` 请求，受控重试只
+  探测唯一缺失频率，仍最多 10 个请求，不做五频率 50 请求的热路径预取；
 - sensor 最近窗口 10 日、一个 DuckDB connection、最多一个 run；
+- 重试 guard 每 tick 只允许一次按 `job_name + dagster/partition` 精确过滤的 runs 查询，
+  最多识别首次 key 加 3 个 attempt key；禁止 event/check history 扫描；
 - 禁止全历史 lake 扫描、Dagster event history 扫描和无界 Python 缓存；
 - 单日期只创建有限 staging 文件；失败清理临时文件；
 - 请求间隔、重试次数、单日期请求数和总耗时必须有预算；
@@ -609,3 +620,35 @@ fallback 生成并通过 P7D/P7E 文件验收。
 20 日 20 条 ready check，check 均指向对应分区的 latest materialization；剩余计划事件
 为 0，`should_stop=false`。P8 没有创建 Dagster run、没有运行 sensor、没有修改数据湖
 文件。P9 仍需单独启用和观察。
+
+## 23. 2026-08-12 缺频率事故与受控恢复
+
+2026-08-12 的首次 Raw run
+`1be3e95d-ec27-446d-b07c-0de4c873a681` 在 `raw_major_index_mins_5m` 失败：
+Tushare 当时对 `399001.SZ` 返回空结果。`1m/15m/30m/60m` 四个 step 已成功并通过
+core check，只有 5m 正式文件未生成。旧 sensor 只探测 10 个指数的 `1min 15:00` bar，
+无法发现 5m 尚未发布；失败后固定 run key 又阻止后续 tick 创建第二个 run。
+
+2026-08-13 00:38 的只读复核确认 10 个指数 5m 均返回 49 行，共 490 行、0 重试。随后
+按 Raw -> Silver -> Gold 顺序完成补数：
+
+| 阶段 | run id | 结果 |
+| --- | --- | --- |
+| Raw | `57b24ce4-3924-43e2-9c9b-92f7dd5b1f3c` | SUCCESS；已有四频率复用，新增 5m 490 行 |
+| Silver | `ba026401-e59d-4d0d-85c5-3df8e124090f` | SUCCESS；七频率全部覆盖 10 个指数 |
+| Gold technical/state | `75d75d69-f728-4117-90d0-34466e62aedc` | SUCCESS；七频率指标与七个 state 完整 |
+
+最终物理审计中，主要指数分钟线 Raw/Silver/Gold 全部退出 2026-08-12 缺失清单；报告为
+`/private/tmp/dg_dataset_parquet_audit_20260812_20260812T164059Z.json`。旧失败 run 保留为
+历史证据，不删除、不改写。
+
+有界自动重试已按单频率方案实现，不通过 50 次五频率探针解决。当前真实 10 代码单频率
+5m 探针耗时约 18.86 秒，因此热路径固定为一次 10 请求单频率探针；最多 3 个 retry run，
+每 tick 最多 1 个 RunRequest、1 次按 job/date 精确过滤且最多返回 4 条记录的 runs 查询。
+人工启动的非规范同分区 run 会阻断自动重试，不新增 asset、job、sensor、check、配置项、
+Lake 文件或数据库状态实体。
+
+2026-08-13 本地开发门禁已通过：Ruff 通过；主要指数分钟线全族、热路径、cursor、run key、
+静态门禁和 asset governance 合并回归为 `306 passed`，另有 `384` 个子测试通过。尚未执行
+`dg check defs`、正式 sensor tick 或真实失败重试演练；这些属于部署后的独立验收。具体
+代码级合同与测试见 LLD 第 33 节。

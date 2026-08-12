@@ -7,6 +7,7 @@ from orchestrator.defs.run_contracts.major_index_mins import (
     MAJOR_INDEX_MINS_DAILY_CODES,
     MAJOR_INDEX_MINS_PAGE_LIMIT,
     MAJOR_INDEX_MINS_SOURCE_COLUMNS,
+    normalize_major_index_mins_source_freq,
     normalize_major_index_mins_trade_date,
 )
 from orchestrator.defs.tushare_request_policy import (
@@ -18,6 +19,7 @@ from orchestrator.defs.tushare_request_policy import (
 @dataclass(frozen=True, slots=True)
 class MajorIndexMinsSourceProbeResult:
     trade_date: str
+    source_freq: str
     ready: bool
     reason_code: str
     expected_code_count: int
@@ -40,10 +42,12 @@ def probe_major_index_mins_source(
     tushare: TushareResource,
     trade_date: str,
     request_policy: TushareRequestPolicy,
+    source_freq: str = "1min",
 ) -> MajorIndexMinsSourceProbeResult:
-    """Probe one closing 1-minute bar for each continuously online index."""
+    """Probe one closing bar at one source frequency for every online index."""
 
     normalized_date = normalize_major_index_mins_trade_date(trade_date)
+    normalized_freq = normalize_major_index_mins_source_freq(source_freq)
     probe_time = f"{normalized_date} 15:00:00"
     result = execute_bounded_code_pages(
         codes=MAJOR_INDEX_MINS_DAILY_CODES,
@@ -51,7 +55,7 @@ def probe_major_index_mins_source(
             "idx_mins",
             {
                 "ts_code": code,
-                "freq": "1min",
+                "freq": normalized_freq,
                 "start_date": probe_time,
                 "end_date": probe_time,
                 "limit": MAJOR_INDEX_MINS_PAGE_LIMIT,
@@ -73,7 +77,7 @@ def probe_major_index_mins_source(
             trade_time = str(row.get("trade_time", "")).strip()
             if (
                 code != requested_code
-                or frequency != "1min"
+                or frequency != normalized_freq
                 or not trade_time.startswith(normalized_date)
                 or not trade_time.endswith("15:00:00")
             ):
@@ -98,6 +102,7 @@ def probe_major_index_mins_source(
         reason_code = "ready"
     return MajorIndexMinsSourceProbeResult(
         trade_date=normalized_date,
+        source_freq=normalized_freq,
         ready=ready,
         reason_code=reason_code,
         expected_code_count=len(expected_codes),

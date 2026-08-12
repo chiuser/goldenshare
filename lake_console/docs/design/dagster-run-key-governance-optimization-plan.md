@@ -145,6 +145,22 @@ build_repair_attempt_run_key(
 3. repair 具体执行参数必须写入 `run_config`，不得从 run key 反解析。
 4. 固定输出为 `{subject}:{repair_scope_id}:{attempt_scope}:{attempt}`；当 `attempt_scope` 为空时省略该段，输出 `{subject}:{repair_scope_id}:{attempt}`。
 
+主要指数分钟线 Raw 的缺频率恢复采用同一通用类型：首次日更仍为普通 asset-update key；
+只有按 `job_name + trade_date` 精确核验前序 run 已失败、Lake 恰好缺一个原生频率时，才生成：
+
+```python
+build_repair_attempt_run_key(
+    subject="raw_major_index_mins_update",
+    repair_scope_id=trade_date,
+    attempt_scope="retry",
+    attempt=attempt,
+)
+```
+
+其输出为 `raw_major_index_mins_update:<trade_date>:retry:<attempt>`，自动 attempt 上限为 3。
+run key 只表达重试幂等身份；缺失频率来自 Lake readiness，执行日期来自 partition key，均
+不得从 run key 反解析。
+
 ### 4.3 `build_upstream_triggered_run_key(...)`
 
 用途：下游因为上游产生新一轮结果而触发。

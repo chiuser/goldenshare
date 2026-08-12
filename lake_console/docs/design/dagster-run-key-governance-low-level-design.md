@@ -252,6 +252,13 @@ build_batch_id:
 | `index_daily:{trade_date}:{index_code}:repair:{evaluation_date}:{repair_attempt}` | `build_repair_attempt_run_key(subject="index_daily", repair_scope_id=f"{trade_date}:{index_code}:repair", attempt_scope=evaluation_date, attempt=repair_attempt)` |
 | `silver_index_daily:{trade_date}` | `build_asset_update_run_key(subject="silver_index_daily", unit_id=trade_date)` |
 | `market_major_indices_daily:{trade_date}` | `build_asset_update_run_key(subject="market_major_indices_daily", unit_id=trade_date)` |
+| `raw_major_index_mins_update:{trade_date}:retry:{attempt}` | `build_repair_attempt_run_key(subject="raw_major_index_mins_update", repair_scope_id=trade_date, attempt_scope="retry", attempt=attempt)` |
+
+主要指数分钟线首次日更仍使用
+`build_asset_update_run_key(subject="raw_major_index_mins_update", unit_id=trade_date)`。只有首次或
+前一 attempt run 已进入失败/取消终态、目标仍缺文件且恰好一个原生频率缺失时，才允许使用
+上述 retry identity；最多 3 次。attempt 来自按 job/date 精确查询得到的正式 run guard，
+不从 cursor 或 run key 反解析。
 
 ### 6.1 基础事实两阶段刷新增量口径
 

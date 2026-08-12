@@ -2669,6 +2669,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                                 in {
                                     "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py",
                                     "gold_wealth_market_turnover_sensor.py",
+                                    "major_index_mins_sensor.py",
                                 }
                             )
                         ):
@@ -5133,11 +5134,19 @@ class RunContractStaticGateTests(unittest.TestCase):
             "build_sensor_cursor",
             "build_run_request",
             "build_asset_update_run_key",
+            "build_repair_attempt_run_key",
+            "RunsFilter",
+            "MAJOR_INDEX_MINS_RAW_AUTO_RETRY_LIMIT",
             "default_status=dg.DefaultSensorStatus.STOPPED",
         ):
             self.assertIn(fragment, sensor_source)
+        self.assertIn('source_freq: str = "1min"', source_probe)
+        self.assertIn("len(missing_source_freqs) != 1", sensor_source)
+        self.assertIn("limit=len(candidate_keys)", sensor_source)
         self.assertNotIn("get_event_records", readiness_source)
         self.assertNotIn("get_event_records", sensor_source)
+        self.assertNotIn("fetch_materializations", sensor_source)
+        self.assertNotIn("get_asset_check", sensor_source)
         self.assertNotIn("prod_postgres", sensor_source)
 
     def test_major_index_mins_technical_m6_is_single_partition_fail_closed(

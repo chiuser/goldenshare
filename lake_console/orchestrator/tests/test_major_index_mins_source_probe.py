@@ -1,3 +1,5 @@
+import pytest
+
 from orchestrator.defs.asset_guards.major_index_mins_source_probe import (
     probe_major_index_mins_source,
 )
@@ -22,7 +24,7 @@ class _FakeTushare:
         exchange = "XSHG" if code.endswith(".SH") else "XSHE"
         row = {
             "ts_code": code,
-            "freq": "1min",
+            "freq": str(params["freq"]),
             "trade_time": "2026-08-04 15:00:00",
             "open": 1.0,
             "close": 1.1,
@@ -53,6 +55,7 @@ def test_probe_requests_only_ten_online_codes_once() -> None:
         request_policy=_policy(),
     )
     assert result.ready is True
+    assert result.source_freq == "1min"
     assert result.returned_code_count == 10
     assert result.request_count == 10
     assert len(tushare.calls) == 10
@@ -73,3 +76,29 @@ def test_probe_fails_closed_when_one_online_code_is_empty() -> None:
     assert result.ready is False
     assert result.reason_code == "source_probe_incomplete"
     assert result.returned_code_count == 9
+
+
+def test_probe_accepts_one_explicit_missing_source_frequency() -> None:
+    tushare = _FakeTushare()
+    result = probe_major_index_mins_source(
+        tushare=tushare,
+        trade_date="2026-08-04",
+        source_freq="5min",
+        request_policy=_policy(),
+    )
+    assert result.ready is True
+    assert result.source_freq == "5min"
+    assert result.request_count == 10
+    assert {call[1]["freq"] for call in tushare.calls} == {"5min"}
+
+
+def test_probe_rejects_unknown_source_frequency_before_request() -> None:
+    tushare = _FakeTushare()
+    with pytest.raises(ValueError, match="source frequency must be one of"):
+        probe_major_index_mins_source(
+            tushare=tushare,
+            trade_date="2026-08-04",
+            source_freq="90min",
+            request_policy=_policy(),
+        )
+    assert tushare.calls == []

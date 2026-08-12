@@ -1835,3 +1835,98 @@ post-audit
 所有 check 均绑定对应 latest materialization，`precondition_errors=[]`、
 `should_stop=false`。P8 已完成。下一阶段只剩 P9：手动启用三个 sensor，并观察至少
 3 个实际交易日；P8 完成不会自动改变 sensor 默认 STOPPED 状态。
+
+## 33. Raw 缺频率有界自动重试
+
+### 33.1 问题事实与职责边界
+
+2026-08-12 首次 Raw run 的 5m step 因 `399001.SZ` 空响应失败，另外四个频率已经成功。
+旧实现存在两个互相叠加的问题：
+
+1. `probe_major_index_mins_source()` 固定只查 `1min 15:00`，无法证明 5m/15m/30m/60m
+   已发布；
+2. Raw sensor 固定使用 `raw_major_index_mins_update:<trade_date>`，失败 run 已占用该 key，
+   后续 tick 虽然继续选择同一 Lake 缺口，却无法创建新的 run。
+
+本节只修复“目标仍缺文件且已有自动 run 失败”的恢复能力。已有正式文件但 core check
+失败仍执行原有 `materialized_check_failed` 门禁，禁止自动覆盖。Writer 的 schema、分页、
+完整 session、代码覆盖、staging 和 no-overwrite 原子提升合同不变。
+
+### 33.2 代码改动
+
+`defs/run_contracts/major_index_mins.py` 新增：
+
+```text
+MAJOR_INDEX_MINS_RAW_AUTO_RETRY_LIMIT = 3
+MAJOR_INDEX_MINS_RAW_RETRY_ATTEMPT_SCOPE = "retry"
+```
+
+`defs/asset_guards/major_index_mins_source_probe.py`：
+
+1. `probe_major_index_mins_source(..., source_freq="1min")` 接受一个显式原生频率；
+2. 仍只探测目标频率 15:00 bar 和 10 个日常指数；
+3. result/cursor 增加 `source_freq`，不保存完整代码或行；
+4. 每次调用仍使用一个共享 bounded request budget，最多 20 次请求、30 秒，正常路径 10 次；
+5. 不允许一次调用扩展为五个频率。
+
+`defs/sensors/major_index_mins_sensor.py`：
+
+1. 对 selected Raw date 只执行一次按 `job_name + dagster/partition` 精确过滤的 runs 查询，
+   limit 固定为首次 key 加 3 个 attempt key；不读取 event/check history；同分区若出现不属于
+   这 4 个规范身份的人工 run，则按身份冲突 fail closed，禁止自动重试绕过并发 run；
+2. 首次 run 仍使用 `build_asset_update_run_key(...)`，source probe 仍为 `1min`；
+3. 首次或前次 attempt 处于 `QUEUED/STARTING/STARTED/CANCELING` 时 skip，不重复提交；
+4. 前序候选 run 为 `FAILURE/CANCELED`、Lake 仍缺文件且恰好一个原生频率缺失时，探测
+   该缺失频率；ready 后使用：
+
+```python
+build_repair_attempt_run_key(
+    subject="raw_major_index_mins_update",
+    repair_scope_id=trade_date,
+    attempt_scope="retry",
+    attempt=attempt,
+)
+```
+
+5. 最多自动重试 3 次；耗尽后 `reason_code=raw_retry_exhausted`；
+6. 多于一个频率缺失、attempt 身份不连续、已有候选 SUCCESS 但文件仍缺失时 fail closed；
+7. cursor 只增加 `run_attempt`、`source_freq` 和有限计数，不写 run 列表、路径或错误报告；
+8. 每 tick 仍最多 1 个 RunRequest，Silver/Gold sensor 不变。
+
+### 33.3 性能预算
+
+| 项目 | 正常首次触发 | 单频率恢复 | 拒绝上限 |
+| --- | ---: | ---: | ---: |
+| DuckDB readiness | 最近 10 日、Raw 50 文件 | 相同 | 不扩大窗口 |
+| Lake stat | 0 个额外频率判断 | 5 个目标路径 | 固定 5 |
+| Dagster runs 查询 | 1 次精确查询 | 1 次精确查询 | 最多 4 个候选身份 |
+| Tushare probe | 10 个 1m 请求 | 10 个缺失频率请求 | 单 tick 最多 20 次含重试 |
+| RunRequest | 最多 1 | 最多 1 | 自动 retry 最多 3 次 |
+| event/check history | 0 | 0 | 禁止 |
+
+2026-08-13 对 2026-08-12 的真实 5m 只读探针为 10 请求、0 重试、490 行、
+`18,855.569ms`。若一次热路径需要探测多个缺失频率，线性放大可能越过 gRPC 预算，因此
+多频率缺失明确拒绝自动重试，不允许靠提高 timeout 或 50 请求探针绕过。
+
+### 33.4 测试与静态门禁
+
+1. source probe：默认 1min、显式 5min、错误频率、单代码空响应；每次仍为 10 个代码；
+2. Raw sensor：首次 key 不变；一次失败后生成 retry attempt 1；连续失败最多 attempt 3；
+3. active run、非规范同分区 run、retry exhausted、多频率缺失、成功 run 与缺文件冲突均不提交；
+4. retry 只探测唯一缺失频率；首次仍只探测 1min；
+5. run query 固定 job/date/limit，不允许 event/check history；
+6. cursor 小于 8KB，不包含完整 runs、代码、路径或 readiness 报告；
+7. Silver sensor、job selection、asset/check 数量、默认 sensor 状态保持不变。
+
+2026-08-13 代码与本地验证已完成。Ruff 通过；主要指数分钟线全族、bounded readiness
+热路径、cursor、run key、静态门禁和 asset governance 合并回归为 `306 passed`，另有
+`384` 个子测试通过。开发过程未执行正式 sensor tick、未创建 run、未写 Lake/Dagster DB；
+`dg check defs` 与部署后真实失败重试观察仍属于独立正式验证。
+
+### 33.5 2026-08-12 补数验收
+
+受控补数已按 Raw -> Silver -> Gold 完成。三个成功 run 分别为
+`57b24ce4-3924-43e2-9c9b-92f7dd5b1f3c`、
+`ba026401-e59d-4d0d-85c5-3df8e124090f`、
+`75d75d69-f728-4117-90d0-34466e62aedc`。Raw 五频率、Silver 七频率、Gold 七频率指标和
+七个 state 均覆盖 10 个指数，无重复业务键；最终主要指数分钟线资产族缺失数为 0。
