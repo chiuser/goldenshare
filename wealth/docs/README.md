@@ -69,6 +69,7 @@ docs/
 - [策略配置中心 v1（统一策略读取）](./system/strategy-config-center-v1.md)
 - [策略配置中心 M1 编码门禁 v1](./system/strategy-config-center-m1-coding-gate-v1.md)
 - [策略配置中心一页式接入手册 v1](./system/strategy-config-consumer-guide-v1.md)
+- [股票与主要指数详情页九转接入总方案 v1](./system/detail-page-nine-turn-integration-implementation-design-v1.md)
 
 ## 页面级文档
 

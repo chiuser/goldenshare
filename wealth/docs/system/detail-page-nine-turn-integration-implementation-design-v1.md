@@ -1,0 +1,515 @@
+# 股票与主要指数详情页九转接入总方案 v1
+
+> 状态：方案与正式 Figma 已形成评审基线，待产品评审；尚未进入 LLD 和代码开发。
+>
+> 评审基线日期：2026-08-13。
+>
+> 正式设计文件：[Goldenshare Web](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?m=dev)。
+>
+> 后续 LLD：`wealth/docs/system/detail-page-nine-turn-integration-low-level-design-v1.md`（待编写）。
+
+---
+
+## 1. 目的与结论
+
+本方案统一治理股票与主要指数详情页的日线、分钟线九转数据、接口、共享图表和页面状态，为后续 LLD 提供唯一上游合同。
+
+最终结论：
+
+1. 股票支持日线、30、60、90、120 分钟九转；股票 1、5、15 分钟不提供九转。
+2. 主要指数支持日线、5、15、30、60、90、120 分钟九转；指数 1 分钟不提供九转。
+3. 股票只使用自主计算的前复权 Gold 九转，不能用 Tushare `stk_nineturn` 或现有 `core_serving.equity_nineturn` 静默替代。
+4. 指数只支持 `majorIndices/CN_A` 配置中的 10 个主要指数。`000680.SH` 即使存在 Lake 数据也不得进入页面。
+5. 后端输出已经归一的可展示 marker；前端只绘制，不重新计算九转。
+6. 股票、指数、日线、分钟线统一复用一个 `NineTurnMarkerPrimitive` 和现有 `DetailChartWorkspace`，不复制图表引擎。
+7. 九转是客观序列标记，不生成机会、买卖、风险评级、仓位或交易计划动作。
+8. 股票 Gold 资产已存在不等于页面已接入；指数九转资产、九转 API 和页面接入当前仍未实现。
+
+## 2. 依据与事实优先级
+
+发生冲突时按以下顺序处理：
+
+1. 用户最新确认的产品口径。
+2. 本方案登记的正式 Figma 节点与视觉合同。
+3. 当前代码、正式 Lake 物理文件和当前 Dagster Definitions。
+4. 股票自主 Gold 方案、指数分钟合同和详情页现有方案。
+5. 历史 Tushare 九转文档、旧 Figma capture 和旧阶段门禁。
+
+本文使用 CodeGraph 审计了以下影响面：
+
+1. 五个股票自主九转 asset、checks、jobs、sensors、path 和 schema。
+2. 股票/指数详情的日线与分钟 API、capability 和 router。
+3. `DetailChartWorkspace` 及股票日线、股票分钟、指数日线、指数分钟四个消费者。
+4. 指数 `supportsNineTurn=false`、技术右栏占位和十指数 universe。
+
+React 动态调用边由 CodeGraph explore/import 结果和真实消费者代码补充核验。按本文边界实施不改变现有子系统依赖方向。
+
+## 3. 当前真实进度
+
+| 能力 | 当前状态 | 说明 |
+|---|---|---|
+| 股票日线自主九转 Gold | 已实现 | `gold_stock_daily_qfq_nineturn` 已注册且有正式历史文件 |
+| 股票 30/60/90/120 分钟自主九转 Gold | 已实现 | 四个资产已注册且有正式历史文件 |
+| 股票九转详情 API/页面 | 未实现 | 当前没有 Reader、DTO、HTTP endpoint 或 marker primitive |
+| 指数日线九转 Gold | 未实现 | 需要新资产 |
+| 指数 5/15/30/60/90/120 分钟九转 Gold | 未实现 | 需要六个新资产；不创建 1 分钟资产 |
+| 指数九转详情 API/页面 | 未实现 | 当前 capability 仍为 false，右栏仍是 `--` 占位 |
+| 共享图表挂载能力 | 已准备 | `DetailChartWorkspace.mainPrimitives` 可挂多个 primitive |
+| 九转正式 Figma | 本轮完成 | Loaded、Components、States 已补齐，见第 5 节 |
+
+截至 2026-08-13 的只读物理审计：股票五个自主 Gold 资产均有 3,066 个交易日分区，覆盖 2014-01-02 至 2026-08-12。Definitions 能发现五个资产和五个 blocking integrity checks。两个日常 sensor 的代码默认状态和本机实例状态仍为 `STOPPED`，因此不能把历史完整误写成每日自动更新已经投产。
+
+## 4. 产品与算法合同
+
+### 4.1 统一公式
+
+九转 v1 使用当前 bar 收盘价与前第 4 根 bar 收盘价比较：
+
+1. `close[t] > close[t-4]`：上序列连续计数。
+2. `close[t] < close[t-4]`：下序列连续计数。
+3. 相等、历史不足或方向为 0：不生成 marker。
+4. 方向切换后，新方向从 1 开始。
+5. 只使用当前及历史 bar，不读取未来数据，不重绘历史结果。
+
+股票价格唯一使用 `close_qfq`。指数没有复权概念，日线使用正式指数日线 close，分钟使用主要指数 Silver 同频 close。
+
+### 4.2 数据计数与页面标记
+
+数据资产保留真实累计计数，允许出现 10、11 以及更大值；页面只显示 1 至 9：
+
+| 数据计数 | 页面 marker |
+|---:|---|
+| 0 / null | 不绘制 |
+| 1～8 | 绘制普通序号 |
+| 9 | 绘制带方向色描边的完成态 9 |
+| 10 及以上 | 不继续绘制，也不重新从 1 开始 |
+
+这是强制展示映射。不能依据 `nine_up_turn/nine_down_turn` 非空直接重复绘制 9；2026-08-12 股票日线正式文件已有 1,018 行累计计数大于 9，真实数据已经证明该误用风险。
+
+### 4.3 支持矩阵
+
+| 对象 | 日线 | 1 分 | 5 分 | 15 分 | 30 分 | 60 分 | 90 分 | 120 分 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 股票 | 支持 | 不提供 | 不提供 | 不提供 | 支持 | 支持 | 支持 | 支持 |
+| 主要指数 | 支持 | 不提供 | 支持 | 支持 | 支持 | 支持 | 支持 | 支持 |
+
+不提供的周期仍可按现有能力展示 K 线，但九转状态为 `UNSUPPORTED`，不发起九转请求，不显示伪造的 `--` marker。
+
+### 4.4 指数对象池和北证50
+
+指数九转的唯一页面对象池是运行时 `majorIndices/CN_A` 的 10 个代码：
+
+```text
+000001.SH  399001.SZ  399006.SZ  000688.SH  000300.SH
+000905.SH  000852.SH  899050.BJ  000510.SH  000016.SH
+```
+
+约束：
+
+1. 数据资产可以有自己的源范围，但 HTTP 接口必须再次执行页面十指数 allowlist。
+2. `000680.SH` 不属于页面对象池，必须返回 404，不能因 Lake 有数据而绕过配置。
+3. `899050.BJ` 日线九转可以建设；当前主要指数分钟 Silver 明确排除该代码，因此分钟九转返回局部 `EMPTY/SOURCE_NOT_READY`。
+4. 北证50分钟不得用日线、其它指数、旧 Lake 或第三方数据补造。
+
+这里必须区分两层 universe：
+
+1. Orchestrator 当前 `major_indices.cn_a.csv` 是 11 个物理代码，额外包含 `000680.SH`；这是主要指数日线、分钟和技术资产已在使用的计算范围。
+2. Wealth `majorIndices/CN_A` 是 10 个产品代码，不含 `000680.SH`；这是详情 API 唯一开放范围。
+3. 本专项不修改既有 11-code 物理 seed，避免无审计地改变其它主要指数资产；指数九转资产可沿用物理范围计算，但 API 必须按运行时 10-code 配置投影。
+4. 若未来要求物理层也只保留 10 个，必须另立影响面审计，不能在九转 LLD 中静默裁掉第 11 个。
+
+## 5. 正式 Figma 评审合同
+
+### 5.1 页面与新增节点
+
+| 页面 | 节点 | 用途 |
+|---|---|---|
+| 06 Stock Detail - Desktop Loaded | page `345:2`、root `345:3` | 股票日线九转 READY 主画板 |
+| 同页交付说明 | `630:602` | 股票支持/禁用周期、局部故障与交互口径 |
+| 06.5 Stock Detail - Components | page `358:2` | 股票详情组件页 |
+| 共享 marker component set | `406:10` | 唯一九转标记组件；四 variant 为 `406:2/4/6/8` |
+| 股票九转组件合同 | `629:516` | 1～9 映射、周期矩阵、几何、状态合同 |
+| 07 Stock Detail - States | page `385:2` | 股票状态页 |
+| 股票九转局部状态矩阵 | `631:516` | READY/LOADING/EMPTY/ERROR/PARTIAL/FORBIDDEN/UNSUPPORTED |
+| 08 Index Detail - Desktop Loaded | page `412:2` | 指数三个 Loaded Tab 的正式页面 |
+| Basic / Weights / Technical | `417:2` / `423:2` / `423:910` | 三个 1600×1200 主画板；Weights/Technical 已从 Cover 归位 |
+| 指数 Loaded 交付说明 | `632:728` | 支持周期、指数范围、北证50、趋势通道共存 |
+| 08.5 Index Detail - Components | page `412:3` | 指数组件页 |
+| 指数九转组件与右栏合同 | `633:545` | 复用共享 marker、周期矩阵、Technical 摘要 |
+| 09 Index Detail - States and Interaction Notes | page `412:4` | 指数状态页 |
+| 指数九转局部状态矩阵 | `634:558` | 含 SOURCE EMPTY 的完整模块状态 |
+
+### 5.2 视觉与几何
+
+1. marker 固定为 18×18；普通 1～8 使用中性数字样式，第 9 根使用方向色数字和 1px 描边、2px 圆角。
+2. 上序列 marker 锚定对应 K 线最高价上方 8px；下序列锚定最低价下方 8px。8px 是屏幕像素，不随价格轴缩放。
+3. marker 不参与 price autoscale，不得为了容纳 marker 改变 K 线价格范围。
+4. marker 位于图表绝对坐标绘图区；页面骨架、工具栏、右栏和状态卡继续使用流式布局。
+5. 图层顺序固定为：Tooltip/十字线 > K 线 > 九转 > 趋势通道 > 网格。
+6. 九转不增加独立 Tooltip、点击态或交易动作；缩放、拖拽和默认 120 根窗口变化时按时间键贴附。
+7. 上证指数日线的趋势通道和九转可以同时存在，二者都不得遮挡 K 线、坐标轴或 Tooltip。
+
+### 5.3 指数技术右栏
+
+指数 Technical Tab 可展示日线、60 分钟、30 分钟三个周期的最新客观九转摘要：
+
+```text
+上序 9 / 下序 6 / 上序 3
+```
+
+Figma 中的数值只作 Loaded 视觉 fixture，不能成为接口或测试金标。真实摘要取对应周期最新 bar：计数 1～9 显示方向与序号；计数 0、10 以上、无数据或不可用显示 `--`。摘要不解释为买卖信号。
+
+股票详情本轮不增加右栏 Tab，九转只进入共享图表。
+
+## 6. 数据资产方案
+
+### 6.1 股票：复用现有自主 Gold
+
+正式资产：
+
+```text
+gold_stock_daily_qfq_nineturn
+gold_stk_mins_qfq_nineturn_30m
+gold_stk_mins_qfq_nineturn_60m
+gold_stk_mins_qfq_nineturn_90m
+gold_stk_mins_qfq_nineturn_120m
+```
+
+正式路径：
+
+```text
+gold/indicator/stock_daily_qfq_nineturn/trade_date=<date>/part-000.parquet
+gold/indicator/stk_mins_qfq_nineturn/freq=<freq>/trade_date=<date>/part-000.parquet
+```
+
+页面接入不修改已稳定的资产公式。LLD 前必须处理一个物理合同门禁：分钟 Parquet 的 `freq` 被 DuckDB 识别为 `BIGINT`，当前声明合同为 `INTEGER`。必须在 writer/合同层统一，Web Reader 不得自行宽松猜测。
+
+### 6.2 指数：新建七个资产
+
+建议新资产：
+
+```text
+gold_major_index_daily_nineturn
+gold_major_index_mins_nineturn_5m
+gold_major_index_mins_nineturn_15m
+gold_major_index_mins_nineturn_30m
+gold_major_index_mins_nineturn_60m
+gold_major_index_mins_nineturn_90m
+gold_major_index_mins_nineturn_120m
+```
+
+不创建 1 分钟九转资产。日线上游使用正式指数日线因子/行情事实；分钟上游使用对应 `silver_major_index_mins_<freq>m`。指数资产必须独立形成方案与 LLD，冻结路径、schema、source key、十指数投影、check、历史构建、readiness、性能和自动化。
+
+指数资产建议输出与股票自主 Gold 同构的核心语义：
+
+```text
+ts_code, trade_date, [freq, trade_time], close,
+up_count, down_count, nine_up_turn, nine_down_turn
+```
+
+公式版本、lag 和 threshold 放在 asset definition/materialization metadata 与 API meta，不在每行重复存储。页面 API 仍只消费计数并归一 marker，不直接使用持续 `+9/-9` 字段绘图。
+
+### 6.3 旧 Tushare 九转隔离
+
+`raw_tushare_stk_nineturn`、`silver_stock_nineturn_daily` 与 `core_serving.equity_nineturn` 是 Tushare 源站事实链。生产只读审计确认 `core_serving.equity_nineturn` 是直接读取 `raw_tushare.stk_nineturn` 的普通 view，不是自主 QFQ 物理表。它们只可用于离线对照，不能作为自主前复权九转的生产输入或页面 fallback。两种语义必须在代码、表、DTO、监控和文档中彻底分离；禁止改写旧 view 语义或建立兼容 union view。
+
+## 7. 服务与 API 边界
+
+### 7.1 子系统职责
+
+```text
+Dagster/Orchestrator -> 计算并发布版本化九转事实
+Foundation           -> 只读正式 Lake 或正式 serving，不理解页面状态
+Biz                  -> universe、查询、时间键对齐、marker DTO 和数据状态
+App                  -> 鉴权与 local/prod 条件路由装配
+Wealth               -> 请求、缓存、状态和共享 primitive
+```
+
+依赖方向保持 `foundation <- biz <- app`；Wealth 只消费 HTTP。禁止生产代码 import orchestrator，禁止业务 API 读取旧 Lake 或 `_staging`。
+
+### 7.2 独立接口
+
+LLD 应冻结四个独立查询入口：
+
+```http
+GET /api/v1/wealth/market/stock-detail/nine-turn
+GET /api/v1/wealth/market/stock-detail/minute-nine-turn
+GET /api/v1/wealth/market/index-detail/nine-turn
+GET /api/v1/wealth/market/index-detail/minute-nine-turn
+```
+
+为什么不塞入 Kline 或 `minute-indicators`：
+
+1. 九转有独立数据就绪、权限、空值和错误状态。
+2. K 线必须先显示，九转失败不能阻塞 bars。
+3. 支持周期与 MA/BOLL/MACD/KDJ 不同。
+4. 独立缓存和局部重试可避免重新请求大 K 线 payload。
+
+LLD 可以在保持四个产品入口语义的前提下评估是否共享 schema/service 内核，但不得把股票/指数或日线/分钟的路由环境边界混在一起。
+
+### 7.3 冻结 DTO 方向
+
+后续 LLD 至少定义：
+
+```ts
+interface NineTurnMarkerDto {
+  tradeDate: string;
+  tradeTime: string | null;
+  direction: "UP" | "DOWN";
+  sequenceNumber: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+  completed: boolean;
+}
+
+interface NineTurnSeriesDto {
+  subjectType: "stock" | "index";
+  tsCode: string;
+  period: "day" | "5" | "15" | "30" | "60" | "90" | "120";
+  markers: NineTurnMarkerDto[];
+  dataStatus: NineTurnDataStatusDto;
+  meta: NineTurnMetaDto;
+}
+```
+
+硬约束：
+
+1. marker 时间键必须与 K 线 bar 一一对齐，返回时间升序。
+2. 日线 `tradeTime=null`；分钟时间统一按 Asia/Shanghai 解释和输出。
+3. API 不返回 count 10 以上的 marker；debug/meta 可以保留源累计计数统计，但不能让前端重新映射。
+4. 严格拒绝未知/重复参数；cursor 必须绑定 subject、code、period 和日期窗口。
+5. DTO 使用 required + nullable，不能用 `--`、0 或 `any` 代替缺失。
+
+### 7.4 本地与生产
+
+1. 分钟九转严格跟随现有分钟 capability：只在 `APP_ENV=dev|local`、本地分钟开关、正式 Lake 根和 DuckDB 条件同时满足时挂路由。
+2. 生产环境不 import 分钟 Reader，分钟九转 endpoint 必须 404。
+3. 日线目标是正式生产可用。自主 Gold 当前位于正式 Lake，而生产 Web 不能直接读取本机 Lake；本轮已完成专项架构审计，并冻结为下述 PostgreSQL serving 路径。LLD 负责复核表结构、迁移 head、权限、发布编排和回读门禁。
+4. 禁止生产 Web 直接挂载开发机本地 Lake，也禁止以现有 Tushare `core_serving.equity_nineturn` 代替自主结果。
+
+生产日线 serving 冻结为 PostgreSQL 路径，复用仓库已经存在的“Gold -> 独立 prod serving asset -> 事务内按交易日替换 -> read-back 校验”边界，而不是让 Gold asset 自身直接写生产库。参考模式为 `prod_core_wealth_market_turnover`。详情页查询是固定代码、小日期范围、低延迟有序读取，与当前股票/指数日 K 的 PostgreSQL 查询形态一致；本期不增加 ClickHouse 跳转。未来如建设全市场九转筛选，可另建 ClickHouse 查询副本，但 Gold Parquet 仍是唯一事实源。
+
+建议新建两张物理表：
+
+```text
+core_serving.equity_qfq_nineturn_daily
+core_serving.index_nineturn_daily
+```
+
+股票表字段：
+
+```text
+ts_code, trade_date, close_qfq,
+up_count, down_count, nine_up_turn, nine_down_turn,
+formula_version, published_at
+```
+
+指数表使用 `close` 替代 `close_qfq`。两表主键均为 `(ts_code, trade_date)`，另建 `(trade_date, ts_code)` 索引服务单日发布、read-back 和 freshness 审计。股票和指数不混表：二者价格口径、对象池、历史构建和异常状态不同；daily 表不保存无意义的 nullable `freq`，也不复制 OHLC、量额。
+
+建议 serving assets：
+
+```text
+prod_core_stock_daily_qfq_nineturn
+prod_core_index_daily_nineturn
+```
+
+每个 serving asset 先验证 Gold schema、分区日期、唯一键和公式版本，再在单一 PostgreSQL 事务中删除目标 `trade_date`、批量写入完整新分区、read-back 行数/键集合/内容 hash；任一差异 rollback。股票单日约 5,500 行，应使用 PostgreSQL COPY 或受控批量 values，禁止 Python 单行循环；历史千万级发布必须使用独立有界批处理、断点和全量对账，不能伪装成普通日常 backfill。
+
+两张表当前不存在，需要新增 Alembic migration 和 Foundation model，并给现有 prod serving 写入角色仅增加两表 DML 白名单。2026-08-13 审计时本地与生产 Alembic head 均为 `20260812_000133`；真正创建 migration 前必须重新检查当前真实 head，`down_revision` 不得长期照抄本次快照。
+
+## 8. 前端与共享图表设计
+
+### 8.1 目标结构
+
+```text
+wealth/src/shared/charts/detail-workspace/
+  NineTurnMarkerPrimitive.ts
+  nineTurnMarkerGeometry.ts
+  nineTurnMarkerTypes.ts
+
+wealth/src/features/stock-detail/nine-turn/
+  api/  model/  controller/
+
+wealth/src/features/index-detail/nine-turn/
+  api/  model/  controller/
+```
+
+四个 chart adapter 只把归一 marker 作为 `mainPrimitives` 传给 shared workspace。指数日线可同时传趋势通道 primitive 与九转 primitive；shared workspace 不理解股票、指数或算法公式。
+
+### 8.2 请求、缓存与竞态
+
+缓存键固定包含：
+
+```text
+subjectType + tsCode + period + startDate + endDate
+```
+
+切换股票/指数、代码、周期或窗口时：
+
+1. 使用 `AbortController` 取消旧请求。
+2. 使用递增 request id 防止已返回的旧响应覆盖新页面。
+3. K 线和九转缓存独立；九转局部重试不重复请求 K 线。
+4. 切指数右栏 Tab 不重新请求九转，不重置缩放和滚动位置。
+5. `dataKey` 仍由现有 shared viewport 控制；九转图层变化不能把默认 120 根窗口重置。
+
+### 8.3 状态机
+
+| 九转状态 | 页面行为 |
+|---|---|
+| IDLE | 支持周期尚未触发请求；不显示占位 marker |
+| LOADING | 已有 K 线立即显示；九转仅用轻量局部骨架 |
+| READY | 绘制所有已对齐的 1～9 marker |
+| EMPTY | 窗口内没有可显示 marker；不报错 |
+| PARTIAL | 只绘制确认对齐的 marker，并显示局部缺失提示 |
+| ERROR | 保留 K 线和其它指标，九转显示局部重试 |
+| FORBIDDEN | 只隐藏九转并显示权限提示，不升级整页 403 |
+| UNSUPPORTED | 禁用且不请求；指数 1 分钟、股票 1/5/15 分钟 |
+| SOURCE_EMPTY | 北证50分钟等上游 K 线源不覆盖；不得补造 |
+
+整页 Loading/Empty/Error/Forbidden 继续复用现有页面骨架；只有整页主数据失败时才进入整页状态。九转自身失败不能清空 K 线、趋势通道、MA/BOLL、MACD、成交量、KDJ 或右栏其它数据。
+
+## 9. 异常与安全口径
+
+异常码在 LLD 阶段统一登记到 `wealth/docs/system/exception-code-registry.md`，建议前缀：
+
+| 候选码 | 语义 |
+|---|---|
+| `NT_REQUEST_INVALID` | 参数、limit、cursor、日期窗口非法 |
+| `NT_NOT_FOUND` | 股票/指数不在允许对象池 |
+| `NT_SOURCE_NOT_READY` | 正式源尚未覆盖请求窗口 |
+| `NT_SOURCE_CONTRACT_INVALID` | schema、类型、路径、代码、周期或时间键违约 |
+| `NT_ALIGNMENT_PARTIAL` | 部分 marker 无法与同窗口 bar 一一对齐 |
+| `NT_QUERY_FAILED` | Reader/SQL/IO/映射失败 |
+
+本方案只冻结语义，不提前登记为 active；LLD 必须核对股票、指数、日线、分钟是否需要不同模块前缀，避免一个异常码承担两个不同恢复动作。
+
+安全门禁：
+
+1. Reader 只允许固定正式相对路径，不读取 `_staging`、technical state、旧 Lake 或任意用户路径。
+2. 固定字段投影，不使用 `SELECT *`，不逐行 Python 扫描全历史。
+3. 先按日期分区裁剪，再集合查询；限制最大文件数、响应大小和日期窗口。
+4. 禁止 materialize、backfill、sensor、runless event 或 Lake 写操作混入 Web 查询路径。
+5. 所有正式验收以只读方式执行。
+
+## 10. 性能与数据门禁
+
+LLD 必须给出可执行预算，至少覆盖：
+
+1. 默认查询 500 个 marker 候选范围，单接口 P95 目标不高于 1.5 秒，硬门禁不高于 5 秒。
+2. 查询只扫描必要日期分区，不随全历史增长线性退化。
+3. marker primitive 单次 render 只处理当前可见范围，不因历史 marker 总量增加而每帧全量绘制。
+4. 切周期、缩放、拖拽不创建新 chart、不重建 K 线 series、不重新请求相同缓存键。
+5. 上证趋势通道与九转双 primitive 同时启用时，交互和绘制仍满足现有图表性能门禁。
+
+数据门禁：
+
+1. 股票日线和 30/60/90/120 分钟正向；股票 1/5/15 分钟负向。
+2. 指数日线和 5/15/30/60/90/120 分钟正向；指数 1 分钟负向。
+3. 覆盖计数 0、1～9、10+、相等、UP→DOWN、DOWN→UP、跨日、跨年、历史不足、重复时间键、源/目标身份错配。
+4. `000680.SH` 接口拒绝；`899050.BJ` 分钟局部 EMPTY。
+5. 股票分钟 `freq` 物理类型与声明合同统一后才允许严格 Reader 上线。
+
+## 11. 测试与视觉验收
+
+### 11.1 数据资产
+
+1. 公式 golden：相等清零、方向切换、计数超过 9、跨日/跨年、缺少前 4 根。
+2. schema/path/writer：唯一键、空键、重复键、错误代码/频率、validate-then-promote。
+3. checks/readiness：失败关闭、窗口有界、source key 覆盖、不得在 check 中重算公式。
+4. 指数 7 个新资产的 Definitions、catalog、job、sensor 和性能测试。
+
+### 11.2 API
+
+1. allowlist、严格参数、分页/cursor、防篡改、时间升序和 bar 时间键对齐。
+2. `SOURCE_NOT_READY/CONTRACT_INVALID/ALIGNMENT_PARTIAL/QUERY_FAILED` 与认证矩阵。
+3. 九转失败不影响 K 线、分钟技术指标或趋势通道响应。
+4. local/prod router 矩阵；生产分钟 endpoint 404。
+
+### 11.3 前端与共享图表
+
+1. 只渲染 1～9；10+ 绝不重复画 9。
+2. 不支持周期禁用且网络请求数为 0。
+3. 快速切 code/period 时旧响应不串标；缓存键完整。
+4. 局部 loading/empty/error/partial/forbidden/unsupported/source-empty。
+5. 上证日线趋势通道与九转双 primitive；marker 不影响 autoscale。
+6. 缩放、拖拽、默认 120 根和图层切换不重置，日线/分钟时间键正确。
+
+### 11.4 浏览器与像素
+
+1. 股票日线、股票 30/60/90/120 分钟；指数日线、指数 5/15/30/60/90/120 分钟。
+2. 北证50分钟 SOURCE EMPTY；指数 1 分钟和股票 1/5/15 分钟 UNSUPPORTED。
+3. 1600×1200 页面骨架、右栏、工具栏、图表绘图区相对现有基线偏差不超过 2px。
+4. 无新增换行、裁剪、重叠、横向溢出或坐标轴位移。
+5. marker 在极值、密集序列和缩放边界仍保持固定像素间距且不被裁剪。
+
+现有相关基线已只读实跑 98 项通过，另有 14 个子测试通过；该结果只证明可复用基线稳定，不代表九转详情接入已完成。
+
+## 12. 分阶段实施顺序
+
+| 阶段 | 工作 | 退出条件 |
+|---|---|---|
+| M0（本轮） | 固化产品合同、补齐正式 Figma、形成总方案评审基线 | 六个正式 Figma 页面与本文一致；产品评审通过后冻结；未进入代码 |
+| M1 | 编写 LLD；细化并复核已冻结的生产 serving；冻结 DTO、异常码、Reader、缓存和物理合同 | 数据源、生产访问路径、代码落点和测试矩阵可直接编码 |
+| M2 | 股票查询与 shared primitive：Reader/API/正式日线 serving/共享几何 | API 与 K 线对齐；primitive 不影响 autoscale；股票不支持周期有负向测试 |
+| M3 | 股票详情接入日线和四个分钟周期 | 股票 1/5/15 零请求；五支持周期、缩放、竞态和局部故障全部通过 |
+| M4 | 新建指数日线和六个分钟九转资产及查询 API | 7 assets/checks 被 Definitions 发现；历史覆盖、对齐、性能通过；1 分钟无资产 |
+| M5 | 指数图表和 Technical 摘要接入 | 十指数、北证50空态、趋势双 primitive、右栏摘要和竞态通过 |
+| M6 | 日常自动化、全链路验收与最终发布 | 生产日线、本地分钟、生产分钟 404、freshness、性能和视觉验收全部通过 |
+
+先做股票纵向切片，因为正式资产已经存在，可以先验证 API、共享 primitive 和产品映射；指数数据资产随后建设，避免把数据生产问题与 UI 机制混在同一阶段。
+
+正式 Lake 写入、历史 backfill、runless event 和 sensor 启用仍须按各阶段单独审批，不能因本文批准而自动获得执行授权。
+
+## 13. LLD 必须解决的问题
+
+后续 LLD 不能跳过：
+
+1. 复核两张新 serving 表的最终 schema、当前 Alembic head、角色权限、发布 job/sensor、read-back 门禁和历史同步方式。
+2. 股票分钟 `freq BIGINT` 与合同 `INTEGER` 的统一方式。
+3. 指数七个资产的上游、路径、schema、代码池投影、check、job、sensor 和历史构建。
+4. 四个 endpoint 的最终路径、严格参数、分页、DTO、异常码和认证。
+5. 日线与分钟 Reader 的日期裁剪、文件上限、响应上限和性能预算。
+6. `NineTurnMarkerPrimitive` 的像素几何、visible range、autoscale、裁剪和双 primitive 生命周期。
+7. 四类页面 controller 的缓存、取消、request id、状态优先级和右栏摘要。
+8. 生产/本地 capability 单一判定，禁止页面可点但路由不存在。
+9. 股票与指数日常 sensor 的启用、自然触发观察和发布新鲜度门禁。
+10. Orchestrator 11-code 物理 universe 与 Wealth 10-code 产品 universe 的投影和负向测试。
+
+上述问题未完成前，不进入编码。
+
+## 14. 非目标
+
+本专项不做：
+
+1. 股票 1/5/15 分钟九转和指数 1 分钟九转。
+2. 周 K、月 K 九转。
+3. 九转买卖建议、多周期共振、机会筛选、技术结论或交易计划联动。
+4. 修改已稳定的股票自主 Gold 公式。
+5. 复用或改造 Tushare `stk_nineturn` 作为产品事实。
+6. 让前端从 K 线计算或补齐九转。
+7. 生产分钟路由开放。
+8. 与本专项无关的详情页重构或视觉改版。
+
+## 15. 风险与发布门禁
+
+| 风险 | 门禁 |
+|---|---|
+| 直接按持续 `+9/-9` 字段画图，10+ 重复出现 9 | DTO 只生成 1～9 marker，并用正式 10+ 样本测试 |
+| 自主 Gold 与 Tushare 九转混用 | 独立路径、表、DTO、监控；禁止 fallback |
+| 正式 Lake 有数据但生产 Web 不可访问 | M1 按已冻结的 PostgreSQL serving 发布链细化、实现并验收后才开放生产日线 |
+| 历史文件齐全但每日不更新 | sensor/readiness/自然触发验收进入 M5 发布门禁 |
+| 指数 Lake 额外代码泄漏到页面 | API 每次按 `majorIndices` allowlist 校验 |
+| 北证50分钟被补造 | 固定 SOURCE EMPTY 测试与可见局部状态 |
+| 九转失败清空 K 线 | 独立 endpoint、controller 和局部状态测试 |
+| marker 改变纵轴或缩放跳回默认 | primitive autoscale 空贡献、`dataKey`/range 回归 |
+| 文档早于代码漂移 | 本轮只新增总方案和入口回链；API/异常码在 LLD 冻结后再更新 |
+
+## 16. 文档治理
+
+本方案是九转详情接入专项的上游事实源。历史文档中“九转不在本期、显示 `--`、supportsNineTurn=false”描述的是九转立项前已经完成的阶段，不追溯性改写为错误；后续实现必须引用本文和新 LLD，而不能继续把旧阶段占位当作目标状态。
+
+LLD 阶段再同步：异常码注册表、共享组件基线、独立 API 合同、index page-init capability 版本和分钟合同。代码完成后再更新页面旧实施方案、coding gate、Figma 验收台账以及 Dagster topology/run-contract 文档。
+
+## 17. 版本记录
+
+| 版本 | 日期 | 变更摘要 | 负责人 |
+|---|---|---|---|
+| v1 | 2026-08-13 | 基于当前代码、CodeGraph、正式 Lake、Definitions 与六个正式 Figma 页面形成股票/指数日线与分钟九转总方案评审基线 | Codex |

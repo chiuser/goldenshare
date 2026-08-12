@@ -11,6 +11,9 @@
 3. [股票详情页真实 API 对接方案 v1](/Users/congming/github/goldenshare/wealth/docs/pages/stock-detail/stock-detail-real-api-stk-factor-pro-integration-plan-v1.html)
 4. [stk_factor_pro 数据覆盖审计 v1](/Users/congming/github/goldenshare/wealth/docs/pages/stock-detail/stk-factor-pro-data-coverage-audit-v1.md)
 5. [Showcase：stock-detail-v1.4.3.html](/Users/congming/github/goldenshare/wealth/docs/update/stock-detail-v1.4.3.html)
+6. [股票与主要指数详情页九转接入总方案 v1](../../system/detail-page-nine-turn-integration-implementation-design-v1.md)
+
+> 九转专项说明：本文描述的是股票详情真实日频 API 首期边界，其中“分钟线不覆盖”等条目是当时阶段事实。后续九转产品合同、正式 Figma、支持周期、独立 API、共享图层和实施顺序统一以九转总方案及其后续 LLD 为准；在新专项完成前，不将历史文档改写成已接入。
 
 ---
 
