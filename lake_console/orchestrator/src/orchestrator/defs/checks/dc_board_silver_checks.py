@@ -308,7 +308,7 @@ def silver_dc_daily_core_check(
         key_columns=SILVER_DC_DAILY_QUALITY.key_columns,
         identity_condition=SILVER_DC_DAILY_QUALITY.identity_condition,
         numeric_condition=SILVER_DC_DAILY_QUALITY.numeric_condition,
-        relation_mode="daily_equals_index",
+        relation_mode="index_subset_daily",
     )
 
 

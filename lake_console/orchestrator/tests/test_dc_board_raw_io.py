@@ -122,10 +122,14 @@ def _test_policy():
 def _write_daily_index_baseline(root: Path, codes: tuple[str, ...]) -> None:
     path = raw_dc_index_path(root, _TRADE_DATE)
     path.parent.mkdir(parents=True, exist_ok=True)
-    values = ", ".join(f"('{code}')" for code in codes)
+    categories = ("行业板块", "概念板块", "地域板块")
+    values = ", ".join(
+        f"('{code}', '{categories[index % len(categories)]}')"
+        for index, code in enumerate(codes)
+    )
     with duckdb.connect(":memory:") as connection:
         connection.execute(
-            f"COPY (SELECT * FROM (VALUES {values}) AS t(ts_code)) TO ? (FORMAT PARQUET)",
+            f"COPY (SELECT * FROM (VALUES {values}) AS t(ts_code, idx_type)) TO ? (FORMAT PARQUET)",
             [str(path)],
         )
 
@@ -179,7 +183,7 @@ class DcBoardRawIoTests(unittest.TestCase):
                 )
             self.assertFalse((Path(temp_dir) / "raw/board/dc_index").exists())
 
-    def test_daily_requires_tushare_raw_index_and_prod_identity_to_agree(self):
+    def test_daily_rejects_same_day_index_code_missing_from_source(self):
         reference = _reference()
         with tempfile.TemporaryDirectory() as temp_dir, patch(
             "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_reference",
@@ -196,6 +200,47 @@ class DcBoardRawIoTests(unittest.TestCase):
                     partition_key=_TRADE_DATE,
                     policy=_test_policy(),
                 )
+
+    def test_daily_allows_source_code_beyond_same_day_index(self):
+        index_identity = (
+            ("行业板块", "BK0001.DC"),
+            ("概念板块", "BK0002.DC"),
+            ("地域板块", "BK0003.DC"),
+        )
+        daily_identity = (*index_identity, ("行业板块", "BK0004.DC"))
+        reference = build_dc_board_prod_reference_snapshot(
+            trade_date=_TRADE_DATE,
+            index_identity=index_identity,
+            daily_identity=daily_identity,
+            member_codes=("BK0001.DC", "BK0002.DC", "BK0003.DC"),
+            member_row_count=3,
+        )
+
+        def response(api_name, params, _fields):
+            assert api_name == "dc_daily"
+            if params["offset"]:
+                return []
+            return [_daily_row(category, code) for category, code in daily_identity]
+
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_reference",
+            return_value=reference,
+        ):
+            root = Path(temp_dir)
+            _write_daily_index_baseline(
+                root,
+                ("BK0001.DC", "BK0002.DC", "BK0003.DC"),
+            )
+            result = write_dc_daily_partition(
+                lake_root_path=root,
+                duckdb_resource=_MemoryDuckDB(),
+                tushare=_FakeTushare(response),
+                prod_postgres=object(),
+                partition_key=_TRADE_DATE,
+                policy=_test_policy(),
+            )
+
+        self.assertEqual(result.written_row_count, 4)
 
     def test_member_pair_difference_blocks_target_promotion(self):
         reference = _reference(("BK0001.DC", "BK0002.DC"))

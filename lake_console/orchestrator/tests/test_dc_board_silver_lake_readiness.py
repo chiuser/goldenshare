@@ -30,7 +30,14 @@ class _MemoryDuckDB:
         return _Context()
 
 
-def _write_silver(path: Path, dataset: str, *, invalid: bool = False, empty: bool = False) -> None:
+def _write_silver(
+    path: Path,
+    dataset: str,
+    *,
+    invalid: bool = False,
+    empty: bool = False,
+    ts_code: str = "BK0001.DC",
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     connection = duckdb.connect(":memory:")
     if dataset == "dc_index":
@@ -51,7 +58,7 @@ def _write_silver(path: Path, dataset: str, *, invalid: bool = False, empty: boo
                 '行业板块'::VARCHAR AS idx_type,
                 'L1'::VARCHAR AS level
             """,
-            ["BAD" if invalid else "BK0001.DC"],
+            ["BAD" if invalid else ts_code],
         )
         target = path
     elif dataset == "dc_member":
@@ -70,7 +77,7 @@ def _write_silver(path: Path, dataset: str, *, invalid: bool = False, empty: boo
         connection.execute(
             """
             CREATE TABLE source AS SELECT
-                'BK0001.DC'::VARCHAR AS ts_code,
+                CAST(? AS VARCHAR) AS ts_code,
                 DATE '2026-07-14' AS trade_date,
                 10.0::DOUBLE AS close,
                 9.0::DOUBLE AS open,
@@ -83,7 +90,8 @@ def _write_silver(path: Path, dataset: str, *, invalid: bool = False, empty: boo
                 3.0::DOUBLE AS swing,
                 2.0::DOUBLE AS turnover_rate,
                 '行业板块'::VARCHAR AS category
-            """
+            """,
+            [ts_code],
         )
         if invalid:
             connection.execute("UPDATE source SET category = '未知分类'")
@@ -91,6 +99,27 @@ def _write_silver(path: Path, dataset: str, *, invalid: bool = False, empty: boo
     if empty:
         connection.execute("DELETE FROM source")
     connection.execute(f"COPY source TO '{target}' (FORMAT PARQUET)")
+    connection.close()
+
+
+def _write_silver_daily_codes(path: Path, codes: tuple[str, ...]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = duckdb.connect(":memory:")
+    connection.execute(
+        """
+        CREATE TABLE source (
+            ts_code VARCHAR, trade_date DATE, close DOUBLE, open DOUBLE,
+            high DOUBLE, low DOUBLE, change DOUBLE, pct_change DOUBLE,
+            vol DOUBLE, amount DOUBLE, swing DOUBLE, turnover_rate DOUBLE,
+            category VARCHAR
+        )
+        """
+    )
+    connection.executemany(
+        "INSERT INTO source VALUES (?, DATE '2026-07-14', 10, 9, 11, 8, 1, 10, 100, 1000, 3, 2, '行业板块')",
+        [(code,) for code in codes],
+    )
+    connection.execute(f"COPY source TO '{path}' (FORMAT PARQUET)")
     connection.close()
 
 
@@ -201,3 +230,50 @@ def test_unknown_date_fails_closed() -> None:
     connection.close()
     assert status.ready is False
     assert status.reason == "unknown_trade_date"
+
+
+def test_silver_daily_readiness_allows_codes_beyond_same_day_index(tmp_path) -> None:
+    root = Path(tmp_path)
+    trade_date = "2026-07-14"
+    _write_silver(silver_dc_index_path(root, trade_date), "dc_index")
+    _write_silver_daily_codes(
+        silver_dc_daily_path(root, trade_date),
+        ("BK0001.DC", "BK0002.DC"),
+    )
+
+    with _MemoryDuckDB().connect() as connection:
+        batch = batch_silver_dc_daily_lake_readiness(
+            connection=connection,
+            lake_root=root,
+            expected_trade_dates=(trade_date,),
+            registered_trade_days=(trade_date,),
+        )
+
+    assert batch.status_for_trade_date(trade_date).ready is True
+
+
+def test_silver_daily_readiness_rejects_index_code_missing_from_daily(tmp_path) -> None:
+    root = Path(tmp_path)
+    trade_date = "2026-07-14"
+    _write_silver(
+        silver_dc_index_path(root, trade_date),
+        "dc_index",
+        ts_code="BK9999.DC",
+    )
+    _write_silver_daily_codes(
+        silver_dc_daily_path(root, trade_date),
+        ("BK0001.DC", "BK0002.DC"),
+    )
+
+    with _MemoryDuckDB().connect() as connection:
+        batch = batch_silver_dc_daily_lake_readiness(
+            connection=connection,
+            lake_root=root,
+            expected_trade_dates=(trade_date,),
+            registered_trade_days=(trade_date,),
+        )
+
+    status = batch.status_for_trade_date(trade_date)
+    assert status.ready is False
+    assert status.summary["reason_code"] == "cross_dataset_code_set_mismatch"
+    assert status.summary["relation_failure_count"] == 1

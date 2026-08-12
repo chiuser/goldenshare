@@ -344,7 +344,8 @@ def load_prod_dc_board_reference(
         and not duplicate_identity
         and invalid_key_count == 0
         and duplicate_key_count == 0
-        and index_code_set == daily_code_set == member_code_set
+        and index_code_set.issubset(daily_code_set)
+        and member_code_set.issubset(index_code_set)
     )
     if not closed:
         return DcBoardProdReferenceResult(

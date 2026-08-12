@@ -349,7 +349,7 @@ def raw_tushare_dc_daily_core_check(
         numeric_predicate=RAW_DC_QUALITY_SPECS["dc_daily"].numeric_condition,
         coverage_column=RAW_DC_QUALITY_SPECS["dc_daily"].coverage_column,
         coverage_values=RAW_DC_QUALITY_SPECS["dc_daily"].coverage_values,
-        relation_mode="daily_equals_index",
+        relation_mode="index_subset_daily",
     )
 
 

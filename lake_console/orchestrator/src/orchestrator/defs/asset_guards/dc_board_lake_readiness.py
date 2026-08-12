@@ -263,7 +263,7 @@ def batch_dc_board_lake_readiness(
     statuses.update(_scan_existing(connection=connection, spec=spec, existing=existing))
     relation_mode = {
         "dc_member": "member_subset_index",
-        "dc_daily": "daily_equals_index",
+        "dc_daily": "index_subset_daily",
     }.get(dataset)
     if relation_mode is not None:
         for trade_date, source_path in existing.items():

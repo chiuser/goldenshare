@@ -1,6 +1,6 @@
 # Dagster `dc_index` / `dc_member` / `dc_daily` 数据集接入技术方案
 
-> 状态：M3 Raw 写入能力、M4 Raw Dagster definition、M5 Silver writer/asset/check、M6 Silver Dagster 接入、M7A 只读 Bootstrap dry-run、M7E 临时 lake 样本联调、M7F-M7I 正式 Raw/Silver Bootstrap 与对账、M8 Dagster 事件补录与验收均已完成。M9-R 已完成专属分区、同日 Lake 关系和 writer 基础闭环的代码落地；其中“有限小页 source probe 可提交 Raw run”的日常触发口径已被 M10 取代。M10“稳定 prod 基线 + 完整 Tushare 对照”与 M10.1“`dc_member` 成功但不完整响应的单轮定向重试”均已完成代码与本地验证。2026-07-26 已完成 2026-07-24 的正式历史恢复；2026-07-27 已完成历史 member check 状态纠偏，并启用当前 code location 的 raw index sensor。该传感器已按稳定 prod 基线门禁自然完成 `2026-07-27` 的 Raw index/daily/member 更新；没有写 prod。
+> 状态：M3 Raw 写入能力、M4 Raw Dagster definition、M5 Silver writer/asset/check、M6 Silver Dagster 接入、M7A 只读 Bootstrap dry-run、M7E 临时 lake 样本联调、M7F-M7I 正式 Raw/Silver Bootstrap 与对账、M8 Dagster 事件补录与验收均已完成。M9-R 已完成专属分区、同日 Lake 关系和 writer 基础闭环的代码落地；其中“有限小页 source probe 可提交 Raw run”的日常触发口径已被 M10 取代。M10“稳定 prod 基线 + 完整 Tushare 对照”与 M10.1“`dc_member` 成功但不完整响应的单轮定向重试”均已完成代码与本地验证。2026-07-26 已完成 2026-07-24 的正式历史恢复；2026-07-27 已完成历史 member check 状态纠偏，并启用当前 code location 的 raw index sensor。该传感器已按稳定 prod 基线门禁自然完成 `2026-07-27` 的 Raw index/daily/member 更新；没有写 prod。2026-08-12 已补齐 `2026-05-20/21` 的 `dc_member` Tushare 确认缺口，并根据 36 个 2026 年日期的当前源端实测，将错误的 daily/index 集合相等约束修正为 `dc_index code set ⊆ dc_daily code set`。
 >
 > 依据：新增数据集接入模板、`lake_console/orchestrator/CODING_STANDARDS.md`、
 > `dagster-data-pipeline-performance-governance.md`、现有 `index_daily` / `stk_nineturn`
@@ -33,14 +33,24 @@ M3 明确不新增 active Dagster asset/check/job/sensor，不执行正式 boots
 源端的临时不完整响应。
 
 - `dc_daily` writer 在原子替换前，额外对齐同日 `raw_dc_index` 的去重 `ts_code` 集合；
-  缺同日 index 文件、index 集合为空、daily 缺代码或出现额外代码都会 fail closed，既不
-  替换目标 Parquet，也不产生成功 materialization。
+  缺同日 index 文件、index 集合为空或 daily 缺少 index 代码都会 fail closed，既不替换目标 Parquet，也不产生成功 materialization；
+  daily 出现源端真实存在的额外代码是合法事实，不触发该门禁。
 - 这不是新增 Dagster check：现有合并 core check 仍是最终湖文件防线；写入前闭环负责避免
   将已知不完整的源端响应先写入再报红，不增加 check event 数量。
 - `dc_member` 候选规划的交易日历字段统一使用 Silver 实际 schema 的 `trade_date`；不再读取
   已不存在的 `cal_date`。
 
 本修复不改变 Tushare 请求参数、分页策略、资产/检查/job/sensor 名称、分区或数据湖路径。
+
+### 2026-08-12 源端复审、`dc_member` 补齐与关系契约纠正
+
+- 对 36 个可疑日期使用全部显式字段复核当前 Tushare：`dc_index` 与 DG 逐行一致，`dc_daily` 与 DG 逐行一致。
+- 36 个日期中有 32 个日期存在合法的 daily-only 身份，共 13,305 个 board/date/category 身份；所有 36 个日期的 index-only 数量均为 0。因此源事实只证明 `dc_index code set ⊆ dc_daily code set`，不证明集合相等。
+- `dc_member` 继续使用 `dc_member code set ⊆ dc_index code set`。源端或湖内 member 缺少某个 index 代码时，不能只凭跨表关系断言数据缺失；但本次已由 Tushare 按代码实测确认的缺口必须补齐。
+- 正式补齐仅请求已确认缺失范围：`2026-05-20` 请求 478 个板块代码并新增 27,807 行，Raw/Silver 由 16,428 行增至 44,235 行；`2026-05-21` 请求 1 个板块代码并新增 63 行，Raw/Silver 由 80,618 行增至 80,681 行。合计 479 次请求、0 次重试、27,870 行；两日均达到 1,013 个 index/member 代码，源端修复范围、Raw、Silver 完全对账，无 Prod 写入。
+- writer、Prod reference closure、Raw/Silver core check 与 readiness 使用同一关系：`dc_member ⊆ dc_index ⊆ dc_daily`。daily 额外代码允许；daily 缺任一 index 代码、member 出现 index 外代码仍 fail closed。旧 `daily_equals_index` mode 不保留兼容入口。
+- 新契约下重新只读核验上述 32 个日期的 Raw/Silver，64 个分区层级全部 `ready=True`；随后只追加 64 条绑定既有 materialization 的通过 check evaluation，未请求 Tushare、未改 Lake 文件、未写 Prod、未补发 materialization。
+- 最终全量物理复核覆盖 `2026-01-05..2026-08-11` 共 146 个分区：Raw/Silver 的 index/member/daily 六组均为 `146 ready / 0 not ready`，且六组日期集合一致。
 
 ## M4 实施状态
 
@@ -211,8 +221,8 @@ silver/board/dc_daily/trade_date=YYYY-MM-DD/part-000.parquet
 
 - 每个 Silver 资产只依赖同日对应 Raw 资产。
 - `silver_dc_member` 不把 `silver_dc_index` 作为硬依赖；成员为空可能是源事实，不应因为跨表缺行阻断。
-- `silver_dc_daily` 不要求与 `silver_dc_index` 做集合相等；两套接口在历史覆盖和分类语义上已实测不完全相同。
-- 三者的板块关系、一致性和异常统计由离线 audit 工具完成，不进入 sensor hot path。
+- `silver_dc_daily` 不要求与 `silver_dc_index` 做集合相等；同日 `silver_dc_index` 的代码必须全部出现在 `silver_dc_daily`，daily-only 代码允许保留。
+- `dc_member ⊆ dc_index ⊆ dc_daily` 的同日关系由 core check/readiness 的有界 SQL 校验；更宽的历史差异和异常统计仍由离线 audit 工具完成，不扫描历史 event。
 
 ### 5.3 Job、sensor 与 cursor（历史基线）
 
@@ -323,7 +333,7 @@ source request closure
 
 **C. 板块族闭环**
 
-- `dc_daily` 的同日板块代码集合必须与 `dc_index` 基准集合一致。
+- `dc_daily` 的同日板块代码集合必须覆盖 `dc_index` 基准集合；Tushare `dc_daily` 返回的额外板块是合法源事实，不得因为不在 `dc_index` 中而拒绝。
 - `dc_member` 的请求候选代码必须来自同日 `dc_index` 代码集合；每个请求终态都必须可解释。若源端允许某板块合法无成员，必须由 source closure 明确记录，不能仅凭 member 文件缺行推断成功。
 - 关系校验采用有界同日 SQL，不扫描历史 event，不把历史 Bootstrap 的非等集差异带入日常 sensor。
 
@@ -406,8 +416,8 @@ run。
 | 数据集 | 基线身份 | 必须满足的内部闭环 |
 | --- | --- | --- |
 | `dc_index` | `(idx_type, ts_code)` | 三类均存在；无空/重复 key |
-| `dc_daily` | `(category, ts_code)` | 无空/重复 key；与 `dc_index` 的 `(type, code)` 映射严格相等 |
-| `dc_member` | `ts_code` 的 distinct set、总行数 | distinct `ts_code` 与当天 `dc_index` code set 相等；无空 key |
+| `dc_daily` | `(category, ts_code)` | 无空/重复 key；code set 覆盖 `dc_index`，允许 daily-only code |
+| `dc_member` | `ts_code` 的 distinct set、总行数 | distinct `ts_code` 是当天 `dc_index` code set 的子集；无空 key |
 
 sensor 热路径只读取约千级 index/daily identity 和 member 聚合，不拉取约九万级 member pair。完整
 `(ts_code, con_code)` 对照留在 member writer 的单日 run 内执行。
@@ -435,7 +445,7 @@ sensor 热路径，也不允许手工 Launchpad 绕过完整性检查。
 #### 5.5.4 Writer promote 前的不可绕过门禁
 
 - `dc_index` run config 只传递 `trade_date`、冻结时刻和 64 位 reference fingerprint，不传完整代码清单。writer 重新只读 prod，并要求 fingerprint 仍等于传入值；随后完整 Tushare index/daily identity 必须等于该基线。任一不等，staging 丢弃，不 promote。
-- `dc_daily` 的完整 Tushare `(category, ts_code)` 身份必须同时等于同日 `raw_dc_index` 映射和 fresh prod `dc_daily` 基线；任一不等，不 promote。
+- `dc_daily` 的完整 Tushare `(category, ts_code)` 身份必须等于 fresh prod `dc_daily` 基线，同时其 code set 必须覆盖同日 `raw_dc_index`；同日 Raw index 身份仍必须等于 fresh prod `dc_index` 基线。任一条件不满足，不 promote。
 - `dc_member` 候选只能等于同日 `raw_dc_index` 的 `ts_code` 集合，删除“与前一日 member 代码并集”的连续性 fallback。writer 用 DuckDB set-based SQL 将 Tushare `(ts_code, con_code)` 与 prod 当天同一 identity 做双向差集；缺失、额外、重复、空 key、日期不符或请求失败都不 promote。
 - 所有比对均显式字段投影，禁止 `SELECT *`。prod 连接必须是既有 `ProdPostgresResource.connect_readonly_transaction()`；不得使用写资源。
 - 已有目标文件只沿用既有“materialized 但 blocking check failed 时不自动覆盖”规则；M10 不引入自动重写历史文件。
@@ -602,7 +612,7 @@ silver_dc_daily_core_check
 | --- | --- | --- |
 | `dc_index` | 文件存在、行数>0、trade_date 等于 partition、`(ts_code,trade_date)` 非空唯一；三个请求都有终态、无失败/未尝试请求 | `.DC` 代码、`idx_type` 合法、指标数值域；三类全空失败，合法空类型必须有 source closure 证据 |
 | `dc_member` | 文件存在、行数>0、trade_date 等于 partition、`(trade_date,ts_code,con_code)` 非空唯一；请求代码全部有终态、无失败/未尝试代码 | 板块/成分代码后缀、成分代码格式；合法空响应必须与请求终态区分，不能用缺行冒充成功 |
-| `dc_daily` | 文件存在、行数>0、trade_date 等于 partition、`(ts_code,trade_date,category)` 非空唯一；日期分页闭环、源/写入行数一致 | `category` 三值、`.DC` 代码、OHLC/成交量字段域；同日板块代码集合与 `dc_index` 一致 |
+| `dc_daily` | 文件存在、行数>0、trade_date 等于 partition、`(ts_code,trade_date,category)` 非空唯一；日期分页闭环、源/写入行数一致 | `category` 三值、`.DC` 代码、OHLC/成交量字段域；同日 code set 覆盖 `dc_index`，允许 daily-only code |
 | Silver 三者 | 同 Raw 规则 | 日期为 `DATE`、不含非交易日、清洗后主键保持唯一 |
 
 分页完整性、源行数/写入行数对账、空结果保护、请求量和耗时不拆成额外 Dagster check；它们属于 asset 写入前置门禁和 materialization metadata。只有 source closure 通过的结果才允许 promote 和产生成功 materialization，核心 check 再对湖文件及同日板块族关系做最终自审计。这样既不丢失诊断，也不把每个执行事实扩成多条历史 check event。
@@ -835,7 +845,7 @@ R0-R8 已完成本地代码、静态门禁和临时 lake 验证；在正式切�
   仅在 prod 双快照冻结并完成完整 Tushare 对照后才提交一个 partition run，`dc_daily` / `dc_member` 等待同日
   `raw_dc_index` ready。文件存在但 core check 失败时只 skip，不自动覆盖。
 - `dc_index`、`dc_daily`、`dc_member` 的完整 source closure 仍只在 writer run 内执行：分页、请求终态、失败/未尝试、字段、日期、主键、类别覆盖、源/写入行数和原子 promote 全部通过后才产生可消费的湖文件。
-- Raw/Silver core check 与 readiness 继续使用单个 partition、单个合并 blocking check，并增加同日关系审计：`dc_daily` 与 `dc_index` 代码集合相等，`dc_member` 请求集合有明确成功或合法空终态。关系失败不会进入 ready frontier。
+- Raw/Silver core check 与 readiness 继续使用单个 partition、单个合并 blocking check，并增加同日关系审计：`dc_daily` code set 覆盖 `dc_index`、`dc_member` 不得出现 index 外代码，且 member 请求集合有明确成功或合法空终态。关系失败不会进入 ready frontier。
 - `dc_daily` / `dc_member` 的 Raw sensor 先确定自身首个未就绪目标，再比较 `raw_dc_index` 上游 frontier；上游首个未就绪日期早于或等于自身目标时阻断，晚于自身目标时允许补更早目标。不能因为上游窗口存在一个更晚缺口，就阻断自身更早日期。
 - 小页 source probe 是 M9-R 当时的“现在是否值得尝试”筛选策略，不是成功证明；文件存在、row count > 0 或 probe 通过都不能单独判定更新成功。M10 已将当前日提交条件替换为稳定 prod 基线加完整 Tushare 对照，writer closure + 湖文件 core check + 同日关系闭环仍是最终成功条件。
 - Dagster 可能先记录 materialization 再记录 blocking check 失败；因此本专项的“成功更新”定义为 readiness `ready=True` 和下游 frontier 可推进，而不是单独看 materialization event。
@@ -861,7 +871,7 @@ M10 的唯一目标是拒绝“源端已经返回少量行、但当天目录或�
 - `dc_daily` 的 `category` 未被删除或降为非主键字段。
 - 2,124 条已知错误不出现在最终 Raw/Silver。
 - Silver 不含非交易日，不含空主键，不含重复业务主键。
-- 日常交易日的 `dc_daily` 板块代码集合与同日 `dc_index` 一致；`dc_member` 的每个候选板块请求均有明确终态，合法空响应和失败/未尝试请求不能混淆。
+- 日常交易日的 `dc_daily` 板块代码集合覆盖同日 `dc_index`，daily-only 板块完整保留；`dc_member` 的每个候选板块请求均有明确终态，合法空响应和失败/未尝试请求不能混淆。
 - 历史 Bootstrap 的非等集差异仍保留在离线审计中，不被错误地回放成日常自动链路的成功事实。
 
 ### Dagster 正确性

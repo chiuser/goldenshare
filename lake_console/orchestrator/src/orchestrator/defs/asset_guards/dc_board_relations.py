@@ -18,39 +18,24 @@ def _relation_failure(
         return 1, ({"reason_code": "index_partition_missing", "path": str(index_path)},)
     source_relation = read_parquet(source_path, hive_partitioning=False)
     index_relation = read_parquet(index_path, hive_partitioning=False)
-    if mode == "daily_equals_index":
+    if mode == "index_subset_daily":
         sql = f"""
         WITH source_codes AS (SELECT DISTINCT ts_code FROM {source_relation}),
         index_codes AS (SELECT DISTINCT ts_code FROM {index_relation}),
-        source_only AS (
-            SELECT ts_code FROM source_codes
-            EXCEPT
-            SELECT ts_code FROM index_codes
-        ),
         index_only AS (
             SELECT ts_code FROM index_codes
             EXCEPT
             SELECT ts_code FROM source_codes
-        ),
-        differences AS (
-            SELECT ts_code FROM source_only
-            UNION ALL
-            SELECT ts_code FROM index_only
         )
-        SELECT count(*) FROM differences
+        SELECT count(*) FROM index_only
         """
         sample_sql = f"""
         WITH source_codes AS (SELECT DISTINCT ts_code FROM {source_relation}),
         index_codes AS (SELECT DISTINCT ts_code FROM {index_relation}),
-        source_only AS (
-            SELECT ts_code FROM source_codes EXCEPT SELECT ts_code FROM index_codes
-        ),
         index_only AS (
             SELECT ts_code FROM index_codes EXCEPT SELECT ts_code FROM source_codes
         )
-        SELECT ts_code, 'source_not_in_index' AS reason_code FROM source_only
-        UNION ALL
-        SELECT ts_code, 'index_not_in_source' FROM index_only
+        SELECT ts_code, 'index_code_missing_from_daily' AS reason_code FROM index_only
         LIMIT 5
         """
     elif mode == "member_subset_index":

@@ -82,8 +82,18 @@ class _FakeTushare:
 
 
 class _FakeCursor:
-    def __init__(self, *, invalid_member_keys: int = 0):
+    def __init__(
+        self,
+        *,
+        invalid_member_keys: int = 0,
+        index_identity=_INDEX_IDENTITY,
+        daily_identity=_INDEX_IDENTITY,
+        member_codes=("BK0001.DC", "BK0002.DC", "BK0003.DC"),
+    ):
         self.invalid_member_keys = invalid_member_keys
+        self.index_identity = index_identity
+        self.daily_identity = daily_identity
+        self.member_codes = member_codes
         self.query = ""
 
     def execute(self, query, _params):
@@ -91,14 +101,19 @@ class _FakeCursor:
 
     def fetchall(self):
         if "core_serving.dc_index" in self.query:
-            return list(_INDEX_IDENTITY)
+            return list(self.index_identity)
         if "core_serving.dc_daily" in self.query:
-            return list(_INDEX_IDENTITY)
+            return list(self.daily_identity)
         raise AssertionError(self.query)
 
     def fetchone(self):
         assert "core_serving.dc_member" in self.query
-        return (3, self.invalid_member_keys, 0, ["BK0001.DC", "BK0002.DC", "BK0003.DC"])
+        return (
+            len(self.member_codes),
+            self.invalid_member_keys,
+            0,
+            list(self.member_codes),
+        )
 
     def __enter__(self):
         return self
@@ -116,8 +131,21 @@ class _FakeProdConnection:
 
 
 class _FakeProd:
-    def __init__(self, *, invalid_member_keys: int = 0):
+    def __init__(
+        self,
+        *,
+        invalid_member_keys: int = 0,
+        index_identity=_INDEX_IDENTITY,
+        daily_identity=_INDEX_IDENTITY,
+        member_codes=("BK0001.DC", "BK0002.DC", "BK0003.DC"),
+    ):
         self.connection = _FakeProdConnection(invalid_member_keys=invalid_member_keys)
+        self.connection.cursor_instance = _FakeCursor(
+            invalid_member_keys=invalid_member_keys,
+            index_identity=index_identity,
+            daily_identity=daily_identity,
+            member_codes=member_codes,
+        )
 
     @contextmanager
     def connect_readonly_transaction(self):
@@ -160,6 +188,47 @@ def test_prod_reference_requires_three_closed_identity_queries():
 def test_prod_reference_fails_closed_on_member_key_problem():
     result = load_prod_dc_board_reference(
         prod_postgres=_FakeProd(invalid_member_keys=1),
+        trade_date=_TRADE_DATE,
+    )
+
+    assert result.ready is False
+    assert result.reason_code == "prod_reference_not_closed"
+    assert result.snapshot is None
+
+
+def test_prod_reference_accepts_member_subset_index_subset_daily():
+    result = load_prod_dc_board_reference(
+        prod_postgres=_FakeProd(
+            daily_identity=(*_INDEX_IDENTITY, ("行业板块", "BK0004.DC")),
+            member_codes=("BK0001.DC", "BK0002.DC"),
+        ),
+        trade_date=_TRADE_DATE,
+    )
+
+    assert result.ready is True
+    assert result.reason_code == "ready"
+    assert result.snapshot is not None
+    assert result.snapshot.index_row_count == 3
+    assert result.snapshot.daily_row_count == 4
+    assert result.snapshot.member_code_count == 2
+
+
+def test_prod_reference_rejects_index_code_missing_from_daily():
+    result = load_prod_dc_board_reference(
+        prod_postgres=_FakeProd(daily_identity=_INDEX_IDENTITY[:-1]),
+        trade_date=_TRADE_DATE,
+    )
+
+    assert result.ready is False
+    assert result.reason_code == "prod_reference_not_closed"
+    assert result.snapshot is None
+
+
+def test_prod_reference_rejects_member_code_outside_index():
+    result = load_prod_dc_board_reference(
+        prod_postgres=_FakeProd(
+            member_codes=("BK0001.DC", "BK0002.DC", "BK9999.DC")
+        ),
         trade_date=_TRADE_DATE,
     )
 

@@ -32,6 +32,28 @@ def _write_index(path: Path, *, rows: list[tuple[str, str, str]]) -> None:
     connection.close()
 
 
+def _write_daily(path: Path, *, codes: tuple[str, str, str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    categories = ("行业板块", "概念板块", "地域板块")
+    connection = duckdb.connect()
+    connection.execute(
+        """
+        CREATE TABLE source (
+            ts_code VARCHAR, trade_date VARCHAR, close DOUBLE, open DOUBLE,
+            high DOUBLE, low DOUBLE, change DOUBLE, pct_change DOUBLE,
+            vol DOUBLE, amount DOUBLE, swing DOUBLE, turnover_rate DOUBLE,
+            category VARCHAR
+        )
+        """
+    )
+    connection.executemany(
+        "INSERT INTO source VALUES (?, '20260714', 10, 9, 11, 8, 1, 10, 100, 1000, 3, 2, ?)",
+        list(zip(codes, categories, strict=True)),
+    )
+    connection.execute("COPY source TO ? (FORMAT PARQUET)", [str(path)])
+    connection.close()
+
+
 class _MemoryDuckDB:
     def connect(self):
         connection = duckdb.connect()
@@ -138,3 +160,52 @@ def test_daily_missing_category_is_materialized_but_not_ready(tmp_path) -> None:
     assert status.materialized is True
     assert status.checks_passed is False
     assert "category_coverage_complete" in status.summary["failed_rules"]
+
+
+def test_daily_readiness_allows_codes_beyond_same_day_index(tmp_path) -> None:
+    root = Path(tmp_path)
+    trade_date = "2026-07-14"
+    _write_index(
+        root / f"raw/board/dc_index/trade_date={trade_date}/part-000.parquet",
+        rows=[("BK0001.DC", "20260714", "行业板块")],
+    )
+    _write_daily(
+        root / f"raw/board/dc_daily/trade_date={trade_date}/part-000.parquet",
+        codes=("BK0001.DC", "BK0002.DC", "BK0003.DC"),
+    )
+
+    with _MemoryDuckDB().connect() as connection:
+        batch = batch_raw_dc_daily_lake_readiness(
+            connection=connection,
+            lake_root=root,
+            expected_trade_dates=(trade_date,),
+            registered_trade_days=(trade_date,),
+        )
+
+    assert batch.status_for_trade_date(trade_date).ready is True
+
+
+def test_daily_readiness_rejects_index_code_missing_from_daily(tmp_path) -> None:
+    root = Path(tmp_path)
+    trade_date = "2026-07-14"
+    _write_index(
+        root / f"raw/board/dc_index/trade_date={trade_date}/part-000.parquet",
+        rows=[("BK9999.DC", "20260714", "行业板块")],
+    )
+    _write_daily(
+        root / f"raw/board/dc_daily/trade_date={trade_date}/part-000.parquet",
+        codes=("BK0001.DC", "BK0002.DC", "BK0003.DC"),
+    )
+
+    with _MemoryDuckDB().connect() as connection:
+        batch = batch_raw_dc_daily_lake_readiness(
+            connection=connection,
+            lake_root=root,
+            expected_trade_dates=(trade_date,),
+            registered_trade_days=(trade_date,),
+        )
+
+    status = batch.status_for_trade_date(trade_date)
+    assert status.ready is False
+    assert status.summary["reason_code"] == "cross_dataset_code_set_mismatch"
+    assert status.summary["relation_failure_count"] == 1
