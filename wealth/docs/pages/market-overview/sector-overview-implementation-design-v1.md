@@ -1,5 +1,6 @@
 # 市场总览｜板块速览技术实施方案 v1（implementation-design）
 
+> 历史状态：本文只解释当前 V1 实现；V2 技术方案见 [sector-overview-implementation-design-v2.md](./sector-overview-implementation-design-v2.md)，禁止在 V1 上继续叠加。
 > 用途：把“板块速览”需求文档转成可实施技术方案。  
 > 阶段：编码前。  
 > 产物性质：实现设计基线（不写业务代码）。

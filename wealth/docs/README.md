@@ -55,7 +55,7 @@ docs/
 4. 股票详情：`../src/pages/stock-detail/` 与 `../src/features/stock-detail/`。
 5. 指数详情：`pages/index-detail/`；M1 后端已在仓库根 `src/biz/**/index_detail` 落地，M2 已在 `../src/shared/charts/detail-workspace/` 提取共享图表，M3 已建立 Loaded 页面、三 Tab 与趋势 primitive，M4 已在 `../src/features/index-detail/state/` 和页面 controller 中完成五态、404、Delayed 与模块级重试。
 6. 当前正式视觉与组件规则：[设计系统基线](./system/design-system-baseline.md)、[组件规范基线](./system/component-guidelines-baseline.md)。
-7. API/数据字典：以 `pages/market-overview/*-benchmark-requirement-v1.md`、`*-implementation-design-v1.md`、`*-m2-coding-gate-v1.md` 和 `pages/market-overview/api-contract-baseline.md` 为准；`reference/api/*` 仅保留历史参考。
+7. API/数据字典：以 `pages/market-overview/` 下各模块当前版本三件套和 `api-contract-baseline.md` 为准；板块速览当前规划版本为 v2，其 v1 只解释切换前代码；`reference/api/*` 仅保留历史参考。
 
 ## 系统级文档
 
@@ -98,6 +98,9 @@ docs/
 - [大盘资金流向标杆需求 v1](./pages/market-overview/money-flow-benchmark-requirement-v1.md)
 - [大盘资金流向技术实施方案 v1（仅方案）](./pages/market-overview/money-flow-implementation-design-v1.md)
 - [大盘资金流向 M2 编码前门禁 v1](./pages/market-overview/money-flow-m2-coding-gate-v1.md)
+- [板块速览标杆需求 v2（盘后三级行业、概念热度与地域排行）](./pages/market-overview/sector-overview-benchmark-requirement-v2.md)
+- [板块速览技术实施方案 v2（仅方案）](./pages/market-overview/sector-overview-implementation-design-v2.md)
+- [板块速览 M2 编码前门禁 v2](./pages/market-overview/sector-overview-m2-coding-gate-v2.md)
 - [新闻速览与个股新闻标杆需求 v1](./pages/market-overview/market-news-benchmark-requirement-v1.md)
 - [新闻速览与个股新闻技术实施方案 v1](./pages/market-overview/market-news-implementation-design-v1.md)
 - [新闻速览与个股新闻 M2 编码前门禁 v1](./pages/market-overview/market-news-m2-coding-gate-v1.md)

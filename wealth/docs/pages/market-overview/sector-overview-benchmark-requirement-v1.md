@@ -1,5 +1,6 @@
 # 市场总览｜板块速览标杆需求 v1（benchmark-requirement）
 
+> 历史状态：本文只解释当前 V1 `4 × 2 + 5 × 4` 实现；禁止继续扩展。V2 开发以 [sector-overview-benchmark-requirement-v2.md](./sector-overview-benchmark-requirement-v2.md) 为准。
 > 用途：冻结“板块速览”模块的业务口径、展示边界、数据源与验收规则。  
 > 阶段：需求冻结前。  
 > 产物性质：业务事实源（不是实现细节文档）。

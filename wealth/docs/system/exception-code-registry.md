@@ -127,6 +127,11 @@
 | `SO_SOURCE_EMPTY` | `sectorOverview` | warn | false | true | 板块速览源数据为空 | 目标/观测交易日无有效 DC 组合源数据 | 模块 empty，展示空态 | biz-api | Phase-1 | active |
 | `SO_COLUMN_METRIC_UNAVAILABLE` | `sectorOverview` | error | false | true | 板块速览列指标不可由冻结源产出 | 列定义要求 DC 组合源不存在的指标 | 模块 error，禁止伪造数据 | biz-api | Phase-1 | active |
 | `SO_QUERY_FAILED` | `sectorOverview` | error | false | true | 板块速览查询失败 | SQL/服务异常 | 模块 error，保留其他模块渲染 | biz-api | Phase-1 | active |
+| `SO_HIERARCHY_UNAVAILABLE` | `sectorOverview` | error | false | true | 行业层级 serving 不可用 | 层级表缺失、版本非法或父子闭包失败 | 行业视图 error，概念视图可独立保留 | biz-api | Phase-2 | planned |
+| `SO_SELECTION_INVALID` | `sectorOverview` | warn | false | true | 请求选择不属于当前候选路径 | 旧选择已不在当前父级或 Top 候选集合 | 按冻结默认路径纠正，debug 记录原因 | biz-api | Phase-2 | planned |
+| `SO_HEAT_NOT_READY` | `sectorOverview` | warn | false | true | 目标交易日概念热度未发布 | Heat serving 无同日成功快照 | 不回退其它排序，概念视图 partial | biz-api | Phase-2 | planned |
+| `SO_HEAT_SOURCE_MISMATCH` | `sectorOverview` | error | false | true | 热度来源日期与响应日期不一致 | sourceDates 任一必需源不等于 tradeDate | 拒绝消费该 Heat 行，模块 partial/delayed | biz-api | Phase-2 | planned |
+| `SO_MEMBER_COVERAGE_LOW` | `sectorOverview` | warn | false | true | 板块成分盘后行情覆盖不足 | 成员数小于 10 或有效行情覆盖率小于 80% | Heat 无效，详情保留并显示缺失 | biz-api | Phase-2 | planned |
 | `NEWS_CONFIG_MISSING` | `marketNews` | error | false | true | 新闻模块配置缺失 | 找不到新闻模块策略配置 | 模块 error，保留其它模块渲染 | biz-api | Phase-1 | active |
 | `NEWS_CONFIG_INVALID` | `marketNews` | error | false | true | 新闻模块配置非法 | `visibleItemCount`、源配置或返回条数配置非法 | 模块 error，拒绝按非法配置输出 | biz-api | Phase-1 | active |
 | `NEWS_SOURCE_EMPTY` | `marketNews` | warn | false | true | 新闻模块当前列表为空 | `core_serving_light.news` 按当前接口筛选规则无可展示项 | 当前板块 empty，debug 标记来源为空 | biz-api | Phase-1 | active |

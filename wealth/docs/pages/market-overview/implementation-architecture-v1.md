@@ -1,5 +1,7 @@
 # 市场总览 homepage 代码架构设计 v1
 
+> 板块速览例外：本文中的 `4 × 2 + 5 × 4` 只描述当前 V1；V2 结构和开发顺序以 `sector-overview-*-v2.md` 三件套为准。
+
 ## 1. 本轮目标
 
 本文件定义“财势乾坤 / 乾坤行情 / 市场总览”homepage 的编码前架构设计。
@@ -72,7 +74,7 @@ React 页面必须按 V1.1 原型顺序组织：
 11. 榜单速览
 12. 涨跌停统计与分布，2 × 2
 13. 连板天梯
-14. 板块速览，左 4 × 2 榜单矩阵 + 右 5 × 4 热力图
+14. 板块速览：当前为左 4 × 2 榜单矩阵 + 右 5 × 4 热力图；下一版原子升级为行业三级联动 / 概念盘后热度 / 地域独立排行三个工作台
 15. 状态样式基线，作为首期开发/验收辅助区（已确认先保留在正式 homepage）。
 
 第 15 项来自 V1.1 HTML 原型底部的状态样式基线。当前已确认：首期先保留，不作为待决项。
@@ -252,7 +254,7 @@ feature 组件可以知道市场总览业务字段，但不能调用后端，也
 | 榜单速览 | `LeaderboardPanel` + `LeaderboardTable` | `features/market-overview/leaderboards/` |
 | 涨跌停统计与分布 | `LimitBoardPanel` + `LimitStructureBlock` | `features/market-overview/limit-up/` |
 | 连板天梯 | `StreakLadderPanel` | `features/market-overview/limit-up/` |
-| 板块速览 | `SectorOverviewPanel` + `SectorRankMatrix` + `SectorHeatmap` | `features/market-overview/sectors/` |
+| 板块速览 | V1：`SectorOverviewPanel + SectorRankMatrix + SectorHeatmap`；V2：三级行业/概念热度/详情组件树 | `features/market-overview/sectors/` |
 | 通用 Panel | `Panel` | `shared/ui/` |
 | 指标卡 | `MetricCard` | `shared/ui/` |
 | 区间切换 | `RangeSwitch` | `shared/ui/` |
@@ -305,7 +307,7 @@ pages/market-overview/market-overview-page.css
 7. `row-two` 两列布局。
 8. 榜单 Top10 表格固定列宽。
 9. 涨跌停 `2 × 2`。
-10. 板块速览左 `4 × 2` + 右 `5 × 4`。
+10. 板块速览当前为左 `4 × 2` + 右 `5 × 4`；V2 按模块三件套替换，不保留旧布局兼容层。
 
 ## 9. 数据与 ViewModel 架构
 
@@ -481,7 +483,7 @@ npm run build
 4. 主要指数 2 × 5。
 5. 榜单列顺序准确。
 6. 涨跌停 2 × 2。
-7. 板块速览左 4 × 2 + 右 5 × 4。
+7. 板块速览按当前版本验收；进入 V2 后使用行业/概念/地域 `1564 × 680` Figma 基线。
 8. RangeSwitch 可切换。
 9. Tooltip/hover 可见。
 10. 红涨绿跌没有反。
@@ -540,7 +542,7 @@ npm run build
 
 1. 涨跌停 2 × 2。
 2. 连板天梯。
-3. 板块速览 4 × 2 + 5 × 4。
+3. 板块速览 V2：行业三级联动、概念盘后热度、地域独立排行、领涨股和成分股详情。
 
 ### 13.6 Step 6：四态、交互与验收
 

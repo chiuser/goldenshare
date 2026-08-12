@@ -9,6 +9,7 @@ wealth/docs/pages/market-overview/market-overview-api-model-design-v1.md
 wealth/docs/pages/market-overview/*-benchmark-requirement-v1.md
 wealth/docs/pages/market-overview/*-implementation-design-v1.md
 wealth/docs/pages/market-overview/*-m2-coding-gate-v1.md
+wealth/docs/pages/market-overview/sector-overview-*-v2.md  # 板块速览 V2 规划覆盖其 V1 扩展方向
 wealth/docs/system/module-delivery-checklist-v1.md
 wealth/docs/system/engineering-architecture.md
 ```
@@ -95,6 +96,8 @@ interface MarketOverviewParams {
 }
 ```
 
+其中 `sectorTopLimit/heatMapRows/heatMapCols` 只解释历史聚合草案和当前板块速览 V1；板块速览 V2 模块接口不接受这些参数，返回数量由 V2 契约固定。
+
 ## 响应包裹
 
 后续真实 API 建议：
@@ -179,7 +182,7 @@ subjectiveMarketConclusion
    - 涨幅/跌幅/成交额/换手/量比由 `equity_daily_bar` 主链路，换手与量比关联 `equity_daily_basic`。
    - 人气榜/飙升榜来自 `dc_hot`。
 2. 连板天梯：独立模块接口 `GET /api/v1/wealth/market/streak-ladder`，基于 `equity_limit_list / limit_list_d`，分组固定“首板/二板/三板/四板/五板及以上”，并全量返回 `boardCount`。
-3. 板块速览统一 DC 口径：本轮冻结为 `core_serving.dc_daily + core_serving.board_moneyflow_dc + core_serving.dc_index` 组合源。`dc_daily` 承接板块涨跌榜与热力图主行情，`board_moneyflow_dc` 承接资金流入/流出榜，`dc_index` 承接名称、类型、上涨/下跌家数、领涨股等结构补充信息。
+3. 板块速览当前代码仍是 V1 `columns + heatMapItems`；下一次原子升级以 V2 三件套为准：行业层级来自 `core_serving.wealth_sector_hierarchy`，行业/概念/地域盘后行情、资金与成员来自 `dc_daily + dc_index + board_moneyflow_dc + dc_member`，成员盘后行情来自 `equity_daily_bar`，证券资格与停牌解释来自 `security_serving + equity_suspend_d`，概念热度来自 `core_serving.wealth_sector_heat_daily`。V2 提供 `INDUSTRY/CONCEPT/REGION` 三个独立视图，使用 `heatDelta1d` 和有效 A 股成分池，不引入实时行情、分钟热度或 Redis 事实源。
 4. 模块级 delayed 仅用于 debug mode；正式产品默认展示页面级状态。
 5. 新闻速览与个股新闻：分别使用独立模块接口 `GET /api/v1/wealth/market/news/briefs` 与 `GET /api/v1/wealth/market/news/stocks`；页面侧再组合为双列新闻组。本期 item 不可点击，不使用旧顶部统一快讯条。新闻接口不接收 `tradeDate`，按“昨日 00:00 到当前服务器时间”的 `newsWindow` 查询；候选集先过滤 `content` 为空的新闻，再按最终展示标题严格去重后返回。
 
