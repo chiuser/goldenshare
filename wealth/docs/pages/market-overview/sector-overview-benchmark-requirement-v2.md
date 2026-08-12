@@ -113,6 +113,7 @@ Figma 正式页已在进入编码前完成以下同步，后续实现不得回�
 11. 有效池事实单一：证券资格只由 `security_serving` 的证券类型、交易币种和上市/退市日期边界判定；停牌只由同日 `equity_suspend_d` 判定，不按代码前缀或行情是否存在猜测。
 12. 停牌不算缺行情：停牌成员保留在有效 A 股成分池中，但从可报价池分母扣除；其状态单独记录。
 13. 用户可见结果优先：验收覆盖名称、主指标、领涨股、成分股、层级联动、地域排行和热度标签，不以 JSON 有字段代替页面验收。
+14. Heat 来源只认 prod：行情、成员、资金、证券资格、停牌、涨停与前序 Heat 全部读取生产 PostgreSQL 正式表；DG/Lake 不参与 Heat 计算、回放或 API 查询。
 
 ---
 
@@ -263,9 +264,10 @@ Figma 正式页已在进入编码前完成以下同步，后续实现不得回�
 | 业务事实 | 主来源 | 字段 |
 |---|---|---|
 | 行业层级 | DG `silver_dc_industry_hierarchy` 的 serving 投影 | `ts_code/name/industry_level/parent_ts_code/root_ts_code/hierarchy_path/display_order/...` |
-| 板块盘后行情 | `core_serving.dc_index` | `pct_change/up_num/down_num/leading/leading_code/leading_pct/level` |
-| 板块成交额/换手 | `core_serving.dc_daily` | `pct_change/amount/turnover_rate/category` |
-| 板块盘后资金流 | `core_serving.board_moneyflow_dc` | `net_amount/net_amount_rate/content_type` |
+| 交易日边界 | `core_serving.trade_calendar` | `exchange/trade_date/is_open/pretrade_date` |
+| 板块盘后行情 | `core_serving.dc_index` | `trade_date/ts_code/name/idx_type/pct_change/up_num/down_num/leading/leading_code/leading_pct/level` |
+| 板块成交额/换手 | `core_serving.dc_daily` | `trade_date/ts_code/category/pct_change/amount/turnover_rate` |
+| 板块盘后资金流 | `core_serving.board_moneyflow_dc` | `trade_date/content_type/name/ts_code/net_amount/net_amount_rate` |
 | 行业/概念/地域成员 | `core_serving.dc_member` | `trade_date/ts_code/con_code/name` |
 | 证券资格 | `core_serving.security_serving` | `ts_code/security_type/curr_type/list_status/list_date/delist_date` |
 | 股票停牌事实 | `core_serving.equity_suspend_d` | `ts_code/trade_date/suspend_type`，停牌固定 `suspend_type='S'` |
@@ -286,13 +288,13 @@ baseline_version, source_received_date, code_reference_trade_date
 
 Web API 不直接读取 Parquet；必须先同步到 `core_serving.wealth_sector_hierarchy`，并完成行数、层级闭包和 read-back 对账。
 
-### 6.3 Tushare 契约核验结论
+### 6.3 源接口字段证据（不作为运行数据源）
 
 1. `dc_index` 的领涨股、板块类型与行业层级字段为真实返回字段。
 2. `dc_member` 只提供板块代码、成分代码和成分名称，不提供成分行情。
 3. `dc_daily.category` 经真实显式字段请求确认可返回。
-4. `moneyflow_ind_dc` 提供盘后正式板块资金流，可用于 Heat Model EOD V1。
-5. 本需求不修改既有 DatasetDefinition、request builder 或源接口分页契约。
+4. `moneyflow_ind_dc` 提供盘后正式板块资金流字段，其已入库的 prod `board_moneyflow_dc` 才是 Heat Model EOD V1 的运行数据源。
+5. 上述结论只证明字段语义；Heat 计算、回放和 API 均不得直接调用 Tushare。本需求不修改既有 DatasetDefinition、request builder 或源接口分页契约。
 
 ### 6.4 交易日一致性
 
@@ -301,6 +303,7 @@ Web API 不直接读取 Parquet；必须先同步到 `core_serving.wealth_sector
 3. `equity_limit_list` 零行不能自动解释为“当日零涨停”；必须由对应数据集成功运行或日期完整性事实证明该日已完成。
 4. 默认请求只展示全部必需源完成的最近交易日；显式 `tradeDate` 不自动回退。
 5. `board_moneyflow_dc` 只按同日非空 `ts_code` 与板块代码关联；代码缺失时 `mainNetInflow` 为空并记录覆盖缺口，不按名称模糊关联。
+6. “有效交易日”指该日全部必需 prod 来源通过日期、枚举、数量、唯一键和完成语义门禁；不是自然日，也不是仅因 Heat 表存在记录就算有效。CN_A 沿用当前市场总览口径，以 prod `trade_calendar.exchange='SSE' AND is_open=true` 选择连续 60 个首发验收交易日；窗口内任一缺口必须修复，不能跳过后从更早或更晚日期凑数。
 
 ---
 
@@ -391,16 +394,16 @@ heatDelta1d = heatScore(t) - heatScore(t-1)
 | `-8 < heatDelta1d < 8` | `STABLE / 平稳` |
 | `heatDelta1d <= -8` | `COOLING / 降温` |
 
-为降低单日噪声，`HEATING` 和 `COOLING` 需连续两个可比交易日命中同一方向后才正式展示；首次命中返回 `STABLE` 并保留原始趋势供 debug。缺少前一交易日合法快照时返回 `UNKNOWN`。
+为降低单日噪声，`HEATING` 和 `COOLING` 需连续两个可比交易日命中同一方向后才正式展示；“可比”要求交易日连续且 `scoreVersion/configHash` 相同。首次命中返回 `STABLE` 并保留原始趋势供 debug；缺少前一交易日合法同版本快照、跨版本或日期断点时返回 `UNKNOWN`，不得跨断点确认趋势。
 
 ### 7.5 质量门禁
 
 1. `memberCount >= 10`，此处只统计有效 A 股成分。
 2. `quoteEligibleCount > 0` 且 `quoteCoverage >= 80%`。
 3. `dc_daily/dc_index/dc_member/board_moneyflow_dc/equity_daily_bar/equity_limit_list/equity_suspend_d` 均已完成目标交易日，`security_serving` 资格字段可用。
-4. 5 日、20 日窗口只使用已完成交易日；为复算前 5 日基础热度，任务需读取足够的前置基线日期。历史不足导致任一主分量不可计算时热度无效。
+4. 5 日、20 日窗口只使用已完成交易日；为复算前 5 日基础热度，任务至少读取 `dc_daily[t-25..t]`、`board_moneyflow_dc[t-9..t]` 以及 `dc_index`、成员和股票事实 `[t-5..t]`。历史不足导致任一主分量不可计算时热度无效。
 5. 五个主分量均可计算；缺失任一主分量不得重新分配权重。
-6. 热度构建失败不得回滚或污染上述来源业务表，只影响 Heat 候选文件、serving 分区和 DG run/asset 观测状态。
+6. 热度构建失败只回滚目标交易日尚未提交的 Heat 业务事务，并由独立 Ops TaskRun 记录失败；不得回滚、阻断或污染来源业务表，TaskRun 状态写入失败也不得反向影响已提交 Heat。
 
 ### 7.6 盘后物化字段
 
@@ -415,10 +418,12 @@ price_strength_score, breadth_score, capital_flow_score,
 activity_score, persistence_score,
 source_member_count, member_count, suspended_count,
 quote_eligible_count, valid_quote_count, missing_quote_count, quote_coverage,
-score_version, source_dates_json, calculated_at
+score_version, config_hash,
+source_dates_json, source_row_counts_json, source_hash,
+calculated_at
 ```
 
-主键为 `(trade_date, sector_code)`。每个当日概念均保留一行；未通过质量门禁时 `heat_status=INVALID`、总分与不可计算分量为空。`invalid_reason` 首版固定为 `MEMBER_COUNT_LOW / QUOTE_ELIGIBLE_COUNT_ZERO / QUOTE_COVERAGE_LOW / HISTORY_INSUFFICIENT / FEATURE_MISSING`，不得写入自由文本原因。同一交易日重跑采用单独事务覆盖该日分区，成功 read-back 后提交；不得在 Web 请求中补算。
+主键为 `(trade_date, sector_code)`。每个当日概念均保留一行；未通过质量门禁时 `heat_status=INVALID`、总分与不可计算分量为空。`invalid_reason` 首版固定为 `MEMBER_COUNT_LOW / QUOTE_ELIGIBLE_COUNT_ZERO / QUOTE_COVERAGE_LOW / HISTORY_INSUFFICIENT / FEATURE_MISSING`，不得写入自由文本原因。同一交易日重跑采用独立业务事务覆盖该日记录，候选行数与 canonical hash 成功 read-back 后提交；不得在 Web 请求中补算。
 
 ---
 
@@ -490,7 +495,7 @@ score_version, source_dates_json, calculated_at
 ### 10.4 性能验收
 
 1. API 同机房 P95 `< 250ms`，payload `< 120KB`。
-2. 单交易日热度离线物化 P95 `< 60s`；首次 20 日基线回填单日平均 `< 60s`。
+2. 单交易日热度离线物化 P95 `< 60s`；首次至少 60 个有效交易日回放单日平均 `< 60s`。
 3. API 请求链路无 Tushare 网络请求、无 Lake 文件扫描、无热度全量重算、无全市场无界扫描。
 
 ---
@@ -498,12 +503,12 @@ score_version, source_dates_json, calculated_at
 ## 11. 开工前仍需通过的门禁
 
 1. Figma 的盘后字段、地域第三视图和有效 A 股池说明已同步；编码前以节点 `538:517/538:520/538:521/571:516/538:522/554:516` 为准。
-2. 六个既有盘后来源已完成目标日只读对账；编码前还必须补验 `security_serving` 资格字段覆盖、`equity_suspend_d` 目标日完成证据，以及有效池/停牌/真实缺行情分类对账。
+2. 当前只读审计已确认 `dc_daily/dc_member` 以源站现状为业务口径，`board_moneyflow_dc@2026-07-09` 已补齐；正式回放前仍须冻结 60 个有效交易日及 warm-up 日期集合，逐日列出剩余 prod 来源缺口并完成修复与复核。
 3. 验证 `dc_index.idx_type`、`dc_daily.category`、`board_moneyflow_dc.content_type` 的生产真实枚举映射，禁止凭中文命名猜过滤条件。
-4. 盘后热度首发前至少完成连续 60 个交易日回放，检查有效池规模、停牌数量、可报价覆盖率、等级分布、日度跳变和稳定性。
+4. 盘后热度首发前至少完成 60 个有效交易日回放，检查有效池规模、停牌数量、可报价覆盖率、等级分布、日度跳变和稳定性；不完整日期不得凑数。
 5. 新 serving 表迁移实现前必须重新检查 Alembic head；本文审计时 head 为 `20260811_000132`，不得把该值硬编码为未来 `down_revision`。
 
-上述门禁未通过时允许继续做纯前端静态结构和本地固定样本测试，但不得宣称真实热度具备生产发布条件。
+上述门禁未通过时只允许继续文档、数据审计和固定样本 contract 准备；不得越级实施后端 V2 或前端三工作台。前端开发固定在 prod Heat 回放与后端 V2 验收之后。
 
 ---
 
@@ -511,5 +516,6 @@ score_version, source_dates_json, calculated_at
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v2.2 | 2026-08-13 | 冻结 Heat 全量 prod 来源、DG 仅保留行业层级、60 个有效交易日定义与当前来源审计口径 | Codex |
 | v2.1 | 2026-08-12 | 增加地域独立排行；冻结目标交易日有效 A 股成分池、停牌感知的可报价池与质量门禁 | Codex |
 | v2 | 2026-08-12 | 按正式 Figma V2、DG 三级行业资产和首页盘后定位重建需求基线；热度变化改为交易日维度 | Codex |

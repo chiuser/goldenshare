@@ -14,13 +14,13 @@
 
 1. V2 仍使用现有 `GET /api/v1/wealth/market/sector-overview`，前后端在同一发布单元原子替换旧 DTO；不保留 V1/V2 双契约、别名字段或兼容 adapter。
 2. 行业层级通过 `silver_dc_industry_hierarchy -> prod_core_wealth_sector_hierarchy -> core_serving.wealth_sector_hierarchy` 发布，Web 不读 Parquet。
-3. 概念热度通过日期分区 Gold 资产离线计算，再按交易日发布到 `core_serving.wealth_sector_heat_daily`；Web 请求不计算 Heat。
-4. Heat 离线链优先消费已经存在的正式 Lake 事实：`silver_dc_index/silver_dc_member/silver_dc_daily/silver_stock_lifecycle/silver_stock_suspend_daily/silver_stock_daily`。
-5. 当前 DG 没有正式等价 Lake 资产的 `board_moneyflow_dc` 和 `equity_limit_list`，首版仅通过 `ProdPostgresResource.connect_readonly_transaction()` 做按日期有界读取。
-6. DG 与 Web 使用同一套 `EffectiveAStockPool` 语义和同一组 golden cases，但分别由 Lake adapter 与 PostgreSQL query adapter 实现；禁止 `biz` 依赖 DG runtime，也禁止 DG import `biz`。
+3. 概念热度由 biz prod-native 物化服务只读生产 PostgreSQL 正式表，在质量 contract 通过后按交易日直接发布到 `core_serving.wealth_sector_heat_daily`；不生成 DG Gold 或第二份 Heat 事实，Web 请求不计算 Heat。
+4. Heat 的行情、成员、资金、证券资格、停牌、涨停和前序 Heat 全部来自 prod；DG/Lake 只保留行业层级输入，不参与 Heat 计算、回放或 API 查询。
+5. `biz` 承载 Heat 来源查询、有效池、公式、质量和事务发布；`ops` 只承载任务意图、计划快照、TaskRun/节点/问题/进度和失败观测。
+6. `ops -> biz` 被依赖矩阵禁止；`ops` 通过窄执行端口调用，`app` 组合根负责把该端口绑定到 biz Heat 服务。业务事务与 TaskRun 状态事务必须分离。
 7. 新 ORM 必须进入 `src/foundation/models/core_serving/**`，并在 `core_serving/__init__.py`、`all_models.py` 和模型注册测试中登记；不放入 legacy 或错误的 `models/core/**` 路径。
-8. Heat 使用独立动态分区集 `cn_a_wealth_sector_heat_trade_days`；它不复用股票或任一 DC 数据族的分区集。
-9. 本轮没有新的产品决策待确认。剩余未通过项是生产数据证据、性能、回放、迁移和发布验收门禁。
+8. Heat 不使用 Dagster asset、dynamic partition、asset check、sensor、Gold 路径、runless event 或 DG history CLI；60 日回放是 prod-native TaskRun。
+9. 本轮没有新的产品决策待确认。剩余未通过项是 60 日 prod 来源缺口、专用数据库角色、app 执行装配、性能、回放、迁移和发布验收门禁。
 
 ### 1.2 当前事实快照
 
@@ -32,20 +32,21 @@
 | 当前后端来源 | `core_serving.dc_daily/dc_index/board_moneyflow_dc` |
 | 当前前端 | 4×2 排名列 + 5×4 涨跌热力格，仅 loading/ready/error |
 | 行业层级 Lake | 现有单文件正式 Silver，契约要求 496 行、31/128/337 |
-| 股票资格 Lake | 现有 `silver_stock_lifecycle`，来自 `stock_basic` 全状态 CNY 股票生命周期 |
-| 股票停牌 Lake | 现有 `silver_stock_suspend_daily[trade_date]`，允许已证实的零行分区 |
-| 股票行情 Lake | 现有 `silver_stock_daily[trade_date]`，按生命周期/CNY/北交所日期过滤 |
-| 仍需 prod 只读 | `core_serving.board_moneyflow_dc`、`core_serving.equity_limit_list` |
+| Heat prod 来源 | `trade_calendar/dc_index/dc_daily/dc_member/board_moneyflow_dc/equity_daily_bar/equity_limit_list/security_serving/equity_suspend_d` 与前序 Heat |
+| 当前来源审计 | `dc_daily/dc_member` 以源站现状为业务口径；`board_moneyflow_dc@2026-07-09` 已补齐，仍需放入 60 日整窗复核 |
+| 当前运行缺口 | Ops Worker 尚无 biz executor 装配端口；生产专用最小权限角色/连接尚未验收 |
 
 ### 1.3 禁止项
 
 1. 不在页面、adapter 或 API handler 里计算热度、层级、有效池或排序事实。
 2. 不按名称模糊关联资金流，不按股票代码前缀判断 A/B 股，不用“有行情”反推上市或停牌。
-3. 不把 prod PostgreSQL serving 当成 Gold 的历史真相源；Heat 必须可由冻结输入和配置独立重建。
+3. 不把 DG/Lake 或本地文件当成 Heat 事实源；Heat 必须可由冻结的 prod 输入、配置版本/hash和来源 hash 独立重建。
 4. 不增加 Redis、实时行情、分钟刷新、20 分钟变化或盘中加速度。
 5. 不新增 Kopia、旧 Lake 路径或来源业务表写入。
-6. 不在迁移中回填数据、删除来源表、`drop-before-create` 或调用 Lake/Tushare。
-7. 不继续向已超过 400 行的 `MarketOverviewPage.tsx` 堆叠板块交互状态。
+6. 不在迁移中回填数据、删除来源表、`drop-before-create` 或调用 DG/Lake/Tushare。
+7. 不在 ops dispatcher、worker 或 action catalog 中实现 Heat 公式或直接 import `src.biz`。
+8. 不复用一个对整个 `core_serving` 可写的广域连接承担 DG hierarchy、Heat 物化和 Web 查询。
+9. 不继续向已超过 400 行的 `MarketOverviewPage.tsx` 堆叠板块交互状态。
 
 ---
 
@@ -93,9 +94,11 @@ MarketOverviewPage
 CodeGraph 已覆盖 API 入口、service 调用链、模型依赖、页面消费者和前后端测试入口。直接修改范围限于本模块及新增 serving/DG 文件；`index-detail`、`stock-detail`、turnover、money-flow 等模块没有契约依赖。共享边界变化只有：
 
 1. `foundation` 新增两张 serving ORM。
-2. `lake_console/orchestrator` 新增一条 Gold/serving 发布链。
+2. `lake_console/orchestrator` 只新增 hierarchy serving 发布链，不新增 Heat 定义。
 3. `biz` 继续只依赖 `foundation`。
-4. `app` 只保留现有路由聚合，不增加业务规则。
+4. `ops` 增加 Heat TaskRun 意图与抽象执行端口，但不依赖 biz。
+5. `app` 增加执行装配适配器，但不增加业务规则。
+6. 当前生产 `ops-worker-run/serve` 在 `src/cli.py -> src/cli_parts/ops_handlers.py` 直接构造 `OperationsWorker`；必须改为调用 app worker factory。Web runtime 端点已 decoupled，不进入本次 Heat 执行链。
 
 ---
 
@@ -107,24 +110,13 @@ src/foundation/models/core_serving/
   wealth_sector_heat_daily.py
   __init__.py
 src/foundation/models/all_models.py
+src/foundation/config/settings.py
 alembic/versions/<implementation-day-revision>_add_wealth_sector_overview_serving.py
 
 lake_console/orchestrator/src/orchestrator/defs/
-  assets/wealth_sector_overview.py
-  assets/wealth_sector_overview_prod_core.py
-  asset_guards/wealth_sector_overview_lake_readiness.py
-  checks/wealth_sector_overview_checks.py
-  config/wealth_sector_heat.cn_a.v1.json
-  jobs/wealth_sector_overview.py
-  sensors/wealth_sector_overview_sensor.py
-  bootstrap/wealth_sector_heat_history.py
-  bootstrap/wealth_sector_heat_history_cli.py
-  prod_db/wealth_sector_overview.py
-  wealth_sector_heat_contract.py
-  partitions.py
-  paths.py
-  catalog/lake_assets.py
-  run_contracts/asset_column_schemas.py
+  assets/wealth_sector_hierarchy_prod_core.py
+  prod_db/wealth_sector_hierarchy.py
+  resources.py
 
 src/biz/
   api/wealth/market/sector_overview.py
@@ -134,13 +126,47 @@ src/biz/
     sector_hierarchy_query.py
     sector_metrics_query.py
     sector_heat_query.py
+    sector_heat_source_query.py
     effective_a_stock_pool_query.py
     sector_member_query.py
     sector_overview_query_service.py
   services/wealth/market/sector_overview/
+    sector_heat_config_resolver.py
+    sector_heat_contract.py
+    sector_heat_materialization_service.py
+    sector_heat_replay_planner.py
+    sector_heat_models.py
     sector_selection_resolver.py
     sector_overview_status_resolver.py
     sector_overview_exception_builder.py
+
+src/biz/services/wealth/config/
+  definitions/sector_overview.cn_a.v1.json
+  strategy_config_models.py
+  strategy_config_registry.py
+
+src/ops/
+  action_catalog.py
+  runtime/maintenance_executor.py
+  runtime/task_run_dispatcher.py
+  runtime/worker.py
+
+src/app/
+  dependencies/wealth_sector_database.py
+  services/wealth/market/sector_overview/sector_heat_task_executor.py
+  services/wealth/market/sector_overview/sector_database_sessions.py
+  services/wealth/market/sector_overview/sector_source_completion_evidence.py
+  runtime/ops_worker_factory.py
+
+src/cli.py
+src/cli_parts/ops_handlers.py
+
+tests/
+  test_wealth_sector_heat_contract.py
+  test_wealth_sector_heat_materialization_service.py
+  test_wealth_sector_heat_task_execution.py
+  test_wealth_sector_database_permissions.py
+  test_cli_ops_runtime.py
 
 wealth/src/features/market-overview/sectors/
   SectorOverviewPanel.tsx
@@ -209,6 +235,7 @@ ORM：`src/foundation/models/core_serving/wealth_sector_heat_daily.py`。
 6. `INVALID` 必须有固定 `invalid_reason`，不可计算分数允许为空；不得用 0 代替缺失。
 7. 分数范围、计数非负、`suspended_count <= member_count`、`quote_eligible_count = member_count - suspended_count`、`missing_quote_count = quote_eligible_count - valid_quote_count`。
 8. `source_dates_json` 是只读证据，不作为查询排序字段。
+9. `config_hash/source_hash` 固定为 64 位小写十六进制 SHA-256；`source_row_counts_json` 必须包含每个输入来源的有界读取行数。
 
 索引：
 
@@ -228,59 +255,91 @@ ORM：`src/foundation/models/core_serving/wealth_sector_heat_daily.py`。
 ### 4.4 Alembic
 
 1. 实施日先运行 `alembic heads`，只允许单 head；若不再是 `20260811_000132`，迁移接新的真实 head。
-2. upgrade 顺序：create hierarchy -> constraints/indexes -> create heat -> constraints/indexes。
+2. upgrade 顺序：create hierarchy -> constraints/indexes -> create heat -> constraints/indexes -> 校验三个既有 role -> 对象级 GRANT；不得创建 login。
 3. migration 不做 `DROP TABLE IF EXISTS`、数据回填、外部访问或来源表 DML。
 4. downgrade 仅删除本次两张表，先 heat 后 hierarchy。
 5. SQLite 单测若不支持某些 PostgreSQL check 表达式，测试数据库兼容只能在测试装配层解决，不能弱化生产约束。
 
+### 4.5 最小权限与连接
+
+不在文档中猜生产 role 名；实现日从部署配置读取并登记真实 login/role。能力矩阵固定如下：
+
+| 连接身份 | 表级权限 |
+|---|---|
+| hierarchy publisher | `wealth_sector_hierarchy: SELECT, DELETE, INSERT` |
+| Heat materializer | 上述九张 prod 来源表（含 `trade_calendar`）：`SELECT`；`wealth_sector_heat_daily: SELECT, DELETE, INSERT` |
+| Wealth Web | V2 查询所需来源表、hierarchy、Heat：`SELECT` |
+| migration owner | 本迁移 DDL 与向上述既有角色 `GRANT`；不参与运行 |
+
+1. 三个运行身份都只授予 `USAGE ON SCHEMA core_serving`；不授予 schema `CREATE`、表 `TRUNCATE` 或来源表 DML。
+2. 角色不存在时 migration 失败关闭，由 DBA/部署流程先创建；migration 不创建 login、不保存密码。
+3. DG publisher 和 Heat materializer 使用独立 DSN/secret；Web session 不复用写连接。
+4. 权限测试必须在 PostgreSQL 集成环境分别执行允许和拒绝用例；SQLite 不能替代。
+5. 当前生产若仍使用 owner login 运行上述任一身份，最小权限门禁视为未通过。
+
+专用连接配置：
+
+| 配置 | Settings/resource | 默认与消费者 |
+|---|---|---|
+| `WEALTH_SECTOR_HEAT_DATABASE_URL` | `Settings.wealth_sector_heat_database_url` | 空；只由 app `sector_database_sessions.get_heat_session_factory()` 消费 |
+| `WEALTH_SECTOR_READ_DATABASE_URL` | `Settings.wealth_sector_read_database_url` | 空；只由 app `get_wealth_sector_read_session()` 消费 |
+| `WEALTH_SECTOR_HIERARCHY_POSTGRES_*` | DG `WealthSectorHierarchyPostgresResource` | host/port/user/password/database 必填，sslmode 默认 `prefer`；只由 hierarchy asset 消费 |
+
+1. 两个 URL 为空、解析失败、与 `DATABASE_URL` 完全相同或连接 `current_user` 不等于实施日已确认角色时，相应入口失败关闭；不回退通用 session。
+2. app 分别缓存 Heat/Web read engine；Heat executor 每个日期打开一个 business session，CLI 外层 Ops session 继续使用 `SessionLocal`，两者不共享 transaction/connection。
+3. Web V2 handler 把依赖从通用 `get_db_session` 替换为 `get_wealth_sector_read_session`；其它 Web 模块不受影响。
+4. DG 新 resource 不能复用 `ProdPostgresWriteResource` 或 `PROD_POSTGRES_WRITE_*`，避免其它 asset 的广域权限进入 hierarchy 链。
+5. 实施日通过专用连接查询 `current_database()/current_user`；三个真实 role 固化进迁移 GRANT，使用安全标识符引用，角色不存在则 upgrade 失败。迁移不创建 login、密码或环境相关 fallback。
+6. 日志和 TaskRun 只能记录 role、database、配置是否存在与连接探针结果，不得输出 URL/password。
+7. Settings/DG resource/engine cache/reset/secret redaction/角色不匹配必须有单元测试；允许/拒绝 SQL 必须用 PostgreSQL 集成测试。
+
 ---
 
-## 5. DG 资产 LLD
+## 5. DG hierarchy 与 prod-native Heat LLD
 
-### 5.1 分区与路径
+### 5.1 DG hierarchy 发布
 
-新增：
+`prod_core_wealth_sector_hierarchy` 是本需求唯一 DG asset：
 
-```python
-cn_a_wealth_sector_heat_trade_days = dg.DynamicPartitionsDefinition(
-    name="cn_a_wealth_sector_heat_trade_days"
-)
-```
+1. 输入固定为 `/Volumes/datasource/data_lake/silver/board/dc_industry_hierarchy/full/part-000.parquet`；沿用现有单文件、无分区、手工 seed 身份。
+2. 发布前调用层级文件 contract，验证 schema、唯一 `sector_code`、496 行、31/128/337、父子闭包和版本。
+3. 使用 hierarchy 专用最小权限连接；在单事务中 `DELETE + INSERT + read-back`，不使用 `TRUNCATE`。
+4. read-back 验证 496、31/128/337、父子闭包、版本和 canonical hash，不一致回滚。
+5. 显式人工运行或纳入部署步骤；不新增自动重建 sensor，也不与 Heat 任务建立依赖。
 
-Gold 正式路径：
+### 5.2 prod Heat 输入适配与范围
 
-```text
-/Volumes/datasource/data_lake/gold/wealth/sector_heat_daily/
-  trade_date=YYYY-MM-DD/part-000.parquet
-```
+| 事实 | prod 表 | 范围 |
+|---|---|---|
+| 交易日 | `core_serving.trade_calendar` | `exchange='SSE' AND is_open=true`；解析 `t`、25 日 warm-up、5 日复算窗 |
+| 板块目录/领涨 | `core_serving.dc_index[t-5..t]` | 逐日概念集合；目标日同时提供领涨事实 |
+| 板块日线 | `core_serving.dc_daily[t-25..t]` | 已完成交易日窗口 |
+| 板块成员 | `core_serving.dc_member[t-5..t]` | 仅概念代码 |
+| 资金流 | `core_serving.board_moneyflow_dc[t-9..t]` | 复算前 5 日基础热度各自的 5 日窗口；概念、非空 `ts_code` |
+| 股票资格 | `core_serving.security_serving` | 按每个计算日投影 |
+| 停牌 | `core_serving.equity_suspend_d[t-5..t]` | `suspend_type='S'` |
+| 股票日线 | `core_serving.equity_daily_bar[t-5..t]` | 仅相关成员 |
+| 涨停 | `core_serving.equity_limit_list[t-5..t]` | `limit_type='U'`、相关成员 |
+| 历史 Heat | `core_serving.wealth_sector_heat_daily` | 前序最多 2 个连续且 `scoreVersion/configHash` 相同的成功交易日；仅 delta/trend，跨版本/断点不比较 |
 
-候选文件必须位于 `/Volumes/datasource/data_lake_staging`，校验后以同文件系统 `os.replace()` 提升。层级 serving 不产生第二份 Lake 文件，直接消费现有 Silver 快照。
+`SectorHeatSourceQuery` 使用 ORM/显式 SQL，一次返回 `SectorHeatSourceBundle`：交易日集合、逐来源行、逐来源日期、逐来源行数和 canonical source hash。禁止 `SELECT *`、自然日替代、逐概念 N+1、Parquet、DuckDB、DG resource 或 Tushare。
 
-资产依赖表达：
+hash 规范固定：
 
-1. Gold 对目标日 `silver_dc_index/silver_dc_member/silver_dc_daily/silver_stock_daily/silver_stock_suspend_daily` 使用 `dg.AssetDep(..., partition_mapping=dg.IdentityPartitionMapping())`，即不同数据族分区集之间只映射相同日期 key。
-2. Gold 对无分区的 `silver_stock_lifecycle` 使用普通 `AssetDep`。
-3. 前置 25/5 日窗口无法由异构 dynamic partition set 的默认映射完整表达，必须由 readiness guard 显式解析和核验每个日期文件/check，并把实际依赖分区列表写入 materialization metadata；禁止依赖“目录里碰巧有文件”。
-4. prod 资金流和涨停不是 DG asset，不伪造资产依赖；其目标/历史日完成证据由 readiness guard 和只读提取审计记录。
-5. 新 Gold 与 prod serving 共用 `cn_a_wealth_sector_heat_trade_days`，serving 对 Gold 使用 Identity partition mapping。
+1. `config_hash = SHA256(canonical_json(strict_strategy_payload))`，canonical JSON 使用 UTF-8、键排序、稳定十进制表示且不含 envelope 的更新时间/操作者。
+2. `source_hash` 依次编码查询边界和每张表实际参与计算/资格判定的显式字段；按表名、交易日、表主键或文档冻结的稳定键排序，空值使用独立 token。
+3. `created_at/updated_at/calculated_at`、数据库物理顺序、查询耗时和摄取批次等不改变业务结果的元数据不得进入 source hash；来源字段集合变化必须升级 `scoreVersion`。
+4. `content_hash` 对候选 Heat semantic rows 按 `(trade_date, sector_code)` 排序后计算，排除 `calculated_at`；TaskRun 保存该 hash，表 read-back 现场复算，不新增第二份事实表。
 
-### 5.2 输入适配与范围
+完成性证据边界：
 
-| 事实 | Heat 计算输入 | 范围 | Web 详情输入 |
-|---|---|---|---|
-| 板块目录/领涨 | `silver_dc_index[t]` | 目标日概念集合 | `core_serving.dc_index` |
-| 板块日线 | `silver_dc_daily[t-25..t]` | 已完成交易日窗口 | `core_serving.dc_daily` |
-| 板块成员 | `silver_dc_member[t-5..t]` | 仅概念代码 | `core_serving.dc_member` |
-| 股票资格 | `silver_stock_lifecycle` | 按每个计算日投影 | `core_serving.security_serving` |
-| 停牌 | `silver_stock_suspend_daily[t-5..t]` | `suspend_type='S'` | `core_serving.equity_suspend_d` |
-| 股票日线 | `silver_stock_daily[t-5..t]` | 仅相关成员 | `core_serving.equity_daily_bar` |
-| 资金流 | prod `board_moneyflow_dc[t-4..t]` | 概念、非空代码 | 同表 |
-| 涨停 | prod `equity_limit_list[t-5..t]` | `limit_type='U'`、相关成员 | 同表 |
-| 历史 Heat | 既有 Gold 分区 | `t-2..t-1`，只算变化/确认 | serving 表 |
+1. app `SectorSourceCompletionEvidenceProvider` 用独立 Ops read session 查询已有 TaskRun/日期完整性事实，输出中立 DTO：`dataset_key, trade_date, status, evidence_type, evidence_id, evidence_hash`。
+2. biz `SectorHeatSourceBundle` 可接收该 DTO，但不得 import ops ORM；证据只参与来源就绪判定，不能提供或覆盖任何行情、成员、资金、停牌或涨停数值。
+3. 非空来源仍按 prod 行、唯一键和覆盖校验；`equity_limit_list/equity_suspend_d` 等空集只有在对应日期存在成功完成证据时才解释为合法 0，否则整日进入 gap ledger。
+4. 合法零行证据的 dataset/date/status/id/hash 进入 plan snapshot 和 `source_hash`；状态变化或证据缺失触发 `HEAT_PLAN_DRIFT/SOURCE_NOT_READY`，不得静默沿用旧证据。
+5. provider 的 Ops read session、外层 TaskRun write session 和 Heat business session 三者职责分开；任一观测写失败不得影响已提交 Heat。
 
-`silver_dc_index` 只需目标日概念身份和页面领涨事实，不读取无业务用途的 5 日窗口。`silver_dc_daily` 为活跃度基线至少提供 `t-20..t-1`，再为复算前 5 个 base rank 留足 warm-up，因此上界按 25 个已完成交易日规划，实际日期集合由交易日历产生。
-
-### 5.3 `EffectiveAStockPool` 纯语义
+### 5.3 `EffectiveAStockPool` 单一语义
 
 对每个 `calculation_date + sector_code`：
 
@@ -288,96 +347,93 @@ Gold 正式路径：
 sourceMembers = DISTINCT dc_member.con_code
 
 eligibleMembers = sourceMembers
-  INNER JOIN lifecycle ON lifecycle.ts_code = con_code
-  WHERE lifecycle.is_cny_stock = true
-    AND lifecycle.list_status IN ('L', 'D')
-    AND lifecycle.list_date <= calculation_date
-    AND (lifecycle.delist_date IS NULL OR lifecycle.delist_date > calculation_date)
+  INNER JOIN security_serving ON ts_code = con_code
+  WHERE security_type = 'EQUITY'
+    AND curr_type = 'CNY'
+    AND list_status IN ('L', 'D')
+    AND list_date <= calculation_date
+    AND (delist_date IS NULL OR delist_date > calculation_date)
 
 suspendedMembers = eligibleMembers
-  INNER JOIN suspend ON same ts_code/date AND suspend_type = 'S'
+  INNER JOIN equity_suspend_d ON same ts_code/date AND suspend_type = 'S'
 
 quoteEligibleMembers = eligibleMembers - suspendedMembers
-validQuoteMembers = quoteEligibleMembers INNER JOIN stock_daily ON same ts_code/date
+validQuoteMembers = quoteEligibleMembers INNER JOIN equity_daily_bar ON same ts_code/date
 missingQuoteMembers = quoteEligibleMembers - validQuoteMembers
 ```
 
-语义说明：
+1. Heat 物化与 Web 详情复用同一个 `EffectiveAStockPoolQuery`，不再保留 Lake/PostgreSQL 双 adapter。
+2. 固定案例覆盖 B 股、未来上市、退市生效日、全日停牌、复牌、可报价但无日线和重复成员。
+3. 六类计数必须由同一关系查询产出，禁止在 Python 用分散计数猜差值。
 
-1. Lake 的 `silver_stock_lifecycle` 来自 Tushare `stock_basic` 股票域（该接口行天然属于股票证券）并显式保留 `list_status`、CNY 和生命周期，因此承担离线侧 `EQUITY + CNY + L/D + 上市/退市日期` 资格事实；不再额外读 prod `security_serving`。
-2. Web 侧仍用 `security_serving.security_type='EQUITY' AND curr_type='CNY'` 表达同一语义，因为 Web 不允许读 Lake。
-3. 两个 adapter 共用固定输入输出案例：B 股、未来上市、退市生效日、全日停牌、复牌记录、可报价但无日线、重复成员。
-4. `source_member_count/member_count/suspended_count/quote_eligible_count/valid_quote_count/missing_quote_count` 必须由同一个关系查询一次产出，不允许分散查询后在 Python 猜差值。
+### 5.4 Heat 配置与纯 contract
 
-### 5.4 Heat 配置加载
+1. 在策略配置中心注册 `moduleKey=sectorOverview, market=CN_A, definition_file=sector_overview.cn_a.v1.json`。
+2. `SectorOverviewHeatStrategyPayload` 使用 `extra='forbid'`，完整表达五个主权重、价格/广度/资金流/持续性内部权重、窗口、TopN、winsor、等级/趋势/质量阈值和 `scoreVersion`；逐组校验权重和、阈值顺序、正整数窗口/TopN 与覆盖率。
+3. `SectorHeatConfigResolver` 只通过 `StrategyConfigService` 读取配置，生成 canonical payload SHA-256；禁止业务模块直接打开 JSON。
+4. `SectorHeatContract` 提供纯函数：winsor、平均秩 percentile、线性斜率、五分量、base/final score 与 rank、level、delta 和两日趋势确认。
+5. 所有排序最终追加 `sector_code ASC`；配置非法严格失败，不使用代码默认值或旧版本回退。
 
-`wealth_sector_heat_contract.py` 负责：
+### 5.5 单日计算、质量和事务发布
 
-1. 加载并严格校验 `wealth_sector_heat.cn_a.v1.json`。
-2. 生成 canonical JSON 和 SHA-256 config hash。
-3. 验证总权重/子权重、阈值顺序、窗口、覆盖率和 `scoreVersion`。
-4. 提供纯计算函数：winsor、平均秩 percentile、线性斜率、五分量、base score/rank、final score/rank、等级、变化和两日趋势确认。
-5. 所有排序最终增加 `sector_code ASC`，避免数据库/并列值不稳定顺序。
+`SectorHeatMaterializationService.materialize_trade_date(session, trade_date, expected_plan_hash)`：
 
-禁止在 asset 文件里复制公式常量；配置值只允许这个 contract 消费。
+1. 用 prod 交易日历解析目标日、25 日 warm-up 和 5 日复算窗口。
+2. `SectorHeatSourceQuery` 有界读取全部 prod 输入；结合 app 传入的中立完成性 DTO，验证来源日期、唯一键、概念代码覆盖及合法零行证据。
+3. 构造逐日有效池与六类计数；复算前 5 日横截面 base rank，不读取未来输入。
+4. 使用纯 contract 计算目标日五分量、persistence、final score/rank、level、delta 和 trend。
+5. 为当日所有概念生成候选行；质量不足保留 `INVALID + reason`，不伪造 0 分、不补权。
+6. 发布前运行内存/SQL contract：schema、状态不变量、来源日期、identity、公式抽样、rank/等级分布、no-lookahead 与有效池恒等式。
+7. 在同一业务事务中 `DELETE WHERE trade_date=:date`、批量 `INSERT`、显式列 read-back；比较 semantic `content_hash`、行数、`scoreVersion/configHash/sourceHash/tradeDate`。
+8. read-back 不一致或任一质量门禁失败则回滚；成功后提交该日 Heat。来源表全程只读。
+9. 返回 `SectorHeatMaterializationResult`：日期、读写行数、有效/无效分布、来源证据、配置/hash、内容 hash、耗时和质量结果。
 
-### 5.5 Gold 写入步骤
+### 5.6 Ops 执行端口与 app 组合
 
-`gold_wealth_sector_heat_daily[trade_date]` 单分区执行：
+`src/ops/runtime/maintenance_executor.py` 定义不含 biz 类型的通用端口：
 
-1. 用交易日历解析目标日、25 日 warm-up 和 5 日复算窗口；任何自然日替代都失败关闭。
-2. 用 readiness guard 验证所需 Lake 文件、checks 和两个 prod 数据集完成证据。
-3. 一次提取当日概念集合和有界历史源；prod SQL 必须显式列名、日期范围和代码范围。
-4. 在 DuckDB 中去重成员并构造逐日有效池、覆盖计数和原始特征。
-5. 对每个需要复算的历史日做横截面 winsor/percentile/base rank；不读取未来输入。
-6. 计算目标日 persistence、final score/rank、level、delta 和 trend。
-7. 为当日所有概念保留一行；质量失败写 `INVALID + reason`。
-8. 将候选文件写入 staging，运行文件级 contract audit。
-9. 同文件系统原子提升到 Gold 正式路径。
-10. 返回 materialization metadata：输入日期、行数、hash、配置版本/hash、有效/无效分布、计数分布、耗时和 readiness 证据。
+```python
+class MaintenanceExecutor(Protocol):
+    def plan(self, request: MaintenanceExecutionRequest) -> MaintenanceExecutionPlan: ...
+    def execute_unit(self, unit: MaintenanceExecutionUnit) -> MaintenanceExecutionResult: ...
+```
 
-### 5.6 Asset checks
+dispatcher 语义固定：replay `PLAN` 调用 `plan()` 后只持久化 snapshot 并成功结束，不调用 `execute_unit()`；replay `APPLY` 读取并校验被引用 snapshot 后直接按冻结 units 调用 `execute_unit()`，不重新选择日期；单日 action 构造一个日期 unit。通用端口 DTO 只含 JSON 可序列化标量/映射，不引用 biz 或 ops ORM。
 
-所有 Heat check 使用 `asset=gold_wealth_sector_heat_daily`、相同 `partitions_def` 且 `blocking=True`：
+1. `ops.action_catalog` 登记 `maintenance.materialize_wealth_sector_heat_daily` 与 `maintenance.replay_wealth_sector_heat_history`，两者的 `executor_key` 均为 `wealth_sector_heat`。
+2. `TaskRunDispatcher` 只按 executor key 调用端口、创建逐日 TaskRunNode、记录进度/结果/issue；不得 import `src.biz` 或读取 Heat 配置。
+3. `src/app/.../sector_heat_task_executor.py` 实现该端口：plan 委托 biz replay planner，execute_unit 为每个日期打开独立 business session 并调用 materialization service。
+4. `src/app/runtime/ops_worker_factory.py` 是生产 worker 唯一装配入口；向 `OperationsWorker` 注入 executor registry。`src/cli.py` 的 `ops-worker-run/serve` 必须使用该 factory，`src/cli_parts/ops_handlers.py` 接收 callable factory；不得直接构造未装配的 worker。执行器缺失时 Heat action 失败关闭。
+5. Ops session 与 business session 不共享 transaction。Heat 已提交后，即使 TaskRun 节点/终态写入失败，也不得回滚 Heat；重试先按 plan/config/source/content hash 做 read-back，再幂等覆盖或确认完成。
+6. `biz` 不读写 TaskRun；app 适配器只做参数映射、session 生命周期和结果映射，不实现公式/SQL。
 
-| check | 断言 |
-|---|---|
-| `gold_wealth_sector_heat_daily_contract_check` | schema、类型、PK、枚举、范围、行状态不变量 |
-| `..._source_date_check` | 必需来源日期与分区日/窗口一致 |
-| `..._identity_check` | 当日概念集合全覆盖，无无来源额外行 |
-| `..._formula_check` | 固定抽样复算与 config hash 一致 |
-| `..._distribution_check` | rank 唯一连续、等级与阈值一致、异常比例可解释 |
-| `..._history_check` | delta/trend/persistence 无前视，历史断点不填充 |
-| `..._effective_pool_check` | 六类计数恒等式及排除/停牌/缺行情样本可回溯 |
+ActionDefinition 参数：
 
-层级 serving 在发布函数内先调用现有层级文件 contract，再做 prod read-back；不修改 `silver_dc_industry_hierarchy` 的手工 seed、无分区和单文件身份，也不为它增加自动重建 sensor。
+| action | 参数 | 规则 |
+|---|---|---|
+| `maintenance.materialize_wealth_sector_heat_daily` | `trade_date: date` | 必填；`manual_enabled=true`，60 日和最新日验收前不启用 schedule |
+| `maintenance.replay_wealth_sector_heat_history` | `execution_mode: enum(PLAN,APPLY)` | 必填；`schedule_enabled=false` |
+| replay PLAN | `start_date/end_date: date` | 必填且连续打开日不少于 60；禁止 `plan_task_run_id/plan_hash`；只写 Ops plan snapshot/issue，不写 Heat |
+| replay APPLY | `plan_task_run_id: integer`, `plan_hash: string` | 必填；禁止 start/end；引用同 action、成功 PLAN TaskRun 的 immutable snapshot |
 
-### 5.7 Prod serving 发布
+1. ops 负责从所引用 PLAN TaskRun 读取并校验 snapshot；传给 executor 的是通用 plan units/expected hashes，不暴露 ops ORM。
+2. app/biz 在每个日期执行前复算配置与来源 hash；与 plan 不一致时以 `HEAT_PLAN_DRIFT` 停止，不自动重规划或跳日。
+3. PLAN、APPLY 和单日 action 都使用 TaskRun/TaskRunNode 正式状态链；不另建 Heat run 表。
+4. 单日 schedule 仅在首发回放和最新日验收后通过现有 Ops Schedule 数据配置启用；不新增 sensor 或代码内隐藏 cron。
 
-`prod_core_wealth_sector_hierarchy`：
+### 5.7 60 个有效交易日 plan/apply
 
-1. 无分区，显式人工运行或在部署流程中运行。
-2. 单事务中将新快照写入临时 SQL 关系、核验后替换正式表；若采用 delete+insert，read-back 必须在同一事务内完成。
-3. read-back 必须验证 496、31/128/337、父子闭包、版本和 canonical hash。
+1. replay PLAN 从 prod 交易日历选择候选日期，对每一日执行来源日期、数量、唯一键、合法零行、代码覆盖和配置可用性审计；只写 Ops `plan_snapshot_json` 与 issue，不写 Heat。
+2. plan 先从 prod 交易日历选择连续至少 60 个 `exchange='SSE' AND is_open=true` 的目标交易日；只有全部必需 prod 来源通过的日期才是“有效交易日”。不完整日期进入 gap ledger，修复并复核前不得跳过该日或用窗外日期凑满 60 日。
+3. plan 固定该连续目标窗、额外 25 个前置 warm-up 交易日、逐日来源证据、预计读写行数、配置版本/hash 和 canonical plan hash。
+4. APPLY 必须携带成功 PLAN 的 `plan_task_run_id + plan_hash`，从旧到新逐日执行；每个日期独立 business transaction 和 TaskRunNode。
+5. 首个失败日立即停止；续跑根据 plan hash 与 Heat read-back 从最后成功日继续。warm-up 不计入 60 日验收。
+6. 当前审计事实写入 plan 说明：`dc_daily/dc_member` 按源站现状判定；`board_moneyflow_dc@2026-07-09` 已补齐但仍需整窗复核。
+7. 不提供 DG history CLI，不生成 runless event；历史回放通过正式 Ops TaskRun 提交与观察。
 
-`prod_core_wealth_sector_heat_daily[trade_date]`：
+### 5.8 DG Heat 清零静态门禁
 
-1. 依赖同分区 Gold 和全部 blocking checks。
-2. 使用 `ProdPostgresWriteResource.connect()`。
-3. 单事务 `DELETE WHERE trade_date=%s` + `executemany INSERT` + 显式列 read-back。
-4. read-back 比较完整 canonical rows hash、行数、`score_version` 和日期；失败回滚，保留上次成功分区。
-5. `prod_db/wealth_sector_overview.py` 不 import ORM，不写 `created_at/updated_at` 隐式字段，不使用 `SELECT *`。
-
-### 5.8 Job、sensor 与 60 日回放
-
-1. Job：`wealth_sector_heat_daily_update_job`，选择 Gold、Gold checks 和 prod serving；单分区、in-process executor。
-2. Sensor：`wealth_sector_heat_daily_update_job_sensor`，只提交最早一个 actionable 交易日；成功、失败、checks 问题和 prod 未同步分别给出稳定 reason code。
-3. 新分区注册由该数据族专属注册逻辑从正式交易日历产生；不得复用任一上游 dynamic partition set 名称。
-4. readiness 同时要求三个 DC Silver、股票日线/停牌 Silver、股票生命周期快照及两个 prod 数据集完成证据。
-5. `limit_list_d` 合法零行必须有目标日成功 TaskRun/日期完整性证据；资金流不可用不解释为零流入。
-6. 历史入口：`wealth_sector_heat_history_cli.py plan/apply`。`plan` 只读，冻结 60 个发布日 + 25 个 warm-up 日、输入文件/来源证据和预计请求量；`apply` 需显式确认计划 hash。
-7. 回放从旧到新，每日独立 run/事务/checkpoint；失败停在首个失败日，可从最后成功日续跑。
-8. 不发 runless success，不在失败后自动跳日，不把 warm-up 日计入 60 日验收。
+仓库扫描必须断言本需求未新增或引用：`gold_wealth_sector_heat_daily`、Heat dynamic partition、Heat asset check、Heat sensor、Heat Gold/Parquet 路径、Heat runless event、Heat history CLI、DG Heat 配置文件或 DG Heat 计算 contract。DG 只允许 hierarchy 发布文件出现在本模块改动清单中。
 
 ---
 
@@ -530,19 +586,20 @@ type SectorRequestState =
 2. migration upgrade/downgrade 仅影响两张目标表。
 3. Alembic 单 head、metadata 与数据库表一致。
 
-### 8.2 DG 单元与集成
+### 8.2 层级发布、Heat 业务 contract 与执行链
 
 | 组 | 必测正例 | 必测反例 |
 |---|---|---|
-| 配置 | V1 canonical config/hash | 权重不为 1、阈值逆序、版本未升 |
-| 有效池 | CNY 上市股票、停牌扣分母 | B 股、未来上市、退市生效日、重复成员 |
-| 行情覆盖 | 有效报价、合法零停牌 | 可报价无行情、停牌源缺失 |
-| Heat | golden 五分量/总分/rank/level | 缺分量不补权、低覆盖 INVALID |
-| 历史 | delta、两日确认、连续 Top20 | t+1 改动影响 t、断点填充 |
-| 文件 | staging -> atomic replace | contract 失败不得覆盖正式文件 |
-| serving | delete+insert+read-back hash | read-back 不同回滚保留旧分区 |
-| sensor | 最早缺口单日 RunRequest | upstream 未 ready、check fail、prod fail 不重发 |
-| replay | 60 日旧到新和 checkpoint | warm-up 混入验收、失败跳日 |
+| DG hierarchy | Silver 496 行、层级计数、写后 hash 对账 | 非法层级、重复键、计数/hash 不一致时不得发布 |
+| 配置中心 | V1 canonical config/hash，注册表可解析 | 权重不为 1、阈值逆序、未知版本、版本未升 |
+| prod 来源查询 | 每个来源按冻结字段和窗口有界读取 | `SELECT *`、自然日凑数、逐板块 N+1、访问 DG/Lake/Tushare |
+| 有效池 | CNY 上市 A 股、停牌扣分母 | B 股、未来上市、退市生效日、重复成员、两套 adapter 口径 |
+| 行情覆盖 | 有效报价、合法零停牌 | 可报价无行情、必需来源缺失或错日仍计算 |
+| Heat contract | golden 五分量/总分/rank/level | 缺分量补权、低覆盖仍有效、未来数据影响历史结果 |
+| prod 发布 | 单日 delete+insert+read-back hash 同事务成功 | read-back 不同、权限不足或 contract 失败时保留旧成功日 |
+| Ops/app/CLI 装配 | TaskRun 计划 60 个有效交易日，生产 CLI 经 app factory 注入 executor 并调用 biz | ops import biz、CLI 直构未装配 worker、TaskRun session 与业务 session 共事务、失败跳日 |
+| 权限 | hierarchy/Heat/Web 三类连接仅完成授权动作 | 来源表 DML、Web 写 serving、DG 写 Heat、任一运行角色 CREATE/TRUNCATE |
+| 静态清零 | DG 仅存在 hierarchy 发布实现 | 出现 DG Heat asset/partition/check/sensor/Gold/history CLI |
 
 ### 8.3 后端真实 API
 
@@ -570,15 +627,23 @@ type SectorRequestState =
 ### 8.5 性能与像素
 
 1. API 同机房 P95 `<250ms`、P99 `<500ms`、payload `<120KB`、SQL round trips `<=8`。
-2. 单日 Heat P95 `<60s`；60 日回放记录每日日志、均值/P95 和失败恢复。
+2. 单日 Heat P95 `<60s`；60 个有效交易日回放记录每日日志、均值/P95 和失败恢复。
 3. 行业/概念/地域与所有状态保存 `1564 × 680` 截图；普通 UI 偏差 `<=2px`。
 4. 首页 `1600 × 1200` 截图确认其它模块宽度/图表位置未变化；板块模块增高只改变后续文档流位置。
 
 实现完成后的固定命令：
 
 ```bash
-# Foundation / 后端真实路由
-pytest -q tests/test_extended_models.py tests/web/test_wealth_market_sector_overview_api.py
+# Foundation / biz Heat / app-ops 装配 / 权限 / 后端真实路由 / 架构边界
+pytest -q \
+  tests/test_extended_models.py \
+  tests/test_wealth_sector_heat_contract.py \
+  tests/test_wealth_sector_heat_materialization_service.py \
+  tests/test_wealth_sector_heat_task_execution.py \
+  tests/test_wealth_sector_database_permissions.py \
+  tests/test_cli_ops_runtime.py \
+  tests/web/test_wealth_market_sector_overview_api.py \
+  tests/architecture/test_subsystem_dependency_matrix.py
 
 # Wealth 类型、真实 API 行为与构建
 cd wealth
@@ -586,10 +651,10 @@ npm run test -- market-overview-sector-overview-real-api
 npm run typecheck
 npm run build
 
-# DG 专项（实现时创建对应 test_wealth_sector_overview*.py）
+# DG 仅验证 hierarchy 发布（实现时创建对应测试）
 cd ../lake_console/orchestrator
-uv run python -m pytest -q tests/test_wealth_sector_overview*.py
-uv run ruff check src/orchestrator/defs tests/test_wealth_sector_overview*.py
+uv run python -m pytest -q tests/test_wealth_sector_hierarchy_prod_core.py
+uv run ruff check src/orchestrator/defs tests/test_wealth_sector_hierarchy_prod_core.py
 
 # 仓库文档与补丁完整性
 cd ../..
@@ -597,7 +662,7 @@ cd ../..
 git diff --check
 ```
 
-`uv run dg check defs` 是正式 Definitions 加载门禁，按 DG 运维规则单独执行并记录结果；它不授权 job、sensor、materialize、backfill、runless event 或任何数据写入。
+`uv run dg check defs` 只用于确认 hierarchy Definitions 可加载，按 DG 运维规则单独执行并记录结果；它不授权 job、materialize、backfill、runless event 或任何数据写入。仓库静态门禁还必须确认没有任何 Heat DG 定义被加载。
 
 ---
 
@@ -618,54 +683,59 @@ git diff --check
 
 不得用 N+1 消耗预算。行业 15 行、概念 20 行、地域 31 行均在 SQL 排序后有界返回。
 
-### 9.2 离线读取预算
+### 9.2 prod-native Heat 读取与计算预算
 
-1. Lake 输入只读目标概念、25/5 日窗口；不得扫描 Lake 全历史。
-2. prod 资金流最多 5 个交易日、概念代码集合；涨停最多 6 个交易日、相关成员集合。
-3. 大型成员代码集合使用临时值关系/数组绑定或数据库等价批量方式，禁止每个概念一次 SQL。
-4. materialization metadata 记录每个来源行数、字节/文件数、SQL 耗时、计算耗时、写入耗时。
+1. 所有输入只读 prod 正式表，并按目标概念、交易日和 25/6/5 日等冻结窗口有界查询；不得扫描全历史。
+2. 资金流读取 `t-9..t` 共 10 个有效交易日，涨停读取 `t-5..t` 共 6 个有效交易日；窗口由交易日历解析，不能用自然日替代。
+3. 大型成员代码集合使用临时值关系、数组绑定或数据库等价批量方式，禁止每个概念一次 SQL。
+4. 每日 TaskRun 节点记录逐来源行数与 canonical source hash，以及 SQL、计算、写入和 read-back 耗时；不记录文件数或 Gold 元数据。
+5. 单日计算应复用已加载的来源 bundle，不允许 contract 内部重新访问数据库。
 
 ---
 
 ## 10. 分阶段实现与提交边界
 
-### Slice 0：M0 数据证据（只读）
+### Slice 0：文档冻结与生产只读证据
 
 1. 复核层级 496/31/128/337。
 2. 记录 member pair、重复率、最大单板成员。
-3. 对账 Lake 生命周期/停牌/日线与 prod 有效池 adapter 的固定样本语义。
-4. 验证 `board_moneyflow_dc` 和 `limit_list_d` 目标日期、唯一键、零行完成证据、代码覆盖率和有界查询计划。
-5. 输出 60 日回放日期集合与 warm-up 日期集合。
+3. 按 prod 有效池唯一口径对账证券资格、停牌、日线和成员固定样本。
+4. 验证 `board_moneyflow_dc`、`equity_limit_list` 等全部必需来源的目标日期、唯一键、零行完成证据、代码覆盖率和有界查询计划。
+5. 输出 60 个有效交易日、warm-up 日期与缺口台账；缺口日期不得计入 60 日。
 
-未通过时停止，不进入迁移或物化。
+未通过时停止，不进入 Heat 计算、回放或应用切换。
 
-### Slice 1：Foundation + migration
+### Slice 1：实施日迁移基线
 
-只新增两表模型、注册、迁移和模型测试；重新确认 Alembic head。不得同步生产。
+重新查询 Alembic 当前 head；`20260811_000132` 只是 2026-08-13 的只读快照，不得据此直接编写 `down_revision`。
 
-### Slice 2：层级 serving
+### Slice 2：Foundation + migration 与最小权限
 
-实现 prod write contract、资产、read-back 和测试；先本地/测试库，再单独生产发布验收。
+只新增两表模型、注册、迁移和模型测试；建立 hierarchy publisher、Heat materializer、Web reader 的独立最小权限连接，并完成正反向权限探针。不得用同一个 owner 登录替代运行角色。
 
-### Slice 3：Heat Gold
+### Slice 3：DG hierarchy -> prod hierarchy
 
-实现分区/路径/catalog/schema/config/contract/guard/asset/checks 和固定样本测试；暂不写 prod。
+实现唯一 DG hierarchy asset、prod write contract、read-back 和测试；先本地/测试库，再单独生产发布验收。DG 不得出现 Heat 计算、存储或自动化。
 
-### Slice 4：Heat serving + automation
+### Slice 4：60 日 prod 来源缺口闭环
 
-实现 prod write、job、sensor、history plan/apply；完成至少 60 个交易日回放后才能进入应用切换。
+按缺口台账修复或补齐生产来源，重新核验来源表枚举、日期、数量、唯一键、零行完成证据和资金流代码覆盖率；冻结 60 个有效交易日及 warm-up 集合。
 
-### Slice 5：后端 V2
+### Slice 5：prod-native Heat 与回放
 
-先冻结 schema 与真实路由测试，再替换 query/service/status；不得保留 V1 DTO。
+实现 biz 来源查询、配置解析、有效池、纯计算 contract 和原子发布；实现 ops generic executor port 与 app 装配；通过正式 TaskRun 完成至少 60 个有效交易日的 plan/apply、read-back、重放一致性与性能验收。
 
-### Slice 6：前端 V2
+### Slice 6：后端 V2
+
+先冻结 schema 与真实路由测试，再替换 query/service/status；只读 prod hierarchy/Heat/行情/成员事实，不得保留 V1 DTO 或运行时 Heat 计算。
+
+### Slice 7：前端三工作台
 
 先 controller 和稳定骨架，再行业、概念、地域、详情；最后删除旧结构并做真实 API/像素验收。
 
-### Slice 7：发布
+### Slice 8：发布
 
-迁移 -> 层级 -> 60 日 Heat -> 最新日 -> 后端/前端同窗口切换 -> smoke/性能/截图。每个 Slice 独立提交，不混入其它模块。
+迁移/权限 -> 层级 -> 来源缺口闭环 -> 60 日 Heat -> 最新日 -> 后端 -> 前端同窗口切换 -> smoke/性能/截图。每个 Slice 独立提交，不混入其它模块。
 
 ---
 
@@ -674,25 +744,27 @@ git diff --check
 ### 11.1 发布前硬门禁
 
 1. 实施日 Alembic 单 head 已记录。
-2. M0 全部真实只读对账通过。
+2. 全部生产来源真实只读对账通过，60 个有效交易日与 warm-up 集合已冻结，缺口已清零或被明确阻断。
 3. 层级 prod read-back 为 496/31/128/337 且 hash 一致。
-4. Heat 连续至少 60 个发布交易日全部通过 blocking checks 和 prod read-back。
+4. Heat 至少 60 个有效交易日全部通过业务 contract、TaskRun 节点验收和 prod read-back；不以自然日、缺口日或 warm-up 凑数。
 5. 最近交易日 Heat 来源日期一致、有效率/等级分布/日度跳变已人工审阅。
-6. 后端和前端真实 API、性能、六态和像素测试通过。
+6. 三类运行连接的最小权限正反向探针通过，app 已注入 Heat executor，且依赖测试证明没有 `ops -> biz`。
+7. 后端和前端真实 API、性能、六态和像素测试通过。
 
 ### 11.2 回滚
 
 1. 应用回滚到切换前版本；新表保留诊断，不删除、不清空。
-2. Heat 单日发布失败由事务回滚，保留上一成功分区；Gold 失败候选不提升。
-3. sensor 遇到失败/check 问题停止自动重发，转人工按分区修复。
+2. Heat 单日业务事务失败时整日回滚，保留此前成功交易日；不得用 TaskRun 状态事务回滚业务数据。
+3. TaskRun 遇到来源、contract、权限或 read-back 失败时停止后续日期，记录失败节点；修复后按相同 plan hash 从最后成功日续跑。
 4. 不恢复旧 DTO 别名，不让 V2 前端连接 V1 后端或反向混用。
 
 ### 11.3 观测
 
-1. DG：run key、分区、readiness reason、source hashes、check 结果、Gold/prod row hash。
-2. API：`SO_*` 数量、view/status、响应耗时、SQL round trips、payload。
-3. 数据：有效/无效 Heat 比例、invalid reason 分布、member/coverage 分布、等级分布和 score 日跳变。
-4. 观测写入失败不得回滚或污染来源业务表；仅影响本次观测状态。
+1. DG hierarchy：运行标识、Silver/prod 行数、31/128/337 层级计数、source hash 与 prod read-back hash。
+2. Ops TaskRun：plan hash、目标/有效/warm-up/缺口日期、逐日节点状态、来源行数/hash、失败 reason 和续跑位置。
+3. API：`SO_*` 数量、view/status、响应耗时、SQL round trips、payload。
+4. 数据：有效/无效 Heat 比例、invalid reason 分布、member/coverage 分布、等级分布和 score 日跳变。
+5. 观测写入失败不得回滚、阻断或污染 Heat 及其它业务数据事务；仅影响本次观测状态。
 
 ---
 
@@ -700,28 +772,32 @@ git diff --check
 
 | 硬口径 | 代码落点 | 必须测试 |
 |---|---|---|
-| 盘后、非实时 | Heat asset + API `tradeDate/asOf` | 无分钟字段、无盘中回退 |
+| 盘后、非实时 | biz Heat materialization + API `tradeDate/asOf` | 无分钟字段、无盘中回退 |
 | 行业三级各 Top5 | selection resolver + hierarchy query | 父子范围、5 行、无子级 |
 | 概念 Top20/地域 31 | metrics/heat query | 精确上限/数量与稳定排序 |
 | 领涨只来自 dc_index | metrics query | member Top1 不得覆盖 leader |
-| 有效 A 股池 | 两 adapter + golden contract | B 股/上市/退市/停牌/缺行情 |
-| Heat EOD V1 | config + pure contract | golden、缺分量、不补权、no-lookahead |
+| 有效 A 股池 | prod query + 单一 golden contract | B 股/上市/退市/停牌/缺行情，不得访问 Lake |
+| Heat EOD V1 | 策略配置中心 + pure contract | golden、缺分量、不补权、no-lookahead、未知配置严格失败 |
 | Web 不算事实 | response DTO + presentation-only adapter | null 不补 0、badge 不推导 |
-| 来源同日 | readiness + source date check | 错日必须阻断/降级 |
-| 原子发布 | staging replace + DB transaction | 失败保留旧成功数据 |
+| 来源同日 | prod source query + quality contract | 错日必须阻断，不得以其它日期替代 |
+| 原子发布 | 单日 prod DB transaction + read-back | 失败保留旧成功交易日 |
+| biz/ops/app 边界 | ops executor port + app adapter + CLI factory consumer | ops 不得 import biz，CLI 不得直构未装配 worker，状态事务不得影响业务事务 |
+| 最小权限 | 三类独立运行连接 | 来源 DML、Web 写入、DG 写 Heat、CREATE/TRUNCATE 必须失败 |
+| DG Heat 清零 | hierarchy-only Definitions + 静态扫描 | asset/partition/check/sensor/Gold/history CLI 不存在 |
 | V1 清零 | schema/API/frontend 同提交 | 旧字段/旧组件/旧 fixture 不存在 |
-| 60 日回放 | history plan/apply | 旧到新、checkpoint、warm-up 不计数 |
+| 60 日回放 | Ops TaskRun plan/apply | 旧到新、checkpoint、缺口/warm-up 不计数、失败停止 |
 | Alembic 真 head | 实施步骤 | 单 head 与真实 down_revision |
 
 ---
 
 ## 13. 当前仍未完成但不需要产品拍板的事项
 
-1. 生产只读 M0：member 规模/重复、涨停零行完成证据、有效池分类和两个 prod 查询计划。
-2. DG 设计评审：新分区注册、readiness reason codes、7 个 blocking checks 与 60 日 plan/apply。
-3. 数据库评审：两表约束、索引、事务替换和实施日 Alembic head。
-4. 前后端评审：V2 判别式 DTO、状态机、请求 stale 防护和原子切换窗口。
-5. 上线证据：60 日回放、同机房性能、真实 API 和像素截图。
+1. 生产只读证据：完整 60 日来源台账、member 规模/重复、零行完成证据、有效池分类和全部有界查询计划。
+2. 执行链评审：ops generic executor port、app 注入、CLI `run/serve` factory 消费、独立业务/状态事务、reason codes、checkpoint 与续跑语义。
+3. 数据库评审：两表约束、索引、事务替换、真实运行角色/DSN、正反向权限探针和实施日 Alembic head。
+4. DG hierarchy 评审：唯一 asset、显式发布、496/31/128/337 与 hash read-back；静态确认 Heat DG 设计清零。
+5. 前后端评审：V2 判别式 DTO、状态机、请求 stale 防护和原子切换窗口。
+6. 上线证据：60 个有效交易日 prod-native 回放、同机房性能、真实 API 和像素截图。
 
 如果上述工程门禁发现真实数据与已冻结产品口径冲突（例如地域不再是 31 个、有效池定义无法用事实字段表达、Heat 大面积无效），必须回到产品评审；在出现这种证据前无需新增决策。
 
@@ -731,4 +807,5 @@ git diff --check
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
-| v2 | 2026-08-12 | 基于当前代码、DG 正式资产、V2 产品/技术方案和 CodeGraph 影响面形成编码级 LLD；校准股票生命周期、停牌和日线优先使用 Lake |
+| v2.1 | 2026-08-13 | Heat 改为 biz prod-native 计算与直接发布；ops 仅承载执行意图/状态/观测，由 app 注入执行器；删除 DG Heat、Gold 双份事实和 Lake/prod 双 adapter；补齐最小权限与 60 个有效交易日门禁 |
+| v2 | 2026-08-12 | 历史基线：曾按 DG Heat/Gold 与 Lake 优先设计，已被 v2.1 全面替代，不得用于实施 |
