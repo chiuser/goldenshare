@@ -1,6 +1,6 @@
 # 指数详情页技术实施方案 v1
 
-> 状态：M1–M4 与 M5-A 已完成并通过验证；详情图表共享收敛与缩放已由 `b38ac20e`、`61a5adea` 完成；M5-A 使用真实 Silver K 线与开发态 Mock 指标，M5-B 保留真实 Gold 对接。
+> 状态：M1–M4 与 M5-A 已完成并通过验证；详情图表共享收敛与缩放已由 `b38ac20e`、`61a5adea` 完成；M5-B 正式 Gold 数据门禁已通过，真实指标 provider 切换按本文推进。
 > 对应需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 对应门禁：[指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
 > 低层设计：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)
@@ -57,7 +57,7 @@
 5. `IndexWeightDAO.get_latest_weights()` 能选最近批次，但返回按 `con_code` 排序，不符合页面“按权重排序”；页面查询不能照搬排序语义。
 6. 现有趋势通道路由 `/api/v1/quote/detail/trend-channel` 和 schema 只接受 `000001.SH + day`，公式版本也是 SSE 专项；不能声称已覆盖其余 9 个指数。
 7. 当前 local minute capability 已统一管理 `APP_ENV`、`WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED`、`GOLDENSHARE_LAKE_ROOT` 和 DuckDB 依赖，无需新增第二套开关。
-8. `major_index_mins` Silver 七频率正式物理文件已通过只读审计；`major_index_mins_technical` Gold 仍在独立工作流实现，M5-A 不读取其未提交代码作为事实，也不修改对应资产/writer/check。
+8. `major_index_mins` Silver 与 `major_index_mins_technical` Gold 七频率正式物理文件已通过只读审计；M5-B Web 只消费稳定物理合同，不修改对应 Dagster asset/writer/check/state。
 
 ### 3.3 CodeGraph 影响面
 
@@ -415,8 +415,9 @@ interface IndexDetailWeightsResponse {
    - 不读 state 文件，不触发 Dagster，不写 Lake。
 4. 默认 500 根，cursor 时间键翻页；指标 null 保持 null。
 5. `899050.BJ` 等历史覆盖边界按 Lake 合同返回 EMPTY/DELAYED，不从日线或其他指数补造。
-6. M5-A 前端使用隔离的开发态 Mock indicator provider，输入真实 Silver bars，显示“模拟指标”；后端不返回 Mock，真实 indicator endpoint 缺文件时仍返回 `IM_SOURCE_NOT_READY`。
-7. Mock 不是异常 fallback：provider 在 M5-A 明确选用 Mock，不先调用真实 Gold；M5-B 验收后删除 Mock 并一次性切换真实 provider。
+6. M5-B 前端使用真实 `/minute-indicators` provider，与 bars 传入同一 `tsCode/freq/startDate/endDate/limit`，按 `tradeTime` 一一合并；`paramsKey/indicatorVersion` 直接保留 Gold DTO 值。
+7. bars 与 indicators 独立结算：bars ERROR/EMPTY 决定分钟主模块 ERROR/EMPTY；bars READY 且 indicators ERROR/EMPTY/身份或时间键不完整时，返回 bars-only ViewModel 和技术图层 PARTIAL。不得清空 K 线、回退 Mock 或用其它 code/frequency 缓存补齐。
+8. M5-B 删除 `indexMinuteMockIndicatorProvider.ts`、`indicatorSource="mock"`、`模拟指标` 标识及专属测试；内部来源只保留 `gold|unavailable`，生产仍不挂载分钟路由。
 
 ## 7. 前端交互与状态机
 
@@ -622,10 +623,11 @@ cd wealth && npm run build
 | M4 异常状态（已完成） | 按五个 Figma 根画板实现 loading/empty/error/partial/forbidden，并补 404/delayed/module 状态变体 | 状态测试、真实浏览器逐状态截图与尺寸验收通过 |
 | M5-A 本地分钟（已完成） | reader、条件路由、真实 Silver K 线、可见开发态 Mock 指标 | Silver 数据/性能、local/prod 与视觉门禁通过 |
 | M5-B 准备（已完成） | 70 checks 注册、跨边界合同门禁、七频率异常 fixture、只读正式验收入口 | Definitions 发现 14 个资产/70 个 checks；合同一致；缺正式 Gold 时明确 `SOURCE_NOT_READY` |
-| M5-B 最终切换 | 真实 indicators、删除 Mock | Gold 物理覆盖/全量对齐/性能与 10000 根门禁通过 |
+| M5-B 正式数据验收（已完成） | Gold 物理覆盖/全量对齐/默认性能/最大响应 | 29,932 分区对零失败；630 样本 P95 通过；10000/5MB 与 5000 cursor 语义冻结 |
+| M5-B 最终切换（本轮） | 真实 indicators、删除 Mock | bars/indicators 独立状态、真实 provider、Mock 引用清零、浏览器回归通过 |
 | M6 发布验收 | prod 日线能力、分钟路由不存在、全回归 | 构建/测试/生产 smoke 通过 |
 
-M5-B 准备批次已于 2026-08-12 验收：42 项分钟相关测试、14 项依赖边界测试及静态检查通过；正式只读预检确认 Silver 七频率各 4,276 个分区、Gold technical 七频率 0 个分区，因此只记录 `SOURCE_NOT_READY / IM_SOURCE_NOT_READY`，不形成 Gold 性能通过结论。
+M5-B 准备批次已于 2026-08-12 验收。2026-08-13 正式重跑确认 Silver/Gold technical 七频率各 4,276 个分区，29,932 个分区对全历史合同与时间键对齐零失败；Technical/state 共 59,864 个正式文件、10,147,176 行，630 个默认 500 根查询样本全部 READY，频率级 P95 为 295.855–324.620ms。最大响应验收按 5MB 优先规则执行：10000 根可被响应门禁拒绝，固定 5000 根负责验证正常响应和 cursor。
 
 技术结论 API 与九转 API 不属于 M0-M6，分别立项后再扩展 DTO 与 UI。
 
@@ -661,6 +663,7 @@ M5-B 准备批次已于 2026-08-12 验收：42 项分钟相关测试、14 项依
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.18 | 2026-08-13 | 回填 M5-B 正式 Gold 全历史与性能门禁；冻结 10000/5MB 拒绝语义、5000 正常分页，以及真实指标独立结算、bars-only PARTIAL 和 Mock 彻底删除方案 | Codex |
 | v1.17 | 2026-08-12 | M3 对账：共享收敛与缩放已由 `b38ac20e`/`61a5adea` 完成，四类图表统一 dataKey、45～180/15 与自适应 120；后端合同不变 | Codex |
 | v1.16 | 2026-08-12 | 冻结后续图表演进：先将股票分钟迁入 shared，再统一启用 45～180 根缩放与 1600px 默认 120 根；后端合同不变 | Codex |
 | v1.15 | 2026-08-12 | 完成 M5-B 准备：确认 70 checks 已注册，增加 Orchestrator/Web Reader 合同防漂移、七频率错误 fixture 与正式 Gold 只读验收入口；正式文件验收和前端切换继续待办 | Codex |

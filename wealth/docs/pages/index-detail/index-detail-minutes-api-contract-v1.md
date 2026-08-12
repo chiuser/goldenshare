@@ -1,7 +1,7 @@
 # 指数详情本地分钟 API / DTO 合同 v1
 
-> 版本：`1.0.2`
-> 状态：M5-A 已实现并通过验证；M5-B 的 70 个 Definitions checks 注册、跨边界合同防漂移门禁和正式验收入口已完成，Gold indicators 的物理覆盖、对齐、性能与前端切换仍待正式文件就绪后验收。
+> 版本：`1.0.3`
+> 状态：M5-A 已实现并通过验证；M5-B 的 14 个 Gold 资产、70 个 Definitions checks、正式物理覆盖、全历史 Silver/Gold 对齐和默认性能已经通过只读验收，真实 indicator provider 切换按本文冻结口径推进。
 > 命名空间：`/api/v1/wealth/market/index-detail/*`
 
 ## 1. 边界
@@ -10,7 +10,7 @@
 2. bars 唯一读取 `/Volumes/datasource/data_lake/silver/quote/major_index_mins`；indicators 唯一读取正式 Gold `major_index_mins_technical`，不读取 state、旧 Lake 或 staging。
 3. `899050.BJ` 属于页面十指数名单，但不在 Silver 源覆盖中；分钟 bars 返回 `EMPTY + IM_SOURCE_NOT_READY`。
 4. Lake 中存在但不属于页面十指数名单的代码，例如 `000680.SH`，返回 `ID_NOT_FOUND`。
-5. M5-A 前端开发态指标 Mock 不是 HTTP 接口返回值，不进入本合同的后端实现，不写 Lake，也不在真实接口错误时回退。
+5. M5-A 前端开发态指标 Mock 不是 HTTP 接口返回值。M5-B 切换真实 provider 后必须删除 Mock provider、标识和测试，不保留双源兼容或错误 fallback。
 
 ## 2. 请求
 
@@ -32,7 +32,7 @@ GET /api/v1/wealth/market/index-detail/minute-indicators
 | `limit` | integer | 否 | 默认 500，范围 `1..10000` |
 | `cursor` | string | 否 | v1 URL-safe base64；绑定 dataset/code/freq/start/end/before time |
 
-未知参数、重复参数、非法日期、非法 limit、cursor 解析失败或 cursor 与当前请求错配均返回 HTTP 400 `ID_REQUEST_INVALID`。分页不使用 OFFSET。
+未知参数、重复参数、非法日期、非法 limit、cursor 解析失败或 cursor 与当前请求错配均返回 HTTP 400 `ID_REQUEST_INVALID`。分页不使用 OFFSET。`10000` 是语法允许的请求上限，不代表任意 DTO 都能在 5MB 响应门禁内返回；5MB 门禁优先，调用方收到响应过大错误后必须降低 limit 并使用 cursor。
 
 ## 3. 响应 DTO
 
@@ -143,14 +143,15 @@ MA/BOLL warm-up 不足时保持 null；MACD/KDJ 由 Gold 合同负责，不由 B
 
 401/403 沿用认证层。响应体超过 5MB 按 `ID_REQUEST_INVALID` 拒绝，调用方必须降低 limit 或使用 cursor。
 
-## 5. M5-A Mock 边界
+## 5. M5-A Mock 退场与 M5-B 真实 provider 边界
 
-1. Mock provider 仅在 Vite 开发模式且 page-init 宣布分钟能力时工作。
-2. Mock 输入真实 bars，按相同时间键确定性生成 MA/BOLL/MACD/KDJ；使用 `paramsKey=mock_index_minute_technical_v1`、`indicatorVersion=0`。
-3. Mock 成功生成时页面必须显示“模拟指标”；空数据或 Mock 生成失败后的 bars-only PARTIAL 不得显示该标识。Mock 不改变 bars 的 READY/EMPTY/DELAYED 状态。
-4. M5-B 真实 Gold 验收通过后删除 Mock provider、标识和测试，切换到本合同的 indicator endpoint，不保留双源兼容。
+1. M5-A 曾由 Vite 开发态 Mock 输入真实 bars，生成 `indicatorVersion=0` 的可见模拟指标；该实现只作为 Gold 落地前的阶段性开发能力。
+2. M5-B 只调用本合同 `/minute-indicators`，以 `tradeTime` 与同窗口 bars 一一对齐；`paramsKey/indicatorVersion` 直接消费 Gold DTO，不在前端重算或改写。
+3. bars 与 indicators 使用相同 `tsCode/freq/startDate/endDate/limit`，但请求生命周期相互隔离：bars 失败时分钟图表 ERROR；bars READY 且 indicators 失败、为空、身份错配或时间键不完整时，保留 K 线并将技术图层标为 PARTIAL。
+4. indicators 失败不得清空 bars，不得回退 Mock，也不得用旧频率、旧指数或缓存中的其他指标补齐。
+5. M5-B 完成时删除 Mock provider、`模拟指标` 标识及其专属测试；内部 ViewModel 只允许 `indicatorSource="gold"|"unavailable"`。
 
-## 6. M5-B 准备状态与正式验收边界
+## 6. M5-B 正式验收与切换边界
 
 1. Dagster Definitions 已能发现七频率 14 个 Gold 资产及 70 个 blocking checks：技术指标 42 个、状态 28 个。该项已经完成，不再与物理数据就绪状态绑定。
 2. Web Reader 与 Orchestrator 的冻结合同必须由静态门禁逐项比较七频率、23 个技术指标列名与类型、`params_key` 和 `indicator_version`；测试只能读取 Orchestrator 源文件，不得让生产 Web 运行时 import Dagster 项目。
@@ -162,10 +163,10 @@ uv run python -m src.scripts.audit_index_minute_gold --runs 10
 uv run python -m src.scripts.audit_index_minute_gold --runs 10 --full-alignment --include-max
 ```
 
-第一条执行七频率最新共同分区的合同、唯一键、Silver/Gold 时间键对齐和默认 500 根性能矩阵；第二条显式执行全分区对齐及 10000 根响应大小/游标验收。两条命令都固定只读正式 `/Volumes/datasource/data_lake`，不接收旧 Lake、staging 或自定义根目录。
+第一条执行七频率最新共同分区的合同、唯一键、Silver/Gold 时间键对齐和默认 500 根性能矩阵；第二条显式执行全分区对齐及最大响应门禁。最大响应门禁必须同时验证：代表性 `limit=10000` 请求若超过 5MB，应正确返回 `ID_REQUEST_INVALID`；固定安全窗口 `limit=5000` 必须在 5MB 内正常返回，并验证 `hasMore/nextCursor`、下一页时间顺序和 5s 硬门禁。两条命令都固定只读正式 `/Volumes/datasource/data_lake`，不接收旧 Lake、staging 或自定义根目录。
 
 5. 正式 Gold 根或任一频率尚无文件时，工具必须输出 `status=SOURCE_NOT_READY`、`code=IM_SOURCE_NOT_READY`，不得把缺失报告为通过，也不得触发 materialize、backfill、sensor、runless event 或任何 Lake 写入。
-6. 只有正式 Gold 物理覆盖、全量时间键对齐、默认性能和 10000 根门禁全部通过后，前端才可一次性切换真实 provider 并删除 Mock；准备工作完成不等于 M5-B 完成。
+6. 只有正式 Gold 物理覆盖、全量时间键对齐、默认性能、10000/5MB 拒绝语义和 5000 根分页门禁全部通过后，前端才可一次性切换真实 provider 并删除 Mock；数据门禁通过不等于前端切换和 M5-B 整体完成。
 
 ### 6.1 2026-08-12 准备批次验收记录
 
@@ -174,10 +175,19 @@ uv run python -m src.scripts.audit_index_minute_gold --runs 10 --full-alignment 
 3. 文档完整性、Ruff 和 `git diff --check` 通过。
 4. 正式只读预检显示 Silver 七频率各有 4,276 个分区，Gold technical 七频率均为 0 个分区；验收工具按合同返回 `SOURCE_NOT_READY / IM_SOURCE_NOT_READY`，未执行性能矩阵，未产生任何写入。
 
+### 6.2 2026-08-13 正式 Gold 验收记录
+
+1. Dagster Definitions 当前发现七频率 14 个 Gold 资产和 70 个 checks，其中 technical 42 个、state 28 个；定向 Definitions/contract/check/sensor/bootstrap 测试 57 项通过。
+2. 七频率 Silver 与 Gold technical 各有 4,276 个日期分区；29,932 个频率-日期分区对完成全历史 schema、版本、有限值、唯一键和双向时间键差集检查，缺失、多余和失败数均为 0。
+3. Technical/state 正式文件共 59,864 个、总行数 10,147,176；Dagster 后审计显示活动运行、缺失动态分区、待补物化/检查事件均为 0，本轮正式 Lake 和 Dagster 写入均为 0。
+4. 页面可用九个指数、七频率、每组 10 次、默认 500 根共 630 个只读查询样本全部 READY；频率级 P95 为 295.855–324.620ms，低于 1.5s 目标和 5s 硬门禁。
+5. 代表性上证 1 分钟指标响应中，`limit=7862` 为 4,999,968 bytes 且 cursor 有效，`limit=7863` 已超过 5MB并正确拒绝。该阈值只说明当前样本，不能冻结为公共上限；验收工具按本节第 4 条口径改为验证 10000 拒绝语义与固定 5000 正常分页。
+
 ## 7. 版本记录
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| 1.0.3 | 2026-08-13 | 回填正式 Gold 全历史覆盖、对齐和性能证据；澄清 10000 参数上限与 5MB 优先门禁，冻结 10000 拒绝语义 + 5000 正常分页验收；定义真实 provider、bars-only PARTIAL 和 Mock 彻底退场边界 | Codex |
 | 1.0.2 | 2026-08-12 | 记录 70 checks 注册已完成，冻结跨边界合同静态门禁、七频率异常 fixture 与只读正式 Gold 验收入口；物理覆盖、对齐、性能和前端切换继续留在 M5-B | Codex |
 | 1.0.1 | 2026-08-11 | 回填 M5-A 实现状态与验收：七频率、cursor/5MB/5000 分区门禁、正式 Silver 性能、北证50 EMPTY、开发态 Mock v0 与生产 404 均通过 | Codex |
 | 1.0.0 | 2026-08-11 | 冻结 local-only 双接口、Silver bars、Gold indicators、状态/异常/cursor/5MB 边界与 M5-A 开发态 Mock 例外 | Codex |
