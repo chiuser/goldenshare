@@ -1,8 +1,9 @@
-# 股票详情分钟线与分钟技术指标 API LLD v1.6
+# 股票详情分钟线与分钟技术指标 API LLD v1.7
 
 > 方案：[分钟 API 技术实施方案](./stock-detail-minutes-api-implementation-design-v1.md)
 > 需求：[分钟 API 标杆需求](./stock-detail-minutes-api-benchmark-requirement-v1.md)
 > 门禁：[分钟 API 编码前门禁](./stock-detail-minutes-api-m2-coding-gate-v1.md)
+> 当前图表状态：股票分钟已由 `b38ac20e` 迁入 `DetailChartWorkspace`，并由 `61a5adea` 启用统一自适应缩放；本 API、500 根缓冲和本地/生产隔离合同未改变。
 
 ## 1. 目标、边界与硬约束
 
@@ -35,7 +36,7 @@ wealth 5173
 | `src/biz/api/wealth/market/stock_detail.py` | 已有 page-init/kline 日线接口 | 不改变日线接口；只补 capability 字段 |
 | `src/biz/queries/wealth/market/stock_detail/` | 通过 SQLAlchemy 查询日线 serving 表 | 不复用为分钟查询 |
 | `wealth/src/pages/stock-detail/StockDetailPage.tsx` | 初次请求 300 根日 K | 保留日线请求；分钟切换新增独立请求状态 |
-| `wealth/src/features/stock-detail/chart/StockChartWorkspace.tsx` | 默认可视 90 根，日线时间轴 | 保留日线 workspace，新增分钟 workspace |
+| `wealth/src/features/stock-detail/chart/StockChartWorkspace.tsx` | 已消费 shared；当前 1600px 默认可视 120 根 | 与股票分钟、指数日线、指数分钟共享 viewport 与缩放合同 |
 | `wealth/src/features/stock-detail/api/stockDetailViewModelAdapter.ts` | `valueOrZero()` 把 NULL 转 0 | 分钟 adapter 不复用该函数 |
 | `pyproject.toml` | 没有 DuckDB | 增加 `local-lake` optional extra，远程不安装 |
 | `lake_console/backend` | 独立本地 Lake 管理台 | 不导入、不挂载、不改动 |
@@ -95,8 +96,9 @@ DEFAULT_MINUTE_LIMIT = 500
 MAX_MINUTE_LIMIT = 10_000
 MAX_YEAR_FILE_COUNT = 3
 MAX_RESPONSE_BYTES = 5_000_000
-DEFAULT_VISIBLE_MINUTE_BARS = 90
 ```
+
+前端不再定义 `DEFAULT_VISIBLE_MINUTE_BARS`。2026-07-31 的 90 根是历史实现基线；当前由 `detailChartViewport.ts` 唯一定义 45/180/15、120、75～150 和 9.5px/根。Reader/API 常量保持不变，不把前端可视根数转成环境变量或后端参数。
 
 配置生效矩阵：
 
@@ -640,30 +642,22 @@ interface StockMinuteChartPoint {
 5. 分钟请求 loading/error 只影响图表区域，不清空股票身份、日线或右侧信息。
 6. real API 失败不调用 `getStockDetailViewModel()` 作为分钟数据回退。
 
-新增 `wealth/src/features/stock-detail/chart/StockMinuteChartWorkspace.tsx`，避免让既有日线 workspace 同时承担两种时间模型。
+`wealth/src/features/stock-detail/chart/StockMinuteChartWorkspace.tsx` 保留为股票分钟领域 adapter，负责分钟字段、单位、Tooltip 与状态文案；图表创建、四窗格同步、拖动、crosshair 和缩放统一委托给 `DetailChartWorkspace timeMode="minute"`，不再维护第二套生命周期。
 
 ### 8.4 分钟图表
 
-分钟 workspace 复用现有图表视觉和四窗格布局，但固定：
+2026-07-31 已验收的“独立分钟 workspace + 固定 90 根”保留为历史证据；当前实现由 `b38ac20e`、`61a5adea` 替代，规则如下：
 
-1. `DEFAULT_VISIBLE_MINUTE_BARS=90`，API 仍请求 500 根作为缓冲。
-2. 非空数据加载后，`StockMinuteChartWorkspace` 必须通过单个 `applyVisibleRange()` 为四个 `IChartApi` 设置同一初始范围：
-
-   ```ts
-   const to = data.points.length - 1;
-   const from = Math.max(0, to - DEFAULT_VISIBLE_MINUTE_BARS + 1);
-   applyVisibleRange({ from, to });
-   ```
-
-   非空路径禁止调用 `timeScale().fitContent()`；500 根全部 fit content 会使首屏 K 线不可读。点数不足 90 时上述范围自然显示全部点。
-3. `chartsAreaRef` 覆盖 K 线、MACD、成交量和 KDJ 四个窗格。为所有图表订阅 `subscribeVisibleLogicalRangeChange()`：任一图表的范围变化都通过 `applyVisibleRange()` 回写其余三图，`isSyncingVisibleRange` 防止循环。
-4. 复用日线的受控 pointer-drag 行为。`pointerdown` 记录 `pointerId/startX/startRange`；`pointermove` 用容器宽度把 `deltaX` 换算为 logical-range 平移，范围始终 clamp 到 `[0, data.points.length - 1]`；`pointerup/cancel` 清理 drag state。拖动发生在任意窗格都必须同步四图，不发新请求、不加载 cursor 下一页。保持 `handleScroll=false`、`handleScale=false`。
-5. `timeVisible=true`。lightweight-charts 使用 UTC timestamp 作为内部排序键；tooltip 直接从 `tradeTime` 保留的 `+08:00` 语义格式化北京时间，不通过浏览器 `Date` 重新解释。时间轴继续使用图表库对同一 timestamp 的现有显示行为，本轮不额外改变其标签密度或格式。
-6. 建立 `timestamp -> { point, index }` Map，所有图表订阅 `subscribeCrosshairMove()`。命中某时间点时更新 `hoverIndex/isChartHovering/sharedCrosshair`，并将 crosshair 同步到有有效价格值的其他窗格；未命中、NULL 指标或离开时不得伪造 0 值。
-7. K 线窗格内新增 `MinuteKlineTooltip`，复用日线 `.kline-tooltip`、`.left/.right`、`.tooltip-grid` 样式和行顺序。字段固定为：时间、开盘、收盘、最高、最低、成交量、成交额。分钟源 `vol` 的单位为股、`amount` 的单位为元，分别使用股/万股/亿股和元/万元/亿元格式化；不得复用日线手/千元的换算。收盘、最高、最低按相对本根开盘价着色，开盘为 `flat`；没有昨收时不得伪造日线方向口径。
-8. MACD/KDJ 不进入 K 线 tooltip。共享 crosshair 更新 `hoverIndex` 后，MACD、成交量、KDJ 面板标题自动展示同一时间点的值；`formatNullable()` 将 NULL 指标显示为 `--`。不得展示接口未返回的 `preClose/change/pctChg/turnover`。
-9. tooltip 侧边由 crosshair x 坐标决定：超过当前容器宽度 `62%` 置 `left`，否则 `right`。tooltip 只在 `isChartHovering=true` 时显示；频率切换时重置 hover 到新数据末点和初始 90 根范围。
-10. 同一 `time` 不能出现重复点；重复键在 adapter 中 fail closed。MACD/KDJ line/histogram 对 NULL 点跳过，不把 NULL 画成 0。当一整段指标都为空时，指标窗显示 delayed/empty 状态，不隐藏 OHLCV 主图。频率切换只更换数据和标题，不改变页面路由。
+1. API 仍请求 500 根作为有限浏览缓冲；shared 按 K 线真实 host 宽度计算默认值，1600px 为 120 根，自适应默认 clamp 为 75～150。
+2. 用户可在 45～180 根之间以 15 根步长缩放；实际点数不足时显示全部，并按真实边界禁用按钮。非空路径不调用 `fitContent()`。
+3. `DetailChartWorkspace` 是 K 线、MACD、成交量、KDJ 四窗格的唯一生命周期，任何 range、拖动、crosshair 与缩放变化均同步四图；保持 `handleScroll=false`、`handleScale=false`。
+4. `StockMinuteChartWorkspace` 传入稳定 `dataKey=stock:${tsCode}:m${freq}`。频率或股票变化重置到新数据的自适应默认；普通图层变化和运行时重建恢复当前 range。
+5. 当前视图贴近最新 bar 时缩放保持最新右锚；拖入历史后围绕当前中心缩放。拖动和缩放都不发新请求、不加载 cursor 下一页。
+6. `timeVisible=true`。lightweight-charts 使用 UTC timestamp 作为内部排序键；tooltip 从 `tradeTime` 的 `+08:00` 语义格式化北京时间，不通过浏览器时区重新解释。
+7. 所有图表共享 crosshair。命中同一时间键时更新 K 线 Tooltip 和各指标标题；未命中、NULL 指标或离开时不得伪造 0 值。
+8. K 线 Tooltip 固定为时间、开盘、收盘、最高、最低、成交量、成交额。分钟 `vol` 为股、`amount` 为元；收盘、最高、最低相对本 bar 开盘价着色，不伪造昨收语义。
+9. MACD/KDJ 不进入 K 线 Tooltip，NULL 指标显示 `--`；不得展示接口未返回的 `preClose/change/pctChg/turnover`。
+10. 同一 `time` 不能出现重复点；重复键在 adapter 中 fail closed。整段指标缺失只使指标层 delayed/empty，不隐藏真实 OHLCV 主图。
 
 ## 9. 测试与验证
 
@@ -707,7 +701,7 @@ wealth/src/features/stock-detail/chart/StockMinuteChartWorkspace.test.tsx
 2. capability true 时七个分钟频率可用。
 3. 切换频率并行请求 bars/indicators。
 4. NULL 指标保持 NULL，不转 0。
-5. 500 个分钟点加载后，四窗格初始逻辑范围只显示末尾 90 点，不调用 `fitContent()`。
+5. 500 个分钟点在 1600px 基线下初始显示末尾 120 点且不调用 `fitContent()`；增加 45/180 边界、75/150 自适应宽度、dataKey 和 overlay/resize/append 生命周期测试。
 6. 在任意分钟窗格拖动后，四个 chart 的 logical range 同步且不越过已加载点范围；该动作不发出新的 bars/indicators 请求。
 7. crosshair 命中时分钟 K 线 tooltip 按日线顺序展示真实 OHLCV/amount 并使用正确的股/元单位；MACD/KDJ 标题同步更新，NULL 指标为 `--`，不出现日线专属字段。
 8. bars/indicators 时间差集不制造伪造 bar。
@@ -813,6 +807,7 @@ debug metadata 只允许包含：dataset、freq、scanned_file_count、row_count
 | v1.4 | 2026-07-31 | 完成 M0-M4 实现、真实 API/分页/隔离验证和浏览器页面联调，回写最终验收证据 |
 | v1.5 | 2026-07-31 | 细化并实施分钟图首屏 90 点、四窗格受控拖动和真实字段 tooltip 的代码级交互口径 |
 | v1.6 | 2026-07-31 | 修正分钟 tooltip 对齐：复用日线顺序与方向色，按分钟源股/元单位展示量额，指标保留在同步面板标题 |
+| v1.7 | 2026-08-12 | M3 对账：股票分钟已迁入 shared 并启用 45～180/15、自适应默认和稳定 dataKey；API/Reader/500 根合同不变 |
 
 ## 15. 符号级实施矩阵
 
@@ -833,7 +828,8 @@ debug metadata 只允许包含：dataset、freq、scanned_file_count、row_count
 | 前端类型 | `wealth/src/features/stock-detail/api/stockMinuteApiTypes.ts` | `StockMinuteFrequency`、bars/indicators DTO | 对齐后端响应 | 不复用日线 Kline DTO |
 | 前端 client | `wealth/src/features/stock-detail/api/stockMinuteApiClient.ts` | `fetchStockMinuteBars()`、`fetchStockMinuteIndicators()` | 同参数、同 cursor、错误 code 保留 | 不回退 mock，不把分钟请求并入日线 client |
 | 前端 adapter | `wealth/src/features/stock-detail/api/stockMinuteViewModelAdapter.ts` | `buildStockMinuteChartViewModel()`、`minuteFrequencyFromPeriodKey()` | 时间键合并、NULL 保持、频率映射 | 不将 NULL 转 0，不用 indicators 创建伪造 bar |
-| 前端 workspace | `wealth/src/features/stock-detail/chart/StockMinuteChartWorkspace.tsx` | `StockMinuteChartWorkspace()`、`applyVisibleRange()`、`MinuteKlineTooltip()` | K 线、MACD、成交量、KDJ 四窗格；90 点首屏；同步拖动与 crosshair | 不改写既有日线 workspace 的时间模型；不在拖动时请求 API；不伪造日线字段 |
+| 前端 workspace adapter | `wealth/src/features/stock-detail/chart/StockMinuteChartWorkspace.tsx` | `StockMinuteChartWorkspace()`、`MinuteKlineTooltip()` | 映射分钟字段/单位/文案并传 `dataKey`，消费 shared 四窗格 | 不创建 chart、不维护 range/drag/crosshair；不在交互时请求 API；不伪造日线字段 |
+| shared 图表 | `wealth/src/shared/charts/detail-workspace/` | `DetailChartWorkspace()`、`DetailChartZoomControls()`、viewport helpers | 唯一四窗格生命周期、120 自适应默认、45～180/15 缩放、range/crosshair/drag 同步 | 不 import 股票 DTO；不发请求；不保留页面级常量覆盖 |
 | 页面编排 | `wealth/src/pages/stock-detail/StockDetailPage.tsx` | `handlePeriodChange()`、分钟 request/cache/controller 状态 | 周期切换、并发请求、取消、缓存 | 不因分钟失败清空股票身份、日线和右侧信息 |
 
 ### 15.1 请求到响应的固定调用链
@@ -858,7 +854,8 @@ StockDetailPage.handlePeriodChange("m5")
   -> StockMinsLakeReader.read_indicators(MinuteReadRequest)
   -> StockMinuteIndicatorsResponseDto
   -> buildStockMinuteChartViewModel(bars, indicators)
-  -> StockMinuteChartWorkspace
+  -> StockMinuteChartWorkspace（领域 adapter）
+  -> DetailChartWorkspace（唯一四窗格生命周期与 viewport）
 ```
 
 两个请求必须使用同一个 `tsCode/freq/startDate/endDate/limit/cursor`。首屏 `cursor` 为空、`endDate=pageInit.pageContext.tradeDate`、`limit=500`；响应回来后只在当前组件仍然处于同一个频率且 `AbortSignal` 未取消时更新 state。
@@ -938,12 +935,12 @@ M0-M4 已完成。以下门禁已逐项对账；“代码能编译”不等于�
 | 错误不伪装 delayed | API exception mapping | schema/IO -> 503/ERROR |
 | 无额外字段 | Pydantic `extra=forbid`、explicit projection | `preClose/change/pctChg` 不出现 |
 | 请求不写入 | reader/service/api 调用链 | 无 write、Dagster、event API |
-| 分钟首屏与横向浏览 | `StockMinuteChartWorkspace.tsx` | 500 点缓存、初始末 90 点、四窗格拖动范围同步、无额外请求 |
+| 分钟首屏与横向浏览 | `DetailChartWorkspace.tsx`、`detailChartViewport.ts` | 500 点缓存、1600px 初始末 120 点、45～180/15、四窗格范围同步、无额外请求 |
 | 分钟 crosshair/tooltip | `StockMinuteChartWorkspace.tsx` | 四窗格同时间十字线；tooltip 只展示真实分钟字段；NULL 为 `--` |
 
-## 19. 可直接执行的开发步骤
+## 19. 已执行的开发步骤与当前追加步骤
 
-每一步完成后先运行本步测试，再进入下一步；任一步失败停止，不用放宽门禁掩盖问题。
+D1～D5 记录原股票分钟 API 的已执行步骤；其文件清单和 90 根验收只代表 2026-07-31 历史实现，不是当前重新开发指令。2026-08-12 在其后追加并完成 D6/D7，当前实现以 D6/D7 为准。
 
 ### D1：M3 前端契约和 adapter
 
@@ -975,7 +972,7 @@ wealth/src/features/stock-detail/chart/StockMinuteChartWorkspace.tsx
 wealth/src/pages/stock-detail/stock-detail-page.css
 ```
 
-验收：页面保持 page-init -> 日线顺序；切换分钟只影响图表区；并发请求可取消；缓存按频率隔离；四个窗格可挂载；500 点首屏只显示末 90 点；任意分钟窗格可拖动并同步；tooltip 字段不越过分钟 API 契约。
+验收：页面保持 page-init -> 日线顺序；切换分钟只影响图表区；并发请求可取消；缓存按频率隔离；四个窗格可挂载；500 点在 1600px 首屏显示末 120 点；任意分钟窗格可拖动和缩放并同步；交互不发额外请求；tooltip 字段不越过分钟 API 契约。
 
 测试：
 
@@ -1041,16 +1038,33 @@ git status --short
 
 只允许将本专项文件分组提交，不得把 market-overview、Dagster 文档、报告、Figma 产物或其它脏改带入提交。
 
+### D6：股票分钟共享收敛（已完成）
+
+提交：`b38ac20e refactor(wealth): migrate stock minutes to shared detail chart`。
+
+1. `StockMinuteChartWorkspace` 改为纯领域 adapter，删除独立 `createChart/addSeries/range sync/drag/crosshair/pane` 生命周期。
+2. `DetailChartWorkspace` 增加领域无关的分钟展示策略和 `topRightAccessory`，迁移阶段保持 90 根基线与像素几何。
+3. 股票日线、股票分钟、指数日线、指数分钟全部消费同一 shared workspace。
+
+### D7：统一缩放与自适应默认（已完成）
+
+提交：`61a5adea feat(wealth): add adaptive detail chart zoom controls`。
+
+1. `detailChartViewport.ts` 唯一定义 45/180/15、默认 120、自适应 75～150、9.5px/根和右轴 56px。
+2. 四类 adapter 传稳定 `dataKey`；shared 统一处理 latest/历史中心、resize、overlay 重建和追加 bar。
+3. 单次点击只同步四个 logical range，不重建 chart、不调用 `fitContent()`、不发 API。
+4. 27 个测试文件、152 项测试、typecheck、build 和 1600×1200 浏览器验收通过。
+
 ## 20. 当前阶段结论
 
-M0-M5 已完成。分钟图已在不改变 API 契约的前提下完成 90 点首屏、四窗格受控拖动和真实字段 tooltip。实现边界仍保持：本地 profile 才挂载分钟路由，远程/prod profile 不挂载分钟路由，也不导入 DuckDB。
+原分钟 API M0-M5 已完成；其 90 点首屏是 2026-07-31 历史验收基线。随后 `b38ac20e`、`61a5adea` 在不改变 API 契约的前提下完成 shared 四窗格迁移与统一缩放。当前实现边界仍保持：本地 profile 才挂载分钟路由，远程/prod profile 不挂载分钟路由，也不导入 DuckDB。
 
 | 项目 | 当前状态 |
 |---|---|
 | API/reader/config 后端 | 已实现；单测和真实本地 HTTP smoke 通过 |
-| 前端分钟 client/adapter/page/workspace | 已实现；500 点缓冲、末 90 点首屏、四窗格同步拖动和分钟 tooltip 均已验证 |
-| 完整前端回归 | 13 个测试文件、62 个测试通过；typecheck/build 通过 |
-| 真实浏览器页面联调 | 7 个频率逐一点击通过；5 分钟图验证 500 点首屏局部可视、拖动无额外请求、tooltip 正常；无 console error |
+| 前端分钟 client/adapter/page/workspace | 已实现；500 点缓冲、1600px 默认末 120 点、45～180/15、四窗格同步拖动/缩放和分钟 tooltip 均已验证 |
+| 完整前端回归 | M2 收尾为 27 个测试文件、152 项测试通过；typecheck/build 通过 |
+| 真实浏览器页面联调 | 7 个频率逐一点击通过；5 分钟图完成 shared 缩放与切回日线验收，拖动/缩放无额外请求，tooltip 正常；无 console error |
 | 远程 prod 隔离验证 | `APP_ENV=prod` 且本地 lake root 为空时分钟路由数为 0，DuckDB 未导入 |
 | 正式完成 | M0-M5 完成；待用户在本地运行环境中按需启用配置 |
 
@@ -1106,9 +1120,11 @@ M0-M5 已完成。分钟图已在不改变 API 契约的前提下完成 90 点�
 - 日线 tooltip 对齐后的前端视觉回归使用受控 mock minute API：分钟 `vol` 按股/万股/亿股、`amount` 按元/万元/亿元显示，收盘、最高、最低相对本根开盘价着色；mock 页面无 console error。
 - 截图：`/private/tmp/stock_minute_tooltip_aligned_20260731.png`。
 
+以上 90 点范围属于 2026-07-31 的 M5 历史证据。2026-08-12 的当前回归已将其替换为 shared 在 1600px 下末 120 点，并增加 45/180、resize、dataKey、overlay/append、按钮不重建 chart/不发请求等门禁；不得再把 `410..499` 解释为当前默认窗口。
+
 ## 23. 后续边界
 
-本专项代码和文档已达到可交付状态。后续只需在本地 profile 配置：
+本专项代码和文档已达到可交付状态；本地分钟能力仍只需在 local profile 配置：
 
 ```env
 WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED=true

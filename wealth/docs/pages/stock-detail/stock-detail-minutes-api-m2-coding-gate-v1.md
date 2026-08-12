@@ -1,5 +1,6 @@
 # 股票详情分钟线与分钟技术指标 API M2 编码前门禁 v1
 
+> 状态：已完成。原股票分钟 API、local/prod 隔离和前端接入门禁均已通过；2026-08-12 的共享迁移与缩放由[独立门禁](../../system/detail-chart-zoom-m2-coding-gate-v1.md)闭环，不改变本 API 合同。
 > 需求：[benchmark](./stock-detail-minutes-api-benchmark-requirement-v1.md)
 > 方案：[implementation design](./stock-detail-minutes-api-implementation-design-v1.md)
 > LLD：[low-level design](./stock-detail-minutes-api-low-level-design-v1.md)
@@ -9,7 +10,7 @@
 1. [x] 已确认使用 `minutes` 与 `minute-indicators` 两个接口。
 2. [x] 已确认七种频率均支持，`freq` 必须显式传入，默认返回 500 根，最大返回量仍受性能门禁约束。
 3. [x] 已确认首版不返回 `preClose/change/pctChg`。
-4. [ ] 已登记分钟模块异常码。
+4. [x] 已登记分钟模块异常码。
 5. [x] 已冻结 local/prod 配置矩阵。
 6. [x] 已确认远程不安装 `local-lake` optional extra；DuckDB 只在本地 extra 中提供。
 7. [x] 已确认远程 route 不存在，而不是 route 内返回空数据。
@@ -112,21 +113,24 @@
 
 ## 8. 历史经验复盘
 
-1. [ ] 没有把 `lake_console/backend` 作为生产业务 API。
-2. [ ] 没有让远程访问本地 Lake。
-3. [ ] 没有让远程依赖本地配置或 DuckDB。
-4. [ ] 没有把全湖扫描放入 HTTP 请求。
-5. [ ] 没有用 Dagster event history 判断 API 是否 ready。
-6. [ ] 没有由前端计算或补造指标。
-7. [ ] real 失败不静默回退 mock。
-8. [ ] 不改变既有日线详情契约。
+1. [x] 没有把 `lake_console/backend` 作为生产业务 API。
+2. [x] 没有让远程访问本地 Lake。
+3. [x] 没有让远程依赖本地配置或 DuckDB。
+4. [x] 没有把全湖扫描放入 HTTP 请求。
+5. [x] 没有用 Dagster event history 判断 API 是否 ready。
+6. [x] 没有由前端计算或补造指标。
+7. [x] real 失败不静默回退 mock。
+8. [x] 不改变既有日线详情契约。
 
 ## 9. 验证命令
 
 后端：
 
 ```bash
-pytest -q tests/web/test_wealth_stock_detail_minutes_api.py
+PYTHONPATH=. uv run --extra dev --extra local-lake python -m pytest -q \
+  tests/test_local_minute_capability.py \
+  tests/test_stock_mins_reader.py \
+  tests/web/test_stock_detail_minutes_api.py
 ```
 
 前端：
@@ -165,20 +169,21 @@ uv run goldenshare-web
 
 ### 前端
 
-1. [ ] `/wealth/` 本地入口和分钟交互已确认。
-2. [ ] 远程构建隐藏分钟入口已确认。
-3. [ ] real error 不回退 mock 已确认。
+1. [x] `/wealth/` 本地入口和分钟交互已确认。
+2. [x] 远程 capability 隐藏分钟入口已确认。
+3. [x] real error 不回退 mock 已确认。
 
 ### 架构/产品
 
-1. [ ] API 路径和字段已确认。
-2. [ ] 本地/远程边界已确认。
-3. [ ] 性能预算可接受。
+1. [x] API 路径和字段已确认。
+2. [x] 本地/远程边界已确认。
+3. [x] 性能预算可接受。
 
 ## 11. 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
-| v1 | 2026-07-31 | 初版，形成编码前门禁 |
-| v1.1 | 2026-07-31 | 同步已确认的频率、返回数量、状态和依赖安装门禁 |
+| v1.3 | 2026-08-12 | M3 对账：闭环异常码、历史复盘、前端与架构签字项；链接独立 shared 缩放门禁，API 合同不变 |
 | v1.2 | 2026-07-31 | 同步 `endDate` 的查询上界与 freshness 期望日语义 |
+| v1.1 | 2026-07-31 | 同步已确认的频率、返回数量、状态和依赖安装门禁 |
+| v1 | 2026-07-31 | 初版，形成编码前门禁 |

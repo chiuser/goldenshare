@@ -1,6 +1,6 @@
 # 详情页共享图表与 K 线缩放 M2 编码前门禁 v1
 
-> 状态：产品参数、技术方案、正式 Web 设计稿与 LLD 已确认；M1 已独立提交，M2 已完成代码、测试、构建和浏览器验收，待独立提交。
+> 状态：已完成。M1 已提交为 `b38ac20e`，M2 已提交为 `61a5adea`；M3 文档对账已完成。
 > 正式设计稿：[Goldenshare Web / 10 Detail Chart Zoom - Web Handoff](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=581-516&m=dev)
 > 需求：[详情页 K 线缩放标杆需求 v1](./detail-chart-zoom-benchmark-requirement-v1.md)
 > 方案：[详情页共享图表与 K 线缩放技术实施方案 v1](./detail-chart-zoom-implementation-design-v1.md)
@@ -236,7 +236,7 @@ git diff --check
 
 1. [x] shared props 与 viewport 状态可实现。
 2. [x] 股票分钟已无兼容分支迁入 shared。
-3. [x] M1 与 M2 测试、构建和浏览器门禁均已执行；M2 待独立提交。
+3. [x] M1 与 M2 测试、构建和浏览器门禁均已执行，并已形成独立提交。
 
 ### 架构负责人
 
@@ -256,6 +256,7 @@ git diff --check
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.5 | 2026-08-12 | M3 收尾：登记 M1/M2 独立提交并确认原始文档已同步，门禁闭环 | Codex |
 | v1.4 | 2026-08-12 | M2 门禁全部通过：45/180/15、自适应、生命周期、同源 SVG、四 adapter、27 test files / 152 tests 回归与 1600×1200 浏览器验收 | Codex |
 | v1.3 | 2026-08-12 | 回填 M1 shared 迁移、112 项测试、1600×1200 前后截图与 0px 核心几何验收；保留独立提交门禁 | Codex |
 | v1.2 | 2026-08-12 | 登记正式 Figma 开发稿、节点验收矩阵和同源 Phosphor 放大镜 SVG 门禁；明确 45/最大值/ShortData disabled 方向 | Codex |

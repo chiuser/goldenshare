@@ -16,6 +16,7 @@
 | `src/pages/**` | 页面编排、页面级状态、模块间导航 | 模块数据转换、通用 UI 细节 |
 | `src/features/<domain>/**` | 单一业务域的 API client、adapter、view model、专用组件 | 跨页面共享视觉组件 |
 | `src/shared/ui/**` | 两个及以上页面复用且有稳定行为的 UI | 绑定某个模块数据结构的组件 |
+| `src/shared/charts/**` | 跨详情页复用的图表生命周期、坐标交互、纯算法与通用展示组件 | stock/index DTO、请求状态和领域文案 |
 | `src/shared/lib/**` | 格式化、方向判断、纯工具 | React 页面状态 |
 | `src/styles/**` | token、reset、跨页面基础工具类 | 模块专属布局 |
 
@@ -32,6 +33,7 @@
 | `DataStatusBadge` | `src/shared/ui/DataStatusBadge.tsx` | 模块数据状态 | 不与行情涨跌色混用 |
 | `MarketStatusPill` | `src/shared/ui/MarketStatusPill.tsx` | 行情/事实聚合状态 | 仅用于有明确状态来源的位置 |
 | `SkeletonBlock` | `src/shared/ui/SkeletonBlock.tsx` | 局部 loading 占位 | 不用 mock 数据伪装 loaded |
+| `DetailChartWorkspace` | `src/shared/charts/detail-workspace/` | 详情页 K 线、MACD、成交量、KDJ 四窗格生命周期、同步交互和 viewport | 股票/指数领域 adapter 只提供稳定 `dataKey`、字段、文案、图层和 Tooltip；缩放合同遵循[技术方案](./detail-chart-zoom-implementation-design-v1.md)与[LLD](./detail-chart-zoom-low-level-design-v1.md) |
 
 新增 shared 组件必须同时满足：至少两个真实消费者、稳定的 props 语义、最小组件测试、在本文补充职责与禁止项。
 
@@ -104,9 +106,9 @@
 - 涨跌分布柱形的顺序、颜色、数字位置遵循对应模块三件套与当前实现；数字固定在柱顶上方，而不是图表容器顶部。
 - 同一模块中切换“内容类型”不能伪装成时间范围选择。
 
-### 6.2 股票详情图表
+### 6.2 详情页图表
 
-`StockChartWorkspace` 是详情页专用组件，当前通过 `lightweight-charts` 加 React/CSS 覆盖层实现。后续图表能力在进入开发前必须单独说明是否扩展该工作台，而不是把图表逻辑塞入页面组件。
+详情页正式共享图表引擎是 `DetailChartWorkspace`，通过 `lightweight-charts` 加 React/CSS 覆盖层实现。`StockChartWorkspace`、`StockMinuteChartWorkspace`、`IndexChartWorkspace` 和 `IndexMinuteChartWorkspace` 均为领域 adapter；全仓只保留 shared 的一套四窗格生命周期、range sync、drag、crosshair 和缩放实现。共享收敛与缩放分别由 `b38ac20e`、`61a5adea` 完成，禁止重新引入页面私有图表生命周期或兼容分支。
 
 强制行为：
 
@@ -117,6 +119,10 @@
 5. 指标标题栏在 chart pane 外占有固定高度，不得覆盖指标绘图区。
 6. 轴、网格、crosshair、tooltip 使用系统图表 token；指标系列颜色按系统 Design System 规定。
 7. 任何新增指标都必须确认来源字段、时间对齐、数值轴语义和 hover 展示，而非前端临时计算或模拟。
+8. K 线缩放只改变四窗格共享 logical range；纵轴由可见真实数据自动适配，不得用 CSS scale 或修改行情值模拟放大。
+9. 可视根数合同唯一落在 `detailChartViewport.ts`：最少 45、最多 180、步长 15、1600px 默认 120，自适应默认 clamp 为 75～150；页面和 adapter 不得覆盖或复制这些常量。
+10. 四类 adapter 必须提供 `stock|index + tsCode + day|m{freq}` 的稳定 `dataKey`；切换标的或周期重置默认范围，切换 MA/BOLL/趋势图层不得重置用户视图。
+11. 缩放按钮只在有真实 K 线点时出现；点击只同步四个 chart 的 logical range，不重建 chart、不调用 `fitContent()`、不发网络请求。
 
 ## 7. 数据、状态与交互边界
 

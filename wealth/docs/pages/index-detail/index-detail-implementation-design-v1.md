@@ -1,6 +1,6 @@
 # 指数详情页技术实施方案 v1
 
-> 状态：M1–M4 与 M5-A 已完成并通过验证；M5-A 使用真实 Silver K 线与开发态 Mock 指标，M5-B 保留真实 Gold 对接。
+> 状态：M1–M4 与 M5-A 已完成并通过验证；详情图表共享收敛与缩放已由 `b38ac20e`、`61a5adea` 完成；M5-A 使用真实 Silver K 线与开发态 Mock 指标，M5-B 保留真实 Gold 对接。
 > 对应需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 对应门禁：[指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
 > 低层设计：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)
@@ -497,7 +497,7 @@ route tsCode
 ### 8.2 回归边界
 
 1. 股票详情 DOM/CSS 与图表可见行为不得变化。
-2. stock 当前 90 根可视窗口、crosshair 同步和 tooltip 定位必须保留。
+2. 指数详情 M2 完成时的 stock 历史基线为 90 根；当前 shared 已按[详情页 K 线缩放标杆需求](../../system/detail-chart-zoom-benchmark-requirement-v1.md)升级为 1600px 默认 120 根和 45～180 根缩放。crosshair 同步和 tooltip 定位继续保持。
 3. 共享重构单独提交/里程碑验证后，再接指数趋势 overlay，避免把复用重构与业务故障混在一起定位。
 
 ### 8.3 M2 实施结果
@@ -507,6 +507,15 @@ route tsCode
 3. shared series 对缺失 OHLC 过滤 candle；line 缺失点写为 whitespace 断点；histogram 缺失点省略，任何缺失值都不转换为 0。
 4. shared engine 预留可选 `ISeriesPrimitive<Time>[]`，但 M2 未实现指数 adapter、趋势 geometry 或趋势请求；这些仍属于 M3。
 5. 1600×1200 浏览器前后量测完全一致：图表根容器 `1193.1953125×1038`，四面板高度 `464.078125 / 179.3046875 / 179.3046875 / 179.3046875`，底部指标栏 34px；MA/BOLL、crosshair 与 tooltip 浏览器交互通过。
+
+### 8.4 共享收敛与缩放实施结果
+
+2026-08-12 已按[共享图表与 K 线缩放技术实施方案](../../system/detail-chart-zoom-implementation-design-v1.md)和[配套 LLD](../../system/detail-chart-zoom-low-level-design-v1.md)完成实施：
+
+1. `b38ac20e` 将股票分钟四窗格迁入 `DetailChartWorkspace`，迁移阶段保持 90 根与现有视觉并独立验证无漂移。
+2. `61a5adea` 让股票日线、股票分钟、指数日线、指数分钟统一启用 45～180 根、每次 15 根、1600px 默认 120 根和 75～150 根自适应默认。
+3. 四类 adapter 使用 `stock|index + tsCode + day|m{freq}` 的稳定 `dataKey`；切标的/周期重置，切 MA/BOLL/趋势不重置。
+4. 缩放只改变四 pane 共享 logical range，纵轴按可见真实数据自动适配；不修改指数日线/分钟 API、趋势 primitive 或页面状态，也不发请求或重建 chart。
 
 ## 9. 状态、异常与权限
 
@@ -652,6 +661,8 @@ M5-B 准备批次已于 2026-08-12 验收：42 项分钟相关测试、14 项依
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.17 | 2026-08-12 | M3 对账：共享收敛与缩放已由 `b38ac20e`/`61a5adea` 完成，四类图表统一 dataKey、45～180/15 与自适应 120；后端合同不变 | Codex |
+| v1.16 | 2026-08-12 | 冻结后续图表演进：先将股票分钟迁入 shared，再统一启用 45～180 根缩放与 1600px 默认 120 根；后端合同不变 | Codex |
 | v1.15 | 2026-08-12 | 完成 M5-B 准备：确认 70 checks 已注册，增加 Orchestrator/Web Reader 合同防漂移、七频率错误 fixture 与正式 Gold 只读验收入口；正式文件验收和前端切换继续待办 | Codex |
 | v1.14 | 2026-08-12 | 完成 A 股成分范围与停牌解析实现；回填 10 指数最终服务链 P95、上证最终 SQL 计划、2184 行 payload 及真实页面 READY 验收 | Codex |
 | v1.13 | 2026-08-12 | 统一 page-init/weights 的 A 股成分范围；B 股排除在 rows/coverage/missing 外；确认停牌按 0%/FLAT 参与 breadth 与贡献，真实 A 股缺失才触发 PARTIAL；DTO 提升为 1.2.0 | Codex |

@@ -1,5 +1,6 @@
 # 股票详情分钟线与分钟技术指标 API 技术实施方案 v1
 
+> 状态：已实现；股票分钟图表当前为 `StockMinuteChartWorkspace` 领域 adapter 消费 `DetailChartWorkspace`，共享迁移与缩放分别提交为 `b38ac20e`、`61a5adea`。
 > 需求基线：[分钟 API 标杆需求](./stock-detail-minutes-api-benchmark-requirement-v1.md)
 > LLD：[分钟 API 低级设计](./stock-detail-minutes-api-low-level-design-v1.md)
 > 门禁：[分钟 API M2 编码前门禁](./stock-detail-minutes-api-m2-coding-gate-v1.md)
@@ -77,7 +78,7 @@ GET /api/v1/wealth/market/stock-detail/minutes
 
 参数：`tsCode`、`freq`、`startDate`、`endDate`、`limit`、`cursor`、`debug`。`freq` 必须显式传入，允许 `1/5/15/30/60/90/120`；`limit` 默认 500、最大 10000。
 
-当前日线页面实际请求 300 根，但图表默认可视区为 90 根。分钟 API 的 500 根是首屏和有限拖动的缓冲量，不代表 300 个交易日历史窗口；需要更早数据时通过 cursor 分页读取。
+当前日线页面实际请求 300 根，分钟 API 默认请求 500 根。500 根是首屏和有限拖动的缓冲量，不代表 300 个交易日历史窗口；首屏现由 shared 自适应决定，1600px 为 120 根，最大显示 180 根。需要更早数据时仍通过 cursor 分页读取。
 
 响应包括：`tsCode`、`freq`、`bars[]`、`meta`、`dataStatus` 和可选本地 debug 信息。
 
@@ -147,16 +148,19 @@ v1 不增加独立 `expectedEndDate` 参数：调用方传入的 `endDate` 既�
 
 ### 8.1 分钟图表可视范围、拖动与 tooltip
 
-分钟 API 首屏仍请求并缓存最近 `500` 根，作为有限横向浏览缓冲；它不是首屏应同时绘制的根数。前端初始可视范围固定与日线一致：只显示末尾 `90` 根。
+分钟 API 首屏仍请求并缓存最近 `500` 根，作为有限横向浏览缓冲；它不是首屏应同时绘制的根数。2026-07-31 版本曾使用独立 `StockMinuteChartWorkspace` 生命周期和固定 90 根窗口；2026-08-12 已按[共享图表与 K 线缩放技术实施方案](../../system/detail-chart-zoom-implementation-design-v1.md)和[配套 LLD](../../system/detail-chart-zoom-low-level-design-v1.md)完成两步替换：`b38ac20e` 将股票分钟迁入 `DetailChartWorkspace`，`61a5adea` 启用统一自适应默认和按钮缩放。
 
-1. 非空分钟数据加载后，四个窗格必须统一设置逻辑范围：`from=max(0, pointCount-90)`、`to=pointCount-1`。数据少于 90 根时显示全部。
-2. 正常非空路径不得调用 `fitContent()`；它会把 500 根全部压进首屏。仅无数据的降级分支允许保持图表库默认状态。
-3. 四个窗格维持同一受控逻辑范围。用户在任意窗格按住并左右拖动时，按横向像素差平移该逻辑范围，并 clamp 在当前已加载的 `0..pointCount-1` 内；拖动不得发起新 API 请求，也不实现 cursor 自动翻页。
-4. 保持 `handleScroll=false`、`handleScale=false`。分钟图的横向浏览只使用与日线一致的 pointer-drag 逻辑，避免四个窗格各自滚动而失去对齐。
-5. 所有窗格订阅同一 crosshair 语义，悬停时间点同步到 K 线、MACD、成交量和 KDJ。K 线面板展示 tooltip，位置在鼠标超过容器宽度 62% 时切换到左侧，避免被右边界遮挡。
-6. K 线 tooltip 与日线保持同一信息层级和顺序：北京时间、开盘、收盘、最高、最低、成交量、成交额。分钟源的 `vol` 为股、`amount` 为元，格式化后分别显示股/万股/亿股和元/万元/亿元；不得套用日线手/千元的换算。收盘、最高、最低以本根开盘价着色，开盘为中性。
-7. MACD/KDJ 不塞进 K 线 tooltip；共享 crosshair 已使四个面板的标题指标随悬停点更新。指标 NULL 仍显示 `--`。不得伪造日线的 `preClose/change/pctChg/turnover` 等字段。
-8. 该交互改动不修改 API 参数、500 根返回量、cursor、后端数据读取或 local/prod 隔离边界。
+当前口径：
+
+1. 股票分钟、股票日线、指数日线、指数分钟必须共享同一个四窗格生命周期；股票分钟不保留独立 `createChart/range sync/drag` 实现。
+2. 1600px 页面初始显示 120 根；按真实 K 线绘图区约 9.5px/根计算，默认值 clamp 到 75～150 根。
+3. 用户可在 45～180 根之间，以每次 15 根进行放大/缩小；实际数据少于上限时以真实点数为上限。
+4. 正常非空路径不得调用 `fitContent()`；它会把 500 根全部压进首屏。
+5. 四个窗格维持同一受控 logical range。用户拖动不发起新请求、不自动翻 cursor；`handleScroll=false`、`handleScale=false` 保持。
+6. 横轴范围变化后纵轴使用图表库 `autoScale` 按可见真实数据适配，不对价格或画布做固定倍率缩放。
+7. 所有窗格订阅同一 crosshair。K 线 tooltip 继续固定为北京时间、开盘、收盘、最高、最低、成交量、成交额；量额使用股/元口径，价格颜色相对本 bar 开盘价。
+8. MACD/KDJ 不进入 K 线 tooltip，NULL 指标显示 `--`；不得伪造日线的 `preClose/change/pctChg/turnover`。
+9. 该交互不修改 API 参数、500 根返回量、cursor、后端数据读取或 local/prod 隔离边界。
 
 ## 9. 状态与异常
 
@@ -204,3 +208,5 @@ v1 不增加独立 `expectedEndDate` 参数：调用方传入的 `endDate` 既�
 | v1.2 | 2026-07-31 | 明确 `endDate` 的期望日语义并同步指标响应契约 |
 | v1.3 | 2026-07-31 | 冻结分钟首屏 90 根、四窗格受控拖动和基于真实字段的同步 tooltip 口径 |
 | v1.4 | 2026-07-31 | 对齐日线 tooltip 行顺序、方向色与样式，同时按分钟源股/元单位格式化量额 |
+| v1.5 | 2026-08-12 | 冻结先迁入 shared、再统一启用 45～180 根缩放和 1600px 默认 120 根；API 500 根合同不变 |
+| v1.6 | 2026-08-12 | M3 对账：`b38ac20e`/`61a5adea` 已完成 shared 迁移与缩放，股票分钟 API、500 根缓冲及 prod 隔离合同未改变 |

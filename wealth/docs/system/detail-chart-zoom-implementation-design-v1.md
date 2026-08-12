@@ -1,6 +1,6 @@
 # 详情页共享图表与 K 线缩放技术实施方案 v1
 
-> 状态：方案、正式 Web 设计稿与 LLD 已确认；M1 共享收敛与 M2 缩放实现均已完成代码、测试、构建和浏览器验收，待独立提交。
+> 状态：已完成。M1 共享收敛已提交为 `b38ac20e`，M2 缩放实现已提交为 `61a5adea`；M3 已完成专项文档与原始页面文档对账。
 > 正式设计稿：[Goldenshare Web / 10 Detail Chart Zoom - Web Handoff](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=581-516&m=dev)
 > 对应需求：[详情页 K 线缩放标杆需求 v1](./detail-chart-zoom-benchmark-requirement-v1.md)
 > 对应 LLD：[详情页共享图表与 K 线缩放 LLD v1](./detail-chart-zoom-low-level-design-v1.md)
@@ -44,11 +44,11 @@
 | 可观测与异常标准化 | 无新后端异常；按钮 disabled 是边界表达 | 原生 button/aria | disabled 与无数据状态测试 |
 | 用户结果优先 | 以四类真实页面的根数、宽度、纵轴和无漂移为验收 | 浏览器/截图 | 1600×1200 四场景验收 |
 
-## 2. 当前代码审计
+## 2. 编码前代码审计与当前结论
 
-### 2.1 已共享的实现
+### 2.1 M1 前已共享的实现
 
-`wealth/src/shared/charts/detail-workspace/DetailChartWorkspace.tsx` 当前已经负责：
+M1 开始前，`wealth/src/shared/charts/detail-workspace/DetailChartWorkspace.tsx` 已经负责：
 
 1. 创建 K 线、MACD、成交量、KDJ 四个 `lightweight-charts` 实例。
 2. 统一设置四个 pane 的 visible logical range。
@@ -64,13 +64,13 @@
 | `StockChartWorkspace` | 股票日线 | 是 |
 | `IndexChartWorkspace` | 指数日线 | 是 |
 | `IndexMinuteChartWorkspace` | 指数分钟 | 是 |
-| `StockMinuteChartWorkspace` | 股票分钟 | 否 |
+| `StockMinuteChartWorkspace` | 股票分钟 | M1 前否；提交 `b38ac20e` 后是 |
 
-shared 当前常量 `defaultVisibleBars=90`；`visibleBars` 是可选 props，但当前消费者没有建立统一的响应式策略。
+M1 前 shared 常量为 `defaultVisibleBars=90`，`visibleBars` 是可选 props，消费者没有统一响应式策略。M2 提交 `61a5adea` 已删除该覆盖入口并以 `detailChartViewport.ts` 统一治理。
 
-### 2.2 股票分钟线重复实现
+### 2.2 M1 前股票分钟线重复实现
 
-`StockMinuteChartWorkspace.tsx` 仍独立维护：
+M1 前 `StockMinuteChartWorkspace.tsx` 独立维护：
 
 1. 四个 chart 的创建和销毁。
 2. candle/line/histogram series 构造。
@@ -78,7 +78,7 @@ shared 当前常量 `defaultVisibleBars=90`；`visibleBars` 是可选 props，�
 4. 独立 `defaultVisibleMinuteBars=90`、颜色和 chart options。
 5. 独立 DOM/CSS class。
 
-它与 shared 的职责重复，且已有机械重复，例如右边界 clamp 分支连续两次执行 `to = maxTo`。若直接在两套实现中增加缩放，后续按钮、锚点、边界和修复必然漂移。
+它与 shared 的职责重复，且存在机械重复，例如右边界 clamp 分支连续两次执行 `to = maxTo`。提交 `b38ac20e` 已删除这套独立生命周期；当前只保留分钟领域 adapter。
 
 ### 2.3 数据量与纵轴能力
 
@@ -339,6 +339,8 @@ latest-anchored: from = to - (visibleCount - 1)
 2. 独立提交 M1 共享收敛，再独立提交 M2 缩放功能。
 3. 不暂存其它线程的 Lake、Dagster、市场总览或文档改动。
 
+实施结果（2026-08-12）：M1 已以 `b38ac20e` 独立提交，M2 已以 `61a5adea` 独立提交；专项三件套、编码门禁、共享组件规范、股票分钟 API 文档和指数详情文档已同步当前实现。其它线程的 Lake、Dagster 和非本任务文档改动未纳入本轮暂存范围。
+
 ## 8. 测试与验证计划
 
 ### 8.1 纯函数
@@ -417,12 +419,13 @@ git diff --check
 
 ## 12. 待拍板项
 
-无。正式设计稿与技术方案已经确认；进入编码前只等待用户确认本轮 LLD 与门禁对账结果。
+无。正式设计稿、技术方案、LLD、编码门禁、实现与原始文档已经完成一致性对账。
 
 ## 13. 版本记录
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.4 | 2026-08-12 | 完成 M3：登记 `b38ac20e`/`61a5adea`，同步专项与原始文档并清除实施前现状表述 | Codex |
 | v1.3 | 2026-08-12 | 回填 M2 实施结果、唯一常量/viewport 生命周期、四 adapter dataKey、27 test files / 152 tests 全量回归和浏览器验收 | Codex |
 | v1.2 | 2026-08-12 | 对齐正式 Figma page `581:516`，补齐节点到代码/验收映射，并冻结同源 Phosphor 放大镜内联 SVG 实现 | Codex |
 | v1.1 | 2026-08-12 | 记录方案已确认，链接实现级 LLD，并按当前代码修正股票分钟机械重复的审计描述 | Codex |

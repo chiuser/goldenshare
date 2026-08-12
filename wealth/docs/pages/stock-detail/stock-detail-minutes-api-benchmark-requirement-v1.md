@@ -1,6 +1,6 @@
 # 股票详情分钟线与分钟技术指标 API 标杆需求 v1
 
-> 阶段：需求基线，编码前。
+> 阶段：已实现；2026-08-12 已完成共享图表迁移与统一缩放对账，API 合同保持不变。
 > 关联方案：[技术实施方案](./stock-detail-minutes-api-implementation-design-v1.md)
 > 关联 LLD：[低级设计](./stock-detail-minutes-api-low-level-design-v1.md)
 > 关联门禁：[M2 编码前门禁](./stock-detail-minutes-api-m2-coding-gate-v1.md)
@@ -107,7 +107,7 @@ gold/indicator/stk_mins_qfq_macd_kdj/freq={freq}/ts_code={ts_code}/year={year}/p
 | `cursor` | 基于 `(tradeDate, tradeTime)` 的不透明游标 |
 | `debug` | 默认关闭，仅本地排障 |
 
-当前日线详情接口请求 300 根日 K，但图表默认实际可视区为 90 根。分钟接口不把 300 根解释为 300 个交易日，而是按页面首屏和有限拖动缓冲，统一默认返回 500 根分钟 K。500 根对应的覆盖长度随频率变化；完整查询仍通过 cursor 分页，不能把默认 500 根扩展成无界历史扫描。
+当前日线详情接口请求 300 根日 K，分钟接口统一默认返回 500 根分钟 K。接口返回量是首屏和有限拖动的缓冲，不等于首屏必须同时绘制的根数。共享图表迁移和缩放已分别由 `b38ac20e`、`61a5adea` 完成；当前可视区按[详情页 K 线缩放标杆需求](../../system/detail-chart-zoom-benchmark-requirement-v1.md)执行：1600px 默认 120 根、允许 45～180 根。500 根对应的覆盖长度随频率变化；完整查询仍通过 cursor 分页，不能把默认 500 根扩展成无界历史扫描。
 
 `dataStatus` 固定为：
 
@@ -148,3 +148,5 @@ gold/indicator/stk_mins_qfq_macd_kdj/freq={freq}/ts_code={ts_code}/year={year}/p
 | v1 | 2026-07-31 | 初版，冻结本地启用、远程屏蔽和双接口边界 |
 | v1.1 | 2026-07-31 | 冻结显式频率、500 根默认返回、DELAYED 状态和 local-lake 可选依赖 |
 | v1.2 | 2026-07-31 | 明确 `endDate` 同时承担查询上界和期望结束日语义 |
+| v1.3 | 2026-08-12 | 保持 API 默认 500 根不变；可视窗口交由共享图表缩放合同统一治理 |
+| v1.4 | 2026-08-12 | M3 对账：共享迁移和缩放已提交，当前 500 根 API 缓冲与 45～180 根前端可视区边界互不混淆 |

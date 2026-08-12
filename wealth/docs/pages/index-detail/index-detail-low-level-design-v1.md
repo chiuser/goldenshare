@@ -1,6 +1,6 @@
 # 指数详情页低层设计（LLD）v1
 
-> 状态：M1–M4 与 M5-A 已按冻结合同实现并通过验证；M5-A 使用真实 Silver K 线与开发态 Mock 指标，M5-B 保留真实 Gold 对接。
+> 状态：M1–M4 与 M5-A 已按冻结合同实现并通过验证；四类详情图表已共享同一 viewport 与缩放实现；M5-A 使用真实 Silver K 线与开发态 Mock 指标，M5-B 保留真实 Gold 对接。
 > 需求依据：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 技术方案：[指数详情页技术实施方案 v1](./index-detail-implementation-design-v1.md)
 > 编码门禁：[指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
@@ -155,8 +155,8 @@ Figma 事实源：
 | `MarketOverviewPage.tsx` | 股票导航和 toast | 增加 `openIndexDetail`，不在卡片内拼 URL |
 | `StockDetailPage.tsx` | page-init 后请求 kline、AbortController、本地分钟缓存 | 只参考请求生命周期；指数需更完整状态机 |
 | `stockDetailViewModelAdapter.ts` | 把 null 转 0 | 指数禁止复用此策略 |
-| `StockChartWorkspace.tsx` | 4 面板、crosshair、tooltip、90 根窗口 | 抽取通用引擎，保留 stock 领域 adapter |
-| `StockMinuteChartWorkspace.tsx` | 股票分钟 4 面板 | M5 不直接复用股票路径/DTO；可复用通用绘图能力 |
+| `StockChartWorkspace.tsx` | M2 审计时为 4 面板、crosshair、tooltip、90 根窗口 | 已成为 shared adapter；当前使用统一自适应默认与按钮缩放 |
+| `StockMinuteChartWorkspace.tsx` | 股票分钟 4 面板 | 已成为 shared adapter；只保留股票分钟字段、单位、状态与 Tooltip 语义 |
 | `wealthFetch` | 401 刷新 token 和失效会话通知 | 原样复用；指数错误类型另保存 HTTP status |
 | `TopMarketBar` | 共享顶部栏 | 所有指数状态原样复用 |
 
@@ -956,7 +956,7 @@ N 个连续有效点应输出每个通道 `N` 根 vertical 和 `2*(N-1)` 根 hor
 `DetailChartWorkspace` 只负责：
 
 1. K 线、MACD、成交量、KDJ 四面板生命周期。
-2. visible range、90 根默认窗口、缩放/拖动、crosshair 同步。
+2. visible range、拖动、crosshair 和按钮缩放同步；按[详情页共享图表与 K 线缩放方案](../../system/detail-chart-zoom-implementation-design-v1.md)与[配套 LLD](../../system/detail-chart-zoom-low-level-design-v1.md)统一使用 45～180/15、自适应默认（1600px 为 120 根）与纵轴 autoscale。
 3. 时间轴、浮动价格轴标签和 tooltip 定位。
 4. MA/BOLL 可选主图层和 null-safe line/histogram 数据。
 5. 接收可选 pane primitive，不理解趋势业务公式。
@@ -967,7 +967,7 @@ N 个连续有效点应输出每个通道 `N` 根 vertical 和 `2*(N-1)` 根 hor
 
 1. 把 StockCandlePoint 映射到 shared candle。
 2. 提供股票 tooltip 字段、单位、aria 文案和 toolbar action。
-3. 保留股票当前默认窗口、DOM 可见结果和颜色。
+3. 提供 `stock:${tsCode}:day` 稳定 dataKey，保留股票 DOM 可见结果和颜色；不管理默认窗口。
 
 `IndexChartWorkspace`：
 
@@ -1428,10 +1428,10 @@ wealth/src/shared/charts/detail-workspace/DetailChartWorkspace.test.tsx
 9. trend N 点 segment 数量、每日竖线、四种颜色、等于下轨边界、缺日断开。
 10. trend error 不清空 kline/basic。
 11. line/histogram null 不被送成 0。
-12. StockChartWorkspace 90 根、crosshair、tooltip、MA/BOLL 回归。
+12. StockChartWorkspace 的 shared 可视范围、crosshair、tooltip、MA/BOLL 回归；45/120/180 根、overlay/resize/append 不重置或错置范围均已由 shared 测试覆盖。
 13. system 状态色不使用 market up/down token。
 14. M5-A 七频率、按频率缓存、Abort/request id 防串标、北证50局部空态、Mock v0 暖机 null 与可见标识。
-15. shared chart 的 minute 时间轴、Asia/Shanghai crosshair、90 根首屏与日线模式回归。
+15. shared chart 的 minute 时间轴、Asia/Shanghai crosshair、自适应首屏与日线模式回归；1600px 必须为 120 根。
 
 ### 19.5 真实 API 与像素验收
 
@@ -1557,6 +1557,8 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.14 | 2026-08-12 | M3 对账：四类详情图表已统一 shared 生命周期、稳定 dataKey、45～180/15 和 1600px 默认 120；API、趋势与状态合同不变 | Codex |
+| v1.13 | 2026-08-12 | 同步详情图表后续方案：先收敛股票分钟独立生命周期，再统一实现 45～180 根、15 根步长和 1600px 默认 120 根；API/趋势合同不变 | Codex |
 | v1.12 | 2026-08-12 | 完成 M5-B 准备：确认 Definitions 发现 14 个 Gold 资产与 70 个 checks，冻结 Orchestrator/Web Reader 静态合同门禁、七频率异常 fixture 和正式 Gold 只读验收入口；物理覆盖、对齐、性能及前端切换仍待正式文件 | Codex |
 | v1.11 | 2026-08-12 | 完成 A 股过滤、daily 优先与停牌 fallback 查询实现；22 项指数 API、83 项后端相关、108 项 Wealth 回归通过；最终上证为 2184/648/51/1485/0，页面 READY，服务链与 payload 通过门禁 | Codex |
 | v1.10 | 2026-08-12 | 收紧成分口径：权重与涨跌统计仅消费 Security 事实字段认定的 A 股；B 股不进入 rows/coverage/missing；A 股精确日 daily 优先，缺 daily 且有停牌证据时按 flat、贡献 0；补 SQL、异常和负向测试门禁 | Codex |

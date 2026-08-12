@@ -1,6 +1,6 @@
 # 详情页共享图表与 K 线缩放 LLD v1
 
-> 状态：用户已确认；M1 共享收敛与 M2 缩放实现均已完成代码、测试、构建和浏览器验收，待独立提交。
+> 状态：已完成。M1 提交为 `b38ac20e`，M2 提交为 `61a5adea`；152 项测试、构建、浏览器验收和 M3 文档对账均已通过。
 > 正式设计稿：[Goldenshare Web / 10 Detail Chart Zoom - Web Handoff](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=581-516&m=dev)
 > 需求：[详情页 K 线缩放标杆需求 v1](./detail-chart-zoom-benchmark-requirement-v1.md)
 > 方案：[详情页共享图表与 K 线缩放技术实施方案 v1](./detail-chart-zoom-implementation-design-v1.md)
@@ -1012,7 +1012,7 @@ refactor(wealth): migrate stock minutes to shared detail chart
 3. 仍为 90 根，无 zoom controls。
 4. typecheck/test/build 和 1600×1200 无漂移通过。
 
-当前状态：1～4 已通过；M1 已由提交 `b38ac20e` 独立提交，M2 已按本文进入实施。
+当前状态：1～4 已通过；M1 已由提交 `b38ac20e` 独立提交。
 
 ### 17.3 M2 提交
 
@@ -1029,7 +1029,7 @@ feat(wealth): add adaptive detail chart zoom controls
 3. 点击不重建 chart、不请求 API。
 4. 四类页面浏览器和视觉验收通过。
 
-当前状态：1～4 已通过，等待独立 M2 提交。
+当前状态：1～4 已通过；M2 已由提交 `61a5adea` 独立提交。
 
 ### 17.4 文档对账
 
@@ -1042,7 +1042,7 @@ feat(wealth): add adaptive detail chart zoom controls
 
 只暂存本任务文件；不得暂存当前工作区的 Lake、Dagster、市场总览或其它线程改动。
 
-`component-guidelines-baseline.md`、股票分钟 API 文档和指数详情原 LLD 当前包含其它线程未提交改动；本轮为避免覆盖用户工作，未直接修改这些脏文件。M2 事实已完整回填本专项三件套与编码门禁，后续由对应文档线程合并同步。
+M3 已逐文件审计 `component-guidelines-baseline.md`、股票分钟 API 文档和指数详情原文档的既有未提交差异，仅在图表共享与缩放相关段落增量同步当前事实；其它线程内容未覆盖、未删除，提交时仍需按文件和补丁范围复核。
 
 ---
 
@@ -1101,7 +1101,7 @@ rg -n "MIN_VISIBLE_BARS|MAX_VISIBLE_BARS|ZOOM_STEP_BARS|TARGET_PIXELS_PER_BAR" \
 
 无新的产品参数。正式 Figma、技术方案和本文已完成一致性对账；代码审计发现的股票分钟展示差异已收敛为 shared 的正式通用展示合同，不改变已确认的业务交互。
 
-M1 与 M2 均已按本文完成实现和验收；下一步仅剩独立 M2 提交。
+M1 与 M2 均已按本文完成实现、验收和独立提交；M3 文档对账已完成。本专项没有未完成的功能里程碑。
 
 ---
 
@@ -1109,6 +1109,7 @@ M1 与 M2 均已按本文完成实现和验收；下一步仅剩独立 M2 提交
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.3 | 2026-08-12 | 完成 M3 文档对账，登记 M1 `b38ac20e`、M2 `61a5adea`，清除待提交和原文档待同步口径 | Codex |
 | v1.2 | 2026-08-12 | 回填 M2 实现文件、45/120/180 与 resize/append/dataKey 测试、Figma 同源控件、27 test files / 152 tests 全量回归和浏览器截图证据 | Codex |
 | v1.1 | 2026-08-12 | 对齐正式 Figma page `581:516`；补齐节点映射、同源 Phosphor 放大镜 SVG 合同、边界 disabled 方向及像素验收依据 | Codex |
 | v1 | 2026-08-12 | 基于当前四消费者、shared 生命周期、股票分钟独立实现、CSS、测试和本地运行页面完成实现级 LLD | Codex |

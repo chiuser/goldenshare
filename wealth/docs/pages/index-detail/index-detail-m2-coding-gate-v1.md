@@ -1,6 +1,6 @@
 # 指数详情页 M2 编码前门禁 v1
 
-> 状态：M1–M4 与 M5-A 条目已通过；M5-A 使用真实 Silver + 开发态可见 Mock 指标，Gold 门禁保留 M5-B。
+> 状态：M1–M4 与 M5-A 条目已通过；共享图表缩放门禁已由 `61a5adea` 闭环；M5-A 使用真实 Silver + 开发态可见 Mock 指标，Gold 门禁保留 M5-B。
 > 需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 方案：[指数详情页技术实施方案 v1](./index-detail-implementation-design-v1.md)
 > LLD：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)
@@ -479,7 +479,7 @@ WHERE w.index_code = :index_code
 1. [x] 没有复制 `StockChartWorkspace.tsx` 主实现。
 2. [x] shared chart 不含 stock/index 业务文案。
 3. [x] null 指标被过滤或绘制断点，不转 0。
-4. [x] 股票详情 90 根窗口、crosshair、tooltip、MA/BOLL、四面板回归通过。
+4. [x] M2 历史基线的股票详情 90 根窗口、crosshair、tooltip、MA/BOLL、四面板回归通过；当前 120 根/缩放已通过独立[共享图表缩放门禁](../../system/detail-chart-zoom-m2-coding-gate-v1.md)并由 `61a5adea` 提交，不改写本条历史验收事实。
 5. [x] 上证指数趋势短/长期四轨与每日竖线可按日期对齐，无未来数据；每个交易日都有竖线，颜色切换点连续；短期红/绿、长期粉/蓝四种组合均有测试。
 6. [x] 其余 9 个指数不渲染趋势入口、不调用趋势接口。
 
@@ -625,6 +625,8 @@ cd wealth && npm run build
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.18 | 2026-08-12 | M3 对账：共享图表缩放已提交为 `61a5adea`，保留原指数 M2 的 90 根历史证据并登记当前 120 根合同 | Codex |
+| v1.17 | 2026-08-12 | 链接独立共享图表缩放门禁，保留 M2 的 90 根历史验收事实，后续 120 根与缩放不混入已完成里程碑 | Codex |
 | v1.16 | 2026-08-12 | 将 M5-B Definitions 70 checks 标记为已完成，并拆分正式 Gold 物理覆盖/对齐/性能待验项；登记跨边界合同、七频率异常 fixture 与只读验收入口门禁 | Codex |
 | v1.15 | 2026-08-12 | 完成 A 股集合与停牌解析编码门禁：查询、异常、合同测试、83 项后端相关、108 项 Wealth、生产只读性能和真实页面 READY 验收全部通过 | Codex |
 | v1.14 | 2026-08-12 | 冻结 A 股成分集合与停牌解析门禁：B 股不进入 rows/coverage/missing；daily 优先，缺 daily 且有精确日停牌证据时按 flat、贡献 0；补生产只读样本、SQL 和负向测试要求，DTO 提升至 1.2.0 | Codex |
