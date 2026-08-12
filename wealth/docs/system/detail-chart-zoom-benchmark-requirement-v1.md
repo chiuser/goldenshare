@@ -1,6 +1,6 @@
 # 详情页 K 线缩放标杆需求 v1
 
-> 状态：正式 Web 设计稿、技术方案与 LLD 已确认；M1 共享收敛已完成，M2 缩放开发尚未开始。
+> 状态：正式 Web 设计稿、技术方案与 LLD 已确认；M1 共享收敛与 M2 缩放实现均已完成代码、测试、构建和 1600×1200 浏览器验收，待独立提交。
 > 适用页面：股票详情、指数详情。
 > 适用周期：日线，以及本地已开放的股票/指数分钟线。
 > 正式设计稿：[Goldenshare Web / 10 Detail Chart Zoom - Web Handoff](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=581-516&m=dev)
@@ -191,6 +191,7 @@ initialVisibleCount = min(adaptiveDefault, loadedPointCount)
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.3 | 2026-08-12 | 回填 M2：唯一 shared 已实现 45～180/15、自适应默认 120、四 adapter dataKey、Figma 同源按钮、全量回归与浏览器验收 | Codex |
 | v1.2 | 2026-08-12 | 登记正式 Figma 开发稿及节点映射；将纯文本加减号改为 Supericons Phosphor 放大镜图标，并冻结边界 disabled 方向 | Codex |
 | v1.1 | 2026-08-12 | 记录技术方案已确认并链接实现级 LLD；产品参数不变 | Codex |
 | v1 | 2026-08-12 | 冻结共享图表先行、45～180 根、15 根步长、1600px 默认 120 根及自适应/锚点/控件口径 | Codex |

@@ -47,6 +47,7 @@ function LoadedIndexMinuteChart({
       ariaLabel="指数分钟图表区"
       bottomBar={<IndexMinuteIndicatorBar hasMockIndicators={data.indicatorSource === "mock"} message={message} overlay={overlay} phase={phase} setOverlay={setOverlay} />}
       bottomBarAriaLabel="指数分钟指标栏"
+      dataKey={`index:${data.tsCode}:m${data.freq}`}
       mainLines={mainLines}
       panelAriaLabels={{ kline: "指数分钟K线主图", macd: "分钟 MACD(12,26,9)", volume: "分钟成交量", kdj: "分钟 KDJ(9,3,3)" }}
       points={points}

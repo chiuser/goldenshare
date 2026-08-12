@@ -170,6 +170,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
             candles={viewModel.chart.candles}
             indicatorTabs={viewModel.indicatorTabs}
             onAction={showToast}
+            tsCode={viewModel.stock.tsCode}
           />
         ) : (
           <StockMinuteChartWorkspace data={minuteChart} loadState={minuteLoadState} errorMessage={minuteError} />

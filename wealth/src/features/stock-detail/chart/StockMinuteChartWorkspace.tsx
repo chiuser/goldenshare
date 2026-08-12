@@ -40,6 +40,7 @@ export function StockMinuteChartWorkspace({ data, loadState, errorMessage }: Sto
     <DetailChartWorkspace
       ariaLabel="分钟图表区"
       crosshairPresentation="native-axis-labels"
+      dataKey={`stock:${data.tsCode}:m${data.freq}`}
       mainLines={STOCK_MINUTE_MAIN_LINES}
       panelAriaLabels={{
         kline: "分钟K线",

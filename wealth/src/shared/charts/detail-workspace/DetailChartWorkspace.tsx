@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CandlestickSeries,
   ColorType,
@@ -14,6 +14,7 @@ import {
 } from "lightweight-charts";
 
 import { DetailChartPane } from "./DetailChartPane";
+import { DetailChartZoomControls } from "./DetailChartZoomControls";
 import {
   buildDailyTimeAxisMarkers,
   formatCompactAxisValue,
@@ -38,6 +39,17 @@ import type {
   DetailChartTimeAxisMarker,
   DetailChartWorkspaceProps,
 } from "./detailChartTypes";
+import {
+  RIGHT_PRICE_SCALE_WIDTH,
+  resolveAdaptiveVisibleCount,
+  resolveInitialRange,
+  resolveRangeAfterPointCountChange,
+  resolveVisibleCount,
+  resolveZoomAvailability,
+  resolveZoomedRange,
+  resolveZoomTargetCount,
+  type DetailChartLogicalRange,
+} from "./detailChartViewport";
 import "./detail-chart-workspace.css";
 
 interface ChartRefs {
@@ -59,8 +71,24 @@ interface SharedCrosshairState {
   x: number;
 }
 
-const rightPriceScaleWidth = 56;
-const defaultVisibleBars = 90;
+interface DetailChartViewportRefState {
+  dataKey: string;
+  lastMeasuredHostWidth: number | null;
+  pointCount: number;
+  range: DetailChartLogicalRange | null;
+  userAdjusted: boolean;
+}
+
+interface DetailChartViewportUiState {
+  dataKey: string;
+  visibleCount: number;
+}
+
+interface DetailChartRuntime {
+  applyRange: (range: DetailChartLogicalRange) => void;
+  getRange: () => DetailChartLogicalRange | null;
+}
+
 const EMPTY_MAIN_PRIMITIVES: NonNullable<DetailChartWorkspaceProps["mainPrimitives"]> = [];
 
 export function DetailChartWorkspace({
@@ -68,6 +96,7 @@ export function DetailChartWorkspace({
   bottomBar,
   bottomBarAriaLabel,
   crosshairPresentation = "synchronized-overlay",
+  dataKey,
   mainLines,
   mainPrimitives,
   panelAriaLabels,
@@ -79,7 +108,6 @@ export function DetailChartWorkspace({
   timeAxisPlacement = "bottom-pane",
   timeMode,
   topRightAccessory,
-  visibleBars = defaultVisibleBars,
 }: DetailChartWorkspaceProps) {
   const primitives = mainPrimitives ?? EMPTY_MAIN_PRIMITIVES;
   const chartsAreaRef = useRef<HTMLDivElement | null>(null);
@@ -90,8 +118,47 @@ export function DetailChartWorkspace({
   const [axisFloatLabel, setAxisFloatLabel] = useState<DetailChartAxisFloatLabelState | null>(null);
   const [sharedCrosshair, setSharedCrosshair] = useState<SharedCrosshairState | null>(null);
   const [timeAxisMarkers, setTimeAxisMarkers] = useState<DetailChartTimeAxisMarker[]>([]);
+  const runtimeRef = useRef<DetailChartRuntime | null>(null);
+  const viewportRef = useRef<DetailChartViewportRefState>({
+    dataKey,
+    lastMeasuredHostWidth: null,
+    pointCount: 0,
+    range: null,
+    userAdjusted: false,
+  });
+  const [viewportUi, setViewportUi] = useState<DetailChartViewportUiState>({ dataKey, visibleCount: 0 });
   const latest = points[hoverIndex] ?? points.at(-1) ?? null;
   const candleData = useMemo(() => buildCandlestickData(points), [points]);
+  const zoomAvailability = viewportUi.dataKey === dataKey && viewportUi.visibleCount > 0
+    ? resolveZoomAvailability(viewportUi.visibleCount, points.length)
+    : { canZoomIn: false, canZoomOut: false };
+
+  const commitViewportRange = useCallback((
+    range: DetailChartLogicalRange | null,
+    options: { applyToCharts?: boolean; userAdjusted?: boolean } = {},
+  ) => {
+    const viewport = viewportRef.current;
+    viewport.range = range;
+    if (options.userAdjusted) viewport.userAdjusted = true;
+    const visibleCount = resolveVisibleCount(range, viewport.pointCount);
+    setViewportUi((current) => current.dataKey === viewport.dataKey && current.visibleCount === visibleCount
+      ? current
+      : { dataKey: viewport.dataKey, visibleCount });
+    if (range && options.applyToCharts !== false) runtimeRef.current?.applyRange(range);
+  }, []);
+
+  const zoom = useCallback((direction: "in" | "out") => {
+    const viewport = viewportRef.current;
+    if (!viewport.range || viewport.pointCount <= 0) return;
+    const visibleCount = resolveVisibleCount(viewport.range, viewport.pointCount);
+    const availability = resolveZoomAvailability(visibleCount, viewport.pointCount);
+    if (direction === "in" ? !availability.canZoomIn : !availability.canZoomOut) return;
+    const targetCount = resolveZoomTargetCount(direction, visibleCount, viewport.pointCount);
+    commitViewportRange(
+      resolveZoomedRange(viewport.range, targetCount, viewport.pointCount),
+      { userAdjusted: true },
+    );
+  }, [commitViewportRange]);
 
   useEffect(() => {
     setHoverIndex(points.length - 1);
@@ -281,12 +348,17 @@ export function DetailChartWorkspace({
     };
 
     let isSyncingVisibleRange = false;
-    const applyVisibleRange = (range: { from: number; to: number }) => {
+    const applyVisibleRange = (range: DetailChartLogicalRange) => {
       isSyncingVisibleRange = true;
       charts.forEach((chart) => chart.timeScale().setVisibleLogicalRange(range));
       isSyncingVisibleRange = false;
       queueTimeAxisMarkerUpdate();
     };
+    const runtime: DetailChartRuntime = {
+      applyRange: applyVisibleRange,
+      getRange: () => klineChart.timeScale().getVisibleLogicalRange(),
+    };
+    runtimeRef.current = runtime;
     const visibleRangeHandlers: Array<{ chart: IChartApi; handler: () => void }> = [];
     const syncVisibleRange = (sourceChart: IChartApi) => {
       if (isSyncingVisibleRange) return;
@@ -297,6 +369,7 @@ export function DetailChartWorkspace({
         if (chart !== sourceChart) chart.timeScale().setVisibleLogicalRange(visibleRange);
       });
       isSyncingVisibleRange = false;
+      commitViewportRange(visibleRange, { applyToCharts: false });
       queueTimeAxisMarkerUpdate();
     };
     charts.forEach((chart) => {
@@ -304,11 +377,39 @@ export function DetailChartWorkspace({
       chart.timeScale().subscribeVisibleLogicalRangeChange(handler);
       visibleRangeHandlers.push({ chart, handler });
     });
-    if (points.length > 0) {
-      const to = points.length - 1;
-      const from = Math.max(0, to - visibleBars + 1);
-      applyVisibleRange({ from, to });
+    const previousViewport = viewportRef.current;
+    const previousPointCount = previousViewport.pointCount;
+    const hostWidth = chartRefs.current.kline.clientWidth;
+    let initialRange: DetailChartLogicalRange | null;
+    if (previousViewport.dataKey !== dataKey) {
+      viewportRef.current = {
+        dataKey,
+        lastMeasuredHostWidth: hostWidth,
+        pointCount: points.length,
+        range: null,
+        userAdjusted: false,
+      };
+      initialRange = resolveInitialRange(
+        points.length,
+        resolveAdaptiveVisibleCount(hostWidth, points.length),
+      );
     } else {
+      previousViewport.lastMeasuredHostWidth = hostWidth;
+      previousViewport.pointCount = points.length;
+      initialRange = previousViewport.range && previousPointCount !== points.length
+        ? resolveRangeAfterPointCountChange(previousViewport.range, previousPointCount, points.length)
+        : previousViewport.range;
+      if (!initialRange && points.length > 0) {
+        initialRange = resolveInitialRange(
+          points.length,
+          resolveAdaptiveVisibleCount(hostWidth, points.length),
+        );
+      }
+    }
+    if (initialRange) {
+      commitViewportRange(initialRange);
+    } else {
+      commitViewportRange(null, { applyToCharts: false });
       charts.forEach((chart) => chart.timeScale().fitContent());
     }
 
@@ -339,7 +440,8 @@ export function DetailChartWorkspace({
         to = maxTo;
       }
       if (from < 0 || to > maxTo) return;
-      applyVisibleRange({ from, to });
+      if (Math.abs(deltaLogical) <= Number.EPSILON) return;
+      commitViewportRange({ from, to }, { userAdjusted: true });
     };
     const handlePointerDown = (event: PointerEvent) => {
       startDrag(event.clientX, event.target, event.button, event.pointerId);
@@ -375,12 +477,34 @@ export function DetailChartWorkspace({
     window.addEventListener("mousemove", handleMouseMove, { capture: true });
     window.addEventListener("mouseup", handleMouseUp, { capture: true });
 
-    const markerResizeObserver = new ResizeObserver(queueTimeAxisMarkerUpdate);
-    markerResizeObserver.observe(chartRefs.current.kdj);
+    let resizeFrame = 0;
+    let pendingKlineWidth: number | null = null;
+    const resizeObserver = new ResizeObserver((entries) => {
+      queueTimeAxisMarkerUpdate();
+      const klineEntry = entries.find((entry) => entry.target === chartRefs.current.kline);
+      if (klineEntry) pendingKlineWidth = klineEntry.contentRect.width;
+      window.cancelAnimationFrame(resizeFrame);
+      resizeFrame = window.requestAnimationFrame(() => {
+        if (pendingKlineWidth === null) return;
+        const viewport = viewportRef.current;
+        viewport.lastMeasuredHostWidth = pendingKlineWidth;
+        if (viewport.dataKey === dataKey && !viewport.userAdjusted && viewport.pointCount > 0) {
+          const visibleCount = resolveAdaptiveVisibleCount(pendingKlineWidth, viewport.pointCount);
+          if (visibleCount !== resolveVisibleCount(viewport.range, viewport.pointCount)) {
+            commitViewportRange(resolveInitialRange(viewport.pointCount, visibleCount));
+          }
+        }
+        pendingKlineWidth = null;
+      });
+    });
+    resizeObserver.observe(chartRefs.current.kline);
+    resizeObserver.observe(chartRefs.current.kdj);
 
     return () => {
       window.cancelAnimationFrame(markerFrame);
-      markerResizeObserver.disconnect();
+      window.cancelAnimationFrame(resizeFrame);
+      resizeObserver.disconnect();
+      if (runtimeRef.current === runtime) runtimeRef.current = null;
       crosshairHandlers.forEach(({ chart, handler }) => chart.unsubscribeCrosshairMove(handler));
       visibleRangeHandlers.forEach(({ chart, handler }) => chart.timeScale().unsubscribeVisibleLogicalRangeChange(handler));
       chartArea.removeEventListener("pointerdown", handlePointerDown, { capture: true });
@@ -393,7 +517,7 @@ export function DetailChartWorkspace({
       primitives.forEach((primitive) => klineSeries.detachPrimitive(primitive));
       charts.forEach((chart) => chart.remove());
     };
-  }, [candleData, crosshairPresentation, mainLines, points, primitives, timeAxisPlacement, timeMode, visibleBars]);
+  }, [candleData, commitViewportRange, crosshairPresentation, dataKey, mainLines, points, primitives, timeAxisPlacement, timeMode]);
 
   return (
     <section className="detail-chart-workspace" aria-label={ariaLabel}>
@@ -414,7 +538,19 @@ export function DetailChartWorkspace({
           className="kline-panel"
           header={renderMainHeader(latest)}
           hostRef={(node) => { chartRefs.current.kline = node; }}
-          overlay={latest && isChartHovering ? renderTooltip(latest, tooltipSide) : null}
+          overlay={(
+            <>
+              {latest && isChartHovering ? renderTooltip(latest, tooltipSide) : null}
+              {points.length > 0 ? (
+                <DetailChartZoomControls
+                  canZoomIn={zoomAvailability.canZoomIn}
+                  canZoomOut={zoomAvailability.canZoomOut}
+                  onZoomIn={() => zoom("in")}
+                  onZoomOut={() => zoom("out")}
+                />
+              ) : null}
+            </>
+          )}
         />
         {(["macd", "volume", "kdj"] as const).map((panel) => (
           <DetailChartPane
@@ -482,7 +618,7 @@ function buildChartOptions(
     rightPriceScale: {
       autoScale: true,
       borderColor: DETAIL_CHART_COLORS.axis,
-      minimumWidth: rightPriceScaleWidth,
+      minimumWidth: RIGHT_PRICE_SCALE_WIDTH,
       scaleMargins: { bottom: 0.12, top: 0.12 },
     },
     timeScale: {

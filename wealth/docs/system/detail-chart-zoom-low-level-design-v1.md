@@ -1,6 +1,6 @@
 # 详情页共享图表与 K 线缩放 LLD v1
 
-> 状态：用户已确认；M1 共享收敛已完成并通过代码、测试与浏览器无漂移门禁，M2 尚未开始。
+> 状态：用户已确认；M1 共享收敛与 M2 缩放实现均已完成代码、测试、构建和浏览器验收，待独立提交。
 > 正式设计稿：[Goldenshare Web / 10 Detail Chart Zoom - Web Handoff](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=581-516&m=dev)
 > 需求：[详情页 K 线缩放标杆需求 v1](./detail-chart-zoom-benchmark-requirement-v1.md)
 > 方案：[详情页共享图表与 K 线缩放技术实施方案 v1](./detail-chart-zoom-implementation-design-v1.md)
@@ -943,6 +943,15 @@ M1 允许变化只有内部 DOM/class 和实现归属；普通 UI 几何偏差�
 
 允许视觉变化仅限缩放按钮、K 线横向密度和可见数据导致的纵轴范围；其它布局按 `597:1120` 的 2px 门禁，图表、趋势通道、坐标轴、Tooltip 和十字线不得位移。
 
+实施证据（2026-08-12）：
+
+1. 截图目录：`/private/tmp/goldenshare-detail-chart-zoom/m2-after/`；已保存股票日线默认 120、最小 45、最大 180、股票 5 分钟和上证指数日线 1600×1200 截图。
+2. 1600×1200 股票页面实测图表根宽 `1193.20px`、图表区宽 `1191.20px`；控件 `60×28px`，两个按钮均为 `28×28px`、间距 `4px`，几何与正式稿一致。
+3. 股票日线连续放大到 45 后放大按钮原生 disabled；连续缩小到 180 后缩小按钮原生 disabled；图表区、workspace 与右栏几何保持不动。
+4. 上证指数日线保留趋势通道与缩放控件；指数 1/60/120 分钟均显示真实 K 线、模拟指标标识和缩放控件；切回日 K 后趋势通道和控件恢复。
+5. 股票 5 分钟保留分钟工作台和缩放控件；指数/股票分钟缩放前后右栏文本完全一致；干净页面会话无 console error。
+6. 1050/1900 viewport smoke 未出现控件尺寸漂移或新增页面横向溢出；自适应 75/150 的精确 logical range 由可控 ResizeObserver 组件测试锁定。
+
 ---
 
 ## 16. 文件级改动清单
@@ -1003,7 +1012,7 @@ refactor(wealth): migrate stock minutes to shared detail chart
 3. 仍为 90 根，无 zoom controls。
 4. typecheck/test/build 和 1600×1200 无漂移通过。
 
-当前状态：1～4 已通过；代码尚未提交，需保持为独立 M1 提交后方可进入 M2。
+当前状态：1～4 已通过；M1 已由提交 `b38ac20e` 独立提交，M2 已按本文进入实施。
 
 ### 17.3 M2 提交
 
@@ -1020,6 +1029,8 @@ feat(wealth): add adaptive detail chart zoom controls
 3. 点击不重建 chart、不请求 API。
 4. 四类页面浏览器和视觉验收通过。
 
+当前状态：1～4 已通过，等待独立 M2 提交。
+
 ### 17.4 文档对账
 
 实施结果同步回：
@@ -1030,6 +1041,8 @@ feat(wealth): add adaptive detail chart zoom controls
 4. 股票分钟 API 文档和指数详情原 LLD 中的历史/目标说明。
 
 只暂存本任务文件；不得暂存当前工作区的 Lake、Dagster、市场总览或其它线程改动。
+
+`component-guidelines-baseline.md`、股票分钟 API 文档和指数详情原 LLD 当前包含其它线程未提交改动；本轮为避免覆盖用户工作，未直接修改这些脏文件。M2 事实已完整回填本专项三件套与编码门禁，后续由对应文档线程合并同步。
 
 ---
 
@@ -1088,7 +1101,7 @@ rg -n "MIN_VISIBLE_BARS|MAX_VISIBLE_BARS|ZOOM_STEP_BARS|TARGET_PIXELS_PER_BAR" \
 
 无新的产品参数。正式 Figma、技术方案和本文已完成一致性对账；代码审计发现的股票分钟展示差异已收敛为 shared 的正式通用展示合同，不改变已确认的业务交互。
 
-用户确认本文后，下一步才是保存 M1 基线并进入共享收敛编码。
+M1 与 M2 均已按本文完成实现和验收；下一步仅剩独立 M2 提交。
 
 ---
 
@@ -1096,5 +1109,6 @@ rg -n "MIN_VISIBLE_BARS|MAX_VISIBLE_BARS|ZOOM_STEP_BARS|TARGET_PIXELS_PER_BAR" \
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.2 | 2026-08-12 | 回填 M2 实现文件、45/120/180 与 resize/append/dataKey 测试、Figma 同源控件、27 test files / 152 tests 全量回归和浏览器截图证据 | Codex |
 | v1.1 | 2026-08-12 | 对齐正式 Figma page `581:516`；补齐节点映射、同源 Phosphor 放大镜 SVG 合同、边界 disabled 方向及像素验收依据 | Codex |
 | v1 | 2026-08-12 | 基于当前四消费者、shared 生命周期、股票分钟独立实现、CSS、测试和本地运行页面完成实现级 LLD | Codex |

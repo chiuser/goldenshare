@@ -20,12 +20,14 @@ interface StockChartWorkspaceProps {
   candles: StockCandlePoint[];
   indicatorTabs: StockIndicatorTab[];
   onAction: (message: string) => void;
+  tsCode: string;
 }
 
 export function StockChartWorkspace({
   candles,
   indicatorTabs,
   onAction,
+  tsCode,
 }: StockChartWorkspaceProps) {
   const [overlay, setOverlay] = useState<StockMainOverlay>("MA");
   const points = useMemo(() => candles.map(toDetailChartPoint), [candles]);
@@ -46,6 +48,7 @@ export function StockChartWorkspace({
         />
       )}
       bottomBarAriaLabel="底部指标栏"
+      dataKey={`stock:${tsCode}:day`}
       mainLines={mainLines}
       panelAriaLabels={{
         kline: "K线主图",

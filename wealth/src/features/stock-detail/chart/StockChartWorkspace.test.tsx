@@ -76,41 +76,42 @@ const indicatorTabs: StockIndicatorTab[] = [
 describe("StockChartWorkspace shared adapter", () => {
   beforeEach(() => chartMock.reset());
 
-  it("preserves the stock four-pane, 90-bar, overlay and tooltip behavior", () => {
-    const candles = makeCandles(100);
+  it("preserves the stock four-pane, 120-bar, overlay and tooltip behavior", () => {
+    const candles = makeCandles(300);
     const onAction = vi.fn();
     render(
       <StockChartWorkspace
         candles={candles}
         indicatorTabs={indicatorTabs}
         onAction={onAction}
+        tsCode="000001.SZ"
       />,
     );
 
     expect(chartMock.charts).toHaveLength(4);
     chartMock.charts.forEach((chart) => {
-      expect(chart.timeScale().getVisibleLogicalRange()).toEqual({ from: 10, to: 99 });
+      expect(chart.timeScale().getVisibleLogicalRange()).toEqual({ from: 180, to: 299 });
     });
     expect(screen.getByLabelText("K线主图")).toBeInTheDocument();
     expect(screen.getByLabelText("MACD(12,26,9)")).toBeInTheDocument();
     expect(screen.getByLabelText("成交量")).toBeInTheDocument();
     expect(screen.getByLabelText("KDJ(9,3,3)")).toBeInTheDocument();
-    expect(screen.getByText("MA250:17.99")).toBeInTheDocument();
+    expect(screen.getByText("MA250:19.99")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("主图指标切换"), { target: { value: "BOLL" } });
-    expect(screen.getByText("UPPER:20.99")).toBeInTheDocument();
+    expect(screen.getByText("UPPER:22.99")).toBeInTheDocument();
     const activeCharts = chartMock.charts.slice(-4);
 
     const klinePanel = screen.getByLabelText("K线主图");
     const klineHost = klinePanel.querySelector(".detail-chart-host");
     Object.defineProperty(klineHost!, "clientWidth", { configurable: true, value: 400 });
     act(() => {
-      activeCharts[0].crosshairHandlers[0]({ point: { x: 300, y: 40 }, time: candles[98]!.time });
+      activeCharts[0].crosshairHandlers[0]({ point: { x: 300, y: 40 }, time: candles[298]!.time });
     });
 
     const tooltip = within(klinePanel).getByText("时间").closest(".detail-chart-tooltip");
     expect(tooltip).toHaveClass("left");
-    expect(within(tooltip as HTMLElement).getByText(candles[98]!.fullDate.replaceAll("-", ""))).toBeInTheDocument();
+    expect(within(tooltip as HTMLElement).getByText(candles[298]!.fullDate.replaceAll("-", ""))).toBeInTheDocument();
     expect(activeCharts[0].setCrosshairPosition).toHaveBeenCalled();
     expect(activeCharts[3].setCrosshairPosition).toHaveBeenCalled();
   });

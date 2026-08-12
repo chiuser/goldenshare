@@ -42,6 +42,7 @@ export interface DetailChartAxisFloatLabelState {
 }
 
 interface DetailChartWorkspaceBaseProps {
+  dataKey: string;
   ariaLabel: string;
   crosshairPresentation?: DetailChartCrosshairPresentation;
   mainLines: DetailChartLineDefinition[];
@@ -55,7 +56,6 @@ interface DetailChartWorkspaceBaseProps {
   timeAxisPlacement?: DetailChartTimeAxisPlacement;
   timeMode: DetailChartTimeMode;
   topRightAccessory?: ReactNode;
-  visibleBars?: number;
 }
 
 type DetailChartBottomBarProps =

@@ -1,5 +1,5 @@
-import { act, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DetailChartWorkspace } from "./DetailChartWorkspace";
 import { buildCandlestickData, buildHistogramData, buildLineData } from "./detailChartSeries";
@@ -74,19 +74,69 @@ vi.mock("lightweight-charts", () => ({
   createChart: chartMock.createChart,
 }));
 
+const defaultResizeObserver = globalThis.ResizeObserver;
+const resizeObserverMock = {
+  instances: [] as ControlledResizeObserver[],
+  reset() {
+    this.instances.splice(0, this.instances.length);
+  },
+};
+
+class ControlledResizeObserver implements ResizeObserver {
+  readonly observed = new Set<Element>();
+  disconnected = false;
+
+  constructor(private readonly callback: ResizeObserverCallback) {
+    resizeObserverMock.instances.push(this);
+  }
+
+  disconnect() {
+    this.disconnected = true;
+    this.observed.clear();
+  }
+
+  observe(target: Element) {
+    this.observed.add(target);
+  }
+
+  unobserve(target: Element) {
+    this.observed.delete(target);
+  }
+
+  trigger(target: Element, width: number) {
+    this.callback([
+      {
+        borderBoxSize: [] as unknown as ResizeObserverSize[],
+        contentBoxSize: [] as unknown as ResizeObserverSize[],
+        contentRect: { bottom: 0, height: 0, left: 0, right: width, top: 0, width, x: 0, y: 0, toJSON: () => ({}) },
+        devicePixelContentBoxSize: [] as unknown as ResizeObserverSize[],
+        target,
+      },
+    ], this);
+  }
+}
+
 const mainLines: DetailChartLineDefinition[] = [
   { color: "#fff", id: "nullable-line", valueOf: (point) => point.changePct },
 ];
 
 describe("DetailChartWorkspace", () => {
-  beforeEach(() => chartMock.reset());
+  beforeEach(() => {
+    chartMock.reset();
+    resizeObserverMock.reset();
+    globalThis.ResizeObserver = ControlledResizeObserver;
+  });
 
-  it("keeps four panes synchronized on the latest 90 observations", () => {
-    renderWorkspace(makePoints(100));
+  afterAll(() => {
+    globalThis.ResizeObserver = defaultResizeObserver;
+  });
+
+  it("keeps four panes synchronized on the latest adaptive 120 observations", () => {
+    renderWorkspace(makePoints(300));
 
     expect(chartMock.charts).toHaveLength(4);
     chartMock.charts.forEach((chart) => {
-      expect(chart.timeScale().getVisibleLogicalRange()).toEqual({ from: 10, to: 99 });
+      expect(chart.timeScale().getVisibleLogicalRange()).toEqual({ from: 180, to: 299 });
     });
     expect(screen.getByLabelText("共享K线主图")).toBeInTheDocument();
     expect(screen.getByLabelText("共享MACD")).toBeInTheDocument();
@@ -148,11 +198,12 @@ describe("DetailChartWorkspace", () => {
     });
   });
 
-  it("supports the stock-minute native axes strategy without changing the 90-bar lifecycle", () => {
+  it("supports the stock-minute native axes strategy without changing the shared 120-bar lifecycle", () => {
     render(
       <DetailChartWorkspace
         ariaLabel="共享图表区"
         crosshairPresentation="native-axis-labels"
+        dataKey="stock:000001.SZ:m5"
         mainLines={mainLines}
         panelAriaLabels={{
           kline: "共享K线主图",
@@ -160,7 +211,7 @@ describe("DetailChartWorkspace", () => {
           volume: "共享成交量",
           kdj: "共享KDJ",
         }}
-        points={makePoints(100)}
+        points={makePoints(300)}
         renderMainHeader={() => <span>main</span>}
         renderPanelHeader={(panel) => <span>{panel}</span>}
         renderTooltip={(point) => <span>{point.fullDate}</span>}
@@ -186,7 +237,7 @@ describe("DetailChartWorkspace", () => {
       expect(options.crosshair).not.toHaveProperty("vertLine");
     });
     chartMock.charts.forEach((chart) => {
-      expect(chart.timeScale().getVisibleLogicalRange()).toEqual({ from: 10, to: 99 });
+      expect(chart.timeScale().getVisibleLogicalRange()).toEqual({ from: 180, to: 299 });
     });
   });
 
@@ -208,15 +259,182 @@ describe("DetailChartWorkspace", () => {
     expect(screen.getByLabelText("共享指标栏")).toHaveTextContent("bottom");
     expect(document.querySelector(".detail-chart-indicator-spacer")).not.toBeInTheDocument();
   });
+
+  it("zooms all four panes in 15-bar steps without rebuilding charts or requesting data", () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    renderWorkspace(makePoints(300));
+    chartMock.charts.forEach((chart) => chart.timeScale().setVisibleLogicalRange.mockClear());
+    const createCount = chartMock.createChart.mock.calls.length;
+    const fetchCount = fetchSpy.mock.calls.length;
+
+    fireEvent.click(screen.getByRole("button", { name: "放大K线，减少可见根数" }));
+
+    expect(chartMock.createChart).toHaveBeenCalledTimes(createCount);
+    expect(fetchSpy).toHaveBeenCalledTimes(fetchCount);
+    chartMock.charts.forEach((chart) => {
+      expect(chart.timeScale().setVisibleLogicalRange).toHaveBeenCalledTimes(1);
+      expect(chart.timeScale().getVisibleLogicalRange()).toEqual({ from: 195, to: 299 });
+      expect(chart.timeScale().fitContent).not.toHaveBeenCalled();
+    });
+    fetchSpy.mockRestore();
+  });
+
+  it("disables zoom-in at 45 and zoom-out at 180", () => {
+    renderWorkspace(makePoints(300));
+    const zoomIn = screen.getByRole("button", { name: "放大K线，减少可见根数" });
+    const zoomOut = screen.getByRole("button", { name: "缩小K线，增加可见根数" });
+
+    for (let index = 0; index < 5; index += 1) fireEvent.click(zoomIn);
+    expect(zoomIn).toBeDisabled();
+    expect(zoomOut).toBeEnabled();
+    expect(chartMock.charts[0].timeScale().getVisibleLogicalRange()).toEqual({ from: 255, to: 299 });
+
+    for (let index = 0; index < 9; index += 1) fireEvent.click(zoomOut);
+    expect(zoomOut).toBeDisabled();
+    expect(zoomIn).toBeEnabled();
+    expect(chartMock.charts[0].timeScale().getVisibleLogicalRange()).toEqual({ from: 120, to: 299 });
+  });
+
+  it("shows disabled controls for short data and no controls for empty data", () => {
+    const rendered = renderWorkspace(makePoints(44));
+    expect(screen.getByRole("button", { name: "放大K线，减少可见根数" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "缩小K线，增加可见根数" })).toBeDisabled();
+
+    rendered.rerender(workspaceElement([], "daily", "shared:empty:day"));
+    expect(screen.queryByRole("group", { name: "K线缩放" })).not.toBeInTheDocument();
+  });
+
+  it("uses the real point count as the zoom-out ceiling below 180", () => {
+    renderWorkspace(makePoints(100), "daily", "shared:100:day");
+    expect(screen.getByRole("button", { name: "缩小K线，增加可见根数" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "放大K线，减少可见根数" })).toBeEnabled();
+  });
+
+  it("restores an adjusted range across overlay rebuilds and resets for a new dataKey", () => {
+    const points = makePoints(300);
+    const rendered = renderWorkspace(points);
+    fireEvent.click(screen.getByRole("button", { name: "放大K线，减少可见根数" }));
+
+    rendered.rerender(workspaceElement(points, "daily", "shared:test:daily", [
+      { color: "#abc", id: "next-line", valueOf: (point) => point.close },
+    ]));
+    expect(chartMock.charts.slice(-4).every((chart) => (
+      JSON.stringify(chart.timeScale().getVisibleLogicalRange()) === JSON.stringify({ from: 195, to: 299 })
+    ))).toBe(true);
+
+    rendered.rerender(workspaceElement(points, "daily", "shared:next:daily"));
+    expect(chartMock.charts.slice(-4).every((chart) => (
+      JSON.stringify(chart.timeScale().getVisibleLogicalRange()) === JSON.stringify({ from: 180, to: 299 })
+    ))).toBe(true);
+  });
+
+  it("adapts an untouched range on resize but preserves a user-adjusted range", () => {
+    vi.useFakeTimers();
+    renderWorkspace(makePoints(300));
+    const host = screen.getByLabelText("共享K线主图").querySelector(".detail-chart-host")!;
+    const observer = resizeObserverMock.instances.at(-1)!;
+    act(() => {
+      observer.trigger(host, 800);
+      vi.runAllTimers();
+    });
+    expect(chartMock.charts[0].timeScale().getVisibleLogicalRange()).toEqual({ from: 225, to: 299 });
+
+    fireEvent.click(screen.getByRole("button", { name: "放大K线，减少可见根数" }));
+    expect(chartMock.charts[0].timeScale().getVisibleLogicalRange()).toEqual({ from: 240, to: 299 });
+    act(() => {
+      observer.trigger(host, 1193);
+      vi.runAllTimers();
+    });
+    expect(chartMock.charts[0].timeScale().getVisibleLogicalRange()).toEqual({ from: 240, to: 299 });
+    vi.useRealTimers();
+  });
+
+  it("follows appended latest data but keeps a historical observation range", () => {
+    const points = makePoints(300);
+    const latestRendered = renderWorkspace(points, "daily", "shared:append:day");
+    latestRendered.rerender(workspaceElement(makePoints(301), "daily", "shared:append:day"));
+    expect(chartMock.charts.slice(-4).every((chart) => (
+      JSON.stringify(chart.timeScale().getVisibleLogicalRange()) === JSON.stringify({ from: 181, to: 300 })
+    ))).toBe(true);
+    latestRendered.unmount();
+
+    chartMock.reset();
+    const historicalRendered = renderWorkspace(points, "daily", "shared:history:day");
+    act(() => {
+      chartMock.charts[0].timeScale().setVisibleLogicalRange({ from: 60, to: 179 });
+    });
+    historicalRendered.rerender(workspaceElement(makePoints(301), "daily", "shared:history:day"));
+    expect(chartMock.charts.slice(-4).every((chart) => (
+      JSON.stringify(chart.timeScale().getVisibleLogicalRange()) === JSON.stringify({ from: 60, to: 179 })
+    ))).toBe(true);
+  });
+
+  it("preserves the logical span while dragging and excludes zoom buttons from drag start", () => {
+    vi.useFakeTimers();
+    renderWorkspace(makePoints(300), "daily", "shared:drag:day");
+    const area = document.querySelector(".detail-chart-area")!;
+    const host = screen.getByLabelText("共享K线主图").querySelector(".detail-chart-host")!;
+    Object.defineProperty(host, "clientWidth", { configurable: true, value: 1000 });
+    const initialRange = chartMock.charts[0].timeScale().getVisibleLogicalRange();
+    const zoomIn = screen.getByRole("button", { name: "放大K线，减少可见根数" });
+
+    fireEvent.mouseDown(zoomIn, { button: 0, clientX: 500 });
+    fireEvent.mouseMove(window, { clientX: 600 });
+    expect(chartMock.charts[0].timeScale().getVisibleLogicalRange()).toEqual(initialRange);
+
+    fireEvent.mouseDown(host, { button: 0, clientX: 500 });
+    fireEvent.mouseMove(window, { clientX: 600 });
+    fireEvent.mouseUp(window);
+    const draggedRange = chartMock.charts[0].timeScale().getVisibleLogicalRange();
+    expect(draggedRange.to - draggedRange.from).toBeCloseTo(initialRange.to - initialRange.from);
+    expect(draggedRange.to).toBeLessThan(initialRange.to);
+
+    act(() => {
+      resizeObserverMock.instances.at(-1)!.trigger(host, 800);
+      vi.runAllTimers();
+    });
+    expect(chartMock.charts[0].timeScale().getVisibleLogicalRange()).toEqual(draggedRange);
+    expect(area).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it("cleans up observers, chart subscriptions and chart instances on unmount", () => {
+    const rendered = renderWorkspace(makePoints(300), "daily", "shared:cleanup:day");
+    const observer = resizeObserverMock.instances.at(-1)!;
+    const charts = [...chartMock.charts];
+
+    rendered.unmount();
+
+    expect(observer.disconnected).toBe(true);
+    charts.forEach((chart) => {
+      expect(chart.unsubscribeCrosshairMove).toHaveBeenCalled();
+      expect(chart.timeScale().unsubscribeVisibleLogicalRangeChange).toHaveBeenCalled();
+      expect(chart.remove).toHaveBeenCalledTimes(1);
+    });
+  });
 });
 
-function renderWorkspace(points: DetailChartPoint[], timeMode: "daily" | "minute" = "daily") {
-  return render(
+function renderWorkspace(
+  points: DetailChartPoint[],
+  timeMode: "daily" | "minute" = "daily",
+  dataKey = `shared:test:${timeMode}`,
+) {
+  return render(workspaceElement(points, timeMode, dataKey));
+}
+
+function workspaceElement(
+  points: DetailChartPoint[],
+  timeMode: "daily" | "minute",
+  dataKey: string,
+  lines = mainLines,
+) {
+  return (
     <DetailChartWorkspace
       ariaLabel="共享图表区"
       bottomBar={<span>bottom</span>}
       bottomBarAriaLabel="共享指标栏"
-      mainLines={mainLines}
+      dataKey={dataKey}
+      mainLines={lines}
       panelAriaLabels={{
         kline: "共享K线主图",
         macd: "共享MACD",
@@ -229,7 +447,7 @@ function renderWorkspace(points: DetailChartPoint[], timeMode: "daily" | "minute
       renderTooltip={(point, side) => <span data-side={side} data-testid="shared-tooltip">{point.fullDate}</span>}
       timeAxisAriaLabel="共享日线时间轴"
       timeMode={timeMode}
-    />,
+    />
   );
 }
 

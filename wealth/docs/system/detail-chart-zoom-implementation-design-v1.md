@@ -1,6 +1,6 @@
 # 详情页共享图表与 K 线缩放技术实施方案 v1
 
-> 状态：方案、正式 Web 设计稿与 LLD 已确认；M1 共享收敛已完成并通过无漂移验收，M2 尚未开始。
+> 状态：方案、正式 Web 设计稿与 LLD 已确认；M1 共享收敛与 M2 缩放实现均已完成代码、测试、构建和浏览器验收，待独立提交。
 > 正式设计稿：[Goldenshare Web / 10 Detail Chart Zoom - Web Handoff](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=581-516&m=dev)
 > 对应需求：[详情页 K 线缩放标杆需求 v1](./detail-chart-zoom-benchmark-requirement-v1.md)
 > 对应 LLD：[详情页共享图表与 K 线缩放 LLD v1](./detail-chart-zoom-low-level-design-v1.md)
@@ -331,6 +331,8 @@ latest-anchored: from = to - (visibleCount - 1)
 
 退出条件：功能、组件、页面与视觉门禁全部通过。
 
+实施结果（2026-08-12）：退出条件已满足。`detailChartViewport.ts` 成为 45/180/15、120、75～150、9.5px 和 56px 的唯一事实源；shared 以 canonical viewport ref 与 runtime ref 统一处理 latest/历史中心、resize、overlay 重建和 append bar。四个 adapter 均传稳定 `dataKey`；正式 Figma `583:534` 的 Phosphor 矢量以内联 SVG 固化，没有新增运行时依赖。单次点击只向四个 chart 写 logical range，不重建 chart，也不触发页面请求。
+
 ### M3：文档对账与提交
 
 1. 把实施结果、截图路径和测试结果回填三件套及原股票/指数详情文档。
@@ -421,6 +423,7 @@ git diff --check
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.3 | 2026-08-12 | 回填 M2 实施结果、唯一常量/viewport 生命周期、四 adapter dataKey、27 test files / 152 tests 全量回归和浏览器验收 | Codex |
 | v1.2 | 2026-08-12 | 对齐正式 Figma page `581:516`，补齐节点到代码/验收映射，并冻结同源 Phosphor 放大镜内联 SVG 实现 | Codex |
 | v1.1 | 2026-08-12 | 记录方案已确认，链接实现级 LLD，并按当前代码修正股票分钟机械重复的审计描述 | Codex |
 | v1 | 2026-08-12 | 初版：先收敛股票分钟共享图表，再统一实现 45～180 根按钮缩放与 120 根自适应默认 | Codex |
