@@ -20,14 +20,14 @@ vi.mock("../../../shared/charts/detail-workspace/DetailChartWorkspace", () => ({
 describe("IndexMinuteChartWorkspace adapter", () => {
   beforeEach(() => workspaceMock.reset());
 
-  it("uses the index/frequency dataKey and keeps mock indicators visible in partial state", () => {
+  it("uses the index/frequency dataKey and keeps the partial message without a mock badge", () => {
     render(<IndexMinuteChartWorkspace data={makeData()} errorMessage="指标部分缺失" onRetry={vi.fn()} phase="partial" />);
 
     const props = latestProps();
     expect(props.dataKey).toBe("index:000001.SH:m5");
     expect(props.timeMode).toBe("minute");
     expect(props.points).toHaveLength(1);
-    expect(screen.getAllByText("模拟指标").length).toBeGreaterThan(0);
+    expect(screen.queryByText("模拟指标")).not.toBeInTheDocument();
     expect(screen.getByText("指标部分缺失")).toBeInTheDocument();
   });
 
@@ -78,8 +78,8 @@ function makeData(): IndexMinuteChartViewModel {
       j: null,
     }],
     dataStatus: { status: "READY", code: null, expectedEndDate: "2026-07-31", observedEndDate: "2026-07-31", message: null },
-    indicatorSource: "mock",
-    paramsKey: "mock_index_minute_technical_v1",
-    indicatorVersion: 0,
+    indicatorSource: "gold",
+    paramsKey: "ma_5_10_20_30_60_90_250__boll_20_2__macd_12_26_9__kdj_9_3_3",
+    indicatorVersion: 1,
   };
 }

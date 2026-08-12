@@ -167,6 +167,32 @@ export interface IndexMinuteBarDto {
   exchange: string;
 }
 
+export interface IndexMinuteIndicatorDto {
+  tsCode: string;
+  freq: IndexDetailMinuteFrequency;
+  tradeDate: string;
+  tradeTime: string;
+  ma5: number | null;
+  ma10: number | null;
+  ma20: number | null;
+  ma30: number | null;
+  ma60: number | null;
+  ma90: number | null;
+  ma250: number | null;
+  bollMiddle: number | null;
+  bollUpper: number | null;
+  bollLower: number | null;
+  macdDif: number | null;
+  macdDea: number | null;
+  macd: number | null;
+  kdjK: number | null;
+  kdjD: number | null;
+  kdjJ: number | null;
+  observationCount: number;
+  paramsKey: string;
+  indicatorVersion: number;
+}
+
 export interface IndexMinutesResponseDto {
   tsCode: string;
   freq: IndexDetailMinuteFrequency;
@@ -181,6 +207,14 @@ export interface IndexMinutesResponseDto {
     observedStartDate: string | null;
     observedEndDate: string | null;
   };
+  dataStatus: IndexMinuteDataStatusDto;
+}
+
+export interface IndexMinuteIndicatorsResponseDto {
+  tsCode: string;
+  freq: IndexDetailMinuteFrequency;
+  items: IndexMinuteIndicatorDto[];
+  meta: IndexMinutesResponseDto["meta"];
   dataStatus: IndexMinuteDataStatusDto;
 }
 

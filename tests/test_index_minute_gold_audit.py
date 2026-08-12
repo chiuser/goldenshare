@@ -1,16 +1,23 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 duckdb = pytest.importorskip("duckdb")
 
 from src.scripts.audit_index_minute_gold import (  # noqa: E402
+    FAILED,
     READY,
     SOURCE_NOT_READY,
     SOURCE_NOT_READY_CODE,
+    _maximum_response_acceptance,
     run_gold_acceptance,
+)
+from src.foundation.clients.local_lake.major_index_mins_reader import (  # noqa: E402
+    IndexMinuteRequestError,
 )
 
 
@@ -97,6 +104,7 @@ def test_gold_acceptance_checks_alignment_and_query_service_performance(
         frequencies=(5,),
         runs=1,
         full_alignment=True,
+        include_max=True,
     )
 
     assert result["status"] == READY
@@ -105,3 +113,93 @@ def test_gold_acceptance_checks_alignment_and_query_service_performance(
     assert result["frequencies"][0]["alignmentFailures"] == []
     assert result["performance"]["status"] == READY
     assert result["performance"]["frequencies"][0]["sampleCount"] == 1
+    assert result["maximumResponse"]["status"] == READY
+    assert result["maximumResponse"]["maximumRequest"]["outcome"] == "RETURNED"
+    assert result["maximumResponse"]["safePage"]["status"] == READY
+
+
+def test_maximum_response_acceptance_treats_5mb_rejection_as_expected(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _FakeIndicatorService(reject_maximum_with="响应超过 5MB，请降低 limit 或使用 cursor 分页。")
+    monkeypatch.setattr(
+        "src.scripts.audit_index_minute_gold.IndexDetailMinutesQueryService",
+        lambda _lake_root: service,
+    )
+
+    result = _maximum_response_acceptance(
+        lake_root=tmp_path,
+        ts_code="000001.SH",
+        freq=1,
+    )
+
+    assert result["status"] == READY
+    assert result["maximumRequest"]["outcome"] == "REJECTED_AS_EXPECTED"
+    assert result["maximumRequest"]["responseTooLargeRejected"] is True
+    assert result["safePage"]["limit"] == 5_000
+    assert result["safePage"]["cursorOrderValid"] is True
+    assert service.limits == [10_000, 5_000, 1]
+
+
+def test_maximum_response_acceptance_rejects_unrelated_request_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _FakeIndicatorService(reject_maximum_with="cursor 不合法。")
+    monkeypatch.setattr(
+        "src.scripts.audit_index_minute_gold.IndexDetailMinutesQueryService",
+        lambda _lake_root: service,
+    )
+
+    result = _maximum_response_acceptance(
+        lake_root=tmp_path,
+        ts_code="000001.SH",
+        freq=1,
+    )
+
+    assert result["status"] == FAILED
+    assert result["maximumRequest"]["outcome"] == "FAILED"
+    assert result["safePage"]["status"] == READY
+
+
+class _FakeIndicatorPage:
+    def __init__(
+        self,
+        *,
+        items: list[SimpleNamespace],
+        has_more: bool,
+        next_cursor: str | None,
+    ) -> None:
+        self.items = items
+        self.meta = SimpleNamespace(hasMore=has_more, nextCursor=next_cursor)
+        self.dataStatus = SimpleNamespace(status=READY)
+
+    def model_dump_json(self) -> str:
+        return "{}"
+
+
+class _FakeIndicatorService:
+    def __init__(self, *, reject_maximum_with: str) -> None:
+        self._reject_maximum_with = reject_maximum_with
+        self.limits: list[int] = []
+
+    def read_indicators(self, **kwargs: object) -> _FakeIndicatorPage:
+        limit = int(kwargs["limit"])
+        self.limits.append(limit)
+        if limit == 10_000:
+            raise IndexMinuteRequestError(self._reject_maximum_with)
+        if limit == 5_000:
+            return _FakeIndicatorPage(
+                items=[
+                    SimpleNamespace(tradeTime=datetime(2026, 8, 11, 9, 35)),
+                    SimpleNamespace(tradeTime=datetime(2026, 8, 11, 9, 40)),
+                ],
+                has_more=True,
+                next_cursor="next-page",
+            )
+        return _FakeIndicatorPage(
+            items=[SimpleNamespace(tradeTime=datetime(2026, 8, 11, 9, 30))],
+            has_more=False,
+            next_cursor=None,
+        )

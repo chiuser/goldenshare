@@ -159,7 +159,7 @@ RIGHT_PRICE_SCALE_WIDTH = 56
 1. [x] `StockMinuteChartWorkspace` 的真实字段映射和状态过程。
 2. [x] `StockChartWorkspace` MA/BOLL 回归。
 3. [x] `IndexChartWorkspace` 趋势 primitive 与 autoscale 回归。
-4. [x] `IndexMinuteChartWorkspace` minute 时间轴与模拟指标标识回归。
+4. [x] `IndexMinuteChartWorkspace` minute 时间轴、真实 Gold 指标、无 Mock 标识与 bars-only Partial 回归。
 5. [x] 股票/指数页面切标的、切周期和局部异常回归。
 
 ### 6.4 验证命令
@@ -188,7 +188,7 @@ git diff --check
 1. [x] 股票日线 120/45/180 根。
 2. [x] 股票分钟 120 根、历史区间缩放、Tooltip。
 3. [x] 上证指数日线 120 根、趋势通道、Tooltip。
-4. [x] 指数分钟 1m/60m/120m 与模拟指标标识。
+4. [x] 指数分钟 1m/60m/120m 与缩放控件；M5-A 当时的模拟指标标识已由 M5-B 真实 Gold provider 替换。
 5. [x] 宽度变化后的 75/150 clamp。
 
 设计对照：股票日线 `588:524`、指数日线 `590:613`、股票分钟 `591:1711`、指数分钟 `592:918`；45/120/180 密度 `593:1095`；状态 `597:1107`；几何与 <=2px 门禁 `597:1120`。

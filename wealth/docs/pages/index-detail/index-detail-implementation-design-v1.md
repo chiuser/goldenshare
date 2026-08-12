@@ -1,6 +1,6 @@
 # 指数详情页技术实施方案 v1
 
-> 状态：M1–M4 与 M5-A 已完成并通过验证；详情图表共享收敛与缩放已由 `b38ac20e`、`61a5adea` 完成；M5-B 正式 Gold 数据门禁已通过，真实指标 provider 切换按本文推进。
+> 状态：M1–M5-B 已完成并通过验证；详情图表共享收敛与缩放已由 `b38ac20e`、`61a5adea` 完成；真实 Gold provider 与 Mock 清零已闭环。
 > 对应需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 对应门禁：[指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
 > 低层设计：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)
@@ -623,11 +623,11 @@ cd wealth && npm run build
 | M4 异常状态（已完成） | 按五个 Figma 根画板实现 loading/empty/error/partial/forbidden，并补 404/delayed/module 状态变体 | 状态测试、真实浏览器逐状态截图与尺寸验收通过 |
 | M5-A 本地分钟（已完成） | reader、条件路由、真实 Silver K 线、可见开发态 Mock 指标 | Silver 数据/性能、local/prod 与视觉门禁通过 |
 | M5-B 准备（已完成） | 70 checks 注册、跨边界合同门禁、七频率异常 fixture、只读正式验收入口 | Definitions 发现 14 个资产/70 个 checks；合同一致；缺正式 Gold 时明确 `SOURCE_NOT_READY` |
-| M5-B 正式数据验收（已完成） | Gold 物理覆盖/全量对齐/默认性能/最大响应 | 29,932 分区对零失败；630 样本 P95 通过；10000/5MB 与 5000 cursor 语义冻结 |
-| M5-B 最终切换（本轮） | 真实 indicators、删除 Mock | bars/indicators 独立状态、真实 provider、Mock 引用清零、浏览器回归通过 |
+| M5-B 正式数据验收（已完成） | Gold 物理覆盖/全量对齐/默认性能/最大响应 | 29,939 分区对零失败；630 样本 P95 通过；10000/5MB 与 5000 cursor 语义冻结 |
+| M5-B 最终切换（已完成） | 真实 indicators、删除 Mock | bars/indicators 独立状态、真实 provider、Mock 引用清零、浏览器回归通过 |
 | M6 发布验收 | prod 日线能力、分钟路由不存在、全回归 | 构建/测试/生产 smoke 通过 |
 
-M5-B 准备批次已于 2026-08-12 验收。2026-08-13 正式重跑确认 Silver/Gold technical 七频率各 4,276 个分区，29,932 个分区对全历史合同与时间键对齐零失败；Technical/state 共 59,864 个正式文件、10,147,176 行，630 个默认 500 根查询样本全部 READY，频率级 P95 为 295.855–324.620ms。最大响应验收按 5MB 优先规则执行：10000 根可被响应门禁拒绝，固定 5000 根负责验证正常响应和 cursor。
+M5-B 准备批次已于 2026-08-12 验收。2026-08-13 最终重跑确认 Silver/Gold technical 七频率各 4,277 个分区，29,939 个分区对全历史合同与时间键对齐零失败；Technical/state 共 59,878 个正式文件、10,150,506 行，630 个默认 500 根查询样本全部 READY，频率级 P95 为 282.243–322.982ms。10000 根按 5MB 门禁正确拒绝，固定 5000 根返回 3,181,443 bytes、cursor 有效且耗时 334.441ms。真实 provider、Mock 清零和浏览器验收已同步完成。
 
 技术结论 API 与九转 API 不属于 M0-M6，分别立项后再扩展 DTO 与 UI。
 
@@ -663,6 +663,7 @@ M5-B 准备批次已于 2026-08-12 验收。2026-08-13 正式重跑确认 Silver
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.19 | 2026-08-13 | 完成 M5-B 真实 provider、bars-only Partial、Mock 清零与浏览器回归；更新 4,277×7 分区最终只读验收和性能证据 | Codex |
 | v1.18 | 2026-08-13 | 回填 M5-B 正式 Gold 全历史与性能门禁；冻结 10000/5MB 拒绝语义、5000 正常分页，以及真实指标独立结算、bars-only PARTIAL 和 Mock 彻底删除方案 | Codex |
 | v1.17 | 2026-08-12 | M3 对账：共享收敛与缩放已由 `b38ac20e`/`61a5adea` 完成，四类图表统一 dataKey、45～180/15 与自适应 120；后端合同不变 | Codex |
 | v1.16 | 2026-08-12 | 冻结后续图表演进：先将股票分钟迁入 shared，再统一启用 45～180 根缩放与 1600px 默认 120 根；后端合同不变 | Codex |

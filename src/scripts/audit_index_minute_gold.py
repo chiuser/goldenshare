@@ -23,6 +23,7 @@ from src.foundation.clients.local_lake.major_index_mins_contract import (
     GOLD_INDICATOR_COLUMN_SPECS,
     GOLD_INDICATOR_VERSION,
     GOLD_PARAMS_KEY,
+    MAX_INDEX_MINUTE_LIMIT,
     MAX_INDEX_MINUTE_PARTITION_FILES,
     SILVER_BAR_COLUMN_SPECS,
     SILVER_FREQ_VALUES,
@@ -46,6 +47,8 @@ REQUEST_INVALID_CODE = "ID_REQUEST_INVALID"
 KNOWN_UNSUPPORTED_SILVER_CODES = frozenset({"899050.BJ"})
 PERFORMANCE_TARGET_MS = 1_500.0
 PERFORMANCE_HARD_GATE_MS = 5_000.0
+SAFE_RESPONSE_LIMIT = 5_000
+RESPONSE_TOO_LARGE_MESSAGE = "响应超过 5MB"
 
 
 class GoldAcceptanceContractError(RuntimeError):
@@ -77,7 +80,10 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--include-max",
         action="store_true",
-        help="额外对代表性 1 分钟序列执行 10000 根、5MB 和分页游标验收。",
+        help=(
+            "额外对代表性 1 分钟序列执行 10000 根/5MB 拒绝语义，"
+            "以及固定 5000 根正常响应和分页游标验收。"
+        ),
     )
     return parser
 
@@ -452,63 +458,140 @@ def _maximum_response_acceptance(
     freq: int,
 ) -> dict[str, Any]:
     service = IndexDetailMinutesQueryService(lake_root)
-    started = time.perf_counter()
+    maximum_started = time.perf_counter()
+    maximum_result: dict[str, Any]
     try:
-        first = service.read_indicators(
+        maximum_page = service.read_indicators(
             ts_code=ts_code,
             freq=freq,
             start_date=None,
             end_date=None,
-            limit=10_000,
+            limit=MAX_INDEX_MINUTE_LIMIT,
             cursor=None,
         )
-        payload = first.model_dump_json().encode("utf-8")
-        cursor_order_valid = True
-        if first.meta.hasMore:
-            second = service.read_indicators(
-                ts_code=ts_code,
-                freq=freq,
-                start_date=None,
-                end_date=None,
-                limit=1,
-                cursor=first.meta.nextCursor,
-            )
-            cursor_order_valid = bool(
-                first.items
-                and second.items
-                and second.items[-1].tradeTime < first.items[0].tradeTime
-            )
+        maximum_payload = maximum_page.model_dump_json().encode("utf-8")
+        maximum_elapsed_ms = (time.perf_counter() - maximum_started) * 1000
+        maximum_cursor_valid = _cursor_order_valid(
+            service,
+            page=maximum_page,
+            ts_code=ts_code,
+            freq=freq,
+        )
+        maximum_passed = (
+            maximum_page.dataStatus.status == READY
+            and len(maximum_payload) <= MAX_INDEX_MINUTE_RESPONSE_BYTES
+            and maximum_cursor_valid
+            and maximum_elapsed_ms <= PERFORMANCE_HARD_GATE_MS
+        )
+        maximum_result = {
+            "status": READY if maximum_passed else FAILED,
+            "outcome": "RETURNED",
+            "limit": MAX_INDEX_MINUTE_LIMIT,
+            "count": len(maximum_page.items),
+            "elapsedMs": round(maximum_elapsed_ms, 3),
+            "responseBytes": len(maximum_payload),
+            "responseSizePassed": len(maximum_payload)
+            <= MAX_INDEX_MINUTE_RESPONSE_BYTES,
+            "hasMore": maximum_page.meta.hasMore,
+            "cursorOrderValid": maximum_cursor_valid,
+            "hardGatePassed": maximum_elapsed_ms <= PERFORMANCE_HARD_GATE_MS,
+        }
     except IndexMinuteReaderError as exc:
-        return {
+        expected_rejection = (
+            exc.code == REQUEST_INVALID_CODE
+            and RESPONSE_TOO_LARGE_MESSAGE in str(exc)
+        )
+        maximum_result = {
+            "status": READY if expected_rejection else FAILED,
+            "outcome": "REJECTED_AS_EXPECTED" if expected_rejection else "FAILED",
+            "limit": MAX_INDEX_MINUTE_LIMIT,
+            "elapsedMs": round(
+                (time.perf_counter() - maximum_started) * 1000,
+                3,
+            ),
+            "error": f"{exc.code}: {exc}",
+            "responseTooLargeRejected": expected_rejection,
+        }
+
+    safe_started = time.perf_counter()
+    try:
+        safe_page = service.read_indicators(
+            ts_code=ts_code,
+            freq=freq,
+            start_date=None,
+            end_date=None,
+            limit=SAFE_RESPONSE_LIMIT,
+            cursor=None,
+        )
+        safe_payload = safe_page.model_dump_json().encode("utf-8")
+        safe_elapsed_ms = (time.perf_counter() - safe_started) * 1000
+        safe_cursor_valid = _cursor_order_valid(
+            service,
+            page=safe_page,
+            ts_code=ts_code,
+            freq=freq,
+        )
+        safe_passed = (
+            safe_page.dataStatus.status == READY
+            and len(safe_payload) <= MAX_INDEX_MINUTE_RESPONSE_BYTES
+            and safe_cursor_valid
+            and safe_elapsed_ms <= PERFORMANCE_HARD_GATE_MS
+        )
+        safe_result = {
+            "status": READY if safe_passed else FAILED,
+            "limit": SAFE_RESPONSE_LIMIT,
+            "count": len(safe_page.items),
+            "elapsedMs": round(safe_elapsed_ms, 3),
+            "responseBytes": len(safe_payload),
+            "responseSizePassed": len(safe_payload)
+            <= MAX_INDEX_MINUTE_RESPONSE_BYTES,
+            "hasMore": safe_page.meta.hasMore,
+            "cursorPresentWhenRequired": not safe_page.meta.hasMore
+            or bool(safe_page.meta.nextCursor),
+            "cursorOrderValid": safe_cursor_valid,
+            "hardGatePassed": safe_elapsed_ms <= PERFORMANCE_HARD_GATE_MS,
+        }
+    except IndexMinuteReaderError as exc:
+        safe_result = {
             "status": FAILED,
-            "tsCode": ts_code,
-            "freq": freq,
-            "limit": 10_000,
+            "limit": SAFE_RESPONSE_LIMIT,
             "error": f"{exc.code}: {exc}",
         }
-    elapsed_ms = (time.perf_counter() - started) * 1000
-    passed = (
-        first.dataStatus.status == READY
-        and len(payload) <= MAX_INDEX_MINUTE_RESPONSE_BYTES
-        and (not first.meta.hasMore or bool(first.meta.nextCursor))
-        and cursor_order_valid
-        and elapsed_ms <= PERFORMANCE_HARD_GATE_MS
-    )
+
     return {
-        "status": READY if passed else FAILED,
+        "status": READY
+        if maximum_result["status"] == READY and safe_result["status"] == READY
+        else FAILED,
         "tsCode": ts_code,
         "freq": freq,
-        "limit": 10_000,
-        "count": len(first.items),
-        "elapsedMs": round(elapsed_ms, 3),
-        "responseBytes": len(payload),
-        "responseSizePassed": len(payload) <= MAX_INDEX_MINUTE_RESPONSE_BYTES,
-        "hasMore": first.meta.hasMore,
-        "cursorPresentWhenRequired": not first.meta.hasMore
-        or bool(first.meta.nextCursor),
-        "cursorOrderValid": cursor_order_valid,
-        "hardGatePassed": elapsed_ms <= PERFORMANCE_HARD_GATE_MS,
+        "maximumRequest": maximum_result,
+        "safePage": safe_result,
     }
+
+
+def _cursor_order_valid(
+    service: IndexDetailMinutesQueryService,
+    *,
+    page: Any,
+    ts_code: str,
+    freq: int,
+) -> bool:
+    if not page.meta.hasMore:
+        return True
+    if not page.meta.nextCursor or not page.items:
+        return False
+    second = service.read_indicators(
+        ts_code=ts_code,
+        freq=freq,
+        start_date=None,
+        end_date=None,
+        limit=1,
+        cursor=page.meta.nextCursor,
+    )
+    return bool(
+        second.items
+        and second.items[-1].tradeTime < page.items[0].tradeTime
+    )
 
 
 def run_gold_acceptance(

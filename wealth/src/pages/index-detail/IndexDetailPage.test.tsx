@@ -49,6 +49,7 @@ describe("IndexDetailPage", () => {
     local.capabilities.minuteFrequencies = [1, 5, 15, 30, 60, 90, 120];
     local.chartDefaults.availablePeriods = ["day", "m1", "m5", "m15", "m30", "m60", "m90", "m120"];
     const fetchMock = mockFetch("000001.SH", {
+      minuteIndicators: (url) => response(makeMinuteIndicatorResponse(Number(url.searchParams.get("freq")))),
       minutes: (url) => response(makeMinuteResponse(Number(url.searchParams.get("freq")))),
       pageInit: () => response(local),
     });
@@ -67,8 +68,8 @@ describe("IndexDetailPage", () => {
     await waitFor(() => expect(screen.getByLabelText("指数分钟图表区")).toHaveAttribute("data-phase", "ready"));
 
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/minutes"))).toHaveLength(1);
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/minute-indicators"))).toHaveLength(1);
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/kline"))).toHaveLength(1);
-    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("minute-indicators"))).toBe(false);
   });
 
   it.each(["399001.SZ", "399006.SZ", "000688.SH", "000300.SH", "000905.SH", "000852.SH", "899050.BJ", "000510.SH", "000016.SH"])(
@@ -295,6 +296,7 @@ describe("IndexDetailPage", () => {
 
 interface MockFetchOptions {
   kline?: () => Response | Promise<Response>;
+  minuteIndicators?: (url: URL) => Response | Promise<Response>;
   minutes?: (url: URL) => Response | Promise<Response>;
   pageInit?: () => Response | Promise<Response>;
   trend?: () => Response | Promise<Response>;
@@ -311,6 +313,7 @@ function mockFetch(tsCode: string, options: MockFetchOptions = {}) {
     if (url.includes("/major-indices")) return response(majorIndices);
     if (url.includes("/index-detail/page-init")) return options.pageInit?.() ?? response(pageInit);
     if (url.includes("/index-detail/kline")) return options.kline?.() ?? response(kline);
+    if (url.includes("/index-detail/minute-indicators")) return options.minuteIndicators?.(new URL(url)) ?? response({}, 404);
     if (url.includes("/index-detail/minutes")) return options.minutes?.(new URL(url)) ?? response({}, 404);
     if (url.includes("/index-detail/weights")) return options.weights?.() ?? response(weights);
     if (url.includes("/trend-channel")) return options.trend?.() ?? response(makeTrendPayload());
@@ -332,6 +335,25 @@ function makeMinuteResponse(freq: number) {
     })).reverse(),
     meta: { count: 20, limit: 500, hasMore: false, nextCursor: null, startDate: null, endDate: "2026-07-31", observedStartDate: "2026-07-31", observedEndDate: "2026-07-31" },
     dataStatus: { status: "READY", code: null, expectedEndDate: "2026-07-31", observedEndDate: "2026-07-31", message: null },
+  };
+}
+
+function makeMinuteIndicatorResponse(freq: number) {
+  const bars = makeMinuteResponse(freq);
+  return {
+    tsCode: bars.tsCode,
+    freq,
+    items: bars.bars.map((bar, index) => ({
+      tsCode: bar.tsCode, freq, tradeDate: bar.tradeDate, tradeTime: bar.tradeTime,
+      ma5: 10 + index, ma10: null, ma20: null, ma30: null, ma60: null, ma90: null, ma250: null,
+      bollMiddle: null, bollUpper: null, bollLower: null,
+      macdDif: .1, macdDea: .05, macd: .1, kdjK: 50, kdjD: 45, kdjJ: 60,
+      observationCount: index + 1,
+      paramsKey: "ma_5_10_20_30_60_90_250__boll_20_2__macd_12_26_9__kdj_9_3_3",
+      indicatorVersion: 1,
+    })),
+    meta: bars.meta,
+    dataStatus: bars.dataStatus,
   };
 }
 

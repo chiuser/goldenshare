@@ -799,7 +799,7 @@ MA/BOLL/趋势通道只改变 `mainLines/mainPrimitives`，不改变 key。
 />
 ```
 
-Mock 指标标识和 `indicatorSource` 不参与 key；指标来源变化不能把用户观察区间重置回最新。
+`indicatorSource` 不参与 key；Gold 指标就绪或降级为 bars-only Partial 时，不能把用户观察区间重置回最新。M5-B 已删除 M5-A Mock 标识与来源分支。
 
 ---
 
@@ -884,7 +884,7 @@ M1 后删除该测试文件内第二套 chart mock。改为 mock/capture `Detail
 
 1. `StockChartWorkspace.test.tsx` 增加 tsCode/dataKey，并证明 MA/BOLL 切换保留 range。
 2. 新增或补齐 `IndexChartWorkspace` 测试：dataKey、趋势 primitive、MA/BOLL/趋势切换不重置。
-3. 补齐 `IndexMinuteChartWorkspace` 测试：dataKey、minute 时间、模拟指标、Partial 有 K 线仍显示 controls。
+3. 补齐 `IndexMinuteChartWorkspace` 测试：dataKey、minute 时间、真实 Gold 指标、无 Mock 标识、Partial 有 K 线仍显示 controls。
 4. `StockDetailPage.test.tsx` 证明日线 adapter 收到 tsCode，周期切换不增加请求。
 5. `IndexDetailPage.test.tsx` 证明切标的/周期不会复用旧 key；右栏和权重请求不因 zoom 发生。
 
@@ -934,7 +934,7 @@ M1 允许变化只有内部 DOM/class 和实现归属；普通 UI 几何偏差�
 1. 股票日线 120/45/180，对照正式节点 `588:524` 与密度节点 `593:1095`。
 2. 股票分钟 120、历史中心 zoom、Tooltip，对照 `591:1711`。
 3. 上证指数日线 120、趋势通道、Tooltip，对照 `590:613`。
-4. 指数分钟 1/60/120 分钟与模拟指标标识，对照 `592:918`。
+4. 指数分钟 1/60/120 分钟、真实 Gold 指标与 bars-only Partial，对照 `592:918`；M5-B 不再保留模拟指标标识。
 5. 数据少于 45、介于 45 与默认、少于 180。
 6. 宽度变化触发 75/150 clamp。
 7. 切换 MA/BOLL/趋势通道后 range 不变。
@@ -948,7 +948,7 @@ M1 允许变化只有内部 DOM/class 和实现归属；普通 UI 几何偏差�
 1. 截图目录：`/private/tmp/goldenshare-detail-chart-zoom/m2-after/`；已保存股票日线默认 120、最小 45、最大 180、股票 5 分钟和上证指数日线 1600×1200 截图。
 2. 1600×1200 股票页面实测图表根宽 `1193.20px`、图表区宽 `1191.20px`；控件 `60×28px`，两个按钮均为 `28×28px`、间距 `4px`，几何与正式稿一致。
 3. 股票日线连续放大到 45 后放大按钮原生 disabled；连续缩小到 180 后缩小按钮原生 disabled；图表区、workspace 与右栏几何保持不动。
-4. 上证指数日线保留趋势通道与缩放控件；指数 1/60/120 分钟均显示真实 K 线、模拟指标标识和缩放控件；切回日 K 后趋势通道和控件恢复。
+4. 本条记录的是 2026-08-12 M5-A 历史验收：上证指数日线保留趋势通道与缩放控件；指数 1/60/120 分钟显示真实 K 线、当时的模拟指标标识和缩放控件；切回日 K 后趋势通道和控件恢复。M5-B 当前合同已改为真实 Gold 指标并删除该标识，当前验收见指数详情 LLD。
 5. 股票 5 分钟保留分钟工作台和缩放控件；指数/股票分钟缩放前后右栏文本完全一致；干净页面会话无 console error。
 6. 1050/1900 viewport smoke 未出现控件尺寸漂移或新增页面横向溢出；自适应 75/150 的精确 logical range 由可控 ResizeObserver 组件测试锁定。
 

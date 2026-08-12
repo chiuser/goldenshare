@@ -1,6 +1,6 @@
 # 指数详情页 M2 编码前门禁 v1
 
-> 状态：M1–M4 与 M5-A 条目已通过；共享图表缩放门禁已由 `61a5adea` 闭环；M5-B 正式 Gold 数据门禁已通过，前端真实 provider 与 Mock 清零进入本轮实施。
+> 状态：M1–M5-B 条目已通过；共享图表缩放门禁已由 `61a5adea` 闭环；M5-B 正式 Gold、真实 provider、Mock 清零和浏览器回归已完成。
 > 需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 方案：[指数详情页技术实施方案 v1](./index-detail-implementation-design-v1.md)
 > LLD：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)
@@ -76,7 +76,8 @@
 2. [x] `limit` 默认 500，最大 10000；响应上限 5MB。
 3. [x] cursor 绑定 dataset/code/freq/start/end/date/time，不使用无界 OFFSET。
 4. [x] prod/staging 不挂路由；访问结果为 404。
-5. [x] M5-A Mock 仅位于前端 indicator provider，显示“模拟指标”，不进入后端、不作真实接口 fallback。
+5. [x] M5-A 历史 Mock 仅位于前端 indicator provider，不进入后端、不作真实接口 fallback；M5-B 已删除该 provider 和标识。
+6. [x] M5-B 只消费真实 `/minute-indicators`；Gold 异常时 bars-only Partial，不回退 Mock。
 
 ## 4. 响应结构冻结
 
@@ -543,7 +544,7 @@ WHERE w.index_code = :index_code
 
 M5-B 准备批次验证记录（2026-08-12）：42 项分钟相关测试、14 项子系统边界测试、Ruff、文档完整性和 diff 检查均通过。正式只读预检为 Silver 每频率 4,276 个分区、Gold technical 每频率 0 个分区，正确返回 `SOURCE_NOT_READY / IM_SOURCE_NOT_READY`；正式 Gold 性能仍未验收。
 
-M5-B 正式数据验证记录（2026-08-13）：Definitions 为 14 assets/70 checks；Silver/Gold technical 七频率各 4,276 个分区，29,932 个全历史分区对零失败；Technical/state 共 59,864 个文件、10,147,176 行；630 个默认 500 根样本全部 READY，频率级 P95 295.855–324.620ms。代表性 7,862 根响应为 4,999,968 bytes，7,863 根触发 5MB 拒绝，因此最终工具必须验证 10000 正确拒绝与固定 5000 根 cursor，而不是要求 10000 根 DTO 必然成功返回。
+M5-B 最终验证记录（2026-08-13）：Definitions 为 14 assets/70 checks；Silver/Gold technical 七频率各 4,277 个分区，29,939 个全历史分区对零失败；Technical/state 共 59,878 个文件、10,150,506 行；630 个默认 500 根样本全部 READY，频率级 P95 282.243–322.982ms。10000 根按 5MB 门禁正确拒绝，5000 根返回 3,181,443 bytes、cursor 有效且耗时 334.441ms。真实 provider、bars-only Partial、Mock 清零、155 项 Wealth 全量测试和 1600×1200 浏览器回归通过。
 
 ## 10. 性能门禁
 
@@ -615,7 +616,7 @@ cd wealth && npm run build
 2. [x] shared chart 重构范围可控。
 3. [x] 三 tab、生产日线周期、异常态与 M5-A 本地七频率已落地；分钟切换不改变日频右栏和权重语义。
 4. [x] 五态逐画板结构、文案、动作、颜色与数据保留规则已落地并通过截图验收。
-5. [ ] M5-B 真实 `/minute-indicators` provider、bars-only PARTIAL、Mock provider/标识/测试清零和本地七频率浏览器回归通过。
+5. [x] M5-B 真实 `/minute-indicators` provider、bars-only PARTIAL、Mock provider/标识/测试清零和本地七频率浏览器回归通过。
 
 ### 架构/产品
 
@@ -628,6 +629,7 @@ cd wealth && npm run build
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.20 | 2026-08-13 | 完成 M5-B 前端真实 provider、Mock 清零、全量回归与浏览器门禁；更新最终正式 Gold 覆盖、性能和最大响应证据 | Codex |
 | v1.19 | 2026-08-13 | 标记 M5-B 正式 Gold 全历史和性能门禁通过；冻结 10000/5MB 正确拒绝 + 5000 正常分页验收，并增加真实 provider、bars-only PARTIAL 和 Mock 清零前端门禁 | Codex |
 | v1.18 | 2026-08-12 | M3 对账：共享图表缩放已提交为 `61a5adea`，保留原指数 M2 的 90 根历史证据并登记当前 120 根合同 | Codex |
 | v1.17 | 2026-08-12 | 链接独立共享图表缩放门禁，保留 M2 的 90 根历史验收事实，后续 120 根与缩放不混入已完成里程碑 | Codex |

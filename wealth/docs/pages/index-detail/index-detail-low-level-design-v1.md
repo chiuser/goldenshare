@@ -1,6 +1,6 @@
 # 指数详情页低层设计（LLD）v1
 
-> 状态：M1–M4 与 M5-A 已按冻结合同实现并通过验证；四类详情图表已共享同一 viewport 与缩放实现；M5-B 正式 Gold 数据门禁已通过，真实指标 provider 切换按本文推进。
+> 状态：M1–M5-B 已按冻结合同实现并通过验证；四类详情图表共享同一 viewport 与缩放实现；真实 Gold provider 与 Mock 清零已闭环。
 > 需求依据：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 技术方案：[指数详情页技术实施方案 v1](./index-detail-implementation-design-v1.md)
 > 编码门禁：[指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
@@ -1481,8 +1481,8 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 | M4（已完成） | 五态、404、Delayed、模块 retry | 状态测试、逐画板截图、真实 Partial 与 1600×1200 尺寸验收通过 | index detail states |
 | M5-A（已完成） | local reader/router/minute chart | Silver 合同/性能、local/prod 矩阵、可见 Mock 指标 | index local minutes |
 | M5-B 准备（已完成） | 70 checks 注册、跨边界合同门禁、七频率异常 fixture、只读正式验收入口 | 静态合同一致；正式 Gold 缺失时明确 `SOURCE_NOT_READY` | index minute indicators readiness |
-| M5-B 正式数据验收（已完成） | Gold 覆盖、全量对齐、默认性能、最大响应 | 29,932 分区对零失败、630 样本 P95、10000/5MB 拒绝语义和 5000 cursor | index minute indicators readiness |
-| M5-B 最终切换（本轮） | 真实 provider、删除 Mock | bars/indicators 独立结算、Mock 引用清零、前端/浏览器回归 | index minute indicators |
+| M5-B 正式数据验收（已完成） | Gold 覆盖、全量对齐、默认性能、最大响应 | 29,939 分区对零失败、630 样本 P95、10000/5MB 拒绝语义和 5000 cursor | index minute indicators readiness |
+| M5-B 最终切换（已完成） | 真实 provider、删除 Mock | bars/indicators 独立结算、Mock 引用清零、前端/浏览器回归 | index minute indicators |
 | M6 | 全回归与 prod smoke | prod 仅日线、无分钟 route | release verification |
 
 每个里程碑只处理一个清晰目标。M2 必须在 M3 前独立验收，M5 不得成为 M1-M4 的隐含依赖。
@@ -1525,7 +1525,7 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 | 上证当前 40 个 B 股源行和 2 个停牌 A 股缺日线 | 旧实现误报 42 missing/PARTIAL | B 股不进入页面集合；停牌 A 股按 flat，当前验收为 total/matched 2184、648/51/1485、missing 0 |
 | shared chart 改动股票 | M2 已拆为 477 行 shared engine、362 行 stock adapter，并补 null-safe series | 已通过独立组件测试、全量 Wealth 回归和 1600×1200 前后尺寸对账；M3 只新增 index adapter/primitive |
 | Figma 旧节点冲突 | `425:190` 仍有旧字段 | 永久排除出金标 |
-| Gold minute 数据与前端来源切换不同步 | 正式 technical/state 已形成并通过全历史与性能验收，但前端仍使用 M5-A Mock | 先修正最大响应验收语义，再一次性切真实 provider并删除所有 Mock 引用；不保留 fallback |
+| Gold minute 数据与前端来源切换不同步 | 已完成正式 technical/state 全历史与性能验收，前端也已切真实 Gold | bars/indicators 独立结算；Gold 短暂落后时保留 bars 并显示 Partial，不回退 Mock |
 | 北证50无 Silver | 当前合同显式排除 | local 返回 Empty/Delayed，不 fallback |
 | shared capability 错误码含 `SM_` | 历史股票命名 | 只作启动错误；不作为 index HTTP 语义复用 |
 
@@ -1542,11 +1542,11 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 9. [x] M5-B 前 Gold 70 checks 已由 Definitions 正确发现；跨边界合同和 fixture 防漂移门禁已建立。
 10. [x] M5-B 正式 Gold 物理文件、Silver 时间键全量对齐和默认 500 根性能通过；10000 为语法上限，5MB 正确拒绝与固定 5000 根正常分页共同构成最大响应门禁。
 11. [x] M5-A 正式 Silver 七频率性能、10000 根响应、local/prod 路由、前端缓存/竞态与 1600×1200 浏览器验收通过。
-12. [ ] M5-B 前端真实 provider、bars-only PARTIAL、Mock 引用清零与 1600×1200 浏览器回归通过。
+12. [x] M5-B 前端真实 provider、bars-only PARTIAL、Mock 引用清零与 1600×1200 浏览器回归通过。
 
 2026-08-12 M5-B 准备批次执行结果：分钟 Reader/合同/API/验收工具相关 42 项测试通过，子系统边界 14 项通过，Ruff、文档完整性和 diff 检查通过。正式只读预检观测到 Silver 七频率各 4,276 个分区、Gold technical 七频率均 0 个分区，因此状态保持 `SOURCE_NOT_READY / IM_SOURCE_NOT_READY`，性能矩阵尚未执行，也不得被标记为通过。
 
-2026-08-13 正式批次结果：Definitions 为 14 assets/70 checks；Silver/Gold technical 七频率各 4,276 个分区，29,932 个频率-日期分区对完成全历史 schema、版本、有限值、唯一键和双向时间键检查且零失败；Technical/state 共 59,864 个文件、10,147,176 行。九个页面可用指数 × 七频率 × 10 次共 630 个默认 500 根样本全部 READY，频率级 P95 295.855–324.620ms。代表性响应 7,862 根为 4,999,968 bytes、7,863 根触发 5MB 拒绝，证明必须按本节的 10000 拒绝语义 + 5000 正常分页执行最终门禁。
+2026-08-13 最终批次结果：Definitions 为 14 assets/70 checks；Silver/Gold technical 七频率各 4,277 个分区，29,939 个频率-日期分区对完成全历史 schema、版本、有限值、唯一键和双向时间键检查且零失败；Technical/state 共 59,878 个文件、10,150,506 行。九个页面可用指数 × 七频率 × 10 次共 630 个默认 500 根样本全部 READY，频率级 P95 282.243–322.982ms。10000 根因超过 5MB 正确拒绝，5000 根返回 3,181,443 bytes、cursor 有效且耗时 334.441ms。前端 155 项全量测试、构建和 1/60/120 分钟真实浏览器回归通过；页面无 Mock 标识，日线/分钟图表区和右栏几何差值为 0px。
 
 ---
 
@@ -1565,6 +1565,7 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.16 | 2026-08-13 | 完成 M5-B 真实 provider、bars-only Partial、Mock 清零和 1600×1200 浏览器回归；更新最终 4,277×7 分区验收与性能证据 | Codex |
 | v1.15 | 2026-08-13 | 回填 M5-B 正式 Gold 全历史、Definitions、Dagster 后审计与性能证据；冻结 10000/5MB + 5000 cursor 验收算法，以及真实 provider 独立结算、bars-only PARTIAL 和 Mock 清零的编码落点 | Codex |
 | v1.14 | 2026-08-12 | M3 对账：四类详情图表已统一 shared 生命周期、稳定 dataKey、45～180/15 和 1600px 默认 120；API、趋势与状态合同不变 | Codex |
 | v1.13 | 2026-08-12 | 同步详情图表后续方案：先收敛股票分钟独立生命周期，再统一实现 45～180 根、15 根步长和 1600px 默认 120 根；API/趋势合同不变 | Codex |

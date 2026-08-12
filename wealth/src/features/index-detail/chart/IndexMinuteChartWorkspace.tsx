@@ -45,13 +45,13 @@ function LoadedIndexMinuteChart({
   return (
     <DetailChartWorkspace
       ariaLabel="指数分钟图表区"
-      bottomBar={<IndexMinuteIndicatorBar hasMockIndicators={data.indicatorSource === "mock"} message={message} overlay={overlay} phase={phase} setOverlay={setOverlay} />}
+      bottomBar={<IndexMinuteIndicatorBar message={message} overlay={overlay} phase={phase} setOverlay={setOverlay} />}
       bottomBarAriaLabel="指数分钟指标栏"
       dataKey={`index:${data.tsCode}:m${data.freq}`}
       mainLines={mainLines}
       panelAriaLabels={{ kline: "指数分钟K线主图", macd: "分钟 MACD(12,26,9)", volume: "分钟成交量", kdj: "分钟 KDJ(9,3,3)" }}
       points={points}
-      renderMainHeader={(point) => <IndexMinuteMainHeader hasMockIndicators={data.indicatorSource === "mock"} overlay={overlay} point={point} setOverlay={setOverlay} />}
+      renderMainHeader={(point) => <IndexMinuteMainHeader overlay={overlay} point={point} setOverlay={setOverlay} />}
       renderPanelHeader={(panel, point) => <IndexMinutePanelHeader panel={panel} point={point} />}
       renderTooltip={(point, side) => <IndexMinuteTooltip point={point} side={side} />}
       timeAxisAriaLabel="指数分钟底部时间轴"
@@ -90,12 +90,10 @@ function buildBollLines(): DetailChartLineDefinition[] {
 }
 
 function IndexMinuteMainHeader({
-  hasMockIndicators,
   overlay,
   point,
   setOverlay,
 }: {
-  hasMockIndicators: boolean;
   overlay: Exclude<IndexMainOverlay, "TREND_CHANNEL">;
   point: DetailChartPoint | null;
   setOverlay: (overlay: Exclude<IndexMainOverlay, "TREND_CHANNEL">) => void;
@@ -116,7 +114,6 @@ function IndexMinuteMainHeader({
     {point ? keys.map((key) => (
       <span className={`metric ${metricClass(key)}`} key={key}>{metricLabel(key)}:{format(point.overlays[key] ?? null)}</span>
     )) : null}
-    {hasMockIndicators ? <span className="index-minute-mock-badge">模拟指标</span> : null}
   </>;
 }
 
@@ -138,13 +135,11 @@ function IndexMinutePanelHeader({
 }
 
 function IndexMinuteIndicatorBar({
-  hasMockIndicators,
   message,
   overlay,
   phase,
   setOverlay,
 }: {
-  hasMockIndicators: boolean;
   message: string;
   overlay: Exclude<IndexMainOverlay, "TREND_CHANNEL">;
   phase: IndexMinuteSeriesState["phase"];
@@ -153,7 +148,6 @@ function IndexMinuteIndicatorBar({
   return <div className="detail-chart-indicator-tabs">
     <button className={`detail-chart-indicator-tab ${overlay === "MA" ? "active" : ""}`} type="button" onClick={() => setOverlay("MA")}>均线</button>
     <button className={`detail-chart-indicator-tab ${overlay === "BOLL" ? "active" : ""}`} type="button" onClick={() => setOverlay("BOLL")}>BOLL</button>
-    {hasMockIndicators ? <span className="index-minute-mock-badge">模拟指标</span> : null}
     {phase === "delayed" || phase === "partial" ? <span className="index-minute-status-message">{message}</span> : null}
   </div>;
 }

@@ -65,9 +65,9 @@ export interface IndexMinuteChartViewModel {
   freq: IndexDetailMinuteFrequency;
   points: IndexMinuteCandlePoint[];
   dataStatus: IndexMinuteDataStatusDto;
-  indicatorSource: "mock" | "unavailable";
-  paramsKey: "mock_index_minute_technical_v1" | null;
-  indicatorVersion: 0 | null;
+  indicatorSource: "gold" | "unavailable";
+  paramsKey: string | null;
+  indicatorVersion: number | null;
 }
 
 export interface IndexMinuteSeriesState {
