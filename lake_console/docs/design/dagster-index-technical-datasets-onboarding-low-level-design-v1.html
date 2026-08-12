@@ -111,11 +111,12 @@
       本文是 <a href="./dagster-index-technical-datasets-onboarding-plan-v1.html">指数技术数据资产接入方案 v1</a>
       的代码级实施合同。范围固定为两个独立 DG 数据产品：日线主要指数 seed 范围的 Tushare
       <code>idx_factor_pro</code> Raw/Silver，以及由 7 个主要指数分钟线 Silver 频率、按日有效代码集合派生的
-      MA/BOLL/MACD/KDJ Gold/state。本文不执行任务、不创建分区、不写 Lake。
+      MA/BOLL/MACD/KDJ Gold/state。M0-M8 已完成；本文记录已批准执行的历史 Bootstrap 与只读收口证据，
+      不授权后续任务执行、分区写入、Lake 写入或 event 写入。
     </p>
     <div class="meta">
-      <span class="tag ok">状态：M1 Catalog/Contract 已完成并通过静态门禁</span>
-      <span class="tag">日期：2026-08-10</span>
+      <span class="tag ok">状态：M0-M8 已完成并通过最终收口</span>
+      <span class="tag">日期：2026-08-12</span>
       <span class="tag">范围：lake_console/orchestrator</span>
       <span class="tag ok">90/120 Silver：HEAD 合同已存在，样本已核验</span>
     </div>
@@ -130,8 +131,9 @@
       有效集合，当前排除北证50、包含科创综指，二者不得统一。补录和全链路只读验收证据见
       <a href="./dagster-index-daily-000680-history-supplement-low-level-design.md">科创综指指数日线历史补录 LLD</a>。
       <code>idx_factor_pro</code> 默认字段、显式字段、业务关键字段、日期点、11 代码历史区间和 <code>limit/offset</code>
-      分页已经真实探测；分钟七频率合同与正式湖最近共同物理样本已经只读核验。M1 已在不执行 Dagster、
-      不创建动态分区、不访问源端和不写 Lake 的边界内完成 Catalog/Contract 编码与静态验收。
+      分页已经真实探测；分钟七频率合同与正式湖最近共同物理样本已经只读核验。M1-M7 的实现和历史
+      Bootstrap 已完成；M8 又在零正式写入边界内完成 Definitions、全量测试、静态旧口径清零和正式
+      Lake/Dagster 只读对账。
     </div>
   </section>
 
@@ -445,7 +447,7 @@ silver_major_index_mins_120m ┘</code></pre>
           <tr><td><code>defs/sensors/gold_major_index_mins_technical_daily_update_job_sensor.py</code></td><td>M6 已完成</td><td>只监听 Silver success，物理核验 7 频率、目标与严格前态后单请求推进。</td></tr>
           <tr><td><code>defs/bootstrap/major_index_mins_technical_history.py</code></td><td>新增</td><td>按日期升序计算历史，不写 Dagster events。</td></tr>
           <tr><td><code>defs/bootstrap/major_index_mins_technical_bootstrap_events.py</code></td><td>M7 已完成工具实现</td><td>正式文件复核、既有分钟分区门禁、全历史 materialization、最近 20 个完整交易日 70 个 blocking checks；sample/apply/post-audit 均须独立确认。</td></tr>
-          <tr><td><code>defs/bootstrap/major_index_mins_technical_bootstrap_cli.py</code></td><td>M7 已完成</td><td>提供只读 plan、candidate staging 和 formal promotion 入口；两类写入分别要求 staging/Lake 确认参数。</td></tr>
+          <tr><td><code>defs/bootstrap/major_index_mins_technical_bootstrap_cli.py</code></td><td>M7 工具已完成</td><td>提供只读 plan、隔离的 20/60 日 performance sample、全量 candidate staging 和 formal promotion 入口；sample/staging/Lake 三类写入分别要求独立确认参数。</td></tr>
           <tr><td><code>defs/bootstrap/major_index_mins_technical_bootstrap_events_cli.py</code></td><td>M7 已完成</td><td>提供 dry-run、sample、apply、post-audit；event 写入必须显式确认且 sample 必须指定日期。</td></tr>
           <tr><td><code>defs/catalog/name_mapping.py</code></td><td>修改</td><td>登记 technical/state 中文名。</td></tr>
           <tr><td><code>defs/catalog/lake_assets.py</code></td><td>修改</td><td>两个 PartitionModel、14 Catalog entries。</td></tr>
@@ -932,6 +934,7 @@ gold/indicator/major_index_mins_technical_state/_staging/
     <h3>6.12 历史 Bootstrap 与修复</h3>
     <ul>
       <li>输入只能是已健康的 Silver 日期集合；不调用 Tushare，不顺手修 Silver。</li>
+      <li>冻结计划 schema 固定为 v2；每个输入 Silver 文件必须记录 <code>trade_date</code>、频率、路径、<code>row_count</code>、大小和 SHA256，并全部进入稳定 <code>plan_hash</code>。旧 v1 计划没有逐文件行数，必须拒绝并重新生成，不保留兼容读取。</li>
       <li>按日期严格升序处理，一日期内一次完成 7 个频率。</li>
       <li>首个实际 Silver 日期按 seed 初始化 MACD/KDJ；后续日期读取上一 expected 日期 state。</li>
       <li>每批完成后对 14 文件、行数、keys、state、参数版本和磁盘空间生成 manifest。</li>
@@ -939,6 +942,31 @@ gold/indicator/major_index_mins_technical_state/_staging/
       <li>历史计算不直接写 Dagster events；文件全量审计后，events 工具另行批准。</li>
       <li>算法版本变化的 repair 必须输出受影响日期数、输入/目标文件数、空间峰值和 plan hash，再获得执行批准。</li>
     </ul>
+    <h4>M7-4S 受控性能样本</h4>
+    <ul>
+      <li>样本入口只接受 <code>20</code> 或 <code>60</code> 个交易日，拒绝 21/30/100 等任意范围；日期固定取冻结计划最前面的连续前缀，不能从历史中间截断递归状态。</li>
+      <li>20 日与 60 日共享同一份 sample checkpoint；20 日完成后，60 日从已核验的第 21 日继续，前 280 个文件不重写。</li>
+      <li>样本只写与正式 candidate 目录并列的 <code>performance_samples/plan_hash=&lt;hash&gt;/sample_lake</code> 与 <code>sample_run_staging</code>；不得进入正式 <code>plan_hash=&lt;hash&gt;/candidate_lake</code>，不得写正式 Lake 或 Dagster events。</li>
+      <li>每个日期只有 7 频率 technical/state 共 14 文件全部成功且行数合同通过后，才允许写当日 checkpoint；partial pair、计划 hash 漂移、输入文件 hash/行数漂移立即停止。</li>
+      <li>报告逐日期、逐频率记录 input/technical/state 行数、technical/state 文件大小、计算耗时；汇总吞吐、磁盘增量与进程峰值 RSS。</li>
+      <li>样本报告固定标记 <code>report_type=performance_sample</code>、<code>promotion_eligible=false</code>；正式 promotion 只接受 <code>full_candidate</code> 报告。</li>
+      <li>2026-08-12 已依次完成 20 日与 60 日真实样本：20 日覆盖 <code>2009-01-05..2009-02-06</code>，60 日扩展至 <code>2009-04-03</code>；60 日从同一 checkpoint 的第 21 日继续，仅新增后 40 日的 560 个文件，前 20 日 280 个文件的内容 hash 与修改时间均未变化。</li>
+      <li>20 日样本实测输入 32,600 行，technical 输出 32,600 行、state 输出 700 行，文件总量 4,660,109 bytes；计算耗时 5,358.98 ms，输入吞吐 6,083.25 行/秒，进程峰值 RSS 333,398,016 bytes。独立物理复核确认 280 个文件全部存在，SHA256、行数与报告一致，每日恰好 14 文件。</li>
+      <li>同一命令完成幂等复跑验证：复用 20 日 checkpoint，新增输出 0 bytes，全部 Parquet 的内容 hash 与修改时间均未变化；正式 candidate 目录不存在，正式 Lake、Dagster events 写入均为 0。</li>
+      <li>60 日样本最终生成 840 个 Parquet（technical/state 各 420 个），覆盖 420 个“日期 × 频率”单元；输入 97,800 行，technical 输出 97,800 行、state 输出 2,100 行，文件总量 14,228,007 bytes。累计计算耗时 17,472.77 ms，输入吞吐 5,597.28 行/秒，进程峰值 RSS 335,183,872 bytes。</li>
+      <li>新增 40 日实测输入 65,200 行、输出 9,567,898 bytes、计算耗时 12,113.79 ms，平均每日期 302.84 ms、吞吐 5,382.30 行/秒；峰值 RSS 相比 20 日仅增加 1,785,856 bytes，未观察到持续内存增长。840 个文件均通过独立 Parquet 可读性、SHA256、行数和每日 14 文件物理复核；60 日幂等复跑新增输出 0 bytes，全部内容 hash 与修改时间保持不变。</li>
+      <li>按 60 日样本的 145.48 bytes/输入行和冻结全量 9,933,872 行外推，全量 technical/state 候选约为 1.35 GiB；旧计划中的 219,105,280 bytes 估算偏低，但冻结计划已有 2.3 TiB 可用空间且逐文件保存 <code>row_count/size/SHA256</code>，因此该估算偏差不构成重新冻结输入计划的理由。2026-08-12 经批准直接复用原 plan hash 执行全量 candidate，入口仍在写入前校验全部 29,932 个 Silver 输入文件。</li>
+    </ul>
+    <pre><code>cd /Users/congming/github/goldenshare/lake_console/orchestrator
+uv run python -m orchestrator.defs.bootstrap.major_index_mins_technical_bootstrap_cli \
+  sample-candidates \
+  --plan-report &lt;frozen-plan.json&gt; \
+  --expected-plan-hash &lt;plan-hash&gt; \
+  --sample-date-count 20 \
+  --confirm-sample-staging-write
+
+# 20 日报告验收并重新批准后，同一入口改为 60；复用样本 checkpoint 续跑。
+# 未提供 --confirm-sample-staging-write 时必须拒绝，不能产生任何文件。</code></pre>
   </section>
 
   <section>
@@ -1008,7 +1036,7 @@ minute technical/state:
           <tr><td><code>tests/test_major_index_mins_technical_checks.py</code></td><td>每个 blocking 属性独立通过/失败。</td></tr>
           <tr><td><code>tests/test_major_index_mins_technical_definitions.py</code></td><td>7 multi-assets、14 specs、Silver 依赖、<code>can_subset=False</code> 双输出边界；通过项目真实 <code>defs()</code> 精确验证 14 assets、42 technical checks、28 state checks、<code>validate_loadable</code>，并解析 M6 job 最终选择的 14 assets + 70 checks。</td></tr>
           <tr><td><code>tests/test_major_index_mins_technical_sensor.py</code></td><td>唯一 partition、Silver readiness、历史基线、严格前态、target partial/invalid fail closed、single revisioned request、Dagster 自管 cursor。</td></tr>
-          <tr><td><code>tests/test_major_index_mins_technical_bootstrap.py</code></td><td>顺序递推、失败恢复、plan hash、事件边界。</td></tr>
+          <tr><td><code>tests/test_major_index_mins_technical_bootstrap.py</code></td><td>顺序递推、失败恢复、plan hash、20→60 日样本续跑、逐日 14 文件 checkpoint、隔离目录、性能报告、样本禁止 promotion、事件边界。</td></tr>
         </tbody>
       </table>
     </div>
@@ -1036,6 +1064,7 @@ minute technical/state:
           <tr><td>MACD/KDJ</td><td>每个代码只在 contract 发布的分钟 Silver 首日 seed，之后逐日递推与全段计算一致；000680 从 2025-01-20 seed。</td><td>连续代码缺前态时 seed、以“前日不在池”误判重入代码为 seed、中间日跳跃、零振幅除零。</td></tr>
           <tr><td>提交</td><td>两个 staging 验证后顺序提升。</td><td>state 失败仍标 ready、已有健康目标被普通日常覆盖。</td></tr>
           <tr><td>sensor</td><td>同日 7 Silver ready 后一个 RunRequest。</td><td>上游缺频率、partial target、previous state missing、单 tick 多 run。</td></tr>
+          <tr><td>历史性能样本</td><td>冻结计划首 20 日后续跑至 60 日；样本目录、checkpoint、报告均独立，逐日 14 文件齐备。</td><td>任意天数、历史中段抽样、partial pair、未完成日期 checkpoint、样本报告进入正式 promotion。</td></tr>
         </tbody>
       </table>
     </div>
@@ -1054,8 +1083,8 @@ minute technical/state:
           <tr><td>M4 idx factor automation</td><td><strong>已完成：</strong>layer-isolated jobs、当前日 partition sensor、Raw/Silver sensors、单日 Lake readiness 与单页 source probe。</td><td>当前开放日单 tick 最多 1 run，三个 sensor 默认 STOPPED；existing-invalid 文件 fail closed；未启用、未写正式 Lake。</td><td>sensor 扫历史、读取 Dagster event history、自动覆盖或 repair 已存在坏文件。</td></tr>
           <tr><td>M5 minute technical core</td><td><strong>已完成：</strong>MA/BOLL/MACD/KDJ 公式、DuckDB 向量 writer、逐代码 seed 与严格前态、累计 observation count、7 个双输出 multi-assets、70 个 blocking checks。</td><td>独立 golden fixture、20 日递推、未来分区排除、缺前态拒绝、重入代码不得再次 seed、已有目标拒绝、第二文件提升失败留下可识别 partial target；M5 聚焦 31 项测试通过，idx factor + major-index minutes 完整相邻回归 273 项/344 个子测试通过。</td><td>前态语义不清、双文件失败不能识别；M5 禁止提前新增 job、sensor、readiness 或 bootstrap。</td></tr>
           <tr><td>M6 minute automation</td><td><strong>已完成并修复 Definitions 注册门禁：</strong>daily job、run-status sensor 和物理 readiness 已实现；check 集合已改为单一 list 导出并通过真实项目加载门禁。</td><td>7 频率一个日期 run；项目 Definitions 精确注册 14 assets + 70 checks，daily job 精确选择同一集合；其余 partition、target、前态和 fail-closed 语义不变。</td><td>禁止退回 tuple、显式汇总、重复导出或运行时补 event 绕过模块发现；sensor 仍为 STOPPED。</td></tr>
-          <tr><td>M7 history bootstrap</td><td><strong>工具与测试、idx factor source staging、Raw/Silver candidate、正式 Lake promotion、专属动态分区注册与全量 runless events 已完成：</strong>两个数据产品的 frozen plan、source/candidate、audit、promotion、分区/event sample/apply/post-audit 工具及受控 CLI 已实现；<code>idx_factor_pro</code> 有效代码已叠加源端首日，分钟 writer 已拆分 source/target/staging 根；idx factor 全量 apply CLI 强制要求 checkpoint 文件并复用每 1,000 个事件原子进度记录。</td><td><code>plan_hash=f7e7fca7...</code>：截至 2026-08-07 从 Tushare 完成 11 指数、13 页、45,772 行 source staging；正式 Lake 覆盖 2000-01-04..2026-08-07 共 6,445 日，Raw/Silver 各 6,445 文件、各 41,355 行，12,890 个文件全部原子提升，0 重复主键、key parity 差异 0，正式路径全量物理对账通过；<code>cn_major_index_factor_trade_days</code> 已精确注册 6,445 个日期，缺失 0、范围外 0；<code>000680.SH</code> 首日为 2025-01-17。2026-08-07 sample 先补 2 个 materialization events 和 8 个 check events；全量 apply 随后新增 12,888 个 materialization events 和 152 个 check events，并幂等跳过 sample 的 2 + 8。post-audit 与独立 instance 对账均确认 Raw/Silver 各 6,445 个 materialized partitions、剩余事件 0，最近 20 个交易日 Raw 5 类与 Silver 3 类 checks 全部关联最新 materialization 且通过。分钟 technical/state 正式文件及其 events 未执行；下一阶段仍须单独批准。</td><td>未获得当前阶段批准、空间不足、计划 hash 变化、正式文件或 promotion report 漂移、活跃 Dagster run、缺分钟分区、任何批次差异。</td></tr>
-          <tr><td>M8 收口</td><td>Definitions、全测试、文档对账、静态旧口径清零。</td><td>代码/Catalog/文档一致。</td><td>Foundation、ClickHouse、API 等计划外改动混入。</td></tr>
+          <tr><td>M7 history bootstrap</td><td><strong>工具、测试及两套历史 Bootstrap 均已完成：</strong>两个数据产品的 frozen plan、source/candidate、audit、promotion、分区/event sample/apply/post-audit 工具及受控 CLI 已实现；<code>idx_factor_pro</code> 有效代码已叠加源端首日，分钟 writer 已拆分 source/target/staging 根；分钟技术历史另已补齐只允许 20/60 日的隔离性能样本、逐日 checkpoint、不可 promotion 报告门禁以及全量 event apply checkpoint 强制门禁。</td><td><code>idx_factor_pro plan_hash=f7e7fca7...</code>：截至 2026-08-07 从 Tushare 完成 11 指数、13 页、45,772 行 source staging；正式 Lake 覆盖 2000-01-04..2026-08-07 共 6,445 日，Raw/Silver 各 6,445 文件、各 41,355 行，12,890 个文件全部原子提升，0 重复主键、key parity 差异 0，正式路径全量物理对账通过；<code>cn_major_index_factor_trade_days</code> 已精确注册 6,445 个日期，缺失 0、范围外 0；<code>000680.SH</code> 首日为 2025-01-17。2026-08-07 sample 先补 2 个 materialization events 和 8 个 check events；全量 apply 随后新增 12,888 个 materialization events 和 152 个 check events，并幂等跳过 sample 的 2 + 8。post-audit 与独立 instance 对账均确认 Raw/Silver 各 6,445 个 materialized partitions、剩余事件 0，最近 20 个交易日 Raw 5 类与 Silver 3 类 checks 全部关联最新 materialization 且通过。<br><br><code>major_index_mins_technical plan_hash=662456d3...</code>：2026-08-12 已完成分钟 technical/state 计划重新冻结与全量只读预检，冻结 2009-01-05..2026-08-11 共 4,276 日、29,932 个 Silver 文件、9,933,872 行；逐文件 <code>row_count/size/SHA256</code> 已进入 v2 计划哈希。七频 schema、精确行数、代码池、交易时点、主键和数值合同全部通过，重复主键、无效行、缺失/多余 session 均为 0；<code>2026-08-12</code> 作为七频不完整尾部被显式忽略。M7-4S 20/60 日真实样本已依次完成：60 日最终覆盖 2009-01-05..2009-04-03，共 840 文件、technical 97,800 行、state 2,100 行、输出 14,228,007 bytes、累计计算耗时 17.47 秒、峰值 RSS 335,183,872 bytes；新增 40 日从 checkpoint 续跑，前 280 文件未重写。2026-08-12 随后复用同一冻结计划完成全量 candidate staging：覆盖 4,276 日，生成 59,864 个 Parquet，实际大小 1,377,615,706 bytes；checkpoint 标记完整。独立物理审计逐文件复核 SHA256、大小和 Parquet footer 行数，全部与 manifest 一致，每日 7 频率 technical/state 共 14 文件齐备。同日完成正式 Lake promotion：写前正式 Dagster instance 活跃运行数为 0，正式目标文件为 0；59,864 个候选文件全部经 SHA256 门禁后使用同文件系统 <code>os.replace()</code> 原子提升，technical/state 各 29,932 个，覆盖 4,276 日与 7 个频率，幂等复用 0、矩阵缺失 0、候选文件剩余 0。promotion 内置正式 Parquet 全范围物理审计通过，报告明确 <code>dagster_events=0</code>。其后按 dry-run → 单日 sample → sample 后 dry-run → full apply → post-audit 顺序补齐正式 Dagster 观测：初始只读计划为 59,864 个 materialization events 与最近 20 个交易日 1,400 个 blocking check events，缺失动态分区 0、活跃运行 0；<code>2026-08-11</code> sample 写入 14 + 70；全量 apply 新增 59,850 + 1,330，并幂等跳过 sample 的 14 + 70；最终 post-audit 确认剩余 materialization/check events 均为 0、缺失分区 0、活跃运行 0。event 阶段未修改正式 Lake、未注册第三套动态分区、未启用 sensor。</td><td>空间不足、计划 hash 变化、正式文件或 promotion report 漂移、活跃 Dagster run、缺分钟分区、任何批次差异。</td></tr>
+          <tr><td>M8 收口</td><td><strong>已完成：</strong>真实项目 Definitions、两产品定向与相邻治理回归、orchestrator 全量测试、M8 范围 Ruff、静态旧口径清零、原 LLD 对账，以及两条正式链路的最新只读 post-audit。</td><td>Definitions 定向 9 项通过；两产品定向 130 项通过；相邻治理 138 项与 467 个子测试通过；orchestrator 全量 1,996 项与 702 个子测试通过；M8 范围 Ruff 通过。2026-08-12 最新正式只读审计确认：<code>idx_factor_pro</code> 6,445 日、12,890 文件、82,710 层级合计行，分钟 technical/state 4,276 日、59,864 文件、10,147,176 行；两者均无缺失注册日期、无待补 materialization/check、无活跃运行，且本次审计对 Lake、动态分区和 Dagster events 的写入均为 0。</td><td>Foundation、ClickHouse、API 等计划外改动混入；Definitions/Catalog 漂移；正式审计出现缺分区、待补事件、活跃运行或任何写入。</td></tr>
         </tbody>
       </table>
     </div>
@@ -1076,6 +1105,7 @@ minute technical/state:
       <li>回看只取每代码 249 根所需的最少历史分区和 6 个源字段，不扫描全历史。</li>
       <li>日常一 run 处理 7 频率，但每个频率独立 staging/check，失败必须指出具体 freq。</li>
       <li>全历史必须按日期批次，禁止启动一个覆盖全部历史的大事务或大内存 relation。</li>
+      <li>全量前必须依次完成 20 日、60 日真实性能样本；样本报告必须提供逐频率耗时与行数、总体吞吐、输出字节和峰值 RSS，样本文件不得复用为正式 candidate。</li>
     </ul>
     <div class="callout danger">
       任何实际 bootstrap、materialize、backfill、dynamic partition 或 runless event 命令都不属于 LLD 阶段。
@@ -1147,8 +1177,17 @@ git status --short</code></pre>
 uv run python -m pytest -q \
   tests/test_idx_factor_pro_bootstrap.py \
   tests/test_major_index_mins_technical_bootstrap.py</code></pre>
-    <p>M7 专项测试已实际通过，不是空测试或兼容入口；idx factor 全量 apply CLI 另有 checkpoint 必填负向门禁。独立真实执行证据证明 <code>idx_factor_pro</code> Tushare source staging、候选构建、正式 Lake promotion、专属 dynamic partitions 注册、单日 sample 以及全量 runless events apply/post-audit 均已完成。全量阶段累计形成 Raw/Silver 各 6,445 个 materialized partitions，并为最近 20 个交易日补齐 Raw 5 类与 Silver 3 类 checks。该证据不证明分钟 technical/state 正式文件或其 events 已执行。</p>
-    <p>进入 definitions 验证、真实 connector probe 或 Lake 样本写入前，必须按阶段重新确认命令及影响；本 LLD 不授权这些操作。</p>
+    <p>M7 专项测试已实际通过，不是空测试或兼容入口；idx factor 与分钟 technical/state 的全量 event apply CLI 均有 checkpoint 必填负向门禁。独立真实执行证据证明 <code>idx_factor_pro</code> Tushare source staging、候选构建、正式 Lake promotion、专属 dynamic partitions 注册、单日 sample 以及全量 runless events apply/post-audit 均已完成。全量阶段累计形成 Raw/Silver 各 6,445 个 materialized partitions，并为最近 20 个交易日补齐 Raw 5 类与 Silver 3 类 checks。分钟 technical/state 已完成 v2 计划冻结、全量只读输入预检、20/60 日真实性能样本、全量 candidate staging、正式 Lake promotion 及 runless events sample/apply/post-audit；当前分钟 Bootstrap 专项测试为 25 项通过，正式 Lake 覆盖 4,276 日、59,864 个文件，逐文件 SHA256、大小、Parquet footer 行数和每日 14 文件配对均通过物理审计；Dagster 已补齐全部 59,864 个 materialized partitions，并为最近 20 个交易日补齐 1,400 个 blocking checks，最终 post-audit 剩余事件为 0。</p>
+    <h3>12.3 M8 最终收口证据</h3>
+    <ul>
+      <li><strong>Definitions：</strong>真实 <code>project_defs()</code> 加载与两产品 definitions 定向测试共 9 项通过，精确发现分钟 14 assets、70 checks 及对应 job 选择；相关 sensor 仍保持 <code>STOPPED</code>。</li>
+      <li><strong>定向与相邻回归：</strong><code>idx_factor_pro</code> 与分钟 technical/state 定向测试 130 项通过；相邻治理测试 138 项与 467 个子测试通过。</li>
+      <li><strong>全量回归：</strong>在 <code>lake_console/orchestrator</code> 使用项目 <code>.venv</code> 执行全量测试，1,996 项与 702 个子测试通过，无失败。</li>
+      <li><strong>静态质量：</strong>M8 两产品实现、bootstrap、jobs、sensors、checks、contracts 与对应测试的 Ruff 范围检查通过。仓库级 <code>ruff check src tests</code> 仍有 885 个与本轮无关的既有问题，因此本文件不声明“全仓 Ruff 已清零”。</li>
+      <li><strong>正式只读复核：</strong><code>idx_factor_pro</code> 最新 post-audit 为 6,445 日、12,890 文件、Raw/Silver 各 41,355 行，缺失注册日期 0、待补事件 0、活跃运行 0；分钟 technical/state 为 4,276 日、59,864 文件、10,147,176 行，缺失分钟分区 0、待补事件 0、活跃运行 0。</li>
+      <li><strong>零写入边界：</strong>两份 M8 post-audit 均明确记录 <code>formal_lake=0</code>、<code>dynamic_partitions=0</code>、<code>dagster_events=0</code>；M8 没有执行 materialize、job、sensor、partition 注册或 runless event 写入。</li>
+    </ul>
+    <p>后续任何真实 connector probe、Lake 写入、分区注册、materialization、runless event 或 sensor 启用仍须重新列明命令、影响和回滚边界并获得批准；本 LLD 的 M8 完成状态不授权后续生产写入。</p>
     <div class="callout ok">
       <strong>仓库级门禁已收口：</strong><code>defs/assets/index_daily.py</code> 实际通过
       <code>DuckDBResource.connect()</code> 使用集中连接配置；内部 helper 参数已改名为
@@ -1164,7 +1203,7 @@ uv run python -m pytest -q \
         <thead><tr><th>项目</th><th>LLD 结论</th><th>当前状态</th></tr></thead>
         <tbody>
           <tr><td>对象池</td><td>两套事实源有意分离：现行日级 seed 为 11，同时保留 899050 并新增 000680；分钟 Silver 当前排除 899050、包含 000680，并按日期计算有效范围。</td><td class="status-current">M0 已冻结</td></tr>
-          <tr><td>idx factor 分区</td><td>使用专属 <code>cn_major_index_factor_trade_days</code>，不复用通用 index daily。</td><td class="status-new">已设计</td></tr>
+          <tr><td>idx factor 分区</td><td>使用专属 <code>cn_major_index_factor_trade_days</code>，不复用通用 index daily。</td><td class="status-current">已生效并完成 6,445 日对账</td></tr>
           <tr><td>idx factor 字段</td><td>89 个源字段完整保留，Silver 只转类型。</td><td class="status-new">已冻结</td></tr>
           <tr><td>idx factor 分页</td><td>日常日期分页、历史代码区间分页，limit 8000；M0 实测 11 代码共 45,772 行、13 页。</td><td class="status-current">M0 已冻结</td></tr>
           <tr><td>90/120 Silver</td><td>Gold 的强前置；当前 HEAD 已有派生合同，最近共同物理样本日为 2026-08-04。</td><td class="status-current">M0 已冻结</td></tr>
@@ -1173,7 +1212,8 @@ uv run python -m pytest -q \
           <tr><td>双文件提交</td><td>明确非跨目录原子，采用 staging + 顺序提升 + partial fail closed + repair rollback。</td><td class="status-new">已冻结</td></tr>
           <tr><td>分钟技术核心</td><td>7 频率 technical/state 双输出、逐代码 seed、严格前态、有限历史 rolling、70 个 blocking checks；不包含历史 bootstrap。</td><td class="status-current">M5 已完成</td></tr>
           <tr><td>分钟技术自动化</td><td>Silver success 单分区触发；同日 7 Silver、目标 14 文件和前一 expected date 7 state 采用物理事实核验；目标 partial/invalid 禁止覆盖；Definitions 已精确注册 14 assets + 70 checks。</td><td class="status-current">M6 已完成并修复注册门禁，sensor 保持 STOPPED</td></tr>
-          <tr><td>M7 历史 Bootstrap</td><td>两套 frozen plan、候选构建、manifest promotion、runless event 工具及阶段确认 CLI 已落地；<code>idx_factor_pro</code> 按 Tushare 源端首日叠加日线 seed 判断，分钟历史复用现有向量 writer 并分离 source/target/staging 根。</td><td class="status-current"><code>idx_factor_pro</code> source/candidate/formal promotion/专属动态分区/全量 events apply/post-audit 已完成；分钟正式文件及其 events 未执行</td></tr>
+          <tr><td>M7 历史 Bootstrap</td><td>两套 frozen plan、候选构建、manifest promotion、runless event 工具及阶段确认 CLI 已落地；<code>idx_factor_pro</code> 按 Tushare 源端首日叠加日线 seed 判断，分钟历史复用现有向量 writer并分离 source/target/staging 根，受控样本只允许 20/60 日并使用独立根。</td><td class="status-current"><code>idx_factor_pro</code> source/candidate/formal promotion/专属动态分区/全量 events apply/post-audit 已完成；分钟 technical/state v2 计划冻结、全量只读预检、20/60 日真实 sample staging、全量 candidate staging、正式 Lake promotion、单日 events sample、全量 events apply 及 post-audit 均已完成</td></tr>
+          <tr><td>M8 最终收口</td><td>真实 Definitions、定向/相邻/全量测试、M8 范围 Ruff、静态旧口径、原 LLD 和正式物理/事件状态全部完成对账。</td><td class="status-current">已完成；两条最新 post-audit 均 <code>should_stop=false</code> 且正式写入为 0</td></tr>
           <tr><td>产品决策</td><td>无待拍板项。</td><td class="status-current">已清零</td></tr>
         </tbody>
       </table>

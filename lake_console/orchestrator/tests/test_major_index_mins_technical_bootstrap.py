@@ -1,3 +1,6 @@
+import json
+from dataclasses import replace
+from datetime import date, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -8,6 +11,7 @@ import pytest
 from orchestrator.defs.bootstrap import (
     major_index_mins_technical_bootstrap_cli,
     major_index_mins_technical_bootstrap_events_cli,
+    major_index_mins_technical_history,
 )
 from orchestrator.defs.bootstrap.major_index_mins_technical_bootstrap_events import (
     MajorIndexMinsTechnicalBootstrapEventsError,
@@ -17,11 +21,18 @@ from orchestrator.defs.bootstrap.major_index_mins_technical_bootstrap_events imp
 )
 from orchestrator.defs.bootstrap.major_index_mins_technical_history import (
     MajorIndexMinsTechnicalBootstrapError,
+    MinuteTechnicalBootstrapPlan,
+    MinuteTechnicalInputFile,
     build_major_index_mins_technical_bootstrap_plan,
     build_major_index_mins_technical_candidates,
+    build_major_index_mins_technical_performance_sample,
+    load_major_index_mins_technical_bootstrap_plan,
     promote_major_index_mins_technical_candidates,
 )
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet
+from orchestrator.defs.io.major_index_mins_technical_writer import (
+    MajorIndexMinsTechnicalValidationError,
+)
 from orchestrator.defs.paths import (
     gold_major_index_mins_technical_path,
     gold_major_index_mins_technical_state_path,
@@ -182,6 +193,90 @@ def _promoted_fixture(tmp_path: Path):
     return plan, promote_report
 
 
+def _performance_sample_plan(tmp_path: Path) -> MinuteTechnicalBootstrapPlan:
+    trade_dates = tuple(
+        (date.fromisoformat(FIRST_DATE) + timedelta(days=offset)).isoformat()
+        for offset in range(60)
+    )
+    inputs = tuple(
+        MinuteTechnicalInputFile(
+            trade_date=trade_date,
+            freq=freq,
+            path=str(tmp_path / "data_lake" / f"{trade_date}-{freq}.parquet"),
+            row_count=2,
+            size_bytes=1,
+            sha256="unused-by-mocked-loader",
+        )
+        for trade_date in trade_dates
+        for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS
+    )
+    return MinuteTechnicalBootstrapPlan(
+        generated_at="2026-08-12T00:00:00+00:00",
+        end_date=trade_dates[-1],
+        source_lake_root=tmp_path / "data_lake",
+        staging_root=tmp_path / "data_lake_staging",
+        report_root=tmp_path / "reports",
+        trade_dates=trade_dates,
+        ignored_incomplete_tail_dates=(),
+        input_files=inputs,
+        source_manifest_hash="source",
+        object_pool_hash="pool",
+        schema_contract_hash="schema",
+        estimated_output_bytes=1,
+        disk_free_bytes=10**12,
+        plan_hash="sample-plan-hash",
+        report_path=tmp_path / "reports" / "plan.json",
+    )
+
+
+def _install_performance_sample_fakes(
+    monkeypatch: pytest.MonkeyPatch,
+    plan: MinuteTechnicalBootstrapPlan,
+) -> list[tuple[str, int]]:
+    calls: list[tuple[str, int]] = []
+
+    def fake_load(*_args, **_kwargs) -> MinuteTechnicalBootstrapPlan:
+        return plan
+
+    def fake_write(**kwargs):
+        trade_date = str(kwargs["partition_key"])
+        freq = int(kwargs["freq"])
+        target_root = Path(kwargs["target_lake_root_path"])
+        technical_path = gold_major_index_mins_technical_path(
+            target_root, freq, trade_date
+        )
+        state_path = gold_major_index_mins_technical_state_path(
+            target_root, freq, trade_date
+        )
+        technical_path.parent.mkdir(parents=True, exist_ok=True)
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        technical_path.write_bytes(f"technical:{trade_date}:{freq}".encode())
+        state_path.write_bytes(f"state:{trade_date}:{freq}".encode())
+        calls.append((trade_date, freq))
+        return SimpleNamespace(
+            technical_path=technical_path,
+            state_path=state_path,
+            technical_row_count=2,
+            state_row_count=len(
+                expected_major_index_mins_technical_codes(trade_date)
+            ),
+            input_row_count=2,
+            elapsed_ms=10.0,
+        )
+
+    monkeypatch.setattr(
+        major_index_mins_technical_history,
+        "load_major_index_mins_technical_bootstrap_plan",
+        fake_load,
+    )
+    monkeypatch.setattr(
+        major_index_mins_technical_history,
+        "write_major_index_mins_technical_partition",
+        fake_write,
+    )
+    return calls
+
+
 def test_plan_hash_is_stable_and_ignores_only_incomplete_tail(tmp_path: Path) -> None:
     _write_complete_date(tmp_path / "data_lake", FIRST_DATE)
     first = _plan(tmp_path, registered_dates=(FIRST_DATE, SECOND_DATE))
@@ -199,6 +294,10 @@ def test_plan_hash_is_stable_and_ignores_only_incomplete_tail(tmp_path: Path) ->
     assert first.trade_dates == (FIRST_DATE,)
     assert first.ignored_incomplete_tail_dates == (SECOND_DATE,)
     assert len(first.input_files) == len(MAJOR_INDEX_MINS_TECHNICAL_FREQS)
+    assert {value.row_count for value in first.input_files} == {
+        len(expected_major_index_mins_technical_codes(FIRST_DATE)) * 2
+    }
+    assert first.hash_payload()["schema_version"] == 2
 
 
 def test_plan_rejects_intermediate_incomplete_silver_date(tmp_path: Path) -> None:
@@ -213,6 +312,245 @@ def test_plan_rejects_intermediate_incomplete_silver_date(tmp_path: Path) -> Non
         _plan(
             tmp_path,
             registered_dates=(FIRST_DATE, SECOND_DATE, THIRD_DATE),
+        )
+
+
+def test_plan_rejects_legacy_manifest_without_input_row_counts(tmp_path: Path) -> None:
+    _write_complete_date(tmp_path / "data_lake", FIRST_DATE)
+    plan = _plan(tmp_path)
+    payload = json.loads(plan.report_path.read_text(encoding="utf-8"))
+    payload["schema_version"] = 1
+    for value in payload["input_files"]:
+        value.pop("row_count")
+    plan.report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(
+        MajorIndexMinsTechnicalBootstrapError,
+        match="must be regenerated with schema_version=2",
+    ):
+        load_major_index_mins_technical_bootstrap_plan(
+            plan.report_path,
+            expected_plan_hash=plan.plan_hash,
+        )
+
+
+def test_plan_loader_rejects_expected_hash_and_same_size_input_drift(
+    tmp_path: Path,
+) -> None:
+    _write_complete_date(tmp_path / "data_lake", FIRST_DATE)
+    plan = _plan(tmp_path)
+
+    with pytest.raises(
+        MajorIndexMinsTechnicalBootstrapError,
+        match="expected plan hash mismatch",
+    ):
+        load_major_index_mins_technical_bootstrap_plan(
+            plan.report_path,
+            expected_plan_hash="another-plan",
+        )
+
+    source_path = Path(plan.input_files[0].path)
+    content = bytearray(source_path.read_bytes())
+    content[len(content) // 2] ^= 1
+    source_path.write_bytes(content)
+    assert source_path.stat().st_size == plan.input_files[0].size_bytes
+
+    with pytest.raises(
+        MajorIndexMinsTechnicalBootstrapError,
+        match="input hash changed",
+    ):
+        load_major_index_mins_technical_bootstrap_plan(
+            plan.report_path,
+            expected_plan_hash=plan.plan_hash,
+        )
+
+
+@pytest.mark.parametrize("sample_date_count", (21, 30, 100))
+def test_performance_sample_rejects_arbitrary_date_counts(
+    tmp_path: Path,
+    sample_date_count: int,
+) -> None:
+    with pytest.raises(
+        MajorIndexMinsTechnicalBootstrapError,
+        match="exactly 20 or 60",
+    ):
+        build_major_index_mins_technical_performance_sample(
+            plan_report_path=tmp_path / "plan.json",
+            expected_plan_hash="hash",
+            sample_date_count=sample_date_count,
+            apply=True,
+        )
+
+
+def test_performance_sample_resumes_from_20_to_60_dates(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _performance_sample_plan(tmp_path)
+    calls = _install_performance_sample_fakes(monkeypatch, plan)
+
+    report_20 = build_major_index_mins_technical_performance_sample(
+        plan_report_path=plan.report_path,
+        expected_plan_hash=plan.plan_hash,
+        sample_date_count=20,
+        apply=True,
+    )
+    payload_20 = json.loads(report_20.read_text(encoding="utf-8"))
+    first_hashes = {
+        value["path"]: value["sha256"] for value in payload_20["files"]
+    }
+    assert len(calls) == 20 * len(MAJOR_INDEX_MINS_TECHNICAL_FREQS)
+
+    report_60 = build_major_index_mins_technical_performance_sample(
+        plan_report_path=plan.report_path,
+        expected_plan_hash=plan.plan_hash,
+        sample_date_count=60,
+        apply=True,
+    )
+    payload_60 = json.loads(report_60.read_text(encoding="utf-8"))
+
+    assert len(calls) == 60 * len(MAJOR_INDEX_MINS_TECHNICAL_FREQS)
+    assert calls[: len(MAJOR_INDEX_MINS_TECHNICAL_FREQS)] == [
+        (plan.trade_dates[0], freq) for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS
+    ]
+    assert payload_20["report_type"] == "performance_sample"
+    assert payload_20["promotion_eligible"] is False
+    assert payload_20["writes"] == {
+        "sample_files": 280,
+        "candidate_files": 0,
+        "formal_lake": 0,
+        "dagster_events": 0,
+    }
+    assert payload_60["writes"]["sample_files"] == 840
+    assert len(payload_60["completed_dates"]) == 60
+    assert len(payload_60["measurements"]) == 60 * 7
+    assert payload_60["summary"]["total_input_rows"] == 60 * 7 * 2
+    assert payload_60["summary"]["peak_rss_bytes"] > 0
+    assert all(
+        value["sha256"] == first_hashes[value["path"]]
+        for value in payload_60["files"][:280]
+    )
+    assert not (plan.candidate_root / "candidate_lake").exists()
+    assert not plan.source_lake_root.exists()
+
+
+def test_performance_sample_checkpoints_only_complete_dates(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _performance_sample_plan(tmp_path)
+    _install_performance_sample_fakes(monkeypatch, plan)
+    working_writer = (
+        major_index_mins_technical_history.write_major_index_mins_technical_partition
+    )
+
+    def fail_during_first_date(**kwargs):
+        if int(kwargs["freq"]) == 30:
+            raise MajorIndexMinsTechnicalValidationError("controlled failure")
+        return working_writer(**kwargs)
+
+    monkeypatch.setattr(
+        major_index_mins_technical_history,
+        "write_major_index_mins_technical_partition",
+        fail_during_first_date,
+    )
+
+    with pytest.raises(
+        MajorIndexMinsTechnicalBootstrapError,
+        match="performance sample writer failed",
+    ):
+        build_major_index_mins_technical_performance_sample(
+            plan_report_path=plan.report_path,
+            expected_plan_hash=plan.plan_hash,
+            sample_date_count=20,
+            apply=True,
+        )
+
+    checkpoint = (
+        plan.performance_sample_root / "performance-sample-checkpoint.json"
+    )
+    assert not checkpoint.exists()
+
+
+def test_performance_sample_rejects_partial_uncheckpointed_pair(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _performance_sample_plan(tmp_path)
+    _install_performance_sample_fakes(monkeypatch, plan)
+    sample_lake = plan.performance_sample_root / "sample_lake"
+    partial = gold_major_index_mins_technical_path(
+        sample_lake, 1, plan.trade_dates[0]
+    )
+    partial.parent.mkdir(parents=True, exist_ok=True)
+    partial.write_bytes(b"partial")
+
+    with pytest.raises(
+        MajorIndexMinsTechnicalBootstrapError,
+        match="partial performance-sample pair",
+    ):
+        build_major_index_mins_technical_performance_sample(
+            plan_report_path=plan.report_path,
+            expected_plan_hash=plan.plan_hash,
+            sample_date_count=20,
+            apply=True,
+        )
+
+
+def test_performance_sample_rejects_frozen_row_count_mismatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _performance_sample_plan(tmp_path)
+    _install_performance_sample_fakes(monkeypatch, plan)
+    first = plan.input_files[0]
+    plan = replace(
+        plan,
+        input_files=(
+            replace(first, row_count=first.row_count + 1),
+            *plan.input_files[1:],
+        ),
+    )
+    monkeypatch.setattr(
+        major_index_mins_technical_history,
+        "load_major_index_mins_technical_bootstrap_plan",
+        lambda *_args, **_kwargs: plan,
+    )
+
+    with pytest.raises(
+        MajorIndexMinsTechnicalBootstrapError,
+        match="frozen manifest",
+    ):
+        build_major_index_mins_technical_performance_sample(
+            plan_report_path=plan.report_path,
+            expected_plan_hash=plan.plan_hash,
+            sample_date_count=20,
+            apply=True,
+        )
+
+
+def test_formal_promotion_rejects_performance_sample_report(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _performance_sample_plan(tmp_path)
+    _install_performance_sample_fakes(monkeypatch, plan)
+    sample_report = build_major_index_mins_technical_performance_sample(
+        plan_report_path=plan.report_path,
+        expected_plan_hash=plan.plan_hash,
+        sample_date_count=20,
+        apply=True,
+    )
+
+    with pytest.raises(
+        MajorIndexMinsTechnicalBootstrapError,
+        match="only accepts a full candidate report",
+    ):
+        promote_major_index_mins_technical_candidates(
+            plan_report_path=plan.report_path,
+            candidate_report_path=sample_report,
+            expected_plan_hash=plan.plan_hash,
+            apply=True,
         )
 
 
@@ -437,6 +775,15 @@ def test_events_reject_active_runs_and_changed_formal_files(tmp_path: Path) -> N
             "hash",
         ],
         [
+            "sample-candidates",
+            "--plan-report",
+            "plan.json",
+            "--expected-plan-hash",
+            "hash",
+            "--sample-date-count",
+            "20",
+        ],
+        [
             "promote",
             "--plan-report",
             "plan.json",
@@ -471,3 +818,80 @@ def test_event_cli_requires_event_confirmation() -> None:
             ]
         )
     assert error.value.code == 2
+
+
+def test_event_cli_requires_checkpoint_only_for_full_apply() -> None:
+    common = [
+        "--plan-report",
+        "plan.json",
+        "--promote-report",
+        "promote.json",
+        "--expected-plan-hash",
+        "hash",
+        "--output",
+        "out.json",
+    ]
+    with pytest.raises(SystemExit) as missing_checkpoint:
+        major_index_mins_technical_bootstrap_events_cli.main(
+            ["apply", *common, "--confirm-event-write"]
+        )
+    assert missing_checkpoint.value.code == 2
+
+    with pytest.raises(SystemExit) as dry_run_checkpoint:
+        major_index_mins_technical_bootstrap_events_cli.main(
+            ["dry-run", *common, "--checkpoint", "checkpoint.json"]
+        )
+    assert dry_run_checkpoint.value.code == 2
+
+
+def test_event_cli_passes_checkpoint_to_full_apply(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        major_index_mins_technical_bootstrap_events_cli.dg.DagsterInstance,
+        "get",
+        lambda: object(),
+    )
+
+    def fake_report(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace()
+
+    monkeypatch.setattr(
+        major_index_mins_technical_bootstrap_events_cli,
+        "report_major_index_mins_technical_events",
+        fake_report,
+    )
+    monkeypatch.setattr(
+        major_index_mins_technical_bootstrap_events_cli,
+        "write_major_index_mins_technical_event_report",
+        lambda _report, output: output.write_text("{}", encoding="utf-8"),
+    )
+    output = tmp_path / "out.json"
+    checkpoint = tmp_path / "checkpoint.json"
+
+    assert (
+        major_index_mins_technical_bootstrap_events_cli.main(
+            [
+                "apply",
+                "--plan-report",
+                "plan.json",
+                "--promote-report",
+                "promote.json",
+                "--expected-plan-hash",
+                "hash",
+                "--output",
+                str(output),
+                "--checkpoint",
+                str(checkpoint),
+                "--confirm-event-write",
+            ]
+        )
+        == 0
+    )
+    assert captured["dry_run"] is False
+    assert captured["sample_only"] is False
+    assert captured["checkpoint_path"] == checkpoint

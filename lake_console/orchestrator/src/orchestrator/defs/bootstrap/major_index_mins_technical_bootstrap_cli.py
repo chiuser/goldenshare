@@ -13,6 +13,7 @@ from orchestrator.defs.bootstrap.major_index_mins_technical_history import (
     MajorIndexMinsTechnicalBootstrapError,
     build_major_index_mins_technical_bootstrap_plan,
     build_major_index_mins_technical_candidates,
+    build_major_index_mins_technical_performance_sample,
     promote_major_index_mins_technical_candidates,
 )
 from orchestrator.defs.resources import DuckDBResource
@@ -37,6 +38,13 @@ def _parser() -> argparse.ArgumentParser:
     _add_frozen_plan_args(candidates)
     candidates.add_argument("--confirm-staging-write", action="store_true")
 
+    sample = subparsers.add_parser("sample-candidates")
+    _add_frozen_plan_args(sample)
+    sample.add_argument(
+        "--sample-date-count", type=int, choices=(20, 60), required=True
+    )
+    sample.add_argument("--confirm-sample-staging-write", action="store_true")
+
     promote = subparsers.add_parser("promote")
     _add_frozen_plan_args(promote)
     promote.add_argument("--candidate-report", type=Path, required=True)
@@ -47,6 +55,8 @@ def _parser() -> argparse.ArgumentParser:
 def _confirmation_error(args: argparse.Namespace) -> str | None:
     if args.command == "build-candidates" and not args.confirm_staging_write:
         return "build-candidates requires --confirm-staging-write"
+    if args.command == "sample-candidates" and not args.confirm_sample_staging_write:
+        return "sample-candidates requires --confirm-sample-staging-write"
     if args.command == "promote" and not args.confirm_lake_write:
         return "promote requires --confirm-lake-write"
     return None
@@ -74,6 +84,14 @@ def main(argv: list[str] | None = None) -> int:
             report = build_major_index_mins_technical_candidates(
                 plan_report_path=args.plan_report,
                 expected_plan_hash=args.expected_plan_hash,
+                duckdb_resource=DuckDBResource(),
+                apply=True,
+            )
+        elif args.command == "sample-candidates":
+            report = build_major_index_mins_technical_performance_sample(
+                plan_report_path=args.plan_report,
+                expected_plan_hash=args.expected_plan_hash,
+                sample_date_count=args.sample_date_count,
                 duckdb_resource=DuckDBResource(),
                 apply=True,
             )

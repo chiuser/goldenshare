@@ -5,11 +5,14 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import resource as process_resource
 import shutil
+import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 from uuid import uuid4
 
@@ -47,6 +50,7 @@ BOOTSTRAP_PRODUCT = "major_index_mins_technical"
 BOOTSTRAP_BATCH_DATE_COUNT = 20
 BOOTSTRAP_DISK_SAFETY_MULTIPLIER = 2.0
 BOOTSTRAP_RECENT_CHECK_DATE_COUNT = 20
+BOOTSTRAP_SAMPLE_DATE_COUNTS = (20, 60)
 _ESTIMATED_OUTPUT_BYTES_PER_INPUT_BYTE = 0.45
 
 
@@ -104,6 +108,7 @@ class MinuteTechnicalInputFile:
     trade_date: str
     freq: int
     path: str
+    row_count: int
     size_bytes: int
     sha256: str
 
@@ -139,6 +144,16 @@ class MinuteTechnicalBootstrapPlan:
         )
 
     @property
+    def performance_sample_root(self) -> Path:
+        return (
+            self.staging_root
+            / "bootstrap"
+            / BOOTSTRAP_PRODUCT
+            / "performance_samples"
+            / f"plan_hash={self.plan_hash}"
+        )
+
+    @property
     def disk_budget_passed(self) -> bool:
         return self.disk_free_bytes >= int(
             self.estimated_output_bytes * BOOTSTRAP_DISK_SAFETY_MULTIPLIER
@@ -146,7 +161,7 @@ class MinuteTechnicalBootstrapPlan:
 
     def hash_payload(self) -> dict[str, object]:
         return {
-            "schema_version": 1,
+            "schema_version": 2,
             "product": BOOTSTRAP_PRODUCT,
             "end_date": self.end_date,
             "source_lake_root": str(self.source_lake_root),
@@ -175,6 +190,7 @@ class MinuteTechnicalBootstrapPlan:
             "candidate_run_staging_root": str(
                 self.candidate_root / "candidate_run_staging"
             ),
+            "performance_sample_root": str(self.performance_sample_root),
             "date_count": len(self.trade_dates),
             "ignored_incomplete_tail_dates": list(self.ignored_incomplete_tail_dates),
             "expected_candidate_file_count": len(self.trade_dates)
@@ -215,6 +231,37 @@ def _complete_source_date(lake_root: Path, trade_date: str) -> bool:
     )
 
 
+def _parquet_row_counts(
+    *,
+    paths_by_freq: Mapping[int, Sequence[Path]],
+    duckdb_resource: DuckDBResource,
+) -> dict[Path, int]:
+    row_counts: dict[Path, int] = {}
+    with duckdb_resource.connect() as connection:
+        for paths in paths_by_freq.values():
+            rows = connection.execute(
+                """
+                SELECT file_name, CAST(sum(num_rows) AS BIGINT) AS row_count
+                FROM parquet_file_metadata(?)
+                GROUP BY file_name
+                """,
+                [[str(path) for path in paths]],
+            ).fetchall()
+            row_counts.update(
+                (Path(str(file_name)), int(row_count))
+                for file_name, row_count in rows
+            )
+    expected_paths = {path for paths in paths_by_freq.values() for path in paths}
+    if set(row_counts) != expected_paths:
+        missing = tuple(sorted(str(path) for path in expected_paths - set(row_counts)))
+        extra = tuple(sorted(str(path) for path in set(row_counts) - expected_paths))
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "Silver Parquet footer manifest does not match frozen inputs: "
+            f"missing={missing[:20]!r}, extra={extra[:20]!r}"
+        )
+    return row_counts
+
+
 def build_major_index_mins_technical_bootstrap_plan(
     *,
     end_date: str,
@@ -224,6 +271,7 @@ def build_major_index_mins_technical_bootstrap_plan(
     staging_root: Path = BOOTSTRAP_STAGING_ROOT,
     report_root: Path = BOOTSTRAP_REPORT_ROOT,
     disk_free_bytes: int | None = None,
+    duckdb_resource: DuckDBResource | None = None,
     write_report: bool = True,
 ) -> MinuteTechnicalBootstrapPlan:
     """Freeze the complete contiguous Silver history without writing outputs."""
@@ -269,6 +317,21 @@ def build_major_index_mins_technical_bootstrap_plan(
         )
     trade_dates = registered[: latest_complete_index + 1]
     ignored_tail = registered[latest_complete_index + 1 :]
+    paths_by_freq = {
+        freq: tuple(
+            silver_major_index_mins_path(
+                source_lake_root,
+                f"{freq}min",
+                trade_date,
+            )
+            for trade_date in trade_dates
+        )
+        for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS
+    }
+    row_counts = _parquet_row_counts(
+        paths_by_freq=paths_by_freq,
+        duckdb_resource=duckdb_resource or DuckDBResource(),
+    )
     input_files: list[MinuteTechnicalInputFile] = []
     for trade_date in trade_dates:
         for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS:
@@ -282,6 +345,7 @@ def build_major_index_mins_technical_bootstrap_plan(
                     trade_date=trade_date,
                     freq=freq,
                     path=str(path),
+                    row_count=row_counts[path],
                     size_bytes=path.stat().st_size,
                     sha256=_file_sha256(path),
                 )
@@ -359,6 +423,10 @@ def load_major_index_mins_technical_bootstrap_plan(
     payload = _load_json(report_path, label="minute technical plan")
     if payload.get("plan_hash") != expected_plan_hash:
         raise MajorIndexMinsTechnicalBootstrapError("expected plan hash mismatch")
+    if payload.get("schema_version") != 2:
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "minute technical plan must be regenerated with schema_version=2"
+        )
     inputs = payload.get("input_files")
     trade_dates = payload.get("trade_dates")
     if not isinstance(inputs, list) or not isinstance(trade_dates, list):
@@ -413,6 +481,46 @@ def _candidate_manifest_entry(
         "size_bytes": path.stat().st_size,
         "sha256": _file_sha256(path),
     }
+
+
+def _peak_rss_bytes() -> int:
+    value = int(process_resource.getrusage(process_resource.RUSAGE_SELF).ru_maxrss)
+    return value if sys.platform == "darwin" else value * 1024
+
+
+def _validate_write_result(
+    *,
+    frozen_row_counts: Mapping[tuple[str, int], int],
+    trade_date: str,
+    freq: int,
+    input_row_count: int,
+    technical_row_count: int,
+    state_row_count: int,
+) -> None:
+    frozen_row_count = frozen_row_counts.get((trade_date, freq))
+    if frozen_row_count is None:
+        raise MajorIndexMinsTechnicalBootstrapError(
+            f"frozen Silver input is missing: date={trade_date}, freq={freq}"
+        )
+    if input_row_count != frozen_row_count:
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "writer input row count differs from the frozen manifest: "
+            f"date={trade_date}, freq={freq}, frozen={frozen_row_count}, "
+            f"observed={input_row_count}"
+        )
+    if technical_row_count != input_row_count:
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "technical output row count differs from Silver input: "
+            f"date={trade_date}, freq={freq}, input={input_row_count}, "
+            f"technical={technical_row_count}"
+        )
+    expected_state_rows = len(expected_major_index_mins_technical_codes(trade_date))
+    if state_row_count != expected_state_rows:
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "state row count differs from the effective index pool: "
+            f"date={trade_date}, freq={freq}, expected={expected_state_rows}, "
+            f"observed={state_row_count}"
+        )
 
 
 def _load_candidate_checkpoint(
@@ -472,6 +580,311 @@ def _write_candidate_checkpoint(
     )
 
 
+def _load_sample_checkpoint(
+    *,
+    plan: MinuteTechnicalBootstrapPlan,
+    checkpoint_path: Path,
+    sample_lake: Path,
+) -> tuple[
+    tuple[str, ...],
+    list[dict[str, object]],
+    list[dict[str, object]],
+    int,
+]:
+    if not checkpoint_path.exists():
+        return (), [], [], 0
+    payload = _load_json(checkpoint_path, label="minute technical sample checkpoint")
+    if payload.get("report_type") != "performance_sample":
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "sample checkpoint has an unsupported report type"
+        )
+    if payload.get("plan_hash") != plan.plan_hash:
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "sample checkpoint belongs to another frozen plan"
+        )
+    completed_value = payload.get("completed_dates")
+    files_value = payload.get("files")
+    measurements_value = payload.get("measurements")
+    if not all(
+        isinstance(value, list)
+        for value in (completed_value, files_value, measurements_value)
+    ):
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "sample checkpoint is missing dates, files, or measurements"
+        )
+    completed = tuple(str(value) for value in completed_value)
+    if completed != plan.trade_dates[: len(completed)]:
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "sample checkpoint dates are not a contiguous frozen-plan prefix"
+        )
+    files = [dict(value) for value in files_value if isinstance(value, Mapping)]
+    measurements = [
+        dict(value) for value in measurements_value if isinstance(value, Mapping)
+    ]
+    expected_files = len(completed) * len(MAJOR_INDEX_MINS_TECHNICAL_FREQS) * 2
+    expected_measurements = len(completed) * len(MAJOR_INDEX_MINS_TECHNICAL_FREQS)
+    if len(files) != expected_files or len(measurements) != expected_measurements:
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "sample checkpoint counts do not match completed dates"
+        )
+    resolved_sample_lake = sample_lake.resolve()
+    for entry in files:
+        path = Path(str(entry.get("path")))
+        if not path.resolve().is_relative_to(resolved_sample_lake):
+            raise MajorIndexMinsTechnicalBootstrapError(
+                f"sample checkpoint references a path outside sample staging: {path}"
+            )
+        if not path.is_file() or _file_sha256(path) != str(entry.get("sha256")):
+            raise MajorIndexMinsTechnicalBootstrapError(
+                f"checkpoint sample file is missing or changed: {path}"
+            )
+    return (
+        completed,
+        files,
+        measurements,
+        int(payload.get("peak_rss_bytes", 0)),
+    )
+
+
+def _write_sample_checkpoint(
+    *,
+    checkpoint_path: Path,
+    plan_hash: str,
+    completed_dates: Sequence[str],
+    files: Sequence[Mapping[str, object]],
+    measurements: Sequence[Mapping[str, object]],
+    peak_rss_bytes: int,
+) -> None:
+    _atomic_write_json(
+        checkpoint_path,
+        {
+            "schema_version": 1,
+            "report_type": "performance_sample",
+            "plan_hash": plan_hash,
+            "completed_dates": list(completed_dates),
+            "completed_file_count": len(files),
+            "files": [dict(value) for value in files],
+            "measurements": [dict(value) for value in measurements],
+            "peak_rss_bytes": peak_rss_bytes,
+        },
+    )
+
+
+def build_major_index_mins_technical_performance_sample(
+    *,
+    plan_report_path: Path,
+    expected_plan_hash: str,
+    sample_date_count: int,
+    duckdb_resource: DuckDBResource | None = None,
+    apply: bool = False,
+) -> Path:
+    """Build an isolated 20/60-day performance sample, never a promotable candidate."""
+
+    if sample_date_count not in BOOTSTRAP_SAMPLE_DATE_COUNTS:
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "sample date count must be exactly 20 or 60"
+        )
+    if not apply:
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "performance sample requires apply=True"
+        )
+    plan = load_major_index_mins_technical_bootstrap_plan(
+        plan_report_path, expected_plan_hash=expected_plan_hash
+    )
+    if not plan.disk_budget_passed:
+        raise MajorIndexMinsTechnicalBootstrapError("frozen disk budget did not pass")
+    if len(plan.trade_dates) < sample_date_count:
+        raise MajorIndexMinsTechnicalBootstrapError(
+            f"frozen plan has fewer than {sample_date_count} dates"
+        )
+
+    sample_root = plan.performance_sample_root
+    sample_lake = sample_root / "sample_lake"
+    run_staging = sample_root / "sample_run_staging"
+    checkpoint_path = sample_root / "performance-sample-checkpoint.json"
+    selected_dates = plan.trade_dates[:sample_date_count]
+    frozen_row_counts = {
+        (value.trade_date, value.freq): value.row_count for value in plan.input_files
+    }
+    resource = duckdb_resource or DuckDBResource()
+    completed_prefix, manifest, measurements, checkpoint_peak_rss = (
+        _load_sample_checkpoint(
+            plan=plan,
+            checkpoint_path=checkpoint_path,
+            sample_lake=sample_lake,
+        )
+    )
+    if len(completed_prefix) > sample_date_count:
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "sample checkpoint is already beyond the requested date count"
+        )
+
+    completed_dates = list(completed_prefix)
+    invocation_started_at = perf_counter()
+    invocation_output_bytes = 0
+    peak_rss_bytes = max(checkpoint_peak_rss, _peak_rss_bytes())
+    for trade_date in selected_dates:
+        if trade_date in completed_prefix:
+            continue
+        day_entries: list[dict[str, object]] = []
+        day_measurements: list[dict[str, object]] = []
+        for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS:
+            technical = gold_major_index_mins_technical_path(
+                sample_lake, freq, trade_date
+            )
+            state = gold_major_index_mins_technical_state_path(
+                sample_lake, freq, trade_date
+            )
+            if technical.exists() != state.exists():
+                raise MajorIndexMinsTechnicalBootstrapError(
+                    "partial performance-sample pair requires an explicit repair plan: "
+                    f"freq={freq}, trade_date={trade_date}"
+                )
+            if technical.exists():
+                raise MajorIndexMinsTechnicalBootstrapError(
+                    "sample files exist outside the verified checkpoint: "
+                    f"freq={freq}, trade_date={trade_date}"
+                )
+            try:
+                result = write_major_index_mins_technical_partition(
+                    source_lake_root_path=plan.source_lake_root,
+                    target_lake_root_path=sample_lake,
+                    staging_root_path=run_staging,
+                    duckdb_resource=resource,
+                    freq=freq,
+                    partition_key=trade_date,
+                    run_id=(
+                        f"bootstrap-sample-{plan.plan_hash[:12]}-"
+                        f"{trade_date}-{freq}"
+                    ),
+                    expected_trade_dates=plan.trade_dates,
+                )
+            except MajorIndexMinsTechnicalValidationError as error:
+                raise MajorIndexMinsTechnicalBootstrapError(
+                    "performance sample writer failed: "
+                    f"date={trade_date}, freq={freq}: {error}"
+                ) from error
+            _validate_write_result(
+                frozen_row_counts=frozen_row_counts,
+                trade_date=trade_date,
+                freq=freq,
+                input_row_count=result.input_row_count,
+                technical_row_count=result.technical_row_count,
+                state_row_count=result.state_row_count,
+            )
+            technical_entry = _candidate_manifest_entry(
+                layer="technical",
+                freq=freq,
+                trade_date=trade_date,
+                path=result.technical_path,
+                row_count=result.technical_row_count,
+            )
+            state_entry = _candidate_manifest_entry(
+                layer="state",
+                freq=freq,
+                trade_date=trade_date,
+                path=result.state_path,
+                row_count=result.state_row_count,
+            )
+            day_entries.extend((technical_entry, state_entry))
+            output_bytes = int(technical_entry["size_bytes"]) + int(
+                state_entry["size_bytes"]
+            )
+            invocation_output_bytes += output_bytes
+            day_measurements.append(
+                {
+                    "trade_date": trade_date,
+                    "freq": freq,
+                    "input_row_count": result.input_row_count,
+                    "technical_row_count": result.technical_row_count,
+                    "state_row_count": result.state_row_count,
+                    "technical_size_bytes": technical_entry["size_bytes"],
+                    "state_size_bytes": state_entry["size_bytes"],
+                    "output_bytes": output_bytes,
+                    "elapsed_ms": result.elapsed_ms,
+                }
+            )
+            peak_rss_bytes = max(peak_rss_bytes, _peak_rss_bytes())
+        if (
+            len(day_entries) != len(MAJOR_INDEX_MINS_TECHNICAL_FREQS) * 2
+            or len(day_measurements) != len(MAJOR_INDEX_MINS_TECHNICAL_FREQS)
+        ):
+            raise MajorIndexMinsTechnicalBootstrapError(
+                f"sample date checkpoint is incomplete: {trade_date}"
+            )
+        manifest.extend(day_entries)
+        measurements.extend(day_measurements)
+        completed_dates.append(trade_date)
+        _write_sample_checkpoint(
+            checkpoint_path=checkpoint_path,
+            plan_hash=plan.plan_hash,
+            completed_dates=completed_dates,
+            files=manifest,
+            measurements=measurements,
+            peak_rss_bytes=peak_rss_bytes,
+        )
+
+    total_elapsed_ms = sum(float(value["elapsed_ms"]) for value in measurements)
+    total_input_rows = sum(int(value["input_row_count"]) for value in measurements)
+    total_technical_rows = sum(
+        int(value["technical_row_count"]) for value in measurements
+    )
+    total_state_rows = sum(int(value["state_row_count"]) for value in measurements)
+    total_output_bytes = sum(int(value["output_bytes"]) for value in measurements)
+    report_path = plan.report_root / (
+        "major_index_mins_technical_performance_sample_"
+        f"{sample_date_count}d_{plan.plan_hash}.json"
+    )
+    _atomic_write_json(
+        report_path,
+        {
+            "schema_version": 1,
+            "report_type": "performance_sample",
+            "promotion_eligible": False,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "plan_hash": plan.plan_hash,
+            "sample_date_count": sample_date_count,
+            "selected_dates": list(selected_dates),
+            "completed_dates": completed_dates,
+            "sample_root": str(sample_root),
+            "sample_lake_root": str(sample_lake),
+            "checkpoint_path": str(checkpoint_path),
+            "files": manifest,
+            "measurements": measurements,
+            "summary": {
+                "measurement_count": len(measurements),
+                "total_input_rows": total_input_rows,
+                "total_technical_rows": total_technical_rows,
+                "total_state_rows": total_state_rows,
+                "total_output_bytes": total_output_bytes,
+                "calculation_elapsed_ms": total_elapsed_ms,
+                "average_elapsed_ms_per_date": (
+                    total_elapsed_ms / len(completed_dates)
+                ),
+                "input_rows_per_second": (
+                    total_input_rows / (total_elapsed_ms / 1000)
+                    if total_elapsed_ms > 0
+                    else None
+                ),
+                "peak_rss_bytes": peak_rss_bytes,
+                "invocation_elapsed_ms": (
+                    perf_counter() - invocation_started_at
+                )
+                * 1000,
+                "invocation_output_bytes": invocation_output_bytes,
+            },
+            "should_stop": False,
+            "writes": {
+                "sample_files": len(manifest),
+                "candidate_files": 0,
+                "formal_lake": 0,
+                "dagster_events": 0,
+            },
+        },
+    )
+    return report_path
+
+
 def build_major_index_mins_technical_candidates(
     *,
     plan_report_path: Path,
@@ -490,6 +903,9 @@ def build_major_index_mins_technical_candidates(
     run_staging = plan.candidate_root / "candidate_run_staging"
     checkpoint_path = plan.candidate_root / "candidate-checkpoint.json"
     resource = duckdb_resource or DuckDBResource()
+    frozen_row_counts = {
+        (value.trade_date, value.freq): value.row_count for value in plan.input_files
+    }
     completed_prefix, manifest = _load_candidate_checkpoint(
         plan=plan,
         checkpoint_path=checkpoint_path,
@@ -531,6 +947,14 @@ def build_major_index_mins_technical_candidates(
                 raise MajorIndexMinsTechnicalBootstrapError(
                     f"candidate writer failed: date={trade_date}, freq={freq}: {error}"
                 ) from error
+            _validate_write_result(
+                frozen_row_counts=frozen_row_counts,
+                trade_date=trade_date,
+                freq=freq,
+                input_row_count=result.input_row_count,
+                technical_row_count=result.technical_row_count,
+                state_row_count=result.state_row_count,
+            )
             day_entries.extend(
                 (
                     _candidate_manifest_entry(
@@ -565,6 +989,8 @@ def build_major_index_mins_technical_candidates(
         report_path,
         {
             "schema_version": 1,
+            "report_type": "full_candidate",
+            "promotion_eligible": True,
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "plan_hash": plan.plan_hash,
             "candidate_lake_root": str(candidate_lake),
@@ -647,6 +1073,13 @@ def promote_major_index_mins_technical_candidates(
         plan_report_path, expected_plan_hash=expected_plan_hash
     )
     candidate_report = _load_json(candidate_report_path, label="candidate report")
+    if (
+        candidate_report.get("report_type") != "full_candidate"
+        or candidate_report.get("promotion_eligible") is not True
+    ):
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "formal promotion only accepts a full candidate report"
+        )
     if (
         candidate_report.get("plan_hash") != plan.plan_hash
         or candidate_report.get("should_stop") is not False
@@ -755,6 +1188,7 @@ __all__ = [
     "MinuteTechnicalBootstrapPlan",
     "build_major_index_mins_technical_bootstrap_plan",
     "build_major_index_mins_technical_candidates",
+    "build_major_index_mins_technical_performance_sample",
     "load_major_index_mins_technical_bootstrap_plan",
     "promote_major_index_mins_technical_candidates",
 ]
