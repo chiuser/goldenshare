@@ -3,6 +3,7 @@
 > 状态：编码前评审稿；本文件不授权业务代码、迁移或生产写入。
 > 对应需求：[sector-overview-benchmark-requirement-v2.md](./sector-overview-benchmark-requirement-v2.md)
 > 对应门禁：[sector-overview-m2-coding-gate-v2.md](./sector-overview-m2-coding-gate-v2.md)
+> 对应低层设计：[sector-overview-low-level-design-v2.md](./sector-overview-low-level-design-v2.md)
 
 ---
 
@@ -105,8 +106,10 @@ lake_console/orchestrator/src/orchestrator/defs/
   wealth_sector_heat_contract.py
 
 src/foundation/
-  models/core/wealth_sector_hierarchy.py
-  models/core/wealth_sector_heat_daily.py
+  models/core_serving/wealth_sector_hierarchy.py
+  models/core_serving/wealth_sector_heat_daily.py
+  models/core_serving/__init__.py
+  models/all_models.py
 
 src/biz/
   api/wealth/market/sector_overview.py
@@ -270,24 +273,25 @@ flowchart LR
 | 来源 | 范围 |
 |---|---|
 | `dc_daily` | 目标日及前 25 个已完成交易日 |
-| `dc_index` | 目标日及前 5 个已完成交易日 |
+| `dc_index` | 目标日 |
 | `dc_member` | 目标日及前 5 个已完成交易日 |
 | `board_moneyflow_dc` | 目标日及前 10 个已完成交易日 |
-| `equity_daily_bar` | 目标日及前 5 个已完成交易日，仅相关成员代码 |
+| `silver_stock_daily` | 目标日及前 5 个已完成交易日，仅相关成员代码 |
 | `equity_limit_list` | 目标日及前 5 个已完成交易日，`limit_type='U'` |
-| `security_serving` | 当前主数据快照；按每个计算日的 `list_date/delist_date` 投影证券资格 |
-| `equity_suspend_d` | 目标日及前 5 个已完成交易日，仅 `suspend_type='S'` |
+| `silver_stock_lifecycle` | 当前全状态 CNY 股票生命周期快照；按每个计算日的 `list_date/delist_date` 投影证券资格 |
+| `silver_stock_suspend_daily` | 目标日及前 5 个已完成交易日，仅 `suspend_type='S'` |
 | 前序 Heat Gold 分区 | 仅用于 `heatDelta1d` 和两日趋势确认；不参与当前五维总分 |
 
 来源读取策略：
 
-1. 已存在的 DG Silver DC 资产优先从正式 Lake 路径读取。
-2. 当前 DG 尚无正式 `board_moneyflow_dc/equity_daily_bar/equity_limit_list/security_serving/equity_suspend_d` Silver 资产；V2 首版通过 `ProdPostgresResource` 做有界只读提取。
+1. 已存在的 DG Silver DC、股票日线、股票生命周期和停牌资产从正式 Lake 路径读取。
+2. 当前 DG 尚无正式等价的 `board_moneyflow_dc/equity_limit_list` Lake 资产；V2 首版只对这两类事实通过 `ProdPostgresResource` 做有界只读提取。
 3. 不为本模块重复接入 Tushare，不在资产中改变来源表。
 4. 每次提取记录日期、行数、查询范围和 source hash。
 5. 持续性在当前有界原始数据窗口内先复算前 5 日 `baseHeatRank`，不依赖任何最终 Heat 分区；前序 Heat Gold 只用于 `heatDelta1d` 和趋势确认。
 6. 不反向依赖 PostgreSQL serving；serving 可从 Gold 独立重建。
-7. 有效池构建顺序固定为：同日成员去重 -> `EQUITY + CNY + L/D + 上市/退市日期边界` -> 同日停牌标记 -> 可报价池 -> 有效行情；禁止用证券代码前缀替代主数据。
+7. 离线有效池构建顺序固定为：同日成员去重 -> `silver_stock_lifecycle.is_cny_stock + list_status IN ('L','D') + 上市/退市日期边界` -> 同日停牌标记 -> 可报价池 -> 有效行情；`stock_basic` 源行天然属于股票证券。Web 详情侧使用 `security_serving` 的 `EQUITY + CNY + L/D + 日期边界` 表达同一语义。两侧以同一 golden cases 对账，禁止用证券代码前缀替代主数据。
+8. `silver_stock_lifecycle` 来自 `stock_basic` 股票域并保留全状态 CNY 股票生命周期，离线侧不再重复读取 prod `security_serving`；Web API 仍只读 PostgreSQL，不允许读取 Lake。
 
 输出路径建议：
 
@@ -323,7 +327,7 @@ flowchart LR
 ### 5.5 调度与回放
 
 1. 仅在目标交易日七类日频来源均完成、证券主数据资格字段可用后触发，不以固定时钟代替 readiness。
-2. 对 prod 来源，sensor 只读核验 `ops.dataset_status_snapshot` 中 `dc_daily/dc_index/dc_member/moneyflow_ind_dc/daily/limit_list_d/suspend_d` 的观测日期和成功时间，并记录 `stock_basic` 当前成功快照证据。
+2. 对 Lake 来源，sensor 核验对应分区 materialization 与 blocking checks；对 prod 来源，只读核验 `ops.dataset_status_snapshot` 中 `moneyflow_ind_dc/limit_list_d` 的观测日期和成功时间。
 3. `limit_list_d` 当日零行时，还必须存在覆盖目标日期且 `status='success'` 的真实 TaskRun；不得把表中无行直接解释为零涨停。
 4. readiness 证据（dataset key、观测日期、TaskRun id、完成时间）写入 materialization metadata，不进入来源业务表事务。
 5. 历史回放不能用“当前最新 snapshot”证明旧日完整性；必须读取日期完整性审计或覆盖该日期的历史成功 TaskRun，无证据的空结果直接阻断。
@@ -679,7 +683,7 @@ V2 切换时删除或彻底替换：
 
 1. 日常单分区 P95 `< 60s`。
 2. 60 日首次回放平均每分区 `< 60s`，失败可续跑。
-3. PostgreSQL 提取必须按日期和成员代码有界；记录行数、耗时和执行计划。
+3. PostgreSQL 资金流和涨停提取必须按日期、板块或成员代码有界；记录行数、耗时和执行计划。
 4. 发布批次规模为概念板块数量级，不做全表删除。
 
 ### 10.3 估算门禁
@@ -744,7 +748,7 @@ V2 切换时删除或彻底替换：
 ### M0：契约与生产只读验收
 
 1. Figma 盘后字段、地域第三视图和有效 A 股池说明已经同步，以正式节点为基线。
-2. 完成地域枚举、证券资格、停牌完成证据、有效池分类和可报价覆盖率的生产只读审计。
+2. 完成地域枚举、Web 侧证券资格/停牌完成证据、离线与 Web 有效池同义性、有效池分类和可报价覆盖率的只读审计。
 3. 冻结 V2 API 样例、Heat 配置和异常码。
 
 ### M1：持久化与 DG
@@ -791,8 +795,8 @@ V2 切换时删除或彻底替换：
 ## 14. 已知风险
 
 1. Figma 已完成盘后、地域和有效池口径同步；后续 Web 实现仍需按同尺寸截图做像素验收。
-2. 六个既有来源已完成目标日审计，但 `security_serving/equity_suspend_d` 的生产有效池分类和历史完成证据仍需在 M0 补验。
-3. 资金流/股票日线/涨停/停牌/证券主数据尚非本热度链的 DG Silver 输入，首版存在对 prod PostgreSQL 有界只读提取依赖。
+2. 六个既有来源已完成目标日审计，但 Web 侧 `security_serving/equity_suspend_d` 的生产有效池分类、历史完成证据，以及它与 Lake 有效池的同义性仍需在 M0 补验。
+3. 当前 DG 没有正式等价的资金流和涨停 Lake 资产，Heat 首版仍对这两类 prod PostgreSQL 来源存在有界只读提取依赖；股票日线、停牌和生命周期已校准为正式 Lake 输入。
 4. Heat V1 是产品首版，60 日回放只能验证稳定性和可解释性，不能证明投资预测能力。
 5. 行业层级当前是当前版本快照；历史 `tradeDate` 请求不会还原历史层级变化。
 
@@ -804,5 +808,6 @@ V2 切换时删除或彻底替换：
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.2 | 2026-08-12 | 按当前代码审计校准模型落点与 Heat 输入：股票日线、停牌、生命周期改用正式 Lake，prod 有界只读收敛为资金流和涨停；增加 LLD 入口 |
 | v2.1 | 2026-08-12 | 增加地域工作台；冻结有效 A 股池、停牌感知可报价池、字段与实现门禁 |
 | v2 | 2026-08-12 | 基于正式 Figma、行业三级产品方案和盘后热度口径形成完整开发技术方案 |

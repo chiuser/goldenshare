@@ -101,6 +101,7 @@ docs/
 - [板块速览标杆需求 v2（盘后三级行业、概念热度与地域排行）](./pages/market-overview/sector-overview-benchmark-requirement-v2.md)
 - [板块速览技术实施方案 v2（仅方案）](./pages/market-overview/sector-overview-implementation-design-v2.md)
 - [板块速览 M2 编码前门禁 v2](./pages/market-overview/sector-overview-m2-coding-gate-v2.md)
+- [板块速览低层设计 v2（代码审计与编码级落点）](./pages/market-overview/sector-overview-low-level-design-v2.md)
 - [新闻速览与个股新闻标杆需求 v1](./pages/market-overview/market-news-benchmark-requirement-v1.md)
 - [新闻速览与个股新闻技术实施方案 v1](./pages/market-overview/market-news-implementation-design-v1.md)
 - [新闻速览与个股新闻 M2 编码前门禁 v1](./pages/market-overview/market-news-m2-coding-gate-v1.md)

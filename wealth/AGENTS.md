@@ -96,7 +96,11 @@ wealth/
 47. `wealth/docs/templates/benchmark-requirement-template.md`
 48. `wealth/docs/templates/implementation-design-template.md`
 49. `wealth/docs/templates/coding-gate-template.md`
-50. 当前目标目录中的更近 `AGENTS.md`（如未来新增）
+50. `wealth/docs/pages/market-overview/sector-overview-benchmark-requirement-v2.md`
+51. `wealth/docs/pages/market-overview/sector-overview-implementation-design-v2.md`
+52. `wealth/docs/pages/market-overview/sector-overview-m2-coding-gate-v2.md`
+53. `wealth/docs/pages/market-overview/sector-overview-low-level-design-v2.md`
+54. 当前目标目录中的更近 `AGENTS.md`（如未来新增）
 
 实现市场总览 homepage 前，还必须额外读取当前 `src/pages/market-overview/**`、`src/features/market-overview/**`、`src/shared/ui/top-market-bar/**` 与 `src/styles/**`。以下原始资料只在需要追溯视觉意图或历史评审时按需读取：
 

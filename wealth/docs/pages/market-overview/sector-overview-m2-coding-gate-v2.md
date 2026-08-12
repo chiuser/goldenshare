@@ -7,6 +7,7 @@
 
 1. [板块速览标杆需求 v2](./sector-overview-benchmark-requirement-v2.md)
 2. [板块速览技术实施方案 v2](./sector-overview-implementation-design-v2.md)
+3. [板块速览低层设计 v2](./sector-overview-low-level-design-v2.md)
 
 ---
 
@@ -359,6 +360,27 @@ interface SectorOverviewRequestV2 {
 9. [ ] 无 mock fallback 冒充 ready。
 10. [ ] 旧 8 列/20 格组件和 fixture 已清零。
 
+### 6.4 固定执行命令与通过标准
+
+```bash
+pytest -q tests/test_extended_models.py tests/web/test_wealth_market_sector_overview_api.py
+
+cd wealth
+npm run test -- market-overview-sector-overview-real-api
+npm run typecheck
+npm run build
+
+cd ../lake_console/orchestrator
+uv run python -m pytest -q tests/test_wealth_sector_overview*.py
+uv run ruff check src/orchestrator/defs tests/test_wealth_sector_overview*.py
+
+cd ../..
+.venv/bin/python scripts/check_docs_integrity.py
+git diff --check
+```
+
+通过标准：全部命令零失败；后端走真实路由，前端禁用 mock fallback；用户可见核心字段、状态过程和异常文案均有断言。`uv run dg check defs` 按 DG 运维门禁单独执行并记录，不得把 definitions 加载验证扩展成 job/sensor/materialize/backfill 或数据写入。
+
 ---
 
 ## 7. 性能验收记录模板
@@ -420,7 +442,56 @@ interface SectorOverviewRequestV2 {
 
 ---
 
-## 10. 签字
+## 10. 通用清单映射矩阵
+
+对应 [wealth 模块交付通用清单 v1](../../system/module-delivery-checklist-v1.md)。“不适用”均给出本模块语义理由，不视为默认继承。
+
+| 通用条目 | 结论 | 本模块落点/理由 | 验收证据 |
+|---|---|---|---|
+| 2.1 三件套先行 | 适用 | benchmark / implementation / coding gate 已存在，LLD 补充编码级落点 | 本文件签字前仍禁止编码 |
+| 2.2 后端事实归一 | 适用 | 后端产出层级、候选、排序、选择、Heat、leader、有效池计数；前端只展示 | 真实 API 字段断言 + adapter 无事实计算测试 |
+| 2.3 模块状态机 | 适用 | `loading/ready/partial/delayed/empty/error/forbidden` 共用骨架，5 秒超时 | 前端状态过程测试 |
+| 2.4 显示与数据语义绑定 | 适用 | `direction/heatLevel/heatTrend/heatStatus` 结构化驱动颜色与标签 | 正负/null/INVALID 可见断言 |
+| 2.5 行为过程测试 | 适用 | 覆盖首次加载、刷新、超时、重试、Tab/排名/三级联动和 stale response | frontend real-api tests |
+| 2.6 文档实现同轮同步 | 适用 | V2 四份文档、API 基线、异常码、测试必须随实现同轮更新 | 提交 diff 清单 |
+| 2.7 模块级渐进替换 | 适用 | 只替换 sectorOverview；`sectors` source 保持 real 并记录前后值；无 mock fallback | source 配置断言 + 首页 smoke |
+| 2.8 契约先行 | 适用 | 本文件第 2/3 节与 LLD 第 6/7 节冻结请求、响应和消费者 | 后端 schema + TS contract test |
+| 2.9 图表坐标与说明 | 适用 | 仅概念 Heat 历史小图，业务域固定 `0..100`；不常驻解释轴文案 | 渲染域断言 + 截图 |
+| 2.10 统计与传输边界 | 适用 | Heat 离线 DuckDB/SQL 计算；API 只读 serving；P95 `<250ms`、5 秒前端超时 | SQL/物化/API benchmark |
+| 2.11 配置生效语义 | 适用 | 唯一 JSON 配置，部署重启生效，非法配置失败关闭，参数变化必须升版本 | config schema 正反测试 |
+| 2.12 通用映射矩阵 | 适用 | 即本节 | 评审签字 |
+| 2.13 例外白名单与语义断言 | 适用 | 本模块当前无例外；Heat 域和状态语义必须可执行断言 | 第 11 节 + chart/status tests |
+| 2.14 图表参数优先级 | 适用 | Heat 历史组件显式 `yMin=0/yMax=100` 时渲染层不得二次改写 | chart prop/render test |
+| 2.15 双图坐标区对齐 | 不适用 | 本模块没有并排且共用坐标语义的双图；三级列表不是图表 | 组件树审查确认无双图 |
+| 2.16 卡片文案单行 | 适用 | 板块名、核心指标、领涨股独立容器，名称/股票名单行省略 + tooltip | 长名称 smoke + 截图 |
+| 2.17 真实 API 双门禁 | 适用 | 后端走真实路由；前端禁用 mock adapter 验证用户可见字段 | 指定真实 API 测试命令与结果 |
+| 2.18 跨模块抽象原则 | 适用 | 逐条映射见下表 | 原则 1..8 均有代码与测试落点 |
+
+### 10.1 跨模块八原则映射
+
+| 原则 | 代码落点 | 测试/门禁 |
+|---|---|---|
+| 1 事实源单一 | Heat/层级 serving + 后端 DTO；adapter 不补事实 | leader 来源、null 不补 0、旧字段清零 |
+| 2 契约先行冻结 | V2 schema + TS 判别式 workspace | 三视图真实 API contract |
+| 3 配置一致性 | `wealth_sector_heat.cn_a.v1.json` 唯一消费者为 Heat contract | config canonical hash 与非法配置负例 |
+| 4 默认行为显式 | 默认 Tab/rank/selection、显式日期、Heat 未就绪、403 均已定义 | 默认与不回退测试 |
+| 5 排序筛选确定 | 固定主排序、`NULLS LAST`、`sectorCode ASC`；生产枚举精确过滤 | 同分、空值、31 地域、Top5/Top20 |
+| 6 性能预算前置 | serving 预计算、SQL 往返 `<=8`、API/离线预算 | 同机房 API 与 60 日回放记录 |
+| 7 可观测异常标准化 | `SO_*` registry + structured debug；DG reason/hash/check metadata | 每个异常码和 debug 分层测试 |
+| 8 用户可见结果测试 | 名称、主指标、leader、Heat、成员、层级/地域均为主断言 | 后端真实路由 + 前端真实 API 双门禁 |
+
+---
+
+## 11. 模块例外白名单
+
+当前例外白名单：**无**。
+
+1. 第 10 节标为“不适用”的双图规则，是因为本模块不存在对应 UI 结构，不构成偏离规则。
+2. 如实现阶段需要放宽 Heat `0..100` 坐标域、用前端计算 Heat 标签、允许 mock fallback、放宽来源同日或其它硬口径，必须先新增例外条目并回到产品/技术评审；不得直接编码。
+
+---
+
+## 12. 签字
 
 | 角色 | 结论 | 姓名/日期 |
 |---|---|---|
@@ -435,9 +506,10 @@ interface SectorOverviewRequestV2 {
 
 ---
 
-## 11. 版本记录
+## 13. 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.2 | 2026-08-12 | 增加 LLD 入口、通用清单逐项映射、跨模块八原则映射与“无例外”白名单 |
 | v2.1 | 2026-08-12 | 增加地域第三视图；冻结有效 A 股成分池、停牌感知可报价池和对应测试门禁 |
 | v2 | 2026-08-12 | 冻结行业三级联动、概念盘后热度、V2 API、数据链和发布门禁 |
