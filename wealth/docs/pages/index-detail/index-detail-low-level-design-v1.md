@@ -57,7 +57,7 @@ M0 技术产物已完成，M1 后端已落地：
 5. 已新增独立 `page-init/kline/weights` schema、query、mapper、service 与正式路由；未修改股票详情、主要指数卡片或 Quote trend DTO。
 6. M1 生产只读复验显示 9 个指数当前有 630 根 factor（自 2024-01-02），A500 当前有 455 根（自 2024-09-23）；该结果只记录审计时点，不进入任何 code/date 特例。
 
-M5-A 不再以 Gold 物理文件作为 Silver K 线前置：当前正式 Silver 七频率已通过物理与性能只读审计；正在修改的 `major_index_mins_technical` 资产、writer、bootstrap 和测试属于独立工作流，本轮不得触碰。真实 Gold、Definitions 中 70 个 checks、物理文件和 Silver 时间键对齐在 M5-B 统一验收。
+M5-A 不再以 Gold 物理文件作为 Silver K 线前置：当前正式 Silver 七频率已通过物理与性能只读审计。`major_index_mins_technical` 已稳定提交，Definitions 已发现七频率 14 个资产和 70 个 blocking checks；真实 Gold 物理文件、Silver 时间键对齐、性能与前端真实 provider 切换仍在 M5-B 验收。
 
 ---
 
@@ -1223,6 +1223,8 @@ Gold 列：`ts_code, freq, trade_date, trade_time, ma_5..ma_250, boll_mid/upper/
 
 Web reader不读取 `major_index_mins_technical_state`，也不 import orchestrator 的 writer/asset/check。
 
+Orchestrator 与 Web Reader 之间不建立运行时 import。仓库根静态合同门禁直接解析两侧源文件，并逐项比较七频率、23 个技术指标列名与类型、`params_key` 和 `indicator_version`；任何单边升级都会让测试失败，要求先完成显式合同评审。
+
 ### 16.3 Reader 结构
 
 `major_index_mins_contract.py` 冻结 Web 只读端需要的：
@@ -1346,6 +1348,8 @@ tests/test_index_detail_field_mapper.py
 tests/test_index_weight_contribution_builder.py
 tests/test_index_detail_status_resolver.py
 tests/test_major_index_mins_reader.py            # M5
+tests/test_major_index_mins_contract_alignment.py # M5-B contract gate
+tests/test_index_minute_gold_audit.py             # M5-B read-only acceptance
 ```
 
 覆盖：
@@ -1357,6 +1361,8 @@ tests/test_major_index_mins_reader.py            # M5
 5. status 优先级和 reason。
 6. breadth 等式；B 股不进入 total/missing；A 股 daily 优先；精确日停牌进入 matched/flat；真实 missing 不进 flat。
 7. minute path 越界、非法 cursor、schema/type、partition/date 不一致。
+8. Orchestrator/Web Reader 七频率、23 列、参数键和版本一致，且生产运行时无 Orchestrator import。
+9. 正式 Gold 缺失输出 `SOURCE_NOT_READY`；fixture 就绪后验证分区覆盖、唯一键、Silver 对齐和 Query Service 序列化性能。
 
 ### 19.2 后端真实 API fixture
 
@@ -1470,7 +1476,8 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 | M3（已完成） | route、10 卡导航、Loaded、三 Tab、trend primitive | Loaded 三画板、真实 API、2224 行滚动与 9 code 零趋势请求通过 | index detail loaded |
 | M4（已完成） | 五态、404、Delayed、模块 retry | 状态测试、逐画板截图、真实 Partial 与 1600×1200 尺寸验收通过 | index detail states |
 | M5-A（已完成） | local reader/router/minute chart | Silver 合同/性能、local/prod 矩阵、可见 Mock 指标 | index local minutes |
-| M5-B | Gold 对接与删除 Mock | 70 checks 注册、Gold 物理覆盖/对齐/性能、前端真实 provider | index minute indicators |
+| M5-B 准备（已完成） | 70 checks 注册、跨边界合同门禁、七频率异常 fixture、只读正式验收入口 | 静态合同一致；正式 Gold 缺失时明确 `SOURCE_NOT_READY` | index minute indicators readiness |
+| M5-B 最终切换 | Gold 正式验收、真实 provider、删除 Mock | Gold 物理覆盖/全量对齐/性能、10000 根和前端真实 provider | index minute indicators |
 | M6 | 全回归与 prod smoke | prod 仅日线、无分钟 route | release verification |
 
 每个里程碑只处理一个清晰目标。M2 必须在 M3 前独立验收，M5 不得成为 M1-M4 的隐含依赖。
@@ -1513,7 +1520,7 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 | 上证当前 40 个 B 股源行和 2 个停牌 A 股缺日线 | 旧实现误报 42 missing/PARTIAL | B 股不进入页面集合；停牌 A 股按 flat，当前验收为 total/matched 2184、648/51/1485、missing 0 |
 | shared chart 改动股票 | M2 已拆为 477 行 shared engine、362 行 stock adapter，并补 null-safe series | 已通过独立组件测试、全量 Wealth 回归和 1600×1200 前后尺寸对账；M3 只新增 index adapter/primitive |
 | Figma 旧节点冲突 | `425:190` 仍有旧字段 | 永久排除出金标 |
-| Gold minute 实现尚在脏工作树 | 资产/writer/bootstrap/测试正在独立开发，正式文件未形成；70 checks 当前未被 Definitions 发现 | M5-A 隔离 Mock，不触碰该工作流；M5-B 提交稳定后做注册、物理、对齐与性能验收 |
+| Gold minute 正式物理文件尚未形成 | 资产/writer/bootstrap 已稳定提交，Definitions 已发现 14 个资产与 70 个 checks；正式 technical/state 根当前仍未形成 | M5-B 准备门禁已完成；正式文件形成后运行只读覆盖、全量对齐、默认性能和 10000 根验收，再切换前端 |
 | 北证50无 Silver | 当前合同显式排除 | local 返回 Empty/Delayed，不 fallback |
 | shared capability 错误码含 `SM_` | 历史股票命名 | 只作启动错误；不作为 index HTTP 语义复用 |
 
@@ -1527,8 +1534,11 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 6. [x] shared chart M2 的股票截图/测试基线已保存；1600×1200 前后截图及结构量测位于本机验证目录 `/private/tmp/goldenshare-index-detail-m2/`。
 7. [x] Figma `414:447` 权重行高已从节点属性实测为 40px；实现使用 400px 十行视窗。
 8. [x] M5-A 正式 Silver 合同与物理数据验收通过；Gold 不作为 bars 前置。
-9. [ ] M5-B 前 Gold 70 checks 注册、正式物理文件和 Silver 时间键对齐验收通过。
-10. [x] M5-A 正式 Silver 七频率性能、10000 根响应、local/prod 路由、前端缓存/竞态与 1600×1200 浏览器验收通过。
+9. [x] M5-B 前 Gold 70 checks 已由 Definitions 正确发现；跨边界合同和 fixture 防漂移门禁已建立。
+10. [ ] M5-B 正式 Gold 物理文件、Silver 时间键全量对齐、默认 500 根性能和 10000 根响应验收通过。
+11. [x] M5-A 正式 Silver 七频率性能、10000 根响应、local/prod 路由、前端缓存/竞态与 1600×1200 浏览器验收通过。
+
+2026-08-12 M5-B 准备批次执行结果：分钟 Reader/合同/API/验收工具相关 42 项测试通过，子系统边界 14 项通过，Ruff、文档完整性和 diff 检查通过。正式只读预检观测到 Silver 七频率各 4,276 个分区、Gold technical 七频率均 0 个分区，因此状态保持 `SOURCE_NOT_READY / IM_SOURCE_NOT_READY`，性能矩阵尚未执行，也不得被标记为通过。
 
 ---
 
@@ -1547,6 +1557,7 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.12 | 2026-08-12 | 完成 M5-B 准备：确认 Definitions 发现 14 个 Gold 资产与 70 个 checks，冻结 Orchestrator/Web Reader 静态合同门禁、七频率异常 fixture 和正式 Gold 只读验收入口；物理覆盖、对齐、性能及前端切换仍待正式文件 | Codex |
 | v1.11 | 2026-08-12 | 完成 A 股过滤、daily 优先与停牌 fallback 查询实现；22 项指数 API、83 项后端相关、108 项 Wealth 回归通过；最终上证为 2184/648/51/1485/0，页面 READY，服务链与 payload 通过门禁 | Codex |
 | v1.10 | 2026-08-12 | 收紧成分口径：权重与涨跌统计仅消费 Security 事实字段认定的 A 股；B 股不进入 rows/coverage/missing；A 股精确日 daily 优先，缺 daily 且有停牌证据时按 flat、贡献 0；补 SQL、异常和负向测试门禁 | Codex |
 | v1.9 | 2026-08-11 | 完成 M5-A：按日分区正式 Silver Reader、独立分钟 DTO/API、统一 capability、七频率 controller/cache、Mock v0 provider、共享 minute 时间模式、Tooltip/局部空态；正式 P95、10000 根与浏览器尺寸证据回填 | Codex |

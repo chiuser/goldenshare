@@ -534,10 +534,14 @@ WHERE w.index_code = :index_code
 ### 9.4 M5-A 已完成：本地分钟
 
 1. [x] Silver 七频率物理文件、schema、最新时间键和当前 UI 九个可用 code 通过只读审计。
-2. [ ] M5-B：Gold 指标与 Silver 时间键无重复、可对齐，Definitions 发现全部 70 checks。
-3. [x] `899050.BJ` 明确返回分钟模块 EMPTY，不 fallback。
-4. [x] API 只读正式 Lake `/Volumes/datasource/data_lake`，不读旧 Lake，不读 staging。
-5. [x] 七频率各 10 次、默认 500 根的正式只读 P95 为 257–321ms；10000 根为 2,217,412 bytes，游标有效且低于 5MB。
+2. [x] M5-B 准备：Definitions 已发现七频率 14 个 Gold 资产及全部 70 个 blocking checks。
+3. [x] M5-B 准备：Orchestrator/Web Reader 七频率、23 列、参数键和版本由静态合同门禁锁定；`/minute-indicators` fixture 覆盖七频率、错误版本、重复时间键和 Gold 缺失隔离。
+4. [ ] M5-B 最终验收：正式 Gold 物理覆盖、Silver 时间键无重复且全量可对齐，默认 500 根 P95 与 10000 根响应门禁通过。
+5. [x] `899050.BJ` 明确返回分钟模块 EMPTY，不 fallback。
+6. [x] API 只读正式 Lake `/Volumes/datasource/data_lake`，不读旧 Lake，不读 staging。
+7. [x] 七频率各 10 次、默认 500 根的正式 Silver 只读 P95 为 257–321ms；10000 根为 2,217,412 bytes，游标有效且低于 5MB。
+
+M5-B 准备批次验证记录（2026-08-12）：42 项分钟相关测试、14 项子系统边界测试、Ruff、文档完整性和 diff 检查均通过。正式只读预检为 Silver 每频率 4,276 个分区、Gold technical 每频率 0 个分区，正确返回 `SOURCE_NOT_READY / IM_SOURCE_NOT_READY`；正式 Gold 性能仍未验收。
 
 ## 10. 性能门禁
 
@@ -621,6 +625,7 @@ cd wealth && npm run build
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.16 | 2026-08-12 | 将 M5-B Definitions 70 checks 标记为已完成，并拆分正式 Gold 物理覆盖/对齐/性能待验项；登记跨边界合同、七频率异常 fixture 与只读验收入口门禁 | Codex |
 | v1.15 | 2026-08-12 | 完成 A 股集合与停牌解析编码门禁：查询、异常、合同测试、83 项后端相关、108 项 Wealth、生产只读性能和真实页面 READY 验收全部通过 | Codex |
 | v1.14 | 2026-08-12 | 冻结 A 股成分集合与停牌解析门禁：B 股不进入 rows/coverage/missing；daily 优先，缺 daily 且有精确日停牌证据时按 flat、贡献 0；补生产只读样本、SQL 和负向测试要求，DTO 提升至 1.2.0 | Codex |
 | v1.13 | 2026-08-11 | 完成 M5-A 门禁：Reader/API/本地路由、七频率、Mock v0 标识、缓存与旧响应隔离、北证50局部空态、Tooltip、正式 Silver 性能与 1600×1200 无溢出验收通过；Gold 门禁继续保留 | Codex |

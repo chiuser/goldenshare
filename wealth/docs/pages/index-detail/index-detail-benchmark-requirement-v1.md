@@ -280,6 +280,15 @@ GET /api/v1/wealth/market/index-detail/minute-indicators
 
 M5-A 的 1.5s 目标只验收真实 Silver bars；前端 Mock 指标不作为 Gold 性能或可用性证明。最大 10000 根另做 5MB 响应与 5000 分区扫描上界验收。
 
+M5-B 正式 Gold 验收使用同一 1.5s P95 目标、5s 硬门禁，并固定分成两层：
+
+1. `--runs 10`：七频率最新共同分区做 schema、唯一键、Silver/Gold 时间键对齐，并对页面可用指数执行 500 根 Query Service + DTO 序列化性能矩阵。
+2. `--full-alignment --include-max`：逐个共同分区执行全量时间键对齐，并对代表性的 1 分钟序列执行 10000 根响应大小、`hasMore/nextCursor` 和 5MB 门禁；其余频率继续受 5000 分区扫描上界保护。
+3. 正式 Gold 根或任一频率无文件时必须报告 `SOURCE_NOT_READY / IM_SOURCE_NOT_READY`，不得产生性能通过结论。
+4. 验收工具固定只读 `/Volumes/datasource/data_lake`，不执行 Dagster，不读取旧 Lake/staging，不写文件或运行状态。
+
+2026-08-12 首次执行正式只读预检：Silver 七频率各 4,276 个分区，Gold technical 七频率均 0 个分区；结果为 `SOURCE_NOT_READY / IM_SOURCE_NOT_READY`，性能阶段按门禁未启动。该记录只描述当日物理事实，正式文件形成后必须重跑，不能复用为后续结论。
+
 ## 9. 验收标准
 
 1. 10 张主要指数卡都能进入正确路由，浏览器前进/后退可用。
@@ -304,6 +313,7 @@ M5-A 的 1.5s 目标只验收真实 Silver bars；前端 Mock 指标不作为 Go
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.15 | 2026-08-12 | 增加 M5-B 正式 Gold 两层只读验收矩阵：七频率默认 500 根、全分区时间键对齐和 10000 根响应门禁；缺文件统一报告 SOURCE_NOT_READY | Codex |
 | v1.14 | 2026-08-12 | 成分范围收敛为 Security 事实字段识别的 A 股；B 股不进入涨跌统计、权重列表或 missing；确认停牌的 A 股按 0%/FLAT 参与涨跌统计和贡献，真实缺失才触发 PARTIAL；回填 2026-08-11 生产复算证据 | Codex |
 | v1.13 | 2026-08-11 | 完成 M5-A：正式 Silver 七频率、本地条件路由、北证50局部空态、开发态 Mock 指标、共享分钟时间模式、缓存/竞态与 1600×1200 浏览器验收通过；M5-B Gold 仍未完成 | Codex |
 | v1.12 | 2026-08-11 | 冻结 M5-A：正式 Silver 决定本地分钟 K 线能力；Gold 指标暂用可见开发态 Mock 且不作 fallback/验收证据；真实 Gold、70 checks 与物理对齐保留 M5-B | Codex |

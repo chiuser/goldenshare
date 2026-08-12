@@ -20,8 +20,11 @@ from src.foundation.clients.local_lake.major_index_mins_reader import IndexMinut
 from src.foundation.config.local_minute_capability import LocalMinuteCapability
 
 
-def _write_silver(root: Path) -> None:
-    target = root / "silver/quote/major_index_mins/freq=5min/trade_date=2026-08-11/part-000.parquet"
+FROZEN_MINUTE_FREQUENCIES = (1, 5, 15, 30, 60, 90, 120)
+
+
+def _write_silver(root: Path, *, freq: int = 5) -> None:
+    target = root / f"silver/quote/major_index_mins/freq={freq}min/trade_date=2026-08-11/part-000.parquet"
     target.parent.mkdir(parents=True)
     connection = duckdb.connect(database=":memory:")
     try:
@@ -34,20 +37,26 @@ def _write_silver(root: Path) -> None:
             )
             """
         )
-        connection.execute(
-            """
-            INSERT INTO bars VALUES
-              ('000001.SH', '5min', TIMESTAMP '2026-08-11 09:30:00', 1, 1.1, 1.2, .9, 10, 100, 'SSE', 1.05),
-              ('000001.SH', '5min', TIMESTAMP '2026-08-11 09:35:00', 1.1, 1.2, 1.3, 1, 11, 110, 'SSE', 1.15)
-            """
+        connection.executemany(
+            "INSERT INTO bars VALUES (?, ?, CAST(? AS TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                ("000001.SH", f"{freq}min", "2026-08-11 09:30:00", 1, 1.1, 1.2, .9, 10, 100, "SSE", 1.05),
+                ("000001.SH", f"{freq}min", "2026-08-11 09:35:00", 1.1, 1.2, 1.3, 1, 11, 110, "SSE", 1.15),
+            ],
         )
         connection.execute("COPY bars TO ? (FORMAT PARQUET)", [str(target)])
     finally:
         connection.close()
 
 
-def _write_gold(root: Path) -> None:
-    target = root / "gold/indicator/major_index_mins_technical/freq=5/trade_date=2026-08-11/part-000.parquet"
+def _write_gold(
+    root: Path,
+    *,
+    freq: int = 5,
+    indicator_version: int = 1,
+    duplicate_time_key: bool = False,
+) -> None:
+    target = root / f"gold/indicator/major_index_mins_technical/freq={freq}/trade_date=2026-08-11/part-000.parquet"
     target.parent.mkdir(parents=True)
     connection = duckdb.connect(database=":memory:")
     try:
@@ -67,13 +76,16 @@ def _write_gold(root: Path) -> None:
         connection.execute(
             """
             INSERT INTO indicators VALUES (
-              '000001.SH', 5, DATE '2026-08-11', TIMESTAMP '2026-08-11 09:35:00',
+              '000001.SH', ?, DATE '2026-08-11', TIMESTAMP '2026-08-11 09:35:00',
               1, 2, 3, 4, 5, 6, NULL, 3, 4, 2, .1, .2, -.2,
               50, 45, 60, 120,
-              'ma_5_10_20_30_60_90_250__boll_20_2__macd_12_26_9__kdj_9_3_3', 1
+              'ma_5_10_20_30_60_90_250__boll_20_2__macd_12_26_9__kdj_9_3_3', ?
             )
-            """
+            """,
+            [freq, indicator_version],
         )
+        if duplicate_time_key:
+            connection.execute("INSERT INTO indicators SELECT * FROM indicators")
         connection.execute("COPY indicators TO ? (FORMAT PARQUET)", [str(target)])
     finally:
         connection.close()
@@ -135,6 +147,62 @@ def test_index_indicator_api_freezes_gold_dto_and_missing_gold_does_not_affect_b
     assert item["ma250"] is None
     assert item["observationCount"] == 120
     assert item["indicatorVersion"] == 1
+
+
+@pytest.mark.parametrize("freq", FROZEN_MINUTE_FREQUENCIES)
+def test_index_indicator_api_supports_all_frozen_frequencies(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    freq: int,
+) -> None:
+    _write_silver(tmp_path, freq=freq)
+    _write_gold(tmp_path, freq=freq)
+
+    with _client(monkeypatch, tmp_path) as client:
+        response = client.get(
+            "/wealth/market/index-detail/minute-indicators",
+            params={
+                "tsCode": "000001.SH",
+                "freq": str(freq),
+                "endDate": "2026-08-11",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["freq"] == freq
+    assert payload["dataStatus"]["status"] == "READY"
+    assert payload["items"][0]["freq"] == freq
+    assert payload["items"][0]["indicatorVersion"] == 1
+
+
+@pytest.mark.parametrize("invalid_fixture", ["version", "duplicate_time_key"])
+def test_invalid_gold_contract_does_not_affect_silver_bars(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    invalid_fixture: str,
+) -> None:
+    _write_silver(tmp_path)
+    _write_gold(
+        tmp_path,
+        indicator_version=2 if invalid_fixture == "version" else 1,
+        duplicate_time_key=invalid_fixture == "duplicate_time_key",
+    )
+
+    with _client(monkeypatch, tmp_path) as client:
+        indicators = client.get(
+            "/wealth/market/index-detail/minute-indicators",
+            params={"tsCode": "000001.SH", "freq": "5", "endDate": "2026-08-11"},
+        )
+        bars = client.get(
+            "/wealth/market/index-detail/minutes",
+            params={"tsCode": "000001.SH", "freq": "5", "endDate": "2026-08-11"},
+        )
+
+    assert indicators.status_code == 500
+    assert indicators.json()["code"] == "IM_SOURCE_CONTRACT_INVALID"
+    assert bars.status_code == 200
+    assert bars.json()["dataStatus"]["status"] == "READY"
 
 
 def test_index_minute_api_enforces_universe_and_bse_empty(

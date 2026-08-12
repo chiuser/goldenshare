@@ -1,7 +1,7 @@
 # 指数详情本地分钟 API / DTO 合同 v1
 
-> 版本：`1.0.1`
-> 状态：M5-A 已实现并通过验证；Silver bars 使用正式数据，Gold indicators 的正式数据接入保留到 M5-B。
+> 版本：`1.0.2`
+> 状态：M5-A 已实现并通过验证；M5-B 的 70 个 Definitions checks 注册、跨边界合同防漂移门禁和正式验收入口已完成，Gold indicators 的物理覆盖、对齐、性能与前端切换仍待正式文件就绪后验收。
 > 命名空间：`/api/v1/wealth/market/index-detail/*`
 
 ## 1. 边界
@@ -150,9 +150,34 @@ MA/BOLL warm-up 不足时保持 null；MACD/KDJ 由 Gold 合同负责，不由 B
 3. Mock 成功生成时页面必须显示“模拟指标”；空数据或 Mock 生成失败后的 bars-only PARTIAL 不得显示该标识。Mock 不改变 bars 的 READY/EMPTY/DELAYED 状态。
 4. M5-B 真实 Gold 验收通过后删除 Mock provider、标识和测试，切换到本合同的 indicator endpoint，不保留双源兼容。
 
-## 6. 版本记录
+## 6. M5-B 准备状态与正式验收边界
+
+1. Dagster Definitions 已能发现七频率 14 个 Gold 资产及 70 个 blocking checks：技术指标 42 个、状态 28 个。该项已经完成，不再与物理数据就绪状态绑定。
+2. Web Reader 与 Orchestrator 的冻结合同必须由静态门禁逐项比较七频率、23 个技术指标列名与类型、`params_key` 和 `indicator_version`；测试只能读取 Orchestrator 源文件，不得让生产 Web 运行时 import Dagster 项目。
+3. `/minute-indicators` 的临时 Parquet fixture 必须覆盖七频率、版本错误、重复时间键和 Gold 缺失隔离。Gold 缺失或损坏不能影响同窗口 Silver bars 的读取结果。
+4. 正式验收入口为：
+
+```bash
+uv run python -m src.scripts.audit_index_minute_gold --runs 10
+uv run python -m src.scripts.audit_index_minute_gold --runs 10 --full-alignment --include-max
+```
+
+第一条执行七频率最新共同分区的合同、唯一键、Silver/Gold 时间键对齐和默认 500 根性能矩阵；第二条显式执行全分区对齐及 10000 根响应大小/游标验收。两条命令都固定只读正式 `/Volumes/datasource/data_lake`，不接收旧 Lake、staging 或自定义根目录。
+
+5. 正式 Gold 根或任一频率尚无文件时，工具必须输出 `status=SOURCE_NOT_READY`、`code=IM_SOURCE_NOT_READY`，不得把缺失报告为通过，也不得触发 materialize、backfill、sensor、runless event 或任何 Lake 写入。
+6. 只有正式 Gold 物理覆盖、全量时间键对齐、默认性能和 10000 根门禁全部通过后，前端才可一次性切换真实 provider 并删除 Mock；准备工作完成不等于 M5-B 完成。
+
+### 6.1 2026-08-12 准备批次验收记录
+
+1. 静态合同与 API fixture 共 42 项通过；覆盖七频率、错误版本、重复时间键、Gold 缺失隔离和现有 Reader 回归。
+2. 子系统边界测试 14 项通过；生产 `src/**` 未增加 Orchestrator 运行时依赖，依赖矩阵不变。
+3. 文档完整性、Ruff 和 `git diff --check` 通过。
+4. 正式只读预检显示 Silver 七频率各有 4,276 个分区，Gold technical 七频率均为 0 个分区；验收工具按合同返回 `SOURCE_NOT_READY / IM_SOURCE_NOT_READY`，未执行性能矩阵，未产生任何写入。
+
+## 7. 版本记录
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| 1.0.2 | 2026-08-12 | 记录 70 checks 注册已完成，冻结跨边界合同静态门禁、七频率异常 fixture 与只读正式 Gold 验收入口；物理覆盖、对齐、性能和前端切换继续留在 M5-B | Codex |
 | 1.0.1 | 2026-08-11 | 回填 M5-A 实现状态与验收：七频率、cursor/5MB/5000 分区门禁、正式 Silver 性能、北证50 EMPTY、开发态 Mock v0 与生产 404 均通过 | Codex |
 | 1.0.0 | 2026-08-11 | 冻结 local-only 双接口、Silver bars、Gold indicators、状态/异常/cursor/5MB 边界与 M5-A 开发态 Mock 例外 | Codex |

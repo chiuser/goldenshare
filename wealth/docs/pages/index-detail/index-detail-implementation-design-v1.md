@@ -612,8 +612,11 @@ cd wealth && npm run build
 | M3 页面 Loaded（已完成） | 路由、10 卡导航、日线、三 tab、贡献点、趋势 overlay | Figma Loaded 验收、真实 API 浏览器验收、全量回归通过 |
 | M4 异常状态（已完成） | 按五个 Figma 根画板实现 loading/empty/error/partial/forbidden，并补 404/delayed/module 状态变体 | 状态测试、真实浏览器逐状态截图与尺寸验收通过 |
 | M5-A 本地分钟（已完成） | reader、条件路由、真实 Silver K 线、可见开发态 Mock 指标 | Silver 数据/性能、local/prod 与视觉门禁通过 |
-| M5-B Gold 对接 | 真实 indicators、删除 Mock | 70 checks、Gold 物理覆盖/对齐/性能通过 |
+| M5-B 准备（已完成） | 70 checks 注册、跨边界合同门禁、七频率异常 fixture、只读正式验收入口 | Definitions 发现 14 个资产/70 个 checks；合同一致；缺正式 Gold 时明确 `SOURCE_NOT_READY` |
+| M5-B 最终切换 | 真实 indicators、删除 Mock | Gold 物理覆盖/全量对齐/性能与 10000 根门禁通过 |
 | M6 发布验收 | prod 日线能力、分钟路由不存在、全回归 | 构建/测试/生产 smoke 通过 |
+
+M5-B 准备批次已于 2026-08-12 验收：42 项分钟相关测试、14 项依赖边界测试及静态检查通过；正式只读预检确认 Silver 七频率各 4,276 个分区、Gold technical 七频率 0 个分区，因此只记录 `SOURCE_NOT_READY / IM_SOURCE_NOT_READY`，不形成 Gold 性能通过结论。
 
 技术结论 API 与九转 API 不属于 M0-M6，分别立项后再扩展 DTO 与 UI。
 
@@ -649,6 +652,7 @@ cd wealth && npm run build
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.15 | 2026-08-12 | 完成 M5-B 准备：确认 70 checks 已注册，增加 Orchestrator/Web Reader 合同防漂移、七频率错误 fixture 与正式 Gold 只读验收入口；正式文件验收和前端切换继续待办 | Codex |
 | v1.14 | 2026-08-12 | 完成 A 股成分范围与停牌解析实现；回填 10 指数最终服务链 P95、上证最终 SQL 计划、2184 行 payload 及真实页面 READY 验收 | Codex |
 | v1.13 | 2026-08-12 | 统一 page-init/weights 的 A 股成分范围；B 股排除在 rows/coverage/missing 外；确认停牌按 0%/FLAT 参与 breadth 与贡献，真实 A 股缺失才触发 PARTIAL；DTO 提升为 1.2.0 | Codex |
 | v1.12 | 2026-08-11 | 完成 M5-A：新增正式 Silver Reader、独立双接口与错误映射、统一 capability 路由、本地七频率 controller/cache/竞态隔离、Mock v0 provider、共享分钟图表与局部状态；正式只读 P95、10000 根、浏览器和回归通过 | Codex |
