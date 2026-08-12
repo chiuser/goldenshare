@@ -771,7 +771,7 @@ gold/indicator/major_index_mins_technical_state/
           <tr><td>M4 日级自动化</td><td><strong>已完成：</strong>Raw/Silver layer-isolated jobs、当前开放日 partition sensor、Raw/Silver sensors、单日物理文件 readiness、单页 source probe 与 v1 compact cursor。</td><td>当前日单 tick 最多 1 分区，三个 sensor 默认 STOPPED；已有坏文件 fail closed；隔离测试与静态门禁通过，未在正式 instance 启用、未写正式 Lake。</td></tr>
           <tr><td>M5 分钟指标核心</td><td><strong>已完成：</strong>DuckDB 公式、technical/state writers、路径、逐代码 seed、严格前态与双文件提交协议。</td><td>公式金样本、20 日递推、warm-up、无未来数据、partial target 和严格前态门禁均已验证。</td></tr>
           <tr><td>M6 分钟资产自动化</td><td><strong>已完成并修复注册门禁：</strong>Gold assets、70 个 blocking checks、daily job、run-status sensor 与 readiness 已实现；2026-08-12 已将 check 集合从 tuple 收敛为 Dagster 可发现的单一 list，并补真实 Definitions/Job 门禁。</td><td>项目真实 Definitions 精确注册 14 assets、42 technical checks、28 state checks，daily job 精确选择 14 assets + 70 checks；sensor 保持 STOPPED，未访问 Dagster Instance 或正式 Lake。</td></tr>
-          <tr><td>M7 历史 Bootstrap</td><td><strong>工具与测试、idx factor source staging 与 Raw/Silver candidate 已完成：</strong>两个资产族 frozen plan、source/candidate、audit、promotion、sample/apply/post-audit events 工具及阶段确认 CLI 已落地。</td><td><code>plan_hash=f7e7fca7...</code>：source staging 为 11 指数、13 页、45,772 行；candidate 为 6,445 日、Raw/Silver 各 6,445 文件和 41,355 行，物理对账通过。正式 Lake、分区和 events 未执行，仍按后续阶段分别申请批准。</td></tr>
+          <tr><td>M7 历史 Bootstrap</td><td><strong>工具与测试、idx factor source staging、Raw/Silver candidate、正式 Lake promotion、专属动态分区注册及全量 runless events 已完成：</strong>两个资产族 frozen plan、source/candidate、audit、promotion、sample/apply/post-audit events 工具及阶段确认 CLI 已落地；idx factor 全量 apply 强制使用 checkpoint 文件，每 1,000 个事件原子记录进度。</td><td><code>plan_hash=f7e7fca7...</code>：source staging 为 11 指数、13 页、45,772 行；<code>idx_factor_pro</code> 正式 Lake 覆盖 2000-01-04..2026-08-07 共 6,445 日，Raw/Silver 各 6,445 文件和 41,355 行，12,890 个文件全部原子提升且正式路径全量物理对账通过；<code>cn_major_index_factor_trade_days</code> 已精确注册 6,445 个日期，缺失 0、范围外 0。2026-08-07 sample 先补 2 个 materialization events 和 8 个 check events；全量 apply 随后新增 12,888 个 materialization events 和 152 个 check events，并幂等跳过 sample 的 2 + 8。post-audit 与独立 instance 对账均确认 Raw/Silver 各 6,445 个 materialized partitions、剩余事件 0，最近 20 个交易日 Raw 5 类与 Silver 3 类 checks 全部关联最新 materialization 且通过。分钟 technical/state 正式文件及其 events 未执行，仍按后续阶段分别申请批准。</td></tr>
           <tr><td>M8 收口</td><td>Definitions、拓扑/运行文档、测试矩阵、开发模板 checklist 对账。</td><td>代码、Catalog、文档、UI 描述无漂移。</td></tr>
         </tbody>
       </table>
@@ -798,10 +798,10 @@ gold/indicator/major_index_mins_technical_state/
         <thead><tr><th>阶段</th><th>证据</th><th>状态</th></tr></thead>
         <tbody>
           <tr><td><code>idx_factor_pro</code> 单日</td><td>2026-08-07 源端 3772 行，active seed 11 行，Raw 11 行，missing/extra 0，主键 11，Raw 临时文件 19120 bytes；同一 Raw 经纯 cast 生成 Silver 11 行、11 代码、89 字段，key/数值/NULL 差异 0，Silver 临时文件 19793 bytes。</td><td>M2/M3 已通过；仅系统临时目录验收，正式 Lake 执行未授权</td></tr>
-          <tr><td><code>idx_factor_pro</code> 历史分页</td><td>长历史/短历史代码的页数、offset、短页终止、source/Raw key parity、日期重排与压缩率。</td><td>工具与 fake source 正负测试已完成；真实 Tushare source staging 未执行</td></tr>
+          <tr><td><code>idx_factor_pro</code> 历史分页</td><td>长历史/短历史代码的页数、offset、短页终止、source/Raw key parity、日期重排与压缩率。</td><td>真实 Tushare source staging 已完成：11 指数、13 页、45,772 行；正式 Raw/Silver promotion 与物理对账已完成</td></tr>
           <tr><td>分钟指标单日</td><td>同日 Silver 有效代码 × 批准频率 input/output parity、state continuity；当前日期预期 10 个，历史按合同可少于 10 个。</td><td>M5/M7 本地临时目录测试已完成；正式 Lake 未执行</td></tr>
           <tr><td>分钟指标小批</td><td>20 日递推与一次性全段计算结果一致。</td><td>M5 代码测试已完成；M7 正式候选性能样本未执行</td></tr>
-          <tr><td>历史全量</td><td>日期/文件/行数/schema/check/event inventory 和失败恢复报告。</td><td>需另行批准</td></tr>
+          <tr><td>历史全量</td><td>日期/文件/行数/schema/check/event inventory 和失败恢复报告。</td><td><code>idx_factor_pro</code> 正式文件、专属动态分区和全量 events apply/post-audit 已完成；分钟 technical/state 与其 events 仍需另行批准</td></tr>
         </tbody>
       </table>
     </div>

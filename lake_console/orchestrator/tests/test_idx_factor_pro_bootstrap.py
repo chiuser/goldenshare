@@ -444,6 +444,7 @@ def test_events_sample_then_full_apply_are_idempotent(tmp_path: Path) -> None:
     assert sample.reported_materialization_count == 2
     assert sample.reported_check_count == 8
 
+    checkpoint_path = tmp_path / "events-checkpoint.json"
     full = report_idx_factor_pro_events(
         instance=instance,
         plan_report_path=plan.report_path,
@@ -451,9 +452,13 @@ def test_events_sample_then_full_apply_are_idempotent(tmp_path: Path) -> None:
         expected_plan_hash=plan.plan_hash,
         dry_run=False,
         confirm_event_write=True,
+        checkpoint_path=checkpoint_path,
     )
     assert full.reported_materialization_count == 0
     assert full.reported_check_count == 0
+    checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    assert checkpoint["mode"] == "apply"
+    assert checkpoint["plan"]["plan_hash"] == plan.plan_hash
     audited = post_audit_idx_factor_pro_events(
         instance=instance,
         plan_report_path=plan.report_path,
@@ -569,3 +574,33 @@ def test_event_cli_requires_separate_partition_or_event_confirmation(
     with pytest.raises(SystemExit) as error:
         idx_factor_pro_bootstrap_events_cli.main(argv)
     assert error.value.code == 2
+
+
+def test_event_cli_requires_checkpoint_only_for_full_apply() -> None:
+    common = [
+        "--plan-report",
+        "plan.json",
+        "--promote-report",
+        "promote.json",
+        "--expected-plan-hash",
+        "hash",
+        "--output",
+        "out.json",
+        "--confirm-event-write",
+    ]
+    with pytest.raises(SystemExit) as missing_checkpoint:
+        idx_factor_pro_bootstrap_events_cli.main(["apply", *common])
+    assert missing_checkpoint.value.code == 2
+
+    with pytest.raises(SystemExit) as sample_checkpoint:
+        idx_factor_pro_bootstrap_events_cli.main(
+            [
+                "sample",
+                *common,
+                "--sample-date",
+                "2025-01-17",
+                "--checkpoint",
+                "checkpoint.json",
+            ]
+        )
+    assert sample_checkpoint.value.code == 2

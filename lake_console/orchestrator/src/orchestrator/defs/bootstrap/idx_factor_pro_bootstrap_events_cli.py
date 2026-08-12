@@ -25,6 +25,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--promote-report", type=Path, required=True)
     parser.add_argument("--expected-plan-hash", required=True)
     parser.add_argument("--sample-date")
+    parser.add_argument("--checkpoint", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--confirm-partition-write", action="store_true")
     parser.add_argument("--confirm-event-write", action="store_true")
@@ -50,6 +51,10 @@ def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) ->
         parser.error("sample requires --sample-date")
     if args.command != "sample" and args.sample_date:
         parser.error("--sample-date is only valid for sample")
+    if args.command == "apply" and args.checkpoint is None:
+        parser.error("apply requires --checkpoint")
+    if args.command != "apply" and args.checkpoint is not None:
+        parser.error("--checkpoint is only valid for apply")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -83,6 +88,7 @@ def main(argv: list[str] | None = None) -> int:
             confirm_event_write=args.confirm_event_write,
             sample_only=args.command == "sample",
             sample_date=args.sample_date,
+            checkpoint_path=args.checkpoint,
         )
     write_idx_factor_pro_event_report(report, args.output)
     print(args.output)
