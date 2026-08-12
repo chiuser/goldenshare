@@ -256,6 +256,7 @@ docs/
 - [北交所新旧代码对照](/Users/congming/github/goldenshare/docs/datasets/bse-mapping-dataset-development.md)
 - [股票曾用名](/Users/congming/github/goldenshare/docs/datasets/namechange-dataset-development.md)
 - [ST 风险警示事件](/Users/congming/github/goldenshare/docs/datasets/st-dataset-development.md)
+- [ST 风险警示事件源字段契约收口专项 LLD v1](/Users/congming/github/goldenshare/docs/datasets/st-source-field-contract-repair-lld-v1.md)
 - [上市公司基本信息](/Users/congming/github/goldenshare/docs/datasets/stock-company-dataset-development.md)
 
 ## 6. 前端、业务与发布（S4）

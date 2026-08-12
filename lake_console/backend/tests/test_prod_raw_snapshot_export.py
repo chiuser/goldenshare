@@ -57,6 +57,22 @@ def test_prod_raw_snapshot_query_uses_whitelist_projection(
     assert query.params == ()
 
 
+def test_st_prod_raw_snapshot_query_projects_current_source_field() -> None:
+    query = build_prod_raw_current_query(dataset_key="st")
+
+    assert query.fields == (
+        "ts_code",
+        "name",
+        "pub_date",
+        "imp_date",
+        "st_type",
+        "st_reason",
+        "st_explain",
+    )
+    assert "st_tpye" not in query.fields
+    assert "st_type" in query.sql
+
+
 def test_prod_raw_snapshot_plan_marks_source_and_dual_write_paths(tmp_path) -> None:
     plan = LakeSyncPlanner(lake_root=tmp_path).plan(
         dataset_key="bse_mapping",
@@ -369,7 +385,7 @@ def test_st_prod_raw_export_writes_raw_and_manifest(monkeypatch, tmp_path) -> No
                 "name": "*ST聆达",
                 "pub_date": date(2026, 1, 27),
                 "imp_date": date(2026, 1, 28),
-                "st_tpye": "撤销叠加*ST",
+                "st_type": "撤销叠加*ST",
                 "st_reason": "重整完成或和解协议执行完成或案件结束",
                 "st_explain": "示例说明",
             }

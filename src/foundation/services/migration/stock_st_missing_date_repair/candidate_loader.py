@@ -103,10 +103,9 @@ class StockStMissingDateCandidateLoader:
                     name=row.name,
                     pub_date=row.pub_date,
                     imp_date=row.imp_date,
-                    st_type=row.st_tpye,
+                    st_type=row.st_type,
                     st_reason=row.st_reason,
                     st_explain=row.st_explain,
                 )
             )
         return {ts_code: tuple(items) for ts_code, items in grouped.items()}
-

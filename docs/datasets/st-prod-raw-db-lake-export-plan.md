@@ -1,6 +1,6 @@
 # ST 风险警示事件 Lake prod-raw-db 导出方案
 
-状态：已落地
+状态：已落地；字段契约已实现，待部署验收
 
 本文定义 `st` 数据集从生产 `raw_tushare.st` 只读导出到本地 Lake Parquet 的方案。该方案只覆盖 `prod-raw-db` 导出模式，不改变现有生产 Tushare 下载链路。
 
@@ -46,7 +46,7 @@
 | `name` | `str` | `varchar(128)` | `string` | 是 | 股票名称 |
 | `pub_date` | `str`，`YYYYMMDD` | `date` | `date` | 是 | 发布日期 |
 | `imp_date` | `str`，`YYYYMMDD` | `date` | `date` | 是 | 实施日期 |
-| `st_tpye` | `str` | `varchar(64)` | `string` | 是 | 类型 |
+| `st_type` | `str` | `varchar(64)` | `string` | 是 | 类型 |
 | `st_reason` | `str` | `text` | `string` | 是 | ST变更原因 |
 | `st_explain` | `str` | `text` | `string` | 是 | ST变更详细原因 |
 
@@ -132,7 +132,7 @@ select
   name,
   pub_date,
   imp_date,
-  st_tpye,
+  st_type,
   st_reason,
   st_explain
 from raw_tushare.st
@@ -202,7 +202,7 @@ lake-console sync-dataset st --from prod-raw-db --imp-date 2026-05-06
 导出 Parquet 必须只包含：
 
 ```text
-ts_code, name, pub_date, imp_date, st_tpye, st_reason, st_explain
+ts_code, name, pub_date, imp_date, st_type, st_reason, st_explain
 ```
 
 不得包含：
@@ -225,7 +225,7 @@ from raw_tushare.st;
 导出后必须满足：
 
 ```sql
-select count(*) = count(distinct md5(concat_ws('|', ts_code, coalesce(name,''), coalesce(cast(pub_date as varchar),''), coalesce(cast(imp_date as varchar),''), coalesce(st_tpye,''), coalesce(st_reason,''), coalesce(st_explain,''))))
+select count(*) = count(distinct md5(concat_ws('|', ts_code, coalesce(name,''), coalesce(cast(pub_date as varchar),''), coalesce(cast(imp_date as varchar),''), coalesce(st_type,''), coalesce(st_reason,''), coalesce(st_explain,''))))
 from read_parquet('<LAKE_ROOT>/raw_tushare/st/current/part-000.parquet');
 ```
 

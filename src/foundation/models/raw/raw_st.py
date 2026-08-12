@@ -24,7 +24,7 @@ class RawSt(Base):
     name: Mapped[str | None] = mapped_column(String(128))
     pub_date: Mapped[date] = mapped_column(Date, nullable=False)
     imp_date: Mapped[date | None] = mapped_column(Date)
-    st_tpye: Mapped[str] = mapped_column(String(64), nullable=False)
+    st_type: Mapped[str] = mapped_column(String(64), nullable=False)
     st_reason: Mapped[str | None] = mapped_column(Text)
     st_explain: Mapped[str | None] = mapped_column(Text)
     api_name: Mapped[str] = mapped_column(String(32), nullable=False, server_default=text("'st'"))

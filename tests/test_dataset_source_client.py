@@ -81,6 +81,34 @@ def test_major_news_source_client_passes_definition_source_fields(monkeypatch) -
     ]
 
 
+def test_st_source_client_passes_current_source_fields(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    connector = RecordingConnector()
+    monkeypatch.setattr(source_client_module, "create_source_connector", lambda source_key: connector)
+
+    result = DatasetSourceClient().fetch(
+        definition=get_dataset_definition("st"),
+        unit=PlanUnitSnapshot(
+            unit_id="st-u1",
+            dataset_key="st",
+            source_key="tushare",
+            trade_date=None,
+            request_params={"ts_code": "300125.SZ"},
+            progress_context={},
+            pagination_policy="offset_limit",
+            page_limit=1000,
+        ),
+    )
+
+    assert result.request_count == 1
+    assert connector.calls == [
+        {
+            "api_name": "st",
+            "params": {"ts_code": "300125.SZ", "offset": 0, "limit": 1000},
+            "fields": ("ts_code", "name", "pub_date", "imp_date", "st_type", "st_reason", "st_explain"),
+        }
+    ]
+
+
 def test_news_source_client_passes_fields_and_annotates_src(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     connector = RecordingConnector(rows=[{"datetime": "2026-04-24 10:11:12", "title": "快讯标题", "content": ""}])
     monkeypatch.setattr(source_client_module, "create_source_connector", lambda source_key: connector)

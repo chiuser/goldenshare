@@ -1,4 +1,4 @@
-# ST 风险警示事件（`st`）数据集开发说明（M4 已完成）
+# ST 风险警示事件（`st`）数据集开发说明（字段契约已实现，待部署验收）
 
 ## 0. 架构基线与目标
 
@@ -6,7 +6,7 @@
 
 1. `stock_st` 对应的是 `doc_id=397` 的“每日 ST 股票列表”。
 2. 本文对应的是 `doc_id=423` 的 `st` 接口，表示 ST 风险警示事件历史。
-3. Raw 层必须保留源站字段名，尤其保留源字段拼写 `st_tpye`，不得私自修正；`pub_date`、`imp_date` 这类稳定日期字符串允许直接落 `date`。
+3. Raw 层必须保留当前源站字段名 `st_type`；`pub_date`、`imp_date` 这类稳定日期字符串允许直接落 `date`。
 4. 不做“先兼容再收口”；V1 从一开始就按独立数据集设计。
 
 参考模板：[数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)
@@ -40,7 +40,7 @@
 | `name` | string | 是 | 股票名称 |
 | `pub_date` | string | 是 | 发布日期；源站为 `YYYYMMDD` 字符串，raw 层直接落 `date` |
 | `imp_date` | string | 是 | 实施日期；源站为 `YYYYMMDD` 字符串，raw 层直接落 `date` |
-| `st_tpye` | string | 是 | 源站原始拼写，不能改名 |
+| `st_type` | string | 是 | 当前源站字段，表示风险警示类型 |
 | `st_reason` | string | 是 | 变更原因 |
 | `st_explain` | string | 是 | 详细原因说明 |
 
@@ -50,6 +50,10 @@
 2. `pub_date` / `imp_date` 是源端结果字段，不作为本仓维护主轴。
 3. V1 只保留 `ts_code` 作为对象过滤；不暴露日期过滤，避免把事件全集错误拆成按日期 fan-out。
 4. 分页必须开启。
+
+### 1.4 当前字段契约核验
+
+2026-08-12 通过 `tushareMcp` 核验：默认响应及显式 `fields` 请求均以 `st_type` 返回类型字段；旧拼写 `st_tpye` 会被源端静默省略。工程不得保留别名映射或双字段兼容。
 
 ---
 
@@ -104,7 +108,7 @@
     "source_keys": ("tushare",),
     "adapter_key": "tushare",
     "api_name": "st",
-    "source_fields": ("ts_code", "name", "pub_date", "imp_date", "st_tpye", "st_reason", "st_explain"),
+    "source_fields": ("ts_code", "name", "pub_date", "imp_date", "st_type", "st_reason", "st_explain"),
     "source_doc_id": "tushare.st",
     "request_builder_key": "_st_params",
     "base_params": {},
@@ -181,12 +185,12 @@
 "normalization": {
     "date_fields": ("pub_date", "imp_date"),
     "decimal_fields": (),
-    "required_fields": ("ts_code", "pub_date", "st_tpye", "row_key_hash"),
+    "required_fields": ("ts_code", "pub_date", "st_type", "row_key_hash"),
     "row_transform_name": "_st_row_transform",
 }
 ```
 
-说明：`row_transform` 负责生成 `row_key_hash`，同时保留源字段 `st_tpye` 的原始命名。
+说明：`row_transform` 负责生成 `row_key_hash`，并按源字段 `st_type` 参与哈希计算。
 
 ### 3.9 `capabilities`
 
@@ -214,7 +218,7 @@
 },
 "quality": {
     "reject_policy": "record_rejections",
-    "required_fields": ("ts_code", "pub_date", "st_tpye", "row_key_hash"),
+    "required_fields": ("ts_code", "pub_date", "st_type", "row_key_hash"),
 },
 "transaction": {
     "commit_policy": "unit",
@@ -242,7 +246,7 @@
 | `name` | varchar(128) | 是 | 股票名称 |
 | `pub_date` | date | 否 | 发布日期直接落 `date` |
 | `imp_date` | date | 是 | 实施日期直接落 `date` |
-| `st_tpye` | varchar(64) | 否 | 源站原始拼写 |
+| `st_type` | varchar(64) | 否 | 源站风险警示类型 |
 | `st_reason` | text | 是 | 事件原因 |
 | `st_explain` | text | 是 | 事件详细说明 |
 
@@ -265,7 +269,7 @@ on raw_tushare.st(imp_date);
 ### 4.2 Target View：`core_serving_light.st`
 
 - ORM：建议新增 `src/foundation/models/core_serving_light/st.py`
-- 与 raw 保持同字段名，`pub_date`、`imp_date` 继续使用 `date`，不修正 `st_tpye`
+- 与 raw 保持同字段名，`pub_date`、`imp_date` 继续使用 `date`，字段名为 `st_type`
 
 ---
 
@@ -311,7 +315,7 @@ on raw_tushare.st(imp_date);
 1. `DatasetDefinition` 注册
 2. `request_builder`：默认不传日期参数，可选 `ts_code`
 3. `unit_planner`：默认 1 个 snapshot unit
-4. `row_transform`：`row_key_hash` 生成且保留 `st_tpye`
+4. `row_transform`：`row_key_hash` 生成且使用 `st_type`
 5. `manual-actions`：展示文案不与 `stock_st` 混淆
 
 ---

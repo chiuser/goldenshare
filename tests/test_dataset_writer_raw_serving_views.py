@@ -9,6 +9,7 @@ from src.foundation.datasets.registry import get_dataset_definition
 from src.foundation.ingestion.normalizer import NormalizedBatch
 from src.foundation.ingestion.writer import DatasetWriter
 from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
+from src.foundation.models.raw.raw_st import RawSt
 from src.foundation.models.raw.raw_stk_nineturn import RawStkNineTurn
 
 
@@ -23,7 +24,7 @@ class _RecordingRawDao:
 
 
 @pytest.mark.parametrize(
-    ("dataset_key", "raw_dao_name", "raw_model", "row", "target_table"),
+    ("dataset_key", "raw_dao_name", "raw_model", "row", "target_table", "expected_conflict_columns"),
     (
         (
             "cyq_perf",
@@ -31,6 +32,7 @@ class _RecordingRawDao:
             RawCyqPerf,
             {"ts_code": "000001.SZ", "trade_date": date(2026, 8, 3), "winner_rate": 0.5},
             "raw_tushare.cyq_perf",
+            None,
         ),
         (
             "stk_nineturn",
@@ -38,6 +40,20 @@ class _RecordingRawDao:
             RawStkNineTurn,
             {"ts_code": "000001.SZ", "trade_date": date(2026, 8, 3), "freq": "daily"},
             "raw_tushare.stk_nineturn",
+            None,
+        ),
+        (
+            "st",
+            "raw_st",
+            RawSt,
+            {
+                "ts_code": "300125.SZ",
+                "pub_date": date(2026, 8, 12),
+                "st_type": "风险警示",
+                "row_key_hash": "a" * 64,
+            },
+            "core_serving_light.st",
+            ["row_key_hash"],
         ),
     ),
 )
@@ -48,6 +64,7 @@ def test_raw_serving_view_datasets_only_upsert_raw_table(
     raw_model: type,
     row: dict,
     target_table: str,
+    expected_conflict_columns: list[str] | None,
 ) -> None:
     raw_dao = _RecordingRawDao(raw_model)
     mocker.patch(
@@ -65,6 +82,6 @@ def test_raw_serving_view_datasets_only_upsert_raw_table(
     result = DatasetWriter(session=mocker.Mock()).write(definition=definition, batch=batch)
 
     assert definition.storage.core_dao_name == raw_dao_name
-    assert raw_dao.calls == [(batch.rows_normalized, None)]
+    assert raw_dao.calls == [(batch.rows_normalized, expected_conflict_columns)]
     assert result.target_table == target_table
     assert result.rows_written == 1

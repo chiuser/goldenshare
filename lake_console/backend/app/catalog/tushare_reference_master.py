@@ -76,7 +76,7 @@ ST_FIELDS = (
     "name",
     "pub_date",
     "imp_date",
-    "st_tpye",
+    "st_type",
     "st_reason",
     "st_explain",
 )

@@ -17,7 +17,7 @@ class StLight(Base):
     name: Mapped[str | None] = mapped_column(String(128))
     pub_date: Mapped[date] = mapped_column(Date, nullable=False)
     imp_date: Mapped[date | None] = mapped_column(Date)
-    st_tpye: Mapped[str] = mapped_column(String(64), nullable=False)
+    st_type: Mapped[str] = mapped_column(String(64), nullable=False)
     st_reason: Mapped[str | None] = mapped_column(Text)
     st_explain: Mapped[str | None] = mapped_column(Text)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

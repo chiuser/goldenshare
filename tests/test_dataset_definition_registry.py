@@ -954,6 +954,15 @@ def test_dataset_definition_projects_st_facts() -> None:
     assert definition.domain.domain_key == "reference_data"
     assert definition.observability.freshness_policy == "snapshot_run_trace"
     assert definition.source.api_name == "st"
+    assert definition.source.source_fields == (
+        "ts_code",
+        "name",
+        "pub_date",
+        "imp_date",
+        "st_type",
+        "st_reason",
+        "st_explain",
+    )
     assert definition.date_model.bucket_rule == "not_applicable"
     assert definition.date_model.selection_rule() == "none"
     assert definition.date_model.input_shape == "none"
@@ -967,7 +976,7 @@ def test_dataset_definition_projects_st_facts() -> None:
     assert definition.planning.page_limit == 1000
     assert definition.planning.unit_builder_key == "generic"
     assert definition.normalization.date_fields == ("pub_date", "imp_date")
-    assert definition.normalization.required_fields == ("ts_code", "pub_date", "st_tpye", "row_key_hash")
+    assert definition.normalization.required_fields == ("ts_code", "pub_date", "st_type", "row_key_hash")
     action = definition.capabilities.get_action("maintain")
     assert action is not None
     assert action.supported_time_modes == ("none",)

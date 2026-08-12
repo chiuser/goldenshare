@@ -261,14 +261,14 @@ def _st_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     ts_code = str(transformed.get("ts_code") or "").strip().upper()
     name_value = transformed.get("name")
     name = None if name_value is None else str(name_value).strip() or None
-    st_tpye = str(transformed.get("st_tpye") or "").strip()
+    st_type = str(transformed.get("st_type") or "").strip()
     st_reason = str(transformed.get("st_reason") or "").strip() or None
     st_explain = str(transformed.get("st_explain") or "").strip() or None
     if ts_code:
         transformed["ts_code"] = ts_code
     transformed["name"] = name
-    if st_tpye:
-        transformed["st_tpye"] = st_tpye
+    if st_type:
+        transformed["st_type"] = st_type
     transformed["st_reason"] = st_reason
     transformed["st_explain"] = st_explain
     hash_input = "\x1f".join(
@@ -277,7 +277,7 @@ def _st_row_transform(row: dict[str, Any]) -> dict[str, Any]:
             transformed.get("ts_code") or "",
             transformed["pub_date"].isoformat() if transformed.get("pub_date") is not None else "",
             transformed["imp_date"].isoformat() if transformed.get("imp_date") is not None else "",
-            transformed.get("st_tpye") or "",
+            transformed.get("st_type") or "",
             st_reason or "",
             st_explain or "",
             name or "",

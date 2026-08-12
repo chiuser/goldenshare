@@ -762,7 +762,7 @@ def test_namechange_normalizer_builds_row_hash_and_trims_fields() -> None:
     assert len(normalized["row_key_hash"]) == 64
 
 
-def test_st_normalizer_preserves_source_field_name_and_builds_row_hash() -> None:
+def test_st_normalizer_preserves_current_source_field_name_and_builds_row_hash() -> None:
     batch = DatasetNormalizer().normalize(
         definition=get_dataset_definition("st"),
         fetch_result=SourceFetchResult(
@@ -776,7 +776,7 @@ def test_st_normalizer_preserves_source_field_name_and_builds_row_hash() -> None
                     "name": " 平安银行 ",
                     "pub_date": "20260424",
                     "imp_date": "20260425",
-                    "st_tpye": " 风险警示 ",
+                    "st_type": " 风险警示 ",
                     "st_reason": " 触发条件 ",
                     "st_explain": " 说明内容 ",
                 }
@@ -790,11 +790,35 @@ def test_st_normalizer_preserves_source_field_name_and_builds_row_hash() -> None
     assert normalized["name"] == "平安银行"
     assert normalized["pub_date"] == date(2026, 4, 24)
     assert normalized["imp_date"] == date(2026, 4, 25)
-    assert normalized["st_tpye"] == "风险警示"
+    assert normalized["st_type"] == "风险警示"
     assert normalized["st_reason"] == "触发条件"
     assert normalized["st_explain"] == "说明内容"
+    assert normalized["row_key_hash"] == "4186b46c340ae919964f3b85e646d58e302f05b083a36231dc37417d804639b1"
     assert isinstance(normalized["row_key_hash"], str)
     assert len(normalized["row_key_hash"]) == 64
+
+
+def test_st_normalizer_rejects_retired_source_field_spelling() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("st"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-st-retired-field",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "ts_code": "000001.SZ",
+                    "pub_date": "20260424",
+                    "st_tpye": "风险警示",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_normalized == []
+    assert batch.rows_rejected == 1
+    assert batch.rejected_reasons == {"normalize.required_field_missing:st_type": 1}
 
 
 def test_major_news_normalizer_parses_pub_time_and_builds_row_hash() -> None:
