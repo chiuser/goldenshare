@@ -37,7 +37,6 @@ from orchestrator.defs.bootstrap.stk_mins_qfq_history import (
     STK_MINS_QFQ_HISTORY_START_DATE,
     generate_stk_mins_qfq_history,
     plan_stk_mins_qfq_history,
-    rebuild_stk_mins_qfq_canonical_history,
 )
 from orchestrator.defs.bootstrap.stk_mins_qfq_macd_kdj_baseline_events import (
     audit_stk_mins_qfq_macd_kdj_final_state,
@@ -131,14 +130,6 @@ def main(argv: list[str] | None = None) -> None:
     generate_gold_qfq = subparsers.add_parser("generate-gold-qfq-history")
     generate_gold_qfq.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
     _add_gold_qfq_history_selection(generate_gold_qfq)
-
-    rebuild_gold_qfq = subparsers.add_parser(
-        "rebuild-gold-qfq-canonical-history"
-    )
-    rebuild_gold_qfq.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
-    rebuild_gold_qfq.add_argument("--checkpoint", required=True)
-    rebuild_gold_qfq.add_argument("--confirm-rebuild", action="store_true")
-    _add_gold_qfq_history_selection(rebuild_gold_qfq)
 
     plan_gold_qfq_events = subparsers.add_parser("plan-gold-qfq-events")
     plan_gold_qfq_events.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
@@ -482,28 +473,6 @@ def main(argv: list[str] | None = None) -> None:
                 "planned_event_count": report.plan.planned_event_count,
             }
         )
-    elif args.command == "rebuild-gold-qfq-canonical-history":
-        if not args.confirm_rebuild:
-            raise ValueError("Pass --confirm-rebuild to rewrite canonical QFQ files.")
-        report = rebuild_stk_mins_qfq_canonical_history(
-            checkpoint_path=Path(args.checkpoint),
-            lake_root=Path(args.lake_root),
-            duckdb_resource=DuckDBResource(),
-            registered_partition_keys=_registered_stock_mins_silver_partition_keys(),
-            partition_keys=_optional_partition_keys(args),
-            start_date=args.start_date,
-            end_date=args.end_date,
-            freqs=_optional_csv_values(args.freqs) or (5, 15, 30, 60),
-            years=_optional_csv_values(args.years),
-        )
-        print(
-            {
-                "plan_fingerprint": report.plan_fingerprint,
-                "checkpoint_path": str(report.checkpoint_path),
-                "resumed_batch_count": report.resumed_batch_count,
-                "executed_batch_count": report.executed_batch_count,
-            }
-        )
     elif args.command == "plan-gold-qfq-events":
         report = plan_stk_mins_qfq_bootstrap_events(
             instance=dg.DagsterInstance.get(),
@@ -799,7 +768,7 @@ def main(argv: list[str] | None = None) -> None:
             end_date=args.end_date,
             freqs=_optional_csv_values(args.freqs) or (5, 15, 30, 60),
             years=_optional_csv_values(args.years),
-            stock_codes=_optional_csv_values(args.stock_codes),
+            stock_codes=_optional_csv_values(args.stock_codes) or (),
         )
         print(
             {

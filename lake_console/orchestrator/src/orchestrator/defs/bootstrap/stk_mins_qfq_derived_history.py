@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Timer
+from time import perf_counter
+from typing import Any
 
 from orchestrator.defs.bootstrap.stk_mins_qfq_history import (
     STK_MINS_QFQ_HISTORY_START_DATE,
@@ -38,6 +42,9 @@ GOLD_STK_MINS_QFQ_DERIVED_EVENT_COUNT_PER_ASSET_PARTITION = (
     1 + GOLD_STK_MINS_QFQ_DERIVED_CHECK_COUNT
 )
 GOLD_STK_MINS_QFQ_DERIVED_AMOUNT_ABS_TOLERANCE = 1e-6
+GOLD_STK_MINS_QFQ_DERIVED_OHLC_DECIMAL_PLACES = 7
+GOLD_STK_MINS_QFQ_DERIVED_OHLC_ABS_TOLERANCE = 1e-7
+GOLD_STK_MINS_QFQ_DERIVED_AUDIT_MAX_SECONDS = 300.0
 
 
 @dataclass(frozen=True)
@@ -123,6 +130,7 @@ class StkMinsQfqDerivedEquivalenceBatchAudit:
     missing_key_count: int
     extra_key_count: int
     value_mismatch_count: int
+    max_ohlc_abs_difference: float
     max_amount_abs_difference: float
 
     @property
@@ -158,6 +166,8 @@ def plan_stk_mins_qfq_derived_history(
     freqs: Sequence[int | str] | None = None,
     years: Sequence[int | str] | None = None,
     duckdb_resource: DuckDBResource | None = None,
+    query_deadline_monotonic: float | None = None,
+    as_of_adj_factor_paths: Sequence[Path] | None = None,
 ) -> StkMinsQfqDerivedHistoryPlan:
     normalized_freqs = _normalize_derived_freqs(freqs)
     normalized_years = _normalize_years(years)
@@ -181,9 +191,14 @@ def plan_stk_mins_qfq_derived_history(
         tuple[int, str], StkMinsQfqDerivedHistoryBatchEstimate
     ] = {}
     missing_inputs: list[str] = []
-    as_of_adj_factor_path = silver_adj_factor_path(lake_root, selected_keys[-1])
-    if not as_of_adj_factor_path.exists():
-        missing_inputs.append(f"as_of_adj_factor:{as_of_adj_factor_path}")
+    selected_as_of_adj_factor_paths = tuple(as_of_adj_factor_paths or ()) or (
+        silver_adj_factor_path(lake_root, selected_keys[-1]),
+    )
+    missing_inputs.extend(
+        f"as_of_adj_factor:{path}"
+        for path in selected_as_of_adj_factor_paths
+        if not path.exists()
+    )
 
     for batch in batches:
         source_paths = _source_silver_paths_for_batch(lake_root, batch)
@@ -221,7 +236,8 @@ def plan_stk_mins_qfq_derived_history(
             batch=batch,
             source_paths=source_paths,
             trade_adj_factor_paths=trade_adj_factor_paths,
-            as_of_adj_factor_path=as_of_adj_factor_path,
+            as_of_adj_factor_paths=selected_as_of_adj_factor_paths,
+            query_deadline_monotonic=query_deadline_monotonic,
         )
 
     planned_target_file_count = sum(
@@ -322,9 +338,14 @@ def audit_stk_mins_qfq_derived_canonical_equivalence(
     end_date: str | None = None,
     freqs: Sequence[int | str] = (90, 120),
     years: Sequence[int | str] | None = None,
+    max_elapsed_seconds: float = GOLD_STK_MINS_QFQ_DERIVED_AUDIT_MAX_SECONDS,
+    as_of_adj_factor_paths: Sequence[Path] | None = None,
 ) -> StkMinsQfqDerivedEquivalenceReport:
     """Compare Silver-direct candidates with existing 90m/120m Gold in batches."""
 
+    if max_elapsed_seconds <= 0:
+        raise ValueError("Derived equivalence max elapsed seconds must be positive.")
+    query_deadline_monotonic = perf_counter() + max_elapsed_seconds
     plan = plan_stk_mins_qfq_derived_history(
         lake_root=lake_root,
         registered_partition_keys=registered_partition_keys,
@@ -334,26 +355,28 @@ def audit_stk_mins_qfq_derived_canonical_equivalence(
         freqs=freqs,
         years=years,
         duckdb_resource=duckdb_resource,
+        query_deadline_monotonic=query_deadline_monotonic,
+        as_of_adj_factor_paths=as_of_adj_factor_paths,
     )
     if plan.missing_input_count:
         raise FileNotFoundError(
             "Gold qfq derived equivalence inputs are missing: "
             f"{tuple(plan.missing_input_samples)}"
         )
-    as_of_adj_factor_path = silver_adj_factor_path(
-        lake_root,
-        plan.selected_partition_keys[-1],
+    selected_as_of_adj_factor_paths = tuple(as_of_adj_factor_paths or ()) or (
+        silver_adj_factor_path(lake_root, plan.selected_partition_keys[-1]),
     )
     audits: list[StkMinsQfqDerivedEquivalenceBatchAudit] = []
     for batch in plan.batches:
         estimate = plan.estimates_by_batch[(batch.target_freq, batch.year)]
-        _validate_derived_history_estimate(estimate)
+        _validate_derived_equivalence_estimate(estimate)
         audits.append(
             _audit_derived_equivalence_batch(
                 lake_root=lake_root,
                 duckdb_resource=duckdb_resource,
                 batch=batch,
-                as_of_adj_factor_path=as_of_adj_factor_path,
+                as_of_adj_factor_paths=selected_as_of_adj_factor_paths,
+                query_deadline_monotonic=query_deadline_monotonic,
             )
         )
     return StkMinsQfqDerivedEquivalenceReport(
@@ -367,24 +390,30 @@ def _audit_derived_equivalence_batch(
     lake_root: Path,
     duckdb_resource: DuckDBResource,
     batch: StkMinsQfqDerivedHistoryBatch,
-    as_of_adj_factor_path: Path,
+    as_of_adj_factor_paths: Sequence[Path],
+    query_deadline_monotonic: float | None,
 ) -> StkMinsQfqDerivedEquivalenceBatchAudit:
     candidate_sql = build_canonical_gold_stk_mins_qfq_select_sql(
         silver_paths=_source_silver_paths_for_batch(lake_root, batch),
         trade_adj_factor_paths=_trade_adj_factor_paths_for_batch(lake_root, batch),
-        as_of_adj_factor_paths=[as_of_adj_factor_path],
+        as_of_adj_factor_paths=as_of_adj_factor_paths,
         target_freq=batch.target_freq,
         partition_keys=batch.partition_keys,
     )
     with duckdb_resource.connect() as connection:
-        target_rows = connection.execute(
-            f"""
-            SELECT DISTINCT ts_code
-            FROM ({candidate_sql})
-            ORDER BY ts_code
-            """
-        ).fetchall()
-        target_paths = tuple(
+        with _interrupt_at_query_deadline(
+            connection,
+            query_deadline_monotonic=query_deadline_monotonic,
+            label=f"target discovery freq={batch.target_freq}, year={batch.year}",
+        ):
+            target_rows = connection.execute(
+                f"""
+                SELECT DISTINCT ts_code
+                FROM ({candidate_sql})
+                ORDER BY ts_code
+                """
+            ).fetchall()
+        candidate_target_paths = tuple(
             gold_stk_mins_qfq_path(
                 lake_root,
                 batch.target_freq,
@@ -393,6 +422,22 @@ def _audit_derived_equivalence_batch(
             )
             for (ts_code,) in target_rows
         )
+        target_freq_root = gold_stk_mins_qfq_path(
+            lake_root,
+            batch.target_freq,
+            "*",
+            batch.year,
+        ).parents[2]
+        existing_target_paths = tuple(
+            sorted(
+                target_freq_root.glob(
+                    f"ts_code=*/year={batch.year}/part-000.parquet"
+                )
+            )
+        )
+        target_paths = tuple(
+            sorted({*candidate_target_paths, *existing_target_paths})
+        )
         missing_paths = tuple(path for path in target_paths if not path.exists())
         if not target_paths or missing_paths:
             raise FileNotFoundError(
@@ -400,8 +445,13 @@ def _audit_derived_equivalence_batch(
                 f"freq={batch.target_freq}, year={batch.year}, "
                 f"samples={missing_paths[:5]}."
             )
-        row = connection.execute(
-            f"""
+        with _interrupt_at_query_deadline(
+            connection,
+            query_deadline_monotonic=query_deadline_monotonic,
+            label=f"value comparison freq={batch.target_freq}, year={batch.year}",
+        ):
+            row = connection.execute(
+                f"""
             WITH candidate AS MATERIALIZED (
               {candidate_sql}
             ),
@@ -416,10 +466,42 @@ def _audit_derived_equivalence_batch(
               SELECT
                 candidate.ts_code AS candidate_code,
                 existing.ts_code AS existing_code,
-                candidate.open IS DISTINCT FROM existing.open
-                  OR candidate.high IS DISTINCT FROM existing.high
-                  OR candidate.low IS DISTINCT FROM existing.low
-                  OR candidate.close IS DISTINCT FROM existing.close
+                (
+                  candidate.open IS DISTINCT FROM existing.open
+                  AND (
+                    candidate.open IS NULL
+                    OR existing.open IS NULL
+                    OR abs(candidate.open - existing.open)
+                      > {GOLD_STK_MINS_QFQ_DERIVED_OHLC_ABS_TOLERANCE}
+                  )
+                )
+                  OR (
+                    candidate.high IS DISTINCT FROM existing.high
+                    AND (
+                      candidate.high IS NULL
+                      OR existing.high IS NULL
+                      OR abs(candidate.high - existing.high)
+                        > {GOLD_STK_MINS_QFQ_DERIVED_OHLC_ABS_TOLERANCE}
+                    )
+                  )
+                  OR (
+                    candidate.low IS DISTINCT FROM existing.low
+                    AND (
+                      candidate.low IS NULL
+                      OR existing.low IS NULL
+                      OR abs(candidate.low - existing.low)
+                        > {GOLD_STK_MINS_QFQ_DERIVED_OHLC_ABS_TOLERANCE}
+                    )
+                  )
+                  OR (
+                    candidate.close IS DISTINCT FROM existing.close
+                    AND (
+                      candidate.close IS NULL
+                      OR existing.close IS NULL
+                      OR abs(candidate.close - existing.close)
+                        > {GOLD_STK_MINS_QFQ_DERIVED_OHLC_ABS_TOLERANCE}
+                    )
+                  )
                   OR candidate.vol IS DISTINCT FROM existing.vol
                   OR (
                     candidate.amount IS DISTINCT FROM existing.amount
@@ -432,6 +514,19 @@ def _audit_derived_equivalence_batch(
                   )
                   OR candidate.exchange IS DISTINCT FROM existing.exchange
                   AS value_mismatch,
+                CASE
+                    WHEN candidate.open IS NULL OR existing.open IS NULL
+                      OR candidate.high IS NULL OR existing.high IS NULL
+                      OR candidate.low IS NULL OR existing.low IS NULL
+                      OR candidate.close IS NULL OR existing.close IS NULL
+                    THEN NULL
+                    ELSE greatest(
+                      abs(candidate.open - existing.open),
+                      abs(candidate.high - existing.high),
+                      abs(candidate.low - existing.low),
+                      abs(candidate.close - existing.close)
+                    )
+                  END AS ohlc_abs_difference,
                 CASE
                     WHEN candidate.amount IS NULL OR existing.amount IS NULL
                     THEN NULL
@@ -451,9 +546,19 @@ def _audit_derived_equivalence_batch(
                  FROM candidate),
               (SELECT coalesce(bit_xor(hash(ts_code, freq, trade_date, trade_time)), 0)
                  FROM existing),
-              (SELECT coalesce(bit_xor(hash(open, high, low, close, vol, round(amount, 6), exchange)), 0)
+              (SELECT coalesce(bit_xor(hash(
+                   round(open, {GOLD_STK_MINS_QFQ_DERIVED_OHLC_DECIMAL_PLACES}),
+                   round(high, {GOLD_STK_MINS_QFQ_DERIVED_OHLC_DECIMAL_PLACES}),
+                   round(low, {GOLD_STK_MINS_QFQ_DERIVED_OHLC_DECIMAL_PLACES}),
+                   round(close, {GOLD_STK_MINS_QFQ_DERIVED_OHLC_DECIMAL_PLACES}),
+                   vol, round(amount, 6), exchange)), 0)
                  FROM candidate),
-              (SELECT coalesce(bit_xor(hash(open, high, low, close, vol, round(amount, 6), exchange)), 0)
+              (SELECT coalesce(bit_xor(hash(
+                   round(open, {GOLD_STK_MINS_QFQ_DERIVED_OHLC_DECIMAL_PLACES}),
+                   round(high, {GOLD_STK_MINS_QFQ_DERIVED_OHLC_DECIMAL_PLACES}),
+                   round(low, {GOLD_STK_MINS_QFQ_DERIVED_OHLC_DECIMAL_PLACES}),
+                   round(close, {GOLD_STK_MINS_QFQ_DERIVED_OHLC_DECIMAL_PLACES}),
+                   vol, round(amount, 6), exchange)), 0)
                  FROM existing),
               count(*) FILTER (WHERE existing_code IS NULL),
               count(*) FILTER (WHERE candidate_code IS NULL),
@@ -462,11 +567,12 @@ def _audit_derived_equivalence_batch(
                   AND existing_code IS NOT NULL
                   AND value_mismatch
               ),
+              coalesce(max(ohlc_abs_difference), 0.0),
               coalesce(max(amount_abs_difference), 0.0)
             FROM comparison
             """,
-            [[str(path) for path in target_paths]],
-        ).fetchone()
+                [[str(path) for path in target_paths]],
+            ).fetchone()
     if row is None:
         raise RuntimeError("Gold qfq derived equivalence query returned no row.")
     return StkMinsQfqDerivedEquivalenceBatchAudit(
@@ -481,7 +587,8 @@ def _audit_derived_equivalence_batch(
         missing_key_count=int(row[6]),
         extra_key_count=int(row[7]),
         value_mismatch_count=int(row[8]),
-        max_amount_abs_difference=float(row[9]),
+        max_ohlc_abs_difference=float(row[9]),
+        max_amount_abs_difference=float(row[10]),
     )
 
 
@@ -520,18 +627,24 @@ def _estimate_derived_history_batch(
     batch: StkMinsQfqDerivedHistoryBatch,
     source_paths: Sequence[Path],
     trade_adj_factor_paths: Sequence[Path],
-    as_of_adj_factor_path: Path,
+    as_of_adj_factor_paths: Sequence[Path],
+    query_deadline_monotonic: float | None = None,
 ) -> StkMinsQfqDerivedHistoryBatchEstimate:
     target_sql = build_canonical_gold_stk_mins_qfq_select_sql(
         silver_paths=source_paths,
         trade_adj_factor_paths=trade_adj_factor_paths,
-        as_of_adj_factor_paths=[as_of_adj_factor_path],
+        as_of_adj_factor_paths=as_of_adj_factor_paths,
         target_freq=batch.target_freq,
         partition_keys=batch.partition_keys,
     )
     with duckdb_resource.connect() as connection:
-        source_stats = connection.execute(
-            """
+        with _interrupt_at_query_deadline(
+            connection,
+            query_deadline_monotonic=query_deadline_monotonic,
+            label=f"source estimate freq={batch.target_freq}, year={batch.year}",
+        ):
+            source_stats = connection.execute(
+                """
             SELECT
               coalesce(sum(source_row_count), 0) AS source_row_count,
               count(*) AS source_stock_day_count,
@@ -545,26 +658,38 @@ def _estimate_derived_history_batch(
               FROM read_parquet(?, union_by_name=true)
               GROUP BY ts_code, trade_date
             )
-            """,
-            [[str(path) for path in source_paths]],
-        ).fetchone()
+                """,
+                [[str(path) for path in source_paths]],
+            ).fetchone()
         if source_stats is None:
             raise RuntimeError(
                 "Gold qfq derived history source diagnostics returned no rows: "
                 f"target_freq={batch.target_freq}, year={batch.year}."
             )
-        generated_window_count = int(
-            connection.execute(f"SELECT count(*) FROM ({target_sql})").fetchone()[0]
-        )
-        target_rows = connection.execute(
-            f"""
+        with _interrupt_at_query_deadline(
+            connection,
+            query_deadline_monotonic=query_deadline_monotonic,
+            label=f"window estimate freq={batch.target_freq}, year={batch.year}",
+        ):
+            generated_window_count = int(
+                connection.execute(
+                    f"SELECT count(*) FROM ({target_sql})"
+                ).fetchone()[0]
+            )
+        with _interrupt_at_query_deadline(
+            connection,
+            query_deadline_monotonic=query_deadline_monotonic,
+            label=f"target estimate freq={batch.target_freq}, year={batch.year}",
+        ):
+            target_rows = connection.execute(
+                f"""
             SELECT DISTINCT
               CAST(ts_code AS VARCHAR) AS ts_code,
               strftime(CAST(trade_date AS DATE), '%Y') AS year
             FROM ({target_sql})
             ORDER BY ts_code, year
-            """
-        ).fetchall()
+                """
+            ).fetchall()
 
     source_row_count = int(source_stats[0] or 0)
     source_stock_day_count = int(source_stats[1] or 0)
@@ -662,6 +787,59 @@ def _validate_derived_history_estimate(
             f"expected_window_count={estimate.expected_window_count}, "
             f"incomplete_window_count={estimate.incomplete_window_count}."
         )
+
+
+def _validate_derived_equivalence_estimate(
+    estimate: StkMinsQfqDerivedHistoryBatchEstimate,
+) -> None:
+    if estimate.source_row_count <= 0 or estimate.source_stock_day_count <= 0:
+        raise RuntimeError(
+            "Gold qfq derived equivalence source rows are empty: "
+            f"target_freq={estimate.target_freq}, year={estimate.year}."
+        )
+    if estimate.exchange_mismatch_window_count:
+        raise RuntimeError(
+            "Gold qfq derived equivalence source contains mixed exchanges: "
+            f"target_freq={estimate.target_freq}, year={estimate.year}, "
+            f"mismatch_count={estimate.exchange_mismatch_window_count}."
+        )
+    if estimate.generated_window_count <= 0:
+        raise RuntimeError(
+            "Gold qfq derived equivalence candidate has no complete windows: "
+            f"target_freq={estimate.target_freq}, year={estimate.year}."
+        )
+
+
+@contextmanager
+def _interrupt_at_query_deadline(
+    connection: Any,
+    *,
+    query_deadline_monotonic: float | None,
+    label: str,
+) -> Iterator[None]:
+    if query_deadline_monotonic is None:
+        yield
+        return
+
+    remaining_seconds = query_deadline_monotonic - perf_counter()
+    if remaining_seconds <= 0:
+        raise TimeoutError(
+            f"Derived equivalence audit exhausted its time budget before {label}."
+        )
+
+    timer = Timer(remaining_seconds, connection.interrupt)
+    timer.daemon = True
+    timer.start()
+    try:
+        yield
+    except Exception as error:
+        if perf_counter() >= query_deadline_monotonic:
+            raise TimeoutError(
+                f"Derived equivalence audit exhausted its time budget during {label}."
+            ) from error
+        raise
+    finally:
+        timer.cancel()
 
 
 def _source_silver_paths_for_batch(

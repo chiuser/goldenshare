@@ -11,6 +11,8 @@ from orchestrator.defs.bootstrap.major_index_mins_technical_history import (
     BOOTSTRAP_STAGING_ROOT,
     FORMAL_LAKE_ROOT,
     MajorIndexMinsTechnicalBootstrapError,
+    audit_major_index_mins_technical_candidates,
+    audit_major_index_mins_technical_formal,
     build_major_index_mins_technical_bootstrap_plan,
     build_major_index_mins_technical_candidates,
     build_major_index_mins_technical_performance_sample,
@@ -33,6 +35,12 @@ def _parser() -> argparse.ArgumentParser:
     plan.add_argument("--source-lake-root", type=Path, default=FORMAL_LAKE_ROOT)
     plan.add_argument("--staging-root", type=Path, default=BOOTSTRAP_STAGING_ROOT)
     plan.add_argument("--report-root", type=Path, default=BOOTSTRAP_REPORT_ROOT)
+    plan.add_argument(
+        "--frequencies",
+        nargs="+",
+        type=int,
+        default=[1, 5, 15, 30, 60, 90, 120],
+    )
 
     candidates = subparsers.add_parser("build-candidates")
     _add_frozen_plan_args(candidates)
@@ -45,10 +53,22 @@ def _parser() -> argparse.ArgumentParser:
     )
     sample.add_argument("--confirm-sample-staging-write", action="store_true")
 
+    audit = subparsers.add_parser("audit-candidates")
+    _add_frozen_plan_args(audit)
+    audit.add_argument("--candidate-report", type=Path, required=True)
+
     promote = subparsers.add_parser("promote")
     _add_frozen_plan_args(promote)
     promote.add_argument("--candidate-report", type=Path, required=True)
+    promote.add_argument("--candidate-audit-report", type=Path)
+    promote.add_argument("--confirm-existing-replacement", action="store_true")
     promote.add_argument("--confirm-lake-write", action="store_true")
+
+    formal_audit = subparsers.add_parser("audit-formal")
+    _add_frozen_plan_args(formal_audit)
+    formal_audit.add_argument("--candidate-report", type=Path, required=True)
+    formal_audit.add_argument("--candidate-audit-report", type=Path, required=True)
+    formal_audit.add_argument("--promote-report", type=Path, required=True)
     return parser
 
 
@@ -75,6 +95,7 @@ def main(argv: list[str] | None = None) -> int:
                 source_lake_root=args.source_lake_root,
                 staging_root=args.staging_root,
                 report_root=args.report_root,
+                frequencies=args.frequencies,
             )
             print(plan.report_path)
             print(f"plan_hash={plan.plan_hash}")
@@ -95,13 +116,31 @@ def main(argv: list[str] | None = None) -> int:
                 duckdb_resource=DuckDBResource(),
                 apply=True,
             )
-        elif args.command == "promote":
-            report = promote_major_index_mins_technical_candidates(
+        elif args.command == "audit-candidates":
+            report = audit_major_index_mins_technical_candidates(
                 plan_report_path=args.plan_report,
                 candidate_report_path=args.candidate_report,
                 expected_plan_hash=args.expected_plan_hash,
                 duckdb_resource=DuckDBResource(),
+            )
+        elif args.command == "promote":
+            report = promote_major_index_mins_technical_candidates(
+                plan_report_path=args.plan_report,
+                candidate_report_path=args.candidate_report,
+                candidate_audit_report_path=args.candidate_audit_report,
+                expected_plan_hash=args.expected_plan_hash,
+                duckdb_resource=DuckDBResource(),
+                replace_existing=args.confirm_existing_replacement,
                 apply=True,
+            )
+        elif args.command == "audit-formal":
+            report = audit_major_index_mins_technical_formal(
+                plan_report_path=args.plan_report,
+                candidate_report_path=args.candidate_report,
+                candidate_audit_report_path=args.candidate_audit_report,
+                promote_report_path=args.promote_report,
+                expected_plan_hash=args.expected_plan_hash,
+                duckdb_resource=DuckDBResource(),
             )
         else:
             raise AssertionError(f"unsupported command: {args.command}")

@@ -39,6 +39,7 @@ from orchestrator.defs.run_contracts.major_index_mins_technical import (
     MAJOR_INDEX_MINS_TECHNICAL_FREQS,
     PARAMS_KEY,
     expected_major_index_mins_technical_codes,
+    normalize_major_index_mins_technical_freq,
 )
 
 FORMAL_LAKE_ROOT = Path("/Volumes/datasource/data_lake")
@@ -123,6 +124,7 @@ class MinuteTechnicalBootstrapPlan:
     source_lake_root: Path
     staging_root: Path
     report_root: Path
+    frequencies: tuple[int, ...]
     trade_dates: tuple[str, ...]
     ignored_incomplete_tail_dates: tuple[str, ...]
     input_files: tuple[MinuteTechnicalInputFile, ...]
@@ -161,11 +163,12 @@ class MinuteTechnicalBootstrapPlan:
 
     def hash_payload(self) -> dict[str, object]:
         return {
-            "schema_version": 2,
+            "schema_version": 3,
             "product": BOOTSTRAP_PRODUCT,
             "end_date": self.end_date,
             "source_lake_root": str(self.source_lake_root),
             "staging_root": str(self.staging_root),
+            "frequencies": self.frequencies,
             "trade_dates": self.trade_dates,
             "input_files": [value.to_dict() for value in self.input_files],
             "source_manifest_hash": self.source_manifest_hash,
@@ -194,7 +197,7 @@ class MinuteTechnicalBootstrapPlan:
             "date_count": len(self.trade_dates),
             "ignored_incomplete_tail_dates": list(self.ignored_incomplete_tail_dates),
             "expected_candidate_file_count": len(self.trade_dates)
-            * len(MAJOR_INDEX_MINS_TECHNICAL_FREQS)
+            * len(self.frequencies)
             * 2,
             "disk_free_bytes": self.disk_free_bytes,
             "disk_budget_passed": self.disk_budget_passed,
@@ -224,11 +227,29 @@ def _normalize_dates(values: Sequence[str], *, end_date: str) -> tuple[str, ...]
     return tuple(sorted(dates))
 
 
-def _complete_source_date(lake_root: Path, trade_date: str) -> bool:
+def _complete_source_date(
+    lake_root: Path,
+    trade_date: str,
+    frequencies: Sequence[int],
+) -> bool:
     return all(
         gold_major_index_mins_path(lake_root, freq, trade_date).is_file()
-        for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS
+        for freq in frequencies
     )
+
+
+def _normalize_frequencies(values: Sequence[int | str]) -> tuple[int, ...]:
+    selected = {
+        normalize_major_index_mins_technical_freq(value) for value in values
+    }
+    normalized = tuple(
+        freq for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS if freq in selected
+    )
+    if not normalized:
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "at least one supported technical frequency is required"
+        )
+    return normalized
 
 
 def _parquet_row_counts(
@@ -269,6 +290,7 @@ def build_major_index_mins_technical_bootstrap_plan(
     source_lake_root: Path = FORMAL_LAKE_ROOT,
     staging_root: Path = BOOTSTRAP_STAGING_ROOT,
     report_root: Path = BOOTSTRAP_REPORT_ROOT,
+    frequencies: Sequence[int | str] = MAJOR_INDEX_MINS_TECHNICAL_FREQS,
     disk_free_bytes: int | None = None,
     duckdb_resource: DuckDBResource | None = None,
     write_report: bool = True,
@@ -285,6 +307,7 @@ def build_major_index_mins_technical_bootstrap_plan(
         raise MajorIndexMinsTechnicalBootstrapError(
             "Bootstrap end date is in the future"
         )
+    normalized_frequencies = _normalize_frequencies(frequencies)
     values = (
         tuple(registered_dates)
         if registered_dates is not None
@@ -296,14 +319,17 @@ def build_major_index_mins_technical_bootstrap_plan(
     )
     registered = _normalize_dates(values, end_date=normalized_end)
     complete_flags = tuple(
-        _complete_source_date(Path(source_lake_root), value) for value in registered
+        _complete_source_date(
+            Path(source_lake_root), value, normalized_frequencies
+        )
+        for value in registered
     )
     complete_indexes = tuple(
         index for index, complete in enumerate(complete_flags) if complete
     )
     if not complete_indexes:
         raise MajorIndexMinsTechnicalBootstrapError(
-            "registered partitions contain no complete 7-frequency Gold date"
+            "registered partitions contain no complete selected-frequency Gold date"
         )
     latest_complete_index = complete_indexes[-1]
     missing_middle = tuple(
@@ -327,7 +353,7 @@ def build_major_index_mins_technical_bootstrap_plan(
             )
             for trade_date in trade_dates
         )
-        for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS
+        for freq in normalized_frequencies
     }
     row_counts = _parquet_row_counts(
         paths_by_freq=paths_by_freq,
@@ -335,7 +361,7 @@ def build_major_index_mins_technical_bootstrap_plan(
     )
     input_files: list[MinuteTechnicalInputFile] = []
     for trade_date in trade_dates:
-        for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS:
+        for freq in normalized_frequencies:
             path = gold_major_index_mins_path(
                 source_lake_root,
                 freq,
@@ -360,7 +386,7 @@ def build_major_index_mins_technical_bootstrap_plan(
     )
     schema_contract_hash = _hash_payload(
         {
-            "freqs": MAJOR_INDEX_MINS_TECHNICAL_FREQS,
+            "freqs": normalized_frequencies,
             "params_key": PARAMS_KEY,
             "indicator_version": INDICATOR_VERSION,
             "technical_types": GOLD_MAJOR_INDEX_MINS_TECHNICAL_COLUMN_TYPES,
@@ -382,6 +408,7 @@ def build_major_index_mins_technical_bootstrap_plan(
         source_lake_root=Path(source_lake_root),
         staging_root=Path(staging_root),
         report_root=Path(report_root),
+        frequencies=normalized_frequencies,
         trade_dates=trade_dates,
         ignored_incomplete_tail_dates=ignored_tail,
         input_files=tuple(input_files),
@@ -422,9 +449,9 @@ def load_major_index_mins_technical_bootstrap_plan(
     payload = _load_json(report_path, label="minute technical plan")
     if payload.get("plan_hash") != expected_plan_hash:
         raise MajorIndexMinsTechnicalBootstrapError("expected plan hash mismatch")
-    if payload.get("schema_version") != 2:
+    if payload.get("schema_version") != 3:
         raise MajorIndexMinsTechnicalBootstrapError(
-            "minute technical plan must be regenerated with schema_version=2"
+            "minute technical plan must be regenerated with schema_version=3"
         )
     inputs = payload.get("input_files")
     trade_dates = payload.get("trade_dates")
@@ -438,6 +465,9 @@ def load_major_index_mins_technical_bootstrap_plan(
         source_lake_root=Path(str(payload["source_lake_root"])),
         staging_root=Path(str(payload["staging_root"])),
         report_root=report_path.parent,
+        frequencies=_normalize_frequencies(
+            tuple(payload.get("frequencies", ()))
+        ),
         trade_dates=tuple(str(value) for value in trade_dates),
         ignored_incomplete_tail_dates=tuple(
             str(value) for value in payload.get("ignored_incomplete_tail_dates", ())
@@ -548,7 +578,7 @@ def _load_candidate_checkpoint(
             "candidate checkpoint dates are not a contiguous frozen-plan prefix"
         )
     files = [dict(value) for value in files_value if isinstance(value, Mapping)]
-    if len(files) != len(completed) * len(MAJOR_INDEX_MINS_TECHNICAL_FREQS) * 2:
+    if len(files) != len(completed) * len(plan.frequencies) * 2:
         raise MajorIndexMinsTechnicalBootstrapError(
             "candidate checkpoint file count does not match completed dates"
         )
@@ -622,8 +652,8 @@ def _load_sample_checkpoint(
     measurements = [
         dict(value) for value in measurements_value if isinstance(value, Mapping)
     ]
-    expected_files = len(completed) * len(MAJOR_INDEX_MINS_TECHNICAL_FREQS) * 2
-    expected_measurements = len(completed) * len(MAJOR_INDEX_MINS_TECHNICAL_FREQS)
+    expected_files = len(completed) * len(plan.frequencies) * 2
+    expected_measurements = len(completed) * len(plan.frequencies)
     if len(files) != expected_files or len(measurements) != expected_measurements:
         raise MajorIndexMinsTechnicalBootstrapError(
             "sample checkpoint counts do not match completed dates"
@@ -729,7 +759,7 @@ def build_major_index_mins_technical_performance_sample(
             continue
         day_entries: list[dict[str, object]] = []
         day_measurements: list[dict[str, object]] = []
-        for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS:
+        for freq in plan.frequencies:
             technical = gold_major_index_mins_technical_path(
                 sample_lake, freq, trade_date
             )
@@ -805,9 +835,9 @@ def build_major_index_mins_technical_performance_sample(
                 }
             )
             peak_rss_bytes = max(peak_rss_bytes, _peak_rss_bytes())
-        if len(day_entries) != len(MAJOR_INDEX_MINS_TECHNICAL_FREQS) * 2 or len(
+        if len(day_entries) != len(plan.frequencies) * 2 or len(
             day_measurements
-        ) != len(MAJOR_INDEX_MINS_TECHNICAL_FREQS):
+        ) != len(plan.frequencies):
             raise MajorIndexMinsTechnicalBootstrapError(
                 f"sample date checkpoint is incomplete: {trade_date}"
             )
@@ -914,7 +944,7 @@ def build_major_index_mins_technical_candidates(
         if trade_date in completed_prefix:
             continue
         day_entries: list[dict[str, object]] = []
-        for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS:
+        for freq in plan.frequencies:
             technical = gold_major_index_mins_technical_path(
                 candidate_lake, freq, trade_date
             )
@@ -972,7 +1002,7 @@ def build_major_index_mins_technical_candidates(
                     ),
                 )
             )
-        if len(day_entries) != len(MAJOR_INDEX_MINS_TECHNICAL_FREQS) * 2:
+        if len(day_entries) != len(plan.frequencies) * 2:
             raise MajorIndexMinsTechnicalBootstrapError(
                 f"date checkpoint has fewer than 14 files: {trade_date}"
             )
@@ -1017,19 +1047,20 @@ def build_major_index_mins_technical_candidates(
     return report_path
 
 
-def _audit_formal_pair(
+def _audit_pair_at_root(
     *,
     connection,
     plan: MinuteTechnicalBootstrapPlan,
+    lake_root: Path,
     freq: int,
     trade_date: str,
 ) -> None:
     expected_codes = expected_major_index_mins_technical_codes(trade_date)
     technical_path = gold_major_index_mins_technical_path(
-        plan.source_lake_root, freq, trade_date
+        lake_root, freq, trade_date
     )
     state_path = gold_major_index_mins_technical_state_path(
-        plan.source_lake_root, freq, trade_date
+        lake_root, freq, trade_date
     )
     technical_relation_sql = read_parquet(
         technical_path,
@@ -1062,12 +1093,111 @@ def _audit_formal_pair(
         )
 
 
-def promote_major_index_mins_technical_candidates(
+def audit_major_index_mins_technical_candidates(
     *,
     plan_report_path: Path,
     candidate_report_path: Path,
     expected_plan_hash: str,
     duckdb_resource: DuckDBResource | None = None,
+) -> Path:
+    """Re-read every candidate pair before any existing formal file is replaced."""
+
+    started_at = perf_counter()
+    plan = load_major_index_mins_technical_bootstrap_plan(
+        plan_report_path, expected_plan_hash=expected_plan_hash
+    )
+    candidate_report = _load_json(candidate_report_path, label="candidate report")
+    if (
+        candidate_report.get("report_type") != "full_candidate"
+        or candidate_report.get("promotion_eligible") is not True
+        or candidate_report.get("plan_hash") != plan.plan_hash
+        or candidate_report.get("should_stop") is not False
+    ):
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "candidate report is not promotable for the frozen plan"
+        )
+    files = candidate_report.get("files")
+    expected_count = len(plan.trade_dates) * len(plan.frequencies) * 2
+    if not isinstance(files, list) or len(files) != expected_count:
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "candidate manifest count mismatch"
+        )
+    candidate_lake = plan.candidate_root / "candidate_lake"
+    resolved_candidate_lake = candidate_lake.resolve()
+    manifest_keys: set[tuple[str, int, str]] = set()
+    total_rows = 0
+    total_bytes = 0
+    for raw_entry in files:
+        if not isinstance(raw_entry, Mapping):
+            raise MajorIndexMinsTechnicalBootstrapError(
+                "candidate manifest contains a non-object entry"
+            )
+        entry = dict(raw_entry)
+        key = (
+            str(entry.get("layer")),
+            int(entry.get("freq", 0)),
+            str(entry.get("trade_date")),
+        )
+        if key in manifest_keys:
+            raise MajorIndexMinsTechnicalBootstrapError(
+                f"candidate manifest contains a duplicate key: {key!r}"
+            )
+        manifest_keys.add(key)
+        path = Path(str(entry.get("path")))
+        if not path.resolve().is_relative_to(resolved_candidate_lake):
+            raise MajorIndexMinsTechnicalBootstrapError(
+                f"candidate manifest path is outside candidate lake: {path}"
+            )
+        if not path.is_file() or _file_sha256(path) != str(entry.get("sha256")):
+            raise MajorIndexMinsTechnicalBootstrapError(
+                f"candidate file is missing or changed: {path}"
+            )
+        total_rows += int(entry.get("row_count", 0))
+        total_bytes += int(entry.get("size_bytes", 0))
+    resource = duckdb_resource or DuckDBResource()
+    with resource.connect() as connection:
+        for trade_date in plan.trade_dates:
+            for freq in plan.frequencies:
+                _audit_pair_at_root(
+                    connection=connection,
+                    plan=plan,
+                    lake_root=candidate_lake,
+                    freq=freq,
+                    trade_date=trade_date,
+                )
+    report_path = plan.report_root / (
+        f"major_index_mins_technical_candidate_audit_{plan.plan_hash}.json"
+    )
+    _atomic_write_json(
+        report_path,
+        {
+            "schema_version": 1,
+            "report_type": "candidate_audit",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "plan_hash": plan.plan_hash,
+            "candidate_report_path": str(candidate_report_path),
+            "frequencies": list(plan.frequencies),
+            "date_count": len(plan.trade_dates),
+            "file_count": len(files),
+            "row_count": total_rows,
+            "size_bytes": total_bytes,
+            "elapsed_ms": (perf_counter() - started_at) * 1000,
+            "ready": True,
+            "should_stop": False,
+            "writes": {"formal_lake": 0, "dagster_events": 0},
+        },
+    )
+    return report_path
+
+
+def promote_major_index_mins_technical_candidates(
+    *,
+    plan_report_path: Path,
+    candidate_report_path: Path,
+    candidate_audit_report_path: Path | None = None,
+    expected_plan_hash: str,
+    duckdb_resource: DuckDBResource | None = None,
+    replace_existing: bool = False,
     apply: bool = False,
 ) -> Path:
     if not apply:
@@ -1095,7 +1225,7 @@ def promote_major_index_mins_technical_candidates(
     files = candidate_report.get("files")
     if not isinstance(files, list):
         raise MajorIndexMinsTechnicalBootstrapError("candidate report has no manifest")
-    expected_count = len(plan.trade_dates) * len(MAJOR_INDEX_MINS_TECHNICAL_FREQS) * 2
+    expected_count = len(plan.trade_dates) * len(plan.frequencies) * 2
     if len(files) != expected_count:
         raise MajorIndexMinsTechnicalBootstrapError("candidate manifest count mismatch")
     by_key = {
@@ -1103,9 +1233,46 @@ def promote_major_index_mins_technical_candidates(
         for value in files
         if isinstance(value, Mapping)
     }
+    if len(by_key) != expected_count:
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "candidate manifest keys are incomplete or duplicated"
+        )
+    if replace_existing:
+        if candidate_audit_report_path is None:
+            raise MajorIndexMinsTechnicalBootstrapError(
+                "existing-file replacement requires a candidate audit report"
+            )
+        candidate_audit = _load_json(
+            candidate_audit_report_path, label="candidate audit report"
+        )
+        if (
+            candidate_audit.get("report_type") != "candidate_audit"
+            or candidate_audit.get("plan_hash") != plan.plan_hash
+            or candidate_audit.get("candidate_report_path")
+            != str(candidate_report_path)
+            or candidate_audit.get("ready") is not True
+            or candidate_audit.get("should_stop") is not False
+        ):
+            raise MajorIndexMinsTechnicalBootstrapError(
+                "candidate audit report is not green for replacement"
+            )
+    candidate_lake = (plan.candidate_root / "candidate_lake").resolve()
+    for entry in by_key.values():
+        candidate = Path(str(entry["path"]))
+        if not candidate.resolve().is_relative_to(candidate_lake):
+            raise MajorIndexMinsTechnicalBootstrapError(
+                f"candidate path is outside the frozen candidate lake: {candidate}"
+            )
+        if (
+            not candidate.is_file()
+            or _file_sha256(candidate) != str(entry["sha256"])
+        ):
+            raise MajorIndexMinsTechnicalBootstrapError(
+                f"candidate is missing or changed: {candidate}"
+            )
     actions: list[dict[str, object]] = []
     for trade_date in plan.trade_dates:
-        for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS:
+        for freq in plan.frequencies:
             pair_entries = tuple(
                 by_key[(layer, freq, trade_date)] for layer in ("technical", "state")
             )
@@ -1125,19 +1292,20 @@ def promote_major_index_mins_technical_candidates(
                 candidate = Path(str(entry["path"]))
                 expected_hash = str(entry["sha256"])
                 if formal.exists():
-                    if _file_sha256(formal) != expected_hash:
+                    if _file_sha256(formal) == expected_hash:
+                        action = "reused_identical_formal"
+                    elif not replace_existing:
                         raise MajorIndexMinsTechnicalBootstrapError(
                             f"formal target conflicts with manifest: {formal}"
                         )
-                    action = "reused_identical_formal"
+                    else:
+                        if candidate.parent.stat().st_dev != formal.parent.stat().st_dev:
+                            raise MajorIndexMinsTechnicalBootstrapError(
+                                "candidate and formal target must share one filesystem"
+                            )
+                        os.replace(candidate, formal)
+                        action = "replaced_existing_formal"
                 else:
-                    if (
-                        not candidate.is_file()
-                        or _file_sha256(candidate) != expected_hash
-                    ):
-                        raise MajorIndexMinsTechnicalBootstrapError(
-                            f"candidate is missing or changed: {candidate}"
-                        )
                     formal.parent.mkdir(parents=True, exist_ok=True)
                     if candidate.parent.stat().st_dev != formal.parent.stat().st_dev:
                         raise MajorIndexMinsTechnicalBootstrapError(
@@ -1159,9 +1327,13 @@ def promote_major_index_mins_technical_candidates(
     resource = duckdb_resource or DuckDBResource()
     with resource.connect() as connection:
         for trade_date in plan.trade_dates:
-            for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS:
-                _audit_formal_pair(
-                    connection=connection, plan=plan, freq=freq, trade_date=trade_date
+            for freq in plan.frequencies:
+                _audit_pair_at_root(
+                    connection=connection,
+                    plan=plan,
+                    lake_root=plan.source_lake_root,
+                    freq=freq,
+                    trade_date=trade_date,
                 )
     report_path = plan.report_root / (
         f"major_index_mins_technical_promote_{plan.plan_hash}.json"
@@ -1173,17 +1345,253 @@ def promote_major_index_mins_technical_candidates(
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "plan_hash": plan.plan_hash,
             "candidate_report_path": str(candidate_report_path),
+            "candidate_audit_report_path": (
+                str(candidate_audit_report_path)
+                if candidate_audit_report_path is not None
+                else None
+            ),
+            "replace_existing": replace_existing,
             "formal_lake_root": str(plan.source_lake_root),
             "results": actions,
             "promoted_count": sum(value["action"] == "promoted" for value in actions),
+            "replaced_count": sum(
+                value["action"] == "replaced_existing_formal" for value in actions
+            ),
             "reused_count": sum(
                 value["action"] == "reused_identical_formal" for value in actions
             ),
             "should_stop": False,
             "writes": {
-                "formal_lake": sum(value["action"] == "promoted" for value in actions),
+                "formal_lake": sum(
+                    value["action"] in {"promoted", "replaced_existing_formal"}
+                    for value in actions
+                ),
                 "dagster_events": 0,
             },
+        },
+    )
+    return report_path
+
+
+def audit_major_index_mins_technical_formal(
+    *,
+    plan_report_path: Path,
+    candidate_report_path: Path,
+    candidate_audit_report_path: Path,
+    promote_report_path: Path,
+    expected_plan_hash: str,
+    duckdb_resource: DuckDBResource | None = None,
+) -> Path:
+    """Verify promoted hashes, Gold keys, and exact previous-state continuity."""
+
+    started_at = perf_counter()
+    plan = load_major_index_mins_technical_bootstrap_plan(
+        plan_report_path, expected_plan_hash=expected_plan_hash
+    )
+    candidate_report = _load_json(candidate_report_path, label="candidate report")
+    candidate_audit = _load_json(
+        candidate_audit_report_path, label="candidate audit report"
+    )
+    promote_report = _load_json(promote_report_path, label="promote report")
+    if (
+        candidate_report.get("plan_hash") != plan.plan_hash
+        or candidate_audit.get("plan_hash") != plan.plan_hash
+        or candidate_audit.get("ready") is not True
+        or promote_report.get("plan_hash") != plan.plan_hash
+        or promote_report.get("should_stop") is not False
+        or promote_report.get("replace_existing") is not True
+    ):
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "formal audit reports do not match the green replacement plan"
+        )
+    files = candidate_report.get("files")
+    expected_file_count = len(plan.trade_dates) * len(plan.frequencies) * 2
+    if not isinstance(files, list) or len(files) != expected_file_count:
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "formal audit candidate manifest count mismatch"
+        )
+    by_freq_layer: dict[tuple[int, str], list[Path]] = {
+        (freq, layer): []
+        for freq in plan.frequencies
+        for layer in ("technical", "state")
+    }
+    hash_mismatch_samples: list[str] = []
+    formal_size_bytes = 0
+    for raw_entry in files:
+        if not isinstance(raw_entry, Mapping):
+            raise MajorIndexMinsTechnicalBootstrapError(
+                "formal audit candidate manifest contains a non-object entry"
+            )
+        layer = str(raw_entry["layer"])
+        freq = int(raw_entry["freq"])
+        trade_date = str(raw_entry["trade_date"])
+        formal = (
+            gold_major_index_mins_technical_path(
+                plan.source_lake_root, freq, trade_date
+            )
+            if layer == "technical"
+            else gold_major_index_mins_technical_state_path(
+                plan.source_lake_root, freq, trade_date
+            )
+        )
+        if not formal.is_file() or _file_sha256(formal) != str(raw_entry["sha256"]):
+            if len(hash_mismatch_samples) < 20:
+                hash_mismatch_samples.append(str(formal))
+            continue
+        by_freq_layer[(freq, layer)].append(formal)
+        formal_size_bytes += formal.stat().st_size
+    if hash_mismatch_samples:
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "formal technical/state hash differs from green candidate: "
+            f"samples={hash_mismatch_samples!r}"
+        )
+    resource = duckdb_resource or DuckDBResource()
+    audits: list[dict[str, object]] = []
+    expected_state_rows = sum(
+        len(expected_major_index_mins_technical_codes(trade_date))
+        for trade_date in plan.trade_dates
+    )
+    date_pairs = tuple(
+        (trade_date, plan.trade_dates[index - 1] if index else None)
+        for index, trade_date in enumerate(plan.trade_dates)
+    )
+    with resource.connect() as connection:
+        connection.execute(
+            "CREATE TEMP TABLE p6_expected_dates "
+            "(trade_date DATE, previous_trade_date DATE)"
+        )
+        connection.executemany(
+            "INSERT INTO p6_expected_dates VALUES (?, ?)", date_pairs
+        )
+        for freq in plan.frequencies:
+            technical_paths = by_freq_layer[(freq, "technical")]
+            state_paths = by_freq_layer[(freq, "state")]
+            source_paths = [
+                gold_major_index_mins_path(
+                    plan.source_lake_root, freq, trade_date
+                )
+                for trade_date in plan.trade_dates
+            ]
+            metrics = connection.execute(
+                """
+                WITH source AS MATERIALIZED (
+                  SELECT
+                    CAST(ts_code AS VARCHAR) AS ts_code,
+                    CAST(trade_date AS DATE) AS trade_date,
+                    CAST(trade_time AS TIMESTAMP) AS trade_time
+                  FROM read_parquet(?, hive_partitioning=false, union_by_name=false)
+                ), technical AS MATERIALIZED (
+                  SELECT
+                    CAST(ts_code AS VARCHAR) AS ts_code,
+                    CAST(trade_date AS DATE) AS trade_date,
+                    CAST(trade_time AS TIMESTAMP) AS trade_time,
+                    CAST(observation_count AS BIGINT) AS observation_count
+                  FROM read_parquet(?, hive_partitioning=false, union_by_name=false)
+                ), state AS MATERIALIZED (
+                  SELECT
+                    CAST(ts_code AS VARCHAR) AS ts_code,
+                    CAST(trade_date AS DATE) AS trade_date
+                  FROM read_parquet(?, hive_partitioning=false, union_by_name=false)
+                ), source_keys AS (
+                  SELECT ts_code, trade_date, trade_time FROM source
+                ), technical_keys AS (
+                  SELECT ts_code, trade_date, trade_time FROM technical
+                ), key_diff AS (
+                  (SELECT * FROM source_keys EXCEPT SELECT * FROM technical_keys)
+                  UNION ALL
+                  (SELECT * FROM technical_keys EXCEPT SELECT * FROM source_keys)
+                ), observation AS (
+                  SELECT
+                    ts_code,
+                    trade_date,
+                    min(observation_count) AS min_observation_count,
+                    max(observation_count) AS max_observation_count
+                  FROM technical
+                  GROUP BY ts_code, trade_date
+                ), state_counts AS (
+                  SELECT ts_code, trade_date, count(*) AS row_count
+                  FROM state
+                  GROUP BY ts_code, trade_date
+                ), continuity AS (
+                  SELECT
+                    current_observation.ts_code,
+                    current_observation.trade_date,
+                    current_observation.min_observation_count,
+                    previous_observation.max_observation_count,
+                    coalesce(previous_state.row_count, 0) AS previous_state_rows
+                  FROM observation AS current_observation
+                  JOIN p6_expected_dates AS expected
+                    ON current_observation.trade_date = expected.trade_date
+                  JOIN observation AS previous_observation
+                    ON previous_observation.ts_code = current_observation.ts_code
+                   AND previous_observation.trade_date = expected.previous_trade_date
+                  LEFT JOIN state_counts AS previous_state
+                    ON previous_state.ts_code = current_observation.ts_code
+                   AND previous_state.trade_date = expected.previous_trade_date
+                )
+                SELECT
+                  (SELECT count(*) FROM source),
+                  (SELECT count(*) FROM technical),
+                  (SELECT count(*) FROM state),
+                  (SELECT count(*) FROM key_diff),
+                  (SELECT count(*) FROM continuity),
+                  (SELECT count(*) FROM continuity
+                   WHERE previous_state_rows != 1
+                      OR min_observation_count != max_observation_count + 1),
+                  (SELECT bit_xor(hash(ts_code, trade_date, trade_time)) FROM source),
+                  (SELECT bit_xor(hash(ts_code, trade_date, trade_time)) FROM technical)
+                """,
+                [
+                    [str(path) for path in source_paths],
+                    [str(path) for path in technical_paths],
+                    [str(path) for path in state_paths],
+                ],
+            ).fetchone()
+            audit = {
+                "freq": freq,
+                "source_row_count": int(metrics[0]),
+                "technical_row_count": int(metrics[1]),
+                "state_row_count": int(metrics[2]),
+                "expected_state_row_count": expected_state_rows,
+                "source_key_mismatch_count": int(metrics[3]),
+                "continuing_code_day_count": int(metrics[4]),
+                "continuity_failure_count": int(metrics[5]),
+                "source_key_hash": str(metrics[6]),
+                "technical_key_hash": str(metrics[7]),
+            }
+            audit["ready"] = (
+                audit["source_row_count"] == audit["technical_row_count"]
+                and audit["state_row_count"] == audit["expected_state_row_count"]
+                and audit["source_key_mismatch_count"] == 0
+                and audit["continuity_failure_count"] == 0
+                and audit["source_key_hash"] == audit["technical_key_hash"]
+            )
+            audits.append(audit)
+    ready = all(bool(value["ready"]) for value in audits)
+    report_path = plan.report_root / (
+        f"major_index_mins_technical_formal_audit_{plan.plan_hash}.json"
+    )
+    _atomic_write_json(
+        report_path,
+        {
+            "schema_version": 1,
+            "report_type": "formal_audit",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "plan_hash": plan.plan_hash,
+            "source_manifest_hash": plan.source_manifest_hash,
+            "candidate_report_path": str(candidate_report_path),
+            "candidate_audit_report_path": str(candidate_audit_report_path),
+            "promote_report_path": str(promote_report_path),
+            "frequencies": list(plan.frequencies),
+            "date_count": len(plan.trade_dates),
+            "file_count": expected_file_count,
+            "formal_size_bytes": formal_size_bytes,
+            "hash_mismatch_count": 0,
+            "audits": audits,
+            "ready": ready,
+            "should_stop": not ready,
+            "elapsed_ms": (perf_counter() - started_at) * 1000,
+            "writes": {"formal_lake": 0, "dagster_events": 0},
         },
     )
     return report_path
@@ -1192,6 +1600,8 @@ def promote_major_index_mins_technical_candidates(
 __all__ = [
     "MajorIndexMinsTechnicalBootstrapError",
     "MinuteTechnicalBootstrapPlan",
+    "audit_major_index_mins_technical_candidates",
+    "audit_major_index_mins_technical_formal",
     "build_major_index_mins_technical_bootstrap_plan",
     "build_major_index_mins_technical_candidates",
     "build_major_index_mins_technical_performance_sample",

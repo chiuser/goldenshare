@@ -18,7 +18,6 @@ from orchestrator.defs.stk_mins_qfq import (
     build_daily_qfq_select_sql,
 )
 
-
 TRADE_DATE = "2014-06-03"
 LATEST_DATE = "2014-06-04"
 
@@ -125,6 +124,43 @@ class StkMinsQfqSqlHelperTests(unittest.TestCase):
         self.assertEqual(by_code["000001.SZ"]["as_of_trade_date"].isoformat(), TRADE_DATE)
         self.assertEqual(by_code["000001.SZ"]["as_of_adj_factor"], 3.0)
         self.assertFalse(hasattr(qfq_module, "build_latest_adj_factor_by_code_sql"))
+
+    def test_as_of_adj_factor_uses_each_codes_latest_available_factor(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            first_path = root / "adj_first.parquet"
+            latest_path = root / "adj_latest.parquet"
+            _write_rows(
+                first_path,
+                column_types=_column_types(SILVER_ADJ_FACTOR_SCHEMA),
+                rows=[
+                    _adj_row("600000.SH", TRADE_DATE, 2.0),
+                    _adj_row("600001.SH", TRADE_DATE, 3.0),
+                ],
+                order_by="ts_code",
+            )
+            _write_rows(
+                latest_path,
+                column_types=_column_types(SILVER_ADJ_FACTOR_SCHEMA),
+                rows=[_adj_row("600000.SH", LATEST_DATE, 4.0)],
+                order_by="ts_code",
+            )
+
+            rows = _fetch_dicts(
+                build_as_of_adj_factor_by_code_sql([first_path, latest_path])
+            )
+
+        by_code = {row["ts_code"]: row for row in rows}
+        self.assertEqual(by_code["600000.SH"]["as_of_adj_factor"], 4.0)
+        self.assertEqual(
+            by_code["600000.SH"]["as_of_trade_date"].isoformat(),
+            LATEST_DATE,
+        )
+        self.assertEqual(by_code["600001.SH"]["as_of_adj_factor"], 3.0)
+        self.assertEqual(
+            by_code["600001.SH"]["as_of_trade_date"].isoformat(),
+            TRADE_DATE,
+        )
 
     def test_daily_qfq_select_uses_formula_and_preserves_non_price_fields(self) -> None:
         with TemporaryDirectory() as temp_dir:

@@ -23,6 +23,8 @@ from orchestrator.defs.bootstrap.major_index_mins_technical_history import (
     MajorIndexMinsTechnicalBootstrapError,
     MinuteTechnicalBootstrapPlan,
     MinuteTechnicalInputFile,
+    audit_major_index_mins_technical_candidates,
+    audit_major_index_mins_technical_formal,
     build_major_index_mins_technical_bootstrap_plan,
     build_major_index_mins_technical_candidates,
     build_major_index_mins_technical_performance_sample,
@@ -228,6 +230,7 @@ def _performance_sample_plan(tmp_path: Path) -> MinuteTechnicalBootstrapPlan:
         source_lake_root=tmp_path / "data_lake",
         staging_root=tmp_path / "data_lake_staging",
         report_root=tmp_path / "reports",
+        frequencies=MAJOR_INDEX_MINS_TECHNICAL_FREQS,
         trade_dates=trade_dates,
         ignored_incomplete_tail_dates=(),
         input_files=inputs,
@@ -307,7 +310,7 @@ def test_plan_hash_is_stable_and_ignores_only_incomplete_tail(tmp_path: Path) ->
     assert {value.row_count for value in first.input_files} == {
         len(expected_major_index_mins_technical_codes(FIRST_DATE)) * 2
     }
-    assert first.hash_payload()["schema_version"] == 2
+    assert first.hash_payload()["schema_version"] == 3
 
 
 def test_plan_rejects_intermediate_incomplete_gold_bar_date(tmp_path: Path) -> None:
@@ -336,7 +339,7 @@ def test_plan_rejects_legacy_manifest_without_input_row_counts(tmp_path: Path) -
 
     with pytest.raises(
         MajorIndexMinsTechnicalBootstrapError,
-        match="must be regenerated with schema_version=2",
+        match="must be regenerated with schema_version=3",
     ):
         load_major_index_mins_technical_bootstrap_plan(
             plan.report_path,
@@ -632,6 +635,82 @@ def test_candidate_promotion_moves_all_pairs_and_physically_audits(
         assert gold_major_index_mins_technical_state_path(
             plan.source_lake_root, freq, FIRST_DATE
         ).is_file()
+
+
+def test_selected_frequency_candidate_is_bounded_and_can_replace_after_audit(
+    tmp_path: Path,
+) -> None:
+    _write_gold_bar_partition(
+        tmp_path / "data_lake", trade_date=FIRST_DATE, freq=5
+    )
+    plan = build_major_index_mins_technical_bootstrap_plan(
+        end_date=FIRST_DATE,
+        registered_dates=(FIRST_DATE,),
+        source_lake_root=tmp_path / "data_lake",
+        staging_root=tmp_path / "data_lake_staging",
+        report_root=tmp_path / "reports",
+        frequencies=(5,),
+        disk_free_bytes=10**12,
+    )
+    candidate_report = build_major_index_mins_technical_candidates(
+        plan_report_path=plan.report_path,
+        expected_plan_hash=plan.plan_hash,
+        apply=True,
+    )
+    candidate_payload = json.loads(candidate_report.read_text(encoding="utf-8"))
+    assert plan.frequencies == (5,)
+    assert len(candidate_payload["files"]) == 2
+
+    candidate_audit = audit_major_index_mins_technical_candidates(
+        plan_report_path=plan.report_path,
+        candidate_report_path=candidate_report,
+        expected_plan_hash=plan.plan_hash,
+    )
+    for path in (
+        gold_major_index_mins_technical_path(
+            plan.source_lake_root, 5, FIRST_DATE
+        ),
+        gold_major_index_mins_technical_state_path(
+            plan.source_lake_root, 5, FIRST_DATE
+        ),
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"old-formal")
+
+    with pytest.raises(
+        MajorIndexMinsTechnicalBootstrapError,
+        match="requires a candidate audit report",
+    ):
+        promote_major_index_mins_technical_candidates(
+            plan_report_path=plan.report_path,
+            candidate_report_path=candidate_report,
+            expected_plan_hash=plan.plan_hash,
+            replace_existing=True,
+            apply=True,
+        )
+
+    promote_report = promote_major_index_mins_technical_candidates(
+        plan_report_path=plan.report_path,
+        candidate_report_path=candidate_report,
+        candidate_audit_report_path=candidate_audit,
+        expected_plan_hash=plan.plan_hash,
+        replace_existing=True,
+        apply=True,
+    )
+    payload = json.loads(promote_report.read_text(encoding="utf-8"))
+    assert payload["replaced_count"] == 2
+    assert payload["writes"] == {"dagster_events": 0, "formal_lake": 2}
+    formal_audit = audit_major_index_mins_technical_formal(
+        plan_report_path=plan.report_path,
+        candidate_report_path=candidate_report,
+        candidate_audit_report_path=candidate_audit,
+        promote_report_path=promote_report,
+        expected_plan_hash=plan.plan_hash,
+    )
+    formal_payload = json.loads(formal_audit.read_text(encoding="utf-8"))
+    assert formal_payload["ready"] is True
+    assert formal_payload["audits"][0]["source_key_mismatch_count"] == 0
+    assert formal_payload["audits"][0]["continuity_failure_count"] == 0
 
 
 def test_candidate_promotion_rejects_partial_formal_pair(tmp_path: Path) -> None:

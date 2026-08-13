@@ -134,15 +134,31 @@ def build_as_of_adj_factor_by_code_sql(as_of_adj_factor_paths: Sequence[Path]) -
 WITH as_of_adj_factor AS (
   SELECT
     CAST(ts_code AS VARCHAR) AS ts_code,
-    CAST(trade_date AS DATE) AS as_of_trade_date,
-    CAST(adj_factor AS DOUBLE) AS as_of_adj_factor
+    arg_max(CAST(trade_date AS DATE), CAST(trade_date AS DATE))
+      AS as_of_trade_date,
+    arg_max(CAST(adj_factor AS DOUBLE), CAST(trade_date AS DATE))
+      AS as_of_adj_factor
   FROM {adj_factor_source}
+  GROUP BY CAST(ts_code AS VARCHAR)
 )
 SELECT
   ts_code,
   as_of_trade_date,
   as_of_adj_factor
 FROM as_of_adj_factor
+"""
+
+
+def _build_adj_factor_by_code_trade_date_sql(
+    adj_factor_paths: Sequence[Path],
+) -> str:
+    adj_factor_source = _read_parquet_paths(adj_factor_paths)
+    return f"""
+SELECT
+  CAST(ts_code AS VARCHAR) AS ts_code,
+  CAST(trade_date AS DATE) AS as_of_trade_date,
+  CAST(adj_factor AS DOUBLE) AS as_of_adj_factor
+FROM {adj_factor_source}
 """
 
 
@@ -168,7 +184,11 @@ def build_canonical_gold_stk_mins_qfq_select_sql(
     normalized_dates = _normalize_trade_dates(partition_keys)
     source = _read_parquet_paths(silver_paths)
     trade_adj_source = _read_parquet_paths(trade_adj_factor_paths)
-    as_of_adj_sql = build_as_of_adj_factor_by_code_sql(as_of_adj_factor_paths)
+    as_of_adj_sql = (
+        _build_adj_factor_by_code_trade_date_sql(as_of_adj_factor_paths)
+        if match_as_of_by_trade_date
+        else build_as_of_adj_factor_by_code_sql(as_of_adj_factor_paths)
+    )
     date_values_sql = _date_values_sql(normalized_dates)
     stock_filter = ""
     if stock_codes:
@@ -355,12 +375,14 @@ def build_daily_qfq_coverage_sql(
     silver_paths: Sequence[Path],
     trade_adj_factor_paths: Sequence[Path],
     as_of_adj_factor_paths: Sequence[Path],
+    stock_codes: Sequence[str] = (),
 ) -> str:
     return _build_daily_qfq_coverage_sql(
         silver_paths=silver_paths,
         trade_adj_factor_paths=trade_adj_factor_paths,
         as_of_adj_sql=build_as_of_adj_factor_by_code_sql(as_of_adj_factor_paths),
         match_as_of_by_trade_date=False,
+        stock_codes=stock_codes,
     )
 
 
@@ -419,9 +441,16 @@ def _build_daily_qfq_coverage_sql(
     trade_adj_factor_paths: Sequence[Path],
     as_of_adj_sql: str,
     match_as_of_by_trade_date: bool,
+    stock_codes: Sequence[str] = (),
 ) -> str:
     silver_source = _read_parquet_paths(silver_paths)
     trade_adj_source = _read_parquet_paths(trade_adj_factor_paths)
+    stock_filter = ""
+    if stock_codes:
+        stock_filter = (
+            "WHERE CAST(ts_code AS VARCHAR) IN "
+            f"({_string_values_sql(stock_codes)})"
+        )
     as_of_join = (
         """
     ON silver_rows.ts_code = as_of_adj_factor.ts_code
@@ -438,6 +467,7 @@ WITH silver_rows AS (
     CAST(ts_code AS VARCHAR) AS ts_code,
     CAST(trade_date AS DATE) AS trade_date
   FROM {silver_source}
+  {stock_filter}
 ),
 trade_adj_factor AS (
   SELECT

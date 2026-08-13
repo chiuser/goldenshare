@@ -23,6 +23,11 @@ from orchestrator.defs.bootstrap.stk_mins_qfq_derived_bootstrap_events import (
 )
 from orchestrator.defs.bootstrap.stk_mins_qfq_derived_history import (
     GOLD_STK_MINS_QFQ_DERIVED_AMOUNT_ABS_TOLERANCE,
+    GOLD_STK_MINS_QFQ_DERIVED_OHLC_ABS_TOLERANCE,
+    GOLD_STK_MINS_QFQ_DERIVED_OHLC_DECIMAL_PLACES,
+    StkMinsQfqDerivedHistoryBatchEstimate,
+    _validate_derived_equivalence_estimate,
+    _validate_derived_history_estimate,
     audit_stk_mins_qfq_derived_canonical_equivalence,
     generate_stk_mins_qfq_derived_history,
     plan_stk_mins_qfq_derived_history,
@@ -404,6 +409,158 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
             rejected.batch_audits[0].max_amount_abs_difference,
             GOLD_STK_MINS_QFQ_DERIVED_AMOUNT_ABS_TOLERANCE,
         )
+
+    def test_silver_direct_equivalence_uses_seven_decimal_ohlc_tolerance(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            _write_valid_derived_sources(lake_root)
+            generate_stk_mins_qfq_derived_history(
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                registered_partition_keys=[DATE_1, DATE_2],
+                freqs=[90],
+            )
+
+            target_path = gold_stk_mins_qfq_path(
+                lake_root,
+                90,
+                STOCK_A,
+                2014,
+            )
+            rows = _read_gold_rows(target_path)
+            original_close = float(rows[0]["close"])
+            rows[0]["close"] = original_close + 1e-8
+            _write_rows(target_path, rows=rows)
+            tolerated = audit_stk_mins_qfq_derived_canonical_equivalence(
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                registered_partition_keys=[DATE_1, DATE_2],
+                freqs=[90],
+            )
+
+            rows[0]["close"] = original_close + 1e-6
+            _write_rows(target_path, rows=rows)
+            rejected = audit_stk_mins_qfq_derived_canonical_equivalence(
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                registered_partition_keys=[DATE_1, DATE_2],
+                freqs=[90],
+            )
+
+        self.assertEqual(GOLD_STK_MINS_QFQ_DERIVED_OHLC_DECIMAL_PLACES, 7)
+        self.assertEqual(GOLD_STK_MINS_QFQ_DERIVED_OHLC_ABS_TOLERANCE, 1e-7)
+        self.assertTrue(tolerated.passed)
+        self.assertEqual(
+            tolerated.batch_audits[0].candidate_value_hash,
+            tolerated.batch_audits[0].existing_value_hash,
+        )
+        self.assertFalse(rejected.passed)
+        self.assertEqual(rejected.batch_audits[0].value_mismatch_count, 1)
+
+    def test_equivalence_allows_partial_source_windows_but_generation_does_not(
+        self,
+    ) -> None:
+        estimate = StkMinsQfqDerivedHistoryBatchEstimate(
+            target_freq=90,
+            source_freq=30,
+            year="2014",
+            source_file_count=1,
+            source_row_count=10,
+            source_stock_day_count=2,
+            expected_window_count=6,
+            generated_window_count=5,
+            incomplete_window_count=1,
+            exchange_mismatch_window_count=0,
+            planned_target_file_count=1,
+            existing_target_file_count=1,
+        )
+
+        _validate_derived_equivalence_estimate(estimate)
+        with self.assertRaisesRegex(RuntimeError, "windows are incomplete"):
+            _validate_derived_history_estimate(estimate)
+
+    def test_equivalence_uses_frozen_per_code_as_of_factor_snapshot(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            _write_valid_derived_sources(lake_root)
+            _write_rows(
+                silver_adj_factor_path(lake_root, DATE_2),
+                schema=SILVER_ADJ_FACTOR_SCHEMA,
+                rows=[
+                    {"ts_code": STOCK_A, "trade_date": DATE_2, "adj_factor": 1.0},
+                    {"ts_code": STOCK_B, "trade_date": DATE_2, "adj_factor": 2.0},
+                ],
+                order_by="ts_code",
+            )
+            generate_stk_mins_qfq_derived_history(
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                registered_partition_keys=[DATE_1, DATE_2],
+                freqs=[90],
+            )
+
+            for source_freq in (30, 60):
+                source_path = silver_stk_mins_path(lake_root, source_freq, DATE_2)
+                source_rows = [
+                    row
+                    for row in _read_gold_rows(source_path)
+                    if row["ts_code"] == STOCK_A
+                ]
+                _write_rows(
+                    source_path,
+                    schema=SILVER_STK_MINS_SCHEMA,
+                    rows=source_rows,
+                    order_by="ts_code, trade_time",
+                )
+            _write_rows(
+                silver_adj_factor_path(lake_root, DATE_2),
+                schema=SILVER_ADJ_FACTOR_SCHEMA,
+                rows=[
+                    {"ts_code": STOCK_A, "trade_date": DATE_2, "adj_factor": 1.0}
+                ],
+                order_by="ts_code",
+            )
+            stock_b_target = gold_stk_mins_qfq_path(
+                lake_root,
+                90,
+                STOCK_B,
+                2014,
+            )
+            stock_b_rows = [
+                row
+                for row in _read_gold_rows(stock_b_target)
+                if str(row["trade_date"]) == DATE_1
+            ]
+            _write_rows(stock_b_target, rows=stock_b_rows)
+            frozen_snapshot_path = lake_root / "staging/as-of-adj-factor.parquet"
+            _write_rows(
+                frozen_snapshot_path,
+                schema=SILVER_ADJ_FACTOR_SCHEMA,
+                rows=[
+                    {"ts_code": STOCK_A, "trade_date": DATE_2, "adj_factor": 1.0},
+                    {"ts_code": STOCK_B, "trade_date": DATE_2, "adj_factor": 2.0},
+                ],
+                order_by="ts_code",
+            )
+
+            wrong_single_day = audit_stk_mins_qfq_derived_canonical_equivalence(
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                registered_partition_keys=[DATE_1, DATE_2],
+                freqs=[90],
+            )
+            frozen_snapshot = audit_stk_mins_qfq_derived_canonical_equivalence(
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                registered_partition_keys=[DATE_1, DATE_2],
+                freqs=[90],
+                as_of_adj_factor_paths=[frozen_snapshot_path],
+            )
+
+        self.assertFalse(wrong_single_day.passed)
+        self.assertTrue(frozen_snapshot.passed)
 
     def test_generate_rejects_native_freq_and_existing_targets(self) -> None:
         with TemporaryDirectory() as temp_dir:

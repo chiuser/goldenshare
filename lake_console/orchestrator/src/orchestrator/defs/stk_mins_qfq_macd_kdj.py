@@ -1,18 +1,26 @@
 from __future__ import annotations
 
+import os
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
-import os
 from pathlib import Path
-from typing import Sequence
 
 import duckdb
 
 from orchestrator.defs.asset_guards.stk_mins_continuity import (
     assert_exact_previous_state_path,
 )
-from orchestrator.defs.duckdb_connection import connect_configured_duckdb
-from orchestrator.defs.duckdb_sql import copy_query_to_parquet, duckdb_string, read_parquet
+from orchestrator.defs.duckdb_connection import (
+    DEFAULT_DUCKDB_CONNECTION_SETTINGS,
+    DuckDBConnectionSettings,
+    connect_configured_duckdb,
+)
+from orchestrator.defs.duckdb_sql import (
+    copy_query_to_parquet,
+    duckdb_string,
+    read_parquet,
+)
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_TS_CODE,
     gold_stk_mins_qfq_macd_kdj_path,
@@ -27,7 +35,6 @@ from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_QFQ_FREQS,
     normalize_stk_mins_qfq_freq,
 )
-
 
 GOLD_STK_MINS_QFQ_MACD_KDJ_COLUMNS = tuple(
     column.name for column in GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA
@@ -750,6 +757,7 @@ def _write_indicator_group_to_year_file(
     freq: int,
     ts_code: str,
     year: str,
+    replacement_trade_dates: Sequence[str],
     fail_if_target_exists: bool,
 ) -> int:
     if target_path.exists():
@@ -768,6 +776,7 @@ def _write_indicator_group_to_year_file(
     if temp_path.exists():
         temp_path.unlink()
     columns = ", ".join(GOLD_STK_MINS_QFQ_MACD_KDJ_COLUMNS)
+    replacement_dates = _date_values_sql(replacement_trade_dates)
     connection.execute(
         copy_query_to_parquet(
             f"""
@@ -784,7 +793,7 @@ def _write_indicator_group_to_year_file(
               SELECT {columns}
               FROM existing_rows
               WHERE trade_date NOT IN (
-                SELECT DISTINCT trade_date FROM replacement_group
+                SELECT trade_date FROM {replacement_dates}
               )
               UNION ALL
               SELECT {columns}
@@ -906,6 +915,7 @@ def write_gold_stk_mins_qfq_macd_kdj_rows(
     stock_codes: Sequence[str] = (),
     fail_if_target_exists: bool = False,
     allow_empty_replacement: bool = False,
+    duckdb_settings: DuckDBConnectionSettings = DEFAULT_DUCKDB_CONNECTION_SETTINGS,
 ) -> tuple[
     tuple[GoldStkMinsQfqMacdKdjWriteResult, ...],
     tuple[GoldStkMinsQfqMacdKdjStateWriteResult, ...],
@@ -916,7 +926,7 @@ def write_gold_stk_mins_qfq_macd_kdj_rows(
     if not source_qfq_paths:
         raise FileNotFoundError("Missing source gold qfq files for MACD/KDJ computation.")
 
-    with connect_configured_duckdb() as connection:
+    with connect_configured_duckdb(duckdb_settings) as connection:
         initialized_without_previous_state = _create_macd_kdj_replacement_tables(
             connection,
             source_qfq_paths=source_qfq_paths,
@@ -963,6 +973,7 @@ def write_gold_stk_mins_qfq_macd_kdj_rows(
                 freq=normalized_freq,
                 ts_code=str(ts_code),
                 year=str(year),
+                replacement_trade_dates=normalized_trade_dates,
                 fail_if_target_exists=fail_if_target_exists,
             )
             indicator_results.append(

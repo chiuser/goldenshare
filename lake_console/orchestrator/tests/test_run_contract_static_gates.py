@@ -5914,6 +5914,12 @@ class RunContractStaticGateTests(unittest.TestCase):
         qfq_history_source = (
             DEFS_DIR / "bootstrap" / "stk_mins_qfq_history.py"
         ).read_text(encoding="utf-8")
+        qfq_canonical_history_source = (
+            DEFS_DIR / "bootstrap" / "stk_mins_qfq_canonical_history.py"
+        ).read_text(encoding="utf-8")
+        qfq_canonical_cli_source = (
+            DEFS_DIR / "bootstrap" / "stk_mins_qfq_canonical_history_cli.py"
+        ).read_text(encoding="utf-8")
         qfq_derived_history_source = (
             DEFS_DIR / "bootstrap" / "stk_mins_qfq_derived_history.py"
         ).read_text(encoding="utf-8")
@@ -5924,18 +5930,36 @@ class RunContractStaticGateTests(unittest.TestCase):
             DEFS_DIR / "bootstrap" / "stk_mins_migration_cli.py"
         ).read_text(encoding="utf-8")
         for fragment in (
-            "rebuild_stk_mins_qfq_canonical_history",
             "assert_canonical_gold_stk_mins_qfq_source_ready",
-            "plan_fingerprint",
-            "completed_batch_keys",
+            "_export_qfq_history_chunk_partitioned",
+            "PARTITION_BY (__partition_ts_code)",
         ):
             if fragment not in qfq_history_source:
                 issues.append(f"canonical QFQ rebuild misses {fragment}")
         for fragment in (
+            "plan_stk_mins_qfq_canonical_history",
+            "candidate_lake_root",
+            "source_manifest",
+            "candidate-audit-freq-",
+            "os.replace(candidate, formal)",
+            "formal_before",
+            'P7_DUCKDB_MEMORY_LIMIT = "4GB"',
+            "P7_STOCK_CHUNK_SIZE = 256",
+            'candidate_export_root=phase_root / "batch-export"',
+        ):
+            if fragment not in qfq_canonical_history_source:
+                issues.append(f"candidate-first QFQ rebuild misses {fragment}")
+        for fragment in (
             "audit_stk_mins_qfq_derived_canonical_equivalence",
+            "GOLD_STK_MINS_QFQ_DERIVED_OHLC_DECIMAL_PLACES = 7",
+            "GOLD_STK_MINS_QFQ_DERIVED_OHLC_ABS_TOLERANCE = 1e-7",
+            "GOLD_STK_MINS_QFQ_DERIVED_AUDIT_MAX_SECONDS = 300.0",
             "candidate_key_hash",
             "candidate_value_hash",
             "value_mismatch_count",
+            "_validate_derived_equivalence_estimate",
+            "_interrupt_at_query_deadline",
+            "abs(candidate.open - existing.open)",
         ):
             if fragment not in qfq_derived_history_source:
                 issues.append(f"derived QFQ equivalence audit misses {fragment}")
@@ -5951,14 +5975,24 @@ class RunContractStaticGateTests(unittest.TestCase):
             macd_kdj_history_source
         ):
             issues.append("MACD/KDJ history must not accept an arbitrary older state")
-        for command in (
-            "rebuild-gold-qfq-canonical-history",
-            "rebuild-gold-stk-mins-qfq-macd-kdj-history",
+        if "rebuild-gold-qfq-canonical-history" in migration_cli_source:
+            issues.append("unsafe one-shot QFQ rebuild CLI remains")
+        if "rebuild-gold-stk-mins-qfq-macd-kdj-history" not in migration_cli_source:
+            issues.append("stock mins migration CLI misses MACD/KDJ rebuild")
+        if "--confirm-rebuild" not in migration_cli_source:
+            issues.append("MACD/KDJ rebuild CLI must require explicit confirmation")
+        for fragment in (
+            "build-candidates",
+            "audit-candidates",
+            "audit-formal",
+            "audit-derived-equivalence",
+            "DERIVED_EQUIVALENCE_SAMPLE_YEARS",
+            '"--year"',
+            "--confirm-staging-write",
+            "--confirm-lake-write",
         ):
-            if command not in migration_cli_source:
-                issues.append(f"stock mins migration CLI misses {command}")
-        if migration_cli_source.count("--confirm-rebuild") < 2:
-            issues.append("bounded rebuild CLIs must require explicit confirmation")
+            if fragment not in qfq_canonical_cli_source:
+                issues.append(f"candidate-first QFQ CLI misses {fragment}")
 
         active_python_sources = "\n".join(
             path.read_text(encoding="utf-8")

@@ -18,7 +18,10 @@ from orchestrator.defs.bootstrap.stk_mins_qfq_history import (
     _select_registered_partition_keys,
 )
 from orchestrator.defs.checks import stk_mins_qfq_macd_kdj_checks as macd_kdj_checks
-from orchestrator.defs.duckdb_connection import connect_configured_duckdb
+from orchestrator.defs.duckdb_connection import (
+    DuckDBConnectionSettings,
+    connect_configured_duckdb,
+)
 from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
 from orchestrator.defs.paths import (
     DEFAULT_LAKE_ROOT,
@@ -43,6 +46,7 @@ GOLD_STK_MINS_QFQ_MACD_KDJ_CHECK_COUNT_PER_FREQ_PARTITION = len(
 GOLD_STK_MINS_QFQ_MACD_KDJ_EVENT_COUNT_PER_FREQ_PARTITION = (
     2 + GOLD_STK_MINS_QFQ_MACD_KDJ_CHECK_COUNT_PER_FREQ_PARTITION
 )
+MACD_KDJ_HISTORY_DUCKDB_SETTINGS = DuckDBConnectionSettings(memory_limit="14GB")
 
 
 @dataclass(frozen=True)
@@ -423,6 +427,7 @@ def _execute_macd_kdj_history_batch(
             ),
             stock_codes=stock_codes,
             fail_if_target_exists=fail_if_target_exists,
+            duckdb_settings=MACD_KDJ_HISTORY_DUCKDB_SETTINGS,
         )
     )
     if len(state_results) != len(batch.partition_keys):
@@ -458,7 +463,7 @@ def _macd_kdj_rebuild_plan_fingerprint(
         "years": plan.selected_years,
         "batches": tuple(_macd_kdj_batch_key(batch) for batch in plan.batches),
         "stock_codes": tuple(stock_codes),
-        "contract": "gold_stk_mins_qfq_macd_kdj_sequential_v1",
+        "contract": "gold_stk_mins_qfq_macd_kdj_sequential_v2_authoritative_dates",
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(encoded).hexdigest()

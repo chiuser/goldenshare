@@ -10,7 +10,6 @@ from dagster._core.definitions.asset_checks.asset_check_evaluation import (
     AssetCheckEvaluationTargetMaterializationData,
 )
 
-from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.bootstrap.stk_mins_migration import _check_success_count
 from orchestrator.defs.bootstrap.stk_mins_qfq_history import (
     STK_MINS_QFQ_HISTORY_START_DATE,
@@ -20,6 +19,7 @@ from orchestrator.defs.bootstrap.stk_mins_qfq_history import (
     plan_stk_mins_qfq_history,
 )
 from orchestrator.defs.checks import stk_mins_checks
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import duckdb_string
 from orchestrator.defs.paths import (
     DEFAULT_LAKE_ROOT,
@@ -39,14 +39,11 @@ from orchestrator.defs.stk_mins_qfq import (
     gold_stk_mins_qfq_source_freq,
 )
 
-
 GOLD_STK_MINS_QFQ_ASSET_KEYS = {
     freq: dg.AssetKey(f"gold_stk_mins_qfq_{freq}m") for freq in STK_MINS_FREQS
 }
 GOLD_STK_MINS_QFQ_CHECKS = stk_mins_checks.GOLD_STK_MINS_QFQ_CHECK_NAMES
-GOLD_STK_MINS_QFQ_EVENT_COUNT_PER_ASSET_PARTITION = 1 + len(
-    GOLD_STK_MINS_QFQ_CHECKS
-)
+GOLD_STK_MINS_QFQ_EVENT_COUNT_PER_ASSET_PARTITION = 1 + len(GOLD_STK_MINS_QFQ_CHECKS)
 
 
 @dataclass(frozen=True)
@@ -152,9 +149,7 @@ def plan_stk_mins_qfq_bootstrap_events(
     selected_keys = set(history_plan.selected_partition_keys)
     materialized_counts = {
         freq: len(
-            selected_keys.intersection(
-                instance.get_materialized_partitions(asset_key)
-            )
+            selected_keys.intersection(instance.get_materialized_partitions(asset_key))
         )
         for freq, asset_key in GOLD_STK_MINS_QFQ_ASSET_KEYS.items()
         if freq in history_plan.selected_freqs
@@ -209,8 +204,7 @@ def report_stk_mins_qfq_bootstrap_events(
     )
     if plan.missing_input_count:
         raise FileNotFoundError(
-            "Gold qfq event inputs are missing: "
-            f"{tuple(plan.missing_input_samples)}"
+            f"Gold qfq event inputs are missing: {tuple(plan.missing_input_samples)}"
         )
     if plan.existing_target_file_count != plan.planned_target_file_count:
         raise FileNotFoundError(
@@ -341,6 +335,7 @@ def audit_stk_mins_qfq_bootstrap_batch(
     duckdb: DuckDBResource,
     batch: StkMinsQfqHistoryBatch,
     as_of_trade_date: str | None = None,
+    as_of_adj_factor_path: Path | None = None,
 ) -> tuple[StkMinsQfqBootstrapPartitionAudit, ...]:
     """Audit one freq/year batch once, then fan out per-date check results."""
 
@@ -354,7 +349,14 @@ def audit_stk_mins_qfq_bootstrap_batch(
     silver_paths = _silver_paths_for_batch(lake_root, batch)
     trade_adj_paths = _trade_adj_factor_paths_for_keys(lake_root, batch.partition_keys)
     normalized_as_of_trade_date = as_of_trade_date or batch.partition_keys[-1]
-    as_of_adj_path = silver_adj_factor_path(lake_root, normalized_as_of_trade_date)
+    as_of_adj_path = as_of_adj_factor_path or silver_adj_factor_path(
+        lake_root,
+        normalized_as_of_trade_date,
+    )
+    if not as_of_adj_path.is_file():
+        raise FileNotFoundError(
+            f"Gold qfq as-of factor input is missing: {as_of_adj_path}"
+        )
 
     with connect_configured_duckdb() as connection:
         expected_paths_by_date = _expected_gold_paths_by_date(
@@ -371,7 +373,9 @@ def audit_stk_mins_qfq_bootstrap_batch(
         existing_paths = tuple(path for path in all_expected_paths if path.exists())
         missing_paths_by_date = {
             partition_key: tuple(
-                path for path in expected_paths_by_date.get(partition_key, ()) if not path.exists()
+                path
+                for path in expected_paths_by_date.get(partition_key, ())
+                if not path.exists()
             )
             for partition_key in batch.partition_keys
         }
@@ -501,7 +505,9 @@ def _bootstrap_batch_as_of_trade_date(
 ) -> str:
     same_year_registered_keys = tuple(
         partition_key
-        for partition_key in sorted({str(key).strip() for key in registered_partition_keys})
+        for partition_key in sorted(
+            {str(key).strip() for key in registered_partition_keys}
+        )
         if partition_key.startswith(batch.year)
     )
     if same_year_registered_keys:
@@ -1003,7 +1009,9 @@ def _gold_qfq_partition_ready(
 ) -> bool:
     status = asset_readiness_status(
         instance,
-        AssetReadinessSpec(GOLD_STK_MINS_QFQ_ASSET_KEYS[freq], GOLD_STK_MINS_QFQ_CHECKS),
+        AssetReadinessSpec(
+            GOLD_STK_MINS_QFQ_ASSET_KEYS[freq], GOLD_STK_MINS_QFQ_CHECKS
+        ),
         partition_key=partition_key,
     )
     return status.ready
@@ -1093,7 +1101,9 @@ def _latest_materialization(
         limit=1,
     )
     if not result.records:
-        raise RuntimeError(f"Expected materialization after runless report: {asset_key}")
+        raise RuntimeError(
+            f"Expected materialization after runless report: {asset_key}"
+        )
     return result.records[0]
 
 

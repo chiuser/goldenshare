@@ -1,8 +1,8 @@
 # A 股分钟线 Gold 标准 K 线合同与历史重建 LLD
 
-更新时间：2026-08-13
+更新时间：2026-08-14
 
-状态：**P0 轻量只读审计、P1 共享合同/金样本、P2 指数 Gold/消费链代码、P3 股票 QFQ/指标重建代码和 P4 临时 Lake/真实性能门禁均已完成。P0-P4 没有修改正式 Lake、Dagster event 或 sensor 状态；两个新增指数 Gold sensor 均保持 `STOPPED`。下一步是单独审批 P5 正式运行冻结，不能直接写正式 Lake。**
+状态：**P0-P9 已完成。P7 已完成股票 QFQ canonical bars 正式重建与抽样/统计验收；P8 已按 5m、15m、30m、60m 的顺序完成 2014-01-02 至 2026-08-12 全历史 MACD/KDJ 与递推 state 重建；P9 已对实际重建范围补齐 103,677 条 materialization event，并只对各专属分区最近 20 个交易日补齐 1,720 条 latest-bound check event。P9 未写 Lake、run 或 dynamic partition，相关 sensors 保持 STOPPED。P10 业务读取切换和 P11 sensor 恢复尚未进入。**
 
 本文是以下三类分钟线的当前唯一业务口径：
 
@@ -510,13 +510,16 @@ P0 只通过 Parquet footer 聚合确定可能存在 `15:01-15:30` 的日期文�
 `ts_code + trade_date` 精确范围计算；只对命中的代码/日期从 Gold 1m 删除晚间行。不得按
 exchange 名称猜测范围，也不得全市场无差别重写 1m。
 
-90m/120m 先做 candidate 与现有正式文件的批量统计等值审计：
+90m/120m 只做 candidate 与现有正式文件的固定抽样等值审计，不做 26 个 `freq + year` 的
+全量深扫：
 
-1. 按稳定批次对账 row count、key hash、规范化 value hash，并抽样核对边界日期、SH/SZ/BJ
-   和首尾窗口；键、OHLC、vol、exchange 精确一致且 amount 绝对误差不超过 `1e-6` 时，
+1. 固定抽样矩阵为 `90m/120m x 2014/2021/2026`：2014 覆盖首年，2021 覆盖北交所边界，
+   2026 覆盖最新 frontier。每次命令只允许一个 `freq + year`，并对该样本对账 row count、
+   key hash、规范化 value hash、SH/SZ/BJ 可用样本和首尾窗口；键、vol、exchange 精确一致，
+   OHLC 各自绝对误差不超过 `1e-7`，且 amount 绝对误差不超过 `1e-6` 时，
    不重写历史文件，只切换代码 source 合同。
-2. 任一计数、键、非 amount 业务值或超容差 amount 存在差异时停止；单独输出差异报告并
-   回到合同 Review，禁止扩大容差绕过真实数据问题。
+2. 任一计数、键、OHLC 超过 `1e-7`、vol、exchange 或超容差 amount 存在差异时停止；单独输出
+   差异报告并回到合同 Review，禁止继续扩大容差绕过真实数据问题。
 
 ### 7.3 MACD/KDJ 与 state
 
@@ -539,7 +542,8 @@ gold_stk_mins_qfq_macd_kdj_state_{5m,15m,30m,60m}
 4. 每个日期的 indicator key set 必须与同日同频 Gold QFQ 完全一致。
 5. 不使用“找任意更早 state”绕过缺口。
 6. 不通过普通 daily sensor 补全历史；使用 bounded rebuild CLI，带 checkpoint，可幂等续跑。
-7. 90m/120m 只有在第 7.2 节发现 QFQ 内容差异时才进入重建；否则保留现有内容并做全量 key/hash 对账。
+7. 90m/120m 只有在第 7.2 节固定六样本发现 QFQ 内容差异时才进入重建；否则保留现有内容，
+   禁止为了收口再扩大为全历史 key/hash 深审计。
 
 ### 7.4 逻辑修改量与物理重写量
 
@@ -676,28 +680,27 @@ P0 不重新证明已验收 Silver 的全历史数据质量，只回答“影响
    factor repair 在写文件前均调用同一 Silver source window 完整性门禁。门禁复用共享窗口
    SQL，能够区分完整窗口、部分窗口、非法 09:30 锚点和 exchange 不一致；不新增 Dagster
    check，也不扫描 event history。
-2. `stk_mins_qfq_history.py` 新增
-   `rebuild_stk_mins_qfq_canonical_history(...)`。默认只重建 5/15/30/60，按
-   `freq + stock-year` 有界处理，完整生成 candidate 后再执行既有原子替换；checkpoint 使用
-   plan fingerprint 和原子 JSON 替换，计划变化或已完成目标文件缺失时 fail closed。1m 后续
-   只允许通过 P7 精确计算出的 affected date/code 范围调用，禁止全市场无差别重建。
+2. `stk_mins_qfq_history.py` 保留共享的 `freq + year` 生成批次，并允许显式指定 candidate
+   Lake root；该 helper 本身不再提供正式覆盖入口。P7 的冻结计划、精确 1m scope、candidate
+   manifest、整频审计、promotion checkpoint 和正式 hash 对账全部由
+   `stk_mins_qfq_canonical_history.py` 承载。
 3. `stk_mins_qfq_derived_history.py` 新增
    `audit_stk_mins_qfq_derived_canonical_equivalence(...)`。90m/120m 按 `freq + year`
    使用 DuckDB set-based SQL 对比现有 Gold 与 Silver-direct canonical candidate 的 row count、
-   key hash、规范化 value hash、missing/extra key 和值差异。键、OHLC、成交量和交易所必须
-   精确一致；`amount` 仅允许 DuckDB 并行浮点求和造成的绝对误差 `1e-6`，超过即停止，
-   不能自动重写。
+   key hash、规范化 value hash、missing/extra key 和值差异。键、成交量和交易所必须精确
+   一致；OHLC 按绝对误差 `1e-7` 比较；`amount` 仅允许 DuckDB 并行浮点求和造成的绝对误差
+   `1e-6`，超过即停止，不能自动重写。
 4. `stk_mins_qfq_macd_kdj_history.py` 新增
    `rebuild_stk_mins_qfq_macd_kdj_history(...)`。5/15/30/60 默认按 `freq + year`
    严格日期顺序重建 indicator/state；跨年批次必须读取上一 expected trade date 的精确 state，
    不再使用“任意更早 state”。1m affected codes 可按共同最早受影响日期分组后通过显式
    `stock_codes` 范围执行，未受影响代码不进入重建范围。checkpoint 与计划、频率、日期和代码
    scope 绑定，断点续跑时缺少 indicator/state 目标会 fail closed。
-5. `stk_mins_migration_cli.py` 新增两个仅供显式维护的入口：
-   `rebuild-gold-qfq-canonical-history` 和
-   `rebuild-gold-stk-mins-qfq-macd-kdj-history`。两者都强制提供 checkpoint 和
-   `--confirm-rebuild`；指标入口可显式传受影响 `stock_codes`。本阶段仅完成代码和临时测试，
-   没有运行这些正式重建命令。
+5. 旧 `rebuild-gold-qfq-canonical-history` one-shot 已从 `stk_mins_migration_cli.py` 删除，
+   禁止绕过 staging 直接改正式 stock-year 文件。股票 QFQ 仅允许使用独立
+   `stk_mins_qfq_canonical_history_cli.py`，并分为 `plan`、`build-candidates`、
+   `audit-candidates`、`promote`、`audit-formal`、`audit-derived-equivalence` 六个显式阶段；
+   staging 写和正式写分别要求独立确认参数。MACD/KDJ history 入口仍归 P8，P7 不调用。
 6. 防回流门禁固定：日常 asset/check 不允许把 `stock_codes` 传入 source discovery；只有正式
    factor repair op 和显式 bounded history rebuild 各允许一处 scoped discovery。生产代码
    禁止恢复 latest-before-state discovery，90m/120m 禁止恢复 Gold 30m/60m source。
@@ -738,9 +741,9 @@ P0 不重新证明已验收 Silver 的全历史数据质量，只回答“影响
    400 个文件、3,000 个目标范围行，耗时 `1.058s`；Silver-direct 等价审计 missing/extra
    key 和业务值 mismatch 均为 0。
 6. P4 暴露并修复了等价审计的非确定性：90m 的并行 `sum(amount)` 偶发产生
-   `1.862645149230957e-09` 尾差，原精确 DOUBLE 比较在 12 次重复查询中误报 2 次。门禁现
-   固定为键/OHLC/vol/exchange 精确一致、amount 绝对误差不超过 `1e-6`；`1e-9` 正例和
-   `1e-3` 负例测试均通过，业务公式没有改变。
+   `1.862645149230957e-09` 尾差，原精确 DOUBLE 比较在 12 次重复查询中误报 2 次。P7F
+   最终门禁进一步冻结为键/vol/exchange 精确一致、OHLC 绝对误差不超过 `1e-7`、amount 绝对误差
+   不超过 `1e-6`；正反测试必须同时覆盖可接受尾差和真实价格漂移，业务公式没有改变。
 7. MACD/KDJ 对 4 个频率写出 800 个 indicator 文件、45,600 个目标范围行，并写出 12 个
    state 文件、65,136 行，耗时 `4.770s`；checkpoint 续跑恢复 4 个批次，耗时 `0.316s`。
    5m/15m/30m/60m bars 与 indicators 的 key mismatch 均为 0。
@@ -763,6 +766,29 @@ P0 不重新证明已验收 Silver 的全历史数据质量，只回答“影响
 4. 确认 `/Volumes/datasource/data_lake_staging` 与正式 Lake 同文件系统且空间充足。
 5. 再跑一次 P0 轻量边界对账，fingerprint 不一致即停止。
 
+#### P5 已完成事实（2026-08-13）
+
+报告：`/private/tmp/cn_a_minute_gold_p5_freeze_20260813T145128+0800.json`
+
+1. 冻结代码版本为 `3ab3b44817b2664cc4e054c7788ddc1cc82cf009`。股票、普通指数、主要指数
+   分钟线相关 Raw/Silver/Gold/technical sensors 均已是 `STOPPED`，因此 P5 没有执行 sensor
+   状态写入；正式 Dagster active runs 在冻结前后均为 0。
+2. 本地分钟行情 API（原 PID `3836`、端口 `8000`）已停止，端口已释放。Wealth Vite 前端仍
+   运行，但在本地 API 停止后不能读取分钟 Lake，不构成混合版本读取者。`dg dev` 保持运行仅
+   供只读 UI/definitions 使用；后续正式阶段仍必须在每批写入前重新确认 active runs 为 0。
+3. 正式 Lake 与 staging 的 device id 均为 `16777244`，确认位于同一文件系统；staging 可写，
+   文件系统使用率为 39%，可用空间为 `2,465,094,596 KiB`，满足 P4 测得的候选空间预算。
+4. 首次 P5 重跑发现 P0 临时脚本把 footer 查询的 `elapsed_ms` 纳入计划 fingerprint，导致相同
+   范围也会产生不同 hash。该字段只反映查询耗时，不是重建范围事实；临时审计器已将其排除，
+   没有改生产代码或正式数据。
+5. 排除非语义耗时后，P0 基线与 P5 重跑的 inventory、候选尾盘范围和样本日期完全一致，稳定
+   fingerprint 均为
+   `a05861aecb2bfd66b388af26fccc655d0f9dae1f32c55db1c655f1d91e0e49a8`。最终只读重跑报告为
+   `/private/tmp/cn_a_minute_gold_contract_p0_20260813T065123Z.json`，耗时 `874.815ms`，
+   `should_stop=false`。
+6. P5 正式 Lake 写入、Dagster run 提交、event 写入和 dynamic partition 写入均为 0。冻结通过
+   只表示具备单独审批 P6 的条件，不授权或隐含执行 P6。
+
 ### P6 指数 Gold 正式 Bootstrap
 
 顺序固定：
@@ -779,6 +805,49 @@ P0 不重新证明已验收 Silver 的全历史数据质量，只回答“影响
 
 新 Gold bars 没有旧正式目录，仍必须先 staging 后 promote，不能边生成边让 reader 使用。
 
+#### P6 已完成事实（2026-08-13）
+
+汇总报告：`/private/tmp/cn_a_minute_gold_p6/p6_execution_summary_20260813.json`
+
+1. 普通指数 canonical Gold 使用计划 hash
+   `f79f609a83f2ce978745a930476496ad6176c603d804993d6ecf0d43be6781e1`。390 个交易日、
+   七频共 `2,730` 个正式文件、`66,465,308` 行、约 `2.78GB`。候选与正式全量审计均
+   `ready=true`，正式 fingerprint 为
+   `04da4eb19975a8e61b9b8afcb2a5b26494402e358137d8cca63628737262131b`。
+2. 主要指数 canonical Gold 使用计划 hash
+   `8f131a9f7412c5bdd226e6709f128ba13f6a44e7be3ace2b531778e57f682159`。4,277 个交易日、
+   七频共 `29,939` 个正式文件、`9,815,204` 行、约 `469.5MB`。候选与正式全量审计均
+   `ready=true`，正式 fingerprint 为
+   `92dd3205d5fc9bf59325d97f48f204f0ccf342afb66657792ec5874cb9510963`。
+3. 两套 Gold 正式审计中 schema、分区日期、业务主键、交易时段、代码日形态和数值域异常
+   全部为 0；非 1m 独立 09:30 行为 0，15:00 后行情行为 0。正式提升前均重新确认
+   Dagster active runs 为 0。
+4. 主要指数 1m/90m/120m 按 `frequency + year` 分成 54 个有界批次，完成 Gold 与旧
+   Silver 的全历史 row/key/规范化 value hash 及 amount `1e-6` 绝对容差对账。三频行数分别为
+   `7,346,162`、`91,446`、`60,964`，missing 和 value mismatch 均为 0。因此这三频
+   technical/state 按冻结口径不重写。
+5. 主要指数 5m/15m/30m/60m technical/state 使用计划 hash
+   `d49b1f4bccb403f5057c340d76d76f003d94f2b08fef4df197274ed9e9c91c41`，只选择四个受影响
+   频率。4,277 日共生成并二次读回审计 `34,216` 个候选文件、`2,438,560` 行、约
+   `400.1MB`；候选全绿后显式替换同量正式文件，未复用或遗漏旧文件。
+6. technical/state 正式 post-audit 证明：34,216 个正式文件 hash 全部等于绿候选；四频
+   technical key hash 全部等于同频 Gold bar key hash；每频 state 行数均为 `30,482`；
+   `30,472` 个 continuing code-day 的 exact previous-state continuity failure 均为 0。
+7. P6 执行顺序有一项只读调整：原步骤 6 的 1m/90m/120m 等值审计在步骤 5 的正式
+   technical 替换前完成，用于提前锁定“不重写三频”的范围。该调整只读、不改变正式写入
+   顺序和结果；本节保留该事实，避免把实际执行误写成完全同序。
+8. 主要指数 Gold 首次候选构建实测耗时约 `1,291.3s`，峰值 RSS 约 `4.15GB`。这是一次性
+   P6 历史任务，但高于 P4 样本预期；历史候选工具已改为每 20 个交易日释放 DuckDB
+   connection，防止后续维护性重跑让 connection 状态跨 29,939 个文件累积。日常 asset 和
+   sensor 路径没有改变。
+9. P6 没有写 Dagster materialization/check event，没有提交 run，没有写 dynamic partition，
+   没有启用 sensor，也没有启动分钟行情 API。最终控制面复核发现 P5 冻结后
+   `gold_major_index_mins_technical_daily_update_job_sensor` 和三条股票 QFQ/指标 sensors 曾恢复为
+   `RUNNING`；P6 开始后的相关 job run 记录仍为 0，且每次正式提升前 active runs 均为 0，
+   因此没有并发 job 改写本轮数据。收口时已将这四条 sensors 显式停止并复核。
+10. P9 event 补录和 reader/sensor 恢复边界保持不变；P7 未单独审批前，相关 sensors 必须继续
+    保持 `STOPPED`。
+
 ### P7 股票 QFQ 正式重建
 
 顺序固定：
@@ -787,11 +856,188 @@ P0 不重新证明已验收 Silver 的全历史数据质量，只回答“影响
 2. 完成所有 5m candidate stock-year 文件并审计，再逐文件原子替换。
 3. 依次处理 15m、30m、60m；前一频率全量通过后才进入下一频率。
 4. 每个 stock-year 替换均为完整文件，进程中断后按 checkpoint 幂等续跑。
-5. 90m/120m 运行批量 row/key/规范化 value hash、amount 容差对账和代表性抽样，不默认重写。
+5. 90m/120m 只运行固定代表年份的 row/key/规范化 value hash、OHLC `1e-7`、amount 容差
+   抽样，不默认重写。每个审计动作只处理一个 `freq + year`，耗时硬上限 300 秒。审计只比较
+   canonical SQL 实际生成的完整窗口；源股票日中的 partial window 自然不生成，不能用
+   “股票日数 x 固定窗口数”冒充应生成行数并阻断等值审计。
 6. 所有受影响 QFQ 范围通过后，才允许进入指标重建。
 
 不使用 Kopia。恢复事实来自未修改的 Silver + adj factor + 已冻结代码版本；任何失败都停止
 Web 和 sensors，修正后从 checkpoint 重新生成，不让业务读取半完成版本。
+
+#### P7A/P7B 已完成事实（2026-08-13）
+
+1. 新增 `stk_mins_qfq_canonical_history.py` 和专用 CLI。正式阶段固定为
+   `plan -> build candidates -> audit candidates -> promote -> formal audit`；candidate 只允许写
+   `/Volumes/datasource/data_lake_staging/cn_a_minute_gold_p7/<plan_hash>/candidate_lake`，正式
+   Lake 在 promote 前保持不变。
+2. plan 冻结 3,066 个 registered expected dates、Silver 1m/5m/30m 与 adj-factor 文件
+   size/mtime、以 `2026-08-12` 为截止日的 per-code as-of factor 快照、目标 stock-year 数量、
+   执行代码和本 LLD 的 SHA256。per-code as-of 口径固定为：每只股票取不晚于截止日的最后一个
+   有效因子；退市股票不得被要求出现在 `2026-08-12` 单日因子文件中。快照只在 plan 阶段用
+   DuckDB set-based `arg_max(..., trade_date)` 生成一次，写入该 plan 的 staging，并冻结文件 hash；
+   后续 52 个 `freq + year` 批次复用该快照，禁止重复扫描全部因子历史。
+   精确 1m `code + date` scope 不展开进 JSON/Python 全历史对象，而是写为 staging Parquet
+   manifest；plan 只保存其路径、SHA256、行数、代码数、日期数、年份和 tail row 总数。
+3. 1m candidate 以现有 Gold stock-year 为基线，只替换 manifest 命中的日期并删除
+   `15:01-15:30`；未命中股票/日期不重算价格。5m/15m/30m/60m 按 `freq + year` 生成完整
+   candidate，整频 candidate 完成并通过 schema、key、交易时段及 source/output code-date
+   覆盖审计后才允许逐 stock-year 原子提升。
+4. candidate SHA、source fingerprint、代码/LLD hash、正式目标 before-state 任一变化均
+   fail closed。promotion 开始前先验证本频所有未完成 candidate 和正式 before-state，避免
+   在发现晚序文件冲突前已经部分提升；中断后只允许按同一 plan/checkpoint 续跑。
+5. 最新定向回归 `100 passed`，P7/SQL 专项测试 `22 passed`；QFQ history、derived
+   equivalence、factor repair、共享 canonical bars、普通/主要指数 P6 回归均通过。
+   `dg check defs` 通过。共享静态门禁中 P7 对应门禁通过；全文件仍有一条由当前工作区既有
+   `ProdPostgresWriteResource` 实现触发、与 P7 无关的旧字面量断言失败，本专项未修改该资源。
+
+#### P7C 已完成事实（2026-08-13）
+
+1. preflight 报告：
+   `/private/tmp/cn_a_minute_gold_p7/p7c_preflight_20260813.json`。`dg dev`、daemon、webserver、
+   code server、本地分钟行情 API 和 Wealth Vite 均已停止；active runs 为 0。
+2. 股票 QFQ daily/factor repair、MACD/KDJ daily/repair 和 QFQ 九转 sensors 均为
+   `STOPPED`。其中两个旧 RUNNING 状态使用与正式 location name 一致的 Dagster workspace
+   官方 `sensor stop` 命令收口，没有直接修改 Dagster DB。
+3. `cn_a_stock_mins_silver_trade_days` 冻结为 `2014-01-02..2026-08-12` 共 3,066 日；正式
+   Lake 与 P7 staging 同文件系统，可用空间约 2.35 TiB。MACD/KDJ 文件 370,142 个、state
+   文件 21,462 个的代表性 SHA256，以及 runs/event_logs/dynamic_partitions 基线已记录。
+
+#### P7D 已完成事实与 P7E fail-closed 收口（2026-08-13）
+
+1. 首个 plan hash 为
+   `421f5f4bf73cf2bafe0082e9d1696bba95d4af1f32de26b7e2f806613de444c2`。1m exact scope 为
+   739 个日期、279 个代码、164,810 个 `code + date`、939 个 stock-year 文件和 4,944,240 条
+   `15:01-15:30` 行。939 个 candidate 全部完成审计后原子提升；正式审计确认晚间行归零、
+   scope 外差异为 0、主键重复为 0，共保留 42,677,485 行。该 1m 正式结果有效且不重跑。
+2. 同一旧 plan 的 5m 首批 `2014` candidate 在覆盖门禁处停止：Silver 输入
+   126,082,524 行，其中 455,731 行对应的历史股票不在 `2026-08-12` 单日因子文件中。
+   这是退市股票的自然事实，不是源数据损坏。门禁在 candidate 写入前触发，因此 5m 正式
+   Lake 和 15m/30m/60m 均未发生写入。
+3. 旧实现把“as-of 截止日”错误等同于“所有代码必须出现在截止日单文件”。修正后，历史
+   rebuild 使用冻结的 per-code 最后有效因子快照；普通单日生成/repair 继续传单日因子文件，
+   逐交易日审计的 `match_as_of_by_trade_date=True` 模式继续保留 code+date 原始行，禁止把
+   两种语义混合。
+4. 因执行代码和本 LLD 已变化，旧 plan 不得继续用于 5m/15m/30m/60m。重新规划必须生成
+   新 plan hash，并把已修复的 1m 识别为 `one_minute_already_canonical=true`、affected scope
+   为 0；P7E-P7F 只能使用新 plan，禁止混用旧 candidate/checkpoint。
+
+#### P7E 性能门禁触发与 writer 收口（2026-08-13）
+
+1. 第二个 plan hash
+   `1a2dab734dd5a03f283b3863230162f99616d974b7a8c1ac8af720a3d895a2db` 正确识别 1m scope
+   为 0，并生成 5,557 个代码的冻结 as-of 因子快照；但 5m candidate 在 2018 年批次耗时
+   317.976 秒、命令峰值 RSS 约 16.5 GiB，分别超过 300 秒和 8 GiB 门禁，因此 checkpoint
+   只提交到 2017 年，正式 5m 文件仍为 0 次写入。
+2. 根因是通用 stock-year writer 会先物化整年 `qfq_replacement_rows`，然后为每只股票重复
+   扫描该大表写文件；同时通用 DuckDB 默认内存上限为 16GB，与 P7 的 8GiB 上限冲突。
+3. P7 history candidate 路径改为单次 DuckDB `COPY ... PARTITION_BY (__partition_ts_code)`：
+   每个 `freq + year` 仍是一个逻辑批次和 checkpoint，但 stock-year 文件由同一次 set-based
+   分区导出生成；导出后一次批量回读 schema、代码、年份、日期、freq 和主键，再移动到 plan
+   专属 candidate layout。日常 QFQ、factor repair 和通用 writer 不变。
+4. 第一版 partitioned export 的真实 2018 benchmark 证明，只把内存改成 6GB 会产生约
+   113GB spill，RSS 升至约 8.9GiB，仍越过门禁，且尚未输出 candidate；benchmark 已终止并
+   清理，不允许继续正式执行。
+5. 最终 P7 history candidate 在同一 `freq + year` 逻辑批次内按 256 个股票代码做有界
+   set-based 分片。每片分别执行因子覆盖、完整窗口和 QFQ 生成，代码集合互斥；全部分片完成后
+   一次性回读整年 schema/scope/key，再写唯一年度 checkpoint。该分片只控制执行内存，不拆分
+   年度成功语义，也不允许部分年度 promote。
+6. P7 DuckDB 最终固定 `memory_limit=4GB`、`threads=4`，临时目录固定在当前 plan 的
+   `duckdb-temp/`。静态门禁锁定 256-code partitioned export 和 4GB 上限。既有 plan 均因
+   代码/LLD hash 变化作废；后续必须重新 plan，并先用 2018 年实际批次证明耗时和 RSS 门禁
+   通过。
+7. 256-code 真实 benchmark 的计算与导出耗时 116.56 秒、峰值 RSS 约 5.08GiB、spill 为 0，
+   但 DuckDB 四线程会为少量股票输出两个 part 文件，完整性门禁因此停止。最终 finalize 允许
+   staging 中同一股票存在多个 `part-*`，先对全年所有 parts 做统一 schema/scope/key 审计，
+   再仅对多 part 股票 set-based 合并为一个 canonical 文件；候选 layout 最终仍严格保持每个
+   stock-year 一个 `part-000.parquet`。该多 part 正反路径已有单元测试。
+
+#### P7E 正式重建完成与 P7F 阻断事实（2026-08-13）
+
+1. 最终冻结 plan hash 为
+   `c8b53c333d5a969488171b4da4eca9a444aaba54c1a69e113464773f831ea099`。plan 继续覆盖
+   `2014-01-02..2026-08-12` 共 3,066 个交易日、211,507 个计划目标文件；1m affected
+   scope 为 0，证明 P7D 的 1m scoped 修复无需重复执行。最终 2018 年 5m 隔离 benchmark
+   写出 3,347 个 stock-year candidate、36,972,432 行，耗时 `119.584s`，峰值 RSS
+   `5,409,062,912` bytes，正式 Lake 写入为 0，满足 300 秒与 8GiB 门禁。
+2. P7E 已严格按 `5m -> 15m -> 30m -> 60m` 顺序完成 candidate、整频 audit、promote 和
+   formal audit。正式结果如下：
+
+   | 频率 | 文件数 | 正式行数 | candidate 构建耗时 | 峰值 RSS | candidate audit | promote | formal audit |
+   | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+   | 5m | 52,822 | 557,064,528 | 2,050.182s | 5,978,079,232 bytes | 59.225s | 94.627s | 30.193s |
+   | 15m | 52,900 | 185,911,408 | 520.807s | 4,054,695,936 bytes | 26.908s | 48.812s | 15.948s |
+   | 30m | 52,900 | 92,955,704 | 451.151s | 4,697,505,792 bytes | 22.355s | 41.192s | 12.840s |
+   | 60m | 52,885 | 46,472,212 | 215.290s | 2,370,846,720 bytes | 19.174s | 35.430s | 10.470s |
+
+   四频 candidate/formal audit 均为 `ready=true`：schema 和主键正确、source/output
+   code-date 覆盖 missing/extra 均为 0、09:30 输出行和 15:00 后输出行均为 0，首根分别为
+   09:35/09:45/10:00/10:30，末根均为 15:00。提升前 active runs 均为 0，服务和 readers
+   保持停止。一次 30m promote 人工输入了错误 plan hash，入口在 0.58 秒内以
+   `Canonical rebuild plan identity is invalid` fail closed，正式写入为 0；随后使用正确 hash
+   才完成提升，证明计划身份门禁有效。
+3. P7F 官方 90m/120m 审计在进入值比较前被旧 estimate 口径阻断：90m/2014 报告
+   `incomplete_window_count=5,673`。该 estimate 错误地用“出现任意 source row 的股票日数量
+   x 三个 90m 窗口”作为必须生成的窗口数；生产 canonical SQL 的真实语义是每个窗口独立
+   exact completion，partial window 不生成。2014 年有界 key 审计证明 Silver-direct 完整
+   candidate 与现有 90m 都为 1,569,366 行，missing/extra/duplicate 均为 0，key hash 都是
+   `17826769435863804144`。因此 5,673 个 partial windows 不是现有 Gold 缺数据，而是 P7F
+   前置估算口径错误。
+4. 官方审计还暴露原性能门禁不适配：峰值 RSS `11,384,455,168` bytes，超过当时的 8GiB
+   门禁。P7F 因此停止，没有继续 26 个 `freq + year` 批次，也没有写 90m/120m。随后只对
+   90m/2014 做 4GB、
+   256-code 有界只读 review：key、vol、exchange 完全一致；OHLC 位级 exact mismatch 较多，
+   但最大绝对差仅 `2.842170943040401e-14`，超过 `1e-12` 的行数为 0；amount 只有 46 行
+   DOUBLE 尾差，最大 `2.9802322387695312e-08`，未超过既定 `1e-6`。样本 factor 与价格倍率
+   证明这不是 as-of factor 基准漂移，而是聚合/乘法执行顺序产生的 DOUBLE 尾差。
+5. 2026-08-13 管理员完成 P7F 复审并冻结新口径：OHLC 各自绝对误差不超过 `1e-7`，
+   `amount` 继续使用 `1e-6` 绝对容差；键、vol、exchange 仍要求
+   精确一致。P7F 峰值 RSS 上限从 8GiB 调整为 16GiB，DuckDB 正式连接仍使用仓库统一的
+   `memory_limit=16GB`、`threads=4` 和受控临时目录，不新增散落配置。实现必须移除等值审计对
+   `source_stock_day_count x fixed_windows` 的阻断，只比较 canonical SQL 实际产出的完整窗口。
+   7 位以内的 DOUBLE 尾差正例必须通过，达到第 7 位差异的真实价格漂移负例必须失败。
+6. 由于本文和等值审计代码均已变化，旧 plan 的代码/LLD 指纹不再有效。后续 P7F 必须重新
+   生成只读 audit plan；新 plan 的代码指纹必须显式包含 `stk_mins_qfq_derived_history.py`。
+   P7F 不再运行 26 个批次的全量深审计，只执行 `90m/120m x 2014/2021/2026` 六个独立
+   抽样动作，每个动作超过 300 秒立即停止。已完成的 1m/5m/15m/30m/60m 正式物理结果保持
+   有效，禁止重复重建。P7F 完成前 P7G/P8 仍不得进入。
+7. 主要证据：
+   - `/private/tmp/cn_a_minute_gold_p7/final_benchmark_2018_20260813.json`
+   - `/private/tmp/cn_a_minute_gold_p7/candidate_audit_freq_{5,15,30,60}_c8b53c333d5a969488171b4da4eca9a444aaba54c1a69e113464773f831ea099.json`
+   - `/private/tmp/cn_a_minute_gold_p7/formal_audit_freq_{5,15,30,60}_c8b53c333d5a969488171b4da4eca9a444aaba54c1a69e113464773f831ea099.json`
+   - `/private/tmp/cn_a_minute_gold_p7/p7f_90_2014_key_review_20260813.json`
+   - `/private/tmp/cn_a_minute_gold_p7/p7f_90_2014_numeric_tail_review_20260813.json`
+8. 新口径第一次 90m/2014 抽样在 7.16 秒内完成、峰值 RSS 约 4.90GiB，但报告出现
+   1,485,495 行 OHLC mismatch 和 150.47 的最大差异。只读定位证明这是审计输入错误：旧
+   `audit_stk_mins_qfq_derived_canonical_equivalence(...)` 仍读取 `2026-08-12` 单日 adj-factor
+   文件，而 P7E 正式重建使用 plan 中冻结的 per-code 最后有效因子快照；退市股票自然不在
+   截止日单文件中。P7F 必须显式消费 plan 的 `as-of-adj-factor.parquet`，并把该快照继续纳入
+   hash 门禁；普通日常生成、factor repair 和非 P7 history 口径保持不变。该失败是审计假阳性，
+   没有触发 90m/120m 写入，也没有继续后续五个样本。
+9. 改用冻结 per-code snapshot 后，90m/2014 只剩 14 行 `round(..., 7)` 边界差异，最大 OHLC
+   绝对差仍仅 `2.842170943040401e-14`。直接比较七位 round 会让二进制浮点尾差落到十进制
+   四舍五入边界两侧，不符合“七位精度足够”的业务意图；最终实现因此使用 `1e-7` OHLC
+   绝对容差，规范化 value hash 只作诊断，逐 key 容差比较才是通过门禁。
+10. 修复审计输入和容差后，plan hash
+    `4b837ccfec698e10e6ee2f395bee327197cd7db2fdf6c65e65527875f9e711d5` 的固定六样本全部
+    `ready=true`，且 `formal_lake_write_count=0`：
+
+    | 频率 | 年份 | 行数 | elapsed | 峰值 RSS | missing/extra/value mismatch |
+    | --- | ---: | ---: | ---: | ---: | ---: |
+    | 90m | 2014 | 1,569,366 | 6.820s | 5,499,027,456 bytes | 0 / 0 / 0 |
+    | 90m | 2021 | 3,054,759 | 10.950s | 10,228,842,496 bytes | 0 / 0 / 0 |
+    | 90m | 2026 | 2,421,426 | 8.929s | 7,937,097,728 bytes | 0 / 0 / 0 |
+    | 120m | 2014 | 1,046,352 | 4.364s | 3,472,965,632 bytes | 0 / 0 / 0 |
+    | 120m | 2021 | 2,036,486 | 7.077s | 6,129,549,312 bytes | 0 / 0 / 0 |
+    | 120m | 2026 | 1,614,440 | 5.919s | 4,984,455,168 bytes | 0 / 0 / 0 |
+
+    六个动作均远低于单动作 300 秒和 16GiB 门禁；键、vol、exchange 精确一致，OHLC 最大
+    绝对差不超过 `4.547473508864641e-13`，amount 最大绝对差不超过 `5.960464477539063e-08`。
+    因此 90m/120m 保留正式文件，不做物理重写。
+11. P7G 只执行轻量收口：复核 active runs、Dagster 三项计数、六个预冻结 indicator/state
+    文件 hash 和当前 plan 的 `.tmp` 数量。禁止重新统计全量 indicator/state 文件或重扫七频
+    历史。结果为 active runs 0，runs/event_logs/dynamic partitions 与 P7 基线一致，六个样本 hash
+    不变，当前 plan `.tmp` 文件为 0。P7 完成，P8 尚未进入。
 
 ### P8 股票指标与 state 正式重建
 
@@ -801,6 +1047,41 @@ Web 和 sensors，修正后从 checkpoint 重新生成，不让业务读取半�
 4. 每日完成后校验 exact previous state、bars/indicator keys 和 output rows。
 5. 一个频率从 baseline 到 frontier 全部通过后，才进入下一频率。
 6. 不允许 daily sensor 与 rebuild CLI 同时写同一频率。
+
+#### P8 实际执行记录（2026-08-13）
+
+1. 冻结范围为 `2014-01-02..2026-08-12`，共 `3,066` 个 expected trade dates；执行顺序严格为
+   `5m -> 15m -> 30m -> 60m`，每个频率内部按年份和 expected trade date 升序递推。
+2. 1m 在 P7 scoped 规划中没有实际 affected scope，因此 P8 未重建 1m；90m/120m 也未进入 P8
+   写入范围。
+3. 执行前修复了两处历史维护入口缺陷：
+   - CLI 未传 `stock_codes` 时统一解释为全市场空 tuple，不再对 `None` 迭代。
+   - 全历史重建以显式 target trade dates 为 authoritative replacement scope；即使修正后的 QFQ
+     在某个旧股票日期为 0 行，也会移除旧指标文件中该日期的 stale rows，不再只按 replacement
+     实际返回日期做合并。
+4. 历史重建专用 DuckDB `memory_limit` 固定为 `14GB`，日常 writer 默认配置不变；管理员批准的
+   P8 进程峰值门禁为 `20GiB`。实际最大峰值为 `16,710,352,896` bytes，未超过门禁。
+5. 5m 为降低峰值按年度独立进程完成，其余频率使用单频连续进程并通过年度 checkpoint 保证顺序；
+   任何 checkpoint 都不代替最终文件对账。
+6. 四频正式统计验收结果：
+
+| freq | indicator files | indicator rows | state files | state rows | rebuild seconds | audit seconds | peak RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 5m | 52,901 | 557,215,036 | 3,066 | 11,903,729 | 1,326.38 | 年度审计均小于 7 秒 | 16,304,865,280 |
+| 15m | 52,901 | 185,911,612 | 3,066 | 11,904,859 | 666.95 | 38.83 | 16,710,352,896 |
+| 30m | 52,901 | 92,955,812 | 3,066 | 11,904,859 | 533.05 | 38.15 | 15,926,149,120 |
+| 60m | 52,901 | 46,491,162 | 3,066 | 11,904,784 | 507.41 | 37.20 | 15,319,891,968 |
+
+7. 四频均满足：source rows 等于 indicator rows、文件数量完整、missing input 为 0、row count
+   mismatch 为 0。审计采用年度或单频统计聚合，任一独立审计均小于 5 分钟，没有重复执行七频
+   全历史深审计。
+8. 固定 10 个保护样本 hash 全部不变，覆盖 5m/15m/30m/60m QFQ bars、1m/90m/120m
+   indicator 与 1m/90m/120m state；P8 没有触碰非目标数据集。
+9. 收口时 `runs=48,559`、`event_logs=4,207,484`、`dynamic_partitions=45,768`，与 P7 冻结
+   基线一致；active runs 为 0，四个股票 QFQ/MACD-KDJ daily/repair sensors 均为 `STOPPED`。
+10. 执行报告位于 `/private/tmp/cn_a_minute_gold_p8/`，checkpoint 位于
+    `/Volumes/datasource/data_lake_staging/cn_a_minute_gold_p8/`。P8 不补 materialization/check
+    event，事件补录仍属于 P9。
 
 ### P9 事件补录
 
@@ -812,6 +1093,42 @@ Web 和 sensors，修正后从 checkpoint 重新生成，不让业务读取半�
 4. 每条 event 必须带正确 partition，不写 multi-partition 聚合 check。
 5. 不伪造未执行过的历史公式 check，不删除旧 run/event。
 6. event 补录完成后重新验证 latest materialization 与 latest-bound check。
+
+P9 于 2026-08-14 按上述口径完成，执行计划 hash 为
+`871a71a42ef1097fb841e7a7e5ada629ada9b9d1d01da879746cdc7d0c88a1f7`：
+
+| family | assets | materialization events | latest-bound check events |
+| --- | ---: | ---: | ---: |
+| `index_gold` | 7 | 2,730 | 140 |
+| `major_index_gold` | 7 | 29,939 | 140 |
+| `major_index_technical_state` | 8 | 34,216 | 800 |
+| `stock_qfq` | 4 | 12,264 | 320 |
+| `stock_indicator_state` | 8 | 24,528 | 320 |
+| **合计** | **34** | **103,677** | **1,720** |
+
+执行和验收事实：
+
+1. check 窗口统一为各专属 expected trade dates 的最近 20 日，即 `2026-07-16` 至
+   `2026-08-12`；没有补全历史 check。
+2. 五个 family 都在独立 checkpoint 下执行，先写全量 materialization，再写最近 20 日 check；
+   每条 check 都重新验证其 `materialization_event_storage_id` 指向本轮对应 partition 的最新
+   materialization。
+3. Dagster 1.13 的 runless check 派生索引对同一 asset/check/partition 只允许一条当前记录。
+   对已有旧索引行，P9 只释放 `asset_check_executions` 中的旧派生索引，再通过 Dagster 公共
+   runless API 写入新 check；旧 `event_logs` 和旧 run 均保留。该处理不删除历史事件，也不改变
+   check 的 partition 归属。
+4. `major_index_technical_state` 第一次写 check 时，Dagster 在派生索引唯一约束报错前已写入一条
+   `event_logs.id=7076620` 的无索引日志。该记录没有 asset key、partition 或
+   `asset_check_executions` 行，不参与 latest state/readiness；按“不删除旧 event”规则保留。
+5. 五个 family 的 post-audit 均为 `should_stop=false`，missing registered partition 和失败 check
+   partition 均为 0；汇总报告为
+   `/private/tmp/cn_a_minute_gold_p9/post_audit_summary_20260814.json`。
+6. 收口只读统计为：`runs=48,559`、active runs `0`、`dynamic_partitions=45,768`、
+   `event_logs=4,312,882`。其中带 P9 revision 的 materialization 为 103,677 条；带 P9 revision
+   的 check 日志为 1,721 条，包含上文明确隔离的 1 条无索引日志，实际有效 latest-bound check
+   精确为 1,720 条。
+7. P9 没有写正式 Lake、没有提交 Dagster run、没有写 dynamic partition、没有启动或启用 sensor。
+   P10/P11 仍需单独审批。
 
 ### P10 业务读取切换
 
@@ -896,6 +1213,8 @@ partitioned event。任一环节错误立即停止对应 sensor，不靠自动�
 5. candidate 只能写 `/Volumes/datasource/data_lake_staging`，验证后同文件系统 `os.replace()`。
 6. 任何磁盘不足、重复扫描、单批超预算、源文件变化或 fingerprint 漂移立即停止。
 7. 报告写 `/private/tmp`，不把逐行结果写 Dagster metadata/cursor。
+8. 历史等值和最终验收默认采用固定边界样本与聚合计数，不做逐文件全盘深审计；单个审计动作
+   硬上限 300 秒，超过立即停止并缩小范围，禁止通过延长等待时间完成审计。
 
 ## 11. 测试矩阵
 
@@ -937,8 +1256,8 @@ expected OHLCV 必须为人工字面量，禁止调用被测 builder 生成 expe
    核对，不重新逐行计算全历史公式。
 4. Gold/indicator 按批次对账 row count 与 key hash，并对代表日期执行双向 `EXCEPT ALL`。
 5. state 按日期统计 previous-state 连接计数，并抽样验证 baseline、跨年和最新 frontier。
-6. 股票 90/120 candidate 与现有文件按批次 row/key/规范化 value hash 和 amount 容差等价，
-   且代表样本相等。
+6. 股票 90/120 candidate 与现有文件只按 `90m/120m x 2014/2021/2026` 固定六样本对账
+   row/key、逐 key OHLC/amount 容差、vol 和 exchange；不做全历史深审计。
 7. staging 残留为 0，失败日期为 0。
 
 ## 12. 最终验收

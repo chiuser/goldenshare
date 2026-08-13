@@ -1,6 +1,7 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import dagster as dg
@@ -9,7 +10,9 @@ import duckdb
 from orchestrator.defs.assets.stk_mins_qfq_macd_kdj import (
     gold_stk_mins_qfq_macd_kdj_1m,
 )
+from orchestrator.defs.bootstrap import stk_mins_migration_cli
 from orchestrator.defs.bootstrap.stk_mins_qfq_macd_kdj_history import (
+    MACD_KDJ_HISTORY_DUCKDB_SETTINGS,
     rebuild_stk_mins_qfq_macd_kdj_history,
 )
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
@@ -168,6 +171,44 @@ def _write_calendar_rows(lake_root: Path, trade_dates: tuple[str, ...]) -> None:
 
 
 class StkMinsQfqM12MacdKdjTests(unittest.TestCase):
+    def test_history_rebuild_uses_bounded_duckdb_memory(self) -> None:
+        self.assertEqual(MACD_KDJ_HISTORY_DUCKDB_SETTINGS.memory_limit, "14GB")
+
+    def test_rebuild_cli_uses_full_market_scope_when_stock_codes_are_omitted(
+        self,
+    ) -> None:
+        report = SimpleNamespace(
+            plan_fingerprint="plan",
+            checkpoint_path=Path("/tmp/checkpoint.json"),
+            stock_codes=(),
+            resumed_batch_count=0,
+            executed_batch_count=1,
+        )
+        argv = [
+            "stk_mins_migration_cli",
+            "rebuild-gold-stk-mins-qfq-macd-kdj-history",
+            "--checkpoint",
+            "/tmp/checkpoint.json",
+            "--confirm-rebuild",
+        ]
+        with (
+            patch("sys.argv", argv),
+            patch.object(
+                stk_mins_migration_cli,
+                "_registered_stock_mins_silver_partition_keys",
+                return_value=(FIRST_EXPECTED_TRADE_DATE,),
+            ),
+            patch.object(
+                stk_mins_migration_cli,
+                "rebuild_stk_mins_qfq_macd_kdj_history",
+                return_value=report,
+            ) as rebuild,
+            patch("builtins.print"),
+        ):
+            stk_mins_migration_cli.main()
+
+        self.assertEqual(rebuild.call_args.kwargs["stock_codes"], ())
+
     def test_bounded_rebuild_uses_checkpoint_and_exact_expected_sequence(
         self,
     ) -> None:
@@ -409,6 +450,61 @@ class StkMinsQfqM12MacdKdjTests(unittest.TestCase):
             ["2026-06-01"] * 10 + ["2026-06-02"] * 10,
         )
         self.assertEqual(SEGMENT_BAR_COUNT, 1024)
+
+    def test_history_rebuild_removes_stale_indicator_date_absent_from_source(
+        self,
+    ) -> None:
+        trade_dates = (FIRST_EXPECTED_TRADE_DATE, "2014-01-03")
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            source_path = gold_stk_mins_qfq_path(lake_root, 1, STOCK_A, 2014)
+            _write_rows(
+                source_path,
+                schema=GOLD_STK_MINS_QFQ_SCHEMA,
+                rows=(
+                    _source_rows_for_day(
+                        trade_dates[0],
+                        start_close=10.0,
+                    )
+                    + _source_rows_for_day(
+                        trade_dates[1],
+                        start_close=20.0,
+                    )
+                ),
+            )
+            write_gold_stk_mins_qfq_macd_kdj_rows(
+                lake_root=lake_root,
+                freq=1,
+                source_qfq_paths=(source_path,),
+                target_trade_dates=trade_dates,
+            )
+            _write_rows(
+                source_path,
+                schema=GOLD_STK_MINS_QFQ_SCHEMA,
+                rows=_source_rows_for_day(
+                    trade_dates[0],
+                    start_close=10.0,
+                ),
+            )
+
+            write_gold_stk_mins_qfq_macd_kdj_rows(
+                lake_root=lake_root,
+                freq=1,
+                source_qfq_paths=(source_path,),
+                target_trade_dates=trade_dates,
+            )
+            indicator_path = gold_stk_mins_qfq_macd_kdj_path(
+                lake_root,
+                1,
+                STOCK_A,
+                2014,
+            )
+            indicator_rows = _read_rows(indicator_path)
+
+        self.assertEqual(
+            {row["trade_date"].isoformat() for row in indicator_rows},
+            {FIRST_EXPECTED_TRADE_DATE},
+        )
 
     def test_scoped_repair_state_merge_preserves_unaffected_stock_state(self) -> None:
         with TemporaryDirectory() as temp_dir:
