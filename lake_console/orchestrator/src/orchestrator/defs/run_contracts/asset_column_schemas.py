@@ -611,6 +611,24 @@ SILVER_DC_INDUSTRY_HIERARCHY_SCHEMA = (
     ColumnContract("code_reference_trade_date", "DATE", "补齐 BK 代码所用 dc_index 交易日"),
 )
 
+PROD_CORE_WEALTH_SECTOR_HIERARCHY_SCHEMA = (
+    ColumnContract("sector_code", "VARCHAR", "当前行业板块 BK 代码"),
+    ColumnContract("sector_name", "VARCHAR", "东方财富行业名称"),
+    ColumnContract("industry_level", "SMALLINT", "行业等级，允许值为 1、2、3"),
+    ColumnContract("industry_level_name", "VARCHAR", "东方财富行业等级名称"),
+    ColumnContract("parent_sector_code", "VARCHAR", "直接父级行业代码；一级行业为空"),
+    ColumnContract("parent_sector_name", "VARCHAR", "直接父级行业名称；一级行业为空"),
+    ColumnContract("root_sector_code", "VARCHAR", "所属一级行业代码"),
+    ColumnContract("root_sector_name", "VARCHAR", "所属一级行业名称"),
+    ColumnContract("hierarchy_path", "VARCHAR", "人类可读行业层级路径"),
+    ColumnContract("is_leaf", "BOOLEAN", "是否为叶子行业"),
+    ColumnContract("display_order", "INTEGER", "东财层级表展示顺序"),
+    ColumnContract("baseline_version", "VARCHAR", "版本化行业层级 seed 版本"),
+    ColumnContract("source_received_date", "DATE", "运营收到该版东财层级表的日期"),
+    ColumnContract("code_reference_trade_date", "DATE", "补齐 BK 代码所用 dc_index 交易日"),
+    ColumnContract("published_at", "TIMESTAMP WITH TIME ZONE", "本次生产发布完成时间"),
+)
+
 SILVER_DC_MEMBER_SCHEMA = (
     ColumnContract("trade_date", "DATE", "交易日"),
     ColumnContract("ts_code", "VARCHAR", "规范化东方财富板块代码"),

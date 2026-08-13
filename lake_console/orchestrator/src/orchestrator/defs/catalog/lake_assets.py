@@ -78,6 +78,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
     GOLD_WEALTH_MARKET_TURNOVER_SCHEMA,
     PROD_CORE_STOCK_DAILY_QFQ_NINETURN_SCHEMA,
+    PROD_CORE_WEALTH_SECTOR_HIERARCHY_SCHEMA,
     RAW_INDEX_DAILY_SCHEMA,
     RAW_INDEX_GLOBAL_SCHEMA,
     RAW_INDEX_MINS_SCHEMA,
@@ -282,6 +283,9 @@ class PartitionModel(str, Enum):
     )
     SERVING_TABLE_PROD_WEALTH_MARKET_TURNOVER = (
         "serving_table_prod_wealth_market_turnover"
+    )
+    SERVING_TABLE_PROD_WEALTH_SECTOR_HIERARCHY = (
+        "serving_table_prod_wealth_sector_hierarchy"
     )
     SERVING_TABLE_PROD_STOCK_DAILY_QFQ_NINETURN = (
         "serving_table_prod_stock_daily_qfq_nineturn"
@@ -996,6 +1000,15 @@ PARTITION_MODEL_DEFINITIONS = (
         "trade_date",
         PartitionPhysicalLayout.POSTGRES_TABLE,
         notes="Prod PostgreSQL serving table sync partitioned by trade_date.",
+    ),
+    _model(
+        PartitionModel.SERVING_TABLE_PROD_WEALTH_SECTOR_HIERARCHY,
+        PartitionModelFamily.SERVING_TABLE,
+        AssetLayer.SERVING,
+        "wealth_sector_hierarchy",
+        None,
+        PartitionPhysicalLayout.POSTGRES_TABLE,
+        notes="Prod PostgreSQL full-snapshot hierarchy serving table sync.",
     ),
     _model(
         PartitionModel.SERVING_TABLE_PROD_STOCK_DAILY_QFQ_NINETURN,
@@ -2319,6 +2332,44 @@ LAKE_ASSET_CATALOG += (
         notes=(
             "Prod PostgreSQL serving sync writes "
             "core_serving.wealth_market_turnover_snapshot from gold lake output."
+        ),
+    ),
+    _entry(
+        asset_key="prod_core_wealth_sector_hierarchy",
+        dataset_id="dc_industry_hierarchy",
+        layer=AssetLayer.SERVING,
+        data_domain=DataDomain.BASIC_DATA,
+        group_name="wealth",
+        source_system=SourceSystem.SEED,
+        data_contract="core_serving.wealth_sector_hierarchy",
+        data_contract_source=DataContractSource.SEED_CONTRACT,
+        column_schema=PROD_CORE_WEALTH_SECTOR_HIERARCHY_SCHEMA,
+        path_template=(
+            "postgresql://prod/core_serving.wealth_sector_hierarchy"
+        ),
+        partition_model=PartitionModel.SERVING_TABLE_PROD_WEALTH_SECTOR_HIERARCHY,
+        source_api=None,
+        source_doc=(
+            "wealth/docs/pages/market-overview/"
+            "sector-overview-low-level-design-v2.md"
+        ),
+        ingestion_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        default_daily_ingestion_source=None,
+        bootstrap_sources=(),
+        blocking_check_names=(),
+        write_policy=WritePolicy.POSTGRES_TABLE_SYNC,
+        event_policy=EventPolicy.DAGSTER_RUN_ONLY,
+        performance_contract=_perf(
+            batch_grain="one full snapshot, exactly 496 serving rows",
+            compute_engine=ComputeEngine.POSTGRES_SQL,
+            source_request_policy=(
+                "read one fixed Silver hierarchy parquet file; write only "
+                "core_serving.wealth_sector_hierarchy"
+            ),
+        ),
+        notes=(
+            "Explicit manual publisher for the approved Silver Eastmoney hierarchy; "
+            "no Heat dependency or automation."
         ),
     ),
     _entry(

@@ -46,9 +46,9 @@
 
 ### 1.3 数据库、连接与执行链
 
-1. [x] 2026-08-13 本轮开始时已重新检查 Alembic head；本地仓库与生产均为单 head `20260812_000133`，本需求 revision 已正确接为 `20260813_000134`。本提交的迁移链 head 为 `000134`，生产仍为 `000133`。
+1. [x] 本需求 revision 创建时已确认本地与生产单 head `20260812_000133`，并正确接为 `20260813_000134`；部署后再次只读验收，仓库与生产当前单 head 已推进为 `20260813_000135`。后续迁移必须接当前真实 head。
 2. [x] 两张新表字段、主键、索引、约束和 downgrade 已实现并通过模型、约束及迁移范围测试。
-3. [ ] 层级全表事务替换与 read-back 方案已评审。
+3. [x] 层级全表 `DELETE + INSERT + read-back` 单事务发布已实现并通过 496/31/128/337、闭包、版本、hash、写入失败和 read-back 篡改回滚测试；正式生产发布尚未执行。
 4. [x] 连接复用口径已确认：Web/Heat 使用现有 `DATABASE_URL`，DG hierarchy 使用现有 `ProdPostgresWriteResource` / `PROD_POSTGRES_WRITE_*` 和 `lake_raw_writer`；不新增账号、DSN、engine 或板块专用数据库配置。
 5. [ ] 组件访问边界已评审：DG 只写 hierarchy，Heat 只写 Heat 且来源查询只读，Web 不产生 DML，运行时代码无 DDL/`TRUNCATE`；Heat/Ops 使用独立 Session/事务。
 6. [ ] Heat 来源查询全部只读 prod，并按交易日、概念和成员集合有界；禁止 Parquet、DuckDB、DG resource、Tushare 和 N+1。
@@ -56,10 +56,10 @@
 8. [ ] ops generic executor port、TaskRun 节点/issue/checkpoint、app 注入与生产 CLI `ops-worker-run/serve` factory 消费方案已冻结；依赖方向不得出现 `ops -> biz`，CLI 不得直构未装配 worker。
 9. [ ] Heat business session 与 TaskRun ops session 独立；状态/观测失败不得阻断、回滚或污染 Heat 及来源业务事务。
 10. [ ] 60 个有效交易日从旧到新 plan/apply、首错停止、checkpoint 和续跑方案已冻结。
-11. [ ] DG 只保留 hierarchy 发布；静态清单确认不存在 DG Heat asset、dynamic partition、asset check、sensor、Gold、runless event 或 history CLI。
+11. [x] DG 只保留 hierarchy 发布；静态清单确认不存在 DG Heat asset、dynamic partition、asset check、sensor、Gold、runless event 或 history CLI，hierarchy publisher 也未接 job/sensor/check/bootstrap 自动入口。
 12. [ ] 方案与代码均不包含 Kopia。
 13. [x] 本模块不新增数据库配置项；现有 `DATABASE_URL` 与 `PROD_POSTGRES_WRITE_*` 的消费者已经核对，URL/password 继续遵守通用日志脱敏规则。
-14. [x] revision `20260813_000134` 只给既有 `lake_raw_writer` 增加 `core_serving.wealth_sector_hierarchy` 的 `SELECT/INSERT/DELETE`；不创建 login、不读取密码、不增加 `UPDATE/CREATE/TRUNCATE`。该迁移尚未应用到生产。
+14. [x] revision `20260813_000134` 已随部署应用；生产只读权限探针确认既有 `lake_raw_writer` 仅具备 `core_serving.wealth_sector_hierarchy` 的 `SELECT/INSERT/DELETE`，没有 `UPDATE/TRUNCATE`，且未创建 login 或新增连接配置。
 
 ### 1.4 API 与前端
 
@@ -326,8 +326,8 @@ interface SectorOverviewRequestV2 {
 
 ### 6.1 hierarchy、Heat contract、访问边界与执行链
 
-1. [ ] 层级固定 schema、唯一键、31/128/337 和父子闭包。
-2. [ ] 层级 transaction rollback 与 read-back hash。
+1. [x] 层级固定 schema、唯一键、31/128/337 和父子/根/路径/叶节点闭包已由 source loader 与纯 contract 测试覆盖。
+2. [x] 层级 transaction rollback、版本和 canonical read-back hash 已由写入失败及回读篡改负例覆盖；正式生产 read-back 待部署后执行。
 3. [ ] 策略配置中心注册、canonical hash、非法权重、阈值、覆盖率、未知版本和版本未升负例。
 4. [ ] winsor 边界、平均秩和同分稳定排序。
 5. [ ] 五分量与总分 golden test。
@@ -541,6 +541,7 @@ git diff --check
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.6 | 2026-08-13 | 记录生产当前单 head `20260813_000135`、两表与 hierarchy 授权验收通过，以及 Slice 3 hierarchy publisher 和 DG Heat/自动入口清零测试已实施；正式生产 hierarchy 发布仍待部署后单独执行 |
 | v2.5 | 2026-08-13 | 记录 Slice 1/2 实施：基于已复核的 head `20260812_000133` 完成两表 ORM/注册、revision `20260813_000134` 及本地正反测试；本提交 head 为 `000134`，生产仍为 `000133`、尚未迁移 |
 | v2.4 | 2026-08-13 | 撤回三账号/三 DSN 门禁；Web/Heat 复用现有应用连接，DG 复用现有 prod write resource；改为组件访问边界、Heat/Ops 双 Session 事务和既有 `lake_raw_writer` hierarchy 单表授权门禁 |
 | v2.3 | 2026-08-13 | Heat 改为 biz prod-native 计算、ops 执行意图/状态/观测、app 注入；删除 DG Heat/Gold 双份事实，增加 60 个有效交易日门禁；三账号/三 DSN 门禁已由 v2.4 撤回 |

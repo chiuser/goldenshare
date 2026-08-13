@@ -27,7 +27,7 @@
 | 项目 | 当前结论 |
 |---|---|
 | Git 分支 | `dev-interface` |
-| Alembic head（本次审计） | 本轮开始时本地与生产 `public.alembic_version` 均为 `20260812_000133`；本需求 revision 和本提交 head 为 `20260813_000134`，生产仍为 `000133` |
+| Alembic head（部署后复核） | 仓库与生产当前单 head 均为 `20260813_000135`；本需求 revision `20260813_000134` 已位于有效链上并完成生产结构/授权验收 |
 | 当前 API | V1 `columns[] + heatMapItems[]` |
 | 当前后端来源 | `core_serving.dc_daily/dc_index/board_moneyflow_dc` |
 | 当前前端 | 4×2 排名列 + 5×4 涨跌热力格，仅 loading/ready/error |
@@ -254,7 +254,7 @@ ORM：`src/foundation/models/core_serving/wealth_sector_heat_daily.py`。
 
 ### 4.4 Alembic
 
-1. 本轮开始时本地与生产均为单 head `20260812_000133`，本需求 revision 已正确接为 `20260813_000134`。生产发布前仍必须重查目标分支单 head 和生产当前版本，按完整链升级。
+1. 本需求 revision 创建时本地与生产均为单 head `20260812_000133`，因此已正确接为 `20260813_000134`；部署后复核仓库与生产当前单 head 均为 `20260813_000135`。任何后续 revision 仍必须重新读取真实 head。
 2. upgrade 顺序：create hierarchy -> constraints/indexes -> create heat -> constraints/indexes -> 给既有 `lake_raw_writer` 增加 hierarchy 单表 `SELECT/INSERT/DELETE`；不得创建 login、密码或新连接配置。
 3. migration 不做 `DROP TABLE IF EXISTS`、数据回填、外部访问或来源表 DML。
 4. downgrade 仅删除本次两张表，先 heat 后 hierarchy。
@@ -697,17 +697,19 @@ git diff --check
 
 ### Slice 1：实施日迁移基线
 
-本轮开始时重新查询 Alembic head，本地仓库与生产均为单 head `20260812_000133`，因此本需求 revision 使用 `down_revision = 20260812_000133`，本提交的迁移链 head 为 `20260813_000134`，生产仍待按链升级。
+本需求迁移创建时重新查询 Alembic head，本地仓库与生产均为单 head `20260812_000133`，因此 revision 使用 `down_revision = 20260812_000133`。2026-08-13 部署后再次只读验收，仓库与生产当前单 head 已推进为 `20260813_000135`；`000134` 两张表迁移已位于有效链上，后续新增迁移必须接真实 head `000135`，不得继续引用本需求创建时的旧 head。
 
 ### Slice 2：Foundation + migration 与现有连接复用
 
 只新增两表模型、注册、迁移和模型测试；迁移给既有 `lake_raw_writer` 增加 hierarchy 单表 `SELECT/INSERT/DELETE`。Web/Heat 复用现有应用连接，DG 复用现有 prod write resource；完成双 Session 事务隔离、组件 SQL 范围、DG 精确对象授权和 secret 不泄漏测试，不新增账号、DSN 或配置项。
 
-实施记录（2026-08-13）：本轮开始时本地与生产只读核验均为单 head `20260812_000133`；已新增两表 ORM、模型注册、revision `20260813_000134`、约束正反例和迁移范围测试。本提交的迁移链 head 为 `000134`，生产仍为 `000133`。尚未把 migration 应用于生产，尚未进行生产对象授权探针、DG 发布或 Heat 物化。
+实施记录（2026-08-13）：已新增两表 ORM、模型注册、revision `20260813_000134`、约束正反例和迁移范围测试。部署后生产只读验收确认当前 head 为 `20260813_000135`，hierarchy/Heat 分别为 15/31 列、4/18 个约束、各 4 个索引且初始均为 0 行；既有 `lake_raw_writer` 对 hierarchy 的 `SELECT/INSERT/DELETE` 为真，`UPDATE/TRUNCATE` 为假。DG hierarchy 正式发布仍待 Slice 3 代码部署后单独执行；Heat 尚未物化。
 
 ### Slice 3：DG hierarchy -> prod hierarchy
 
 实现唯一 DG hierarchy asset、prod write contract、read-back 和测试；先本地/测试库，再单独生产发布验收。DG 不得出现 Heat 计算、存储或自动化。
+
+实施记录（2026-08-13）：已新增 `prod_core_wealth_sector_hierarchy`、固定 Silver 文件读取/校验、hierarchy-only SQL contract、单事务全表替换和 canonical hash read-back；已登记 serving schema、catalog 和无分区模型。隔离测试覆盖 496/31/128/337、唯一键、父子/根/路径/叶节点闭包、版本、写入失败、read-back 篡改回滚，以及 DG Heat/job/sensor/check/bootstrap 清零。尚未运行 `dg check defs` 或正式 materialize，也未写生产 hierarchy 表。
 
 ### Slice 4：60 日 prod 来源缺口闭环
 
@@ -799,6 +801,7 @@ git diff --check
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.4 | 2026-08-13 | 记录生产已升级至单 head `20260813_000135`，两表结构与 hierarchy 精确授权验收通过；Slice 3 hierarchy publisher 已实施并通过隔离测试，正式生产发布仍待部署后单独执行 |
 | v2.3 | 2026-08-13 | 记录 Slice 1/2 已实施的 ORM、模型注册、revision `20260813_000134` 与本地约束/迁移测试；本提交 head 为 `000134`，生产仍为 `000133`，生产迁移与后续阶段未执行 |
 | v2.2 | 2026-08-13 | 撤回三账号/三 DSN 设计；Web/Heat 复用现有应用连接，DG 复用现有 prod write resource；保留 Heat/Ops 双 Session 事务隔离和既有 `lake_raw_writer` hierarchy 单表授权 |
 | v2.1 | 2026-08-13 | Heat 改为 biz prod-native 计算与直接发布；ops 仅承载执行意图/状态/观测，由 app 注入执行器；删除 DG Heat、Gold 双份事实和 Lake/prod 双 adapter；三账号/三 DSN 门禁已由 v2.2 撤回 |

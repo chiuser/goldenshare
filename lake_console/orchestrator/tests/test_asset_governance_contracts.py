@@ -106,6 +106,9 @@ from orchestrator.defs.assets.stock_daily import (
     silver_stock_daily,
 )
 from orchestrator.defs.assets.stock_daily_qfq import gold_stock_daily_qfq
+from orchestrator.defs.assets.stock_daily_qfq_nineturn_prod_core import (
+    prod_core_stock_daily_qfq_nineturn,
+)
 from orchestrator.defs.assets.stock_identity_map import silver_stock_identity_map
 from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
 from orchestrator.defs.assets.stock_return_distribution import (
@@ -123,6 +126,9 @@ from orchestrator.defs.assets.wealth_market_turnover import (
 )
 from orchestrator.defs.assets.wealth_market_turnover_prod_core import (
     prod_core_wealth_market_turnover,
+)
+from orchestrator.defs.assets.wealth_sector_hierarchy_prod_core import (
+    prod_core_wealth_sector_hierarchy,
 )
 from orchestrator.defs.catalog import (
     DATASET_CHINESE_NAMES,
@@ -247,6 +253,7 @@ ACTIVE_ASSET_DEFINITIONS = (
     silver_adj_factor,
     gold_stock_daily_qfq,
     gold_stock_daily_qfq_nineturn,
+    prod_core_stock_daily_qfq_nineturn,
     raw_stk_mins_1m,
     raw_stk_mins_5m,
     raw_stk_mins_15m,
@@ -283,6 +290,7 @@ ACTIVE_ASSET_DEFINITIONS = (
     gold_stock_return_distribution,
     gold_wealth_market_turnover,
     prod_core_wealth_market_turnover,
+    prod_core_wealth_sector_hierarchy,
     ch_share_fact_market_breadth_daily,
     prod_ch_share_fact_market_breadth_daily,
     ch_dc_daily_technical,
