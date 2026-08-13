@@ -19,6 +19,8 @@ from orchestrator.defs.prod_db.stock_daily_qfq_nineturn import (
     PROD_CORE_STOCK_DAILY_QFQ_NINETURN_DELETE_SQL,
     PROD_CORE_STOCK_DAILY_QFQ_NINETURN_INSERT_SQL,
     PROD_CORE_STOCK_DAILY_QFQ_NINETURN_SELECT_SQL,
+    audit_prod_core_stock_daily_qfq_nineturn_checkpoint_partitions,
+    audit_prod_core_stock_daily_qfq_nineturn_partition,
     replace_prod_core_stock_daily_qfq_nineturn_partition,
     validate_prod_core_stock_daily_qfq_nineturn_sql_contract,
 )
@@ -159,6 +161,55 @@ class StockDailyQfqNineTurnProdCoreSyncTests(unittest.TestCase):
         self.assertEqual(cursor.execute_calls, [])
         self.assertEqual(connection.rollback_count, 0)
 
+    def test_readonly_audit_detects_serving_content_drift(self) -> None:
+        published_at = datetime(2026, 8, 13, 1, 2, 3, tzinfo=timezone.utc)
+        rows = _sample_rows("2026-08-12")
+        read_back = _read_back_rows(rows, published_at=published_at)
+        read_back[0] = (*read_back[0][:2], 999.0, *read_back[0][3:])
+        cursor = _FakeCursor(read_back_rows=read_back)
+
+        audit = audit_prod_core_stock_daily_qfq_nineturn_partition(
+            connection=_FakeConnection(cursor),
+            rows=rows,
+            partition_key="2026-08-12",
+        )
+
+        self.assertFalse(audit.passed)
+        self.assertIn("content", audit.failed_rule_names)
+        self.assertNotEqual(audit.expected_content_hash, audit.observed_content_hash)
+
+    def test_checkpoint_audit_compares_prod_content_without_gold_rows(self) -> None:
+        published_at = datetime(2026, 8, 13, 1, 2, 3, tzinfo=timezone.utc)
+        rows = _sample_rows("2026-08-12")
+        read_back = _read_back_rows(rows, published_at=published_at)
+        baseline = audit_prod_core_stock_daily_qfq_nineturn_partition(
+            connection=_FakeConnection(_FakeCursor(read_back_rows=read_back)),
+            rows=rows,
+            partition_key="2026-08-12",
+        )
+
+        matching = audit_prod_core_stock_daily_qfq_nineturn_checkpoint_partitions(
+            connection=_FakeConnection(_FakeCursor(read_back_rows=read_back)),
+            expected_content_hashes={"2026-08-12": baseline.expected_content_hash},
+        )
+        drifted = audit_prod_core_stock_daily_qfq_nineturn_checkpoint_partitions(
+            connection=_FakeConnection(_FakeCursor(read_back_rows=read_back)),
+            expected_content_hashes={"2026-08-12": "0" * 64},
+        )
+
+        self.assertTrue(matching.passed)
+        self.assertEqual(matching.observed_partition_count, 1)
+        self.assertEqual(matching.read_back_row_count, 2)
+        self.assertFalse(drifted.passed)
+        self.assertEqual(drifted.failed_partition_keys, ("2026-08-12",))
+
+    def test_checkpoint_audit_rejects_non_sha256_hash(self) -> None:
+        with self.assertRaisesRegex(ValueError, "lowercase SHA-256"):
+            audit_prod_core_stock_daily_qfq_nineturn_checkpoint_partitions(
+                connection=_FakeConnection(_FakeCursor()),
+                expected_content_hashes={"2026-08-12": "not-a-hash"},
+            )
+
     def test_replace_partition_rolls_back_on_read_back_drift(self) -> None:
         published_at = datetime(2026, 8, 13, 1, 2, 3, tzinfo=timezone.utc)
         rows = _sample_rows("2026-08-12")
@@ -197,7 +248,8 @@ class _FakeConnection:
         self._cursor = cursor
         self.rollback_count = 0
 
-    def cursor(self) -> "_FakeCursor":
+    def cursor(self, name: str | None = None) -> "_FakeCursor":
+        self._cursor.name = name
         return self._cursor
 
     def rollback(self) -> None:
@@ -210,6 +262,9 @@ class _FakeCursor:
         self.execute_calls: list[tuple[str, tuple[object, ...]]] = []
         self.rowcount = -1
         self.close_count = 0
+        self.fetch_offset = 0
+        self.itersize: int | None = None
+        self.name: str | None = None
 
     def execute(self, sql: str, params: tuple[object, ...]) -> None:
         self.execute_calls.append((sql, params))
@@ -217,6 +272,11 @@ class _FakeCursor:
 
     def fetchall(self) -> list[tuple[object, ...]]:
         return self.read_back_rows
+
+    def fetchmany(self, size: int) -> list[tuple[object, ...]]:
+        rows = self.read_back_rows[self.fetch_offset : self.fetch_offset + size]
+        self.fetch_offset += len(rows)
+        return rows
 
     def close(self) -> None:
         self.close_count += 1
@@ -274,9 +334,10 @@ def _write_qfq_file(
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     codes = ["000001.SZ", "600000.SH"] if include_second else ["000001.SZ"]
+    closes = {"000001.SZ": 12.5, "600000.SH": 8.2}
     values = ",".join(
-        f"('{code}', DATE '{partition_key}', 10.0, 13.0, 9.0, 12.5, "
-        "12.0, 0.5, 4.2, 1000.0, 12000.0)"
+        f"('{code}', DATE '{partition_key}', 10.0, 13.0, 9.0, "
+        f"{closes[code]}, 12.0, 0.5, 4.2, 1000.0, 12000.0)"
         for code in codes
     )
     connection = duckdb.connect()

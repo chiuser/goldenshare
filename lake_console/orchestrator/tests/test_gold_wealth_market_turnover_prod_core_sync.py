@@ -1,9 +1,9 @@
-from datetime import datetime
-from decimal import Decimal
 import os
-from pathlib import Path
 import tempfile
 import unittest
+from datetime import datetime
+from decimal import Decimal
+from pathlib import Path
 from unittest.mock import patch
 
 import duckdb
@@ -126,6 +126,26 @@ class GoldWealthMarketTurnoverProdCoreSyncTests(unittest.TestCase):
         self.assertEqual(fake_connection.commit_count, 0)
         self.assertEqual(fake_connection.rollback_count, 1)
         self.assertEqual(fake_connection.close_count, 1)
+
+    def test_write_resource_supports_readonly_reconciliation_transaction(self) -> None:
+        fake_connection = _FakeConnection(_FakeCursor())
+        env = {
+            "PROD_POSTGRES_WRITE_HOST": "prod-db",
+            "PROD_POSTGRES_WRITE_PORT": "5432",
+            "PROD_POSTGRES_WRITE_USER": "serving_writer",
+            "PROD_POSTGRES_WRITE_PASSWORD": "secret",
+            "PROD_POSTGRES_WRITE_DATABASE": "goldenshare",
+        }
+        with (
+            patch.dict(os.environ, env, clear=False),
+            patch("psycopg2.connect", return_value=fake_connection),
+            ProdPostgresWriteResource().connect_readonly() as connection,
+        ):
+            self.assertIs(connection, fake_connection)
+
+        self.assertEqual(fake_connection.set_session_calls, [(True, False)])
+        self.assertEqual(fake_connection.commit_count, 1)
+        self.assertEqual(fake_connection.rollback_count, 0)
 
     def test_replace_partition_deletes_inserts_and_reads_back_five_rows(self) -> None:
         rows = _sample_rows("2026-06-23")

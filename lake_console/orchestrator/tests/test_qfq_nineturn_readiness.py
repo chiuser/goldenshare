@@ -18,7 +18,6 @@ from orchestrator.defs.paths import (
 )
 from orchestrator.defs.run_contracts.qfq_nineturn import QFQ_NINETURN_MINUTE_FREQS
 
-
 TRADE_DATE = "2026-08-07"
 MINUTE_TRADE_DATES = ("2026-08-06", TRADE_DATE)
 
@@ -62,7 +61,8 @@ def _write_minute_sources_and_targets(connection, root: Path) -> None:
               SELECT '000001.SZ'::VARCHAR AS ts_code,
                 {freq}::INTEGER AS freq,
                 trade_date::DATE AS trade_date,
-                (trade_date::DATE + TIME '15:00:00')::TIMESTAMP AS trade_time
+                (trade_date::DATE + TIME '15:00:00')::TIMESTAMP AS trade_time,
+                10.0::DOUBLE AS close
               FROM (VALUES {", ".join(f"('{value}')" for value in MINUTE_TRADE_DATES)})
                 AS dates(trade_date)
             ) TO '{source}' (FORMAT PARQUET)
@@ -128,14 +128,16 @@ class QfqNineturnReadinessTests(unittest.TestCase):
 
     def test_daily_window_is_bounded_to_ten_dates(self) -> None:
         dates = tuple(f"2026-08-{day:02d}" for day in range(1, 12))
-        with duckdb.connect(":memory:") as connection:
-            with self.assertRaisesRegex(ValueError, "at most 10"):
-                batch_gold_stock_daily_qfq_nineturn_readiness(
-                    connection=connection,
-                    lake_root=Path("/tmp/not-used"),
-                    expected_trade_dates=dates,
-                    registered_trade_days=dates,
-                )
+        with (
+            duckdb.connect(":memory:") as connection,
+            self.assertRaisesRegex(ValueError, "at most 10"),
+        ):
+            batch_gold_stock_daily_qfq_nineturn_readiness(
+                connection=connection,
+                lake_root=Path("/tmp/not-used"),
+                expected_trade_dates=dates,
+                registered_trade_days=dates,
+            )
 
     def test_minute_batch_readiness_keeps_all_four_frequency_checks(self) -> None:
         with (

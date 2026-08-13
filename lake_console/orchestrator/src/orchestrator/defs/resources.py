@@ -1,8 +1,8 @@
+import os
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
-import os
 from pathlib import Path
 from typing import Any
 
@@ -206,6 +206,16 @@ class ProdPostgresWriteResource(dg.ConfigurableResource):
 
     @contextmanager
     def connect(self) -> Iterator[Any]:
+        with self._connect(readonly=False) as connection:
+            yield connection
+
+    @contextmanager
+    def connect_readonly(self) -> Iterator[Any]:
+        with self._connect(readonly=True) as connection:
+            yield connection
+
+    @contextmanager
+    def _connect(self, *, readonly: bool) -> Iterator[Any]:
         try:
             import psycopg2
         except ModuleNotFoundError as exc:
@@ -226,7 +236,7 @@ class ProdPostgresWriteResource(dg.ConfigurableResource):
             connect_timeout=self.connect_timeout_seconds,
         )
         try:
-            connection.set_session(readonly=False, autocommit=False)
+            connection.set_session(readonly=readonly, autocommit=False)
             try:
                 yield connection
             except Exception:

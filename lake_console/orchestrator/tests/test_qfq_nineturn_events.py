@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 
 import dagster as dg
 from dagster._core.definitions.asset_checks.asset_check_evaluation import (
@@ -220,6 +220,7 @@ def _built_history(root: Path):
         plan=plan,
         expected_plan_fingerprint=plan.plan_fingerprint,
         duckdb_resource=resource,
+        staging_root=root / "staging",
         output_dir=root / "reports",
     )
     return dates, plan, report.final_audit_report_path

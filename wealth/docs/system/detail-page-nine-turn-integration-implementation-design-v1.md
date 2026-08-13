@@ -1,6 +1,6 @@
 # 股票与主要指数详情页九转接入总方案 v1
 
-> 状态：M0、M1 已评审通过；M2 编码门禁与股票纵向切片代码已收口。生产迁移、日线历史发布、浏览器真实日线验收和 sensor 启用仍未执行。
+> 状态：M0、M1、M2 已收口；M3-A/M3-B 门禁已完成。Gold 日线修复与全历史验收已完成；生产 serving 发布至 1,113/3,066 个交易日、2,770,508 行后因内存与超大控制台输出风险暂停。发布器修正及正式只读内存验收已通过，恢复发布仍待用户确认。分钟未执行，浏览器真实日线验收和 sensor 启用仍未完成。
 >
 > 评审基线日期：2026-08-13。
 >
@@ -51,6 +51,7 @@ React 动态调用边由 CodeGraph explore/import 结果和真实消费者代码
 | 股票日线自主九转 Gold | 已实现 | `gold_stock_daily_qfq_nineturn` 已注册且有正式历史文件 |
 | 股票 30/60/90/120 分钟自主九转 Gold | 已实现 | 四个资产已注册且有正式历史文件 |
 | 股票九转详情 API/页面 | M2 代码已实现 | 日线 serving 查询、本地四频率 Reader、独立 HTTP、共享 registry、局部状态和页面图层均已落地；尚未生产发布 |
+| 股票日线 serving 发布门禁 | M3-B 部分执行 | Gold 修复已完成；serving 已发布 1,113/3,066 日。发布器已收紧到 DuckDB 128MB/1线程、单进程最多200日，并移除恢复时全历史深扫和超大输出；只读内存复验已通过，全历史和浏览器验收未完成 |
 | 指数日线九转 Gold | 未实现 | 需要新资产 |
 | 指数 5/15/30/60/90/120 分钟九转 Gold | 未实现 | 需要六个新资产；不创建 1 分钟资产 |
 | 指数九转详情 API/页面 | 未实现 | 当前 capability 仍为 false，右栏仍是 `--` 占位 |
@@ -67,7 +68,7 @@ React 动态调用边由 CodeGraph explore/import 结果和真实消费者代码
 4. 原状态稿可见标题中的“M6”和股票根节点错误尺寸名称已修正为长期职责名称；节点 ID、尺寸和视觉未改变。
 5. M0 无剩余 P0 阻塞，可以进入 M1；M0 通过不表示页面功能已经接入。
 
-截至 2026-08-13 的只读物理审计：股票五个自主 Gold 资产均有 3,066 个交易日分区，覆盖 2014-01-02 至 2026-08-12。Definitions 能发现五个资产和五个 blocking integrity checks。两个日常 sensor 的代码默认状态和本机实例状态仍为 `STOPPED`，因此不能把历史完整误写成每日自动更新已经投产。
+截至 2026-08-13 的只读物理审计：股票五个自主 Gold 资产均有 3,066 个交易日分区，覆盖 2014-01-02 至 2026-08-12。Definitions 能发现五个资产和五个 blocking integrity checks。执行前正式 instance 中 Gold 日线 sensor 实际为 `RUNNING`，但最近 10 个 tick 均为 SKIPPED 且没有并发 run；本轮已将其停止。serving sensor 从未启用。两者都必须继续保持停用，不能把历史完整误写成每日自动更新已经投产。
 
 ## 4. 产品与算法合同
 
@@ -321,9 +322,11 @@ prod_core_stock_daily_qfq_nineturn
 prod_core_index_daily_nineturn
 ```
 
-每个 serving asset 先验证 Gold schema、分区日期、唯一键和公式版本，再在单一 PostgreSQL 事务中删除目标 `trade_date`、批量写入完整新分区、read-back 行数/键集合/内容 hash；任一差异 rollback。股票单日约 5,500 行，应使用 PostgreSQL COPY 或受控批量 values，禁止 Python 单行循环；历史千万级发布必须使用独立有界批处理、断点和全量对账，不能伪装成普通日常 backfill。
+每个 serving asset 先验证 Gold schema、分区日期、唯一键、值域、源键覆盖，并逐键比较九转 `close_qfq` 与当前 QFQ 行情 `close`；再在单一 PostgreSQL 事务中删除目标 `trade_date`、批量写入完整新分区、read-back 行数/键集合/内容 hash。任一差异 rollback。股票单日约 5,500 行，使用 `execute_values` 每 1,000 行一页，禁止 Python 单行 insert；Gold scoped rebuild 与历史千万级 serving 发布都使用独立只读计划、1～3 分区 sample、最多 20 个分区一个逻辑 batch和逐分区 checkpoint。Gold 修复单次最多 200 个 batch；serving 固定 DuckDB 128MB/1线程，单进程最多 10 个 batch。plan 只读取 SQL 聚合诊断，不把整分区 rows 装入 Python；恢复时核对全部源文件元数据并流式回验已完成 Prod hash，只对本次待发布日重做深度门禁。CLI 只输出固定大小摘要和逐 batch 进度，不能伪装成普通日常 backfill。
 
-两张表当前不存在，需要新增 Alembic migration 和 Foundation model，并给现有 prod serving 写入角色仅增加两表 DML 白名单。2026-08-13 审计时本地与生产 Alembic head 均为 `20260812_000133`；真正创建 migration 前必须重新检查当前真实 head，`down_revision` 不得长期照抄本次快照。
+股票表 migration `20260813_000135` 已在生产执行，表结构、主键、索引和 DML 权限与设计一致；截至本轮暂停前最后一次只读审计，目标表为 1,113 个交易日、2,770,508 行。指数表仍属于 M4，当前不存在。迁移和部分数据只代表容器与局部事实就绪，不代表股票全历史已发布。
+
+M3-A 对正式数据的只读审计记录：股票日线九转与 QFQ 行情均有 3,066 个交易日、11,638,636 个键，键集合完全一致；但 18 只股票、3,065 个交易日合计 45,442 行 `close_qfq` 与当前 QFQ close 不一致，属于复权因子变化后的持久化价格漂移。按冻结 lag=4 公式重算这些股票共比较 45,483 行，计数与信号差异为 0。这意味着 marker 语义当前仍正确，但 Gold 每行价格事实已经过期，正式发布必须 fail closed，先执行另行审批的 scoped rebuild。
 
 ## 8. 前端与共享图表设计
 
@@ -461,8 +464,10 @@ LLD 必须给出可执行预算，至少覆盖：
 |---|---|---|
 | M0 | 固化产品合同、补齐正式 Figma、形成总方案评审基线 | 已通过；六个正式页面、产品矩阵和架构边界已冻结，未进入代码 |
 | M1 | 编写 LLD；细化并复核生产 serving；冻结 DTO、异常码、Reader、缓存和物理合同 | 已完成并评审通过 |
-| M2 | 股票查询与 shared primitive：Reader/API/正式日线 serving/共享几何及最小页面接入 | 代码与隔离验收已通过；未执行生产迁移、正式发布或 sensor |
-| M3 | 股票详情真实环境与视觉收口 | 复用 M2 页面接入，不建第二套控制器；生产日线发布后完成五支持周期、浏览器、缩放与局部故障验收 |
+| M2 | 股票查询与 shared primitive：Reader/API/正式日线 serving/共享几何及最小页面接入 | 代码与隔离验收已通过；生产表已迁移但为空 |
+| M3-A | 发布前事实收口 | 已完成只读数据/权限/迁移审计，登记 45,442 行收盘价漂移和正式修复前置条件 |
+| M3-B | 发布门禁与日常链路 | Gold 修复和全历史对账已完成；serving 发布至1,113/3,066后暂停。serving 固定128MB/1线程、20日batch、单进程最多10批次；plan/resume/CLI 放大点已修正，正式只读 plan 峰值约237MiB、恢复回验峰值约156MiB并通过；剩余历史发布仍待用户确认，最终对账未完成 |
+| M3-C | 股票详情真实环境与视觉收口 | 待 Gold 修复和历史 serving 发布后，完成生产日线 API、浏览器、缩放与局部故障验收；不建第二套控制器 |
 | M4 | 新建指数日线和六个分钟九转资产及查询 API | 7 assets/checks 被 Definitions 发现；历史覆盖、对齐、性能通过；1 分钟无资产 |
 | M5 | 指数图表和 Technical 摘要接入 | 十指数、北证50空态、趋势双 primitive、右栏摘要和竞态通过 |
 | M6 | 日常自动化、全链路验收与最终发布 | 生产日线、本地分钟、生产分钟 404、freshness、性能和视觉验收全部通过 |
@@ -507,8 +512,10 @@ M2 开工时已重新核验 Alembic 单一 head 为 `20260813_000134`，九转 m
 |---|---|
 | 直接按持续 `+9/-9` 字段画图，10+ 重复出现 9 | DTO 只生成 1～9 marker，并用正式 10+ 样本测试 |
 | 自主 Gold 与 Tushare 九转混用 | 独立路径、表、DTO、监控；禁止 fallback |
-| 正式 Lake 有数据但生产 Web 不可访问 | M2 已实现 PostgreSQL serving migration/publisher/query；只有迁移和历史发布另行审批并验收后才开放生产日线 |
-| 历史文件齐全但每日不更新 | sensor/readiness/自然触发验收进入 M5 发布门禁 |
+| 正式 Lake 有数据但生产 Web 不可访问 | 股票 PostgreSQL 仅发布1,113/3,066日；只有全历史发布和生产回验通过后才开放生产日线 |
+| Gold key 完整但持久化价格已漂移 | 45,442 行漂移已完成 scoped rebuild；Gold blocking check 与 serving loader 继续比较源 close，防止再次漂移 |
+| 历史批量发布中断、内存增长或计划变化 | 只读计划指纹、最多20日批次、逐日事务与checkpoint；DuckDB固定128MB/1线程；plan不用全量row loader，恢复不重建全历史深度计划，Prod采用server cursor流式hash；单进程最多10批次并退出释放内存；CLI固定大小输出 |
+| 历史文件齐全但每日不更新 | 独立 serving job/sensor 已注册且默认 STOPPED；历史发布、自然触发和 freshness 验收后另行审批启用 |
 | 指数 Lake 额外代码泄漏到页面 | API 每次按 `majorIndices` allowlist 校验 |
 | 北证50分钟被补造 | 固定 SOURCE EMPTY 测试与可见局部状态 |
 | 九转失败清空 K 线 | 独立 endpoint、controller 和局部状态测试 |
@@ -519,7 +526,7 @@ M2 开工时已重新核验 Alembic 单一 head 为 `20260813_000134`，九转 m
 
 本方案是九转详情接入专项的上游事实源。历史文档中“九转不在本期、显示 `--`、supportsNineTurn=false”描述的是九转立项前已经完成的阶段，不追溯性改写为错误；后续实现必须引用本文和新 LLD，而不能继续把旧阶段占位当作目标状态。
 
-M2 已同步异常码注册表、本方案、LLD 和 coding gate。股票 `NT_*` 已进入 active-code 状态；指数仍为 planned。index page-init 当前仍保持 `supportsNineTurn=false`，不得因为共享 DTO/primitive 已存在而提前宣布指数能力。生产迁移、历史发布、Figma 浏览器截图和 Dagster 运行验收完成后，再把股票能力标为 production-ready。
+M3-A/M3-B 已同步本方案、LLD 和独立发布门禁。股票 `NT_*` 已进入 active-code 状态；指数仍为 planned。index page-init 当前仍保持 `supportsNineTurn=false`。Gold scoped rebuild 已完成，但 serving 仍是 1,113/3,066 的部分发布；发布器内存与输出修正已通过正式只读复验，恢复写入仍待用户确认。只有全历史发布、生产 API、Figma 浏览器截图和 Dagster 自然触发验收完成后，才可把股票能力标为 production-ready。
 
 ## 17. 版本记录
 
@@ -528,3 +535,6 @@ M2 已同步异常码注册表、本方案、LLD 和 coding gate。股票 `NT_*`
 | v1 | 2026-08-13 | 基于当前代码、CodeGraph、正式 Lake、Definitions 与六个正式 Figma 页面形成股票/指数日线与分钟九转总方案评审基线 | Codex |
 | v1.1 | 2026-08-13 | M0 评审收口；修正 Figma 状态命名；关闭 freq 类型误判；回链 M1 LLD、异常码与最终实施门禁 | Codex |
 | v1.2 | 2026-08-13 | M2 编码门禁与股票纵向切片代码收口；登记日线 serving、四频率 Reader、共享 primitive、股票页面接入和未执行生产发布边界 | Codex |
+| v1.3 | 2026-08-13 | 收口 M3-A 数据事实与 M3-B 发布门禁：登记生产空表、45,442 行 close 漂移、20 日可续跑发布器、serving check 和 STOPPED 日常 sensor | Codex |
+| v1.4 | 2026-08-13 | 同步 Gold 修复完成、serving 893 日部分发布、内存暂停和 256MB/1线程/单进程10批次门禁 | Codex |
+| v1.5 | 2026-08-13 | 同步 serving 1,113 日检查点；修正 plan/resume/CLI 内存与输出放大链路，冻结 128MB、流式恢复回验和逐 batch 摘要；正式只读验收通过，生产恢复仍待用户确认 | Codex |

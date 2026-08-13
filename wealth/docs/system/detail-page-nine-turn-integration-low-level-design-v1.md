@@ -1,6 +1,6 @@
 # 股票与主要指数详情页九转接入低层设计（LLD）v1
 
-> 状态：M0、M1 已通过；M2 编码门禁与股票纵向切片代码已收口。M3 只继续真实环境、视觉和发布验收，不重建控制器或图表组件。
+> 状态：M0、M1、M2 已通过；M3-A/M3-B 门禁已实现。Gold 日线修复与全历史对账已完成；生产 serving 已发布 1,113/3,066 个交易日、2,770,508 行后因内存与超大控制台输出风险主动暂停。发布器修正及正式只读内存验收已通过，恢复发布仍待用户确认。分钟未执行，M3-C 浏览器验收尚未开始。
 >
 > 上游方案：[股票与主要指数详情页九转接入总方案 v1](./detail-page-nine-turn-integration-implementation-design-v1.md)
 >
@@ -18,9 +18,9 @@
 
 本文最初只形成设计；M2 现已在用户确认 coding gate 后实施代码。以下运行态动作仍未获得授权且未执行：
 
-1. 不执行生产数据库 migration。
-2. 不运行 materialize、backfill、runless event、正式 Lake 写入或生产发布。
-3. 不启用当前处于 `STOPPED` 的股票九转 sensor。
+1. `20260813_000135` 已由其它已授权操作执行；本轮不新增或回滚生产 migration。
+2. 本轮不运行 materialize、backfill、runless event、正式 Lake 写入、Gold 修复或生产发布。
+3. 本轮只注册独立 serving sensor，保持 `STOPPED`，不启用任何股票九转 sensor。
 4. 不创建指数九转资产或修改指数页面。
 
 最终实现结构冻结为：
@@ -357,13 +357,40 @@ prod_core_index_daily_nineturn
 单分区流程：
 
 1. 读取 Gold 时固定投影并设置 `hive_partitioning=false`。
-2. 验证 schema、分区日期、唯一键、值域、formulaVersion 和源键覆盖。
+2. 验证 schema、分区日期、唯一键、值域、formulaVersion、源键覆盖，并逐键比较九转 `close_qfq` 与当前 QFQ 行情 `close`。
 3. 在一个 PostgreSQL 事务内按 `trade_date` 删除旧分区。
 4. 使用 `execute_values` 有界批量写入，不做 Python 单行 insert。
 5. read-back 比较行数、完整键集合和规范化内容 hash。
 6. 任一差异 rollback；状态写入失败不得污染已提交的业务表事务。
 
-日线历史发布必须另行审批并使用有界批次与 checkpoint；不能把 3,000 多个分区伪装成一次普通日常运行。
+历史发布实现冻结为：
+
+```text
+stock_daily_qfq_nineturn_serving_history.py
+stock_daily_qfq_nineturn_serving_history_cli.py
+```
+
+1. `plan` 只读扫描准确交易日范围，冻结 Gold/QFQ 两类文件的相对路径、size、mtime、行数和计划指纹；任何源值漂移使 `should_stop=true`。
+2. Gold scoped rebuild 和 serving 发布的 `sample` 均仅允许显式选 1～3 个计划内分区；单个 `batch` 最多 20 个分区。Gold 修复单次最多 200 个 batch；serving 单进程最多 10 个 batch，并在进程退出后从 checkpoint 续跑。
+3. 每个交易日独立事务并完成 read-back 后，才把业务内容 hash 原子写入 checkpoint。
+4. checkpoint 固定在 `/Volumes/datasource/data_lake_staging` 下；续跑前对冻结的全部 Gold/QFQ 文件核对路径、size、mtime，并以 PostgreSQL server cursor 流式验证已完成分区的业务内容 hash；禁止盲跳，也禁止恢复时重新深扫 3,066 日内容。
+5. scoped plan 只扫描目标资产族；本轮 daily 修复不得顺带扫描四个分钟资产。
+6. scoped rebuild 每个分区单独生成候选、复刻完整 blocking check、备份、原子提升并写 checkpoint；失败只恢复当前未登记分区，已回验分区可续跑。
+7. scoped rebuild 的候选、恢复副本和 checkpoint 均位于独立 staging 根；正式 Lake 内不再新增 `_staging` 或 `_quarantine`。
+8. plan/sample/batch/resume 代码与隔离测试完成，不构成真实 Gold 修复或生产发布授权。
+9. plan 每个分区只消费完整性聚合诊断和 `checked_row_count`，不得调用返回全量 Python rows 的 loader；每 20 个分区关闭并重建 DuckDB 连接。
+10. publish 只对本次最多 200 个待发布日执行完整 Gold/QFQ 内容门禁。计划明细只写 JSON 文件；CLI 固定大小摘要，发布进度每个逻辑 batch 一条，最终输出不含完整日期数组。
+11. 历史发布 DuckDB 固定 `memory_limit=128MB`、`threads=1`、`preserve_insertion_order=false`。
+
+日常链路独立为：
+
+```text
+prod_core_stock_daily_qfq_nineturn_sync_job
+prod_core_stock_daily_qfq_nineturn_sync_job_sensor
+prod_core_stock_daily_qfq_nineturn_partition_check
+```
+
+serving check 使用只读事务对比 Gold 与 PostgreSQL 行数、键和业务内容 hash。sensor 只监听 Gold job 成功且 Gold blocking check 就绪的同分区，初始状态固定 `STOPPED`。
 
 ### 7.3 Web 查询
 
@@ -789,11 +816,30 @@ wealth/src/features/stock-detail/chart/StockMinuteChartWorkspace.tsx
 
 上述文件已按冻结边界实现。M2 没有创建指数资产或改指数页面，也没有修改既有股票 QFQ 九转公式、资产 key、路径或 sensor default status。
 
-### 15.2 M3：股票页面完整接入
+### 15.2 M3-A：发布前事实与文档收口
 
-完成五个支持周期、三个禁用周期、全部局部状态、缓存竞态、浏览器和视觉验收。若 M2 已包含最小股票接入，M3 只做页面状态与全量验收，不重复建第二套控制器。
+已完成：生产 migration/head/表结构/权限/空表审计；正式 Lake 3,066 个交易日、11,638,636 键的覆盖审计；登记 18 只股票、45,442 行 close 漂移及“marker 正确但价格事实过期”的边界。
 
-### 15.3 M4：指数资产、serving 与 API
+### 15.3 M3-B：发布门禁
+
+已实现：
+
+```text
+lake_console/orchestrator/src/orchestrator/defs/qfq_nineturn_integrity.py
+lake_console/orchestrator/src/orchestrator/defs/bootstrap/qfq_nineturn_history.py
+lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_daily_qfq_nineturn_serving_history.py
+lake_console/orchestrator/src/orchestrator/defs/checks/stock_daily_qfq_nineturn_prod_core_checks.py
+lake_console/orchestrator/src/orchestrator/defs/jobs/stock_daily_qfq_nineturn_prod_core_sync.py
+lake_console/orchestrator/src/orchestrator/defs/sensors/stock_daily_qfq_nineturn_prod_core_sensor.py
+```
+
+M3-B 执行前复核发现旧 scoped rebuild 会一次性生成并整体提升 3,066 个分区，已改为目标资产窄扫描、1～3 分区 sample、20 分区 batch、单次最多 200 batch、逐分区 checkpoint/resume。经单独批准，Gold 修复与全历史对账已经完成。serving 发布在 1,113 日暂停。内存根因审计确认：plan 为取得行数曾对每个分区执行完整 loader 并 `fetchall()`，publish 每次恢复又重新深扫全部 3,066 日，CLI 同时输出全部计划对象、日期数组和逐日进度。现已改为 DuckDB 128MB/1线程、plan 聚合诊断、20日连接重建、恢复仅做源文件元数据核对与 Prod 流式 hash、待发布日期深度门禁、逐 batch 固定大小输出；每日独立事务与 checkpoint 语义不变。修正后正式只读验收结果：全历史 plan 17.60 秒、峰值约 237MiB；1,113 日/2,770,508 行 checkpoint 回验 187.39 秒、峰值约 156MiB，全部通过且未写 Lake/Prod。恢复生产发布仍需用户再次确认，两个 sensor 不得启用。
+
+### 15.4 M3-C：股票页面完整验收
+
+Gold 修复和 serving 历史发布后，完成生产日线、四个本地分钟、三个禁用周期、全部局部状态、缓存竞态、浏览器和视觉验收。M2 已包含页面接入，因此不重复建第二套控制器。
+
+### 15.5 M4：指数资产、serving 与 API
 
 ```text
 lake_console/orchestrator/src/orchestrator/defs/nineturn_formula.py
@@ -810,7 +856,7 @@ src/biz/api/wealth/market/index_detail_nine_turn.py
 
 实际拆文件时可以按仓库现有 daily/minute 命名规范细分，但不得合并成无法独立测试的单个大文件。
 
-### 15.4 M5：指数页面接入
+### 15.6 M5：指数页面接入
 
 修改现有 index page-init capability、index page/controller、两类 chart adapter、`IndexTechnicalTab` 和测试。不得复制 `NineTurnMarkerPrimitive`、series registry 或 API DTO。
 
@@ -898,12 +944,13 @@ M1 已完成：
 6. 前端 registry、capability、primitive 几何、右栏摘要和状态机已冻结。
 7. `freq BIGINT` 疑点已证伪，正式物理类型确认是 INTEGER。
 
-M2 代码收口后仍未完成的运行与发布项：
+M3-B 当前仍未完成的运行与发布项：
 
-1. migration 已生成并串接当前 head，但尚未在生产数据库执行。
-2. 股票 serving 历史物理发布、指数七资产和指数正式历史尚未执行。
-3. 两个现有股票 sensor 和未来指数 sensor 尚未启用。
-4. 生产日线真实 API 与浏览器截图必须等待 migration 和正式发布后完成；不得用 SQLite fixture 或本地 Lake 冒充生产就绪。
+1. migration 已在生产执行；目标表最后一次只读确认有 1,113 个交易日、2,770,508 行，不是全历史发布完成证据。
+2. 45,442 行 close 漂移对应的 Gold scoped rebuild 已完成；11,638,636 行全历史键、价格、计数和信号差异均为 0。
+3. 股票 serving sample 已完成，历史发布停在 1,113/3,066；剩余 1,953 日及最终全量对账尚未执行。指数七资产与正式历史也未建设。
+4. Gold sensor 在执行前发现实际为 RUNNING，审计确认近 10 个 tick 均 SKIPPED、无并发 run 后已停止；serving sensor 未启用。两者当前均不得启用。
+5. 生产日线真实 API 与浏览器截图必须等待 Gold 修复和正式发布后完成；不得用 SQLite fixture、本地 Lake 或空表冒充生产就绪。
 
 ## 20. 版本记录
 
@@ -911,3 +958,6 @@ M2 代码收口后仍未完成的运行与发布项：
 |---|---|---|---|
 | v1 | 2026-08-13 | 完成 M0 收口、CodeGraph/current code 审计、物理 freq 复核，冻结资产、serving、DTO、Reader、前端与验收设计 | Codex |
 | v1.1 | 2026-08-13 | 同步 M2 实现事实、真实 Lake 四频率只读验收、生产权限边界及未执行 migration/历史发布/浏览器验收项 | Codex |
+| v1.2 | 2026-08-13 | 收口 M3-A/M3-B：生产空表和 close 漂移事实、独立 staging、20 日批次 checkpoint、serving blocking check 与 STOPPED 日常链路 | Codex |
+| v1.3 | 2026-08-13 | 同步 Gold 修复完成、serving 893 日部分发布、内存暂停与 256MB/1线程/10批次恢复门禁 | Codex |
+| v1.4 | 2026-08-13 | 同步 serving 1,113 日检查点；收口 plan/resume/CLI 内存与输出放大根因，冻结 128MB、聚合 plan、源元数据核对、Prod 流式 hash 和逐 batch 摘要门禁 | Codex |

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 
 from orchestrator.defs.bootstrap.qfq_nineturn_history import (
     build_qfq_nineturn_history,
@@ -38,6 +38,7 @@ class QfqNineturnPerformanceTests(unittest.TestCase):
                 plan=plan,
                 expected_plan_fingerprint=plan.plan_fingerprint,
                 duckdb_resource=resource,
+                staging_root=root / "staging",
                 output_dir=root / "reports",
             )
             for result in report.batch_results:

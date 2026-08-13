@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
-from typing import Mapping, Sequence
 
 from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
     StkMinsBatchReadiness,
@@ -98,12 +98,12 @@ def _batch_qfq_nineturn_readiness(
     dataset: str,
 ) -> StkMinsBatchReadiness:
     started_at = perf_counter()
-    dates = tuple(sorted(set(str(value) for value in expected_trade_dates)))
+    dates = tuple(sorted({str(value) for value in expected_trade_dates}))
     if len(dates) > max_trade_dates:
         raise ValueError(
             f"{dataset} readiness accepts at most {max_trade_dates} trade dates."
         )
-    registered = set(str(value) for value in registered_trade_days)
+    registered = {str(value) for value in registered_trade_days}
     source_relations = _prepare_source_relations(
         connection,
         lake_root=lake_root,
@@ -175,9 +175,9 @@ def _prepare_source_relations(
         if source_paths:
             path_values = ", ".join(duckdb_string(path) for path in source_paths)
             source_columns = (
-                "ts_code, trade_date"
+                "ts_code, trade_date, close"
                 if spec.freq is None
-                else "ts_code, freq, trade_date, trade_time"
+                else "ts_code, freq, trade_date, trade_time, close"
             )
             freq_predicate = (
                 ""
@@ -203,6 +203,7 @@ def _prepare_source_relations(
                 else "NULL::VARCHAR AS ts_code, NULL::INTEGER AS freq, "
                 "NULL::DATE AS trade_date, NULL::TIMESTAMP AS trade_time"
             )
+            empty_columns = f"{empty_columns}, NULL::DOUBLE AS close"
             connection.execute(
                 f"""
                 CREATE OR REPLACE TEMP TABLE {relation_name} AS

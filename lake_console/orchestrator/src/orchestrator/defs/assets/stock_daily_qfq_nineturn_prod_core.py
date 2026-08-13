@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import dagster as dg
+import duckdb
 
 from orchestrator.defs.assets.qfq_nineturn import gold_stock_daily_qfq_nineturn
 from orchestrator.defs.duckdb_sql import read_parquet
@@ -17,7 +18,10 @@ from orchestrator.defs.prod_db.stock_daily_qfq_nineturn import (
     PROD_CORE_STOCK_DAILY_QFQ_NINETURN_TABLE,
     replace_prod_core_stock_daily_qfq_nineturn_partition,
 )
-from orchestrator.defs.qfq_nineturn_integrity import audit_qfq_nineturn_integrity
+from orchestrator.defs.qfq_nineturn_integrity import (
+    QfqNineturnIntegrityDiagnostics,
+    audit_qfq_nineturn_integrity,
+)
 from orchestrator.defs.resources import (
     DuckDBResource,
     LakeRootResource,
@@ -144,30 +148,63 @@ def load_gold_stock_daily_qfq_nineturn_rows_for_prod_sync(
     partition_key: str,
 ) -> tuple[dict[str, Any], ...]:
     with duckdb_resource.connect() as connection:
-        diagnostics = audit_qfq_nineturn_integrity(
-            connection,
-            target_path=source_path,
-            source_paths=(qfq_source_path,),
+        return load_gold_stock_daily_qfq_nineturn_rows_with_connection(
+            connection=connection,
+            source_path=source_path,
+            qfq_source_path=qfq_source_path,
             partition_key=partition_key,
-            freq=None,
         )
-        if not diagnostics.passed:
-            raise RuntimeError(
-                "Gold stock daily QFQ nine-turn contract failed before prod sync: "
-                f"rules={diagnostics.failed_rule_names}."
-            )
-        rows = connection.execute(
-            f"""
-            SELECT
-              ts_code,
-              trade_date,
-              close_qfq,
-              up_count,
-              down_count,
-              nine_up_turn,
-              nine_down_turn
-            FROM {read_parquet(source_path, hive_partitioning=False)}
-            ORDER BY ts_code
-            """
-        ).fetchall()
+
+
+def load_gold_stock_daily_qfq_nineturn_rows_with_connection(
+    *,
+    connection: duckdb.DuckDBPyConnection,
+    source_path: Path,
+    qfq_source_path: Path,
+    partition_key: str,
+) -> tuple[dict[str, Any], ...]:
+    audit_gold_stock_daily_qfq_nineturn_for_prod_sync(
+        connection=connection,
+        source_path=source_path,
+        qfq_source_path=qfq_source_path,
+        partition_key=partition_key,
+    )
+    rows = connection.execute(
+        f"""
+        SELECT
+          ts_code,
+          trade_date,
+          close_qfq,
+          up_count,
+          down_count,
+          nine_up_turn,
+          nine_down_turn
+        FROM {read_parquet(source_path, hive_partitioning=False)}
+        ORDER BY ts_code
+        """
+    ).fetchall()
     return tuple(dict(zip(_GOLD_COLUMNS, row, strict=True)) for row in rows)
+
+
+def audit_gold_stock_daily_qfq_nineturn_for_prod_sync(
+    *,
+    connection: duckdb.DuckDBPyConnection,
+    source_path: Path,
+    qfq_source_path: Path,
+    partition_key: str,
+) -> QfqNineturnIntegrityDiagnostics:
+    """Validate one Gold partition without materializing its rows in Python."""
+
+    diagnostics = audit_qfq_nineturn_integrity(
+        connection,
+        target_path=source_path,
+        source_paths=(qfq_source_path,),
+        partition_key=partition_key,
+        freq=None,
+    )
+    if not diagnostics.passed:
+        raise RuntimeError(
+            "Gold stock daily QFQ nine-turn contract failed before prod sync: "
+            f"rules={diagnostics.failed_rule_names}."
+        )
+    return diagnostics

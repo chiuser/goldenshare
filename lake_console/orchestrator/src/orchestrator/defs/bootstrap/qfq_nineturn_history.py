@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass
-from datetime import date, datetime
 import hashlib
 import json
 import os
-from pathlib import Path
 import shutil
 import time
 import uuid
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import asdict, dataclass
+from datetime import UTC, date, datetime
+from pathlib import Path
 
 import duckdb
 
@@ -23,8 +23,10 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.paths import (
     DEFAULT_LAKE_ROOT,
+    DEFAULT_LAKE_STAGING_ROOT,
     gold_stk_mins_qfq_nineturn_path,
     gold_stock_daily_qfq_nineturn_path,
+    gold_stock_daily_qfq_path,
 )
 from orchestrator.defs.qfq_nineturn import (
     build_gold_stk_mins_qfq_nineturn_history_batch_select_sql,
@@ -32,6 +34,7 @@ from orchestrator.defs.qfq_nineturn import (
     build_gold_stock_daily_qfq_nineturn_history_batch_select_sql,
     build_gold_stock_daily_qfq_nineturn_select_sql,
 )
+from orchestrator.defs.qfq_nineturn_integrity import audit_qfq_nineturn_integrity
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STK_MINS_QFQ_NINETURN_SCHEMA,
@@ -43,13 +46,16 @@ from orchestrator.defs.run_contracts.qfq_nineturn import (
     QFQ_NINETURN_MINUTE_FREQS,
 )
 
-
 SCHEMA_VERSION = 1
 PLAN_PHASE = "qfq_nineturn_history_plan"
 SCOPED_PLAN_PHASE = "qfq_nineturn_scoped_rebuild_plan"
 BUILD_METHOD = "annual_set_based_compact_state"
 ESTIMATED_OUTPUT_BYTES_PER_ROW = 5
 MAX_REPORT_SAMPLES = 20
+MAX_SCOPED_REBUILD_BATCH_PARTITION_COUNT = 20
+MAX_SCOPED_REBUILD_SAMPLE_PARTITION_COUNT = 3
+MAX_SCOPED_REBUILD_BATCH_COUNT_PER_RUN = 200
+SCOPED_REBUILD_CHECKPOINT_PHASE = "qfq_nineturn_scoped_rebuild_checkpoint"
 
 
 class QfqNineturnHistoryError(RuntimeError):
@@ -191,7 +197,13 @@ class QfqNineturnScopedRebuildReport:
     stock_codes: tuple[str, ...]
     start_date: str
     end_date: str
+    mode: str
+    selected_partition_keys: tuple[str, ...]
+    resumed_partition_keys: tuple[str, ...]
     replaced_partition_count: int
+    remaining_partition_count: int
+    processed_batch_count: int
+    checkpoint_path: Path
     backup_root: Path
     backup_manifest_path: Path
     elapsed_ms: float
@@ -200,6 +212,9 @@ class QfqNineturnScopedRebuildReport:
         payload = asdict(self)
         payload["asset_keys"] = list(self.asset_keys)
         payload["stock_codes"] = list(self.stock_codes)
+        payload["selected_partition_keys"] = list(self.selected_partition_keys)
+        payload["resumed_partition_keys"] = list(self.resumed_partition_keys)
+        payload["checkpoint_path"] = str(self.checkpoint_path)
         payload["backup_root"] = str(self.backup_root)
         payload["backup_manifest_path"] = str(self.backup_manifest_path)
         return payload
@@ -209,6 +224,7 @@ class QfqNineturnScopedRebuildReport:
 class QfqNineturnScopedRebuildPlan:
     report_path: Path
     lake_root: Path
+    staging_root: Path
     history_plan_path: Path
     history_plan_fingerprint: str
     plan_fingerprint: str
@@ -217,6 +233,7 @@ class QfqNineturnScopedRebuildPlan:
     stock_codes: tuple[str, ...]
     start_date: str
     end_date: str
+    batch_partition_limit: int
     target_dates_by_asset: Mapping[str, tuple[str, ...]]
     target_identities: tuple[Mapping[str, object], ...]
     stop_reasons: tuple[str, ...]
@@ -238,21 +255,23 @@ def plan_qfq_nineturn_history(
     *,
     lake_root: Path = Path(DEFAULT_LAKE_ROOT),
     duckdb_resource: DuckDBResource | None = None,
+    asset_keys: Sequence[str] | None = None,
     output_dir: Path = Path("/private/tmp"),
 ) -> QfqNineturnHistoryPlan:
-    """Profile every source batch without writing Lake or Dagster state."""
+    """Profile the requested source batches without writing Lake or Dagster state."""
 
     started = time.perf_counter()
     root = Path(lake_root)
     output_dir.mkdir(parents=True, exist_ok=True)
     resource = duckdb_resource or DuckDBResource()
+    selected_specs = _selected_asset_specs(asset_keys)
     batches: list[QfqNineturnHistoryBatch] = []
     stop_reasons: list[str] = []
     dates_by_asset: dict[str, set[str]] = {
-        spec.asset_key: set() for spec in _asset_specs()
+        spec.asset_key: set() for spec in selected_specs
     }
     with resource.connect() as connection:
-        for spec in _asset_specs():
+        for spec in selected_specs:
             source_paths_by_year = _source_paths_by_year(root, spec)
             if not source_paths_by_year:
                 stop_reasons.append(f"{spec.asset_key}:missing_source_files")
@@ -284,7 +303,7 @@ def plan_qfq_nineturn_history(
         stop_reasons=stop_reasons,
     )
     fingerprint = _hash_payload(fingerprint_payload)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     report_path = output_dir / f"qfq_nineturn_history_plan_{timestamp}.json"
     report = {
         "schema_version": SCHEMA_VERSION,
@@ -292,10 +311,12 @@ def plan_qfq_nineturn_history(
         "read_only": True,
         "build_method": BUILD_METHOD,
         "lake_root": str(root.resolve()),
-        "asset_count": len(_asset_specs()),
+        "asset_count": len(selected_specs),
         "batch_count": len(normalized_batches),
         "batches": [batch.to_dict() for batch in normalized_batches],
-        "source_file_count": sum(batch.source_file_count for batch in normalized_batches),
+        "source_file_count": sum(
+            batch.source_file_count for batch in normalized_batches
+        ),
         "source_row_count": sum(batch.source_row_count for batch in normalized_batches),
         "source_bytes": sum(batch.source_bytes for batch in normalized_batches),
         "expected_output_row_count": sum(
@@ -374,7 +395,9 @@ def load_qfq_nineturn_history_plan(
         report=payload,
     )
     if _plan_fingerprint(plan) != plan.plan_fingerprint:
-        raise QfqNineturnHistoryError("History plan fingerprint does not match its content.")
+        raise QfqNineturnHistoryError(
+            "History plan fingerprint does not match its content."
+        )
     return plan
 
 
@@ -383,22 +406,23 @@ def build_qfq_nineturn_history(
     plan: QfqNineturnHistoryPlan,
     expected_plan_fingerprint: str,
     duckdb_resource: DuckDBResource,
+    staging_root: Path = Path(DEFAULT_LAKE_STAGING_ROOT),
     output_dir: Path = Path("/private/tmp"),
 ) -> QfqNineturnHistoryBuildReport:
     """Apply a fresh history plan using annual set-based batches."""
 
     if plan.plan_fingerprint != expected_plan_fingerprint:
-        raise QfqNineturnHistoryError("Explicit plan fingerprint does not match the plan.")
+        raise QfqNineturnHistoryError(
+            "Explicit plan fingerprint does not match the plan."
+        )
     fresh_plan = plan_qfq_nineturn_history(
         lake_root=plan.lake_root,
         duckdb_resource=duckdb_resource,
         output_dir=output_dir,
     )
-    if (
-        fresh_plan.plan_fingerprint != plan.plan_fingerprint
-        or tuple(batch.to_dict() for batch in fresh_plan.batches)
-        != tuple(batch.to_dict() for batch in plan.batches)
-    ):
+    if fresh_plan.plan_fingerprint != plan.plan_fingerprint or tuple(
+        batch.to_dict() for batch in fresh_plan.batches
+    ) != tuple(batch.to_dict() for batch in plan.batches):
         raise QfqNineturnHistoryError(
             "History plan is stale; regenerate and review a new read-only plan."
         )
@@ -409,13 +433,12 @@ def build_qfq_nineturn_history(
 
     started = time.perf_counter()
     output_dir.mkdir(parents=True, exist_ok=True)
-    run_id = str(uuid.uuid4())
-    staging_root = (
-        plan.lake_root
-        / "_staging"
-        / "qfq_nineturn_history"
-        / f"run_id={run_id}"
+    normalized_staging_root = _validated_staging_root(
+        lake_root=plan.lake_root,
+        staging_root=staging_root,
     )
+    run_id = str(uuid.uuid4())
+    staging_root = normalized_staging_root / "qfq_nineturn_history" / f"run_id={run_id}"
     staging_root.mkdir(parents=True, exist_ok=False)
     results: list[QfqNineturnHistoryBatchResult] = []
     state_by_asset: dict[str, tuple[Path | None, Path | None]] = {}
@@ -423,7 +446,9 @@ def build_qfq_nineturn_history(
     try:
         with duckdb_resource.connect() as connection:
             for index, batch in enumerate(plan.batches, start=1):
-                context_path, seed_path = state_by_asset.get(batch.asset_key, (None, None))
+                context_path, seed_path = state_by_asset.get(
+                    batch.asset_key, (None, None)
+                )
                 result, next_context, next_seed = _build_history_batch(
                     connection,
                     lake_root=plan.lake_root,
@@ -481,12 +506,15 @@ def audit_qfq_nineturn_history(
     asset_reports: list[dict[str, object]] = []
     with duckdb_resource.connect() as connection:
         for spec in _asset_specs():
-            batches = tuple(batch for batch in plan.batches if batch.asset_key == spec.asset_key)
+            batches = tuple(
+                batch for batch in plan.batches if batch.asset_key == spec.asset_key
+            )
             expected_dates = tuple(
                 date_key for batch in batches for date_key in batch.trade_dates
             )
             target_paths = tuple(
-                _target_path(plan.lake_root, spec, date_key) for date_key in expected_dates
+                _target_path(plan.lake_root, spec, date_key)
+                for date_key in expected_dates
             )
             missing = tuple(
                 date_key
@@ -531,7 +559,7 @@ def audit_qfq_nineturn_history(
                 }
             )
     output_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     report_path = output_dir / f"qfq_nineturn_history_final_audit_{timestamp}.json"
     report: dict[str, object] = {
         "schema_version": SCHEMA_VERSION,
@@ -550,24 +578,34 @@ def audit_qfq_nineturn_history(
 def plan_qfq_nineturn_scoped_rebuild(
     *,
     lake_root: Path,
+    staging_root: Path = Path(DEFAULT_LAKE_STAGING_ROOT),
     duckdb_resource: DuckDBResource,
     asset_family: str,
     freqs: Sequence[int] = (),
     stock_codes: Sequence[str],
     start_date: str,
     end_date: str,
+    batch_partition_limit: int = MAX_SCOPED_REBUILD_BATCH_PARTITION_COUNT,
     output_dir: Path = Path("/private/tmp"),
 ) -> QfqNineturnScopedRebuildPlan:
     """Freeze the exact code/date/file scope before any scoped replacement."""
 
     normalized_codes = _normalize_stock_codes(stock_codes)
     if not normalized_codes:
-        raise QfqNineturnHistoryError("Scoped rebuild requires at least one stock code.")
+        raise QfqNineturnHistoryError(
+            "Scoped rebuild requires at least one stock code."
+        )
     _validate_date_range(start_date, end_date)
+    _validate_scoped_rebuild_batch_partition_limit(batch_partition_limit)
     specs = _scoped_specs(asset_family=asset_family, freqs=freqs)
+    normalized_staging_root = _validated_staging_root(
+        lake_root=lake_root,
+        staging_root=staging_root,
+    )
     history_plan = plan_qfq_nineturn_history(
         lake_root=lake_root,
         duckdb_resource=duckdb_resource,
+        asset_keys=tuple(spec.asset_key for spec in specs),
         output_dir=output_dir,
     )
     stop_reasons = list(history_plan.stop_reasons)
@@ -607,11 +645,13 @@ def plan_qfq_nineturn_scoped_rebuild(
         "schema_version": SCHEMA_VERSION,
         "phase": SCOPED_PLAN_PHASE,
         "history_plan_fingerprint": history_plan.plan_fingerprint,
+        "staging_root": str(normalized_staging_root),
         "asset_family": asset_family,
         "freqs": [spec.freq for spec in specs if spec.freq is not None],
         "stock_codes": list(normalized_codes),
         "start_date": start_date,
         "end_date": end_date,
+        "batch_partition_limit": batch_partition_limit,
         "target_dates_by_asset": {
             key: list(value) for key, value in sorted(target_dates_by_asset.items())
         },
@@ -620,7 +660,7 @@ def plan_qfq_nineturn_scoped_rebuild(
     }
     fingerprint = _hash_payload(fingerprint_payload)
     output_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     report_path = output_dir / f"qfq_nineturn_scoped_rebuild_plan_{timestamp}.json"
     report = {
         **fingerprint_payload,
@@ -630,6 +670,16 @@ def plan_qfq_nineturn_scoped_rebuild(
         "target_partition_count": sum(
             len(values) for values in target_dates_by_asset.values()
         ),
+        "target_bytes": sum(int(item["size"]) for item in target_identities),
+        "estimated_backup_bytes": sum(int(item["size"]) for item in target_identities),
+        "estimated_batch_count": (
+            (
+                sum(len(values) for values in target_dates_by_asset.values())
+                + batch_partition_limit
+                - 1
+            )
+            // batch_partition_limit
+        ),
         "should_stop": bool(stop_reasons),
         "plan_fingerprint": fingerprint,
     }
@@ -637,6 +687,7 @@ def plan_qfq_nineturn_scoped_rebuild(
     return QfqNineturnScopedRebuildPlan(
         report_path=report_path,
         lake_root=lake_root,
+        staging_root=normalized_staging_root,
         history_plan_path=history_plan.report_path,
         history_plan_fingerprint=history_plan.plan_fingerprint,
         plan_fingerprint=fingerprint,
@@ -645,6 +696,7 @@ def plan_qfq_nineturn_scoped_rebuild(
         stock_codes=normalized_codes,
         start_date=start_date,
         end_date=end_date,
+        batch_partition_limit=batch_partition_limit,
         target_dates_by_asset=target_dates_by_asset,
         target_identities=tuple(target_identities),
         stop_reasons=tuple(sorted(set(stop_reasons))),
@@ -658,7 +710,10 @@ def load_qfq_nineturn_scoped_rebuild_plan(
     payload = json.loads(Path(plan_report_path).read_text(encoding="utf-8"))
     if payload.get("schema_version") != SCHEMA_VERSION:
         raise QfqNineturnHistoryError("Unsupported scoped rebuild plan schema.")
-    if payload.get("phase") != SCOPED_PLAN_PHASE or payload.get("read_only") is not True:
+    if (
+        payload.get("phase") != SCOPED_PLAN_PHASE
+        or payload.get("read_only") is not True
+    ):
         raise QfqNineturnHistoryError("Scoped rebuild requires a read-only scope plan.")
     if payload.get("should_stop"):
         raise QfqNineturnHistoryError(
@@ -667,6 +722,7 @@ def load_qfq_nineturn_scoped_rebuild_plan(
     plan = QfqNineturnScopedRebuildPlan(
         report_path=Path(plan_report_path),
         lake_root=Path(str(payload["lake_root"])),
+        staging_root=Path(str(payload["staging_root"])),
         history_plan_path=Path(str(payload["history_plan_path"])),
         history_plan_fingerprint=str(payload["history_plan_fingerprint"]),
         plan_fingerprint=str(payload["plan_fingerprint"]),
@@ -675,13 +731,12 @@ def load_qfq_nineturn_scoped_rebuild_plan(
         stock_codes=tuple(str(value) for value in payload["stock_codes"]),
         start_date=str(payload["start_date"]),
         end_date=str(payload["end_date"]),
+        batch_partition_limit=int(payload["batch_partition_limit"]),
         target_dates_by_asset={
             str(key): tuple(str(value) for value in values)
             for key, values in dict(payload["target_dates_by_asset"]).items()
         },
-        target_identities=tuple(
-            dict(item) for item in payload["target_identities"]
-        ),
+        target_identities=tuple(dict(item) for item in payload["target_identities"]),
         stop_reasons=(),
         report=payload,
     )
@@ -697,27 +752,56 @@ def rebuild_qfq_nineturn_scope(
     plan: QfqNineturnScopedRebuildPlan,
     expected_plan_fingerprint: str,
     duckdb_resource: DuckDBResource,
+    checkpoint_path: Path,
+    mode: str = "batch",
+    sample_partition_keys: Sequence[str] = (),
+    batch_count_limit: int = 1,
+    progress_callback: Callable[[Mapping[str, object]], None] | None = None,
     output_dir: Path = Path("/private/tmp"),
 ) -> QfqNineturnScopedRebuildReport:
-    """Recompute approved codes from full history and replace only approved dates."""
+    """Recompute approved codes and replace a bounded, resumable partition scope."""
 
     if plan.plan_fingerprint != expected_plan_fingerprint:
         raise QfqNineturnHistoryError(
             "Explicit scoped rebuild fingerprint does not match the plan."
         )
+    _validate_scoped_rebuild_batch_count_limit(batch_count_limit)
+    normalized_checkpoint_path = _validated_scoped_rebuild_checkpoint_path(
+        checkpoint_path=checkpoint_path,
+        staging_root=plan.staging_root,
+    )
+    checkpoint = _load_scoped_rebuild_checkpoint(
+        normalized_checkpoint_path,
+        plan_fingerprint=plan.plan_fingerprint,
+    )
+    completed = dict(checkpoint.get("completed", {}))
+    all_partition_keys = _scoped_rebuild_partition_keys(plan)
+    unknown_completed = tuple(sorted(set(completed) - set(all_partition_keys)))
+    if unknown_completed:
+        raise QfqNineturnHistoryError(
+            "Scoped rebuild checkpoint contains partitions outside the plan: "
+            f"{unknown_completed[:20]}."
+        )
     fresh_plan = plan_qfq_nineturn_scoped_rebuild(
         lake_root=plan.lake_root,
+        staging_root=plan.staging_root,
         duckdb_resource=duckdb_resource,
         asset_family=plan.asset_family,
         freqs=plan.freqs,
         stock_codes=plan.stock_codes,
         start_date=plan.start_date,
         end_date=plan.end_date,
+        batch_partition_limit=plan.batch_partition_limit,
         output_dir=output_dir,
     )
     if (
-        fresh_plan.plan_fingerprint != plan.plan_fingerprint
+        fresh_plan.history_plan_fingerprint != plan.history_plan_fingerprint
         or fresh_plan.target_dates_by_asset != plan.target_dates_by_asset
+        or not _pending_scoped_rebuild_targets_match(
+            plan=plan,
+            fresh_plan=fresh_plan,
+            completed=completed,
+        )
     ):
         raise QfqNineturnHistoryError(
             "Scoped rebuild plan is stale; regenerate and review a new plan."
@@ -728,21 +812,44 @@ def rebuild_qfq_nineturn_scope(
         )
     normalized_codes = plan.stock_codes
     specs = _scoped_specs(asset_family=plan.asset_family, freqs=plan.freqs)
+    selected_partition_keys = _scoped_rebuild_selection(
+        plan=plan,
+        completed=completed,
+        mode=mode,
+        sample_partition_keys=sample_partition_keys,
+        batch_count_limit=batch_count_limit,
+    )
+    selected_bytes = _selected_scoped_rebuild_bytes(
+        plan=plan,
+        selected_partition_keys=selected_partition_keys,
+    )
+    plan.staging_root.mkdir(parents=True, exist_ok=True)
+    required_free_bytes = selected_bytes * 2 + 64 * 1024 * 1024
+    available_free_bytes = shutil.disk_usage(plan.staging_root).free
+    if selected_partition_keys and available_free_bytes < required_free_bytes:
+        raise QfqNineturnHistoryError(
+            "Scoped rebuild staging space is insufficient: "
+            f"required={required_free_bytes}, available={available_free_bytes}."
+        )
     started = time.perf_counter()
     run_id = str(uuid.uuid4())
-    staging_root = (
-        plan.lake_root / "_staging" / "qfq_nineturn_rebuild" / f"run_id={run_id}"
-    )
-    backup_root = (
-        plan.lake_root / "_quarantine" / f"qfq_nineturn_rebuild_{run_id}"
-    )
-    staging_root.mkdir(parents=True, exist_ok=False)
+    run_staging_root = plan.staging_root / "qfq_nineturn_rebuild" / f"run_id={run_id}"
+    backup_root = plan.staging_root / "qfq_nineturn_rebuild_backup" / f"run_id={run_id}"
+    run_staging_root.mkdir(parents=True, exist_ok=False)
     backup_root.mkdir(parents=True, exist_ok=False)
-    replacements: list[tuple[Path, Path, Path]] = []
     manifest_rows: list[dict[str, object]] = []
+    resumed_partition_keys: list[str] = []
+    replaced_partition_keys: list[str] = []
     try:
         with duckdb_resource.connect() as connection:
             for spec in specs:
+                relevant_keys = tuple(
+                    key
+                    for key in (*completed, *selected_partition_keys)
+                    if key.startswith(f"{spec.asset_key}@")
+                )
+                if not relevant_keys:
+                    continue
                 source_paths = tuple(
                     path
                     for paths in _source_paths_by_year(plan.lake_root, spec).values()
@@ -765,27 +872,38 @@ def rebuild_qfq_nineturn_scope(
                     )
                 )
                 table_name = _safe_table_name(f"scope_{spec.asset_key}")
-                connection.execute(f"CREATE OR REPLACE TEMP TABLE {table_name} AS {full_sql}")
-                selected_dates = tuple(
-                    str(row[0])
-                    for row in connection.execute(
-                        f"""
-                        SELECT DISTINCT trade_date
-                        FROM {table_name}
-                        WHERE trade_date BETWEEN DATE {duckdb_string(plan.start_date)}
-                                             AND DATE {duckdb_string(plan.end_date)}
-                        ORDER BY trade_date
-                        """
-                    ).fetchall()
+                connection.execute(
+                    f"CREATE OR REPLACE TEMP TABLE {table_name} AS {full_sql}"
                 )
-                for trade_date in selected_dates:
+                for partition_key, checkpoint_hash in sorted(completed.items()):
+                    asset_key, trade_date = _split_scoped_rebuild_partition_key(
+                        partition_key
+                    )
+                    if asset_key != spec.asset_key:
+                        continue
                     target = _target_path(plan.lake_root, spec, trade_date)
-                    if not target.is_file():
+                    _assert_scoped_rebuild_partition_ready(
+                        connection=connection,
+                        lake_root=plan.lake_root,
+                        spec=spec,
+                        target=target,
+                        trade_date=trade_date,
+                    )
+                    if _sha256_path(target) != checkpoint_hash:
                         raise QfqNineturnHistoryError(
-                            f"Scoped rebuild target is missing: {target}."
+                            "Scoped rebuild checkpoint/target drift detected for "
+                            f"{partition_key}."
                         )
+                    resumed_partition_keys.append(partition_key)
+                for partition_key in selected_partition_keys:
+                    asset_key, trade_date = _split_scoped_rebuild_partition_key(
+                        partition_key
+                    )
+                    if asset_key != spec.asset_key:
+                        continue
+                    target = _target_path(plan.lake_root, spec, trade_date)
                     staged = (
-                        staging_root
+                        run_staging_root
                         / spec.asset_key
                         / f"trade_date={trade_date}"
                         / "part-000.parquet"
@@ -802,12 +920,19 @@ def rebuild_qfq_nineturn_scope(
                             UNION ALL
                             SELECT * FROM {table_name}
                             WHERE trade_date = DATE {duckdb_string(trade_date)}
-                            ORDER BY ts_code{', trade_time' if spec.freq is not None else ', trade_date'}
+                            ORDER BY ts_code{", trade_time" if spec.freq is not None else ", trade_date"}
                             """,
                             staged,
                         )
                     )
                     _assert_partition_contract(connection, staged, spec, trade_date)
+                    _assert_scoped_rebuild_partition_ready(
+                        connection=connection,
+                        lake_root=plan.lake_root,
+                        spec=spec,
+                        target=staged,
+                        trade_date=trade_date,
+                    )
                     backup = (
                         backup_root
                         / spec.asset_key
@@ -816,37 +941,76 @@ def rebuild_qfq_nineturn_scope(
                     )
                     backup.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(target, backup)
-                    replacements.append((staged, target, backup))
+                    backup_sha256 = _sha256_path(backup)
+                    try:
+                        staged_sha256 = _sha256_path(staged)
+                        os.replace(staged, target)
+                        if _sha256_path(target) != staged_sha256:
+                            raise QfqNineturnHistoryError(
+                                f"Scoped rebuild promoted hash mismatch: {partition_key}."
+                            )
+                        completed[partition_key] = staged_sha256
+                        _write_scoped_rebuild_checkpoint(
+                            normalized_checkpoint_path,
+                            plan_fingerprint=plan.plan_fingerprint,
+                            completed=completed,
+                        )
+                    except Exception:
+                        completed.pop(partition_key, None)
+                        if backup.is_file():
+                            os.replace(backup, target)
+                        raise
                     manifest_rows.append(
                         {
+                            "partition_key": partition_key,
                             "asset_key": spec.asset_key,
                             "trade_date": trade_date,
                             "target_path": str(target),
+                            "target_sha256": staged_sha256,
                             "backup_path": str(backup),
-                            "backup_sha256": _sha256_path(backup),
+                            "backup_sha256": backup_sha256,
                         }
                     )
-        promoted: list[tuple[Path, Path]] = []
-        try:
-            for staged, target, backup in replacements:
-                os.replace(staged, target)
-                promoted.append((target, backup))
-        except Exception:
-            for target, backup in reversed(promoted):
-                shutil.copy2(backup, target)
-            raise
+                    replaced_partition_keys.append(partition_key)
+                    if progress_callback is not None:
+                        progress_callback(
+                            {
+                                "event": "partition_rebuilt",
+                                "partition_key": partition_key,
+                                "completed_partition_count": len(completed),
+                                "total_partition_count": len(all_partition_keys),
+                            }
+                        )
     finally:
-        shutil.rmtree(staging_root, ignore_errors=True)
+        shutil.rmtree(run_staging_root, ignore_errors=True)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = output_dir / f"qfq_nineturn_scoped_rebuild_manifest_{run_id}.json"
-    _write_json(manifest_path, {"rows": manifest_rows})
+    _write_json(
+        manifest_path,
+        {
+            "plan_fingerprint": plan.plan_fingerprint,
+            "mode": mode,
+            "selected_partition_keys": list(selected_partition_keys),
+            "rows": manifest_rows,
+        },
+    )
+    remaining_partition_count = len(all_partition_keys) - len(completed)
     return QfqNineturnScopedRebuildReport(
         asset_keys=tuple(spec.asset_key for spec in specs),
         stock_codes=normalized_codes,
         start_date=plan.start_date,
         end_date=plan.end_date,
-        replaced_partition_count=len(replacements),
+        mode=mode,
+        selected_partition_keys=selected_partition_keys,
+        resumed_partition_keys=tuple(resumed_partition_keys),
+        replaced_partition_count=len(replaced_partition_keys),
+        remaining_partition_count=max(remaining_partition_count, 0),
+        processed_batch_count=(
+            (len(selected_partition_keys) + plan.batch_partition_limit - 1)
+            // plan.batch_partition_limit
+        ),
+        checkpoint_path=normalized_checkpoint_path,
         backup_root=backup_root,
         backup_manifest_path=manifest_path,
         elapsed_ms=round((time.perf_counter() - started) * 1000, 2),
@@ -892,7 +1056,9 @@ def _build_history_batch(
             f"History row count mismatch for {batch.asset_key}:{batch.year}: "
             f"source={batch.source_row_count}, output={output_row_count}."
         )
-    _assert_batch_key_equality(connection, table_name=table_name, batch=batch, spec=spec)
+    _assert_batch_key_equality(
+        connection, table_name=table_name, batch=batch, spec=spec
+    )
 
     batch_root = staging_root / batch.asset_key / f"year={batch.year}"
     partitioned_root = batch_root / "partitioned"
@@ -988,9 +1154,7 @@ def _profile_batch(
     )
     wrong_freq_predicate = f"freq != {spec.freq}" if spec.freq is not None else "false"
     key_columns = (
-        "ts_code, trade_date"
-        if spec.freq is None
-        else "ts_code, freq, trade_time"
+        "ts_code, trade_date" if spec.freq is None else "ts_code, freq, trade_time"
     )
     row = connection.execute(
         f"""
@@ -1050,6 +1214,21 @@ def _asset_specs() -> tuple[_AssetSpec, ...]:
     )
 
 
+def _selected_asset_specs(asset_keys: Sequence[str] | None) -> tuple[_AssetSpec, ...]:
+    specs = _asset_specs()
+    if asset_keys is None:
+        return specs
+    normalized = tuple(dict.fromkeys(str(value) for value in asset_keys))
+    known = {spec.asset_key for spec in specs}
+    unknown = tuple(value for value in normalized if value not in known)
+    if unknown:
+        raise QfqNineturnHistoryError(f"Unsupported QFQ nine-turn assets: {unknown}.")
+    if not normalized:
+        raise QfqNineturnHistoryError("History plan requires at least one asset.")
+    selected = set(normalized)
+    return tuple(spec for spec in specs if spec.asset_key in selected)
+
+
 def _spec_for_asset(asset_key: str) -> _AssetSpec:
     for spec in _asset_specs():
         if spec.asset_key == asset_key:
@@ -1065,14 +1244,18 @@ def _scoped_specs(*, asset_family: str, freqs: Sequence[int]) -> tuple[_AssetSpe
     if asset_family != "minute":
         raise QfqNineturnHistoryError("asset_family must be daily or minute.")
     normalized = tuple(sorted({int(freq) for freq in freqs}))
-    if not normalized or any(freq not in QFQ_NINETURN_MINUTE_FREQS for freq in normalized):
+    if not normalized or any(
+        freq not in QFQ_NINETURN_MINUTE_FREQS for freq in normalized
+    ):
         raise QfqNineturnHistoryError(
             "Minute scoped rebuild requires supported explicit frequencies."
         )
     return tuple(spec for spec in _asset_specs() if spec.freq in normalized)
 
 
-def _source_paths_by_year(lake_root: Path, spec: _AssetSpec) -> dict[int, tuple[Path, ...]]:
+def _source_paths_by_year(
+    lake_root: Path, spec: _AssetSpec
+) -> dict[int, tuple[Path, ...]]:
     grouped: dict[int, list[Path]] = {}
     if spec.freq is None:
         root = lake_root / "gold" / "quote" / "stock_daily_qfq"
@@ -1283,7 +1466,9 @@ def _assert_batch_key_equality(
     spec: _AssetSpec,
 ) -> None:
     source = _source_rows_sql(batch.source_paths, spec)
-    key_columns = "ts_code, trade_date" if spec.freq is None else "ts_code, freq, trade_time"
+    key_columns = (
+        "ts_code, trade_date" if spec.freq is None else "ts_code, freq, trade_time"
+    )
     differences = int(
         connection.execute(
             f"""
@@ -1344,7 +1529,8 @@ def _normalize_partitioned_batch(
     unexpected = tuple(
         path
         for path in partitioned_root.glob("partition_trade_date=*/*.parquet")
-        if path.parent.name.removeprefix("partition_trade_date=") not in expected_date_set
+        if path.parent.name.removeprefix("partition_trade_date=")
+        not in expected_date_set
     )
     if unexpected:
         raise QfqNineturnHistoryError(
@@ -1365,11 +1551,48 @@ def _assert_partition_contract(
         _target_contract_counts(connection, (path,), spec, expected_date=trade_date)
     )
     row_count = _count_rows(connection, (path,))
-    if row_count <= 0 or duplicate_count or null_count or wrong_date_count or wrong_freq_count:
+    if (
+        row_count <= 0
+        or duplicate_count
+        or null_count
+        or wrong_date_count
+        or wrong_freq_count
+    ):
         raise QfqNineturnHistoryError(
             "Staged partition contract failed: "
             f"path={path}, rows={row_count}, duplicate={duplicate_count}, "
             f"null={null_count}, date={wrong_date_count}, freq={wrong_freq_count}."
+        )
+
+
+def _assert_scoped_rebuild_partition_ready(
+    *,
+    connection: duckdb.DuckDBPyConnection,
+    lake_root: Path,
+    spec: _AssetSpec,
+    target: Path,
+    trade_date: str,
+) -> None:
+    source_paths = (
+        (gold_stock_daily_qfq_path(lake_root, trade_date),)
+        if spec.freq is None
+        else _source_paths_by_year(lake_root, spec).get(
+            date.fromisoformat(trade_date).year,
+            (),
+        )
+    )
+    diagnostics = audit_qfq_nineturn_integrity(
+        connection,
+        target_path=target,
+        source_paths=source_paths,
+        partition_key=trade_date,
+        freq=spec.freq,
+    )
+    if not diagnostics.passed:
+        raise QfqNineturnHistoryError(
+            "Scoped rebuild partition readiness failed: "
+            f"asset={spec.asset_key}, trade_date={trade_date}, "
+            f"rules={diagnostics.failed_rule_names}."
         )
 
 
@@ -1383,7 +1606,9 @@ def _target_contract_counts(
     if not paths:
         return 0, 0, 0, 0
     source = _read_paths(paths)
-    key_columns = "ts_code, trade_date" if spec.freq is None else "ts_code, freq, trade_time"
+    key_columns = (
+        "ts_code, trade_date" if spec.freq is None else "ts_code, freq, trade_time"
+    )
     duplicate_count = int(
         connection.execute(
             f"""
@@ -1522,11 +1747,13 @@ def _scoped_plan_fingerprint(plan: QfqNineturnScopedRebuildPlan) -> str:
             "schema_version": SCHEMA_VERSION,
             "phase": SCOPED_PLAN_PHASE,
             "history_plan_fingerprint": plan.history_plan_fingerprint,
+            "staging_root": str(plan.staging_root.resolve()),
             "asset_family": plan.asset_family,
             "freqs": list(plan.freqs),
             "stock_codes": list(plan.stock_codes),
             "start_date": plan.start_date,
             "end_date": plan.end_date,
+            "batch_partition_limit": plan.batch_partition_limit,
             "target_dates_by_asset": {
                 key: list(value)
                 for key, value in sorted(plan.target_dates_by_asset.items())
@@ -1575,13 +1802,7 @@ def _safe_table_name(value: str) -> str:
 
 def _normalize_stock_codes(stock_codes: Sequence[str]) -> tuple[str, ...]:
     return tuple(
-        sorted(
-            {
-                str(code).strip().upper()
-                for code in stock_codes
-                if str(code).strip()
-            }
-        )
+        sorted({str(code).strip().upper() for code in stock_codes if str(code).strip()})
     )
 
 
@@ -1609,7 +1830,9 @@ def _count_rows(
 ) -> int:
     if not paths:
         return 0
-    return int(connection.execute(f"SELECT count(*) FROM {_read_paths(paths)}").fetchone()[0])
+    return int(
+        connection.execute(f"SELECT count(*) FROM {_read_paths(paths)}").fetchone()[0]
+    )
 
 
 def _validate_date_range(start_date: str, end_date: str) -> None:
@@ -1622,9 +1845,216 @@ def _validate_date_range(start_date: str, end_date: str) -> None:
         raise QfqNineturnHistoryError("start_date must not be after end_date.")
 
 
+def _validate_scoped_rebuild_batch_partition_limit(value: int) -> None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise QfqNineturnHistoryError(
+            "Scoped rebuild batch partition limit must be an integer."
+        )
+    if value <= 0 or value > MAX_SCOPED_REBUILD_BATCH_PARTITION_COUNT:
+        raise QfqNineturnHistoryError(
+            "Scoped rebuild batch partition limit must be between 1 and "
+            f"{MAX_SCOPED_REBUILD_BATCH_PARTITION_COUNT}."
+        )
+
+
+def _validate_scoped_rebuild_batch_count_limit(value: int) -> None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise QfqNineturnHistoryError(
+            "Scoped rebuild batch count limit must be an integer."
+        )
+    if value <= 0 or value > MAX_SCOPED_REBUILD_BATCH_COUNT_PER_RUN:
+        raise QfqNineturnHistoryError(
+            "Scoped rebuild batch count limit must be between 1 and "
+            f"{MAX_SCOPED_REBUILD_BATCH_COUNT_PER_RUN}."
+        )
+
+
+def _scoped_rebuild_partition_key(asset_key: str, trade_date: str) -> str:
+    return f"{asset_key}@{trade_date}"
+
+
+def _split_scoped_rebuild_partition_key(value: str) -> tuple[str, str]:
+    asset_key, separator, trade_date = str(value).partition("@")
+    if not separator or not asset_key:
+        raise QfqNineturnHistoryError(f"Invalid scoped rebuild partition key: {value}.")
+    _validate_date_range(trade_date, trade_date)
+    return asset_key, trade_date
+
+
+def _scoped_rebuild_partition_keys(
+    plan: QfqNineturnScopedRebuildPlan,
+) -> tuple[str, ...]:
+    return tuple(
+        _scoped_rebuild_partition_key(asset_key, trade_date)
+        for asset_key, trade_dates in sorted(plan.target_dates_by_asset.items())
+        for trade_date in trade_dates
+    )
+
+
+def _scoped_rebuild_selection(
+    *,
+    plan: QfqNineturnScopedRebuildPlan,
+    completed: Mapping[str, object],
+    mode: str,
+    sample_partition_keys: Sequence[str],
+    batch_count_limit: int,
+) -> tuple[str, ...]:
+    all_keys = _scoped_rebuild_partition_keys(plan)
+    pending = tuple(value for value in all_keys if value not in completed)
+    if mode == "batch":
+        if sample_partition_keys:
+            raise QfqNineturnHistoryError(
+                "Scoped rebuild batch mode does not accept sample partitions."
+            )
+        return pending[: plan.batch_partition_limit * batch_count_limit]
+    if mode != "sample":
+        raise QfqNineturnHistoryError("Scoped rebuild mode must be sample or batch.")
+    samples = tuple(dict.fromkeys(str(value) for value in sample_partition_keys))
+    if not samples or len(samples) > MAX_SCOPED_REBUILD_SAMPLE_PARTITION_COUNT:
+        raise QfqNineturnHistoryError(
+            "Scoped rebuild sample mode requires one to three explicit partitions."
+        )
+    invalid = tuple(value for value in samples if value not in set(all_keys))
+    if invalid:
+        raise QfqNineturnHistoryError(
+            f"Scoped rebuild sample partitions are outside the plan: {invalid}."
+        )
+    return tuple(value for value in samples if value not in completed)
+
+
+def _selected_scoped_rebuild_bytes(
+    *,
+    plan: QfqNineturnScopedRebuildPlan,
+    selected_partition_keys: Sequence[str],
+) -> int:
+    selected = set(selected_partition_keys)
+    return sum(
+        int(identity["size"])
+        for identity in plan.target_identities
+        if _scoped_rebuild_partition_key(
+            str(identity["asset_key"]),
+            str(identity["partition_key"]),
+        )
+        in selected
+    )
+
+
+def _pending_scoped_rebuild_targets_match(
+    *,
+    plan: QfqNineturnScopedRebuildPlan,
+    fresh_plan: QfqNineturnScopedRebuildPlan,
+    completed: Mapping[str, object],
+) -> bool:
+    def pending_identities(
+        candidate: QfqNineturnScopedRebuildPlan,
+    ) -> dict[str, Mapping[str, object]]:
+        return {
+            _scoped_rebuild_partition_key(
+                str(identity["asset_key"]),
+                str(identity["partition_key"]),
+            ): identity
+            for identity in candidate.target_identities
+            if _scoped_rebuild_partition_key(
+                str(identity["asset_key"]),
+                str(identity["partition_key"]),
+            )
+            not in completed
+        }
+
+    return pending_identities(plan) == pending_identities(fresh_plan)
+
+
+def _validated_scoped_rebuild_checkpoint_path(
+    *,
+    checkpoint_path: Path,
+    staging_root: Path,
+) -> Path:
+    normalized = Path(checkpoint_path).resolve()
+    try:
+        normalized.relative_to(staging_root.resolve())
+    except ValueError as error:
+        raise QfqNineturnHistoryError(
+            "Scoped rebuild checkpoint must be below the reviewed staging root."
+        ) from error
+    return normalized
+
+
+def _load_scoped_rebuild_checkpoint(
+    path: Path,
+    *,
+    plan_fingerprint: str,
+) -> dict[str, object]:
+    if not path.exists():
+        return {"completed": {}}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if (
+        payload.get("schema_version") != SCHEMA_VERSION
+        or payload.get("phase") != SCOPED_REBUILD_CHECKPOINT_PHASE
+        or payload.get("plan_fingerprint") != plan_fingerprint
+    ):
+        raise QfqNineturnHistoryError(
+            "Scoped rebuild checkpoint does not belong to the reviewed plan."
+        )
+    completed = payload.get("completed")
+    if not isinstance(completed, dict):
+        raise QfqNineturnHistoryError("Scoped rebuild checkpoint is malformed.")
+    return {"completed": {str(key): str(value) for key, value in completed.items()}}
+
+
+def _write_scoped_rebuild_checkpoint(
+    path: Path,
+    *,
+    plan_fingerprint: str,
+    completed: Mapping[str, object],
+) -> None:
+    _write_json_atomic(
+        path,
+        {
+            "schema_version": SCHEMA_VERSION,
+            "phase": SCOPED_REBUILD_CHECKPOINT_PHASE,
+            "plan_fingerprint": plan_fingerprint,
+            "completed": dict(sorted(completed.items())),
+            "completed_partition_count": len(completed),
+            "updated_at": datetime.now(UTC).isoformat(),
+        },
+    )
+
+
+def _validated_staging_root(*, lake_root: Path, staging_root: Path) -> Path:
+    normalized_lake_root = Path(lake_root).resolve()
+    normalized_staging_root = Path(staging_root).resolve()
+    if normalized_staging_root == normalized_lake_root:
+        raise QfqNineturnHistoryError("Staging root must be separate from Lake root.")
+    formal_lake_root = Path(DEFAULT_LAKE_ROOT).resolve()
+    formal_staging_root = Path(DEFAULT_LAKE_STAGING_ROOT).resolve()
+    if normalized_lake_root != formal_lake_root:
+        return normalized_staging_root
+    if normalized_staging_root != formal_staging_root:
+        raise QfqNineturnHistoryError(
+            "Formal Lake writes must use the fixed data_lake_staging root."
+        )
+    try:
+        normalized_staging_root.relative_to(normalized_lake_root)
+    except ValueError:
+        return normalized_staging_root
+    raise QfqNineturnHistoryError(
+        "Staging root must not be located inside the formal Lake root."
+    )
+
+
 def _write_json(path: Path, payload: Mapping[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+
+def _write_json_atomic(path: Path, payload: Mapping[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    temporary.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    os.replace(temporary, path)

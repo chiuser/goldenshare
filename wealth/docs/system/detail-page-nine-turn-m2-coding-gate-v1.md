@@ -1,6 +1,6 @@
 # 股票详情九转纵向切片 M2 编码前门禁 v1
 
-> 状态：2026-08-13 编码前门禁已通过，M2 代码和隔离验收已收口；生产 migration、历史发布、sensor 与真实日线浏览器验收未执行。
+> 状态：2026-08-13 M2 已收口；后续 M3 已完成生产 migration、Gold 修复和 1,113/3,066 日 serving 发布，当前因内存事件修正后暂停。sensor 与真实日线浏览器验收仍未执行。
 >
 > 总方案：[股票与主要指数详情页九转接入总方案 v1](./detail-page-nine-turn-integration-implementation-design-v1.md)
 >
@@ -306,17 +306,17 @@ M2 完成必须同时满足：
 
 ### 14.1 M2 实施对账（2026-08-13）
 
-1. 日线已实现独立 PostgreSQL serving model/migration、Gold 分区 publisher、事务 delete/批量 insert/read-back hash 和常驻查询 API；没有执行生产 migration 或发布。
+1. 日线已实现独立 PostgreSQL serving model/migration、Gold 分区 publisher、事务 delete/批量 insert/read-back hash 和常驻查询 API；M3-A 审计时 migration 已执行但表为空，后续 M3-B 已完成 Gold 修复并部分发布 serving，当前进度以 M3 门禁文档为准。
 2. 分钟已实现正式 Lake Reader 与条件路由，只开放 30/60/90/120；股票 1/5/15 在前端零请求、直调接口为 400。
 3. 共享 `NineTurnMarkerPrimitive` 已实现 18×18、8px、红涨绿跌、完成态描边、可见区裁剪、空 autoscale 和稳定 `setMarkers()`。
 4. 股票日线与分钟图表已复用同一 registry、adapter、primitive 和局部状态；九转变化不修改 chart `dataKey`，不重置现有 120 根视窗和缩放。
 5. 正式 Lake 只读抽样 `000001.SZ` 各 500 根全部对齐：30/60/90/120 分钟分别扫描 59/104/170/254 个文件，耗时约 221.8/134.4/150.9/183.3ms，均低于 1.5s 目标。
 6. 验证结果：前端 185 项全量测试、typecheck、production build 通过；九转/QFQ Orchestrator 27 项加 14 个子测试、静态门禁 99 项通过；Root 九转、股票/指数分钟和架构相关回归 85 项通过。Root 主链全量（排除冻结旧 Lake Console 目录）为 1548 passed、10 skipped、9 个既有非九转失败，失败涉及 Ops/ETF seed/CLI，与本轮文件无关。
-7. 未执行 `dg`、materialize、backfill、runless event、Lake 写入、生产 migration、生产 publisher 或 sensor 启用。
+7. M2 验收当时未执行 `dg`、materialize、backfill、runless event、Lake 写入、生产 migration、生产 publisher 或 sensor 启用；后续 M3 在逐阶段批准下完成 migration、Gold 修复和部分 serving 发布，未启用 sensor，也未执行分钟历史生成。
 
 ### 14.2 仍属 M3/M6 的退出项
 
-1. 生产执行 `20260813_000135` migration，并单独审批有界股票日线历史发布。
+1. `20260813_000135` 和 Gold scoped rebuild 已完成；股票日线 serving 发布停在 1,113/3,066，剩余历史恢复仍需用户确认并完成最终对账。
 2. 对生产日线 API 做真实窗口、状态、性能与权限验收。
 3. 完成 1600×1200 日线、代表分钟、Loading/Empty/Error/Partial/Forbidden、缩放和切周期浏览器截图验收。
 4. 验证自然日常更新和 freshness 后，才允许评估启用现有 STOPPED sensor。
@@ -326,4 +326,5 @@ M2 完成必须同时满足：
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
 | v1 | 2026-08-13 | 基于已批准 LLD 冻结股票九转 M2 纵向切片范围、代码落点、正反测试、性能和环境门禁 | Codex |
-| v1.1 | 2026-08-13 | 完成 M2 代码对账和隔离验收；登记正式 Lake 性能证据、全量回归结果及生产发布未执行边界 | Codex |
+| v1.1 | 2026-08-13 | 完成 M2 代码对账和隔离验收；登记正式 Lake 性能证据、全量回归结果及 M2 当时尚未执行生产 migration/发布的边界；M3 后续审计确认 migration 已完成但表为空 | Codex |
+| v1.2 | 2026-08-13 | 回链 M3 当前事实：Gold 修复完成，serving 发布至 1,113/3,066 后暂停；sensor、生产浏览器和剩余历史仍未完成 | Codex |

@@ -9,7 +9,6 @@ from orchestrator.defs.qfq_nineturn_integrity import (
     audit_qfq_nineturn_integrity,
 )
 
-
 TRADE_DATE = "2026-08-07"
 
 
@@ -32,6 +31,7 @@ def _write_daily_target(
     *,
     ts_code: str = "000001.SZ",
     up_count: int = 9,
+    close_qfq: float = 10.0,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     signal = "'+9'::VARCHAR" if up_count >= 9 else "NULL::VARCHAR"
@@ -40,7 +40,7 @@ def _write_daily_target(
         COPY (
           SELECT '{ts_code}'::VARCHAR AS ts_code,
             DATE '{TRADE_DATE}' AS trade_date,
-            10.0::DOUBLE AS close_qfq,
+            {close_qfq}::DOUBLE AS close_qfq,
             {up_count}::INTEGER AS up_count,
             0::INTEGER AS down_count,
             {signal} AS nine_up_turn,
@@ -100,6 +100,33 @@ class QfqNineturnIntegrityTests(unittest.TestCase):
         self.assertIn("source_key_coverage", diagnostics.failed_rule_names)
         self.assertLessEqual(len(diagnostics.failure_samples), 20)
 
+    def test_source_close_drift_fails_before_downstream_publication(self) -> None:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
+            root = Path(directory)
+            source = root / "source.parquet"
+            target = root / "target.parquet"
+            _write_daily_source(connection, source)
+            _write_daily_target(connection, target, close_qfq=9.5)
+
+            diagnostics = audit_qfq_nineturn_integrity(
+                connection,
+                target_path=target,
+                source_paths=(source,),
+                partition_key=TRADE_DATE,
+                freq=None,
+            )
+
+        self.assertFalse(diagnostics.passed)
+        self.assertEqual(diagnostics.source_value_mismatch_count, 1)
+        self.assertIn("source_value_consistency", diagnostics.failed_rule_names)
+        self.assertEqual(
+            diagnostics.failure_samples[0]["failure"],
+            "source_value_mismatch",
+        )
+
     def test_rule_set_is_fixed_and_formula_free(self) -> None:
         self.assertEqual(
             QFQ_NINETURN_INTEGRITY_RULE_NAMES,
@@ -109,6 +136,7 @@ class QfqNineturnIntegrityTests(unittest.TestCase):
                 "key_integrity",
                 "value_domain",
                 "source_key_coverage",
+                "source_value_consistency",
             ),
         )
 

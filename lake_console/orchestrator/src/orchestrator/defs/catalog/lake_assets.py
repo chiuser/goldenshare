@@ -2397,7 +2397,9 @@ LAKE_ASSET_CATALOG += (
         ingestion_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
         default_daily_ingestion_source=IngestionSource.DERIVED_FROM_ASSETS,
         bootstrap_sources=(),
-        blocking_check_names=(),
+        blocking_check_names=(
+            "prod_core_stock_daily_qfq_nineturn_partition_check",
+        ),
         write_policy=WritePolicy.POSTGRES_TABLE_SYNC,
         event_policy=EventPolicy.DAGSTER_RUN_ONLY,
         performance_contract=_perf(

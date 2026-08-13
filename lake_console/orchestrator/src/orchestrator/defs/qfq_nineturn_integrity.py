@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
 
 import duckdb
 
@@ -24,13 +24,13 @@ from orchestrator.defs.run_contracts.qfq_nineturn import (
     normalize_qfq_nineturn_minute_freq,
 )
 
-
 QFQ_NINETURN_INTEGRITY_RULE_NAMES = (
     "file_contract",
     "partition_alignment",
     "key_integrity",
     "value_domain",
     "source_key_coverage",
+    "source_value_consistency",
 )
 QFQ_NINETURN_FAILURE_SAMPLE_LIMIT = 20
 
@@ -45,6 +45,7 @@ class QfqNineturnIntegrityDiagnostics:
     invalid_value_count: int
     missing_source_key_count: int
     extra_output_key_count: int
+    source_value_mismatch_count: int
     failed_rule_names: tuple[str, ...]
     failure_samples: tuple[dict[str, object], ...]
 
@@ -56,6 +57,7 @@ class QfqNineturnIntegrityDiagnostics:
             + self.invalid_value_count
             + self.missing_source_key_count
             + self.extra_output_key_count
+            + self.source_value_mismatch_count
         )
 
 
@@ -186,6 +188,29 @@ def audit_qfq_nineturn_integrity(
             """
         ).fetchone()
     )
+    source_value_sql = _source_value_sql(
+        source=source,
+        partition_key=partition_key,
+        freq=normalized_freq,
+    )
+    target_value_sql = _target_value_sql(target=target, freq=normalized_freq)
+    value_mismatch_count = int(
+        connection.execute(
+            f"""
+            WITH source_values AS ({source_value_sql}),
+            target_values AS ({target_value_sql})
+            SELECT count(*)
+            FROM source_values source
+            INNER JOIN target_values target USING ({key_columns})
+            WHERE source.source_key_count != 1
+               OR target.close_qfq IS NULL
+               OR source.source_close IS NULL
+               OR abs(target.close_qfq - source.source_close)
+                    > 1e-10 * greatest(1.0, abs(source.source_close))
+            """
+        ).fetchone()[0]
+        or 0
+    )
     failed_rules: list[str] = []
     if row_count <= 0:
         failed_rules.append("file_contract")
@@ -197,7 +222,9 @@ def audit_qfq_nineturn_integrity(
         failed_rules.append("value_domain")
     if missing_count or extra_count or source_row_count <= 0:
         failed_rules.append("source_key_coverage")
-    samples = (
+    if value_mismatch_count:
+        failed_rules.append("source_value_consistency")
+    coverage_samples = (
         _coverage_failure_samples(
             connection,
             source_identity_sql=source_identity_sql,
@@ -205,6 +232,19 @@ def audit_qfq_nineturn_integrity(
         )
         if missing_count or extra_count
         else ()
+    )
+    value_samples = (
+        _value_failure_samples(
+            connection,
+            source_value_sql=source_value_sql,
+            target_value_sql=target_value_sql,
+            key_columns=key_columns,
+        )
+        if value_mismatch_count
+        else ()
+    )
+    samples = tuple(
+        (coverage_samples + value_samples)[:QFQ_NINETURN_FAILURE_SAMPLE_LIMIT]
     )
     return QfqNineturnIntegrityDiagnostics(
         passed=not failed_rules,
@@ -215,6 +255,7 @@ def audit_qfq_nineturn_integrity(
         invalid_value_count=invalid_count + partition_count,
         missing_source_key_count=missing_count,
         extra_output_key_count=extra_count,
+        source_value_mismatch_count=value_mismatch_count,
         failed_rule_names=tuple(failed_rules),
         failure_samples=samples,
     )
@@ -254,6 +295,35 @@ def _target_identity_sql(*, target: str, freq: int | None) -> str:
     return f"SELECT DISTINCT {columns} FROM {target}"
 
 
+def _source_value_sql(*, source: str, partition_key: str, freq: int | None) -> str:
+    if freq is None:
+        return f"""
+        SELECT CAST(ts_code AS VARCHAR) AS ts_code,
+          CAST(trade_date AS DATE) AS trade_date,
+          min(CAST(close AS DOUBLE)) AS source_close,
+          count(*) AS source_key_count
+        FROM {source}
+        WHERE CAST(trade_date AS DATE) = DATE {duckdb_string(partition_key)}
+        GROUP BY ts_code, trade_date
+        """
+    return f"""
+    SELECT CAST(ts_code AS VARCHAR) AS ts_code,
+      CAST(freq AS INTEGER) AS freq,
+      CAST(trade_time AS TIMESTAMP) AS trade_time,
+      min(CAST(close AS DOUBLE)) AS source_close,
+      count(*) AS source_key_count
+    FROM {source}
+    WHERE CAST(freq AS INTEGER) = {freq}
+      AND CAST(trade_date AS DATE) = DATE {duckdb_string(partition_key)}
+    GROUP BY ts_code, freq, trade_time
+    """
+
+
+def _target_value_sql(*, target: str, freq: int | None) -> str:
+    columns = "ts_code, trade_date" if freq is None else "ts_code, freq, trade_time"
+    return f"SELECT {columns}, CAST(close_qfq AS DOUBLE) AS close_qfq FROM {target}"
+
+
 def _coverage_failure_samples(
     connection: duckdb.DuckDBPyConnection,
     *,
@@ -275,6 +345,37 @@ def _coverage_failure_samples(
         )
         SELECT * FROM failures
         ORDER BY failure, ts_code
+        LIMIT {QFQ_NINETURN_FAILURE_SAMPLE_LIMIT}
+        """
+    ).fetchall()
+    columns = [str(item[0]) for item in connection.description]
+    return tuple(dict(zip(columns, row, strict=True)) for row in rows)
+
+
+def _value_failure_samples(
+    connection: duckdb.DuckDBPyConnection,
+    *,
+    source_value_sql: str,
+    target_value_sql: str,
+    key_columns: str,
+) -> tuple[dict[str, object], ...]:
+    rows = connection.execute(
+        f"""
+        WITH source_values AS ({source_value_sql}),
+        target_values AS ({target_value_sql})
+        SELECT 'source_value_mismatch' AS failure,
+          {', '.join(f'source.{column.strip()}' for column in key_columns.split(','))},
+          source.source_close,
+          target.close_qfq,
+          source.source_key_count
+        FROM source_values source
+        INNER JOIN target_values target USING ({key_columns})
+        WHERE source.source_key_count != 1
+           OR target.close_qfq IS NULL
+           OR source.source_close IS NULL
+           OR abs(target.close_qfq - source.source_close)
+                > 1e-10 * greatest(1.0, abs(source.source_close))
+        ORDER BY {', '.join(f'source.{column.strip()}' for column in key_columns.split(','))}
         LIMIT {QFQ_NINETURN_FAILURE_SAMPLE_LIMIT}
         """
     ).fetchall()
@@ -305,6 +406,7 @@ def _failed_diagnostics(
         invalid_value_count=0,
         missing_source_key_count=0,
         extra_output_key_count=0,
+        source_value_mismatch_count=0,
         failed_rule_names=(rule_name,),
         failure_samples=(sample,),
     )

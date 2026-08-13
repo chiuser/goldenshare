@@ -38,6 +38,9 @@ PROD_CORE_STOCK_DAILY_QFQ_NINETURN_FORBIDDEN_COLUMNS = (
     "updated_at",
 )
 PROD_CORE_STOCK_DAILY_QFQ_NINETURN_BATCH_SIZE = 1_000
+PROD_CORE_STOCK_DAILY_QFQ_NINETURN_CHECK_NAME = (
+    "prod_core_stock_daily_qfq_nineturn_partition_check"
+)
 
 _SELECT_COLUMNS_SQL = """
   ts_code,
@@ -70,6 +73,14 @@ WHERE trade_date = %s
 ORDER BY ts_code
 """
 
+PROD_CORE_STOCK_DAILY_QFQ_NINETURN_CHECKPOINT_SELECT_SQL = f"""
+SELECT
+{_SELECT_COLUMNS_SQL}
+FROM {PROD_CORE_STOCK_DAILY_QFQ_NINETURN_TABLE}
+WHERE trade_date = ANY(%s::date[])
+ORDER BY trade_date, ts_code
+"""
+
 
 @dataclass(frozen=True, slots=True)
 class ProdCoreStockDailyQfqNineTurnSyncAudit:
@@ -79,6 +90,25 @@ class ProdCoreStockDailyQfqNineTurnSyncAudit:
     inserted_row_count: int
     read_back_row_count: int
     content_hash: str
+
+
+@dataclass(frozen=True, slots=True)
+class ProdCoreStockDailyQfqNineTurnReadAudit:
+    passed: bool
+    expected_row_count: int
+    read_back_row_count: int
+    expected_content_hash: str
+    observed_content_hash: str
+    failed_rule_names: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ProdCoreStockDailyQfqNineTurnCheckpointAudit:
+    passed: bool
+    expected_partition_count: int
+    observed_partition_count: int
+    read_back_row_count: int
+    failed_partition_keys: tuple[str, ...]
 
 
 def replace_prod_core_stock_daily_qfq_nineturn_partition(
@@ -148,11 +178,146 @@ def replace_prod_core_stock_daily_qfq_nineturn_partition(
             close()
 
 
+def audit_prod_core_stock_daily_qfq_nineturn_partition(
+    *,
+    connection,
+    rows: Sequence[Mapping[str, object]],
+    partition_key: str,
+) -> ProdCoreStockDailyQfqNineTurnReadAudit:
+    normalized_partition_key = normalize_iso_trade_date(partition_key)
+    audit_timestamp = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    expected_rows = _normalize_gold_rows(
+        rows=rows,
+        partition_key=normalized_partition_key,
+        published_at=audit_timestamp,
+    )
+    cursor = connection.cursor()
+    try:
+        cursor.execute(
+            PROD_CORE_STOCK_DAILY_QFQ_NINETURN_SELECT_SQL,
+            (normalized_partition_key,),
+        )
+        observed_rows = _normalize_read_back_rows(
+            cursor.fetchall(),
+            partition_key=normalized_partition_key,
+        )
+    finally:
+        close = getattr(cursor, "close", None)
+        if callable(close):
+            close()
+    expected_hash = _business_content_hash(expected_rows)
+    observed_hash = _business_content_hash(observed_rows)
+    failed_rules = []
+    if len(observed_rows) != len(expected_rows):
+        failed_rules.append("row_count")
+    if _keys(observed_rows) != _keys(expected_rows):
+        failed_rules.append("keys")
+    if observed_hash != expected_hash:
+        failed_rules.append("content")
+    return ProdCoreStockDailyQfqNineTurnReadAudit(
+        passed=not failed_rules,
+        expected_row_count=len(expected_rows),
+        read_back_row_count=len(observed_rows),
+        expected_content_hash=expected_hash,
+        observed_content_hash=observed_hash,
+        failed_rule_names=tuple(failed_rules),
+    )
+
+
+def audit_prod_core_stock_daily_qfq_nineturn_checkpoint_partitions(
+    *,
+    connection,
+    expected_content_hashes: Mapping[str, object],
+    fetch_size: int = 1_000,
+) -> ProdCoreStockDailyQfqNineTurnCheckpointAudit:
+    if isinstance(fetch_size, bool) or not isinstance(fetch_size, int) or fetch_size <= 0:
+        raise ValueError("Checkpoint fetch size must be a positive integer.")
+    normalized_expected = {
+        normalize_iso_trade_date(partition_key): str(content_hash).strip().lower()
+        for partition_key, content_hash in expected_content_hashes.items()
+    }
+    if len(normalized_expected) != len(expected_content_hashes):
+        raise ValueError("Checkpoint contains duplicate normalized partition keys.")
+    if any(
+        not re.fullmatch(r"[0-9a-f]{64}", content_hash)
+        for content_hash in normalized_expected.values()
+    ):
+        raise ValueError("Checkpoint content hash must be lowercase SHA-256.")
+    if not normalized_expected:
+        return ProdCoreStockDailyQfqNineTurnCheckpointAudit(
+            passed=True,
+            expected_partition_count=0,
+            observed_partition_count=0,
+            read_back_row_count=0,
+            failed_partition_keys=(),
+        )
+    cursor = connection.cursor(name="qfq_nineturn_checkpoint_audit")
+    try:
+        cursor.itersize = fetch_size
+        cursor.execute(
+            PROD_CORE_STOCK_DAILY_QFQ_NINETURN_CHECKPOINT_SELECT_SQL,
+            (sorted(normalized_expected),),
+        )
+        observed_hashes: dict[str, str] = {}
+        read_back_row_count = 0
+        current_partition_key: str | None = None
+        current_rows: list[Sequence[object] | Mapping[str, object]] = []
+        while rows := cursor.fetchmany(fetch_size):
+            for row in rows:
+                trade_date_value = (
+                    row[1] if not isinstance(row, Mapping) else row["trade_date"]
+                )
+                partition_key = _normalize_trade_date(trade_date_value)
+                if partition_key not in normalized_expected:
+                    raise ValueError(
+                        "Checkpoint read-back returned an unexpected partition."
+                    )
+                if (
+                    current_partition_key is not None
+                    and partition_key != current_partition_key
+                ):
+                    observed_hashes[current_partition_key] = _business_content_hash(
+                        _normalize_read_back_rows(
+                            current_rows,
+                            partition_key=current_partition_key,
+                        )
+                    )
+                    read_back_row_count += len(current_rows)
+                    current_rows = []
+                current_partition_key = partition_key
+                current_rows.append(row)
+        if current_partition_key is not None:
+            observed_hashes[current_partition_key] = _business_content_hash(
+                _normalize_read_back_rows(
+                    current_rows,
+                    partition_key=current_partition_key,
+                )
+            )
+            read_back_row_count += len(current_rows)
+    finally:
+        close = getattr(cursor, "close", None)
+        if callable(close):
+            close()
+    failed_partition_keys = tuple(
+        partition_key
+        for partition_key, expected_hash in sorted(normalized_expected.items())
+        if observed_hashes.get(partition_key) != expected_hash
+    )
+    return ProdCoreStockDailyQfqNineTurnCheckpointAudit(
+        passed=not failed_partition_keys,
+        expected_partition_count=len(normalized_expected),
+        observed_partition_count=len(observed_hashes),
+        read_back_row_count=read_back_row_count,
+        failed_partition_keys=failed_partition_keys,
+    )
+
+
 def validate_prod_core_stock_daily_qfq_nineturn_sql_contract() -> None:
     combined_sql = (
         f"{PROD_CORE_STOCK_DAILY_QFQ_NINETURN_DELETE_SQL}\n"
         f"{PROD_CORE_STOCK_DAILY_QFQ_NINETURN_INSERT_SQL}\n"
-        f"{PROD_CORE_STOCK_DAILY_QFQ_NINETURN_SELECT_SQL}"
+        f"{PROD_CORE_STOCK_DAILY_QFQ_NINETURN_SELECT_SQL}\n"
+        f"{PROD_CORE_STOCK_DAILY_QFQ_NINETURN_CHECKPOINT_SELECT_SQL}"
     )
     normalized_sql = " ".join(combined_sql.lower().split())
     if "select *" in normalized_sql:
@@ -174,6 +339,8 @@ def validate_prod_core_stock_daily_qfq_nineturn_sql_contract() -> None:
         f"from {PROD_CORE_STOCK_DAILY_QFQ_NINETURN_TABLE}",
         "where trade_date = %s",
         "order by ts_code",
+        "where trade_date = any(%s::date[])",
+        "order by trade_date, ts_code",
     ):
         if required_clause not in normalized_sql:
             raise RuntimeError(
@@ -313,6 +480,25 @@ def _content_hash(rows: Sequence[Mapping[str, object]]) -> str:
                 str(row["nine_down_turn"] or ""),
                 str(row["formula_version"]),
                 _normalize_published_at(row["published_at"]).isoformat(),
+            )
+        )
+        for row in sorted(rows, key=lambda item: str(item["ts_code"]))
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _business_content_hash(rows: Sequence[Mapping[str, object]]) -> str:
+    payload = "\n".join(
+        "\t".join(
+            (
+                str(row["ts_code"]),
+                str(row["trade_date"]),
+                format(float(row["close_qfq"]), ".17g"),
+                str(row["up_count"]),
+                str(row["down_count"]),
+                str(row["nine_up_turn"] or ""),
+                str(row["nine_down_turn"] or ""),
+                str(row["formula_version"]),
             )
         )
         for row in sorted(rows, key=lambda item: str(item["ts_code"]))

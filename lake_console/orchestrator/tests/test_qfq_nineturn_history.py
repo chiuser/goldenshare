@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import date
+import json
 import os
+import unittest
+from datetime import date
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 
 import duckdb
 
@@ -12,6 +13,7 @@ from orchestrator.defs.bootstrap.qfq_nineturn_history import (
     QfqNineturnHistoryError,
     _normalize_partitioned_batch,
     _spec_for_asset,
+    _validated_staging_root,
     _write_compact_history_state,
     build_qfq_nineturn_history,
     load_qfq_nineturn_history_plan,
@@ -20,6 +22,7 @@ from orchestrator.defs.bootstrap.qfq_nineturn_history import (
     rebuild_qfq_nineturn_scope,
 )
 from orchestrator.defs.paths import (
+    DEFAULT_LAKE_ROOT,
     gold_stk_mins_qfq_nineturn_path,
     gold_stock_daily_qfq_nineturn_path,
 )
@@ -34,6 +37,35 @@ from tests.qfq_nineturn_history_fixture import (
 
 
 class QfqNineturnHistoryTests(unittest.TestCase):
+    def test_formal_lake_rejects_staging_below_lake_root(self) -> None:
+        with self.assertRaisesRegex(
+            QfqNineturnHistoryError,
+            "fixed data_lake_staging root",
+        ):
+            _validated_staging_root(
+                lake_root=Path(DEFAULT_LAKE_ROOT),
+                staging_root=Path(DEFAULT_LAKE_ROOT) / "_staging",
+            )
+
+    def test_scoped_rebuild_batch_limit_cannot_exceed_twenty(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            with self.assertRaisesRegex(
+                QfqNineturnHistoryError,
+                "between 1 and 20",
+            ):
+                plan_qfq_nineturn_scoped_rebuild(
+                    lake_root=root,
+                    staging_root=root / "staging",
+                    duckdb_resource=DuckDBResource(),
+                    asset_family="daily",
+                    stock_codes=("000001.SZ",),
+                    start_date="2026-08-11",
+                    end_date="2026-08-12",
+                    batch_partition_limit=21,
+                    output_dir=root / "reports",
+                )
+
     def test_compact_history_state_carries_seed_for_code_absent_in_current_year(
         self,
     ) -> None:
@@ -195,7 +227,9 @@ class QfqNineturnHistoryTests(unittest.TestCase):
             self.assertEqual(plan.report["expected_target_file_count"], len(dates) * 5)
             self.assertEqual(plan.report["source_row_count"], len(dates) * 2 * 5)
             self.assertEqual(plan.report["existing_target_file_count"], 0)
-            self.assertEqual(plan.report["performance"]["historical_rescan_multiplier"], 1)
+            self.assertEqual(
+                plan.report["performance"]["historical_rescan_multiplier"], 1
+            )
             self.assertFalse(
                 gold_stock_daily_qfq_nineturn_path(root, dates[0]).exists()
             )
@@ -222,11 +256,14 @@ class QfqNineturnHistoryTests(unittest.TestCase):
                 plan=plan,
                 expected_plan_fingerprint=plan.plan_fingerprint,
                 duckdb_resource=resource,
+                staging_root=root / "staging",
                 output_dir=root / "reports",
             )
 
             self.assertEqual(report.promoted_file_count, len(dates) * 5)
-            first_new_year_date = next(value for value in dates if value.startswith("2026-"))
+            first_new_year_date = next(
+                value for value in dates if value.startswith("2026-")
+            )
             with duckdb.connect() as connection:
                 daily_count = connection.execute(
                     f"""
@@ -250,29 +287,23 @@ class QfqNineturnHistoryTests(unittest.TestCase):
                 ).fetchone()[0]
                 daily_source_paths = tuple(
                     sorted(
-                        (
-                            root / "gold" / "quote" / "stock_daily_qfq"
-                        ).glob("trade_date=*/part-000.parquet")
+                        (root / "gold" / "quote" / "stock_daily_qfq").glob(
+                            "trade_date=*/part-000.parquet"
+                        )
                     )
                 )
                 daily_target_paths = tuple(
-                    gold_stock_daily_qfq_nineturn_path(root, value)
-                    for value in dates
+                    gold_stock_daily_qfq_nineturn_path(root, value) for value in dates
                 )
                 minute_source_paths = tuple(
                     sorted(
-                        (
-                            root
-                            / "gold"
-                            / "quote"
-                            / "stk_mins_qfq"
-                            / "freq=30"
-                        ).glob("ts_code=*/year=*/part-000.parquet")
+                        (root / "gold" / "quote" / "stk_mins_qfq" / "freq=30").glob(
+                            "ts_code=*/year=*/part-000.parquet"
+                        )
                     )
                 )
                 minute_target_paths = tuple(
-                    gold_stk_mins_qfq_nineturn_path(root, 30, value)
-                    for value in dates
+                    gold_stk_mins_qfq_nineturn_path(root, 30, value) for value in dates
                 )
                 daily_diff = _full_history_difference_count(
                     connection,
@@ -303,6 +334,7 @@ class QfqNineturnHistoryTests(unittest.TestCase):
                 plan=second_plan,
                 expected_plan_fingerprint=second_plan.plan_fingerprint,
                 duckdb_resource=resource,
+                staging_root=root / "staging",
                 output_dir=root / "reports",
             )
             self.assertEqual(second_report.promoted_file_count, 0)
@@ -336,6 +368,7 @@ class QfqNineturnHistoryTests(unittest.TestCase):
                     plan=plan,
                     expected_plan_fingerprint=plan.plan_fingerprint,
                     duckdb_resource=resource,
+                    staging_root=root / "staging",
                     output_dir=root / "reports",
                 )
             self.assertFalse(
@@ -356,6 +389,7 @@ class QfqNineturnHistoryTests(unittest.TestCase):
                 plan=plan,
                 expected_plan_fingerprint=plan.plan_fingerprint,
                 duckdb_resource=resource,
+                staging_root=root / "staging",
                 output_dir=root / "reports",
             )
             target_date = dates[-1]
@@ -384,6 +418,7 @@ class QfqNineturnHistoryTests(unittest.TestCase):
 
             scoped_plan = plan_qfq_nineturn_scoped_rebuild(
                 lake_root=root,
+                staging_root=root / "staging",
                 duckdb_resource=resource,
                 asset_family="daily",
                 stock_codes=("000001.SZ",),
@@ -391,10 +426,18 @@ class QfqNineturnHistoryTests(unittest.TestCase):
                 end_date=target_date,
                 output_dir=root / "reports",
             )
+            scoped_history_plan = load_qfq_nineturn_history_plan(
+                scoped_plan.history_plan_path
+            )
+            self.assertEqual(
+                {batch.asset_key for batch in scoped_history_plan.batches},
+                {"gold_stock_daily_qfq_nineturn"},
+            )
             report = rebuild_qfq_nineturn_scope(
                 plan=scoped_plan,
                 expected_plan_fingerprint=scoped_plan.plan_fingerprint,
                 duckdb_resource=resource,
+                checkpoint_path=root / "staging" / "scoped-checkpoint.json",
                 output_dir=root / "reports",
             )
 
@@ -416,6 +459,108 @@ class QfqNineturnHistoryTests(unittest.TestCase):
                 ).fetchone()
             self.assertNotEqual(selected_close, 999.0)
             self.assertEqual(after_other, before_other)
+
+    def test_scoped_rebuild_batches_checkpoint_and_resumes(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            dates = build_qfq_nineturn_history_fixture(root)
+            resource = DuckDBResource()
+            history_plan = plan_qfq_nineturn_history(
+                lake_root=root,
+                duckdb_resource=resource,
+                output_dir=root / "reports",
+            )
+            build_qfq_nineturn_history(
+                plan=history_plan,
+                expected_plan_fingerprint=history_plan.plan_fingerprint,
+                duckdb_resource=resource,
+                staging_root=root / "staging",
+                output_dir=root / "reports",
+            )
+            repair_dates = dates[-2:]
+            for trade_date in repair_dates:
+                _damage_daily_close(root, trade_date, "000001.SZ")
+            scoped_plan = plan_qfq_nineturn_scoped_rebuild(
+                lake_root=root,
+                staging_root=root / "staging",
+                duckdb_resource=resource,
+                asset_family="daily",
+                stock_codes=("000001.SZ",),
+                start_date=repair_dates[0],
+                end_date=repair_dates[-1],
+                batch_partition_limit=1,
+                output_dir=root / "reports",
+            )
+            checkpoint_path = root / "staging" / "scoped-checkpoint.json"
+
+            first = rebuild_qfq_nineturn_scope(
+                plan=scoped_plan,
+                expected_plan_fingerprint=scoped_plan.plan_fingerprint,
+                duckdb_resource=resource,
+                checkpoint_path=checkpoint_path,
+                output_dir=root / "reports",
+            )
+            second = rebuild_qfq_nineturn_scope(
+                plan=scoped_plan,
+                expected_plan_fingerprint=scoped_plan.plan_fingerprint,
+                duckdb_resource=resource,
+                checkpoint_path=checkpoint_path,
+                output_dir=root / "reports",
+            )
+
+            self.assertEqual(first.replaced_partition_count, 1)
+            self.assertEqual(first.remaining_partition_count, 1)
+            self.assertEqual(second.replaced_partition_count, 1)
+            self.assertEqual(second.remaining_partition_count, 0)
+            self.assertEqual(len(second.resumed_partition_keys), 1)
+            checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+            self.assertEqual(checkpoint["completed_partition_count"], 2)
+
+    def test_scoped_rebuild_sample_rejects_more_than_three_partitions(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            dates = build_qfq_nineturn_history_fixture(root)
+            resource = DuckDBResource()
+            history_plan = plan_qfq_nineturn_history(
+                lake_root=root,
+                duckdb_resource=resource,
+                output_dir=root / "reports",
+            )
+            build_qfq_nineturn_history(
+                plan=history_plan,
+                expected_plan_fingerprint=history_plan.plan_fingerprint,
+                duckdb_resource=resource,
+                staging_root=root / "staging",
+                output_dir=root / "reports",
+            )
+            scoped_plan = plan_qfq_nineturn_scoped_rebuild(
+                lake_root=root,
+                staging_root=root / "staging",
+                duckdb_resource=resource,
+                asset_family="daily",
+                stock_codes=("000001.SZ",),
+                start_date=dates[-4],
+                end_date=dates[-1],
+                output_dir=root / "reports",
+            )
+            sample_keys = tuple(
+                f"gold_stock_daily_qfq_nineturn@{trade_date}"
+                for trade_date in dates[-4:]
+            )
+
+            with self.assertRaisesRegex(
+                QfqNineturnHistoryError,
+                "one to three explicit partitions",
+            ):
+                rebuild_qfq_nineturn_scope(
+                    plan=scoped_plan,
+                    expected_plan_fingerprint=scoped_plan.plan_fingerprint,
+                    duckdb_resource=resource,
+                    checkpoint_path=root / "staging" / "scoped-checkpoint.json",
+                    mode="sample",
+                    sample_partition_keys=sample_keys,
+                    output_dir=root / "reports",
+                )
 
     def test_duplicate_source_stops_plan(self) -> None:
         with TemporaryDirectory() as directory:
@@ -466,10 +611,12 @@ class QfqNineturnHistoryTests(unittest.TestCase):
                 plan=history_plan,
                 expected_plan_fingerprint=history_plan.plan_fingerprint,
                 duckdb_resource=resource,
+                staging_root=root / "staging",
                 output_dir=root / "reports",
             )
             scoped_plan = plan_qfq_nineturn_scoped_rebuild(
                 lake_root=root,
+                staging_root=root / "staging",
                 duckdb_resource=resource,
                 asset_family="daily",
                 stock_codes=("000001.SZ",),
@@ -486,8 +633,28 @@ class QfqNineturnHistoryTests(unittest.TestCase):
                     plan=scoped_plan,
                     expected_plan_fingerprint=scoped_plan.plan_fingerprint,
                     duckdb_resource=resource,
+                    checkpoint_path=root / "staging" / "scoped-checkpoint.json",
                     output_dir=root / "reports",
                 )
+
+
+def _damage_daily_close(lake_root: Path, trade_date: str, ts_code: str) -> None:
+    target = gold_stock_daily_qfq_nineturn_path(lake_root, trade_date)
+    damaged = lake_root / f"damaged-{trade_date}.parquet"
+    with duckdb.connect() as connection:
+        connection.execute(
+            f"""
+            COPY (
+              SELECT ts_code, trade_date,
+                CASE WHEN ts_code = '{ts_code}' THEN 999.0 ELSE close_qfq END
+                  AS close_qfq,
+                up_count, down_count, nine_up_turn, nine_down_turn
+              FROM read_parquet('{target}', hive_partitioning=false)
+              ORDER BY ts_code
+            ) TO '{damaged}' (FORMAT PARQUET)
+            """
+        )
+    os.replace(damaged, target)
 
 
 def _full_history_difference_count(

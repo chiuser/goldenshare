@@ -59,6 +59,9 @@ def _check_result(
                     "invalid_value_count": diagnostics.invalid_value_count,
                     "missing_source_key_count": diagnostics.missing_source_key_count,
                     "extra_output_key_count": diagnostics.extra_output_key_count,
+                    "source_value_mismatch_count": (
+                        diagnostics.source_value_mismatch_count
+                    ),
                 },
                 "failed_rule_names": list(diagnostics.failed_rule_names),
                 "failure_samples": list(diagnostics.failure_samples),
