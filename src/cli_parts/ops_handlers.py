@@ -384,7 +384,7 @@ def run_ops_scheduler_tick(
 def run_ops_worker_run(
     *,
     session_local,
-    worker_cls,
+    worker_factory,
     auto_reconcile_fn: Callable[..., int],
     open_task_run_counts_fn: Callable[..., tuple[int, int]],
     limit: int,
@@ -396,7 +396,7 @@ def run_ops_worker_run(
             session,
             limit=auto_reconcile_limit,
         )
-        worker = worker_cls()
+        worker = worker_factory()
         processed = 0
         for _ in range(limit):
             task_run = worker.run_next(session)
@@ -535,7 +535,7 @@ def run_ops_scheduler_serve(
 def run_ops_worker_serve(
     *,
     session_local,
-    worker_cls,
+    worker_factory,
     auto_reconcile_fn: Callable[..., int],
     open_task_run_counts_fn: Callable[..., tuple[int, int]],
     limit: int,
@@ -551,7 +551,7 @@ def run_ops_worker_serve(
                 session,
                 limit=auto_reconcile_limit,
             )
-            worker = worker_cls()
+            worker = worker_factory()
             processed = 0
             for _ in range(limit):
                 task_run = worker.run_next(session)

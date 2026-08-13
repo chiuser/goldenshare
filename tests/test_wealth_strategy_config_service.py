@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import re
 from pathlib import Path
@@ -9,6 +10,7 @@ import pytest
 from src.biz.services.wealth.config import (
     MajorIndicesStrategyPayload,
     MarketNewsStrategyPayload,
+    SectorOverviewHeatStrategyPayload,
     StrategyConfigNotFoundError,
     StrategyConfigRegistration,
     StrategyConfigRegistrationError,
@@ -34,11 +36,13 @@ def test_default_strategy_configs_can_be_loaded() -> None:
     leaderboard = service.get_config(module_key="leaderboards", market="CN_A")
     summary = service.get_config(module_key="marketSummary", market="CN_A")
     news = service.get_config(module_key="marketNews", market="CN_A")
+    sector_overview = service.get_config(module_key="sectorOverview", market="CN_A")
 
     _assert_semver(major.version)
     _assert_semver(leaderboard.version)
     _assert_semver(summary.version)
     _assert_semver(news.version)
+    _assert_semver(sector_overview.version)
 
     assert isinstance(major.payload, MajorIndicesStrategyPayload)
     assert len(major.payload.index_codes) == 10
@@ -46,6 +50,18 @@ def test_default_strategy_configs_can_be_loaded() -> None:
     assert isinstance(news.payload, MarketNewsStrategyPayload)
     assert news.payload.visible_item_count == 10
     assert news.payload.query_limit >= 300
+    assert isinstance(sector_overview.payload, SectorOverviewHeatStrategyPayload)
+    assert sector_overview.payload.score_version == "concept-heat-eod-v1"
+
+
+def test_sector_heat_config_rejects_incoherent_windows() -> None:
+    record = StrategyConfigService().get_config(module_key="sectorOverview", market="CN_A")
+    payload = copy.deepcopy(record.payload.model_dump(mode="python", by_alias=True))
+    payload["baselineTradingDays"] = 4
+    payload["flowTradingDays"] = 5
+
+    with pytest.raises(ValueError, match="baselineTradingDays"):
+        SectorOverviewHeatStrategyPayload.model_validate(payload)
 
 
 def test_get_version_reads_from_strategy_config() -> None:

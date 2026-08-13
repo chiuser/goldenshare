@@ -17,6 +17,8 @@ def test_maintenance_action_registry_keeps_only_explicit_actions() -> None:
     assert set(MAINTENANCE_ACTION_REGISTRY) == {
         "maintenance.rebuild_dm",
         "maintenance.rebuild_index_kline_serving",
+        "maintenance.materialize_wealth_sector_heat_daily",
+        "maintenance.replay_wealth_sector_heat_history",
     }
     assert {action.domain_key for action in MAINTENANCE_ACTION_REGISTRY.values()} == {"maintenance"}
     assert MAINTENANCE_ACTION_REGISTRY["maintenance.rebuild_dm"].executor_key == "refresh_materialized_view"
@@ -29,6 +31,10 @@ def test_maintenance_action_registry_keeps_only_explicit_actions() -> None:
         "core_serving.index_weekly_serving",
         "core_serving.index_monthly_serving",
     )
+    assert MAINTENANCE_ACTION_REGISTRY["maintenance.materialize_wealth_sector_heat_daily"].executor_key == (
+        "wealth_sector_heat"
+    )
+    assert MAINTENANCE_ACTION_REGISTRY["maintenance.replay_wealth_sector_heat_history"].schedule_enabled is False
 
 
 def test_dataset_actions_are_resolved_from_dataset_definitions() -> None:

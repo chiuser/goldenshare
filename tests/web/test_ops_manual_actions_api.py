@@ -668,6 +668,95 @@ def test_ops_manual_action_task_run_supports_reference_data_refresh_workflow(app
     assert payload["run"]["time_input"] == {"mode": "none"}
 
 
+def test_ops_manual_actions_exposes_heat_single_day_and_plan_apply_contract(app_client, user_factory) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.get("/api/v1/ops/manual-actions", headers=headers)
+
+    assert response.status_code == 200
+    actions = _actions_by_key(response.json())
+    single = actions["maintenance.materialize_wealth_sector_heat_daily"]
+    replay = actions["maintenance.replay_wealth_sector_heat_history"]
+    assert single["action_type"] == "maintenance_action"
+    assert [item["mode"] for item in single["time_form"]["modes"]] == ["point"]
+    assert single["filters"] == []
+    assert [item["mode"] for item in replay["time_form"]["modes"]] == ["range", "none"]
+    assert [item["key"] for item in replay["filters"]] == [
+        "execution_mode",
+        "plan_task_run_id",
+        "plan_hash",
+    ]
+    assert replay["filters"][0]["required"] is True
+    assert replay["filters"][0]["options"] == ["PLAN", "APPLY"]
+
+
+def test_ops_manual_action_creates_heat_single_plan_and_apply_task_runs(
+    app_client,
+    user_factory,
+) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    single = app_client.post(
+        "/api/v1/ops/manual-actions/maintenance.materialize_wealth_sector_heat_daily/task-runs",
+        headers=headers,
+        json={"time_input": {"mode": "point", "trade_date": "2026-08-12"}, "filters": {}},
+    )
+    replay_plan = app_client.post(
+        "/api/v1/ops/manual-actions/maintenance.replay_wealth_sector_heat_history/task-runs",
+        headers=headers,
+        json={
+            "time_input": {"mode": "range", "start_date": "2026-05-20", "end_date": "2026-08-12"},
+            "filters": {"execution_mode": "PLAN"},
+        },
+    )
+    replay_apply = app_client.post(
+        "/api/v1/ops/manual-actions/maintenance.replay_wealth_sector_heat_history/task-runs",
+        headers=headers,
+        json={
+            "time_input": {"mode": "none"},
+            "filters": {
+                "execution_mode": "APPLY",
+                "plan_task_run_id": replay_plan.json()["run"]["id"],
+                "plan_hash": "frozen-plan-hash",
+            },
+        },
+    )
+
+    assert single.status_code == 200
+    assert single.json()["run"]["task_type"] == "maintenance_action"
+    assert single.json()["run"]["time_input"] == {"mode": "point", "trade_date": "2026-08-12"}
+    assert replay_plan.status_code == 200
+    assert replay_plan.json()["run"]["time_input"] == {
+        "mode": "range",
+        "start_date": "2026-05-20",
+        "end_date": "2026-08-12",
+    }
+    assert replay_plan.json()["run"]["filters"] == {"execution_mode": "PLAN"}
+    assert replay_apply.status_code == 200
+    assert replay_apply.json()["run"]["time_input"] == {"mode": "none"}
+    assert replay_apply.json()["run"]["filters"] == {
+        "execution_mode": "APPLY",
+        "plan_task_run_id": replay_plan.json()["run"]["id"],
+        "plan_hash": "frozen-plan-hash",
+    }
+
+
+def test_ops_manual_action_rejects_heat_replay_without_execution_mode(app_client, user_factory) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/maintenance.replay_wealth_sector_heat_history/task-runs",
+        headers=headers,
+        json={
+            "time_input": {"mode": "range", "start_date": "2026-05-20", "end_date": "2026-08-12"},
+            "filters": {},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "执行模式不能为空"
+
+
 def test_ops_manual_action_task_run_rejects_workflow_without_required_time_mode(app_client, user_factory) -> None:
     headers = _admin_headers(app_client, user_factory)
 

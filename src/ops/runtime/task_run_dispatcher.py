@@ -4,6 +4,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import date, datetime, timezone
 import hashlib
+import json
 import re
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -23,6 +24,12 @@ from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
+from src.ops.runtime.maintenance_executor import (
+    MaintenanceExecutionPlan,
+    MaintenanceExecutionRequest,
+    MaintenanceExecutionUnit,
+    MaintenanceExecutor,
+)
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshService
 from src.ops.services.ingestion_error_presentation import present_ingestion_error, structured_error_payload
 from src.ops.services.task_run_ingestion_context import TaskRunIngestionContext
@@ -48,8 +55,14 @@ class TaskRunDispatcher:
     MAX_OPERATOR_MESSAGE_LENGTH = 1_000
     SQL_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$")
 
-    def __init__(self, serving_light_refresh_service: ServingLightRefreshService | None = None) -> None:
+    def __init__(
+        self,
+        serving_light_refresh_service: ServingLightRefreshService | None = None,
+        *,
+        maintenance_executors: Mapping[str, MaintenanceExecutor] | None = None,
+    ) -> None:
         self.serving_light_refresh_service = serving_light_refresh_service or ServingLightRefreshService()
+        self.maintenance_executors = dict(maintenance_executors or {})
 
     def dispatch(self, session: Session, task_run: TaskRun) -> TaskRunDispatchOutcome:
         if task_run.task_type == "dataset_action":
@@ -317,6 +330,14 @@ class TaskRunDispatcher:
         action = get_maintenance_action(target_key)
         if action is None:
             raise WebAppError(status_code=404, code="not_found", message="系统维护动作不存在")
+        executor = self.maintenance_executors.get(action.executor_key)
+        if executor is not None:
+            return self._dispatch_registered_maintenance_action(
+                session=session,
+                task_run=task_run,
+                action=action,
+                executor=executor,
+            )
         node = self._create_node(
             session,
             task_run_id=task_run.id,
@@ -362,6 +383,281 @@ class TaskRunDispatcher:
                 self._finish_node(node, status="failed")
             session.commit()
             return TaskRunDispatchOutcome(status="failed", summary_message=issue.operator_message, issue_id=issue.id)
+
+    def _dispatch_registered_maintenance_action(
+        self,
+        *,
+        session: Session,
+        task_run: TaskRun,
+        action: MaintenanceActionDefinition,
+        executor: MaintenanceExecutor,
+    ) -> TaskRunDispatchOutcome:
+        params = self._maintenance_params(task_run)
+        current_node_id: int | None = None
+        try:
+            if action.key == "maintenance.replay_wealth_sector_heat_history" and str(
+                params.get("execution_mode") or ""
+            ).upper() == "PLAN":
+                self._validate_replay_plan_params(params)
+                node = self._create_node(
+                    session,
+                    task_run_id=task_run.id,
+                    node_key=f"{action.key}:plan",
+                    node_type="maintenance_plan",
+                    sequence_no=1,
+                    title=f"{action.display_name}：生成计划",
+                    resource_key=task_run.resource_key,
+                    time_input=dict(task_run.time_input_json or {}),
+                    context={"action_key": action.key, "execution_mode": "PLAN"},
+                )
+                current_node_id = node.id
+                task_run.current_node_id = node.id
+                task_run.unit_total = 1
+                session.commit()
+                plan = executor.plan(MaintenanceExecutionRequest(action_key=action.key, params=params))
+                task_run.plan_snapshot_json = self._maintenance_plan_snapshot(action=action, plan=plan)
+                task_run.unit_done = 1
+                task_run.progress_percent = 100
+                self._finish_node(node, status="success")
+                session.commit()
+                gap_count = len(plan.metadata.get("gaps") or ()) if isinstance(plan.metadata, Mapping) else 0
+                return TaskRunDispatchOutcome(
+                    status="success",
+                    summary_message=(
+                        f"Heat 回放计划已冻结：units={len(plan.units)} gaps={gap_count} "
+                        f"apply_ready={str(plan.apply_ready).lower()} plan_hash={plan.plan_hash}"
+                    ),
+                )
+
+            if action.key == "maintenance.replay_wealth_sector_heat_history":
+                self._validate_replay_apply_params(params)
+                units = self._load_replay_apply_units(session=session, task_run=task_run, action=action, params=params)
+            else:
+                units = (self._single_day_heat_unit(params),)
+
+            task_run.unit_total = len(units)
+            task_run.unit_done = 0
+            task_run.unit_failed = 0
+            task_run.progress_percent = 0
+            session.commit()
+            total_fetched = 0
+            total_saved = 0
+            total_rejected = 0
+            rejected_reason_counts: dict[str, int] = {}
+            last_message: str | None = None
+            for sequence_no, unit in enumerate(units, start=1):
+                node = self._create_node(
+                    session,
+                    task_run_id=task_run.id,
+                    node_key=unit.unit_key,
+                    node_type="maintenance_unit",
+                    sequence_no=sequence_no,
+                    title=f"{action.display_name}：{unit.unit_key}",
+                    resource_key=task_run.resource_key,
+                    time_input=self._unit_time_input(unit),
+                    context={"action_key": action.key, "executor_key": action.executor_key},
+                )
+                current_node_id = node.id
+                task_run.current_node_id = node.id
+                task_run.current_object_json = dict(unit.payload)
+                session.commit()
+
+                result = executor.execute_unit(unit)
+                self._finish_node(
+                    node,
+                    status="success",
+                    rows_fetched=result.rows_fetched,
+                    rows_saved=result.rows_saved,
+                    rows_rejected=result.rows_rejected,
+                    rejected_reason_counts=dict(result.rejected_reason_counts),
+                    rejected_reason_samples={},
+                )
+                total_fetched += result.rows_fetched
+                total_saved += result.rows_saved
+                total_rejected += result.rows_rejected
+                self._merge_reason_counts(rejected_reason_counts, dict(result.rejected_reason_counts))
+                last_message = result.summary_message
+                task_run.unit_done = sequence_no
+                task_run.progress_percent = int(sequence_no / len(units) * 100) if units else 100
+                session.commit()
+            return TaskRunDispatchOutcome(
+                status="success",
+                rows_fetched=total_fetched,
+                rows_saved=total_saved,
+                rows_rejected=total_rejected,
+                rejected_reason_counts=rejected_reason_counts,
+                summary_message=last_message or action.display_name,
+            )
+        except Exception as exc:
+            session.rollback()
+            issue = self._record_issue(
+                session,
+                task_run=task_run,
+                node_id=current_node_id,
+                code="maintenance_executor_failed",
+                title="系统维护执行失败",
+                operator_message="系统维护动作执行失败。",
+                suggested_action="查看技术诊断和已完成单元；历史回放应从原计划续跑，不要重新规划。",
+                technical_message=str(exc),
+                source_phase="execute",
+                severity="error",
+            )
+            if current_node_id is not None:
+                node = session.get(TaskRunNode, current_node_id)
+                if node is not None:
+                    node.issue_id = issue.id
+                    self._finish_node(node, status="failed")
+            task_run.unit_failed = 1
+            session.commit()
+            return TaskRunDispatchOutcome(
+                status="failed",
+                summary_message=issue.operator_message,
+                issue_id=issue.id,
+                status_reason_code=issue.code,
+            )
+
+    @staticmethod
+    def _maintenance_params(task_run: TaskRun) -> dict[str, Any]:
+        request_payload = dict(task_run.request_payload_json or {})
+        params = {
+            key: value
+            for key, value in request_payload.items()
+            if key not in {"task_type", "resource_key", "action", "target_type", "target_key", "time_input", "filters"}
+        }
+        time_input = request_payload.get("time_input")
+        if isinstance(time_input, Mapping):
+            params.update({key: value for key, value in time_input.items() if key != "mode" and value not in (None, "")})
+        params.update(dict(task_run.time_input_json or {}))
+        params.pop("mode", None)
+        filters = request_payload.get("filters")
+        if isinstance(filters, Mapping):
+            params.update({key: value for key, value in filters.items() if value not in (None, "")})
+        params.update(dict(task_run.filters_json or {}))
+        return params
+
+    @staticmethod
+    def _validate_replay_plan_params(params: Mapping[str, Any]) -> None:
+        if not params.get("start_date") or not params.get("end_date"):
+            raise ValueError("replay PLAN requires start_date and end_date")
+        if params.get("plan_task_run_id") not in (None, "") or params.get("plan_hash") not in (None, ""):
+            raise ValueError("replay PLAN forbids plan_task_run_id and plan_hash")
+
+    @staticmethod
+    def _validate_replay_apply_params(params: Mapping[str, Any]) -> None:
+        if str(params.get("execution_mode") or "").upper() != "APPLY":
+            raise ValueError("replay execution_mode must be PLAN or APPLY")
+        if params.get("start_date") not in (None, "") or params.get("end_date") not in (None, ""):
+            raise ValueError("replay APPLY forbids start_date and end_date")
+        if params.get("plan_task_run_id") in (None, "") or not str(params.get("plan_hash") or "").strip():
+            raise ValueError("replay APPLY requires plan_task_run_id and plan_hash")
+
+    @staticmethod
+    def _single_day_heat_unit(params: Mapping[str, Any]) -> MaintenanceExecutionUnit:
+        trade_date = TaskRunDispatcher._parse_date(params.get("trade_date"))
+        return MaintenanceExecutionUnit(
+            unit_key=f"wealth-sector-heat:{trade_date.isoformat()}",
+            payload={"trade_date": trade_date.isoformat()},
+        )
+
+    @staticmethod
+    def _maintenance_plan_snapshot(
+        *, action: MaintenanceActionDefinition, plan: MaintenanceExecutionPlan
+    ) -> dict[str, Any]:
+        snapshot = {
+            "schema_version": 1,
+            "action_key": action.key,
+            "executor_key": action.executor_key,
+            "plan_hash": plan.plan_hash,
+            "apply_ready": plan.apply_ready,
+            "expected_rows": plan.expected_rows,
+            "units": [
+                {"unit_key": unit.unit_key, "payload": dict(unit.payload)}
+                for unit in plan.units
+            ],
+            "metadata": dict(plan.metadata),
+        }
+        snapshot["snapshot_integrity_hash"] = TaskRunDispatcher._maintenance_snapshot_hash(snapshot)
+        return snapshot
+
+    @staticmethod
+    def _maintenance_snapshot_hash(snapshot: Mapping[str, Any]) -> str:
+        payload = {
+            key: value
+            for key, value in snapshot.items()
+            if key != "snapshot_integrity_hash"
+        }
+        encoded = json.dumps(
+            payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
+
+    def _load_replay_apply_units(
+        self,
+        *,
+        session: Session,
+        task_run: TaskRun,
+        action: MaintenanceActionDefinition,
+        params: Mapping[str, Any],
+    ) -> tuple[MaintenanceExecutionUnit, ...]:
+        try:
+            plan_task_run_id = int(params["plan_task_run_id"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError("plan_task_run_id must be an integer") from exc
+        if plan_task_run_id == task_run.id:
+            raise ValueError("replay APPLY cannot reference itself")
+        plan_task_run = session.get(TaskRun, plan_task_run_id)
+        if plan_task_run is None or plan_task_run.status != "success":
+            raise ValueError("referenced replay PLAN TaskRun is missing or not successful")
+        referenced_action = str((plan_task_run.request_payload_json or {}).get("target_key") or "")
+        referenced_params = self._maintenance_params(plan_task_run)
+        if (
+            plan_task_run.task_type != "maintenance_action"
+            or referenced_action != action.key
+            or str(referenced_params.get("execution_mode") or "").upper() != "PLAN"
+        ):
+            raise ValueError("referenced TaskRun is not a PLAN for the same maintenance action")
+        snapshot = dict(plan_task_run.plan_snapshot_json or {})
+        stored_integrity_hash = str(snapshot.get("snapshot_integrity_hash") or "")
+        if not stored_integrity_hash or stored_integrity_hash != self._maintenance_snapshot_hash(snapshot):
+            raise ValueError("referenced replay PLAN snapshot integrity check failed")
+        submitted_hash = str(params.get("plan_hash") or "").strip()
+        if (
+            snapshot.get("schema_version") != 1
+            or snapshot.get("action_key") != action.key
+            or snapshot.get("executor_key") != action.executor_key
+            or snapshot.get("plan_hash") != submitted_hash
+        ):
+            raise ValueError("referenced replay PLAN snapshot or plan_hash is invalid")
+        if snapshot.get("apply_ready") is not True:
+            raise ValueError("referenced replay PLAN contains source gaps and is not apply-ready")
+        metadata = snapshot.get("metadata")
+        if (
+            not isinstance(metadata, Mapping)
+            or metadata.get("start_date") != referenced_params.get("start_date")
+            or metadata.get("end_date") != referenced_params.get("end_date")
+        ):
+            raise ValueError("referenced replay PLAN date window does not match its frozen snapshot")
+        raw_units = snapshot.get("units")
+        if not isinstance(raw_units, list) or not raw_units:
+            raise ValueError("referenced replay PLAN has no executable units")
+        units = []
+        for raw_unit in raw_units:
+            if not isinstance(raw_unit, Mapping):
+                raise ValueError("referenced replay PLAN unit is invalid")
+            unit_key = str(raw_unit.get("unit_key") or "").strip()
+            payload = raw_unit.get("payload")
+            if not unit_key or not isinstance(payload, Mapping):
+                raise ValueError("referenced replay PLAN unit is invalid")
+            units.append(MaintenanceExecutionUnit(unit_key=unit_key, payload=dict(payload)))
+        return tuple(units)
+
+    @staticmethod
+    def _unit_time_input(unit: MaintenanceExecutionUnit) -> dict[str, Any]:
+        trade_date = unit.payload.get("trade_date")
+        return {"mode": "point", "trade_date": trade_date} if trade_date else {"mode": "none"}
 
     def _run_dataset_action_plan(
         self,

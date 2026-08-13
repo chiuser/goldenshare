@@ -5,8 +5,10 @@ from typing import Iterable
 
 from src.ops.action_catalog import (
     ActionParameter,
+    MaintenanceActionDefinition,
     WorkflowDefinition,
     dataset_field_default_value,
+    list_maintenance_actions,
     list_workflow_definitions,
 )
 from src.foundation.datasets.models import DatasetDateModel, DatasetDefinition, DatasetInputField
@@ -82,6 +84,7 @@ class ManualActionQueryService:
     def build_action_routes(self) -> list[ManualActionRoute]:
         routes = [self._build_resource_route(definition) for definition in list_dataset_definitions()]
         routes.extend(self._build_workflow_route(workflow) for workflow in list_workflow_definitions() if workflow.manual_enabled)
+        routes.extend(self._build_maintenance_route(action) for action in list_maintenance_actions() if action.manual_enabled)
         return sorted(routes, key=lambda item: (item.group_order, item.action_order, item.display_name))
 
     def get_action_route(self, action_key: str) -> ManualActionRoute | None:
@@ -136,6 +139,23 @@ class ManualActionQueryService:
             time_form=self._time_form_from_workflow(workflow),
             filters=self._collect_filters((workflow.parameters,)),
             workflow=workflow,
+        )
+
+    def _build_maintenance_route(self, action: MaintenanceActionDefinition) -> ManualActionRoute:
+        return ManualActionRoute(
+            action_key=action.key,
+            action_type="maintenance_action",
+            group_key=action.domain_key,
+            group_label=action.domain_display_name,
+            group_order=90,
+            action_order=200,
+            display_name=action.display_name,
+            description=action.description,
+            resource_key=None,
+            resource_display_name=None,
+            date_model=None,
+            time_form=self._time_form_from_maintenance_action(action),
+            filters=self._collect_filters((action.parameters,)),
         )
 
     @staticmethod
@@ -255,6 +275,38 @@ class ManualActionQueryService:
             )
         if not modes:
             modes = [cls._none_mode_response(description="不填写时间条件，按该工作流默认策略执行。")]
+        return cls._time_form(modes)
+
+    @classmethod
+    def _time_form_from_maintenance_action(
+        cls, action: MaintenanceActionDefinition
+    ) -> ManualActionTimeFormResponse:
+        keys = {param.key for param in action.parameters}
+        modes: list[ManualActionTimeModeResponse] = []
+        if "trade_date" in keys:
+            modes.append(
+                cls._mode_response(
+                    mode="point",
+                    label="只处理一天",
+                    description="指定单个交易日。",
+                    control="trade_date",
+                    selection_rule="trading_day_only",
+                    date_field="trade_date",
+                )
+            )
+        if {"start_date", "end_date"}.issubset(keys):
+            modes.append(
+                cls._mode_response(
+                    mode="range",
+                    label="处理一个时间区间",
+                    description="指定开始和结束交易日。",
+                    control="trade_date_range",
+                    selection_rule="trading_day_only",
+                    date_field="trade_date",
+                )
+            )
+        if "execution_mode" in keys or not modes:
+            modes.append(cls._none_mode_response(description="不填写时间条件，按维护动作参数执行。"))
         return cls._time_form(modes)
 
     @classmethod

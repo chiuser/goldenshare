@@ -1,6 +1,6 @@
 # 市场总览｜板块速览 M2 编码前门禁 v2
 
-> 状态：按批准顺序实施中，门禁逐项验收。
+> 状态：按批准顺序实施中；Slice 5 本地代码与测试已完成，生产 PLAN/APPLY 仍按两阶段门禁执行。
 > 规则：未勾选门禁不得越级进入对应后续阶段；本地代码完成不等于生产迁移、数据发布或上线验收通过。
 
 关联文档：
@@ -27,37 +27,37 @@
 
 ### 1.2 数据与来源
 
-1. [ ] `silver_dc_industry_hierarchy` 496 行及 31/128/337 分布复核通过。
+1. [x] `silver_dc_industry_hierarchy` 与 prod read-back 均为 496 行及 31/128/337，canonical hash 一致。
 2. [x] 生产只读审计确认 `dc_index.idx_type` 真实枚举。
 3. [x] 生产只读审计确认 `dc_daily.category` 真实枚举。
 4. [x] 生产只读审计确认 `board_moneyflow_dc.content_type` 真实枚举。
 5. [x] `board_moneyflow_dc.ts_code` 非空率及与板块代码匹配率已记录，确认不使用名称模糊 join。
 6. [x] 当前审计已确认：`dc_daily/dc_member` 以源站现状为口径，`board_moneyflow_dc@2026-07-09` 已补齐；这些单点事实不等于 60 日整窗验收。
-7. [ ] `dc_member` 在 60 日窗口内逐日 pair 数、单板最大成员数与重复率已记录。
+7. [x] `dc_member` 在冻结 85 日窗口内逐日 pair 数为 31,717-71,132，单板最大成员数 3,850；主键约束与逐日板块覆盖核验无重复/缺板。
 8. [x] `equity_daily_bar` 对原始成员集合的行情覆盖率已记录；该结果不等于有效池覆盖率。
-9. [ ] `equity_limit_list` 零行与“数据集已完成”状态区分方案已验证。
-10. [ ] 特征 20 日/5 日窗口及复算所需 `dc_daily[t-25..t]`、`moneyflow[t-9..t]`、成员/股票事实 `[t-5..t]` 均使用已完成交易日，不用自然日替代。
+9. [x] `equity_limit_list` 零行与“数据集已完成”状态区分方案已验证；首发 85 日窗口每日实际有 29-152 只涨停，不存在需完成证据解释的零行日。
+10. [x] 特征 20 日/5 日窗口及复算所需 `dc_daily[t-25..t]`、`moneyflow[t-9..t]`、成员/股票事实 `[t-5..t]` 已用 SSE 开放日冻结，不用自然日替代。
 11. [ ] 领涨股逐字段来自 `dc_index`，缺失时不设替代来源。
-12. [ ] `security_serving` 的 `security_type/curr_type/list_status/list_date/delist_date` 完整率与目标日资格分类已对账。
-13. [ ] `equity_suspend_d` 目标日完成证据、`suspend_type='S'` 数量及零行语义已验证。
-14. [ ] 每个概念的原始成员、有效 A 股、B 股、未上市、已退市、停牌、可报价、有效行情和真实缺行情数量可逐项复算。
-15. [ ] 全部必需 prod 来源的 60 日逐日枚举、日期、数量、唯一键、合法零行完成证据和资金流代码覆盖率台账已冻结。
-16. [ ] CN_A 首发窗口沿用当前口径，为连续 60 个 `trade_calendar.exchange='SSE' AND is_open=true` 的目标交易日；只有全部来源通过的日期计为“有效交易日”，缺口必须修复，不能跳日或用窗外日期凑数，额外 warm-up 日不计入 60 日。
+12. [x] `security_serving` 的 `security_type/curr_type/list_status/list_date/delist_date` 已按每个目标日投影资格；5,884 行均满足当前 EQUITY/CNY/L|D 形态且 `list_date` 非空。
+13. [x] `equity_suspend_d` 的 `suspend_type='S'` 每日 1-57 行，首发窗口无零行日，`(trade_date, ts_code, suspend_type)` 重复为 0。
+14. [x] 冻结窗口内每个概念的原始成员、有效 A 股、停牌、可报价、有效行情和真实缺行情均完成关系复算；真实缺行情恒为 0，`BK0636.DC/B股` 无有效 A 股并归为 `INVALID`。
+15. [x] 全部必需 prod 来源的 60+25 日逐日枚举、日期、数量、唯一键、零行语义和资金流代码覆盖率台账已冻结；资金流对目标概念覆盖率 100%。
+16. [x] CN_A 首发窗口已冻结为 60 个连续 SSE 开放日 `2026-05-20..2026-08-12`，warm-up 为 `2026-04-10..2026-05-19`；日期级缺口为 0。Prod Raw/Core 一致的单概念行情缺行按 `INVALID`，不跳日、不用窗外日期凑数。
 
 ### 1.3 数据库、连接与执行链
 
 1. [x] 本需求 revision 创建时已确认本地与生产单 head `20260812_000133`，并正确接为 `20260813_000134`；部署后再次只读验收，仓库与生产当前单 head 已推进为 `20260813_000135`。后续迁移必须接当前真实 head。
 2. [x] 两张新表字段、主键、索引、约束和 downgrade 已实现并通过模型、约束及迁移范围测试。
-3. [x] 层级全表 `DELETE + INSERT + read-back` 单事务发布已实现并通过 496/31/128/337、闭包、版本、hash、写入失败和 read-back 篡改回滚测试；正式生产发布尚未执行。
+3. [x] 层级全表 `DELETE + INSERT + read-back` 单事务发布已实现并完成正式生产发布；496/31/128/337、闭包、版本及 source/prod hash 一致。
 4. [x] 连接复用口径已确认：Web/Heat 使用现有 `DATABASE_URL`，DG hierarchy 使用现有 `ProdPostgresWriteResource` / `PROD_POSTGRES_WRITE_*` 和 `lake_raw_writer`；不新增账号、DSN、engine 或板块专用数据库配置。
 5. [ ] 组件访问边界已评审：DG 只写 hierarchy，Heat 只写 Heat 且来源查询只读，Web 不产生 DML，运行时代码无 DDL/`TRUNCATE`；Heat/Ops 使用独立 Session/事务。
-6. [ ] Heat 来源查询全部只读 prod，并按交易日、概念和成员集合有界；禁止 Parquet、DuckDB、DG resource、Tushare 和 N+1。
-7. [ ] biz Heat quality contract 与按交易日 `DELETE + INSERT + read-back` 单事务发布已冻结。
-8. [ ] ops generic executor port、TaskRun 节点/issue/checkpoint、app 注入与生产 CLI `ops-worker-run/serve` factory 消费方案已冻结；依赖方向不得出现 `ops -> biz`，CLI 不得直构未装配 worker。
-9. [ ] Heat business session 与 TaskRun ops session 独立；状态/观测失败不得阻断、回滚或污染 Heat 及来源业务事务。
-10. [ ] 60 个有效交易日从旧到新 plan/apply、首错停止、checkpoint 和续跑方案已冻结。
+6. [x] Heat 来源查询全部只读 prod，并按交易日、概念和成员集合有界；禁止 Parquet、DuckDB、DG resource、Tushare 和 N+1。
+7. [x] biz Heat quality contract 与按交易日 `DELETE + INSERT + read-back` 单事务发布已实现并通过回滚/read-back/幂等测试。
+8. [x] ops generic executor port、TaskRun 节点/issue/checkpoint、app 注入与生产 CLI `ops-worker-run/serve` factory 消费已实现；静态依赖确认 `ops` 不 import `biz`，CLI 不直构未装配 worker。
+9. [x] Heat business session 与 TaskRun ops session 独立并复用现有 Session factory；PostgreSQL 业务事务使用 `REPEATABLE READ`，本地测试确认 Ops 回滚不影响已提交 Heat。
+10. [x] 60 个有效交易日从旧到新 PLAN/APPLY、首错停止、snapshot integrity、hash 漂移和已成功日期无 DML 续跑方案已实现并通过本地测试。
 11. [x] DG 只保留 hierarchy 发布；静态清单确认不存在 DG Heat asset、dynamic partition、asset check、sensor、Gold、runless event 或 history CLI，hierarchy publisher 也未接 job/sensor/check/bootstrap 自动入口。
-12. [ ] 方案与代码均不包含 Kopia。
+12. [x] 方案与 Heat 执行链代码均不包含 Kopia，静态门禁已覆盖。
 13. [x] 本模块不新增数据库配置项；现有 `DATABASE_URL` 与 `PROD_POSTGRES_WRITE_*` 的消费者已经核对，URL/password 继续遵守通用日志脱敏规则。
 14. [x] revision `20260813_000134` 已随部署应用；生产只读权限探针确认既有 `lake_raw_writer` 仅具备 `core_serving.wealth_sector_hierarchy` 的 `SELECT/INSERT/DELETE`，没有 `UPDATE/TRUNCATE`，且未创建 login 或新增连接配置。
 
@@ -307,6 +307,8 @@ interface SectorOverviewRequestV2 {
 | 场景 | Heat 行 | API 状态 | 异常码 |
 |---|---|---|---|
 | 全部必需 prod 来源同日、证券资格可用、成员与历史完整 | 正常 | `READY` | 无 |
+| 必需来源整日缺失，或物理零行且无完成证据 | 不发布该日 | `DELAYED/ERROR` | `SO_SOURCE_DELAYED/SO_QUERY_FAILED` |
+| `dc_daily` 等源站现状仅缺单个概念的必需特征 | 保留该概念 `INVALID`，其它概念正常计算 | `PARTIAL` | `SO_HEAT_NOT_READY` |
 | 有效 A 股 `memberCount < 10` | 保留 `INVALID` 行，总分为空 | `PARTIAL` | `SO_MEMBER_COVERAGE_LOW` |
 | `quoteEligibleCount = 0` | 保留 `INVALID` 行，总分为空 | `PARTIAL` | `SO_MEMBER_COVERAGE_LOW` |
 | `quoteCoverage < 0.80` | 保留 `INVALID` 行，总分为空 | `PARTIAL` | `SO_MEMBER_COVERAGE_LOW` |
@@ -327,29 +329,29 @@ interface SectorOverviewRequestV2 {
 ### 6.1 hierarchy、Heat contract、访问边界与执行链
 
 1. [x] 层级固定 schema、唯一键、31/128/337 和父子/根/路径/叶节点闭包已由 source loader 与纯 contract 测试覆盖。
-2. [x] 层级 transaction rollback、版本和 canonical read-back hash 已由写入失败及回读篡改负例覆盖；正式生产 read-back 待部署后执行。
+2. [x] 层级 transaction rollback、版本和 canonical read-back hash 已由写入失败及回读篡改负例覆盖；正式生产 read-back 已通过。
 3. [ ] 策略配置中心注册、canonical hash、非法权重、阈值、覆盖率、未知版本和版本未升负例。
-4. [ ] winsor 边界、平均秩和同分稳定排序。
-5. [ ] 五分量与总分 golden test。
-6. [ ] `heatDelta1d` 和两日趋势确认。
-7. [ ] no-lookahead：未来输入变化不影响过去交易日结果。
+4. [x] winsor 边界、平均秩、未舍入分排序和 `sector_code` 同分稳定排序已测试。
+5. [x] 五分量、总分、最终两位小数、rank、level 与质量状态 golden test 已通过。
+6. [x] `heatDelta1d`、原始趋势和两日趋势确认已覆盖固定样本。
+7. [x] no-lookahead：未来输入变化不影响过去交易日结果。
 8. [ ] 缺历史、缺资金、低覆盖、来源错日均失败或无效，不补权。
-9. [ ] 无效概念保留 `INVALID + reason`，不落成 0 分。
-10. [ ] prod 单日事务 `DELETE + INSERT + read-back` 与相同 config/source hash 幂等重跑。
-11. [ ] contract、数据库写入或 read-back 失败回滚本日事务，并保留此前成功交易日。
-12. [ ] 有效池逐行资格边界、B 股排除、未上市/已退市排除、停牌保留和可报价分母 golden test。
+9. [x] 无效概念保留 `INVALID + reason`，不落成 0 分。
+10. [x] prod 单日事务 `DELETE + INSERT + read-back` 与相同 config/source/content hash 幂等续跑已测试。
+11. [x] plan/content drift 或 read-back 失败会回滚本日事务，并保留此前成功行。
+12. [x] 有效池逐行资格边界、B 股排除、未上市/已退市排除、停牌保留、可报价分母和真实缺行情 golden test 已覆盖。
 13. [ ] `quoteEligibleCount=0`、停牌源缺失、证券资格缺失和真实行情缺失负例。
-14. [ ] prod 来源 bundle 按冻结窗口有界读取；`SELECT *`、自然日、N+1、DG/Lake/Tushare 访问负例。
+14. [x] prod 来源 bundle 按 SSE 开放日冻结窗口有界读取；成员集合关系约束与 DG/Lake/Tushare/来源 DML 静态负例已覆盖。
 15. [ ] 访问边界正例通过；DG 写 Heat、Heat 写来源/hierarchy、Web 产生 DML、运行时代码执行 schema DDL 或 `TRUNCATE` 的负例均被测试阻止。
-16. [ ] ops executor port 经 app adapter 调用 biz；静态/依赖测试确认 ops 不 import biz，未装配时失败关闭。
-17. [ ] Heat business session 与 TaskRun session 隔离；状态写失败不回滚已提交 Heat。
-18. [ ] 60 个有效交易日从旧到新、首错停止、plan hash/checkpoint 续跑；缺口和 warm-up 不计数。
-19. [ ] 仓库静态扫描确认不存在 DG Heat asset/partition/check/sensor/Gold/runless event/history CLI。
-20. [ ] `ops-worker-run/serve` 经 app factory 注入 Heat executor；默认未装配 worker 对 Heat action 失败关闭，既有非 Heat action 回归不变。
+16. [x] ops executor port 经 app adapter 调用 biz；静态/依赖测试确认 ops 不 import biz，未装配时失败关闭。
+17. [x] Heat business session 与 TaskRun session 隔离；状态事务回滚不回滚已提交 Heat。
+18. [x] 60 个有效交易日从旧到新、首错停止、plan/content hash 与断点幂等续跑已测试；缺口后继日标记 `PREDECESSOR_GAP`。
+19. [x] 仓库静态扫描确认不存在 DG Heat asset/partition/check/sensor/Gold/runless event/history CLI。
+20. [x] `ops-worker-run/serve` 经 app factory 注入 Heat executor；默认未装配 worker 对 Heat action 失败关闭，既有非 Heat action回归通过。
 21. [ ] Web/Heat 使用现有应用连接、DG 使用现有 prod write resource 的装配测试通过；现有 URL/password 不进入日志、TaskRun 或异常文本。
-22. [ ] replay PLAN 只保存 snapshot/gap ledger、不写 Heat；APPLY 必须引用成功 PLAN 的 `plan_task_run_id + plan_hash`，日期窗参数互斥，逐日 config/source hash 漂移以 `HEAT_PLAN_DRIFT` 停止。
-23. [ ] replay 不可调度；单日 schedule 在 60 日和最新日验收前保持禁用，并且只使用既有 Ops Schedule，不新增 sensor/隐藏 cron。
-24. [ ] app completion-evidence provider 只把 Ops TaskRun/日期完整性事实映射为中立 DTO；biz 不 import ops，证据不提供公式值，合法零行的 evidence id/hash 纳入 plan/source hash，缺证据必须阻断。
+22. [x] replay PLAN 只保存 snapshot/gap ledger、不写 Heat；APPLY 必须引用同 action 成功 PLAN 的 `plan_task_run_id + plan_hash`，校验日期窗与 snapshot integrity，逐日 plan/content 漂移在 DML 前停止。
+23. [x] replay 与单日 action 当前均不可调度；只经既有 Ops TaskRun/worker 执行，不新增 sensor/隐藏 cron。
+24. [x] app completion-evidence provider 只把成功的点式来源 TaskRun 映射为中立 DTO；biz 不 import ops，合法零行 evidence id/hash 纳入 source hash，缺证据阻断已测试。
 
 ### 6.2 后端
 
@@ -388,9 +390,12 @@ pytest -q \
   tests/test_wealth_sector_serving_constraints.py \
   tests/test_wealth_sector_serving_migration.py \
   tests/test_wealth_sector_heat_contract.py \
-  tests/test_wealth_sector_heat_materialization_service.py \
-  tests/test_wealth_sector_heat_task_execution.py \
-  tests/test_wealth_sector_database_access_boundaries.py \
+  tests/test_wealth_sector_heat_materialization.py \
+  tests/test_wealth_sector_heat_replay_planner.py \
+  tests/test_sector_heat_task_executor.py \
+  tests/web/test_wealth_sector_heat_ops_runtime.py \
+  tests/web/test_ops_manual_actions_api.py \
+  tests/architecture/test_wealth_sector_heat_guardrails.py \
   tests/test_cli_ops_runtime.py \
   tests/web/test_wealth_market_sector_overview_api.py \
   tests/architecture/test_subsystem_dependency_matrix.py
@@ -456,8 +461,8 @@ git diff --check
 ### 9.1 发布顺序
 
 1. [ ] 实施日真实 Alembic head 已确认；两表迁移、现有连接复用、`lake_raw_writer` hierarchy 单表授权、组件访问边界和双 Session 事务测试完成。
-2. [ ] DG hierarchy -> prod hierarchy 发布、496/31/128/337 与 hash read-back 完成。
-3. [ ] 60 日生产来源缺口已修复，60 个有效交易日与 warm-up/缺口台账已冻结。
+2. [x] DG hierarchy -> prod hierarchy 发布、496/31/128/337 与 hash read-back 完成。
+3. [x] 60+25 日生产来源台账已冻结；日期级缺口清零，Prod Raw/Core 一致的局部源站缺行已冻结为逐概念 `INVALID` 证据。
 4. [ ] prod-native Heat 60 个有效交易日 TaskRun 回放、read-back、重放一致性和性能验收完成。
 5. [ ] 最新交易日 Heat 发布和来源日期对账完成。
 6. [ ] 只读 prod 的后端 V2 完成并通过真实 API 验收。
@@ -541,6 +546,8 @@ git diff --check
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.8 | 2026-08-13 | 记录 Slice 5 本地门禁：Heat 配置/公式/来源/有效池/事务、REPEATABLE READ、60 日 PLAN/APPLY、snapshot integrity、断点续跑、Ops/app/CLI、完成性证据和静态访问边界已实现测试；生产回放保持未执行 |
+| v2.7 | 2026-08-13 | 记录 hierarchy 正式发布、60+25 日九张 prod 来源审计和有效池验收；将日期级缺口与源站局部概念缺行分开，后者冻结为 `INVALID` 而非整日阻断 |
 | v2.6 | 2026-08-13 | 记录生产当前单 head `20260813_000135`、两表与 hierarchy 授权验收通过，以及 Slice 3 hierarchy publisher 和 DG Heat/自动入口清零测试已实施；正式生产 hierarchy 发布仍待部署后单独执行 |
 | v2.5 | 2026-08-13 | 记录 Slice 1/2 实施：基于已复核的 head `20260812_000133` 完成两表 ORM/注册、revision `20260813_000134` 及本地正反测试；本提交 head 为 `000134`，生产仍为 `000133`、尚未迁移 |
 | v2.4 | 2026-08-13 | 撤回三账号/三 DSN 门禁；Web/Heat 复用现有应用连接，DG 复用现有 prod write resource；改为组件访问边界、Heat/Ops 双 Session 事务和既有 `lake_raw_writer` hierarchy 单表授权门禁 |

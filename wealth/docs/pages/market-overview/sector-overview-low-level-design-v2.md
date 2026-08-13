@@ -1,6 +1,6 @@
 # 市场总览｜板块速览低层设计 v2（LLD）
 
-> 状态：按批准顺序实施中；Slice 1/2 已完成本地代码与测试，不代表生产迁移、DG 物化或后续阶段通过。
+> 状态：按批准顺序实施中；Slice 1-4 已完成生产验收，Slice 5 本地实现与测试已完成，待部署后执行正式 PLAN，APPLY 仍需独立批准。
 > 日期：2026-08-13
 > 需求基线：[sector-overview-benchmark-requirement-v2.md](./sector-overview-benchmark-requirement-v2.md)
 > 实施方案：[sector-overview-implementation-design-v2.md](./sector-overview-implementation-design-v2.md)
@@ -20,7 +20,7 @@
 6. `ops -> biz` 被依赖矩阵禁止；`ops` 通过窄执行端口调用，`app` 组合根负责把该端口绑定到 biz Heat 服务。业务事务与 TaskRun 状态事务必须分离。
 7. 新 ORM 必须进入 `src/foundation/models/core_serving/**`，并在 `core_serving/__init__.py`、`all_models.py` 和模型注册测试中登记；不放入 legacy 或错误的 `models/core/**` 路径。
 8. Heat 不使用 Dagster asset、dynamic partition、asset check、sensor、Gold 路径、runless event 或 DG history CLI；60 日回放是 prod-native TaskRun。
-9. 本轮没有新的产品决策待确认。剩余未通过项是 60 日 prod 来源缺口、app 执行装配、性能、回放、迁移、数据库访问边界和发布验收门禁。
+9. 本轮没有新的产品决策待确认。hierarchy 与 60+25 日 prod 来源审计已通过；剩余未通过项是 Heat/app 执行装配、事务与访问边界、60 日回放、后端 V2、前端 V2 和最终发布验收。
 
 ### 1.2 当前事实快照
 
@@ -33,8 +33,8 @@
 | 当前前端 | 4×2 排名列 + 5×4 涨跌热力格，仅 loading/ready/error |
 | 行业层级 Lake | 现有单文件正式 Silver，契约要求 496 行、31/128/337 |
 | Heat prod 来源 | `trade_calendar/dc_index/dc_daily/dc_member/board_moneyflow_dc/equity_daily_bar/equity_limit_list/security_serving/equity_suspend_d` 与前序 Heat |
-| 当前来源审计 | `dc_daily/dc_member` 以源站现状为业务口径；`board_moneyflow_dc@2026-07-09` 已补齐，仍需放入 60 日整窗复核 |
-| 当前运行缺口 | Ops Worker 尚无 biz executor 装配端口；现有连接复用、Heat/Ops 双事务隔离和组件访问边界尚未实现验收 |
+| 当前来源审计 | 目标窗 `2026-05-20..2026-08-12`、warm-up `2026-04-10..2026-05-19` 已冻结并完成整窗复核；资金流对目标概念 100% 覆盖、有效池无真实缺行情；`dc_daily@2026-05-18/20/22/25` 的 88/448/1/2 个缺行在 Prod Raw/Core 一致，按逐概念 `INVALID` 处理 |
+| 当前运行缺口 | Heat 来源查询、计算、单日发布、Ops 端口、app 双 Session 与 CLI factory 已完成本地验收；生产 Heat 仍为 0 行，正式 60 日 PLAN/APPLY、read-back 与性能验收尚未执行 |
 
 ### 1.3 禁止项
 
@@ -366,7 +366,7 @@ missingQuoteMembers = quoteEligibleMembers - validQuoteMembers
 `SectorHeatMaterializationService.materialize_trade_date(session, trade_date, expected_plan_hash)`：
 
 1. 用 prod 交易日历解析目标日、25 日 warm-up 和 5 日复算窗口。
-2. `SectorHeatSourceQuery` 有界读取全部 prod 输入；结合 app 传入的中立完成性 DTO，验证来源日期、唯一键、概念代码覆盖及合法零行证据。
+2. `SectorHeatSourceQuery` 有界读取全部 prod 输入；结合 app 传入的中立完成性 DTO，验证来源日期、唯一键、概念代码覆盖及合法零行证据。来源整日缺失或零行且无完成证据时阻断该交易日；Prod Raw/Core 一致的局部概念缺行只使该概念因缺少主分量成为 `INVALID`，不得补 0、跨日填充、删除候选或阻断其它概念。
 3. 构造逐日有效池与六类计数；复算前 5 日横截面 base rank，不读取未来输入。
 4. 使用纯 contract 计算目标日五分量、persistence、final score/rank、level、delta 和 trend。
 5. 为当日所有概念生成候选行；质量不足保留 `INVALID + reason`，不伪造 0 分、不补权。
@@ -374,6 +374,8 @@ missingQuoteMembers = quoteEligibleMembers - validQuoteMembers
 7. 在同一业务事务中 `DELETE WHERE trade_date=:date`、批量 `INSERT`、显式列 read-back；比较 semantic `content_hash`、行数、`scoreVersion/configHash/sourceHash/tradeDate`。
 8. read-back 不一致或任一质量门禁失败则回滚；成功后提交该日 Heat。来源表全程只读。
 9. 返回 `SectorHeatMaterializationResult`：日期、读写行数、有效/无效分布、来源证据、配置/hash、内容 hash、耗时和质量结果。
+10. PLAN 的业务 session 以 PostgreSQL `REPEATABLE READ, READ ONLY` 启动；单日发布以 `REPEATABLE READ` 启动，保证来源 bundle、有效池聚合、公式与 source hash 使用同一数据库快照。
+11. APPLY/续跑传入 `expected_plan_hash + expected_content_hash`；若重新计算无漂移且现存 semantic content 已等于计划，则返回 `skipped_existing=true` 且不执行 DML。
 
 ### 5.6 Ops 执行端口与 app 组合
 
@@ -393,6 +395,7 @@ dispatcher 语义固定：replay `PLAN` 调用 `plan()` 后只持久化 snapshot
 4. `src/app/runtime/ops_worker_factory.py` 是生产 worker 唯一装配入口；向 `OperationsWorker` 注入 executor registry。`src/cli.py` 的 `ops-worker-run/serve` 必须使用该 factory，`src/cli_parts/ops_handlers.py` 接收 callable factory；不得直接构造未装配的 worker。执行器缺失时 Heat action 失败关闭。
 5. Ops session 与 business session 不共享 transaction。Heat 已提交后，即使 TaskRun 节点/终态写入失败，也不得回滚 Heat；重试先按 plan/config/source/content hash 做 read-back，再幂等覆盖或确认完成。
 6. `biz` 不读写 TaskRun；app 适配器只做参数映射、session 生命周期和结果映射，不实现公式/SQL。
+7. replay PLAN snapshot 保存逐日 `source_dates/source_row_counts`、期望行数、config/source/plan/content hash，并增加通用 `snapshot_integrity_hash`；APPLY 必须同时校验成功 PLAN 身份、日期窗、提交的 plan hash 与 snapshot integrity。
 
 ActionDefinition 参数：
 
@@ -411,7 +414,7 @@ ActionDefinition 参数：
 ### 5.7 60 个有效交易日 plan/apply
 
 1. replay PLAN 从 prod 交易日历选择候选日期，对每一日执行来源日期、数量、唯一键、合法零行、代码覆盖和配置可用性审计；只写 Ops `plan_snapshot_json` 与 issue，不写 Heat。
-2. plan 先从 prod 交易日历选择连续至少 60 个 `exchange='SSE' AND is_open=true` 的目标交易日；只有全部必需 prod 来源通过的日期才是“有效交易日”。不完整日期进入 gap ledger，修复并复核前不得跳过该日或用窗外日期凑满 60 日。
+2. plan 先从 prod 交易日历选择连续至少 60 个 `exchange='SSE' AND is_open=true` 的目标交易日；只有全部必需 prod 来源在日期级通过的日期才是“有效交易日”。日期级失败包括整日缺失、枚举/唯一键非法或零行无完成证据；源站现状导致的单概念特征缺行归入该概念 `INVALID`，不把日期整体移出窗口。不完整日期进入 gap ledger，修复并复核前不得跳过或用窗外日期凑数。
 3. plan 固定该连续目标窗、额外 25 个前置 warm-up 交易日、逐日来源证据、预计读写行数、配置版本/hash 和 canonical plan hash。
 4. APPLY 必须携带成功 PLAN 的 `plan_task_run_id + plan_hash`，从旧到新逐日执行；每个日期独立 business transaction 和 TaskRunNode。
 5. 首个失败日立即停止；续跑根据 plan hash 与 Heat read-back 从最后成功日继续。warm-up 不计入 60 日验收。
@@ -680,6 +683,7 @@ git diff --check
 3. 大型成员代码集合使用临时值关系、数组绑定或数据库等价批量方式，禁止每个概念一次 SQL。
 4. 每日 TaskRun 节点记录逐来源行数与 canonical source hash，以及 SQL、计算、写入和 read-back 耗时；不记录文件数或 Gold 元数据。
 5. 单日计算应复用已加载的来源 bundle，不允许 contract 内部重新访问数据库。
+6. 生产只读验收表明 85 日有效池单次聚合超过 60 秒，而 10 日批次约 7.4-16.7 秒；正式物化必须按单交易日查询，历史 plan 审计批次不得超过 10 个交易日，并设置数据库 statement timeout，禁止整窗大查询。
 
 ---
 
@@ -703,21 +707,25 @@ git diff --check
 
 只新增两表模型、注册、迁移和模型测试；迁移给既有 `lake_raw_writer` 增加 hierarchy 单表 `SELECT/INSERT/DELETE`。Web/Heat 复用现有应用连接，DG 复用现有 prod write resource；完成双 Session 事务隔离、组件 SQL 范围、DG 精确对象授权和 secret 不泄漏测试，不新增账号、DSN 或配置项。
 
-实施记录（2026-08-13）：已新增两表 ORM、模型注册、revision `20260813_000134`、约束正反例和迁移范围测试。部署后生产只读验收确认当前 head 为 `20260813_000135`，hierarchy/Heat 分别为 15/31 列、4/18 个约束、各 4 个索引且初始均为 0 行；既有 `lake_raw_writer` 对 hierarchy 的 `SELECT/INSERT/DELETE` 为真，`UPDATE/TRUNCATE` 为假。DG hierarchy 正式发布仍待 Slice 3 代码部署后单独执行；Heat 尚未物化。
+实施记录（2026-08-13）：已新增两表 ORM、模型注册、revision `20260813_000134`、约束正反例和迁移范围测试。部署后生产只读验收确认当前 head 为 `20260813_000135`，hierarchy/Heat 分别为 15/31 列、4/18 个约束、各 4 个索引且初始均为 0 行；既有 `lake_raw_writer` 对 hierarchy 的 `SELECT/INSERT/DELETE` 为真，`UPDATE/TRUNCATE` 为假。hierarchy 随后已在 Slice 3 正式发布，Heat 仍为 0 行。
 
 ### Slice 3：DG hierarchy -> prod hierarchy
 
 实现唯一 DG hierarchy asset、prod write contract、read-back 和测试；先本地/测试库，再单独生产发布验收。DG 不得出现 Heat 计算、存储或自动化。
 
-实施记录（2026-08-13）：已新增 `prod_core_wealth_sector_hierarchy`、固定 Silver 文件读取/校验、hierarchy-only SQL contract、单事务全表替换和 canonical hash read-back；已登记 serving schema、catalog 和无分区模型。隔离测试覆盖 496/31/128/337、唯一键、父子/根/路径/叶节点闭包、版本、写入失败、read-back 篡改回滚，以及 DG Heat/job/sensor/check/bootstrap 清零。尚未运行 `dg check defs` 或正式 materialize，也未写生产 hierarchy 表。
+实施记录（2026-08-13）：已新增 `prod_core_wealth_sector_hierarchy`、固定 Silver 文件读取/校验、hierarchy-only SQL contract、单事务全表替换和 canonical hash read-back；已登记 serving schema、catalog 和无分区模型。隔离测试覆盖 496/31/128/337、唯一键、父子/根/路径/叶节点闭包、版本、写入失败、read-back 篡改回滚，以及 DG Heat/job/sensor/check/bootstrap 清零。`dg check defs` 通过后，正式 Run `e875b632-dfb4-4898-a577-944ffa51de95` 已发布 496 行；生产 read-back 为 31/128/337、闭包全绿，source/prod hash 均为 `5094c9f1b0cfd51890351a8d6ecb6d2e0dc7ee4d1de816b5cb3ccf9946ce3525`。
 
 ### Slice 4：60 日 prod 来源缺口闭环
 
 按缺口台账修复或补齐生产来源，重新核验来源表枚举、日期、数量、唯一键、零行完成证据和资金流代码覆盖率；冻结 60 个有效交易日及 warm-up 集合。
 
+实施记录（2026-08-13）：目标窗冻结为 `2026-05-20..2026-08-12` 共 60 个连续 SSE 开放日，warm-up 为 `2026-04-10..2026-05-19` 共 25 日。九张 prod 来源完成只读对账：概念成员与资金流每日覆盖全部目标概念，资金流代码覆盖率为 100%，成员 pair 为 31,717-71,132、单板最大 3,850；所有可报价成分均有股票日线，真实缺行情为 0；涨停每日 29-152、停牌每日 1-57，无物理零行日，停牌 `(trade_date, ts_code, suspend_type)` 重复为 0。`BK0636.DC/B股` 每日无有效 A 股成分，按 `INVALID` 处理。`dc_daily` 四个日期的局部缺行与 Prod Raw 完全一致，按已批准源站现状口径归入逐概念 `INVALID`，没有可补写的 Goldenshare 落库缺口。Slice 4 据此闭环，不写来源表。
+
 ### Slice 5：prod-native Heat 与回放
 
 实现 biz 来源查询、配置解析、有效池、纯计算 contract 和原子发布；实现 ops generic executor port 与 app 装配；通过正式 TaskRun 完成至少 60 个有效交易日的 plan/apply、read-back、重放一致性与性能验收。
+
+实施记录（2026-08-13，本地阶段）：已注册 `sectorOverview/CN_A` 严格配置并冻结 V1 权重/阈值/窗口；实现九张 prod 来源与前序 Heat 的有界查询、单关系有效 A 股池、局部缺行 `INVALID`、合法零行完成证据、canonical config/source/content hash、固定横截面公式、最终分两位且按未舍入分排序、单日 `DELETE + INSERT + read-back`。Ops 已新增单日/回放 action、通用 executor port、PLAN snapshot、APPLY 冻结单元、首错停止和 snapshot integrity；app 复用现有 Session factory，分别创建 Ops/evidence/business Session，以 `REPEATABLE READ` 保证业务快照；CLI `ops-worker-run/serve` 已改由 app factory 装配。重试会先复算计划与内容，已匹配日期不再 DML。以上已通过纯 contract、来源、事务、回放、手动任务、CLI、依赖边界和 124+ 项相关回归；尚未部署，也未执行生产 PLAN/APPLY。
 
 ### Slice 6：后端 V2
 
@@ -738,7 +746,7 @@ git diff --check
 ### 11.1 发布前硬门禁
 
 1. 实施日 Alembic 单 head 已记录。
-2. 全部生产来源真实只读对账通过，60 个有效交易日与 warm-up 集合已冻结，缺口已清零或被明确阻断。
+2. 全部生产来源真实只读对账通过，60 个有效交易日与 warm-up 集合已冻结；日期级缺口已清零，源站局部缺行已冻结为逐概念 `INVALID` 证据。
 3. 层级 prod read-back 为 496/31/128/337 且 hash 一致。
 4. Heat 至少 60 个有效交易日全部通过业务 contract、TaskRun 节点验收和 prod read-back；不以自然日、缺口日或 warm-up 凑数。
 5. 最近交易日 Heat 来源日期一致、有效率/等级分布/日度跳变已人工审阅。
@@ -786,12 +794,10 @@ git diff --check
 
 ## 13. 当前仍未完成但不需要产品拍板的事项
 
-1. 生产只读证据：完整 60 日来源台账、member 规模/重复、零行完成证据、有效池分类和全部有界查询计划。
-2. 执行链评审：ops generic executor port、app 注入、CLI `run/serve` factory 消费、独立业务/状态事务、reason codes、checkpoint 与续跑语义。
-3. 数据库评审：两表约束、索引、事务替换、现有连接复用、`lake_raw_writer` hierarchy 单表授权、组件访问边界、Heat/Ops 双事务和实施日 Alembic head。
-4. DG hierarchy 评审：唯一 asset、显式发布、496/31/128/337 与 hash read-back；静态确认 Heat DG 设计清零。
-5. 前后端评审：V2 判别式 DTO、状态机、请求 stale 防护和原子切换窗口。
-6. 上线证据：60 个有效交易日 prod-native 回放、同机房性能、真实 API 和像素截图。
+1. 生产 Heat 评审：部署后先运行正式只读 PLAN，核验 60 units、0 gaps、source/config/content hash、snapshot 体积和同机房耗时；通过后再单独批准 APPLY。
+2. Heat 上线证据：60 个有效交易日逐日 read-back、重放一致性、有效/无效分布、首错/续跑和性能记录。
+3. 前后端评审：V2 判别式 DTO、状态机、请求 stale 防护和原子切换窗口。
+4. 最终上线证据：最新日 Heat、真实 API、同机房 P95 和像素截图。
 
 如果上述工程门禁发现真实数据与已冻结产品口径冲突（例如地域不再是 31 个、有效池定义无法用事实字段表达、Heat 大面积无效），必须回到产品评审；在出现这种证据前无需新增决策。
 
@@ -801,6 +807,8 @@ git diff --check
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.6 | 2026-08-13 | 记录 Slice 5 本地实现：严格 Heat 配置、prod 来源与有效池、两位最终分、REPEATABLE READ、单日发布/read-back、PLAN/APPLY 与 snapshot integrity、断点跳过、Ops/app/CLI 双事务装配及本地回归；生产回放仍待部署后分阶段验收 |
+| v2.5 | 2026-08-13 | 记录 hierarchy 正式 Run 与 hash read-back、Slice 4 冻结 60+25 日并完成九张 prod 来源审计；日期级缺口清零，源站现状局部缺行改为逐概念 `INVALID`，并将历史审计限制为最多 10 日批次 |
 | v2.4 | 2026-08-13 | 记录生产已升级至单 head `20260813_000135`，两表结构与 hierarchy 精确授权验收通过；Slice 3 hierarchy publisher 已实施并通过隔离测试，正式生产发布仍待部署后单独执行 |
 | v2.3 | 2026-08-13 | 记录 Slice 1/2 已实施的 ORM、模型注册、revision `20260813_000134` 与本地约束/迁移测试；本提交 head 为 `000134`，生产仍为 `000133`，生产迁移与后续阶段未执行 |
 | v2.2 | 2026-08-13 | 撤回三账号/三 DSN 设计；Web/Heat 复用现有应用连接，DG 复用现有 prod write resource；保留 Heat/Ops 双 Session 事务隔离和既有 `lake_raw_writer` hierarchy 单表授权 |

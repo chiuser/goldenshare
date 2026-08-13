@@ -45,7 +45,7 @@ def test_ops_worker_run_consumes_until_limit_or_queue_is_empty(mocker) -> None:
         SimpleNamespace(id=202, status="failed", rows_fetched=3, rows_saved=0),
         None,
     ]
-    worker_cls = mocker.patch("src.cli.OperationsWorker", return_value=worker)
+    worker_factory = mocker.patch("src.cli.build_operations_worker", return_value=worker)
     reconcile_service = mocker.Mock()
     reconcile_service.reconcile_stale_task_runs.return_value = []
     reconcile_cls = mocker.patch("src.cli.OperationsTaskRunReconciliationService", return_value=reconcile_service)
@@ -54,7 +54,7 @@ def test_ops_worker_run_consumes_until_limit_or_queue_is_empty(mocker) -> None:
     result = CliRunner().invoke(app, ["ops-worker-run", "--limit", "5"])
 
     assert result.exit_code == 0
-    worker_cls.assert_called_once_with()
+    worker_factory.assert_called_once_with()
     reconcile_cls.assert_called_once_with()
     reconcile_service.reconcile_stale_task_runs.assert_called_once_with(session, limit=200)
     assert worker.run_next.call_count == 3
@@ -93,7 +93,7 @@ def test_ops_worker_serve_runs_multiple_cycles(mocker) -> None:
 
     worker = mocker.Mock()
     worker.run_next.side_effect = [SimpleNamespace(id=301), None, None]
-    worker_cls = mocker.patch("src.cli.OperationsWorker", return_value=worker)
+    worker_factory = mocker.patch("src.cli.build_operations_worker", return_value=worker)
     reconcile_service = mocker.Mock()
     reconcile_service.reconcile_stale_task_runs.side_effect = [[], []]
     reconcile_cls = mocker.patch("src.cli.OperationsTaskRunReconciliationService", return_value=reconcile_service)
@@ -103,7 +103,7 @@ def test_ops_worker_serve_runs_multiple_cycles(mocker) -> None:
     result = CliRunner().invoke(app, ["ops-worker-serve", "--limit", "2", "--sleep-seconds", "1", "--max-cycles", "2"])
 
     assert result.exit_code == 0
-    worker_cls.assert_called()
+    assert worker_factory.call_count == 2
     assert reconcile_cls.call_count == 2
     assert reconcile_service.reconcile_stale_task_runs.call_count == 2
     assert reconcile_service.reconcile_stale_task_runs.call_args_list == [mocker.call(session, limit=200), mocker.call(session, limit=200)]

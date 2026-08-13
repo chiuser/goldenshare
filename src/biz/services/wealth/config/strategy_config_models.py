@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -226,4 +227,171 @@ class MarketNewsStrategyPayload(BaseModel):
     def _validate_query_limit(self) -> "MarketNewsStrategyPayload":
         if self.query_limit < self.visible_item_count:
             raise ValueError("queryLimit must be greater than or equal to visibleItemCount")
+        return self
+
+
+def _validate_weight_sum(*values: Decimal) -> None:
+    if sum(values, start=Decimal("0")) != Decimal("1"):
+        raise ValueError("weights must sum to 1")
+
+
+class SectorHeatMainWeights(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    price_strength: Decimal = Field(alias="priceStrength", ge=0, le=1)
+    breadth: Decimal = Field(ge=0, le=1)
+    capital_flow: Decimal = Field(alias="capitalFlow", ge=0, le=1)
+    activity: Decimal = Field(ge=0, le=1)
+    persistence: Decimal = Field(ge=0, le=1)
+
+    @model_validator(mode="after")
+    def _validate_sum(self) -> "SectorHeatMainWeights":
+        _validate_weight_sum(
+            self.price_strength,
+            self.breadth,
+            self.capital_flow,
+            self.activity,
+            self.persistence,
+        )
+        return self
+
+
+class SectorHeatPriceWeights(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    daily_return: Decimal = Field(alias="dailyReturn", ge=0, le=1)
+    relative_strength_5: Decimal = Field(alias="relativeStrength5", ge=0, le=1)
+    daily_acceleration: Decimal = Field(alias="dailyAcceleration", ge=0, le=1)
+
+    @model_validator(mode="after")
+    def _validate_sum(self) -> "SectorHeatPriceWeights":
+        _validate_weight_sum(self.daily_return, self.relative_strength_5, self.daily_acceleration)
+        return self
+
+
+class SectorHeatBreadthWeights(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    up_ratio: Decimal = Field(alias="upRatio", ge=0, le=1)
+    limit_up_ratio: Decimal = Field(alias="limitUpRatio", ge=0, le=1)
+
+    @model_validator(mode="after")
+    def _validate_sum(self) -> "SectorHeatBreadthWeights":
+        _validate_weight_sum(self.up_ratio, self.limit_up_ratio)
+        return self
+
+
+class SectorHeatCapitalPersistenceWeights(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    weight: Decimal = Field(ge=0, le=1)
+    positive_day_ratio: Decimal = Field(alias="positiveDayRatio", ge=0, le=1)
+    slope: Decimal = Field(ge=0, le=1)
+
+    @model_validator(mode="after")
+    def _validate_inner_sum(self) -> "SectorHeatCapitalPersistenceWeights":
+        _validate_weight_sum(self.positive_day_ratio, self.slope)
+        return self
+
+
+class SectorHeatCapitalFlowWeights(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    current: Decimal = Field(ge=0, le=1)
+    persistence: SectorHeatCapitalPersistenceWeights
+
+    @model_validator(mode="after")
+    def _validate_outer_sum(self) -> "SectorHeatCapitalFlowWeights":
+        _validate_weight_sum(self.current, self.persistence.weight)
+        return self
+
+
+class SectorHeatPersistenceWeights(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    top_20_streak: Decimal = Field(alias="top20Streak", ge=0, le=1)
+    rank_improvement: Decimal = Field(alias="rankImprovement", ge=0, le=1)
+
+    @model_validator(mode="after")
+    def _validate_sum(self) -> "SectorHeatPersistenceWeights":
+        _validate_weight_sum(self.top_20_streak, self.rank_improvement)
+        return self
+
+
+class SectorHeatComponentWeights(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    price: SectorHeatPriceWeights
+    breadth: SectorHeatBreadthWeights
+    capital_flow: SectorHeatCapitalFlowWeights = Field(alias="capitalFlow")
+    persistence: SectorHeatPersistenceWeights
+
+
+class SectorHeatLevelThresholds(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    boiling: Decimal = Field(ge=0, le=100)
+    hot: Decimal = Field(ge=0, le=100)
+    active: Decimal = Field(ge=0, le=100)
+
+    @model_validator(mode="after")
+    def _validate_order(self) -> "SectorHeatLevelThresholds":
+        if not self.boiling > self.hot > self.active:
+            raise ValueError("level thresholds must be strictly descending")
+        return self
+
+
+class SectorHeatTrendThresholds(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    heating: Decimal = Field(gt=0)
+    cooling: Decimal = Field(lt=0)
+
+
+class SectorHeatWinsorThresholds(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    lower: Decimal = Field(ge=0, lt=1)
+    upper: Decimal = Field(gt=0, le=1)
+
+    @model_validator(mode="after")
+    def _validate_order(self) -> "SectorHeatWinsorThresholds":
+        if self.lower >= self.upper:
+            raise ValueError("winsor lower must be less than upper")
+        return self
+
+
+class SectorOverviewHeatStrategyPayload(BaseModel):
+    """Strict EOD V1 concept-heat strategy contract."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    score_version: str = Field(alias="scoreVersion", min_length=1, max_length=64)
+    weights: SectorHeatMainWeights
+    component_weights: SectorHeatComponentWeights = Field(alias="componentWeights")
+    level_thresholds: SectorHeatLevelThresholds = Field(alias="levelThresholds")
+    trend_thresholds: SectorHeatTrendThresholds = Field(alias="trendThresholds")
+    trend_confirmation_days: int = Field(alias="trendConfirmationDays", ge=1, le=10)
+    min_member_count: int = Field(alias="minMemberCount", ge=1, le=10_000)
+    min_quote_coverage: Decimal = Field(alias="minQuoteCoverage", gt=0, le=1)
+    baseline_trading_days: int = Field(alias="baselineTradingDays", ge=1, le=250)
+    flow_trading_days: int = Field(alias="flowTradingDays", ge=2, le=60)
+    persistence_trading_days: int = Field(alias="persistenceTradingDays", ge=1, le=60)
+    persistence_top_n: int = Field(alias="persistenceTopN", ge=1, le=1_000)
+    winsor: SectorHeatWinsorThresholds
+
+    @field_validator("score_version")
+    @classmethod
+    def _strip_score_version(cls, value: str) -> str:
+        text = value.strip()
+        if not text:
+            raise ValueError("scoreVersion must not be empty")
+        return text
+
+    @model_validator(mode="after")
+    def _validate_window_alignment(self) -> "SectorOverviewHeatStrategyPayload":
+        if self.baseline_trading_days < self.flow_trading_days:
+            raise ValueError("baselineTradingDays must be greater than or equal to flowTradingDays")
+        if self.trend_confirmation_days > self.persistence_trading_days + 1:
+            raise ValueError("trendConfirmationDays exceeds the available persistence window")
         return self

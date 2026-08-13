@@ -62,6 +62,18 @@ class ManualActionCommandService:
                 requested_by_user_id=user.id,
             )
             return task_run.id
+        if resolved.task_type == "maintenance_action":
+            if not resolved.target_type or not resolved.target_key:
+                raise WebAppError(status_code=422, code="validation_error", message="手动维护动作路由未配置")
+            task_run = self.task_run_service.create_from_schedule_target(
+                session,
+                target_type=resolved.target_type,
+                target_key=resolved.target_key,
+                params_json=resolved.request_payload,
+                trigger_source="manual",
+                requested_by_user_id=user.id,
+            )
+            return task_run.id
         if resolved.task_type == "dataset_action":
             self._preflight_dataset_action(session, user=user, resolved=resolved)
         task_run = self.task_run_service.create_task_run(
@@ -140,6 +152,7 @@ class ManualActionTaskRunResolver:
     def resolve(self, body: ManualActionTaskRunCreateRequest) -> ResolvedManualTaskRun:
         filters = self._normalize_filters(body.filters)
         filters = self._apply_default_filters(filters)
+        self._validate_required_filters(filters)
         time_input = body.time_input
         mode = (time_input.mode or "none").strip()
         mode_config = self.route.time_form.find_mode(mode)
@@ -175,7 +188,28 @@ class ManualActionTaskRunResolver:
                 target_type="workflow",
                 target_key=workflow.key,
             )
+        if self.route.action_type == "maintenance_action":
+            time_params = self._resolve_workflow_time(mode_config=mode_config, time_input=time_input)
+            return ResolvedManualTaskRun(
+                task_type="maintenance_action",
+                resource_key=None,
+                action="maintain",
+                time_input={"mode": mode, **time_params},
+                filters=filters,
+                request_payload={**filters, **time_params},
+                target_type="maintenance_action",
+                target_key=self.route.action_key,
+            )
         raise WebAppError(status_code=422, code="validation_error", message="不支持的手动任务类型")
+
+    def _validate_required_filters(self, filters: dict[str, Any]) -> None:
+        for param in self.route.filters:
+            if param.required and self._is_empty(filters.get(param.key)):
+                raise WebAppError(
+                    status_code=422,
+                    code="validation_error",
+                    message=f"{self._param_label(param)}不能为空",
+                )
 
     def _validate_conditional_time_rules(self, *, filters: dict[str, Any], mode: str) -> None:
         for rule in self.route.conditional_time_rules:

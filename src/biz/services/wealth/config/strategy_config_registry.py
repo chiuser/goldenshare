@@ -13,6 +13,7 @@ from .strategy_config_models import (
     MarketNewsStrategyPayload,
     MarketStyleStrategyPayload,
     MarketSummaryStrategyPayload,
+    SectorOverviewHeatStrategyPayload,
     StrategyConfigRegistrationError,
 )
 
@@ -68,6 +69,12 @@ def get_default_strategy_config_registrations() -> tuple[StrategyConfigRegistrat
             market="CN_A",
             definition_file="market_news.cn_a.v1.json",
             payload_model=MarketNewsStrategyPayload,
+        ),
+        StrategyConfigRegistration(
+            module_key="sectorOverview",
+            market="CN_A",
+            definition_file="sector_overview.cn_a.v1.json",
+            payload_model=SectorOverviewHeatStrategyPayload,
         ),
     )
 

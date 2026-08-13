@@ -4,10 +4,37 @@ __all__ = [
     "TaskRunCompletionWorker",
     "TaskRunDispatchOutcome",
     "TaskRunDispatcher",
+    "MaintenanceExecutionPlan",
+    "MaintenanceExecutionRequest",
+    "MaintenanceExecutionResult",
+    "MaintenanceExecutionUnit",
+    "MaintenanceExecutor",
 ]
 
 
 def __getattr__(name: str):
+    if name in {
+        "MaintenanceExecutionPlan",
+        "MaintenanceExecutionRequest",
+        "MaintenanceExecutionResult",
+        "MaintenanceExecutionUnit",
+        "MaintenanceExecutor",
+    }:
+        from src.ops.runtime.maintenance_executor import (
+            MaintenanceExecutionPlan,
+            MaintenanceExecutionRequest,
+            MaintenanceExecutionResult,
+            MaintenanceExecutionUnit,
+            MaintenanceExecutor,
+        )
+
+        return {
+            "MaintenanceExecutionPlan": MaintenanceExecutionPlan,
+            "MaintenanceExecutionRequest": MaintenanceExecutionRequest,
+            "MaintenanceExecutionResult": MaintenanceExecutionResult,
+            "MaintenanceExecutionUnit": MaintenanceExecutionUnit,
+            "MaintenanceExecutor": MaintenanceExecutor,
+        }[name]
     if name in {"TaskRunDispatchOutcome", "TaskRunDispatcher"}:
         from src.ops.runtime.task_run_dispatcher import TaskRunDispatchOutcome, TaskRunDispatcher
 

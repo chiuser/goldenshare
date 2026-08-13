@@ -1,0 +1,60 @@
+{
+  "moduleKey": "sectorOverview",
+  "market": "CN_A",
+  "version": "1.0.0",
+  "updatedAt": "2026-08-13T12:00:00+08:00",
+  "updatedBy": "wealth-team",
+  "payload": {
+    "scoreVersion": "concept-heat-eod-v1",
+    "weights": {
+      "priceStrength": 0.30,
+      "breadth": 0.25,
+      "capitalFlow": 0.25,
+      "activity": 0.10,
+      "persistence": 0.10
+    },
+    "componentWeights": {
+      "price": {
+        "dailyReturn": 0.50,
+        "relativeStrength5": 0.3333,
+        "dailyAcceleration": 0.1667
+      },
+      "breadth": {
+        "upRatio": 0.60,
+        "limitUpRatio": 0.40
+      },
+      "capitalFlow": {
+        "current": 0.60,
+        "persistence": {
+          "weight": 0.40,
+          "positiveDayRatio": 0.60,
+          "slope": 0.40
+        }
+      },
+      "persistence": {
+        "top20Streak": 0.50,
+        "rankImprovement": 0.50
+      }
+    },
+    "levelThresholds": {
+      "boiling": 90,
+      "hot": 80,
+      "active": 60
+    },
+    "trendThresholds": {
+      "heating": 8,
+      "cooling": -8
+    },
+    "trendConfirmationDays": 2,
+    "minMemberCount": 10,
+    "minQuoteCoverage": 0.80,
+    "baselineTradingDays": 20,
+    "flowTradingDays": 5,
+    "persistenceTradingDays": 5,
+    "persistenceTopN": 20,
+    "winsor": {
+      "lower": 0.01,
+      "upper": 0.99
+    }
+  }
+}

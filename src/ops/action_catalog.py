@@ -124,6 +124,26 @@ TRADE_DATE_PARAM = ActionParameter(
     param_type="date",
     description="只处理一个交易日。",
 )
+EXECUTION_MODE_PARAM = ActionParameter(
+    key="execution_mode",
+    display_name="执行模式",
+    param_type="enum",
+    description="PLAN 只冻结回放计划，APPLY 按已成功计划执行。",
+    required=True,
+    options=("PLAN", "APPLY"),
+)
+PLAN_TASK_RUN_ID_PARAM = ActionParameter(
+    key="plan_task_run_id",
+    display_name="计划任务 ID",
+    param_type="integer",
+    description="APPLY 必须引用一个成功的 PLAN TaskRun。",
+)
+PLAN_HASH_PARAM = ActionParameter(
+    key="plan_hash",
+    display_name="计划哈希",
+    param_type="string",
+    description="APPLY 必须提交被引用 PLAN 的不可变哈希。",
+)
 MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
     "maintenance.rebuild_dm": MaintenanceActionDefinition(
         key="maintenance.rebuild_dm",
@@ -154,6 +174,56 @@ MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
             ),
         },
         parameters=(START_DATE_PARAM, END_DATE_PARAM),
+        manual_enabled=True,
+        schedule_enabled=False,
+        retry_enabled=True,
+    ),
+    "maintenance.materialize_wealth_sector_heat_daily": MaintenanceActionDefinition(
+        key="maintenance.materialize_wealth_sector_heat_daily",
+        display_name="生成单日板块热度",
+        domain_key="maintenance",
+        domain_display_name="维护动作",
+        description="使用生产盘后来源计算并原子发布一个交易日的概念板块热度。",
+        executor_key="wealth_sector_heat",
+        execution_config={"target_tables": ("core_serving.wealth_sector_heat_daily",)},
+        parameters=(
+            ActionParameter(
+                key="trade_date",
+                display_name="处理日期",
+                param_type="date",
+                description="只处理一个已完成交易日。",
+                required=True,
+            ),
+        ),
+        manual_enabled=True,
+        schedule_enabled=False,
+        retry_enabled=True,
+    ),
+    "maintenance.replay_wealth_sector_heat_history": MaintenanceActionDefinition(
+        key="maintenance.replay_wealth_sector_heat_history",
+        display_name="回放板块热度历史",
+        domain_key="maintenance",
+        domain_display_name="维护动作",
+        description="先冻结至少 60 个有效交易日的计划，再按计划从旧到新回放。",
+        executor_key="wealth_sector_heat",
+        execution_config={"target_tables": ("core_serving.wealth_sector_heat_daily",)},
+        parameters=(
+            EXECUTION_MODE_PARAM,
+            ActionParameter(
+                key="start_date",
+                display_name="开始日期",
+                param_type="date",
+                description="PLAN 的目标窗口开始日期。",
+            ),
+            ActionParameter(
+                key="end_date",
+                display_name="结束日期",
+                param_type="date",
+                description="PLAN 的目标窗口结束日期。",
+            ),
+            PLAN_TASK_RUN_ID_PARAM,
+            PLAN_HASH_PARAM,
+        ),
         manual_enabled=True,
         schedule_enabled=False,
         retry_enabled=True,
