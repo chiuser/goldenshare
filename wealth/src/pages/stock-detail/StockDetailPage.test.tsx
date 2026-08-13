@@ -298,6 +298,7 @@ describe("StockDetailPage", () => {
     expect(screen.getByLabelText("TopMarketBar")).toBeInTheDocument();
     expect(screen.getByLabelText("股票详情加载中")).toBeInTheDocument();
     expect(await screen.findByText("福斯特 603806.SH")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "返回首页" })).toBeInTheDocument();
     expect(screen.getByLabelText("K线主图")).toBeInTheDocument();
     expect(screen.getByLabelText("右侧信息栏")).toBeInTheDocument();
     expect(screen.getAllByText("MA10:18.90").length).toBeGreaterThan(0);
@@ -307,6 +308,16 @@ describe("StockDetailPage", () => {
       expect.stringContaining("/stock-detail/nine-turn"),
       expect.anything(),
     ));
+  });
+
+  it("returns a direct stock detail visit to the Wealth overview", async () => {
+    window.history.replaceState({}, "", "/wealth/market/stock/603806.SH");
+    render(<StockDetailPage tsCode="603806.SH" />);
+
+    expect(await screen.findByText("福斯特 603806.SH")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "返回首页" }));
+
+    expect(window.location.pathname).toBe("/wealth/market/overview");
   });
 
   it("supports visible period, overlay, tab and toast interactions", async () => {

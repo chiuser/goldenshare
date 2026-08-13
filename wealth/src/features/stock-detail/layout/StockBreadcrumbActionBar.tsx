@@ -1,10 +1,12 @@
 import type { StockIdentity } from "../model/stockDetailTypes";
+import { DetailReturnHomeButton } from "../../../shared/ui/detail-return-home/DetailReturnHomeButton";
 
 interface StockBreadcrumbActionBarProps {
+  onReturnHome: () => void;
   stock: StockIdentity;
 }
 
-export function StockBreadcrumbActionBar({ stock }: StockBreadcrumbActionBarProps) {
+export function StockBreadcrumbActionBar({ onReturnHome, stock }: StockBreadcrumbActionBarProps) {
   return (
     <section className="stock-detail-breadcrumb-action-bar" aria-label="BreadcrumbActionBar">
       <div className="stock-detail-breadcrumb" aria-label="路径">
@@ -18,6 +20,7 @@ export function StockBreadcrumbActionBar({ stock }: StockBreadcrumbActionBarProp
           {stock.name} {stock.tsCode}
         </strong>
       </div>
+      <DetailReturnHomeButton onReturnHome={onReturnHome} />
     </section>
   );
 }

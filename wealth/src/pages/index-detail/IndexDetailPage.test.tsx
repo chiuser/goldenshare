@@ -15,13 +15,17 @@ vi.mock("../../features/index-detail/chart/IndexMinuteChartWorkspace", () => ({
 }));
 
 describe("IndexDetailPage", () => {
-  afterEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    window.history.replaceState({}, "", "/wealth/market/overview");
+  });
 
   it("renders the Loaded skeleton, fixed basic fields, three tabs, and lazily cached full weights", async () => {
     const fetchMock = mockFetch("000001.SH");
     render(<IndexDetailPage search="" tsCode="000001.SH" />);
 
     expect(await screen.findByText("上证指数 000001.SH")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "返回首页" })).toBeInTheDocument();
     expect(screen.getByLabelText("指数日线图表区")).toBeInTheDocument();
     expect(screen.getAllByRole("tab")).toHaveLength(3);
     expect(screen.getAllByText("下跌数")).toHaveLength(1);
@@ -41,6 +45,17 @@ describe("IndexDetailPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: "权重股贡献" }));
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/weights"))).toHaveLength(1);
     expect(screen.getByLabelText("权重股滚动列表")).toHaveProperty("scrollTop", 320);
+  });
+
+  it("returns a direct index detail visit to the Wealth overview", async () => {
+    window.history.replaceState({}, "", "/wealth/market/index/000001.SH");
+    mockFetch("000001.SH");
+    render(<IndexDetailPage search="" tsCode="000001.SH" />);
+
+    expect(await screen.findByText("上证指数 000001.SH")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "返回首页" }));
+
+    expect(window.location.pathname).toBe("/wealth/market/overview");
   });
 
   it("switches local minute periods without refreshing daily modules and reuses the period cache", async () => {
@@ -114,7 +129,7 @@ describe("IndexDetailPage", () => {
     expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/kline"))).toBe(false);
     expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/trend-channel"))).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "查看最近交易日" }));
-    expect(replaceState).toHaveBeenCalledWith({}, "", "/wealth/market/index/000001.SH");
+    expect(replaceState).toHaveBeenCalledWith(expect.any(Object), "", "/wealth/market/index/000001.SH");
     replaceState.mockRestore();
   });
 

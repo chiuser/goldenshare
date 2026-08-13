@@ -1,6 +1,11 @@
 export const DEFAULT_WEALTH_PATH = "/wealth/market/overview";
 
 const ROUTE_CHANGE_EVENT = "wealth-route-change";
+const WEALTH_NAVIGATION_STATE_KEY = "__goldenshareWealthNavigation";
+
+interface WealthNavigationState {
+  hasWealthReferrer: boolean;
+}
 
 export interface WealthLocation {
   pathname: string;
@@ -15,12 +20,22 @@ export function readWealthLocation(): WealthLocation {
 }
 
 export function navigateWealth(path: string, options: { replace?: boolean } = {}) {
+  const state = buildWealthNavigationState();
   if (options.replace) {
-    window.history.replaceState({}, "", path);
+    window.history.replaceState(state, "", path);
   } else {
-    window.history.pushState({}, "", path);
+    window.history.pushState(state, "", path);
   }
   window.dispatchEvent(new Event(ROUTE_CHANGE_EVENT));
+}
+
+export function returnToWealthOverview() {
+  const state = readWealthNavigationState(window.history.state);
+  if (state?.hasWealthReferrer) {
+    window.history.back();
+    return;
+  }
+  navigateWealth(DEFAULT_WEALTH_PATH, { replace: true });
 }
 
 export function addWealthRouteListener(listener: () => void) {
@@ -56,4 +71,29 @@ export function readRedirectPath(search: string): string {
   if (!redirect.startsWith("/")) return DEFAULT_WEALTH_PATH;
   if (redirect.startsWith("//")) return DEFAULT_WEALTH_PATH;
   return redirect;
+}
+
+function buildWealthNavigationState(): Record<string, unknown> {
+  const existingState = isRecord(window.history.state) ? window.history.state : {};
+  return {
+    ...existingState,
+    [WEALTH_NAVIGATION_STATE_KEY]: {
+      hasWealthReferrer: isWealthRoute(window.location.pathname),
+    } satisfies WealthNavigationState,
+  };
+}
+
+function readWealthNavigationState(state: unknown): WealthNavigationState | null {
+  if (!isRecord(state)) return null;
+  const navigationState = state[WEALTH_NAVIGATION_STATE_KEY];
+  if (!isRecord(navigationState) || typeof navigationState.hasWealthReferrer !== "boolean") return null;
+  return { hasWealthReferrer: navigationState.hasWealthReferrer };
+}
+
+function isWealthRoute(pathname: string): boolean {
+  return pathname === DEFAULT_WEALTH_PATH || pathname.startsWith("/wealth/market/");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }

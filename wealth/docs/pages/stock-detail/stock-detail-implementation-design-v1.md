@@ -65,6 +65,14 @@ src/biz/
 
 ```text
 wealth/src/
+  app/
+    routes/
+      routerState.ts                     # 站内返回或首页 fallback 的唯一判断点
+  shared/
+    ui/
+      detail-return-home/
+        DetailReturnHomeButton.tsx
+        detail-return-home-button.css
   features/
     stock-detail/
       api/
@@ -90,6 +98,8 @@ wealth/src/
 2. API response 到 UI view model 必须经过 adapter。
 3. 组件内禁止散落真实字段映射。
 4. 未接真实的右侧板块/资金/用户动作继续走独立 mock，不与真实 K 线数据混在一个对象里。
+5. 已加载详情的 `StockBreadcrumbActionBar` 右侧使用共享 `DetailReturnHomeButton`。按钮不自行判断浏览器历史；页面调用 `returnToWealthOverview()`，仅对 `navigateWealth()` 写入的站内来源标记执行 `history.back()`，其它情况 replace 到市场总览，避免直达详情时离开行情系统。
+6. 股票 loading/error 壳当前没有面包屑，保持既有 Figma 骨架，不在本轮新增返回按钮。
 
 ---
 

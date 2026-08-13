@@ -1,0 +1,33 @@
+.detail-return-home {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.74);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 8px;
+  color: var(--cs-color-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 13px;
+  gap: 4px;
+  height: 27px;
+  margin-left: auto;
+  padding: 0 10px 0 9px;
+  transition: 0.14s ease;
+  white-space: nowrap;
+}
+
+.detail-return-home:hover {
+  background: rgba(247, 199, 107, 0.1);
+  border-color: rgba(247, 199, 107, 0.28);
+  color: var(--cs-color-brand);
+}
+
+.detail-return-home:focus-visible {
+  outline: 2px solid var(--cs-color-brand);
+  outline-offset: 2px;
+}
+
+.detail-return-home-icon {
+  font-size: 14px;
+  line-height: 1;
+}

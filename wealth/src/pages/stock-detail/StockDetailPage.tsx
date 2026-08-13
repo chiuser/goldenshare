@@ -15,6 +15,7 @@ import { StockBreadcrumbActionBar } from "../../features/stock-detail/layout/Sto
 import { StockChartToolbar } from "../../features/stock-detail/layout/StockChartToolbar";
 import { StockInfoRail } from "../../features/stock-detail/sidebar/StockInfoRail";
 import { StockDetailToast } from "../../features/stock-detail/ui/StockDetailToast";
+import { returnToWealthOverview } from "../../app/routes/routerState";
 import { TopMarketBar } from "../../shared/ui/top-market-bar/TopMarketBar";
 import type { StockDetailViewModel, StockPeriodKey } from "../../features/stock-detail/model/stockDetailTypes";
 import type { StockDetailPageInitResponseDto, StockMinuteFrequency } from "../../features/stock-detail/api/stockDetailApiTypes";
@@ -191,7 +192,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
   return (
     <div className="stock-detail-app">
       <TopMarketBar onAction={showToast} tickers={viewModel.topMarketTickers} />
-      <StockBreadcrumbActionBar stock={viewModel.stock} />
+      <StockBreadcrumbActionBar onReturnHome={returnToWealthOverview} stock={viewModel.stock} />
       <StockChartToolbar
         activePeriod={activePeriod}
         onAction={showToast}

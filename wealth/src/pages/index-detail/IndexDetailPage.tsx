@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { buildIndexDetailPath, DEFAULT_WEALTH_PATH, navigateWealth } from "../../app/routes/routerState";
+import { buildIndexDetailPath, DEFAULT_WEALTH_PATH, navigateWealth, returnToWealthOverview } from "../../app/routes/routerState";
 import { IndexChartWorkspace } from "../../features/index-detail/chart/IndexChartWorkspace";
 import { IndexMinuteChartWorkspace } from "../../features/index-detail/chart/IndexMinuteChartWorkspace";
 import { useIndexDetailController } from "../../features/index-detail/controller/useIndexDetailController";
@@ -87,7 +87,7 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
 
   const pageShell = <>
     <TopMarketBar onAction={handleTopBarAction} tickers={tickers} />
-    <IndexBreadcrumbActionBar identity={identity} />
+    <IndexBreadcrumbActionBar identity={identity} onReturnHome={returnToWealthOverview} />
     <IndexChartToolbar
       activePeriod={periods.some((period) => period.key === activePeriod && period.supported) ? activePeriod : "day"}
       identity={identity}

@@ -150,7 +150,7 @@ Figma 事实源：
 | 当前文件/符号 | 已有能力 | 本页结论 |
 |---|---|---|
 | `WealthRouter.tsx` | 解析股票详情，其余路由回市场总览 | 增加 index parser，顺序在默认回退前 |
-| `routerState.ts` | `buildStockDetailPath` 和 history 通知 | 增加 `buildIndexDetailPath` |
+| `routerState.ts` | `buildStockDetailPath` 和 history 通知 | 增加 `buildIndexDetailPath`；集中维护 `returnToWealthOverview()`，仅对带站内来源标记的 entry 调用 `history.back()`，直达/旧 entry 则 replace 到市场总览 |
 | `MajorIndexPanel.tsx` | 卡片是 button，但点击只 toast | 改为上报 `onIndexSelect(code)` |
 | `MarketOverviewPage.tsx` | 股票导航和 toast | 增加 `openIndexDetail`，不在卡片内拼 URL |
 | `StockDetailPage.tsx` | page-init 后请求 kline、AbortController、本地分钟缓存 | 只参考请求生命周期；指数需更完整状态机 |

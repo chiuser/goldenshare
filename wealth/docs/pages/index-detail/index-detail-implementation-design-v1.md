@@ -58,6 +58,7 @@
 6. 现有趋势通道路由 `/api/v1/quote/detail/trend-channel` 和 schema 只接受 `000001.SH + day`，公式版本也是 SSE 专项；不能声称已覆盖其余 9 个指数。
 7. 当前 local minute capability 已统一管理 `APP_ENV`、`WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED`、`GOLDENSHARE_LAKE_ROOT` 和 DuckDB 依赖，无需新增第二套开关。
 8. `major_index_mins` Silver 与 `major_index_mins_technical` Gold 七频率正式物理文件已通过只读审计；M5-B Web 只消费稳定物理合同，不修改对应 Dagster asset/writer/check/state。
+9. 指数详情所有保留面包屑的页面状态均在右侧使用共享 `DetailReturnHomeButton`。页面调用 `returnToWealthOverview()`：当前 entry 有 `navigateWealth()` 写入的站内来源标记时执行浏览器返回；直达详情、旧 entry 或未知来源时 replace 到 `/wealth/market/overview`，不退到外部站点。
 
 ### 3.3 CodeGraph 影响面
 
@@ -459,7 +460,7 @@ route tsCode
 
 ### 7.5 五个状态的页面结构合同
 
-所有页面级状态都保留 `TopMarketBar -> Breadcrumb -> Toolbar -> MainContent` 四段骨架。TopMarketBar 继续展示全局主要指数 ticker，它不是当前详情请求的旧数据，不参与清空；MainContent 内的指数专属数据必须按状态处理。
+所有页面级状态都保留 `TopMarketBar -> Breadcrumb -> Toolbar -> MainContent` 四段骨架。Breadcrumb 的右侧固定为“返回首页”按钮，沿用 `returnToWealthOverview()` 的站内返回/首页 fallback 语义。TopMarketBar 继续展示全局主要指数 ticker，它不是当前详情请求的旧数据，不参与清空；MainContent 内的指数专属数据必须按状态处理。
 
 | 状态 | 根节点 | MainContent 结构 | 文案与动作 | 数据保留规则 |
 |---|---|---|---|---|

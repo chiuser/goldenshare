@@ -33,6 +33,7 @@
 | `DataStatusBadge` | `src/shared/ui/DataStatusBadge.tsx` | 模块数据状态 | 不与行情涨跌色混用 |
 | `MarketStatusPill` | `src/shared/ui/MarketStatusPill.tsx` | 行情/事实聚合状态 | 仅用于有明确状态来源的位置 |
 | `SkeletonBlock` | `src/shared/ui/SkeletonBlock.tsx` | 局部 loading 占位 | 不用 mock 数据伪装 loaded |
+| `DetailReturnHomeButton` | `src/shared/ui/detail-return-home/` | 股票/指数详情面包屑右侧的返回首页动作 | 页面传入已判定的返回行为；组件不读取浏览器 history，不自行拼接路由 |
 | `DetailChartWorkspace` | `src/shared/charts/detail-workspace/` | 详情页 K 线、MACD、成交量、KDJ 四窗格生命周期、同步交互和 viewport | 股票/指数领域 adapter 只提供稳定 `dataKey`、字段、文案、图层和 Tooltip；缩放合同遵循[技术方案](./detail-chart-zoom-implementation-design-v1.md)与[LLD](./detail-chart-zoom-low-level-design-v1.md) |
 
 新增 shared 组件必须同时满足：至少两个真实消费者、稳定的 props 语义、最小组件测试、在本文补充职责与禁止项。
@@ -81,6 +82,7 @@
 - 页面都从共享 `TopMarketBar` 开始。
 - 面包屑使用次级文字，最后一级为当前页面的主强调，不承担重复的大标题。
 - 页面操作区仅放当前页面必要动作。禁止重新在顶部添加已废弃的全局刷新时间、已收盘标记或重复的系统状态。
+- 股票与指数详情的面包屑右侧固定使用 `DetailReturnHomeButton`，文案为“返回首页”。页面在当前 history entry 明确标记为站内导航时调用浏览器返回；直达详情、旧 entry 或未知来源时 replace 到 `/wealth/market/overview`，不得退回外部站点。
 - 快捷入口仅用于市场总览约定的高频区域，不自动复制到详情页。
 
 ### 5.3 Tabs、RangeSwitch、按钮
