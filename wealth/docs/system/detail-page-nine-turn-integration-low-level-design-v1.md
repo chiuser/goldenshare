@@ -1,6 +1,6 @@
 # 股票与主要指数详情页九转接入低层设计（LLD）v1
 
-> 状态：M0、M1、M2 已通过；M3-A/M3-B 门禁已实现。Gold 日线修复与全历史对账已完成；生产 serving 已发布 1,113/3,066 个交易日、2,770,508 行后因内存与超大控制台输出风险主动暂停。发布器修正及正式只读内存验收已通过，恢复发布仍待用户确认。分钟未执行，M3-C 浏览器验收尚未开始。
+> 状态：M0、M1、M2、M3-A、M3-B 已通过。Gold 日线修复、全历史对账和生产 serving 发布均已完成；生产表按冻结计划验收到 3,066 个交易日、11,638,636 行，逐日差异为 0。修正后的十个短进程峰值 RSS 最高约 249MiB，未复现内存爆炸。分钟未执行，M3-C 浏览器验收尚未开始。
 >
 > 上游方案：[股票与主要指数详情页九转接入总方案 v1](./detail-page-nine-turn-integration-implementation-design-v1.md)
 >
@@ -833,7 +833,7 @@ lake_console/orchestrator/src/orchestrator/defs/jobs/stock_daily_qfq_nineturn_pr
 lake_console/orchestrator/src/orchestrator/defs/sensors/stock_daily_qfq_nineturn_prod_core_sensor.py
 ```
 
-M3-B 执行前复核发现旧 scoped rebuild 会一次性生成并整体提升 3,066 个分区，已改为目标资产窄扫描、1～3 分区 sample、20 分区 batch、单次最多 200 batch、逐分区 checkpoint/resume。经单独批准，Gold 修复与全历史对账已经完成。serving 发布在 1,113 日暂停。内存根因审计确认：plan 为取得行数曾对每个分区执行完整 loader 并 `fetchall()`，publish 每次恢复又重新深扫全部 3,066 日，CLI 同时输出全部计划对象、日期数组和逐日进度。现已改为 DuckDB 128MB/1线程、plan 聚合诊断、20日连接重建、恢复仅做源文件元数据核对与 Prod 流式 hash、待发布日期深度门禁、逐 batch 固定大小输出；每日独立事务与 checkpoint 语义不变。修正后正式只读验收结果：全历史 plan 17.60 秒、峰值约 237MiB；1,113 日/2,770,508 行 checkpoint 回验 187.39 秒、峰值约 156MiB，全部通过且未写 Lake/Prod。恢复生产发布仍需用户再次确认，两个 sensor 不得启用。
+M3-B 执行前复核发现旧 scoped rebuild 会一次性生成并整体提升 3,066 个分区，已改为目标资产窄扫描、1～3 分区 sample、20 分区 batch、单次最多 200 batch、逐分区 checkpoint/resume。经单独批准，Gold 修复与全历史对账已经完成。serving 在发布 1,113 日后因内存事件暂停；根因审计确认 plan 曾逐分区完整装载、publish 恢复时重新深扫全部历史且 CLI 输出超大对象。发布器已改为 DuckDB 128MB/1线程、plan 聚合诊断、20日连接重建、恢复只做源文件元数据核对与 Prod 流式 hash、待发布日期深度门禁及逐 batch 固定大小输出；每日独立事务与 checkpoint 语义不变。修正后先通过全历史 plan 与 1,113 日 checkpoint 只读内存验收，再以十个独立短进程发布余下 1,953 日。最终 checkpoint 为 3,066/3,066，生产表为 11,638,636 行，日期缺失/额外/逐日行数不符均为 0；十个进程最大 RSS 为 209～249MiB。两个 sensor 仍不得启用。
 
 ### 15.4 M3-C：股票页面完整验收
 
@@ -944,13 +944,13 @@ M1 已完成：
 6. 前端 registry、capability、primitive 几何、右栏摘要和状态机已冻结。
 7. `freq BIGINT` 疑点已证伪，正式物理类型确认是 INTEGER。
 
-M3-B 当前仍未完成的运行与发布项：
+M3-B 已完成，后续仍未完成的运行与发布项：
 
-1. migration 已在生产执行；目标表最后一次只读确认有 1,113 个交易日、2,770,508 行，不是全历史发布完成证据。
+1. migration 已在生产执行；目标表最终只读确认有 3,066 个交易日、11,638,636 行，与冻结计划逐日行数一致，全历史发布已完成。
 2. 45,442 行 close 漂移对应的 Gold scoped rebuild 已完成；11,638,636 行全历史键、价格、计数和信号差异均为 0。
-3. 股票 serving sample 已完成，历史发布停在 1,113/3,066；剩余 1,953 日及最终全量对账尚未执行。指数七资产与正式历史也未建设。
+3. 股票 serving sample、余下 1,953 日历史发布和最终全量对账均已完成。指数七资产与正式历史仍未建设。
 4. Gold sensor 在执行前发现实际为 RUNNING，审计确认近 10 个 tick 均 SKIPPED、无并发 run 后已停止；serving sensor 未启用。两者当前均不得启用。
-5. 生产日线真实 API 与浏览器截图必须等待 Gold 修复和正式发布后完成；不得用 SQLite fixture、本地 Lake 或空表冒充生产就绪。
+5. Gold 修复和正式发布前置条件已完成；下一步必须用当前生产 serving 完成真实 API 与浏览器截图验收，不得用 SQLite fixture、本地 Lake 冒充生产就绪。
 
 ## 20. 版本记录
 
@@ -961,3 +961,4 @@ M3-B 当前仍未完成的运行与发布项：
 | v1.2 | 2026-08-13 | 收口 M3-A/M3-B：生产空表和 close 漂移事实、独立 staging、20 日批次 checkpoint、serving blocking check 与 STOPPED 日常链路 | Codex |
 | v1.3 | 2026-08-13 | 同步 Gold 修复完成、serving 893 日部分发布、内存暂停与 256MB/1线程/10批次恢复门禁 | Codex |
 | v1.4 | 2026-08-13 | 同步 serving 1,113 日检查点；收口 plan/resume/CLI 内存与输出放大根因，冻结 128MB、聚合 plan、源元数据核对、Prod 流式 hash 和逐 batch 摘要门禁 | Codex |
+| v1.5 | 2026-08-13 | M3-B 完成：以十个有界短进程发布余下 1,953 日，生产表 3,066 日、11,638,636 行逐日对账通过，峰值 RSS 最高约 249MiB；M3-C 与自然日常链路仍待验收 | Codex |
