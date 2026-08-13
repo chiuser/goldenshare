@@ -926,7 +926,7 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
   );
   const sectorController = useSectorOverviewController({
     enabled: Boolean(overview && pageContext && marketOverviewModuleSources.sectors === "real"),
-    tradeDate: pageContext?.tradeDate,
+    explicitTradeDate: requestedTradeDate,
     debug: pageDebugEnabled,
     onDebugInfo: handleSectorDebugInfo,
   });

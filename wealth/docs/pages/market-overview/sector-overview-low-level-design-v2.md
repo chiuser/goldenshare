@@ -1,6 +1,6 @@
 # 市场总览｜板块速览低层设计 v2（LLD）
 
-> 状态：Slice 10 后端事实与契约修正已通过。Slice 1-5 的迁移、hierarchy、Prod 来源与 Heat v1 生产事实继续有效；Slice 6-8 仍属于“实现存在但未通过 V2 交付门禁”，Slice 9 已完成设计与文档纠偏。A01-A08 的后端代码/测试部分已完成，涉及前端或生产 Heat v2 的部分继续 OPEN；下一步仅允许进入 Slice 11。
+> 状态：Slice 12 Heat V2 与 60 日生产回放已通过。Slice 1-5 的迁移、hierarchy、Prod 来源与 Heat v1 生产事实继续有效；Slice 6-8 不作为新版验收证据，Slice 9-12 已依次完成设计、后端契约、前端结构和生产 Heat v2 纠偏。全矩阵自动化、正式像素、候选部署和最终对账继续 OPEN；下一步仅允许进入 Slice 13。
 > 日期：2026-08-13
 > 需求基线：[sector-overview-benchmark-requirement-v2.md](./sector-overview-benchmark-requirement-v2.md)
 > 实施方案：[sector-overview-implementation-design-v2.md](./sector-overview-implementation-design-v2.md)
@@ -22,7 +22,7 @@
 8. Heat 不使用 Dagster asset、dynamic partition、asset check、sensor、Gold 路径、runless event 或 DG history CLI；60 日回放是 prod-native TaskRun。
 9. hierarchy、60+25 日 prod 来源、Heat/app 执行装配、事务与访问边界、60 日生产回放已经通过并继续作为有效基础；前后端 V2 只能记为“已实现、未验收”，不能再表述为完成。
 10. 2026-08-13 对照需求基线、implementation design、M2 Gate、正式 Figma 节点树与当前代码复审后，确认存在 API 展示契约不足、有效池字段口径、成员名称来源、排序空值、来源状态、默认日期、错误态、三工作台结构、详情结构、Heat 表达、交互、六态骨架、自动化测试、像素、性能与发布门禁等偏差；完整台账见第 2.5 节。
-11. 新修正步骤从 Slice 9 连续编号。Slice 9 已统一文档与 Figma，Slice 10 已完成后端事实口径和 view-specific 契约；接下来必须按 Slice 11-16 顺序推进，不得再次用单元测试、typecheck 或 build 通过替代浏览器和像素验收。
+11. 新修正步骤从 Slice 9 连续编号。Slice 9 已统一文档与 Figma，Slice 10 已完成后端事实口径和 view-specific 契约，Slice 11 已完成前端三工作台结构与本地浏览器验收，Slice 12 已完成 Heat v2 生产回放；接下来必须按 Slice 13-16 顺序推进，不得用单元测试、typecheck、build 或局部浏览器截图替代正式像素和发布验收。
 
 ### 1.2 当前事实快照
 
@@ -30,13 +30,13 @@
 |---|---|
 | Git 分支 | `dev-interface` |
 | Alembic head（部署后复核） | 仓库与生产当前单 head 均为 `20260813_000135`；本需求 revision `20260813_000134` 已位于有效链上并完成生产结构/授权验收 |
-| 当前 API | 本地已破坏性拆为 `IndustryRankItemDto / ConceptRankItemDto / RegionRankItemDto`；概念/地域固定列由后端直接返回。当前前端仍消费旧通用 rank 契约，因此 Slice 10 代码不得单独部署 |
+| 当前 API | 前后端均已破坏性拆为 Industry/Concept/Region view-specific rank 与 detail；概念/地域固定列由后端直接返回，旧前端通用业务 rank/detail 契约已清零 |
 | 当前后端来源 | hierarchy、Heat、行情、成员与资金均读 Prod；DG 只发布 hierarchy。成员展示名已切到 `dc_member.name`，有效行情统一为 `close + pct_chg` |
-| 当前前端 | 已接 V2 真实 API，但复用通用 RankCard/DetailPanel，三工作台结构、六态骨架和正式 Figma 像素均未通过 |
+| 当前前端 | 已完成正式 header/tabs/toolbar、三个 view-specific workspace/rank/detail、七行滚动、20 日断点、地域 breadth、股票导航、默认日期和穷尽状态骨架；Slice 14 正式 Figma 像素仍未通过 |
 | 行业层级 Lake | 现有单文件正式 Silver，契约要求 496 行、31/128/337 |
 | Heat prod 来源 | `trade_calendar/dc_index/dc_daily/dc_member/board_moneyflow_dc/equity_daily_bar/equity_limit_list/security_serving/equity_suspend_d` 与前序 Heat |
 | 当前来源审计 | 目标窗 `2026-05-20..2026-08-12`、warm-up `2026-04-10..2026-05-19` 已冻结并完成整窗复核；资金流对目标概念 100% 覆盖、有效池无真实缺行情；`dc_daily@2026-05-18/20/22/25` 的 88/448/1/2 个缺行在 Prod Raw/Core 一致，按逐概念 `INVALID` 处理 |
-| 当前运行缺口 | 正式 v1 PLAN `8149`、APPLY `8152` 与幂等重放 `8153` 继续作为历史证据；本地已冻结 `concept-heat-eod-v2` 与新 source hash 字段，但尚未执行 v2 60 日生产回放。其余缺口是 Slice 11 前端、Slice 13 自动化、Slice 14 像素、Slice 15 候选部署/性能和 Slice 16 最终对账 |
+| 当前运行缺口 | 正式 v1 PLAN `8149`、APPLY `8152` 与幂等重放 `8153` 继续作为历史证据；v2 PLAN `8208`、APPLY `8210` 与幂等重放 `8213` 已完成。剩余缺口是 Slice 13 自动化、Slice 14 像素、Slice 15 候选部署/性能和 Slice 16 最终对账 |
 
 ### 1.3 禁止项
 
@@ -77,25 +77,25 @@ MarketSectorOverviewResponse
 
 | 当前文件 | 已有实现 | 审计确认的未完成项 |
 |---|---|---|
-| `src/biz/api/wealth/market/sector_overview.py` | 严格 view/rank/selection 参数与同一路由 V2；后端默认/显式日期正反例已通过 | 前端仍会无条件传页面日期，留待 Slice 11 修正（A06 前端部分） |
-| `src/biz/schemas/wealth/market/sector_overview.py` | 已拆分三类 view-specific rank DTO，旧 `SectorRankItemDto` 已删除 | 前端旧通用类型仍待 Slice 11 清零（A01 前端部分） |
-| `effective_a_stock_pool_query.py` / `sector_heat_source_query.py` | 两条链均显式读取并以 `close + pct_chg` 判定有效行情；`close` 已进入 Heat canonical source hash | v2 60 日生产回放待 Slice 12（A02 生产部分） |
+| `src/biz/api/wealth/market/sector_overview.py` | 严格 view/rank/selection 参数与同一路由 V2；后端默认/显式日期正反例已通过 | Slice 11 前端默认请求已停止附带页面日期，仅 URL 显式选日时传值 |
+| `src/biz/schemas/wealth/market/sector_overview.py` | 已拆分三类 view-specific rank DTO，旧 `SectorRankItemDto` 已删除 | Slice 11 前端三类类型已对齐并清零旧通用业务类型 |
+| `effective_a_stock_pool_query.py` / `sector_heat_source_query.py` | 两条链均显式读取并以 `close + pct_chg` 判定有效行情；`close` 已进入 Heat canonical source hash | v2 60 日生产回放已由 Slice 12 完成（A02 生产部分） |
 | `sector_member_query.py` | 成员 Top5 展示名严格取同日 `dc_member.name`，security 异名反例通过 | 无 |
-| `sector_overview_query_service.py` | 行业/概念 TopN 截断前排除 null；地域 31 项 null 置底；默认/显式日期语义已区分 | 前端默认请求语义待 Slice 11 |
-| `sector_metrics_query.py` / 状态归并 | 以三来源候选并集识别 daily/index/moneyflow/member 缺行并降级 PARTIAL；合法无领涨保持 READY | 前端状态骨架待 Slice 11 |
-| Heat config/contract tests | 配置升为 `2.0.0 / concept-heat-eod-v2`，批准 hash 门禁阻止同版本语义漂移，v1 跨版本趋势返回 UNKNOWN | 生产回放待 Slice 12 |
-| `tests/web/test_wealth_market_sector_overview_api.py` | 已覆盖 A01-A07 后端固定列、来源缺失、null、名称、日期、ERROR 与合法无领涨正反例 | 前端和浏览器覆盖待 Slice 11/13 |
+| `sector_overview_query_service.py` | 行业/概念 TopN 截断前排除 null；地域 31 项 null 置底；默认/显式日期语义已区分 | Slice 11 前端已按 view-specific 事实消费 |
+| `sector_metrics_query.py` / 状态归并 | 以三来源候选并集识别 daily/index/moneyflow/member 缺行并降级 PARTIAL；合法无领涨保持 READY | Slice 11 已实现保留可用事实的状态骨架和无领涨文案 |
+| Heat config/contract tests | 配置升为 `2.0.0 / concept-heat-eod-v2`，批准 hash 门禁阻止同版本语义漂移，v1 跨版本趋势返回 UNKNOWN | 生产回放已由 Slice 12 完成 |
+| `tests/web/test_wealth_market_sector_overview_api.py` | 已覆盖 A01-A07 后端固定列、来源缺失、null、名称、日期、ERROR 与合法无领涨正反例 | Slice 11 已补核心前端/浏览器覆盖；全矩阵留待 Slice 13 |
 
 ### 2.3 前端差距
 
 | 当前文件 | 已有实现 | 审计确认的未完成项 |
 |---|---|---|
-| `MarketOverviewPage.tsx` | 请求状态已下沉 controller，页面只装配 feature | 无条件传页面上下文 `tradeDate`，把默认加载变成显式日期（A06） |
-| `useSectorOverviewController.ts` | 已有 Tab 独立状态、abort、request id、timeout/retry | PageStatus 通过 lower-case/断言映射，ERROR/未知值不穷尽（A07） |
-| `api/marketSectorOverviewApi.ts` | 已是 V2 判别式 workspace | rank item 类型与后端一样不足，无法渲染固定多列（A01） |
-| `SectorOverviewPanel.tsx` | 已有三个 view 分支和基础状态分支 | 仍复用通用 RankCard/DetailPanel/Skeleton；三工作台结构、标签、Heat、导航、状态骨架均偏离（A09-A15） |
-| `market-overview-page.css` | 已把模块高度设为 680px | shell 高度/统一 fr 比例、两列卡片网格与三个正式节点尺寸不一致（A09-A11） |
-| `market-overview-sector-overview-real-api.test.tsx` | 已有 5 项真实响应驱动的 jsdom 测试 | 没有覆盖完整结构、全部状态、七行滚动、长文本/null、Heat 断点、领涨导航和像素（A17） |
+| `MarketOverviewPage.tsx` | 页面只装配 feature，并仅将 URL 显式 `tradeDate` 传给板块 controller | 无；首页其它模块未改 |
+| `useSectorOverviewController.ts` | Tab 独立状态、abort/request id、timeout/retry；PageStatus 穷尽映射，未知值 fail closed | Slice 13 仍须补全三 view×状态矩阵 |
+| `api/marketSectorOverviewApi.ts` | 已拆为 view-specific Industry/Concept/Region rank/detail 类型；旧通用业务类型清零 | 无 |
+| `SectorOverviewPanel.tsx` 与三个 workspace | 正式 header/tabs/toolbar、三个独立 rank/detail、同尺寸 skeleton/overlay、Partial/Delayed 保留可用事实 | Slice 14 正式像素尚未验收 |
+| `market-overview-page.css` | 1600px 视口下模块为 `1564 × 680`；行业 3 列、概念/地域 930/600 双区、七行内部滚动已落地 | 普通 UI `<=2px` 差异待 Slice 14 |
+| `market-overview-sector-overview-real-api.test.tsx` | 11 项真实响应专项覆盖结构、固定列、20 日断点、地域分布、导航、无领涨、默认/显式日期、stale、403、ERROR/未知和超时 | 长文本、全 view×状态、键盘及正式像素留待 Slice 13/14 |
 
 ### 2.4 CodeGraph 影响面
 
@@ -114,7 +114,7 @@ CodeGraph 已在本次纠偏中重新覆盖 API 入口、`MarketSectorOverviewQu
 
 #### 2.5.1 后端、数据语义与契约
 
-| ID | 严重度 | 冻结口径 | 当前实现与偏差 | 修正要求 | 关闭证据 | 修正 Slice |
+| ID | 严重度 | 冻结口径 | 审计时实现与偏差 | 修正要求 | 关闭证据 | 修正 Slice |
 |---|---|---|---|---|---|---|
 | A01 | 阻断 | 行业排行展示当前排序主指标与领涨股；正式概念排行同一行展示热度等级、趋势、热度分、日变化、涨跌幅和领涨股；地域同一行展示上涨/成分、主力净流入、涨跌幅和领涨股 | 后端/前端共用一个 `SectorRankItem`，只有 `primaryMetric + leader + heat`；该结构只勉强覆盖行业，无法表达正式概念/地域固定多列 | 破坏性拆为 view-specific rank DTO：行业保留显式 `primaryMetric`，概念/地域返回稳定固定事实字段；前端不得按当前排序自行拼装；不保留通用旧别名 | 三类 schema、真实路由、前端真实 API 测试逐列断言；旧通用不足契约静态清零 | 10、11 |
 | A02 | 高 | 有效报价必须同时满足同日 `equity_daily_bar.close IS NOT NULL` 与 `pct_chg IS NOT NULL` | `EffectiveAStockPoolQuery` 与 Heat `SectorHeatSourceQuery` 只读取/校验 `pct_chg`；当前生产窗口未出现 `pct_chg` 非空而 `close` 为空，只能证明现存结果暂未受影响，不能证明实现合规 | 两条查询链共享同一 `close + pct_chg` 资格语义；close 缺失必须计入缺行情并影响覆盖/有效性。新增 `close` 会改变 Heat canonical 来源字段集合，必须升级 `scoreVersion` 后重放，不得沿用 v1 | close-null/pct-nonnull 负例同时覆盖详情和 Heat；真实只读样本复核；新版本 60 日 PLAN/APPLY/read-back/幂等重放 | 10、12 |
@@ -130,13 +130,13 @@ Slice 10 后端关闭记录（2026-08-13）：
 | ID | 后端代码/测试结果 | 后续仍需 |
 |---|---|---|
 | A01 | 三类 rank DTO 已破坏性拆分；真实路由逐字段断言通过；后端旧 `SectorRankItemDto` 清零 | Slice 11 清理前端通用类型并接新字段 |
-| A02 | 有效池和 Heat source 同时要求 `close + pct_chg`；`close` 进入 canonical source hash；close-null 负例通过。生产只读最近 60 开放日 `2026-05-21..2026-08-13` 共 331,085 行，`pct_chg` 有值而 `close` 为空为 0 | Slice 12 执行 v2 60 日 PLAN/APPLY/read-back/幂等重放 |
+| A02 | 有效池和 Heat source 同时要求 `close + pct_chg`；`close` 进入 canonical source hash；close-null 负例通过。生产 v2 PLAN `8208`、APPLY `8210`、read-back 和重放 `8213` 已覆盖 60 日，逐日来源/内容 hash 0 差异 | 生产事实部分完成；整体随最终对账关闭 |
 | A03 | 成员名改取同日 `dc_member.name`；与 `Security.name` 异名的真实路由反例通过 | 无 |
 | A04 | 行业/概念 null 在 TopN 前排除；地域固定 31 项保留并 null 置底 | Slice 11 前端消费与展示 |
 | A05 | daily/index/moneyflow/member 缺行分别返回 PARTIAL 和明确 `SO_*`；合法无领涨返回 READY + `leader=null` | Slice 11 状态骨架与文案 |
 | A06 | 后端默认请求使用最近公共完成日并可返回 DELAYED；显式开放日无完整事实返回 EMPTY，且不附加误导性 DELAYED issue | Slice 11 停止把默认请求伪装成显式日期 |
 | A07 | 后端 `PageStatusValue` 继续穷尽 `READY/DELAYED/PARTIAL/EMPTY/ERROR`；未知值被 Pydantic 拒绝，层级错误稳定返回 ERROR | Slice 11 完成前端穷尽映射、403/超时/网络状态骨架 |
-| A08 | 配置升为 `2.0.0 / concept-heat-eod-v2`；批准语义 hash 门禁阻止同版本参数漂移；v1 前序与 v2 不计算 delta/trend | Slice 12 完成生产回放 |
+| A08 | 配置升为 `2.0.0 / concept-heat-eod-v2`；批准语义 hash 门禁阻止同版本参数漂移；v1 前序与 v2 不计算 delta/trend；60 日回放和 0 写入重放通过 | 生产事实部分完成；整体随最终对账关闭 |
 
 #### 2.5.2 Figma、前端结构与交互
 
@@ -149,7 +149,7 @@ Slice 10 后端关闭记录（2026-08-13）：
 | A13 | 阻断 | 产品冻结概念 Heat 历史为最近 20 个已发布交易日；无效点保留日期并断开 | Slice 9 前正式 Figma 只有 7 个历史槽；当前代码虽循环 20 点，但 null 被最小高度柱显示，且缺少范围/变化表达 | Figma 已在 Slice 9 冻结为 20 日；代码仍须按新稿实现 20 点、日期顺序、无效断点和批准的当前值/变化表达 | Figma 节点属性复核已完成；20 点/断点 DOM 测试、INVALID 中段截图与 API 对账仍待 Slice 11/14 | 9、11、14 |
 | A14 | 高 | 领涨股和成分股名称进入股票详情；无领涨显示“暂无领涨股” | 排名卡整体按钮导致领涨股点击只选择板块；详情领涨股为普通文本；缺失值显示 `--` | 板块选择与股票跳转使用独立可访问交互目标，禁止嵌套 button；领涨和成员统一调用批准的股票详情导航 | 点击传播、键盘激活、无领涨文案、成员/领涨路由参数测试 | 11、13 |
 | A15 | 阻断 | Loading、Ready、Partial、Delayed、Empty、Error、Forbidden 共用稳定页面骨架；普通 UI 不因状态换位 | Loading 使用通用 `SkeletonBlock`，Empty/Error/Forbidden 是简单居中层，不包含三工作台对应表头/行/详情骨架 | 为三个 view 构建相同尺寸 skeleton；状态 overlay 覆盖而不替换 grid；refreshing 保留旧数据；Partial/Delayed 保留可用事实 | 各 view×状态同尺寸截图、容器尺寸断言、无布局跳动；ERROR 同时覆盖 A07 | 11、13、14 |
-| A16 | 阻断 | 用户最新批准范围不新增板块详情页/路由；Figma 与文档必须先一致 | Slice 9 前正式 Figma 含三个未批准的板块详情路由控件，交互说明也把板块名定义为详情入口 | Slice 9 已移除三个控件并冻结板块名只承担选择/联动；代码导航边界仍待 Slice 12 验收 | Figma、benchmark、implementation、LLD、M2 Gate 五处口径已一致并有节点复核记录；代码验收前问题保持 OPEN | 9、12 |
+| A16 | 阻断 | 用户最新批准范围不新增板块详情页/路由；Figma 与文档必须先一致 | Slice 9 前正式 Figma 含三个未批准的板块详情路由控件，交互说明也把板块名定义为详情入口 | Slice 9 已移除三个控件；Slice 11 前端仅保留板块选择/联动和股票详情导航，无板块详情入口 | Figma/文档节点复核、前端静态扫描及导航负例已通过；最终关闭仍待 Slice 16 对账 | 9、11、16 |
 
 #### 2.5.3 测试、性能、文档与发布治理
 
@@ -163,11 +163,11 @@ Slice 10 后端关闭记录（2026-08-13）：
 
 | 节点 | 当前已审计结构 | LLD 固定用途 | 当前冲突/动作 |
 |---|---|---|---|
-| `538:517` | 板块速览 V2 正式总览，`1564 × 680` | 模块外框、header、tabs、日期与工作区基线 | 当前代码使用通用 Panel header；Slice 11 改为正式结构 |
-| `538:520` | 行业：左侧 3 列层级区约 1008px，右侧详情约 522px；每列 5 行 | Industry workspace 与四指标详情 | 当前统一 fr 比例/通用详情不匹配 |
-| `538:521` | 概念：左侧约 930px、右侧约 600px；单列 7 行表格；Heat 与详情 | Concept workspace、Heat badge/history 与成员 | Slice 9 已冻结为最近 20 个已发布交易日；代码仍待 Slice 11 验收 |
-| `571:516` | 地域：左侧约 930px、右侧约 600px；单列 7 行表格；详情含两段 breadth | Region workspace 与上涨/下跌分布 | 当前两列卡片和通用详情不匹配 |
-| `538:522` | Tab 记忆、三级联动、排序范围、状态骨架、名称导航说明 | 正式交互事实源 | Slice 9 已移除板块详情入口并补齐 view-specific 字段与六种非正常状态；代码仍待 Slice 10-13 验收 |
+| `538:517` | 板块速览 V2 正式总览，`1564 × 680` | 模块外框、header、tabs、日期与工作区基线 | Slice 11 已落地正式模块结构；像素待 Slice 14 |
+| `538:520` | 行业：左侧 3 列层级区约 1008px，右侧详情约 522px；每列最多 5 行 | Industry workspace 与四指标详情 | Slice 11 已落地；真实三级直属只有 4 行时不伪造占位事实 |
+| `538:521` | 概念：左侧约 930px、右侧约 600px；单列 7 行表格；Heat 与详情 | Concept workspace、Heat badge/history 与成员 | Slice 11 已落地 20 日空槽断点；生产 v2 Heat 已由 Slice 12 发布 |
+| `571:516` | 地域：左侧约 930px、右侧约 600px；单列 7 行表格；详情含两段 breadth | Region workspace 与上涨/下跌分布 | Slice 11 已落地，真实 31 行内部滚动与分布已验收 |
+| `538:522` | Tab 记忆、三级联动、排序范围、状态骨架、名称导航说明 | 正式交互事实源 | Slice 11 已完成结构和核心状态验收；全矩阵自动化待 Slice 13 |
 | `554:516` | Heat 标签/趋势与量化说明 | Heat 文案、标签和历史表现 | 必须与 20 日、NONE 隐藏、STABLE=平稳一致 |
 
 Slice 9 执行后事实：正式根仍为 `1700 × 3242` 且子节点顺序不变；行业、概念、地域仍分别为 `1564 × 680`，交互契约为 `1564 × 360`，Heat Model 为 `1564 × 520`。概念节点 `543:540` 保持 `556 × 42`、6px 间距并由 7 根柱扩为 20 个日期槽；三个工作台的“进入××行情”控件已删除；`538:522` 已补齐 view-specific 字段、长文本/null、无领涨、20 日 INVALID 断点与 Ready + 六种非正常状态口径。完整 before/after 与属性清单见 `figma-pixel-artifacts/20260813-sector-overview-v2-slice9/`。
@@ -903,7 +903,7 @@ git diff --check
 4. 正式根、三个工作台、交互契约和 Heat Model 的尺寸与子节点顺序通过属性复核；Heat Model 前后 PNG SHA-256 相同。修改前后截图、属性清单和节点 ID 见 `figma-pixel-artifacts/20260813-sector-overview-v2-slice9/`。
 5. benchmark、implementation design、M2 Gate 与本 LLD 已同步为 Slice 1-5 完成、Slice 6-8 已实现未验收、A01-A19 OPEN；implementation design 已改为 Industry/Concept/Region view-specific rank 与 detail 目标契约。
 
-阶段证据：A09、A13、A16、A19 的设计/文档部分已完成；这些问题仍需后续代码、自动化、像素和最终对账证据，状态继续保持 `OPEN`。Slice 9 后已经完成 Slice 10，当前下一步固定为 Slice 11。
+阶段证据：Slice 9 完成 A09、A13、A16、A19 的设计/文档部分，Slice 10 完成 A01-A08 后端部分，Slice 11 完成 A01/A06/A07/A09-A16 前端结构部分，Slice 12 完成 A02/A08 的生产事实部分；这些问题仍需后续全矩阵自动化、像素和最终对账证据，整体状态继续保持 `OPEN`。当前下一步固定为 Slice 13。
 
 ### Slice 10：后端事实口径与 V2 契约修正（新增，修正序号 2）
 
@@ -926,6 +926,19 @@ git diff --check
 
 关闭问题：A01、A06、A07、A09-A16 的前端部分。交付为独立提交。
 
+执行记录（2026-08-13）：**PASS，A01/A06/A07/A09-A16 的前端结构部分完成**。
+
+1. API 类型破坏性拆为 `IndustryRankItem / ConceptRankItem / RegionRankItem` 与各自 detail；删除前端通用业务 rank/detail 组件，不保留 adapter 或别名。行业 `primaryMetric` 仅保留为该 view 批准的当前排序事实。
+2. `SectorOverviewPanel` 只重构板块模块，新增正式 header/tabs/toolbar，以及 `IndustryWorkspace / ConceptWorkspace / RegionWorkspace` 和各自 rank/detail；没有改首页其它模块、API、后端、数据库、配置、Figma 或 Slice 12 代码。
+3. 1600×1200 本地真实页面核验模块为 `1564 × 680`：行业三列各最多 5 行；概念/地域固定表头、七行视窗和内部滚动；地域真实 31 行；三工作台没有板块详情入口。生产三级行业当前只有 4 个直属节点时按事实展示 4 行，不伪造第 5 行。
+4. Heat 等级/趋势独立渲染，`STABLE -> 平稳`、`NONE` 不显示等级；20 日历史 null 点为空槽；地域详情由 `up_count/down_count` 表达同日涨跌分布；领涨股和成员股使用独立股票导航，无领涨显示“暂无领涨股”。
+5. 默认请求不附带 `tradeDate`，仅 URL 显式选日时传日期；controller 穷尽 READY/PARTIAL/DELAYED/EMPTY/ERROR，未知枚举 fail closed；403、ERROR、未知值和超时均保留稳定 skeleton/overlay。
+6. 自动门禁：真实响应专项 11 项通过；Wealth 全量 33 个文件、198 项通过；`npm run typecheck`、`npm run build` 通过。构建只有既有 Vite 大 chunk 提示，无新增失败。
+7. 浏览器门禁：行业、概念、地域三个工作台均在本地真实页面完成局部截图和 DOM/CSS 核验，控制台无 error/warn。截图为本地临时验收物，不替代 Slice 14 的 Figma `<=2px` 正式像素证据。
+8. Slice 11 实施时生产仅有 Heat v1；该时点概念默认 Heat 排序按合同返回 Partial。Slice 12 已发布正式 v2 60 日事实，后续候选验收必须使用真实 v2，不得保留 v1 缺失假设。
+
+Slice 11 未关闭 A01-A19 整体问题；Slice 12 已完成 A02/A08 生产事实部分。A10-A15 的全矩阵自动化留给 Slice 13；A09-A16 的正式像素留给 Slice 14；A18/A19 的候选部署、性能、监控、签字和最终对账留给 Slice 15-16。下一步固定为 Slice 13。
+
 ### Slice 12：Heat V2 与 60 日回放（新增，修正序号 4）
 
 1. 将 Heat `scoreVersion` 升级为 `concept-heat-eod-v2`；canonical `equity_daily_bar` 输入显式加入 `close`，配置 hash、source hash 与 content hash 按新版本重算。
@@ -935,6 +948,15 @@ git diff --check
 5. 生产写入仍使用现有 TaskRun 和事务，不新增表、账号、DG Heat 或第二份事实。
 
 关闭问题：A02、A08 的生产事实部分。本 Slice 为强制步骤，不得改成“无需重放”。
+
+执行记录（2026-08-13）：**PASS，A02/A08 的生产事实部分完成**。
+
+1. 正式 PLAN TaskRun `8208` 冻结 `2026-05-20..2026-08-12` 共 60 units、0 gaps、`apply_ready=true`；plan hash 为 `6e6b855af3d479aea391c288772e52d4a5c3a4b0b026c898c7e6505aa2f7d390`。60/60 单元均为 `2.0.0 / concept-heat-eod-v2`，批准 config hash 唯一，PLAN 期间 Heat 表仍为 v1 29,665 行，证明 PLAN 未写业务数据。
+2. 首次 APPLY TaskRun `8210` 从旧到新完成 60/60、0 失败、0 issue，发布 29,665 行，其中 16,756 `VALID`、12,909 `INVALID`；单日平均约 `9.975s`、P95 `11.284s`、最大 `11.428s`。
+3. 逐日 read-back 对 PLAN 的行数、VALID/INVALID、scoreVersion、config/source/content hash 均为 0 差异。v2 首日 `2026-05-20` 的 486 行全部为 `heat_delta_1d=NULL`、`heat_trend/raw_heat_trend=UNKNOWN`，未跨 v1 比较。
+4. v1/v2 的 29,665 个主键和全部业务数值、状态、invalid reason、分数、等级、趋势完全一致；29,665 行的 `scoreVersion/configHash/sourceHash` 全部变化，60 日 content hash 全部变化。原因是本窗口的 `close` 均满足有效行情资格，未改变成分池，但 canonical 字段集合已经变化，必须升版并重算摘要。
+5. 幂等重放 TaskRun `8213` 继续引用 PLAN `8208`，完成 60/60、0 失败、0 issue、`rows_saved=0`；重放前后 `calculated_at` 精确保持 `2026-08-13 22:27:15.102214+08` 至 `2026-08-13 22:37:06.490427+08`，逐日 PLAN 对账仍为 0 差异。
+6. 本 Slice 未修改代码、数据库结构、账号、配置、DG、前端或 Figma；仅使用既有 TaskRun/worker/业务事务链执行生产回放并同步文档。下一步固定为 Slice 13，本轮不进入。
 
 ### Slice 13：自动化回归补齐（新增，修正序号 5）
 
@@ -1041,10 +1063,10 @@ git diff --check
 
 ## 13. 当前修正状态与拍板边界
 
-1. 当前已部署前后端 V2 不视为验收完成；不得继续新功能。Slice 9、Slice 10 已通过，下一项只能是 Slice 11。
+1. 当前已部署历史 V2 不视为新版验收完成；不得继续新功能。Slice 9、Slice 10、Slice 11、Slice 12 已通过，下一项只能是 Slice 13。
 2. 已确认不需要重新拍板的修正：20 日 Heat 历史、三工作台正式结构、地域保留、四指标详情、独立 Heat 标签、有效池 `close + pct_chg`、`dc_member.name`、null 排名排除、默认/显式日期、六态骨架、股票详情跳转、像素与性能门禁。
 3. 按现有批准范围，板块详情页和三个“进入××行情”入口不在本版本实现；Slice 9 已从正式 Figma 和文档删除该表达。只有用户明确改变范围时才重新设计路由。
-4. A02 已确认改变 Heat canonical 来源字段集合，因此必须执行 Slice 12 的 `concept-heat-eod-v2` 与 60 日重放；不得沿用旧 v1 作为完成证据。
+4. A02 改变 Heat canonical 来源字段集合后的 `concept-heat-eod-v2` 与 60 日重放已完成；后续验收不得沿用旧 v1 作为当前生产证据。
 5. 前后端修正后仍必须作为同一候选发布单元；最终证据包括真实 API smoke、同机房 P50/P95/P99、三视图/全状态同尺寸截图、`SO_*`/Heat 观测和角色签字。
 6. 若真实数据与冻结产品口径出现新的冲突（例如地域枚举不再为 31、有效池无法用正式字段表达、Heat 大面积无效），停止对应 Slice 并回到产品评审；不得自行修改 Figma 或实现口径。
 
@@ -1054,6 +1076,8 @@ git diff --check
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.15 | 2026-08-13 | 完成 Slice 12：正式 PLAN `8208`、APPLY `8210`、逐日 read-back 与幂等重放 `8213`；60 日 29,665 行、逐日版本/计数/hash 0 差异、重放 0 写入，下一步固定 Slice 13 |
+| v2.14 | 2026-08-13 | 完成 Slice 11 前端纠偏：view-specific 类型与三工作台、正式模块骨架、七行滚动、20 日断点、地域 breadth、股票导航、默认日期和穷尽状态通过 11 项专项、198 项全量、typecheck/build 与本地真实页面浏览器验收；下一步固定 Slice 12 |
 | v2.13 | 2026-08-13 | 完成 Slice 10 后端纠偏：三类 rank DTO、`close + pct_chg`、`dc_member.name`、TopN null、来源状态、默认/显式日期、后端 ERROR 契约和 Heat v2 版本门禁已实现；70 项回归和生产只读 60 日 close/pct 核验通过，下一步固定 Slice 11 |
 | v2.12 | 2026-08-13 | 完成 Slice 9：保存六个正式节点同尺寸 before/after 与属性清单；概念 Heat 改为 20 日、移除三个板块详情入口、补齐 view-specific 字段和稳定状态说明；同步四份 V2 文档，A01-A19 保持 OPEN，下一步固定 Slice 10 |
 | v2.11 | 2026-08-13 | 文档对账审计纠偏：保留 Slice 1-5 生产事实，撤销 Slice 6-8 验收完成结论；登记 A01-A19 后端、数据、Figma、前端、测试、性能与发布偏差；新增 Slice 9-16 修正顺序、逐项关闭证据和禁止跳步门禁；将 DG Ruff 收窄为本需求文件范围 |

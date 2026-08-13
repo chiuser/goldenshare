@@ -1,6 +1,6 @@
 # 市场总览｜板块速览 M2 编码前门禁 v2
 
-> 状态：Slice 10 后端事实与契约修正已通过。A01-A08 的后端代码/测试部分完成；前端与生产 Heat v2 证据未完成的问题继续 OPEN。下一门禁固定为 Slice 11，禁止越级进入回放、像素或发布。
+> 状态：Slice 12 Heat V2 与 60 日生产回放已通过。A02/A08 的生产事实部分完成；全矩阵自动化、正式像素与发布证据仍为 OPEN。下一门禁固定为 Slice 13，禁止越级进入 Slice 14-16。
 > 规则：未勾选门禁不得越级进入对应后续阶段；本地代码完成不等于生产迁移、数据发布或上线验收通过。
 
 关联文档：
@@ -66,21 +66,21 @@
 
 ### 1.4 API 与前端
 
-1. [x] 后端请求参数和互斥规则、默认最新公共日与显式日期语义已通过正反例；前端不得无条件传默认日期，留待 Slice 11。
-2. [x] 后端已破坏性拆为 Industry/Concept/Region view-specific rank DTO；前端旧通用 rank item 留待 Slice 11 删除。
+1. [x] 后端请求参数和互斥规则、默认最新公共日与显式日期语义已通过正反例；前端默认请求不传日期，仅 URL 显式选日时传 `tradeDate`。
+2. [x] 前后端均已破坏性拆为 Industry/Concept/Region view-specific rank DTO/type；前端旧通用业务 rank item 已清零。
 3. [x] 默认三级选择路径、合法祖先保留、榜外纠正与无子级行为已冻结。
 4. [x] 热度未就绪时不回退其它排序维度，返回 `PARTIAL + SO_HEAT_NOT_READY`。
-5. [ ] 后端旧 `SectorRankItemDto` 已清零；前端旧通用 DTO/组件/fixture 尚未清零，因此整体契约仍未完成。
-6. [ ] Tab 独立状态和 stale-response 防护已有实现；正式三工作台 rank/detail 组件树仍不符合 Slice 9 Figma，待 Slice 11 重构。
-7. [ ] 当前六态实现未保留三个 view 的正式表头、列表和详情骨架，A07/A15 尚未通过。
-8. [ ] 旧 `columns/heatMapItems`、8 列/20 格组件语义与 mock fixture 已删除；仍须在 Slice 11/13 与 view-specific 新结构一起重新做负向验收。
+5. [x] 后端旧 `SectorRankItemDto` 与前端旧通用 DTO/业务 RankCard/通用详情组件均已清零；行业 `primaryMetric` 仅作为该 view 批准的当前排序事实保留。
+6. [x] Tab 独立状态、stale-response 防护和正式三工作台 rank/detail 组件树已按 Slice 9 Figma 重构并通过专项回归及本地浏览器验收。
+7. [x] 三个 view 共享 680px 模块外框并各自保留正式列表/详情结构；Loading/Empty/Error/Forbidden 使用同尺寸 skeleton + overlay，Partial/Delayed 保留可用事实。全 view×状态截图矩阵仍留待 Slice 13/14。
+8. [x] 旧 `columns/heatMapItems`、8 列/20 格组件语义与 mock fixture 已清零；view-specific 新结构负向静态审计与专项回归通过。
 
 ### 1.5 测试与发布
 
 1. [ ] Heat 固定样本 golden test 通过评审。
 2. [ ] no-lookahead、缺源、不补权和来源错日负例已冻结。
 3. [x] A01-A08 后端正反例、专项及扩展回归共 70 项通过；生产只读 60 开放日 close/pct 聚合核验通过。前端与生产 Heat v2 验收另按 Slice 11/12 执行。
-4. [ ] 现有前端真实 API 与交互回归只证明当前实现存在；正式三工作台、view-specific 字段、六种非正常状态和像素尚未通过 Slice 11-14 验收。
+4. [ ] Slice 11 已通过 11 项真实响应专项回归、198 项全量前端回归、typecheck、build 和三个工作台本地浏览器验收；Slice 13 全状态/长文本/滚动自动化与 Slice 14 正式像素仍未通过。
 5. [ ] API P95、payload、SQL 往返和离线物化预算已冻结。
 6. [ ] 迁移、层级、Heat 回放、应用切换的发布顺序已冻结。
 7. [ ] 应用回滚不依赖恢复旧 DTO 的方案已冻结。
@@ -354,28 +354,28 @@ interface SectorOverviewRequestV2 {
 2. [x] 每列 Top5、概念 Top20 和地域全部 31 个候选数量已有实现。
 3. [x] 默认选择、合法选择保留、过期选择纠正、无子级已有基础覆盖。
 4. [x] 三类 view-specific rank DTO、固定展示列、行业/概念 TopN null 排除和地域 31 项 null 置底正反例通过。
-5. [ ] 后端已证明不从成员 Top1 推断领涨，合法无领涨为 `READY + leader=null`；前端“暂无领涨股”和无跳转留待 Slice 11/13。
+5. [x] 后端已证明不从成员 Top1 推断领涨，前端对合法 `leader=null` 展示“暂无领涨股”且不生成股票跳转；Slice 13 仍需补全浏览器键盘矩阵。
 6. [x] 成员 Top5 展示名称严格取 `dc_member.name`；security 同码异名反例通过。
 7. [x] 新概念 DTO 不把 Heat 缺失回退为 CHANGE_PCT；Heat 未发布仍为 `PARTIAL + SO_HEAT_NOT_READY`。
-8. [ ] 当前代码返回最多 20 点，但 INVALID 断点、范围/变化表达及 Slice 9 Figma 对齐尚未通过 A13 自动化/像素验收。
+8. [ ] 前端已实现严格 20 点、null 空槽断点及当前值/变化表达，并有组件正反例；生产 v2 数据与 Slice 14 像素尚未验收。
 9. [x] 三个新 workspace schema 均只返回当前 view，真实路由正反例通过。
 10. [x] Region DTO 返回生产枚举 31 项及固定列，不返回层级或 Heat 字段。
-11. [ ] 当前 V2 schema 已移除 `columns/heatMapItems`；仍须与新 view-specific schema 一起证明旧语义清零。
-12. [ ] 后端 daily/index/moneyflow/member 缺行、合法无领涨、默认/显式日期、ERROR/未知枚举已通过；FORBIDDEN 与前端穷尽状态骨架仍待 Slice 11/13。
+11. [x] V2 schema 和前端均已移除 `columns/heatMapItems` 与旧通用业务展示语义，静态扫描和真实响应专项回归通过。
+12. [x] 前端穷尽映射 READY/PARTIAL/DELAYED/EMPTY/ERROR，未知枚举 fail closed；HTTP 403、ERROR、未知值、超时和 retry 均保留稳定骨架。Slice 13 仍负责全 view×状态矩阵。
 
 ### 6.3 前端
 
-1. [ ] 当前实现具有三个 Tab 各自 rank/selection；Slice 11 重构后必须在正式工作台重新验收。
-2. [ ] 当前实现具有三级点击联动与详情切换；Slice 11 重构后必须在正式层级列重新验收。
-3. [ ] 概念和地域尚未按正式固定表头、单列七行可视和内部滚动结构完成浏览器验收。
-4. [ ] 当前实现具有 stale-response 防护；Slice 11 重构后必须在新 controller/工作台组合中重新验收。
-5. [ ] 当前可见断言不足以证明正式行业/概念/地域固定列、四指标详情、Heat/地域分布和领涨交互。
-6. [ ] 长名称、null/UNKNOWN 和无领涨未通过真实浏览器及同尺寸截图。
-7. [ ] 当前格式化已有 enum/formatter 基础；新 view-specific 字段和独立 Heat level/trend 仍须证明前端不推导事实。
-8. [ ] 六种非正常状态尚未复用三个 view 的正式稳定骨架；ERROR/未知状态映射仍未闭环。
-9. [ ] 当前真实 source 无 mock fallback；Slice 11-13 的重构后链路仍须保留异常/超时负例。
-10. [ ] 旧 8 列/20 格组件语义、DTO、adapter 和 fixture 已从当前实现清零；新正式结构落地后须再次静态审计。
-11. [ ] 三个工作台不得显示板块详情入口；只允许领涨股/成员股股票导航，并覆盖点击传播、键盘和无领涨负例。
+1. [x] 三个 Tab 各自保留 rank/selection，并在正式工作台重新验收。
+2. [x] 行业三级点击联动与详情切换在正式三列结构中保留。
+3. [x] 概念和地域使用正式固定表头、单列七行可视和内部滚动；本地真实页面地域 31 行的 `overflow-y:auto` 已核验。
+4. [x] 新 controller/工作台组合保留 abort、request id 和 stale-response 防护，快慢响应反例通过。
+5. [x] 三 view 固定列、各自四指标、概念 Heat、地域分布和领涨交互由真实响应 fixture 逐项断言；生产概念 Heat v2 仍待 Slice 12。
+6. [ ] null/UNKNOWN 和无领涨组件反例通过；长名称、全部 view 的同尺寸状态截图仍留待 Slice 13/14。
+7. [x] Heat level/trend 由独立枚举标签渲染，NONE/UNKNOWN 不从 score/delta 推导；旧“稳定”文案已改为批准的“平稳”。
+8. [ ] 稳定 skeleton/overlay 与 ERROR/未知/403/超时已闭环；六种非正常状态×三个 view 的完整自动化/截图矩阵留待 Slice 13/14。
+9. [x] 重构后仍只接真实 API，无 mock fallback；异常、未知状态、403、超时和 retry 负例通过。
+10. [x] 旧 8 列/20 格组件语义、DTO、adapter、fixture 和通用业务 RankCard/DetailPanel 已静态清零。
+11. [x] 三个工作台无板块详情入口；板块选择与领涨/成员股票导航是独立可访问目标，点击传播和无领涨负例通过。键盘浏览器矩阵留待 Slice 13。
 
 ### 6.4 固定执行命令与通过标准
 
@@ -424,11 +424,11 @@ git diff --check
 | payload | `<120KB` |  |  |
 | SQL round trips | `<=8` | 生产只读应用查询：行业 7、概念 8、地域 6 | 通过 |
 | API payload | `<120KB` | 生产只读：行业 4.3KB、概念 13.1KB、地域 8.7KB | 通过 |
-| 单日 Heat P95 | `<60s` | `11.253s`（TaskRun `8152`，60 日） | 通过 |
+| 单日 Heat P95 | `<60s` | v1 `11.253s`（TaskRun `8152`）；v2 `11.284s`（TaskRun `8210`） | 通过 |
 | 60 个有效交易日回放平均/日 | `<60s` | `9.806s`；总耗时 `9m48.728s` | 通过 |
 | 层级 read-back | `496` | `496`，31/128/337，hash 一致 | 通过 |
 | Heat read-back | `candidate rows = prod rows` 且 canonical hash 一致 | 29,665 行/60 日；逐日 config/source/content hash 0 差异 | 通过 |
-| Heat 幂等重放 | 60 日无业务 DML | TaskRun `8153`：60/60、0 失败、`rows_saved=0`，`calculated_at` 范围不变 | 通过 |
+| Heat 幂等重放 | 60 日无业务 DML | v2 TaskRun `8213`：60/60、0 失败、`rows_saved=0`，`calculated_at` 精确不变 | 通过 |
 
 必须分别记录本地测试、同机房生产只读/最小发布验收；本地结果不能替代生产结论。
 
@@ -463,11 +463,11 @@ git diff --check
 3. [x] 60+25 日生产来源台账已冻结；日期级缺口清零，Prod Raw/Core 一致的局部源站缺行已冻结为逐概念 `INVALID` 证据。
 4. [x] prod-native Heat 60 个有效交易日 TaskRun 回放、read-back、重放一致性和性能验收完成；证据为 PLAN `8149`、APPLY `8152`、幂等重放 `8153`。
 5. [x] 最新交易日 `2026-08-12` Heat 发布和来源日期对账完成：503 行、477 `VALID`、26 `INVALID`，全日唯一 source date/source hash。
-6. [ ] Slice 10 后端修正已在本地通过但尚未与 Slice 11 前端组成候选版本，禁止单独部署。
-7. [ ] 前端已有三 view 实现，但 A09-A17 尚未按 Slice 9 正式节点和 Slice 10 契约重构、浏览器及像素验收。
+6. [ ] Slice 10 后端、Slice 11 前端和 Slice 12 Heat v2 已组成同一候选基线；尚未完成 Slice 13/14 验收，禁止部署为正式版本。
+7. [ ] 前端三 view 已按 Slice 9 正式节点和 Slice 10 契约完成结构重构及本地浏览器验收；正式像素、全矩阵自动化和候选环境验收仍待 Slice 13-15。
 8. [ ] 监控 `SO_*`、P95、Heat 覆盖、Ops TaskRun 和 DG hierarchy 发布状态。
 
-Slice 10 状态：**PASS（仅后端代码/测试）**。A01-A08 的后端部分完成；A01/A06/A07 仍有前端工作，A02/A08 仍有 Heat v2 生产回放。下一步只能进入 Slice 11，不能直接部署或发布。
+Slice 12 状态：**PASS（Heat V2 生产回放）**。正式 PLAN `8208`、APPLY `8210` 与幂等重放 `8213` 均成功；60 日 29,665 行，逐日版本/计数/hash 0 差异，重放 0 写入。A02/A08 的生产事实部分完成；A10-A15/A17/A19 的全矩阵自动化和跨 Slice 的像素/性能/发布证据仍为 OPEN。下一步只能进入 Slice 13，不能直接部署或发布。
 
 ### 9.2 回滚
 
@@ -546,6 +546,8 @@ Slice 10 状态：**PASS（仅后端代码/测试）**。A01-A08 的后端部分
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.16 | 2026-08-13 | 完成 Slice 12 门禁：v2 PLAN `8208`、APPLY `8210`、幂等重放 `8213`，60 日逐日 read-back/hash 0 差异、重放 0 写入；下一门禁为 Slice 13 |
+| v2.15 | 2026-08-13 | 完成 Slice 11 门禁：三类前端契约/组件、正式工作台结构、七行滚动、20 日断点、地域分布、股票导航、默认日期和穷尽状态通过专项/全量回归及本地浏览器验收；下一门禁为 Slice 12 |
 | v2.14 | 2026-08-13 | 完成 Slice 10 后端门禁：A01-A08 后端正反例、三类 rank DTO、来源状态、Heat v2 版本契约及生产只读 close/pct 核验通过；下一门禁为 Slice 11 |
 | v2.13 | 2026-08-13 | 完成 Slice 9 设计/文档门禁：20 日 Heat、三个工作台无板块详情入口、view-specific 字段与状态说明已冻结并归档；撤销 Slice 6-8 的错误完成勾选，A01-A19 保持 OPEN，下一门禁为 Slice 10 |
 | v2.12 | 2026-08-13 | 记录 Slice 7 前端三工作台本地完成：判别式消费、独立状态、地域涨跌分布、六态、键盘与 stale 防护已覆盖，V1 DTO/adapter/fixture 清零；Wealth 192 项测试、typecheck/build 通过，部署后像素/性能门禁保留 |

@@ -6,6 +6,9 @@ export type IndustryRankMetric = "CHANGE_PCT" | "MAIN_NET_INFLOW" | "UP_COUNT";
 export type ConceptRankMetric = "HEAT_SCORE" | "HEAT_DELTA_1D" | "CHANGE_PCT" | "MAIN_NET_INFLOW";
 export type RegionRankMetric = "CHANGE_PCT" | "MAIN_NET_INFLOW" | "UP_COUNT";
 export type SectorRankMetric = IndustryRankMetric | ConceptRankMetric | RegionRankMetric;
+export type HeatStatus = "VALID" | "INVALID" | "UNKNOWN";
+export type HeatLevel = "BOILING" | "HOT" | "ACTIVE" | "NONE";
+export type HeatTrend = "HEATING" | "STABLE" | "COOLING" | "UNKNOWN";
 
 export interface MarketSectorOverviewRequest {
   market?: "CN_A";
@@ -50,63 +53,106 @@ export interface SectorLeaderStock {
   changePct: number | null;
 }
 
+export interface SectorMemberStock {
+  stockCode: string;
+  stockName: string | null;
+  changePct: number | null;
+  direction: MarketDirection;
+}
+
 export interface ConceptHeat {
-  heatStatus: "VALID" | "INVALID";
+  heatStatus: Exclude<HeatStatus, "UNKNOWN">;
   invalidReason: "MEMBER_COUNT_LOW" | "QUOTE_ELIGIBLE_COUNT_ZERO" | "QUOTE_COVERAGE_LOW" | "HISTORY_INSUFFICIENT" | "FEATURE_MISSING" | null;
   heatScore: number | null;
-  heatLevel: "BOILING" | "HOT" | "ACTIVE" | "NONE";
+  heatLevel: HeatLevel;
   heatDelta1d: number | null;
-  heatTrend: "HEATING" | "STABLE" | "COOLING" | "UNKNOWN";
+  heatTrend: HeatTrend;
   heatRank: number | null;
   scoreVersion: string;
   tradeDate: string;
   calculatedAt: string;
 }
 
-export interface SectorRankItem {
+export interface ConceptHeatPoint {
+  tradeDate: string;
+  heatScore: number | null;
+  heatRank: number | null;
+  heatLevel: HeatLevel;
+}
+
+export interface SectorMetrics {
+  changePct: number | null;
+  upCount: number | null;
+  downCount: number | null;
+  sourceMemberCount: number;
+  memberCount: number;
+  suspendedCount: number;
+  quoteEligibleCount: number;
+  validQuoteCount: number;
+  missingQuoteCount: number;
+  mainNetInflow: number | null;
+  turnoverAmount: number | null;
+  quoteCoverage: number | null;
+}
+
+interface SectorDetailBase {
+  sectorCode: string;
+  sectorName: string;
+  metrics: SectorMetrics;
+  leader: SectorLeaderStock | null;
+  members: SectorMemberStock[];
+}
+
+export interface IndustryDetail extends SectorDetailBase {
+  sectorType: "INDUSTRY";
+  hierarchyPath?: string | null;
+}
+
+export interface ConceptDetail extends SectorDetailBase {
+  sectorType: "CONCEPT";
+  heat?: ConceptHeat | null;
+  heatHistory?: ConceptHeatPoint[];
+}
+
+export interface RegionDetail extends SectorDetailBase {
+  sectorType: "REGION";
+}
+
+export interface IndustryRankItem {
   rank: number;
   sectorCode: string;
   sectorName: string;
-  level?: 1 | 2 | 3;
+  industryLevel: 1 | 2 | 3;
   primaryMetric: MetricValue;
   leader: SectorLeaderStock | null;
-  heat?: ConceptHeat | null;
   selected: boolean;
 }
 
-export interface SectorDetail {
+export interface ConceptRankItem {
+  rank: number;
   sectorCode: string;
   sectorName: string;
-  sectorType: SectorOverviewView;
-  hierarchyPath?: string | null;
-  metrics: {
-    changePct: number | null;
-    upCount: number | null;
-    downCount: number | null;
-    sourceMemberCount: number;
-    memberCount: number;
-    suspendedCount: number;
-    quoteEligibleCount: number;
-    validQuoteCount: number;
-    missingQuoteCount: number;
-    mainNetInflow: number | null;
-    turnoverAmount: number | null;
-    quoteCoverage: number | null;
-  };
-  heat?: ConceptHeat | null;
-  heatHistory?: Array<{
-    tradeDate: string;
-    heatScore: number | null;
-    heatRank: number | null;
-    heatLevel: "BOILING" | "HOT" | "ACTIVE" | "NONE";
-  }>;
+  changePct: MetricValue;
+  mainNetInflow: MetricValue;
   leader: SectorLeaderStock | null;
-  members: Array<{
-    stockCode: string;
-    stockName: string | null;
-    changePct: number | null;
-    direction: MarketDirection;
-  }>;
+  heatStatus: HeatStatus;
+  heatLevel: HeatLevel;
+  heatTrend: HeatTrend;
+  heatScore: MetricValue;
+  heatDelta1d: MetricValue;
+  selected: boolean;
+}
+
+export interface RegionRankItem {
+  rank: number;
+  sectorCode: string;
+  sectorName: string;
+  changePct: MetricValue;
+  mainNetInflow: MetricValue;
+  memberCount: number | null;
+  upCount: number | null;
+  leader: SectorLeaderStock | null;
+  selected: boolean;
 }
 
 export interface IndustryWorkspace {
@@ -120,23 +166,23 @@ export interface IndustryWorkspace {
   columns: Array<{
     level: 1 | 2 | 3;
     parentSectorCode: string | null;
-    rows: SectorRankItem[];
+    rows: IndustryRankItem[];
   }>;
-  detail: SectorDetail | null;
+  detail: IndustryDetail | null;
 }
 
 export interface ConceptWorkspace {
   rankMetric: ConceptRankMetric;
   selectedConceptCode: string | null;
-  rows: SectorRankItem[];
-  detail: SectorDetail | null;
+  rows: ConceptRankItem[];
+  detail: ConceptDetail | null;
 }
 
 export interface RegionWorkspace {
   rankMetric: RegionRankMetric;
   selectedRegionCode: string | null;
-  rows: SectorRankItem[];
-  detail: SectorDetail | null;
+  rows: RegionRankItem[];
+  detail: RegionDetail | null;
 }
 
 interface SectorOverviewPanelBase {
@@ -145,10 +191,10 @@ interface SectorOverviewPanelBase {
   asOf: string;
 }
 
-export type SectorOverviewPanelData =
-  | (SectorOverviewPanelBase & { view: "INDUSTRY"; industry: IndustryWorkspace })
-  | (SectorOverviewPanelBase & { view: "CONCEPT"; concept: ConceptWorkspace })
-  | (SectorOverviewPanelBase & { view: "REGION"; region: RegionWorkspace });
+export type IndustrySectorOverviewPanel = SectorOverviewPanelBase & { view: "INDUSTRY"; industry: IndustryWorkspace };
+export type ConceptSectorOverviewPanel = SectorOverviewPanelBase & { view: "CONCEPT"; concept: ConceptWorkspace };
+export type RegionSectorOverviewPanel = SectorOverviewPanelBase & { view: "REGION"; region: RegionWorkspace };
+export type SectorOverviewPanelData = IndustrySectorOverviewPanel | ConceptSectorOverviewPanel | RegionSectorOverviewPanel;
 
 export interface MarketSectorOverviewResponse {
   tradingDay: {

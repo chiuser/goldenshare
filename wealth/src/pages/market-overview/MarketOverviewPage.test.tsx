@@ -376,17 +376,17 @@ const sectorOverviewPayload = {
         {
           level: 1,
           parentSectorCode: null,
-          rows: [{ rank: 1, sectorCode: "BK0001.DC", sectorName: "通信设备", primaryMetric: { value: 3.21, displayText: "+3.21%", direction: "UP" }, leader: { stockCode: "000001.SZ", stockName: "通信龙头", changePct: 9.98 }, selected: true }],
+          rows: [{ rank: 1, sectorCode: "BK0001.DC", sectorName: "通信设备", industryLevel: 1, primaryMetric: { value: 3.21, displayText: "+3.21%", direction: "UP" }, leader: { stockCode: "000001.SZ", stockName: "通信龙头", changePct: 9.98 }, selected: true }],
         },
         {
           level: 2,
           parentSectorCode: "BK0001.DC",
-          rows: [{ rank: 1, sectorCode: "BK0101.DC", sectorName: "通信网络", primaryMetric: { value: 3.05, displayText: "+3.05%", direction: "UP" }, leader: { stockCode: "000001.SZ", stockName: "网络龙头", changePct: 8.88 }, selected: true }],
+          rows: [{ rank: 1, sectorCode: "BK0101.DC", sectorName: "通信网络", industryLevel: 2, primaryMetric: { value: 3.05, displayText: "+3.05%", direction: "UP" }, leader: { stockCode: "000001.SZ", stockName: "网络龙头", changePct: 8.88 }, selected: true }],
         },
         {
           level: 3,
           parentSectorCode: "BK0101.DC",
-          rows: [{ rank: 1, sectorCode: "BK0201.DC", sectorName: "光通信", primaryMetric: { value: 2.89, displayText: "+2.89%", direction: "UP" }, leader: { stockCode: "000001.SZ", stockName: "光通信龙头", changePct: 7.77 }, selected: true }],
+          rows: [{ rank: 1, sectorCode: "BK0201.DC", sectorName: "光通信", industryLevel: 3, primaryMetric: { value: 2.89, displayText: "+2.89%", direction: "UP" }, leader: { stockCode: "000001.SZ", stockName: "光通信龙头", changePct: 7.77 }, selected: true }],
         },
       ],
       detail: {
@@ -632,9 +632,9 @@ describe("MarketOverviewPage", () => {
 
     const sectorSection = await screen.findByLabelText("板块速览");
     await within(sectorSection).findByText("通信设备");
-    expect(within(sectorSection).getByText("Level 1")).toBeInTheDocument();
-    expect(within(sectorSection).getByText("Level 2")).toBeInTheDocument();
-    expect(within(sectorSection).getByText("Level 3")).toBeInTheDocument();
+    expect(within(sectorSection).getByLabelText("一级行业")).toBeInTheDocument();
+    expect(within(sectorSection).getByLabelText("二级行业")).toBeInTheDocument();
+    expect(within(sectorSection).getByLabelText("三级行业")).toBeInTheDocument();
     expect(within(sectorSection).getAllByText("光通信龙头").length).toBeGreaterThan(0);
     expect(within(sectorSection).getByText("成分股1")).toBeInTheDocument();
     expect(within(sectorSection).queryByText("行业涨幅前五")).not.toBeInTheDocument();

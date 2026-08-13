@@ -14,10 +14,10 @@ import {
 const FETCH_TIMEOUT_MS = 5000;
 
 export type SectorRequestState =
-  | { kind: "loading" }
+  | { kind: "initial-loading" }
   | { kind: "refreshing"; data: MarketSectorOverviewResponse }
   | { kind: "ready" | "partial" | "delayed"; data: MarketSectorOverviewResponse }
-  | { kind: "empty"; data: MarketSectorOverviewResponse }
+  | { kind: "empty"; data?: MarketSectorOverviewResponse }
   | { kind: "forbidden" }
   | { kind: "error"; message: string };
 
@@ -33,14 +33,31 @@ interface ResolvedSelection {
   selectedCode?: string;
 }
 
+function mapResponseState(payload: MarketSectorOverviewResponse): SectorRequestState {
+  switch (payload.sectorOverview.status) {
+    case "READY":
+      return { kind: "ready", data: payload };
+    case "PARTIAL":
+      return { kind: "partial", data: payload };
+    case "DELAYED":
+      return { kind: "delayed", data: payload };
+    case "EMPTY":
+      return { kind: "empty", data: payload };
+    case "ERROR":
+      return { kind: "error", message: payload.pageStatus.displayText || "板块速览加载失败" };
+    default:
+      return { kind: "error", message: "板块速览返回了未知状态" };
+  }
+}
+
 export function useSectorOverviewController({
   enabled,
-  tradeDate,
+  explicitTradeDate,
   debug,
   onDebugInfo,
 }: {
   enabled: boolean;
-  tradeDate?: string;
+  explicitTradeDate?: string;
   debug: boolean;
   onDebugInfo: (value: SectorOverviewDebugInfo | null) => void;
 }) {
@@ -50,12 +67,12 @@ export function useSectorOverviewController({
     concept: { rankMetric: "HEAT_SCORE" },
     region: { rankMetric: "CHANGE_PCT" },
   });
-  const [state, setState] = useState<SectorRequestState>({ kind: "loading" });
+  const [state, setState] = useState<SectorRequestState>({ kind: "initial-loading" });
   const [retryVersion, setRetryVersion] = useState(0);
   const requestId = useRef(0);
   const resolvedSelection = useRef<ResolvedSelection | null>(null);
 
-  const selectRank = useCallback((rankMetric: string) => {
+  const selectRank = useCallback((rankMetric: IndustryRankMetric | ConceptRankMetric | RegionRankMetric) => {
     setTabs((current) => {
       if (view === "INDUSTRY") {
         return { ...current, industry: { ...current.industry, rankMetric: rankMetric as IndustryRankMetric } };
@@ -76,7 +93,7 @@ export function useSectorOverviewController({
   }, [view]);
 
   useEffect(() => {
-    if (!enabled || !tradeDate) return;
+    if (!enabled) return;
     const tab = view === "INDUSTRY" ? tabs.industry : view === "CONCEPT" ? tabs.concept : tabs.region;
     const resolved = resolvedSelection.current;
     if (
@@ -91,12 +108,12 @@ export function useSectorOverviewController({
     const currentRequestId = ++requestId.current;
     const abortController = new AbortController();
     const timeoutId = window.setTimeout(() => abortController.abort(), FETCH_TIMEOUT_MS);
-    setState((current) => ("data" in current ? { kind: "refreshing", data: current.data } : { kind: "loading" }));
+    setState((current) => ("data" in current && current.data ? { kind: "refreshing", data: current.data } : { kind: "initial-loading" }));
     onDebugInfo(null);
 
     const params: MarketSectorOverviewRequest = {
       market: "CN_A",
-      tradeDate,
+      tradeDate: explicitTradeDate,
       view,
       debug: debug ? 1 : 0,
     };
@@ -122,13 +139,7 @@ export function useSectorOverviewController({
           setTabs((current) => current.industry.rankMetric === panel.industry.rankMetric
               && current.industry.selectedCode === selectedCode
               ? current
-              : {
-                  ...current,
-                  industry: {
-                    rankMetric: panel.industry.rankMetric,
-                    selectedCode,
-                  },
-                });
+              : { ...current, industry: { rankMetric: panel.industry.rankMetric, selectedCode } });
           resolvedSelection.current = selectionChanged
             ? { view: panel.view, rankMetric: panel.industry.rankMetric, selectedCode }
             : null;
@@ -137,15 +148,9 @@ export function useSectorOverviewController({
           const selectionChanged = tabs.concept.rankMetric !== panel.concept.rankMetric
             || tabs.concept.selectedCode !== selectedCode;
           setTabs((current) => current.concept.rankMetric === panel.concept.rankMetric
-            && current.concept.selectedCode === selectedCode
-            ? current
-            : {
-                ...current,
-                concept: {
-                  rankMetric: panel.concept.rankMetric,
-                  selectedCode,
-                },
-              });
+              && current.concept.selectedCode === selectedCode
+              ? current
+              : { ...current, concept: { rankMetric: panel.concept.rankMetric, selectedCode } });
           resolvedSelection.current = selectionChanged
             ? { view: panel.view, rankMetric: panel.concept.rankMetric, selectedCode }
             : null;
@@ -154,21 +159,14 @@ export function useSectorOverviewController({
           const selectionChanged = tabs.region.rankMetric !== panel.region.rankMetric
             || tabs.region.selectedCode !== selectedCode;
           setTabs((current) => current.region.rankMetric === panel.region.rankMetric
-            && current.region.selectedCode === selectedCode
-            ? current
-            : {
-                ...current,
-                region: {
-                  rankMetric: panel.region.rankMetric,
-                  selectedCode,
-                },
-              });
+              && current.region.selectedCode === selectedCode
+              ? current
+              : { ...current, region: { rankMetric: panel.region.rankMetric, selectedCode } });
           resolvedSelection.current = selectionChanged
             ? { view: panel.view, rankMetric: panel.region.rankMetric, selectedCode }
             : null;
         }
-        const status = panel.status.toLowerCase();
-        setState({ kind: status === "ready" ? "ready" : status as "partial" | "delayed" | "empty", data: payload });
+        setState(mapResponseState(payload));
         onDebugInfo(debug ? payload.debugInfo ?? null : null);
       })
       .catch((error) => {
@@ -197,6 +195,7 @@ export function useSectorOverviewController({
   }, [
     debug,
     enabled,
+    explicitTradeDate,
     onDebugInfo,
     retryVersion,
     tabs.concept.rankMetric,
@@ -205,7 +204,6 @@ export function useSectorOverviewController({
     tabs.industry.selectedCode,
     tabs.region.rankMetric,
     tabs.region.selectedCode,
-    tradeDate,
     view,
   ]);
 
