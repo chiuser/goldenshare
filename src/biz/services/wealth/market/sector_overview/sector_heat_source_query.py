@@ -24,6 +24,9 @@ from .sector_heat_config import ResolvedSectorHeatConfig, canonical_json_hash
 from .sector_heat_contract import PriorPublishedHeat
 
 
+BOARD_MONEYFLOW_CONCEPT_CONTENT_TYPE = "概念"
+
+
 class SectorHeatSourceNotReadyError(RuntimeError):
     pass
 
@@ -197,7 +200,7 @@ class SectorHeatSourceQuery:
                 )
                 .where(
                     BoardMoneyflowDc.trade_date.in_(moneyflow_dates),
-                    BoardMoneyflowDc.content_type == "概念板块",
+                    BoardMoneyflowDc.content_type == BOARD_MONEYFLOW_CONCEPT_CONTENT_TYPE,
                     BoardMoneyflowDc.ts_code.is_not(None),
                     BoardMoneyflowDc.ts_code.in_(sector_codes),
                 )

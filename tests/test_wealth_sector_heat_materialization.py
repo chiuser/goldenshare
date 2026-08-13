@@ -20,6 +20,7 @@ from src.biz.services.wealth.market.sector_overview.sector_heat_materialization_
     SectorHeatMaterializationService,
 )
 from src.biz.services.wealth.market.sector_overview.sector_heat_source_query import (
+    BOARD_MONEYFLOW_CONCEPT_CONTENT_TYPE,
     SectorDailySourceRow,
     SectorHeatSourceBundle,
     SectorIndexSourceRow,
@@ -139,7 +140,11 @@ def _source_query_engine():  # type: ignore[no-untyped-def]
     )
 
 
-def _seed_source_query(session: Session) -> tuple[date, tuple[date, ...]]:
+def _seed_source_query(
+    session: Session,
+    *,
+    moneyflow_content_type: str = BOARD_MONEYFLOW_CONCEPT_CONTENT_TYPE,
+) -> tuple[date, tuple[date, ...]]:
     target = date(2026, 8, 12)
     open_dates = tuple(target - timedelta(days=offset) for offset in reversed(range(26)))
     calculation_dates = open_dates[-6:]
@@ -184,7 +189,7 @@ def _seed_source_query(session: Session) -> tuple[date, tuple[date, ...]]:
         [
             BoardMoneyflowDc(
                 trade_date=trade_date,
-                content_type="概念板块",
+                content_type=moneyflow_content_type,
                 name=f"概念{sector_code}",
                 ts_code=sector_code,
                 net_amount=Decimal("10"),
@@ -250,7 +255,25 @@ def test_source_query_is_prod_bounded_and_allows_only_local_concept_gaps() -> No
     assert len(first.moneyflow_dates) == 10
     assert len([row for row in first.index_rows if row.trade_date == target]) == 2
     assert len([row for row in first.daily_rows if row.trade_date == target]) == 1
+    assert len(first.moneyflow_rows) == 20
+    assert first.source_row_counts_json["board_moneyflow_dc"] == 20
     assert first.source_hash == second.source_hash
+
+
+def test_source_query_rejects_non_prod_moneyflow_content_type() -> None:
+    engine = _source_query_engine()
+    with Session(engine) as session:
+        target, calculation_dates = _seed_source_query(
+            session,
+            moneyflow_content_type="概念板块",
+        )
+        with pytest.raises(SectorHeatSourceNotReadyError, match="board_moneyflow_dc missing whole source dates"):
+            SectorHeatSourceQuery().load(
+                session,
+                trade_date=target,
+                resolved_config=SectorHeatConfigResolver().resolve(),
+                completion_evidence=_zero_row_evidence(calculation_dates),
+            )
 
 
 def test_zero_row_limit_or_suspend_source_requires_completion_evidence() -> None:

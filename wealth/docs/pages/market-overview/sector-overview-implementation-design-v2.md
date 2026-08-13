@@ -1,6 +1,6 @@
 # 市场总览｜板块速览技术实施方案 v2（implementation-design）
 
-> 状态：按批准顺序实施中；Slice 1-4 已完成生产验收，Slice 5 的 prod-native Heat 本地实现与测试已完成，待部署后提交正式 PLAN/APPLY；前后端 V2 尚未开始。
+> 状态：按批准顺序实施中；Slice 1-4 已完成生产验收。Slice 5 首次正式 PLAN TaskRun `8147` 暴露资金流枚举过滤错误，本地修复与回归已完成，待重新部署后复跑 PLAN；APPLY 仍需独立批准，前后端 V2 尚未开始。
 > 对应需求：[sector-overview-benchmark-requirement-v2.md](./sector-overview-benchmark-requirement-v2.md)
 > 对应门禁：[sector-overview-m2-coding-gate-v2.md](./sector-overview-m2-coding-gate-v2.md)
 > 对应低层设计：[sector-overview-low-level-design-v2.md](./sector-overview-low-level-design-v2.md)
@@ -862,7 +862,7 @@ V2 切换时删除或彻底替换：
 
 1. Figma 已完成盘后、地域和有效池口径同步；后续 Web 实现仍需按同尺寸截图做像素验收。
 2. 首发整窗已完成只读核验，但实现仍必须把逐日来源行数、逐概念 `INVALID` 原因和 source hash 写入 plan/TaskRun，防止后续来源漂移被静默吞掉。
-3. Ops generic executor、app binding 与生产 CLI factory 已实现；剩余风险是部署后真实 PLAN 的查询耗时、statement timeout 和 TaskRun snapshot 体积，必须先做 PLAN 验收再允许 APPLY。
+3. Ops generic executor、app binding 与生产 CLI factory 已实现。首次正式 PLAN TaskRun `8147` 的运行状态为 success，但计划结果是 `0 units / 60 gaps / apply_ready=false`，未通过 APPLY 门禁；根因是 Heat 查询把 Prod `board_moneyflow_dc.content_type='概念'` 错写为 `概念板块`，并被同样错误的测试 fixture 掩盖。查询和正反测试已修复，重新部署后仍必须复跑 PLAN 并验收查询耗时、statement timeout 和 TaskRun snapshot 体积，才能允许 APPLY。
 4. Heat V1 是产品首版，60 日回放只能验证稳定性和可解释性，不能证明投资预测能力。
 5. 行业层级当前是当前版本快照；历史 `tradeDate` 请求不会还原历史层级变化。
 6. Web 与 Heat 复用现有应用账号，数据库不会提供模块级拒绝保护；必须以固定 DAO/SQL、Web 无 DML、Heat/Ops 双 Session 和事务回滚测试防止访问边界漂移。全站账号拆分属于独立治理范围。
@@ -877,6 +877,7 @@ V2 切换时删除或彻底替换：
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.9 | 2026-08-13 | 记录首次正式 PLAN TaskRun `8147` 的门禁未通过证据：Prod 资金流实际完整，但 Heat 查询误用 `content_type='概念板块'`；修正为真实枚举 `概念` 并增加错误枚举负例，待重新部署复跑 PLAN |
 | v2.8 | 2026-08-13 | 记录 Slice 5 本地实现：严格配置与两位最终分、prod 有界来源/有效池、REPEATABLE READ、单日事务/read-back、60 日 PLAN/APPLY、snapshot integrity、断点幂等续跑、Ops/app/CLI 装配及访问边界测试；生产 PLAN/APPLY 仍待部署后分阶段批准 |
 | v2.7 | 2026-08-13 | 记录 hierarchy 正式发布与 hash 验收、冻结 60+25 日窗口并完成九张 prod 来源整窗审计；明确 Prod Raw/Core 同步缺少的 `dc_daily` 板块行按逐概念 `INVALID` 处理，不伪造数据、不阻断其它概念所在交易日 |
 | v2.6 | 2026-08-13 | 记录生产已升级至单 head `20260813_000135`，两表结构与 hierarchy 精确授权验收通过；Slice 3 hierarchy publisher 已实施并通过隔离测试，正式生产发布仍待部署后单独执行 |

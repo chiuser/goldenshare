@@ -1,6 +1,6 @@
 # 市场总览｜板块速览低层设计 v2（LLD）
 
-> 状态：按批准顺序实施中；Slice 1-4 已完成生产验收，Slice 5 本地实现与测试已完成，待部署后执行正式 PLAN，APPLY 仍需独立批准。
+> 状态：按批准顺序实施中；Slice 1-4 已完成生产验收。Slice 5 首次正式 PLAN TaskRun `8147` 暴露资金流枚举过滤错误，本地修复与回归已完成，待重新部署后复跑 PLAN；APPLY 仍需独立批准。
 > 日期：2026-08-13
 > 需求基线：[sector-overview-benchmark-requirement-v2.md](./sector-overview-benchmark-requirement-v2.md)
 > 实施方案：[sector-overview-implementation-design-v2.md](./sector-overview-implementation-design-v2.md)
@@ -34,7 +34,7 @@
 | 行业层级 Lake | 现有单文件正式 Silver，契约要求 496 行、31/128/337 |
 | Heat prod 来源 | `trade_calendar/dc_index/dc_daily/dc_member/board_moneyflow_dc/equity_daily_bar/equity_limit_list/security_serving/equity_suspend_d` 与前序 Heat |
 | 当前来源审计 | 目标窗 `2026-05-20..2026-08-12`、warm-up `2026-04-10..2026-05-19` 已冻结并完成整窗复核；资金流对目标概念 100% 覆盖、有效池无真实缺行情；`dc_daily@2026-05-18/20/22/25` 的 88/448/1/2 个缺行在 Prod Raw/Core 一致，按逐概念 `INVALID` 处理 |
-| 当前运行缺口 | Heat 来源查询、计算、单日发布、Ops 端口、app 双 Session 与 CLI factory 已完成本地验收；生产 Heat 仍为 0 行，正式 60 日 PLAN/APPLY、read-back 与性能验收尚未执行 |
+| 当前运行缺口 | Heat 来源查询、计算、单日发布、Ops 端口、app 双 Session 与 CLI factory 已完成本地验收；首次正式 PLAN TaskRun `8147` 因将 Prod `board_moneyflow_dc.content_type='概念'` 误过滤为 `概念板块` 而得到 0 units/60 gaps，该实现与测试 fixture 已修复，待重新部署复跑；生产 Heat 仍为 0 行，APPLY/read-back/性能验收尚未执行 |
 
 ### 1.3 禁止项
 
@@ -794,7 +794,7 @@ git diff --check
 
 ## 13. 当前仍未完成但不需要产品拍板的事项
 
-1. 生产 Heat 评审：部署后先运行正式只读 PLAN，核验 60 units、0 gaps、source/config/content hash、snapshot 体积和同机房耗时；通过后再单独批准 APPLY。
+1. 生产 Heat 评审：首次正式 PLAN TaskRun `8147` 的运行状态为 success，但计划结果 `0 units / 60 gaps / apply_ready=false` 未通过 APPLY 门禁，并已定位为资金流枚举过滤错误；部署修复后重新运行 PLAN，核验 60 units、0 gaps、source/config/content hash、snapshot 体积和同机房耗时；通过后再单独批准 APPLY。
 2. Heat 上线证据：60 个有效交易日逐日 read-back、重放一致性、有效/无效分布、首错/续跑和性能记录。
 3. 前后端评审：V2 判别式 DTO、状态机、请求 stale 防护和原子切换窗口。
 4. 最终上线证据：最新日 Heat、真实 API、同机房 P95 和像素截图。
@@ -807,6 +807,7 @@ git diff --check
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.7 | 2026-08-13 | 记录首次正式 PLAN TaskRun `8147` 的门禁未通过结果：生产资金流 85 日完整，根因是代码把 `content_type='概念'` 错写成 `概念板块`；修正来源过滤与测试 fixture，并新增错误枚举负例，待重新部署复跑 PLAN |
 | v2.6 | 2026-08-13 | 记录 Slice 5 本地实现：严格 Heat 配置、prod 来源与有效池、两位最终分、REPEATABLE READ、单日发布/read-back、PLAN/APPLY 与 snapshot integrity、断点跳过、Ops/app/CLI 双事务装配及本地回归；生产回放仍待部署后分阶段验收 |
 | v2.5 | 2026-08-13 | 记录 hierarchy 正式 Run 与 hash read-back、Slice 4 冻结 60+25 日并完成九张 prod 来源审计；日期级缺口清零，源站现状局部缺行改为逐概念 `INVALID`，并将历史审计限制为最多 10 日批次 |
 | v2.4 | 2026-08-13 | 记录生产已升级至单 head `20260813_000135`，两表结构与 hierarchy 精确授权验收通过；Slice 3 hierarchy publisher 已实施并通过隔离测试，正式生产发布仍待部署后单独执行 |

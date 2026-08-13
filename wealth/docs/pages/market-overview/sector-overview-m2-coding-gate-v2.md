@@ -1,6 +1,6 @@
 # 市场总览｜板块速览 M2 编码前门禁 v2
 
-> 状态：按批准顺序实施中；Slice 5 本地代码与测试已完成，生产 PLAN/APPLY 仍按两阶段门禁执行。
+> 状态：按批准顺序实施中；Slice 5 首次正式 PLAN TaskRun `8147` 暴露资金流枚举过滤错误，本地修复与回归已完成，待重新部署复跑 PLAN；APPLY 仍按独立门禁执行。
 > 规则：未勾选门禁不得越级进入对应后续阶段；本地代码完成不等于生产迁移、数据发布或上线验收通过。
 
 关联文档：
@@ -30,7 +30,7 @@
 1. [x] `silver_dc_industry_hierarchy` 与 prod read-back 均为 496 行及 31/128/337，canonical hash 一致。
 2. [x] 生产只读审计确认 `dc_index.idx_type` 真实枚举。
 3. [x] 生产只读审计确认 `dc_daily.category` 真实枚举。
-4. [x] 生产只读审计确认 `board_moneyflow_dc.content_type` 真实枚举。
+4. [x] 生产只读审计确认 `board_moneyflow_dc.content_type` 真实枚举为 `行业/概念/地域`；TaskRun `8147` 暴露 Heat 查询误用 `概念板块`，现已修正为 `概念` 并增加错误枚举负例。
 5. [x] `board_moneyflow_dc.ts_code` 非空率及与板块代码匹配率已记录，确认不使用名称模糊 join。
 6. [x] 当前审计已确认：`dc_daily/dc_member` 以源站现状为口径，`board_moneyflow_dc@2026-07-09` 已补齐；这些单点事实不等于 60 日整窗验收。
 7. [x] `dc_member` 在冻结 85 日窗口内逐日 pair 数为 31,717-71,132，单板最大成员数 3,850；主键约束与逐日板块覆盖核验无重复/缺板。
@@ -60,6 +60,7 @@
 12. [x] 方案与 Heat 执行链代码均不包含 Kopia，静态门禁已覆盖。
 13. [x] 本模块不新增数据库配置项；现有 `DATABASE_URL` 与 `PROD_POSTGRES_WRITE_*` 的消费者已经核对，URL/password 继续遵守通用日志脱敏规则。
 14. [x] revision `20260813_000134` 已随部署应用；生产只读权限探针确认既有 `lake_raw_writer` 仅具备 `core_serving.wealth_sector_hierarchy` 的 `SELECT/INSERT/DELETE`，没有 `UPDATE/TRUNCATE`，且未创建 login 或新增连接配置。
+15. [ ] 修复资金流枚举后的正式 60 日 PLAN 已重新部署并通过：必须为 60 units、0 gaps、`apply_ready=true`；首次失败 TaskRun `8147` 仅作为负向生产证据，不得用于 APPLY。
 
 ### 1.4 API 与前端
 
@@ -546,6 +547,7 @@ git diff --check
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.9 | 2026-08-13 | 记录首次正式 PLAN TaskRun `8147` 的 0 units/60 gaps 门禁未通过结果：Prod 资金流完整，代码与测试 fixture 误用 `概念板块`；修正为真实枚举 `概念` 并新增负例，复跑 PLAN 前门禁保持未通过 |
 | v2.8 | 2026-08-13 | 记录 Slice 5 本地门禁：Heat 配置/公式/来源/有效池/事务、REPEATABLE READ、60 日 PLAN/APPLY、snapshot integrity、断点续跑、Ops/app/CLI、完成性证据和静态访问边界已实现测试；生产回放保持未执行 |
 | v2.7 | 2026-08-13 | 记录 hierarchy 正式发布、60+25 日九张 prod 来源审计和有效池验收；将日期级缺口与源站局部概念缺行分开，后者冻结为 `INVALID` 而非整日阻断 |
 | v2.6 | 2026-08-13 | 记录生产当前单 head `20260813_000135`、两表与 hierarchy 授权验收通过，以及 Slice 3 hierarchy publisher 和 DG Heat/自动入口清零测试已实施；正式生产 hierarchy 发布仍待部署后单独执行 |
