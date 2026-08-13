@@ -1,6 +1,6 @@
 # 市场总览｜板块速览 M2 编码前门禁 v2
 
-> 状态：Slice 12 Heat V2 与 60 日生产回放已通过。A02/A08 的生产事实部分完成；全矩阵自动化、正式像素与发布证据仍为 OPEN。下一门禁固定为 Slice 13，禁止越级进入 Slice 14-16。
+> 状态：Slice 14 Heat 自动化代码与本地回归已通过；生产唯一 schedule 和真实开放日自动发布/read-back 尚未验收，Slice 14 继续 OPEN。原像素、候选发布和最终对账仍后移到 Slice 15-17。
 > 规则：未勾选门禁不得越级进入对应后续阶段；本地代码完成不等于生产迁移、数据发布或上线验收通过。
 
 关联文档：
@@ -63,6 +63,11 @@
 13. [x] 本模块不新增数据库配置项；现有 `DATABASE_URL` 与 `PROD_POSTGRES_WRITE_*` 的消费者已经核对，URL/password 继续遵守通用日志脱敏规则。
 14. [x] revision `20260813_000134` 已随部署应用；生产只读权限探针确认既有 `lake_raw_writer` 仅具备 `core_serving.wealth_sector_hierarchy` 的 `SELECT/INSERT/DELETE`，没有 `UPDATE/TRUNCATE`，且未创建 login 或新增连接配置。
 15. [x] 修复资金流枚举后的正式 PLAN TaskRun `8149` 已通过：60 units、0 gaps、`apply_ready=true`；首次失败 TaskRun `8147` 仅作为负向生产证据，未用于 APPLY。
+16. [x] 单日 Heat action 通过系统固定的 `wealth_sector_heat_sources_ready` 条件开放排程；历史 replay 仍不可调度。
+17. [ ] 生产唯一 Heat schedule 为工作日 `21:15`、`Asia/Shanghai`；未齐时 10 分钟复查至次日 `00:30`，不新增账号、连接、表、DG sensor、crontab 或外部 timer。
+18. [x] Ops 上游证据必须来自目标日 `21:00` 以后同一次工作流的必需成功节点；`18:30` 早场、跨 TaskRun 拼接或只看业务表有行均不得命中。
+19. [x] app readiness adapter 在独立只读 business session 中调用 biz preview；生产 scheduler CLI 通过 app factory 注入，`ops` 不 import `biz`、Web 不执行 scheduler。
+20. [x] readiness 命中只创建一个单日 TaskRun；同一 schedule/action/trade_date 已有任一自动 TaskRun 时不重复创建，失败/取消不自动重提；始终未 ready 时 `00:30` 只形成一个 `HEAT_AUTOMATION_SOURCE_TIMEOUT` issue。
 
 ### 1.4 API 与前端
 
@@ -72,7 +77,7 @@
 4. [x] 热度未就绪时不回退其它排序维度，返回 `PARTIAL + SO_HEAT_NOT_READY`。
 5. [x] 后端旧 `SectorRankItemDto` 与前端旧通用 DTO/业务 RankCard/通用详情组件均已清零；行业 `primaryMetric` 仅作为该 view 批准的当前排序事实保留。
 6. [x] Tab 独立状态、stale-response 防护和正式三工作台 rank/detail 组件树已按 Slice 9 Figma 重构并通过专项回归及本地浏览器验收。
-7. [x] 三个 view 共享 680px 模块外框并各自保留正式列表/详情结构；Loading/Empty/Error/Forbidden 使用同尺寸 skeleton + overlay，Partial/Delayed 保留可用事实。全 view×状态截图矩阵仍留待 Slice 13/14。
+7. [x] 三个 view 共享 680px 模块外框并各自保留正式列表/详情结构；Loading/Empty/Error/Forbidden 使用同尺寸 skeleton + overlay，Partial/Delayed 保留可用事实。三 view×七状态自动化已通过，同尺寸截图留待 Slice 15。
 8. [x] 旧 `columns/heatMapItems`、8 列/20 格组件语义与 mock fixture 已清零；view-specific 新结构负向静态审计与专项回归通过。
 
 ### 1.5 测试与发布
@@ -80,11 +85,13 @@
 1. [ ] Heat 固定样本 golden test 通过评审。
 2. [ ] no-lookahead、缺源、不补权和来源错日负例已冻结。
 3. [x] A01-A08 后端正反例、专项及扩展回归共 70 项通过；生产只读 60 开放日 close/pct 聚合核验通过。前端与生产 Heat v2 验收另按 Slice 11/12 执行。
-4. [ ] Slice 11 已通过 11 项真实响应专项回归、198 项全量前端回归、typecheck、build 和三个工作台本地浏览器验收；Slice 13 全状态/长文本/滚动自动化与 Slice 14 正式像素仍未通过。
-5. [ ] API P95、payload、SQL 往返和离线物化预算已冻结。
-6. [ ] 迁移、层级、Heat 回放、应用切换的发布顺序已冻结。
-7. [ ] 应用回滚不依赖恢复旧 DTO 的方案已冻结。
-8. [ ] 产品、设计、数据、后端、前端、运维签字完成。
+4. [x] Slice 13 已完成 A01-A19 到测试 ID 的 100% 映射：后端/Heat/Ops/架构核心 109 项与板块静态护栏 5 项合计 114 项、Wealth 全量 33 文件 223 项、DG hierarchy 9 项通过；typecheck、build、文件级 Ruff 和 Definitions 加载通过。正式像素后移到 Slice 15。
+5. [x] Slice 14 Heat 自动化正反例、app scheduler 装配、CLI、依赖矩阵和结构化 reason code 测试全部通过（本地固定总门禁 307 项）。
+6. [ ] 至少一个真实开放日完成“自动检查 -> 单一 TaskRun -> Heat read-back -> 同日幂等”生产验收；未取得该证据时 Slice 14 不得标记 PASS。
+7. [ ] API P95、payload、SQL 往返和离线物化预算已冻结。
+8. [ ] 迁移、层级、Heat 回放、应用切换的发布顺序已冻结。
+9. [ ] 应用回滚不依赖恢复旧 DTO 的方案已冻结。
+10. [ ] 产品、设计、数据、后端、前端、运维签字完成。
 
 ---
 
@@ -345,8 +352,16 @@ interface SectorOverviewRequestV2 {
 20. [x] `ops-worker-run/serve` 经 app factory 注入 Heat executor；默认未装配 worker 对 Heat action 失败关闭，既有非 Heat action回归通过。
 21. [ ] Web/Heat 使用现有应用连接、DG 使用现有 prod write resource 的装配测试通过；现有 URL/password 不进入日志、TaskRun 或异常文本。
 22. [x] replay PLAN 只保存 snapshot/gap ledger、不写 Heat；APPLY 必须引用同 action 成功 PLAN 的 `plan_task_run_id + plan_hash`，校验日期窗与 snapshot integrity，逐日 plan/content 漂移在 DML 前停止。
-23. [x] replay 与单日 action 当前均不可调度；只经既有 Ops TaskRun/worker 执行，不新增 sensor/隐藏 cron。
-24. [x] app completion-evidence provider 只把成功的点式来源 TaskRun 映射为中立 DTO；biz 不 import ops，合法零行 evidence id/hash 纳入 source hash，缺证据阻断已测试。
+23. [x] replay 必须继续不可调度；单日 action 只允许通过 `wealth_sector_heat_sources_ready` 条件调度，不允许无门禁 schedule、sensor 或隐藏 cron。
+24. [x] app completion-evidence provider 只把成功的点式来源 TaskRun，或工作流中自身成功的来源节点，映射为中立 DTO；工作流无关节点失败不误伤，biz 不 import ops，合法零行 evidence id/hash 纳入 source hash，缺证据阻断已测试。
+25. [x] 自动化测试证明开放日 `21:15` 上游与 biz preview 均通过时只创建一个目标日 Heat TaskRun，并冻结 config/source/plan/content hash；生产 TaskRun 成功后的 read-back 仍待真实开放日验收。
+26. [x] 非开放日不创建任务；输入未齐在 `21:15..次日00:30` 每 10 分钟复查，跨午夜目标日不漂移，等待期间不制造失败 TaskRun。
+27. [x] `daily_market_close_maintenance` 的 `daily/dc_index/dc_member/dc_daily/limit_list/suspend_d` 与 `daily_moneyflow_maintenance` 的 `moneyflow_ind_dc` 必须在目标日 21:00 后的同一对应 workflow TaskRun 内成功；18:30、节点运行中/失败/缺失和跨 TaskRun 拼接均不命中。
+28. [x] biz preview 的整日缺源、错日、重复键、零行无证据、配置/contract 失败不得触发；逐概念批准的 `INVALID` 不阻断全日。
+29. [x] 自动化测试证明同一 schedule/action/trade_date 的 queued/running/success/failed/canceled 均不重复建自动任务，failed/canceled 走人工恢复；始终未 ready 时 00:30 同日只写一个 `HEAT_AUTOMATION_SOURCE_TIMEOUT` TaskRun issue 且无 Heat DML。
+30. [x] `ops-scheduler-tick/serve` 经 app scheduler factory 注入 evaluator；静态与架构测试拒绝 `ops -> biz`、Web scheduler、外部 cron/timer、DG Heat 自动入口和未装配生产 CLI scheduler。
+31. [ ] 生产创建唯一 active Heat schedule，并以至少一个真实开放日完成自动发布、read-back 和同日幂等验收；配置与 TaskRun 日志不泄漏 secret。
+32. [x] Heat 未复用或改造 dataset `ProbeRule/ProbeRunLog`，未伪造 dataset key、未新增 readiness 表；既有普通 schedule、probe/fallback、workflow、日期完整性和非 Heat maintenance action 回归通过。
 
 ### 6.2 后端
 
@@ -354,14 +369,14 @@ interface SectorOverviewRequestV2 {
 2. [x] 每列 Top5、概念 Top20 和地域全部 31 个候选数量已有实现。
 3. [x] 默认选择、合法选择保留、过期选择纠正、无子级已有基础覆盖。
 4. [x] 三类 view-specific rank DTO、固定展示列、行业/概念 TopN null 排除和地域 31 项 null 置底正反例通过。
-5. [x] 后端已证明不从成员 Top1 推断领涨，前端对合法 `leader=null` 展示“暂无领涨股”且不生成股票跳转；Slice 13 仍需补全浏览器键盘矩阵。
+5. [x] 后端已证明不从成员 Top1 推断领涨，前端对合法 `leader=null` 展示“暂无领涨股”且不生成股票跳转；Slice 13 已补全 Tab、板块、领涨和成员的键盘焦点/导航矩阵。
 6. [x] 成员 Top5 展示名称严格取 `dc_member.name`；security 同码异名反例通过。
 7. [x] 新概念 DTO 不把 Heat 缺失回退为 CHANGE_PCT；Heat 未发布仍为 `PARTIAL + SO_HEAT_NOT_READY`。
-8. [ ] 前端已实现严格 20 点、null 空槽断点及当前值/变化表达，并有组件正反例；生产 v2 数据与 Slice 14 像素尚未验收。
+8. [x] 前端已实现严格 20 点、null 空槽断点及当前值/变化表达，并有组件正反例；生产 v2 数据已由 Slice 12 验收，Slice 15 像素仍未验收。
 9. [x] 三个新 workspace schema 均只返回当前 view，真实路由正反例通过。
 10. [x] Region DTO 返回生产枚举 31 项及固定列，不返回层级或 Heat 字段。
 11. [x] V2 schema 和前端均已移除 `columns/heatMapItems` 与旧通用业务展示语义，静态扫描和真实响应专项回归通过。
-12. [x] 前端穷尽映射 READY/PARTIAL/DELAYED/EMPTY/ERROR，未知枚举 fail closed；HTTP 403、ERROR、未知值、超时和 retry 均保留稳定骨架。Slice 13 仍负责全 view×状态矩阵。
+12. [x] 前端穷尽映射 READY/PARTIAL/DELAYED/EMPTY/ERROR，未知枚举 fail closed；HTTP 403、ERROR、未知值、超时和 retry 均保留稳定骨架。Slice 13 已完成三 view×七状态 21 例参数化矩阵。
 
 ### 6.3 前端
 
@@ -370,17 +385,17 @@ interface SectorOverviewRequestV2 {
 3. [x] 概念和地域使用正式固定表头、单列七行可视和内部滚动；本地真实页面地域 31 行的 `overflow-y:auto` 已核验。
 4. [x] 新 controller/工作台组合保留 abort、request id 和 stale-response 防护，快慢响应反例通过。
 5. [x] 三 view 固定列、各自四指标、概念 Heat、地域分布和领涨交互由真实响应 fixture 逐项断言；生产概念 Heat v2 仍待 Slice 12。
-6. [ ] null/UNKNOWN 和无领涨组件反例通过；长名称、全部 view 的同尺寸状态截图仍留待 Slice 13/14。
+6. [x] null/UNKNOWN、无领涨、长名称和大金额组件反例通过；全部 view 的同尺寸状态截图留待 Slice 15。
 7. [x] Heat level/trend 由独立枚举标签渲染，NONE/UNKNOWN 不从 score/delta 推导；旧“稳定”文案已改为批准的“平稳”。
-8. [ ] 稳定 skeleton/overlay 与 ERROR/未知/403/超时已闭环；六种非正常状态×三个 view 的完整自动化/截图矩阵留待 Slice 13/14。
+8. [x] 稳定 skeleton/overlay 与 ERROR/未知/403/超时已闭环；Ready + 六种非正常状态×三个 view 的 21 例自动化通过，截图矩阵留待 Slice 15。
 9. [x] 重构后仍只接真实 API，无 mock fallback；异常、未知状态、403、超时和 retry 负例通过。
 10. [x] 旧 8 列/20 格组件语义、DTO、adapter、fixture 和通用业务 RankCard/DetailPanel 已静态清零。
-11. [x] 三个工作台无板块详情入口；板块选择与领涨/成员股票导航是独立可访问目标，点击传播和无领涨负例通过。键盘浏览器矩阵留待 Slice 13。
+11. [x] 三个工作台无板块详情入口；板块选择与领涨/成员股票导航是独立可访问目标，点击传播、键盘焦点和无领涨负例均通过。
 
 ### 6.4 固定执行命令与通过标准
 
 ```bash
-pytest -q \
+uv run pytest -q \
   tests/test_extended_models.py \
   tests/test_foundation_table_model_registry.py \
   tests/test_wealth_sector_serving_constraints.py \
@@ -390,8 +405,8 @@ pytest -q \
   tests/test_wealth_sector_heat_replay_planner.py \
   tests/test_sector_heat_task_executor.py \
   tests/web/test_wealth_sector_heat_ops_runtime.py \
-  tests/web/test_ops_manual_actions_api.py \
   tests/architecture/test_wealth_sector_heat_guardrails.py \
+  tests/architecture/test_wealth_sector_overview_slice13_guardrails.py \
   tests/test_cli_ops_runtime.py \
   tests/web/test_wealth_market_sector_overview_api.py \
   tests/architecture/test_subsystem_dependency_matrix.py
@@ -403,7 +418,10 @@ npm run build
 
 cd ../lake_console/orchestrator
 uv run python -m pytest -q tests/test_wealth_sector_hierarchy_prod_core.py
-uv run ruff check src/orchestrator/defs tests/test_wealth_sector_hierarchy_prod_core.py
+uv run ruff check \
+  src/orchestrator/defs/assets/wealth_sector_hierarchy_prod_core.py \
+  src/orchestrator/defs/prod_db/wealth_sector_hierarchy.py \
+  tests/test_wealth_sector_hierarchy_prod_core.py
 
 cd ../..
 .venv/bin/python scripts/check_docs_integrity.py
@@ -463,11 +481,12 @@ git diff --check
 3. [x] 60+25 日生产来源台账已冻结；日期级缺口清零，Prod Raw/Core 一致的局部源站缺行已冻结为逐概念 `INVALID` 证据。
 4. [x] prod-native Heat 60 个有效交易日 TaskRun 回放、read-back、重放一致性和性能验收完成；证据为 PLAN `8149`、APPLY `8152`、幂等重放 `8153`。
 5. [x] 最新交易日 `2026-08-12` Heat 发布和来源日期对账完成：503 行、477 `VALID`、26 `INVALID`，全日唯一 source date/source hash。
-6. [ ] Slice 10 后端、Slice 11 前端和 Slice 12 Heat v2 已组成同一候选基线；尚未完成 Slice 13/14 验收，禁止部署为正式版本。
-7. [ ] 前端三 view 已按 Slice 9 正式节点和 Slice 10 契约完成结构重构及本地浏览器验收；正式像素、全矩阵自动化和候选环境验收仍待 Slice 13-15。
-8. [ ] 监控 `SO_*`、P95、Heat 覆盖、Ops TaskRun 和 DG hierarchy 发布状态。
+6. [ ] Slice 14 先完成 Heat 每日自动化代码、测试、唯一生产 schedule 和真实开放日验收；未通过前禁止进入其它剩余工作。
+7. [ ] 前端三 view 已完成结构与自动化；正式像素和候选环境验收后移到 Slice 15-16。
+8. [ ] Slice 17 再完成 A01-A19 最终对账和签字；不得在 Slice 14-16 期间提前关闭。
+9. [ ] 监控 `SO_*`、P95、Heat 覆盖、Heat schedule/readiness/TaskRun 和 DG hierarchy 发布状态。
 
-Slice 12 状态：**PASS（Heat V2 生产回放）**。正式 PLAN `8208`、APPLY `8210` 与幂等重放 `8213` 均成功；60 日 29,665 行，逐日版本/计数/hash 0 差异，重放 0 写入。A02/A08 的生产事实部分完成；A10-A15/A17/A19 的全矩阵自动化和跨 Slice 的像素/性能/发布证据仍为 OPEN。下一步只能进入 Slice 13，不能直接部署或发布。
+Slice 13 状态：**PASS（全矩阵自动化）**。当前新增运行门禁是 Slice 14 Heat 盘后自动化；它必须先取得真实开放日自动发布和幂等证据。正式像素、性能、候选发布与最终签字仍为 OPEN，依次后移到 Slice 15-17。
 
 ### 9.2 回滚
 
@@ -546,6 +565,9 @@ Slice 12 状态：**PASS（Heat V2 生产回放）**。正式 PLAN `8208`、APPL
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.19 | 2026-08-14 | Slice 14 代码与本地门禁通过：Heat condition-only schedule、TaskRunNode 上游证据、只读 preview、去重/超时、CLI factory 与固定总门禁 307 项回归完成；生产唯一 schedule 和真实开放日验收仍未勾选 |
+| v2.18 | 2026-08-14 | 增加 Slice 14 Heat 每日自动化门禁：21:15 首检、10 分钟复查至 00:30、上游节点 + biz preview、app scheduler factory、去重/超时和真实开放日验收；原像素/候选/最终门禁后移到 Slice 15-17 |
+| v2.17 | 2026-08-13 | 完成 Slice 13 门禁：A01-A19 测试 ID 100% 映射，后端/Heat/Ops/架构核心 109 项与静态护栏 5 项合计 114 项、Wealth 223 项、DG 9 项及全部固定检查通过；下一门禁为 Slice 14 |
 | v2.16 | 2026-08-13 | 完成 Slice 12 门禁：v2 PLAN `8208`、APPLY `8210`、幂等重放 `8213`，60 日逐日 read-back/hash 0 差异、重放 0 写入；下一门禁为 Slice 13 |
 | v2.15 | 2026-08-13 | 完成 Slice 11 门禁：三类前端契约/组件、正式工作台结构、七行滚动、20 日断点、地域分布、股票导航、默认日期和穷尽状态通过专项/全量回归及本地浏览器验收；下一门禁为 Slice 12 |
 | v2.14 | 2026-08-13 | 完成 Slice 10 后端门禁：A01-A08 后端正反例、三类 rank DTO、来源状态、Heat v2 版本契约及生产只读 close/pct 核验通过；下一门禁为 Slice 11 |

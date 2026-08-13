@@ -54,7 +54,7 @@ from src.foundation.dao.factory import DAOFactory
 from src.foundation.config.logging import configure_logging
 from src.foundation.config.settings import get_settings
 from src.db import SessionLocal
-from src.app.runtime import build_operations_worker
+from src.app.runtime import build_operations_scheduler, build_operations_worker
 from src.foundation.ingestion.linter import lint_all_dataset_definitions
 from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY, build_dataset_maintain_service
 from src.foundation.realtime.runtime_config_seed_service import RealtimeRuntimeConfigSeedService
@@ -62,7 +62,7 @@ from src.foundation.services.migration import RawTushareBootstrapService
 from src.foundation.services.migration import StockStMissingDateRepairService
 from src.foundation.serving import ServingPublishService, validate_serving_coverage
 from src.ops.models.ops.task_run import TaskRun
-from src.ops.runtime import OperationsScheduler, TaskRunCompletionWorker
+from src.ops.runtime import TaskRunCompletionWorker
 from src.ops.services.operations_daily_health_report_service import DailyHealthReportService
 from src.ops.services.schedule_automation_capability_audit_service import ScheduleAutomationCapabilityAuditService
 from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
@@ -534,7 +534,7 @@ def ops_scheduler_tick(
 ) -> None:
     _run_ops_scheduler_tick_impl(
         session_local=SessionLocal,
-        scheduler_cls=OperationsScheduler,
+        scheduler_factory=build_operations_scheduler,
         limit=limit,
         echo_fn=typer.echo,
     )
@@ -604,7 +604,7 @@ def ops_scheduler_serve(
 ) -> None:
     _run_ops_scheduler_serve_impl(
         session_local=SessionLocal,
-        scheduler_cls=OperationsScheduler,
+        scheduler_factory=build_operations_scheduler,
         limit=limit,
         sleep_seconds=sleep_seconds,
         max_cycles=max_cycles,

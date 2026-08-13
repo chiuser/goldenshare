@@ -88,6 +88,69 @@ def test_ops_schedule_create_allows_daily_workflow_without_static_trade_date(app
     assert response.json()["params_json"] == {}
 
 
+def test_ops_schedule_create_allows_only_the_fixed_heat_automation_contract(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = {
+        "target_type": "maintenance_action",
+        "target_key": "maintenance.materialize_wealth_sector_heat_daily",
+        "display_name": "每日板块热度",
+        "schedule_type": "cron",
+        "cron_expr": "15 21 * * 1-5",
+        "timezone": "Asia/Shanghai",
+        "params_json": {},
+    }
+
+    created = app_client.post("/api/v1/ops/schedules", headers=headers, json=payload)
+
+    assert created.status_code == 200
+    body = created.json()
+    assert body["target_key"] == payload["target_key"]
+    assert body["cron_expr"] == "15 21 * * 1-5"
+    assert body["timezone"] == "Asia/Shanghai"
+    assert body["params_json"] == {}
+
+    duplicate = app_client.post("/api/v1/ops/schedules", headers=headers, json=payload)
+    assert duplicate.status_code == 409
+    assert duplicate.json()["code"] == "heat_schedule.already_exists"
+
+
+@pytest.mark.parametrize(
+    ("changes", "expected_code"),
+    [
+        ({"cron_expr": "0 21 * * 1-5"}, "heat_schedule.contract_invalid"),
+        ({"timezone": "UTC"}, "heat_schedule.contract_invalid"),
+        ({"params_json": {"trade_date": "2026-08-14"}}, "heat_schedule.contract_invalid"),
+        ({"probe_config": {"condition_kind": "freshness_latest_open"}}, "heat_schedule.contract_invalid"),
+    ],
+)
+def test_ops_schedule_rejects_heat_operator_contract_drift(app_client, user_factory, changes, expected_code) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+    payload = {
+        "target_type": "maintenance_action",
+        "target_key": "maintenance.materialize_wealth_sector_heat_daily",
+        "display_name": "每日板块热度",
+        "schedule_type": "cron",
+        "cron_expr": "15 21 * * 1-5",
+        "timezone": "Asia/Shanghai",
+        "params_json": {},
+        **changes,
+    }
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json=payload,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == expected_code
+
+
 @pytest.mark.parametrize("target_key", ["index_mins.maintain", "idx_factor_pro.maintain", "margin.maintain", "margin_detail.maintain"])
 def test_ops_schedule_rejects_schedule_mode_for_source_ready_actions(app_client, user_factory, target_key: str) -> None:
     user_factory(username="admin", password="secret", is_admin=True)

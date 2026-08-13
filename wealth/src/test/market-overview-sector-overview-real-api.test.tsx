@@ -222,6 +222,32 @@ function installFetch(payloadForView: (view: string | null) => unknown = (view) 
   return requestUrls;
 }
 
+const payloadByView = {
+  INDUSTRY: industryPayload,
+  CONCEPT: conceptPayload,
+  REGION: regionPayload,
+} as const;
+
+const viewLabel = { INDUSTRY: "行业", CONCEPT: "概念", REGION: "地域" } as const;
+
+type MatrixView = keyof typeof payloadByView;
+type MatrixState = "READY" | "PARTIAL" | "DELAYED" | "EMPTY" | "ERROR" | "FORBIDDEN" | "LOADING";
+
+function payloadWithState(view: MatrixView, state: Exclude<MatrixState, "FORBIDDEN" | "LOADING">): unknown {
+  const payload = structuredClone(payloadByView[view]) as unknown as {
+    pageStatus: { displayText: string };
+    sectorOverview: { status: string };
+  };
+  payload.sectorOverview.status = state;
+  payload.pageStatus.displayText = state === "ERROR" ? "板块数据异常" : `板块状态 ${state}`;
+  return payload;
+}
+
+const viewStateMatrix = (Object.keys(payloadByView) as MatrixView[]).flatMap((view) =>
+  (["READY", "PARTIAL", "DELAYED", "EMPTY", "ERROR", "FORBIDDEN", "LOADING"] as MatrixState[])
+    .map((state) => ({ view, state })),
+);
+
 describe("market-overview sector-overview V2 real api", () => {
   beforeEach(() => {
     Object.keys(marketOverviewModuleSources).forEach((key) => {
@@ -408,4 +434,162 @@ describe("market-overview sector-overview V2 real api", () => {
     expect(within(panel).getByLabelText("行业工作台骨架")).toBeInTheDocument();
     expect(requestUrls.some((url) => url.includes("/sector-overview") && new URL(url).searchParams.get("debug") === "1")).toBe(true);
   }, 15000);
+
+  it.each(viewStateMatrix)("S13-A15-P01 keeps the stable $view workspace for $state", async ({ view, state }) => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = urlOf(input);
+      if (url.includes("/context")) return responseJson(pageContextPayload);
+      if (!url.includes("/sector-overview")) throw new Error(`unexpected url: ${url}`);
+      if (state === "FORBIDDEN") return responseJson({ code: "forbidden", message: "Forbidden" }, 403);
+      if (state === "LOADING") return new Promise<Response>(() => undefined);
+      const requestedView = (new URL(url).searchParams.get("view") ?? "INDUSTRY") as MatrixView;
+      return responseJson(payloadWithState(requestedView, state));
+    });
+
+    const rendered = render(<MarketOverviewPage />);
+    const panel = await screen.findByLabelText("板块速览");
+    if (view !== "INDUSTRY") fireEvent.click(within(panel).getByRole("tab", { name: viewLabel[view] }));
+
+    const skeletonLabel = `${viewLabel[view]}工作台骨架`;
+    if (["EMPTY", "ERROR", "FORBIDDEN", "LOADING"].includes(state)) {
+      expect(await within(panel).findByLabelText(skeletonLabel)).toBeInTheDocument();
+    } else if (view === "INDUSTRY") {
+      expect(await within(panel).findByLabelText("一级行业")).toBeInTheDocument();
+    } else {
+      expect(await within(panel).findByRole("table", { name: view === "CONCEPT" ? "概念热度排行" : "地域板块排行" })).toBeInTheDocument();
+    }
+
+    expect(panel).toHaveClass("sector-overview-v2", `view-${view.toLowerCase()}`);
+    if (state === "PARTIAL") expect(within(panel).getByText("部分指标或热度暂不可用，已保留可用事实")).toBeInTheDocument();
+    if (state === "DELAYED") expect(within(panel).getByText("当前展示 2026-05-11 盘后数据")).toBeInTheDocument();
+    if (state === "EMPTY") expect(within(panel).getByText("暂无数据")).toBeInTheDocument();
+    if (state === "ERROR") expect(within(panel).getByText("板块数据异常")).toBeInTheDocument();
+    if (state === "FORBIDDEN") expect(within(panel).getByText("无查看权限")).toBeInTheDocument();
+    if (state === "LOADING") expect(within(panel).getByText("正在加载")).toBeInTheDocument();
+    rendered.unmount();
+  });
+
+  it("S13-A10-A11-P01 keeps seven rows scrollable and four approved detail metrics", async () => {
+    installFetch();
+    render(<MarketOverviewPage />);
+    const panel = await screen.findByLabelText("板块速览");
+
+    for (const view of ["CONCEPT", "REGION"] as const) {
+      fireEvent.click(within(panel).getByRole("tab", { name: viewLabel[view] }));
+      const ranking = await within(panel).findByRole("table", { name: view === "CONCEPT" ? "概念热度排行" : "地域板块排行" });
+      const viewport = ranking.querySelector<HTMLElement>(".sector-flat-rank-viewport");
+      expect(viewport).not.toBeNull();
+      if (!viewport) throw new Error("rank viewport not found");
+      expect(viewport).toHaveAttribute("data-visible-rows", "7");
+      expect(viewport).toHaveClass("sector-flat-rank-viewport");
+      expect(viewport.querySelectorAll('[role="row"]')).toHaveLength(view === "CONCEPT" ? 20 : 31);
+      expect(viewport.contains(within(ranking).getAllByRole("columnheader")[0])).toBe(false);
+      fireEvent.scroll(viewport, { target: { scrollTop: 240 } });
+      expect(viewport.scrollTop).toBe(240);
+      expect(panel.querySelectorAll(".sector-detail-metrics > div")).toHaveLength(4);
+    }
+  });
+
+  it("S13-A03-A04-A11-A12-A13-PN01 renders long names, nulls, amounts and Heat gaps without invented facts", async () => {
+    const payload = structuredClone(conceptPayload) as unknown as {
+      sectorOverview: {
+        concept: {
+          rows: Array<ReturnType<typeof conceptRankItem>>;
+          detail: {
+            metrics: { changePct: number | null; mainNetInflow: number | null };
+            members: Array<{ stockCode: string; stockName: string | null }>;
+            heatHistory: Array<{ tradeDate: string; heatScore: number | null; heatRank: number | null; heatLevel: string }>;
+          };
+        };
+      };
+    };
+    const longName = "超长概念板块名称用于验证单行省略与完整提示";
+    payload.sectorOverview.concept.rows[0].sectorName = longName;
+    payload.sectorOverview.concept.rows[0].changePct = metric(null);
+    payload.sectorOverview.concept.rows[0].mainNetInflow = metric(123_400_000_000, "+1234亿");
+    payload.sectorOverview.concept.rows[1].heatLevel = "NONE";
+    payload.sectorOverview.concept.rows[1].heatTrend = "STABLE";
+    payload.sectorOverview.concept.rows[2].heatStatus = "UNKNOWN";
+    payload.sectorOverview.concept.rows[2].heatLevel = "NONE";
+    payload.sectorOverview.concept.rows[2].heatTrend = "UNKNOWN";
+    payload.sectorOverview.concept.rows[2].heatScore = metric(null);
+    payload.sectorOverview.concept.rows[2].heatDelta1d = metric(null);
+    payload.sectorOverview.concept.detail.metrics.changePct = null;
+    payload.sectorOverview.concept.detail.metrics.mainNetInflow = 123_400_000_000;
+    payload.sectorOverview.concept.detail.members[0].stockName = null;
+
+    installFetch((view) => view === "CONCEPT" ? payload : industryPayload);
+    render(<MarketOverviewPage />);
+    const panel = await screen.findByLabelText("板块速览");
+    fireEvent.click(within(panel).getByRole("tab", { name: "概念" }));
+    const ranking = await within(panel).findByRole("table", { name: "概念热度排行" });
+
+    expect(within(ranking).getByRole("button", { name: `选择${longName}` })).toHaveAttribute("title", longName);
+    expect(within(ranking).getAllByText("--").length).toBeGreaterThanOrEqual(3);
+    expect(within(ranking).getAllByText("平稳").length).toBeGreaterThan(0);
+    expect(within(ranking).getByText("UNKNOWN")).toBeInTheDocument();
+    expect(within(ranking).queryByText("NONE")).not.toBeInTheDocument();
+    expect(within(panel).getByText("+1234亿")).toBeInTheDocument();
+    expect(within(panel).getByText("000001.SZ", { selector: ".sector-members button span" })).toBeInTheDocument();
+    const history = within(panel).getByLabelText("近20个交易日热度");
+    expect(history.children).toHaveLength(20);
+    expect(history.children[8]).toHaveClass("is-gap");
+    expect(history.children[8]).not.toHaveAttribute("style");
+  });
+
+  it("S13-A14-A16-PN01 keeps sector selection separate from keyboard-accessible stock navigation", async () => {
+    const requestUrls = installFetch();
+    render(<MarketOverviewPage />);
+    const panel = await screen.findByLabelText("板块速览");
+    await within(panel).findByText("一级行业1");
+
+    const regionTab = within(panel).getByRole("tab", { name: "地域" });
+    const industryTab = within(panel).getByRole("tab", { name: "行业" });
+    industryTab.focus();
+    fireEvent.keyDown(industryTab, { key: "ArrowRight" });
+    expect(within(panel).getByRole("tab", { name: "概念" })).toHaveFocus();
+    fireEvent.keyDown(within(panel).getByRole("tab", { name: "概念" }), { key: "End" });
+    expect(regionTab).toHaveFocus();
+    await within(panel).findByRole("table", { name: "地域板块排行" });
+
+    const sectorButton = within(panel).getByRole("button", { name: "选择地域板块2" });
+    sectorButton.focus();
+    expect(sectorButton).toHaveFocus();
+    fireEvent.click(sectorButton);
+    await waitFor(() => expect(requestUrls.some((url) => new URL(url).searchParams.get("selectedRegionCode") === "BK2002.DC")).toBe(true));
+    expect(window.location.pathname).toBe("/");
+
+    const memberButton = within(panel).getByRole("button", { name: "进入成分股1股票详情" });
+    memberButton.focus();
+    expect(memberButton).toHaveFocus();
+    fireEvent.click(memberButton);
+    expect(window.location.pathname).toBe("/wealth/market/stock/000001.SZ");
+    expect(panel.querySelector("button button")).toBeNull();
+    expect(within(panel).queryByText(/进入.*行情/)).not.toBeInTheDocument();
+  });
+
+  it("S13-A05-A15-P01 retains ready facts while refreshing and reports a failed refresh without mock fallback", async () => {
+    let rejectRefresh: ((reason?: unknown) => void) | undefined;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = urlOf(input);
+      if (url.includes("/context")) return responseJson(pageContextPayload);
+      if (!url.includes("/sector-overview")) throw new Error(`unexpected url: ${url}`);
+      if (new URL(url).searchParams.get("industryRankMetric") === "MAIN_NET_INFLOW") {
+        return new Promise<Response>((_resolve, reject) => { rejectRefresh = reject; });
+      }
+      return responseJson(industryPayload);
+    });
+
+    render(<MarketOverviewPage />);
+    const panel = await screen.findByLabelText("板块速览");
+    expect(await within(panel).findByText("一级行业1")).toBeInTheDocument();
+    fireEvent.click(within(panel).getByRole("button", { name: "主力净流入" }));
+    expect(await within(panel).findByText("正在更新…")).toBeInTheDocument();
+    expect(within(panel).getByText("一级行业1")).toBeInTheDocument();
+
+    rejectRefresh?.(new Error("真实接口不可用"));
+    expect(await within(panel).findByText("真实接口不可用")).toBeInTheDocument();
+    expect(within(panel).getByLabelText("行业工作台骨架")).toBeInTheDocument();
+    expect(within(panel).queryByText("行业一")).not.toBeInTheDocument();
+  });
 });

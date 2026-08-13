@@ -20,12 +20,12 @@ def test_ops_scheduler_tick_invokes_scheduler_and_prints_summary(mocker) -> None
         SimpleNamespace(id=101, schedule_id=11, resource_key=None, status="queued"),
         SimpleNamespace(id=102, schedule_id=12, resource_key="stock_basic", status="queued"),
     ]
-    scheduler_cls = mocker.patch("src.cli.OperationsScheduler", return_value=scheduler)
+    scheduler_factory = mocker.patch("src.cli.build_operations_scheduler", return_value=scheduler)
 
     result = CliRunner().invoke(app, ["ops-scheduler-tick", "--limit", "10"])
 
     assert result.exit_code == 0
-    scheduler_cls.assert_called_once_with()
+    scheduler_factory.assert_called_once_with()
     scheduler.run_once.assert_called_once_with(session, limit=10)
     assert "scheduled task_run#101 schedule_id=11 resource=- status=queued" in result.stdout
     assert "scheduled task_run#102 schedule_id=12 resource=stock_basic status=queued" in result.stdout
@@ -72,13 +72,13 @@ def test_ops_scheduler_serve_runs_multiple_cycles(mocker) -> None:
 
     scheduler = mocker.Mock()
     scheduler.run_once.side_effect = [[], []]
-    scheduler_cls = mocker.patch("src.cli.OperationsScheduler", return_value=scheduler)
+    scheduler_factory = mocker.patch("src.cli.build_operations_scheduler", return_value=scheduler)
     sleep = mocker.patch("src.cli_parts.ops_handlers.time.sleep")
 
     result = CliRunner().invoke(app, ["ops-scheduler-serve", "--limit", "10", "--sleep-seconds", "1", "--max-cycles", "2"])
 
     assert result.exit_code == 0
-    scheduler_cls.assert_called()
+    scheduler_factory.assert_called()
     assert scheduler.run_once.call_count == 2
     sleep.assert_called_once_with(1.0)
     assert result.stdout.count("ops-scheduler-serve: scheduled=0") == 2

@@ -12,6 +12,7 @@ from src.biz.services.wealth.market.sector_overview import (
     canonical_json_hash,
 )
 from src.ops.models.ops.task_run import TaskRun
+from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.runtime.maintenance_executor import (
     MaintenanceExecutionPlan,
     MaintenanceExecutionRequest,
@@ -32,7 +33,7 @@ class SectorSourceCompletionEvidenceProvider:
         start_text = start_date.isoformat()
         end_text = end_date.isoformat()
         with self._session_factory() as session:
-            rows = tuple(
+            task_rows = tuple(
                 session.scalars(
                     select(TaskRun)
                     .where(
@@ -45,8 +46,22 @@ class SectorSourceCompletionEvidenceProvider:
                     .order_by(TaskRun.resource_key, TaskRun.id)
                 )
             )
+            node_rows = tuple(
+                session.execute(
+                    select(TaskRunNode, TaskRun)
+                    .join(TaskRun, TaskRun.id == TaskRunNode.task_run_id)
+                    .where(
+                        TaskRun.task_type == "workflow",
+                        TaskRunNode.resource_key.in_(self.DATASET_KEYS),
+                        TaskRunNode.status == "success",
+                        TaskRunNode.time_input_json["trade_date"].as_string() >= start_text,
+                        TaskRunNode.time_input_json["trade_date"].as_string() <= end_text,
+                    )
+                    .order_by(TaskRunNode.resource_key, TaskRunNode.id)
+                )
+            )
         evidence = []
-        for row in rows:
+        for row in task_rows:
             raw_trade_date = (row.time_input_json or {}).get("trade_date")
             if not raw_trade_date:
                 continue
@@ -67,6 +82,31 @@ class SectorSourceCompletionEvidenceProvider:
                     status="SUCCESS",
                     evidence_type="task_run",
                     evidence_id=str(row.id),
+                    evidence_hash=evidence_hash,
+                )
+            )
+        for node, task_run in node_rows:
+            raw_trade_date = (node.time_input_json or {}).get("trade_date")
+            if not raw_trade_date or not node.resource_key:
+                continue
+            trade_date = date.fromisoformat(str(raw_trade_date))
+            evidence_hash = canonical_json_hash(
+                {
+                    "taskRunId": task_run.id,
+                    "nodeId": node.id,
+                    "datasetKey": node.resource_key,
+                    "tradeDate": trade_date.isoformat(),
+                    "status": node.status,
+                    "endedAt": node.ended_at.isoformat() if node.ended_at else None,
+                }
+            )
+            evidence.append(
+                SourceCompletionEvidence(
+                    dataset_key=str(node.resource_key),
+                    trade_date=trade_date,
+                    status="SUCCESS",
+                    evidence_type="task_run_node",
+                    evidence_id=f"{task_run.id}:{node.id}",
                     evidence_hash=evidence_hash,
                 )
             )

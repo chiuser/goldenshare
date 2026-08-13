@@ -1,7 +1,7 @@
 # 市场总览｜板块速览低层设计 v2（LLD）
 
-> 状态：Slice 12 Heat V2 与 60 日生产回放已通过。Slice 1-5 的迁移、hierarchy、Prod 来源与 Heat v1 生产事实继续有效；Slice 6-8 不作为新版验收证据，Slice 9-12 已依次完成设计、后端契约、前端结构和生产 Heat v2 纠偏。全矩阵自动化、正式像素、候选部署和最终对账继续 OPEN；下一步仅允许进入 Slice 13。
-> 日期：2026-08-13
+> 状态：Slice 14 Heat 自动化代码与本地回归已完成；生产尚未创建唯一 schedule，真实开放日自动 TaskRun、Heat read-back 与幂等证据尚缺，因此 Slice 14 保持 OPEN。原正式像素、候选部署和最终对账仍为 Slice 15-17。
+> 日期：2026-08-14
 > 需求基线：[sector-overview-benchmark-requirement-v2.md](./sector-overview-benchmark-requirement-v2.md)
 > 实施方案：[sector-overview-implementation-design-v2.md](./sector-overview-implementation-design-v2.md)
 > 编码门禁：[sector-overview-m2-coding-gate-v2.md](./sector-overview-m2-coding-gate-v2.md)
@@ -22,7 +22,8 @@
 8. Heat 不使用 Dagster asset、dynamic partition、asset check、sensor、Gold 路径、runless event 或 DG history CLI；60 日回放是 prod-native TaskRun。
 9. hierarchy、60+25 日 prod 来源、Heat/app 执行装配、事务与访问边界、60 日生产回放已经通过并继续作为有效基础；前后端 V2 只能记为“已实现、未验收”，不能再表述为完成。
 10. 2026-08-13 对照需求基线、implementation design、M2 Gate、正式 Figma 节点树与当前代码复审后，确认存在 API 展示契约不足、有效池字段口径、成员名称来源、排序空值、来源状态、默认日期、错误态、三工作台结构、详情结构、Heat 表达、交互、六态骨架、自动化测试、像素、性能与发布门禁等偏差；完整台账见第 2.5 节。
-11. 新修正步骤从 Slice 9 连续编号。Slice 9 已统一文档与 Figma，Slice 10 已完成后端事实口径和 view-specific 契约，Slice 11 已完成前端三工作台结构与本地浏览器验收，Slice 12 已完成 Heat v2 生产回放；接下来必须按 Slice 13-16 顺序推进，不得用单元测试、typecheck、build 或局部浏览器截图替代正式像素和发布验收。
+11. 新修正步骤从 Slice 9 连续编号。Slice 9-13 已完成设计、后端、前端、生产 Heat v2 与全矩阵自动化；当前产品运行缺口是每日 Heat 没有自动门禁与自动提交，因此先执行 Slice 14 Heat 盘后自动化，原像素、候选部署和最终对账顺延到 Slice 15-17。
+12. Slice 14 只解决每日自动化，不修改 Heat 公式、API、前端、Figma、hierarchy、回放语义或数据库结构；后续 Slice 在 Slice 14 生产验收通过前不得启动。
 
 ### 1.2 当前事实快照
 
@@ -32,11 +33,11 @@
 | Alembic head（部署后复核） | 仓库与生产当前单 head 均为 `20260813_000135`；本需求 revision `20260813_000134` 已位于有效链上并完成生产结构/授权验收 |
 | 当前 API | 前后端均已破坏性拆为 Industry/Concept/Region view-specific rank 与 detail；概念/地域固定列由后端直接返回，旧前端通用业务 rank/detail 契约已清零 |
 | 当前后端来源 | hierarchy、Heat、行情、成员与资金均读 Prod；DG 只发布 hierarchy。成员展示名已切到 `dc_member.name`，有效行情统一为 `close + pct_chg` |
-| 当前前端 | 已完成正式 header/tabs/toolbar、三个 view-specific workspace/rank/detail、七行滚动、20 日断点、地域 breadth、股票导航、默认日期和穷尽状态骨架；Slice 14 正式 Figma 像素仍未通过 |
+| 当前前端 | 已完成正式 header/tabs/toolbar、三个 view-specific workspace/rank/detail、七行滚动、20 日断点、地域 breadth、股票导航、默认日期和穷尽状态骨架；正式 Figma 像素后移到 Slice 15 |
 | 行业层级 Lake | 现有单文件正式 Silver，契约要求 496 行、31/128/337 |
 | Heat prod 来源 | `trade_calendar/dc_index/dc_daily/dc_member/board_moneyflow_dc/equity_daily_bar/equity_limit_list/security_serving/equity_suspend_d` 与前序 Heat |
 | 当前来源审计 | 目标窗 `2026-05-20..2026-08-12`、warm-up `2026-04-10..2026-05-19` 已冻结并完成整窗复核；资金流对目标概念 100% 覆盖、有效池无真实缺行情；`dc_daily@2026-05-18/20/22/25` 的 88/448/1/2 个缺行在 Prod Raw/Core 一致，按逐概念 `INVALID` 处理 |
-| 当前运行缺口 | 正式 v1 PLAN `8149`、APPLY `8152` 与幂等重放 `8153` 继续作为历史证据；v2 PLAN `8208`、APPLY `8210` 与幂等重放 `8213` 已完成。剩余缺口是 Slice 13 自动化、Slice 14 像素、Slice 15 候选部署/性能和 Slice 16 最终对账 |
+| 当前运行缺口 | v2 PLAN `8208`、APPLY `8210` 与幂等重放 `8213` 已完成；单日 action 已具备 condition-only schedule 代码，但尚未部署并创建生产唯一 schedule，也未完成真实开放日自动发布验收；其后仍有 Slice 15 像素、Slice 16 候选部署/性能和 Slice 17 最终对账 |
 
 ### 1.3 禁止项
 
@@ -84,33 +85,33 @@ MarketSectorOverviewResponse
 | `sector_overview_query_service.py` | 行业/概念 TopN 截断前排除 null；地域 31 项 null 置底；默认/显式日期语义已区分 | Slice 11 前端已按 view-specific 事实消费 |
 | `sector_metrics_query.py` / 状态归并 | 以三来源候选并集识别 daily/index/moneyflow/member 缺行并降级 PARTIAL；合法无领涨保持 READY | Slice 11 已实现保留可用事实的状态骨架和无领涨文案 |
 | Heat config/contract tests | 配置升为 `2.0.0 / concept-heat-eod-v2`，批准 hash 门禁阻止同版本语义漂移，v1 跨版本趋势返回 UNKNOWN | 生产回放已由 Slice 12 完成 |
-| `tests/web/test_wealth_market_sector_overview_api.py` | 已覆盖 A01-A07 后端固定列、来源缺失、null、名称、日期、ERROR 与合法无领涨正反例 | Slice 11 已补核心前端/浏览器覆盖；全矩阵留待 Slice 13 |
+| `tests/web/test_wealth_market_sector_overview_api.py` | 已覆盖 A01-A07 后端固定列、全部排序字段、来源缺失、null、名称、日期、ERROR、有效行情与无子级正反例 | Slice 13 后端真实路由矩阵已通过 |
 
 ### 2.3 前端差距
 
 | 当前文件 | 已有实现 | 审计确认的未完成项 |
 |---|---|---|
 | `MarketOverviewPage.tsx` | 页面只装配 feature，并仅将 URL 显式 `tradeDate` 传给板块 controller | 无；首页其它模块未改 |
-| `useSectorOverviewController.ts` | Tab 独立状态、abort/request id、timeout/retry；PageStatus 穷尽映射，未知值 fail closed | Slice 13 仍须补全三 view×状态矩阵 |
+| `useSectorOverviewController.ts` | Tab 独立状态、abort/request id、timeout/retry；PageStatus 穷尽映射，未知值 fail closed | Slice 13 三 view×七状态矩阵已通过 |
 | `api/marketSectorOverviewApi.ts` | 已拆为 view-specific Industry/Concept/Region rank/detail 类型；旧通用业务类型清零 | 无 |
-| `SectorOverviewPanel.tsx` 与三个 workspace | 正式 header/tabs/toolbar、三个独立 rank/detail、同尺寸 skeleton/overlay、Partial/Delayed 保留可用事实 | Slice 14 正式像素尚未验收 |
-| `market-overview-page.css` | 1600px 视口下模块为 `1564 × 680`；行业 3 列、概念/地域 930/600 双区、七行内部滚动已落地 | 普通 UI `<=2px` 差异待 Slice 14 |
-| `market-overview-sector-overview-real-api.test.tsx` | 11 项真实响应专项覆盖结构、固定列、20 日断点、地域分布、导航、无领涨、默认/显式日期、stale、403、ERROR/未知和超时 | 长文本、全 view×状态、键盘及正式像素留待 Slice 13/14 |
+| `SectorOverviewPanel.tsx` 与三个 workspace | 正式 header/tabs/toolbar、三个独立 rank/detail、同尺寸 skeleton/overlay、Partial/Delayed 保留可用事实 | Slice 15 正式像素尚未验收 |
+| `market-overview-page.css` | 1600px 视口下模块为 `1564 × 680`；行业 3 列、概念/地域 930/600 双区、七行内部滚动已落地 | 普通 UI `<=2px` 差异待 Slice 15 |
+| `market-overview-sector-overview-real-api.test.tsx` | 36 项真实响应专项覆盖结构、固定列、20 日断点、地域分布、导航、无领涨、默认/显式日期、stale、403、ERROR/未知、超时、三 view×七状态、长文本/null/大金额、滚动、键盘与刷新无 mock fallback | 正式像素留待 Slice 15 |
 
 ### 2.4 CodeGraph 影响面
 
-CodeGraph 已在本次纠偏中重新覆盖 API 入口、`MarketSectorOverviewQueryService`、`SectorRankItemDto` 构建、有效池/成员/metrics/Heat 查询、`useSectorOverviewController`、`SectorOverviewPanel`、页面消费者和前后端测试入口。A01 影响三个后端 workspace builder 与前端 API/组件消费者；A06/A07 影响页面-controller-service 状态链；A09-A15 只允许改板块 feature 和模块局部 CSS。`index-detail`、turnover、money-flow 等模块没有契约依赖；股票详情仅消费既有导航入口，不进入其页面实现。共享边界结论：
+CodeGraph 已覆盖 API/前端板块链，并为 Slice 14 补充审计 `SectorHeatTaskExecutor`、`ProbeRuntimeService`、`ScheduleAutomationCapabilityResolver` 的影响面；结合当前代码继续追到 `OperationsScheduleService`、`OperationsScheduler`、CLI 和 app worker factory。现有通用 ProbeRule 明确只绑定 dataset action，不能直接拿来做 Heat maintenance readiness；因此本 LLD 选择 schedule service 专用条件分支和 app scheduler factory。`index-detail`、turnover、money-flow 等页面契约不受影响。共享边界结论：
 
 1. `foundation` 新增两张 serving ORM。
 2. `lake_console/orchestrator` 只新增 hierarchy serving 发布链，不新增 Heat 定义。
 3. `biz` 继续只依赖 `foundation`。
-4. `ops` 增加 Heat TaskRun 意图与抽象执行端口，但不依赖 biz。
-5. `app` 增加执行装配适配器，但不增加业务规则。
-6. 现有 app worker factory、Heat executor 注入和双 Session 边界继续成立；本轮不修改 dispatcher/worker，除非 Slice 12 的真实回放证据发现既有执行缺陷。
+4. `ops` 增加 Heat TaskRun 意图、抽象执行端口和 Heat readiness 调度端口，但不依赖 biz。
+5. `app` 增加 worker/scheduler 装配适配器，但不增加业务规则。
+6. 现有 app worker factory、Heat executor 注入和双 Session 边界继续成立；Slice 14 新增 scheduler factory，影响 schedule/capability/runtime/CLI 测试，但不修改 Heat 公式、API 或前端。
 
 ### 2.5 2026-08-13 文档对账审计问题台账
 
-本节是 Slice 9-16 的唯一缺口入口。Slice 10 仅完成 A01-A08 的后端代码/测试部分；同一问题若还要求前端或生产 Heat v2 证据，整体状态仍为 `OPEN`。严重度定义：`阻断` 表示不得认定 V2 交付完成，`高` 表示会造成事实、状态或主要交互错误，`中` 表示验收、文档或运维证据不完整。
+本节是 Slice 9-17 的唯一缺口入口。Slice 10 仅完成 A01-A08 的后端代码/测试部分；同一问题若还要求前端或生产 Heat v2 证据，整体状态仍为 `OPEN`。严重度定义：`阻断` 表示不得认定 V2 交付完成，`高` 表示会造成事实、状态或主要交互错误，`中` 表示验收、文档或运维证据不完整。
 
 #### 2.5.1 后端、数据语义与契约
 
@@ -142,32 +143,32 @@ Slice 10 后端关闭记录（2026-08-13）：
 
 | ID | 严重度 | 冻结口径 | 当前实现与偏差 | 修正要求 | 关闭证据 | 修正 Slice |
 |---|---|---|---|---|---|---|
-| A09 | 阻断 | 正式节点 `538:517`、行业 `538:520`、概念 `538:521`、地域 `571:516` 均为 `1564 × 680`；三工作台使用各自结构 | 当前 `SectorOverviewPanel` 使用通用 `Panel`、通用 `SectorRankCard`、通用 `DetailPanel`；模块 DOM 层级和视觉结构不是正式 Figma | 不一次性重建整页；只重构板块模块，拆出正式 header、tabs、ranking toolbar、三个 workspace、三个 rank item 和三个 detail 组合；其余首页模块不动 | 节点结构对照表、三工作台浏览器截图、首页回归截图与 DOM/CSS 结构审查 | 9、11、14 |
-| A10 | 阻断 | 行业每级 5 行；概念/地域单列 7 行可视并内部滚动 | 当前概念/地域复用两列卡片网格，约可同时展示 14 项，不是正式表格行和七行视窗 | 行业三列采用 Figma 固定列宽；概念/地域独立单列表头与行；列表容器表达固定表头、七行可视区和内部滚动 | 首屏精确 7 行、滚动后剩余行、固定表头、键盘/焦点测试；截图尺寸不变 | 11、13、14 |
+| A09 | 阻断 | 正式节点 `538:517`、行业 `538:520`、概念 `538:521`、地域 `571:516` 均为 `1564 × 680`；三工作台使用各自结构 | 当前 `SectorOverviewPanel` 使用通用 `Panel`、通用 `SectorRankCard`、通用 `DetailPanel`；模块 DOM 层级和视觉结构不是正式 Figma | 不一次性重建整页；只重构板块模块，拆出正式 header、tabs、ranking toolbar、三个 workspace、三个 rank item 和三个 detail 组合；其余首页模块不动 | 节点结构对照表、三工作台浏览器截图、首页回归截图与 DOM/CSS 结构审查 | 9、11、15 |
+| A10 | 阻断 | 行业每级 5 行；概念/地域单列 7 行可视并内部滚动 | 当前概念/地域复用两列卡片网格，约可同时展示 14 项，不是正式表格行和七行视窗 | 行业三列采用 Figma 固定列宽；概念/地域独立单列表头与行；列表容器表达固定表头、七行可视区和内部滚动 | 首屏精确 7 行、滚动后剩余行、固定表头、键盘/焦点测试；截图尺寸不变 | 11、13、15 |
 | A11 | 阻断 | 行业/概念/地域详情各有批准的四指标结构；概念额外 Heat 历史，地域额外上涨/下跌分布 | 当前统一展示六个通用数字，且把停牌/覆盖率等质量字段放成正式 Figma 未批准的主卡 | 建立 view-specific detail metric layout；只展示该 view 批准字段，辅助质量信息只能放已批准位置；地域保留两段 breadth | 三视图四指标字段映射、地域分布、概念历史和无多余主卡断言 | 11、13 |
 | A12 | 高 | 热度等级只显示沸腾/高热/活跃，低于 60 不显示；趋势为升温/平稳/降温，等级和趋势是独立标签 | 当前 `STABLE` 显示“稳定”，`NONE` 显示 `--`，且等级/趋势合成一个 badge | 分离 `HeatLevelBadge` 与 `HeatTrendBadge`；严格 enum 映射，不从 score/delta 推导；NONE 不渲染等级标签 | 全枚举正例、未知枚举负例、NONE 不存在标签的 DOM 断言与截图 | 11、13 |
-| A13 | 阻断 | 产品冻结概念 Heat 历史为最近 20 个已发布交易日；无效点保留日期并断开 | Slice 9 前正式 Figma 只有 7 个历史槽；当前代码虽循环 20 点，但 null 被最小高度柱显示，且缺少范围/变化表达 | Figma 已在 Slice 9 冻结为 20 日；代码仍须按新稿实现 20 点、日期顺序、无效断点和批准的当前值/变化表达 | Figma 节点属性复核已完成；20 点/断点 DOM 测试、INVALID 中段截图与 API 对账仍待 Slice 11/14 | 9、11、14 |
+| A13 | 阻断 | 产品冻结概念 Heat 历史为最近 20 个已发布交易日；无效点保留日期并断开 | Slice 9 前正式 Figma 只有 7 个历史槽；当前代码虽循环 20 点，但 null 被最小高度柱显示，且缺少范围/变化表达 | Figma 已在 Slice 9 冻结为 20 日；代码仍须按新稿实现 20 点、日期顺序、无效断点和批准的当前值/变化表达 | Figma 节点属性复核已完成；20 点/断点 DOM 测试、INVALID 中段截图与 API 对账仍待 Slice 11/15 | 9、11、15 |
 | A14 | 高 | 领涨股和成分股名称进入股票详情；无领涨显示“暂无领涨股” | 排名卡整体按钮导致领涨股点击只选择板块；详情领涨股为普通文本；缺失值显示 `--` | 板块选择与股票跳转使用独立可访问交互目标，禁止嵌套 button；领涨和成员统一调用批准的股票详情导航 | 点击传播、键盘激活、无领涨文案、成员/领涨路由参数测试 | 11、13 |
-| A15 | 阻断 | Loading、Ready、Partial、Delayed、Empty、Error、Forbidden 共用稳定页面骨架；普通 UI 不因状态换位 | Loading 使用通用 `SkeletonBlock`，Empty/Error/Forbidden 是简单居中层，不包含三工作台对应表头/行/详情骨架 | 为三个 view 构建相同尺寸 skeleton；状态 overlay 覆盖而不替换 grid；refreshing 保留旧数据；Partial/Delayed 保留可用事实 | 各 view×状态同尺寸截图、容器尺寸断言、无布局跳动；ERROR 同时覆盖 A07 | 11、13、14 |
-| A16 | 阻断 | 用户最新批准范围不新增板块详情页/路由；Figma 与文档必须先一致 | Slice 9 前正式 Figma 含三个未批准的板块详情路由控件，交互说明也把板块名定义为详情入口 | Slice 9 已移除三个控件；Slice 11 前端仅保留板块选择/联动和股票详情导航，无板块详情入口 | Figma/文档节点复核、前端静态扫描及导航负例已通过；最终关闭仍待 Slice 16 对账 | 9、11、16 |
+| A15 | 阻断 | Loading、Ready、Partial、Delayed、Empty、Error、Forbidden 共用稳定页面骨架；普通 UI 不因状态换位 | Loading 使用通用 `SkeletonBlock`，Empty/Error/Forbidden 是简单居中层，不包含三工作台对应表头/行/详情骨架 | 为三个 view 构建相同尺寸 skeleton；状态 overlay 覆盖而不替换 grid；refreshing 保留旧数据；Partial/Delayed 保留可用事实 | 各 view×状态同尺寸截图、容器尺寸断言、无布局跳动；ERROR 同时覆盖 A07 | 11、13、15 |
+| A16 | 阻断 | 用户最新批准范围不新增板块详情页/路由；Figma 与文档必须先一致 | Slice 9 前正式 Figma 含三个未批准的板块详情路由控件，交互说明也把板块名定义为详情入口 | Slice 9 已移除三个控件；Slice 11 前端仅保留板块选择/联动和股票详情导航，无板块详情入口 | Figma/文档节点复核、前端静态扫描及导航负例已通过；最终关闭仍待 Slice 17 对账 | 9、11、17 |
 
 #### 2.5.3 测试、性能、文档与发布治理
 
 | ID | 严重度 | 冻结口径 | 当前实现与偏差 | 修正要求 | 关闭证据 | 修正 Slice |
 |---|---|---|---|---|---|---|
 | A17 | 阻断 | 自动化必须覆盖三工作台、六态、长文本/null、INVALID、七行滚动、跳转、禁止项和真实 API 字段 | 当前前端专项只有 5 个 jsdom 用例，主要断言文字/数量；没有证明正式结构、全部状态、长文本、断点、跳转和像素 | 先建立可执行验收矩阵，再补后端正反例、前端真实 API 与浏览器用例；每个 A01-A16 至少对应一个正例和一个必要反例 | 问题 ID 到测试 ID 映射为 100%，规定命令全部通过 | 10、13 |
-| A18 | 阻断 | 发布前必须完成同机房 P50/P95/P99、SQL/payload、三视图和全部状态像素、首页无漂移、监控与回滚证据 | M2 Gate 的性能和视觉表为空；已部署前没有完成正式截图/像素签字；单元测试、typecheck、build 被错误当成交付依据 | 部署候选版本后执行同窗口真实首页验收；普通 UI `<=2px`；记录 `SO_*`、Heat 覆盖率、回滚演练；任一缺失不得关闭 | 完整性能表、截图基线/差异图、监控查询、回滚记录和角色签字 | 14、15、16 |
-| A19 | 阻断 | LLD/M2 状态必须反映事实；固定命令必须可归因、可执行 | 旧文档把 Slice 6/7 写成完成并把剩余项缩成截图/性能；全目录 `ruff check src/orchestrator/defs ...` 当前产生 487 个既有错误，而 sector hierarchy 文件级 Ruff 通过 | 保留 Slice 0-5 事实，撤销 Slice 6-8 验收结论；将 Ruff 门禁收窄为本需求文件并另记全目录基线债务；所有完成状态以证据表为准 | 文档完整性、diff check、问题台账与 M2 Gate 对账；不得存在“未勾选却写完成” | 9、13、16 |
+| A18 | 阻断 | 发布前必须完成同机房 P50/P95/P99、SQL/payload、三视图和全部状态像素、首页无漂移、监控与回滚证据 | M2 Gate 的性能和视觉表为空；已部署前没有完成正式截图/像素签字；单元测试、typecheck、build 被错误当成交付依据 | 部署候选版本后执行同窗口真实首页验收；普通 UI `<=2px`；记录 `SO_*`、Heat 覆盖率、回滚演练；任一缺失不得关闭 | 完整性能表、截图基线/差异图、监控查询、回滚记录和角色签字 | 15、16、17 |
+| A19 | 阻断 | LLD/M2 状态必须反映事实；固定命令必须可归因、可执行 | 旧文档把 Slice 6/7 写成完成并把剩余项缩成截图/性能；全目录 `ruff check src/orchestrator/defs ...` 当前产生 487 个既有错误，而 sector hierarchy 文件级 Ruff 通过 | 保留 Slice 0-5 事实，撤销 Slice 6-8 验收结论；将 Ruff 门禁收窄为本需求文件并另记全目录基线债务；所有完成状态以证据表为准 | 文档完整性、diff check、问题台账与 M2 Gate 对账；不得存在“未勾选却写完成” | 9、13、17 |
 
 #### 2.5.4 正式设计节点事实清单（Slice 9 基线）
 
 | 节点 | 当前已审计结构 | LLD 固定用途 | 当前冲突/动作 |
 |---|---|---|---|
-| `538:517` | 板块速览 V2 正式总览，`1564 × 680` | 模块外框、header、tabs、日期与工作区基线 | Slice 11 已落地正式模块结构；像素待 Slice 14 |
+| `538:517` | 板块速览 V2 正式总览，`1564 × 680` | 模块外框、header、tabs、日期与工作区基线 | Slice 11 已落地正式模块结构；像素待 Slice 15 |
 | `538:520` | 行业：左侧 3 列层级区约 1008px，右侧详情约 522px；每列最多 5 行 | Industry workspace 与四指标详情 | Slice 11 已落地；真实三级直属只有 4 行时不伪造占位事实 |
 | `538:521` | 概念：左侧约 930px、右侧约 600px；单列 7 行表格；Heat 与详情 | Concept workspace、Heat badge/history 与成员 | Slice 11 已落地 20 日空槽断点；生产 v2 Heat 已由 Slice 12 发布 |
 | `571:516` | 地域：左侧约 930px、右侧约 600px；单列 7 行表格；详情含两段 breadth | Region workspace 与上涨/下跌分布 | Slice 11 已落地，真实 31 行内部滚动与分布已验收 |
-| `538:522` | Tab 记忆、三级联动、排序范围、状态骨架、名称导航说明 | 正式交互事实源 | Slice 11 已完成结构和核心状态验收；全矩阵自动化待 Slice 13 |
+| `538:522` | Tab 记忆、三级联动、排序范围、状态骨架、名称导航说明 | 正式交互事实源 | Slice 11 已完成结构和核心状态验收；Slice 13 已完成全矩阵自动化 |
 | `554:516` | Heat 标签/趋势与量化说明 | Heat 文案、标签和历史表现 | 必须与 20 日、NONE 隐藏、STABLE=平稳一致 |
 
 Slice 9 执行后事实：正式根仍为 `1700 × 3242` 且子节点顺序不变；行业、概念、地域仍分别为 `1564 × 680`，交互契约为 `1564 × 360`，Heat Model 为 `1564 × 520`。概念节点 `543:540` 保持 `556 × 42`、6px 间距并由 7 根柱扩为 20 个日期槽；三个工作台的“进入××行情”控件已删除；`538:522` 已补齐 view-specific 字段、长文本/null、无领涨、20 日 INVALID 断点与 Ready + 六种非正常状态口径。完整 before/after 与属性清单见 `figma-pixel-artifacts/20260813-sector-overview-v2-slice9/`。
@@ -228,12 +229,18 @@ src/biz/services/wealth/config/
 src/ops/
   action_catalog.py
   runtime/maintenance_executor.py
+  runtime/heat_readiness.py
+  runtime/scheduler.py
   runtime/task_run_dispatcher.py
   runtime/worker.py
+  services/sector_heat_upstream_readiness_service.py
+  services/operations_schedule_service.py
+  services/schedule_automation_capability_resolver.py
 
 src/app/
-  services/wealth/market/sector_overview/sector_heat_task_executor.py
-  services/wealth/market/sector_overview/sector_source_completion_evidence.py
+  runtime/sector_heat_task_executor.py
+  runtime/sector_heat_readiness_evaluator.py
+  runtime/ops_scheduler_factory.py
   runtime/ops_worker_factory.py
 
 src/cli.py
@@ -249,6 +256,8 @@ tests/
   test_wealth_sector_heat_task_execution.py
   test_wealth_sector_database_access_boundaries.py
   test_cli_ops_runtime.py
+  test_sector_heat_readiness_evaluator.py
+  web/test_wealth_sector_heat_automation.py
 
 wealth/src/features/market-overview/sectors/
   SectorOverviewPanel.tsx
@@ -492,7 +501,7 @@ ActionDefinition 参数：
 
 | action | 参数 | 规则 |
 |---|---|---|
-| `maintenance.materialize_wealth_sector_heat_daily` | `trade_date: date` | 必填；`manual_enabled=true`，60 日和最新日验收前不启用 schedule |
+| `maintenance.materialize_wealth_sector_heat_daily` | `trade_date: date` | 人工提交时必填；自动提交时由 Heat readiness window 生成；`manual_enabled=true`，Slice 14 改为 condition-only schedule |
 | `maintenance.replay_wealth_sector_heat_history` | `execution_mode: enum(PLAN,APPLY)` | 必填；`schedule_enabled=false` |
 | replay PLAN | `start_date/end_date: date` | 必填且连续打开日不少于 60；禁止 `plan_task_run_id/plan_hash`；只写 Ops plan snapshot/issue，不写 Heat |
 | replay APPLY | `plan_task_run_id: integer`, `plan_hash: string` | 必填；禁止 start/end；引用同 action、成功 PLAN TaskRun 的 immutable snapshot |
@@ -500,7 +509,7 @@ ActionDefinition 参数：
 1. ops 负责从所引用 PLAN TaskRun 读取并校验 snapshot；传给 executor 的是通用 plan units/expected hashes，不暴露 ops ORM。
 2. app/biz 在每个日期执行前复算配置与来源 hash；与 plan 不一致时以 `HEAT_PLAN_DRIFT` 停止，不自动重规划或跳日。
 3. PLAN、APPLY 和单日 action 都使用 TaskRun/TaskRunNode 正式状态链；不另建 Heat run 表。
-4. 单日 schedule 仅在首发回放和最新日验收后通过现有 Ops Schedule 数据配置启用；不新增 sensor 或代码内隐藏 cron。
+4. 单日 schedule 仅按第 5.9 节的 condition-only 方式启用；不新增 sensor、代码内隐藏 cron 或无门禁普通 schedule。
 
 ### 5.7 60 个有效交易日 plan/apply
 
@@ -515,6 +524,98 @@ ActionDefinition 参数：
 ### 5.8 DG Heat 清零静态门禁
 
 仓库扫描必须断言本需求未新增或引用：`gold_wealth_sector_heat_daily`、Heat dynamic partition、Heat asset check、Heat sensor、Heat Gold/Parquet 路径、Heat runless event、Heat history CLI、DG Heat 配置文件或 DG Heat 计算 contract。DG 只允许 hierarchy 发布文件出现在本模块改动清单中。
+
+### 5.9 Heat 每日条件调度 LLD
+
+#### 5.9.1 端口与装配
+
+`src/ops/runtime/heat_readiness.py` 定义不含 biz 类型的窄端口：
+
+```python
+@dataclass(frozen=True, slots=True)
+class HeatReadinessRequest:
+    trade_date: date
+    checked_at: datetime
+
+@dataclass(frozen=True, slots=True)
+class HeatReadinessResult:
+    ready: bool
+    reason_code: str
+    message: str
+    evidence: Mapping[str, object]
+    config_version: str | None = None
+    config_hash: str | None = None
+    source_hash: str | None = None
+    plan_hash: str | None = None
+    content_hash: str | None = None
+
+class HeatReadinessEvaluator(Protocol):
+    def evaluate(self, session, *, request: HeatReadinessRequest) -> HeatReadinessResult: ...
+```
+
+1. `ops` 的 `SectorHeatUpstreamReadinessService` 只查询 Ops TaskRun/TaskRunNode，核验同目标交易日的必需工作流节点；不读取来源业务表，不 import biz。
+2. `app` 的 `SectorHeatReadinessEvaluator` 先调用上述 Ops 服务，再新开独立 business session，加载 `limit_list_d/suspend_d` 合法零行证据并调用 `SectorHeatMaterializationService.preview_trade_date`。
+3. app 只合并两个 readiness 结果和中立证据；公式、有效池、来源 SQL 仍只在 biz。preview session 固定 `REPEATABLE READ, READ ONLY`，无 commit 业务数据。
+4. 新增 `build_operations_scheduler(session_factory=...)`，把 evaluator 注入 `OperationsScheduler`；`src/cli.py` 的 `ops-scheduler-tick/serve` 与 `OpsRuntimeCommandService` 改为消费该 factory。生产调度器不得继续直构未装配的 `OperationsScheduler`。
+5. worker 路径继续使用既有 `build_operations_worker`，计算前再次执行当前来源/contract 校验；scheduler preview 和 worker materialization 是两次独立校验，防止检查后来源变化。
+6. 不修改 `ProbeRule/ProbeRunLog/ScheduleProbeBindingService/ProbeRuntimeService` 的数据集探针语义；Heat 条件直接在 `OperationsScheduleService` 的 maintenance action due 分支执行。禁止用虚构 dataset key 绑定通用 ProbeRule，也不新增 readiness 表。
+
+#### 5.9.2 Action 与 schedule contract
+
+`MaintenanceActionDefinition` 为单日 Heat 增加系统声明的条件调度策略，不新增环境变量：
+
+```text
+schedule_enabled = true
+readiness_condition = wealth_sector_heat_sources_ready
+initial_check_local_time = 21:15
+upstream_not_before_local_time = 21:00
+retry_interval_seconds = 600
+deadline_next_day_local_time = 00:30
+timezone = Asia/Shanghai
+```
+
+1. 上述系统值由 action catalog 单一定义；Ops Schedule 只保存 `cron_expr/timezone/status/next_run_at` 和目标 action，不允许页面把间隔、截止时间或门禁键改成任意值。
+2. 生产 schedule 的 cron 为工作日 `21:15`，目标为 `maintenance_action:maintenance.materialize_wealth_sector_heat_daily`；`params_json` 不固定日期，trade date 由 Heat 条件调度器按检查窗口解析。
+3. 当地时间 `21:15..23:59` 使用当天日期；`00:00..00:30` 使用前一天日期。只有 `trade_calendar(exchange='SSE', is_open=true)` 才继续核验；非开放日直接推进到下一次 cron。
+4. readiness 未命中且未过 deadline 时，schedule 保持 active，将 `next_run_at` 设为 `checked_at + 10min`，但不得超过次日 `00:30`。命中并 stage TaskRun 后立即按 cron 推进到下一个工作日 `21:15`；计算终态由现有 worker/TaskRun 观测，scheduler 不继续轮询，也不自动重提失败/取消任务。
+5. `OperationsScheduleService.enqueue_due_schedules` 锁定 due schedule 后分支：普通目标沿用现有逻辑；仅当 maintenance action 声明 Heat readiness condition 时先求值。miss 时在同一 Ops transaction 更新 `next_run_at`；hit 时在同一 transaction stage TaskRun、更新 `last_triggered_at/next_run_at` 后提交；同一 schedule/action/trade_date 已有任一自动 TaskRun 时不再 stage，并直接按 cron 推进。
+6. 并发 scheduler 必须由现有 `FOR UPDATE SKIP LOCKED` 加去重查询保证同日最多一个有效 TaskRun；进程重启后以持久化 `next_run_at` 恢复复查，不依赖内存计时器。
+
+#### 5.9.3 上游执行证据判定
+
+对目标日 `D`，Ops 查询必须按语义键而非生产 ID 识别：
+
+1. `daily_market_close_maintenance`：TaskRun 为 `success` 或其 Heat 必需节点均成功，`time_input.trade_date=D`，且 `requested_at` 换算到 `Asia/Shanghai` 后不早于 `D 21:00`。必需节点为 `daily/dc_index/dc_member/dc_daily/limit_list/suspend_d`。
+2. `daily_moneyflow_maintenance`：同日、同样不早于 `21:00`，且 `moneyflow_ind_dc` 节点成功。
+3. 同一个 workflow 的必需节点必须来自同一个 TaskRun，禁止把多次 partial run 拼成成功；早于 21:00 的 TaskRun（包括 18:30）只作为历史记录，不作为 readiness 证据。
+4. Heat 无关节点失败时，只要 TaskRun 中全部必需节点成功即可继续 biz preview；必需节点缺失、失败、仍运行或被取消均返回 `HEAT_UPSTREAM_NOT_READY`。
+5. readiness evidence 记录 workflow key、TaskRun ID、node key/status、requested/ended time 和证据 hash；不得记录连接信息或敏感参数。
+
+#### 5.9.4 Biz 内容预检与 reason code
+
+Ops 证据通过后，app 调用已有 `preview_trade_date`。结果分类固定：
+
+| reason code | 含义 | 行为 |
+|---|---|---|
+| `HEAT_READY` | 上游与 biz preview 均通过 | 创建一次正式 Heat TaskRun |
+| `HEAT_NON_TRADING_DAY` | 目标日不是 SSE 开放日 | 不创建任务，推进下次 cron |
+| `HEAT_UPSTREAM_NOT_READY` | 必需工作流/节点未完成 | 10 分钟后复查 |
+| `HEAT_SOURCE_NOT_READY` | 日期、整日来源、唯一键、零行证据或覆盖门禁未通过 | 10 分钟后复查 |
+| `HEAT_PREVIEW_FAILED` | 配置、contract 或预检发生非输入等待类错误 | 继续到 deadline，但必须以 error 级结构化日志记录 |
+| `HEAT_AUTOMATION_SOURCE_TIMEOUT` | 次日 00:30 仍未齐备 | 创建一个 failed TaskRun/issue，不写 Heat |
+| `HEAT_AUTOMATION_ALREADY_ATTEMPTED` | 同一 schedule/action/trade_date 已有自动 TaskRun | 不重复创建，推进下次 cron；失败/取消走人工恢复 |
+
+单个概念形成 `INVALID` 仍属于成功 preview；自动化不得把 `invalid_count > 0` 当成整日失败。
+
+#### 5.9.5 TaskRun、幂等与超时记录
+
+1. 命中时用 `TaskRunCommandService` 创建标准 `maintenance_action` TaskRun，`trigger_source='scheduled'`、`schedule_id` 指向 Heat schedule、`time_input={'mode':'point','trade_date':D}`。
+2. `request_payload_json` 增加 `readiness` 快照：检查时间、上游 evidence、config/source/plan/content hash；dispatcher/worker 仍以实际重算为准，hash 漂移失败关闭。
+3. 自动去重语义为 `(schedule_id, action_key, trade_date)`：已有任一自动 TaskRun（`queued/running/success/failed/canceled`）时返回 `HEAT_AUTOMATION_ALREADY_ATTEMPTED`，不创建新任务并推进下次 cron。人工单日 TaskRun 不冒充自动验收证据；自动任务失败/取消后由运营按既有人工入口判断是否恢复，scheduler 不自动重提。
+4. deadline 时若始终没有达到 readiness，通过同一 TaskRun service stage 一个标准 Heat TaskRun，立即置为 `failed`，写一个 `TaskRunIssue(code='HEAT_AUTOMATION_SOURCE_TIMEOUT')`，并保存最后 readiness 证据；同一 schedule/日期只允许一个超时 TaskRun。若当日已经 stage 过自动计算 TaskRun，则不适用来源超时，也不额外创建记录。
+5. readiness miss 只写结构化 scheduler 日志并更新 `next_run_at`，避免每 10 分钟制造失败 TaskRun；日志至少含 schedule/action/trade_date/reason/next_check/缺失依赖。
+6. schedule 更新、TaskRun 创建和超时 issue 在 Ops transaction 中原子提交；Heat business transaction 与其独立。
+7. 新分支不得改变既有普通 cron/once、dataset probe/fallback、workflow、日期完整性或非 Heat maintenance action 的行为；对应回归是 Slice 14 必过门禁。
 
 ---
 
@@ -702,6 +803,10 @@ type SectorRequestState =
 | Heat contract | golden 五分量/总分/rank/level | 缺分量补权、低覆盖仍有效、未来数据影响历史结果 |
 | prod 发布 | 单日 delete+insert+read-back hash 同事务成功 | read-back 不同、数据库写入失败或 contract 失败时保留旧成功日 |
 | Ops/app/CLI 装配 | TaskRun 计划 60 个有效交易日，生产 CLI 经 app factory 注入 executor 并调用 biz | ops import biz、CLI 直构未装配 worker、TaskRun session 与业务 session 共事务、失败跳日 |
+| Heat 条件调度 | 21:15 开放日检查，上游节点 + biz preview 通过后只创建一个单日 TaskRun | 非交易日、18:30 早场、必需节点未完成或 preview 未通过仍触发计算 |
+| Heat 等待/截止 | 未齐每 10 分钟复查，跨午夜仍锁定原交易日，00:30 超时只生成一个 issue | 每轮制造失败 TaskRun、目标日漂移、超时后继续等待或用旧日数据 |
+| Heat 自动幂等 | queued/running/success 与相同内容 read-back 去重；failed 修复后可重试 | 同日重复任务/重复 DML，失败任务永久阻止修复后重跑 |
+| Scheduler 装配 | CLI/runtime 经 app scheduler factory 注入 readiness evaluator | ops import biz、Web 执行 scheduler、生产 CLI 直构未装配 scheduler |
 | 访问边界 | DG/Heat/Web 只操作各自规定对象，Heat 与 Ops 使用独立 Session/事务 | DG 写 Heat、Heat 写来源/hierarchy、Web 产生 DML、运行时代码执行 DDL/`TRUNCATE` |
 | 静态清零 | DG 仅存在 hierarchy 发布实现 | 出现 DG Heat asset/partition/check/sensor/Gold/history CLI |
 
@@ -740,18 +845,29 @@ type SectorRequestState =
 
 #### 8.4.1 审计问题到自动化测试的强制映射
 
-| 问题 | 后端/数据测试 | 前端/浏览器测试 |
-|---|---|---|
-| A01 | 三类 rank DTO；行业主指标随排序正确，概念/地域固定字段在排序后仍齐全 | 行业主指标与排序一致；概念/地域每列可见且不消失 |
-| A02/A08 | close-null 负例、Heat 版本门禁、跨版本趋势 | INVALID/UNKNOWN 不伪造数值或趋势 |
-| A03 | dc_member/security 同码异名反例 | 成分名称显示后端返回事实 |
-| A04 | TopN null 排除、地域 null 置底 | 不渲染 null TopN 占位行 |
-| A05 | 各来源单独缺失的状态矩阵 | Partial/Delayed 保留可用事实与骨架 |
-| A06/A07 | 默认/显式日期、ERROR/未知状态 | query string、错误/超时/403 穷尽状态 |
-| A09-A13 | DTO 字段与 20 点历史 | 三工作台结构、七行、四指标、badge、断点 |
-| A14-A16 | 路由参数 contract（如由 API 约束） | 点击传播、键盘、文案、无板块详情入口 |
-| A15 | 三 view 六态 payload | 三 view 全状态同尺寸浏览器验收 |
-| A17-A19 | 规定命令、文档门禁 | 像素、性能、监控、签字证据 |
+测试 ID 中 `P` 表示批准行为正例，`N` 表示禁止项反例；既有测试名未强行重命名，以下以完整 pytest/Vitest node 名作为稳定 ID。Slice 13 只关闭既有页面/契约自动化部分；新增的 Heat 每日自动化由 Slice 14 单独验收。A18 的像素、性能、候选部署、监控和签字顺延到 Slice 15-17。
+
+| 问题 | 正例测试 ID | 禁止项反例测试 ID | Slice 13 结论 |
+|---|---|---|---|
+| A01 | `test_s13_a01_p01_all_rank_metrics_preserve_view_specific_row_facts`；前端三个 Ready 基线用例逐列断言 | `test_s13_a01_n01_generic_rank_item_contract_cannot_return`；`test_sector_overview_rejects_unknown_irrelevant_or_invalid_parameters` | 三类 rank DTO、全部排序下固定列和旧通用契约清零均已自动化 |
+| A02 | `test_effective_pool_requires_close_and_pct_chg_for_a_valid_quote`；Slice 12 v2 同版本重放 | `test_s13_a02_a03_n01_close_null_is_not_valid_and_member_name_has_no_security_fallback`；`test_missing_comparable_previous_heat_returns_unknown_without_filling` | `close + pct_chg` 详情/Heat 双链正反例完整 |
+| A03 | `test_industry_workspace_resolves_three_levels_and_uses_frozen_fields` | `test_s13_a02_a03_n01_close_null_is_not_valid_and_member_name_has_no_security_fallback` | `dc_member.name` 可见，空名不回退 `security.name` |
+| A04 | `test_rank_null_rules_filter_industry_and_concept_before_topn_but_keep_all_regions` | 同一测试证明行业/概念 null 不占 TopN，地域不得错误删行；前端 `S13-A03-A04-A11-A12-A13-PN01` 证明 null 显示 `--` | TopN 过滤与地域置底语义均自动化 |
+| A05 | `test_legal_missing_leader_remains_ready_and_returns_null`；前端 `S13-A05-A15-P01` | `test_s13_a05_n01_moneyflow_gap_is_partial_in_every_workspace`；daily/index/member/Heat 单独缺失既有路由用例 | 三 view 来源缺失、合法无领涨和 refreshing 事实保留均已覆盖 |
+| A06 | `test_default_date_reports_delayed_without_cross_date_join`；前端默认/显式日期两个既有用例 | `test_explicit_trading_date_without_bundle_returns_empty_not_previous_day`；`test_explicit_non_trading_or_missing_date_returns_empty_without_fallback` | 默认日期不伪装显式日期，显式缺事实不回退 |
+| A07 | `test_industry_hierarchy_unavailable_is_stable_error`；前端 `S13-A15-P01` 三 view×ERROR/FORBIDDEN | `test_page_status_contract_rejects_unknown_backend_values`；前端未知状态、403、timeout/retry 既有用例 | ERROR、未知、网络超时和权限均 fail closed 且保留骨架 |
+| A08 | `test_sector_heat_strategy_config_is_registered_and_hashed_deterministically`；`test_replay_resume_skips_existing_content_after_revalidating_plan` | `test_sector_heat_config_rejects_semantic_change_without_version_upgrade`；`test_previous_heat_from_v1_is_not_comparable_with_v2` | 同版本幂等、未升版漂移和跨版本趋势均自动化 |
+| A09 | 三个 Ready 基线用例；`S13-A15-P01` 三 view 全状态 | `test_s13_a10_p02_fixed_seven_row_scroll_contract_remains_explicit` 防止 680px 外框/正式滚动结构被移除 | 结构回归已自动化；像素仍留 Slice 15 |
+| A10 | `test_industry_workspace_resolves_three_levels_and_uses_frozen_fields`；前端 `S13-A10-A11-P01` | `test_s13_a10_n01_industry_leaf_without_children_returns_an_empty_third_column`；滚动测试证明表头不在滚动容器 | 行业 3×5、无子级、概念/地域七行滚动与固定表头完成 |
+| A11 | 三个 Ready 基线用例；前端 `S13-A10-A11-P01` 每 view 四指标 | 前端 `S13-A03-A04-A11-A12-A13-PN01` 证明 null/大金额不产生多余主卡 | 三类专属详情结构与地域 breadth/概念历史完成 |
+| A12 | 前端 `renders the concept fixed columns, separate badges and a real 20-day gap`；`S13-A03-A04-A11-A12-A13-PN01` | 同一 `PN01` 证明 `NONE` 不显示、UNKNOWN 不伪造分数/趋势；`test_s13_a12_n01_concept_heat_contract_rejects_unknown_level_and_trend` | 等级/趋势独立、STABLE=平稳、NONE/UNKNOWN 负例完整 |
+| A13 | `test_concept_workspace_supports_heat_sort_history_and_member_detail`；前端概念 Ready 基线 | 前端 `S13-A03-A04-A11-A12-A13-PN01` 证明第 9 槽断点无样式、不补值 | 20 个已发布日、升序和 INVALID 断点完成；像素仍留 Slice 15 |
+| A14 | 前端 `S13-A14-A16-PN01`；既有领涨导航与无领涨用例 | 同一测试断言板块选择不改路由、股票导航不嵌套 button；无领涨不生成目标 | Tab/板块/领涨/成员键盘焦点和股票路由完成 |
+| A15 | 前端 `S13-A15-P01` 参数化覆盖 3 view × 7 状态共 21 例 | 前端未知状态/403/timeout 与 `S13-A05-A15-P01` 刷新失败用例 | 全状态稳定骨架、Partial/Delayed 事实保留和 refreshing 完成；同尺寸像素留 Slice 15 |
+| A16 | 三个 Ready 基线均断言无板块详情入口 | `test_s13_a16_n01_sector_detail_routes_and_entry_copy_cannot_return`；`S13-A14-A16-PN01` | 板块名称仅选择/联动，详情路由及文案静态清零 |
+| A17 | 本表 A01-A16 映射、后端专项、前端 36 项专项和完整门禁命令 | `test_s13_a17_n01_real_sector_feature_cannot_import_or_fallback_to_mock` | 问题到测试映射达到 100%，适用禁止项均有反例 |
+| A18 | `test_s13_a18_a19_n01_automation_cannot_claim_pixel_or_release_acceptance` 证明后续门禁仍在 | 同一测试禁止 Slice 13 冒充像素/候选发布完成 | 仅完成自动化映射；A18 本体保持 `OPEN`，进入 Slice 15/16 后执行 |
+| A19 | 固定命令、文件级 Ruff、docs integrity、`git diff --check` | `test_s13_a18_a19_n01_automation_cannot_claim_pixel_or_release_acceptance`；全目录 Ruff 存量不得混入本模块结论 | 自动化与文档门禁完成；最终状态对账仍留 Slice 17 |
 
 ### 8.5 性能与像素
 
@@ -766,17 +882,20 @@ type SectorRequestState =
 
 ```bash
 # Foundation / biz Heat / app-ops 装配 / 访问边界 / 后端真实路由 / 架构边界
-pytest -q \
+uv run pytest -q \
   tests/test_extended_models.py \
   tests/test_foundation_table_model_registry.py \
   tests/test_wealth_sector_serving_constraints.py \
   tests/test_wealth_sector_serving_migration.py \
   tests/test_wealth_sector_heat_contract.py \
-  tests/test_wealth_sector_heat_materialization_service.py \
-  tests/test_wealth_sector_heat_task_execution.py \
-  tests/test_wealth_sector_database_access_boundaries.py \
+  tests/test_wealth_sector_heat_materialization.py \
+  tests/test_wealth_sector_heat_replay_planner.py \
+  tests/test_sector_heat_task_executor.py \
+  tests/web/test_wealth_sector_heat_ops_runtime.py \
   tests/test_cli_ops_runtime.py \
   tests/web/test_wealth_market_sector_overview_api.py \
+  tests/architecture/test_wealth_sector_heat_guardrails.py \
+  tests/architecture/test_wealth_sector_overview_slice13_guardrails.py \
   tests/architecture/test_subsystem_dependency_matrix.py
 
 # Wealth 类型、真实 API 行为与构建
@@ -903,7 +1022,7 @@ git diff --check
 4. 正式根、三个工作台、交互契约和 Heat Model 的尺寸与子节点顺序通过属性复核；Heat Model 前后 PNG SHA-256 相同。修改前后截图、属性清单和节点 ID 见 `figma-pixel-artifacts/20260813-sector-overview-v2-slice9/`。
 5. benchmark、implementation design、M2 Gate 与本 LLD 已同步为 Slice 1-5 完成、Slice 6-8 已实现未验收、A01-A19 OPEN；implementation design 已改为 Industry/Concept/Region view-specific rank 与 detail 目标契约。
 
-阶段证据：Slice 9 完成 A09、A13、A16、A19 的设计/文档部分，Slice 10 完成 A01-A08 后端部分，Slice 11 完成 A01/A06/A07/A09-A16 前端结构部分，Slice 12 完成 A02/A08 的生产事实部分；这些问题仍需后续全矩阵自动化、像素和最终对账证据，整体状态继续保持 `OPEN`。当前下一步固定为 Slice 13。
+阶段证据：Slice 9 完成 A09、A13、A16、A19 的设计/文档部分，Slice 10 完成 A01-A08 后端部分，Slice 11 完成 A01/A06/A07/A09-A16 前端结构部分，Slice 12 完成 A02/A08 的生产事实部分，Slice 13 完成 A10-A15/A17/A19 的自动化部分；这些问题仍需后续正式像素、候选部署/性能和最终对账证据，整体状态继续保持 `OPEN`。当前优先处理运行缺口，下一步固定为 Slice 14 Heat 盘后自动化。
 
 ### Slice 10：后端事实口径与 V2 契约修正（新增，修正序号 2）
 
@@ -934,10 +1053,10 @@ git diff --check
 4. Heat 等级/趋势独立渲染，`STABLE -> 平稳`、`NONE` 不显示等级；20 日历史 null 点为空槽；地域详情由 `up_count/down_count` 表达同日涨跌分布；领涨股和成员股使用独立股票导航，无领涨显示“暂无领涨股”。
 5. 默认请求不附带 `tradeDate`，仅 URL 显式选日时传日期；controller 穷尽 READY/PARTIAL/DELAYED/EMPTY/ERROR，未知枚举 fail closed；403、ERROR、未知值和超时均保留稳定 skeleton/overlay。
 6. 自动门禁：真实响应专项 11 项通过；Wealth 全量 33 个文件、198 项通过；`npm run typecheck`、`npm run build` 通过。构建只有既有 Vite 大 chunk 提示，无新增失败。
-7. 浏览器门禁：行业、概念、地域三个工作台均在本地真实页面完成局部截图和 DOM/CSS 核验，控制台无 error/warn。截图为本地临时验收物，不替代 Slice 14 的 Figma `<=2px` 正式像素证据。
+7. 浏览器门禁：行业、概念、地域三个工作台均在本地真实页面完成局部截图和 DOM/CSS 核验，控制台无 error/warn。截图为本地临时验收物，不替代 Slice 15 的 Figma `<=2px` 正式像素证据。
 8. Slice 11 实施时生产仅有 Heat v1；该时点概念默认 Heat 排序按合同返回 Partial。Slice 12 已发布正式 v2 60 日事实，后续候选验收必须使用真实 v2，不得保留 v1 缺失假设。
 
-Slice 11 未关闭 A01-A19 整体问题；Slice 12 已完成 A02/A08 生产事实部分。A10-A15 的全矩阵自动化留给 Slice 13；A09-A16 的正式像素留给 Slice 14；A18/A19 的候选部署、性能、监控、签字和最终对账留给 Slice 15-16。下一步固定为 Slice 13。
+Slice 11 未关闭 A01-A19 整体问题；Slice 12 已完成 A02/A08 生产事实部分，Slice 13 已完成 A10-A15/A17/A19 自动化部分。每日 Heat 运行自动化优先进入 Slice 14；A09-A16 的正式像素后移到 Slice 15，A18/A19 的候选部署、性能、监控、签字和最终对账后移到 Slice 16-17。
 
 ### Slice 12：Heat V2 与 60 日回放（新增，修正序号 4）
 
@@ -956,7 +1075,7 @@ Slice 11 未关闭 A01-A19 整体问题；Slice 12 已完成 A02/A08 生产事�
 3. 逐日 read-back 对 PLAN 的行数、VALID/INVALID、scoreVersion、config/source/content hash 均为 0 差异。v2 首日 `2026-05-20` 的 486 行全部为 `heat_delta_1d=NULL`、`heat_trend/raw_heat_trend=UNKNOWN`，未跨 v1 比较。
 4. v1/v2 的 29,665 个主键和全部业务数值、状态、invalid reason、分数、等级、趋势完全一致；29,665 行的 `scoreVersion/configHash/sourceHash` 全部变化，60 日 content hash 全部变化。原因是本窗口的 `close` 均满足有效行情资格，未改变成分池，但 canonical 字段集合已经变化，必须升版并重算摘要。
 5. 幂等重放 TaskRun `8213` 继续引用 PLAN `8208`，完成 60/60、0 失败、0 issue、`rows_saved=0`；重放前后 `calculated_at` 精确保持 `2026-08-13 22:27:15.102214+08` 至 `2026-08-13 22:37:06.490427+08`，逐日 PLAN 对账仍为 0 差异。
-6. 本 Slice 未修改代码、数据库结构、账号、配置、DG、前端或 Figma；仅使用既有 TaskRun/worker/业务事务链执行生产回放并同步文档。下一步固定为 Slice 13，本轮不进入。
+6. 本 Slice 未修改代码、数据库结构、账号、配置、DG、前端或 Figma；仅使用既有 TaskRun/worker/业务事务链执行生产回放并同步文档。该 Slice 完成时下一步为 Slice 13；现已由后续执行记录确认 Slice 13 通过。
 
 ### Slice 13：自动化回归补齐（新增，修正序号 5）
 
@@ -968,7 +1087,40 @@ Slice 11 未关闭 A01-A19 整体问题；Slice 12 已完成 A02/A08 生产事�
 
 关闭问题：A10-A15、A17、A19 的自动化部分。
 
-### Slice 14：Figma 与首页像素验收（新增，修正序号 6）
+执行记录（2026-08-13）：**PASS，A10-A15/A17/A19 的自动化部分完成**。
+
+1. 第 8.4.1 节已将 A01-A19 全部映射到完整测试 ID；每个适用问题均有批准行为正例和禁止项反例。A18 只完成“不得提前认定像素/发布完成”的自动化门禁，其像素、性能、候选部署和签字仍保持 `OPEN`。
+2. 后端真实路由新增全部排序下三类固定字段、`close=null` 有效行情反例、`dc_member.name` 无 security 回退、三 view 资金流缺失 PARTIAL、行业无子级及 Heat 未知枚举拒绝测试；专项共 25 项通过。
+3. 前端真实响应专项由 11 项扩为 36 项，其中参数化覆盖 Industry/Concept/Region × Ready/Partial/Delayed/Empty/Error/Forbidden/Loading 共 21 例；另覆盖七行滚动/固定表头、四指标、长名称 Tooltip、null、`+1234亿`、NONE/UNKNOWN、20 日 INVALID 断点、Tab/板块/领涨/成员键盘焦点、刷新保留旧事实与无 mock fallback。
+4. 新增 `test_wealth_sector_overview_slice13_guardrails.py` 5 项静态门禁，禁止恢复通用 `SectorRankItem`、板块详情路由/文案和 mock fallback，并固定 680px/内部滚动；其中阶段文字必须在 Slice 14 开发时同步调整为新的 Slice 14-17 顺序。
+5. 固定总门禁结果：后端/Heat/Ops/架构核心 109 项与静态护栏 5 项合计 114 项通过；Wealth 全量 33 文件 223 项通过；`npm run typecheck`、`npm run build` 通过；DG hierarchy 9 项与三文件 Ruff 通过；`uv run dg check defs` 只读 Definitions 加载通过；文档完整性和 `git diff --check` 通过。
+6. 本 Slice 仅修改板块测试和四份 V2 文档，没有修改业务实现、API、数据库、迁移、配置、依赖、Figma 或首页其它模块。其后产品将 Heat 每日自动化提为最高优先级，下一步改为 Slice 14 Heat 盘后自动化。
+
+### Slice 14：Heat 盘后自动化（新增，修正序号 6）
+
+开发范围严格限定为第 5.9 节，不修改 Heat 公式/API/前端/Figma/数据库结构：
+
+1. 将单日 Heat action 改为带系统固定 readiness condition 的可调度目标；历史 replay 继续不可调度。
+2. 实现 Ops 上游 TaskRun/节点核验、app readiness adapter、biz `preview_trade_date` 只读预检，以及 scheduler app factory；CLI/runtime 不得直构未装配 scheduler。
+3. 实现 `21:15` 首检、开放日解析、10 分钟复查、次日 `00:30` 截止、跨午夜目标日锁定和 schedule `next_run_at` 推进。
+4. 命中时只创建一个标准单日 Heat TaskRun；同一 schedule/action/trade_date 的任何自动 TaskRun 均阻止重复创建，失败/取消不自动重提；deadline 只允许一个 `HEAT_AUTOMATION_SOURCE_TIMEOUT` issue。
+5. 补齐第 8.2 节全部正反例和静态边界测试；固定门禁命令至少覆盖 action catalog、automation capability、schedule/runtime、app scheduler factory、Heat executor/materialization、CLI 和依赖矩阵。
+6. 部署后由运营创建唯一生产 schedule：工作日 `21:15`、`Asia/Shanghai`、目标单日 Heat action；不得新增 systemd timer、crontab、DG sensor 或外部脚本。
+7. 生产验收必须覆盖：schedule/capability 可见；至少一个真实开放日从 readiness miss/hit 到 TaskRun success 和 Heat read-back；随后同日重放不重复建任务/不写数据。若当日 21:15 已错过，可先做只读 readiness 与人工受控时钟验证，但 Slice 14 仍保持 OPEN，直到真实开放日完整链路通过。
+8. 记录目标日、上游 TaskRun/节点、各次 reason code、触发 TaskRun、Heat 行数、VALID/INVALID、config/source/content hash、耗时和幂等结果；不得记录 secret。
+
+Slice 14 PASS 标准：代码/自动化测试全部通过、生产 schedule 唯一且 active、真实开放日完成一次成功自动发布与一次同日幂等核验、没有重复 TaskRun/DML、超时/缺源反例可观测。任一条件缺失均不得进入 Slice 15。
+
+执行记录（2026-08-14）：**代码与本地自动化 PASS，生产验收 OPEN**。
+
+1. `MaintenanceActionDefinition` 已声明唯一 Heat readiness policy；历史 replay 仍不可调度。
+2. Ops 已实现 SSE 开放日、21:00 后两个工作流同一 TaskRun 必需节点、10 分钟复查、跨午夜目标日锁定、00:30 单一超时以及同一 schedule/action/trade_date 单次自动尝试。
+3. app scheduler factory 已装配 Ops 上游证据与独立 `REPEATABLE READ, READ ONLY` biz preview；worker 继续在独立业务事务二次校验。`limit_list_d/suspend_d` 合法零行以来源节点自身成功为准，即使同一工作流因无关节点失败，仍可读取完成证据。
+4. CLI `ops-scheduler-tick/serve` 已统一使用 app factory；未新增表、迁移、账号、连接、环境变量、ProbeRule、DG sensor 或外部 timer。
+5. Heat 专项、调度/API/CLI/worker/capability/架构固定总门禁合计 307 项通过，文件级 Ruff、依赖矩阵和 `git diff --check` 通过。
+6. 尚缺：部署代码、创建并核验唯一 active 生产 schedule、至少一个真实开放日自动任务成功、Heat read-back/hash 与同日幂等。完成前 Slice 14 不得标记 PASS，也不得进入 Slice 15。
+
+### Slice 15：Figma 与首页像素验收（原 Slice 14，修正序号 7）
 
 1. 使用 Slice 9 保存的同尺寸基线，按行业、概念、地域逐模块验收；每次只验一个 workspace，失败即回到 Slice 11 修正。
 2. 覆盖三个 Ready 默认排序、全部非默认排序、三级选择、Heat INVALID/断点、地域 breadth、长名称、无领涨和全部状态。
@@ -978,16 +1130,16 @@ Slice 11 未关闭 A01-A19 整体问题；Slice 12 已完成 A02/A08 生产事�
 
 关闭问题：A09-A16、A18 的视觉部分。
 
-### Slice 15：候选版本部署、性能与观测验收（新增，修正序号 7）
+### Slice 16：候选版本部署、性能与观测验收（原 Slice 15，修正序号 8）
 
 1. 前后端作为同一候选发布单元部署；部署前重新确认 Alembic 单 head，但没有新迁移时不得制造空迁移。
 2. 同机房测量三 view 的 P50/P95/P99、payload、SQL round trips；门禁仍为 P95 `<250ms`、P99 `<500ms`、payload `<120KB`、SQL `<=8`。
 3. 验收真实首页 smoke、`SO_*`、Heat 最新日/有效率/INVALID 原因、TaskRun/DG hierarchy 观测和错误/回滚路径。
 4. 观测写入失败仍不得影响业务事务；应用失败不删除 serving 数据。
 
-关闭问题：A18 的性能、生产与观测部分。
+关闭问题：A18 的性能、生产与观测部分；同时复核 Slice 14 Heat schedule、最近开放日 TaskRun 与 Heat 覆盖持续正常。
 
-### Slice 16：最终对账与 V2 验收关闭（新增，修正序号 8）
+### Slice 17：最终对账与 V2 验收关闭（原 Slice 16，修正序号 9）
 
 1. 逐项复核 A01-A19：代码、测试、Figma、生产和文档证据缺一不可；不存在“部分关闭”。
 2. 对账 benchmark、implementation design、LLD、M2 Gate 与实际实现，清零过时完成状态和相互冲突文案。
@@ -1008,11 +1160,12 @@ Slice 11 未关闭 A01-A19 整体问题；Slice 12 已完成 A02/A08 生产事�
 3. 层级 prod read-back 为 496/31/128/337 且 hash 一致。
 4. Heat 至少 60 个有效交易日全部通过业务 contract、TaskRun 节点验收和 prod read-back；不以自然日、缺口日或 warm-up 凑数。
 5. 最近交易日 Heat 来源日期一致、有效率/等级分布/日度跳变已人工审阅。
-6. 现有连接复用、DG hierarchy 对象授权、组件访问边界和 Heat/Ops 双 Session 事务隔离测试通过，app 已注入 Heat executor，且依赖测试证明没有 `ops -> biz`。
-7. 后端和前端真实 API、性能、六态和像素测试通过。
-8. A01-A19 必须全部关闭并链接到代码/测试/Figma/生产证据；仅标记“已修复”而没有证据不算关闭。
-9. Slice 9-16 必须按序完成。后置 Slice 失败时回到对应责任 Slice，不得通过跳过截图、放宽像素、删除测试或倒改需求完成发布。
-10. Figma 与需求仍有 7/20 日、板块详情入口或字段契约冲突时禁止构建候选版本。
+6. Slice 14 的单日 Heat 条件调度测试、唯一 active 生产 schedule、真实开放日自动发布/read-back 和同日幂等证据全部通过。
+7. 现有连接复用、DG hierarchy 对象授权、组件访问边界和 Heat/Ops 双 Session 事务隔离测试通过，app 已注入 Heat executor/readiness evaluator，且依赖测试证明没有 `ops -> biz`。
+8. 后端和前端真实 API、性能、六态和像素测试通过。
+9. A01-A19 必须全部关闭并链接到代码/测试/Figma/生产证据；仅标记“已修复”而没有证据不算关闭。
+10. Slice 9-17 必须按序完成。后置 Slice 失败时回到对应责任 Slice，不得通过跳过 Heat 自动化生产验收、截图、放宽像素、删除测试或倒改需求完成发布。
+11. Figma 与需求仍有 7/20 日、板块详情入口或字段契约冲突时禁止构建候选版本。
 
 ### 11.2 回滚
 
@@ -1020,14 +1173,16 @@ Slice 11 未关闭 A01-A19 整体问题；Slice 12 已完成 A02/A08 生产事�
 2. Heat 单日业务事务失败时整日回滚，保留此前成功交易日；不得用 TaskRun 状态事务回滚业务数据。
 3. TaskRun 遇到来源、contract、数据库写入或 read-back 失败时停止后续日期，记录失败节点；修复后按相同 plan hash 从最后成功日续跑。
 4. 不恢复旧 DTO 别名，不让 V2 前端连接 V1 后端或反向混用。
+5. Slice 14 自动化异常时先暂停唯一 Heat schedule，保留人工单日 TaskRun 作为运营恢复入口；不得删除 Heat 数据、关闭来源任务或另建 cron/sensor 绕过门禁。
 
 ### 11.3 观测
 
 1. DG hierarchy：运行标识、Silver/prod 行数、31/128/337 层级计数、source hash 与 prod read-back hash。
 2. Ops TaskRun：plan hash、目标/有效/warm-up/缺口日期、逐日节点状态、来源行数/hash、失败 reason 和续跑位置。
-3. API：`SO_*` 数量、view/status、响应耗时、SQL round trips、payload。
-4. 数据：有效/无效 Heat 比例、invalid reason 分布、member/coverage 分布、等级分布和 score 日跳变。
-5. 观测写入失败不得回滚、阻断或污染 Heat 及其它业务数据事务；仅影响本次观测状态。
+3. Heat 自动化：schedule 状态/next run、目标日、readiness reason、缺失上游节点、下一检查时间、触发/超时 TaskRun、同日去重和最近成功自动发布日。
+4. API：`SO_*` 数量、view/status、响应耗时、SQL round trips、payload。
+5. 数据：有效/无效 Heat 比例、invalid reason 分布、member/coverage 分布、等级分布和 score 日跳变。
+6. 观测写入失败不得回滚、阻断或污染 Heat 及其它业务数据事务；仅影响本次观测状态。
 
 ---
 
@@ -1044,6 +1199,7 @@ Slice 11 未关闭 A01-A19 整体问题；Slice 12 已完成 A02/A08 生产事�
 | Web 不算事实 | response DTO + presentation-only adapter | null 不补 0、badge 不推导 |
 | 来源同日 | prod source query + quality contract | 错日必须阻断，不得以其它日期替代 |
 | 原子发布 | 单日 prod DB transaction + read-back | 失败保留旧成功交易日 |
+| Heat 每日自动化 | Ops 条件调度端口 + app readiness adapter + biz preview + scheduler factory | 21:15/10m/00:30、上游节点、非交易日、跨午夜、去重、超时和生产真实开放日 |
 | biz/ops/app 边界 | ops executor port + app adapter + CLI factory consumer | ops 不得 import biz，CLI 不得直构未装配 worker，状态事务不得影响业务事务 |
 | 现有连接复用与访问边界 | Web/Heat 使用 `DATABASE_URL`，DG 使用 `ProdPostgresWriteResource`；Heat/Ops 独立 Session/事务 | DG 写 Heat、Heat 写来源/hierarchy、Web DML、运行时 DDL/`TRUNCATE` 被测试阻止 |
 | DG Heat 清零 | hierarchy-only Definitions + 静态扫描 | asset/partition/check/sensor/Gold/history CLI 不存在 |
@@ -1063,7 +1219,7 @@ Slice 11 未关闭 A01-A19 整体问题；Slice 12 已完成 A02/A08 生产事�
 
 ## 13. 当前修正状态与拍板边界
 
-1. 当前已部署历史 V2 不视为新版验收完成；不得继续新功能。Slice 9、Slice 10、Slice 11、Slice 12 已通过，下一项只能是 Slice 13。
+1. 当前已部署历史 V2 不视为新版验收完成；不得继续其它新功能。Slice 9-13 已通过，下一项只能是 Slice 14 Heat 盘后自动化；像素、候选部署和最终对账依次后移到 Slice 15-17。
 2. 已确认不需要重新拍板的修正：20 日 Heat 历史、三工作台正式结构、地域保留、四指标详情、独立 Heat 标签、有效池 `close + pct_chg`、`dc_member.name`、null 排名排除、默认/显式日期、六态骨架、股票详情跳转、像素与性能门禁。
 3. 按现有批准范围，板块详情页和三个“进入××行情”入口不在本版本实现；Slice 9 已从正式 Figma 和文档删除该表达。只有用户明确改变范围时才重新设计路由。
 4. A02 改变 Heat canonical 来源字段集合后的 `concept-heat-eod-v2` 与 60 日重放已完成；后续验收不得沿用旧 v1 作为当前生产证据。
@@ -1076,6 +1232,9 @@ Slice 11 未关闭 A01-A19 整体问题；Slice 12 已完成 A02/A08 生产事�
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.18 | 2026-08-14 | Slice 14 代码与本地回归完成：Heat 条件调度、上游 TaskRunNode 证据、app 只读 preview、跨午夜/超时/去重、CLI factory 和零行证据已落地；固定总门禁 307 项通过，生产 schedule 与真实开放日验收继续 OPEN |
+| v2.17 | 2026-08-14 | 新增 Slice 14 Heat 盘后自动化 LLD：21:15 首检、10 分钟复查至 00:30、Ops 上游节点 + biz preview 两层门禁、app scheduler factory、幂等与超时 issue；原 Slice 14-16 后移为 Slice 15-17 |
+| v2.16 | 2026-08-13 | 完成 Slice 13：A01-A19 测试 ID 100% 映射，后端/Heat/Ops/架构核心 109 项与静态护栏 5 项合计 114 项、Wealth 223 项、DG 9 项及 typecheck/build/Ruff/Definitions/docs/diff 全通过；下一步固定 Slice 14 |
 | v2.15 | 2026-08-13 | 完成 Slice 12：正式 PLAN `8208`、APPLY `8210`、逐日 read-back 与幂等重放 `8213`；60 日 29,665 行、逐日版本/计数/hash 0 差异、重放 0 写入，下一步固定 Slice 13 |
 | v2.14 | 2026-08-13 | 完成 Slice 11 前端纠偏：view-specific 类型与三工作台、正式模块骨架、七行滚动、20 日断点、地域 breadth、股票导航、默认日期和穷尽状态通过 11 项专项、198 项全量、typecheck/build 与本地真实页面浏览器验收；下一步固定 Slice 12 |
 | v2.13 | 2026-08-13 | 完成 Slice 10 后端纠偏：三类 rank DTO、`close + pct_chg`、`dc_member.name`、TopN null、来源状态、默认/显式日期、后端 ERROR 契约和 Heat v2 版本门禁已实现；70 项回归和生产只读 60 日 close/pct 核验通过，下一步固定 Slice 11 |

@@ -556,9 +556,18 @@ class TaskRunDispatcher:
     @staticmethod
     def _single_day_heat_unit(params: Mapping[str, Any]) -> MaintenanceExecutionUnit:
         trade_date = TaskRunDispatcher._parse_date(params.get("trade_date"))
+        readiness = params.get("readiness")
+        payload: dict[str, Any] = {"trade_date": trade_date.isoformat()}
+        if isinstance(readiness, Mapping):
+            expected_plan_hash = readiness.get("planHash")
+            expected_content_hash = readiness.get("contentHash")
+            if expected_plan_hash not in (None, ""):
+                payload["expected_plan_hash"] = str(expected_plan_hash)
+            if expected_content_hash not in (None, ""):
+                payload["expected_content_hash"] = str(expected_content_hash)
         return MaintenanceExecutionUnit(
             unit_key=f"wealth-sector-heat:{trade_date.isoformat()}",
-            payload={"trade_date": trade_date.isoformat()},
+            payload=payload,
         )
 
     @staticmethod

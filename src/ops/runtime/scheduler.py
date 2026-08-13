@@ -9,11 +9,12 @@ from src.ops.services.index_daily_completeness_reconciliation_service import Ind
 from src.ops.services.date_completeness_schedule_service import DateCompletenessScheduleCommandService
 from src.ops.services.operations_schedule_service import OperationsScheduleService
 from src.ops.services.operations_probe_runtime_service import ProbeRuntimeService
+from src.ops.runtime.heat_readiness import HeatReadinessEvaluator
 
 
 class OperationsScheduler:
-    def __init__(self) -> None:
-        self.schedule_service = OperationsScheduleService()
+    def __init__(self, *, heat_readiness_evaluator: HeatReadinessEvaluator | None = None) -> None:
+        self.schedule_service = OperationsScheduleService(heat_readiness_evaluator=heat_readiness_evaluator)
         self.probe_runtime_service = ProbeRuntimeService()
         self.date_completeness_schedule_service = DateCompletenessScheduleCommandService()
         self.index_daily_reconciliation_service = IndexDailyCompletenessReconciliationService()

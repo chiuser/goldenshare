@@ -6,7 +6,7 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
-from src.biz.schemas.wealth.market.sector_overview import PageStatusDto
+from src.biz.schemas.wealth.market.sector_overview import ConceptRankItemDto, PageStatusDto
 from src.foundation.models.core.board_moneyflow_dc import BoardMoneyflowDc
 from src.foundation.models.core.dc_daily import DcDaily
 from src.foundation.models.core.dc_index import DcIndex
@@ -692,6 +692,26 @@ def test_page_status_contract_rejects_unknown_backend_values() -> None:
         PageStatusDto(status="UNKNOWN", displayText="未知状态")  # type: ignore[arg-type]
 
 
+def test_s13_a12_n01_concept_heat_contract_rejects_unknown_level_and_trend() -> None:
+    row = {
+        "rank": 1,
+        "sectorCode": "BK2001.DC",
+        "sectorName": "概念板块1",
+        "changePct": {"value": 1.0, "displayText": "+1.00%", "direction": "UP"},
+        "mainNetInflow": {"value": 1.0, "displayText": "+0.0亿", "direction": "UP"},
+        "leader": None,
+        "heatStatus": "VALID",
+        "heatLevel": "HOT",
+        "heatTrend": "STABLE",
+        "heatScore": {"value": 80.0, "displayText": "80", "direction": "UP"},
+        "heatDelta1d": {"value": 1.0, "displayText": "+1", "direction": "UP"},
+        "selected": True,
+    }
+    for field, unknown in (("heatLevel", "SCALDING"), ("heatTrend", "ACCELERATING")):
+        with pytest.raises(ValidationError):
+            ConceptRankItemDto.model_validate({**row, field: unknown})
+
+
 def test_all_frozen_rank_metrics_are_accepted_per_workspace(app_client, db_session) -> None:
     _seed_sector_overview_v2(db_session)
     matrix = {
@@ -711,3 +731,149 @@ def test_all_frozen_rank_metrics_are_accepted_per_workspace(app_client, db_sessi
             assert response.status_code == 200, (view, metric)
             workspace = response.json()["sectorOverview"][view.lower()]
             assert workspace["rankMetric"] == metric
+
+
+def test_s13_a01_p01_all_rank_metrics_preserve_view_specific_row_facts(app_client, db_session) -> None:
+    _seed_sector_overview_v2(db_session)
+    matrix = {
+        "INDUSTRY": (
+            "industryRankMetric",
+            ("CHANGE_PCT", "MAIN_NET_INFLOW", "UP_COUNT"),
+            {"rank", "sectorCode", "sectorName", "industryLevel", "primaryMetric", "leader", "selected"},
+        ),
+        "CONCEPT": (
+            "conceptRankMetric",
+            ("HEAT_SCORE", "HEAT_DELTA_1D", "CHANGE_PCT", "MAIN_NET_INFLOW"),
+            {
+                "rank",
+                "sectorCode",
+                "sectorName",
+                "changePct",
+                "mainNetInflow",
+                "leader",
+                "heatStatus",
+                "heatLevel",
+                "heatTrend",
+                "heatScore",
+                "heatDelta1d",
+                "selected",
+            },
+        ),
+        "REGION": (
+            "regionRankMetric",
+            ("CHANGE_PCT", "MAIN_NET_INFLOW", "UP_COUNT"),
+            {
+                "rank",
+                "sectorCode",
+                "sectorName",
+                "changePct",
+                "mainNetInflow",
+                "memberCount",
+                "upCount",
+                "leader",
+                "selected",
+            },
+        ),
+    }
+
+    for view, (param_name, metrics, expected_fields) in matrix.items():
+        for rank_metric in metrics:
+            response = app_client.get(
+                "/api/v1/wealth/market/sector-overview",
+                params={
+                    "tradeDate": TARGET_DATE.isoformat(),
+                    "view": view,
+                    param_name: rank_metric,
+                },
+            )
+            assert response.status_code == 200, (view, rank_metric)
+            workspace = response.json()["sectorOverview"][view.lower()]
+            rows = workspace["columns"][0]["rows"] if view == "INDUSTRY" else workspace["rows"]
+            assert rows, (view, rank_metric)
+            assert set(rows[0]) == expected_fields, (view, rank_metric)
+            if view != "INDUSTRY":
+                assert "primaryMetric" not in rows[0]
+
+
+def test_s13_a02_a03_n01_close_null_is_not_valid_and_member_name_has_no_security_fallback(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_overview_v2(db_session)
+    db_session.query(EquityDailyBar).filter(
+        EquityDailyBar.trade_date == TARGET_DATE,
+        EquityDailyBar.ts_code == "000001.SZ",
+    ).update({EquityDailyBar.close: None}, synchronize_session=False)
+    db_session.query(DcMember).filter(
+        DcMember.trade_date == TARGET_DATE,
+        DcMember.ts_code == "BK1201.DC",
+        DcMember.con_code == "000001.SZ",
+    ).update({DcMember.name: None}, synchronize_session=False)
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/wealth/market/sector-overview",
+        params={"tradeDate": TARGET_DATE.isoformat(), "view": "INDUSTRY"},
+    )
+
+    assert response.status_code == 200
+    detail = response.json()["sectorOverview"]["industry"]["detail"]
+    assert detail["metrics"]["quoteEligibleCount"] == 6
+    assert detail["metrics"]["validQuoteCount"] == 5
+    assert detail["metrics"]["missingQuoteCount"] == 1
+    member = next(item for item in detail["members"] if item["stockCode"] == "000001.SZ")
+    assert member["stockName"] is None
+    assert member["stockName"] != "证券主数据名1"
+
+
+@pytest.mark.parametrize(
+    ("view", "sector_code"),
+    (("INDUSTRY", "BK1001.DC"), ("CONCEPT", "BK2001.DC"), ("REGION", "BK3001.DC")),
+)
+def test_s13_a05_n01_moneyflow_gap_is_partial_in_every_workspace(
+    app_client,
+    db_session,
+    view: str,
+    sector_code: str,
+) -> None:
+    _seed_sector_overview_v2(db_session)
+    db_session.query(BoardMoneyflowDc).filter(
+        BoardMoneyflowDc.trade_date == TARGET_DATE,
+        BoardMoneyflowDc.ts_code == sector_code,
+    ).delete(synchronize_session=False)
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/wealth/market/sector-overview",
+        params={"tradeDate": TARGET_DATE.isoformat(), "view": view, "debug": 1},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["sectorOverview"]["status"] == "PARTIAL"
+    assert payload["sectorOverview"][view.lower()]
+    assert "SO_MONEYFLOW_MISSING" in {item["code"] for item in payload["debugInfo"]["exceptions"]}
+
+
+def test_s13_a10_n01_industry_leaf_without_children_returns_an_empty_third_column(app_client, db_session) -> None:
+    _seed_sector_overview_v2(db_session)
+    db_session.query(WealthSectorHierarchy).filter(WealthSectorHierarchy.industry_level == 3).delete(
+        synchronize_session=False
+    )
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/wealth/market/sector-overview",
+        params={
+            "tradeDate": TARGET_DATE.isoformat(),
+            "view": "INDUSTRY",
+            "selectedIndustryCode": "BK1101.DC",
+        },
+    )
+
+    assert response.status_code == 200
+    workspace = response.json()["sectorOverview"]["industry"]
+    assert [len(column["rows"]) for column in workspace["columns"]] == [5, 5, 0]
+    assert workspace["selection"]["level2Code"] == "BK1101.DC"
+    assert workspace["selection"]["level3Code"] is None
+    assert workspace["selection"]["detailSectorCode"] == "BK1101.DC"

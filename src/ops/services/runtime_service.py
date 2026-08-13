@@ -6,9 +6,9 @@ from src.ops.runtime import OperationsScheduler, OperationsWorker
 
 
 class OpsRuntimeCommandService:
-    def __init__(self) -> None:
-        self.scheduler = OperationsScheduler()
-        self.worker = OperationsWorker()
+    def __init__(self, *, scheduler: OperationsScheduler, worker: OperationsWorker) -> None:
+        self.scheduler = scheduler
+        self.worker = worker
 
     def scheduler_tick(self, session: Session, *, limit: int) -> list:
         return self.scheduler.run_once(session, limit=limit)

@@ -1,6 +1,6 @@
 # 市场总览｜板块速览标杆需求 v2（benchmark-requirement）
 
-> 状态：Slice 12 Heat V2 与 60 日生产回放已通过。Slice 6-8 仍不作为新版验收证据；A02/A08 的生产事实部分已完成，Slice 13-16 的全矩阵自动化、像素、候选部署和最终对账仍为 OPEN。下一步仅允许进入 Slice 13。
+> 状态：Slice 14 Heat 盘后自动化代码与本地固定回归已通过；生产唯一 schedule 和真实开放日自动发布/read-back 尚未验收，因此 Slice 14 继续 OPEN。A01-A19 整体仍须经过像素、候选部署和最终对账，Slice 14 PASS 前不得进入 Slice 15。
 > 页面定位：财势乾坤首页盘后事实模块，不使用实时行情。
 > 替换范围：V2 上线后替换现有 `4 × 2` 榜单矩阵与 `5 × 4` 涨跌热力图；上线前 v1 文档仍用于解释当前代码，不得继续扩展 v1。
 
@@ -505,10 +505,12 @@ calculated_at
 1. Slice 1-5 的迁移、hierarchy、Prod 来源审计、Heat 生产发布和 60 日回放证据继续有效，不重复开发。
 2. Slice 6 后端、Slice 7 前端和 Slice 8 历史发布只记为“实现存在、未通过新版验收”；不得以已有回归、typecheck、build 或历史部署关闭 A01-A19。
 3. Slice 9 已完成正式 Figma 与四份 V2 文档纠偏：概念 20 日 Heat、三个工作台无板块详情入口、视图专属字段、长文本/null、无领涨、INVALID 断点和稳定状态骨架口径已经冻结。
-4. Slice 9 只完成 A09/A13/A16/A19 的设计/文档部分；Slice 11 又完成 A01/A06/A07/A09-A16 的前端结构部分；Slice 12 完成 A02/A08 的生产事实部分。A01-A19 在全矩阵自动化、像素和最终验收对账前继续保持 OPEN。
+4. Slice 9 只完成 A09/A13/A16/A19 的设计/文档部分；Slice 11 又完成 A01/A06/A07/A09-A16 的前端结构部分；Slice 12 完成 A02/A08 的生产事实部分；Slice 13 完成 A10-A15/A17/A19 的自动化部分。A01-A19 在像素、候选部署和最终验收对账前继续保持 OPEN。
 5. Slice 10 后端事实口径与 view-specific V2 契约修正已通过；Slice 11 前端只消费该冻结契约，没有新增本需求之外的功能。
 6. Slice 11 已按正式节点完成三个 view-specific 工作台、默认日期和穷尽状态纠偏，并完成 1600×1200 本地真实页面的行业/概念/地域局部浏览器验收。
-7. Slice 12 已以正式 TaskRun 完成 `concept-heat-eod-v2` 的 60 日 PLAN `8208`、APPLY `8210`、逐日 read-back 和幂等重放 `8213`：60 日共 29,665 行，16,756 `VALID`、12,909 `INVALID`，重放 `rows_saved=0`。整体问题仍须按 Slice 13-16 补齐全矩阵自动化、像素、性能和发布证据。下一步固定为 Slice 13。
+7. Slice 12 已以正式 TaskRun 完成 `concept-heat-eod-v2` 的 60 日 PLAN `8208`、APPLY `8210`、逐日 read-back 和幂等重放 `8213`：60 日共 29,665 行，16,756 `VALID`、12,909 `INVALID`，重放 `rows_saved=0`。
+8. Slice 13 已完成 A01-A19 到测试 ID 的 100% 映射：后端/Heat/Ops/架构核心 109 项与板块静态护栏 5 项合计 114 项、Wealth 全量 33 文件 223 项、DG hierarchy 9 项均通过；typecheck、build、文件级 Ruff 与 Definitions 加载通过。
+9. Slice 14 已完成 Heat 固定条件调度、21:00 后工作流节点证据、prod 只读 preview、10 分钟复查、次日 00:30 截止、同日去重与 app scheduler factory；本地固定总门禁 307 项通过。生产仍须创建唯一 active schedule，并以至少一个真实开放日完成自动发布、read-back 与同日幂等验收；通过后才进入 Slice 15-17 的正式像素、候选部署/性能和最终对账。
 
 ---
 
@@ -516,6 +518,8 @@ calculated_at
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v2.9 | 2026-08-14 | Slice 14 Heat 盘后自动化代码与本地固定总门禁 307 项通过；生产唯一 schedule 和真实开放日自动发布/read-back/幂等仍 OPEN，未通过前不得进入 Slice 15 | Codex |
+| v2.8 | 2026-08-13 | 完成 Slice 13 全矩阵自动化：A01-A19 到测试 ID 100% 映射，三 view×七状态、滚动、长文本/null/大金额、Heat 断点、导航、无 mock 和静态禁止项通过；下一步 Slice 14 | Codex |
 | v2.7 | 2026-08-13 | 完成 Slice 12 Heat V2 生产回放：PLAN `8208`、APPLY `8210`、幂等重放 `8213` 均成功；60 日 29,665 行、逐日 read-back/hash 0 差异、重放 0 写入，下一步 Slice 13 | Codex |
 | v2.6 | 2026-08-13 | 完成 Slice 11 前端三工作台：view-specific 类型/组件、行业 3×5、概念/地域七行滚动、20 日断点、地域涨跌分布、股票导航、默认日期与穷尽状态骨架通过专项回归及本地浏览器验收；下一步 Slice 12 | Codex |
 | v2.5 | 2026-08-13 | 完成 Slice 10 后端纠偏并冻结 Heat EOD V2：view-specific rank、`close + pct_chg`、`dc_member.name`、null/来源/日期状态和 v2 版本门禁通过；下一步 Slice 11 | Codex |

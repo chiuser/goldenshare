@@ -364,12 +364,12 @@ def run_ops_cleanup_etf_fund_daily_serving(
 def run_ops_scheduler_tick(
     *,
     session_local,
-    scheduler_cls,
+    scheduler_factory,
     limit: int,
     echo_fn: Callable[[str], None],
 ) -> None:
     with session_local() as session:
-        task_runs = scheduler_cls().run_once(session, limit=limit)
+        task_runs = scheduler_factory().run_once(session, limit=limit)
         for task_run in task_runs:
             echo_fn(
                 "scheduled "
@@ -515,7 +515,7 @@ def run_ops_task_completion_worker_serve(
 def run_ops_scheduler_serve(
     *,
     session_local,
-    scheduler_cls,
+    scheduler_factory,
     limit: int,
     sleep_seconds: float,
     max_cycles: int | None,
@@ -524,7 +524,7 @@ def run_ops_scheduler_serve(
     cycles = 0
     while True:
         with session_local() as session:
-            task_runs = scheduler_cls().run_once(session, limit=limit)
+            task_runs = scheduler_factory().run_once(session, limit=limit)
             echo_fn(f"ops-scheduler-serve: scheduled={len(task_runs)}")
         cycles += 1
         if max_cycles is not None and cycles >= max_cycles:

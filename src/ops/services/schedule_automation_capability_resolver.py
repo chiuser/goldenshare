@@ -196,6 +196,8 @@ class ScheduleAutomationCapabilityResolver:
             action = get_maintenance_action(target_key)
             if action is None or not action.schedule_enabled:
                 return None
+            if action.readiness_condition is not None:
+                return self._schedule_only_capability(allowed_schedule_types=("cron",))
             return self._schedule_only_capability()
         if target_type == "workflow":
             workflow = get_workflow_definition(target_key)

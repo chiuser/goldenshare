@@ -1,6 +1,6 @@
 # 市场总览｜板块速览技术实施方案 v2（implementation-design）
 
-> 状态：Slice 12 Heat V2 与 60 日生产回放已通过。Slice 6-8 仍不作为新版验收证据；A02/A08 的生产事实部分已完成，下一步仅允许进入 Slice 13 全矩阵自动化回归。
+> 状态：Slice 14 Heat 盘后自动化代码与本地自动化回归已完成，生产唯一 schedule、部署后只读核验和真实开放日自动发布/read-back 尚未验收，因此 Slice 14 保持 OPEN。原像素、候选部署与最终对账仍后移到 Slice 15-17。
 > 对应需求：[sector-overview-benchmark-requirement-v2.md](./sector-overview-benchmark-requirement-v2.md)
 > 对应门禁：[sector-overview-m2-coding-gate-v2.md](./sector-overview-m2-coding-gate-v2.md)
 > 对应低层设计：[sector-overview-low-level-design-v2.md](./sector-overview-low-level-design-v2.md)
@@ -53,7 +53,7 @@
 2. hierarchy、Heat、行情、成员和资金均读取 Prod；DG 只发布 hierarchy；Slice 1-5 的迁移、生产发布和 60 日回放继续有效。
 3. 后端已按行业、概念、地域返回 view-specific rank/detail 事实；概念和地域固定展示字段不再由前端按当前排序拼装。
 4. 前端已完成三个独立 workspace/rank/detail、正式 header/tabs/toolbar、稳定状态骨架、默认/显式日期和穷尽状态映射；未保留通用业务 RankCard/DetailPanel 或旧 DTO 兼容分支。
-5. Slice 11 的专项真实响应回归、全量 Wealth 回归、typecheck、build 和 1600×1200 本地真实页面三工作台验收已通过；Slice 13 全矩阵自动化、Slice 14 正式像素和 Slice 15-16 发布证据仍不得提前认定完成。
+5. Slice 14 已实现 Heat action 固定条件排程、两层 readiness、10 分钟等待、00:30 超时、同日单次自动任务、app scheduler factory、工作流节点零行证据和正反例；尚未部署生产 schedule，也未取得真实开放日自动发布/read-back 证据，禁止进入 Slice 15。
 6. Slice 9 正式 Figma、Slice 10 view-specific 后端契约与 Slice 11 前端结构共同构成当前候选基线；后续不得恢复旧通用契约或新增板块详情入口。
 
 ### 2.2 CodeGraph 影响面结论
@@ -88,9 +88,17 @@ ops-worker-run/serve
   -> OperationsWorker / TaskRunDispatcher executor port
   -> app sector_heat_task_executor
   -> biz Heat service
+
+ops-scheduler-tick/serve
+  -> src/cli.py
+  -> app ops_scheduler_factory
+  -> OperationsScheduler / OperationsScheduleService
+  -> ops Heat upstream readiness + app readiness evaluator
+  -> biz Heat preview (read only)
+  -> one scheduled Heat TaskRun when ready
 ```
 
-不影响指数详情、股票详情、榜单、成交额、资金流等其它业务契约。共享 Ops 运行时只增加通用执行端口和装配入口，既有非 Heat action 的 dispatch 语义必须保持；整页 `pageStatus` 仍沿用现有归并规则。
+不影响指数详情、股票详情、榜单、成交额、资金流等其它业务契约。Slice 14 影响 `SectorHeatTaskExecutor`、`OperationsScheduleService/OperationsScheduler`、schedule capability、CLI/app scheduler 装配及其测试；既有非 Heat schedule/probe/workflow/dispatch 语义必须保持。整页 `pageStatus` 仍沿用现有归并规则。
 
 ### 2.3 原子切换要求
 
@@ -137,13 +145,19 @@ src/biz/services/wealth/config/
 
 src/ops/
   action_catalog.py
+  runtime/heat_readiness.py
+  runtime/scheduler.py
   runtime/maintenance_executor.py
   runtime/task_run_dispatcher.py
   runtime/worker.py
+  services/sector_heat_upstream_readiness_service.py
+  services/operations_schedule_service.py
+  services/schedule_automation_capability_resolver.py
 
 src/app/
-  services/wealth/market/sector_overview/sector_heat_task_executor.py
-  services/wealth/market/sector_overview/sector_source_completion_evidence.py
+  runtime/sector_heat_task_executor.py
+  runtime/sector_heat_readiness_evaluator.py
+  runtime/ops_scheduler_factory.py
   runtime/ops_worker_factory.py
 
 src/cli.py
@@ -157,8 +171,10 @@ tests/
   test_wealth_sector_heat_contract.py
   test_wealth_sector_heat_materialization_service.py
   test_wealth_sector_heat_task_execution.py
+  test_sector_heat_readiness_evaluator.py
   test_wealth_sector_database_access_boundaries.py
   test_cli_ops_runtime.py
+  web/test_wealth_sector_heat_automation.py
   architecture/test_subsystem_dependency_matrix.py
 
 wealth/src/features/market-overview/sectors/
@@ -410,7 +426,54 @@ TaskRun 参数冻结：
 2. `maintenance.replay_wealth_sector_heat_history`：`execution_mode=PLAN|APPLY`。`PLAN` 必须给出 `start_date/end_date`，只生成 gap ledger、日期/来源证据、预计行数和 `plan_hash`，不得写 Heat；`APPLY` 必须给出成功的 `plan_task_run_id + plan_hash`，且禁止重新指定日期窗。
 3. ops 在 APPLY 前读取所引用 TaskRun 的 immutable `plan_snapshot_json` 并校验 action、状态、日期窗和 hash；app/biz 每日执行时重新计算 config/source hash，与 plan 不同立即停止。biz 不读取 TaskRun 表。
 4. `plan_snapshot_json` 同时保存逐日来源日期/行数、config/source/plan/content hash 和 Ops 计算的 `snapshot_integrity_hash`；APPLY 校验快照完整性后才取冻结 units，任何单元或日期窗篡改均在业务执行前失败。
-5. 历史 replay `schedule_enabled=false`；单日 action 只有在 60 日和最新日验收通过后才允许由现有 Ops Schedule 配置启用，不新增 DG sensor 或第二套自动化。
+5. 历史 replay 永久保持 `schedule_enabled=false`；单日 action 在 Slice 14 改为可调度，但只能通过第 5.6 节定义的 Heat 专属输入门禁触发。禁止无门禁普通定时、DG sensor、系统外 cron 或第二套自动化。
+
+### 5.6 Heat 每日自动化规则
+
+#### 5.6.1 调度与日期
+
+1. 只复用现有 Ops scheduler、OpsSchedule、TaskRun、worker 和 app 组合根；不新增数据库表、账号、连接、环境变量、Dagster 资产或外部定时器。
+2. 单日 action `maintenance.materialize_wealth_sector_heat_daily` 声明固定门禁键 `wealth_sector_heat_sources_ready`，并开放 Ops Schedule；历史 replay 继续禁止排程。
+3. 生产只保留一条 Heat 自动任务：`Asia/Shanghai`，工作日 `21:15` 首次检查。该时间是开始核验输入的时间，不等于无条件开始计算。
+4. `21:15` 当日不是 SSE 开放日时直接跳过，不创建 Heat TaskRun。开放日输入未齐时每 10 分钟复查一次，最晚检查到次日 `00:30`；跨午夜时目标日期仍是前一个开放日。
+5. 等待期间只推进现有 schedule 的 `next_run_at` 并写结构化调度日志，不创建一串 readiness 失败 TaskRun。输入首次齐备后只创建一个正式 TaskRun，随后 schedule 立即回到下一个工作日 `21:15`；计算任务由现有 worker/TaskRun 链独立执行和观测，调度器不轮询其终态，也不自动重提失败/取消任务。
+6. Heat schedule 的 `trigger_mode` 仍为 `schedule`；当目标 action 声明固定 readiness condition 时，`OperationsScheduleService` 必须先调用注入的 evaluator，命中后才能 stage TaskRun。现有 `ProbeRule/ProbeRunLog` 继续只服务数据集探针，不改 schema、不伪造 dataset key，也不扩大通用探针到 maintenance action。
+7. 同时到期的多个 scheduler 进程继续依靠 schedule 行锁和 TaskRun 去重；readiness、`next_run_at` 更新和 TaskRun stage 必须在明确事务边界内完成，进程重启后从持久化 `next_run_at` 恢复，不丢失跨午夜复查。
+
+#### 5.6.2 两层输入门禁
+
+第一层由 Ops 核验“上游确实完成”，不读取或计算 Heat 业务值：
+
+1. 目标交易日存在 `21:00` 以后开始并覆盖该日的收盘工作流执行证据；同一次 `daily_market_close_maintenance` 中 `daily/dc_index/dc_member/dc_daily/limit_list/suspend_d` 必须全部成功。`18:30` 的早场执行不得作为最终输入证据。
+2. 目标交易日存在 `21:00` 以后开始并覆盖该日的 `daily_moneyflow_maintenance` 执行证据，其中 `moneyflow_ind_dc` 必须成功。
+3. 不硬编码生产 schedule ID；按 workflow key、目标交易日、运行时间和必需节点状态识别。工作流中与 Heat 无关的节点失败，不得在上述必需节点和第二层业务预检均通过时误伤 Heat。
+
+第二层由 app 调用 biz 的只读预检核验“数据内容可计算”：
+
+1. 复用 `SectorHeatMaterializationService.preview_trade_date`，在独立 `REPEATABLE READ, READ ONLY` business session 中读取九张 prod 来源和前序 Heat。
+2. 必须通过目标日/窗口日期、行数、唯一键、概念代码覆盖、有效 A 股池、合法零行证据、配置、source/plan/content hash 和完整 Heat quality contract。
+3. 单个概念因源站现状缺行成为 `INVALID` 是批准的业务结果，不阻断全日发布；整日来源缺失、日期错位、重复键、零行无完成证据或 contract 失败才判定门禁未通过。
+4. 预检只返回中立的 readiness DTO；`ops` 不 import `biz`，`app` 只装配 session、上游证据和结果映射，不复制公式或 SQL。
+
+#### 5.6.3 命中、幂等与超时
+
+1. 门禁命中后创建的 TaskRun 必须冻结 `trade_date`、上游 TaskRun/节点证据、配置版本/hash、source/plan/content hash 和门禁时间；worker 仍在真正写入前重新读取并校验，预检不替代物化事务自身门禁。
+2. 同一 schedule、action 和交易日只允许一个自动计算尝试；已有任一自动 TaskRun（`queued/running/success/failed/canceled`）时都不得重复创建。`success` 仍必须由生产验收核对 Heat read-back 同内容；`failed/canceled` 进入现有人工单日恢复流程，不由 scheduler 自动重提。
+3. 到次日 `00:30` 最后一次检查仍未达到 readiness 时，创建且只创建一个失败 TaskRun/issue，错误码固定为 `HEAT_AUTOMATION_SOURCE_TIMEOUT`，记录目标日、缺失依赖、最后一次检查时间和建议动作；不得写 Heat，也不得用旧日或部分来源继续计算。若当日已经创建自动计算 TaskRun，则不适用来源超时，也不创建第二条记录。
+4. 自动 TaskRun 的业务事务、Ops 状态事务继续分离；Heat 提交成功后，状态/通知失败不得回滚 Heat。预检或执行失败也不得写来源表、hierarchy 或其它交易日 Heat。
+
+#### 5.6.4 自动化配置归属
+
+| 配置 | 默认值 | 唯一来源 | 消费者 | 生效方式 |
+|---|---|---|---|---|
+| 首次检查 | `21:15` | 生产 `OpsSchedule.cron_expr` / `timezone` | Ops scheduler | 运营创建/更新 schedule 后生效 |
+| 目标动作 | 单日 Heat action | `ops.action_catalog` | capability resolver / scheduler | 随应用部署 |
+| 门禁键 | `wealth_sector_heat_sources_ready` | `MaintenanceActionDefinition` | Ops 条件调度端口、app adapter | 随应用部署 |
+| 复查间隔 | 10 分钟 | action 的系统门禁策略 | Ops scheduler | 随应用部署，不允许页面任意改写 |
+| 最晚时间 | 次日 `00:30` | action 的系统门禁策略 | Ops scheduler | 随应用部署，不允许页面任意改写 |
+| 上游最早完成时间 | 当日 `21:00` | action 的系统门禁策略 | Ops 上游证据查询 | 随应用部署 |
+
+上述值不得散落到 CLI、worker、页面或临时脚本。生产 schedule 是唯一运营配置对象；应用日志和 TaskRun 不得记录连接 URL、密码或其它 secret。
 
 ---
 
@@ -876,6 +939,11 @@ v1/v2 的 29,665 个 `(trade_date, sector_code)` 主键完全相同，业务数�
 8. 访问边界测试证明 DG SQL 只触及 hierarchy、Heat DML 只触及 Heat 且来源查询只读、Web 查询路径不产生 DML；`lake_raw_writer` 的 hierarchy 单表授权正向成功且 `CREATE/TRUNCATE` 仍失败。
 9. 60 个有效交易日全部有 prod 来源证据、Heat read-back、逐日质量结果和可续跑记录。
 10. CLI `ops-worker-run/serve` 使用 app worker factory；默认未装配 worker 对 Heat action 失败关闭，既有非 Heat action 回归通过。
+11. 自动化正例：开放日 `21:15` 后，上游必需节点和 biz preview 全部通过，只创建一个目标日 TaskRun；TaskRun 成功后 Heat 行数、版本、config/source/content hash 与 preview/read-back 一致。
+12. 自动化反例：非交易日、`18:30` 早场证据、任一必需节点未成功、整日来源缺失、错日、重复键、合法零行无证据时不得创建计算 TaskRun、不得写 Heat；`00:30` 超时只形成一个 `HEAT_AUTOMATION_SOURCE_TIMEOUT`。
+13. 自动化重试与幂等：未齐时 10 分钟复查、跨午夜目标日不漂移；命中后同 action/date 的 queued/running/success 和同内容 read-back 均去重；失败任务在输入齐备后可重新提交。
+14. 自动化边界：生产 scheduler 必须经 app factory 注入 readiness evaluator；ops 不 import biz，Web 不执行调度，历史 replay 仍不可调度，仓库无外部 cron/DG sensor/第二套 Heat 自动入口。
+15. 既有普通 schedule、dataset probe、workflow、date completeness 和非 Heat maintenance action 的触发语义不得变化；Slice 14 必须运行其现有回归，不能为 Heat 修改通用行为。
 
 ### 11.2 后端
 
@@ -914,9 +982,11 @@ v1/v2 的 29,665 个 `(trade_date, sector_code)` 主键完全相同，业务数�
 4. **Slice 10：后端事实与契约修正（已通过）**。A01-A08 后端正反例、`close + pct_chg`、`dc_member.name`、null 排名、来源状态、默认/显式日期、view-specific rank DTO 与 Heat v2 版本门禁已完成；未写生产 Heat。
 5. **Slice 11：前端三工作台结构重构（已通过）**。已按 Slice 9 正式节点和 Slice 10 契约实现三个独立 rank/detail 组合、20 日断点、地域 breadth、股票导航和稳定状态骨架。
 6. **Slice 12：Heat v2 与 60 日回放（已通过）**。正式 PLAN `8208`、APPLY `8210`、逐日 read-back 与幂等重放 `8213` 已完成；A02/A08 的生产事实部分关闭。
-7. **Slice 13-16：自动化、像素、候选部署和最终对账（下一步为 Slice 13）**。问题到测试 100% 映射后，依次完成同尺寸像素、同机房性能/观测和 A01-A19 全量关闭。
+7. **Slice 13：全矩阵自动化（已通过）**。A01-A19 到测试 ID 100% 映射，所有适用项同时具备正例和禁止项反例；固定模块、前端、DG、架构与文档门禁全部通过。
+8. **Slice 14：Heat 每日自动化（代码完成、生产验收待办）**。第 5.6 节的条件调度、两层输入门禁、10 分钟复查、幂等去重和超时失败已实现并通过回归；下一步只允许部署、创建唯一生产 schedule，并取得至少一个真实开放日从检查到 Heat read-back 的完整验收。
+9. **Slice 15-17：原未完成工作整体后移**。Slice 15 完成正式像素，Slice 16 完成候选部署/性能/观测，Slice 17 完成 A01-A19 最终对账和签字；这些工作在 Slice 14 PASS 前不得启动。
 
-Slice 9-16 必须严格顺序执行，前一 Slice 未通过不得越级。当前完成点停在 Slice 12；生产 Heat v2 已完成，但全矩阵自动化、像素和发布问题仍保持 OPEN，下一步固定为 Slice 13。
+Slice 9-17 必须严格顺序执行，前一 Slice 未通过不得越级。当前停在 Slice 14 生产验收门禁；正式像素和发布问题仍保持 OPEN，未取得真实开放日 Heat 自动发布证据前不得进入 Slice 15。
 
 ---
 
@@ -925,19 +995,19 @@ Slice 9-16 必须严格顺序执行，前一 Slice 未通过不得越级。当�
 1. `foundation` 只新增存储模型，不依赖 `ops/biz/app`。
 2. `biz` 只依赖 `foundation` 的 serving 模型，不依赖 DG 或 `ops`。
 3. `ops` 只保存 Heat TaskRun 意图、计划快照、节点、状态和问题，并调用抽象执行端口；不 import `biz`。
-4. `app` 组合根实现并装配 Heat 执行适配器，使 ops 端口调用 biz 服务；生产 CLI 只消费 app factory，app 不实现公式或 SQL。
+4. `app` 组合根实现并装配 Heat 执行适配器与只读 readiness evaluator，使 ops 条件调度端口可以调用 biz preview；生产 scheduler/worker CLI 都只消费 app factory，app 不实现公式或 SQL。
 5. Web 不依赖 Lake、Tushare、DG runtime 或 Redis。
 6. DG 复用现有 `ProdPostgresWriteResource`，但其本需求 SQL 只发布 hierarchy，不参与 Heat 计算、调度、回放或观测。
 
-因此本方案不改变根依赖矩阵方向。新增的数据链只有 DG -> prod hierarchy；Heat 是 prod -> biz -> prod，TaskRun 由 app 在 ops 与 biz 之间完成装配。
+因此本方案不改变根依赖矩阵方向。新增的数据链只有 DG -> prod hierarchy；Heat 是 prod -> biz -> prod，自动门禁和 TaskRun 由 app 在 ops 与 biz 之间完成装配。
 
 ---
 
 ## 14. 已知风险
 
-1. Slice 11 已按 Slice 9 正式节点完成 Web 结构与本地浏览器局部验收；正式 Figma `<=2px` 同尺寸像素仍必须在 Slice 14 完成，当前局部截图不得替代该门禁。
+1. Slice 11 已按 Slice 9 正式节点完成 Web 结构与本地浏览器局部验收；正式 Figma `<=2px` 同尺寸像素已后移到 Slice 15，当前局部截图不得替代该门禁。
 2. v1 首发和 v2 修正版整窗均已完成 PLAN/APPLY/read-back/幂等重放；逐日来源行数、逐概念 `INVALID` 原因和 source hash 已进入 plan/TaskRun。后续配置或来源变化必须重新生成 PLAN，不得复用 `8149` 或 `8208` 静默覆盖新口径。
-3. TaskRun `8147` 保留为错误资金流枚举被门禁拦截的负向证据；v2 正式 PLAN `8208`、APPLY `8210` 与幂等重放 `8213` 已通过。下一风险是 Slice 13 的全矩阵自动化不得遗漏真实路由和禁止项反例。
+3. TaskRun `8147` 保留为错误资金流枚举被门禁拦截的负向证据；v2 正式 PLAN `8208`、APPLY `8210` 与幂等重放 `8213` 已通过。当前风险是单日 Heat 仍依赖人工提交；Slice 14 必须证明 `21:15` 门禁、跨午夜复查、一次触发、超时失败和真实开放日 read-back，不能只把 `schedule_enabled` 改为 true。
 4. Heat V1 是产品首版，60 日回放只能验证稳定性和可解释性，不能证明投资预测能力。
 5. 行业层级当前是当前版本快照；历史 `tradeDate` 请求不会还原历史层级变化。
 6. Web 与 Heat 复用现有应用账号，数据库不会提供模块级拒绝保护；必须以固定 DAO/SQL、Web 无 DML、Heat/Ops 双 Session 和事务回滚测试防止访问边界漂移。全站账号拆分属于独立治理范围。
@@ -952,6 +1022,9 @@ Slice 9-16 必须严格顺序执行，前一 Slice 未通过不得越级。当�
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.19 | 2026-08-14 | Slice 14 代码落地：固定 Heat action readiness policy、21:00 后工作流节点证据、prod 只读 preview、10 分钟等待/00:30 超时、单次自动 TaskRun、app scheduler factory 与零行节点证据；本地固定总门禁 307 项通过，生产 schedule 和真实开放日验收仍 OPEN |
+| v2.18 | 2026-08-14 | 新增 Heat 每日自动化规则与正反验收：21:15 首检、10 分钟复查至 00:30、上游 TaskRun + biz preview 两层门禁、幂等去重和超时失败；下一步改为 Slice 14 Heat 自动化，原像素/候选/最终对账后移到 Slice 15-17 |
+| v2.17 | 2026-08-13 | 完成 Slice 13：A01-A19 测试 ID 100% 映射，后端/Heat/Ops/架构核心 109 项与静态护栏 5 项合计 114 项、Wealth 223 项、DG 9 项及 typecheck/build/Ruff/Definitions 全通过；下一步 Slice 14 |
 | v2.16 | 2026-08-13 | 完成 Slice 12：Heat V2 PLAN `8208`、APPLY `8210`、幂等重放 `8213`；60 日 29,665 行、逐日版本/计数/hash 0 差异、重放 0 写入，下一步 Slice 13 |
 | v2.15 | 2026-08-13 | 完成 Slice 11 前端结构重构：三类 view-specific workspace/rank/detail、正式模块骨架、七行滚动、20 日断点、地域 breadth、股票导航、默认日期和穷尽状态已通过专项/全量前端门禁及本地浏览器验收；下一步 Slice 12 |
 | v2.14 | 2026-08-13 | 完成 Slice 10 后端事实与契约纠偏：三类 rank DTO、有效行情、成员名、null 排名、来源状态、日期语义和 Heat v2 门禁通过；70 项回归及生产只读 60 日 close/pct 聚合核验通过，下一步 Slice 11 |

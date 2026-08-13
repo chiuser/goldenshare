@@ -34,6 +34,16 @@ def test_maintenance_action_registry_keeps_only_explicit_actions() -> None:
     assert MAINTENANCE_ACTION_REGISTRY["maintenance.materialize_wealth_sector_heat_daily"].executor_key == (
         "wealth_sector_heat"
     )
+    heat_action = MAINTENANCE_ACTION_REGISTRY["maintenance.materialize_wealth_sector_heat_daily"]
+    assert heat_action.schedule_enabled is True
+    assert heat_action.readiness_condition == "wealth_sector_heat_sources_ready"
+    assert dict(heat_action.readiness_policy) == {
+        "timezone": "Asia/Shanghai",
+        "initial_check_local_time": "21:15",
+        "upstream_not_before_local_time": "21:00",
+        "retry_interval_seconds": 600,
+        "deadline_next_day_local_time": "00:30",
+    }
     assert MAINTENANCE_ACTION_REGISTRY["maintenance.replay_wealth_sector_heat_history"].schedule_enabled is False
 
 

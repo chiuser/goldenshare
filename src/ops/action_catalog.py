@@ -52,6 +52,8 @@ class MaintenanceActionDefinition:
     manual_enabled: bool = True
     schedule_enabled: bool = False
     retry_enabled: bool = True
+    readiness_condition: str | None = None
+    readiness_policy: Mapping[str, Any] = field(default_factory=dict)
 
     @property
     def target_tables(self) -> tuple[str, ...]:
@@ -196,8 +198,16 @@ MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
             ),
         ),
         manual_enabled=True,
-        schedule_enabled=False,
+        schedule_enabled=True,
         retry_enabled=True,
+        readiness_condition="wealth_sector_heat_sources_ready",
+        readiness_policy={
+            "timezone": "Asia/Shanghai",
+            "initial_check_local_time": "21:15",
+            "upstream_not_before_local_time": "21:00",
+            "retry_interval_seconds": 600,
+            "deadline_next_day_local_time": "00:30",
+        },
     ),
     "maintenance.replay_wealth_sector_heat_history": MaintenanceActionDefinition(
         key="maintenance.replay_wealth_sector_heat_history",
