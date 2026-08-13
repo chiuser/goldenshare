@@ -14,8 +14,8 @@ from orchestrator.defs.io.major_index_mins_technical_writer import (
 )
 from orchestrator.defs.partitions import cn_major_index_mins_trade_days
 from orchestrator.defs.paths import (
+    gold_major_index_mins_path,
     gold_major_index_mins_technical_state_path,
-    silver_major_index_mins_path,
 )
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.major_index_mins_technical import (
@@ -32,17 +32,23 @@ DAY_2 = "2009-01-06"
 FREQ = 120
 
 
-def _write_silver_partition(root: Path, trade_date: str, close_base: float) -> Path:
-    path = silver_major_index_mins_path(root, f"{FREQ}min", trade_date)
+def _write_gold_bar_partition(root: Path, trade_date: str, close_base: float) -> Path:
+    path = gold_major_index_mins_path(root, FREQ, trade_date)
     path.parent.mkdir(parents=True, exist_ok=True)
     codes = expected_major_index_mins_technical_codes(trade_date)
     rows = [
         (
             code,
-            f"{FREQ}min",
+            FREQ,
+            trade_date,
             f"{trade_date} {trade_time}",
+            close_base + code_index + bar_index,
             close_base + code_index + bar_index + 1.0,
             close_base + code_index + bar_index - 1.0,
+            close_base + code_index + bar_index,
+            1.0,
+            close_base + code_index + bar_index,
+            "SSE",
             close_base + code_index + bar_index,
         )
         for code_index, code in enumerate(codes)
@@ -52,12 +58,17 @@ def _write_silver_partition(root: Path, trade_date: str, close_base: float) -> P
         connection.execute(
             """
             CREATE TABLE rows (
-              ts_code VARCHAR, freq VARCHAR, trade_time TIMESTAMP,
-              high DOUBLE, low DOUBLE, close DOUBLE
+              ts_code VARCHAR, freq INTEGER, trade_date DATE,
+              trade_time TIMESTAMP, open DOUBLE, high DOUBLE, low DOUBLE,
+              close DOUBLE, vol DOUBLE, amount DOUBLE, exchange VARCHAR,
+              vwap DOUBLE
             )
             """
         )
-        connection.executemany("INSERT INTO rows VALUES (?, ?, ?, ?, ?, ?)", rows)
+        connection.executemany(
+            "INSERT INTO rows VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            rows,
+        )
         connection.execute(
             copy_query_to_parquet(
                 "SELECT * FROM rows ORDER BY ts_code, trade_time", path
@@ -67,8 +78,8 @@ def _write_silver_partition(root: Path, trade_date: str, close_base: float) -> P
 
 
 def _materialize_two_days(lake_root: Path, staging_root: Path) -> None:
-    _write_silver_partition(lake_root, DAY_1, 10.0)
-    _write_silver_partition(lake_root, DAY_2, 14.0)
+    _write_gold_bar_partition(lake_root, DAY_1, 10.0)
+    _write_gold_bar_partition(lake_root, DAY_2, 14.0)
     for index, trade_date in enumerate((DAY_1, DAY_2), start=1):
         write_major_index_mins_technical_partition(
             source_lake_root_path=lake_root,
@@ -165,10 +176,10 @@ def test_all_partition_checks_pass_for_valid_two_day_chain(
     assert all(result.passed for result in technical_results + state_results)
 
 
-def test_source_coverage_check_rejects_silver_key_drift(tmp_path: Path) -> None:
+def test_source_coverage_check_rejects_gold_bar_key_drift(tmp_path: Path) -> None:
     lake_root = tmp_path / "lake"
     _materialize_two_days(lake_root, tmp_path / "staging")
-    source_path = silver_major_index_mins_path(lake_root, f"{FREQ}min", DAY_2)
+    source_path = gold_major_index_mins_path(lake_root, FREQ, DAY_2)
     replacement = tmp_path / "replacement.parquet"
     with duckdb.connect(":memory:") as connection:
         connection.execute(
@@ -196,9 +207,7 @@ def test_continuity_check_rejects_missing_exact_previous_state(
 ) -> None:
     lake_root = tmp_path / "lake"
     _materialize_two_days(lake_root, tmp_path / "staging")
-    gold_major_index_mins_technical_state_path(
-        lake_root, FREQ, DAY_1
-    ).unlink()
+    gold_major_index_mins_technical_state_path(lake_root, FREQ, DAY_1).unlink()
 
     result = evaluate_major_index_mins_technical_state_check(
         lake_root_path=lake_root,

@@ -14,6 +14,7 @@ from typing import Any
 
 from src.foundation.clients.local_lake.major_index_mins_contract import (
     EXPECTED_BARS_PER_SESSION,
+    GOLD_BAR_COLUMN_SPECS,
     GOLD_INDICATOR_COLUMN_SPECS,
     GOLD_INDICATOR_VERSION,
     GOLD_PARAMS_KEY,
@@ -21,8 +22,6 @@ from src.foundation.clients.local_lake.major_index_mins_contract import (
     INDEX_TS_CODE_PATTERN,
     MAX_INDEX_MINUTE_LIMIT,
     MAX_INDEX_MINUTE_PARTITION_FILES,
-    SILVER_BAR_COLUMN_SPECS,
-    SILVER_FREQ_VALUES,
     SUPPORTED_INDEX_MINUTE_FREQS,
     TRADE_DATE_PARTITION_PATTERN,
     IndexMinuteDataset,
@@ -123,9 +122,13 @@ class MajorIndexMinsLakeReader:
                     request=normalized,
                     decoded_cursor=decoded_cursor,
                 )
-                if len(rows) >= normalized.limit + 1 or selected_count == len(partitions):
+                if len(rows) >= normalized.limit + 1 or selected_count == len(
+                    partitions
+                ):
                     break
-                next_count = min(len(partitions), max(selected_count + 1, selected_count * 2))
+                next_count = min(
+                    len(partitions), max(selected_count + 1, selected_count * 2)
+                )
                 if next_count > MAX_INDEX_MINUTE_PARTITION_FILES:
                     raise IndexMinuteRequestError(
                         "指数分钟查询需要扫描超过 5000 个分区，请缩小日期范围。"
@@ -178,7 +181,11 @@ def _normalize_request(
         raise IndexMinuteRequestError("freq 必须是整数分钟频率。") from exc
     if isinstance(request.freq, bool) or freq not in SUPPORTED_INDEX_MINUTE_FREQS:
         raise IndexMinuteRequestError("不支持的指数分钟频率。")
-    if request.start_date is not None and request.end_date is not None and request.start_date > request.end_date:
+    if (
+        request.start_date is not None
+        and request.end_date is not None
+        and request.start_date > request.end_date
+    ):
         raise IndexMinuteRequestError("startDate 不能晚于 endDate。")
     if not 1 <= request.limit <= MAX_INDEX_MINUTE_LIMIT:
         raise IndexMinuteRequestError("limit 必须在 1 到 10000 之间。")
@@ -225,7 +232,9 @@ def _enumerate_partitions(
 
     root = lake_root.expanduser().resolve()
     dataset_root = frequency_root.parent.resolve()
-    cursor_date = date.fromisoformat(cursor["beforeTradeDate"]) if cursor is not None else None
+    cursor_date = (
+        date.fromisoformat(cursor["beforeTradeDate"]) if cursor is not None else None
+    )
     partitions: list[_PartitionFile] = []
     for candidate in frequency_root.glob("trade_date=*/part-000.parquet"):
         match = TRADE_DATE_PARTITION_PATTERN.fullmatch(candidate.parent.name)
@@ -241,7 +250,9 @@ def _enumerate_partitions(
         if _contains_symlink(candidate, stop=root):
             raise IndexMinuteSourceContractError("指数分钟分区不得使用符号链接。")
         resolved = candidate.resolve()
-        if not resolved.is_relative_to(root) or not resolved.is_relative_to(dataset_root):
+        if not resolved.is_relative_to(root) or not resolved.is_relative_to(
+            dataset_root
+        ):
             raise IndexMinuteSourceContractError("指数分钟分区路径越界。")
         if resolved.name != "part-000.parquet" or not resolved.is_file():
             continue
@@ -264,9 +275,13 @@ def _contains_symlink(path: Path, *, stop: Path) -> bool:
 
 
 def _initial_partition_count(request: IndexMinuteReadRequest) -> int:
-    estimated = math.ceil((request.limit + 1) / EXPECTED_BARS_PER_SESSION[request.freq]) + 2
+    estimated = (
+        math.ceil((request.limit + 1) / EXPECTED_BARS_PER_SESSION[request.freq]) + 2
+    )
     if estimated > MAX_INDEX_MINUTE_PARTITION_FILES:
-        raise IndexMinuteRequestError("指数分钟查询需要扫描超过 5000 个分区，请缩小日期范围。")
+        raise IndexMinuteRequestError(
+            "指数分钟查询需要扫描超过 5000 个分区，请缩小日期范围。"
+        )
     return max(1, estimated)
 
 
@@ -276,17 +291,23 @@ def _validate_combined_schema(
     *,
     dataset: IndexMinuteDataset,
 ) -> None:
-    expected = SILVER_BAR_COLUMN_SPECS if dataset == "bars" else GOLD_INDICATOR_COLUMN_SPECS
+    expected = (
+        GOLD_BAR_COLUMN_SPECS if dataset == "bars" else GOLD_INDICATOR_COLUMN_SPECS
+    )
     try:
         description = connection.execute(
             "DESCRIBE SELECT * FROM read_parquet(?, hive_partitioning=false)",
             [list(map(str, paths))],
         ).fetchall()
     except Exception as exc:
-        raise IndexMinuteSourceContractError("指数分钟 Parquet schema 不符合合同。") from exc
+        raise IndexMinuteSourceContractError(
+            "指数分钟 Parquet schema 不符合合同。"
+        ) from exc
     actual = tuple((str(row[0]), _normalize_duckdb_type(row[1])) for row in description)
     if actual != expected:
-        raise IndexMinuteSourceContractError("指数分钟 Parquet 列名、顺序或类型不符合合同。")
+        raise IndexMinuteSourceContractError(
+            "指数分钟 Parquet 列名、顺序或类型不符合合同。"
+        )
 
 
 def _normalize_duckdb_type(value: Any) -> str:
@@ -308,18 +329,21 @@ def _query_rows(
 ) -> list[dict[str, Any]]:
     paths = list(map(str, (item.path for item in partitions)))
     if dataset == "bars":
-        source_freq = SILVER_FREQ_VALUES[request.freq]
         projection = """
-            ts_code,
-            ?::SMALLINT AS freq,
-            CAST(regexp_extract(filename, 'trade_date=([0-9]{4}-[0-9]{2}-[0-9]{2})', 1) AS DATE) AS trade_date,
+            ts_code, freq, trade_date,
             trade_time, open, high, low, close, vol, amount, exchange
         """
         contract_predicate = """
             freq = ?
             AND regexp_full_match(ts_code, '^[0-9]{6}\\.(SH|SZ|BJ)$')
-            AND CAST(trade_time AS DATE) = CAST(
+            AND trade_date = CAST(
               regexp_extract(filename, 'trade_date=([0-9]{4}-[0-9]{2}-[0-9]{2})', 1) AS DATE
+            )
+            AND CAST(trade_time AS DATE) = trade_date
+            AND strftime(trade_time, '%H:%M:%S') <= '15:00:00'
+            AND (
+              freq = 1
+              OR strftime(trade_time, '%H:%M:%S') <> '09:30:00'
             )
             AND isfinite(open)
             AND isfinite(high)
@@ -330,7 +354,7 @@ def _query_rows(
             AND exchange <> ''
         """
         identity_predicate = "ts_code = ? AND freq = ?"
-        parameters: list[Any] = [paths, source_freq, request.freq, request.ts_code, source_freq]
+        parameters: list[Any] = [paths, request.freq, request.ts_code, request.freq]
     else:
         projection = """
             ts_code, freq, trade_date, trade_time,
@@ -346,6 +370,11 @@ def _query_rows(
               regexp_extract(filename, 'trade_date=([0-9]{4}-[0-9]{2}-[0-9]{2})', 1) AS DATE
             )
             AND CAST(trade_time AS DATE) = trade_date
+            AND strftime(trade_time, '%H:%M:%S') <= '15:00:00'
+            AND (
+              freq = 1
+              OR strftime(trade_time, '%H:%M:%S') <> '09:30:00'
+            )
             AND params_key = ?
             AND indicator_version = ?
             AND observation_count >= 1
@@ -374,7 +403,11 @@ def _query_rows(
         )
         before_date = decoded_cursor["beforeTradeDate"]
         parameters.extend(
-            [before_date, before_date, f"{before_date} {decoded_cursor['beforeTradeTime']}"]
+            [
+                before_date,
+                before_date,
+                f"{before_date} {decoded_cursor['beforeTradeTime']}",
+            ]
         )
 
     sql = f"""
@@ -389,7 +422,7 @@ def _query_rows(
         target AS (
           SELECT {projection}
           FROM source
-          WHERE {' AND '.join(filters)}
+          WHERE {" AND ".join(filters)}
         ),
         integrity AS (
           SELECT
@@ -428,7 +461,9 @@ def _query_rows(
             row.pop("duplicate_count")
             row.pop("target_count")
         if invalid_count:
-            raise IndexMinuteSourceContractError("指数分钟文件存在频率、日期、身份或版本合同错误。")
+            raise IndexMinuteSourceContractError(
+                "指数分钟文件存在频率、日期、身份或版本合同错误。"
+            )
         if duplicate_count:
             raise IndexMinuteSourceContractError("指数分钟文件存在重复时间键。")
         if target_count == 0:
@@ -463,7 +498,12 @@ def _decode_cursor(value: str) -> dict[str, Any]:
     try:
         padded = value + "=" * (-len(value) % 4)
         payload = json.loads(base64.urlsafe_b64decode(padded.encode()).decode())
-    except (ValueError, UnicodeDecodeError, binascii.Error, json.JSONDecodeError) as exc:
+    except (
+        ValueError,
+        UnicodeDecodeError,
+        binascii.Error,
+        json.JSONDecodeError,
+    ) as exc:
         raise IndexMinuteRequestError("cursor 不合法。") from exc
     if not isinstance(payload, dict) or payload.get("v") != INDEX_MINUTE_CURSOR_VERSION:
         raise IndexMinuteRequestError("cursor 版本不支持。")

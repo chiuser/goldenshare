@@ -19,6 +19,10 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_ADJ_FACTOR_SCHEMA,
     SILVER_STK_MINS_SCHEMA,
 )
+from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
+    expected_canonical_gold_source_times,
+    expected_gold_minute_times,
+)
 from orchestrator.defs.sensors import readiness
 
 
@@ -134,9 +138,17 @@ def _gold_row(
 
 def _write_silver(lake_root: Path, rows: list[dict[str, object]]) -> None:
     _write_rows(
-        silver_stk_mins_path(lake_root, 5, TRADE_DATE),
+        silver_stk_mins_path(lake_root, 1, TRADE_DATE),
         schema=SILVER_STK_MINS_SCHEMA,
-        rows=rows,
+        rows=[
+            {
+                **row,
+                "freq": 1,
+                "trade_time": f"{TRADE_DATE} {trade_time}",
+            }
+            for row in rows
+            for trade_time in expected_canonical_gold_source_times(5)
+        ],
         order_by="ts_code, trade_time",
     )
 
@@ -194,7 +206,19 @@ def _write_gold(lake_root: Path, rows: list[dict[str, object]]) -> None:
         _write_rows(
             path,
             schema=GOLD_STK_MINS_QFQ_SCHEMA,
-            rows=[*existing_rows, row],
+            rows=[
+                *existing_rows,
+                *(
+                    {
+                        **row,
+                        "trade_time": f"{TRADE_DATE} {trade_time}",
+                    }
+                    for trade_time in expected_gold_minute_times(
+                        row["exchange"],
+                        row["freq"],
+                    )
+                ),
+            ],
             order_by="trade_date, trade_time",
         )
 

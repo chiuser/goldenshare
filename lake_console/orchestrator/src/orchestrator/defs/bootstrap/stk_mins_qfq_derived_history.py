@@ -4,26 +4,32 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-import orchestrator.defs.checks.stk_mins_checks as stk_mins_checks
 from orchestrator.defs.bootstrap.stk_mins_qfq_history import (
     STK_MINS_QFQ_HISTORY_START_DATE,
     _normalize_years,
     _select_registered_partition_keys,
 )
-from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, gold_stk_mins_qfq_path
+from orchestrator.defs.checks import stk_mins_checks
+from orchestrator.defs.paths import (
+    DEFAULT_LAKE_ROOT,
+    gold_stk_mins_qfq_path,
+    silver_adj_factor_path,
+    silver_stk_mins_path,
+)
 from orchestrator.defs.resources import DuckDBResource
+from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
+    expected_gold_minute_times,
+)
 from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_QFQ_DERIVED_FREQS,
     normalize_stk_mins_qfq_freq,
-    qfq_source_freq_for_derived_freq,
 )
 from orchestrator.defs.stk_mins_qfq import (
     GoldStkMinsQfqWriteResult,
-    build_gold_stk_mins_qfq_derived_diagnostics_sql,
-    build_gold_stk_mins_qfq_derived_select_sql,
+    build_canonical_gold_stk_mins_qfq_select_sql,
+    gold_stk_mins_qfq_source_freq,
     write_gold_stk_mins_qfq_rows_to_year_files,
 )
-
 
 GOLD_STK_MINS_QFQ_DERIVED_CHECK_COUNT = len(
     stk_mins_checks.GOLD_STK_MINS_QFQ_DERIVED_CHECK_NAMES
@@ -31,6 +37,7 @@ GOLD_STK_MINS_QFQ_DERIVED_CHECK_COUNT = len(
 GOLD_STK_MINS_QFQ_DERIVED_EVENT_COUNT_PER_ASSET_PARTITION = (
     1 + GOLD_STK_MINS_QFQ_DERIVED_CHECK_COUNT
 )
+GOLD_STK_MINS_QFQ_DERIVED_AMOUNT_ABS_TOLERANCE = 1e-6
 
 
 @dataclass(frozen=True)
@@ -103,6 +110,44 @@ class StkMinsQfqDerivedHistoryReport:
         return sum(result.written_row_count for result in self.batch_results)
 
 
+@dataclass(frozen=True)
+class StkMinsQfqDerivedEquivalenceBatchAudit:
+    target_freq: int
+    year: str
+    candidate_row_count: int
+    existing_row_count: int
+    candidate_key_hash: int
+    existing_key_hash: int
+    candidate_value_hash: int
+    existing_value_hash: int
+    missing_key_count: int
+    extra_key_count: int
+    value_mismatch_count: int
+    max_amount_abs_difference: float
+
+    @property
+    def passed(self) -> bool:
+        return (
+            self.candidate_row_count == self.existing_row_count
+            and self.candidate_key_hash == self.existing_key_hash
+            and self.missing_key_count == 0
+            and self.extra_key_count == 0
+            and self.value_mismatch_count == 0
+        )
+
+
+@dataclass(frozen=True)
+class StkMinsQfqDerivedEquivalenceReport:
+    plan: StkMinsQfqDerivedHistoryPlan
+    batch_audits: tuple[StkMinsQfqDerivedEquivalenceBatchAudit, ...]
+
+    @property
+    def passed(self) -> bool:
+        return bool(self.batch_audits) and all(
+            audit.passed for audit in self.batch_audits
+        )
+
+
 def plan_stk_mins_qfq_derived_history(
     *,
     lake_root: Path = Path(DEFAULT_LAKE_ROOT),
@@ -136,13 +181,22 @@ def plan_stk_mins_qfq_derived_history(
         tuple[int, str], StkMinsQfqDerivedHistoryBatchEstimate
     ] = {}
     missing_inputs: list[str] = []
+    as_of_adj_factor_path = silver_adj_factor_path(lake_root, selected_keys[-1])
+    if not as_of_adj_factor_path.exists():
+        missing_inputs.append(f"as_of_adj_factor:{as_of_adj_factor_path}")
 
     for batch in batches:
-        source_paths = _source_qfq_paths_for_batch(lake_root, batch)
-        if not source_paths:
-            missing_inputs.append(
-                f"{batch.target_freq}:{batch.year}:gold_stk_mins_qfq_"
-                f"{batch.source_freq}m:no source stock-year files"
+        source_paths = _source_silver_paths_for_batch(lake_root, batch)
+        trade_adj_factor_paths = _trade_adj_factor_paths_for_batch(lake_root, batch)
+        missing_batch_paths = tuple(
+            path
+            for path in (*source_paths, *trade_adj_factor_paths)
+            if not path.exists()
+        )
+        if missing_batch_paths:
+            missing_inputs.extend(
+                f"{batch.target_freq}:{batch.year}:missing:{path}"
+                for path in missing_batch_paths[:20]
             )
             estimates[(batch.target_freq, batch.year)] = (
                 StkMinsQfqDerivedHistoryBatchEstimate(
@@ -166,6 +220,8 @@ def plan_stk_mins_qfq_derived_history(
             duckdb_resource=resource,
             batch=batch,
             source_paths=source_paths,
+            trade_adj_factor_paths=trade_adj_factor_paths,
+            as_of_adj_factor_path=as_of_adj_factor_path,
         )
 
     planned_target_file_count = sum(
@@ -244,12 +300,188 @@ def generate_stk_mins_qfq_derived_history(
             lake_root=lake_root,
             batch=batch,
             estimate=estimate,
+            as_of_adj_factor_path=silver_adj_factor_path(
+                lake_root, plan.selected_partition_keys[-1]
+            ),
         )
         batch_results.append(result)
 
     return StkMinsQfqDerivedHistoryReport(
         plan=plan,
         batch_results=tuple(batch_results),
+    )
+
+
+def audit_stk_mins_qfq_derived_canonical_equivalence(
+    *,
+    lake_root: Path = Path(DEFAULT_LAKE_ROOT),
+    duckdb_resource: DuckDBResource,
+    registered_partition_keys: Sequence[str],
+    partition_keys: Sequence[str] | None = None,
+    start_date: str = STK_MINS_QFQ_HISTORY_START_DATE,
+    end_date: str | None = None,
+    freqs: Sequence[int | str] = (90, 120),
+    years: Sequence[int | str] | None = None,
+) -> StkMinsQfqDerivedEquivalenceReport:
+    """Compare Silver-direct candidates with existing 90m/120m Gold in batches."""
+
+    plan = plan_stk_mins_qfq_derived_history(
+        lake_root=lake_root,
+        registered_partition_keys=registered_partition_keys,
+        partition_keys=partition_keys,
+        start_date=start_date,
+        end_date=end_date,
+        freqs=freqs,
+        years=years,
+        duckdb_resource=duckdb_resource,
+    )
+    if plan.missing_input_count:
+        raise FileNotFoundError(
+            "Gold qfq derived equivalence inputs are missing: "
+            f"{tuple(plan.missing_input_samples)}"
+        )
+    as_of_adj_factor_path = silver_adj_factor_path(
+        lake_root,
+        plan.selected_partition_keys[-1],
+    )
+    audits: list[StkMinsQfqDerivedEquivalenceBatchAudit] = []
+    for batch in plan.batches:
+        estimate = plan.estimates_by_batch[(batch.target_freq, batch.year)]
+        _validate_derived_history_estimate(estimate)
+        audits.append(
+            _audit_derived_equivalence_batch(
+                lake_root=lake_root,
+                duckdb_resource=duckdb_resource,
+                batch=batch,
+                as_of_adj_factor_path=as_of_adj_factor_path,
+            )
+        )
+    return StkMinsQfqDerivedEquivalenceReport(
+        plan=plan,
+        batch_audits=tuple(audits),
+    )
+
+
+def _audit_derived_equivalence_batch(
+    *,
+    lake_root: Path,
+    duckdb_resource: DuckDBResource,
+    batch: StkMinsQfqDerivedHistoryBatch,
+    as_of_adj_factor_path: Path,
+) -> StkMinsQfqDerivedEquivalenceBatchAudit:
+    candidate_sql = build_canonical_gold_stk_mins_qfq_select_sql(
+        silver_paths=_source_silver_paths_for_batch(lake_root, batch),
+        trade_adj_factor_paths=_trade_adj_factor_paths_for_batch(lake_root, batch),
+        as_of_adj_factor_paths=[as_of_adj_factor_path],
+        target_freq=batch.target_freq,
+        partition_keys=batch.partition_keys,
+    )
+    with duckdb_resource.connect() as connection:
+        target_rows = connection.execute(
+            f"""
+            SELECT DISTINCT ts_code
+            FROM ({candidate_sql})
+            ORDER BY ts_code
+            """
+        ).fetchall()
+        target_paths = tuple(
+            gold_stk_mins_qfq_path(
+                lake_root,
+                batch.target_freq,
+                str(ts_code),
+                batch.year,
+            )
+            for (ts_code,) in target_rows
+        )
+        missing_paths = tuple(path for path in target_paths if not path.exists())
+        if not target_paths or missing_paths:
+            raise FileNotFoundError(
+                "Gold qfq derived equivalence targets are missing: "
+                f"freq={batch.target_freq}, year={batch.year}, "
+                f"samples={missing_paths[:5]}."
+            )
+        row = connection.execute(
+            f"""
+            WITH candidate AS MATERIALIZED (
+              {candidate_sql}
+            ),
+            existing AS MATERIALIZED (
+              SELECT *
+              FROM read_parquet(?, union_by_name=true)
+              WHERE CAST(freq AS INTEGER) = {batch.target_freq}
+                AND CAST(trade_date AS DATE) >= DATE '{batch.partition_keys[0]}'
+                AND CAST(trade_date AS DATE) <= DATE '{batch.partition_keys[-1]}'
+            ),
+            comparison AS (
+              SELECT
+                candidate.ts_code AS candidate_code,
+                existing.ts_code AS existing_code,
+                candidate.open IS DISTINCT FROM existing.open
+                  OR candidate.high IS DISTINCT FROM existing.high
+                  OR candidate.low IS DISTINCT FROM existing.low
+                  OR candidate.close IS DISTINCT FROM existing.close
+                  OR candidate.vol IS DISTINCT FROM existing.vol
+                  OR (
+                    candidate.amount IS DISTINCT FROM existing.amount
+                    AND (
+                      candidate.amount IS NULL
+                      OR existing.amount IS NULL
+                      OR abs(candidate.amount - existing.amount)
+                        > {GOLD_STK_MINS_QFQ_DERIVED_AMOUNT_ABS_TOLERANCE}
+                    )
+                  )
+                  OR candidate.exchange IS DISTINCT FROM existing.exchange
+                  AS value_mismatch,
+                CASE
+                    WHEN candidate.amount IS NULL OR existing.amount IS NULL
+                    THEN NULL
+                    ELSE abs(candidate.amount - existing.amount)
+                  END AS amount_abs_difference
+              FROM candidate
+              FULL OUTER JOIN existing
+                ON candidate.ts_code = existing.ts_code
+               AND candidate.freq = existing.freq
+               AND candidate.trade_date = existing.trade_date
+               AND candidate.trade_time = existing.trade_time
+            )
+            SELECT
+              (SELECT count(*) FROM candidate),
+              (SELECT count(*) FROM existing),
+              (SELECT coalesce(bit_xor(hash(ts_code, freq, trade_date, trade_time)), 0)
+                 FROM candidate),
+              (SELECT coalesce(bit_xor(hash(ts_code, freq, trade_date, trade_time)), 0)
+                 FROM existing),
+              (SELECT coalesce(bit_xor(hash(open, high, low, close, vol, round(amount, 6), exchange)), 0)
+                 FROM candidate),
+              (SELECT coalesce(bit_xor(hash(open, high, low, close, vol, round(amount, 6), exchange)), 0)
+                 FROM existing),
+              count(*) FILTER (WHERE existing_code IS NULL),
+              count(*) FILTER (WHERE candidate_code IS NULL),
+              count(*) FILTER (
+                WHERE candidate_code IS NOT NULL
+                  AND existing_code IS NOT NULL
+                  AND value_mismatch
+              ),
+              coalesce(max(amount_abs_difference), 0.0)
+            FROM comparison
+            """,
+            [[str(path) for path in target_paths]],
+        ).fetchone()
+    if row is None:
+        raise RuntimeError("Gold qfq derived equivalence query returned no row.")
+    return StkMinsQfqDerivedEquivalenceBatchAudit(
+        target_freq=batch.target_freq,
+        year=batch.year,
+        candidate_row_count=int(row[0]),
+        existing_row_count=int(row[1]),
+        candidate_key_hash=int(row[2]),
+        existing_key_hash=int(row[3]),
+        candidate_value_hash=int(row[4]),
+        existing_value_hash=int(row[5]),
+        missing_key_count=int(row[6]),
+        extra_key_count=int(row[7]),
+        value_mismatch_count=int(row[8]),
+        max_amount_abs_difference=float(row[9]),
     )
 
 
@@ -265,7 +497,7 @@ def _build_derived_history_batches(
     }
     batches: list[StkMinsQfqDerivedHistoryBatch] = []
     for target_freq in target_freqs:
-        source_freq = qfq_source_freq_for_derived_freq(target_freq)
+        source_freq = gold_stk_mins_qfq_source_freq(target_freq)
         for year in years:
             keys = keys_by_year[year]
             if not keys:
@@ -287,24 +519,43 @@ def _estimate_derived_history_batch(
     duckdb_resource: DuckDBResource,
     batch: StkMinsQfqDerivedHistoryBatch,
     source_paths: Sequence[Path],
+    trade_adj_factor_paths: Sequence[Path],
+    as_of_adj_factor_path: Path,
 ) -> StkMinsQfqDerivedHistoryBatchEstimate:
-    diagnostics_sql = build_gold_stk_mins_qfq_derived_diagnostics_sql(
-        source_qfq_paths=source_paths,
-        target_freq=batch.target_freq,
-        partition_keys=batch.partition_keys,
-    )
-    target_sql = build_gold_stk_mins_qfq_derived_select_sql(
-        source_qfq_paths=source_paths,
+    target_sql = build_canonical_gold_stk_mins_qfq_select_sql(
+        silver_paths=source_paths,
+        trade_adj_factor_paths=trade_adj_factor_paths,
+        as_of_adj_factor_paths=[as_of_adj_factor_path],
         target_freq=batch.target_freq,
         partition_keys=batch.partition_keys,
     )
     with duckdb_resource.connect() as connection:
-        diagnostics = connection.execute(diagnostics_sql).fetchone()
-        if diagnostics is None:
+        source_stats = connection.execute(
+            """
+            SELECT
+              coalesce(sum(source_row_count), 0) AS source_row_count,
+              count(*) AS source_stock_day_count,
+              count(*) FILTER (WHERE exchange_count > 1) AS exchange_mismatch_count
+            FROM (
+              SELECT
+                ts_code,
+                trade_date,
+                count(*) AS source_row_count,
+                count(DISTINCT upper(trim(CAST(exchange AS VARCHAR)))) AS exchange_count
+              FROM read_parquet(?, union_by_name=true)
+              GROUP BY ts_code, trade_date
+            )
+            """,
+            [[str(path) for path in source_paths]],
+        ).fetchone()
+        if source_stats is None:
             raise RuntimeError(
-                "Gold qfq derived history diagnostics query returned no rows: "
+                "Gold qfq derived history source diagnostics returned no rows: "
                 f"target_freq={batch.target_freq}, year={batch.year}."
             )
+        generated_window_count = int(
+            connection.execute(f"SELECT count(*) FROM ({target_sql})").fetchone()[0]
+        )
         target_rows = connection.execute(
             f"""
             SELECT DISTINCT
@@ -315,16 +566,13 @@ def _estimate_derived_history_batch(
             """
         ).fetchall()
 
-    (
-        _source_freq,
-        _target_freq,
-        source_row_count,
-        source_stock_day_count,
-        expected_window_count,
-        generated_window_count,
-        incomplete_window_count,
-        exchange_mismatch_window_count,
-    ) = (int(value or 0) for value in diagnostics)
+    source_row_count = int(source_stats[0] or 0)
+    source_stock_day_count = int(source_stats[1] or 0)
+    exchange_mismatch_window_count = int(source_stats[2] or 0)
+    expected_window_count = source_stock_day_count * len(
+        expected_gold_minute_times("SSE", batch.target_freq)
+    )
+    incomplete_window_count = expected_window_count - generated_window_count
     target_paths = tuple(
         gold_stk_mins_qfq_path(lake_root, batch.target_freq, str(ts_code), str(year))
         for ts_code, year in target_rows
@@ -350,10 +598,14 @@ def _generate_derived_history_batch(
     lake_root: Path,
     batch: StkMinsQfqDerivedHistoryBatch,
     estimate: StkMinsQfqDerivedHistoryBatchEstimate,
+    as_of_adj_factor_path: Path,
 ) -> StkMinsQfqDerivedHistoryBatchResult:
-    source_paths = _source_qfq_paths_for_batch(lake_root, batch)
-    derived_select_sql = build_gold_stk_mins_qfq_derived_select_sql(
-        source_qfq_paths=source_paths,
+    source_paths = _source_silver_paths_for_batch(lake_root, batch)
+    trade_adj_factor_paths = _trade_adj_factor_paths_for_batch(lake_root, batch)
+    derived_select_sql = build_canonical_gold_stk_mins_qfq_select_sql(
+        silver_paths=source_paths,
+        trade_adj_factor_paths=trade_adj_factor_paths,
+        as_of_adj_factor_paths=[as_of_adj_factor_path],
         target_freq=batch.target_freq,
         partition_keys=batch.partition_keys,
     )
@@ -412,17 +664,24 @@ def _validate_derived_history_estimate(
         )
 
 
-def _source_qfq_paths_for_batch(
+def _source_silver_paths_for_batch(
     lake_root: Path,
     batch: StkMinsQfqDerivedHistoryBatch,
 ) -> tuple[Path, ...]:
-    source_root = gold_stk_mins_qfq_path(
-        lake_root,
-        batch.source_freq,
-        "{ts_code}",
-        batch.year,
-    ).parents[2]
-    return tuple(sorted(source_root.glob(f"ts_code=*/year={batch.year}/part-000.parquet")))
+    return tuple(
+        silver_stk_mins_path(lake_root, batch.source_freq, partition_key)
+        for partition_key in batch.partition_keys
+    )
+
+
+def _trade_adj_factor_paths_for_batch(
+    lake_root: Path,
+    batch: StkMinsQfqDerivedHistoryBatch,
+) -> tuple[Path, ...]:
+    return tuple(
+        silver_adj_factor_path(lake_root, partition_key)
+        for partition_key in batch.partition_keys
+    )
 
 
 def _normalize_derived_freqs(freqs: Sequence[int | str] | None) -> tuple[int, ...]:

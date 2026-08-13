@@ -25,8 +25,7 @@ from src.foundation.clients.local_lake.major_index_mins_contract import (
     GOLD_PARAMS_KEY,
     MAX_INDEX_MINUTE_LIMIT,
     MAX_INDEX_MINUTE_PARTITION_FILES,
-    SILVER_BAR_COLUMN_SPECS,
-    SILVER_FREQ_VALUES,
+    GOLD_BAR_COLUMN_SPECS,
     SUPPORTED_INDEX_MINUTE_FREQS,
     TRADE_DATE_PARTITION_PATTERN,
     IndexMinuteDataset,
@@ -44,7 +43,7 @@ SOURCE_NOT_READY_CODE = "IM_SOURCE_NOT_READY"
 CONTRACT_INVALID_CODE = "IM_SOURCE_CONTRACT_INVALID"
 QUERY_FAILED_CODE = "IM_QUERY_FAILED"
 REQUEST_INVALID_CODE = "ID_REQUEST_INVALID"
-KNOWN_UNSUPPORTED_SILVER_CODES = frozenset({"899050.BJ"})
+KNOWN_UNSUPPORTED_MINUTE_CODES = frozenset({"899050.BJ"})
 PERFORMANCE_TARGET_MS = 1_500.0
 PERFORMANCE_HARD_GATE_MS = 5_000.0
 SAFE_RESPONSE_LIMIT = 5_000
@@ -75,7 +74,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--full-alignment",
         action="store_true",
-        help="检查全部 Silver/Gold 共同分区；默认只检查每个频率的最新共同分区。",
+        help="检查全部 Gold bar/indicator 共同分区；默认只检查最新共同分区。",
     )
     parser.add_argument(
         "--include-max",
@@ -120,7 +119,9 @@ def _partition_files(
         if _contains_symlink(candidate, stop=root):
             raise GoldAcceptanceContractError(f"分区不得使用符号链接：{candidate}")
         resolved = candidate.resolve()
-        if not resolved.is_relative_to(root) or not resolved.is_relative_to(dataset_root):
+        if not resolved.is_relative_to(root) or not resolved.is_relative_to(
+            dataset_root
+        ):
             raise GoldAcceptanceContractError(f"分区路径越界：{candidate}")
         if resolved.name != "part-000.parquet" or not resolved.is_file():
             continue
@@ -150,29 +151,27 @@ def _schema(
         "DESCRIBE SELECT * FROM read_parquet(?, hive_partitioning=false)",
         [str(path)],
     ).fetchall()
-    return tuple(
-        (str(row[0]), _normalize_duckdb_type(row[1])) for row in description
-    )
+    return tuple((str(row[0]), _normalize_duckdb_type(row[1])) for row in description)
 
 
 def _audit_partition_alignment(
     connection: Any,
     *,
-    silver_path: Path,
+    bar_path: Path,
     gold_path: Path,
     freq: int,
     trade_date: date,
 ) -> dict[str, Any]:
     try:
-        silver_schema = _schema(connection, silver_path)
+        bar_schema = _schema(connection, bar_path)
         gold_schema = _schema(connection, gold_path)
     except Exception as exc:
         raise GoldAcceptanceContractError(
             f"Parquet schema 无法按合同读取：freq={freq}, tradeDate={trade_date}"
         ) from exc
-    if silver_schema != SILVER_BAR_COLUMN_SPECS:
+    if bar_schema != GOLD_BAR_COLUMN_SPECS:
         raise GoldAcceptanceContractError(
-            f"Silver schema 不符合合同：freq={freq}, tradeDate={trade_date}"
+            f"Gold bar schema 不符合合同：freq={freq}, tradeDate={trade_date}"
         )
     if gold_schema != GOLD_INDICATOR_COLUMN_SPECS:
         raise GoldAcceptanceContractError(
@@ -181,24 +180,24 @@ def _audit_partition_alignment(
 
     row = connection.execute(
         """
-        WITH silver_source AS MATERIALIZED (
+        WITH bar_source AS MATERIALIZED (
           SELECT * FROM read_parquet(?, hive_partitioning=false)
         ),
         gold_source AS MATERIALIZED (
           SELECT * FROM read_parquet(?, hive_partitioning=false)
         ),
-        silver_keys AS (
-          SELECT ts_code, trade_time FROM silver_source
+        bar_keys AS (
+          SELECT ts_code, trade_time FROM bar_source
         ),
         gold_keys AS (
           SELECT ts_code, trade_time FROM gold_source
         )
         SELECT
-          (SELECT count(*) FROM silver_source) AS silver_rows,
+          (SELECT count(*) FROM bar_source) AS bar_rows,
           (SELECT count(*) FROM gold_source) AS gold_rows,
           (
             SELECT count(*)
-            FROM silver_source
+            FROM bar_source
             WHERE NOT COALESCE(
               freq = ?
               AND regexp_full_match(ts_code, '^[0-9]{6}\\.(SH|SZ|BJ)$')
@@ -208,7 +207,7 @@ def _audit_partition_alignment(
               AND exchange <> '',
               FALSE
             )
-          ) AS silver_invalid_rows,
+          ) AS bar_invalid_rows,
           (
             SELECT count(*)
             FROM gold_source
@@ -237,31 +236,31 @@ def _audit_partition_alignment(
           ) AS gold_invalid_rows,
           (
             SELECT count(*) - count(DISTINCT (ts_code, trade_time))
-            FROM silver_keys
-          ) AS silver_duplicate_keys,
+            FROM bar_keys
+          ) AS bar_duplicate_keys,
           (
             SELECT count(*) - count(DISTINCT (ts_code, trade_time))
             FROM gold_keys
           ) AS gold_duplicate_keys,
           (
             SELECT count(*) FROM (
-              SELECT ts_code, trade_time FROM silver_keys
+              SELECT ts_code, trade_time FROM bar_keys
               EXCEPT
               SELECT ts_code, trade_time FROM gold_keys
             )
-          ) AS silver_only_keys,
+          ) AS bar_only_keys,
           (
             SELECT count(*) FROM (
               SELECT ts_code, trade_time FROM gold_keys
               EXCEPT
-              SELECT ts_code, trade_time FROM silver_keys
+              SELECT ts_code, trade_time FROM bar_keys
             )
           ) AS gold_only_keys
         """,
         [
-            str(silver_path),
+            str(bar_path),
             str(gold_path),
-            SILVER_FREQ_VALUES[freq],
+            freq,
             trade_date,
             freq,
             trade_date,
@@ -271,20 +270,18 @@ def _audit_partition_alignment(
         ],
     ).fetchone()
     names = (
-        "silverRows",
+        "barRows",
         "goldRows",
-        "silverInvalidRows",
+        "barInvalidRows",
         "goldInvalidRows",
-        "silverDuplicateKeys",
+        "barDuplicateKeys",
         "goldDuplicateKeys",
-        "silverOnlyKeys",
+        "barOnlyKeys",
         "goldOnlyKeys",
     )
     result = dict(zip(names, map(int, row), strict=True))
     result["tradeDate"] = trade_date.isoformat()
-    result["status"] = (
-        READY if all(result[name] == 0 for name in names[2:]) else FAILED
-    )
+    result["status"] = READY if all(result[name] == 0 for name in names[2:]) else FAILED
     return result
 
 
@@ -295,20 +292,22 @@ def _audit_frequency(
     freq: int,
     full_alignment: bool,
 ) -> dict[str, Any]:
-    silver = _partition_files(lake_root, dataset="bars", freq=freq)
+    bars = _partition_files(lake_root, dataset="bars", freq=freq)
     gold = _partition_files(lake_root, dataset="indicators", freq=freq)
-    silver_dates = set(silver)
+    bar_dates = set(bars)
     gold_dates = set(gold)
-    missing_gold_dates = sorted(silver_dates - gold_dates)
-    unexpected_gold_dates = sorted(gold_dates - silver_dates)
-    common_dates = sorted(silver_dates & gold_dates)
+    missing_gold_dates = sorted(bar_dates - gold_dates)
+    unexpected_gold_dates = sorted(gold_dates - bar_dates)
+    common_dates = sorted(bar_dates & gold_dates)
     result: dict[str, Any] = {
         "freq": freq,
-        "silverPartitionCount": len(silver),
+        "barPartitionCount": len(bars),
         "goldPartitionCount": len(gold),
         "commonPartitionCount": len(common_dates),
         "missingGoldPartitionCount": len(missing_gold_dates),
-        "missingGoldPartitionSample": [item.isoformat() for item in missing_gold_dates[:10]],
+        "missingGoldPartitionSample": [
+            item.isoformat() for item in missing_gold_dates[:10]
+        ],
         "unexpectedGoldPartitionCount": len(unexpected_gold_dates),
         "unexpectedGoldPartitionSample": [
             item.isoformat() for item in unexpected_gold_dates[:10]
@@ -316,7 +315,7 @@ def _audit_frequency(
         "checkedPartitionCount": 0,
         "alignmentFailures": [],
     }
-    if not silver_dates or not gold_dates or missing_gold_dates:
+    if not bar_dates or not gold_dates or missing_gold_dates:
         result["status"] = SOURCE_NOT_READY
         result["code"] = SOURCE_NOT_READY_CODE
         return result
@@ -339,7 +338,7 @@ def _audit_frequency(
     for partition_date in dates_to_check:
         alignment = _audit_partition_alignment(
             connection,
-            silver_path=silver[partition_date],
+            bar_path=bars[partition_date],
             gold_path=gold[partition_date],
             freq=freq,
             trade_date=partition_date,
@@ -432,7 +431,8 @@ def _performance_matrix(
             {
                 "freq": freq,
                 "status": READY
-                if code_results and all(item["status"] == READY for item in code_results)
+                if code_results
+                and all(item["status"] == READY for item in code_results)
                 else FAILED,
                 "sampleCount": len(frequency_samples),
                 "p95Ms": round(_nearest_rank_p95(frequency_samples), 3)
@@ -498,8 +498,7 @@ def _maximum_response_acceptance(
         }
     except IndexMinuteReaderError as exc:
         expected_rejection = (
-            exc.code == REQUEST_INVALID_CODE
-            and RESPONSE_TOO_LARGE_MESSAGE in str(exc)
+            exc.code == REQUEST_INVALID_CODE and RESPONSE_TOO_LARGE_MESSAGE in str(exc)
         )
         maximum_result = {
             "status": READY if expected_rejection else FAILED,
@@ -543,8 +542,7 @@ def _maximum_response_acceptance(
             "count": len(safe_page.items),
             "elapsedMs": round(safe_elapsed_ms, 3),
             "responseBytes": len(safe_payload),
-            "responseSizePassed": len(safe_payload)
-            <= MAX_INDEX_MINUTE_RESPONSE_BYTES,
+            "responseSizePassed": len(safe_payload) <= MAX_INDEX_MINUTE_RESPONSE_BYTES,
             "hasMore": safe_page.meta.hasMore,
             "cursorPresentWhenRequired": not safe_page.meta.hasMore
             or bool(safe_page.meta.nextCursor),
@@ -588,10 +586,7 @@ def _cursor_order_valid(
         limit=1,
         cursor=page.meta.nextCursor,
     )
-    return bool(
-        second.items
-        and second.items[-1].tradeTime < page.items[0].tradeTime
-    )
+    return bool(second.items and second.items[-1].tradeTime < page.items[0].tradeTime)
 
 
 def run_gold_acceptance(
@@ -730,7 +725,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ts_codes = tuple(
         code
         for code in universe.ordered_codes
-        if code not in KNOWN_UNSUPPORTED_SILVER_CODES
+        if code not in KNOWN_UNSUPPORTED_MINUTE_CODES
     )
     result = run_gold_acceptance(
         lake_root=FORMAL_LAKE_ROOT,

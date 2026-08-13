@@ -13,6 +13,7 @@ from orchestrator.defs.bootstrap import stk_mins_migration_cli
 from orchestrator.defs.bootstrap.stk_mins_qfq_history import (
     generate_stk_mins_qfq_history,
     plan_stk_mins_qfq_history,
+    rebuild_stk_mins_qfq_canonical_history,
 )
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
 from orchestrator.defs.paths import (
@@ -26,7 +27,10 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_ADJ_FACTOR_SCHEMA,
     SILVER_STK_MINS_SCHEMA,
 )
-
+from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
+    expected_canonical_gold_source_times,
+)
+from orchestrator.defs.stk_mins_qfq import gold_stk_mins_qfq_source_freq
 
 DATE_1 = "2014-06-03"
 DATE_2 = "2014-06-04"
@@ -107,25 +111,30 @@ def _adj_row(ts_code: str, trade_date: str, adj_factor: float) -> dict[str, obje
     }
 
 
-def _write_silver_partition(lake_root: Path, *, freq: int, trade_date: str) -> None:
+def _write_silver_partition(
+    lake_root: Path,
+    *,
+    target_freq: int,
+    trade_date: str,
+) -> None:
+    source_freq = gold_stk_mins_qfq_source_freq(target_freq)
+    source_times = expected_canonical_gold_source_times(target_freq)
     _write_rows(
-        silver_stk_mins_path(lake_root, freq, trade_date),
+        silver_stk_mins_path(lake_root, source_freq, trade_date),
         column_types=_column_types(SILVER_STK_MINS_SCHEMA),
         rows=[
             _silver_row(
-                ts_code=STOCK_A,
-                freq=freq,
+                ts_code=stock_code,
+                freq=source_freq,
                 trade_date=trade_date,
-                trade_time=f"{trade_date} 09:35:00",
-                open_=10.0 if trade_date == DATE_1 else 20.0,
-            ),
-            _silver_row(
-                ts_code=STOCK_B,
-                freq=freq,
-                trade_date=trade_date,
-                trade_time=f"{trade_date} 09:35:00",
-                open_=20.0 if trade_date == DATE_1 else 30.0,
-            ),
+                trade_time=f"{trade_date} {trade_time}",
+                open_=open_base,
+            )
+            for stock_code, open_base in (
+                (STOCK_A, 10.0 if trade_date == DATE_1 else 20.0),
+                (STOCK_B, 20.0 if trade_date == DATE_1 else 30.0),
+            )
+            for trade_time in source_times
         ],
         order_by="ts_code, trade_time",
     )
@@ -144,9 +153,17 @@ def _write_adj_factor_partition(lake_root: Path, *, trade_date: str) -> None:
 
 
 def _write_valid_inputs(lake_root: Path, *, freqs: tuple[int, ...] = (5,)) -> None:
-    for freq in tuple(sorted({1, *freqs})):
-        _write_silver_partition(lake_root, freq=freq, trade_date=DATE_1)
-        _write_silver_partition(lake_root, freq=freq, trade_date=DATE_2)
+    for target_freq in freqs:
+        _write_silver_partition(
+            lake_root,
+            target_freq=target_freq,
+            trade_date=DATE_1,
+        )
+        _write_silver_partition(
+            lake_root,
+            target_freq=target_freq,
+            trade_date=DATE_2,
+        )
     _write_adj_factor_partition(lake_root, trade_date=DATE_1)
     _write_adj_factor_partition(lake_root, trade_date=DATE_2)
 
@@ -170,6 +187,56 @@ def _read_gold_rows(path: Path) -> list[dict[str, object]]:
 
 
 class StkMinsQfqM8CHistoryTests(unittest.TestCase):
+    def test_rebuild_clis_require_explicit_confirmation_before_discovery(self) -> None:
+        commands = (
+            "rebuild-gold-qfq-canonical-history",
+            "rebuild-gold-stk-mins-qfq-macd-kdj-history",
+        )
+        for command in commands:
+            with (
+                self.subTest(command=command),
+                TemporaryDirectory() as temp_dir,
+                patch.object(
+                    stk_mins_migration_cli,
+                    "_registered_stock_mins_silver_partition_keys",
+                    side_effect=AssertionError("partition discovery must not run"),
+                ),
+                self.assertRaisesRegex(ValueError, "--confirm-rebuild"),
+            ):
+                stk_mins_migration_cli.main(
+                    [
+                        command,
+                        "--checkpoint",
+                        str(Path(temp_dir) / "checkpoint.json"),
+                    ]
+                )
+
+    def test_canonical_rebuild_resumes_verified_freq_year_checkpoint(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            checkpoint_path = lake_root / "checkpoint.json"
+            _write_valid_inputs(lake_root)
+
+            first = rebuild_stk_mins_qfq_canonical_history(
+                checkpoint_path=checkpoint_path,
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                registered_partition_keys=[DATE_1, DATE_2],
+                freqs=[5],
+            )
+            resumed = rebuild_stk_mins_qfq_canonical_history(
+                checkpoint_path=checkpoint_path,
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                registered_partition_keys=[DATE_1, DATE_2],
+                freqs=[5],
+            )
+
+        self.assertEqual(first.executed_batch_count, 1)
+        self.assertEqual(first.resumed_batch_count, 0)
+        self.assertEqual(resumed.executed_batch_count, 0)
+        self.assertEqual(resumed.resumed_batch_count, 1)
+
     def test_m8c_helper_does_not_define_active_dagster_components(self) -> None:
         helper_path = Path("src/orchestrator/defs/bootstrap/stk_mins_qfq_history.py")
         text = helper_path.read_text()
@@ -204,9 +271,9 @@ class StkMinsQfqM8CHistoryTests(unittest.TestCase):
             self.assertTrue(stock_b_path.exists())
             rows = _read_gold_rows(stock_a_path)
             self.assertEqual([column.name for column in GOLD_STK_MINS_QFQ_SCHEMA], list(rows[0]))
-            self.assertEqual(len(rows), 2)
-            self.assertAlmostEqual(rows[0]["open"], 5.0)
-            self.assertAlmostEqual(rows[1]["open"], 20.0)
+            self.assertEqual(len(rows), 96)
+            self.assertAlmostEqual(rows[0]["open"], 5.25)
+            self.assertAlmostEqual(rows[48]["open"], 20.5)
             self.assertEqual(report.plan.planned_event_count, 2 * 1 * 5)
 
     def test_plan_counts_targets_and_does_not_write_files(self) -> None:
@@ -258,7 +325,7 @@ class StkMinsQfqM8CHistoryTests(unittest.TestCase):
     def test_generate_fails_for_missing_silver_or_adj_factor_inputs(self) -> None:
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)
-            _write_silver_partition(lake_root, freq=5, trade_date=DATE_1)
+            _write_silver_partition(lake_root, target_freq=5, trade_date=DATE_1)
 
             with self.assertRaisesRegex(FileNotFoundError, "inputs are missing"):
                 generate_stk_mins_qfq_history(
@@ -271,8 +338,7 @@ class StkMinsQfqM8CHistoryTests(unittest.TestCase):
     def test_generate_fails_when_factor_coverage_is_incomplete(self) -> None:
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)
-            _write_silver_partition(lake_root, freq=1, trade_date=DATE_1)
-            _write_silver_partition(lake_root, freq=5, trade_date=DATE_1)
+            _write_silver_partition(lake_root, target_freq=5, trade_date=DATE_1)
             _write_rows(
                 silver_adj_factor_path(lake_root, DATE_1),
                 column_types=_column_types(SILVER_ADJ_FACTOR_SCHEMA),

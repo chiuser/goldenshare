@@ -14,11 +14,11 @@ import duckdb
 
 from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
 from orchestrator.defs.paths import (
+    gold_major_index_mins_path,
     gold_major_index_mins_technical_path,
     gold_major_index_mins_technical_staging_path,
     gold_major_index_mins_technical_state_path,
     gold_major_index_mins_technical_state_staging_path,
-    silver_major_index_mins_path,
 )
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.major_index_mins_technical import (
@@ -42,7 +42,7 @@ from orchestrator.defs.run_contracts.major_index_mins_technical import (
     normalize_major_index_mins_technical_freq,
 )
 
-SESSION_BAR_COUNTS = {1: 241, 5: 49, 15: 17, 30: 9, 60: 5, 90: 3, 120: 2}
+SESSION_BAR_COUNTS = {1: 241, 5: 48, 15: 16, 30: 8, 60: 4, 90: 3, 120: 2}
 KDJ_SEED = 50.0
 
 
@@ -130,7 +130,7 @@ def _normalize_expected_dates(values: Sequence[str]) -> tuple[str, ...]:
 def _read_parquet_paths(paths: Sequence[Path]) -> str:
     if not paths:
         raise MajorIndexMinsTechnicalValidationError(
-            "at least one Silver source path is required"
+            "at least one Gold business-bar source path is required"
         )
     if len(paths) == 1:
         return read_parquet(paths[0], hive_partitioning=False, union_by_name=True)
@@ -145,9 +145,7 @@ def _values_sql(
     alias: str = "values_table",
 ) -> str:
     if not values:
-        return (
-            f"(SELECT CAST(NULL AS VARCHAR) AS {column} WHERE false) AS {alias}"
-        )
+        return f"(SELECT CAST(NULL AS VARCHAR) AS {column} WHERE false) AS {alias}"
     rows = ", ".join(f"({duckdb_string(value)})" for value in values)
     return f"(VALUES {rows}) AS {alias}({column})"
 
@@ -173,10 +171,6 @@ def _observed_schema(
 ) -> dict[str, str]:
     rows = connection.execute(f"DESCRIBE SELECT * FROM {relation_sql}").fetchall()
     return {str(row[0]): str(row[1]).upper() for row in rows}
-
-
-def _technical_freq_text(freq: int) -> str:
-    return f"{freq}min"
 
 
 def select_major_index_mins_technical_source_dates(
@@ -318,7 +312,7 @@ def _create_calculation_tables(
           CAST(low AS DOUBLE) AS low,
           CAST(close AS DOUBLE) AS close
         FROM {source_sql}
-        WHERE CAST(freq AS VARCHAR) = {duckdb_string(_technical_freq_text(freq))}
+        WHERE CAST(freq AS INTEGER) = {freq}
           AND CAST(ts_code AS VARCHAR) IN (SELECT ts_code FROM {expected_values})
           AND CAST(trade_time AS DATE) <= DATE {duckdb_string(target_trade_date)}
         """
@@ -355,7 +349,7 @@ def _create_calculation_tables(
     )
     if invalid_source_count or duplicate_source_count:
         raise MajorIndexMinsTechnicalValidationError(
-            "Silver source rows are invalid: "
+            "Gold business-bar source rows are invalid: "
             f"invalid={invalid_source_count}, duplicates={duplicate_source_count}"
         )
     target_scope_errors = int(
@@ -377,7 +371,7 @@ def _create_calculation_tables(
     )
     if target_scope_errors:
         raise MajorIndexMinsTechnicalValidationError(
-            "target Silver source is missing expected codes: "
+            "target Gold business-bar source is missing expected codes: "
             f"date={target_trade_date}, freq={freq}, count={target_scope_errors}"
         )
 
@@ -415,10 +409,12 @@ def _create_calculation_tables(
         SELECT
           *,
           count(close) OVER code_window AS available_observation_count,
-          {', '.join(
-              f'avg(close) OVER (PARTITION BY ts_code, freq ORDER BY trade_time ROWS BETWEEN {period - 1} PRECEDING AND CURRENT ROW) AS ma_{period}'
-              for period in MA_PERIODS
-          )},
+          {
+            ", ".join(
+                f"avg(close) OVER (PARTITION BY ts_code, freq ORDER BY trade_time ROWS BETWEEN {period - 1} PRECEDING AND CURRENT ROW) AS ma_{period}"
+                for period in MA_PERIODS
+            )
+        },
           avg(close) OVER (
             PARTITION BY ts_code, freq ORDER BY trade_time
             ROWS BETWEEN {BOLL_PERIOD - 1} PRECEDING AND CURRENT ROW
@@ -571,10 +567,12 @@ def _create_calculation_tables(
           CAST(freq AS SMALLINT) AS freq,
           CAST(trade_date AS DATE) AS trade_date,
           CAST(trade_time AS TIMESTAMP) AS trade_time,
-          {', '.join(
-              f'CAST(CASE WHEN available_observation_count >= {period} THEN ma_{period} END AS DOUBLE) AS ma_{period}'
-              for period in MA_PERIODS
-          )},
+          {
+            ", ".join(
+                f"CAST(CASE WHEN available_observation_count >= {period} THEN ma_{period} END AS DOUBLE) AS ma_{period}"
+                for period in MA_PERIODS
+            )
+        },
           CAST(CASE WHEN available_observation_count >= {BOLL_PERIOD}
             THEN boll_mid END AS DOUBLE) AS boll_mid,
           CAST(CASE WHEN available_observation_count >= {BOLL_PERIOD}
@@ -696,8 +694,18 @@ def audit_major_index_mins_technical_relation(
     if duplicate_count:
         errors.append("key_integrity")
     required = (
-        "ts_code", "freq", "trade_date", "trade_time", "macd_dif", "macd_dea",
-        "macd", "kdj_k", "kdj_d", "kdj_j", "observation_count", "params_key",
+        "ts_code",
+        "freq",
+        "trade_date",
+        "trade_time",
+        "macd_dif",
+        "macd_dea",
+        "macd",
+        "kdj_k",
+        "kdj_d",
+        "kdj_j",
+        "observation_count",
+        "params_key",
         "indicator_version",
     )
     required_null_sql = " OR ".join(f"{column} IS NULL" for column in required)
@@ -903,7 +911,6 @@ def major_index_mins_technical_relation_counts(
     """Return the row-level failure counts used by technical blocking checks."""
 
     date_literal = duckdb_string(partition_key)
-    freq_text = duckdb_string(f"{freq}min")
     source_coverage = int(
         connection.execute(
             f"""
@@ -911,7 +918,7 @@ def major_index_mins_technical_relation_counts(
               SELECT CAST(ts_code AS VARCHAR) AS ts_code,
                      CAST(trade_time AS TIMESTAMP) AS trade_time
               FROM {source_relation}
-              WHERE CAST(freq AS VARCHAR) = {freq_text}
+              WHERE CAST(freq AS INTEGER) = {freq}
                 AND CAST(trade_time AS DATE) = DATE {date_literal}
             ), target_keys AS (
               SELECT CAST(ts_code AS VARCHAR) AS ts_code,
@@ -954,7 +961,7 @@ def major_index_mins_technical_relation_counts(
             WITH source_bounds AS (
               SELECT min(trade_time) AS min_time, max(trade_time) AS max_time
               FROM {source_relation}
-              WHERE CAST(freq AS VARCHAR) = {freq_text}
+              WHERE CAST(freq AS INTEGER) = {freq}
                 AND CAST(trade_time AS DATE) = DATE {date_literal}
             )
             SELECT count(*)
@@ -987,9 +994,7 @@ def major_index_mins_technical_continuity_failure_count(
 
     if not continuing_codes:
         return 0
-    code_rows = ", ".join(
-        f"({duckdb_string(code)})" for code in continuing_codes
-    )
+    code_rows = ", ".join(f"({duckdb_string(code)})" for code in continuing_codes)
     expected = f"(VALUES {code_rows}) AS expected(ts_code)"
     previous_date = duckdb_string(previous_trade_date)
     return int(
@@ -1055,9 +1060,9 @@ def write_major_index_mins_technical_partition(
         freq=normalized_freq,
     )
     source_paths = tuple(
-        silver_major_index_mins_path(
+        gold_major_index_mins_path(
             source_lake_root_path,
-            _technical_freq_text(normalized_freq),
+            normalized_freq,
             trade_date,
         )
         for trade_date in source_dates
@@ -1065,7 +1070,7 @@ def write_major_index_mins_technical_partition(
     missing_source_paths = tuple(path for path in source_paths if not path.exists())
     if missing_source_paths:
         raise MajorIndexMinsTechnicalValidationError(
-            "required Silver history partition is missing: "
+            "required Gold business-bar history partition is missing: "
             f"samples={[str(path) for path in missing_source_paths[:5]]}"
         )
     target_index = normalized_dates.index(target_date)
@@ -1144,9 +1149,7 @@ def write_major_index_mins_technical_partition(
                 freq=normalized_freq,
             )
             technical_columns = ", ".join(GOLD_MAJOR_INDEX_MINS_TECHNICAL_COLUMNS)
-            state_columns = ", ".join(
-                GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_COLUMNS
-            )
+            state_columns = ", ".join(GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_COLUMNS)
             connection.execute(
                 f"COPY (SELECT {technical_columns} FROM major_index_target_technical) "
                 f"TO {duckdb_string(technical_staging_path)} "
@@ -1169,9 +1172,7 @@ def write_major_index_mins_technical_partition(
             )
             state_audit = audit_major_index_mins_technical_state_relation(
                 connection,
-                relation_sql=read_parquet(
-                    state_staging_path, hive_partitioning=False
-                ),
+                relation_sql=read_parquet(state_staging_path, hive_partitioning=False),
                 expected_codes=expected_codes,
                 freq=normalized_freq,
                 trade_date=target_date,

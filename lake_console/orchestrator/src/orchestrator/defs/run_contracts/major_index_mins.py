@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 
 from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
-    DerivedMinuteWindow,
+    CanonicalGoldMinuteWindow,
     cn_a_derived_minute_windows,
 )
 
@@ -79,8 +79,17 @@ MAJOR_INDEX_MINS_RAW_CHECKS = tuple(
 MAJOR_INDEX_MINS_SILVER_CHECKS = tuple(
     f"{asset_key}_core_check" for asset_key in MAJOR_INDEX_MINS_SILVER_ASSET_KEYS
 )
+MAJOR_INDEX_MINS_GOLD_ASSET_KEYS = tuple(
+    f"gold_major_index_mins_{frequency.removesuffix('min')}m"
+    for frequency in MAJOR_INDEX_MINS_SILVER_FREQS
+)
+MAJOR_INDEX_MINS_GOLD_CHECKS = tuple(
+    f"{asset_key}_core_check" for asset_key in MAJOR_INDEX_MINS_GOLD_ASSET_KEYS
+)
 MAJOR_INDEX_MINS_RAW_JOB_NAME = "raw_major_index_mins_update_job"
 MAJOR_INDEX_MINS_SILVER_JOB_NAME = "silver_major_index_mins_update_job"
+MAJOR_INDEX_MINS_GOLD_JOB_NAME = "gold_major_index_mins_update_job"
+MAJOR_INDEX_MINS_GOLD_SENSOR_NAME = "gold_major_index_mins_update_job_sensor"
 
 _TS_CODE_PATTERN = re.compile(r"^[0-9]{6}\.(?:SH|SZ|BJ)$")
 
@@ -164,7 +173,7 @@ def major_index_mins_derived_windows(
     *,
     silver_freq: str,
     exchange: str,
-) -> tuple[DerivedMinuteWindow, ...]:
+) -> tuple[CanonicalGoldMinuteWindow, ...]:
     normalized_freq = normalize_major_index_mins_silver_freq(silver_freq)
     if normalized_freq not in {"90min", "120min"}:
         raise MajorIndexMinsContractError(

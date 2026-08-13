@@ -1,5 +1,12 @@
 # 指数分钟线 `index_mins` Dagster 数据集接入方案
 
+> 2026-08-13 当前口径：现有 Raw/Silver 七频事实继续保留；本专项后续新增
+> `gold_index_mins_*` 七频业务 K 线层。Silver 允许 09:30，Gold 非 1m 不输出独立
+> 09:30，但首根必须包含竞价锚点。普通指数本轮不新增技术指标。完整设计见
+> [A 股分钟线 Gold 标准 K 线合同与历史重建 LLD](./dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md)。
+> P2 代码已完成 7 个 Gold asset/check、单分区 job、默认停止 sensor 和 10 日 batch
+> readiness；正式 Gold Bootstrap、事件补录与 sensor 启用尚未执行。
+
 更新时间：2026-08-07
 状态：P0 方案/LLD、P1、P2、P3、P4、P5、P6A/P6B、P7、P8 已完成；P7 已完成正式 Raw/Silver Bootstrap 与全量文件对账，P8 已完成动态分区注册、materialization 全量补录、最近 20 个交易日 check 补录和事件归属验收。Bootstrap 覆盖 `2025-01-02..2026-07-27` 的 378 个交易日，Raw 有效文件 1,880 个、Silver 文件 2,646 个，缺失和非法文件均为 0。5 个 source-empty 日期组合继续按已批准的 Raw 豁免和 Silver fallback 口径处理。fallback 仅用于开发期 Bootstrap/历史修复，正式日常 sensor 仍不调用。2026-08-07 审计确认现有 90m/120m 集合竞价窗口合同错误，两个频率都必须按[统一修复与重建 LLD](./dagster-derived-minute-bars-90-120-contract-rebuild-low-level-design.md)全历史重建；本文旧窗口描述已同步修正，既有 P7/P8 事件验收不再代表 90m/120m 业务语义正确。
 适用范围：`lake_console/orchestrator` 正式 Dagster 数据湖

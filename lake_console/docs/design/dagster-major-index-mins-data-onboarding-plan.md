@@ -1,5 +1,13 @@
 # Dagster 主要指数历史分钟线接入方案
 
+> 2026-08-13 当前口径：Silver 继续保存源端 09:30；新增七频
+> `gold_major_index_mins_*` 作为业务 K 线层，Gold 非 1m 不输出独立 09:30，但第一根
+> 必须包含竞价锚点。现有技术指标改为读取 Gold。完整资产、窗口和历史重建顺序以
+> [A 股分钟线 Gold 标准 K 线合同与历史重建 LLD](./dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md)
+> 为准。本文原有 Raw/Silver 接入事实继续有效，任何“业务直接读取 Silver”的推论不再有效。
+> P2 代码已完成 7 个 Gold asset/check、单分区 job、默认停止 sensor，并已将 technical 和
+> 本地 reader 改为 Gold-only；正式 Gold/technical 历史重建、事件补录与运行启用尚未执行。
+
 > 2026-08-07 修正：现有 90m/120m 集合竞价窗口合同不正确，主要指数 Silver 的两个派生频率必须按[统一修复与重建 LLD](./dagster-derived-minute-bars-90-120-contract-rebuild-low-level-design.md)全历史重建。本文此前记录的 P3/P7/P8 文件和事件验收只证明旧合同执行完整，不再证明派生 K 线业务语义正确。
 
 ## 1. 目标与边界

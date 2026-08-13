@@ -19,9 +19,9 @@ from orchestrator.defs.io.major_index_mins_technical_writer import (
 )
 from orchestrator.defs.partitions import cn_major_index_mins_trade_days
 from orchestrator.defs.paths import (
+    gold_major_index_mins_path,
     gold_major_index_mins_technical_path,
     gold_major_index_mins_technical_state_path,
-    silver_major_index_mins_path,
     silver_trade_calendar_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
@@ -152,9 +152,7 @@ def evaluate_major_index_mins_technical_check(
     technical_path = gold_major_index_mins_technical_path(
         lake_root_path, freq, partition_key
     )
-    source_path = silver_major_index_mins_path(
-        lake_root_path, f"{freq}min", partition_key
-    )
+    source_path = gold_major_index_mins_path(lake_root_path, freq, partition_key)
     missing = _missing_result(
         partition_key=partition_key,
         target_path=technical_path,
@@ -165,13 +163,9 @@ def evaluate_major_index_mins_technical_check(
 
     try:
         with duckdb_resource.connect() as connection:
-            technical_relation = read_parquet(
-                technical_path, hive_partitioning=False
-            )
+            technical_relation = read_parquet(technical_path, hive_partitioning=False)
             source_relation = read_parquet(source_path, hive_partitioning=False)
-            expected_codes = expected_major_index_mins_technical_codes(
-                partition_key
-            )
+            expected_codes = expected_major_index_mins_technical_codes(partition_key)
             source_row_count = int(
                 connection.execute(
                     f"SELECT count(*) FROM {source_relation}"
@@ -233,9 +227,7 @@ def evaluate_major_index_mins_technical_check(
                 checked_row_count=audit.row_count,
                 failed_row_count=failed_count,
                 failed_rules=failed_rules,
-                reason_code=(
-                    "ready" if not failed_rules else f"{check_kind}_failed"
-                ),
+                reason_code=("ready" if not failed_rules else f"{check_kind}_failed"),
                 input_file_paths=(source_path,),
                 failure_samples=audit.failure_samples,
             )
@@ -285,14 +277,8 @@ def evaluate_major_index_mins_technical_state_check(
             duckdb_resource=duckdb_resource,
         )
         previous_date = previous_expected_trade_date(dates, partition_key)
-        continuing_codes = major_index_mins_technical_continuing_codes(
-            partition_key
-        )
-        if (
-            check_kind == "continuity"
-            and continuing_codes
-            and previous_date is None
-        ):
+        continuing_codes = major_index_mins_technical_continuing_codes(partition_key)
+        if check_kind == "continuity" and continuing_codes and previous_date is None:
             return _result(
                 passed=False,
                 scope=CheckScope.REFERENTIAL_INTEGRITY,
@@ -318,9 +304,7 @@ def evaluate_major_index_mins_technical_state_check(
             else None
         )
         previous_technical_path = (
-            gold_major_index_mins_technical_path(
-                lake_root_path, freq, previous_date
-            )
+            gold_major_index_mins_technical_path(lake_root_path, freq, previous_date)
             if previous_date is not None and continuing_codes
             else None
         )
@@ -340,15 +324,11 @@ def evaluate_major_index_mins_technical_state_check(
 
         with duckdb_resource.connect() as connection:
             state_relation = read_parquet(state_path, hive_partitioning=False)
-            technical_relation = read_parquet(
-                technical_path, hive_partitioning=False
-            )
+            technical_relation = read_parquet(technical_path, hive_partitioning=False)
             audit = audit_major_index_mins_technical_state_relation(
                 connection,
                 relation_sql=state_relation,
-                expected_codes=expected_major_index_mins_technical_codes(
-                    partition_key
-                ),
+                expected_codes=expected_major_index_mins_technical_codes(partition_key),
                 freq=freq,
                 trade_date=partition_key,
                 technical_relation_sql=technical_relation,
@@ -411,9 +391,7 @@ def evaluate_major_index_mins_technical_state_check(
                 checked_row_count=audit.row_count,
                 failed_row_count=failed_count,
                 failed_rules=failed_rules,
-                reason_code=(
-                    "ready" if not failed_rules else f"{check_kind}_failed"
-                ),
+                reason_code=("ready" if not failed_rules else f"{check_kind}_failed"),
                 input_file_paths=tuple(input_paths),
                 failure_samples=audit.failure_samples,
             )
@@ -518,9 +496,7 @@ def _build_state_check(
     return check
 
 
-GOLD_MAJOR_INDEX_MINS_TECHNICAL_CHECK_DEFINITIONS: list[
-    dg.AssetChecksDefinition
-] = [
+GOLD_MAJOR_INDEX_MINS_TECHNICAL_CHECK_DEFINITIONS: list[dg.AssetChecksDefinition] = [
     _build_technical_check(freq=freq, name=name, check_kind=check_kind)
     for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS
     for name, check_kind in zip(

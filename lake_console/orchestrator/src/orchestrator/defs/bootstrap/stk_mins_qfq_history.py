@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import hashlib
+import json
+import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-import orchestrator.defs.checks.stk_mins_checks as stk_mins_checks
+from orchestrator.defs.checks import stk_mins_checks
 from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
 from orchestrator.defs.paths import (
     DEFAULT_LAKE_ROOT,
@@ -20,11 +23,12 @@ from orchestrator.defs.run_contracts.stk_mins import (
 )
 from orchestrator.defs.stk_mins_qfq import (
     GoldStkMinsQfqWriteResult,
+    assert_canonical_gold_stk_mins_qfq_source_ready,
+    build_canonical_gold_stk_mins_qfq_select_sql,
     build_daily_qfq_coverage_sql,
-    build_daily_qfq_select_sql,
+    gold_stk_mins_qfq_source_freq,
     write_gold_stk_mins_qfq_rows_to_year_files,
 )
-
 
 STK_MINS_QFQ_HISTORY_START_DATE = "2014-01-01"
 GOLD_STK_MINS_QFQ_CHECK_COUNT = len(stk_mins_checks.GOLD_STK_MINS_QFQ_CHECK_NAMES)
@@ -77,6 +81,16 @@ class StkMinsQfqHistoryReport:
     @property
     def written_row_count(self) -> int:
         return sum(result.written_row_count for result in self.batch_results)
+
+
+@dataclass(frozen=True)
+class StkMinsQfqCanonicalRebuildReport:
+    plan: StkMinsQfqHistoryPlan
+    plan_fingerprint: str
+    checkpoint_path: Path
+    resumed_batch_count: int
+    executed_batch_count: int
+    batch_results: tuple[StkMinsQfqHistoryBatchResult, ...]
 
 
 def plan_stk_mins_qfq_history(
@@ -188,11 +202,86 @@ def generate_stk_mins_qfq_history(
             duckdb_resource=duckdb_resource,
             batch=batch,
             as_of_adj_factor_path=as_of_adj_factor_path,
+            fail_if_target_exists=True,
         )
         batch_results.append(result)
 
     return StkMinsQfqHistoryReport(
         plan=plan,
+        batch_results=tuple(batch_results),
+    )
+
+
+def rebuild_stk_mins_qfq_canonical_history(
+    *,
+    checkpoint_path: Path,
+    lake_root: Path = Path(DEFAULT_LAKE_ROOT),
+    duckdb_resource: DuckDBResource,
+    registered_partition_keys: Sequence[str],
+    partition_keys: Sequence[str] | None = None,
+    start_date: str = STK_MINS_QFQ_HISTORY_START_DATE,
+    end_date: str | None = None,
+    freqs: Sequence[int | str] = (5, 15, 30, 60),
+    years: Sequence[int | str] | None = None,
+) -> StkMinsQfqCanonicalRebuildReport:
+    """Rebuild canonical QFQ stock-year files with resumable freq-year batches."""
+
+    plan = plan_stk_mins_qfq_history(
+        lake_root=lake_root,
+        registered_partition_keys=registered_partition_keys,
+        partition_keys=partition_keys,
+        start_date=start_date,
+        end_date=end_date,
+        freqs=freqs,
+        years=years,
+        duckdb_resource=duckdb_resource,
+    )
+    if plan.missing_input_count:
+        raise FileNotFoundError(
+            "Canonical Gold qfq rebuild inputs are missing: "
+            f"{tuple(plan.missing_input_samples)}"
+        )
+    plan_fingerprint = _canonical_rebuild_plan_fingerprint(plan)
+    completed_batch_keys = _load_canonical_rebuild_checkpoint(
+        checkpoint_path=checkpoint_path,
+        plan_fingerprint=plan_fingerprint,
+    )
+    as_of_adj_factor_path = silver_adj_factor_path(
+        lake_root,
+        plan.selected_partition_keys[-1],
+    )
+    batch_results: list[StkMinsQfqHistoryBatchResult] = []
+    resumed_batch_count = 0
+    for batch in plan.batches:
+        batch_key = _history_batch_key(batch)
+        if batch_key in completed_batch_keys:
+            _assert_completed_rebuild_batch_exists(
+                lake_root=lake_root,
+                batch=batch,
+                duckdb_resource=duckdb_resource,
+            )
+            resumed_batch_count += 1
+            continue
+        result = _generate_qfq_history_batch(
+            lake_root=lake_root,
+            duckdb_resource=duckdb_resource,
+            batch=batch,
+            as_of_adj_factor_path=as_of_adj_factor_path,
+            fail_if_target_exists=False,
+        )
+        batch_results.append(result)
+        completed_batch_keys.add(batch_key)
+        _write_canonical_rebuild_checkpoint(
+            checkpoint_path=checkpoint_path,
+            plan_fingerprint=plan_fingerprint,
+            completed_batch_keys=completed_batch_keys,
+        )
+    return StkMinsQfqCanonicalRebuildReport(
+        plan=plan,
+        plan_fingerprint=plan_fingerprint,
+        checkpoint_path=checkpoint_path,
+        resumed_batch_count=resumed_batch_count,
+        executed_batch_count=len(batch_results),
         batch_results=tuple(batch_results),
     )
 
@@ -203,6 +292,7 @@ def _generate_qfq_history_batch(
     duckdb_resource: DuckDBResource,
     batch: StkMinsQfqHistoryBatch,
     as_of_adj_factor_path: Path,
+    fail_if_target_exists: bool,
 ) -> StkMinsQfqHistoryBatchResult:
     silver_paths = _silver_paths_for_batch(lake_root, batch)
     trade_adj_paths = _trade_adj_factor_paths_for_keys(lake_root, batch.partition_keys)
@@ -213,17 +303,24 @@ def _generate_qfq_history_batch(
         as_of_adj_factor_path=as_of_adj_factor_path,
     )
     _validate_coverage_counts(batch=batch, coverage_counts=coverage_counts)
-    qfq_select_sql = build_daily_qfq_select_sql(
+    assert_canonical_gold_stk_mins_qfq_source_ready(
+        silver_paths=silver_paths,
+        target_freq=batch.freq,
+        partition_keys=batch.partition_keys,
+    )
+    qfq_select_sql = build_canonical_gold_stk_mins_qfq_select_sql(
         silver_paths=silver_paths,
         trade_adj_factor_paths=trade_adj_paths,
         as_of_adj_factor_paths=[as_of_adj_factor_path],
+        target_freq=batch.freq,
+        partition_keys=batch.partition_keys,
     )
     write_results = write_gold_stk_mins_qfq_rows_to_year_files(
         lake_root=lake_root,
         freq=batch.freq,
         qfq_select_sql=qfq_select_sql,
         replace_trade_dates=batch.partition_keys,
-        fail_if_target_exists=True,
+        fail_if_target_exists=fail_if_target_exists,
     )
     return StkMinsQfqHistoryBatchResult(
         freq=batch.freq,
@@ -234,6 +331,85 @@ def _generate_qfq_history_batch(
         written_row_count=sum(result.row_count for result in write_results),
         write_results=tuple(write_results),
     )
+
+
+def _canonical_rebuild_plan_fingerprint(plan: StkMinsQfqHistoryPlan) -> str:
+    payload = {
+        "partition_keys": plan.selected_partition_keys,
+        "freqs": plan.selected_freqs,
+        "years": plan.selected_years,
+        "batches": tuple(_history_batch_key(batch) for batch in plan.batches),
+        "contract": "cn_a_gold_minute_canonical_v1",
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _history_batch_key(batch: StkMinsQfqHistoryBatch) -> str:
+    return f"{batch.freq}:{batch.year}:{batch.partition_keys[0]}:{batch.partition_keys[-1]}"
+
+
+def _load_canonical_rebuild_checkpoint(
+    *,
+    checkpoint_path: Path,
+    plan_fingerprint: str,
+) -> set[str]:
+    if not checkpoint_path.exists():
+        return set()
+    payload = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    if payload.get("schema_version") != 1:
+        raise ValueError("Unsupported canonical QFQ rebuild checkpoint schema.")
+    if payload.get("plan_fingerprint") != plan_fingerprint:
+        raise ValueError("Canonical QFQ rebuild checkpoint belongs to another plan.")
+    completed = payload.get("completed_batch_keys")
+    if not isinstance(completed, list) or not all(
+        isinstance(item, str) for item in completed
+    ):
+        raise ValueError("Canonical QFQ rebuild checkpoint batch list is invalid.")
+    return set(completed)
+
+
+def _write_canonical_rebuild_checkpoint(
+    *,
+    checkpoint_path: Path,
+    plan_fingerprint: str,
+    completed_batch_keys: set[str],
+) -> None:
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = checkpoint_path.with_name(f".{checkpoint_path.name}.tmp")
+    temp_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "plan_fingerprint": plan_fingerprint,
+                "completed_batch_keys": sorted(completed_batch_keys),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    os.replace(temp_path, checkpoint_path)
+
+
+def _assert_completed_rebuild_batch_exists(
+    *,
+    lake_root: Path,
+    batch: StkMinsQfqHistoryBatch,
+    duckdb_resource: DuckDBResource,
+) -> None:
+    paths = _target_paths_for_batch(
+        lake_root=lake_root,
+        batch=batch,
+        duckdb_resource=duckdb_resource,
+    )
+    missing_paths = tuple(path for path in paths if not path.exists())
+    if not paths or missing_paths:
+        raise FileNotFoundError(
+            "Canonical QFQ rebuild checkpoint target files are missing: "
+            f"batch={_history_batch_key(batch)}, samples={missing_paths[:5]}."
+        )
 
 
 def _coverage_counts(
@@ -273,8 +449,7 @@ def _validate_coverage_counts(
             f"freq={batch.freq}, year={batch.year}."
         )
     if (
-        coverage_counts["qfq_output_row_count"] != coverage_counts["silver_row_count"]
-        or coverage_counts["missing_trade_adj_factor_row_count"]
+        coverage_counts["missing_trade_adj_factor_row_count"]
         or coverage_counts["missing_as_of_adj_factor_row_count"]
         or coverage_counts["invalid_trade_adj_factor_row_count"]
         or coverage_counts["invalid_as_of_adj_factor_row_count"]
@@ -429,7 +604,11 @@ def _silver_paths_for_batch(
     batch: StkMinsQfqHistoryBatch,
 ) -> tuple[Path, ...]:
     return tuple(
-        silver_stk_mins_path(lake_root, batch.freq, partition_key)
+        silver_stk_mins_path(
+            lake_root,
+            gold_stk_mins_qfq_source_freq(batch.freq),
+            partition_key,
+        )
         for partition_key in batch.partition_keys
     )
 

@@ -9,8 +9,8 @@ import dagster as dg
 from orchestrator.defs.asset_guards.stk_mins_continuity import (
     load_stock_mins_expected_trade_dates,
 )
-from orchestrator.defs.assets.major_index_mins_silver import (
-    SILVER_MAJOR_INDEX_MINS_ASSETS,
+from orchestrator.defs.assets.major_index_mins_gold import (
+    GOLD_MAJOR_INDEX_MINS_ASSETS,
 )
 from orchestrator.defs.catalog import get_lake_asset_catalog_entry
 from orchestrator.defs.io.major_index_mins_technical_writer import (
@@ -189,7 +189,7 @@ GOLD_MAJOR_INDEX_MINS_TECHNICAL_ASSETS = tuple(
     _build_major_index_mins_technical_assets(freq=freq, dependency=dependency)
     for freq, dependency in zip(
         MAJOR_INDEX_MINS_TECHNICAL_FREQS,
-        SILVER_MAJOR_INDEX_MINS_ASSETS,
+        GOLD_MAJOR_INDEX_MINS_ASSETS,
         strict=True,
     )
 )

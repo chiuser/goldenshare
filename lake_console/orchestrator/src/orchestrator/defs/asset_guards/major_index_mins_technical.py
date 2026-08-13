@@ -19,9 +19,9 @@ from orchestrator.defs.io.major_index_mins_technical_writer import (
     major_index_mins_technical_relation_counts,
 )
 from orchestrator.defs.paths import (
+    gold_major_index_mins_path,
     gold_major_index_mins_technical_path,
     gold_major_index_mins_technical_state_path,
-    silver_major_index_mins_path,
 )
 from orchestrator.defs.run_contracts.major_index_mins import (
     normalize_major_index_mins_trade_date,
@@ -76,9 +76,7 @@ def _readiness(
     failed_check_names: Sequence[str] = (),
     missing_paths: Sequence[Path] = (),
 ) -> MajorIndexMinsTechnicalReadiness:
-    if ready != (
-        materialized_file_count == expected_file_count and checks_passed
-    ):
+    if ready != (materialized_file_count == expected_file_count and checks_passed):
         raise ValueError(
             "major-index minute technical readiness must be ready only when "
             "all expected files exist and checks pass"
@@ -130,12 +128,8 @@ def _validate_state_frequency(
     freq: int,
     scanned_paths: set[Path],
 ) -> tuple[tuple[str, ...], tuple[Path, ...]]:
-    technical_path = gold_major_index_mins_technical_path(
-        lake_root, freq, trade_date
-    )
-    state_path = gold_major_index_mins_technical_state_path(
-        lake_root, freq, trade_date
-    )
+    technical_path = gold_major_index_mins_technical_path(lake_root, freq, trade_date)
+    state_path = gold_major_index_mins_technical_state_path(lake_root, freq, trade_date)
     required_paths = [technical_path, state_path]
     previous_date = previous_expected_trade_date(expected_trade_dates, trade_date)
     continuing_codes = major_index_mins_technical_continuing_codes(trade_date)
@@ -235,17 +229,13 @@ def major_index_mins_technical_target_readiness(
             technical_path = gold_major_index_mins_technical_path(
                 lake_root, freq, normalized_date
             )
-            source_path = silver_major_index_mins_path(
-                lake_root, f"{freq}min", normalized_date
-            )
+            source_path = gold_major_index_mins_path(lake_root, freq, normalized_date)
             if not source_path.exists():
                 failed_checks.extend(major_index_mins_technical_checks(freq))
                 missing_dependencies.append(source_path)
                 continue
             scanned_paths.update((technical_path, source_path))
-            technical_relation = read_parquet(
-                technical_path, hive_partitioning=False
-            )
+            technical_relation = read_parquet(technical_path, hive_partitioning=False)
             source_relation = read_parquet(source_path, hive_partitioning=False)
             source_row_count = int(
                 connection.execute(

@@ -17,10 +17,13 @@ from orchestrator.defs.run_contracts.idx_factor_pro import (
     IDX_FACTOR_PRO_SILVER_CHECKS,
 )
 from orchestrator.defs.run_contracts.index_mins import (
+    INDEX_MINS_GOLD_CHECKS,
     INDEX_MINS_RAW_CHECKS,
     INDEX_MINS_SILVER_CHECKS,
 )
 from orchestrator.defs.run_contracts.major_index_mins import (
+    MAJOR_INDEX_MINS_GOLD_ASSET_KEYS,
+    MAJOR_INDEX_MINS_GOLD_CHECKS,
     MAJOR_INDEX_MINS_RAW_ASSET_KEYS,
     MAJOR_INDEX_MINS_RAW_CHECKS,
     MAJOR_INDEX_MINS_SILVER_ASSET_KEYS,
@@ -307,6 +310,16 @@ def _index_mins_asset_rules() -> dict[str, dict[str, AssetCheckGovernanceRule]]:
             readiness=False,
             retention_allowed=True,
         )
+    for frequency, check_name in zip(
+        (1, 5, 15, 30, 60, 90, 120), INDEX_MINS_GOLD_CHECKS, strict=True
+    ):
+        rules[f"gold_index_mins_{frequency}m"] = _rules(
+            (check_name,),
+            category=MOVE_TO_SENSOR_LAKE_READINESS,
+            phase="CN_A_MINUTE_GOLD_P2",
+            readiness=False,
+            retention_allowed=True,
+        )
     return rules
 
 
@@ -335,6 +348,18 @@ def _major_index_mins_asset_rules() -> dict[
             (check_name,),
             category=MOVE_TO_SENSOR_LAKE_READINESS,
             phase="MAJOR_INDEX_MINS_P5",
+            readiness=False,
+            retention_allowed=True,
+        )
+    for asset_key, check_name in zip(
+        MAJOR_INDEX_MINS_GOLD_ASSET_KEYS,
+        MAJOR_INDEX_MINS_GOLD_CHECKS,
+        strict=True,
+    ):
+        rules[asset_key] = _rules(
+            (check_name,),
+            category=MOVE_TO_SENSOR_LAKE_READINESS,
+            phase="CN_A_MINUTE_GOLD_P2",
             readiness=False,
             retention_allowed=True,
         )

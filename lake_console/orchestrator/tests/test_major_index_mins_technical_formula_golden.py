@@ -1,4 +1,3 @@
-from datetime import datetime, timedelta
 from pathlib import Path
 
 import duckdb
@@ -8,8 +7,11 @@ from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
 from orchestrator.defs.io.major_index_mins_technical_writer import (
     write_major_index_mins_technical_partition,
 )
-from orchestrator.defs.paths import silver_major_index_mins_path
+from orchestrator.defs.paths import gold_major_index_mins_path
 from orchestrator.defs.resources import DuckDBResource
+from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
+    expected_gold_minute_times,
+)
 from orchestrator.defs.run_contracts.major_index_mins_technical import (
     expected_major_index_mins_technical_codes,
 )
@@ -18,23 +20,29 @@ TRADE_DATE = "2009-01-05"
 FREQ = 5
 
 
-def _write_golden_silver_partition(root: Path) -> None:
-    path = silver_major_index_mins_path(root, f"{FREQ}min", TRADE_DATE)
+def _write_golden_bar_partition(root: Path) -> None:
+    path = gold_major_index_mins_path(root, FREQ, TRADE_DATE)
     path.parent.mkdir(parents=True, exist_ok=True)
-    rows: list[tuple[str, str, datetime, float, float, float]] = []
-    start = datetime.fromisoformat(f"{TRADE_DATE} 09:30:00")
+    rows: list[tuple[object, ...]] = []
+    trade_times = expected_gold_minute_times("SSE", FREQ)
     for code_offset, code in enumerate(
         expected_major_index_mins_technical_codes(TRADE_DATE)
     ):
-        for bar_index in range(49):
+        for bar_index, trade_time in enumerate(trade_times):
             close = float(bar_index + 1 + code_offset)
             rows.append(
                 (
                     code,
-                    f"{FREQ}min",
-                    start + timedelta(minutes=FREQ * bar_index),
+                    FREQ,
+                    TRADE_DATE,
+                    f"{TRADE_DATE} {trade_time}",
+                    close,
                     close + 1.0,
                     close - 1.0,
+                    close,
+                    1.0,
+                    close,
+                    "SSE",
                     close,
                 )
             )
@@ -42,22 +50,29 @@ def _write_golden_silver_partition(root: Path) -> None:
     with duckdb.connect(":memory:") as connection:
         connection.execute(
             """
-            CREATE TABLE silver_rows (
+            CREATE TABLE gold_rows (
               ts_code VARCHAR,
-              freq VARCHAR,
+              freq INTEGER,
+              trade_date DATE,
               trade_time TIMESTAMP,
+              open DOUBLE,
               high DOUBLE,
               low DOUBLE,
-              close DOUBLE
+              close DOUBLE,
+              vol DOUBLE,
+              amount DOUBLE,
+              exchange VARCHAR,
+              vwap DOUBLE
             )
             """
         )
         connection.executemany(
-            "INSERT INTO silver_rows VALUES (?, ?, ?, ?, ?, ?)", rows
+            "INSERT INTO gold_rows VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            rows,
         )
         connection.execute(
             copy_query_to_parquet(
-                "SELECT * FROM silver_rows ORDER BY ts_code, trade_time",
+                "SELECT * FROM gold_rows ORDER BY ts_code, trade_time",
                 path,
             )
         )
@@ -68,7 +83,7 @@ def test_formula_golden_fixture_locks_ma_boll_macd_and_kdj(
 ) -> None:
     lake_root = tmp_path / "lake"
     staging_root = tmp_path / "staging"
-    _write_golden_silver_partition(lake_root)
+    _write_golden_bar_partition(lake_root)
 
     result = write_major_index_mins_technical_partition(
         source_lake_root_path=lake_root,
@@ -92,22 +107,36 @@ def test_formula_golden_fixture_locks_ma_boll_macd_and_kdj(
             """
         ).fetchone()
         columns = tuple(item[0] for item in connection.description)
+        session = connection.execute(
+            f"""
+            SELECT
+              count(*),
+              min(strftime(trade_time, '%H:%M:%S')),
+              max(strftime(trade_time, '%H:%M:%S')),
+              count(*) FILTER (
+                WHERE strftime(trade_time, '%H:%M:%S') = '09:30:00'
+              )
+            FROM {read_parquet(result.technical_path, hive_partitioning=False)}
+            WHERE ts_code = '000001.SH'
+            """
+        ).fetchone()
     actual = dict(zip(columns, row, strict=True))
 
-    assert actual["observation_count"] == 49
-    assert actual["ma_5"] == pytest.approx(47.0)
-    assert actual["ma_10"] == pytest.approx(44.5)
-    assert actual["ma_20"] == pytest.approx(39.5)
-    assert actual["ma_30"] == pytest.approx(34.5)
+    assert session == (48, "09:35:00", "15:00:00", 0)
+    assert actual["observation_count"] == 48
+    assert actual["ma_5"] == pytest.approx(46.0)
+    assert actual["ma_10"] == pytest.approx(43.5)
+    assert actual["ma_20"] == pytest.approx(38.5)
+    assert actual["ma_30"] == pytest.approx(33.5)
     assert actual["ma_60"] is None
     assert actual["ma_90"] is None
     assert actual["ma_250"] is None
-    assert actual["boll_mid"] == pytest.approx(39.5)
-    assert actual["boll_upper"] == pytest.approx(51.03256259467079)
-    assert actual["boll_lower"] == pytest.approx(27.967437405329203)
-    assert actual["macd_dif"] == pytest.approx(6.690947538607233)
-    assert actual["macd_dea"] == pytest.approx(6.549292399355504)
-    assert actual["macd"] == pytest.approx(0.2833102785034587)
-    assert actual["kdj_k"] == pytest.approx(89.99999960448056)
-    assert actual["kdj_d"] == pytest.approx(89.99999376146339)
-    assert actual["kdj_j"] == pytest.approx(90.00001129051495)
+    assert actual["boll_mid"] == pytest.approx(38.5)
+    assert actual["boll_upper"] == pytest.approx(50.03256259467079)
+    assert actual["boll_lower"] == pytest.approx(26.967437405329203)
+    assert actual["macd_dif"] == pytest.approx(6.666407739609795)
+    assert actual["macd_dea"] == pytest.approx(6.513878614542531)
+    assert actual["macd"] == pytest.approx(0.3050582501345289)
+    assert actual["kdj_k"] == pytest.approx(89.99999940672087)
+    assert actual["kdj_d"] == pytest.approx(89.99999083995485)
+    assert actual["kdj_j"] == pytest.approx(90.00001654025294)

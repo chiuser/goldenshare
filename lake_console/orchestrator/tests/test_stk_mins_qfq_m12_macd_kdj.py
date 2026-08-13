@@ -6,10 +6,13 @@ from unittest.mock import patch
 import dagster as dg
 import duckdb
 
-from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
 from orchestrator.defs.assets.stk_mins_qfq_macd_kdj import (
     gold_stk_mins_qfq_macd_kdj_1m,
 )
+from orchestrator.defs.bootstrap.stk_mins_qfq_macd_kdj_history import (
+    rebuild_stk_mins_qfq_macd_kdj_history,
+)
+from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
 from orchestrator.defs.paths import (
     gold_stk_mins_qfq_macd_kdj_path,
     gold_stk_mins_qfq_macd_kdj_state_path,
@@ -28,7 +31,6 @@ from orchestrator.defs.stk_mins_qfq_macd_kdj import (
     write_gold_stk_mins_qfq_macd_kdj_asset_partition,
     write_gold_stk_mins_qfq_macd_kdj_rows,
 )
-
 
 STOCK_A = "600000.SH"
 STOCK_B = "000001.SZ"
@@ -166,6 +168,78 @@ def _write_calendar_rows(lake_root: Path, trade_dates: tuple[str, ...]) -> None:
 
 
 class StkMinsQfqM12MacdKdjTests(unittest.TestCase):
+    def test_bounded_rebuild_uses_checkpoint_and_exact_expected_sequence(
+        self,
+    ) -> None:
+        trade_dates = ("2026-06-15", "2026-06-16")
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            checkpoint_path = lake_root / "macd-kdj-checkpoint.json"
+            source_path = gold_stk_mins_qfq_path(lake_root, 1, STOCK_A, 2026)
+            _write_rows(
+                source_path,
+                schema=GOLD_STK_MINS_QFQ_SCHEMA,
+                rows=[
+                    row
+                    for index, trade_date in enumerate(trade_dates)
+                    for row in _source_rows_for_day(
+                        trade_date,
+                        start_close=10.0 + index * 10.0,
+                    )
+                ],
+            )
+
+            first = rebuild_stk_mins_qfq_macd_kdj_history(
+                checkpoint_path=checkpoint_path,
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                registered_partition_keys=trade_dates,
+                freqs=[1],
+            )
+            resumed = rebuild_stk_mins_qfq_macd_kdj_history(
+                checkpoint_path=checkpoint_path,
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                registered_partition_keys=trade_dates,
+                freqs=[1],
+            )
+
+        self.assertEqual(first.executed_batch_count, 1)
+        self.assertEqual(first.resumed_batch_count, 0)
+        self.assertEqual(resumed.executed_batch_count, 0)
+        self.assertEqual(resumed.resumed_batch_count, 1)
+
+    def test_bounded_rebuild_rejects_missing_exact_previous_state(self) -> None:
+        trade_dates = ("2026-06-12", "2026-06-15", "2026-06-16")
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            source_path = gold_stk_mins_qfq_path(lake_root, 1, STOCK_A, 2026)
+            _write_rows(
+                source_path,
+                schema=GOLD_STK_MINS_QFQ_SCHEMA,
+                rows=[
+                    row
+                    for index, trade_date in enumerate(trade_dates)
+                    for row in _source_rows_for_day(
+                        trade_date,
+                        start_close=10.0 + index * 10.0,
+                    )
+                ],
+            )
+
+            with self.assertRaisesRegex(
+                dg.Failure,
+                "previous expected state is missing",
+            ):
+                rebuild_stk_mins_qfq_macd_kdj_history(
+                    checkpoint_path=lake_root / "checkpoint.json",
+                    lake_root=lake_root,
+                    duckdb_resource=DuckDBResource(),
+                    registered_partition_keys=trade_dates,
+                    partition_keys=trade_dates[1:],
+                    freqs=[1],
+                )
+
     def test_source_year_discovery_preserves_full_scope_and_supports_code_scope(
         self,
     ) -> None:

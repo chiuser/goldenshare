@@ -9,8 +9,7 @@ IndexMinuteDataset = Literal["bars", "indicators"]
 
 FORMAL_LAKE_ROOT: Final = Path("/Volumes/datasource/data_lake")
 SUPPORTED_INDEX_MINUTE_FREQS: Final = (1, 5, 15, 30, 60, 90, 120)
-SILVER_FREQ_VALUES: Final = {freq: f"{freq}min" for freq in SUPPORTED_INDEX_MINUTE_FREQS}
-EXPECTED_BARS_PER_SESSION: Final = {1: 241, 5: 49, 15: 17, 30: 9, 60: 5, 90: 3, 120: 2}
+EXPECTED_BARS_PER_SESSION: Final = {1: 241, 5: 48, 15: 16, 30: 8, 60: 4, 90: 3, 120: 2}
 MAX_INDEX_MINUTE_LIMIT: Final = 10_000
 MAX_INDEX_MINUTE_PARTITION_FILES: Final = 5_000
 INDEX_MINUTE_CURSOR_VERSION: Final = 1
@@ -20,14 +19,15 @@ TRADE_DATE_PARTITION_PATTERN: Final = re.compile(r"^trade_date=(\d{4}-\d{2}-\d{2
 GOLD_PARAMS_KEY: Final = "ma_5_10_20_30_60_90_250__boll_20_2__macd_12_26_9__kdj_9_3_3"
 GOLD_INDICATOR_VERSION: Final = 1
 
-SILVER_BAR_COLUMN_SPECS: Final = (
+GOLD_BAR_COLUMN_SPECS: Final = (
     ("ts_code", "VARCHAR"),
-    ("freq", "VARCHAR"),
+    ("freq", "INTEGER"),
+    ("trade_date", "DATE"),
     ("trade_time", "TIMESTAMP"),
     ("open", "DOUBLE"),
-    ("close", "DOUBLE"),
     ("high", "DOUBLE"),
     ("low", "DOUBLE"),
+    ("close", "DOUBLE"),
     ("vol", "DOUBLE"),
     ("amount", "DOUBLE"),
     ("exchange", "VARCHAR"),
@@ -61,10 +61,12 @@ GOLD_INDICATOR_COLUMN_SPECS: Final = (
 )
 
 
-def major_index_minute_dataset_root(lake_root: Path, dataset: IndexMinuteDataset) -> Path:
+def major_index_minute_dataset_root(
+    lake_root: Path, dataset: IndexMinuteDataset
+) -> Path:
     root = lake_root.expanduser().resolve()
     relative = (
-        Path("silver/quote/major_index_mins")
+        Path("gold/quote/major_index_mins")
         if dataset == "bars"
         else Path("gold/indicator/major_index_mins_technical")
     )
@@ -81,8 +83,10 @@ def major_index_minute_frequency_root(
 ) -> Path:
     if freq not in SUPPORTED_INDEX_MINUTE_FREQS:
         raise ValueError("不支持的指数分钟频率。")
-    partition = SILVER_FREQ_VALUES[freq] if dataset == "bars" else str(freq)
-    candidate = (major_index_minute_dataset_root(lake_root, dataset) / f"freq={partition}").resolve()
+    partition = str(freq)
+    candidate = (
+        major_index_minute_dataset_root(lake_root, dataset) / f"freq={partition}"
+    ).resolve()
     if not candidate.is_relative_to(lake_root.expanduser().resolve()):
         raise ValueError("指数分钟频率路径越界。")
     return candidate

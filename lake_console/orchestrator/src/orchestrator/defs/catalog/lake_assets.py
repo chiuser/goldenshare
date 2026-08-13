@@ -10,6 +10,8 @@ from orchestrator.defs.paths import (
     PATH_TEMPLATE_TS_CODE,
     PATH_TEMPLATE_YEAR,
     gold_dc_daily_technical_path,
+    gold_index_mins_path,
+    gold_major_index_mins_path,
     gold_major_index_mins_technical_path,
     gold_major_index_mins_technical_state_path,
     gold_market_breadth_daily_path,
@@ -65,6 +67,8 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     CH_DC_DAILY_TECHNICAL_SERVING_SCHEMA,
     CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA,
     GOLD_DC_DAILY_TECHNICAL_SCHEMA,
+    GOLD_INDEX_MINS_SCHEMA,
+    GOLD_MAJOR_INDEX_MINS_SCHEMA,
     GOLD_MAJOR_INDEX_MINS_TECHNICAL_SCHEMA,
     GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_SCHEMA,
     GOLD_MARKET_BREADTH_DAILY_SCHEMA,
@@ -234,11 +238,15 @@ class PartitionModel(str, Enum):
     )
     TRADE_DATE_PARTITION_RAW_INDEX_MINS = "trade_date_partition_raw_index_mins"
     TRADE_DATE_PARTITION_SILVER_INDEX_MINS = "trade_date_partition_silver_index_mins"
+    TRADE_DATE_PARTITION_GOLD_INDEX_MINS = "trade_date_partition_gold_index_mins"
     TRADE_DATE_PARTITION_RAW_MAJOR_INDEX_MINS = (
         "trade_date_partition_raw_major_index_mins"
     )
     TRADE_DATE_PARTITION_SILVER_MAJOR_INDEX_MINS = (
         "trade_date_partition_silver_major_index_mins"
+    )
+    TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_MINS = (
+        "trade_date_partition_gold_major_index_mins"
     )
     TRADE_DATE_PARTITION_RAW_IDX_FACTOR_PRO = (
         "trade_date_partition_raw_idx_factor_pro"
@@ -816,6 +824,15 @@ PARTITION_MODEL_DEFINITIONS = (
         notes="指数分钟线 Silver 原生及派生频率共用专属交易日分区。",
     ),
     _model(
+        PartitionModel.TRADE_DATE_PARTITION_GOLD_INDEX_MINS,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.GOLD,
+        "index_mins",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="指数分钟线 Gold 七频业务 K 线共用专属交易日分区。",
+    ),
+    _model(
         PartitionModel.TRADE_DATE_PARTITION_RAW_MAJOR_INDEX_MINS,
         PartitionModelFamily.TRADE_DATE_PARTITION,
         AssetLayer.RAW,
@@ -832,6 +849,15 @@ PARTITION_MODEL_DEFINITIONS = (
         "trade_date",
         PartitionPhysicalLayout.PARTITION_FILE,
         notes="主要指数分钟线 Silver 原生及派生频率共用专属交易日分区。",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_MINS,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.GOLD,
+        "major_index_mins",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="主要指数分钟线 Gold 七频业务 K 线共用专属交易日分区。",
     ),
     _model(
         PartitionModel.TRADE_DATE_PARTITION_RAW_IDX_FACTOR_PRO,
@@ -2015,6 +2041,32 @@ LAKE_ASSET_CATALOG += (
         for freq in (1, 5, 15, 30, 60, 90, 120)
     ),
     *tuple(
+        _derived_entry(
+            asset_key=f"gold_index_mins_{freq}m",
+            dataset_id="index_mins",
+            layer=AssetLayer.GOLD,
+            data_domain=DataDomain.QUOTE_DATA,
+            group_name="index",
+            data_contract="canonical_cn_a_index_minute_business_bars",
+            column_schema=GOLD_INDEX_MINS_SCHEMA,
+            path_template=lake_path_template(
+                gold_index_mins_path(
+                    PATH_TEMPLATE_LAKE_ROOT,
+                    freq,
+                    PATH_TEMPLATE_PARTITION_KEY,
+                )
+            ),
+            partition_model=PartitionModel.TRADE_DATE_PARTITION_GOLD_INDEX_MINS,
+            blocking_check_names=(f"gold_index_mins_{freq}m_core_check",),
+            batch_grain="freq/trade_date",
+            write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+            event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+            bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+            notes="Canonical business bars; non-1m has no standalone 09:30 row.",
+        )
+        for freq in (1, 5, 15, 30, 60, 90, 120)
+    ),
+    *tuple(
         _entry(
             asset_key=f"raw_major_index_mins_{freq}m",
             dataset_id="major_index_mins",
@@ -2079,6 +2131,34 @@ LAKE_ASSET_CATALOG += (
                 "Native frequencies preserve source vwap; 90m/120m use "
                 "exchange-aware complete windows and NULL vwap."
             ),
+        )
+        for freq in (1, 5, 15, 30, 60, 90, 120)
+    ),
+    *tuple(
+        _derived_entry(
+            asset_key=f"gold_major_index_mins_{freq}m",
+            dataset_id="major_index_mins",
+            layer=AssetLayer.GOLD,
+            data_domain=DataDomain.QUOTE_DATA,
+            group_name="index",
+            data_contract="canonical_cn_a_major_index_minute_business_bars",
+            column_schema=GOLD_MAJOR_INDEX_MINS_SCHEMA,
+            path_template=lake_path_template(
+                gold_major_index_mins_path(
+                    PATH_TEMPLATE_LAKE_ROOT,
+                    freq,
+                    PATH_TEMPLATE_PARTITION_KEY,
+                )
+            ),
+            partition_model=(
+                PartitionModel.TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_MINS
+            ),
+            blocking_check_names=(f"gold_major_index_mins_{freq}m_core_check",),
+            batch_grain="freq/trade_date",
+            write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+            event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+            bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+            notes="Canonical business bars; non-1m has no standalone 09:30 row.",
         )
         for freq in (1, 5, 15, 30, 60, 90, 120)
     ),

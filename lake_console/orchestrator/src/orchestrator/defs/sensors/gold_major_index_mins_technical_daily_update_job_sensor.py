@@ -9,8 +9,8 @@ from pathlib import Path
 
 import dagster as dg
 
-from orchestrator.defs.asset_guards.major_index_mins_lake_readiness import (
-    batch_silver_major_index_mins_lake_readiness,
+from orchestrator.defs.asset_guards.major_index_mins_gold import (
+    batch_gold_major_index_mins_lake_readiness,
 )
 from orchestrator.defs.asset_guards.major_index_mins_technical import (
     MajorIndexMinsTechnicalReadiness,
@@ -27,8 +27,8 @@ from orchestrator.defs.health.lake_root import assert_lake_root_available_for_ru
 from orchestrator.defs.jobs.gold_major_index_mins_technical_daily_update import (
     gold_major_index_mins_technical_daily_update_job,
 )
-from orchestrator.defs.jobs.major_index_mins import (
-    silver_major_index_mins_update_job,
+from orchestrator.defs.jobs.major_index_mins_gold import (
+    gold_major_index_mins_update_job,
 )
 from orchestrator.defs.partitions import cn_major_index_mins_trade_days
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, silver_trade_calendar_path
@@ -92,9 +92,7 @@ def extract_unique_major_index_mins_partition_key(
             normalized_range_start = normalize_major_index_mins_trade_date(
                 str(range_start)
             )
-            normalized_range_end = normalize_major_index_mins_trade_date(
-                str(range_end)
-            )
+            normalized_range_end = normalize_major_index_mins_trade_date(str(range_end))
         except ValueError:
             return None
         if normalized_range_start != normalized_range_end:
@@ -104,8 +102,7 @@ def extract_unique_major_index_mins_partition_key(
     normalized: set[str] = set()
     try:
         normalized.update(
-            normalize_major_index_mins_trade_date(str(value))
-            for value in candidates
+            normalize_major_index_mins_trade_date(str(value)) for value in candidates
         )
     except ValueError:
         return None
@@ -130,7 +127,7 @@ def build_major_index_mins_technical_daily_decision(
             selected_trade_date=None,
             reason_code="partition_not_unique",
             reason="触发 run 未提供唯一的主要指数分钟线交易日分区。",
-            next_action="确认 Silver run 只处理一个 dagster/partition 后重试。",
+            next_action="确认 Gold business-bar run 只处理一个 dagster/partition 后重试。",
         )
     if not source_ready:
         return MajorIndexMinsTechnicalDailyDecision(
@@ -138,8 +135,8 @@ def build_major_index_mins_technical_daily_decision(
             previous_trade_date=previous_trade_date,
             selected_trade_date=None,
             reason_code="source_not_ready",
-            reason="目标交易日七频度主要指数分钟线 Silver 尚未全部 ready。",
-            next_action="先修复同日 Silver 文件或 blocking checks，再重新触发。",
+            reason="目标交易日七频度主要指数 Gold 业务 K 线尚未全部 ready。",
+            next_action="先修复同日 Gold 文件或 blocking checks，再重新触发。",
         )
     if target_readiness is None:
         raise ValueError("target_readiness is required when source is ready")
@@ -150,7 +147,7 @@ def build_major_index_mins_technical_daily_decision(
             selected_trade_date=None,
             reason_code="target_ready",
             reason="目标交易日 14 个技术指标与状态资产已经 ready。",
-            next_action="无需重复执行，等待下一个 Silver 成功分区。",
+            next_action="无需重复执行，等待下一个 Gold business-bar 成功分区。",
         )
     if not target_readiness.all_missing:
         return MajorIndexMinsTechnicalDailyDecision(
@@ -189,7 +186,7 @@ def build_major_index_mins_technical_daily_decision(
         previous_trade_date=previous_trade_date,
         selected_trade_date=target_trade_date,
         reason_code="request_run",
-        reason="同日 Silver 与前态门禁全部 ready，提交技术指标日常增量。",
+        reason="同日 Gold business-bar 与前态门禁全部 ready，提交技术指标日常增量。",
         next_action="等待目标 job 完成并检查 70 个 blocking checks。",
     )
 
@@ -235,9 +232,7 @@ def _evaluate_daily_run_status_decision(
     assert_lake_root_available_for_run(lake_root)
     registered_trade_days = tuple(
         sorted(
-            context.instance.get_dynamic_partitions(
-                cn_major_index_mins_trade_days.name
-            )
+            context.instance.get_dynamic_partitions(cn_major_index_mins_trade_days.name)
         )
     )
     with connect_configured_duckdb() as connection:
@@ -252,13 +247,13 @@ def _evaluate_daily_run_status_decision(
                 selected_trade_date=None,
                 reason_code="partition_not_expected",
                 reason="目标分区不在主要指数分钟线 expected calendar 中。",
-                next_action="核对专属动态分区和 Silver 触发 run 的交易日。",
+                next_action="核对专属动态分区和 Gold business-bar 触发 run 的交易日。",
             )
         previous_trade_date = previous_expected_trade_date(
             expected_trade_dates,
             target_trade_date,
         )
-        source_status = batch_silver_major_index_mins_lake_readiness(
+        source_status = batch_gold_major_index_mins_lake_readiness(
             connection=connection,
             lake_root=lake_root,
             expected_trade_dates=(target_trade_date,),
@@ -313,7 +308,7 @@ def _evaluate_daily_run_status_decision(
     name=MAJOR_INDEX_MINS_TECHNICAL_SENSOR_NAME,
     run_status=dg.DagsterRunStatus.SUCCESS,
     request_job=gold_major_index_mins_technical_daily_update_job,
-    monitored_jobs=[silver_major_index_mins_update_job],
+    monitored_jobs=[gold_major_index_mins_update_job],
     default_status=dg.DefaultSensorStatus.STOPPED,
     tags=build_sensor_tags(
         sensor_domain=SensorDomain.INDEX_TOPIC,
@@ -321,7 +316,7 @@ def _evaluate_daily_run_status_decision(
         role=SensorRole.ASSET_UPDATE,
     ),
     description=(
-        "Silver 主要指数分钟线单日成功且全部 ready 后，"
+        "Gold 主要指数分钟业务 K 线单日成功且全部 ready 后，"
         "触发七频度技术指标与状态的单分区更新。"
     ),
 )

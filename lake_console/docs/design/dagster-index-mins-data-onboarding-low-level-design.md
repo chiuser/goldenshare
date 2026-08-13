@@ -1,5 +1,12 @@
 # `index_mins` 指数分钟线 Dagster 低层设计（LLD）
 
+> 2026-08-13 当前口径：本文继续约束 Raw/Silver 接入和历史 fallback；最终业务读取层
+> 改为新增七频 Gold bars。Gold 1m 保留 09:30，Gold 非 1m 只把 09:30 作为第一根
+> 内部竞价锚点。新增模块、检查、readiness、Bootstrap 与事件步骤见
+> [A 股分钟线 Gold 标准 K 线合同与历史重建 LLD](./dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md)。
+> P2 代码已完成 7 个 Gold asset/check、单分区 job、默认停止 sensor 和 10 日 batch
+> readiness；正式 Gold Bootstrap、事件补录与 sensor 启用尚未执行。
+
 更新时间：2026-08-07
 状态：P0 设计完成；P1/P2/P3/P4/P5/P6A/P6B/P7/P8 已完成。2026-08-07 只读审计确认 90m/120m 集合竞价窗口合同错误，现有两个派生频率的历史文件、materialization/check 状态需要按[统一修复与重建 LLD](./dagster-derived-minute-bars-90-120-contract-rebuild-low-level-design.md)重新生成；P7/P8 对原生五频和 source-empty fallback 的验收仍有效，但不再作为 90m/120m 正确性证明。
 对应方案：[dagster-index-mins-data-onboarding-plan.md](./dagster-index-mins-data-onboarding-plan.md)

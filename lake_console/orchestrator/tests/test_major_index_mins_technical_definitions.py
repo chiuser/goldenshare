@@ -1,8 +1,8 @@
 import dagster as dg
 
 from orchestrator.definitions import defs as project_defs
-from orchestrator.defs.assets.major_index_mins_silver import (
-    SILVER_MAJOR_INDEX_MINS_ASSETS,
+from orchestrator.defs.assets.major_index_mins_gold import (
+    GOLD_MAJOR_INDEX_MINS_ASSETS,
 )
 from orchestrator.defs.assets.major_index_mins_technical import (
     GOLD_MAJOR_INDEX_MINS_TECHNICAL_ASSETS,
@@ -60,7 +60,7 @@ def test_seven_multi_assets_freeze_paired_write_boundary_and_dependencies() -> N
     for freq, definition, upstream in zip(
         MAJOR_INDEX_MINS_TECHNICAL_FREQS,
         GOLD_MAJOR_INDEX_MINS_TECHNICAL_ASSETS,
-        SILVER_MAJOR_INDEX_MINS_ASSETS,
+        GOLD_MAJOR_INDEX_MINS_ASSETS,
         strict=True,
     ):
         technical_key = major_index_mins_technical_asset_key(freq)
@@ -70,9 +70,7 @@ def test_seven_multi_assets_freeze_paired_write_boundary_and_dependencies() -> N
             technical_key,
             state_key,
         }
-        assert definition.asset_deps == {
-            key: {upstream.key} for key in definition.keys
-        }
+        assert definition.asset_deps == {key: {upstream.key} for key in definition.keys}
         specs = {spec.key.to_user_string(): spec for spec in definition.specs}
         for asset_key, paired_key in (
             (technical_key, state_key),
@@ -88,13 +86,12 @@ def test_seven_multi_assets_freeze_paired_write_boundary_and_dependencies() -> N
             assert spec.metadata["goldenshare/source_system"] == "derived"
             assert spec.metadata["goldenshare/freq"] == freq
             assert spec.metadata["goldenshare/paired_asset_key"] == paired_key
-            assert (
-                spec.metadata["goldenshare/write_boundary"]
-                == "m5_daily_multi_asset"
-            )
+            assert spec.metadata["goldenshare/write_boundary"] == "m5_daily_multi_asset"
 
 
-def test_project_definitions_register_exactly_fourteen_assets_and_seventy_checks() -> None:
+def test_project_definitions_register_exactly_fourteen_assets_and_seventy_checks() -> (
+    None
+):
     definitions = project_defs()
     asset_graph = definitions.resolve_asset_graph()
     expected_assets = _expected_asset_keys()
@@ -138,8 +135,8 @@ def test_m6_daily_job_selects_exactly_fourteen_assets_and_seventy_checks() -> No
     asset_graph = definitions.resolve_asset_graph()
     expected_assets = _expected_asset_keys()
     expected_checks = _expected_technical_check_keys() | _expected_state_check_keys()
-    selected_assets = gold_major_index_mins_technical_daily_update_job.selection.resolve(
-        asset_graph
+    selected_assets = (
+        gold_major_index_mins_technical_daily_update_job.selection.resolve(asset_graph)
     )
     selected_checks = (
         gold_major_index_mins_technical_daily_update_job.selection.resolve_checks(

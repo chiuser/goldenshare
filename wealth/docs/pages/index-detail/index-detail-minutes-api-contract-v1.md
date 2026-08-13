@@ -1,16 +1,19 @@
 # 指数详情本地分钟 API / DTO 合同 v1
 
-> 版本：`1.0.4`
-> 状态：M5-B 已完成：14 个 Gold 资产、70 个 Definitions checks、正式物理覆盖、全历史 Silver/Gold 对齐、性能、真实 indicator provider、Mock 清零和浏览器回归均已通过验收。
+> 版本：`1.1.0-draft`
+> 状态：reader 代码已切换为只读新增 Gold bars，但正式 Gold 历史 Bootstrap、事件补录和运行验收尚未执行；在全量对账通过前不得把该代码状态视为正式数据可用，也不保留 Silver fallback。切换顺序以 [A 股分钟线 Gold 标准 K 线合同与历史重建 LLD](../../../../lake_console/docs/design/dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md) 为准。
 > 命名空间：`/api/v1/wealth/market/index-detail/*`
 
 ## 1. 边界
 
 1. 本合同只在 `APP_ENV in {dev, local}`、本地分钟开关开启、正式 Lake 根可读且 DuckDB 可用时挂载；prod/staging 不挂载，访问返回 404。
-2. bars 唯一读取 `/Volumes/datasource/data_lake/silver/quote/major_index_mins`；indicators 唯一读取正式 Gold `major_index_mins_technical`，不读取 state、旧 Lake 或 staging。
-3. `899050.BJ` 属于页面十指数名单，但不在 Silver 源覆盖中；分钟 bars 返回 `EMPTY + IM_SOURCE_NOT_READY`。
-4. Lake 中存在但不属于页面十指数名单的代码，例如 `000680.SH`，返回 `ID_NOT_FOUND`。
-5. M5-A 前端开发态指标 Mock 不是 HTTP 接口返回值；M5-B 已删除 Mock provider、标识和专属测试，不保留双源兼容或错误 fallback。
+2. bars 最终唯一读取 `/Volumes/datasource/data_lake/gold/quote/major_index_mins`；indicators 唯一读取正式 Gold `major_index_mins_technical`，不读取 Silver、state、旧 Lake 或 staging。新 Gold 完成全量对账前不得部署此 reader 切换，也不保留 Silver fallback。
+3. Gold 1m 可返回 09:30；Gold 5m/15m/30m/60m/90m/120m 禁止返回独立 09:30，首根时间分别为 09:35/09:45/10:00/10:30/11:00/11:30。
+4. bars 与 indicators 必须按完整 `tradeTime` 集合严格相等；不允许后端或前端自行补 bar、删 bar 或按数组位置对齐。
+5. 七频均不得返回 `15:01-15:30`；完整交易日最后一根必须精确为 15:00，技术指标同样截止 15:00。
+6. `899050.BJ` 属于页面十指数名单，但不在 Gold 源覆盖中；分钟 bars 返回 `EMPTY + IM_SOURCE_NOT_READY`。
+7. Lake 中存在但不属于页面十指数名单的代码，例如 `000680.SH`，返回 `ID_NOT_FOUND`。
+8. M5-A 前端开发态指标 Mock 不是 HTTP 接口返回值；M5-B 已删除 Mock provider、标识和专属测试，不保留双源兼容或错误 fallback。
 
 ## 2. 请求
 

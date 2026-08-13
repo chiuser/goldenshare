@@ -4,15 +4,17 @@ import pytest
 
 from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
     AUCTION_ANCHOR_ROLE,
-    CN_A_DERIVED_MINUTE_IGNORED_SOURCE_TIMES,
     REGULAR_SOURCE_ROLE,
+    canonical_gold_minute_windows,
     cn_a_derived_minute_completion_predicate,
-    cn_a_derived_minute_ignored_source_time_predicate_sql,
     cn_a_derived_minute_target_times,
     cn_a_derived_minute_window_map_sql,
     cn_a_derived_minute_window_rows,
     cn_a_derived_minute_windows,
+    cn_a_gold_minute_ignored_source_time_predicate_sql,
+    expected_gold_minute_times,
     normalize_cn_a_derived_minute_freq,
+    normalize_cn_a_gold_minute_freq,
 )
 
 
@@ -81,20 +83,123 @@ def test_target_times_and_completion_predicate_are_exact() -> None:
     )
 
 
-def test_1530_after_hours_is_ignored_without_exchange_branching() -> None:
-    assert CN_A_DERIVED_MINUTE_IGNORED_SOURCE_TIMES == ("15:30:00",)
-    predicate = cn_a_derived_minute_ignored_source_time_predicate_sql(
+def test_post_close_source_range_is_ignored_without_exchange_branching() -> None:
+    predicate = cn_a_gold_minute_ignored_source_time_predicate_sql(
         trade_time_column="source_rows.trade_time",
     )
     assert predicate == (
-        "strftime(source_rows.trade_time, '%H:%M:%S') IN ('15:30:00')"
+        "strftime(source_rows.trade_time, '%H:%M:%S') > '15:00:00' "
+        "AND strftime(source_rows.trade_time, '%H:%M:%S') <= '15:30:00'"
     )
     assert "exchange" not in predicate.lower()
 
     with pytest.raises(ValueError):
-        cn_a_derived_minute_ignored_source_time_predicate_sql(
+        cn_a_gold_minute_ignored_source_time_predicate_sql(
             trade_time_column="source_rows.trade_time OR true",
         )
+
+
+def test_canonical_gold_target_times_freeze_all_seven_frequencies() -> None:
+    assert len(expected_gold_minute_times("SSE", 1)) == 241
+    assert expected_gold_minute_times("SSE", 1)[:3] == (
+        "09:30:00",
+        "09:31:00",
+        "09:32:00",
+    )
+    assert expected_gold_minute_times("SSE", 1)[-2:] == (
+        "14:59:00",
+        "15:00:00",
+    )
+
+    assert len(expected_gold_minute_times("SZSE", 5)) == 48
+    assert expected_gold_minute_times("SZSE", 5)[:3] == (
+        "09:35:00",
+        "09:40:00",
+        "09:45:00",
+    )
+    assert expected_gold_minute_times("SZSE", 5)[23:26] == (
+        "11:30:00",
+        "13:05:00",
+        "13:10:00",
+    )
+    assert expected_gold_minute_times("SZSE", 5)[-1] == "15:00:00"
+
+    assert expected_gold_minute_times("BSE", 15) == (
+        "09:45:00",
+        "10:00:00",
+        "10:15:00",
+        "10:30:00",
+        "10:45:00",
+        "11:00:00",
+        "11:15:00",
+        "11:30:00",
+        "13:15:00",
+        "13:30:00",
+        "13:45:00",
+        "14:00:00",
+        "14:15:00",
+        "14:30:00",
+        "14:45:00",
+        "15:00:00",
+    )
+    assert expected_gold_minute_times("XSHG", 30) == (
+        "10:00:00",
+        "10:30:00",
+        "11:00:00",
+        "11:30:00",
+        "13:30:00",
+        "14:00:00",
+        "14:30:00",
+        "15:00:00",
+    )
+    assert expected_gold_minute_times("XSHE", 60) == (
+        "10:30:00",
+        "11:30:00",
+        "14:00:00",
+        "15:00:00",
+    )
+    assert expected_gold_minute_times("SSE", 90) == (
+        "11:00:00",
+        "14:00:00",
+        "15:00:00",
+    )
+    assert expected_gold_minute_times("SSE", 120) == (
+        "11:30:00",
+        "15:00:00",
+    )
+
+
+def test_canonical_gold_first_window_uses_auction_as_separate_anchor() -> None:
+    one_minute = canonical_gold_minute_windows(1)
+    assert one_minute[0].target_time == "09:30:00"
+    assert one_minute[0].regular_source_times == ("09:30:00",)
+    assert one_minute[0].auction_anchor_time is None
+
+    expected_first_windows = {
+        5: ("09:35:00", ("09:31:00", "09:32:00", "09:33:00", "09:34:00", "09:35:00")),
+        15: ("09:45:00", ("09:35:00", "09:40:00", "09:45:00")),
+        30: (
+            "10:00:00",
+            ("09:35:00", "09:40:00", "09:45:00", "09:50:00", "09:55:00", "10:00:00"),
+        ),
+        60: ("10:30:00", ("10:00:00", "10:30:00")),
+        90: ("11:00:00", ("10:00:00", "10:30:00", "11:00:00")),
+        120: ("11:30:00", ("10:30:00", "11:30:00")),
+    }
+    for freq, (target_time, regular_source_times) in expected_first_windows.items():
+        first = canonical_gold_minute_windows(freq)[0]
+        assert first.target_time == target_time
+        assert first.auction_anchor_time == "09:30:00"
+        assert first.regular_source_times == regular_source_times
+        assert "09:30:00" not in first.regular_source_times
+
+
+def test_invalid_canonical_gold_frequency_or_exchange_is_rejected() -> None:
+    assert normalize_cn_a_gold_minute_freq("120min") == 120
+    with pytest.raises(ValueError):
+        normalize_cn_a_gold_minute_freq(10)
+    with pytest.raises(ValueError):
+        expected_gold_minute_times("NYSE", 5)
 
 
 def test_invalid_frequency_is_rejected() -> None:

@@ -22,22 +22,22 @@ from src.foundation.clients.local_lake.major_index_mins_reader import (  # noqa:
 
 
 def _write_fixture(root: Path, *, dataset: str) -> None:
-    if dataset == "silver":
+    if dataset == "bars":
         target = root / (
-            "silver/quote/major_index_mins/freq=5min/"
-            "trade_date=2026-08-11/part-000.parquet"
+            "gold/quote/major_index_mins/freq=5/trade_date=2026-08-11/part-000.parquet"
         )
         create_sql = """
             CREATE TABLE fixture (
-              ts_code VARCHAR, freq VARCHAR, trade_time TIMESTAMP,
-              open DOUBLE, close DOUBLE, high DOUBLE, low DOUBLE,
+              ts_code VARCHAR, freq INTEGER, trade_date DATE, trade_time TIMESTAMP,
+              open DOUBLE, high DOUBLE, low DOUBLE, close DOUBLE,
               vol DOUBLE, amount DOUBLE, exchange VARCHAR, vwap DOUBLE
             )
         """
         insert_sql = """
             INSERT INTO fixture VALUES (
-              '000001.SH', '5min', TIMESTAMP '2026-08-11 09:35:00',
-              1, 1.1, 1.2, .9, 10, 100, 'SSE', 1.05
+              '000001.SH', 5, DATE '2026-08-11',
+              TIMESTAMP '2026-08-11 09:35:00',
+              1, 1.2, .9, 1.1, 10, 100, 'SSE', 1.05
             )
         """
     else:
@@ -77,7 +77,7 @@ def _write_fixture(root: Path, *, dataset: str) -> None:
 def test_gold_acceptance_reports_source_not_ready_without_gold_files(
     tmp_path: Path,
 ) -> None:
-    _write_fixture(tmp_path, dataset="silver")
+    _write_fixture(tmp_path, dataset="bars")
 
     result = run_gold_acceptance(
         lake_root=tmp_path,
@@ -95,7 +95,7 @@ def test_gold_acceptance_reports_source_not_ready_without_gold_files(
 def test_gold_acceptance_checks_alignment_and_query_service_performance(
     tmp_path: Path,
 ) -> None:
-    _write_fixture(tmp_path, dataset="silver")
+    _write_fixture(tmp_path, dataset="bars")
     _write_fixture(tmp_path, dataset="gold")
 
     result = run_gold_acceptance(
@@ -122,7 +122,9 @@ def test_maximum_response_acceptance_treats_5mb_rejection_as_expected(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    service = _FakeIndicatorService(reject_maximum_with="响应超过 5MB，请降低 limit 或使用 cursor 分页。")
+    service = _FakeIndicatorService(
+        reject_maximum_with="响应超过 5MB，请降低 limit 或使用 cursor 分页。"
+    )
     monkeypatch.setattr(
         "src.scripts.audit_index_minute_gold.IndexDetailMinutesQueryService",
         lambda _lake_root: service,

@@ -1,5 +1,11 @@
 # Dagster 股票分钟线 QFQ 计算测试与生产 Check 治理低层设计
 
+> 2026-08-13 当前口径：production check 数量和“公式由金样本保护”的治理原则不变；
+> Gold 5m/15m/30m/60m 的 09:30 输出、90m/120m source、历史 QFQ 与指标/state
+> 重建改由
+> [A 股分钟线 Gold 标准 K 线合同与历史重建 LLD](./dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md)
+> 统一约束。本文任何“原生五频算法不变”的历史描述不得覆盖新窗口合同。
+
 更新时间：2026-07-15
 
 状态：代码收敛完成；QFQ/MACD-KDJ 范围内本地验证通过。全仓共享治理测试目前受无关的 `dc_board` 未提交 catalog 变更阻塞，详见第 15 节；不得启用或初始化已撤销的 as-of basis 方案。

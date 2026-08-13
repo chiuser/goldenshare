@@ -1,5 +1,12 @@
 # 股票详情分钟线与分钟技术指标 API LLD v1.7
 
+> 2026-08-13 数据合同修正：reader 的 Gold-only 边界不变，但正式 Gold QFQ
+> 5m/15m/30m/60m 与对应 MACD/KDJ/state 必须按
+> [A 股分钟线 Gold 标准 K 线合同与历史重建 LLD](../../../../lake_console/docs/design/dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md)
+> 全历史重建。Gold 1m 保留 09:30，非 1m 禁止独立 09:30；API 必须严格按时间键对齐
+> bars/indicators，不得在读取层过滤错误数据来伪装修复。七频均不得展示 `15:01-15:30`，
+> 完整交易日最后一根必须精确为 15:00，技术指标和递推 state 同样截止 15:00。
+
 > 方案：[分钟 API 技术实施方案](./stock-detail-minutes-api-implementation-design-v1.md)
 > 需求：[分钟 API 标杆需求](./stock-detail-minutes-api-benchmark-requirement-v1.md)
 > 门禁：[分钟 API 编码前门禁](./stock-detail-minutes-api-m2-coding-gate-v1.md)

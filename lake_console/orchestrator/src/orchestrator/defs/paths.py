@@ -679,6 +679,41 @@ def silver_major_index_mins_staging_path(
     )
 
 
+def gold_major_index_mins_path(
+    root: Path,
+    freq: int | str,
+    partition_key: str,
+) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "quote",
+        "major_index_mins",
+        f"freq={int(str(freq).lower().removesuffix('min').removesuffix('m'))}",
+        f"trade_date={_major_index_mins_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def gold_major_index_mins_staging_path(
+    staging_root: Path,
+    run_id: str,
+    freq: int | str,
+    partition_key: str,
+) -> Path:
+    return lake_path(
+        staging_root,
+        GOLD,
+        "quote",
+        "major_index_mins",
+        "_staging",
+        f"run_id={_safe_run_id_part(run_id, asset_family='gold_major_index_mins')}",
+        f"freq={int(str(freq).lower().removesuffix('min').removesuffix('m'))}",
+        f"trade_date={_major_index_mins_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
 def _major_index_mins_partition_component(partition_key: str) -> str:
     if partition_key == PATH_TEMPLATE_PARTITION_KEY:
         return partition_key
@@ -692,6 +727,37 @@ def silver_index_mins_path(root: Path, freq: int | str, partition_key: str) -> P
         "quote",
         "index_mins",
         f"freq={normalize_index_mins_silver_freq(freq)}",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
+def gold_index_mins_path(root: Path, freq: int | str, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "quote",
+        "index_mins",
+        f"freq={int(str(freq).lower().removesuffix('min').removesuffix('m'))}",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
+def gold_index_mins_staging_path(
+    staging_root: Path,
+    run_id: str,
+    freq: int | str,
+    partition_key: str,
+) -> Path:
+    return lake_path(
+        staging_root,
+        GOLD,
+        "quote",
+        "index_mins",
+        "_staging",
+        f"run_id={_safe_run_id_part(run_id, asset_family='gold_index_mins')}",
+        f"freq={int(str(freq).lower().removesuffix('min').removesuffix('m'))}",
         f"trade_date={partition_key}",
         "part-000.parquet",
     )

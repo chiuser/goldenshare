@@ -6,12 +6,12 @@ from types import SimpleNamespace
 import dagster as dg
 import duckdb
 
+from orchestrator.defs import stk_mins_qfq_factor_repair as repair_module
 from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
     asset_check_record_event_storage_id,
     asset_check_record_storage_id,
     gold_stk_mins_qfq_factor_repair_status,
 )
-from orchestrator.defs import stk_mins_qfq_factor_repair as repair_module
 from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     duckdb_string,
@@ -39,16 +39,19 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_STK_MINS_SCHEMA,
     SILVER_STOCK_BASIC_SCHEMA,
 )
+from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
+    expected_canonical_gold_source_times,
+)
 from orchestrator.defs.stk_mins_qfq import (
     GOLD_STK_MINS_QFQ_FACTOR_REPAIR_PLAN_CHECK_NAME,
     GOLD_STK_MINS_QFQ_WRITER_POOL,
     QFQ_FACTOR_REPAIR_REASON_FACTOR_CHANGED,
     QFQ_FACTOR_REPAIR_REASON_NO_FACTOR_CHANGED,
+    gold_stk_mins_qfq_source_freq,
 )
 from orchestrator.defs.stk_mins_qfq_factor_repair import (
     execute_gold_stk_mins_qfq_factor_repair,
 )
-
 
 PREVIOUS_DATE = "2026-05-28"
 TRADE_DATE = "2026-05-29"
@@ -249,13 +252,26 @@ def _write_repair_inputs(
         [_adj_row(STOCK_A, TRADE_DATE, current_factor)],
     )
     if write_silver_rows:
+        source_times = expected_canonical_gold_source_times(1)
         _write_silver_mins(
             silver_stk_mins_path(lake_root, 1, PREVIOUS_DATE),
-            [_silver_row(STOCK_A, PREVIOUS_DATE, "09:30:00", open_=10.0)],
+            _intraday_rows(
+                STOCK_A,
+                PREVIOUS_DATE,
+                freq=1,
+                trade_times=source_times,
+                open_base=10.0,
+            ),
         )
         _write_silver_mins(
             silver_stk_mins_path(lake_root, 1, TRADE_DATE),
-            [_silver_row(STOCK_A, TRADE_DATE, "09:30:00", open_=20.0)],
+            _intraday_rows(
+                STOCK_A,
+                TRADE_DATE,
+                freq=1,
+                trade_times=source_times,
+                open_base=20.0,
+            ),
         )
 
 
@@ -303,20 +319,27 @@ def _write_multi_code_repair_inputs(
                 for stock_code in stock_codes
             ],
         )
-        for freq in freqs:
+        source_times_by_freq: dict[int, set[str]] = {}
+        for target_freq in freqs:
+            source_freq = gold_stk_mins_qfq_source_freq(target_freq)
+            source_times_by_freq.setdefault(source_freq, set()).update(
+                expected_canonical_gold_source_times(target_freq)
+            )
+        for source_freq, source_times in sorted(source_times_by_freq.items()):
             rows = [
                 _silver_row(
                     stock_code,
                     partition_key,
-                    "09:30:00",
-                    open_=10.0 + index,
-                    freq=freq,
+                    trade_time,
+                    open_=10.0 + stock_index + time_index,
+                    freq=source_freq,
                 )
-                for index, stock_code in enumerate(stock_codes)
+                for stock_index, stock_code in enumerate(stock_codes)
                 if stock_code not in missing_silver_codes
+                for time_index, trade_time in enumerate(sorted(source_times))
             ]
             _write_silver_mins(
-                silver_stk_mins_path(lake_root, freq, partition_key),
+                silver_stk_mins_path(lake_root, source_freq, partition_key),
                 rows,
             )
 
@@ -522,16 +545,55 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
         self.assertEqual(report.plan.reason, QFQ_FACTOR_REPAIR_REASON_FACTOR_CHANGED)
         self.assertEqual(report.repaired_code_count, 1)
         self.assertEqual(report.rewritten_file_count, 1)
-        self.assertEqual(len(rows), 2)
+        self.assertEqual(len(rows), 2 * len(expected_canonical_gold_source_times(1)))
         self.assertAlmostEqual(rows[0]["open"], 5.0)
-        self.assertAlmostEqual(rows[1]["open"], 20.0)
-        self.assertEqual(report.rewritten_row_count, 2)
+        self.assertAlmostEqual(
+            rows[len(expected_canonical_gold_source_times(1))]["open"],
+            20.0,
+        )
+        self.assertEqual(
+            report.rewritten_row_count,
+            2 * len(expected_canonical_gold_source_times(1)),
+        )
         self.assertEqual(report.execution_model, "freq_year_batch")
         self.assertEqual(report.planned_batch_count, 1)
         self.assertEqual(report.executed_batch_count, 1)
         self.assertEqual(report.non_empty_batch_count, 1)
         self.assertFalse(hasattr(repair_module, "_discover_silver_adj_factor_paths"))
         self.assertFalse(hasattr(repair_module, "_write_latest_adj_factor_snapshot"))
+
+    def test_factor_repair_rejects_partial_canonical_source_before_rewrite(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            _write_repair_inputs(lake_root, changed=True)
+            _write_silver_mins(
+                silver_stk_mins_path(lake_root, 1, PREVIOUS_DATE),
+                [_silver_row(STOCK_A, PREVIOUS_DATE, "09:30:00", open_=10.0)],
+            )
+            target_path = gold_stk_mins_qfq_path(lake_root, 1, STOCK_A, 2026)
+            original_rows = [
+                _gold_row(STOCK_A, PREVIOUS_DATE, "09:30:00", open_=999.0),
+                _gold_row(STOCK_A, TRADE_DATE, "09:30:00", open_=999.0),
+            ]
+            _write_gold_qfq(target_path, original_rows)
+
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "Canonical Gold qfq source windows are incomplete",
+            ):
+                execute_gold_stk_mins_qfq_factor_repair(
+                    lake_root=lake_root,
+                    duckdb_resource=DuckDBResource(),
+                    trade_date=TRADE_DATE,
+                    expected_trade_dates=EXPECTED_TRADE_DATES,
+                    registered_partition_keys=[PREVIOUS_DATE, TRADE_DATE],
+                    freqs=[1],
+                )
+            rows = _read_gold_rows(target_path)
+
+        self.assertEqual([row["open"] for row in rows], [999.0, 999.0])
 
     def test_factor_repair_rebuilds_derived_90m_and_120m_after_30m_60m(
         self,
@@ -551,6 +613,16 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
                 [_adj_row(STOCK_A, TRADE_DATE, 4.0)],
             )
             for partition_key, open_base in ((PREVIOUS_DATE, 10.0), (TRADE_DATE, 20.0)):
+                _write_silver_mins(
+                    silver_stk_mins_path(lake_root, 5, partition_key),
+                    _intraday_rows(
+                        STOCK_A,
+                        partition_key,
+                        freq=5,
+                        trade_times=expected_canonical_gold_source_times(30),
+                        open_base=open_base,
+                    ),
+                )
                 _write_silver_mins(
                     silver_stk_mins_path(lake_root, 30, partition_key),
                     _intraday_rows(

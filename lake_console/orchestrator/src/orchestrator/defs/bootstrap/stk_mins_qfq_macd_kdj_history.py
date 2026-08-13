@@ -1,15 +1,23 @@
 from __future__ import annotations
 
+import hashlib
+import json
+import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from orchestrator.defs.checks import stk_mins_qfq_macd_kdj_checks as macd_kdj_checks
+from orchestrator.defs.asset_guards.stk_mins_continuity import (
+    assert_exact_previous_state_path,
+    is_first_expected_trade_date,
+    previous_expected_trade_date,
+)
 from orchestrator.defs.bootstrap.stk_mins_qfq_history import (
     STK_MINS_QFQ_HISTORY_START_DATE,
     _normalize_years,
     _select_registered_partition_keys,
 )
+from orchestrator.defs.checks import stk_mins_qfq_macd_kdj_checks as macd_kdj_checks
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
 from orchestrator.defs.paths import (
@@ -26,10 +34,8 @@ from orchestrator.defs.stk_mins_qfq_macd_kdj import (
     GoldStkMinsQfqMacdKdjStateWriteResult,
     GoldStkMinsQfqMacdKdjWriteResult,
     discover_gold_stk_mins_qfq_source_year_paths,
-    discover_latest_macd_kdj_state_path_before_trade_date,
     write_gold_stk_mins_qfq_macd_kdj_rows,
 )
-
 
 GOLD_STK_MINS_QFQ_MACD_KDJ_CHECK_COUNT_PER_FREQ_PARTITION = len(
     macd_kdj_checks.GOLD_STK_MINS_QFQ_MACD_KDJ_CHECK_NAMES
@@ -116,6 +122,17 @@ class StkMinsQfqMacdKdjHistoryReport:
             result.indicator_row_count + result.state_row_count
             for result in self.batch_results
         )
+
+
+@dataclass(frozen=True)
+class StkMinsQfqMacdKdjRebuildReport:
+    plan: StkMinsQfqMacdKdjHistoryPlan
+    plan_fingerprint: str
+    checkpoint_path: Path
+    stock_codes: tuple[str, ...]
+    resumed_batch_count: int
+    executed_batch_count: int
+    batch_results: tuple[StkMinsQfqMacdKdjHistoryBatchResult, ...]
 
 
 @dataclass(frozen=True)
@@ -268,50 +285,279 @@ def generate_stk_mins_qfq_macd_kdj_history(
             f"{plan.existing_target_file_count}."
         )
 
+    expected_trade_dates = tuple(sorted(set(registered_partition_keys)))
     batch_results: list[StkMinsQfqMacdKdjHistoryBatchResult] = []
     for batch in plan.batches:
-        source_paths = discover_gold_stk_mins_qfq_source_year_paths(
-            lake_root,
-            freq=batch.freq,
-            trade_dates=batch.partition_keys,
-        )
-        previous_state_path = discover_latest_macd_kdj_state_path_before_trade_date(
-            lake_root,
-            freq=batch.freq,
-            trade_date=batch.partition_keys[0],
-        )
-        indicator_results, state_results, initialized_without_previous_state = (
-            write_gold_stk_mins_qfq_macd_kdj_rows(
-                lake_root=lake_root,
-                freq=batch.freq,
-                source_qfq_paths=source_paths,
-                target_trade_dates=batch.partition_keys,
-                previous_state_paths=(
-                    (previous_state_path,) if previous_state_path is not None else ()
-                ),
-                fail_if_target_exists=True,
-            )
-        )
         batch_results.append(
-            StkMinsQfqMacdKdjHistoryBatchResult(
-                freq=batch.freq,
-                year=batch.year,
-                partition_keys=batch.partition_keys,
-                indicator_file_count=len(indicator_results),
-                indicator_row_count=sum(
-                    result.replacement_row_count for result in indicator_results
-                ),
-                state_file_count=len(state_results),
-                state_row_count=sum(result.row_count for result in state_results),
-                initialized_without_previous_state=initialized_without_previous_state,
-                indicator_write_results=tuple(indicator_results),
-                state_write_results=tuple(state_results),
+            _execute_macd_kdj_history_batch(
+                lake_root=lake_root,
+                batch=batch,
+                expected_trade_dates=expected_trade_dates,
+                stock_codes=(),
+                fail_if_target_exists=True,
             )
         )
     return StkMinsQfqMacdKdjHistoryReport(
         plan=plan,
         batch_results=tuple(batch_results),
     )
+
+
+def rebuild_stk_mins_qfq_macd_kdj_history(
+    *,
+    checkpoint_path: Path,
+    lake_root: Path = Path(DEFAULT_LAKE_ROOT),
+    duckdb_resource: DuckDBResource,
+    registered_partition_keys: Sequence[str],
+    partition_keys: Sequence[str] | None = None,
+    start_date: str = STK_MINS_QFQ_HISTORY_START_DATE,
+    end_date: str | None = None,
+    freqs: Sequence[int | str] = (5, 15, 30, 60),
+    years: Sequence[int | str] | None = None,
+    stock_codes: Sequence[str] = (),
+) -> StkMinsQfqMacdKdjRebuildReport:
+    """Rebuild indicators/state in strict expected-date order per freq-year batch."""
+
+    normalized_stock_codes = tuple(
+        sorted({str(code).strip() for code in stock_codes if str(code).strip()})
+    )
+    plan = plan_stk_mins_qfq_macd_kdj_history(
+        lake_root=lake_root,
+        registered_partition_keys=registered_partition_keys,
+        partition_keys=partition_keys,
+        start_date=start_date,
+        end_date=end_date,
+        freqs=freqs,
+        years=years,
+        duckdb_resource=duckdb_resource,
+    )
+    if plan.missing_input_count:
+        raise FileNotFoundError(
+            "Gold qfq MACD/KDJ rebuild inputs are missing: "
+            f"{tuple(plan.missing_input_samples)}"
+        )
+    plan_fingerprint = _macd_kdj_rebuild_plan_fingerprint(
+        plan,
+        stock_codes=normalized_stock_codes,
+    )
+    completed_batch_keys = _load_macd_kdj_rebuild_checkpoint(
+        checkpoint_path=checkpoint_path,
+        plan_fingerprint=plan_fingerprint,
+    )
+    expected_trade_dates = tuple(sorted(set(registered_partition_keys)))
+    batch_results: list[StkMinsQfqMacdKdjHistoryBatchResult] = []
+    resumed_batch_count = 0
+    for batch in plan.batches:
+        batch_key = _macd_kdj_batch_key(batch)
+        if batch_key in completed_batch_keys:
+            _assert_completed_macd_kdj_batch_exists(
+                lake_root=lake_root,
+                batch=batch,
+                stock_codes=normalized_stock_codes,
+                duckdb_resource=duckdb_resource,
+            )
+            resumed_batch_count += 1
+            continue
+        result = _execute_macd_kdj_history_batch(
+            lake_root=lake_root,
+            batch=batch,
+            expected_trade_dates=expected_trade_dates,
+            stock_codes=normalized_stock_codes,
+            fail_if_target_exists=False,
+        )
+        batch_results.append(result)
+        completed_batch_keys.add(batch_key)
+        _write_macd_kdj_rebuild_checkpoint(
+            checkpoint_path=checkpoint_path,
+            plan_fingerprint=plan_fingerprint,
+            completed_batch_keys=completed_batch_keys,
+        )
+    return StkMinsQfqMacdKdjRebuildReport(
+        plan=plan,
+        plan_fingerprint=plan_fingerprint,
+        checkpoint_path=checkpoint_path,
+        stock_codes=normalized_stock_codes,
+        resumed_batch_count=resumed_batch_count,
+        executed_batch_count=len(batch_results),
+        batch_results=tuple(batch_results),
+    )
+
+
+def _execute_macd_kdj_history_batch(
+    *,
+    lake_root: Path,
+    batch: StkMinsQfqMacdKdjHistoryBatch,
+    expected_trade_dates: Sequence[str],
+    stock_codes: Sequence[str],
+    fail_if_target_exists: bool,
+) -> StkMinsQfqMacdKdjHistoryBatchResult:
+    source_paths = discover_gold_stk_mins_qfq_source_year_paths(
+        lake_root,
+        freq=batch.freq,
+        trade_dates=batch.partition_keys,
+        stock_codes=stock_codes or None,
+    )
+    first_batch_trade_date = batch.partition_keys[0]
+    previous_trade_date = previous_expected_trade_date(
+        expected_trade_dates,
+        first_batch_trade_date,
+    )
+    previous_state_path = assert_exact_previous_state_path(
+        lake_root=lake_root,
+        freq=batch.freq,
+        target_trade_date=first_batch_trade_date,
+        previous_expected_trade_date=previous_trade_date,
+        allow_without_previous_state=is_first_expected_trade_date(
+            expected_trade_dates,
+            first_batch_trade_date,
+        ),
+    )
+    indicator_results, state_results, initialized_without_previous_state = (
+        write_gold_stk_mins_qfq_macd_kdj_rows(
+            lake_root=lake_root,
+            freq=batch.freq,
+            source_qfq_paths=source_paths,
+            target_trade_dates=batch.partition_keys,
+            previous_state_paths=(
+                (previous_state_path,) if previous_state_path is not None else ()
+            ),
+            stock_codes=stock_codes,
+            fail_if_target_exists=fail_if_target_exists,
+        )
+    )
+    if len(state_results) != len(batch.partition_keys):
+        raise RuntimeError(
+            "Gold qfq MACD/KDJ rebuild did not write one state per date: "
+            f"freq={batch.freq}, year={batch.year}, "
+            f"expected={len(batch.partition_keys)}, actual={len(state_results)}."
+        )
+    return StkMinsQfqMacdKdjHistoryBatchResult(
+        freq=batch.freq,
+        year=batch.year,
+        partition_keys=batch.partition_keys,
+        indicator_file_count=len(indicator_results),
+        indicator_row_count=sum(
+            result.replacement_row_count for result in indicator_results
+        ),
+        state_file_count=len(state_results),
+        state_row_count=sum(result.row_count for result in state_results),
+        initialized_without_previous_state=initialized_without_previous_state,
+        indicator_write_results=tuple(indicator_results),
+        state_write_results=tuple(state_results),
+    )
+
+
+def _macd_kdj_rebuild_plan_fingerprint(
+    plan: StkMinsQfqMacdKdjHistoryPlan,
+    *,
+    stock_codes: Sequence[str],
+) -> str:
+    payload = {
+        "partition_keys": plan.selected_partition_keys,
+        "freqs": plan.selected_freqs,
+        "years": plan.selected_years,
+        "batches": tuple(_macd_kdj_batch_key(batch) for batch in plan.batches),
+        "stock_codes": tuple(stock_codes),
+        "contract": "gold_stk_mins_qfq_macd_kdj_sequential_v1",
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _macd_kdj_batch_key(batch: StkMinsQfqMacdKdjHistoryBatch) -> str:
+    return f"{batch.freq}:{batch.year}:{batch.partition_keys[0]}:{batch.partition_keys[-1]}"
+
+
+def _load_macd_kdj_rebuild_checkpoint(
+    *,
+    checkpoint_path: Path,
+    plan_fingerprint: str,
+) -> set[str]:
+    if not checkpoint_path.exists():
+        return set()
+    payload = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    if payload.get("schema_version") != 1:
+        raise ValueError("Unsupported MACD/KDJ rebuild checkpoint schema.")
+    if payload.get("plan_fingerprint") != plan_fingerprint:
+        raise ValueError("MACD/KDJ rebuild checkpoint belongs to another plan.")
+    completed = payload.get("completed_batch_keys")
+    if not isinstance(completed, list) or not all(
+        isinstance(item, str) for item in completed
+    ):
+        raise ValueError("MACD/KDJ rebuild checkpoint batch list is invalid.")
+    return set(completed)
+
+
+def _write_macd_kdj_rebuild_checkpoint(
+    *,
+    checkpoint_path: Path,
+    plan_fingerprint: str,
+    completed_batch_keys: set[str],
+) -> None:
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = checkpoint_path.with_name(f".{checkpoint_path.name}.tmp")
+    temp_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "plan_fingerprint": plan_fingerprint,
+                "completed_batch_keys": sorted(completed_batch_keys),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    os.replace(temp_path, checkpoint_path)
+
+
+def _assert_completed_macd_kdj_batch_exists(
+    *,
+    lake_root: Path,
+    batch: StkMinsQfqMacdKdjHistoryBatch,
+    stock_codes: Sequence[str],
+    duckdb_resource: DuckDBResource,
+) -> None:
+    state_paths = _state_paths_for_batch(lake_root, batch)
+    missing_state_paths = tuple(path for path in state_paths if not path.exists())
+    if stock_codes:
+        indicator_paths = tuple(
+            gold_stk_mins_qfq_macd_kdj_path(
+                lake_root,
+                batch.freq,
+                stock_code,
+                batch.year,
+            )
+            for stock_code in stock_codes
+        )
+    else:
+        source_paths = discover_gold_stk_mins_qfq_source_year_paths(
+            lake_root,
+            freq=batch.freq,
+            trade_dates=batch.partition_keys,
+        )
+        indicator_paths = _expected_indicator_paths_for_batch(
+            lake_root=lake_root,
+            duckdb_resource=duckdb_resource,
+            batch=batch,
+            source_paths=source_paths,
+        )
+    missing_indicator_paths = tuple(
+        path for path in indicator_paths if not path.exists()
+    )
+    if (
+        not state_paths
+        or not indicator_paths
+        or missing_state_paths
+        or missing_indicator_paths
+    ):
+        raise FileNotFoundError(
+            "MACD/KDJ rebuild checkpoint targets are missing: "
+            f"batch={_macd_kdj_batch_key(batch)}, "
+            f"state_samples={missing_state_paths[:5]}, "
+            f"indicator_samples={missing_indicator_paths[:5]}."
+        )
 
 
 def audit_stk_mins_qfq_macd_kdj_files(

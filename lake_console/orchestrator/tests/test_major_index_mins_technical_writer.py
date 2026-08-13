@@ -14,11 +14,11 @@ from orchestrator.defs.io.major_index_mins_technical_writer import (
     write_major_index_mins_technical_partition,
 )
 from orchestrator.defs.paths import (
+    gold_major_index_mins_path,
     gold_major_index_mins_technical_path,
     gold_major_index_mins_technical_staging_path,
     gold_major_index_mins_technical_state_path,
     gold_major_index_mins_technical_state_staging_path,
-    silver_major_index_mins_path,
 )
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.major_index_mins_technical import (
@@ -30,14 +30,14 @@ DAY_2 = "2009-01-06"
 FREQ = 120
 
 
-def _write_silver_partition(
+def _write_gold_bar_partition(
     root: Path,
     *,
     trade_date: str,
     codes: tuple[str, ...],
     first_close: float,
 ) -> Path:
-    path = silver_major_index_mins_path(root, f"{FREQ}min", trade_date)
+    path = gold_major_index_mins_path(root, FREQ, trade_date)
     path.parent.mkdir(parents=True, exist_ok=True)
     rows = []
     for code_index, code in enumerate(codes):
@@ -47,33 +47,45 @@ def _write_silver_partition(
             rows.append(
                 (
                     code,
-                    f"{FREQ}min",
+                    FREQ,
+                    trade_date,
                     f"{trade_date} {trade_time}",
+                    close,
                     close + 1.0,
                     close - 1.0,
+                    close,
+                    1.0,
+                    close,
+                    "SSE",
                     close,
                 )
             )
     with duckdb.connect(":memory:") as connection:
         connection.execute(
             """
-            CREATE TABLE silver_rows (
+            CREATE TABLE gold_rows (
               ts_code VARCHAR,
-              freq VARCHAR,
+              freq INTEGER,
+              trade_date DATE,
               trade_time TIMESTAMP,
+              open DOUBLE,
               high DOUBLE,
               low DOUBLE,
-              close DOUBLE
+              close DOUBLE,
+              vol DOUBLE,
+              amount DOUBLE,
+              exchange VARCHAR,
+              vwap DOUBLE
             )
             """
         )
         connection.executemany(
-            "INSERT INTO silver_rows VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO gold_rows VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             rows,
         )
         connection.execute(
             copy_query_to_parquet(
-                "SELECT * FROM silver_rows ORDER BY ts_code, trade_time",
+                "SELECT * FROM gold_rows ORDER BY ts_code, trade_time",
                 path,
             )
         )
@@ -98,13 +110,13 @@ def _read_rows(
 
 
 def _write_day_1_and_day_2_sources(root: Path) -> None:
-    _write_silver_partition(
+    _write_gold_bar_partition(
         root,
         trade_date=DAY_1,
         codes=expected_major_index_mins_technical_codes(DAY_1),
         first_close=10.0,
     )
-    _write_silver_partition(
+    _write_gold_bar_partition(
         root,
         trade_date=DAY_2,
         codes=expected_major_index_mins_technical_codes(DAY_2),
@@ -152,13 +164,13 @@ def test_writer_seeds_first_available_date_then_requires_continuity(
     assert day_2.technical_row_count == day_2.input_row_count
 
 
-def test_writer_reads_silver_from_source_root_and_writes_candidate_target_root(
+def test_writer_reads_gold_bars_from_source_root_and_writes_candidate_target_root(
     tmp_path: Path,
 ) -> None:
     source_root = tmp_path / "formal-lake"
     target_root = tmp_path / "candidate-lake"
     staging_root = tmp_path / "run-staging"
-    _write_silver_partition(
+    _write_gold_bar_partition(
         source_root,
         trade_date=DAY_1,
         codes=expected_major_index_mins_technical_codes(DAY_1),
@@ -181,9 +193,7 @@ def test_writer_reads_silver_from_source_root_and_writes_candidate_target_root(
     assert result.state_path.is_relative_to(target_root)
     assert result.technical_path.is_file()
     assert result.state_path.is_file()
-    assert not gold_major_index_mins_technical_path(
-        source_root, FREQ, DAY_1
-    ).exists()
+    assert not gold_major_index_mins_technical_path(source_root, FREQ, DAY_1).exists()
 
 
 def test_writer_formula_and_state_match_literal_first_day_values(
@@ -191,7 +201,7 @@ def test_writer_formula_and_state_match_literal_first_day_values(
 ) -> None:
     lake_root = tmp_path / "lake"
     staging_root = tmp_path / "staging"
-    _write_silver_partition(
+    _write_gold_bar_partition(
         lake_root,
         trade_date=DAY_1,
         codes=expected_major_index_mins_technical_codes(DAY_1),
@@ -240,12 +250,8 @@ def test_writer_rejects_missing_previous_state_for_continuing_codes(
     lake_root = tmp_path / "lake"
     staging_root = tmp_path / "staging"
     _write_day_1_and_day_2_sources(lake_root)
-    day_1_technical = gold_major_index_mins_technical_path(
-        lake_root, FREQ, DAY_1
-    )
-    day_1_state = gold_major_index_mins_technical_state_path(
-        lake_root, FREQ, DAY_1
-    )
+    day_1_technical = gold_major_index_mins_technical_path(lake_root, FREQ, DAY_1)
+    day_1_state = gold_major_index_mins_technical_state_path(lake_root, FREQ, DAY_1)
     assert not day_1_technical.exists()
     assert not day_1_state.exists()
 
@@ -270,7 +276,7 @@ def test_writer_rejects_later_partition_without_previous_expected_date(
 ) -> None:
     lake_root = tmp_path / "lake"
     staging_root = tmp_path / "staging"
-    _write_silver_partition(
+    _write_gold_bar_partition(
         lake_root,
         trade_date=DAY_2,
         codes=expected_major_index_mins_technical_codes(DAY_2),
@@ -296,7 +302,7 @@ def test_writer_rejects_later_partition_without_previous_expected_date(
 def test_writer_refuses_existing_paired_target(tmp_path: Path) -> None:
     lake_root = tmp_path / "lake"
     staging_root = tmp_path / "staging"
-    _write_silver_partition(
+    _write_gold_bar_partition(
         lake_root,
         trade_date=DAY_1,
         codes=expected_major_index_mins_technical_codes(DAY_1),
@@ -346,7 +352,7 @@ def test_writer_matches_scalar_recursive_reference_across_twenty_days(
 
     for day_index, trade_date in enumerate(expected_dates):
         first_close = 10.0 + day_index
-        _write_silver_partition(
+        _write_gold_bar_partition(
             lake_root,
             trade_date=trade_date,
             codes=expected_major_index_mins_technical_codes(trade_date),
@@ -379,7 +385,9 @@ def test_writer_matches_scalar_recursive_reference_across_twenty_days(
         window_start = max(0, index - 8)
         highest = max(highs[window_start : index + 1])
         lowest = min(lows[window_start : index + 1])
-        rsv = 50.0 if highest == lowest else (close - lowest) / (highest - lowest) * 100.0
+        rsv = (
+            50.0 if highest == lowest else (close - lowest) / (highest - lowest) * 100.0
+        )
         k_value = (2.0 * k_value + rsv) / 3.0
         d_value = (2.0 * d_value + k_value) / 3.0
 
@@ -407,7 +415,7 @@ def test_writer_does_not_scan_future_expected_partition(tmp_path: Path) -> None:
         (DAY_2, 14.0),
         (future_date, 1000.0),
     ):
-        _write_silver_partition(
+        _write_gold_bar_partition(
             lake_root,
             trade_date=trade_date,
             codes=expected_major_index_mins_technical_codes(trade_date),
@@ -436,7 +444,7 @@ def test_writer_leaves_partial_technical_visible_when_state_promotion_fails(
 ) -> None:
     lake_root = tmp_path / "lake"
     staging_root = tmp_path / "staging"
-    _write_silver_partition(
+    _write_gold_bar_partition(
         lake_root,
         trade_date=DAY_1,
         codes=expected_major_index_mins_technical_codes(DAY_1),
@@ -466,9 +474,7 @@ def test_writer_leaves_partial_technical_visible_when_state_promotion_fails(
             expected_trade_dates=(DAY_1,),
         )
 
-    assert gold_major_index_mins_technical_path(
-        lake_root, FREQ, DAY_1
-    ).exists()
+    assert gold_major_index_mins_technical_path(lake_root, FREQ, DAY_1).exists()
     assert not gold_major_index_mins_technical_state_path(
         lake_root, FREQ, DAY_1
     ).exists()

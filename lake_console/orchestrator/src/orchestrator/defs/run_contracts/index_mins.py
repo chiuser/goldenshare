@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from datetime import date, datetime, time, timedelta
 import hashlib
 import re
+from collections.abc import Sequence
+from datetime import date, datetime, time, timedelta
 
-from orchestrator.defs.run_contracts.configs import normalize_iso_trade_date
 from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
-    DerivedMinuteWindow,
+    CanonicalGoldMinuteWindow,
     cn_a_derived_minute_windows,
 )
-
+from orchestrator.defs.run_contracts.configs import normalize_iso_trade_date
 
 INDEX_MINS_HISTORY_START_DATE = "2025-01-02"
 INDEX_MINS_SOURCE_FREQS = ("1min", "5min", "15min", "30min", "60min")
@@ -159,6 +158,14 @@ INDEX_MINS_RAW_CHECKS = tuple(
 INDEX_MINS_SILVER_CHECKS = tuple(
     f"{asset_name}_core_check" for asset_name in INDEX_MINS_SILVER_ASSET_NAMES
 )
+INDEX_MINS_GOLD_ASSET_NAMES = tuple(
+    f"gold_index_mins_{frequency}m" for frequency in INDEX_MINS_SILVER_FREQS
+)
+INDEX_MINS_GOLD_CHECKS = tuple(
+    f"{asset_name}_core_check" for asset_name in INDEX_MINS_GOLD_ASSET_NAMES
+)
+INDEX_MINS_GOLD_JOB_NAME = "gold_index_mins_update_job"
+INDEX_MINS_GOLD_SENSOR_NAME = "gold_index_mins_update_job_sensor"
 _INDEX_MINS_CODE_RE = re.compile(r"^[0-9A-Z]{1,12}\.[A-Z0-9]{2,8}$")
 
 
@@ -174,7 +181,9 @@ def normalize_index_mins_source_freq(value: object) -> str:
 
 def normalize_index_mins_asset_freq(value: object) -> int:
     if isinstance(value, bool):
-        raise ValueError("index_mins asset frequency must not be boolean.")
+        raise ValueError(  # noqa: TRY004
+            "index_mins asset frequency must not be boolean."
+        )
     try:
         normalized = int(value)
     except (TypeError, ValueError) as error:
@@ -191,7 +200,9 @@ def normalize_index_mins_asset_freq(value: object) -> int:
 
 def normalize_index_mins_silver_freq(value: object) -> str:
     if isinstance(value, bool):
-        raise ValueError("index_mins Silver frequency must not be boolean.")
+        raise ValueError(  # noqa: TRY004
+            "index_mins Silver frequency must not be boolean."
+        )
     normalized = str(value).strip().lower()
     if normalized.endswith("min"):
         numeric = normalized[:-3]
@@ -239,7 +250,9 @@ def fallback_source_times_for_index_mins() -> tuple[str, ...]:
     return INDEX_MINS_FALLBACK_SOURCE_TIMES
 
 
-def index_mins_derived_windows(value: object) -> tuple[DerivedMinuteWindow, ...]:
+def index_mins_derived_windows(
+    value: object,
+) -> tuple[CanonicalGoldMinuteWindow, ...]:
     normalized = normalize_index_mins_silver_freq(value)
     frequency = int(normalized[:-3])
     try:

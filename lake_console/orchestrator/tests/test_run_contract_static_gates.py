@@ -1189,6 +1189,10 @@ class RunContractStaticGateTests(unittest.TestCase):
             repair_op_path,
         )
         repair_scope_call_count = 0
+        bounded_rebuild_scope_call_count = 0
+        bounded_rebuild_path = (
+            DEFS_DIR / "bootstrap" / "stk_mins_qfq_macd_kdj_history.py"
+        )
         for path in source_scope_callers:
             source_tree = ast.parse(path.read_text())
             for node in ast.walk(source_tree):
@@ -1204,17 +1208,25 @@ class RunContractStaticGateTests(unittest.TestCase):
                 )
                 if not uses_repair_scope:
                     continue
+                if path == repair_op_path:
+                    repair_scope_call_count += 1
+                    continue
+                if path == bounded_rebuild_path:
+                    bounded_rebuild_scope_call_count += 1
+                    continue
                 if path != repair_op_path:
                     issues.append(
                         f"{path} must not pass repair-only stock_codes scope to "
                         "MACD/KDJ source discovery"
                     )
-                    continue
-                repair_scope_call_count += 1
         if repair_scope_call_count != 1:
             issues.append(
-                "MACD/KDJ repair op must be the only source discovery caller "
-                "that passes stock_codes scope"
+                "MACD/KDJ repair op must pass its explicit stock_codes scope exactly once"
+            )
+        if bounded_rebuild_scope_call_count != 1:
+            issues.append(
+                "MACD/KDJ bounded history rebuild must pass its explicit stock_codes "
+                "scope exactly once"
             )
 
         asset_source = asset_path.read_text()
@@ -2750,7 +2762,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 70)
+        self.assertEqual(sensor_definition_count, 73)
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:
@@ -2956,8 +2968,11 @@ class RunContractStaticGateTests(unittest.TestCase):
             issues.append(
                 "qfq lake readiness must not evaluate the full derived QFQ SQL"
             )
-        if "build_gold_stk_mins_qfq_derived_coverage_sql" not in readiness_source:
-            issues.append("qfq lake readiness must use derived identity coverage SQL")
+        if (
+            "build_canonical_gold_stk_mins_qfq_coverage_identities_sql"
+            not in readiness_source
+        ):
+            issues.append("qfq lake readiness must use canonical identity coverage SQL")
 
         for source_name, source in (
             ("qfq direct checks", checks_source),
@@ -5188,8 +5203,8 @@ class RunContractStaticGateTests(unittest.TestCase):
             self.assertIn(fragment, readiness_source)
         for fragment in (
             "@dg.run_status_sensor",
-            "monitored_jobs=[silver_major_index_mins_update_job]",
-            "batch_silver_major_index_mins_lake_readiness",
+            "monitored_jobs=[gold_major_index_mins_update_job]",
+            "batch_gold_major_index_mins_lake_readiness",
             "MAJOR_INDEX_MINS_TECHNICAL_AUTOMATION_CONTRACT_REVISION",
             "build_run_request",
             "build_asset_update_run_key",
@@ -5206,6 +5221,55 @@ class RunContractStaticGateTests(unittest.TestCase):
             "prod_postgres",
         ):
             self.assertNotIn(forbidden, sensor_source)
+
+    def test_cn_a_minute_gold_p2_uses_bounded_lake_only_automation(self) -> None:
+        writer_source = (
+            DEFS_DIR / "io" / "cn_a_gold_minute_writer.py"
+        ).read_text()
+        readiness_source = (
+            ASSET_GUARDS_DIR / "cn_a_gold_minute_lake_readiness.py"
+        ).read_text()
+        sensor_source = (SENSORS_DIR / "cn_a_gold_minute_sensor.py").read_text()
+        technical_writer_source = (
+            DEFS_DIR / "io" / "major_index_mins_technical_writer.py"
+        ).read_text()
+
+        for asset_name in ("index_mins_gold.py", "major_index_mins_gold.py"):
+            source = (ASSETS_DIR / asset_name).read_text()
+            self.assertIn("write_canonical_gold_minute_partition", source)
+            self.assertIn("partitions_def=", source)
+            self.assertNotIn("get_event_records", source)
+
+        for fragment in (
+            "os.replace",
+            "audit_canonical_gold_minute_relation",
+            "daily Gold minute writer refuses to overwrite target",
+        ):
+            self.assertIn(fragment, writer_source)
+        for fragment in (
+            "len(expected) > 10",
+            "partial_materialization",
+            "scan_error",
+        ):
+            self.assertIn(fragment, readiness_source)
+        for fragment in (
+            "load_expected_trade_date_window",
+            "select_first_not_ready_trade_date",
+            "build_sensor_cursor",
+            "build_run_request",
+            "build_asset_update_run_key",
+        ):
+            self.assertIn(fragment, sensor_source)
+        for forbidden in (
+            "get_event_records",
+            "Tushare",
+            "prod_postgres",
+        ):
+            self.assertNotIn(forbidden, readiness_source)
+            self.assertNotIn(forbidden, sensor_source)
+
+        self.assertIn("gold_major_index_mins_path", technical_writer_source)
+        self.assertNotIn("silver_major_index_mins_path", technical_writer_source)
 
     def test_idx_factor_pro_m4_uses_current_date_fail_closed_automation(
         self,
@@ -5794,15 +5858,15 @@ class RunContractStaticGateTests(unittest.TestCase):
         issues = []
 
         for fragment in (
-            'target_time="11:00:00"',
-            'regular_source_times=("10:00:00", "10:30:00", "11:00:00")',
-            'target_time="11:30:00"',
-            'regular_source_times=("10:30:00", "11:30:00")',
-            'auction_anchor_time="09:30:00"',
+            "CN_A_GOLD_MINUTE_FREQS = (1, 5, 15, 30, 60, 90, 120)",
+            "CN_A_GOLD_MINUTE_SOURCE_FREQ_BY_TARGET",
+            'CN_A_GOLD_MINUTE_CLOSE_TIME = "15:00:00"',
+            'CN_A_GOLD_MINUTE_IGNORED_SOURCE_END_TIME = "15:30:00"',
+            "canonical_gold_minute_windows",
+            'if target_freq != 1 and "09:30:00" in window.regular_source_times',
             "AUCTION_ANCHOR_ROLE",
             "REGULAR_SOURCE_ROLE",
-            'CN_A_DERIVED_MINUTE_IGNORED_SOURCE_TIMES = ("15:30:00",)',
-            "cn_a_derived_minute_ignored_source_time_predicate_sql",
+            "cn_a_gold_minute_ignored_source_time_predicate_sql",
         ):
             if fragment not in contract_source:
                 issues.append(f"derived minute contract misses {fragment}")
@@ -5830,10 +5894,71 @@ class RunContractStaticGateTests(unittest.TestCase):
                 issues.append(
                     f"qfq derived path lacks strict source-day quality gate: {path}"
                 )
-        if "cn_a_derived_minute_ignored_source_time_predicate_sql" not in (
+        if "cn_a_gold_minute_ignored_source_time_predicate_sql" not in (
             DEFS_DIR / "stk_mins_qfq.py"
         ).read_text(encoding="utf-8"):
             issues.append("qfq derived path does not use shared after-hours rule")
+
+        gold_builder_source = (
+            DEFS_DIR / "io" / "cn_a_gold_minute_bars.py"
+        ).read_text(encoding="utf-8")
+        for fragment in (
+            "canonical_gold_minute_window_map_sql",
+            "cn_a_derived_minute_completion_predicate",
+            "price_multiplier",
+            "audit_canonical_gold_minute_relation",
+        ):
+            if fragment not in gold_builder_source:
+                issues.append(f"canonical Gold minute builder misses {fragment}")
+
+        qfq_history_source = (
+            DEFS_DIR / "bootstrap" / "stk_mins_qfq_history.py"
+        ).read_text(encoding="utf-8")
+        qfq_derived_history_source = (
+            DEFS_DIR / "bootstrap" / "stk_mins_qfq_derived_history.py"
+        ).read_text(encoding="utf-8")
+        macd_kdj_history_source = (
+            DEFS_DIR / "bootstrap" / "stk_mins_qfq_macd_kdj_history.py"
+        ).read_text(encoding="utf-8")
+        migration_cli_source = (
+            DEFS_DIR / "bootstrap" / "stk_mins_migration_cli.py"
+        ).read_text(encoding="utf-8")
+        for fragment in (
+            "rebuild_stk_mins_qfq_canonical_history",
+            "assert_canonical_gold_stk_mins_qfq_source_ready",
+            "plan_fingerprint",
+            "completed_batch_keys",
+        ):
+            if fragment not in qfq_history_source:
+                issues.append(f"canonical QFQ rebuild misses {fragment}")
+        for fragment in (
+            "audit_stk_mins_qfq_derived_canonical_equivalence",
+            "candidate_key_hash",
+            "candidate_value_hash",
+            "value_mismatch_count",
+        ):
+            if fragment not in qfq_derived_history_source:
+                issues.append(f"derived QFQ equivalence audit misses {fragment}")
+        for fragment in (
+            "rebuild_stk_mins_qfq_macd_kdj_history",
+            "assert_exact_previous_state_path",
+            "previous_expected_trade_date",
+            "completed_batch_keys",
+        ):
+            if fragment not in macd_kdj_history_source:
+                issues.append(f"MACD/KDJ bounded rebuild misses {fragment}")
+        if "discover_latest_macd_kdj_state_path_before_trade_date" in (
+            macd_kdj_history_source
+        ):
+            issues.append("MACD/KDJ history must not accept an arbitrary older state")
+        for command in (
+            "rebuild-gold-qfq-canonical-history",
+            "rebuild-gold-stk-mins-qfq-macd-kdj-history",
+        ):
+            if command not in migration_cli_source:
+                issues.append(f"stock mins migration CLI misses {command}")
+        if migration_cli_source.count("--confirm-rebuild") < 2:
+            issues.append("bounded rebuild CLIs must require explicit confirmation")
 
         active_python_sources = "\n".join(
             path.read_text(encoding="utf-8")
@@ -5841,6 +5966,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             for path in root.rglob("*.py")
         )
         for forbidden in (
+            "DerivedMinuteWindow",
+            "CN_A_DERIVED_MINUTE_IGNORED_SOURCE_TIMES",
+            "cn_a_derived_minute_ignored_source_time_predicate_sql",
             "GOLD_STK_MINS_QFQ_DERIVED_WINDOWS",
             "INDEX_MINS_DERIVED_WINDOWS",
             "_MAJOR_INDEX_MINS_DERIVED_WINDOWS",

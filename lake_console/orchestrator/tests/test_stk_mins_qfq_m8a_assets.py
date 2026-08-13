@@ -67,20 +67,29 @@ def _write_rows(
         )
 
 
-def _silver_row(ts_code: str, *, open_: float) -> dict[str, object]:
-    return {
-        "ts_code": ts_code,
-        "freq": 5,
-        "trade_date": TRADE_DATE,
-        "trade_time": f"{TRADE_DATE} 09:35:00",
-        "open": open_,
-        "high": open_ + 1.0,
-        "low": open_ - 1.0,
-        "close": open_ + 0.5,
-        "vol": 100.0,
-        "amount": 1000.0,
-        "exchange": "SSE" if ts_code.endswith(".SH") else "SZSE",
-    }
+def _silver_rows(ts_code: str, *, open_: float) -> list[dict[str, object]]:
+    session_minutes = (
+        tuple(range(9 * 60 + 30, 11 * 60 + 31))
+        + tuple(range(13 * 60 + 1, 15 * 60 + 1))
+    )
+    return [
+        {
+            "ts_code": ts_code,
+            "freq": 1,
+            "trade_date": TRADE_DATE,
+            "trade_time": (
+                f"{TRADE_DATE} {minute // 60:02d}:{minute % 60:02d}:00"
+            ),
+            "open": open_,
+            "high": open_ + 1.0,
+            "low": open_ - 1.0,
+            "close": open_ + 0.5,
+            "vol": 100.0,
+            "amount": 1000.0,
+            "exchange": "SSE" if ts_code.endswith(".SH") else "SZSE",
+        }
+        for minute in session_minutes
+    ]
 
 
 def _adj_row(ts_code: str, trade_date: str, adj_factor: float) -> dict[str, object]:
@@ -135,11 +144,11 @@ class StkMinsQfqM8AAssetTests(unittest.TestCase):
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir) / "lake"
             _write_rows(
-                silver_stk_mins_path(lake_root, 5, TRADE_DATE),
+                silver_stk_mins_path(lake_root, 1, TRADE_DATE),
                 schema=SILVER_STK_MINS_SCHEMA,
                 rows=[
-                    _silver_row("600000.SH", open_=10.0),
-                    _silver_row("000001.SZ", open_=30.0),
+                    *_silver_rows("600000.SH", open_=10.0),
+                    *_silver_rows("000001.SZ", open_=30.0),
                 ],
                 order_by="ts_code, trade_time",
             )
@@ -173,9 +182,9 @@ class StkMinsQfqM8AAssetTests(unittest.TestCase):
             sz_path = gold_stk_mins_qfq_path(lake_root, 5, "000001.SZ", 2014)
             self.assertTrue(sh_path.exists())
             self.assertTrue(sz_path.exists())
-            self.assertEqual(result.row_count, 2)
+            self.assertEqual(result.row_count, 96)
             self.assertEqual(result.output_file_count, 2)
-            self.assertEqual(result.replacement_row_count, 2)
+            self.assertEqual(result.replacement_row_count, 96)
             self.assertEqual(result.output_root_path.name, "freq=5")
             self.assertEqual(result.observed_columns, tuple(column.name for column in GOLD_STK_MINS_QFQ_SCHEMA))
             metadata = result.materialization_extra_metadata(
@@ -192,9 +201,9 @@ class StkMinsQfqM8AAssetTests(unittest.TestCase):
 
             sh_rows = _read_rows(sh_path)
             sz_rows = _read_rows(sz_path)
-            self.assertAlmostEqual(sh_rows[0]["open"], 10.0)
-            self.assertAlmostEqual(sz_rows[0]["open"], 30.0)
-            self.assertEqual(sh_rows[0]["vol"], 100.0)
+            self.assertAlmostEqual(sh_rows[0]["open"], 10.5)
+            self.assertAlmostEqual(sz_rows[0]["open"], 30.5)
+            self.assertEqual(sh_rows[0]["vol"], 600.0)
             self.assertEqual(sz_rows[0]["exchange"], "SZSE")
 
     def test_write_preserves_other_dates_in_existing_stock_year_file(self) -> None:
@@ -208,9 +217,9 @@ class StkMinsQfqM8AAssetTests(unittest.TestCase):
                 order_by="trade_date, trade_time",
             )
             _write_rows(
-                silver_stk_mins_path(lake_root, 5, TRADE_DATE),
+                silver_stk_mins_path(lake_root, 1, TRADE_DATE),
                 schema=SILVER_STK_MINS_SCHEMA,
-                rows=[_silver_row("600000.SH", open_=10.0)],
+                rows=_silver_rows("600000.SH", open_=10.0),
                 order_by="ts_code, trade_time",
             )
             _write_rows(
@@ -234,19 +243,19 @@ class StkMinsQfqM8AAssetTests(unittest.TestCase):
             )
 
             rows = _read_rows(target_path)
-            self.assertEqual(len(rows), 2)
+            self.assertEqual(len(rows), 49)
             self.assertEqual(rows[0]["trade_date"].isoformat(), "2014-06-02")
             self.assertAlmostEqual(rows[0]["open"], 8.0)
             self.assertEqual(rows[1]["trade_date"].isoformat(), TRADE_DATE)
-            self.assertAlmostEqual(rows[1]["open"], 10.0)
+            self.assertAlmostEqual(rows[1]["open"], 10.5)
 
     def test_write_fails_when_trade_adj_factor_partition_is_missing(self) -> None:
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir) / "lake"
             _write_rows(
-                silver_stk_mins_path(lake_root, 5, TRADE_DATE),
+                silver_stk_mins_path(lake_root, 1, TRADE_DATE),
                 schema=SILVER_STK_MINS_SCHEMA,
-                rows=[_silver_row("600000.SH", open_=10.0)],
+                rows=_silver_rows("600000.SH", open_=10.0),
                 order_by="ts_code, trade_time",
             )
             _write_rows(
@@ -268,11 +277,11 @@ class StkMinsQfqM8AAssetTests(unittest.TestCase):
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir) / "lake"
             _write_rows(
-                silver_stk_mins_path(lake_root, 5, TRADE_DATE),
+                silver_stk_mins_path(lake_root, 1, TRADE_DATE),
                 schema=SILVER_STK_MINS_SCHEMA,
                 rows=[
-                    _silver_row("600000.SH", open_=10.0),
-                    _silver_row("000001.SZ", open_=30.0),
+                    *_silver_rows("600000.SH", open_=10.0),
+                    *_silver_rows("000001.SZ", open_=30.0),
                 ],
                 order_by="ts_code, trade_time",
             )

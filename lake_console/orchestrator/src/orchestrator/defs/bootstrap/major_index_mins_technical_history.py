@@ -27,9 +27,9 @@ from orchestrator.defs.io.major_index_mins_technical_writer import (
 )
 from orchestrator.defs.partitions import cn_major_index_mins_trade_days
 from orchestrator.defs.paths import (
+    gold_major_index_mins_path,
     gold_major_index_mins_technical_path,
     gold_major_index_mins_technical_state_path,
-    silver_major_index_mins_path,
 )
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.major_index_mins_technical import (
@@ -226,7 +226,7 @@ def _normalize_dates(values: Sequence[str], *, end_date: str) -> tuple[str, ...]
 
 def _complete_source_date(lake_root: Path, trade_date: str) -> bool:
     return all(
-        silver_major_index_mins_path(lake_root, f"{freq}min", trade_date).is_file()
+        gold_major_index_mins_path(lake_root, freq, trade_date).is_file()
         for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS
     )
 
@@ -248,15 +248,14 @@ def _parquet_row_counts(
                 [[str(path) for path in paths]],
             ).fetchall()
             row_counts.update(
-                (Path(str(file_name)), int(row_count))
-                for file_name, row_count in rows
+                (Path(str(file_name)), int(row_count)) for file_name, row_count in rows
             )
     expected_paths = {path for paths in paths_by_freq.values() for path in paths}
     if set(row_counts) != expected_paths:
         missing = tuple(sorted(str(path) for path in expected_paths - set(row_counts)))
         extra = tuple(sorted(str(path) for path in set(row_counts) - expected_paths))
         raise MajorIndexMinsTechnicalBootstrapError(
-            "Silver Parquet footer manifest does not match frozen inputs: "
+            "Gold business-bar Parquet footer manifest does not match frozen inputs: "
             f"missing={missing[:20]!r}, extra={extra[:20]!r}"
         )
     return row_counts
@@ -274,7 +273,7 @@ def build_major_index_mins_technical_bootstrap_plan(
     duckdb_resource: DuckDBResource | None = None,
     write_report: bool = True,
 ) -> MinuteTechnicalBootstrapPlan:
-    """Freeze the complete contiguous Silver history without writing outputs."""
+    """Freeze the complete contiguous Gold business-bar history."""
 
     try:
         normalized_end = date.fromisoformat(str(end_date).strip()).isoformat()
@@ -283,7 +282,9 @@ def build_major_index_mins_technical_bootstrap_plan(
             f"invalid explicit end date: {end_date!r}"
         ) from error
     if date.fromisoformat(normalized_end) > datetime.now(timezone.utc).date():
-        raise MajorIndexMinsTechnicalBootstrapError("Bootstrap end date is in the future")
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "Bootstrap end date is in the future"
+        )
     values = (
         tuple(registered_dates)
         if registered_dates is not None
@@ -302,7 +303,7 @@ def build_major_index_mins_technical_bootstrap_plan(
     )
     if not complete_indexes:
         raise MajorIndexMinsTechnicalBootstrapError(
-            "registered partitions contain no complete 7-frequency Silver date"
+            "registered partitions contain no complete 7-frequency Gold date"
         )
     latest_complete_index = complete_indexes[-1]
     missing_middle = tuple(
@@ -312,16 +313,16 @@ def build_major_index_mins_technical_bootstrap_plan(
     )
     if missing_middle:
         raise MajorIndexMinsTechnicalBootstrapError(
-            "Silver history contains an intermediate incomplete date: "
+            "Gold business-bar history contains an intermediate incomplete date: "
             f"samples={missing_middle[:20]!r}"
         )
     trade_dates = registered[: latest_complete_index + 1]
     ignored_tail = registered[latest_complete_index + 1 :]
     paths_by_freq = {
         freq: tuple(
-            silver_major_index_mins_path(
+            gold_major_index_mins_path(
                 source_lake_root,
-                f"{freq}min",
+                freq,
                 trade_date,
             )
             for trade_date in trade_dates
@@ -335,9 +336,9 @@ def build_major_index_mins_technical_bootstrap_plan(
     input_files: list[MinuteTechnicalInputFile] = []
     for trade_date in trade_dates:
         for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS:
-            path = silver_major_index_mins_path(
+            path = gold_major_index_mins_path(
                 source_lake_root,
-                f"{freq}min",
+                freq,
                 trade_date,
             )
             input_files.append(
@@ -350,9 +351,7 @@ def build_major_index_mins_technical_bootstrap_plan(
                     sha256=_file_sha256(path),
                 )
             )
-    source_manifest_hash = _hash_payload(
-        [value.to_dict() for value in input_files]
-    )
+    source_manifest_hash = _hash_payload([value.to_dict() for value in input_files])
     object_pool_hash = _hash_payload(
         {
             trade_date: expected_major_index_mins_technical_codes(trade_date)
@@ -430,7 +429,9 @@ def load_major_index_mins_technical_bootstrap_plan(
     inputs = payload.get("input_files")
     trade_dates = payload.get("trade_dates")
     if not isinstance(inputs, list) or not isinstance(trade_dates, list):
-        raise MajorIndexMinsTechnicalBootstrapError("minute technical plan is incomplete")
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "minute technical plan is incomplete"
+        )
     plan = MinuteTechnicalBootstrapPlan(
         generated_at=str(payload["generated_at"]),
         end_date=str(payload["end_date"]),
@@ -460,11 +461,11 @@ def load_major_index_mins_technical_bootstrap_plan(
         path = Path(value.path)
         if not path.is_file() or path.stat().st_size != value.size_bytes:
             raise MajorIndexMinsTechnicalBootstrapError(
-                f"frozen Silver input is missing or changed size: {path}"
+                f"frozen Gold business-bar input is missing or changed size: {path}"
             )
         if _file_sha256(path) != value.sha256:
             raise MajorIndexMinsTechnicalBootstrapError(
-                f"frozen Silver input hash changed: {path}"
+                f"frozen Gold business-bar input hash changed: {path}"
             )
     return plan
 
@@ -500,7 +501,7 @@ def _validate_write_result(
     frozen_row_count = frozen_row_counts.get((trade_date, freq))
     if frozen_row_count is None:
         raise MajorIndexMinsTechnicalBootstrapError(
-            f"frozen Silver input is missing: date={trade_date}, freq={freq}"
+            f"frozen Gold business-bar input is missing: date={trade_date}, freq={freq}"
         )
     if input_row_count != frozen_row_count:
         raise MajorIndexMinsTechnicalBootstrapError(
@@ -510,7 +511,7 @@ def _validate_write_result(
         )
     if technical_row_count != input_row_count:
         raise MajorIndexMinsTechnicalBootstrapError(
-            "technical output row count differs from Silver input: "
+            "technical output row count differs from Gold business-bar input: "
             f"date={trade_date}, freq={freq}, input={input_row_count}, "
             f"technical={technical_row_count}"
         )
@@ -754,8 +755,7 @@ def build_major_index_mins_technical_performance_sample(
                     freq=freq,
                     partition_key=trade_date,
                     run_id=(
-                        f"bootstrap-sample-{plan.plan_hash[:12]}-"
-                        f"{trade_date}-{freq}"
+                        f"bootstrap-sample-{plan.plan_hash[:12]}-{trade_date}-{freq}"
                     ),
                     expected_trade_dates=plan.trade_dates,
                 )
@@ -805,10 +805,9 @@ def build_major_index_mins_technical_performance_sample(
                 }
             )
             peak_rss_bytes = max(peak_rss_bytes, _peak_rss_bytes())
-        if (
-            len(day_entries) != len(MAJOR_INDEX_MINS_TECHNICAL_FREQS) * 2
-            or len(day_measurements) != len(MAJOR_INDEX_MINS_TECHNICAL_FREQS)
-        ):
+        if len(day_entries) != len(MAJOR_INDEX_MINS_TECHNICAL_FREQS) * 2 or len(
+            day_measurements
+        ) != len(MAJOR_INDEX_MINS_TECHNICAL_FREQS):
             raise MajorIndexMinsTechnicalBootstrapError(
                 f"sample date checkpoint is incomplete: {trade_date}"
             )
@@ -867,9 +866,7 @@ def build_major_index_mins_technical_performance_sample(
                     else None
                 ),
                 "peak_rss_bytes": peak_rss_bytes,
-                "invocation_elapsed_ms": (
-                    perf_counter() - invocation_started_at
-                )
+                "invocation_elapsed_ms": (perf_counter() - invocation_started_at)
                 * 1000,
                 "invocation_output_bytes": invocation_output_bytes,
             },
@@ -893,7 +890,9 @@ def build_major_index_mins_technical_candidates(
     apply: bool = False,
 ) -> Path:
     if not apply:
-        raise MajorIndexMinsTechnicalBootstrapError("candidate build requires apply=True")
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "candidate build requires apply=True"
+        )
     plan = load_major_index_mins_technical_bootstrap_plan(
         plan_report_path, expected_plan_hash=expected_plan_hash
     )
@@ -958,12 +957,16 @@ def build_major_index_mins_technical_candidates(
             day_entries.extend(
                 (
                     _candidate_manifest_entry(
-                        layer="technical", freq=freq, trade_date=trade_date,
+                        layer="technical",
+                        freq=freq,
+                        trade_date=trade_date,
                         path=result.technical_path,
                         row_count=result.technical_row_count,
                     ),
                     _candidate_manifest_entry(
-                        layer="state", freq=freq, trade_date=trade_date,
+                        layer="state",
+                        freq=freq,
+                        trade_date=trade_date,
                         path=result.state_path,
                         row_count=result.state_row_count,
                     ),
@@ -1068,7 +1071,9 @@ def promote_major_index_mins_technical_candidates(
     apply: bool = False,
 ) -> Path:
     if not apply:
-        raise MajorIndexMinsTechnicalBootstrapError("formal promotion requires apply=True")
+        raise MajorIndexMinsTechnicalBootstrapError(
+            "formal promotion requires apply=True"
+        )
     plan = load_major_index_mins_technical_bootstrap_plan(
         plan_report_path, expected_plan_hash=expected_plan_hash
     )
@@ -1126,7 +1131,10 @@ def promote_major_index_mins_technical_candidates(
                         )
                     action = "reused_identical_formal"
                 else:
-                    if not candidate.is_file() or _file_sha256(candidate) != expected_hash:
+                    if (
+                        not candidate.is_file()
+                        or _file_sha256(candidate) != expected_hash
+                    ):
                         raise MajorIndexMinsTechnicalBootstrapError(
                             f"candidate is missing or changed: {candidate}"
                         )
@@ -1173,9 +1181,7 @@ def promote_major_index_mins_technical_candidates(
             ),
             "should_stop": False,
             "writes": {
-                "formal_lake": sum(
-                    value["action"] == "promoted" for value in actions
-                ),
+                "formal_lake": sum(value["action"] == "promoted" for value in actions),
                 "dagster_events": 0,
             },
         },

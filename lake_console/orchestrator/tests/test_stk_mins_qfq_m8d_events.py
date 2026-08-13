@@ -35,11 +35,14 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_ADJ_FACTOR_SCHEMA,
     SILVER_STK_MINS_SCHEMA,
 )
+from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
+    expected_canonical_gold_source_times,
+)
 from orchestrator.defs.sensors.readiness import (
     AssetReadinessSpec,
     asset_readiness_status,
 )
-
+from orchestrator.defs.stk_mins_qfq import gold_stk_mins_qfq_source_freq
 
 DATE_1 = "2014-06-03"
 DATE_2 = "2014-06-04"
@@ -94,14 +97,16 @@ def _write_rows(
 def _silver_row(
     *,
     ts_code: str,
+    freq: int,
     trade_date: str,
+    trade_time: str,
     open_: float,
 ) -> dict[str, object]:
     return {
         "ts_code": ts_code,
-        "freq": FREQ,
+        "freq": freq,
         "trade_date": trade_date,
-        "trade_time": f"{trade_date} 09:35:00",
+        "trade_time": trade_time,
         "open": open_,
         "high": open_ + 1.0,
         "low": open_ - 1.0,
@@ -121,12 +126,21 @@ def _adj_row(ts_code: str, trade_date: str, adj_factor: float) -> dict[str, obje
 
 
 def _write_silver_partition(lake_root: Path, trade_date: str) -> None:
+    source_freq = gold_stk_mins_qfq_source_freq(FREQ)
+    source_times = expected_canonical_gold_source_times(FREQ)
     _write_rows(
-        silver_stk_mins_path(lake_root, FREQ, trade_date),
+        silver_stk_mins_path(lake_root, source_freq, trade_date),
         schema=SILVER_STK_MINS_SCHEMA,
         rows=[
-            _silver_row(ts_code=STOCK_A, trade_date=trade_date, open_=10.0),
-            _silver_row(ts_code=STOCK_B, trade_date=trade_date, open_=30.0),
+            _silver_row(
+                ts_code=stock_code,
+                freq=source_freq,
+                trade_date=trade_date,
+                trade_time=f"{trade_date} {trade_time}",
+                open_=open_base,
+            )
+            for stock_code, open_base in ((STOCK_A, 10.0), (STOCK_B, 30.0))
+            for trade_time in source_times
         ],
         order_by="ts_code, trade_time",
     )

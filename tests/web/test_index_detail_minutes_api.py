@@ -16,32 +16,61 @@ from src.biz.schemas.wealth.market.index_detail_minutes import IndexMinutesRespo
 from src.biz.services.wealth.market.index_detail_minutes.index_minute_response_policy import (
     enforce_index_minute_response_size,
 )
-from src.foundation.clients.local_lake.major_index_mins_reader import IndexMinuteRequestError
+from src.foundation.clients.local_lake.major_index_mins_reader import (
+    IndexMinuteRequestError,
+)
 from src.foundation.config.local_minute_capability import LocalMinuteCapability
 
 
 FROZEN_MINUTE_FREQUENCIES = (1, 5, 15, 30, 60, 90, 120)
 
 
-def _write_silver(root: Path, *, freq: int = 5) -> None:
-    target = root / f"silver/quote/major_index_mins/freq={freq}min/trade_date=2026-08-11/part-000.parquet"
+def _write_gold_bars(root: Path, *, freq: int = 5) -> None:
+    target = (
+        root
+        / f"gold/quote/major_index_mins/freq={freq}/trade_date=2026-08-11/part-000.parquet"
+    )
     target.parent.mkdir(parents=True)
     connection = duckdb.connect(database=":memory:")
     try:
         connection.execute(
             """
             CREATE TABLE bars (
-              ts_code VARCHAR, freq VARCHAR, trade_time TIMESTAMP,
-              open DOUBLE, close DOUBLE, high DOUBLE, low DOUBLE,
+              ts_code VARCHAR, freq INTEGER, trade_date DATE, trade_time TIMESTAMP,
+              open DOUBLE, high DOUBLE, low DOUBLE, close DOUBLE,
               vol DOUBLE, amount DOUBLE, exchange VARCHAR, vwap DOUBLE
             )
             """
         )
         connection.executemany(
-            "INSERT INTO bars VALUES (?, ?, CAST(? AS TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO bars VALUES (?, ?, DATE '2026-08-11', CAST(? AS TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?)",
             [
-                ("000001.SH", f"{freq}min", "2026-08-11 09:30:00", 1, 1.1, 1.2, .9, 10, 100, "SSE", 1.05),
-                ("000001.SH", f"{freq}min", "2026-08-11 09:35:00", 1.1, 1.2, 1.3, 1, 11, 110, "SSE", 1.15),
+                (
+                    "000001.SH",
+                    freq,
+                    "2026-08-11 09:35:00",
+                    1,
+                    1.2,
+                    0.9,
+                    1.1,
+                    10,
+                    100,
+                    "SSE",
+                    1.05,
+                ),
+                (
+                    "000001.SH",
+                    freq,
+                    "2026-08-11 09:40:00",
+                    1.1,
+                    1.3,
+                    1,
+                    1.2,
+                    11,
+                    110,
+                    "SSE",
+                    1.15,
+                ),
             ],
         )
         connection.execute("COPY bars TO ? (FORMAT PARQUET)", [str(target)])
@@ -56,7 +85,10 @@ def _write_gold(
     indicator_version: int = 1,
     duplicate_time_key: bool = False,
 ) -> None:
-    target = root / f"gold/indicator/major_index_mins_technical/freq={freq}/trade_date=2026-08-11/part-000.parquet"
+    target = (
+        root
+        / f"gold/indicator/major_index_mins_technical/freq={freq}/trade_date=2026-08-11/part-000.parquet"
+    )
     target.parent.mkdir(parents=True)
     connection = duckdb.connect(database=":memory:")
     try:
@@ -100,12 +132,19 @@ def _client(monkeypatch: pytest.MonkeyPatch, lake_root: Path) -> TestClient:
     return TestClient(app)
 
 
-def test_index_minute_api_returns_real_silver_bars(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    _write_silver(tmp_path)
+def test_index_minute_api_returns_real_gold_bars(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write_gold_bars(tmp_path)
     with _client(monkeypatch, tmp_path) as client:
         response = client.get(
             "/wealth/market/index-detail/minutes",
-            params={"tsCode": "000001.SH", "freq": "5", "endDate": "2026-08-11", "limit": "1"},
+            params={
+                "tsCode": "000001.SH",
+                "freq": "5",
+                "endDate": "2026-08-11",
+                "limit": "1",
+            },
         )
 
     assert response.status_code == 200
@@ -113,7 +152,7 @@ def test_index_minute_api_returns_real_silver_bars(tmp_path: Path, monkeypatch: 
     assert payload["dataStatus"]["status"] == "READY"
     assert payload["dataStatus"]["code"] is None
     assert payload["meta"]["hasMore"] is True
-    assert payload["bars"][0]["tradeTime"] == "2026-08-11T09:35:00+08:00"
+    assert payload["bars"][0]["tradeTime"] == "2026-08-11T09:40:00+08:00"
     assert "vwap" not in payload["bars"][0]
     assert "preClose" not in payload["bars"][0]
 
@@ -122,7 +161,7 @@ def test_index_indicator_api_freezes_gold_dto_and_missing_gold_does_not_affect_b
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _write_silver(tmp_path)
+    _write_gold_bars(tmp_path)
     with _client(monkeypatch, tmp_path) as client:
         missing = client.get(
             "/wealth/market/index-detail/minute-indicators",
@@ -155,7 +194,7 @@ def test_index_indicator_api_supports_all_frozen_frequencies(
     monkeypatch: pytest.MonkeyPatch,
     freq: int,
 ) -> None:
-    _write_silver(tmp_path, freq=freq)
+    _write_gold_bars(tmp_path, freq=freq)
     _write_gold(tmp_path, freq=freq)
 
     with _client(monkeypatch, tmp_path) as client:
@@ -177,12 +216,12 @@ def test_index_indicator_api_supports_all_frozen_frequencies(
 
 
 @pytest.mark.parametrize("invalid_fixture", ["version", "duplicate_time_key"])
-def test_invalid_gold_contract_does_not_affect_silver_bars(
+def test_invalid_indicator_contract_does_not_affect_gold_bars(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     invalid_fixture: str,
 ) -> None:
-    _write_silver(tmp_path)
+    _write_gold_bars(tmp_path)
     _write_gold(
         tmp_path,
         indicator_version=2 if invalid_fixture == "version" else 1,
@@ -258,16 +297,24 @@ def test_app_router_profile_matrix_does_not_mount_index_minutes_in_prod(
     app_router = importlib.import_module("src.app.api.v1.router")
 
     disabled = LocalMinuteCapability(enabled=False, lake_root=None, reason_code=None)
-    monkeypatch.setattr(app_router, "resolve_local_minute_capability", lambda _settings: disabled)
-    monkeypatch.setattr(app_router, "resolve_index_minute_capability", lambda _settings: disabled)
+    monkeypatch.setattr(
+        app_router, "resolve_local_minute_capability", lambda _settings: disabled
+    )
+    monkeypatch.setattr(
+        app_router, "resolve_index_minute_capability", lambda _settings: disabled
+    )
     target = APIRouter(prefix="/v1")
     app_router._include_local_minute_router(target)
     paths = {route.path for route in target.routes}
     assert "/v1/wealth/market/index-detail/minutes" not in paths
 
     enabled = LocalMinuteCapability(enabled=True, lake_root=tmp_path, reason_code=None)
-    monkeypatch.setattr(app_router, "resolve_local_minute_capability", lambda _settings: enabled)
-    monkeypatch.setattr(app_router, "resolve_index_minute_capability", lambda _settings: enabled)
+    monkeypatch.setattr(
+        app_router, "resolve_local_minute_capability", lambda _settings: enabled
+    )
+    monkeypatch.setattr(
+        app_router, "resolve_index_minute_capability", lambda _settings: enabled
+    )
     local_target = APIRouter(prefix="/v1")
     app_router._include_local_minute_router(local_target)
     local_paths = {route.path for route in local_target.routes}
@@ -276,24 +323,44 @@ def test_app_router_profile_matrix_does_not_mount_index_minutes_in_prod(
 
 
 def test_index_minute_response_size_guard_rejects_payload_above_5mb() -> None:
-    response = IndexMinutesResponseDto.model_validate({
-        "tsCode": "000001.SH",
-        "freq": 5,
-        "bars": [{
-            "tsCode": "000001.SH", "freq": 5, "tradeDate": "2026-08-11",
-            "tradeTime": "2026-08-11T09:35:00+08:00", "open": 1, "high": 1,
-            "low": 1, "close": 1, "vol": 1, "amount": 1, "exchange": "X" * 5_000_000,
-        }],
-        "meta": {
-            "count": 1, "limit": 1, "hasMore": False, "nextCursor": None,
-            "startDate": None, "endDate": None, "observedStartDate": "2026-08-11",
-            "observedEndDate": "2026-08-11",
-        },
-        "dataStatus": {
-            "status": "READY", "code": None, "expectedEndDate": None,
-            "observedEndDate": "2026-08-11", "message": None,
-        },
-    })
+    response = IndexMinutesResponseDto.model_validate(
+        {
+            "tsCode": "000001.SH",
+            "freq": 5,
+            "bars": [
+                {
+                    "tsCode": "000001.SH",
+                    "freq": 5,
+                    "tradeDate": "2026-08-11",
+                    "tradeTime": "2026-08-11T09:35:00+08:00",
+                    "open": 1,
+                    "high": 1,
+                    "low": 1,
+                    "close": 1,
+                    "vol": 1,
+                    "amount": 1,
+                    "exchange": "X" * 5_000_000,
+                }
+            ],
+            "meta": {
+                "count": 1,
+                "limit": 1,
+                "hasMore": False,
+                "nextCursor": None,
+                "startDate": None,
+                "endDate": None,
+                "observedStartDate": "2026-08-11",
+                "observedEndDate": "2026-08-11",
+            },
+            "dataStatus": {
+                "status": "READY",
+                "code": None,
+                "expectedEndDate": None,
+                "observedEndDate": "2026-08-11",
+                "message": None,
+            },
+        }
+    )
 
     with pytest.raises(IndexMinuteRequestError, match="5MB"):
         enforce_index_minute_response_size(response)

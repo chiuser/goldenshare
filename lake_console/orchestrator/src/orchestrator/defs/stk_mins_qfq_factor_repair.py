@@ -11,10 +11,8 @@ from orchestrator.defs.asset_guards.stk_mins_continuity import (
     assert_expected_dates_registered,
     previous_expected_trade_date,
 )
-from orchestrator.defs.duckdb_sql import duckdb_string
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.paths import (
-    gold_stk_mins_qfq_path,
     silver_adj_factor_path,
     silver_stk_mins_path,
     silver_stock_basic_path,
@@ -24,14 +22,14 @@ from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_QFQ_NATIVE_FREQS,
     normalize_stk_mins_freq,
     normalize_stk_mins_qfq_freq,
-    qfq_source_freq_for_derived_freq,
 )
 from orchestrator.defs.stk_mins_qfq import (
     GoldStkMinsQfqFactorRepairPlan,
     GoldStkMinsQfqWriteResult,
-    build_daily_qfq_select_sql,
-    build_gold_stk_mins_qfq_derived_select_sql,
+    assert_canonical_gold_stk_mins_qfq_source_ready,
+    build_canonical_gold_stk_mins_qfq_select_sql,
     build_gold_stk_mins_qfq_factor_repair_plan,
+    gold_stk_mins_qfq_source_freq,
     write_gold_stk_mins_qfq_rows_to_year_files,
 )
 
@@ -180,6 +178,7 @@ def execute_gold_stk_mins_qfq_factor_repair(
         target_freqs=derived_target_freqs,
         stock_codes=plan.repair_required_codes,
         selected_partition_keys=selected_partition_keys,
+        as_of_adj_factor_path=as_of_adj_factor_path,
     )
     all_write_results = tuple(write_results) + derived_write_results
     code_results = _build_repair_code_results(
@@ -267,26 +266,38 @@ def _execute_derived_qfq_rebuild(
     target_freqs: Sequence[int],
     stock_codes: Sequence[str],
     selected_partition_keys: Sequence[str],
+    as_of_adj_factor_path: Path,
 ) -> tuple[GoldStkMinsQfqWriteResult, ...]:
     write_results: list[GoldStkMinsQfqWriteResult] = []
     if not target_freqs:
         return ()
     for target_freq in target_freqs:
         normalized_target_freq = normalize_stk_mins_qfq_freq(target_freq)
-        source_freq = qfq_source_freq_for_derived_freq(normalized_target_freq)
-        for year, year_partition_keys in _partition_keys_by_year(
+        source_freq = gold_stk_mins_qfq_source_freq(normalized_target_freq)
+        for year_partition_keys in _partition_keys_by_year(
             selected_partition_keys
-        ).items():
-            source_paths = _existing_gold_qfq_year_paths_for_codes(
-                lake_root=lake_root,
-                freq=source_freq,
-                year=year,
-                stock_codes=stock_codes,
+        ).values():
+            silver_paths = tuple(
+                silver_stk_mins_path(lake_root, source_freq, partition_key)
+                for partition_key in year_partition_keys
             )
-            if not source_paths:
-                continue
-            batch_select_sql = build_gold_stk_mins_qfq_derived_select_sql(
-                source_qfq_paths=source_paths,
+            trade_adj_factor_paths = tuple(
+                silver_adj_factor_path(lake_root, partition_key)
+                for partition_key in year_partition_keys
+            )
+            _require_existing_paths("silver_stk_mins", silver_paths)
+            _require_existing_paths("silver_adj_factor", trade_adj_factor_paths)
+            assert_canonical_gold_stk_mins_qfq_source_ready(
+                silver_paths=silver_paths,
+                target_freq=normalized_target_freq,
+                partition_keys=year_partition_keys,
+                stock_codes=stock_codes,
+                allow_empty=True,
+            )
+            batch_select_sql = build_canonical_gold_stk_mins_qfq_select_sql(
+                silver_paths=silver_paths,
+                trade_adj_factor_paths=trade_adj_factor_paths,
+                as_of_adj_factor_paths=[as_of_adj_factor_path],
                 target_freq=normalized_target_freq,
                 partition_keys=year_partition_keys,
                 stock_codes=stock_codes,
@@ -302,20 +313,6 @@ def _execute_derived_qfq_rebuild(
     return tuple(write_results)
 
 
-def _existing_gold_qfq_year_paths_for_codes(
-    *,
-    lake_root: Path,
-    freq: int,
-    year: str,
-    stock_codes: Sequence[str],
-) -> tuple[Path, ...]:
-    paths = tuple(
-        gold_stk_mins_qfq_path(lake_root, freq, stock_code, year)
-        for stock_code in stock_codes
-    )
-    return tuple(path for path in paths if path.exists())
-
-
 def _build_stock_year_batch_repair_select_sql(
     *,
     lake_root: Path,
@@ -324,8 +321,9 @@ def _build_stock_year_batch_repair_select_sql(
     partition_keys: Sequence[str],
     as_of_adj_factor_path: Path,
 ) -> str:
+    source_freq = gold_stk_mins_qfq_source_freq(freq)
     silver_paths = tuple(
-        silver_stk_mins_path(lake_root, freq, partition_key)
+        silver_stk_mins_path(lake_root, source_freq, partition_key)
         for partition_key in partition_keys
     )
     trade_adj_factor_paths = tuple(
@@ -334,17 +332,21 @@ def _build_stock_year_batch_repair_select_sql(
     )
     _require_existing_paths("silver_stk_mins", silver_paths)
     _require_existing_paths("silver_adj_factor", trade_adj_factor_paths)
-    qfq_select_sql = build_daily_qfq_select_sql(
+    assert_canonical_gold_stk_mins_qfq_source_ready(
+        silver_paths=silver_paths,
+        target_freq=freq,
+        partition_keys=partition_keys,
+        stock_codes=stock_codes,
+        allow_empty=True,
+    )
+    return build_canonical_gold_stk_mins_qfq_select_sql(
         silver_paths=silver_paths,
         trade_adj_factor_paths=trade_adj_factor_paths,
         as_of_adj_factor_paths=[as_of_adj_factor_path],
+        target_freq=freq,
+        partition_keys=partition_keys,
+        stock_codes=stock_codes,
     )
-    stock_codes_sql = _string_values_sql(stock_codes)
-    return f"""
-SELECT *
-FROM ({qfq_select_sql})
-WHERE ts_code IN ({stock_codes_sql})
-"""
 
 
 def _require_existing_paths(label: str, paths: Sequence[Path]) -> None:
@@ -425,10 +427,3 @@ def _partition_keys_by_year(partition_keys: Sequence[str]) -> dict[str, tuple[st
         )
         for year in years
     }
-
-
-def _string_values_sql(values: Sequence[str]) -> str:
-    normalized_values = tuple(dict.fromkeys(str(value).strip() for value in values))
-    if not normalized_values:
-        raise ValueError("At least one string value is required.")
-    return ", ".join(duckdb_string(value) for value in normalized_values)

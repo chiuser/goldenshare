@@ -56,14 +56,13 @@ from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_QFQ_NATIVE_FREQS,
     normalize_stk_mins_freq,
     normalize_stk_mins_qfq_freq,
-    qfq_source_freq_for_derived_freq,
 )
 from orchestrator.defs.stk_mins_qfq import (
-    build_daily_qfq_coverage_identities_sql,
+    build_canonical_gold_stk_mins_qfq_coverage_identities_sql,
     build_daily_qfq_coverage_sql,
     build_gold_stk_mins_qfq_derived_diagnostics_sql,
-    build_gold_stk_mins_qfq_derived_coverage_sql,
     build_gold_stk_mins_qfq_derived_source_invalid_predicate_sql,
+    gold_stk_mins_qfq_source_freq,
     _derived_window_completion_predicate,
     _derived_window_rows_sql,
 )
@@ -1191,8 +1190,9 @@ def _gold_qfq_native_path_plans(
 ) -> tuple[_GoldQfqNativePathPlan, ...]:
     plans: list[_GoldQfqNativePathPlan] = []
     for freq in native_freqs:
+        source_freq = gold_stk_mins_qfq_source_freq(freq)
         silver_paths_by_date = {
-            trade_date: silver_stk_mins_path(lake_root, freq, trade_date)
+            trade_date: silver_stk_mins_path(lake_root, source_freq, trade_date)
             for trade_date in expected_trade_dates
         }
         existing_silver_paths = tuple(
@@ -1495,30 +1495,13 @@ def _gold_qfq_native_batch_identity_counts(
             for partition_key in partition_keys
         }
     gold_source = _read_parquet_paths(gold_paths, filename=True)
-    silver_source = _read_parquet_paths(silver_paths)
-    trade_adj_source = (
-        _read_parquet_paths(trade_adj_factor_paths) if trade_adj_factor_paths else None
-    )
-    trade_adj_cte = (
-        f"""
-        trade_adj_factor AS (
-          SELECT
-            CAST(ts_code AS VARCHAR) AS ts_code,
-            CAST(trade_date AS DATE) AS trade_date,
-            CAST(adj_factor AS DOUBLE) AS adj_factor
-          FROM {trade_adj_source}
-        )
-        """
-        if trade_adj_source is not None
-        else """
-        trade_adj_factor AS (
-          SELECT
-            CAST(NULL AS VARCHAR) AS ts_code,
-            CAST(NULL AS DATE) AS trade_date,
-            CAST(NULL AS DOUBLE) AS adj_factor
-          WHERE false
-        )
-        """
+    expected_identity_sql = build_canonical_gold_stk_mins_qfq_coverage_identities_sql(
+        silver_paths=silver_paths,
+        trade_adj_factor_paths=trade_adj_factor_paths,
+        as_of_adj_factor_paths=trade_adj_factor_paths,
+        target_freq=freq,
+        partition_keys=partition_keys,
+        match_as_of_by_trade_date=True,
     )
     rows = connection.execute(
         f"""
@@ -1548,30 +1531,13 @@ def _gold_qfq_native_batch_identity_counts(
           INNER JOIN selected
             ON gold_rows.partition_key = selected.partition_key
         ),
-        silver_rows AS (
+        expected_rows AS (
           SELECT
             CAST(ts_code AS VARCHAR) AS ts_code,
-            CAST(trade_date AS DATE) AS trade_date,
             strftime(CAST(trade_date AS DATE), '%Y-%m-%d') AS partition_key,
             CAST(trade_time AS TIMESTAMP) AS trade_time,
             CAST(exchange AS VARCHAR) AS exchange
-          FROM {silver_source}
-        ),
-        {trade_adj_cte},
-        expected_rows AS (
-          SELECT
-            silver_rows.ts_code,
-            silver_rows.partition_key,
-            silver_rows.trade_time,
-            silver_rows.exchange
-          FROM silver_rows
-          INNER JOIN selected
-            ON silver_rows.partition_key = selected.partition_key
-          INNER JOIN trade_adj_factor
-            ON silver_rows.ts_code = trade_adj_factor.ts_code
-           AND silver_rows.trade_date = trade_adj_factor.trade_date
-          WHERE isfinite(trade_adj_factor.adj_factor)
-            AND trade_adj_factor.adj_factor > 0
+          FROM ({expected_identity_sql})
         ),
         duplicate_groups AS (
           SELECT partition_key, ts_code, trade_time, count(*) AS duplicate_count
@@ -1845,7 +1811,8 @@ def _gold_qfq_native_counts_for_trade_date(
     trade_date: str,
     freq: int,
 ) -> tuple[GoldStkMinsQfqCheckCounts, tuple[Path, ...]]:
-    silver_path = silver_stk_mins_path(lake_root, freq, trade_date)
+    source_freq = gold_stk_mins_qfq_source_freq(freq)
+    silver_path = silver_stk_mins_path(lake_root, source_freq, trade_date)
     trade_adj_factor_path = silver_adj_factor_path(lake_root, trade_date)
     if not silver_path.exists():
         return (
@@ -1911,10 +1878,12 @@ def _gold_qfq_native_counts_for_trade_date(
             ).fetchone()
         )
         if trade_adj_factor_path.exists():
-            expected_identity_sql = build_daily_qfq_coverage_identities_sql(
+            expected_identity_sql = build_canonical_gold_stk_mins_qfq_coverage_identities_sql(
                 silver_paths=[silver_path],
                 trade_adj_factor_paths=[trade_adj_factor_path],
                 as_of_adj_factor_paths=[trade_adj_factor_path],
+                target_freq=freq,
+                partition_keys=[trade_date],
             )
             (
                 missing_gold_identity_row_count,
@@ -2019,7 +1988,7 @@ def _gold_qfq_native_failed_check_names(
         failed_check_names.append(GOLD_STK_MINS_QFQ_VALUE_DOMAIN_CHECK)
     if not (
         counts.missing_file_count == 0
-        and counts.gold_target_row_count == counts.silver_row_count
+        and counts.gold_target_row_count > 0
         and counts.missing_gold_identity_row_count == 0
         and counts.unexpected_gold_identity_row_count == 0
         and counts.exchange_mismatch_row_count == 0
@@ -2470,20 +2439,25 @@ def _gold_qfq_derived_batch_counts(
         for year in sorted({date[:4] for date in expected_trade_dates})
     }
     for target_freq in derived_freqs:
-        source_freq = qfq_source_freq_for_derived_freq(target_freq)
+        source_freq = gold_stk_mins_qfq_source_freq(target_freq)
         for year, partition_keys in dates_by_year.items():
-            source_paths = _gold_qfq_year_paths(
-                lake_root=lake_root,
-                freq=source_freq,
-                year=year,
+            source_paths_by_date = {
+                trade_date: silver_stk_mins_path(
+                    lake_root, source_freq, trade_date
+                )
+                for trade_date in partition_keys
+            }
+            factor_paths_by_date = {
+                trade_date: silver_adj_factor_path(lake_root, trade_date)
+                for trade_date in partition_keys
+            }
+            available_partition_keys = tuple(
+                trade_date
+                for trade_date in partition_keys
+                if source_paths_by_date[trade_date].exists()
+                and factor_paths_by_date[trade_date].exists()
             )
-            if not source_paths:
-                source_root_path = gold_stk_mins_qfq_path(
-                    lake_root,
-                    source_freq,
-                    "{ts_code}",
-                    year,
-                ).parents[2]
+            if not available_partition_keys:
                 for trade_date in partition_keys:
                     counts_by_key[(trade_date, target_freq)] = (
                         GoldStkMinsQfqDerivedCheckCounts(
@@ -2508,19 +2482,35 @@ def _gold_qfq_derived_batch_counts(
                             exchange_mismatch_row_count=0,
                         )
                     )
-                    missing_paths_by_key[(trade_date, target_freq)] = (
-                        source_root_path,
+                    missing_paths_by_key[(trade_date, target_freq)] = tuple(
+                        path
+                        for path in (
+                            source_paths_by_date[trade_date],
+                            factor_paths_by_date[trade_date],
+                        )
+                        if not path.exists()
                     )
                 continue
 
-            expected_identity_sql = build_gold_stk_mins_qfq_derived_coverage_sql(
-                source_qfq_paths=source_paths,
+            source_paths = tuple(
+                source_paths_by_date[trade_date]
+                for trade_date in available_partition_keys
+            )
+            factor_paths = tuple(
+                factor_paths_by_date[trade_date]
+                for trade_date in available_partition_keys
+            )
+            expected_identity_sql = build_canonical_gold_stk_mins_qfq_coverage_identities_sql(
+                silver_paths=source_paths,
+                trade_adj_factor_paths=factor_paths,
+                as_of_adj_factor_paths=factor_paths,
                 target_freq=target_freq,
-                partition_keys=partition_keys,
+                partition_keys=available_partition_keys,
+                match_as_of_by_trade_date=True,
             )
             diagnostics_by_date = _gold_qfq_derived_batch_diagnostics_counts(
                 connection,
-                partition_keys=partition_keys,
+                partition_keys=available_partition_keys,
                 source_paths=source_paths,
                 source_freq=source_freq,
                 target_freq=target_freq,
@@ -2530,13 +2520,23 @@ def _gold_qfq_derived_batch_counts(
                 lake_root=lake_root,
                 target_freq=target_freq,
                 expected_identity_sql=expected_identity_sql,
-                expected_trade_dates=partition_keys,
+                expected_trade_dates=available_partition_keys,
             )
             missing_paths_by_date = {
-                trade_date: tuple(
-                    path
-                    for path in expected_paths_by_date.get(trade_date, ())
-                    if not path.exists()
+                trade_date: (
+                    tuple(
+                        path
+                        for path in (
+                            source_paths_by_date[trade_date],
+                            factor_paths_by_date[trade_date],
+                        )
+                        if not path.exists()
+                    )
+                    or tuple(
+                        path
+                        for path in expected_paths_by_date.get(trade_date, ())
+                        if not path.exists()
+                    )
                 )
                 for trade_date in partition_keys
             }
@@ -2632,20 +2632,16 @@ def _gold_qfq_derived_counts_for_trade_date(
     freq: int,
 ) -> tuple[GoldStkMinsQfqDerivedCheckCounts, tuple[Path, ...]]:
     normalized_freq = normalize_stk_mins_qfq_freq(freq)
-    source_freq = qfq_source_freq_for_derived_freq(normalized_freq)
+    source_freq = gold_stk_mins_qfq_source_freq(normalized_freq)
     year = trade_date[:4]
-    source_paths = _gold_qfq_year_paths(
-        lake_root=lake_root,
-        freq=source_freq,
-        year=year,
+    source_path = silver_stk_mins_path(lake_root, source_freq, trade_date)
+    trade_adj_factor_path = silver_adj_factor_path(lake_root, trade_date)
+    missing_input_paths = tuple(
+        path
+        for path in (source_path, trade_adj_factor_path)
+        if not path.exists()
     )
-    if not source_paths:
-        source_root_path = gold_stk_mins_qfq_path(
-            lake_root,
-            source_freq,
-            "{ts_code}",
-            year,
-        ).parents[2]
+    if missing_input_paths:
         return (
             GoldStkMinsQfqDerivedCheckCounts(
                 source_freq=source_freq,
@@ -2668,11 +2664,13 @@ def _gold_qfq_derived_counts_for_trade_date(
                 unexpected_gold_identity_row_count=0,
                 exchange_mismatch_row_count=0,
             ),
-            (source_root_path,),
+            missing_input_paths,
         )
 
-    expected_identity_sql = build_gold_stk_mins_qfq_derived_coverage_sql(
-        source_qfq_paths=source_paths,
+    expected_identity_sql = build_canonical_gold_stk_mins_qfq_coverage_identities_sql(
+        silver_paths=[source_path],
+        trade_adj_factor_paths=[trade_adj_factor_path],
+        as_of_adj_factor_paths=[trade_adj_factor_path],
         target_freq=normalized_freq,
         partition_keys=[trade_date],
     )
@@ -2689,7 +2687,7 @@ def _gold_qfq_derived_counts_for_trade_date(
         int(value or 0)
         for value in connection.execute(
             build_gold_stk_mins_qfq_derived_diagnostics_sql(
-                source_qfq_paths=source_paths,
+                source_qfq_paths=[source_path],
                 target_freq=normalized_freq,
                 partition_keys=[trade_date],
             )
@@ -2751,7 +2749,7 @@ def _gold_qfq_derived_counts_for_trade_date(
     return (
         GoldStkMinsQfqDerivedCheckCounts(
             source_freq=source_freq_from_sql,
-            source_file_count=len(source_paths),
+            source_file_count=1,
             source_row_count=source_row_count,
             source_stock_day_count=source_stock_day_count,
             expected_window_count=expected_window_count,

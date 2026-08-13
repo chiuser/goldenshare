@@ -1,5 +1,12 @@
 # Dagster 90m/120m 分钟线合同修复与历史重建低层设计
 
+> 2026-08-13 口径更新：本文保留为 90m/120m 历史修复记录。当前 Gold 七频业务合同、
+> 5m/15m/30m/60m 的 09:30 竞价锚点修复、指数 Gold 新层、股票 QFQ 与指标/state
+> 重建，以及 90m/120m 不再依赖已修正 Gold 30m/60m 的要求，统一以
+> [A 股分钟线 Gold 标准 K 线合同与历史重建 LLD](./dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md)
+> 为准。本文“1m/5m/15m/30m/60m 不修改”等范围结论已经失效；其余与新 LLD 冲突的
+> Gold 上游和执行描述只作历史证据，不得用于新开发。
+
 更新时间：2026-08-08
 
 状态：P0-P7 已完成；P8 Day-0 启动与即时消费验收已完成。连续至少 3 个实际交易日观察、UI latest 事件顺序处理，以及受影响 120m 研究/回测重跑尚未完成，因此本专项仍处于 P8 观察和收口阶段。
@@ -38,7 +45,8 @@ gold_stk_mins_qfq_macd_kdj_state_90m/120m
 
 本专项不做以下事情：
 
-1. 不修改 1m/5m/15m/30m/60m 原生分钟线。
+1. **历史范围，2026-08-13 已失效：** 本专项实施时未修改 1m/5m/15m/30m/60m；
+   当前 Gold 5m/15m/30m/60m 必须按新 Gold 标准 K 线 LLD 重建，Silver source 不改。
 2. 不修改 QFQ 因子公式、MACD/KDJ 公式、字段 schema、asset key、物理路径或动态分区名称。
 3. 不新增 production formula check，不增加 asset check 数量。
 4. 不修改 run key、job 名称、sensor 名称或日常 first-not-ready 选择策略。
@@ -171,6 +179,10 @@ P1 前，相同业务语义分散在以下实现中：
 ## 5. 上下游影响面
 
 ### 5.1 不重建的上游
+
+> **历史范围，2026-08-13 已失效：** 下列 Gold 30m/60m 当时是 90m/120m 的重建
+> source；当前股票 90m/120m 已改为直接从 Silver 30m/60m 加 QFQ basis 构造，且 Gold
+> 30m/60m 本身进入本轮重建。下表只能解释旧专项执行，不能作为当前上游合同。
 
 以下 source 不受影响，只作为重建输入：
 

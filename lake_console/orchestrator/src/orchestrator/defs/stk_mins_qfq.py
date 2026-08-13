@@ -1,24 +1,36 @@
 from __future__ import annotations
 
-import os
 import hashlib
+import os
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 import duckdb
 
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
-from orchestrator.defs.duckdb_sql import copy_query_to_parquet, duckdb_string, read_parquet
+from orchestrator.defs.duckdb_sql import (
+    copy_query_to_parquet,
+    duckdb_string,
+    read_parquet,
+)
+from orchestrator.defs.io.cn_a_gold_minute_bars import (
+    build_canonical_gold_minute_batch_select_sql,
+)
 from orchestrator.defs.paths import gold_stk_mins_qfq_path
-from orchestrator.defs.run_contracts.asset_column_schemas import GOLD_STK_MINS_QFQ_SCHEMA
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    GOLD_STK_MINS_QFQ_SCHEMA,
+)
 from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
     AUCTION_ANCHOR_ROLE,
+    CN_A_GOLD_MINUTE_SOURCE_FREQ_BY_TARGET,
     REGULAR_SOURCE_ROLE,
+    canonical_gold_minute_window_map_sql,
     cn_a_derived_minute_completion_predicate,
-    cn_a_derived_minute_ignored_source_time_predicate_sql,
     cn_a_derived_minute_window_map_sql,
+    cn_a_gold_minute_ignored_source_time_predicate_sql,
 )
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 from orchestrator.defs.run_contracts.run_keys import build_batch_id
@@ -27,7 +39,6 @@ from orchestrator.defs.run_contracts.stk_mins import (
     normalize_stk_mins_qfq_freq,
     qfq_source_freq_for_derived_freq,
 )
-
 
 GOLD_STK_MINS_QFQ_COLUMNS = tuple(column.name for column in GOLD_STK_MINS_QFQ_SCHEMA)
 GOLD_STK_MINS_QFQ_COLUMN_TYPES = {
@@ -88,6 +99,16 @@ class GoldStkMinsQfqDerivedDiagnostics:
     incomplete_window_count: int
     exchange_mismatch_window_count: int
 
+    @property
+    def complete(self) -> bool:
+        return (
+            self.source_row_count > 0
+            and self.source_stock_day_count > 0
+            and self.expected_window_count == self.generated_window_count
+            and self.incomplete_window_count == 0
+            and self.exchange_mismatch_window_count == 0
+        )
+
 
 @dataclass(frozen=True)
 class GoldStkMinsQfqFactorRepairPlan:
@@ -123,6 +144,123 @@ SELECT
   as_of_adj_factor
 FROM as_of_adj_factor
 """
+
+
+def gold_stk_mins_qfq_source_freq(target_freq: int | str) -> int:
+    normalized_freq = normalize_stk_mins_qfq_freq(target_freq)
+    return CN_A_GOLD_MINUTE_SOURCE_FREQ_BY_TARGET[normalized_freq]
+
+
+def build_canonical_gold_stk_mins_qfq_select_sql(
+    *,
+    silver_paths: Sequence[Path],
+    trade_adj_factor_paths: Sequence[Path],
+    as_of_adj_factor_paths: Sequence[Path],
+    target_freq: int | str,
+    partition_keys: Sequence[str],
+    stock_codes: Sequence[str] = (),
+    match_as_of_by_trade_date: bool = False,
+) -> str:
+    """Build bounded QFQ bars from the canonical Silver source frequency."""
+
+    normalized_freq = normalize_stk_mins_qfq_freq(target_freq)
+    source_freq = gold_stk_mins_qfq_source_freq(normalized_freq)
+    normalized_dates = _normalize_trade_dates(partition_keys)
+    source = _read_parquet_paths(silver_paths)
+    trade_adj_source = _read_parquet_paths(trade_adj_factor_paths)
+    as_of_adj_sql = build_as_of_adj_factor_by_code_sql(as_of_adj_factor_paths)
+    date_values_sql = _date_values_sql(normalized_dates)
+    stock_filter = ""
+    if stock_codes:
+        stock_filter = f"AND CAST(ts_code AS VARCHAR) IN ({_string_values_sql(stock_codes)})"
+    source_relation_sql = f"""
+SELECT
+  CAST(ts_code AS VARCHAR) AS ts_code,
+  CAST(freq AS INTEGER) AS freq,
+  CAST(trade_date AS DATE) AS trade_date,
+  CAST(trade_time AS TIMESTAMP) AS trade_time,
+  CAST(open AS DOUBLE) AS open,
+  CAST(high AS DOUBLE) AS high,
+  CAST(low AS DOUBLE) AS low,
+  CAST(close AS DOUBLE) AS close,
+  CAST(vol AS DOUBLE) AS vol,
+  CAST(amount AS DOUBLE) AS amount,
+  CAST(exchange AS VARCHAR) AS exchange,
+  NULL::DOUBLE AS vwap
+FROM {source}
+WHERE CAST(freq AS INTEGER) = {source_freq}
+  AND CAST(trade_date AS DATE) IN ({date_values_sql})
+  {stock_filter}
+""".strip()
+    price_basis_relation_sql = f"""
+WITH trade_adj_factor AS MATERIALIZED (
+  SELECT
+    CAST(ts_code AS VARCHAR) AS ts_code,
+    CAST(trade_date AS DATE) AS trade_date,
+    CAST(adj_factor AS DOUBLE) AS trade_adj_factor
+  FROM {trade_adj_source}
+  WHERE CAST(trade_date AS DATE) IN ({date_values_sql})
+),
+as_of_adj_factor AS MATERIALIZED (
+  {as_of_adj_sql}
+)
+SELECT
+  trade_adj_factor.ts_code,
+  trade_adj_factor.trade_date,
+  CAST(
+    trade_adj_factor.trade_adj_factor / as_of_adj_factor.as_of_adj_factor
+    AS DOUBLE
+  ) AS price_multiplier
+FROM trade_adj_factor
+INNER JOIN as_of_adj_factor
+  ON trade_adj_factor.ts_code = as_of_adj_factor.ts_code
+  {"AND trade_adj_factor.trade_date = as_of_adj_factor.as_of_trade_date" if match_as_of_by_trade_date else ""}
+WHERE trade_adj_factor.trade_adj_factor IS NOT NULL
+  AND as_of_adj_factor.as_of_adj_factor IS NOT NULL
+  AND isfinite(trade_adj_factor.trade_adj_factor)
+  AND isfinite(as_of_adj_factor.as_of_adj_factor)
+  AND trade_adj_factor.trade_adj_factor > 0
+  AND as_of_adj_factor.as_of_adj_factor > 0
+""".strip()
+    canonical_sql = build_canonical_gold_minute_batch_select_sql(
+        source_relation_sql=source_relation_sql,
+        target_freq=normalized_freq,
+        partition_keys=normalized_dates,
+        price_basis_relation_sql=price_basis_relation_sql,
+    )
+    columns_sql = ",\n  ".join(GOLD_STK_MINS_QFQ_COLUMNS)
+    return f"""
+SELECT
+  {columns_sql}
+FROM ({canonical_sql})
+ORDER BY ts_code, trade_time
+""".strip()
+
+
+def build_canonical_gold_stk_mins_qfq_coverage_identities_sql(
+    *,
+    silver_paths: Sequence[Path],
+    trade_adj_factor_paths: Sequence[Path],
+    as_of_adj_factor_paths: Sequence[Path],
+    target_freq: int | str,
+    partition_keys: Sequence[str],
+    stock_codes: Sequence[str] = (),
+    match_as_of_by_trade_date: bool = False,
+) -> str:
+    canonical_sql = build_canonical_gold_stk_mins_qfq_select_sql(
+        silver_paths=silver_paths,
+        trade_adj_factor_paths=trade_adj_factor_paths,
+        as_of_adj_factor_paths=as_of_adj_factor_paths,
+        target_freq=target_freq,
+        partition_keys=partition_keys,
+        stock_codes=stock_codes,
+        match_as_of_by_trade_date=match_as_of_by_trade_date,
+    )
+    return f"""
+SELECT ts_code, trade_date, trade_time, exchange
+FROM ({canonical_sql})
+ORDER BY ts_code, trade_time
+""".strip()
 
 
 def build_daily_qfq_select_sql(
@@ -499,21 +637,21 @@ ORDER BY ts_code, trade_time
 """
 
 
-def build_gold_stk_mins_qfq_derived_diagnostics_sql(
+def build_canonical_gold_stk_mins_qfq_diagnostics_sql(
     *,
-    source_qfq_paths: Sequence[Path],
+    silver_paths: Sequence[Path],
     target_freq: int | str,
     partition_keys: Sequence[str],
     stock_codes: Sequence[str] = (),
 ) -> str:
     normalized_target_freq = normalize_stk_mins_qfq_freq(target_freq)
-    source_freq = qfq_source_freq_for_derived_freq(normalized_target_freq)
-    source = _read_parquet_paths(source_qfq_paths)
+    source_freq = gold_stk_mins_qfq_source_freq(normalized_target_freq)
+    source = _read_parquet_paths(silver_paths)
     partition_dates_sql = _date_values_sql(_normalize_trade_dates(partition_keys))
     stock_filter = ""
     if stock_codes:
         stock_filter = f"AND ts_code IN ({_string_values_sql(stock_codes)})"
-    window_rows_sql = _derived_window_rows_sql(normalized_target_freq)
+    window_rows_sql = canonical_gold_minute_window_map_sql(normalized_target_freq)
     completion_predicate = _derived_window_completion_predicate(
         regular_row_count_column="coalesce(actual_windows.regular_row_count, 0)",
         regular_time_count_column="coalesce(actual_windows.regular_time_count, 0)",
@@ -651,6 +789,90 @@ SELECT
   count(*) FILTER (WHERE exchange_count > 1) AS exchange_mismatch_window_count
 FROM window_status
 """
+
+
+def build_gold_stk_mins_qfq_derived_diagnostics_sql(
+    *,
+    source_qfq_paths: Sequence[Path],
+    target_freq: int | str,
+    partition_keys: Sequence[str],
+    stock_codes: Sequence[str] = (),
+) -> str:
+    """Compatibility wrapper for the retired Gold-derived source contract."""
+
+    return build_canonical_gold_stk_mins_qfq_diagnostics_sql(
+        silver_paths=source_qfq_paths,
+        target_freq=target_freq,
+        partition_keys=partition_keys,
+        stock_codes=stock_codes,
+    )
+
+
+def audit_canonical_gold_stk_mins_qfq_source(
+    *,
+    silver_paths: Sequence[Path],
+    target_freq: int | str,
+    partition_keys: Sequence[str],
+    stock_codes: Sequence[str] = (),
+    connection: duckdb.DuckDBPyConnection | None = None,
+) -> GoldStkMinsQfqDerivedDiagnostics:
+    sql = build_canonical_gold_stk_mins_qfq_diagnostics_sql(
+        silver_paths=silver_paths,
+        target_freq=target_freq,
+        partition_keys=partition_keys,
+        stock_codes=stock_codes,
+    )
+    if connection is not None:
+        row = connection.execute(sql).fetchone()
+    else:
+        with connect_configured_duckdb() as local_connection:
+            row = local_connection.execute(sql).fetchone()
+    if row is None:
+        raise RuntimeError("Canonical Gold qfq source audit returned no row.")
+    return GoldStkMinsQfqDerivedDiagnostics(
+        source_freq=int(row[0]),
+        target_freq=int(row[1]),
+        source_row_count=int(row[2]),
+        source_stock_day_count=int(row[3]),
+        expected_window_count=int(row[4]),
+        generated_window_count=int(row[5]),
+        incomplete_window_count=int(row[6]),
+        exchange_mismatch_window_count=int(row[7]),
+    )
+
+
+def assert_canonical_gold_stk_mins_qfq_source_ready(
+    *,
+    silver_paths: Sequence[Path],
+    target_freq: int | str,
+    partition_keys: Sequence[str],
+    stock_codes: Sequence[str] = (),
+    allow_empty: bool = False,
+    connection: duckdb.DuckDBPyConnection | None = None,
+) -> GoldStkMinsQfqDerivedDiagnostics:
+    diagnostics = audit_canonical_gold_stk_mins_qfq_source(
+        silver_paths=silver_paths,
+        target_freq=target_freq,
+        partition_keys=partition_keys,
+        stock_codes=stock_codes,
+        connection=connection,
+    )
+    if allow_empty and diagnostics.source_row_count == 0:
+        return diagnostics
+    if diagnostics.complete:
+        return diagnostics
+    raise RuntimeError(
+        "Canonical Gold qfq source windows are incomplete: "
+        f"target_freq={diagnostics.target_freq}, "
+        f"source_freq={diagnostics.source_freq}, "
+        f"source_rows={diagnostics.source_row_count}, "
+        f"source_stock_days={diagnostics.source_stock_day_count}, "
+        f"expected_windows={diagnostics.expected_window_count}, "
+        f"generated_windows={diagnostics.generated_window_count}, "
+        f"incomplete_windows={diagnostics.incomplete_window_count}, "
+        "exchange_mismatch_windows="
+        f"{diagnostics.exchange_mismatch_window_count}."
+    )
 
 
 def build_gold_stk_mins_qfq_derived_coverage_sql(
@@ -1437,7 +1659,7 @@ def build_gold_stk_mins_qfq_derived_source_invalid_predicate_sql(
         if not alias.replace("_", "").isalnum():
             raise ValueError(f"Invalid DuckDB SQL alias: {alias!r}.")
     ignored_source_time_predicate = (
-        cn_a_derived_minute_ignored_source_time_predicate_sql(
+        cn_a_gold_minute_ignored_source_time_predicate_sql(
             trade_time_column=f"{source_alias}.trade_time",
         )
     )

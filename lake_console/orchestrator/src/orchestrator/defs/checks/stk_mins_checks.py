@@ -55,14 +55,13 @@ from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_met
 from orchestrator.defs.run_contracts.stk_mins import (
     normalize_stk_mins_freq,
     normalize_stk_mins_qfq_freq,
-    qfq_source_freq_for_derived_freq,
 )
 from orchestrator.defs.stk_mins_qfq import (
     GOLD_STK_MINS_QFQ_COLUMN_TYPES,
-    build_daily_qfq_coverage_identities_sql,
+    build_canonical_gold_stk_mins_qfq_coverage_identities_sql,
     build_daily_qfq_coverage_sql,
     build_gold_stk_mins_qfq_derived_diagnostics_sql,
-    build_gold_stk_mins_qfq_derived_coverage_sql,
+    gold_stk_mins_qfq_source_freq,
 )
 
 
@@ -134,8 +133,8 @@ GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK = (
     "gold_stk_mins_qfq_unique_ts_code_trade_time"
 )
 GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK = "gold_stk_mins_qfq_price_sanity"
-GOLD_STK_MINS_QFQ_ROW_COUNT_MATCHES_SILVER_CHECK = (
-    "gold_stk_mins_qfq_row_count_matches_silver"
+GOLD_STK_MINS_QFQ_CANONICAL_IDENTITY_MATCHES_SOURCE_CHECK = (
+    "gold_stk_mins_qfq_canonical_identity_matches_source"
 )
 GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK = (
     "gold_stk_mins_qfq_factor_coverage_complete"
@@ -735,13 +734,13 @@ def _gold_qfq_check_results(
     source_failed_rule_names = []
     if (
         counts.missing_file_count
-        or counts.gold_target_row_count != counts.silver_row_count
+        or counts.gold_target_row_count <= 0
         or counts.missing_gold_identity_row_count
         or counts.unexpected_gold_identity_row_count
         or counts.exchange_mismatch_row_count
     ):
         source_failed_rule_names.append(
-            GOLD_STK_MINS_QFQ_ROW_COUNT_MATCHES_SILVER_CHECK
+            GOLD_STK_MINS_QFQ_CANONICAL_IDENTITY_MATCHES_SOURCE_CHECK
         )
     if factor_coverage_failed_count:
         source_failed_rule_names.append(
@@ -888,7 +887,6 @@ def _gold_qfq_check_results(
             input_file_paths=input_file_paths,
             checked_row_count=counts.silver_row_count,
             failed_row_count=factor_coverage_failed_count
-            + abs(counts.gold_target_row_count - counts.silver_row_count)
             + counts.missing_gold_identity_row_count
             + counts.unexpected_gold_identity_row_count
             + counts.exchange_mismatch_row_count
@@ -919,13 +917,13 @@ def _gold_qfq_check_results(
                 **_readable_check_metadata(
                     dataset_label=f"股票 {freq} 分钟 gold qfq 输入覆盖",
                     rule_names=(
-                        GOLD_STK_MINS_QFQ_ROW_COUNT_MATCHES_SILVER_CHECK,
+                        GOLD_STK_MINS_QFQ_CANONICAL_IDENTITY_MATCHES_SOURCE_CHECK,
                         GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK,
                     ),
                     failed_rule_names=source_failed_rule_names,
                     success_next_action="无需处理；等待 factor repair 或指标链路消费。",
                     failure_next_action=(
-                        "先确认 silver 行、当日复权因子和目标 qfq 身份覆盖完整。"
+                        "先确认 Silver canonical 窗口、当日复权因子和目标 qfq 身份覆盖完整。"
                     ),
                 ),
             },
@@ -1188,8 +1186,9 @@ def _gold_stk_mins_qfq_check_results(
 ) -> tuple[dg.AssetCheckResult, ...]:
     partition_key = context.partition_key
     root = lake_root.root()
-    normalized_freq = normalize_stk_mins_freq(freq)
-    silver_path = _silver_path(lake_root, normalized_freq, partition_key)
+    normalized_freq = normalize_stk_mins_qfq_freq(freq)
+    source_freq = gold_stk_mins_qfq_source_freq(normalized_freq)
+    silver_path = _silver_path(lake_root, source_freq, partition_key)
     trade_adj_factor_path = silver_adj_factor_path(root, partition_key)
     output_root_path = gold_stk_mins_qfq_path(
         root,
@@ -1273,10 +1272,12 @@ def _gold_stk_mins_qfq_check_results(
                 samples[sample_name] = _sample_dicts(columns, rows)
 
             if trade_adj_factor_path.exists():
-                expected_identity_sql = build_daily_qfq_coverage_identities_sql(
+                expected_identity_sql = build_canonical_gold_stk_mins_qfq_coverage_identities_sql(
                     silver_paths=[silver_path],
                     trade_adj_factor_paths=[trade_adj_factor_path],
                     as_of_adj_factor_paths=[trade_adj_factor_path],
+                    target_freq=normalized_freq,
+                    partition_keys=[partition_key],
                 )
                 identity_counts = connection.execute(
                     _gold_qfq_identity_coverage_counts_sql(
@@ -1358,23 +1359,22 @@ def _gold_stk_mins_qfq_derived_check_results(
     partition_key = context.partition_key
     root = lake_root.root()
     normalized_freq = normalize_stk_mins_qfq_freq(freq)
-    source_freq = qfq_source_freq_for_derived_freq(normalized_freq)
+    source_freq = gold_stk_mins_qfq_source_freq(normalized_freq)
     year = partition_key[:4]
-    source_paths = _gold_qfq_year_paths(
-        lake_root=root,
-        freq=source_freq,
-        year=year,
-    )
-    source_root_path = gold_stk_mins_qfq_path(
-        root,
-        source_freq,
-        "{ts_code}",
-        year,
-    ).parents[2]
-    if not source_paths:
+    source_path = silver_stk_mins_path(root, source_freq, partition_key)
+    trade_adj_factor_path = silver_adj_factor_path(root, partition_key)
+    if not source_path.exists():
         return _gold_qfq_input_failure_results(
             asset_key=asset_key,
-            missing_path=source_root_path,
+            missing_path=source_path,
+            partition_key=partition_key,
+            freq=normalized_freq,
+            check_names=GOLD_STK_MINS_QFQ_DERIVED_CHECK_NAMES,
+        )
+    if not trade_adj_factor_path.exists():
+        return _gold_qfq_input_failure_results(
+            asset_key=asset_key,
+            missing_path=trade_adj_factor_path,
             partition_key=partition_key,
             freq=normalized_freq,
             check_names=GOLD_STK_MINS_QFQ_DERIVED_CHECK_NAMES,
@@ -1386,13 +1386,15 @@ def _gold_stk_mins_qfq_derived_check_results(
         "{ts_code}",
         year,
     ).parents[2]
-    expected_identity_sql = build_gold_stk_mins_qfq_derived_coverage_sql(
-        source_qfq_paths=source_paths,
+    expected_identity_sql = build_canonical_gold_stk_mins_qfq_coverage_identities_sql(
+        silver_paths=[source_path],
+        trade_adj_factor_paths=[trade_adj_factor_path],
+        as_of_adj_factor_paths=[trade_adj_factor_path],
         target_freq=normalized_freq,
         partition_keys=[partition_key],
     )
     diagnostics_sql = build_gold_stk_mins_qfq_derived_diagnostics_sql(
-        source_qfq_paths=source_paths,
+        source_qfq_paths=[source_path],
         target_freq=normalized_freq,
         partition_keys=[partition_key],
     )
@@ -1485,7 +1487,7 @@ def _gold_stk_mins_qfq_derived_check_results(
 
     counts = GoldStkMinsQfqDerivedCheckCounts(
         source_freq=source_freq_from_sql,
-        source_file_count=len(source_paths),
+            source_file_count=1,
         source_row_count=source_row_count,
         source_stock_day_count=source_stock_day_count,
         expected_window_count=expected_window_count,
@@ -1510,7 +1512,7 @@ def _gold_stk_mins_qfq_derived_check_results(
         freq=normalized_freq,
         counts=counts,
         output_root_path=output_root_path,
-        input_file_paths=source_paths,
+        input_file_paths=(source_path, trade_adj_factor_path),
         missing_gold_paths=missing_gold_paths,
         observed_schema=observed_schema,
         schema_error=schema_error,

@@ -64,48 +64,75 @@ def test_sensor_definition_is_stopped_and_targets_daily_job() -> None:
 
 
 def test_partition_parser_accepts_one_partition_and_rejects_ambiguity() -> None:
-    assert extract_unique_major_index_mins_partition_key(
-        partition_key=None,
-        tag_values={DAGSTER_PARTITION_TAG: TARGET_DATE},
-    ) == TARGET_DATE
-    assert extract_unique_major_index_mins_partition_key(
-        partition_key=TARGET_DATE,
-        tag_values={DAGSTER_PARTITION_TAG: TARGET_DATE},
-    ) == TARGET_DATE
-    assert extract_unique_major_index_mins_partition_key(
-        partition_key=None,
-        tag_values={},
-    ) is None
-    assert extract_unique_major_index_mins_partition_key(
-        partition_key="not-a-date",
-        tag_values={},
-    ) is None
-    assert extract_unique_major_index_mins_partition_key(
-        partition_key=TARGET_DATE,
-        tag_values={DAGSTER_PARTITION_TAG: PREVIOUS_DATE},
-    ) is None
-    assert extract_unique_major_index_mins_partition_key(
-        partition_key=None,
-        tag_values={
-            DAGSTER_PARTITION_RANGE_START_TAG: TARGET_DATE,
-            DAGSTER_PARTITION_RANGE_END_TAG: TARGET_DATE,
-        },
-    ) == TARGET_DATE
-    assert extract_unique_major_index_mins_partition_key(
-        partition_key=None,
-        tag_values={
-            DAGSTER_PARTITION_RANGE_START_TAG: PREVIOUS_DATE,
-            DAGSTER_PARTITION_RANGE_END_TAG: TARGET_DATE,
-        },
-    ) is None
-    assert extract_unique_major_index_mins_partition_key(
-        partition_key=None,
-        tag_values={DAGSTER_PARTITION_RANGE_START_TAG: TARGET_DATE},
-    ) is None
-    assert extract_unique_major_index_mins_partition_key(
-        partition_key=None,
-        tag_values={DAGSTER_PARTITION_RANGE_END_TAG: TARGET_DATE},
-    ) is None
+    assert (
+        extract_unique_major_index_mins_partition_key(
+            partition_key=None,
+            tag_values={DAGSTER_PARTITION_TAG: TARGET_DATE},
+        )
+        == TARGET_DATE
+    )
+    assert (
+        extract_unique_major_index_mins_partition_key(
+            partition_key=TARGET_DATE,
+            tag_values={DAGSTER_PARTITION_TAG: TARGET_DATE},
+        )
+        == TARGET_DATE
+    )
+    assert (
+        extract_unique_major_index_mins_partition_key(
+            partition_key=None,
+            tag_values={},
+        )
+        is None
+    )
+    assert (
+        extract_unique_major_index_mins_partition_key(
+            partition_key="not-a-date",
+            tag_values={},
+        )
+        is None
+    )
+    assert (
+        extract_unique_major_index_mins_partition_key(
+            partition_key=TARGET_DATE,
+            tag_values={DAGSTER_PARTITION_TAG: PREVIOUS_DATE},
+        )
+        is None
+    )
+    assert (
+        extract_unique_major_index_mins_partition_key(
+            partition_key=None,
+            tag_values={
+                DAGSTER_PARTITION_RANGE_START_TAG: TARGET_DATE,
+                DAGSTER_PARTITION_RANGE_END_TAG: TARGET_DATE,
+            },
+        )
+        == TARGET_DATE
+    )
+    assert (
+        extract_unique_major_index_mins_partition_key(
+            partition_key=None,
+            tag_values={
+                DAGSTER_PARTITION_RANGE_START_TAG: PREVIOUS_DATE,
+                DAGSTER_PARTITION_RANGE_END_TAG: TARGET_DATE,
+            },
+        )
+        is None
+    )
+    assert (
+        extract_unique_major_index_mins_partition_key(
+            partition_key=None,
+            tag_values={DAGSTER_PARTITION_RANGE_START_TAG: TARGET_DATE},
+        )
+        is None
+    )
+    assert (
+        extract_unique_major_index_mins_partition_key(
+            partition_key=None,
+            tag_values={DAGSTER_PARTITION_RANGE_END_TAG: TARGET_DATE},
+        )
+        is None
+    )
 
 
 def test_decision_skips_source_not_ready_before_target_checks() -> None:
@@ -300,7 +327,7 @@ def test_run_status_sensor_uses_dagster_cursor_without_custom_cursor() -> None:
     ).read_text(encoding="utf-8")
 
     assert "@dg.run_status_sensor" in source
-    assert "monitored_jobs=[silver_major_index_mins_update_job]" in source
+    assert "monitored_jobs=[gold_major_index_mins_update_job]" in source
     assert "build_sensor_cursor" not in source
     assert "SensorResult" not in source
     assert "get_event_records" not in source

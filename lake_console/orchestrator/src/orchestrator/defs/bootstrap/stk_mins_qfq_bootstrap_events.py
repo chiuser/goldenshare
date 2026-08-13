@@ -35,7 +35,8 @@ from orchestrator.defs.sensors.readiness import (
     asset_readiness_status,
 )
 from orchestrator.defs.stk_mins_qfq import (
-    build_daily_qfq_coverage_identities_sql,
+    build_canonical_gold_stk_mins_qfq_coverage_identities_sql,
+    gold_stk_mins_qfq_source_freq,
 )
 
 
@@ -402,6 +403,7 @@ def audit_stk_mins_qfq_bootstrap_batch(
             silver_paths=silver_paths,
             trade_adj_paths=trade_adj_paths,
             as_of_adj_path=as_of_adj_path,
+            target_freq=batch.freq,
         )
 
     audits: list[StkMinsQfqBootstrapPartitionAudit] = []
@@ -447,7 +449,11 @@ def audit_stk_mins_qfq_bootstrap_batch(
             ),
         )
         input_paths = [
-            silver_stk_mins_path(lake_root, batch.freq, partition_key),
+            silver_stk_mins_path(
+                lake_root,
+                gold_stk_mins_qfq_source_freq(batch.freq),
+                partition_key,
+            ),
             silver_adj_factor_path(lake_root, partition_key),
         ]
         if as_of_adj_path != input_paths[-1]:
@@ -802,6 +808,7 @@ def _batch_identity_coverage_counts(
     silver_paths: Sequence[Path],
     trade_adj_paths: Sequence[Path],
     as_of_adj_path: Path,
+    target_freq: int,
 ) -> dict[str, dict[str, int]]:
     if not gold_paths:
         return {
@@ -813,10 +820,12 @@ def _batch_identity_coverage_counts(
             for partition_key in partition_keys
         }
     gold_source = _read_parquet_paths(gold_paths)
-    expected_identity_sql = build_daily_qfq_coverage_identities_sql(
+    expected_identity_sql = build_canonical_gold_stk_mins_qfq_coverage_identities_sql(
         silver_paths=silver_paths,
         trade_adj_factor_paths=trade_adj_paths,
         as_of_adj_factor_paths=[as_of_adj_path],
+        target_freq=target_freq,
+        partition_keys=partition_keys,
     )
     rows = connection.execute(
         f"""

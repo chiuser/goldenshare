@@ -22,7 +22,14 @@ from orchestrator.defs.jobs.index_mins import (
     silver_index_mins_update_job,
 )
 from orchestrator.defs.partitions import cn_a_index_mins_trade_days
-
+from orchestrator.defs.run_contracts.index_mins import (
+    INDEX_MINS_GOLD_ASSET_NAMES,
+    INDEX_MINS_GOLD_CHECKS,
+    INDEX_MINS_RAW_ASSET_NAMES,
+    INDEX_MINS_RAW_CHECKS,
+    INDEX_MINS_SILVER_ASSET_NAMES,
+    INDEX_MINS_SILVER_CHECKS,
+)
 
 RAW_CHECKS = (
     raw_index_mins_1m_core_check,
@@ -108,7 +115,20 @@ def test_index_mins_catalog_has_one_governed_core_check_per_asset() -> None:
         for entry in list_lake_asset_catalog_entries()
         if entry.dataset_id == "index_mins"
     ]
-    assert len(entries) == 12
+    expected_asset_names = (
+        *INDEX_MINS_RAW_ASSET_NAMES,
+        *INDEX_MINS_SILVER_ASSET_NAMES,
+        *INDEX_MINS_GOLD_ASSET_NAMES,
+    )
+    expected_check_names = (
+        *INDEX_MINS_RAW_CHECKS,
+        *INDEX_MINS_SILVER_CHECKS,
+        *INDEX_MINS_GOLD_CHECKS,
+    )
+    assert {entry.asset_key for entry in entries} == set(expected_asset_names)
+    assert {
+        entry.blocking_check_names[0] for entry in entries
+    } == set(expected_check_names)
     for entry in entries:
         assert entry.blocking_check_names == (f"{entry.asset_key}_core_check",)
         assert entry.partition_model.value.endswith("index_mins")

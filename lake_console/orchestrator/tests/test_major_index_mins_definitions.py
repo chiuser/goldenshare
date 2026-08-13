@@ -13,6 +13,8 @@ from orchestrator.defs.jobs.major_index_mins import (
 )
 from orchestrator.defs.partitions import cn_major_index_mins_trade_days
 from orchestrator.defs.run_contracts.major_index_mins import (
+    MAJOR_INDEX_MINS_GOLD_ASSET_KEYS,
+    MAJOR_INDEX_MINS_GOLD_CHECKS,
     MAJOR_INDEX_MINS_RAW_ASSET_KEYS,
     MAJOR_INDEX_MINS_RAW_CHECKS,
     MAJOR_INDEX_MINS_SILVER_ASSET_KEYS,
@@ -93,10 +95,19 @@ def test_catalog_has_exact_asset_and_check_mapping() -> None:
         for entry in list_lake_asset_catalog_entries()
         if entry.dataset_id == "major_index_mins"
     )
-    expected_keys = set(
-        (*MAJOR_INDEX_MINS_RAW_ASSET_KEYS, *MAJOR_INDEX_MINS_SILVER_ASSET_KEYS)
-    )
+    expected_keys = {
+        *MAJOR_INDEX_MINS_RAW_ASSET_KEYS,
+        *MAJOR_INDEX_MINS_SILVER_ASSET_KEYS,
+        *MAJOR_INDEX_MINS_GOLD_ASSET_KEYS,
+    }
     assert {entry.asset_key for entry in entries} == expected_keys
+    assert {
+        entry.blocking_check_names[0] for entry in entries
+    } == {
+        *MAJOR_INDEX_MINS_RAW_CHECKS,
+        *MAJOR_INDEX_MINS_SILVER_CHECKS,
+        *MAJOR_INDEX_MINS_GOLD_CHECKS,
+    }
     for entry in entries:
         assert entry.dataset_name == "主要指数分钟线"
         assert entry.blocking_check_names == (f"{entry.asset_key}_core_check",)

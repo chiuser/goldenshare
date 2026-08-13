@@ -1,5 +1,10 @@
 # Dagster 股票分钟线 QFQ As-Of 因子审计依据撤销记录
 
+> 2026-08-13 补充：本文仍是已撤销方案，不参与当前分钟线修复。当前 Gold 非 1m
+> 竞价锚点、QFQ source 和历史重建只按
+> [A 股分钟线 Gold 标准 K 线合同与历史重建 LLD](./dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md)
+> 执行；不得借本撤销记录恢复 as-of basis 侧车或 production 公式复算。
+
 更新时间：2026-07-15
 
 状态：**已撤销，禁止启用。** 本文保留为一次被否决方案的事实记录，不是当前设计、实现或运行依据。现行口径见 [QFQ 计算测试与生产 Check 治理低层设计](dagster-stk-mins-qfq-validation-governance-low-level-design.md)。

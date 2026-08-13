@@ -27,10 +27,14 @@ from orchestrator.defs.bootstrap.stk_mins_qfq_derived_history import (
 )
 from orchestrator.defs.checks import stk_mins_checks
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
-from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, gold_stk_mins_qfq_path
+from orchestrator.defs.paths import (
+    DEFAULT_LAKE_ROOT,
+    gold_stk_mins_qfq_path,
+    silver_adj_factor_path,
+    silver_stk_mins_path,
+)
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.metadata import build_materialization_metadata
-from orchestrator.defs.run_contracts.stk_mins import qfq_source_freq_for_derived_freq
 from orchestrator.defs.sensors.readiness import (
     AssetReadinessSpec,
     asset_readiness_status,
@@ -38,8 +42,9 @@ from orchestrator.defs.sensors.readiness import (
 from orchestrator.defs.stk_mins_qfq import (
     _derived_window_completion_predicate,
     _derived_window_rows_sql,
-    build_gold_stk_mins_qfq_derived_coverage_sql,
+    build_canonical_gold_stk_mins_qfq_coverage_identities_sql,
     build_gold_stk_mins_qfq_derived_source_invalid_predicate_sql,
+    gold_stk_mins_qfq_source_freq,
 )
 
 
@@ -282,24 +287,26 @@ def audit_stk_mins_qfq_derived_bootstrap_batch(
         "{ts_code}",
         batch.year,
     ).parents[2]
-    source_paths = _source_qfq_paths_for_batch(lake_root, batch)
-    if not source_paths:
+    source_paths = _source_silver_paths_for_batch(lake_root, batch)
+    factor_paths = _trade_adj_factor_paths_for_batch(lake_root, batch)
+    missing_input_paths = tuple(
+        path for path in (*source_paths, *factor_paths) if not path.exists()
+    )
+    if missing_input_paths:
         return _derived_input_failure_audits(
             batch=batch,
             asset_key=asset_key,
             output_root_path=output_root_path,
-            missing_path=gold_stk_mins_qfq_path(
-                lake_root,
-                int(batch.source_freq),
-                "{ts_code}",
-                batch.year,
-            ).parents[2],
+            missing_path=missing_input_paths[0],
         )
 
-    expected_identity_sql = build_gold_stk_mins_qfq_derived_coverage_sql(
-        source_qfq_paths=source_paths,
+    expected_identity_sql = build_canonical_gold_stk_mins_qfq_coverage_identities_sql(
+        silver_paths=source_paths,
+        trade_adj_factor_paths=factor_paths,
+        as_of_adj_factor_paths=factor_paths,
         target_freq=batch.target_freq,
         partition_keys=batch.partition_keys,
+        match_as_of_by_trade_date=True,
     )
     with connect_configured_duckdb() as connection:
         diagnostics_by_date = _batch_derived_diagnostics_counts(
@@ -393,7 +400,7 @@ def audit_stk_mins_qfq_derived_bootstrap_batch(
             freq=batch.target_freq,
             counts=counts,
             output_root_path=output_root_path,
-            input_file_paths=source_paths,
+            input_file_paths=(*source_paths, *factor_paths),
             missing_gold_paths=missing_paths,
             observed_schema=observed_schema,
             schema_error=schema_error,
@@ -890,7 +897,7 @@ def _report_stk_mins_qfq_derived_partition_events(
     source_method: str = "stk_mins_qfq_derived_history_generation",
     extra_metadata: Mapping[str, object] | None = None,
 ) -> int:
-    source_freq = qfq_source_freq_for_derived_freq(audit.freq)
+    source_freq = gold_stk_mins_qfq_source_freq(audit.freq)
     materialization_extra_metadata = {
         "source_method": source_method,
         "bootstrap_event_backfill": True,
@@ -941,14 +948,21 @@ def _report_stk_mins_qfq_derived_partition_events(
     return event_count
 
 
-def _source_qfq_paths_for_batch(
+def _source_silver_paths_for_batch(
     lake_root: Path,
     batch: StkMinsQfqDerivedHistoryBatch,
 ) -> tuple[Path, ...]:
-    source_root = gold_stk_mins_qfq_path(
-        lake_root,
-        batch.source_freq,
-        "{ts_code}",
-        batch.year,
-    ).parents[2]
-    return tuple(sorted(source_root.glob(f"ts_code=*/year={batch.year}/part-000.parquet")))
+    return tuple(
+        silver_stk_mins_path(lake_root, batch.source_freq, partition_key)
+        for partition_key in batch.partition_keys
+    )
+
+
+def _trade_adj_factor_paths_for_batch(
+    lake_root: Path,
+    batch: StkMinsQfqDerivedHistoryBatch,
+) -> tuple[Path, ...]:
+    return tuple(
+        silver_adj_factor_path(lake_root, partition_key)
+        for partition_key in batch.partition_keys
+    )

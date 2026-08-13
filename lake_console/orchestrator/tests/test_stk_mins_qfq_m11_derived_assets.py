@@ -11,11 +11,14 @@ from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
 from orchestrator.defs.paths import (
     gold_stk_mins_qfq_path,
     raw_stk_mins_path,
+    silver_adj_factor_path,
     silver_stk_mins_path,
 )
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STK_MINS_QFQ_SCHEMA,
+    SILVER_ADJ_FACTOR_SCHEMA,
+    SILVER_STK_MINS_SCHEMA,
 )
 
 
@@ -105,6 +108,31 @@ def _read_gold_rows(path: Path) -> list[dict[str, object]]:
     return [dict(zip(columns, row, strict=True)) for row in rows]
 
 
+def _write_silver_source(
+    lake_root: Path,
+    *,
+    source_freq: int,
+    rows: list[dict[str, object]],
+) -> None:
+    _write_rows(
+        silver_stk_mins_path(lake_root, source_freq, TRADE_DATE),
+        schema=SILVER_STK_MINS_SCHEMA,
+        rows=[{**row, "freq": source_freq} for row in rows],
+    )
+    _write_rows(
+        silver_adj_factor_path(lake_root, TRADE_DATE),
+        schema=SILVER_ADJ_FACTOR_SCHEMA,
+        rows=[
+            {
+                "ts_code": STOCK_A,
+                "trade_date": TRADE_DATE,
+                "adj_factor": 1.0,
+            }
+        ],
+        order_by="ts_code",
+    )
+
+
 def _complete_60m_rows() -> list[dict[str, object]]:
     return [
         _gold_row("09:30:00", freq=60, open_=10, close=10.5, vol=1),
@@ -132,12 +160,12 @@ class StkMinsQfqM11DerivedAssetTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Unsupported stk_mins freq"):
                 silver_stk_mins_path(lake_root, 120, TRADE_DATE)
 
-    def test_90m_is_derived_from_30m_qfq_windows(self) -> None:
+    def test_90m_is_derived_directly_from_30m_silver_windows(self) -> None:
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)
-            _write_rows(
-                gold_stk_mins_qfq_path(lake_root, 30, STOCK_A, 2026),
-                schema=GOLD_STK_MINS_QFQ_SCHEMA,
+            _write_silver_source(
+                lake_root,
+                source_freq=30,
                 rows=[
                     _gold_row("09:30:00", freq=30, open_=9, close=9.5),
                     _gold_row("10:00:00", freq=30, open_=10, close=10.5, vol=1),
@@ -174,12 +202,12 @@ class StkMinsQfqM11DerivedAssetTests(unittest.TestCase):
         self.assertEqual(rows[2]["open"], 16)
         self.assertEqual(rows[2]["close"], 17.5)
 
-    def test_120m_is_derived_from_60m_qfq_complete_windows(self) -> None:
+    def test_120m_is_derived_directly_from_60m_silver_windows(self) -> None:
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)
-            _write_rows(
-                gold_stk_mins_qfq_path(lake_root, 60, STOCK_A, 2026),
-                schema=GOLD_STK_MINS_QFQ_SCHEMA,
+            _write_silver_source(
+                lake_root,
+                source_freq=60,
                 rows=[
                     _gold_row("09:30:00", freq=60, open_=10, close=10.5, vol=1),
                     _gold_row("10:30:00", freq=60, open_=11, close=11.5, vol=2),
@@ -230,9 +258,9 @@ class StkMinsQfqM11DerivedAssetTests(unittest.TestCase):
                         exchange=exchange,
                     )
                 )
-                _write_rows(
-                    gold_stk_mins_qfq_path(lake_root, 60, STOCK_A, 2026),
-                    schema=GOLD_STK_MINS_QFQ_SCHEMA,
+                _write_silver_source(
+                    lake_root,
+                    source_freq=60,
                     rows=source_rows,
                 )
 
@@ -264,16 +292,16 @@ class StkMinsQfqM11DerivedAssetTests(unittest.TestCase):
     def test_derived_generation_fails_when_window_exchange_is_inconsistent(self) -> None:
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)
-            _write_rows(
-                gold_stk_mins_qfq_path(lake_root, 60, STOCK_A, 2026),
-                schema=GOLD_STK_MINS_QFQ_SCHEMA,
+            _write_silver_source(
+                lake_root,
+                source_freq=60,
                 rows=[
                     _gold_row("09:30:00", freq=60, open_=10, exchange="SSE"),
                     _gold_row("10:30:00", freq=60, open_=11, exchange="SZSE"),
                 ],
             )
 
-            with self.assertRaisesRegex(RuntimeError, "mixed exchanges"):
+            with self.assertRaisesRegex(RuntimeError, "mixed_exchange"):
                 write_gold_stk_mins_qfq_derived_asset_partition(
                     lake_root=lake_root,
                     duckdb=DuckDBResource(),
@@ -321,15 +349,15 @@ class StkMinsQfqM11DerivedAssetTests(unittest.TestCase):
                     STOCK_A,
                     2026,
                 )
-                _write_rows(
-                    gold_stk_mins_qfq_path(lake_root, 60, STOCK_A, 2026),
-                    schema=GOLD_STK_MINS_QFQ_SCHEMA,
+                _write_silver_source(
+                    lake_root,
+                    source_freq=60,
                     rows=rows,
                 )
 
                 with self.assertRaisesRegex(
                     RuntimeError,
-                    "incomplete or invalid",
+                    "canonical source (contract failed|windows are incomplete)",
                 ):
                     write_gold_stk_mins_qfq_derived_asset_partition(
                         lake_root=lake_root,

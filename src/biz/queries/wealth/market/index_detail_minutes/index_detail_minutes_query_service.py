@@ -27,7 +27,7 @@ from src.foundation.clients.local_lake.major_index_mins_reader import (
 
 
 SHANGHAI = ZoneInfo("Asia/Shanghai")
-KNOWN_UNSUPPORTED_SILVER_CODES = frozenset({"899050.BJ"})
+KNOWN_UNSUPPORTED_MINUTE_CODES = frozenset({"899050.BJ"})
 
 
 class IndexDetailMinutesQueryService:
@@ -53,7 +53,7 @@ class IndexDetailMinutesQueryService:
     ) -> IndexMinutesResponseDto:
         normalized_code = ts_code.strip().upper()
         self._universe.require_supported(normalized_code)
-        if normalized_code in KNOWN_UNSUPPORTED_SILVER_CODES:
+        if normalized_code in KNOWN_UNSUPPORTED_MINUTE_CODES:
             page = _empty_page()
             response = IndexMinutesResponseDto(
                 tsCode=normalized_code,
@@ -111,7 +111,7 @@ class IndexDetailMinutesQueryService:
     ) -> IndexMinuteIndicatorsResponseDto:
         normalized_code = ts_code.strip().upper()
         self._universe.require_supported(normalized_code)
-        if normalized_code in KNOWN_UNSUPPORTED_SILVER_CODES:
+        if normalized_code in KNOWN_UNSUPPORTED_MINUTE_CODES:
             page = _empty_page()
         else:
             page = self._reader.read_indicators(
@@ -137,7 +137,7 @@ class IndexDetailMinutesQueryService:
             dataStatus=build_index_minute_status(
                 page,
                 expected_end_date=end_date,
-                known_unsupported=normalized_code in KNOWN_UNSUPPORTED_SILVER_CODES,
+                known_unsupported=normalized_code in KNOWN_UNSUPPORTED_MINUTE_CODES,
             ),
         )
         enforce_index_minute_response_size(response)

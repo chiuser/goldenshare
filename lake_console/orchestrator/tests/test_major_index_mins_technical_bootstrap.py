@@ -34,9 +34,9 @@ from orchestrator.defs.io.major_index_mins_technical_writer import (
     MajorIndexMinsTechnicalValidationError,
 )
 from orchestrator.defs.paths import (
+    gold_major_index_mins_path,
     gold_major_index_mins_technical_path,
     gold_major_index_mins_technical_state_path,
-    silver_major_index_mins_path,
 )
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.major_index_mins_technical import (
@@ -113,8 +113,8 @@ class BootstrapEventInstance:
             )
 
 
-def _write_silver_partition(root: Path, *, trade_date: str, freq: int) -> Path:
-    path = silver_major_index_mins_path(root, f"{freq}min", trade_date)
+def _write_gold_bar_partition(root: Path, *, trade_date: str, freq: int) -> Path:
+    path = gold_major_index_mins_path(root, freq, trade_date)
     path.parent.mkdir(parents=True, exist_ok=True)
     rows: list[tuple[object, ...]] = []
     for code_index, code in enumerate(
@@ -125,33 +125,45 @@ def _write_silver_partition(root: Path, *, trade_date: str, freq: int) -> Path:
             rows.append(
                 (
                     code,
-                    f"{freq}min",
+                    freq,
+                    trade_date,
                     f"{trade_date} {trade_time}",
+                    close,
                     close + 1.0,
                     close - 1.0,
+                    close,
+                    1.0,
+                    close,
+                    "SSE",
                     close,
                 )
             )
     with duckdb.connect(":memory:") as connection:
         connection.execute(
             """
-            CREATE TABLE silver_rows (
+            CREATE TABLE gold_rows (
               ts_code VARCHAR,
-              freq VARCHAR,
+              freq INTEGER,
+              trade_date DATE,
               trade_time TIMESTAMP,
+              open DOUBLE,
               high DOUBLE,
               low DOUBLE,
-              close DOUBLE
+              close DOUBLE,
+              vol DOUBLE,
+              amount DOUBLE,
+              exchange VARCHAR,
+              vwap DOUBLE
             )
             """
         )
         connection.executemany(
-            "INSERT INTO silver_rows VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO gold_rows VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             rows,
         )
         connection.execute(
             copy_query_to_parquet(
-                "SELECT * FROM silver_rows ORDER BY ts_code, trade_time",
+                "SELECT * FROM gold_rows ORDER BY ts_code, trade_time",
                 path,
             )
         )
@@ -160,7 +172,7 @@ def _write_silver_partition(root: Path, *, trade_date: str, freq: int) -> Path:
 
 def _write_complete_date(root: Path, trade_date: str) -> None:
     for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS:
-        _write_silver_partition(root, trade_date=trade_date, freq=freq)
+        _write_gold_bar_partition(root, trade_date=trade_date, freq=freq)
 
 
 def _plan(tmp_path: Path, *, registered_dates: tuple[str, ...] = (FIRST_DATE,)):
@@ -257,9 +269,7 @@ def _install_performance_sample_fakes(
             technical_path=technical_path,
             state_path=state_path,
             technical_row_count=2,
-            state_row_count=len(
-                expected_major_index_mins_technical_codes(trade_date)
-            ),
+            state_row_count=len(expected_major_index_mins_technical_codes(trade_date)),
             input_row_count=2,
             elapsed_ms=10.0,
         )
@@ -300,7 +310,7 @@ def test_plan_hash_is_stable_and_ignores_only_incomplete_tail(tmp_path: Path) ->
     assert first.hash_payload()["schema_version"] == 2
 
 
-def test_plan_rejects_intermediate_incomplete_silver_date(tmp_path: Path) -> None:
+def test_plan_rejects_intermediate_incomplete_gold_bar_date(tmp_path: Path) -> None:
     root = tmp_path / "data_lake"
     _write_complete_date(root, FIRST_DATE)
     _write_complete_date(root, THIRD_DATE)
@@ -396,9 +406,7 @@ def test_performance_sample_resumes_from_20_to_60_dates(
         apply=True,
     )
     payload_20 = json.loads(report_20.read_text(encoding="utf-8"))
-    first_hashes = {
-        value["path"]: value["sha256"] for value in payload_20["files"]
-    }
+    first_hashes = {value["path"]: value["sha256"] for value in payload_20["files"]}
     assert len(calls) == 20 * len(MAJOR_INDEX_MINS_TECHNICAL_FREQS)
 
     report_60 = build_major_index_mins_technical_performance_sample(
@@ -466,9 +474,7 @@ def test_performance_sample_checkpoints_only_complete_dates(
             apply=True,
         )
 
-    checkpoint = (
-        plan.performance_sample_root / "performance-sample-checkpoint.json"
-    )
+    checkpoint = plan.performance_sample_root / "performance-sample-checkpoint.json"
     assert not checkpoint.exists()
 
 
@@ -479,9 +485,7 @@ def test_performance_sample_rejects_partial_uncheckpointed_pair(
     plan = _performance_sample_plan(tmp_path)
     _install_performance_sample_fakes(monkeypatch, plan)
     sample_lake = plan.performance_sample_root / "sample_lake"
-    partial = gold_major_index_mins_technical_path(
-        sample_lake, 1, plan.trade_dates[0]
-    )
+    partial = gold_major_index_mins_technical_path(sample_lake, 1, plan.trade_dates[0])
     partial.parent.mkdir(parents=True, exist_ok=True)
     partial.write_bytes(b"partial")
 

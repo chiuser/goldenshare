@@ -22,22 +22,29 @@ from orchestrator.defs.bootstrap.stk_mins_qfq_derived_bootstrap_events import (
     report_stk_mins_qfq_derived_bootstrap_events,
 )
 from orchestrator.defs.bootstrap.stk_mins_qfq_derived_history import (
+    GOLD_STK_MINS_QFQ_DERIVED_AMOUNT_ABS_TOLERANCE,
+    audit_stk_mins_qfq_derived_canonical_equivalence,
     generate_stk_mins_qfq_derived_history,
     plan_stk_mins_qfq_derived_history,
 )
 from orchestrator.defs.checks import stk_mins_checks
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
-from orchestrator.defs.paths import gold_stk_mins_qfq_path
+from orchestrator.defs.paths import (
+    gold_stk_mins_qfq_path,
+    silver_adj_factor_path,
+    silver_stk_mins_path,
+)
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STK_MINS_QFQ_SCHEMA,
+    SILVER_ADJ_FACTOR_SCHEMA,
+    SILVER_STK_MINS_SCHEMA,
 )
 from orchestrator.defs.sensors.readiness import (
     AssetReadinessSpec,
     asset_readiness_status,
 )
-
 
 DATE_1 = "2014-06-03"
 DATE_2 = "2014-06-04"
@@ -54,11 +61,12 @@ def _write_rows(
     path: Path,
     *,
     rows: list[dict[str, object]],
+    schema=GOLD_STK_MINS_QFQ_SCHEMA,
     order_by: str = "trade_date, trade_time",
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    columns = tuple(column.name for column in GOLD_STK_MINS_QFQ_SCHEMA)
-    column_types = _column_types(GOLD_STK_MINS_QFQ_SCHEMA)
+    columns = tuple(column.name for column in schema)
+    column_types = _column_types(schema)
     with duckdb.connect(database=":memory:") as connection:
         column_defs = ", ".join(
             f'"{column}" {column_types[column]}' for column in columns
@@ -150,36 +158,51 @@ def _source_rows_for_stock_year(
     return rows
 
 
-def _write_source_qfq_year(
+def _write_source_silver_partitions(
     lake_root: Path,
     *,
     freq: int,
-    year: int,
     trade_dates: tuple[str, ...],
 ) -> None:
-    for stock_code in (STOCK_A, STOCK_B):
+    for trade_date in trade_dates:
         _write_rows(
-            gold_stk_mins_qfq_path(lake_root, freq, stock_code, year),
-            rows=_source_rows_for_stock_year(
-                ts_code=stock_code,
-                freq=freq,
-                trade_dates=trade_dates,
-            ),
+            silver_stk_mins_path(lake_root, freq, trade_date),
+            schema=SILVER_STK_MINS_SCHEMA,
+            rows=[
+                row
+                for stock_code in (STOCK_A, STOCK_B)
+                for row in _source_rows_for_stock_year(
+                    ts_code=stock_code,
+                    freq=freq,
+                    trade_dates=(trade_date,),
+                )
+            ],
             order_by="trade_date, ts_code, trade_time",
+        )
+        _write_rows(
+            silver_adj_factor_path(lake_root, trade_date),
+            schema=SILVER_ADJ_FACTOR_SCHEMA,
+            rows=[
+                {
+                    "ts_code": stock_code,
+                    "trade_date": trade_date,
+                    "adj_factor": 1.0,
+                }
+                for stock_code in (STOCK_A, STOCK_B)
+            ],
+            order_by="ts_code",
         )
 
 
 def _write_valid_derived_sources(lake_root: Path) -> None:
-    _write_source_qfq_year(
+    _write_source_silver_partitions(
         lake_root,
         freq=30,
-        year=2014,
         trade_dates=(DATE_1, DATE_2),
     )
-    _write_source_qfq_year(
+    _write_source_silver_partitions(
         lake_root,
         freq=60,
-        year=2014,
         trade_dates=(DATE_1, DATE_2),
     )
 
@@ -235,16 +258,14 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)
             _write_valid_derived_sources(lake_root)
-            _write_source_qfq_year(
+            _write_source_silver_partitions(
                 lake_root,
                 freq=30,
-                year=2015,
                 trade_dates=(DATE_3,),
             )
-            _write_source_qfq_year(
+            _write_source_silver_partitions(
                 lake_root,
                 freq=60,
-                year=2015,
                 trade_dates=(DATE_3,),
             )
 
@@ -295,6 +316,94 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
             "11:30:00",
             "15:00:00",
         ])
+
+    def test_silver_direct_equivalence_audit_detects_value_drift(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            _write_valid_derived_sources(lake_root)
+            generate_stk_mins_qfq_derived_history(
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                registered_partition_keys=[DATE_1, DATE_2],
+                freqs=[90, 120],
+            )
+
+            matching = audit_stk_mins_qfq_derived_canonical_equivalence(
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                registered_partition_keys=[DATE_1, DATE_2],
+            )
+            target_path = gold_stk_mins_qfq_path(
+                lake_root,
+                90,
+                STOCK_A,
+                2014,
+            )
+            rows = _read_gold_rows(target_path)
+            rows[0]["close"] = float(rows[0]["close"]) + 1.0
+            _write_rows(target_path, rows=rows)
+            drifted = audit_stk_mins_qfq_derived_canonical_equivalence(
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                registered_partition_keys=[DATE_1, DATE_2],
+            )
+
+        self.assertTrue(matching.passed)
+        self.assertFalse(drifted.passed)
+        self.assertEqual(
+            sum(audit.value_mismatch_count for audit in drifted.batch_audits),
+            1,
+        )
+
+    def test_silver_direct_equivalence_tolerates_only_amount_sum_tail_noise(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            _write_valid_derived_sources(lake_root)
+            generate_stk_mins_qfq_derived_history(
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                registered_partition_keys=[DATE_1, DATE_2],
+                freqs=[90],
+            )
+
+            target_path = gold_stk_mins_qfq_path(
+                lake_root,
+                90,
+                STOCK_A,
+                2014,
+            )
+            rows = _read_gold_rows(target_path)
+            rows[0]["amount"] = float(rows[0]["amount"]) + 1e-9
+            _write_rows(target_path, rows=rows)
+            tolerated = audit_stk_mins_qfq_derived_canonical_equivalence(
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                registered_partition_keys=[DATE_1, DATE_2],
+                freqs=[90],
+            )
+
+            rows[0]["amount"] = float(rows[0]["amount"]) + 1e-3
+            _write_rows(target_path, rows=rows)
+            rejected = audit_stk_mins_qfq_derived_canonical_equivalence(
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                registered_partition_keys=[DATE_1, DATE_2],
+                freqs=[90],
+            )
+
+        self.assertTrue(tolerated.passed)
+        self.assertLessEqual(
+            tolerated.batch_audits[0].max_amount_abs_difference,
+            GOLD_STK_MINS_QFQ_DERIVED_AMOUNT_ABS_TOLERANCE,
+        )
+        self.assertFalse(rejected.passed)
+        self.assertEqual(rejected.batch_audits[0].value_mismatch_count, 1)
+        self.assertGreater(
+            rejected.batch_audits[0].max_amount_abs_difference,
+            GOLD_STK_MINS_QFQ_DERIVED_AMOUNT_ABS_TOLERANCE,
+        )
 
     def test_generate_rejects_native_freq_and_existing_targets(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -383,12 +492,7 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
                 duckdb_resource=DuckDBResource(),
             )
             batch = history_plan.batches[0]
-            source_path = gold_stk_mins_qfq_path(
-                lake_root,
-                60,
-                STOCK_A,
-                2014,
-            )
+            source_path = silver_stk_mins_path(lake_root, 60, DATE_1)
             rows = _read_gold_rows(source_path)
             rows.append(
                 _gold_row(
@@ -399,8 +503,8 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
                     open_=10.0,
                 )
             )
-            _write_rows(source_path, rows=rows)
-            source_paths = derived_events._source_qfq_paths_for_batch(
+            _write_rows(source_path, schema=SILVER_STK_MINS_SCHEMA, rows=rows)
+            source_paths = derived_events._source_silver_paths_for_batch(
                 lake_root,
                 batch,
             )

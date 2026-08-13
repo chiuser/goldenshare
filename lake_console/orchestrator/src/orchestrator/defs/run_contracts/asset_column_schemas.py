@@ -231,6 +231,24 @@ SILVER_MAJOR_INDEX_MINS_SCHEMA = (
     ColumnContract("vwap", "DOUBLE", "原生保留；90m/120m 固定为空"),
 )
 
+GOLD_CN_A_INDEX_MINS_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "标准化指数代码"),
+    ColumnContract("freq", "INTEGER", "业务分钟频率"),
+    ColumnContract("trade_date", "DATE", "交易日"),
+    ColumnContract("trade_time", "TIMESTAMP", "业务分钟 bar 收盘时间"),
+    ColumnContract("open", "DOUBLE", "分钟 bar 开盘点位"),
+    ColumnContract("high", "DOUBLE", "分钟 bar 最高点位"),
+    ColumnContract("low", "DOUBLE", "分钟 bar 最低点位"),
+    ColumnContract("close", "DOUBLE", "分钟 bar 收盘点位"),
+    ColumnContract("vol", "DOUBLE", "成交量"),
+    ColumnContract("amount", "DOUBLE", "成交金额"),
+    ColumnContract("exchange", "VARCHAR", "交易所代码"),
+    ColumnContract("vwap", "DOUBLE", "1m 保留源值，其它频率固定为空"),
+)
+
+GOLD_INDEX_MINS_SCHEMA = GOLD_CN_A_INDEX_MINS_SCHEMA
+GOLD_MAJOR_INDEX_MINS_SCHEMA = GOLD_CN_A_INDEX_MINS_SCHEMA
+
 RAW_INDEX_GLOBAL_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "Tushare 国际指数代码"),
     ColumnContract("trade_date", "VARCHAR", "Tushare 原始交易日，YYYYMMDD 字符串"),

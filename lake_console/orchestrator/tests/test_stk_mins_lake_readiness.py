@@ -7,6 +7,10 @@ from unittest.mock import patch
 import duckdb
 
 import orchestrator.defs.asset_guards.stk_mins_lake_readiness as lake_readiness_module
+from orchestrator.defs.assets.stk_mins import (
+    write_gold_stk_mins_qfq_asset_partition,
+    write_gold_stk_mins_qfq_derived_asset_partition,
+)
 from orchestrator.defs.asset_guards.adj_factor_lake_readiness import (
     batch_adj_factor_lake_readiness,
 )
@@ -46,7 +50,10 @@ from orchestrator.defs.run_contracts.stk_mins import (
 )
 from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
     cn_a_derived_minute_window_rows,
+    expected_canonical_gold_source_times,
+    expected_gold_minute_times,
 )
+from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.stk_mins_qfq import (
     build_gold_stk_mins_qfq_derived_select_sql,
 )
@@ -432,16 +439,13 @@ def _write_gold_qfq_ready_inputs(
     trade_date: str,
 ) -> None:
     _write_adj_factor_files(connection, lake_root, trade_date=trade_date)
-    native_times = {
-        1: ("09:31:00",),
-        5: ("09:35:00",),
-        15: ("09:45:00",),
-        30: tuple(dict.fromkeys(row[0] for row in cn_a_derived_minute_window_rows(90))),
-        60: tuple(
-            dict.fromkeys(row[0] for row in cn_a_derived_minute_window_rows(120))
-        ),
+    silver_source_times = {
+        1: expected_canonical_gold_source_times(1),
+        5: expected_canonical_gold_source_times(15),
+        30: expected_canonical_gold_source_times(60),
+        60: expected_canonical_gold_source_times(120),
     }
-    for freq, trade_times in native_times.items():
+    for freq, trade_times in silver_source_times.items():
         _write_silver_file_for_times(
             connection,
             lake_root,
@@ -449,19 +453,19 @@ def _write_gold_qfq_ready_inputs(
             freq=freq,
             trade_times=trade_times,
         )
-        _write_gold_qfq_file_for_times(
-            connection,
-            lake_root,
-            trade_date=trade_date,
+    for freq in STK_MINS_FREQS:
+        write_gold_stk_mins_qfq_asset_partition(
+            lake_root=lake_root,
+            duckdb=DuckDBResource(),
             freq=freq,
-            trade_times=trade_times,
+            partition_key=trade_date,
         )
     for target_freq in STK_MINS_QFQ_DERIVED_FREQS:
-        _write_derived_qfq_file(
-            connection,
-            lake_root,
-            trade_date=trade_date,
-            target_freq=target_freq,
+        write_gold_stk_mins_qfq_derived_asset_partition(
+            lake_root=lake_root,
+            duckdb=DuckDBResource(),
+            freq=target_freq,
+            partition_key=trade_date,
         )
 
 
@@ -1173,7 +1177,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
                 lake_root,
                 trade_date="2026-06-15",
                 freq=1,
-                trade_times=("09:31:00",),
+                trade_times=expected_gold_minute_times("SZSE", 1),
                 open_shift=5.0,
             )
 
@@ -1209,7 +1213,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
             source_times = tuple(
                 dict.fromkeys(row[0] for row in cn_a_derived_minute_window_rows(120))
             )
-            _write_gold_qfq_file_for_times(
+            _write_silver_file_for_times(
                 connection,
                 lake_root,
                 trade_date=trade_date,
