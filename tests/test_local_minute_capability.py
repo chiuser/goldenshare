@@ -8,6 +8,7 @@ from src.foundation.config.local_minute_capability import (
     LocalMinuteCapabilityError,
     resolve_index_minute_capability,
     resolve_local_minute_capability,
+    resolve_stock_nine_turn_minute_capability,
 )
 from src.foundation.config.settings import Settings
 
@@ -75,3 +76,34 @@ def test_index_minute_capability_rejects_non_formal_lake_root(tmp_path) -> None:
         )
 
     assert exc_info.value.code == "SM_LOCAL_LAKE_NOT_CONFIGURED"
+
+
+def test_stock_nine_turn_minute_capability_rejects_non_formal_lake_root(
+    tmp_path,
+) -> None:
+    if importlib.util.find_spec("duckdb") is None:
+        pytest.skip("local-lake extra is not installed")
+
+    with pytest.raises(LocalMinuteCapabilityError) as exc_info:
+        resolve_stock_nine_turn_minute_capability(
+            _settings(app_env="dev", enabled=True, lake_root=str(tmp_path))
+        )
+
+    assert exc_info.value.code == "SM_LOCAL_LAKE_NOT_CONFIGURED"
+
+
+def test_stock_nine_turn_minute_capability_is_disabled_in_production_without_duckdb_probe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_if_checked(name: str):
+        if name == "duckdb":
+            pytest.fail("production nine-turn capability must not inspect DuckDB")
+        return importlib.util.find_spec(name)
+
+    monkeypatch.setattr(importlib.util, "find_spec", fail_if_checked)
+    capability = resolve_stock_nine_turn_minute_capability(
+        _settings(app_env="prod", enabled=True, lake_root="")
+    )
+
+    assert capability.enabled is False
+    assert capability.lake_root is None

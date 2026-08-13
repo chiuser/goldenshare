@@ -17,6 +17,7 @@ from src.biz.api.wealth.market import money_flow as wealth_market_money_flow
 from src.biz.api.wealth.market import news_briefs as wealth_market_news_briefs
 from src.biz.api.wealth.market import sector_overview as wealth_market_sector_overview
 from src.biz.api.wealth.market import stock_detail as wealth_market_stock_detail
+from src.biz.api.wealth.market import stock_detail_nine_turn as wealth_market_stock_detail_nine_turn
 from src.biz.api.wealth.market import stock_news as wealth_market_stock_news
 from src.biz.api.wealth.market import streak_ladder as wealth_market_streak_ladder
 from src.biz.api.wealth.market import style as wealth_market_style
@@ -25,6 +26,7 @@ from src.biz.api.wealth.market import turnover as wealth_market_turnover
 from src.foundation.config.local_minute_capability import (
     resolve_index_minute_capability,
     resolve_local_minute_capability,
+    resolve_stock_nine_turn_minute_capability,
 )
 from src.foundation.config.settings import get_settings
 from src.ops.api.router import router as ops_router
@@ -51,6 +53,7 @@ router.include_router(wealth_market_leaderboards.router)
 router.include_router(wealth_market_limit_up.router)
 router.include_router(wealth_market_streak_ladder.router)
 router.include_router(wealth_market_stock_detail.router)
+router.include_router(wealth_market_stock_detail_nine_turn.router)
 router.include_router(wealth_market_sector_overview.router)
 router.include_router(wealth_market_news_briefs.router)
 router.include_router(wealth_market_stock_news.router)
@@ -62,6 +65,14 @@ def _include_local_minute_router(target_router: APIRouter) -> None:
         from src.biz.api.wealth.market import stock_detail_minutes
 
         target_router.include_router(stock_detail_minutes.router)
+
+    stock_nine_turn_capability = resolve_stock_nine_turn_minute_capability(
+        get_settings()
+    )
+    if stock_nine_turn_capability.enabled:
+        from src.biz.api.wealth.market import stock_detail_minute_nine_turn
+
+        target_router.include_router(stock_detail_minute_nine_turn.router)
 
     index_capability = resolve_index_minute_capability(get_settings())
     if index_capability.enabled:

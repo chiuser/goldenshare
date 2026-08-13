@@ -70,6 +70,8 @@ docs/
 - [策略配置中心 M1 编码门禁 v1](./system/strategy-config-center-m1-coding-gate-v1.md)
 - [策略配置中心一页式接入手册 v1](./system/strategy-config-consumer-guide-v1.md)
 - [股票与主要指数详情页九转接入总方案 v1](./system/detail-page-nine-turn-integration-implementation-design-v1.md)
+- [股票与主要指数详情页九转接入低层设计 v1（M2 代码已收口）](./system/detail-page-nine-turn-integration-low-level-design-v1.md)
+- [股票详情九转纵向切片 M2 编码门禁与实施对账 v1（已通过）](./system/detail-page-nine-turn-m2-coding-gate-v1.md)
 
 ## 页面级文档
 

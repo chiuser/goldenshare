@@ -4,6 +4,7 @@ from src.foundation.models.core_serving.etf_basic import EtfBasic
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
+from src.foundation.models.core_serving.equity_qfq_nineturn_daily import EquityQfqNineTurnDaily
 from src.foundation.models.core_serving.fund_daily_bar import FundDailyBar
 from src.foundation.models.core_serving.fund_basic_current import FundBasicCurrent
 from src.foundation.models.core_serving.fund_basic_observation import FundBasicObservation
@@ -37,6 +38,7 @@ __all__ = [
     "EquityDailyBar",
     "EquityAdjFactor",
     "EquityDailyBasic",
+    "EquityQfqNineTurnDaily",
     "EtfBasic",
     "FundDailyBar",
     "FundBasicCurrent",

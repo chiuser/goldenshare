@@ -1,5 +1,8 @@
 import { useMemo, useState } from "react";
 
+import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
+import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
+import { NineTurnLayerStatus } from "../../nine-turn/ui/NineTurnLayerStatus";
 import { DetailChartWorkspace } from "../../../shared/charts/detail-workspace/DetailChartWorkspace";
 import { DETAIL_CHART_COLORS, isFiniteChartNumber } from "../../../shared/charts/detail-workspace/detailChartSeries";
 import type {
@@ -19,6 +22,8 @@ import type {
 interface StockChartWorkspaceProps {
   candles: StockCandlePoint[];
   indicatorTabs: StockIndicatorTab[];
+  nineTurnLayer: NineTurnLayerViewModel;
+  onNineTurnRetry: () => void;
   onAction: (message: string) => void;
   tsCode: string;
 }
@@ -26,6 +31,8 @@ interface StockChartWorkspaceProps {
 export function StockChartWorkspace({
   candles,
   indicatorTabs,
+  nineTurnLayer,
+  onNineTurnRetry,
   onAction,
   tsCode,
 }: StockChartWorkspaceProps) {
@@ -35,6 +42,13 @@ export function StockChartWorkspace({
     () => overlay === "MA" ? buildMaLines() : buildBollLines(),
     [overlay],
   );
+  const dataKey = `stock:${tsCode}:day`;
+  const nineTurnChartLayer = useNineTurnChartLayer({
+    dataKey,
+    layer: nineTurnLayer,
+    points,
+    timeMode: "daily",
+  });
 
   return (
     <DetailChartWorkspace
@@ -48,8 +62,16 @@ export function StockChartWorkspace({
         />
       )}
       bottomBarAriaLabel="底部指标栏"
-      dataKey={`stock:${tsCode}:day`}
+      dataKey={dataKey}
+      mainLayerAccessory={(
+        <NineTurnLayerStatus
+          droppedMarkerCount={nineTurnChartLayer.droppedMarkerCount}
+          layer={nineTurnLayer}
+          onRetry={onNineTurnRetry}
+        />
+      )}
       mainLines={mainLines}
+      mainPrimitives={nineTurnChartLayer.mainPrimitives}
       panelAriaLabels={{
         kline: "K线主图",
         macd: "MACD(12,26,9)",

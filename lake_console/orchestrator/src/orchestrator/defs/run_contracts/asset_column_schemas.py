@@ -488,6 +488,12 @@ GOLD_STOCK_DAILY_QFQ_NINETURN_SCHEMA = (
     ColumnContract("nine_down_turn", "VARCHAR", "下九转信号，-9 或空"),
 )
 
+PROD_CORE_STOCK_DAILY_QFQ_NINETURN_SCHEMA = (
+    *GOLD_STOCK_DAILY_QFQ_NINETURN_SCHEMA,
+    ColumnContract("formula_version", "SMALLINT", "九转公式版本，第一版固定为 1"),
+    ColumnContract("published_at", "TIMESTAMPTZ", "发布到 prod serving 的时间"),
+)
+
 GOLD_DC_DAILY_TECHNICAL_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "东方财富板块代码"),
     ColumnContract("trade_date", "DATE", "交易日"),

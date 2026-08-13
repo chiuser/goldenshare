@@ -1,12 +1,12 @@
 # 股票与主要指数详情页九转接入总方案 v1
 
-> 状态：方案与正式 Figma 已形成评审基线，待产品评审；尚未进入 LLD 和代码开发。
+> 状态：M0、M1 已评审通过；M2 编码门禁与股票纵向切片代码已收口。生产迁移、日线历史发布、浏览器真实日线验收和 sensor 启用仍未执行。
 >
 > 评审基线日期：2026-08-13。
 >
 > 正式设计文件：[Goldenshare Web](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?m=dev)。
 >
-> 后续 LLD：`wealth/docs/system/detail-page-nine-turn-integration-low-level-design-v1.md`（待编写）。
+> 低层设计：[股票与主要指数详情页九转接入低层设计 v1](./detail-page-nine-turn-integration-low-level-design-v1.md)。
 
 ---
 
@@ -50,12 +50,22 @@ React 动态调用边由 CodeGraph explore/import 结果和真实消费者代码
 |---|---|---|
 | 股票日线自主九转 Gold | 已实现 | `gold_stock_daily_qfq_nineturn` 已注册且有正式历史文件 |
 | 股票 30/60/90/120 分钟自主九转 Gold | 已实现 | 四个资产已注册且有正式历史文件 |
-| 股票九转详情 API/页面 | 未实现 | 当前没有 Reader、DTO、HTTP endpoint 或 marker primitive |
+| 股票九转详情 API/页面 | M2 代码已实现 | 日线 serving 查询、本地四频率 Reader、独立 HTTP、共享 registry、局部状态和页面图层均已落地；尚未生产发布 |
 | 指数日线九转 Gold | 未实现 | 需要新资产 |
 | 指数 5/15/30/60/90/120 分钟九转 Gold | 未实现 | 需要六个新资产；不创建 1 分钟资产 |
 | 指数九转详情 API/页面 | 未实现 | 当前 capability 仍为 false，右栏仍是 `--` 占位 |
-| 共享图表挂载能力 | 已准备 | `DetailChartWorkspace.mainPrimitives` 可挂多个 primitive |
+| 共享九转绘图组件 | M2 代码已实现 | 单一 `NineTurnMarkerPrimitive` 已接入日线和分钟图表；不参与 autoscale，数据更新不重建图表 |
 | 九转正式 Figma | 本轮完成 | Loaded、Components、States 已补齐，见第 5 节 |
+
+### 3.1 M0 收口结论
+
+2026-08-13 已按产品矩阵、算法、Figma 节点树、正式数据事实、生产 serving 和本地分钟边界完成 M0 评审：
+
+1. 六个正式 Figma 页面、共享 marker 组件和局部状态可以直接用于开发。
+2. 股票五个 Gold 资产是已实现事实；指数七个资产仍是后续实施项，未被提前标为完成。
+3. 物理 11-code 与产品 10-code 的分层、`899050.BJ` 分钟空态和生产分钟 404 均无歧义。
+4. 原状态稿可见标题中的“M6”和股票根节点错误尺寸名称已修正为长期职责名称；节点 ID、尺寸和视觉未改变。
+5. M0 无剩余 P0 阻塞，可以进入 M1；M0 通过不表示页面功能已经接入。
 
 截至 2026-08-13 的只读物理审计：股票五个自主 Gold 资产均有 3,066 个交易日分区，覆盖 2014-01-02 至 2026-08-12。Definitions 能发现五个资产和五个 blocking integrity checks。两个日常 sensor 的代码默认状态和本机实例状态仍为 `STOPPED`，因此不能把历史完整误写成每日自动更新已经投产。
 
@@ -182,7 +192,7 @@ gold/indicator/stock_daily_qfq_nineturn/trade_date=<date>/part-000.parquet
 gold/indicator/stk_mins_qfq_nineturn/freq=<freq>/trade_date=<date>/part-000.parquet
 ```
 
-页面接入不修改已稳定的资产公式。LLD 前必须处理一个物理合同门禁：分钟 Parquet 的 `freq` 被 DuckDB 识别为 `BIGINT`，当前声明合同为 `INTEGER`。必须在 writer/合同层统一，Web Reader 不得自行宽松猜测。
+页面接入不改变已稳定的资产公式。M1 已只读复核最新四频率正式文件：关闭 DuckDB Hive 路径推断后，文件内 `freq` 的真实物理类型为 `INTEGER`，与 writer 和声明合同一致；此前 `BIGINT` 是路径 `freq=<value>` 被自动推断并覆盖同名列造成的审计假象。所有新 Reader/check 必须显式 `hive_partitioning=false`，无需改写正式文件。
 
 ### 6.2 指数：新建七个资产
 
@@ -325,11 +335,14 @@ wealth/src/shared/charts/detail-workspace/
   nineTurnMarkerGeometry.ts
   nineTurnMarkerTypes.ts
 
-wealth/src/features/stock-detail/nine-turn/
-  api/  model/  controller/
+wealth/src/features/nine-turn/
+  api/  model/  controller/  ui/
 
-wealth/src/features/index-detail/nine-turn/
-  api/  model/  controller/
+wealth/src/features/stock-detail/
+  chart/  page/  # 只保留股票页面适配
+
+wealth/src/features/index-detail/
+  chart/  sidebar/  # 只保留指数页面与技术面摘要适配
 ```
 
 四个 chart adapter 只把归一 marker 作为 `mainPrimitives` 传给 shared workspace。指数日线可同时传趋势通道 primitive 与九转 primitive；shared workspace 不理解股票、指数或算法公式。
@@ -368,9 +381,9 @@ subjectType + tsCode + period + startDate + endDate
 
 ## 9. 异常与安全口径
 
-异常码在 LLD 阶段统一登记到 `wealth/docs/system/exception-code-registry.md`，建议前缀：
+异常码已在 M1 登记到 `wealth/docs/system/exception-code-registry.md`，实现前保持 `planned`：
 
-| 候选码 | 语义 |
+| code | 语义 |
 |---|---|
 | `NT_REQUEST_INVALID` | 参数、limit、cursor、日期窗口非法 |
 | `NT_NOT_FOUND` | 股票/指数不在允许对象池 |
@@ -379,7 +392,7 @@ subjectType + tsCode + period + startDate + endDate
 | `NT_ALIGNMENT_PARTIAL` | 部分 marker 无法与同窗口 bar 一一对齐 |
 | `NT_QUERY_FAILED` | Reader/SQL/IO/映射失败 |
 
-本方案只冻结语义，不提前登记为 active；LLD 必须核对股票、指数、日线、分钟是否需要不同模块前缀，避免一个异常码承担两个不同恢复动作。
+股票、指数、日线和分钟共享同一恢复语义，因此统一使用 `NT_*`；具体 subject、period 和数据源由 DTO/meta 区分。代码落地并通过对应测试后才改为 `active`。
 
 安全门禁：
 
@@ -393,7 +406,7 @@ subjectType + tsCode + period + startDate + endDate
 
 LLD 必须给出可执行预算，至少覆盖：
 
-1. 默认查询 500 个 marker 候选范围，单接口 P95 目标不高于 1.5 秒，硬门禁不高于 5 秒。
+1. 日线默认查询 300 根、分钟默认查询 500 根 bar 对应的 marker 候选范围；单接口 P95 目标不高于 1.5 秒，硬门禁不高于 5 秒。
 2. 查询只扫描必要日期分区，不随全历史增长线性退化。
 3. marker primitive 单次 render 只处理当前可见范围，不因历史 marker 总量增加而每帧全量绘制。
 4. 切周期、缩放、拖拽不创建新 chart、不重建 K 线 series、不重新请求相同缓存键。
@@ -405,7 +418,7 @@ LLD 必须给出可执行预算，至少覆盖：
 2. 指数日线和 5/15/30/60/90/120 分钟正向；指数 1 分钟负向。
 3. 覆盖计数 0、1～9、10+、相等、UP→DOWN、DOWN→UP、跨日、跨年、历史不足、重复时间键、源/目标身份错配。
 4. `000680.SH` 接口拒绝；`899050.BJ` 分钟局部 EMPTY。
-5. 股票分钟 `freq` 物理类型与声明合同统一后才允许严格 Reader 上线。
+5. 股票分钟 `freq` 真实物理类型已确认是 `INTEGER`；严格 Reader 必须关闭 Hive 路径推断并按该合同验收。
 
 ## 11. 测试与视觉验收
 
@@ -446,10 +459,10 @@ LLD 必须给出可执行预算，至少覆盖：
 
 | 阶段 | 工作 | 退出条件 |
 |---|---|---|
-| M0（本轮） | 固化产品合同、补齐正式 Figma、形成总方案评审基线 | 六个正式 Figma 页面与本文一致；产品评审通过后冻结；未进入代码 |
-| M1 | 编写 LLD；细化并复核已冻结的生产 serving；冻结 DTO、异常码、Reader、缓存和物理合同 | 数据源、生产访问路径、代码落点和测试矩阵可直接编码 |
-| M2 | 股票查询与 shared primitive：Reader/API/正式日线 serving/共享几何 | API 与 K 线对齐；primitive 不影响 autoscale；股票不支持周期有负向测试 |
-| M3 | 股票详情接入日线和四个分钟周期 | 股票 1/5/15 零请求；五支持周期、缩放、竞态和局部故障全部通过 |
+| M0 | 固化产品合同、补齐正式 Figma、形成总方案评审基线 | 已通过；六个正式页面、产品矩阵和架构边界已冻结，未进入代码 |
+| M1 | 编写 LLD；细化并复核生产 serving；冻结 DTO、异常码、Reader、缓存和物理合同 | 已完成并评审通过 |
+| M2 | 股票查询与 shared primitive：Reader/API/正式日线 serving/共享几何及最小页面接入 | 代码与隔离验收已通过；未执行生产迁移、正式发布或 sensor |
+| M3 | 股票详情真实环境与视觉收口 | 复用 M2 页面接入，不建第二套控制器；生产日线发布后完成五支持周期、浏览器、缩放与局部故障验收 |
 | M4 | 新建指数日线和六个分钟九转资产及查询 API | 7 assets/checks 被 Definitions 发现；历史覆盖、对齐、性能通过；1 分钟无资产 |
 | M5 | 指数图表和 Technical 摘要接入 | 十指数、北证50空态、趋势双 primitive、右栏摘要和竞态通过 |
 | M6 | 日常自动化、全链路验收与最终发布 | 生产日线、本地分钟、生产分钟 404、freshness、性能和视觉验收全部通过 |
@@ -458,22 +471,22 @@ LLD 必须给出可执行预算，至少覆盖：
 
 正式 Lake 写入、历史 backfill、runless event 和 sensor 启用仍须按各阶段单独审批，不能因本文批准而自动获得执行授权。
 
-## 13. LLD 必须解决的问题
+## 13. M1 LLD 解决结果
 
-后续 LLD 不能跳过：
+[低层设计 v1](./detail-page-nine-turn-integration-low-level-design-v1.md) 已冻结：
 
-1. 复核两张新 serving 表的最终 schema、当前 Alembic head、角色权限、发布 job/sensor、read-back 门禁和历史同步方式。
-2. 股票分钟 `freq BIGINT` 与合同 `INTEGER` 的统一方式。
-3. 指数七个资产的上游、路径、schema、代码池投影、check、job、sensor 和历史构建。
-4. 四个 endpoint 的最终路径、严格参数、分页、DTO、异常码和认证。
-5. 日线与分钟 Reader 的日期裁剪、文件上限、响应上限和性能预算。
-6. `NineTurnMarkerPrimitive` 的像素几何、visible range、autoscale、裁剪和双 primitive 生命周期。
-7. 四类页面 controller 的缓存、取消、request id、状态优先级和右栏摘要。
-8. 生产/本地 capability 单一判定，禁止页面可点但路由不存在。
-9. 股票与指数日常 sensor 的启用、自然触发观察和发布新鲜度门禁。
-10. Orchestrator 11-code 物理 universe 与 Wealth 10-code 产品 universe 的投影和负向测试。
+1. 两张 serving 表、批量发布、read-back、角色权限和历史发布边界。
+2. `freq` 真实物理类型及 `hive_partitioning=false` 强制读取口径。
+3. 指数七资产的上游、路径、schema、物理/产品代码池、checks、jobs、sensors 和历史构建。
+4. 四个 endpoint、严格参数、分页、最终 DTO、异常和认证。
+5. Reader 日期裁剪、5,000 文件上限、5MB 响应上限和性能预算。
+6. `NineTurnMarkerPrimitive` 的 18×18、8px、visible range、空 autoscale 和双 primitive 生命周期。
+7. 共享请求 registry、缓存、取消、request id、状态优先级和右栏摘要。
+8. 日线常驻、分钟条件挂载的 capability/router 单一判定。
+9. sensor 初始 STOPPED、M6 自然触发验收后再启用的发布门禁。
+10. 物理 11-code 与产品 10-code 的投影及负向测试。
 
-上述问题未完成前，不进入编码。
+M2 开工时已重新核验 Alembic 单一 head 为 `20260813_000134`，九转 migration `20260813_000135` 已按该 head 串接。M2 coding gate 已形成、评审并完成代码对账。
 
 ## 14. 非目标
 
@@ -494,7 +507,7 @@ LLD 必须给出可执行预算，至少覆盖：
 |---|---|
 | 直接按持续 `+9/-9` 字段画图，10+ 重复出现 9 | DTO 只生成 1～9 marker，并用正式 10+ 样本测试 |
 | 自主 Gold 与 Tushare 九转混用 | 独立路径、表、DTO、监控；禁止 fallback |
-| 正式 Lake 有数据但生产 Web 不可访问 | M1 按已冻结的 PostgreSQL serving 发布链细化、实现并验收后才开放生产日线 |
+| 正式 Lake 有数据但生产 Web 不可访问 | M2 已实现 PostgreSQL serving migration/publisher/query；只有迁移和历史发布另行审批并验收后才开放生产日线 |
 | 历史文件齐全但每日不更新 | sensor/readiness/自然触发验收进入 M5 发布门禁 |
 | 指数 Lake 额外代码泄漏到页面 | API 每次按 `majorIndices` allowlist 校验 |
 | 北证50分钟被补造 | 固定 SOURCE EMPTY 测试与可见局部状态 |
@@ -506,10 +519,12 @@ LLD 必须给出可执行预算，至少覆盖：
 
 本方案是九转详情接入专项的上游事实源。历史文档中“九转不在本期、显示 `--`、supportsNineTurn=false”描述的是九转立项前已经完成的阶段，不追溯性改写为错误；后续实现必须引用本文和新 LLD，而不能继续把旧阶段占位当作目标状态。
 
-LLD 阶段再同步：异常码注册表、共享组件基线、独立 API 合同、index page-init capability 版本和分钟合同。代码完成后再更新页面旧实施方案、coding gate、Figma 验收台账以及 Dagster topology/run-contract 文档。
+M2 已同步异常码注册表、本方案、LLD 和 coding gate。股票 `NT_*` 已进入 active-code 状态；指数仍为 planned。index page-init 当前仍保持 `supportsNineTurn=false`，不得因为共享 DTO/primitive 已存在而提前宣布指数能力。生产迁移、历史发布、Figma 浏览器截图和 Dagster 运行验收完成后，再把股票能力标为 production-ready。
 
 ## 17. 版本记录
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
 | v1 | 2026-08-13 | 基于当前代码、CodeGraph、正式 Lake、Definitions 与六个正式 Figma 页面形成股票/指数日线与分钟九转总方案评审基线 | Codex |
+| v1.1 | 2026-08-13 | M0 评审收口；修正 Figma 状态命名；关闭 freq 类型误判；回链 M1 LLD、异常码与最终实施门禁 | Codex |
+| v1.2 | 2026-08-13 | M2 编码门禁与股票纵向切片代码收口；登记日线 serving、四频率 Reader、共享 primitive、股票页面接入和未执行生产发布边界 | Codex |

@@ -1,0 +1,33 @@
+.nine-turn-layer-status {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 7px;
+  color: var(--cs-color-text-secondary);
+  display: inline-flex;
+  font-size: 11px;
+  gap: 8px;
+  max-width: min(420px, calc(100% - 96px));
+  min-height: 24px;
+  padding: 3px 8px;
+  pointer-events: auto;
+  position: absolute;
+  right: 64px;
+  top: 34px;
+  z-index: 7;
+}
+
+.nine-turn-layer-status.partial {
+  border-color: rgba(247, 199, 107, 0.34);
+  color: var(--cs-color-brand-accent);
+}
+
+.nine-turn-layer-status button {
+  background: transparent;
+  border: 0;
+  color: var(--cs-color-brand-accent);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  white-space: nowrap;
+}

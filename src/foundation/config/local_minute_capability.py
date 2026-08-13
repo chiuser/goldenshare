@@ -5,8 +5,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from src.foundation.clients.local_lake.major_index_mins_contract import (
-    FORMAL_LAKE_ROOT,
+    FORMAL_LAKE_ROOT as INDEX_FORMAL_LAKE_ROOT,
     major_index_minute_dataset_root,
+)
+from src.foundation.clients.local_lake.stock_nine_turn_contract import (
+    FORMAL_LAKE_ROOT as STOCK_NINE_TURN_FORMAL_LAKE_ROOT,
+    stock_minute_nine_turn_dataset_root,
 )
 from src.foundation.config.settings import Settings
 
@@ -68,7 +72,7 @@ def resolve_index_minute_capability(settings: Settings) -> LocalMinuteCapability
     if not capability.enabled or capability.lake_root is None:
         return capability
 
-    formal_root = FORMAL_LAKE_ROOT.resolve()
+    formal_root = INDEX_FORMAL_LAKE_ROOT.resolve()
     if capability.lake_root != formal_root:
         raise LocalMinuteCapabilityError(
             code="SM_LOCAL_LAKE_NOT_CONFIGURED",
@@ -81,5 +85,31 @@ def resolve_index_minute_capability(settings: Settings) -> LocalMinuteCapability
             enabled=False,
             lake_root=capability.lake_root,
             reason_code="IM_SOURCE_NOT_READY",
+        )
+    return capability
+
+
+def resolve_stock_nine_turn_minute_capability(
+    settings: Settings,
+) -> LocalMinuteCapability:
+    """Resolve local stock nine-turn minutes from the formal Gold dataset only."""
+
+    capability = resolve_local_minute_capability(settings)
+    if not capability.enabled or capability.lake_root is None:
+        return capability
+
+    formal_root = STOCK_NINE_TURN_FORMAL_LAKE_ROOT.resolve()
+    if capability.lake_root != formal_root:
+        raise LocalMinuteCapabilityError(
+            code="SM_LOCAL_LAKE_NOT_CONFIGURED",
+            message="股票九转分钟能力只允许读取正式 /Volumes/datasource/data_lake。",
+        )
+
+    gold_root = stock_minute_nine_turn_dataset_root(capability.lake_root)
+    if not gold_root.is_dir() or not os.access(gold_root, os.R_OK):
+        return LocalMinuteCapability(
+            enabled=False,
+            lake_root=capability.lake_root,
+            reason_code="NT_SOURCE_NOT_READY",
         )
     return capability

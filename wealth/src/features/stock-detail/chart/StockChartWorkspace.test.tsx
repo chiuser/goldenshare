@@ -2,7 +2,9 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { StockCandlePoint, StockIndicatorTab } from "../model/stockDetailTypes";
+import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 import { StockChartWorkspace } from "./StockChartWorkspace";
+import { idleNineTurnLayer } from "../../nine-turn/model/nineTurnAdapter";
 
 const chartMock = vi.hoisted(() => {
   const charts: Array<Record<string, any>> = [];
@@ -83,6 +85,8 @@ describe("StockChartWorkspace shared adapter", () => {
       <StockChartWorkspace
         candles={candles}
         indicatorTabs={indicatorTabs}
+        nineTurnLayer={idleNineTurnLayer("day")}
+        onNineTurnRetry={vi.fn()}
         onAction={onAction}
         tsCode="000001.SZ"
       />,
@@ -115,7 +119,53 @@ describe("StockChartWorkspace shared adapter", () => {
     expect(activeCharts[0].setCrosshairPosition).toHaveBeenCalled();
     expect(activeCharts[3].setCrosshairPosition).toHaveBeenCalled();
   });
+
+  it("updates nine-turn markers without rebuilding the shared chart", () => {
+    const candles = makeCandles(30);
+    const rendered = render(
+      <StockChartWorkspace
+        candles={candles}
+        indicatorTabs={indicatorTabs}
+        nineTurnLayer={idleNineTurnLayer("day")}
+        onNineTurnRetry={vi.fn()}
+        onAction={vi.fn()}
+        tsCode="000001.SZ"
+      />,
+    );
+    expect(chartMock.createChart).toHaveBeenCalledTimes(4);
+
+    rendered.rerender(
+      <StockChartWorkspace
+        candles={candles}
+        indicatorTabs={indicatorTabs}
+        nineTurnLayer={readyNineTurnLayer(candles.at(-1)!.fullDate)}
+        onNineTurnRetry={vi.fn()}
+        onAction={vi.fn()}
+        tsCode="000001.SZ"
+      />,
+    );
+
+    expect(chartMock.createChart).toHaveBeenCalledTimes(4);
+  });
 });
+
+function readyNineTurnLayer(tradeDate: string): NineTurnLayerViewModel {
+  return {
+    canRetry: false,
+    data: null,
+    errorCode: null,
+    markers: [{
+      completed: true,
+      direction: "UP",
+      sequenceNumber: 9,
+      tradeDate,
+      tradeTime: null,
+    }],
+    message: null,
+    period: "day",
+    phase: "READY",
+  };
+}
 
 function makeCandles(count: number): StockCandlePoint[] {
   return Array.from({ length: count }, (_, index) => {

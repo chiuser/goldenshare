@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { fetchStockNineTurnSeries } from "../../features/nine-turn/api/nineTurnApiClient";
+import type { NineTurnPeriod } from "../../features/nine-turn/api/nineTurnApiTypes";
+import type { NineTurnSeriesLoader } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
+import { useNineTurnSeriesRegistry } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
 import { fetchStockDetailKline, fetchStockDetailPageInit } from "../../features/stock-detail/api/stockDetailApiClient";
 import { fetchStockMinuteBars, fetchStockMinuteIndicators } from "../../features/stock-detail/api/stockMinuteApiClient";
 import { buildStockMinuteChartViewModel, minuteFrequencyFromPeriodKey } from "../../features/stock-detail/api/stockMinuteViewModelAdapter";
@@ -21,6 +25,19 @@ interface StockDetailPageProps {
   tsCode: string;
 }
 
+const EMPTY_NINE_TURN_PERIODS: NineTurnPeriod[] = [];
+const loadStockNineTurnSeries: NineTurnSeriesLoader = (request, options) => {
+  if (request.subjectType !== "stock" || !isStockNineTurnPeriod(request.period)) {
+    throw new Error("股票九转请求周期不符合产品合同。");
+  }
+  return fetchStockNineTurnSeries({
+    endDate: request.endDate,
+    limit: request.limit,
+    period: request.period,
+    tsCode: request.tsCode,
+  }, options);
+};
+
 export function StockDetailPage({ tsCode }: StockDetailPageProps) {
   const scaffoldViewModel = useMemo(() => getStockDetailViewModel(tsCode), [tsCode]);
   const [viewModel, setViewModel] = useState<StockDetailViewModel | null>(null);
@@ -34,6 +51,24 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState("");
   const [toast, setToast] = useState("");
+  const activePageInit = pageInit?.stock.tsCode === tsCode ? pageInit : null;
+  const nineTurnRegistry = useNineTurnSeriesRegistry({
+    endDate: activePageInit?.pageContext.tradeDate ?? null,
+    load: loadStockNineTurnSeries,
+    subjectType: "stock",
+    supportedPeriods: activePageInit?.capabilities.nineTurnPeriods ?? EMPTY_NINE_TURN_PERIODS,
+    supportsNineTurn: activePageInit?.capabilities.supportsNineTurn ?? false,
+    tsCode,
+  });
+  const activeNineTurnPeriod = nineTurnPeriodFromStockPeriod(activePeriod);
+  const nineTurnLayer = activeNineTurnPeriod === null
+    ? nineTurnRegistry.stateFor("day")
+    : nineTurnRegistry.stateFor(activeNineTurnPeriod);
+
+  useEffect(() => {
+    if (loadState !== "ready" || activeNineTurnPeriod === null) return;
+    void nineTurnRegistry.ensure(activeNineTurnPeriod);
+  }, [activeNineTurnPeriod, loadState, nineTurnRegistry.ensure]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -169,15 +204,39 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
           <StockChartWorkspace
             candles={viewModel.chart.candles}
             indicatorTabs={viewModel.indicatorTabs}
+            nineTurnLayer={nineTurnLayer}
+            onNineTurnRetry={() => {
+              if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
+            }}
             onAction={showToast}
             tsCode={viewModel.stock.tsCode}
           />
         ) : (
-          <StockMinuteChartWorkspace data={minuteChart} loadState={minuteLoadState} errorMessage={minuteError} />
+          <StockMinuteChartWorkspace
+            data={minuteChart}
+            errorMessage={minuteError}
+            loadState={minuteLoadState}
+            nineTurnLayer={nineTurnLayer}
+            onNineTurnRetry={() => {
+              if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
+            }}
+          />
         )}
         <StockInfoRail onAction={showToast} viewModel={viewModel} />
       </main>
       <StockDetailToast message={toast} />
     </div>
   );
+}
+
+function nineTurnPeriodFromStockPeriod(period: StockPeriodKey): NineTurnPeriod | null {
+  if (period === "day") return "day";
+  const frequency = minuteFrequencyFromPeriodKey(period);
+  return frequency === null ? null : String(frequency) as NineTurnPeriod;
+}
+
+function isStockNineTurnPeriod(
+  period: NineTurnPeriod,
+): period is Extract<NineTurnPeriod, "day" | "30" | "60" | "90" | "120"> {
+  return period === "day" || period === "30" || period === "60" || period === "90" || period === "120";
 }

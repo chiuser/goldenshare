@@ -98,6 +98,7 @@ export function DetailChartWorkspace({
   crosshairPresentation = "synchronized-overlay",
   dataKey,
   mainLines,
+  mainLayerAccessory,
   mainPrimitives,
   panelAriaLabels,
   points,
@@ -540,6 +541,7 @@ export function DetailChartWorkspace({
           hostRef={(node) => { chartRefs.current.kline = node; }}
           overlay={(
             <>
+              {mainLayerAccessory}
               {latest && isChartHovering ? renderTooltip(latest, tooltipSide) : null}
               {points.length > 0 ? (
                 <DetailChartZoomControls

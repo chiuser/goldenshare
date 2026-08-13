@@ -180,9 +180,30 @@
 5. M5-A 的前端开发态 Mock 指标不产生、吞并或改写 `IM_*`；真实 Silver/Gold HTTP 状态仍按本表返回，Mock 不作为错误 fallback。
 6. 指数详情的“完整权重批次”指官方批次中由 `Security.security_type=EQUITY`、`exchange in (SSE,SZSE,BSE)`、`curr_type=CNY` 认定的完整 A 股子集。B 股不进入 rows/coverage/total/missing；A 股 daily 值优先，只有 daily 缺失/空值且精确日 `EquitySuspendD.suspend_type='S'` 时才按 FLAT/贡献 0 解析。
 
+## 9. 九转详情图层（Phase-4，股票 M2 active-code；指数 planned）
+
+> 最终 DTO、状态优先级和恢复动作见 [股票与主要指数详情页九转接入低层设计 v1](./detail-page-nine-turn-integration-low-level-design-v1.md)。股票日线及本地 30/60/90/120 分钟代码和测试已落地，状态记为 `active-stock-code`；它不等于生产 migration、历史发布或浏览器验收完成。指数仍保持 `planned-index`。
+
+| code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `NT_REQUEST_INVALID` | `detailNineTurn` | error | false | false | 九转查询参数不合法 | 未知/重复参数、code/period/date/limit/cursor 或响应窗口非法 | HTTP 400；不重试，保留已加载页面与 K 线 | biz-api | Phase-4 | active-stock-code / planned-index |
+| `NT_NOT_FOUND` | `detailNineTurn` | warn | false | false | 请求标的不属于对应详情页对象池 | 股票身份不存在，或指数不属于运行时 `majorIndices/CN_A` 10 code | HTTP 404；沿用对应详情页 not-found 行为 | biz-api | Phase-4 | active-stock-code / planned-index |
+| `NT_SOURCE_NOT_READY` | `detailNineTurn` | warn | false | true | 九转事实尚未覆盖请求窗口 | bar 窗口存在但九转零匹配，或观测日期落后显式 endDate | HTTP 200 + EMPTY/DELAYED；九转局部空态/延迟，不回退 | biz-api | Phase-4 | active-stock-code / planned-index |
+| `NT_SOURCE_CONTRACT_INVALID` | `detailNineTurn` | error | false | false | 九转 Lake/serving 不符合冻结物理合同 | schema、路径、代码、周期、日期、唯一键、公式版本或值域违约 | HTTP 500；九转局部 error，不返回可疑 marker | foundation/biz-api | Phase-4 | active-stock-code / planned-index |
+| `NT_ALIGNMENT_PARTIAL` | `detailNineTurn` | warn | false | true | 九转与同窗口 K 线时间键部分不一致 | bar 窗口中只有部分时间键能连接九转事实 | HTTP 200 + PARTIAL；只画已确认 marker，显示局部缺失 | biz-api | Phase-4 | active-stock-code / planned-index |
+| `NT_QUERY_FAILED` | `detailNineTurn` | error | false | false | 九转查询执行失败 | PostgreSQL、DuckDB、文件 IO、DTO 映射或未知内部异常 | HTTP 500；保留 K 线和其它图层，允许九转局部重试 | foundation/biz-api | Phase-4 | active-stock-code / planned-index |
+
+补充规则：
+
+1. 股票、指数、日线和分钟使用相同 `NT_*`，因为恢复动作一致；subject/period/source 由 DTO 与 debug meta 区分。
+2. 窗口有完整九转事实但没有 count 1～9 时仍为 READY，`markers=[]`；前端可派生“当前窗口无标记”视觉，不产生异常码。
+3. 股票 1/5/15 分钟与指数 1 分钟在前端为 UNSUPPORTED 且零请求；若直接调用非法 minute endpoint，使用 `NT_REQUEST_INVALID`。
+4. `899050.BJ` 分钟使用 `NT_SOURCE_NOT_READY`，不得补造；`000680.SH` 使用 `NT_NOT_FOUND`。
+5. 401/403 继续由认证层提供，不登记同义九转业务码。
+
 ---
 
-## 9. 变更规则
+## 10. 变更规则
 
 1. 已上线的 `code` 不允许重用为新语义。
 2. 废弃码必须保留历史记录，`status=deprecated`，并补替代码。

@@ -77,6 +77,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STOCK_DAILY_QFQ_SCHEMA,
     GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
     GOLD_WEALTH_MARKET_TURNOVER_SCHEMA,
+    PROD_CORE_STOCK_DAILY_QFQ_NINETURN_SCHEMA,
     RAW_INDEX_DAILY_SCHEMA,
     RAW_INDEX_GLOBAL_SCHEMA,
     RAW_INDEX_MINS_SCHEMA,
@@ -281,6 +282,9 @@ class PartitionModel(str, Enum):
     )
     SERVING_TABLE_PROD_WEALTH_MARKET_TURNOVER = (
         "serving_table_prod_wealth_market_turnover"
+    )
+    SERVING_TABLE_PROD_STOCK_DAILY_QFQ_NINETURN = (
+        "serving_table_prod_stock_daily_qfq_nineturn"
     )
 
     SERVING_TABLE_SERVING_MARKET_BREADTH = "serving_table_serving_market_breadth"
@@ -992,6 +996,15 @@ PARTITION_MODEL_DEFINITIONS = (
         "trade_date",
         PartitionPhysicalLayout.POSTGRES_TABLE,
         notes="Prod PostgreSQL serving table sync partitioned by trade_date.",
+    ),
+    _model(
+        PartitionModel.SERVING_TABLE_PROD_STOCK_DAILY_QFQ_NINETURN,
+        PartitionModelFamily.SERVING_TABLE,
+        AssetLayer.SERVING,
+        "stock_daily_qfq_nineturn",
+        "trade_date",
+        PartitionPhysicalLayout.POSTGRES_TABLE,
+        notes="Prod PostgreSQL QFQ nine-turn serving sync partitioned by trade_date.",
     ),
     _model(
         PartitionModel.SERVING_TABLE_SERVING_MARKET_BREADTH,
@@ -2306,6 +2319,47 @@ LAKE_ASSET_CATALOG += (
         notes=(
             "Prod PostgreSQL serving sync writes "
             "core_serving.wealth_market_turnover_snapshot from gold lake output."
+        ),
+    ),
+    _entry(
+        asset_key="prod_core_stock_daily_qfq_nineturn",
+        dataset_id="stock_daily_qfq_nineturn",
+        layer=AssetLayer.SERVING,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="quote",
+        source_system=SourceSystem.DERIVED,
+        data_contract="core_serving.equity_qfq_nineturn_daily",
+        data_contract_source=DataContractSource.DERIVED_CONTRACT,
+        column_schema=PROD_CORE_STOCK_DAILY_QFQ_NINETURN_SCHEMA,
+        path_template=(
+            "postgresql://prod/core_serving.equity_qfq_nineturn_daily"
+            "?trade_date={partition_key}"
+        ),
+        partition_model=(
+            PartitionModel.SERVING_TABLE_PROD_STOCK_DAILY_QFQ_NINETURN
+        ),
+        source_api=None,
+        source_doc=(
+            "wealth/docs/system/"
+            "detail-page-nine-turn-integration-low-level-design-v1.md"
+        ),
+        ingestion_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        default_daily_ingestion_source=IngestionSource.DERIVED_FROM_ASSETS,
+        bootstrap_sources=(),
+        blocking_check_names=(),
+        write_policy=WritePolicy.POSTGRES_TABLE_SYNC,
+        event_policy=EventPolicy.DAGSTER_RUN_ONLY,
+        performance_contract=_perf(
+            batch_grain="one trade_date partition, full stock universe",
+            compute_engine=ComputeEngine.POSTGRES_SQL,
+            source_request_policy=(
+                "read one local Gold QFQ nine-turn partition; write one prod "
+                "PostgreSQL core_serving partition"
+            ),
+        ),
+        notes=(
+            "Publishes autonomous QFQ nine-turn facts only; never consumes or "
+            "falls back to the Tushare nine-turn dataset."
         ),
     ),
     _derived_entry(

@@ -5,6 +5,7 @@ import type { DetailChartWorkspaceProps } from "../../../shared/charts/detail-wo
 import type { StockMinuteChartViewModel } from "../api/stockMinuteViewModelAdapter";
 
 import { StockMinuteChartWorkspace } from "./StockMinuteChartWorkspace";
+import { idleNineTurnLayer } from "../../nine-turn/model/nineTurnAdapter";
 
 const workspaceMock = vi.hoisted(() => ({
   props: [] as DetailChartWorkspaceProps[],
@@ -37,7 +38,14 @@ describe("StockMinuteChartWorkspace", () => {
     data.points[1]!.macdDif = null;
     data.points[1]!.kdjJ = null;
 
-    render(<StockMinuteChartWorkspace loadState="ready" data={data} />);
+    render(
+      <StockMinuteChartWorkspace
+        data={data}
+        loadState="ready"
+        nineTurnLayer={idleNineTurnLayer("30")}
+        onNineTurnRetry={vi.fn()}
+      />,
+    );
 
     const props = latestWorkspaceProps();
     expect(props.points).toHaveLength(2);
@@ -75,7 +83,14 @@ describe("StockMinuteChartWorkspace", () => {
       message: "指标尚未覆盖页面期望交易日。",
     };
 
-    render(<StockMinuteChartWorkspace loadState="ready" data={data} />);
+    render(
+      <StockMinuteChartWorkspace
+        data={data}
+        loadState="ready"
+        nineTurnLayer={idleNineTurnLayer("30")}
+        onNineTurnRetry={vi.fn()}
+      />,
+    );
 
     const props = latestWorkspaceProps();
     expect(props).toMatchObject({
@@ -101,7 +116,14 @@ describe("StockMinuteChartWorkspace", () => {
     source.low = 9.5;
     source.volume = 764_100;
     source.amount = 7_294_676;
-    render(<StockMinuteChartWorkspace loadState="ready" data={data} />);
+    render(
+      <StockMinuteChartWorkspace
+        data={data}
+        loadState="ready"
+        nineTurnLayer={idleNineTurnLayer("30")}
+        onNineTurnRetry={vi.fn()}
+      />,
+    );
 
     const props = latestWorkspaceProps();
     render(<>{props.renderTooltip(props.points[0]!, "left")}</>);
@@ -126,7 +148,15 @@ describe("StockMinuteChartWorkspace", () => {
     ["loading", undefined, "正在加载分钟数据"],
     ["error", "读取失败", "读取失败"],
   ] as const)("keeps the %s module state outside the loaded shared chart", (loadState, errorMessage, expected) => {
-    render(<StockMinuteChartWorkspace loadState={loadState} data={null} errorMessage={errorMessage} />);
+    render(
+      <StockMinuteChartWorkspace
+        data={null}
+        errorMessage={errorMessage}
+        loadState={loadState}
+        nineTurnLayer={idleNineTurnLayer("30")}
+        onNineTurnRetry={vi.fn()}
+      />,
+    );
 
     expect(screen.getByRole("status")).toHaveTextContent(expected);
     expect(screen.queryByTestId("shared-detail-workspace")).not.toBeInTheDocument();

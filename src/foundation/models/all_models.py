@@ -24,6 +24,7 @@ from src.foundation.models.core_serving.fund_manager_observation import FundMana
 from src.foundation.models.core_serving.fund_share_current import FundShareCurrent
 from src.foundation.models.core_serving.fund_share_observation import FundShareObservation
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
+from src.foundation.models.core_serving.equity_qfq_nineturn_daily import EquityQfqNineTurnDaily
 from src.foundation.models.core.equity_dividend import EquityDividend
 from src.foundation.models.core.equity_factor_pro import EquityFactorPro
 from src.foundation.models.core.equity_holder_number import EquityHolderNumber
@@ -177,6 +178,7 @@ __all__ = [
     "EquityCyqPerf",
     "EquityDailyBar",
     "EquityDailyBasic",
+    "EquityQfqNineTurnDaily",
     "EquityDividend",
     "EquityFactorPro",
     "EquityHolderNumber",

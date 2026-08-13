@@ -1,6 +1,9 @@
 import { useMemo } from "react";
 import type { UTCTimestamp } from "lightweight-charts";
 
+import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
+import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
+import { NineTurnLayerStatus } from "../../nine-turn/ui/NineTurnLayerStatus";
 import { DetailChartWorkspace } from "../../../shared/charts/detail-workspace/DetailChartWorkspace";
 import type {
   DetailChartLineDefinition,
@@ -16,14 +19,29 @@ interface StockMinuteChartWorkspaceProps {
   data: StockMinuteChartViewModel | null;
   loadState: "idle" | "loading" | "ready" | "error";
   errorMessage?: string;
+  nineTurnLayer: NineTurnLayerViewModel;
+  onNineTurnRetry: () => void;
 }
 
 const STOCK_MINUTE_MAIN_LINES: DetailChartLineDefinition[] = [];
 
-export function StockMinuteChartWorkspace({ data, loadState, errorMessage }: StockMinuteChartWorkspaceProps) {
+export function StockMinuteChartWorkspace({
+  data,
+  loadState,
+  errorMessage,
+  nineTurnLayer,
+  onNineTurnRetry,
+}: StockMinuteChartWorkspaceProps) {
   const status = data ? resolveMinuteStatus(data) : loadState === "error" ? "ERROR" : loadState === "loading" ? "LOADING" : "EMPTY";
   const statusMessage = errorMessage ?? resolveMinuteStatusMessage(data, status);
   const points = useMemo(() => data?.points.map(toDetailChartPoint) ?? [], [data?.points]);
+  const dataKey = `stock:${data?.tsCode ?? "pending"}:m${data?.freq ?? "pending"}`;
+  const nineTurnChartLayer = useNineTurnChartLayer({
+    dataKey,
+    layer: nineTurnLayer,
+    points,
+    timeMode: "minute",
+  });
 
   if (!data || data.points.length === 0) {
     return (
@@ -40,8 +58,16 @@ export function StockMinuteChartWorkspace({ data, loadState, errorMessage }: Sto
     <DetailChartWorkspace
       ariaLabel="分钟图表区"
       crosshairPresentation="native-axis-labels"
-      dataKey={`stock:${data.tsCode}:m${data.freq}`}
+      dataKey={dataKey}
+      mainLayerAccessory={(
+        <NineTurnLayerStatus
+          droppedMarkerCount={nineTurnChartLayer.droppedMarkerCount}
+          layer={nineTurnLayer}
+          onRetry={onNineTurnRetry}
+        />
+      )}
       mainLines={STOCK_MINUTE_MAIN_LINES}
+      mainPrimitives={nineTurnChartLayer.mainPrimitives}
       panelAriaLabels={{
         kline: "分钟K线",
         macd: "MACD(12,26,9)",

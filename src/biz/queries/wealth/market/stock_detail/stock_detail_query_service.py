@@ -30,6 +30,7 @@ from src.biz.services.wealth.market.stock_detail.stock_detail_field_mapper impor
 from src.foundation.config.local_minute_capability import (
     SUPPORTED_MINUTE_FREQS,
     resolve_local_minute_capability,
+    resolve_stock_nine_turn_minute_capability,
 )
 from src.foundation.config.settings import get_settings
 from src.foundation.models.core_serving.security_serving import Security
@@ -63,6 +64,9 @@ class StockDetailQueryService:
         )
         observed_trade_date = factor_row["trade_date"] if factor_row is not None else None
         minute_capability = resolve_local_minute_capability(get_settings())
+        nine_turn_minute_capability = resolve_stock_nine_turn_minute_capability(
+            get_settings()
+        )
 
         return StockDetailPageInitResponseDto(
             pageContext=self._to_context_dto(context),
@@ -72,6 +76,12 @@ class StockDetailQueryService:
             capabilities=StockDetailCapabilitiesDto(
                 supportsMinute=minute_capability.enabled,
                 minuteFrequencies=list(SUPPORTED_MINUTE_FREQS) if minute_capability.enabled else [],
+                supportsNineTurn=True,
+                nineTurnPeriods=(
+                    ["day", "30", "60", "90", "120"]
+                    if nine_turn_minute_capability.enabled
+                    else ["day"]
+                ),
             ),
             dataStatus=build_data_status(
                 expected_trade_date=context.trade_date,

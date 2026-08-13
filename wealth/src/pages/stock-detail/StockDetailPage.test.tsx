@@ -58,6 +58,8 @@ describe("StockDetailPage", () => {
         supportsRealtime: false,
         supportsMinute,
         minuteFrequencies: supportsMinute ? [1, 5, 15, 30, 60, 90, 120] : [],
+        supportsNineTurn: true,
+        nineTurnPeriods: supportsMinute ? ["day", "30", "60", "90", "120"] : ["day"],
         supportsWeeklyMonthly: false,
         supportsUserActions: false,
         unsupportedActions: ["自选", "提醒", "交易计划", "诊股"],
@@ -169,14 +171,104 @@ describe("StockDetailPage", () => {
       meta: { count: 1, limit: 500, hasMore: false },
       dataStatus: minuteBars.dataStatus,
     };
+    const dailyNineTurn = {
+      subjectType: "stock",
+      tsCode: "603806.SH",
+      period: "day",
+      markers: [
+        {
+          tradeDate: "2026-05-28",
+          tradeTime: null,
+          direction: "UP",
+          sequenceNumber: 1,
+          completed: false,
+        },
+        {
+          tradeDate: "2026-05-29",
+          tradeTime: null,
+          direction: "UP",
+          sequenceNumber: 9,
+          completed: true,
+        },
+      ],
+      latestMarker: {
+        tradeDate: "2026-05-29",
+        tradeTime: null,
+        direction: "UP",
+        sequenceNumber: 9,
+        completed: true,
+      },
+      dataStatus: {
+        status: "READY",
+        code: null,
+        message: null,
+        expectedEndDate: "2026-05-29",
+        observedEndDate: "2026-05-29",
+      },
+      meta: {
+        sourceRowCount: 2,
+        matchedRowCount: 2,
+        missingRowCount: 0,
+        markerCount: 2,
+        limit: 300,
+        hasMore: false,
+        nextCursor: null,
+        startDate: null,
+        endDate: "2026-05-29",
+        observedStartDate: "2026-05-28",
+        observedEndDate: "2026-05-29",
+        comparisonLag: 4,
+        signalThreshold: 9,
+        formulaVersion: 1,
+      },
+      debugInfo: null,
+    };
+    const minuteNineTurn = {
+      ...dailyNineTurn,
+      period: "30",
+      markers: [{
+        ...dailyNineTurn.markers[0],
+        tradeDate: "2026-05-29",
+        tradeTime: "2026-05-29T14:55:00+08:00",
+      }],
+      latestMarker: {
+        ...dailyNineTurn.markers[0],
+        tradeDate: "2026-05-29",
+        tradeTime: "2026-05-29T14:55:00+08:00",
+      },
+      meta: {
+        ...dailyNineTurn.meta,
+        limit: 500,
+        markerCount: 1,
+      },
+    };
 
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (fail) return new Response(JSON.stringify({ code: "internal_error", message: "接口失败" }), { status: 500 });
       if (url.includes("/page-init")) return new Response(JSON.stringify(pageInit), { status: 200 });
       if (url.includes("/kline")) return new Response(JSON.stringify(kline), { status: 200 });
-      if (supportsMinute && url.includes("/minutes")) return new Response(JSON.stringify(minuteBars), { status: 200 });
-      if (supportsMinute && url.includes("/minute-indicators")) return new Response(JSON.stringify(minuteIndicators), { status: 200 });
+      if (url.includes("/minute-nine-turn")) {
+        const period = new URL(url).searchParams.get("freq") ?? "30";
+        return new Response(JSON.stringify({ ...minuteNineTurn, period }), { status: 200 });
+      }
+      if (url.includes("/nine-turn")) return new Response(JSON.stringify(dailyNineTurn), { status: 200 });
+      if (supportsMinute && url.includes("/minutes")) {
+        const freq = Number(new URL(url).searchParams.get("freq"));
+        return new Response(JSON.stringify({
+          ...minuteBars,
+          freq,
+          bars: minuteBars.bars.map((bar) => ({ ...bar, freq })),
+        }), { status: 200 });
+      }
+      if (supportsMinute && url.includes("/minute-indicators")) {
+        const freq = Number(new URL(url).searchParams.get("freq"));
+        return new Response(JSON.stringify({
+          ...minuteIndicators,
+          freq,
+          items: minuteIndicators.items.map((item) => ({ ...item, freq })),
+        }), { status: 200 });
+      }
       return new Response("{}", { status: 404 });
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -211,6 +303,10 @@ describe("StockDetailPage", () => {
     expect(screen.getAllByText("MA10:18.90").length).toBeGreaterThan(0);
     expect(screen.queryByText(/MA15/)).not.toBeInTheDocument();
     expect(screen.queryByText(/MA120/)).not.toBeInTheDocument();
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/stock-detail/nine-turn"),
+      expect.anything(),
+    ));
   });
 
   it("supports visible period, overlay, tab and toast interactions", async () => {
@@ -254,6 +350,33 @@ describe("StockDetailPage", () => {
     expect(minuteRequests.some((url) => url.includes("/stock-detail/minute-indicators"))).toBe(true);
     expect(screen.getByLabelText("分钟图表区")).toBeInTheDocument();
     expect(screen.getByText("分钟K线")).toBeInTheDocument();
+    const nineTurnMinuteRequests = fetchMock.mock.calls
+      .map(([input]) => String(input))
+      .filter((url) => url.includes("/minute-nine-turn"));
+    expect(nineTurnMinuteRequests).toHaveLength(0);
+  });
+
+  it.each([
+    ["30分", 30],
+    ["60分", 60],
+    ["90分", 90],
+    ["120分", 120],
+  ] as const)("requests minute nine-turn for supported period %s", async (label, freq) => {
+    const fetchMock = mockStockDetailFetch({ supportsMinute: true });
+    render(<StockDetailPage tsCode="603806.SH" />);
+
+    expect(await screen.findByText("福斯特 603806.SH")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: label }));
+
+    await waitFor(() => {
+      const requests = fetchMock.mock.calls
+        .map(([input]) => String(input))
+        .filter((url) => url.includes("/minute-nine-turn"));
+      expect(requests).toHaveLength(1);
+      expect(requests[0]).toContain(`freq=${freq}`);
+      expect(requests[0]).toContain("endDate=2026-05-29");
+      expect(requests[0]).toContain("limit=500");
+    });
   });
 
   it("shows error state instead of mock quote when real api fails", async () => {

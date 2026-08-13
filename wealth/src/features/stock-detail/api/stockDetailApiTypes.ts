@@ -1,4 +1,5 @@
 import type { MarketDirection } from "../../../shared/model/market";
+import type { NineTurnPeriod } from "../../nine-turn/api/nineTurnApiTypes";
 
 export type StockMinuteFrequency = 1 | 5 | 15 | 30 | 60 | 90 | 120;
 
@@ -56,6 +57,8 @@ export interface StockDetailCapabilitiesDto {
   supportsRealtime: boolean;
   supportsMinute: boolean;
   minuteFrequencies?: StockMinuteFrequency[];
+  nineTurnPeriods: NineTurnPeriod[];
+  supportsNineTurn: boolean;
   supportsWeeklyMonthly: boolean;
   supportsUserActions: boolean;
   unsupportedActions: string[];

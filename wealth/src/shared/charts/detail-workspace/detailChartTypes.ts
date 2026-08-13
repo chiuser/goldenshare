@@ -46,6 +46,7 @@ interface DetailChartWorkspaceBaseProps {
   ariaLabel: string;
   crosshairPresentation?: DetailChartCrosshairPresentation;
   mainLines: DetailChartLineDefinition[];
+  mainLayerAccessory?: ReactNode;
   mainPrimitives?: ISeriesPrimitive<Time>[];
   panelAriaLabels: Record<DetailChartPanelKey, string>;
   points: DetailChartPoint[];
