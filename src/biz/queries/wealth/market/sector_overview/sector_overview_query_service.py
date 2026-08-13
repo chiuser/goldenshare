@@ -9,9 +9,11 @@ from sqlalchemy.orm import Session
 from src.biz.schemas.wealth.market.sector_overview import (
     ConceptHeatDto,
     ConceptHeatPointDto,
+    ConceptRankItemDto,
     ConceptSectorOverviewPayloadDto,
     ConceptWorkspaceDto,
     IndustryRankColumnDto,
+    IndustryRankItemDto,
     IndustrySelectionDto,
     IndustrySectorOverviewPayloadDto,
     IndustryWorkspaceDto,
@@ -19,17 +21,18 @@ from src.biz.schemas.wealth.market.sector_overview import (
     ModuleExceptionItemDto,
     RegionWorkspaceDto,
     RegionSectorOverviewPayloadDto,
+    RegionRankItemDto,
     SectorDetailDto,
     SectorLeaderStockDto,
     SectorMemberStockDto,
     SectorMetricsDto,
     SectorOverviewDebugInfoDto,
     SectorOverviewResponseDto,
-    SectorRankItemDto,
     TradingDayDto,
 )
 from src.biz.services.wealth.market.sector_overview.effective_a_stock_pool_query import (
     EffectiveAStockPoolQuery,
+    EffectiveAStockPoolSnapshot,
 )
 from src.biz.services.wealth.market.sector_overview.sector_overview_exception_builder import (
     SectorOverviewExceptionBuilder,
@@ -113,7 +116,11 @@ class MarketSectorOverviewQueryService:
                     exceptions=exceptions,
                 )
             partial = partial or (has_rows and not source_state.all_sources_on(query_trade_date))
-            if source_state.common_base_date is not None and source_state.common_base_date < context.expected_trade_date:
+            if (
+                trade_date is None
+                and source_state.common_base_date is not None
+                and source_state.common_base_date < context.expected_trade_date
+            ):
                 exceptions.append(
                     self._exception_builder.source_delayed(
                         message="sector source bundle delayed",
@@ -286,7 +293,29 @@ class MarketSectorOverviewQueryService:
             heat_history=None,
         )
         has_rows = bool(level1_rows) and bool(metrics)
-        partial = has_rows and (len(level1_rows) < 5 or any(not row.has_index for row in metrics.values()))
+        required_codes = {node.sector_code for node in hierarchy.nodes}
+        missing_daily = self._missing_daily_codes(metrics=metrics, sector_codes=required_codes)
+        if missing_daily:
+            exceptions.append(self._exception_builder.daily_missing(sector_codes=missing_daily))
+        missing_index = self._missing_index_codes(metrics=metrics, sector_codes=required_codes)
+        if missing_index:
+            exceptions.append(self._exception_builder.index_missing(sector_codes=missing_index))
+        missing_moneyflow = self._missing_moneyflow_codes(metrics=metrics, sector_codes=required_codes)
+        if missing_moneyflow:
+            exceptions.append(self._exception_builder.moneyflow_missing(sector_codes=missing_moneyflow))
+        missing_members = self._missing_member_codes(
+            metrics=metrics,
+            sector_codes=required_codes,
+        )
+        if missing_members:
+            exceptions.append(self._exception_builder.member_source_empty(sector_codes=missing_members))
+        partial = has_rows and (
+            len(level1_rows) < 5
+            or bool(missing_daily)
+            or bool(missing_index)
+            or bool(missing_moneyflow)
+            or bool(missing_members)
+        )
         return (
             {
                 "industry": IndustryWorkspaceDto(
@@ -345,6 +374,7 @@ class MarketSectorOverviewQueryService:
             ranked_codes = self._rank_codes(
                 list(metrics),
                 value=lambda code: self._metric_value(metrics.get(code), rank_metric),
+                include_null=False,
             )[:20]
 
         heat_not_ready = not heats
@@ -368,6 +398,11 @@ class MarketSectorOverviewQueryService:
                 )
             )
         selected_heat = heats.get(selection.selected_code or "")
+        invalid_heat_codes = sorted(
+            code
+            for code, heat in heats.items()
+            if code in metrics and heat.heat_status == "INVALID"
+        )
         history = (
             self._heat_query.load_history(
                 session,
@@ -389,18 +424,18 @@ class MarketSectorOverviewQueryService:
             heat_history=history,
         )
         rows = [
-            self._build_rank_item(
+            ConceptRankItemDto(
                 rank=index + 1,
-                sector_code=code,
-                sector_name=self._sector_name(code, metrics=metrics, heats=heats) or code,
-                level=None,
-                metric=self._primary_metric(
-                    rank_metric,
-                    metric=metrics.get(code),
-                    heat=heats.get(code),
-                ),
+                sectorCode=code,
+                sectorName=self._sector_name(code, metrics=metrics, heats=heats) or code,
+                changePct=self._primary_metric("CHANGE_PCT", metric=metrics.get(code), heat=None),
+                mainNetInflow=self._primary_metric("MAIN_NET_INFLOW", metric=metrics.get(code), heat=None),
                 leader=self._leader(metrics.get(code)),
-                heat=self._heat_dto(heats.get(code)),
+                heatStatus=(heats[code].heat_status if code in heats else "UNKNOWN"),  # type: ignore[arg-type]
+                heatLevel=(heats[code].heat_level if code in heats else "NONE"),  # type: ignore[arg-type]
+                heatTrend=(heats[code].heat_trend if code in heats else "UNKNOWN"),  # type: ignore[arg-type]
+                heatScore=self._primary_metric("HEAT_SCORE", metric=None, heat=heats.get(code)),
+                heatDelta1d=self._primary_metric("HEAT_DELTA_1D", metric=None, heat=heats.get(code)),
                 selected=code == selection.selected_code,
             )
             for index, code in enumerate(ranked_codes)
@@ -417,8 +452,46 @@ class MarketSectorOverviewQueryService:
                     sector_code=selected_heat.sector_code,
                 )
             )
+        elif invalid_selected:
+            exceptions.append(
+                self._exception_builder.heat_not_ready(
+                    message="selected concept Heat row is invalid",
+                    trade_date=trade_date.isoformat(),
+                )
+            )
+        elif invalid_heat_codes:
+            exceptions.append(
+                self._exception_builder.heat_not_ready(
+                    message="one or more concept Heat rows are invalid",
+                    trade_date=trade_date.isoformat(),
+                )
+            )
         has_rows = bool(metrics)
-        partial = bool(mismatched) or heat_not_ready or invalid_selected or any(not row.has_index for row in metrics.values())
+        required_codes = set(metrics)
+        missing_daily = self._missing_daily_codes(metrics=metrics, sector_codes=required_codes)
+        if missing_daily:
+            exceptions.append(self._exception_builder.daily_missing(sector_codes=missing_daily))
+        missing_index = self._missing_index_codes(metrics=metrics, sector_codes=required_codes)
+        if missing_index:
+            exceptions.append(self._exception_builder.index_missing(sector_codes=missing_index))
+        missing_moneyflow = self._missing_moneyflow_codes(metrics=metrics, sector_codes=required_codes)
+        if missing_moneyflow:
+            exceptions.append(self._exception_builder.moneyflow_missing(sector_codes=missing_moneyflow))
+        missing_members = self._missing_member_codes(
+            metrics=metrics,
+            sector_codes=required_codes,
+        )
+        if missing_members:
+            exceptions.append(self._exception_builder.member_source_empty(sector_codes=missing_members))
+        partial = (
+            bool(mismatched)
+            or heat_not_ready
+            or bool(invalid_heat_codes)
+            or bool(missing_daily)
+            or bool(missing_index)
+            or bool(missing_moneyflow)
+            or bool(missing_members)
+        )
         return (
             {
                 "concept": ConceptWorkspaceDto(
@@ -457,15 +530,21 @@ class MarketSectorOverviewQueryService:
                     requested_code=selected_code,
                 )
             )
+        pools = self._pool_query.load(
+            session,
+            ordered_trade_dates=(trade_date,),
+            sector_codes_by_date={trade_date: tuple(ranked_codes)},
+        )
         rows = [
-            self._build_rank_item(
+            RegionRankItemDto(
                 rank=index + 1,
-                sector_code=code,
-                sector_name=metrics[code].sector_name or code,
-                level=None,
-                metric=self._primary_metric(rank_metric, metric=metrics[code], heat=None),
+                sectorCode=code,
+                sectorName=metrics[code].sector_name or code,
+                changePct=self._primary_metric("CHANGE_PCT", metric=metrics[code], heat=None),
+                mainNetInflow=self._primary_metric("MAIN_NET_INFLOW", metric=metrics[code], heat=None),
+                memberCount=pools[(trade_date, code)].counts.member_count,
+                upCount=metrics[code].up_count,
                 leader=self._leader(metrics[code]),
-                heat=None,
                 selected=code == selection.selected_code,
             )
             for index, code in enumerate(ranked_codes)
@@ -480,9 +559,32 @@ class MarketSectorOverviewQueryService:
             metric=metrics.get(selection.selected_code or ""),
             heat=None,
             heat_history=None,
+            pool=(pools.get((trade_date, selection.selected_code)) if selection.selected_code else None),
         )
         has_rows = bool(rows)
-        partial = has_rows and (len(rows) != 31 or any(not row.has_index for row in metrics.values()))
+        required_codes = set(metrics)
+        missing_daily = self._missing_daily_codes(metrics=metrics, sector_codes=required_codes)
+        if missing_daily:
+            exceptions.append(self._exception_builder.daily_missing(sector_codes=missing_daily))
+        missing_index = self._missing_index_codes(metrics=metrics, sector_codes=required_codes)
+        if missing_index:
+            exceptions.append(self._exception_builder.index_missing(sector_codes=missing_index))
+        missing_moneyflow = self._missing_moneyflow_codes(metrics=metrics, sector_codes=required_codes)
+        if missing_moneyflow:
+            exceptions.append(self._exception_builder.moneyflow_missing(sector_codes=missing_moneyflow))
+        missing_members = self._missing_member_codes(
+            metrics=metrics,
+            sector_codes=required_codes,
+        )
+        if missing_members:
+            exceptions.append(self._exception_builder.member_source_empty(sector_codes=missing_members))
+        partial = has_rows and (
+            len(rows) != 31
+            or bool(missing_daily)
+            or bool(missing_index)
+            or bool(missing_moneyflow)
+            or bool(missing_members)
+        )
         return (
             {
                 "region": RegionWorkspaceDto(
@@ -508,15 +610,17 @@ class MarketSectorOverviewQueryService:
         metric: SectorMetricRow | None,
         heat: SectorHeatRow | None,
         heat_history: list[SectorHeatRow] | None,
+        pool: EffectiveAStockPoolSnapshot | None = None,
     ) -> SectorDetailDto | None:
         if sector_code is None:
             return None
-        pools = self._pool_query.load(
-            session,
-            ordered_trade_dates=(trade_date,),
-            sector_codes_by_date={trade_date: (sector_code,)},
-        )
-        pool = pools[(trade_date, sector_code)]
+        if pool is None:
+            pools = self._pool_query.load(
+                session,
+                ordered_trade_dates=(trade_date,),
+                sector_codes_by_date={trade_date: (sector_code,)},
+            )
+            pool = pools[(trade_date, sector_code)]
         members = self._member_query.load_top(
             session,
             trade_date=trade_date,
@@ -576,8 +680,13 @@ class MarketSectorOverviewQueryService:
         metrics: dict[str, SectorMetricRow],
         rank_metric: str,
     ) -> list[SectorHierarchyNode]:
+        eligible_nodes = [
+            node
+            for node in nodes
+            if self._metric_value(metrics.get(node.sector_code), rank_metric) is not None
+        ]
         return sorted(
-            nodes,
+            eligible_nodes,
             key=lambda node: self._descending_key(
                 self._metric_value(metrics.get(node.sector_code), rank_metric),
                 node.sector_code,
@@ -591,43 +700,19 @@ class MarketSectorOverviewQueryService:
         selected_code: str | None,
         metrics: dict[str, SectorMetricRow],
         rank_metric: str,
-    ) -> list[SectorRankItemDto]:
+    ) -> list[IndustryRankItemDto]:
         return [
-            self._build_rank_item(
+            IndustryRankItemDto(
                 rank=index + 1,
-                sector_code=node.sector_code,
-                sector_name=node.sector_name,
-                level=node.industry_level,
-                metric=self._primary_metric(rank_metric, metric=metrics.get(node.sector_code), heat=None),
+                sectorCode=node.sector_code,
+                sectorName=node.sector_name,
+                industryLevel=node.industry_level,  # type: ignore[arg-type]
+                primaryMetric=self._primary_metric(rank_metric, metric=metrics.get(node.sector_code), heat=None),
                 leader=self._leader(metrics.get(node.sector_code)),
-                heat=None,
                 selected=node.sector_code == selected_code,
             )
             for index, node in enumerate(nodes)
         ]
-
-    @staticmethod
-    def _build_rank_item(
-        *,
-        rank: int,
-        sector_code: str,
-        sector_name: str,
-        level: int | None,
-        metric: MetricValueDto,
-        leader: SectorLeaderStockDto | None,
-        heat: ConceptHeatDto | None,
-        selected: bool,
-    ) -> SectorRankItemDto:
-        return SectorRankItemDto(
-            rank=rank,
-            sectorCode=sector_code,
-            sectorName=sector_name,
-            level=level,  # type: ignore[arg-type]
-            primaryMetric=metric,
-            leader=leader,
-            heat=heat,
-            selected=selected,
-        )
 
     def _primary_metric(
         self,
@@ -680,8 +765,58 @@ class MarketSectorOverviewQueryService:
         codes: list[str],
         *,
         value: Callable[[str], Decimal | int | None],
+        include_null: bool = True,
     ) -> list[str]:
-        return sorted(codes, key=lambda code: self._descending_key(value(code), code))
+        eligible_codes = codes if include_null else [code for code in codes if value(code) is not None]
+        return sorted(eligible_codes, key=lambda code: self._descending_key(value(code), code))
+
+    @staticmethod
+    def _missing_moneyflow_codes(
+        *,
+        metrics: dict[str, SectorMetricRow],
+        sector_codes: set[str],
+    ) -> list[str]:
+        return sorted(
+            code
+            for code in sector_codes
+            if code not in metrics or not metrics[code].has_moneyflow
+        )
+
+    @staticmethod
+    def _missing_daily_codes(
+        *,
+        metrics: dict[str, SectorMetricRow],
+        sector_codes: set[str],
+    ) -> list[str]:
+        return sorted(
+            code
+            for code in sector_codes
+            if code not in metrics or not metrics[code].has_daily
+        )
+
+    @staticmethod
+    def _missing_member_codes(
+        *,
+        metrics: dict[str, SectorMetricRow],
+        sector_codes: set[str],
+    ) -> list[str]:
+        return sorted(
+            code
+            for code in sector_codes
+            if code in metrics and not metrics[code].has_members
+        )
+
+    @staticmethod
+    def _missing_index_codes(
+        *,
+        metrics: dict[str, SectorMetricRow],
+        sector_codes: set[str],
+    ) -> list[str]:
+        return sorted(
+            code
+            for code in sector_codes
+            if code not in metrics or not metrics[code].has_index
+        )
 
     @staticmethod
     def _descending_key(value: Decimal | int | None, code: str) -> tuple[bool, float, str]:

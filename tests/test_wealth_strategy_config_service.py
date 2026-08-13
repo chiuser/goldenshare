@@ -51,7 +51,7 @@ def test_default_strategy_configs_can_be_loaded() -> None:
     assert news.payload.visible_item_count == 10
     assert news.payload.query_limit >= 300
     assert isinstance(sector_overview.payload, SectorOverviewHeatStrategyPayload)
-    assert sector_overview.payload.score_version == "concept-heat-eod-v1"
+    assert sector_overview.payload.score_version == "concept-heat-eod-v2"
 
 
 def test_sector_heat_config_rejects_incoherent_windows() -> None:

@@ -44,7 +44,7 @@ class SectorMemberQuery:
         statement = (
             select(
                 DcMember.con_code,
-                Security.name,
+                DcMember.name,
                 visible_change.label("pct_chg"),
             )
             .select_from(DcMember)

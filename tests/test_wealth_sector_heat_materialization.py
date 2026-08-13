@@ -90,9 +90,10 @@ def test_effective_pool_counts_all_exclusions_from_one_relation() -> None:
         )
         session.add_all(
             [
-                EquityDailyBar(ts_code="UP.SZ", trade_date=target, pct_chg=Decimal("2")),
-                EquityDailyBar(ts_code="DOWN.SZ", trade_date=target, pct_chg=Decimal("-1")),
-                EquityDailyBar(ts_code="SUSPEND.SZ", trade_date=target, pct_chg=Decimal("3")),
+                EquityDailyBar(ts_code="UP.SZ", trade_date=target, close=Decimal("10"), pct_chg=Decimal("2")),
+                EquityDailyBar(ts_code="DOWN.SZ", trade_date=target, close=Decimal("9"), pct_chg=Decimal("-1")),
+                EquityDailyBar(ts_code="SUSPEND.SZ", trade_date=target, close=Decimal("10"), pct_chg=Decimal("3")),
+                EquityDailyBar(ts_code="MISSING.SZ", trade_date=target, close=None, pct_chg=Decimal("7")),
             ]
         )
         session.add(EquityLimitList(ts_code="UP.SZ", trade_date=target, limit_type="U"))
@@ -123,6 +124,35 @@ def test_effective_pool_counts_all_exclusions_from_one_relation() -> None:
     assert snapshot.counts.quote_coverage == pytest.approx(2 / 3)
     assert snapshot.up_count == 1
     assert snapshot.limit_up_count == 1
+
+
+def test_effective_pool_requires_close_and_pct_chg_for_a_valid_quote() -> None:
+    engine = _engine(DcMember, EquityLimitList, EquitySuspendD, EquityDailyBar, Security)
+    target = date(2026, 8, 12)
+    with Session(engine) as session:
+        session.add(DcMember(trade_date=target, ts_code="BK001.DC", con_code="A.SZ", name="成员A"))
+        session.add(
+            Security(
+                ts_code="A.SZ",
+                name="证券主数据A",
+                curr_type="CNY",
+                list_status="L",
+                list_date=date(2020, 1, 1),
+            )
+        )
+        session.add(EquityDailyBar(ts_code="A.SZ", trade_date=target, close=None, pct_chg=Decimal("3")))
+        session.commit()
+
+        snapshot = EffectiveAStockPoolQuery().load(
+            session,
+            ordered_trade_dates=[target],
+            sector_codes_by_date={target: ["BK001.DC"]},
+        )[(target, "BK001.DC")]
+
+    assert snapshot.counts.quote_eligible_count == 1
+    assert snapshot.counts.valid_quote_count == 0
+    assert snapshot.counts.missing_quote_count == 1
+    assert snapshot.up_count == 0
 
 
 def _source_query_engine():  # type: ignore[no-untyped-def]
@@ -207,7 +237,12 @@ def _seed_source_query(
     )
     session.add_all(
         [
-            EquityDailyBar(ts_code=stock_code, trade_date=trade_date, pct_chg=Decimal("1"))
+            EquityDailyBar(
+                ts_code=stock_code,
+                trade_date=trade_date,
+                close=Decimal("10"),
+                pct_chg=Decimal("1"),
+            )
             for trade_date in calculation_dates
             for stock_code in ("A.SZ", "B.SZ")
         ]
@@ -249,6 +284,17 @@ def test_source_query_is_prod_bounded_and_allows_only_local_concept_gaps() -> No
             resolved_config=resolved,
             completion_evidence=_zero_row_evidence(calculation_dates),
         )
+        session.query(EquityDailyBar).filter(
+            EquityDailyBar.trade_date == target,
+            EquityDailyBar.ts_code == "A.SZ",
+        ).update({EquityDailyBar.close: Decimal("11")}, synchronize_session=False)
+        session.commit()
+        close_changed = query.load(
+            session,
+            trade_date=target,
+            resolved_config=resolved,
+            completion_evidence=_zero_row_evidence(calculation_dates),
+        )
 
     assert len(first.all_open_dates) == 26
     assert len(first.calculation_dates) == 6
@@ -258,6 +304,8 @@ def test_source_query_is_prod_bounded_and_allows_only_local_concept_gaps() -> No
     assert len(first.moneyflow_rows) == 20
     assert first.source_row_counts_json["board_moneyflow_dc"] == 20
     assert first.source_hash == second.source_hash
+    assert close_changed.source_hash != first.source_hash
+    assert all(row.close == Decimal("10") for row in first.bar_rows)
 
 
 def test_source_query_rejects_non_prod_moneyflow_content_type() -> None:

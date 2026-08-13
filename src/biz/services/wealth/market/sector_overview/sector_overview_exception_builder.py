@@ -78,6 +78,58 @@ class SectorOverviewExceptionBuilder:
         )
 
     @staticmethod
+    def moneyflow_missing(*, sector_codes: list[str]) -> ModuleExceptionItemDto:
+        return ModuleExceptionItemDto(
+            module="sectorOverview",
+            code="SO_MONEYFLOW_MISSING",
+            severity="warn",
+            message="required sector moneyflow rows are missing",
+            details={
+                "missingSectorCount": len(sector_codes),
+                "sampleSectorCodes": ",".join(sector_codes[:5]),
+            },
+        )
+
+    @staticmethod
+    def daily_missing(*, sector_codes: list[str]) -> ModuleExceptionItemDto:
+        return ModuleExceptionItemDto(
+            module="sectorOverview",
+            code="SO_DAILY_MISSING",
+            severity="warn",
+            message="required sector daily rows are missing",
+            details={
+                "missingSectorCount": len(sector_codes),
+                "sampleSectorCodes": ",".join(sector_codes[:5]),
+            },
+        )
+
+    @staticmethod
+    def index_missing(*, sector_codes: list[str]) -> ModuleExceptionItemDto:
+        return ModuleExceptionItemDto(
+            module="sectorOverview",
+            code="SO_INDEX_MISSING",
+            severity="warn",
+            message="required sector index rows are missing",
+            details={
+                "missingSectorCount": len(sector_codes),
+                "sampleSectorCodes": ",".join(sector_codes[:5]),
+            },
+        )
+
+    @staticmethod
+    def member_source_empty(*, sector_codes: list[str]) -> ModuleExceptionItemDto:
+        return ModuleExceptionItemDto(
+            module="sectorOverview",
+            code="SO_MEMBER_SOURCE_EMPTY",
+            severity="warn",
+            message="selected sector has no source members",
+            details={
+                "missingSectorCount": len(sector_codes),
+                "sampleSectorCodes": ",".join(sector_codes[:5]),
+            },
+        )
+
+    @staticmethod
     def query_failed(*, message: str) -> ModuleExceptionItemDto:
         return ModuleExceptionItemDto(
             module="sectorOverview",

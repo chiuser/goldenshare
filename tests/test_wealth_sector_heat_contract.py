@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -7,6 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from src.biz.services.wealth.config import SectorOverviewHeatStrategyPayload, StrategyConfigService
+from src.biz.services.wealth.config import StrategyConfigRegistration
 from src.biz.services.wealth.market.sector_overview import (
     PriorPublishedHeat,
     SectorHeatConfigResolver,
@@ -14,6 +16,7 @@ from src.biz.services.wealth.market.sector_overview import (
     SectorHeatRawFeatureRow,
     SectorPoolCounts,
 )
+from src.biz.services.wealth.market.sector_overview.sector_heat_config import SectorHeatConfigContractError
 
 
 def _resolved_config():  # type: ignore[no-untyped-def]
@@ -55,8 +58,8 @@ def test_sector_heat_strategy_config_is_registered_and_hashed_deterministically(
     first = _resolved_config()
     second = _resolved_config()
 
-    assert first.version == "1.0.0"
-    assert first.payload.score_version == "concept-heat-eod-v1"
+    assert first.version == "2.0.0"
+    assert first.payload.score_version == "concept-heat-eod-v2"
     assert len(first.config_hash) == 64
     assert first.config_hash == second.config_hash
 
@@ -67,6 +70,40 @@ def test_sector_heat_strategy_config_rejects_weight_drift() -> None:
 
     with pytest.raises(ValidationError, match="weights must sum to 1"):
         SectorOverviewHeatStrategyPayload.model_validate(payload)
+
+
+def test_sector_heat_config_rejects_semantic_change_without_version_upgrade(tmp_path) -> None:
+    current = StrategyConfigService().get_config(module_key="sectorOverview", market="CN_A")
+    payload = current.payload.model_dump(mode="json", by_alias=True)
+    payload["trendThresholds"]["heating"] = 9
+    config_path = tmp_path / "sector_overview.cn_a.v2.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "moduleKey": "sectorOverview",
+                "market": "CN_A",
+                "version": current.version,
+                "updatedAt": current.updated_at_iso,
+                "updatedBy": current.updated_by,
+                "payload": payload,
+            }
+        ),
+        encoding="utf-8",
+    )
+    service = StrategyConfigService(
+        definitions_dir=tmp_path,
+        registrations=(
+            StrategyConfigRegistration(
+                module_key="sectorOverview",
+                market="CN_A",
+                definition_file=config_path.name,
+                payload_model=SectorOverviewHeatStrategyPayload,
+            ),
+        ),
+    )
+
+    with pytest.raises(SectorHeatConfigContractError, match="version upgrade"):
+        SectorHeatConfigResolver(service).resolve()
 
 
 def test_winsor_percentile_uses_average_rank_for_ties() -> None:
@@ -174,6 +211,37 @@ def test_missing_comparable_previous_heat_returns_unknown_without_filling() -> N
         ordered_trade_dates=trade_dates,
         rows_by_date=rows_by_date,
         prior_published_by_date={},
+        config_hash=resolved.config_hash,
+    )
+
+    assert row.heat_delta_1d is None
+    assert row.raw_heat_trend == "UNKNOWN"
+    assert row.heat_trend == "UNKNOWN"
+
+
+def test_previous_heat_from_v1_is_not_comparable_with_v2() -> None:
+    resolved = _resolved_config()
+    contract = SectorHeatContract(resolved.payload)
+    start = date(2026, 8, 5)
+    trade_dates = [start + timedelta(days=offset) for offset in range(6)]
+    rows_by_date = {trade_date: [_row(trade_date, "A", 1.0)] for trade_date in trade_dates}
+    previous_date = trade_dates[-2]
+
+    [row] = contract.calculate(
+        ordered_trade_dates=trade_dates,
+        rows_by_date=rows_by_date,
+        prior_published_by_date={
+            previous_date: {
+                "A": PriorPublishedHeat(
+                    trade_date=previous_date,
+                    heat_status="VALID",
+                    heat_score=Decimal("50"),
+                    raw_heat_trend="HEATING",
+                    score_version="concept-heat-eod-v1",
+                    config_hash=resolved.config_hash,
+                )
+            }
+        },
         config_hash=resolved.config_hash,
     )
 

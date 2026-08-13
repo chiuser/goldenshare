@@ -40,7 +40,15 @@ class ResolvedSectorHeatConfig:
     config_hash: str
 
 
+class SectorHeatConfigContractError(RuntimeError):
+    pass
+
+
 class SectorHeatConfigResolver:
+    _APPROVED_CONTRACT_HASHES = {
+        ("2.0.0", "concept-heat-eod-v2"): "a5257ad4c70c681e683ef728235012c1d50fd9c825bdb43684e6f02f157422f5",
+    }
+
     def __init__(self, strategy_config_service: StrategyConfigService | None = None) -> None:
         self._strategy_config_service = strategy_config_service or StrategyConfigService()
 
@@ -49,8 +57,16 @@ class SectorHeatConfigResolver:
         if not isinstance(record.payload, SectorOverviewHeatStrategyPayload):
             raise TypeError("sectorOverview strategy config resolved to an unexpected payload type")
         canonical_payload = record.payload.model_dump(mode="python", by_alias=True)
+        config_hash = canonical_json_hash(canonical_payload)
+        contract_key = (record.version, record.payload.score_version)
+        approved_hash = self._APPROVED_CONTRACT_HASHES.get(contract_key)
+        if approved_hash is None or approved_hash != config_hash:
+            raise SectorHeatConfigContractError(
+                "sector Heat semantic config changed without an approved version upgrade: "
+                f"version={record.version}, scoreVersion={record.payload.score_version}"
+            )
         return ResolvedSectorHeatConfig(
             version=record.version,
             payload=record.payload,
-            config_hash=canonical_json_hash(canonical_payload),
+            config_hash=config_hash,
         )

@@ -1,6 +1,6 @@
 # 市场总览｜板块速览技术实施方案 v2（implementation-design）
 
-> 状态：按批准顺序实施中；Slice 1-5 已完成生产验收，Slice 6 后端 V2 与 Slice 7 前端三工作台已完成本地实现和回归。正式 PLAN TaskRun `8149`、首次 APPLY TaskRun `8152` 与幂等重放 TaskRun `8153` 均已通过；下一步是前后端同窗口部署后的真实首页 smoke、同机房性能与像素验收。
+> 状态：Slice 10 后端事实与契约修正已通过。Slice 6-8 仍为“已实现、未通过 V2 验收”，Slice 9 设计/文档已通过；A01-A08 的后端代码/测试部分完成，下一步仅允许进入 Slice 11 前端三工作台重构。
 > 对应需求：[sector-overview-benchmark-requirement-v2.md](./sector-overview-benchmark-requirement-v2.md)
 > 对应门禁：[sector-overview-m2-coding-gate-v2.md](./sector-overview-m2-coding-gate-v2.md)
 > 对应低层设计：[sector-overview-low-level-design-v2.md](./sector-overview-low-level-design-v2.md)
@@ -49,12 +49,12 @@
 
 ### 2.1 当前行为
 
-1. API 已存在，路径为 `GET /api/v1/wealth/market/sector-overview`。
-2. 后端当前查询 `dc_daily + dc_index + board_moneyflow_dc`，构建 8 个固定 Top5 列和 20 个涨跌热力格。
-3. 当前服务已从 `dc_index` 组装领涨股字段，但前端排名行没有把领涨股作为主要信息展示。
-4. 当前前端消费 `columns[] + heatMapItems[]`，没有行业层级、成员列表或概念热度契约。
-5. 当前 API 测试和前端真实 API 测试均冻结在旧 DTO 上。
-6. 当前 `ops-worker-run/serve` 由 `src/cli.py` 直接把 `OperationsWorker` 交给 CLI handler 构造；`OperationsWorker`/`TaskRunDispatcher` 尚无 app 注入的 Heat executor registry。
+1. API 已存在，路径为 `GET /api/v1/wealth/market/sector-overview`，当前已部署判别式 V2。
+2. hierarchy、Heat、行情、成员和资金均读取 Prod；DG 只发布 hierarchy；Slice 1-5 的迁移、生产发布和 60 日回放继续有效。
+3. 后端已有行业三级联动、概念 Heat、地域 31 项和领涨/成员详情，但当前 rank item 仍共用 `primaryMetric + leader + heat`，无法表达正式概念/地域固定多列事实。
+4. 前端已有三 view 分支、controller、stale-response 防护和真实 API 接入，但仍复用通用 RankCard/DetailPanel/状态块，没有通过正式 Figma 结构、浏览器和像素验收。
+5. 已有后端和前端回归只能证明当前实现存在；A01-A19 未覆盖语义和视觉不得因此记为完成。
+6. Slice 9 已冻结修正版 Figma 和四份 V2 文档；本节后续目标结构是 Slice 10/11 的唯一实现依据，不保留旧通用契约兼容分支。
 
 ### 2.2 CodeGraph 影响面结论
 
@@ -422,7 +422,7 @@ TaskRun 参数冻结：
 
 | 配置 | 默认值 |
 |---|---:|
-| `scoreVersion` | `concept-heat-eod-v1` |
+| `scoreVersion` | `concept-heat-eod-v2`；v1 仅保留为既有生产历史，v2 正式发布需完成 Slice 12 回放 |
 | `weights.priceStrength` | `0.30` |
 | `weights.breadth` | `0.25` |
 | `weights.capitalFlow` | `0.25` |
@@ -523,50 +523,89 @@ interface IndustryWorkspace {
     detailSectorCode: string | null;
   };
   columns: IndustryRankColumn[];
-  detail: SectorDetail | null;
+  detail: IndustryDetail | null;
 }
 
 interface IndustryRankColumn {
   level: 1 | 2 | 3;
   parentSectorCode: string | null;
-  rows: SectorRankItem[];
+  rows: IndustryRankItem[];
 }
 
 interface ConceptWorkspace {
   rankMetric: "HEAT_SCORE" | "HEAT_DELTA_1D" | "CHANGE_PCT" | "MAIN_NET_INFLOW";
   selectedConceptCode: string | null;
-  rows: SectorRankItem[];
-  detail: SectorDetail | null;
+  rows: ConceptRankItem[];
+  detail: ConceptDetail | null;
 }
 
 interface RegionWorkspace {
   rankMetric: "CHANGE_PCT" | "MAIN_NET_INFLOW" | "UP_COUNT";
   selectedRegionCode: string | null;
-  rows: SectorRankItem[];
-  detail: SectorDetail | null;
+  rows: RegionRankItem[];
+  detail: RegionDetail | null;
 }
 
-interface SectorRankItem {
+interface IndustryRankItem {
   rank: number;
   sectorCode: string;
   sectorName: string;
-  level?: 1 | 2 | 3;
+  industryLevel: 1 | 2 | 3;
   primaryMetric: MetricValue;
   leader: SectorLeaderStock | null;
-  heat?: ConceptHeat | null;
   selected: boolean;
 }
 
-interface SectorDetail {
+interface ConceptRankItem {
+  rank: number;
+  sectorCode: string;
+  sectorName: string;
+  changePct: MetricValue;
+  mainNetInflow: MetricValue;
+  leader: SectorLeaderStock | null;
+  heatStatus: "VALID" | "INVALID";
+  heatLevel: "BOILING" | "HOT" | "ACTIVE" | "NONE";
+  heatTrend: "HEATING" | "STABLE" | "COOLING" | "UNKNOWN";
+  heatScore: MetricValue;
+  heatDelta1d: MetricValue;
+  selected: boolean;
+}
+
+interface RegionRankItem {
+  rank: number;
+  sectorCode: string;
+  sectorName: string;
+  changePct: MetricValue;
+  mainNetInflow: MetricValue;
+  memberCount: number;
+  upCount: number;
+  leader: SectorLeaderStock | null;
+  selected: boolean;
+}
+
+interface SectorDetailBase {
   sectorCode: string;
   sectorName: string;
   sectorType: "INDUSTRY" | "CONCEPT" | "REGION";
-  hierarchyPath?: string | null;
   metrics: SectorMetrics;
-  heat?: ConceptHeat | null;
-  heatHistory?: ConceptHeatPoint[];
   leader: SectorLeaderStock | null;
   members: SectorMemberStock[];
+}
+
+interface IndustryDetail extends SectorDetailBase {
+  sectorType: "INDUSTRY";
+  hierarchyPath: string | null;
+}
+
+interface ConceptDetail extends SectorDetailBase {
+  sectorType: "CONCEPT";
+  heat: ConceptHeat | null;
+  heatHistory: ConceptHeatPoint[];
+}
+
+interface RegionDetail extends SectorDetailBase {
+  sectorType: "REGION";
+  breadth: { upCount: number; downCount: number; memberCount: number };
 }
 
 interface ConceptHeatPoint {
@@ -690,22 +729,31 @@ SectorOverviewPanel
   IndustryHierarchyWorkspace
     IndustryLevelColumn × 3
       IndustryRankItem
+    IndustryDetailPanel
+      IndustryMetricGrid
+      SectorLeaderCard
+      SectorMemberStockList
   ConceptHeatWorkspace
     ConceptHeatRankingList
       ConceptRankItem
-      HeatBadge
+      HeatLevelBadge
       HeatTrendBadge
+    ConceptDetailPanel
+      ConceptMetricGrid
+      ConceptHeatHistory
+      SectorLeaderCard
+      SectorMemberStockList
   RegionRankingWorkspace
     RegionRankingList
       RegionRankItem
-    RegionBreadthDistribution
-  SectorDetailPanel
-    SectorMetricGrid
-    SectorLeaderCard
-    SectorMemberStockList
+    RegionDetailPanel
+      RegionMetricGrid
+      RegionBreadthDistribution
+      SectorLeaderCard
+      SectorMemberStockList
 ```
 
-`SectorDetailPanel` 只在当前 feature 内共享，不提前抽到全局 `shared/ui`。
+三个详情面板只复用无业务语义的 Metric/Card/List primitives，不复用会抹平行业、概念、地域固定事实的通用业务 `SectorDetailPanel`，也不提前抽到全局 `shared/ui`。
 
 ### 8.2 状态归属
 
@@ -721,7 +769,9 @@ SectorOverviewPanel
 2. 行业三列排名区与右侧详情保持设计稿比例；每列 5 行可见。
 3. 概念和地域列表均为 7 行可见、内部滚动；页面本身不因列表增长继续增高。
 4. 名称和领涨股分别设独立一行；长名称单行省略并通过 tooltip 查看全文。
-5. Loading/Empty/Error/Partial/Forbidden 复用同一外层 grid，不重建不同高度页面。
+5. Loading/Ready/Partial/Delayed/Empty/Error/Forbidden 保持同一外层 grid；六种非正常状态通过 skeleton/overlay 表达，不重建不同高度页面。
+6. Concept Heat 历史固定最近 20 个已发布交易日；`INVALID` 日期保留空槽形成断点，禁止以前向填充或最小高度柱伪装有效值。
+7. 行业、概念、地域板块名称只负责选择和联动；本期不渲染板块详情入口。领涨股与成员股可进入既有股票详情，无领涨股不生成跳转。
 
 ### 8.4 删除项
 
@@ -843,18 +893,15 @@ V2 切换时删除或彻底替换：
 
 ## 12. 实施顺序
 
-1. **文档与契约冻结**：本方案、LLD、需求基线和 M2 门禁统一为 prod-only Heat、DG 仅 hierarchy；冻结 V2 API、配置和异常码。
-2. **实施日 Alembic head**：本需求 revision 创建时本地与生产均为 `20260812_000133`，已正确接为 `20260813_000134`；部署后复核仓库与生产当前单 head 均为 `20260813_000135`。后续迁移继续实施日重查。
-3. **两表与现有连接复用**：创建 hierarchy/heat 模型、迁移、索引和约束；给既有 `lake_raw_writer` 增加 hierarchy 单表授权，完成访问范围与事务正反测试后再继续。
-4. **DG hierarchy -> prod hierarchy**：实施唯一 DG 发布资产并完成 496/31/128/337、闭包、版本、hash 和生产 read-back。
-5. **60 日 prod 来源缺口闭环**：冻结 60 个有效交易日和 25 日 warm-up；逐日核验枚举、日期、数量、唯一键、零行完成证据和代码覆盖。能从 prod 正式事实修复的缺口先修复；`dc_daily/dc_member` 与 Prod Raw 一致但源站本身缺少的板块行按已批准的“源站现状”口径进入逐概念 `INVALID`，不得伪造数据，也不得把其它可计算概念所在交易日整体剔除。
-6. **prod Heat 与回放**：先实现 biz 计算/质量/事务发布、ops 意图/观测和 app 装配；通过固定样本、访问边界及双 Session 事务测试后，从旧到新完成至少 60 个有效交易日回放和最新日发布。
-7. **后端 V2**：只读 prod，替换 query/service/status/schema/API；通过无 Lake/DG 依赖静态门禁、真实路由、状态和性能测试。
-8. **前端三工作台**：最后搭稳定 `1564 × 680` 骨架，依次实现行业、概念、地域和共享详情，接真实 V2 API，删除旧 DTO/组件并完成交互与像素验收。
+1. **Slice 1-5：有效基础**。文档/迁移、两表与现有连接、DG hierarchy、60+25 日 Prod 来源、prod-native Heat 与 60 日回放已经完成并保留既有生产证据。
+2. **Slice 6-8：实现存在、撤销验收**。当前后端、前端和历史发布不回滚，但 A01-A19 未关闭，不能继续写成 V2 完成或正式交付。
+3. **Slice 9：设计与文档纠偏（已通过）**。正式 Figma 已改为 20 日 Heat、移除三个工作台板块详情入口、补齐视图专属字段与状态说明；四份 V2 文档同步，截图与属性清单已归档。
+4. **Slice 10：后端事实与契约修正（已通过）**。A01-A08 后端正反例、`close + pct_chg`、`dc_member.name`、null 排名、来源状态、默认/显式日期、view-specific rank DTO 与 Heat v2 版本门禁已完成；未写生产 Heat。
+5. **Slice 11：前端三工作台结构重构（下一步）**。严格按 Slice 9 正式节点和 Slice 10 契约实现三个独立 rank/detail 组合、20 日断点、地域 breadth、股票导航和稳定状态骨架。
+6. **Slice 12：Heat v2 与 60 日回放**。按 LLD 将 canonical 行情加入 `close`，升 `concept-heat-eod-v2`，执行 PLAN/APPLY/read-back/幂等重放。
+7. **Slice 13-16：自动化、像素、候选部署和最终对账**。问题到测试 100% 映射后，依次完成同尺寸像素、同机房性能/观测和 A01-A19 全量关闭。
 
-发布窗口顺序固定为：迁移与既有账号对象授权 -> hierarchy read-back -> prod 来源整窗全绿 -> 60 日 Heat + 最新日 -> 后端 V2 -> 前端 V2 -> smoke/性能/截图。每个阶段独立验收，前一阶段失败不得越级。
-
-当前进度（2026-08-13）：步骤 1-8 的代码实现已完成，步骤 1-6 的生产发布/回放与步骤 7 的生产只读数据验收已完成。生产当前单 head 为 `20260813_000135`；hierarchy 已由正式 Dagster Run `e875b632-dfb4-4898-a577-944ffa51de95` 发布并只读验收为 496 行、31/128/337、闭包全绿，源 hash 与 prod read-back hash 同为 `5094c9f1b0cfd51890351a8d6ecb6d2e0dc7ee4d1de816b5cb3ccf9946ce3525`。60 日目标窗为 `2026-05-20..2026-08-12`，25 日 warm-up 为 `2026-04-10..2026-05-19`；正式 PLAN TaskRun `8149` 冻结 60 units、0 gaps、`apply_ready=true`。首次 APPLY TaskRun `8152` 完成 60/60、0 失败并发布 29,665 行，其中 16,756 `VALID`、12,909 `INVALID`；逐日行数、状态数及 config/source/content hash 全部与 PLAN 一致。幂等重放 TaskRun `8153` 再次完成 60/60、0 失败、`rows_saved=0`，业务表行数和 `calculated_at` 范围未变化。后端 V2 已完成判别式 DTO、严格参数、行业三级联动、概念 Heat、地域 31 项、成员详情与状态异常；生产只读调用在 `2026-08-12` 三视图均为 `READY`，行业列为 5/2/3 个真实节点、概念为 20 项和 20 日历史、地域为 31 项；应用 SQL 往返 7/8/6，payload 4.3/13.1/8.7KB。前端已完成 V2 判别式类型、独立 controller、三工作台、共享详情、地域涨跌分布、20 日 Heat、六态骨架、5 秒超时/重试、AbortController + request id stale 防护、Tab 键盘切换和 V1 DTO/adapter/fixture 清零；全量 Wealth 192 项测试、typecheck 与 build 通过。待同一发布窗口部署后完成真实登录首页 smoke、同机房 P95/P99 和 Figma 同尺寸截图；本地不同端口没有可复用登录态，未把该限制误记为像素验收通过。
+Slice 9-16 必须严格顺序执行，前一 Slice 未通过不得越级。当前完成点停在 Slice 10；A01-A08 的后端部分完成，但涉及前端和生产 Heat v2 的问题仍保持 OPEN，下一步固定为 Slice 11。
 
 ---
 
@@ -873,7 +920,7 @@ V2 切换时删除或彻底替换：
 
 ## 14. 已知风险
 
-1. Figma 已完成盘后、地域和有效池口径同步；Web 结构已实现，但本地 Wealth 新端口没有可复用登录态，仍须在同窗口部署后的真实页面按同尺寸截图做像素验收。
+1. Slice 9 Figma 已完成 20 日 Heat、无板块详情入口和交互/字段/状态口径纠偏；当前 Web 结构仍未按该正式节点验收，必须在 Slice 11 重构并于 Slice 14 按同尺寸截图验收。
 2. 首发整窗已完成 PLAN/APPLY 与 read-back；逐日来源行数、逐概念 `INVALID` 原因和 source hash 已进入 plan/TaskRun。后续配置或来源变化必须重新生成 PLAN，不得复用 `8149` 静默覆盖新口径。
 3. TaskRun `8147` 保留为错误资金流枚举被门禁拦截的负向证据；正式 PLAN `8149`、APPLY `8152` 与幂等重放 `8153` 已通过。下一风险已转为后端 V2 查询不得在请求时重算 Heat，也不得把 `INVALID` 回退为其它排名事实。
 4. Heat V1 是产品首版，60 日回放只能验证稳定性和可解释性，不能证明投资预测能力。
@@ -890,6 +937,8 @@ V2 切换时删除或彻底替换：
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.14 | 2026-08-13 | 完成 Slice 10 后端事实与契约纠偏：三类 rank DTO、有效行情、成员名、null 排名、来源状态、日期语义和 Heat v2 门禁通过；70 项回归及生产只读 60 日 close/pct 聚合核验通过，下一步 Slice 11 |
+| v2.13 | 2026-08-13 | 完成 Slice 9：正式 Figma 改为 20 日 Heat、移除三个板块详情入口、补齐视图专属字段与稳定状态说明；将响应目标拆为 Industry/Concept/Region rank 与 detail 类型，阶段状态统一为 Slice 1-5 完成、6-8 已实现未验收、A01-A19 OPEN |
 | v2.12 | 2026-08-13 | 记录 Slice 7 前端 V2：三工作台、独立状态、稳定骨架、地域涨跌分布、键盘与 stale 防护已实现，旧 DTO/adapter/fixture 清零；Wealth 192 项测试、typecheck/build 通过，真实页面像素与同机房性能待同窗口部署后验收 |
 | v2.11 | 2026-08-13 | 记录 Slice 6 后端 V2：判别式三视图契约、严格参数/选择/状态、prod-only 查询与成员详情已实现；86 项相关回归通过，生产只读验收为 READY、7/8/6 次 SQL、payload 均低于 120KB；待前端同窗口切换，后端不得单独部署 |
 | v2.10 | 2026-08-13 | 记录正式 PLAN `8149`、首次 APPLY `8152` 和幂等重放 `8153` 的生产验收：60 日 29,665 行、逐日 config/source/content hash 0 差异、重放 0 写入，Slice 5 完成并进入后端 V2 |

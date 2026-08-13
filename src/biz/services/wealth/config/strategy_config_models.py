@@ -362,7 +362,7 @@ class SectorHeatWinsorThresholds(BaseModel):
 
 
 class SectorOverviewHeatStrategyPayload(BaseModel):
-    """Strict EOD V1 concept-heat strategy contract."""
+    """Strict EOD V2 concept-heat strategy contract."""
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 

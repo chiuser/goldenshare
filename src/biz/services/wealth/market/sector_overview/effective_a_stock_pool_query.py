@@ -85,7 +85,10 @@ class EffectiveAStockPoolQuery:
                     member_stock_dates.c.stock_code == EquityDailyBar.ts_code,
                 ),
             )
-            .where(EquityDailyBar.pct_chg.is_not(None))
+            .where(
+                EquityDailyBar.close.is_not(None),
+                EquityDailyBar.pct_chg.is_not(None),
+            )
             .cte("sector_valid_bars")
         )
         limit_ups = (

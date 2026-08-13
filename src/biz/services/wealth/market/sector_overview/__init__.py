@@ -1,5 +1,10 @@
 """Sector overview service helpers."""
-from .sector_heat_config import ResolvedSectorHeatConfig, SectorHeatConfigResolver, canonical_json_hash
+from .sector_heat_config import (
+    ResolvedSectorHeatConfig,
+    SectorHeatConfigContractError,
+    SectorHeatConfigResolver,
+    canonical_json_hash,
+)
 from .sector_heat_contract import (
     PriorPublishedHeat,
     SectorHeatCandidate,
@@ -27,6 +32,7 @@ from .sector_heat_replay_planner import (
 __all__ = [
     "PriorPublishedHeat",
     "ResolvedSectorHeatConfig",
+    "SectorHeatConfigContractError",
     "SectorHeatCandidate",
     "SectorHeatConfigResolver",
     "SectorHeatContract",

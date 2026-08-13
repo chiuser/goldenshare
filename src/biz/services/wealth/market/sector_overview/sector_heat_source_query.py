@@ -85,6 +85,7 @@ class SecuritySourceRow:
 class EquityBarSourceRow:
     trade_date: date
     stock_code: str
+    close: Decimal | None
     pct_chg: Decimal | None
 
 
@@ -240,9 +241,14 @@ class SectorHeatSourceQuery:
         self._assert_unique("security_serving", ((row.stock_code,) for row in security_rows))
 
         bar_rows = tuple(
-            EquityBarSourceRow(row.trade_date, row.ts_code, row.pct_chg)
+            EquityBarSourceRow(row.trade_date, row.ts_code, row.close, row.pct_chg)
             for row in session.execute(
-                select(EquityDailyBar.trade_date, EquityDailyBar.ts_code, EquityDailyBar.pct_chg)
+                select(
+                    EquityDailyBar.trade_date,
+                    EquityDailyBar.ts_code,
+                    EquityDailyBar.close,
+                    EquityDailyBar.pct_chg,
+                )
                 .where(EquityDailyBar.trade_date.in_(calculation_dates), EquityDailyBar.ts_code.in_(stock_codes))
                 .order_by(EquityDailyBar.trade_date, EquityDailyBar.ts_code)
             )

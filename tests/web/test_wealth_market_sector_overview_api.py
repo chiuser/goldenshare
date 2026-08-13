@@ -3,6 +3,10 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
+import pytest
+from pydantic import ValidationError
+
+from src.biz.schemas.wealth.market.sector_overview import PageStatusDto
 from src.foundation.models.core.board_moneyflow_dc import BoardMoneyflowDc
 from src.foundation.models.core.dc_daily import DcDaily
 from src.foundation.models.core.dc_index import DcIndex
@@ -144,7 +148,7 @@ def _seed_members(db_session, *, sector_codes: tuple[str, ...]) -> None:
             Security(
                 ts_code=stock_code,
                 symbol=f"000{index:03d}",
-                name=f"成分股{index}",
+                name=f"证券主数据名{index}",
                 curr_type="CNY",
                 list_status="L",
                 list_date=date(2020, 1, 1),
@@ -270,7 +274,12 @@ def _seed_sector_overview_v2(db_session) -> None:
             )
         )
 
-    _seed_members(db_session, sector_codes=("BK1201.DC", "BK2001.DC", "BK3001.DC"))
+    _seed_members(
+        db_session,
+        sector_codes=tuple(code for code, *_rest in hierarchy_nodes)
+        + tuple(f"BK20{index:02d}.DC" for index in range(1, 21))
+        + tuple(f"BK30{index:02d}.DC" for index in range(1, 32)),
+    )
     db_session.commit()
 
 
@@ -298,9 +307,20 @@ def test_industry_workspace_resolves_three_levels_and_uses_frozen_fields(app_cli
     }
     first = workspace["columns"][0]["rows"][0]
     assert first["sectorName"] == "一级行业1"
+    assert set(first) == {
+        "rank",
+        "sectorCode",
+        "sectorName",
+        "industryLevel",
+        "primaryMetric",
+        "leader",
+        "selected",
+    }
+    assert first["industryLevel"] == 1
     assert first["primaryMetric"]["value"] == 19.0  # dc_daily, not dc_index.pct_change.
     assert first["leader"] == {"stockCode": "000001.SZ", "stockName": "一级行业1领涨", "changePct": 5.25}
     assert len(workspace["detail"]["members"]) == 5
+    assert workspace["detail"]["members"][0]["stockName"] == "成分股1"
     assert workspace["detail"]["leader"]["stockName"] == "三级行业1领涨"
     assert payload["debugInfo"]["exceptions"] == []
 
@@ -342,7 +362,23 @@ def test_concept_workspace_supports_heat_sort_history_and_member_detail(app_clie
     assert "industry" not in payload["sectorOverview"] and "region" not in payload["sectorOverview"]
     assert len(workspace["rows"]) == 20
     assert workspace["rows"][0]["sectorCode"] == "BK2020.DC"
-    assert workspace["rows"][0]["heat"]["heatStatus"] == "VALID"
+    assert set(workspace["rows"][0]) == {
+        "rank",
+        "sectorCode",
+        "sectorName",
+        "changePct",
+        "mainNetInflow",
+        "leader",
+        "heatStatus",
+        "heatLevel",
+        "heatTrend",
+        "heatScore",
+        "heatDelta1d",
+        "selected",
+    }
+    assert workspace["rows"][0]["heatStatus"] == "VALID"
+    assert workspace["rows"][0]["changePct"]["value"] == 10.0
+    assert workspace["rows"][0]["mainNetInflow"]["value"] == 4_000_000_000.0
     assert workspace["selectedConceptCode"] == "BK2001.DC"
     assert len(workspace["detail"]["heatHistory"]) == 20
     assert workspace["detail"]["heatHistory"] == sorted(
@@ -370,7 +406,21 @@ def test_region_workspace_returns_exact_production_enumeration_without_heat_or_h
     assert len(workspace["rows"]) == 31
     assert workspace["selectedRegionCode"] == "BK3005.DC"
     assert workspace["rows"][0]["sectorCode"] == "BK3001.DC"
-    assert "heat" not in workspace["rows"][0]
+    assert set(workspace["rows"][0]) == {
+        "rank",
+        "sectorCode",
+        "sectorName",
+        "changePct",
+        "mainNetInflow",
+        "memberCount",
+        "upCount",
+        "leader",
+        "selected",
+    }
+    assert workspace["rows"][0]["changePct"]["value"] == 39.0
+    assert workspace["rows"][0]["mainNetInflow"]["value"] == 7_900_000_000.0
+    assert workspace["rows"][0]["memberCount"] == 6
+    assert workspace["rows"][0]["upCount"] == 79
     assert "hierarchyPath" not in workspace["detail"]
     assert "heatHistory" not in workspace["detail"]
 
@@ -388,6 +438,36 @@ def test_concept_heat_not_ready_does_not_fallback_to_change_ranking(app_client, 
     payload = response.json()
     assert payload["sectorOverview"]["status"] == "PARTIAL"
     assert payload["sectorOverview"]["concept"]["rows"] == []
+    assert [item["code"] for item in payload["debugInfo"]["exceptions"]] == ["SO_HEAT_NOT_READY"]
+
+
+def test_one_invalid_concept_heat_row_keeps_usable_rows_but_marks_partial(app_client, db_session) -> None:
+    _seed_sector_overview_v2(db_session)
+    db_session.query(WealthSectorHeatDaily).filter(
+        WealthSectorHeatDaily.trade_date == TARGET_DATE,
+        WealthSectorHeatDaily.sector_code == "BK2020.DC",
+    ).update(
+        {
+            WealthSectorHeatDaily.heat_status: "INVALID",
+            WealthSectorHeatDaily.invalid_reason: "FEATURE_MISSING",
+            WealthSectorHeatDaily.heat_score: None,
+            WealthSectorHeatDaily.heat_rank: None,
+            WealthSectorHeatDaily.heat_level: "NONE",
+            WealthSectorHeatDaily.heat_delta_1d: None,
+            WealthSectorHeatDaily.heat_trend: "UNKNOWN",
+            WealthSectorHeatDaily.raw_heat_trend: "UNKNOWN",
+        },
+        synchronize_session=False,
+    )
+    db_session.commit()
+
+    payload = app_client.get(
+        "/api/v1/wealth/market/sector-overview",
+        params={"tradeDate": TARGET_DATE.isoformat(), "view": "CONCEPT", "debug": 1},
+    ).json()
+
+    assert payload["sectorOverview"]["status"] == "PARTIAL"
+    assert len(payload["sectorOverview"]["concept"]["rows"]) == 19
     assert [item["code"] for item in payload["debugInfo"]["exceptions"]] == ["SO_HEAT_NOT_READY"]
 
 
@@ -422,6 +502,30 @@ def test_explicit_non_trading_or_missing_date_returns_empty_without_fallback(app
     assert [item["code"] for item in payload["debugInfo"]["exceptions"]] == ["SO_SOURCE_EMPTY"]
 
 
+def test_explicit_trading_date_without_bundle_returns_empty_not_previous_day(app_client, db_session) -> None:
+    _seed_sector_overview_v2(db_session)
+    missing_date = date(2026, 4, 29)
+    db_session.add(
+        TradeCalendar(
+            exchange="SSE",
+            trade_date=missing_date,
+            is_open=True,
+            pretrade_date=TARGET_DATE,
+        )
+    )
+    db_session.commit()
+
+    payload = app_client.get(
+        "/api/v1/wealth/market/sector-overview",
+        params={"tradeDate": missing_date.isoformat(), "debug": 1},
+    ).json()
+
+    assert payload["sectorOverview"]["tradeDate"] == missing_date.isoformat()
+    assert payload["sectorOverview"]["status"] == "EMPTY"
+    assert payload["sectorOverview"]["industry"]["columns"][0]["rows"] == []
+    assert [item["code"] for item in payload["debugInfo"]["exceptions"]] == ["SO_SOURCE_EMPTY"]
+
+
 def test_default_date_reports_delayed_without_cross_date_join(app_client, db_session) -> None:
     _seed_sector_overview_v2(db_session)
     db_session.add(
@@ -444,6 +548,129 @@ def test_default_date_reports_delayed_without_cross_date_join(app_client, db_ses
     assert [item["code"] for item in payload["debugInfo"]["exceptions"]] == ["SO_SOURCE_DELAYED"]
 
 
+def test_rank_null_rules_filter_industry_and_concept_before_topn_but_keep_all_regions(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_overview_v2(db_session)
+    db_session.query(DcDaily).filter(
+        DcDaily.trade_date == TARGET_DATE,
+        DcDaily.ts_code.in_(("BK1001.DC", "BK2001.DC", "BK3001.DC")),
+    ).update({DcDaily.pct_change: None}, synchronize_session=False)
+    db_session.commit()
+
+    industry = app_client.get(
+        "/api/v1/wealth/market/sector-overview",
+        params={"tradeDate": TARGET_DATE.isoformat(), "view": "INDUSTRY"},
+    ).json()["sectorOverview"]["industry"]["columns"][0]["rows"]
+    concept = app_client.get(
+        "/api/v1/wealth/market/sector-overview",
+        params={
+            "tradeDate": TARGET_DATE.isoformat(),
+            "view": "CONCEPT",
+            "conceptRankMetric": "CHANGE_PCT",
+        },
+    ).json()["sectorOverview"]["concept"]["rows"]
+    region = app_client.get(
+        "/api/v1/wealth/market/sector-overview",
+        params={
+            "tradeDate": TARGET_DATE.isoformat(),
+            "view": "REGION",
+            "regionRankMetric": "CHANGE_PCT",
+        },
+    ).json()["sectorOverview"]["region"]["rows"]
+
+    assert len(industry) == 4
+    assert "BK1001.DC" not in {row["sectorCode"] for row in industry}
+    assert len(concept) == 19
+    assert "BK2001.DC" not in {row["sectorCode"] for row in concept}
+    assert len(region) == 31
+    assert region[-1]["sectorCode"] == "BK3001.DC"
+    assert region[-1]["changePct"]["value"] is None
+
+
+def test_required_moneyflow_and_member_gaps_are_partial_with_explicit_issues(app_client, db_session) -> None:
+    _seed_sector_overview_v2(db_session)
+    db_session.query(BoardMoneyflowDc).filter(
+        BoardMoneyflowDc.trade_date == TARGET_DATE,
+        BoardMoneyflowDc.ts_code == "BK1001.DC",
+    ).delete(synchronize_session=False)
+    db_session.query(DcMember).filter(
+        DcMember.trade_date == TARGET_DATE,
+        DcMember.ts_code == "BK1201.DC",
+    ).delete(synchronize_session=False)
+    db_session.commit()
+
+    payload = app_client.get(
+        "/api/v1/wealth/market/sector-overview",
+        params={"tradeDate": TARGET_DATE.isoformat(), "debug": 1},
+    ).json()
+
+    assert payload["sectorOverview"]["status"] == "PARTIAL"
+    assert payload["sectorOverview"]["industry"]["columns"][0]["rows"]
+    assert payload["sectorOverview"]["industry"]["detail"]["metrics"]["sourceMemberCount"] == 0
+    assert {item["code"] for item in payload["debugInfo"]["exceptions"]} == {
+        "SO_MONEYFLOW_MISSING",
+        "SO_MEMBER_SOURCE_EMPTY",
+    }
+
+
+def test_required_daily_gap_is_partial_and_keeps_other_rows(app_client, db_session) -> None:
+    _seed_sector_overview_v2(db_session)
+    db_session.query(DcDaily).filter(
+        DcDaily.trade_date == TARGET_DATE,
+        DcDaily.ts_code == "BK1002.DC",
+    ).delete(synchronize_session=False)
+    db_session.commit()
+
+    payload = app_client.get(
+        "/api/v1/wealth/market/sector-overview",
+        params={"tradeDate": TARGET_DATE.isoformat(), "debug": 1},
+    ).json()
+
+    assert payload["sectorOverview"]["status"] == "PARTIAL"
+    assert payload["sectorOverview"]["industry"]["columns"][0]["rows"]
+    assert [item["code"] for item in payload["debugInfo"]["exceptions"]] == ["SO_DAILY_MISSING"]
+
+
+def test_missing_index_row_is_partial_but_missing_leader_fields_are_not(app_client, db_session) -> None:
+    _seed_sector_overview_v2(db_session)
+    db_session.query(DcIndex).filter(
+        DcIndex.trade_date == TARGET_DATE,
+        DcIndex.ts_code == "BK1002.DC",
+    ).delete(synchronize_session=False)
+    db_session.commit()
+
+    payload = app_client.get(
+        "/api/v1/wealth/market/sector-overview",
+        params={"tradeDate": TARGET_DATE.isoformat(), "debug": 1},
+    ).json()
+
+    assert payload["sectorOverview"]["status"] == "PARTIAL"
+    assert [item["code"] for item in payload["debugInfo"]["exceptions"]] == ["SO_INDEX_MISSING"]
+
+
+def test_legal_missing_leader_remains_ready_and_returns_null(app_client, db_session) -> None:
+    _seed_sector_overview_v2(db_session)
+    db_session.query(DcIndex).filter(
+        DcIndex.trade_date == TARGET_DATE,
+        DcIndex.ts_code == "BK1001.DC",
+    ).update(
+        {DcIndex.leading: None, DcIndex.leading_code: None, DcIndex.leading_pct: None},
+        synchronize_session=False,
+    )
+    db_session.commit()
+
+    payload = app_client.get(
+        "/api/v1/wealth/market/sector-overview",
+        params={"tradeDate": TARGET_DATE.isoformat(), "debug": 1},
+    ).json()
+
+    assert payload["sectorOverview"]["status"] == "READY"
+    assert payload["sectorOverview"]["industry"]["columns"][0]["rows"][0]["leader"] is None
+    assert payload["debugInfo"]["exceptions"] == []
+
+
 def test_industry_hierarchy_unavailable_is_stable_error(app_client, db_session) -> None:
     _seed_sector_overview_v2(db_session)
     db_session.query(WealthSectorHierarchy).delete()
@@ -458,6 +685,11 @@ def test_industry_hierarchy_unavailable_is_stable_error(app_client, db_session) 
     assert payload["sectorOverview"]["status"] == "ERROR"
     assert payload["sectorOverview"]["industry"]["selection"]["detailSectorCode"] is None
     assert [item["code"] for item in payload["debugInfo"]["exceptions"]] == ["SO_HIERARCHY_UNAVAILABLE"]
+
+
+def test_page_status_contract_rejects_unknown_backend_values() -> None:
+    with pytest.raises(ValidationError):
+        PageStatusDto(status="UNKNOWN", displayText="未知状态")  # type: ignore[arg-type]
 
 
 def test_all_frozen_rank_metrics_are_accepted_per_workspace(app_client, db_session) -> None:

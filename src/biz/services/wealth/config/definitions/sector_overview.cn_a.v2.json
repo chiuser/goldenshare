@@ -1,11 +1,11 @@
 {
   "moduleKey": "sectorOverview",
   "market": "CN_A",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "updatedAt": "2026-08-13T12:00:00+08:00",
   "updatedBy": "wealth-team",
   "payload": {
-    "scoreVersion": "concept-heat-eod-v1",
+    "scoreVersion": "concept-heat-eod-v2",
     "weights": {
       "priceStrength": 0.30,
       "breadth": 0.25,

@@ -15,6 +15,7 @@ IndustryRankMetricValue = Literal["CHANGE_PCT", "MAIN_NET_INFLOW", "UP_COUNT"]
 ConceptRankMetricValue = Literal["HEAT_SCORE", "HEAT_DELTA_1D", "CHANGE_PCT", "MAIN_NET_INFLOW"]
 RegionRankMetricValue = Literal["CHANGE_PCT", "MAIN_NET_INFLOW", "UP_COUNT"]
 HeatStatusValue = Literal["VALID", "INVALID"]
+ConceptRankHeatStatusValue = Literal["VALID", "INVALID", "UNKNOWN"]
 HeatLevelValue = Literal["BOILING", "HOT", "ACTIVE", "NONE"]
 HeatTrendValue = Literal["HEATING", "STABLE", "COOLING", "UNKNOWN"]
 HeatInvalidReasonValue = Literal[
@@ -111,14 +112,40 @@ class SectorDetailDto(_StrictDto):
     members: list[SectorMemberStockDto]
 
 
-class SectorRankItemDto(_StrictDto):
+class IndustryRankItemDto(_StrictDto):
     rank: int = Field(ge=1)
     sectorCode: str
     sectorName: str
-    level: Literal[1, 2, 3] | None = Field(default=None, exclude_if=lambda value: value is None)
+    industryLevel: Literal[1, 2, 3]
     primaryMetric: MetricValueDto
     leader: SectorLeaderStockDto | None = None
-    heat: ConceptHeatDto | None = Field(default=None, exclude_if=lambda value: value is None)
+    selected: bool
+
+
+class ConceptRankItemDto(_StrictDto):
+    rank: int = Field(ge=1)
+    sectorCode: str
+    sectorName: str
+    changePct: MetricValueDto
+    mainNetInflow: MetricValueDto
+    leader: SectorLeaderStockDto | None = None
+    heatStatus: ConceptRankHeatStatusValue
+    heatLevel: HeatLevelValue
+    heatTrend: HeatTrendValue
+    heatScore: MetricValueDto
+    heatDelta1d: MetricValueDto
+    selected: bool
+
+
+class RegionRankItemDto(_StrictDto):
+    rank: int = Field(ge=1)
+    sectorCode: str
+    sectorName: str
+    changePct: MetricValueDto
+    mainNetInflow: MetricValueDto
+    memberCount: int | None = Field(default=None, ge=0)
+    upCount: int | None = Field(default=None, ge=0)
+    leader: SectorLeaderStockDto | None = None
     selected: bool
 
 
@@ -132,7 +159,7 @@ class IndustrySelectionDto(_StrictDto):
 class IndustryRankColumnDto(_StrictDto):
     level: Literal[1, 2, 3]
     parentSectorCode: str | None = None
-    rows: list[SectorRankItemDto]
+    rows: list[IndustryRankItemDto]
 
 
 class IndustryWorkspaceDto(_StrictDto):
@@ -145,14 +172,14 @@ class IndustryWorkspaceDto(_StrictDto):
 class ConceptWorkspaceDto(_StrictDto):
     rankMetric: ConceptRankMetricValue
     selectedConceptCode: str | None = None
-    rows: list[SectorRankItemDto]
+    rows: list[ConceptRankItemDto]
     detail: SectorDetailDto | None = None
 
 
 class RegionWorkspaceDto(_StrictDto):
     rankMetric: RegionRankMetricValue
     selectedRegionCode: str | None = None
-    rows: list[SectorRankItemDto]
+    rows: list[RegionRankItemDto]
     detail: SectorDetailDto | None = None
 
 

@@ -73,7 +73,7 @@ def get_default_strategy_config_registrations() -> tuple[StrategyConfigRegistrat
         StrategyConfigRegistration(
             module_key="sectorOverview",
             market="CN_A",
-            definition_file="sector_overview.cn_a.v1.json",
+            definition_file="sector_overview.cn_a.v2.json",
             payload_model=SectorOverviewHeatStrategyPayload,
         ),
     )
