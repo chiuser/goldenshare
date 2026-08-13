@@ -1,4 +1,6 @@
-from sqlalchemy import BigInteger, Float, Numeric, String
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, Float, Integer, Numeric, SmallInteger, String
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.schema import CreateIndex
 
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.fund_adj_factor import FundAdjFactor
@@ -27,6 +29,8 @@ from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core_serving.stk_period_bar import StkPeriodBar
 from src.foundation.models.core_serving.stk_period_bar_adj import StkPeriodBarAdj
 from src.foundation.models.core_serving.wealth_market_turnover_snapshot import WealthMarketTurnoverSnapshot
+from src.foundation.models.core_serving.wealth_sector_heat_daily import WealthSectorHeatDaily
+from src.foundation.models.core_serving.wealth_sector_hierarchy import WealthSectorHierarchy
 from src.foundation.models.core.ths_daily import ThsDaily
 from src.foundation.models.core.ths_index import ThsIndex
 from src.foundation.models.core.ths_member import ThsMember
@@ -238,6 +242,120 @@ def test_stk_mins_vol_uses_bigint() -> None:
 
 def test_wealth_market_turnover_snapshot_total_vol_uses_bigint() -> None:
     assert isinstance(WealthMarketTurnoverSnapshot.__table__.columns["total_vol"].type, BigInteger)
+
+
+def test_wealth_sector_hierarchy_model_matches_frozen_contract() -> None:
+    table = WealthSectorHierarchy.__table__
+
+    assert table.schema == "core_serving"
+    assert [column.name for column in table.primary_key.columns] == ["sector_code"]
+    assert list(table.columns) == [
+        table.columns["sector_code"],
+        table.columns["sector_name"],
+        table.columns["industry_level"],
+        table.columns["industry_level_name"],
+        table.columns["parent_sector_code"],
+        table.columns["parent_sector_name"],
+        table.columns["root_sector_code"],
+        table.columns["root_sector_name"],
+        table.columns["hierarchy_path"],
+        table.columns["is_leaf"],
+        table.columns["display_order"],
+        table.columns["baseline_version"],
+        table.columns["source_received_date"],
+        table.columns["code_reference_trade_date"],
+        table.columns["published_at"],
+    ]
+    assert isinstance(table.columns["industry_level"].type, SmallInteger)
+    assert isinstance(table.columns["is_leaf"].type, Boolean)
+    assert isinstance(table.columns["display_order"].type, Integer)
+    assert isinstance(table.columns["source_received_date"].type, Date)
+    assert isinstance(table.columns["published_at"].type, DateTime)
+    assert table.columns["published_at"].type.timezone is True
+    assert table.columns["parent_sector_code"].nullable is True
+    assert table.columns["parent_sector_name"].nullable is True
+    assert all(
+        not table.columns[name].nullable
+        for name in table.columns.keys()
+        if name not in {"parent_sector_code", "parent_sector_name"}
+    )
+    assert {index.name for index in table.indexes} == {
+        "idx_wealth_sector_hierarchy_level_order_code",
+        "idx_wealth_sector_hierarchy_parent_level_order_code",
+        "idx_wealth_sector_hierarchy_root_level_order_code",
+    }
+    assert {constraint.name for constraint in table.constraints} == {
+        "pk_wealth_sector_hierarchy",
+        "ck_wealth_sector_hierarchy_industry_level_range",
+        "ck_wealth_sector_hierarchy_display_order_non_negative",
+        "ck_wealth_sector_hierarchy_parent_fields_by_level",
+    }
+
+
+def test_wealth_sector_heat_daily_model_matches_frozen_contract() -> None:
+    table = WealthSectorHeatDaily.__table__
+
+    assert table.schema == "core_serving"
+    assert [column.name for column in table.primary_key.columns] == ["trade_date", "sector_code"]
+    assert isinstance(table.columns["base_heat_score"].type, Numeric)
+    assert table.columns["base_heat_score"].type.precision == 8
+    assert table.columns["base_heat_score"].type.scale == 4
+    assert isinstance(table.columns["price_strength_score"].type, Numeric)
+    assert table.columns["price_strength_score"].type.precision == 8
+    assert table.columns["price_strength_score"].type.scale == 6
+    assert isinstance(table.columns["quote_coverage"].type, Numeric)
+    assert table.columns["quote_coverage"].type.precision == 8
+    assert table.columns["quote_coverage"].type.scale == 6
+    assert table.columns["source_dates_json"].type.compile(dialect=postgresql.dialect()) == "JSONB"
+    assert table.columns["source_row_counts_json"].type.compile(dialect=postgresql.dialect()) == "JSONB"
+    assert table.columns["invalid_reason"].nullable is True
+    assert all(
+        table.columns[name].nullable
+        for name in (
+            "base_heat_score",
+            "base_heat_rank",
+            "heat_score",
+            "heat_rank",
+            "heat_delta_1d",
+            "price_strength_score",
+            "breadth_score",
+            "capital_flow_score",
+            "activity_score",
+            "persistence_score",
+        )
+    )
+    assert {constraint.name for constraint in table.constraints} == {
+        "pk_wealth_sector_heat_daily",
+        "ck_wealth_sector_heat_daily_heat_status_allowed",
+        "ck_wealth_sector_heat_daily_status_reason_consistent",
+        "ck_wealth_sector_heat_daily_heat_level_allowed",
+        "ck_wealth_sector_heat_daily_heat_trend_allowed",
+        "ck_wealth_sector_heat_daily_raw_heat_trend_allowed",
+        "ck_wealth_sector_heat_daily_valid_metrics_present",
+        "ck_wealth_sector_heat_daily_invalid_outputs_empty",
+        "ck_wealth_sector_heat_daily_heat_scores_range",
+        "ck_wealth_sector_heat_daily_component_scores_range",
+        "ck_wealth_sector_heat_daily_heat_ranks_positive",
+        "ck_wealth_sector_heat_daily_member_counts_non_negative",
+        "ck_wealth_sector_heat_daily_suspended_count_within_members",
+        "ck_wealth_sector_heat_daily_quote_eligible_count_consistent",
+        "ck_wealth_sector_heat_daily_valid_quote_count_within_eligible",
+        "ck_wealth_sector_heat_daily_missing_quote_count_consistent",
+        "ck_wealth_sector_heat_daily_config_hash_sha256",
+        "ck_wealth_sector_heat_daily_source_hash_sha256",
+    }
+
+    index_ddl = {
+        index.name: str(CreateIndex(index).compile(dialect=postgresql.dialect()))
+        for index in table.indexes
+    }
+    assert "trade_date, heat_score DESC, sector_code" in index_ddl[
+        "idx_wealth_sector_heat_daily_trade_score_code"
+    ]
+    assert "trade_date, heat_delta_1d DESC, sector_code" in index_ddl[
+        "idx_wealth_sector_heat_daily_trade_delta_code"
+    ]
+    assert "sector_code, trade_date DESC" in index_ddl["idx_wealth_sector_heat_daily_sector_trade"]
 
 
 def test_index_mins_keeps_freq_as_source_string_and_float_volume() -> None:

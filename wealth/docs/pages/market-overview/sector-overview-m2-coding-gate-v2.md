@@ -1,7 +1,7 @@
 # 市场总览｜板块速览 M2 编码前门禁 v2
 
-> 状态：待产品、设计、数据与技术共同评审。
-> 规则：本清单未签字前，不允许开始 V2 业务编码、迁移或生产物化。
+> 状态：按批准顺序实施中，门禁逐项验收。
+> 规则：未勾选门禁不得越级进入对应后续阶段；本地代码完成不等于生产迁移、数据发布或上线验收通过。
 
 关联文档：
 
@@ -44,13 +44,13 @@
 15. [ ] 全部必需 prod 来源的 60 日逐日枚举、日期、数量、唯一键、合法零行完成证据和资金流代码覆盖率台账已冻结。
 16. [ ] CN_A 首发窗口沿用当前口径，为连续 60 个 `trade_calendar.exchange='SSE' AND is_open=true` 的目标交易日；只有全部来源通过的日期计为“有效交易日”，缺口必须修复，不能跳日或用窗外日期凑数，额外 warm-up 日不计入 60 日。
 
-### 1.3 数据库、权限与执行链
+### 1.3 数据库、连接与执行链
 
-1. [ ] 实施当日重新检查 Alembic head；`20260811_000132` 只作为 2026-08-13 只读快照，不得直接用作 `down_revision`。
-2. [ ] 两张新表字段、主键、索引、约束和 downgrade 已评审。
+1. [x] 2026-08-13 本轮开始时已重新检查 Alembic head；本地仓库与生产均为单 head `20260812_000133`，本需求 revision 已正确接为 `20260813_000134`。本提交的迁移链 head 为 `000134`，生产仍为 `000133`。
+2. [x] 两张新表字段、主键、索引、约束和 downgrade 已实现并通过模型、约束及迁移范围测试。
 3. [ ] 层级全表事务替换与 read-back 方案已评审。
-4. [ ] hierarchy publisher、Heat materializer、Wealth Web reader 的真实生产 login/role 与独立 DSN 已从部署配置确认，未在文档中猜名。
-5. [ ] 三类运行身份最小权限及正反向 PostgreSQL 探针已评审；来源表 DML、Web 写入、DG 写 Heat、`CREATE/TRUNCATE` 必须失败。
+4. [x] 连接复用口径已确认：Web/Heat 使用现有 `DATABASE_URL`，DG hierarchy 使用现有 `ProdPostgresWriteResource` / `PROD_POSTGRES_WRITE_*` 和 `lake_raw_writer`；不新增账号、DSN、engine 或板块专用数据库配置。
+5. [ ] 组件访问边界已评审：DG 只写 hierarchy，Heat 只写 Heat 且来源查询只读，Web 不产生 DML，运行时代码无 DDL/`TRUNCATE`；Heat/Ops 使用独立 Session/事务。
 6. [ ] Heat 来源查询全部只读 prod，并按交易日、概念和成员集合有界；禁止 Parquet、DuckDB、DG resource、Tushare 和 N+1。
 7. [ ] biz Heat quality contract 与按交易日 `DELETE + INSERT + read-back` 单事务发布已冻结。
 8. [ ] ops generic executor port、TaskRun 节点/issue/checkpoint、app 注入与生产 CLI `ops-worker-run/serve` factory 消费方案已冻结；依赖方向不得出现 `ops -> biz`，CLI 不得直构未装配 worker。
@@ -58,8 +58,8 @@
 10. [ ] 60 个有效交易日从旧到新 plan/apply、首错停止、checkpoint 和续跑方案已冻结。
 11. [ ] DG 只保留 hierarchy 发布；静态清单确认不存在 DG Heat asset、dynamic partition、asset check、sensor、Gold、runless event 或 history CLI。
 12. [ ] 方案与代码均不包含 Kopia。
-13. [ ] `WEALTH_SECTOR_HEAT_DATABASE_URL`、`WEALTH_SECTOR_READ_DATABASE_URL` 与 `WEALTH_SECTOR_HIERARCHY_POSTGRES_*` 的默认值、secret 来源、唯一消费者、生效方式、日志脱敏和失败关闭测试已冻结；不得回退通用 owner 连接。
-14. [ ] 实施日已用三条专用连接的 `current_user/current_database` 核验实际 role，并把真实 role 固化进迁移 GRANT；migration 不创建 login 或读取密码。
+13. [x] 本模块不新增数据库配置项；现有 `DATABASE_URL` 与 `PROD_POSTGRES_WRITE_*` 的消费者已经核对，URL/password 继续遵守通用日志脱敏规则。
+14. [x] revision `20260813_000134` 只给既有 `lake_raw_writer` 增加 `core_serving.wealth_sector_hierarchy` 的 `SELECT/INSERT/DELETE`；不创建 login、不读取密码、不增加 `UPDATE/CREATE/TRUNCATE`。该迁移尚未应用到生产。
 
 ### 1.4 API 与前端
 
@@ -324,7 +324,7 @@ interface SectorOverviewRequestV2 {
 
 ## 6. 必须存在的测试
 
-### 6.1 hierarchy、Heat contract、权限与执行链
+### 6.1 hierarchy、Heat contract、访问边界与执行链
 
 1. [ ] 层级固定 schema、唯一键、31/128/337 和父子闭包。
 2. [ ] 层级 transaction rollback 与 read-back hash。
@@ -336,17 +336,17 @@ interface SectorOverviewRequestV2 {
 8. [ ] 缺历史、缺资金、低覆盖、来源错日均失败或无效，不补权。
 9. [ ] 无效概念保留 `INVALID + reason`，不落成 0 分。
 10. [ ] prod 单日事务 `DELETE + INSERT + read-back` 与相同 config/source hash 幂等重跑。
-11. [ ] contract、权限或 read-back 失败回滚本日事务，并保留此前成功交易日。
+11. [ ] contract、数据库写入或 read-back 失败回滚本日事务，并保留此前成功交易日。
 12. [ ] 有效池逐行资格边界、B 股排除、未上市/已退市排除、停牌保留和可报价分母 golden test。
 13. [ ] `quoteEligibleCount=0`、停牌源缺失、证券资格缺失和真实行情缺失负例。
 14. [ ] prod 来源 bundle 按冻结窗口有界读取；`SELECT *`、自然日、N+1、DG/Lake/Tushare 访问负例。
-15. [ ] 三类运行身份权限正例成功，来源 DML、Web/ DG 越权写 Heat、schema DDL 和 `TRUNCATE` 负例失败。
+15. [ ] 访问边界正例通过；DG 写 Heat、Heat 写来源/hierarchy、Web 产生 DML、运行时代码执行 schema DDL 或 `TRUNCATE` 的负例均被测试阻止。
 16. [ ] ops executor port 经 app adapter 调用 biz；静态/依赖测试确认 ops 不 import biz，未装配时失败关闭。
 17. [ ] Heat business session 与 TaskRun session 隔离；状态写失败不回滚已提交 Heat。
 18. [ ] 60 个有效交易日从旧到新、首错停止、plan hash/checkpoint 续跑；缺口和 warm-up 不计数。
 19. [ ] 仓库静态扫描确认不存在 DG Heat asset/partition/check/sensor/Gold/runless event/history CLI。
 20. [ ] `ops-worker-run/serve` 经 app factory 注入 Heat executor；默认未装配 worker 对 Heat action 失败关闭，既有非 Heat action 回归不变。
-21. [ ] 两个 app 专用 URL 缺失/相同/角色不匹配、DG hierarchy 专用环境变量缺失，以及 secret 日志泄漏的负例均通过。
+21. [ ] Web/Heat 使用现有应用连接、DG 使用现有 prod write resource 的装配测试通过；现有 URL/password 不进入日志、TaskRun 或异常文本。
 22. [ ] replay PLAN 只保存 snapshot/gap ledger、不写 Heat；APPLY 必须引用成功 PLAN 的 `plan_task_run_id + plan_hash`，日期窗参数互斥，逐日 config/source hash 漂移以 `HEAT_PLAN_DRIFT` 停止。
 23. [ ] replay 不可调度；单日 schedule 在 60 日和最新日验收前保持禁用，并且只使用既有 Ops Schedule，不新增 sensor/隐藏 cron。
 24. [ ] app completion-evidence provider 只把 Ops TaskRun/日期完整性事实映射为中立 DTO；biz 不 import ops，证据不提供公式值，合法零行的 evidence id/hash 纳入 plan/source hash，缺证据必须阻断。
@@ -384,10 +384,13 @@ interface SectorOverviewRequestV2 {
 ```bash
 pytest -q \
   tests/test_extended_models.py \
+  tests/test_foundation_table_model_registry.py \
+  tests/test_wealth_sector_serving_constraints.py \
+  tests/test_wealth_sector_serving_migration.py \
   tests/test_wealth_sector_heat_contract.py \
   tests/test_wealth_sector_heat_materialization_service.py \
   tests/test_wealth_sector_heat_task_execution.py \
-  tests/test_wealth_sector_database_permissions.py \
+  tests/test_wealth_sector_database_access_boundaries.py \
   tests/test_cli_ops_runtime.py \
   tests/web/test_wealth_market_sector_overview_api.py \
   tests/architecture/test_subsystem_dependency_matrix.py
@@ -452,7 +455,7 @@ git diff --check
 
 ### 9.1 发布顺序
 
-1. [ ] 实施日真实 Alembic head 已确认；两表迁移、三类运行连接和最小权限探针完成。
+1. [ ] 实施日真实 Alembic head 已确认；两表迁移、现有连接复用、`lake_raw_writer` hierarchy 单表授权、组件访问边界和双 Session 事务测试完成。
 2. [ ] DG hierarchy -> prod hierarchy 发布、496/31/128/337 与 hash read-back 完成。
 3. [ ] 60 日生产来源缺口已修复，60 个有效交易日与 warm-up/缺口台账已冻结。
 4. [ ] prod-native Heat 60 个有效交易日 TaskRun 回放、read-back、重放一致性和性能验收完成。
@@ -486,7 +489,7 @@ git diff --check
 | 2.8 契约先行 | 适用 | 本文件第 2/3 节与 LLD 第 6/7 节冻结请求、响应和消费者 | 后端 schema + TS contract test |
 | 2.9 图表坐标与说明 | 适用 | 仅概念 Heat 历史小图，业务域固定 `0..100`；不常驻解释轴文案 | 渲染域断言 + 截图 |
 | 2.10 统计与传输边界 | 适用 | biz 使用 prod 有界 SQL + 纯 contract 盘后物化；API 只读 serving；P95 `<250ms`、5 秒前端超时 | 来源 SQL/物化/API benchmark |
-| 2.11 配置生效语义 | 适用 | Heat JSON 策略配置与三条专用数据库连接均有唯一来源/消费者；部署重启生效、非法或缺失失败关闭，策略参数变化必须升版本 | config schema、连接/角色、脱敏正反测试 |
+| 2.11 配置生效语义 | 适用 | 本模块只新增 Heat JSON 策略配置；数据库复用现有 `DATABASE_URL` 与 `PROD_POSTGRES_WRITE_*`，不新增板块专用配置，策略参数变化必须升版本 | config schema、现有连接复用、secret 脱敏与非法配置正反测试 |
 | 2.12 通用映射矩阵 | 适用 | 即本节 | 评审签字 |
 | 2.13 例外白名单与语义断言 | 适用 | 本模块当前无例外；Heat 域和状态语义必须可执行断言 | 第 11 节 + chart/status tests |
 | 2.14 图表参数优先级 | 适用 | Heat 历史组件显式 `yMin=0/yMax=100` 时渲染层不得二次改写 | chart prop/render test |
@@ -538,7 +541,9 @@ git diff --check
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
-| v2.3 | 2026-08-13 | Heat 改为 biz prod-native 计算、ops 执行意图/状态/观测、app 注入；删除 DG Heat/Gold 双份事实，增加最小权限和 60 个有效交易日门禁 |
+| v2.5 | 2026-08-13 | 记录 Slice 1/2 实施：基于已复核的 head `20260812_000133` 完成两表 ORM/注册、revision `20260813_000134` 及本地正反测试；本提交 head 为 `000134`，生产仍为 `000133`、尚未迁移 |
+| v2.4 | 2026-08-13 | 撤回三账号/三 DSN 门禁；Web/Heat 复用现有应用连接，DG 复用现有 prod write resource；改为组件访问边界、Heat/Ops 双 Session 事务和既有 `lake_raw_writer` hierarchy 单表授权门禁 |
+| v2.3 | 2026-08-13 | Heat 改为 biz prod-native 计算、ops 执行意图/状态/观测、app 注入；删除 DG Heat/Gold 双份事实，增加 60 个有效交易日门禁；三账号/三 DSN 门禁已由 v2.4 撤回 |
 | v2.2 | 2026-08-12 | 增加 LLD 入口、通用清单逐项映射、跨模块八原则映射与“无例外”白名单 |
 | v2.1 | 2026-08-12 | 增加地域第三视图；冻结有效 A 股成分池、停牌感知可报价池和对应测试门禁 |
 | v2 | 2026-08-12 | 冻结行业三级联动、概念盘后热度、V2 API、数据链和发布门禁 |

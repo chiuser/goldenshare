@@ -27,6 +27,8 @@ from src.foundation.models.core_serving.stk_period_bar_adj import StkPeriodBarAd
 from src.foundation.models.core_serving.ths_member import ThsMember
 from src.foundation.models.core_serving.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.wealth_market_turnover_snapshot import WealthMarketTurnoverSnapshot
+from src.foundation.models.core_serving.wealth_sector_heat_daily import WealthSectorHeatDaily
+from src.foundation.models.core_serving.wealth_sector_hierarchy import WealthSectorHierarchy
 from src.foundation.models.core_serving.mkt_idx_bmk_current import MktIdxBmkCurrent
 from src.foundation.models.core_serving.mkt_idx_bmk_observation import MktIdxBmkObservation
 
@@ -60,6 +62,8 @@ __all__ = [
     "IndexWeeklyServing",
     "IndexMonthlyServing",
     "WealthMarketTurnoverSnapshot",
+    "WealthSectorHeatDaily",
+    "WealthSectorHierarchy",
     "MktIdxBmkCurrent",
     "MktIdxBmkObservation",
 ]

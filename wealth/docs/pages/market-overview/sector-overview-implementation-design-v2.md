@@ -1,6 +1,6 @@
 # 市场总览｜板块速览技术实施方案 v2（implementation-design）
 
-> 状态：编码前评审稿；本文件不授权业务代码、迁移或生产写入。
+> 状态：按批准顺序实施中；Slice 1/2 已完成本地代码与测试，不代表生产迁移、DG 发布或后续阶段通过。
 > 对应需求：[sector-overview-benchmark-requirement-v2.md](./sector-overview-benchmark-requirement-v2.md)
 > 对应门禁：[sector-overview-m2-coding-gate-v2.md](./sector-overview-m2-coding-gate-v2.md)
 > 对应低层设计：[sector-overview-low-level-design-v2.md](./sector-overview-low-level-design-v2.md)
@@ -109,17 +109,15 @@ V2 必须在一个受控发布单元内同时完成：
 lake_console/orchestrator/src/orchestrator/defs/
   assets/wealth_sector_hierarchy_prod_core.py
   prod_db/wealth_sector_hierarchy.py
-  resources.py
 
 src/foundation/
-  config/settings.py
   models/core_serving/wealth_sector_hierarchy.py
   models/core_serving/wealth_sector_heat_daily.py
   models/core_serving/__init__.py
   models/all_models.py
 
 alembic/versions/
-  <implementation-day-revision>_add_wealth_sector_overview_serving.py
+  20260813_000134_add_wealth_sector_overview_serving.py
 
 src/biz/
   api/wealth/market/sector_overview.py
@@ -144,9 +142,7 @@ src/ops/
   runtime/worker.py
 
 src/app/
-  dependencies/wealth_sector_database.py
   services/wealth/market/sector_overview/sector_heat_task_executor.py
-  services/wealth/market/sector_overview/sector_database_sessions.py
   services/wealth/market/sector_overview/sector_source_completion_evidence.py
   runtime/ops_worker_factory.py
 
@@ -154,10 +150,14 @@ src/cli.py
 src/cli_parts/ops_handlers.py
 
 tests/
+  test_extended_models.py
+  test_foundation_table_model_registry.py
+  test_wealth_sector_serving_constraints.py
+  test_wealth_sector_serving_migration.py
   test_wealth_sector_heat_contract.py
   test_wealth_sector_heat_materialization_service.py
   test_wealth_sector_heat_task_execution.py
-  test_wealth_sector_database_permissions.py
+  test_wealth_sector_database_access_boundaries.py
   test_cli_ops_runtime.py
   architecture/test_subsystem_dependency_matrix.py
 
@@ -172,7 +172,7 @@ wealth/src/features/market-overview/sectors/
   api/marketSectorOverviewApi.ts
 ```
 
-迁移文件名和具体 test 文件在实施时按真实 Alembic head、最近同类测试目录和当前命名规范确定；不得提前猜 migration revision。
+迁移已在实施日重新核验本地与生产单 head `20260812_000133` 后创建为 `20260813_000134`；后续 revision 仍必须重新读取真实 head，不得沿用本文快照猜测。
 
 ---
 
@@ -289,40 +289,35 @@ flowchart LR
 ### 4.3 迁移规则
 
 1. 实施时先重新读取当前 Alembic head，`down_revision` 只接真实 head。
-2. 迁移只建表、约束、索引和已确认实际角色的对象级 GRANT，不回填生产数据。
+2. 迁移只建表、约束、索引，并给现有 DG 写入账号 `lake_raw_writer` 增加 hierarchy 单表 `SELECT/INSERT/DELETE`；不创建账号、不新增连接配置，也不回填生产数据。
 3. 层级由 DG hierarchy 发布链回填；Heat 由 prod-native biz 物化链回放。迁移不得调用 DG、Lake、Tushare 或业务计算服务。
 4. downgrade 只删除本次新增表/索引，不触碰来源业务表。
 
-### 4.4 最小数据库权限
+### 4.4 现有连接复用与数据库访问边界
 
-角色名不得在设计阶段猜测；实施前必须从生产连接配置确认实际 login/role，并按以下能力矩阵授权。若生产仍由同一 owner login 承担 Web、DG 和物化，视为最小权限门禁未通过。
+本需求不新增数据库账号、DSN、engine 或板块专用环境变量。publisher/materializer/reader 仅表示逻辑职责，不表示三个数据库身份。
 
-| 运行身份 | 允许 | 明确禁止 |
+| 逻辑职责 | 复用的现有连接 | 运行时访问边界 |
 |---|---|---|
-| migration owner | 本迁移所需 DDL、约束、索引和 GRANT | 参与日常 Heat 或 Web 运行 |
-| DG hierarchy publisher | `USAGE core_serving`；仅对 `wealth_sector_hierarchy` 执行 `SELECT/DELETE/INSERT` | 读取 Heat 来源、写 Heat、`TRUNCATE`、schema DDL、访问其它业务表 |
-| Heat materializer | `USAGE core_serving`；只读 `trade_calendar/dc_index/dc_daily/dc_member/board_moneyflow_dc/equity_daily_bar/equity_limit_list/security_serving/equity_suspend_d`；对 `wealth_sector_heat_daily` 执行 `SELECT/DELETE/INSERT` | 写任一来源表、写 hierarchy、`TRUNCATE`、schema DDL |
-| Wealth Web reader | 只读 V2 查询所需来源表、hierarchy 与 Heat 表 | 写表、执行 Heat 物化、访问 DG/Lake |
+| migration | 现有 Alembic `DATABASE_URL` | 创建两张表、约束和索引；只给既有 `lake_raw_writer` 增加 hierarchy 单表授权 |
+| DG hierarchy publisher | `ProdPostgresWriteResource` / `PROD_POSTGRES_WRITE_*`，当前账号 `lake_raw_writer` | 仅对 `wealth_sector_hierarchy` 执行 `SELECT/DELETE/INSERT` |
+| Heat materializer | `DATABASE_URL` / `SessionLocal` 新开的 business session | 只读九张 prod 来源表；仅对 `wealth_sector_heat_daily` 执行 `SELECT/DELETE/INSERT` |
+| Wealth Web reader | `DATABASE_URL` / 现有 `get_db_session` | V2 查询代码只读取所需来源、hierarchy 与 Heat 表 |
 
-1. migration 只创建表和对象权限，不创建或保存 login 密码；角色不存在时必须由生产 DBA/部署流程先创建。
-2. DG hierarchy 与 Heat materializer 必须使用不同运行连接；禁止继续复用一个对整个 `core_serving` 可写的广域连接。
-3. 所有 SQL 显式列名、schema 和日期/代码边界；不授权 `CREATE`、`TRUNCATE` 或来源表 DML。
-4. 实施验收同时做正向和负向权限探针：允许语句成功，越权读取/写入与 DDL 必须失败。
+1. migration 不创建 login、密码或新配置；只对已存在的 `lake_raw_writer` 执行 `GRANT SELECT, INSERT, DELETE ON core_serving.wealth_sector_hierarchy`，不授予 `UPDATE/CREATE/TRUNCATE`，也不改变其现有成交额 serving 表授权。
+2. app 继续使用现有 `DATABASE_URL` 和单一 engine/sessionmaker；Heat 与 Web 不新增 `WEALTH_SECTOR_*_DATABASE_URL`。
+3. DG 继续使用现有 `ProdPostgresWriteResource` 和 `PROD_POSTGRES_WRITE_*`；不新增 hierarchy 专用 resource 或 secret。
+4. 所有 SQL 必须使用固定 schema、固定表名、显式列名和有界日期/代码条件；运行时代码禁止 `TRUNCATE`、schema DDL、来源表 DML 和动态表名。
+5. 应用现有数据库账号具有较宽权限，因此 Heat/Web 的模块边界由 DAO/SQL 白名单、事务测试和静态扫描保证；全站数据库账号治理不扩大进本需求。
 
-### 4.5 专用连接配置审计
+### 4.5 Session 与事务边界
 
-角色名在实施日由部署配置与数据库 `current_user` 取证，不预先猜测；配置接口和消费者先冻结：
-
-| 配置 | 默认值/持久化 | 作用范围与唯一消费者 | 生效、可见性与门禁 |
-|---|---|---|---|
-| `WEALTH_SECTOR_HEAT_DATABASE_URL` | 空；根应用环境文件/secret | app `sector_database_sessions` 创建 Heat business session，供 `sector_heat_task_executor` 唯一消费 | worker 重启生效；启动日志只显示已配置/角色名，不显示 URL；缺失、与 `DATABASE_URL` 相同或 `current_user` 非授权角色时 Heat action 失败关闭 |
-| `WEALTH_SECTOR_READ_DATABASE_URL` | 空；Web 环境文件/secret | app `get_wealth_sector_read_session`，仅供 sector-overview V2 路由 | Web 重启生效；不得回退 `DATABASE_URL`；权限/连接预检和负向写探针必须通过 |
-| `WEALTH_SECTOR_HIERARCHY_POSTGRES_HOST/PORT/USER/PASSWORD/DATABASE/SSLMODE` | 全部必填，`SSLMODE` 默认 `prefer`；DG deployment secret | DG `wealth_sector_hierarchy_postgres` resource，仅供 hierarchy publisher | code location 重启生效；缺项失败关闭；不得复用通用 `prod_postgres_write` resource |
-
-1. `src/foundation/config/settings.py` 只登记两个 app URL，空默认且不输出 secret；`src/app` 创建独立 engine/session factory，`src/db.py` 的 Ops `SessionLocal` 保持不变。
-2. hierarchy DG resource 使用独立环境变量族；不能因为 host/database 相同就复用用户或密码。
-3. 实施日先用每条连接查询 `current_database()/current_user`，把确认的三个实际 role 固化进同一版本迁移的 GRANT 语句；migration 不创建 login、不读取密码，角色不存在则失败。
-4. 测试覆盖配置缺失、URL 意外相同、角色不匹配、secret 不出现在日志，以及各连接的允许/拒绝 SQL。
+1. Web V2 handler 继续注入通用 `get_db_session`，与现有板块速览和其它 Wealth API 保持一致。
+2. Heat executor 从现有 `SessionLocal` 工厂新开 `heat_session`；CLI/worker 外层 `ops_session` 只维护 TaskRun。两者复用相同 DSN/账号，但不得共享 `Session`、connection 或 transaction。
+3. `heat_session` 在一个交易日内完成来源读取、`DELETE + INSERT + read-back` 并独立 commit/rollback；Heat 提交成功后，Ops 状态写入失败不得回滚业务数据。
+4. DG publisher 沿用 `ProdPostgresWriteResource.connect()` 的成功 commit、异常 rollback 语义；hierarchy helper 负责固定目标表、显式字段和 read-back。
+5. 现有 URL/password 仍按通用 secret 规则处理，不得写入代码、文档、日志、TaskRun 或 materialization metadata。
+6. 测试覆盖 Heat/Ops 双 Session 事务隔离、DG commit/rollback/read-back、固定 SQL 访问范围、Web 无 DML，以及既有配置不泄漏 secret。
 
 ---
 
@@ -341,7 +336,7 @@ DG 唯一新增资产：`prod_core_wealth_sector_hierarchy`。
 执行：
 
 1. 读取候选文件并校验固定 schema、唯一 `sector_code`、层级数和闭包。
-2. 使用只具备 hierarchy 表权限的专用发布连接，在单独事务中替换 serving 表。
+2. 复用现有 `ProdPostgresWriteResource` / `PROD_POSTGRES_WRITE_*`，通过既有 `lake_raw_writer` 在单独事务中替换 serving 表。
 3. read-back 校验行数、层级分布、版本和内容 hash。
 4. 只在全部一致后提交。
 5. 该资产不依赖、触发或观测任何 Heat 任务；不创建 Heat 分区、check、sensor 或历史回放入口。
@@ -788,7 +783,7 @@ V2 切换时删除或彻底替换：
 
 ## 11. 测试与验收
 
-### 11.1 DG hierarchy、prod Heat 与权限
+### 11.1 DG hierarchy、prod Heat 与访问边界
 
 1. 层级 schema、496 行、31/128/337、闭包、hash 和 read-back。
 2. DG 静态门禁确认不存在 Heat asset、partition、check、sensor、history CLI、Gold 路径或 Heat 配置消费者。
@@ -797,7 +792,7 @@ V2 切换时删除或彻底替换：
 5. 历史不足、有效成员不足、可报价池为零、覆盖不足、来源日期错位不得静默补权；无效概念保留 `INVALID + reason`。
 6. B 股与目标日未上市/已退市证券排除；停牌保留有效资格但不进入可报价分母；其余无行情计入真实缺失。
 7. 单日事务重跑幂等、read-back 不同回滚并保留旧成功日；TaskRun 状态失败不回滚已提交 Heat。
-8. 权限正向/负向探针证明 DG 只能写 hierarchy、Heat materializer 只能读来源并写 Heat、Web 只能读。
+8. 访问边界测试证明 DG SQL 只触及 hierarchy、Heat DML 只触及 Heat 且来源查询只读、Web 查询路径不产生 DML；`lake_raw_writer` 的 hierarchy 单表授权正向成功且 `CREATE/TRUNCATE` 仍失败。
 9. 60 个有效交易日全部有 prod 来源证据、Heat read-back、逐日质量结果和可续跑记录。
 10. CLI `ops-worker-run/serve` 使用 app worker factory；默认未装配 worker 对 Heat action 失败关闭，既有非 Heat action 回归通过。
 
@@ -833,15 +828,17 @@ V2 切换时删除或彻底替换：
 ## 12. 实施顺序
 
 1. **文档与契约冻结**：本方案、LLD、需求基线和 M2 门禁统一为 prod-only Heat、DG 仅 hierarchy；冻结 V2 API、配置和异常码。
-2. **实施日 Alembic head**：重新运行 `alembic heads`，确认单 head；当前只读快照 `20260811_000132` 只作审计记录，不得直接硬编码。
-3. **两表与最小权限**：创建 hierarchy/heat 模型、迁移、索引、约束和对象级授权；角色/连接负向探针通过后才继续。
+2. **实施日 Alembic head**：重新运行 `alembic heads`，确认单 head；本轮开始时本地与生产均为 `20260812_000133`，本需求 revision 正确接为 `20260813_000134`。部署本提交前仍须核对目标分支和生产当前版本。
+3. **两表与现有连接复用**：创建 hierarchy/heat 模型、迁移、索引和约束；给既有 `lake_raw_writer` 增加 hierarchy 单表授权，完成访问范围与事务正反测试后再继续。
 4. **DG hierarchy -> prod hierarchy**：实施唯一 DG 发布资产并完成 496/31/128/337、闭包、版本、hash 和生产 read-back。
 5. **60 日 prod 来源缺口修复**：冻结 60 个有效交易日和 25 日 warm-up；逐日核验枚举、日期、数量、唯一键、零行完成证据和代码覆盖，修复后重新对账。`dc_daily/dc_member` 以源站现状为口径，`board_moneyflow_dc@2026-07-09` 视为已补齐证据，仍需纳入整窗复核。
-6. **prod Heat 与回放**：先实现 biz 计算/质量/事务发布、ops 意图/观测和 app 装配；通过固定样本及权限测试后，从旧到新完成至少 60 个有效交易日回放和最新日发布。
+6. **prod Heat 与回放**：先实现 biz 计算/质量/事务发布、ops 意图/观测和 app 装配；通过固定样本、访问边界及双 Session 事务测试后，从旧到新完成至少 60 个有效交易日回放和最新日发布。
 7. **后端 V2**：只读 prod，替换 query/service/status/schema/API；通过无 Lake/DG 依赖静态门禁、真实路由、状态和性能测试。
 8. **前端三工作台**：最后搭稳定 `1564 × 680` 骨架，依次实现行业、概念、地域和共享详情，接真实 V2 API，删除旧 DTO/组件并完成交互与像素验收。
 
-发布窗口顺序固定为：迁移与权限 -> hierarchy read-back -> prod 来源整窗全绿 -> 60 日 Heat + 最新日 -> 后端 V2 -> 前端 V2 -> smoke/性能/截图。每个阶段独立验收，前一阶段失败不得越级。
+发布窗口顺序固定为：迁移与既有账号对象授权 -> hierarchy read-back -> prod 来源整窗全绿 -> 60 日 Heat + 最新日 -> 后端 V2 -> 前端 V2 -> smoke/性能/截图。每个阶段独立验收，前一阶段失败不得越级。
+
+当前进度（2026-08-13）：步骤 2 开始时已重新确认本地与生产单 head `20260812_000133`；步骤 3 的两表 ORM、模型注册、revision `20260813_000134` 和本地正反测试已完成。本提交的迁移链 head 为 `000134`，生产仍停留在 `000133`。本需求迁移尚未应用到生产，`lake_raw_writer` 的新表授权也尚未在生产生效，因此步骤 3 的生产验收仍未完成。
 
 ---
 
@@ -852,7 +849,7 @@ V2 切换时删除或彻底替换：
 3. `ops` 只保存 Heat TaskRun 意图、计划快照、节点、状态和问题，并调用抽象执行端口；不 import `biz`。
 4. `app` 组合根实现并装配 Heat 执行适配器，使 ops 端口调用 biz 服务；生产 CLI 只消费 app factory，app 不实现公式或 SQL。
 5. Web 不依赖 Lake、Tushare、DG runtime 或 Redis。
-6. DG 只通过专用最小权限连接发布 hierarchy，不参与 Heat 计算、调度、回放或观测。
+6. DG 复用现有 `ProdPostgresWriteResource`，但其本需求 SQL 只发布 hierarchy，不参与 Heat 计算、调度、回放或观测。
 
 因此本方案不改变根依赖矩阵方向。新增的数据链只有 DG -> prod hierarchy；Heat 是 prod -> biz -> prod，TaskRun 由 app 在 ops 与 biz 之间完成装配。
 
@@ -865,7 +862,7 @@ V2 切换时删除或彻底替换：
 3. 当前 Ops Worker 没有可注入 biz executor 的正式端口，生产 CLI 也直接构造 worker；实现时必须先完成 `ops protocol + app binding + CLI factory consumer`，不得在 `ops` 直接 import biz 或把 Heat 公式塞入 dispatcher。
 4. Heat V1 是产品首版，60 日回放只能验证稳定性和可解释性，不能证明投资预测能力。
 5. 行业层级当前是当前版本快照；历史 `tradeDate` 请求不会还原历史层级变化。
-6. 生产当前若仍由 owner login 统一承担 Web/写入，无法证明最小权限；专用运行角色和连接未验收前不得发布。
+6. Web 与 Heat 复用现有应用账号，数据库不会提供模块级拒绝保护；必须以固定 DAO/SQL、Web 无 DML、Heat/Ops 双 Session 和事务回滚测试防止访问边界漂移。全站账号拆分属于独立治理范围。
 7. 历史 `equity_limit_list/equity_suspend_d` 可能存在“物理零行但无完成性证据”；此类日期必须进入 gap ledger，不能为了凑满 60 日把未知解释为 0。
 
 以上风险均在第 12 节阶段门禁中显式处理，未通过不得进入后续阶段。
@@ -876,7 +873,9 @@ V2 切换时删除或彻底替换：
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
-| v2.3 | 2026-08-13 | Heat 全量改为 prod-native；DG 仅发布 hierarchy；新增 biz/ops/app 职责、最小权限、60 个有效交易日缺口修复与八步实施顺序 |
+| v2.5 | 2026-08-13 | 记录 Slice 1/2 实施结果：基于真实 head `20260812_000133` 新增 revision `20260813_000134`、两表 ORM/注册及本地约束与迁移测试；本提交 head 为 `000134`，生产仍为 `000133`、尚未迁移 |
+| v2.4 | 2026-08-13 | 按现有生产链路撤回三账号/三 DSN 设计；Web/Heat 复用 `DATABASE_URL`，DG 复用 `ProdPostgresWriteResource` 与 `lake_raw_writer`；保留双 Session 事务隔离和 hierarchy 单表授权 |
+| v2.3 | 2026-08-13 | Heat 全量改为 prod-native；DG 仅发布 hierarchy；新增 biz/ops/app 职责、60 个有效交易日缺口修复与八步实施顺序；其中三账号/三 DSN 门禁已由 v2.4 撤回 |
 | v2.2 | 2026-08-12 | 历史基线：曾按 Lake 优先与 prod 部分来源设计，已被 v2.3 全面替代，不得用于实施 |
 | v2.1 | 2026-08-12 | 增加地域工作台；冻结有效 A 股池、停牌感知可报价池、字段与实现门禁 |
 | v2 | 2026-08-12 | 基于正式 Figma、行业三级产品方案和盘后热度口径形成完整开发技术方案 |

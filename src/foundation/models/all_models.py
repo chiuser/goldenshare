@@ -60,6 +60,8 @@ from src.foundation.models.core.index_weight import IndexWeight
 from src.foundation.models.core.index_weekly_bar import IndexWeeklyBar
 from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
 from src.foundation.models.core_serving.wealth_market_turnover_snapshot import WealthMarketTurnoverSnapshot
+from src.foundation.models.core_serving.wealth_sector_heat_daily import WealthSectorHeatDaily
+from src.foundation.models.core_serving.wealth_sector_hierarchy import WealthSectorHierarchy
 from src.foundation.models.core_serving.mkt_idx_bmk_current import MktIdxBmkCurrent
 from src.foundation.models.core_serving.mkt_idx_bmk_observation import MktIdxBmkObservation
 from src.foundation.models.core.kpl_concept_cons import KplConceptCons
@@ -223,6 +225,8 @@ __all__ = [
     "IndexWeeklyBar",
     "IndexWeeklyServing",
     "WealthMarketTurnoverSnapshot",
+    "WealthSectorHeatDaily",
+    "WealthSectorHierarchy",
     "MktIdxBmkCurrent",
     "MktIdxBmkObservation",
     "KplConceptCons",

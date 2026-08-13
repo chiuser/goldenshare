@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_auction_open import EquityAuctionOpen
+from src.foundation.models.core_serving.wealth_sector_heat_daily import WealthSectorHeatDaily
+from src.foundation.models.core_serving.wealth_sector_hierarchy import WealthSectorHierarchy
 from src.foundation.models.raw.raw_cyq_chips import RawCyqChips
 from src.foundation.models.raw.raw_daily import RawDaily
 from src.foundation.models.raw.raw_etf_sh_cons import RawEtfShCons
@@ -16,6 +18,8 @@ def test_table_model_registry_derives_models_from_sqlalchemy_metadata() -> None:
     assert get_model_by_table_name("raw_tushare.stk_auction_o") is RawStkAuctionO
     assert get_model_by_table_name("raw_tushare.cyq_chips") is RawCyqChips
     assert get_model_by_table_name("raw_tushare.etf_sh_cons") is RawEtfShCons
+    assert get_model_by_table_name("core_serving.wealth_sector_hierarchy") is WealthSectorHierarchy
+    assert get_model_by_table_name("core_serving.wealth_sector_heat_daily") is WealthSectorHeatDaily
 
 
 def test_table_model_registry_excludes_ops_tables() -> None:
