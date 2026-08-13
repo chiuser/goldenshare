@@ -15,8 +15,10 @@ from src.foundation.clients.tushare_client import (
     _get_rate_limiter,
     _rate_limiters,
     TushareHttpClient,
+    TushareApiError,
     TushareRateLimitError,
 )
+from src.foundation.ingestion.error_mapper import IngestionErrorMapper
 from src.foundation.models.meta.realtime_runtime_config import RealtimeRuntimeConfigRecord
 from src.foundation.realtime import clear_realtime_runtime_config_cache
 from tests.realtime_runtime_config_helpers import seed_realtime_runtime_config
@@ -181,3 +183,51 @@ def test_tushare_http_client_raises_rate_limit_error_for_business_quota_response
 
     assert exc_info.value.api_name == "index_daily"
     assert "频率超限" in str(exc_info.value)
+
+
+def test_tushare_http_client_preserves_full_nonzero_source_response_json(mocker) -> None:
+    client = TushareHttpClient(token="token")
+    raw_response_json = {
+        "code": 50101,
+        "msg": "查询数据失败，请确认参数！可以反馈管理员协助您排查问题",
+        "data": None,
+        "provider_diagnostic": "x" * 40_000,
+    }
+    response = mocker.Mock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = raw_response_json
+    response.raw = SimpleNamespace(retries=SimpleNamespace(history=()))
+    mocker.patch.object(client.session, "post", return_value=response)
+
+    with pytest.raises(TushareApiError) as exc_info:
+        client.call("stk_mins", params={"ts_code": "000001.SZ", "freq": "5min"})
+
+    assert exc_info.value.api_name == "stk_mins"
+    assert exc_info.value.code == 50101
+    assert exc_info.value.raw_response_json == raw_response_json
+
+
+def test_ingestion_error_mapper_preserves_full_tushare_source_response_json() -> None:
+    raw_response_json = {
+        "code": 50101,
+        "msg": "查询数据失败，请确认参数！可以反馈管理员协助您排查问题",
+        "data": None,
+        "provider_diagnostic": "x" * 40_000,
+    }
+
+    structured = IngestionErrorMapper().map_exception(
+        exc=TushareApiError(
+            api_name="stk_mins",
+            message="查询数据失败，请确认参数！可以反馈管理员协助您排查问题",
+            code=50101,
+            raw_response_json=raw_response_json,
+        ),
+        phase="source_client",
+        unit_id="stk_mins:000001.SZ:5min",
+    )
+
+    assert structured.details == {
+        "api_name": "stk_mins",
+        "source_code": 50101,
+        "source_response_json": raw_response_json,
+    }

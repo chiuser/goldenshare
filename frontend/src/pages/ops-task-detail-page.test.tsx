@@ -303,6 +303,17 @@ describe("任务详情页", () => {
           technical_payload: {
             source_phase: "execute",
             node_id: 10,
+            structured_error: {
+              details: {
+                api_name: "stk_mins",
+                source_code: 50101,
+                source_response_json: {
+                  code: 50101,
+                  msg: "查询数据失败，请确认参数！可以反馈管理员协助您排查问题",
+                  data: null,
+                },
+              },
+            },
           },
           source_phase: "execute",
           occurred_at: "2026-03-31T01:00:05Z",
@@ -343,6 +354,7 @@ describe("任务详情页", () => {
 
     expect(await screen.findByText("完整技术错误")).toBeInTheDocument();
     expect(await screen.findByText("psycopg.errors.UniqueViolation")).toBeInTheDocument();
+    expect(await screen.findByText(/50101/)).toBeInTheDocument();
     expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/task-runs/1/view");
     expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/task-runs/1/issues/99");
   });

@@ -186,6 +186,7 @@ class TaskRunDispatcher:
                 technical_message=str(exc),
                 source_phase="execute",
                 severity="error",
+                technical_payload=self._technical_payload_for_exception(exc),
             )
             node = session.get(TaskRunNode, node.id)
             if node is not None:
@@ -297,6 +298,7 @@ class TaskRunDispatcher:
                     technical_message=str(exc),
                     source_phase="execute",
                     severity="error",
+                    technical_payload=self._technical_payload_for_exception(exc),
                 )
                 node = session.get(TaskRunNode, node.id)
                 if node is not None:
@@ -1166,6 +1168,12 @@ class TaskRunDispatcher:
         session.flush()
         task_run.primary_issue_id = issue.id
         return issue
+
+    @staticmethod
+    def _technical_payload_for_exception(exc: Exception) -> dict[str, Any] | None:
+        if not isinstance(exc, IngestionError):
+            return None
+        return {"structured_error": structured_error_payload(exc.structured_error)}
 
     @staticmethod
     def _current_object_snapshot(session: Session, task_run_id: int) -> dict[str, Any]:

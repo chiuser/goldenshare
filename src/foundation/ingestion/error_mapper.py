@@ -4,7 +4,7 @@ from typing import Any
 
 import requests
 
-from src.foundation.clients.tushare_client import TushareRateLimitError
+from src.foundation.clients.tushare_client import TushareApiError, TushareRateLimitError
 from src.foundation.ingestion.errors import StructuredError
 
 
@@ -29,7 +29,17 @@ class IngestionErrorMapper:
                 message=message,
                 retryable=True,
                 unit_id=unit_id,
-                details={"api_name": exc.api_name},
+                details=self._tushare_details(exc),
+            )
+        if isinstance(exc, TushareApiError):
+            return StructuredError(
+                error_code="internal_error",
+                error_type="internal",
+                phase=phase,
+                message=message,
+                retryable=False,
+                unit_id=unit_id,
+                details=self._tushare_details(exc),
             )
         if isinstance(exc, requests.HTTPError):
             status_code = self._extract_status_code(exc)
@@ -81,3 +91,12 @@ class IngestionErrorMapper:
             return int(response.status_code)
         except Exception:
             return None
+
+    @staticmethod
+    def _tushare_details(exc: TushareApiError) -> dict[str, Any]:
+        details: dict[str, Any] = {"api_name": exc.api_name}
+        if exc.code is not None:
+            details["source_code"] = exc.code
+        if exc.raw_response_json is not None:
+            details["source_response_json"] = exc.raw_response_json
+        return details

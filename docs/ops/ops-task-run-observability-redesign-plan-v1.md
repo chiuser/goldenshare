@@ -325,7 +325,7 @@ create index idx_task_run_issue_code_occurred
 | `operator_message` | 给运营看的说明，不能是 SQL 原文 |
 | `suggested_action` | 建议动作，如 `先不要重跑大范围任务，联系开发确认状态写入失败影响` |
 | `technical_message` | 完整技术错误，只在技术诊断 drawer 展示 |
-| `technical_payload_json` | `constraint/table/sqlstate/params/phase` 等结构化诊断 |
+| `technical_payload_json` | `constraint/table/sqlstate/params/phase` 等结构化诊断；Tushare 非零业务响应额外保存 `api_name/source_code/source_response_json`，其中源端 JSON 不截断 |
 | `source_phase` | `plan/fetch/normalize/write/state_update/finalize` |
 | `fingerprint` | 同一任务内问题去重 |
 
@@ -1048,7 +1048,7 @@ flowchart TD
 
 ## 11. 验收标准
 
-1. 同一次失败任务，完整技术错误在数据库中只出现于 `ops.task_run_issue.technical_message`。
+1. 同一次失败任务，完整技术诊断只出现于 `ops.task_run_issue.technical_message + technical_payload_json`；Tushare 非零响应的完整源端 JSON 只保存于该 issue 的 `technical_payload_json`。
 2. `task_run` 和 `task_run_node` 只保存 `issue_id`、短标题或短状态，不复制完整错误。
 3. 任务详情页主视图同一个失败原因只展示一次。
 4. 页面默认不请求 issue technical detail。

@@ -17,11 +17,19 @@ from src.foundation.schemas import TushareEnvelope
 
 
 class TushareApiError(RuntimeError):
-    def __init__(self, *, api_name: str, message: str, code: int | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        api_name: str,
+        message: str,
+        code: int | None = None,
+        raw_response_json: dict[str, Any] | None = None,
+    ) -> None:
         super().__init__(f"Tushare API error: {message}")
         self.api_name = api_name
         self.message = message
         self.code = code
+        self.raw_response_json = raw_response_json
 
 
 class TushareRateLimitError(TushareApiError):
@@ -145,7 +153,8 @@ class TushareHttpClient:
         try:
             response = self.session.post(self.base_url, json=payload, timeout=self.timeout)
             response.raise_for_status()
-            envelope = TushareEnvelope.model_validate(response.json())
+            raw_response_json = response.json()
+            envelope = TushareEnvelope.model_validate(raw_response_json)
         except requests.RequestException as exc:
             self.logger.warning(
                 "Tushare 请求失败：接口=%s 参数=%s 错误=%s",
@@ -165,7 +174,12 @@ class TushareHttpClient:
         if envelope.code != 0:
             message = str(envelope.msg or "")
             error_cls = TushareRateLimitError if self._is_rate_limit_message(message) else TushareApiError
-            raise error_cls(api_name=api_name, message=message, code=envelope.code)
+            raise error_cls(
+                api_name=api_name,
+                message=message,
+                code=envelope.code,
+                raw_response_json=raw_response_json,
+            )
         if envelope.data is None:
             return []
         return [dict(zip(envelope.data.fields, item, strict=False)) for item in envelope.data.items]

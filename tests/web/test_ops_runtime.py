@@ -8,12 +8,14 @@ import pytest
 from sqlalchemy import select
 
 from src.foundation.ingestion import DatasetActionRequest, DatasetTimeInput
+from src.foundation.ingestion.errors import IngestionError, StructuredError
 from src.ops.action_catalog import END_DATE_PARAM, START_DATE_PARAM, TRADE_DATE_PARAM, WORKFLOW_DEFINITION_REGISTRY, WorkflowDefinition
 from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
 from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCompletenessSchedule
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.models.ops.task_run import TaskRun
+from src.ops.queries.task_run_query_service import TaskRunQueryService
 from src.ops.runtime import OperationsScheduler, OperationsWorker, TaskRunDispatchOutcome, TaskRunDispatcher
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshResult
 from src.ops.services.task_run_ingestion_context import TaskRunIngestionContext
@@ -989,6 +991,70 @@ def test_worker_preserves_structured_planning_error(db_session, task_run_factory
         "max_units_per_execution": 8,
     }
     assert db_session.scalars(select(TaskRunNode).where(TaskRunNode.task_run_id == task_run.id)).all() == []
+
+
+def test_task_run_dispatcher_preserves_full_source_response_json_on_execution_failure(
+    db_session,
+    task_run_factory,
+    monkeypatch,
+) -> None:
+    raw_response_json = {
+        "code": 50101,
+        "msg": "查询数据失败，请确认参数！可以反馈管理员协助您排查问题",
+        "data": None,
+        "provider_diagnostic": "x" * 40_000,
+    }
+
+    def fake_build_plan(self, request):  # type: ignore[no-untyped-def]
+        return SimpleNamespace(
+            plan_id="source-error-plan",
+            dataset_key=request.dataset_key,
+            run_profile="range_rebuild",
+            planning=SimpleNamespace(unit_count=1),
+            units=(),
+        )
+
+    def raise_source_error(self, session, task_run, action_request, plan):  # type: ignore[no-untyped-def]
+        raise IngestionError(
+            StructuredError(
+                error_code="internal_error",
+                error_type="internal",
+                phase="source_client",
+                message="Tushare API error: 查询数据失败，请确认参数！可以反馈管理员协助您排查问题",
+                retryable=False,
+                unit_id="stk_mins:000001.SZ:5min",
+                details={
+                    "api_name": "stk_mins",
+                    "source_code": 50101,
+                    "source_response_json": raw_response_json,
+                },
+            )
+        )
+
+    monkeypatch.setattr("src.ops.runtime.task_run_dispatcher.DatasetActionResolver.build_plan", fake_build_plan)
+    monkeypatch.setattr(TaskRunDispatcher, "_run_dataset_action_plan", raise_source_error)
+    task_run = task_run_factory(
+        status="running",
+        resource_key="stock_basic",
+        action="maintain",
+        title="股票基础信息",
+        time_input_json={"mode": "range", "start_date": "2026-08-13", "end_date": "2026-08-13"},
+        filters_json={},
+    )
+
+    outcome = TaskRunDispatcher().dispatch(db_session, task_run)
+
+    assert outcome.status == "failed"
+    assert outcome.issue_id is not None
+    issue = db_session.get(TaskRunIssue, outcome.issue_id)
+    assert issue is not None
+    assert issue.technical_payload_json["structured_error"]["details"] == {
+        "api_name": "stk_mins",
+        "source_code": 50101,
+        "source_response_json": raw_response_json,
+    }
+    detail = TaskRunQueryService().get_issue_detail(db_session, task_run_id=task_run.id, issue_id=issue.id)
+    assert detail.technical_payload["structured_error"]["details"]["source_response_json"] == raw_response_json
 
 
 def test_worker_does_not_refresh_snapshot_after_workflow_success(db_session, task_run_factory, mocker) -> None:

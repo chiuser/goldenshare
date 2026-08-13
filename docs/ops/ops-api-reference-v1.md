@@ -704,12 +704,32 @@ curl -H "Authorization: Bearer <TOKEN>" \
   "code": "execution_failed",
   "title": "任务处理失败",
   "operator_message": "任务处理过程中发生异常，需要查看技术诊断后决定是否重提。",
-  "technical_message": "psycopg.errors.UniqueViolation",
-  "technical_payload": {"source_phase": "execute"},
+  "technical_message": "Tushare API error: 查询数据失败，请确认参数！可以反馈管理员协助您排查问题",
+  "technical_payload": {
+    "source_phase": "execute",
+    "structured_error": {
+      "error_code": "internal_error",
+      "error_type": "internal",
+      "phase": "source_client",
+      "retryable": false,
+      "unit_id": "stk_mins:ts_code=000001.SZ:freq=5min:...",
+      "details": {
+        "api_name": "stk_mins",
+        "source_code": 50101,
+        "source_response_json": {
+          "code": 50101,
+          "msg": "查询数据失败，请确认参数！可以反馈管理员协助您排查问题",
+          "data": null
+        }
+      }
+    }
+  },
   "source_phase": "execute",
   "occurred_at": "2026-04-26T10:02:00+08:00"
 }
 ```
+
+当 Tushare 返回非零业务 `code` 时，`technical_payload.structured_error.details` 会额外提供 `api_name`、`source_code` 和 `source_response_json`。其中 `source_response_json` 保存源端原始 JSON 对象，不做截断；请求 token、请求头不保存。
 
 ### 4.6 POST /api/v1/ops/task-runs/{task_run_id}/retry
 
