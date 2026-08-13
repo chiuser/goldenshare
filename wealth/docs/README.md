@@ -72,7 +72,7 @@ docs/
 - [股票与主要指数详情页九转接入总方案 v1](./system/detail-page-nine-turn-integration-implementation-design-v1.md)
 - [股票与主要指数详情页九转接入低层设计 v1（M2 代码已收口）](./system/detail-page-nine-turn-integration-low-level-design-v1.md)
 - [股票详情九转纵向切片 M2 编码门禁与实施对账 v1（已通过）](./system/detail-page-nine-turn-m2-coding-gate-v1.md)
-- [股票日线九转 M3 serving 发布门禁 v1（M3-B 已完成：3,066 日、11,638,636 行全历史发布与逐日对账通过）](./system/detail-page-nine-turn-m3-serving-publication-gate-v1.md)
+- [股票日线九转 M3 serving 发布门禁 v1（M3-B 已完成；M3-C 生产日线主体门禁已通过，P95 与缩放边界截图待补齐）](./system/detail-page-nine-turn-m3-serving-publication-gate-v1.md)
 
 ## 页面级文档
 

@@ -1,8 +1,10 @@
 # 股票与主要指数详情页九转接入总方案 v1
 
-> 状态：M0、M1、M2、M3-A、M3-B 已收口。Gold 日线修复、全历史验收和生产 serving 发布均已完成；生产表按冻结计划验收到 3,066 个交易日、11,638,636 行，逐日差异为 0。修正后的短进程峰值 RSS 最高约 249MiB，未复现内存爆炸。分钟未执行，M3-C 浏览器真实日线验收、自然日常链路和 sensor 启用仍未完成。
+> 状态：M0、M1、M2、M3-A、M3-B 已收口。M3-C 生产日线接口、权限、真实数据对齐和 1600×1200 Loaded 视觉主体门禁已通过；正式登录态 P95、45/180 根缩放边界截图、分钟九转验收和自然日常链路仍未完成。两个 sensor 继续保持 `STOPPED`。
 >
 > 评审基线日期：2026-08-13。
+>
+> 分钟事实源口径修订日期：2026-08-14。
 >
 > 正式设计文件：[Goldenshare Web](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?m=dev)。
 >
@@ -24,6 +26,39 @@
 6. 股票、指数、日线、分钟线统一复用一个 `NineTurnMarkerPrimitive` 和现有 `DetailChartWorkspace`，不复制图表引擎。
 7. 九转是客观序列标记，不生成机会、买卖、风险评级、仓位或交易计划动作。
 8. 股票 Gold 资产已存在不等于页面已接入；指数九转资产、九转 API 和页面接入当前仍未实现。
+9. 所有分钟 K 线的业务消费和下游指标计算统一使用规范化 Gold：股票使用 `gold/quote/stk_mins_qfq`，主要指数使用 `gold/quote/major_index_mins`；Silver 只属于 Gold 之前的数据生产链，Web、九转 Reader 和九转资产不得直接消费 Silver 分钟线。
+
+### 1.1 分钟 K 线 Gold 数据集完整清单
+
+股票详情页及股票分钟九转使用以下七个规范化前复权 K 线数据集：
+
+```text
+gold_stk_mins_qfq_1m
+gold_stk_mins_qfq_5m
+gold_stk_mins_qfq_15m
+gold_stk_mins_qfq_30m
+gold_stk_mins_qfq_60m
+gold_stk_mins_qfq_90m
+gold_stk_mins_qfq_120m
+```
+
+共同物理根目录为 `gold/quote/stk_mins_qfq`，正式文件按 `freq=<freq>/ts_code=<code>/year=<year>/part-000.parquet` 组织。
+
+主要指数详情页及指数分钟九转使用以下七个规范化 K 线数据集：
+
+```text
+gold_major_index_mins_1m
+gold_major_index_mins_5m
+gold_major_index_mins_15m
+gold_major_index_mins_30m
+gold_major_index_mins_60m
+gold_major_index_mins_90m
+gold_major_index_mins_120m
+```
+
+共同物理根目录为 `gold/quote/major_index_mins`，正式文件按 `freq=<freq>/trade_date=<date>/part-000.parquet` 组织。
+
+这里的七频率清单是 K 线事实源范围，不扩大九转产品范围：股票 1/5/15 分钟不提供九转，主要指数 1 分钟不提供九转。九转计算只能从上述对应同频 Gold K 线中选择已获产品支持的频率。
 
 ## 2. 依据与事实优先级
 
@@ -50,8 +85,10 @@ React 动态调用边由 CodeGraph explore/import 结果和真实消费者代码
 |---|---|---|
 | 股票日线自主九转 Gold | 已实现 | `gold_stock_daily_qfq_nineturn` 已注册且有正式历史文件 |
 | 股票 30/60/90/120 分钟自主九转 Gold | 已实现 | 四个资产已注册且有正式历史文件 |
-| 股票九转详情 API/页面 | M2 代码已实现，M3-C 待验收 | 日线 serving 查询、本地四频率 Reader、独立 HTTP、共享 registry、局部状态和页面图层均已落地；日线 serving 全历史已发布，生产 API 与浏览器尚未验收 |
-| 股票日线 serving 发布门禁 | M3-B 已完成 | Gold 修复与全历史对账已完成；serving 已发布 3,066/3,066 日、11,638,636 行，逐日对账差异为 0。发布器固定 DuckDB 128MB/1线程、单进程最多200日，十个恢复进程峰值 RSS 最高约249MiB；浏览器和自然日常链路仍未验收 |
+| 股票分钟 K 线 Gold | 已就绪 | 页面与九转 Reader 统一读取 `gold/quote/stk_mins_qfq`；抽样四频率已覆盖至 2026-08-13 |
+| 股票九转详情 API/页面 | M3-C 生产日线主体门禁已通过 | 登录态生产 API、真实 300 行样本、marker 映射和 1600×1200 Loaded 视觉已验收；正式 P95、生产缩放边界截图和分钟验收待完成 |
+| 股票日线 serving 发布门禁 | M3-B 已完成 | Gold 修复与全历史对账已完成；serving 已发布 3,066/3,066 日、11,638,636 行，逐日对账差异为 0。发布器固定 DuckDB 128MB/1线程、单进程最多200日，十个恢复进程峰值 RSS 最高约249MiB；自然日常链路仍未验收 |
+| 主要指数分钟 K 线与技术指标 Gold | 已就绪 | 七频率均有 4,278 个分区，覆盖 2009-01-05 至 2026-08-13；页面统一读取规范化 Gold |
 | 指数日线九转 Gold | 未实现 | 需要新资产 |
 | 指数 5/15/30/60/90/120 分钟九转 Gold | 未实现 | 需要六个新资产；不创建 1 分钟资产 |
 | 指数九转详情 API/页面 | 未实现 | 当前 capability 仍为 false，右栏仍是 `--` 占位 |
@@ -82,7 +119,7 @@ React 动态调用边由 CodeGraph explore/import 结果和真实消费者代码
 4. 方向切换后，新方向从 1 开始。
 5. 只使用当前及历史 bar，不读取未来数据，不重绘历史结果。
 
-股票价格唯一使用 `close_qfq`。指数没有复权概念，日线使用正式指数日线 close，分钟使用主要指数 Silver 同频 close。
+股票价格唯一使用规范化 Gold 前复权分钟线中的 `close_qfq`。指数没有复权概念，日线使用正式指数日线 close，分钟使用规范化主要指数 Gold 同频 `close`。Silver 只负责生产规范化 Gold 的上游过程，不属于九转计算或页面读取事实源。
 
 ### 4.2 数据计数与页面标记
 
@@ -119,7 +156,7 @@ React 动态调用边由 CodeGraph explore/import 结果和真实消费者代码
 
 1. 数据资产可以有自己的源范围，但 HTTP 接口必须再次执行页面十指数 allowlist。
 2. `000680.SH` 不属于页面对象池，必须返回 404，不能因 Lake 有数据而绕过配置。
-3. `899050.BJ` 日线九转可以建设；当前主要指数分钟 Silver 明确排除该代码，因此分钟九转返回局部 `EMPTY/SOURCE_NOT_READY`。
+3. `899050.BJ` 日线九转可以建设；当前规范化主要指数分钟 Gold 不覆盖该代码，因此分钟九转返回局部 `EMPTY/SOURCE_NOT_READY`。
 4. 北证50分钟不得用日线、其它指数、旧 Lake 或第三方数据补造。
 
 这里必须区分两层 universe：
@@ -209,7 +246,7 @@ gold_major_index_mins_nineturn_90m
 gold_major_index_mins_nineturn_120m
 ```
 
-不创建 1 分钟九转资产。日线上游使用正式指数日线因子/行情事实；分钟上游使用对应 `silver_major_index_mins_<freq>m`。指数资产必须独立形成方案与 LLD，冻结路径、schema、source key、十指数投影、check、历史构建、readiness、性能和自动化。
+不创建 1 分钟九转资产。日线上游使用正式指数日线因子/行情事实；分钟上游只能使用对应 `gold_major_index_mins_<freq>m`。这些 Gold K 线也是指数详情页分钟图实际消费的规范化事实，九转必须与页面 K 线保持同源、同频和逐时间键对齐。指数资产必须独立形成方案与 LLD，冻结路径、schema、source key、十指数投影、check、历史构建、readiness、性能和自动化。
 
 指数资产建议输出与股票自主 Gold 同构的核心语义：
 
@@ -467,7 +504,7 @@ LLD 必须给出可执行预算，至少覆盖：
 | M2 | 股票查询与 shared primitive：Reader/API/正式日线 serving/共享几何及最小页面接入 | 代码与隔离验收已通过；后续 M3-B 已完成生产表全历史发布 |
 | M3-A | 发布前事实收口 | 已完成只读数据/权限/迁移审计，登记 45,442 行收盘价漂移和正式修复前置条件 |
 | M3-B | 发布门禁与历史发布 | 已完成；Gold 修复和全历史对账通过，serving 以20日batch、单进程最多10批次发布到3,066/3,066日、11,638,636行。十个恢复进程峰值RSS最高约249MiB，最终逐日行数对账差异为0；两个sensor仍为STOPPED |
-| M3-C | 股票详情真实环境与视觉收口 | 前置 Gold 修复和历史 serving 发布已完成；下一步完成生产日线 API、浏览器、缩放与局部故障验收，不建第二套控制器 |
+| M3-C | 股票详情真实环境与视觉收口 | 生产日线接口、权限、真实数据和 Loaded 视觉主体门禁已通过；补齐登录态 P95、生产 45/180 根缩放边界截图后收口日线切片，分钟按用户要求暂停 |
 | M4 | 新建指数日线和六个分钟九转资产及查询 API | 7 assets/checks 被 Definitions 发现；历史覆盖、对齐、性能通过；1 分钟无资产 |
 | M5 | 指数图表和 Technical 摘要接入 | 十指数、北证50空态、趋势双 primitive、右栏摘要和竞态通过 |
 | M6 | 日常自动化、全链路验收与最终发布 | 生产日线、本地分钟、生产分钟 404、freshness、性能和视觉验收全部通过 |
@@ -526,7 +563,7 @@ M2 开工时已重新核验 Alembic 单一 head 为 `20260813_000134`，九转 m
 
 本方案是九转详情接入专项的上游事实源。历史文档中“九转不在本期、显示 `--`、supportsNineTurn=false”描述的是九转立项前已经完成的阶段，不追溯性改写为错误；后续实现必须引用本文和新 LLD，而不能继续把旧阶段占位当作目标状态。
 
-M3-A/M3-B 已同步本方案、LLD 和独立发布门禁。股票 `NT_*` 已进入 active-code 状态；指数仍为 planned。index page-init 当前仍保持 `supportsNineTurn=false`。Gold scoped rebuild、全历史 serving 发布和最终逐日行数对账均已完成；两个九转 sensor 仍为 `STOPPED`。只有生产 API、Figma 浏览器截图和 Dagster 自然触发验收完成后，才可把股票能力标为 production-ready。
+M3-A/M3-B 已同步本方案、LLD 和独立发布门禁。股票 `NT_*` 已进入 active-code 状态；指数仍为 planned。index page-init 当前仍保持 `supportsNineTurn=false`。Gold scoped rebuild、全历史 serving 发布和最终逐日行数对账均已完成；M3-C 生产日线 API 和 Loaded 截图已取得，但正式 P95、缩放边界截图、分钟和自然触发验收仍未完成。两个九转 sensor 继续保持 `STOPPED`，当前不能把股票能力标为完整 production-ready。
 
 ## 17. 版本记录
 
@@ -539,3 +576,6 @@ M3-A/M3-B 已同步本方案、LLD 和独立发布门禁。股票 `NT_*` 已进�
 | v1.4 | 2026-08-13 | 同步 Gold 修复完成、serving 893 日部分发布、内存暂停和 256MB/1线程/单进程10批次门禁 | Codex |
 | v1.5 | 2026-08-13 | 同步 serving 1,113 日检查点；修正 plan/resume/CLI 内存与输出放大链路，冻结 128MB、流式恢复回验和逐 batch 摘要；正式只读验收通过，生产恢复仍待用户确认 | Codex |
 | v1.6 | 2026-08-13 | M3-B 收口：生产 serving 完成 3,066 日、11,638,636 行全历史发布与逐日对账；十个恢复进程峰值 RSS 最高约 249MiB，M3-C 与自然日常链路继续待验收 | Codex |
+| v1.7 | 2026-08-13 | M3-C 生产日线主体门禁通过：登录态 API、真实样本和 1600×1200 Loaded 视觉已验收；正式 P95、生产缩放边界截图与分钟验收继续待完成 | Codex |
+| v1.8 | 2026-08-14 | 冻结所有分钟业务事实统一消费规范化 Gold；指数分钟九转上游由旧 Silver 设计修正为同频 `gold_major_index_mins_*`，并登记当前 Gold 覆盖事实 | Codex |
+| v1.9 | 2026-08-14 | 完整列出股票与主要指数各七个分钟 K 线 Gold asset key、物理根和分区布局，明确 K 线频率范围不扩大九转支持矩阵 | Codex |
