@@ -29,13 +29,52 @@ class SectorOverviewExceptionBuilder:
         )
 
     @staticmethod
-    def column_metric_unavailable(*, message: str, column_key: str) -> ModuleExceptionItemDto:
+    def hierarchy_unavailable(*, message: str) -> ModuleExceptionItemDto:
         return ModuleExceptionItemDto(
             module="sectorOverview",
-            code="SO_COLUMN_METRIC_UNAVAILABLE",
+            code="SO_HIERARCHY_UNAVAILABLE",
             severity="error",
             message=message,
-            details={"columnKey": column_key},
+        )
+
+    @staticmethod
+    def selection_invalid(*, message: str, requested_code: str) -> ModuleExceptionItemDto:
+        return ModuleExceptionItemDto(
+            module="sectorOverview",
+            code="SO_SELECTION_INVALID",
+            severity="warn",
+            message=message,
+            details={"requestedCode": requested_code},
+        )
+
+    @staticmethod
+    def heat_not_ready(*, message: str, trade_date: str) -> ModuleExceptionItemDto:
+        return ModuleExceptionItemDto(
+            module="sectorOverview",
+            code="SO_HEAT_NOT_READY",
+            severity="warn",
+            message=message,
+            details={"tradeDate": trade_date},
+        )
+
+    @staticmethod
+    def heat_source_mismatch(*, message: str, trade_date: str) -> ModuleExceptionItemDto:
+        return ModuleExceptionItemDto(
+            module="sectorOverview",
+            code="SO_HEAT_SOURCE_MISMATCH",
+            severity="error",
+            message=message,
+            details={"tradeDate": trade_date},
+        )
+
+    @staticmethod
+    def member_coverage_low(*, message: str, sector_code: str) -> ModuleExceptionItemDto:
+        return ModuleExceptionItemDto(
+            module="sectorOverview",
+            code="SO_MEMBER_COVERAGE_LOW",
+            severity="warn",
+            message=message,
+            details={"sectorCode": sector_code},
         )
 
     @staticmethod

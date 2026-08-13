@@ -23,6 +23,7 @@ class EffectiveAStockPoolSnapshot:
     counts: SectorPoolCounts
     up_count: int
     limit_up_count: int
+    down_count: int = 0
 
 
 class EffectiveAStockPoolQuery:
@@ -161,6 +162,17 @@ class EffectiveAStockPoolQuery:
                 source_members.c.stock_code,
             )
         )
+        down_stock = case(
+            (
+                and_(
+                    Security.ts_code.is_not(None),
+                    suspended.c.stock_code.is_(None),
+                    valid_bars.c.stock_code.is_not(None),
+                    valid_bars.c.pct_chg < 0,
+                ),
+                source_members.c.stock_code,
+            )
+        )
         limit_up_stock = case(
             (
                 and_(
@@ -182,6 +194,7 @@ class EffectiveAStockPoolQuery:
                 func.count(distinct(quote_eligible_stock)).label("quote_eligible_count"),
                 func.count(distinct(valid_quote_stock)).label("valid_quote_count"),
                 func.count(distinct(up_stock)).label("up_count"),
+                func.count(distinct(down_stock)).label("down_count"),
                 func.count(distinct(limit_up_stock)).label("limit_up_count"),
             )
             .select_from(from_clause)
@@ -216,5 +229,6 @@ class EffectiveAStockPoolQuery:
                     ),
                     up_count=int(row.up_count) if row is not None else 0,
                     limit_up_count=int(row.limit_up_count) if row is not None else 0,
+                    down_count=int(row.down_count) if row is not None else 0,
                 )
         return snapshots

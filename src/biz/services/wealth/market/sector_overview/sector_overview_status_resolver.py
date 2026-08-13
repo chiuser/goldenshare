@@ -13,7 +13,7 @@ class SectorOverviewStatusResult:
 
 
 class SectorOverviewStatusResolver:
-    """Resolve sector-overview module/page status from source freshness and payload completeness."""
+    """Fold source freshness and workspace quality into the stable panel states."""
 
     def resolve(
         self,
@@ -21,66 +21,89 @@ class SectorOverviewStatusResolver:
         expected_trade_date: date,
         observed_trade_date: date | None,
         has_display_rows: bool,
-        all_sources_available: bool,
-        column_count: int,
-        min_column_row_count: int,
-        heatmap_count: int,
+        has_error: bool,
+        has_partial_data: bool,
         as_of_time: datetime,
+        note: str | None = None,
     ) -> SectorOverviewStatusResult:
-        if not has_display_rows:
-            module_status = ModuleStatusItemDto(
-                moduleKey="sectorOverview",
-                expectedTradeDate=expected_trade_date,
-                observedTradeDate=observed_trade_date,
-                lagDays=self._lag_days(expected_trade_date, observed_trade_date),
-                status="EMPTY",
-                note="sector source bundle is empty",
-            )
-            return SectorOverviewStatusResult(
-                module_status=module_status,
-                page_status=PageStatusDto(status="EMPTY", displayText="模块数据为空", asOfTime=as_of_time),
-            )
-
         lag_days = self._lag_days(expected_trade_date, observed_trade_date)
+        if has_error:
+            return self._result(
+                expected_trade_date,
+                observed_trade_date,
+                lag_days,
+                "ERROR",
+                note or "sector overview contract failed",
+                "模块查询失败",
+                as_of_time,
+            )
+        if not has_display_rows:
+            return self._result(
+                expected_trade_date,
+                observed_trade_date,
+                lag_days,
+                "EMPTY",
+                note or "sector source bundle is empty",
+                "模块数据为空",
+                as_of_time,
+            )
         if lag_days is not None and lag_days > 0:
-            module_status = ModuleStatusItemDto(
-                moduleKey="sectorOverview",
-                expectedTradeDate=expected_trade_date,
-                observedTradeDate=observed_trade_date,
-                lagDays=lag_days,
-                status="DELAYED",
-                note="dc source bundle delayed",
+            return self._result(
+                expected_trade_date,
+                observed_trade_date,
+                lag_days,
+                "DELAYED",
+                note or "sector source bundle delayed",
+                "部分模块数据延迟",
+                as_of_time,
+                page_status="PARTIAL",
             )
-            return SectorOverviewStatusResult(
-                module_status=module_status,
-                page_status=PageStatusDto(status="PARTIAL", displayText="部分模块数据延迟", asOfTime=as_of_time),
+        if has_partial_data:
+            return self._result(
+                expected_trade_date,
+                observed_trade_date,
+                lag_days,
+                "PARTIAL",
+                note or "sector overview data is partially missing",
+                "部分模块数据缺失",
+                as_of_time,
             )
-
-        if not all_sources_available or column_count < 8 or min_column_row_count < 5 or heatmap_count < 20:
-            module_status = ModuleStatusItemDto(
-                moduleKey="sectorOverview",
-                expectedTradeDate=expected_trade_date,
-                observedTradeDate=observed_trade_date,
-                lagDays=lag_days,
-                status="PARTIAL",
-                note="sector overview data is partially missing",
-            )
-            return SectorOverviewStatusResult(
-                module_status=module_status,
-                page_status=PageStatusDto(status="PARTIAL", displayText="部分模块数据缺失", asOfTime=as_of_time),
-            )
-
-        module_status = ModuleStatusItemDto(
-            moduleKey="sectorOverview",
-            expectedTradeDate=expected_trade_date,
-            observedTradeDate=observed_trade_date,
-            lagDays=lag_days,
-            status="READY",
-            note="facts ready",
+        return self._result(
+            expected_trade_date,
+            observed_trade_date,
+            lag_days,
+            "READY",
+            note or "facts ready",
+            "事实聚合已就绪",
+            as_of_time,
         )
+
+    @staticmethod
+    def _result(
+        expected_trade_date: date,
+        observed_trade_date: date | None,
+        lag_days: int | None,
+        status: str,
+        note: str,
+        display_text: str,
+        as_of_time: datetime,
+        *,
+        page_status: str | None = None,
+    ) -> SectorOverviewStatusResult:
         return SectorOverviewStatusResult(
-            module_status=module_status,
-            page_status=PageStatusDto(status="READY", displayText="事实聚合已就绪", asOfTime=as_of_time),
+            module_status=ModuleStatusItemDto(
+                moduleKey="sectorOverview",
+                expectedTradeDate=expected_trade_date,
+                observedTradeDate=observed_trade_date,
+                lagDays=lag_days,
+                status=status,  # type: ignore[arg-type]
+                note=note,
+            ),
+            page_status=PageStatusDto(
+                status=(page_status or status),  # type: ignore[arg-type]
+                displayText=display_text,
+                asOfTime=as_of_time,
+            ),
         )
 
     @staticmethod

@@ -63,15 +63,8 @@ import {
   type MarketNewsDebugInfo,
 } from "../../features/market-overview/news/api/marketNewsApi";
 import { SectorOverviewPanel } from "../../features/market-overview/sectors/SectorOverviewPanel";
-import {
-  buildSectorOverviewViewModelFromApi,
-  buildSectorOverviewViewModelFromMock,
-  type MarketSectorOverviewViewModel,
-} from "../../features/market-overview/sectors/api/marketSectorOverviewAdapter";
-import {
-  fetchMarketSectorOverview,
-  type SectorOverviewDebugInfo,
-} from "../../features/market-overview/sectors/api/marketSectorOverviewApi";
+import type { SectorOverviewDebugInfo } from "../../features/market-overview/sectors/api/marketSectorOverviewApi";
+import { useSectorOverviewController } from "../../features/market-overview/sectors/useSectorOverviewController";
 import { MarketStylePanel } from "../../features/market-overview/style/MarketStylePanel";
 import {
   buildStyleViewModelFromApi,
@@ -105,7 +98,6 @@ const NEWS_AUTO_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 const LEADERBOARDS_FETCH_TIMEOUT_MS = 5000;
 const LIMIT_UP_FETCH_TIMEOUT_MS = 5000;
 const STREAK_LADDER_FETCH_TIMEOUT_MS = 5000;
-const SECTOR_OVERVIEW_FETCH_TIMEOUT_MS = 5000;
 const PAGE_CONTEXT_FETCH_TIMEOUT_MS = 5000;
 
 function isFiniteNumber(value: number | null | undefined): value is number {
@@ -225,11 +217,6 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
   );
   const [streakLadderErrorMessage, setStreakLadderErrorMessage] = useState<string | null>(null);
   const [streakLadderDebugInfo, setStreakLadderDebugInfo] = useState<StreakLadderDebugInfo | null>(null);
-  const [sectorOverview, setSectorOverview] = useState<MarketSectorOverviewViewModel | null>(null);
-  const [sectorOverviewViewState, setSectorOverviewViewState] = useState<"loading" | "ready" | "error">(
-    marketOverviewModuleSources.sectors === "real" ? "loading" : "ready",
-  );
-  const [sectorOverviewErrorMessage, setSectorOverviewErrorMessage] = useState<string | null>(null);
   const [sectorOverviewDebugInfo, setSectorOverviewDebugInfo] = useState<SectorOverviewDebugInfo | null>(null);
   const [toast, setToast] = useState("");
   const headerTickers = useMemo(() => buildHeaderTickers(overview, majorIndices), [overview, majorIndices]);
@@ -407,14 +394,6 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
         setStreakLadder(null);
         setStreakLadderViewState("loading");
         setStreakLadderErrorMessage(null);
-      }
-      if (marketOverviewModuleSources.sectors === "mock") {
-        setSectorOverview(buildSectorOverviewViewModelFromMock(response.data));
-        setSectorOverviewViewState("ready");
-      } else {
-        setSectorOverview(null);
-        setSectorOverviewViewState("loading");
-        setSectorOverviewErrorMessage(null);
       }
     });
   }, []);
@@ -941,54 +920,16 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
     };
   }, [overview, pageContext, pageDebugEnabled]);
 
-  useEffect(() => {
-    if (!overview || !pageContext) return;
-    if (marketOverviewModuleSources.sectors !== "real") return;
-
-    let canceled = false;
-    const abortController = new AbortController();
-    setSectorOverview(null);
-    setSectorOverviewViewState("loading");
-    setSectorOverviewErrorMessage(null);
-    setSectorOverviewDebugInfo(null);
-    const timeoutId = window.setTimeout(() => abortController.abort(), SECTOR_OVERVIEW_FETCH_TIMEOUT_MS);
-
-    fetchMarketSectorOverview(
-      { market: "CN_A", tradeDate: pageContext.tradeDate, debug: pageDebugEnabled ? 1 : 0 },
-      { signal: abortController.signal },
-    )
-      .then((payload) => {
-        if (!canceled) {
-          setSectorOverview(buildSectorOverviewViewModelFromApi(payload));
-          setSectorOverviewViewState("ready");
-          setSectorOverviewErrorMessage(null);
-          setSectorOverviewDebugInfo(pageDebugEnabled ? payload.debugInfo ?? null : null);
-        }
-      })
-      .catch((error) => {
-        if (!canceled) {
-          const timeout = error instanceof DOMException && error.name === "AbortError";
-          const message = timeout
-            ? `请求超时：/api/v1/wealth/market/sector-overview`
-            : error instanceof Error
-              ? error.message
-              : "板块速览加载失败";
-          setSectorOverview(null);
-          setSectorOverviewViewState("error");
-          setSectorOverviewErrorMessage(message);
-          setSectorOverviewDebugInfo(null);
-          showToast(`板块速览模块异常：${message}`);
-        }
-      })
-      .finally(() => {
-        window.clearTimeout(timeoutId);
-      });
-
-    return () => {
-      canceled = true;
-      abortController.abort();
-    };
-  }, [overview, pageContext, pageDebugEnabled]);
+  const handleSectorDebugInfo = useMemo(
+    () => (value: SectorOverviewDebugInfo | null) => setSectorOverviewDebugInfo(value),
+    [],
+  );
+  const sectorController = useSectorOverviewController({
+    enabled: Boolean(overview && pageContext && marketOverviewModuleSources.sectors === "real"),
+    tradeDate: pageContext?.tradeDate,
+    debug: pageDebugEnabled,
+    onDebugInfo: handleSectorDebugInfo,
+  });
 
   function showToast(message: string) {
     setToast(message);
@@ -1120,10 +1061,13 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
             onStockSelect={openStockDetail}
           />
           <SectorOverviewPanel
-            sectorOverview={sectorOverview}
-            viewState={sectorOverviewViewState}
-            errorMessage={sectorOverviewErrorMessage ?? undefined}
-            onAction={showToast}
+            view={sectorController.view}
+            requestState={sectorController.state}
+            onViewChange={sectorController.setView}
+            onRankChange={sectorController.selectRank}
+            onSectorSelect={sectorController.selectSector}
+            onRetry={sectorController.retry}
+            onStockSelect={openStockDetail}
           />
           <StateBaselinePanel />
         </div>

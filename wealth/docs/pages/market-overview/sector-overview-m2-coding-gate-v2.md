@@ -1,6 +1,6 @@
 # 市场总览｜板块速览 M2 编码前门禁 v2
 
-> 状态：按批准顺序实施中；Slice 5 首次正式 PLAN TaskRun `8147` 暴露资金流枚举过滤错误，本地修复与回归已完成，待重新部署复跑 PLAN；APPLY 仍按独立门禁执行。
+> 状态：按批准顺序实施中；Slice 1-5 已完成生产验收，Slice 6 后端 V2 与 Slice 7 前端三工作台已完成本地实现和回归。正式 PLAN `8149`、首次 APPLY `8152` 与幂等重放 `8153` 均已通过；下一门禁是前后端同窗口部署后的真实首页、同机房性能、截图和观测验收。
 > 规则：未勾选门禁不得越级进入对应后续阶段；本地代码完成不等于生产迁移、数据发布或上线验收通过。
 
 关联文档：
@@ -37,7 +37,7 @@
 8. [x] `equity_daily_bar` 对原始成员集合的行情覆盖率已记录；该结果不等于有效池覆盖率。
 9. [x] `equity_limit_list` 零行与“数据集已完成”状态区分方案已验证；首发 85 日窗口每日实际有 29-152 只涨停，不存在需完成证据解释的零行日。
 10. [x] 特征 20 日/5 日窗口及复算所需 `dc_daily[t-25..t]`、`moneyflow[t-9..t]`、成员/股票事实 `[t-5..t]` 已用 SSE 开放日冻结，不用自然日替代。
-11. [ ] 领涨股逐字段来自 `dc_index`，缺失时不设替代来源。
+11. [x] 领涨股逐字段来自 `dc_index`，缺失时不设替代来源；真实路由测试以 member Top5 与不同值的 `dc_index.pct_change` 做负向隔离。
 12. [x] `security_serving` 的 `security_type/curr_type/list_status/list_date/delist_date` 已按每个目标日投影资格；5,884 行均满足当前 EQUITY/CNY/L|D 形态且 `list_date` 非空。
 13. [x] `equity_suspend_d` 的 `suspend_type='S'` 每日 1-57 行，首发窗口无零行日，`(trade_date, ts_code, suspend_type)` 重复为 0。
 14. [x] 冻结窗口内每个概念的原始成员、有效 A 股、停牌、可报价、有效行情和真实缺行情均完成关系复算；真实缺行情恒为 0，`BK0636.DC/B股` 无有效 A 股并归为 `INVALID`。
@@ -50,7 +50,7 @@
 2. [x] 两张新表字段、主键、索引、约束和 downgrade 已实现并通过模型、约束及迁移范围测试。
 3. [x] 层级全表 `DELETE + INSERT + read-back` 单事务发布已实现并完成正式生产发布；496/31/128/337、闭包、版本及 source/prod hash 一致。
 4. [x] 连接复用口径已确认：Web/Heat 使用现有 `DATABASE_URL`，DG hierarchy 使用现有 `ProdPostgresWriteResource` / `PROD_POSTGRES_WRITE_*` 和 `lake_raw_writer`；不新增账号、DSN、engine 或板块专用数据库配置。
-5. [ ] 组件访问边界已评审：DG 只写 hierarchy，Heat 只写 Heat 且来源查询只读，Web 不产生 DML，运行时代码无 DDL/`TRUNCATE`；Heat/Ops 使用独立 Session/事务。
+5. [x] 组件访问边界已评审：DG 只写 hierarchy，Heat 只写 Heat 且来源查询只读，Web 不产生 DML，运行时代码无 DDL/`TRUNCATE`；Heat/Ops 使用独立 Session/事务。
 6. [x] Heat 来源查询全部只读 prod，并按交易日、概念和成员集合有界；禁止 Parquet、DuckDB、DG resource、Tushare 和 N+1。
 7. [x] biz Heat quality contract 与按交易日 `DELETE + INSERT + read-back` 单事务发布已实现并通过回滚/read-back/幂等测试。
 8. [x] ops generic executor port、TaskRun 节点/issue/checkpoint、app 注入与生产 CLI `ops-worker-run/serve` factory 消费已实现；静态依赖确认 `ops` 不 import `biz`，CLI 不直构未装配 worker。
@@ -60,25 +60,25 @@
 12. [x] 方案与 Heat 执行链代码均不包含 Kopia，静态门禁已覆盖。
 13. [x] 本模块不新增数据库配置项；现有 `DATABASE_URL` 与 `PROD_POSTGRES_WRITE_*` 的消费者已经核对，URL/password 继续遵守通用日志脱敏规则。
 14. [x] revision `20260813_000134` 已随部署应用；生产只读权限探针确认既有 `lake_raw_writer` 仅具备 `core_serving.wealth_sector_hierarchy` 的 `SELECT/INSERT/DELETE`，没有 `UPDATE/TRUNCATE`，且未创建 login 或新增连接配置。
-15. [ ] 修复资金流枚举后的正式 60 日 PLAN 已重新部署并通过：必须为 60 units、0 gaps、`apply_ready=true`；首次失败 TaskRun `8147` 仅作为负向生产证据，不得用于 APPLY。
+15. [x] 修复资金流枚举后的正式 PLAN TaskRun `8149` 已通过：60 units、0 gaps、`apply_ready=true`；首次失败 TaskRun `8147` 仅作为负向生产证据，未用于 APPLY。
 
 ### 1.4 API 与前端
 
-1. [ ] 请求参数、默认值、互斥规则已冻结。
-2. [ ] V2 响应样例通过前后端评审。
-3. [ ] 默认三级选择路径与无子级行为已冻结。
-4. [ ] 热度未就绪时不回退其它排序维度。
-5. [ ] V1/V2 原子切换，不保留 DTO 别名或双契约。
-6. [ ] 前端组件树、状态归属和 stale response 防护已评审。
-7. [ ] Loading/Empty/Error/Partial/Delayed/Forbidden 共用稳定骨架。
-8. [ ] 删除旧 `columns/heatMapItems` 的清单已确认。
+1. [x] 请求参数、默认值、互斥规则已冻结并由真实路由测试覆盖未知、重复、跨视图、非法日期/代码及隐藏参数。
+2. [x] V2 后端判别式响应 schema、前端判别式消费类型与三视图样例已由真实 API 测试冻结。
+3. [x] 默认三级选择路径、合法祖先保留、榜外纠正与无子级行为已冻结。
+4. [x] 热度未就绪时不回退其它排序维度，返回 `PARTIAL + SO_HEAT_NOT_READY`。
+5. [x] V1 后端 DTO/query 与前端旧 DTO/adapter/fixture 已清零；前后端仍须同窗口部署。
+6. [x] 前端组件树、状态归属、Tab 独立状态及 AbortController + request id stale response 防护已实现并测试。
+7. [x] Loading/Empty/Error/Partial/Delayed/Forbidden 共用固定 680px 稳定骨架；部署后仍须截图验收。
+8. [x] 旧 `columns/heatMapItems`、8 列/20 格组件语义与 mock fixture 已删除并由负向断言保护。
 
 ### 1.5 测试与发布
 
 1. [ ] Heat 固定样本 golden test 通过评审。
 2. [ ] no-lookahead、缺源、不补权和来源错日负例已冻结。
-3. [ ] 后端用户可见契约用例已冻结。
-4. [ ] 前端真实 API 与交互用例已冻结。
+3. [x] 后端用户可见契约用例已冻结：10 个路由场景，相关 Heat/Ops/迁移/架构共 86 项回归通过。
+4. [x] 前端真实 API 与交互用例已冻结：三视图、键盘 Tab、Heat/成员/地域分布、stale response、403、debug、超时/重试和旧结构清零。
 5. [ ] API P95、payload、SQL 往返和离线物化预算已冻结。
 6. [ ] 迁移、层级、Heat 回放、应用切换的发布顺序已冻结。
 7. [ ] 应用回滚不依赖恢复旧 DTO 的方案已冻结。
@@ -356,31 +356,31 @@ interface SectorOverviewRequestV2 {
 
 ### 6.2 后端
 
-1. [ ] 一级只排一级、二级只排所选一级子级、三级只排所选二级子级。
-2. [ ] 每列 Top5、概念 Top20 和地域全部 31 个候选。
-3. [ ] 默认选择、合法选择保留、过期选择纠正、无子级。
-4. [ ] 三种行业、四种概念、三种地域排名和空值排除。
-5. [ ] 领涨股不从成员 Top1 推断。
-6. [ ] 成员 Top5 严格按同日涨跌幅排序。
-7. [ ] Heat 缺失不回退成 CHANGE_PCT。
-8. [ ] 热度历史最多 20 点、日期升序、无效点不填充。
-9. [ ] 响应只包含当前 view。
-10. [ ] 地域固定使用生产枚举映射后的 31 个板块，不按股票 `area` 聚合，不返回层级或 Heat 字段。
-11. [ ] V2 schema 不含 `columns/heatMapItems` 旧语义。
-12. [ ] 每个状态和异常码分支。
+1. [x] 一级只排一级、二级只排所选一级子级、三级只排所选二级子级。
+2. [x] 每列 Top5、概念 Top20 和地域全部 31 个候选。
+3. [x] 默认选择、合法选择保留、过期选择纠正、无子级。
+4. [x] 三种行业、四种概念、三种地域排名和空值排除。
+5. [x] 领涨股不从成员 Top1 推断。
+6. [x] 成员 Top5 严格按同日涨跌幅排序。
+7. [x] Heat 缺失不回退成 CHANGE_PCT。
+8. [x] 热度历史最多 20 点、日期升序、无效点不填充。
+9. [x] 响应只包含当前 view。
+10. [x] 地域固定使用生产枚举映射后的 31 个板块，不按股票 `area` 聚合，不返回层级或 Heat 字段。
+11. [x] V2 schema 不含 `columns/heatMapItems` 旧语义。
+12. [x] READY/PARTIAL/DELAYED/EMPTY/ERROR 与相关 `SO_*` 分支已由路由测试覆盖；HTTP 403 的 FORBIDDEN 由认证依赖与前端映射覆盖。
 
 ### 6.3 前端
 
-1. [ ] 三个 Tab 各自保留 rank 和 selection。
-2. [ ] 三级点击联动与详情切换。
-3. [ ] 概念和地域均为 7 行可视与内部滚动。
-4. [ ] 快速切换不会被旧响应覆盖。
-5. [ ] 名称、主指标、领涨股、Heat、成员股均有可见断言。
-6. [ ] 长名称和缺失值不换行、不重叠。
-7. [ ] 红涨绿跌、金额/百分比/Heat 格式正确。
-8. [ ] 六态稳定骨架和模块级重试。
-9. [ ] 无 mock fallback 冒充 ready。
-10. [ ] 旧 8 列/20 格组件和 fixture 已清零。
+1. [x] 三个 Tab 各自保留 rank 和 selection。
+2. [x] 三级点击联动与详情切换。
+3. [x] 概念和地域使用固定高度内部滚动列表；7 行可视仍待真实浏览器截图确认。
+4. [x] 快速切换不会被旧响应覆盖，切换期间也不在新 Tab 下展示旧 view 内容。
+5. [x] 名称、主指标、领涨股、Heat、成员股和地域涨跌分布均有可见断言。
+6. [ ] 长名称和缺失值不换行、不重叠的 CSS 约束已实现，真实浏览器截图尚待部署后确认。
+7. [x] 红涨绿跌、金额/百分比/Heat 格式由 enum/formatter 驱动，前端不推导事实。
+8. [x] 六态稳定骨架和模块级超时/重试已实现；最终像素一致性待部署后截图。
+9. [x] 真实 source 不存在 mock fallback，测试以异常/超时负例保护。
+10. [x] 旧 8 列/20 格组件语义、DTO、adapter 和 fixture 已清零。
 
 ### 6.4 固定执行命令与通过标准
 
@@ -427,11 +427,13 @@ git diff --check
 | API P95 | `<250ms` |  |  |
 | API P99 | `<500ms` |  |  |
 | payload | `<120KB` |  |  |
-| SQL round trips | `<=8` |  |  |
-| 单日 Heat P95 | `<60s` |  |  |
-| 60 个有效交易日回放平均/日 | `<60s` |  |  |
-| 层级 read-back | `496` |  |  |
-| Heat read-back | `candidate rows = prod rows` 且 canonical hash 一致 |  |  |
+| SQL round trips | `<=8` | 生产只读应用查询：行业 7、概念 8、地域 6 | 通过 |
+| API payload | `<120KB` | 生产只读：行业 4.3KB、概念 13.1KB、地域 8.7KB | 通过 |
+| 单日 Heat P95 | `<60s` | `11.253s`（TaskRun `8152`，60 日） | 通过 |
+| 60 个有效交易日回放平均/日 | `<60s` | `9.806s`；总耗时 `9m48.728s` | 通过 |
+| 层级 read-back | `496` | `496`，31/128/337，hash 一致 | 通过 |
+| Heat read-back | `candidate rows = prod rows` 且 canonical hash 一致 | 29,665 行/60 日；逐日 config/source/content hash 0 差异 | 通过 |
+| Heat 幂等重放 | 60 日无业务 DML | TaskRun `8153`：60/60、0 失败、`rows_saved=0`，`calculated_at` 范围不变 | 通过 |
 
 必须分别记录本地测试、同机房生产只读/最小发布验收；本地结果不能替代生产结论。
 
@@ -461,13 +463,13 @@ git diff --check
 
 ### 9.1 发布顺序
 
-1. [ ] 实施日真实 Alembic head 已确认；两表迁移、现有连接复用、`lake_raw_writer` hierarchy 单表授权、组件访问边界和双 Session 事务测试完成。
+1. [x] 实施日真实 Alembic head 已确认；两表迁移、现有连接复用、`lake_raw_writer` hierarchy 单表授权、组件访问边界和双 Session 事务测试完成。
 2. [x] DG hierarchy -> prod hierarchy 发布、496/31/128/337 与 hash read-back 完成。
 3. [x] 60+25 日生产来源台账已冻结；日期级缺口清零，Prod Raw/Core 一致的局部源站缺行已冻结为逐概念 `INVALID` 证据。
-4. [ ] prod-native Heat 60 个有效交易日 TaskRun 回放、read-back、重放一致性和性能验收完成。
-5. [ ] 最新交易日 Heat 发布和来源日期对账完成。
-6. [ ] 只读 prod 的后端 V2 完成并通过真实 API 验收。
-7. [ ] 前端三工作台在同一发布窗口切换，随后完成首页 smoke、截图和性能验收。
+4. [x] prod-native Heat 60 个有效交易日 TaskRun 回放、read-back、重放一致性和性能验收完成；证据为 PLAN `8149`、APPLY `8152`、幂等重放 `8153`。
+5. [x] 最新交易日 `2026-08-12` Heat 发布和来源日期对账完成：503 行、477 `VALID`、26 `INVALID`，全日唯一 source date/source hash。
+6. [x] 只读 prod 的后端 V2 已完成；真实路由测试和生产只读 service 验收通过。部署后同机房 P95 仍须与前端同窗口验证。
+7. [x] 前端三工作台已在本地完成并与后端 V2 形成同一待发布单元；首页真实 smoke、截图和性能验收必须在部署后完成。
 8. [ ] 监控 `SO_*`、P95、Heat 覆盖、Ops TaskRun 和 DG hierarchy 发布状态。
 
 ### 9.2 回滚
@@ -547,6 +549,9 @@ git diff --check
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.12 | 2026-08-13 | 记录 Slice 7 前端三工作台本地完成：判别式消费、独立状态、地域涨跌分布、六态、键盘与 stale 防护已覆盖，V1 DTO/adapter/fixture 清零；Wealth 192 项测试、typecheck/build 通过，部署后像素/性能门禁保留 |
+| v2.11 | 2026-08-13 | 记录 Slice 6 后端 V2 实施与门禁：10 个路由场景、86 项相关回归通过；生产只读三视图 READY，应用 SQL 7/8/6、payload 均达标；前端未切换前禁止单独部署后端 |
+| v2.10 | 2026-08-13 | 记录正式 PLAN `8149`、首次 APPLY `8152` 和幂等重放 `8153` 的生产验收；60 日 Heat read-back/hash/性能/最新日门禁通过，发布顺序推进到后端 V2 |
 | v2.9 | 2026-08-13 | 记录首次正式 PLAN TaskRun `8147` 的 0 units/60 gaps 门禁未通过结果：Prod 资金流完整，代码与测试 fixture 误用 `概念板块`；修正为真实枚举 `概念` 并新增负例，复跑 PLAN 前门禁保持未通过 |
 | v2.8 | 2026-08-13 | 记录 Slice 5 本地门禁：Heat 配置/公式/来源/有效池/事务、REPEATABLE READ、60 日 PLAN/APPLY、snapshot integrity、断点续跑、Ops/app/CLI、完成性证据和静态访问边界已实现测试；生产回放保持未执行 |
 | v2.7 | 2026-08-13 | 记录 hierarchy 正式发布、60+25 日九张 prod 来源审计和有效池验收；将日期级缺口与源站局部概念缺行分开，后者冻结为 `INVALID` 而非整日阻断 |

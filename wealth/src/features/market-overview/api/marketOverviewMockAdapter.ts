@@ -549,19 +549,6 @@ export const marketOverviewMock: MarketOverview = {
     { level: "四板", count: 2, stocks: [["正丹股份", "300641.SZ", "化工材料", "29.44", "+20.02%", "0"], ["川宁生物", "301301.SZ", "合成生物", "14.08", "+20.01%", "1"]].map(([name, code, theme, price, changePct, openTimes]) => ({ name, code, theme, price, changePct, openTimes })) },
     { level: "五板及以上", count: 1, stocks: [["同为股份", "002835.SZ", "AI安防", "22.16", "+10.02%", "0"]].map(([name, code, theme, price, changePct, openTimes]) => ({ name, code, theme, price, changePct, openTimes })) },
   ],
-  sectors: {
-    columns: [
-      { key: "industryUp", title: "行业涨幅前五", tone: "up", valueLabel: "涨幅", rows: [{ name: "通信设备", text: "+3.86%", value: 3.86 }, { name: "半导体", text: "+3.12%", value: 3.12 }, { name: "汽车零部件", text: "+2.74%", value: 2.74 }, { name: "电力设备", text: "+2.31%", value: 2.31 }, { name: "军工电子", text: "+2.06%", value: 2.06 }] },
-      { key: "conceptUp", title: "概念涨幅前五", tone: "up", valueLabel: "涨幅", rows: [{ name: "铜缆高速连接", text: "+5.42%", value: 5.42 }, { name: "机器人执行器", text: "+4.91%", value: 4.91 }, { name: "CPO概念", text: "+4.36%", value: 4.36 }, { name: "固态电池", text: "+3.88%", value: 3.88 }, { name: "低空经济", text: "+3.42%", value: 3.42 }] },
-      { key: "regionUp", title: "地域涨幅前五", tone: "up", valueLabel: "涨幅", rows: [{ name: "广东板块", text: "+2.48%", value: 2.48 }, { name: "江苏板块", text: "+2.12%", value: 2.12 }, { name: "浙江板块", text: "+1.96%", value: 1.96 }, { name: "安徽板块", text: "+1.73%", value: 1.73 }, { name: "四川板块", text: "+1.58%", value: 1.58 }] },
-      { key: "fundIn", title: "资金流入前五", tone: "up", valueLabel: "净流入", rows: [{ name: "光模块", text: "+28.6亿", value: 28.6 }, { name: "半导体设备", text: "+23.1亿", value: 23.1 }, { name: "机器人", text: "+18.2亿", value: 18.2 }, { name: "电力设备", text: "+14.8亿", value: 14.8 }, { name: "AI手机", text: "+11.6亿", value: 11.6 }] },
-      { key: "industryDown", title: "行业跌幅前五", tone: "down", valueLabel: "跌幅", rows: [{ name: "房地产开发", text: "-2.42%", value: -2.42 }, { name: "酒店餐饮", text: "-1.86%", value: -1.86 }, { name: "煤炭开采", text: "-1.31%", value: -1.31 }, { name: "银行", text: "-0.72%", value: -0.72 }, { name: "保险", text: "-0.55%", value: -0.55 }] },
-      { key: "conceptDown", title: "概念跌幅前五", tone: "down", valueLabel: "跌幅", rows: [{ name: "旅游出行", text: "-1.44%", value: -1.44 }, { name: "地产服务", text: "-2.18%", value: -2.18 }, { name: "预制菜", text: "-1.26%", value: -1.26 }, { name: "免税店", text: "-1.04%", value: -1.04 }, { name: "煤化工", text: "-0.92%", value: -0.92 }] },
-      { key: "regionDown", title: "地域跌幅前五", tone: "down", valueLabel: "跌幅", rows: [{ name: "海南板块", text: "-1.36%", value: -1.36 }, { name: "山西板块", text: "-1.12%", value: -1.12 }, { name: "云南板块", text: "-0.86%", value: -0.86 }, { name: "黑龙江", text: "-0.72%", value: -0.72 }, { name: "内蒙古", text: "-0.64%", value: -0.64 }] },
-      { key: "fundOut", title: "资金流出前五", tone: "down", valueLabel: "净流出", rows: [{ name: "房地产开发", text: "-15.4亿", value: -15.4 }, { name: "煤炭开采", text: "-11.8亿", value: -11.8 }, { name: "银行", text: "-9.6亿", value: -9.6 }, { name: "白酒", text: "-7.4亿", value: -7.4 }, { name: "旅游酒店", text: "-5.2亿", value: -5.2 }] },
-    ],
-    heatmap: [["算力", 3.8], ["光模块", 5.6], ["AI手机", 2.7], ["机器人", 4.8], ["固态电池", 3.5], ["低空经济", 3.1], ["军工电子", 2.1], ["汽车零部件", 1.9], ["消费电子", 2.8], ["券商", 1.1], ["白酒", 0.4], ["医药", -0.3], ["银行", -0.7], ["煤炭", -1.3], ["旅游", -1.7], ["地产", -2.4], ["保险", -0.5], ["航运港口", -0.9], ["贵金属", -1.1], ["农业", 0.6]].map(([name, pct]) => ({ name, pct })) as never,
-  },
 };
 
 export async function fetchMarketOverviewMock(_params: MarketOverviewParams = {}): Promise<WealthApiResponse<MarketOverview>> {

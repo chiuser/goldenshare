@@ -349,6 +349,72 @@ const pageContextPayload = {
   },
 };
 
+const sectorOverviewPayload = {
+  tradingDay: {
+    tradeDate: "2026-04-28",
+    prevTradeDate: "2026-04-27",
+    market: "CN_A",
+    isTradingDay: true,
+    sessionStatus: "CLOSED",
+    timezone: "Asia/Shanghai",
+  },
+  pageStatus: { status: "READY", displayText: "事实聚合已就绪", asOfTime: "2026-04-28T20:00:00+08:00" },
+  sectorOverview: {
+    tradeDate: "2026-04-28",
+    status: "READY",
+    view: "INDUSTRY",
+    asOf: "2026-04-28T20:00:00+08:00",
+    industry: {
+      rankMetric: "CHANGE_PCT",
+      selection: {
+        level1Code: "BK0001.DC",
+        level2Code: "BK0101.DC",
+        level3Code: "BK0201.DC",
+        detailSectorCode: "BK0201.DC",
+      },
+      columns: [
+        {
+          level: 1,
+          parentSectorCode: null,
+          rows: [{ rank: 1, sectorCode: "BK0001.DC", sectorName: "通信设备", primaryMetric: { value: 3.21, displayText: "+3.21%", direction: "UP" }, leader: { stockCode: "000001.SZ", stockName: "通信龙头", changePct: 9.98 }, selected: true }],
+        },
+        {
+          level: 2,
+          parentSectorCode: "BK0001.DC",
+          rows: [{ rank: 1, sectorCode: "BK0101.DC", sectorName: "通信网络", primaryMetric: { value: 3.05, displayText: "+3.05%", direction: "UP" }, leader: { stockCode: "000001.SZ", stockName: "网络龙头", changePct: 8.88 }, selected: true }],
+        },
+        {
+          level: 3,
+          parentSectorCode: "BK0101.DC",
+          rows: [{ rank: 1, sectorCode: "BK0201.DC", sectorName: "光通信", primaryMetric: { value: 2.89, displayText: "+2.89%", direction: "UP" }, leader: { stockCode: "000001.SZ", stockName: "光通信龙头", changePct: 7.77 }, selected: true }],
+        },
+      ],
+      detail: {
+        sectorCode: "BK0201.DC",
+        sectorName: "光通信",
+        sectorType: "INDUSTRY",
+        hierarchyPath: "通信设备 / 通信网络 / 光通信",
+        metrics: {
+          changePct: 2.89,
+          upCount: 18,
+          downCount: 4,
+          sourceMemberCount: 23,
+          memberCount: 22,
+          suspendedCount: 1,
+          quoteEligibleCount: 21,
+          validQuoteCount: 21,
+          missingQuoteCount: 0,
+          mainNetInflow: 1280000000,
+          turnoverAmount: 8520000000,
+          quoteCoverage: 1,
+        },
+        leader: { stockCode: "000001.SZ", stockName: "光通信龙头", changePct: 7.77 },
+        members: [{ stockCode: "000001.SZ", stockName: "成分股1", changePct: 5.01, direction: "UP" }],
+      },
+    },
+  },
+};
+
 function toUrlString(input: RequestInfo | URL): string {
   if (typeof input === "string") return input;
   if (input instanceof URL) return input.toString();
@@ -401,6 +467,9 @@ function mockSuccessfulMarketFetch(
     }
     if (url.includes("/api/v1/wealth/market/leaderboards")) {
       return responseJson(leaderboardsPayloadInput);
+    }
+    if (url.includes("/api/v1/wealth/market/sector-overview")) {
+      return responseJson(sectorOverviewPayload);
     }
     throw new Error(`unexpected url: ${url}`);
   });
@@ -526,6 +595,7 @@ describe("MarketOverviewPage", () => {
 
   it("navigates major indices to index detail while keeping sector entries on overview", async () => {
     window.history.pushState({}, "", "/wealth/market/overview");
+    marketOverviewModuleSources.sectors = "real";
     render(<MarketOverviewPage />);
 
     const majorSection = await screen.findByLabelText("主要指数");
@@ -542,7 +612,7 @@ describe("MarketOverviewPage", () => {
 
     const sectorSection = await screen.findByLabelText("板块速览");
     await waitFor(() => {
-      expect(within(sectorSection).getByText("行业涨幅前五")).toBeInTheDocument();
+      expect(within(sectorSection).getByText("通信设备")).toBeInTheDocument();
     });
     const sectorButton = within(sectorSection).getByText("通信设备").closest("button");
     if (!sectorButton) {
@@ -550,24 +620,25 @@ describe("MarketOverviewPage", () => {
     }
     fireEvent.click(sectorButton);
     expect(window.location.pathname).toBe("/wealth/market/overview");
-    expect(screen.getByText("进入详情：通信设备")).toBeInTheDocument();
-
-    fireEvent.click(within(sectorSection).getByLabelText("板块热力图-算力"));
-    expect(window.location.pathname).toBe("/wealth/market/overview");
-    expect(screen.getByText("进入详情：算力")).toBeInTheDocument();
 
     const stockNewsSection = await screen.findByLabelText("个股新闻");
     fireEvent.click(stockNewsSection);
     expect(window.location.pathname).toBe("/wealth/market/overview");
   });
 
-  it("renders sector matrix and heatmap exactly as the showcase requires", async () => {
+  it("renders the V2 industry hierarchy instead of the deleted matrix and heatmap", async () => {
+    marketOverviewModuleSources.sectors = "real";
     render(<MarketOverviewPage />);
 
-    await screen.findByLabelText("Breadcrumb");
-    expect(screen.getByText("行业涨幅前五")).toBeInTheDocument();
-    expect(screen.getByText("资金流出前五")).toBeInTheDocument();
-    expect(screen.getAllByLabelText(/^板块热力图-/)).toHaveLength(20);
+    const sectorSection = await screen.findByLabelText("板块速览");
+    await within(sectorSection).findByText("通信设备");
+    expect(within(sectorSection).getByText("Level 1")).toBeInTheDocument();
+    expect(within(sectorSection).getByText("Level 2")).toBeInTheDocument();
+    expect(within(sectorSection).getByText("Level 3")).toBeInTheDocument();
+    expect(within(sectorSection).getAllByText("光通信龙头").length).toBeGreaterThan(0);
+    expect(within(sectorSection).getByText("成分股1")).toBeInTheDocument();
+    expect(within(sectorSection).queryByText("行业涨幅前五")).not.toBeInTheDocument();
+    expect(within(sectorSection).queryByLabelText(/^板块热力图-/)).not.toBeInTheDocument();
   });
 
   it("uses lightweight toast for reserved navigation feedback", async () => {

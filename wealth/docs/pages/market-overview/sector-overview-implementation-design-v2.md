@@ -1,6 +1,6 @@
 # 市场总览｜板块速览技术实施方案 v2（implementation-design）
 
-> 状态：按批准顺序实施中；Slice 1-4 已完成生产验收。Slice 5 首次正式 PLAN TaskRun `8147` 暴露资金流枚举过滤错误，本地修复与回归已完成，待重新部署后复跑 PLAN；APPLY 仍需独立批准，前后端 V2 尚未开始。
+> 状态：按批准顺序实施中；Slice 1-5 已完成生产验收，Slice 6 后端 V2 与 Slice 7 前端三工作台已完成本地实现和回归。正式 PLAN TaskRun `8149`、首次 APPLY TaskRun `8152` 与幂等重放 TaskRun `8153` 均已通过；下一步是前后端同窗口部署后的真实首页 smoke、同机房性能与像素验收。
 > 对应需求：[sector-overview-benchmark-requirement-v2.md](./sector-overview-benchmark-requirement-v2.md)
 > 对应门禁：[sector-overview-m2-coding-gate-v2.md](./sector-overview-m2-coding-gate-v2.md)
 > 对应低层设计：[sector-overview-low-level-design-v2.md](./sector-overview-low-level-design-v2.md)
@@ -782,6 +782,19 @@ V2 切换时删除或彻底替换：
 
 没有真实数量前只允许使用上述算法边界，不得宣称容量已验收。
 
+### 10.4 生产回放实测（2026-08-13）
+
+| 项目 | 生产实测 | 结论 |
+|---|---:|---|
+| 正式 PLAN | TaskRun `8149`；60 units、0 gaps、`apply_ready=true` | 通过 |
+| 首次 APPLY | TaskRun `8152`；60/60、0 失败、29,665 行、16,756 `VALID`、12,909 `INVALID` | 通过 |
+| 首次 APPLY 单日耗时 | 平均 `9.806s`、P95 `11.253s`、最大 `11.421s` | 通过 `<60s` 门槛 |
+| Heat read-back | 60 日逐日行数、有效/无效数、config/source/content hash 均 0 差异 | 通过 |
+| 幂等重放 | TaskRun `8153`；60/60、0 失败、`rows_saved=0`；平均 `9.634s`、P95 `11.002s` | 通过，无业务 DML |
+| 最新交易日 | `2026-08-12` 共 503 行，477 `VALID`、26 `INVALID`；最近 20 日有效率 `94.50%` | 通过 |
+
+幂等重放前后 Heat 表始终为 29,665 行、60 个交易日，`calculated_at` 最小/最大值均未变化；最终再次以生产实现的 canonical content hash 复算全部 29,665 行，60 日差异为 0。首 26 个交易日较高的 `INVALID` 数量来自已冻结的源站现状缺口，不按缺数伪造或剔除交易日。
+
 ---
 
 ## 11. 测试与验收
@@ -841,7 +854,7 @@ V2 切换时删除或彻底替换：
 
 发布窗口顺序固定为：迁移与既有账号对象授权 -> hierarchy read-back -> prod 来源整窗全绿 -> 60 日 Heat + 最新日 -> 后端 V2 -> 前端 V2 -> smoke/性能/截图。每个阶段独立验收，前一阶段失败不得越级。
 
-当前进度（2026-08-13）：步骤 1-5 已完成。生产当前单 head 为 `20260813_000135`；hierarchy 已由正式 Dagster Run `e875b632-dfb4-4898-a577-944ffa51de95` 发布并只读验收为 496 行、31/128/337、闭包全绿，源 hash 与 prod read-back hash 同为 `5094c9f1b0cfd51890351a8d6ecb6d2e0dc7ee4d1de816b5cb3ccf9946ce3525`。60 日目标窗冻结为 `2026-05-20..2026-08-12`，25 日 warm-up 为 `2026-04-10..2026-05-19`；成员、资金流、有效池、日线、涨停和停牌均完成整窗只读对账。`dc_daily` 在 `2026-05-18/20/22/25` 分别缺 88/448/1/2 个概念，Prod Raw 与 Core 完全一致，按源站现状归类为逐概念 `INVALID`，不构成整日缺口。步骤 6 已完成本地代码：严格 Heat 配置、prod 有界来源、有效池、纯公式、单日事务/read-back、60 日 PLAN/APPLY、快照完整性、断点幂等续跑、Ops 端口、app 双 Session 和 CLI factory 均已落地并通过回归；生产 Heat 仍保持未写入，下一步先部署本提交，再提交正式只读 PLAN，经核验后单独批准 APPLY。
+当前进度（2026-08-13）：步骤 1-8 的代码实现已完成，步骤 1-6 的生产发布/回放与步骤 7 的生产只读数据验收已完成。生产当前单 head 为 `20260813_000135`；hierarchy 已由正式 Dagster Run `e875b632-dfb4-4898-a577-944ffa51de95` 发布并只读验收为 496 行、31/128/337、闭包全绿，源 hash 与 prod read-back hash 同为 `5094c9f1b0cfd51890351a8d6ecb6d2e0dc7ee4d1de816b5cb3ccf9946ce3525`。60 日目标窗为 `2026-05-20..2026-08-12`，25 日 warm-up 为 `2026-04-10..2026-05-19`；正式 PLAN TaskRun `8149` 冻结 60 units、0 gaps、`apply_ready=true`。首次 APPLY TaskRun `8152` 完成 60/60、0 失败并发布 29,665 行，其中 16,756 `VALID`、12,909 `INVALID`；逐日行数、状态数及 config/source/content hash 全部与 PLAN 一致。幂等重放 TaskRun `8153` 再次完成 60/60、0 失败、`rows_saved=0`，业务表行数和 `calculated_at` 范围未变化。后端 V2 已完成判别式 DTO、严格参数、行业三级联动、概念 Heat、地域 31 项、成员详情与状态异常；生产只读调用在 `2026-08-12` 三视图均为 `READY`，行业列为 5/2/3 个真实节点、概念为 20 项和 20 日历史、地域为 31 项；应用 SQL 往返 7/8/6，payload 4.3/13.1/8.7KB。前端已完成 V2 判别式类型、独立 controller、三工作台、共享详情、地域涨跌分布、20 日 Heat、六态骨架、5 秒超时/重试、AbortController + request id stale 防护、Tab 键盘切换和 V1 DTO/adapter/fixture 清零；全量 Wealth 192 项测试、typecheck 与 build 通过。待同一发布窗口部署后完成真实登录首页 smoke、同机房 P95/P99 和 Figma 同尺寸截图；本地不同端口没有可复用登录态，未把该限制误记为像素验收通过。
 
 ---
 
@@ -860,9 +873,9 @@ V2 切换时删除或彻底替换：
 
 ## 14. 已知风险
 
-1. Figma 已完成盘后、地域和有效池口径同步；后续 Web 实现仍需按同尺寸截图做像素验收。
-2. 首发整窗已完成只读核验，但实现仍必须把逐日来源行数、逐概念 `INVALID` 原因和 source hash 写入 plan/TaskRun，防止后续来源漂移被静默吞掉。
-3. Ops generic executor、app binding 与生产 CLI factory 已实现。首次正式 PLAN TaskRun `8147` 的运行状态为 success，但计划结果是 `0 units / 60 gaps / apply_ready=false`，未通过 APPLY 门禁；根因是 Heat 查询把 Prod `board_moneyflow_dc.content_type='概念'` 错写为 `概念板块`，并被同样错误的测试 fixture 掩盖。查询和正反测试已修复，重新部署后仍必须复跑 PLAN 并验收查询耗时、statement timeout 和 TaskRun snapshot 体积，才能允许 APPLY。
+1. Figma 已完成盘后、地域和有效池口径同步；Web 结构已实现，但本地 Wealth 新端口没有可复用登录态，仍须在同窗口部署后的真实页面按同尺寸截图做像素验收。
+2. 首发整窗已完成 PLAN/APPLY 与 read-back；逐日来源行数、逐概念 `INVALID` 原因和 source hash 已进入 plan/TaskRun。后续配置或来源变化必须重新生成 PLAN，不得复用 `8149` 静默覆盖新口径。
+3. TaskRun `8147` 保留为错误资金流枚举被门禁拦截的负向证据；正式 PLAN `8149`、APPLY `8152` 与幂等重放 `8153` 已通过。下一风险已转为后端 V2 查询不得在请求时重算 Heat，也不得把 `INVALID` 回退为其它排名事实。
 4. Heat V1 是产品首版，60 日回放只能验证稳定性和可解释性，不能证明投资预测能力。
 5. 行业层级当前是当前版本快照；历史 `tradeDate` 请求不会还原历史层级变化。
 6. Web 与 Heat 复用现有应用账号，数据库不会提供模块级拒绝保护；必须以固定 DAO/SQL、Web 无 DML、Heat/Ops 双 Session 和事务回滚测试防止访问边界漂移。全站账号拆分属于独立治理范围。
@@ -877,6 +890,9 @@ V2 切换时删除或彻底替换：
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.12 | 2026-08-13 | 记录 Slice 7 前端 V2：三工作台、独立状态、稳定骨架、地域涨跌分布、键盘与 stale 防护已实现，旧 DTO/adapter/fixture 清零；Wealth 192 项测试、typecheck/build 通过，真实页面像素与同机房性能待同窗口部署后验收 |
+| v2.11 | 2026-08-13 | 记录 Slice 6 后端 V2：判别式三视图契约、严格参数/选择/状态、prod-only 查询与成员详情已实现；86 项相关回归通过，生产只读验收为 READY、7/8/6 次 SQL、payload 均低于 120KB；待前端同窗口切换，后端不得单独部署 |
+| v2.10 | 2026-08-13 | 记录正式 PLAN `8149`、首次 APPLY `8152` 和幂等重放 `8153` 的生产验收：60 日 29,665 行、逐日 config/source/content hash 0 差异、重放 0 写入，Slice 5 完成并进入后端 V2 |
 | v2.9 | 2026-08-13 | 记录首次正式 PLAN TaskRun `8147` 的门禁未通过证据：Prod 资金流实际完整，但 Heat 查询误用 `content_type='概念板块'`；修正为真实枚举 `概念` 并增加错误枚举负例，待重新部署复跑 PLAN |
 | v2.8 | 2026-08-13 | 记录 Slice 5 本地实现：严格配置与两位最终分、prod 有界来源/有效池、REPEATABLE READ、单日事务/read-back、60 日 PLAN/APPLY、snapshot integrity、断点幂等续跑、Ops/app/CLI 装配及访问边界测试；生产 PLAN/APPLY 仍待部署后分阶段批准 |
 | v2.7 | 2026-08-13 | 记录 hierarchy 正式发布与 hash 验收、冻结 60+25 日窗口并完成九张 prod 来源整窗审计；明确 Prod Raw/Core 同步缺少的 `dc_daily` 板块行按逐概念 `INVALID` 处理，不伪造数据、不阻断其它概念所在交易日 |

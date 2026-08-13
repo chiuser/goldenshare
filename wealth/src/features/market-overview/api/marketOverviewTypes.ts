@@ -143,25 +143,6 @@ export interface LadderV5 {
   firstBoard: LadderV5Stock[];
 }
 
-export interface SectorRankRow {
-  name: string;
-  text: string;
-  value: number;
-}
-
-export interface SectorColumn {
-  key: string;
-  title: string;
-  tone: "up" | "down";
-  valueLabel: string;
-  rows: SectorRankRow[];
-}
-
-export interface HeatCell {
-  name: string;
-  pct: number;
-}
-
 export interface MarketOverview {
   tradeDate: string;
   updateTime: string;
@@ -193,8 +174,4 @@ export interface MarketOverview {
   };
   ladder: LadderLevel[];
   ladderV5?: LadderV5;
-  sectors: {
-    columns: SectorColumn[];
-    heatmap: HeatCell[];
-  };
 }
