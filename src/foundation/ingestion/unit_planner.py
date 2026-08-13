@@ -353,7 +353,9 @@ class DatasetUnitPlanner:
         for key in ("ts_code", "con_code", "index_code", "board_code", "freq", "start_date", "end_date"):
             value = merged_values.get(key, request_params.get(key))
             if value not in (None, ""):
-                context[key] = value
+                # TaskRun persists this context as JSON, so dates must cross the
+                # ingestion boundary as display-safe strings rather than Python dates.
+                context[key] = value.isoformat() if isinstance(value, date) else value
         if anchor is not None and date_field:
             context.setdefault(date_field, anchor.isoformat())
             context["date_field"] = date_field

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -8,6 +9,7 @@ import pytest
 from src.foundation.ingestion.errors import IngestionPlanningError
 from src.foundation.ingestion.errors import IngestionValidationError
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
+from src.ops.runtime.task_run_dispatcher import TaskRunDispatcher
 from src.foundation.ingestion.request_builders import (
     _cyq_chips_params,
     _etf_sh_cons_params,
@@ -662,9 +664,10 @@ def test_stk_factor_pro_builds_adj_factor_refresh_units_for_changed_codes(mocker
     ]
     assert plan.units[1].progress_context == {
         "ts_code": "000001.SZ",
-        "start_date": date(2025, 1, 2),
-        "end_date": date(2026, 4, 24),
+        "start_date": "2025-01-02",
+        "end_date": "2026-04-24",
     }
+    json.dumps(TaskRunDispatcher._plan_snapshot(plan))
 
 
 def test_stk_factor_pro_skips_changed_code_without_raw_history(mocker) -> None:
