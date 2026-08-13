@@ -178,7 +178,7 @@ function IndexMinuteModuleState({
 }) {
   const loading = phase === "loading" || phase === "idle";
   const title = loading ? "正在加载指数分钟数据" : phase === "empty" ? "暂无指数分钟数据" : "指数分钟数据加载失败";
-  const message = loading ? "正在读取正式 Silver 分钟 K 线" : errorMessage || "请稍后重试。";
+  const message = loading ? "正在读取正式 Gold 分钟 K 线" : errorMessage || "请稍后重试。";
   return <section className="detail-chart-workspace index-minute-module-state" aria-label="指数分钟图表区">
     <div role="status"><strong>{title}</strong><span>{message}</span>{phase === "error" ? <button type="button" onClick={onRetry}>重新加载</button> : null}</div>
     <div aria-hidden="true" className="detail-chart-indicator-bar" />

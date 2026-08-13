@@ -38,8 +38,8 @@ def _write_bar(root: Path) -> None:
         connection.execute(
             """
             INSERT INTO bars VALUES
-            ('000638.SZ', 5, DATE '2026-07-31', TIMESTAMP '2026-07-31 09:30:00', 1, 2, 0.5, 1.5, 10, 100, 'SZSE'),
-            ('000638.SZ', 5, DATE '2026-07-31', TIMESTAMP '2026-07-31 09:35:00', 1.5, 2.5, 1, 2, 11, 110, 'SZSE')
+            ('000638.SZ', 5, DATE '2026-07-31', TIMESTAMP '2026-07-31 09:35:00', 1, 2, 0.5, 1.5, 10, 100, 'SZSE'),
+            ('000638.SZ', 5, DATE '2026-07-31', TIMESTAMP '2026-07-31 09:40:00', 1.5, 2.5, 1, 2, 11, 110, 'SZSE')
             """
         )
         connection.execute("COPY bars TO ? (FORMAT PARQUET)", [str(target)])
@@ -65,7 +65,7 @@ def _write_indicator(root: Path) -> None:
         connection.execute(
             """
             INSERT INTO indicators VALUES
-            ('000638.SZ', 5, DATE '2026-07-31', TIMESTAMP '2026-07-31 09:30:00', NULL, NULL, NULL, NULL, NULL, NULL, 'p', 1)
+            ('000638.SZ', 5, DATE '2026-07-31', TIMESTAMP '2026-07-31 09:35:00', NULL, NULL, NULL, NULL, NULL, NULL, 'p', 1)
             """
         )
         connection.execute("COPY indicators TO ? (FORMAT PARQUET)", [str(target)])
@@ -105,7 +105,7 @@ def test_minute_api_returns_bars_with_ready_status_and_shanghai_time(tmp_path, m
     assert payload["meta"]["count"] == 1
     assert payload["meta"]["limit"] == 1
     assert payload["meta"]["hasMore"] is True
-    assert payload["bars"][0]["tradeTime"] == "2026-07-31T09:35:00+08:00"
+    assert payload["bars"][0]["tradeTime"] == "2026-07-31T09:40:00+08:00"
     assert "preClose" not in payload["bars"][0]
 
 

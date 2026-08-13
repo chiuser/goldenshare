@@ -1,6 +1,6 @@
 # 指数详情页技术实施方案 v1
 
-> 状态：M1–M5-B 已完成并通过验证；详情图表共享收敛与缩放已由 `b38ac20e`、`61a5adea` 完成；真实 Gold provider 与 Mock 清零已闭环。
+> 状态：M1–M5-B 与 P10 业务读取切换已完成；详情图表共享收敛与缩放已由 `b38ac20e`、`61a5adea` 完成；bars 与 indicators 当前都只读正式 Gold，无 Silver fallback。
 > 对应需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 对应门禁：[指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
 > 低层设计：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)
@@ -18,7 +18,7 @@
 2. 复用市场上下文、主要指数策略配置、鉴权和通用图表能力。
 3. 日线行情/因子、权重贡献由 Wealth 模块 API 输出；仅上证指数直接消费现有 Quote 趋势通道 API，前端统一组装 ViewModel。
 4. 将股票详情图表中的通用多面板引擎提取到 `shared/charts`，股票与指数保留各自页面适配层；禁止复制 751 行图表实现。
-5. 生产只发布日线；本地分钟作为独立后置里程碑，M5-A 以正式 Silver 合同与本地 capability 作为 K 线路由门禁，Gold 指标不阻塞 K 线。
+5. 生产只发布日线；本地分钟作为独立能力，P10 后以正式 Gold canonical bars 与本地 capability 作为 K 线路由门禁，Gold indicators 独立结算，指标失败不阻塞 Gold K 线。
 6. 技术结论和九转不纳入本轮 API，不返回 mock 或前端推导值。
 
 ## 2. 跨模块抽象门禁原则
@@ -57,7 +57,7 @@
 5. `IndexWeightDAO.get_latest_weights()` 能选最近批次，但返回按 `con_code` 排序，不符合页面“按权重排序”；页面查询不能照搬排序语义。
 6. 现有趋势通道路由 `/api/v1/quote/detail/trend-channel` 和 schema 只接受 `000001.SH + day`，公式版本也是 SSE 专项；不能声称已覆盖其余 9 个指数。
 7. 当前 local minute capability 已统一管理 `APP_ENV`、`WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED`、`GOLDENSHARE_LAKE_ROOT` 和 DuckDB 依赖，无需新增第二套开关。
-8. `major_index_mins` Silver 与 `major_index_mins_technical` Gold 七频率正式物理文件已通过只读审计；M5-B Web 只消费稳定物理合同，不修改对应 Dagster asset/writer/check/state。
+8. `major_index_mins` Gold bars 与 `major_index_mins_technical` Gold indicators 七频率正式物理文件已通过只读审计；P10 Web 只消费稳定物理合同，不修改对应 Dagster asset/writer/check/state。
 9. 指数详情所有保留面包屑的页面状态均在右侧使用共享 `DetailReturnHomeButton`。页面调用 `returnToWealthOverview()`：当前 entry 有 `navigateWealth()` 写入的站内来源标记时执行浏览器返回；直达详情、旧 entry 或未知来源时 replace 到 `/wealth/market/overview`，不退到外部站点。
 
 ### 3.3 CodeGraph 影响面
@@ -116,7 +116,7 @@ MarketOverview / 10 cards
        -> kline ----------------> index_factor_pro
        -> trend-channel (仅 000001.SH) -> 既有 Quote API
        -> weights (lazy) -------> index_weight + security_serving + equity_daily_bar + equity_suspend_d
-       -> local minutes --------> Lake Silver/Gold (local only)
+       -> local minutes --------> Lake Gold bars/indicators (local only)
 ```
 
 边界：
@@ -154,7 +154,7 @@ src/biz/
     index_detail_exception_builder.py
 
 src/foundation/clients/local_lake/
-  major_index_mins_reader.py              # 只读 Silver/Gold
+  major_index_mins_reader.py              # 只读 Gold bars/indicators
 ```
 
 现有文件修改：
@@ -411,13 +411,13 @@ interface IndexDetailWeightsResponse {
 1. 复用 `resolve_local_minute_capability()` 与现有两项 Settings，不新增配置。
 2. prod/staging 不 import reader、不 import DuckDB、不挂路由。
 3. local enabled 后：
-   - bars 只读 `silver/quote/major_index_mins/freq={freq}/trade_date={date}/part-000.parquet`；
+   - bars 只读 `gold/quote/major_index_mins/freq={freq}/trade_date={date}/part-000.parquet`；
    - indicators 只读 `gold/indicator/major_index_mins_technical/freq={freq}/trade_date={date}/part-000.parquet`；
    - 不读 state 文件，不触发 Dagster，不写 Lake。
 4. 默认 500 根，cursor 时间键翻页；指标 null 保持 null。
 5. `899050.BJ` 等历史覆盖边界按 Lake 合同返回 EMPTY/DELAYED，不从日线或其他指数补造。
 6. M5-B 前端使用真实 `/minute-indicators` provider，与 bars 传入同一 `tsCode/freq/startDate/endDate/limit`，按 `tradeTime` 一一合并；`paramsKey/indicatorVersion` 直接保留 Gold DTO 值。
-7. bars 与 indicators 独立结算：bars ERROR/EMPTY 决定分钟主模块 ERROR/EMPTY；bars READY 且 indicators ERROR/EMPTY/身份或时间键不完整时，返回 bars-only ViewModel 和技术图层 PARTIAL。不得清空 K 线、回退 Mock 或用其它 code/frequency 缓存补齐。
+7. bars 与 indicators 独立结算：Gold bars ERROR/EMPTY 决定分钟主模块 ERROR/EMPTY；bars READY 且 Gold indicators ERROR/EMPTY/身份或时间键不完整时，返回 bars-only ViewModel 和技术图层 PARTIAL。不得清空 K 线、回退 Mock 或用其它 code/frequency 缓存补齐。
 8. M5-B 删除 `indexMinuteMockIndicatorProvider.ts`、`indicatorSource="mock"`、`模拟指标` 标识及专属测试；内部来源只保留 `gold|unavailable`，生产仍不挂载分钟路由。
 
 ## 7. 前端交互与状态机
@@ -664,6 +664,7 @@ M5-B 准备批次已于 2026-08-12 验收。2026-08-13 最终重跑确认 Silver
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.20 | 2026-08-14 | 完成 P10 业务读取切换：主要指数 bars 改为正式 Gold canonical bars，无 Silver fallback；同步能力探测、状态文案与有限只读验收 | Codex |
 | v1.19 | 2026-08-13 | 完成 M5-B 真实 provider、bars-only Partial、Mock 清零与浏览器回归；更新 4,277×7 分区最终只读验收和性能证据 | Codex |
 | v1.18 | 2026-08-13 | 回填 M5-B 正式 Gold 全历史与性能门禁；冻结 10000/5MB 拒绝语义、5000 正常分页，以及真实指标独立结算、bars-only PARTIAL 和 Mock 彻底删除方案 | Codex |
 | v1.17 | 2026-08-12 | M3 对账：共享收敛与缩放已由 `b38ac20e`/`61a5adea` 完成，四类图表统一 dataKey、45～180/15 与自适应 120；后端合同不变 | Codex |

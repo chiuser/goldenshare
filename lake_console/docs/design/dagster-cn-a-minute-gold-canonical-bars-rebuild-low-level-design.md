@@ -2,7 +2,7 @@
 
 更新时间：2026-08-14
 
-状态：**P0-P9 已完成。P7 已完成股票 QFQ canonical bars 正式重建与抽样/统计验收；P8 已按 5m、15m、30m、60m 的顺序完成 2014-01-02 至 2026-08-12 全历史 MACD/KDJ 与递推 state 重建；P9 已对实际重建范围补齐 103,677 条 materialization event，并只对各专属分区最近 20 个交易日补齐 1,720 条 latest-bound check event。P9 未写 Lake、run 或 dynamic partition，相关 sensors 保持 STOPPED。P10 业务读取切换和 P11 sensor 恢复尚未进入。**
+状态：**P0-P10 已完成。P7 已完成股票 QFQ canonical bars 正式重建与抽样/统计验收；P8 已按 5m、15m、30m、60m 的顺序完成 2014-01-02 至 2026-08-12 全历史 MACD/KDJ 与递推 state 重建；P9 已对实际重建范围补齐 103,677 条 materialization event，并只对各专属分区最近 20 个交易日补齐 1,720 条 latest-bound check event。P10 已将主要指数业务 bars 从 Silver 切换到 Gold canonical bars，无 fallback，并收紧股票 bars/indicators 时间键合同。P11 sensor 恢复与连续交易日观察尚未进入。**
 
 本文是以下三类分钟线的当前唯一业务口径：
 
@@ -1137,6 +1137,32 @@ P9 于 2026-08-14 按上述口径完成，执行计划 hash 为
 3. 启动本地 Web 前运行全量业务合同审计。
 4. API 分别抽查七频，验证非 1m 无 09:30、首根时间正确、bars/indicators 时间键一致。
 5. 浏览器检查 K 线和 tooltip 时间、OHLC、指标严格同轴。
+
+P10 于 2026-08-14 完成，实际结果：
+
+1. `MajorIndexMinsLakeReader` 的 bars 唯一路径为
+   `gold/quote/major_index_mins`；capability、页面 loading 文案和现行 API 文档均已同步为 Gold，
+   没有 Silver、旧 Lake 或 staging fallback。
+2. `StockMinsLakeReader` 仍只读 `gold/quote/stk_mins_qfq` 与
+   `gold/indicator/stk_mins_qfq_macd_kdj`，并在本次有限返回页上 fail closed 校验身份、
+   `trade_time/trade_date`、重复键、非 1m 独立 09:30 以及 15:00 后行情行；没有增加全文件扫描。
+3. 股票前端 adapter 现在要求 bars 与 indicators 的根级/逐行身份一致、两侧时间键各自唯一且
+   完整集合严格相等。指标字段自身的预热 NULL 继续保留；指标缺行或多行不再静默补 NULL 后绘图。
+4. 正式主要指数只读样本报告为
+   `/private/tmp/cn_a_minute_gold_p10/index_gold_business_audit_20260814.json`：七频 bars 与
+   indicators 各有 4,277 个共同分区，最新共同分区均为 `2026-08-12`，每频率抽查 1 个最新
+   分区，时间键差异和合同失败均为 0；九个页面可用指数、七频率、每组 1 次 500 根查询的
+   P95 为 257.008-300.783ms，低于 1.5s 目标和 5s 硬门禁。P10 没有重复执行全历史深扫。
+5. 新代码临时 Web 端口的只读 API 报告为
+   `/private/tmp/cn_a_minute_gold_p10/api_contract_20260814.json`：上证指数与中信证券各七频率共
+   14 组全部 READY。每个完整交易日的行数依次为 `241/48/16/8/4/3/2`，首根依次为
+   `09:30/09:35/09:45/10:00/10:30/11:00/11:30`，末根均为 15:00，bars 与 indicators
+   完整时间键集合严格相等。
+6. 浏览器真实页面完成指数和股票 5 分钟切换；K 线、MACD、成交量、KDJ 四窗格正常渲染，
+   tooltip 同一时间展示真实 OHLCV 与成交额，MACD/KDJ 标题同步变化，console error 为 0。
+7. 页面当前提示分钟数据尚未覆盖期望交易日，是因为 Gold 最新物理日期仍为 `2026-08-12`，
+   晚于该日期的日常追平属于 P11 sensor 恢复范围。P10 保留正确 DELAYED 状态，没有启用 sensor、
+   写 Lake、写 Dagster event 或提交 run。
 
 ### P11 Sensor 恢复与观察
 

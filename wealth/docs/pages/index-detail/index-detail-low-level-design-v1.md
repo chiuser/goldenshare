@@ -1,6 +1,6 @@
 # 指数详情页低层设计（LLD）v1
 
-> 状态：M1–M5-B 已按冻结合同实现并通过验证；四类详情图表共享同一 viewport 与缩放实现；真实 Gold provider 与 Mock 清零已闭环。
+> 状态：M1–M5-B 与 P10 业务读取切换已按冻结合同实现；四类详情图表共享同一 viewport 与缩放实现；主要指数 bars/indicators 当前都只读正式 Gold，无 Silver fallback。
 > 需求依据：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 技术方案：[指数详情页技术实施方案 v1](./index-detail-implementation-design-v1.md)
 > 编码门禁：[指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
@@ -57,7 +57,7 @@ M0 技术产物已完成，M1 后端已落地：
 5. 已新增独立 `page-init/kline/weights` schema、query、mapper、service 与正式路由；未修改股票详情、主要指数卡片或 Quote trend DTO。
 6. M1 生产只读复验显示 9 个指数当前有 630 根 factor（自 2024-01-02），A500 当前有 455 根（自 2024-09-23）；该结果只记录审计时点，不进入任何 code/date 特例。
 
-M5-A 不以 Gold 物理文件作为 Silver K 线前置。当前正式 Silver/Gold technical 七频率均已通过物理与性能只读审计，Definitions 已发现七频率 14 个资产和 70 个 blocking checks；M5-B 剩余工作收敛为真实 provider 切换、Mock 清零和浏览器回归。
+M5-A 的 Silver K 线是历史阶段事实。P10 已在 Gold canonical bars 重建、技术指标重建和事件补录完成后，将正式业务读取切换为 Gold bars + Gold indicators；当前不再读取 Silver，也不保留 fallback。
 
 ---
 
@@ -143,7 +143,7 @@ Figma 事实源：
 | `Security` | 成分股名称、证券类型、交易所和币种 | 用 `EQUITY + SSE/SZSE/BSE + CNY` 定义页面 A 股有效集合；不得按代码前缀猜测 |
 | `QuoteTrendChannelQueryService` | `000001.SH + day` 的 25/90 通道与缓存 | 直接消费，绝不参数化为 10 指数 |
 | `resolve_local_minute_capability` | local/dev 开关、Lake root、DuckDB 门禁 | M5 复用，不新增设置 |
-| `StockMinsLakeReader` | 股票按年份 Gold 文件、游标和 schema 校验 | 指数是按交易日 Silver/Gold，不能继承或复制路径算法 |
+| `StockMinsLakeReader` | 股票按年份 Gold 文件、游标和 schema 校验 | 指数是按交易日 Gold bars/indicators，不能继承或复制路径算法 |
 
 ### 4.2 前端现状
 
@@ -1229,8 +1229,8 @@ Orchestrator 与 Web Reader 之间不建立运行时 import。仓库根静态合
 
 `major_index_mins_contract.py` 冻结 Web 只读端需要的：
 
-1. 七个频率及 API int -> Silver string 的映射。
-2. Silver/Gold 列名和类型。
+1. 七个频率及 API int 频率合同。
+2. Gold bars/Gold indicators 列名和类型。
 3. 安全 code/date/freq regex。
 4. 固定正式相对路径 builder。
 5. `params_key` 与 `indicator_version` 期望值；若 Gold 合同升级，Web 合同必须显式评审同步。
@@ -1264,7 +1264,7 @@ M5-B 必须删除 M5-A 的 `indexMinuteMockIndicatorProvider.ts`、`indicatorVer
 
 ### 16.5 已知数据范围
 
-当前 Silver 合同显式排除 `899050.BJ`。因此 local capability 表示“指数分钟功能已启用”，不保证每个 code/date 均有数据；北证50请求无有效 Silver 时返回明确 EMPTY/DELAYED，不 fallback 到旧 Lake、日线或第三方接口。
+当前 Gold bars 合同显式排除 `899050.BJ`。因此 local capability 表示“指数分钟功能已启用”，不保证每个 code/date 均有数据；北证50请求无有效 Gold 时返回明确 EMPTY/DELAYED，不 fallback 到 Silver、旧 Lake、日线或第三方接口。
 
 ---
 
@@ -1565,6 +1565,7 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.17 | 2026-08-14 | 完成 P10：正式 reader 与 capability 统一只读 Gold bars/indicators，无 Silver fallback；同步七频业务合同、时间键对齐和浏览器验收边界 | Codex |
 | v1.16 | 2026-08-13 | 完成 M5-B 真实 provider、bars-only Partial、Mock 清零和 1600×1200 浏览器回归；更新最终 4,277×7 分区验收与性能证据 | Codex |
 | v1.15 | 2026-08-13 | 回填 M5-B 正式 Gold 全历史、Definitions、Dagster 后审计与性能证据；冻结 10000/5MB + 5000 cursor 验收算法，以及真实 provider 独立结算、bars-only PARTIAL 和 Mock 清零的编码落点 | Codex |
 | v1.14 | 2026-08-12 | M3 对账：四类详情图表已统一 shared 生命周期、稳定 dataKey、45～180/15 和 1600px 默认 120；API、趋势与状态合同不变 | Codex |

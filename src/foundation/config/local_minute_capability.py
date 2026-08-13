@@ -79,8 +79,8 @@ def resolve_index_minute_capability(settings: Settings) -> LocalMinuteCapability
             message="指数分钟能力只允许读取正式 /Volumes/datasource/data_lake。",
         )
 
-    silver_root = major_index_minute_dataset_root(capability.lake_root, "bars")
-    if not silver_root.is_dir() or not os.access(silver_root, os.R_OK):
+    gold_root = major_index_minute_dataset_root(capability.lake_root, "bars")
+    if not gold_root.is_dir() or not os.access(gold_root, os.R_OK):
         return LocalMinuteCapability(
             enabled=False,
             lake_root=capability.lake_root,

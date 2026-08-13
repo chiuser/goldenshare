@@ -1,6 +1,6 @@
 # 指数详情页 M2 编码前门禁 v1
 
-> 状态：M1–M5-B 条目已通过；共享图表缩放门禁已由 `61a5adea` 闭环；M5-B 正式 Gold、真实 provider、Mock 清零和浏览器回归已完成。
+> 状态：M1–M5-B 与 P10 条目已通过；共享图表缩放门禁已由 `61a5adea` 闭环；bars/indicators 当前都只读正式 Gold，无 Silver fallback。
 > 需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 方案：[指数详情页技术实施方案 v1](./index-detail-implementation-design-v1.md)
 > LLD：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)
@@ -545,6 +545,8 @@ WHERE w.index_code = :index_code
 M5-B 准备批次验证记录（2026-08-12）：42 项分钟相关测试、14 项子系统边界测试、Ruff、文档完整性和 diff 检查均通过。正式只读预检为 Silver 每频率 4,276 个分区、Gold technical 每频率 0 个分区，正确返回 `SOURCE_NOT_READY / IM_SOURCE_NOT_READY`；正式 Gold 性能仍未验收。
 
 M5-B 最终验证记录（2026-08-13）：Definitions 为 14 assets/70 checks；Silver/Gold technical 七频率各 4,277 个分区，29,939 个全历史分区对零失败；Technical/state 共 59,878 个文件、10,150,506 行；630 个默认 500 根样本全部 READY，频率级 P95 282.243–322.982ms。10000 根按 5MB 门禁正确拒绝，5000 根返回 3,181,443 bytes、cursor 有效且耗时 334.441ms。真实 provider、bars-only Partial、Mock 清零、155 项 Wealth 全量测试和 1600×1200 浏览器回归通过。
+
+P10 业务读取切换记录（2026-08-14）：上述 Silver bars 仅保留为 M5-A 历史验收事实。当前 reader、capability、API 和前端文案统一只读 Gold canonical bars + Gold indicators，无 Silver fallback；有限七频率业务合同与浏览器验收作为 P10 发布门禁。
 
 ## 10. 性能门禁
 

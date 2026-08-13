@@ -36,10 +36,10 @@ def _write_bars(root: Path, *, code: str = "000638.SZ", freq: int = 5, year: int
     target = root / "gold" / "quote" / "stk_mins_qfq" / f"freq={freq}" / f"ts_code={code}" / f"year={year}" / "part-000.parquet"
     target.parent.mkdir(parents=True)
     rows = rows or [
-        (code, freq, date(2026, 7, 31), "2026-07-31 09:30:00", 1.0, 1.2, 0.9, 1.1, 10.0, 100.0, "SZSE"),
         (code, freq, date(2026, 7, 31), "2026-07-31 09:35:00", 1.1, 1.3, 1.0, 1.2, 11.0, 110.0, "SZSE"),
         (code, freq, date(2026, 7, 31), "2026-07-31 09:40:00", 1.2, 1.4, 1.1, 1.3, 12.0, 120.0, "SZSE"),
         (code, freq, date(2026, 7, 31), "2026-07-31 09:45:00", 1.3, 1.5, 1.2, 1.4, 13.0, 130.0, "SZSE"),
+        (code, freq, date(2026, 7, 31), "2026-07-31 09:50:00", 1.4, 1.6, 1.3, 1.5, 14.0, 140.0, "SZSE"),
     ]
     connection = duckdb.connect(database=":memory:")
     try:
@@ -117,6 +117,44 @@ def test_reader_rejects_cursor_bound_to_another_frequency(tmp_path: Path) -> Non
 
     with pytest.raises(MinuteRequestError):
         reader.read_bars(replace(request, freq=15, cursor=first.next_cursor))
+
+
+@pytest.mark.parametrize("invalid_time", ["2026-07-31 09:30:00", "2026-07-31 15:01:00"])
+def test_reader_rejects_noncanonical_gold_times(
+    tmp_path: Path,
+    invalid_time: str,
+) -> None:
+    _write_bars(
+        tmp_path,
+        rows=[
+            (
+                "000638.SZ",
+                5,
+                date(2026, 7, 31),
+                invalid_time,
+                1.0,
+                1.2,
+                0.9,
+                1.1,
+                10.0,
+                100.0,
+                "SZSE",
+            )
+        ],
+    )
+    reader = StockMinsLakeReader(tmp_path)
+
+    with pytest.raises(MinuteSourceContractError):
+        reader.read_bars(
+            MinuteReadRequest(
+                "000638.SZ",
+                5,
+                date(2026, 7, 31),
+                date(2026, 7, 31),
+                10,
+                None,
+            )
+        )
 
 
 def test_reader_rejects_invalid_code_frequency_and_four_year_range(tmp_path: Path) -> None:

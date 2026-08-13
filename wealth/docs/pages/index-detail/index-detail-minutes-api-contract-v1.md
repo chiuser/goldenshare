@@ -1,13 +1,13 @@
 # 指数详情本地分钟 API / DTO 合同 v1
 
-> 版本：`1.1.0-draft`
-> 状态：reader 代码已切换为只读新增 Gold bars，但正式 Gold 历史 Bootstrap、事件补录和运行验收尚未执行；在全量对账通过前不得把该代码状态视为正式数据可用，也不保留 Silver fallback。切换顺序以 [A 股分钟线 Gold 标准 K 线合同与历史重建 LLD](../../../../lake_console/docs/design/dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md) 为准。
+> 版本：`1.1.0`
+> 状态：P10 业务读取已切换并验收。bars 只读正式 Gold canonical bars，indicators 只读正式 Gold technical；没有 Silver、旧 Lake 或 staging fallback。切换与历史重建证据见 [A 股分钟线 Gold 标准 K 线合同与历史重建 LLD](../../../../lake_console/docs/design/dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md)。
 > 命名空间：`/api/v1/wealth/market/index-detail/*`
 
 ## 1. 边界
 
 1. 本合同只在 `APP_ENV in {dev, local}`、本地分钟开关开启、正式 Lake 根可读且 DuckDB 可用时挂载；prod/staging 不挂载，访问返回 404。
-2. bars 最终唯一读取 `/Volumes/datasource/data_lake/gold/quote/major_index_mins`；indicators 唯一读取正式 Gold `major_index_mins_technical`，不读取 Silver、state、旧 Lake 或 staging。新 Gold 完成全量对账前不得部署此 reader 切换，也不保留 Silver fallback。
+2. bars 唯一读取 `/Volumes/datasource/data_lake/gold/quote/major_index_mins`；indicators 唯一读取正式 Gold `major_index_mins_technical`，不读取 Silver、state、旧 Lake 或 staging，也不保留 fallback。
 3. Gold 1m 可返回 09:30；Gold 5m/15m/30m/60m/90m/120m 禁止返回独立 09:30，首根时间分别为 09:35/09:45/10:00/10:30/11:00/11:30。
 4. bars 与 indicators 必须按完整 `tradeTime` 集合严格相等；不允许后端或前端自行补 bar、删 bar 或按数组位置对齐。
 5. 七频均不得返回 `15:01-15:30`；完整交易日最后一根必须精确为 15:00，技术指标同样截止 15:00。
@@ -158,7 +158,7 @@ MA/BOLL warm-up 不足时保持 null；MACD/KDJ 由 Gold 合同负责，不由 B
 
 1. Dagster Definitions 已能发现七频率 14 个 Gold 资产及 70 个 blocking checks：技术指标 42 个、状态 28 个。该项已经完成，不再与物理数据就绪状态绑定。
 2. Web Reader 与 Orchestrator 的冻结合同必须由静态门禁逐项比较七频率、23 个技术指标列名与类型、`params_key` 和 `indicator_version`；测试只能读取 Orchestrator 源文件，不得让生产 Web 运行时 import Dagster 项目。
-3. `/minute-indicators` 的临时 Parquet fixture 必须覆盖七频率、版本错误、重复时间键和 Gold 缺失隔离。Gold 缺失或损坏不能影响同窗口 Silver bars 的读取结果。
+3. `/minute-indicators` 的临时 Parquet fixture 必须覆盖七频率、版本错误、重复时间键和 Gold technical 缺失隔离。technical 缺失或损坏不能影响同窗口 Gold bars 的独立读取结果。
 4. 正式验收入口为：
 
 ```bash
@@ -166,7 +166,7 @@ uv run python -m src.scripts.audit_index_minute_gold --runs 10
 uv run python -m src.scripts.audit_index_minute_gold --runs 10 --full-alignment --include-max
 ```
 
-第一条执行七频率最新共同分区的合同、唯一键、Silver/Gold 时间键对齐和默认 500 根性能矩阵；第二条显式执行全分区对齐及最大响应门禁。最大响应门禁必须同时验证：代表性 `limit=10000` 请求若超过 5MB，应正确返回 `ID_REQUEST_INVALID`；固定安全窗口 `limit=5000` 必须在 5MB 内正常返回，并验证 `hasMore/nextCursor`、下一页时间顺序和 5s 硬门禁。两条命令都固定只读正式 `/Volumes/datasource/data_lake`，不接收旧 Lake、staging 或自定义根目录。
+第一条执行七频率最新共同分区的合同、唯一键、Gold bars/Gold indicators 时间键对齐和默认 500 根性能矩阵；第二条是历史全量验收入口，不属于 P10 日常切换门禁。最大响应门禁必须同时验证：代表性 `limit=10000` 请求若超过 5MB，应正确返回 `ID_REQUEST_INVALID`；固定安全窗口 `limit=5000` 必须在 5MB 内正常返回，并验证 `hasMore/nextCursor`、下一页时间顺序和 5s 硬门禁。两条命令都固定只读正式 `/Volumes/datasource/data_lake`，不接收旧 Lake、staging 或自定义根目录。
 
 5. 正式 Gold 根或任一频率尚无文件时，工具必须输出 `status=SOURCE_NOT_READY`、`code=IM_SOURCE_NOT_READY`，不得把缺失报告为通过，也不得触发 materialize、backfill、sensor、runless event 或任何 Lake 写入。
 6. 正式 Gold 物理覆盖、全量时间键对齐、默认性能、10000/5MB 拒绝语义和 5000 根分页门禁通过后，前端已一次性切换真实 provider 并删除 Mock；本节数据门禁与前端门禁均已闭环。
@@ -192,6 +192,7 @@ uv run python -m src.scripts.audit_index_minute_gold --runs 10 --full-alignment 
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| 1.1.0 | 2026-08-14 | 完成 P10：bars 从历史 Silver 合同切换到正式 Gold canonical bars，无 fallback；同步七频时间键和本地业务读取验收口径 | Codex |
 | 1.0.4 | 2026-08-13 | 完成真实 Gold provider、bars-only Partial、Mock 清零和浏览器验收；以 4,277×7 分区最终重跑更新全历史、性能、10000 拒绝与 5000 正常分页证据 | Codex |
 | 1.0.3 | 2026-08-13 | 回填正式 Gold 全历史覆盖、对齐和性能证据；澄清 10000 参数上限与 5MB 优先门禁，冻结 10000 拒绝语义 + 5000 正常分页验收；定义真实 provider、bars-only PARTIAL 和 Mock 彻底退场边界 | Codex |
 | 1.0.2 | 2026-08-12 | 记录 70 checks 注册已完成，冻结跨边界合同静态门禁、七频率异常 fixture 与只读正式 Gold 验收入口；物理覆盖、对齐、性能和前端切换继续留在 M5-B | Codex |

@@ -167,6 +167,7 @@ class StockMinsLakeReader:
                 columns=columns,
                 request=normalized,
             )
+            _validate_page_rows(rows, request=normalized)
         except MinuteReaderError:
             raise
         except Exception as exc:
@@ -300,6 +301,30 @@ def _query_rows(connection: Any, *, paths: Sequence[Path], columns: Sequence[str
         return [dict(zip(names, row, strict=True)) for row in cursor.fetchall()]
     except Exception as exc:
         raise MinuteQueryError("分钟 Lake 查询失败。") from exc
+
+
+def _validate_page_rows(
+    rows: Sequence[dict[str, Any]],
+    *,
+    request: MinuteReadRequest,
+) -> None:
+    seen_keys: set[tuple[date, datetime]] = set()
+    for row in rows:
+        trade_date = row["trade_date"]
+        trade_time = row["trade_time"]
+        if row["ts_code"] != request.ts_code or row["freq"] != request.freq:
+            raise MinuteSourceContractError("分钟 Lake 行身份与请求不一致。")
+        if trade_time.date() != trade_date:
+            raise MinuteSourceContractError("分钟 Lake trade_time 与 trade_date 不一致。")
+        local_time = trade_time.time()
+        if local_time > clock_time(15, 0):
+            raise MinuteSourceContractError("分钟 Lake 包含 15:00 之后的行情行。")
+        if request.freq != 1 and local_time == clock_time(9, 30):
+            raise MinuteSourceContractError("非 1 分钟 Gold 行情包含独立 09:30 bar。")
+        key = (trade_date, trade_time)
+        if key in seen_keys:
+            raise MinuteSourceContractError("分钟 Lake 返回页存在重复时间键。")
+        seen_keys.add(key)
 
 
 def _encode_cursor(*, dataset: DatasetName, request: MinuteReadRequest, before_trade_date: date, before_trade_time: datetime) -> str:

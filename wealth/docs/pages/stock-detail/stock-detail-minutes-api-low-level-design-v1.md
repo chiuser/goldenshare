@@ -1,4 +1,4 @@
-# 股票详情分钟线与分钟技术指标 API LLD v1.7
+# 股票详情分钟线与分钟技术指标 API LLD v1.8
 
 > 2026-08-13 数据合同修正：reader 的 Gold-only 边界不变，但正式 Gold QFQ
 > 5m/15m/30m/60m 与对应 MACD/KDJ/state 必须按
@@ -632,11 +632,11 @@ interface StockMinuteChartPoint {
 
 `stockMinuteViewModelAdapter.ts` 必须：
 
-1. 按 bars 的时间键建立 Map。
-2. 按 indicators 的时间键补充指标。
-3. bars 有而 indicators 没有时保留 bar，指标字段为 NULL。
-4. indicators 有而 bars 没有时不创建伪造 bar，并在 debug 中记录差集计数。
-5. 不调用现有 `valueOrZero()`。
+1. 先校验两侧根级与逐行 `tsCode/freq` 完全一致。
+2. 分别按完整时间键建立 Map，任一侧存在重复键立即 fail closed。
+3. bars 与 indicators 的完整时间键集合必须严格相等；任何缺失或多余都不得进入图表。
+4. 指标字段自身处于预热期的 NULL 保持 NULL，不转成 0，也不调用现有 `valueOrZero()`。
+5. adapter 失败只影响分钟图表模块，不回退 mock、不使用其他频率或旧缓存补齐。
 
 ### 8.3 页面编排
 
@@ -711,7 +711,7 @@ wealth/src/features/stock-detail/chart/StockMinuteChartWorkspace.test.tsx
 5. 500 个分钟点在 1600px 基线下初始显示末尾 120 点且不调用 `fitContent()`；增加 45/180 边界、75/150 自适应宽度、dataKey 和 overlay/resize/append 生命周期测试。
 6. 在任意分钟窗格拖动后，四个 chart 的 logical range 同步且不越过已加载点范围；该动作不发出新的 bars/indicators 请求。
 7. crosshair 命中时分钟 K 线 tooltip 按日线顺序展示真实 OHLCV/amount 并使用正确的股/元单位；MACD/KDJ 标题同步更新，NULL 指标为 `--`，不出现日线专属字段。
-8. bars/indicators 时间差集不制造伪造 bar。
+8. bars/indicators 时间集合不完全相等时 fail closed，不制造伪造 bar，也不静默补 NULL 指标行。
 9. API error 不回退 mock。
 10. delayed/empty 不污染已有日线页面状态。
 
@@ -815,6 +815,7 @@ debug metadata 只允许包含：dataset、freq、scanned_file_count、row_count
 | v1.5 | 2026-07-31 | 细化并实施分钟图首屏 90 点、四窗格受控拖动和真实字段 tooltip 的代码级交互口径 |
 | v1.6 | 2026-07-31 | 修正分钟 tooltip 对齐：复用日线顺序与方向色，按分钟源股/元单位展示量额，指标保留在同步面板标题 |
 | v1.7 | 2026-08-12 | M3 对账：股票分钟已迁入 shared 并启用 45～180/15、自适应默认和稳定 dataKey；API/Reader/500 根合同不变 |
+| v1.8 | 2026-08-14 | 完成 P10：reader 对有限返回页增加 canonical 时间合同校验；前端要求 bars/indicators 身份、唯一键和完整时间键集合严格相等，指标值自身的预热 NULL 仍保留 |
 
 ## 15. 符号级实施矩阵
 
@@ -959,7 +960,7 @@ wealth/src/features/stock-detail/api/stockMinuteApiClient.ts
 wealth/src/features/stock-detail/api/stockMinuteViewModelAdapter.ts
 ```
 
-验收：七频 union、两个 endpoint、共同参数、完整时间键、NULL 保留、指标差集不生成伪造 bar。
+验收：七频 union、两个 endpoint、共同参数、完整时间键集合严格相等、NULL 指标值保留、重复键/差集 fail closed。
 
 测试：
 
