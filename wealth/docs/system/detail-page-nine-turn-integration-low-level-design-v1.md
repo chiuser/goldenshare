@@ -1,6 +1,6 @@
 # 股票与主要指数详情页九转接入低层设计（LLD）v1
 
-> 状态：M0、M1、M2、M3-A、M3-B 已通过。M3-C 生产日线接口、权限、真实数据对齐和 1600×1200 Loaded 视觉主体门禁已通过；正式登录态 P95、生产 45/180 根缩放边界截图与分钟九转验收仍待补齐。两个 sensor 继续保持 `STOPPED`。
+> 状态：M0、M1、M2、M3-A、M3-B 已通过。M3-C 生产日线接口、权限、真实数据对齐和 1600×1200 Loaded 视觉主体门禁已通过；正式登录态 P95、生产 45/180 根缩放边界截图与分钟九转验收仍待补齐。M4-A 共享公式内核与股票结果无漂移门禁已完成；尚未创建指数资产或生成指数历史。两个 sensor 继续保持 `STOPPED`。
 >
 > 上游方案：[股票与主要指数详情页九转接入总方案 v1](./detail-page-nine-turn-integration-implementation-design-v1.md)
 >
@@ -235,6 +235,14 @@ up_count, down_count, nine_up_turn, nine_down_turn
 2. 现有股票 public function、asset key、schema、path 和测试名称保持不变。
 3. 股票与指数 adapter 分别把 `close_qfq`、`close` 映射到 `close_value`。
 4. 抽取前后现有股票 golden 输出必须逐行完全相同；不允许复制第二份公式。
+
+M4-A 实施结果：
+
+1. `nineturn_formula.py` 已提供唯一的 `build_nineturn_formula_select_sql`，只使用上述四个规范化行情字段；日线、分钟、全历史、目标窗口和 compact seed 共用同一套 direction、segment、count 与 signal CTE。
+2. `qfq_nineturn.py` 保留全部既有 public function，只负责把 `ts_code/trade_date/bar_time/close_qfq` 投影为规范化输入，并把内核结果投影回冻结的股票日线或分钟 schema。
+3. 公式 SQL 已从股票模块清零；静态门禁要求 `LAG(close_value)`、`segment_start`、`continued_count` 在共享内核中各只有一份，防止未来重新分叉。
+4. 新增共享合同、seeded window 和股票 adapter 逐行对账测试；原受保护 golden、历史批次、fallback、writer、asset、check、job 与 readiness 回归保持通过。
+5. 本阶段没有新增指数 asset/check/job/sensor/path，没有读取或写入正式 Lake，也没有运行 Dagster Definitions、materialize、backfill 或 sensor。
 
 ### 6.2 股票资产
 
@@ -892,6 +900,13 @@ src/biz/api/wealth/market/index_detail_nine_turn.py
 
 实际拆文件时可以按仓库现有 daily/minute 命名规范细分，但不得合并成无法独立测试的单个大文件。
 
+M4-A 已完成且退出条件为：
+
+1. 共享公式文件已落地，股票三个计算入口（全历史、分区增量、年度历史批次）均只通过 adapter 消费共享内核。
+2. 股票公开函数、资产 key、schema、路径、lag=4、threshold=9、10+ 持续信号、seed 与 fallback 语义未改变。
+3. 独立共享内核测试与原股票受保护 golden 形成双门禁；测试只使用内存 DuckDB 和临时 Parquet。
+4. M4-A 不创建指数资产、不生成指数历史。指数 asset/check/job/sensor/readiness、正式历史与性能验收从后续 M4-B 开始。
+
 ### 15.6 M5：指数页面接入
 
 修改现有 index page-init capability、index page/controller、两类 chart adapter、`IndexTechnicalTab` 和测试。不得复制 `NineTurnMarkerPrimitive`、series registry 或 API DTO。
@@ -1001,3 +1016,4 @@ M3-B 已完成，后续仍未完成的运行与发布项：
 | v1.6 | 2026-08-13 | M3-C 生产日线主体门禁通过：登录态 API、真实 300 行样本和 1600×1200 Loaded 视觉已验收；正式 P95、45/180 根生产边界截图与分钟验收继续待完成 | Codex |
 | v1.7 | 2026-08-14 | 冻结所有分钟业务事实统一读取规范化 Gold；将指数分钟九转依赖改为同频 `gold_major_index_mins_*`，并增加禁止直接消费 Silver 的 C17 门禁 | Codex |
 | v1.8 | 2026-08-14 | 增加十四个分钟 K 线 Gold asset key 白名单、物理根和支持频率边界，并冻结针对 Silver asset key 的负向静态门禁 | Codex |
+| v1.9 | 2026-08-14 | 完成 M4-A：提取唯一规范化九转 SQL 内核，股票全历史、分区与年度批次改为薄适配器，并以受保护 golden、逐行对账和禁止公式复制的静态门禁证明结果无漂移 | Codex |

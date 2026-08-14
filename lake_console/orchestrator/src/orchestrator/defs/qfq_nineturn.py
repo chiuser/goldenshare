@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 import hashlib
 import os
+from collections.abc import Sequence
 from pathlib import Path
 
 import duckdb
@@ -15,12 +15,13 @@ from orchestrator.defs.duckdb_sql import (
     duckdb_string,
     read_parquet,
 )
+from orchestrator.defs.nineturn_formula import build_nineturn_formula_select_sql
 from orchestrator.defs.paths import (
     gold_stk_mins_qfq_nineturn_path,
     gold_stk_mins_qfq_nineturn_staging_path,
-    gold_stock_daily_qfq_path,
     gold_stock_daily_qfq_nineturn_path,
     gold_stock_daily_qfq_nineturn_staging_path,
+    gold_stock_daily_qfq_path,
 )
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
@@ -31,13 +32,12 @@ from orchestrator.defs.run_contracts.column_schema import ColumnContract
 from orchestrator.defs.run_contracts.qfq_nineturn import (
     QFQ_NINETURN_COMPARISON_LAG,
     QFQ_NINETURN_FALLBACK_CODE_LIMIT,
-    QFQ_NINETURN_SOURCE_CONTEXT_TRADE_DAYS,
     QFQ_NINETURN_SIGNAL_THRESHOLD,
-    QfqNineturnSourcePlan,
+    QFQ_NINETURN_SOURCE_CONTEXT_TRADE_DAYS,
     QfqNineturnPartitionWriteResult,
+    QfqNineturnSourcePlan,
     normalize_qfq_nineturn_minute_freq,
 )
-
 
 GOLD_STOCK_DAILY_QFQ_NINETURN_COLUMNS = tuple(
     column.name for column in GOLD_STOCK_DAILY_QFQ_NINETURN_SCHEMA
@@ -67,6 +67,7 @@ def build_gold_stock_daily_qfq_nineturn_select_sql(
     """
     return _build_qfq_nineturn_select_sql(
         source_sql=source_sql,
+        freq=None,
         output_columns=(
             "ts_code",
             "trade_date",
@@ -105,6 +106,7 @@ def build_gold_stk_mins_qfq_nineturn_select_sql(
     """
     return _build_qfq_nineturn_select_sql(
         source_sql=source_sql,
+        freq=normalized_freq,
         output_columns=(
             "ts_code",
             "freq",
@@ -149,6 +151,7 @@ def build_gold_stock_daily_qfq_nineturn_history_batch_select_sql(
         seed_sql=_history_seed_sql(seed_path),
         start_date=start_date,
         end_date=end_date,
+        freq=None,
         output_columns=GOLD_STOCK_DAILY_QFQ_NINETURN_COLUMNS,
         order_by="ts_code, trade_date",
     )
@@ -186,6 +189,7 @@ def build_gold_stk_mins_qfq_nineturn_history_batch_select_sql(
         seed_sql=_history_seed_sql(seed_path),
         start_date=start_date,
         end_date=end_date,
+        freq=normalized_freq,
         output_columns=GOLD_STK_MINS_QFQ_NINETURN_COLUMNS,
         order_by="ts_code, trade_time",
     )
@@ -473,97 +477,19 @@ def write_gold_stk_mins_qfq_nineturn_partition(
 def _build_qfq_nineturn_select_sql(
     *,
     source_sql: str,
+    freq: int | None,
     output_columns: Sequence[str],
     order_by: str,
 ) -> str:
-    projected_columns = ",\n  ".join(output_columns)
-    return f"""
-WITH source_rows AS (
-  {source_sql}
-),
-lagged_rows AS (
-  SELECT
-    *,
-    LAG(close_qfq, {QFQ_NINETURN_COMPARISON_LAG}) OVER (
-      PARTITION BY ts_code
-      ORDER BY bar_time
-    ) AS comparison_close
-  FROM source_rows
-),
-directed_rows AS (
-  SELECT
-    *,
-    CASE
-      WHEN comparison_close IS NULL THEN 0
-      WHEN close_qfq > comparison_close THEN 1
-      WHEN close_qfq < comparison_close THEN -1
-      ELSE 0
-    END AS direction
-  FROM lagged_rows
-),
-segment_flags AS (
-  SELECT
-    *,
-    CASE
-      WHEN direction = 0 THEN 1
-      WHEN direction != LAG(direction) OVER (
-        PARTITION BY ts_code
-        ORDER BY bar_time
-      ) THEN 1
-      ELSE 0
-    END AS segment_start
-  FROM directed_rows
-),
-segmented_rows AS (
-  SELECT
-    *,
-    SUM(segment_start) OVER (
-      PARTITION BY ts_code
-      ORDER BY bar_time
-      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-    ) AS segment_id
-  FROM segment_flags
-),
-counted_rows AS (
-  SELECT
-    *,
-    ROW_NUMBER() OVER (
-      PARTITION BY ts_code, segment_id
-      ORDER BY bar_time
-    ) AS segment_count
-  FROM segmented_rows
-),
-nineturn_rows AS (
-  SELECT
-    *,
-    CAST(
-      CASE WHEN direction = 1 THEN segment_count ELSE 0 END
-      AS INTEGER
-    ) AS up_count,
-    CAST(
-      CASE WHEN direction = -1 THEN segment_count ELSE 0 END
-      AS INTEGER
-    ) AS down_count
-  FROM counted_rows
-),
-projected_rows AS (
-  SELECT
-    *,
-    CAST(
-      CASE WHEN up_count >= {QFQ_NINETURN_SIGNAL_THRESHOLD} THEN '+9' END
-      AS VARCHAR
-    ) AS nine_up_turn,
-    CAST(
-      CASE WHEN down_count >= {QFQ_NINETURN_SIGNAL_THRESHOLD} THEN '-9' END
-      AS VARCHAR
-    ) AS nine_down_turn
-  FROM nineturn_rows
-)
-SELECT
-  {projected_columns}
-FROM projected_rows
-ORDER BY {order_by}
-"""
+    formula_sql = build_nineturn_formula_select_sql(
+        source_sql=_normalized_qfq_source_sql(source_sql),
+    )
+    return _project_qfq_formula_sql(
+        formula_sql=formula_sql,
+        freq=freq,
+        output_columns=output_columns,
+        order_by=order_by,
+    )
 
 
 def _build_qfq_nineturn_partition_select_sql(
@@ -587,12 +513,9 @@ def _build_qfq_nineturn_partition_select_sql(
     if normalized_fallback_codes and not fallback_source_paths:
         raise ValueError("Fallback source paths are required for fallback stock codes.")
 
-    target_date_sql = f"DATE {duckdb_string(target_trade_date)}"
     fallback_codes_sql = _fallback_codes_sql(normalized_fallback_codes)
-    base_output_columns = tuple(output_columns[:-2])
-    incremental_projection = ",\n    ".join(base_output_columns)
     normal_code_predicate = (
-        "ts_code NOT IN (SELECT ts_code FROM fallback_codes)"
+        "subject_code NOT IN (SELECT ts_code FROM fallback_codes)"
         if normalized_fallback_codes
         else "true"
     )
@@ -602,119 +525,22 @@ def _build_qfq_nineturn_partition_select_sql(
         target_trade_date=target_trade_date,
         freq=freq,
     )
+    formula_sql = build_nineturn_formula_select_sql(
+        source_sql=_normalized_qfq_source_sql(source_sql),
+        seed_sql=_normalized_qfq_seed_sql(seed_sql),
+        start_date=target_trade_date,
+        end_date=target_trade_date,
+        target_subject_predicate_sql=normal_code_predicate,
+    )
+    normal_projection = _qfq_formula_projection_sql(freq=freq)
     return f"""
-WITH source_rows AS (
-  {source_sql}
-),
-fallback_codes AS (
+WITH fallback_codes AS (
   {fallback_codes_sql}
-),
-lagged_rows AS (
-  SELECT
-    *,
-    LAG(close_qfq, {QFQ_NINETURN_COMPARISON_LAG}) OVER (
-      PARTITION BY ts_code
-      ORDER BY bar_time
-    ) AS comparison_close
-  FROM source_rows
-),
-target_directions AS (
-  SELECT
-    *,
-    CASE
-      WHEN comparison_close IS NULL THEN 0
-      WHEN close_qfq > comparison_close THEN 1
-      WHEN close_qfq < comparison_close THEN -1
-      ELSE 0
-    END AS direction
-  FROM lagged_rows
-  WHERE trade_date = {target_date_sql}
-    AND {normal_code_predicate}
-),
-target_segment_flags AS (
-  SELECT
-    *,
-    CASE
-      WHEN ROW_NUMBER() OVER (
-        PARTITION BY ts_code
-        ORDER BY bar_time
-      ) = 1 THEN 1
-      WHEN direction = 0 THEN 1
-      WHEN direction != LAG(direction) OVER (
-        PARTITION BY ts_code
-        ORDER BY bar_time
-      ) THEN 1
-      ELSE 0
-    END AS segment_start
-  FROM target_directions
-),
-target_segments AS (
-  SELECT
-    *,
-    SUM(segment_start) OVER (
-      PARTITION BY ts_code
-      ORDER BY bar_time
-      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-    ) AS segment_id
-  FROM target_segment_flags
-),
-target_local_counts AS (
-  SELECT
-    *,
-    ROW_NUMBER() OVER (
-      PARTITION BY ts_code, segment_id
-      ORDER BY bar_time
-    ) AS local_count
-  FROM target_segments
-),
-previous_seeds AS (
-  {seed_sql}
-),
-incremental_counts AS (
-  SELECT
-    target_local_counts.*,
-    CASE
-      WHEN target_local_counts.direction = 0 THEN 0
-      WHEN target_local_counts.segment_id = 1
-       AND target_local_counts.direction = coalesce(previous_seeds.seed_direction, 0)
-      THEN coalesce(previous_seeds.seed_count, 0) + target_local_counts.local_count
-      ELSE target_local_counts.local_count
-    END AS continued_count
-  FROM target_local_counts
-  LEFT JOIN previous_seeds USING (ts_code)
-),
-incremental_rows AS (
-  SELECT
-    *,
-    CAST(
-      CASE WHEN direction = 1 THEN continued_count ELSE 0 END
-      AS INTEGER
-    ) AS up_count,
-    CAST(
-      CASE WHEN direction = -1 THEN continued_count ELSE 0 END
-      AS INTEGER
-    ) AS down_count
-  FROM incremental_counts
-),
-incremental_projection AS (
-  SELECT
-    {incremental_projection},
-    CAST(
-      CASE WHEN up_count >= {QFQ_NINETURN_SIGNAL_THRESHOLD} THEN '+9' END
-      AS VARCHAR
-    ) AS computed_nine_up_turn,
-    CAST(
-      CASE WHEN down_count >= {QFQ_NINETURN_SIGNAL_THRESHOLD} THEN '-9' END
-      AS VARCHAR
-    ) AS computed_nine_down_turn
-  FROM incremental_rows
 ),
 normal_output AS (
   SELECT
-    {", ".join(base_output_columns)},
-    computed_nine_up_turn AS nine_up_turn,
-    computed_nine_down_turn AS nine_down_turn
-  FROM incremental_projection
+    {normal_projection}
+  FROM ({formula_sql}) AS formula_rows
 ),
 fallback_output AS (
   {fallback_select}
@@ -765,124 +591,97 @@ def _build_qfq_nineturn_history_batch_select_sql(
     seed_sql: str,
     start_date: str,
     end_date: str,
+    freq: int | None,
     output_columns: Sequence[str],
     order_by: str,
 ) -> str:
     """Continue one set-based history window from compact context and count seeds."""
 
-    projected_columns = ",\n  ".join(output_columns)
-    start_date_sql = f"DATE {duckdb_string(start_date)}"
-    end_date_sql = f"DATE {duckdb_string(end_date)}"
+    formula_sql = build_nineturn_formula_select_sql(
+        source_sql=_normalized_qfq_source_sql(source_sql),
+        context_sql=_normalized_qfq_source_sql(context_sql),
+        seed_sql=_normalized_qfq_seed_sql(seed_sql),
+        start_date=start_date,
+        end_date=end_date,
+    )
+    return _project_qfq_formula_sql(
+        formula_sql=formula_sql,
+        freq=freq,
+        output_columns=output_columns,
+        order_by=order_by,
+    )
+
+
+def _normalized_qfq_source_sql(source_sql: str) -> str:
     return f"""
-WITH current_source_rows AS (
-  {source_sql}
-),
-context_rows AS (
-  {context_sql}
-),
-source_rows AS (
-  SELECT * FROM context_rows
-  UNION ALL
-  SELECT * FROM current_source_rows
-),
-lagged_rows AS (
-  SELECT
+    SELECT
+      CAST(ts_code AS VARCHAR) AS subject_code,
+      CAST(trade_date AS DATE) AS bar_date,
+      CAST(bar_time AS TIMESTAMP) AS bar_time,
+      CAST(close_qfq AS DOUBLE) AS close_value
+    FROM ({source_sql}) AS qfq_source
+    """
+
+
+def _normalized_qfq_seed_sql(seed_sql: str) -> str:
+    return f"""
+    SELECT
+      CAST(ts_code AS VARCHAR) AS subject_code,
+      CAST(seed_direction AS INTEGER) AS seed_direction,
+      CAST(seed_count AS INTEGER) AS seed_count
+    FROM ({seed_sql}) AS qfq_seed
+    """
+
+
+def _qfq_formula_projection_sql(*, freq: int | None) -> str:
+    if freq is None:
+        return """
+    subject_code AS ts_code,
+    bar_date AS trade_date,
+    close_value AS close_qfq,
+    up_count,
+    down_count,
+    nine_up_turn,
+    nine_down_turn
+        """.strip()
+    return f"""
+    subject_code AS ts_code,
+    {freq}::INTEGER AS freq,
+    bar_date AS trade_date,
+    bar_time AS trade_time,
+    close_value AS close_qfq,
+    up_count,
+    down_count,
+    nine_up_turn,
+    nine_down_turn
+    """.strip()
+
+
+def _project_qfq_formula_sql(
     *,
-    LAG(close_qfq, {QFQ_NINETURN_COMPARISON_LAG}) OVER (
-      PARTITION BY ts_code
-      ORDER BY bar_time
-    ) AS comparison_close
-  FROM source_rows
-),
-target_directions AS (
-  SELECT
-    *,
-    CASE
-      WHEN comparison_close IS NULL THEN 0
-      WHEN close_qfq > comparison_close THEN 1
-      WHEN close_qfq < comparison_close THEN -1
-      ELSE 0
-    END AS direction
-  FROM lagged_rows
-  WHERE trade_date BETWEEN {start_date_sql} AND {end_date_sql}
-),
-target_segment_flags AS (
-  SELECT
-    *,
-    CASE
-      WHEN ROW_NUMBER() OVER (
-        PARTITION BY ts_code
-        ORDER BY bar_time
-      ) = 1 THEN 1
-      WHEN direction = 0 THEN 1
-      WHEN direction != LAG(direction) OVER (
-        PARTITION BY ts_code
-        ORDER BY bar_time
-      ) THEN 1
-      ELSE 0
-    END AS segment_start
-  FROM target_directions
-),
-target_segments AS (
-  SELECT
-    *,
-    SUM(segment_start) OVER (
-      PARTITION BY ts_code
-      ORDER BY bar_time
-      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-    ) AS segment_id
-  FROM target_segment_flags
-),
-target_local_counts AS (
-  SELECT
-    *,
-    ROW_NUMBER() OVER (
-      PARTITION BY ts_code, segment_id
-      ORDER BY bar_time
-    ) AS local_count
-  FROM target_segments
-),
-previous_seeds AS (
-  {seed_sql}
-),
-continued_rows AS (
-  SELECT
-    target_local_counts.*,
-    CASE
-      WHEN target_local_counts.direction = 0 THEN 0
-      WHEN target_local_counts.segment_id = 1
-       AND target_local_counts.direction = coalesce(previous_seeds.seed_direction, 0)
-      THEN coalesce(previous_seeds.seed_count, 0) + target_local_counts.local_count
-      ELSE target_local_counts.local_count
-    END AS continued_count
-  FROM target_local_counts
-  LEFT JOIN previous_seeds USING (ts_code)
-),
-projected_rows AS (
-  SELECT
-    *,
-    CAST(CASE WHEN direction = 1 THEN continued_count ELSE 0 END AS INTEGER)
-      AS up_count,
-    CAST(CASE WHEN direction = -1 THEN continued_count ELSE 0 END AS INTEGER)
-      AS down_count
-  FROM continued_rows
-),
-nineturn_rows AS (
-  SELECT
-    *,
-    CAST(
-      CASE WHEN up_count >= {QFQ_NINETURN_SIGNAL_THRESHOLD} THEN '+9' END
-      AS VARCHAR
-    ) AS nine_up_turn,
-    CAST(
-      CASE WHEN down_count >= {QFQ_NINETURN_SIGNAL_THRESHOLD} THEN '-9' END
-      AS VARCHAR
-    ) AS nine_down_turn
-  FROM projected_rows
+    formula_sql: str,
+    freq: int | None,
+    output_columns: Sequence[str],
+    order_by: str,
+) -> str:
+    expected_columns = (
+        GOLD_STOCK_DAILY_QFQ_NINETURN_COLUMNS
+        if freq is None
+        else GOLD_STK_MINS_QFQ_NINETURN_COLUMNS
+    )
+    if tuple(output_columns) != expected_columns:
+        raise ValueError(
+            "QFQ nine-turn projection columns do not match the frozen schema: "
+            f"expected={expected_columns}, actual={tuple(output_columns)}."
+        )
+    projection = _qfq_formula_projection_sql(freq=freq)
+    return f"""
+WITH formula_rows AS (
+  {formula_sql}
 )
 SELECT
-  {projected_columns}
-FROM nineturn_rows
+  {projection}
+FROM formula_rows
 ORDER BY {order_by}
 """
 
