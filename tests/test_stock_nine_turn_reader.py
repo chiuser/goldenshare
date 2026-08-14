@@ -126,6 +126,59 @@ def test_reader_rejects_duplicate_nine_turn_time_key(tmp_path, monkeypatch) -> N
         reader.read(_request())
 
 
+def test_reader_validates_only_the_requested_stock_rows(tmp_path, monkeypatch) -> None:
+    _write_bars(tmp_path)
+    _write_nine_turn(
+        tmp_path,
+        "2026-08-12",
+        [("10:00:00", 2, 0), ("10:30:00", 3, 0)],
+        extra_rows=[("000002.SZ", "10:00:00", 1, 1)],
+    )
+    reader = _reader(monkeypatch, tmp_path)
+
+    page = reader.read(_request())
+
+    assert page.matched_row_count == 2
+    assert [row["up_count"] for row in page.rows[-2:]] == [2, 3]
+
+
+def test_reader_reuses_one_bounded_duckdb_connection(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    _write_bars(tmp_path)
+    _write_nine_turn(
+        tmp_path,
+        "2026-08-11",
+        [("10:00:00", 1, 0), ("10:30:00", 9, 0)],
+    )
+    _write_nine_turn(
+        tmp_path,
+        "2026-08-12",
+        [("10:00:00", 10, 0), ("10:30:00", 0, 4)],
+    )
+    original_connect = duckdb.connect
+    connections = []
+
+    def counting_connect(*args, **kwargs):
+        connection = original_connect(*args, **kwargs)
+        connections.append(connection)
+        return connection
+
+    monkeypatch.setattr(duckdb, "connect", counting_connect)
+    reader = _reader(monkeypatch, tmp_path)
+    try:
+        reader.read(_request())
+        reader.read(_request(limit=2))
+        assert len(connections) == 1
+
+        reader.close()
+        reader.read(_request(limit=1))
+        assert len(connections) == 2
+    finally:
+        reader.close()
+
+
 def test_reader_rejects_symlinked_bar_file(tmp_path, monkeypatch) -> None:
     external = tmp_path / "external.parquet"
     _write_bar_file(external)
@@ -181,6 +234,7 @@ def _write_nine_turn(
     rows: list[tuple[str, int, int]],
     *,
     row_trade_date: str | None = None,
+    extra_rows: list[tuple[str, str, int, int]] | None = None,
 ) -> None:
     path = (
         root
@@ -191,7 +245,7 @@ def _write_nine_turn(
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     effective_date = row_trade_date or partition_key
-    values = ",".join(
+    values = [
         (
             f"('000001.SZ', 30::INTEGER, DATE '{effective_date}', "
             f"TIMESTAMP '{effective_date} {trade_time}', 10.0::DOUBLE, "
@@ -199,13 +253,23 @@ def _write_nine_turn(
             f"{_signal(up_count, '+9')}::VARCHAR, {_signal(down_count, '-9')}::VARCHAR)"
         )
         for trade_time, up_count, down_count in rows
+    ]
+    values.extend(
+        (
+            f"('{ts_code}', 30::INTEGER, DATE '{effective_date}', "
+            f"TIMESTAMP '{effective_date} {trade_time}', 10.0::DOUBLE, "
+            f"{up_count}::INTEGER, {down_count}::INTEGER, "
+            f"{_signal(up_count, '+9')}::VARCHAR, "
+            f"{_signal(down_count, '-9')}::VARCHAR)"
+        )
+        for ts_code, trade_time, up_count, down_count in (extra_rows or [])
     )
     connection = duckdb.connect()
     try:
         connection.execute(
             f"""
             COPY (
-              SELECT * FROM (VALUES {values}) AS source(
+              SELECT * FROM (VALUES {','.join(values)}) AS source(
                 ts_code, freq, trade_date, trade_time, close_qfq,
                 up_count, down_count, nine_up_turn, nine_down_turn
               )

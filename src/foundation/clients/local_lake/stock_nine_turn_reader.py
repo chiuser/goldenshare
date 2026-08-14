@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time as clock_time
 import json
 from pathlib import Path
+from threading import Lock
 import time
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -74,6 +75,8 @@ class StockNineTurnLakeReader:
                 "股票九转分钟 Reader 只允许正式 /Volumes/datasource/data_lake。"
             )
         self._lake_root = normalized_root
+        self._connection: Any | None = None
+        self._connection_lock = Lock()
 
     def read(self, request: StockNineTurnReadRequest) -> StockNineTurnReadPage:
         started = time.perf_counter()
@@ -82,58 +85,52 @@ class StockNineTurnLakeReader:
         if not bar_paths:
             return _empty_page(started)
 
-        try:
-            import duckdb
-        except ImportError as exc:  # pragma: no cover - capability gate covers startup
-            raise StockNineTurnQueryError("local-lake DuckDB 依赖不可用。") from exc
-
-        connection = duckdb.connect(database=":memory:")
-        try:
-            _validate_files(connection, bar_paths, BAR_COLUMN_SPECS)
-            _validate_bar_contract(connection, bar_paths, normalized)
-            bar_rows = _query_rows(
-                connection,
-                bar_paths=bar_paths,
-                nine_turn_paths=(),
-                request=normalized,
-                cursor=cursor,
-            )
-            nine_turn_paths = _nine_turn_paths(
-                self._lake_root,
-                normalized,
-                trade_dates={row["trade_date"] for row in bar_rows},
-            )
-            scanned_file_count = len(bar_paths) + len(nine_turn_paths)
-            if scanned_file_count > MAX_NINE_TURN_PARTITION_FILES:
-                raise StockNineTurnRequestError(
-                    "查询将扫描超过 5000 个分区文件，请缩小日期窗口。"
-                )
-            if nine_turn_paths:
-                _validate_files(
-                    connection,
-                    nine_turn_paths,
-                    NINE_TURN_COLUMN_SPECS,
-                )
-                _validate_nine_turn_contract(
-                    connection,
-                    nine_turn_paths,
-                    normalized,
-                )
-                rows = _query_rows(
+        with self._connection_lock:
+            connection = self._connection_for_read()
+            try:
+                _validate_files(connection, bar_paths, BAR_COLUMN_SPECS)
+                _validate_bar_contract(connection, bar_paths, normalized)
+                bar_rows = _query_rows(
                     connection,
                     bar_paths=bar_paths,
-                    nine_turn_paths=nine_turn_paths,
+                    nine_turn_paths=(),
                     request=normalized,
                     cursor=cursor,
                 )
-            else:
-                rows = bar_rows
-        except StockNineTurnReaderError:
-            raise
-        except Exception as exc:
-            raise StockNineTurnQueryError("股票九转分钟查询失败。") from exc
-        finally:
-            connection.close()
+                nine_turn_paths = _nine_turn_paths(
+                    self._lake_root,
+                    normalized,
+                    trade_dates={row["trade_date"] for row in bar_rows},
+                )
+                scanned_file_count = len(bar_paths) + len(nine_turn_paths)
+                if scanned_file_count > MAX_NINE_TURN_PARTITION_FILES:
+                    raise StockNineTurnRequestError(
+                        "查询将扫描超过 5000 个分区文件，请缩小日期窗口。"
+                    )
+                if nine_turn_paths:
+                    _validate_files(
+                        connection,
+                        nine_turn_paths,
+                        NINE_TURN_COLUMN_SPECS,
+                    )
+                    _validate_nine_turn_contract(
+                        connection,
+                        nine_turn_paths,
+                        normalized,
+                    )
+                    rows = _query_rows(
+                        connection,
+                        bar_paths=bar_paths,
+                        nine_turn_paths=nine_turn_paths,
+                        request=normalized,
+                        cursor=cursor,
+                    )
+                else:
+                    rows = bar_rows
+            except StockNineTurnReaderError:
+                raise
+            except Exception as exc:
+                raise StockNineTurnQueryError("股票九转分钟查询失败。") from exc
 
         has_more = len(rows) > normalized.limit
         page_rows = rows[: normalized.limit]
@@ -162,6 +159,27 @@ class StockNineTurnLakeReader:
             scanned_file_count=scanned_file_count,
             elapsed_ms=(time.perf_counter() - started) * 1000,
         )
+
+    def close(self) -> None:
+        with self._connection_lock:
+            if self._connection is None:
+                return
+            self._connection.close()
+            self._connection = None
+
+    def _connection_for_read(self) -> Any:
+        if self._connection is not None:
+            return self._connection
+        try:
+            import duckdb
+        except ImportError as exc:  # pragma: no cover - capability gate covers startup
+            raise StockNineTurnQueryError("local-lake DuckDB 依赖不可用。") from exc
+        connection = duckdb.connect(database=":memory:")
+        connection.execute("SET memory_limit='256MB'")
+        connection.execute("SET threads=1")
+        connection.execute("SET preserve_insertion_order=false")
+        self._connection = connection
+        return connection
 
 
 def _normalize_request(
@@ -355,6 +373,7 @@ def _validate_nine_turn_contract(
           SELECT ts_code, freq, trade_date, trade_time, close_qfq,
                  up_count, down_count, nine_up_turn, nine_down_turn, filename
           FROM read_parquet(?, filename=true, hive_partitioning=false)
+          WHERE ts_code = ?
         )
         SELECT
           count(*) FILTER (
@@ -378,7 +397,7 @@ def _validate_nine_turn_contract(
           count(*) - count(DISTINCT (ts_code, freq, trade_time))
         FROM source
         """,
-        [list(map(str, paths)), request.freq],
+        [list(map(str, paths)), request.ts_code, request.freq],
     ).fetchone()
     if int(invalid_count or 0):
         raise StockNineTurnSourceContractError(

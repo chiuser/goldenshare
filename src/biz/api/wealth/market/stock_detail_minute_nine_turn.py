@@ -2,6 +2,9 @@ from __future__ import annotations
 
 # Query/Depends are declarative FastAPI defaults.
 # ruff: noqa: B008
+from functools import lru_cache
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
@@ -27,6 +30,7 @@ from src.biz.queries.wealth.market.stock_nine_turn.stock_nine_turn_query_service
 )
 from src.biz.schemas.wealth.market.nine_turn import NineTurnSeriesDto
 from src.foundation.clients.local_lake.stock_nine_turn_reader import (
+    StockNineTurnLakeReader,
     StockNineTurnQueryError,
     StockNineTurnRequestError,
     StockNineTurnSourceContractError as StockMinuteNineTurnSourceContractError,
@@ -58,7 +62,15 @@ def _service() -> StockMinuteNineTurnQueryService:
             code=capability.reason_code or "SM_LOCAL_LAKE_NOT_CONFIGURED",
             message="本地股票分钟九转能力未启用。",
         )
-    return StockMinuteNineTurnQueryService(capability.lake_root)
+    return StockMinuteNineTurnQueryService(
+        capability.lake_root,
+        reader=_reader_for_lake_root(capability.lake_root),
+    )
+
+
+@lru_cache(maxsize=1)
+def _reader_for_lake_root(lake_root: Path) -> StockNineTurnLakeReader:
+    return StockNineTurnLakeReader(lake_root)
 
 
 @router.get("/minute-nine-turn", response_model=NineTurnSeriesDto)
