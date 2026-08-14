@@ -5,13 +5,14 @@ from datetime import date
 import pytest
 
 from src.biz.services.wealth.market.nine_turn.nine_turn_response_policy import (
-    build_stock_nine_turn_response,
+    build_nine_turn_response,
 )
 
 
 def test_nine_turn_response_rejects_payload_above_five_megabytes() -> None:
     with pytest.raises(ValueError, match="5MB"):
-        build_stock_nine_turn_response(
+        build_nine_turn_response(
+            subject_type="stock",
             ts_code="000001.SZ",
             period="day",
             rows=[{

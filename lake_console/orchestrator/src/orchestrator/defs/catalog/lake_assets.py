@@ -11,6 +11,8 @@ from orchestrator.defs.paths import (
     PATH_TEMPLATE_YEAR,
     gold_dc_daily_technical_path,
     gold_index_mins_path,
+    gold_major_index_daily_nineturn_path,
+    gold_major_index_mins_nineturn_path,
     gold_major_index_mins_path,
     gold_major_index_mins_technical_path,
     gold_major_index_mins_technical_state_path,
@@ -68,6 +70,8 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA,
     GOLD_DC_DAILY_TECHNICAL_SCHEMA,
     GOLD_INDEX_MINS_SCHEMA,
+    GOLD_MAJOR_INDEX_DAILY_NINETURN_SCHEMA,
+    GOLD_MAJOR_INDEX_MINS_NINETURN_SCHEMA,
     GOLD_MAJOR_INDEX_MINS_SCHEMA,
     GOLD_MAJOR_INDEX_MINS_TECHNICAL_SCHEMA,
     GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_SCHEMA,
@@ -81,6 +85,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STOCK_DAILY_QFQ_SCHEMA,
     GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
     GOLD_WEALTH_MARKET_TURNOVER_SCHEMA,
+    PROD_CORE_INDEX_DAILY_NINETURN_SCHEMA,
     PROD_CORE_STOCK_DAILY_QFQ_NINETURN_SCHEMA,
     PROD_CORE_WEALTH_SECTOR_HIERARCHY_SCHEMA,
     RAW_INDEX_DAILY_SCHEMA,
@@ -248,6 +253,12 @@ class PartitionModel(str, Enum):
     TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_MINS = (
         "trade_date_partition_gold_major_index_mins"
     )
+    TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_DAILY_NINETURN = (
+        "trade_date_partition_gold_major_index_daily_nineturn"
+    )
+    TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_MINS_NINETURN = (
+        "trade_date_partition_gold_major_index_mins_nineturn"
+    )
     TRADE_DATE_PARTITION_RAW_IDX_FACTOR_PRO = (
         "trade_date_partition_raw_idx_factor_pro"
     )
@@ -298,6 +309,7 @@ class PartitionModel(str, Enum):
     SERVING_TABLE_PROD_STOCK_DAILY_QFQ_NINETURN = (
         "serving_table_prod_stock_daily_qfq_nineturn"
     )
+    SERVING_TABLE_PROD_INDEX_DAILY_NINETURN = "serving_table_prod_index_daily_nineturn"
 
     SERVING_TABLE_SERVING_MARKET_BREADTH = "serving_table_serving_market_breadth"
     SERVING_TABLE_SERVING_DC_DAILY_TECHNICAL = (
@@ -486,6 +498,13 @@ GOLD_STK_MINS_QFQ_DERIVED_CHECKS = (
 GOLD_STK_MINS_QFQ_NINETURN_CHECKS_BY_FREQ = {
     freq: (f"gold_stk_mins_qfq_nineturn_{freq}m_integrity_check",)
     for freq in (30, 60, 90, 120)
+}
+GOLD_MAJOR_INDEX_DAILY_NINETURN_CHECKS = (
+    "gold_major_index_daily_nineturn_integrity_check",
+)
+GOLD_MAJOR_INDEX_MINS_NINETURN_CHECKS_BY_FREQ = {
+    freq: (f"gold_major_index_mins_nineturn_{freq}m_integrity_check",)
+    for freq in (5, 15, 30, 60, 90, 120)
 }
 GOLD_STK_MINS_QFQ_MACD_KDJ_CHECKS = (
     "gold_stk_mins_qfq_macd_kdj_contract_check",
@@ -860,6 +879,24 @@ PARTITION_MODEL_DEFINITIONS = (
         notes="主要指数分钟线 Gold 七频业务 K 线共用专属交易日分区。",
     ),
     _model(
+        PartitionModel.TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_DAILY_NINETURN,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.GOLD,
+        "major_index_daily_nineturn",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="主要指数日线九转使用 11-code 物理 seed 和不复权 close。",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_MINS_NINETURN,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.GOLD,
+        "major_index_mins_nineturn",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="主要指数六频分钟九转共用主要指数分钟交易日分区；不含 1 分钟。",
+    ),
+    _model(
         PartitionModel.TRADE_DATE_PARTITION_RAW_IDX_FACTOR_PRO,
         PartitionModelFamily.TRADE_DATE_PARTITION,
         AssetLayer.RAW,
@@ -1044,6 +1081,15 @@ PARTITION_MODEL_DEFINITIONS = (
         "trade_date",
         PartitionPhysicalLayout.POSTGRES_TABLE,
         notes="Prod PostgreSQL QFQ nine-turn serving sync partitioned by trade_date.",
+    ),
+    _model(
+        PartitionModel.SERVING_TABLE_PROD_INDEX_DAILY_NINETURN,
+        PartitionModelFamily.SERVING_TABLE,
+        AssetLayer.SERVING,
+        "major_index_daily_nineturn",
+        "trade_date",
+        PartitionPhysicalLayout.POSTGRES_TABLE,
+        notes="Prod PostgreSQL index nine-turn serving sync partitioned by trade_date.",
     ),
     _model(
         PartitionModel.SERVING_TABLE_SERVING_MARKET_BREADTH,
@@ -2162,6 +2208,58 @@ LAKE_ASSET_CATALOG += (
         )
         for freq in (1, 5, 15, 30, 60, 90, 120)
     ),
+    _derived_entry(
+        asset_key="gold_major_index_daily_nineturn",
+        dataset_id="major_index_daily_nineturn",
+        layer=AssetLayer.GOLD,
+        data_domain=DataDomain.INDEX_TOPIC,
+        group_name="index",
+        data_contract="major_index_daily_nineturn",
+        column_schema=GOLD_MAJOR_INDEX_DAILY_NINETURN_SCHEMA,
+        path_template=lake_path_template(
+            gold_major_index_daily_nineturn_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        partition_model=(
+            PartitionModel.TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_DAILY_NINETURN
+        ),
+        blocking_check_names=GOLD_MAJOR_INDEX_DAILY_NINETURN_CHECKS,
+        batch_grain="trade_date",
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        notes="Fixed-formula non-repainting nine-turn over 11-code major-index daily Gold.",
+    ),
+    *tuple(
+        _derived_entry(
+            asset_key=f"gold_major_index_mins_nineturn_{freq}m",
+            dataset_id="major_index_mins_nineturn",
+            layer=AssetLayer.GOLD,
+            data_domain=DataDomain.INDEX_TOPIC,
+            group_name="index",
+            data_contract="major_index_minute_nineturn",
+            column_schema=GOLD_MAJOR_INDEX_MINS_NINETURN_SCHEMA,
+            path_template=lake_path_template(
+                gold_major_index_mins_nineturn_path(
+                    PATH_TEMPLATE_LAKE_ROOT,
+                    freq,
+                    PATH_TEMPLATE_PARTITION_KEY,
+                )
+            ),
+            partition_model=(
+                PartitionModel.TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_MINS_NINETURN
+            ),
+            blocking_check_names=GOLD_MAJOR_INDEX_MINS_NINETURN_CHECKS_BY_FREQ[freq],
+            batch_grain="freq/trade_date",
+            write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+            event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+            bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+            notes="Fixed-formula non-repainting nine-turn over same-frequency major-index Gold bars.",
+        )
+        for freq in (5, 15, 30, 60, 90, 120)
+    ),
     _tushare_raw_entry(
         asset_key="raw_tushare_dc_index",
         dataset_id="dc_index",
@@ -2493,6 +2591,45 @@ LAKE_ASSET_CATALOG += (
         notes=(
             "Publishes autonomous QFQ nine-turn facts only; never consumes or "
             "falls back to the Tushare nine-turn dataset."
+        ),
+    ),
+    _entry(
+        asset_key="prod_core_index_daily_nineturn",
+        dataset_id="major_index_daily_nineturn",
+        layer=AssetLayer.SERVING,
+        data_domain=DataDomain.INDEX_TOPIC,
+        group_name="index",
+        source_system=SourceSystem.DERIVED,
+        data_contract="core_serving.index_nineturn_daily",
+        data_contract_source=DataContractSource.DERIVED_CONTRACT,
+        column_schema=PROD_CORE_INDEX_DAILY_NINETURN_SCHEMA,
+        path_template=(
+            "postgresql://prod/core_serving.index_nineturn_daily"
+            "?trade_date={partition_key}"
+        ),
+        partition_model=PartitionModel.SERVING_TABLE_PROD_INDEX_DAILY_NINETURN,
+        source_api=None,
+        source_doc=(
+            "wealth/docs/system/"
+            "detail-page-nine-turn-integration-low-level-design-v1.md"
+        ),
+        ingestion_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        default_daily_ingestion_source=IngestionSource.DERIVED_FROM_ASSETS,
+        bootstrap_sources=(),
+        blocking_check_names=("prod_core_index_daily_nineturn_partition_check",),
+        write_policy=WritePolicy.POSTGRES_TABLE_SYNC,
+        event_policy=EventPolicy.DAGSTER_RUN_ONLY,
+        performance_contract=_perf(
+            batch_grain="one trade_date partition, physical major-index universe",
+            compute_engine=ComputeEngine.POSTGRES_SQL,
+            source_request_policy=(
+                "read one local Gold index nine-turn partition; write one prod "
+                "PostgreSQL core_serving partition"
+            ),
+        ),
+        notes=(
+            "Publishes autonomous unadjusted index nine-turn facts; the Web API "
+            "still applies the independent Wealth ten-index allowlist."
         ),
     ),
     _derived_entry(

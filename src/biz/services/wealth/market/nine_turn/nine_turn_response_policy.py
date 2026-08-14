@@ -11,8 +11,9 @@ from src.biz.schemas.wealth.market.nine_turn import (
     NineTurnMetaDto,
     NineTurnPeriod,
     NineTurnSeriesDto,
+    NineTurnSubjectType,
 )
-from src.foundation.clients.local_lake.stock_nine_turn_contract import (
+from src.foundation.clients.local_lake.nine_turn_minute_contract import (
     MAX_NINE_TURN_RESPONSE_BYTES,
 )
 
@@ -24,8 +25,9 @@ class NineTurnContractError(RuntimeError):
     """Raised when a serving/Lake row violates the frozen nine-turn contract."""
 
 
-def build_stock_nine_turn_response(
+def build_nine_turn_response(
     *,
+    subject_type: NineTurnSubjectType,
     ts_code: str,
     period: NineTurnPeriod,
     rows: list[dict[str, Any]],
@@ -45,6 +47,7 @@ def build_stock_nine_turn_response(
     markers = [marker for row in rows if (marker := _marker_from_row(row)) is not None]
     latest_marker = _marker_from_row(rows[-1]) if rows else None
     response = NineTurnSeriesDto(
+        subjectType=subject_type,
         tsCode=ts_code,
         period=period,
         markers=markers,

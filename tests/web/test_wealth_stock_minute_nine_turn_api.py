@@ -26,6 +26,7 @@ class _FakeMinuteNineTurnService:
     def read(self, _session, **kwargs) -> NineTurnSeriesDto:
         self.calls.append(kwargs)
         return NineTurnSeriesDto(
+            subjectType="stock",
             tsCode=str(kwargs["ts_code"]),
             period=str(kwargs["freq"]),
             markers=[
@@ -146,6 +147,11 @@ def test_app_router_mounts_stock_minute_nine_turn_only_when_capability_is_ready(
 
     monkeypatch.setattr(app_router, "resolve_local_minute_capability", lambda _settings: disabled)
     monkeypatch.setattr(app_router, "resolve_index_minute_capability", lambda _settings: disabled)
+    monkeypatch.setattr(
+        app_router,
+        "resolve_index_nine_turn_minute_capability",
+        lambda _settings: disabled,
+    )
     monkeypatch.setattr(
         app_router,
         "resolve_stock_nine_turn_minute_capability",

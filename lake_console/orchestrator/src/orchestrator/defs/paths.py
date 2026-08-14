@@ -15,6 +15,9 @@ from orchestrator.defs.run_contracts.major_index_mins import (
 from orchestrator.defs.run_contracts.major_index_mins_technical import (
     normalize_major_index_mins_technical_freq,
 )
+from orchestrator.defs.run_contracts.major_index_nineturn import (
+    normalize_major_index_nineturn_minute_freq,
+)
 from orchestrator.defs.run_contracts.qfq_nineturn import (
     normalize_qfq_nineturn_minute_freq,
 )
@@ -920,5 +923,68 @@ def gold_market_major_indices_daily_path(root: Path, partition_key: str) -> Path
         "market",
         "major_indices_daily",
         f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
+def gold_major_index_daily_nineturn_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "indicator",
+        "major_index_daily_nineturn",
+        f"trade_date={_major_index_mins_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def gold_major_index_daily_nineturn_staging_path(
+    staging_root: Path,
+    run_id: str,
+    partition_key: str,
+) -> Path:
+    return lake_path(
+        staging_root,
+        GOLD,
+        "indicator",
+        "major_index_daily_nineturn",
+        "_staging",
+        _safe_run_id_part(run_id, asset_family="major_index_daily_nineturn"),
+        f"trade_date={_major_index_mins_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def gold_major_index_mins_nineturn_path(
+    root: Path,
+    freq: int | str,
+    partition_key: str,
+) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "indicator",
+        "major_index_mins_nineturn",
+        f"freq={normalize_major_index_nineturn_minute_freq(freq)}",
+        f"trade_date={_major_index_mins_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def gold_major_index_mins_nineturn_staging_path(
+    staging_root: Path,
+    run_id: str,
+    freq: int | str,
+    partition_key: str,
+) -> Path:
+    return lake_path(
+        staging_root,
+        GOLD,
+        "indicator",
+        "major_index_mins_nineturn",
+        "_staging",
+        _safe_run_id_part(run_id, asset_family="major_index_mins_nineturn"),
+        f"freq={normalize_major_index_nineturn_minute_freq(freq)}",
+        f"trade_date={_major_index_mins_partition_component(partition_key)}",
         "part-000.parquet",
     )

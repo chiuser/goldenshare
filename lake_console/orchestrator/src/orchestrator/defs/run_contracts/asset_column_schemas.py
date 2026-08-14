@@ -400,6 +400,18 @@ GOLD_STK_MINS_QFQ_NINETURN_SCHEMA = (
     ColumnContract("nine_down_turn", "VARCHAR", "下九转信号，-9 或空"),
 )
 
+GOLD_MAJOR_INDEX_MINS_NINETURN_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "标准主要指数代码"),
+    ColumnContract("freq", "INTEGER", "分钟频度，允许值为 5、15、30、60、90 或 120"),
+    ColumnContract("trade_date", "DATE", "交易日"),
+    ColumnContract("trade_time", "TIMESTAMP", "分钟 bar 时间"),
+    ColumnContract("close", "DOUBLE", "九转使用的不复权指数收盘点位"),
+    ColumnContract("up_count", "INTEGER", "连续上九转计数"),
+    ColumnContract("down_count", "INTEGER", "连续下九转计数"),
+    ColumnContract("nine_up_turn", "VARCHAR", "上九转信号，+9 或空"),
+    ColumnContract("nine_down_turn", "VARCHAR", "下九转信号，-9 或空"),
+)
+
 GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "标准股票代码"),
     ColumnContract(
@@ -504,6 +516,22 @@ GOLD_STOCK_DAILY_QFQ_NINETURN_SCHEMA = (
     ColumnContract("down_count", "INTEGER", "连续下九转计数"),
     ColumnContract("nine_up_turn", "VARCHAR", "上九转信号，+9 或空"),
     ColumnContract("nine_down_turn", "VARCHAR", "下九转信号，-9 或空"),
+)
+
+GOLD_MAJOR_INDEX_DAILY_NINETURN_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "标准主要指数代码"),
+    ColumnContract("trade_date", "DATE", "交易日"),
+    ColumnContract("close", "DOUBLE", "九转使用的不复权指数收盘点位"),
+    ColumnContract("up_count", "INTEGER", "连续上九转计数"),
+    ColumnContract("down_count", "INTEGER", "连续下九转计数"),
+    ColumnContract("nine_up_turn", "VARCHAR", "上九转信号，+9 或空"),
+    ColumnContract("nine_down_turn", "VARCHAR", "下九转信号，-9 或空"),
+)
+
+PROD_CORE_INDEX_DAILY_NINETURN_SCHEMA = (
+    *GOLD_MAJOR_INDEX_DAILY_NINETURN_SCHEMA,
+    ColumnContract("formula_version", "SMALLINT", "九转公式版本，第一版固定为 1"),
+    ColumnContract("published_at", "TIMESTAMPTZ", "发布到 prod serving 的时间"),
 )
 
 PROD_CORE_STOCK_DAILY_QFQ_NINETURN_SCHEMA = (

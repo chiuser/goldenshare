@@ -504,8 +504,8 @@ LLD 必须给出可执行预算，至少覆盖：
 | M2 | 股票查询与 shared primitive：Reader/API/正式日线 serving/共享几何及最小页面接入 | 代码与隔离验收已通过；后续 M3-B 已完成生产表全历史发布 |
 | M3-A | 发布前事实收口 | 已完成只读数据/权限/迁移审计，登记 45,442 行收盘价漂移和正式修复前置条件 |
 | M3-B | 发布门禁与历史发布 | 已完成；Gold 修复和全历史对账通过，serving 以20日batch、单进程最多10批次发布到3,066/3,066日、11,638,636行。十个恢复进程峰值RSS最高约249MiB，最终逐日行数对账差异为0；两个sensor仍为STOPPED |
-| M3-C | 股票详情真实环境与视觉收口 | 生产日线接口、权限、真实数据和 Loaded 视觉主体门禁已通过；补齐登录态 P95、生产 45/180 根缩放边界截图后收口日线切片，分钟按用户要求暂停 |
-| M4 | 新建指数日线和六个分钟九转资产及查询 API | 7 assets/checks 被 Definitions 发现；历史覆盖、对齐、性能通过；1 分钟无资产 |
+| M3-C | 股票详情真实环境与视觉收口 | M3-C-Minute 已完成；生产日线接口、权限、真实数据和 Loaded 视觉主体门禁已通过，完整阶段仅剩登录态 P95、生产 45/180 根缩放边界截图和自然日常链路 |
+| M4 | 新建指数日线和六个分钟九转资产及查询 API | M4-B 编码已完成：7 assets/checks、2 jobs、2 Gold sensors、历史构建、日线 serving/API 与本地分钟 API 已落地且 Definitions 可发现；1 分钟无对象。正式 32,124 个分区、生产 migration/serving 发布及物理覆盖、对齐、性能验收待单独批准 |
 | M5 | 指数图表和 Technical 摘要接入 | 十指数、北证50空态、趋势双 primitive、右栏摘要和竞态通过 |
 | M6 | 日常自动化、全链路验收与最终发布 | 生产日线、本地分钟、生产分钟 404、freshness、性能和视觉验收全部通过 |
 
@@ -564,7 +564,7 @@ M2 开工时已重新核验 Alembic 单一 head 为 `20260813_000134`，九转 m
 
 本方案是九转详情接入专项的上游事实源。历史文档中“九转不在本期、显示 `--`、supportsNineTurn=false”描述的是九转立项前已经完成的阶段，不追溯性改写为错误；后续实现必须引用本文和新 LLD，而不能继续把旧阶段占位当作目标状态。
 
-M3-A/M3-B 已同步本方案、LLD 和独立发布门禁。股票 `NT_*` 已进入 active-code 状态；指数仍为 planned。index page-init 当前仍保持 `supportsNineTurn=false`。Gold scoped rebuild、全历史 serving 发布和最终逐日行数对账均已完成；M3-C-Minute 已完成四周期真实 API、对齐、性能、内存和 1600×1200 浏览器验收，1/5/15 分钟保持零九转请求。生产日线正式 P95、缩放边界截图和自然触发验收仍未完成。两个九转 sensor 继续保持 `STOPPED`，当前不能把股票能力标为完整 production-ready。
+M3-A/M3-B 已同步本方案、LLD 和独立发布门禁。股票 `NT_*` 已进入 active-code 状态；指数 M4-B 后端代码也已进入 active-code，但正式历史、生产 migration/serving 发布和 M5 页面接入尚未完成。index page-init 当前仍保持 `supportsNineTurn=false`。股票 Gold scoped rebuild、全历史 serving 发布和最终逐日行数对账均已完成；M3-C-Minute 已完成四周期真实 API、对齐、性能、内存和 1600×1200 浏览器验收，1/5/15 分钟保持零九转请求。生产日线正式 P95、缩放边界截图和自然触发验收仍未完成。股票与指数新建 sensor 均继续保持 `STOPPED`，当前不能把整个专项标为 production-ready。
 
 ## 17. 版本记录
 
@@ -581,3 +581,4 @@ M3-A/M3-B 已同步本方案、LLD 和独立发布门禁。股票 `NT_*` 已进�
 | v1.8 | 2026-08-14 | 冻结所有分钟业务事实统一消费规范化 Gold；指数分钟九转上游由旧 Silver 设计修正为同频 `gold_major_index_mins_*`，并登记当前 Gold 覆盖事实 | Codex |
 | v1.9 | 2026-08-14 | 完整列出股票与主要指数各七个分钟 K 线 Gold asset key、物理根和分区布局，明确 K 线频率范围不扩大九转支持矩阵 | Codex |
 | v1.10 | 2026-08-14 | M3-C-Minute 收口：登记四资产最新 checks、三只股票逐键对齐、严格接口、四周期 P95、Reader 内存根因修正、两批 40 请求门禁及 1600×1200 浏览器验收 | Codex |
+| v1.11 | 2026-08-15 | M4-B 编码收口：7 个指数九转 Gold assets/checks、jobs/sensors/readiness、有界历史构建、日线 serving/API 和本地分钟 API 已实现；正式历史、生产 migration/serving 发布和 M5 页面仍待后续授权与验收 | Codex |

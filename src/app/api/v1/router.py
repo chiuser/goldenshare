@@ -10,6 +10,9 @@ from src.biz.api import realtime as biz_realtime
 from src.biz.api.wealth.market import breadth as wealth_market_breadth
 from src.biz.api.wealth.market import context as wealth_market_context
 from src.biz.api.wealth.market import index_detail as wealth_market_index_detail
+from src.biz.api.wealth.market import (
+    index_detail_nine_turn as wealth_market_index_detail_nine_turn,
+)
 from src.biz.api.wealth.market import leaderboards as wealth_market_leaderboards
 from src.biz.api.wealth.market import limit_up as wealth_market_limit_up
 from src.biz.api.wealth.market import major_indices as wealth_market_major_indices
@@ -25,6 +28,7 @@ from src.biz.api.wealth.market import summary as wealth_market_summary
 from src.biz.api.wealth.market import turnover as wealth_market_turnover
 from src.foundation.config.local_minute_capability import (
     resolve_index_minute_capability,
+    resolve_index_nine_turn_minute_capability,
     resolve_local_minute_capability,
     resolve_stock_nine_turn_minute_capability,
 )
@@ -43,6 +47,7 @@ router.include_router(biz_market.router)
 router.include_router(biz_realtime.router)
 router.include_router(wealth_market_context.router)
 router.include_router(wealth_market_index_detail.router)
+router.include_router(wealth_market_index_detail_nine_turn.router)
 router.include_router(wealth_market_summary.router)
 router.include_router(wealth_market_major_indices.router)
 router.include_router(wealth_market_breadth.router)
@@ -79,6 +84,14 @@ def _include_local_minute_router(target_router: APIRouter) -> None:
         from src.biz.api.wealth.market import index_detail_minutes
 
         target_router.include_router(index_detail_minutes.router)
+
+    index_nine_turn_capability = resolve_index_nine_turn_minute_capability(
+        get_settings()
+    )
+    if index_nine_turn_capability.enabled:
+        from src.biz.api.wealth.market import index_detail_minute_nine_turn
+
+        target_router.include_router(index_detail_minute_nine_turn.router)
 
 
 _include_local_minute_router(router)

@@ -17,17 +17,20 @@ from src.biz.api.wealth.market.nine_turn_query_params import (
     parse_nine_turn_ts_code,
     validate_query_shape,
 )
-from src.biz.queries.wealth.market.stock_nine_turn.stock_nine_turn_query_service import (
-    StockNineTurnNotFoundError,
-    StockNineTurnQueryError,
-    StockNineTurnQueryService,
-    StockNineTurnRequestError,
-    StockNineTurnSourceContractError,
+from src.biz.queries.wealth.market.index_nine_turn.index_nine_turn_query_service import (
+    IndexNineTurnQueryError,
+    IndexNineTurnQueryService,
+    IndexNineTurnSourceContractError,
 )
 from src.biz.schemas.wealth.market.nine_turn import NineTurnSeriesDto
+from src.biz.services.wealth.market.index_detail.index_detail_universe import (
+    IndexDetailNotFoundError,
+    IndexDetailQueryError,
+    IndexDetailRequestError,
+)
 
 
-router = APIRouter(prefix="/wealth/market/stock-detail", tags=["wealth-market"])
+router = APIRouter(prefix="/wealth/market/index-detail", tags=["wealth-market"])
 _ALLOWED_QUERY_PARAMS = {
     "tsCode",
     "startDate",
@@ -39,7 +42,7 @@ _ALLOWED_QUERY_PARAMS = {
 
 
 @router.get("/nine-turn", response_model=NineTurnSeriesDto)
-def get_stock_daily_nine_turn(
+def get_index_daily_nine_turn(
     request: Request,
     ts_code: str | None = Query(default=None, alias="tsCode"),
     start_date: str | None = Query(default=None, alias="startDate"),
@@ -52,7 +55,7 @@ def get_stock_daily_nine_turn(
 ) -> NineTurnSeriesDto:
     try:
         validate_query_shape(request, allowed=_ALLOWED_QUERY_PARAMS)
-        return StockNineTurnQueryService().read_daily(
+        return IndexNineTurnQueryService().read_daily(
             session,
             ts_code=parse_nine_turn_ts_code(ts_code),
             start_date=parse_date(start_date, field_name="startDate"),
@@ -69,32 +72,33 @@ def get_stock_daily_nine_turn(
 def _raise_http_error(exc: Exception) -> None:
     if isinstance(exc, WebAppError):
         raise exc
-    if isinstance(exc, StockNineTurnNotFoundError):
+    if isinstance(exc, IndexDetailNotFoundError):
         raise WebAppError(
-            status_code=404,
-            code="NT_NOT_FOUND",
-            message=str(exc),
+            status_code=404, code="NT_NOT_FOUND", message=str(exc)
         ) from exc
-    if isinstance(exc, (StockNineTurnRequestError, ValueError)):
+    if isinstance(exc, (IndexDetailRequestError, ValueError)):
         raise WebAppError(
             status_code=400,
             code="NT_REQUEST_INVALID",
             message=str(exc),
         ) from exc
-    if isinstance(exc, StockNineTurnSourceContractError):
+    if isinstance(exc, IndexNineTurnSourceContractError):
         raise WebAppError(
             status_code=500,
             code="NT_SOURCE_CONTRACT_INVALID",
-            message="股票日线九转源数据合同校验失败。",
+            message="指数日线九转源数据合同校验失败。",
         ) from exc
-    if isinstance(exc, StockNineTurnQueryError):
+    if isinstance(exc, (IndexNineTurnQueryError, IndexDetailQueryError)):
         raise WebAppError(
             status_code=500,
             code="NT_QUERY_FAILED",
-            message="股票日线九转查询失败。",
+            message="指数日线九转查询失败。",
         ) from exc
     raise WebAppError(
         status_code=500,
         code="NT_QUERY_FAILED",
-        message="股票日线九转查询失败。",
+        message="指数日线九转查询失败。",
     ) from exc
+
+
+__all__ = ["router"]

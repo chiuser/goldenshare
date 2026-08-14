@@ -16,33 +16,34 @@ from src.biz.api.wealth.market.nine_turn_query_params import (
     parse_cursor,
     parse_date,
     parse_debug,
+    parse_index_nine_turn_freq,
     parse_limit,
     parse_nine_turn_ts_code,
-    parse_stock_nine_turn_freq,
     validate_query_shape,
 )
-from src.biz.queries.wealth.market.stock_minute_nine_turn.stock_minute_nine_turn_query_service import (
-    StockMinuteNineTurnQueryService,
-)
-from src.biz.queries.wealth.market.stock_nine_turn.stock_nine_turn_query_service import (
-    StockNineTurnNotFoundError,
-    StockNineTurnSourceContractError,
+from src.biz.queries.wealth.market.index_minute_nine_turn.index_minute_nine_turn_query_service import (
+    IndexMinuteNineTurnQueryService,
 )
 from src.biz.schemas.wealth.market.nine_turn import NineTurnSeriesDto
-from src.foundation.clients.local_lake.stock_nine_turn_reader import (
-    StockNineTurnLakeReader,
-    StockNineTurnQueryError,
-    StockNineTurnRequestError,
-    StockNineTurnSourceContractError as StockMinuteNineTurnSourceContractError,
+from src.biz.services.wealth.market.index_detail.index_detail_universe import (
+    IndexDetailNotFoundError,
+    IndexDetailQueryError,
+    IndexDetailRequestError,
+)
+from src.foundation.clients.local_lake.index_nine_turn_reader import (
+    IndexNineTurnLakeReader,
+    IndexNineTurnQueryError,
+    IndexNineTurnRequestError,
+    IndexNineTurnSourceContractError,
 )
 from src.foundation.config.local_minute_capability import (
     LocalMinuteCapabilityError,
-    resolve_stock_nine_turn_minute_capability,
+    resolve_index_nine_turn_minute_capability,
 )
 from src.foundation.config.settings import get_settings
 
 
-router = APIRouter(prefix="/wealth/market/stock-detail", tags=["wealth-market"])
+router = APIRouter(prefix="/wealth/market/index-detail", tags=["wealth-market"])
 _ALLOWED_QUERY_PARAMS = {
     "tsCode",
     "freq",
@@ -54,27 +55,27 @@ _ALLOWED_QUERY_PARAMS = {
 }
 
 
-def _service() -> StockMinuteNineTurnQueryService:
-    capability = resolve_stock_nine_turn_minute_capability(get_settings())
+def _service() -> IndexMinuteNineTurnQueryService:
+    capability = resolve_index_nine_turn_minute_capability(get_settings())
     if not capability.enabled or capability.lake_root is None:
         raise WebAppError(
             status_code=503,
             code=capability.reason_code or "SM_LOCAL_LAKE_NOT_CONFIGURED",
-            message="本地股票分钟九转能力未启用。",
+            message="本地指数分钟九转能力未启用。",
         )
-    return StockMinuteNineTurnQueryService(
+    return IndexMinuteNineTurnQueryService(
         capability.lake_root,
         reader=_reader_for_lake_root(capability.lake_root),
     )
 
 
 @lru_cache(maxsize=1)
-def _reader_for_lake_root(lake_root: Path) -> StockNineTurnLakeReader:
-    return StockNineTurnLakeReader(lake_root)
+def _reader_for_lake_root(lake_root: Path) -> IndexNineTurnLakeReader:
+    return IndexNineTurnLakeReader(lake_root)
 
 
 @router.get("/minute-nine-turn", response_model=NineTurnSeriesDto)
-def get_stock_minute_nine_turn(
+def get_index_minute_nine_turn(
     request: Request,
     ts_code: str | None = Query(default=None, alias="tsCode"),
     freq: str | None = Query(default=None),
@@ -91,7 +92,7 @@ def get_stock_minute_nine_turn(
         return _service().read(
             session,
             ts_code=parse_nine_turn_ts_code(ts_code),
-            freq=parse_stock_nine_turn_freq(freq),
+            freq=parse_index_nine_turn_freq(freq),
             start_date=parse_date(start_date, field_name="startDate"),
             end_date=parse_date(end_date, field_name="endDate"),
             limit=parse_limit(limit, default=500, maximum=10_000),
@@ -106,37 +107,37 @@ def get_stock_minute_nine_turn(
 def _raise_http_error(exc: Exception) -> None:
     if isinstance(exc, WebAppError):
         raise exc
-    if isinstance(exc, StockNineTurnNotFoundError):
+    if isinstance(exc, IndexDetailNotFoundError):
         raise WebAppError(
-            status_code=404,
-            code="NT_NOT_FOUND",
-            message=str(exc),
+            status_code=404, code="NT_NOT_FOUND", message=str(exc)
         ) from exc
-    if isinstance(exc, (StockNineTurnRequestError, ValueError)):
+    if isinstance(
+        exc, (IndexDetailRequestError, IndexNineTurnRequestError, ValueError)
+    ):
         raise WebAppError(
             status_code=400,
             code="NT_REQUEST_INVALID",
             message=str(exc),
         ) from exc
-    if isinstance(
-        exc,
-        (StockNineTurnSourceContractError, StockMinuteNineTurnSourceContractError),
-    ):
+    if isinstance(exc, IndexNineTurnSourceContractError):
         raise WebAppError(
             status_code=500,
             code="NT_SOURCE_CONTRACT_INVALID",
-            message="股票分钟九转源数据合同校验失败。",
+            message="指数分钟九转源数据合同校验失败。",
         ) from exc
-    if isinstance(exc, StockNineTurnQueryError):
+    if isinstance(exc, (IndexNineTurnQueryError, IndexDetailQueryError)):
         raise WebAppError(
             status_code=500,
             code="NT_QUERY_FAILED",
-            message="股票分钟九转查询失败。",
+            message="指数分钟九转查询失败。",
         ) from exc
     if isinstance(exc, LocalMinuteCapabilityError):
         raise WebAppError(status_code=503, code=exc.code, message=exc.message) from exc
     raise WebAppError(
         status_code=500,
         code="NT_QUERY_FAILED",
-        message="股票分钟九转查询失败。",
+        message="指数分钟九转查询失败。",
     ) from exc
+
+
+__all__ = ["router"]

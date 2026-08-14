@@ -20,6 +20,7 @@ from src.foundation.models.core_serving.index_basic import IndexBasic
 from src.foundation.models.core_serving.index_daily_basic import IndexDailyBasic
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
 from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
+from src.foundation.models.core_serving.index_nineturn_daily import IndexNineTurnDaily
 from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
 from src.foundation.models.core_serving.kpl_concept_cons import KplConceptCons
 from src.foundation.models.core_serving.security_serving import Security
@@ -61,6 +62,7 @@ __all__ = [
     "StkPeriodBar",
     "StkPeriodBarAdj",
     "IndexDailyServing",
+    "IndexNineTurnDaily",
     "IndexWeeklyServing",
     "IndexMonthlyServing",
     "WealthMarketTurnoverSnapshot",

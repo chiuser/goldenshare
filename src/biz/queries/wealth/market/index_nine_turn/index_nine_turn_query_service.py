@@ -8,41 +8,37 @@ from sqlalchemy.orm import Session
 from src.biz.queries.wealth.market.context.market_page_context_query import (
     MarketPageContextQuery,
 )
-from src.biz.queries.wealth.market.stock_nine_turn.stock_nine_turn_query import (
-    StockNineTurnQuery,
+from src.biz.queries.wealth.market.index_nine_turn.index_nine_turn_query import (
+    IndexNineTurnQuery,
 )
 from src.biz.schemas.wealth.market.nine_turn import NineTurnSeriesDto
-from src.biz.services.wealth.market.nine_turn.nine_turn_response_policy import (
-    NineTurnContractError,
-    build_nine_turn_response,
+from src.biz.services.wealth.market.index_detail.index_detail_universe import (
+    IndexDetailRequestError,
+    IndexDetailUniverseService,
 )
 from src.biz.services.wealth.market.nine_turn.daily_nine_turn_cursor import (
     decode_daily_nine_turn_cursor,
     encode_daily_nine_turn_cursor,
 )
-from src.foundation.models.core_serving.security_serving import Security
+from src.biz.services.wealth.market.nine_turn.nine_turn_response_policy import (
+    NineTurnContractError,
+    build_nine_turn_response,
+)
 
 
-class StockNineTurnRequestError(ValueError):
+class IndexNineTurnSourceContractError(RuntimeError):
     pass
 
 
-class StockNineTurnNotFoundError(ValueError):
+class IndexNineTurnQueryError(RuntimeError):
     pass
 
 
-class StockNineTurnSourceContractError(RuntimeError):
-    pass
-
-
-class StockNineTurnQueryError(RuntimeError):
-    pass
-
-
-class StockNineTurnQueryService:
+class IndexNineTurnQueryService:
     def __init__(self) -> None:
+        self._universe = IndexDetailUniverseService()
         self._context_query = MarketPageContextQuery()
-        self._query = StockNineTurnQuery()
+        self._query = IndexNineTurnQuery()
 
     def read_daily(
         self,
@@ -55,14 +51,12 @@ class StockNineTurnQueryService:
         cursor: str | None,
         debug: bool,
     ) -> NineTurnSeriesDto:
-        normalized_code = ts_code.strip().upper()
-        security = session.get(Security, normalized_code)
-        if security is None or security.security_type != "EQUITY":
-            raise StockNineTurnNotFoundError(f"未找到股票标的：{normalized_code}")
+        normalized_code = self._universe.normalize_ts_code(ts_code)
+        self._universe.require_supported(normalized_code)
         if not 1 <= limit <= 2_000:
-            raise StockNineTurnRequestError("limit 必须在 1 到 2000 之间。")
+            raise IndexDetailRequestError("limit 必须在 1 到 2000 之间。")
         if start_date is not None and end_date is not None and start_date > end_date:
-            raise StockNineTurnRequestError("startDate 不能晚于 endDate。")
+            raise IndexDetailRequestError("startDate 不能晚于 endDate。")
         context = self._context_query.resolve_context(
             session,
             market="CN_A",
@@ -72,14 +66,14 @@ class StockNineTurnQueryService:
         try:
             before_trade_date = decode_daily_nine_turn_cursor(
                 cursor,
-                dataset="stock_daily_nine_turn",
-                subject_type="stock",
+                dataset="index_daily_nine_turn",
+                subject_type="index",
                 ts_code=normalized_code,
                 start_date=start_date,
                 end_date=query_end_date,
             )
         except ValueError as exc:
-            raise StockNineTurnRequestError(str(exc)) from exc
+            raise IndexDetailRequestError(str(exc)) from exc
         try:
             page = self._query.load_daily_page(
                 session,
@@ -91,23 +85,23 @@ class StockNineTurnQueryService:
             )
             for row in page.rows:
                 if row["nine_turn_matched"] and row["formula_version"] != 1:
-                    raise StockNineTurnSourceContractError(
-                        "股票日线九转 serving formula_version 不是 1。"
+                    raise IndexNineTurnSourceContractError(
+                        "指数日线九转 serving formula_version 不是 1。"
                     )
             source_row_count = len(page.rows)
             matched_row_count = sum(1 for row in page.rows if row["nine_turn_matched"])
             next_cursor = None
             if page.has_more and page.rows:
                 next_cursor = encode_daily_nine_turn_cursor(
-                    dataset="stock_daily_nine_turn",
-                    subject_type="stock",
+                    dataset="index_daily_nine_turn",
+                    subject_type="index",
                     ts_code=normalized_code,
                     start_date=start_date,
                     end_date=query_end_date,
                     before_trade_date=page.rows[0]["trade_date"],
                 )
             return build_nine_turn_response(
-                subject_type="stock",
+                subject_type="index",
                 ts_code=normalized_code,
                 period="day",
                 rows=list(page.rows),
@@ -125,8 +119,8 @@ class StockNineTurnQueryService:
                 debug_info=(
                     {
                         "sourceTables": [
-                            "core_serving.equity_factor_pro",
-                            "core_serving.equity_qfq_nineturn_daily",
+                            "core_serving.index_factor_pro",
+                            "core_serving.index_nineturn_daily",
                         ],
                         "beforeTradeDate": (
                             before_trade_date.isoformat()
@@ -138,9 +132,16 @@ class StockNineTurnQueryService:
                     else None
                 ),
             )
-        except (StockNineTurnRequestError, StockNineTurnSourceContractError):
+        except IndexNineTurnSourceContractError:
             raise
         except NineTurnContractError as exc:
-            raise StockNineTurnSourceContractError(str(exc)) from exc
+            raise IndexNineTurnSourceContractError(str(exc)) from exc
         except SQLAlchemyError as exc:
-            raise StockNineTurnQueryError("股票日线九转查询失败。") from exc
+            raise IndexNineTurnQueryError("指数日线九转查询失败。") from exc
+
+
+__all__ = [
+    "IndexNineTurnQueryError",
+    "IndexNineTurnQueryService",
+    "IndexNineTurnSourceContractError",
+]

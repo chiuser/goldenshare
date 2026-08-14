@@ -6,30 +6,31 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
-from src.biz.queries.wealth.market.stock_nine_turn.stock_nine_turn_query_service import (
-    StockNineTurnNotFoundError,
-    StockNineTurnSourceContractError,
-)
 from src.biz.schemas.wealth.market.nine_turn import NineTurnSeriesDto
+from src.biz.services.wealth.market.index_detail.index_detail_universe import (
+    IndexDetailUniverseService,
+)
 from src.biz.services.wealth.market.nine_turn.nine_turn_response_policy import (
     NineTurnContractError,
     build_nine_turn_response,
 )
-from src.foundation.clients.local_lake.stock_nine_turn_reader import (
-    StockNineTurnLakeReader,
-    StockNineTurnReadRequest,
+from src.foundation.clients.local_lake.index_nine_turn_reader import (
+    IndexNineTurnLakeReader,
+    IndexNineTurnReadRequest,
+    IndexNineTurnSourceContractError,
 )
-from src.foundation.models.core_serving.security_serving import Security
 
 
-class StockMinuteNineTurnQueryService:
+class IndexMinuteNineTurnQueryService:
     def __init__(
         self,
         lake_root: Path,
         *,
-        reader: StockNineTurnLakeReader | None = None,
+        reader: IndexNineTurnLakeReader | None = None,
+        universe_service: IndexDetailUniverseService | None = None,
     ) -> None:
-        self._reader = reader or StockNineTurnLakeReader(lake_root)
+        self._reader = reader or IndexNineTurnLakeReader(lake_root)
+        self._universe = universe_service or IndexDetailUniverseService()
 
     def read(
         self,
@@ -43,12 +44,11 @@ class StockMinuteNineTurnQueryService:
         cursor: str | None,
         debug: bool,
     ) -> NineTurnSeriesDto:
-        normalized_code = ts_code.strip().upper()
-        security = session.get(Security, normalized_code)
-        if security is None or security.security_type != "EQUITY":
-            raise StockNineTurnNotFoundError(f"未找到股票标的：{normalized_code}")
+        del session  # Universe is the product identity boundary for index endpoints.
+        normalized_code = self._universe.normalize_ts_code(ts_code)
+        self._universe.require_supported(normalized_code)
         page = self._reader.read(
-            StockNineTurnReadRequest(
+            IndexNineTurnReadRequest(
                 ts_code=normalized_code,
                 freq=freq,
                 start_date=start_date,
@@ -60,7 +60,7 @@ class StockMinuteNineTurnQueryService:
         effective_end = end_date or datetime.now(ZoneInfo("Asia/Shanghai")).date()
         try:
             return build_nine_turn_response(
-                subject_type="stock",
+                subject_type="index",
                 ts_code=normalized_code,
                 period=str(freq),  # type: ignore[arg-type]
                 rows=list(page.rows),
@@ -78,8 +78,8 @@ class StockMinuteNineTurnQueryService:
                 debug_info=(
                     {
                         "sourceDatasets": [
-                            "gold/quote/stk_mins_qfq",
-                            "gold/indicator/stk_mins_qfq_nineturn",
+                            "gold/quote/major_index_mins",
+                            "gold/indicator/major_index_mins_nineturn",
                         ],
                         "scannedFileCount": page.scanned_file_count,
                         "elapsedMs": round(page.elapsed_ms, 3),
@@ -89,4 +89,7 @@ class StockMinuteNineTurnQueryService:
                 ),
             )
         except NineTurnContractError as exc:
-            raise StockNineTurnSourceContractError(str(exc)) from exc
+            raise IndexNineTurnSourceContractError(str(exc)) from exc
+
+
+__all__ = ["IndexMinuteNineTurnQueryService"]

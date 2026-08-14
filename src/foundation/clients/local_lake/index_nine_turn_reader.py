@@ -4,22 +4,24 @@ from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
+import math
 from pathlib import Path
 from threading import Lock
 import time
 from typing import Any
-from zoneinfo import ZoneInfo
 
-from src.foundation.clients.local_lake.stock_nine_turn_contract import (
+from src.foundation.clients.local_lake.index_nine_turn_contract import (
     BAR_COLUMN_SPECS,
+    EXPECTED_INDEX_BARS_PER_SESSION,
     FORMAL_LAKE_ROOT,
-    MAX_NINE_TURN_LIMIT,
-    MAX_NINE_TURN_PARTITION_FILES,
+    INDEX_TS_CODE_PATTERN,
+    MAX_INDEX_NINE_TURN_LIMIT,
+    MAX_INDEX_NINE_TURN_PARTITION_FILES,
     NINE_TURN_COLUMN_SPECS,
-    STOCK_TS_CODE_PATTERN,
-    SUPPORTED_STOCK_NINE_TURN_FREQS,
-    stock_minute_bar_dataset_root,
-    stock_minute_nine_turn_dataset_root,
+    SUPPORTED_INDEX_NINE_TURN_FREQS,
+    TRADE_DATE_PARTITION_PATTERN,
+    index_minute_bar_dataset_root,
+    index_minute_nine_turn_dataset_root,
 )
 from src.foundation.clients.local_lake.nine_turn_minute_contract import (
     decode_nine_turn_minute_cursor,
@@ -28,24 +30,24 @@ from src.foundation.clients.local_lake.nine_turn_minute_contract import (
 )
 
 
-class StockNineTurnReaderError(RuntimeError):
+class IndexNineTurnReaderError(RuntimeError):
     code = "NT_QUERY_FAILED"
 
 
-class StockNineTurnRequestError(StockNineTurnReaderError):
+class IndexNineTurnRequestError(IndexNineTurnReaderError):
     code = "NT_REQUEST_INVALID"
 
 
-class StockNineTurnSourceContractError(StockNineTurnReaderError):
+class IndexNineTurnSourceContractError(IndexNineTurnReaderError):
     code = "NT_SOURCE_CONTRACT_INVALID"
 
 
-class StockNineTurnQueryError(StockNineTurnReaderError):
+class IndexNineTurnQueryError(IndexNineTurnReaderError):
     code = "NT_QUERY_FAILED"
 
 
 @dataclass(frozen=True, slots=True)
-class StockNineTurnReadRequest:
+class IndexNineTurnReadRequest:
     ts_code: str
     freq: int
     start_date: date | None
@@ -55,7 +57,7 @@ class StockNineTurnReadRequest:
 
 
 @dataclass(frozen=True, slots=True)
-class StockNineTurnReadPage:
+class IndexNineTurnReadPage:
     rows: tuple[dict[str, Any], ...]
     source_row_count: int
     matched_row_count: int
@@ -68,70 +70,114 @@ class StockNineTurnReadPage:
     elapsed_ms: float
 
 
-class StockNineTurnLakeReader:
+@dataclass(frozen=True, slots=True)
+class _PartitionFile:
+    trade_date: date
+    path: Path
+
+
+class IndexNineTurnLakeReader:
     def __init__(self, lake_root: Path) -> None:
         normalized_root = lake_root.expanduser().resolve()
         if normalized_root != FORMAL_LAKE_ROOT.resolve():
-            raise StockNineTurnRequestError(
-                "股票九转分钟 Reader 只允许正式 /Volumes/datasource/data_lake。"
+            raise IndexNineTurnRequestError(
+                "指数九转分钟 Reader 只允许正式 /Volumes/datasource/data_lake。"
             )
         self._lake_root = normalized_root
         self._connection: Any | None = None
         self._connection_lock = Lock()
 
-    def read(self, request: StockNineTurnReadRequest) -> StockNineTurnReadPage:
+    def read(self, request: IndexNineTurnReadRequest) -> IndexNineTurnReadPage:
         started = time.perf_counter()
         normalized, cursor = _normalize_request(request)
-        bar_paths = _bar_paths(self._lake_root, normalized)
-        if not bar_paths:
+        partitions = _enumerate_bar_partitions(self._lake_root, normalized, cursor)
+        if not partitions:
             return _empty_page(started)
 
+        selected_count = min(_initial_partition_count(normalized), len(partitions))
         with self._connection_lock:
             connection = self._connection_for_read()
             try:
-                _validate_files(connection, bar_paths, BAR_COLUMN_SPECS)
-                _validate_bar_contract(connection, bar_paths, normalized)
-                bar_rows = _query_rows(
-                    connection,
-                    bar_paths=bar_paths,
-                    nine_turn_paths=(),
-                    request=normalized,
-                    cursor=cursor,
-                )
-                nine_turn_paths = _nine_turn_paths(
-                    self._lake_root,
-                    normalized,
-                    trade_dates={row["trade_date"] for row in bar_rows},
-                )
-                scanned_file_count = len(bar_paths) + len(nine_turn_paths)
-                if scanned_file_count > MAX_NINE_TURN_PARTITION_FILES:
-                    raise StockNineTurnRequestError(
-                        "查询将扫描超过 5000 个分区文件，请缩小日期窗口。"
-                    )
-                if nine_turn_paths:
+                while True:
+                    selected = partitions[:selected_count]
+                    bar_paths = tuple(item.path for item in selected)
                     _validate_files(
                         connection,
-                        nine_turn_paths,
-                        NINE_TURN_COLUMN_SPECS,
+                        bar_paths,
+                        BAR_COLUMN_SPECS,
+                        exact=True,
                     )
-                    _validate_nine_turn_contract(
+                    _validate_bar_contract(
                         connection,
-                        nine_turn_paths,
+                        bar_paths,
                         normalized,
                     )
-                    rows = _query_rows(
+                    bar_rows = _query_rows(
                         connection,
                         bar_paths=bar_paths,
-                        nine_turn_paths=nine_turn_paths,
+                        nine_turn_paths=(),
                         request=normalized,
                         cursor=cursor,
                     )
-                else:
-                    rows = bar_rows
-            except StockNineTurnReaderError:
+                    if not bar_rows and normalized.ts_code == "899050.BJ":
+                        return _empty_page(
+                            started,
+                            scanned_file_count=len(bar_paths),
+                        )
+                    if not bar_rows and selected_count < len(partitions):
+                        selected_count = _expanded_partition_count(
+                            selected_count=selected_count,
+                            partition_count=len(partitions),
+                        )
+                        continue
+                    if not bar_rows:
+                        return _empty_page(
+                            started,
+                            scanned_file_count=len(bar_paths),
+                        )
+                    nine_turn_paths = _nine_turn_paths(
+                        self._lake_root,
+                        normalized,
+                        trade_dates={row["trade_date"] for row in bar_rows},
+                    )
+                    scanned_file_count = len(bar_paths) + len(nine_turn_paths)
+                    if scanned_file_count > MAX_INDEX_NINE_TURN_PARTITION_FILES:
+                        raise IndexNineTurnRequestError(
+                            "查询将扫描超过 5000 个分区文件，请缩小日期窗口。"
+                        )
+                    if nine_turn_paths:
+                        _validate_files(
+                            connection,
+                            nine_turn_paths,
+                            NINE_TURN_COLUMN_SPECS,
+                            exact=True,
+                        )
+                        _validate_nine_turn_contract(
+                            connection,
+                            nine_turn_paths,
+                            normalized,
+                        )
+                        rows = _query_rows(
+                            connection,
+                            bar_paths=bar_paths,
+                            nine_turn_paths=nine_turn_paths,
+                            request=normalized,
+                            cursor=cursor,
+                        )
+                    else:
+                        rows = bar_rows
+                    if len(rows) >= normalized.limit + 1 or selected_count == len(
+                        partitions
+                    ):
+                        break
+                    selected_count = _expanded_partition_count(
+                        selected_count=selected_count,
+                        partition_count=len(partitions),
+                    )
+            except IndexNineTurnReaderError:
                 raise
             except Exception as exc:
-                raise StockNineTurnQueryError("股票九转分钟查询失败。") from exc
+                raise IndexNineTurnQueryError("指数九转分钟查询失败。") from exc
 
         has_more = len(rows) > normalized.limit
         page_rows = rows[: normalized.limit]
@@ -141,8 +187,8 @@ class StockNineTurnLakeReader:
         if has_more and page_rows:
             first = page_rows[0]
             next_cursor = encode_nine_turn_minute_cursor(
-                dataset="stock_minute_nine_turn",
-                subject_type="stock",
+                dataset="index_minute_nine_turn",
+                subject_type="index",
                 ts_code=normalized.ts_code,
                 freq=normalized.freq,
                 start_date=normalized.start_date,
@@ -150,10 +196,9 @@ class StockNineTurnLakeReader:
                 before_trade_date=first["trade_date"],
                 before_trade_time=first["trade_time"],
             )
-
         matched_rows = [row for row in page_rows if row["nine_turn_matched"]]
         observed_dates = [row["trade_date"] for row in matched_rows]
-        return StockNineTurnReadPage(
+        return IndexNineTurnReadPage(
             rows=tuple(page_rows),
             source_row_count=len(page_rows),
             matched_row_count=len(matched_rows),
@@ -179,7 +224,7 @@ class StockNineTurnLakeReader:
         try:
             import duckdb
         except ImportError as exc:  # pragma: no cover - capability gate covers startup
-            raise StockNineTurnQueryError("local-lake DuckDB 依赖不可用。") from exc
+            raise IndexNineTurnQueryError("local-lake DuckDB 依赖不可用。") from exc
         connection = duckdb.connect(database=":memory:")
         connection.execute("SET memory_limit='256MB'")
         connection.execute("SET threads=1")
@@ -189,87 +234,114 @@ class StockNineTurnLakeReader:
 
 
 def _normalize_request(
-    request: StockNineTurnReadRequest,
-) -> tuple[StockNineTurnReadRequest, dict[str, Any] | None]:
+    request: IndexNineTurnReadRequest,
+) -> tuple[IndexNineTurnReadRequest, dict[str, Any] | None]:
     ts_code = request.ts_code.strip().upper()
-    if not STOCK_TS_CODE_PATTERN.fullmatch(ts_code):
-        raise StockNineTurnRequestError("tsCode 必须是六位代码加 SH/SZ/BJ 后缀。")
+    if not INDEX_TS_CODE_PATTERN.fullmatch(ts_code):
+        raise IndexNineTurnRequestError("tsCode 必须是六位代码加 SH/SZ/BJ 后缀。")
     try:
         freq = int(request.freq)
     except (TypeError, ValueError) as exc:
-        raise StockNineTurnRequestError("freq 必须是整数分钟频率。") from exc
-    if freq not in SUPPORTED_STOCK_NINE_TURN_FREQS:
-        raise StockNineTurnRequestError("股票九转 freq 只允许 30/60/90/120。")
-    if not 1 <= request.limit <= MAX_NINE_TURN_LIMIT:
-        raise StockNineTurnRequestError("limit 必须在 1 到 10000 之间。")
+        raise IndexNineTurnRequestError("freq 必须是整数分钟频率。") from exc
+    if isinstance(request.freq, bool) or freq not in SUPPORTED_INDEX_NINE_TURN_FREQS:
+        raise IndexNineTurnRequestError("指数九转 freq 只允许 5/15/30/60/90/120。")
+    if not 1 <= request.limit <= MAX_INDEX_NINE_TURN_LIMIT:
+        raise IndexNineTurnRequestError("limit 必须在 1 到 10000 之间。")
     if (
         request.start_date is not None
         and request.end_date is not None
         and request.start_date > request.end_date
     ):
-        raise StockNineTurnRequestError("startDate 不能晚于 endDate。")
-    effective_end = request.end_date or datetime.now(ZoneInfo("Asia/Shanghai")).date()
-    effective_start = request.start_date or date(effective_end.year - 2, 1, 1)
-    if effective_end.year - effective_start.year > 2:
-        raise StockNineTurnRequestError("股票九转分钟查询最多允许涉及 3 个自然年。")
-
-    normalized = StockNineTurnReadRequest(
-        ts_code=ts_code,
-        freq=freq,
-        start_date=request.start_date,
-        end_date=request.end_date,
-        limit=request.limit,
-        cursor=request.cursor,
-    )
+        raise IndexNineTurnRequestError("startDate 不能晚于 endDate。")
     try:
         cursor = decode_nine_turn_minute_cursor(
             request.cursor,
-            dataset="stock_minute_nine_turn",
-            subject_type="stock",
+            dataset="index_minute_nine_turn",
+            subject_type="index",
             ts_code=ts_code,
             freq=freq,
             start_date=request.start_date,
             end_date=request.end_date,
         )
     except ValueError as exc:
-        raise StockNineTurnRequestError(str(exc)) from exc
-    return normalized, cursor
-
-
-def _bar_paths(
-    lake_root: Path,
-    request: StockNineTurnReadRequest,
-) -> tuple[Path, ...]:
-    effective_end = request.end_date or datetime.now(ZoneInfo("Asia/Shanghai")).date()
-    effective_start = request.start_date or date(effective_end.year - 2, 1, 1)
-    frequency_root = (
-        stock_minute_bar_dataset_root(lake_root)
-        / f"freq={request.freq}"
-        / f"ts_code={request.ts_code}"
+        raise IndexNineTurnRequestError(str(exc)) from exc
+    return (
+        IndexNineTurnReadRequest(
+            ts_code=ts_code,
+            freq=freq,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            limit=request.limit,
+            cursor=request.cursor,
+        ),
+        cursor,
     )
-    paths = [
-        frequency_root / f"year={year}" / "part-000.parquet"
-        for year in range(effective_start.year, effective_end.year + 1)
-    ]
+
+
+def _enumerate_bar_partitions(
+    lake_root: Path,
+    request: IndexNineTurnReadRequest,
+    cursor: dict[str, Any] | None,
+) -> tuple[_PartitionFile, ...]:
+    dataset_root = index_minute_bar_dataset_root(lake_root)
+    frequency_root = dataset_root / f"freq={request.freq}"
+    if not frequency_root.is_dir():
+        return ()
+    cursor_date = (
+        date.fromisoformat(cursor["beforeTradeDate"]) if cursor is not None else None
+    )
+    candidates: list[tuple[date, Path]] = []
+    for candidate in frequency_root.glob("trade_date=*/part-000.parquet"):
+        match = TRADE_DATE_PARTITION_PATTERN.fullmatch(candidate.parent.name)
+        if match is None:
+            continue
+        partition_date = date.fromisoformat(match.group(1))
+        if request.start_date is not None and partition_date < request.start_date:
+            continue
+        if request.end_date is not None and partition_date > request.end_date:
+            continue
+        if cursor_date is not None and partition_date > cursor_date:
+            continue
+        candidates.append((partition_date, candidate))
+    candidates.sort(key=lambda item: item[0], reverse=True)
     try:
-        return existing_safe_partition_paths(
+        safe_paths = existing_safe_partition_paths(
             lake_root=lake_root,
-            dataset_root=stock_minute_bar_dataset_root(lake_root),
-            candidates=paths,
+            dataset_root=dataset_root,
+            candidates=[path for _trade_date, path in candidates],
         )
     except ValueError as exc:
-        raise StockNineTurnSourceContractError(str(exc)) from exc
+        raise IndexNineTurnSourceContractError(str(exc)) from exc
+    safe_by_name = {path.parent.name: path for path in safe_paths}
+    return tuple(
+        _PartitionFile(trade_date=trade_date, path=safe_by_name[path.parent.name])
+        for trade_date, path in candidates
+        if path.parent.name in safe_by_name
+    )
+
+
+def _initial_partition_count(request: IndexNineTurnReadRequest) -> int:
+    bars_per_day = EXPECTED_INDEX_BARS_PER_SESSION[request.freq]
+    return max(1, math.ceil((request.limit + 1) / bars_per_day) + 1)
+
+
+def _expanded_partition_count(*, selected_count: int, partition_count: int) -> int:
+    next_count = min(partition_count, max(selected_count + 1, selected_count * 2))
+    if next_count * 2 > MAX_INDEX_NINE_TURN_PARTITION_FILES:
+        raise IndexNineTurnRequestError(
+            "查询将扫描超过 5000 个分区文件，请缩小日期窗口。"
+        )
+    return next_count
 
 
 def _nine_turn_paths(
     lake_root: Path,
-    request: StockNineTurnReadRequest,
+    request: IndexNineTurnReadRequest,
     *,
     trade_dates: set[date],
 ) -> tuple[Path, ...]:
-    frequency_root = (
-        stock_minute_nine_turn_dataset_root(lake_root) / f"freq={request.freq}"
-    )
+    dataset_root = index_minute_nine_turn_dataset_root(lake_root)
+    frequency_root = dataset_root / f"freq={request.freq}"
     if not frequency_root.is_dir() or not trade_dates:
         return ()
     candidates = [
@@ -279,20 +351,20 @@ def _nine_turn_paths(
     try:
         return existing_safe_partition_paths(
             lake_root=lake_root,
-            dataset_root=stock_minute_nine_turn_dataset_root(lake_root),
+            dataset_root=dataset_root,
             candidates=candidates,
         )
     except ValueError as exc:
-        raise StockNineTurnSourceContractError(str(exc)) from exc
+        raise IndexNineTurnSourceContractError(str(exc)) from exc
 
 
 def _validate_files(
     connection: Any,
     paths: Sequence[Path],
     specs: Sequence[tuple[str, str]],
+    *,
+    exact: bool,
 ) -> None:
-    if not paths:
-        return
     try:
         schema_rows = connection.execute(
             """
@@ -304,8 +376,8 @@ def _validate_files(
             [list(map(str, paths))],
         ).fetchall()
     except Exception as exc:
-        raise StockNineTurnSourceContractError(
-            "股票九转分钟文件 schema 不符合合同。"
+        raise IndexNineTurnSourceContractError(
+            "指数九转分钟文件 schema 不符合合同。"
         ) from exc
     by_file: dict[str, list[tuple[str, str]]] = defaultdict(list)
     for file_name, name, duckdb_type in schema_rows:
@@ -314,7 +386,6 @@ def _validate_files(
         )
     expected = tuple(specs)
     expected_names = {name for name, _type in expected}
-    exact = expected == NINE_TURN_COLUMN_SPECS
     for path in paths:
         observed_all = tuple(by_file.get(str(path.resolve()), ()))
         observed = (
@@ -323,8 +394,8 @@ def _validate_files(
             else tuple(item for item in observed_all if item[0] in expected_names)
         )
         if observed != expected:
-            raise StockNineTurnSourceContractError(
-                f"股票九转分钟文件字段合同不一致：{path.name}。"
+            raise IndexNineTurnSourceContractError(
+                f"指数九转分钟文件字段合同不一致：{path}."
             )
 
 
@@ -334,27 +405,31 @@ def _normalize_duckdb_type(value: object) -> str:
         return "TIMESTAMP"
     if normalized in {"TEXT", "STRING"}:
         return "VARCHAR"
+    if normalized == "SMALLINT":
+        return "INTEGER"
     return normalized
 
 
 def _validate_bar_contract(
     connection: Any,
     paths: Sequence[Path],
-    request: StockNineTurnReadRequest,
+    request: IndexNineTurnReadRequest,
 ) -> None:
     invalid_count, duplicate_count = connection.execute(
         """
         WITH source AS (
-          SELECT ts_code, freq, trade_date, trade_time, filename
+          SELECT ts_code, freq, trade_date, trade_time, close, filename
           FROM read_parquet(?, filename=true, hive_partitioning=false)
+          WHERE ts_code = ?
         )
         SELECT
           count(*) FILTER (
-            WHERE ts_code != ? OR freq != ?
-              OR trade_date != CAST(trade_time AS DATE)
-              OR year(trade_date) != CAST(
-                regexp_extract(filename, 'year=([0-9]{4})', 1) AS INTEGER
+            WHERE freq != ? OR trade_date != CAST(trade_time AS DATE)
+              OR trade_date != CAST(
+                regexp_extract(filename, 'trade_date=([0-9]{4}-[0-9]{2}-[0-9]{2})', 1)
+                AS DATE
               )
+              OR close IS NULL OR NOT isfinite(close) OR close <= 0
           ),
           count(*) - count(DISTINCT (ts_code, freq, trade_time))
         FROM source
@@ -362,22 +437,22 @@ def _validate_bar_contract(
         [list(map(str, paths)), request.ts_code, request.freq],
     ).fetchone()
     if int(invalid_count or 0):
-        raise StockNineTurnSourceContractError(
-            "股票分钟 K 线存在代码、频率或日期分区合同错误。"
+        raise IndexNineTurnSourceContractError(
+            "指数分钟 K 线存在频率、日期或价格合同错误。"
         )
     if int(duplicate_count or 0):
-        raise StockNineTurnSourceContractError("股票分钟 K 线存在重复时间键。")
+        raise IndexNineTurnSourceContractError("指数分钟 K 线存在重复时间键。")
 
 
 def _validate_nine_turn_contract(
     connection: Any,
     paths: Sequence[Path],
-    request: StockNineTurnReadRequest,
+    request: IndexNineTurnReadRequest,
 ) -> None:
     invalid_count, duplicate_count = connection.execute(
         """
         WITH source AS (
-          SELECT ts_code, freq, trade_date, trade_time, close_qfq,
+          SELECT ts_code, freq, trade_date, trade_time, close,
                  up_count, down_count, nine_up_turn, nine_down_turn, filename
           FROM read_parquet(?, filename=true, hive_partitioning=false)
           WHERE ts_code = ?
@@ -385,13 +460,12 @@ def _validate_nine_turn_contract(
         SELECT
           count(*) FILTER (
             WHERE freq != ?
-              OR NOT regexp_full_match(ts_code, '^[0-9]{6}\\.(SH|SZ|BJ)$')
               OR trade_date != CAST(trade_time AS DATE)
               OR trade_date != CAST(
                 regexp_extract(filename, 'trade_date=([0-9]{4}-[0-9]{2}-[0-9]{2})', 1)
                 AS DATE
               )
-              OR close_qfq IS NULL OR NOT isfinite(close_qfq) OR close_qfq <= 0
+              OR close IS NULL OR NOT isfinite(close) OR close <= 0
               OR up_count IS NULL OR down_count IS NULL
               OR up_count < 0 OR down_count < 0
               OR (up_count > 0 AND down_count > 0)
@@ -407,11 +481,11 @@ def _validate_nine_turn_contract(
         [list(map(str, paths)), request.ts_code, request.freq],
     ).fetchone()
     if int(invalid_count or 0):
-        raise StockNineTurnSourceContractError(
-            "股票九转分钟文件存在身份、分区或值域合同错误。"
+        raise IndexNineTurnSourceContractError(
+            "指数九转分钟文件存在分区或值域合同错误。"
         )
     if int(duplicate_count or 0):
-        raise StockNineTurnSourceContractError("股票九转分钟文件存在重复时间键。")
+        raise IndexNineTurnSourceContractError("指数九转分钟文件存在重复时间键。")
 
 
 def _query_rows(
@@ -419,7 +493,7 @@ def _query_rows(
     *,
     bar_paths: Sequence[Path],
     nine_turn_paths: Sequence[Path],
-    request: StockNineTurnReadRequest,
+    request: IndexNineTurnReadRequest,
     cursor: dict[str, Any] | None,
 ) -> list[dict[str, Any]]:
     predicates = ["ts_code = ?", "freq = ?"]
@@ -443,9 +517,8 @@ def _query_rows(
             ]
         )
     parameters.append(request.limit + 1)
-
     bars_cte = f"""
-        SELECT ts_code, freq, trade_date, trade_time
+        SELECT ts_code, freq, trade_date, trade_time, close
         FROM read_parquet(?, hive_partitioning=false)
         WHERE {" AND ".join(predicates)}
         ORDER BY trade_date DESC, trade_time DESC
@@ -455,13 +528,13 @@ def _query_rows(
         sql = f"""
             WITH bars AS ({bars_cte}),
             nine_turn AS (
-              SELECT ts_code, freq, trade_date, trade_time, close_qfq,
+              SELECT ts_code, freq, trade_date, trade_time, close,
                      up_count, down_count, nine_up_turn, nine_down_turn
               FROM read_parquet(?, hive_partitioning=false)
               WHERE ts_code = ? AND freq = ?
             )
             SELECT b.ts_code, b.freq, b.trade_date, b.trade_time,
-                   n.close_qfq, n.up_count, n.down_count,
+                   n.close, n.up_count, n.down_count,
                    n.nine_up_turn, n.nine_down_turn,
                    n.ts_code IS NOT NULL AS nine_turn_matched
             FROM bars b
@@ -477,7 +550,7 @@ def _query_rows(
         sql = f"""
             WITH bars AS ({bars_cte})
             SELECT ts_code, freq, trade_date, trade_time,
-                   NULL::DOUBLE AS close_qfq, NULL::INTEGER AS up_count,
+                   NULL::DOUBLE AS close, NULL::INTEGER AS up_count,
                    NULL::INTEGER AS down_count, NULL::VARCHAR AS nine_up_turn,
                    NULL::VARCHAR AS nine_down_turn, FALSE AS nine_turn_matched
             FROM bars
@@ -488,32 +561,36 @@ def _query_rows(
         names = [item[0] for item in result.description]
         return [dict(zip(names, row, strict=True)) for row in result.fetchall()]
     except Exception as exc:
-        raise StockNineTurnQueryError("股票九转分钟查询失败。") from exc
+        raise IndexNineTurnQueryError("指数九转分钟查询失败。") from exc
 
 
 def _validate_result_rows(
     rows: Sequence[dict[str, Any]],
-    request: StockNineTurnReadRequest,
+    request: IndexNineTurnReadRequest,
 ) -> None:
     keys: set[tuple[str, int, datetime]] = set()
     previous: tuple[date, datetime] | None = None
     for row in rows:
         if row["ts_code"] != request.ts_code or int(row["freq"]) != request.freq:
-            raise StockNineTurnSourceContractError("股票九转分钟结果身份不一致。")
+            raise IndexNineTurnSourceContractError("指数九转分钟结果身份不一致。")
         if row["trade_time"].date() != row["trade_date"]:
-            raise StockNineTurnSourceContractError("trade_time 不属于 trade_date。")
+            raise IndexNineTurnSourceContractError("trade_time 不属于 trade_date。")
         key = (row["ts_code"], int(row["freq"]), row["trade_time"])
         if key in keys:
-            raise StockNineTurnSourceContractError("股票九转分钟时间键重复。")
+            raise IndexNineTurnSourceContractError("指数九转分钟时间键重复。")
         keys.add(key)
         current = (row["trade_date"], row["trade_time"])
         if previous is not None and current <= previous:
-            raise StockNineTurnSourceContractError("股票九转分钟结果未严格升序。")
+            raise IndexNineTurnSourceContractError("指数九转分钟结果未严格升序。")
         previous = current
 
 
-def _empty_page(started: float) -> StockNineTurnReadPage:
-    return StockNineTurnReadPage(
+def _empty_page(
+    started: float,
+    *,
+    scanned_file_count: int = 0,
+) -> IndexNineTurnReadPage:
+    return IndexNineTurnReadPage(
         rows=(),
         source_row_count=0,
         matched_row_count=0,
@@ -522,6 +599,16 @@ def _empty_page(started: float) -> StockNineTurnReadPage:
         next_cursor=None,
         observed_start_date=None,
         observed_end_date=None,
-        scanned_file_count=0,
+        scanned_file_count=scanned_file_count,
         elapsed_ms=(time.perf_counter() - started) * 1000,
     )
+
+
+__all__ = [
+    "IndexNineTurnLakeReader",
+    "IndexNineTurnQueryError",
+    "IndexNineTurnReadPage",
+    "IndexNineTurnReadRequest",
+    "IndexNineTurnRequestError",
+    "IndexNineTurnSourceContractError",
+]

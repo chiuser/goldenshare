@@ -891,18 +891,31 @@ Gold 修复和 serving 历史发布后，完成生产日线、四个本地分钟
 
 ```text
 lake_console/orchestrator/src/orchestrator/defs/nineturn_formula.py
+lake_console/orchestrator/src/orchestrator/defs/run_contracts/major_index_nineturn.py
 lake_console/orchestrator/src/orchestrator/defs/major_index_nineturn.py
+lake_console/orchestrator/src/orchestrator/defs/major_index_nineturn_integrity.py
+lake_console/orchestrator/src/orchestrator/defs/asset_guards/major_index_nineturn.py
 lake_console/orchestrator/src/orchestrator/defs/assets/major_index_nineturn.py
 lake_console/orchestrator/src/orchestrator/defs/checks/major_index_nineturn_checks.py
 lake_console/orchestrator/src/orchestrator/defs/jobs/major_index_nineturn_update.py
 lake_console/orchestrator/src/orchestrator/defs/sensors/major_index_nineturn_sensor.py
 lake_console/orchestrator/src/orchestrator/defs/bootstrap/major_index_nineturn_history.py
 lake_console/orchestrator/src/orchestrator/defs/assets/index_daily_nineturn_prod_core.py
+lake_console/orchestrator/src/orchestrator/defs/prod_db/index_daily_nineturn.py
+lake_console/orchestrator/src/orchestrator/defs/checks/index_daily_nineturn_prod_core_checks.py
+lake_console/orchestrator/src/orchestrator/defs/jobs/index_daily_nineturn_prod_core_sync.py
+lake_console/orchestrator/src/orchestrator/defs/sensors/index_daily_nineturn_prod_core_sensor.py
+alembic/versions/20260814_000136_add_index_nineturn_daily_serving.py
 src/foundation/models/core_serving/index_nineturn_daily.py
+src/foundation/clients/local_lake/index_nine_turn_contract.py
+src/foundation/clients/local_lake/index_nine_turn_reader.py
+src/biz/queries/wealth/market/index_nine_turn/**
+src/biz/queries/wealth/market/index_minute_nine_turn/**
 src/biz/api/wealth/market/index_detail_nine_turn.py
+src/biz/api/wealth/market/index_detail_minute_nine_turn.py
 ```
 
-实际拆文件时可以按仓库现有 daily/minute 命名规范细分，但不得合并成无法独立测试的单个大文件。
+以上结构已按资产计算、完整性、readiness、serving、Reader、query/service 与 API 职责拆分；后续不得合并成无法独立测试的单个大文件。
 
 M4-A 已完成且退出条件为：
 
@@ -910,6 +923,26 @@ M4-A 已完成且退出条件为：
 2. 股票公开函数、资产 key、schema、路径、lag=4、threshold=9、10+ 持续信号、seed 与 fallback 语义未改变。
 3. 独立共享内核测试与原股票受保护 golden 形成双门禁；测试只使用内存 DuckDB 和临时 Parquet。
 4. M4-A 不创建指数资产、不生成指数历史。指数 asset/check/job/sensor/readiness、正式历史与性能验收从后续 M4-B 开始。
+
+M4-B 编码前只读门禁（2026-08-14）已经冻结：
+
+1. 正式日线上游 `gold/market/major_indices_daily` 有 6,450 个交易日分区、42,633 行，范围为 2000-01-04～2026-08-14；最新分区含 11 个物理代码，同时包含 `899050.BJ` 和只允许物理存在的 `000680.SH`。
+2. 正式分钟上游 `gold/quote/major_index_mins` 的 5/15/30/60/90/120 六频率各有 4,279 个交易日分区，范围为 2009-01-05～2026-08-14；全历史行数依次为 1,464,096、488,032、244,016、122,008、91,506、61,004。六频率唯一时间键重复数和 `trade_time`/`trade_date` 错配数均为 0。
+3. 六频率物理代码均为 10 个：包含 `000680.SH`，不包含 `899050.BJ`。这是物理 Gold 上游事实；产品 API 仍只能按 Wealth 10-code allowlist 开放，因此 `000680.SH` 必须 404，`899050.BJ` 六频率必须返回局部 `EMPTY/NT_SOURCE_NOT_READY`。
+4. 全历史只读聚合耗时约 0.6～1.0 秒，但 5 分钟频率一次枚举 4,279 个碎文件时进程最大 RSS 约 337MiB；该证据禁止七资产共用一个全历史常驻连接或一次性构建全量中间表。
+5. 历史构建固定为单资产串行、20 个交易日一批、DuckDB `memory_limit=256MB`、`threads=1`、`preserve_insertion_order=false`，每批重建连接并写 compact context/seed 与 checkpoint。只读计划冻结所有 source/context 文件的相对路径、size 与 mtime；执行前逐批复核，checkpoint 恢复必须逐文件校验已提升目标的 SHA-256，禁止盲跳。任一批次 RSS 超过 512MiB、单批超过 30 秒、目标文件数或行数不等于源窗口时立即停止。
+6. 预计新增 32,124 个目标分区文件（日线 6,450 + 六分钟 25,674）；对应 materialization 与 blocking-check event 各 32,124 个。物理文件生成、正式 Lake 提升、runless event、生产 migration/serving 发布和 sensor 启用都不属于本轮编码授权，必须另行提交只读 plan 并取得执行批准。
+7. 本轮编码只允许新增 7 个 asset、7 个 blocking check、2 个 job、2 个默认 `STOPPED` sensor、readiness、历史 planner、日线 serving/publisher 和日线/本地分钟 API；负向门禁必须证明不存在 1 分钟九转 asset/check/job/sensor/path/API 支持，且指数九转不得直接引用任何 Silver 分钟 asset key 或路径。
+
+M4-B 编码结果（2026-08-15）：
+
+1. 7 个 Gold asset、7 个聚合 blocking check、2 个 job、2 个默认 `STOPPED` sensor、readiness 与有界历史构建器已实现；Definitions 可发现全部对象，且不存在 1 分钟九转对象。
+2. 历史构建器已落实 20 日批次、256MB/1线程、512MiB RSS 与 30 秒停止门禁，并增加源文件身份复核、候选完整性、逐文件原子提升、目标 SHA-256 checkpoint 恢复回验；测试只写临时目录。
+3. `core_serving.index_nineturn_daily` migration、事务 publisher、serving check/job/默认 `STOPPED` sensor 及常驻日线 API 已实现；当前 Alembic head 为 `20260814_000136`，`down_revision` 精确连接 `20260813_000135`。
+4. 本地分钟 Reader/API 已实现六频率、Gold bar 窗口分页、严格 cursor、5,000 文件/5MB 门禁、10-code allowlist、`000680.SH` 404 和 `899050.BJ` 局部 EMPTY；Reader 使用单个受锁 256MB/1线程 DuckDB 连接。
+5. 共享 DTO 只投影 1～9；10+ 不重复绘制 9。股票日线/分钟消费者已同步迁移到 subject-aware cursor/DTO，并通过回归。
+6. 本轮没有执行正式 Lake 写入、materialization、runless event、生产 migration、serving 发布或 sensor 启用。因此 M4-B 只能标记为“编码完成”，物理历史、正式对齐/性能和生产发布验收仍待单独批准。
+7. 编码验收通过 121 个 Web/Foundation 回归，以及 122 个 Orchestrator 测试和 14 个 subtests；`dg list defs` 实测发现 7 个 Gold assets/checks、1 个 serving asset/check、3 个 jobs 和 3 个默认停止的 sensors。现有 Pydantic、Dagster Preview/Deprecation warning 未新增失败。
 
 ### 15.6 M5：指数页面接入
 
@@ -1004,7 +1037,7 @@ M3-B 已完成，后续仍未完成的运行与发布项：
 
 1. migration 已在生产执行；目标表最终只读确认有 3,066 个交易日、11,638,636 行，与冻结计划逐日行数一致，全历史发布已完成。
 2. 45,442 行 close 漂移对应的 Gold scoped rebuild 已完成；11,638,636 行全历史键、价格、计数和信号差异均为 0。
-3. 股票 serving sample、余下 1,953 日历史发布和最终全量对账均已完成。指数七资产与正式历史仍未建设。
+3. 股票 serving sample、余下 1,953 日历史发布和最终全量对账均已完成。指数七资产及 API 代码已建设；32,124 个正式目标分区、Dagster events、生产 migration 与 serving 历史仍未执行。
 4. Gold sensor 在执行前发现实际为 RUNNING，审计确认近 10 个 tick 均 SKIPPED、无并发 run 后已停止；serving sensor 未启用。两者当前均不得启用。
 5. Gold 修复和正式发布前置条件已完成；生产日线真实 API、数据样本与 Loaded 截图已通过主体门禁，仍须补齐登录态 P95、生产缩放边界截图和自然日常链路，不得用 SQLite fixture、本地 Lake 或单元测试冒充这些生产验收。
 6. M3-C-Minute 已完成：四个正式分钟资产、严格 API、性能/内存、缓存/竞态、1/5/15 禁用周期和 1600×1200 浏览器门禁均通过；该结论不扩展到指数九转，也不授权启用 sensor。
@@ -1024,3 +1057,4 @@ M3-B 已完成，后续仍未完成的运行与发布项：
 | v1.8 | 2026-08-14 | 增加十四个分钟 K 线 Gold asset key 白名单、物理根和支持频率边界，并冻结针对 Silver asset key 的负向静态门禁 | Codex |
 | v1.9 | 2026-08-14 | 完成 M4-A：提取唯一规范化九转 SQL 内核，股票全历史、分区与年度批次改为薄适配器，并以受保护 golden、逐行对账和禁止公式复制的静态门禁证明结果无漂移 | Codex |
 | v1.10 | 2026-08-14 | M3-C-Minute 收口：四资产/check/物理覆盖、逐键对齐、严格接口、P95、Reader 复用连接内存门禁、缓存/禁用周期和 1600×1200 浏览器验收通过 | Codex |
+| v1.11 | 2026-08-15 | M4-B 编码收口：实现指数日线与六分钟九转的 7 assets/checks、jobs/sensors/readiness、有界历史构建、日线 serving/API 和本地分钟 API；登记源身份与 checkpoint 回验门禁，并明确正式历史、migration、serving 发布仍未获执行授权 | Codex |
