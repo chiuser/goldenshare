@@ -72,6 +72,12 @@ P7_DUCKDB_MEMORY_LIMIT = "4GB"
 P7_DUCKDB_MAX_TEMP_DIRECTORY_SIZE = "512GB"
 P7_DUCKDB_THREADS = 4
 P7_STOCK_CHUNK_SIZE = 256
+CANONICAL_QFQ_REBUILD_DOWNSTREAM_COVERAGE = {
+    "gold_stk_mins_qfq": "rebuild",
+    "gold_stk_mins_qfq_macd_kdj": "rebuild",
+    "gold_stk_mins_qfq_macd_kdj_state": "rebuild",
+    "gold_stk_mins_qfq_nineturn": "rebuild",
+}
 
 
 class StkMinsQfqCanonicalHistoryError(RuntimeError):

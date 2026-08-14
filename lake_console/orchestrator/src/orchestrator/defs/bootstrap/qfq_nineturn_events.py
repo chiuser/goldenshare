@@ -2,19 +2,21 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass
-from datetime import datetime
 import hashlib
 import json
-from pathlib import Path
 import time
 import uuid
+from collections.abc import Mapping, Sequence
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
+from pathlib import Path
 
 import dagster as dg
 from dagster._core.definitions.asset_checks.asset_check_evaluation import (
     AssetCheckEvaluationTargetMaterializationData,
 )
+from dagster._core.events import DagsterEvent, DagsterEventType
+from dagster._core.instance.utils import RUNLESS_JOB_NAME
 
 from orchestrator.defs.bootstrap.qfq_nineturn_history import (
     QfqNineturnHistoryPlan,
@@ -49,7 +51,6 @@ from orchestrator.defs.run_contracts.qfq_nineturn import (
     QFQ_NINETURN_MINUTE_FREQS,
     QFQ_NINETURN_VERSION,
 )
-
 
 SCHEMA_VERSION = 1
 PLAN_PHASE = "qfq_nineturn_runless_event_plan"
@@ -131,9 +132,15 @@ def plan_qfq_nineturn_runless_events(
     lake_root: Path = Path(DEFAULT_LAKE_ROOT),
     duckdb_resource: DuckDBResource | None = None,
     output_dir: Path = Path("/private/tmp"),
+    force_materialization_refresh: bool = False,
+    event_revision: str | None = None,
 ) -> QfqNineturnEventPlan:
     """Build an idempotent event plan without writing Dagster state."""
 
+    if force_materialization_refresh and not (event_revision or "").strip():
+        raise QfqNineturnEventError(
+            "Forced materialization refresh requires a non-empty event revision."
+        )
     started = time.perf_counter()
     history_plan = load_qfq_nineturn_history_plan(history_plan_path)
     if history_plan.lake_root.resolve() != Path(lake_root).resolve():
@@ -202,13 +209,13 @@ def plan_qfq_nineturn_runless_events(
                         "asset_key": spec.asset_key,
                         "partition_key": partition_key,
                         "materialization_storage_id": (
-                            int(getattr(record, "storage_id"))
+                            int(record.storage_id)
                             if record is not None
                             else None
                         ),
                     }
                 )
-                if record is None:
+                if force_materialization_refresh or record is None:
                     candidates.append(
                         QfqNineturnEventCandidate(
                             asset_key=spec.asset_key,
@@ -250,7 +257,7 @@ def plan_qfq_nineturn_runless_events(
                 check_state = _classify_check_record(
                     check_record,
                     materialization_storage_id=(
-                        int(getattr(materialization, "storage_id"))
+                        int(materialization.storage_id)
                         if materialization is not None
                         else None
                     ),
@@ -262,14 +269,23 @@ def plan_qfq_nineturn_runless_events(
                         "check_name": spec.check_name,
                         "check_state": check_state,
                         "check_storage_id": (
-                            int(getattr(check_record, "id"))
+                            int(check_record.id)
                             if check_record is not None
                             and getattr(check_record, "id", None) is not None
                             else None
                         ),
                     }
                 )
-                if check_state == "failed_current":
+                if force_materialization_refresh:
+                    candidates.append(
+                        QfqNineturnEventCandidate(
+                            asset_key=spec.asset_key,
+                            partition_key=partition_key,
+                            event_type="check",
+                            check_name=spec.check_name,
+                        )
+                    )
+                elif check_state == "failed_current":
                     stop_reasons.append(
                         f"{spec.asset_key}:{partition_key}:existing_failed_check"
                     )
@@ -293,12 +309,14 @@ def plan_qfq_nineturn_runless_events(
         "history_plan_fingerprint": history_plan.plan_fingerprint,
         "history_audit_sha256": _sha256_path(history_audit_report_path),
         "physical_fingerprint": physical_fingerprint,
+        "force_materialization_refresh": force_materialization_refresh,
+        "event_revision": event_revision,
         "state": state_fingerprint_rows,
         "candidates": [candidate.to_dict() for candidate in normalized_candidates],
         "stop_reasons": sorted(set(stop_reasons)),
     }
     plan_fingerprint = _hash_payload(fingerprint_payload)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     manifest_path = output_dir / f"qfq_nineturn_events_manifest_{timestamp}.jsonl"
     _write_jsonl(
         manifest_path,
@@ -315,6 +333,8 @@ def plan_qfq_nineturn_runless_events(
         "history_audit_sha256": _sha256_path(history_audit_report_path),
         "physical_fingerprint": physical_fingerprint,
         "event_backfill_scope": EVENT_BACKFILL_SCOPE,
+        "force_materialization_refresh": force_materialization_refresh,
+        "event_revision": event_revision,
         "planned_materialization_event_count": sum(
             candidate.event_type == "materialization"
             for candidate in normalized_candidates
@@ -426,6 +446,14 @@ def report_qfq_nineturn_runless_events(
         lake_root=lake_root,
         duckdb_resource=duckdb_resource,
         output_dir=output_dir,
+        force_materialization_refresh=bool(
+            plan.report.get("force_materialization_refresh", False)
+        ),
+        event_revision=(
+            str(plan.report["event_revision"])
+            if plan.report.get("event_revision") is not None
+            else None
+        ),
     )
     if (
         fresh_plan.plan_fingerprint != plan.plan_fingerprint
@@ -475,6 +503,12 @@ def report_qfq_nineturn_runless_events(
                                 ),
                                 "check_events_reported": False,
                                 "formula_version": QFQ_NINETURN_VERSION,
+                                "event_revision": plan.report.get("event_revision"),
+                                "canonical_rebuild_refresh": bool(
+                                    plan.report.get(
+                                        "force_materialization_refresh", False
+                                    )
+                                ),
                             },
                         ),
                     )
@@ -496,12 +530,14 @@ def report_qfq_nineturn_runless_events(
                     f"Missing target materialization for check: {spec.asset_key}:{partition_key}."
                 )
             target = AssetCheckEvaluationTargetMaterializationData(
-                storage_id=int(getattr(materialization, "storage_id")),
-                run_id=str(getattr(materialization, "run_id")),
-                timestamp=float(getattr(materialization, "timestamp")),
+                storage_id=int(materialization.storage_id),
+                run_id=str(materialization.run_id),
+                timestamp=float(materialization.timestamp),
             )
-            instance.report_runless_asset_event(
-                dg.AssetCheckEvaluation(
+            _report_partitioned_check_event(
+                instance,
+                run_id=f"qfq-nineturn-event-refresh-{batch_id}",
+                evaluation=dg.AssetCheckEvaluation(
                     asset_key=dg.AssetKey(spec.asset_key),
                     check_name=spec.check_name,
                     passed=True,
@@ -523,12 +559,18 @@ def report_qfq_nineturn_runless_events(
                             "history_audit_report_path": str(
                                 plan.history_audit_report_path
                             ),
+                            "event_revision": plan.report.get("event_revision"),
+                            "canonical_rebuild_refresh": bool(
+                                plan.report.get(
+                                    "force_materialization_refresh", False
+                                )
+                            ),
                         },
                     ),
                     blocking=True,
                     partition=partition_key,
                     target_materialization_data=target,
-                )
+                ),
             )
             check_count += 1
 
@@ -575,6 +617,24 @@ def _asset_specs() -> tuple[_EventAssetSpec, ...]:
                 ),
             )
             for freq in QFQ_NINETURN_MINUTE_FREQS
+        ),
+    )
+
+
+def _report_partitioned_check_event(
+    instance: dg.DagsterInstance,
+    *,
+    run_id: str,
+    evaluation: dg.AssetCheckEvaluation,
+) -> None:
+    """Append a partitioned check without creating a synthetic Dagster run."""
+
+    instance.report_dagster_event(
+        run_id=run_id,
+        dagster_event=DagsterEvent(
+            event_type_value=DagsterEventType.ASSET_CHECK_EVALUATION.value,
+            event_specific_data=evaluation,
+            job_name=RUNLESS_JOB_NAME,
         ),
     )
 

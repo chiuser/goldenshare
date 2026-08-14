@@ -8,11 +8,17 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from orchestrator.defs.bootstrap.qfq_nineturn_history import (
+    CANONICAL_REBUILD_FREQS,
+    audit_qfq_nineturn_canonical_candidates,
+    audit_qfq_nineturn_canonical_formal,
+    build_qfq_nineturn_canonical_candidates,
     build_qfq_nineturn_history,
     load_qfq_nineturn_history_plan,
     load_qfq_nineturn_scoped_rebuild_plan,
+    plan_qfq_nineturn_canonical_rebuild,
     plan_qfq_nineturn_history,
     plan_qfq_nineturn_scoped_rebuild,
+    promote_qfq_nineturn_canonical_candidates,
     rebuild_qfq_nineturn_scope,
 )
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, DEFAULT_LAKE_STAGING_ROOT
@@ -26,6 +32,63 @@ def main() -> int:
     output_dir = Path(args.output_dir)
     staging_root = Path(args.staging_root)
     resource = DuckDBResource()
+
+    if args.command == "plan-canonical-rebuild":
+        report = plan_qfq_nineturn_canonical_rebuild(
+            lake_root=lake_root,
+            staging_root=staging_root,
+            report_root=output_dir,
+            duckdb_resource=resource,
+        )
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return int(report["should_stop"])
+
+    if args.command == "build-canonical-candidates":
+        if not args.confirm_staging_write:
+            parser.error(
+                "build-canonical-candidates requires --confirm-staging-write"
+            )
+        report = build_qfq_nineturn_canonical_candidates(
+            plan_path=Path(args.plan_report),
+            expected_plan_hash=args.plan_fingerprint,
+            freq=args.freq,
+            duckdb_resource=resource,
+            confirm_build=True,
+        )
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return int(report["should_stop"])
+
+    if args.command == "audit-canonical-candidates":
+        report = audit_qfq_nineturn_canonical_candidates(
+            plan_path=Path(args.plan_report),
+            expected_plan_hash=args.plan_fingerprint,
+            freq=args.freq,
+            duckdb_resource=resource,
+        )
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return int(report["should_stop"])
+
+    if args.command == "promote-canonical-rebuild":
+        if not args.confirm_lake_write:
+            parser.error("promote-canonical-rebuild requires --confirm-lake-write")
+        report = promote_qfq_nineturn_canonical_candidates(
+            plan_path=Path(args.plan_report),
+            expected_plan_hash=args.plan_fingerprint,
+            freq=args.freq,
+            confirm_promote=True,
+        )
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.command == "audit-canonical-formal":
+        report = audit_qfq_nineturn_canonical_formal(
+            plan_path=Path(args.plan_report),
+            expected_plan_hash=args.plan_fingerprint,
+            freq=args.freq,
+            duckdb_resource=resource,
+        )
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return int(report["should_stop"])
 
     if args.command == "plan":
         plan = plan_qfq_nineturn_history(
@@ -100,6 +163,37 @@ def _parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("plan", help="write a read-only history profiling plan")
 
+    subparsers.add_parser(
+        "plan-canonical-rebuild",
+        help="freeze the four minute assets for candidate-first rebuild",
+    )
+
+    canonical_build = subparsers.add_parser(
+        "build-canonical-candidates",
+        help="build one complete minute frequency in staging",
+    )
+    _canonical_frozen_args(canonical_build)
+    canonical_build.add_argument("--confirm-staging-write", action="store_true")
+
+    canonical_audit = subparsers.add_parser(
+        "audit-canonical-candidates",
+        help="audit and hash one staged minute frequency",
+    )
+    _canonical_frozen_args(canonical_audit)
+
+    canonical_promote = subparsers.add_parser(
+        "promote-canonical-rebuild",
+        help="atomically promote one audited minute frequency",
+    )
+    _canonical_frozen_args(canonical_promote)
+    canonical_promote.add_argument("--confirm-lake-write", action="store_true")
+
+    canonical_formal_audit = subparsers.add_parser(
+        "audit-canonical-formal",
+        help="audit one promoted minute frequency",
+    )
+    _canonical_frozen_args(canonical_formal_audit)
+
     build = subparsers.add_parser("build", help="apply a fresh reviewed history plan")
     build.add_argument("--plan-report", required=True)
     build.add_argument("--plan-fingerprint", required=True)
@@ -130,6 +224,12 @@ def _parser() -> argparse.ArgumentParser:
     rebuild.add_argument("--batch-count-limit", type=int, default=1)
     rebuild.add_argument("--apply", action="store_true")
     return parser
+
+
+def _canonical_frozen_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--plan-report", required=True)
+    parser.add_argument("--plan-fingerprint", required=True)
+    parser.add_argument("--freq", type=int, choices=CANONICAL_REBUILD_FREQS, required=True)
 
 
 def _print_progress(payload: Mapping[str, object]) -> None:

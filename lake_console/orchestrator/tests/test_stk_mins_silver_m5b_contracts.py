@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -124,6 +125,23 @@ def _raw_row(
         "exchange": exchange,
         "vwap": vwap,
     }
+
+
+def _full_one_minute_rows(
+    ts_code: str,
+    partition_key: str,
+) -> list[dict[str, object]]:
+    values: list[dict[str, object]] = []
+    for start_text, count in (("09:30:00", 121), ("13:01:00", 120)):
+        current = datetime.fromisoformat(f"{partition_key} {start_text}")
+        for offset in range(count):
+            values.append(
+                _raw_row(
+                    ts_code,
+                    (current + timedelta(minutes=offset)).isoformat(sep=" "),
+                )
+            )
+    return values
 
 
 def _write_raw(
@@ -336,6 +354,89 @@ def _silver_row(
 
 
 class StkMinsSilverM5BContractTests(unittest.TestCase):
+    def test_complete_one_minute_code_fills_missing_five_minute_source(self) -> None:
+        partition_key = "2026-05-29"
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            _write_raw(
+                lake_root,
+                1,
+                partition_key,
+                _full_one_minute_rows("688790.SH", partition_key),
+            )
+            _write_raw(lake_root, 5, partition_key, [])
+            _write_common_inputs(
+                lake_root,
+                partition_key,
+                identity_rows=[_identity_row("688790.SH")],
+                daily_codes=("688790.SH",),
+            )
+
+            result = stk_mins.write_silver_stk_mins_partition(
+                lake_root=lake_root,
+                duckdb=DuckDBResource(),
+                freq=5,
+                partition_key=partition_key,
+            )
+
+            rows = _read_rows(result.silver_file_path)
+            self.assertEqual(result.missing_source_fallback_row_count, 49)
+            self.assertEqual(len(rows), 49)
+            self.assertEqual(rows[0]["trade_time"].strftime("%H:%M:%S"), "09:30:00")
+            self.assertEqual(rows[1]["trade_time"].strftime("%H:%M:%S"), "09:35:00")
+            self.assertEqual(rows[-1]["trade_time"].strftime("%H:%M:%S"), "15:00:00")
+            self.assertEqual(rows[1]["vol"], 500.0)
+
+    def test_incomplete_one_minute_code_is_not_used_as_missing_source_fallback(
+        self,
+    ) -> None:
+        partition_key = "2026-05-29"
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            _write_raw(
+                lake_root,
+                1,
+                partition_key,
+                [
+                    _raw_row("688790.SH", f"{partition_key} 09:30:00"),
+                    _raw_row("600000.SH", f"{partition_key} 09:30:00"),
+                ],
+            )
+            _write_raw(
+                lake_root,
+                5,
+                partition_key,
+                [
+                    _raw_row(
+                        "600000.SH",
+                        f"{partition_key} 09:30:00",
+                        freq=5,
+                    )
+                ],
+            )
+            _write_common_inputs(
+                lake_root,
+                partition_key,
+                identity_rows=[
+                    _identity_row("688790.SH"),
+                    _identity_row("600000.SH"),
+                ],
+                daily_codes=("688790.SH", "600000.SH"),
+            )
+
+            result = stk_mins.write_silver_stk_mins_partition(
+                lake_root=lake_root,
+                duckdb=DuckDBResource(),
+                freq=5,
+                partition_key=partition_key,
+            )
+
+            self.assertEqual(result.missing_source_fallback_row_count, 0)
+            self.assertEqual(
+                {row["ts_code"] for row in _read_rows(result.silver_file_path)},
+                {"600000.SH"},
+            )
+
     def test_one_minute_standardization_applies_seed_mapping_and_suspension_rules(
         self,
     ) -> None:

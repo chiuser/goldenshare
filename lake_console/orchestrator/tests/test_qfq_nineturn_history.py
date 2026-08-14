@@ -15,10 +15,15 @@ from orchestrator.defs.bootstrap.qfq_nineturn_history import (
     _spec_for_asset,
     _validated_staging_root,
     _write_compact_history_state,
+    audit_qfq_nineturn_canonical_candidates,
+    audit_qfq_nineturn_canonical_formal,
+    build_qfq_nineturn_canonical_candidates,
     build_qfq_nineturn_history,
     load_qfq_nineturn_history_plan,
+    plan_qfq_nineturn_canonical_rebuild,
     plan_qfq_nineturn_history,
     plan_qfq_nineturn_scoped_rebuild,
+    promote_qfq_nineturn_canonical_candidates,
     rebuild_qfq_nineturn_scope,
 )
 from orchestrator.defs.paths import (
@@ -637,6 +642,68 @@ class QfqNineturnHistoryTests(unittest.TestCase):
                     output_dir=root / "reports",
                 )
 
+    def test_canonical_rebuild_keeps_formal_bytes_until_audited_promotion(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            staging_root = root / "canonical-staging"
+            dates = build_qfq_nineturn_history_fixture(root)
+            resource = DuckDBResource()
+            bootstrap_plan = plan_qfq_nineturn_history(
+                lake_root=root,
+                duckdb_resource=resource,
+                output_dir=root / "reports",
+            )
+            build_qfq_nineturn_history(
+                plan=bootstrap_plan,
+                expected_plan_fingerprint=bootstrap_plan.plan_fingerprint,
+                duckdb_resource=resource,
+                staging_root=root / "staging",
+                output_dir=root / "reports",
+            )
+            target = gold_stk_mins_qfq_nineturn_path(root, 30, dates[-1])
+            original_bytes = target.read_bytes()
+            _shift_minute_source_close(root, freq=30, amount=1.0)
+
+            canonical_plan = plan_qfq_nineturn_canonical_rebuild(
+                lake_root=root,
+                staging_root=staging_root,
+                report_root=root / "canonical-reports",
+                duckdb_resource=resource,
+            )
+            self.assertFalse(canonical_plan["should_stop"])
+            build_qfq_nineturn_canonical_candidates(
+                plan_path=Path(canonical_plan["report_path"]),
+                expected_plan_hash=str(canonical_plan["plan_hash"]),
+                freq=30,
+                duckdb_resource=resource,
+                confirm_build=True,
+            )
+            self.assertEqual(target.read_bytes(), original_bytes)
+
+            audit = audit_qfq_nineturn_canonical_candidates(
+                plan_path=Path(canonical_plan["report_path"]),
+                expected_plan_hash=str(canonical_plan["plan_hash"]),
+                freq=30,
+                duckdb_resource=resource,
+            )
+            self.assertTrue(audit["ready"])
+            promote_qfq_nineturn_canonical_candidates(
+                plan_path=Path(canonical_plan["report_path"]),
+                expected_plan_hash=str(canonical_plan["plan_hash"]),
+                freq=30,
+                confirm_promote=True,
+            )
+            self.assertNotEqual(target.read_bytes(), original_bytes)
+            formal = audit_qfq_nineturn_canonical_formal(
+                plan_path=Path(canonical_plan["report_path"]),
+                expected_plan_hash=str(canonical_plan["plan_hash"]),
+                freq=30,
+                duckdb_resource=resource,
+            )
+            self.assertTrue(formal["ready"])
+
 
 def _damage_daily_close(lake_root: Path, trade_date: str, ts_code: str) -> None:
     target = gold_stock_daily_qfq_nineturn_path(lake_root, trade_date)
@@ -655,6 +722,26 @@ def _damage_daily_close(lake_root: Path, trade_date: str, ts_code: str) -> None:
             """
         )
     os.replace(damaged, target)
+
+
+def _shift_minute_source_close(lake_root: Path, *, freq: int, amount: float) -> None:
+    for source in sorted(
+        (lake_root / "gold" / "quote" / "stk_mins_qfq" / f"freq={freq}").glob(
+            "ts_code=*/year=*/part-000.parquet"
+        )
+    ):
+        replacement = source.with_name("replacement.parquet")
+        with duckdb.connect() as connection:
+            connection.execute(
+                f"""
+                COPY (
+                  SELECT * REPLACE (CAST(close + {amount} AS DOUBLE) AS close)
+                  FROM read_parquet('{source}', hive_partitioning=false)
+                  ORDER BY trade_time
+                ) TO '{replacement}' (FORMAT PARQUET)
+                """
+            )
+        os.replace(replacement, source)
 
 
 def _full_history_difference_count(

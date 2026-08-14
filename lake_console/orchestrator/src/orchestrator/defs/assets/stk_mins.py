@@ -251,6 +251,7 @@ class SilverStkMinsWriteResult:
     full_day_suspend_deleted_row_count: int
     price_correction_row_count: int
     recomputed_row_count: int
+    missing_source_fallback_row_count: int
     vol_amount_normalized_row_count: int
     row_count: int
     observed_columns: tuple[str, ...]
@@ -285,6 +286,9 @@ class SilverStkMinsWriteResult:
                         STK_MINS_PRICE_CORRECTIONS_SEED_VERSION
                     ),
                     "recomputed_row_count": self.recomputed_row_count,
+                    "missing_source_fallback_row_count": (
+                        self.missing_source_fallback_row_count
+                    ),
                     "vol_amount_normalized_row_count": (
                         self.vol_amount_normalized_row_count
                     ),
@@ -353,6 +357,9 @@ def _silver_stk_mins_human_metadata(
                         write_result.price_correction_row_count
                     ),
                     "recomputed_row_count": write_result.recomputed_row_count,
+                    "missing_source_fallback_row_count": (
+                        write_result.missing_source_fallback_row_count
+                    ),
                     "vol_amount_normalized_row_count": (
                         write_result.vol_amount_normalized_row_count
                     ),
@@ -1629,6 +1636,106 @@ def _create_silver_stk_mins_final_rows(
             """
         )
         connection.execute(
+            """
+            CREATE TEMP TABLE complete_one_minute_code_days AS
+            SELECT
+              ts_code,
+              trade_date
+            FROM one_minute_standard_rows
+            WHERE (
+                strftime(trade_time, '%H:%M:%S') BETWEEN '09:30:00' AND '11:30:00'
+                OR strftime(trade_time, '%H:%M:%S') BETWEEN '13:01:00' AND '15:00:00'
+              )
+            GROUP BY ts_code, trade_date
+            HAVING count(*) = 241
+               AND count(DISTINCT trade_time) = 241
+            """
+        )
+        connection.execute(
+            f"""
+            CREATE TEMP TABLE missing_coarse_source_rows AS
+            WITH source_rows AS (
+              SELECT
+                one_minute_rows.*,
+                CASE
+                  WHEN extract(hour FROM trade_time) * 60
+                         + extract(minute FROM trade_time) = 570
+                    THEN 570
+                  WHEN extract(hour FROM trade_time) * 60
+                         + extract(minute FROM trade_time) BETWEEN 571 AND 690
+                    THEN 570 + CAST(
+                      ceil(
+                        (
+                          extract(hour FROM trade_time) * 60
+                          + extract(minute FROM trade_time) - 570
+                        )::DOUBLE / {freq}
+                      ) AS INTEGER
+                    ) * {freq}
+                  WHEN extract(hour FROM trade_time) * 60
+                         + extract(minute FROM trade_time) BETWEEN 781 AND 900
+                    THEN 780 + CAST(
+                      ceil(
+                        (
+                          extract(hour FROM trade_time) * 60
+                          + extract(minute FROM trade_time) - 780
+                        )::DOUBLE / {freq}
+                      ) AS INTEGER
+                    ) * {freq}
+                  ELSE NULL
+                END AS target_minute_of_day
+              FROM one_minute_standard_rows AS one_minute_rows
+              INNER JOIN complete_one_minute_code_days AS complete_days
+                USING (ts_code, trade_date)
+              WHERE NOT EXISTS (
+                SELECT 1
+                FROM target_filtered AS target_rows
+                WHERE target_rows.ts_code = one_minute_rows.ts_code
+                  AND target_rows.trade_date = one_minute_rows.trade_date
+              )
+            )
+            SELECT
+              ts_code,
+              {freq}::INTEGER AS freq,
+              trade_date,
+              CAST(trade_date AS TIMESTAMP)
+                + target_minute_of_day * INTERVAL '1 minute' AS trade_time,
+              arg_min(open, trade_time) AS open,
+              max(high) AS high,
+              min(low) AS low,
+              arg_max(close, trade_time) AS close,
+              sum(vol)::DOUBLE AS vol,
+              sum(amount)::DOUBLE AS amount,
+              any_value(exchange) AS exchange,
+              count(*) AS one_minute_row_count
+            FROM source_rows
+            WHERE target_minute_of_day IS NOT NULL
+            GROUP BY ts_code, trade_date, target_minute_of_day
+            """
+        )
+        missing_source_fallback_row_count = int(
+            connection.execute(
+                "SELECT count(*) FROM missing_coarse_source_rows"
+            ).fetchone()[0]
+        )
+        incomplete_fallback_window_count = int(
+            connection.execute(
+                f"""
+                SELECT count(*)
+                FROM missing_coarse_source_rows
+                WHERE one_minute_row_count != CASE
+                  WHEN strftime(trade_time, '%H:%M:%S') = '09:30:00' THEN 1
+                  ELSE {freq}
+                END
+                """
+            ).fetchone()[0]
+        )
+        if incomplete_fallback_window_count:
+            raise RuntimeError(
+                "stk_mins silver missing-source fallback produced incomplete "
+                "windows: "
+                f"freq={freq}, count={incomplete_fallback_window_count}."
+            )
+        connection.execute(
             f"""
             CREATE TEMP TABLE coarse_anomaly_rows AS
             SELECT *
@@ -1726,6 +1833,20 @@ def _create_silver_stk_mins_final_rows(
               amount,
               exchange
             FROM coarse_recomputed_rows
+            UNION ALL
+            SELECT
+              ts_code,
+              freq,
+              trade_date,
+              trade_time,
+              open,
+              high,
+              low,
+              close,
+              vol,
+              amount,
+              exchange
+            FROM missing_coarse_source_rows
             """
         )
         recomputed_row_count = int(
@@ -1750,6 +1871,7 @@ def _create_silver_stk_mins_final_rows(
             """
         )
         recomputed_row_count = 0
+        missing_source_fallback_row_count = 0
 
     invalid_final_count = int(
         connection.execute(
@@ -1798,6 +1920,7 @@ def _create_silver_stk_mins_final_rows(
     )
     return {
         "recomputed_row_count": recomputed_row_count,
+        "missing_source_fallback_row_count": missing_source_fallback_row_count,
         "vol_amount_normalized_row_count": vol_amount_normalized_row_count,
     }
 
@@ -1971,6 +2094,9 @@ def write_silver_stk_mins_partition(
         price_correction_row_count=target_counts["price_correction_row_count"]
         + one_minute_counts["price_correction_row_count"],
         recomputed_row_count=final_counts["recomputed_row_count"],
+        missing_source_fallback_row_count=final_counts[
+            "missing_source_fallback_row_count"
+        ],
         vol_amount_normalized_row_count=final_counts["vol_amount_normalized_row_count"],
         row_count=row_count,
         observed_columns=observed_columns,
@@ -2021,6 +2147,7 @@ def reuse_existing_silver_stk_mins_partition(
         full_day_suspend_deleted_row_count=0,
         price_correction_row_count=0,
         recomputed_row_count=0,
+        missing_source_fallback_row_count=0,
         vol_amount_normalized_row_count=0,
         row_count=row_count,
         observed_columns=observed_columns,

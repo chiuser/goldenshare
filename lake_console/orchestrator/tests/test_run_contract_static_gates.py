@@ -5946,6 +5946,8 @@ class RunContractStaticGateTests(unittest.TestCase):
             'P7_DUCKDB_MEMORY_LIMIT = "4GB"',
             "P7_STOCK_CHUNK_SIZE = 256",
             'candidate_export_root=phase_root / "batch-export"',
+            "CANONICAL_QFQ_REBUILD_DOWNSTREAM_COVERAGE",
+            '"gold_stk_mins_qfq_nineturn": "rebuild"',
         ):
             if fragment not in qfq_canonical_history_source:
                 issues.append(f"candidate-first QFQ rebuild misses {fragment}")

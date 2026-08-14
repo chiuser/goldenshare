@@ -32,6 +32,8 @@ def main() -> int:
                 lake_root=lake_root,
                 duckdb_resource=resource,
                 output_dir=output_dir,
+                force_materialization_refresh=args.force_materialization_refresh,
+                event_revision=args.event_revision,
             )
             print(json.dumps(dict(plan.report), ensure_ascii=False, indent=2))
             return int(plan.should_stop)
@@ -60,6 +62,8 @@ def _parser() -> argparse.ArgumentParser:
     plan = subparsers.add_parser("plan", help="build a read-only runless event plan")
     plan.add_argument("--history-plan", required=True)
     plan.add_argument("--history-audit", required=True)
+    plan.add_argument("--force-materialization-refresh", action="store_true")
+    plan.add_argument("--event-revision")
 
     report = subparsers.add_parser("report", help="append events from a fresh plan")
     report.add_argument("--plan-report", required=True)

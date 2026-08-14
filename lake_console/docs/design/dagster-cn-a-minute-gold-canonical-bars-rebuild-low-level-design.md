@@ -2,7 +2,7 @@
 
 更新时间：2026-08-14
 
-状态：**P0-P10 已完成。P7 已完成股票 QFQ canonical bars 正式重建与抽样/统计验收；P8 已按 5m、15m、30m、60m 的顺序完成 2014-01-02 至 2026-08-12 全历史 MACD/KDJ 与递推 state 重建；P9 已对实际重建范围补齐 103,677 条 materialization event，并只对各专属分区最近 20 个交易日补齐 1,720 条 latest-bound check event。P10 已将主要指数业务 bars 从 Silver 切换到 Gold canonical bars，无 fallback，并收紧股票 bars/indicators 时间键合同。P11 sensor 恢复与连续交易日观察尚未进入。**
+状态：**P0-P10 已完成。P7 已完成股票 QFQ canonical bars 正式重建与抽样/统计验收；P8 已按 5m、15m、30m、60m 的顺序完成 2014-01-02 至 2026-08-12 全历史 MACD/KDJ 与递推 state 重建；P9 已对实际重建范围补齐 103,677 条 materialization event，并只对各专属分区最近 20 个交易日补齐 1,720 条 latest-bound check event。P10 已将主要指数业务 bars 从 Silver 切换到 Gold canonical bars，无 fallback，并收紧股票 bars/indicators 时间键合同。2026-08-14 补充审计确认，P7/P8 遗漏了直接依赖股票 QFQ 的 30m/60m/90m/120m 前复权九转资产，新增 P12 作为必须完成的遗漏补偿；P12 完成前，本专项不能宣告全部下游重建完成。**
 
 本文是以下三类分钟线的当前唯一业务口径：
 
@@ -23,6 +23,7 @@
 - [普通指数分钟线 LLD](./dagster-index-mins-data-onboarding-low-level-design.md)
 - [股票 QFQ 检查治理 LLD](./dagster-stk-mins-qfq-validation-governance-low-level-design.md)
 - [股票 QFQ MACD/KDJ 方案](./dagster-stk-mins-qfq-macd-kdj-indicators-plan.md)
+- [股票前复权九转 LLD](./dagster-stock-qfq-nineturn-dataset-low-level-design.md)
 - [Dagster 数据管道性能规范](./dagster-data-pipeline-performance-governance.md)
 - [Asset Schema 合同](./dagster-asset-schema-contract-design.md)
 - [指数详情分钟 API 合同](../../../wealth/docs/pages/index-detail/index-detail-minutes-api-contract-v1.md)
@@ -43,10 +44,11 @@
    source 的代码/日期做 scoped 重建；所有受影响频率的 MACD/KDJ 和递推 state 从各自最早
    受影响日期顺序重建。
 7. 股票 90m/120m 继续保持当前正确输出，但实现上改为直接从 Silver 30m/60m 加复权因子生成，禁止依赖已不再输出 09:30 的 Gold 30m/60m。
-8. bars 与 indicators 的业务匹配键固定为 `ts_code + freq + trade_date + trade_time`，任何读取端都必须严格按该键对齐。
-9. `15:01-15:30` source 时段只允许保留在 Raw/Silver；不得进入任何 Gold bar、任何其它
+8. 股票 30m/60m/90m/120m 前复权九转必须从重建后的对应 QFQ bars 全历史重算；九转是跨 bar 递推序列，不能只删除 30m/60m 的旧 09:30 行，也不能只修最新分区。
+9. bars 与 indicators 的业务匹配键固定为 `ts_code + freq + trade_date + trade_time`，任何读取端都必须严格按该键对齐。
+10. `15:01-15:30` source 时段只允许保留在 Raw/Silver；不得进入任何 Gold bar、任何其它
    行情 bar 聚合、任何技术指标或递推 state。
-10. Gold 1m/5m/15m/30m/60m/90m/120m 的最后一根 bar 均固定为 15:00。
+11. Gold 1m/5m/15m/30m/60m/90m/120m 的最后一根 bar 均固定为 15:00。
 
 ### 1.2 非目标
 
@@ -1177,6 +1179,185 @@ P10 于 2026-08-14 完成，实际结果：
 至少观察连续 3 个实际交易日，记录 first-not-ready、run key、耗时、文件数、cursor 大小和
 partitioned event。任一环节错误立即停止对应 sensor，不靠自动覆盖修复已 materialized 文件。
 
+### P12 股票前复权九转遗漏补偿
+
+P12 是 P7/P8 的遗漏修复，不是新增业务数据集。目标资产固定为：
+
+```text
+gold_stk_mins_qfq_nineturn_30m
+gold_stk_mins_qfq_nineturn_60m
+gold_stk_mins_qfq_nineturn_90m
+gold_stk_mins_qfq_nineturn_120m
+```
+
+2026-08-14 只读审计确认现有九转仍来自 canonical rebuild 之前的 QFQ bars：
+
+1. `2026-08-12` 的 30m 九转比当前 QFQ 多 `5,539` 行，全部为已被 Gold 合同禁止的独立
+   `09:30` 行。
+2. 同日 60m 九转同样多 `5,539` 条独立 `09:30` 行。
+3. 90m key 数量与当前 QFQ 一致，但 9 只股票共 27 行 `close_qfq` 不一致。
+4. 120m key 数量与当前 QFQ 一致，但 9 只股票共 18 行 `close_qfq` 不一致。
+5. 九转的 `up_count/down_count` 依赖完整有序历史；任何早期 key 或价格变化都会影响后续计数，
+   因此四个频率都必须从各自最早实际 QFQ 日期重建到执行时冻结的共同 frontier。
+
+#### P12A 执行能力收口
+
+在现有 `qfq_nineturn_history.py` 和 `qfq_nineturn_history_cli.py` 中增加专用 canonical rebuild
+模式，不复制第二套公式 SQL。CLI 阶段必须显式拆开：
+
+```text
+plan-canonical-rebuild
+build-canonical-candidates
+audit-canonical-candidates
+promote-canonical-rebuild
+audit-canonical-formal
+```
+
+实现硬边界：
+
+1. plan 固定四个分钟资产、实际 QFQ 共同日期集合、source 文件身份、schema、文件大小和 mtime，
+   并生成不可变 `plan_hash`。日期 frontier 在正式执行时从物理 QFQ 和已注册 expected dates 的
+   交集冻结，不在生产代码中硬编码 `2026-08-12`。
+2. candidate 只能写入
+   `/Volumes/datasource/data_lake_staging/cn_a_minute_gold_p12_nineturn/<plan_hash>/`；promote 前
+   正式九转文件必须保持字节不变。
+3. 继续复用历史 writer 的 `freq + year`、最多 4 根 source context 和 1 条计数 seed。第一年从
+   空 seed 开始，后续年份只消费本次 candidate 产生的 seed，禁止读取现有 stale 九转作为递推
+   起点。
+4. 现有 `plan-rebuild/rebuild` 继续只服务少量代码/日期的 bounded correction。本次禁止用“全市场
+   代码文件 + 全历史日期”套用 scoped rebuild，因为该路径会为整个频率建立全历史临时结果，且
+   逐分区复制旧文件，不符合本轮性能和 candidate-first 原子边界。
+5. candidate audit 全绿后才允许 promote。promote 前必须重新验证 source fingerprint、candidate
+   hash 和正式目标 pre-image；任一变化立即失败。
+6. promote 按单频率、单交易日原子替换并写 checkpoint。中断后只能使用同一 `plan_hash` 续跑，
+   禁止重新规划后混用两套 candidate。
+7. 不修改普通九转 asset/check/job/sensor 名称、公式版本、分区定义或日常 run key。
+
+#### P12B 正式重建顺序
+
+1. 停止股票 QFQ daily/factor repair、九转 update sensor，并确认相关 active runs 为 0；重建期间
+   上游 QFQ 和目标九转均不得并发写入。
+2. 在生成九转正式 plan 前，先执行 bounded 上游 source 门禁：对四频 QFQ source 做聚合时段
+   统计和有限异常样本。若发现旧 Gold 文件不在当前 source-driven manifest 中，或仍含独立
+   `09:30`，必须先修复对应 Silver/QFQ 和递推下游，禁止让九转 candidate 忽略 stale 正式文件。
+3. 生成只读 plan，确认四个频率 source 缺口为 0、日期范围一致、candidate 空间充足。
+4. 先用 SH/SZ/BJ、首年/中间年/最新年样本构建 candidate，验证递推跨年连续后，再进入正式
+   全历史 candidate。
+5. 严格按 `30m -> 60m -> 90m -> 120m` 执行。每个频率完整 build、audit、promote、formal
+   audit 通过后才进入下一频率。
+6. 任一频率失败时停止，不继续后续频率，不启动 sensor，不用普通 daily job 覆盖历史文件。
+
+#### P12B-1 2026-08-14 bounded 前置修复
+
+首轮 30m candidate 审计在 209.494 秒内 fail closed，未执行任何 P12 promote。异常被严格缩小为
+`002348.SZ`、`688790.SH` 在 `2025-12-16..2025-12-31` 的 12 个交易日：Silver 1m 每日完整
+241 行，但 Prod、Raw 和 Silver 5m 原生源均为 0；前者 QFQ15/30 缺行，后者旧 Silver15/30 与
+QFQ15/30 stock-year 文件仍含独立 09:30。
+旧 P7 formal audit 只检查 source manifest 内文件，未覆盖这种不在当前源清单中的 stale 正式文件。
+
+本次前置修复口径冻结为：
+
+1. Silver 粗周期 writer 只在目标粗周期的某个 `ts_code + trade_date` **整日完全缺失**，且同日
+   Silver 1m 正好具备 241 个唯一合法时间点时，才用 1m set-based 聚合补齐；已有任意原生粗
+   周期行时绝不覆盖。Silver 仍保留独立 09:30，Gold canonical 才消费该锚点并隐藏它。
+2. 只为上述 12 日生成 Silver5 candidate，验证每只股票每日新增恰好 49 行、原有 key/value 零
+   变化后原子提升。
+3. 只重建受影响的 QFQ15/30 2025 stock-year candidate，并对上述两只股票做 bounded MACD/KDJ
+   与递推 state 修复；不扩大到未受影响频率。
+4. 任何上游正式提升都会改变 source fingerprint。首轮 P12 plan hash 和 30m candidate 全部作废，
+   禁止复用；前置修复通过后必须重新 plan。
+5. 前置修复的候选仍只能写 `/Volumes/datasource/data_lake_staging`，不使用普通 daily job，不写
+   Dagster event；P12 event 仍统一在四频物理重建完成后补录。
+
+#### P12C 审计口径
+
+每个独立审计动作必须在 5 分钟内完成，只做 DuckDB set-based 统计和有界抽样，不执行四频全量
+逐行深比较。每个频率必须证明：
+
+1. source/output 文件日期集合、row count 和业务 key 集合一致。
+2. `close_qfq` 与当前 QFQ source 的绝对误差不超过 `1e-7`。
+3. 主键唯一、schema exact、空 key 为 0、`15:00` 后行数为 0。
+4. 30m/60m 独立 `09:30` 行数为 0；90m/120m 首根分别为 `11:00/11:30`；四频最后一根
+   均为 `15:00`。
+5. 固定 SH/SZ/BJ、跨年边界、停牌恢复、退市边界和最新日期样本的九转计数与字面 fixture 一致。
+6. 旧 30m/60m `09:30` 行和已识别的 90m/120m stale price mismatch 均归零。
+
+#### P12D Event 补录
+
+物理文件验收通过后才生成独立 runless event plan：
+
+1. 四个重建资产的所有实际历史分区追加新的 materialization event；已有旧 event 保留，不删除。
+2. 只对 `cn_a_stock_mins_silver_trade_days` 最近 20 个 expected dates 追加现有聚合 integrity
+   check；不得补全历史 check。
+3. 新 materialization/check metadata 必须带 `canonical_rebuild_plan_hash` 和本轮 revision；event
+   planner 不能因“已有旧 materialization”而错误跳过本次重建后的新状态。
+4. check 必须绑定本轮同分区最新 materialization，partition 不得为空，不写 multi-partition
+   聚合 event。
+5. Event apply 需要单独批准；P12 Lake 重建完成不等于 event 已完成。
+
+#### P12E 防复发门禁
+
+新增 canonical rebuild 下游覆盖合同，至少把以下家族列为显式决策项：
+
+```text
+gold_stk_mins_qfq
+gold_stk_mins_qfq_macd_kdj
+gold_stk_mins_qfq_macd_kdj_state
+gold_stk_mins_qfq_nineturn
+```
+
+静态测试从当前 Definitions 的 asset dependency graph 取得 QFQ 直接/递推下游，要求每个资产族在
+历史重建计划中被标记为 `rebuild`、`equivalence_audit` 或有代码证据的 `no_impact`。出现未分类
+下游时计划和测试都必须 fail closed。普通日常 sensor 仍只负责新增日期，不把全历史依赖扫描塞入
+sensor 热路径，也不新增九转自动 repair sensor；未来任何 QFQ 历史改写必须显式生成下游影响计划。
+
+#### P12F 性能与完成门禁
+
+1. DuckDB set-based SQL，禁止 Python 逐 bar 计算。
+2. 物理计算批次固定为一个频率、一个年份；峰值 RSS 上限 `20GiB`。
+3. 审计单次上限 5 分钟；超限时拆年份或日期段，禁止提高 timeout 或改成全历史 Python 扫描。
+4. staging 可用空间不得低于本阶段预计 candidate 大小两倍加 `20GiB`。
+5. Lake 重建阶段不访问 Tushare、Prod DB 或 Dagster event history；runless event 阶段只读取本轮
+   四资产明确分区范围的当前 materialization/check 状态。
+6. 四频 Lake、全量 materialization、最近 20 日 latest-bound checks 和下游覆盖静态门禁全部通过，
+   才能把 P12 标记完成并恢复九转 sensor。
+
+#### P12G 2026-08-14 正式执行结果
+
+P12 已按本节顺序完成，上游缺口、递推指标、四频九转 Lake 和 Dagster 状态均已收口：
+
+1. 第一处 bounded 前置修复完成。`002348.SZ`、`688790.SH` 的 12 个交易日从完整 Silver 1m
+   生成 Silver 5m，共新增 1,176 行，既有行变化为 0；随后只重建两个代码的 2025 年
+   QFQ15/30 和 15/30m MACD/KDJ/state。
+2. 第二处 source gate 发现 QFQ60 中 3,790 个独立 09:30 code-date，范围为 7 个代码、2,177
+   个交易日。对应 Silver 5m 均为完整 49 行，而 Silver 30m 整日缺失。计划
+   `0b3561bb47167abbae49e960ec7aafda4a94013628c980c33c71b546747ed86a` 仅为这些 code-date
+   生成 34,110 行 Silver30（每组 9 行），既有 Silver30 行变化为 0，并原子提升 2,177 个日期文件。
+3. QFQ bounded 计划
+   `b5380ff721690f9199ab70f6c325600baf6a0790285e8aa5251e055329cd776b` 覆盖 7 个代码、16 个
+   code-year 和 60/90/120m 共 48 个候选文件。60m、90m 各有 16 个文件需要提升，差异行分别为
+   11,327 和 11,370；120m 的 16 个文件逐行差异为 0，未做无意义重写。差异全部落在冻结 scope 内。
+4. 只对上述 7 个代码重建 60/90m MACD/KDJ 与递推 state，共执行 26 个年度批次，计划
+   fingerprint 为 `1182d7a28136f16ef5d8114e2effa5b32bbfcc5fbbe8cb096619f7dfe8b48d0a`。
+   集合审计确认 QFQ/indicator key 双向缺口为 0、指标 09:30 行为 0、state 主键唯一；120m
+   QFQ 未变化，因此没有重建 120m 指标/state。
+5. 四频九转正式计划 hash 为
+   `bc95ab53df6141894386a132fdea356c55a57156d9c77b6984623ef3c86189b8`，范围为
+   `2014-01-02..2026-08-13`、3,067 个交易日、12,268 个目标分区。严格按
+   `30m -> 60m -> 90m -> 120m` 完成 candidate、分年 audit、promote 和 formal audit。
+6. 最终四频九转行数分别为 93,000,216、46,509,532、34,882,149、23,267,820；每个资产
+   3,067 个文件。最终聚合审计 `should_stop=false`，source/output 行数一致，缺文件、schema
+   错误、重复/空 key、日期/频度错位均为 0。各频率候选审计的 09:30、15:00 后、missing key、
+   extra key 和 close mismatch 均为 0；单次审计均低于 5 分钟，峰值 RSS 低于 20GiB。
+7. runless event 计划 fingerprint 为
+   `3023e820794752306b48b3c5eb4d04b3d25f0603547fa12707e4b2987c1b790b`，revision 为
+   `canonical-bars-p12-bc95ab53`。批次 `e28be5a6-64e1-4eef-8735-a0121049f3cb` 实际追加
+   12,268 条 materialization 和最近 20 日共 80 条 check，`post_plan_event_count=0`；没有创建
+   Dagster run，也没有修改动态分区。
+
+P12 的数据与事件修复已经完成。恢复服务后仍需按原计划观察自然交易日运行；观察属于运行验收，
+不再是本次历史数据重建缺口。
+
 ## 9. 检查、readiness 与事件治理
 
 ### 9.1 Gold bars core check
@@ -1236,10 +1417,14 @@ partitioned event。任一环节错误立即停止对应 sensor，不靠自动�
    多频或多年全历史批次。正式运行继续记录文件数、行数、耗时与 RSS，超出 P4 预算即停止。
 3. 指数按 `dataset -> freq -> trade-date batch` 分批，每批独立报告和 checkpoint。
 4. 全量对账使用 DuckDB set-based 批量扫描、列投影和 partition pruning。
-5. candidate 只能写 `/Volumes/datasource/data_lake_staging`，验证后同文件系统 `os.replace()`。
-6. 任何磁盘不足、重复扫描、单批超预算、源文件变化或 fingerprint 漂移立即停止。
-7. 报告写 `/private/tmp`，不把逐行结果写 Dagster metadata/cursor。
-8. 历史等值和最终验收默认采用固定边界样本与聚合计数，不做逐文件全盘深审计；单个审计动作
+5. 递推下游不能只按“是否直接展示”判断影响范围。QFQ bars、MACD/KDJ/state、九转必须在 plan
+   阶段逐项分类；未分类资产族直接阻断历史 promote。
+6. 九转 canonical rebuild 继续按 `freq + year` 生成 candidate；每个审计动作必须小于 5 分钟，
+   峰值 RSS 不超过 20GiB，不允许使用全市场 scoped rebuild 建立四频全历史临时表。
+7. candidate 只能写 `/Volumes/datasource/data_lake_staging`，验证后同文件系统 `os.replace()`。
+8. 任何磁盘不足、重复扫描、单批超预算、源文件变化或 fingerprint 漂移立即停止。
+9. 报告写 `/private/tmp`，不把逐行结果写 Dagster metadata/cursor。
+10. 历史等值和最终验收默认采用固定边界样本与聚合计数，不做逐文件全盘深审计；单个审计动作
    硬上限 300 秒，超过立即停止并缩小范围，禁止通过延长等待时间完成审计。
 
 ## 11. 测试矩阵
@@ -1301,9 +1486,13 @@ expected OHLCV 必须为人工字面量，禁止调用被测 builder 生成 expe
 9. 股票 1m affected codes 的 QFQ、MACD/KDJ、state scoped 重建完成；股票
    5/15/30/60 QFQ、MACD/KDJ、state 全历史重建完成。
 10. 股票 90/120 已改为 Silver direct source，且历史等值审计通过。
-11. bars/indicators 时间键全量一致，API 和前端不补、不猜、不错位。
-12. materialization 全量、check 最近 20 日、partition 归属和 latest binding 正确。
-13. 日常 sensors 连续至少 3 个实际交易日稳定，无 RPC timeout、重复 run 或错误覆盖。
+11. 股票 30/60/90/120 前复权九转已从 canonical QFQ 完成全历史重建；九转 key 与对应 QFQ
+    一致，30/60 无独立 09:30，90/120 不再保留旧价格。
+12. bars/indicators 时间键全量一致，API 和前端不补、不猜、不错位。
+13. materialization 全量、check 最近 20 日、partition 归属和 latest binding 正确；九转重建事件
+    也按相同保留口径补齐。
+14. canonical rebuild 下游覆盖门禁可自动发现未分类的 QFQ 直接/递推下游。
+15. 日常 sensors 连续至少 3 个实际交易日稳定，无 RPC timeout、重复 run 或错误覆盖。
 
 ## 13. Review 清单
 
@@ -1319,3 +1508,6 @@ expected OHLCV 必须为人工字面量，禁止调用被测 builder 生成 expe
    90/120 改 source 后先全量等值审计。
 7. 所有 Gold/technical/rebuild job 都复用共享 writer，不在 job 中复制过滤 SQL。
 8. 正式顺序是否接受：合同测试 -> 新代码 -> 临时 Lake -> 冻结 -> 指数 Gold -> 主要指数指标 -> 股票 QFQ -> 股票指标/state -> event -> reader -> sensors。
+9. 遗漏补偿顺序固定为：九转 candidate 能力 -> 四频全历史 candidate/audit/promote -> 全量
+   materialization -> 最近 20 日 check -> 恢复九转 sensor；不得用 daily job 或全市场 scoped
+   rebuild 代替。

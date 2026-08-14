@@ -1,6 +1,6 @@
 # 股票前复权九转资产族低层设计
 
-状态：P0 至 P6C 已完成；P6D readiness 性能门禁已通过；五个资产历史 Lake、全历史 materialization 与最近 20 日聚合 check 已落地；两个 sensor 仍未启用
+状态：P0 至 P7R 已完成。五个资产历史 Lake、全历史 materialization 与最近 20 日聚合 check 已落地；2026-08-14 已完成 30m/60m/90m/120m 全历史 canonical rebuild、分区事件刷新和上游 bounded 缺口修复，分钟九转历史已与当前 QFQ 对齐。
 
 上位方案：
 [`dagster-stock-qfq-nineturn-dataset-plan.md`](./dagster-stock-qfq-nineturn-dataset-plan.md)
@@ -34,6 +34,8 @@ CodeGraph 影响面审计覆盖：
 | 日线 QFQ 分区集 | `cn_a_stock_trade_days` |
 | MACD/KDJ 单独保存 state 是因为递推公式 | `defs/assets/stk_mins_qfq_macd_kdj.py` |
 | Tushare 九转 Silver 不自行重算 | `defs/assets/stk_nineturn.py` |
+| 分钟九转日常 sensor 只推进新增日期，不会发现历史 QFQ 已被重写 | `defs/sensors/stk_mins_qfq_nineturn_sensor.py` |
+| 现有 scoped rebuild 面向少量代码/日期，不适合全市场四频全历史重建 | `defs/bootstrap/qfq_nineturn_history.py`、`qfq_nineturn_history_cli.py` |
 
 ## 2. 最终 Definition 名称
 
@@ -700,7 +702,8 @@ P0 已确认五个资产各有 3,063 个实际日期，因此正式上界为 15,
 
 不新增自动 repair sensor。
 
-普通 QFQ repair 若只产生每个代码统一的正比例缩放，九转比较方向保持不变。日常 sensor 只等待该 repair 完成后生产当前分区，不回写历史九转。
+普通 QFQ repair 若只产生每个代码统一的正比例缩放，且 bar key、时间戳和相对价格关系均不变，
+九转比较方向才保持不变。日常 sensor 只等待该 repair 完成后生产当前分区，不回写历史九转。
 
 若非等比例历史修正被确认，使用离线 history CLI 的 scoped rebuild 模式：
 
@@ -719,6 +722,81 @@ python -m orchestrator.defs.bootstrap.qfq_nineturn_history_cli rebuild \
 ```
 
 scoped rebuild 仍按完整代码序列计算，不能从 `start-date` 把老股票计数归零。它只替换明确范围内目标日期文件中的受影响代码行，并保留其它代码行；所有 staging 文件先完整生成再逐分区原子替换。
+
+### 15.1 Canonical Bars 历史重建属于全量重建
+
+股票 QFQ canonical bars 重建同时改变了 30m/60m 的 key 集合和 90m/120m 的部分价格，不能按
+“统一正比例缩放”处理，也不能把当前日常 sensor 视为历史 reconciliation。
+
+2026-08-14 只读审计样本 `2026-08-12`：
+
+| freq | 当前九转与当前 QFQ 的差异 |
+| --- | --- |
+| 30m | 九转多 5,539 条独立 09:30 行 |
+| 60m | 九转多 5,539 条独立 09:30 行 |
+| 90m | 9 只股票、27 行 `close_qfq` 不一致 |
+| 120m | 9 只股票、18 行 `close_qfq` 不一致 |
+
+四个频率都必须从各自最早实际 QFQ 日期重算到正式执行时冻结的共同 frontier。原因是
+`up_count/down_count` 跨 bar、跨日、跨年递推；只修差异日期会把旧 seed 继续传给后续日期。
+
+### 15.2 P7R 专用执行模式
+
+本 LLD 的 P7R 对应 canonical bars 重建 LLD 的 P12，两个编号指向同一项遗漏补偿工作。
+
+在现有 `qfq_nineturn_history.py` / `qfq_nineturn_history_cli.py` 中增加 canonical rebuild 模式，
+复用同一公式、schema、compact context 和 seed，不新增第二套计算实现。阶段固定为：
+
+```text
+plan-canonical-rebuild
+build-canonical-candidates
+audit-canonical-candidates
+promote-canonical-rebuild
+audit-canonical-formal
+```
+
+代码级要求：
+
+1. plan 固定 `30/60/90/120m`、QFQ 物理 source 日期集合、source identity、目标 pre-image、
+   schema 和 `plan_hash`；frontier 从实际 QFQ 与注册 expected dates 交集取得，不硬编码日期。
+2. candidate 固定写入
+   `/Volumes/datasource/data_lake_staging/cn_a_minute_gold_p12_nineturn/<plan_hash>/`，目录镜像正式
+   `freq/trade_date/part-000.parquet` 布局。
+3. 仍按 `freq + year` 计算。第一年从空 seed 开始；后续年份只消费本轮 candidate 生成的最多
+   4 根 source context 和 1 条末尾方向/计数 seed，禁止读取当前正式九转作为 seed。
+4. 现有 scoped rebuild 保持少量代码/日期用途。本次禁止给它传全市场代码和全历史日期，因为
+   它会为整个频率建立全历史临时表，并按分区复制旧目标，不符合 candidate-first 和性能门禁。
+5. 全频 candidate 完整后才 audit；audit 通过后才 promote。promote 前重新验证 source
+   fingerprint、candidate hash 和目标 pre-image，任一变化 fail closed。
+6. promote 按单分区 `os.replace()`，每个完成分区写 checkpoint；中断只允许在同一 plan 下续跑。
+7. 不删除旧 Dagster event，不运行普通 daily job，不改变现有 asset/check/job/sensor 名称。
+
+### 15.3 P7R 审计与事件
+
+审计只做统计和固定样本，每个独立动作不得超过 5 分钟：
+
+1. source/output 日期、row count、key 集合一致，主键唯一、schema exact。
+2. `close_qfq` 对当前 QFQ 的绝对误差不超过 `1e-7`。
+3. 30m/60m 独立 09:30 行为 0；90m/120m 首根为 11:00/11:30；四频最后一根均为 15:00，
+   15:00 后行数为 0。
+4. SH/SZ/BJ、跨年、停牌恢复、退市边界和最新日期用字面 fixture 抽查递推连续性。
+5. 已知 30m/60m extra key 和 90m/120m stale price mismatch 全部归零。
+
+Lake 验收后单独执行 runless event refresh：
+
+1. 四个资产全部实际历史分区追加本轮 materialization，metadata 带 `plan_hash/revision`。
+2. 只对最近 20 个 `cn_a_stock_mins_silver_trade_days` 追加现有 integrity check。
+3. 新 check 必须绑定本轮同分区最新 materialization；旧 event 保留。
+4. 现有 event planner 需要增加 rebuild revision 语义，不能因旧 materialization 已存在而跳过。
+
+### 15.4 防复发
+
+canonical QFQ 历史重建计划必须从 Definitions dependency graph 枚举直接和递推下游，至少覆盖
+QFQ bars、MACD/KDJ、MACD/KDJ state 和 QFQ 九转。每个下游资产族必须显式标记
+`rebuild`、`equivalence_audit` 或有代码证据的 `no_impact`；未分类资产阻断 plan。
+
+该门禁放在离线维护计划和静态测试中，不进入日常 sensor 热路径，也不新增九转自动 repair
+sensor。未来历史 QFQ 改写仍须走显式、有界、可审计的离线重建。
 
 ## 16. 测试文件与用例
 
@@ -790,6 +868,16 @@ tests/test_qfq_nineturn_performance.py
 
 覆盖 plan 零写入、stale plan、fingerprint 变化、年度连续性、重复 apply、失败回滚、全历史 materialization 和最近 20 日 check 上限。
 
+P7R 追加覆盖：
+
+1. candidate promote 前正式文件字节不变。
+2. existing stale target 不得被错误当作 reusable target。
+3. 四频 candidate 只使用本轮 seed，禁止读取正式九转 seed。
+4. source、candidate 或 target pre-image 漂移时禁止 promote。
+5. promote 中断后同 plan checkpoint 可续跑，跨 plan checkpoint 被拒绝。
+6. 30m/60m 无 09:30，90m/120m price 与当前 QFQ 在 `1e-7` 内一致。
+7. event refresh 对全历史写新 materialization、只对最近 20 日写 check，并绑定本轮 materialization。
+
 ## 17. 静态门禁
 
 `test_run_contract_static_gates.py` 增加：
@@ -807,6 +895,8 @@ tests/test_qfq_nineturn_performance.py
 11. 两个 sensor 的 description、中文 cursor 摘要和 definition tags 必须满足数据集接入模板的人类可读契约。
 12. 九转分钟 sensor/readiness 禁止直接调用默认七频度 `batch_gold_stk_mins_qfq_lake_readiness(...)`；必须调用固定 30/60/90/120m 的专用入口。
 13. 现有七频度公开 helper 的签名、默认频度集合和既有消费者不得因本专项改变。
+14. canonical QFQ rebuild 下游清单必须覆盖 `gold_stk_mins_qfq_nineturn`；dependency graph 出现
+    未分类 QFQ 下游时静态门禁失败。
 
 ## 18. P0 Profiling 门禁
 
@@ -995,6 +1085,62 @@ P6D 只优化读取模型，不改变 integrity 语义：
 
 优化后的正式 Lake 五次独立连接重测为 `4,746.74 / 3,265.10 / 3,530.56 / 3,021.27 / 3,304.18 ms`；最小值 3,021.27 ms，中位数 3,304.18 ms，最大值 4,746.74 ms，均值 3,573.57 ms，五次均低于 10 秒且最近 5 日全部 ready。P6D readiness 性能门禁已通过；两个 sensor 仍未启用，启用和自然触发观察继续作为独立正式操作。
 
+### 18.11 P7R Canonical Bars 执行前审计与过程阻断
+
+2026-08-14 已完成代码链路和正式 Lake 的只读审计，结论为：
+
+1. 四个分钟九转 asset 的 Definition 依赖、source planner 和 SQL 都读取对应当前
+   `gold_stk_mins_qfq_{30,60,90,120}m` 文件；设计方向没有读错层。
+2. 当前分钟九转历史文件是在 QFQ canonical rebuild 之前生成的。普通日常 sensor 只选择新增
+   first-not-ready 日期，不会对已 materialized 的历史日期做 source-version reconciliation。
+3. 最新样本存在 30m/60m 旧 09:30 key 和 90m/120m stale `close_qfq`，证明 P7/P8 下游清单
+   实际漏掉了九转，不是 UI 或 event 展示误差。
+4. 现有 scoped rebuild 适合少量代码/日期，不适合四频全市场全历史；直接复用会扩大临时表、
+   旧文件复制和执行时间，不能进入正式写入。
+5. 上述结论是 P7R 正式开发前的冻结基线；当时尚无 canonical candidate/promote 模式，
+   Lake 与 Dagster event 也尚未更新。最终执行结果见 18.12。
+
+2026-08-14 执行更新：P7R-A candidate/plan/promote 与强制 event refresh 能力已经完成本地测试，
+但首轮 30m candidate 审计在 promote 前发现 `002348.SZ`、`688790.SH` 的 12 个历史交易日
+存在上游缺口或 stale QFQ30 09:30 key。根因是这些日期原生 5m 源全空，而完整 1m 源可用；旧 P7 source-driven
+manifest 没有覆盖不在当前 source 清单中的 stale stock-year 文件。因此该执行阶段的状态是“正式九转
+Lake 写入 0、旧 plan 作废、bounded 上游修复执行中”，不能把该异常当作九转公式失败，也不能
+绕过后继续 60m/90m/120m。
+
+前置修复固定为：只对目标粗周期整日缺失且 1m 完整 241 根的 code-day 启用 Silver set-based
+fallback；完成 12 日 Silver5、受影响 QFQ15/30 和两只股票的 MACD/KDJ/state bounded 修复
+后，再重新生成四频九转 plan。已有原生粗周期行永远优先，fallback 不覆盖、不混合原生行；
+所有 candidate 继续位于正式 staging 卷，正式 promote 前必须验证 pre-image、candidate hash 与
+source fingerprint。
+
+### 18.12 P7R 正式完成结果
+
+P7R 已于 2026-08-14 完成，不再处于“bounded 上游修复执行中”状态：
+
+1. 两轮 bounded source prerequisite 均完成。第一轮补齐两只股票 12 日 Silver5，并重建对应
+   QFQ15/30 与 15/30m MACD/KDJ/state；第二轮补齐 7 只股票 3,790 个 code-date 的 Silver30，
+   共新增 34,110 行，既有行变化为 0。
+2. QFQ60/90 的 32 个受影响 stock-year 已重建并提升；QFQ120 的 16 个候选与正式文件逐行差异
+   为 0，因此保持正式文件不变。7 只股票的 60/90m MACD/KDJ/state 已从历史覆盖起点重建，
+   QFQ/indicator key 双向缺口、指标 09:30 和 state 重复 key 均为 0。
+3. 最终 canonical 九转 plan hash 为
+   `bc95ab53df6141894386a132fdea356c55a57156d9c77b6984623ef3c86189b8`，覆盖
+   `2014-01-02..2026-08-13` 共 3,067 个交易日。30/60/90/120m 均按
+   candidate -> audit -> promote -> formal audit 完成。
+4. 四频最终行数为 93,000,216、46,509,532、34,882,149、23,267,820；每个资产 3,067 个
+   分区。最终聚合报告为
+   `/Volumes/datasource/data_lake_staging/cn_a_minute_gold_p12_nineturn/bc95ab53df6141894386a132fdea356c55a57156d9c77b6984623ef3c86189b8/qfq_nineturn_history_final_audit_20260814_022612.json`，
+   `should_stop=false`，缺文件、schema、重复/空 key、日期/频度错位均为 0。
+5. 强制事件刷新 revision 为 `canonical-bars-p12-bc95ab53`，event plan fingerprint 为
+   `3023e820794752306b48b3c5eb4d04b3d25f0603547fa12707e4b2987c1b790b`。批次
+   `e28be5a6-64e1-4eef-8735-a0121049f3cb` 追加 12,268 条全历史 materialization 和 80 条最近
+   20 日 latest-bound check，post-plan 候选为 0；没有创建 run 或修改 dynamic partitions。
+6. 所有 candidate audit 单次低于 5 分钟，构建峰值 RSS 低于 20GiB。普通九转
+   asset/check/job/sensor、公式版本、分区定义和日常 run key 均未改变。
+
+P7R-A/B/C 已完成；P7R-D 的代码门禁已落地。后续只剩恢复服务后的自然交易日观察，不再需要
+再次执行历史 rebuild 或 event backfill。
+
 ## 19. 建议验证命令
 
 开发后本地测试：
@@ -1033,5 +1179,11 @@ Lake 写入、runless event 和 sensor 启用均属于 P6，需后续分别批�
 8. P6B 经批准的历史 Lake 写入和聚合文件审计。
 9. P6C 经批准的 runless events。
 10. P6D readiness 性能收口已完成；经批准的日常 sensor 启用与自然触发观察仍待执行。
+11. P7R-A canonical rebuild candidate/plan/promote 能力开发和临时 Lake 测试。已完成。
+12. P7R-B 停止相关 writer，冻结 frontier，按 30m/60m/90m/120m 完成正式全历史重建和
+    每次小于 5 分钟的统计/抽样审计。已完成。
+13. P7R-C 全历史 materialization refresh、最近 20 日 latest-bound check refresh 和 partition
+    归属验收。已完成。
+14. P7R-D 下游覆盖静态门禁已落地；恢复分钟九转 sensor 后完成自然日观察。
 
 每一阶段只在前一阶段验收全绿后进入；P0 性能门禁不通过时不得靠增加 timeout 继续。

@@ -104,6 +104,56 @@ class QfqNineturnEventTests(unittest.TestCase):
                 set(dates[-20:]),
             )
 
+    def test_forced_refresh_appends_new_materializations_and_latest_checks(self) -> None:
+        with TemporaryDirectory() as directory, dg.instance_for_test() as instance:
+            root = Path(directory)
+            dates, history_plan, audit_path = _built_history(root)
+            _register_dates(instance, dates)
+            initial_plan = plan_qfq_nineturn_runless_events(
+                instance=instance,
+                history_plan_path=history_plan.report_path,
+                history_audit_report_path=audit_path,
+                lake_root=root,
+                duckdb_resource=DuckDBResource(),
+                output_dir=root / "reports",
+            )
+            report_qfq_nineturn_runless_events(
+                instance=instance,
+                plan=initial_plan,
+                expected_plan_fingerprint=initial_plan.plan_fingerprint,
+                lake_root=root,
+                duckdb_resource=DuckDBResource(),
+                output_dir=root / "reports",
+            )
+
+            refresh_plan = plan_qfq_nineturn_runless_events(
+                instance=instance,
+                history_plan_path=history_plan.report_path,
+                history_audit_report_path=audit_path,
+                lake_root=root,
+                duckdb_resource=DuckDBResource(),
+                output_dir=root / "reports",
+                force_materialization_refresh=True,
+                event_revision="canonical-bars-p12-test",
+            )
+            self.assertFalse(refresh_plan.should_stop)
+            self.assertEqual(
+                refresh_plan.planned_materialization_event_count,
+                len(dates) * 5,
+            )
+            self.assertEqual(refresh_plan.planned_check_event_count, 20 * 5)
+            refresh = report_qfq_nineturn_runless_events(
+                instance=instance,
+                plan=refresh_plan,
+                expected_plan_fingerprint=refresh_plan.plan_fingerprint,
+                lake_root=root,
+                duckdb_resource=DuckDBResource(),
+                output_dir=root / "reports",
+            )
+            self.assertEqual(refresh.materialization_event_count, len(dates) * 5)
+            self.assertEqual(refresh.check_event_count, 20 * 5)
+            self.assertEqual(refresh.post_plan_event_count, 0)
+
     def test_state_change_makes_reviewed_plan_stale(self) -> None:
         with TemporaryDirectory() as directory, dg.instance_for_test() as instance:
             root = Path(directory)

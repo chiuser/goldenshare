@@ -270,6 +270,7 @@ class StkMinsHumanReadableContractTests(unittest.TestCase):
             full_day_suspend_deleted_row_count=3,
             price_correction_row_count=4,
             recomputed_row_count=5,
+            missing_source_fallback_row_count=7,
             vol_amount_normalized_row_count=6,
             row_count=109,
             observed_columns=("ts_code", "freq"),
@@ -348,7 +349,7 @@ class StkMinsHumanReadableContractTests(unittest.TestCase):
         self.assertIn("MACD/KDJ", metadata["goldenshare/next_action"])
         self.assertEqual(
             metadata["goldenshare/input_summary"]["source_asset"],
-            "gold_stk_mins_qfq_30m",
+            "silver_stk_mins_30m",
         )
         self.assertEqual(
             metadata["goldenshare/filter_summary"]["generated_window_count"],

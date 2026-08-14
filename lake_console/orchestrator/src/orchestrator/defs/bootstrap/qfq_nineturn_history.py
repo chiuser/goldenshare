@@ -12,6 +12,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
+from typing import Any
 
 import duckdb
 
@@ -56,6 +57,20 @@ MAX_SCOPED_REBUILD_BATCH_PARTITION_COUNT = 20
 MAX_SCOPED_REBUILD_SAMPLE_PARTITION_COUNT = 3
 MAX_SCOPED_REBUILD_BATCH_COUNT_PER_RUN = 200
 SCOPED_REBUILD_CHECKPOINT_PHASE = "qfq_nineturn_scoped_rebuild_checkpoint"
+CANONICAL_REBUILD_FREQS = (30, 60, 90, 120)
+CANONICAL_REBUILD_ASSET_KEYS = tuple(
+    f"gold_stk_mins_qfq_nineturn_{freq}m" for freq in CANONICAL_REBUILD_FREQS
+)
+CANONICAL_REBUILD_PLAN_PHASE = "qfq_nineturn_canonical_rebuild_plan"
+CANONICAL_REBUILD_CONTRACT = "qfq_nineturn_canonical_rebuild_v1"
+CANONICAL_REBUILD_STAGING_ROOT = (
+    Path(DEFAULT_LAKE_STAGING_ROOT) / "cn_a_minute_gold_p12_nineturn"
+)
+CANONICAL_REBUILD_REPORT_ROOT = Path("/private/tmp/cn_a_minute_gold_p12_nineturn")
+CANONICAL_REBUILD_CLOSE_ABS_TOLERANCE = 1e-7
+CANONICAL_REBUILD_MAX_AUDIT_SECONDS = 300.0
+CANONICAL_REBUILD_MAX_RSS_BYTES = 20 * 1024**3
+CANONICAL_REBUILD_MIN_FREE_HEADROOM_BYTES = 20 * 1024**3
 
 
 class QfqNineturnHistoryError(RuntimeError):
@@ -407,6 +422,7 @@ def build_qfq_nineturn_history(
     expected_plan_fingerprint: str,
     duckdb_resource: DuckDBResource,
     staging_root: Path = Path(DEFAULT_LAKE_STAGING_ROOT),
+    target_lake_root: Path | None = None,
     output_dir: Path = Path("/private/tmp"),
 ) -> QfqNineturnHistoryBuildReport:
     """Apply a fresh history plan using annual set-based batches."""
@@ -418,6 +434,7 @@ def build_qfq_nineturn_history(
     fresh_plan = plan_qfq_nineturn_history(
         lake_root=plan.lake_root,
         duckdb_resource=duckdb_resource,
+        asset_keys=tuple(dict.fromkeys(batch.asset_key for batch in plan.batches)),
         output_dir=output_dir,
     )
     if fresh_plan.plan_fingerprint != plan.plan_fingerprint or tuple(
@@ -437,6 +454,9 @@ def build_qfq_nineturn_history(
         lake_root=plan.lake_root,
         staging_root=staging_root,
     )
+    normalized_target_lake_root = (
+        Path(target_lake_root) if target_lake_root is not None else plan.lake_root
+    )
     run_id = str(uuid.uuid4())
     staging_root = normalized_staging_root / "qfq_nineturn_history" / f"run_id={run_id}"
     staging_root.mkdir(parents=True, exist_ok=False)
@@ -451,7 +471,7 @@ def build_qfq_nineturn_history(
                 )
                 result, next_context, next_seed = _build_history_batch(
                     connection,
-                    lake_root=plan.lake_root,
+                    target_lake_root=normalized_target_lake_root,
                     staging_root=staging_root,
                     batch=batch,
                     context_path=context_path,
@@ -472,6 +492,7 @@ def build_qfq_nineturn_history(
         final_audit = audit_qfq_nineturn_history(
             plan=plan,
             duckdb_resource=duckdb_resource,
+            target_lake_root=normalized_target_lake_root,
             output_dir=output_dir,
         )
         if final_audit["should_stop"]:
@@ -497,6 +518,7 @@ def audit_qfq_nineturn_history(
     *,
     plan: QfqNineturnHistoryPlan,
     duckdb_resource: DuckDBResource,
+    target_lake_root: Path | None = None,
     output_dir: Path = Path("/private/tmp"),
 ) -> dict[str, object]:
     """Verify file counts, schemas, keys and source/output row equality."""
@@ -504,8 +526,14 @@ def audit_qfq_nineturn_history(
     started = time.perf_counter()
     stop_reasons: list[str] = []
     asset_reports: list[dict[str, object]] = []
+    normalized_target_lake_root = (
+        Path(target_lake_root) if target_lake_root is not None else plan.lake_root
+    )
+    selected_asset_keys = {batch.asset_key for batch in plan.batches}
     with duckdb_resource.connect() as connection:
         for spec in _asset_specs():
+            if spec.asset_key not in selected_asset_keys:
+                continue
             batches = tuple(
                 batch for batch in plan.batches if batch.asset_key == spec.asset_key
             )
@@ -513,7 +541,7 @@ def audit_qfq_nineturn_history(
                 date_key for batch in batches for date_key in batch.trade_dates
             )
             target_paths = tuple(
-                _target_path(plan.lake_root, spec, date_key)
+                _target_path(normalized_target_lake_root, spec, date_key)
                 for date_key in expected_dates
             )
             missing = tuple(
@@ -565,6 +593,7 @@ def audit_qfq_nineturn_history(
         "schema_version": SCHEMA_VERSION,
         "phase": "qfq_nineturn_history_final_audit",
         "plan_fingerprint": plan.plan_fingerprint,
+        "target_lake_root": str(normalized_target_lake_root.resolve()),
         "asset_reports": asset_reports,
         "should_stop": bool(stop_reasons),
         "stop_reasons": sorted(set(stop_reasons)),
@@ -573,6 +602,468 @@ def audit_qfq_nineturn_history(
     }
     _write_json(report_path, report)
     return report
+
+
+def plan_qfq_nineturn_canonical_rebuild(
+    *,
+    lake_root: Path = Path(DEFAULT_LAKE_ROOT),
+    staging_root: Path = CANONICAL_REBUILD_STAGING_ROOT,
+    report_root: Path = CANONICAL_REBUILD_REPORT_ROOT,
+    duckdb_resource: DuckDBResource,
+) -> dict[str, Any]:
+    """Freeze the four minute source histories and current formal targets."""
+
+    started = time.perf_counter()
+    normalized_lake_root = Path(lake_root).resolve()
+    normalized_staging_root = Path(staging_root).resolve()
+    _assert_canonical_rebuild_roots(
+        lake_root=normalized_lake_root,
+        staging_root=normalized_staging_root,
+    )
+    history_plan = plan_qfq_nineturn_history(
+        lake_root=normalized_lake_root,
+        duckdb_resource=duckdb_resource,
+        asset_keys=CANONICAL_REBUILD_ASSET_KEYS,
+        output_dir=Path(report_root),
+    )
+    if history_plan.should_stop:
+        raise QfqNineturnHistoryError(
+            f"Canonical history source plan failed: {history_plan.stop_reasons}."
+        )
+    dates_by_asset = {
+        asset_key: tuple(
+            trade_date
+            for batch in history_plan.batches
+            if batch.asset_key == asset_key
+            for trade_date in batch.trade_dates
+        )
+        for asset_key in CANONICAL_REBUILD_ASSET_KEYS
+    }
+    date_sets = {dates for dates in dates_by_asset.values()}
+    if len(date_sets) != 1 or not date_sets:
+        raise QfqNineturnHistoryError(
+            "Canonical nine-turn minute assets do not share one exact date scope."
+        )
+    selected_dates = next(iter(date_sets))
+    target_preimages = tuple(
+        _canonical_target_preimage(
+            normalized_lake_root,
+            spec=_spec_for_asset(asset_key),
+            trade_date=trade_date,
+        )
+        for asset_key in CANONICAL_REBUILD_ASSET_KEYS
+        for trade_date in dates_by_asset[asset_key]
+    )
+    code_manifest = tuple(
+        _canonical_code_manifest_entry(path)
+        for path in _canonical_code_contract_paths()
+    )
+    hash_payload: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "contract": CANONICAL_REBUILD_CONTRACT,
+        "lake_root": str(normalized_lake_root),
+        "staging_root": str(normalized_staging_root),
+        "history_plan_path": str(history_plan.report_path),
+        "history_plan_fingerprint": history_plan.plan_fingerprint,
+        "asset_keys": list(CANONICAL_REBUILD_ASSET_KEYS),
+        "freqs": list(CANONICAL_REBUILD_FREQS),
+        "start_date": selected_dates[0],
+        "end_date": selected_dates[-1],
+        "selected_partition_keys": list(selected_dates),
+        "selected_partition_keys_hash": _hash_payload(selected_dates),
+        "target_preimages": list(target_preimages),
+        "code_manifest": list(code_manifest),
+    }
+    plan_hash = _hash_payload(hash_payload)
+    phase_root = normalized_staging_root / plan_hash
+    candidate_lake_root = phase_root / "candidate_lake"
+    estimated_candidate_bytes = sum(
+        int(entry.get("size_bytes", 0)) for entry in target_preimages
+    ) or int(history_plan.report["estimated_output_bytes"])
+    free_bytes = shutil.disk_usage(normalized_staging_root).free
+    required_free_bytes = (
+        2 * estimated_candidate_bytes + CANONICAL_REBUILD_MIN_FREE_HEADROOM_BYTES
+    )
+    report = {
+        **hash_payload,
+        "phase": CANONICAL_REBUILD_PLAN_PHASE,
+        "report_type": "qfq_nineturn_canonical_rebuild_plan",
+        "read_only": True,
+        "planned_at": datetime.now(UTC).isoformat(),
+        "plan_hash": plan_hash,
+        "phase_root": str(phase_root),
+        "candidate_lake_root": str(candidate_lake_root),
+        "batch_count": len(history_plan.batches),
+        "planned_target_file_count": len(target_preimages),
+        "existing_target_file_count": sum(
+            bool(entry["exists"]) for entry in target_preimages
+        ),
+        "source_row_count": int(history_plan.report["source_row_count"]),
+        "estimated_candidate_bytes": estimated_candidate_bytes,
+        "available_bytes": free_bytes,
+        "required_free_bytes": required_free_bytes,
+        "same_filesystem": (
+            normalized_lake_root.stat().st_dev == normalized_staging_root.stat().st_dev
+        ),
+        "max_rss_bytes": CANONICAL_REBUILD_MAX_RSS_BYTES,
+        "max_audit_seconds": CANONICAL_REBUILD_MAX_AUDIT_SECONDS,
+        "should_stop": free_bytes < required_free_bytes,
+        "stop_reason_code": (
+            "insufficient_staging_space"
+            if free_bytes < required_free_bytes
+            else None
+        ),
+        "elapsed_seconds": round(time.perf_counter() - started, 3),
+        "write_counters": {
+            "formal_lake": 0,
+            "dagster_events": 0,
+            "dagster_runs": 0,
+            "dynamic_partitions": 0,
+        },
+    }
+    phase_root.mkdir(parents=True, exist_ok=True)
+    plan_path = phase_root / "plan.json"
+    _write_json_atomic(plan_path, report)
+    Path(report_root).mkdir(parents=True, exist_ok=True)
+    _write_json_atomic(Path(report_root) / f"plan_{plan_hash}.json", report)
+    return {**report, "report_path": str(plan_path)}
+
+
+def build_qfq_nineturn_canonical_candidates(
+    *,
+    plan_path: Path,
+    expected_plan_hash: str,
+    freq: int,
+    duckdb_resource: DuckDBResource,
+    confirm_build: bool,
+) -> dict[str, Any]:
+    """Build one complete frequency into the frozen candidate Lake."""
+
+    if not confirm_build:
+        raise QfqNineturnHistoryError(
+            "Canonical candidate build requires explicit confirmation."
+        )
+    started = time.perf_counter()
+    plan = _load_canonical_rebuild_plan(plan_path, expected_plan_hash)
+    normalized_freq = _normalize_canonical_rebuild_freq(freq)
+    _assert_canonical_plan_unchanged(plan, duckdb_resource=duckdb_resource)
+    asset_key = f"gold_stk_mins_qfq_nineturn_{normalized_freq}m"
+    history_plan = plan_qfq_nineturn_history(
+        lake_root=Path(str(plan["lake_root"])),
+        duckdb_resource=duckdb_resource,
+        asset_keys=(asset_key,),
+        output_dir=Path(str(plan["phase_root"])),
+    )
+    frozen_batches = tuple(
+        item
+        for item in load_qfq_nineturn_history_plan(
+            Path(str(plan["history_plan_path"]))
+        ).batches
+        if item.asset_key == asset_key
+    )
+    if tuple(batch.to_dict() for batch in history_plan.batches) != tuple(
+        batch.to_dict() for batch in frozen_batches
+    ):
+        raise QfqNineturnHistoryError(
+            f"Frozen source scope changed for canonical frequency {normalized_freq}."
+        )
+    candidate_root = Path(str(plan["candidate_lake_root"]))
+    source_lake_root = Path(str(plan["lake_root"])).resolve()
+    history_staging_root = (
+        Path(DEFAULT_LAKE_STAGING_ROOT)
+        if source_lake_root == Path(DEFAULT_LAKE_ROOT).resolve()
+        else Path(str(plan["staging_root"]))
+    )
+    report = build_qfq_nineturn_history(
+        plan=history_plan,
+        expected_plan_fingerprint=history_plan.plan_fingerprint,
+        duckdb_resource=duckdb_resource,
+        staging_root=history_staging_root,
+        target_lake_root=candidate_root,
+        output_dir=Path(str(plan["phase_root"])),
+    )
+    elapsed_seconds = time.perf_counter() - started
+    result = {
+        "report_type": "qfq_nineturn_canonical_candidate_build",
+        "plan_hash": expected_plan_hash,
+        "freq": normalized_freq,
+        "asset_key": asset_key,
+        "candidate_lake_root": str(candidate_root),
+        "batch_count": len(report.batch_results),
+        "promoted_candidate_file_count": report.promoted_file_count,
+        "reused_candidate_file_count": sum(
+            item.reused_file_count for item in report.batch_results
+        ),
+        "output_row_count": sum(
+            item.output_row_count for item in report.batch_results
+        ),
+        "elapsed_seconds": round(elapsed_seconds, 3),
+        "formal_lake_write_count": 0,
+        "should_stop": False,
+    }
+    _write_canonical_report(plan, f"candidate_build_freq_{normalized_freq}", result)
+    return result
+
+
+def audit_qfq_nineturn_canonical_candidates(
+    *,
+    plan_path: Path,
+    expected_plan_hash: str,
+    freq: int,
+    duckdb_resource: DuckDBResource,
+) -> dict[str, Any]:
+    """Audit one complete candidate frequency and freeze its file hashes."""
+
+    started = time.perf_counter()
+    plan = _load_canonical_rebuild_plan(plan_path, expected_plan_hash)
+    normalized_freq = _normalize_canonical_rebuild_freq(freq)
+    _assert_canonical_plan_unchanged(plan, duckdb_resource=duckdb_resource)
+    history_plan = load_qfq_nineturn_history_plan(Path(str(plan["history_plan_path"])))
+    asset_key = f"gold_stk_mins_qfq_nineturn_{normalized_freq}m"
+    candidate_root = Path(str(plan["candidate_lake_root"]))
+    batches = tuple(
+        batch for batch in history_plan.batches if batch.asset_key == asset_key
+    )
+    expected_dates = tuple(
+        trade_date for batch in batches for trade_date in batch.trade_dates
+    )
+    candidate_paths = tuple(
+        _target_path(
+            candidate_root,
+            _spec_for_asset(asset_key),
+            trade_date,
+        )
+        for trade_date in expected_dates
+    )
+    missing = tuple(path for path in candidate_paths if not path.is_file())
+    if missing:
+        raise QfqNineturnHistoryError(
+            f"Canonical candidate files are incomplete for {asset_key}: {missing[:3]}."
+        )
+    batch_audits: list[dict[str, Any]] = []
+    for batch in batches:
+        batch_started = time.perf_counter()
+        audit = _audit_canonical_minute_batch(
+            batch=batch,
+            candidate_root=candidate_root,
+            duckdb_resource=duckdb_resource,
+        )
+        elapsed = time.perf_counter() - batch_started
+        if elapsed > CANONICAL_REBUILD_MAX_AUDIT_SECONDS:
+            raise QfqNineturnHistoryError(
+                f"Canonical audit exceeded five minutes for {asset_key}:{batch.year}."
+            )
+        batch_audits.append({**audit, "elapsed_seconds": round(elapsed, 3)})
+    manifest_entries = tuple(
+        _canonical_candidate_manifest_entry(
+            plan=plan,
+            asset_key=asset_key,
+            freq=normalized_freq,
+            trade_date=trade_date,
+            candidate_path=path,
+        )
+        for trade_date, path in zip(expected_dates, candidate_paths, strict=True)
+    )
+    manifest_path = Path(str(plan["phase_root"])) / (
+        f"candidate-manifest-freq-{normalized_freq}.json"
+    )
+    _write_json_atomic(
+        manifest_path,
+        {
+            "schema_version": SCHEMA_VERSION,
+            "plan_hash": expected_plan_hash,
+            "freq": normalized_freq,
+            "asset_key": asset_key,
+            "files": list(manifest_entries),
+        },
+    )
+    failed_batches = tuple(
+        item for item in batch_audits if item["ready"] is not True
+    )
+    elapsed_seconds = time.perf_counter() - started
+    report = {
+        "report_type": "qfq_nineturn_canonical_candidate_audit",
+        "plan_hash": expected_plan_hash,
+        "freq": normalized_freq,
+        "asset_key": asset_key,
+        "manifest_path": str(manifest_path),
+        "manifest_sha256": _sha256_path(manifest_path),
+        "candidate_file_count": len(manifest_entries),
+        "candidate_bytes": sum(
+            int(entry["candidate_size_bytes"]) for entry in manifest_entries
+        ),
+        "candidate_row_count": sum(
+            int(item["candidate_row_count"]) for item in batch_audits
+        ),
+        "batch_audits": batch_audits,
+        "failed_batch_count": len(failed_batches),
+        "ready": not failed_batches,
+        "should_stop": bool(failed_batches),
+        "elapsed_seconds": round(elapsed_seconds, 3),
+    }
+    report_path = Path(str(plan["phase_root"])) / (
+        f"candidate-audit-freq-{normalized_freq}.json"
+    )
+    _write_json_atomic(report_path, report)
+    _write_canonical_report(plan, f"candidate_audit_freq_{normalized_freq}", report)
+    return {**report, "report_path": str(report_path)}
+
+
+def promote_qfq_nineturn_canonical_candidates(
+    *,
+    plan_path: Path,
+    expected_plan_hash: str,
+    freq: int,
+    confirm_promote: bool,
+) -> dict[str, Any]:
+    """Atomically promote one audited candidate frequency with checkpoint resume."""
+
+    if not confirm_promote:
+        raise QfqNineturnHistoryError(
+            "Canonical promotion requires explicit confirmation."
+        )
+    started = time.perf_counter()
+    plan = _load_canonical_rebuild_plan(plan_path, expected_plan_hash)
+    normalized_freq = _normalize_canonical_rebuild_freq(freq)
+    _assert_canonical_frequency_order(plan, normalized_freq)
+    phase_root = Path(str(plan["phase_root"]))
+    audit = _load_json_mapping(
+        phase_root / f"candidate-audit-freq-{normalized_freq}.json"
+    )
+    if (
+        audit.get("plan_hash") != expected_plan_hash
+        or audit.get("freq") != normalized_freq
+        or audit.get("ready") is not True
+    ):
+        raise QfqNineturnHistoryError(
+            f"Frequency {normalized_freq} candidates are not audited and ready."
+        )
+    manifest_path = Path(str(audit["manifest_path"]))
+    if _sha256_path(manifest_path) != str(audit["manifest_sha256"]):
+        raise QfqNineturnHistoryError("Canonical candidate manifest changed.")
+    manifest = _load_json_mapping(manifest_path)
+    entries = tuple(dict(item) for item in manifest["files"])
+    checkpoint_path = phase_root / f"promotion-checkpoint-freq-{normalized_freq}.json"
+    checkpoint = _load_canonical_checkpoint(
+        checkpoint_path,
+        plan_hash=expected_plan_hash,
+        freq=normalized_freq,
+    )
+    completed = {str(value) for value in checkpoint["completed_paths"]}
+    promoted_count = 0
+    for entry in entries:
+        relative_path = str(entry["relative_path"])
+        candidate = Path(str(entry["candidate_path"]))
+        formal = Path(str(entry["formal_path"]))
+        expected_sha256 = str(entry["candidate_sha256"])
+        if relative_path in completed:
+            _assert_path_sha256(formal, expected_sha256, label="promoted formal")
+            continue
+        if candidate.is_file():
+            _assert_path_sha256(candidate, expected_sha256, label="candidate")
+            _assert_canonical_formal_preimage(entry)
+            formal.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(candidate, formal)
+            promoted_count += 1
+        elif formal.is_file() and _sha256_path(formal) == expected_sha256:
+            pass
+        else:
+            raise QfqNineturnHistoryError(
+                f"Candidate is missing and target is not promoted: {formal}."
+            )
+        _assert_path_sha256(formal, expected_sha256, label="promoted formal")
+        completed.add(relative_path)
+        _write_json_atomic(
+            checkpoint_path,
+            {
+                "schema_version": SCHEMA_VERSION,
+                "plan_hash": expected_plan_hash,
+                "freq": normalized_freq,
+                "completed_paths": sorted(completed),
+            },
+        )
+    report = {
+        "report_type": "qfq_nineturn_canonical_promotion",
+        "plan_hash": expected_plan_hash,
+        "freq": normalized_freq,
+        "promoted_file_count": promoted_count,
+        "completed_file_count": len(completed),
+        "dagster_event_write_count": 0,
+        "elapsed_seconds": round(time.perf_counter() - started, 3),
+        "should_stop": False,
+    }
+    _write_canonical_report(plan, f"promote_freq_{normalized_freq}", report)
+    return report
+
+
+def audit_qfq_nineturn_canonical_formal(
+    *,
+    plan_path: Path,
+    expected_plan_hash: str,
+    freq: int,
+    duckdb_resource: DuckDBResource,
+) -> dict[str, Any]:
+    """Verify promoted files and produce the aggregate history audit at 120m."""
+
+    started = time.perf_counter()
+    plan = _load_canonical_rebuild_plan(plan_path, expected_plan_hash)
+    normalized_freq = _normalize_canonical_rebuild_freq(freq)
+    phase_root = Path(str(plan["phase_root"]))
+    manifest_path = phase_root / f"candidate-manifest-freq-{normalized_freq}.json"
+    manifest = _load_json_mapping(manifest_path)
+    entries = tuple(dict(item) for item in manifest["files"])
+    missing = 0
+    hash_mismatches = 0
+    candidate_residuals = 0
+    for entry in entries:
+        formal = Path(str(entry["formal_path"]))
+        candidate = Path(str(entry["candidate_path"]))
+        if not formal.is_file():
+            missing += 1
+        elif _sha256_path(formal) != str(entry["candidate_sha256"]):
+            hash_mismatches += 1
+        if candidate.exists():
+            candidate_residuals += 1
+    ready = not (missing or hash_mismatches or candidate_residuals)
+    report: dict[str, Any] = {
+        "report_type": "qfq_nineturn_canonical_formal_audit",
+        "plan_hash": expected_plan_hash,
+        "freq": normalized_freq,
+        "formal_file_count": len(entries),
+        "missing_file_count": missing,
+        "hash_mismatch_count": hash_mismatches,
+        "candidate_residual_count": candidate_residuals,
+        "ready": ready,
+        "should_stop": not ready,
+        "elapsed_seconds": round(time.perf_counter() - started, 3),
+    }
+    if ready and normalized_freq == CANONICAL_REBUILD_FREQS[-1]:
+        for previous_freq in CANONICAL_REBUILD_FREQS[:-1]:
+            previous = _load_json_mapping(
+                phase_root / f"formal-audit-freq-{previous_freq}.json"
+            )
+            if previous.get("ready") is not True:
+                raise QfqNineturnHistoryError(
+                    f"Formal frequency {previous_freq} is not ready."
+                )
+        history_plan = load_qfq_nineturn_history_plan(
+            Path(str(plan["history_plan_path"]))
+        )
+        aggregate = audit_qfq_nineturn_history(
+            plan=history_plan,
+            duckdb_resource=duckdb_resource,
+            target_lake_root=Path(str(plan["lake_root"])),
+            output_dir=Path(str(plan["phase_root"])),
+        )
+        if aggregate["should_stop"]:
+            raise QfqNineturnHistoryError(
+                f"Aggregate canonical history audit failed: {aggregate['stop_reasons']}."
+            )
+        report["history_final_audit_report_path"] = str(aggregate["report_path"])
+    report_path = phase_root / f"formal-audit-freq-{normalized_freq}.json"
+    _write_json_atomic(report_path, report)
+    _write_canonical_report(plan, f"formal_audit_freq_{normalized_freq}", report)
+    return {**report, "report_path": str(report_path)}
 
 
 def plan_qfq_nineturn_scoped_rebuild(
@@ -1020,7 +1511,7 @@ def rebuild_qfq_nineturn_scope(
 def _build_history_batch(
     connection: duckdb.DuckDBPyConnection,
     *,
-    lake_root: Path,
+    target_lake_root: Path,
     staging_root: Path,
     batch: QfqNineturnHistoryBatch,
     context_path: Path | None,
@@ -1104,7 +1595,7 @@ def _build_history_batch(
     try:
         for trade_date in batch.trade_dates:
             staged = staged_by_date[trade_date]
-            target = _target_path(lake_root, spec, trade_date)
+            target = _target_path(target_lake_root, spec, trade_date)
             if target.is_file():
                 if not _parquet_rows_equal(connection, target, staged):
                     raise QfqNineturnHistoryError(
@@ -2018,6 +2509,355 @@ def _write_scoped_rebuild_checkpoint(
             "updated_at": datetime.now(UTC).isoformat(),
         },
     )
+
+
+def _normalize_canonical_rebuild_freq(freq: int) -> int:
+    normalized = int(freq)
+    if normalized not in CANONICAL_REBUILD_FREQS:
+        raise QfqNineturnHistoryError(
+            f"Canonical rebuild freq must be one of {CANONICAL_REBUILD_FREQS}."
+        )
+    return normalized
+
+
+def _assert_canonical_rebuild_roots(*, lake_root: Path, staging_root: Path) -> None:
+    formal_lake_root = Path(DEFAULT_LAKE_ROOT).resolve()
+    formal_staging_root = CANONICAL_REBUILD_STAGING_ROOT.resolve()
+    if lake_root != formal_lake_root and str(lake_root).startswith("/Volumes/"):
+        raise QfqNineturnHistoryError(
+            "Formal canonical rebuild must use /Volumes/datasource/data_lake."
+        )
+    if staging_root != formal_staging_root and str(staging_root).startswith(
+        "/Volumes/"
+    ):
+        raise QfqNineturnHistoryError(
+            "Formal canonical rebuild must use the fixed P12 staging root."
+        )
+    staging_root.mkdir(parents=True, exist_ok=True)
+    if lake_root.stat().st_dev != staging_root.stat().st_dev:
+        raise QfqNineturnHistoryError(
+            "Canonical candidate and formal Lake roots must share a filesystem."
+        )
+
+
+def _canonical_target_preimage(
+    lake_root: Path,
+    *,
+    spec: _AssetSpec,
+    trade_date: str,
+) -> dict[str, Any]:
+    path = _target_path(lake_root, spec, trade_date)
+    relative_path = path.resolve().relative_to(lake_root.resolve()).as_posix()
+    if not path.is_file():
+        return {
+            "asset_key": spec.asset_key,
+            "freq": spec.freq,
+            "trade_date": trade_date,
+            "relative_path": relative_path,
+            "exists": False,
+            "size_bytes": 0,
+            "mtime_ns": None,
+        }
+    stat = path.stat()
+    return {
+        "asset_key": spec.asset_key,
+        "freq": spec.freq,
+        "trade_date": trade_date,
+        "relative_path": relative_path,
+        "exists": True,
+        "size_bytes": stat.st_size,
+        "mtime_ns": stat.st_mtime_ns,
+    }
+
+
+def _canonical_code_contract_paths() -> tuple[Path, ...]:
+    root = Path(__file__).resolve().parents[6]
+    return (
+        Path(__file__).resolve(),
+        root
+        / "lake_console/orchestrator/src/orchestrator/defs/qfq_nineturn.py",
+        root
+        / "lake_console/orchestrator/src/orchestrator/defs/run_contracts/qfq_nineturn.py",
+        root
+        / "lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py",
+        root
+        / "lake_console/docs/design/dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md",
+        root
+        / "lake_console/docs/design/dagster-stock-qfq-nineturn-dataset-low-level-design.md",
+    )
+
+
+def _canonical_code_manifest_entry(path: Path) -> dict[str, Any]:
+    root = Path(__file__).resolve().parents[6]
+    stat = path.stat()
+    return {
+        "relative_path": path.resolve().relative_to(root).as_posix(),
+        "size_bytes": stat.st_size,
+        "mtime_ns": stat.st_mtime_ns,
+        "sha256": _sha256_path(path),
+    }
+
+
+def _load_canonical_rebuild_plan(
+    plan_path: Path,
+    expected_plan_hash: str,
+) -> dict[str, Any]:
+    plan = _load_json_mapping(plan_path)
+    if (
+        plan.get("schema_version") != SCHEMA_VERSION
+        or plan.get("phase") != CANONICAL_REBUILD_PLAN_PHASE
+        or plan.get("contract") != CANONICAL_REBUILD_CONTRACT
+        or plan.get("plan_hash") != expected_plan_hash
+        or plan.get("read_only") is not True
+        or plan.get("should_stop") is not False
+    ):
+        raise QfqNineturnHistoryError("Canonical rebuild plan identity is invalid.")
+    return plan
+
+
+def _canonical_source_batch_payload(batch: QfqNineturnHistoryBatch) -> dict[str, Any]:
+    payload = batch.to_dict()
+    payload.pop("existing_target_file_count", None)
+    return payload
+
+
+def _assert_canonical_plan_unchanged(
+    plan: Mapping[str, Any],
+    *,
+    duckdb_resource: DuckDBResource,
+) -> None:
+    root = Path(__file__).resolve().parents[6]
+    for entry in plan["code_manifest"]:
+        path = root / str(entry["relative_path"])
+        if _canonical_code_manifest_entry(path) != entry:
+            raise QfqNineturnHistoryError(
+                f"Canonical rebuild code or LLD changed: {path}."
+            )
+    frozen_history = load_qfq_nineturn_history_plan(
+        Path(str(plan["history_plan_path"]))
+    )
+    fresh_history = plan_qfq_nineturn_history(
+        lake_root=Path(str(plan["lake_root"])),
+        duckdb_resource=duckdb_resource,
+        asset_keys=CANONICAL_REBUILD_ASSET_KEYS,
+        output_dir=Path(str(plan["phase_root"])),
+    )
+    frozen_batches = tuple(
+        _canonical_source_batch_payload(batch) for batch in frozen_history.batches
+    )
+    fresh_batches = tuple(
+        _canonical_source_batch_payload(batch) for batch in fresh_history.batches
+    )
+    if fresh_history.should_stop or fresh_batches != frozen_batches:
+        raise QfqNineturnHistoryError(
+            "Canonical rebuild source scope changed after planning."
+        )
+
+
+def _audit_canonical_minute_batch(
+    *,
+    batch: QfqNineturnHistoryBatch,
+    candidate_root: Path,
+    duckdb_resource: DuckDBResource,
+) -> dict[str, Any]:
+    spec = _spec_for_asset(batch.asset_key)
+    candidate_paths = tuple(
+        _target_path(candidate_root, spec, trade_date)
+        for trade_date in batch.trade_dates
+    )
+    source = _source_rows_sql(batch.source_paths, spec)
+    candidate = _read_paths(candidate_paths)
+    with duckdb_resource.connect() as connection:
+        counts = connection.execute(
+            f"""
+            WITH source_rows AS ({source}),
+            candidate_rows AS (
+              SELECT
+                CAST(ts_code AS VARCHAR) AS ts_code,
+                CAST(freq AS INTEGER) AS freq,
+                CAST(trade_date AS DATE) AS trade_date,
+                CAST(trade_time AS TIMESTAMP) AS trade_time,
+                CAST(close_qfq AS DOUBLE) AS close_qfq
+              FROM {candidate}
+            ),
+            missing_keys AS (
+              SELECT ts_code, freq, trade_time FROM source_rows
+              EXCEPT ALL
+              SELECT ts_code, freq, trade_time FROM candidate_rows
+            ),
+            extra_keys AS (
+              SELECT ts_code, freq, trade_time FROM candidate_rows
+              EXCEPT ALL
+              SELECT ts_code, freq, trade_time FROM source_rows
+            )
+            SELECT
+              (SELECT count(*) FROM source_rows),
+              (SELECT count(*) FROM candidate_rows),
+              (SELECT count(*) FROM missing_keys),
+              (SELECT count(*) FROM extra_keys),
+              (
+                SELECT count(*)
+                FROM source_rows s
+                JOIN candidate_rows c USING (ts_code, freq, trade_time)
+                WHERE abs(s.close_qfq - c.close_qfq)
+                      > {CANONICAL_REBUILD_CLOSE_ABS_TOLERANCE}
+              ),
+              (
+                SELECT count(*) FROM candidate_rows
+                WHERE strftime(trade_time, '%H:%M:%S') = '09:30:00'
+              ),
+              (
+                SELECT count(*) FROM candidate_rows
+                WHERE strftime(trade_time, '%H:%M:%S') > '15:00:00'
+              )
+            """
+        ).fetchone()
+    source_rows = int(counts[0])
+    candidate_rows = int(counts[1])
+    missing_keys = int(counts[2])
+    extra_keys = int(counts[3])
+    close_mismatches = int(counts[4])
+    at_0930 = int(counts[5])
+    after_1500 = int(counts[6])
+    ready = (
+        source_rows == candidate_rows
+        and missing_keys == 0
+        and extra_keys == 0
+        and close_mismatches == 0
+        and at_0930 == 0
+        and after_1500 == 0
+    )
+    return {
+        "asset_key": batch.asset_key,
+        "freq": batch.freq,
+        "year": batch.year,
+        "source_row_count": source_rows,
+        "candidate_row_count": candidate_rows,
+        "missing_key_count": missing_keys,
+        "extra_key_count": extra_keys,
+        "close_mismatch_count": close_mismatches,
+        "at_0930_row_count": at_0930,
+        "after_1500_row_count": after_1500,
+        "ready": ready,
+    }
+
+
+def _canonical_candidate_manifest_entry(
+    *,
+    plan: Mapping[str, Any],
+    asset_key: str,
+    freq: int,
+    trade_date: str,
+    candidate_path: Path,
+) -> dict[str, Any]:
+    candidate_root = Path(str(plan["candidate_lake_root"]))
+    lake_root = Path(str(plan["lake_root"]))
+    relative_path = candidate_path.resolve().relative_to(
+        candidate_root.resolve()
+    ).as_posix()
+    formal_path = lake_root / relative_path
+    preimages = {
+        str(entry["relative_path"]): dict(entry)
+        for entry in plan["target_preimages"]
+    }
+    preimage = preimages.get(relative_path)
+    if preimage is None:
+        raise QfqNineturnHistoryError(
+            f"Candidate is outside the frozen target scope: {candidate_path}."
+        )
+    stat = candidate_path.stat()
+    return {
+        "asset_key": asset_key,
+        "freq": freq,
+        "trade_date": trade_date,
+        "relative_path": relative_path,
+        "candidate_path": str(candidate_path),
+        "formal_path": str(formal_path),
+        "candidate_size_bytes": stat.st_size,
+        "candidate_sha256": _sha256_path(candidate_path),
+        "formal_before": preimage,
+    }
+
+
+def _assert_canonical_formal_preimage(entry: Mapping[str, Any]) -> None:
+    formal = Path(str(entry["formal_path"]))
+    before = dict(entry["formal_before"])
+    if before["exists"] is not True:
+        if formal.exists():
+            raise QfqNineturnHistoryError(
+                f"A new formal target appeared after planning: {formal}."
+            )
+        return
+    if not formal.is_file():
+        raise QfqNineturnHistoryError(f"Frozen formal target disappeared: {formal}.")
+    stat = formal.stat()
+    if (
+        stat.st_size != int(before["size_bytes"])
+        or stat.st_mtime_ns != int(before["mtime_ns"])
+    ):
+        raise QfqNineturnHistoryError(
+            f"Frozen formal target changed after planning: {formal}."
+        )
+
+
+def _assert_path_sha256(path: Path, expected: str, *, label: str) -> None:
+    if not path.is_file() or _sha256_path(path) != expected:
+        raise QfqNineturnHistoryError(f"{label} file is missing or changed: {path}.")
+
+
+def _assert_canonical_frequency_order(
+    plan: Mapping[str, Any],
+    freq: int,
+) -> None:
+    phase_root = Path(str(plan["phase_root"]))
+    index = CANONICAL_REBUILD_FREQS.index(freq)
+    for previous_freq in CANONICAL_REBUILD_FREQS[:index]:
+        path = phase_root / f"formal-audit-freq-{previous_freq}.json"
+        if not path.is_file() or _load_json_mapping(path).get("ready") is not True:
+            raise QfqNineturnHistoryError(
+                f"Frequency {previous_freq} must pass formal audit before {freq}."
+            )
+
+
+def _load_canonical_checkpoint(
+    path: Path,
+    *,
+    plan_hash: str,
+    freq: int,
+) -> dict[str, Any]:
+    if not path.is_file():
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "plan_hash": plan_hash,
+            "freq": freq,
+            "completed_paths": [],
+        }
+    checkpoint = _load_json_mapping(path)
+    if checkpoint.get("plan_hash") != plan_hash or checkpoint.get("freq") != freq:
+        raise QfqNineturnHistoryError(
+            "Canonical promotion checkpoint belongs to another plan."
+        )
+    return checkpoint
+
+
+def _load_json_mapping(path: Path) -> dict[str, Any]:
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise QfqNineturnHistoryError(f"Expected JSON object: {path}.")
+    return payload
+
+
+def _write_canonical_report(
+    plan: Mapping[str, Any],
+    label: str,
+    report: Mapping[str, Any],
+) -> Path:
+    root = Path(str(plan["phase_root"])) / "reports"
+    root.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    path = root / f"{label}_{timestamp}.json"
+    _write_json_atomic(path, report)
+    return path
 
 
 def _validated_staging_root(*, lake_root: Path, staging_root: Path) -> Path:
