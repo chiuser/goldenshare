@@ -84,6 +84,12 @@ class AutomationTimeInputContractResponse(BaseModel):
     granularity: Literal["none", "day", "month"]
 
 
+class FixedScheduleCapabilityResponse(BaseModel):
+    cron_expr: str
+    timezone: str
+    display_text: str
+
+
 class AutomationCapabilityResponse(BaseModel):
     version: Literal[1]
     default_trigger_mode: Literal["schedule", "probe", "schedule_probe_fallback"]
@@ -91,6 +97,7 @@ class AutomationCapabilityResponse(BaseModel):
     probe_conditions: list[ProbeConditionCapabilityResponse]
     calendar_policy_rules: list[CalendarPolicyCapabilityResponse]
     time_input_contract: AutomationTimeInputContractResponse | None = None
+    fixed_schedule: FixedScheduleCapabilityResponse | None = None
 
 
 class ActionCatalogItem(BaseModel):

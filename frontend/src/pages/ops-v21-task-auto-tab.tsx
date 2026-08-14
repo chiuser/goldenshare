@@ -200,10 +200,19 @@ export function parseCronExpression(cronExpr: string | null | undefined, calenda
     return { repeatMode: "daily", repeatTime: time, repeatWeekdays: ["1", "2", "3", "4", "5"], repeatMonthDay: "1", intradayIntervalMinutes: "3" };
   }
   if (dayOfMonth === "*" && dayOfWeek !== "*") {
-    const weekdays = dayOfWeek
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
+    const weekdays = dayOfWeek.split(",").flatMap((item) => {
+      const token = item.trim();
+      const range = token.match(/^(\d)-(\d)$/);
+      if (!range) {
+        return token ? [token] : [];
+      }
+      const start = Number(range[1]);
+      const end = Number(range[2]);
+      if (start > end) {
+        return [];
+      }
+      return Array.from({ length: end - start + 1 }, (_, index) => String(start + index));
+    });
     return { repeatMode: "weekly", repeatTime: time, repeatWeekdays: weekdays.length ? weekdays : ["1"], repeatMonthDay: "1", intradayIntervalMinutes: "3" };
   }
   if (dayOfWeek === "*" && /^\d{1,2}$/.test(dayOfMonth)) {
@@ -244,7 +253,11 @@ export function buildCronExpression(
     if (!weekdays.length) {
       throw new Error("每周执行至少选择一天。");
     }
-    return `${minute} ${hour} * * ${weekdays.join(",")}`;
+    const weekdayExpr = ["1", "2", "3", "4", "5"].every((weekday) => weekdays.includes(weekday))
+      && weekdays.length === 5
+      ? "1-5"
+      : weekdays.join(",");
+    return `${minute} ${hour} * * ${weekdayExpr}`;
   }
   if (
     calendarPolicy === "monthly_last_day"
@@ -809,6 +822,7 @@ export function OpsAutomationPage() {
     [catalogQuery.data, form.action_key, form.action_type],
   );
   const selectedAutomationCapability = selectedAction?.automation_capability || selectedWorkflow?.automation_capability || null;
+  const fixedSchedule = selectedAutomationCapability?.fixed_schedule || null;
   const detailParamLabelMap = useMemo(
     () =>
       buildParamLabelMap(
@@ -880,6 +894,28 @@ export function OpsAutomationPage() {
     )?.allowed_schedule_types || [],
     [form.trigger_mode, selectedAutomationCapability],
   );
+  useEffect(() => {
+    if (!fixedSchedule) return;
+    const parsed = parseCronExpression(fixedSchedule.cron_expr);
+    if (!parsed) return;
+    setForm((current) => ({
+      ...current,
+      schedule_type: "cron",
+      trigger_mode: "schedule",
+      timezone: fixedSchedule.timezone,
+      calendar_policy: "",
+      repeat_mode: parsed.repeatMode,
+      repeat_weekdays: parsed.repeatWeekdays,
+      repeat_month_day: parsed.repeatMonthDay,
+      repeat_time: parsed.repeatTime,
+      intraday_interval_minutes: parsed.intradayIntervalMinutes,
+      selected_date: "",
+      start_date: "",
+      end_date: "",
+      field_values: {},
+      policy_field_values: {},
+    }));
+  }, [fixedSchedule, setForm]);
   useEffect(() => {
     if (!allowedScheduleTypes.length || allowedScheduleTypes.includes(form.schedule_type as "cron" | "once")) return;
     setForm((current) => ({ ...current, schedule_type: allowedScheduleTypes[0] }));
@@ -1114,6 +1150,13 @@ export function OpsAutomationPage() {
   ]);
 
   const resolvedScheduleSummary = useMemo(() => {
+    if (fixedSchedule) {
+      return {
+        title: "固定执行",
+        detail: fixedSchedule.display_text,
+        cronExpr: fixedSchedule.cron_expr,
+      };
+    }
     if (form.schedule_type === "once") {
       return {
         title: "单次执行",
@@ -1166,7 +1209,7 @@ export function OpsAutomationPage() {
         cronExpr: null as string | null,
       };
     }
-  }, [effectiveCalendarPolicy, form.intraday_interval_minutes, form.once_date, form.once_time, form.repeat_mode, form.repeat_month_day, form.repeat_time, form.repeat_weekdays, form.schedule_type]);
+  }, [effectiveCalendarPolicy, fixedSchedule, form.intraday_interval_minutes, form.once_date, form.once_time, form.repeat_mode, form.repeat_month_day, form.repeat_time, form.repeat_weekdays, form.schedule_type]);
 
   const resolvedParameterRows = useMemo(() => {
     const labelMap = new Map([
@@ -1233,8 +1276,8 @@ export function OpsAutomationPage() {
 
   const previewPayload = useMemo(() => {
     try {
-      const scheduleType = form.schedule_type;
-      const cronExpr = scheduleType === "cron"
+      const scheduleType = fixedSchedule ? "cron" : form.schedule_type;
+      const cronExpr = fixedSchedule?.cron_expr || (scheduleType === "cron"
         ? buildCronExpression(
           form.repeat_mode,
           form.repeat_time,
@@ -1243,13 +1286,13 @@ export function OpsAutomationPage() {
           effectiveCalendarPolicy,
           form.intraday_interval_minutes,
         )
-        : null;
+        : null);
       const nextRunAt = scheduleType === "once" ? buildOnceRunAt(form.once_date, form.once_time) : null;
       return {
         schedule_type: scheduleType,
         cron_expr: cronExpr,
-        timezone: form.timezone,
-        calendar_policy: effectiveCalendarPolicy || null,
+        timezone: fixedSchedule?.timezone || form.timezone,
+        calendar_policy: fixedSchedule ? null : effectiveCalendarPolicy || null,
         next_run_at: nextRunAt,
         count: 5,
       };
@@ -1257,6 +1300,7 @@ export function OpsAutomationPage() {
       return null;
     }
   }, [
+    fixedSchedule,
     form.once_date,
     form.once_time,
     effectiveCalendarPolicy,
@@ -1321,8 +1365,8 @@ export function OpsAutomationPage() {
       if (!hasCompletePolicyParameters(selectedPolicyParameters, form.policy_field_values)) {
         throw new Error("请填写日期策略的全部必填参数。");
       }
-      const scheduleType = form.schedule_type;
-      const cronExpr = scheduleType === "cron"
+      const scheduleType = fixedSchedule ? "cron" : form.schedule_type;
+      const cronExpr = fixedSchedule?.cron_expr || (scheduleType === "cron"
         ? buildCronExpression(
           form.repeat_mode,
           form.repeat_time,
@@ -1331,17 +1375,17 @@ export function OpsAutomationPage() {
           effectiveCalendarPolicy,
           form.intraday_interval_minutes,
         )
-        : null;
+        : null);
       const nextRunAt = scheduleType === "once" ? buildOnceRunAt(form.once_date, form.once_time) : null;
       const body = {
         target_type: form.action_type,
         target_key: form.action_key,
         display_name: form.display_name,
         schedule_type: scheduleType,
-        trigger_mode: form.trigger_mode,
+        trigger_mode: fixedSchedule ? "schedule" : form.trigger_mode,
         cron_expr: cronExpr,
-        timezone: form.timezone,
-        calendar_policy: effectiveCalendarPolicy || null,
+        timezone: fixedSchedule?.timezone || form.timezone,
+        calendar_policy: fixedSchedule ? null : effectiveCalendarPolicy || null,
         next_run_at: nextRunAt,
         probe_config:
           form.trigger_mode === "schedule"
@@ -1353,7 +1397,7 @@ export function OpsAutomationPage() {
               max_triggers_per_day: Number(form.probe_max_triggers_per_day || "1"),
               condition_kind: form.probe_condition_kind,
             },
-        params_json: resolvedParamsJson,
+        params_json: fixedSchedule ? {} : resolvedParamsJson,
         retry_policy_json: {},
         concurrency_policy_json: {},
       };
@@ -1878,7 +1922,7 @@ export function OpsAutomationPage() {
               label: formatTriggerModeLabel(option.mode),
             }))}
             value={form.trigger_mode}
-            disabled={!selectedAutomationCapability}
+            disabled={!selectedAutomationCapability || Boolean(fixedSchedule)}
             onChange={(value) =>
               setForm((current) => ({
                 ...current,
@@ -1899,8 +1943,12 @@ export function OpsAutomationPage() {
                   label: scheduleType === "once" ? "单次执行" : "按周期执行",
                 }))}
                 value={form.schedule_type}
+                disabled={Boolean(fixedSchedule)}
                 onChange={(value) => setForm((current) => ({ ...current, schedule_type: value || "once" }))}
               />
+              {fixedSchedule ? (
+                <Text c="dimmed" size="xs">该任务由系统固定为{fixedSchedule.display_text}，无需手工调整。</Text>
+              ) : null}
               {form.schedule_type === "once" ? (
                 <Grid>
                   <Grid.Col span={{ base: 12, sm: 7 }}>
@@ -1936,6 +1984,7 @@ export function OpsAutomationPage() {
                             : "每 N 分钟",
                     }))}
                     value={form.repeat_mode}
+                    disabled={Boolean(fixedSchedule)}
                     onChange={(value) => setForm((current) => ({ ...current, repeat_mode: (value as RepeatMode) || "daily" }))}
                   />
                   {form.repeat_mode === "intraday_interval" ? (
@@ -1963,6 +2012,7 @@ export function OpsAutomationPage() {
                         { value: "0", label: "周日" },
                       ]}
                       value={form.repeat_weekdays}
+                      disabled={Boolean(fixedSchedule)}
                       onChange={(values) => setForm((current) => ({ ...current, repeat_weekdays: values }))}
                       clearable={false}
                     />
@@ -2007,6 +2057,7 @@ export function OpsAutomationPage() {
                       placeholder="HH:mm"
                       type="time"
                       value={form.repeat_time}
+                      disabled={Boolean(fixedSchedule)}
                       onChange={(event) => setForm((current) => ({ ...current, repeat_time: event.currentTarget.value }))}
                     />
                   ) : null}
@@ -2018,6 +2069,7 @@ export function OpsAutomationPage() {
             label="时区"
             data={[{ value: "Asia/Shanghai", label: "北京时间（默认）" }]}
             value={form.timezone}
+            disabled={Boolean(fixedSchedule)}
             onChange={(value) => setForm((current) => ({ ...current, timezone: value || "Asia/Shanghai" }))}
           />
           {selectedPolicyParameters.length ? (

@@ -261,7 +261,7 @@ def test_heat_schedule_contract_rejects_wrong_time_params_and_duplicate(db_sessi
         )
     assert fixed_date.value.code == "heat_schedule.contract_invalid"
 
-    service.create_schedule(db_session, cron_expr="15 21 * * 1-5", **common)
+    service.create_schedule(db_session, cron_expr="15 21 * * 1,2,3,4,5", **common)
     with pytest.raises(WebAppError) as duplicate:
         service.create_schedule(db_session, cron_expr="15 21 * * 1-5", **common)
     assert duplicate.value.code == "heat_schedule.already_exists"

@@ -569,6 +569,11 @@ export interface OpsAutomationCapability {
     range_end_field: string | null;
     granularity: "none" | "day" | "month";
   } | null;
+  fixed_schedule: {
+    cron_expr: string;
+    timezone: string;
+    display_text: string;
+  } | null;
   probe_conditions: Array<{
     kind: string;
     label: string;

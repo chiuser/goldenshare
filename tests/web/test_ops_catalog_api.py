@@ -205,6 +205,13 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
         for item in catalog_items
     )
 
+    heat_capability = actions["maintenance.materialize_wealth_sector_heat_daily"]["automation_capability"]
+    assert heat_capability["fixed_schedule"] == {
+        "cron_expr": "15 21 * * 1-5",
+        "timezone": "Asia/Shanghai",
+        "display_text": "工作日 21:15（北京时间）",
+    }
+
     daily_capability = actions["daily.maintain"]["automation_capability"]
     assert daily_capability == {
         "version": 1,
@@ -245,6 +252,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
             "range_end_field": "end_date",
             "granularity": "day",
         },
+        "fixed_schedule": None,
     }
 
     margin_detail_capability = actions["margin_detail.maintain"]["automation_capability"]
@@ -283,6 +291,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
             "range_end_field": "end_date",
             "granularity": "day",
         },
+        "fixed_schedule": None,
     }
     for workflow in workflows.values():
         if workflow["schedule_enabled"]:
@@ -293,6 +302,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
                 "probe_conditions": [],
                 "calendar_policy_rules": [],
                 "time_input_contract": None,
+                "fixed_schedule": None,
             }
         else:
             assert workflow["automation_capability"] is None

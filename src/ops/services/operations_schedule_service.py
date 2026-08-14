@@ -588,11 +588,10 @@ class OperationsScheduleService:
         if action is None:
             raise WebAppError(status_code=422, code="heat_schedule.contract_missing", message="Heat 自动任务定义不存在")
         initial_check = time.fromisoformat(str(action.readiness_policy["initial_check_local_time"]))
-        expected_cron = f"{initial_check.minute} {initial_check.hour} * * 1-5"
         expected_timezone = str(action.readiness_policy["timezone"])
         if schedule_type != "cron" or str(trigger_mode or "schedule").strip().lower() != "schedule":
             raise WebAppError(status_code=422, code="heat_schedule.contract_invalid", message="Heat 自动任务只支持周期定时触发")
-        if cron_expr != expected_cron or timezone_name != expected_timezone:
+        if not OperationsScheduleService._matches_heat_cron(cron_expr, initial_check) or timezone_name != expected_timezone:
             raise WebAppError(
                 status_code=422,
                 code="heat_schedule.contract_invalid",
@@ -604,6 +603,42 @@ class OperationsScheduleService:
                 code="heat_schedule.contract_invalid",
                 message="Heat 自动任务日期和 readiness 由系统生成，禁止配置日期、探测或策略参数",
             )
+
+    @staticmethod
+    def _matches_heat_cron(cron_expr: str | None, initial_check: time) -> bool:
+        fields = str(cron_expr or "").split()
+        if len(fields) != 5:
+            return False
+        minute, hour, day_of_month, month, day_of_week = fields
+        if (
+            minute != str(initial_check.minute)
+            or hour != str(initial_check.hour)
+            or day_of_month != "*"
+            or month != "*"
+        ):
+            return False
+        return OperationsScheduleService._parse_cron_weekdays(day_of_week) == {1, 2, 3, 4, 5}
+
+    @staticmethod
+    def _parse_cron_weekdays(expression: str) -> set[int] | None:
+        weekdays: set[int] = set()
+        for raw_token in expression.split(","):
+            token = raw_token.strip()
+            if not token:
+                return None
+            if "-" in token:
+                start_text, separator, end_text = token.partition("-")
+                if not separator or not start_text.isdigit() or not end_text.isdigit():
+                    return None
+                start, end = int(start_text), int(end_text)
+                if start > end or start < 0 or end > 7:
+                    return None
+                weekdays.update(range(start, end + 1))
+            elif token.isdigit() and 0 <= int(token) <= 7:
+                weekdays.add(int(token))
+            else:
+                return None
+        return {0 if weekday == 7 else weekday for weekday in weekdays}
 
     @staticmethod
     def _validate_unique_heat_schedule(

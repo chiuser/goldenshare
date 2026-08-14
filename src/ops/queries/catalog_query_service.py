@@ -19,6 +19,7 @@ from src.ops.schemas.catalog import (
     AutomationCapabilityResponse,
     CalendarPolicyCapabilityResponse,
     AutomationTimeInputContractResponse,
+    FixedScheduleCapabilityResponse,
     FilterCapabilityResponse,
     OpsCatalogResponse,
     ProbeConditionCapabilityResponse,
@@ -274,6 +275,15 @@ class OpsCatalogQueryService:
                     granularity=capability.time_input_contract.granularity,
                 )
                 if capability.time_input_contract is not None
+                else None
+            ),
+            fixed_schedule=(
+                FixedScheduleCapabilityResponse(
+                    cron_expr=capability.fixed_schedule.cron_expr,
+                    timezone=capability.fixed_schedule.timezone,
+                    display_text=capability.fixed_schedule.display_text,
+                )
+                if capability.fixed_schedule is not None
                 else None
             ),
         )

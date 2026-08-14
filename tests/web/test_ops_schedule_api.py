@@ -98,7 +98,7 @@ def test_ops_schedule_create_allows_only_the_fixed_heat_automation_contract(app_
         "target_key": "maintenance.materialize_wealth_sector_heat_daily",
         "display_name": "每日板块热度",
         "schedule_type": "cron",
-        "cron_expr": "15 21 * * 1-5",
+        "cron_expr": "15 21 * * 1,2,3,4,5",
         "timezone": "Asia/Shanghai",
         "params_json": {},
     }
@@ -108,7 +108,7 @@ def test_ops_schedule_create_allows_only_the_fixed_heat_automation_contract(app_
     assert created.status_code == 200
     body = created.json()
     assert body["target_key"] == payload["target_key"]
-    assert body["cron_expr"] == "15 21 * * 1-5"
+    assert body["cron_expr"] == "15 21 * * 1,2,3,4,5"
     assert body["timezone"] == "Asia/Shanghai"
     assert body["params_json"] == {}
 
@@ -121,6 +121,7 @@ def test_ops_schedule_create_allows_only_the_fixed_heat_automation_contract(app_
     ("changes", "expected_code"),
     [
         ({"cron_expr": "0 21 * * 1-5"}, "heat_schedule.contract_invalid"),
+        ({"cron_expr": "15 21 * * 1-6"}, "heat_schedule.contract_invalid"),
         ({"timezone": "UTC"}, "heat_schedule.contract_invalid"),
         ({"params_json": {"trade_date": "2026-08-14"}}, "heat_schedule.contract_invalid"),
         ({"probe_config": {"condition_kind": "freshness_latest_open"}}, "heat_schedule.contract_invalid"),

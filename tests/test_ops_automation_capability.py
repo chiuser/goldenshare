@@ -51,6 +51,12 @@ def test_workflow_and_maintenance_capabilities_are_schedule_only() -> None:
         assert capability.probe_conditions == ()
         if action.key == "maintenance.materialize_wealth_sector_heat_daily":
             assert capability.trigger_options[0].allowed_schedule_types == ("cron",)
+            assert capability.fixed_schedule is not None
+            assert capability.fixed_schedule.cron_expr == "15 21 * * 1-5"
+            assert capability.fixed_schedule.timezone == "Asia/Shanghai"
+            assert capability.fixed_schedule.display_text == "工作日 21:15（北京时间）"
+        else:
+            assert capability.fixed_schedule is None
 
 
 def test_remote_probe_capabilities_are_bound_to_their_exact_dataset_actions() -> None:

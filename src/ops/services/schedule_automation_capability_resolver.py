@@ -121,6 +121,13 @@ class ProbeConditionCapability:
 
 
 @dataclass(frozen=True, slots=True)
+class FixedScheduleCapability:
+    cron_expr: str
+    timezone: str
+    display_text: str
+
+
+@dataclass(frozen=True, slots=True)
 class AutomationCapability:
     version: Literal[1]
     default_trigger_mode: TriggerMode
@@ -128,6 +135,7 @@ class AutomationCapability:
     probe_conditions: tuple[ProbeConditionCapability, ...]
     calendar_policy_rules: tuple[DatasetScheduleTimePolicyCapability, ...]
     time_input_contract: "AutomationTimeInputContract | None" = None
+    fixed_schedule: FixedScheduleCapability | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,7 +205,19 @@ class ScheduleAutomationCapabilityResolver:
             if action is None or not action.schedule_enabled:
                 return None
             if action.readiness_condition is not None:
-                return self._schedule_only_capability(allowed_schedule_types=("cron",))
+                initial_check = str(action.readiness_policy["initial_check_local_time"])
+                hour_text, minute_text = initial_check.split(":", maxsplit=2)[:2]
+                hour = int(hour_text)
+                minute = int(minute_text)
+                timezone_name = str(action.readiness_policy["timezone"])
+                return self._schedule_only_capability(
+                    allowed_schedule_types=("cron",),
+                    fixed_schedule=FixedScheduleCapability(
+                        cron_expr=f"{minute} {hour} * * 1-5",
+                        timezone=timezone_name,
+                        display_text=f"工作日 {hour:02d}:{minute:02d}（北京时间）",
+                    ),
+                )
             return self._schedule_only_capability()
         if target_type == "workflow":
             workflow = get_workflow_definition(target_key)
@@ -554,6 +574,7 @@ class ScheduleAutomationCapabilityResolver:
         calendar_policy_rules: tuple[DatasetScheduleTimePolicyCapability, ...] = (),
         time_input_contract: AutomationTimeInputContract | None = None,
         allowed_schedule_types: tuple[ScheduleType, ...] = DEFAULT_SCHEDULE_TYPES,
+        fixed_schedule: FixedScheduleCapability | None = None,
     ) -> AutomationCapability:
         return AutomationCapability(
             version=1,
@@ -562,6 +583,7 @@ class ScheduleAutomationCapabilityResolver:
             probe_conditions=(),
             calendar_policy_rules=calendar_policy_rules,
             time_input_contract=time_input_contract,
+            fixed_schedule=fixed_schedule,
         )
 
     @staticmethod

@@ -156,6 +156,17 @@ describe("自动任务日期策略", () => {
   it("keeps trigger_day_single_range on regular cron occurrence and labels trigger-day maintenance", () => {
     expect(buildCronExpression("daily", "19:00", [], "1", "trigger_day_single_range")).toBe("0 19 * * *");
     expect(buildCronExpression("weekly", "19:00", ["1", "5"], "1", "trigger_day_single_range")).toBe("0 19 * * 1,5");
+    expect(buildCronExpression("weekly", "21:15", ["1", "2", "3", "4", "5"], "1")).toBe("15 21 * * 1-5");
+    expect(parseCronExpression("15 21 * * 1-5")).toMatchObject({
+      repeatMode: "weekly",
+      repeatTime: "21:15",
+      repeatWeekdays: ["1", "2", "3", "4", "5"],
+    });
+    expect(parseCronExpression("15 21 * * 1,2,3,4,5")).toMatchObject({
+      repeatMode: "weekly",
+      repeatTime: "21:15",
+      repeatWeekdays: ["1", "2", "3", "4", "5"],
+    });
     expect(parseCronExpression("0 19 * * *", "trigger_day_single_range")).toMatchObject({
       repeatMode: "daily",
       repeatTime: "19:00",
