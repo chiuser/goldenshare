@@ -1,8 +1,8 @@
 # A 股分钟线 Gold 标准 K 线合同与历史重建 LLD
 
-更新时间：2026-08-14
+更新时间：2026-08-15
 
-状态：**P0-P10 已完成。P7 已完成股票 QFQ canonical bars 正式重建与抽样/统计验收；P8 已按 5m、15m、30m、60m 的顺序完成 2014-01-02 至 2026-08-12 全历史 MACD/KDJ 与递推 state 重建；P9 已对实际重建范围补齐 103,677 条 materialization event，并只对各专属分区最近 20 个交易日补齐 1,720 条 latest-bound check event。P10 已将主要指数业务 bars 从 Silver 切换到 Gold canonical bars，无 fallback，并收紧股票 bars/indicators 时间键合同。2026-08-14 补充审计确认，P7/P8 遗漏了直接依赖股票 QFQ 的 30m/60m/90m/120m 前复权九转资产，新增 P12 作为必须完成的遗漏补偿；P12 完成前，本专项不能宣告全部下游重建完成。**
+状态：**P0-P10、P12 已完成；P11 连续三个实际交易日观察仍属于后续运维验收。P7 已完成股票 QFQ canonical bars 正式重建与抽样/统计验收；P8 已按 5m、15m、30m、60m 的顺序完成 2014-01-02 至 2026-08-12 全历史 MACD/KDJ 与递推 state 重建；P9 已对实际重建范围补齐 103,677 条 materialization event，并只对各专属分区最近 20 个交易日补齐 1,720 条 latest-bound check event。P10 已将主要指数业务 bars 从 Silver 切换到 Gold canonical bars，无 fallback，并收紧股票 bars/indicators 时间键合同。P12 已补齐直接依赖股票 QFQ 的 30m/60m/90m/120m 前复权九转资产；2026-08-15 后续去价格专项又将四个分钟九转正式资产全量切换为八列无价格合同，共 12,272 个分区、197,753,897 行，并完成事件、Reader/readiness 与分钟 sensor 恢复。P12G 的 12,268 个含价格文件只代表 2026-08-14 的历史执行快照，当前合同与结果以 P12H 及股票九转 LLD 为准。**
 
 本文是以下三类分钟线的当前唯一业务口径：
 
@@ -1358,6 +1358,28 @@ P12 已按本节顺序完成，上游缺口、递推指标、四频九转 Lake �
 P12 的数据与事件修复已经完成。恢复服务后仍需按原计划观察自然交易日运行；观察属于运行验收，
 不再是本次历史数据重建缺口。
 
+#### P12H 2026-08-15 分钟九转去价格后续收口
+
+P12G 解决了 canonical QFQ bars 变化后的九转历史漂移，但当时分钟九转正式文件仍重复保存
+`close_qfq`。后续专项已按[股票前复权九转 LLD](./dagster-stock-qfq-nineturn-dataset-low-level-design.md)
+完成以下合同修正：
+
+1. 四个分钟九转资产最终 schema 固定为
+   `ts_code/freq/trade_date/trade_time/up_count/down_count/nine_up_turn/nine_down_turn`；不再保存
+   `close_qfq` 或任何 OHLC、量额、涨跌字段。公式仍读取对应同频 `gold_stk_mins_qfq.close`，
+   价格只在计算内部和 staging compact context 中存在。
+2. 正式范围重新冻结为 2014-01-02～2026-08-14，四频各 3,068 个文件，共 12,272 个文件、
+   197,753,897 行。candidate 全绿后才逐文件原子替换；最终聚合审计的缺失、schema、重复键、
+   空键、分区、频度和非法值均为 0。
+3. 新事件计划只选择四个分钟资产，实际追加 12,272 条 materialization 和最近 20 日共 80 条
+   check；日线候选和 post-plan 候选均为 0，没有删除历史事件或创建 Dagster run。
+4. canonical 去价格链路固定 DuckDB 2GB/1线程和 16GiB 进程峰值门禁；正式执行最高观测
+   10.61GB。Reader 四频返回结果无价格，最近 5 日 readiness 为 20/20 文件、失败行 0；分钟
+   sensor 已恢复 `RUNNING`，最近自然评估确认最近 5 日均 ready、0 run。
+
+因此，P12G 的价格一致性检查和 12,268 文件数字只用于说明当时为何需要 canonical 重建，不能继续
+作为分钟九转正式资产的当前 schema、检查或规模口径。日线九转及其 `close_qfq` 完全不受该后续专项影响。
+
 ## 9. 检查、readiness 与事件治理
 
 ### 9.1 Gold bars core check
@@ -1487,7 +1509,7 @@ expected OHLCV 必须为人工字面量，禁止调用被测 builder 生成 expe
    5/15/30/60 QFQ、MACD/KDJ、state 全历史重建完成。
 10. 股票 90/120 已改为 Silver direct source，且历史等值审计通过。
 11. 股票 30/60/90/120 前复权九转已从 canonical QFQ 完成全历史重建；九转 key 与对应 QFQ
-    一致，30/60 无独立 09:30，90/120 不再保留旧价格。
+    一致，30/60 无独立 09:30；正式分钟九转只保存业务键、计数和信号，不再持久化价格。
 12. bars/indicators 时间键全量一致，API 和前端不补、不猜、不错位。
 13. materialization 全量、check 最近 20 日、partition 归属和 latest binding 正确；九转重建事件
     也按相同保留口径补齐。
