@@ -1,6 +1,6 @@
 # 指数详情页低层设计（LLD）v1
 
-> 状态：M1–M5-B 与 P10 业务读取切换已按冻结合同实现；四类详情图表共享同一 viewport 与缩放实现；主要指数 bars/indicators 当前都只读正式 Gold，无 Silver fallback。
+> 状态：M1–M5-B、P10 与九转专项 S7/M5 已按冻结合同实现；四类详情图表共享同一 viewport、缩放和九转 primitive；主要指数 bars/indicators 当前都只读正式 Gold，无 Silver fallback。九转 M6-0 发布准备审计与测试稳定性修复已于 2026-08-15 完成并通过，M6-A 尚未推送或部署。
 > 需求依据：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 技术方案：[指数详情页技术实施方案 v1](./index-detail-implementation-design-v1.md)
 > 编码门禁：[指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
@@ -427,7 +427,8 @@ interface IndexDetailPageInitResponseDto {
     supportsMinute: boolean;
     minuteFrequencies: Array<1 | 5 | 15 | 30 | 60 | 90 | 120>;
     supportsTrendChannel: boolean;
-    supportsNineTurn: false;
+    supportsNineTurn: true;
+    nineTurnPeriods: Array<"day" | "5" | "15" | "30" | "60" | "90" | "120">;
     supportsTechnicalConclusion: false;
     supportsTradePlanEntry: true;
   };
@@ -1125,7 +1126,7 @@ MainContent Loaded/Loading/Empty/Partial：左右 padding 10、gap 10、左 `119
 
 ### 14.3 技术 Tab
 
-Technical 读取已经加载的 kline 最新指标和 trend 状态，不另发“技术结论”或“九转”请求。技术结论、九转固定显示 `--`，没有 mock 句子。
+Technical 读取已经加载的 kline 最新指标和 trend 状态，不发“技术结论”请求；九转则通过共享 registry 按 capability 独立 ensure day/60/30，并消费各周期 API 的 `latestMarker`。技术结论固定显示 `--`；九转未开放、源空或无 marker 时显示 `--`，没有 mock 句子。
 
 ### 14.4 周期切换
 
@@ -1174,7 +1175,7 @@ IndexInfoRail
 1. 最新日 MA/BOLL/MACD/KDJ 客观值。
 2. 上证指数最新对齐日的短期上轨/下轨、长期上轨/下轨；其余指数显示 `--` 或按 Figma 隐藏趋势分组，不发请求。
 3. 技术结论 `--`。
-4. 九转 `--`。
+4. 九转按 capability 展示 day/60/30 的最新“上序 N/下序 N”；未开放、源空或无 marker 显示 `--`。
 5. 不出现买入、卖出、建议、机会、风险评级等主观结论。
 
 ---
@@ -1428,7 +1429,7 @@ wealth/src/shared/charts/detail-workspace/DetailChartWorkspace.test.tsx
 5. 快速切 code 时旧响应不能覆盖新页面。
 6. 15 项顺序、下跌数半宽、null 为 `--`、无旧字段。
 7. 权重第一次激活才请求；cache、retry、完整 rowcount、末行可达。
-8. Technical 的结论/九转为 `--`，没有主观建议。
+8. Technical 的技术结论为 `--`；九转按 day/60/30 capability 展示 `latestMarker`，未开放/源空/无 marker 为 `--`，没有主观建议。
 9. trend N 点 segment 数量、每日竖线、四种颜色、等于下轨边界、缺日断开。
 10. trend error 不清空 kline/basic。
 11. line/histogram null 不被送成 0。
@@ -1565,6 +1566,8 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.19 | 2026-08-15 | 同步 M6-0 通过：生产路由与配置基线、platform-only 发布边界及 M5 定向回滚已冻结；板块测试竞态修复后 Wealth 全量回归通过，M6-A 仍待独立批准 | Codex |
+| v1.18 | 2026-08-15 | 同步 S7/M5 当前实现：page-init capability 升级为 `supportsNineTurn=true + nineTurnPeriods`，Technical day/60/30 消费独立九转摘要并保持技术结论为空；M6 发布尚未开始 | Codex |
 | v1.17 | 2026-08-14 | 完成 P10：正式 reader 与 capability 统一只读 Gold bars/indicators，无 Silver fallback；同步七频业务合同、时间键对齐和浏览器验收边界 | Codex |
 | v1.16 | 2026-08-13 | 完成 M5-B 真实 provider、bars-only Partial、Mock 清零和 1600×1200 浏览器回归；更新最终 4,277×7 分区验收与性能证据 | Codex |
 | v1.15 | 2026-08-13 | 回填 M5-B 正式 Gold 全历史、Definitions、Dagster 后审计与性能证据；冻结 10000/5MB + 5000 cursor 验收算法，以及真实 provider 独立结算、bars-only PARTIAL 和 Mock 清零的编码落点 | Codex |

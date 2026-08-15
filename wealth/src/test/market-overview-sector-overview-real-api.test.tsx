@@ -268,7 +268,8 @@ describe("market-overview sector-overview V2 real api", () => {
     const panel = await screen.findByLabelText("板块速览");
     expect(await within(panel).findByRole("heading", { name: "板块速览 V2" })).toBeInTheDocument();
     for (const label of ["一级行业", "二级行业", "三级行业"]) {
-      expect(within(within(panel).getByLabelText(label)).getAllByRole("button", { name: /选择/ })).toHaveLength(5);
+      const column = await within(panel).findByLabelText(label);
+      expect(within(column).getAllByRole("button", { name: /选择/ })).toHaveLength(5);
     }
     expect(within(panel).getByText("同层级兄弟节点")).toBeInTheDocument();
     expect(within(panel).getAllByText("三级行业1领涨股").length).toBeGreaterThan(0);

@@ -1,6 +1,6 @@
 # 指数详情页技术实施方案 v1
 
-> 状态：M1–M5-B 与 P10 业务读取切换已完成；详情图表共享收敛与缩放已由 `b38ac20e`、`61a5adea` 完成；bars 与 indicators 当前都只读正式 Gold，无 Silver fallback。
+> 状态：M1–M5-B、P10 与九转专项 S7/M5 已完成；详情图表共享收敛与缩放已由 `b38ac20e`、`61a5adea` 完成；bars 与 indicators 当前都只读正式 Gold，无 Silver fallback。九转当前 capability 为 1.3.0；M6-0 发布准备审计与测试稳定性修复已于 2026-08-15 完成并通过，M6-A 尚未推送或部署。
 > 对应需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 对应门禁：[指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
 > 低层设计：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)
@@ -19,7 +19,7 @@
 3. 日线行情/因子、权重贡献由 Wealth 模块 API 输出；仅上证指数直接消费现有 Quote 趋势通道 API，前端统一组装 ViewModel。
 4. 将股票详情图表中的通用多面板引擎提取到 `shared/charts`，股票与指数保留各自页面适配层；禁止复制 751 行图表实现。
 5. 生产只发布日线；本地分钟作为独立能力，P10 后以正式 Gold canonical bars 与本地 capability 作为 K 线路由门禁，Gold indicators 独立结算，指标失败不阻塞 Gold K 线。
-6. 技术结论和九转不纳入本轮 API，不返回 mock 或前端推导值。
+6. 本文原 M1–M5-B 不纳入技术结论和九转；后续 S7/M5 已通过独立九转 API 接入客观序列，仍不返回 mock 或前端推导值。技术结论继续不在当前范围。
 
 ## 2. 跨模块抽象门禁原则
 
@@ -299,7 +299,8 @@ interface IndexDetailPageInitResponse {
     supportsMinute: boolean;
     minuteFrequencies: Array<1 | 5 | 15 | 30 | 60 | 90 | 120>;
     supportsTrendChannel: boolean;
-    supportsNineTurn: false;
+    supportsNineTurn: true;
+    nineTurnPeriods: Array<"day" | "5" | "15" | "30" | "60" | "90" | "120">;
     supportsTechnicalConclusion: false;
     supportsTradePlanEntry: true;
   };
@@ -447,7 +448,7 @@ route tsCode
 
 1. 默认 `basic`。
 2. `weights` 独立 loading/ready/partial/empty/error。
-3. `technical` 仅在上证指数趋势可用时展示四个客观轨道值；其余指数显示不支持；技术结论和九转位置展示 `--`。
+3. `technical` 的趋势通道仍仅上证指数展示四个客观轨道值；九转摘要按 capability 独立读取 day/60/30 的 `latestMarker`，未开放、源空或无 marker 显示 `--`。技术结论继续显示 `--`，九转不得被解释为交易动作。
 4. tab 切换只改本地 UI state，不改路由、不触发交易动作。
 5. `weights` 表头固定；滚动视窗高度等于 10 行，使用虚拟化列表渲染完整 `rows`，不得把“只渲染可视行”误写为“只请求前 10 行”。
 6. tab 切换后保留权重数据与滚动位置；重新进入同一 `tsCode + contributionTradeDate + weightTradeDate` 不重复请求。
@@ -664,6 +665,8 @@ M5-B 准备批次已于 2026-08-12 验收。2026-08-13 最终重跑确认 Silver
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.22 | 2026-08-15 | 同步 M6-0 通过：冻结生产日线/分钟路由基线和 platform-only 发布范围，修复板块测试竞态并完成 Wealth 全量回归；M6-A 待独立审批 | Codex |
+| v1.21 | 2026-08-15 | 同步 S7/M5 当前实现：page-init `supportsNineTurn=true` 并返回 `nineTurnPeriods`；原“不纳入九转”仅保留为 M1–M5-B 历史范围，M6 发布仍待后续 | Codex |
 | v1.20 | 2026-08-14 | 完成 P10 业务读取切换：主要指数 bars 改为正式 Gold canonical bars，无 Silver fallback；同步能力探测、状态文案与有限只读验收 | Codex |
 | v1.19 | 2026-08-13 | 完成 M5-B 真实 provider、bars-only Partial、Mock 清零与浏览器回归；更新 4,277×7 分区最终只读验收和性能证据 | Codex |
 | v1.18 | 2026-08-13 | 回填 M5-B 正式 Gold 全历史与性能门禁；冻结 10000/5MB 拒绝语义、5000 正常分页，以及真实指标独立结算、bars-only PARTIAL 和 Mock 彻底删除方案 | Codex |

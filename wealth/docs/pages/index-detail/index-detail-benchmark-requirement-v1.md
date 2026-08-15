@@ -1,6 +1,6 @@
 # 指数详情页标杆需求 v1
 
-> 状态：M1–M5-B 与 P10 业务读取切换已完成；正式 bars/indicators 都只读 Gold，Mock 清零和浏览器回归均已通过验收。
+> 状态：指数详情原 M1–M5-B、P10 与九转专项 S7/M5 均已完成；正式 bars/indicators 都只读 Gold，Mock 清零，九转 capability、图层、Technical 摘要和浏览器回归均已通过验收。九转 M6-0 发布准备审计与测试稳定性修复已于 2026-08-15 完成并通过，M6-A 尚未推送或部署。
 > 用途：冻结“财势乾坤 / 指数详情页”的产品范围、数据口径、交互边界与验收标准。
 > 本文是业务与体验事实源，不是实现代码。
 
@@ -16,7 +16,7 @@
 8. [指数详情本地分钟 API / DTO 合同 v1](./index-detail-minutes-api-contract-v1.md)
 9. [股票与主要指数详情页九转接入总方案 v1](../../system/detail-page-nine-turn-integration-implementation-design-v1.md)
 
-> 九转专项说明：M1–M5-B 的“九转为空、`supportsNineTurn=false`、不发请求”是九转立项前的历史验收事实。后续指数日线及 5/15/30/60/90/120 分钟九转，以九转总方案和新 LLD 为唯一开发入口；本专项尚未完成前不得把目标口径冒充成当前实现。
+> 九转专项说明：M1–M5-B 的“九转为空、`supportsNineTurn=false`、不发请求”是九转立项前的历史验收事实，不是当前实现。S7/M5 已完成指数日线及 5/15/30/60/90/120 分钟九转接入；当前 `supportsNineTurn=true`，生产 `nineTurnPeriods=["day"]`，local/dev 在分钟能力就绪时增加 5/15/30/60/90/120，指数 1 分钟始终不支持。最终发布仍按九转总方案的 M6 门禁推进。
 
 ---
 
@@ -60,7 +60,7 @@ Figma 仍有一处历史概述文案需要清理：`425:190` 仍写有“振幅�
 
 1. 趋势通道仅支持 `000001.SH`（上证指数）日线，直接消费现有 `/api/v1/quote/detail/trend-channel`；其余 9 个指数不展示入口、不发起请求，也不开发十指数适配层。
 2. 技术结论首期为空，后续由独立策略 API 提供。
-3. 九转序列在 M1–M5-B 首期为空；后续已另立九转专项，产品合同与独立 API 边界统一见九转总方案。在专项代码完成前当前实现仍保持 `supportsNineTurn=false`。
+3. 九转序列在 M1–M5-B 首期为空；后续 S7/M5 已按独立九转专项完成接入。当前实现固定 `supportsNineTurn=true`，可用周期只能读取 `nineTurnPeriods`，不得从 K 线周期自行推导；产品合同与独立 API 边界统一见九转总方案和 LLD。
 4. 权重运行时选取不晚于贡献交易日的最新完整批次；当前生产验收基线是 `2026-07-31`。
 5. 默认且正式支持日线；生产环境分钟周期置灰，不允许切换。
 6. 本地环境在正式 Gold canonical bars 与 Lake capability 通过门禁后支持 `1/5/15/30/60/90/120` 分钟；Gold indicators 失败只使技术图层 PARTIAL，不阻塞真实 Gold K 线，也不得回退 M5-A Mock 或 Silver。
@@ -320,6 +320,8 @@ M5-B 正式 Gold 验收使用同一 1.5s P95 目标、5s 硬门禁，并固定�
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.21 | 2026-08-15 | 同步九转 M6-0 通过事实：生产版本、路由、配置与 platform-only 发布边界已审计，板块测试竞态已修复且 Wealth 全量 232/232；M6-A 待独立审批 | Codex |
+| v1.20 | 2026-08-15 | 同步 S7/M5 完成事实：当前 `supportsNineTurn=true`，周期由 `nineTurnPeriods` 声明；清除“九转专项尚未完成”的过时表述，并保留 M6 尚未发布边界 | Codex |
 | v1.19 | 2026-08-14 | 完成 P10：本地指数 bars 切换为正式 Gold canonical bars，无 Silver fallback；七频业务合同、tooltip 与有限只读性能验收通过 | Codex |
 | v1.18 | 2026-08-13 | 登记九转专项总方案与正式 Figma；Weights/Technical 根画板从 Cover 归位到 08 页面；保留 M1–M5-B 的九转空值为历史实现事实 | Codex |
 | v1.17 | 2026-08-13 | 完成 M5-B 真实 Gold provider 与 Mock 清零；回填 4,277×7 全历史重跑、630 样本性能、最大响应和 1600×1200 浏览器验收 | Codex |
