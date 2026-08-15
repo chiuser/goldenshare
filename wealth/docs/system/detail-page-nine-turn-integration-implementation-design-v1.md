@@ -1,6 +1,6 @@
 # 股票与主要指数详情页九转接入总方案 v1
 
-> 状态：M0～M5、M6-0 与 M6-A 已完成。六个已评审提交已于 2026-08-15 推送并以 platform-only 窄发布部署到生产，生产运行版本为 `58fb5b62`；只构建 Wealth、只重启 Web，生产股票/指数日线九转路由保持受认证保护，分钟九转路由保持 404。生产浏览器已验收上证指数日线九转与趋势通道共存、Technical 摘要、生产分钟禁用和控制台。M6-B～M6-D 尚未开始，本轮没有启用指数 sensor，也没有写 Lake、数据库或 Dagster instance。股票分钟 QFQ 九转去价格 S0～S5 已完成；S6 发现的股票日线冗余价格漂移和自然更新阻塞已移交独立专项，不属于页面退出条件。六个九转 sensor 的最近一次实例快照见第 3.3 节。
+> 状态：M0～M5、M6-0 与 M6-A 已完成；M6-B 第一段只读发布计划已于 2026-08-15 完成，三个指数 sensor 的启用仍等待第二次明确批准，M6-C～M6-D 尚未开始。生产运行版本为 `58fb5b62`，生产股票/指数日线九转路由保持受认证保护，分钟九转路由保持 404。本次 M6-B 只读审计读取正式 Definitions、Dagster instance、Lake 与生产 serving 聚合事实，没有启动 sensor、提交 run、写 Lake/数据库或写 Dagster instance。股票分钟 QFQ 九转去价格 S0～S5 已完成；S6 发现的股票日线冗余价格漂移和自然更新阻塞已移交独立专项，不属于页面退出条件。六个九转 sensor 的状态以第 3.3 节和第 12.4 节带时间戳快照为准。
 >
 > 评审基线日期：2026-08-13。
 >
@@ -123,7 +123,7 @@ React 动态调用边由 CodeGraph explore/import 结果和真实消费者代码
 
 代码中的 `default_status=STOPPED` 只决定“正式实例没有持久化状态时”的初始值；Dagster instance 一旦保存了 `RUNNING/STOPPED`，持久化状态优先。两者必须分开记录：
 
-本节是 2026-08-15 12:58 的历史快照，不是本文更新时重新读取的实时状态。本次文档审计没有获批读取正式 Dagster instance，因此没有运行 `dg` 或 instance 查询；当前静态代码仍把六个 sensor 的 `default_status` 定义为 `STOPPED`，但静态默认值不能覆盖下表已经记录的持久化状态。M6 若需要刷新实时状态，必须先单独批准只读命令、`DAGSTER_HOME` 和读取范围。
+本节保留 2026-08-15 12:58 的历史实例快照，不是本文更新时的实时状态。当时的 M6-0 文档审计没有获批读取正式 Dagster instance，因此未运行 `dg` 或 instance 查询；静态代码中的六个 `default_status=STOPPED` 只证明默认合同没有变化，不能用来覆盖下列历史持久化状态。M6-B 第一段已在当天 19:39 后完成新的只读刷新，当前指数状态和启用计划以第 12.4 节为准。
 
 | Sensor | 定义默认值 | 正式实例持久化状态 | 最近一次 tick | 当前结论 |
 |---|---|---|---|---|
@@ -153,10 +153,10 @@ React 动态调用边由 CodeGraph explore/import 结果和真实消费者代码
 | 指数数据与 API | M4-B 已完成 | 7 个 Gold 资产/check、32,124 个分区、64,248 条 events、生产日线 serving 和日线/本地分钟接口已收口 |
 | 指数页面 | M5 已完成 | capability、日线/分钟 marker、上证趋势双 primitive、Technical day/60/30、局部状态和浏览器验收已收口 |
 | 版本与生产发布 | M6-A 已完成 | 六个评审提交已推送，生产仓库与 Web 运行版本均为 `58fb5b62`；Wealth 构建和 Web 窄重启通过，其他 worker/scheduler/Realtime 未重启 |
-| 发布与运维 | M6-A 已通过 | 两个 health 为 200，股票/指数日线九转未登录为 401，两个分钟九转为 404；生产浏览器日线双 primitive、Technical 摘要、分钟禁用与控制台通过。指数 sensor 启用和下一交易日自然更新仍属 M6-B～M6-D |
+| 发布与运维 | M6-B 第一段已通过 | M6-A 的 health、路由和浏览器门禁保持通过；M6-B 已完成 sensor 只读计划，但三个指数 sensor 仍为 `STOPPED`。第二段启用、下一交易日自然更新与最终验收仍待批准 |
 | 股票日线数据治理 | 独立待办 | 冗余 `close_qfq` 漂移及由此造成的自然链路阻塞不影响页面读取，但阻止把股票全链路自动化声明为健康 |
 
-因此，M0～M5 的产品、数据、API 和页面代码以及 M6-A 生产发布已经完成；整个专项仍未通过 M6-B～M6-D 的 sensor 启用计划、下一交易日自然更新和最终 freshness/性能验收。股票日线治理可与指数后续 M6 分开推进，但在该治理问题解决前，不能宣布股票与指数九转的整体日常自动化全部健康。
+因此，M0～M5 的产品、数据、API 和页面代码、M6-A 生产发布以及 M6-B 第一段只读计划已经完成；整个专项仍未通过 M6-B 第二段 sensor 启用、M6-C 下一交易日自然更新和 M6-D 最终 freshness/性能验收。股票日线治理可与指数后续 M6 分开推进，但在该治理问题解决前，不能宣布股票与指数九转的整体日常自动化全部健康。
 
 ## 4. 产品与算法合同
 
@@ -568,7 +568,7 @@ LLD 必须给出可执行预算，至少覆盖：
 | M3-C | 股票详情真实环境与视觉收口 | 已完成。分钟页面/API/性能行为及去价格 S0～S5 已完成；生产日线接口、权限、数据与 Loaded 视觉主体门禁通过。用户取消登录态正式 P95、生产 45/180 根截图两项补充验收；日线冗余价格漂移及自然更新阻塞移交后续专项 |
 | M4 | 指数日线和六个分钟九转资产及查询 API | M4-B 已完整完成：7 个 Gold assets/checks、1 个 serving asset/check、3 个 jobs/sensors、32,124 个正式分区、64,248 条 Dagster events、生产 migration、6,450 日/42,633 行 serving、日线/本地分钟 API 及正式性能验收均已收口；不存在 1 分钟九转对象 |
 | M5 | 指数图表和 Technical 摘要接入 | S7 已完成：十指数 capability、北证50空态、趋势双 primitive、右栏 day/60/30 摘要、局部状态、缓存竞态、1分钟零九转请求和浏览器验收均通过 |
-| M6 | 日常自动化、全链路验收与最终发布 | M6-0、M6-A 已完成并通过；生产版本为 `58fb5b62`，M6-B～M6-D 尚未开始 |
+| M6 | 日常自动化、全链路验收与最终发布 | M6-0、M6-A 已完成并通过；M6-B 第一段只读计划已完成，三个指数 sensor 仍为 `STOPPED`，等待第二次启用批准；M6-C～M6-D 尚未开始 |
 
 先做股票纵向切片，因为正式资产已经存在，可以先验证 API、共享 primitive 和产品映射；指数数据资产随后建设，避免把数据生产问题与 UI 机制混在同一阶段。
 
@@ -580,7 +580,7 @@ LLD 必须给出可执行预算，至少覆盖：
 
 1. **M6-0 发布准备评审（已完成并通过）**：已只读核对本地提交、远端基线、生产版本、日线/分钟路由矩阵、配置和回滚点，并修复审计发现的测试异步等待竞态；本阶段没有推送、部署、Lake/数据库写入、Dagster instance 读取或 sensor 启停。详细结论见第 12.2 节。
 2. **M6-A 推送、部署与生产页面验收（已完成并通过）**：已推送六个评审提交并以 platform-only 路径部署 `dev-interface@58fb5b62`。生产只挂股票/指数日线九转，分钟九转路由保持 404；上证日线 marker、趋势通道共存、Technical 摘要、生产周期禁用和控制台已通过浏览器验收。详细证据见第 12.3 节。
-3. **M6-B 指数 sensor 发布计划**：先在单独批准的只读范围内刷新 Dagster 实例状态，审核 readiness、blocking check、run key/cursor、最大单 tick 工作量、失败停止和回滚方案；计划通过后仍须再次批准，才可启用三个指数 sensor。
+3. **M6-B 指数 sensor 发布计划**：第一段只读实例刷新和正式计划已完成，结论见第 12.4 节。三个 sensor 当前仍为 active workspace `orchestrator / __repository__` 下的 `STOPPED`；只有本计划再次获批后，才可按冻结顺序启用。
 4. **M6-C 下一交易日自然更新观察**：观察指数日线、六分钟 Gold/check、指数日线 serving 和页面 freshness；同时观察股票四分钟自然新增。不得用手工 backfill 冒充自然触发成功。
 5. **M6-D 最终验收与交付**：收口 HTTP P95、响应体、allowlist、`899050.BJ` 空态、`000680.SH` 404、生产分钟 404、1600×1200 视觉、控制台、回滚演练和运维记录。
 6. **并行独立专项**：股票日线冗余价格和自然更新阻塞另立方案处理；它不阻塞指数 M6-0/M6-A，但阻塞“股票与指数全部自动化健康”的最终结论。
@@ -611,7 +611,51 @@ M6-0 的结论为“发布范围可解释、测试门禁全绿、发布路径和
 3. 最终发布严格使用 LLD 第 15.7 节的 platform-only 命令：只构建 Wealth、安装当前后端包并重启 `goldenshare-web`。旧 `frontend`、migration、两个 seed、unit 同步、Realtime、Foundation worker、Ops worker/scheduler、日期完整性 worker 和任务完成副作用 worker 均未执行重启或写入。
 4. 发布后 `goldenshare-web` 以 `python -m src.app.web.run` 运行；Web、Ops worker/scheduler、日期完整性 worker、任务完成副作用 worker 和 Realtime 均为 `active`。两个 health 均为 200；未登录访问股票/指数日线九转均为 401，股票/指数分钟九转均为 404，证明生产没有泄漏本地分钟路由。
 5. 生产浏览器访问 `https://wealthworld.com.cn/wealth/market/index/000001.SH` 验收通过：上证指数日线 K 线同时显示九转 1～9 标记和趋势通道；Technical 显示“日线 下序 2 / 最新标记”，60/30 分钟显示“当前环境未开放”；分时、周/月和全部分钟周期按钮均禁用，日 K 为 active。页面无横向溢出，浏览器控制台无 warning/error。本阶段以上证指数作为生产视觉代表；十指数产品名单、serving 覆盖与页面 capability 已由 M4-B/M5 及发布前回归覆盖，十指数逐页生产视觉矩阵仍在 M6-D 统一收口。
-6. 本轮没有执行 migration、seed、Lake/数据库写入、Dagster materialize/backfill/runless event、实例读取或 sensor 启停。M6-A 退出条件已满足；下一步仍须先独立评审 M6-B 指数 sensor 只读发布计划，本结论不自动授权 M6-B。
+6. 本轮没有执行 migration、seed、Lake/数据库写入、Dagster materialize/backfill/runless event、实例读取或 sensor 启停。M6-A 退出条件已满足；其后要求的 M6-B 第一段只读发布计划现已完成，见第 12.4 节，但仍不自动授权第二段启用。
+
+### 12.4 M6-B 第一段只读审计与待批准发布计划（2026-08-15）
+
+本节只冻结当前事实和第二段执行方案，不授权启动 sensor。
+
+#### 当前事实
+
+1. CodeGraph 与当前代码确认三条链路分别为：日线 Gold sensor → 单日 `gold_major_index_daily_nineturn` + 1 个 blocking check；分钟 Gold sensor → 同一交易日六频资产 + 6 个 blocking checks；日线 Gold 成功后由 run-status sensor 发布 `prod_core_index_daily_nineturn` + 1 个 blocking check。
+2. 当前 Definitions 能发现 8 个资产、8 个 checks、3 个 jobs 和 3 个 sensors；没有 1 分钟九转对象。三个 sensor 定义和 active workspace 实例状态均为 `STOPPED`，均有启停权限、运行数为 0、无持久化 cursor/tick。
+3. 必须以正在运行的 `repositoryLocationName=orchestrator`、`repositoryName=__repository__` 为唯一启停目标。`dagster sensor list -m orchestrator.definitions` 会启动临时代码 origin，显示的状态不能作为正式实例依据，也不得用于 M6-B 启停。
+4. 日线上游 `index_trade_day_sensor`、raw、silver、`market_major_indices_daily_sensor`，以及分钟上游分区、raw、silver、Gold 共 8 个 sensor 当前均为持久化 `RUNNING`，最近 tick 均为 `SKIPPED/all ready`，最新 run key 均止于 2026-08-14。
+5. 正式实例中 `cn_a_index_trade_days` 已登记 6,450 个分区，`cn_major_index_mins_trade_days` 已登记 4,279 个分区；日线最近 10 日和分钟最近 5 日均无注册缺口。
+6. 2026-08-14 的日线九转和六个分钟九转 materialization/check 全部 ready；六个同频分钟 Gold 上游也全部 ready。正式物理复核中，日线最近 10 日扫描 10 个目标文件耗时 44ms，分钟最近 5 日扫描 30 个目标文件耗时 120ms，全部通过与上游完全相同的 integrity 语义。
+7. 生产 `core_serving.index_nineturn_daily` 当前为 2000-01-04～2026-08-14、6,450 日、42,633 行，最新日 11 个代码/11 行。历史批量发布没有为 `prod_core_index_daily_nineturn` 补 runless materialization/check，因此 2026-08-14 的 serving 实例状态为空；这是历史发布模式的已知事件差异，不是生产表缺失，也不允许为启用 sensor 补造历史事件。
+8. `PROD_POSTGRES_WRITE_*` 六个必要环境变量当前均已配置；Dagster 使用 `QueuedRunCoordinator` 且 `max_concurrent_runs=1`，三个新链路即使同时满足条件也只会串行执行。
+
+#### 工作量与性能门禁
+
+| 入口 | 稳态窗口与读取 | 当前只读 10 次 P95 / 最大值 | 单 tick 写入上限 |
+|---|---|---:|---|
+| 日线 Gold sensor | 最近 10 日；最多校验 10 个目标 + 10 个源文件，读取 6,450 个已登记分区键 | 233ms / 367ms | 最多 1 个 RunRequest、1 个交易日、1 个资产/check |
+| 分钟 Gold sensor | 最近 5 日；最多校验 30 个目标 + 30 个源文件，读取 4,279 个已登记分区键 | 179ms / 193ms | 最多 1 个 RunRequest、1 个交易日、6 个资产/checks |
+| 日线 serving run-status sensor | 每次只消费一个新的日线 Gold 成功事件，并批量读取同分区最新 materialization/check | 首次启动只初始化系统 cursor，不回放历史成功事件 | 最多 1 个 RunRequest、11 行事务替换与 read-back check |
+
+日线/分钟稳态 cursor 分别为 650/657 bytes，低于 2KB 常规预算。最新单日分钟六频合计 810 行、10 个代码；日线和六频目标与源 Parquet 合计 70,422 bytes。任何 sensor tick 超过 5 秒、cursor 超过 2KB、单 tick 出现多于一个 RunRequest 或意外扫描历史全量，都视为停止条件。
+
+#### 第二段启用顺序
+
+1. 再次确认 active workspace 精确为 `orchestrator / __repository__`、三个 sensor 仍为 `STOPPED`、当前无相关 active/queued run，正式 Lake 最新窗口和生产 serving 聚合事实未漂移。
+2. 先启动 `prod_core_index_daily_nineturn_sync_job_sensor`。它第一次 tick 必须只把 Dagster 管理的 run-status cursor 初始化到启动时最新成功事件，结果为 `SKIPPED/Initiating`、run 数为 0；不得回放 M4-B 历史成功事件。
+3. 再启动 `gold_major_index_daily_nineturn_update_job_sensor`，等待一次自然 tick。当前周末基线必须为 `all_ready`、0 run、cursor 不超过 2KB。
+4. 最后启动 `gold_major_index_mins_nineturn_update_job_sensor`，等待一次自然 tick。当前周末基线必须为 `all_ready`、0 run、cursor 不超过 2KB。
+5. 只读复核三个实例状态均为同一正式 origin 的单一 `RUNNING`，最近 tick 无 error、无历史 run、无额外 sensor 被改变。完成后进入 M6-C，观察交易日历已确认的下一个交易日 2026-08-17。
+
+#### 停止、恢复与回滚
+
+1. 启用阶段出现任何非零 run、错误 tick、错误 origin、历史回放、未知分区、cursor 异常或超过性能预算，立即停止本次已启动的三个 sensor，不继续下一步。
+2. 日线 Gold 失败时停止日线 Gold 与 serving sensor；分钟 Gold 失败只停止分钟 sensor；Lake、Dagster instance 或公共资源异常时停止三者。修复后必须重新形成只读状态报告，不能自动重试或换 run key 绕过幂等。
+3. serving 发布使用单分区事务删除/插入/read-back；任何异常由事务 rollback，不能留下半分区。Gold 已成功而 serving 失败时保留 Gold 文件与事件，只在重新审批后重跑 serving。
+4. 回滚只恢复 sensor 为 `STOPPED`。不得删除已经成功生成的 Lake 文件、Dagster events 或生产行，不得运行 backfill、materialize、runless event、migration 或手工补分区。
+
+#### 启用前剩余门禁
+
+当前 Definitions、正式数据和性能没有发现阻断性数据问题，但 sensor 决策分支仍缺少专门的隔离测试。第二段启用前必须补齐并通过：两个 Gold sensor 的 missing registration、all ready、target check failed、upstream not ready、previous partition not ready、exception fail-closed、单 RunRequest/run key/cursor；serving sensor 的首次 cursor 初始化、非法 partition、Gold not ready、按 producer run id 幂等和历史不回放。该测试补强属于 M6-B 发布门禁，不改变业务资产、公式、路径或调度口径；代码方案需在本计划获批后再实施。
 
 ## 13. M1 LLD 解决结果
 
@@ -665,7 +709,7 @@ M2 开工时已重新核验 Alembic 单一 head 为 `20260813_000134`，九转 m
 
 本方案是九转详情接入专项的上游事实源。历史文档中“九转不在本期、显示 `--`、supportsNineTurn=false”描述的是九转立项前已经完成的阶段，不追溯性改写为错误；后续实现必须引用本文和新 LLD，而不能继续把旧阶段占位当作目标状态。
 
-M0～M5、M6-0、M6-A 与股票分钟去价格 S0～S5 已同步本方案和 LLD。指数 M4-B 的正式历史、Dagster events、生产 migration/serving、API 与性能验收，M5 页面能力，以及 M6-A 生产窄发布和浏览器验收均已完成。用户已取消股票日线正式 P95 与缩放边界截图两项补充验收；日线价格漂移与自然触发阻塞已明确移交后续专项，不得在本轮伪报解决。M6-B～M6-D 仍须逐阶段授权。第 3.3 节只能作为带时间戳的最近实例快照引用，不能写成未经刷新确认的实时状态。
+M0～M5、M6-0、M6-A、M6-B 第一段只读计划与股票分钟去价格 S0～S5 已同步本方案和 LLD。指数 M4-B 的正式历史、Dagster events、生产 migration/serving、API 与性能验收，M5 页面能力，以及 M6-A 生产窄发布和浏览器验收均已完成。用户已取消股票日线正式 P95 与缩放边界截图两项补充验收；日线价格漂移与自然触发阻塞已明确移交后续专项，不得在本轮伪报解决。M6-B 第二段启用和 M6-C～M6-D 仍须逐阶段授权。第 3.3 节和第 12.4 节均为带时间戳快照，不能被当作未来实时状态。
 
 ## 17. 版本记录
 
@@ -696,3 +740,4 @@ M0～M5、M6-0、M6-A 与股票分钟去价格 S0～S5 已同步本方案和 LLD
 | v1.20 | 2026-08-15 | 进度收口：确认 M0～M5 完成、M6 尚未开始；区分本地提交与推送部署，给出 M6-0～M6-D 执行顺序，并将 sensor 状态改为带时间戳的非实时快照 | Codex |
 | v1.21 | 2026-08-15 | M6-0 发布准备审计完成并通过：冻结六提交/54 文件发布清单、生产版本/路由/配置基线、platform-only 发布与 M5 定向回滚；修复板块测试异步等待竞态，专项 36/36、Wealth 全量 232/232 与 typecheck 通过 | Codex |
 | v1.22 | 2026-08-15 | M6-A 完成：六个评审提交推送并以 platform-only 路径部署到生产 `58fb5b62`；独立核验版本、服务、health、日线 401/分钟 404，并通过上证日线双 primitive、Technical 摘要、分钟禁用和控制台浏览器验收 | Codex |
+| v1.23 | 2026-08-15 | M6-B 第一段只读发布计划完成：刷新 active workspace 与正式实例状态，核验上游、7 个 Gold 分区/check、生产 serving、run key/cursor 和单 tick 性能；冻结 serving→日线→分钟启用顺序、停止/恢复方案与启用前 sensor 分支测试门禁，三个指数 sensor 仍未启动 | Codex |
