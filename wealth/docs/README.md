@@ -69,8 +69,8 @@ docs/
 - [策略配置中心 v1（统一策略读取）](./system/strategy-config-center-v1.md)
 - [策略配置中心 M1 编码门禁 v1](./system/strategy-config-center-m1-coding-gate-v1.md)
 - [策略配置中心一页式接入手册 v1](./system/strategy-config-consumer-guide-v1.md)
-- [股票与主要指数详情页九转接入总方案 v1（M0-M5、M6-0 已完成）](./system/detail-page-nine-turn-integration-implementation-design-v1.md)
-- [股票与主要指数详情页九转接入低层设计 v1（M6-A 待独立审批）](./system/detail-page-nine-turn-integration-low-level-design-v1.md)
+- [股票与主要指数详情页九转接入总方案 v1（M0-M5、M6-0、M6-A 已完成）](./system/detail-page-nine-turn-integration-implementation-design-v1.md)
+- [股票与主要指数详情页九转接入低层设计 v1（M6-A 已完成，M6-B 待独立审批）](./system/detail-page-nine-turn-integration-low-level-design-v1.md)
 - [股票详情九转纵向切片 M2 编码门禁与实施对账 v1（已通过）](./system/detail-page-nine-turn-m2-coding-gate-v1.md)
 - [股票日线九转 M3 serving 发布门禁 v1（M3-A/M3-B/M3-C 已完成）](./system/detail-page-nine-turn-m3-serving-publication-gate-v1.md)
 
