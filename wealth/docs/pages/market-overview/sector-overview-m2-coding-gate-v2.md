@@ -1,6 +1,6 @@
 # 市场总览｜板块速览 M2 编码前门禁 v2
 
-> 状态：Slice 14 Heat 自动化代码与本地回归已通过；生产唯一 schedule 和真实开放日自动发布/read-back 尚未验收，Slice 14 继续 OPEN。原像素、候选发布和最终对账仍后移到 Slice 15-17。
+> 状态：Slice 14 首次生产开放日验收发现上游日期证据契约错误并于 2026-08-15 完成本地修复；生产修复部署、8 月 13/14 日顺序恢复和下一开放日自动发布/read-back 尚未验收，Slice 14 继续 OPEN。原像素、候选发布和最终对账仍后移到 Slice 15-17。
 > 规则：未勾选门禁不得越级进入对应后续阶段；本地代码完成不等于生产迁移、数据发布或上线验收通过。
 
 关联文档：
@@ -64,8 +64,8 @@
 14. [x] revision `20260813_000134` 已随部署应用；生产只读权限探针确认既有 `lake_raw_writer` 仅具备 `core_serving.wealth_sector_hierarchy` 的 `SELECT/INSERT/DELETE`，没有 `UPDATE/TRUNCATE`，且未创建 login 或新增连接配置。
 15. [x] 修复资金流枚举后的正式 PLAN TaskRun `8149` 已通过：60 units、0 gaps、`apply_ready=true`；首次失败 TaskRun `8147` 仅作为负向生产证据，未用于 APPLY。
 16. [x] 单日 Heat action 通过系统固定的 `wealth_sector_heat_sources_ready` 条件开放排程；历史 replay 仍不可调度。
-17. [ ] 生产唯一 Heat schedule 为工作日 `21:15`、`Asia/Shanghai`；未齐时 10 分钟复查至次日 `00:30`，不新增账号、连接、表、DG sensor、crontab 或外部 timer。
-18. [x] Ops 上游证据必须来自目标日 `21:00` 以后同一次工作流的必需成功节点；`18:30` 早场、跨 TaskRun 拼接或只看业务表有行均不得命中。
+17. [x] 生产唯一 Heat schedule `36` 为工作日 `21:15`、`Asia/Shanghai`；未齐时 10 分钟复查至次日 `00:30`，未新增账号、连接、表、DG sensor、crontab 或外部 timer。首次开放日因代码缺陷超时，不能据此关闭生产发布门禁。
+18. [x] Ops 上游证据必须来自目标日 `21:00` 以后同一次工作流的必需成功节点；父 TaskRun 只保存 `{"mode":"point"}` 意图，resolver 解析后的真实日期由数据集节点保存并由 readiness 逐节点核验。`18:30` 早场、节点缺/错日期、跨 TaskRun 拼接或只看业务表有行均不得命中。
 19. [x] app readiness adapter 在独立只读 business session 中调用 biz preview；生产 scheduler CLI 通过 app factory 注入，`ops` 不 import `biz`、Web 不执行 scheduler。
 20. [x] readiness 命中只创建一个单日 TaskRun；同一 schedule/action/trade_date 已有任一自动 TaskRun 时不重复创建，失败/取消不自动重提；始终未 ready 时 `00:30` 只形成一个 `HEAT_AUTOMATION_SOURCE_TIMEOUT` issue。
 
@@ -86,7 +86,7 @@
 2. [ ] no-lookahead、缺源、不补权和来源错日负例已冻结。
 3. [x] A01-A08 后端正反例、专项及扩展回归共 70 项通过；生产只读 60 开放日 close/pct 聚合核验通过。前端与生产 Heat v2 验收另按 Slice 11/12 执行。
 4. [x] Slice 13 已完成 A01-A19 到测试 ID 的 100% 映射：后端/Heat/Ops/架构核心 109 项与板块静态护栏 5 项合计 114 项、Wealth 全量 33 文件 223 项、DG hierarchy 9 项通过；typecheck、build、文件级 Ruff 和 Definitions 加载通过。正式像素后移到 Slice 15。
-5. [x] Slice 14 Heat 自动化正反例、app scheduler 装配、CLI、依赖矩阵和结构化 reason code 测试全部通过（本地固定总门禁 307 项）。
+5. [x] Slice 14 首版测试因伪造父 TaskRun `trade_date` 不再视为有效证据；修复后已用生产真实父意图结构覆盖节点日期落盘、命中、缺日期、错日期、早场和失败节点，并完成 Heat/Ops/运行时/API/架构相关回归 115 项。
 6. [ ] 至少一个真实开放日完成“自动检查 -> 单一 TaskRun -> Heat read-back -> 同日幂等”生产验收；未取得该证据时 Slice 14 不得标记 PASS。
 7. [ ] API P95、payload、SQL 往返和离线物化预算已冻结。
 8. [ ] 迁移、层级、Heat 回放、应用切换的发布顺序已冻结。

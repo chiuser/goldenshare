@@ -108,7 +108,7 @@ class TaskRunDispatcher:
             sequence_no=1,
             title=f"维护 {task_run.title}",
             resource_key=plan.dataset_key,
-            time_input=dict(task_run.time_input_json or {}),
+            time_input=self._dataset_time_input_payload(action_request.time_input),
             context={"run_profile": plan.run_profile},
         )
         task_run.current_node_id = node.id
@@ -245,6 +245,7 @@ class TaskRunDispatcher:
                 if step_resource_key is not None:
                     step_run = self._step_task_run(task_run, step_action_key, step_resource_key, params)
                     request = self._prepare_dataset_action_request(session, self._build_dataset_action_request(step_run))
+                    node.time_input_json = self._dataset_time_input_payload(request.time_input)
                     plan = DatasetActionResolver(session).build_plan(request)
                     (
                         rows_fetched,
@@ -773,6 +774,19 @@ class TaskRunDispatcher:
         if trade_date is None:
             raise ValueError("未找到可用日期，请先同步日历或手动指定日期。")
         return replace(request, time_input=replace(time_input, trade_date=trade_date))
+
+    @staticmethod
+    def _dataset_time_input_payload(time_input: DatasetTimeInput) -> dict[str, Any]:
+        payload: dict[str, Any] = {"mode": time_input.mode}
+        for key in ("trade_date", "ann_date", "start_date", "end_date"):
+            value = getattr(time_input, key)
+            if value is not None:
+                payload[key] = value.isoformat()
+        for key in ("month", "start_month", "end_month", "date_field"):
+            value = getattr(time_input, key)
+            if value not in (None, ""):
+                payload[key] = value
+        return payload
 
     @staticmethod
     def _plan_snapshot(plan) -> dict[str, Any]:  # type: ignore[no-untyped-def]

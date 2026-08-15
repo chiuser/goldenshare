@@ -1,7 +1,7 @@
 # 市场总览｜板块速览低层设计 v2（LLD）
 
-> 状态：Slice 14 Heat 自动化代码与本地回归已完成；生产尚未创建唯一 schedule，真实开放日自动 TaskRun、Heat read-back 与幂等证据尚缺，因此 Slice 14 保持 OPEN。原正式像素、候选部署和最终对账仍为 Slice 15-17。
-> 日期：2026-08-14
+> 状态：Slice 14 首次生产开放日验收发现上游日期证据契约错误并于 2026-08-15 完成本地修复；生产修复部署、8 月 13/14 日顺序恢复和下一开放日自动发布/read-back 尚缺，因此 Slice 14 保持 OPEN。原正式像素、候选部署和最终对账仍为 Slice 15-17。
+> 日期：2026-08-15
 > 需求基线：[sector-overview-benchmark-requirement-v2.md](./sector-overview-benchmark-requirement-v2.md)
 > 实施方案：[sector-overview-implementation-design-v2.md](./sector-overview-implementation-design-v2.md)
 > 编码门禁：[sector-overview-m2-coding-gate-v2.md](./sector-overview-m2-coding-gate-v2.md)
@@ -585,11 +585,12 @@ timezone = Asia/Shanghai
 
 对目标日 `D`，Ops 查询必须按语义键而非生产 ID 识别：
 
-1. `daily_market_close_maintenance`：TaskRun 为 `success` 或其 Heat 必需节点均成功，`time_input.trade_date=D`，且 `requested_at` 换算到 `Asia/Shanghai` 后不早于 `D 21:00`。必需节点为 `daily/dc_index/dc_member/dc_daily/limit_list/suspend_d`。
+1. `daily_market_close_maintenance`：TaskRun 为 `success` 或其 Heat 必需节点均成功，且 `requested_at` 换算到 `Asia/Shanghai` 后不早于 `D 21:00`。必需节点为 `daily/dc_index/dc_member/dc_daily/limit_list/suspend_d`；每个必需节点的 `time_input_json.trade_date` 都必须为 `D`。
 2. `daily_moneyflow_maintenance`：同日、同样不早于 `21:00`，且 `moneyflow_ind_dc` 节点成功。
 3. 同一个 workflow 的必需节点必须来自同一个 TaskRun，禁止把多次 partial run 拼成成功；早于 21:00 的 TaskRun（包括 18:30）只作为历史记录，不作为 readiness 证据。
 4. Heat 无关节点失败时，只要 TaskRun 中全部必需节点成功即可继续 biz preview；必需节点缺失、失败、仍运行或被取消均返回 `HEAT_UPSTREAM_NOT_READY`。
 5. readiness evidence 记录 workflow key、TaskRun ID、node key/status、requested/ended time 和证据 hash；不得记录连接信息或敏感参数。
+6. 父 TaskRun 只保存调度意图，生产 point 工作流的真实结构是 `{"mode":"point"}`，不得要求或伪造父级 `trade_date`。`TaskRunDispatcher` 在 resolver 解析日期后，把规范化 time input 写入数据集 `TaskRunNode`；节点缺日期、日期错误或非法日期均不得成为 readiness 证据。
 
 #### 5.9.4 Biz 内容预检与 reason code
 
@@ -1111,14 +1112,15 @@ Slice 11 未关闭 A01-A19 整体问题；Slice 12 已完成 A02/A08 生产事�
 
 Slice 14 PASS 标准：代码/自动化测试全部通过、生产 schedule 唯一且 active、真实开放日完成一次成功自动发布与一次同日幂等核验、没有重复 TaskRun/DML、超时/缺源反例可观测。任一条件缺失均不得进入 Slice 15。
 
-执行记录（2026-08-14）：**代码与本地自动化 PASS，生产验收 OPEN**。
+执行记录（2026-08-15）：**首次生产验收失败，修复代码与生产形态回归 PASS，生产重新部署/恢复/新开放日验收 OPEN**。
 
 1. `MaintenanceActionDefinition` 已声明唯一 Heat readiness policy；历史 replay 仍不可调度。
 2. Ops 已实现 SSE 开放日、21:00 后两个工作流同一 TaskRun 必需节点、10 分钟复查、跨午夜目标日锁定、00:30 单一超时以及同一 schedule/action/trade_date 单次自动尝试。
 3. app scheduler factory 已装配 Ops 上游证据与独立 `REPEATABLE READ, READ ONLY` biz preview；worker 继续在独立业务事务二次校验。`limit_list_d/suspend_d` 合法零行以来源节点自身成功为准，即使同一工作流因无关节点失败，仍可读取完成证据。
 4. CLI `ops-scheduler-tick/serve` 已统一使用 app factory；未新增表、迁移、账号、连接、环境变量、ProbeRule、DG sensor 或外部 timer。
-5. Heat 专项、调度/API/CLI/worker/capability/架构固定总门禁合计 307 项通过，文件级 Ruff、依赖矩阵和 `git diff --check` 通过。
-6. 尚缺：部署代码、创建并核验唯一 active 生产 schedule、至少一个真实开放日自动任务成功、Heat read-back/hash 与同日幂等。完成前 Slice 14 不得标记 PASS，也不得进入 Slice 15。
+5. 2026-08-14 生产 schedule `36` 持续误判上游未齐，并于 2026-08-15 00:30 创建超时 TaskRun `8327`；生产上游节点和7张来源表实际齐备，Heat 结果仍停在 8 月 12 日。根因是旧 readiness 查询父 TaskRun `trade_date`，而19条生产工作流父意图均只有 `{"mode":"point"}`；旧测试 fixture 伪造该字段，原“本地通过”结论不再作为有效生产契约证据。
+6. 修复后父 TaskRun 保持意图不变，dispatcher 将 resolver 解析后的真实日期写入数据集节点，readiness 逐节点核验日期；缺日期、错日期、早场、失败节点和跨 TaskRun 拼接均失败关闭。Heat/Ops/运行时/API/架构相关修复回归 115 项与文件级 Ruff 已通过。
+7. 尚缺：部署修复、按 8 月 13 日到 14 日顺序恢复 Heat、核验唯一 active schedule，并以至少一个新的真实开放日完成自动 TaskRun、Heat read-back/hash 与同日幂等。完成前 Slice 14 不得标记 PASS，也不得进入 Slice 15。
 
 ### Slice 15：Figma 与首页像素验收（原 Slice 14，修正序号 7）
 
@@ -1232,6 +1234,7 @@ Slice 14 PASS 标准：代码/自动化测试全部通过、生产 schedule 唯�
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.19 | 2026-08-15 | 记录生产 TaskRun `8327` 超时与测试伪通过根因；父 TaskRun 保留 point 意图，dispatcher 将解析后的日期写入节点，readiness 逐节点核验目标日，生产形态正反例与修复回归通过，部署/恢复/下一开放日验收仍 OPEN |
 | v2.18 | 2026-08-14 | Slice 14 代码与本地回归完成：Heat 条件调度、上游 TaskRunNode 证据、app 只读 preview、跨午夜/超时/去重、CLI factory 和零行证据已落地；固定总门禁 307 项通过，生产 schedule 与真实开放日验收继续 OPEN |
 | v2.17 | 2026-08-14 | 新增 Slice 14 Heat 盘后自动化 LLD：21:15 首检、10 分钟复查至 00:30、Ops 上游节点 + biz preview 两层门禁、app scheduler factory、幂等与超时 issue；原 Slice 14-16 后移为 Slice 15-17 |
 | v2.16 | 2026-08-13 | 完成 Slice 13：A01-A19 测试 ID 100% 映射，后端/Heat/Ops/架构核心 109 项与静态护栏 5 项合计 114 项、Wealth 223 项、DG 9 项及 typecheck/build/Ruff/Definitions/docs/diff 全通过；下一步固定 Slice 14 |

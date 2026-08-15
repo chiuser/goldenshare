@@ -108,7 +108,6 @@ class SectorHeatUpstreamReadinessService:
                     TaskRun.task_type == "workflow",
                     TaskRun.requested_at >= not_before_utc,
                     TaskRun.requested_at <= self._aware_utc(checked_at),
-                    TaskRun.time_input_json["trade_date"].as_string() == trade_date.isoformat(),
                     TaskRun.request_payload_json["target_key"].as_string() == requirement.workflow_key,
                 )
                 .order_by(TaskRun.requested_at.desc(), TaskRun.id.desc())
@@ -131,6 +130,7 @@ class SectorHeatUpstreamReadinessService:
                 or by_key[node_key].status != "success"
                 or by_key[node_key].ended_at is None
                 or self._aware_utc(by_key[node_key].ended_at) > self._aware_utc(checked_at)
+                or self._node_trade_date(by_key[node_key]) != trade_date
                 for node_key in requirement.node_keys
             ):
                 continue
@@ -144,6 +144,7 @@ class SectorHeatUpstreamReadinessService:
                     {
                         "nodeKey": node_key,
                         "status": by_key[node_key].status,
+                        "tradeDate": trade_date.isoformat(),
                         "endedAt": self._aware_utc(by_key[node_key].ended_at).isoformat()
                         if by_key[node_key].ended_at
                         else None,
@@ -152,6 +153,16 @@ class SectorHeatUpstreamReadinessService:
                 ],
             }
         return None
+
+    @staticmethod
+    def _node_trade_date(node: TaskRunNode) -> date | None:
+        raw_value = dict(node.time_input_json or {}).get("trade_date")
+        if raw_value in (None, ""):
+            return None
+        try:
+            return date.fromisoformat(str(raw_value))
+        except ValueError:
+            return None
 
     @staticmethod
     def _aware_utc(value: datetime) -> datetime:

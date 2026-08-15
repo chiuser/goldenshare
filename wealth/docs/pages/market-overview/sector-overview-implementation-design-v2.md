@@ -1,6 +1,6 @@
 # 市场总览｜板块速览技术实施方案 v2（implementation-design）
 
-> 状态：Slice 14 Heat 盘后自动化代码与本地自动化回归已完成，生产唯一 schedule、部署后只读核验和真实开放日自动发布/read-back 尚未验收，因此 Slice 14 保持 OPEN。原像素、候选部署与最终对账仍后移到 Slice 15-17。
+> 状态：Slice 14 首次生产开放日验收发现上游日期证据契约错误并于 2026-08-15 完成本地修复；生产修复部署、8 月 13/14 日顺序恢复和下一开放日自动发布/read-back 尚未验收，因此 Slice 14 保持 OPEN。原像素、候选部署与最终对账仍后移到 Slice 15-17。
 > 对应需求：[sector-overview-benchmark-requirement-v2.md](./sector-overview-benchmark-requirement-v2.md)
 > 对应门禁：[sector-overview-m2-coding-gate-v2.md](./sector-overview-m2-coding-gate-v2.md)
 > 对应低层设计：[sector-overview-low-level-design-v2.md](./sector-overview-low-level-design-v2.md)
@@ -447,6 +447,7 @@ TaskRun 参数冻结：
 1. 目标交易日存在 `21:00` 以后开始并覆盖该日的收盘工作流执行证据；同一次 `daily_market_close_maintenance` 中 `daily/dc_index/dc_member/dc_daily/limit_list/suspend_d` 必须全部成功。`18:30` 的早场执行不得作为最终输入证据。
 2. 目标交易日存在 `21:00` 以后开始并覆盖该日的 `daily_moneyflow_maintenance` 执行证据，其中 `moneyflow_ind_dc` 必须成功。
 3. 不硬编码生产 schedule ID；按 workflow key、目标交易日、运行时间和必需节点状态识别。工作流中与 Heat 无关的节点失败，不得在上述必需节点和第二层业务预检均通过时误伤 Heat。
+4. 父 TaskRun 的 `time_input_json` 是调度意图，允许保持生产真实结构 `{"mode":"point"}`，不得把测试伪造的父级 `trade_date` 当作执行证据。dispatcher 必须把 resolver 解析后的日期写入每个数据集 `TaskRunNode.time_input_json.trade_date`；readiness 只使用同一 TaskRun 的节点真实日期、节点状态和时间窗口判定。
 
 第二层由 app 调用 biz 的只读预检核验“数据内容可计算”：
 
@@ -1022,6 +1023,7 @@ Slice 9-17 必须严格顺序执行，前一 Slice 未通过不得越级。当�
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.20 | 2026-08-15 | 修复首次生产自动化暴露的伪测试：父 TaskRun 保留 point 意图，dispatcher 将解析后的真实日期写入数据集节点，readiness 改为逐节点核验目标日；记录 TaskRun `8327` 超时和生产部署/恢复待办 |
 | v2.19 | 2026-08-14 | Slice 14 代码落地：固定 Heat action readiness policy、21:00 后工作流节点证据、prod 只读 preview、10 分钟等待/00:30 超时、单次自动 TaskRun、app scheduler factory 与零行节点证据；本地固定总门禁 307 项通过，生产 schedule 和真实开放日验收仍 OPEN |
 | v2.18 | 2026-08-14 | 新增 Heat 每日自动化规则与正反验收：21:15 首检、10 分钟复查至 00:30、上游 TaskRun + biz preview 两层门禁、幂等去重和超时失败；下一步改为 Slice 14 Heat 自动化，原像素/候选/最终对账后移到 Slice 15-17 |
 | v2.17 | 2026-08-13 | 完成 Slice 13：A01-A19 测试 ID 100% 映射，后端/Heat/Ops/架构核心 109 项与静态护栏 5 项合计 114 项、Wealth 223 项、DG 9 项及 typecheck/build/Ruff/Definitions 全通过；下一步 Slice 14 |

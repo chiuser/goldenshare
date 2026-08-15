@@ -851,10 +851,13 @@ def test_scheduler_defaults_reference_data_refresh_workflow_to_snapshot_mode(db_
 
 def test_task_run_dispatcher_runs_daily_market_close_workflow_with_bak_basic_step(
     db_session,
+    trade_calendar_factory,
     task_run_factory,
     monkeypatch,
 ) -> None:
     dispatched_dataset_keys: list[str] = []
+    resolved_trade_date = date(2026, 4, 24)
+    trade_calendar_factory(trade_date=resolved_trade_date, is_open=True)
 
     def fake_build_plan(self, request):  # type: ignore[no-untyped-def]
         return SimpleNamespace(dataset_key=request.dataset_key, run_profile="point_incremental")
@@ -871,11 +874,11 @@ def test_task_run_dispatcher_runs_daily_market_close_workflow_with_bak_basic_ste
         resource_key=None,
         title="每日收盘后维护",
         status="running",
-        time_input_json={"mode": "point", "trade_date": "2026-04-24"},
+        time_input_json={"mode": "point"},
         request_payload_json={
             "target_type": "workflow",
             "target_key": "daily_market_close_maintenance",
-            "time_input": {"mode": "point", "trade_date": "2026-04-24"},
+            "time_input": {"mode": "point"},
             "filters": {},
         },
     )
@@ -900,6 +903,52 @@ def test_task_run_dispatcher_runs_daily_market_close_workflow_with_bak_basic_ste
     assert task_run.unit_total == len(WORKFLOW_DEFINITION_REGISTRY["daily_market_close_maintenance"].steps)
     assert task_run.unit_done == len(WORKFLOW_DEFINITION_REGISTRY["daily_market_close_maintenance"].steps)
     assert task_run.progress_percent == 100
+    assert task_run.time_input_json == {"mode": "point"}
+    assert all(
+        node.time_input_json == {"mode": "point", "trade_date": resolved_trade_date.isoformat()}
+        for node in nodes
+    )
+
+
+def test_task_run_dispatcher_keeps_point_intent_and_persists_resolved_date_on_dataset_node(
+    db_session,
+    trade_calendar_factory,
+    task_run_factory,
+    monkeypatch,
+) -> None:
+    resolved_trade_date = date(2026, 4, 24)
+    trade_calendar_factory(trade_date=resolved_trade_date, is_open=True)
+
+    def fake_build_plan(self, request):  # type: ignore[no-untyped-def]
+        return SimpleNamespace(
+            plan_id="daily-point-plan",
+            dataset_key=request.dataset_key,
+            run_profile="point_incremental",
+            planning=SimpleNamespace(unit_count=1),
+            units=(),
+        )
+
+    def fake_run_dataset_action_plan(self, session, task_run, action_request, plan):  # type: ignore[no-untyped-def]
+        return 1, 1, 0, {}, {}, "daily:ok"
+
+    monkeypatch.setattr("src.ops.runtime.task_run_dispatcher.DatasetActionResolver.build_plan", fake_build_plan)
+    monkeypatch.setattr(TaskRunDispatcher, "_run_dataset_action_plan", fake_run_dataset_action_plan)
+    task_run = task_run_factory(
+        task_type="dataset_action",
+        resource_key="daily",
+        title="股票日线",
+        status="running",
+        time_input_json={"mode": "point"},
+        request_payload_json={"time_input": {"mode": "point"}, "filters": {}},
+    )
+
+    outcome = TaskRunDispatcher().dispatch(db_session, task_run)
+    node = db_session.scalar(select(TaskRunNode).where(TaskRunNode.task_run_id == task_run.id))
+
+    assert outcome.status == "success"
+    assert task_run.time_input_json == {"mode": "point"}
+    assert node is not None
+    assert node.time_input_json == {"mode": "point", "trade_date": resolved_trade_date.isoformat()}
 
 
 @pytest.mark.parametrize("workflow_key", ["index_extension_maintenance", "index_kline_maintenance_pipeline"])

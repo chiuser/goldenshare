@@ -63,6 +63,7 @@ def _workflow_run_with_nodes(
     node_keys: tuple[str, ...],
     requested_at: datetime,
     failed_node: str | None = None,
+    node_trade_date: date | None = TARGET_DATE,
 ):  # type: ignore[no-untyped-def]
     task_run = task_run_factory(
         task_type="workflow",
@@ -70,11 +71,11 @@ def _workflow_run_with_nodes(
         title=workflow_key,
         status="partial_success" if failed_node else "success",
         requested_at=requested_at,
-        time_input_json={"mode": "point", "trade_date": TARGET_DATE.isoformat()},
+        time_input_json={"mode": "point"},
         request_payload_json={
             "target_type": "workflow",
             "target_key": workflow_key,
-            "time_input": {"mode": "point", "trade_date": TARGET_DATE.isoformat()},
+            "time_input": {"mode": "point"},
         },
     )
     for sequence_no, node_key in enumerate(node_keys, start=1):
@@ -83,6 +84,11 @@ def _workflow_run_with_nodes(
             node_key=node_key,
             sequence_no=sequence_no,
             status="failed" if node_key == failed_node else "success",
+            time_input_json=(
+                {"mode": "point", "trade_date": node_trade_date.isoformat()}
+                if node_trade_date is not None
+                else {"mode": "point"}
+            ),
             ended_at=requested_at + timedelta(minutes=5),
         )
     return task_run
@@ -299,6 +305,22 @@ def test_upstream_gate_requires_same_21_after_run_and_all_required_nodes(
         node_keys=("moneyflow_ind_dc",),
         requested_at=late,
     )
+    _workflow_run_with_nodes(
+        task_run_factory,
+        task_run_node_factory,
+        workflow_key="daily_market_close_maintenance",
+        node_keys=close_nodes,
+        requested_at=late + timedelta(seconds=30),
+        node_trade_date=TARGET_DATE - timedelta(days=1),
+    )
+    _workflow_run_with_nodes(
+        task_run_factory,
+        task_run_node_factory,
+        workflow_key="daily_market_close_maintenance",
+        node_keys=close_nodes,
+        requested_at=late + timedelta(seconds=45),
+        node_trade_date=None,
+    )
 
     service = SectorHeatUpstreamReadinessService(not_before_local_time=datetime.strptime("21:00", "%H:%M").time())
     not_ready = service.evaluate(
@@ -322,6 +344,11 @@ def test_upstream_gate_requires_same_21_after_run_and_all_required_nodes(
     )
     assert ready.ready is True
     assert {item["taskRunId"] for item in ready.evidence["workflows"]} >= {ready_close.id}
+    assert all(
+        node["tradeDate"] == TARGET_DATE.isoformat()
+        for workflow in ready.evidence["workflows"]
+        for node in workflow["nodes"]
+    )
 
 
 def test_upstream_gate_non_open_day_does_not_query_workflows(db_session, trade_calendar_factory) -> None:
@@ -390,7 +417,7 @@ def test_zero_row_completion_evidence_uses_successful_nodes_when_unrelated_workf
         resource_key=None,
         title="每日收盘后维护",
         status="failed",
-        time_input_json={"mode": "point", "trade_date": TARGET_DATE.isoformat()},
+        time_input_json={"mode": "point"},
         request_payload_json={"target_type": "workflow", "target_key": "daily_market_close_maintenance"},
     )
     limit_node = task_run_node_factory(

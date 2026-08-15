@@ -1,6 +1,6 @@
 # 市场总览｜板块速览标杆需求 v2（benchmark-requirement）
 
-> 状态：Slice 14 Heat 盘后自动化代码与本地固定回归已通过；生产唯一 schedule 和真实开放日自动发布/read-back 尚未验收，因此 Slice 14 继续 OPEN。A01-A19 整体仍须经过像素、候选部署和最终对账，Slice 14 PASS 前不得进入 Slice 15。
+> 状态：Slice 14 首次生产开放日验收发现上游日期证据契约错误并于 2026-08-15 完成本地修复；生产修复部署、8 月 13/14 日顺序恢复和下一开放日自动发布/read-back 仍未验收，因此 Slice 14 继续 OPEN。A01-A19 整体仍须经过像素、候选部署和最终对账，Slice 14 PASS 前不得进入 Slice 15。
 > 页面定位：财势乾坤首页盘后事实模块，不使用实时行情。
 > 替换范围：V2 上线后替换现有 `4 × 2` 榜单矩阵与 `5 × 4` 涨跌热力图；上线前 v1 文档仍用于解释当前代码，不得继续扩展 v1。
 
@@ -510,7 +510,7 @@ calculated_at
 6. Slice 11 已按正式节点完成三个 view-specific 工作台、默认日期和穷尽状态纠偏，并完成 1600×1200 本地真实页面的行业/概念/地域局部浏览器验收。
 7. Slice 12 已以正式 TaskRun 完成 `concept-heat-eod-v2` 的 60 日 PLAN `8208`、APPLY `8210`、逐日 read-back 和幂等重放 `8213`：60 日共 29,665 行，16,756 `VALID`、12,909 `INVALID`，重放 `rows_saved=0`。
 8. Slice 13 已完成 A01-A19 到测试 ID 的 100% 映射：后端/Heat/Ops/架构核心 109 项与板块静态护栏 5 项合计 114 项、Wealth 全量 33 文件 223 项、DG hierarchy 9 项均通过；typecheck、build、文件级 Ruff 与 Definitions 加载通过。
-9. Slice 14 已完成 Heat 固定条件调度、21:00 后工作流节点证据、prod 只读 preview、10 分钟复查、次日 00:30 截止、同日去重与 app scheduler factory；本地固定总门禁 307 项通过。生产仍须创建唯一 active schedule，并以至少一个真实开放日完成自动发布、read-back 与同日幂等验收；通过后才进入 Slice 15-17 的正式像素、候选部署/性能和最终对账。
+9. Slice 14 已完成 Heat 固定条件调度、21:00 后工作流节点证据、prod 只读 preview、10 分钟复查、次日 00:30 截止、同日去重与 app scheduler factory。首次生产验收发现旧测试伪造父 TaskRun `trade_date`，而生产父 TaskRun 只保存 `{"mode":"point"}`；修复后父 TaskRun 继续保存调度意图，工作流节点保存解析后的真实交易日，readiness 只认同一 TaskRun 的节点日期与成功状态。生产仍须部署修复、恢复缺失日期，并以至少一个新开放日完成自动发布、read-back 与同日幂等验收；通过后才进入 Slice 15-17。
 
 ---
 
@@ -518,6 +518,7 @@ calculated_at
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v2.10 | 2026-08-15 | 记录首次生产自动化失败：TaskRun `8327` 因父 TaskRun 不含 `trade_date` 被误判为上游未齐；修复为节点记录并核验解析后的真实交易日，测试 fixture 改为生产真实父意图结构，生产部署与恢复仍 OPEN | Codex |
 | v2.9 | 2026-08-14 | Slice 14 Heat 盘后自动化代码与本地固定总门禁 307 项通过；生产唯一 schedule 和真实开放日自动发布/read-back/幂等仍 OPEN，未通过前不得进入 Slice 15 | Codex |
 | v2.8 | 2026-08-13 | 完成 Slice 13 全矩阵自动化：A01-A19 到测试 ID 100% 映射，三 view×七状态、滚动、长文本/null/大金额、Heat 断点、导航、无 mock 和静态禁止项通过；下一步 Slice 14 | Codex |
 | v2.7 | 2026-08-13 | 完成 Slice 12 Heat V2 生产回放：PLAN `8208`、APPLY `8210`、幂等重放 `8213` 均成功；60 日 29,665 行、逐日 read-back/hash 0 差异、重放 0 写入，下一步 Slice 13 | Codex |
