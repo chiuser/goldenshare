@@ -1,6 +1,6 @@
 # 股票与主要指数详情页九转接入总方案 v1
 
-> 状态：M0、M1、M2、M3-A、M3-B、M3-C-Minute 已收口。M3-C 生产日线接口、权限、真实数据对齐和 1600×1200 Loaded 视觉主体门禁已通过；完整 M3-C 仅剩正式登录态 P95、45/180 根缩放边界截图和自然日常链路。两个 sensor 继续保持 `STOPPED`。
+> 状态：M0、M1、M2、M3-A、M3-B、M4-A、M4-B 已完成；M3-C-Minute 页面/API/性能行为曾按旧九列分钟资产通过。2026-08-15 已批准四个股票分钟 QFQ 九转资产删除 `close_qfq` 的合同修正，日线完全不变；当前只完成方案与 LLD 同步，代码、正式全量重建、事件恢复和迁移后的 sensor/Reader 恢复验收尚未执行。M5 指数页面接入和 M6 最终发布尚未开始。六个九转 sensor 的当前实例状态见第 3.3 节，不能用代码中的默认状态代替。
 >
 > 评审基线日期：2026-08-13。
 >
@@ -25,8 +25,9 @@
 5. 后端输出已经归一的可展示 marker；前端只绘制，不重新计算九转。
 6. 股票、指数、日线、分钟线统一复用一个 `NineTurnMarkerPrimitive` 和现有 `DetailChartWorkspace`，不复制图表引擎。
 7. 九转是客观序列标记，不生成机会、买卖、风险评级、仓位或交易计划动作。
-8. 股票 Gold 资产已存在不等于页面已接入；指数九转资产、九转 API 和页面接入当前仍未实现。
+8. 股票与指数九转 Gold/API 已具备不等于页面全部接入；指数页面九转图层和 Technical 摘要仍属于 M5。
 9. 所有分钟 K 线的业务消费和下游指标计算统一使用规范化 Gold：股票使用 `gold/quote/stk_mins_qfq`，主要指数使用 `gold/quote/major_index_mins`；Silver 只属于 Gold 之前的数据生产链，Web、九转 Reader 和九转资产不得直接消费 Silver 分钟线。
+10. 股票日线九转继续保存 `close_qfq` 并维持现有 Lake/Prod/查询/事件合同；四个股票分钟九转资产最终只保存业务键、计数和信号，不保存价格或量额。分钟公式仍从同频 `gold_stk_mins_qfq.close` 读取价格输入。
 
 ### 1.1 分钟 K 线 Gold 数据集完整清单
 
@@ -84,28 +85,54 @@ React 动态调用边由 CodeGraph explore/import 结果和真实消费者代码
 | 能力 | 当前状态 | 说明 |
 |---|---|---|
 | 股票日线自主九转 Gold | 已实现 | `gold_stock_daily_qfq_nineturn` 已注册且有正式历史文件 |
-| 股票 30/60/90/120 分钟自主九转 Gold | 已实现 | 四个资产已注册且有正式历史文件 |
+| 股票 30/60/90/120 分钟自主九转 Gold | 合同修正待实施 | 四个 asset key、路径、公式和历史文件已存在；正式文件仍是含 `close_qfq` 的旧九列 schema，需迁移为八列无价格合同 |
 | 股票分钟 K 线 Gold | 已就绪 | 页面与九转 Reader 统一读取 `gold/quote/stk_mins_qfq`；抽样四频率已覆盖至 2026-08-13 |
-| 股票九转详情 API/页面 | M3-C-Minute 已完成；生产日线主体门禁已通过 | 本地 30/60/90/120 分钟的真实 API、对齐、性能、内存、缓存、禁用周期和 1600×1200 浏览器验收已通过；日线仍待正式 P95、生产缩放边界截图和自然日常链路 |
+| 股票九转详情 API/页面 | 分钟行为验收已通过；分钟物理合同迁移待完成 | 本地四周期 marker、对齐、性能、内存、缓存、禁用周期和浏览器行为已通过；Reader 和正式分钟文件仍需删除内部 `close_qfq` 依赖。日线仍待正式 P95、生产缩放边界截图和自然日常链路 |
 | 股票日线 serving 发布门禁 | M3-B 已完成 | Gold 修复与全历史对账已完成；serving 已发布 3,066/3,066 日、11,638,636 行，逐日对账差异为 0。发布器固定 DuckDB 128MB/1线程、单进程最多200日，十个恢复进程峰值 RSS 最高约249MiB；自然日常链路仍未验收 |
-| 主要指数分钟 K 线与技术指标 Gold | 已就绪 | 七频率均有 4,278 个分区，覆盖 2009-01-05 至 2026-08-13；页面统一读取规范化 Gold |
-| 指数日线九转 Gold | 未实现 | 需要新资产 |
-| 指数 5/15/30/60/90/120 分钟九转 Gold | 未实现 | 需要六个新资产；不创建 1 分钟资产 |
-| 指数九转详情 API/页面 | 未实现 | 当前 capability 仍为 false，右栏仍是 `--` 占位 |
+| 主要指数分钟 K 线与技术指标 Gold | 已就绪 | 七频率均已覆盖至 2026-08-14；指数九转消费的 5/15/30/60/90/120 六频率各有 4,279 个分区，页面统一读取规范化 Gold |
+| 指数日线九转 Gold | 已完成 | 正式资产、历史、blocking check、生产 serving 和日线 API 已完成 |
+| 指数 5/15/30/60/90/120 分钟九转 Gold | 已完成 | 六个资产、正式历史、checks 和本地分钟 API 已完成；不创建 1 分钟资产 |
+| 指数九转详情 API/页面 | 后端已完成、M5 页面未开始 | 当前 capability 仍为 false，右栏仍是 `--` 占位 |
 | 共享九转绘图组件 | M2 代码已实现 | 单一 `NineTurnMarkerPrimitive` 已接入日线和分钟图表；不参与 autoscale，数据更新不重建图表 |
 | 九转正式 Figma | 本轮完成 | Loaded、Components、States 已补齐，见第 5 节 |
 
-### 3.1 M0 收口结论
+### 3.1 M0 历史收口记录
 
 2026-08-13 已按产品矩阵、算法、Figma 节点树、正式数据事实、生产 serving 和本地分钟边界完成 M0 评审：
 
 1. 六个正式 Figma 页面、共享 marker 组件和局部状态可以直接用于开发。
-2. 股票五个 Gold 资产是已实现事实；指数七个资产仍是后续实施项，未被提前标为完成。
+2. 在 2026-08-13 的 M0 时点，股票五个 Gold 资产是已实现事实，指数七个资产仍是后续实施项；该条只记录当时的评审边界，指数资产的当前完成状态以第 3 节进度表和第 3.2 节为准。
 3. 物理 11-code 与产品 10-code 的分层、`899050.BJ` 分钟空态和生产分钟 404 均无歧义。
 4. 原状态稿可见标题中的“M6”和股票根节点错误尺寸名称已修正为长期职责名称；节点 ID、尺寸和视觉未改变。
 5. M0 无剩余 P0 阻塞，可以进入 M1；M0 通过不表示页面功能已经接入。
 
-截至 2026-08-13 的只读物理审计：股票五个自主 Gold 资产均有 3,066 个交易日分区，覆盖 2014-01-02 至 2026-08-12。Definitions 能发现五个资产和五个 blocking integrity checks。执行前正式 instance 中 Gold 日线 sensor 实际为 `RUNNING`，但最近 10 个 tick 均为 SKIPPED 且没有并发 run；本轮已将其停止。serving sensor 从未启用。两者都必须继续保持停用，不能把历史完整误写成每日自动更新已经投产。
+截至 2026-08-13 的只读物理审计：股票五个自主 Gold 资产均有 3,066 个交易日分区，覆盖 2014-01-02 至 2026-08-12。Definitions 能发现五个资产和五个 blocking integrity checks。当时 Gold 日线 sensor 曾由 `RUNNING` 停止，serving sensor 尚未启用。该段是 M0 的历史操作记录，不代表 2026-08-15 的正式实例状态；当前状态以第 3.3 节的重新审计为准。
+
+### 3.2 M4-B 正式完成事实复核（2026-08-15）
+
+本轮在继续开发前重新做了只读对账，结果与 M4-B 正式执行记录一致：
+
+1. 当前 Definitions 可发现 7 个指数 Gold 九转 assets/checks、1 个指数日线 serving asset/check、3 个 jobs 和 3 个 sensors，不存在指数 1 分钟九转对象。
+2. 正式 Lake 当前有日线 6,450 个、六分钟合计 25,674 个九转 Parquet，合计 32,124 个；最终只读报告记录 2,513,295 行、1,607 个批次、所有七个资产通过，缺失/额外分区、重复键、分区错配、源键/源值错配和 1 分钟文件均为 0。
+3. event checkpoint 已完成 32,124 个目标分区；冻结计划为每分区 1 条 materialization 和 1 条 blocking-check event，共 64,248 条。
+4. 生产只读事务确认 Alembic head 为 `20260814_000136`；`core_serving.index_nineturn_daily` 为 42,633 行、6,450 个交易日，范围 2000-01-04～2026-08-14。
+
+因此，32,124 个正式分区、Dagster event 登记、生产 migration 和指数日线 serving 都是已完成事实，不再属于待执行项。尚未完成的是 M5 指数页面接入、M6 日常自动化与最终发布，以及本轮新批准的股票分钟去价格专项。
+
+### 3.3 六个九转 sensor 当前状态快照（截至 2026-08-15 09:55，Asia/Shanghai）
+
+代码中的 `default_status=STOPPED` 只决定“正式实例没有持久化状态时”的初始值；Dagster instance 一旦保存了 `RUNNING/STOPPED`，持久化状态优先。两者必须分开记录：
+
+| Sensor | 定义默认值 | 正式实例持久化状态 | 最近一次 tick | 当前结论 |
+|---|---|---|---|---|
+| `gold_stock_daily_qfq_nineturn_update_job_sensor` | `STOPPED` | `RUNNING` | 09:45:52，`SKIPPED`，0 run；2026-08-03 目标聚合 check 未通过 | 已运行但被质量门禁阻断，不能视为日常链路验收完成 |
+| `gold_stk_mins_qfq_nineturn_update_job_sensor` | `STOPPED` | `RUNNING` | 09:45:53，`SKIPPED`，0 run；2026-08-10 四频目标聚合 check 未通过 | 已运行但被目标完整性门禁阻断；正式去价格重建前必须按 LLD 单独停止 |
+| `prod_core_stock_daily_qfq_nineturn_sync_job_sensor` | `STOPPED` | `RUNNING` | 09:55:24，`SKIPPED`，0 run；没有符合条件的上游成功事件 | 已运行但未证明自然 serving 发布链路通过 |
+| `gold_major_index_daily_nineturn_update_job_sensor` | `STOPPED` | 无 | 无持久化启动状态 | 实际沿用定义默认值 `STOPPED` |
+| `gold_major_index_mins_nineturn_update_job_sensor` | `STOPPED` | 无 | 无持久化启动状态 | 实际沿用定义默认值 `STOPPED` |
+| `prod_core_index_daily_nineturn_sync_job_sensor` | `STOPPED` | 无 | 无持久化启动状态 | 实际沿用定义默认值 `STOPPED` |
+
+本次审计没有启动、停止或评估任何 sensor，也没有产生 run。三个股票 sensor 的 `RUNNING` 是当前正式实例事实，但最近 tick 全部是 `SKIPPED`，不能替代 M6 的自然触发、freshness 和发布验收；三个指数 sensor 仍未进入日常自动化。后续任何启停都属于独立运维动作，必须重新审批并在执行后更新本节快照。
 
 ## 4. 产品与算法合同
 
@@ -119,7 +146,7 @@ React 动态调用边由 CodeGraph explore/import 结果和真实消费者代码
 4. 方向切换后，新方向从 1 开始。
 5. 只使用当前及历史 bar，不读取未来数据，不重绘历史结果。
 
-股票价格唯一使用规范化 Gold 前复权分钟线中的 `close_qfq`。指数没有复权概念，日线使用正式指数日线 close，分钟使用规范化主要指数 Gold 同频 `close`。Silver 只负责生产规范化 Gold 的上游过程，不属于九转计算或页面读取事实源。
+股票日线和分钟公式唯一使用规范化 Gold QFQ 行情中的 `close` 作为前复权价格输入；公式内统一命名为 `close_value`。日线九转正式资产继续把该输入保存为 `close_qfq`，四个分钟九转正式资产不再保存价格。指数没有复权概念，日线和分钟都使用对应规范化 Gold 的不复权 `close`。Silver 只负责生产规范化 Gold 的上游过程，不属于九转计算或页面读取事实源。
 
 ### 4.2 数据计数与页面标记
 
@@ -156,7 +183,7 @@ React 动态调用边由 CodeGraph explore/import 结果和真实消费者代码
 
 1. 数据资产可以有自己的源范围，但 HTTP 接口必须再次执行页面十指数 allowlist。
 2. `000680.SH` 不属于页面对象池，必须返回 404，不能因 Lake 有数据而绕过配置。
-3. `899050.BJ` 日线九转可以建设；当前规范化主要指数分钟 Gold 不覆盖该代码，因此分钟九转返回局部 `EMPTY/SOURCE_NOT_READY`。
+3. `899050.BJ` 日线九转已建成并可由正式日线 API 返回；当前规范化主要指数分钟 Gold 不覆盖该代码，因此分钟九转返回局部 `EMPTY/SOURCE_NOT_READY`。
 4. 北证50分钟不得用日线、其它指数、旧 Lake 或第三方数据补造。
 
 这里必须区分两层 universe：
@@ -230,11 +257,19 @@ gold/indicator/stock_daily_qfq_nineturn/trade_date=<date>/part-000.parquet
 gold/indicator/stk_mins_qfq_nineturn/freq=<freq>/trade_date=<date>/part-000.parquet
 ```
 
-页面接入不改变已稳定的资产公式。M1 已只读复核最新四频率正式文件：关闭 DuckDB Hive 路径推断后，文件内 `freq` 的真实物理类型为 `INTEGER`，与 writer 和声明合同一致；此前 `BIGINT` 是路径 `freq=<value>` 被自动推断并覆盖同名列造成的审计假象。所有新 Reader/check 必须显式 `hive_partitioning=false`，无需改写正式文件。
+页面接入不改变已稳定的资产公式。M1 已只读复核最新四频率正式文件：关闭 DuckDB Hive 路径推断后，文件内 `freq` 的真实物理类型为 `INTEGER`，与 writer 和声明合同一致；此前 `BIGINT` 是路径 `freq=<value>` 被自动推断并覆盖同名列造成的审计假象。该结论只说明 `freq` 无需调整；所有 Reader/check 继续显式使用 `hive_partitioning=false`，而下述去价格合同仍要求正式重写四频分钟九转文件。
 
-### 6.2 指数：新建七个资产
+2026-08-15 新增正式合同修正：
 
-建议新资产：
+1. `gold_stock_daily_qfq_nineturn` 的 schema、`close_qfq`、Lake、Prod serving、查询和事件完全不变。
+2. 四个分钟资产最终 schema 固定为 `ts_code/freq/trade_date/trade_time/up_count/down_count/nine_up_turn/nine_down_turn`，删除 `close_qfq`，且不新增其它价格、量额或涨跌字段。
+3. 分钟公式仍从 `gold/quote/stk_mins_qfq` 的同频 `close` 取输入；compact context sidecar 可以在正式 staging 内保存计算所需的最近四根价格，但正式资产和 Reader 不得读取该 sidecar。
+4. 分钟合并 blocking check 保留 schema、分区、唯一键、源键覆盖、计数和信号值域，删除目标价格正值和 `source_value_consistency`；日线 check 保持原样。
+5. 当前四频各 3,067 个正式文件、共 12,268 个文件仍是旧 schema。代码和测试通过后，须按 LLD 的只读计划、staging candidate、逐文件原子替换和 event recovery 门禁单独审批执行；禁止新旧 schema 混存。
+
+### 6.2 指数：七个正式资产
+
+现有正式资产：
 
 ```text
 gold_major_index_daily_nineturn
@@ -246,9 +281,9 @@ gold_major_index_mins_nineturn_90m
 gold_major_index_mins_nineturn_120m
 ```
 
-不创建 1 分钟九转资产。日线上游使用正式指数日线因子/行情事实；分钟上游只能使用对应 `gold_major_index_mins_<freq>m`。这些 Gold K 线也是指数详情页分钟图实际消费的规范化事实，九转必须与页面 K 线保持同源、同频和逐时间键对齐。指数资产必须独立形成方案与 LLD，冻结路径、schema、source key、十指数投影、check、历史构建、readiness、性能和自动化。
+不创建 1 分钟九转资产。日线上游使用正式指数日线因子/行情事实；分钟上游只能使用对应 `gold_major_index_mins_<freq>m`。这些 Gold K 线也是指数详情页分钟图实际消费的规范化事实，九转与页面 K 线保持同源、同频和逐时间键对齐。路径、schema、source key、十指数投影、check、历史构建、readiness、性能和自动化均已在 M4-B 收口。
 
-指数资产建议输出与股票自主 Gold 同构的核心语义：
+指数资产输出与股票自主 Gold 同构的核心语义：
 
 ```text
 ts_code, trade_date, [freq, trade_time], close,
@@ -330,12 +365,12 @@ interface NineTurnSeriesDto {
 
 1. 分钟九转严格跟随现有分钟 capability：只在 `APP_ENV=dev|local`、本地分钟开关、正式 Lake 根和 DuckDB 条件同时满足时挂路由。
 2. 生产环境不 import 分钟 Reader，分钟九转 endpoint 必须 404。
-3. 日线目标是正式生产可用。自主 Gold 当前位于正式 Lake，而生产 Web 不能直接读取本机 Lake；本轮已完成专项架构审计，并冻结为下述 PostgreSQL serving 路径。LLD 负责复核表结构、迁移 head、权限、发布编排和回读门禁。
+3. 日线已通过下述 PostgreSQL serving 路径实现正式生产读取。自主 Gold 位于正式 Lake，生产 Web 不直接读取本机 Lake；表结构、迁移 head、权限、发布编排和回读门禁均已在 LLD 与 M3-B/M4-B 验收中收口。
 4. 禁止生产 Web 直接挂载开发机本地 Lake，也禁止以现有 Tushare `core_serving.equity_nineturn` 代替自主结果。
 
 生产日线 serving 冻结为 PostgreSQL 路径，复用仓库已经存在的“Gold -> 独立 prod serving asset -> 事务内按交易日替换 -> read-back 校验”边界，而不是让 Gold asset 自身直接写生产库。参考模式为 `prod_core_wealth_market_turnover`。详情页查询是固定代码、小日期范围、低延迟有序读取，与当前股票/指数日 K 的 PostgreSQL 查询形态一致；本期不增加 ClickHouse 跳转。未来如建设全市场九转筛选，可另建 ClickHouse 查询副本，但 Gold Parquet 仍是唯一事实源。
 
-建议新建两张物理表：
+正式使用两张物理表：
 
 ```text
 core_serving.equity_qfq_nineturn_daily
@@ -352,7 +387,7 @@ formula_version, published_at
 
 指数表使用 `close` 替代 `close_qfq`。两表主键均为 `(ts_code, trade_date)`，另建 `(trade_date, ts_code)` 索引服务单日发布、read-back 和 freshness 审计。股票和指数不混表：二者价格口径、对象池、历史构建和异常状态不同；daily 表不保存无意义的 nullable `freq`，也不复制 OHLC、量额。
 
-建议 serving assets：
+正式 serving assets：
 
 ```text
 prod_core_stock_daily_qfq_nineturn
@@ -361,9 +396,9 @@ prod_core_index_daily_nineturn
 
 每个 serving asset 先验证 Gold schema、分区日期、唯一键、值域、源键覆盖，并逐键比较九转 `close_qfq` 与当前 QFQ 行情 `close`；再在单一 PostgreSQL 事务中删除目标 `trade_date`、批量写入完整新分区、read-back 行数/键集合/内容 hash。任一差异 rollback。股票单日约 5,500 行，使用 `execute_values` 每 1,000 行一页，禁止 Python 单行 insert；Gold scoped rebuild 与历史千万级 serving 发布都使用独立只读计划、1～3 分区 sample、最多 20 个分区一个逻辑 batch和逐分区 checkpoint。Gold 修复单次最多 200 个 batch；serving 固定 DuckDB 128MB/1线程，单进程最多 10 个 batch。plan 只读取 SQL 聚合诊断，不把整分区 rows 装入 Python；恢复时核对全部源文件元数据并流式回验已完成 Prod hash，只对本次待发布日重做深度门禁。CLI 只输出固定大小摘要和逐 batch 进度，不能伪装成普通日常 backfill。
 
-股票表 migration `20260813_000135` 已在生产执行，表结构、主键、索引和 DML 权限与设计一致；最终只读审计确认目标表为 3,066 个交易日、11,638,636 行，与冻结计划的逐日行数完全一致。指数表仍属于 M4，当前不存在。股票全历史发布完成不代表生产页面和日常自动更新已经验收。
+股票表 migration `20260813_000135` 已在生产执行，表结构、主键、索引和 DML 权限与设计一致；最终只读审计确认目标表为 3,066 个交易日、11,638,636 行，与冻结计划的逐日行数完全一致。指数表 migration `20260814_000136` 也已在生产执行，当前表为 6,450 个交易日、42,633 行，范围 2000-01-04～2026-08-14。两张表的全历史发布完成都不代表页面接入与日常自动更新已经全部验收。
 
-M3-A 对正式数据的只读审计记录：股票日线九转与 QFQ 行情均有 3,066 个交易日、11,638,636 个键，键集合完全一致；但 18 只股票、3,065 个交易日合计 45,442 行 `close_qfq` 与当前 QFQ close 不一致，属于复权因子变化后的持久化价格漂移。按冻结 lag=4 公式重算这些股票共比较 45,483 行，计数与信号差异为 0。这意味着 marker 语义当前仍正确，但 Gold 每行价格事实已经过期，正式发布必须 fail closed，先执行另行审批的 scoped rebuild。
+M3-A 的历史只读审计曾发现：股票日线九转与 QFQ 行情均有 3,066 个交易日、11,638,636 个键，键集合完全一致，但 18 只股票、3,065 个交易日合计 45,442 行 `close_qfq` 与当时 QFQ close 不一致；按冻结 lag=4 公式重算 45,483 行后计数与信号差异为 0。该发现当时使正式发布 fail closed；随后 M3-B 已完成 scoped rebuild、全历史价格/计数/信号零差异对账和 serving 发布，因此这 45,442 行不再是当前未修复项。日线逐键价格一致性门禁继续保留，用于阻止未来再次漂移。
 
 ## 8. 前端与共享图表设计
 
@@ -503,15 +538,17 @@ LLD 必须给出可执行预算，至少覆盖：
 | M1 | 编写 LLD；细化并复核生产 serving；冻结 DTO、异常码、Reader、缓存和物理合同 | 已完成并评审通过 |
 | M2 | 股票查询与 shared primitive：Reader/API/正式日线 serving/共享几何及最小页面接入 | 代码与隔离验收已通过；后续 M3-B 已完成生产表全历史发布 |
 | M3-A | 发布前事实收口 | 已完成只读数据/权限/迁移审计，登记 45,442 行收盘价漂移和正式修复前置条件 |
-| M3-B | 发布门禁与历史发布 | 已完成；Gold 修复和全历史对账通过，serving 以20日batch、单进程最多10批次发布到3,066/3,066日、11,638,636行。十个恢复进程峰值RSS最高约249MiB，最终逐日行数对账差异为0；两个sensor仍为STOPPED |
-| M3-C | 股票详情真实环境与视觉收口 | M3-C-Minute 已完成；生产日线接口、权限、真实数据和 Loaded 视觉主体门禁已通过，完整阶段仅剩登录态 P95、生产 45/180 根缩放边界截图和自然日常链路 |
-| M4 | 新建指数日线和六个分钟九转资产及查询 API | M4-B 编码已完成：7 assets/checks、2 jobs、2 Gold sensors、历史构建、日线 serving/API 与本地分钟 API 已落地且 Definitions 可发现；1 分钟无对象。正式 32,124 个分区、生产 migration/serving 发布及物理覆盖、对齐、性能验收待单独批准 |
+| M3-B | 发布门禁与历史发布 | 历史发布已完成：Gold 修复和全历史对账通过，serving 以20日batch、单进程最多10批次发布到3,066/3,066日、11,638,636行；十个恢复进程峰值RSS最高约249MiB，最终逐日行数对账差异为0。自然日常链路仍未验收；当前三个股票 sensor 均为实例 `RUNNING` 但最近 tick 全部 `SKIPPED`，见第 3.3 节 |
+| M3-C | 股票详情真实环境与视觉收口 | 分钟页面/API/性能行为已通过；四个分钟资产去价格合同的代码、12,268 文件正式迁移、event recovery 和自然链路仍待完成。生产日线主体门禁已通过，仍缺登录态 P95、生产 45/180 根缩放边界截图和自然日常链路 |
+| M4 | 指数日线和六个分钟九转资产及查询 API | M4-B 已完整完成：7 个 Gold assets/checks、1 个 serving asset/check、3 个 jobs/sensors、32,124 个正式分区、64,248 条 Dagster events、生产 migration、6,450 日/42,633 行 serving、日线/本地分钟 API 及正式性能验收均已收口；不存在 1 分钟九转对象 |
 | M5 | 指数图表和 Technical 摘要接入 | 十指数、北证50空态、趋势双 primitive、右栏摘要和竞态通过 |
 | M6 | 日常自动化、全链路验收与最终发布 | 生产日线、本地分钟、生产分钟 404、freshness、性能和视觉验收全部通过 |
 
 先做股票纵向切片，因为正式资产已经存在，可以先验证 API、共享 primitive 和产品映射；指数数据资产随后建设，避免把数据生产问题与 UI 机制混在同一阶段。
 
 正式 Lake 写入、历史 backfill、runless event 和 sensor 启用仍须按各阶段单独审批，不能因本文批准而自动获得执行授权。
+
+股票分钟去价格专项不是普通日常 backfill。它必须先完成代码合同和隔离测试，再按 [LLD 第 20 节](./detail-page-nine-turn-integration-low-level-design-v1.md#20-股票分钟-qfq-九转去价格字段专项) 另行生成正式只读计划；只有 candidate 全绿且用户再次批准后，才允许原子替换正式文件和补录事件。
 
 ## 13. M1 LLD 解决结果
 
@@ -525,7 +562,7 @@ LLD 必须给出可执行预算，至少覆盖：
 6. `NineTurnMarkerPrimitive` 的 18×18、8px、visible range、空 autoscale 和双 primitive 生命周期。
 7. 共享请求 registry、缓存、取消、request id、状态优先级和右栏摘要。
 8. 日线常驻、分钟条件挂载的 capability/router 单一判定。
-9. sensor 初始 STOPPED、M6 自然触发验收后再启用的发布门禁。
+9. sensor 定义默认 `STOPPED`、M6 自然触发验收后再进入正式运维的发布门禁；实例持久化状态是独立运行事实，当前值见第 3.3 节。
 10. 物理 11-code 与产品 10-code 的投影及负向测试。
 
 M2 开工时已重新核验 Alembic 单一 head 为 `20260813_000134`，九转 migration `20260813_000135` 已按该 head 串接。M2 coding gate 已形成、评审并完成代码对账。
@@ -550,9 +587,10 @@ M2 开工时已重新核验 Alembic 单一 head 为 `20260813_000134`，九转 m
 | 直接按持续 `+9/-9` 字段画图，10+ 重复出现 9 | DTO 只生成 1～9 marker，并用正式 10+ 样本测试 |
 | 自主 Gold 与 Tushare 九转混用 | 独立路径、表、DTO、监控；禁止 fallback |
 | 正式 Lake 有数据但生产 Web 不可访问 | 股票 PostgreSQL 全历史已发布并完成逐日对账；仍须通过 M3-C 生产 API、权限、性能和浏览器验收后才开放生产日线 |
-| Gold key 完整但持久化价格已漂移 | 45,442 行漂移已完成 scoped rebuild；Gold blocking check 与 serving loader 继续比较源 close，防止再次漂移 |
+| 股票日线 Gold key 完整但持久化价格漂移 | 日线 `close_qfq`、Gold blocking check 与 serving loader 继续逐键比较当前 QFQ close；本轮分钟去价格专项不得弱化日线门禁 |
+| 股票分钟九转重复保存价格，QFQ 回溯修正后反复触发伪故障 | 四个分钟正式资产删除 `close_qfq`；check 只做源键覆盖和九转值域，K 线价格只读 `gold_stk_mins_qfq`。正式迁移必须 candidate 全绿、逐文件原子替换且禁止新旧 schema 混存 |
 | 历史批量发布中断、内存增长或计划变化 | 只读计划指纹、最多20日批次、逐日事务与checkpoint；DuckDB固定128MB/1线程；plan不用全量row loader，恢复不重建全历史深度计划，Prod采用server cursor流式hash；单进程最多10批次并退出释放内存；CLI固定大小输出 |
-| 历史文件齐全但每日不更新 | 独立 serving job/sensor 已注册且默认 STOPPED；历史发布、自然触发和 freshness 验收后另行审批启用 |
+| 历史文件齐全但每日不更新 | 独立 job/sensor 已注册且定义默认 `STOPPED`；当前三个股票 sensor 虽为实例 `RUNNING`，但均被门禁跳过，三个指数 sensor 实际仍为 `STOPPED`。必须完成自然触发和 freshness 验收，不能把“RUNNING”或历史齐全直接等同于每日更新已投产 |
 | 指数 Lake 额外代码泄漏到页面 | API 每次按 `majorIndices` allowlist 校验 |
 | 北证50分钟被补造 | 固定 SOURCE EMPTY 测试与可见局部状态 |
 | 九转失败清空 K 线 | 独立 endpoint、controller 和局部状态测试 |
@@ -564,9 +602,11 @@ M2 开工时已重新核验 Alembic 单一 head 为 `20260813_000134`，九转 m
 
 本方案是九转详情接入专项的上游事实源。历史文档中“九转不在本期、显示 `--`、supportsNineTurn=false”描述的是九转立项前已经完成的阶段，不追溯性改写为错误；后续实现必须引用本文和新 LLD，而不能继续把旧阶段占位当作目标状态。
 
-M3-A/M3-B 已同步本方案、LLD 和独立发布门禁。股票 `NT_*` 已进入 active-code 状态；指数 M4-B 后端代码也已进入 active-code，但正式历史、生产 migration/serving 发布和 M5 页面接入尚未完成。index page-init 当前仍保持 `supportsNineTurn=false`。股票 Gold scoped rebuild、全历史 serving 发布和最终逐日行数对账均已完成；M3-C-Minute 已完成四周期真实 API、对齐、性能、内存和 1600×1200 浏览器验收，1/5/15 分钟保持零九转请求。生产日线正式 P95、缩放边界截图和自然触发验收仍未完成。股票与指数新建 sensor 均继续保持 `STOPPED`，当前不能把整个专项标为 production-ready。
+M3-A/M3-B 与 M4-B 已同步本方案和 LLD。指数 M4-B 的正式历史、Dagster events、生产 migration/serving、API 与性能验收已经完成，M5 页面接入仍未开始；index page-init 当前继续保持 `supportsNineTurn=false`。股票 M3-C-Minute 的四周期 API、marker 对齐、性能、内存和 1600×1200 浏览器行为已验收，但四个正式分钟资产仍须迁移到无价格八列合同；在代码、12,268 文件正式迁移、事件恢复和自然链路完成前，不得继续把分钟物理合同标为 production-ready。股票日线正式 P95、缩放边界截图和自然触发验收仍未完成。六个 sensor 的当前事实必须引用第 3.3 节，禁止再用“定义默认 STOPPED”推断正式实例状态。
 
 ## 17. 版本记录
+
+下表记录各版本发布当时的阶段事实，较早版本中的“待执行/未授权”可能已在后续版本完成；当前状态只以文首状态、第 3 节进度表和第 3.2～3.3 节的最新事实复核为准。
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
@@ -582,3 +622,6 @@ M3-A/M3-B 已同步本方案、LLD 和独立发布门禁。股票 `NT_*` 已进�
 | v1.9 | 2026-08-14 | 完整列出股票与主要指数各七个分钟 K 线 Gold asset key、物理根和分区布局，明确 K 线频率范围不扩大九转支持矩阵 | Codex |
 | v1.10 | 2026-08-14 | M3-C-Minute 收口：登记四资产最新 checks、三只股票逐键对齐、严格接口、四周期 P95、Reader 内存根因修正、两批 40 请求门禁及 1600×1200 浏览器验收 | Codex |
 | v1.11 | 2026-08-15 | M4-B 编码收口：7 个指数九转 Gold assets/checks、jobs/sensors/readiness、有界历史构建、日线 serving/API 和本地分钟 API 已实现；正式历史、生产 migration/serving 发布和 M5 页面仍待后续授权与验收 | Codex |
+| v1.12 | 2026-08-15 | M4-B 正式执行收口：生成并验收 32,124 个正式分区、64,248 条 Dagster events，执行生产 migration，发布 6,450 日/42,633 行指数日线 serving，并完成日线/六分钟 API 和性能验收 | Codex |
+| v1.13 | 2026-08-15 | 同步股票分钟 QFQ 九转去价格字段合同：四个分钟资产改为八列无价格 schema，日线完全不变；正式代码、12,268 文件重建、event recovery 和 sensor 恢复仍须按 LLD 分阶段单独批准 | Codex |
+| v1.14 | 2026-08-15 | 文档漂移收口：重新确认指数 32,124 个正式分区、64,248 条 events、生产 migration 和 42,633 行 serving 已完成；区分 sensor 定义默认值与实例持久化状态，登记三个股票 sensor 实际 RUNNING/最近 tick 均 SKIPPED、三个指数 sensor 实际沿用默认 STOPPED | Codex |

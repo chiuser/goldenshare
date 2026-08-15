@@ -1,6 +1,6 @@
 # 股票日线九转 M3 serving 发布门禁 v1
 
-> 状态：M3-A/M3-B 已完成。M3-C 的生产日线接口、权限、真实数据对齐和 1600×1200 Loaded 视觉已完成代表性验收；正式 P95 仍缺足量登录态 HTTP 样本，生产页缩放到 45/180 根边界的浏览器截图仍待补齐，因此完整 M3-C 尚未最终收口。M3-C-Minute 已完成股票 30/60/90/120 分钟九转的物理数据、接口、性能、内存、浏览器和视觉验收，1/5/15 分钟禁用口径已验证为零九转请求。两个 sensor 仍为 `STOPPED`。
+> 状态：M3-A/M3-B 已完成。M3-C 的生产日线接口、权限、真实数据对齐和 1600×1200 Loaded 视觉已完成代表性验收；正式 P95 仍缺足量登录态 HTTP 样本，生产页缩放到 45/180 根边界的浏览器截图仍待补齐，因此完整 M3-C 尚未最终收口。M3-C-Minute 的 30/60/90/120 分钟接口、性能、内存、浏览器和视觉行为验收已完成，1/5/15 分钟禁用口径已验证为零九转请求；2026-08-15 新冻结的分钟无价格八列物理合同尚未实施。三个股票九转 sensor 的正式实例状态均为 `RUNNING`、最近 tick 均 `SKIPPED`；定义默认 `STOPPED` 不能替代当前实例状态，详细快照见总方案第 3.3 节。
 
 > 总方案：[股票与主要指数详情页九转接入总方案 v1](./detail-page-nine-turn-integration-implementation-design-v1.md)
 
@@ -34,7 +34,7 @@ M3-A 纠正“文件齐全即可发布”的错误前提；M3-B 把发布改成�
 | serving 最终检查点 | 3,066 / 3,066 个交易日；剩余 0 |
 | serving 最终生产对账 | 11,638,636 行；日期缺失/额外/逐日行数不符均为 0 |
 
-结论：页面 marker 算法结果没有发现差异，但九转 Gold 保存的价格已经不是当前 QFQ 事实。发布表包含 `close_qfq`，因此不能忽略这部分漂移；先 scoped rebuild，再发布。
+结论（M3-A 当时）：页面 marker 算法结果没有发现差异，但九转 Gold 保存的价格已经不是当时 QFQ 事实。发布表包含 `close_qfq`，因此先执行 scoped rebuild，再发布。后续 M3-B 已完成 45,442 行漂移修复、11,638,636 行键/价格/计数/信号零差异对账和全历史 serving 发布；该问题不再是当前未修复项，日线逐键价格一致性门禁继续保留。
 
 ## 3. 不可变发布门禁
 
@@ -46,7 +46,7 @@ M3-A 纠正“文件齐全即可发布”的错误前提；M3-B 把发布改成�
 6. 每个交易日独立事务；read-back 通过后才原子记录 checkpoint。
 7. 续跑前先对计划冻结的全部 Gold/QFQ 文件做相对路径、size、mtime 元数据核对，再使用 PostgreSQL server cursor 流式回验 checkpoint 已完成日期的精确业务内容 hash；任一不一致立即停止。仅本次待发布分区重新执行完整 Gold/QFQ 内容门禁，禁止每次恢复都深扫全历史。
 8. serving check 为 blocking，比较行数、键和业务内容 hash。
-9. 日常 serving job 独立于 Gold job；下游 sensor 默认 `STOPPED`。
+9. 日常 serving job 独立于 Gold job；下游 sensor 定义默认 `STOPPED`。正式实例持久化状态是独立运行事实，当前值见总方案第 3.3 节。
 10. 不使用 Tushare、Mock、客户端重算或空表作为 fallback。
 11. serving 历史发布专用 DuckDB 固定 `memory_limit=128MB`、`threads=1`、`preserve_insertion_order=false`；不得沿用通用 16GB 上限。
 12. 每个 20 日 batch 复用一组 DuckDB、PostgreSQL 写连接和只读连接；每个交易日仍显式 commit、read-back、结束只读事务和写 checkpoint。
@@ -62,7 +62,7 @@ M3-A 纠正“文件齐全即可发布”的错误前提；M3-B 把发布改成�
 | 显式 CLI apply 门禁 | `stock_daily_qfq_nineturn_serving_history_cli.py` |
 | serving blocking check | `prod_core_stock_daily_qfq_nineturn_partition_check` |
 | 日常 serving job | `prod_core_stock_daily_qfq_nineturn_sync_job` |
-| 默认停止 sensor | `prod_core_stock_daily_qfq_nineturn_sync_job_sensor` |
+| 定义默认停止的 sensor | `prod_core_stock_daily_qfq_nineturn_sync_job_sensor`；当前实例状态见总方案第 3.3 节 |
 
 ## 5. 配置审计
 
@@ -106,10 +106,10 @@ CLI 虽保留 fixture 参数用于隔离测试，但正式 Lake 模式会强制�
 6. Gold 提升或 serving 每日事务 read-back 漂移失败时，checkpoint 不记录失败日期；Gold 当前分区恢复原文件。
 7. 第二次运行对全部冻结源做元数据身份核对，以流式游标验证已完成日期的目标 hash，并只对待发布日期重跑源内容门禁；发布函数不得再次调用全历史 `plan`。
 8. serving check 为 blocking，catalog 登记一致。
-9. job 只选择 serving asset/check；sensor 同分区触发且默认 STOPPED。
+9. job 只选择 serving asset/check；sensor 同分区触发且定义默认 `STOPPED`，实例当前状态另见总方案第 3.3 节。
 10. 既有日线/分钟九转公式、页面 DTO、共享 primitive 和 API 回归不漂移。
 
-2026-08-13 本轮内存与输出修正后的定向代码验收为 21 项通过；九转相关完整回归为 96 项通过、另有 14 个子测试通过，Ruff 与 `git diff --check` 通过。测试明确证明 plan 不再调用行装载器、publish 不再重建深度计划、CLI 摘要不含完整分区数组、进度仅按 batch 发出。正式只读 plan、checkpoint 回验和全历史生产逐日行数对账均已通过。`dg list defs` 已发现 serving asset、blocking check、独立 job 和 sensor；正式 instance 再次确认两个九转 sensor 均为 `STOPPED`。M3-B 可以收口，但未完成生产 API、浏览器和自然日常链路验收，不能把股票九转整体标记为 production-ready。
+2026-08-13 本轮内存与输出修正后的定向代码验收为 21 项通过；九转相关完整回归为 96 项通过、另有 14 个子测试通过，Ruff 与 `git diff --check` 通过。测试明确证明 plan 不再调用行装载器、publish 不再重建深度计划、CLI 摘要不含完整分区数组、进度仅按 batch 发出。正式只读 plan、checkpoint 回验和全历史生产逐日行数对账均已通过。`dg list defs` 已发现 serving asset、blocking check、独立 job 和 sensor；当时两个相关 sensor 被记录为 `STOPPED`，这是历史验收快照。2026-08-15 重新审计时，股票日线 Gold、股票分钟 Gold 和股票日线 serving 三个 sensor 均为实例 `RUNNING`，最近 tick 均 `SKIPPED` 且没有发起 run。M3-B 历史发布可以收口，但自然日常链路仍未完成，不能把股票九转整体标记为 production-ready。
 
 ## 8. M3-C 生产日线验收记录
 
@@ -157,7 +157,7 @@ CLI 虽保留 fixture 参数用于隔离测试，但正式 Lake 模式会强制�
 
 1. 取得至少 10 次同口径登录态生产 HTTP 样本并计算 P95；目标不高于 1.5s，硬门禁 5s。
 2. 在稳定浏览器连接下保存 45 根、180 根两个边界状态截图，确认对应按钮置灰且页面无漂移。
-3. 完成一次自然日常更新链路验收；该验收不授权启用当前保持 `STOPPED` 的 sensor。
+3. 完成一次自然日常更新链路验收；当前三个股票 sensor 虽为实例 `RUNNING`，但最近 tick 均被门禁跳过。本文不授权任何启停动作，后续处置须单独审批。
 
 ## 9. M3-C-Minute 本地分钟验收记录
 
@@ -202,16 +202,16 @@ CLI 虽保留 fixture 参数用于隔离测试，但正式 Lake 模式会强制�
 
 ### 9.5 退出判断
 
-M3-C-Minute 已完成，可以独立收口。它不等于完整 M3-C 完成，也不授权启用 sensor；生产日线 P95、45/180 根边界截图和自然日常链路仍按 8.5 保持待验收。下一阶段仍不得越过已冻结顺序直接宣称指数九转资产 ready。
+M3-C-Minute 的页面/API/性能行为验收已完成，但 2026-08-15 新冻结的无价格八列物理合同使其状态调整为“行为验收已通过、物理合同迁移待完成”。它不等于完整 M3-C 完成，也不授权启停 sensor；生产日线 P95、45/180 根边界截图和自然日常链路仍按 8.5 保持待验收。指数 M4-B 后端、正式历史和 serving 已在后续阶段完成，指数页面接入仍属于 M5。
 
 ## 10. 后续执行顺序
 
 1. 已生成并审核 18 只股票 scoped rebuild 计划。
 2. 已完成 3 个 Gold 样本、3,065 个修复分区及全历史 source-value/公式对账。
 3. 已生成 serving history 计划并完成首、中、尾 3 天样本发布。
-4. 已在代码修正和只读内存门禁通过后，以单进程最多 200 日的短进程从 1,113 日恢复到 3,066 日；最终 checkpoint、冻结计划和生产表逐日行数一致，剩余 0。两个 sensor 继续保持 STOPPED。
+4. 已在代码修正和只读内存门禁通过后，以单进程最多 200 日的短进程从 1,113 日恢复到 3,066 日；最终 checkpoint、冻结计划和生产表逐日行数一致，剩余 0。该阶段结束时两个相关 sensor 保持 STOPPED；2026-08-15 的当前实例状态已变化，见总方案第 3.3 节。
 5. M3-C 生产日线接口、权限、数据对齐和 Loaded 视觉主体门禁已通过；补齐登录态 P95 与缩放边界截图后收口日线切片。
-6. M3-C-Minute 已完成；完整 M3-C 只剩生产日线 P95、生产 45/180 根边界截图和自然日常链路。启用 sensor 仍需单独审批。
+6. M3-C-Minute 行为验收已完成、无价格八列物理合同迁移待完成；完整 M3-C 还剩生产日线 P95、生产 45/180 根边界截图和自然日常链路。三个股票 sensor 当前已是实例 `RUNNING` 但被门禁跳过；任何后续停止、恢复或运行口径调整仍需单独审批。
 
 ## 11. 版本记录
 
@@ -223,3 +223,4 @@ M3-C-Minute 已完成，可以独立收口。它不等于完整 M3-C 完成，�
 | v1.3 | 2026-08-13 | 完成余下 1,953 个交易日的十进程有界发布；最终 3,066 日、11,638,636 行逐日对账通过，峰值 RSS 约 249MiB；M3-B 收口，M3-C 与自然日常链路仍待验收 | Codex |
 | v1.4 | 2026-08-13 | 登记 M3-C 生产日线验收：登录态 API 200、真实 300 行样本无缺失、1600×1200 Loaded 视觉通过；正式 P95、生产缩放边界截图与分钟验收仍待完成 | Codex |
 | v1.5 | 2026-08-14 | M3-C-Minute 收口：四分钟资产/check/物理覆盖、逐键对齐、严格接口、P95、两批 40 请求内存门禁及 1600×1200 浏览器验收通过；1/5/15 分钟九转零请求 | Codex |
+| v1.6 | 2026-08-15 | 文档漂移收口：把 M3-A 价格漂移明确标记为已由 M3-B 修复；同步分钟无价格八列合同迁移待办，并登记三个股票 sensor 实例实际 RUNNING/最近 tick 均 SKIPPED，清除“当前两个 sensor 仍 STOPPED”的错误表述 | Codex |
