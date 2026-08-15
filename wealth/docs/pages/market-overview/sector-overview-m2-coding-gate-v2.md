@@ -79,6 +79,8 @@
 6. [x] Tab 独立状态、stale-response 防护和正式三工作台 rank/detail 组件树已按 Slice 9 Figma 重构并通过专项回归及本地浏览器验收。
 7. [x] 三个 view 共享 680px 模块外框并各自保留正式列表/详情结构；Loading/Empty/Error/Forbidden 使用同尺寸 skeleton + overlay，Partial/Delayed 保留可用事实。三 view×七状态自动化已通过，同尺寸截图留待 Slice 15。
 8. [x] 旧 `columns/heatMapItems`、8 列/20 格组件语义与 mock fixture 已清零；view-specific 新结构负向静态审计与专项回归通过。
+9. [x] 行业旧 `CHANGE_PCT` 已破坏性清零；`CHANGE_PCT_UP` 与 `CHANGE_PCT_DOWN` 分别完成降序/升序 Top5 正例、旧值 400 负例和前端双页签请求验收。
+10. [x] 概念排行表头与行共享五列网格并通过 DOM/CSS 对齐断言；全量池不可见 `INVALID` 返回 `READY`，当前可见/选中 `INVALID` 与整日 Heat 缺失仍返回 `PARTIAL`。
 
 ### 1.5 测试与发布
 
@@ -102,7 +104,7 @@ interface SectorOverviewRequestV2 {
   market?: "CN_A"; // default CN_A
   tradeDate?: string; // YYYY-MM-DD，盘后交易日
   view?: "INDUSTRY" | "CONCEPT" | "REGION"; // default INDUSTRY
-  industryRankMetric?: "CHANGE_PCT" | "MAIN_NET_INFLOW" | "UP_COUNT";
+  industryRankMetric?: "CHANGE_PCT_UP" | "CHANGE_PCT_DOWN" | "MAIN_NET_INFLOW" | "UP_COUNT";
   selectedIndustryCode?: string;
   conceptRankMetric?: "HEAT_SCORE" | "HEAT_DELTA_1D" | "CHANGE_PCT" | "MAIN_NET_INFLOW";
   selectedConceptCode?: string;
@@ -135,7 +137,7 @@ interface SectorOverviewRequestV2 {
     "view": "INDUSTRY",
     "asOf": "2026-08-11T18:30:00+08:00",
     "industry": {
-      "rankMetric": "CHANGE_PCT",
+      "rankMetric": "CHANGE_PCT_UP",
       "selection": {
         "level1Code": "BK0001",
         "level2Code": "BK0101",
@@ -310,13 +312,13 @@ interface SectorOverviewRequestV2 {
 |---|---|---|---|
 | 全部必需 prod 来源同日、证券资格可用、成员与历史完整 | 正常 | `READY` | 无 |
 | 必需来源整日缺失，或物理零行且无完成证据 | 不发布该日 | `DELAYED/ERROR` | `SO_SOURCE_DELAYED/SO_QUERY_FAILED` |
-| `dc_daily` 等源站现状仅缺单个概念的必需特征 | 保留该概念 `INVALID`，其它概念正常计算 | `PARTIAL` | `SO_HEAT_NOT_READY` |
-| 有效 A 股 `memberCount < 10` | 保留 `INVALID` 行，总分为空 | `PARTIAL` | `SO_MEMBER_COVERAGE_LOW` |
-| `quoteEligibleCount = 0` | 保留 `INVALID` 行，总分为空 | `PARTIAL` | `SO_MEMBER_COVERAGE_LOW` |
-| `quoteCoverage < 0.80` | 保留 `INVALID` 行，总分为空 | `PARTIAL` | `SO_MEMBER_COVERAGE_LOW` |
+| `dc_daily` 等源站现状仅缺单个概念的必需特征 | 保留该概念 `INVALID`，其它概念正常计算 | 仅当该概念进入当前可见榜单/详情时 `PARTIAL` | `SO_HEAT_NOT_READY` |
+| 有效 A 股 `memberCount < 10` | 保留 `INVALID` 行，总分为空 | 仅当该概念进入当前可见榜单/详情时 `PARTIAL` | `SO_MEMBER_COVERAGE_LOW` |
+| `quoteEligibleCount = 0` | 保留 `INVALID` 行，总分为空 | 仅当该概念进入当前可见榜单/详情时 `PARTIAL` | `SO_MEMBER_COVERAGE_LOW` |
+| `quoteCoverage < 0.80` | 保留 `INVALID` 行，总分为空 | 仅当该概念进入当前可见榜单/详情时 `PARTIAL` | `SO_MEMBER_COVERAGE_LOW` |
 | B 股/未上市/已退市成员 | 排除并记录计数 | 不单独降级 | 无 |
 | 当日停牌成员 | 保留有效资格、排除出可报价分母 | 不单独降级 | 无 |
-| 可报价成员无有效行情 | 计入 `missingQuoteCount` | 达到阈值后 `PARTIAL` | `SO_MEMBER_COVERAGE_LOW` |
+| 可报价成员无有效行情 | 计入 `missingQuoteCount` | 当前可见榜单/详情的概念达到阈值后 `PARTIAL` | `SO_MEMBER_COVERAGE_LOW` |
 | Heat 目标日未发布 | 无 | `PARTIAL` | `SO_HEAT_NOT_READY` |
 | Heat source date 与响应日不一致 | 不消费 | `PARTIAL/DELAYED` | `SO_HEAT_SOURCE_MISMATCH` |
 | 层级表缺失/闭包非法 | 不影响 Heat | `ERROR`（行业） | `SO_HIERARCHY_UNAVAILABLE` |
@@ -456,7 +458,8 @@ git diff --check
 
 | 场景 | 基线 | 实现截图 | 最大偏差 | 结论 |
 |---|---|---|---:|---|
-| 行业 / 涨跌幅 | Figma `538:520` |  |  |  |
+| 行业 / 涨幅榜 | Figma `538:520` |  |  |  |
+| 行业 / 跌幅榜 | Figma `538:520` |  |  |  |
 | 行业 / 主力净流入 | Figma `538:520` |  |  |  |
 | 行业 / 上涨家数 | Figma `538:520` |  |  |  |
 | 概念 / 综合热度 | Figma `538:521` |  |  |  |
@@ -565,6 +568,7 @@ Slice 13 状态：**PASS（全矩阵自动化）**。当前新增运行门禁是
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.20 | 2026-08-15 | 增加行业涨幅榜/跌幅榜正反门禁、概念固定列对齐门禁，并将单个概念 `INVALID` 的页面降级范围收敛到当前可见榜单/详情 |
 | v2.19 | 2026-08-14 | Slice 14 代码与本地门禁通过：Heat condition-only schedule、TaskRunNode 上游证据、只读 preview、去重/超时、CLI factory 与固定总门禁 307 项回归完成；生产唯一 schedule 和真实开放日验收仍未勾选 |
 | v2.18 | 2026-08-14 | 增加 Slice 14 Heat 每日自动化门禁：21:15 首检、10 分钟复查至 00:30、上游节点 + biz preview、app scheduler factory、去重/超时和真实开放日验收；原像素/候选/最终门禁后移到 Slice 15-17 |
 | v2.17 | 2026-08-13 | 完成 Slice 13 门禁：A01-A19 测试 ID 100% 映射，后端/Heat/Ops/架构核心 109 项与静态护栏 5 项合计 114 项、Wealth 223 项、DG 9 项及全部固定检查通过；下一门禁为 Slice 14 |

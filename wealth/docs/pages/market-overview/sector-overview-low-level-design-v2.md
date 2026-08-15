@@ -1,6 +1,6 @@
 # 市场总览｜板块速览低层设计 v2（LLD）
 
-> 状态：Slice 14 首次生产开放日验收发现上游日期证据契约错误并于 2026-08-15 完成本地修复；生产修复部署、8 月 13/14 日顺序恢复和下一开放日自动发布/read-back 尚缺，因此 Slice 14 保持 OPEN。原正式像素、候选部署和最终对账仍为 Slice 15-17。
+> 状态：Slice 14 修复已部署，8 月 13/14 日 Heat 已补齐；下一开放日自动发布/read-back 仍待验收，因此 Slice 14 保持 OPEN。2026-08-15 用户另行批准板块速览聚焦纠偏：先修正式 Figma，再原子修正行业双榜、概念固定列和可见范围 `PARTIAL`；不扩展其它功能。
 > 日期：2026-08-15
 > 需求基线：[sector-overview-benchmark-requirement-v2.md](./sector-overview-benchmark-requirement-v2.md)
 > 实施方案：[sector-overview-implementation-design-v2.md](./sector-overview-implementation-design-v2.md)
@@ -23,7 +23,7 @@
 9. hierarchy、60+25 日 prod 来源、Heat/app 执行装配、事务与访问边界、60 日生产回放已经通过并继续作为有效基础；前后端 V2 只能记为“已实现、未验收”，不能再表述为完成。
 10. 2026-08-13 对照需求基线、implementation design、M2 Gate、正式 Figma 节点树与当前代码复审后，确认存在 API 展示契约不足、有效池字段口径、成员名称来源、排序空值、来源状态、默认日期、错误态、三工作台结构、详情结构、Heat 表达、交互、六态骨架、自动化测试、像素、性能与发布门禁等偏差；完整台账见第 2.5 节。
 11. 新修正步骤从 Slice 9 连续编号。Slice 9-13 已完成设计、后端、前端、生产 Heat v2 与全矩阵自动化；当前产品运行缺口是每日 Heat 没有自动门禁与自动提交，因此先执行 Slice 14 Heat 盘后自动化，原像素、候选部署和最终对账顺延到 Slice 15-17。
-12. Slice 14 只解决每日自动化，不修改 Heat 公式、API、前端、Figma、hierarchy、回放语义或数据库结构；后续 Slice 在 Slice 14 生产验收通过前不得启动。
+12. Slice 14 不修改 Heat 公式、hierarchy、回放语义或数据库结构。用户于 2026-08-15 单独批准的行业双榜、概念固定列和状态误报纠偏作为原子前后端修正先行，不改变 Slice 15-17 的像素、候选部署和最终对账顺序。
 
 ### 1.2 当前事实快照
 
@@ -33,11 +33,11 @@
 | Alembic head（部署后复核） | 仓库与生产当前单 head 均为 `20260813_000135`；本需求 revision `20260813_000134` 已位于有效链上并完成生产结构/授权验收 |
 | 当前 API | 前后端均已破坏性拆为 Industry/Concept/Region view-specific rank 与 detail；概念/地域固定列由后端直接返回，旧前端通用业务 rank/detail 契约已清零 |
 | 当前后端来源 | hierarchy、Heat、行情、成员与资金均读 Prod；DG 只发布 hierarchy。成员展示名已切到 `dc_member.name`，有效行情统一为 `close + pct_chg` |
-| 当前前端 | 已完成正式 header/tabs/toolbar、三个 view-specific workspace/rank/detail、七行滚动、20 日断点、地域 breadth、股票导航、默认日期和穷尽状态骨架；正式 Figma 像素后移到 Slice 15 |
+| 当前前端 | 已完成正式 header/tabs/toolbar、三个 view-specific workspace/rank/detail、七行滚动、20 日断点、地域 breadth、股票导航、默认日期和穷尽状态骨架；本轮须同步正式 Figma 的概念固定五列与行业双榜，正式整页像素仍后移到 Slice 15 |
 | 行业层级 Lake | 现有单文件正式 Silver，契约要求 496 行、31/128/337 |
 | Heat prod 来源 | `trade_calendar/dc_index/dc_daily/dc_member/board_moneyflow_dc/equity_daily_bar/equity_limit_list/security_serving/equity_suspend_d` 与前序 Heat |
 | 当前来源审计 | 目标窗 `2026-05-20..2026-08-12`、warm-up `2026-04-10..2026-05-19` 已冻结并完成整窗复核；资金流对目标概念 100% 覆盖、有效池无真实缺行情；`dc_daily@2026-05-18/20/22/25` 的 88/448/1/2 个缺行在 Prod Raw/Core 一致，按逐概念 `INVALID` 处理 |
-| 当前运行缺口 | v2 PLAN `8208`、APPLY `8210` 与幂等重放 `8213` 已完成；单日 action 已具备 condition-only schedule 代码，但尚未部署并创建生产唯一 schedule，也未完成真实开放日自动发布验收；其后仍有 Slice 15 像素、Slice 16 候选部署/性能和 Slice 17 最终对账 |
+| 当前运行缺口 | v2 PLAN `8208`、APPLY `8210` 与幂等重放 `8213` 已完成；单日 condition-only schedule 修复已部署，8 月 13/14 日已人工补齐，仍缺下一开放日自动检查、单一 TaskRun、Heat read-back 与同日幂等验收；其后仍有 Slice 15 像素、Slice 16 候选部署/性能和 Slice 17 最终对账 |
 
 ### 1.3 禁止项
 
@@ -627,7 +627,7 @@ Ops 证据通过后，app 调用已有 `preview_trade_date`。结果分类固定
 API handler 使用显式 enum/格式校验，禁止把互斥规则分散到 query：
 
 1. 默认 `market=CN_A, view=INDUSTRY`。
-2. 行业/地域默认 `CHANGE_PCT`，概念默认 `HEAT_SCORE`。
+2. 行业默认 `CHANGE_PCT_UP`，地域默认 `CHANGE_PCT`，概念默认 `HEAT_SCORE`；行业不再接受旧 `CHANGE_PCT`。
 3. `selected*Code` 使用 `^BK[0-9]{4}(?:\.DC)?$`；进入查询前规范化为存储格式，响应保持统一格式。
 4. 当前 view 之外的 rank/selection 参数立即返回 `400001`。
 5. 显式 `tradeDate` 非交易日或无完整事实返回 `EMPTY`，不回退。
@@ -652,7 +652,7 @@ API handler 使用显式 enum/格式校验，禁止把互斥规则分散到 quer
 2. `board_moneyflow_dc` 只按 `trade_date + non-null ts_code` 关联。
 3. 领涨股只取 `dc_index.leading/leading_code/leading_pct`，不从 member Top1 反推。
 4. 成员 Top5 按 `pct_chg DESC NULLS LAST, stock_code ASC`，展示名必须显式取同日 `dc_member.name`；不得使用 `security.name` 回退。
-5. `MAIN_NET_INFLOW` 空值末尾；所有主排序同分最终 `sector_code ASC`。
+5. 行业 `CHANGE_PCT_UP` 按 `change_pct DESC`，`CHANGE_PCT_DOWN` 按 `change_pct ASC`；两者均排除空值、不按正负号删行。`MAIN_NET_INFLOW` 空值末尾；所有主排序同分最终 `sector_code ASC`。
 6. 不做逐板块成员 N+1；仅为最终详情节点查一次成员。
 7. 行业 Top5 与概念 Top20 在截断前排除当前排名指标为 null 的候选；不得以 `NULLS LAST` 代替“不参与 TopN”。地域必须保留固定生产枚举 31 项，null 指标只置底，不删除地域。
 8. 有效行情资格统一为同日 `close IS NOT NULL AND pct_chg IS NOT NULL`；详情聚合与 Heat 来源查询必须消费同一语义，不能各自定义。
@@ -687,7 +687,8 @@ fallback    = 不允许使用旧版本掩盖当前表空/闭包失败
 | 条件 | panel status | 页面内容 |
 |---|---|---|
 | 当前 view 必需事实同日完整 | READY | 正常 workspace |
-| Heat 未发布/个别 Heat 无效/成员覆盖不足 | PARTIAL | 可用事实保留，缺失显示 `--` |
+| Heat 整日未发布，或当前可见榜单/当前详情 Heat 无效、成员覆盖不足 | PARTIAL | 可用事实保留，缺失显示 `--`/`UNKNOWN` |
+| 未进入当前榜单且未被选中的其它概念 Heat 为 `INVALID` | READY | 不显示全局质量提示；该行事实仍保留在 Heat 表 |
 | 最近共同完成日落后期望日 | DELAYED | 显示真实旧日，不冒充当日 |
 | 显式日无候选/全部基础源合法空 | EMPTY | 稳定空态 |
 | 层级闭包、SQL、配置契约失败 | ERROR | 当前模块错误态 |
@@ -695,7 +696,7 @@ fallback    = 不允许使用旧版本掩盖当前表空/闭包失败
 
 `pageStatus` 沿用首页现有聚合器；模块异常不得让其它首页模块丢失。
 
-状态归并还必须使用明确的 view×来源矩阵，至少覆盖 `dc_daily`、`dc_index`、`board_moneyflow_dc`、`dc_member`、hierarchy 和 Heat。某个板块合法没有领涨股不等于来源缺失；但当前 view 的必需资金流整行缺失不得返回 READY。
+状态归并还必须使用明确的 view×来源矩阵，至少覆盖 `dc_daily`、`dc_index`、`board_moneyflow_dc`、`dc_member`、hierarchy 和 Heat。某个板块合法没有领涨股不等于来源缺失；概念页质量聚合只检查当前返回榜单和当前详情所需代码，不得用全量概念池中无关板块的 `INVALID` 污染页面状态。
 
 ### 6.6 响应构建
 
@@ -710,11 +711,20 @@ fallback    = 不允许使用旧版本掩盖当前表空/闭包失败
 
 | view | 固定展示事实 |
 |---|---|
-| INDUSTRY | `sectorCode/sectorName/industryLevel/rank/primaryMetric/leader`；`primaryMetric` 与当前行业排序维度严格对应 |
+| INDUSTRY | `sectorCode/sectorName/industryLevel/rank/primaryMetric/leader`；`primaryMetric` 与 `CHANGE_PCT_UP/DOWN/MAIN_NET_INFLOW/UP_COUNT` 当前维度严格对应 |
 | CONCEPT | `sectorCode/sectorName/rank/changePct/leader/heatStatus/heatLevel/heatTrend/heatScore/heatDelta1d`；资金排序所需值以明确字段返回 |
 | REGION | `sectorCode/sectorName/rank/changePct/mainNetInflow/memberCount/upCount/leader` |
 
 字段必须复用 `MetricValueDto` 或等价强类型事实，不允许引入动态 `Record<string, any>`。前后端同提交破坏性替换；不保留一个通用于三 view、只含 `primaryMetric` 的旧兼容分支。
+
+### 6.7 2026-08-15 聚焦纠偏实施顺序
+
+1. 正式 Figma：概念排行表头与数据行改为同一五列固定网格；行业排序工具栏增加“涨幅榜/跌幅榜”；交互契约明确 `PARTIAL` 只看当前可见榜单/详情。
+2. 后端破坏性替换行业枚举：删除行业 `CHANGE_PCT`，新增 `CHANGE_PCT_UP/CHANGE_PCT_DOWN`；涨榜降序、跌榜升序、同分代码升序。
+3. 后端概念状态聚合：整日 Heat 未发布仍为 `PARTIAL`；只有可见行或当前详情缺 Heat 才局部降级；不可见 `INVALID` 不返回 `SO_HEAT_NOT_READY`。
+4. 前端同步请求类型、默认值和页签文案；概念 CSS 使用共享固定列定义与显式对齐，不在渲染层计算或修补数据。
+5. 正例：涨榜/跌榜顺序、页签请求、固定列 DOM/CSS、不可见 `INVALID => READY`。反例：旧行业 `CHANGE_PCT` 返回 400、可见 `INVALID => PARTIAL`、Heat 整日缺失仍 `PARTIAL`。
+6. 后端、前端、typecheck、build、文档一致性与本地页面截图全部通过后，才允许形成提交；不改 Heat 公式、表结构、调度、地域或其它首页模块。
 
 ---
 
@@ -1234,6 +1244,7 @@ Slice 14 PASS 标准：代码/自动化测试全部通过、生产 schedule 唯�
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.20 | 2026-08-15 | 记录并冻结聚焦纠偏：Figma 概念五列固定网格、行业涨幅榜/跌幅榜、概念可见范围 `PARTIAL`；新增对应破坏性契约、实施顺序和正反测试门禁 |
 | v2.19 | 2026-08-15 | 记录生产 TaskRun `8327` 超时与测试伪通过根因；父 TaskRun 保留 point 意图，dispatcher 将解析后的日期写入节点，readiness 逐节点核验目标日，生产形态正反例与修复回归通过，部署/恢复/下一开放日验收仍 OPEN |
 | v2.18 | 2026-08-14 | Slice 14 代码与本地回归完成：Heat 条件调度、上游 TaskRunNode 证据、app 只读 preview、跨午夜/超时/去重、CLI factory 和零行证据已落地；固定总门禁 307 项通过，生产 schedule 与真实开放日验收继续 OPEN |
 | v2.17 | 2026-08-14 | 新增 Slice 14 Heat 盘后自动化 LLD：21:15 首检、10 分钟复查至 00:30、Ops 上游节点 + biz preview 两层门禁、app scheduler factory、幂等与超时 issue；原 Slice 14-16 后移为 Slice 15-17 |

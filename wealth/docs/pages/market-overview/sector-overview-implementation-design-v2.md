@@ -537,7 +537,7 @@ interface SectorOverviewRequestV2 {
   market?: "CN_A";
   tradeDate?: string;
   view?: "INDUSTRY" | "CONCEPT" | "REGION";
-  industryRankMetric?: "CHANGE_PCT" | "MAIN_NET_INFLOW" | "UP_COUNT";
+  industryRankMetric?: "CHANGE_PCT_UP" | "CHANGE_PCT_DOWN" | "MAIN_NET_INFLOW" | "UP_COUNT";
   selectedIndustryCode?: string;
   conceptRankMetric?: "HEAT_SCORE" | "HEAT_DELTA_1D" | "CHANGE_PCT" | "MAIN_NET_INFLOW";
   selectedConceptCode?: string;
@@ -547,7 +547,7 @@ interface SectorOverviewRequestV2 {
 }
 ```
 
-默认值：`market=CN_A`、`view=INDUSTRY`、行业和地域按 `CHANGE_PCT`、概念按 `HEAT_SCORE`。
+默认值：`market=CN_A`、`view=INDUSTRY`、行业按 `CHANGE_PCT_UP`、地域按 `CHANGE_PCT`、概念按 `HEAT_SCORE`。
 
 参数规则：
 
@@ -579,7 +579,7 @@ interface SectorOverviewPanelV2 {
 }
 
 interface IndustryWorkspace {
-  rankMetric: "CHANGE_PCT" | "MAIN_NET_INFLOW" | "UP_COUNT";
+  rankMetric: "CHANGE_PCT_UP" | "CHANGE_PCT_DOWN" | "MAIN_NET_INFLOW" | "UP_COUNT";
   selection: {
     level1Code: string | null;
     level2Code: string | null;
@@ -749,13 +749,14 @@ interface SectorMemberStock {
 
 ### 7.4 行业查询算法
 
-1. 若请求带 `selectedIndustryCode`，先从层级表解析该节点的 `level/parent/root`；不从字符串或名称推断。
-2. 取得全部一级节点，按指定指标排序并截断 Top5；请求节点的 root 仍在 Top5 时选中该 root，否则选中榜首。
-3. 只查询/排序所选一级的直接二级子节点并截断 Top5；请求节点为二/三级且其二级祖先仍在该 Top5 时保留，否则选中榜首。
-4. 只查询/排序所选二级的直接三级子节点并截断 Top5；请求节点为三级且仍在该 Top5 时保留，否则选中榜首。
-5. 请求节点是一级或二级时，后续更深层级按各自榜首自动补齐。
-6. 详情节点取最终选择路径中的最深合法节点。
-7. 若某级无子节点，后续列返回空数组，详情停在当前最深节点。
+1. `CHANGE_PCT_UP` 与 `CHANGE_PCT_DOWN` 分别对应“涨幅榜”和“跌幅榜”两个页签；前者按 `changePct desc`，后者按 `changePct asc`，二者均先排除空值且不按正负号删行。
+2. 若请求带 `selectedIndustryCode`，先从层级表解析该节点的 `level/parent/root`；不从字符串或名称推断。
+3. 取得全部一级节点，按指定指标排序并截断 Top5；请求节点的 root 仍在 Top5 时选中该 root，否则选中榜首。
+4. 只查询/排序所选一级的直接二级子节点并截断 Top5；请求节点为二/三级且其二级祖先仍在该 Top5 时保留，否则选中榜首。
+5. 只查询/排序所选二级的直接三级子节点并截断 Top5；请求节点为三级且仍在该 Top5 时保留，否则选中榜首。
+6. 请求节点是一级或二级时，后续更深层级按各自榜首自动补齐。
+7. 详情节点取最终选择路径中的最深合法节点。
+8. 若某级无子节点，后续列返回空数组，详情停在当前最深节点。
 
 ### 7.5 概念查询算法
 
@@ -776,7 +777,7 @@ interface SectorMemberStock {
 
 1. 默认 `tradeDate` 先按当前视图的盘后基础来源求最近共同完成交易日。
 2. 层级无版本：`ERROR + SO_HIERARCHY_UNAVAILABLE`。
-3. 概念热度缺同日快照：基础榜单仍可用则 `PARTIAL + SO_HEAT_NOT_READY`。
+3. 概念热度整日未发布，或当前可见榜单行/当前详情缺少 Heat：基础榜单仍可用则 `PARTIAL + SO_HEAT_NOT_READY`；未进入当前榜单且未被选中的其它概念 `INVALID` 不提升页面状态。
 4. 来源日期不一致：不得拼接，`DELAYED/PARTIAL + SO_HEAT_SOURCE_MISMATCH`。
 5. 显式日期无数据：`EMPTY`，不回退。
 
@@ -832,10 +833,11 @@ SectorOverviewPanel
 1. 模块基准 `1564 × 680`，继承首页内容宽度。
 2. 行业三列排名区与右侧详情保持设计稿比例；每列 5 行可见。
 3. 概念和地域列表均为 7 行可见、内部滚动；页面本身不因列表增长继续增高。
-4. 名称和领涨股分别设独立一行；长名称单行省略并通过 tooltip 查看全文。
-5. Loading/Ready/Partial/Delayed/Empty/Error/Forbidden 保持同一外层 grid；六种非正常状态通过 skeleton/overlay 表达，不重建不同高度页面。
-6. Concept Heat 历史固定最近 20 个已发布交易日；`INVALID` 日期保留空槽形成断点，禁止以前向填充或最小高度柱伪装有效值。
-7. 行业、概念、地域板块名称只负责选择和联动；本期不渲染板块详情入口。领涨股与成员股可进入既有股票详情，无领涨股不生成跳转。
+4. 概念排行表头与数据行共享 `240/170/180/120/176` 五列比例，列间距为 0；首列左对齐，中间两列居中，涨跌幅与领涨股右对齐，禁止再使用内容宽度或 `space-between` 推算列位置。
+5. 名称和领涨股分别设独立一行；长名称单行省略并通过 tooltip 查看全文。
+6. Loading/Ready/Partial/Delayed/Empty/Error/Forbidden 保持同一外层 grid；六种非正常状态通过 skeleton/overlay 表达，不重建不同高度页面。
+7. Concept Heat 历史固定最近 20 个已发布交易日；`INVALID` 日期保留空槽形成断点，禁止以前向填充或最小高度柱伪装有效值。
+8. 行业、概念、地域板块名称只负责选择和联动；本期不渲染板块详情入口。领涨股与成员股可进入既有股票详情，无领涨股不生成跳转。
 
 ### 8.4 删除项
 
@@ -1023,6 +1025,7 @@ Slice 9-17 必须严格顺序执行，前一 Slice 未通过不得越级。当�
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.21 | 2026-08-15 | 同步正式 Figma 纠偏：概念排行改为五列固定网格；行业增加 `CHANGE_PCT_UP/DOWN` 双榜；概念页面 `PARTIAL` 仅由当前可见榜单/详情缺失触发 |
 | v2.20 | 2026-08-15 | 修复首次生产自动化暴露的伪测试：父 TaskRun 保留 point 意图，dispatcher 将解析后的真实日期写入数据集节点，readiness 改为逐节点核验目标日；记录 TaskRun `8327` 超时和生产部署/恢复待办 |
 | v2.19 | 2026-08-14 | Slice 14 代码落地：固定 Heat action readiness policy、21:00 后工作流节点证据、prod 只读 preview、10 分钟等待/00:30 超时、单次自动 TaskRun、app scheduler factory 与零行节点证据；本地固定总门禁 307 项通过，生产 schedule 和真实开放日验收仍 OPEN |
 | v2.18 | 2026-08-14 | 新增 Heat 每日自动化规则与正反验收：21:15 首检、10 分钟复查至 00:30、上游 TaskRun + biz preview 两层门禁、幂等去重和超时失败；下一步改为 Slice 14 Heat 自动化，原像素/候选/最终对账后移到 Slice 15-17 |

@@ -365,7 +365,7 @@ const sectorOverviewPayload = {
     view: "INDUSTRY",
     asOf: "2026-04-28T20:00:00+08:00",
     industry: {
-      rankMetric: "CHANGE_PCT",
+      rankMetric: "CHANGE_PCT_UP",
       selection: {
         level1Code: "BK0001.DC",
         level2Code: "BK0101.DC",
@@ -539,15 +539,16 @@ describe("MarketOverviewPage", () => {
     render(<MarketOverviewPage />);
 
     const table = await screen.findByRole("table", { name: "个股榜单" });
+    const leaderboard = screen.getByLabelText("榜单速览");
     ["排名", "股票", "最新价", "涨跌幅", "换手率", "量比", "成交量", "成交额"].forEach((column) => {
       expect(within(table).getByText(column)).toBeInTheDocument();
     });
     ["涨幅榜", "跌幅榜", "成交额榜", "换手榜", "量比榜", "人气榜", "飙升榜"].forEach((tab) => {
-      expect(screen.getByRole("button", { name: tab })).toBeInTheDocument();
+      expect(within(leaderboard).getByRole("button", { name: tab })).toBeInTheDocument();
     });
     expect(within(table).getAllByRole("row")).toHaveLength(11);
 
-    fireEvent.click(screen.getByRole("button", { name: "量比榜" }));
+    fireEvent.click(within(leaderboard).getByRole("button", { name: "量比榜" }));
     expect(within(table).getAllByRole("row")).toHaveLength(11);
 
     fireEvent.click(screen.getAllByRole("button", { name: "3个月" })[0]);

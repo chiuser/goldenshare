@@ -103,7 +103,8 @@ function currentRank(data: SectorOverviewPanelData): SectorRankMetric {
 }
 
 function defaultRank(view: SectorOverviewView): SectorRankMetric {
-  return view === "CONCEPT" ? "HEAT_SCORE" : "CHANGE_PCT";
+  if (view === "CONCEPT") return "HEAT_SCORE";
+  return view === "INDUSTRY" ? "CHANGE_PCT_UP" : "CHANGE_PCT";
 }
 
 function stateOverlay(requestState: SectorRequestState): { title: string; text: string; retry?: boolean } | null {

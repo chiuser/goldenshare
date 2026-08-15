@@ -325,6 +325,28 @@ def test_industry_workspace_resolves_three_levels_and_uses_frozen_fields(app_cli
     assert payload["debugInfo"]["exceptions"] == []
 
 
+def test_industry_gain_and_loss_rankings_use_opposite_change_order(app_client, db_session) -> None:
+    _seed_sector_overview_v2(db_session)
+
+    gain = app_client.get(
+        "/api/v1/wealth/market/sector-overview",
+        params={"tradeDate": TARGET_DATE.isoformat(), "industryRankMetric": "CHANGE_PCT_UP"},
+    ).json()["sectorOverview"]["industry"]
+    loss = app_client.get(
+        "/api/v1/wealth/market/sector-overview",
+        params={
+            "tradeDate": TARGET_DATE.isoformat(),
+            "industryRankMetric": "CHANGE_PCT_DOWN",
+            "selectedIndustryCode": "BK1001",
+        },
+    ).json()["sectorOverview"]["industry"]
+
+    assert gain["rankMetric"] == "CHANGE_PCT_UP"
+    assert [row["primaryMetric"]["value"] for row in gain["columns"][0]["rows"]] == [19, 18, 17, 16, 15]
+    assert loss["rankMetric"] == "CHANGE_PCT_DOWN"
+    assert [row["primaryMetric"]["value"] for row in loss["columns"][0]["rows"]] == [15, 16, 17, 18, 19]
+
+
 def test_industry_selection_preserves_valid_ancestor_and_corrects_outside_top5(app_client, db_session) -> None:
     _seed_sector_overview_v2(db_session)
 
@@ -441,7 +463,7 @@ def test_concept_heat_not_ready_does_not_fallback_to_change_ranking(app_client, 
     assert [item["code"] for item in payload["debugInfo"]["exceptions"]] == ["SO_HEAT_NOT_READY"]
 
 
-def test_one_invalid_concept_heat_row_keeps_usable_rows_but_marks_partial(app_client, db_session) -> None:
+def test_invalid_concept_outside_heat_ranking_keeps_visible_workspace_ready(app_client, db_session) -> None:
     _seed_sector_overview_v2(db_session)
     db_session.query(WealthSectorHeatDaily).filter(
         WealthSectorHeatDaily.trade_date == TARGET_DATE,
@@ -466,8 +488,43 @@ def test_one_invalid_concept_heat_row_keeps_usable_rows_but_marks_partial(app_cl
         params={"tradeDate": TARGET_DATE.isoformat(), "view": "CONCEPT", "debug": 1},
     ).json()
 
-    assert payload["sectorOverview"]["status"] == "PARTIAL"
+    assert payload["sectorOverview"]["status"] == "READY"
     assert len(payload["sectorOverview"]["concept"]["rows"]) == 19
+    assert payload["debugInfo"]["exceptions"] == []
+
+
+def test_invalid_concept_in_visible_change_ranking_marks_partial(app_client, db_session) -> None:
+    _seed_sector_overview_v2(db_session)
+    db_session.query(WealthSectorHeatDaily).filter(
+        WealthSectorHeatDaily.trade_date == TARGET_DATE,
+        WealthSectorHeatDaily.sector_code == "BK2001.DC",
+    ).update(
+        {
+            WealthSectorHeatDaily.heat_status: "INVALID",
+            WealthSectorHeatDaily.invalid_reason: "FEATURE_MISSING",
+            WealthSectorHeatDaily.heat_score: None,
+            WealthSectorHeatDaily.heat_rank: None,
+            WealthSectorHeatDaily.heat_level: "NONE",
+            WealthSectorHeatDaily.heat_delta_1d: None,
+            WealthSectorHeatDaily.heat_trend: "UNKNOWN",
+            WealthSectorHeatDaily.raw_heat_trend: "UNKNOWN",
+        },
+        synchronize_session=False,
+    )
+    db_session.commit()
+
+    payload = app_client.get(
+        "/api/v1/wealth/market/sector-overview",
+        params={
+            "tradeDate": TARGET_DATE.isoformat(),
+            "view": "CONCEPT",
+            "conceptRankMetric": "CHANGE_PCT",
+            "debug": 1,
+        },
+    ).json()
+
+    assert payload["sectorOverview"]["status"] == "PARTIAL"
+    assert payload["sectorOverview"]["concept"]["rows"][0]["heatStatus"] == "INVALID"
     assert [item["code"] for item in payload["debugInfo"]["exceptions"]] == ["SO_HEAT_NOT_READY"]
 
 
@@ -476,6 +533,7 @@ def test_sector_overview_rejects_unknown_irrelevant_or_invalid_parameters(app_cl
     cases = [
         {"market": "US"},
         {"view": "INDUSTRY", "conceptRankMetric": "HEAT_SCORE"},
+        {"view": "INDUSTRY", "industryRankMetric": "CHANGE_PCT"},
         {"view": "REGION", "selectedRegionCode": "bad-code"},
         {"level": "2"},
         {"tradeDate": "2026/04/28"},
@@ -715,7 +773,10 @@ def test_s13_a12_n01_concept_heat_contract_rejects_unknown_level_and_trend() -> 
 def test_all_frozen_rank_metrics_are_accepted_per_workspace(app_client, db_session) -> None:
     _seed_sector_overview_v2(db_session)
     matrix = {
-        "INDUSTRY": ("industryRankMetric", ("CHANGE_PCT", "MAIN_NET_INFLOW", "UP_COUNT")),
+        "INDUSTRY": (
+            "industryRankMetric",
+            ("CHANGE_PCT_UP", "CHANGE_PCT_DOWN", "MAIN_NET_INFLOW", "UP_COUNT"),
+        ),
         "CONCEPT": (
             "conceptRankMetric",
             ("HEAT_SCORE", "HEAT_DELTA_1D", "CHANGE_PCT", "MAIN_NET_INFLOW"),
@@ -738,7 +799,7 @@ def test_s13_a01_p01_all_rank_metrics_preserve_view_specific_row_facts(app_clien
     matrix = {
         "INDUSTRY": (
             "industryRankMetric",
-            ("CHANGE_PCT", "MAIN_NET_INFLOW", "UP_COUNT"),
+            ("CHANGE_PCT_UP", "CHANGE_PCT_DOWN", "MAIN_NET_INFLOW", "UP_COUNT"),
             {"rank", "sectorCode", "sectorName", "industryLevel", "primaryMetric", "leader", "selected"},
         ),
         "CONCEPT": (

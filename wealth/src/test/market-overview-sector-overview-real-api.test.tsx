@@ -1,9 +1,14 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { marketOverviewModuleSources } from "../features/market-overview/api/moduleSources";
 import { MarketOverviewPage } from "../pages/market-overview/MarketOverviewPage";
 
 const moduleSourcesSnapshot = { ...marketOverviewModuleSources };
+const marketOverviewCss = readFileSync(
+  "src/pages/market-overview/market-overview-page.css",
+  "utf8",
+);
 
 const pageContextPayload = {
   pageContext: {
@@ -158,7 +163,7 @@ const industryPayload = {
     view: "INDUSTRY",
     asOf: "2026-05-11T20:00:00+08:00",
     industry: {
-      rankMetric: "CHANGE_PCT",
+      rankMetric: "CHANGE_PCT_UP",
       selection: { level1Code: "BK0001.DC", level2Code: "BK0101.DC", level3Code: "BK0201.DC", detailSectorCode: "BK0201.DC" },
       columns: [
         { level: 1, parentSectorCode: null, rows: Array.from({ length: 5 }, (_, index) => industryRankItem(`BK000${index + 1}.DC`, `一级行业${index + 1}`, index + 1, 1, index === 0)) },
@@ -277,9 +282,16 @@ describe("market-overview sector-overview V2 real api", () => {
     expect(within(panel).queryByText("停牌")).not.toBeInTheDocument();
     expect(within(panel).queryByText("行情覆盖")).not.toBeInTheDocument();
     expect(within(panel).queryByText(/进入.*行情/)).not.toBeInTheDocument();
+    expect(within(panel).getByRole("button", { name: "涨幅榜" })).toHaveAttribute("aria-pressed", "true");
+    const lossButton = within(panel).getByRole("button", { name: "跌幅榜" });
+    expect(lossButton).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(lossButton);
+    await waitFor(() => {
+      expect(requestUrls.some((url) => new URL(url).searchParams.get("industryRankMetric") === "CHANGE_PCT_DOWN")).toBe(true);
+    });
     const request = new URL(requestUrls.find((url) => url.includes("/sector-overview")) as string);
     expect(request.searchParams.get("view")).toBe("INDUSTRY");
-    expect(request.searchParams.get("industryRankMetric")).toBe("CHANGE_PCT");
+    expect(request.searchParams.get("industryRankMetric")).toBe("CHANGE_PCT_UP");
     expect(request.searchParams.has("tradeDate")).toBe(false);
   });
 
@@ -293,6 +305,15 @@ describe("market-overview sector-overview V2 real api", () => {
     for (const column of ["排名 / 概念", "等级 / 趋势", "热度 / 变化", "涨跌幅", "领涨股"]) {
       expect(within(ranking).getByRole("columnheader", { name: column })).toBeInTheDocument();
     }
+    const header = ranking.querySelector(".sector-flat-rank-header") as HTMLElement;
+    const firstRow = ranking.querySelector(".concept-rank-item") as HTMLElement;
+    expect(header.children).toHaveLength(5);
+    expect(firstRow.children).toHaveLength(5);
+    expect(header).toHaveClass("concept-rank-grid");
+    expect(firstRow).toHaveClass("concept-rank-grid");
+    expect(marketOverviewCss).toMatch(
+      /\.concept-rank-grid\s*\{[^}]*gap:\s*0;[^}]*grid-template-columns:\s*minmax\(0, 240fr\) minmax\(0, 170fr\) minmax\(0, 180fr\) minmax\(0, 120fr\) minmax\(0, 176fr\);/s,
+    );
     expect(ranking.querySelectorAll(".concept-rank-item")).toHaveLength(20);
     expect(ranking.querySelector(".sector-flat-rank-viewport")).toHaveAttribute("data-visible-rows", "7");
     expect(within(ranking).getAllByText("沸腾").length).toBeGreaterThan(0);

@@ -63,7 +63,7 @@ export function useSectorOverviewController({
 }) {
   const [view, setView] = useState<SectorOverviewView>("INDUSTRY");
   const [tabs, setTabs] = useState<TabState>({
-    industry: { rankMetric: "CHANGE_PCT" },
+    industry: { rankMetric: "CHANGE_PCT_UP" },
     concept: { rankMetric: "HEAT_SCORE" },
     region: { rankMetric: "CHANGE_PCT" },
   });

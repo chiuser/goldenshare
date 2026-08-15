@@ -12,7 +12,8 @@ const RANK_OPTIONS: {
   REGION: Array<[RegionRankMetric, string]>;
 } = {
   INDUSTRY: [
-    ["CHANGE_PCT", "涨跌幅"],
+    ["CHANGE_PCT_UP", "涨幅榜"],
+    ["CHANGE_PCT_DOWN", "跌幅榜"],
     ["MAIN_NET_INFLOW", "主力净流入"],
     ["UP_COUNT", "上涨家数"],
   ],

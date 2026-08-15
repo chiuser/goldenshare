@@ -2,7 +2,7 @@ import { wealthFetch } from "../../../../shared/api/wealthApiClient";
 import type { DataStatus, MarketDirection } from "../../../../shared/model/market";
 
 export type SectorOverviewView = "INDUSTRY" | "CONCEPT" | "REGION";
-export type IndustryRankMetric = "CHANGE_PCT" | "MAIN_NET_INFLOW" | "UP_COUNT";
+export type IndustryRankMetric = "CHANGE_PCT_UP" | "CHANGE_PCT_DOWN" | "MAIN_NET_INFLOW" | "UP_COUNT";
 export type ConceptRankMetric = "HEAT_SCORE" | "HEAT_DELTA_1D" | "CHANGE_PCT" | "MAIN_NET_INFLOW";
 export type RegionRankMetric = "CHANGE_PCT" | "MAIN_NET_INFLOW" | "UP_COUNT";
 export type SectorRankMetric = IndustryRankMetric | ConceptRankMetric | RegionRankMetric;

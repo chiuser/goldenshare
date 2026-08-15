@@ -58,7 +58,7 @@ from .sector_overview_state_query import (
 )
 
 
-IndustryRankMetric = Literal["CHANGE_PCT", "MAIN_NET_INFLOW", "UP_COUNT"]
+IndustryRankMetric = Literal["CHANGE_PCT_UP", "CHANGE_PCT_DOWN", "MAIN_NET_INFLOW", "UP_COUNT"]
 ConceptRankMetric = Literal["HEAT_SCORE", "HEAT_DELTA_1D", "CHANGE_PCT", "MAIN_NET_INFLOW"]
 RegionRankMetric = Literal["CHANGE_PCT", "MAIN_NET_INFLOW", "UP_COUNT"]
 
@@ -350,13 +350,6 @@ class MarketSectorOverviewQueryService:
         )
         mismatched = {code for code, heat in heats_raw.items() if not heat.source_matches_trade_date()}
         heats = {code: heat for code, heat in heats_raw.items() if code not in mismatched}
-        if mismatched:
-            exceptions.append(
-                self._exception_builder.heat_source_mismatch(
-                    message="concept Heat source date does not match the response trade date",
-                    trade_date=trade_date.isoformat(),
-                )
-            )
 
         if rank_metric in {"HEAT_SCORE", "HEAT_DELTA_1D"}:
             candidates = [
@@ -377,8 +370,8 @@ class MarketSectorOverviewQueryService:
                 include_null=False,
             )[:20]
 
-        heat_not_ready = not heats
-        if heat_not_ready:
+        heat_not_published = not heats_raw
+        if heat_not_published:
             exceptions.append(
                 self._exception_builder.heat_not_ready(
                     message="concept Heat is not published for the requested trade date",
@@ -398,10 +391,22 @@ class MarketSectorOverviewQueryService:
                 )
             )
         selected_heat = heats.get(selection.selected_code or "")
-        invalid_heat_codes = sorted(
+        visible_codes = set(ranked_codes)
+        heat_ranking_unavailable = rank_metric in {"HEAT_SCORE", "HEAT_DELTA_1D"} and not ranked_codes
+        relevant_mismatched = sorted(
+            mismatched if heat_ranking_unavailable else visible_codes.intersection(mismatched)
+        )
+        if relevant_mismatched:
+            exceptions.append(
+                self._exception_builder.heat_source_mismatch(
+                    message="visible concept Heat source date does not match the response trade date",
+                    trade_date=trade_date.isoformat(),
+                )
+            )
+        visible_heat_issue_codes = sorted(
             code
-            for code, heat in heats.items()
-            if code in metrics and heat.heat_status == "INVALID"
+            for code in visible_codes
+            if code not in mismatched and (code not in heats or heats[code].heat_status == "INVALID")
         )
         history = (
             self._heat_query.load_history(
@@ -459,15 +464,15 @@ class MarketSectorOverviewQueryService:
                     trade_date=trade_date.isoformat(),
                 )
             )
-        elif invalid_heat_codes:
+        elif visible_heat_issue_codes and not heat_not_published:
             exceptions.append(
                 self._exception_builder.heat_not_ready(
-                    message="one or more concept Heat rows are invalid",
+                    message="one or more visible concept Heat rows are unavailable",
                     trade_date=trade_date.isoformat(),
                 )
             )
         has_rows = bool(metrics)
-        required_codes = set(metrics)
+        required_codes = visible_codes
         missing_daily = self._missing_daily_codes(metrics=metrics, sector_codes=required_codes)
         if missing_daily:
             exceptions.append(self._exception_builder.daily_missing(sector_codes=missing_daily))
@@ -484,9 +489,10 @@ class MarketSectorOverviewQueryService:
         if missing_members:
             exceptions.append(self._exception_builder.member_source_empty(sector_codes=missing_members))
         partial = (
-            bool(mismatched)
-            or heat_not_ready
-            or bool(invalid_heat_codes)
+            bool(relevant_mismatched)
+            or heat_not_published
+            or heat_ranking_unavailable
+            or bool(visible_heat_issue_codes)
             or bool(missing_daily)
             or bool(missing_index)
             or bool(missing_moneyflow)
@@ -685,9 +691,10 @@ class MarketSectorOverviewQueryService:
             for node in nodes
             if self._metric_value(metrics.get(node.sector_code), rank_metric) is not None
         ]
+        key_builder = self._ascending_key if rank_metric == "CHANGE_PCT_DOWN" else self._descending_key
         return sorted(
             eligible_nodes,
-            key=lambda node: self._descending_key(
+            key=lambda node: key_builder(
                 self._metric_value(metrics.get(node.sector_code), rank_metric),
                 node.sector_code,
             ),
@@ -722,7 +729,7 @@ class MarketSectorOverviewQueryService:
         heat: SectorHeatRow | None,
     ) -> MetricValueDto:
         value = self._heat_metric(heat, rank_metric) if rank_metric.startswith("HEAT_") else self._metric_value(metric, rank_metric)
-        if rank_metric == "CHANGE_PCT":
+        if rank_metric in {"CHANGE_PCT", "CHANGE_PCT_UP", "CHANGE_PCT_DOWN"}:
             display = self._format_percent(value)
         elif rank_metric == "MAIN_NET_INFLOW":
             display = self._format_amount_yi(value)
@@ -742,7 +749,7 @@ class MarketSectorOverviewQueryService:
     def _metric_value(metric: SectorMetricRow | None, rank_metric: str) -> Decimal | int | None:
         if metric is None:
             return None
-        if rank_metric == "CHANGE_PCT":
+        if rank_metric in {"CHANGE_PCT", "CHANGE_PCT_UP", "CHANGE_PCT_DOWN"}:
             return metric.change_pct
         if rank_metric == "MAIN_NET_INFLOW":
             return metric.main_net_inflow
@@ -821,6 +828,10 @@ class MarketSectorOverviewQueryService:
     @staticmethod
     def _descending_key(value: Decimal | int | None, code: str) -> tuple[bool, float, str]:
         return value is None, -(float(value) if value is not None else 0.0), code
+
+    @staticmethod
+    def _ascending_key(value: Decimal | int | None, code: str) -> tuple[bool, float, str]:
+        return value is None, float(value) if value is not None else 0.0, code
 
     def _heat_dto(self, heat: SectorHeatRow | None) -> ConceptHeatDto | None:
         if heat is None:
