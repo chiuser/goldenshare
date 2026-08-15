@@ -18,9 +18,9 @@ from orchestrator.defs.paths import (
     gold_stock_daily_qfq_nineturn_path,
 )
 from orchestrator.defs.qfq_nineturn_integrity import (
-    QFQ_NINETURN_INTEGRITY_RULE_NAMES,
     QfqNineturnIntegrityDiagnostics,
     audit_qfq_nineturn_integrity,
+    qfq_nineturn_integrity_rule_names,
     qfq_nineturn_source_paths_for_partition,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
@@ -31,7 +31,23 @@ def _check_result(
     diagnostics: QfqNineturnIntegrityDiagnostics,
     *,
     target_path,
+    freq: int | None,
 ) -> dg.AssetCheckResult:
+    rule_summary = {
+        "rules": list(qfq_nineturn_integrity_rule_names(freq=freq)),
+        "checked_row_count": diagnostics.checked_row_count,
+        "source_row_count": diagnostics.source_row_count,
+        "source_duplicate_key_count": diagnostics.source_duplicate_key_count,
+        "duplicate_key_count": diagnostics.duplicate_key_count,
+        "null_key_count": diagnostics.null_key_count,
+        "invalid_value_count": diagnostics.invalid_value_count,
+        "missing_source_key_count": diagnostics.missing_source_key_count,
+        "extra_output_key_count": diagnostics.extra_output_key_count,
+    }
+    if freq is None:
+        rule_summary["source_value_mismatch_count"] = (
+            diagnostics.source_value_mismatch_count
+        )
     return dg.AssetCheckResult(
         passed=diagnostics.passed,
         metadata=build_check_metadata(
@@ -50,19 +66,7 @@ def _check_result(
                     if diagnostics.passed
                     else "先修复目标文件或同频度 QFQ 上游，再重新运行该九转分区。"
                 ),
-                "rule_summary": {
-                    "rules": list(QFQ_NINETURN_INTEGRITY_RULE_NAMES),
-                    "checked_row_count": diagnostics.checked_row_count,
-                    "source_row_count": diagnostics.source_row_count,
-                    "duplicate_key_count": diagnostics.duplicate_key_count,
-                    "null_key_count": diagnostics.null_key_count,
-                    "invalid_value_count": diagnostics.invalid_value_count,
-                    "missing_source_key_count": diagnostics.missing_source_key_count,
-                    "extra_output_key_count": diagnostics.extra_output_key_count,
-                    "source_value_mismatch_count": (
-                        diagnostics.source_value_mismatch_count
-                    ),
-                },
+                "rule_summary": rule_summary,
                 "failed_rule_names": list(diagnostics.failed_rule_names),
                 "failure_samples": list(diagnostics.failure_samples),
                 "diagnostic_ref": "完整诊断看本 check metadata 和对应 run stdout。",
@@ -99,7 +103,7 @@ def gold_stock_daily_qfq_nineturn_integrity_check(
             partition_key=partition_key,
             freq=None,
         )
-    return _check_result(diagnostics, target_path=target_path)
+    return _check_result(diagnostics, target_path=target_path, freq=None)
 
 
 def _build_minute_check(*, asset, freq: int):
@@ -133,7 +137,7 @@ def _build_minute_check(*, asset, freq: int):
                 partition_key=partition_key,
                 freq=freq,
             )
-        return _check_result(diagnostics, target_path=target_path)
+        return _check_result(diagnostics, target_path=target_path, freq=freq)
 
     return _check
 

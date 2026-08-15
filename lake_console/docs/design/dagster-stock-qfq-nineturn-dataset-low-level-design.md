@@ -1,6 +1,6 @@
 # 股票前复权九转资产族低层设计
 
-状态：P0 至 P7R 已完成。五个资产历史 Lake、全历史 materialization 与最近 20 日聚合 check 已落地；2026-08-14 已完成 30m/60m/90m/120m 全历史 canonical rebuild、分区事件刷新和上游 bounded 缺口修复，分钟九转历史已与当前 QFQ 对齐。
+状态：P0 至 P7R、分钟去价格专项 S0 至 S5 均已完成。2026-08-15 四个分钟资产的 12,272 个正式分区已全量切换为八列无价格 schema，并完成 12,272 条 materialization、80 条最近窗口 check、Reader/readiness 和分钟 sensor 恢复；日线九转完全不变。2026-08-14 的旧九列 canonical rebuild 仅保留为历史执行记录，不再代表当前正式合同。
 
 上位方案：
 [`dagster-stock-qfq-nineturn-dataset-plan.md`](./dagster-stock-qfq-nineturn-dataset-plan.md)
@@ -186,7 +186,6 @@ GOLD_STK_MINS_QFQ_NINETURN_SCHEMA = (
     ColumnContract("freq", "INTEGER", "分钟频度，30、60、90 或 120"),
     ColumnContract("trade_date", "DATE", "交易日"),
     ColumnContract("trade_time", "TIMESTAMP", "分钟 bar 时间"),
-    ColumnContract("close_qfq", "DOUBLE", "九转使用的前复权收盘价"),
     ColumnContract("up_count", "INTEGER", "连续上九转计数"),
     ColumnContract("down_count", "INTEGER", "连续下九转计数"),
     ColumnContract("nine_up_turn", "VARCHAR", "上九转信号，+9 或空"),
@@ -201,7 +200,7 @@ daily:  (ts_code, trade_date)
 minute: (ts_code, freq, trade_time)
 ```
 
-`trade_date` 必须等于 partition key；分钟文件内 `freq` 必须等于 asset 频度。
+`trade_date` 必须等于 partition key；分钟文件内 `freq` 必须等于 asset 频度。分钟最终正式 schema 精确为上述八列，不保存任何价格或量额字段；公式仍读取同频 `gold_stk_mins_qfq.close` 并在内部使用 `close_value`。日线仍保留 `close_qfq`。跨年度 compact context sidecar 可临时保存最近四根价格，但只能位于正式 staging，不能进入 candidate/final 文件或业务 Reader。
 
 ## 6. Path Helpers
 
@@ -400,7 +399,7 @@ qfq_nineturn_completed
 
 ## 9. 聚合 Blocking Check
 
-`qfq_nineturn_checks.py` 为每个资产创建一个 check，内部 rule 名固定：
+`qfq_nineturn_checks.py` 为每个资产创建一个 check。分钟内部 rule 名固定为：
 
 ```text
 file_contract
@@ -408,6 +407,12 @@ partition_alignment
 key_integrity
 value_domain
 source_key_coverage
+```
+
+日线在上述五条之外继续包含：
+
+```text
+source_value_consistency
 ```
 
 检查模型：
@@ -419,10 +424,12 @@ class QfqNineturnIntegrityDiagnostics:
     checked_row_count: int
     source_row_count: int
     duplicate_key_count: int
+    source_duplicate_key_count: int
     null_key_count: int
     invalid_value_count: int
     missing_source_key_count: int
     extra_output_key_count: int
+    source_value_mismatch_count: int  # 仅日线使用，分钟不执行源值比较
     failed_rule_names: tuple[str, ...]
     failure_samples: tuple[dict[str, object], ...]
 ```
@@ -437,7 +444,7 @@ failed_rule_names  # 转成 list，不能传 tuple
 diagnostic_ref
 ```
 
-Check 禁止 import 或调用九转 select/calculation helper。静态门禁扫描 `qfq_nineturn_checks.py`，禁止出现 `LAG(close`、`segment_id`、`QFQ_NINETURN_COMPARISON_LAG` 等公式实现。
+Check 禁止 import 或调用九转 select/calculation helper。分钟检查精确覆盖文件/schema、分区与时间归属、目标/源键非空唯一、源键覆盖、计数和信号值域；不得读取目标 `close_qfq`、比较源值或重算公式。日线继续检查 `close_qfq > 0` 和逐键 `source_value_consistency`。静态门禁扫描 `qfq_nineturn_checks.py`，禁止出现 `LAG(close`、`segment_id`、`QFQ_NINETURN_COMPARISON_LAG` 等公式实现。
 
 ## 10. Readiness
 
@@ -1083,7 +1090,7 @@ P6D 只优化读取模型，不改变 integrity 语义：
 3. 目标文件 schema、分区/频度、重复键、空键、值域和 source/output 双向 identity coverage 继续调用同一 `audit_qfq_nineturn_integrity(...)`，没有删减或降级 check。
 4. 不新增 Lake 文件、state/readiness asset、数据库表、cache manifest、cursor 字段或 Dagster event。
 
-优化后的正式 Lake 五次独立连接重测为 `4,746.74 / 3,265.10 / 3,530.56 / 3,021.27 / 3,304.18 ms`；最小值 3,021.27 ms，中位数 3,304.18 ms，最大值 4,746.74 ms，均值 3,573.57 ms，五次均低于 10 秒且最近 5 日全部 ready。P6D readiness 性能门禁已通过；两个 sensor 仍未启用，启用和自然触发观察继续作为独立正式操作。
+优化后的正式 Lake 五次独立连接重测为 `4,746.74 / 3,265.10 / 3,530.56 / 3,021.27 / 3,304.18 ms`；最小值 3,021.27 ms，中位数 3,304.18 ms，最大值 4,746.74 ms，均值 3,573.57 ms，五次均低于 10 秒且最近 5 日全部 ready。P6D readiness 性能门禁已通过。这里的“sensor 未启用”是 P6D 当时的历史状态；2026-08-15 正式实例复核显示日线与分钟 sensor 均为持久化 `RUNNING`。日线最近 tick 仍被既有目标聚合 check 阻断；分钟去价格专项完成后，分钟 sensor 最近 tick 已自然评估最近 5 日全部 ready、0 run。周六没有新增交易日，下一交易日新增分区只作为运维观察。
 
 ### 18.11 P7R Canonical Bars 执行前审计与过程阻断
 
@@ -1138,8 +1145,7 @@ P7R 已于 2026-08-14 完成，不再处于“bounded 上游修复执行中”�
 6. 所有 candidate audit 单次低于 5 分钟，构建峰值 RSS 低于 20GiB。普通九转
    asset/check/job/sensor、公式版本、分区定义和日常 run key 均未改变。
 
-P7R-A/B/C 已完成；P7R-D 的代码门禁已落地。后续只剩恢复服务后的自然交易日观察，不再需要
-再次执行历史 rebuild 或 event backfill。
+P7R-A/B/C 已完成；P7R-D 的代码门禁已落地。以上只记录 2026-08-14 旧九列 schema 的历史执行结果：它证明 canonical bar 对齐和公式结果，但不再证明当前最终字段合同。2026-08-15 去价格专项随后已独立完成 S2～S5，包括八列 candidate、正式原子替换和四个分钟资产的 event refresh；当前结果见第 21 节。
 
 ## 19. 建议验证命令
 
@@ -1165,7 +1171,7 @@ uv run python -m unittest \
 git diff --check
 ```
 
-Lake 写入、runless event 和 sensor 启用均属于 P6，需后续分别批准。
+本段命令与审批描述记录原 P6 历史边界。当前去价格迁移以 S0～S5 为唯一执行顺序；S2 仍只读，S3/S4/S5 只能在前一阶段退出条件通过后依次进入。
 
 ## 20. 实施顺序
 
@@ -1176,14 +1182,29 @@ Lake 写入、runless event 和 sensor 启用均属于 P6，需后续分别批�
 5. P4 bootstrap/rebuild/events 工具。已完成代码与本地临时环境验证。
 6. P5 本地全量测试、`dg check defs` 与正式只读 preflight。已完成。
 7. P6A 正式源只读复核和 `/private/tmp` 年度样本。已完成。
-8. P6B 经批准的历史 Lake 写入和聚合文件审计。
-9. P6C 经批准的 runless events。
-10. P6D readiness 性能收口已完成；经批准的日常 sensor 启用与自然触发观察仍待执行。
+8. P6B 经批准的历史 Lake 写入和聚合文件审计。已完成。
+9. P6C 经批准的 runless events。已完成。
+10. P6D readiness 性能收口、日常 sensor 启用与最近窗口自然评估已完成；下一交易日新增分区继续作为运维观察。
 11. P7R-A canonical rebuild candidate/plan/promote 能力开发和临时 Lake 测试。已完成。
 12. P7R-B 停止相关 writer，冻结 frontier，按 30m/60m/90m/120m 完成正式全历史重建和
     每次小于 5 分钟的统计/抽样审计。已完成。
 13. P7R-C 全历史 materialization refresh、最近 20 日 latest-bound check refresh 和 partition
     归属验收。已完成。
-14. P7R-D 下游覆盖静态门禁已落地；恢复分钟九转 sensor 后完成自然日观察。
+14. P7R-D 下游覆盖静态门禁、分钟九转 sensor 恢复和最近窗口自然评估已完成；下一交易日新增分区继续作为运维观察。
+15. S0 去价格文档与合同冻结。已完成。
+16. S1 四个分钟资产、check、Reader 与历史工具改为八列无价格合同；日线无漂移。已完成，Definitions、102 个 Orchestrator 专项用例、24 个 Foundation/API 用例与专项静态门禁通过。canonical plan/build/audit 专用 DuckDB 固定 2GB/1线程、按年度释放连接，并以 16GiB 进程真实峰值 RSS 自动 fail closed；首次 4GB/2线程 S2 计划实测约 6.40GiB，后续 2GB/1线程试跑降至约 4.42GiB，两份试跑计划均因合同继续修订而作废。
+17. S2 重新生成正式只读计划，冻结 ready 范围、文件/行数/空间、批次、内存、指纹与事件上限。已完成。
+18. S3 停止分钟 sensor/Reader，在 `/Volumes/datasource/data_lake_staging` 生成并审计 candidate，通过后逐文件原子替换正式分钟九转文件。已完成。
+19. S4 只刷新四个分钟资产全部 materialization 和每资产最近 20 日 check，日线事件不变。已完成。
+20. S5 恢复分钟 sensor/Reader，完成 latest state、readiness、API、性能/内存与自然评估。已完成；2026-08-15 为周六，下一交易日新增分区继续作为运维观察项。
 
 每一阶段只在前一阶段验收全绿后进入；P0 性能门禁不通过时不得靠增加 timeout 继续。
+
+## 21. 2026-08-15 正式执行结果
+
+1. S2 正式计划 hash 为 `01d63b246a602f7c0b511beee19695bb85d07159c1ad815d5573c31e68d03757`，历史 fingerprint 为 `5112fcc3656a9ea1a0d58294eba9f4adae54ba198b20a5a831f595db1dd93533`。范围为 2014-01-02～2026-08-14，共 3,068 个交易日、52 个年度批次、12,272 个目标文件、211,583 个源文件和 197,753,897 行。
+2. S3 按 30/60/90/120 顺序生成并审计四频 candidate；行数分别为 93,044,536、46,531,692、34,898,769、23,278,900。四份 candidate manifest 均 `ready=true`，失败批次为 0；12,268 个旧目标 preimage 未变化，4 个新目标为空位后才开始提升。逐文件 `os.replace()` 后，正式文件缺失、hash 不一致和 candidate 残留均为 0；最终聚合审计的 schema、重复键、空键、分区、频度与值域失败均为 0。
+3. candidate build/audit 使用 DuckDB 2GB/1线程并按年度释放连接。候选阶段单进程峰值不高于 5.74GB；提升前总门禁峰值 10.61GB，均低于 16GiB 硬门禁。正式聚合审计峰值 4.84GB。
+4. S4 事件计划 fingerprint 为 `2140016f3d4e29384bb78dfd01838c389a5907e132059fa3e30d22dd9affa7f5`。工具新增显式 asset selection 并进入计划/物理指纹，正式计划只含四个分钟资产：12,272 条 materialization、80 条最近 20 日 check，日线候选 0。实际写入数量一致，post-plan 候选为 0；没有删除历史 event 或创建 Dagster run。
+5. S5 对 `000001.SZ` 四频各执行 10 次正式 Reader，全部逐根匹配且返回字段无价格；观测 P95 为 150/32/29/25ms。最近 5 日 readiness 检查 20/20 文件、470,832 行，失败行 0，耗时 2.11 秒。Orchestrator 专项 61 项和 16 个子测试、Foundation/API 32 项通过，Definitions 加载成功。
+6. reload `orchestrator` code location 后，只恢复正式 `gold_stk_mins_qfq_nineturn_update_job_sensor` origin；当前状态 `RUNNING`，2026-08-15 12:13:01 最近 tick 为 `SKIPPED — 最近 5 个分钟前复权九转分区均已 ready`，run 数 0。周六没有新增交易日，不伪造新分区触发；下一交易日只做自然观察，不改变本次正式数据结论。

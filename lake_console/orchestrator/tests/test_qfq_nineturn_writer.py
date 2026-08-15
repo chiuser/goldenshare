@@ -28,7 +28,6 @@ from orchestrator.defs.run_contracts.qfq_nineturn import (
     normalize_qfq_nineturn_minute_freq,
 )
 
-
 TRADE_DATE = "2026-08-07"
 
 
@@ -55,9 +54,9 @@ def _minute_select_sql(*, freq: int = 60, trade_date: str = TRADE_DATE) -> str:
     SELECT *
     FROM (
       VALUES
-        ('000001.SZ', {freq}::INTEGER, DATE '{trade_date}', TIMESTAMP '{trade_date} 10:30:00', 10.0::DOUBLE, 1::INTEGER, 0::INTEGER, NULL::VARCHAR, NULL::VARCHAR),
-        ('000001.SZ', {freq}::INTEGER, DATE '{trade_date}', TIMESTAMP '{trade_date} 11:30:00', 11.0::DOUBLE, 2::INTEGER, 0::INTEGER, NULL::VARCHAR, NULL::VARCHAR)
-    ) AS rows(ts_code, freq, trade_date, trade_time, close_qfq, up_count, down_count, nine_up_turn, nine_down_turn)
+        ('000001.SZ', {freq}::INTEGER, DATE '{trade_date}', TIMESTAMP '{trade_date} 10:30:00', 1::INTEGER, 0::INTEGER, NULL::VARCHAR, NULL::VARCHAR),
+        ('000001.SZ', {freq}::INTEGER, DATE '{trade_date}', TIMESTAMP '{trade_date} 11:30:00', 2::INTEGER, 0::INTEGER, NULL::VARCHAR, NULL::VARCHAR)
+    ) AS rows(ts_code, freq, trade_date, trade_time, up_count, down_count, nine_up_turn, nine_down_turn)
     ORDER BY ts_code, trade_time
     """
 
@@ -72,6 +71,21 @@ class QfqNineturnWriterTests(unittest.TestCase):
             GOLD_STK_MINS_QFQ_NINETURN_COLUMNS,
             tuple(column.name for column in GOLD_STK_MINS_QFQ_NINETURN_SCHEMA),
         )
+        self.assertEqual(
+            GOLD_STK_MINS_QFQ_NINETURN_COLUMNS,
+            (
+                "ts_code",
+                "freq",
+                "trade_date",
+                "trade_time",
+                "up_count",
+                "down_count",
+                "nine_up_turn",
+                "nine_down_turn",
+            ),
+        )
+        self.assertIn("close_qfq", GOLD_STOCK_DAILY_QFQ_NINETURN_COLUMNS)
+        self.assertNotIn("close_qfq", GOLD_STK_MINS_QFQ_NINETURN_COLUMNS)
         root = Path("/lake")
         self.assertEqual(
             gold_stock_daily_qfq_nineturn_path(root, TRADE_DATE),
@@ -114,9 +128,8 @@ class QfqNineturnWriterTests(unittest.TestCase):
             QFQ_NINETURN_MINUTE_FREQS,
         )
         for unsupported in (1, 5, 15, 45, "daily"):
-            with self.subTest(unsupported=unsupported):
-                with self.assertRaises(ValueError):
-                    normalize_qfq_nineturn_minute_freq(unsupported)
+            with self.subTest(unsupported=unsupported), self.assertRaises(ValueError):
+                normalize_qfq_nineturn_minute_freq(unsupported)
 
     def test_daily_partition_is_validated_then_promoted(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -161,10 +174,18 @@ class QfqNineturnWriterTests(unittest.TestCase):
                 source_paths=(source_path,),
                 source_row_count=2,
             )
+            with duckdb.connect(database=":memory:") as connection:
+                observed_columns = tuple(
+                    row[0]
+                    for row in connection.execute(
+                        f"DESCRIBE SELECT * FROM {read_parquet(result.target_path, hive_partitioning=False)}"
+                    ).fetchall()
+                )
 
         self.assertEqual(result.output_row_count, 2)
         self.assertEqual(result.stock_code_count, 1)
         self.assertEqual(result.observed_columns, GOLD_STK_MINS_QFQ_NINETURN_COLUMNS)
+        self.assertEqual(observed_columns, GOLD_STK_MINS_QFQ_NINETURN_COLUMNS)
 
     def test_contract_failure_does_not_replace_existing_target(self) -> None:
         invalid_queries = {

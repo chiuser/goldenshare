@@ -5,10 +5,13 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import resource
 import shutil
+import sys
 import time
 import uuid
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -62,19 +65,46 @@ CANONICAL_REBUILD_ASSET_KEYS = tuple(
     f"gold_stk_mins_qfq_nineturn_{freq}m" for freq in CANONICAL_REBUILD_FREQS
 )
 CANONICAL_REBUILD_PLAN_PHASE = "qfq_nineturn_canonical_rebuild_plan"
-CANONICAL_REBUILD_CONTRACT = "qfq_nineturn_canonical_rebuild_v1"
+CANONICAL_REBUILD_CONTRACT = "qfq_nineturn_canonical_rebuild_v2_no_price"
 CANONICAL_REBUILD_STAGING_ROOT = (
     Path(DEFAULT_LAKE_STAGING_ROOT) / "cn_a_minute_gold_p12_nineturn"
 )
 CANONICAL_REBUILD_REPORT_ROOT = Path("/private/tmp/cn_a_minute_gold_p12_nineturn")
-CANONICAL_REBUILD_CLOSE_ABS_TOLERANCE = 1e-7
 CANONICAL_REBUILD_MAX_AUDIT_SECONDS = 300.0
-CANONICAL_REBUILD_MAX_RSS_BYTES = 20 * 1024**3
+CANONICAL_REBUILD_DUCKDB_MEMORY_LIMIT = "2GB"
+CANONICAL_REBUILD_DUCKDB_THREADS = 1
+CANONICAL_REBUILD_MAX_RSS_BYTES = 16 * 1024**3
 CANONICAL_REBUILD_MIN_FREE_HEADROOM_BYTES = 20 * 1024**3
 
 
 class QfqNineturnHistoryError(RuntimeError):
     """Raised when a QFQ nine-turn offline history gate fails."""
+
+
+def _process_peak_rss_bytes() -> int:
+    peak = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+    return peak if sys.platform == "darwin" else peak * 1024
+
+
+def _canonical_rss_gate() -> tuple[int, bool]:
+    observed = _process_peak_rss_bytes()
+    return observed, observed > CANONICAL_REBUILD_MAX_RSS_BYTES
+
+
+class _CanonicalDuckDBResource:
+    """Bound memory and threads only for the minute canonical rebuild."""
+
+    def __init__(self, delegate: DuckDBResource) -> None:
+        self._delegate = delegate
+
+    @contextmanager
+    def connect(self) -> Iterator[duckdb.DuckDBPyConnection]:
+        with self._delegate.connect() as connection:
+            connection.execute(
+                f"SET memory_limit = '{CANONICAL_REBUILD_DUCKDB_MEMORY_LIMIT}'"
+            )
+            connection.execute(f"SET threads = {CANONICAL_REBUILD_DUCKDB_THREADS}")
+            yield connection
 
 
 @dataclass(frozen=True, slots=True)
@@ -416,6 +446,26 @@ def load_qfq_nineturn_history_plan(
     return plan
 
 
+def _write_history_progress(
+    *,
+    output_dir: Path,
+    run_id: str,
+    plan: QfqNineturnHistoryPlan,
+    index: int,
+    result: QfqNineturnHistoryBatchResult,
+) -> None:
+    _write_json(
+        output_dir / f"qfq_nineturn_history_progress_{index:03d}.json",
+        {
+            "run_id": run_id,
+            "plan_fingerprint": plan.plan_fingerprint,
+            "batch_index": index,
+            "batch_count": len(plan.batches),
+            "batch_result": result.to_dict(),
+        },
+    )
+
+
 def build_qfq_nineturn_history(
     *,
     plan: QfqNineturnHistoryPlan,
@@ -424,6 +474,7 @@ def build_qfq_nineturn_history(
     staging_root: Path = Path(DEFAULT_LAKE_STAGING_ROOT),
     target_lake_root: Path | None = None,
     output_dir: Path = Path("/private/tmp"),
+    release_connection_per_batch: bool = False,
 ) -> QfqNineturnHistoryBuildReport:
     """Apply a fresh history plan using annual set-based batches."""
 
@@ -464,31 +515,52 @@ def build_qfq_nineturn_history(
     state_by_asset: dict[str, tuple[Path | None, Path | None]] = {}
     final_audit: dict[str, object] | None = None
     try:
-        with duckdb_resource.connect() as connection:
+        if release_connection_per_batch:
             for index, batch in enumerate(plan.batches, start=1):
                 context_path, seed_path = state_by_asset.get(
                     batch.asset_key, (None, None)
                 )
-                result, next_context, next_seed = _build_history_batch(
-                    connection,
-                    target_lake_root=normalized_target_lake_root,
-                    staging_root=staging_root,
-                    batch=batch,
-                    context_path=context_path,
-                    seed_path=seed_path,
-                )
+                with duckdb_resource.connect() as connection:
+                    result, next_context, next_seed = _build_history_batch(
+                        connection,
+                        target_lake_root=normalized_target_lake_root,
+                        staging_root=staging_root,
+                        batch=batch,
+                        context_path=context_path,
+                        seed_path=seed_path,
+                    )
                 results.append(result)
                 state_by_asset[batch.asset_key] = (next_context, next_seed)
-                _write_json(
-                    output_dir / f"qfq_nineturn_history_progress_{index:03d}.json",
-                    {
-                        "run_id": run_id,
-                        "plan_fingerprint": plan.plan_fingerprint,
-                        "batch_index": index,
-                        "batch_count": len(plan.batches),
-                        "batch_result": result.to_dict(),
-                    },
+                _write_history_progress(
+                    output_dir=output_dir,
+                    run_id=run_id,
+                    plan=plan,
+                    index=index,
+                    result=result,
                 )
+        else:
+            with duckdb_resource.connect() as connection:
+                for index, batch in enumerate(plan.batches, start=1):
+                    context_path, seed_path = state_by_asset.get(
+                        batch.asset_key, (None, None)
+                    )
+                    result, next_context, next_seed = _build_history_batch(
+                        connection,
+                        target_lake_root=normalized_target_lake_root,
+                        staging_root=staging_root,
+                        batch=batch,
+                        context_path=context_path,
+                        seed_path=seed_path,
+                    )
+                    results.append(result)
+                    state_by_asset[batch.asset_key] = (next_context, next_seed)
+                    _write_history_progress(
+                        output_dir=output_dir,
+                        run_id=run_id,
+                        plan=plan,
+                        index=index,
+                        result=result,
+                    )
         final_audit = audit_qfq_nineturn_history(
             plan=plan,
             duckdb_resource=duckdb_resource,
@@ -556,9 +628,13 @@ def audit_qfq_nineturn_history(
                 for path in existing
                 if not _schema_matches(connection, path, spec.schema)
             )
-            duplicate_count, null_count, wrong_date_count, wrong_freq_count = (
-                _target_contract_counts(connection, existing, spec)
-            )
+            (
+                duplicate_count,
+                null_count,
+                wrong_date_count,
+                wrong_freq_count,
+                invalid_value_count,
+            ) = _target_contract_counts(connection, existing, spec)
             source_rows = sum(batch.source_row_count for batch in batches)
             if missing:
                 stop_reasons.append(f"{spec.asset_key}:missing_target_files")
@@ -566,7 +642,13 @@ def audit_qfq_nineturn_history(
                 stop_reasons.append(f"{spec.asset_key}:row_count_mismatch")
             if schema_failed:
                 stop_reasons.append(f"{spec.asset_key}:schema_mismatch")
-            if duplicate_count or null_count or wrong_date_count or wrong_freq_count:
+            if (
+                duplicate_count
+                or null_count
+                or wrong_date_count
+                or wrong_freq_count
+                or invalid_value_count
+            ):
                 stop_reasons.append(f"{spec.asset_key}:target_contract_failed")
             asset_reports.append(
                 {
@@ -584,6 +666,7 @@ def audit_qfq_nineturn_history(
                     "null_key_count": null_count,
                     "partition_date_mismatch_count": wrong_date_count,
                     "freq_mismatch_count": wrong_freq_count,
+                    "invalid_value_count": invalid_value_count,
                 }
             )
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -620,9 +703,10 @@ def plan_qfq_nineturn_canonical_rebuild(
         lake_root=normalized_lake_root,
         staging_root=normalized_staging_root,
     )
+    bounded_resource = _CanonicalDuckDBResource(duckdb_resource)
     history_plan = plan_qfq_nineturn_history(
         lake_root=normalized_lake_root,
-        duckdb_resource=duckdb_resource,
+        duckdb_resource=bounded_resource,
         asset_keys=CANONICAL_REBUILD_ASSET_KEYS,
         output_dir=Path(report_root),
     )
@@ -684,6 +768,8 @@ def plan_qfq_nineturn_canonical_rebuild(
     required_free_bytes = (
         2 * estimated_candidate_bytes + CANONICAL_REBUILD_MIN_FREE_HEADROOM_BYTES
     )
+    observed_peak_rss_bytes, rss_limit_exceeded = _canonical_rss_gate()
+    insufficient_space = free_bytes < required_free_bytes
     report = {
         **hash_payload,
         "phase": CANONICAL_REBUILD_PLAN_PHASE,
@@ -706,11 +792,17 @@ def plan_qfq_nineturn_canonical_rebuild(
             normalized_lake_root.stat().st_dev == normalized_staging_root.stat().st_dev
         ),
         "max_rss_bytes": CANONICAL_REBUILD_MAX_RSS_BYTES,
+        "observed_peak_rss_bytes": observed_peak_rss_bytes,
+        "rss_limit_exceeded": rss_limit_exceeded,
+        "duckdb_memory_limit": CANONICAL_REBUILD_DUCKDB_MEMORY_LIMIT,
+        "duckdb_threads": CANONICAL_REBUILD_DUCKDB_THREADS,
         "max_audit_seconds": CANONICAL_REBUILD_MAX_AUDIT_SECONDS,
-        "should_stop": free_bytes < required_free_bytes,
+        "should_stop": insufficient_space or rss_limit_exceeded,
         "stop_reason_code": (
             "insufficient_staging_space"
-            if free_bytes < required_free_bytes
+            if insufficient_space
+            else "rss_limit_exceeded"
+            if rss_limit_exceeded
             else None
         ),
         "elapsed_seconds": round(time.perf_counter() - started, 3),
@@ -746,11 +838,12 @@ def build_qfq_nineturn_canonical_candidates(
     started = time.perf_counter()
     plan = _load_canonical_rebuild_plan(plan_path, expected_plan_hash)
     normalized_freq = _normalize_canonical_rebuild_freq(freq)
-    _assert_canonical_plan_unchanged(plan, duckdb_resource=duckdb_resource)
+    bounded_resource = _CanonicalDuckDBResource(duckdb_resource)
+    _assert_canonical_plan_unchanged(plan, duckdb_resource=bounded_resource)
     asset_key = f"gold_stk_mins_qfq_nineturn_{normalized_freq}m"
     history_plan = plan_qfq_nineturn_history(
         lake_root=Path(str(plan["lake_root"])),
-        duckdb_resource=duckdb_resource,
+        duckdb_resource=bounded_resource,
         asset_keys=(asset_key,),
         output_dir=Path(str(plan["phase_root"])),
     )
@@ -777,12 +870,14 @@ def build_qfq_nineturn_canonical_candidates(
     report = build_qfq_nineturn_history(
         plan=history_plan,
         expected_plan_fingerprint=history_plan.plan_fingerprint,
-        duckdb_resource=duckdb_resource,
+        duckdb_resource=bounded_resource,
         staging_root=history_staging_root,
         target_lake_root=candidate_root,
         output_dir=Path(str(plan["phase_root"])),
+        release_connection_per_batch=True,
     )
     elapsed_seconds = time.perf_counter() - started
+    observed_peak_rss_bytes, rss_limit_exceeded = _canonical_rss_gate()
     result = {
         "report_type": "qfq_nineturn_canonical_candidate_build",
         "plan_hash": expected_plan_hash,
@@ -794,12 +889,13 @@ def build_qfq_nineturn_canonical_candidates(
         "reused_candidate_file_count": sum(
             item.reused_file_count for item in report.batch_results
         ),
-        "output_row_count": sum(
-            item.output_row_count for item in report.batch_results
-        ),
+        "output_row_count": sum(item.output_row_count for item in report.batch_results),
         "elapsed_seconds": round(elapsed_seconds, 3),
+        "max_rss_bytes": CANONICAL_REBUILD_MAX_RSS_BYTES,
+        "observed_peak_rss_bytes": observed_peak_rss_bytes,
+        "rss_limit_exceeded": rss_limit_exceeded,
         "formal_lake_write_count": 0,
-        "should_stop": False,
+        "should_stop": rss_limit_exceeded,
     }
     _write_canonical_report(plan, f"candidate_build_freq_{normalized_freq}", result)
     return result
@@ -817,7 +913,8 @@ def audit_qfq_nineturn_canonical_candidates(
     started = time.perf_counter()
     plan = _load_canonical_rebuild_plan(plan_path, expected_plan_hash)
     normalized_freq = _normalize_canonical_rebuild_freq(freq)
-    _assert_canonical_plan_unchanged(plan, duckdb_resource=duckdb_resource)
+    bounded_resource = _CanonicalDuckDBResource(duckdb_resource)
+    _assert_canonical_plan_unchanged(plan, duckdb_resource=bounded_resource)
     history_plan = load_qfq_nineturn_history_plan(Path(str(plan["history_plan_path"])))
     asset_key = f"gold_stk_mins_qfq_nineturn_{normalized_freq}m"
     candidate_root = Path(str(plan["candidate_lake_root"]))
@@ -846,7 +943,7 @@ def audit_qfq_nineturn_canonical_candidates(
         audit = _audit_canonical_minute_batch(
             batch=batch,
             candidate_root=candidate_root,
-            duckdb_resource=duckdb_resource,
+            duckdb_resource=bounded_resource,
         )
         elapsed = time.perf_counter() - batch_started
         if elapsed > CANONICAL_REBUILD_MAX_AUDIT_SECONDS:
@@ -877,10 +974,9 @@ def audit_qfq_nineturn_canonical_candidates(
             "files": list(manifest_entries),
         },
     )
-    failed_batches = tuple(
-        item for item in batch_audits if item["ready"] is not True
-    )
+    failed_batches = tuple(item for item in batch_audits if item["ready"] is not True)
     elapsed_seconds = time.perf_counter() - started
+    observed_peak_rss_bytes, rss_limit_exceeded = _canonical_rss_gate()
     report = {
         "report_type": "qfq_nineturn_canonical_candidate_audit",
         "plan_hash": expected_plan_hash,
@@ -897,8 +993,11 @@ def audit_qfq_nineturn_canonical_candidates(
         ),
         "batch_audits": batch_audits,
         "failed_batch_count": len(failed_batches),
-        "ready": not failed_batches,
-        "should_stop": bool(failed_batches),
+        "max_rss_bytes": CANONICAL_REBUILD_MAX_RSS_BYTES,
+        "observed_peak_rss_bytes": observed_peak_rss_bytes,
+        "rss_limit_exceeded": rss_limit_exceeded,
+        "ready": not failed_batches and not rss_limit_exceeded,
+        "should_stop": bool(failed_batches) or rss_limit_exceeded,
         "elapsed_seconds": round(elapsed_seconds, 3),
     }
     report_path = Path(str(plan["phase_root"])) / (
@@ -1051,7 +1150,7 @@ def audit_qfq_nineturn_canonical_formal(
         )
         aggregate = audit_qfq_nineturn_history(
             plan=history_plan,
-            duckdb_resource=duckdb_resource,
+            duckdb_resource=_CanonicalDuckDBResource(duckdb_resource),
             target_lake_root=Path(str(plan["lake_root"])),
             output_dir=Path(str(plan["phase_root"])),
         )
@@ -2038,9 +2137,13 @@ def _assert_partition_contract(
 ) -> None:
     if not _schema_matches(connection, path, spec.schema):
         raise QfqNineturnHistoryError(f"Staged schema mismatch: {path}.")
-    duplicate_count, null_count, wrong_date_count, wrong_freq_count = (
-        _target_contract_counts(connection, (path,), spec, expected_date=trade_date)
-    )
+    (
+        duplicate_count,
+        null_count,
+        wrong_date_count,
+        wrong_freq_count,
+        invalid_value_count,
+    ) = _target_contract_counts(connection, (path,), spec, expected_date=trade_date)
     row_count = _count_rows(connection, (path,))
     if (
         row_count <= 0
@@ -2048,11 +2151,13 @@ def _assert_partition_contract(
         or null_count
         or wrong_date_count
         or wrong_freq_count
+        or invalid_value_count
     ):
         raise QfqNineturnHistoryError(
             "Staged partition contract failed: "
             f"path={path}, rows={row_count}, duplicate={duplicate_count}, "
             f"null={null_count}, date={wrong_date_count}, freq={wrong_freq_count}."
+            f" invalid_value={invalid_value_count}."
         )
 
 
@@ -2093,9 +2198,9 @@ def _target_contract_counts(
     spec: _AssetSpec,
     *,
     expected_date: str | None = None,
-) -> tuple[int, int, int, int]:
+) -> tuple[int, int, int, int, int]:
     if not paths:
-        return 0, 0, 0, 0
+        return 0, 0, 0, 0, 0
     source = _read_paths(paths)
     key_columns = (
         "ts_code, trade_date" if spec.freq is None else "ts_code, freq, trade_time"
@@ -2113,29 +2218,53 @@ def _target_contract_counts(
             """
         ).fetchone()[0]
     )
-    date_predicate = (
-        f"CAST(trade_date AS DATE) != DATE {duckdb_string(expected_date)}"
-        if expected_date is not None
-        else "false"
-    )
+    if expected_date is not None:
+        date_predicate = (
+            f"CAST(trade_date AS DATE) != DATE {duckdb_string(expected_date)}"
+        )
+        if spec.freq is not None:
+            date_predicate += (
+                f" OR CAST(trade_time AS DATE) != DATE {duckdb_string(expected_date)}"
+            )
+    else:
+        date_predicate = (
+            "CAST(trade_time AS DATE) != CAST(trade_date AS DATE)"
+            if spec.freq is not None
+            else "false"
+        )
     null_predicate = (
-        "ts_code IS NULL OR trade_date IS NULL OR trade_time IS NULL OR close_qfq IS NULL"
+        "ts_code IS NULL OR trade_date IS NULL OR trade_time IS NULL"
         if spec.freq is not None
         else "ts_code IS NULL OR trade_date IS NULL OR close_qfq IS NULL"
     )
     wrong_freq_predicate = (
         f"CAST(freq AS INTEGER) != {spec.freq}" if spec.freq is not None else "false"
     )
+    price_value_predicate = (
+        "close_qfq IS NULL OR NOT isfinite(close_qfq) OR close_qfq <= 0 OR "
+        if spec.freq is None
+        else ""
+    )
     row = connection.execute(
         f"""
         SELECT
           count(*) FILTER (WHERE {null_predicate}),
           count(*) FILTER (WHERE {date_predicate}),
-          count(*) FILTER (WHERE {wrong_freq_predicate})
+          count(*) FILTER (WHERE {wrong_freq_predicate}),
+          count(*) FILTER (
+            WHERE {price_value_predicate}up_count IS NULL OR down_count IS NULL
+              OR up_count < 0 OR down_count < 0
+              OR (up_count > 0 AND down_count > 0)
+              OR (nine_up_turn IS NOT NULL AND nine_up_turn != '+9')
+              OR (nine_down_turn IS NOT NULL AND nine_down_turn != '-9')
+              OR (nine_up_turn = '+9' AND up_count < 9)
+              OR (nine_down_turn = '-9' AND down_count < 9)
+              OR (nine_up_turn IS NOT NULL AND nine_down_turn IS NOT NULL)
+          )
         FROM {source}
         """
     ).fetchone()
-    return duplicate_count, int(row[0]), int(row[1]), int(row[2])
+    return duplicate_count, int(row[0]), int(row[1]), int(row[2]), int(row[3])
 
 
 def _schema_matches(
@@ -2574,16 +2703,28 @@ def _canonical_code_contract_paths() -> tuple[Path, ...]:
     root = Path(__file__).resolve().parents[6]
     return (
         Path(__file__).resolve(),
+        root / "lake_console/orchestrator/src/orchestrator/defs/qfq_nineturn.py",
         root
-        / "lake_console/orchestrator/src/orchestrator/defs/qfq_nineturn.py",
+        / "lake_console/orchestrator/src/orchestrator/defs/qfq_nineturn_integrity.py",
+        root
+        / "lake_console/orchestrator/src/orchestrator/defs/checks/qfq_nineturn_checks.py",
+        root
+        / "lake_console/orchestrator/src/orchestrator/defs/bootstrap/qfq_nineturn_events.py",
         root
         / "lake_console/orchestrator/src/orchestrator/defs/run_contracts/qfq_nineturn.py",
         root
         / "lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py",
+        root / "src/foundation/clients/local_lake/stock_nine_turn_contract.py",
+        root / "src/foundation/clients/local_lake/stock_nine_turn_reader.py",
         root
         / "lake_console/docs/design/dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md",
         root
         / "lake_console/docs/design/dagster-stock-qfq-nineturn-dataset-low-level-design.md",
+        root / "lake_console/docs/design/dagster-stock-qfq-nineturn-dataset-plan.md",
+        root
+        / "wealth/docs/system/detail-page-nine-turn-integration-low-level-design-v1.md",
+        root
+        / "wealth/docs/system/detail-page-nine-turn-integration-implementation-design-v1.md",
     )
 
 
@@ -2677,7 +2818,10 @@ def _audit_canonical_minute_batch(
                 CAST(freq AS INTEGER) AS freq,
                 CAST(trade_date AS DATE) AS trade_date,
                 CAST(trade_time AS TIMESTAMP) AS trade_time,
-                CAST(close_qfq AS DOUBLE) AS close_qfq
+                CAST(up_count AS INTEGER) AS up_count,
+                CAST(down_count AS INTEGER) AS down_count,
+                CAST(nine_up_turn AS VARCHAR) AS nine_up_turn,
+                CAST(nine_down_turn AS VARCHAR) AS nine_down_turn
               FROM {candidate}
             ),
             missing_keys AS (
@@ -2693,14 +2837,34 @@ def _audit_canonical_minute_batch(
             SELECT
               (SELECT count(*) FROM source_rows),
               (SELECT count(*) FROM candidate_rows),
+              (
+                SELECT count(*) - count(DISTINCT (ts_code, freq, trade_time))
+                FROM source_rows
+              ),
+              (
+                SELECT count(*) - count(DISTINCT (ts_code, freq, trade_time))
+                FROM candidate_rows
+              ),
               (SELECT count(*) FROM missing_keys),
               (SELECT count(*) FROM extra_keys),
               (
-                SELECT count(*)
-                FROM source_rows s
-                JOIN candidate_rows c USING (ts_code, freq, trade_time)
-                WHERE abs(s.close_qfq - c.close_qfq)
-                      > {CANONICAL_REBUILD_CLOSE_ABS_TOLERANCE}
+                SELECT count(*) FROM candidate_rows
+                WHERE trade_date != CAST(trade_time AS DATE)
+                   OR year(trade_date) != {batch.year}
+                   OR freq != {spec.freq}
+              ),
+              (
+                SELECT count(*) FROM candidate_rows
+                WHERE ts_code IS NULL OR trim(ts_code) = ''
+                   OR freq IS NULL OR trade_date IS NULL OR trade_time IS NULL
+                   OR up_count IS NULL OR down_count IS NULL
+                   OR up_count < 0 OR down_count < 0
+                   OR (up_count > 0 AND down_count > 0)
+                   OR (nine_up_turn IS NOT NULL AND nine_up_turn != '+9')
+                   OR (nine_down_turn IS NOT NULL AND nine_down_turn != '-9')
+                   OR (nine_up_turn = '+9' AND up_count < 9)
+                   OR (nine_down_turn = '-9' AND down_count < 9)
+                   OR (nine_up_turn IS NOT NULL AND nine_down_turn IS NOT NULL)
               ),
               (
                 SELECT count(*) FROM candidate_rows
@@ -2714,16 +2878,22 @@ def _audit_canonical_minute_batch(
         ).fetchone()
     source_rows = int(counts[0])
     candidate_rows = int(counts[1])
-    missing_keys = int(counts[2])
-    extra_keys = int(counts[3])
-    close_mismatches = int(counts[4])
-    at_0930 = int(counts[5])
-    after_1500 = int(counts[6])
+    source_duplicates = int(counts[2])
+    candidate_duplicates = int(counts[3])
+    missing_keys = int(counts[4])
+    extra_keys = int(counts[5])
+    partition_mismatches = int(counts[6])
+    invalid_values = int(counts[7])
+    at_0930 = int(counts[8])
+    after_1500 = int(counts[9])
     ready = (
         source_rows == candidate_rows
+        and source_duplicates == 0
+        and candidate_duplicates == 0
         and missing_keys == 0
         and extra_keys == 0
-        and close_mismatches == 0
+        and partition_mismatches == 0
+        and invalid_values == 0
         and at_0930 == 0
         and after_1500 == 0
     )
@@ -2733,9 +2903,12 @@ def _audit_canonical_minute_batch(
         "year": batch.year,
         "source_row_count": source_rows,
         "candidate_row_count": candidate_rows,
+        "source_duplicate_key_count": source_duplicates,
+        "candidate_duplicate_key_count": candidate_duplicates,
         "missing_key_count": missing_keys,
         "extra_key_count": extra_keys,
-        "close_mismatch_count": close_mismatches,
+        "partition_mismatch_count": partition_mismatches,
+        "invalid_value_count": invalid_values,
         "at_0930_row_count": at_0930,
         "after_1500_row_count": after_1500,
         "ready": ready,
@@ -2752,13 +2925,12 @@ def _canonical_candidate_manifest_entry(
 ) -> dict[str, Any]:
     candidate_root = Path(str(plan["candidate_lake_root"]))
     lake_root = Path(str(plan["lake_root"]))
-    relative_path = candidate_path.resolve().relative_to(
-        candidate_root.resolve()
-    ).as_posix()
+    relative_path = (
+        candidate_path.resolve().relative_to(candidate_root.resolve()).as_posix()
+    )
     formal_path = lake_root / relative_path
     preimages = {
-        str(entry["relative_path"]): dict(entry)
-        for entry in plan["target_preimages"]
+        str(entry["relative_path"]): dict(entry) for entry in plan["target_preimages"]
     }
     preimage = preimages.get(relative_path)
     if preimage is None:
@@ -2791,9 +2963,8 @@ def _assert_canonical_formal_preimage(entry: Mapping[str, Any]) -> None:
     if not formal.is_file():
         raise QfqNineturnHistoryError(f"Frozen formal target disappeared: {formal}.")
     stat = formal.stat()
-    if (
-        stat.st_size != int(before["size_bytes"])
-        or stat.st_mtime_ns != int(before["mtime_ns"])
+    if stat.st_size != int(before["size_bytes"]) or stat.st_mtime_ns != int(
+        before["mtime_ns"]
     ):
         raise QfqNineturnHistoryError(
             f"Frozen formal target changed after planning: {formal}."

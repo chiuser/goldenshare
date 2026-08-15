@@ -29,6 +29,102 @@ from tests.qfq_nineturn_history_fixture import (
 
 
 class QfqNineturnEventTests(unittest.TestCase):
+    def test_forced_refresh_can_be_scoped_to_minute_assets_only(self) -> None:
+        with TemporaryDirectory() as directory, dg.instance_for_test() as instance:
+            root = Path(directory)
+            dates, history_plan, audit_path = _built_history(root)
+            _register_dates(instance, dates)
+            initial_plan = plan_qfq_nineturn_runless_events(
+                instance=instance,
+                history_plan_path=history_plan.report_path,
+                history_audit_report_path=audit_path,
+                lake_root=root,
+                duckdb_resource=DuckDBResource(),
+                output_dir=root / "reports",
+            )
+            report_qfq_nineturn_runless_events(
+                instance=instance,
+                plan=initial_plan,
+                expected_plan_fingerprint=initial_plan.plan_fingerprint,
+                lake_root=root,
+                duckdb_resource=DuckDBResource(),
+                output_dir=root / "reports",
+            )
+            daily_key = dg.AssetKey("gold_stock_daily_qfq_nineturn")
+            daily_before = instance.fetch_materializations(
+                dg.AssetRecordsFilter(asset_key=daily_key),
+                limit=len(dates),
+            ).records
+            minute_asset_keys = tuple(
+                f"gold_stk_mins_qfq_nineturn_{freq}m" for freq in (30, 60, 90, 120)
+            )
+
+            refresh_plan = plan_qfq_nineturn_runless_events(
+                instance=instance,
+                history_plan_path=history_plan.report_path,
+                history_audit_report_path=audit_path,
+                lake_root=root,
+                duckdb_resource=DuckDBResource(),
+                output_dir=root / "reports",
+                force_materialization_refresh=True,
+                event_revision="minute-no-price-v2-test",
+                asset_keys=minute_asset_keys,
+            )
+
+            self.assertFalse(refresh_plan.should_stop)
+            self.assertEqual(refresh_plan.report["asset_keys"], list(minute_asset_keys))
+            self.assertEqual(
+                refresh_plan.planned_materialization_event_count,
+                len(dates) * 4,
+            )
+            self.assertEqual(refresh_plan.planned_check_event_count, 20 * 4)
+            self.assertNotIn(
+                "gold_stock_daily_qfq_nineturn",
+                {candidate.asset_key for candidate in refresh_plan.candidates},
+            )
+            refresh = report_qfq_nineturn_runless_events(
+                instance=instance,
+                plan=refresh_plan,
+                expected_plan_fingerprint=refresh_plan.plan_fingerprint,
+                lake_root=root,
+                duckdb_resource=DuckDBResource(),
+                output_dir=root / "reports",
+            )
+            self.assertEqual(refresh.materialization_event_count, len(dates) * 4)
+            self.assertEqual(refresh.check_event_count, 20 * 4)
+            daily_after = instance.fetch_materializations(
+                dg.AssetRecordsFilter(asset_key=daily_key),
+                limit=len(dates),
+            ).records
+            self.assertEqual(
+                [record.storage_id for record in daily_after],
+                [record.storage_id for record in daily_before],
+            )
+
+    def test_event_asset_selection_rejects_unknown_and_duplicate_assets(self) -> None:
+        with TemporaryDirectory() as directory, dg.instance_for_test() as instance:
+            root = Path(directory)
+            dates, history_plan, audit_path = _built_history(root)
+            _register_dates(instance, dates)
+            selections = (
+                ("unknown",),
+                ("gold_stk_mins_qfq_nineturn_30m",) * 2,
+            )
+            for asset_keys in selections:
+                with (
+                    self.subTest(asset_keys=asset_keys),
+                    self.assertRaises(QfqNineturnEventError),
+                ):
+                    plan_qfq_nineturn_runless_events(
+                        instance=instance,
+                        history_plan_path=history_plan.report_path,
+                        history_audit_report_path=audit_path,
+                        lake_root=root,
+                        duckdb_resource=DuckDBResource(),
+                        output_dir=root / "reports",
+                        asset_keys=asset_keys,
+                    )
+
     def test_plan_writes_no_events_and_limits_checks_to_recent_twenty(self) -> None:
         with TemporaryDirectory() as directory, dg.instance_for_test() as instance:
             root = Path(directory)
@@ -54,7 +150,9 @@ class QfqNineturnEventTests(unittest.TestCase):
                 )
             )
 
-    def test_report_is_idempotent_and_checks_bind_to_recent_materializations(self) -> None:
+    def test_report_is_idempotent_and_checks_bind_to_recent_materializations(
+        self,
+    ) -> None:
         with TemporaryDirectory() as directory, dg.instance_for_test() as instance:
             root = Path(directory)
             dates, history_plan, audit_path = _built_history(root)
@@ -104,7 +202,9 @@ class QfqNineturnEventTests(unittest.TestCase):
                 set(dates[-20:]),
             )
 
-    def test_forced_refresh_appends_new_materializations_and_latest_checks(self) -> None:
+    def test_forced_refresh_appends_new_materializations_and_latest_checks(
+        self,
+    ) -> None:
         with TemporaryDirectory() as directory, dg.instance_for_test() as instance:
             root = Path(directory)
             dates, history_plan, audit_path = _built_history(root)
@@ -200,7 +300,10 @@ class QfqNineturnEventTests(unittest.TestCase):
             )
             self.assertTrue(plan.should_stop)
             self.assertTrue(
-                any("missing_registered_partitions" in item for item in plan.stop_reasons)
+                any(
+                    "missing_registered_partitions" in item
+                    for item in plan.stop_reasons
+                )
             )
 
     def test_existing_failed_check_bound_to_current_materialization_stops(self) -> None:

@@ -78,7 +78,6 @@ def _write_minute_sources_and_targets(connection, root: Path) -> None:
                     {freq}::INTEGER AS freq,
                     DATE '{trade_date}' AS trade_date,
                     TIMESTAMP '{trade_date} 15:00:00' AS trade_time,
-                    10.0::DOUBLE AS close_qfq,
                     1::INTEGER AS up_count,
                     0::INTEGER AS down_count,
                     NULL::VARCHAR AS nine_up_turn,

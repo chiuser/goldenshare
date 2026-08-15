@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+import time
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 from threading import Lock
-import time
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from src.foundation.clients.local_lake.nine_turn_minute_contract import (
+    decode_nine_turn_minute_cursor,
+    encode_nine_turn_minute_cursor,
+    existing_safe_partition_paths,
+)
 from src.foundation.clients.local_lake.stock_nine_turn_contract import (
     BAR_COLUMN_SPECS,
     FORMAL_LAKE_ROOT,
@@ -20,11 +25,6 @@ from src.foundation.clients.local_lake.stock_nine_turn_contract import (
     SUPPORTED_STOCK_NINE_TURN_FREQS,
     stock_minute_bar_dataset_root,
     stock_minute_nine_turn_dataset_root,
-)
-from src.foundation.clients.local_lake.nine_turn_minute_contract import (
-    decode_nine_turn_minute_cursor,
-    encode_nine_turn_minute_cursor,
-    existing_safe_partition_paths,
 )
 
 
@@ -377,7 +377,7 @@ def _validate_nine_turn_contract(
     invalid_count, duplicate_count = connection.execute(
         """
         WITH source AS (
-          SELECT ts_code, freq, trade_date, trade_time, close_qfq,
+          SELECT ts_code, freq, trade_date, trade_time,
                  up_count, down_count, nine_up_turn, nine_down_turn, filename
           FROM read_parquet(?, filename=true, hive_partitioning=false)
           WHERE ts_code = ?
@@ -391,7 +391,6 @@ def _validate_nine_turn_contract(
                 regexp_extract(filename, 'trade_date=([0-9]{4}-[0-9]{2}-[0-9]{2})', 1)
                 AS DATE
               )
-              OR close_qfq IS NULL OR NOT isfinite(close_qfq) OR close_qfq <= 0
               OR up_count IS NULL OR down_count IS NULL
               OR up_count < 0 OR down_count < 0
               OR (up_count > 0 AND down_count > 0)
@@ -455,13 +454,13 @@ def _query_rows(
         sql = f"""
             WITH bars AS ({bars_cte}),
             nine_turn AS (
-              SELECT ts_code, freq, trade_date, trade_time, close_qfq,
+              SELECT ts_code, freq, trade_date, trade_time,
                      up_count, down_count, nine_up_turn, nine_down_turn
               FROM read_parquet(?, hive_partitioning=false)
               WHERE ts_code = ? AND freq = ?
             )
             SELECT b.ts_code, b.freq, b.trade_date, b.trade_time,
-                   n.close_qfq, n.up_count, n.down_count,
+                   n.up_count, n.down_count,
                    n.nine_up_turn, n.nine_down_turn,
                    n.ts_code IS NOT NULL AS nine_turn_matched
             FROM bars b
@@ -477,8 +476,8 @@ def _query_rows(
         sql = f"""
             WITH bars AS ({bars_cte})
             SELECT ts_code, freq, trade_date, trade_time,
-                   NULL::DOUBLE AS close_qfq, NULL::INTEGER AS up_count,
-                   NULL::INTEGER AS down_count, NULL::VARCHAR AS nine_up_turn,
+                   NULL::INTEGER AS up_count, NULL::INTEGER AS down_count,
+                   NULL::VARCHAR AS nine_up_turn,
                    NULL::VARCHAR AS nine_down_turn, FALSE AS nine_turn_matched
             FROM bars
             ORDER BY trade_date DESC, trade_time DESC

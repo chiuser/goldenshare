@@ -194,7 +194,7 @@ def gold_stock_daily_qfq_nineturn(
             source_row_count=plan.source_row_count,
             fallback_recomputed_code_count=len(plan.fallback_codes),
         )
-    except Exception:  # noqa: BLE001 - preserve the original execution failure.
+    except Exception:
         log.stdout(
             "qfq_nineturn_validation_failed",
             asset="gold_stock_daily_qfq_nineturn",
@@ -259,7 +259,7 @@ def _build_minute_asset(*, freq: int, source_asset):
                 "physical_layout": "freq_trade_date_single_file",
             },
         ),
-        description=f"股票 {freq} 分钟前复权九转指标，按交易日保存收盘价、连续计数和正负九信号，供多周期机会扫描使用。",
+        description=f"股票 {freq} 分钟前复权九转指标，按交易日保存业务键、连续计数和正负九信号，供多周期机会扫描使用。",
     )
     def _asset(
         context: dg.AssetExecutionContext,
@@ -327,7 +327,7 @@ def _build_minute_asset(*, freq: int, source_asset):
                 source_row_count=plan.source_row_count,
                 fallback_recomputed_code_count=len(plan.fallback_codes),
             )
-        except Exception:  # noqa: BLE001 - preserve the original execution failure.
+        except Exception:
             log.stdout(
                 "qfq_nineturn_validation_failed",
                 asset=asset_name,

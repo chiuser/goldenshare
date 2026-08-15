@@ -96,7 +96,9 @@ class QfqNineturnEventPlan:
 
     @property
     def planned_materialization_event_count(self) -> int:
-        return sum(candidate.event_type == "materialization" for candidate in self.candidates)
+        return sum(
+            candidate.event_type == "materialization" for candidate in self.candidates
+        )
 
     @property
     def planned_check_event_count(self) -> int:
@@ -134,6 +136,7 @@ def plan_qfq_nineturn_runless_events(
     output_dir: Path = Path("/private/tmp"),
     force_materialization_refresh: bool = False,
     event_revision: str | None = None,
+    asset_keys: Sequence[str] | None = None,
 ) -> QfqNineturnEventPlan:
     """Build an idempotent event plan without writing Dagster state."""
 
@@ -155,6 +158,7 @@ def plan_qfq_nineturn_runless_events(
 
     output_dir.mkdir(parents=True, exist_ok=True)
     resource = duckdb_resource or DuckDBResource()
+    selected_specs = _asset_specs(asset_keys)
     candidates: list[QfqNineturnEventCandidate] = []
     row_counts: dict[tuple[str, str], int] = {}
     state_fingerprint_rows: list[dict[str, object]] = []
@@ -168,7 +172,7 @@ def plan_qfq_nineturn_runless_events(
     }
 
     with resource.connect() as connection:
-        for spec in _asset_specs():
+        for spec in selected_specs:
             partition_keys = _history_partition_keys(history_plan, spec.asset_key)
             registered = registered_by_partition_set[_partition_set_name(spec)]
             missing_registered = tuple(sorted(set(partition_keys) - registered))
@@ -186,7 +190,9 @@ def plan_qfq_nineturn_runless_events(
             )
             if missing_files:
                 stop_reasons.append(f"{spec.asset_key}:missing_target_files")
-            existing_paths = tuple(path for path in target_paths.values() if path.is_file())
+            existing_paths = tuple(
+                path for path in target_paths.values() if path.is_file()
+            )
             row_counts.update(
                 {
                     (spec.asset_key, partition_key): count
@@ -209,9 +215,7 @@ def plan_qfq_nineturn_runless_events(
                         "asset_key": spec.asset_key,
                         "partition_key": partition_key,
                         "materialization_storage_id": (
-                            int(record.storage_id)
-                            if record is not None
-                            else None
+                            int(record.storage_id) if record is not None else None
                         ),
                     }
                 )
@@ -303,6 +307,7 @@ def plan_qfq_nineturn_runless_events(
     physical_fingerprint = _physical_fingerprint(
         Path(lake_root),
         history_plan=history_plan,
+        specs=selected_specs,
     )
     fingerprint_payload = {
         "schema_version": SCHEMA_VERSION,
@@ -311,6 +316,7 @@ def plan_qfq_nineturn_runless_events(
         "physical_fingerprint": physical_fingerprint,
         "force_materialization_refresh": force_materialization_refresh,
         "event_revision": event_revision,
+        "asset_keys": [spec.asset_key for spec in selected_specs],
         "state": state_fingerprint_rows,
         "candidates": [candidate.to_dict() for candidate in normalized_candidates],
         "stop_reasons": sorted(set(stop_reasons)),
@@ -335,13 +341,13 @@ def plan_qfq_nineturn_runless_events(
         "event_backfill_scope": EVENT_BACKFILL_SCOPE,
         "force_materialization_refresh": force_materialization_refresh,
         "event_revision": event_revision,
+        "asset_keys": [spec.asset_key for spec in selected_specs],
         "planned_materialization_event_count": sum(
             candidate.event_type == "materialization"
             for candidate in normalized_candidates
         ),
         "planned_check_event_count": sum(
-            candidate.event_type == "check"
-            for candidate in normalized_candidates
+            candidate.event_type == "check" for candidate in normalized_candidates
         ),
         "planned_event_count": len(normalized_candidates),
         "candidate_manifest_path": str(manifest_path),
@@ -361,7 +367,7 @@ def plan_qfq_nineturn_runless_events(
         "performance": {
             "history_materialization_partition_count": sum(
                 len(_history_partition_keys(history_plan, spec.asset_key))
-                for spec in _asset_specs()
+                for spec in selected_specs
             ),
             "check_window_per_asset": QFQ_NINETURN_HISTORY_CHECK_WINDOW,
             "elapsed_ms": round((time.perf_counter() - started) * 1000, 2),
@@ -438,7 +444,11 @@ def report_qfq_nineturn_runless_events(
     """Append only the exact events in a fresh reviewed plan."""
 
     if plan.plan_fingerprint != expected_plan_fingerprint:
-        raise QfqNineturnEventError("Explicit event fingerprint does not match the plan.")
+        raise QfqNineturnEventError(
+            "Explicit event fingerprint does not match the plan."
+        )
+    selected_asset_keys = tuple(str(value) for value in plan.report["asset_keys"])
+    selected_specs = _asset_specs(selected_asset_keys)
     fresh_plan = plan_qfq_nineturn_runless_events(
         instance=instance,
         history_plan_path=plan.history_plan_path,
@@ -454,6 +464,7 @@ def report_qfq_nineturn_runless_events(
             if plan.report.get("event_revision") is not None
             else None
         ),
+        asset_keys=selected_asset_keys,
     )
     if (
         fresh_plan.plan_fingerprint != plan.plan_fingerprint
@@ -476,7 +487,7 @@ def report_qfq_nineturn_runless_events(
         for candidate in plan.candidates
     }
     history_plan = load_qfq_nineturn_history_plan(plan.history_plan_path)
-    for spec in _asset_specs():
+    for spec in selected_specs:
         for partition_key in _history_partition_keys(history_plan, spec.asset_key):
             materialization_candidate = candidates_by_partition.get(
                 (spec.asset_key, partition_key, "materialization")
@@ -561,9 +572,7 @@ def report_qfq_nineturn_runless_events(
                             ),
                             "event_revision": plan.report.get("event_revision"),
                             "canonical_rebuild_refresh": bool(
-                                plan.report.get(
-                                    "force_materialization_refresh", False
-                                )
+                                plan.report.get("force_materialization_refresh", False)
                             ),
                         },
                     ),
@@ -581,6 +590,7 @@ def report_qfq_nineturn_runless_events(
         lake_root=lake_root,
         duckdb_resource=duckdb_resource,
         output_dir=output_dir,
+        asset_keys=selected_asset_keys,
     )
     if post_plan.should_stop or post_plan.candidates:
         raise QfqNineturnEventError(
@@ -597,8 +607,10 @@ def report_qfq_nineturn_runless_events(
     )
 
 
-def _asset_specs() -> tuple[_EventAssetSpec, ...]:
-    return (
+def _asset_specs(
+    asset_keys: Sequence[str] | None = None,
+) -> tuple[_EventAssetSpec, ...]:
+    specs = (
         _EventAssetSpec(
             asset_key="gold_stock_daily_qfq_nineturn",
             freq=None,
@@ -619,6 +631,20 @@ def _asset_specs() -> tuple[_EventAssetSpec, ...]:
             for freq in QFQ_NINETURN_MINUTE_FREQS
         ),
     )
+    if asset_keys is None:
+        return specs
+    normalized = tuple(str(value).strip() for value in asset_keys)
+    if not normalized:
+        raise QfqNineturnEventError("Event asset selection must not be empty.")
+    if len(set(normalized)) != len(normalized):
+        raise QfqNineturnEventError("Event asset selection contains duplicates.")
+    by_key = {spec.asset_key: spec for spec in specs}
+    unknown = tuple(value for value in normalized if value not in by_key)
+    if unknown:
+        raise QfqNineturnEventError(
+            f"Event asset selection contains unknown assets: {unknown}."
+        )
+    return tuple(by_key[value] for value in normalized)
 
 
 def _report_partitioned_check_event(
@@ -764,7 +790,9 @@ def _load_history_audit(
     if payload.get("phase") != "qfq_nineturn_history_final_audit":
         raise QfqNineturnEventError("Runless events require a final history audit.")
     if payload.get("plan_fingerprint") != expected_plan_fingerprint:
-        raise QfqNineturnEventError("History audit fingerprint does not match the plan.")
+        raise QfqNineturnEventError(
+            "History audit fingerprint does not match the plan."
+        )
     return payload
 
 
@@ -772,9 +800,10 @@ def _physical_fingerprint(
     lake_root: Path,
     *,
     history_plan: QfqNineturnHistoryPlan,
+    specs: Sequence[_EventAssetSpec],
 ) -> str:
     digest = hashlib.sha256()
-    for spec in _asset_specs():
+    for spec in specs:
         for partition_key in _history_partition_keys(history_plan, spec.asset_key):
             path = _target_path(lake_root, spec, partition_key)
             if not path.is_file():

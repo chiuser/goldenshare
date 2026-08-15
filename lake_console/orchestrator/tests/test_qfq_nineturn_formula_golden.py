@@ -24,7 +24,6 @@ from orchestrator.defs.run_contracts.qfq_nineturn import (
     QFQ_NINETURN_MINUTE_FREQS,
 )
 
-
 UP_COUNTS_15 = (0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
 DOWN_COUNTS_15 = (0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
 UP_SIGNALS_15 = (None,) * 12 + ("+9", "+9", "+9")
@@ -211,7 +210,7 @@ class QfqNineturnFormulaGoldenTests(unittest.TestCase):
         for freq in QFQ_NINETURN_MINUTE_FREQS:
             with self.subTest(freq=freq), TemporaryDirectory() as temp_dir:
                 source_path = Path(temp_dir) / f"{freq}m.parquet"
-                start = datetime(2026, 3, 2, 9, 30)
+                start = datetime.fromisoformat("2026-03-02T09:30:00")
                 _write_minute_source(
                     source_path,
                     [
@@ -233,8 +232,8 @@ class QfqNineturnFormulaGoldenTests(unittest.TestCase):
                         )
                     ).fetchall()
 
-            self.assertEqual(tuple(row[5] for row in actual), expected_up)
-            self.assertEqual(tuple(row[6] for row in actual), (0,) * 6)
+            self.assertEqual(tuple(row[4] for row in actual), expected_up)
+            self.assertEqual(tuple(row[5] for row in actual), (0,) * 6)
 
     def test_positive_price_scaling_does_not_change_counts_or_signals(self) -> None:
         prices = (10.0, 11.0, 9.0, 12.0, 13.0, 14.0, 8.0, 15.0, 16.0, 7.0, 17.0)
@@ -334,14 +333,14 @@ class QfqNineturnFormulaGoldenTests(unittest.TestCase):
         previous_date = date(2026, 7, 30)
         target_date = date(2026, 7, 31)
         previous_times = (
-            datetime(2026, 7, 30, 10, 30),
-            datetime(2026, 7, 30, 11, 30),
-            datetime(2026, 7, 30, 14, 0),
-            datetime(2026, 7, 30, 15, 0),
+            datetime.fromisoformat("2026-07-30T10:30:00"),
+            datetime.fromisoformat("2026-07-30T11:30:00"),
+            datetime.fromisoformat("2026-07-30T14:00:00"),
+            datetime.fromisoformat("2026-07-30T15:00:00"),
         )
         target_times = (
-            datetime(2026, 7, 31, 10, 30),
-            datetime(2026, 7, 31, 11, 30),
+            datetime.fromisoformat("2026-07-31T10:30:00"),
+            datetime.fromisoformat("2026-07-31T11:30:00"),
         )
         with TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -377,9 +376,9 @@ class QfqNineturnFormulaGoldenTests(unittest.TestCase):
                     )
                 ).fetchall()
 
-        self.assertEqual(tuple(row[5] for row in actual), (9, 10))
-        self.assertEqual(tuple(row[6] for row in actual), (0, 0))
-        self.assertEqual(tuple(row[7] for row in actual), ("+9", "+9"))
+        self.assertEqual(tuple(row[4] for row in actual), (9, 10))
+        self.assertEqual(tuple(row[5] for row in actual), (0, 0))
+        self.assertEqual(tuple(row[6] for row in actual), ("+9", "+9"))
 
     def test_fallback_scope_over_limit_fails_before_sql_execution(self) -> None:
         with self.assertRaises(ValueError):

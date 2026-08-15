@@ -34,6 +34,7 @@ def main() -> int:
                 output_dir=output_dir,
                 force_materialization_refresh=args.force_materialization_refresh,
                 event_revision=args.event_revision,
+                asset_keys=tuple(args.asset_key) if args.asset_key else None,
             )
             print(json.dumps(dict(plan.report), ensure_ascii=False, indent=2))
             return int(plan.should_stop)
@@ -64,6 +65,18 @@ def _parser() -> argparse.ArgumentParser:
     plan.add_argument("--history-audit", required=True)
     plan.add_argument("--force-materialization-refresh", action="store_true")
     plan.add_argument("--event-revision")
+    plan.add_argument(
+        "--asset-key",
+        action="append",
+        choices=(
+            "gold_stock_daily_qfq_nineturn",
+            "gold_stk_mins_qfq_nineturn_30m",
+            "gold_stk_mins_qfq_nineturn_60m",
+            "gold_stk_mins_qfq_nineturn_90m",
+            "gold_stk_mins_qfq_nineturn_120m",
+        ),
+        help="Repeat to limit the reviewed event plan to explicit assets.",
+    )
 
     report = subparsers.add_parser("report", help="append events from a fresh plan")
     report.add_argument("--plan-report", required=True)

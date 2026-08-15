@@ -1,10 +1,19 @@
 from __future__ import annotations
 
-from pathlib import Path
 import unittest
+from pathlib import Path
 
+from orchestrator.defs.qfq_nineturn_integrity import (
+    QFQ_NINETURN_DAILY_INTEGRITY_RULE_NAMES,
+    QFQ_NINETURN_MINUTE_INTEGRITY_RULE_NAMES,
+)
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    GOLD_STK_MINS_QFQ_NINETURN_SCHEMA,
+    GOLD_STOCK_DAILY_QFQ_NINETURN_SCHEMA,
+)
 
 ORCHESTRATOR_ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = ORCHESTRATOR_ROOT.parents[1]
 SOURCE_ROOT = ORCHESTRATOR_ROOT / "src" / "orchestrator" / "defs"
 
 
@@ -63,6 +72,43 @@ class QfqNineturnGovernanceTests(unittest.TestCase):
         self.assertIn("seed_row_count", source)
         self.assertIn("PARTITION_BY (partition_trade_date)", source)
         self.assertNotIn("recursive", source.lower())
+
+    def test_minute_no_price_contract_is_isolated_from_daily(self) -> None:
+        minute_columns = tuple(
+            column.name for column in GOLD_STK_MINS_QFQ_NINETURN_SCHEMA
+        )
+        daily_columns = tuple(
+            column.name for column in GOLD_STOCK_DAILY_QFQ_NINETURN_SCHEMA
+        )
+        self.assertEqual(
+            minute_columns,
+            (
+                "ts_code",
+                "freq",
+                "trade_date",
+                "trade_time",
+                "up_count",
+                "down_count",
+                "nine_up_turn",
+                "nine_down_turn",
+            ),
+        )
+        self.assertIn("close_qfq", daily_columns)
+        self.assertNotIn(
+            "source_value_consistency",
+            QFQ_NINETURN_MINUTE_INTEGRITY_RULE_NAMES,
+        )
+        self.assertIn(
+            "source_value_consistency",
+            QFQ_NINETURN_DAILY_INTEGRITY_RULE_NAMES,
+        )
+
+        for relative_path in (
+            "src/foundation/clients/local_lake/stock_nine_turn_contract.py",
+            "src/foundation/clients/local_lake/stock_nine_turn_reader.py",
+        ):
+            source = (REPOSITORY_ROOT / relative_path).read_text(encoding="utf-8")
+            self.assertNotIn("close_qfq", source, relative_path)
 
 
 if __name__ == "__main__":

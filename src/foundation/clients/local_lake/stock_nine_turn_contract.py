@@ -24,7 +24,6 @@ NINE_TURN_COLUMN_SPECS: Final = (
     ("freq", "INTEGER"),
     ("trade_date", "DATE"),
     ("trade_time", "TIMESTAMP"),
-    ("close_qfq", "DOUBLE"),
     ("up_count", "INTEGER"),
     ("down_count", "INTEGER"),
     ("nine_up_turn", "VARCHAR"),

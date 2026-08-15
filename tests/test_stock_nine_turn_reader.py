@@ -88,7 +88,9 @@ def test_reader_rejects_unsupported_stock_nine_turn_frequencies(
         reader.read(_request(freq=freq))
 
 
-def test_reader_rejects_cursor_bound_to_another_frequency(tmp_path, monkeypatch) -> None:
+def test_reader_rejects_cursor_bound_to_another_frequency(
+    tmp_path, monkeypatch
+) -> None:
     _write_bars(tmp_path)
     _write_nine_turn(tmp_path, "2026-08-11", [("10:00:00", 1, 0), ("10:30:00", 9, 0)])
     _write_nine_turn(tmp_path, "2026-08-12", [("10:00:00", 10, 0), ("10:30:00", 0, 4)])
@@ -99,7 +101,9 @@ def test_reader_rejects_cursor_bound_to_another_frequency(tmp_path, monkeypatch)
         reader.read(_request(freq=60, limit=1, cursor=first.next_cursor))
 
 
-def test_reader_rejects_nine_turn_partition_date_mismatch(tmp_path, monkeypatch) -> None:
+def test_reader_rejects_nine_turn_partition_date_mismatch(
+    tmp_path, monkeypatch
+) -> None:
     _write_bars(tmp_path)
     _write_nine_turn(
         tmp_path,
@@ -123,6 +127,23 @@ def test_reader_rejects_duplicate_nine_turn_time_key(tmp_path, monkeypatch) -> N
     reader = _reader(monkeypatch, tmp_path)
 
     with pytest.raises(StockNineTurnSourceContractError, match="重复时间键"):
+        reader.read(_request())
+
+
+def test_reader_rejects_legacy_nine_turn_schema_with_price(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    _write_bars(tmp_path)
+    _write_nine_turn(
+        tmp_path,
+        "2026-08-12",
+        [("10:00:00", 2, 0)],
+        include_legacy_close=True,
+    )
+    reader = _reader(monkeypatch, tmp_path)
+
+    with pytest.raises(StockNineTurnSourceContractError, match="字段合同不一致"):
         reader.read(_request())
 
 
@@ -235,6 +256,7 @@ def _write_nine_turn(
     *,
     row_trade_date: str | None = None,
     extra_rows: list[tuple[str, str, int, int]] | None = None,
+    include_legacy_close: bool = False,
 ) -> None:
     path = (
         root
@@ -245,10 +267,11 @@ def _write_nine_turn(
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     effective_date = row_trade_date or partition_key
+    close_value = ", 10.0::DOUBLE" if include_legacy_close else ""
     values = [
         (
             f"('000001.SZ', 30::INTEGER, DATE '{effective_date}', "
-            f"TIMESTAMP '{effective_date} {trade_time}', 10.0::DOUBLE, "
+            f"TIMESTAMP '{effective_date} {trade_time}'{close_value}, "
             f"{up_count}::INTEGER, {down_count}::INTEGER, "
             f"{_signal(up_count, '+9')}::VARCHAR, {_signal(down_count, '-9')}::VARCHAR)"
         )
@@ -257,7 +280,7 @@ def _write_nine_turn(
     values.extend(
         (
             f"('{ts_code}', 30::INTEGER, DATE '{effective_date}', "
-            f"TIMESTAMP '{effective_date} {trade_time}', 10.0::DOUBLE, "
+            f"TIMESTAMP '{effective_date} {trade_time}'{close_value}, "
             f"{up_count}::INTEGER, {down_count}::INTEGER, "
             f"{_signal(up_count, '+9')}::VARCHAR, "
             f"{_signal(down_count, '-9')}::VARCHAR)"
@@ -266,12 +289,18 @@ def _write_nine_turn(
     )
     connection = duckdb.connect()
     try:
+        output_columns = (
+            "ts_code, freq, trade_date, trade_time, close_qfq, "
+            "up_count, down_count, nine_up_turn, nine_down_turn"
+            if include_legacy_close
+            else "ts_code, freq, trade_date, trade_time, up_count, down_count, "
+            "nine_up_turn, nine_down_turn"
+        )
         connection.execute(
             f"""
             COPY (
-              SELECT * FROM (VALUES {','.join(values)}) AS source(
-                ts_code, freq, trade_date, trade_time, close_qfq,
-                up_count, down_count, nine_up_turn, nine_down_turn
+              SELECT * FROM (VALUES {",".join(values)}) AS source(
+                {output_columns}
               )
             ) TO ? (FORMAT PARQUET)
             """,

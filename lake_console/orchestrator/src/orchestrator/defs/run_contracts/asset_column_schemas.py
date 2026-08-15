@@ -393,7 +393,6 @@ GOLD_STK_MINS_QFQ_NINETURN_SCHEMA = (
     ColumnContract("freq", "INTEGER", "分钟频度，允许值为 30、60、90 或 120"),
     ColumnContract("trade_date", "DATE", "交易日"),
     ColumnContract("trade_time", "TIMESTAMP", "分钟 bar 时间"),
-    ColumnContract("close_qfq", "DOUBLE", "九转使用的前复权收盘价"),
     ColumnContract("up_count", "INTEGER", "连续上九转计数"),
     ColumnContract("down_count", "INTEGER", "连续下九转计数"),
     ColumnContract("nine_up_turn", "VARCHAR", "上九转信号，+9 或空"),
