@@ -18,6 +18,7 @@ from orchestrator.defs.jobs.index_daily_nineturn_prod_core_sync import (
 )
 from orchestrator.defs.prod_db.index_daily_nineturn import (
     PROD_CORE_INDEX_DAILY_NINETURN_COLUMNS,
+    audit_prod_core_index_daily_nineturn_checkpoint_partitions,
     audit_prod_core_index_daily_nineturn_partition,
     replace_prod_core_index_daily_nineturn_partition,
 )
@@ -122,12 +123,33 @@ def test_publisher_rejects_invalid_signal_before_database_write() -> None:
     assert cursor.execute_calls == []
 
 
+def test_checkpoint_audit_streams_and_matches_partition_hash() -> None:
+    published_at = datetime(2026, 8, 14, tzinfo=UTC)
+    rows = _rows()
+    expected = audit_prod_core_index_daily_nineturn_partition(
+        connection=_FakeConnection(_FakeCursor(_read_back_rows(rows, published_at))),
+        rows=rows,
+        partition_key="2026-08-14",
+    )
+    audit = audit_prod_core_index_daily_nineturn_checkpoint_partitions(
+        connection=_FakeConnection(
+            _FakeCursor(_read_back_rows(rows, published_at))
+        ),
+        expected_content_hashes={"2026-08-14": expected.expected_content_hash},
+    )
+
+    assert audit.passed is True
+    assert audit.expected_partition_count == 1
+    assert audit.observed_partition_count == 1
+    assert audit.read_back_row_count == 2
+
+
 class _FakeConnection:
     def __init__(self, cursor: _FakeCursor) -> None:
         self._cursor = cursor
         self.rollback_count = 0
 
-    def cursor(self):
+    def cursor(self, *_args, **_kwargs):
         return self._cursor
 
     def rollback(self) -> None:
@@ -140,6 +162,8 @@ class _FakeCursor:
         self.execute_calls: list[tuple[str, tuple[object, ...]]] = []
         self.rowcount = -1
         self.close_count = 0
+        self._fetch_index = 0
+        self.itersize = 0
 
     def execute(self, sql: str, params: tuple[object, ...]) -> None:
         self.execute_calls.append((sql, params))
@@ -147,6 +171,11 @@ class _FakeCursor:
 
     def fetchall(self) -> list[tuple[object, ...]]:
         return self.rows
+
+    def fetchmany(self, size: int) -> list[tuple[object, ...]]:
+        selected = self.rows[self._fetch_index : self._fetch_index + size]
+        self._fetch_index += len(selected)
+        return selected
 
     def close(self) -> None:
         self.close_count += 1

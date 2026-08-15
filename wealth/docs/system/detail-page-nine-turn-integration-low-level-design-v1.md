@@ -941,8 +941,20 @@ M4-B 编码结果（2026-08-15）：
 3. `core_serving.index_nineturn_daily` migration、事务 publisher、serving check/job/默认 `STOPPED` sensor 及常驻日线 API 已实现；当前 Alembic head 为 `20260814_000136`，`down_revision` 精确连接 `20260813_000135`。
 4. 本地分钟 Reader/API 已实现六频率、Gold bar 窗口分页、严格 cursor、5,000 文件/5MB 门禁、10-code allowlist、`000680.SH` 404 和 `899050.BJ` 局部 EMPTY；Reader 使用单个受锁 256MB/1线程 DuckDB 连接。
 5. 共享 DTO 只投影 1～9；10+ 不重复绘制 9。股票日线/分钟消费者已同步迁移到 subject-aware cursor/DTO，并通过回归。
-6. 本轮没有执行正式 Lake 写入、materialization、runless event、生产 migration、serving 发布或 sensor 启用。因此 M4-B 只能标记为“编码完成”，物理历史、正式对齐/性能和生产发布验收仍待单独批准。
+6. 本节仅记录编码交付；物理历史、Dagster event、生产 migration、serving 发布和正式验收的后续执行事实见下方“M4-B 正式执行结果”。
 7. 编码验收通过 121 个 Web/Foundation 回归，以及 122 个 Orchestrator 测试和 14 个 subtests；`dg list defs` 实测发现 7 个 Gold assets/checks、1 个 serving asset/check、3 个 jobs 和 3 个默认停止的 sensors。现有 Pydantic、Dagster Preview/Deprecation warning 未新增失败。
+
+M4-B 正式执行结果（2026-08-15）：
+
+1. 执行前生成并复核了只读历史计划 `major_index_nineturn_history_plan_20260814_164959.json`，指纹为 `fbd7c70f452b222dd7c7bc6570f2ee1c2597b6fe79b369578eddebc392015d5f`。计划冻结 7 个资产、1,607 个批次、32,124 个源文件/目标分区和 2,513,295 行，执行前目标文件数为 0，无 stop reason。
+2. 正式 Lake 已生成 32,124/32,124 个目标分区。最终只读报告为 `/Volumes/datasource/data_lake_staging/major_index_nineturn_history/final-audit.json`，物理指纹为 `4c4e84b0878d76107356f6563a2090fe0053865a25769c8b7871cd90f524a7d7`；目标文件、行数、checkpoint SHA、唯一键、分区日期、值域、源键和源值错配均为 0，不存在 1 分钟九转文件。日线为 6,450 分区/42,633 行；5/15/30/60/90/120 分钟各为 4,279 分区，行数依次为 1,464,096、488,032、244,016、122,008、91,506、61,004。
+3. Dagster event 计划为 `major_index_nineturn_events_plan_20260814_171420.json`，指纹为 `cc18b38cec1f0c1e3d0d48652d7978f1203160e5fd3433ca87e32a7ca6bc3009`。已登记 32,124 条 materialization 和 32,124 条绑定当前 materialization 的 blocking-check event，共 64,248 条。最终 post-audit 确认 32,124/32,124 完成，missing materialization 和 missing ready check 均为 0。
+4. 生产 Alembic 已从 `20260813_000135` 升级到 `20260814_000136`，`core_serving.index_nineturn_daily` 已按 9 列合同、主键/检查约束和索引创建。迁移后首次只读检查确认表为空，历史 serving 发布之前没有旧数据混入。
+5. 日线 serving 只读计划为 `major_index_daily_nineturn_serving_plan_20260814_173735_793613.json`，指纹为 `ca9ec89ed4a7ad19c2ed8211291d9b103b97e4c93048d3ee8ed57b86b6902cbd`，冻结 6,450 个交易日和 42,633 行。发布期间一次建连超时发生在批次之间，已提交的单日事务和 checkpoint 保持一致，按原计划断点续跑后完成 6,450/6,450。最终零写入回验重新流式校验全部 checkpoint hash，结果为 resumed 6,450、remaining 0、failed 0。
+6. 生产表最终为 42,633 行、6,450 个交易日、11 个物理代码，范围 2000-01-04～2026-08-14，与冻结 Lake 计划的每日业务 hash 全量一致。十个产品指数最近 300 根均为 300/300 对齐、missing 0；`899050.BJ` 日线 READY，`000680.SH` 仍严格 404。正式表有 4,353 条 count > 9 的真实记录，API 全窗口 marker 仍只包含 1～9，没有重复绘制 9。
+7. 性能验收通过：物理全量对账 33.956 秒、峰值 RSS 约 390.5MiB；Dagster event post-audit 8.71 秒、峰值 RSS 约 422.9MiB；serving 全 checkpoint 哈希回验 3.59 秒、峰值 RSS 约 158.9MiB。生产数据库回源的 FastAPI in-process HTTP 对十个指数执行 50 次、每次 300 根，P95 为 148.605ms、最大 262.141ms、全部 HTTP 200。该数值包含查询、DTO 与 JSON 序列化，不包含公网或生产 Web 主机网络延迟。
+8. 本地正式 Lake Reader 对六频率各执行 10 次、每次 500 根，P95 依次为 308.266/316.656/373.010/418.199/447.895/555.982ms，均为 500/500 对齐。5 分钟 10,000 根为 818.571ms、1,103,808 bytes、419 个扫描文件；120 分钟全历史 10,000 根请求按合同命中 5,000 文件门禁并返回 `NT_REQUEST_INVALID`，没有截断或返回不完整 JSON。`899050.BJ` 六频率保持 `EMPTY/NT_SOURCE_NOT_READY`。
+9. 7 个 Gold assets/checks、1 个 serving asset/check、3 个 jobs 和 3 个 sensors 仍能被 Definitions 发现，不存在 1 分钟九转定义。三个 sensor 仍为默认 `STOPPED`，Dagster instance 中没有它们的启动状态，本轮没有启用日常调度。
 
 ### 15.6 M5：指数页面接入
 
@@ -1033,11 +1045,11 @@ M1 已完成：
 6. 前端 registry、capability、primitive 几何、右栏摘要和状态机已冻结。
 7. `freq BIGINT` 疑点已证伪，正式物理类型确认是 INTEGER。
 
-M3-B 已完成，后续仍未完成的运行与发布项：
+M3-B 已完成，M4-B 正式执行也已收口：
 
 1. migration 已在生产执行；目标表最终只读确认有 3,066 个交易日、11,638,636 行，与冻结计划逐日行数一致，全历史发布已完成。
 2. 45,442 行 close 漂移对应的 Gold scoped rebuild 已完成；11,638,636 行全历史键、价格、计数和信号差异均为 0。
-3. 股票 serving sample、余下 1,953 日历史发布和最终全量对账均已完成。指数七资产及 API 代码已建设；32,124 个正式目标分区、Dagster events、生产 migration 与 serving 历史仍未执行。
+3. 股票 serving sample、余下 1,953 日历史发布和最终全量对账均已完成。指数 32,124 个正式目标分区、64,248 条 Dagster events、生产 migration、6,450 日/42,633 行 serving 历史与全量对齐/性能验收也已完成。
 4. Gold sensor 在执行前发现实际为 RUNNING，审计确认近 10 个 tick 均 SKIPPED、无并发 run 后已停止；serving sensor 未启用。两者当前均不得启用。
 5. Gold 修复和正式发布前置条件已完成；生产日线真实 API、数据样本与 Loaded 截图已通过主体门禁，仍须补齐登录态 P95、生产缩放边界截图和自然日常链路，不得用 SQLite fixture、本地 Lake 或单元测试冒充这些生产验收。
 6. M3-C-Minute 已完成：四个正式分钟资产、严格 API、性能/内存、缓存/竞态、1/5/15 禁用周期和 1600×1200 浏览器门禁均通过；该结论不扩展到指数九转，也不授权启用 sensor。
@@ -1058,3 +1070,4 @@ M3-B 已完成，后续仍未完成的运行与发布项：
 | v1.9 | 2026-08-14 | 完成 M4-A：提取唯一规范化九转 SQL 内核，股票全历史、分区与年度批次改为薄适配器，并以受保护 golden、逐行对账和禁止公式复制的静态门禁证明结果无漂移 | Codex |
 | v1.10 | 2026-08-14 | M3-C-Minute 收口：四资产/check/物理覆盖、逐键对齐、严格接口、P95、Reader 复用连接内存门禁、缓存/禁用周期和 1600×1200 浏览器验收通过 | Codex |
 | v1.11 | 2026-08-15 | M4-B 编码收口：实现指数日线与六分钟九转的 7 assets/checks、jobs/sensors/readiness、有界历史构建、日线 serving/API 和本地分钟 API；登记源身份与 checkpoint 回验门禁，并明确正式历史、migration、serving 发布仍未获执行授权 | Codex |
+| v1.12 | 2026-08-15 | M4-B 正式执行收口：生成并全量对账 32,124 个分区，登记 64,248 条 Dagster events，执行生产 migration，发布 6,450 日/42,633 行日线 serving，完成产品边界、全量 hash、日线 API 和六分钟 Reader 性能验收；三个 sensor 保持停止 | Codex |

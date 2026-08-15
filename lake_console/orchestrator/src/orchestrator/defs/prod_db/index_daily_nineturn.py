@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -50,6 +51,15 @@ class ProdCoreIndexDailyNineturnReadAudit:
     expected_content_hash: str
     observed_content_hash: str
     failed_rule_names: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ProdCoreIndexDailyNineturnCheckpointAudit:
+    passed: bool
+    expected_partition_count: int
+    observed_partition_count: int
+    read_back_row_count: int
+    failed_partition_keys: tuple[str, ...]
 
 
 def replace_prod_core_index_daily_nineturn_partition(
@@ -148,6 +158,77 @@ def audit_prod_core_index_daily_nineturn_partition(
         expected_content_hash=expected_hash,
         observed_content_hash=observed_hash,
         failed_rule_names=tuple(failures),
+    )
+
+
+def audit_prod_core_index_daily_nineturn_checkpoint_partitions(
+    *,
+    connection,
+    expected_content_hashes: Mapping[str, object],
+    fetch_size: int = 1_000,
+) -> ProdCoreIndexDailyNineturnCheckpointAudit:
+    """Stream and hash all checkpointed dates without loading the table at once."""
+
+    if isinstance(fetch_size, bool) or not isinstance(fetch_size, int) or fetch_size <= 0:
+        raise ValueError("Checkpoint fetch size must be a positive integer.")
+    normalized_expected = {
+        _normalize_trade_date(partition_key): str(content_hash).strip().lower()
+        for partition_key, content_hash in expected_content_hashes.items()
+    }
+    if len(normalized_expected) != len(expected_content_hashes) or any(
+        not re.fullmatch(r"[0-9a-f]{64}", content_hash)
+        for content_hash in normalized_expected.values()
+    ):
+        raise ValueError("Checkpoint partition/hash contract is invalid.")
+    if not normalized_expected:
+        return ProdCoreIndexDailyNineturnCheckpointAudit(True, 0, 0, 0, ())
+    cursor = connection.cursor(name="index_nineturn_checkpoint_audit")
+    observed_hashes: dict[date, str] = {}
+    read_back_row_count = 0
+    current_date: date | None = None
+    current_rows: list[dict[str, object]] = []
+    try:
+        cursor.itersize = fetch_size
+        cursor.execute(
+            f"""
+            SELECT ts_code, trade_date, close, up_count, down_count,
+                   nine_up_turn, nine_down_turn, formula_version, published_at
+            FROM {PROD_CORE_INDEX_DAILY_NINETURN_TABLE}
+            WHERE trade_date = ANY(%s::date[])
+            ORDER BY trade_date, ts_code
+            """,
+            (sorted(normalized_expected),),
+        )
+        while rows := cursor.fetchmany(fetch_size):
+            for row in rows:
+                normalized_row = dict(
+                    zip(PROD_CORE_INDEX_DAILY_NINETURN_COLUMNS, row, strict=True)
+                )
+                row_date = _normalize_trade_date(normalized_row["trade_date"])
+                if current_date is not None and row_date != current_date:
+                    observed_hashes[current_date] = _business_hash(current_rows)
+                    read_back_row_count += len(current_rows)
+                    current_rows = []
+                current_date = row_date
+                current_rows.append(normalized_row)
+        if current_date is not None:
+            observed_hashes[current_date] = _business_hash(current_rows)
+            read_back_row_count += len(current_rows)
+    finally:
+        close = getattr(cursor, "close", None)
+        if callable(close):
+            close()
+    failed = tuple(
+        partition_key.isoformat()
+        for partition_key, expected_hash in sorted(normalized_expected.items())
+        if observed_hashes.get(partition_key) != expected_hash
+    )
+    return ProdCoreIndexDailyNineturnCheckpointAudit(
+        passed=not failed,
+        expected_partition_count=len(normalized_expected),
+        observed_partition_count=len(observed_hashes),
+        read_back_row_count=read_back_row_count,
+        failed_partition_keys=failed,
     )
 
 
@@ -254,8 +335,10 @@ __all__ = [
     "PROD_CORE_INDEX_DAILY_NINETURN_CHECK_NAME",
     "PROD_CORE_INDEX_DAILY_NINETURN_COLUMNS",
     "PROD_CORE_INDEX_DAILY_NINETURN_TABLE",
+    "ProdCoreIndexDailyNineturnCheckpointAudit",
     "ProdCoreIndexDailyNineturnReadAudit",
     "ProdCoreIndexDailyNineturnSyncAudit",
+    "audit_prod_core_index_daily_nineturn_checkpoint_partitions",
     "audit_prod_core_index_daily_nineturn_partition",
     "replace_prod_core_index_daily_nineturn_partition",
 ]

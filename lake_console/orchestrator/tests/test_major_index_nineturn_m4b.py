@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import inspect
+import json
 from datetime import date, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 import dagster as dg
 import duckdb
@@ -15,10 +17,26 @@ from orchestrator.defs.assets.major_index_nineturn import (
     GOLD_MAJOR_INDEX_NINETURN_ASSETS,
     gold_major_index_daily_nineturn,
 )
+from orchestrator.defs.bootstrap import major_index_daily_nineturn_serving_history
+from orchestrator.defs.bootstrap.major_index_daily_nineturn_serving_history import (
+    load_major_index_daily_nineturn_serving_plan,
+    plan_major_index_daily_nineturn_serving_history,
+    publish_major_index_daily_nineturn_serving_history,
+)
+from orchestrator.defs.bootstrap.major_index_nineturn_events import (
+    MajorIndexNineturnEventError,
+    plan_major_index_nineturn_events,
+    post_audit_major_index_nineturn_events,
+    report_major_index_nineturn_events,
+)
 from orchestrator.defs.bootstrap.major_index_nineturn_history import (
     MajorIndexNineturnHistoryError,
     build_major_index_nineturn_history,
+    load_major_index_nineturn_history_plan,
     plan_major_index_nineturn_history,
+)
+from orchestrator.defs.bootstrap.major_index_nineturn_history_audit import (
+    audit_major_index_nineturn_history,
 )
 from orchestrator.defs.catalog.lake_assets import get_lake_asset_catalog_entry
 from orchestrator.defs.checks.major_index_nineturn_checks import (
@@ -407,6 +425,342 @@ def test_history_builder_continues_sequence_across_twenty_day_batches(
     assert result["processed_batch_count"] == 2
     assert up_count == 17
     assert signal == "+9"
+
+
+def test_history_plan_reload_supports_bounded_cross_process_resume(tmp_path) -> None:
+    lake_root = tmp_path / "lake"
+    source_root = lake_root / "gold/market/major_indices_daily"
+    start = date(2026, 7, 1)
+    for offset in range(21):
+        trade_date = (start + timedelta(days=offset)).isoformat()
+        _write_daily_partition(
+            source_root / f"trade_date={trade_date}" / "part-000.parquet",
+            trade_date,
+            close=3000.0 + offset,
+        )
+    original = plan_major_index_nineturn_history(
+        lake_root=lake_root,
+        asset_keys=("gold_major_index_daily_nineturn",),
+        output_dir=tmp_path / "reports",
+    )
+    checkpoint = tmp_path / "staging/checkpoint.json"
+
+    first = build_major_index_nineturn_history(
+        plan=load_major_index_nineturn_history_plan(original.report_path),
+        expected_plan_fingerprint=original.plan_fingerprint,
+        confirm_write=True,
+        staging_root=tmp_path / "staging",
+        checkpoint_path=checkpoint,
+        batch_count_limit=1,
+    )
+    second = build_major_index_nineturn_history(
+        plan=load_major_index_nineturn_history_plan(original.report_path),
+        expected_plan_fingerprint=original.plan_fingerprint,
+        confirm_write=True,
+        staging_root=tmp_path / "staging",
+        checkpoint_path=checkpoint,
+        batch_count_limit=1,
+    )
+
+    assert first["processed_batch_count"] == 1
+    assert first["remaining_batch_count"] == 1
+    assert second["processed_batch_count"] == 1
+    assert second["remaining_batch_count"] == 0
+
+
+def test_history_plan_reload_rejects_modified_report(tmp_path) -> None:
+    lake_root = tmp_path / "lake"
+    trade_date = "2026-08-14"
+    _write_daily_partition(
+        lake_root
+        / "gold/market/major_indices_daily"
+        / f"trade_date={trade_date}"
+        / "part-000.parquet",
+        trade_date,
+    )
+    plan = plan_major_index_nineturn_history(
+        lake_root=lake_root,
+        asset_keys=("gold_major_index_daily_nineturn",),
+        output_dir=tmp_path / "reports",
+    )
+    payload = json.loads(plan.report_path.read_text(encoding="utf-8"))
+    payload["batches"][0]["source_row_count"] += 1
+    plan.report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(MajorIndexNineturnHistoryError, match="fingerprint drifted"):
+        load_major_index_nineturn_history_plan(plan.report_path)
+
+
+def test_history_final_audit_reconciles_checkpoint_source_and_targets(tmp_path) -> None:
+    lake_root = tmp_path / "lake"
+    source_root = lake_root / "gold/market/major_indices_daily"
+    for trade_date in ("2026-08-13", "2026-08-14"):
+        _write_daily_partition(
+            source_root / f"trade_date={trade_date}" / "part-000.parquet",
+            trade_date,
+        )
+    plan = plan_major_index_nineturn_history(
+        lake_root=lake_root,
+        asset_keys=("gold_major_index_daily_nineturn",),
+        output_dir=tmp_path / "reports",
+    )
+    checkpoint = tmp_path / "staging/checkpoint.json"
+    build_major_index_nineturn_history(
+        plan=plan,
+        expected_plan_fingerprint=plan.plan_fingerprint,
+        confirm_write=True,
+        staging_root=tmp_path / "staging",
+        checkpoint_path=checkpoint,
+    )
+
+    report = audit_major_index_nineturn_history(
+        plan_report_path=plan.report_path,
+        checkpoint_path=checkpoint,
+        output_path=tmp_path / "staging/final-audit.json",
+    )
+
+    assert report["should_stop"] is False
+    assert report["expected_target_file_count"] == 2
+    assert report["actual_target_file_count"] == 2
+    assert report["expected_row_count"] == report["actual_row_count"] == 2
+    assert report["checkpoint_hash_mismatch_count"] == 0
+
+
+def test_history_events_are_sampled_batched_and_bound_to_materializations(
+    tmp_path,
+) -> None:
+    lake_root = tmp_path / "lake"
+    source_root = lake_root / "gold/market/major_indices_daily"
+    dates = ("2026-08-13", "2026-08-14")
+    for trade_date in dates:
+        _write_daily_partition(
+            source_root / f"trade_date={trade_date}" / "part-000.parquet",
+            trade_date,
+        )
+    history_plan = plan_major_index_nineturn_history(
+        lake_root=lake_root,
+        asset_keys=("gold_major_index_daily_nineturn",),
+        output_dir=tmp_path / "reports",
+    )
+    history_checkpoint = tmp_path / "staging/history-checkpoint.json"
+    build_major_index_nineturn_history(
+        plan=history_plan,
+        expected_plan_fingerprint=history_plan.plan_fingerprint,
+        confirm_write=True,
+        staging_root=tmp_path / "staging",
+        checkpoint_path=history_checkpoint,
+    )
+    history_audit_path = tmp_path / "staging/final-audit.json"
+    audit_major_index_nineturn_history(
+        plan_report_path=history_plan.report_path,
+        checkpoint_path=history_checkpoint,
+        output_path=history_audit_path,
+    )
+    event_checkpoint = tmp_path / "staging/event-checkpoint.json"
+
+    with dg.instance_for_test() as instance:
+        instance.add_dynamic_partitions(cn_a_index_trade_days.name, list(dates))
+        event_plan = plan_major_index_nineturn_events(
+            instance=instance,
+            history_plan_path=history_plan.report_path,
+            history_audit_path=history_audit_path,
+            lake_root=lake_root,
+            output_dir=tmp_path / "staging/event-plan",
+        )
+        assert event_plan.should_stop is False
+        assert event_plan.report["planned_materialization_event_count"] == 2
+        assert event_plan.report["planned_check_event_count"] == 2
+
+        first = report_major_index_nineturn_events(
+            instance=instance,
+            plan=event_plan,
+            expected_plan_fingerprint=event_plan.plan_fingerprint,
+            checkpoint_path=event_checkpoint,
+            staging_root=tmp_path / "staging",
+            lake_root=lake_root,
+            sample_identity=event_plan.candidates[0].identity,
+        )
+        second = report_major_index_nineturn_events(
+            instance=instance,
+            plan=event_plan,
+            expected_plan_fingerprint=event_plan.plan_fingerprint,
+            checkpoint_path=event_checkpoint,
+            staging_root=tmp_path / "staging",
+            lake_root=lake_root,
+            partition_limit=10,
+        )
+        post = post_audit_major_index_nineturn_events(
+            instance=instance,
+            plan=event_plan,
+            checkpoint_path=event_checkpoint,
+            lake_root=lake_root,
+        )
+
+        assert first["selected_partition_count"] == 1
+        assert second["remaining_partition_count"] == 0
+        assert post["should_stop"] is False
+        assert post["missing_materialization_count"] == 0
+        assert post["missing_ready_check_count"] == 0
+
+        checkpoint_payload = json.loads(event_checkpoint.read_text(encoding="utf-8"))
+        checkpoint_payload["completed"].append("unknown_asset|2026-08-14")
+        event_checkpoint.write_text(
+            json.dumps(checkpoint_payload),
+            encoding="utf-8",
+        )
+        with pytest.raises(
+            MajorIndexNineturnEventError,
+            match="outside the reviewed plan",
+        ):
+            post_audit_major_index_nineturn_events(
+                instance=instance,
+                plan=event_plan,
+                checkpoint_path=event_checkpoint,
+                lake_root=lake_root,
+            )
+
+
+def test_daily_serving_history_plan_freezes_audited_source_identities(tmp_path) -> None:
+    lake_root = tmp_path / "lake"
+    source_root = lake_root / "gold/market/major_indices_daily"
+    dates = ("2026-08-13", "2026-08-14")
+    for trade_date in dates:
+        _write_daily_partition(
+            source_root / f"trade_date={trade_date}" / "part-000.parquet",
+            trade_date,
+        )
+    history_plan = plan_major_index_nineturn_history(
+        lake_root=lake_root,
+        asset_keys=("gold_major_index_daily_nineturn",),
+        output_dir=tmp_path / "reports",
+    )
+    build_major_index_nineturn_history(
+        plan=history_plan,
+        expected_plan_fingerprint=history_plan.plan_fingerprint,
+        confirm_write=True,
+        staging_root=tmp_path / "staging",
+        checkpoint_path=tmp_path / "staging/history-checkpoint.json",
+    )
+
+    plan = plan_major_index_daily_nineturn_serving_history(
+        lake_root=lake_root,
+        staging_root=tmp_path / "staging",
+        duckdb_resource=DuckDBResource(),
+        output_dir=tmp_path / "staging/serving-plan",
+    )
+    loaded = load_major_index_daily_nineturn_serving_plan(plan.report_path)
+
+    assert plan.should_stop is False
+    assert len(plan.partitions) == 2
+    assert plan.report["source_row_count"] == 2
+    assert loaded.plan_fingerprint == plan.plan_fingerprint
+
+
+def test_daily_serving_history_publishes_sample_then_resumes_batch(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    lake_root = tmp_path / "lake"
+    source_root = lake_root / "gold/market/major_indices_daily"
+    dates = ("2026-08-13", "2026-08-14")
+    for trade_date in dates:
+        _write_daily_partition(
+            source_root / f"trade_date={trade_date}" / "part-000.parquet",
+            trade_date,
+        )
+    history_plan = plan_major_index_nineturn_history(
+        lake_root=lake_root,
+        asset_keys=("gold_major_index_daily_nineturn",),
+        output_dir=tmp_path / "reports",
+    )
+    build_major_index_nineturn_history(
+        plan=history_plan,
+        expected_plan_fingerprint=history_plan.plan_fingerprint,
+        confirm_write=True,
+        staging_root=tmp_path / "staging",
+        checkpoint_path=tmp_path / "staging/history-checkpoint.json",
+    )
+    plan = plan_major_index_daily_nineturn_serving_history(
+        lake_root=lake_root,
+        staging_root=tmp_path / "staging",
+        duckdb_resource=DuckDBResource(),
+        output_dir=tmp_path / "staging/serving-plan",
+    )
+    published: list[str] = []
+    monkeypatch.setattr(
+        major_index_daily_nineturn_serving_history,
+        "replace_prod_core_index_daily_nineturn_partition",
+        lambda *, connection, rows, partition_key: published.append(partition_key),
+    )
+    monkeypatch.setattr(
+        major_index_daily_nineturn_serving_history,
+        "audit_prod_core_index_daily_nineturn_partition",
+        lambda *, connection, rows, partition_key: SimpleNamespace(
+            passed=True,
+            expected_content_hash=("a" if partition_key == dates[0] else "b") * 64,
+        ),
+    )
+    monkeypatch.setattr(
+        major_index_daily_nineturn_serving_history,
+        "audit_prod_core_index_daily_nineturn_checkpoint_partitions",
+        lambda *, connection, expected_content_hashes: SimpleNamespace(
+            passed=True,
+            failed_partition_keys=(),
+        ),
+    )
+    resource = _FakeServingProdResource()
+    checkpoint = tmp_path / "staging/serving-checkpoint.json"
+
+    sample = publish_major_index_daily_nineturn_serving_history(
+        plan=plan,
+        expected_plan_fingerprint=plan.plan_fingerprint,
+        duckdb_resource=DuckDBResource(),
+        prod_postgres_write=resource,
+        checkpoint_path=checkpoint,
+        mode="sample",
+        sample_partition_keys=(dates[0],),
+    )
+    resumed = publish_major_index_daily_nineturn_serving_history(
+        plan=plan,
+        expected_plan_fingerprint=plan.plan_fingerprint,
+        duckdb_resource=DuckDBResource(),
+        prod_postgres_write=resource,
+        checkpoint_path=checkpoint,
+        mode="batch",
+    )
+
+    assert sample["completed_partition_count"] == 1
+    assert resumed["resumed_partition_count"] == 1
+    assert resumed["completed_partition_count"] == 2
+    assert resumed["remaining_partition_count"] == 0
+    assert published == list(dates)
+
+
+class _FakeServingConnection:
+    def commit(self) -> None:
+        return None
+
+    def rollback(self) -> None:
+        return None
+
+
+class _FakeServingContext:
+    def __init__(self) -> None:
+        self.connection = _FakeServingConnection()
+
+    def __enter__(self):
+        return self.connection
+
+    def __exit__(self, *_args) -> None:
+        return None
+
+
+class _FakeServingProdResource:
+    def connect(self) -> _FakeServingContext:
+        return _FakeServingContext()
+
+    def connect_readonly(self) -> _FakeServingContext:
+        return _FakeServingContext()
 
 
 def _write_daily_history(path: Path, *, row_count: int) -> None:

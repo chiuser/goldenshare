@@ -49,6 +49,7 @@ PLAN_PHASE = "major_index_nineturn_history_plan"
 CHECKPOINT_PHASE = "major_index_nineturn_history_checkpoint"
 MAX_BATCH_SECONDS = 30.0
 MAX_PROCESS_RSS_MIB = 512.0
+MAX_BATCHES_PER_PROCESS = 10
 
 
 class MajorIndexNineturnHistoryError(RuntimeError):
@@ -210,6 +211,56 @@ def plan_major_index_nineturn_history(
     )
 
 
+def load_major_index_nineturn_history_plan(
+    report_path: Path,
+) -> MajorIndexNineturnHistoryPlan:
+    """Load and verify one frozen read-only plan report for resumable execution."""
+
+    normalized_report_path = Path(report_path).resolve()
+    try:
+        report = json.loads(normalized_report_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise MajorIndexNineturnHistoryError(
+            f"History plan report is unreadable: {normalized_report_path}."
+        ) from error
+    if not isinstance(report, Mapping):
+        raise MajorIndexNineturnHistoryError("History plan report must be an object.")
+    if (
+        report.get("schema_version") != PLAN_SCHEMA_VERSION
+        or report.get("phase") != PLAN_PHASE
+        or report.get("read_only") is not True
+    ):
+        raise MajorIndexNineturnHistoryError("History plan report contract is invalid.")
+
+    root = Path(str(report.get("lake_root", ""))).resolve()
+    raw_batches = report.get("batches")
+    raw_stop_reasons = report.get("stop_reasons")
+    if not isinstance(raw_batches, list) or not isinstance(raw_stop_reasons, list):
+        raise MajorIndexNineturnHistoryError("History plan batch contract is invalid.")
+    batches = tuple(_load_history_batch(value) for value in raw_batches)
+    stop_reasons = tuple(sorted(str(value) for value in raw_stop_reasons))
+    fingerprint_payload = {
+        "schema_version": PLAN_SCHEMA_VERSION,
+        "phase": PLAN_PHASE,
+        "lake_root": str(root),
+        "batch_trade_days": MAJOR_INDEX_NINETURN_HISTORY_BATCH_TRADE_DAYS,
+        "batches": [batch.to_dict() for batch in batches],
+        "stop_reasons": list(stop_reasons),
+    }
+    fingerprint = _hash_payload(fingerprint_payload)
+    if report.get("plan_fingerprint") != fingerprint:
+        raise MajorIndexNineturnHistoryError("History plan fingerprint drifted.")
+    _validate_loaded_plan_batches(batches)
+    return MajorIndexNineturnHistoryPlan(
+        report_path=normalized_report_path,
+        lake_root=root,
+        plan_fingerprint=fingerprint,
+        batches=batches,
+        stop_reasons=stop_reasons,
+        report=report,
+    )
+
+
 def build_major_index_nineturn_history(
     *,
     plan: MajorIndexNineturnHistoryPlan,
@@ -218,8 +269,9 @@ def build_major_index_nineturn_history(
     target_lake_root: Path | None = None,
     staging_root: Path = Path(DEFAULT_LAKE_STAGING_ROOT),
     checkpoint_path: Path,
+    batch_count_limit: int = MAX_BATCHES_PER_PROCESS,
 ) -> dict[str, object]:
-    """Apply one reviewed plan with per-batch connections and durable checkpoint."""
+    """Apply a bounded prefix of one reviewed plan with durable checkpoint."""
 
     if not confirm_write:
         raise MajorIndexNineturnHistoryError(
@@ -228,6 +280,11 @@ def build_major_index_nineturn_history(
     if plan.should_stop or plan.plan_fingerprint != expected_plan_fingerprint:
         raise MajorIndexNineturnHistoryError(
             "History plan is stopped or fingerprint mismatched."
+        )
+    if not 1 <= batch_count_limit <= MAX_BATCHES_PER_PROCESS:
+        raise MajorIndexNineturnHistoryError(
+            "History batch_count_limit must be between 1 and "
+            f"{MAX_BATCHES_PER_PROCESS}."
         )
     target_root = (
         Path(target_lake_root).resolve()
@@ -239,10 +296,22 @@ def build_major_index_nineturn_history(
         raise MajorIndexNineturnHistoryError(
             "History staging must be outside the formal Lake root."
         )
+    normalized_checkpoint_path = _validated_checkpoint_path(
+        checkpoint_path=checkpoint_path,
+        staging_root=staging,
+    )
     completed = _load_checkpoint(
-        checkpoint_path,
+        normalized_checkpoint_path,
         expected_plan_fingerprint=expected_plan_fingerprint,
     )
+    valid_batch_keys = {
+        f"{batch.asset_key}:{batch.batch_index}" for batch in plan.batches
+    }
+    unknown_completed = tuple(sorted(set(completed) - valid_batch_keys))
+    if unknown_completed:
+        raise MajorIndexNineturnHistoryError(
+            f"Checkpoint contains batches outside the reviewed plan: {unknown_completed}."
+        )
     run_root = staging / "major_index_nineturn_history" / f"run_id={uuid.uuid4()}"
     run_root.mkdir(parents=True, exist_ok=False)
     settings = _history_duckdb_settings()
@@ -258,6 +327,8 @@ def build_major_index_nineturn_history(
                     checkpoint_entry=completed[batch_key],
                 )
                 continue
+            if processed >= batch_count_limit:
+                break
             started = time.perf_counter()
             previous_target = _previous_target_path(
                 target_root=target_root,
@@ -355,7 +426,7 @@ def build_major_index_nineturn_history(
                 "target_fingerprints": target_fingerprints,
             }
             _write_checkpoint(
-                checkpoint_path,
+                normalized_checkpoint_path,
                 plan_fingerprint=expected_plan_fingerprint,
                 completed=completed,
             )
@@ -366,8 +437,64 @@ def build_major_index_nineturn_history(
         "plan_fingerprint": expected_plan_fingerprint,
         "processed_batch_count": processed,
         "completed_batch_count": len(completed),
-        "checkpoint_path": str(checkpoint_path),
+        "remaining_batch_count": len(plan.batches) - len(completed),
+        "checkpoint_path": str(normalized_checkpoint_path),
     }
+
+
+def _load_history_batch(value: object) -> MajorIndexNineturnHistoryBatch:
+    if not isinstance(value, Mapping):
+        raise MajorIndexNineturnHistoryError("History plan batch must be an object.")
+    raw_freq = value.get("freq")
+    freq = None if raw_freq == "daily" else int(str(raw_freq))
+    return MajorIndexNineturnHistoryBatch(
+        asset_key=str(value.get("asset_key", "")),
+        freq=freq,
+        batch_index=int(str(value.get("batch_index", "0"))),
+        trade_dates=tuple(str(item) for item in value.get("trade_dates", ())),
+        source_paths=tuple(Path(str(item)) for item in value.get("source_paths", ())),
+        context_paths=tuple(Path(str(item)) for item in value.get("context_paths", ())),
+        source_identities=tuple(
+            str(item) for item in value.get("source_identities", ())
+        ),
+        context_identities=tuple(
+            str(item) for item in value.get("context_identities", ())
+        ),
+        source_row_count=int(str(value.get("source_row_count", "0"))),
+        source_bytes=int(str(value.get("source_bytes", "0"))),
+        existing_target_file_count=int(
+            str(value.get("existing_target_file_count", "0"))
+        ),
+    )
+
+
+def _validate_loaded_plan_batches(
+    batches: Sequence[MajorIndexNineturnHistoryBatch],
+) -> None:
+    expected_freqs = dict(_selected_specs(None))
+    next_batch_index: dict[str, int] = {}
+    for batch in batches:
+        if expected_freqs.get(batch.asset_key, object()) != batch.freq:
+            raise MajorIndexNineturnHistoryError(
+                f"History plan asset/frequency mismatch: {batch.asset_key}:{batch.freq}."
+            )
+        expected_index = next_batch_index.get(batch.asset_key, 1)
+        if batch.batch_index != expected_index:
+            raise MajorIndexNineturnHistoryError(
+                f"History plan batch sequence is invalid: {batch.asset_key}."
+            )
+        next_batch_index[batch.asset_key] = expected_index + 1
+        if (
+            not batch.trade_dates
+            or len(batch.trade_dates) > MAJOR_INDEX_NINETURN_HISTORY_BATCH_TRADE_DAYS
+            or len(batch.trade_dates) != len(batch.source_paths)
+            or len(batch.trade_dates) != len(batch.source_identities)
+            or len(batch.context_paths) != len(batch.context_identities)
+            or tuple(sorted(batch.trade_dates)) != batch.trade_dates
+        ):
+            raise MajorIndexNineturnHistoryError(
+                f"History plan batch contents are invalid: {batch.asset_key}:{batch.batch_index}."
+            )
 
 
 def _selected_specs(
@@ -556,6 +683,15 @@ def _write_checkpoint(
     )
 
 
+def _validated_checkpoint_path(*, checkpoint_path: Path, staging_root: Path) -> Path:
+    normalized = Path(checkpoint_path).resolve()
+    if not normalized.is_relative_to(staging_root):
+        raise MajorIndexNineturnHistoryError(
+            "History checkpoint must be below the reviewed staging root."
+        )
+    return normalized
+
+
 def _write_json_atomic(path: Path, payload: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f"{path.name}.tmp")
@@ -587,5 +723,6 @@ __all__ = [
     "MajorIndexNineturnHistoryError",
     "MajorIndexNineturnHistoryPlan",
     "build_major_index_nineturn_history",
+    "load_major_index_nineturn_history_plan",
     "plan_major_index_nineturn_history",
 ]
