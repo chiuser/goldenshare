@@ -2,9 +2,12 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DetailChartWorkspaceProps } from "../../../shared/charts/detail-workspace/detailChartTypes";
+import { idleNineTurnLayer } from "../../nine-turn/model/nineTurnAdapter";
+import { NineTurnMarkerPrimitive } from "../../../shared/charts/detail-workspace/NineTurnMarkerPrimitive";
 import { buildIndexDetailViewModel } from "../api/indexDetailViewModelAdapter";
 import { makeKline, makePageInit } from "../testing/indexDetailTestFixtures";
 import { IndexChartWorkspace } from "./IndexChartWorkspace";
+import { TrendChannelPanePrimitive } from "./TrendChannelPanePrimitive";
 
 const workspaceMock = vi.hoisted(() => ({
   props: [] as DetailChartWorkspaceProps[],
@@ -23,7 +26,7 @@ describe("IndexChartWorkspace adapter", () => {
 
   it("uses the index daily dataKey and keeps it stable across MA/BOLL switches", () => {
     const viewModel = buildIndexDetailViewModel(makePageInit("399001.SZ"), makeKline("399001.SZ"));
-    render(<IndexChartWorkspace trend={null} trendPhase="unavailable" viewModel={viewModel} />);
+    render(<IndexChartWorkspace nineTurnLayer={idleNineTurnLayer("day")} onNineTurnRetry={vi.fn()} trend={null} trendPhase="unavailable" viewModel={viewModel} />);
 
     expect(latestProps().dataKey).toBe("index:399001.SZ:day");
     fireEvent.change(screen.getByLabelText("指数主图指标切换"), { target: { value: "BOLL" } });
@@ -35,6 +38,8 @@ describe("IndexChartWorkspace adapter", () => {
     const viewModel = buildIndexDetailViewModel(makePageInit(), makeKline());
     render(
       <IndexChartWorkspace
+        nineTurnLayer={idleNineTurnLayer("day")}
+        onNineTurnRetry={vi.fn()}
         trend={{
           droppedCount: 0,
           status: "READY",
@@ -53,7 +58,9 @@ describe("IndexChartWorkspace adapter", () => {
     );
 
     expect(latestProps().dataKey).toBe("index:000001.SH:day");
-    expect(latestProps().mainPrimitives).toHaveLength(1);
+    expect(latestProps().mainPrimitives).toHaveLength(2);
+    expect(latestProps().mainPrimitives?.[0]).toBeInstanceOf(TrendChannelPanePrimitive);
+    expect(latestProps().mainPrimitives?.[1]).toBeInstanceOf(NineTurnMarkerPrimitive);
     expect(latestProps().mainLines).toHaveLength(0);
   });
 });

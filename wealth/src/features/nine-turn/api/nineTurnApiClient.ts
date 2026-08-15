@@ -11,6 +11,16 @@ export interface StockNineTurnFetchParams {
   tsCode: string;
 }
 
+export interface IndexNineTurnFetchParams {
+  cursor?: string;
+  debug?: 0 | 1;
+  endDate?: string;
+  limit?: number;
+  period: NineTurnPeriod;
+  startDate?: string;
+  tsCode: string;
+}
+
 export interface NineTurnFetchOptions {
   signal?: AbortSignal;
 }
@@ -31,8 +41,23 @@ export async function fetchStockNineTurnSeries(
   params: StockNineTurnFetchParams,
   options: NineTurnFetchOptions = {},
 ): Promise<NineTurnSeriesDto> {
+  return fetchNineTurnSeries("stock-detail", params, options);
+}
+
+export async function fetchIndexNineTurnSeries(
+  params: IndexNineTurnFetchParams,
+  options: NineTurnFetchOptions = {},
+): Promise<NineTurnSeriesDto> {
+  return fetchNineTurnSeries("index-detail", params, options);
+}
+
+async function fetchNineTurnSeries(
+  detailPath: "stock-detail" | "index-detail",
+  params: StockNineTurnFetchParams | IndexNineTurnFetchParams,
+  options: NineTurnFetchOptions,
+): Promise<NineTurnSeriesDto> {
   const path = params.period === "day" ? "nine-turn" : "minute-nine-turn";
-  const url = new URL(`/api/v1/wealth/market/stock-detail/${path}`, window.location.origin);
+  const url = new URL(`/api/v1/wealth/market/${detailPath}/${path}`, window.location.origin);
   url.searchParams.set("tsCode", params.tsCode);
   if (params.period !== "day") url.searchParams.set("freq", params.period);
   if (params.startDate) url.searchParams.set("startDate", params.startDate);

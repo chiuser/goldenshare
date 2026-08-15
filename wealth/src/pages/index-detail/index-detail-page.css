@@ -136,6 +136,13 @@
 .index-technical-card strong { color: #dce6f4; font-size: 13px; }
 .index-technical-card span { color: var(--cs-color-text-muted); font-size: 10px; }
 .index-technical-value { color: var(--cs-color-text-secondary); display: block; font: 700 24px/1 var(--cs-font-family-number); margin-top: 16px; }
+.index-nine-turn-summary-rows { display: grid !important; gap: 6px; margin-top: 12px; }
+.index-nine-turn-summary-row { align-items: center; background: rgba(15,23,42,.7); border-radius: 7px; display: grid; gap: 6px; grid-template-columns: 46px 54px minmax(0,1fr) auto; min-height: 38px; padding: 0 7px; }
+.index-nine-turn-summary-row > span { color: var(--cs-color-text-muted); font-size: 11px; }
+.index-nine-turn-summary-row > b { font: 700 12px/1 var(--cs-font-family-number); white-space: nowrap; }
+.index-nine-turn-summary-row > b.secondary { color: #d8e2f0; }
+.index-nine-turn-summary-row > small { color: var(--cs-color-text-muted); font-size: 10px; min-width: 0; overflow: hidden; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.index-nine-turn-summary-row > button { background: transparent; border: 0; color: var(--cs-color-brand); font-size: 10px; padding: 0; }
 .index-technical-grid { display: grid !important; gap: 6px; grid-template-columns: repeat(2, minmax(0,1fr)); margin-top: 12px; }
 .index-technical-grid > div { align-items: center; background: rgba(15,23,42,.7); border-radius: 7px; display: flex; height: 40px; justify-content: space-between; padding: 0 7px; }
 .index-technical-grid b { color: #d8e2f0; font: 700 11px/1 var(--cs-font-family-number); }

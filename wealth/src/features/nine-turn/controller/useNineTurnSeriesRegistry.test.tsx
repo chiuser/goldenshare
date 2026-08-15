@@ -48,7 +48,7 @@ describe("useNineTurnSeriesRegistry", () => {
     });
   });
 
-  it("aborts the previous period and ignores its late response", async () => {
+  it("loads different period keys concurrently without aborting either request", async () => {
     const deferred = new Map<NineTurnPeriod, PromiseController<NineTurnSeriesDto>>();
     const load = vi.fn<NineTurnSeriesLoader>((request) => {
       const pending = promiseController<NineTurnSeriesDto>();
@@ -73,15 +73,40 @@ describe("useNineTurnSeriesRegistry", () => {
     act(() => {
       minutePromise = result.current.ensure("30");
     });
-    expect(daySignal?.aborted).toBe(true);
+    const minuteSignal = load.mock.calls[1]?.[1].signal;
+    expect(daySignal?.aborted).toBe(false);
+    expect(minuteSignal?.aborted).toBe(false);
     await act(async () => {
       deferred.get("day")?.resolve(response("day"));
       deferred.get("30")?.resolve(response("30"));
       await Promise.all([dayPromise!, minutePromise!]);
     });
 
-    expect(result.current.stateFor("day").phase).toBe("IDLE");
+    expect(result.current.stateFor("day").phase).toBe("READY");
     expect(result.current.stateFor("30").phase).toBe("READY");
+  });
+
+  it("does not retry an error until retry is explicitly requested", async () => {
+    const load = vi.fn<NineTurnSeriesLoader>()
+      .mockRejectedValueOnce(new Error("temporary failure"))
+      .mockResolvedValueOnce(response("day"));
+    const { result } = renderHook(() => useNineTurnSeriesRegistry({
+      endDate: "2026-08-13",
+      load,
+      subjectType: "stock",
+      supportedPeriods: ["day"],
+      supportsNineTurn: true,
+      tsCode: "000001.SZ",
+    }));
+
+    await act(() => result.current.ensure("day"));
+    await waitFor(() => expect(result.current.stateFor("day").phase).toBe("ERROR"));
+    await act(() => result.current.ensure("day"));
+    expect(load).toHaveBeenCalledTimes(1);
+
+    await act(() => result.current.retry("day"));
+    await waitFor(() => expect(result.current.stateFor("day").phase).toBe("READY"));
+    expect(load).toHaveBeenCalledTimes(2);
   });
 });
 

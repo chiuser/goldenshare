@@ -180,18 +180,18 @@
 5. M5-A 的前端开发态 Mock 指标不产生、吞并或改写 `IM_*`；真实 Silver/Gold HTTP 状态仍按本表返回，Mock 不作为错误 fallback。
 6. 指数详情的“完整权重批次”指官方批次中由 `Security.security_type=EQUITY`、`exchange in (SSE,SZSE,BSE)`、`curr_type=CNY` 认定的完整 A 股子集。B 股不进入 rows/coverage/total/missing；A 股 daily 值优先，只有 daily 缺失/空值且精确日 `EquitySuspendD.suspend_type='S'` 时才按 FLAT/贡献 0 解析。
 
-## 9. 九转详情图层（Phase-4，股票与指数后端 active-code；指数 UI planned）
+## 9. 九转详情图层（Phase-4，股票与指数后端及 UI active）
 
-> 最终 DTO、状态优先级和恢复动作见 [股票与主要指数详情页九转接入低层设计 v1](./detail-page-nine-turn-integration-low-level-design-v1.md)。股票日线、本地 30/60/90/120 分钟及指数日线、本地 5/15/30/60/90/120 分钟后端代码和测试已落地，状态记为 `active-backend-code`；它不等于指数正式 Lake 历史生成、生产 migration、serving 发布或 M5 页面接入完成。指数 UI 仍为 `planned-index-ui`。
+> 最终 DTO、状态优先级和恢复动作见 [股票与主要指数详情页九转接入低层设计 v1](./detail-page-nine-turn-integration-low-level-design-v1.md)。股票日线、本地 30/60/90/120 分钟及指数日线、本地 5/15/30/60/90/120 分钟后端、正式数据和页面消费均已落地；M6 日常自动化与最终发布仍是独立后续阶段。
 
 | code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `NT_REQUEST_INVALID` | `detailNineTurn` | error | false | false | 九转查询参数不合法 | 未知/重复参数、code/period/date/limit/cursor 或响应窗口非法 | HTTP 400；不重试，保留已加载页面与 K 线 | biz-api | Phase-4 | active-backend-code / planned-index-ui |
-| `NT_NOT_FOUND` | `detailNineTurn` | warn | false | false | 请求标的不属于对应详情页对象池 | 股票身份不存在，或指数不属于运行时 `majorIndices/CN_A` 10 code | HTTP 404；沿用对应详情页 not-found 行为 | biz-api | Phase-4 | active-backend-code / planned-index-ui |
-| `NT_SOURCE_NOT_READY` | `detailNineTurn` | warn | false | true | 九转事实尚未覆盖请求窗口 | bar 窗口存在但九转零匹配，或观测日期落后显式 endDate | HTTP 200 + EMPTY/DELAYED；九转局部空态/延迟，不回退 | biz-api | Phase-4 | active-backend-code / planned-index-ui |
-| `NT_SOURCE_CONTRACT_INVALID` | `detailNineTurn` | error | false | false | 九转 Lake/serving 不符合冻结物理合同 | schema、路径、代码、周期、日期、唯一键、公式版本或值域违约 | HTTP 500；九转局部 error，不返回可疑 marker | foundation/biz-api | Phase-4 | active-backend-code / planned-index-ui |
-| `NT_ALIGNMENT_PARTIAL` | `detailNineTurn` | warn | false | true | 九转与同窗口 K 线时间键部分不一致 | bar 窗口中只有部分时间键能连接九转事实 | HTTP 200 + PARTIAL；只画已确认 marker，显示局部缺失 | biz-api | Phase-4 | active-backend-code / planned-index-ui |
-| `NT_QUERY_FAILED` | `detailNineTurn` | error | false | false | 九转查询执行失败 | PostgreSQL、DuckDB、文件 IO、DTO 映射或未知内部异常 | HTTP 500；保留 K 线和其它图层，允许九转局部重试 | foundation/biz-api | Phase-4 | active-backend-code / planned-index-ui |
+| `NT_REQUEST_INVALID` | `detailNineTurn` | error | false | false | 九转查询参数不合法 | 未知/重复参数、code/period/date/limit/cursor 或响应窗口非法 | HTTP 400；不重试，保留已加载页面与 K 线 | biz-api | Phase-4 | active |
+| `NT_NOT_FOUND` | `detailNineTurn` | warn | false | false | 请求标的不属于对应详情页对象池 | 股票身份不存在，或指数不属于运行时 `majorIndices/CN_A` 10 code | HTTP 404；沿用对应详情页 not-found 行为 | biz-api | Phase-4 | active |
+| `NT_SOURCE_NOT_READY` | `detailNineTurn` | warn | false | true | 九转事实尚未覆盖请求窗口 | bar 窗口存在但九转零匹配，或观测日期落后显式 endDate | HTTP 200 + EMPTY/DELAYED；九转局部空态/延迟，不回退 | biz-api | Phase-4 | active |
+| `NT_SOURCE_CONTRACT_INVALID` | `detailNineTurn` | error | false | false | 九转 Lake/serving 不符合冻结物理合同 | schema、路径、代码、周期、日期、唯一键、公式版本或值域违约 | HTTP 500；九转局部 error，不返回可疑 marker | foundation/biz-api | Phase-4 | active |
+| `NT_ALIGNMENT_PARTIAL` | `detailNineTurn` | warn | false | true | 九转与同窗口 K 线时间键部分不一致 | bar 窗口中只有部分时间键能连接九转事实 | HTTP 200 + PARTIAL；只画已确认 marker，显示局部缺失 | biz-api | Phase-4 | active |
+| `NT_QUERY_FAILED` | `detailNineTurn` | error | false | false | 九转查询执行失败 | PostgreSQL、DuckDB、文件 IO、DTO 映射或未知内部异常 | HTTP 500；保留 K 线和其它图层，允许九转局部重试 | foundation/biz-api | Phase-4 | active |
 
 补充规则：
 

@@ -5,12 +5,12 @@ import { makeKline, makePageInit, makeTrendPayload } from "../../features/index-
 import { IndexDetailPage } from "./IndexDetailPage";
 
 vi.mock("../../features/index-detail/chart/IndexChartWorkspace", () => ({
-  IndexChartWorkspace: () => <div aria-label="指数日线图表区" />,
+  IndexChartWorkspace: ({ nineTurnLayer }: { nineTurnLayer: { phase: string } }) => <div aria-label="指数日线图表区" data-nine-turn-phase={nineTurnLayer.phase} />,
 }));
 
 vi.mock("../../features/index-detail/chart/IndexMinuteChartWorkspace", () => ({
-  IndexMinuteChartWorkspace: ({ data, errorMessage, phase }: { data: { freq: number } | null; errorMessage: string; phase: string }) => (
-    <div aria-label="指数分钟图表区" data-freq={data?.freq ?? ""} data-phase={phase}>{errorMessage}</div>
+  IndexMinuteChartWorkspace: ({ data, errorMessage, nineTurnLayer, phase }: { data: { freq: number } | null; errorMessage: string; nineTurnLayer: { phase: string }; phase: string }) => (
+    <div aria-label="指数分钟图表区" data-freq={data?.freq ?? ""} data-nine-turn-phase={nineTurnLayer.phase} data-phase={phase}>{errorMessage}</div>
   ),
 }));
 
@@ -62,6 +62,7 @@ describe("IndexDetailPage", () => {
     const local = makePageInit("000001.SH");
     local.capabilities.supportsMinute = true;
     local.capabilities.minuteFrequencies = [1, 5, 15, 30, 60, 90, 120];
+    local.capabilities.nineTurnPeriods = ["day", "5", "15", "30", "60", "90", "120"];
     local.chartDefaults.availablePeriods = ["day", "m1", "m5", "m15", "m30", "m60", "m90", "m120"];
     const fetchMock = mockFetch("000001.SH", {
       minuteIndicators: (url) => response(makeMinuteIndicatorResponse(Number(url.searchParams.get("freq")))),
@@ -74,6 +75,7 @@ describe("IndexDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "5分" }));
     const minuteChart = await screen.findByLabelText("指数分钟图表区");
     await waitFor(() => expect(minuteChart).toHaveAttribute("data-phase", "ready"));
+    await waitFor(() => expect(minuteChart).toHaveAttribute("data-nine-turn-phase", "READY"));
     expect(minuteChart).toHaveAttribute("data-freq", "5");
     expect(screen.getByLabelText("IndexHeader")).toHaveTextContent("3940.04");
 
@@ -84,7 +86,73 @@ describe("IndexDetailPage", () => {
 
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/minutes"))).toHaveLength(1);
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/minute-indicators"))).toHaveLength(1);
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/minute-nine-turn"))).toHaveLength(1);
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/kline"))).toHaveLength(1);
+  });
+
+  it("uses the page-init matrix for index nine-turn and keeps 1 minute at zero requests", async () => {
+    const local = makePageInit("000001.SH");
+    local.capabilities.supportsMinute = true;
+    local.capabilities.minuteFrequencies = [1, 5, 15, 30, 60, 90, 120];
+    local.capabilities.nineTurnPeriods = ["day", "5", "15", "30", "60", "90", "120"];
+    local.chartDefaults.availablePeriods = ["day", "m1", "m5", "m15", "m30", "m60", "m90", "m120"];
+    const fetchMock = mockFetch("000001.SH", {
+      minuteIndicators: (url) => response(makeMinuteIndicatorResponse(Number(url.searchParams.get("freq")))),
+      minutes: (url) => response(makeMinuteResponse(Number(url.searchParams.get("freq")))),
+      pageInit: () => response(local),
+    });
+    render(<IndexDetailPage search="" tsCode="000001.SH" />);
+
+    await screen.findByLabelText("指数日线图表区");
+    fireEvent.click(screen.getByRole("button", { name: "1分" }));
+    await waitFor(() => expect(screen.getByLabelText("指数分钟图表区")).toHaveAttribute("data-phase", "ready"));
+    expect(screen.getByLabelText("指数分钟图表区")).toHaveAttribute("data-nine-turn-phase", "UNSUPPORTED");
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/minute-nine-turn"))).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("tab", { name: "技术面" }));
+    await waitFor(() => expect(screen.getByLabelText("九转序列摘要")).toHaveTextContent("上序 3"));
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/minute-nine-turn"))).toHaveLength(2));
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/nine-turn"))).toHaveLength(1);
+  });
+
+  it("keeps the index chart when nine-turn fails and retries only the failed layer", async () => {
+    let nineTurnCalls = 0;
+    const fetchMock = mockFetch("000001.SH", {
+      nineTurn: () => ++nineTurnCalls === 1
+        ? response({ code: "NT_QUERY_FAILED", message: "九转服务失败" }, 500)
+        : response(makeIndexNineTurnResponse("000001.SH", "day")),
+    });
+    render(<IndexDetailPage search="" tsCode="000001.SH" />);
+
+    const chart = await screen.findByLabelText("指数日线图表区");
+    await waitFor(() => expect(chart).toHaveAttribute("data-nine-turn-phase", "ERROR"));
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/kline"))).toHaveLength(1);
+    fireEvent.click(screen.getByRole("tab", { name: "技术面" }));
+    fireEvent.click(await screen.findByRole("button", { name: "重试日线九转" }));
+    await waitFor(() => expect(screen.getByLabelText("九转序列摘要")).toHaveTextContent("上序 3"));
+    expect(screen.getByLabelText("指数日线图表区")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/nine-turn"))).toHaveLength(2);
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/kline"))).toHaveLength(1);
+  });
+
+  it("keeps North Exchange 50 minute data and nine-turn as local source-empty states", async () => {
+    const local = makePageInit("899050.BJ");
+    local.capabilities.supportsMinute = true;
+    local.capabilities.minuteFrequencies = [1, 5, 15, 30, 60, 90, 120];
+    local.capabilities.nineTurnPeriods = ["day", "5", "15", "30", "60", "90", "120"];
+    local.chartDefaults.availablePeriods = ["day", "m1", "m5", "m15", "m30", "m60", "m90", "m120"];
+    mockFetch("899050.BJ", {
+      minuteNineTurn: (url) => response(makeEmptyIndexNineTurnResponse("899050.BJ", url.searchParams.get("freq") as "5" | "15" | "30" | "60" | "90" | "120")),
+      minutes: (url) => response(makeEmptyMinuteResponse(Number(url.searchParams.get("freq")), "899050.BJ")),
+      pageInit: () => response(local),
+    });
+    render(<IndexDetailPage search="" tsCode="899050.BJ" />);
+
+    await screen.findByLabelText("指数日线图表区");
+    fireEvent.click(screen.getByRole("button", { name: "60分" }));
+    const chart = await screen.findByLabelText("指数分钟图表区");
+    await waitFor(() => expect(chart).toHaveAttribute("data-phase", "empty"));
+    await waitFor(() => expect(chart).toHaveAttribute("data-nine-turn-phase", "SOURCE_EMPTY"));
   });
 
   it.each(["399001.SZ", "399006.SZ", "000688.SH", "000300.SH", "000905.SH", "000852.SH", "899050.BJ", "000510.SH", "000016.SH"])(
@@ -310,6 +378,8 @@ describe("IndexDetailPage", () => {
 });
 
 interface MockFetchOptions {
+  minuteNineTurn?: (url: URL) => Response | Promise<Response>;
+  nineTurn?: (url: URL) => Response | Promise<Response>;
   kline?: () => Response | Promise<Response>;
   minuteIndicators?: (url: URL) => Response | Promise<Response>;
   minutes?: (url: URL) => Response | Promise<Response>;
@@ -330,6 +400,11 @@ function mockFetch(tsCode: string, options: MockFetchOptions = {}) {
     if (url.includes("/index-detail/kline")) return options.kline?.() ?? response(kline);
     if (url.includes("/index-detail/minute-indicators")) return options.minuteIndicators?.(new URL(url)) ?? response({}, 404);
     if (url.includes("/index-detail/minutes")) return options.minutes?.(new URL(url)) ?? response({}, 404);
+    if (url.includes("/index-detail/minute-nine-turn")) {
+      const parsed = new URL(url);
+      return options.minuteNineTurn?.(parsed) ?? response(makeIndexNineTurnResponse(tsCode, parsed.searchParams.get("freq") as "5" | "15" | "30" | "60" | "90" | "120"));
+    }
+    if (url.includes("/index-detail/nine-turn")) return options.nineTurn?.(new URL(url)) ?? response(makeIndexNineTurnResponse(tsCode, "day"));
     if (url.includes("/index-detail/weights")) return options.weights?.() ?? response(weights);
     if (url.includes("/trend-channel")) return options.trend?.() ?? response(makeTrendPayload());
     return new Response("{}", { status: 404 });
@@ -338,12 +413,40 @@ function mockFetch(tsCode: string, options: MockFetchOptions = {}) {
   return fetchMock;
 }
 
-function makeMinuteResponse(freq: number) {
+function makeIndexNineTurnResponse(tsCode: string, period: "day" | "5" | "15" | "30" | "60" | "90" | "120") {
+  const tradeTime = period === "day" ? null : "2026-07-31T09:49:00+08:00";
+  const marker = { completed: false, direction: "UP" as const, sequenceNumber: 3 as const, tradeDate: "2026-07-31", tradeTime };
   return {
-    tsCode: "000001.SH",
+    dataStatus: { code: null, expectedEndDate: "2026-07-31", message: null, observedEndDate: "2026-07-31", status: "READY" as const },
+    debugInfo: null,
+    latestMarker: marker,
+    markers: [marker],
+    meta: { comparisonLag: 4 as const, endDate: "2026-07-31", formulaVersion: 1 as const, hasMore: false, limit: period === "day" ? 300 : 500, markerCount: 1, matchedRowCount: 1, missingRowCount: 0, nextCursor: null, observedEndDate: "2026-07-31", observedStartDate: "2026-07-31", signalThreshold: 9 as const, sourceRowCount: 1, startDate: null },
+    period,
+    subjectType: "index" as const,
+    tsCode,
+  };
+}
+
+function makeEmptyIndexNineTurnResponse(tsCode: string, period: "5" | "15" | "30" | "60" | "90" | "120") {
+  return {
+    dataStatus: { code: "NT_SOURCE_NOT_READY", expectedEndDate: "2026-07-31", message: "当前数据源不覆盖该指数分钟九转。", observedEndDate: null, status: "EMPTY" as const },
+    debugInfo: null,
+    latestMarker: null,
+    markers: [],
+    meta: { comparisonLag: 4 as const, endDate: "2026-07-31", formulaVersion: 1 as const, hasMore: false, limit: 500, markerCount: 0, matchedRowCount: 0, missingRowCount: 0, nextCursor: null, observedEndDate: null, observedStartDate: null, signalThreshold: 9 as const, sourceRowCount: 0, startDate: null },
+    period,
+    subjectType: "index" as const,
+    tsCode,
+  };
+}
+
+function makeMinuteResponse(freq: number, tsCode = "000001.SH") {
+  return {
+    tsCode,
     freq,
     bars: Array.from({ length: 20 }, (_, index) => ({
-      tsCode: "000001.SH", freq, tradeDate: "2026-07-31",
+      tsCode, freq, tradeDate: "2026-07-31",
       tradeTime: `2026-07-31T09:${String(30 + index).padStart(2, "0")}:00+08:00`,
       open: 10 + index, high: 11 + index, low: 9 + index, close: 10.5 + index,
       vol: 100 + index, amount: 1000 + index, exchange: "SSE",
@@ -353,8 +456,18 @@ function makeMinuteResponse(freq: number) {
   };
 }
 
-function makeMinuteIndicatorResponse(freq: number) {
-  const bars = makeMinuteResponse(freq);
+function makeEmptyMinuteResponse(freq: number, tsCode: string) {
+  return {
+    tsCode,
+    freq,
+    bars: [],
+    meta: { count: 0, limit: 500, hasMore: false, nextCursor: null, startDate: null, endDate: "2026-07-31", observedStartDate: null, observedEndDate: null },
+    dataStatus: { status: "EMPTY" as const, code: "IM_SOURCE_NOT_READY", expectedEndDate: "2026-07-31", observedEndDate: null, message: "当前数据源不覆盖北证50分钟数据。" },
+  };
+}
+
+function makeMinuteIndicatorResponse(freq: number, tsCode = "000001.SH") {
+  const bars = makeMinuteResponse(freq, tsCode);
   return {
     tsCode: bars.tsCode,
     freq,

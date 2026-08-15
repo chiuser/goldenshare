@@ -1,6 +1,6 @@
 # 股票详情九转纵向切片 M2 编码前门禁 v1
 
-> 状态：2026-08-13 M2 已收口；后续 M3-A/M3-B 已完成生产 migration、Gold 修复和 3,066/3,066 日、11,638,636 行 serving 全历史发布与逐日对账。生产日线接口、权限、真实数据和 1600×1200 Loaded 主体验收，以及分钟页面/API/性能行为验收均已完成；日线仍缺登录态 P95、45/180 根生产边界截图和自然日常链路，分钟正式资产仍待迁移到无价格八列合同。2026-08-15 三个股票九转 sensor 的正式实例状态均为 `RUNNING`、最近 tick 均 `SKIPPED`，不能再写成“两个 sensor 仍为 STOPPED”；当前快照以总方案第 3.3 节为准。
+> 状态：2026-08-13 M2 已收口；后续 M3-A/M3-B/M3-C 已完成生产 migration、Gold 修复、serving 全历史发布、日线接口/权限/真实数据/Loaded 视觉和分钟页面/API/性能行为验收。2026-08-15 用户取消登录态正式 P95 与生产 45/180 根截图两项补充验收；四个分钟正式资产也已完成无价格八列迁移。日线冗余价格与自然更新阻塞已移交独立专项，不属于本门禁退出条件。三个股票九转 sensor 的正式实例状态均为 `RUNNING`、最近 tick 均 `SKIPPED`；当前快照以总方案第 3.3 节为准。
 >
 > 总方案：[股票与主要指数详情页九转接入总方案 v1](./detail-page-nine-turn-integration-implementation-design-v1.md)
 >
@@ -48,7 +48,7 @@ M2 只交付股票九转的一条可验证纵向切片：
 3. [x] PostgreSQL serving schema、事务发布和 read-back 冻结。
 4. [x] 本地分钟 Reader 路径、schema、分页与安全门禁冻结。
 5. [x] 本轮股票日线/分钟 endpoint 的参数和 DTO 冻结。
-6. [x] `NT_*` 异常码已登记；股票 M2 为 active-code，指数仍为 planned。
+6. [x] `NT_*` 异常码已登记；股票与指数后端及页面消费均已升级为 active。
 7. [x] page-init capability 与 router 使用同一能力判定。
 8. [x] shared primitive 几何、生命周期、autoscale 和图层顺序冻结。
 9. [x] 缓存、取消、request id 和局部重试行为冻结。

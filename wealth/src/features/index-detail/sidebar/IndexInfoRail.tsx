@@ -1,5 +1,7 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 
+import type { NineTurnPeriod } from "../../nine-turn/api/nineTurnApiTypes";
+import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 import type { IndexDetailWeightsResponseDto } from "../api/indexDetailApiTypes";
 import { formatNullablePoint, formatNullableSignedPercent, formatNullableSignedPoint, marketDirectionClass } from "../api/indexDetailViewModelAdapter";
 import type { IndexDetailViewModel, IndexInfoTab, IndexModulePhase, IndexPagePhase, TrendChannelViewModel } from "../model/indexDetailTypes";
@@ -14,7 +16,9 @@ const TABS: Array<{ key: IndexInfoTab; label: string }> = [
 
 interface IndexInfoRailProps {
   activeTab: IndexInfoTab;
+  nineTurnSummary: Record<"day" | "30" | "60", NineTurnLayerViewModel>;
   onAction: (message: string) => void;
+  onNineTurnRetry: (period: NineTurnPeriod) => void;
   onTrendRetry: () => void;
   onTabChange: (tab: IndexInfoTab) => void;
   pagePhase: Extract<IndexPagePhase, "ready" | "delayed" | "partial" | "empty">;
@@ -25,7 +29,7 @@ interface IndexInfoRailProps {
   weights: { data: IndexDetailWeightsResponseDto | null; errorMessage: string; phase: IndexModulePhase; retry: () => void };
 }
 
-export function IndexInfoRail({ activeTab, onAction, onTabChange, onTrendRetry, pagePhase, partialReasons, trend, trendPhase, viewModel, weights }: IndexInfoRailProps) {
+export function IndexInfoRail({ activeTab, nineTurnSummary, onAction, onNineTurnRetry, onTabChange, onTrendRetry, pagePhase, partialReasons, trend, trendPhase, viewModel, weights }: IndexInfoRailProps) {
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [weightsScrollTop, setWeightsScrollTop] = useState(0);
   const tone = marketDirectionClass(viewModel.quote.direction);
@@ -48,7 +52,7 @@ export function IndexInfoRail({ activeTab, onAction, onTabChange, onTrendRetry, 
       <div className="index-right-tab-content" id={`index-tab-${activeTab}`} role="tabpanel">
         {activeTab === "basic" ? <IndexBasicTab metrics={viewModel.basicMetrics} statusLabel={pagePhase === "empty" ? "暂无数据" : "日线口径"} /> : null}
         {activeTab === "weights" ? <IndexWeightsTab {...weights} onRetry={weights.retry} onScrollTopChange={setWeightsScrollTop} scrollTop={weightsScrollTop} /> : null}
-        {activeTab === "technical" ? <IndexTechnicalTab onTrendRetry={onTrendRetry} trend={trend} trendPhase={trendPhase} viewModel={viewModel} /> : null}
+        {activeTab === "technical" ? <IndexTechnicalTab nineTurnSummary={nineTurnSummary} onNineTurnRetry={onNineTurnRetry} onTrendRetry={onTrendRetry} trend={trend} trendPhase={trendPhase} viewModel={viewModel} /> : null}
       </div>
       {pagePhase === "partial" ? <IndexDetailPartialNotice reasons={partialReasons} variant="partial" /> : null}
       {pagePhase === "delayed" ? <IndexDetailPartialNotice expectedTradeDate={viewModel.dataStatus.expectedTradeDate} observedTradeDate={viewModel.dataStatus.observedTradeDate} variant="delayed" /> : null}

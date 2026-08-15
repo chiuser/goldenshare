@@ -1,6 +1,6 @@
 # 股票与主要指数详情页九转接入低层设计（LLD）v1
 
-> 状态：M0、M1、M2、M3-A、M3-B、M4-A、M4-B 已完成；M3-C-Minute 页面/API/视觉行为与 2026-08-15 “股票分钟 QFQ 九转去价格字段”专项 S0～S5 均已完成。四个分钟资产的 12,272 个正式分区已切换为八列无价格合同，12,272 条 materialization 与 80 条最近窗口 check 已登记，Reader/readiness 和分钟 sensor 恢复通过。S6 只读复核确认股票日线 20 个代码的历史 `close_qfq` 漂移但九转计数/信号零差异；用户决定价格信息后续单独处理，本轮不修改日线合同、物理文件、check、sensor 或生产表。M3-C 日线仍待登录态 P95 与生产 45/180 根边界截图；M5 指数页面接入和 M6 最终发布尚未开始。六个九转 sensor 的当前实例状态见第 4.5 节。
+> 状态：M0、M1、M2、M3-A、M3-B、M3-C、M4-A、M4-B、S7/M5 已完成；2026-08-15 用户取消登录态正式 P95 与生产 45/180 根边界截图两项 M3-C 补充验收。M3-C-Minute 页面/API/视觉行为与“股票分钟 QFQ 九转去价格字段”S0～S5 均已完成。S6 发现的股票日线冗余价格漂移和自然更新阻塞已移交独立专项，本轮不修改日线合同、物理文件、check、sensor 或生产表。M6 最终发布尚未开始。六个九转 sensor 的当前实例状态见第 4.5 节。
 >
 > 上游方案：[股票与主要指数详情页九转接入总方案 v1](./detail-page-nine-turn-integration-implementation-design-v1.md)
 >
@@ -43,7 +43,7 @@
 |---|---|---|
 | 产品周期矩阵 | 通过 | 股票 day/30/60/90/120；指数 day/5/15/30/60/90/120；其余周期九转零请求 |
 | 公式与展示映射 | 通过 | lag=4、threshold=9、formulaVersion=1；资产可计数 10+，页面只画 1～9 |
-| 股票事实源 | 通过 | 五个自主 QFQ Gold 资产、五个 blocking checks 与正式历史文件已存在；日线和四个支持分钟周期的页面接入已实现，分钟物理合同迁移待完成 |
+| 股票事实源 | 通过 | 五个自主 QFQ Gold 资产、五个 blocking checks 与正式历史文件已存在；日线和四个支持分钟周期的页面接入及分钟八列物理合同迁移均已完成 |
 | 指数建设边界 | 通过 | 七个资产、正式历史和日线 serving 已完成；物理 11-code seed 不变，产品严格按 Wealth 10-code allowlist |
 | 北证50边界 | 通过 | `899050.BJ` 支持日线；分钟源不覆盖时返回局部 SOURCE EMPTY，不补造 |
 | 生产与本地边界 | 通过 | 日线走 PostgreSQL serving；分钟仅 local/dev 读取正式 Lake 的规范化 Gold；生产分钟路由 404 |
@@ -149,7 +149,7 @@ gold_major_index_mins_120m
 1. 不修改 `src/platform` 或 `src/operations`，依赖方向保持 `foundation <- biz <- app`。
 2. Web 代码不能 import `lake_console/orchestrator`；路径和物理合同必须在 Foundation 独立冻结。
 3. Orchestrator 不能 import Web 的 schema、universe service 或 React 类型。
-4. `IndexDetailCapabilitiesDto.supportsNineTurn` 当前是 `Literal[False]`，前端 TS 也冻结为 `false`；只能在指数 M5 接入时按目标合同升级。
+4. `IndexDetailCapabilitiesDto.supportsNineTurn` 与前端 TS 已在 S7/M5 升级为 `true`；`nineTurnPeriods` 由 page-init 和 router 共用的 capability resolver 生成，生产只有 day，local/dev 能力满足时增加 5/15/30/60/90/120。
 5. 股票 page-init 已在 M2 增加九转 capability：日线常驻；正式本地 Gold 能力满足时增加 30/60/90/120。
 
 ### 4.2 可复用能力
@@ -167,7 +167,7 @@ gold_major_index_mins_120m
 
 ### 4.3 已发现缺口
 
-1. 股票与指数日线/分钟九转 Reader、DTO 和 endpoint 已实现；指数页面、指数 Technical 摘要和 capability 仍未接入，属于 M5。
+1. 股票与指数日线/分钟九转 Reader、DTO、endpoint 和页面消费均已实现；S7/M5 已完成指数 capability、日线/分钟图层、Technical 摘要与局部状态接入。
 2. S1 已将 `GOLD_STK_MINS_QFQ_NINETURN_SCHEMA`、分钟 writer、asset metadata、合并 integrity helper、历史 bootstrap/canonical audit、Foundation Reader 和测试一次性切换为八列合同；asset key、path、job、sensor、DTO 与 API 合同未改变。
 3. `audit_qfq_nineturn_integrity(...)` 已按 `freq is None` 明确分流：日线继续做价格正值与 `source_value_consistency`，分钟只做精确 schema、分区、源/目标唯一键、源键覆盖、计数和信号值域；源重复键也会 fail closed。
 4. 分钟 Reader 的 column specs、校验 SQL、join 投影和内部 rows 已删除 `close_qfq`；K 线价格仍只来自 `gold_stk_mins_qfq`。含价格的旧九列分钟文件会被明确拒绝，不存在兼容分支。
@@ -725,7 +725,7 @@ nineTurnPeriods: Array<"day" | "5" | "15" | "30" | "60" | "90" | "120">;
 2. `nineTurnPeriods` 表示当前环境可调用的周期，不表示 K 线所有周期。
 3. 股票 1/5/15、指数 1 永不进入列表。
 4. page-init 与 App router 必须调用相同 capability resolver，防止按钮可用但路由不存在。
-5. 指数现有 page-init 合同实现时需要从 1.2.0 升级；在代码完成前，当前 `Literal[False]` 仍是现状事实，不能提前写成已上线。
+5. 指数 page-init 合同已在 S7/M5 升级为 1.3.0；后端 `Literal[True]`、前端 `supportsNineTurn=true` 与 `nineTurnPeriods` 已由测试和浏览器实际响应确认。
 
 ## 12. 前端结构
 
@@ -927,11 +927,11 @@ M3-B 执行前复核发现旧 scoped rebuild 会一次性生成并整体提升 3
 
 Gold 修复和 serving 历史发布后，完成生产日线、四个本地分钟、三个禁用周期、全部局部状态、缓存竞态、浏览器和视觉验收。M2 已包含页面接入，因此不重复建第二套控制器。
 
-2026-08-13 已完成生产日线主体门禁：登录态 `600683.SH` API 返回 200/143.07ms，另一个 `688300.SH` 样本为 200/211.78ms；`600683.SH` 最近 300 根 serving 记录匹配 300、缺失 0、formulaVersion 漂移 0，包含 37 条 10+ 负向样本；1600×1200 页面实际绘出 1～9 和完成态 9，四窗格、坐标轴、右栏与缩放按钮无视觉漂移。当前两次 HTTP 样本不能代替正式 P95；Chrome 连续控制超时也使 45/180 根边界截图未稳定取得。
+2026-08-13 已完成生产日线主体门禁：登录态 `600683.SH` API 返回 200/143.07ms，另一个 `688300.SH` 样本为 200/211.78ms；`600683.SH` 最近 300 根 serving 记录匹配 300、缺失 0、formulaVersion 漂移 0，包含 37 条 10+ 负向样本；1600×1200 页面实际绘出 1～9 和完成态 9，四窗格、坐标轴、右栏与缩放按钮无视觉漂移。两次 HTTP 只作为代表性样本，不宣称正式 P95；45/180 根边界已有共享组件自动化门禁。用户于 2026-08-15 取消补足正式 P95 样本和补拍生产边界截图的要求。
 
 2026-08-15 S6 以正式 Lake 与 Dagster instance 做了只读复核：日线九转物理文件停在 2026-08-12，上游 QFQ 已覆盖至 2026-08-14；8 月 13/14 两次 factor repair 分别重写 9/11 个代码。对合计 20 个代码按当前 3,068 个源分区重算，既有可对齐 50,283 行全部只发生 `close_qfq` 差异，计数差异 0、信号差异 0，另有 40 行属于尚未生成的两个交易日。页面 DTO 不输出价格。用户明确本轮不处理日线价格字段，故本轮不删除字段、不重建历史、不改 check/sensor/Prod；该数据治理和自然链路阻塞移交后续独立专项，不再阻塞前端 marker、性能和视觉收口，也不得被表述为已经修复。
 
-同轮代码回归通过：股票日线九转 API 10 项、股票页面/共享九转图层/缩放控件 43 项、前端 typecheck 和 production build 均成功。该结果只证明代码基线未回归，不能替代仍待完成的生产登录态 P95 与 45/180 根浏览器截图。
+同轮代码回归通过：股票日线九转 API 10 项、股票页面/共享九转图层/缩放控件 43 项、前端 typecheck 和 production build 均成功。结合已通过的真实接口、数据和 Loaded 视觉主体门禁，并按用户取消两项补充验收的决定，M3-C 页面切片收口。
 
 2026-08-14 在四个分钟九转资产重建后完成过 M3-C-Minute 行为验收：30/60/90/120 分钟最新分区及 matching blocking checks 通过；三只股票四周期各 500 根 K 线、技术指标、九转逐键对齐；四周期 HTTP P95 为 362～500ms；Reader 修正“每请求新建 DuckDB + 重复扫描全市场”的内存根因后，第二批 40 请求 RSS 仅增加 12.78MiB；1600×1200 浏览器实测四支持周期均绘出 1～9，1/5/15 分钟九转零请求，缓存切回和放大均不重置图层。
 
@@ -1010,6 +1010,24 @@ M4-B 正式执行结果（2026-08-15）：
 
 修改现有 index page-init capability、index page/controller、两类 chart adapter、`IndexTechnicalTab` 和测试。不得复制 `NineTurnMarkerPrimitive`、series registry 或 API DTO。
 
+S7 编码边界：
+
+1. page-init 与 App router 复用同一指数分钟九转 capability resolver；生产只声明 `day`，local/dev 能力就绪时声明 `day,5,15,30,60,90,120`，指数 1 分钟永不请求。
+2. 指数日线与分钟图表复用共享 registry、`NineTurnMarkerPrimitive` 和 `NineTurnLayerStatus`；上证日线 primitive 顺序固定为趋势通道在前、九转在后。
+3. Technical 首次打开只 ensure capability 支持的 day/60/30，并只读取 API `latestMarker` 形成“上序 N/下序 N”；无 marker、未开放或源空均显示 `--` 和局部原因。
+4. 九转 LOADING/EMPTY/SOURCE_EMPTY/PARTIAL/ERROR/FORBIDDEN/UNSUPPORTED 只影响九转图层和摘要，不进入整页 `partialReasons`，不清空 K 线、趋势、技术指标或右栏其它模块。
+5. `899050.BJ` 分钟保持 `SOURCE_EMPTY`，`000680.SH` 仍由产品 allowlist 拒绝；不增加 fallback、Mock、客户端现算、Tooltip、点击或交易动作。
+6. registry 必须允许 day/60/30 三个独立 key 并发加载；切 code/日期/卸载才统一 abort，单周期 retry 不清理其它周期缓存。
+
+S7/M5 正式执行结果（2026-08-15）：
+
+1. page-init 已按同一 capability resolver 输出 `supportsNineTurn=true` 与环境相关 `nineTurnPeriods`；生产仅 day，local/dev 开放 day/5/15/30/60/90/120，指数 1 分钟显示 UNSUPPORTED 且浏览器日志确认九转请求数为 0。
+2. 指数日线与分钟均复用共享 registry、`NineTurnMarkerPrimitive`、`NineTurnLayerStatus` 和 `DetailChartWorkspace`；上证日线趋势通道与九转按冻结顺序并存，没有复制第二套图表或请求控制器。
+3. Technical 首次打开并发读取 day/60/30 的 API `latestMarker`；真实浏览器样本显示“日线 下序 2、60分钟 上序 1、30分钟 上序 3”，文案固定为“客观序列 · 非交易信号”，无点击或交易动作。
+4. `899050.BJ` 60 分钟浏览器验收为局部 EMPTY“当前分钟数据源暂不覆盖该指数”，右栏继续展示，切回日线立即恢复；指数九转状态不进入整页 `partialReasons`。
+5. 浏览器验收发现并修复共享图表的未操作视窗竞态：分钟技术指标或九转图层到达后，异步旧回调不再把最新 120 根改成最早 120 根；用户主动缩放/拖拽的范围仍保持。60 分钟复验显示最新窗口及 1～9 marker。
+6. 后端 index page-init/daily/minute 九转回归 37 项通过；前端全量 34 个测试文件 232 项、typecheck、production build、`git diff --check` 通过。1600×1200 日线双 primitive、Technical 摘要、60 分钟 marker、指数 1 分钟 UNSUPPORTED、北证50分钟空态和切回日线均完成浏览器验收，页面 console 无 warning/error。
+
 ## 16. 测试矩阵
 
 ### 16.1 公式与资产
@@ -1083,7 +1101,7 @@ M4-B 正式执行结果（2026-08-15）：
 3. S2 新鲜只读计划全绿后，进入 S3 停止相关分钟 sensor 和本地 Reader，在正式 staging 生成并全量审计 candidate。
 4. candidate 全绿后逐文件原子替换正式分钟九转 Parquet；不得先删除正式文件，不得在正式 Lake 内生成临时文件。
 5. 物理验收通过后补全部四资产 materialization events，只补最近 20 个交易日 checks；验证 latest state/readiness 后再恢复 sensor 和 Reader。
-6. 完成 M5 指数页面接入；自然触发、freshness、性能和视觉验收后进入 M6。
+6. M5 指数页面接入已完成；后续只在单独授权下进入 M6 的自然触发、freshness 与最终发布验收。
 
 回滚：
 
@@ -1111,8 +1129,9 @@ M3-B 已完成，M4-B 正式执行也已收口：
 2. 45,442 行 close 漂移对应的 Gold scoped rebuild 已完成；11,638,636 行全历史键、价格、计数和信号差异均为 0。
 3. 股票 serving sample、余下 1,953 日历史发布和最终全量对账均已完成。指数 32,124 个正式目标分区、64,248 条 Dagster events、生产 migration、6,450 日/42,633 行 serving 历史与全量对齐/性能验收也已完成。
 4. 历史执行阶段曾停止股票 Gold sensor，serving sensor 当时未启用；这不是当前实例状态。2026-08-15 重新审计确认股票日线 Gold、股票分钟 Gold 和股票日线 serving 三个 sensor 当前均为持久化 `RUNNING`，最近 tick 全部 `SKIPPED` 且没有发起 run；完整状态和阻断原因见第 4.5 节。
-5. Gold 历史发布基线已经完成；生产日线真实 API、数据样本与 Loaded 截图已通过主体门禁，仍须补齐登录态 P95 与生产缩放边界截图，不得用 SQLite fixture、本地 Lake 或单元测试冒充这些生产验收。S6 新发现的日线冗余价格漂移及自然链路阻塞已按用户决定移交后续专项，不属于本轮前端退出条件，但必须继续作为未解决事实保留。
+5. Gold 历史发布基线已经完成；生产日线真实 API、数据样本与 Loaded 截图已通过主体门禁。用户已取消登录态正式 P95 与生产缩放边界截图两项补充验收，M3-C 据此完成。S6 新发现的日线冗余价格漂移及自然链路阻塞已移交后续专项，不属于本轮前端退出条件，但必须继续作为未解决事实保留。
 6. M3-C-Minute 的严格 API、性能/内存、缓存/竞态、1/5/15 禁用周期和 1600×1200 浏览器行为门禁已通过；2026-08-15 去价格专项又完成四个正式分钟资产的八列迁移、事件恢复、Reader/readiness 与分钟 sensor 最近窗口自然评估，因此分钟页面行为和物理合同均已收口。下一交易日新增分区只作为运维观察；该结论不扩展到日线或指数九转。
+7. S7/M5 已完成指数 page-init capability、日线/分钟共享 marker、Technical day/60/30 摘要、局部状态和浏览器验收；M6 仍是独立后续阶段，本轮未启用指数 sensor、未写 Lake 或生产数据库。
 
 ## 20. 股票分钟 QFQ 九转去价格字段专项
 
@@ -1237,3 +1256,5 @@ S2 执行前只读预算基线（不代表当前物理规模）：
 | v1.15 | 2026-08-15 | 去价格专项 S1 收口：分钟 schema/writer/check/history/Reader 切换为八列无价格合同，日线价格与 serving 合同不变；增加旧 schema、源重复键、值域、内存/线程和文档指纹门禁。代码与专项回归通过，正式 Lake/events 仍待 S2～S5 | Codex |
 | v1.16 | 2026-08-15 | 去价格专项 S2～S5 收口：12,272 个正式分钟分区切换为八列合同，登记 12,272 materialization/80 check，完成 Reader/readiness/性能与 sensor 自然评估；日线与 Prod 不变 | Codex |
 | v1.17 | 2026-08-15 | S6 只读复核确认日线 20 个代码的 50,283 个既有价格值漂移、计数和信号零差异；按用户决定将日线价格信息及自然链路阻塞移交后续专项，本轮仅继续 M3-C 前端 marker API 性能与 45/180 根视觉验收 | Codex |
+| v1.18 | 2026-08-15 | 用户取消登录态正式 P95 与生产 45/180 根截图两项 M3-C 补充验收，M3-C 收口；冻结 S7/M5 指数 capability、共享图层、Technical 摘要、局部状态与并发缓存门禁 | Codex |
+| v1.19 | 2026-08-15 | S7/M5 收口：指数 page-init capability、日线/分钟共享九转图层、Technical day/60/30 摘要、局部状态与缓存竞态已实现；修复未操作分钟视窗被旧回调改为最早 120 根的问题，并完成北证50空态、1分钟零九转请求及 1600×1200 浏览器验收 | Codex |

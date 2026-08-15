@@ -397,9 +397,14 @@ export function DetailChartWorkspace({
     } else {
       previousViewport.lastMeasuredHostWidth = hostWidth;
       previousViewport.pointCount = points.length;
-      initialRange = previousViewport.range && previousPointCount !== points.length
-        ? resolveRangeAfterPointCountChange(previousViewport.range, previousPointCount, points.length)
-        : previousViewport.range;
+      initialRange = previousViewport.userAdjusted
+        ? previousViewport.range && previousPointCount !== points.length
+          ? resolveRangeAfterPointCountChange(previousViewport.range, previousPointCount, points.length)
+          : previousViewport.range
+        : resolveInitialRange(
+            points.length,
+            resolveAdaptiveVisibleCount(hostWidth, points.length),
+          );
       if (!initialRange && points.length > 0) {
         initialRange = resolveInitialRange(
           points.length,

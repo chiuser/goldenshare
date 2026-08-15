@@ -14,6 +14,7 @@ from src.biz.schemas.wealth.market.index_detail import (
     IndexDetailDebugInfoDto,
     IndexDetailIdentityDto,
     IndexDetailModuleDebugDto,
+    IndexDetailNineTurnPeriod,
     IndexDetailPageInitResponseDto,
 )
 from src.biz.services.wealth.market.index_detail.index_detail_exception_builder import IndexDetailExceptionBuilder
@@ -31,6 +32,7 @@ from src.biz.services.wealth.market.index_detail.index_detail_universe import (
 from src.foundation.config.local_minute_capability import (
     SUPPORTED_MINUTE_FREQS,
     resolve_index_minute_capability,
+    resolve_index_nine_turn_minute_capability,
 )
 from src.foundation.config.settings import get_settings
 
@@ -284,13 +286,18 @@ class IndexDetailPageQueryService:
     @staticmethod
     def _build_capabilities(*, ts_code: str) -> IndexDetailCapabilitiesDto:
         capability = resolve_index_minute_capability(get_settings())
+        nine_turn_capability = resolve_index_nine_turn_minute_capability(get_settings())
+        nine_turn_periods: list[IndexDetailNineTurnPeriod] = ["day"]
+        if nine_turn_capability.enabled:
+            nine_turn_periods.extend(["5", "15", "30", "60", "90", "120"])
         return IndexDetailCapabilitiesDto(
             supportsTimeShare=False,
             supportsWeeklyMonthly=False,
             supportsMinute=capability.enabled,
             minuteFrequencies=list(SUPPORTED_MINUTE_FREQS) if capability.enabled else [],
             supportsTrendChannel=ts_code == "000001.SH",
-            supportsNineTurn=False,
+            supportsNineTurn=True,
+            nineTurnPeriods=nine_turn_periods,
             supportsTechnicalConclusion=False,
             supportsTradePlanEntry=True,
         )

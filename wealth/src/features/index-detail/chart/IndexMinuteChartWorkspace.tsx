@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
 import type { UTCTimestamp } from "lightweight-charts";
 
+import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
+import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
+import { NineTurnLayerStatus } from "../../nine-turn/ui/NineTurnLayerStatus";
 import { DetailChartWorkspace } from "../../../shared/charts/detail-workspace/DetailChartWorkspace";
 import { DETAIL_CHART_COLORS, isFiniteChartNumber } from "../../../shared/charts/detail-workspace/detailChartSeries";
 import type {
@@ -19,36 +22,52 @@ import type {
 } from "../model/indexDetailTypes";
 
 interface IndexMinuteChartWorkspaceProps extends IndexMinuteSeriesState {
+  nineTurnLayer: NineTurnLayerViewModel;
+  onNineTurnRetry: () => void;
   onRetry: () => void;
 }
 
-export function IndexMinuteChartWorkspace({ data, errorMessage, onRetry, phase }: IndexMinuteChartWorkspaceProps) {
+export function IndexMinuteChartWorkspace({ data, errorMessage, nineTurnLayer, onNineTurnRetry, onRetry, phase }: IndexMinuteChartWorkspaceProps) {
   if (!data || data.points.length === 0) {
     return <IndexMinuteModuleState errorMessage={errorMessage} onRetry={onRetry} phase={phase} />;
   }
-  return <LoadedIndexMinuteChart data={data} message={errorMessage} phase={phase} />;
+  return <LoadedIndexMinuteChart data={data} message={errorMessage} nineTurnLayer={nineTurnLayer} onNineTurnRetry={onNineTurnRetry} phase={phase} />;
 }
 
 function LoadedIndexMinuteChart({
   data,
   message,
+  nineTurnLayer,
+  onNineTurnRetry,
   phase,
 }: {
   data: IndexMinuteChartViewModel;
   message: string;
+  nineTurnLayer: NineTurnLayerViewModel;
+  onNineTurnRetry: () => void;
   phase: IndexMinuteSeriesState["phase"];
 }) {
   const [overlay, setOverlay] = useState<Exclude<IndexMainOverlay, "TREND_CHANNEL">>("MA");
   const points = useMemo(() => data.points.map(toDetailChartPoint), [data.points]);
   const mainLines = useMemo(() => overlay === "MA" ? buildMaLines() : buildBollLines(), [overlay]);
+  const dataKey = `index:${data.tsCode}:m${data.freq}`;
+  const nineTurnChartLayer = useNineTurnChartLayer({ dataKey, layer: nineTurnLayer, points, timeMode: "minute" });
 
   return (
     <DetailChartWorkspace
       ariaLabel="指数分钟图表区"
       bottomBar={<IndexMinuteIndicatorBar message={message} overlay={overlay} phase={phase} setOverlay={setOverlay} />}
       bottomBarAriaLabel="指数分钟指标栏"
-      dataKey={`index:${data.tsCode}:m${data.freq}`}
+      dataKey={dataKey}
+      mainLayerAccessory={(
+        <NineTurnLayerStatus
+          droppedMarkerCount={nineTurnChartLayer.droppedMarkerCount}
+          layer={nineTurnLayer}
+          onRetry={onNineTurnRetry}
+        />
+      )}
       mainLines={mainLines}
+      mainPrimitives={nineTurnChartLayer.mainPrimitives}
       panelAriaLabels={{ kline: "指数分钟K线主图", macd: "分钟 MACD(12,26,9)", volume: "分钟成交量", kdj: "分钟 KDJ(9,3,3)" }}
       points={points}
       renderMainHeader={(point) => <IndexMinuteMainHeader overlay={overlay} point={point} setOverlay={setOverlay} />}

@@ -1,5 +1,5 @@
 import type { NineTurnPeriod, NineTurnSeriesDto } from "../api/nineTurnApiTypes";
-import type { NineTurnLayerViewModel } from "./nineTurnTypes";
+import type { NineTurnDisplayPeriod, NineTurnLayerViewModel } from "./nineTurnTypes";
 
 export function adaptNineTurnSeries(
   response: NineTurnSeriesDto,
@@ -127,7 +127,7 @@ export function idleNineTurnLayer(period: NineTurnPeriod): NineTurnLayerViewMode
   };
 }
 
-export function unsupportedNineTurnLayer(period: NineTurnPeriod): NineTurnLayerViewModel {
+export function unsupportedNineTurnLayer(period: NineTurnDisplayPeriod): NineTurnLayerViewModel {
   return {
     canRetry: false,
     data: null,

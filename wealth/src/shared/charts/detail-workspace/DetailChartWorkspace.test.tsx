@@ -328,6 +328,22 @@ describe("DetailChartWorkspace", () => {
     ))).toBe(true);
   });
 
+  it("restores the latest adaptive range when an untouched chart callback reports a stale range", () => {
+    const points = makePoints(300);
+    const rendered = renderWorkspace(points, "minute", "shared:stale:m60");
+    act(() => {
+      chartMock.charts[0].timeScale().setVisibleLogicalRange({ from: 0, to: 119 });
+    });
+
+    rendered.rerender(workspaceElement(points, "minute", "shared:stale:m60", [
+      { color: "#abc", id: "loaded-indicator", valueOf: (point) => point.close },
+    ]));
+
+    expect(chartMock.charts.slice(-4).every((chart) => (
+      JSON.stringify(chart.timeScale().getVisibleLogicalRange()) === JSON.stringify({ from: 180, to: 299 })
+    ))).toBe(true);
+  });
+
   it("adapts an untouched range on resize but preserves a user-adjusted range", () => {
     vi.useFakeTimers();
     renderWorkspace(makePoints(300));
@@ -360,12 +376,15 @@ describe("DetailChartWorkspace", () => {
 
     chartMock.reset();
     const historicalRendered = renderWorkspace(points, "daily", "shared:history:day");
-    act(() => {
-      chartMock.charts[0].timeScale().setVisibleLogicalRange({ from: 60, to: 179 });
-    });
+    const historicalHost = screen.getByLabelText("共享K线主图").querySelector(".detail-chart-host")!;
+    Object.defineProperty(historicalHost, "clientWidth", { configurable: true, value: 1000 });
+    fireEvent.mouseDown(historicalHost, { button: 0, clientX: 500 });
+    fireEvent.mouseMove(window, { clientX: 1500 });
+    fireEvent.mouseUp(window);
+    const historicalRange = chartMock.charts[0].timeScale().getVisibleLogicalRange();
     historicalRendered.rerender(workspaceElement(makePoints(301), "daily", "shared:history:day"));
     expect(chartMock.charts.slice(-4).every((chart) => (
-      JSON.stringify(chart.timeScale().getVisibleLogicalRange()) === JSON.stringify({ from: 60, to: 179 })
+      JSON.stringify(chart.timeScale().getVisibleLogicalRange()) === JSON.stringify(historicalRange)
     ))).toBe(true);
   });
 

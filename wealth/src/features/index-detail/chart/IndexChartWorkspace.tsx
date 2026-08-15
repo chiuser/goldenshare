@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
+import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
+import { NineTurnLayerStatus } from "../../nine-turn/ui/NineTurnLayerStatus";
 import { DetailChartWorkspace } from "../../../shared/charts/detail-workspace/DetailChartWorkspace";
 import { DETAIL_CHART_COLORS, isFiniteChartNumber } from "../../../shared/charts/detail-workspace/detailChartSeries";
 import type {
@@ -20,12 +23,14 @@ import { TrendChannelPanePrimitive } from "./TrendChannelPanePrimitive";
 import { buildTrendChannelLines } from "./trendChannelGeometry";
 
 interface IndexChartWorkspaceProps {
+  nineTurnLayer: NineTurnLayerViewModel;
+  onNineTurnRetry: () => void;
   trend: TrendChannelViewModel | null;
   trendPhase: "unavailable" | "loading" | "ready" | "error";
   viewModel: IndexDetailViewModel;
 }
 
-export function IndexChartWorkspace({ trend, trendPhase, viewModel }: IndexChartWorkspaceProps) {
+export function IndexChartWorkspace({ nineTurnLayer, onNineTurnRetry, trend, trendPhase, viewModel }: IndexChartWorkspaceProps) {
   const supportsTrend = viewModel.capabilities.supportsTrendChannel && viewModel.identity.tsCode === "000001.SH";
   const [overlay, setOverlay] = useState<IndexMainOverlay>(supportsTrend && trend ? "TREND_CHANNEL" : "MA");
   useEffect(() => {
@@ -33,22 +38,35 @@ export function IndexChartWorkspace({ trend, trendPhase, viewModel }: IndexChart
   }, [supportsTrend, trend, viewModel.identity.tsCode]);
 
   const points = useMemo(() => viewModel.chart.candles.map(toDetailChartPoint), [viewModel.chart.candles]);
+  const dataKey = `index:${viewModel.identity.tsCode}:day`;
+  const nineTurnChartLayer = useNineTurnChartLayer({ dataKey, layer: nineTurnLayer, points, timeMode: "daily" });
   const trendByTime = useMemo(() => new Map((trend?.points ?? []).map((point) => [point.time, point])), [trend]);
   const mainLines = useMemo(() => overlay === "MA" ? buildMaLines() : overlay === "BOLL" ? buildBollLines() : [], [overlay]);
-  const primitives = useMemo(() => {
+  const trendPrimitives = useMemo(() => {
     if (overlay !== "TREND_CHANNEL" || !trend) return [];
     const lines = buildTrendChannelLines(trend.points, points.map((point) => String(point.time)));
     return [new TrendChannelPanePrimitive(lines)];
   }, [overlay, points, trend]);
+  const mainPrimitives = useMemo(
+    () => [...trendPrimitives, ...nineTurnChartLayer.mainPrimitives],
+    [nineTurnChartLayer.mainPrimitives, trendPrimitives],
+  );
 
   return (
     <DetailChartWorkspace
       ariaLabel="指数日线图表区"
       bottomBar={<IndexIndicatorBar overlay={overlay} setOverlay={setOverlay} supportsTrend={supportsTrend && trendPhase === "ready"} />}
       bottomBarAriaLabel="指数指标栏"
-      dataKey={`index:${viewModel.identity.tsCode}:day`}
+      dataKey={dataKey}
+      mainLayerAccessory={(
+        <NineTurnLayerStatus
+          droppedMarkerCount={nineTurnChartLayer.droppedMarkerCount}
+          layer={nineTurnLayer}
+          onRetry={onNineTurnRetry}
+        />
+      )}
       mainLines={mainLines}
-      mainPrimitives={primitives}
+      mainPrimitives={mainPrimitives}
       panelAriaLabels={{ kline: "指数K线主图", macd: "MACD(12,26,9)", volume: "成交量", kdj: "KDJ(9,3,3)" }}
       points={points}
       renderMainHeader={(point) => (

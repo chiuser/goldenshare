@@ -15,11 +15,28 @@ import { IndexDetailLoadingSkeleton } from "../../features/index-detail/state/In
 import { IndexDetailPageState } from "../../features/index-detail/state/IndexDetailPageState";
 import { IndexDetailToast } from "../../features/index-detail/ui/IndexDetailToast";
 import { fetchMarketMajorIndices } from "../../features/market-overview/indices/api/marketMajorIndicesApi";
+import { fetchIndexNineTurnSeries } from "../../features/nine-turn/api/nineTurnApiClient";
+import type { NineTurnPeriod } from "../../features/nine-turn/api/nineTurnApiTypes";
+import type { NineTurnSeriesLoader } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
+import { useNineTurnSeriesRegistry } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
+import { unsupportedNineTurnLayer } from "../../features/nine-turn/model/nineTurnAdapter";
 import { TopMarketBar } from "../../shared/ui/top-market-bar/TopMarketBar";
 import type { TopMarketTicker } from "../../shared/ui/top-market-bar/topMarketBarTypes";
 import "./index-detail-page.css";
 
 interface IndexDetailPageProps { search: string; tsCode: string; }
+
+const EMPTY_NINE_TURN_PERIODS: NineTurnPeriod[] = [];
+const INDEX_TECHNICAL_SUMMARY_PERIODS = ["day", "60", "30"] as const;
+const loadIndexNineTurnSeries: NineTurnSeriesLoader = (request, options) => {
+  if (request.subjectType !== "index") throw new Error("指数九转请求对象不符合产品合同。");
+  return fetchIndexNineTurnSeries({
+    endDate: request.endDate,
+    limit: request.limit,
+    period: request.period,
+    tsCode: request.tsCode,
+  }, options);
+};
 
 export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
   const controller = useIndexDetailController(tsCode, search);
@@ -39,6 +56,18 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
   const viewModel = controller.viewModel;
   const identity = viewModel?.identity ?? getIndexShellIdentity(normalizedTsCode);
   const periods = viewModel?.periods ?? getIndexShellPeriods();
+  const nineTurnRegistry = useNineTurnSeriesRegistry({
+    endDate: viewModel?.asOfTradeDate ?? null,
+    load: loadIndexNineTurnSeries,
+    subjectType: "index",
+    supportedPeriods: viewModel?.capabilities.nineTurnPeriods ?? EMPTY_NINE_TURN_PERIODS,
+    supportsNineTurn: viewModel?.capabilities.supportsNineTurn ?? false,
+    tsCode: normalizedTsCode,
+  });
+  const activeNineTurnPeriod = nineTurnPeriodFromIndexPeriod(activePeriod);
+  const nineTurnLayer = activeNineTurnPeriod === null
+    ? unsupportedNineTurnLayer("1")
+    : nineTurnRegistry.stateFor(activeNineTurnPeriod);
   const minute = useIndexMinuteSeries({
     activePeriod,
     enabled: viewModel?.capabilities.supportsMinute ?? false,
@@ -59,6 +88,20 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
       setActivePeriod("day");
     }
   }, [activePeriod, viewModel]);
+
+  useEffect(() => {
+    if (!hasData || activeNineTurnPeriod === null) return;
+    void nineTurnRegistry.ensure(activeNineTurnPeriod);
+  }, [activeNineTurnPeriod, hasData, nineTurnRegistry.ensure]);
+
+  useEffect(() => {
+    if (!hasData || activeTab !== "technical") return;
+    INDEX_TECHNICAL_SUMMARY_PERIODS.forEach((period) => {
+      if (viewModel?.capabilities.nineTurnPeriods.includes(period)) {
+        void nineTurnRegistry.ensure(period);
+      }
+    });
+  }, [activeTab, hasData, nineTurnRegistry.ensure, viewModel]);
 
   function showToast(message: string) {
     setToast(message);
@@ -148,11 +191,23 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
           />
         ) : (
           activePeriod === "day" ? (
-            <IndexChartWorkspace trend={controller.trend} trendPhase={controller.trendPhase} viewModel={viewModel} />
+            <IndexChartWorkspace
+              nineTurnLayer={nineTurnLayer}
+              onNineTurnRetry={() => {
+                if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
+              }}
+              trend={controller.trend}
+              trendPhase={controller.trendPhase}
+              viewModel={viewModel}
+            />
           ) : (
             <IndexMinuteChartWorkspace
               data={minute.data}
               errorMessage={minute.errorMessage}
+              nineTurnLayer={nineTurnLayer}
+              onNineTurnRetry={() => {
+                if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
+              }}
               onRetry={minute.retry}
               phase={minute.phase}
             />
@@ -162,6 +217,7 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
           activeTab={activeTab}
           onAction={showToast}
           onTabChange={setActiveTab}
+          onNineTurnRetry={(period) => { void nineTurnRegistry.retry(period); }}
           onTrendRetry={controller.retryTrend}
           pagePhase={controller.phase}
           partialReasons={controller.partialReasons}
@@ -169,11 +225,22 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
           trendPhase={controller.trendPhase}
           viewModel={viewModel}
           weights={displayedWeights}
+          nineTurnSummary={{
+            day: nineTurnRegistry.stateFor("day"),
+            "30": nineTurnRegistry.stateFor("30"),
+            "60": nineTurnRegistry.stateFor("60"),
+          }}
         />
       </main>
       <IndexDetailToast message={toast} />
     </div>
   );
+}
+
+function nineTurnPeriodFromIndexPeriod(period: IndexPeriodKey): NineTurnPeriod | null {
+  if (period === "day") return "day";
+  const match = /^m(5|15|30|60|90|120)$/.exec(period);
+  return match ? match[1] as NineTurnPeriod : null;
 }
 
 function useTopMarketTickers(): TopMarketTicker[] {

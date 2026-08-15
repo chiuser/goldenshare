@@ -30,6 +30,7 @@ IndexDetailExceptionCode = Literal[
 ]
 IndexDetailPeriod = Literal["day", "m1", "m5", "m15", "m30", "m60", "m90", "m120"]
 IndexDetailMinuteFrequency = Literal[1, 5, 15, 30, 60, 90, 120]
+IndexDetailNineTurnPeriod = Literal["day", "5", "15", "30", "60", "90", "120"]
 
 
 class IndexDetailPageContextDto(BaseModel):
@@ -157,7 +158,8 @@ class IndexDetailCapabilitiesDto(BaseModel):
     supportsMinute: bool
     minuteFrequencies: list[IndexDetailMinuteFrequency]
     supportsTrendChannel: bool
-    supportsNineTurn: Literal[False]
+    supportsNineTurn: Literal[True]
+    nineTurnPeriods: list[IndexDetailNineTurnPeriod]
     supportsTechnicalConclusion: Literal[False]
     supportsTradePlanEntry: Literal[True]
 

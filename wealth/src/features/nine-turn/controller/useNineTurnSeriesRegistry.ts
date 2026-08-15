@@ -83,13 +83,7 @@ export function useNineTurnSeriesRegistry({
     if (!supportsNineTurn || !supportedSet.has(period) || endDate === null) return;
     const key = keyFor(period);
     const existing = entriesRef.current.get(key);
-    if (existing && existing.view.phase !== "ERROR" && existing.view.phase !== "FORBIDDEN") return;
-    entriesRef.current.forEach((entry, entryKey) => {
-      if (entryKey !== key && entry.view.phase === "LOADING") {
-        entry.controller?.abort();
-        entriesRef.current.delete(entryKey);
-      }
-    });
+    if (existing) return;
     const controller = new AbortController();
     const requestId = ++requestSequenceRef.current;
     entriesRef.current.set(key, {

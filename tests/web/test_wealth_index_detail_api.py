@@ -6,6 +6,8 @@ from decimal import Decimal
 import pytest
 
 from src.biz.services.wealth.config import StrategyConfigValidationError, StrategyConfigService
+from src.biz.queries.wealth.market.index_detail import index_detail_page_query_service
+from src.foundation.config.local_minute_capability import LocalMinuteCapability
 from src.foundation.config.settings import get_settings
 from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core.index_basic import IndexBasic
@@ -260,6 +262,8 @@ def test_page_init_uses_daily_prices_factor_volume_and_complete_basic_contract(a
     assert payload["dataStatus"]["status"] == "PARTIAL"
     assert payload["chartDefaults"]["availableMainOverlays"] == ["MA", "BOLL", "TREND_CHANNEL"]
     assert payload["capabilities"]["supportsTrendChannel"] is True
+    assert payload["capabilities"]["supportsNineTurn"] is True
+    assert payload["capabilities"]["nineTurnPeriods"] == ["day"]
     assert payload["debugInfo"]["modules"][0]["module"] == "pageInit"
     assert {item["code"] for item in payload["debugInfo"]["exceptions"]} == {
         "ID_BASIC_BREADTH_PARTIAL"
@@ -271,6 +275,25 @@ def test_page_init_uses_daily_prices_factor_volume_and_complete_basic_contract(a
     )
     assert no_debug.status_code == 200
     assert no_debug.json()["debugInfo"] is None
+
+
+def test_page_init_uses_the_index_nine_turn_router_capability_resolver(monkeypatch) -> None:
+    enabled = LocalMinuteCapability(enabled=True, lake_root=None, reason_code=None)
+    disabled = LocalMinuteCapability(enabled=False, lake_root=None, reason_code=None)
+    monkeypatch.setattr(index_detail_page_query_service, "resolve_index_minute_capability", lambda _: disabled)
+    monkeypatch.setattr(
+        index_detail_page_query_service,
+        "resolve_index_nine_turn_minute_capability",
+        lambda _: enabled,
+    )
+
+    capabilities = index_detail_page_query_service.IndexDetailPageQueryService._build_capabilities(
+        ts_code=_INDEX_CODE
+    )
+
+    assert capabilities.supportsMinute is False
+    assert capabilities.supportsNineTurn is True
+    assert capabilities.nineTurnPeriods == ["day", "5", "15", "30", "60", "90", "120"]
 
 
 def test_page_init_keeps_factor_amount_null_and_never_falls_back_to_daily(app_client, db_session) -> None:

@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DetailChartWorkspaceProps } from "../../../shared/charts/detail-workspace/detailChartTypes";
+import { idleNineTurnLayer } from "../../nine-turn/model/nineTurnAdapter";
 import type { IndexMinuteChartViewModel } from "../model/indexDetailTypes";
 import { IndexMinuteChartWorkspace } from "./IndexMinuteChartWorkspace";
 
@@ -21,18 +22,19 @@ describe("IndexMinuteChartWorkspace adapter", () => {
   beforeEach(() => workspaceMock.reset());
 
   it("uses the index/frequency dataKey and keeps the partial message without a mock badge", () => {
-    render(<IndexMinuteChartWorkspace data={makeData()} errorMessage="指标部分缺失" onRetry={vi.fn()} phase="partial" />);
+    render(<IndexMinuteChartWorkspace data={makeData()} errorMessage="指标部分缺失" nineTurnLayer={idleNineTurnLayer("5")} onNineTurnRetry={vi.fn()} onRetry={vi.fn()} phase="partial" />);
 
     const props = latestProps();
     expect(props.dataKey).toBe("index:000001.SH:m5");
     expect(props.timeMode).toBe("minute");
     expect(props.points).toHaveLength(1);
+    expect(props.mainPrimitives).toHaveLength(1);
     expect(screen.queryByText("模拟指标")).not.toBeInTheDocument();
     expect(screen.getByText("指标部分缺失")).toBeInTheDocument();
   });
 
   it("keeps empty/error module states outside the loaded shared workspace", () => {
-    render(<IndexMinuteChartWorkspace data={null} errorMessage="分钟数据失败" onRetry={vi.fn()} phase="error" />);
+    render(<IndexMinuteChartWorkspace data={null} errorMessage="分钟数据失败" nineTurnLayer={idleNineTurnLayer("5")} onNineTurnRetry={vi.fn()} onRetry={vi.fn()} phase="error" />);
     expect(workspaceMock.props).toHaveLength(0);
     expect(screen.getByText("分钟数据失败")).toBeInTheDocument();
   });

@@ -10,7 +10,7 @@ export function makePageInit(tsCode = "000001.SH"): IndexDetailPageInitResponseD
     dailyBasic: { tradeDate: "2026-07-31", pe: 17.45, peTtm: 18.12, pb: 1.56, turnoverRate: 1.14, floatMv: 6_194_000_000_000, totalMv: 6_951_000_000_000 },
     constituentBreadth: { tradeDate: "2026-07-31", weightTradeDate: "2026-07-31", upCount: 1711, flatCount: 48, downCount: 593, totalConstituentCount: 2352, matchedCount: 2352, missingCount: 0, dataStatus: readyStatus() },
     chartDefaults: { defaultPeriod: "day", availablePeriods: ["day"], availableMainOverlays: tsCode === "000001.SH" ? ["MA", "BOLL", "TREND_CHANNEL"] : ["MA", "BOLL"], availableIndicatorTabs: ["VOL", "amount", "MA", "MACD", "KDJ", "BOLL"] },
-    capabilities: { supportsTimeShare: false, supportsWeeklyMonthly: false, supportsMinute: false, minuteFrequencies: [], supportsTrendChannel: tsCode === "000001.SH", supportsNineTurn: false, supportsTechnicalConclusion: false, supportsTradePlanEntry: true },
+    capabilities: { supportsTimeShare: false, supportsWeeklyMonthly: false, supportsMinute: false, minuteFrequencies: [], supportsTrendChannel: tsCode === "000001.SH", supportsNineTurn: true, nineTurnPeriods: ["day"], supportsTechnicalConclusion: false, supportsTradePlanEntry: true },
     dataStatus: readyStatus(), debugInfo: null,
   };
 }

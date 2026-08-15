@@ -1,20 +1,20 @@
 # 指数详情页正式 API / DTO 合同 v1
 
-> 合同版本：`1.2.0`
+> 合同版本：`1.3.0`
 >
 > 冻结日期：2026-08-12
 >
-> 状态：M0 已冻结；M1 必须逐字段实现，不得扩展股票详情或主要指数卡片 DTO。
+> 状态：M1～M5-B 与 S7/M5 已实现；S7/M5 仅升级 page-init 九转 capability，不扩展股票详情或主要指数卡片 DTO。
 
 ## 1. 合同边界
 
-本合同冻结三个正式日线接口：
+本合同冻结三个正式日线接口及指数详情页的环境能力声明：
 
 1. `GET /api/v1/wealth/market/index-detail/page-init`
 2. `GET /api/v1/wealth/market/index-detail/kline`
 3. `GET /api/v1/wealth/market/index-detail/weights`
 
-趋势通道继续直接消费既有 `GET /api/v1/quote/detail/trend-channel`，不在本合同复制。技术结论、九转和本地指数分钟属于后续独立合同，不向本合同预留 `any`、占位 payload 或未定义字段。
+趋势通道继续直接消费既有 `GET /api/v1/quote/detail/trend-channel`，不在本合同复制。九转数据继续由独立的日线/分钟九转接口提供；本合同只在 page-init 声明当前环境允许请求的九转周期，不复制 marker payload。技术结论和本地指数分钟仍由各自独立合同治理，不向本合同预留 `any`、占位 payload 或未定义字段。
 
 ## 2. 全局序列化规则
 
@@ -176,6 +176,7 @@ interface IndexDetailConstituentBreadthDto {
 
 type IndexDetailPeriod = "day" | "m1" | "m5" | "m15" | "m30" | "m60" | "m90" | "m120";
 type IndexDetailMinuteFrequency = 1 | 5 | 15 | 30 | 60 | 90 | 120;
+type IndexDetailNineTurnPeriod = "day" | "5" | "15" | "30" | "60" | "90" | "120";
 
 interface IndexDetailPageInitResponseDto {
   pageContext: IndexDetailPageContextDto;
@@ -196,7 +197,8 @@ interface IndexDetailPageInitResponseDto {
     supportsMinute: boolean;
     minuteFrequencies: IndexDetailMinuteFrequency[];
     supportsTrendChannel: boolean;
-    supportsNineTurn: false;
+    supportsNineTurn: true;
+    nineTurnPeriods: IndexDetailNineTurnPeriod[];
     supportsTechnicalConclusion: false;
     supportsTradePlanEntry: true;
   };
@@ -221,6 +223,9 @@ interface IndexDetailPageInitResponseDto {
 12. `supportsTrendChannel=true` 只允许 `000001.SH`；其余 9 个 code 为 false 且 overlays 不含 `TREND_CHANNEL`。
 13. 生产和 local flag=false：periods 只有 `day`，minuteFrequencies 为空。
 14. `supportsTradePlanEntry=true` 只表示顶部入口存在；技术结论和任何数据 effect 都不得触发交易动作。
+15. `supportsNineTurn=true` 只表示指数日线九转接口已经部署，不表示当前窗口一定有 1～9 marker。
+16. 生产、local/dev 分钟九转能力未就绪时，`nineTurnPeriods=["day"]`；local/dev 且指数分钟九转 capability 与分钟 router 同时就绪时，返回 `day,5,15,30,60,90,120`。指数 1 分钟永不进入列表。
+17. page-init 与 App router 必须消费同一个指数分钟九转 capability resolver；页面只能请求 `nineTurnPeriods` 中的周期，禁止以 K 线周期列表推导九转能力。
 
 ## 5. `GET /kline`
 
@@ -420,13 +425,14 @@ interface IndexDetailErrorResponseDto {
 
 1. v1 实现不得向股票详情、主要指数卡片或 Quote trend DTO 添加字段。
 2. 新增 response 字段、修改 nullable/required、枚举值、来源或状态语义都需要提升合同版本并同步 LLD、M2 gate、后端 schema、前端类型和契约测试。
-3. 技术结论、九转、分钟必须以独立合同扩展，不能把本合同中的 false capability 改成临时对象。
+3. 技术结论、九转数据和分钟数据必须以独立合同扩展；page-init 只声明稳定的九转 capability 与周期列表，不能嵌入 marker 或临时对象。
 4. API 测试必须断言 `extra="forbid"`、debug null/object、非法字段、null 保留、字段来源和旧 DTO 无漂移。
 
 ## 9. 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| `1.3.0` | 2026-08-15 | S7/M5 升级指数 page-init 九转 capability：生产仅开放日线，local/dev 在同一 router capability 就绪时开放 5/15/30/60/90/120 分钟；指数 1 分钟永不开放，九转数据仍由独立接口提供 |
 | `1.2.0` | 2026-08-12 | 成分范围统一收敛为 Security 事实字段识别的 A 股；B 股不进入 rows/coverage/missing；同日无行情但确认停牌的 A 股按 0%/FLAT 参与 breadth 与贡献；DTO 字段结构不变，提升版本以冻结语义变更 |
 | `1.1.0` | 2026-08-11 | 外部数据源核对确认 factor 量额准确；page-init 与 Kline 的成交量、成交额统一取 `IndexFactorPro`，禁止 daily fallback；DTO 字段结构不变 |
 | `1.0.1` | 2026-08-11 | 删除 A500/固定日期 warm-up 特例；MA null 改为依据同 code、同交易日实际有效历史根数动态判断，DTO 字段结构不变 |

@@ -3,6 +3,7 @@ import type { MarketDirection } from "../../../shared/model/market";
 export type IndexDetailDataStatusValue = "READY" | "DELAYED" | "PARTIAL" | "EMPTY";
 export type IndexDetailPeriod = "day" | "m1" | "m5" | "m15" | "m30" | "m60" | "m90" | "m120";
 export type IndexDetailMinuteFrequency = 1 | 5 | 15 | 30 | 60 | 90 | 120;
+export type IndexDetailNineTurnPeriod = "day" | "5" | "15" | "30" | "60" | "90" | "120";
 
 export interface IndexDetailPageContextDto {
   market: "CN_A";
@@ -94,7 +95,8 @@ export interface IndexDetailPageInitResponseDto {
     supportsMinute: boolean;
     minuteFrequencies: IndexDetailMinuteFrequency[];
     supportsTrendChannel: boolean;
-    supportsNineTurn: false;
+    supportsNineTurn: true;
+    nineTurnPeriods: IndexDetailNineTurnPeriod[];
     supportsTechnicalConclusion: false;
     supportsTradePlanEntry: true;
   };

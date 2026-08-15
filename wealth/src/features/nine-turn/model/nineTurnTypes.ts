@@ -11,12 +11,14 @@ export type NineTurnLayerPhase =
   | "FORBIDDEN"
   | "UNSUPPORTED";
 
+export type NineTurnDisplayPeriod = NineTurnPeriod | "1";
+
 export interface NineTurnLayerViewModel {
   canRetry: boolean;
   data: NineTurnSeriesDto | null;
   errorCode: string | null;
   markers: readonly NineTurnMarkerDto[];
   message: string | null;
-  period: NineTurnPeriod;
+  period: NineTurnDisplayPeriod;
   phase: NineTurnLayerPhase;
 }
