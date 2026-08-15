@@ -1,6 +1,6 @@
 # 指数详情页低层设计（LLD）v1
 
-> 状态：M1–M5-B、P10 与九转专项 S7/M5 已按冻结合同实现；四类详情图表共享同一 viewport、缩放和九转 primitive；主要指数 bars/indicators 当前都只读正式 Gold，无 Silver fallback。九转 M6-0 发布准备审计与测试稳定性修复已于 2026-08-15 完成并通过，M6-A 尚未推送或部署。
+> 状态：指数分钟交付已完成。M1–M5-B、P10、共享图表和发布边界验收均已按冻结合同实现；主要指数 bars/indicators 只读正式 Gold，无 Silver fallback 或 Mock。本地按 capability 开放七个分钟周期，生产只开放日线且分钟路由保持 404。九转 S7/M5 与 M6-A 已完成；M6-B～M6-D 属于独立运维阶段。
 > 需求依据：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 技术方案：[指数详情页技术实施方案 v1](./index-detail-implementation-design-v1.md)
 > 编码门禁：[指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
@@ -80,7 +80,7 @@ Figma 事实源：
 | Weights Loaded | `423:2` | 权重 Tab 基线 |
 | Weights Rail 组件 | `414:447` | 固定表头、10 行视窗、内部滚动 |
 | Technical Loaded | `423:910` | 技术分析走势 Tab 基线 |
-| Technical Rail 组件 | `414:448` | 四轨、技术结论与九转占位 |
+| Technical Rail 组件 | `414:448` | 四轨、技术结论占位与九转客观摘要 |
 | Tab 组件集 | `473:275` | 三 Tab 稳定切换骨架 |
 | 趋势通道组件集 | `413:25` | 四种逐日颜色状态的视觉参考 |
 | Loading | `498:516` | 完整 Loading 页面 |
@@ -164,7 +164,7 @@ Figma 事实源：
 
 1. `StockDetailPage` 的 loading/error 只有顶部栏和居中状态块，不符合指数完整状态稿。
 2. `stockDetailViewModelAdapter` 的 `valueOrZero` 会制造假 K 线和技术指标尖峰。
-3. `StockMinsLakeReader` 使用 `gold/.../year=YYYY`，指数分钟使用 `silver/gold/.../trade_date=YYYY-MM-DD`。
+3. `StockMinsLakeReader` 使用按年份组织的 Gold 文件；指数分钟 bars/indicators 均使用按 `trade_date=YYYY-MM-DD` 组织的正式 Gold 分区，不能继承股票路径算法。
 4. 既有趋势接口使用 snake_case 查询参数与响应字段，不是 Wealth camelCase DTO。
 5. `IndexWeightDAO.get_latest_weights()` 的排序不符合页面权重降序要求，不修改 DAO 旧语义，详情建立专用 query。
 
@@ -1188,7 +1188,7 @@ IndexInfoRail
 2. `WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED=true`。
 3. `GOLDENSHARE_LAKE_ROOT` 可读且指向正式 `/Volumes/datasource/data_lake` 语义根。
 4. DuckDB 可 import。
-5. Silver 与 Gold 当前合同已提交且正式物理验收通过。Gold 不阻塞 bars；indicator endpoint 在请求范围缺文件时仍独立返回 `IM_SOURCE_NOT_READY`。
+5. Gold canonical bars 与 Gold technical 当前合同均已提交并通过正式物理验收。bars 决定 K 线可用性；indicators 在请求范围缺文件时独立返回 `IM_SOURCE_NOT_READY`，只使技术图层 PARTIAL，不清空 bars。
 
 任一前提不满足都不挂 index minute router。prod/staging 请求路径为 404。
 
@@ -1197,19 +1197,19 @@ IndexInfoRail
 Bars：
 
 ```text
-silver/quote/major_index_mins/
-  freq={1min|5min|15min|30min|60min|90min|120min}/
+gold/quote/major_index_mins/
+  freq={1|5|15|30|60|90|120}/
   trade_date=YYYY-MM-DD/
   part-000.parquet
 ```
 
-Silver 文件列按当前合同为：
+Gold canonical bars 文件列按当前合同为：
 
 ```text
-ts_code, freq, trade_time, open, close, high, low, vol, amount, exchange, vwap
+ts_code, freq, trade_date, trade_time, open, high, low, close, vol, amount, exchange, vwap
 ```
 
-文件本身没有 `trade_date` 列；reader 从已验证的 partition path 取得日期，并校验 `CAST(trade_time AS DATE)` 与 partition 一致。
+Reader 同时验证目录分区日期、行内 `trade_date` 与 `CAST(trade_time AS DATE)` 三者一致；任一错配均按物理合同错误拒绝。
 
 Indicators：
 
@@ -1259,7 +1259,7 @@ Bars 与 indicators 用相同 endDate/limit 窗口。前端不能用 `Promise.al
 
 M5-B 前端同时发起同窗口 bars 与 indicators 请求，但使用 `Promise.allSettled` 或等价的独立结算，禁止 indicators rejection 让 bars promise 链失败。adapter 先验证根级 `tsCode/freq`，再把两侧按 `tradeTime` 排序并要求时间键一一对应；通过后将 Gold 字段映射到共享图表点，记录 `indicatorSource=gold`、真实 `paramsKey/indicatorVersion`。身份、重复键、数量或时间键不一致均按指标层失败处理：保留 bars，技术字段置 null，`indicatorSource=unavailable`，模块 PARTIAL。
 
-M5-B 必须删除 M5-A 的 `indexMinuteMockIndicatorProvider.ts`、`indicatorVersion=0`、`模拟指标` 标识和专属测试，不保留开关、兼容分支或真实接口失败后的 Mock fallback。请求仍只在 Vite dev、page-init 宣布分钟能力且后端 local router 已挂载时发生；prod/staging 行为不变。
+M5-B 已删除 M5-A 的 `indexMinuteMockIndicatorProvider.ts`、`indicatorVersion=0`、`模拟指标` 标识和专属测试；当前禁止恢复开关、兼容分支或真实接口失败后的 Mock fallback。请求仍只在 Vite dev、page-init 宣布分钟能力且后端 local router 已挂载时发生；prod/staging 行为不变。
 
 最大响应验收不得把 10000 根超过 5MB 的正确拒绝判成失败。固定算法是：先请求 10000 根；若成功，则必须小于等于 5MB且 cursor 正确；若返回响应体过大 `ID_REQUEST_INVALID`，该拒绝语义通过。随后固定请求 5000 根，必须 READY、低于 5MB、`hasMore/nextCursor` 合法、下一页时间严格早于本页首根且总耗时不超过 5s。
 
@@ -1367,7 +1367,7 @@ tests/test_index_minute_gold_audit.py             # M5-B read-only acceptance
 6. breadth 等式；B 股不进入 total/missing；A 股 daily 优先；精确日停牌进入 matched/flat；真实 missing 不进 flat。
 7. minute path 越界、非法 cursor、schema/type、partition/date 不一致。
 8. Orchestrator/Web Reader 七频率、23 列、参数键和版本一致，且生产运行时无 Orchestrator import。
-9. 正式 Gold 缺失输出 `SOURCE_NOT_READY`；fixture 就绪后验证分区覆盖、唯一键、Silver 对齐和 Query Service 序列化性能。
+9. 正式 Gold 缺失输出 `SOURCE_NOT_READY`；fixture 已覆盖七频合同、重复键、版本错误和缺失隔离，正式验收已覆盖分区、唯一键、Gold bars/Gold indicators 时间键对齐和 Query Service 序列化性能。
 
 ### 19.2 后端真实 API fixture
 
@@ -1435,7 +1435,7 @@ wealth/src/shared/charts/detail-workspace/DetailChartWorkspace.test.tsx
 11. line/histogram null 不被送成 0。
 12. StockChartWorkspace 的 shared 可视范围、crosshair、tooltip、MA/BOLL 回归；45/120/180 根、overlay/resize/append 不重置或错置范围均已由 shared 测试覆盖。
 13. system 状态色不使用 market up/down token。
-14. M5-A 七频率、按频率缓存、Abort/request id 防串标、北证50局部空态、Mock v0 暖机 null 与可见标识。
+14. 本地七频率、按频率缓存、Abort/request id 防串标、真实 Gold 指标、无 Mock 标识、bars-only PARTIAL 与北证50局部空态。
 15. shared chart 的 minute 时间轴、Asia/Shanghai crosshair、自适应首屏与日线模式回归；1600px 必须为 120 根。
 
 ### 19.5 真实 API 与像素验收
@@ -1484,7 +1484,7 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 | M5-B 准备（已完成） | 70 checks 注册、跨边界合同门禁、七频率异常 fixture、只读正式验收入口 | 静态合同一致；正式 Gold 缺失时明确 `SOURCE_NOT_READY` | index minute indicators readiness |
 | M5-B 正式数据验收（已完成） | Gold 覆盖、全量对齐、默认性能、最大响应 | 29,939 分区对零失败、630 样本 P95、10000/5MB 拒绝语义和 5000 cursor | index minute indicators readiness |
 | M5-B 最终切换（已完成） | 真实 provider、删除 Mock | bars/indicators 独立结算、Mock 引用清零、前端/浏览器回归 | index minute indicators |
-| M6 | 全回归与 prod smoke | prod 仅日线、无分钟 route | release verification |
+| M6（已完成） | 全回归与 prod smoke | prod 仅日线、无分钟 route | release verification |
 
 每个里程碑只处理一个清晰目标。M2 必须在 M3 前独立验收，M5 不得成为 M1-M4 的隐含依赖。
 
@@ -1504,7 +1504,7 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 | 贡献公式不归一化不对账 | 8.4 | Decimal 单测/真实 API |
 | SSE-only 趋势 | 11 | 9 code 零请求回归 |
 | 每日竖线与逐日四色 | 11.4/11.5 | geometry 线段计数 |
-| 技术结论/九转留空 | 15.4 | `--` 与无 API 请求 |
+| 技术结论留空/九转独立接入 | 15.4 | 技术结论 `--`；九转按 capability/API 请求与局部状态回归 |
 | 五个完整状态 | 13.4 | 页面测试 + 像素截图 |
 | local minute/prod 404 | 16 | route 矩阵/临时 Parquet |
 | 共享图表无复制 | 12 | stock 回归 + import 审计 |
@@ -1527,7 +1527,7 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 | shared chart 改动股票 | M2 已拆为 477 行 shared engine、362 行 stock adapter，并补 null-safe series | 已通过独立组件测试、全量 Wealth 回归和 1600×1200 前后尺寸对账；M3 只新增 index adapter/primitive |
 | Figma 旧节点冲突 | `425:190` 仍有旧字段 | 永久排除出金标 |
 | Gold minute 数据与前端来源切换不同步 | 已完成正式 technical/state 全历史与性能验收，前端也已切真实 Gold | bars/indicators 独立结算；Gold 短暂落后时保留 bars 并显示 Partial，不回退 Mock |
-| 北证50无 Silver | 当前合同显式排除 | local 返回 Empty/Delayed，不 fallback |
+| 北证50无 Gold canonical bars | 当前合同显式排除 | local 返回 Empty/Delayed，不 fallback |
 | shared capability 错误码含 `SM_` | 历史股票命名 | 只作启动错误；不作为 index HTTP 语义复用 |
 
 ### 22.1 进入编码前必须确认的检查项
@@ -1545,9 +1545,13 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 11. [x] M5-A 正式 Silver 七频率性能、10000 根响应、local/prod 路由、前端缓存/竞态与 1600×1200 浏览器验收通过。
 12. [x] M5-B 前端真实 provider、bars-only PARTIAL、Mock 引用清零与 1600×1200 浏览器回归通过。
 
+以下两条为 P10 切换前的 M5-B 日期化历史验收，保留用于解释 Gold technical 上线过程；它们不再代表当前业务 Reader 的 bars 数据源。
+
 2026-08-12 M5-B 准备批次执行结果：分钟 Reader/合同/API/验收工具相关 42 项测试通过，子系统边界 14 项通过，Ruff、文档完整性和 diff 检查通过。正式只读预检观测到 Silver 七频率各 4,276 个分区、Gold technical 七频率均 0 个分区，因此状态保持 `SOURCE_NOT_READY / IM_SOURCE_NOT_READY`，性能矩阵尚未执行，也不得被标记为通过。
 
 2026-08-13 最终批次结果：Definitions 为 14 assets/70 checks；Silver/Gold technical 七频率各 4,277 个分区，29,939 个频率-日期分区对完成全历史 schema、版本、有限值、唯一键和双向时间键检查且零失败；Technical/state 共 59,878 个文件、10,150,506 行。九个页面可用指数 × 七频率 × 10 次共 630 个默认 500 根样本全部 READY，频率级 P95 282.243–322.982ms。10000 根因超过 5MB 正确拒绝，5000 根返回 3,181,443 bytes、cursor 有效且耗时 334.441ms。前端 155 项全量测试、构建和 1/60/120 分钟真实浏览器回归通过；页面无 Mock 标识，日线/分钟图表区和右栏几何差值为 0px。
+
+2026-08-15 发布边界验收确认生产环境仅挂载指数日线能力，指数分钟路由保持 404；本地七频分钟不因生产发布而暴露。该结果完成本 LLD 的 M6 退出条件。九转专项后续 sensor、自然更新与运维验收不改变指数分钟 Reader/API、前端或图表的完成状态。
 
 ---
 
@@ -1566,6 +1570,7 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.20 | 2026-08-16 | 收敛指数分钟完成状态：修正当前 Gold bars 路径、12 列物理合同、Gold-to-Gold 对齐与真实指标测试；M6 发布边界验收完成，并将九转后续运维阶段从指数分钟未完成项中剥离 | Codex |
 | v1.19 | 2026-08-15 | 同步 M6-0 通过：生产路由与配置基线、platform-only 发布边界及 M5 定向回滚已冻结；板块测试竞态修复后 Wealth 全量回归通过，M6-A 仍待独立批准 | Codex |
 | v1.18 | 2026-08-15 | 同步 S7/M5 当前实现：page-init capability 升级为 `supportsNineTurn=true + nineTurnPeriods`，Technical day/60/30 消费独立九转摘要并保持技术结论为空；M6 发布尚未开始 | Codex |
 | v1.17 | 2026-08-14 | 完成 P10：正式 reader 与 capability 统一只读 Gold bars/indicators，无 Silver fallback；同步七频业务合同、时间键对齐和浏览器验收边界 | Codex |

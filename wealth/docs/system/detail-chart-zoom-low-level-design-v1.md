@@ -213,7 +213,7 @@ wealth/src/features/index-detail/chart/
   IndexChartWorkspace.tsx
     # 指数日线 adapter + trend primitive
   IndexMinuteChartWorkspace.tsx
-    # 指数分钟 adapter + Mock 标识
+    # 指数分钟 Gold adapter + bars-only Partial
 ```
 
 不新增第二个 `shared-minute-chart`、hook 版图表引擎或页面级 viewport store。
@@ -1109,6 +1109,7 @@ M1 与 M2 均已按本文完成实现、验收和独立提交；M3 文档对账�
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.4 | 2026-08-16 | 收敛指数分钟当前结构注释：真实 Gold adapter、bars-only Partial、无 Mock 标识；不改变共享图表合同 | Codex |
 | v1.3 | 2026-08-12 | 完成 M3 文档对账，登记 M1 `b38ac20e`、M2 `61a5adea`，清除待提交和原文档待同步口径 | Codex |
 | v1.2 | 2026-08-12 | 回填 M2 实现文件、45/120/180 与 resize/append/dataKey 测试、Figma 同源控件、27 test files / 152 tests 全量回归和浏览器截图证据 | Codex |
 | v1.1 | 2026-08-12 | 对齐正式 Figma page `581:516`；补齐节点映射、同源 Phosphor 放大镜 SVG 合同、边界 disabled 方向及像素验收依据 | Codex |

@@ -1,6 +1,6 @@
 # 指数详情页技术实施方案 v1
 
-> 状态：M1–M5-B、P10 与九转专项 S7/M5 已完成；详情图表共享收敛与缩放已由 `b38ac20e`、`61a5adea` 完成；bars 与 indicators 当前都只读正式 Gold，无 Silver fallback。九转当前 capability 为 1.3.0；M6-0 发布准备审计与测试稳定性修复已于 2026-08-15 完成并通过，M6-A 尚未推送或部署。
+> 状态：指数分钟交付已完成。M1–M5-B、P10、共享图表与发布边界验收均已闭环；bars 与 indicators 只读正式 Gold，无 Silver fallback 或 Mock。本地按 capability 开放七个分钟周期，生产继续只开放日线且分钟路由保持 404。九转 S7/M5 与 M6-A 已完成；其 M6-B～M6-D 为独立运维阶段，不阻塞指数分钟收口。
 > 对应需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 对应门禁：[指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
 > 低层设计：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)
@@ -584,7 +584,7 @@ route tsCode
 2. router 解析和浏览器前进/后退。
 3. initial loading、fatal error、empty、partial、forbidden。
 4. 右侧三 tab 切换；权重只在首次点击加载一次，固定 10 行视窗、内部滚动、虚拟化且可到达末行。
-5. 技术结论和九转显示 `--`，不存在 mock 文案。
+5. 技术结论显示 `--`；九转按独立 capability/API 显示客观 marker 摘要，未开放、源空或无 marker 时显示 `--`，不存在 mock 文案。
 6. prod 周期 disabled；local minute capability 解锁。
 7. 页面不存在“前复权”。
 8. 缺失因子不会渲染为 0。
@@ -627,11 +627,13 @@ cd wealth && npm run build
 | M5-B 准备（已完成） | 70 checks 注册、跨边界合同门禁、七频率异常 fixture、只读正式验收入口 | Definitions 发现 14 个资产/70 个 checks；合同一致；缺正式 Gold 时明确 `SOURCE_NOT_READY` |
 | M5-B 正式数据验收（已完成） | Gold 物理覆盖/全量对齐/默认性能/最大响应 | 29,939 分区对零失败；630 样本 P95 通过；10000/5MB 与 5000 cursor 语义冻结 |
 | M5-B 最终切换（已完成） | 真实 indicators、删除 Mock | bars/indicators 独立状态、真实 provider、Mock 引用清零、浏览器回归通过 |
-| M6 发布验收 | prod 日线能力、分钟路由不存在、全回归 | 构建/测试/生产 smoke 通过 |
+| M6 发布边界验收（已完成） | prod 日线能力、分钟路由不存在、全回归 | 构建/测试/生产 smoke 通过 |
 
 M5-B 准备批次已于 2026-08-12 验收。2026-08-13 最终重跑确认 Silver/Gold technical 七频率各 4,277 个分区，29,939 个分区对全历史合同与时间键对齐零失败；Technical/state 共 59,878 个正式文件、10,150,506 行，630 个默认 500 根查询样本全部 READY，频率级 P95 为 282.243–322.982ms。10000 根按 5MB 门禁正确拒绝，固定 5000 根返回 3,181,443 bytes、cursor 有效且耗时 334.441ms。真实 provider、Mock 清零和浏览器验收已同步完成。
 
-技术结论 API 与九转 API 不属于 M0-M6，分别立项后再扩展 DTO 与 UI。
+2026-08-15 的生产窄发布与 smoke 再次确认：生产只提供指数日线，指数分钟路由为 404；本地分钟功能不随生产发布暴露。至此，指数分钟从数据合同、Reader/API、前端状态机、共享图表、正式 Gold 切换、性能、视觉到环境隔离均已完成。九转 M6-B～M6-D 的 sensor、自然更新和运维验收属于另一专项，不再列为本方案未完成里程碑。
+
+技术结论 API 仍不属于本方案，后续需独立立项。九转已由 S7/M5 独立合同接入并完成 M6-A 生产窄发布，不向指数详情核心日线/分钟 DTO 回填 marker payload。
 
 ## 12. 风险与缓解
 
@@ -643,7 +645,7 @@ M5-B 准备批次已于 2026-08-12 验收。2026-08-13 最终重跑确认 Silver
 | 历史回填会改变 MA 可计算边界 | 把当前 A500 空值前缀固化为 code/date 规则 | 按实际有效历史根数动态判断；2024 同步完成后复审，不改代码特例 |
 | Figma 与数据语义冲突 | 示例贡献点不可复算、全市场成交说明不成立 | 以冻结公式和真实源语义覆盖示例文案 |
 | 图表复用导致股票回归 | 直接改 751 行组件 | 先共享重构、单独验证、再加指数 overlay |
-| 分钟 Lake 尚未正式 ready | 页面先暴露 capability | capability + Lake 门禁，prod 永不挂路由 |
+| Gold bars/indicators 个别分区短暂未同窗就绪 | 页面误把指标缺失升级为整张分钟图失败 | capability + 独立状态结算；保留可用 bars、指标层显示 PARTIAL，prod 永不挂分钟路由 |
 | 贡献缺失被当 0 | adapter 使用 valueOrZero | index adapter null-safe，API coverage 明示 |
 | 全量 A 股权重导致 DOM/响应膨胀 | 直接渲染完整数组或查询逐行补名 | 单次完整 A 股子集 API + 集合查询；前端虚拟化；P95 与 1 MiB payload 门禁 |
 | B 股被误报缺失 | 直接以源权重总数减日线匹配数 | 先按 Security 事实字段限定 A 股；B 股不进入 coverage，不用代码前缀判断 |
@@ -665,6 +667,7 @@ M5-B 准备批次已于 2026-08-12 验收。2026-08-13 最终重跑确认 Silver
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.23 | 2026-08-16 | 收敛指数分钟完成状态：M6 发布边界验收标记完成，删除“Lake 尚未 ready”的过时风险，明确正式 Gold、本地七频、生产 404 与九转后续运维阶段的边界 | Codex |
 | v1.22 | 2026-08-15 | 同步 M6-0 通过：冻结生产日线/分钟路由基线和 platform-only 发布范围，修复板块测试竞态并完成 Wealth 全量回归；M6-A 待独立审批 | Codex |
 | v1.21 | 2026-08-15 | 同步 S7/M5 当前实现：page-init `supportsNineTurn=true` 并返回 `nineTurnPeriods`；原“不纳入九转”仅保留为 M1–M5-B 历史范围，M6 发布仍待后续 | Codex |
 | v1.20 | 2026-08-14 | 完成 P10 业务读取切换：主要指数 bars 改为正式 Gold canonical bars，无 Silver fallback；同步能力探测、状态文案与有限只读验收 | Codex |

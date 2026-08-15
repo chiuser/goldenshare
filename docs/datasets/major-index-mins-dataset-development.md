@@ -5,10 +5,10 @@
 | 项目 | 结论 |
 | --- | --- |
 | 数据集 ID | `major_index_mins` |
-| 当前阶段 | 设计收口；尚未进入正式数据湖写入 |
-| 事实源 | 本文与 Dagster Lake Catalog；本项目没有生产 `DatasetDefinition` 接入 |
+| 当前阶段 | 数据集开发完成：Raw/Silver P0–P8、Gold canonical/technical 历史建设与 P10 业务读取切换均已完成；连续交易日 sensor 观察属于独立运维验收 |
+| 事实源 | 当前 Dagster assets、Lake Catalog、运行合同与对应 Gold canonical LLD；本项目不进入生产 `DatasetDefinition`/TaskRun 主链 |
 | 源接口 | Tushare `idx_mins` |
-| 当前源接口实测 | MCP 已验证代码、起始日、停止日、五种频率和显式字段；项目 orchestrator 的 `limit/offset` 真实分页仍是 P1 门禁 |
+| 当前源接口实测 | MCP 已验证代码、起始日、停止日、五种频率和显式字段；项目 wrapper 的显式字段与 `limit/offset` 真实分页已由 P1 实测通过 |
 | 依据模板 | `docs/templates/lake-dataset-development-template.md`、`docs/templates/dataset-development-template.md`、`lake_console/docs/templates/dagster-dataset-onboarding-template.html` |
 | 设计依据 | `/Users/congming/github/goldenshare/AGENTS.md`、`lake_console/orchestrator/AGENTS.md`、`lake_console/orchestrator/CODING_STANDARDS.md`、`lake_console/docs/design/dagster-data-pipeline-performance-governance.md` |
 
@@ -28,12 +28,12 @@
 | 中文名 | 主要指数历史分钟线 |
 | 数据域 | `quote_data` |
 | Group | `index` |
-| 层级 | Raw + Silver |
-| 更新源 | Raw 直接 Tushare；Silver 由同日 Raw 派生 |
+| 层级 | 本文主体为 Raw + Silver；当前业务 K 线与技术指标统一消费 Gold canonical/technical |
+| 更新源 | Raw 直接 Tushare；Silver 由同日 Raw 派生；Gold canonical/technical 从验收通过的上游生成 |
 | 时间输入 | Dagster 单个 `trade_date` 分区；Bootstrap 使用冻结日期计划和窗口 |
 | 执行单位 | 一个 `trade_date + freq` 一个 Raw/Silver asset partition |
 | 状态判断 | 最近 10 个专属 expected 日期的 DuckDB batch lake readiness；不读取 Dagster event history |
-| 自动触发 | 专属交易日分区 sensor、Raw sensor、Silver sensor，默认 `STOPPED` |
+| 自动触发 | 专属交易日分区 sensor、Raw sensor、Silver/Gold sensor；设计默认状态与当前运行态分开，实际状态需走独立只读运维审计 |
 | 生产写入边界 | staging Parquet 校验通过后 `os.replace`；禁止覆盖错误的既有目标 |
 
 第一期 Raw 固定 11 个指数。10 个在线指数用于日常探测；北证50只做历史 Raw source
@@ -299,7 +299,7 @@ tests/test_run_contract_static_gates.py
 - [x] 已落实 definition、materialization、check metadata 三层边界。
 - [x] 已按 `build_sensor_cursor()` 完成 cursor schema/大小/ASCII 测试；三个 sensor 默认 `STOPPED`，每 tick 最多一个 RunRequest。
 - [x] 已输出 P6 Bootstrap 请求/文件/磁盘预算，并确认旧“请求后丢弃”审计方式必须废弃。
-- [ ] 用 dry-run、样本、全量、最终对账四阶段补事件。
+- [x] P8 已按 dry-run、样本、分资产 apply、最终对账四阶段完成历史 materialization/check 事件补录。
 - [x] 可恢复 source staging、只读审计、临时 Raw/Silver build/audit 和正式 promote 入口已完成代码与 fake-source 全链路测试；源请求与正式 lake 写入使用两个独立确认开关。
 - [x] 完整专项回归、`dg check defs`、`git diff --check` 已通过；P7 source staging 已完成且未写正式 lake/event。
 - [x] 已只读证明 130 个非北证历史缺口均有完整低级别源数据；审计 260 个健康对照 scope，结果写入 `/private/tmp/major_index_mins_non_bse_fallback_audit_20260806.json`。
@@ -307,26 +307,15 @@ tests/test_run_contract_static_gates.py
 - [x] 已从 retained staging 完成 P7B 全量临时重建：15 个 Parquet、1,482 行、10 个 source revision、0 个 post-audit 违规，报告为 `/private/tmp/major_index_mins_p7b_fallback_report_20260806.json`。
 - [x] P7C 合同已冻结：北证50 Raw-only、Silver 永久排除；30 行 sentinel、105 行
   envelope 和 exchange 派生按精确规则处理。
-- [ ] P7C 代码和 retained-staging 真实临时样本尚未完成；在此之前禁止完整临时湖构建。
+- [x] P7C 代码和 retained-staging 真实临时样本已完成；P7D 完整临时湖、P7E 正式 promote 与 P8 事件补录也已依次完成。
 
-## 11. 当前未完成项
+## 11. 开发收口与后续运维
 
-本文件已经完成设计模板收口，但以下不是文档可自行宣称完成的事项：
+Raw/Silver 的 P0–P8 已完成；Gold canonical bars、Gold technical/state 的正式历史建设、事件对账与 P10 业务 Reader 切换也已按 [A 股分钟线 Gold 标准 K 线合同与历史重建 LLD](../../lake_console/docs/design/dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md)完成。当前业务读取只允许 Gold bars + Gold indicators，不再读取 Silver，也不保留 fallback。
 
-1. P7C 实现：拆分 Raw/Silver validator 和 scope；Raw 保留 BSE 但不做业务 check，
-   Silver 排除 BSE，并实现非北证 OHLC/exchange 精确清洗；
-2. P7D：P7C 真实临时样本通过后，更新 temporary lake builder，从现有 staging 生成
-   完整临时 Raw/Silver 并做全量对账；
-3. P7E：临时湖全量对账通过后，单独批准正式 lake promote；P8 再补事件，P9 最后启用日常 sensor。
+尚未并入“开发完成”的只有运维观察：P9/P11 需要在单独批准下核对 sensor 启用状态，并观察连续三个实际交易日的自然触发、blocking checks、freshness 与失败恢复。它不表示数据集、Gold 业务合同或指数分钟页面仍有待开发功能，也不授权本轮读取 Dagster instance、启停 sensor、运行 job 或写 Lake。
 
-P1-P6 已完成。P7 已将 2,662 个源窗口一次性写入可恢复 staging：2,662 次请求、0
-重试、10,016,287 行、约 432 MB，未写正式 lake 或 Dagster event。P7B 的 130 个
-非北证 fallback scope 已完成实现和真实样本。P7C 进一步只读确认 72 个 BSE session
-异常和 5 个 BSE 负值；管理员已拍板 BSE Raw-only、Silver 全量排除，不再修复或检查
-BSE 业务质量。非北证剩余问题为 30 行 sentinel、105 行 `399001.SZ` envelope 和
-exchange NULL/`nan` 派生。报告新增
-`/private/tmp/major_index_mins_p7c_contract_audit_20260806.json`。下一步实现 P7C LLD
-第 29 节并做真实临时样本；不重复请求 Tushare，不写正式 lake/event。
+P7 source staging、P7B fallback、P7C 分层合同、P7D 临时湖、P7E 正式 promote 和 P8 事件补录的日期化执行证据继续保留在方案与 LLD 中。各阶段“当时未写正式 Lake/未补事件”的文字只描述阶段边界，不得再解释为当前状态。
 
 详细设计：
 

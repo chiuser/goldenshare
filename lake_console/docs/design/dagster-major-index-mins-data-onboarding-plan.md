@@ -1,12 +1,13 @@
 # Dagster 主要指数历史分钟线接入方案
 
-> 2026-08-13 当前口径：Silver 继续保存源端 09:30；新增七频
+> 2026-08-16 当前口径：Silver 继续保存源端 09:30；新增七频
 > `gold_major_index_mins_*` 作为业务 K 线层，Gold 非 1m 不输出独立 09:30，但第一根
 > 必须包含竞价锚点。现有技术指标改为读取 Gold。完整资产、窗口和历史重建顺序以
 > [A 股分钟线 Gold 标准 K 线合同与历史重建 LLD](./dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md)
 > 为准。本文原有 Raw/Silver 接入事实继续有效，任何“业务直接读取 Silver”的推论不再有效。
-> P2 代码已完成 7 个 Gold asset/check、单分区 job、默认停止 sensor，并已将 technical 和
-> 本地 reader 改为 Gold-only；正式 Gold/technical 历史重建、事件补录与运行启用尚未执行。
+> Gold canonical/technical 正式历史重建、事件补录与 P10 Gold-only 业务 Reader 切换均已完成。
+> P11 连续三个实际交易日的 sensor 自然触发观察仍属于独立运维验收，不表示开发未完成，也
+> 不授权本轮读取 Dagster instance、启停 sensor、运行 job 或写 Lake。
 
 > 2026-08-07 修正：现有 90m/120m 集合竞价窗口合同不正确，主要指数 Silver 的两个派生频率必须按[统一修复与重建 LLD](./dagster-derived-minute-bars-90-120-contract-rebuild-low-level-design.md)全历史重建。本文此前记录的 P3/P7/P8 文件和事件验收只证明旧合同执行完整，不再证明派生 K 线业务语义正确。
 
@@ -461,6 +462,8 @@ P6 首版全量请求式 dry-run 执行至第 160 个源窗口并 fail-closed。
 | P7D | 完成 | retained staging 已生成 Raw 21,355、Silver 29,897 个临时文件并完成逐文件全量对账；缺失/无效均为 0，正式 lake/DB/event 写入为 0 |
 | P7E | 完成 | 51,252 个临时目标已逐文件原子 promote；正式 Raw/Silver 全量 post audit 缺失/无效均为 0，Dagster 写入为 0 |
 | P8 | 完成 | 注册 4,271 个专属动态分区；12 个资产全量补 51,252 条 materialization，并只对最近 20 日补 240 条 partitioned core check event；最终候选为 0 |
+| Gold/P10 | 完成 | 七频 Gold canonical/technical 历史建设、事件对账和业务 Reader Gold-only 切换完成；无 Silver fallback |
+| P9/P11 运维观察 | 待独立验收 | 只核对当前 sensor 状态，并观察连续三个实际交易日的自然触发、checks、freshness 与失败恢复；不属于开发缺口 |
 
 P0 CodeGraph 影响面：现有 `index_mins` 的 Raw/Silver writer、bounded readiness、三个 sensor、Bootstrap/event 模式；共享注册点为 `partitions.py`、`paths.py`、`asset_column_schemas.py`、`lake_assets.py`、`name_mapping.py` 和治理/definitions/static-gate 测试。没有前端/API/生产 `DatasetDefinition` 消费者。
 
@@ -472,7 +475,7 @@ P0 CodeGraph 影响面：现有 `index_mins` 的 Raw/Silver writer、bounded rea
 
 修正 `exchange IS NULL` 漏计后的只读审计报告为 `/private/tmp/major_index_mins_p7_source_staging_audit_20260805_v2.json`：窗口缺失/损坏/重复主键/staging 残留均为 0；实际行数比静态 session 计划少 6,568 行，拆分为缺失 7,310、额外 742；`exchange` 为 NULL 或 `nan` 共 1,220,046 行；数值域异常 5 行；开盘 OHLC 哨兵 30 行；其它 OHLC 包络异常经 P7C 互斥复核为 105 行。详细日期、代码、频率拆分见 `/private/tmp/major_index_mins_p7_source_anomaly_breakdown_20260805.json` 和 `/private/tmp/major_index_mins_p7c_contract_audit_20260806.json`。
 
-当前门禁已拆分：非北证 source-empty/frequency fallback 已完成 P7B 代码、真实临时重建
+以下为 P7D 完成、P7E/P8 尚未执行时的历史阶段边界：非北证 source-empty/frequency fallback 已完成 P7B 代码、真实临时重建
 和独立 post-audit；P7C 已拍板 BSE Raw-only、Silver 永久排除，不再开发 BSE fallback
 或业务 check。非北证 OHLC 白名单清洗和 exchange 派生按 LLD 第 29 节实现。P7D 已复用
 同一 retained staging 完成完整临时湖 build 和全量对账；仍不 promote、不补事件，也不

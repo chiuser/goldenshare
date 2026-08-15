@@ -410,7 +410,7 @@ interface IndexDetailErrorResponseDto {
 }
 ```
 
-正式三个日线接口只产生上述 `ID_*` 和认证层 code。`IM_*` 已登记供后续独立分钟合同使用，不得提前出现在 page-init/kline/weights。
+正式三个日线接口只产生上述 `ID_*` 和认证层 code。`IM_*` 只由已启用的 local/dev 独立分钟合同产生，仍不得出现在 page-init/kline/weights。
 
 | 场景 | HTTP | code |
 |---|---:|---|

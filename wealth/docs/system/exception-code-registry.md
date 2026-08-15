@@ -153,7 +153,7 @@
 
 ## 8. 指数详情模块（Phase-3）
 
-> 正式 DTO 语义见 [指数详情页正式 API / DTO 合同 v1](../pages/index-detail/index-detail-api-contract-v1.md)。`ID_*` 服务正式日线详情，`IM_*` 仅供后续本地指数分钟独立合同使用。
+> 正式日线 DTO 语义见 [指数详情页正式 API / DTO 合同 v1](../pages/index-detail/index-detail-api-contract-v1.md)。`ID_*` 服务正式日线详情；`IM_*` 服务已启用的 local/dev 指数分钟独立合同，具体语义见 [指数详情本地分钟 API / DTO 合同 v1](../pages/index-detail/index-detail-minutes-api-contract-v1.md)。
 
 | code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -177,12 +177,12 @@
 2. 401/403 沿用认证层，不登记为业务 EMPTY。
 3. MA 不登记 code/date 豁免；同 code 截至该交易日的实际有效历史根数小于 N 时，`maN=null` 才属于合理历史不足。达到 N 后仍为空必须触发 `ID_FACTOR_PARTIAL`。
 4. page-init 与日线 K 线的量额唯一取 factor；不得读取或回退 daily 量额。factor 同日行/字段缺失时必须按 `ID_FACTOR_PARTIAL` 处理。
-5. M5-A 的前端开发态 Mock 指标不产生、吞并或改写 `IM_*`；真实 Silver/Gold HTTP 状态仍按本表返回，Mock 不作为错误 fallback。
+5. M5-A 的前端开发态 Mock 已于 M5-B 删除。当前 bars 与 indicators 均只读正式 Gold；任何 `IM_*` 异常都不得触发 Mock、Silver、旧 Lake 或其它频率/指数缓存 fallback。
 6. 指数详情的“完整权重批次”指官方批次中由 `Security.security_type=EQUITY`、`exchange in (SSE,SZSE,BSE)`、`curr_type=CNY` 认定的完整 A 股子集。B 股不进入 rows/coverage/total/missing；A 股 daily 值优先，只有 daily 缺失/空值且精确日 `EquitySuspendD.suspend_type='S'` 时才按 FLAT/贡献 0 解析。
 
 ## 9. 九转详情图层（Phase-4，股票与指数后端及 UI active）
 
-> 最终 DTO、状态优先级和恢复动作见 [股票与主要指数详情页九转接入低层设计 v1](./detail-page-nine-turn-integration-low-level-design-v1.md)。股票日线、本地 30/60/90/120 分钟及指数日线、本地 5/15/30/60/90/120 分钟后端、正式数据和页面消费均已落地；M6 日常自动化与最终发布仍是独立后续阶段。
+> 最终 DTO、状态优先级和恢复动作见 [股票与主要指数详情页九转接入低层设计 v1](./detail-page-nine-turn-integration-low-level-design-v1.md)。股票日线、本地 30/60/90/120 分钟及指数日线、本地 5/15/30/60/90/120 分钟后端、正式数据和页面消费均已落地；M6-A 生产窄发布已完成，M6-B–M6-D 的自然更新与最终运维验收仍是独立后续阶段。
 
 | code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
 |---|---|---|---|---|---|---|---|---|---|---|

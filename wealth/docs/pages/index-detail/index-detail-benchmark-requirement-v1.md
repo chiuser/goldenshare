@@ -1,6 +1,6 @@
 # 指数详情页标杆需求 v1
 
-> 状态：指数详情原 M1–M5-B、P10 与九转专项 S7/M5 均已完成；正式 bars/indicators 都只读 Gold，Mock 清零，九转 capability、图层、Technical 摘要和浏览器回归均已通过验收。九转 M6-0 发布准备审计与测试稳定性修复已于 2026-08-15 完成并通过，M6-A 尚未推送或部署。
+> 状态：指数分钟交付已完成。M1–M5-B、P10、共享图表与发布边界验收均已闭环；bars/indicators 只读正式 Gold，Mock 已清零。本地按 capability 开放七个分钟周期，生产继续只开放日线且分钟路由保持 404。九转 S7/M5 与 M6-A 也已完成；其 M6-B～M6-D 属于独立的 Dagster 自然更新与运维验收，不是指数分钟交付的未完成项。
 > 用途：冻结“财势乾坤 / 指数详情页”的产品范围、数据口径、交互边界与验收标准。
 > 本文是业务与体验事实源，不是实现代码。
 
@@ -16,7 +16,7 @@
 8. [指数详情本地分钟 API / DTO 合同 v1](./index-detail-minutes-api-contract-v1.md)
 9. [股票与主要指数详情页九转接入总方案 v1](../../system/detail-page-nine-turn-integration-implementation-design-v1.md)
 
-> 九转专项说明：M1–M5-B 的“九转为空、`supportsNineTurn=false`、不发请求”是九转立项前的历史验收事实，不是当前实现。S7/M5 已完成指数日线及 5/15/30/60/90/120 分钟九转接入；当前 `supportsNineTurn=true`，生产 `nineTurnPeriods=["day"]`，local/dev 在分钟能力就绪时增加 5/15/30/60/90/120，指数 1 分钟始终不支持。最终发布仍按九转总方案的 M6 门禁推进。
+> 九转专项说明：M1–M5-B 的“九转为空、`supportsNineTurn=false`、不发请求”是九转立项前的历史验收事实，不是当前实现。S7/M5 与 M6-A 已完成指数日线及 5/15/30/60/90/120 分钟九转接入和生产窄发布；当前 `supportsNineTurn=true`，生产 `nineTurnPeriods=["day"]`，local/dev 在分钟能力就绪时增加 5/15/30/60/90/120，指数 1 分钟始终不支持。九转后续 M6-B～M6-D 继续由九转总方案独立治理，不改变本页指数分钟已完成结论。
 
 ---
 
@@ -212,8 +212,8 @@ estimatedContributionPoint
 | 成分股涨跌幅 | `core_serving.equity_daily_bar` + `core_serving.equity_suspend_d` | 与贡献日同日；日线优先，确认停牌时为 0% | 无日线且无停牌依据时 contributionPoint 为 null |
 | 指数成分涨跌统计 | `index_weight` + `security_serving` + `equity_daily_bar` + `equity_suspend_d` | 最新有效批次中的 A 股；日线涨跌分组，确认停牌计 FLAT | 仅真实 A 股缺失触发基本行情 PARTIAL |
 | 趋势通道 | 现有 `/api/v1/quote/detail/trend-channel` | 仅 `000001.SH` 日线 25/90 EMA 双通道 | 上证模块 PARTIAL/ERROR；其余指数不请求 |
-| 本地分钟行情 | Lake Silver `major_index_mins` | 仅 local capability 开启 | 模块 EMPTY/DELAYED |
-| 本地分钟指标 | Lake Gold `major_index_mins_technical` | 仅 local capability 开启 | 指标缺失保持 null |
+| 本地分钟行情 | Lake Gold canonical bars `gold/quote/major_index_mins` | 仅 local capability 开启；无 Silver fallback | 模块 EMPTY/DELAYED |
+| 本地分钟指标 | Lake Gold `gold/indicator/major_index_mins_technical` | 仅 local capability 开启 | bars 保留，技术图层 PARTIAL |
 
 M0 已完成 10 指数当前生产快照覆盖审计。审计时 `000510.SH` 有 182 行 MA250 前缀空值，但 2024 技术因子正在同步，该现象只作为时点记录，不是合法 warm-up 的固定 code/date 规则。MA 是否因历史不足为 null 必须按同一 code 截至该交易日的实际有效历史根数动态判断。深证成指、创业板指 factor 量额与 daily 分叉；外部数据源核对确认 factor 准确，因此基本行情和 Kline 的量额统一取 factor。不得用倍率修正、daily fallback、API 临时计算或前端换算替代。
 
@@ -283,6 +283,8 @@ GET /api/v1/wealth/market/index-detail/minute-indicators
 | trend-channel | 热缓存 100ms；冷计算 500ms | 最近 300 根 |
 | local minutes/indicators | 1.5s | 默认 500 根 |
 
+当前 P10 运行合同以 Gold canonical bars 和 Gold technical 为唯一业务输入。以下 M5-A/M5-B 的 Silver/Gold 数量与性能只记录 2026-08-12～13 的阶段验收过程，不再代表当前 Reader 数据源；当前 Gold-to-Gold 合同与切换验收见分钟 API 合同和 canonical bars LLD。
+
 M5-A 的 1.5s 目标只验收真实 Silver bars；M5-B 使用相同目标验收真实 Gold indicators。`limit=10000` 是参数上限，响应仍必须优先满足 5MB 门禁；最大响应验收同时覆盖 10000 根正确拒绝语义和固定 5000 根正常分页。
 
 M5-B 正式 Gold 验收使用同一 1.5s P95 目标、5s 硬门禁，并固定分成两层：
@@ -320,6 +322,7 @@ M5-B 正式 Gold 验收使用同一 1.5s P95 目标、5s 硬门禁，并固定�
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.22 | 2026-08-16 | 收敛指数分钟完成口径：正式 Gold bars/indicators、本地七频、Mock 清零、性能与浏览器验收均已闭环；生产分钟保持 404 是既定边界，不再表述为待开发；同步九转 M6-A 已发布事实，并将 M6-B～M6-D 与指数分钟交付解耦 | Codex |
 | v1.21 | 2026-08-15 | 同步九转 M6-0 通过事实：生产版本、路由、配置与 platform-only 发布边界已审计，板块测试竞态已修复且 Wealth 全量 232/232；M6-A 待独立审批 | Codex |
 | v1.20 | 2026-08-15 | 同步 S7/M5 完成事实：当前 `supportsNineTurn=true`，周期由 `nineTurnPeriods` 声明；清除“九转专项尚未完成”的过时表述，并保留 M6 尚未发布边界 | Codex |
 | v1.19 | 2026-08-14 | 完成 P10：本地指数 bars 切换为正式 Gold canonical bars，无 Silver fallback；七频业务合同、tooltip 与有限只读性能验收通过 | Codex |

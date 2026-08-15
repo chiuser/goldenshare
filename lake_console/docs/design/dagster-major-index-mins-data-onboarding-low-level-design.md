@@ -1,11 +1,12 @@
 # Dagster 主要指数历史分钟线接入 LLD
 
-> 2026-08-13 当前口径：本文继续约束 Raw/Silver 接入，但不再定义最终业务 K 线层。
+> 2026-08-16 当前口径：本文继续约束 Raw/Silver 接入，但不再定义最终业务 K 线层。
 > 主要指数必须新增七频 Gold bars；Gold 非 1m 不输出 09:30，技术指标和业务 reader
 > 都只消费 Gold。代码级变更和安全重建顺序见
 > [A 股分钟线 Gold 标准 K 线合同与历史重建 LLD](./dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md)。
-> P2 代码已完成 7 个 Gold asset/check、单分区 job、默认停止 sensor，并已将 technical 和
-> 本地 reader 改为 Gold-only；正式 Gold/technical 历史重建、事件补录与运行启用尚未执行。
+> Gold canonical/technical 正式历史重建、事件补录与 P10 Gold-only 业务 Reader 切换均已完成。
+> P11 连续三个实际交易日的 sensor 自然触发观察仍属于独立运维验收，不表示开发未完成，也
+> 不授权本轮读取 Dagster instance、启停 sensor、运行 job 或写 Lake。
 
 > 2026-08-07 修正：90m/120m 第一上午 bar 必须使用 `09:30.close` 作为 open/高低价锚点并包含竞价 `vol/amount`；90m 输出 `11:00/14:00/15:00`，120m 输出 `11:30/15:00`。旧窗口与历史文件必须按[统一修复与重建 LLD](./dagster-derived-minute-bars-90-120-contract-rebuild-low-level-design.md)替换。
 
@@ -745,7 +746,7 @@ planner、可恢复 source staging、只读 staging audit、临时 Raw/Silver bu
 文件系统安全 promote 已完成本地 fake-source 全链路测试；P7 source staging 也已一次性
 完成。P7B 非北证 bounded Silver fallback 的代码、真实 retained-staging 临时重建和
 独立 post-audit 均已通过；P7C 合同、P7D 完整临时湖、P7E 正式 promote 与 P8 runless
-event 补录也已依次完成。当前只剩 P9 sensor 启用与连续交易日观察。若源站/项目 wrapper
+event 补录也已依次完成。当前只剩 P9/P11 sensor 状态核对与连续交易日观察这一独立运维验收。若源站/项目 wrapper
 与本文冲突，必须保留 staging 事实、更新本文与方案后再继续，不得在代码中静默放宽语义。
 
 ## 20. P0 开工审计记录
