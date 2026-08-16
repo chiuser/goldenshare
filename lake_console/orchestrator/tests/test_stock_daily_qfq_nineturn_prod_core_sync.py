@@ -28,7 +28,7 @@ from orchestrator.defs.resources import DuckDBResource
 
 
 class StockDailyQfqNineTurnProdCoreSyncTests(unittest.TestCase):
-    def test_asset_definition_freezes_qfq_source_and_serving_target(self) -> None:
+    def test_asset_definition_freezes_gold_source_and_serving_target(self) -> None:
         asset_key = prod_core_stock_daily_qfq_nineturn.key
         self.assertEqual(
             asset_key.to_user_string(),
@@ -69,6 +69,7 @@ class StockDailyQfqNineTurnProdCoreSyncTests(unittest.TestCase):
         self.assertEqual([row["ts_code"] for row in rows], ["000001.SZ", "600000.SH"])
         self.assertEqual(rows[0]["up_count"], 10)
         self.assertEqual(rows[0]["nine_up_turn"], "+9")
+        self.assertNotIn("close_qfq", rows[0])
 
     def test_load_rows_fails_closed_when_source_key_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_dir:
@@ -241,6 +242,7 @@ class StockDailyQfqNineTurnProdCoreSyncTests(unittest.TestCase):
         self.assertNotIn("select *", sql)
         self.assertNotIn("equity_nineturn", sql)
         self.assertNotIn("tushare", sql)
+        self.assertNotIn("close_qfq", sql)
 
 
 class _FakeConnection:
@@ -287,7 +289,6 @@ def _sample_rows(partition_key: str) -> list[dict[str, object]]:
         {
             "ts_code": "000001.SZ",
             "trade_date": partition_key,
-            "close_qfq": 12.5,
             "up_count": 10,
             "down_count": 0,
             "nine_up_turn": "+9",
@@ -296,7 +297,6 @@ def _sample_rows(partition_key: str) -> list[dict[str, object]]:
         {
             "ts_code": "600000.SH",
             "trade_date": partition_key,
-            "close_qfq": 8.2,
             "up_count": 0,
             "down_count": 4,
             "nine_up_turn": None,
@@ -314,7 +314,6 @@ def _read_back_rows(
         (
             row["ts_code"],
             row["trade_date"],
-            row["close_qfq"],
             row["up_count"],
             row["down_count"],
             row["nine_up_turn"],
@@ -364,13 +363,13 @@ def _write_nine_turn_file(path: Path, partition_key: str) -> None:
             f"""
             COPY (
               SELECT * FROM (VALUES
-                ('000001.SZ', DATE '{partition_key}', 12.5::DOUBLE,
-                  10::INTEGER, 0::INTEGER, '+9'::VARCHAR, NULL::VARCHAR),
-                ('600000.SH', DATE '{partition_key}', 8.2::DOUBLE,
-                  0::INTEGER, 4::INTEGER, NULL::VARCHAR, NULL::VARCHAR)
+                ('000001.SZ', DATE '{partition_key}', 10::INTEGER,
+                  0::INTEGER, '+9'::VARCHAR, NULL::VARCHAR),
+                ('600000.SH', DATE '{partition_key}', 0::INTEGER,
+                  4::INTEGER, NULL::VARCHAR, NULL::VARCHAR)
               ) AS source(
-                ts_code, trade_date, close_qfq, up_count, down_count,
-                nine_up_turn, nine_down_turn
+                ts_code, trade_date, up_count, down_count, nine_up_turn,
+                nine_down_turn
               )
             ) TO '{path.as_posix()}' (FORMAT PARQUET)
             """

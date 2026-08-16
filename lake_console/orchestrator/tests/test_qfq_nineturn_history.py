@@ -413,9 +413,9 @@ class QfqNineturnHistoryTests(unittest.TestCase):
                     f"""
                     COPY (
                       SELECT ts_code, trade_date,
-                             CASE WHEN ts_code = '000001.SZ' THEN 999.0 ELSE close_qfq END
-                               AS close_qfq,
-                             up_count, down_count, nine_up_turn, nine_down_turn
+                             CASE WHEN ts_code = '000001.SZ'
+                               THEN up_count + 100 ELSE up_count END AS up_count,
+                             down_count, nine_up_turn, nine_down_turn
                       FROM read_parquet('{target}', hive_partitioning=false)
                       ORDER BY ts_code
                     ) TO '{damaged}' (FORMAT PARQUET)
@@ -451,9 +451,9 @@ class QfqNineturnHistoryTests(unittest.TestCase):
             self.assertEqual(report.replaced_partition_count, 1)
             self.assertTrue(report.backup_manifest_path.is_file())
             with duckdb.connect() as connection:
-                selected_close = connection.execute(
+                selected_up_count = connection.execute(
                     f"""
-                    SELECT close_qfq
+                    SELECT up_count
                     FROM read_parquet('{target}', hive_partitioning=false)
                     WHERE ts_code = '000001.SZ'
                     """
@@ -464,7 +464,7 @@ class QfqNineturnHistoryTests(unittest.TestCase):
                     WHERE ts_code = '000002.SZ'
                     """
                 ).fetchone()
-            self.assertNotEqual(selected_close, 999.0)
+            self.assertLess(selected_up_count, 100)
             self.assertEqual(after_other, before_other)
 
     def test_scoped_rebuild_batches_checkpoint_and_resumes(self) -> None:
@@ -486,7 +486,7 @@ class QfqNineturnHistoryTests(unittest.TestCase):
             )
             repair_dates = dates[-2:]
             for trade_date in repair_dates:
-                _damage_daily_close(root, trade_date, "000001.SZ")
+                _damage_daily_count(root, trade_date, "000001.SZ")
             scoped_plan = plan_qfq_nineturn_scoped_rebuild(
                 lake_root=root,
                 staging_root=root / "staging",
@@ -726,7 +726,7 @@ class QfqNineturnHistoryTests(unittest.TestCase):
             self.assertEqual(plan["stop_reason_code"], "rss_limit_exceeded")
 
 
-def _damage_daily_close(lake_root: Path, trade_date: str, ts_code: str) -> None:
+def _damage_daily_count(lake_root: Path, trade_date: str, ts_code: str) -> None:
     target = gold_stock_daily_qfq_nineturn_path(lake_root, trade_date)
     damaged = lake_root / f"damaged-{trade_date}.parquet"
     with duckdb.connect() as connection:
@@ -734,9 +734,9 @@ def _damage_daily_close(lake_root: Path, trade_date: str, ts_code: str) -> None:
             f"""
             COPY (
               SELECT ts_code, trade_date,
-                CASE WHEN ts_code = '{ts_code}' THEN 999.0 ELSE close_qfq END
-                  AS close_qfq,
-                up_count, down_count, nine_up_turn, nine_down_turn
+                CASE WHEN ts_code = '{ts_code}'
+                  THEN up_count + 100 ELSE up_count END AS up_count,
+                down_count, nine_up_turn, nine_down_turn
               FROM read_parquet('{target}', hive_partitioning=false)
               ORDER BY ts_code
             ) TO '{damaged}' (FORMAT PARQUET)

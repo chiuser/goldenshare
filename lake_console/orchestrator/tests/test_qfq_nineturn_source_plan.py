@@ -13,7 +13,6 @@ from orchestrator.defs.qfq_nineturn import (
     plan_gold_stock_daily_qfq_nineturn_source,
 )
 
-
 TARGET_DATE = "2026-08-07"
 
 
@@ -39,7 +38,6 @@ def _write_previous_seed(connection, root: Path, trade_date: str, ts_code: str) 
         COPY (
           SELECT '{ts_code}'::VARCHAR AS ts_code,
             DATE '{trade_date}' AS trade_date,
-            10.0::DOUBLE AS close_qfq,
             1::INTEGER AS up_count,
             0::INTEGER AS down_count,
             NULL::VARCHAR AS nine_up_turn,

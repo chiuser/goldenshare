@@ -13,14 +13,14 @@ from orchestrator.defs.qfq_nineturn_integrity import (
 TRADE_DATE = "2026-08-07"
 
 
-def _write_daily_source(connection, path: Path) -> None:
+def _write_daily_source(connection, path: Path, *, close: float = 10.0) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     connection.execute(
         f"""
         COPY (
           SELECT '000001.SZ'::VARCHAR AS ts_code,
             DATE '{TRADE_DATE}' AS trade_date,
-            10.0::DOUBLE AS close
+            {close}::DOUBLE AS close
         ) TO '{path}' (FORMAT PARQUET)
         """
     )
@@ -32,16 +32,17 @@ def _write_daily_target(
     *,
     ts_code: str = "000001.SZ",
     up_count: int = 9,
-    close_qfq: float = 10.0,
+    include_legacy_close: bool = False,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     signal = "'+9'::VARCHAR" if up_count >= 9 else "NULL::VARCHAR"
+    close_projection = "10.0::DOUBLE AS close_qfq," if include_legacy_close else ""
     connection.execute(
         f"""
         COPY (
           SELECT '{ts_code}'::VARCHAR AS ts_code,
             DATE '{TRADE_DATE}' AS trade_date,
-            {close_qfq}::DOUBLE AS close_qfq,
+            {close_projection}
             {up_count}::INTEGER AS up_count,
             0::INTEGER AS down_count,
             {signal} AS nine_up_turn,
@@ -151,7 +152,7 @@ class QfqNineturnIntegrityTests(unittest.TestCase):
         self.assertIn("source_key_coverage", diagnostics.failed_rule_names)
         self.assertLessEqual(len(diagnostics.failure_samples), 20)
 
-    def test_source_close_drift_fails_before_downstream_publication(self) -> None:
+    def test_daily_integrity_does_not_compare_source_price(self) -> None:
         with (
             TemporaryDirectory() as directory,
             duckdb.connect(":memory:") as connection,
@@ -159,8 +160,8 @@ class QfqNineturnIntegrityTests(unittest.TestCase):
             root = Path(directory)
             source = root / "source.parquet"
             target = root / "target.parquet"
-            _write_daily_source(connection, source)
-            _write_daily_target(connection, target, close_qfq=9.5)
+            _write_daily_source(connection, source, close=99.0)
+            _write_daily_target(connection, target)
 
             diagnostics = audit_qfq_nineturn_integrity(
                 connection,
@@ -170,13 +171,8 @@ class QfqNineturnIntegrityTests(unittest.TestCase):
                 freq=None,
             )
 
-        self.assertFalse(diagnostics.passed)
-        self.assertEqual(diagnostics.source_value_mismatch_count, 1)
-        self.assertIn("source_value_consistency", diagnostics.failed_rule_names)
-        self.assertEqual(
-            diagnostics.failure_samples[0]["failure"],
-            "source_value_mismatch",
-        )
+        self.assertTrue(diagnostics.passed)
+        self.assertNotIn("source_value_consistency", diagnostics.failed_rule_names)
 
     def test_minute_integrity_uses_key_and_signal_contract_without_price(self) -> None:
         with (
@@ -198,8 +194,29 @@ class QfqNineturnIntegrityTests(unittest.TestCase):
             )
 
         self.assertTrue(diagnostics.passed)
-        self.assertEqual(diagnostics.source_value_mismatch_count, 0)
         self.assertNotIn("source_value_consistency", diagnostics.failed_rule_names)
+
+    def test_daily_integrity_rejects_old_schema_with_close_qfq(self) -> None:
+        with (
+            TemporaryDirectory() as directory,
+            duckdb.connect(":memory:") as connection,
+        ):
+            root = Path(directory)
+            source = root / "source.parquet"
+            target = root / "target.parquet"
+            _write_daily_source(connection, source)
+            _write_daily_target(connection, target, include_legacy_close=True)
+
+            diagnostics = audit_qfq_nineturn_integrity(
+                connection,
+                target_path=target,
+                source_paths=(source,),
+                partition_key=TRADE_DATE,
+                freq=None,
+            )
+
+        self.assertFalse(diagnostics.passed)
+        self.assertEqual(diagnostics.failed_rule_names, ("file_contract",))
 
     def test_minute_integrity_rejects_old_schema_with_close_qfq(self) -> None:
         with (
@@ -259,7 +276,6 @@ class QfqNineturnIntegrityTests(unittest.TestCase):
                 "key_integrity",
                 "value_domain",
                 "source_key_coverage",
-                "source_value_consistency",
             ),
         )
         self.assertEqual(

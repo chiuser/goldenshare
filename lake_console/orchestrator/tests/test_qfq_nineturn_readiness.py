@@ -41,7 +41,6 @@ def _write_source_and_target(connection, root: Path) -> None:
         COPY (
           SELECT '000001.SZ'::VARCHAR AS ts_code,
             DATE '{TRADE_DATE}' AS trade_date,
-            10.0::DOUBLE AS close_qfq,
             1::INTEGER AS up_count,
             0::INTEGER AS down_count,
             NULL::VARCHAR AS nine_up_turn,

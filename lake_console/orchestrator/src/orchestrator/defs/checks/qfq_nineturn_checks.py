@@ -44,10 +44,6 @@ def _check_result(
         "missing_source_key_count": diagnostics.missing_source_key_count,
         "extra_output_key_count": diagnostics.extra_output_key_count,
     }
-    if freq is None:
-        rule_summary["source_value_mismatch_count"] = (
-            diagnostics.source_value_mismatch_count
-        )
     return dg.AssetCheckResult(
         passed=diagnostics.passed,
         metadata=build_check_metadata(

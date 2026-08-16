@@ -6,7 +6,6 @@ from sqlalchemy import (
     CheckConstraint,
     Date,
     DateTime,
-    Float,
     Index,
     Integer,
     SmallInteger,
@@ -20,10 +19,6 @@ from src.foundation.models.base import Base
 class EquityQfqNineTurnDaily(Base):
     __tablename__ = "equity_qfq_nineturn_daily"
     __table_args__ = (
-        CheckConstraint(
-            "close_qfq > 0 AND close_qfq < 1e308",
-            name="close_positive",
-        ),
         CheckConstraint("up_count >= 0 AND down_count >= 0", name="counts_non_negative"),
         CheckConstraint("NOT (up_count > 0 AND down_count > 0)", name="single_direction"),
         CheckConstraint(
@@ -53,7 +48,6 @@ class EquityQfqNineTurnDaily(Base):
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)
     trade_date: Mapped[date] = mapped_column(Date, primary_key=True)
-    close_qfq: Mapped[float] = mapped_column(Float, nullable=False)
     up_count: Mapped[int] = mapped_column(Integer, nullable=False)
     down_count: Mapped[int] = mapped_column(Integer, nullable=False)
     nine_up_turn: Mapped[str | None] = mapped_column(String(2))

@@ -48,7 +48,6 @@ class StockNineTurnQuery:
             select(
                 EquityFactorPro.ts_code.label("ts_code"),
                 EquityFactorPro.trade_date.label("trade_date"),
-                EquityQfqNineTurnDaily.close_qfq.label("close_qfq"),
                 EquityQfqNineTurnDaily.up_count.label("up_count"),
                 EquityQfqNineTurnDaily.down_count.label("down_count"),
                 EquityQfqNineTurnDaily.nine_up_turn.label("nine_up_turn"),

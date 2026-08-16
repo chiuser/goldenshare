@@ -14,7 +14,6 @@ from orchestrator.defs.paths import (
     gold_stock_daily_qfq_path,
 )
 from orchestrator.defs.prod_db.stock_daily_qfq_nineturn import (
-    PROD_CORE_STOCK_DAILY_QFQ_NINETURN_COLUMNS,
     PROD_CORE_STOCK_DAILY_QFQ_NINETURN_TABLE,
     replace_prod_core_stock_daily_qfq_nineturn_partition,
 )
@@ -28,6 +27,7 @@ from orchestrator.defs.resources import (
     ProdPostgresWriteResource,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
+    GOLD_STOCK_DAILY_QFQ_NINETURN_SCHEMA,
     PROD_CORE_STOCK_DAILY_QFQ_NINETURN_SCHEMA,
 )
 from orchestrator.defs.run_contracts.asset_tags import (
@@ -47,7 +47,9 @@ PROD_CORE_STOCK_DAILY_QFQ_NINETURN_PATH_TEMPLATE = (
     "postgresql://prod/core_serving.equity_qfq_nineturn_daily"
     "?trade_date={partition_key}"
 )
-_GOLD_COLUMNS = PROD_CORE_STOCK_DAILY_QFQ_NINETURN_COLUMNS[:7]
+_GOLD_COLUMNS = tuple(
+    column.name for column in GOLD_STOCK_DAILY_QFQ_NINETURN_SCHEMA
+)
 
 
 @dg.asset(
@@ -174,7 +176,6 @@ def load_gold_stock_daily_qfq_nineturn_rows_with_connection(
         SELECT
           ts_code,
           trade_date,
-          close_qfq,
           up_count,
           down_count,
           nine_up_turn,

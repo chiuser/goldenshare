@@ -131,7 +131,7 @@ def _materialization_metadata(result, *, partition_key: str, freq: int | None):
             "physical_layout": "trade_date_single_file",
         },
     ),
-    description="股票日线前复权九转指标，按交易日保存全市场收盘价、连续计数和正负九信号，供每日扫描和多周期研究使用。",
+    description="股票日线前复权九转指标，按交易日保存全市场连续计数和正负九信号，供每日扫描和多周期研究使用。",
 )
 def gold_stock_daily_qfq_nineturn(
     context: dg.AssetExecutionContext,

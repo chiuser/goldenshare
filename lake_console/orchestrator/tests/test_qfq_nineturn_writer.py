@@ -42,9 +42,9 @@ def _daily_select_sql(*, trade_date: str = TRADE_DATE) -> str:
     SELECT *
     FROM (
       VALUES
-        ('000001.SZ', DATE '{trade_date}', 10.0::DOUBLE, 9::INTEGER, 0::INTEGER, '+9'::VARCHAR, NULL::VARCHAR),
-        ('600000.SH', DATE '{trade_date}', 20.0::DOUBLE, 0::INTEGER, 2::INTEGER, NULL::VARCHAR, NULL::VARCHAR)
-    ) AS rows(ts_code, trade_date, close_qfq, up_count, down_count, nine_up_turn, nine_down_turn)
+        ('000001.SZ', DATE '{trade_date}', 9::INTEGER, 0::INTEGER, '+9'::VARCHAR, NULL::VARCHAR),
+        ('600000.SH', DATE '{trade_date}', 0::INTEGER, 2::INTEGER, NULL::VARCHAR, NULL::VARCHAR)
+    ) AS rows(ts_code, trade_date, up_count, down_count, nine_up_turn, nine_down_turn)
     ORDER BY ts_code, trade_date
     """
 
@@ -84,7 +84,7 @@ class QfqNineturnWriterTests(unittest.TestCase):
                 "nine_down_turn",
             ),
         )
-        self.assertIn("close_qfq", GOLD_STOCK_DAILY_QFQ_NINETURN_COLUMNS)
+        self.assertNotIn("close_qfq", GOLD_STOCK_DAILY_QFQ_NINETURN_COLUMNS)
         self.assertNotIn("close_qfq", GOLD_STK_MINS_QFQ_NINETURN_COLUMNS)
         root = Path("/lake")
         self.assertEqual(
@@ -194,20 +194,20 @@ class QfqNineturnWriterTests(unittest.TestCase):
             "duplicate_key": """
                 SELECT * FROM (
                   VALUES
-                    ('000001.SZ', DATE '2026-08-07', 10.0::DOUBLE, 1::INTEGER, 0::INTEGER, NULL::VARCHAR, NULL::VARCHAR),
-                    ('000001.SZ', DATE '2026-08-07', 11.0::DOUBLE, 2::INTEGER, 0::INTEGER, NULL::VARCHAR, NULL::VARCHAR)
-                ) AS rows(ts_code, trade_date, close_qfq, up_count, down_count, nine_up_turn, nine_down_turn)
+                    ('000001.SZ', DATE '2026-08-07', 1::INTEGER, 0::INTEGER, NULL::VARCHAR, NULL::VARCHAR),
+                    ('000001.SZ', DATE '2026-08-07', 2::INTEGER, 0::INTEGER, NULL::VARCHAR, NULL::VARCHAR)
+                ) AS rows(ts_code, trade_date, up_count, down_count, nine_up_turn, nine_down_turn)
             """,
             "null_key": """
                 SELECT NULL::VARCHAR AS ts_code, DATE '2026-08-07' AS trade_date,
-                  10.0::DOUBLE AS close_qfq, 1::INTEGER AS up_count,
-                  0::INTEGER AS down_count, NULL::VARCHAR AS nine_up_turn,
+                  1::INTEGER AS up_count, 0::INTEGER AS down_count,
+                  NULL::VARCHAR AS nine_up_turn,
                   NULL::VARCHAR AS nine_down_turn
             """,
             "invalid_value": """
                 SELECT '000001.SZ'::VARCHAR AS ts_code, DATE '2026-08-07' AS trade_date,
-                  10.0::DOUBLE AS close_qfq, 1::INTEGER AS up_count,
-                  1::INTEGER AS down_count, NULL::VARCHAR AS nine_up_turn,
+                  1::INTEGER AS up_count, 1::INTEGER AS down_count,
+                  NULL::VARCHAR AS nine_up_turn,
                   NULL::VARCHAR AS nine_down_turn
             """,
         }

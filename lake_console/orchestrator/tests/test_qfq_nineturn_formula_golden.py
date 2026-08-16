@@ -159,14 +159,14 @@ class QfqNineturnFormulaGoldenTests(unittest.TestCase):
         }
         up_rows = by_code["000001.SZ"]
         down_rows = by_code["600000.SH"]
-        self.assertEqual(tuple(row[3] for row in up_rows), UP_COUNTS_15)
-        self.assertEqual(tuple(row[4] for row in up_rows), (0,) * 15)
-        self.assertEqual(tuple(row[5] for row in up_rows), UP_SIGNALS_15)
-        self.assertEqual(tuple(row[6] for row in up_rows), (None,) * 15)
-        self.assertEqual(tuple(row[3] for row in down_rows), (0,) * 15)
-        self.assertEqual(tuple(row[4] for row in down_rows), DOWN_COUNTS_15)
-        self.assertEqual(tuple(row[5] for row in down_rows), (None,) * 15)
-        self.assertEqual(tuple(row[6] for row in down_rows), DOWN_SIGNALS_15)
+        self.assertEqual(tuple(row[2] for row in up_rows), UP_COUNTS_15)
+        self.assertEqual(tuple(row[3] for row in up_rows), (0,) * 15)
+        self.assertEqual(tuple(row[4] for row in up_rows), UP_SIGNALS_15)
+        self.assertEqual(tuple(row[5] for row in up_rows), (None,) * 15)
+        self.assertEqual(tuple(row[2] for row in down_rows), (0,) * 15)
+        self.assertEqual(tuple(row[3] for row in down_rows), DOWN_COUNTS_15)
+        self.assertEqual(tuple(row[4] for row in down_rows), (None,) * 15)
+        self.assertEqual(tuple(row[5] for row in down_rows), DOWN_SIGNALS_15)
 
     def test_equal_price_and_direction_change_reset_the_count(self) -> None:
         prices = (10.0, 10.0, 10.0, 10.0, 11.0, 12.0, 13.0, 14.0, 11.0, 10.0, 9.0, 20.0)
@@ -184,8 +184,8 @@ class QfqNineturnFormulaGoldenTests(unittest.TestCase):
             with duckdb.connect(database=":memory:") as connection:
                 actual = _daily_rows(connection, source_path)
 
-        self.assertEqual(tuple(row[3] for row in actual), expected_up)
-        self.assertEqual(tuple(row[4] for row in actual), expected_down)
+        self.assertEqual(tuple(row[2] for row in actual), expected_up)
+        self.assertEqual(tuple(row[3] for row in actual), expected_down)
 
     def test_actual_bar_order_crosses_year_and_ignores_calendar_gaps(self) -> None:
         rows = [
@@ -202,8 +202,8 @@ class QfqNineturnFormulaGoldenTests(unittest.TestCase):
             with duckdb.connect(database=":memory:") as connection:
                 actual = _daily_rows(connection, source_path)
 
-        self.assertEqual(tuple(row[3] for row in actual), (0, 0, 0, 0, 1, 2))
-        self.assertEqual(tuple(row[4] for row in actual), (0, 0, 0, 0, 0, 0))
+        self.assertEqual(tuple(row[2] for row in actual), (0, 0, 0, 0, 1, 2))
+        self.assertEqual(tuple(row[3] for row in actual), (0, 0, 0, 0, 0, 0))
 
     def test_each_minute_frequency_uses_trade_time_order(self) -> None:
         expected_up = (0, 0, 0, 0, 1, 2)
@@ -260,8 +260,8 @@ class QfqNineturnFormulaGoldenTests(unittest.TestCase):
                 scaled = _daily_rows(connection, scaled_path)
 
         self.assertEqual(
-            tuple((row[3], row[4], row[5], row[6]) for row in actual),
-            tuple((row[3], row[4], row[5], row[6]) for row in scaled),
+            tuple((row[2], row[3], row[4], row[5]) for row in actual),
+            tuple((row[2], row[3], row[4], row[5]) for row in scaled),
         )
 
     def test_daily_partition_continues_seed_and_new_stock_starts_at_zero(self) -> None:
@@ -299,7 +299,7 @@ class QfqNineturnFormulaGoldenTests(unittest.TestCase):
                 ).fetchall()
 
         self.assertEqual(
-            tuple((row[0], row[3], row[4], row[5], row[6]) for row in actual),
+            tuple((row[0], row[2], row[3], row[4], row[5]) for row in actual),
             (
                 ("000001.SZ", 9, 0, "+9", None),
                 ("301000.SZ", 0, 0, None, None),
@@ -327,7 +327,7 @@ class QfqNineturnFormulaGoldenTests(unittest.TestCase):
                 ).fetchall()
 
         self.assertEqual(len(actual), 1)
-        self.assertEqual(actual[0][3:], (9, 0, "+9", None))
+        self.assertEqual(actual[0][2:], (9, 0, "+9", None))
 
     def test_minute_partition_continues_previous_day_last_seed(self) -> None:
         previous_date = date(2026, 7, 30)

@@ -58,7 +58,6 @@ def _seed_stock(db_session, *, missing_dates: set[date] | None = None) -> None:
                 EquityQfqNineTurnDaily(
                     ts_code="000001.SZ",
                     trade_date=trade_date,
-                    close_qfq=10.0 + count,
                     up_count=count,
                     down_count=0,
                     nine_up_turn="+9" if count >= 9 else None,

@@ -68,15 +68,7 @@ def build_gold_stock_daily_qfq_nineturn_select_sql(
     return _build_qfq_nineturn_select_sql(
         source_sql=source_sql,
         freq=None,
-        output_columns=(
-            "ts_code",
-            "trade_date",
-            "close_qfq",
-            "up_count",
-            "down_count",
-            "nine_up_turn",
-            "nine_down_turn",
-        ),
+        output_columns=GOLD_STOCK_DAILY_QFQ_NINETURN_COLUMNS,
         order_by="ts_code, trade_date",
     )
 
@@ -637,7 +629,6 @@ def _qfq_formula_projection_sql(*, freq: int | None) -> str:
         return """
     subject_code AS ts_code,
     bar_date AS trade_date,
-    close_value AS close_qfq,
     up_count,
     down_count,
     nine_up_turn,
@@ -1082,11 +1073,6 @@ def _validate_qfq_nineturn_partition(
     freq_mismatch_sql = (
         "0" if freq is None else f"count(*) FILTER (WHERE freq != {int(freq)})"
     )
-    price_value_predicate = (
-        "close_qfq IS NULL OR NOT isfinite(close_qfq) OR close_qfq <= 0 OR "
-        if freq is None
-        else ""
-    )
     metrics = connection.execute(
         f"""
         SELECT
@@ -1101,7 +1087,7 @@ def _validate_qfq_nineturn_partition(
           ) AS partition_mismatch_count,
           {freq_mismatch_sql} AS freq_mismatch_count,
           count(*) FILTER (
-            WHERE {price_value_predicate}up_count IS NULL OR down_count IS NULL
+            WHERE up_count IS NULL OR down_count IS NULL
               OR up_count < 0 OR down_count < 0
               OR (up_count > 0 AND down_count > 0)
               OR (nine_up_turn IS NOT NULL AND nine_up_turn != '+9')

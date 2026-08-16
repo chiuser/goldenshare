@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sqlalchemy import DateTime, Float, Integer, SmallInteger
+from sqlalchemy import DateTime, Integer, SmallInteger
 
 from src.foundation.models.all_models import EquityQfqNineTurnDaily
 from src.foundation.models.base import Base
@@ -10,7 +10,7 @@ from src.foundation.models.base import Base
 
 MIGRATION_PATH = (
     Path(__file__).resolve().parents[1]
-    / "alembic/versions/20260813_000135_add_equity_qfq_nineturn_daily_serving.py"
+    / "alembic/versions/20260816_000137_drop_equity_qfq_nineturn_daily_close.py"
 )
 
 
@@ -23,7 +23,7 @@ def test_equity_qfq_nineturn_daily_model_matches_frozen_serving_contract() -> No
         "ts_code",
         "trade_date",
     ]
-    assert isinstance(table.columns["close_qfq"].type, Float)
+    assert "close_qfq" not in table.columns
     assert isinstance(table.columns["up_count"].type, Integer)
     assert isinstance(table.columns["down_count"].type, Integer)
     assert isinstance(table.columns["formula_version"].type, SmallInteger)
@@ -36,7 +36,6 @@ def test_equity_qfq_nineturn_daily_model_matches_frozen_serving_contract() -> No
     }
     assert {constraint.name for constraint in table.constraints} == {
         "pk_equity_qfq_nineturn_daily",
-        "ck_equity_qfq_nineturn_daily_close_positive",
         "ck_equity_qfq_nineturn_daily_counts_non_negative",
         "ck_equity_qfq_nineturn_daily_single_direction",
         "ck_equity_qfq_nineturn_daily_up_signal_allowed",
@@ -48,19 +47,20 @@ def test_equity_qfq_nineturn_daily_model_matches_frozen_serving_contract() -> No
     }
 
 
-def test_equity_qfq_nineturn_daily_migration_chains_head_and_grants_only_required_dml() -> None:
+def test_equity_qfq_nineturn_daily_migration_chains_head_and_only_drops_price() -> None:
     source = MIGRATION_PATH.read_text(encoding="utf-8")
     uppercase = source.upper()
 
-    assert 'revision = "20260813_000135"' in source
-    assert 'down_revision = "20260813_000134"' in source
-    assert "CORE_SERVING.EQUITY_QFQ_NINETURN_DAILY TO LAKE_RAW_WRITER" in uppercase
-    assert "GRANT SELECT, INSERT, DELETE ON TABLE" in uppercase
+    assert 'revision = "20260816_000137"' in source
+    assert 'down_revision = "20260814_000136"' in source
+    assert "DROP_CONSTRAINT" in uppercase
+    assert "DROP_COLUMN" in uppercase
+    assert "CLOSE_QFQ" in uppercase
     for forbidden in (
-        "CREATE ROLE",
-        "CREATE USER",
-        "ALTER ROLE",
-        "GRANT UPDATE",
+        "CREATE_TABLE",
+        "ADD_COLUMN",
+        "INSERT",
+        "DELETE FROM",
         "TRUNCATE",
     ):
         assert forbidden not in uppercase

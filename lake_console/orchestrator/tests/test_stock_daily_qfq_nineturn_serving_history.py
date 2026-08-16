@@ -94,7 +94,7 @@ class StockDailyQfqNineTurnServingHistoryTests(unittest.TestCase):
             lake_root = base / "lake"
             staging_root = base / "staging"
             _write_partition(lake_root, "2026-08-11")
-            _write_partition(lake_root, "2026-08-12")
+            _write_partition(lake_root, "2026-08-12", qfq_close=999.0)
 
             duckdb_resource = _CountingDuckDBResource()
             with patch(
@@ -126,11 +126,11 @@ class StockDailyQfqNineTurnServingHistoryTests(unittest.TestCase):
             self.assertEqual(summary["first_partition_key"], "2026-08-11")
             self.assertEqual(summary["last_partition_key"], "2026-08-12")
 
-    def test_plan_stops_on_qfq_close_drift(self) -> None:
+    def test_plan_does_not_bind_or_compare_qfq_price_values(self) -> None:
         with TemporaryDirectory() as directory:
             base = Path(directory)
             lake_root = base / "lake"
-            _write_partition(lake_root, "2026-08-12", target_close=99.0)
+            _write_partition(lake_root, "2026-08-12")
 
             plan = plan_stock_daily_qfq_nineturn_serving_history(
                 lake_root=lake_root,
@@ -139,10 +139,10 @@ class StockDailyQfqNineTurnServingHistoryTests(unittest.TestCase):
                 output_dir=base / "reports",
             )
 
-            self.assertTrue(plan.should_stop)
-            self.assertTrue(
-                any("source_contract_failed" in item for item in plan.stop_reasons)
-            )
+            self.assertFalse(plan.should_stop)
+            partition = plan.partitions[0]
+            self.assertFalse(hasattr(partition, "qfq_relative_path"))
+            self.assertNotIn("close_qfq", json.dumps(plan.report))
 
     def test_batch_checkpoint_resumes_and_revalidates_completed_partition(self) -> None:
         with TemporaryDirectory() as directory:
@@ -453,7 +453,7 @@ def _write_partition(
     lake_root: Path,
     partition_key: str,
     *,
-    target_close: float = 12.5,
+    qfq_close: float = 12.5,
 ) -> Path:
     qfq_path = gold_stock_daily_qfq_path(lake_root, partition_key)
     target_path = gold_stock_daily_qfq_nineturn_path(lake_root, partition_key)
@@ -464,7 +464,7 @@ def _write_partition(
             f"""
             COPY (
               SELECT * FROM (VALUES
-                ('000001.SZ', DATE '{partition_key}', 10.0, 13.0, 9.0, 12.5,
+                ('000001.SZ', DATE '{partition_key}', 10.0, 13.0, 9.0, {qfq_close},
                  12.0, 0.5, 4.2, 1000.0, 12000.0),
                 ('600000.SH', DATE '{partition_key}', 8.0, 9.0, 7.5, 8.2,
                  8.0, 0.2, 2.5, 800.0, 7000.0)
@@ -477,11 +477,11 @@ def _write_partition(
             f"""
             COPY (
               SELECT * FROM (VALUES
-                ('000001.SZ', DATE '{partition_key}', {target_close}::DOUBLE,
+                ('000001.SZ', DATE '{partition_key}',
                  10::INTEGER, 0::INTEGER, '+9'::VARCHAR, NULL::VARCHAR),
-                ('600000.SH', DATE '{partition_key}', 8.2::DOUBLE,
+                ('600000.SH', DATE '{partition_key}',
                  0::INTEGER, 4::INTEGER, NULL::VARCHAR, NULL::VARCHAR)
-              ) AS rows(ts_code, trade_date, close_qfq, up_count, down_count,
+              ) AS rows(ts_code, trade_date, up_count, down_count,
                         nine_up_turn, nine_down_turn)
             ) TO '{target_path.as_posix()}' (FORMAT PARQUET)
             """

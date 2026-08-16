@@ -73,7 +73,7 @@ class QfqNineturnGovernanceTests(unittest.TestCase):
         self.assertIn("PARTITION_BY (partition_trade_date)", source)
         self.assertNotIn("recursive", source.lower())
 
-    def test_minute_no_price_contract_is_isolated_from_daily(self) -> None:
+    def test_stock_daily_and_minute_formal_contracts_store_no_price(self) -> None:
         minute_columns = tuple(
             column.name for column in GOLD_STK_MINS_QFQ_NINETURN_SCHEMA
         )
@@ -93,17 +93,38 @@ class QfqNineturnGovernanceTests(unittest.TestCase):
                 "nine_down_turn",
             ),
         )
-        self.assertIn("close_qfq", daily_columns)
+        self.assertEqual(
+            daily_columns,
+            (
+                "ts_code",
+                "trade_date",
+                "up_count",
+                "down_count",
+                "nine_up_turn",
+                "nine_down_turn",
+            ),
+        )
+        self.assertNotIn("close_qfq", daily_columns)
         self.assertNotIn(
             "source_value_consistency",
             QFQ_NINETURN_MINUTE_INTEGRITY_RULE_NAMES,
         )
-        self.assertIn(
+        self.assertNotIn(
             "source_value_consistency",
             QFQ_NINETURN_DAILY_INTEGRITY_RULE_NAMES,
         )
 
         for relative_path in (
+            (
+                "lake_console/orchestrator/src/orchestrator/defs/"
+                "assets/stock_daily_qfq_nineturn_prod_core.py"
+            ),
+            (
+                "lake_console/orchestrator/src/orchestrator/defs/"
+                "prod_db/stock_daily_qfq_nineturn.py"
+            ),
+            "src/foundation/models/core_serving/equity_qfq_nineturn_daily.py",
+            "src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py",
             "src/foundation/clients/local_lake/stock_nine_turn_contract.py",
             "src/foundation/clients/local_lake/stock_nine_turn_reader.py",
         ):

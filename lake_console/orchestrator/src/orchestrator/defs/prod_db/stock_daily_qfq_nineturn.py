@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import math
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -12,6 +11,9 @@ from typing import Any
 
 from psycopg2.extras import execute_values
 
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    GOLD_STOCK_DAILY_QFQ_NINETURN_SCHEMA,
+)
 from orchestrator.defs.run_contracts.configs import normalize_iso_trade_date
 from orchestrator.defs.run_contracts.qfq_nineturn import (
     QFQ_NINETURN_SIGNAL_THRESHOLD,
@@ -24,7 +26,6 @@ PROD_CORE_STOCK_DAILY_QFQ_NINETURN_TABLE = (
 PROD_CORE_STOCK_DAILY_QFQ_NINETURN_COLUMNS = (
     "ts_code",
     "trade_date",
-    "close_qfq",
     "up_count",
     "down_count",
     "nine_up_turn",
@@ -45,7 +46,6 @@ PROD_CORE_STOCK_DAILY_QFQ_NINETURN_CHECK_NAME = (
 _SELECT_COLUMNS_SQL = """
   ts_code,
   trade_date,
-  close_qfq,
   up_count,
   down_count,
   nine_up_turn,
@@ -376,7 +376,9 @@ def _normalize_gold_row(
     partition_key: str,
     published_at: datetime,
 ) -> dict[str, object]:
-    required_gold_columns = PROD_CORE_STOCK_DAILY_QFQ_NINETURN_COLUMNS[:7]
+    required_gold_columns = tuple(
+        column.name for column in GOLD_STOCK_DAILY_QFQ_NINETURN_SCHEMA
+    )
     missing = [column for column in required_gold_columns if column not in row]
     if missing:
         raise ValueError(f"QFQ nine-turn serving row is missing columns: {missing}.")
@@ -397,7 +399,6 @@ def _normalize_gold_row(
         raise ValueError(
             "QFQ nine-turn serving row trade_date does not match partition."
         )
-    close_qfq = _normalize_close(row["close_qfq"])
     up_count = _normalize_count(row["up_count"], "up_count")
     down_count = _normalize_count(row["down_count"], "down_count")
     if up_count > 0 and down_count > 0:
@@ -413,7 +414,6 @@ def _normalize_gold_row(
     return {
         "ts_code": ts_code,
         "trade_date": trade_date,
-        "close_qfq": close_qfq,
         "up_count": up_count,
         "down_count": down_count,
         "nine_up_turn": nine_up_turn,
@@ -473,7 +473,6 @@ def _content_hash(rows: Sequence[Mapping[str, object]]) -> str:
             (
                 str(row["ts_code"]),
                 str(row["trade_date"]),
-                format(float(row["close_qfq"]), ".17g"),
                 str(row["up_count"]),
                 str(row["down_count"]),
                 str(row["nine_up_turn"] or ""),
@@ -493,7 +492,6 @@ def _business_content_hash(rows: Sequence[Mapping[str, object]]) -> str:
             (
                 str(row["ts_code"]),
                 str(row["trade_date"]),
-                format(float(row["close_qfq"]), ".17g"),
                 str(row["up_count"]),
                 str(row["down_count"]),
                 str(row["nine_up_turn"] or ""),
@@ -520,16 +518,6 @@ def _normalize_published_at(value: object) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
     return value.astimezone(timezone.utc)
-
-
-def _normalize_close(value: object) -> float:
-    try:
-        normalized = float(value)
-    except (TypeError, ValueError) as error:
-        raise ValueError("QFQ nine-turn close_qfq must be numeric.") from error
-    if not math.isfinite(normalized) or normalized <= 0:
-        raise ValueError("QFQ nine-turn close_qfq must be finite and positive.")
-    return normalized
 
 
 def _normalize_count(value: object, field_name: str) -> int:

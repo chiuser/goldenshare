@@ -34,7 +34,7 @@ from orchestrator.defs.resources import (
     ProdPostgresWriteResource,
 )
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 PLAN_PHASE = "stock_daily_qfq_nineturn_serving_history_plan"
 CHECKPOINT_PHASE = "stock_daily_qfq_nineturn_serving_history_checkpoint"
 MAX_BATCH_PARTITION_COUNT = 20
@@ -55,9 +55,6 @@ class ServingHistoryPartition:
     source_relative_path: str
     source_size: int
     source_mtime_ns: int
-    qfq_relative_path: str
-    qfq_size: int
-    qfq_mtime_ns: int
     row_count: int
 
     def to_dict(self) -> dict[str, object]:
@@ -192,7 +189,6 @@ def plan_stock_daily_qfq_nineturn_serving_history(
                     )
                     continue
                 source_stat = source_path.stat()
-                qfq_stat = qfq_path.stat()
                 partitions.append(
                     ServingHistoryPartition(
                         partition_key=partition_key,
@@ -202,12 +198,6 @@ def plan_stock_daily_qfq_nineturn_serving_history(
                         ),
                         source_size=source_stat.st_size,
                         source_mtime_ns=source_stat.st_mtime_ns,
-                        qfq_relative_path=_relative_path(
-                            qfq_path,
-                            normalized_lake_root,
-                        ),
-                        qfq_size=qfq_stat.st_size,
-                        qfq_mtime_ns=qfq_stat.st_mtime_ns,
                         row_count=diagnostics.checked_row_count,
                     )
                 )
@@ -510,36 +500,20 @@ def _validate_frozen_plan_source_identities(
 
     failures: list[str] = []
     for partition in plan.partitions:
-        for source_name, relative_path, expected_size, expected_mtime_ns in (
-            (
-                "nineturn",
-                partition.source_relative_path,
-                partition.source_size,
-                partition.source_mtime_ns,
-            ),
-            (
-                "qfq",
-                partition.qfq_relative_path,
-                partition.qfq_size,
-                partition.qfq_mtime_ns,
-            ),
-        ):
-            try:
-                source_path = _validated_plan_source_path(
-                    lake_root=plan.lake_root,
-                    relative_path=relative_path,
-                )
-                observed = source_path.stat()
-            except (OSError, StockDailyQfqNineTurnServingHistoryError):
-                failures.append(f"{partition.partition_key}:{source_name}:missing")
-            else:
-                if (
-                    observed.st_size != expected_size
-                    or observed.st_mtime_ns != expected_mtime_ns
-                ):
-                    failures.append(f"{partition.partition_key}:{source_name}:changed")
-            if len(failures) >= 20:
-                break
+        try:
+            source_path = _validated_plan_source_path(
+                lake_root=plan.lake_root,
+                relative_path=partition.source_relative_path,
+            )
+            observed = source_path.stat()
+        except (OSError, StockDailyQfqNineTurnServingHistoryError):
+            failures.append(f"{partition.partition_key}:nineturn:missing")
+        else:
+            if (
+                observed.st_size != partition.source_size
+                or observed.st_mtime_ns != partition.source_mtime_ns
+            ):
+                failures.append(f"{partition.partition_key}:nineturn:changed")
         if len(failures) >= 20:
             break
     if failures:

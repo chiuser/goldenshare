@@ -2235,15 +2235,10 @@ def _target_contract_counts(
     null_predicate = (
         "ts_code IS NULL OR trade_date IS NULL OR trade_time IS NULL"
         if spec.freq is not None
-        else "ts_code IS NULL OR trade_date IS NULL OR close_qfq IS NULL"
+        else "ts_code IS NULL OR trade_date IS NULL"
     )
     wrong_freq_predicate = (
         f"CAST(freq AS INTEGER) != {spec.freq}" if spec.freq is not None else "false"
-    )
-    price_value_predicate = (
-        "close_qfq IS NULL OR NOT isfinite(close_qfq) OR close_qfq <= 0 OR "
-        if spec.freq is None
-        else ""
     )
     row = connection.execute(
         f"""
@@ -2252,7 +2247,7 @@ def _target_contract_counts(
           count(*) FILTER (WHERE {date_predicate}),
           count(*) FILTER (WHERE {wrong_freq_predicate}),
           count(*) FILTER (
-            WHERE {price_value_predicate}up_count IS NULL OR down_count IS NULL
+            WHERE up_count IS NULL OR down_count IS NULL
               OR up_count < 0 OR down_count < 0
               OR (up_count > 0 AND down_count > 0)
               OR (nine_up_turn IS NOT NULL AND nine_up_turn != '+9')

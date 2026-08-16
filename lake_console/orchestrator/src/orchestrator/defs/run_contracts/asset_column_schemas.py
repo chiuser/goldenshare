@@ -510,7 +510,6 @@ GOLD_STOCK_DAILY_QFQ_SCHEMA = (
 GOLD_STOCK_DAILY_QFQ_NINETURN_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "标准股票代码"),
     ColumnContract("trade_date", "DATE", "交易日"),
-    ColumnContract("close_qfq", "DOUBLE", "九转使用的前复权收盘价"),
     ColumnContract("up_count", "INTEGER", "连续上九转计数"),
     ColumnContract("down_count", "INTEGER", "连续下九转计数"),
     ColumnContract("nine_up_turn", "VARCHAR", "上九转信号，+9 或空"),
