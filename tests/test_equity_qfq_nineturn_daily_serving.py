@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import importlib.util
+from io import StringIO
 from pathlib import Path
 
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
 from sqlalchemy import DateTime, Integer, SmallInteger
 
 from src.foundation.models.all_models import EquityQfqNineTurnDaily
@@ -64,3 +68,29 @@ def test_equity_qfq_nineturn_daily_migration_chains_head_and_only_drops_price() 
         "TRUNCATE",
     ):
         assert forbidden not in uppercase
+
+
+def test_equity_qfq_nineturn_daily_migration_uses_frozen_constraint_name() -> None:
+    spec = importlib.util.spec_from_file_location(
+        "migration_20260816_000137",
+        MIGRATION_PATH,
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+
+    output = StringIO()
+    context = MigrationContext.configure(
+        dialect_name="postgresql",
+        opts={"as_sql": True, "output_buffer": output},
+    )
+    with Operations.context(context):
+        migration.upgrade()
+
+    sql = output.getvalue()
+    assert (
+        "ALTER TABLE core_serving.equity_qfq_nineturn_daily "
+        "DROP CONSTRAINT ck_equity_qfq_nineturn_daily_close_positive;"
+    ) in sql
+    assert "ck_equity_qfq_nineturn_daily_ck_equity_qfq_nineturn" not in sql

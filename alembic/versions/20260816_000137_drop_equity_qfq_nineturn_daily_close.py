@@ -25,7 +25,7 @@ def upgrade() -> None:
     if bind.dialect.name != "postgresql":
         return
     op.drop_constraint(
-        _CLOSE_CONSTRAINT,
+        op.f(_CLOSE_CONSTRAINT),
         _TABLE,
         schema=_SCHEMA,
         type_="check",
