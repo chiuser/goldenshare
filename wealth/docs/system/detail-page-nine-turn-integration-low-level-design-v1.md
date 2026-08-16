@@ -1,6 +1,6 @@
 # 股票与主要指数详情页九转接入低层设计（LLD）v1
 
-> 状态：M0～M5、M6-0 与 M6-A 已完成；2026-08-16 指数 Technical 固定六周期九转摘要补充需求的 Figma、文档、前端代码与本地验收也已完成，尚未发布生产。M6-B 第一段只读发布计划及启用前隔离测试门禁已于 2026-08-15 完成，三个指数 sensor 仍为 `STOPPED` 并等待第二次明确批准，M6-C～M6-D 尚未开始。生产版本仍为 `58fb5b62`，日线九转路由受认证保护，分钟九转路由保持 404。M3-C-Minute 页面/API/视觉行为与“股票分钟 QFQ 九转去价格字段”S0～S5 均已完成。股票日线 QFQ 九转去价格专项 D0～D2 已完成：D1 已切换本地六列 Gold/八列 serving 合同并新增 migration 文件；2026-08-16 12:15 已按批准范围停止 Lake 与 Prod 两个日线 writer sensor，确认关联 job 无在途 run，并重新生成 `should_stop=false` 的全绿 D2 Lake 计划。正式 Lake、events、生产表与部署仍是旧物理状态；本轮没有生成 candidate、写 Lake/events/Prod、执行 migration 或部署，D3～D6 仍未开始。六个九转 sensor 的状态以第 4.5 节、第 15.7 节和第 21.3 节最新带时间戳快照为准。
+> 状态：M0～M5、M6-0 与 M6-A 已完成；2026-08-16 指数 Technical 固定六周期九转摘要补充需求的 Figma、文档、前端代码与本地验收也已完成，尚未发布生产。M6-B 第一段只读发布计划及启用前隔离测试门禁已于 2026-08-15 完成，三个指数 sensor 仍为 `STOPPED` 并等待第二次明确批准，M6-C～M6-D 尚未开始。生产版本仍为 `58fb5b62`，日线九转路由受认证保护，分钟九转路由保持 404。M3-C-Minute 页面/API/视觉行为与“股票分钟 QFQ 九转去价格字段”S0～S5 均已完成。股票日线 QFQ 九转去价格专项 D0～D3 已完成：本地代码已切换六列 Gold/八列 serving 合同，2026-08-16 12:34 后按冻结计划生成并审计 3,066 个 candidate，随后原子提升正式 Lake；11,638,636 行正式终验全绿，hash 差异、candidate 残留和旧七列混存均为 0。两个日线 writer 与本地 Web Reader 继续保持关闭；Dagster events、生产表、生产部署均未修改，D4～D6 尚未开始。六个九转 sensor 的状态以第 4.5 节、第 15.7 节和第 21.3 节最新带时间戳快照为准。
 >
 > 上游方案：[股票与主要指数详情页九转接入总方案 v1](./detail-page-nine-turn-integration-implementation-design-v1.md)
 >
@@ -20,7 +20,7 @@
 
 1. S2 先生成并评审只读计划；只有计划 `should_stop=false`，才依次执行 S3 正式 Lake、S4 runless event 和 S5 sensor/Reader 恢复。本轮执行没有跨阶段并行或跳过门禁。
 2. 当前正式事实以第 20.7 节的最终报告为准；下文 S0～S5 的审批语句保留为已执行门禁，不再表示待授权工作。
-3. 2026-08-16 股票日线去价格专项已完成 D0～D2；两个日线 writer 已在确认无在途 run 后停止，重新生成的 D2 Lake 计划为 `should_stop=false`。本轮唯一正式状态写入是停止这两个 sensor；未生成 candidate，未写 Lake/events/Prod，未执行 migration 或部署，D3～D6 继续独立审批。
+3. 2026-08-16 股票日线去价格专项已完成 D0～D3；两个日线 writer 已在确认无在途 run 后停止，D2 Lake 计划为 `should_stop=false`。D3 已完成 staging candidate、全量审计、3,066 个正式文件原子提升与六列物理终验；未写 Dagster events 或 Prod，未执行 migration 或部署，D4～D6 继续独立审批。
 4. 正式全量重建只允许使用已冻结计划、正式 staging candidate、聚合审计和逐文件原子替换；禁止预删正式文件、旧 Lake、Kopia 或 Python 逐行处理。
 5. M4-B 指数资产、正式 Lake、Dagster events、生产 migration 和日线 serving 已完成；本专项不得顺带修改指数九转资产。
 
@@ -43,7 +43,7 @@
 |---|---|---|
 | 产品周期矩阵 | 通过 | 股票 day/30/60/90/120；指数 day/5/15/30/60/90/120；其余周期九转零请求 |
 | 公式与展示映射 | 通过 | lag=4、threshold=9、formulaVersion=1；资产可计数 10+，页面只画 1～9 |
-| 股票事实源 | 通过 | 五个自主 QFQ Gold 资产、五个 blocking checks 与正式历史文件已存在；日线和四个支持分钟周期的页面接入及分钟八列物理合同迁移均已完成；日线六列无价格合同已在第 21 节冻结，物理迁移尚未执行 |
+| 股票事实源 | 通过 | 五个自主 QFQ Gold 资产、五个 blocking checks 与正式历史文件已存在；日线和四个支持分钟周期的页面接入及分钟八列物理合同迁移均已完成；日线 3,066 个正式文件也已按第 21 节完成六列无价格物理迁移，events 与生产 serving 仍待 D4～D5 |
 | 指数建设边界 | 通过 | 七个资产、正式历史和日线 serving 已完成；物理 11-code seed 不变，产品严格按 Wealth 10-code allowlist |
 | 北证50边界 | 通过 | `899050.BJ` 支持日线；分钟源不覆盖时返回局部 SOURCE EMPTY，不补造 |
 | 生产与本地边界 | 通过 | 日线走 PostgreSQL serving；分钟仅 local/dev 读取正式 Lake 的规范化 Gold；生产分钟路由 404 |
@@ -1293,7 +1293,7 @@ M1 已完成：
 
 1. M0 正式收口，无未解释的 P0 产品或架构冲突。
 2. 代码影响面、依赖边界、复用点和当前缺口已审计。
-3. 股票/指数资产、路径、分区、job、sensor 和 universe 已冻结；2026-08-15 已完成四个股票分钟资产去价格迁移，2026-08-16 又在第 21 节完成股票日线六列无价格合同的 D1 编码与 D2 只读计划；指数合同不变，日线正式物理迁移尚未执行。
+3. 股票/指数资产、路径、分区、job、sensor 和 universe 已冻结；2026-08-15 已完成四个股票分钟资产去价格迁移，2026-08-16 又在第 21 节完成股票日线六列无价格合同的 D1 编码、D2 只读计划与 D3 正式 Lake 物理迁移；指数合同不变，日线 events 与生产 serving 仍待 D4～D5。
 4. 两张 serving 表、publisher、查询基表和无 fallback 边界已冻结。
 5. 四个 endpoint、参数、DTO、状态、异常、cursor 和性能预算已冻结。
 6. 前端 registry、capability、primitive 几何、右栏摘要和状态机已冻结。
@@ -1513,7 +1513,7 @@ asset_column_schemas
 1. 初始 Lake 计划 hash 为 `085c6f4e6cb6496651ffca5fdf97b44c4f7771e0f3e785594b686dad689ea489`，当时唯一停止原因为 `writer_not_stopped`。用户随后批准停写门禁；12:13～12:15 通过正在运行的 active workspace `orchestrator / __repository__` 精确停止 `gold_stock_daily_qfq_nineturn_update_job_sensor` 和 `prod_core_stock_daily_qfq_nineturn_sync_job_sensor`，停止前后关联 job 的 `NOT_STARTED/QUEUED/STARTING/STARTED/CANCELING` run 均为 0。不得用 `dagster sensor list -m orchestrator.definitions` 创建的临时代码位置状态替代 active workspace 事实。
 2. 停写后重新生成的全绿 Lake 计划 hash 为 `9f8835a36931f11f46d1ec589110bb2e83e6cd70b14e267fd5e41f0a1b840f60`，`should_stop=false`、`stop_reasons=[]`。计划仍精确冻结 3,066 个七列旧文件、2014-01-02～2026-08-12、11,638,636 行和 158,269,066 bytes；新旧计划的分区路径、size、mtime、SHA-256 与行数集合指纹同为 `921c32b8aa7766eb43c29c39810f147da2553d9e8c9821e266a4d84742203f03`，证明停写期间源文件没有漂移。
 3. 13 个年度批次全部 ready；schema、重复键、空键、分区和值域失败数均为 0。年度合同聚合最慢 0.381 秒，计划总耗时 5.035 秒，峰值 RSS 386,416,640 bytes，DuckDB 保持 `2GB/1 thread`；staging 可用 2,520,214,380,544 bytes，预计最低需要 1,232,010,890 bytes。独立业务字段聚合仍确认最大上/下计数 44/47，`up_count>9/down_count>9` 为 368,312/468,502 行，`+9/-9` 为 507,156/631,453 行，非法计数和信号均为 0。
-4. Gold event 预计划 fingerprint 仍为 `6887d486335ca4f83abcd15c9c1609a71a09fa3aa660f818279bd08186ec7ece`：迁移后预计追加 3,066 条新版 materialization 和最近 20 日 20 条新版 blocking check，共 3,086 条。它仍因“六列正式终验尚未发生”而保持 `executable=false`，这是 D4 的正确门禁，不影响 D2 Lake 计划已经全绿；D4 必须以 D3 提升后的新文件身份重新生成。
+4. D2 阶段的 Gold event 预计划 fingerprint 为 `6887d486335ca4f83abcd15c9c1609a71a09fa3aa660f818279bd08186ec7ece`，当时预计追加 3,066 条新版 materialization 和最近 20 日 20 条新版 blocking check，共 3,086 条。D3 已改变正式文件身份，因此该旧预计划保持不可执行并已作废；D4 必须以 D3 提升后的新文件身份重新生成 fresh plan，不能直接复用该 fingerprint。
 5. 生产只读事务确认真实 Alembic 单一 head 为 `20260814_000136`；`core_serving.equity_qfq_nineturn_daily` 仍是 9 列旧合同，含 `close_qfq` 和 `ck_equity_qfq_nineturn_daily_close_positive`，共有 3,066 个交易日、11,638,636 行，范围 2014-01-02～2026-08-12。重复键、空键、非法计数/信号、非 v1 版本和非法价格均为 0；主键、`(trade_date, ts_code)` 索引和现有权限已冻结。
 6. serving event 预计划 fingerprint 为 `076a9b79ca1e317aac6279879afc01f2adc3032c562e980354836264d951cd50`：当前 Dagster instance 对 serving asset 没有历史 materialization/check 事件；DDL/部署后预计追加 3,066 条 materialization 和最近 20 日 20 条 check。它仍须在 D5 维护窗口内按迁移后生产表与部署版本重新生成。
 7. 新 D2 计划的写计数仍全部为 0：candidate、正式 Lake、Dagster event、Prod 行均未写；staging phase/candidate 目录未生成，migration 和部署未执行。本轮唯一正式变更是停止两个 writer sensor。D2 已满足进入 D3 的前置条件，但 D3 仍需单独批准，不能因本次停写与计划批准自动开始。
@@ -1548,6 +1548,15 @@ asset_column_schemas
 6. **物理终验**
    - 正式文件集合、行数、键、计数、信号与已审计 candidate 一致，旧七列文件数必须为 0。
    - 只在物理终验全绿后进入 Dagster event recovery。
+
+2026-08-16 D3 正式执行结果：
+
+1. 执行前 active workspace 中 `gold_stock_daily_qfq_nineturn_update_job_sensor` 与 `prod_core_stock_daily_qfq_nineturn_sync_job_sensor` 均为 `STOPPED`，关联 job 活跃运行数为 0；正式提升前停止 PID `86261` 托管的本地 Web/前端，本地 Reader 未恢复。
+2. 样本阶段选择 2014-01-02、2020-04-17、2026-08-12 三个计划内分区，共 11,300 行。六列 schema、唯一键、分区、计数、信号及六个业务字段集合差异全部通过，样本审计峰值 RSS 为 183,730,176 bytes。
+3. 全量 candidate 绑定计划 hash `9f8835a36931f11f46d1ec589110bb2e83e6cd70b14e267fd5e41f0a1b840f60`，按 13 个年度批次生成 3,066 个文件、11,638,636 行；生成耗时 4.682 秒，最慢年度批次 0.457 秒，峰值 RSS 790,364,160 bytes。
+4. 全量 candidate 审计 13/13 年度 READY，源减候选与候选减源均为 0，manifest SHA-256 为 `7d8873bc3d4e1338133e4bd7beac0f6836865d1c67133c87115b6f8ab17190ca`；审计耗时 17.017 秒，峰值 RSS 1,015,595,008 bytes。
+5. 全绿后通过同文件系统 `os.replace()` 原子提升 3,066/3,066 个正式文件，剩余 0，耗时 2.955 秒；每文件 checkpoint 已落盘，没有预删、Kopia、备份或正式 Lake 临时文件。
+6. 正式终验确认 3,066 个文件、11,638,636 行全部为六列合同；hash 差异 0、candidate 残留 0、13/13 年度 READY、`should_stop=false`。本阶段 Dagster event 写入 0、Prod 写入 0，D4 event recovery 未开始。
 
 ### 21.5 Dagster event recovery
 
@@ -1617,7 +1626,7 @@ asset_column_schemas
 6. D5：生产 maintenance、migration、代码部署和 serving event recovery。
 7. D6：恢复日线 Gold/serving sensor，验收新增交易日和生产 API。
 
-任一阶段的批准不自动授权下一阶段；当前完成 D0～D2。两个日线 writer 已停止，关联 job 无在途 run，重新生成的 D2 Lake 计划已确认文件身份未漂移且 `should_stop=false`。D3 的前置门禁已满足，但 D3 本身尚未获批、尚未开始；两个 writer 必须继续保持 `STOPPED`。
+任一阶段的批准不自动授权下一阶段；当前完成 D0～D3。两个日线 writer 和本地 Web Reader 均保持关闭，关联 job 无在途 run；正式 Lake 已完成 3,066 个文件、11,638,636 行六列投影与物理终验。Dagster events、生产 migration/部署和 serving 仍未修改，D4～D6 尚未获批；两个 writer 与 Reader 必须继续保持关闭。
 
 ## 22. 版本记录
 
@@ -1655,3 +1664,4 @@ asset_column_schemas
 | v1.27 | 2026-08-16 | 股票日线去价格 D1 编码完成：Gold/serving/ORM/query/check 切换无价格合同，新增年度列投影工具、CLI 和前向 Alembic migration 文件；Definitions、94 项 Orchestrator 与 35 项 API/Reader 回归通过。未触碰正式 Lake、Dagster instance 或生产数据库，D2～D6 仍待审批 | Codex |
 | v1.28 | 2026-08-16 | 股票日线去价格 D2 只读计划完成：冻结 3,066 文件/11,638,636 行及 3,086 条 Gold event 规模，确认生产 9 列旧表、真实 Alembic head 和 3,086 条 serving event 规模；两个日线 writer 均为 RUNNING，计划 `should_stop=true`，未发生任何正式写入，D3 被门禁阻止 | Codex |
 | v1.29 | 2026-08-16 | 经批准停止 active workspace 中两个日线 writer，确认关联 job 无在途 run；重新生成 `should_stop=false` 的 D2 Lake 计划 `9f8835a3...`，3,066 文件/11,638,636 行及文件身份均未漂移。未生成 candidate、未写 Lake/events/Prod、未执行 migration/部署；D3 前置门禁已满足但仍待独立批准 | Codex |
+| v1.30 | 2026-08-16 | 股票日线去价格 D3 完成：3 个样本与 3,066 个全量 candidate 审计全绿，原子提升正式 Lake 并完成六列物理终验；11,638,636 行、hash 差异 0、candidate 残留 0、旧七列混存 0。两个 writer 与本地 Reader 保持关闭，未写 Dagster events/Prod，D4～D6 仍待独立批准 | Codex |
