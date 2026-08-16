@@ -151,6 +151,23 @@ def test_stock_detail_kline_returns_day_forward_bars_without_forbidden_ma(app_cl
     assert latest["factors"]["kdj"]["j"] == 77.7
 
 
+def test_stock_detail_kline_preserves_unavailable_ma_as_null(app_client, db_session) -> None:
+    _seed_stock_detail_data(db_session)
+    row = db_session.get(EquityFactorPro, ("603806.SH", date(2026, 5, 28)))
+    assert row is not None
+    row.ma_qfq_250 = None
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/wealth/market/stock-detail/kline",
+        params={"tsCode": "603806.SH", "period": "day", "adjustment": "forward", "endDate": "2026-05-28"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["bars"][0]["factors"]["ma"]["ma250"] is None
+
+
 def test_stock_detail_kline_rejects_unsupported_period_and_adjustment(app_client, db_session) -> None:
     _seed_stock_detail_data(db_session)
 

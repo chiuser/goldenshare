@@ -11,7 +11,12 @@ function average(values: number[]): number {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
-function movingAverage(closes: number[], index: number, size: number): number {
+function movingAverage(closes: number[], index: number, size: number): number | null {
+  if (index + 1 < size) return null;
+  return round(average(closes.slice(index - size + 1, index + 1)));
+}
+
+function partialMovingAverage(closes: number[], index: number, size: number): number {
   const start = Math.max(0, index - size + 1);
   return round(average(closes.slice(start, index + 1)));
 }
@@ -58,6 +63,7 @@ function generateCandleSeries(): StockCandlePoint[] {
     const ma60 = movingAverage(closes, index, 60);
     const ma90 = movingAverage(closes, index, 90);
     const ma250 = movingAverage(closes, index, 250);
+    const bollMiddle = partialMovingAverage(closes, index, 30);
     const volatility = 0.8 + Math.abs(Math.sin(index / 11)) * 0.42;
     const dif = round(Math.sin(index / 9) * 0.42);
     const dea = round(Math.cos(index / 10) * 0.28);
@@ -76,9 +82,9 @@ function generateCandleSeries(): StockCandlePoint[] {
       ma60,
       ma90,
       ma250,
-      bollUpper: round(ma30 + volatility),
-      bollMiddle: ma30,
-      bollLower: round(ma30 - volatility),
+      bollUpper: round(bollMiddle + volatility),
+      bollMiddle,
+      bollLower: round(bollMiddle - volatility),
       macd: round((dif - dea) * 2),
       dif,
       dea,

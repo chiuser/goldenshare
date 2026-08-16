@@ -9,6 +9,10 @@ function valueOrZero(value: number | null | undefined): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
+function finiteOrNull(value: number | null | undefined): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 function resolveDirection(quote: StockQuoteSnapshotDto) {
   if (quote.direction === "UP" || quote.direction === "DOWN" || quote.direction === "FLAT") return quote.direction;
   return directionFromNumber(valueOrZero(quote.changePct));
@@ -29,13 +33,13 @@ function toCandlePoint(bar: StockDetailKlineResponseDto["bars"][number]): StockC
     amount: valueOrZero(bar.amount),
     turnoverRate: valueOrZero(bar.turnoverRate),
     volumeRatio: valueOrZero(bar.volumeRatio),
-    ma5: valueOrZero(bar.factors.ma.ma5),
-    ma10: valueOrZero(bar.factors.ma.ma10),
-    ma20: valueOrZero(bar.factors.ma.ma20),
-    ma30: valueOrZero(bar.factors.ma.ma30),
-    ma60: valueOrZero(bar.factors.ma.ma60),
-    ma90: valueOrZero(bar.factors.ma.ma90),
-    ma250: valueOrZero(bar.factors.ma.ma250),
+    ma5: finiteOrNull(bar.factors.ma.ma5),
+    ma10: finiteOrNull(bar.factors.ma.ma10),
+    ma20: finiteOrNull(bar.factors.ma.ma20),
+    ma30: finiteOrNull(bar.factors.ma.ma30),
+    ma60: finiteOrNull(bar.factors.ma.ma60),
+    ma90: finiteOrNull(bar.factors.ma.ma90),
+    ma250: finiteOrNull(bar.factors.ma.ma250),
     bollUpper: valueOrZero(bar.factors.boll.upper),
     bollMiddle: valueOrZero(bar.factors.boll.middle),
     bollLower: valueOrZero(bar.factors.boll.lower),

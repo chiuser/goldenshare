@@ -9,6 +9,7 @@ import { idleNineTurnLayer } from "../../nine-turn/model/nineTurnAdapter";
 const chartMock = vi.hoisted(() => {
   const charts: Array<Record<string, any>> = [];
   const createChart = vi.fn(() => {
+    const series: Array<Record<string, any>> = [];
     let visibleRange: { from: number; to: number } | null = null;
     const visibleRangeHandlers: Array<() => void> = [];
     const crosshairHandlers: Array<(param: { point?: { x: number; y: number }; time?: string }) => void> = [];
@@ -27,15 +28,20 @@ const chartMock = vi.hoisted(() => {
       }),
     };
     const chart = {
-      addSeries: vi.fn(() => ({
-        attachPrimitive: vi.fn(),
-        coordinateToPrice: vi.fn(() => 12.34),
-        detachPrimitive: vi.fn(),
-        setData: vi.fn(),
-      })),
+      addSeries: vi.fn(() => {
+        const addedSeries = {
+          attachPrimitive: vi.fn(),
+          coordinateToPrice: vi.fn(() => 12.34),
+          detachPrimitive: vi.fn(),
+          setData: vi.fn(),
+        };
+        series.push(addedSeries);
+        return addedSeries;
+      }),
       clearCrosshairPosition: vi.fn(),
       crosshairHandlers,
       remove: vi.fn(),
+      series,
       setCrosshairPosition: vi.fn(),
       subscribeCrosshairMove: vi.fn((handler: (param: { point?: { x: number; y: number }; time?: string }) => void) => {
         crosshairHandlers.push(handler);
@@ -146,6 +152,45 @@ describe("StockChartWorkspace shared adapter", () => {
     );
 
     expect(chartMock.createChart).toHaveBeenCalledTimes(4);
+  });
+
+  it("renders unavailable daily moving averages as whitespace and dash", () => {
+    const candles = makeCandles(10);
+    candles.forEach((candle, index) => {
+      candle.ma5 = index < 4 ? null : 17 + index / 100;
+      candle.ma250 = null;
+    });
+
+    render(
+      <StockChartWorkspace
+        candles={candles}
+        indicatorTabs={indicatorTabs}
+        nineTurnLayer={idleNineTurnLayer("day")}
+        onNineTurnRetry={vi.fn()}
+        onAction={vi.fn()}
+        tsCode="688635.SH"
+      />,
+    );
+
+    const ma5Data = chartMock.charts[0].series[1].setData.mock.calls[0][0];
+    const ma250Data = chartMock.charts[0].series[7].setData.mock.calls[0][0];
+    expect(ma5Data.slice(0, 5)).toEqual([
+      { time: candles[0]!.time },
+      { time: candles[1]!.time },
+      { time: candles[2]!.time },
+      { time: candles[3]!.time },
+      { time: candles[4]!.time, value: candles[4]!.ma5 },
+    ]);
+    expect(ma5Data.some((item: { value?: number }) => item.value === 0)).toBe(false);
+    expect(ma250Data.every((item: { value?: number }) => !("value" in item))).toBe(true);
+    expect(screen.getByText("MA250:--")).toBeInTheDocument();
+
+    act(() => {
+      chartMock.charts[0].crosshairHandlers[0]({ point: { x: 100, y: 40 }, time: candles[0]!.time });
+    });
+    const klinePanel = screen.getByLabelText("K线主图");
+    expect(within(klinePanel).getByText("MA5:--")).toBeInTheDocument();
+    expect(within(klinePanel).queryByText("MA5:0.00")).not.toBeInTheDocument();
   });
 });
 
