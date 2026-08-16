@@ -493,7 +493,8 @@ def report_qfq_nineturn_runless_events(
                 (spec.asset_key, partition_key, "materialization")
             )
             if materialization_candidate is not None:
-                instance.report_runless_asset_event(
+                report_qfq_nineturn_materialization_event(
+                    instance,
                     dg.AssetMaterialization(
                         asset_key=dg.AssetKey(spec.asset_key),
                         partition=partition_key,
@@ -522,7 +523,7 @@ def report_qfq_nineturn_runless_events(
                                 ),
                             },
                         ),
-                    )
+                    ),
                 )
                 materialization_count += 1
 
@@ -545,7 +546,7 @@ def report_qfq_nineturn_runless_events(
                 run_id=str(materialization.run_id),
                 timestamp=float(materialization.timestamp),
             )
-            _report_partitioned_check_event(
+            report_qfq_nineturn_check_event(
                 instance,
                 run_id=f"qfq-nineturn-event-refresh-{batch_id}",
                 evaluation=dg.AssetCheckEvaluation(
@@ -604,6 +605,30 @@ def report_qfq_nineturn_runless_events(
         check_event_count=check_count,
         post_plan_event_count=len(post_plan.candidates),
         elapsed_ms=round((time.perf_counter() - started) * 1000, 2),
+    )
+
+
+def report_qfq_nineturn_materialization_event(
+    instance: dg.DagsterInstance,
+    materialization: dg.AssetMaterialization,
+) -> None:
+    """Keep the append-only QFQ nine-turn materialization writer centralized."""
+
+    instance.report_runless_asset_event(materialization)
+
+
+def report_qfq_nineturn_check_event(
+    instance: dg.DagsterInstance,
+    *,
+    run_id: str,
+    evaluation: dg.AssetCheckEvaluation,
+) -> None:
+    """Keep the append-only partitioned check writer centralized."""
+
+    _report_partitioned_check_event(
+        instance,
+        run_id=run_id,
+        evaluation=evaluation,
     )
 
 
