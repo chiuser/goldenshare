@@ -122,6 +122,9 @@ docs/
 
 ## 5. 数据集研发（S3）
 
+- [申万 SW2021 行业分类 `index_classify` Prod 数据集 LLD v1（待评审）](/Users/congming/github/goldenshare/docs/datasets/index-classify-sw2021-low-level-design-v1.md)
+- [申万 SW2021 行业成员 `index_member_all` Prod 数据集 LLD v1（待评审）](/Users/congming/github/goldenshare/docs/datasets/index-member-all-sw2021-low-level-design-v1.md)
+- [申万 SW2021 行业日行情 `sw_daily` Prod 数据集 LLD v1（待评审）](/Users/congming/github/goldenshare/docs/datasets/sw-daily-sw2021-low-level-design-v1.md)
 - [A股市场温度/情绪与 Walk-forward 指标口径说明 v1](/Users/congming/github/goldenshare/docs/datasets/market-mood-metrics-and-walkforward-spec-v1.md)
 - [指数行情 raw / serving 分层语义对齐改造方案 v1（待评审）](/Users/congming/github/goldenshare/docs/datasets/index-raw-serving-layer-alignment-plan-v1.md)
 - [指数基础信息源站对齐修复方案 v1（待评审）](/Users/congming/github/goldenshare/docs/datasets/index-basic-source-alignment-fix-plan-v1.md)
