@@ -158,7 +158,7 @@ v1 不增加独立 `expectedEndDate` 参数：调用方传入的 `endDate` 既�
 4. 正常非空路径不得调用 `fitContent()`；它会把 500 根全部压进首屏。
 5. 四个窗格维持同一受控 logical range。用户拖动不发起新请求、不自动翻 cursor；`handleScroll=false`、`handleScale=false` 保持。
 6. 横轴范围变化后纵轴使用图表库 `autoScale` 按可见真实数据适配，不对价格或画布做固定倍率缩放。
-7. 所有窗格订阅同一 crosshair。K 线 tooltip 继续固定为北京时间、开盘、收盘、最高、最低、成交量、成交额；量额使用股/元口径，价格颜色相对本 bar 开盘价。
+7. 所有窗格订阅同一 crosshair，并以命中 K 线的完整时间键换算唯一横坐标；禁止同时显示图表库原生纵线与 shared overlay。分钟常驻时间轴只在最底部显示，横轴刻度、十字线时间浮标和 K 线 tooltip 都必须按 `Asia/Shanghai` 展示。K 线 tooltip 继续固定为北京时间、开盘、收盘、最高、最低、成交量、成交额；量额使用股/元口径，价格颜色相对本 bar 开盘价。
 8. MACD/KDJ 不进入 K 线 tooltip，NULL 指标显示 `--`；不得伪造日线的 `preClose/change/pctChg/turnover`。
 9. 该交互不修改 API 参数、500 根返回量、cursor、后端数据读取或 local/prod 隔离边界。
 

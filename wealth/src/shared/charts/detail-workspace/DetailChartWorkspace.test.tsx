@@ -173,6 +173,7 @@ describe("DetailChartWorkspace", () => {
 
     expect(screen.getByTestId("shared-tooltip")).toHaveTextContent(points[98]!.fullDate);
     expect(screen.getByTestId("shared-tooltip")).toHaveAttribute("data-side", "left");
+    expect(document.querySelector(".detail-chart-crosshair-vertical")).toHaveStyle({ left: "24px" });
     expect(chartMock.charts[0].setCrosshairPosition).toHaveBeenCalled();
     expect(chartMock.charts[1].clearCrosshairPosition).toHaveBeenCalled();
 
@@ -198,7 +199,10 @@ describe("DetailChartWorkspace", () => {
     });
   });
 
-  it("supports the stock-minute native axes strategy without changing the shared 120-bar lifecycle", () => {
+  it("formats native minute axes in Shanghai time without rendering the shared overlay twice", () => {
+    const points = makePoints(300);
+    points[298]!.time = 1_784_259_000 as DetailChartPoint["time"];
+    points[298]!.fullDate = "2026-07-17T11:30:00+08:00";
     render(
       <DetailChartWorkspace
         ariaLabel="共享图表区"
@@ -211,7 +215,7 @@ describe("DetailChartWorkspace", () => {
           volume: "共享成交量",
           kdj: "共享KDJ",
         }}
-        points={makePoints(300)}
+        points={points}
         renderMainHeader={() => <span>main</span>}
         renderPanelHeader={(panel) => <span>{panel}</span>}
         renderTooltip={(point) => <span>{point.fullDate}</span>}
@@ -230,12 +234,19 @@ describe("DetailChartWorkspace", () => {
       const options = call[1] as Record<string, any>;
       expect(call[1]).toMatchObject({
         crosshair: { mode: 0 },
-        localization: undefined,
+        localization: { timeFormatter: expect.any(Function) },
         rightPriceScale: { autoScale: true },
-        timeScale: { secondsVisible: false, tickMarkFormatter: undefined, timeVisible: true, visible: true },
+        timeScale: { secondsVisible: false, tickMarkFormatter: expect.any(Function), timeVisible: true, visible: true },
       });
       expect(options.crosshair).not.toHaveProperty("vertLine");
+      expect(options.localization.timeFormatter(1_784_259_000)).toBe("07-17 11:30");
+      expect(options.timeScale.tickMarkFormatter(1_784_259_000)).toBe("07-17 11:30");
     });
+    act(() => {
+      chartMock.charts[0].crosshairHandlers[0]({ point: { x: 100, y: 40 }, time: points[298]!.time });
+    });
+    expect(document.querySelector(".detail-chart-crosshair-vertical")).not.toBeInTheDocument();
+    expect(document.querySelector(".detail-chart-crosshair-date-label")).not.toBeInTheDocument();
     chartMock.charts.forEach((chart) => {
       expect(chart.timeScale().getVisibleLogicalRange()).toEqual({ from: 180, to: 299 });
     });

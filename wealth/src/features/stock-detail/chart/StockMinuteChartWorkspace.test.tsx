@@ -73,7 +73,7 @@ describe("StockMinuteChartWorkspace", () => {
     expect(props.mainLines).toEqual([]);
   });
 
-  it("selects the frozen M1 display strategies and keeps the status accessory", () => {
+  it("uses the shared single-axis crosshair strategy and keeps the status accessory", () => {
     const data = makeMinuteData(1);
     data.points[0]!.macdDif = null;
     data.indicatorStatus = {
@@ -95,12 +95,12 @@ describe("StockMinuteChartWorkspace", () => {
     const props = latestWorkspaceProps();
     expect(props).toMatchObject({
       ariaLabel: "分钟图表区",
-      crosshairPresentation: "native-axis-labels",
       dataKey: "stock:000638.SZ:m5",
       timeAxisAriaLabel: "股票分钟底部时间轴",
-      timeAxisPlacement: "each-pane",
       timeMode: "minute",
     });
+    expect(props.crosshairPresentation).toBeUndefined();
+    expect(props.timeAxisPlacement).toBeUndefined();
     expect("bottomBar" in props).toBe(false);
     expect(screen.getByRole("status")).toHaveTextContent("指标尚未覆盖页面期望交易日。");
     expect(screen.getByRole("status")).toHaveTextContent("freq=5");

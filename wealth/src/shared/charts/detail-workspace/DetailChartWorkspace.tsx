@@ -307,7 +307,14 @@ export function DetailChartWorkspace({
       }
       setHoverIndex(entry.index);
       setIsChartHovering(true);
-      setSharedCrosshair({ x: pointX, label: formatCrosshairDateLabel(entry.point, timeMode) });
+      if (crosshairPresentation === "synchronized-overlay") {
+        const canonicalX = klineChart.timeScale().timeToCoordinate(entry.point.time as Time);
+        setSharedCrosshair(canonicalX === null
+          ? null
+          : { x: canonicalX, label: formatCrosshairDateLabel(entry.point, timeMode) });
+      } else {
+        setSharedCrosshair(null);
+      }
 
       isSyncingCrosshair = true;
       Object.values(syncTargets).forEach(({ chart, series, valueOf }) => {
@@ -530,7 +537,7 @@ export function DetailChartWorkspace({
       <div className="detail-chart-area" ref={chartsAreaRef} onMouseLeave={() => setIsChartHovering(false)}>
         {topRightAccessory}
         {timeAxisMarkers.length > 0 ? <DailyTimeAxis ariaLabel={timeAxisAriaLabel} markers={timeAxisMarkers} /> : null}
-        {sharedCrosshair !== null ? (
+        {crosshairPresentation === "synchronized-overlay" && sharedCrosshair !== null ? (
           <>
             <span aria-hidden="true" className="detail-chart-crosshair-vertical" style={{ left: sharedCrosshair.x }} />
             <span className="detail-chart-crosshair-date-label" style={{ left: sharedCrosshair.x }}>
@@ -584,7 +591,6 @@ function buildChartOptions(
   timeMode: "daily" | "minute",
   crosshairPresentation: DetailChartCrosshairPresentation,
 ) {
-  const usesNativeAxisLabels = crosshairPresentation === "native-axis-labels";
   const crosshair = crosshairPresentation === "native-axis-labels"
     ? { mode: CrosshairMode.Normal }
     : {
@@ -614,7 +620,7 @@ function buildChartOptions(
       fontFamily: "var(--cs-font-family-number)",
       textColor: DETAIL_CHART_COLORS.text,
     },
-    localization: timeMode === "minute" && !usesNativeAxisLabels
+    localization: timeMode === "minute"
       ? { timeFormatter: formatShanghaiMinuteAxisLabel }
       : undefined,
     grid: {
@@ -632,7 +638,7 @@ function buildChartOptions(
       borderColor: DETAIL_CHART_COLORS.axis,
       rightOffset: 1,
       secondsVisible: false,
-      tickMarkFormatter: timeMode === "minute" && !usesNativeAxisLabels
+      tickMarkFormatter: timeMode === "minute"
         ? formatShanghaiMinuteAxisLabel
         : undefined,
       timeVisible: timeMode === "minute",

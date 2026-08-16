@@ -660,8 +660,8 @@ interface StockMinuteChartPoint {
 3. `DetailChartWorkspace` 是 K 线、MACD、成交量、KDJ 四窗格的唯一生命周期，任何 range、拖动、crosshair 与缩放变化均同步四图；保持 `handleScroll=false`、`handleScale=false`。
 4. `StockMinuteChartWorkspace` 传入稳定 `dataKey=stock:${tsCode}:m${freq}`。频率或股票变化重置到新数据的自适应默认；普通图层变化和运行时重建恢复当前 range。
 5. 当前视图贴近最新 bar 时缩放保持最新右锚；拖入历史后围绕当前中心缩放。拖动和缩放都不发新请求、不加载 cursor 下一页。
-6. `timeVisible=true`。lightweight-charts 使用 UTC timestamp 作为内部排序键；tooltip 从 `tradeTime` 的 `+08:00` 语义格式化北京时间，不通过浏览器时区重新解释。
-7. 所有图表共享 crosshair。命中同一时间键时更新 K 线 Tooltip 和各指标标题；未命中、NULL 指标或离开时不得伪造 0 值。
+6. `timeVisible=true`。lightweight-charts 使用 UTC timestamp 作为内部排序键，但 `localization.timeFormatter` 与 `timeScale.tickMarkFormatter` 在所有分钟 crosshair 模式下都必须显式使用 `Asia/Shanghai`；禁止回退图表库默认 UTC 展示。tooltip 从 `tradeTime` 的 `+08:00` 语义格式化北京时间，不通过浏览器时区重新解释。
+7. 所有图表共享 crosshair。正式股票分钟图只使用 shared synchronized overlay，图表库原生纵线必须隐藏，常驻时间轴只显示在 KDJ 最底部。overlay 的 `x` 必须由命中点的 `time` 经 K 线主图 `timeToCoordinate()` 计算，禁止直接使用原始鼠标 `point.x`；四个窗格再用同一 `time` 执行 `setCrosshairPosition()`。命中同一时间键时更新 K 线 Tooltip 和各指标标题；未命中、NULL 指标或离开时不得伪造 0 值。
 8. K 线 Tooltip 固定为时间、开盘、收盘、最高、最低、成交量、成交额。分钟 `vol` 为股、`amount` 为元；收盘、最高、最低相对本 bar 开盘价着色，不伪造昨收语义。
 9. MACD/KDJ 不进入 K 线 Tooltip，NULL 指标显示 `--`；不得展示接口未返回的 `preClose/change/pctChg/turnover`。
 10. 同一 `time` 不能出现重复点；重复键在 adapter 中 fail closed。整段指标缺失只使指标层 delayed/empty，不隐藏真实 OHLCV 主图。

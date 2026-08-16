@@ -57,7 +57,6 @@ export function StockMinuteChartWorkspace({
   return (
     <DetailChartWorkspace
       ariaLabel="分钟图表区"
-      crosshairPresentation="native-axis-labels"
       dataKey={dataKey}
       mainLayerAccessory={(
         <NineTurnLayerStatus
@@ -84,7 +83,6 @@ export function StockMinuteChartWorkspace({
       renderPanelHeader={(panel, point) => <StockMinutePanelHeader panel={panel} point={point} />}
       renderTooltip={(point, side) => <MinuteKlineTooltip point={point} side={side} />}
       timeAxisAriaLabel="股票分钟底部时间轴"
-      timeAxisPlacement="each-pane"
       timeMode="minute"
       topRightAccessory={(
         <div className="stock-minute-chart-status" role="status">
