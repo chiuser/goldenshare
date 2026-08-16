@@ -1577,15 +1577,22 @@ asset_column_schemas
 
 ### 21.6 生产 serving migration 与部署
 
-生产变更必须使用独立维护窗口，顺序不可调整：
+生产变更必须使用独立维护窗口，顺序不可调整。2026-08-16 远程 sudo 白名单只允许 `restart`、不允许 `stop` Web，因此维护顺序冻结为“新代码先行、DDL 随后”，不能再按旧设想先停 Web：
 
 1. 只读确认真实 Alembic 单一 head、生产表 schema/约束/索引/权限、交易日数、行数、重复键和最近 serving readiness。
-2. 停止 `prod_core_stock_daily_qfq_nineturn_sync_job_sensor`，阻止相关 publisher 新写入；停止旧 Web 日线九转读取或进入维护状态，避免旧 ORM 在 DDL 后继续选择 `close_qfq`。
-3. 执行 Alembic migration：删除 `ck_equity_qfq_nineturn_daily_close_positive` 和 `close_qfq`；保留全部既有行、主键、索引、计数/信号约束、`formula_version`、`published_at` 与权限。
-4. 同一维护窗口部署已删除价格消费者的新 Web/Orchestrator 代码；禁止保留双 schema、兼容查询或运行时探测列。
+2. 停止 `prod_core_stock_daily_qfq_nineturn_sync_job_sensor`，确认 Gold/serving 两个 writer sensor 均为 `STOPPED` 且关联 job 无在途 run；先以 `--skip-migration` 发布已删除价格消费者的新 Web 代码并重启。新代码只查询八列无价格合同，旧九列表是其严格超集，因此此步不需要双 schema、兼容查询或运行时探测列；发布后必须先验证健康接口和认证日线九转 API。
+3. 确认远程进程已加载新代码后执行 Alembic migration：删除 `ck_equity_qfq_nineturn_daily_close_positive` 和 `close_qfq`；保留全部既有行、主键、索引、计数/信号约束、`formula_version`、`published_at` 与权限。
+4. migration 完成后立即重启并验收新 Web；禁止旧版本进程、双 schema、兼容查询或运行时探测列。若第一段代码发布或健康检查失败，禁止执行 DDL；若 DDL 后验收失败，按前向修复原则保持 writer 停止并修正新代码，不得恢复价格列。
 5. 不重发 11,638,636 行历史 serving。迁移后使用无价格业务字段做全历史聚合对账，确认交易日、行数、键、计数、信号和 formulaVersion 不变。
 6. 生成 serving event 只读计划；为受 DDL 影响的全部交易日追加新 materialization，最近 20 日追加新版 blocking check。不得删除旧 events。
 7. 通过生产表精确 schema、权限、全历史聚合、最近窗口 publisher read-back、认证 API、markers/分页/状态和无 `close_qfq` SQL 静态门禁后，才恢复 Web 与 serving sensor。
+
+D5 使用正式、可复用的两段门禁，不再执行 D2 的 `/private/tmp` 估算脚本：
+
+1. `stock_daily_qfq_nineturn_no_price_serving_events_cli snapshot` 只通过仓库唯一远程数据库入口 `scripts/psql-remote.sh` 执行 `BEGIN READ ONLY`，一次性冻结生产 `alembic_version`、列定义、命名业务约束、索引、权限、owner、行数和日期范围；系统生成且对象 ID 不稳定的 PostgreSQL 18 `NOT NULL` 约束名不进入名称合同，非空语义由 `columns.is_nullable` 精确冻结。报告写入 `/private/tmp`，不写生产库或 Dagster，也不得直连或为审计扩大账号权限。
+2. migration 与新代码部署后，`plan` 必须同时绑定迁移前快照、D4 零候选计划和实际部署的完整 Git SHA；逐分区读取六列 Gold 业务字段生成无价格 hash，并仅通过 `scripts/psql-remote.sh` 的 `COPY` 流式读取生产七个无价格业务/版本字段，对账全部 3,066 日和 11,638,636 行。进程任一时刻只保留一个交易日的 SHA-256 状态，不把全表装入内存。计划只有在列精确删除一项、约束精确删除一项、索引/权限/owner/行数/日期范围完全不变、两个 writer sensor 均停止、无在途 run 且 D4 Gold 事件仍为当前版本时才可执行。
+3. `apply --apply` 必须先重新生成同指纹计划，随后只经共享 runless-event writer 追加 serving materialization 与最近 20 日 blocking check；不调用历史 publisher、不删除旧事件、不写 Lake 或 Prod。写后只复核事件状态，物理数据已在 fresh plan 中再次全量只读对账，避免第三次无意义扫描 11,638,636 行。
+4. 正式实现文件固定为 `stock_daily_qfq_nineturn_no_price_serving_events.py` 及其 CLI；event metadata 必须包含 `stock_daily_qfq_nineturn_serving_v2_no_price`、migration revision、部署 revision、Gold 文件 SHA 与无价格业务 hash，保证后验计划候选为 0 且不会把旧 serving 事件误认成新合同。
 
 生产回滚采用前向修复：停止 writer/reader，修正 migration 或代码后继续完成无价格合同。不得重新引入 `close_qfq`、兼容表或 Tushare fallback；价格事实始终从 `gold_stock_daily_qfq` 获取。
 

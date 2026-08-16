@@ -22,6 +22,7 @@ from orchestrator.defs.prod_db.stock_daily_qfq_nineturn import (
     audit_prod_core_stock_daily_qfq_nineturn_checkpoint_partitions,
     audit_prod_core_stock_daily_qfq_nineturn_partition,
     replace_prod_core_stock_daily_qfq_nineturn_partition,
+    snapshot_prod_core_stock_daily_qfq_nineturn_contract,
     validate_prod_core_stock_daily_qfq_nineturn_sql_contract,
 )
 from orchestrator.defs.resources import DuckDBResource
@@ -211,6 +212,36 @@ class StockDailyQfqNineTurnProdCoreSyncTests(unittest.TestCase):
                 expected_content_hashes={"2026-08-12": "not-a-hash"},
             )
 
+    def test_contract_snapshot_reads_exact_schema_and_aggregate_state(self) -> None:
+        cursor = _SnapshotCursor(
+            responses=[
+                [("20260816_000137",)],
+                [
+                    ("ts_code", "character varying", "varchar", "NO", None),
+                    ("trade_date", "date", "date", "NO", None),
+                ],
+                [("pk_equity_qfq_nineturn_daily",)],
+                [("pk_equity_qfq_nineturn_daily",)],
+                [("lake_raw_writer", "SELECT", "NO")],
+                [("goldenshare_user",)],
+                [(2, 1, "2026-08-12", "2026-08-12")],
+            ]
+        )
+
+        snapshot = snapshot_prod_core_stock_daily_qfq_nineturn_contract(
+            connection=_FakeConnection(cursor)
+        )
+
+        self.assertEqual(snapshot.migration_versions, ("20260816_000137",))
+        self.assertEqual(snapshot.columns[0][0], "ts_code")
+        self.assertEqual(snapshot.privileges, (("lake_raw_writer", "SELECT", "NO"),))
+        self.assertEqual(snapshot.table_owner, "goldenshare_user")
+        self.assertEqual(snapshot.row_count, 2)
+        self.assertEqual(snapshot.partition_count, 1)
+        self.assertEqual(snapshot.first_trade_date, "2026-08-12")
+        self.assertEqual(snapshot.last_trade_date, "2026-08-12")
+        self.assertEqual(cursor.close_count, 1)
+
     def test_replace_partition_rolls_back_on_read_back_drift(self) -> None:
         published_at = datetime(2026, 8, 13, 1, 2, 3, tzinfo=timezone.utc)
         rows = _sample_rows("2026-08-12")
@@ -219,9 +250,10 @@ class StockDailyQfqNineTurnProdCoreSyncTests(unittest.TestCase):
         cursor = _FakeCursor(read_back_rows=read_back)
         connection = _FakeConnection(cursor)
 
-        with patch(
-            "orchestrator.defs.prod_db.stock_daily_qfq_nineturn.execute_values"
-        ), self.assertRaisesRegex(RuntimeError, "read-back audit failed"):
+        with (
+            patch("orchestrator.defs.prod_db.stock_daily_qfq_nineturn.execute_values"),
+            self.assertRaisesRegex(RuntimeError, "read-back audit failed"),
+        ):
             replace_prod_core_stock_daily_qfq_nineturn_partition(
                 connection=connection,
                 rows=rows,
@@ -270,7 +302,9 @@ class _FakeCursor:
 
     def execute(self, sql: str, params: tuple[object, ...]) -> None:
         self.execute_calls.append((sql, params))
-        self.rowcount = 2 if sql == PROD_CORE_STOCK_DAILY_QFQ_NINETURN_DELETE_SQL else -1
+        self.rowcount = (
+            2 if sql == PROD_CORE_STOCK_DAILY_QFQ_NINETURN_DELETE_SQL else -1
+        )
 
     def fetchall(self) -> list[tuple[object, ...]]:
         return self.read_back_rows
@@ -279,6 +313,26 @@ class _FakeCursor:
         rows = self.read_back_rows[self.fetch_offset : self.fetch_offset + size]
         self.fetch_offset += len(rows)
         return rows
+
+    def close(self) -> None:
+        self.close_count += 1
+
+
+class _SnapshotCursor:
+    def __init__(self, *, responses: list[list[tuple[object, ...]]]) -> None:
+        self._responses = responses
+        self._current: list[tuple[object, ...]] = []
+        self.close_count = 0
+        self.name: str | None = None
+
+    def execute(self, _sql: str, _params: tuple[object, ...] = ()) -> None:
+        self._current = self._responses.pop(0)
+
+    def fetchall(self) -> list[tuple[object, ...]]:
+        return list(self._current)
+
+    def fetchone(self) -> tuple[object, ...] | None:
+        return self._current[0] if self._current else None
 
     def close(self) -> None:
         self.close_count += 1

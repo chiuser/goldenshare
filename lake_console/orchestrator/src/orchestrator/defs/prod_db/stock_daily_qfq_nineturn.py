@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import date, datetime, timezone
 from typing import Any
 
@@ -20,9 +20,7 @@ from orchestrator.defs.run_contracts.qfq_nineturn import (
     QFQ_NINETURN_VERSION,
 )
 
-PROD_CORE_STOCK_DAILY_QFQ_NINETURN_TABLE = (
-    "core_serving.equity_qfq_nineturn_daily"
-)
+PROD_CORE_STOCK_DAILY_QFQ_NINETURN_TABLE = "core_serving.equity_qfq_nineturn_daily"
 PROD_CORE_STOCK_DAILY_QFQ_NINETURN_COLUMNS = (
     "ts_code",
     "trade_date",
@@ -41,6 +39,42 @@ PROD_CORE_STOCK_DAILY_QFQ_NINETURN_FORBIDDEN_COLUMNS = (
 PROD_CORE_STOCK_DAILY_QFQ_NINETURN_BATCH_SIZE = 1_000
 PROD_CORE_STOCK_DAILY_QFQ_NINETURN_CHECK_NAME = (
     "prod_core_stock_daily_qfq_nineturn_partition_check"
+)
+PROD_CORE_STOCK_DAILY_QFQ_NINETURN_NO_PRICE_MIGRATION = "20260816_000137"
+PROD_CORE_STOCK_DAILY_QFQ_NINETURN_PREVIOUS_MIGRATION = "20260814_000136"
+PROD_CORE_STOCK_DAILY_QFQ_NINETURN_LEGACY_COLUMNS = (
+    "ts_code",
+    "trade_date",
+    "close_qfq",
+    "up_count",
+    "down_count",
+    "nine_up_turn",
+    "nine_down_turn",
+    "formula_version",
+    "published_at",
+)
+PROD_CORE_STOCK_DAILY_QFQ_NINETURN_CONSTRAINTS = (
+    "ck_equity_qfq_nineturn_daily_counts_non_negative",
+    "ck_equity_qfq_nineturn_daily_down_signal_allowed",
+    "ck_equity_qfq_nineturn_daily_down_signal_count",
+    "ck_equity_qfq_nineturn_daily_formula_version",
+    "ck_equity_qfq_nineturn_daily_single_direction",
+    "ck_equity_qfq_nineturn_daily_single_signal",
+    "ck_equity_qfq_nineturn_daily_up_signal_allowed",
+    "ck_equity_qfq_nineturn_daily_up_signal_count",
+    "pk_equity_qfq_nineturn_daily",
+)
+PROD_CORE_STOCK_DAILY_QFQ_NINETURN_LEGACY_CONSTRAINTS = tuple(
+    sorted(
+        (
+            *PROD_CORE_STOCK_DAILY_QFQ_NINETURN_CONSTRAINTS,
+            "ck_equity_qfq_nineturn_daily_close_positive",
+        )
+    )
+)
+PROD_CORE_STOCK_DAILY_QFQ_NINETURN_INDEXES = (
+    "idx_equity_qfq_nineturn_daily_trade_code",
+    "pk_equity_qfq_nineturn_daily",
 )
 
 _SELECT_COLUMNS_SQL = """
@@ -109,6 +143,23 @@ class ProdCoreStockDailyQfqNineTurnCheckpointAudit:
     observed_partition_count: int
     read_back_row_count: int
     failed_partition_keys: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ProdCoreStockDailyQfqNineTurnContractSnapshot:
+    migration_versions: tuple[str, ...]
+    columns: tuple[tuple[str, str, str, str, str | None], ...]
+    constraints: tuple[str, ...]
+    indexes: tuple[str, ...]
+    privileges: tuple[tuple[str, str, str], ...]
+    table_owner: str
+    row_count: int
+    partition_count: int
+    first_trade_date: str | None
+    last_trade_date: str | None
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
 
 
 def replace_prod_core_stock_daily_qfq_nineturn_partition(
@@ -230,7 +281,11 @@ def audit_prod_core_stock_daily_qfq_nineturn_checkpoint_partitions(
     expected_content_hashes: Mapping[str, object],
     fetch_size: int = 1_000,
 ) -> ProdCoreStockDailyQfqNineTurnCheckpointAudit:
-    if isinstance(fetch_size, bool) or not isinstance(fetch_size, int) or fetch_size <= 0:
+    if (
+        isinstance(fetch_size, bool)
+        or not isinstance(fetch_size, int)
+        or fetch_size <= 0
+    ):
         raise ValueError("Checkpoint fetch size must be a positive integer.")
     normalized_expected = {
         normalize_iso_trade_date(partition_key): str(content_hash).strip().lower()
@@ -310,6 +365,132 @@ def audit_prod_core_stock_daily_qfq_nineturn_checkpoint_partitions(
         read_back_row_count=read_back_row_count,
         failed_partition_keys=failed_partition_keys,
     )
+
+
+def snapshot_prod_core_stock_daily_qfq_nineturn_contract(
+    *,
+    connection,
+    migration_versions: Sequence[str] | None = None,
+) -> ProdCoreStockDailyQfqNineTurnContractSnapshot:
+    """Read the exact serving table contract and bounded aggregate state."""
+
+    cursor = connection.cursor()
+    try:
+        if migration_versions is None:
+            cursor.execute(
+                "SELECT version_num FROM alembic_version ORDER BY version_num"
+            )
+            observed_migration_versions = tuple(
+                str(row[0]) for row in cursor.fetchall()
+            )
+        else:
+            observed_migration_versions = tuple(
+                sorted(str(value).strip() for value in migration_versions)
+            )
+        cursor.execute(
+            """
+            SELECT column_name, data_type, udt_name, is_nullable, column_default
+            FROM information_schema.columns
+            WHERE table_schema = 'core_serving'
+              AND table_name = 'equity_qfq_nineturn_daily'
+            ORDER BY ordinal_position
+            """
+        )
+        columns = tuple(
+            (
+                str(row[0]),
+                str(row[1]),
+                str(row[2]),
+                str(row[3]),
+                str(row[4]) if row[4] is not None else None,
+            )
+            for row in cursor.fetchall()
+        )
+        cursor.execute(
+            """
+            SELECT constraint_name
+            FROM information_schema.table_constraints
+            WHERE table_schema = 'core_serving'
+              AND table_name = 'equity_qfq_nineturn_daily'
+              AND (
+                constraint_name LIKE 'ck_equity_qfq_nineturn_daily_%'
+                OR constraint_name = 'pk_equity_qfq_nineturn_daily'
+              )
+            ORDER BY constraint_name
+            """
+        )
+        constraints = tuple(str(row[0]) for row in cursor.fetchall())
+        cursor.execute(
+            """
+            SELECT indexname
+            FROM pg_indexes
+            WHERE schemaname = 'core_serving'
+              AND tablename = 'equity_qfq_nineturn_daily'
+            ORDER BY indexname
+            """
+        )
+        indexes = tuple(str(row[0]) for row in cursor.fetchall())
+        cursor.execute(
+            """
+            SELECT grantee, privilege_type, is_grantable
+            FROM information_schema.role_table_grants
+            WHERE table_schema = 'core_serving'
+              AND table_name = 'equity_qfq_nineturn_daily'
+            ORDER BY grantee, privilege_type, is_grantable
+            """
+        )
+        privileges = tuple(
+            (str(row[0]), str(row[1]), str(row[2])) for row in cursor.fetchall()
+        )
+        cursor.execute(
+            """
+            SELECT tableowner
+            FROM pg_tables
+            WHERE schemaname = 'core_serving'
+              AND tablename = 'equity_qfq_nineturn_daily'
+            """
+        )
+        owner_row = cursor.fetchone()
+        if owner_row is None:
+            raise RuntimeError("Prod stock daily QFQ nine-turn table is missing.")
+        table_owner = str(owner_row[0])
+        cursor.execute(
+            f"""
+            SELECT
+              COUNT(*)::BIGINT,
+              COUNT(DISTINCT trade_date)::BIGINT,
+              MIN(trade_date),
+              MAX(trade_date)
+            FROM {PROD_CORE_STOCK_DAILY_QFQ_NINETURN_TABLE}
+            """
+        )
+        stats = cursor.fetchone()
+        if stats is None:
+            raise RuntimeError("Prod stock daily QFQ nine-turn stats are missing.")
+    finally:
+        close = getattr(cursor, "close", None)
+        if callable(close):
+            close()
+    return ProdCoreStockDailyQfqNineTurnContractSnapshot(
+        migration_versions=observed_migration_versions,
+        columns=columns,
+        constraints=constraints,
+        indexes=indexes,
+        privileges=privileges,
+        table_owner=table_owner,
+        row_count=int(stats[0]),
+        partition_count=int(stats[1]),
+        first_trade_date=_optional_iso_date(stats[2]),
+        last_trade_date=_optional_iso_date(stats[3]),
+    )
+
+
+def stock_daily_qfq_nineturn_business_content_hash(
+    rows: Sequence[Mapping[str, object]],
+) -> str:
+    """Return the stable price-free serving hash used by reconciliation gates."""
+
+    return _business_content_hash(rows)
 
 
 def validate_prod_core_stock_daily_qfq_nineturn_sql_contract() -> None:
@@ -461,10 +642,7 @@ def _insert_params(row: Mapping[str, object]) -> tuple[object, ...]:
 
 
 def _keys(rows: Sequence[Mapping[str, object]]) -> set[tuple[str, str]]:
-    return {
-        (str(row["ts_code"]), str(row["trade_date"]))
-        for row in rows
-    }
+    return {(str(row["ts_code"]), str(row["trade_date"])) for row in rows}
 
 
 def _content_hash(rows: Sequence[Mapping[str, object]]) -> str:
@@ -512,6 +690,10 @@ def _normalize_trade_date(value: object) -> str:
     return normalize_iso_trade_date(str(value))
 
 
+def _optional_iso_date(value: object | None) -> str | None:
+    return _normalize_trade_date(value) if value is not None else None
+
+
 def _normalize_published_at(value: object) -> datetime:
     if not isinstance(value, datetime):
         raise TypeError("QFQ nine-turn published_at must be a datetime.")
@@ -530,9 +712,7 @@ def _normalize_count(value: object, field_name: str) -> int:
             f"QFQ nine-turn {field_name} must be a non-negative integer."
         ) from error
     if normalized < 0 or normalized != value:
-        raise ValueError(
-            f"QFQ nine-turn {field_name} must be a non-negative integer."
-        )
+        raise ValueError(f"QFQ nine-turn {field_name} must be a non-negative integer.")
     return normalized
 
 
