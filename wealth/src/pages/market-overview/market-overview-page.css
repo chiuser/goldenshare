@@ -1985,27 +1985,13 @@ tbody tr:active {
   border: 1px solid rgba(148, 163, 184, 0.12);
   border-radius: 8px;
   display: flex;
-  justify-content: space-between;
   min-width: 0;
   padding: 4px 10px;
 }
 
-.sector-rank-options > span,
-.sector-ranking-context > span {
+.sector-rank-options > span {
   color: var(--cs-color-text-muted);
   font-size: 11px;
-}
-
-.sector-ranking-context {
-  align-items: center;
-  display: flex;
-  font-size: 11px;
-  gap: 6px;
-  white-space: nowrap;
-}
-
-.sector-ranking-context strong {
-  color: var(--cs-color-purple);
 }
 
 .sector-workspace-stage {
@@ -2522,8 +2508,8 @@ tbody tr:active {
   background: rgba(19, 31, 51, 0.58);
   border-radius: 8px;
   display: grid;
-  gap: 5px;
-  grid-template-rows: 14px 42px;
+  gap: 6px;
+  grid-template-rows: 13px 55px 12px;
   padding: 8px 10px;
 }
 
@@ -2533,28 +2519,66 @@ tbody tr:active {
 }
 
 .concept-heat-bars {
-  align-items: end;
-  display: flex;
+  display: grid;
   gap: 6px;
-  height: 42px;
+  grid-template-columns: repeat(20, minmax(0, 1fr));
+  height: 55px;
 }
 
-.concept-heat-bars > span {
+.concept-heat-slot {
+  min-width: 0;
+  position: relative;
+}
+
+.concept-heat-bar {
   background: var(--cs-color-purple);
   border-radius: 2px 2px 0 0;
-  flex: 1;
+  bottom: 0;
   height: var(--heat-height);
+  left: 0;
   max-height: 42px;
-  min-width: 0;
+  position: absolute;
+  right: 0;
 }
 
-.concept-heat-bars > span.boiling {
+.concept-heat-bar.boiling {
   background: var(--cs-color-brand);
 }
 
-.concept-heat-bars > span.is-gap {
-  background: transparent;
-  height: 0;
+.concept-heat-value {
+  bottom: calc(var(--heat-height) + 3px);
+  color: var(--cs-color-purple);
+  font-family: var(--cs-font-family-number);
+  font-size: 8px;
+  font-weight: 700;
+  left: 50%;
+  line-height: 10px;
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.concept-heat-dates {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(20, minmax(0, 1fr));
+  height: 12px;
+}
+
+.concept-heat-date-slot {
+  min-width: 0;
+  position: relative;
+}
+
+.concept-heat-date-slot time {
+  color: var(--cs-color-text-muted);
+  font-family: var(--cs-font-family-number);
+  font-size: 8px;
+  left: 50%;
+  line-height: 10px;
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
 
 .sector-members {

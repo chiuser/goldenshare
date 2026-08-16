@@ -144,9 +144,9 @@ function conceptDetail(code: string, name: string) {
     },
     heatHistory: Array.from({ length: 20 }, (_, index) => ({
       tradeDate: `2026-04-${String(index + 1).padStart(2, "0")}`,
-      heatScore: index === 8 ? null : 70 + index,
-      heatRank: index === 8 ? null : index + 1,
-      heatLevel: index === 8 ? "NONE" : index > 17 ? "BOILING" : "HOT",
+      heatScore: index === 9 ? null : 70 + index,
+      heatRank: index === 9 ? null : index + 1,
+      heatLevel: index === 9 ? "NONE" : index > 17 ? "BOILING" : "HOT",
     })),
   };
 }
@@ -276,7 +276,8 @@ describe("market-overview sector-overview V2 real api", () => {
       const column = await within(panel).findByLabelText(label);
       expect(within(column).getAllByRole("button", { name: /选择/ })).toHaveLength(5);
     }
-    expect(within(panel).getByText("同层级兄弟节点")).toBeInTheDocument();
+    expect(within(panel).queryByText("排名范围")).not.toBeInTheDocument();
+    expect(within(panel).queryByText("同层级兄弟节点")).not.toBeInTheDocument();
     expect(within(panel).getAllByText("三级行业1领涨股").length).toBeGreaterThan(0);
     expect(within(panel).getByText("成分股1")).toBeInTheDocument();
     expect(within(panel).queryByText("停牌")).not.toBeInTheDocument();
@@ -301,7 +302,8 @@ describe("market-overview sector-overview V2 real api", () => {
     const panel = await screen.findByLabelText("板块速览");
     fireEvent.click(within(panel).getByRole("tab", { name: "概念" }));
     const ranking = await within(panel).findByRole("table", { name: "概念热度排行" });
-    expect(within(panel).getByText("等级与趋势由 Heat Model V2 共同决定")).toBeInTheDocument();
+    expect(within(panel).queryByText("热度规则")).not.toBeInTheDocument();
+    expect(within(panel).queryByText("等级与趋势由 Heat Model V2 共同决定")).not.toBeInTheDocument();
     for (const column of ["排名 / 概念", "等级 / 趋势", "热度 / 变化", "涨跌幅", "领涨股"]) {
       expect(within(ranking).getByRole("columnheader", { name: column })).toBeInTheDocument();
     }
@@ -321,8 +323,18 @@ describe("market-overview sector-overview V2 real api", () => {
     expect(within(ranking).queryByText("沸腾 · 升温")).not.toBeInTheDocument();
     const history = within(panel).getByLabelText("近20个交易日热度");
     expect(history.children).toHaveLength(20);
-    expect(history.children[8]).toHaveClass("is-gap");
-    expect(history.children[8]).not.toHaveAttribute("style");
+    expect(history.children[9]).toHaveClass("is-gap");
+    expect(history.children[9].querySelector(".concept-heat-bar")).toBeNull();
+    expect(history.children[9].querySelector(".concept-heat-value")).toBeNull();
+    expect(history.querySelectorAll(".concept-heat-bar")).toHaveLength(19);
+    expect(history.querySelectorAll(".concept-heat-value")).toHaveLength(19);
+    const dates = panel.querySelectorAll(".concept-heat-date-slot time");
+    expect(Array.from(dates, (date) => date.textContent)).toEqual(["04-01", "04-05", "04-10", "04-15", "04-20"]);
+    expect(Array.from(dates, (date) => date.getAttribute("datetime"))).toEqual([
+      "2026-04-01", "2026-04-05", "2026-04-10", "2026-04-15", "2026-04-20",
+    ]);
+    expect(dates[2]).toHaveTextContent("04-10");
+    expect(marketOverviewCss).toMatch(/\.concept-heat-value\s*\{[^}]*bottom:\s*calc\(var\(--heat-height\) \+ 3px\);/s);
     expect(within(panel).queryByText("停牌")).not.toBeInTheDocument();
     expect(within(panel).queryByText("行情覆盖")).not.toBeInTheDocument();
   });
@@ -333,6 +345,8 @@ describe("market-overview sector-overview V2 real api", () => {
     const panel = await screen.findByLabelText("板块速览");
     fireEvent.click(within(panel).getByRole("tab", { name: "地域" }));
     const ranking = await within(panel).findByRole("table", { name: "地域板块排行" });
+    expect(within(panel).queryByText("地域口径")).not.toBeInTheDocument();
+    expect(within(panel).queryByText("31 个地域板块独立平铺排行")).not.toBeInTheDocument();
     for (const column of ["排名 / 地域", "上涨家数", "主力净流入", "涨跌幅", "领涨股"]) {
       expect(within(ranking).getByRole("columnheader", { name: column })).toBeInTheDocument();
     }
@@ -539,6 +553,7 @@ describe("market-overview sector-overview V2 real api", () => {
     payload.sectorOverview.concept.detail.metrics.changePct = null;
     payload.sectorOverview.concept.detail.metrics.mainNetInflow = 123_400_000_000;
     payload.sectorOverview.concept.detail.members[0].stockName = null;
+    payload.sectorOverview.concept.detail.heatHistory[0].heatScore = 70.126;
 
     installFetch((view) => view === "CONCEPT" ? payload : industryPayload);
     render(<MarketOverviewPage />);
@@ -555,8 +570,11 @@ describe("market-overview sector-overview V2 real api", () => {
     expect(within(panel).getByText("000001.SZ", { selector: ".sector-members button span" })).toBeInTheDocument();
     const history = within(panel).getByLabelText("近20个交易日热度");
     expect(history.children).toHaveLength(20);
-    expect(history.children[8]).toHaveClass("is-gap");
-    expect(history.children[8]).not.toHaveAttribute("style");
+    expect(history.children[9]).toHaveClass("is-gap");
+    expect(history.children[9].querySelector(".concept-heat-bar")).toBeNull();
+    expect(history.children[9].querySelector(".concept-heat-value")).toBeNull();
+    expect(within(history).getByText("70.13")).toBeInTheDocument();
+    expect(history.children[0]).toHaveAttribute("title", "2026-04-01 · 70.126");
   });
 
   it("S13-A14-A16-PN01 keeps sector selection separate from keyboard-accessible stock navigation", async () => {

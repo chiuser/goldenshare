@@ -30,12 +30,6 @@ const RANK_OPTIONS: {
   ],
 };
 
-const CONTEXT: Record<SectorOverviewView, { label: string; value: string }> = {
-  INDUSTRY: { label: "排名范围", value: "同层级兄弟节点" },
-  CONCEPT: { label: "热度规则", value: "等级与趋势由 Heat Model V2 共同决定" },
-  REGION: { label: "地域口径", value: "31 个地域板块独立平铺排行" },
-};
-
 export function SectorRankingToolbar({
   view,
   rankMetric,
@@ -60,10 +54,6 @@ export function SectorRankingToolbar({
             {label}
           </button>
         ))}
-      </div>
-      <div className="sector-ranking-context">
-        <span>{CONTEXT[view].label}</span>
-        <strong>{CONTEXT[view].value}</strong>
       </div>
     </div>
   );

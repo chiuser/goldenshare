@@ -131,25 +131,44 @@ export function HeatTrendBadge({ trend }: { trend: HeatTrend }) {
 }
 
 export function ConceptHeatHistory({ points }: { points: ConceptHeatPoint[] }) {
+  const visiblePoints = points.slice(0, 20);
+  const dateTickIndexes = new Set([0, 4, 9, 14, 19]);
+
   return (
     <section className="concept-heat-history">
       <header><strong>近 20 个交易日热度</strong></header>
       <div aria-label="近20个交易日热度" className="concept-heat-bars">
-        {points.map((point) => {
-          const isGap = point.heatScore == null;
-          const style = isGap
+        {visiblePoints.map((point) => {
+          const heatScore = point.heatScore;
+          const isGap = heatScore == null;
+          const displayScore = heatScore == null ? null : Number(heatScore.toFixed(2)).toString();
+          const style = heatScore == null
             ? undefined
-            : ({ "--heat-height": `${Math.max(0, Math.min(100, point.heatScore as number))}%` } as CSSProperties);
+            : ({ "--heat-height": `${Math.max(0, Math.min(100, heatScore)) * 0.42}px` } as CSSProperties);
           return (
             <span
               aria-label={`${point.tradeDate} ${isGap ? "无有效热度" : point.heatScore}`}
-              className={isGap ? "is-gap" : point.heatLevel.toLowerCase()}
+              className={`concept-heat-slot${isGap ? " is-gap" : ""}`}
               key={point.tradeDate}
-              style={style}
-              title={`${point.tradeDate} · ${point.heatScore ?? "--"}`}
-            />
+              role="img"
+              title={`${point.tradeDate} · ${isGap ? "无有效热度" : point.heatScore}`}
+            >
+              {isGap ? null : (
+                <>
+                  <span aria-hidden="true" className="concept-heat-value" style={style}>{displayScore}</span>
+                  <span aria-hidden="true" className={`concept-heat-bar ${point.heatLevel.toLowerCase()}`} style={style} />
+                </>
+              )}
+            </span>
           );
         })}
+      </div>
+      <div aria-hidden="true" className="concept-heat-dates">
+        {visiblePoints.map((point, index) => (
+          <span className="concept-heat-date-slot" key={point.tradeDate}>
+            {dateTickIndexes.has(index) ? <time dateTime={point.tradeDate}>{point.tradeDate.slice(5)}</time> : null}
+          </span>
+        ))}
       </div>
     </section>
   );
