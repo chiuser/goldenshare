@@ -110,8 +110,15 @@ describe("IndexDetailPage", () => {
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/minute-nine-turn"))).toHaveLength(0);
 
     fireEvent.click(screen.getByRole("tab", { name: "技术面" }));
-    await waitFor(() => expect(screen.getByLabelText("九转序列摘要")).toHaveTextContent("上序 3"));
-    await waitFor(() => expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/minute-nine-turn"))).toHaveLength(2));
+    const summary = await screen.findByLabelText("九转序列摘要");
+    await waitFor(() => expect(summary).toHaveTextContent("上序 3"));
+    const rows = Array.from(summary.querySelectorAll(".index-nine-turn-summary-row"));
+    expect(rows.map((row) => row.firstElementChild?.textContent)).toEqual(["日线", "15分钟", "30分钟", "60分钟", "90分钟", "120分钟"]);
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/minute-nine-turn"))).toHaveLength(5));
+    const requestedSummaryFrequencies = fetchMock.mock.calls
+      .filter(([input]) => String(input).includes("/minute-nine-turn"))
+      .map(([input]) => new URL(String(input)).searchParams.get("freq"));
+    expect(requestedSummaryFrequencies.sort()).toEqual(["120", "15", "30", "60", "90"]);
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/nine-turn"))).toHaveLength(1);
   });
 
@@ -130,7 +137,9 @@ describe("IndexDetailPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: "技术面" }));
     fireEvent.click(await screen.findByRole("button", { name: "重试日线九转" }));
     await waitFor(() => expect(screen.getByLabelText("九转序列摘要")).toHaveTextContent("上序 3"));
+    expect(screen.getByLabelText("九转序列摘要").querySelectorAll(".index-nine-turn-summary-row")).toHaveLength(6);
     expect(screen.getByLabelText("指数日线图表区")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/minute-nine-turn"))).toHaveLength(0);
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/nine-turn"))).toHaveLength(2);
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/kline"))).toHaveLength(1);
   });

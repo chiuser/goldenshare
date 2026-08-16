@@ -10,6 +10,7 @@ import { IndexBreadcrumbActionBar } from "../../features/index-detail/layout/Ind
 import { IndexChartToolbar } from "../../features/index-detail/layout/IndexChartToolbar";
 import { getIndexShellIdentity, getIndexShellPeriods, normalizeIndexTsCode } from "../../features/index-detail/model/indexDetailState";
 import type { IndexInfoTab, IndexPeriodKey } from "../../features/index-detail/model/indexDetailTypes";
+import { INDEX_TECHNICAL_NINE_TURN_PERIODS, type IndexTechnicalNineTurnSummary } from "../../features/index-detail/model/indexTechnicalNineTurnSummary";
 import { IndexInfoRail } from "../../features/index-detail/sidebar/IndexInfoRail";
 import { IndexDetailLoadingSkeleton } from "../../features/index-detail/state/IndexDetailLoadingSkeleton";
 import { IndexDetailPageState } from "../../features/index-detail/state/IndexDetailPageState";
@@ -27,7 +28,6 @@ import "./index-detail-page.css";
 interface IndexDetailPageProps { search: string; tsCode: string; }
 
 const EMPTY_NINE_TURN_PERIODS: NineTurnPeriod[] = [];
-const INDEX_TECHNICAL_SUMMARY_PERIODS = ["day", "60", "30"] as const;
 const loadIndexNineTurnSeries: NineTurnSeriesLoader = (request, options) => {
   if (request.subjectType !== "index") throw new Error("指数九转请求对象不符合产品合同。");
   return fetchIndexNineTurnSeries({
@@ -96,7 +96,7 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
 
   useEffect(() => {
     if (!hasData || activeTab !== "technical") return;
-    INDEX_TECHNICAL_SUMMARY_PERIODS.forEach((period) => {
+    INDEX_TECHNICAL_NINE_TURN_PERIODS.forEach(({ period }) => {
       if (viewModel?.capabilities.nineTurnPeriods.includes(period)) {
         void nineTurnRegistry.ensure(period);
       }
@@ -225,11 +225,9 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
           trendPhase={controller.trendPhase}
           viewModel={viewModel}
           weights={displayedWeights}
-          nineTurnSummary={{
-            day: nineTurnRegistry.stateFor("day"),
-            "30": nineTurnRegistry.stateFor("30"),
-            "60": nineTurnRegistry.stateFor("60"),
-          }}
+          nineTurnSummary={Object.fromEntries(
+            INDEX_TECHNICAL_NINE_TURN_PERIODS.map(({ period }) => [period, nineTurnRegistry.stateFor(period)]),
+          ) as IndexTechnicalNineTurnSummary}
         />
       </main>
       <IndexDetailToast message={toast} />

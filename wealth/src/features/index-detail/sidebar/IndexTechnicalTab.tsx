@@ -1,10 +1,11 @@
 import type { NineTurnPeriod } from "../../nine-turn/api/nineTurnApiTypes";
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 import type { IndexDetailViewModel, TrendChannelViewModel } from "../model/indexDetailTypes";
+import { INDEX_TECHNICAL_NINE_TURN_PERIODS, type IndexTechnicalNineTurnSummary } from "../model/indexTechnicalNineTurnSummary";
 import { IndexDetailModuleState } from "../state/IndexDetailModuleState";
 
 interface IndexTechnicalTabProps {
-  nineTurnSummary: Record<"day" | "30" | "60", NineTurnLayerViewModel>;
+  nineTurnSummary: IndexTechnicalNineTurnSummary;
   onNineTurnRetry: (period: NineTurnPeriod) => void;
   onTrendRetry: () => void;
   trend: TrendChannelViewModel | null;
@@ -38,19 +39,14 @@ function NineTurnSummaryCard({
   layers,
   onRetry,
 }: {
-  layers: Record<"day" | "30" | "60", NineTurnLayerViewModel>;
+  layers: IndexTechnicalNineTurnSummary;
   onRetry: (period: NineTurnPeriod) => void;
 }) {
-  const rows = [
-    { label: "日线", period: "day" as const },
-    { label: "60分钟", period: "60" as const },
-    { label: "30分钟", period: "30" as const },
-  ];
   return (
     <div aria-label="九转序列摘要" className="index-technical-card index-nine-turn-summary">
       <div><strong>九转序列</strong><span>客观序列 · 非交易信号</span></div>
       <div className="index-nine-turn-summary-rows">
-        {rows.map(({ label, period }) => {
+        {INDEX_TECHNICAL_NINE_TURN_PERIODS.map(({ label, period }) => {
           const layer = layers[period];
           const latest = layer.data?.latestMarker ?? null;
           const value = latest ? `${latest.direction === "UP" ? "上序" : "下序"} ${latest.sequenceNumber}` : "--";
@@ -70,14 +66,14 @@ function NineTurnSummaryCard({
 
 function nineTurnStatusText(layer: NineTurnLayerViewModel): string {
   if (layer.phase === "LOADING") return "加载中";
-  if (layer.phase === "EMPTY") return "当前窗口无标记";
+  if (layer.phase === "EMPTY") return "暂时空缺";
   if (layer.phase === "SOURCE_EMPTY") return "数据源未覆盖";
   if (layer.phase === "PARTIAL") return "部分缺失";
   if (layer.phase === "ERROR") return "加载失败";
   if (layer.phase === "FORBIDDEN") return "权限不足";
   if (layer.phase === "UNSUPPORTED") return "当前环境未开放";
   if (layer.phase === "IDLE") return "等待加载";
-  return "最新标记";
+  return layer.data?.latestMarker ? "最新标记" : "暂时空缺";
 }
 
 function TechnicalCard({ title, value, note }: { title: string; value: string; note: string }) {

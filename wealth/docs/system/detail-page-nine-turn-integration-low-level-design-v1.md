@@ -1,6 +1,6 @@
 # 股票与主要指数详情页九转接入低层设计（LLD）v1
 
-> 状态：M0～M5、M6-0 与 M6-A 已完成；M6-B 第一段只读发布计划已于 2026-08-15 完成，三个指数 sensor 仍为 `STOPPED` 并等待第二次明确批准，M6-C～M6-D 尚未开始。生产版本为 `58fb5b62`，日线九转路由受认证保护，分钟九转路由保持 404。本次 M6-B 只读审计读取正式 Definitions、Dagster instance、Lake 与生产 serving 聚合事实，没有启动 sensor、提交 run、写 Lake/数据库或写 Dagster instance。M3-C-Minute 页面/API/视觉行为与“股票分钟 QFQ 九转去价格字段”S0～S5 均已完成。S6 发现的股票日线冗余价格漂移和自然更新阻塞已移交独立专项，本轮不修改日线合同、物理文件、check、sensor 或生产表。六个九转 sensor 的状态以第 4.5 节和第 15.7 节带时间戳快照为准。
+> 状态：M0～M5、M6-0 与 M6-A 已完成；2026-08-16 指数 Technical 固定六周期九转摘要补充需求的 Figma、文档、前端代码与本地验收也已完成，尚未发布生产。M6-B 第一段只读发布计划已于 2026-08-15 完成，三个指数 sensor 仍为 `STOPPED` 并等待第二次明确批准，M6-C～M6-D 尚未开始。生产版本仍为 `58fb5b62`，日线九转路由受认证保护，分钟九转路由保持 404。本次 M6-B 只读审计读取正式 Definitions、Dagster instance、Lake 与生产 serving 聚合事实，没有启动 sensor、提交 run、写 Lake/数据库或写 Dagster instance。M3-C-Minute 页面/API/视觉行为与“股票分钟 QFQ 九转去价格字段”S0～S5 均已完成。S6 发现的股票日线冗余价格漂移和自然更新阻塞已移交独立专项，本轮不修改日线合同、物理文件、check、sensor 或生产表。六个九转 sensor 的状态以第 4.5 节和第 15.7 节带时间戳快照为准。
 >
 > 上游方案：[股票与主要指数详情页九转接入总方案 v1](./detail-page-nine-turn-integration-implementation-design-v1.md)
 >
@@ -797,10 +797,10 @@ phase, data, errorCode, errorMessage, requestId, AbortController
 指数：
 
 1. active chart 周期调用 `ensure(activePeriod)`。
-2. Technical Tab 首次打开时，仅对 `nineTurnPeriods` 中的 day/60/30 调用 `ensure`。
+2. Technical Tab 首次打开时，按固定摘要周期 `day/15/30/60/90/120` 与 `nineTurnPeriods` 求交后调用 `ensure`；不得包含 1 分钟或 5 分钟。
 3. 为复用图表缓存，摘要请求使用与图表相同的窗口 limit，不单独创建 summary endpoint。
-4. production 只请求 day；60/30 显示 `--`，不尝试分钟 URL。
-5. local/dev 中已请求的 60/30 可在切图时直接复用。
+4. production 只请求 day；15/30/60/90/120 五行仍固定保留并显示 `--`，不尝试分钟 URL。
+5. local/dev 中已请求的 15/30/60/90/120 可在切图时直接复用；5 分钟图表九转缓存不进入右栏摘要。
 6. 九转状态不并入整页 `partialReasons`，只在图层和 Technical 九转卡中表达。
 
 ### 12.4 局部状态
@@ -857,21 +857,65 @@ interface NineTurnRenderMarker {
 
 ## 14. 指数 Technical 九转摘要
 
-九转卡只显示 day、60、30 三行：
+九转卡固定显示六行，顺序为 day、15、30、60、90、120：
 
 ```text
 日线  上序 9
-60分  下序 6
+15分  --
 30分  上序 3
+60分  下序 6
+90分  --
+120分 --
 ```
 
 映射规则：
 
 1. 使用各响应 `latestMarker`，不在前端扫描历史推导“最近一次九转”。
 2. 最新 bar count 1～9 才显示方向和序号。
-3. 最新 bar count 0、10+、缺行、未开放或源未就绪都显示 `--`，并由旁侧状态说明原因。
+3. 没有 `latestMarker`、count 0、10+、数据为空、能力未开放或请求失败时，值位都显示 `--`，并由旁侧局部状态说明原因；对应周期行始终保留。
 4. Figma 示例数字不是测试金标。
 5. 摘要不解释趋势、机会或交易动作。
+6. 1 分钟和 5 分钟不进入摘要；5 分钟是否支持图表 marker 与摘要合同相互独立。
+
+### 14.1 2026-08-16 补充需求修改范围
+
+Figma 事实源：
+
+- `08 Index Detail - Desktop Loaded` 的 Technical 根画板 `423:910`，通过右栏实例同步主组件改动。
+- `08.5 Index Detail - Components` 的 Technical 主组件 `414:448`，九转卡 `414:417` 固定为六行 Auto Layout。
+- `08.5` 的合同说明 `633:545`，明确固定顺序、缺 marker 的 `--` 以及 1/5 分钟排除规则。
+- `09 Index Detail - States and Interaction Notes` 的九转状态矩阵 `634:558`，明确各局部状态只替换值与状态说明，不删除周期行。
+
+前端修改限定为：
+
+```text
+wealth/src/features/index-detail/model/indexTechnicalNineTurnSummary.ts
+wealth/src/features/index-detail/sidebar/IndexTechnicalTab.tsx
+wealth/src/features/index-detail/sidebar/IndexInfoRail.tsx
+wealth/src/pages/index-detail/IndexDetailPage.tsx
+wealth/src/pages/index-detail/index-detail-page.css
+wealth/src/features/index-detail/sidebar/IndexTechnicalTab.test.tsx
+wealth/src/pages/index-detail/IndexDetailPage.test.tsx
+```
+
+实现必须建立单一 `INDEX_TECHNICAL_NINE_TURN_PERIODS` 常量与对应 summary 类型，页面预取、右栏 Props 和渲染顺序共同消费该合同，禁止在多个组件重复手写周期数组。现有 `useNineTurnSeriesRegistry`、九转 API DTO、Reader、Gold/serving、路由、共享图表和 marker primitive 均不修改；本需求不新增异常码、配置项、后端请求参数或数据迁移。
+
+测试门禁：
+
+1. Technical 卡严格按日线、15、30、60、90、120分钟渲染六行。
+2. 各周期没有 `latestMarker` 时值位为 `--`，行仍存在；有 marker 时显示“上序 n / 下序 n”。
+3. local/dev 首次进入 Technical 只对 capability 支持的六个摘要周期发请求；5分钟不因右栏摘要额外请求。
+4. production capability 只有 day 时只发日线请求，另外五行保留且为 `--`/局部未开放状态。
+5. 既有 active chart 周期请求、缓存、retry、abort/request-id、趋势通道与图表 marker 行为不回归。
+
+### 14.2 补充需求执行结果
+
+1. `INDEX_TECHNICAL_NINE_TURN_PERIODS` 成为唯一周期与文案合同，`IndexDetailPage` 预取、`IndexInfoRail` Props 和 `IndexTechnicalTab` 渲染共同消费；没有第二份顺序数组。
+2. local/dev 首次打开 Technical 并发请求 15/30/60/90/120 五个分钟摘要并复用已加载的 day；测试证明 5 分钟不因摘要额外请求。production/default capability 只请求 day，另外五行由 registry 的 UNSUPPORTED 局部状态固定占位。
+3. `IndexTechnicalTab` 对六个周期始终渲染行；`latestMarker` 缺失时值位为 `--`，EMPTY/READY 无 marker 的 Loaded 文案为“暂时空缺”，SOURCE_EMPTY/ERROR/FORBIDDEN 等继续显示各自局部原因与重试入口。
+4. CSS 将周期列和值列冻结为 64px，行高 38px，六行间距 6px，使用现有 `--cs-color-surface-card`；与 Figma `414:417` 的 Auto Layout 一致，没有新增绝对坐标或补偿位移。
+5. 定向测试为 30 passed；Wealth 全量为 34 files、232 passed，typecheck、production build 和 `git diff --check` 通过。1600×1200 浏览器上，上证六周期均显示真实值；北证50的 15/30/60/90/120 固定显示 `-- / 数据源未覆盖`。页面宽度保持 1600px，六行均无横纵溢出，console 无 warning/error。
+6. 本轮没有修改 API/DTO、后端路由、异常码、Gold/serving、Lake、Dagster、共享 registry、共享图表或 marker primitive，子系统边界与依赖矩阵不变。
 
 ## 15. 文件级实施计划
 
@@ -1012,20 +1056,20 @@ M4-B 正式执行结果（2026-08-15）：
 
 修改现有 index page-init capability、index page/controller、两类 chart adapter、`IndexTechnicalTab` 和测试。不得复制 `NineTurnMarkerPrimitive`、series registry 或 API DTO。
 
-S7 编码边界：
+S7 编码边界及 2026-08-16 固定六周期摘要补充边界：
 
 1. page-init 与 App router 复用同一指数分钟九转 capability resolver；生产只声明 `day`，local/dev 能力就绪时声明 `day,5,15,30,60,90,120`，指数 1 分钟永不请求。
 2. 指数日线与分钟图表复用共享 registry、`NineTurnMarkerPrimitive` 和 `NineTurnLayerStatus`；上证日线 primitive 顺序固定为趋势通道在前、九转在后。
-3. Technical 首次打开只 ensure capability 支持的 day/60/30，并只读取 API `latestMarker` 形成“上序 N/下序 N”；无 marker、未开放或源空均显示 `--` 和局部原因。
+3. Technical 首次打开只 ensure capability 支持的 day/15/30/60/90/120，并只读取 API `latestMarker` 形成“上序 N/下序 N”；六行固定保留，无 marker、未开放、源空或失败均显示 `--` 和局部原因；1 分钟和 5 分钟零摘要请求。
 4. 九转 LOADING/EMPTY/SOURCE_EMPTY/PARTIAL/ERROR/FORBIDDEN/UNSUPPORTED 只影响九转图层和摘要，不进入整页 `partialReasons`，不清空 K 线、趋势、技术指标或右栏其它模块。
 5. `899050.BJ` 分钟保持 `SOURCE_EMPTY`，`000680.SH` 仍由产品 allowlist 拒绝；不增加 fallback、Mock、客户端现算、Tooltip、点击或交易动作。
-6. registry 必须允许 day/60/30 三个独立 key 并发加载；切 code/日期/卸载才统一 abort，单周期 retry 不清理其它周期缓存。
+6. registry 必须允许 day/15/30/60/90/120 六个独立 key 并发加载；切 code/日期/卸载才统一 abort，单周期 retry 不清理其它周期缓存。
 
 S7/M5 正式执行结果（2026-08-15）：
 
 1. page-init 已按同一 capability resolver 输出 `supportsNineTurn=true` 与环境相关 `nineTurnPeriods`；生产仅 day，local/dev 开放 day/5/15/30/60/90/120，指数 1 分钟显示 UNSUPPORTED 且浏览器日志确认九转请求数为 0。
 2. 指数日线与分钟均复用共享 registry、`NineTurnMarkerPrimitive`、`NineTurnLayerStatus` 和 `DetailChartWorkspace`；上证日线趋势通道与九转按冻结顺序并存，没有复制第二套图表或请求控制器。
-3. Technical 首次打开并发读取 day/60/30 的 API `latestMarker`；真实浏览器样本显示“日线 下序 2、60分钟 上序 1、30分钟 上序 3”，文案固定为“客观序列 · 非交易信号”，无点击或交易动作。
+3. S7 初始版本只读取 day/60/30；2026-08-16 补充合同将其替换为固定 day/15/30/60/90/120 六行。真实值仍只读取 API `latestMarker`，文案固定为“客观序列 · 非交易信号”，无点击或交易动作；缺 marker 的值位显示 `--`。
 4. `899050.BJ` 60 分钟浏览器验收为局部 EMPTY“当前分钟数据源暂不覆盖该指数”，右栏继续展示，切回日线立即恢复；指数九转状态不进入整页 `partialReasons`。
 5. 浏览器验收发现并修复共享图表的未操作视窗竞态：分钟技术指标或九转图层到达后，异步旧回调不再把最新 120 根改成最早 120 根；用户主动缩放/拖拽的范围仍保持。60 分钟复验显示最新窗口及 1～9 marker。
 6. 后端 index page-init/daily/minute 九转回归 37 项通过；前端全量 34 个测试文件 232 项、typecheck、production build、`git diff --check` 通过。1600×1200 日线双 primitive、Technical 摘要、60 分钟 marker、指数 1 分钟 UNSUPPORTED、北证50分钟空态和切回日线均完成浏览器验收，页面 console 无 warning/error。
@@ -1097,7 +1141,7 @@ M6-A 正式执行结果：
 1. `origin/dev-interface` 和生产最终运行提交均为 `58fb5b6232068a86ece1d47ef36f17fc0aa29890`，生产工作区干净。第一次部署受 GitHub→Gitee 镜像延迟影响仍运行旧提交，独立版本复核及时识别；按既定重试规则同步后重新执行冻结命令，未在生产打补丁。
 2. 最终命令只构建 Wealth、安装当前后端包并重启 Web；旧前端、migration、两个 seed、unit 同步、Realtime、Foundation/Ops/日期完整性/任务完成 worker 均未重启或执行写入。
 3. Web 入口保持 `python -m src.app.web.run`，相关服务均为 `active`；`/api/health` 和 `/api/v1/health` 为 200，股票/指数日线九转未登录为 401，股票/指数分钟九转为 404。
-4. 生产浏览器验收显示上证日线九转 1～9 marker 与趋势通道共存；Technical 为“日线 下序 2 / 最新标记”，60/30 分钟为“当前环境未开放”；分时、周/月及全部分钟周期 disabled，日 K active。页面无横向溢出，console 无 warning/error。本阶段以上证指数作为生产视觉代表；十指数产品名单、serving 覆盖与页面 capability 已由 M4-B/M5 和发布前回归覆盖，十指数逐页生产视觉矩阵留在 M6-D 收口。
+4. 这是 v1.25 固定六周期摘要改动前的 M6-A 历史生产验收：上证日线九转 1～9 marker 与趋势通道共存；Technical 当时为“日线 下序 2 / 最新标记”，60/30 分钟为“当前环境未开放”；分时、周/月及全部分钟周期 disabled，日 K active。页面无横向溢出，console 无 warning/error。固定六周期摘要尚未重新发布生产，本地执行结果见第 14.2 节。
 5. 本轮没有执行 migration、seed、Lake/数据库写入、Dagster materialize/backfill/runless event、实例读取或 sensor 启停。M6-A 已完成；其后要求的 M6-B 第一段只读发布计划现已完成并记录在下文，但仍不授权第二段启用。
 
 M6-B 第一段只读审计结果与第二段执行门禁：
@@ -1188,7 +1232,7 @@ M6-B 第一段已经完成并停在第二次批准前。本节只授权并记录
 6. marker 时间键、方向锚点、18×18、8px、极值、密集序列和分钟时区。
 7. stable primitive 更新不改变 `dataKey`、120 根默认视窗或当前缩放范围。
 8. 上证日线趋势 + 九转双 primitive attach/detach。
-9. Index Technical production 只请求 day；local 复用 day/60/30 缓存。
+9. Index Technical production 只请求 day；local 复用 day/15/30/60/90/120 缓存。六行固定渲染，1分钟和5分钟不进入摘要且零摘要预取请求。
 
 ### 16.4 浏览器与视觉
 
@@ -1252,7 +1296,7 @@ M3-B 已完成，M4-B 正式执行也已收口：
 4. 历史执行阶段曾停止股票 Gold sensor，serving sensor 当时未启用；这不是当前实例状态。2026-08-15 重新审计确认股票日线 Gold、股票分钟 Gold 和股票日线 serving 三个 sensor 当前均为持久化 `RUNNING`，最近 tick 全部 `SKIPPED` 且没有发起 run；完整状态和阻断原因见第 4.5 节。
 5. Gold 历史发布基线已经完成；生产日线真实 API、数据样本与 Loaded 截图已通过主体门禁。用户已取消登录态正式 P95 与生产缩放边界截图两项补充验收，M3-C 据此完成。S6 新发现的日线冗余价格漂移及自然链路阻塞已移交后续专项，不属于本轮前端退出条件，但必须继续作为未解决事实保留。
 6. M3-C-Minute 的严格 API、性能/内存、缓存/竞态、1/5/15 禁用周期和 1600×1200 浏览器行为门禁已通过；2026-08-15 去价格专项又完成四个正式分钟资产的八列迁移、事件恢复、Reader/readiness 与分钟 sensor 最近窗口自然评估，因此分钟页面行为和物理合同均已收口。下一交易日新增分区只作为运维观察；该结论不扩展到日线或指数九转。
-7. S7/M5 已完成指数 page-init capability、日线/分钟共享 marker、Technical day/60/30 摘要、局部状态和浏览器验收；M6-A 已完成生产窄发布和生产浏览器验收，M6-B 第一段只读计划也已完成。M6-B 第二段启用与 M6-C～M6-D 仍是独立后续阶段，本轮未启用指数 sensor、未写 Lake 或生产数据库。
+7. S7/M5 已完成指数 page-init capability、日线/分钟共享 marker、Technical 摘要、局部状态和浏览器验收；2026-08-16 补充合同把 Technical 摘要替换为固定 day/15/30/60/90/120 六行。M6-A 已完成生产窄发布和生产浏览器验收，M6-B 第一段只读计划也已完成。M6-B 第二段启用与 M6-C～M6-D 仍是独立后续阶段，本轮未启用指数 sensor、未写 Lake 或生产数据库。
 
 ## 20. 股票分钟 QFQ 九转去价格字段专项
 
@@ -1378,8 +1422,9 @@ S2 执行前只读预算基线（不代表当前物理规模）：
 | v1.16 | 2026-08-15 | 去价格专项 S2～S5 收口：12,272 个正式分钟分区切换为八列合同，登记 12,272 materialization/80 check，完成 Reader/readiness/性能与 sensor 自然评估；日线与 Prod 不变 | Codex |
 | v1.17 | 2026-08-15 | S6 只读复核确认日线 20 个代码的 50,283 个既有价格值漂移、计数和信号零差异；按用户决定将日线价格信息及自然链路阻塞移交后续专项，本轮仅继续 M3-C 前端 marker API 性能与 45/180 根视觉验收 | Codex |
 | v1.18 | 2026-08-15 | 用户取消登录态正式 P95 与生产 45/180 根截图两项 M3-C 补充验收，M3-C 收口；冻结 S7/M5 指数 capability、共享图层、Technical 摘要、局部状态与并发缓存门禁 | Codex |
-| v1.19 | 2026-08-15 | S7/M5 收口：指数 page-init capability、日线/分钟共享九转图层、Technical day/60/30 摘要、局部状态与缓存竞态已实现；修复未操作分钟视窗被旧回调改为最早 120 根的问题，并完成北证50空态、1分钟零九转请求及 1600×1200 浏览器验收 | Codex |
+| v1.19 | 2026-08-15 | S7/M5 当时按 day/60/30 三行摘要收口；该历史基线后续由 v1.25 的固定六周期摘要合同替代，其余 page-init capability、共享九转图层、局部状态与缓存竞态结论保持 | Codex |
 | v1.20 | 2026-08-15 | 进度收口：确认 M0～M5 完成、M6 尚未开始；新增 M6-0～M6-D 文件级执行门禁，区分本地提交、推送部署、sensor 只读计划与启用审批，并把 sensor 状态标记为非实时快照 | Codex |
 | v1.21 | 2026-08-15 | M6-0 发布准备审计完成并通过：记录六提交/54 文件范围、生产路由配置、全部定向门禁、platform-only 命令及 M5 定向回滚；修复板块测试异步等待竞态后专项 36/36、Wealth 232/232 与 typecheck 通过 | Codex |
 | v1.22 | 2026-08-15 | M6-A 完成：六个评审提交推送并以 platform-only 路径部署到生产 `58fb5b62`；复核版本、服务、health、日线 401/分钟 404，并通过上证日线双 primitive、Technical 摘要、生产周期禁用和控制台浏览器验收 | Codex |
 | v1.23 | 2026-08-15 | M6-B 第一段只读计划收口：核验 active workspace、三个 STOPPED sensor、八个 RUNNING 上游、最新 7 个 Gold 分区/check、生产 serving、run key/cursor 和单 tick 性能；冻结启用顺序、失败停止/恢复及启用前 sensor 决策测试门禁，未启动 sensor | Codex |
+| v1.25 | 2026-08-16 | 指数 Technical 固定六周期摘要完成本地开发：Figma `414:417`、`633:545`、`634:558` 与前端单一周期合同、预取、右栏渲染、CSS 和测试已同步；Wealth 232 tests、typecheck、build、上证真实六周期与北证50缺值本地浏览器验收通过，不改 API/DTO/Gold/Lake/Dagster，尚未发布生产 | Codex |

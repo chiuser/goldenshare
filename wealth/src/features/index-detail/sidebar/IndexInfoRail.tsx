@@ -1,10 +1,10 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 
 import type { NineTurnPeriod } from "../../nine-turn/api/nineTurnApiTypes";
-import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 import type { IndexDetailWeightsResponseDto } from "../api/indexDetailApiTypes";
 import { formatNullablePoint, formatNullableSignedPercent, formatNullableSignedPoint, marketDirectionClass } from "../api/indexDetailViewModelAdapter";
 import type { IndexDetailViewModel, IndexInfoTab, IndexModulePhase, IndexPagePhase, TrendChannelViewModel } from "../model/indexDetailTypes";
+import type { IndexTechnicalNineTurnSummary } from "../model/indexTechnicalNineTurnSummary";
 import { IndexDetailPartialNotice } from "../state/IndexDetailPartialNotice";
 import { IndexBasicTab } from "./IndexBasicTab";
 import { IndexTechnicalTab } from "./IndexTechnicalTab";
@@ -16,7 +16,7 @@ const TABS: Array<{ key: IndexInfoTab; label: string }> = [
 
 interface IndexInfoRailProps {
   activeTab: IndexInfoTab;
-  nineTurnSummary: Record<"day" | "30" | "60", NineTurnLayerViewModel>;
+  nineTurnSummary: IndexTechnicalNineTurnSummary;
   onAction: (message: string) => void;
   onNineTurnRetry: (period: NineTurnPeriod) => void;
   onTrendRetry: () => void;
