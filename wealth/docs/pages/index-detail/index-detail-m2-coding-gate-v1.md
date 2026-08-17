@@ -36,8 +36,8 @@
 1. [x] 指数分钟三件套与交付口径已完成评审；其它指数日线待验项继续按本门禁保留。
 2. [x] 10 指数 `index_factor_pro` 生产覆盖与当前生产数据库内性能审计通过；真实 2000 行 API P95 仍属实现后门禁。
 3. [x] 趋势通道边界冻结：既有 SSE 契约保持不变，仅上证指数消费；无十指数适配层。
-4. [x] page-init/kline/weights 请求、响应 DTO 与核心样例已按 `1.2.0` 冻结；字段集不变，收紧 A 股集合与停牌解析语义。
-5. [x] 权重 SQL、贡献公式、日期、完整批次和排序已冻结。
+4. [x] page-init/kline/weights 请求、响应 DTO 与核心样例已按 `1.3.1` 冻结；字段集不变，收紧 A 股集合、停牌解析与贡献排序语义。
+5. [x] 权重 SQL、贡献公式、日期、完整批次和贡献点最终排序已冻结。
 6. [x] 状态归并与异常矩阵冻结。
 7. [x] `ID_*` / `IM_*` 异常码已登记到统一注册表。
 8. [x] shared 图表提取边界和股票回归 case 冻结。
@@ -357,9 +357,10 @@ JOIN core_serving.security_serving s
  AND s.curr_type = 'CNY'
 WHERE w.index_code = :index_code
   AND w.trade_date = :weight_trade_date
-  AND w.weight IS NOT NULL
-ORDER BY weight DESC, con_code ASC;
+  AND w.weight IS NOT NULL;
 ```
+
+源 SQL 不承担最终业务排序。service 必须在贡献点按四位小数舍入后执行 `contributionPoint DESC NULLS LAST, weight DESC, conCode ASC`；前端只能保持 API 原序。
 
 ```sql
 SELECT
@@ -578,7 +579,7 @@ M1 实现后 50 样本跨网络服务链 P95：page-init 246.054ms、kline 300 2
 1. [x] 真实 FastAPI route，禁止只 mock query/service。
 2. [x] 10 code page-init 参数化测试。
 3. [x] kline 字段、null、排序、limit、非法 adjustment 负向测试。
-4. [x] 权重 2026-07-31、完整批次、排序、覆盖计数、不截断、公式、缺失、不归一化、不缩放。
+4. [x] 权重 2026-07-31、完整批次、贡献点正/零/负/null 降序、null 置底、同值 weight/code 决胜、覆盖计数、不截断、公式、缺失、不归一化、不缩放。
 5. [x] 既有 SSE endpoint 全回归；上证指数请求成功，其余 9 个指数前端断言零请求。
 6. [x] auth、not-found、delayed、empty、partial、error。
 7. [x] prod 分钟 route 不存在；local 临时真实 Parquet 可查询。
@@ -633,6 +634,7 @@ cd wealth && npm run build
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.22 | 2026-08-17 | 冻结权重贡献列表新排序门禁：四位贡献点数值降序、null 置底、同值 weight/code 决胜；最终排序只在 service，前端不得二次排序 | Codex |
 | v1.21 | 2026-08-16 | 按最终交付结论关闭指数分钟三件套与跨角色签字项；明确 M5-A/M5-B/P10、正式 Gold 与生产 404 均为最终分钟合同，并保留指数日线后续门禁 | Codex |
 | v1.20 | 2026-08-13 | 完成 M5-B 前端真实 provider、Mock 清零、全量回归与浏览器门禁；更新最终正式 Gold 覆盖、性能和最大响应证据 | Codex |
 | v1.19 | 2026-08-13 | 标记 M5-B 正式 Gold 全历史和性能门禁通过；冻结 10000/5MB 正确拒绝 + 5000 正常分页验收，并增加真实 provider、bars-only PARTIAL 和 Mock 清零前端门禁 | Codex |

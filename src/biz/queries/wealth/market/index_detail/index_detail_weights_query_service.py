@@ -32,6 +32,16 @@ from src.biz.services.wealth.market.index_detail.index_weight_contribution_build
 _WEIGHTS_NOTE = "基于最新月度权重估算，非指数公司官方归因"
 
 
+def _weight_row_sort_key(row: IndexDetailWeightRowDto) -> tuple[int, float, float, str]:
+    contribution_point = row.contributionPoint
+    return (
+        1 if contribution_point is None else 0,
+        0.0 if contribution_point is None else -contribution_point,
+        -row.weight,
+        row.conCode,
+    )
+
+
 class IndexDetailWeightsQueryService:
     """Assemble complete index weight batches and estimated contribution points."""
 
@@ -146,6 +156,7 @@ class IndexDetailWeightsQueryService:
                 )
             )
 
+        rows.sort(key=_weight_row_sort_key)
         missing_count = len(rows) - available_count
         data_status = self._status_resolver.resolve(
             expected_trade_date=context.trade_date,

@@ -52,7 +52,7 @@ M0 技术产物已完成，M1 后端已落地：
 
 1. 10 指数 `core_serving.index_factor_pro` 的当前生产快照覆盖、同日一致性和旧候选 joined 查询 P95 已审计；M1 已复测最终 factor-only SQL、MA 历史基数条件查询和完整服务链。MA 历史不足采用基于实际历史根数的通用判断。
 2. `ID_*` / `IM_*` 已登记到统一异常码注册表。
-3. page-init/kline/weights 正式 DTO 已以 `1.2.0` 独立合同冻结；1.2.0 只收紧成分集合与停牌解析语义，不增加或删除字段。
+3. page-init/kline/weights 正式 DTO 已以 `1.3.1` 独立合同冻结；1.3.1 在不增删字段的前提下，将权重 rows 排序收敛为贡献点数值降序、null 置底和稳定决胜。
 4. 生产审计发现深证成指、创业板指 factor 量额与正式日线分叉；外部数据源核对确认 factor 准确，基本行情与 Kline 的量额统一取 `index_factor_pro`，不做倍率修正或 daily fallback。
 5. 已新增独立 `page-init/kline/weights` schema、query、mapper、service 与正式路由；未修改股票详情、主要指数卡片或 Quote trend DTO。
 6. M1 生产只读复验显示 9 个指数当前有 630 根 factor（自 2024-01-02），A500 当前有 455 根（自 2024-09-23）；该结果只记录审计时点，不进入任何 code/date 特例。
@@ -166,7 +166,7 @@ Figma 事实源：
 2. `stockDetailViewModelAdapter` 的 `valueOrZero` 会制造假 K 线和技术指标尖峰。
 3. `StockMinsLakeReader` 使用按年份组织的 Gold 文件；指数分钟 bars/indicators 均使用按 `trade_date=YYYY-MM-DD` 组织的正式 Gold 分区，不能继承股票路径算法。
 4. 既有趋势接口使用 snake_case 查询参数与响应字段，不是 Wealth camelCase DTO。
-5. `IndexWeightDAO.get_latest_weights()` 的排序不符合页面权重降序要求，不修改 DAO 旧语义，详情建立专用 query。
+5. `IndexWeightDAO.get_latest_weights()` 的排序不符合页面贡献点降序要求，不修改 DAO 旧语义；详情专用 query 只取完整事实，最终排序在贡献计算后的 service 完成。
 
 ---
 
@@ -575,7 +575,7 @@ contributionPoint
 1. 内部全部转 `Decimal(str(value))` 计算。
 2. 不对权重求和做归一化，不按实际指数涨跌点缩放。
 3. 输出前用 `Decimal("0.0001")`、`ROUND_HALF_UP` 保留 4 位小数，再转 DTO number。
-4. UI 显示 2 位并带正负号；排序仍只按原始 weight，不按贡献点。
+4. UI 显示 2 位并带正负号；最终 rows 按已输出的四位小数 `contributionPoint` 数值降序，`null` 置底，不按绝对值排序；同贡献点按 `weight DESC, conCode ASC`。
 5. index preClose、weight 或最终解析后的 constituent pct 任一缺失时 contribution 为 null；停牌证据解析出的 pct 为 0，因此 contribution 合法为 0，不属于“缺值补 0”。
 
 完整批次规则：
@@ -583,7 +583,7 @@ contributionPoint
 1. `weightTradeDate = max(index_weight.trade_date) <= contributionTradeDate`。
 2. 该日期的官方源批次保持原样；页面在 `IndexWeight JOIN Security` 后只保留 `security_type=EQUITY`、`exchange in (SSE,SZSE,BSE)`、`curr_type=CNY` 的完整 A 股子集。B 股和无法证明为 A 股的行不进入 rows/coverage，禁止按代码前缀识别。
 3. 对 A 股子集审计 `count(*)`、`count(weight)` 和重复 key；发现 null weight 或重复时整个 weights 模块 ERROR，禁止过滤后返回半批次。
-4. 正常查询按 `weight DESC, con_code ASC`。
+4. 源查询不承担最终业务排序；service 完成贡献点四位小数舍入后，按 `contributionPoint DESC NULLS LAST, weight DESC, conCode ASC` 排列完整 rows。前端保持 API 原序，不得二次排序。
 5. `rows.length = totalCount = returnedCount`，`isTruncated=false`；这里的 total 是页面 A 股子集总数，不是官方源批次含 B 股的行数。
 6. A 股官方原始 weight 原样返回，不按 A 股权重合计重新归一化，也不按实际指数涨跌缩放。
 7. 精确日 daily `pct_chg` 优先；仅在 daily 缺失/空值且存在 `suspend_type='S'` 时输出 `changePct=0`、`direction=FLAT`、`contributionPoint=0`，并计入 contributionAvailableCount；无两类证据才保持 null/PARTIAL。
@@ -783,9 +783,10 @@ LEFT JOIN core_serving.equity_daily_bar e
   ON e.ts_code = w.con_code
  AND e.trade_date = :contribution_trade_date
 WHERE w.index_code = :ts_code
-  AND w.trade_date = :weight_trade_date
-ORDER BY w.weight DESC, w.con_code ASC;
+  AND w.trade_date = :weight_trade_date;
 ```
+
+SQL 只负责集合取数。贡献点使用上述 Decimal 公式计算并舍入后，由 service 执行最终稳定排序；禁止把公式复制进 SQL 或前端。
 
 禁止：
 
@@ -1393,7 +1394,7 @@ tests/test_index_minute_gold_audit.py             # M5-B read-only acceptance
 6. breadth up/flat/down/missing 和两条数量恒等式；B 股排除、停牌 A 股按 flat、daily 与停牌同时存在时 daily 优先、无两类证据才 PARTIAL。
 7. kline 只允许 day、不接受 adjustment、升序、limit 边界。
 8. 因子 null 保持 null，KDJ J 映射正确，不返回 MA15/MA120。
-9. 权重日期、完整 A 股子集、稳定排序、B 股不进入 rows/coverage、名称缺失、停牌 pct/贡献为 0、真实 null pct、preClose 缺失。
+9. 权重日期、完整 A 股子集、贡献点正/零/负/null 降序、null 置底、同贡献 weight/code 决胜、B 股不进入 rows/coverage、名称缺失、停牌 pct/贡献为 0、真实 null pct、preClose 缺失。
 10. 非 100% 权重和不归一化；贡献和实际指数涨跌不对账。
 11. 401/403/400/404/500 映射。
 12. debug=false 固定返回 `debugInfo=null`；debug=true 只列冻结的模块状态与异常，不回 SQL/Lake 绝对路径/环境变量/连接信息/凭据或 exception repr。
@@ -1534,7 +1535,7 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 
 1. [x] 本 LLD 已完成产品、后端、前端评审，并按批准方案进入 M1-M4。
 2. [x] 10 指数 factor 审计、最终 SQL、完整服务链和当前实返 payload P95 通过；真实 2000 行仍保留为后续门禁。
-3. [x] page-init/kline/weights DTO `1.2.0` 已冻结；字段集不变，成分集合与停牌解析语义已收紧。
+3. [x] page-init/kline/weights DTO `1.3.1` 已冻结；字段集不变，成分集合、停牌解析与贡献排序语义已收紧。
 4. [x] 贡献输出按 4 位舍入、UI 2 位的精度规则已冻结。
 5. [x] 异常码已登记。
 6. [x] shared chart M2 的股票截图/测试基线已保存；1600×1200 前后截图及结构量测位于本机验证目录 `/private/tmp/goldenshare-index-detail-m2/`。
@@ -1570,6 +1571,7 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.21 | 2026-08-17 | 权重最终排序从源 weight 顺序改为 service 在贡献点四位舍入后按数值降序、null 置底、weight/code 决胜；SQL 与前端不复制排序公式 | Codex |
 | v1.20 | 2026-08-16 | 收敛指数分钟完成状态：修正当前 Gold bars 路径、12 列物理合同、Gold-to-Gold 对齐与真实指标测试；M6 发布边界验收完成，并将九转后续运维阶段从指数分钟未完成项中剥离 | Codex |
 | v1.19 | 2026-08-15 | 同步 M6-0 通过：生产路由与配置基线、platform-only 发布边界及 M5 定向回滚已冻结；板块测试竞态修复后 Wealth 全量回归通过，M6-A 仍待独立批准 | Codex |
 | v1.18 | 2026-08-15 | 同步 S7/M5 当前实现：page-init capability 升级为 `supportsNineTurn=true + nineTurnPeriods`，Technical day/60/30 消费独立九转摘要并保持技术结论为空；M6 发布尚未开始 | Codex |

@@ -360,6 +360,5 @@ class IndexDetailQuery:
                 IndexWeight.index_code == ts_code,
                 IndexWeight.trade_date == weight_trade_date,
             )
-            .order_by(desc(IndexWeight.weight), IndexWeight.con_code)
         )
         return [dict(row) for row in session.execute(statement).mappings().all()]

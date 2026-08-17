@@ -26,10 +26,10 @@
 | 原则 | 本模块结论 | 设计落点 | 计划测试 |
 |---|---|---|---|
 | 事实源单一 | 名单、行情、因子、权重、贡献与通道各有唯一后端事实源 | query/service + DTO | 字段逐项源映射 |
-| 契约先行 | 独立 DTO 已提升为 `1.2.0`，字段结构不变并冻结 A 股/停牌语义 | schema/API types | schema extra forbid + TS typecheck |
+| 契约先行 | 独立 DTO 合同已提升为 `1.3.1`，字段结构不变并冻结 A 股/停牌与贡献排序语义 | schema/API types | schema extra forbid + TS typecheck |
 | 配置一致 | 复用 `majorIndices` 和现有 local minute 配置，不新增页面常量 | config service/capability | 10 code 与 profile 矩阵 |
 | 默认显式 | 默认日线、基本行情页签、300 根、权重完整批次 | schema defaults/adapter | 缺参、边界、负向测试 |
-| 排序确定 | 权重降序、code 次序；K 线时间升序 | query | 同权重/乱序样本 |
+| 排序确定 | 贡献点数值降序、null 置底、weight/code 决胜；K 线时间升序 | service + query | 正/零/负/null 与同贡献样本 |
 | 性能前置 | 小查询、权重全量批次与虚拟化、趋势缓存、分钟限页 | query/cache/reader | P95 与 payload 门禁 |
 | 状态标准化 | 页面状态与各模块状态分开 | response dataStatus + HTTP error | 成功态 READY/DELAYED/EMPTY/PARTIAL；Error/Forbidden 走 HTTP |
 | 用户结果优先 | 真实 API + 浏览器可见结果为验收 | web tests + frontend tests | 无 mock 回退、10 路由、页签 |
@@ -54,7 +54,7 @@
 2. 股票详情已在 `src/biz/{api,queries,schemas,services}/wealth/market/stock_detail` 建立可参考的分层。
 3. `QuoteQueryService` 能读取指数日/周/月线并临时计算指标，但它属于旧 Quote 大服务；本模块不继续扩写该服务。
 4. `core_serving.index_factor_pro` 已有 ORM 与完整 bfq 指标字段；M0 已完成 10 指数当前快照覆盖、同日一致性和最终查询性能审计，MA 历史不足必须运行时按实际有效历史判断。
-5. `IndexWeightDAO.get_latest_weights()` 能选最近批次，但返回按 `con_code` 排序，不符合页面“按权重排序”；页面查询不能照搬排序语义。
+5. `IndexWeightDAO.get_latest_weights()` 能选最近批次，但返回按 `con_code` 排序；页面最终顺序必须在贡献点计算完成后确定，不能照搬 DAO 排序语义。
 6. 现有趋势通道路由 `/api/v1/quote/detail/trend-channel` 和 schema 只接受 `000001.SH + day`，公式版本也是 SSE 专项；不能声称已覆盖其余 9 个指数。
 7. 当前 local minute capability 已统一管理 `APP_ENV`、`WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED`、`GOLDENSHARE_LAKE_ROOT` 和 DuckDB 依赖，无需新增第二套开关。
 8. `major_index_mins` Gold bars 与 `major_index_mins_technical` Gold indicators 七频率正式物理文件已通过只读审计；P10 Web 只消费稳定物理合同，不修改对应 Dagster asset/writer/check/state。
@@ -386,9 +386,10 @@ interface IndexDetailWeightsResponse {
 1. 解析 page-init 同口径的 `asOfTradeDate`，作为 `contributionTradeDate`。
 2. 查询指数该日 `pre_close`。
 3. 查询 `MAX(index_weight.trade_date) <= contributionTradeDate`。
-4. 以内连接 Security 取该批次完整 A 股子集，按 `weight DESC, con_code ASC` 排序，不截断；B 股不返回、不进入 coverage。
+4. 以内连接 Security 取该批次完整 A 股子集，不截断；B 股不返回、不进入 coverage。源查询不承担最终业务排序。
 5. 集合查询同日 `equity_daily_bar.pct_chg` 与 `equity_suspend_d`，禁止 N+1。日线值优先；无日线且确认停牌时使用 0%，否则保留 null。
 6. 后端按已冻结公式计算贡献点；不归一化、不缩放。确认停牌的 0% 是有明确事实依据的业务值，不是对未知缺失补 0。
+7. 贡献点完成四位小数舍入后，由 service 按 `contributionPoint DESC NULLS LAST, weight DESC, conCode ASC` 生成最终 rows；前端不得二次排序。
 
 当前生产审计证据：10 个指数 raw/serving 最新批次均为 `2026-07-31`，serving 共 5274 行，无 null weight、无重复成分；批次权重和约 `99.984%~100.006%`。这说明不得对源值强制归一化，也说明当前日期基线可以使用。
 
@@ -568,7 +569,7 @@ route tsCode
 2. `MarketPageContextQuery` 默认日期、显式日期和 source delayed 三类锚点覆盖。
 3. kline 只接受 day、不接受 adjustment、升序、null 不变 0。
 4. page-init 与 kline 核心字段对照真实表。
-5. 权重解析到 2026-07-31，完整 A 股子集、B 股排除、排序、覆盖计数、不截断和不归一化正确。
+5. 权重解析到 2026-07-31，完整 A 股子集、B 股排除、贡献点降序/null 置底/同值决胜、覆盖计数、不截断和不归一化正确。
 6. 贡献点正常、负值、零涨跌、确认停牌、真实 A 股行情缺失、指数昨收缺失均按公式断言。
 7. 权重和实际指数涨跌点不相等时不缩放。
 8. page-init 的 15 个基本行情字段映射正确；日度指标缺失保持 null；成分涨跌只取 A 股，日线优先、确认停牌进入 flat、B 股不进入 coverage，真实 missing 不进入 flat。
@@ -667,6 +668,7 @@ M5-B 准备批次已于 2026-08-12 验收。2026-08-13 最终重跑确认 Silver
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.24 | 2026-08-17 | 将权重列表最终排序职责收敛到贡献计算后的 service：贡献点数值降序、null 置底、同值按 weight/code 决胜；前端保持 API 原序渲染 | Codex |
 | v1.23 | 2026-08-16 | 收敛指数分钟完成状态：M6 发布边界验收标记完成，删除“Lake 尚未 ready”的过时风险，明确正式 Gold、本地七频、生产 404 与九转后续运维阶段的边界 | Codex |
 | v1.22 | 2026-08-15 | 同步 M6-0 通过：冻结生产日线/分钟路由基线和 platform-only 发布范围，修复板块测试竞态并完成 Wealth 全量回归；M6-A 待独立审批 | Codex |
 | v1.21 | 2026-08-15 | 同步 S7/M5 当前实现：page-init `supportsNineTurn=true` 并返回 `nineTurnPeriods`；原“不纳入九转”仅保留为 M1–M5-B 历史范围，M6 发布仍待后续 | Codex |

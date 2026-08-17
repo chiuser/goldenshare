@@ -1,8 +1,8 @@
 # 指数详情页正式 API / DTO 合同 v1
 
-> 合同版本：`1.3.0`
+> 合同版本：`1.3.1`
 >
-> 冻结日期：2026-08-12
+> 冻结日期：2026-08-17
 >
 > 状态：M1～M5-B 与 S7/M5 已实现；S7/M5 仅升级 page-init 九转 capability，不扩展股票详情或主要指数卡片 DTO。
 
@@ -384,7 +384,7 @@ interface IndexDetailWeightsResponseDto {
 2. `weightTradeDate=max(index_weight.trade_date) <= contributionTradeDate`，当前生产验收基线是 2026-07-31，但代码不硬编码。
 3. A 股范围与 breadth 完全一致：`security_type=EQUITY`、`exchange in (SSE,SZSE,BSE)`、`curr_type=CNY`。B 股不返回，不计入 coverage；不得使用代码前缀判断 A/B 股。
 4. A 股子集出现 null weight 或重复成分时返回错误，禁止过滤异常行后返回半批次。
-5. rows 按 `weight DESC, conCode ASC`，且 `rows.length=totalCount=returnedCount`、`isTruncated=false`。
+5. rows 按四位小数的 `contributionPoint DESC NULLS LAST, weight DESC, conCode ASC` 返回：正贡献在前，其后依次为 0、负贡献和 `null`；不得按绝对值排序。`rows.length=totalCount=returnedCount`、`isTruncated=false`。
 6. `contributionAvailableCount + contributionMissingCount = totalCount`。
 7. 名称缺失保留行，以 code 展示；正常 A 股集合由 Security 身份确定，因此名称为空只属于字段缺失，不改变 A 股身份。
 8. 贡献公式：`indexPreClose * weight/100 * constituentPctChg/100`。
@@ -432,6 +432,7 @@ interface IndexDetailErrorResponseDto {
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| `1.3.1` | 2026-08-17 | 权重股贡献列表改为按四位小数 `contributionPoint` 数值降序，缺失值置底；同贡献点按 `weight DESC, conCode ASC` 保持确定性；DTO 字段结构不变 |
 | `1.3.0` | 2026-08-15 | S7/M5 升级指数 page-init 九转 capability：生产仅开放日线，local/dev 在同一 router capability 就绪时开放 5/15/30/60/90/120 分钟；指数 1 分钟永不开放，九转数据仍由独立接口提供 |
 | `1.2.0` | 2026-08-12 | 成分范围统一收敛为 Security 事实字段识别的 A 股；B 股不进入 rows/coverage/missing；同日无行情但确认停牌的 A 股按 0%/FLAT 参与 breadth 与贡献；DTO 字段结构不变，提升版本以冻结语义变更 |
 | `1.1.0` | 2026-08-11 | 外部数据源核对确认 factor 量额准确；page-init 与 Kline 的成交量、成交额统一取 `IndexFactorPro`，禁止 daily fallback；DTO 字段结构不变 |

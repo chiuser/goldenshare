@@ -128,7 +128,7 @@ docs/
 - [指数详情页标杆需求 v1（指数分钟交付完成）](./pages/index-detail/index-detail-benchmark-requirement-v1.md)
 - [指数详情页技术实施方案 v1（指数分钟交付完成）](./pages/index-detail/index-detail-implementation-design-v1.md)
 - [指数详情页低层设计（LLD）v1（指数分钟交付完成）](./pages/index-detail/index-detail-low-level-design-v1.md)
-- [指数详情页正式 API / DTO 合同 v1（S7/M5 capability 1.3.0 已冻结）](./pages/index-detail/index-detail-api-contract-v1.md)
+- [指数详情页正式 API / DTO 合同 v1（1.3.1 已冻结）](./pages/index-detail/index-detail-api-contract-v1.md)
 - [指数详情本地分钟 API / DTO 合同 v1（P10 1.1.0 已冻结，Gold-only）](./pages/index-detail/index-detail-minutes-api-contract-v1.md)
 - [指数详情页 M0 生产因子审计 v1](./pages/index-detail/index-detail-m0-production-audit-v1.md)
 - [指数详情页 M2 编码前门禁 v1（指数分钟条目全部通过）](./pages/index-detail/index-detail-m2-coding-gate-v1.md)

@@ -582,11 +582,11 @@ def test_page_and_weights_use_a_shares_with_daily_first_and_suspension_fallback(
     codes = [row["conCode"] for row in weights_payload["rows"]]
     assert codes == [
         "600001.SH",
-        "600002.SH",
-        "600003.SH",
-        "600004.SH",
-        "600005.SH",
         "600006.SH",
+        "600004.SH",
+        "600003.SH",
+        "600005.SH",
+        "600002.SH",
     ]
     assert "900901.SH" not in codes
     rows_by_code = {row["conCode"]: row for row in weights_payload["rows"]}
@@ -609,6 +609,25 @@ def test_page_and_weights_use_a_shares_with_daily_first_and_suspension_fallback(
 
 def test_weights_return_complete_batch_stable_sort_and_frozen_contribution(app_client, db_session) -> None:
     _seed_full_data(db_session)
+    missing_contribution_row = db_session.get(
+        IndexWeight,
+        (_INDEX_CODE, date(2026, 7, 31), "600004.SH"),
+    )
+    assert missing_contribution_row is not None
+    missing_contribution_row.weight = Decimal("40.00000000")
+    db_session.add_all(
+        [
+            _security(ts_code="600005.SH", name="戊公司"),
+            IndexWeight(
+                index_code=_INDEX_CODE,
+                trade_date=date(2026, 7, 31),
+                con_code="600005.SH",
+                weight=Decimal("10.00000000"),
+            ),
+            _equity_daily(ts_code="600005.SH", pct_chg=Decimal("0.0000")),
+        ]
+    )
+    db_session.commit()
 
     response = app_client.get(
         "/api/v1/wealth/market/index-detail/weights",
@@ -620,17 +639,18 @@ def test_weights_return_complete_batch_stable_sort_and_frozen_contribution(app_c
     assert payload["weightTradeDate"] == "2026-07-31"
     assert [row["conCode"] for row in payload["rows"]] == [
         "600001.SH",
-        "600002.SH",
         "600003.SH",
+        "600005.SH",
+        "600002.SH",
         "600004.SH",
     ]
-    assert [row["contributionPoint"] for row in payload["rows"]] == [6.0, -2.0, 0.0, None]
+    assert [row["contributionPoint"] for row in payload["rows"]] == [6.0, 0.0, 0.0, -2.0, None]
     assert payload["rows"][-1]["name"] == "丁公司"
     assert payload["rows"][-1]["direction"] == "UNKNOWN"
     assert payload["coverage"] == {
-        "totalCount": 4,
-        "returnedCount": 4,
-        "contributionAvailableCount": 3,
+        "totalCount": 5,
+        "returnedCount": 5,
+        "contributionAvailableCount": 4,
         "contributionMissingCount": 1,
         "isTruncated": False,
     }

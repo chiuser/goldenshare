@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { IndexDetailWeightsResponseDto } from "../../features/index-detail/api/indexDetailApiTypes";
 import { makeKline, makePageInit, makeTrendPayload } from "../../features/index-detail/testing/indexDetailTestFixtures";
 import { IndexDetailPage } from "./IndexDetailPage";
 
@@ -45,6 +46,36 @@ describe("IndexDetailPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: "权重股贡献" }));
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/weights"))).toHaveLength(1);
     expect(screen.getByLabelText("权重股滚动列表")).toHaveProperty("scrollTop", 320);
+  });
+
+  it("renders weight rows in the contribution order supplied by the API", async () => {
+    const pageInit = makePageInit("399001.SZ");
+    const weights = makeWeights(pageInit, "PARTIAL");
+    weights.rows = [
+      { ...weights.rows[0], conCode: "600010.SH", name: "正贡献", weight: 1, contributionPoint: 2 },
+      { ...weights.rows[1], conCode: "600020.SH", name: "零贡献", weight: 50, contributionPoint: 0 },
+      { ...weights.rows[2], conCode: "600030.SH", name: "负贡献", weight: 99, contributionPoint: -1 },
+      { ...weights.rows[3], conCode: "600040.SH", name: "贡献缺失", weight: 100, contributionPoint: null, direction: "UNKNOWN" },
+    ];
+    weights.coverage = {
+      totalCount: 4,
+      returnedCount: 4,
+      contributionAvailableCount: 3,
+      contributionMissingCount: 1,
+      isTruncated: false,
+    };
+    mockFetch("399001.SZ", { weights: () => response(weights) });
+    render(<IndexDetailPage search="" tsCode="399001.SZ" />);
+
+    await screen.findByText("深证成指 399001.SZ");
+    fireEvent.click(screen.getByRole("tab", { name: "权重股贡献" }));
+    const viewport = await screen.findByLabelText("权重股滚动列表");
+    expect(Array.from(viewport.querySelectorAll(".index-weight-row small"), (node) => node.textContent)).toEqual([
+      "600010.SH",
+      "600020.SH",
+      "600030.SH",
+      "600040.SH",
+    ]);
   });
 
   it("returns a direct index detail visit to the Wealth overview", async () => {
@@ -494,10 +525,10 @@ function makeMinuteIndicatorResponse(freq: number, tsCode = "000001.SH") {
   };
 }
 
-function makeWeights(pageInit: ReturnType<typeof makePageInit>, status: "READY" | "PARTIAL") {
+function makeWeights(pageInit: ReturnType<typeof makePageInit>, status: "READY" | "PARTIAL"): IndexDetailWeightsResponseDto {
   return {
     indexRef: { tsCode: pageInit.index.tsCode, name: pageInit.index.name }, contributionTradeDate: "2026-07-31", weightTradeDate: "2026-07-31", isEstimated: true as const,
-    rows: Array.from({ length: 24 }, (_, index) => ({ conCode: `600${String(index).padStart(3, "0")}.SH`, name: `成分股${index + 1}`, weight: 5 - index * .1, changePct: 1, contributionPoint: status === "PARTIAL" && index === 0 ? null : .12 - index * .01, direction: (index % 2 === 0 ? "UP" : "DOWN") as "UP" | "DOWN" })),
+    rows: Array.from({ length: 24 }, (_, index) => ({ conCode: `600${String(index).padStart(3, "0")}.SH`, name: `成分股${index + 1}`, weight: 5 - index * .1, changePct: 1, contributionPoint: status === "PARTIAL" && index === 23 ? null : .12 - index * .01, direction: (index % 2 === 0 ? "UP" : "DOWN") as "UP" | "DOWN" })),
     coverage: { totalCount: 24, returnedCount: 24, contributionAvailableCount: status === "READY" ? 24 : 23, contributionMissingCount: status === "READY" ? 0 : 1, isTruncated: false as const },
     dataStatus: { status, expectedTradeDate: "2026-07-31", observedTradeDate: "2026-07-31" },
     note: "基于最新月度权重估算，非指数公司官方归因" as const,
