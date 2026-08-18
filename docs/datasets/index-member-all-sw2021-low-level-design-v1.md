@@ -1,6 +1,6 @@
 # 申万 SW2021 行业成员 `index_member_all` Prod 数据集 LLD v1
 
-> 状态：M0～M2 已完成；前置分类数据集已通过真实源端、分页、闭包、本地事务和 Ops 契约验收。迁移未在 Prod 执行，成员数据集端到端验收从 M3 开始。
+> 状态：M0～M3 已完成；成员数据集已通过真实源端、Y/N 分页、标准化、三级分类闭包、本地全量事务重放和 Ops 契约验收。迁移未在 Prod 执行，日行情数据集 M4 尚未开始。
 > 初版：2026-08-16；代码对账：2026-08-17；最终产品拍板：2026-08-18。
 > 前置 LLD：[申万 SW2021 行业分类 `index_classify` Prod 数据集 LLD v1](./index-classify-sw2021-low-level-design-v1.md)。
 > 上游产品依据：[板块雷达产品设计方案 v1](../../wealth/docs/pages/wealth-exploration/sector-radar-product-design-v1.md)。
@@ -117,6 +117,25 @@ ts_code, name, in_date, out_date, is_new
 
 任何对象过滤都会把“成员全集”降成子集，所以不能进入 `DatasetInputModel`。不传 `is_new` 等价于默认 Y，会漏掉历史成员，也不能作为正式请求。
 
+### 2.5 M3 当前真实验收（2026-08-18）
+
+M3 重新通过 Tushare MCP、项目正式 `DatasetSourceClient` 和内存测试库完成只读/本地验收，没有连接 Prod、没有执行迁移或生产同步：
+
+| 验收项 | 当前结果 |
+|---|---|
+| MCP 默认请求 | 3,000 行，全部 `is_new=Y`，再次证明默认返回会截断 |
+| MCP 显式 11 字段 | 字段完整；`is_new=N` 返回 2,004 行 |
+| 项目正式分页 | Y=`2000/2000/1895`，N=`2000/4`，共 5 请求、7,899 行 |
+| 标准化 | 7,899 行，拒绝 0、完全重复去重 0 |
+| 状态分布 | Y=5,895，N=2,004；Y 的非空 `out_date`=0，N 的空 `out_date`=0 |
+| 唯一性与日期 | 业务主键重复 0、空 `in_date` 0、`out_date<in_date` 0 |
+| 分类闭包 | L1/L2/L3 孤儿均为 0；实际涉及 31/131/338 个 L1/L2/L3 代码 |
+| 关键代码 | 源 `850401.SI`=0，业务 `850412.SI`=25，业务 `840401.SI`=0 |
+| 业务主键摘要 | SHA-256 `89ed980b2147c35db729b399ce2b3bc7d209879f710446d6097781598a57ca31` |
+| 本地全量事务 | 先发布 511 行分类，再写入 7,899 行成员；同批重放仍为 7,899，read-back 内容一致 |
+
+M3 同时补齐通用 `source_variant_mismatch` 门禁：每个固定 request variant 返回的 `is_new` 必须与当前请求值一致。Y/N 任一空结果或错返另一状态，都会在标准化和目标 DML 前失败，不能用“两个请求都有数据”冒充完整全集。
+
 ---
 
 ## 3. 三层时间语义
@@ -156,25 +175,25 @@ in_date <= target_date <  out_date
 
 ### 3.2 当前代码消费者审计
 
-| 消费方 | 本数据集固定结果 | 已核验代码位置 | 实施影响 |
+| 消费方 | 本数据集固定结果 | 已核验代码位置 | M3 验收结果 |
 |---|---|---|---|
-| Manual Action | 只生成 `snapshot_refresh/none`，无时间和 filter | `src/ops/queries/manual_action_query_service.py` | 新增 Definition 后自动派生；不暴露 `is_new` |
-| Catalog | 使用 Ops 显式目录 | `src/ops/catalog/dataset_catalog_view_resolver.py`、`src/ops/catalog/dataset_catalog_views.py` | 新增唯一 `item_order=90` |
+| Manual Action | 只生成 `snapshot_refresh/none`，无时间和 filter | `src/ops/queries/manual_action_query_service.py` | 已由 Definition 派生；API 正反例证明不暴露 `is_new` |
+| Catalog | 使用 Ops 显式目录 | `src/ops/catalog/dataset_catalog_view_resolver.py`、`src/ops/catalog/dataset_catalog_views.py` | 已登记唯一 `item_order=90` |
 | Workflow | 首版不进入 workflow | `src/ops/action_catalog.py` | 不修改 workflow |
-| Resolver / planner | 当前 enum fanout 会生成两个 unit，不满足原子全集 | `src/foundation/ingestion/resolver.py`、`src/foundation/ingestion/unit_planner.py` | 不使用 enum fanout；新增固定 request fan-in 计划字段，仍只生成 1 unit |
-| Request builder | 当前不存在成员专用 builder | `src/foundation/ingestion/request_builders.py` | 新增 `_index_member_all_sw2021_params`，只校验 snapshot profile |
-| Source client | 当前每 unit 只有一组 request params | `src/foundation/ingestion/source_client.py` | 新增声明式 fixed request fan-in；逐 variant 分页、最后合并 |
-| Freshness | `SNAPSHOT_RUN_TRACE` | `src/foundation/datasets/freshness_policies.py`、`src/ops/queries/freshness_query_service.py` | 新增显式映射 |
-| Dataset card | 无 Raw，回退展示 serving/target 表 | `src/ops/dataset_definition_projection.py`、`src/ops/queries/dataset_card_query_service.py` | 补 direct-serving 回归 |
-| Snapshot rebuild | 读取 Definition 与完整 TaskRun 成功轨迹 | `src/ops/services/operations_dataset_status_snapshot_service.py` | 只有单 unit 全集发布成功才更新 |
+| Resolver / planner | 不用 enum fanout；固定 1 unit 内 Y/N request fan-in | `src/foundation/ingestion/resolver.py`、`src/foundation/ingestion/unit_planner.py` | 已验收 1 unit 与不可由用户覆盖的 Y/N 顺序 |
+| Request builder | 成员专用 builder 只接受 snapshot profile | `src/foundation/ingestion/request_builders.py` | `_index_member_all_sw2021_params` 已实现并通过 none-only 反例 |
+| Source client | 同一 unit 逐 variant 分页、校验返回状态并合并 | `src/foundation/ingestion/source_client.py` | 已验收 5 页、空 variant 和错返 variant 失败 |
+| Freshness | `SNAPSHOT_RUN_TRACE` | `src/foundation/datasets/freshness_policies.py`、`src/ops/queries/freshness_query_service.py` | 显式映射已生效 |
+| Dataset card | 无 Raw，回退展示 serving/target 表 | `src/ops/dataset_definition_projection.py`、`src/ops/queries/dataset_card_query_service.py` | API 已验收 direct-serving 展示 |
+| Snapshot rebuild | 读取 Definition 与完整 TaskRun 成功轨迹 | `src/ops/services/operations_dataset_status_snapshot_service.py` | 沿用已通过的 snapshot-run-trace 主链；本期不新增专用分支 |
 | Date completeness | 明确不适用 | `src/ops/services/date_completeness_audit_service.py` | `completeness.scope=not_applicable` |
 | 自动任务 | 首版不开放 | `src/ops/services/schedule_automation_capability_resolver.py` | `schedule_enabled=False` |
 | Source release / Probe | 不建设 | `src/ops/services/operations_schedule_service.py` | 无 probe、无绑定 |
-| 前端时间控件 | 无时间、无筛选 | `frontend/src/pages/ops-v21-task-manual-tab.tsx` | 只验证通用无时间表单 |
+| 前端时间控件 | 无时间、无筛选 | `frontend/src/pages/ops-v21-task-manual-tab.tsx` | 通用无时间表单契约保持不变，API 输入反例已通过 |
 | Ops 展示目录 | `board_theme` 第 90 位 | `src/ops/catalog/dataset_catalog_views.py` | 位于分类之后、日行情之前 |
 | 数据源页 / 分层 | `raw_table=None`，展示成员服务表 | `src/ops/schemas/dataset_card.py`、`frontend/src/pages/ops-v21-source-page.tsx`、`frontend/src/pages/ops-v21-dataset-detail-page.tsx` | 不显示伪 Raw |
-| Shared storage / writer | 全部 Y/N 合并后替换 SW2021 成员范围 | `src/foundation/ingestion/writer.py`、`src/foundation/datasets/definitions/_builder.py`、`src/foundation/ingestion/linter.py` | 复用分类 LLD 新增的通用 scope replace；补跨表预写校验 |
-| 测试与文档 | 新数据集尚不存在 | registry/planner/source/writer/Ops 测试 | 不能以现有数据集回归代替本数据集验收 |
+| Shared storage / writer | 全部 Y/N 合并后替换 SW2021 成员范围 | `src/foundation/ingestion/writer.py`、`src/foundation/datasets/definitions/_builder.py`、`src/foundation/ingestion/linter.py` | 通用 scope replace 与成员三级闭包已通过 7,899 行本地事务重放 |
+| 测试与文档 | 成员数据集专项正反例已建立 | `tests/test_sw2021_index_member_all_dataset_m3.py`、`tests/web/test_ops_sw2021_index_member_all_m3.py` | 不以其他数据集回归代替本数据集验收 |
 
 ---
 
@@ -233,14 +252,14 @@ FRESHNESS_POLICY_BY_DATASET["index_member_all"] = SNAPSHOT_RUN_TRACE
 
 ### 5.1 固定 request fan-in 的最小共享契约调整
 
-当前 enum fanout 会把 Y/N 拆成两个独立事务，无法保证成员全集原子发布；当前 SourceClient 又只执行一组 request params。因此实施时新增声明式 `request_variant_fields/request_variant_defaults`，语义固定为：
+现行实现不使用会把 Y/N 拆成两个独立事务的 enum fanout。M1 已通过声明式 `request_variant_fields/request_variant_defaults` 建立以下通用契约，M3 已完成成员数据集实测：
 
 1. planner 仍只生成一个 unit，不把内部变体变成用户 filter 或独立 unit；
 2. SourceClient 在同一 unit 内按声明顺序生成 Y、N 两组请求，各自从 offset 0 分页至 short page，再合并为一个 fetch result；
 3. 每页必须携带同一 11 字段白名单；分页诊断分别记录 Y/N 页序列，再记录合并唯一键摘要；
 4. strict validator 拒绝用户传入 `is_new`；request builder 不接受覆盖；
 5. linter 要求 variant 字段不在 input_model、默认集合非空且无重复、总组合数受限，本数据集固定为 2；
-6. 任一 variant 空结果、分页失败或键冲突都会使唯一 unit 失败，目标表保持不变。
+6. 任一 variant 空结果、返回状态与请求变体不一致、分页失败或键冲突都会使唯一 unit 失败，目标表保持不变。
 
 这是通用 source-fetch 契约，不得在 executor/source client 中按 `dataset_key` 写成员特例。模型、resolver plan snapshot、source client、linter、TaskRun 分页诊断和既有单请求路径都要有回归。
 
@@ -267,7 +286,7 @@ FRESHNESS_POLICY_BY_DATASET["index_member_all"] = SNAPSHOT_RUN_TRACE
 
 预写校验器使用 writer 的同一业务 session，只读分类服务表并一次性建立 SW2021 L1/L2/L3 映射，逐行核验代码、名称和父子关系；数据库外键继续只约束 L3，不能用该外键冒充完整三级闭包。任何 reject、空 Y、空 N、分类缺失或闭包冲突都在目标 DML 前失败。
 
-当前模型尚无 `request_variant_*`、`replacement_scope_fields`、`empty_result_policy` 和 `pre_write_validator_key`。这些字段及其 plan snapshot、builder/linter 校验和运行时消费者必须在同一实现阶段落齐；只改 Definition 或只改 SourceClient 都不算完成。
+`request_variant_*`、`replacement_scope_fields`、`empty_result_policy` 和 `pre_write_validator_key` 已在 M1 同步落到 Definition、plan snapshot、builder/linter 与运行时消费者；M3 已通过真实源端和专项回归证明不是仅修改 Definition 或 SourceClient 的半套实现。
 
 本数据集同样不复用 `row_identity_filters` 作为写入条件。writer 必须在 Y/N 合并、标准化和预写校验之后，从 normalized batch 提取唯一 `classification_version='SW2021'` scope tuple；零个或多个版本都必须在目标 DML 前失败。
 
@@ -343,7 +362,7 @@ M1 开工时重新确认仓库唯一 head 为 `20260816_000137`，已生成线�
 
 | 约束 | 正向测试 | 反向测试 |
 |---|---|---|
-| 固定 Y/N 全集 | 无输入生成 1 unit，unit 内请求 Y/N 两组 | 用户传 `is_new`、缺 N、重复 Y 或额外值时拒绝 |
+| 固定 Y/N 全集 | 无输入生成 1 unit，unit 内请求 Y/N 两组 | 用户传 `is_new`、缺 N、重复 Y、额外值或源端错返状态时拒绝 |
 | 显式分页 | Y=`2000/2000/1895`，N=`2000/4` | 使用默认 3000、漏页、页间冲突或不以 short page 结束时失败 |
 | direct-serving | 只解析 serving DAO | Raw DAO、Raw 表、双写或 Lake 路径出现时 linter 失败 |
 | 标准代码 | 850412 保持 850412，源码列保真 | 850401 未标准化、840401 或新冲突时失败 |
@@ -354,7 +373,7 @@ M1 开工时重新确认仓库唯一 head 为 `20260816_000137`，已生成线�
 
 ### 8.2 文件级实施范围
 
-计划新增/修改：
+M1～M3 实际新增/修改：
 
 - `src/foundation/datasets/sw_industry_contracts.py`
 - `src/foundation/datasets/definitions/board_hotspot.py`
@@ -364,12 +383,16 @@ M1 开工时重新确认仓库唯一 head 为 `20260816_000137`，已生成线�
 - `src/foundation/models/core_serving/sw_industry_member.py`
 - `src/foundation/dao/factory.py`
 - `src/foundation/ingestion/linter.py`
+- `src/foundation/ingestion/codebook.py`
 - `src/foundation/ingestion/request_builders.py`
 - `src/foundation/ingestion/source_client.py`
 - `src/foundation/ingestion/row_transforms.py`
 - `src/foundation/ingestion/writer.py`
 - `src/ops/catalog/dataset_catalog_views.py`
 - 一条实施日确定 revision 的 Alembic 迁移
+- `tests/test_sw2021_industry_datasets_m1.py`
+- `tests/test_sw2021_index_member_all_dataset_m3.py`
+- `tests/web/test_ops_sw2021_index_member_all_m3.py`
 - Definition、linter、resolver、source client、normalizer、writer、Ops API、数据源卡片和迁移测试
 
 不修改 `src/platform/**`、`src/operations/**`、Lake/Dagster 或 Wealth 页面。
@@ -402,15 +425,15 @@ business_840401_rows = 0
 
 | ID | 硬需求与依据 | 影响层/消费者 | 后端权威约束 | 前端表现 | 实现文件 | 正向测试 | 反向测试 | 真实验证 | 阶段 | 状态 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| IM-001 | 只做 SW2021 | Definition/分类 FK | 固定 classification_version + 分类表校验 | 无版本筛选 | Definition、validator、ORM | 全部命中 SW2021 | 非 SW2021 拒绝 | 分类闭包 SQL | M3/M5 | 待实施 |
-| IM-002 | Y/N 必须是一个原子全集 | planner/source/writer | 单 unit fixed request fan-in | 无 `is_new` 控件 | models、planner、source、writer | Y/N 齐备后发布 | 用户覆盖/缺一组/单组提前发布失败 | 5895+2004 对账 | M1/M3/M5 | M1 共享实现完成；待 M3/M5 验收 |
-| IM-003 | 显式 2000 分页 | source/TaskRun | 每 variant offset-limit | 展示两组分页诊断 | source client | Y 3 页、N 2 页 | 默认 3000/漏页/无 short page 失败 | 页摘要与 7899 键 | M3/M5 | 待实施 |
-| IM-004 | 无 Raw/Lake/双写 | storage/card | direct-serving scope replace | 卡片展示服务表 | linter、writer、Ops query | 只解析 serving DAO | Raw/双写出现失败 | source/target 对账 | M1/M3/M5 | M1 共享实现完成；待 M3/M5 验收 |
-| IM-005 | 源码保真与业务标准码 | normalization/下游 | 共享 code contracts | 不以源码关联 | contracts、transform、ORM | 850412 保持 | 850401 未归一/840401 失败 | 关键码 read-back | M1/M3/M5 | M1 共享实现完成；待 M3/M5 验收 |
-| IM-006 | 历史有效期事实保真 | ORM/normalizer | 日期解析、out>=in | 不适用 | transform、ORM、迁移 | Y/N 日期合法 | 空 in/out<in 失败 | 空值和区间 SQL | M3/M5 | 待实施 |
-| IM-007 | 分类三级闭包 | pre-write validator/DB | L1/L2/L3 代码、名称、父子全核验 | 不适用 | validator、ORM | 0 orphan | 未知/错层/错名失败 | 全量闭包 SQL | M3/M5 | 待实施 |
-| IM-008 | 空结果或任意 reject 不发布 | source/normalizer/writer | variant empty + quality preflight | TaskRun 结构化失败 | models、source、writer、codebook | 7899 零拒绝 | 空 Y/N、部分 reject 回滚 | 四段行数对账 | M1/M3/M5 | M1 共享实现完成；待 M3/M5 验收 |
-| IM-009 | 无时间且首版无排程 | Manual Action/schedule | none-only、schedule false | 手动无时间表单 | Definition、Ops | none 可提交 | 日期/schedule 不可选 | API/浏览器路径 | M3 | 待实施 |
+| IM-001 | 只做 SW2021 | Definition/分类 FK | 固定 classification_version + 分类表校验 | 无版本筛选 | Definition、validator、ORM | 全部命中 SW2021 | 非 SW2021 拒绝 | 分类闭包 SQL | M3/M5 | M3 已通过；待 M5 生产发布验收 |
+| IM-002 | Y/N 必须是一个原子全集 | planner/source/writer | 单 unit fixed request fan-in | 无 `is_new` 控件 | models、planner、source、writer | Y/N 齐备后发布 | 用户覆盖/缺一组/单组提前发布失败 | 5895+2004 对账 | M1/M3/M5 | M3 已通过；待 M5 生产发布验收 |
+| IM-003 | 显式 2000 分页 | source/TaskRun | 每 variant offset-limit | 展示两组分页诊断 | source client | Y 3 页、N 2 页 | 默认 3000/漏页/错返状态/无 short page 失败 | 页摘要与 7899 键 | M3/M5 | M3 已通过，5 页与主键摘要已记录；待 M5 |
+| IM-004 | 无 Raw/Lake/双写 | storage/card | direct-serving scope replace | 卡片展示服务表 | linter、writer、Ops query | 只解析 serving DAO | Raw/双写出现失败 | source/target 对账 | M1/M3/M5 | M3 已通过本地全量事务；待 M5 |
+| IM-005 | 源码保真与业务标准码 | normalization/下游 | 共享 code contracts | 不以源码关联 | contracts、transform、ORM | 850412 保持 | 850401 未归一/840401 失败 | 关键码 read-back | M1/M3/M5 | M3 已通过；待 M5 生产 read-back |
+| IM-006 | 历史有效期事实保真 | ORM/normalizer | 日期解析、out>=in | 不适用 | transform、ORM、迁移 | Y/N 日期合法 | 空 in/out<in 失败 | 空值和区间 SQL | M3/M5 | M3 已通过；待 M5 生产表约束验收 |
+| IM-007 | 分类三级闭包 | pre-write validator/DB | L1/L2/L3 代码、名称、父子全核验 | 不适用 | validator、ORM | 0 orphan | 未知/错层/错名失败 | 全量闭包 SQL | M3/M5 | M3 已通过；待 M5 生产闭包验收 |
+| IM-008 | 空结果或任意 reject 不发布 | source/normalizer/writer | variant empty/mismatch + quality preflight | TaskRun 结构化失败 | models、source、writer、codebook | 7899 零拒绝 | 空/错返 Y/N、部分 reject 回滚 | 四段行数对账 | M1/M3/M5 | M3 已通过；待 M5 生产发布验收 |
+| IM-009 | 无时间且首版无排程 | Manual Action/schedule | none-only、schedule false | 手动无时间表单 | Definition、Ops | none 可提交 | 日期/schedule 不可选 | API/浏览器路径 | M3 | M3 已通过 |
 | IM-010 | 不冒充每日快照/历史无前视 | 下游研究契约 | 保留 in/out/is_new；边界未验收不开放历史谓词 | 产品后续标注 | 后续 Biz 方案 | 当前成员查询 | 未确认 out_date 时历史计算阻断 | 边界样本审计 | M6 | 待实施 |
 
 ---
@@ -424,7 +447,7 @@ business_840401_rows = 0
 | M0 产品与开发门禁 | 两项最终拍板写入三份 LLD；硬需求账本、影响面和实施边界一致 | 文档校验通过；用户明确允许进入 M1 | 已完成 |
 | M1 共享基座与迁移准备 | 实现共享代码标准化、质量/预写校验声明、fixed request fan-in、原子 scope replace；新增三表 ORM/DAO/Definition、Ops 目录/freshness 和一条线性迁移 | CodeGraph 列出的消费者均有对应实现与回归；所有既有 writer/source/Definition 路径通过；迁移仅生成和测试，不对 Prod 执行 | 已完成（2026-08-18）；迁移 `20260818_000138` 未在 Prod 执行 |
 | M2 分类数据集 | 完成 `index_classify` request、分页、transform、双唯一性、层级闭包、Ops 派生及正反例 | 511 与 31/134/346 等基线可解释；空/错码/孤儿/跨范围替换均阻断；本地或测试库幂等 | 已完成（2026-08-18）；真实源端与本地事务验收通过，未执行 Prod 写入 |
-| M3 成员数据集 | 完成单 unit 的 Y/N fan-in、分页、标准化、分类三级闭包、原子替换及 Ops 正反例 | Y/N 任一失败目标零变化；7,899 基线、唯一键、日期和闭包可解释；本地或测试库幂等 | 未开始 |
+| M3 成员数据集 | 完成单 unit 的 Y/N fan-in、分页、标准化、分类三级闭包、原子替换及 Ops 正反例 | Y/N 任一失败目标零变化；7,899 基线、唯一键、日期和闭包可解释；本地或测试库幂等 | 已完成（2026-08-18）；真实 7,899 行与本地全量幂等验收通过，未执行 Prod 写入 |
 | M4 日行情数据集 | 完成交易日 point/range unit、15 字段、全源行保留、同日原子替换、freshness/completeness 及 Ops 正反例 | 非交易日、宽区间直传、日期越界、过滤 25 行、跨日删除均阻断；单日本地幂等 | 未开始 |
 | M5 生产最小发布 | 经单独授权后重新核验仓库/Prod Alembic head，部署并执行迁移；按分类→成员→一个交易日日行情同步 | 三段 fetched/normalized/rejected/written/target 对账、read-back 和幂等重放全部通过；不包含历史回补 | 未开始 |
 | M6 历史事实与回补 | 核验成员 `out_date` 边界，审计 `sw_daily` 全代码历史覆盖、配额、耗时与事务预算，提交明确窗口 | 用户批准具体日期范围后才能 PLAN/APPLY；全窗口 read-back 与幂等重放通过 | 未开始 |
@@ -441,4 +464,4 @@ business_840401_rows = 0
 - 需要 Raw/Lake、每日展开表、生产账号/连接、无条件删除或超出 `classification_version='SW2021'` 的写入范围；
 - 在未确认 `out_date` 边界前要求出具无前视回测结论。
 
-M2 已按用户授权完成前置分类数据集验收。本 LLD 当前不授权 M3 后续成员数据集验收、Prod 迁移执行、生产同步、历史回补、研究物化或排程启用。
+M3 已按用户授权完成成员数据集端到端验收。本 LLD 当前不授权 M4 日行情开发、Prod 迁移执行、生产同步、历史回补、研究物化或排程启用。

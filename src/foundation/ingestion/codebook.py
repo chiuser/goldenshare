@@ -66,6 +66,7 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("source_server_error", "上游服务异常", "source", "稍后重试"),
     IngestionCodebookEntry("source_auth_error", "上游鉴权失败", "source", "检查凭据配置"),
     IngestionCodebookEntry("source_variant_empty", "固定请求变体返回空结果", "source", "检查每个固定请求变体及其分页结果"),
+    IngestionCodebookEntry("source_variant_mismatch", "固定请求变体返回值不一致", "source", "核验源端返回的变体字段与请求值，禁止合并错配范围"),
     IngestionCodebookEntry("payload_invalid", "上游 payload 不合法", "normalize", "检查字段结构与解析逻辑"),
     IngestionCodebookEntry("all_rows_rejected", "本批次全部行被拒绝", "normalize", "查看 reason 分布并修正数据或规则"),
     IngestionCodebookEntry("normalize.row_transform_failed", "行转换配置或执行失败", "normalize", "检查 row_transform_name 与转换函数"),

@@ -1,6 +1,6 @@
 # 申万 SW2021 行业分类 `index_classify` Prod 数据集 LLD v1
 
-> 状态：M0～M2 已完成；`index_classify` 已通过真实源端、完整分页、标准化、闭包、唯一性、本地事务重放和 Ops 契约验收。迁移未在 Prod 执行，成员数据集端到端验收从 M3 开始。
+> 状态：M0～M3 已完成；`index_classify` 与后续成员数据集均已通过真实源端、本地事务和 Ops 契约验收。迁移未在 Prod 执行，日行情数据集 M4 尚未开始。
 > 初版：2026-08-16；代码对账：2026-08-17；最终产品拍板：2026-08-18。
 > 上游产品依据：[板块雷达产品设计方案 v1](../../wealth/docs/pages/wealth-exploration/sector-radar-product-design-v1.md)。
 > 数据依据：[板块雷达数据覆盖审计 v1](../../wealth/docs/pages/wealth-exploration/sector-radar-data-coverage-audit-v1.md)。
@@ -174,7 +174,7 @@ industry_code, is_pub, src
 | Ops 展示目录 | `board_theme` 第 80 位 | `src/ops/catalog/dataset_catalog_views.py` | 位于现有 KPL 数据集之后 |
 | 数据源页 / 分层 | `raw_table=None`，展示 `core_serving.sw_industry_classification` | `src/ops/schemas/dataset_card.py`、`frontend/src/pages/ops-v21-source-page.tsx`、`frontend/src/pages/ops-v21-dataset-detail-page.tsx` | 验证服务表标签，不显示伪 Raw |
 | Shared storage / writer | direct-serving、完整范围原子替换 | `src/foundation/ingestion/writer.py`、`src/foundation/datasets/definitions/_builder.py`、`src/foundation/ingestion/linter.py` | 新增通用 `serving_direct_scope_replace`，回归全部既有 write path |
-| 测试与文档 | 新数据集尚不存在 | `tests/test_dataset_definition_registry.py` 等模板门禁 | 实施时补齐，不得以现有回归代替新数据集验收 |
+| 测试与文档 | 分类数据集专项正反例已建立 | `tests/test_sw2021_index_classify_dataset_m2.py`、`tests/web/test_ops_sw2021_index_classify_m2.py` | M2 已完成独立验收，不以其他数据集回归替代 |
 
 ---
 
@@ -407,7 +407,7 @@ business_840401_rows = 0
 | M0 产品与开发门禁 | 两项最终拍板写入三份 LLD；硬需求账本、影响面和实施边界一致 | 文档校验通过；用户明确允许进入 M1 | 已完成 |
 | M1 共享基座与迁移准备 | 实现共享代码标准化、质量/预写校验声明、fixed request fan-in、原子 scope replace；新增三表 ORM/DAO/Definition、Ops 目录/freshness 和一条线性迁移 | CodeGraph 列出的消费者均有对应实现与回归；所有既有 writer/source/Definition 路径通过；迁移仅生成和测试，不对 Prod 执行 | 已完成（2026-08-18）；迁移 `20260818_000138` 未在 Prod 执行 |
 | M2 分类数据集 | 完成 `index_classify` request、分页、transform、双唯一性、层级闭包、Ops 派生及正反例 | 511 与 31/134/346 等基线可解释；空/错码/孤儿/跨范围替换均阻断；本地或测试库幂等 | 已完成（2026-08-18）；真实源端与本地事务验收通过，未执行 Prod 写入 |
-| M3 成员数据集 | 完成单 unit 的 Y/N fan-in、分页、标准化、分类三级闭包、原子替换及 Ops 正反例 | Y/N 任一失败目标零变化；7,899 基线、唯一键、日期和闭包可解释；本地或测试库幂等 | 未开始 |
+| M3 成员数据集 | 完成单 unit 的 Y/N fan-in、分页、标准化、分类三级闭包、原子替换及 Ops 正反例 | Y/N 任一失败目标零变化；7,899 基线、唯一键、日期和闭包可解释；本地或测试库幂等 | 已完成（2026-08-18）；真实 7,899 行与本地全量幂等验收通过，未执行 Prod 写入 |
 | M4 日行情数据集 | 完成交易日 point/range unit、15 字段、全源行保留、同日原子替换、freshness/completeness 及 Ops 正反例 | 非交易日、宽区间直传、日期越界、过滤 25 行、跨日删除均阻断；单日本地幂等 | 未开始 |
 | M5 生产最小发布 | 经单独授权后重新核验仓库/Prod Alembic head，部署并执行迁移；按分类→成员→一个交易日日行情同步 | 三段 fetched/normalized/rejected/written/target 对账、read-back 和幂等重放全部通过；不包含历史回补 | 未开始 |
 | M6 历史事实与回补 | 核验成员 `out_date` 边界，审计 `sw_daily` 全代码历史覆盖、配额、耗时与事务预算，提交明确窗口 | 用户批准具体日期范围后才能 PLAN/APPLY；全窗口 read-back 与幂等重放通过 | 未开始 |
@@ -423,4 +423,4 @@ business_840401_rows = 0
 - 分页 key 集与不截断基准不一致；
 - 需要新增 Raw、Lake、生产账号、连接、无条件删除或超出 `src='SW2021'` 的写入范围。
 
-M2 已按用户授权完成分类数据集端到端验收。本 LLD 当前不授权 M3/M4、Prod 迁移执行、生产同步、历史回补或排程启用。
+M3 已按用户授权完成后续成员数据集端到端验收。本 LLD 当前不授权 M4、Prod 迁移执行、生产同步、历史回补或排程启用。

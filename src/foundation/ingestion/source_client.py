@@ -249,12 +249,61 @@ class DatasetSourceClient:
             params["offset"] = offset
         if page_limit is not None:
             params["limit"] = page_limit
-        return self._execute_with_retry(
+        rows, retries = self._execute_with_retry(
             definition=definition,
             unit=unit,
             connector=connector,
             params=params,
         )
+        self._validate_request_variant_rows(
+            definition=definition,
+            rows=rows,
+            request_params=request_params,
+            unit_id=unit.unit_id,
+        )
+        return rows, retries
+
+    @staticmethod
+    def _validate_request_variant_rows(
+        *,
+        definition: DatasetDefinition,
+        rows: list[dict],
+        request_params: dict,
+        unit_id: str,
+    ) -> None:
+        for field_name in definition.planning.request_variant_fields:
+            expected_value = request_params.get(field_name)
+            expected = "" if expected_value is None else str(expected_value).strip()
+            mismatched = [
+                {
+                    "row_index": index,
+                    "actual": row.get(field_name),
+                }
+                for index, row in enumerate(rows)
+                if (
+                    ""
+                    if row.get(field_name) is None
+                    else str(row.get(field_name)).strip()
+                )
+                != expected
+            ]
+            if mismatched:
+                raise IngestionSourceError(
+                    StructuredError(
+                        error_code="source_variant_mismatch",
+                        error_type="source",
+                        phase="source_client",
+                        message="固定请求变体的返回行与请求值不一致",
+                        retryable=False,
+                        unit_id=unit_id,
+                        details={
+                            "field_name": field_name,
+                            "expected": expected,
+                            "mismatch_count": len(mismatched),
+                            "samples": mismatched[:3],
+                        },
+                    )
+                )
 
     @staticmethod
     def _variant_diagnostics(

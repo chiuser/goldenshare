@@ -1,6 +1,6 @@
 # 申万 SW2021 行业日行情 `sw_daily` Prod 数据集 LLD v1
 
-> 状态：M0～M2 已完成；前置分类数据集已通过真实源端、分页、闭包、本地事务和 Ops 契约验收。迁移未在 Prod 执行，成员数据集 M3 与日行情数据集 M4 尚未开始。
+> 状态：M0～M3 已完成；前置分类与成员数据集均已通过真实源端、本地事务和 Ops 契约验收。迁移未在 Prod 执行，日行情数据集 M4 尚未开始。
 > 初版：2026-08-16；代码对账：2026-08-17；最终产品拍板：2026-08-18。
 > 前置 LLD：[申万 SW2021 行业分类 `index_classify` Prod 数据集 LLD v1](./index-classify-sw2021-low-level-design-v1.md)。
 > 上游产品依据：[板块雷达产品设计方案 v1](../../wealth/docs/pages/wealth-exploration/sector-radar-product-design-v1.md)。
@@ -186,7 +186,7 @@ change, pct_change, vol, amount, pe, pb, float_mv, total_mv
 | Ops 展示目录 | `board_theme` 第 100 位 | `src/ops/catalog/dataset_catalog_views.py` | 位于分类和成员之后 |
 | 数据源页 / 分层 | `raw_table=None`，展示日行情服务表 | `src/ops/schemas/dataset_card.py`、`frontend/src/pages/ops-v21-source-page.tsx`、`frontend/src/pages/ops-v21-dataset-detail-page.tsx` | 不显示伪 Raw |
 | Shared storage / writer | 每个 `trade_date` 完整范围原子替换 | `src/foundation/ingestion/writer.py`、`src/foundation/datasets/definitions/_builder.py`、`src/foundation/ingestion/linter.py` | 复用分类 LLD 新增的通用 scope replace |
-| 测试与文档 | 新数据集尚不存在 | registry/planner/normalizer/writer/freshness/Ops 测试 | 当前回归不能替代新数据集验收 |
+| 测试与文档 | M1 基座已存在，M4 专项验收尚未建立 | registry/planner/normalizer/writer/freshness/Ops 测试 | 当前 M1～M3 回归不能替代日行情 M4 验收 |
 
 ---
 
@@ -502,7 +502,7 @@ null_pe_rows = 1
 | M0 产品与开发门禁 | 两项最终拍板写入三份 LLD；硬需求账本、影响面和实施边界一致 | 文档校验通过；用户明确允许进入 M1 | 已完成 |
 | M1 共享基座与迁移准备 | 实现共享代码标准化、质量/预写校验声明、fixed request fan-in、原子 scope replace；新增三表 ORM/DAO/Definition、Ops 目录/freshness 和一条线性迁移 | CodeGraph 列出的消费者均有对应实现与回归；所有既有 writer/source/Definition 路径通过；迁移仅生成和测试，不对 Prod 执行 | 已完成（2026-08-18）；迁移 `20260818_000138` 未在 Prod 执行 |
 | M2 分类数据集 | 完成 `index_classify` request、分页、transform、双唯一性、层级闭包、Ops 派生及正反例 | 511 与 31/134/346 等基线可解释；空/错码/孤儿/跨范围替换均阻断；本地或测试库幂等 | 已完成（2026-08-18）；真实源端与本地事务验收通过，未执行 Prod 写入 |
-| M3 成员数据集 | 完成单 unit 的 Y/N fan-in、分页、标准化、分类三级闭包、原子替换及 Ops 正反例 | Y/N 任一失败目标零变化；7,899 基线、唯一键、日期和闭包可解释；本地或测试库幂等 | 未开始 |
+| M3 成员数据集 | 完成单 unit 的 Y/N fan-in、分页、标准化、分类三级闭包、原子替换及 Ops 正反例 | Y/N 任一失败目标零变化；7,899 基线、唯一键、日期和闭包可解释；本地或测试库幂等 | 已完成（2026-08-18）；真实 7,899 行与本地全量幂等验收通过，未执行 Prod 写入 |
 | M4 日行情数据集 | 完成交易日 point/range unit、15 字段、全源行保留、同日原子替换、freshness/completeness 及 Ops 正反例 | 非交易日、宽区间直传、日期越界、过滤 25 行、跨日删除均阻断；单日本地幂等 | 未开始 |
 | M5 生产最小发布 | 经单独授权后重新核验仓库/Prod Alembic head，部署并执行迁移；按分类→成员→一个交易日日行情同步 | 三段 fetched/normalized/rejected/written/target 对账、read-back 和幂等重放全部通过；不包含历史回补 | 未开始 |
 | M6 历史事实与回补 | 核验成员 `out_date` 边界，审计 `sw_daily` 全代码历史覆盖、配额、耗时与事务预算，提交明确窗口 | 用户批准具体日期范围后才能 PLAN/APPLY；全窗口 read-back 与幂等重放通过 | 未开始 |
@@ -519,4 +519,4 @@ null_pe_rows = 1
 - 需要 Raw/Lake、生产账号、连接、无条件删除、跨日期删除或未评审排程；
 - 未完成全代码历史审计却要求启动长期回补或宣称 3～5 年完整。
 
-M2 已按用户授权完成前置分类数据集验收。本 LLD 当前不授权进入 M3/M4，也不授权执行生产迁移、生产同步、历史回补、研究物化或排程启用。
+M3 已按用户授权完成前置成员数据集验收。本 LLD 当前不授权进入 M4，也不授权执行生产迁移、生产同步、历史回补、研究物化或排程启用。
