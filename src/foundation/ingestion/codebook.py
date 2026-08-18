@@ -20,8 +20,8 @@ class IngestionCodebookEntry:
         }
 
 
-INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-18.v1"
-INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-18T00:00:00Z"
+INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-19.v1"
+INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-19T00:00:00Z"
 
 INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("dataset_mismatch", "请求数据集与定义不一致", "validator", "检查 dataset_key 与定义绑定"),
@@ -65,6 +65,7 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("source_rate_limited", "上游限流", "source", "降频或延后重试"),
     IngestionCodebookEntry("source_server_error", "上游服务异常", "source", "稍后重试"),
     IngestionCodebookEntry("source_auth_error", "上游鉴权失败", "source", "检查凭据配置"),
+    IngestionCodebookEntry("source_rows_exceeded", "执行单元源端行数超过声明上限", "source", "复核源端分页、配额与事务预算后再调整上限"),
     IngestionCodebookEntry("source_variant_empty", "固定请求变体返回空结果", "source", "检查每个固定请求变体及其分页结果"),
     IngestionCodebookEntry("source_variant_mismatch", "固定请求变体返回值不一致", "source", "核验源端返回的变体字段与请求值，禁止合并错配范围"),
     IngestionCodebookEntry("payload_invalid", "上游 payload 不合法", "normalize", "检查字段结构与解析逻辑"),

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from calendar import monthrange
+from dataclasses import replace
 from datetime import date, timedelta
 import re
 from typing import Any, Callable
@@ -50,6 +51,13 @@ class DatasetUnitPlanner:
             units = self._build_generic_units(request, definition)
         else:
             units = builder(self, request, definition)
+        units = [
+            replace(
+                unit,
+                max_source_rows_per_unit=definition.planning.max_source_rows_per_unit,
+            )
+            for unit in units
+        ]
 
         max_units = definition.planning.max_units_per_execution
         if max_units is not None and len(units) > max_units:

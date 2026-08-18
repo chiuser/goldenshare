@@ -96,6 +96,64 @@ test.describe("Phase 2 smoke and visual gate", () => {
     await expect(page.getByText("当前进度", { exact: true })).toBeVisible();
   });
 
+  test("SW2021 classification and member manual actions stay no-time and unfiltered", async ({ page }) => {
+    const consoleErrors: string[] = [];
+    const failedApiResponses: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") {
+        consoleErrors.push(message.text());
+      }
+    });
+    page.on("response", (response) => {
+      if (response.url().includes("/api/") && response.status() >= 400) {
+        failedApiResponses.push(`${response.status()} ${response.url()}`);
+      }
+    });
+
+    await setAdminSession(page);
+    await installApiMocks(page, "task-manual-sw2021");
+
+    for (const testCase of [
+      {
+        actionKey: "index_classify.maintain",
+        title: "维护申万 SW2021 行业分类",
+        taskRunId: 902,
+      },
+      {
+        actionKey: "index_member_all.maintain",
+        title: "维护申万 SW2021 行业成员",
+        taskRunId: 903,
+      },
+    ]) {
+      await page.goto(
+        `/app/ops/v21/datasets/tasks?tab=manual&action_key=${testCase.actionKey}&action_type=dataset_action`,
+      );
+      await expect(page.getByText(testCase.title, { exact: true }).first()).toBeVisible();
+      await expect(page.getByText("第二步：选择时间范围", { exact: true })).toHaveCount(0);
+      await expect(page.getByText("第二步：其他输入条件", { exact: true })).toHaveCount(0);
+      await expect(page.getByLabel("选择日期")).toHaveCount(0);
+      await expect(page.getByLabel("开始日期")).toHaveCount(0);
+      await expect(page.getByLabel("结束日期")).toHaveCount(0);
+
+      const submittedRequest = page.waitForRequest(
+        (request) =>
+          request.method() === "POST" &&
+          new URL(request.url()).pathname ===
+            `/api/v1/ops/manual-actions/${testCase.actionKey}/task-runs`,
+      );
+      await page.getByRole("button", { name: "提交维护任务" }).click();
+      const request = await submittedRequest;
+      expect(request.postDataJSON()).toEqual({
+        time_input: { mode: "none" },
+        filters: {},
+      });
+      await expect(page).toHaveURL(`/app/ops/tasks/${testCase.taskRunId}`);
+    }
+
+    expect(consoleErrors).toEqual([]);
+    expect(failedApiResponses).toEqual([]);
+  });
+
   test("task center auto keeps the schedule list and detail baseline", async ({ page }) => {
     await setAdminSession(page);
     await installApiMocks(page, "task-auto");

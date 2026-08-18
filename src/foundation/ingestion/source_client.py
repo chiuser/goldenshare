@@ -75,6 +75,30 @@ class DatasetSourceClient:
         current_variant_terminal_offset: int | None = None
         current_variant_terminal_rows = 0
         for page in self.iter_pages(definition=definition, unit=unit):
+            projected_row_count = len(rows_raw) + len(page.rows_raw)
+            if (
+                unit.max_source_rows_per_unit is not None
+                and projected_row_count > unit.max_source_rows_per_unit
+            ):
+                raise IngestionSourceError(
+                    StructuredError(
+                        error_code="source_rows_exceeded",
+                        error_type="source",
+                        phase="source_client",
+                        message="执行单元源端行数超过声明上限，已停止继续分页",
+                        retryable=False,
+                        unit_id=unit.unit_id,
+                        details={
+                            "max_source_rows_per_unit": unit.max_source_rows_per_unit,
+                            "rows_before_page": len(rows_raw),
+                            "page_rows": len(page.rows_raw),
+                            "observed_rows": projected_row_count,
+                            "page_number": page.page_number,
+                            "offset": page.offset,
+                            "request_variant": dict(page.request_variant),
+                        },
+                    )
+                )
             if current_variant != page.request_variant:
                 if current_variant is not None:
                     variant_diagnostics.append(

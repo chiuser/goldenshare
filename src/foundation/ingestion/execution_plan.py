@@ -70,6 +70,7 @@ class PlanPlanning:
     request_variant_fields: tuple[str, ...]
     request_variant_defaults: dict[str, tuple[str, ...]]
     pagination_policy: str
+    max_source_rows_per_unit: int | None
     chunk_size: int | None
     max_units_per_execution: int | None
     fetch_concurrency: int
@@ -124,6 +125,7 @@ class PlanUnitSnapshot:
     progress_context: dict[str, Any]
     pagination_policy: str | None = None
     page_limit: int | None = None
+    max_source_rows_per_unit: int | None = None
     requested_source_key: str | None = None
     request_variants: tuple[dict[str, Any], ...] = ()
 

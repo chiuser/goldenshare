@@ -267,6 +267,28 @@ class _MemberConnector:
         return deepcopy(rows[offset : offset + int(params["limit"])])
 
 
+class _CountedMemberConnector:
+    def __init__(self, totals: dict[str, int]) -> None:
+        self.totals = dict(totals)
+        self.calls: list[dict] = []
+
+    def call(
+        self, *, api_name: str, params: dict, fields: tuple[str, ...]
+    ) -> list[dict]:
+        assert api_name == "index_member_all"
+        assert fields == SOURCE_FIELDS
+        assert set(params) == {"is_new", "offset", "limit"}
+        self.calls.append(dict(params))
+        variant = str(params["is_new"])
+        offset = int(params["offset"])
+        page_limit = int(params["limit"])
+        page_end = min(offset + page_limit, self.totals[variant])
+        return [
+            {"is_new": variant, "ordinal": index}
+            for index in range(offset, page_end)
+        ]
+
+
 def test_index_member_all_plan_freezes_one_y_n_snapshot_unit() -> None:
     definition = get_dataset_definition("index_member_all")
     plan = _plan()
@@ -277,6 +299,7 @@ def test_index_member_all_plan_freezes_one_y_n_snapshot_unit() -> None:
     assert definition.planning.request_variant_fields == ("is_new",)
     assert definition.planning.request_variant_defaults == {"is_new": ("Y", "N")}
     assert definition.planning.page_limit == 2000
+    assert definition.planning.max_source_rows_per_unit == 20000
     assert definition.planning.max_units_per_execution == 1
     assert definition.storage.raw_table is None
     assert definition.storage.raw_dao_name is None
@@ -289,6 +312,8 @@ def test_index_member_all_plan_freezes_one_y_n_snapshot_unit() -> None:
     assert plan.filters == {}
     assert len(plan.units) == 1
     assert plan.units[0].request_params == {}
+    assert plan.planning.max_source_rows_per_unit == 20000
+    assert plan.units[0].max_source_rows_per_unit == 20000
     assert plan.units[0].request_variants == ({"is_new": "Y"}, {"is_new": "N"})
 
     duplicate_variant_row = _definition_row()
@@ -380,6 +405,55 @@ def test_index_member_all_source_fans_in_five_pages_and_fails_closed(mocker) -> 
         with pytest.raises(IngestionSourceError) as exc_info:
             DatasetSourceClient().fetch(definition=definition, unit=unit)
         assert exc_info.value.structured_error.error_code == expected_code
+
+
+def test_index_member_all_source_row_limit_accepts_boundary_and_fails_closed(
+    member_session: Session,
+    mocker,
+) -> None:
+    definition = get_dataset_definition("index_member_all")
+    unit = _plan().units[0]
+
+    boundary_connector = _CountedMemberConnector({"Y": 10000, "N": 10000})
+    mocker.patch(
+        "src.foundation.ingestion.source_client.create_source_connector",
+        return_value=boundary_connector,
+    )
+    boundary = DatasetSourceClient().fetch(definition=definition, unit=unit)
+
+    assert len(boundary.rows_raw) == 20000
+    assert boundary.request_count == 12
+    assert boundary.pagination_diagnostics["observed_short_page"] is True
+
+    oversized_connector = _CountedMemberConnector({"Y": 10001, "N": 10000})
+    mocker.patch(
+        "src.foundation.ingestion.source_client.create_source_connector",
+        return_value=oversized_connector,
+    )
+    with pytest.raises(IngestionSourceError) as exc_info:
+        DatasetSourceClient().fetch(definition=definition, unit=unit)
+
+    assert exc_info.value.structured_error.error_code == "source_rows_exceeded"
+    assert exc_info.value.structured_error.details == {
+        "max_source_rows_per_unit": 20000,
+        "rows_before_page": 18001,
+        "page_rows": 2000,
+        "observed_rows": 20001,
+        "page_number": 5,
+        "offset": 8000,
+        "request_variant": {"is_new": "N"},
+    }
+
+    executor = IngestionExecutor(member_session)
+    normalize_spy = mocker.spy(executor.normalizer, "normalize")
+    with pytest.raises(IngestionSourceError):
+        executor.run(
+            request=_validated_request(_plan()),
+            definition=definition,
+            units=(unit,),
+        )
+    normalize_spy.assert_not_called()
+    assert member_session.scalar(select(func.count()).select_from(SwIndustryMember)) == 0
 
 
 def test_index_member_all_normalization_preserves_dates_codes_and_identity() -> None:

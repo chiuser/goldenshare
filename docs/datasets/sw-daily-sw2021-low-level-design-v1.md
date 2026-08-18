@@ -1,7 +1,7 @@
 # 申万 SW2021 行业日行情 `sw_daily` Prod 数据集 LLD v1
 
-> 状态：M0～M3 已完成；前置分类与成员数据集均已通过真实源端、本地事务和 Ops 契约验收。迁移未在 Prod 执行，日行情数据集 M4 尚未开始。
-> 初版：2026-08-16；代码对账：2026-08-17；最终产品拍板：2026-08-18。
+> 状态：M0～M3 已完成；前置分类与成员数据集均已通过真实源端、本地事务、可执行源端行数门禁和 Ops API/浏览器契约验收。迁移未在 Prod 执行，日行情数据集 M4 尚未开始。
+> 初版：2026-08-16；代码对账：2026-08-17；最终产品拍板：2026-08-18；M2/M3 纠偏验收：2026-08-19。
 > 前置 LLD：[申万 SW2021 行业分类 `index_classify` Prod 数据集 LLD v1](./index-classify-sw2021-low-level-design-v1.md)。
 > 上游产品依据：[板块雷达产品设计方案 v1](../../wealth/docs/pages/wealth-exploration/sector-radar-product-design-v1.md)。
 > 数据依据：[板块雷达数据覆盖审计 v1](../../wealth/docs/pages/wealth-exploration/sector-radar-data-coverage-audit-v1.md)。
@@ -235,7 +235,7 @@ change, pct_change, vol, amount, pe, pb, float_mv, total_mv
 | source | `source_key_default=tushare`，`source_keys=(tushare,)`，`adapter=tushare`，`api_name=sw_daily`，`source_doc_id=tushare.sw_daily`，`request_builder_key=_daily_params`，`base_params={}`，`release_policy=same_day`；无不带日期的维护请求 |
 | input_model | 只暴露 point/range 日期；首版不暴露 `ts_code` filter |
 | storage | `delivery_mode=core_direct`，`layer_plan=source->serving`，无 Raw/Std；`core_dao_name=sw_industry_daily`，`target_table=serving_table=core_serving.sw_industry_daily`，`write_path=serving_direct_scope_replace`，`raw_conflict_columns=None`，`conflict_columns=(ts_code,trade_date)`，`replacement_scope_fields=(trade_date,)`，`row_identity_filters={}` |
-| planning | `universe_policy=no_pool`，无 enum fanout，`pagination_policy=offset_limit`，`page_limit=2000`，`unit_builder_key=build_sw_daily_units`，`max_units_per_execution=60`，`fetch_concurrency=1`，`page_processing_mode=buffer_all` |
+| planning | `universe_policy=no_pool`，无 enum fanout，`pagination_policy=offset_limit`，`page_limit=2000`；M4 将设置 `max_source_rows_per_unit=2000`，`unit_builder_key=build_sw_daily_units`，`max_units_per_execution=60`，`fetch_concurrency=1`，`page_processing_mode=buffer_all` |
 | normalization | `date_fields=(trade_date,)`，`decimal_fields=(open,low,high,close,change,pct_change,vol,amount,pe,pb,float_mv,total_mv)`，`row_transform_name=normalize_sw2021_daily_row` |
 | capabilities | `maintain` 支持 point/range、手动和重试；`schedule_enabled=False` |
 | observability | `continuous_open_day`，`observed_field=trade_date` |
@@ -278,7 +278,7 @@ FRESHNESS_POLICY_BY_DATASET["sw_daily"] = CONTINUOUS_OPEN_DAY
 - 单日空结果在已开市日视为失败，不写零行成功状态；
 - 439、414 和 25 是 M0 观测基线，不写成永久数量常量。
 
-当前 `DatasetQualityPolicy` 尚无 `empty_result_policy/pre_write_validator_key`，`DatasetStorageDefinition` 尚无 `replacement_scope_fields`，writer 尚无 `serving_direct_scope_replace`。这些共享字段、builder/linter、plan snapshot、运行时 preflight 和既有 write path 回归必须一起实现；禁止只在 `sw_daily` row transform 内做局部补丁。
+M1 已完成 `empty_result_policy/pre_write_validator_key`、`replacement_scope_fields`、`serving_direct_scope_replace` 及对应 builder/linter、plan snapshot、运行时 preflight 和既有 write path 回归。2026-08-19 又补齐通用 `max_source_rows_per_unit` 执行门禁；M4 必须将本数据集既定单日上限 2,000 写入 Definition 并完成 2,000/2,001 行正反例，禁止只在 `sw_daily` row transform 内做局部补丁。
 
 writer 必须从单日 normalized batch 提取唯一 `trade_date` scope tuple，并与 plan unit 的 `trade_date` 相等后才允许 DML。`row_identity_filters` 继续只服务日期完整性身份过滤，不作为替换范围；本数据集没有额外身份维度，因此固定为空。零个、多个日期或 unit/batch 日期不一致均在 DML 前失败。
 
@@ -501,8 +501,8 @@ null_pe_rows = 1
 |---|---|---|---|
 | M0 产品与开发门禁 | 两项最终拍板写入三份 LLD；硬需求账本、影响面和实施边界一致 | 文档校验通过；用户明确允许进入 M1 | 已完成 |
 | M1 共享基座与迁移准备 | 实现共享代码标准化、质量/预写校验声明、fixed request fan-in、原子 scope replace；新增三表 ORM/DAO/Definition、Ops 目录/freshness 和一条线性迁移 | CodeGraph 列出的消费者均有对应实现与回归；所有既有 writer/source/Definition 路径通过；迁移仅生成和测试，不对 Prod 执行 | 已完成（2026-08-18）；迁移 `20260818_000138` 未在 Prod 执行 |
-| M2 分类数据集 | 完成 `index_classify` request、分页、transform、双唯一性、层级闭包、Ops 派生及正反例 | 511 与 31/134/346 等基线可解释；空/错码/孤儿/跨范围替换均阻断；本地或测试库幂等 | 已完成（2026-08-18）；真实源端与本地事务验收通过，未执行 Prod 写入 |
-| M3 成员数据集 | 完成单 unit 的 Y/N fan-in、分页、标准化、分类三级闭包、原子替换及 Ops 正反例 | Y/N 任一失败目标零变化；7,899 基线、唯一键、日期和闭包可解释；本地或测试库幂等 | 已完成（2026-08-18）；真实 7,899 行与本地全量幂等验收通过，未执行 Prod 写入 |
+| M2 分类数据集 | 完成 `index_classify` request、分页、transform、双唯一性、层级闭包、Ops 派生及正反例 | 511 与 31/134/346 等基线可解释；空/错码/孤儿/跨范围替换均阻断；本地或测试库幂等 | 已完成；2026-08-19 补齐 2,000/2,001 行门禁和浏览器验收，未执行 Prod 写入 |
+| M3 成员数据集 | 完成单 unit 的 Y/N fan-in、分页、标准化、分类三级闭包、原子替换及 Ops 正反例 | Y/N 任一失败目标零变化；7,899 基线、唯一键、日期和闭包可解释；本地或测试库幂等 | 已完成；2026-08-19 补齐 20,000/20,001 行门禁和浏览器验收，未执行 Prod 写入 |
 | M4 日行情数据集 | 完成交易日 point/range unit、15 字段、全源行保留、同日原子替换、freshness/completeness 及 Ops 正反例 | 非交易日、宽区间直传、日期越界、过滤 25 行、跨日删除均阻断；单日本地幂等 | 未开始 |
 | M5 生产最小发布 | 经单独授权后重新核验仓库/Prod Alembic head，部署并执行迁移；按分类→成员→一个交易日日行情同步 | 三段 fetched/normalized/rejected/written/target 对账、read-back 和幂等重放全部通过；不包含历史回补 | 未开始 |
 | M6 历史事实与回补 | 核验成员 `out_date` 边界，审计 `sw_daily` 全代码历史覆盖、配额、耗时与事务预算，提交明确窗口 | 用户批准具体日期范围后才能 PLAN/APPLY；全窗口 read-back 与幂等重放通过 | 未开始 |

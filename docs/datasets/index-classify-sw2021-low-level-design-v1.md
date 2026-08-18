@@ -1,7 +1,7 @@
 # 申万 SW2021 行业分类 `index_classify` Prod 数据集 LLD v1
 
-> 状态：M0～M3 已完成；`index_classify` 与后续成员数据集均已通过真实源端、本地事务和 Ops 契约验收。迁移未在 Prod 执行，日行情数据集 M4 尚未开始。
-> 初版：2026-08-16；代码对账：2026-08-17；最终产品拍板：2026-08-18。
+> 状态：M0～M3 已完成；`index_classify` 与后续成员数据集均已通过真实源端、本地事务、可执行源端行数门禁和 Ops API/浏览器契约验收。迁移未在 Prod 执行，日行情数据集 M4 尚未开始。
+> 初版：2026-08-16；代码对账：2026-08-17；最终产品拍板：2026-08-18；M2/M3 纠偏验收：2026-08-19。
 > 上游产品依据：[板块雷达产品设计方案 v1](../../wealth/docs/pages/wealth-exploration/sector-radar-product-design-v1.md)。
 > 数据依据：[板块雷达数据覆盖审计 v1](../../wealth/docs/pages/wealth-exploration/sector-radar-data-coverage-audit-v1.md)。
 > 源站依据：Tushare `index_classify`，本地文档 `docs/sources/tushare/指数专题/0181_申万行业分类.md`（doc_id=181）。
@@ -108,6 +108,16 @@ M2 使用当前 Tushare MCP 和项目正式 ingestion 链路重新完成只读�
 
 M2 没有新增业务实现分支；M1 已完成的声明式通用能力经本轮端到端正反例确认满足分类数据集契约。上述 511 等数字是 2026-08-18 验收基线，不是永久写死的业务常量。
 
+### 2.3.1 2026-08-19 M2 纠偏验收
+
+审计发现原 `write_volume_assessment` 只是说明文字，`buffer_all` 主链没有真正执行 2,000 行停止条件；IC-008 也只有 API 测试，没有浏览器路径。纠偏后：
+
+1. `planning.max_source_rows_per_unit=2000` 作为通用声明式字段进入 Definition、`PlanPlanning` 和每个 `PlanUnitSnapshot`；不按 `dataset_key` 特判。
+2. `DatasetSourceClient` 在合并每页前计算 unit 累计源端行数；2,000 行必须继续观察到终止 short page才成功，下一页只要使总量达到 2,001 行就以 `source_rows_exceeded` 失败，标准化和目标 DML 均不会开始。
+3. Definition builder 拒绝非正整数上限、非 `buffer_all` 使用方式及 `page_limit > max_source_rows_per_unit` 的自相矛盾配置。
+4. 自动化正反例已证明 2,000 行可完成、2,001 行失败；持续返回满页也会在越过 2,000 行时有界退出，不再无限请求。
+5. Playwright 使用真实 Chromium 打开 Manual Action 页面，分别选择分类和成员动作，确认无日期、时间范围和筛选控件，提交体严格为 `{"time_input":{"mode":"none"},"filters":{}}`；控制台错误和失败 API 响应均为 0。
+
 ### 2.4 字段验证
 
 默认字段与显式字段均已验证。正式 `source_fields` 必须显式包含默认不保证返回的 `src`：
@@ -159,7 +169,7 @@ industry_code, is_pub, src
 
 | 消费方 | 本数据集固定结果 | 已核验代码位置 | 实施影响 |
 |---|---|---|---|
-| Manual Action | 只生成 `snapshot_refresh/none`，无时间和 filter | `src/ops/queries/manual_action_query_service.py` | 新增 Definition 后自动派生；补 API 正反例 |
+| Manual Action | 只生成 `snapshot_refresh/none`，无时间和 filter | `src/ops/queries/manual_action_query_service.py` | 已由 Definition 自动派生，并通过 API 与 Playwright 浏览器正反例 |
 | Catalog | 使用 Definition 日期选择规则与 Ops 显式目录 | `src/ops/catalog/dataset_catalog_view_resolver.py`、`src/ops/catalog/dataset_catalog_views.py` | 必须新增唯一 `item_order=80` |
 | Workflow | 首版不进入 workflow | `src/ops/action_catalog.py` | 不修改 workflow |
 | Resolver / planner | `none` 生成 1 个 generic unit | `src/foundation/ingestion/resolver.py`、`src/foundation/ingestion/unit_planner.py` | 使用专用 request builder；不得使用不存在的 `generic` builder |
@@ -170,11 +180,11 @@ industry_code, is_pub, src
 | Date completeness | 明确不适用 | `src/ops/services/date_completeness_audit_service.py` | `completeness.scope=not_applicable` |
 | 自动任务 | 首版不开放 | `src/ops/services/schedule_automation_capability_resolver.py` | `schedule_enabled=False`，无 schedule policy |
 | Source release / Probe | 不建设 | `src/ops/services/operations_schedule_service.py` | 无 probe、无运行时绑定 |
-| 前端时间控件 | 无时间、无筛选 | `frontend/src/pages/ops-v21-task-manual-tab.tsx` | 只验证通用无时间表单，不加 dataset-key 分支 |
+| 前端时间控件 | 无时间、无筛选 | `frontend/src/pages/ops-v21-task-manual-tab.tsx` | 已验证通用无时间表单，不加 dataset-key 分支 |
 | Ops 展示目录 | `board_theme` 第 80 位 | `src/ops/catalog/dataset_catalog_views.py` | 位于现有 KPL 数据集之后 |
 | 数据源页 / 分层 | `raw_table=None`，展示 `core_serving.sw_industry_classification` | `src/ops/schemas/dataset_card.py`、`frontend/src/pages/ops-v21-source-page.tsx`、`frontend/src/pages/ops-v21-dataset-detail-page.tsx` | 验证服务表标签，不显示伪 Raw |
 | Shared storage / writer | direct-serving、完整范围原子替换 | `src/foundation/ingestion/writer.py`、`src/foundation/datasets/definitions/_builder.py`、`src/foundation/ingestion/linter.py` | 新增通用 `serving_direct_scope_replace`，回归全部既有 write path |
-| 测试与文档 | 分类数据集专项正反例已建立 | `tests/test_sw2021_index_classify_dataset_m2.py`、`tests/web/test_ops_sw2021_index_classify_m2.py` | M2 已完成独立验收，不以其他数据集回归替代 |
+| 测试与文档 | 分类数据集专项正反例已建立 | `tests/test_sw2021_index_classify_dataset_m2.py`、`tests/web/test_ops_sw2021_index_classify_m2.py`、`frontend/e2e/smoke-visual.spec.ts` | M2 已完成独立后端、API 与浏览器验收，不以其他数据集回归替代 |
 
 ---
 
@@ -221,7 +231,7 @@ SW2021_INDEX_CODE_ALIASES_V1 = {"850401.SI": "850412.SI"}
 | source | `source_key_default=tushare`，`source_keys=(tushare,)`，`adapter=tushare`，`api_name=index_classify`，`source_doc_id=tushare.index_classify`，`request_builder_key=_index_classify_sw2021_params`，`base_params={"src":"SW2021"}`，`release_policy=same_day` |
 | input_model | 无时间字段、无 filter；`src/level/index_code/parent_code` 均不向运营暴露 |
 | storage | `delivery_mode=core_direct`，`layer_plan=source->serving`，`raw_dao_name/raw_table/std_table=None`，`core_dao_name=sw_industry_classification`，`target_table=serving_table=core_serving.sw_industry_classification`，`write_path=serving_direct_scope_replace`，`raw_conflict_columns=None`，`conflict_columns=(src,industry_code)`，`replacement_scope_fields=(src,)`，`row_identity_filters={}` |
-| planning | `universe_policy=no_pool`，无 enum fanout，`pagination_policy=offset_limit`，`page_limit=200`，`unit_builder_key=generic`，`max_units_per_execution=1`，`fetch_concurrency=1`，`page_processing_mode=buffer_all` |
+| planning | `universe_policy=no_pool`，无 enum fanout，`pagination_policy=offset_limit`，`page_limit=200`，`max_source_rows_per_unit=2000`，`unit_builder_key=generic`，`max_units_per_execution=1`，`fetch_concurrency=1`，`page_processing_mode=buffer_all` |
 | normalization | `date_fields=()`、`decimal_fields=()`；`row_transform_name=normalize_sw2021_classification_row`；必填业务身份与层级字段 |
 | capabilities | `maintain` 允许手动和重试、`schedule_enabled=False`，只支持 `none` |
 | observability | `snapshot_run_trace`，无 observed field，无日期审计 |
@@ -253,7 +263,7 @@ FRESHNESS_POLICY_BY_DATASET["index_classify"] = SNAPSHOT_RUN_TRACE
 }
 ```
 
-当前 `DatasetQualityPolicy` 尚无 `empty_result_policy/pre_write_validator_key`，`DatasetStorageDefinition` 尚无 `replacement_scope_fields`，writer 也尚无 `serving_direct_scope_replace`。实施时必须把它们作为通用、声明式契约新增：禁止按 `dataset_key` 在 executor/writer 中写分支。通用 preflight 先处理空结果和任意 reject，再由预写校验器检查第二唯一键 `(src,index_code)`、层级闭包、父子对应和错码规则，全部通过后才允许 DML。
+M1 已将 `empty_result_policy/pre_write_validator_key`、`replacement_scope_fields` 和 `serving_direct_scope_replace` 落为通用、声明式契约，没有在 executor/writer 中按 `dataset_key` 写分支。通用 preflight 先处理空结果和任意 reject，再由预写校验器检查第二唯一键 `(src,index_code)`、层级闭包、父子对应和错码规则，全部通过后才允许 DML。
 
 `replacement_scope_fields` 与现有 `row_identity_filters` 职责不同：前者定义 writer 的事务替换范围，后者只服务日期完整性身份过滤。本数据集不做日期完整性审计，因此 `row_identity_filters={}`。writer 必须从已校验的 normalized batch 提取唯一 scope tuple；本数据集只能得到 `src='SW2021'`。零个或多个 scope tuple 都必须在 DML 前失败。
 
@@ -292,9 +302,10 @@ M1 开工时重新确认仓库唯一 head 为 `20260816_000137`，已生成线�
 1. request builder 固定为新增的 `_index_classify_sw2021_params`：只接受 `snapshot_refresh`，返回空业务参数；`src=SW2021` 只能由 Definition `base_params` 合并，用户输入无法覆盖。
 2. Source client 每页都显式发送七个 `source_fields`。
 3. offset 序列固定由通用 `offset_limit` 产生，short page 终止。
-4. 全分页结果先进入同一个 `NormalizedBatch`；任何 reject、空结果、缺任一层级、父子不闭合或标准化冲突均在 DML 前失败。
-5. 新通用 `serving_direct_scope_replace` 从 normalized batch 的唯一 scope tuple 得到 `src='SW2021'`，再只锁定并替换该范围：同一事务内参数化删除旧范围、插入本批完整集合、按两组唯一键和内容摘要 read-back；失败整体回滚。禁止 `TRUNCATE`、无条件 `DELETE`、复用 `row_identity_filters` 猜写入范围或触碰其他 `src`。
-6. 该范围替换是“当前完整快照”语义的必要组成，不属于隐式清表；编码评审必须验证 SQL where 条件，生产迁移和首次同步仍需用户另行授权。
+4. `max_source_rows_per_unit=2000` 在 plan 中冻结；累计行数越过上限时以 `source_rows_exceeded` 在标准化和 DML 前失败。
+5. 全分页结果先进入同一个 `NormalizedBatch`；任何 reject、空结果、缺任一层级、父子不闭合或标准化冲突均在 DML 前失败。
+6. 通用 `serving_direct_scope_replace` 从 normalized batch 的唯一 scope tuple 得到 `src='SW2021'`，再只锁定并替换该范围：同一事务内参数化删除旧范围、插入本批完整集合、按两组唯一键和内容摘要 read-back；失败整体回滚。禁止 `TRUNCATE`、无条件 `DELETE`、复用 `row_identity_filters` 猜写入范围或触碰其他 `src`。
+7. 该范围替换是“当前完整快照”语义的必要组成，不属于隐式清表；编码评审必须验证 SQL where 条件，生产迁移和首次同步仍需用户另行授权。
 
 ### 7.2 Ops 派生
 
@@ -333,14 +344,14 @@ M1 开工时重新确认仓库唯一 head 为 `20260816_000137`，已生成线�
 | 只做 SW2021 | plan 的每页参数都含 `src=SW2021` | 无参数不能生成 SW2014 请求；传 `src=SW2014` 被 strict validator 拒绝 |
 | direct-serving | 只解析 serving DAO 并 upsert 511 行 | 解析 Raw DAO、出现 Raw 表或双写时 linter 失败 |
 | 代码标准化 | `230501/850401 -> source=850401, business=850412` | `840401`、未知冲突或两源码归一为同一业务键时失败 |
-| 分页 | `200/200/111` 合并唯一键等于不截断基准 | 丢页、重复冲突页、未 short-page 终止时失败 |
+| 分页 | `200/200/111` 合并唯一键等于不截断基准；2,000 行边界可在终止短页后完成 | 丢页、重复冲突页、2,001 行或持续满页时以 `source_rows_exceeded` 失败 |
 | 父子闭包 | 31/134/346 且所有 L2/L3 父级存在 | 孤儿节点、非法 level、重复 `(src,industry_code)` 时失败 |
 | 无时间 | `mode=none` 生成 1 unit | point/range 或任何 filter 被拒绝 |
 | Ops 卡片 | 显示 target/serving 表和 snapshot trace | 显示伪 Raw 表或日期滞后状态时失败 |
 
 ### 8.2 文件级实施范围
 
-计划新增/修改：
+M1～M3 实际新增/修改：
 
 - `src/foundation/datasets/sw_industry_contracts.py`
 - `src/foundation/datasets/definitions/board_hotspot.py`
@@ -350,10 +361,13 @@ M1 开工时重新确认仓库唯一 head 为 `20260816_000137`，已生成线�
 - `src/foundation/models/core_serving/sw_industry_classification.py`
 - `src/foundation/dao/factory.py`
 - `src/foundation/ingestion/request_builders.py`
+- `src/foundation/ingestion/source_client.py`
 - `src/foundation/ingestion/linter.py`
 - `src/foundation/ingestion/row_transforms.py`
 - `src/foundation/ingestion/writer.py`
 - `src/ops/catalog/dataset_catalog_views.py`
+- `frontend/e2e/support/smoke-fixtures.ts`
+- `frontend/e2e/smoke-visual.spec.ts`
 - 一条实施日确定 revision 的 Alembic 迁移
 - Definition、resolver、source client、normalizer、writer、Ops API、数据源卡片和迁移测试
 
@@ -390,10 +404,10 @@ business_840401_rows = 0
 | IC-002 | 无 Raw/Lake/双写 | storage/card | direct-serving linter | 卡片展示服务表 | builder、linter、writer | 只解析 serving DAO | Raw DAO/表出现即失败 | source/target 对账 | M1/M2/M5 | M2 已通过；待 M5 生产发布验收 |
 | IC-003 | 只保留最新分类快照并精确替换 | writer/DAO/业务查询 | 限定 `src` 原子 scope replace + read-back；无历史快照键 | 无专用交互；历史标注当前分类重述 | models、writer、DAO | 源集合收缩后目标精确一致 | 空结果、无 where、跨 src 删除、伪历史版本字段失败 | 两次不同 key set 演练 | M1/M2/M5 | M2 已通过 511→511→510 重放；待 M5 生产发布验收 |
 | IC-004 | 保留源码并产出业务码 | normalization/下游 | 共享 contracts + transform | 不展示源码为业务码 | contracts、transform、ORM | 850401→850412 | 840401/新冲突失败 | 关键码 read-back | M1/M2/M5 | M2 已通过；待 M5 生产发布验收 |
-| IC-005 | 全量分页不截断 | source client/TaskRun | offset-limit 200、short page | 展示分页进度 | source client | 200/200/111 | 丢页/重复冲突/无 short page 失败 | 511 键摘要 | M2/M5 | M2 已通过，分页与 MCP 全集指纹一致；待 M5 |
+| IC-005 | 全量分页不截断且有界 | source client/TaskRun | offset-limit 200、short page、unit 上限 2,000 | 展示分页进度 | source client | 200/200/111；2,000 行边界完成 | 丢页/重复冲突/2,001 行或持续满页失败 | 511 键摘要 | M2/M5 | M2 纠偏已通过，分页、全集指纹与 2,000/2,001 边界一致；待 M5 |
 | IC-006 | 层级闭包与双唯一性 | pre-write validator/DB | L1/L2/L3、父子闭包、两组唯一约束 | 不适用 | validator、ORM、迁移 | 31/134/346 闭合 | 孤儿/错层/双键冲突失败 | 闭包 SQL | M2/M5 | M2 已通过；待 M5 生产表约束验收 |
 | IC-007 | 空结果或任意 reject 不发布 | normalizer/writer | quality preflight | TaskRun 展示结构化失败 | models、writer、codebook | 511 行零拒绝提交 | 空/部分 reject 回滚 | fetched/normalized/rejected 对账 | M1/M2/M5 | M2 已通过；待 M5 生产发布验收 |
-| IC-008 | 无时间且首版无排程 | Manual Action/schedule | none-only、schedule false | 只显示手动无时间表单 | Definition、Ops projection | none 可提交 | point/range/schedule 不可选 | API/浏览器路径 | M2 | M2 已通过 |
+| IC-008 | 无时间且首版无排程 | Manual Action/schedule | none-only、schedule false | 只显示手动无时间表单 | Definition、Ops projection | none 可提交 | point/range/schedule 不可选 | API/Playwright 浏览器路径 | M2 | M2 纠偏已通过，浏览器提交体固定为 none + 空 filters |
 | IC-009 | 服务表可观测且不伪造 Raw | freshness/card/snapshot | SNAPSHOT_RUN_TRACE | target fallback | freshness、Ops query | 显示最近成功和服务表 | 日期滞后/伪 Raw 失败 | rebuild snapshot | M2/M5 | M2 已通过；待 M5 生产状态快照验收 |
 
 ---
@@ -406,8 +420,8 @@ business_840401_rows = 0
 |---|---|---|---|
 | M0 产品与开发门禁 | 两项最终拍板写入三份 LLD；硬需求账本、影响面和实施边界一致 | 文档校验通过；用户明确允许进入 M1 | 已完成 |
 | M1 共享基座与迁移准备 | 实现共享代码标准化、质量/预写校验声明、fixed request fan-in、原子 scope replace；新增三表 ORM/DAO/Definition、Ops 目录/freshness 和一条线性迁移 | CodeGraph 列出的消费者均有对应实现与回归；所有既有 writer/source/Definition 路径通过；迁移仅生成和测试，不对 Prod 执行 | 已完成（2026-08-18）；迁移 `20260818_000138` 未在 Prod 执行 |
-| M2 分类数据集 | 完成 `index_classify` request、分页、transform、双唯一性、层级闭包、Ops 派生及正反例 | 511 与 31/134/346 等基线可解释；空/错码/孤儿/跨范围替换均阻断；本地或测试库幂等 | 已完成（2026-08-18）；真实源端与本地事务验收通过，未执行 Prod 写入 |
-| M3 成员数据集 | 完成单 unit 的 Y/N fan-in、分页、标准化、分类三级闭包、原子替换及 Ops 正反例 | Y/N 任一失败目标零变化；7,899 基线、唯一键、日期和闭包可解释；本地或测试库幂等 | 已完成（2026-08-18）；真实 7,899 行与本地全量幂等验收通过，未执行 Prod 写入 |
+| M2 分类数据集 | 完成 `index_classify` request、分页、transform、双唯一性、层级闭包、Ops 派生及正反例 | 511 与 31/134/346 等基线可解释；空/错码/孤儿/跨范围替换均阻断；本地或测试库幂等 | 已完成；2026-08-19 补齐 2,000/2,001 行门禁和浏览器验收，未执行 Prod 写入 |
+| M3 成员数据集 | 完成单 unit 的 Y/N fan-in、分页、标准化、分类三级闭包、原子替换及 Ops 正反例 | Y/N 任一失败目标零变化；7,899 基线、唯一键、日期和闭包可解释；本地或测试库幂等 | 已完成；2026-08-19 补齐 20,000/20,001 行门禁和浏览器验收，未执行 Prod 写入 |
 | M4 日行情数据集 | 完成交易日 point/range unit、15 字段、全源行保留、同日原子替换、freshness/completeness 及 Ops 正反例 | 非交易日、宽区间直传、日期越界、过滤 25 行、跨日删除均阻断；单日本地幂等 | 未开始 |
 | M5 生产最小发布 | 经单独授权后重新核验仓库/Prod Alembic head，部署并执行迁移；按分类→成员→一个交易日日行情同步 | 三段 fetched/normalized/rejected/written/target 对账、read-back 和幂等重放全部通过；不包含历史回补 | 未开始 |
 | M6 历史事实与回补 | 核验成员 `out_date` 边界，审计 `sw_daily` 全代码历史覆盖、配额、耗时与事务预算，提交明确窗口 | 用户批准具体日期范围后才能 PLAN/APPLY；全窗口 read-back 与幂等重放通过 | 未开始 |

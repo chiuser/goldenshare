@@ -125,6 +125,7 @@ def build_plan_units(
                         progress_context=progress_context,
                         pagination_policy=pagination_policy,
                         page_limit=page_limit,
+                        max_source_rows_per_unit=definition.planning.max_source_rows_per_unit,
                         request_variants=request_variants,
                     )
                 )

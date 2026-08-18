@@ -104,12 +104,14 @@ def test_sw2021_definitions_project_direct_serving_and_internal_variant_contract
     assert classification.storage.replacement_scope_fields == ("src",)
     assert classification.storage.raw_table is None
     assert classification.storage.write_path == "serving_direct_scope_replace"
+    assert classification.planning.max_source_rows_per_unit == 2000
     assert classification.observability.freshness_policy == SNAPSHOT_RUN_TRACE
 
     assert member.input_model.filters == ()
     assert member.planning.enum_fanout_fields == ()
     assert member.planning.request_variant_fields == ("is_new",)
     assert member.planning.request_variant_defaults == {"is_new": ("Y", "N")}
+    assert member.planning.max_source_rows_per_unit == 20000
     assert member.quality.empty_result_policy == "fail_unit_per_request_variant"
     assert member.storage.replacement_scope_fields == ("classification_version",)
     assert member.observability.freshness_policy == SNAPSHOT_RUN_TRACE
@@ -154,6 +156,19 @@ def test_scope_replace_builder_rejects_partial_contract() -> None:
     with pytest.raises(ValueError, match="不得暴露"):
         build_definition(row)
 
+    row = _row("index_classify")
+    row["planning"]["max_source_rows_per_unit"] = 0
+    with pytest.raises(ValueError, match="max_source_rows_per_unit 必须为正整数"):
+        build_definition(row)
+
+    row = _row("index_member_all")
+    row["planning"]["page_limit"] = 20001
+    with pytest.raises(
+        ValueError,
+        match="page_limit 不得超过 max_source_rows_per_unit",
+    ):
+        build_definition(row)
+
 
 def test_member_plan_keeps_y_n_inside_one_immutable_unit(mocker) -> None:
     resolver = DatasetActionResolver(mocker.Mock())
@@ -167,9 +182,11 @@ def test_member_plan_keeps_y_n_inside_one_immutable_unit(mocker) -> None:
 
     assert plan.planning.unit_count == 1
     assert plan.planning.request_variant_fields == ("is_new",)
+    assert plan.planning.max_source_rows_per_unit == 20000
     assert plan.quality.empty_result_policy == "fail_unit_per_request_variant"
     assert plan.writing.replacement_scope_fields == ("classification_version",)
     assert plan.units[0].request_params == {}
+    assert plan.units[0].max_source_rows_per_unit == 20000
     assert plan.units[0].request_variants == ({"is_new": "Y"}, {"is_new": "N"})
 
     with pytest.raises(IngestionValidationError, match="存在未定义参数：is_new"):

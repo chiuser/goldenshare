@@ -79,6 +79,7 @@ class DatasetActionResolver:
                 request_variant_fields=definition.planning.request_variant_fields,
                 request_variant_defaults=definition.planning.request_variant_defaults,
                 pagination_policy=definition.planning.pagination_policy,
+                max_source_rows_per_unit=definition.planning.max_source_rows_per_unit,
                 chunk_size=definition.planning.chunk_size,
                 max_units_per_execution=definition.planning.max_units_per_execution,
                 fetch_concurrency=definition.planning.fetch_concurrency,

@@ -17,6 +17,7 @@ from src.foundation.ingestion import (
 )
 from src.foundation.ingestion.errors import (
     IngestionNormalizeError,
+    IngestionSourceError,
     IngestionValidationError,
     IngestionWriteError,
 )
@@ -241,6 +242,8 @@ def test_index_classify_plan_and_pagination_are_sw2021_only(mocker) -> None:
     assert len(plan.units) == 1
     assert plan.units[0].request_params == {}
     assert plan.units[0].page_limit == 200
+    assert plan.planning.max_source_rows_per_unit == 2000
+    assert plan.units[0].max_source_rows_per_unit == 2000
     assert [call["offset"] for call in connector.calls] == [0, 200, 400]
     assert [
         len(connector.rows[call["offset"] : call["offset"] + 200])
@@ -275,6 +278,64 @@ def test_index_classify_plan_and_pagination_are_sw2021_only(mocker) -> None:
                 time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 8, 18)),
             )
         )
+
+
+def test_index_classify_source_row_limit_accepts_boundary_and_fails_closed(
+    classification_session: Session,
+    mocker,
+) -> None:
+    definition = get_dataset_definition("index_classify")
+    unit = _plan().units[0]
+
+    boundary_connector = _PagedClassificationConnector(
+        [{"ordinal": index} for index in range(2000)]
+    )
+    mocker.patch(
+        "src.foundation.ingestion.source_client.create_source_connector",
+        return_value=boundary_connector,
+    )
+    boundary = DatasetSourceClient().fetch(definition=definition, unit=unit)
+
+    assert len(boundary.rows_raw) == 2000
+    assert boundary.request_count == 11
+    assert boundary.pagination_diagnostics["observed_short_page"] is True
+
+    oversized_connector = _PagedClassificationConnector(
+        [{"ordinal": index} for index in range(2001)]
+    )
+    mocker.patch(
+        "src.foundation.ingestion.source_client.create_source_connector",
+        return_value=oversized_connector,
+    )
+    with pytest.raises(IngestionSourceError) as exc_info:
+        DatasetSourceClient().fetch(definition=definition, unit=unit)
+
+    assert exc_info.value.structured_error.error_code == "source_rows_exceeded"
+    assert exc_info.value.structured_error.details == {
+        "max_source_rows_per_unit": 2000,
+        "rows_before_page": 2000,
+        "page_rows": 1,
+        "observed_rows": 2001,
+        "page_number": 11,
+        "offset": 2000,
+        "request_variant": {},
+    }
+
+    executor = IngestionExecutor(classification_session)
+    normalize_spy = mocker.spy(executor.normalizer, "normalize")
+    with pytest.raises(IngestionSourceError):
+        executor.run(
+            request=_validated_request(_plan()),
+            definition=definition,
+            units=(unit,),
+        )
+    normalize_spy.assert_not_called()
+    assert (
+        classification_session.scalar(
+            select(func.count()).select_from(SwIndustryClassification)
+        )
+        == 0
+    )
 
 
 def test_index_classify_normalization_and_prewrite_enforce_frozen_contract() -> None:

@@ -5,6 +5,7 @@ type SmokeScenario =
   | "task-center"
   | "task-records"
   | "task-manual"
+  | "task-manual-sw2021"
   | "task-auto"
   | "task-detail"
   | "task-detail-paged"
@@ -67,6 +68,13 @@ function createTaskRunItem(overrides: Record<string, unknown> = {}) {
 function createTaskRunView(overrides: Record<string, unknown> = {}) {
   const item = createTaskRunItem(overrides);
   const id = Number(item.id);
+  const timeInput =
+    overrides.time_input && typeof overrides.time_input === "object"
+      ? (overrides.time_input as Record<string, unknown>)
+      : {
+          mode: "point",
+          trade_date: "2026-04-17",
+        };
   return {
     run: {
       id,
@@ -82,10 +90,7 @@ function createTaskRunView(overrides: Record<string, unknown> = {}) {
       status_reason_code: null,
       requested_by_username: item.requested_by_username,
       schedule_display_name: item.schedule_display_name,
-      time_input: {
-        mode: "point",
-        trade_date: "2026-04-17",
-      },
+      time_input: timeInput,
       filters: {},
       time_scope: item.time_scope,
       time_scope_label: item.time_scope_label,
@@ -130,10 +135,7 @@ function createTaskRunView(overrides: Record<string, unknown> = {}) {
         title: `维护 ${item.title}`,
         resource_key: item.resource_key,
         status: item.status,
-        time_input: {
-          mode: "point",
-          trade_date: "2026-04-17",
-        },
+        time_input: timeInput,
         context: {},
         rows_fetched: item.rows_fetched,
         rows_saved: item.rows_saved,
@@ -435,6 +437,133 @@ function mockTaskManual(route: Route, pathname: string) {
         },
       ],
     });
+  }
+
+  return fulfillJson(route, { detail: `unhandled api: ${pathname}` }, 404);
+}
+
+function mockTaskManualSw2021(route: Route, pathname: string) {
+  const actions = [
+    {
+      action_key: "index_classify.maintain",
+      action_type: "dataset_action",
+      display_name: "维护申万 SW2021 行业分类",
+      description: "刷新申万 SW2021 行业分类完整快照。",
+      resource_key: "index_classify",
+      resource_display_name: "申万 SW2021 行业分类",
+      action_order: 80,
+      route_keys: ["index_classify.maintain"],
+    },
+    {
+      action_key: "index_member_all.maintain",
+      action_type: "dataset_action",
+      display_name: "维护申万 SW2021 行业成员",
+      description: "刷新申万 SW2021 当前与历史行业成员全集。",
+      resource_key: "index_member_all",
+      resource_display_name: "申万 SW2021 行业成员",
+      action_order: 90,
+      route_keys: ["index_member_all.maintain"],
+    },
+  ].map((action) => ({
+    ...action,
+    date_model: {
+      date_axis: "none",
+      bucket_rule: "not_applicable",
+      window_mode: "none",
+      input_shape: "none",
+      observed_field: null,
+      audit_applicable: false,
+      not_applicable_reason: "当前快照不按连续业务日期审计。",
+    },
+    time_form: {
+      default_mode: "none",
+      modes: [
+        {
+          mode: "none",
+          label: "按默认策略处理",
+          description: "不填写时间条件，按该维护对象默认策略执行。",
+          control: "none",
+          selection_rule: "none",
+          date_field: null,
+        },
+      ],
+    },
+    filters: [],
+    search_keywords: [action.resource_key, action.resource_display_name],
+  }));
+
+  if (pathname === "/api/v1/ops/manual-actions") {
+    return fulfillJson(route, {
+      groups: [
+        {
+          group_key: "board_theme",
+          group_label: "板块 / 题材",
+          group_order: 50,
+          actions,
+        },
+      ],
+    });
+  }
+
+  const action = actions.find(
+    (item) =>
+      pathname === `/api/v1/ops/manual-actions/${item.action_key}/task-runs`,
+  );
+  if (action && route.request().method() === "POST") {
+    const taskRunId = action.resource_key === "index_classify" ? 902 : 903;
+    return fulfillJson(
+      route,
+      createTaskRunView({
+        id: taskRunId,
+        resource_key: action.resource_key,
+        title: action.resource_display_name,
+        status: "queued",
+        time_input: { mode: "none" },
+        time_scope: {
+          kind: "none",
+          start: null,
+          end: null,
+          label: "当前快照",
+        },
+        time_scope_label: "当前快照",
+        unit_total: 0,
+        unit_done: 0,
+        rows_fetched: 0,
+        rows_saved: 0,
+        rows_rejected: 0,
+        progress_percent: 0,
+        started_at: null,
+      }),
+    );
+  }
+
+  const taskRunId = pathname === "/api/v1/ops/task-runs/902/view" ? 902 : pathname === "/api/v1/ops/task-runs/903/view" ? 903 : null;
+  if (taskRunId !== null) {
+    const actionForRun = actions[taskRunId === 902 ? 0 : 1];
+    return fulfillJson(
+      route,
+      createTaskRunView({
+        id: taskRunId,
+        resource_key: actionForRun.resource_key,
+        title: actionForRun.resource_display_name,
+        status: "queued",
+        time_input: { mode: "none" },
+        time_scope: {
+          kind: "none",
+          start: null,
+          end: null,
+          label: "当前快照",
+        },
+        time_scope_label: "当前快照",
+        unit_total: 0,
+        unit_done: 0,
+        rows_fetched: 0,
+        rows_saved: 0,
+        rows_rejected: 0,
+        progress_percent: 0,
+        started_at: null,
+      }),
+    );
   }
 
   return fulfillJson(route, { detail: `unhandled api: ${pathname}` }, 404);
@@ -1064,6 +1193,9 @@ export async function installApiMocks(page: Page, scenario: SmokeScenario) {
     }
     if (scenario === "task-manual") {
       return mockTaskManual(route, pathname);
+    }
+    if (scenario === "task-manual-sw2021") {
+      return mockTaskManualSw2021(route, pathname);
     }
     if (scenario === "task-auto") {
       return mockTaskAuto(route, pathname);

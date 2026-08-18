@@ -176,6 +176,7 @@ class DatasetPlanningDefinition:
     request_variant_defaults: dict[str, tuple[str, ...]] = field(default_factory=dict)
     pagination_policy: str = "none"
     page_limit: int | None = None
+    max_source_rows_per_unit: int | None = None
     chunk_size: int | None = None
     max_units_per_execution: int | None = None
     unit_builder_key: str = "generic"

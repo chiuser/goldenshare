@@ -104,6 +104,10 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
     )
     storage = DatasetStorageDefinition(**storage_row)
     planning = DatasetPlanningDefinition(**planning_row)
+    _validate_source_fetch_safety(
+        dataset_key=identity.dataset_key,
+        planning=planning,
+    )
     normalization = DatasetNormalizationDefinition(**row["normalization"])
     quality = DatasetQualityPolicy(**row["quality"])
     _validate_observed_serving_storage(
@@ -201,6 +205,32 @@ def _build_action_capability(row: dict[str, Any]) -> DatasetActionCapability:
     ):
         raise ValueError("schedule time policy 生成的时间模式必须属于 action.supported_time_modes")
     return capability
+
+
+def _validate_source_fetch_safety(
+    *,
+    dataset_key: str,
+    planning: DatasetPlanningDefinition,
+) -> None:
+    max_rows = planning.max_source_rows_per_unit
+    if max_rows is None:
+        return
+    if isinstance(max_rows, bool) or not isinstance(max_rows, int) or max_rows <= 0:
+        raise ValueError(
+            f"数据集定义 {dataset_key} 的 max_source_rows_per_unit 必须为正整数"
+        )
+    if planning.page_processing_mode != "buffer_all":
+        raise ValueError(
+            f"数据集定义 {dataset_key} 的 max_source_rows_per_unit 只适用于 buffer_all"
+        )
+    if (
+        planning.pagination_policy == "offset_limit"
+        and planning.page_limit is not None
+        and planning.page_limit > max_rows
+    ):
+        raise ValueError(
+            f"数据集定义 {dataset_key} 的 page_limit 不得超过 max_source_rows_per_unit"
+        )
 
 
 def _validate_observed_serving_storage(
