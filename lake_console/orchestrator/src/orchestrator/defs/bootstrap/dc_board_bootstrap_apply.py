@@ -8,12 +8,12 @@ and never reports materialization or check events.
 
 from __future__ import annotations
 
+import json
+import shutil
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import json
 from pathlib import Path
-import shutil
 from time import perf_counter
 from typing import Any
 
@@ -22,19 +22,19 @@ from orchestrator.defs.asset_guards.dc_board_lake_readiness import (
     batch_raw_dc_index_lake_readiness,
     batch_raw_dc_member_lake_readiness,
 )
-from orchestrator.defs.asset_guards.dc_board_source_probe import (
-    require_closed_prod_dc_board_reference,
-)
 from orchestrator.defs.asset_guards.dc_board_silver_lake_readiness import (
     batch_silver_dc_daily_lake_readiness,
     batch_silver_dc_index_lake_readiness,
     batch_silver_dc_member_lake_readiness,
 )
+from orchestrator.defs.asset_guards.dc_board_source_probe import (
+    load_tushare_dc_index_daily_source_snapshot,
+    require_closed_prod_dc_board_completion,
+)
 from orchestrator.defs.assets.dc_board import (
     DcBoardRawWriteResult,
     write_dc_daily_partition,
     write_dc_index_partition,
-    write_dc_member_rows_streaming,
 )
 from orchestrator.defs.assets.dc_board_silver import (
     DcBoardSilverWriteResult,
@@ -54,14 +54,17 @@ from orchestrator.defs.paths import (
     raw_dc_daily_path,
     raw_dc_index_path,
     raw_dc_member_path,
-    silver_trade_calendar_path,
     silver_dc_daily_path,
     silver_dc_index_path,
     silver_dc_member_path,
+    silver_trade_calendar_path,
 )
-from orchestrator.defs.resources import DuckDBResource, ProdPostgresResource, TushareResource
-from orchestrator.defs.run_contracts.configs import DcBoardIndexReferenceConfig
-
+from orchestrator.defs.resources import (
+    DuckDBResource,
+    ProdPostgresResource,
+    TushareResource,
+)
+from orchestrator.defs.run_contracts.configs import DcBoardIndexSourceSnapshotConfig
 
 DATASETS = ("dc_index", "dc_member", "dc_daily")
 _RAW_READINESS = {
@@ -166,7 +169,9 @@ def write_phase_report(report: DcBoardBootstrapPhaseReport, output_path: Path) -
     _write_json(report.to_dict(), output_path)
 
 
-def write_reconciliation_report(report: DcBoardReconciliationReport, output_path: Path) -> None:
+def write_reconciliation_report(
+    report: DcBoardReconciliationReport, output_path: Path
+) -> None:
     _write_json(report.to_dict(), output_path)
 
 
@@ -180,7 +185,9 @@ def _load_json(path: Path) -> dict[str, Any]:
     return payload
 
 
-def _validate_baseline(payload: Mapping[str, Any], *, lake_root: Path) -> dict[str, dict[str, Any]]:
+def _validate_baseline(
+    payload: Mapping[str, Any], *, lake_root: Path
+) -> dict[str, dict[str, Any]]:
     if payload.get("should_stop") is not False:
         raise DcBoardBootstrapApplyError("M7 v7 baseline has should_stop=true")
     if payload.get("stop_reason_codes"):
@@ -191,14 +198,21 @@ def _validate_baseline(payload: Mapping[str, Any], *, lake_root: Path) -> dict[s
         )
     if any(bool(item.get("failed")) for item in payload.get("source_audits", ())):
         raise DcBoardBootstrapApplyError("M7 v7 baseline contains failed source audits")
-    if any(int(item.get("invalid_existing_count", 0)) for item in payload.get("target_audits", ())):
-        raise DcBoardBootstrapApplyError("M7 v7 baseline contains invalid existing targets")
+    if any(
+        int(item.get("invalid_existing_count", 0))
+        for item in payload.get("target_audits", ())
+    ):
+        raise DcBoardBootstrapApplyError(
+            "M7 v7 baseline contains invalid existing targets"
+        )
     plans = {}
     for item in payload.get("date_plans", ()):
         dataset = str(item.get("dataset"))
         dates = tuple(str(value) for value in item.get("expected_trade_dates", ()))
         if dataset in plans or not dates or not item.get("fingerprint"):
-            raise DcBoardBootstrapApplyError(f"invalid or duplicate baseline date plan: {dataset}")
+            raise DcBoardBootstrapApplyError(
+                f"invalid or duplicate baseline date plan: {dataset}"
+            )
         plans[dataset] = {
             "dates": dates,
             "fingerprint": str(item["fingerprint"]),
@@ -242,21 +256,27 @@ def _selected_plans(
         expected = tuple(
             value
             for value in baseline_dates
-            if (start_date is None or value >= start_date)
-            and value <= effective_end
+            if (start_date is None or value >= start_date) and value <= effective_end
         )
         if plan.expected_trade_dates != expected:
             raise DcBoardBootstrapApplyError(
                 f"date plan drift for {plan.dataset}: baseline and current calendar differ"
             )
         if plan.start_date != expected[0] or plan.end_date != expected[-1]:
-            raise DcBoardBootstrapApplyError(f"date plan bounds drift for {plan.dataset}")
+            raise DcBoardBootstrapApplyError(
+                f"date plan bounds drift for {plan.dataset}"
+            )
     return plans
 
 
-def _estimated_required_bytes(payload: Mapping[str, Any], datasets: Sequence[str]) -> int:
+def _estimated_required_bytes(
+    payload: Mapping[str, Any], datasets: Sequence[str]
+) -> int:
     source_rows = payload.get("source_row_count_by_dataset", {})
-    return sum(int(source_rows.get(dataset, 0)) for dataset in datasets) * _ESTIMATED_BYTES_PER_SOURCE_ROW
+    return (
+        sum(int(source_rows.get(dataset, 0)) for dataset in datasets)
+        * _ESTIMATED_BYTES_PER_SOURCE_ROW
+    )
 
 
 def _assert_disk_space(*, lake_root: Path, required_bytes: int) -> tuple[int, int]:
@@ -269,7 +289,9 @@ def _assert_disk_space(*, lake_root: Path, required_bytes: int) -> tuple[int, in
     return usage.free, required
 
 
-def _readiness_statuses(*, connection, lake_root: Path, dataset: str, dates: Sequence[str], layer: str):
+def _readiness_statuses(
+    *, connection, lake_root: Path, dataset: str, dates: Sequence[str], layer: str
+):
     helper = _RAW_READINESS[dataset] if layer == "raw" else _SILVER_READINESS[dataset]
     return helper(
         connection=connection,
@@ -283,7 +305,11 @@ def _assert_targets_safe(
     *, connection, lake_root: Path, dataset: str, dates: Sequence[str], layer: str
 ) -> dict[str, object]:
     statuses = _readiness_statuses(
-        connection=connection, lake_root=lake_root, dataset=dataset, dates=dates, layer=layer
+        connection=connection,
+        lake_root=lake_root,
+        dataset=dataset,
+        dates=dates,
+        layer=layer,
     )
     invalid = tuple(
         trade_date
@@ -298,7 +324,13 @@ def _assert_targets_safe(
 
 
 def _result_entry(
-    *, dataset: str, trade_date: str, action: str, target_path: Path, result: object | None, reason: str | None = None
+    *,
+    dataset: str,
+    trade_date: str,
+    action: str,
+    target_path: Path,
+    result: object | None,
+    reason: str | None = None,
 ) -> dict[str, object]:
     payload: dict[str, object] = {
         "dataset": dataset,
@@ -308,31 +340,47 @@ def _result_entry(
     }
     if reason:
         payload["reason"] = reason
-    if isinstance(result, DcBoardRawWriteResult):
-        payload["metadata"] = result.to_metadata()
-    elif isinstance(result, DcBoardSilverWriteResult):
+    if isinstance(result, (DcBoardRawWriteResult, DcBoardSilverWriteResult)):
         payload["metadata"] = result.to_metadata()
     return payload
 
 
 def _raw_write(
-    *, lake_root: Path, duckdb_resource: DuckDBResource, tushare: TushareResource, prod_postgres: ProdPostgresResource, dataset: str, trade_date: str
+    *,
+    lake_root: Path,
+    duckdb_resource: DuckDBResource,
+    tushare: TushareResource,
+    prod_postgres: ProdPostgresResource,
+    dataset: str,
+    trade_date: str,
 ) -> DcBoardRawWriteResult:
     if dataset == "dc_index":
-        reference = require_closed_prod_dc_board_reference(
+        completion = require_closed_prod_dc_board_completion(
             prod_postgres=prod_postgres,
             trade_date=trade_date,
         )
+        source_result = load_tushare_dc_index_daily_source_snapshot(
+            tushare=tushare,
+            trade_date=trade_date,
+            prod_completion=completion,
+        )
+        if not source_result.ready or source_result.snapshot is None:
+            raise DcBoardBootstrapApplyError(
+                f"Tushare source is not ready for {trade_date}: {source_result.to_summary()}"
+            )
+        observed_at = datetime.now(timezone.utc).isoformat()
         return write_dc_index_partition(
             lake_root_path=lake_root,
             duckdb_resource=duckdb_resource,
             tushare=tushare,
             prod_postgres=prod_postgres,
             partition_key=trade_date,
-            reference_config=DcBoardIndexReferenceConfig(
-                reference_trade_date=trade_date,
-                reference_observed_at=datetime.now(timezone.utc).isoformat(),
-                reference_fingerprint=reference.fingerprint,
+            source_snapshot_config=DcBoardIndexSourceSnapshotConfig(
+                trade_date=trade_date,
+                prod_completion_observed_at=observed_at,
+                prod_completion_fingerprint=completion.completion_fingerprint,
+                tushare_source_observed_at=observed_at,
+                tushare_source_fingerprint=source_result.snapshot.source_fingerprint,
             ),
         )
     if dataset == "dc_daily":
@@ -353,20 +401,35 @@ def _raw_write(
     raise DcBoardBootstrapApplyError(f"unsupported Raw dataset: {dataset}")
 
 
-def _silver_write(*, lake_root: Path, duckdb_resource: DuckDBResource, dataset: str, trade_date: str) -> DcBoardSilverWriteResult:
+def _silver_write(
+    *, lake_root: Path, duckdb_resource: DuckDBResource, dataset: str, trade_date: str
+) -> DcBoardSilverWriteResult:
     writers = {
         "dc_index": write_silver_dc_index_partition,
         "dc_member": write_silver_dc_member_partition,
         "dc_daily": write_silver_dc_daily_partition,
     }
     try:
-        return writers[dataset](lake_root_path=lake_root, duckdb=duckdb_resource, partition_key=trade_date)
+        return writers[dataset](
+            lake_root_path=lake_root, duckdb=duckdb_resource, partition_key=trade_date
+        )
     except KeyError as exc:
-        raise DcBoardBootstrapApplyError(f"unsupported Silver dataset: {dataset}") from exc
+        raise DcBoardBootstrapApplyError(
+            f"unsupported Silver dataset: {dataset}"
+        ) from exc
 
 
 def _phase_report(
-    *, phase: str, lake_root: Path, plans: Sequence[DcBoardDatePlan], entries: Sequence[Mapping[str, object]], batch_reports: Sequence[str], batch_size: int, disk_free_bytes: int, estimated_required_bytes: int, started: float
+    *,
+    phase: str,
+    lake_root: Path,
+    plans: Sequence[DcBoardDatePlan],
+    entries: Sequence[Mapping[str, object]],
+    batch_reports: Sequence[str],
+    batch_size: int,
+    disk_free_bytes: int,
+    estimated_required_bytes: int,
+    started: float,
 ) -> DcBoardBootstrapPhaseReport:
     totals = {
         "expected_dates": sum(len(plan.expected_trade_dates) for plan in plans),
@@ -420,10 +483,14 @@ def run_raw_bootstrap(
             start_date=start_date,
             end_date=end_date,
         )
-        disk_free, required = _assert_disk_space(lake_root=lake_root, required_bytes=required_bytes)
+        disk_free, required = _assert_disk_space(
+            lake_root=lake_root, required_bytes=required_bytes
+        )
         for plan in plans:
             dates = plan.expected_trade_dates
-            for batch_number, offset in enumerate(range(0, len(dates), batch_size), start=1):
+            for batch_number, offset in enumerate(
+                range(0, len(dates), batch_size), start=1
+            ):
                 batch_dates = dates[offset : offset + batch_size]
                 statuses = _assert_targets_safe(
                     connection=connection,
@@ -463,7 +530,10 @@ def run_raw_bootstrap(
                         )
                     entries.append(entry)
                     batch_entries.append(entry)
-                batch_path = report_dir / f"dc_board_m7_raw_batch_{plan.dataset}_{batch_number:04d}.json"
+                batch_path = (
+                    report_dir
+                    / f"dc_board_m7_raw_batch_{plan.dataset}_{batch_number:04d}.json"
+                )
                 _write_json(
                     {
                         "schema_version": 1,
@@ -491,7 +561,16 @@ def run_raw_bootstrap(
 
 
 def _reconciliation(
-    *, phase: str, lake_root: Path, duckdb_resource: DuckDBResource, baseline_report: Path, batch_report: Path, layer: str, datasets: Sequence[str], start_date: str | None, end_date: str | None
+    *,
+    phase: str,
+    lake_root: Path,
+    duckdb_resource: DuckDBResource,
+    baseline_report: Path,
+    batch_report: Path,
+    layer: str,
+    datasets: Sequence[str],
+    start_date: str | None,
+    end_date: str | None,
 ) -> DcBoardReconciliationReport:
     started = perf_counter()
     baseline_payload = _load_json(baseline_report)
@@ -517,16 +596,26 @@ def _reconciliation(
                 dates=plan.expected_trade_dates,
                 layer=layer,
             )
-            missing = tuple(date_key for date_key, status in statuses.items() if not status.materialized)
+            missing = tuple(
+                date_key
+                for date_key, status in statuses.items()
+                if not status.materialized
+            )
             invalid = tuple(
-                date_key for date_key, status in statuses.items() if status.materialized and not status.checks_passed
+                date_key
+                for date_key, status in statuses.items()
+                if status.materialized and not status.checks_passed
             )
             report_dates = {
                 str(entry.get("trade_date"))
                 for entry in entries
                 if entry.get("dataset") == plan.dataset
             }
-            missing_reports = tuple(date_key for date_key in plan.expected_trade_dates if date_key not in report_dates)
+            missing_reports = tuple(
+                date_key
+                for date_key in plan.expected_trade_dates
+                if date_key not in report_dates
+            )
             observed_row_count = sum(
                 int(status.summary.get("checked_row_count", 0))
                 for status in statuses.values()
@@ -596,7 +685,9 @@ def run_silver_bootstrap(
 ) -> DcBoardBootstrapPhaseReport:
     raw_audit = _load_json(raw_audit_report)
     if raw_audit.get("should_stop") is not False:
-        raise DcBoardBootstrapApplyError("Raw reconciliation is not green; Silver generation is blocked")
+        raise DcBoardBootstrapApplyError(
+            "Raw reconciliation is not green; Silver generation is blocked"
+        )
     if batch_size <= 0 or batch_size > 20:
         raise DcBoardBootstrapApplyError("batch_size must be between 1 and 20")
     baseline_payload = _load_json(baseline_report)
@@ -613,10 +704,14 @@ def run_silver_bootstrap(
             start_date=start_date,
             end_date=end_date,
         )
-        disk_free, required = _assert_disk_space(lake_root=lake_root, required_bytes=required_bytes)
+        disk_free, required = _assert_disk_space(
+            lake_root=lake_root, required_bytes=required_bytes
+        )
         for plan in plans:
             dates = plan.expected_trade_dates
-            for batch_number, offset in enumerate(range(0, len(dates), batch_size), start=1):
+            for batch_number, offset in enumerate(
+                range(0, len(dates), batch_size), start=1
+            ):
                 batch_dates = dates[offset : offset + batch_size]
                 statuses = _assert_targets_safe(
                     connection=connection,
@@ -628,7 +723,14 @@ def run_silver_bootstrap(
                 batch_entries: list[Mapping[str, object]] = []
                 for trade_date in batch_dates:
                     status = statuses[trade_date]
-                    target = lake_root / "silver" / "board" / plan.dataset / f"trade_date={trade_date}" / "part-000.parquet"
+                    target = (
+                        lake_root
+                        / "silver"
+                        / "board"
+                        / plan.dataset
+                        / f"trade_date={trade_date}"
+                        / "part-000.parquet"
+                    )
                     if status.materialized:
                         entry = _result_entry(
                             dataset=plan.dataset,
@@ -654,7 +756,10 @@ def run_silver_bootstrap(
                         )
                     entries.append(entry)
                     batch_entries.append(entry)
-                batch_path = report_dir / f"dc_board_m7_silver_batch_{plan.dataset}_{batch_number:04d}.json"
+                batch_path = (
+                    report_dir
+                    / f"dc_board_m7_silver_batch_{plan.dataset}_{batch_number:04d}.json"
+                )
                 _write_json(
                     {
                         "schema_version": 1,
@@ -697,10 +802,14 @@ def run_final_reconciliation(
         "raw": raw,
         "silver": silver,
         "should_stop": bool(raw.get("should_stop") or silver.get("should_stop")),
-        "stop_reason_codes": list(dict.fromkeys([
-            *raw.get("stop_reason_codes", []),
-            *silver.get("stop_reason_codes", []),
-        ])),
+        "stop_reason_codes": list(
+            dict.fromkeys(
+                [
+                    *raw.get("stop_reason_codes", []),
+                    *silver.get("stop_reason_codes", []),
+                ]
+            )
+        ),
     }
     _write_json(payload, output_path)
     return payload

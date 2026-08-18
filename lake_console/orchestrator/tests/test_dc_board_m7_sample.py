@@ -6,6 +6,9 @@ from unittest.mock import patch
 
 import duckdb
 
+from orchestrator.defs.asset_guards.dc_board_source_probe import (
+    load_tushare_dc_index_daily_source_snapshot,
+)
 from orchestrator.defs.assets.dc_board import (
     write_dc_daily_partition,
     write_dc_index_partition,
@@ -26,10 +29,10 @@ from orchestrator.defs.paths import (
     silver_trade_calendar_path,
 )
 from orchestrator.defs.resources import TushareResult
-from orchestrator.defs.run_contracts.configs import DcBoardIndexReferenceConfig
+from orchestrator.defs.run_contracts.configs import DcBoardIndexSourceSnapshotConfig
 from orchestrator.defs.run_contracts.dc_board import (
     DC_INDEX_TYPES,
-    build_dc_board_prod_reference_snapshot,
+    build_dc_board_prod_completion_snapshot,
 )
 from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
 
@@ -124,13 +127,13 @@ def _policy() -> TushareRequestPolicy:
     )
 
 
-def _reference(trade_date: str):
+def _completion(trade_date: str):
     identity = (
         ("行业板块", "BK0001.DC"),
         ("概念板块", "BK0002.DC"),
         ("地域板块", "BK0003.DC"),
     )
-    return build_dc_board_prod_reference_snapshot(
+    return build_dc_board_prod_completion_snapshot(
         trade_date=trade_date,
         index_identity=identity,
         daily_identity=identity,
@@ -147,22 +150,34 @@ def test_m7_sample_raw_to_silver_three_dates_uses_atomic_temp_lake(tmp_path):
     duckdb_resource = _MemoryDuckDB()
 
     with patch(
-        "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_reference",
-        side_effect=lambda *, trade_date, **_kwargs: _reference(trade_date),
+        "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_completion",
+        side_effect=lambda *, trade_date, **_kwargs: _completion(trade_date),
     ):
         for trade_date in dates:
             compact_date = trade_date.replace("-", "")
-            reference = _reference(trade_date)
+            completion = _completion(trade_date)
+            source_result = load_tushare_dc_index_daily_source_snapshot(
+                tushare=tushare,
+                trade_date=trade_date,
+                prod_completion=completion,
+                policy=_policy(),
+            )
+            assert source_result.snapshot is not None
+            observed_at = datetime.now(UTC).isoformat()
             write_dc_index_partition(
                 lake_root_path=root,
                 duckdb_resource=duckdb_resource,
                 tushare=tushare,
                 prod_postgres=object(),
                 partition_key=trade_date,
-                reference_config=DcBoardIndexReferenceConfig(
-                    reference_trade_date=trade_date,
-                    reference_observed_at=datetime.now(UTC).isoformat(),
-                    reference_fingerprint=reference.fingerprint,
+                source_snapshot_config=DcBoardIndexSourceSnapshotConfig(
+                    trade_date=trade_date,
+                    prod_completion_observed_at=observed_at,
+                    prod_completion_fingerprint=completion.completion_fingerprint,
+                    tushare_source_observed_at=observed_at,
+                    tushare_source_fingerprint=(
+                        source_result.snapshot.source_fingerprint
+                    ),
                 ),
                 policy=_policy(),
             )
@@ -219,7 +234,8 @@ def test_m7_sample_raw_to_silver_three_dates_uses_atomic_temp_lake(tmp_path):
             assert all(
                 connection.execute(
                     "SELECT count(*) FROM read_parquet(?)", [str(path)]
-                ).fetchone()[0] > 0
+                ).fetchone()[0]
+                > 0
                 for path in paths
             )
         assert not list(root.rglob("*.staging-*"))

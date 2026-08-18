@@ -315,8 +315,8 @@ class RunContractStaticGateTests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, writer_source)
         self.assertNotIn("execute_bounded_code_pages(", writer_source)
-        self.assertIn("_inspect_dc_member_pair_diff", writer_source)
-        self.assertIn("_replace_dc_member_rows_for_repair_codes", writer_source)
+        self.assertIn("_inspect_dc_member_prod_diff", writer_source)
+        self.assertIn("_replace_dc_member_rows_for_affected_codes", writer_source)
         self.assertIn(
             "code_scope_exceeds_remaining_request_budget",
             (DEFS_DIR / "tushare_request_policy.py").read_text(),
@@ -370,13 +370,14 @@ class RunContractStaticGateTests(unittest.TestCase):
         self.assertNotIn("AssetSelection.assets(silver_", jobs_source)
         self.assertEqual(jobs_source.count("dg.define_asset_job("), 3)
 
-    def test_dc_board_m10_uses_stable_prod_reference_and_complete_source_compare(
+    def test_dc_board_m102_uses_prod_completion_and_tushare_source_authority(
         self,
     ) -> None:
         partition_sensor_source = (
             SENSORS_DIR / "dc_board_partition_sensor.py"
         ).read_text()
         asset_source = (ASSETS_DIR / "dc_board_raw.py").read_text()
+        writer_source = (ASSETS_DIR / "dc_board.py").read_text()
         raw_sensor_source = (SENSORS_DIR / "dc_board_sensor.py").read_text()
         source_probe_source = (
             DEFS_DIR / "asset_guards" / "dc_board_source_probe.py"
@@ -398,8 +399,8 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         for fragment in (
             "batch_raw_dc_index_lake_readiness",
-            "load_prod_dc_board_reference",
-            "compare_tushare_index_and_daily_to_reference",
+            "load_prod_dc_board_completion_snapshot",
+            "load_tushare_dc_index_daily_source_snapshot",
             "DC_BOARD_CURRENT_DAY_REFERENCE_NOT_BEFORE",
             "DC_BOARD_REFERENCE_STABILITY_SECONDS",
             "build_raw_dc_index_update_job_run_config",
@@ -423,6 +424,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             "core_serving.dc_daily",
             "core_serving.dc_member",
             "load_prod_dc_member_pairs",
+            "build_dc_board_tushare_source_snapshot",
         ):
             self.assertIn(fragment, source_probe_source)
         for forbidden in (
@@ -435,6 +437,20 @@ class RunContractStaticGateTests(unittest.TestCase):
             self.assertNotIn(forbidden, source_probe_source)
         self.assertNotIn("_previous_member_path", asset_source)
         self.assertNotIn("_previous_member_codes", asset_source)
+        for retired in (
+            "DcBoardProdReferenceSnapshot",
+            "DcBoardIndexReferenceConfig",
+            "compare_tushare_index_and_daily_to_reference",
+            "require_tushare_index_and_daily_reference_match",
+            "assert_dc_daily_rows_match_reference",
+            "tushare_reference_mismatch",
+        ):
+            self.assertNotIn(retired, raw_sensor_source)
+            self.assertNotIn(retired, writer_source)
+            self.assertNotIn(retired, source_probe_source)
+        self.assertIn("initial_pair_diff.affected_codes", writer_source)
+        self.assertIn("_assert_dc_member_source_rows_stable", writer_source)
+        self.assertNotIn("if initial_pair_diff.extra_pair_count", writer_source)
 
         for fragment in (
             "RAW_DC_QUALITY_SPECS",

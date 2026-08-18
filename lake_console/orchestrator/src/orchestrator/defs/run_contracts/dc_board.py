@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import time
 import hashlib
 import json
-from collections.abc import Sequence
+import math
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from datetime import time
+from numbers import Real
 
 DC_INDEX_HISTORY_START_DATE = "2024-12-20"
 DC_MEMBER_HISTORY_START_DATE = "2024-12-20"
@@ -90,15 +92,15 @@ SILVER_DC_DAILY_COLUMNS = DC_DAILY_FIELDS
 
 
 @dataclass(frozen=True, slots=True)
-class DcBoardProdReferenceSnapshot:
-    """In-memory prod identity baseline; never serialize its code sets."""
+class DcBoardProdCompletionSnapshot:
+    """In-memory prod completion evidence; never serialize its code sets."""
 
     trade_date: str
     index_identity: tuple[tuple[str, str], ...]
     daily_identity: tuple[tuple[str, str], ...]
     member_codes: tuple[str, ...]
     member_row_count: int
-    fingerprint: str
+    completion_fingerprint: str
 
     @property
     def index_row_count(self) -> int:
@@ -115,7 +117,7 @@ class DcBoardProdReferenceSnapshot:
     def compact_summary(self) -> dict[str, object]:
         return {
             "trade_date": self.trade_date,
-            "fingerprint": self.fingerprint,
+            "completion_fingerprint": self.completion_fingerprint,
             "index_row_count": self.index_row_count,
             "daily_row_count": self.daily_row_count,
             "member_row_count": self.member_row_count,
@@ -123,15 +125,15 @@ class DcBoardProdReferenceSnapshot:
         }
 
 
-def build_dc_board_prod_reference_snapshot(
+def build_dc_board_prod_completion_snapshot(
     *,
     trade_date: str,
     index_identity: Sequence[tuple[str, str]],
     daily_identity: Sequence[tuple[str, str]],
     member_codes: Sequence[str],
     member_row_count: int,
-) -> DcBoardProdReferenceSnapshot:
-    """Build the stable identity hash used across the sensor and writer gates."""
+) -> DcBoardProdCompletionSnapshot:
+    """Build the stable hash proving that prod completion stopped changing."""
 
     normalized_index_identity = tuple(sorted(index_identity))
     normalized_daily_identity = tuple(sorted(daily_identity))
@@ -150,11 +152,110 @@ def build_dc_board_prod_reference_snapshot(
             separators=(",", ":"),
         ).encode("utf-8")
     ).hexdigest()
-    return DcBoardProdReferenceSnapshot(
+    return DcBoardProdCompletionSnapshot(
         trade_date=trade_date,
         index_identity=normalized_index_identity,
         daily_identity=normalized_daily_identity,
         member_codes=normalized_member_codes,
         member_row_count=member_row_count,
-        fingerprint=fingerprint,
+        completion_fingerprint=fingerprint,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class DcBoardTushareSourceSnapshot:
+    """Validated Tushare index/daily source identity and business-row hash."""
+
+    trade_date: str
+    index_identity: tuple[tuple[str, str], ...]
+    daily_identity: tuple[tuple[str, str], ...]
+    index_row_count: int
+    daily_row_count: int
+    source_fingerprint: str
+
+    def compact_summary(self) -> dict[str, object]:
+        return {
+            "trade_date": self.trade_date,
+            "source_fingerprint": self.source_fingerprint,
+            "index_row_count": self.index_row_count,
+            "daily_row_count": self.daily_row_count,
+        }
+
+
+def _canonical_source_value(value: object) -> object:
+    if value is None or isinstance(value, (str, bool)):
+        return value
+    if isinstance(value, Real):
+        numeric = float(value)
+        if not math.isfinite(numeric):
+            return None
+        return format(numeric, ".15g")
+    return str(value)
+
+
+def _canonical_source_rows(
+    rows: Sequence[Mapping[str, object]],
+    fields: Sequence[str],
+) -> tuple[tuple[object, ...], ...]:
+    normalized = [
+        tuple(_canonical_source_value(row.get(field)) for field in fields)
+        for row in rows
+    ]
+    return tuple(
+        sorted(
+            normalized,
+            key=lambda row: json.dumps(
+                row,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
+        )
+    )
+
+
+def build_dc_board_tushare_source_snapshot(
+    *,
+    trade_date: str,
+    index_rows: Sequence[Mapping[str, object]],
+    daily_rows: Sequence[Mapping[str, object]],
+) -> DcBoardTushareSourceSnapshot:
+    """Hash complete normalized Tushare business rows, not only identities."""
+
+    index_identity = tuple(
+        sorted(
+            (
+                str(row.get("idx_type") or "").strip(),
+                str(row.get("ts_code") or "").strip().upper(),
+            )
+            for row in index_rows
+        )
+    )
+    daily_identity = tuple(
+        sorted(
+            (
+                str(row.get("category") or "").strip(),
+                str(row.get("ts_code") or "").strip().upper(),
+            )
+            for row in daily_rows
+        )
+    )
+    payload = {
+        "trade_date": trade_date,
+        "index_rows": _canonical_source_rows(index_rows, DC_INDEX_FIELDS),
+        "daily_rows": _canonical_source_rows(daily_rows, DC_DAILY_FIELDS),
+    }
+    source_fingerprint = hashlib.sha256(
+        json.dumps(
+            payload,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    return DcBoardTushareSourceSnapshot(
+        trade_date=trade_date,
+        index_identity=index_identity,
+        daily_identity=daily_identity,
+        index_row_count=len(index_rows),
+        daily_row_count=len(daily_rows),
+        source_fingerprint=source_fingerprint,
     )

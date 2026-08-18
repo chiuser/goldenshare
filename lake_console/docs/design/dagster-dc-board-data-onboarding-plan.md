@@ -1,6 +1,6 @@
 # Dagster `dc_index` / `dc_member` / `dc_daily` 数据集接入技术方案
 
-> 状态：M3 Raw 写入能力、M4 Raw Dagster definition、M5 Silver writer/asset/check、M6 Silver Dagster 接入、M7A 只读 Bootstrap dry-run、M7E 临时 lake 样本联调、M7F-M7I 正式 Raw/Silver Bootstrap 与对账、M8 Dagster 事件补录与验收均已完成。M9-R 已完成专属分区、同日 Lake 关系和 writer 基础闭环的代码落地；其中“有限小页 source probe 可提交 Raw run”的日常触发口径已被 M10 取代。M10“稳定 prod 基线 + 完整 Tushare 对照”与 M10.1“`dc_member` 成功但不完整响应的单轮定向重试”均已完成代码与本地验证。2026-07-26 已完成 2026-07-24 的正式历史恢复；2026-07-27 已完成历史 member check 状态纠偏，并启用当前 code location 的 raw index sensor。该传感器已按稳定 prod 基线门禁自然完成 `2026-07-27` 的 Raw index/daily/member 更新；没有写 prod。2026-08-12 已补齐 `2026-05-20/21` 的 `dc_member` Tushare 确认缺口，并根据 36 个 2026 年日期的当前源端实测，将错误的 daily/index 集合相等约束修正为 `dc_index code set ⊆ dc_daily code set`。
+> 状态：M3 Raw 写入能力、M4 Raw Dagster definition、M5 Silver writer/asset/check、M6 Silver Dagster 接入、M7A 只读 Bootstrap dry-run、M7E 临时 lake 样本联调、M7F-M7I 正式 Raw/Silver Bootstrap 与对账、M8 Dagster 事件补录与验收均已完成。M9-R 已完成专属分区、同日 Lake 关系和 writer 基础闭环的代码落地；其中“有限小页 source probe 可提交 Raw run”的日常触发口径已被 M10 取代。M10“稳定 prod 基线 + 完整 Tushare 对照”与 M10.1“`dc_member` 成功但不完整响应的单轮定向重试”均已完成代码与本地验证。2026-07-26 已完成 2026-07-24 的正式历史恢复；2026-07-27 已完成历史 member check 状态纠偏，并启用当前 code location 的 raw index sensor。该传感器已按稳定 prod 基线门禁自然完成 `2026-07-27` 的 Raw index/daily/member 更新；没有写 prod。2026-08-12 已补齐 `2026-05-20/21` 的 `dc_member` Tushare 确认缺口，并根据 36 个 2026 年日期的当前源端实测，将错误的 daily/index 集合相等约束修正为 `dc_index code set ⊆ dc_daily code set`。2026-08-19 已完成 M10.2“源事实权威纠偏”的代码与本地验证：Tushare 成为日常 Raw 唯一内容权威，prod 只保留完成时机和差异诊断职责；尚未执行 `dg check defs`、正式只读演练、sensor 启停或实际生产 run。
 >
 > 依据：新增数据集接入模板、`lake_console/orchestrator/CODING_STANDARDS.md`、
 > `dagster-data-pipeline-performance-governance.md`、现有 `index_daily` / `stk_nineturn`
@@ -8,8 +8,8 @@
 
 > **当前阅读口径**：M3-M8 的实施状态保留当时的代码事实，用于追溯历史和验收证据；其中出现的
 > 共享 `cn_a_index_trade_days` 只代表旧实现，不是当前板块链路的目标口径。分区、Lake core check
-> 和同日关系以 M9-R 为准；日常 Raw 触发、prod 基线和 Tushare 完整性判断以 M10 为唯一现行设计。
-> 小页 probe 仅保留为历史实现事实，不能被解释为“源端已完整”；当前代码以 M10 的稳定 prod 基线和完整 Tushare 对照为唯一日常 Raw 触发口径。
+> 和同日关系以 M9-R 为准；M10/M10.1 是已经退出的历史裁决口径，当前代码以 M10.2 为准。
+> 小页 probe 和 prod 精确 identity 相等门禁仅保留为历史实现事实，不能被解释为当前生产契约。
 
 ## M3 实施状态
 
@@ -533,9 +533,113 @@ fake source 测试记录缺失板块分布、请求数、剩余预算和耗时�
 **自动再次提交不属于 M10.1。** 现有 dependent sensor 的 run key 是按 job 和 trade date 固定生成的；同日失败
 run 不能被当作无限次自动重放的理由。本轮只修复单次 job 内可验证的短暂不完整响应，保留现有 run key 和
 sensor 触发行为。若单轮定向重试仍失败，后续是否设计“仅 `member_source_incomplete`、固定次数、固定间隔”的
-sensor retry，必须另立 M10.2 方案并单独评估 Dagster run-key、cursor state 和源端压力，不能顺手改变。
+sensor retry，必须另立 M10.3 方案并单独评估 Dagster run-key、cursor state 和源端压力，不能顺手改变。
 
-#### 5.5.7 实现、验证与切换顺序
+上述自动再次提交议题顺延为 M10.3；M10.2 优先解决下面的源事实权威冲突。
+
+#### 5.5.7 M10.2：Tushare 源事实权威纠偏（代码与本地验证完成）
+
+##### 5.5.7.1 问题与证据
+
+M10 的原始意图是用 prod 已完成的当天快照阻止 DG 过早写入半截 Tushare 数据，但当前实现把“完成时机证据”
+扩大成了“逐条内容裁决”：Tushare 与 prod 的 index、daily identity 或 member pair 只要存在双向差异，writer
+就拒绝 promote。该实现与本方案 5.5.1 已冻结的事实冲突：日常 `raw_tushare_dc_*` 的业务事实来自 Tushare，
+prod 不是权威内容源，也不保证与稍后时点的 Tushare 快照完全相同。
+
+2026-08-18 的两次正式失败提供了直接证据：
+
+| run | 阶段 | Tushare 少于 prod | Tushare 多于 prod | 结果 |
+| --- | --- | ---: | ---: | --- |
+| `d649d644-48b9-48c2-a7b5-120ef1229bf1` | initial pair diff | 36 | 18 | promote 前失败，未生成目标文件 |
+| `0b86e5de-dd2a-487f-9b97-ac75ad1d65bd` | initial pair diff | 5 | 18 | promote 前失败，未生成目标文件 |
+
+第二次请求已消除 31 个 missing pair，但 18 个 extra pair 完全不变；剩余 5 个 missing pair 集中在
+`BK1516.DC`。两次结果说明 prod 与 Tushare 可能只是采集时点或版本不同。当前代码既不能判定哪边更新，也不能
+让已稳定的 Tushare 事实胜出，只能永久 fail closed。安全拒写本身正确，但“prod 精确相等才算完整”的权威
+口径不正确。
+
+##### 5.5.7.2 权威与职责重新冻结
+
+1. 日常 Raw 行事实唯一以受控时点取得且通过结构、分页、日期、主键、关系和稳定性门禁的 Tushare 响应为准。
+2. prod 仍保留两个用途：证明当天 prod 采集链路已进入稳定完成窗口；在 Tushare 与 prod 不同时指出需要二次
+   稳定确认的异常范围。prod 不再逐条裁决 Tushare 行是否合法。
+3. prod 与 Tushare 内容不一致时，不直接选择 prod，也不立即接受第一份 Tushare 响应；系统必须用第二份
+   Tushare 结果证明源端自身稳定。稳定后采用 Tushare，未稳定则拒写。
+4. 严禁把 prod 行补入、替换或删除 Tushare 行；历史 `dc_member` Bootstrap 的 prod 只读来源保持原历史事实，
+   M10.2 只修改日常生产口径，不重写历史文件和事件。
+5. 不新增 asset、job、sensor、check、partition、状态表、manifest 或 runless event。现有核心 check/readiness
+   已验证文件 schema、键、日期和 `member ⊆ index ⊆ daily` 关系，不增加 prod 对账 check。
+
+##### 5.5.7.3 日常触发和写入方案
+
+`raw_tushare_dc_index_update_job_sensor` 继续在 21:15 后观察两份间隔满足要求且 fingerprint 稳定的 prod
+快照，但该 fingerprint 只表示“prod 完成状态未继续变化”。随后完整请求 Tushare index/daily：
+
+- 若 Tushare 结构闭合且 identity 与 prod 相同，现有独立副本已互相印证，可直接提交 index run。
+- 若 Tushare 结构闭合但与 prod 不同，cursor 只保存由完整规范化 Tushare index/daily 业务行计算的 source
+  fingerprint、观察时刻和有限差异计数；
+  下一 tick 再完整请求一次。第二份 Tushare fingerprint 与第一份相同才允许提交，变化则以新 fingerprint
+  重新开始观察。
+- 两次 Tushare 观察都必须满足三类 index、三类 daily、分页终态、日期、空/重复 key 和
+  `index code set ⊆ daily code set`。不能用“fingerprint 相同”掩盖结构错误。
+
+index run config 后续应同时携带最小 prod 完成 fingerprint 和 Tushare source fingerprint。index writer 在
+promote 前重新确认 prod 完成状态没有继续变化，并重新请求 Tushare；写入内容的 fingerprint 必须等于 sensor
+冻结的 Tushare source fingerprint。prod 内容与 Tushare 内容是否逐条相等不再是 promote 条件。
+
+daily writer 继续完整分页请求 Tushare，保留三类 category、字段、日期、主键和同日 raw index 覆盖门禁；
+prod identity 差异只写聚合诊断，不得否决一份结构闭合且覆盖同日 raw index 的稳定 Tushare daily 结果。
+
+member writer 的首轮请求、分页和 DuckDB 临时表保持不变。首轮与 prod 有差异时，按 missing 与 extra pair 的
+`ts_code` 并集生成唯一、排序后的异常板块范围，只对这些板块再请求一次：
+
+```text
+首轮 Tushare member 全量请求
+  -> 结构、分页、日期、请求代码、空/重复 key 全部通过
+  -> 与 prod 只读 pair 做诊断性双向差集
+  -> 无差异：直接 promote
+  -> 有差异：只重新请求差异涉及的板块
+  -> 同一板块第二份完整规范化 Tushare raw row set == 第一份：认定源端稳定，采用 Tushare
+  -> 第二份发生变化、请求失败或预算不足：fail closed，不 promote
+```
+
+第二轮必须替换 DuckDB 中对应板块的首轮行，再执行结构和同日关系校验。最终允许保留非零 prod 差异，但必须
+记录 prod missing/extra 计数、稳定确认板块数、第二轮请求数和最终 Tushare source fingerprint；不得记录完整
+pair 或代码全集。2026-08-18 第二次失败涉及 15 个唯一异常板块，不能把 23 个 pair 差异误算为 23 次请求；
+正式开发前仍要用只读 profiling 核定各板块实际分页数和剩余预算。
+
+##### 5.5.7.4 性能和失败边界
+
+| 路径 | 当前工作量 | M10.2 最大增量 | 硬边界 |
+| --- | ---: | ---: | --- |
+| index sensor，prod/Tushare 一致 | 现有两轮 prod 观察 + 4 个 Tushare 逻辑请求 | 0 | 单 tick 仍小于 10 秒 |
+| index sensor，内容不一致 | 同上 | 下一 tick 增加 4 个 Tushare 逻辑请求 | 不在一个 tick 连续做两轮，不请求 member |
+| index/daily writer | 现有完整 Tushare 请求 | 只增加 fingerprint/诊断计算 | 不增加全量第二遍请求 |
+| member writer，无差异 | 约 1,022 个板块请求 | 0 | 共享 `1,200` 次、`600s` 预算 |
+| member writer，有差异 | 约 1,022 个板块请求 | 只重试差异涉及的板块及其分页 | 不重置 runner，不做全市场第二遍 |
+
+任一 Tushare 结构错误、分页未终止、failed/unattempted code、两份 source fingerprint 不同、member 差异板块
+第二份结果变化、剩余请求数/时间不足或 writer 与 sensor source fingerprint 不同，都必须在正式路径提升前
+失败。prod 不可用或完成状态仍变化时仍不提交当前日 run，因为它承担的是开始生产的时机门禁，而不是内容真相。
+
+##### 5.5.7.5 P0 只读门禁与实际结果
+
+进入代码修改前必须先完成一次只读 profiling，至少输出：最近实际日期的 prod/Tushare index、daily identity
+差异；2026-08-18 的 15 个异常板块两轮 Tushare 完整 raw row fingerprint、pair count、分页数、请求数和
+耗时；现有 sensor/run
+config/cursor 的唯一消费者清单。若 Tushare 同一历史日期在有界间隔内仍持续变化，或差异板块重试使 member
+超过 `1,200` 次/`600s`，停止并重新设计，不能靠放宽预算或取消完整性门禁继续。
+
+P0 已于 2026-08-19 完成，报告为
+`/private/tmp/dc_board_m102_p0_profile_20260819_011903.json`：15 个受影响板块连续两份完整 Tushare
+member 快照间隔 300 秒，全部稳定，无变化板块；两轮共 30 次请求，实际请求耗时约 4.309 秒（不含固定等待）。
+最近 5 个实际日期 `2026-08-12/13/14/17/18` 的 index/daily 对照均完成，每日 4 个 Tushare 逻辑请求，
+与 prod 的聚合差异为 0。P0 `should_stop=false`，没有写 Lake、Dagster DB 或 prod。
+
+自动重放失败 run 不属于 M10.2。若源事实权威纠偏后仍要让 sensor 自动再次提交 member，作为 M10.3 独立
+评估 attempt run key、最大次数、间隔、cursor runtime state 和源端压力。
+
+#### 5.5.8 实现、验证与切换顺序
 
 1. 先完成 prod schema/identity 一致性只读审计：确认三张 prod 表的列、主键、同日集合关系，以及 member
    `(ts_code, con_code)` 与 Tushare 写入 schema 可直接对照；若字段或语义不一致，停止并修订本设计。
@@ -547,8 +651,13 @@ sensor retry，必须另立 M10.2 方案并单独评估 Dagster run-key、cursor
 4. 性能测试锁定完整 probe 的调用次数、prod 行数、DuckDB 差集耗时和 600 秒 sensor 间隔；稳定日 sensor
    目标小于 10 秒，任何路径不得出现按日期循环、Dagster event-history 扫描或全量 member 热路径请求。
 5. M10 既有代码与本地 fake prod/Tushare 回归、静态门禁和性能测试已通过；其中 M10 定向回归 `99` 条，资产治理与 cursor contract 回归 `18` 条，Bootstrap/M7 样本调用也已通过。M10.1 已新增共享 request session、missing-only replace retry、聚合 materialization diagnostics 和静态门禁；本地定向 suite 共 `120` 条通过，覆盖首轮无差异零额外请求、仅缺失 pair 的定向重试成功、多个板块排序重试、重试后仍缺失、extra/重复/日期/请求错误不重试、跨轮总请求数/总耗时不足时不 promote，以及 sensor 热路径零新增 member 请求。正式环境只读 source-finalization 审计、`dg check defs` 和 sensor 启用仍须单独批准。M10/M10.1 均不包含 Lake 回补、prod 写入或历史 event 补录。
+6. M10.2 已一次性切换 source probe、index sensor、三个 Raw writer、run config、M7 sample 与历史 bootstrap
+   调用方；旧 reference class/helper/config alias 在 active production source 中为零。定向 unittest 共 `128` 条通过，
+   bootstrap pytest 共 `3` 条通过，覆盖 prod 差异仅诊断、两份 Tushare source 稳定确认、writer source hash
+   复核、member 双向差异板块定向确认、共享请求预算和失败不 promote。M10.2 没有触发 run，没有写 Lake、
+   Dagster DB、prod 或 dynamic partitions。`dg check defs`、正式只读演练和生产启用仍须单独批准。
 
-#### 5.5.8 2026-07-24 正式历史恢复记录
+#### 5.5.9 2026-07-24 正式历史恢复记录
 
 2026-07-26 按 M10/M10.1 进行了受控恢复，报告如下：
 
@@ -558,7 +667,7 @@ sensor retry，必须另立 M10.2 方案并单独评估 Dagster run-key、cursor
 - 7 个资产文件、materialization 与 blocking check 均为 ready；Raw/Silver/Gold 的同日 code-set 关系均为零差异。最终报告：`/private/tmp/dc_20260724_m10_recovery_final_audit_20260726_195812.json`。
 - 恢复期间暂停的当前 code location 6 个 dependent sensor 已恢复为 `RUNNING`；当日 `raw_tushare_dc_index_update_job_sensor` 按恢复前状态保持 `STOPPED`。该历史状态已在 2026-07-27 的日常启用记录中更新。
 
-#### 5.5.9 2026-07-27 状态纠偏与当前日 Raw 启动记录
+#### 5.5.10 2026-07-27 状态纠偏与当前日 Raw 启动记录
 
 2026-07-23 的 `raw_tushare_dc_member` 曾在 member check 执行时与当时的 raw index 文件不一致，留下了
 `same_day_board_relation_integrity` 失败事件。随后同日 raw index 被重新 materialize，当前 Lake 文件已经一致，但旧

@@ -1,15 +1,15 @@
 from contextlib import contextmanager
 
 from orchestrator.defs.asset_guards.dc_board_source_probe import (
-    compare_tushare_index_and_daily_to_reference,
-    load_prod_dc_board_reference,
+    load_prod_dc_board_completion_snapshot,
+    load_tushare_dc_index_daily_source_snapshot,
 )
 from orchestrator.defs.resources import TushareResult
 from orchestrator.defs.run_contracts.dc_board import (
     DC_DAILY_FIELDS,
     DC_INDEX_FIELDS,
     DC_INDEX_TYPES,
-    build_dc_board_prod_reference_snapshot,
+    build_dc_board_prod_completion_snapshot,
 )
 from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
 
@@ -22,11 +22,11 @@ _INDEX_IDENTITY = (
 )
 
 
-def _reference():
-    return build_dc_board_prod_reference_snapshot(
+def _completion(*, daily_identity=_INDEX_IDENTITY):
+    return build_dc_board_prod_completion_snapshot(
         trade_date=_TRADE_DATE,
         index_identity=_INDEX_IDENTITY,
-        daily_identity=_INDEX_IDENTITY,
+        daily_identity=daily_identity,
         member_codes=("BK0001.DC", "BK0002.DC", "BK0003.DC"),
         member_row_count=3,
     )
@@ -42,10 +42,17 @@ def _policy():
 
 
 class _FakeTushare:
-    def __init__(self, *, partial_daily: bool = False, fail_daily: bool = False):
+    def __init__(
+        self,
+        *,
+        partial_daily: bool = False,
+        fail_daily: bool = False,
+        daily_close: float = 1.0,
+    ):
         self.calls = []
         self.partial_daily = partial_daily
         self.fail_daily = fail_daily
+        self.daily_close = daily_close
 
     def call(self, api_name, params, fields):
         self.calls.append((api_name, dict(params), tuple(fields)))
@@ -72,6 +79,7 @@ class _FakeTushare:
                     "category": category,
                     "ts_code": code,
                     "trade_date": _RAW_TRADE_DATE,
+                    "close": self.daily_close,
                 }
                 for category, code in _INDEX_IDENTITY
             ]
@@ -172,8 +180,8 @@ class _FailingProd(_FakeProd):
         self.connection.cursor_instance = cursor
 
 
-def test_prod_reference_requires_three_closed_identity_queries():
-    result = load_prod_dc_board_reference(
+def test_prod_completion_requires_three_closed_identity_queries():
+    result = load_prod_dc_board_completion_snapshot(
         prod_postgres=_FakeProd(),
         trade_date=_TRADE_DATE,
     )
@@ -182,22 +190,24 @@ def test_prod_reference_requires_three_closed_identity_queries():
     assert result.reason_code == "ready"
     assert result.query_count == 3
     assert result.snapshot is not None
-    assert result.snapshot.fingerprint == _reference().fingerprint
+    assert (
+        result.snapshot.completion_fingerprint == _completion().completion_fingerprint
+    )
 
 
-def test_prod_reference_fails_closed_on_member_key_problem():
-    result = load_prod_dc_board_reference(
+def test_prod_completion_fails_closed_on_member_key_problem():
+    result = load_prod_dc_board_completion_snapshot(
         prod_postgres=_FakeProd(invalid_member_keys=1),
         trade_date=_TRADE_DATE,
     )
 
     assert result.ready is False
-    assert result.reason_code == "prod_reference_not_closed"
+    assert result.reason_code == "prod_completion_not_closed"
     assert result.snapshot is None
 
 
-def test_prod_reference_accepts_member_subset_index_subset_daily():
-    result = load_prod_dc_board_reference(
+def test_prod_completion_accepts_member_subset_index_subset_daily():
+    result = load_prod_dc_board_completion_snapshot(
         prod_postgres=_FakeProd(
             daily_identity=(*_INDEX_IDENTITY, ("行业板块", "BK0004.DC")),
             member_codes=("BK0001.DC", "BK0002.DC"),
@@ -213,52 +223,53 @@ def test_prod_reference_accepts_member_subset_index_subset_daily():
     assert result.snapshot.member_code_count == 2
 
 
-def test_prod_reference_rejects_index_code_missing_from_daily():
-    result = load_prod_dc_board_reference(
+def test_prod_completion_rejects_index_code_missing_from_daily():
+    result = load_prod_dc_board_completion_snapshot(
         prod_postgres=_FakeProd(daily_identity=_INDEX_IDENTITY[:-1]),
         trade_date=_TRADE_DATE,
     )
 
     assert result.ready is False
-    assert result.reason_code == "prod_reference_not_closed"
+    assert result.reason_code == "prod_completion_not_closed"
     assert result.snapshot is None
 
 
-def test_prod_reference_rejects_member_code_outside_index():
-    result = load_prod_dc_board_reference(
-        prod_postgres=_FakeProd(
-            member_codes=("BK0001.DC", "BK0002.DC", "BK9999.DC")
-        ),
+def test_prod_completion_rejects_member_code_outside_index():
+    result = load_prod_dc_board_completion_snapshot(
+        prod_postgres=_FakeProd(member_codes=("BK0001.DC", "BK0002.DC", "BK9999.DC")),
         trade_date=_TRADE_DATE,
     )
 
     assert result.ready is False
-    assert result.reason_code == "prod_reference_not_closed"
+    assert result.reason_code == "prod_completion_not_closed"
     assert result.snapshot is None
 
 
-def test_prod_reference_keeps_completed_query_count_when_query_fails():
-    result = load_prod_dc_board_reference(
+def test_prod_completion_keeps_completed_query_count_when_query_fails():
+    result = load_prod_dc_board_completion_snapshot(
         prod_postgres=_FailingProd(fail_on_query=2),
         trade_date=_TRADE_DATE,
     )
 
     assert result.ready is False
-    assert result.reason_code == "prod_reference_unavailable"
+    assert result.reason_code == "prod_completion_unavailable"
     assert result.query_count == 2
 
 
-def test_complete_tushare_comparison_requires_all_index_and_daily_identity_rows():
+def test_complete_tushare_source_requires_all_index_and_daily_rows():
     source = _FakeTushare()
-    result = compare_tushare_index_and_daily_to_reference(
+    result = load_tushare_dc_index_daily_source_snapshot(
         tushare=source,
         trade_date=_TRADE_DATE,
-        reference=_reference(),
+        prod_completion=_completion(),
         policy=_policy(),
     )
 
     assert result.ready is True
     assert result.reason_code == "ready"
+    assert result.snapshot is not None
+    assert len(result.snapshot.source_fingerprint) == 64
+    assert result.content_matches_prod is True
     assert [call[0] for call in source.calls] == [
         "dc_index",
         "dc_index",
@@ -268,27 +279,62 @@ def test_complete_tushare_comparison_requires_all_index_and_daily_identity_rows(
     assert all(call[2] in (DC_INDEX_FIELDS, DC_DAILY_FIELDS) for call in source.calls)
 
 
-def test_complete_tushare_comparison_rejects_partial_daily_response():
-    result = compare_tushare_index_and_daily_to_reference(
+def test_complete_tushare_source_rejects_partial_daily_response():
+    result = load_tushare_dc_index_daily_source_snapshot(
         tushare=_FakeTushare(partial_daily=True),
         trade_date=_TRADE_DATE,
-        reference=_reference(),
+        prod_completion=_completion(),
         policy=_policy(),
     )
 
     assert result.ready is False
-    assert result.reason_code == "tushare_reference_mismatch"
-    assert result.daily_missing_count == 1
+    assert result.reason_code == "source_validation_failed"
+    assert result.snapshot is None
 
 
-def test_tushare_comparison_counts_late_failed_request():
-    result = compare_tushare_index_and_daily_to_reference(
+def test_tushare_source_counts_late_failed_request():
+    result = load_tushare_dc_index_daily_source_snapshot(
         tushare=_FakeTushare(fail_daily=True),
         trade_date=_TRADE_DATE,
-        reference=_reference(),
+        prod_completion=_completion(),
         policy=_policy(),
     )
 
     assert result.ready is False
     assert result.reason_code == "source_request_error"
     assert result.request_count == len(DC_INDEX_TYPES) + 1
+
+
+def test_prod_content_difference_is_diagnostic_not_source_failure():
+    result = load_tushare_dc_index_daily_source_snapshot(
+        tushare=_FakeTushare(),
+        trade_date=_TRADE_DATE,
+        prod_completion=_completion(
+            daily_identity=(*_INDEX_IDENTITY, ("行业板块", "BK0004.DC")),
+        ),
+        policy=_policy(),
+    )
+
+    assert result.ready is True
+    assert result.content_matches_prod is False
+    assert result.daily_missing_count == 1
+    assert result.daily_extra_count == 0
+
+
+def test_tushare_source_fingerprint_covers_business_values():
+    first = load_tushare_dc_index_daily_source_snapshot(
+        tushare=_FakeTushare(daily_close=1.0),
+        trade_date=_TRADE_DATE,
+        prod_completion=_completion(),
+        policy=_policy(),
+    )
+    second = load_tushare_dc_index_daily_source_snapshot(
+        tushare=_FakeTushare(daily_close=2.0),
+        trade_date=_TRADE_DATE,
+        prod_completion=_completion(),
+        policy=_policy(),
+    )
+
+    assert first.snapshot is not None
+    assert second.snapshot is not None
+    assert first.snapshot.source_fingerprint != second.snapshot.source_fingerprint

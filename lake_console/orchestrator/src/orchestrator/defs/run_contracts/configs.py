@@ -19,15 +19,21 @@ class IndexDailyRawConfig(dg.Config):
     )
 
 
-class DcBoardIndexReferenceConfig(dg.Config):
-    reference_trade_date: str = Field(
-        description="prod DC 完整性基线对应的交易日，格式 YYYY-MM-DD。",
+class DcBoardIndexSourceSnapshotConfig(dg.Config):
+    trade_date: str = Field(
+        description="本次 DC Tushare 源快照对应的交易日，格式 YYYY-MM-DD。",
     )
-    reference_observed_at: str = Field(
-        description="第二次稳定 prod 基线快照的带时区 ISO-8601 观测时间。",
+    prod_completion_observed_at: str = Field(
+        description="第二次稳定 prod 完成快照的带时区 ISO-8601 观测时间。",
     )
-    reference_fingerprint: str = Field(
-        description="稳定 prod identity 基线的 lowercase SHA-256。",
+    prod_completion_fingerprint: str = Field(
+        description="稳定 prod 完成快照的 lowercase SHA-256。",
+    )
+    tushare_source_observed_at: str = Field(
+        description="本次已确认 Tushare 业务源快照的带时区 ISO-8601 观测时间。",
+    )
+    tushare_source_fingerprint: str = Field(
+        description="完整 Tushare index/daily 业务行的 lowercase SHA-256。",
     )
 
 
@@ -339,50 +345,63 @@ def build_silver_dc_industry_hierarchy_update_job_run_config(
 def build_raw_dc_index_update_job_run_config(
     *,
     partition_key: str,
-    reference_trade_date: str,
-    reference_observed_at: str,
-    reference_fingerprint: str,
+    trade_date: str,
+    prod_completion_observed_at: str,
+    prod_completion_fingerprint: str,
+    tushare_source_observed_at: str,
+    tushare_source_fingerprint: str,
 ) -> dict[str, object]:
     normalized_partition_key = normalize_iso_trade_date(
         partition_key,
         field_name="partition_key",
     )
-    normalized_reference_trade_date = normalize_iso_trade_date(
-        reference_trade_date,
-        field_name="reference_trade_date",
+    normalized_trade_date = normalize_iso_trade_date(
+        trade_date,
+        field_name="trade_date",
     )
-    if normalized_reference_trade_date != normalized_partition_key:
-        raise ValueError("reference_trade_date must equal partition_key.")
-    normalized_reference_observed_at = _normalize_reference_observed_at(
-        reference_observed_at,
+    if normalized_trade_date != normalized_partition_key:
+        raise ValueError("trade_date must equal partition_key.")
+    normalized_prod_completion_observed_at = _normalize_reference_observed_at(
+        prod_completion_observed_at,
     )
-    normalized_reference_fingerprint = _normalize_sha256_hex(
-        reference_fingerprint,
-        field_name="reference_fingerprint",
+    normalized_prod_completion_fingerprint = _normalize_sha256_hex(
+        prod_completion_fingerprint,
+        field_name="prod_completion_fingerprint",
+    )
+    normalized_tushare_source_observed_at = _normalize_reference_observed_at(
+        tushare_source_observed_at,
+    )
+    normalized_tushare_source_fingerprint = _normalize_sha256_hex(
+        tushare_source_fingerprint,
+        field_name="tushare_source_fingerprint",
     )
     return {
         "ops": {
             "raw_tushare_dc_index": {
                 "config": {
-                    "reference_trade_date": normalized_reference_trade_date,
-                    "reference_observed_at": normalized_reference_observed_at,
-                    "reference_fingerprint": normalized_reference_fingerprint,
+                    "trade_date": normalized_trade_date,
+                    "prod_completion_observed_at": normalized_prod_completion_observed_at,
+                    "prod_completion_fingerprint": normalized_prod_completion_fingerprint,
+                    "tushare_source_observed_at": normalized_tushare_source_observed_at,
+                    "tushare_source_fingerprint": normalized_tushare_source_fingerprint,
                 }
             }
         }
     }
 
 
-def validate_dc_board_index_reference_config(
-    config: DcBoardIndexReferenceConfig,
+def validate_dc_board_index_source_snapshot_config(
+    config: DcBoardIndexSourceSnapshotConfig,
     *,
     partition_key: str,
-) -> DcBoardIndexReferenceConfig:
+) -> DcBoardIndexSourceSnapshotConfig:
     build_raw_dc_index_update_job_run_config(
         partition_key=partition_key,
-        reference_trade_date=config.reference_trade_date,
-        reference_observed_at=config.reference_observed_at,
-        reference_fingerprint=config.reference_fingerprint,
+        trade_date=config.trade_date,
+        prod_completion_observed_at=config.prod_completion_observed_at,
+        prod_completion_fingerprint=config.prod_completion_fingerprint,
+        tushare_source_observed_at=config.tushare_source_observed_at,
+        tushare_source_fingerprint=config.tushare_source_fingerprint,
     )
     return config
 

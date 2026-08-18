@@ -21,7 +21,7 @@ from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.defs.resources import DuckDBResource, TushareResult
 from orchestrator.defs.run_contracts.dc_board import (
     DC_INDEX_TYPES,
-    build_dc_board_prod_reference_snapshot,
+    build_dc_board_prod_completion_snapshot,
 )
 
 
@@ -55,7 +55,11 @@ class _FakeTushare:
         if api_name == "dc_daily":
             return TushareResult(
                 rows=[
-                    {"category": category, "ts_code": ts_code, "trade_date": params["trade_date"]}
+                    {
+                        "category": category,
+                        "ts_code": ts_code,
+                        "trade_date": params["trade_date"],
+                    }
                     for category, ts_code in (
                         ("行业板块", "BK0001.DC"),
                         ("概念板块", "BK0002.DC"),
@@ -73,13 +77,13 @@ class _NoProd:
         raise AssertionError("dc_index apply must not access Prod DB")
 
 
-def _reference(trade_date: str):
+def _completion(trade_date: str):
     identity = (
         ("行业板块", "BK0001.DC"),
         ("概念板块", "BK0002.DC"),
         ("地域板块", "BK0003.DC"),
     )
-    return build_dc_board_prod_reference_snapshot(
+    return build_dc_board_prod_completion_snapshot(
         trade_date=trade_date,
         index_identity=identity,
         daily_identity=identity,
@@ -91,9 +95,7 @@ def _reference(trade_date: str):
 def _calendar(root: Path, dates: tuple[str, ...]) -> Path:
     path = silver_trade_calendar_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
-    values = ", ".join(
-        f"('SSE', DATE '{value}', TRUE, NULL::DATE)" for value in dates
-    )
+    values = ", ".join(f"('SSE', DATE '{value}', TRUE, NULL::DATE)" for value in dates)
     with duckdb.connect(":memory:") as connection:
         connection.execute(
             f"COPY (SELECT * FROM (VALUES {values}) AS t(exchange, trade_date, is_open, pretrade_date)) "
@@ -116,9 +118,7 @@ def _baseline(root: Path, dates: tuple[str, ...], path: Path) -> None:
         "lake_root": str(root),
         "should_stop": False,
         "stop_reason_codes": [],
-        "source_row_count_by_dataset": {
-            plan.dataset: len(dates) * 3 for plan in plans
-        },
+        "source_row_count_by_dataset": {plan.dataset: len(dates) * 3 for plan in plans},
         "date_plans": [plan.to_dict() for plan in plans],
         "source_audits": [{"failed": False} for _ in range(3)],
         "target_audits": [{"invalid_existing_count": 0} for _ in range(6)],
@@ -146,12 +146,15 @@ def test_raw_apply_and_reconciliation_are_resumable(tmp_path):
     _baseline(tmp_path, dates, baseline)
     reports = tmp_path / "reports"
 
-    with patch(
-        "orchestrator.defs.bootstrap.dc_board_bootstrap_apply.require_closed_prod_dc_board_reference",
-        side_effect=lambda *, trade_date, **_kwargs: _reference(trade_date),
-    ), patch(
-        "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_reference",
-        side_effect=lambda *, trade_date, **_kwargs: _reference(trade_date),
+    with (
+        patch(
+            "orchestrator.defs.bootstrap.dc_board_bootstrap_apply.require_closed_prod_dc_board_completion",
+            side_effect=lambda *, trade_date, **_kwargs: _completion(trade_date),
+        ),
+        patch(
+            "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_completion",
+            side_effect=lambda *, trade_date, **_kwargs: _completion(trade_date),
+        ),
     ):
         report = run_raw_bootstrap(
             lake_root=tmp_path,
@@ -163,7 +166,12 @@ def test_raw_apply_and_reconciliation_are_resumable(tmp_path):
             datasets=("dc_index",),
             batch_size=1,
         )
-    assert report.totals == {"expected_dates": 2, "written_count": 2, "skipped_count": 0, "entry_count": 2}
+    assert report.totals == {
+        "expected_dates": 2,
+        "written_count": 2,
+        "skipped_count": 0,
+        "entry_count": 2,
+    }
     raw_report = tmp_path / "raw.json"
     write_phase_report(report, raw_report)
 
@@ -180,12 +188,15 @@ def test_raw_apply_and_reconciliation_are_resumable(tmp_path):
     raw_audit = tmp_path / "raw_audit.json"
     write_reconciliation_report(audit, raw_audit)
 
-    with patch(
-        "orchestrator.defs.bootstrap.dc_board_bootstrap_apply.require_closed_prod_dc_board_reference",
-        side_effect=lambda *, trade_date, **_kwargs: _reference(trade_date),
-    ), patch(
-        "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_reference",
-        side_effect=lambda *, trade_date, **_kwargs: _reference(trade_date),
+    with (
+        patch(
+            "orchestrator.defs.bootstrap.dc_board_bootstrap_apply.require_closed_prod_dc_board_completion",
+            side_effect=lambda *, trade_date, **_kwargs: _completion(trade_date),
+        ),
+        patch(
+            "orchestrator.defs.assets.dc_board.require_closed_prod_dc_board_completion",
+            side_effect=lambda *, trade_date, **_kwargs: _completion(trade_date),
+        ),
     ):
         resumed = run_raw_bootstrap(
             lake_root=tmp_path,

@@ -1,10 +1,10 @@
 import unittest
 
 from orchestrator.defs.run_contracts.configs import (
-    build_silver_dc_industry_hierarchy_update_job_run_config,
     build_gold_stock_daily_qfq_factor_repair_run_config,
     build_raw_dc_index_update_job_run_config,
     build_raw_index_daily_update_job_run_config,
+    build_silver_dc_industry_hierarchy_update_job_run_config,
     build_stock_daily_raw_repair_run_config,
     build_stock_mins_silver_reuse_existing_run_config,
     parse_stock_daily_raw_config,
@@ -14,7 +14,9 @@ from orchestrator.defs.run_contracts.requests import build_run_request
 
 
 class RunContractConfigTests(unittest.TestCase):
-    def test_dc_industry_hierarchy_run_config_accepts_only_explicit_iso_reference_date(self) -> None:
+    def test_dc_industry_hierarchy_run_config_accepts_only_explicit_iso_reference_date(
+        self,
+    ) -> None:
         self.assertEqual(
             build_silver_dc_industry_hierarchy_update_job_run_config(
                 reference_trade_date="2026-07-31"
@@ -32,12 +34,16 @@ class RunContractConfigTests(unittest.TestCase):
                 reference_trade_date="20260731"
             )
 
-    def test_raw_dc_index_run_config_keeps_only_frozen_reference_summary(self) -> None:
+    def test_raw_dc_index_run_config_keeps_only_completion_and_source_summary(
+        self,
+    ) -> None:
         config = build_raw_dc_index_update_job_run_config(
             partition_key="2026-07-14",
-            reference_trade_date="2026-07-14",
-            reference_observed_at="2026-07-14T21:25:00+08:00",
-            reference_fingerprint="a" * 64,
+            trade_date="2026-07-14",
+            prod_completion_observed_at="2026-07-14T21:25:00+08:00",
+            prod_completion_fingerprint="a" * 64,
+            tushare_source_observed_at="2026-07-14T21:35:00+08:00",
+            tushare_source_fingerprint="b" * 64,
         )
         self.assertEqual(
             config,
@@ -45,31 +51,46 @@ class RunContractConfigTests(unittest.TestCase):
                 "ops": {
                     "raw_tushare_dc_index": {
                         "config": {
-                            "reference_trade_date": "2026-07-14",
-                            "reference_observed_at": "2026-07-14T21:25:00+08:00",
-                            "reference_fingerprint": "a" * 64,
+                            "trade_date": "2026-07-14",
+                            "prod_completion_observed_at": "2026-07-14T21:25:00+08:00",
+                            "prod_completion_fingerprint": "a" * 64,
+                            "tushare_source_observed_at": "2026-07-14T21:35:00+08:00",
+                            "tushare_source_fingerprint": "b" * 64,
                         }
                     }
                 }
             },
         )
 
-    def test_raw_dc_index_run_config_rejects_incomplete_or_misaligned_reference(
+    def test_raw_dc_index_run_config_rejects_incomplete_or_misaligned_snapshot(
         self,
     ) -> None:
         with self.assertRaisesRegex(ValueError, "must equal partition_key"):
             build_raw_dc_index_update_job_run_config(
                 partition_key="2026-07-14",
-                reference_trade_date="2026-07-15",
-                reference_observed_at="2026-07-14T21:25:00+08:00",
-                reference_fingerprint="a" * 64,
+                trade_date="2026-07-15",
+                prod_completion_observed_at="2026-07-14T21:25:00+08:00",
+                prod_completion_fingerprint="a" * 64,
+                tushare_source_observed_at="2026-07-14T21:35:00+08:00",
+                tushare_source_fingerprint="b" * 64,
             )
         with self.assertRaisesRegex(ValueError, "timezone"):
             build_raw_dc_index_update_job_run_config(
                 partition_key="2026-07-14",
-                reference_trade_date="2026-07-14",
-                reference_observed_at="2026-07-14T21:25:00",
-                reference_fingerprint="a" * 64,
+                trade_date="2026-07-14",
+                prod_completion_observed_at="2026-07-14T21:25:00",
+                prod_completion_fingerprint="a" * 64,
+                tushare_source_observed_at="2026-07-14T21:35:00+08:00",
+                tushare_source_fingerprint="b" * 64,
+            )
+
+    def test_raw_dc_index_run_config_rejects_retired_reference_arguments(self) -> None:
+        with self.assertRaises(TypeError):
+            build_raw_dc_index_update_job_run_config(
+                partition_key="2026-07-14",
+                reference_trade_date="2026-07-14",  # type: ignore[call-arg]
+                reference_observed_at="2026-07-14T21:25:00+08:00",  # type: ignore[call-arg]
+                reference_fingerprint="a" * 64,  # type: ignore[call-arg]
             )
 
     def test_raw_index_daily_update_job_run_config_uses_partition_schema(self) -> None:

@@ -6,10 +6,10 @@ materialization metadata, while delegating all source and staging work to the
 bounded M3 writers.
 """
 
+import re
 from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
-import re
 
 import dagster as dg
 
@@ -49,24 +49,18 @@ from orchestrator.defs.run_contracts.asset_tags import (
     DataDomain,
     build_asset_tags,
 )
+from orchestrator.defs.run_contracts.configs import (
+    DcBoardIndexSourceSnapshotConfig,
+    validate_dc_board_index_source_snapshot_config,
+)
 from orchestrator.defs.run_contracts.dc_board import (
     DC_BOARD_MAX_REQUESTS_PER_PARTITION,
-    DC_DAILY_FIELDS,
-    DC_DAILY_HISTORY_START_DATE,
-    DC_INDEX_FIELDS,
-    DC_INDEX_HISTORY_START_DATE,
-    DC_MEMBER_FIELDS,
-)
-from orchestrator.defs.run_contracts.configs import (
-    DcBoardIndexReferenceConfig,
-    validate_dc_board_index_reference_config,
 )
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
     build_asset_definition_metadata,
     build_materialization_metadata,
 )
-
 
 _BOARD_CODE_RE = re.compile(r"^BK\d{4}\.DC$")
 
@@ -80,7 +74,14 @@ def _normalize_partition_key(partition_key: str) -> str:
         ) from exc
 
 
-def _asset_metadata(*, dataset_id: str, schema: Sequence[object], path: Path, source_api: str, partition_set: str) -> dict[str, object]:
+def _asset_metadata(
+    *,
+    dataset_id: str,
+    schema: Sequence[object],
+    path: Path,
+    source_api: str,
+    partition_set: str,
+) -> dict[str, object]:
     return build_asset_definition_metadata(
         dataset_id=dataset_id,
         source_system=SourceSystem.TUSHARE,
@@ -183,11 +184,11 @@ def raw_tushare_dc_index(
     duckdb: DuckDBResource,
     tushare: TushareResource,
     prod_postgres: ProdPostgresResource,
-    config: DcBoardIndexReferenceConfig,
+    config: DcBoardIndexSourceSnapshotConfig,
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = _normalize_partition_key(context.partition_key)
-    validated_config = validate_dc_board_index_reference_config(
+    validated_config = validate_dc_board_index_source_snapshot_config(
         config,
         partition_key=partition_key,
     )
@@ -197,7 +198,7 @@ def raw_tushare_dc_index(
         tushare=tushare,
         prod_postgres=prod_postgres,
         partition_key=partition_key,
-        reference_config=validated_config,
+        source_snapshot_config=validated_config,
     )
     return _materialize_result(result, schema=RAW_TUSHARE_DC_INDEX_SCHEMA)
 
