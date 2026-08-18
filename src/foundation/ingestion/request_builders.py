@@ -30,6 +30,22 @@ def _public_fund_snapshot_params(request, anchor_date: date | None, enum_values:
     return {}
 
 
+def _index_classify_sw2021_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del anchor_date
+    del enum_values
+    if request.run_profile != "snapshot_refresh":
+        raise ValueError("申万 SW2021 行业分类只支持无时间的完整快照维护")
+    return {}
+
+
+def _index_member_all_sw2021_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del anchor_date
+    del enum_values
+    if request.run_profile != "snapshot_refresh":
+        raise ValueError("申万 SW2021 行业成员只支持无时间的完整快照维护")
+    return {}
+
+
 def _fund_share_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     del request
     del enum_values
@@ -1164,6 +1180,8 @@ __all__ = [
     "ALL_MONEYFLOW_IND_DC_CONTENT_TYPES",
     "_trade_cal_params",
     "_public_fund_snapshot_params",
+    "_index_classify_sw2021_params",
+    "_index_member_all_sw2021_params",
     "_fund_share_params",
     "_fund_div_params",
     "_express_vip_params",

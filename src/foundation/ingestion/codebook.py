@@ -20,8 +20,8 @@ class IngestionCodebookEntry:
         }
 
 
-INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-10.v1"
-INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-10T00:00:00Z"
+INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-18.v1"
+INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-18T00:00:00Z"
 
 INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("dataset_mismatch", "请求数据集与定义不一致", "validator", "检查 dataset_key 与定义绑定"),
@@ -65,6 +65,7 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("source_rate_limited", "上游限流", "source", "降频或延后重试"),
     IngestionCodebookEntry("source_server_error", "上游服务异常", "source", "稍后重试"),
     IngestionCodebookEntry("source_auth_error", "上游鉴权失败", "source", "检查凭据配置"),
+    IngestionCodebookEntry("source_variant_empty", "固定请求变体返回空结果", "source", "检查每个固定请求变体及其分页结果"),
     IngestionCodebookEntry("payload_invalid", "上游 payload 不合法", "normalize", "检查字段结构与解析逻辑"),
     IngestionCodebookEntry("all_rows_rejected", "本批次全部行被拒绝", "normalize", "查看 reason 分布并修正数据或规则"),
     IngestionCodebookEntry("normalize.row_transform_failed", "行转换配置或执行失败", "normalize", "检查 row_transform_name 与转换函数"),
@@ -124,6 +125,13 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("write.fact_content_hash_invalid", "按范围观察事实内容哈希失败", "writer", "检查 source field 类型与哈希序列化"),
     IngestionCodebookEntry("write.fact_storage_invalid", "按范围观察事实存储契约无效", "writer", "检查 current/observation ORM、scope 与完整 source field 列"),
     IngestionCodebookEntry("write.fact_persistence_incomplete", "按范围观察事实持久化行数不一致", "writer", "检查 DAO 写入结果；事务将回滚"),
+    IngestionCodebookEntry("write.scope_rows_rejected", "完整替换范围存在拒绝行", "writer", "先修复归一化拒绝原因，禁止发布部分范围"),
+    IngestionCodebookEntry("write.scope_empty", "完整替换范围为空", "writer", "检查源端结果，禁止用空结果清空范围"),
+    IngestionCodebookEntry("write.scope_preflight_failed", "完整替换范围预写校验失败", "writer", "核验业务闭包、字段关系和源端完整性"),
+    IngestionCodebookEntry("write.scope_invalid", "完整替换范围无法唯一确定", "writer", "确保批次只包含一个非空替换范围"),
+    IngestionCodebookEntry("write.scope_unit_mismatch", "替换范围与执行单元不一致", "writer", "核验执行日期与源行日期"),
+    IngestionCodebookEntry("write.scope_identity_invalid", "完整替换范围的业务键非法", "writer", "检查空键或重复键"),
+    IngestionCodebookEntry("write.scope_reconciliation_failed", "完整替换范围写后对账失败", "writer", "事务回滚后检查键集、内容摘要和数据库约束"),
     IngestionCodebookEntry("write_failed", "写入异常", "writer", "检查数据库约束、冲突策略和目标表结构"),
     IngestionCodebookEntry("internal_error", "未归类内部错误", "runtime", "查看完整堆栈定位内部异常"),
     IngestionCodebookEntry("dispatcher_error", "调度器执行异常", "runtime", "检查任务调度链路和步骤事件"),
@@ -144,6 +152,9 @@ INGESTION_REASON_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("normalize.empty_not_allowed", "非空字段为空", "normalize", "检查空字符串/空白值处理"),
     IngestionCodebookEntry("normalize.row_transform_failed", "行转换失败", "normalize", "检查 row_transform 逻辑"),
     IngestionCodebookEntry("normalize.payload_invalid", "行内容不符合约束", "normalize", "检查字段类型与结构"),
+    IngestionCodebookEntry("normalize.sw_industry_code_invalid", "申万行业代码非法", "normalize", "核验源码、禁用笔误代码和显式别名规则"),
+    IngestionCodebookEntry("normalize.sw_industry_version_invalid", "申万分类版本非法", "normalize", "只允许 SW2021 分类版本"),
+    IngestionCodebookEntry("normalize.sw_industry_level_invalid", "申万分类层级非法", "normalize", "只允许 L1/L2/L3"),
     IngestionCodebookEntry("normalize.duplicate_conflict_key_in_batch", "同批次完全相同行去重", "normalize", "检查分页结果是否重叠"),
     IngestionCodebookEntry("write.filtered_by_business_rule", "被业务规则过滤", "writer", "检查策略过滤条件"),
     IngestionCodebookEntry("write.duplicate_conflict_key_in_batch", "同批次冲突键去重", "writer", "检查批次主键冲突"),

@@ -67,6 +67,8 @@ class PlanPlanning:
     universe_policy: str
     enum_fanout_fields: tuple[str, ...]
     enum_fanout_defaults: dict[str, tuple[str, ...]]
+    request_variant_fields: tuple[str, ...]
+    request_variant_defaults: dict[str, tuple[str, ...]]
     pagination_policy: str
     chunk_size: int | None
     max_units_per_execution: int | None
@@ -88,6 +90,14 @@ class PlanWriting:
     observation_table: str | None = None
     stage_dao_name: str | None = None
     stage_table: str | None = None
+    replacement_scope_fields: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class PlanQuality:
+    reject_policy: str
+    empty_result_policy: str
+    pre_write_validator_key: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,6 +125,7 @@ class PlanUnitSnapshot:
     pagination_policy: str | None = None
     page_limit: int | None = None
     requested_source_key: str | None = None
+    request_variants: tuple[dict[str, Any], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,6 +139,7 @@ class DatasetExecutionPlan:
     source: PlanSource
     planning: PlanPlanning
     writing: PlanWriting
+    quality: PlanQuality
     transaction: PlanTransactionPolicy
     observability: PlanObservability
     units: tuple[PlanUnitSnapshot, ...]

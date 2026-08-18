@@ -150,6 +150,7 @@ class DatasetStorageDefinition:
     write_path: str = "raw_core_upsert"
     serving_conflict_resolution_policy: str = "none"
     row_identity_filters: dict[str, str | int | bool] = field(default_factory=dict)
+    replacement_scope_fields: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,6 +172,8 @@ class DatasetPlanningDefinition:
     universe: DatasetUniverseDefinition | None = None
     enum_fanout_fields: tuple[str, ...] = ()
     enum_fanout_defaults: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    request_variant_fields: tuple[str, ...] = ()
+    request_variant_defaults: dict[str, tuple[str, ...]] = field(default_factory=dict)
     pagination_policy: str = "none"
     page_limit: int | None = None
     chunk_size: int | None = None
@@ -205,6 +208,8 @@ class DatasetQualityPolicy:
     required_distinct_values: dict[str, tuple[str, ...]] = field(default_factory=dict)
     batch_unique_key_fields: tuple[str, ...] = ()
     source_multiplicity_policy: str = "reject"
+    empty_result_policy: str = "allow"
+    pre_write_validator_key: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

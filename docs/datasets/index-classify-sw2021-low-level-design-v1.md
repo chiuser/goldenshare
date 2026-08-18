@@ -1,10 +1,21 @@
 # 申万 SW2021 行业分类 `index_classify` Prod 数据集 LLD v1
 
-> 状态：LLD 已按当前代码完成纠偏，等待评审；尚未编码、迁移、同步或创建生产排程。
-> 初版：2026-08-16；本次代码对账：2026-08-17。
+> 状态：M0～M2 已完成；`index_classify` 已通过真实源端、完整分页、标准化、闭包、唯一性、本地事务重放和 Ops 契约验收。迁移未在 Prod 执行，成员数据集端到端验收从 M3 开始。
+> 初版：2026-08-16；代码对账：2026-08-17；最终产品拍板：2026-08-18。
 > 上游产品依据：[板块雷达产品设计方案 v1](../../wealth/docs/pages/wealth-exploration/sector-radar-product-design-v1.md)。
 > 数据依据：[板块雷达数据覆盖审计 v1](../../wealth/docs/pages/wealth-exploration/sector-radar-data-coverage-audit-v1.md)。
 > 源站依据：Tushare `index_classify`，本地文档 `docs/sources/tushare/指数专题/0181_申万行业分类.md`（doc_id=181）。
+
+---
+
+## 0. 2026-08-18 最终拍板
+
+以下两项由用户按推荐方案确认，已成为三份申万数据集 LLD 的共同硬约束，不再列为待拍板项：
+
+1. `index_classify` 首版只保留最近一次成功发布的完整 SW2021 分类快照，不保存抓取时点历史，也不把观察时间伪装成官方分类生效时间。历史研究如使用本表，必须标注“按当前 SW2021 分类重述历史”。
+2. `sw_daily` 服务表保留源接口按交易日返回的全部申万指数事实；板块雷达只在查询时与 `index_classify` 内连接并过滤 `is_pub=true`。源端额外综合/风格指数不得在 Foundation 入库阶段丢弃，也不得进入正式行业榜。
+
+这两项不会改变 `index_member_all` 的存储口径：成员表仍完整保存 Y/N 当前与历史关系；`out_date` 边界必须由业务样本核验，不属于偏好选择。
 
 ---
 
@@ -77,7 +88,27 @@ Tushare index_classify
 
 `tushare-data` 的接口家族结论：`index_classify` 只负责申万分类与层级，不提供成分有效期或行业日行情，不能替代 `index_member_all`、`sw_daily`。
 
-### 2.3 字段验证
+### 2.3 2026-08-18 M2 实施验收
+
+M2 使用当前 Tushare MCP 和项目正式 ingestion 链路重新完成只读源端核验，没有执行 Prod 迁移或生产写入：
+
+| 验收项 | 当前结果 |
+|---|---|
+| MCP 默认字段 `src=SW2021` | 511 行，字段为 `index_code/industry_name/parent_code/level/industry_code/is_pub/src` |
+| MCP 显式七字段 `src=SW2021` | 511 行；L1/L2/L3 为 31/134/346，`is_pub=1/0` 为 414/97 |
+| 不传 `src` | 359 行且全部为 SW2014，再次证明正式请求必须固定 SW2021 |
+| 错码单对象 | `850401.SI` 返回 `230501/特钢Ⅲ`；`850412.SI` 源查询仍为空 |
+| 项目正式分页链路 | 3 次请求，offset 为 0/200/400，页行数为 200/200/111，short page 正常终止 |
+| 分页与 MCP 全集对账 | 两边都是 511 个唯一源身份，ASCII 身份集合指纹均为 `ff54e2ceb6390b6b` |
+| 真实行标准化 | 511 normalized、0 rejected、0 deduplicated；`850401.SI` 保存在 `source_index_code`，业务码为 `850412.SI` |
+| 质量校验 | 两组唯一键重复均为 0，父节点孤儿为 0，`840401.SI` 为 0 |
+| 本地事务验收 | 首次写入 511；相同集合重放仍为 511；删除一个合法叶节点后重放精确收敛到 510；其他 `src` 范围保持不变 |
+| 失败回滚 | 空批次、部分 reject、跨 `src` 和孤儿父节点均在发布前失败；失败后目标范围保持 510 行 |
+| Ops 契约 | 仅 `mode=none` 且无 filter；服务表可见、Raw 为空、freshness 为 snapshot trace、自动化能力为空 |
+
+M2 没有新增业务实现分支；M1 已完成的声明式通用能力经本轮端到端正反例确认满足分类数据集契约。上述 511 等数字是 2026-08-18 验收基线，不是永久写死的业务常量。
+
+### 2.4 字段验证
 
 默认字段与显式字段均已验证。正式 `source_fields` 必须显式包含默认不保证返回的 `src`：
 
@@ -86,7 +117,7 @@ index_code, industry_name, parent_code, level,
 industry_code, is_pub, src
 ```
 
-### 2.4 源输入参数与运营暴露
+### 2.5 源输入参数与运营暴露
 
 | 源参数 | 源端可选 | 正式用途 | 运营是否可填 |
 |---|---|---|---|
@@ -250,7 +281,7 @@ FRESHNESS_POLICY_BY_DATASET["index_classify"] = SNAPSHOT_RUN_TRACE
 
 三张申万服务表可由同一个线性迁移创建，迁移只建表、约束和索引，不 seed、不回填、不创建账号或模块专属 GRANT。
 
-2026-08-17 只读审计时，仓库和 Prod `public.alembic_version` 均为唯一 head `20260816_000137`。本文仍不预分配新 revision；实施日必须重新执行 `uv run alembic heads --verbose` 和 Prod 只读核验，新迁移的 `down_revision` 只能连接实施时真实唯一 head。
+M1 开工时重新确认仓库唯一 head 为 `20260816_000137`，已生成线性迁移 `20260818_000138`，其 `down_revision` 为该真实 head。M1 只生成和测试迁移，未连接 Prod、未执行 DDL；M5 实施前仍须重新核验仓库与 Prod 唯一 head。
 
 ---
 
@@ -355,25 +386,34 @@ business_840401_rows = 0
 
 | ID | 硬需求与依据 | 影响层/消费者 | 后端权威约束 | 前端表现 | 实现文件 | 正向测试 | 反向测试 | 真实验证 | 阶段 | 状态 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| IC-001 | 仅 SW2021 | planner/source | 固定 base param + strict input | 无版本筛选 | Definition、builder | 每页含 SW2021 | SW2014/用户覆盖拒绝 | 511 行请求矩阵 | M1/M2 | 待实施 |
-| IC-002 | 无 Raw/Lake/双写 | storage/card | direct-serving linter | 卡片展示服务表 | builder、linter、writer | 只解析 serving DAO | Raw DAO/表出现即失败 | source/target 对账 | M1/M2 | 待实施 |
-| IC-003 | 当前快照必须精确替换 | writer/DAO/业务查询 | 限定 `src` 原子 scope replace + read-back | 无专用交互 | models、writer、DAO | 源集合收缩后目标精确一致 | 空结果、无 where、跨 src 删除失败 | 两次不同 key set 演练 | M2/M3 | 待实施 |
-| IC-004 | 保留源码并产出业务码 | normalization/下游 | 共享 contracts + transform | 不展示源码为业务码 | contracts、transform、ORM | 850401→850412 | 840401/新冲突失败 | 关键码 read-back | M2/M3 | 待实施 |
-| IC-005 | 全量分页不截断 | source client/TaskRun | offset-limit 200、short page | 展示分页进度 | source client | 200/200/111 | 丢页/重复冲突/无 short page 失败 | 511 键摘要 | M2/M3 | 待实施 |
-| IC-006 | 层级闭包与双唯一性 | pre-write validator/DB | L1/L2/L3、父子闭包、两组唯一约束 | 不适用 | validator、ORM、迁移 | 31/134/346 闭合 | 孤儿/错层/双键冲突失败 | 闭包 SQL | M2/M3 | 待实施 |
-| IC-007 | 空结果或任意 reject 不发布 | normalizer/writer | quality preflight | TaskRun 展示结构化失败 | models、writer、codebook | 511 行零拒绝提交 | 空/部分 reject 回滚 | fetched/normalized/rejected 对账 | M2/M3 | 待实施 |
-| IC-008 | 无时间且首版无排程 | Manual Action/schedule | none-only、schedule false | 只显示手动无时间表单 | Definition、Ops projection | none 可提交 | point/range/schedule 不可选 | API/浏览器路径 | M2 | 待实施 |
-| IC-009 | 服务表可观测且不伪造 Raw | freshness/card/snapshot | SNAPSHOT_RUN_TRACE | target fallback | freshness、Ops query | 显示最近成功和服务表 | 日期滞后/伪 Raw 失败 | rebuild snapshot | M2/M3 | 待实施 |
+| IC-001 | 仅 SW2021 | planner/source | 固定 base param + strict input | 无版本筛选 | Definition、builder | 每页含 SW2021 | SW2014/用户覆盖拒绝 | 511 行请求矩阵 | M2/M5 | M2 已通过；待 M5 生产发布验收 |
+| IC-002 | 无 Raw/Lake/双写 | storage/card | direct-serving linter | 卡片展示服务表 | builder、linter、writer | 只解析 serving DAO | Raw DAO/表出现即失败 | source/target 对账 | M1/M2/M5 | M2 已通过；待 M5 生产发布验收 |
+| IC-003 | 只保留最新分类快照并精确替换 | writer/DAO/业务查询 | 限定 `src` 原子 scope replace + read-back；无历史快照键 | 无专用交互；历史标注当前分类重述 | models、writer、DAO | 源集合收缩后目标精确一致 | 空结果、无 where、跨 src 删除、伪历史版本字段失败 | 两次不同 key set 演练 | M1/M2/M5 | M2 已通过 511→511→510 重放；待 M5 生产发布验收 |
+| IC-004 | 保留源码并产出业务码 | normalization/下游 | 共享 contracts + transform | 不展示源码为业务码 | contracts、transform、ORM | 850401→850412 | 840401/新冲突失败 | 关键码 read-back | M1/M2/M5 | M2 已通过；待 M5 生产发布验收 |
+| IC-005 | 全量分页不截断 | source client/TaskRun | offset-limit 200、short page | 展示分页进度 | source client | 200/200/111 | 丢页/重复冲突/无 short page 失败 | 511 键摘要 | M2/M5 | M2 已通过，分页与 MCP 全集指纹一致；待 M5 |
+| IC-006 | 层级闭包与双唯一性 | pre-write validator/DB | L1/L2/L3、父子闭包、两组唯一约束 | 不适用 | validator、ORM、迁移 | 31/134/346 闭合 | 孤儿/错层/双键冲突失败 | 闭包 SQL | M2/M5 | M2 已通过；待 M5 生产表约束验收 |
+| IC-007 | 空结果或任意 reject 不发布 | normalizer/writer | quality preflight | TaskRun 展示结构化失败 | models、writer、codebook | 511 行零拒绝提交 | 空/部分 reject 回滚 | fetched/normalized/rejected 对账 | M1/M2/M5 | M2 已通过；待 M5 生产发布验收 |
+| IC-008 | 无时间且首版无排程 | Manual Action/schedule | none-only、schedule false | 只显示手动无时间表单 | Definition、Ops projection | none 可提交 | point/range/schedule 不可选 | API/浏览器路径 | M2 | M2 已通过 |
+| IC-009 | 服务表可观测且不伪造 Raw | freshness/card/snapshot | SNAPSHOT_RUN_TRACE | target fallback | freshness、Ops query | 显示最近成功和服务表 | 日期滞后/伪 Raw 失败 | rebuild snapshot | M2/M5 | M2 已通过；待 M5 生产状态快照验收 |
 
 ---
 
-## 10. 实施顺序与停止条件
+## 10. 三数据集统一开发里程碑与停止条件
 
-1. M0：评审三份纠偏后的 LLD；确认新增共享质量字段、预写校验注册表和范围替换 writer 契约，再重新确认 CodeGraph 与 Alembic/Prod 基线。
-2. M1：先实现共享 SW2021 代码契约、三个 ORM/DAO/Definition 与线性迁移，但不运行生产迁移。
-3. M2：实现分类 row transform、分页/事务/质量测试及 Ops 派生测试。
-4. M3：部署后先只执行 `index_classify` 最小真实同步与 read-back。
-5. M4：分类验收通过后，才允许进入 `index_member_all` 实际同步。
+三份 LLD 统一使用以下 M0～M7 编号。任何单份文档不得另建一套阶段含义，也不得在前置阶段未通过时提前执行后续生产动作。
+
+| 里程碑 | 目标与交付 | 完成门禁 | 当前状态 |
+|---|---|---|---|
+| M0 产品与开发门禁 | 两项最终拍板写入三份 LLD；硬需求账本、影响面和实施边界一致 | 文档校验通过；用户明确允许进入 M1 | 已完成 |
+| M1 共享基座与迁移准备 | 实现共享代码标准化、质量/预写校验声明、fixed request fan-in、原子 scope replace；新增三表 ORM/DAO/Definition、Ops 目录/freshness 和一条线性迁移 | CodeGraph 列出的消费者均有对应实现与回归；所有既有 writer/source/Definition 路径通过；迁移仅生成和测试，不对 Prod 执行 | 已完成（2026-08-18）；迁移 `20260818_000138` 未在 Prod 执行 |
+| M2 分类数据集 | 完成 `index_classify` request、分页、transform、双唯一性、层级闭包、Ops 派生及正反例 | 511 与 31/134/346 等基线可解释；空/错码/孤儿/跨范围替换均阻断；本地或测试库幂等 | 已完成（2026-08-18）；真实源端与本地事务验收通过，未执行 Prod 写入 |
+| M3 成员数据集 | 完成单 unit 的 Y/N fan-in、分页、标准化、分类三级闭包、原子替换及 Ops 正反例 | Y/N 任一失败目标零变化；7,899 基线、唯一键、日期和闭包可解释；本地或测试库幂等 | 未开始 |
+| M4 日行情数据集 | 完成交易日 point/range unit、15 字段、全源行保留、同日原子替换、freshness/completeness 及 Ops 正反例 | 非交易日、宽区间直传、日期越界、过滤 25 行、跨日删除均阻断；单日本地幂等 | 未开始 |
+| M5 生产最小发布 | 经单独授权后重新核验仓库/Prod Alembic head，部署并执行迁移；按分类→成员→一个交易日日行情同步 | 三段 fetched/normalized/rejected/written/target 对账、read-back 和幂等重放全部通过；不包含历史回补 | 未开始 |
+| M6 历史事实与回补 | 核验成员 `out_date` 边界，审计 `sw_daily` 全代码历史覆盖、配额、耗时与事务预算，提交明确窗口 | 用户批准具体日期范围后才能 PLAN/APPLY；全窗口 read-back 与幂等重放通过 | 未开始 |
+| M7 自动化 | 审计三个源接口到达/变化节奏，设计独立 readiness、重试和最终失败规则 | 用户另行批准生产 schedule 的创建与启用；不得把当前 `schedule_enabled=False` 静默改为 true | 未开始 |
+
+板块雷达的申万回测不属于本轮数据集开发；只有 M6 形成可回测日期集合并确认无前视成员谓词后，才进入后续研究阶段。
 
 立即停止条件：
 
@@ -383,4 +423,4 @@ business_840401_rows = 0
 - 分页 key 集与不截断基准不一致；
 - 需要新增 Raw、Lake、生产账号、连接、无条件删除或超出 `src='SW2021'` 的写入范围。
 
-本 LLD 不授权编码、迁移、生产同步、历史回补或排程启用。
+M2 已按用户授权完成分类数据集端到端验收。本 LLD 当前不授权 M3/M4、Prod 迁移执行、生产同步、历史回补或排程启用。

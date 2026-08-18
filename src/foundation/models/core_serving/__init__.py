@@ -33,6 +33,9 @@ from src.foundation.models.core_serving.wealth_sector_heat_daily import WealthSe
 from src.foundation.models.core_serving.wealth_sector_hierarchy import WealthSectorHierarchy
 from src.foundation.models.core_serving.mkt_idx_bmk_current import MktIdxBmkCurrent
 from src.foundation.models.core_serving.mkt_idx_bmk_observation import MktIdxBmkObservation
+from src.foundation.models.core_serving.sw_industry_classification import SwIndustryClassification
+from src.foundation.models.core_serving.sw_industry_daily import SwIndustryDaily
+from src.foundation.models.core_serving.sw_industry_member import SwIndustryMember
 
 __all__ = [
     "Security",
@@ -70,4 +73,7 @@ __all__ = [
     "WealthSectorHierarchy",
     "MktIdxBmkCurrent",
     "MktIdxBmkObservation",
+    "SwIndustryClassification",
+    "SwIndustryDaily",
+    "SwIndustryMember",
 ]

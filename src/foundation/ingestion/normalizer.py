@@ -60,6 +60,7 @@ class DatasetNormalizer:
         "url",
         "list_date",
     )
+    _SOURCE_CONTENT_HASH_FIELD = "__ingestion_source_content_hash"
 
     def normalize(
         self,
@@ -108,8 +109,24 @@ class DatasetNormalizer:
                 continue
 
             try:
+                if definition.quality.source_multiplicity_policy == "deduplicate_identical":
+                    normalized[self._SOURCE_CONTENT_HASH_FIELD] = compute_source_content_hash(
+                        row=normalized,
+                        source_fields=definition.source.source_fields,
+                    )
                 if row_transform is not None:
                     normalized = row_transform(normalized)
+            except ObservedSnapshotHashError as exc:
+                raise IngestionNormalizeError(
+                    StructuredError(
+                        error_code="normalize.source_content_hash_invalid",
+                        error_type="normalize",
+                        phase="normalizer",
+                        message=str(exc),
+                        retryable=False,
+                        unit_id=fetch_result.unit_id,
+                    )
+                ) from exc
             except RowTransformReject as exc:  # noqa: F405
                 field = self._field_from_reason_key(exc.reason_code)
                 self._record_rejection(
@@ -197,6 +214,8 @@ class DatasetNormalizer:
                 rows=rows_normalized,
                 unit_id=fetch_result.unit_id,
             )
+        for row in rows_normalized:
+            row.pop(self._SOURCE_CONTENT_HASH_FIELD, None)
         return NormalizedBatch(
             unit_id=fetch_result.unit_id,
             rows_normalized=rows_normalized,
@@ -232,10 +251,12 @@ class DatasetNormalizer:
         seen_hashes: set[str] = set()
         for row in rows:
             try:
-                content_hash = compute_source_content_hash(
-                    row=row,
-                    source_fields=definition.source.source_fields,
-                )
+                content_hash = str(row.get(DatasetNormalizer._SOURCE_CONTENT_HASH_FIELD) or "")
+                if not content_hash:
+                    content_hash = compute_source_content_hash(
+                        row=row,
+                        source_fields=definition.source.source_fields,
+                    )
             except ObservedSnapshotHashError as exc:
                 raise IngestionNormalizeError(
                     StructuredError(
@@ -275,11 +296,17 @@ class DatasetNormalizer:
                 continue
 
             first_row_index, first_row = existing
-            source_rows_equal = all(
-                field_name in first_row
-                and field_name in row
-                and first_row[field_name] == row[field_name]
-                for field_name in source_fields
+            first_source_hash = str(first_row.get(cls._SOURCE_CONTENT_HASH_FIELD) or "")
+            duplicate_source_hash = str(row.get(cls._SOURCE_CONTENT_HASH_FIELD) or "")
+            source_rows_equal = (
+                first_source_hash == duplicate_source_hash
+                if first_source_hash and duplicate_source_hash
+                else all(
+                    field_name in first_row
+                    and field_name in row
+                    and first_row[field_name] == row[field_name]
+                    for field_name in source_fields
+                )
             )
             error_code = (
                 "normalize.batch_unique_key_duplicate"
@@ -323,6 +350,9 @@ class DatasetNormalizer:
 
     @staticmethod
     def _source_content_signature(*, row: dict[str, Any], source_fields: tuple[str, ...]) -> str:
+        preserved = str(row.get(DatasetNormalizer._SOURCE_CONTENT_HASH_FIELD) or "")
+        if preserved:
+            return preserved
         try:
             return compute_source_content_hash(row=row, source_fields=source_fields)
         except ObservedSnapshotHashError as exc:

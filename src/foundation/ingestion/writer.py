@@ -2,13 +2,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
+from datetime import datetime
 from datetime import timedelta
 from decimal import Decimal
+import hashlib
+import json
+import math
 from typing import Any
 
 from sqlalchemy import Date as SqlDate
 from sqlalchemy import DateTime as SqlDateTime
-from sqlalchemy import delete, or_, select, text, tuple_
+from sqlalchemy import and_, delete, func, or_, select, text, tuple_
 from sqlalchemy.orm import Session
 
 from src.foundation.dao.factory import DAOFactory
@@ -23,6 +27,10 @@ from src.foundation.ingestion.observed_snapshot import (
     SourceFieldMissingError,
     compute_source_content_hash,
     utc_now,
+)
+from src.foundation.ingestion.pre_write_validators import (
+    PreWriteValidationError,
+    get_pre_write_validator,
 )
 from src.foundation.ingestion.sentinel_guard import (
     find_forbidden_business_sentinel_in_row_context,
@@ -82,6 +90,12 @@ class DatasetWriter:
                         )
                     )
         try:
+            if definition.storage.write_path == "serving_direct_scope_replace":
+                return self._write_serving_direct_scope_replace(
+                    definition=definition,
+                    batch=batch,
+                    plan_unit=plan_unit,
+                )
             if definition.storage.write_path == "serving_observed_snapshot_refresh":
                 return self._write_serving_observed_snapshot_refresh(
                     definition=definition,
@@ -273,6 +287,206 @@ class DatasetWriter:
             rows_rejected=sum(rejected_reason_counts.values()),
             rejected_reason_counts=rejected_reason_counts,
             rejected_reason_samples=rejected_reason_samples,
+        )
+
+    def _write_serving_direct_scope_replace(
+        self,
+        *,
+        definition: DatasetDefinition,
+        batch: NormalizedBatch,
+        plan_unit: PlanUnitSnapshot | None,
+    ) -> WriteResult:
+        if batch.rows_rejected:
+            raise self._scope_replace_error(
+                code="write.scope_rows_rejected",
+                unit_id=batch.unit_id,
+                message="完整范围存在归一化拒绝行，禁止发布部分结果",
+                details={"rows_rejected": batch.rows_rejected},
+            )
+        if not batch.rows_normalized:
+            raise self._scope_replace_error(
+                code="write.scope_empty",
+                unit_id=batch.unit_id,
+                message="完整范围为空，拒绝清空目标范围",
+            )
+
+        core_dao = getattr(self.dao, definition.storage.core_dao_name, None)
+        if core_dao is None:
+            raise self._dao_not_found_error(definition=definition, unit_id=batch.unit_id)
+
+        validator_key = definition.quality.pre_write_validator_key
+        try:
+            get_pre_write_validator(str(validator_key or ""))(
+                self.session,
+                batch.rows_normalized,
+                definition,
+                plan_unit,
+            )
+        except PreWriteValidationError as exc:
+            raise self._scope_replace_error(
+                code="write.scope_preflight_failed",
+                unit_id=batch.unit_id,
+                message=str(exc),
+                details=exc.details,
+            ) from exc
+
+        scope_fields = definition.storage.replacement_scope_fields
+        scopes = {
+            tuple(row.get(field_name) for field_name in scope_fields)
+            for row in batch.rows_normalized
+        }
+        if len(scopes) != 1 or any(value is None for value in next(iter(scopes), ())):
+            raise self._scope_replace_error(
+                code="write.scope_invalid",
+                unit_id=batch.unit_id,
+                message="完整范围替换必须且只能从批次中解析出一个非空 scope",
+                details={"scope_fields": list(scope_fields), "scope_count": len(scopes)},
+            )
+        scope_values = next(iter(scopes))
+        scope = dict(zip(scope_fields, scope_values, strict=True))
+        if "trade_date" in scope and plan_unit is not None and scope["trade_date"] != plan_unit.trade_date:
+            raise self._scope_replace_error(
+                code="write.scope_unit_mismatch",
+                unit_id=batch.unit_id,
+                message="批次 trade_date scope 与执行单元不一致",
+            )
+
+        model = core_dao.model
+        filters = [getattr(model, field_name) == value for field_name, value in scope.items()]
+        self._lock_scope(model=model, filters=filters, scope=scope)
+
+        rows = self._coerce_rows_for_dao(batch.rows_normalized, core_dao)
+        conflict_columns = self._materialize_conflict_columns(core_dao, definition.storage.conflict_columns)
+        expected_by_key = self._rows_by_key(
+            rows=rows,
+            key_fields=conflict_columns,
+            unit_id=batch.unit_id,
+        )
+        existing_count = int(
+            self.session.scalar(select(func.count()).select_from(model).where(and_(*filters))) or 0
+        )
+        self.session.execute(delete(model).where(and_(*filters)))
+        rows_inserted = core_dao.bulk_insert(rows)
+        self.session.flush()
+        actual_objects = list(self.session.scalars(select(model).where(and_(*filters))))
+        column_names = tuple(
+            column.name
+            for column in model.__table__.columns
+            if column.name not in {"created_at", "updated_at"}
+        )
+        actual_rows = [
+            {column_name: getattr(item, column_name) for column_name in column_names}
+            for item in actual_objects
+        ]
+        actual_by_key = self._rows_by_key(
+            rows=actual_rows,
+            key_fields=conflict_columns,
+            unit_id=batch.unit_id,
+        )
+        expected_hash = self._scope_rows_hash(expected_by_key.values(), column_names=column_names)
+        actual_hash = self._scope_rows_hash(actual_by_key.values(), column_names=column_names)
+        if (
+            rows_inserted != len(expected_by_key)
+            or set(actual_by_key) != set(expected_by_key)
+            or actual_hash != expected_hash
+        ):
+            raise self._scope_replace_error(
+                code="write.scope_reconciliation_failed",
+                unit_id=batch.unit_id,
+                message="完整范围替换后的键集或内容摘要与已验证批次不一致",
+                details={
+                    "expected_rows": len(expected_by_key),
+                    "inserted_rows": rows_inserted,
+                    "actual_rows": len(actual_by_key),
+                    "expected_hash": expected_hash,
+                    "actual_hash": actual_hash,
+                },
+            )
+        return WriteResult(
+            unit_id=batch.unit_id,
+            rows_written=len(expected_by_key),
+            rows_upserted=0,
+            rows_skipped=0,
+            target_table=definition.storage.target_table,
+            conflict_strategy="serving_direct_scope_replace",
+            rows_inserted=len(expected_by_key),
+            scope_existing_count=existing_count,
+            scope_source_unique_count=len(expected_by_key),
+        )
+
+    def _lock_scope(self, *, model, filters: list[Any], scope: dict[str, Any]) -> None:  # type: ignore[no-untyped-def]
+        bind = self.session.get_bind()
+        if bind.dialect.name == "postgresql":
+            lock_payload = f"{model.__table__.fullname}:{self._canonical_value(scope)}"
+            lock_key = int.from_bytes(hashlib.sha256(lock_payload.encode("utf-8")).digest()[:8], "big", signed=True)
+            self.session.execute(text("SELECT pg_advisory_xact_lock(:lock_key)"), {"lock_key": lock_key})
+        self.session.execute(select(model).where(and_(*filters)).with_for_update())
+
+    def _rows_by_key(
+        self,
+        *,
+        rows: list[dict[str, Any]],
+        key_fields: tuple[str, ...],
+        unit_id: str,
+    ) -> dict[tuple[Any, ...], dict[str, Any]]:
+        result: dict[tuple[Any, ...], dict[str, Any]] = {}
+        for row in rows:
+            key = tuple(row.get(field_name) for field_name in key_fields)
+            if any(value is None for value in key) or key in result:
+                raise self._scope_replace_error(
+                    code="write.scope_identity_invalid",
+                    unit_id=unit_id,
+                    message="完整范围存在空或重复业务键",
+                    details={"key_fields": list(key_fields), "key": [str(value) for value in key]},
+                )
+            result[key] = row
+        return result
+
+    @classmethod
+    def _scope_rows_hash(cls, rows, *, column_names: tuple[str, ...]) -> str:  # type: ignore[no-untyped-def]
+        payload = [
+            {column_name: cls._canonical_value(row.get(column_name)) for column_name in column_names}
+            for row in rows
+        ]
+        payload.sort(key=lambda row: json.dumps(row, ensure_ascii=True, sort_keys=True))
+        encoded = json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
+        return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+    @classmethod
+    def _canonical_value(cls, value: Any) -> Any:
+        if isinstance(value, dict):
+            return {str(key): cls._canonical_value(item) for key, item in sorted(value.items())}
+        if isinstance(value, (list, tuple)):
+            return [cls._canonical_value(item) for item in value]
+        if isinstance(value, (date, datetime)):
+            return value.isoformat()
+        if isinstance(value, bool) or value is None or isinstance(value, (str, int)):
+            return value
+        if isinstance(value, (Decimal, float)):
+            number = float(value)
+            if not math.isfinite(number):
+                raise ValueError("范围替换内容摘要不支持非有限数值")
+            return format(number, ".15g")
+        return str(value)
+
+    @staticmethod
+    def _scope_replace_error(
+        *,
+        code: str,
+        unit_id: str,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> IngestionWriteError:
+        return IngestionWriteError(
+            StructuredError(
+                error_code=code,
+                error_type="write",
+                phase="writer",
+                message=message,
+                retryable=False,
+                unit_id=unit_id,
+                details=dict(details or {}),
+            )
         )
 
     def _write_serving_observed_snapshot_refresh(

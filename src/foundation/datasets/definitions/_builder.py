@@ -116,6 +116,12 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
         normalization=normalization,
         quality=quality,
     )
+    _validate_request_variants(
+        dataset_key=identity.dataset_key,
+        input_model=row["input_model"],
+        planning=planning,
+        quality=quality,
+    )
     return DatasetDefinition(
         identity=identity,
         domain=DatasetDomain(**row["domain"]),
@@ -241,6 +247,96 @@ def _validate_observed_serving_storage(
             normalization=normalization,
             quality=quality,
         )
+    elif storage.write_path == "serving_direct_scope_replace":
+        _validate_direct_scope_replace_storage(
+            dataset_key=dataset_key,
+            storage=storage,
+            normalization=normalization,
+            quality=quality,
+        )
+
+
+def _validate_direct_scope_replace_storage(
+    *,
+    dataset_key: str,
+    storage: DatasetStorageDefinition,
+    normalization: DatasetNormalizationDefinition,
+    quality: DatasetQualityPolicy,
+) -> None:
+    invalid: list[str] = []
+    if storage.raw_dao_name is not None or storage.raw_table is not None or storage.std_table is not None:
+        invalid.append("不得配置 raw DAO/raw/std 表")
+    if storage.observation_dao_name is not None or storage.observation_table is not None:
+        invalid.append("不得配置 observation DAO/表")
+    if storage.stage_dao_name is not None or storage.stage_table is not None:
+        invalid.append("不得配置 stage DAO/表")
+    if storage.layer_plan != "source->serving" or storage.serving_table != storage.target_table:
+        invalid.append("必须 direct-serving 且 serving_table 等于 target_table")
+    if storage.raw_conflict_columns is not None:
+        invalid.append("不得配置 raw_conflict_columns")
+    if not storage.core_dao_name.strip():
+        invalid.append("必须配置 core_dao_name")
+    required_fields = set(normalization.required_fields)
+    if not storage.replacement_scope_fields:
+        invalid.append("必须声明 replacement_scope_fields")
+    elif not set(storage.replacement_scope_fields).issubset(required_fields):
+        invalid.append("replacement_scope_fields 必须全部属于 normalization.required_fields")
+    if not storage.conflict_columns:
+        invalid.append("必须声明 conflict_columns")
+    elif not set(storage.conflict_columns).issubset(required_fields):
+        invalid.append("conflict_columns 必须全部属于 normalization.required_fields")
+    if quality.empty_result_policy not in {"fail_unit", "fail_unit_per_request_variant"}:
+        invalid.append("完整范围替换必须在空结果时失败")
+    if quality.reject_policy != "fail_unit_on_any_rejection":
+        invalid.append("完整范围替换必须在任意拒绝行时失败")
+    if not quality.pre_write_validator_key:
+        invalid.append("完整范围替换必须声明 pre_write_validator_key")
+    if invalid:
+        raise ValueError(f"数据集定义 {dataset_key} 的完整范围替换契约非法：{'；'.join(invalid)}")
+
+
+def _validate_request_variants(
+    *,
+    dataset_key: str,
+    input_model: dict[str, Any],
+    planning: DatasetPlanningDefinition,
+    quality: DatasetQualityPolicy,
+) -> None:
+    fields = planning.request_variant_fields
+    defaults = planning.request_variant_defaults
+    if not fields and not defaults:
+        return
+    invalid: list[str] = []
+    input_names = {
+        str(field.get("name") or "").strip()
+        for field in (*input_model.get("time_fields", ()), *input_model.get("filters", ()))
+    }
+    if not fields or len(fields) != len(set(fields)) or any(not str(field).strip() for field in fields):
+        invalid.append("request_variant_fields 必须非空、无重复且不得含空字段")
+    if set(defaults) != set(fields):
+        invalid.append("request_variant_defaults 必须且只能覆盖 request_variant_fields")
+    if set(fields) & input_names:
+        invalid.append("request variant 属于内部请求，不得暴露为运营输入")
+    if set(fields) & set(planning.enum_fanout_fields):
+        invalid.append("request variant 不得同时作为 enum fanout")
+    combination_count = 1
+    for field_name in fields:
+        values = tuple(defaults.get(field_name, ()))
+        normalized = tuple(str(value).strip() for value in values)
+        if not normalized or any(not value for value in normalized):
+            invalid.append(f"request_variant_defaults[{field_name}] 必须包含非空值")
+            continue
+        if len(normalized) != len(set(normalized)):
+            invalid.append(f"request_variant_defaults[{field_name}] 不得重复")
+        combination_count *= len(normalized)
+    if combination_count > 16:
+        invalid.append("request variant 组合数不得超过 16")
+    if planning.page_processing_mode != "buffer_all" or planning.fetch_concurrency != 1:
+        invalid.append("request variant 只支持单并发 buffer_all")
+    if quality.empty_result_policy != "fail_unit_per_request_variant":
+        invalid.append("request variant 必须逐变体拒绝空结果")
+    if invalid:
+        raise ValueError(f"数据集定义 {dataset_key} 的固定请求变体契约非法：{'；'.join(invalid)}")
 
 
 def _validate_observed_snapshot_storage(

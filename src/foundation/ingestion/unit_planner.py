@@ -14,7 +14,13 @@ from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.ingestion.errors import IngestionPlanningError, StructuredError
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot, ValidatedDatasetActionRequest
 from src.foundation.ingestion import request_builders
-from src.foundation.ingestion.plan_helpers import build_plan_units, build_unit_id, resolve_enum_combinations, split_multi_values
+from src.foundation.ingestion.plan_helpers import (
+    build_plan_units,
+    build_unit_id,
+    resolve_enum_combinations,
+    resolve_request_variants,
+    split_multi_values,
+)
 from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.ths_index import ThsIndex
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
@@ -170,6 +176,10 @@ class DatasetUnitPlanner:
             missing_field_defaults=definition.planning.enum_fanout_defaults,
         )
         units: list[PlanUnitSnapshot] = []
+        request_variants = resolve_request_variants(
+            fields=definition.planning.request_variant_fields,
+            defaults=definition.planning.request_variant_defaults,
+        )
         for anchor in anchors:
             universe_values = self._resolve_universe_values(request, definition, anchor)
             units.extend(
@@ -183,6 +193,7 @@ class DatasetUnitPlanner:
                     pagination_policy_override=definition.planning.pagination_policy,
                     page_limit_override=definition.planning.page_limit,
                     progress_context_builder=self._progress_context_builder(definition),
+                    request_variants=request_variants,
                 )
             )
         return units
@@ -590,6 +601,45 @@ def _build_natural_day_point_units(
         anchors=anchors,
         enum_combinations=[{}],
         request_builder=request_builder,
+        pagination_policy_override=definition.planning.pagination_policy,
+        page_limit_override=definition.planning.page_limit,
+        progress_context_builder=planner._progress_context_builder(definition),
+    )
+
+
+def _build_sw_daily_units(
+    planner: DatasetUnitPlanner,
+    request: ValidatedDatasetActionRequest,
+    definition: DatasetDefinition,
+) -> list[PlanUnitSnapshot]:
+    if request.run_profile == "point_incremental":
+        if request.trade_date is None:
+            raise DatasetUnitPlanner._planning_error("missing_anchor_fields", "申万行业日行情缺少交易日")
+        start_date = end_date = request.trade_date
+    elif request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise DatasetUnitPlanner._planning_error("range_required", "申万行业日行情区间维护缺少开始或结束日期")
+        start_date = request.start_date
+        end_date = request.end_date
+    else:
+        raise DatasetUnitPlanner._planning_error(
+            "run_profile_unsupported",
+            f"申万行业日行情不支持运行模式：{request.run_profile}",
+        )
+
+    exchange = str(request.params.get("exchange") or planner.settings.default_exchange)
+    open_dates = planner.dao.trade_calendar.get_open_dates(exchange, start_date, end_date)
+    if not open_dates:
+        raise DatasetUnitPlanner._planning_error("invalid_anchor_date", "所选范围内没有开市交易日")
+    if request.run_profile == "point_incremental" and open_dates != [request.trade_date]:
+        raise DatasetUnitPlanner._planning_error("invalid_anchor_date", "所选日期不是开市交易日")
+
+    return build_plan_units(
+        request=request,
+        definition=definition,
+        anchors=list(open_dates),
+        enum_combinations=[{}],
+        request_builder=planner._resolve_request_builder(definition),
         pagination_policy_override=definition.planning.pagination_policy,
         page_limit_override=definition.planning.page_limit,
         progress_context_builder=planner._progress_context_builder(definition),
@@ -1492,5 +1542,6 @@ _CUSTOM_UNIT_BUILDERS: dict[str, Callable[[DatasetUnitPlanner, ValidatedDatasetA
     "build_stk_holdernumber_units": _build_holdernumber_units,
     "build_stk_mins_units": _build_stk_mins_units,
     "build_stock_basic_units": _build_stock_basic_units,
+    "build_sw_daily_units": _build_sw_daily_units,
     "build_ths_member_units": _build_ths_member_units,
 }

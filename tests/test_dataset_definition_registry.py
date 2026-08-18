@@ -28,7 +28,7 @@ def test_dataset_definition_registry_covers_runtime_registry() -> None:
     runtime_keys = set(DATASET_RUNTIME_REGISTRY)
 
     assert definition_keys == runtime_keys
-    assert len(definition_keys) == 84
+    assert len(definition_keys) == 87
 
 
 def test_dataset_definition_registry_covers_freshness_policy_mapping() -> None:
@@ -44,7 +44,7 @@ def test_dataset_definition_universe_policy_current_state_is_explicit() -> None:
 
     assert Counter(policies.values()) == Counter(
         {
-            "no_pool": 75,
+            "no_pool": 78,
             "pool": 9,
         }
     )
@@ -666,13 +666,15 @@ def test_no_time_dataset_definitions_do_not_expose_time_inputs() -> None:
 
     assert {definition.dataset_key for definition in no_time_definitions} == {
         "bse_mapping",
-            "etf_basic",
-            "etf_index",
-            "fund_basic",
-            "fund_company",
-            "fund_manager",
+        "etf_basic",
+        "etf_index",
+        "fund_basic",
+        "fund_company",
+        "fund_manager",
         "hk_basic",
+        "index_classify",
         "index_basic",
+        "index_member_all",
         "namechange",
         "mkt_idx_bmk",
         "st",

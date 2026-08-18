@@ -1142,14 +1142,15 @@ class IngestionExecutor:
         if len(state.pagination_units) >= 3:
             state.pagination_units_truncated = True
             return
-        state.pagination_units.append(
-            {
-                "unit_id": unit.unit_id,
-                "page_count": page_count,
-                "terminal_offset": diagnostics.get("terminal_offset"),
-                "terminal_page_rows": diagnostics.get("terminal_page_rows"),
-            }
-        )
+        unit_diagnostics = {
+            "unit_id": unit.unit_id,
+            "page_count": page_count,
+            "terminal_offset": diagnostics.get("terminal_offset"),
+            "terminal_page_rows": diagnostics.get("terminal_page_rows"),
+        }
+        if diagnostics.get("request_variants"):
+            unit_diagnostics["request_variants"] = list(diagnostics["request_variants"])
+        state.pagination_units.append(unit_diagnostics)
 
     @staticmethod
     def _build_ingestion_diagnostics(state: _RunState) -> dict[str, Any]:

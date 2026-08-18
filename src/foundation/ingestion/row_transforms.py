@@ -23,12 +23,114 @@ from src.foundation.datasets.public_fund_contracts import (
     fund_share_identity,
     mkt_idx_bmk_identity,
 )
+from src.foundation.datasets.sw_industry_contracts import (
+    SW2021_CLASSIFICATION_VERSION,
+    SW2021_NORMALIZATION_RULE_VERSION,
+    SwIndustryContractError,
+    normalize_sw2021_index_code,
+)
 
 
 class RowTransformReject(ValueError):
     def __init__(self, reason_code: str, message: str) -> None:
         super().__init__(message)
         self.reason_code = reason_code
+
+
+def _sw2021_code(value: Any, *, classification_industry_code: Any | None = None) -> str:
+    try:
+        return normalize_sw2021_index_code(
+            value,
+            classification_industry_code=classification_industry_code,
+        )
+    except SwIndustryContractError as exc:
+        raise RowTransformReject("normalize.sw_industry_code_invalid", str(exc)) from exc
+
+
+def _sw2021_boolean(value: Any, *, field_name: str) -> bool:
+    if value in (True, 1, "1", "Y", "y"):
+        return True
+    if value in (False, 0, "0", "N", "n"):
+        return False
+    raise RowTransformReject(
+        f"normalize.payload_invalid:{field_name}",
+        f"字段 {field_name} 只能是 1/0 或 Y/N",
+    )
+
+
+def normalize_sw2021_classification_row(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    source_index_code = str(transformed.get("index_code") or "").strip().upper()
+    raw_parent_code = transformed.get("parent_code")
+    source_parent_code = (
+        str(raw_parent_code).strip()
+        if raw_parent_code not in (None, "")
+        else None
+    )
+    industry_code = str(transformed.get("industry_code") or "").strip()
+    level = str(transformed.get("level") or "").strip().upper()
+    src = str(transformed.get("src") or "").strip().upper()
+    if src != SW2021_CLASSIFICATION_VERSION:
+        raise RowTransformReject("normalize.sw_industry_version_invalid", "申万分类 src 必须是 SW2021")
+    if level not in {"L1", "L2", "L3"}:
+        raise RowTransformReject("normalize.sw_industry_level_invalid", f"申万分类层级非法：{level}")
+    transformed.update(
+        {
+            "source_index_code": source_index_code,
+            "index_code": _sw2021_code(
+                source_index_code,
+                classification_industry_code=industry_code,
+            ),
+            "source_parent_code": source_parent_code,
+            "parent_code": None if level == "L1" else source_parent_code,
+            "industry_name": str(transformed.get("industry_name") or "").strip(),
+            "industry_code": industry_code,
+            "level": level,
+            "is_pub": _sw2021_boolean(transformed.get("is_pub"), field_name="is_pub"),
+            "src": src,
+            "source": "tushare",
+            "normalization_rule_version": SW2021_NORMALIZATION_RULE_VERSION,
+        }
+    )
+    return transformed
+
+
+def normalize_sw2021_member_row(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    for level in ("l1", "l2", "l3"):
+        source_field = f"source_{level}_code"
+        business_field = f"{level}_code"
+        source_code = str(transformed.get(business_field) or "").strip().upper()
+        transformed[source_field] = source_code
+        transformed[business_field] = _sw2021_code(source_code)
+        transformed[f"{level}_name"] = str(transformed.get(f"{level}_name") or "").strip()
+    transformed.update(
+        {
+            "ts_code": str(transformed.get("ts_code") or "").strip().upper(),
+            "stock_name": str(transformed.get("name") or "").strip(),
+            "is_new": _sw2021_boolean(transformed.get("is_new"), field_name="is_new"),
+            "classification_version": SW2021_CLASSIFICATION_VERSION,
+            "source": "tushare",
+            "normalization_rule_version": SW2021_NORMALIZATION_RULE_VERSION,
+        }
+    )
+    return transformed
+
+
+def normalize_sw2021_daily_row(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    source_ts_code = str(transformed.get("ts_code") or "").strip().upper()
+    transformed.update(
+        {
+            "source_ts_code": source_ts_code,
+            "ts_code": _sw2021_code(source_ts_code),
+            "name": str(transformed.get("name") or "").strip(),
+            "classification_version": SW2021_CLASSIFICATION_VERSION,
+            "source": "tushare",
+            "normalization_rule_version": SW2021_NORMALIZATION_RULE_VERSION,
+        }
+    )
+    return transformed
 
 
 _TOP_LIST_PSEUDO_NULL_NUMBER_TEXTS = {"nan", "nat", "none", "null"}
@@ -952,4 +1054,7 @@ __all__ = [
     "_holdernumber_row_transform",
     "_biying_equity_daily_row_transform",
     "_biying_moneyflow_row_transform",
+    "normalize_sw2021_classification_row",
+    "normalize_sw2021_member_row",
+    "normalize_sw2021_daily_row",
 ]

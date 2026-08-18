@@ -5,11 +5,13 @@ from dataclasses import dataclass
 from src.foundation.datasets.registry import list_dataset_definitions
 from src.foundation.datasets.source_release_policies import SUPPORTED_SOURCE_RELEASE_POLICIES
 from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY
+from src.foundation.ingestion.pre_write_validators import PRE_WRITE_VALIDATORS
 
 
 SUPPORTED_SCOPED_REPAIR_POLICIES = {"existing_point_bucket_only", "existing_observed_point_scope_only"}
 SUPPORTED_DUPLICATE_KEY_POLICIES = {"allow", "dedupe_identical_reject_conflicting"}
 SUPPORTED_SOURCE_MULTIPLICITY_POLICIES = {"reject", "deduplicate_identical"}
+SUPPORTED_EMPTY_RESULT_POLICIES = {"allow", "fail_unit", "fail_unit_per_request_variant"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,6 +179,28 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
                 issues.append(
                     IngestionLintIssue(dataset_key, "direct_serving_target_mismatch", "serving_direct_upsert 的 serving_table 必须等于 target_table")
                 )
+        elif storage.write_path == "serving_direct_scope_replace":
+            if storage.raw_dao_name is not None or storage.raw_table is not None or storage.std_table is not None:
+                issues.append(IngestionLintIssue(dataset_key, "scope_replace_raw_or_std_forbidden", "完整范围替换不得配置 raw DAO/raw/std 表"))
+            if storage.observation_dao_name is not None or storage.observation_table is not None:
+                issues.append(IngestionLintIssue(dataset_key, "scope_replace_observation_forbidden", "完整范围替换不得配置 observation DAO/表"))
+            if storage.stage_dao_name is not None or storage.stage_table is not None:
+                issues.append(IngestionLintIssue(dataset_key, "scope_replace_stage_forbidden", "完整范围替换不得配置 stage DAO/表"))
+            if storage.layer_plan != "source->serving" or storage.serving_table != storage.target_table:
+                issues.append(IngestionLintIssue(dataset_key, "scope_replace_serving_contract_invalid", "完整范围替换必须 direct-serving 且 serving_table 等于 target_table"))
+            if storage.raw_conflict_columns is not None or not storage.core_dao_name:
+                issues.append(IngestionLintIssue(dataset_key, "scope_replace_dao_contract_invalid", "完整范围替换必须仅配置 serving DAO"))
+            required_fields = set(definition.normalization.required_fields)
+            if not storage.replacement_scope_fields or not set(storage.replacement_scope_fields).issubset(required_fields):
+                issues.append(IngestionLintIssue(dataset_key, "scope_replace_fields_invalid", "replacement_scope_fields 必须非空且全部为必填字段"))
+            if not storage.conflict_columns or not set(storage.conflict_columns).issubset(required_fields):
+                issues.append(IngestionLintIssue(dataset_key, "scope_replace_identity_invalid", "conflict_columns 必须非空且全部为必填字段"))
+            if definition.quality.reject_policy != "fail_unit_on_any_rejection":
+                issues.append(IngestionLintIssue(dataset_key, "scope_replace_reject_policy_invalid", "完整范围替换必须拒绝任意归一化失败行"))
+            if definition.quality.empty_result_policy not in {"fail_unit", "fail_unit_per_request_variant"}:
+                issues.append(IngestionLintIssue(dataset_key, "scope_replace_empty_policy_invalid", "完整范围替换必须拒绝空结果"))
+            if not definition.quality.pre_write_validator_key:
+                issues.append(IngestionLintIssue(dataset_key, "scope_replace_validator_missing", "完整范围替换必须声明预写校验器"))
         elif storage.write_path == "serving_immutable_fact_insert":
             if storage.raw_dao_name is not None or storage.raw_table is not None or storage.std_table is not None:
                 issues.append(
@@ -245,6 +269,49 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
                 )
             )
         quality = definition.quality
+        if quality.pre_write_validator_key is not None and quality.pre_write_validator_key not in PRE_WRITE_VALIDATORS:
+            issues.append(
+                IngestionLintIssue(
+                    dataset_key,
+                    "pre_write_validator_missing",
+                    f"未注册预写校验器：{quality.pre_write_validator_key}",
+                )
+            )
+        if quality.empty_result_policy not in SUPPORTED_EMPTY_RESULT_POLICIES:
+            issues.append(
+                IngestionLintIssue(
+                    dataset_key,
+                    "empty_result_policy_invalid",
+                    f"quality.empty_result_policy 不支持：{quality.empty_result_policy}",
+                )
+            )
+        variant_fields = definition.planning.request_variant_fields
+        variant_defaults = definition.planning.request_variant_defaults
+        if variant_fields or variant_defaults:
+            input_names = {
+                field.name
+                for field in (*definition.input_model.time_fields, *definition.input_model.filters)
+            }
+            if not variant_fields or len(variant_fields) != len(set(variant_fields)):
+                issues.append(IngestionLintIssue(dataset_key, "request_variant_fields_invalid", "request_variant_fields 必须非空且无重复"))
+            if set(variant_defaults) != set(variant_fields):
+                issues.append(IngestionLintIssue(dataset_key, "request_variant_defaults_invalid", "request_variant_defaults 必须精确覆盖 request_variant_fields"))
+            if set(variant_fields) & input_names:
+                issues.append(IngestionLintIssue(dataset_key, "request_variant_exposed", "内部 request variant 不得暴露为输入字段"))
+            if set(variant_fields) & set(definition.planning.enum_fanout_fields):
+                issues.append(IngestionLintIssue(dataset_key, "request_variant_fanout_conflict", "request variant 不得同时作为 enum fanout"))
+            combination_count = 1
+            for field_name in variant_fields:
+                values = tuple(str(value).strip() for value in variant_defaults.get(field_name, ()))
+                if not values or any(not value for value in values) or len(values) != len(set(values)):
+                    issues.append(IngestionLintIssue(dataset_key, "request_variant_values_invalid", f"request variant {field_name} 必须非空且无重复"))
+                combination_count *= max(len(values), 1)
+            if combination_count > 16:
+                issues.append(IngestionLintIssue(dataset_key, "request_variant_combinations_exceeded", "request variant 组合数不得超过 16"))
+            if definition.planning.page_processing_mode != "buffer_all" or definition.planning.fetch_concurrency != 1:
+                issues.append(IngestionLintIssue(dataset_key, "request_variant_execution_invalid", "request variant 只支持单并发 buffer_all"))
+            if quality.empty_result_policy != "fail_unit_per_request_variant":
+                issues.append(IngestionLintIssue(dataset_key, "request_variant_empty_policy_invalid", "request variant 必须逐变体拒绝空结果"))
         if quality.source_multiplicity_policy not in SUPPORTED_SOURCE_MULTIPLICITY_POLICIES:
             issues.append(
                 IngestionLintIssue(

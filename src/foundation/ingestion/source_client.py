@@ -7,7 +7,7 @@ from time import perf_counter
 from src.foundation.connectors.factory import create_source_connector
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.ingestion.error_mapper import IngestionErrorMapper
-from src.foundation.ingestion.errors import IngestionSourceError
+from src.foundation.ingestion.errors import IngestionSourceError, StructuredError
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot
 
 
@@ -41,6 +41,7 @@ class SourcePageResult:
         retry_count: int,
         latency_ms: int,
         is_short_page: bool,
+        request_variant: dict | None = None,
     ) -> None:
         self.unit_id = unit_id
         self.page_number = page_number
@@ -49,6 +50,7 @@ class SourcePageResult:
         self.retry_count = retry_count
         self.latency_ms = latency_ms
         self.is_short_page = is_short_page
+        self.request_variant = dict(request_variant or {})
 
 
 class DatasetSourceClient:
@@ -66,13 +68,61 @@ class DatasetSourceClient:
         terminal_offset: int | None = None
         terminal_page_rows = 0
         observed_short_page = False
+        variant_diagnostics: list[dict] = []
+        current_variant: dict | None = None
+        current_variant_rows = 0
+        current_variant_pages = 0
+        current_variant_terminal_offset: int | None = None
+        current_variant_terminal_rows = 0
         for page in self.iter_pages(definition=definition, unit=unit):
+            if current_variant != page.request_variant:
+                if current_variant is not None:
+                    variant_diagnostics.append(
+                        self._variant_diagnostics(
+                            variant=current_variant,
+                            rows=current_variant_rows,
+                            pages=current_variant_pages,
+                            terminal_offset=current_variant_terminal_offset,
+                            terminal_rows=current_variant_terminal_rows,
+                        )
+                    )
+                current_variant = page.request_variant
+                current_variant_rows = 0
+                current_variant_pages = 0
             request_count += 1
             retry_count += page.retry_count
             rows_raw.extend(page.rows_raw)
+            current_variant_rows += len(page.rows_raw)
+            current_variant_pages += 1
+            current_variant_terminal_offset = page.offset
+            current_variant_terminal_rows = len(page.rows_raw)
             terminal_offset = page.offset
             terminal_page_rows = len(page.rows_raw)
             observed_short_page = page.is_short_page
+        if current_variant is not None:
+            variant_diagnostics.append(
+                self._variant_diagnostics(
+                    variant=current_variant,
+                    rows=current_variant_rows,
+                    pages=current_variant_pages,
+                    terminal_offset=current_variant_terminal_offset,
+                    terminal_rows=current_variant_terminal_rows,
+                )
+            )
+        if definition.quality.empty_result_policy == "fail_unit_per_request_variant":
+            empty_variants = [item["variant"] for item in variant_diagnostics if item["total_rows"] == 0]
+            if empty_variants:
+                raise IngestionSourceError(
+                    StructuredError(
+                        error_code="source_variant_empty",
+                        error_type="source",
+                        phase="source_client",
+                        message="固定请求变体返回空结果，拒绝发布不完整全集",
+                        retryable=False,
+                        unit_id=unit.unit_id,
+                        details={"empty_variants": empty_variants},
+                    )
+                )
         pagination_policy = unit.pagination_policy or definition.planning.pagination_policy
         pagination_diagnostics = {}
         if pagination_policy == "offset_limit" and unit.page_limit is not None:
@@ -85,6 +135,8 @@ class DatasetSourceClient:
                 "terminal_page_rows": terminal_page_rows,
                 "observed_short_page": observed_short_page,
             }
+            if unit.request_variants:
+                pagination_diagnostics["request_variants"] = variant_diagnostics
         latency_ms = max(int((perf_counter() - started_at) * 1000), 0)
         return SourceFetchResult(
             unit_id=unit.unit_id,
@@ -97,6 +149,27 @@ class DatasetSourceClient:
 
     def iter_pages(self, *, definition: DatasetDefinition, unit: PlanUnitSnapshot):  # type: ignore[no-untyped-def]
         connector = create_source_connector(str(unit.source_key or definition.source.adapter_key))
+        request_variants = unit.request_variants or ({},)
+        for request_variant in request_variants:
+            request_params = dict(unit.request_params)
+            request_params.update(request_variant)
+            yield from self._iter_request_pages(
+                definition=definition,
+                unit=unit,
+                connector=connector,
+                request_params=request_params,
+                request_variant=request_variant,
+            )
+
+    def _iter_request_pages(
+        self,
+        *,
+        definition: DatasetDefinition,
+        unit: PlanUnitSnapshot,
+        connector,
+        request_params: dict,
+        request_variant: dict,
+    ):  # type: ignore[no-untyped-def]
         page_limit = unit.page_limit
         pagination_policy = unit.pagination_policy or definition.planning.pagination_policy
         if pagination_policy != "offset_limit" or page_limit is None:
@@ -105,6 +178,7 @@ class DatasetSourceClient:
                 definition=definition,
                 unit=unit,
                 connector=connector,
+                request_params=request_params,
                 offset=None,
                 page_limit=None,
             )
@@ -116,6 +190,7 @@ class DatasetSourceClient:
                 retry_count=retries,
                 latency_ms=max(int((perf_counter() - started_at) * 1000), 0),
                 is_short_page=True,
+                request_variant=request_variant,
             )
             return
 
@@ -127,6 +202,7 @@ class DatasetSourceClient:
                 definition=definition,
                 unit=unit,
                 connector=connector,
+                request_params=request_params,
                 offset=offset,
                 page_limit=page_limit,
             )
@@ -150,6 +226,7 @@ class DatasetSourceClient:
                 retry_count=retries,
                 latency_ms=max(int((perf_counter() - started_at) * 1000), 0),
                 is_short_page=is_short_page,
+                request_variant=request_variant,
             )
             if is_short_page:
                 return
@@ -162,11 +239,12 @@ class DatasetSourceClient:
         definition: DatasetDefinition,
         unit: PlanUnitSnapshot,
         connector,
+        request_params: dict,
         offset: int | None,
         page_limit: int | None,
     ) -> tuple[list[dict], int]:
         params = dict(definition.source.base_params)
-        params.update(unit.request_params)
+        params.update(request_params)
         if offset is not None:
             params["offset"] = offset
         if page_limit is not None:
@@ -177,6 +255,23 @@ class DatasetSourceClient:
             connector=connector,
             params=params,
         )
+
+    @staticmethod
+    def _variant_diagnostics(
+        *,
+        variant: dict,
+        rows: int,
+        pages: int,
+        terminal_offset: int | None,
+        terminal_rows: int,
+    ) -> dict:
+        return {
+            "variant": dict(variant),
+            "page_count": pages,
+            "total_rows": rows,
+            "terminal_offset": terminal_offset,
+            "terminal_page_rows": terminal_rows,
+        }
 
     def _execute_with_retry(self, *, definition: DatasetDefinition, unit: PlanUnitSnapshot, connector, params: dict) -> tuple[list[dict], int]:
         max_retries = 3

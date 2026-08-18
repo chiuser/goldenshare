@@ -70,6 +70,9 @@ from src.foundation.models.core_serving.index_monthly_serving import IndexMonthl
 from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
 from src.foundation.models.core_serving.mkt_idx_bmk_current import MktIdxBmkCurrent
 from src.foundation.models.core_serving.mkt_idx_bmk_observation import MktIdxBmkObservation
+from src.foundation.models.core_serving.sw_industry_classification import SwIndustryClassification
+from src.foundation.models.core_serving.sw_industry_daily import SwIndustryDaily
+from src.foundation.models.core_serving.sw_industry_member import SwIndustryMember
 from src.foundation.models.core_serving.equity_auction_close import EquityAuctionClose
 from src.foundation.models.core_serving.equity_auction_open import EquityAuctionOpen
 from src.foundation.models.core_multi.moneyflow_std import MoneyflowStd
@@ -235,6 +238,9 @@ class DAOFactory:
         self.index_series_active = IndexSeriesActiveDAO(session)
         self.etf_series_active = EtfSeriesActiveDAO(session)
         self.security_std = GenericDAO(session, SecurityStd)
+        self.sw_industry_classification = GenericDAO(session, SwIndustryClassification)
+        self.sw_industry_daily = GenericDAO(session, SwIndustryDaily)
+        self.sw_industry_member = GenericDAO(session, SwIndustryMember)
 
         self.raw_stock_basic = GenericDAO(session, RawStockBasic)
         self.raw_trade_cal = GenericDAO(session, RawTradeCal)

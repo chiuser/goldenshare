@@ -87,6 +87,9 @@ EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
         "dc_hot",
         "kpl_list",
         "kpl_concept_cons",
+        "index_classify",
+        "index_member_all",
+        "sw_daily",
     },
     "moneyflow": {
         "biying_moneyflow",

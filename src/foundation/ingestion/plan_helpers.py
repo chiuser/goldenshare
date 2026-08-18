@@ -53,6 +53,20 @@ def resolve_enum_combinations(
     return [{names[index]: row[index] for index in range(len(names))} for row in product(*values)]
 
 
+def resolve_request_variants(
+    *,
+    fields: tuple[str, ...],
+    defaults: dict[str, tuple[str, ...]],
+) -> tuple[dict[str, Any], ...]:
+    if not fields:
+        return ()
+    values = [defaults[field_name] for field_name in fields]
+    return tuple(
+        {field_name: combination[index] for index, field_name in enumerate(fields)}
+        for combination in product(*values)
+    )
+
+
 def build_unit_id(
     *,
     dataset_key: str,
@@ -78,6 +92,7 @@ def build_plan_units(
     pagination_policy_override: str | None = None,
     page_limit_override: int | None = None,
     progress_context_builder: Callable[[date | None, dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None,
+    request_variants: tuple[dict[str, Any], ...] = (),
 ) -> list[PlanUnitSnapshot]:
     source_key = request.source_key or definition.source.source_key_default
     pagination_policy = pagination_policy_override or definition.planning.pagination_policy
@@ -110,6 +125,7 @@ def build_plan_units(
                         progress_context=progress_context,
                         pagination_policy=pagination_policy,
                         page_limit=page_limit,
+                        request_variants=request_variants,
                     )
                 )
                 ordinal += 1
