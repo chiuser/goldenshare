@@ -1,7 +1,7 @@
 # 申万 SW2021 行业日行情 `sw_daily` Prod 数据集 LLD v1
 
-> 状态：M0～M3 已完成；前置分类与成员数据集均已通过真实源端、本地事务、可执行源端行数门禁和 Ops API/浏览器契约验收。迁移未在 Prod 执行，日行情数据集 M4 尚未开始。
-> 初版：2026-08-16；代码对账：2026-08-17；最终产品拍板：2026-08-18；M2/M3 纠偏验收：2026-08-19。
+> 状态：M0～M4 已完成；三个申万数据集均已通过当前阶段要求的真实源端只读核验、本地事务、可执行源端行数门禁和 Ops API/浏览器契约验收。迁移未在 Prod 执行，M5 尚未获授权。
+> 初版：2026-08-16；代码对账：2026-08-17；最终产品拍板：2026-08-18；M2/M3 纠偏验收与 M4 本地验收：2026-08-19。
 > 前置 LLD：[申万 SW2021 行业分类 `index_classify` Prod 数据集 LLD v1](./index-classify-sw2021-low-level-design-v1.md)。
 > 上游产品依据：[板块雷达产品设计方案 v1](../../wealth/docs/pages/wealth-exploration/sector-radar-product-design-v1.md)。
 > 数据依据：[板块雷达数据覆盖审计 v1](../../wealth/docs/pages/wealth-exploration/sector-radar-data-coverage-audit-v1.md)。
@@ -78,6 +78,8 @@ Ops point/range intent
 单对象 `850412.SI` 和 `801010.SI` 的 `(ts_code,trade_date)` 重复均为 0。
 
 `tushare-data` 接口家族结论：`sw_daily` 是申万指数日行情接口，不提供分类层级或成分有效期；行业池必须与 `index_classify` 联接，历史成员研究必须另用 `index_member_all`。
+
+2026-08-19 M4 开工前又通过 `tushareMcp` 做了只读复核：`trade_date=20260814` 显式请求 15 字段返回 439 行、439 个唯一代码且日期全集仅为 `20260814`；15 个字段均实际返回，其中 `pe` 空 1 行；`850412.SI` 默认字段与显式 15 字段请求均返回同一条“特钢Ⅲ”事实。该工具未暴露 `limit/offset`，所以分页契约继续以本地源文档、既有 HTTP 审计和 M4 可执行 source-client 边界测试为依据，不伪造 MCP 分页结论。
 
 ### 2.2 最新交易日分类覆盖
 
@@ -171,22 +173,22 @@ change, pct_change, vol, amount, pe, pb, float_mv, total_mv
 
 | 消费方 | 本数据集固定结果 | 已核验代码位置 | 实施影响 |
 |---|---|---|---|
-| Manual Action | point/range 交易日表单，区间上限 60 units | `src/ops/queries/manual_action_query_service.py` | 使用合法日期枚举；补表单和 API 正反例 |
-| Catalog | 使用 Definition 日期选择规则与 Ops 显式目录 | `src/ops/catalog/dataset_catalog_view_resolver.py`、`src/ops/catalog/dataset_catalog_views.py` | 新增唯一 `item_order=100` |
+| Manual Action | point/range 交易日表单，区间上限 60 units | `src/ops/queries/manual_action_query_service.py` | 已由 Definition 派生并通过 API/浏览器正反例 |
+| Catalog | 使用 Definition 日期选择规则与 Ops 显式目录 | `src/ops/catalog/dataset_catalog_view_resolver.py`、`src/ops/catalog/dataset_catalog_views.py` | 已固定唯一 `item_order=100` |
 | Workflow | 首版不进入 workflow | `src/ops/action_catalog.py` | 不修改 workflow |
-| Resolver / planner | 当前 range 查交易日历；point 不查交易日历 | `src/foundation/ingestion/resolver.py`、`src/foundation/ingestion/unit_planner.py` | 新增声明式 `build_sw_daily_units`，point/range 均以交易日历为权威 |
+| Resolver / planner | point/range 均查交易日历；非开市 point 使用 `trade_date_not_open` | `src/foundation/ingestion/resolver.py`、`src/foundation/ingestion/unit_planner.py` | `build_sw_daily_units` 已以交易日历为权威并通过 60/61 unit 边界 |
 | Request builder | 现有 `_daily_params` 只发单个 `trade_date`，语义匹配 | `src/foundation/ingestion/request_builders.py` | 明确复用 `_daily_params`，禁止 `_trade_date_or_start_end_params` |
-| Freshness | `CONTINUOUS_OPEN_DAY` | `src/foundation/datasets/freshness_policies.py`、`src/ops/queries/freshness_query_service.py` | 新增显式映射 |
-| Dataset card | 无 Raw，回退展示 serving/target 表 | `src/ops/dataset_definition_projection.py`、`src/ops/queries/dataset_card_query_service.py` | 补 direct-serving 回归 |
-| Snapshot rebuild | 按 `trade_date` 读取成功业务事实 | `src/ops/services/operations_dataset_status_snapshot_service.py` | 补目标模型和 observed field 测试 |
+| Freshness | `CONTINUOUS_OPEN_DAY` | `src/foundation/datasets/freshness_policies.py`、`src/ops/queries/freshness_query_service.py` | 显式映射及 Ops 投影已验收 |
+| Dataset card | 无 Raw，只展示 serving/target 表 | `src/ops/dataset_definition_projection.py`、`src/ops/queries/dataset_card_query_service.py` | direct-serving API 回归已验收 |
+| Snapshot rebuild | 按 `trade_date` 读取成功业务事实 | `src/ops/services/operations_dataset_status_snapshot_service.py` | 目标模型注册、observed field 与 freshness 投影已验收 |
 | Date completeness | `date_bucket` 只验证交易日桶存在 | `src/ops/services/date_completeness_audit_service.py` | 不宣称当前服务能比较行数或代码集合 |
 | 自动任务 | 首版不开放 | `src/ops/services/schedule_automation_capability_resolver.py` | `schedule_enabled=False`；到达时间未审计前不建排程 |
 | Source release / Probe | 首版不建设 | `src/ops/services/operations_schedule_service.py` | 后续必须独立做 `sw_daily` 到达时间审计 |
-| 前端时间控件 | point/range；不提供代码 filter | `frontend/src/pages/ops-v21-task-manual-tab.tsx` | 通用控件消费 selection rule/max units，不加 dataset-key 分支 |
+| 前端时间控件 | point/range；不提供代码 filter | `frontend/src/pages/ops-v21-task-manual-tab.tsx` | 通用控件消费 selection rule/max units；浏览器已验证且未加 dataset-key 分支 |
 | Ops 展示目录 | `board_theme` 第 100 位 | `src/ops/catalog/dataset_catalog_views.py` | 位于分类和成员之后 |
 | 数据源页 / 分层 | `raw_table=None`，展示日行情服务表 | `src/ops/schemas/dataset_card.py`、`frontend/src/pages/ops-v21-source-page.tsx`、`frontend/src/pages/ops-v21-dataset-detail-page.tsx` | 不显示伪 Raw |
 | Shared storage / writer | 每个 `trade_date` 完整范围原子替换 | `src/foundation/ingestion/writer.py`、`src/foundation/datasets/definitions/_builder.py`、`src/foundation/ingestion/linter.py` | 复用分类 LLD 新增的通用 scope replace |
-| 测试与文档 | M1 基座已存在，M4 专项验收尚未建立 | registry/planner/normalizer/writer/freshness/Ops 测试 | 当前 M1～M3 回归不能替代日行情 M4 验收 |
+| 测试与文档 | M4 专项验收已建立 | `tests/test_sw2021_sw_daily_dataset_m4.py`、`tests/web/test_ops_sw2021_sw_daily_m4.py`、前端 smoke | Definition/planner/source/normalizer/writer/freshness/completeness/Ops/浏览器契约均已覆盖 |
 
 ---
 
@@ -235,7 +237,7 @@ change, pct_change, vol, amount, pe, pb, float_mv, total_mv
 | source | `source_key_default=tushare`，`source_keys=(tushare,)`，`adapter=tushare`，`api_name=sw_daily`，`source_doc_id=tushare.sw_daily`，`request_builder_key=_daily_params`，`base_params={}`，`release_policy=same_day`；无不带日期的维护请求 |
 | input_model | 只暴露 point/range 日期；首版不暴露 `ts_code` filter |
 | storage | `delivery_mode=core_direct`，`layer_plan=source->serving`，无 Raw/Std；`core_dao_name=sw_industry_daily`，`target_table=serving_table=core_serving.sw_industry_daily`，`write_path=serving_direct_scope_replace`，`raw_conflict_columns=None`，`conflict_columns=(ts_code,trade_date)`，`replacement_scope_fields=(trade_date,)`，`row_identity_filters={}` |
-| planning | `universe_policy=no_pool`，无 enum fanout，`pagination_policy=offset_limit`，`page_limit=2000`；M4 将设置 `max_source_rows_per_unit=2000`，`unit_builder_key=build_sw_daily_units`，`max_units_per_execution=60`，`fetch_concurrency=1`，`page_processing_mode=buffer_all` |
+| planning | `universe_policy=no_pool`，无 enum fanout，`pagination_policy=offset_limit`，`page_limit=2000`，`max_source_rows_per_unit=2000`，`unit_builder_key=build_sw_daily_units`，`max_units_per_execution=60`，`fetch_concurrency=1`，`page_processing_mode=buffer_all` |
 | normalization | `date_fields=(trade_date,)`，`decimal_fields=(open,low,high,close,change,pct_change,vol,amount,pe,pb,float_mv,total_mv)`，`row_transform_name=normalize_sw2021_daily_row` |
 | capabilities | `maintain` 支持 point/range、手动和重试；`schedule_enabled=False` |
 | observability | `continuous_open_day`，`observed_field=trade_date` |
@@ -278,7 +280,7 @@ FRESHNESS_POLICY_BY_DATASET["sw_daily"] = CONTINUOUS_OPEN_DAY
 - 单日空结果在已开市日视为失败，不写零行成功状态；
 - 439、414 和 25 是 M0 观测基线，不写成永久数量常量。
 
-M1 已完成 `empty_result_policy/pre_write_validator_key`、`replacement_scope_fields`、`serving_direct_scope_replace` 及对应 builder/linter、plan snapshot、运行时 preflight 和既有 write path 回归。2026-08-19 又补齐通用 `max_source_rows_per_unit` 执行门禁；M4 必须将本数据集既定单日上限 2,000 写入 Definition 并完成 2,000/2,001 行正反例，禁止只在 `sw_daily` row transform 内做局部补丁。
+M1 已完成 `empty_result_policy/pre_write_validator_key`、`replacement_scope_fields`、`serving_direct_scope_replace` 及对应 builder/linter、plan snapshot、运行时 preflight 和既有 write path 回归。M4 已将本数据集既定单日上限 2,000 写入 Definition，并通过通用 source-client 路径完成 2,000/2,001 行正反例；没有在 `sw_daily` row transform 内叠加局部门禁。
 
 writer 必须从单日 normalized batch 提取唯一 `trade_date` scope tuple，并与 plan unit 的 `trade_date` 相等后才允许 DML。`row_identity_filters` 继续只服务日期完整性身份过滤，不作为替换范围；本数据集没有额外身份维度，因此固定为空。零个、多个日期或 unit/batch 日期不一致均在 DML 前失败。
 
@@ -413,9 +415,9 @@ WHERE d.trade_date = :target_date
 | 幂等 | 同日重放行数、键集和内容摘要稳定 | 重放产生重复、跨日期删除或部分页发布时失败 |
 | freshness | 开市日有日期桶、非交易日无缺口 | 开市日整桶缺失却报 Ready，或非交易日误报缺口时失败 |
 
-### 9.2 文件级实施范围
+### 9.2 M1～M4 文件级实施范围
 
-计划新增/修改：
+M1～M4 已按以下范围实现；M4 没有扩展到 Prod、Lake、Dagster、Wealth 页面或业务 API：
 
 - `src/foundation/datasets/sw_industry_contracts.py`
 - `src/foundation/datasets/definitions/board_hotspot.py`
@@ -434,6 +436,18 @@ WHERE d.trade_date = :target_date
 - Definition、resolver、request builder/source client、normalizer、writer、freshness、日期完整性、Ops API、数据源卡片和迁移测试
 
 不修改 `src/platform/**`、`src/operations/**`、Lake/Dagster 或 Wealth 页面。
+
+M4 本轮实际新增/修改文件收敛为：
+
+- `src/foundation/datasets/definitions/board_hotspot.py`：声明单日源端 2,000 行上限；
+- `src/foundation/ingestion/unit_planner.py`：非开市 point 使用 `trade_date_not_open`；
+- `src/foundation/ingestion/codebook.py`：登记上述错误码并升级 codebook 版本；
+- `tests/test_sw2021_sw_daily_dataset_m4.py`：完整后端正反例和本地事务验收；
+- `tests/web/test_ops_sw2021_sw_daily_m4.py`：Manual Actions、卡片、日期完整性和 60/61 unit API 验收；
+- `frontend/e2e/support/smoke-fixtures.ts`、`frontend/e2e/smoke-visual.spec.ts`：浏览器消费真实 point/range、无筛选和任务 payload 契约；
+- `tests/test_sw2021_industry_datasets_m1.py`：同步既有共享基座断言与新错误码。
+
+M4 没有修改 ORM、DAO、迁移、共享 writer 算法、调度能力或任何生产数据；这些共享基座由 M1 提供，本轮只通过本数据集专项正反例复核其真实语义。
 
 ### 9.3 最小真实发布验收
 
@@ -471,24 +485,35 @@ null_pe_rows = 1
 
 在该报告通过前，不能把代表代码 3,410 行推广为全体 SW2021 的历史完整性结论。
 
+### 9.5 M4 实际验收记录（2026-08-19）
+
+- Tushare 只读复核：`20260814` 显式 15 字段为 439 行、439 个唯一代码，`pe` 空 1 行；未执行任何源端或 Prod 写入。
+- M1～M4 申万专项与三组 Ops API 回归：53 passed；覆盖 2,000/2,001 行、60/61 units、439/414/25 保留、空结果、部分 reject、日期越界、OHLC/负量额、同日替换、跨日保护和幂等重放。
+- M4 后端专项：7 passed；M4 Web API 专项：6 passed。
+- 前端：规则检查、TypeScript typecheck、production build 均通过；Playwright 的 SW2021 Manual Actions 契约 1 passed，已实际切换 point/range，并验证 point 提交只含 `trade_date` 和空 filters。
+- 扩展通用 Definition/source/planner/freshness/card/completeness/manual-action 回归为 167 passed、1 failed；唯一失败是未改动的既有 `kpl_list` 卡片 freshness 用例（期望 `fresh`，当前返回 `unconfirmed`），单独复跑仍失败。它不在 M4 调用链或文件范围内，本轮按“不得跑偏”约束未修改该模块，也不把该失败写成 M4 通过项。
+- `git diff --check` 通过；CodeGraph 已同步并确认索引 up to date。
+
+M4 验收只证明本地代码契约和事务行为满足 LLD；生产迁移、最小同步、真实目标表 read-back 与幂等重放仍全部属于 M5。
+
 ---
 
 ## 10. 硬需求追溯账本
 
 | ID | 硬需求与依据 | 影响层/消费者 | 后端权威约束 | 前端表现 | 实现文件 | 正向测试 | 反向测试 | 真实验证 | 阶段 | 状态 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| SD-001 | 日期模型使用当前合法枚举 | Definition/Manual Action | `trade_open_day` + `trade_date_or_start_end` | point/range 交易日控件 | Definition、builder | registry/linter 通过 | 旧枚举导致门禁失败 | plan snapshot | M4 | 待实施 |
-| SD-002 | point/range 都只生成开市日 unit | planner/request | `build_sw_daily_units` 查交易日历；每请求仅 `trade_date` | 非开市日不可提交 | planner、`_daily_params` | 单日/区间展开正确 | 周末、无日期、宽区间直传失败 | 真实日历计划 | M4 | 待实施 |
-| SD-003 | 单次最多 60 个交易日 | planner/Manual Action | `max_units_per_execution=60` | 显示范围限制 | Definition、planner、Ops | 60 units 通过 | 61 units 拒绝 | 60 日 PLAN | M4/M6 | 待实施 |
-| SD-004 | 无 Raw/Lake/双写 | storage/card | direct-serving scope replace | 卡片展示服务表 | linter、writer、Ops query | 只解析 serving DAO | Raw/双写出现失败 | source/target 对账 | M1/M4/M5 | M1 共享实现完成；待 M4/M5 验收 |
-| SD-005 | 15 个源字段保真 | source/normalizer/ORM | 显式 source_fields | 不适用 | Definition、ORM、迁移 | 全字段 payload/落库 | 漏身份/OHLC 字段失败 | 20260814 样本 | M1/M4/M5 | M1 结构实现完成；待 M4/M5 验收 |
-| SD-006 | 源码与业务码分离 | normalization/下游 | 共享 code contracts | 不以源码关联 | contracts、transform、ORM | 850412 保持 | 850401 未归一/840401 失败 | 关键码 read-back | M1/M4/M5 | M1 共享实现完成；待 M4/M5 验收 |
-| SD-007 | 保存当日全部源行 | writer/read-back | 不在 Foundation 过滤分类外指数 | 不适用 | writer、ORM | 439 源行全入 | 擅自过滤 25 行失败 | 439/414/25 对账 | M4/M5 | 待实施 |
-| SD-008 | 空结果/任意 reject 不发布 | normalizer/writer | quality preflight + batch validator | TaskRun 结构化失败 | models、writer、codebook | 允许 nullable 指标且零拒绝 | 空、日期越界、OHLC/负值/部分 reject 回滚 | 四段行数对账 | M1/M4/M5 | M1 共享实现完成；待 M4/M5 验收 |
-| SD-009 | 同日精确替换且幂等 | writer/DAO | 限定 `trade_date` scope replace + read-back | 不适用 | writer、DAO | 同日重放摘要一致 | 无 where/跨日期/部分页发布失败 | 两次 APPLY/read-back | M1/M4/M5 | M1 共享实现完成；待 M4/M5 验收 |
-| SD-010 | 日期完整性只证明桶存在 | completeness/freshness | date_bucket distinct date | 展示日期缺口，不宣称行数完整 | Definition、Ops audit | 开市日桶存在 | 非交易日误报/把部分行当集合验收失败 | 日期审计+独立 key set 报告 | M4/M5 | 待实施 |
+| SD-001 | 日期模型使用当前合法枚举 | Definition/Manual Action | `trade_open_day` + `trade_date_or_start_end` | point/range 交易日控件 | Definition、builder | registry/linter 通过 | 旧枚举导致门禁失败 | plan snapshot | M4 | 已完成 |
+| SD-002 | point/range 都只生成开市日 unit | planner/request | `build_sw_daily_units` 查交易日历；每请求仅 `trade_date` | 非开市日不可提交 | planner、`_daily_params` | 单日/区间展开正确 | 周末、无日期、宽区间直传失败 | 真实日历计划 | M4 | 已完成 |
+| SD-003 | 单次最多 60 个交易日 | planner/Manual Action | `max_units_per_execution=60` | 显示范围限制 | Definition、planner、Ops | 60 units 通过 | 61 units 拒绝 | 60 日 PLAN | M4/M6 | M4 本地/API 边界完成；M6 真实窗口待授权 |
+| SD-004 | 无 Raw/Lake/双写 | storage/card | direct-serving scope replace | 卡片展示服务表 | linter、writer、Ops query | 只解析 serving DAO | Raw/双写出现失败 | source/target 对账 | M1/M4/M5 | M1/M4 已完成；待 M5 Prod 对账 |
+| SD-005 | 15 个源字段保真 | source/normalizer/ORM | 显式 source_fields | 不适用 | Definition、ORM、迁移 | 全字段 payload/落库 | 漏身份/OHLC 字段失败 | 20260814 样本 | M1/M4/M5 | M1/M4 已完成；待 M5 Prod read-back |
+| SD-006 | 源码与业务码分离 | normalization/下游 | 共享 code contracts | 不以源码关联 | contracts、transform、ORM | 850412 保持 | 850401 未归一/840401 失败 | 关键码 read-back | M1/M4/M5 | M1/M4 已完成；待 M5 Prod read-back |
+| SD-007 | 保存当日全部源行 | writer/read-back | 不在 Foundation 过滤分类外指数 | 不适用 | writer、ORM | 439 源行全入 | 擅自过滤 25 行失败 | 439/414/25 对账 | M4/M5 | M4 本地 439/414/25 保留完成；待 M5 Prod 对账 |
+| SD-008 | 空结果/任意 reject 不发布 | normalizer/writer | quality preflight + batch validator | TaskRun 结构化失败 | models、writer、codebook | 允许 nullable 指标且零拒绝 | 空、日期越界、OHLC/负值/部分 reject 回滚 | 四段行数对账 | M1/M4/M5 | M1/M4 正反例完成；待 M5 Prod 对账 |
+| SD-009 | 同日精确替换且幂等 | writer/DAO | 限定 `trade_date` scope replace + read-back | 不适用 | writer、DAO | 同日重放摘要一致 | 无 where/跨日期/部分页发布失败 | 两次 APPLY/read-back | M1/M4/M5 | M1/M4 本地事务完成；待 M5 Prod APPLY/read-back |
+| SD-010 | 日期完整性只证明桶存在 | completeness/freshness | date_bucket distinct date | 展示日期缺口，不宣称行数完整 | Definition、Ops audit | 开市日桶存在 | 非交易日误报/把部分行当集合验收失败 | 日期审计+独立 key set 报告 | M4/M5 | M4 Definition/API 完成；待 M5 Prod 日期审计 |
 | SD-011 | 产品只取当前发布行业 | 后续 Biz 查询 | 与 classification 的 `is_pub=true` 内连接 | 后续雷达展示 | 后续 Biz 实现 | 414 行 | 25+97 进入榜失败 | 查询对账 | 雷达阶段 | 待实施 |
-| SD-012 | 首版无自动排程 | schedule/probe | `schedule_enabled=False` | 自动任务不可选 | Definition、Ops | 手动动作可见 | schedule 创建拒绝 | API/浏览器路径 | M4；启用另属 M7 | 待实施 |
+| SD-012 | 首版无自动排程 | schedule/probe | `schedule_enabled=False` | 自动任务不可选 | Definition、Ops | 手动动作可见 | schedule 创建拒绝 | API/浏览器路径 | M4；启用另属 M7 | M4 已完成；自动化仍仅属 M7 |
 | SD-013 | 历史覆盖不越权宣称 | 回补报告 | 每批最多 60 日、全代码覆盖后结论 | 不适用 | runbook/验收报告 | 获批窗口完整对账 | 单代码外推/超 60 unit 失败 | 分批 PLAN/APPLY/read-back | M6 | 待实施 |
 
 ---
@@ -503,7 +528,7 @@ null_pe_rows = 1
 | M1 共享基座与迁移准备 | 实现共享代码标准化、质量/预写校验声明、fixed request fan-in、原子 scope replace；新增三表 ORM/DAO/Definition、Ops 目录/freshness 和一条线性迁移 | CodeGraph 列出的消费者均有对应实现与回归；所有既有 writer/source/Definition 路径通过；迁移仅生成和测试，不对 Prod 执行 | 已完成（2026-08-18）；迁移 `20260818_000138` 未在 Prod 执行 |
 | M2 分类数据集 | 完成 `index_classify` request、分页、transform、双唯一性、层级闭包、Ops 派生及正反例 | 511 与 31/134/346 等基线可解释；空/错码/孤儿/跨范围替换均阻断；本地或测试库幂等 | 已完成；2026-08-19 补齐 2,000/2,001 行门禁和浏览器验收，未执行 Prod 写入 |
 | M3 成员数据集 | 完成单 unit 的 Y/N fan-in、分页、标准化、分类三级闭包、原子替换及 Ops 正反例 | Y/N 任一失败目标零变化；7,899 基线、唯一键、日期和闭包可解释；本地或测试库幂等 | 已完成；2026-08-19 补齐 20,000/20,001 行门禁和浏览器验收，未执行 Prod 写入 |
-| M4 日行情数据集 | 完成交易日 point/range unit、15 字段、全源行保留、同日原子替换、freshness/completeness 及 Ops 正反例 | 非交易日、宽区间直传、日期越界、过滤 25 行、跨日删除均阻断；单日本地幂等 | 未开始 |
+| M4 日行情数据集 | 完成交易日 point/range unit、15 字段、全源行保留、同日原子替换、freshness/completeness 及 Ops 正反例 | 非交易日、宽区间直传、日期越界、过滤 25 行、跨日删除均阻断；单日本地幂等 | 已完成（2026-08-19）；未执行 Prod 迁移或写入 |
 | M5 生产最小发布 | 经单独授权后重新核验仓库/Prod Alembic head，部署并执行迁移；按分类→成员→一个交易日日行情同步 | 三段 fetched/normalized/rejected/written/target 对账、read-back 和幂等重放全部通过；不包含历史回补 | 未开始 |
 | M6 历史事实与回补 | 核验成员 `out_date` 边界，审计 `sw_daily` 全代码历史覆盖、配额、耗时与事务预算，提交明确窗口 | 用户批准具体日期范围后才能 PLAN/APPLY；全窗口 read-back 与幂等重放通过 | 未开始 |
 | M7 自动化 | 审计三个源接口到达/变化节奏，设计独立 readiness、重试和最终失败规则 | 用户另行批准生产 schedule 的创建与启用；不得把当前 `schedule_enabled=False` 静默改为 true | 未开始 |
@@ -519,4 +544,4 @@ null_pe_rows = 1
 - 需要 Raw/Lake、生产账号、连接、无条件删除、跨日期删除或未评审排程；
 - 未完成全代码历史审计却要求启动长期回补或宣称 3～5 年完整。
 
-M3 已按用户授权完成前置成员数据集验收。本 LLD 当前不授权进入 M4，也不授权执行生产迁移、生产同步、历史回补、研究物化或排程启用。
+M4 已按用户授权完成日行情本地实现与验收。下一步固定为 M5，但必须重新获得用户对生产最小发布的明确授权，并在实施日重新核验仓库与 Prod Alembic head；当前仍不授权生产迁移、生产同步、历史回补、研究物化或排程启用。

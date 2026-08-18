@@ -135,6 +135,7 @@ def test_sw2021_definitions_project_direct_serving_and_internal_variant_contract
     )
     assert daily.input_model.filters == ()
     assert daily.planning.unit_builder_key == "build_sw_daily_units"
+    assert daily.planning.max_source_rows_per_unit == 2000
     assert daily.storage.replacement_scope_fields == ("trade_date",)
     assert daily.observability.freshness_policy == CONTINUOUS_OPEN_DAY
 
@@ -232,7 +233,7 @@ def test_sw_daily_plan_expands_only_open_dates_and_rejects_non_open_point(
     ]
 
     trade_calendar.get_open_dates.return_value = []
-    with pytest.raises(IngestionPlanningError, match="没有开市交易日") as exc_info:
+    with pytest.raises(IngestionPlanningError, match="不是开市交易日") as exc_info:
         resolver.build_plan(
             DatasetActionRequest(
                 dataset_key="sw_daily",
@@ -240,7 +241,7 @@ def test_sw_daily_plan_expands_only_open_dates_and_rejects_non_open_point(
                 time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 8, 15)),
             )
         )
-    assert exc_info.value.structured_error.error_code == "invalid_anchor_date"
+    assert exc_info.value.structured_error.error_code == "trade_date_not_open"
 
 
 class _VariantConnector:

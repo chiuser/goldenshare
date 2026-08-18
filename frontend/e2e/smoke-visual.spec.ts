@@ -96,7 +96,7 @@ test.describe("Phase 2 smoke and visual gate", () => {
     await expect(page.getByText("当前进度", { exact: true })).toBeVisible();
   });
 
-  test("SW2021 classification and member manual actions stay no-time and unfiltered", async ({ page }) => {
+  test("SW2021 manual actions keep snapshot and daily time contracts", async ({ page }) => {
     const consoleErrors: string[] = [];
     const failedApiResponses: string[] = [];
     page.on("console", (message) => {
@@ -149,6 +149,44 @@ test.describe("Phase 2 smoke and visual gate", () => {
       });
       await expect(page).toHaveURL(`/app/ops/tasks/${testCase.taskRunId}`);
     }
+
+    await page.goto(
+      "/app/ops/v21/datasets/tasks?tab=manual&action_key=sw_daily.maintain&action_type=dataset_action&trade_date=2026-04-17",
+    );
+    await expect(
+      page.getByText("维护申万 SW2021 行业日行情", { exact: true }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByText("第二步：选择时间范围", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("第二步：其他输入条件", { exact: true }),
+    ).toHaveCount(0);
+    await expect(page.getByLabel("选择日期")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "处理一个时间区间" }),
+    ).toBeVisible();
+    await expect(page.getByText(/单次最多生成 60 个处理单元/)).toBeVisible();
+    await page.getByRole("button", { name: "处理一个时间区间" }).click();
+    await expect(page.getByLabel("开始日期")).toBeVisible();
+    await expect(page.getByLabel("结束日期")).toBeVisible();
+    await page.getByRole("button", { name: "只处理一天" }).click();
+    await page.getByRole("button", { name: "选择日期" }).click();
+    await page.getByRole("button", { name: "17" }).click();
+
+    const submittedDailyRequest = page.waitForRequest(
+      (request) =>
+        request.method() === "POST" &&
+        new URL(request.url()).pathname ===
+          "/api/v1/ops/manual-actions/sw_daily.maintain/task-runs",
+    );
+    await page.getByRole("button", { name: "提交维护任务" }).click();
+    const dailyRequest = await submittedDailyRequest;
+    expect(dailyRequest.postDataJSON()).toEqual({
+      time_input: { mode: "point", trade_date: "2026-04-17" },
+      filters: {},
+    });
+    await expect(page).toHaveURL("/app/ops/tasks/904");
 
     expect(consoleErrors).toEqual([]);
     expect(failedApiResponses).toEqual([]);

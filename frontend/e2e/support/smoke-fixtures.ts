@@ -464,30 +464,75 @@ function mockTaskManualSw2021(route: Route, pathname: string) {
       action_order: 90,
       route_keys: ["index_member_all.maintain"],
     },
+    {
+      action_key: "sw_daily.maintain",
+      action_type: "dataset_action",
+      display_name: "维护申万 SW2021 行业日行情",
+      description: "按开市交易日维护申万 SW2021 行业日行情源事实。",
+      resource_key: "sw_daily",
+      resource_display_name: "申万 SW2021 行业日行情",
+      action_order: 100,
+      route_keys: ["sw_daily.maintain"],
+    },
   ].map((action) => ({
     ...action,
-    date_model: {
-      date_axis: "none",
-      bucket_rule: "not_applicable",
-      window_mode: "none",
-      input_shape: "none",
-      observed_field: null,
-      audit_applicable: false,
-      not_applicable_reason: "当前快照不按连续业务日期审计。",
-    },
-    time_form: {
-      default_mode: "none",
-      modes: [
-        {
-          mode: "none",
-          label: "按默认策略处理",
-          description: "不填写时间条件，按该维护对象默认策略执行。",
-          control: "none",
-          selection_rule: "none",
-          date_field: null,
-        },
-      ],
-    },
+    date_model:
+      action.resource_key === "sw_daily"
+        ? {
+            date_axis: "trade_open_day",
+            bucket_rule: "every_open_day",
+            window_mode: "point_or_range",
+            input_shape: "trade_date_or_start_end",
+            observed_field: "trade_date",
+            audit_applicable: true,
+            not_applicable_reason: null,
+          }
+        : {
+            date_axis: "none",
+            bucket_rule: "not_applicable",
+            window_mode: "none",
+            input_shape: "none",
+            observed_field: null,
+            audit_applicable: false,
+            not_applicable_reason: "当前快照不按连续业务日期审计。",
+          },
+    time_form:
+      action.resource_key === "sw_daily"
+        ? {
+            default_mode: "point",
+            max_units_per_execution: 60,
+            modes: [
+              {
+                mode: "point",
+                label: "只处理一天",
+                description: "指定单个交易日。",
+                control: "trade_date",
+                selection_rule: "trading_day_only",
+                date_field: "trade_date",
+              },
+              {
+                mode: "range",
+                label: "处理一个时间区间",
+                description: "指定开始和结束交易日。",
+                control: "trade_date_range",
+                selection_rule: "trading_day_only",
+                date_field: "trade_date",
+              },
+            ],
+          }
+        : {
+            default_mode: "none",
+            modes: [
+              {
+                mode: "none",
+                label: "按默认策略处理",
+                description: "不填写时间条件，按该维护对象默认策略执行。",
+                control: "none",
+                selection_rule: "none",
+                date_field: null,
+              },
+            ],
+          },
     filters: [],
     search_keywords: [action.resource_key, action.resource_display_name],
   }));
@@ -510,7 +555,13 @@ function mockTaskManualSw2021(route: Route, pathname: string) {
       pathname === `/api/v1/ops/manual-actions/${item.action_key}/task-runs`,
   );
   if (action && route.request().method() === "POST") {
-    const taskRunId = action.resource_key === "index_classify" ? 902 : 903;
+    const taskRunId =
+      action.resource_key === "index_classify"
+        ? 902
+        : action.resource_key === "index_member_all"
+          ? 903
+          : 904;
+    const isDaily = action.resource_key === "sw_daily";
     return fulfillJson(
       route,
       createTaskRunView({
@@ -518,14 +569,23 @@ function mockTaskManualSw2021(route: Route, pathname: string) {
         resource_key: action.resource_key,
         title: action.resource_display_name,
         status: "queued",
-        time_input: { mode: "none" },
-        time_scope: {
-          kind: "none",
-          start: null,
-          end: null,
-          label: "当前快照",
-        },
-        time_scope_label: "当前快照",
+        time_input: isDaily
+          ? { mode: "point", trade_date: "2026-04-17" }
+          : { mode: "none" },
+        time_scope: isDaily
+          ? {
+              kind: "point",
+              start: "2026-04-17",
+              end: "2026-04-17",
+              label: "2026-04-17",
+            }
+          : {
+              kind: "none",
+              start: null,
+              end: null,
+              label: "当前快照",
+            },
+        time_scope_label: isDaily ? "2026-04-17" : "当前快照",
         unit_total: 0,
         unit_done: 0,
         rows_fetched: 0,
@@ -537,9 +597,17 @@ function mockTaskManualSw2021(route: Route, pathname: string) {
     );
   }
 
-  const taskRunId = pathname === "/api/v1/ops/task-runs/902/view" ? 902 : pathname === "/api/v1/ops/task-runs/903/view" ? 903 : null;
+  const taskRunId =
+    pathname === "/api/v1/ops/task-runs/902/view"
+      ? 902
+      : pathname === "/api/v1/ops/task-runs/903/view"
+        ? 903
+        : pathname === "/api/v1/ops/task-runs/904/view"
+          ? 904
+          : null;
   if (taskRunId !== null) {
-    const actionForRun = actions[taskRunId === 902 ? 0 : 1];
+    const actionForRun = actions[taskRunId === 902 ? 0 : taskRunId === 903 ? 1 : 2];
+    const isDaily = actionForRun.resource_key === "sw_daily";
     return fulfillJson(
       route,
       createTaskRunView({
@@ -547,14 +615,23 @@ function mockTaskManualSw2021(route: Route, pathname: string) {
         resource_key: actionForRun.resource_key,
         title: actionForRun.resource_display_name,
         status: "queued",
-        time_input: { mode: "none" },
-        time_scope: {
-          kind: "none",
-          start: null,
-          end: null,
-          label: "当前快照",
-        },
-        time_scope_label: "当前快照",
+        time_input: isDaily
+          ? { mode: "point", trade_date: "2026-04-17" }
+          : { mode: "none" },
+        time_scope: isDaily
+          ? {
+              kind: "point",
+              start: "2026-04-17",
+              end: "2026-04-17",
+              label: "2026-04-17",
+            }
+          : {
+              kind: "none",
+              start: null,
+              end: null,
+              label: "当前快照",
+            },
+        time_scope_label: isDaily ? "2026-04-17" : "当前快照",
         unit_total: 0,
         unit_done: 0,
         rows_fetched: 0,

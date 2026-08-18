@@ -637,10 +637,10 @@ def _build_sw_daily_units(
 
     exchange = str(request.params.get("exchange") or planner.settings.default_exchange)
     open_dates = planner.dao.trade_calendar.get_open_dates(exchange, start_date, end_date)
+    if request.run_profile == "point_incremental" and open_dates != [request.trade_date]:
+        raise DatasetUnitPlanner._planning_error("trade_date_not_open", "所选日期不是开市交易日")
     if not open_dates:
         raise DatasetUnitPlanner._planning_error("invalid_anchor_date", "所选范围内没有开市交易日")
-    if request.run_profile == "point_incremental" and open_dates != [request.trade_date]:
-        raise DatasetUnitPlanner._planning_error("invalid_anchor_date", "所选日期不是开市交易日")
 
     return build_plan_units(
         request=request,

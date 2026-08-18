@@ -20,7 +20,7 @@ class IngestionCodebookEntry:
         }
 
 
-INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-19.v1"
+INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-19.v2"
 INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-19T00:00:00Z"
 
 INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
@@ -46,6 +46,7 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("invalid_month_key", "月份参数格式非法", "validator", "使用 YYYYMM 或 YYYY-MM"),
     IngestionCodebookEntry("invalid_anchor_type", "锚点类型非法", "validator/planner", "检查 date model 与输入形状"),
     IngestionCodebookEntry("invalid_anchor_date", "锚点日期不符合规则", "validator", "按数据集日期规则选择自然周五、自然月末或其他要求日期"),
+    IngestionCodebookEntry("trade_date_not_open", "所选日期不是开市交易日", "planner", "改选上交所开市交易日"),
     IngestionCodebookEntry("quarter_end_required", "报告期必须为自然季度末", "validator/planner", "选择 03-31、06-30、09-30 或 12-31"),
     IngestionCodebookEntry("units_exceeded", "执行单元数量超出限制", "planner", "缩小时间窗口或调整 unit 上限"),
     IngestionCodebookEntry("fanout_missing", "分片参数缺失且无默认值", "planner", "补齐 fanout 参数或配置默认值"),
