@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
+from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
@@ -108,15 +109,38 @@ def test_ops_dataset_cards_returns_authoritative_card_fields(app_client, user_fa
     assert fund_manager["probe_total"] == 0
 
 
-def test_ops_dataset_cards_main_status_uses_freshness(app_client, user_factory, db_session) -> None:
+def test_ops_dataset_cards_main_status_uses_freshness(
+    app_client,
+    user_factory,
+    db_session,
+    monkeypatch,
+) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
 
-    snapshot_date = OpsFreshnessQueryService._business_reference_date()
-    now = datetime(snapshot_date.year, snapshot_date.month, snapshot_date.day, 10, 0, tzinfo=timezone.utc)
+    fixed_now = datetime(2026, 8, 19, 1, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(
+        OpsFreshnessQueryService,
+        "_business_reference_now",
+        staticmethod(lambda *, today=None, now=None: fixed_now),
+    )
+    snapshot_date = date(2026, 8, 18)
+    calculated_at = fixed_now
     db_session.add_all(
         [
+            TradeCalendar(
+                exchange="SSE",
+                trade_date=date(2026, 8, 18),
+                is_open=True,
+                pretrade_date=date(2026, 8, 17),
+            ),
+            TradeCalendar(
+                exchange="SSE",
+                trade_date=date(2026, 8, 19),
+                is_open=True,
+                pretrade_date=date(2026, 8, 18),
+            ),
             DatasetStatusSnapshot(
                 dataset_key="kpl_list",
                 resource_key="kpl_list",
@@ -127,11 +151,11 @@ def test_ops_dataset_cards_main_status_uses_freshness(app_client, user_factory, 
                 earliest_business_date=snapshot_date,
                 latest_business_date=snapshot_date,
                 last_sync_date=snapshot_date,
-                latest_success_at=now,
+                latest_success_at=datetime(2026, 8, 19, 0, 40, tzinfo=timezone.utc),
                 freshness_status="fresh",
                 primary_action_key="kpl_list.maintain",
-                snapshot_date=snapshot_date,
-                last_calculated_at=now,
+                snapshot_date=date(2026, 8, 19),
+                last_calculated_at=calculated_at,
             ),
         ]
     )
