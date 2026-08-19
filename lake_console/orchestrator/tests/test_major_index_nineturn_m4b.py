@@ -63,6 +63,7 @@ from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.major_index_nineturn import (
     MAJOR_INDEX_NINETURN_ASSET_KEYS,
     MAJOR_INDEX_NINETURN_HISTORY_BATCH_TRADE_DAYS,
+    MAJOR_INDEX_NINETURN_HISTORY_CHECK_WINDOW,
     MAJOR_INDEX_NINETURN_MINUTE_FREQS,
 )
 from orchestrator.defs.sensors.major_index_nineturn_sensor import (
@@ -618,6 +619,67 @@ def test_history_events_are_sampled_batched_and_bound_to_materializations(
                 checkpoint_path=event_checkpoint,
                 lake_root=lake_root,
             )
+
+
+def test_history_event_plan_limits_checks_to_recent_twenty(tmp_path) -> None:
+    lake_root = tmp_path / "lake"
+    source_root = lake_root / "gold/market/major_indices_daily"
+    dates = tuple(
+        (date(2026, 7, 1) + timedelta(days=offset)).isoformat()
+        for offset in range(MAJOR_INDEX_NINETURN_HISTORY_CHECK_WINDOW + 2)
+    )
+    for trade_date in dates:
+        _write_daily_partition(
+            source_root / f"trade_date={trade_date}" / "part-000.parquet",
+            trade_date,
+        )
+    history_plan = plan_major_index_nineturn_history(
+        lake_root=lake_root,
+        asset_keys=("gold_major_index_daily_nineturn",),
+        output_dir=tmp_path / "reports",
+    )
+    history_checkpoint = tmp_path / "staging/history-checkpoint.json"
+    build_major_index_nineturn_history(
+        plan=history_plan,
+        expected_plan_fingerprint=history_plan.plan_fingerprint,
+        confirm_write=True,
+        staging_root=tmp_path / "staging",
+        checkpoint_path=history_checkpoint,
+    )
+    history_audit_path = tmp_path / "staging/final-audit.json"
+    audit_major_index_nineturn_history(
+        plan_report_path=history_plan.report_path,
+        checkpoint_path=history_checkpoint,
+        output_path=history_audit_path,
+    )
+
+    with dg.instance_for_test() as instance:
+        instance.add_dynamic_partitions(cn_a_index_trade_days.name, list(dates))
+        event_plan = plan_major_index_nineturn_events(
+            instance=instance,
+            history_plan_path=history_plan.report_path,
+            history_audit_path=history_audit_path,
+            lake_root=lake_root,
+            output_dir=tmp_path / "staging/event-plan",
+        )
+
+    assert event_plan.should_stop is False
+    assert event_plan.report["planned_materialization_event_count"] == len(dates)
+    assert (
+        event_plan.report["planned_check_event_count"]
+        == MAJOR_INDEX_NINETURN_HISTORY_CHECK_WINDOW
+    )
+    check_partitions = {
+        candidate.partition_key
+        for candidate in event_plan.candidates
+        if candidate.check
+    }
+    assert check_partitions == set(dates[-MAJOR_INDEX_NINETURN_HISTORY_CHECK_WINDOW:])
+    assert all(
+        not candidate.check
+        for candidate in event_plan.candidates
+        if candidate.partition_key in dates[:2]
+    )
 
 
 def test_daily_serving_history_plan_freezes_audited_source_identities(tmp_path) -> None:

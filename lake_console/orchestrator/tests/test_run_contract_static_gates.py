@@ -380,6 +380,28 @@ def _is_allowed_sensor_run_key_value(path: Path, node: ast.AST) -> bool:
 
 
 class RunContractStaticGateTests(unittest.TestCase):
+    def test_major_index_nineturn_history_checks_are_recent_twenty_only(self) -> None:
+        contract_source = (
+            DEFS_DIR / "run_contracts" / "major_index_nineturn.py"
+        ).read_text()
+        event_source = (
+            DEFS_DIR / "bootstrap" / "major_index_nineturn_events.py"
+        ).read_text()
+
+        self.assertIn(
+            "MAJOR_INDEX_NINETURN_HISTORY_CHECK_WINDOW = 20",
+            contract_source,
+        )
+        self.assertIn(
+            "partition_keys[-MAJOR_INDEX_NINETURN_HISTORY_CHECK_WINDOW:]",
+            event_source,
+        )
+        self.assertIn("check_required = partition_key in retained_check_partitions", event_source)
+        self.assertNotIn(
+            '"planned_check_event_count": len(partition_keys)',
+            event_source,
+        )
+
     def test_qfq_nineturn_p1_keeps_formula_and_writer_boundaries(self) -> None:
         contract_path = DEFS_DIR / "run_contracts" / "qfq_nineturn.py"
         calculator_path = DEFS_DIR / "qfq_nineturn.py"

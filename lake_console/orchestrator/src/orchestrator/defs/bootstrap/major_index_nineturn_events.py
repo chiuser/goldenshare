@@ -45,6 +45,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 from orchestrator.defs.run_contracts.major_index_nineturn import (
     MAJOR_INDEX_NINETURN_ASSET_KEYS,
     MAJOR_INDEX_NINETURN_CHECK_NAMES,
+    MAJOR_INDEX_NINETURN_HISTORY_CHECK_WINDOW,
     MAJOR_INDEX_NINETURN_HISTORY_MEMORY_LIMIT,
     MAJOR_INDEX_NINETURN_HISTORY_THREADS,
     MAJOR_INDEX_NINETURN_MINUTE_FREQS,
@@ -150,8 +151,13 @@ def plan_major_index_nineturn_events(
     candidates: list[MajorIndexNineturnEventCandidate] = []
     existing_materialization_count = 0
     existing_ready_check_count = 0
+    retained_check_partition_count = 0
     for spec in _asset_specs():
         partition_keys = _partition_keys(history_plan, spec.asset_key)
+        retained_check_partitions = set(
+            partition_keys[-MAJOR_INDEX_NINETURN_HISTORY_CHECK_WINDOW:]
+        )
+        retained_check_partition_count += len(retained_check_partitions)
         missing_registered = set(partition_keys) - registered_by_set[
             spec.partition_set_name
         ]
@@ -171,6 +177,7 @@ def plan_major_index_nineturn_events(
         existing_materialization_count += len(materializations)
         for partition_key in partition_keys:
             materialization = materializations.get(partition_key)
+            check_required = partition_key in retained_check_partitions
             check_state = _classify_check(
                 checks.get(partition_key),
                 materialization_storage_id=(
@@ -179,14 +186,17 @@ def plan_major_index_nineturn_events(
                     else None
                 ),
             )
-            if check_state == "failed_current":
+            if check_required and check_state == "failed_current":
                 stop_reasons.append(
                     f"{spec.asset_key}:{partition_key}:existing_failed_check"
                 )
-            if check_state == "passed_current":
+            if check_required and check_state == "passed_current":
                 existing_ready_check_count += 1
             needs_materialization = materialization is None
-            needs_check = check_state not in {"passed_current", "failed_current"}
+            needs_check = check_required and check_state not in {
+                "passed_current",
+                "failed_current",
+            }
             if needs_materialization or needs_check:
                 candidates.append(
                     MajorIndexNineturnEventCandidate(
@@ -231,6 +241,8 @@ def plan_major_index_nineturn_events(
         ),
         "existing_materialization_count": existing_materialization_count,
         "existing_ready_check_count": existing_ready_check_count,
+        "check_window_per_asset": MAJOR_INDEX_NINETURN_HISTORY_CHECK_WINDOW,
+        "retained_check_partition_count": retained_check_partition_count,
         "active_run_count": active_run_count,
         "stop_reasons": sorted(set(stop_reasons)),
         "should_stop": bool(stop_reasons),
@@ -436,6 +448,9 @@ def post_audit_major_index_nineturn_events(
     history_plan = load_major_index_nineturn_history_plan(plan.history_plan_path)
     for spec in _asset_specs():
         partition_keys = _partition_keys(history_plan, spec.asset_key)
+        retained_check_partitions = set(
+            partition_keys[-MAJOR_INDEX_NINETURN_HISTORY_CHECK_WINDOW:]
+        )
         materializations = _latest_materializations(
             instance, asset_key=spec.asset_key, partition_keys=partition_keys
         )
@@ -445,7 +460,7 @@ def post_audit_major_index_nineturn_events(
             if materialization is None:
                 missing_materializations += 1
                 continue
-            if (
+            if partition_key in retained_check_partitions and (
                 _classify_check(
                     checks.get(partition_key),
                     materialization_storage_id=int(materialization.storage_id),

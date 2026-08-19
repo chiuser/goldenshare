@@ -1896,6 +1896,71 @@ P7C-F 到此收口。下一批候选不得复用 P7C-F 的备份、pre dry-run �
 作为依据；若继续推进，必须重新选择资产、重新确认 active runs 为 0、重新备份、
 重新 pre dry-run，并单独获得正式删除批准。
 
+### 7.8 2026-08-19 历史 bootstrap recent-20 统一收敛
+
+本轮重新审计 2026-07-01 以后开始产生 check 的资产。80 个至少有 20 个
+materialization 分区的资产中，普通历史 bootstrap 的统一口径为：
+
+- 全历史 materialization 可以保留或补录，用于 Asset 页面展示真实物理分区；
+- 普通数据质量 check 只保留每个资产最新 20 个已 materialize 分区；
+- repair completion、迁移状态账本等状态型 check 不适用该普通保留规则，必须按其
+  独立身份和治理文档处理；
+- 历史 bootstrap 不得因为补全 materialization 而给全历史分区同步补 check。
+
+代码审计发现，现有 DC、指数分钟、指数增强因子、股票/主要指数分钟九转等历史
+工具已经使用 recent-20；唯一偏离项是 `major_index_nineturn_events.py`。该工具过去
+会给主要指数日线九转和六个分钟九转资产的所有历史分区补核心 check。现已改为：
+
+- 所有历史分区仍可补 materialization；
+- 每个资产仅对排序后的最新 20 个历史分区补 check；
+- plan、apply 和 post-audit 使用同一 recent-20 集合；
+- 单元测试覆盖超过 20 个日期的反例，静态门禁锁定窗口常量和切片语义。
+
+正式 Dagster DB 清理范围由 2026-08-19 只读审计冻结：
+
+- 目标 check execution / event：33,755 条；
+- 预计保留：2,880 条，即 80 个资产、各 active check 在最新 20 个已 materialize
+  分区上的最新记录；
+- 所有 `ASSET_MATERIALIZATION` event、`runs`、`run_tags`、dynamic partitions、
+  instigator state 和 Lake 文件全部保持不动；
+- 本轮管理员明确要求不再新增 PostgreSQL 备份，使用刚完成的现有完整备份作为外部
+  恢复保障；执行仍必须是精确候选、单事务、删除数量断言和 post-audit。
+
+本轮 recent-20 清理是 P7C-F 之后的新独立批次；上文“下一批必须重新备份”不适用于
+本次管理员明确批准的无新增备份执行口径，其它正式清理仍须重新审批。
+
+#### 2026-08-19 执行结果
+
+代码门禁与正式清理均已完成：
+
+- `major_index_nineturn_events.py` 已按每资产 recent-20 生成和审计 check，历史
+  materialization 仍按完整分区集合处理；
+- 目标单元测试与静态门禁通过：`120 passed`；
+- preflight：
+  `/private/tmp/dagster_recent20_check_cleanup_preflight_20260819_131512.raw.json`；
+- apply：
+  `/private/tmp/dagster_recent20_check_cleanup_apply_20260819_131820.json`；
+- post-audit：
+  `/private/tmp/dagster_recent20_check_cleanup_post_audit_20260819_131820.json`。
+
+正式单事务实际结果：
+
+- 删除 `asset_check_executions`：33,755 条；
+- 删除对应 `event_logs`：33,755 条，其中 33,722 条
+  `ASSET_CHECK_EVALUATION`、33 条 `ASSET_CHECK_EVALUATION_PLANNED`；
+- 删除 `asset_event_tags`：0 条；
+- 保留 check execution：2,880 条；
+- post-audit 剩余候选：0 条；
+- 目标资产 materialization 保持 293,461 条事件、222,137 个资产分区，指纹仍为
+  `0dd154a38ea0c6d1dbdce58c246afcd7`；
+- `runs=48,879`、`run_tags=332,977`、`dynamic_partitions=45,823`，与
+  preflight 一致；执行前后 active run 均为 0。
+
+七个主要指数九转资产现均只保留 `2026-07-22` 到 `2026-08-18` 的 20 个 check
+分区；日线资产 6,452 个 materialized partitions、六个分钟资产各 4,281 个
+materialized partitions 全部保持不动。本轮未新增 PostgreSQL 备份，未写 Lake，
+未运行 job、sensor、materialize 或 backfill。
+
 ## 8. Stop Conditions
 
 以下情况必须停止：
