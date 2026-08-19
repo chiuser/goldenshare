@@ -486,7 +486,7 @@ def test_sw_daily_normalization_preserves_all_source_rows_and_rejects_bad_codes(
     assert identical.rows_deduplicated == 1
 
 
-def test_sw_daily_prewrite_rejects_invalid_market_facts(
+def test_sw_daily_prewrite_preserves_source_ohlc_and_rejects_structural_invalid(
     daily_session: Session, mocker
 ) -> None:
     definition = get_dataset_definition("sw_daily")
@@ -513,77 +513,29 @@ def test_sw_daily_prewrite_rejects_invalid_market_facts(
     validator = get_pre_write_validator("sw2021_daily_scope")
     validator(daily_session, normalized, definition, plan.units[0])
 
-    production_rounding_sample = deepcopy(normalized)
-    production_rounding_sample[0].update(
-        {
-            "open": 2490.93,
-            "low": 2485.29,
-            "high": 2513.36,
-            "close": 2513.37,
-        }
+    source_ohlc_samples = (
+        {"open": 2490.93, "low": 2485.29, "high": 2513.36, "close": 2513.37},
+        {"open": 4222.37, "low": 4207.48, "high": 4279.41, "close": 4279.42},
+        {"open": 6304.9, "low": 6304.38, "high": 6403.49, "close": 6403.5},
+        {"open": 100.0, "low": 104.0, "high": 99.0, "close": 103.0},
     )
-    validator(daily_session, production_rounding_sample, definition, plan.units[0])
-    assert production_rounding_sample[0]["high"] == 2513.36
-    assert production_rounding_sample[0]["close"] == 2513.37
-
-    same_integer_without_fixed_decimal_tolerance = deepcopy(normalized)
-    same_integer_without_fixed_decimal_tolerance[0].update(
-        {
-            "open": 2490.93,
-            "low": 2485.29,
-            "high": 2513.01,
-            "close": 2513.49,
-        }
-    )
-    validator(
-        daily_session,
-        same_integer_without_fixed_decimal_tolerance,
-        definition,
-        plan.units[0],
-    )
-    same_integer_lower_boundary = deepcopy(normalized)
-    same_integer_lower_boundary[0].update(
-        {
-            "open": 2485.01,
-            "low": 2485.49,
-            "high": 2513.0,
-            "close": 2490.0,
-        }
-    )
-    validator(
-        daily_session,
-        same_integer_lower_boundary,
-        definition,
-        plan.units[0],
-    )
+    for source_ohlc in source_ohlc_samples:
+        source_sample = deepcopy(normalized)
+        source_sample[0].update(source_ohlc)
+        validator(daily_session, source_sample, definition, plan.units[0])
+        assert {
+            field_name: source_sample[0][field_name]
+            for field_name in ("open", "low", "high", "close")
+        } == source_ohlc
 
     cases: list[tuple[list[dict], str]] = []
     wrong_version = deepcopy(normalized)
     wrong_version[0]["classification_version"] = "SW2014"
     cases.append((wrong_version, "只能写入 SW2021"))
-    bad_ohlc = deepcopy(normalized)
-    bad_ohlc[0]["low"] = 103.0
-    cases.append((bad_ohlc, "OHLC 关系非法"))
-    half_up_integer_boundary = deepcopy(normalized)
-    half_up_integer_boundary[0].update(
-        {
-            "open": 2490.93,
-            "low": 2485.29,
-            "high": 2513.49,
-            "close": 2513.50,
-        }
-    )
-    cases.append((half_up_integer_boundary, "OHLC 关系非法"))
-    half_up_lower_boundary = deepcopy(normalized)
-    half_up_lower_boundary[0].update(
-        {
-            "open": 2485.49,
-            "low": 2485.50,
-            "high": 2513.0,
-            "close": 2490.0,
-        }
-    )
-    cases.append((half_up_lower_boundary, "OHLC 关系非法"))
+    for field_name, value in (("open", float("nan")), ("high", float("inf"))):
+        non_finite = deepcopy(normalized)
+        non_finite[0][field_name] = value
+        cases.append((non_finite, f"字段 {field_name} 必须是有限数值"))
     for field_name in ("vol", "amount", "float_mv", "total_mv"):
         negative = deepcopy(normalized)
         negative[0][field_name] = -1.0
@@ -743,23 +695,39 @@ def test_sw_daily_executor_replaces_only_one_day_and_is_atomic_and_idempotent(
         == first_readback
     )
 
-    invalid_ohlc = _full_market_rows()
-    invalid_ohlc[0]["low"] = 103.0
-    connector.rows = invalid_ohlc
-    with pytest.raises(IngestionWriteError) as invalid:
-        IngestionExecutor(daily_session).run(
-            request=_validated_request(plan),
-            definition=definition,
-            units=plan.units,
-        )
-    assert invalid.value.structured_error.error_code == "write.scope_preflight_failed"
+    source_ohlc_anomaly = _full_market_rows()
+    source_ohlc_anomaly[0].update(
+        {
+            "open": 6304.9,
+            "low": 6304.38,
+            "high": 6403.49,
+            "close": 6403.5,
+        }
+    )
+    connector.rows = source_ohlc_anomaly
+    source_anomaly = IngestionExecutor(daily_session).run(
+        request=_validated_request(plan),
+        definition=definition,
+        units=plan.units,
+    )
+    assert source_anomaly.rows_written == source_anomaly.rows_committed == 439
     assert (
         daily_session.scalar(
-            select(func.count())
-            .select_from(SwIndustryDaily)
-            .where(SwIndustryDaily.trade_date == date(2026, 8, 14))
+            select(SwIndustryDaily.high).where(
+                SwIndustryDaily.trade_date == date(2026, 8, 14),
+                SwIndustryDaily.ts_code == "850412.SI",
+            )
         )
-        == 439
+        == 6403.49
+    )
+    assert (
+        daily_session.scalar(
+            select(SwIndustryDaily.close).where(
+                SwIndustryDaily.trade_date == date(2026, 8, 14),
+                SwIndustryDaily.ts_code == "850412.SI",
+            )
+        )
+        == 6403.5
     )
 
     connector.rows = []

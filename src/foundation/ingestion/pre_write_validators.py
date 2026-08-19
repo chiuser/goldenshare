@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import Decimal
 import math
 from typing import Any, Callable
 
@@ -154,18 +154,6 @@ def _to_finite_number(value: Any, *, field_name: str) -> float:
     return result
 
 
-def _round_sw2021_ohlc_point(value: Any, *, field_name: str) -> Decimal:
-    try:
-        result = value if isinstance(value, Decimal) else Decimal(str(value))
-    except (InvalidOperation, TypeError, ValueError) as exc:
-        raise PreWriteValidationError(
-            f"申万日行情字段 {field_name} 必须是有限数值"
-        ) from exc
-    if not result.is_finite():
-        raise PreWriteValidationError(f"申万日行情字段 {field_name} 必须是有限数值")
-    return result.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-
-
 def _validate_sw2021_daily_scope(
     session: Session,
     rows: list[dict[str, Any]],
@@ -177,17 +165,8 @@ def _validate_sw2021_daily_scope(
     for row in rows:
         if row.get("classification_version") != SW2021_CLASSIFICATION_VERSION:
             raise PreWriteValidationError("申万日行情只能写入 SW2021 分类版本")
-        open_value = _round_sw2021_ohlc_point(row.get("open"), field_name="open")
-        low_value = _round_sw2021_ohlc_point(row.get("low"), field_name="low")
-        high_value = _round_sw2021_ohlc_point(row.get("high"), field_name="high")
-        close_value = _round_sw2021_ohlc_point(row.get("close"), field_name="close")
-        if (
-            not low_value
-            <= min(open_value, close_value)
-            <= max(open_value, close_value)
-            <= high_value
-        ):
-            raise PreWriteValidationError("申万日行情 OHLC 关系非法")
+        for field_name in ("open", "low", "high", "close"):
+            _to_finite_number(row.get(field_name), field_name=field_name)
         for field_name in ("vol", "amount", "float_mv", "total_mv"):
             value = row.get(field_name)
             if (
