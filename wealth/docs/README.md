@@ -13,6 +13,7 @@ docs/
   templates/              # 模块开发模板（需求/实施/门禁）
   pages/                  # 页面级：页面需求、API contract、实现提示词
     market-overview/
+    wealth-exploration/
     stock-detail/
     index-detail/
 ```
@@ -76,6 +77,8 @@ docs/
 
 ## 页面级文档
 
+- [财势探查｜板块雷达产品设计方案 v1（首版研究稿）](./pages/wealth-exploration/sector-radar-product-design-v1.md)
+- [财势探查｜板块雷达数据覆盖审计 v1](./pages/wealth-exploration/sector-radar-data-coverage-audit-v1.md)
 - [市场总览页面基线](./pages/market-overview/market-overview-baseline.md)
 - [市场总览 API 契约基线](./pages/market-overview/api-contract-baseline.md)
 - [市场总览 API 与数据模型设计 v1](./pages/market-overview/market-overview-api-model-design-v1.md)
