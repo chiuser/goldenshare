@@ -12,10 +12,6 @@ from orchestrator.defs.asset_guards.bounded_continuity import (
 from orchestrator.defs.asset_guards.qfq_nineturn_lake_readiness import (
     batch_gold_stock_daily_qfq_nineturn_readiness,
 )
-from orchestrator.defs.asset_guards.stock_daily_qfq_factor_repair import (
-    GoldStockDailyQfqFactorRepairStatus,
-    gold_stock_daily_qfq_factor_repair_status,
-)
 from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
     StkMinsBatchReadiness,
     StkMinsDateReadiness,
@@ -24,7 +20,7 @@ from orchestrator.defs.jobs.stock_daily_qfq_nineturn_update import (
     gold_stock_daily_qfq_nineturn_update_job,
 )
 from orchestrator.defs.partitions import cn_a_stock_trade_days
-from orchestrator.defs.paths import silver_adj_factor_path, silver_trade_calendar_path
+from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.defs.run_contracts.cursor_payloads import (
     build_cursor_details,
     compact_batch_frontier,
@@ -46,15 +42,10 @@ from orchestrator.defs.run_contracts.sensor_tags import (
 )
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
-    DatasetReadinessStatus,
     GOLD_STOCK_DAILY_QFQ_READINESS_SPECS,
+    DatasetReadinessStatus,
     partition_dataset_readiness_status_from_latest_checks,
 )
-from orchestrator.defs.stock_daily_qfq import (
-    GoldStockDailyQfqFactorRepairPlan,
-    build_gold_stock_daily_qfq_factor_repair_plan,
-)
-
 
 SENSOR_NAME = "gold_stock_daily_qfq_nineturn_update_job_sensor"
 JOB_NAME = "gold_stock_daily_qfq_nineturn_update_job"
@@ -100,20 +91,6 @@ def _compact_dataset_status(
     }
 
 
-def _compact_repair_status(
-    status: GoldStockDailyQfqFactorRepairStatus | None,
-) -> dict[str, object] | None:
-    if status is None:
-        return None
-    return {
-        "trade_date": status.trade_date,
-        "ready": status.ready,
-        "reason": status.reason,
-        "repair_required": status.repair_required,
-        "repair_required_code_count": status.repair_required_code_count,
-    }
-
-
 def _load_expected_window(
     context: dg.SensorEvaluationContext,
     evaluated_at: datetime,
@@ -156,31 +133,6 @@ def _previous_trade_date(
     return previous
 
 
-def _repair_plan(
-    context: dg.SensorEvaluationContext,
-    *,
-    target_trade_date: str,
-    previous_trade_date: str | None,
-) -> GoldStockDailyQfqFactorRepairPlan:
-    lake_root = context.resources.lake_root.root()
-    connect_duckdb = context.resources.duckdb.connect
-    with connect_duckdb() as connection:
-        return build_gold_stock_daily_qfq_factor_repair_plan(
-            connection=connection,
-            current_adj_factor_path=silver_adj_factor_path(
-                lake_root,
-                target_trade_date,
-            ),
-            previous_adj_factor_path=(
-                silver_adj_factor_path(lake_root, previous_trade_date)
-                if previous_trade_date is not None
-                else None
-            ),
-            qfq_factor_trade_date=target_trade_date,
-            previous_trade_date=previous_trade_date,
-        )
-
-
 def _previous_partition_status(
     context: dg.SensorEvaluationContext,
     *,
@@ -217,8 +169,6 @@ def _cursor(
     target_batch_status: StkMinsBatchReadiness | None = None,
     target_status: StkMinsDateReadiness | None = None,
     upstream_status: DatasetReadinessStatus | None = None,
-    repair_plan: GoldStockDailyQfqFactorRepairPlan | None = None,
-    repair_status: GoldStockDailyQfqFactorRepairStatus | None = None,
     previous_status: StkMinsDateReadiness | None = None,
 ) -> str:
     gate_statuses = {
@@ -226,22 +176,11 @@ def _cursor(
         for key, value in (
             ("target", _compact_date_status(target_status)),
             ("gold_stock_daily_qfq", _compact_dataset_status(upstream_status)),
-            ("factor_repair", _compact_repair_status(repair_status)),
             ("previous_partition", _compact_date_status(previous_status)),
         )
         if value is not None
     }
-    evidence = {
-        "registered_count": registered_count,
-        "repair_required": (
-            repair_plan.repair_required if repair_plan is not None else None
-        ),
-        "repair_required_code_count": (
-            repair_plan.repair_required_code_count
-            if repair_plan is not None
-            else None
-        ),
-    }
+    evidence = {"registered_count": registered_count}
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=(
@@ -298,8 +237,6 @@ def _result(
     target_batch_status: StkMinsBatchReadiness | None = None,
     target_status: StkMinsDateReadiness | None = None,
     upstream_status: DatasetReadinessStatus | None = None,
-    repair_plan: GoldStockDailyQfqFactorRepairPlan | None = None,
-    repair_status: GoldStockDailyQfqFactorRepairStatus | None = None,
     previous_status: StkMinsDateReadiness | None = None,
 ) -> dg.SensorResult:
     cursor = _cursor(
@@ -314,8 +251,6 @@ def _result(
         target_batch_status=target_batch_status,
         target_status=target_status,
         upstream_status=upstream_status,
-        repair_plan=repair_plan,
-        repair_status=repair_status,
         previous_status=previous_status,
     )
     if selected_date is None:
@@ -346,7 +281,7 @@ def _result(
     ),
     required_resource_keys={"lake_root", "duckdb"},
     description=(
-        "日线前复权行情、必要的因子修复和上一九转分区就绪后，按 first-not-ready 触发日线前复权九转更新。"
+        "日线前复权行情和上一九转分区就绪后，按 first-not-ready 触发日线前复权九转更新。"
     ),
 )
 def gold_stock_daily_qfq_nineturn_update_job_sensor(
@@ -472,50 +407,6 @@ def gold_stock_daily_qfq_nineturn_update_job_sensor(
         )
 
     previous_date = _previous_trade_date(registered, target_date)
-    try:
-        repair_plan = _repair_plan(
-            context,
-            target_trade_date=target_date,
-            previous_trade_date=previous_date,
-        )
-    except Exception:  # noqa: BLE001 - sensor must fail closed with a compact reason.
-        return _result(
-            evaluated_at=evaluated_at,
-            target_date=target_date,
-            selected_date=None,
-            reason_code="factor_repair_plan_unavailable",
-            blocked_component="gold_stock_daily_qfq_factor_repair",
-            summary=f"未触发：{target_date} 的日线复权因子 repair 计划无法确认。",
-            next_action="检查目标日和前一交易日 silver_adj_factor 文件。",
-            registered_count=len(registered),
-            target_batch_status=target_batch,
-            target_status=target_status,
-            upstream_status=upstream_status,
-        )
-
-    repair_status = None
-    if repair_plan.repair_required:
-        repair_status = gold_stock_daily_qfq_factor_repair_status(
-            context.instance,
-            target_date,
-        )
-        if not repair_status.ready:
-            return _result(
-                evaluated_at=evaluated_at,
-                target_date=target_date,
-                selected_date=None,
-                reason_code="factor_repair_not_ready",
-                blocked_component="gold_stock_daily_qfq_factor_repair",
-                summary=f"未触发：{target_date} 需要日线 QFQ factor repair，但状态尚未 ready。",
-                next_action="先完成同日 factor repair，再等待下一次 tick。",
-                registered_count=len(registered),
-                target_batch_status=target_batch,
-                target_status=target_status,
-                upstream_status=upstream_status,
-                repair_plan=repair_plan,
-                repair_status=repair_status,
-            )
-
     previous_status = _previous_partition_status(
         context,
         previous_trade_date=previous_date,
@@ -536,8 +427,6 @@ def gold_stock_daily_qfq_nineturn_update_job_sensor(
             target_batch_status=target_batch,
             target_status=target_status,
             upstream_status=upstream_status,
-            repair_plan=repair_plan,
-            repair_status=repair_status,
             previous_status=previous_status,
         )
 
@@ -553,7 +442,5 @@ def gold_stock_daily_qfq_nineturn_update_job_sensor(
         target_batch_status=target_batch,
         target_status=target_status,
         upstream_status=upstream_status,
-        repair_plan=repair_plan,
-        repair_status=repair_status,
         previous_status=previous_status,
     )

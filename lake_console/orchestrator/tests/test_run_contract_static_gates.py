@@ -96,6 +96,87 @@ SENSOR_DEFINITION_CALL_NAMES = {
     "run_failure_sensor",
     "AutomationConditionSensorDefinition",
 }
+# Freeze stable identities so additions, removals, and duplicates are diagnosable by name.
+EXPECTED_SENSOR_DEFINITION_IDS = frozenset(
+    {
+        "sensors/clickhouse_market_breadth_continuity_sensor.py:clickhouse_market_breadth_continuity_sensor",
+        "sensors/clickhouse_market_breadth_continuity_sensor.py:prod_clickhouse_market_breadth_continuity_sensor",
+        "sensors/cn_a_trade_day_sensor.py:cn_a_trade_day_sensor",
+        "sensors/dc_board_partition_sensor.py:dc_daily_trade_day_partition_sensor",
+        "sensors/dc_board_partition_sensor.py:dc_index_trade_day_partition_sensor",
+        "sensors/dc_board_partition_sensor.py:dc_member_trade_day_partition_sensor",
+        "sensors/dc_board_sensor.py:raw_tushare_dc_daily_update_job_sensor",
+        "sensors/dc_board_sensor.py:raw_tushare_dc_index_update_job_sensor",
+        "sensors/dc_board_sensor.py:raw_tushare_dc_member_update_job_sensor",
+        "sensors/dc_board_silver_sensor.py:silver_dc_daily_update_job_sensor",
+        "sensors/dc_board_silver_sensor.py:silver_dc_index_update_job_sensor",
+        "sensors/dc_board_silver_sensor.py:silver_dc_member_update_job_sensor",
+        "sensors/dc_daily_technical_repair_sensor.py:gold_dc_daily_technical_repair_job_sensor",
+        "sensors/dc_daily_technical_sensor.py:gold_dc_daily_technical_update_job_sensor",
+        "sensors/dc_daily_technical_serving_sensor.py:ch_dc_daily_technical_update_job_sensor",
+        "sensors/feishu_run_status_sensor.py:feishu_run_failed_sensor",
+        "sensors/feishu_run_status_sensor.py:feishu_run_started_sensor",
+        "sensors/feishu_run_status_sensor.py:feishu_run_succeeded_sensor",
+        "sensors/global_index_partition_sensor.py:global_index_trade_day_partition_sensor",
+        "sensors/gold_major_index_mins_technical_daily_update_job_sensor.py:gold_major_index_mins_technical_daily_update_job_sensor",
+        "sensors/gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py:gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+        "sensors/gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py:gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
+        "sensors/gold_stock_daily_qfq_factor_repair_job_sensor.py:gold_stock_daily_qfq_factor_repair_job_sensor",
+        "sensors/gold_wealth_market_turnover_sensor.py:gold_wealth_market_turnover_update_job_sensor",
+        "sensors/idx_factor_pro_partition_sensor.py:idx_factor_pro_trade_day_sensor",
+        "sensors/idx_factor_pro_sensor.py:raw_tushare_idx_factor_pro_update_job_sensor",
+        "sensors/idx_factor_pro_sensor.py:silver_index_factor_pro_update_job_sensor",
+        "sensors/index_daily_nineturn_prod_core_sensor.py:prod_core_index_daily_nineturn_sync_job_sensor",
+        "sensors/index_global_late_empty_sensor.py:raw_index_global_late_empty_sensor",
+        "sensors/index_global_retry_sensor.py:raw_index_global_retry_sensor",
+        "sensors/index_global_sensor.py:raw_index_global_update_job_sensor",
+        "sensors/index_mins_gold_sensor.py:gold_index_mins_update_job_sensor",
+        "sensors/index_mins_partition_sensor.py:index_mins_trade_day_sensor",
+        "sensors/index_mins_sensor.py:raw_index_mins_update_job_sensor",
+        "sensors/index_mins_sensor.py:silver_index_mins_update_job_sensor",
+        "sensors/index_trade_day_sensor.py:index_trade_day_sensor",
+        "sensors/major_index_mins_gold_sensor.py:gold_major_index_mins_update_job_sensor",
+        "sensors/major_index_mins_partition_sensor.py:major_index_mins_trade_day_sensor",
+        "sensors/major_index_mins_sensor.py:raw_major_index_mins_update_job_sensor",
+        "sensors/major_index_mins_sensor.py:silver_major_index_mins_update_job_sensor",
+        "sensors/major_index_nineturn_sensor.py:gold_major_index_daily_nineturn_update_job_sensor",
+        "sensors/major_index_nineturn_sensor.py:gold_major_index_mins_nineturn_update_job_sensor",
+        "sensors/market_breadth_continuity_sensor.py:market_breadth_continuity_sensor",
+        "sensors/market_major_indices_daily_sensor.py:market_major_indices_daily_sensor",
+        "sensors/prod_dc_daily_technical_sensor.py:prod_ch_dc_daily_technical_continuity_sensor",
+        "sensors/raw_index_daily_update_job_sensor.py:raw_index_daily_update_job_sensor",
+        "sensors/silver_index_daily_sensor.py:silver_index_daily_sensor",
+        "sensors/silver_index_global_retry_sensor.py:silver_index_global_retry_sensor",
+        "sensors/silver_index_global_sensor.py:silver_index_global_update_job_sensor",
+        "sensors/stk_mins_qfq_nineturn_sensor.py:gold_stk_mins_qfq_nineturn_update_job_sensor",
+        "sensors/stk_nineturn_sensor.py:raw_stk_nineturn_update_job_sensor",
+        "sensors/stk_nineturn_sensor.py:silver_stock_nineturn_daily_update_job_sensor",
+        "sensors/stk_nineturn_trade_day_sensor.py:stk_nineturn_trade_day_sensor",
+        "sensors/stock_adj_factor_sensor.py:raw_adj_factor_update_job_sensor",
+        "sensors/stock_adj_factor_sensor.py:silver_adj_factor_update_job_sensor",
+        "sensors/stock_basic_sensor.py:raw_stock_basic_update_job_sensor",
+        "sensors/stock_basic_sensor.py:silver_stock_basic_update_job_sensor",
+        "sensors/stock_current_trade_day_sensor.py:stock_current_trade_day_sensor",
+        "sensors/stock_daily_qfq_nineturn_prod_core_sensor.py:prod_core_stock_daily_qfq_nineturn_sync_job_sensor",
+        "sensors/stock_daily_qfq_nineturn_sensor.py:gold_stock_daily_qfq_nineturn_update_job_sensor",
+        "sensors/stock_daily_qfq_sensor.py:gold_stock_daily_qfq_update_job_sensor",
+        "sensors/stock_daily_sensor.py:raw_stock_daily_update_job_sensor",
+        "sensors/stock_daily_sensor.py:silver_stock_daily_update_job_sensor",
+        "sensors/stock_identity_map_sensor.py:stock_identity_map_sensor",
+        "sensors/stock_mins_qfq_daily_sensor.py:stock_mins_qfq_daily_sensor",
+        "sensors/stock_mins_qfq_factor_repair_sensor.py:stock_mins_qfq_factor_repair_sensor",
+        "sensors/stock_mins_raw_sensor.py:stock_mins_raw_sensor",
+        "sensors/stock_mins_silver_sensor.py:stock_mins_silver_sensor",
+        "sensors/stock_mins_silver_trade_day_sensor.py:stock_mins_silver_trade_day_sensor",
+        "sensors/stock_mins_trade_day_sensor.py:stock_mins_trade_day_sensor",
+        "sensors/stock_namechange_sensor.py:raw_namechange_update_job_sensor",
+        "sensors/stock_namechange_sensor.py:silver_namechange_update_job_sensor",
+        "sensors/stock_return_distribution_continuity_sensor.py:stock_return_distribution_continuity_sensor",
+        "sensors/stock_trade_day_sensor.py:stock_trade_day_sensor",
+        "sensors/suspend_d_sensor.py:raw_suspend_d_update_job_sensor",
+        "sensors/suspend_d_sensor.py:silver_suspend_d_update_job_sensor",
+    }
+)
 RUN_KEY_BUILDER_CALL_NAMES = {
     "build_asset_update_run_key",
     "build_repair_attempt_run_key",
@@ -137,6 +218,85 @@ def _is_sensor_definition_call(node: ast.AST) -> bool:
     return isinstance(node, ast.Call) and (
         _call_name(node.func) in SENSOR_DEFINITION_CALL_NAMES
     )
+
+
+def _direct_duckdb_connect_call_lines(source: str, *, filename: str) -> tuple[int, ...]:
+    tree = ast.parse(source, filename=filename)
+    duckdb_module_names: set[str] = set()
+    duckdb_connect_names: set[str] = set()
+    parents = {
+        child: parent
+        for parent in ast.walk(tree)
+        for child in ast.iter_child_nodes(parent)
+    }
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "duckdb":
+                    duckdb_module_names.add(alias.asname or alias.name)
+        elif isinstance(node, ast.ImportFrom) and node.module == "duckdb":
+            for alias in node.names:
+                if alias.name == "connect":
+                    duckdb_connect_names.add(alias.asname or alias.name)
+
+    def is_shadowed_by_function_argument(node: ast.AST, name: str) -> bool:
+        parent = parents.get(node)
+        while parent is not None:
+            if isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                arguments = parent.args
+                argument_names = {
+                    argument.arg
+                    for argument in (
+                        *arguments.posonlyargs,
+                        *arguments.args,
+                        *arguments.kwonlyargs,
+                    )
+                }
+                if arguments.vararg is not None:
+                    argument_names.add(arguments.vararg.arg)
+                if arguments.kwarg is not None:
+                    argument_names.add(arguments.kwarg.arg)
+                if name in argument_names:
+                    return True
+            parent = parents.get(parent)
+        return False
+
+    lines = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if isinstance(node.func, ast.Attribute):
+            if (
+                node.func.attr == "connect"
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id in duckdb_module_names
+                and not is_shadowed_by_function_argument(
+                    node,
+                    node.func.value.id,
+                )
+            ):
+                lines.append(node.lineno)
+        elif (
+            isinstance(node.func, ast.Name)
+            and node.func.id in duckdb_connect_names
+            and not is_shadowed_by_function_argument(node, node.func.id)
+        ):
+            lines.append(node.lineno)
+    return tuple(sorted(lines))
+
+
+def _sensor_definition_nodes(
+    tree: ast.Module,
+) -> tuple[tuple[ast.FunctionDef | ast.AsyncFunctionDef, ast.Call], ...]:
+    definitions = []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for decorator in node.decorator_list:
+            if _is_sensor_definition_call(decorator):
+                definitions.append((node, decorator))
+    return tuple(definitions)
 
 
 def _keyword_value(call: ast.Call, keyword_name: str) -> ast.AST | None:
@@ -624,7 +784,15 @@ class RunContractStaticGateTests(unittest.TestCase):
         )
         self.assertIn("class ProdPostgresWriteResource", resource_source)
         self.assertIn(
-            "connection.set_session(readonly=False, autocommit=False)",
+            "with self._connect(readonly=False) as connection:",
+            resource_source,
+        )
+        self.assertIn(
+            "with self._connect(readonly=True) as connection:",
+            resource_source,
+        )
+        self.assertIn(
+            "connection.set_session(readonly=readonly, autocommit=False)",
             resource_source,
         )
         self.assertIn(
@@ -2547,14 +2715,48 @@ class RunContractStaticGateTests(unittest.TestCase):
             if "__pycache__" in path.parts or path == DUCKDB_CONNECTION_HELPER:
                 continue
             source = path.read_text()
-            if "duckdb.connect(" in source:
-                issues.append(f"{path} uses duckdb.connect outside the central helper")
+            for line in _direct_duckdb_connect_call_lines(
+                source,
+                filename=str(path),
+            ):
+                issues.append(
+                    f"{path}:{line} uses the DuckDB module connect outside the "
+                    "central helper"
+                )
 
         helper_source = DUCKDB_CONNECTION_HELPER.read_text()
-        if helper_source.count("duckdb.connect(") != 1:
+        helper_calls = _direct_duckdb_connect_call_lines(
+            helper_source,
+            filename=str(DUCKDB_CONNECTION_HELPER),
+        )
+        if len(helper_calls) != 1:
             issues.append("duckdb_connection.py must be the only DuckDB connect owner")
 
         self.assertEqual(issues, [])
+
+    def test_duckdb_connection_gate_distinguishes_modules_from_resources(
+        self,
+    ) -> None:
+        source = """
+import duckdb
+import duckdb as db
+from duckdb import connect as open_duckdb
+
+duckdb.connect(database=\":memory:\")
+db.connect(database=\":memory:\")
+open_duckdb(database=\":memory:\")
+
+def use_injected_resource(duckdb):
+    duckdb.connect()
+
+def use_nested_resource(context):
+    context.resources.duckdb.connect()
+"""
+
+        self.assertEqual(
+            _direct_duckdb_connect_call_lines(source, filename="duckdb_gate.py"),
+            (6, 7, 8),
+        )
 
     def test_lake_asset_catalog_registry_stays_read_only_and_boundary_safe(
         self,
@@ -2735,14 +2937,29 @@ class RunContractStaticGateTests(unittest.TestCase):
 
     def test_sensor_definitions_use_registered_definition_tags(self) -> None:
         issues = []
-        sensor_definition_count = 0
+        sensor_definition_ids = []
 
         for path in _sensor_definition_files():
             tree = _parse_python_file(path)
+            definition_nodes = _sensor_definition_nodes(tree)
+            functions_by_decorator_id = {
+                id(decorator_node): function_node
+                for function_node, decorator_node in definition_nodes
+            }
             for node in ast.walk(tree):
                 if not _is_sensor_definition_call(node):
                     continue
-                sensor_definition_count += 1
+                function_node = functions_by_decorator_id.get(id(node))
+                if function_node is None:
+                    issues.append(
+                        f"{_node_location(path, node)} sensor definition lacks a "
+                        "stable decorated-function identity"
+                    )
+                else:
+                    sensor_definition_ids.append(
+                        f"{path.relative_to(DEFS_DIR)}:{function_node.name}"
+                    )
+
                 tags_value = _keyword_value(node, "tags")
                 if not _is_call_named(tags_value, "build_sensor_tags"):
                     issues.append(
@@ -2778,7 +2995,21 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 73)
+        duplicate_sensor_definition_ids = sorted(
+            sensor_id
+            for sensor_id in set(sensor_definition_ids)
+            if sensor_definition_ids.count(sensor_id) > 1
+        )
+        actual_sensor_definition_ids = frozenset(sensor_definition_ids)
+        missing_sensor_definition_ids = sorted(
+            EXPECTED_SENSOR_DEFINITION_IDS - actual_sensor_definition_ids
+        )
+        unexpected_sensor_definition_ids = sorted(
+            actual_sensor_definition_ids - EXPECTED_SENSOR_DEFINITION_IDS
+        )
+        self.assertEqual(duplicate_sensor_definition_ids, [])
+        self.assertEqual(missing_sensor_definition_ids, [])
+        self.assertEqual(unexpected_sensor_definition_ids, [])
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:
