@@ -44,7 +44,12 @@
 
 Sensor/readiness 主入口：
 
-- `/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/sensors/readiness.py`
+- 公共 helper 与 specs：`/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/sensors/readiness.py`
+- sensor 本地 specs：`/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/sensors/**/*.py`
+
+治理审计不能只扫描公共模块。主要指数九转、指数九转 prod sync、股票九转 prod sync
+等 sensor 都在自己的模块中声明 `AssetReadinessSpec`；遗漏这些模块会把真实在用的 check
+误标为“不参与 readiness”。
 
 关键实现：
 
@@ -209,7 +214,7 @@ P0.1 已确认：
 | 审计对象 | 当前代码入口 | LLD 约束 |
 | --- | --- | --- |
 | active asset 与 blocking checks | `defs/catalog/lake_assets.py` | 所有治理矩阵、retention 白名单、check 合并目标必须从 `LAKE_ASSET_CATALOG` 对账。 |
-| readiness 消费 | `defs/sensors/readiness.py`、`gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py` | 仍在 `AssetReadinessSpec` 中出现的 check 不得直接删除；合并后必须同步 readiness specs。 |
+| readiness 消费 | `defs/sensors/**/*.py` 中全部 `AssetReadinessSpec` | 仍被任一 sensor 直接消费的 check 不得删除或误标为不参与 readiness；治理测试必须枚举全部 sensor 模块，禁止维护局部模块白名单。 |
 | check definition | `defs/checks/**` | 旧细粒度函数可保留为内部 rule/helper，但不得继续注册为正式 Dagster check。 |
 | lake readiness | `defs/asset_guards/*_lake_readiness.py` | sensor 热路径应优先使用 DuckDB/lake readiness；不得回流逐日 Dagster event/check history 深扫。 |
 | runless/bootstrap | `defs/bootstrap/*_events.py`、`defs/bootstrap/*_history.py` | 历史事件补录和数量估算必须引用正式 check 常量，禁止写回旧 check name。 |
@@ -220,8 +225,8 @@ P0.1 已确认：
 
 - `defs/catalog/lake_assets.py` 与 `tests/test_asset_check_incremental_governance.py`
   均已登记 P2-P6 合并后的正式 check names。
-- `defs/sensors/readiness.py` 中 daily、suspend、adj factor、index daily、分钟线 qfq
-  等 readiness specs 已使用合并后的 check names。
+- `defs/sensors/**/*.py` 中公共与 sensor 本地 readiness specs 已使用合并后的 check
+  names；治理测试通过枚举全部 sensor 模块核对真实消费关系。
 - `defs/checks/stk_mins_qfq_macd_kdj_checks.py` 中 MACD/KDJ indicator 当前为
   `contract/source_coverage` 两个 production check；`formula_sample` 已退出正式
   Dagster check，公式正确性由受保护金样本测试承担。state checks 仍保持两个。
@@ -351,12 +356,27 @@ P0.1 已确认：
 
 #### 已落地事实
 
-1. 新增 `tests/test_asset_check_incremental_governance.py`，覆盖 56 个 catalog active assets 的 blocking checks。
+1. 新增 `tests/test_asset_check_incremental_governance.py`；2026-08-19 对账后覆盖当前 120 个 catalog active assets 的 blocking checks，另有 21 个明确的 contract-only catalog assets。
 2. 治理矩阵显式声明每个 check 的分类、阶段、是否参与 sensor readiness、是否允许 retention 删除旧 event。
 3. `STK_MINS_RETENTION_PROTECTED_CHECK_NAMES` 中的 repair/status/completion check 被纳入保护矩阵，且 `retention_allowed=False`。
 4. readiness specs 与治理矩阵保持强一致；如果某个 check 仍被 sensor/readiness 消费，矩阵必须标记 `participates_in_sensor_readiness=True`。
 5. checks-only 维护 job 门禁限定在 `*_check_refresh_job`，禁止这类 job 使用 `AssetSelection.assets(...)`。
 6. `test_run_contract_static_gates.py` 增加治理矩阵存在性和危险写路径防回流检查。
+
+2026-08-19 readiness 消费关系纠偏：
+
+- `gold_major_index_mins_5m/15m/30m/60m/90m/120m` 的 core check
+  被 `gold_major_index_mins_nineturn_update_job_sensor` 直接读取，治理矩阵必须标记
+  `participates_in_sensor_readiness=True`；`1m` 不属于九转上游，保持 `False`。
+- `gold_major_index_daily_nineturn_integrity_check` 被
+  `prod_core_index_daily_nineturn_sync_job_sensor` 直接读取；
+  `gold_stock_daily_qfq_nineturn_integrity_check` 被
+  `prod_core_stock_daily_qfq_nineturn_sync_job_sensor` 直接读取，二者均按真实消费关系标记
+  `participates_in_sensor_readiness=True`。
+- 六个主要指数分钟九转结果 check，以及两个 prod core 发布结果 check，当前没有下游
+  sensor 直接读取，保持 `participates_in_sensor_readiness=False`。
+- readiness 对账由枚举 `defs/sensors` 全部模块中的 `AssetReadinessSpec` 完成，不再只扫描
+  `readiness.py` 和单个 MACD/KDJ sensor。
 
 #### 验证
 
@@ -1080,7 +1100,7 @@ P7A 只做本地代码和文档验收，不读取正式 Dagster instance，不�
 2. 静态审计正式 check names：
    - `LAKE_ASSET_CATALOG`
    - `tests/test_asset_check_incremental_governance.py`
-   - `defs/sensors/readiness.py`
+   - `defs/sensors/**/*.py` 中全部 `AssetReadinessSpec`
    - `defs/bootstrap/*_events.py`
 3. 跑目标测试：
 

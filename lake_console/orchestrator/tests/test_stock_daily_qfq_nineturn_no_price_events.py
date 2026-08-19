@@ -11,6 +11,9 @@ import dagster as dg
 import duckdb
 import pytest
 
+from orchestrator.defs.bootstrap import (
+    stock_daily_qfq_nineturn_no_price_serving_events as serving_events,
+)
 from orchestrator.defs.bootstrap.stock_daily_qfq_nineturn_no_price_events import (
     EVENT_REVISION,
     MAX_CHECK_EVENTS,
@@ -27,16 +30,15 @@ from orchestrator.defs.bootstrap.stock_daily_qfq_nineturn_no_price_history impor
     plan_stock_daily_qfq_nineturn_no_price_history,
     promote_stock_daily_qfq_nineturn_no_price_candidates,
 )
-from orchestrator.defs.bootstrap import (
-    stock_daily_qfq_nineturn_no_price_serving_events as serving_events,
+from orchestrator.defs.bootstrap.stock_daily_qfq_nineturn_no_price_serving_events import (
+    PROD_CORE_STOCK_DAILY_QFQ_NINETURN_LEGACY_CONSTRAINTS,
+    PROD_CORE_STOCK_DAILY_QFQ_NINETURN_NO_PRICE_MIGRATION,
+    PROD_CORE_STOCK_DAILY_QFQ_NINETURN_PREVIOUS_MIGRATION,
 )
 from orchestrator.defs.partitions import cn_a_stock_trade_days
 from orchestrator.defs.prod_db.stock_daily_qfq_nineturn import (
     PROD_CORE_STOCK_DAILY_QFQ_NINETURN_CONSTRAINTS,
     PROD_CORE_STOCK_DAILY_QFQ_NINETURN_INDEXES,
-    PROD_CORE_STOCK_DAILY_QFQ_NINETURN_LEGACY_CONSTRAINTS,
-    PROD_CORE_STOCK_DAILY_QFQ_NINETURN_NO_PRICE_MIGRATION,
-    PROD_CORE_STOCK_DAILY_QFQ_NINETURN_PREVIOUS_MIGRATION,
     ProdCoreStockDailyQfqNineTurnCheckpointAudit,
     ProdCoreStockDailyQfqNineTurnContractSnapshot,
 )

@@ -27,7 +27,8 @@
 审计来源：
 
 1. `LAKE_ASSET_CATALOG` 当前 active asset 事实。
-2. `orchestrator.defs.sensors.readiness.AssetReadinessSpec` 与各 readiness specs。
+2. `orchestrator.defs.sensors.readiness.AssetReadinessSpec`，以及
+   `defs/sensors/**/*.py` 中公共和 sensor 本地定义的全部 readiness specs。
 3. `defs/checks/**`、`defs/jobs/**`、`defs/catalog/lake_assets.py`。
 4. 本机正式 Dagster Postgres 只读统计 `asset_check_executions`。
 

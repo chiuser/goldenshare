@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 import re
-import csv
 import subprocess
 import time
 import uuid
@@ -40,10 +40,6 @@ from orchestrator.defs.prod_db.stock_daily_qfq_nineturn import (
     PROD_CORE_STOCK_DAILY_QFQ_NINETURN_COLUMNS,
     PROD_CORE_STOCK_DAILY_QFQ_NINETURN_CONSTRAINTS,
     PROD_CORE_STOCK_DAILY_QFQ_NINETURN_INDEXES,
-    PROD_CORE_STOCK_DAILY_QFQ_NINETURN_LEGACY_COLUMNS,
-    PROD_CORE_STOCK_DAILY_QFQ_NINETURN_LEGACY_CONSTRAINTS,
-    PROD_CORE_STOCK_DAILY_QFQ_NINETURN_NO_PRICE_MIGRATION,
-    PROD_CORE_STOCK_DAILY_QFQ_NINETURN_PREVIOUS_MIGRATION,
     PROD_CORE_STOCK_DAILY_QFQ_NINETURN_TABLE,
     ProdCoreStockDailyQfqNineTurnCheckpointAudit,
     ProdCoreStockDailyQfqNineTurnContractSnapshot,
@@ -70,6 +66,27 @@ CHECK_WINDOW = 20
 MAX_CHECK_HISTORY = 500
 MAX_MATERIALIZATION_EVENTS = 4_000
 MAX_CHECK_EVENTS = CHECK_WINDOW
+PROD_CORE_STOCK_DAILY_QFQ_NINETURN_NO_PRICE_MIGRATION = "20260816_000137"
+PROD_CORE_STOCK_DAILY_QFQ_NINETURN_PREVIOUS_MIGRATION = "20260814_000136"
+PROD_CORE_STOCK_DAILY_QFQ_NINETURN_LEGACY_COLUMNS = (
+    "ts_code",
+    "trade_date",
+    "close_qfq",
+    "up_count",
+    "down_count",
+    "nine_up_turn",
+    "nine_down_turn",
+    "formula_version",
+    "published_at",
+)
+PROD_CORE_STOCK_DAILY_QFQ_NINETURN_LEGACY_CONSTRAINTS = tuple(
+    sorted(
+        (
+            *PROD_CORE_STOCK_DAILY_QFQ_NINETURN_CONSTRAINTS,
+            "ck_equity_qfq_nineturn_daily_close_positive",
+        )
+    )
+)
 WRITER_SENSOR_NAMES = (
     "gold_stock_daily_qfq_nineturn_update_job_sensor",
     "prod_core_stock_daily_qfq_nineturn_sync_job_sensor",
@@ -248,7 +265,7 @@ class PsqlRemoteStockDailyQfqNineTurnServingAuditReader:
         )
         sql = _SERVING_CHECKPOINT_COPY_SQL.format(date_literals=date_literals)
         command = self._command(sql)
-        process = subprocess.Popen(  # noqa: S603 - fixed repository script only.
+        process = subprocess.Popen(
             command,
             cwd=self.repo_root,
             text=True,
@@ -328,7 +345,7 @@ class PsqlRemoteStockDailyQfqNineTurnServingAuditReader:
         )
 
     def _run_text(self, sql: str) -> str:
-        completed = subprocess.run(  # noqa: S603 - fixed repository script only.
+        completed = subprocess.run(
             self._command(sql),
             cwd=self.repo_root,
             check=False,

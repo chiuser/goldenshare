@@ -1782,7 +1782,7 @@ LAKE_ASSET_CATALOG += tuple(
         layer=AssetLayer.GOLD,
         data_domain=DataDomain.QUOTE_DATA,
         group_name="quote",
-        data_contract="qfq_stock_minute_bars_derived_from_qfq_source",
+        data_contract="qfq_stock_minute_bars",
         column_schema=GOLD_STK_MINS_QFQ_SCHEMA,
         path_template=lake_path_template(
             gold_stk_mins_qfq_path(
@@ -1798,7 +1798,10 @@ LAKE_ASSET_CATALOG += tuple(
         write_policy=WritePolicy.STOCK_YEAR_ATOMIC_REPLACE,
         event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
         bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
-        notes="Derived qfq freqs read gold qfq source freqs only: 90m from 30m, 120m from 60m.",
+        notes=(
+            "Derived qfq freqs are generated directly from silver stk_mins and "
+            "adj_factor: 90m from silver 30m, 120m from silver 60m."
+        ),
     )
     for freq in (90, 120)
 )

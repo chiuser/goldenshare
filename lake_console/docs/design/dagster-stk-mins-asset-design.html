@@ -549,8 +549,8 @@ cn_a_stock_mins_silver_trade_days = dg.DynamicPartitionsDefinition(
       <tr><td><code>gold_stk_mins_qfq_15m</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
       <tr><td><code>gold_stk_mins_qfq_30m</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
       <tr><td><code>gold_stk_mins_qfq_60m</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
-      <tr><td><code>gold_stk_mins_qfq_90m</code></td><td>derived qfq：从 <code>gold_stk_mins_qfq_30m</code> 聚合生成，不进入 raw/silver/Tushare/prod DB 源频度</td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
-      <tr><td><code>gold_stk_mins_qfq_120m</code></td><td>derived qfq：从 <code>gold_stk_mins_qfq_60m</code> 聚合生成，不进入 raw/silver/Tushare/prod DB 源频度</td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
+      <tr><td><code>gold_stk_mins_qfq_90m</code></td><td>derived qfq：从同日 <code>silver_stk_mins_30m</code> 与 <code>silver_adj_factor</code> 直接生成，不新增 raw/silver/Tushare/prod DB 源频度</td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
+      <tr><td><code>gold_stk_mins_qfq_120m</code></td><td>derived qfq：从同日 <code>silver_stk_mins_60m</code> 与 <code>silver_adj_factor</code> 直接生成，不新增 raw/silver/Tushare/prod DB 源频度</td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
     </table>
     <p>
       这里的 <code>partition_key</code> 不进入 gold 物理目录名。<code>gold_stk_mins_qfq_5m[2026-05-29]</code> 的含义是：
@@ -1716,7 +1716,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
         <td><strong>M11</strong></td>
         <td>90/120 derived qfq assets</td>
         <td>已实现代码口径：新增 <code>gold_stk_mins_qfq_90m</code> 与 <code>gold_stk_mins_qfq_120m</code>，并入 <code>dataset_id=stk_mins_qfq</code>；daily job/sensor 和 repair check event 扩为七频度。</td>
-        <td>90m 只从 30m qfq 聚合，120m 只从 60m qfq 聚合；raw/silver/Tushare/prod DB 仍只有五个源频度。M11F/M11G 已完成历史 90/120 直写补录、runless events 和最终 full audit：90/120 各 <code>3019</code> 个 materialized partitions，16 个 derived checks 均为 <code>3019</code> 绿。</td>
+        <td>当前实现中，90m 从同日 Silver 30m 加复权因子直接生成，120m 从同日 Silver 60m 加复权因子直接生成；raw/silver/Tushare/prod DB 仍只有五个源频度。M11F/M11G 已完成历史 90/120 直写补录、runless events 和最终 full audit：90/120 各 <code>3019</code> 个 materialized partitions，16 个 derived checks 均为 <code>3019</code> 绿。</td>
       </tr>
       <tr>
         <td><strong>M12</strong></td>

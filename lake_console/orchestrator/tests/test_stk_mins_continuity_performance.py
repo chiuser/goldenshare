@@ -12,18 +12,20 @@ from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
 from orchestrator.defs.duckdb_sql import duckdb_string
 from orchestrator.defs.paths import (
     gold_stk_mins_qfq_path,
+    silver_adj_factor_path,
+    silver_stk_mins_path,
+)
+from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
+    expected_canonical_gold_source_times,
 )
 from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_FREQS,
     STK_MINS_QFQ_DERIVED_FREQS,
     STK_MINS_QFQ_NATIVE_FREQS,
-    qfq_source_freq_for_derived_freq,
-)
-from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
-    cn_a_derived_minute_window_rows,
 )
 from orchestrator.defs.stk_mins_qfq import (
-    build_gold_stk_mins_qfq_derived_select_sql,
+    build_canonical_gold_stk_mins_qfq_select_sql,
+    gold_stk_mins_qfq_source_freq,
 )
 from tests.test_stk_mins_lake_readiness import (
     _trade_dates,
@@ -34,7 +36,6 @@ from tests.test_stk_mins_lake_readiness import (
     _write_silver_ready_inputs,
     _write_stock_lifecycle_file,
 )
-
 
 RAW_10_DAY_BUDGET_MS = 5_000
 RAW_60_DAY_BUDGET_MS = 5_000
@@ -76,57 +77,7 @@ def _write_silver_ready_window(
             )
 
 
-def _native_trade_times(freq: int) -> tuple[str, ...]:
-    if freq == 30:
-        return tuple(dict.fromkeys(row[0] for row in cn_a_derived_minute_window_rows(90)))
-    if freq == 60:
-        return tuple(dict.fromkeys(row[0] for row in cn_a_derived_minute_window_rows(120)))
-    return {
-        1: ("09:31:00",),
-        5: ("09:35:00",),
-        15: ("09:45:00",),
-    }[freq]
-
-
-def _write_gold_qfq_native_year_file(
-    connection,
-    lake_root: Path,
-    *,
-    freq: int,
-    trade_dates: tuple[str, ...],
-    ts_code: str = "000001.SZ",
-) -> None:
-    path = gold_stk_mins_qfq_path(lake_root, freq, ts_code, "2026")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    rows_sql = []
-    for trade_date in trade_dates:
-        for index, trade_time in enumerate(_native_trade_times(freq)):
-            open_value = 10.0 + index
-            rows_sql.append(
-                "SELECT "
-                f"{duckdb_string(ts_code)} AS ts_code, "
-                f"{int(freq)}::INTEGER AS freq, "
-                f"CAST({duckdb_string(trade_date)} AS DATE) AS trade_date, "
-                f"CAST({duckdb_string(f'{trade_date} {trade_time}')} AS TIMESTAMP) "
-                "AS trade_time, "
-                f"{open_value}::DOUBLE AS open, "
-                f"{open_value + 1.0}::DOUBLE AS high, "
-                f"{open_value - 1.0}::DOUBLE AS low, "
-                f"{open_value + 0.5}::DOUBLE AS close, "
-                "1000.0::DOUBLE AS vol, "
-                "10000.0::DOUBLE AS amount, "
-                "'SZSE'::VARCHAR AS exchange"
-            )
-    connection.execute(
-        f"""
-        COPY (
-          {" UNION ALL ".join(rows_sql)}
-        ) TO {duckdb_string(path)} (FORMAT PARQUET)
-        """
-    )
-
-
-def _write_gold_qfq_derived_year_file(
+def _write_gold_qfq_year_file(
     connection,
     lake_root: Path,
     *,
@@ -134,19 +85,29 @@ def _write_gold_qfq_derived_year_file(
     trade_dates: tuple[str, ...],
     ts_code: str = "000001.SZ",
 ) -> None:
-    source_freq = qfq_source_freq_for_derived_freq(target_freq)
-    source_path = gold_stk_mins_qfq_path(lake_root, source_freq, ts_code, "2026")
+    source_freq = gold_stk_mins_qfq_source_freq(target_freq)
+    silver_paths = tuple(
+        silver_stk_mins_path(lake_root, source_freq, trade_date)
+        for trade_date in trade_dates
+    )
+    adj_factor_paths = tuple(
+        silver_adj_factor_path(lake_root, trade_date) for trade_date in trade_dates
+    )
     target_path = gold_stk_mins_qfq_path(lake_root, target_freq, ts_code, "2026")
     target_path.parent.mkdir(parents=True, exist_ok=True)
-    derived_sql = build_gold_stk_mins_qfq_derived_select_sql(
-        source_qfq_paths=[source_path],
+    qfq_sql = build_canonical_gold_stk_mins_qfq_select_sql(
+        silver_paths=silver_paths,
+        trade_adj_factor_paths=adj_factor_paths,
+        as_of_adj_factor_paths=adj_factor_paths,
         target_freq=target_freq,
         partition_keys=trade_dates,
+        stock_codes=(ts_code,),
+        match_as_of_by_trade_date=True,
     )
     connection.execute(
         f"""
         COPY (
-          {derived_sql}
+          {qfq_sql}
         ) TO {duckdb_string(target_path)} (FORMAT PARQUET)
         """
     )
@@ -157,30 +118,36 @@ def _write_gold_qfq_ready_window(
     lake_root: Path,
     trade_dates: tuple[str, ...],
 ) -> None:
+    source_times_by_freq: dict[int, tuple[str, ...]] = {}
+    for target_freq in (*STK_MINS_QFQ_NATIVE_FREQS, *STK_MINS_QFQ_DERIVED_FREQS):
+        source_freq = gold_stk_mins_qfq_source_freq(target_freq)
+        source_times_by_freq[source_freq] = tuple(
+            dict.fromkeys(
+                (
+                    *source_times_by_freq.get(source_freq, ()),
+                    *expected_canonical_gold_source_times(target_freq),
+                )
+            )
+        )
     for trade_date in trade_dates:
         _write_adj_factor_files(connection, lake_root, trade_date=trade_date)
-        for freq in STK_MINS_QFQ_NATIVE_FREQS:
+        for source_freq, trade_times in source_times_by_freq.items():
             _write_silver_file_for_times(
                 connection,
                 lake_root,
                 trade_date=trade_date,
-                freq=freq,
-                trade_times=_native_trade_times(freq),
+                freq=source_freq,
+                trade_times=trade_times,
             )
-    for freq in STK_MINS_QFQ_NATIVE_FREQS:
-        _write_gold_qfq_native_year_file(
-            connection,
-            lake_root,
-            freq=freq,
-            trade_dates=trade_dates,
-        )
-    for target_freq in STK_MINS_QFQ_DERIVED_FREQS:
-        _write_gold_qfq_derived_year_file(
+    for target_freq in (*STK_MINS_QFQ_NATIVE_FREQS, *STK_MINS_QFQ_DERIVED_FREQS):
+        _write_gold_qfq_year_file(
             connection,
             lake_root,
             target_freq=target_freq,
             trade_dates=trade_dates,
         )
+
+
 class StkMinsContinuityPerformanceTests(unittest.TestCase):
     def test_raw_and_silver_batch_readiness_20_and_60_day_budget(self) -> None:
         with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:

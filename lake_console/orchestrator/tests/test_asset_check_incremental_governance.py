@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import orchestrator.defs.checks as checks_pkg
+import orchestrator.defs.sensors as sensors_pkg
 from orchestrator.defs.bootstrap.stk_mins_event_history_retention import (
     STK_MINS_RETENTION_PROTECTED_CHECK_NAMES,
 )
@@ -36,10 +37,6 @@ from orchestrator.defs.run_contracts.major_index_mins_technical import (
     major_index_mins_technical_state_asset_key,
     major_index_mins_technical_state_checks,
 )
-from orchestrator.defs.sensors import (
-    gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor as macd_kdj_sensor_readiness,
-)
-from orchestrator.defs.sensors import readiness
 from orchestrator.defs.sensors.readiness import AssetReadinessSpec
 
 DEFS_DIR = Path("src/orchestrator/defs")
@@ -327,6 +324,7 @@ def _major_index_mins_asset_rules() -> dict[
     str, dict[str, AssetCheckGovernanceRule]
 ]:
     rules: dict[str, dict[str, AssetCheckGovernanceRule]] = {}
+    nineturn_upstream_asset_keys = frozenset(MAJOR_INDEX_MINS_GOLD_ASSET_KEYS[1:])
     for asset_key, check_name in zip(
         MAJOR_INDEX_MINS_RAW_ASSET_KEYS,
         MAJOR_INDEX_MINS_RAW_CHECKS,
@@ -360,7 +358,7 @@ def _major_index_mins_asset_rules() -> dict[
             (check_name,),
             category=MOVE_TO_SENSOR_LAKE_READINESS,
             phase="CN_A_MINUTE_GOLD_P2",
-            readiness=False,
+            readiness=asset_key in nineturn_upstream_asset_keys,
             retention_allowed=True,
         )
     return rules
@@ -375,10 +373,23 @@ GOLD_DC_DAILY_TECHNICAL_CHECKS = (
 GOLD_STOCK_DAILY_QFQ_NINETURN_CHECKS = (
     "gold_stock_daily_qfq_nineturn_integrity_check",
 )
+GOLD_MAJOR_INDEX_DAILY_NINETURN_CHECKS = (
+    "gold_major_index_daily_nineturn_integrity_check",
+)
+GOLD_MAJOR_INDEX_MINS_NINETURN_CHECKS_BY_FREQ = {
+    freq: (f"gold_major_index_mins_nineturn_{freq}m_integrity_check",)
+    for freq in (5, 15, 30, 60, 90, 120)
+}
 GOLD_STK_MINS_QFQ_NINETURN_CHECKS_BY_FREQ = {
     freq: (f"gold_stk_mins_qfq_nineturn_{freq}m_integrity_check",)
     for freq in (30, 60, 90, 120)
 }
+PROD_CORE_INDEX_DAILY_NINETURN_CHECKS = (
+    "prod_core_index_daily_nineturn_partition_check",
+)
+PROD_CORE_STOCK_DAILY_QFQ_NINETURN_CHECKS = (
+    "prod_core_stock_daily_qfq_nineturn_partition_check",
+)
 PROD_CH_DC_DAILY_TECHNICAL_CHECKS = (
     "prod_ch_dc_daily_technical_core_check",
 )
@@ -651,10 +662,41 @@ ASSET_CHECK_GOVERNANCE: dict[str, dict[str, AssetCheckGovernanceRule]] = {
         retention_allowed=True,
     ),
     **_planned_index_technical_asset_rules(),
+    "gold_major_index_daily_nineturn": _rules(
+        GOLD_MAJOR_INDEX_DAILY_NINETURN_CHECKS,
+        category=KEEP_BLOCKING_DAGSTER,
+        phase="MAJOR_INDEX_NINETURN_M4B",
+        readiness=True,
+        retention_allowed=True,
+    ),
+    **{
+        f"gold_major_index_mins_nineturn_{freq}m": _rules(
+            check_names,
+            category=RETENTION_ONLY,
+            phase="MAJOR_INDEX_NINETURN_M4B",
+            readiness=False,
+            retention_allowed=True,
+        )
+        for freq, check_names in GOLD_MAJOR_INDEX_MINS_NINETURN_CHECKS_BY_FREQ.items()
+    },
+    "prod_core_index_daily_nineturn": _rules(
+        PROD_CORE_INDEX_DAILY_NINETURN_CHECKS,
+        category=RETENTION_ONLY,
+        phase="MAJOR_INDEX_NINETURN_M4B",
+        readiness=False,
+        retention_allowed=True,
+    ),
     "gold_stock_daily_qfq_nineturn": _rules(
         GOLD_STOCK_DAILY_QFQ_NINETURN_CHECKS,
-        category=RETENTION_ONLY,
+        category=KEEP_BLOCKING_DAGSTER,
         phase="STK_NINETURN_N3",
+        readiness=True,
+        retention_allowed=True,
+    ),
+    "prod_core_stock_daily_qfq_nineturn": _rules(
+        PROD_CORE_STOCK_DAILY_QFQ_NINETURN_CHECKS,
+        category=RETENTION_ONLY,
+        phase="STK_NINETURN_SERVING",
         readiness=False,
         retention_allowed=True,
     ),
@@ -818,7 +860,12 @@ def _iter_readiness_specs(value: object) -> tuple[AssetReadinessSpec, ...]:
 
 def _readiness_check_pairs() -> set[tuple[str, str]]:
     pairs: set[tuple[str, str]] = set()
-    for module in (readiness, macd_kdj_sensor_readiness):
+    sensor_modules = tuple(
+        importlib.import_module(f"orchestrator.defs.sensors.{module_info.name}")
+        for module_info in pkgutil.iter_modules(sensors_pkg.__path__)
+        if not module_info.name.startswith("__")
+    )
+    for module in sensor_modules:
         for value in vars(module).values():
             for spec in _iter_readiness_specs(value):
                 for check_name in spec.blocking_check_names:

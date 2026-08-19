@@ -40,19 +40,6 @@ PROD_CORE_STOCK_DAILY_QFQ_NINETURN_BATCH_SIZE = 1_000
 PROD_CORE_STOCK_DAILY_QFQ_NINETURN_CHECK_NAME = (
     "prod_core_stock_daily_qfq_nineturn_partition_check"
 )
-PROD_CORE_STOCK_DAILY_QFQ_NINETURN_NO_PRICE_MIGRATION = "20260816_000137"
-PROD_CORE_STOCK_DAILY_QFQ_NINETURN_PREVIOUS_MIGRATION = "20260814_000136"
-PROD_CORE_STOCK_DAILY_QFQ_NINETURN_LEGACY_COLUMNS = (
-    "ts_code",
-    "trade_date",
-    "close_qfq",
-    "up_count",
-    "down_count",
-    "nine_up_turn",
-    "nine_down_turn",
-    "formula_version",
-    "published_at",
-)
 PROD_CORE_STOCK_DAILY_QFQ_NINETURN_CONSTRAINTS = (
     "ck_equity_qfq_nineturn_daily_counts_non_negative",
     "ck_equity_qfq_nineturn_daily_down_signal_allowed",
@@ -63,14 +50,6 @@ PROD_CORE_STOCK_DAILY_QFQ_NINETURN_CONSTRAINTS = (
     "ck_equity_qfq_nineturn_daily_up_signal_allowed",
     "ck_equity_qfq_nineturn_daily_up_signal_count",
     "pk_equity_qfq_nineturn_daily",
-)
-PROD_CORE_STOCK_DAILY_QFQ_NINETURN_LEGACY_CONSTRAINTS = tuple(
-    sorted(
-        (
-            *PROD_CORE_STOCK_DAILY_QFQ_NINETURN_CONSTRAINTS,
-            "ck_equity_qfq_nineturn_daily_close_positive",
-        )
-    )
 )
 PROD_CORE_STOCK_DAILY_QFQ_NINETURN_INDEXES = (
     "idx_equity_qfq_nineturn_daily_trade_code",

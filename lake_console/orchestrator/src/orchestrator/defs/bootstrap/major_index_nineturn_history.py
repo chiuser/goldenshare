@@ -48,7 +48,7 @@ PLAN_SCHEMA_VERSION = 1
 PLAN_PHASE = "major_index_nineturn_history_plan"
 CHECKPOINT_PHASE = "major_index_nineturn_history_checkpoint"
 MAX_BATCH_SECONDS = 30.0
-MAX_PROCESS_RSS_MIB = 512.0
+MAX_PROCESS_RSS_MIB = 1_024.0
 MAX_BATCHES_PER_PROCESS = 10
 
 

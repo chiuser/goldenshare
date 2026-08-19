@@ -144,9 +144,20 @@ class NineturnFormulaTests(unittest.TestCase):
                     + " ORDER BY subject_code, bar_time"
                 ).fetchall()
 
-        projected_normalized_rows = [
-            (row[0], row[1], row[3], row[4], row[5], row[6], row[7])
+        normalized_records = tuple(
+            dict(zip(NINETURN_FORMULA_OUTPUT_COLUMNS, row, strict=True))
             for row in normalized_rows
+        )
+        projected_normalized_rows = [
+            (
+                row["subject_code"],
+                row["bar_date"],
+                row["up_count"],
+                row["down_count"],
+                row["nine_up_turn"],
+                row["nine_down_turn"],
+            )
+            for row in normalized_records
         ]
         self.assertEqual(stock_rows, projected_normalized_rows)
 

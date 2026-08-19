@@ -39,14 +39,22 @@ from orchestrator.defs.assets.index_daily import (
     raw_index_daily,
     silver_index_daily,
 )
+from orchestrator.defs.assets.index_daily_nineturn_prod_core import (
+    prod_core_index_daily_nineturn,
+)
 from orchestrator.defs.assets.index_global_raw import raw_index_global
 from orchestrator.defs.assets.index_global_silver import silver_index_global
+from orchestrator.defs.assets.index_mins_gold import GOLD_INDEX_MINS_ASSETS
 from orchestrator.defs.assets.index_mins_raw import RAW_INDEX_MINS_ASSETS
 from orchestrator.defs.assets.index_mins_silver_defs import SILVER_INDEX_MINS_ASSETS
 from orchestrator.defs.assets.lake_root_health import lake_root_health
+from orchestrator.defs.assets.major_index_mins_gold import GOLD_MAJOR_INDEX_MINS_ASSETS
 from orchestrator.defs.assets.major_index_mins_raw import RAW_MAJOR_INDEX_MINS_ASSETS
 from orchestrator.defs.assets.major_index_mins_silver import (
     SILVER_MAJOR_INDEX_MINS_ASSETS,
+)
+from orchestrator.defs.assets.major_index_nineturn import (
+    GOLD_MAJOR_INDEX_NINETURN_ASSETS,
 )
 from orchestrator.defs.assets.market_breadth import (
     MARKET_BREADTH_DAILY_COLUMNS,
@@ -281,8 +289,12 @@ ACTIVE_ASSET_DEFINITIONS = (
     silver_index_global,
     *RAW_INDEX_MINS_ASSETS,
     *SILVER_INDEX_MINS_ASSETS,
+    *GOLD_INDEX_MINS_ASSETS,
     *RAW_MAJOR_INDEX_MINS_ASSETS,
     *SILVER_MAJOR_INDEX_MINS_ASSETS,
+    *GOLD_MAJOR_INDEX_MINS_ASSETS,
+    *GOLD_MAJOR_INDEX_NINETURN_ASSETS,
+    prod_core_index_daily_nineturn,
     raw_tushare_idx_factor_pro,
     silver_index_factor_pro,
     gold_market_major_indices_daily,
