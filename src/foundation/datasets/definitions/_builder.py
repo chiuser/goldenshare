@@ -315,8 +315,12 @@ def _validate_direct_scope_replace_storage(
         invalid.append("必须声明 conflict_columns")
     elif not set(storage.conflict_columns).issubset(required_fields):
         invalid.append("conflict_columns 必须全部属于 normalization.required_fields")
-    if quality.empty_result_policy not in {"fail_unit", "fail_unit_per_request_variant"}:
-        invalid.append("完整范围替换必须在空结果时失败")
+    if quality.empty_result_policy not in {
+        "allow",
+        "fail_unit",
+        "fail_unit_per_request_variant",
+    }:
+        invalid.append("完整范围替换的空结果策略非法")
     if quality.reject_policy != "fail_unit_on_any_rejection":
         invalid.append("完整范围替换必须在任意拒绝行时失败")
     if not quality.pre_write_validator_key:

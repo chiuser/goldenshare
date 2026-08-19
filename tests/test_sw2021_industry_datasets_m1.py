@@ -105,6 +105,7 @@ def test_sw2021_definitions_project_direct_serving_and_internal_variant_contract
     assert classification.storage.raw_table is None
     assert classification.storage.write_path == "serving_direct_scope_replace"
     assert classification.planning.max_source_rows_per_unit == 2000
+    assert classification.quality.empty_result_policy == "fail_unit"
     assert classification.observability.freshness_policy == SNAPSHOT_RUN_TRACE
 
     assert member.input_model.filters == ()
@@ -136,6 +137,7 @@ def test_sw2021_definitions_project_direct_serving_and_internal_variant_contract
     assert daily.input_model.filters == ()
     assert daily.planning.unit_builder_key == "build_sw_daily_units"
     assert daily.planning.max_source_rows_per_unit == 2000
+    assert daily.quality.empty_result_policy == "allow"
     assert daily.storage.replacement_scope_fields == ("trade_date",)
     assert daily.observability.freshness_policy == CONTINUOUS_OPEN_DAY
 
@@ -558,7 +560,46 @@ def test_scope_replace_is_bounded_and_read_back_verified(mocker) -> None:
     )
 
 
-def test_scope_replace_rejects_empty_rejected_multi_scope_and_date_mismatch_before_dml(
+def test_scope_replace_allows_declared_empty_noop_and_keeps_fail_closed_policy(
+    mocker,
+) -> None:
+    session = mocker.Mock()
+    writer = DatasetWriter(session)
+    writer.dao = SimpleNamespace(sw_industry_daily=_FakeScopeDAO())
+    empty_batch = NormalizedBatch(
+        unit_id="empty",
+        rows_normalized=[],
+        rows_rejected=0,
+        rejected_reasons={},
+    )
+
+    result = writer.write(
+        definition=get_dataset_definition("sw_daily"),
+        batch=empty_batch,
+        plan_unit=SimpleNamespace(
+            unit_id="daily",
+            trade_date=date(2026, 8, 19),
+        ),
+    )
+
+    assert result.rows_written == 0
+    assert result.rows_upserted == 0
+    assert result.rows_skipped == 0
+    assert result.conflict_strategy == "serving_direct_scope_replace_empty_noop"
+    session.execute.assert_not_called()
+    session.scalars.assert_not_called()
+    session.scalar.assert_not_called()
+
+    with pytest.raises(IngestionWriteError) as fail_closed:
+        writer.write(
+            definition=get_dataset_definition("index_classify"),
+            batch=empty_batch,
+        )
+    assert fail_closed.value.structured_error.error_code == "write.scope_empty"
+    session.execute.assert_not_called()
+
+
+def test_scope_replace_rejects_rejected_multi_scope_and_date_mismatch_before_dml(
     mocker,
 ) -> None:
     session = mocker.Mock()
@@ -568,15 +609,6 @@ def test_scope_replace_rejects_empty_rejected_multi_scope_and_date_mismatch_befo
     unit = SimpleNamespace(unit_id="daily", trade_date=date(2026, 8, 14))
 
     cases = (
-        (
-            NormalizedBatch(
-                unit_id="empty",
-                rows_normalized=[],
-                rows_rejected=0,
-                rejected_reasons={},
-            ),
-            unit,
-        ),
         (
             NormalizedBatch(
                 unit_id="rejected",
@@ -609,7 +641,6 @@ def test_scope_replace_rejects_empty_rejected_multi_scope_and_date_mismatch_befo
         ),
     )
     expected_codes = (
-        "write.scope_empty",
         "write.scope_rows_rejected",
         "write.scope_invalid",
         "write.scope_preflight_failed",

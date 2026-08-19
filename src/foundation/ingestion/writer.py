@@ -304,6 +304,15 @@ class DatasetWriter:
                 details={"rows_rejected": batch.rows_rejected},
             )
         if not batch.rows_normalized:
+            if definition.quality.empty_result_policy == "allow":
+                return WriteResult(
+                    unit_id=batch.unit_id,
+                    rows_written=0,
+                    rows_upserted=0,
+                    rows_skipped=0,
+                    target_table=definition.storage.target_table,
+                    conflict_strategy="serving_direct_scope_replace_empty_noop",
+                )
             raise self._scope_replace_error(
                 code="write.scope_empty",
                 unit_id=batch.unit_id,

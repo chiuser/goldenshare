@@ -197,8 +197,8 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
                 issues.append(IngestionLintIssue(dataset_key, "scope_replace_identity_invalid", "conflict_columns 必须非空且全部为必填字段"))
             if definition.quality.reject_policy != "fail_unit_on_any_rejection":
                 issues.append(IngestionLintIssue(dataset_key, "scope_replace_reject_policy_invalid", "完整范围替换必须拒绝任意归一化失败行"))
-            if definition.quality.empty_result_policy not in {"fail_unit", "fail_unit_per_request_variant"}:
-                issues.append(IngestionLintIssue(dataset_key, "scope_replace_empty_policy_invalid", "完整范围替换必须拒绝空结果"))
+            if definition.quality.empty_result_policy not in SUPPORTED_EMPTY_RESULT_POLICIES:
+                issues.append(IngestionLintIssue(dataset_key, "scope_replace_empty_policy_invalid", "完整范围替换的空结果策略非法"))
             if not definition.quality.pre_write_validator_key:
                 issues.append(IngestionLintIssue(dataset_key, "scope_replace_validator_missing", "完整范围替换必须声明预写校验器"))
         elif storage.write_path == "serving_immutable_fact_insert":

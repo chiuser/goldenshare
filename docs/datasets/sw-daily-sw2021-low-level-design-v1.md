@@ -1,6 +1,6 @@
 # 申万 SW2021 行业日行情 `sw_daily` Prod 数据集 LLD v1
 
-> 状态：M0～M4 已完成；迁移 `20260818_000138`、分类和成员生产发布及幂等重放已通过。M5 日行情生产发布进行中：TaskRun `8724` 已完成 2026-07-01～2026-07-21 共 15 个交易日，2026-07-22 因源端两位小数 OHLC 取整口径未落地而停止；本地代码与测试已修正，待部署和剩余日期验收。
+> 状态：M0～M4 已完成；迁移 `20260818_000138`、分类和成员生产发布及幂等重放已通过。M5 日行情生产发布进行中：OHLC 取整纠偏部署后，TaskRun `8732` 已发布 2026-07-01～2026-08-18 共 35 个交易日；2026-08-19 源端尚未出数触发空结果失败。用户已拍板单日源端空结果应安全跳过、不写数据库且不使任务失败，本地声明式契约、正反例和回归已完成，待部署后生产验收。
 > 初版：2026-08-16；代码对账：2026-08-17；最终产品拍板：2026-08-18；M2/M3 纠偏验收与 M4 本地验收：2026-08-19。
 > 前置 LLD：[申万 SW2021 行业分类 `index_classify` Prod 数据集 LLD v1](./index-classify-sw2021-low-level-design-v1.md)。
 > 上游产品依据：[板块雷达产品设计方案 v1](../../wealth/docs/pages/wealth-exploration/sector-radar-product-design-v1.md)。
@@ -257,7 +257,7 @@ FRESHNESS_POLICY_BY_DATASET["sw_daily"] = CONTINUOUS_OPEN_DAY
 ```python
 "quality": {
     "reject_policy": "fail_unit_on_any_rejection",
-    "empty_result_policy": "fail_unit",
+    "empty_result_policy": "allow",
     "required_fields": (
         "source_ts_code", "ts_code", "trade_date", "name",
         "open", "low", "high", "close",
@@ -277,12 +277,13 @@ FRESHNESS_POLICY_BY_DATASET["sw_daily"] = CONTINUOUS_OPEN_DAY
 - `low <= min(open, close) <= max(open, close) <= high`；
 - `vol/amount/float_mv/total_mv` 非空时不得为负；
 - 返回行的 `trade_date` 必须全部等于 unit 日期；
-- 单日空结果在已开市日视为失败，不写零行成功状态；
+- 单日源端空结果视为“该日尚未发布”，必须在解析 DAO 和任何 DML 前安全返回 0 行 no-op；不得删除该日既有事实，也不得使整个 TaskRun 失败；
+- 空结果 no-op 不代表日期完整：Freshness/Date completeness 仍按 `trade_date` 桶报告该交易日缺失，后续可单日重试；
 - 439、414 和 25 是 M0 观测基线，不写成永久数量常量。
 
 M1 已完成 `empty_result_policy/pre_write_validator_key`、`replacement_scope_fields`、`serving_direct_scope_replace` 及对应 builder/linter、plan snapshot、运行时 preflight 和既有 write path 回归。M4 已将本数据集既定单日上限 2,000 写入 Definition，并通过通用 source-client 路径完成 2,000/2,001 行正反例；没有在 `sw_daily` row transform 内叠加局部门禁。
 
-writer 必须从单日 normalized batch 提取唯一 `trade_date` scope tuple，并与 plan unit 的 `trade_date` 相等后才允许 DML。`row_identity_filters` 继续只服务日期完整性身份过滤，不作为替换范围；本数据集没有额外身份维度，因此固定为空。零个、多个日期或 unit/batch 日期不一致均在 DML 前失败。
+writer 必须先按 `empty_result_policy` 处理空批次：`allow` 返回 0 行 no-op，`fail_unit`/`fail_unit_per_request_variant` 仍抛出 `write.scope_empty`。非空批次再提取唯一 `trade_date` scope tuple，并与 plan unit 的 `trade_date` 相等后才允许 DML。`row_identity_filters` 继续只服务日期完整性身份过滤，不作为替换范围；本数据集没有额外身份维度，因此固定为空。多个日期或 unit/batch 日期不一致均在 DML 前失败。
 
 ---
 
@@ -320,7 +321,7 @@ M1 开工时，本地仓库唯一 head 为 `20260816_000137`；M1 已生成线�
 1. request builder 明确复用当前存在的 `_daily_params`，只从 resolved unit 生成 `trade_date=YYYYMMDD`；由于 input model 不含 `ts_code`，正式请求不会带对象过滤。
 2. `build_sw_daily_units` 对 point/range 均查询上交所交易日历；禁止把用户原始 `start_date/end_date` 直接交给 Tushare，范围必须先展开为开市日 unit，单日非开市日直接失败。
 3. 每页显式发送 15 个 `source_fields`、`limit=2000`、offset。
-4. 每个交易日的全部页先合并、标准化、去重；空结果、任意 reject、日期越界、取整后 OHLC 非法、负量额或业务键冲突都在 DML 前使当日 unit 失败。OHLC 只在质量判断时分别使用十进制 `ROUND_HALF_UP` 四舍五入到整数，再校验 `low <= min(open, close) <= max(open, close) <= high`；不设置固定小数差阈值，不使用 Python 银行家舍入，原始小数值必须原样保存。只要取整后的关系合法，即使源值存在小数级交叉也允许发布；取整后仍越界才失败。
+4. 每个交易日的全部页先合并、标准化、去重。源端 0 行时直接完成该 unit，读取/保存/拒绝均为 0，不解析目标 DAO、不执行 DELETE/INSERT/read-back，也不使 TaskRun 失败；该日期仍由完整性检查报告为缺失。非空结果中的任意 reject、日期越界、取整后 OHLC 非法、负量额或业务键冲突都在 DML 前使当日 unit 失败。OHLC 只在质量判断时分别使用十进制 `ROUND_HALF_UP` 四舍五入到整数，再校验 `low <= min(open, close) <= max(open, close) <= high`；不设置固定小数差阈值，不使用 Python 银行家舍入，原始小数值必须原样保存。只要取整后的关系合法，即使源值存在小数级交叉也允许发布；取整后仍越界才失败。
 5. `serving_direct_scope_replace` 从 normalized batch 提取唯一 `trade_date` 并与当前 unit 对账，只参数化替换该日期范围：同一事务内删除旧日期范围、插入完整新集合、比较源/目标代码键集和内容摘要；失败整体回滚。
 6. point/range 重放按日期 scope 幂等；禁止 `TRUNCATE`、无条件 DELETE、跨日期删除或把部分页提前提交。
 7. 日期完整性服务只验证日期桶存在；当日行数、代码集合、分类内外分布和内容摘要由 writer read-back 与发布验收报告负责，不得写成现有 completeness 能力。
@@ -338,7 +339,7 @@ M1 开工时，本地仓库唯一 head 为 `20260816_000137`；M1 已生成线�
 | Schedule | 首版 `schedule_enabled=False`；本文不确定生产触发时间，也不创建 schedule seed |
 | Workflow | 首版不新增；正式自动化需在运行时确认交易日和源端就绪 |
 
-排程启用前必须另做申万源端到达时间审计，给出“空结果/未齐备不发布、延迟重试、最终失败”规则。不能沿用东财数据集时间或凭产品希望值直接设 cron。
+排程启用前必须另做申万源端到达时间审计，给出“空结果安全跳过、缺口可观测、延迟重试、最终失败”规则。不能沿用东财数据集时间或凭产品希望值直接设 cron。
 
 ### 7.3 后续业务消费者契约
 
@@ -488,7 +489,7 @@ null_pe_rows = 1
 ### 9.5 M4 实际验收记录（2026-08-19）
 
 - Tushare 只读复核：`20260814` 显式 15 字段为 439 行、439 个唯一代码，`pe` 空 1 行；未执行任何源端或 Prod 写入。
-- M1～M4 申万专项与三组 Ops API 回归：53 passed；覆盖 2,000/2,001 行、60/61 units、439/414/25 保留、空结果、部分 reject、日期越界、OHLC/负量额、同日替换、跨日保护和幂等重放。
+- M1～M4 申万专项与三组 Ops API 回归：53 passed；覆盖 2,000/2,001 行、60/61 units、439/414/25 保留、原空结果失败口径、部分 reject、日期越界、OHLC/负量额、同日替换、跨日保护和幂等重放。M5 空结果口径按用户最新拍板另行纠偏，不回写为当时已通过。
 - M4 后端专项：7 passed；M4 Web API 专项：6 passed。
 - 前端：规则检查、TypeScript typecheck、production build 均通过；Playwright 的 SW2021 Manual Actions 契约 1 passed，已实际切换 point/range，并验证 point 提交只含 `trade_date` 和空 filters。
 - 扩展通用 Definition/source/planner/freshness/card/completeness/manual-action 回归为 167 passed、1 failed；唯一失败是未改动的既有 `kpl_list` 卡片 freshness 用例（期望 `fresh`，当前返回 `unconfirmed`），单独复跑仍失败。它不在 M4 调用链或文件范围内，本轮按“不得跑偏”约束未修改该模块，也不把该失败写成 M4 通过项。
@@ -502,7 +503,16 @@ M4 验收只证明本地代码契约和事务行为满足 LLD；生产迁移、�
 - 生产同源只读复核发现两条同类样本：`801280.SI@20260722` 的 `high=2513.36/close=2513.37`，`801270.SI@20260817` 的 `high=4279.41/close=4279.42`。两条源值直接比较均交叉 `0.01`，但按 `ROUND_HALF_UP` 四舍五入取整后上下界一致。
 - 用户最终拍板：不采用 `0.01` 或其他固定小数阈值；OHLC 合法性统一按四个点位各自四舍五入取整后的关系判断，原始值不改写。取整一致的微小交叉接受，取整后仍越界拒绝。
 - 本地实现已使用十进制 `ROUND_HALF_UP` 落地该规则；生产样本、无固定阈值样本、上下界取整一致和取整后越界正反例均已通过，SW2021 专项 53 passed，Foundation 最小门禁 157 passed。
-- 同期源端复核中 2026-08-19 返回 0 行；这是源数据尚未生成的独立阻断，不能通过 OHLC 规则规避。代码部署后先补 2026-07-22～2026-08-18，2026-08-19 待源端有数据后单独执行。
+- 同期源端复核中 2026-08-19 返回 0 行；它与 OHLC 规则无关。OHLC 纠偏部署后 TaskRun `8732` 已将 2026-07-01～2026-08-18 共 35 个交易日全部发布，每日 439 行；但 2026-08-19 空结果仍被旧 `fail_unit` 契约判为失败。
+
+### 9.7 M5 单日空结果纠偏（2026-08-19）
+
+- TaskRun `8732` 于 14:29 请求 2026-07-01～2026-08-19 共 36 个交易日；前 35 日共读取并保存 15,365 行，最后一个 unit `sw_daily:2026-08-19:35` 因源端 0 行触发 `write.scope_empty`。Prod 只读核验确认 2026-08-18 为 439 行，2026-08-19 为 0 行；同参数源端实测分别返回 439/0 行。
+- 用户最终拍板：尚未出数的单个交易日不应报错；请求源端无返回时，不需要也不得写入数据库。
+- 实现边界固定为声明式策略：只将 `sw_daily.empty_result_policy` 改为 `allow`；分类快照 `index_classify=fail_unit`、成员快照 `index_member_all=fail_unit_per_request_variant` 保持失败关闭。通用 scope-replace writer 按声明处理空批次，不得按 `dataset_key` 硬编码。
+- 空结果 no-op 必须发生在 DAO 解析和任何 DML 前，TaskRun 正常完成；但 `trade_date` 桶仍不存在，Freshness/Date completeness 必须继续报告缺口，禁止把 no-op 伪装成数据已发布。
+- 正例：范围中最后一天空结果时，前序日期正常提交、最后一天 0 读取/0 保存/0 拒绝、总任务成功。反例：`fail_unit` 完整快照空结果仍报 `write.scope_empty`；任意 reject、日期错配、非法 OHLC、跨日范围仍失败且不发生目标 DML。
+- 本地验收：申万 M1～M4 与三组 Ops API 共 55 passed；Foundation Definition/resolver/runtime/codebook 最小门禁 160 passed；Ruff、`ingestion-lint-definitions` 和 `git diff --check` 均通过。
 
 ---
 
@@ -517,7 +527,7 @@ M4 验收只证明本地代码契约和事务行为满足 LLD；生产迁移、�
 | SD-005 | 15 个源字段保真 | source/normalizer/ORM | 显式 source_fields | 不适用 | Definition、ORM、迁移 | 全字段 payload/落库 | 漏身份/OHLC 字段失败 | 20260814 样本 | M1/M4/M5 | M1/M4 已完成；待 M5 Prod read-back |
 | SD-006 | 源码与业务码分离 | normalization/下游 | 共享 code contracts | 不以源码关联 | contracts、transform、ORM | 850412 保持 | 850401 未归一/840401 失败 | 关键码 read-back | M1/M4/M5 | M1/M4 已完成；待 M5 Prod read-back |
 | SD-007 | 保存当日全部源行 | writer/read-back | 不在 Foundation 过滤分类外指数 | 不适用 | writer、ORM | 439 源行全入 | 擅自过滤 25 行失败 | 439/414/25 对账 | M4/M5 | M4 本地 439/414/25 保留完成；待 M5 Prod 对账 |
-| SD-008 | 空结果/任意 reject 不发布；OHLC 按金融四舍五入取整后判断 | normalizer/writer | quality preflight + batch validator；`ROUND_HALF_UP` 取整只用于判断，源值原样保存 | TaskRun 结构化失败 | models、writer、codebook | nullable 指标允许；取整后关系合法的源端小数交叉允许发布 | 空、日期越界、固定小数阈值、银行家舍入、取整后 OHLC/负值非法或部分 reject 回滚 | 四段行数与 20260722/20260817 样本对账 | M1/M4/M5 | 本地代码与正反例已完成；待部署和生产重放 |
+| SD-008 | 单日空结果安全跳过；任意 reject 不发布；OHLC 按金融四舍五入取整后判断 | Definition/normalizer/writer/completeness | `empty_result_policy=allow`；空批次在任何 DML 前 no-op；非空批次执行 quality preflight；`ROUND_HALF_UP` 只用于判断，源值原样保存 | 空结果任务成功但日期仍显示缺口；其他非法事实结构化失败 | Definition、builder、linter、writer、completeness | 空日 0 读取/0 保存且既有数据不变；nullable 指标允许；取整后关系合法的小数交叉允许发布 | `fail_unit` 数据集空结果仍失败；日期越界、固定小数阈值、银行家舍入、取整后 OHLC/负值非法或部分 reject 回滚 | TaskRun 8732、四段行数与 20260722/20260817 样本对账 | M1/M4/M5 | 本地实现与正反例已完成；待部署和生产重放 |
 | SD-009 | 同日精确替换且幂等 | writer/DAO | 限定 `trade_date` scope replace + read-back | 不适用 | writer、DAO | 同日重放摘要一致 | 无 where/跨日期/部分页发布失败 | 两次 APPLY/read-back | M1/M4/M5 | M1/M4 本地事务完成；待 M5 Prod APPLY/read-back |
 | SD-010 | 日期完整性只证明桶存在 | completeness/freshness | date_bucket distinct date | 展示日期缺口，不宣称行数完整 | Definition、Ops audit | 开市日桶存在 | 非交易日误报/把部分行当集合验收失败 | 日期审计+独立 key set 报告 | M4/M5 | M4 Definition/API 完成；待 M5 Prod 日期审计 |
 | SD-011 | 产品只取当前发布行业 | 后续 Biz 查询 | 与 classification 的 `is_pub=true` 内连接 | 后续雷达展示 | 后续 Biz 实现 | 414 行 | 25+97 进入榜失败 | 查询对账 | 雷达阶段 | 待实施 |
@@ -537,7 +547,7 @@ M4 验收只证明本地代码契约和事务行为满足 LLD；生产迁移、�
 | M2 分类数据集 | 完成 `index_classify` request、分页、transform、双唯一性、层级闭包、Ops 派生及正反例 | 511 与 31/134/346 等基线可解释；空/错码/孤儿/跨范围替换均阻断；本地或测试库幂等 | 已完成；Prod TaskRun `8714/8717` 发布与幂等重放通过，511 行内容摘要一致 |
 | M3 成员数据集 | 完成单 unit 的 Y/N fan-in、分页、标准化、分类三级闭包、原子替换及 Ops 正反例 | Y/N 任一失败目标零变化；7,899 基线、唯一键、日期和闭包可解释；本地或测试库幂等 | 已完成；Prod TaskRun `8718/8719` 发布与幂等重放通过，7,899 行内容摘要一致 |
 | M4 日行情数据集 | 完成交易日 point/range unit、15 字段、全源行保留、同日原子替换、freshness/completeness 及 Ops 正反例 | 非交易日、宽区间直传、日期越界、过滤 25 行、跨日删除均阻断；单日本地幂等 | 已完成（2026-08-19）；最终 OHLC 取整口径已完成本地代码与正反例纠偏 |
-| M5 生产最小发布 | 经单独授权后重新核验仓库/Prod Alembic head，部署并执行迁移；按分类→成员→一个交易日日行情同步 | 三段 fetched/normalized/rejected/written/target 对账、read-back 和幂等重放全部通过；不包含历史回补 | 进行中；迁移、分类和成员已通过，日行情已发布 2026-07-01～2026-07-21，待部署取整校验后补齐并重放 |
+| M5 生产最小发布 | 经单独授权后重新核验仓库/Prod Alembic head，部署并执行迁移；按分类→成员→一个交易日日行情同步 | 三段 fetched/normalized/rejected/written/target 对账、read-back 和幂等重放全部通过；不包含历史回补 | 进行中；迁移、分类和成员已通过，日行情已发布 2026-07-01～2026-08-18；单日空结果 no-op 已完成本地纠偏，待部署后重放 2026-08-19：源端仍为空时验收任务成功/0 DML，源端已出数时验收 439 行正常发布 |
 | M6 历史事实与回补 | 核验成员 `out_date` 边界，审计 `sw_daily` 全代码历史覆盖、配额、耗时与事务预算，提交明确窗口 | 用户批准具体日期范围后才能 PLAN/APPLY；全窗口 read-back 与幂等重放通过 | 未开始 |
 | M7 自动化 | 审计三个源接口到达/变化节奏，设计独立 readiness、重试和最终失败规则 | 用户另行批准生产 schedule 的创建与启用；不得把当前 `schedule_enabled=False` 静默改为 true | 未开始 |
 
@@ -552,4 +562,4 @@ M4 验收只证明本地代码契约和事务行为满足 LLD；生产迁移、�
 - 需要 Raw/Lake、生产账号、连接、无条件删除、跨日期删除或未评审排程；
 - 未完成全代码历史审计却要求启动长期回补或宣称 3～5 年完整。
 
-M5 已按用户授权进入生产发布，迁移、分类和成员已完成，日行情 OHLC 取整口径已完成本地纠偏并等待部署。本轮不授权新增迁移、历史回补、研究物化或排程启用；部署后只恢复已批准日期范围并完成 read-back 与幂等验收。
+M5 已按用户授权进入生产发布，迁移、分类和成员已完成，日行情已发布到 2026-08-18；单日空结果 no-op 已完成本地纠偏并等待部署。本轮不授权新增迁移、历史回补、研究物化或排程启用；部署后只重放已批准的 2026-08-19：若源端仍为空，则核验任务成功、0 DML 和日期缺口仍可见；若源端已出数，则按正常单日发布完成 read-back。

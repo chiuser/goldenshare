@@ -220,6 +220,8 @@ def test_sw_daily_definition_and_plan_freeze_daily_full_market_contract(mocker) 
     assert definition.planning.max_units_per_execution == 60
     assert definition.planning.fetch_concurrency == 1
     assert definition.planning.page_processing_mode == "buffer_all"
+    assert definition.quality.empty_result_policy == "allow"
+    assert plan.quality.empty_result_policy == "allow"
     assert definition.capabilities.get_action("maintain").schedule_enabled is False
 
     trade_calendar.get_open_dates.assert_called_once_with(
@@ -761,13 +763,17 @@ def test_sw_daily_executor_replaces_only_one_day_and_is_atomic_and_idempotent(
     )
 
     connector.rows = []
-    with pytest.raises(IngestionWriteError) as empty:
-        IngestionExecutor(daily_session).run(
-            request=_validated_request(plan),
-            definition=definition,
-            units=plan.units,
-        )
-    assert empty.value.structured_error.error_code == "write.scope_empty"
+    empty = IngestionExecutor(daily_session).run(
+        request=_validated_request(plan),
+        definition=definition,
+        units=plan.units,
+    )
+    assert empty.unit_done == 1
+    assert empty.unit_failed == 0
+    assert empty.rows_fetched == 0
+    assert empty.rows_written == 0
+    assert empty.rows_committed == 0
+    assert empty.rows_rejected == 0
     assert (
         daily_session.scalar(
             select(func.count())
@@ -775,6 +781,61 @@ def test_sw_daily_executor_replaces_only_one_day_and_is_atomic_and_idempotent(
             .where(SwIndustryDaily.trade_date == date(2026, 8, 14))
         )
         == 439
+    )
+
+
+def test_sw_daily_range_completes_when_latest_source_day_is_empty(
+    daily_session: Session,
+    mocker,
+) -> None:
+    definition = get_dataset_definition("sw_daily")
+    plan, _ = _plan(
+        mocker,
+        time_input=DatasetTimeInput(
+            mode="range",
+            start_date=date(2026, 8, 18),
+            end_date=date(2026, 8, 19),
+        ),
+        open_dates=[date(2026, 8, 18), date(2026, 8, 19)],
+    )
+    connector = _DailyConnector(_full_market_rows(trade_date="20260818"))
+    mocker.patch(
+        "src.foundation.ingestion.source_client.create_source_connector",
+        return_value=connector,
+    )
+
+    summary = IngestionExecutor(daily_session).run(
+        request=_validated_request(plan),
+        definition=definition,
+        units=plan.units,
+    )
+
+    assert summary.unit_total == 2
+    assert summary.unit_done == 2
+    assert summary.unit_failed == 0
+    assert summary.rows_fetched == 439
+    assert summary.rows_written == 439
+    assert summary.rows_committed == 439
+    assert summary.rows_rejected == 0
+    assert [call["trade_date"] for call in connector.calls] == [
+        "20260818",
+        "20260819",
+    ]
+    assert (
+        daily_session.scalar(
+            select(func.count())
+            .select_from(SwIndustryDaily)
+            .where(SwIndustryDaily.trade_date == date(2026, 8, 18))
+        )
+        == 439
+    )
+    assert (
+        daily_session.scalar(
+            select(func.count())
+            .select_from(SwIndustryDaily)
+            .where(SwIndustryDaily.trade_date == date(2026, 8, 19))
+        )
+        == 0
     )
 
 
