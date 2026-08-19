@@ -511,6 +511,50 @@ def test_sw_daily_prewrite_rejects_invalid_market_facts(
     validator = get_pre_write_validator("sw2021_daily_scope")
     validator(daily_session, normalized, definition, plan.units[0])
 
+    production_rounding_sample = deepcopy(normalized)
+    production_rounding_sample[0].update(
+        {
+            "open": 2490.93,
+            "low": 2485.29,
+            "high": 2513.36,
+            "close": 2513.37,
+        }
+    )
+    validator(daily_session, production_rounding_sample, definition, plan.units[0])
+    assert production_rounding_sample[0]["high"] == 2513.36
+    assert production_rounding_sample[0]["close"] == 2513.37
+
+    same_integer_without_fixed_decimal_tolerance = deepcopy(normalized)
+    same_integer_without_fixed_decimal_tolerance[0].update(
+        {
+            "open": 2490.93,
+            "low": 2485.29,
+            "high": 2513.01,
+            "close": 2513.49,
+        }
+    )
+    validator(
+        daily_session,
+        same_integer_without_fixed_decimal_tolerance,
+        definition,
+        plan.units[0],
+    )
+    same_integer_lower_boundary = deepcopy(normalized)
+    same_integer_lower_boundary[0].update(
+        {
+            "open": 2485.01,
+            "low": 2485.49,
+            "high": 2513.0,
+            "close": 2490.0,
+        }
+    )
+    validator(
+        daily_session,
+        same_integer_lower_boundary,
+        definition,
+        plan.units[0],
+    )
+
     cases: list[tuple[list[dict], str]] = []
     wrong_version = deepcopy(normalized)
     wrong_version[0]["classification_version"] = "SW2014"
@@ -518,6 +562,26 @@ def test_sw_daily_prewrite_rejects_invalid_market_facts(
     bad_ohlc = deepcopy(normalized)
     bad_ohlc[0]["low"] = 103.0
     cases.append((bad_ohlc, "OHLC 关系非法"))
+    half_up_integer_boundary = deepcopy(normalized)
+    half_up_integer_boundary[0].update(
+        {
+            "open": 2490.93,
+            "low": 2485.29,
+            "high": 2513.49,
+            "close": 2513.50,
+        }
+    )
+    cases.append((half_up_integer_boundary, "OHLC 关系非法"))
+    half_up_lower_boundary = deepcopy(normalized)
+    half_up_lower_boundary[0].update(
+        {
+            "open": 2485.49,
+            "low": 2485.50,
+            "high": 2513.0,
+            "close": 2490.0,
+        }
+    )
+    cases.append((half_up_lower_boundary, "OHLC 关系非法"))
     for field_name in ("vol", "amount", "float_mv", "total_mv"):
         negative = deepcopy(normalized)
         negative[0][field_name] = -1.0
