@@ -33,8 +33,8 @@ WMT-1 到 WMT-5 原始范围不做：
 1. `points_json` 在 Parquet 里必须使用 `JSON` 逻辑类型。
 2. 历史 backfill 必做，历史范围对齐 `silver_stk_mins` 的历史范围。
 3. WMT-1 到 WMT-5 暂不把 gold lake 结果同步回 `core_serving.wealth_market_turnover_snapshot`；WMT-6 已拍板改为同一 job 内的下游 prod sync asset 落地，不把 prod 写入塞进 gold asset 函数。
-4. 日更启动时间为 `silver_stk_mins` 日更时间 + 10 分钟；当前代码中 `STOCK_MINS_SILVER_RUN_START = 19:50`，因此本资产日更窗口为 `20:00`。
-5. 即使到了 `20:00`，也必须等当日五个 silver 频度全部 ready 才触发。
+4. 日更启动时间为 `silver_stk_mins` 日更时间 + 10 分钟；当前代码中 `STOCK_MINS_SILVER_RUN_START = 19:40`，因此本资产日更窗口为 `19:50`。
+5. 即使到了 `19:50`，也必须等当日五个 silver 频度全部 ready 才触发。
 6. 如果某天只有部分 silver 频度 ready，则本资产全失败，不允许写入部分频度结果，由上游先处理错误。
 7. WMT-6 prod sync asset 名称确认为 `prod_core_wealth_market_turnover`。
 8. WMT-6 第一版不新增 prod sync check，只在 asset 内部做事务内校验和写后读回审计。
@@ -493,8 +493,8 @@ WMT-6 后 sensor 决策必须扩展：
 运行时间门槛：
 
 1. 日更窗口固定为 `silver_stk_mins` 日更时间 + 10 分钟。
-2. 当前代码中 `STOCK_MINS_SILVER_RUN_START = time(19, 50)`，因此本 sensor 的运行窗口为 `20:00`。
-3. `20:00` 只是允许检查的时间门槛，不代表一定触发；只有当日五个 `silver_stk_mins` 频度全部 ready，才允许发起 gold run。
+2. 当前代码中 `STOCK_MINS_SILVER_RUN_START = time(19, 40)`，因此本 sensor 的运行窗口为 `19:50`。
+3. `19:50` 只是允许检查的时间门槛，不代表一定触发；只有当日五个 `silver_stk_mins` 频度全部 ready，才允许发起 gold run。
 4. 实现时优先从 `STOCK_MINS_SILVER_RUN_START` 推导 `GOLD_WEALTH_MARKET_TURNOVER_RUN_START`，不要另设散落配置。
 
 ## 10. 历史 Backfill 设计
@@ -799,7 +799,7 @@ WMT-1 到 WMT-5 新增 `tests/test_gold_wealth_market_turnover_sensor.py` 和 `t
 8. run request 使用 `build_run_request(...)`。
 9. cursor 使用 `build_sensor_cursor(...)`。
 10. job selection 只包含 `gold_wealth_market_turnover` 和一个 check，不包含 silver 上游。
-11. `20:00` 前 skip；`20:00` 后但 silver 五频度未全部 ready 仍 skip。
+11. `19:50` 前 skip；`19:50` 后但 silver 五频度未全部 ready 仍 skip。
 12. 只有部分 silver 频度 ready 时，全失败，不写部分结果。
 
 WMT-6 需要补充：
@@ -909,7 +909,7 @@ WMT-6 建议推进顺序：
 | 当前 Wealth API 只消费 `freq=30` | 资产仍生成五个频度，保持原服务表完整契约；不要为了当前页面裁掉其他频度。 |
 | 历史数据是否需要 backfill | 已拍板必须 backfill，范围对齐 `silver_stk_mins` 历史范围；执行前另列 backfill 计划。 |
 | backfill 状态数据量 | 已拍板使用 direct lake bootstrap + 最近 20 个交易日 runless event，不为全历史生成 Dagster runs/check events。 |
-| sensor 启用时间 | 已拍板日更窗口为 silver 日更时间 + 10 分钟，即当前 `20:00`；但仍必须等当日五频度 silver ready。 |
+| sensor 启用时间 | 已拍板日更窗口为 silver 日更时间 + 10 分钟，即当前 `19:50`；但仍必须等当日五频度 silver ready。 |
 | 部分频度 ready | 已拍板全失败，不写部分结果。 |
 
 ## 16. 开发完成验收口径

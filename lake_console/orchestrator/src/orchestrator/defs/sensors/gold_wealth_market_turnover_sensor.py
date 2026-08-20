@@ -118,7 +118,7 @@ def build_gold_wealth_market_turnover_update_decision(
             target_trade_date=target_trade_date,
             run_window_started=False,
             selected_trade_date=None,
-            reason="财富成交额 gold 日常更新窗口尚未到 20:00，暂不触发。",
+            reason="财富成交额 gold 日常更新窗口尚未到 19:50，暂不触发。",
             reason_code="run_window_not_started",
             blocked_component=blocked_component,
         )

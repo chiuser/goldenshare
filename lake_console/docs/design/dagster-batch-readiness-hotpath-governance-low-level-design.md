@@ -221,7 +221,7 @@ if not run_window_started:
         target_trade_date=None,
         run_window_started=False,
         selected_trade_date=None,
-        reason="股票分钟线 gold qfq 日常更新窗口尚未到 20:10，暂不触发。",
+        reason="股票分钟线 gold qfq 日常更新窗口尚未到 19:50，暂不触发。",
     )
     return dg.SensorResult(
         skip_reason=decision.reason,
@@ -261,7 +261,7 @@ gold_status
 
 ### 5.2 `stock_mins_qfq_factor_repair_sensor`
 
-目标顺序同上，窗口为 `STOCK_MINS_QFQ_FACTOR_REPAIR_RUN_START = 20:40`。
+目标顺序同上，窗口为 `STOCK_MINS_QFQ_FACTOR_REPAIR_RUN_START = 20:05`。
 
 窗口前禁止调用：
 

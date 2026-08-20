@@ -113,7 +113,7 @@ class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
         self.assertIsNone(no_partition.selected_trade_date)
         self.assertIn("没有注册", no_partition.reason)
         self.assertIsNone(before_window.selected_trade_date)
-        self.assertIn("19:50", before_window.reason)
+        self.assertIn("19:40", before_window.reason)
 
     def test_decision_skips_when_any_upstream_readiness_gate_is_not_ready(self) -> None:
         gate_cases = (
@@ -255,7 +255,7 @@ class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
         self.assertIn("silver_stk_mins checks", cursor["details"]["next_action"])
         self.assertIsNotNone(cursor["details"]["gate_statuses"]["raw_stk_mins"])
         self.assertIsNotNone(cursor["details"]["gate_statuses"]["silver_stk_mins"])
-        self.assertEqual(STOCK_MINS_SILVER_RUN_START.isoformat(), "19:50:00")
+        self.assertEqual(STOCK_MINS_SILVER_RUN_START.isoformat(), "19:40:00")
         for fragment in (
             "status_samples",
             "to_cursor_details",

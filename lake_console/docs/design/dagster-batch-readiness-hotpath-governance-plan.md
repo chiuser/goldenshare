@@ -77,9 +77,9 @@ Sensor daemon caught an error for sensor stock_mins_qfq_factor_repair_sensor
 DagsterUserCodeUnreachableError: The sensor tick timed out due to taking longer than 60 seconds to execute the sensor function.
 ```
 
-直接现象是 sensor tick 超过 Dagster user-code gRPC 60 秒超时。初步止血点是：`stock_mins_qfq_factor_repair_sensor` 在 20:40 运行窗口前仍会执行重型 readiness 查询，窗口判断位置过晚。
+直接现象是 sensor tick 超过 Dagster user-code gRPC 60 秒超时。初步止血点是：`stock_mins_qfq_factor_repair_sensor` 在 20:05 运行窗口前仍会执行重型 readiness 查询，窗口判断位置过晚。
 
-但这不是根因。根因是 `batch_gold_stk_mins_qfq_lake_readiness(...)` 名称叫 batch，实际实现仍然包含按日期、按频度重复执行重 SQL 的模型。窗口前 early skip 只能避免未到时间窗口时白跑；一旦到了 20:40，如果这个 readiness 本身超过 60 秒，sensor 仍会 timeout。
+但这不是根因。根因是 `batch_gold_stk_mins_qfq_lake_readiness(...)` 名称叫 batch，实际实现仍然包含按日期、按频度重复执行重 SQL 的模型。窗口前 early skip 只能避免未到时间窗口时白跑；一旦到了 20:05，如果这个 readiness 本身超过 60 秒，sensor 仍会 timeout。
 
 因此本专项目标不是只修窗口判断，而是治理所有 sensor hot path 中“名为 batch，实为逐日重扫”的实现。
 
@@ -161,8 +161,8 @@ batch_gold_stk_mins_qfq_lake_readiness
 
 | Sensor | 当前调用 | 影响 |
 | --- | --- | --- |
-| `stock_mins_qfq_daily_sensor` | 同一 tick 内依次调用 silver batch、adj factor batch、gold qfq batch | 到 20:10 后可能被 gold qfq readiness 拖到 60 秒以上。 |
-| `stock_mins_qfq_factor_repair_sensor` | 调用 gold qfq batch 后再决定是否读 factor repair status | 到 20:40 后仍可能 timeout；窗口前也会白跑重查询。 |
+| `stock_mins_qfq_daily_sensor` | 同一 tick 内依次调用 silver batch、adj factor batch、gold qfq batch | 到 19:50 后可能被 gold qfq readiness 拖到 60 秒以上。 |
+| `stock_mins_qfq_factor_repair_sensor` | 调用 gold qfq batch 后再决定是否读 factor repair status | 到 20:05 后仍可能 timeout；窗口前也会白跑重查询。 |
 
 ### 4.3 为什么 10 天窗口不是根治
 

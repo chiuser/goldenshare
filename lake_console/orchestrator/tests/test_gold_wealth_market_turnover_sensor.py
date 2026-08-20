@@ -31,7 +31,7 @@ from orchestrator.defs.sensors.gold_wealth_market_turnover_sensor import (
 PARTITION_KEY = "2026-06-22"
 NEXT_PARTITION_KEY = "2026-06-23"
 AFTER_WINDOW = datetime(2026, 6, 23, 20, 5, tzinfo=ZoneInfo("Asia/Shanghai"))
-BEFORE_WINDOW = datetime(2026, 6, 23, 19, 55, tzinfo=ZoneInfo("Asia/Shanghai"))
+BEFORE_WINDOW = datetime(2026, 6, 23, 19, 45, tzinfo=ZoneInfo("Asia/Shanghai"))
 
 
 def _datetime_with_now(value: datetime):
@@ -252,7 +252,7 @@ class GoldWealthMarketTurnoverSensorTests(unittest.TestCase):
             gold_wealth_market_turnover_update_job_sensor.default_status,
             dg.DefaultSensorStatus.STOPPED,
         )
-        self.assertEqual(GOLD_WEALTH_MARKET_TURNOVER_RUN_START.isoformat(), "20:00:00")
+        self.assertEqual(GOLD_WEALTH_MARKET_TURNOVER_RUN_START.isoformat(), "19:50:00")
 
     def test_decision_contracts(self) -> None:
         before_window = build_gold_wealth_market_turnover_update_decision(
@@ -338,7 +338,7 @@ class GoldWealthMarketTurnoverSensorTests(unittest.TestCase):
             )
 
         self.assertEqual(result.run_requests, [])
-        self.assertIn("20:00", result.skip_reason.skip_message)
+        self.assertIn("19:50", result.skip_reason.skip_message)
         load_trade_dates.assert_not_called()
         cursor = json.loads(result.cursor)
         self.assertIn("日更窗口还没到", cursor["details"]["summary"])

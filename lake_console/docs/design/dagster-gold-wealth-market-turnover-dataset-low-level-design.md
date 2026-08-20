@@ -36,7 +36,7 @@ WMT-1 到 WMT-5 硬口径：
 7. 历史 backfill 必做，范围对齐 `silver_stk_mins` 历史范围。
 8. 历史文件生成走 `Direct Lake Bootstrap + Runless Event Backfill`，不走 Dagster backfill 为全历史创建 run。
 9. 历史 runless 状态只补最近 20 个交易日，不补全历史 materialization/check event。
-10. 日更 sensor 默认 `STOPPED`，窗口为 `STOCK_MINS_SILVER_RUN_START + 10min = 20:00`，且必须等五个 silver 频度全 ready。
+10. 日更 sensor 默认 `STOPPED`，窗口为 `STOCK_MINS_SILVER_RUN_START + 10min = 19:50`，且必须等五个 silver 频度全 ready。
 11. 部分频度 ready 时，全失败，不写部分结果。
 12. 不新增 resource、数据库表、summary asset、readiness asset、status manifest 或配置项。
 13. 不运行 `dg`、job、sensor、materialize、backfill 或正式 instance 命令，除非单独审批。
@@ -97,7 +97,7 @@ WMT-6 新增硬口径：
 | `lake_console/orchestrator/tests/test_gold_wealth_market_turnover_asset.py` | asset 计算、JSON、单位转换、原子替换、缺源失败。 |
 | `lake_console/orchestrator/tests/test_gold_wealth_market_turnover_checks.py` | 单 check 两阶段语义、metadata failure_stage。 |
 | `lake_console/orchestrator/tests/test_gold_wealth_market_turnover_lake_readiness.py` | gold readiness helper 最近窗口、完整 integrity 语义、失败样本。 |
-| `lake_console/orchestrator/tests/test_gold_wealth_market_turnover_sensor.py` | 默认停止、20:00 窗口、silver 全 ready、单 tick 1 run、cursor/run key。 |
+| `lake_console/orchestrator/tests/test_gold_wealth_market_turnover_sensor.py` | 默认停止、19:50 窗口、silver 全 ready、单 tick 1 run、cursor/run key。 |
 | `lake_console/orchestrator/tests/test_gold_wealth_market_turnover_job.py` | job selection 只含本 asset 和一个 check。 |
 | `lake_console/orchestrator/tests/test_wealth_market_turnover_history_bootstrap.py` | direct lake bootstrap dry-run/sample/full helper，不走 Python 行循环。 |
 | `lake_console/orchestrator/tests/test_wealth_market_turnover_runless_events.py` | 最近 20 日 runless event plan、dry-run 不写、apply 绑定 materialization。 |
@@ -726,7 +726,7 @@ GOLD_WEALTH_MARKET_TURNOVER_RUN_START = (
 ).time()
 ```
 
-当前推导值为 `20:00`。
+当前推导值为 `19:50`。
 
 ### 8.2 Sensor definition
 
@@ -1356,7 +1356,7 @@ WMT-6 增量：
 
 1. job selection 正确。
 2. sensor 默认 STOPPED。
-3. 20:00 前轻量 skip。
+3. 19:50 前轻量 skip。
 4. silver 五频度未全 ready 时 skip，且不扫描 gold readiness。
 5. 每 tick 最多一个 run。
 

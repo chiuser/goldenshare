@@ -71,7 +71,7 @@ class _AfterSilverRunWindowDateTime(datetime):
 class _BeforeSilverRunWindowDateTime(datetime):
     @classmethod
     def now(cls, tz=None):
-        return cls(2026, 6, 16, 19, 49, tzinfo=tz)
+        return cls(2026, 6, 16, 19, 39, tzinfo=tz)
 
 
 class _AfterQfqDailyWindowDateTime(datetime):
@@ -83,7 +83,7 @@ class _AfterQfqDailyWindowDateTime(datetime):
 class _BeforeQfqDailyWindowDateTime(datetime):
     @classmethod
     def now(cls, tz=None):
-        return cls(2026, 6, 16, 20, 5, tzinfo=tz)
+        return cls(2026, 6, 16, 19, 45, tzinfo=tz)
 
 
 class _AfterQfqFactorRepairWindowDateTime(datetime):
@@ -95,7 +95,7 @@ class _AfterQfqFactorRepairWindowDateTime(datetime):
 class _BeforeQfqFactorRepairWindowDateTime(datetime):
     @classmethod
     def now(cls, tz=None):
-        return cls(2026, 6, 16, 20, 35, tzinfo=tz)
+        return cls(2026, 6, 16, 20, 0, tzinfo=tz)
 
 
 class _Instance:
@@ -1360,7 +1360,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             result = stock_mins_silver_sensor._raw_fn(context)
 
         self.assertEqual(result.run_requests, [])
-        self.assertIn("19:50", _skip_message(result))
+        self.assertIn("19:40", _skip_message(result))
         silver_batch_mock.assert_called_once()
         raw_batch_mock.assert_called_once()
 
@@ -1903,7 +1903,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             result = stock_mins_qfq_daily_sensor._raw_fn(context)
 
         self.assertEqual(result.run_requests, [])
-        self.assertIn("20:10", _skip_message(result))
+        self.assertIn("19:50", _skip_message(result))
 
         cursor = json.loads(result.cursor)
         self.assertIsNone(cursor["target_date"])
@@ -1936,7 +1936,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             result = stock_mins_qfq_factor_repair_sensor._raw_fn(context)
 
         self.assertEqual(result.run_requests, [])
-        self.assertIn("20:40", _skip_message(result))
+        self.assertIn("20:05", _skip_message(result))
 
         cursor = json.loads(result.cursor)
         self.assertIsNone(cursor["target_date"])

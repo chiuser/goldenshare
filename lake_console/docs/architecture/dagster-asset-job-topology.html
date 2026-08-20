@@ -884,21 +884,21 @@
           <td><code>stock_mins_silver_update_job</code></td>
           <td><code>silver_stk_mins_1m/5m/15m/30m/60m</code> + checks</td>
           <td>单个交易日五个频度分钟线 silver 标准化。</td>
-          <td>人工 partition run 或 <code>stock_mins_silver_sensor</code> 19:50 后自动触发；日常 silver 分区注册仍由 <code>stock_mins_silver_trade_day_sensor</code> 承担。</td>
+          <td>人工 partition run 或 <code>stock_mins_silver_sensor</code> 19:40 后自动触发；日常 silver 分区注册仍由 <code>stock_mins_silver_trade_day_sensor</code> 承担。</td>
           <td>只 selection silver assets 与 silver checks；不顺手更新 raw、gold、stock basic、stock daily、suspend、identity map 或 namechange。</td>
         </tr>
         <tr>
           <td><code>stock_mins_qfq_daily_update_job</code></td>
           <td><code>gold_stk_mins_qfq_1m/5m/15m/30m/60m/90m/120m</code> + checks</td>
           <td>单个交易日七个频度股票分钟线前复权 gold。</td>
-          <td>人工 partition run 或 <code>stock_mins_qfq_daily_sensor</code> 20:10 后自动触发；sensor readiness 使用最近 10 个 expected trade dates 的 lake batch readiness，并通过 effective qfq readiness 识别 repair-adjusted 历史日期。</td>
+          <td>人工 partition run 或 <code>stock_mins_qfq_daily_sensor</code> 19:50 后自动触发；sensor readiness 使用最近 10 个 expected trade dates 的 lake batch readiness，并通过 effective qfq readiness 识别 repair-adjusted 历史日期。</td>
           <td>只 selection gold qfq assets 与 gold qfq checks；不顺手更新 raw、silver、adj factor 或执行 factor repair。七个 gold qfq assets 共享 <code>gold_stk_mins_qfq_writer</code> pool；sensor 不得在稳定态逐 blocking check 扫 history。</td>
         </tr>
         <tr>
           <td><code>stock_mins_qfq_factor_repair_job</code></td>
           <td>维护型非分区 op job</td>
           <td>检测目标交易日复权因子相对上一交易日是否变化；无变化记录成功，有变化则以 <code>silver_adj_factor[trade_date]</code> 作为显式 as-of 分母，按 <code>freq/year</code> 批量回刷历史 gold qfq 股票年份文件。</td>
-          <td>人工 run 通过 typed <code>trade_date</code> run config 指定目标日期；<code>stock_mins_qfq_factor_repair_sensor</code> 20:40 后在当日七频度 effective gold qfq ready 时自动传入 first-not-completed 目标日期；sensor hot path 读取 repair status 时传入 <code>include_event_storage_ids=False</code>。</td>
+          <td>人工 run 通过 typed <code>trade_date</code> run config 指定目标日期；<code>stock_mins_qfq_factor_repair_sensor</code> 20:05 后在当日七频度 effective gold qfq ready 时自动传入 first-not-completed 目标日期；sensor hot path 读取 repair status 时传入 <code>include_event_storage_ids=False</code>。</td>
           <td>经确认不使用普通 asset selection；不新增 summary asset；repair check event 挂到七个 <code>gold_stk_mins_qfq_*</code> assets。job 不再绑定全历史 silver 分区，避免 UI missing partitions 噪音；repair op 使用同一个 <code>gold_stk_mins_qfq_writer</code> pool；sensor 不得因为 failed/missing gold checks 自动触发 repair；repair 不得扫描所有 <code>silver_adj_factor</code> 分区现场推导隐式最新分母；repair run 不内联补普通 qfq materialization/check events。</td>
         </tr>
         <tr>
@@ -1193,7 +1193,7 @@
    - Tushare merge_repair is implemented as a manual raw asset run config, not as a sensor path
    - silver_stk_mins_1m/5m/15m/30m/60m assets and checks are implemented
    - stock_mins_silver_update_job is implemented as the silver-only daily entry
-   - stock_mins_silver_sensor triggers the silver job for the first silver not ready partition after 19:50; it no longer uses latest registered silver as the formal target
+   - stock_mins_silver_sensor triggers the silver job for the first silver not ready partition after 19:40; it no longer uses latest registered silver as the formal target
    - silver historical generation, runless events and 2014+ silver partition registration are completed
    - gold_stk_mins_qfq_1m/5m/15m/30m/60m/90m/120m assets are implemented
    - gold qfq blocking checks are implemented with one multi_asset_check per freq; native and derived check contracts are split

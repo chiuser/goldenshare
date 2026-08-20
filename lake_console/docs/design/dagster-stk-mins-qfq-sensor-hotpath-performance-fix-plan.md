@@ -41,13 +41,13 @@ Runs 页面为什么会被拖垮：
 治理前两个 qfq sensor 都先计算长窗口 continuity readiness，再判断是否到运行窗口：
 
 - `stock_mins_qfq_daily_sensor.py`
-  - 目标运行窗口：20:10
+  - 目标运行窗口：19:50
   - 当前代码在窗口判断前会调用：
     - `batch_silver_stk_mins_lake_readiness(...)`
     - `batch_adj_factor_lake_readiness(...)`
     - `batch_gold_stk_mins_qfq_lake_readiness(...)`
 - `stock_mins_qfq_factor_repair_sensor.py`
-  - 目标运行窗口：20:40
+  - 目标运行窗口：20:05
   - 当前代码在窗口判断前会调用：
     - `batch_gold_stk_mins_qfq_lake_readiness(...)`
     - 之后才根据窗口决定是否提交 run
@@ -55,7 +55,7 @@ Runs 页面为什么会被拖垮：
 这在治理前导致一个非常不合理的行为：
 
 ```text
-现在时间还没到 20:10 / 20:40
+现在时间还没到 19:50 / 20:05
   -> sensor tick
   -> 先扫 60 天 qfq lake readiness
   -> 重 DuckDB 查询打满 user-code 进程
@@ -160,8 +160,8 @@ for trade_date in N 个 expected dates:
 
 | Sensor | 当前窗口 | 当前问题 | 目标行为 |
 |---|---:|---|---|
-| `stock_mins_qfq_daily_sensor` | 20:10 | 窗口前先跑 silver / adj factor / gold qfq batch readiness | 窗口前直接 Skip，不打开 DuckDB readiness |
-| `stock_mins_qfq_factor_repair_sensor` | 20:40 | 窗口前先跑 gold qfq batch readiness | 窗口前直接 Skip，不打开 DuckDB readiness |
+| `stock_mins_qfq_daily_sensor` | 19:50 | 窗口前先跑 silver / adj factor / gold qfq batch readiness | 窗口前直接 Skip，不打开 DuckDB readiness |
+| `stock_mins_qfq_factor_repair_sensor` | 20:05 | 窗口前先跑 gold qfq batch readiness | 窗口前直接 Skip，不打开 DuckDB readiness |
 
 同步审计后建议纳入同一规则但可分批改：
 
@@ -417,7 +417,7 @@ DuckDB 擅长：
 
 验收：
 
-1. 18:00-20:10 之间打开 Runs 页面，不应触发 qfq parquet 扫描。
+1. 18:00-19:50 之间打开 Runs 页面，不应触发 qfq parquet 扫描。
 2. `lsof -p <user-code-pid>` 不应在窗口前出现 `gold/quote/stk_mins_qfq/freq=90` 读取。
 3. user-code gRPC 进程 CPU/RSS 不应因窗口前 qfq sensor tick 暴涨。
 
