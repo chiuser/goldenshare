@@ -9,14 +9,21 @@ from src.app.exceptions import WebAppError
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.runtime.task_run_dispatcher import TaskRunDispatchOutcome, TaskRunDispatcher
+from src.ops.runtime.worker_lane import WorkerLane, lane_matches_values, lane_task_filter
 from src.utils import truncate_text
 
 
 class OperationsWorker:
     MAX_TECHNICAL_MESSAGE_LENGTH = 32_000
 
-    def __init__(self, dispatcher: TaskRunDispatcher | None = None) -> None:
+    def __init__(
+        self,
+        dispatcher: TaskRunDispatcher | None = None,
+        *,
+        lane: WorkerLane = WorkerLane.GENERAL,
+    ) -> None:
         self.dispatcher = dispatcher or TaskRunDispatcher()
+        self.lane = lane
 
     def run_next(self, session: Session) -> TaskRun | None:
         canceled = self._cancel_next_queued_task_run(session)
@@ -28,6 +35,7 @@ class OperationsWorker:
                 select(TaskRun.id)
                 .where(TaskRun.status == "queued")
                 .where(TaskRun.cancel_requested_at.is_(None))
+                .where(lane_task_filter(self.lane))
                 .order_by(TaskRun.requested_at.asc(), TaskRun.id.asc())
                 .limit(1)
             )
@@ -43,6 +51,16 @@ class OperationsWorker:
             raise WebAppError(status_code=404, code="not_found", message="任务记录不存在")
         if task_run.status != "queued":
             raise WebAppError(status_code=409, code="conflict", message="只能启动排队中的任务")
+        if not lane_matches_values(
+            self.lane,
+            task_type=task_run.task_type,
+            resource_key=task_run.resource_key,
+        ):
+            raise WebAppError(
+                status_code=409,
+                code="worker_lane_mismatch",
+                message="任务不属于当前 worker 执行车道",
+            )
         if task_run.cancel_requested_at is not None:
             canceled = self._cancel_queued_task_run(session, task_run.id)
             if canceled is None:
@@ -57,6 +75,7 @@ class OperationsWorker:
             select(TaskRun.id)
             .where(TaskRun.status == "queued")
             .where(TaskRun.cancel_requested_at.is_not(None))
+            .where(lane_task_filter(self.lane))
             .order_by(TaskRun.requested_at.asc(), TaskRun.id.asc())
             .limit(1)
         )
@@ -71,6 +90,7 @@ class OperationsWorker:
             .where(TaskRun.id == task_run_id)
             .where(TaskRun.status == "queued")
             .where(TaskRun.cancel_requested_at.is_not(None))
+            .where(lane_task_filter(self.lane))
             .values(
                 status="canceled",
                 canceled_at=canceled_at,
@@ -95,6 +115,7 @@ class OperationsWorker:
             .where(TaskRun.id == task_run_id)
             .where(TaskRun.status == "queued")
             .where(TaskRun.cancel_requested_at.is_(None))
+            .where(lane_task_filter(self.lane))
             .values(
                 status="running",
                 started_at=started_at,

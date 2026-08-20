@@ -4,6 +4,7 @@ __all__ = [
     "TaskRunCompletionWorker",
     "TaskRunDispatchOutcome",
     "TaskRunDispatcher",
+    "WorkerLane",
     "MaintenanceExecutionPlan",
     "MaintenanceExecutionRequest",
     "MaintenanceExecutionResult",
@@ -54,4 +55,8 @@ def __getattr__(name: str):
         from src.ops.runtime.task_completion_worker import TaskRunCompletionWorker
 
         return TaskRunCompletionWorker
+    if name == "WorkerLane":
+        from src.ops.runtime.worker_lane import WorkerLane
+
+        return WorkerLane
     raise AttributeError(name)

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from types import SimpleNamespace
 
+import pytest
 from typer.testing import CliRunner
 
 from src.cli import app
@@ -61,6 +62,67 @@ def test_ops_worker_run_consumes_until_limit_or_queue_is_empty(mocker) -> None:
     assert "processed task_run#201 status=success rows_fetched=8 rows_saved=6" in result.stdout
     assert "processed task_run#202 status=failed rows_fetched=3 rows_saved=0" in result.stdout
     assert "ops-worker-run: 本轮新接任务=2 等待中=0 执行中=1 自动收敛=0" in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("command", "factory_name", "lane_name"),
+    [
+        ("ops-stk-mins-worker-run", "build_stk_mins_worker", "stk-mins"),
+        ("ops-index-mins-worker-run", "build_index_mins_worker", "index-mins"),
+    ],
+)
+def test_minute_lane_run_commands_use_their_dedicated_worker(mocker, command, factory_name, lane_name) -> None:
+    session_context = mocker.MagicMock()
+    session = mocker.Mock()
+    session_context.__enter__.return_value = session
+    session_context.__exit__.return_value = False
+    mocker.patch("src.cli.SessionLocal", return_value=session_context)
+
+    worker = mocker.Mock()
+    worker.run_next.side_effect = [SimpleNamespace(id=401, status="success", rows_fetched=8, rows_saved=6), None]
+    worker_factory = mocker.patch(f"src.cli.{factory_name}", return_value=worker)
+
+    result = CliRunner().invoke(app, [command, "--limit", "3"])
+
+    assert result.exit_code == 0
+    worker_factory.assert_called_once_with()
+    assert worker.run_next.call_count == 2
+    assert f"processed lane={lane_name} task_run#401 status=success" in result.stdout
+    assert f"ops-{lane_name}-worker-run: 本轮新接任务=1" in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("command", "factory_name", "lane_name"),
+    [
+        ("ops-stk-mins-worker-serve", "build_stk_mins_worker", "stk-mins"),
+        ("ops-index-mins-worker-serve", "build_index_mins_worker", "index-mins"),
+    ],
+)
+def test_minute_lane_serve_commands_do_not_run_global_reconciliation(
+    mocker,
+    command,
+    factory_name,
+    lane_name,
+) -> None:
+    session_context = mocker.MagicMock()
+    session = mocker.Mock()
+    session_context.__enter__.return_value = session
+    session_context.__exit__.return_value = False
+    mocker.patch("src.cli.SessionLocal", return_value=session_context)
+
+    worker = mocker.Mock()
+    worker.run_next.side_effect = [None]
+    worker_factory = mocker.patch(f"src.cli.{factory_name}", return_value=worker)
+    reconcile = mocker.patch("src.cli.OperationsTaskRunReconciliationService")
+    sleep = mocker.patch("src.cli_parts.ops_handlers.time.sleep")
+
+    result = CliRunner().invoke(app, [command, "--limit", "2", "--sleep-seconds", "1", "--max-cycles", "1"])
+
+    assert result.exit_code == 0
+    worker_factory.assert_called_once_with()
+    reconcile.assert_not_called()
+    sleep.assert_not_called()
+    assert f"ops-{lane_name}-worker-serve: 本轮新接任务=0" in result.stdout
 
 
 def test_ops_scheduler_serve_runs_multiple_cycles(mocker) -> None:

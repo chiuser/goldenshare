@@ -15,6 +15,8 @@ WORKER_SERVICE="${WORKER_SERVICE:-goldenshare-ops-worker.service}"
 SCHEDULER_SERVICE="${SCHEDULER_SERVICE:-goldenshare-ops-scheduler.service}"
 DATE_COMPLETENESS_WORKER_SERVICE="${DATE_COMPLETENESS_WORKER_SERVICE:-goldenshare-date-completeness-worker.service}"
 TASK_COMPLETION_WORKER_SERVICE="${TASK_COMPLETION_WORKER_SERVICE:-goldenshare-ops-task-completion-worker.service}"
+STK_MINS_WORKER_SERVICE="${STK_MINS_WORKER_SERVICE:-goldenshare-ops-stk-mins-worker.service}"
+INDEX_MINS_WORKER_SERVICE="${INDEX_MINS_WORKER_SERVICE:-goldenshare-ops-index-mins-worker.service}"
 REALTIME_COLLECTOR_SERVICE="${REALTIME_COLLECTOR_SERVICE:-goldenshare-realtime-collector.service}"
 
 DEPLOY_FOUNDATION="${DEPLOY_FOUNDATION:-1}"
@@ -37,6 +39,8 @@ WORKER_UNIT_SRC="${WORKER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-ops-worker.service
 SCHEDULER_UNIT_SRC="${SCHEDULER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-ops-scheduler.service}"
 DATE_COMPLETENESS_WORKER_UNIT_SRC="${DATE_COMPLETENESS_WORKER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-date-completeness-worker.service}"
 TASK_COMPLETION_WORKER_UNIT_SRC="${TASK_COMPLETION_WORKER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-ops-task-completion-worker.service}"
+STK_MINS_WORKER_UNIT_SRC="${STK_MINS_WORKER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-ops-stk-mins-worker.service}"
+INDEX_MINS_WORKER_UNIT_SRC="${INDEX_MINS_WORKER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-ops-index-mins-worker.service}"
 REALTIME_COLLECTOR_UNIT_SRC="${REALTIME_COLLECTOR_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-realtime-collector.service}"
 
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8000/api/health}"
@@ -95,6 +99,8 @@ sync_units_if_needed() {
   local scheduler_dst="${SYSTEMD_UNIT_DIR}/${SCHEDULER_SERVICE}"
   local date_completeness_worker_dst="${SYSTEMD_UNIT_DIR}/${DATE_COMPLETENESS_WORKER_SERVICE}"
   local task_completion_worker_dst="${SYSTEMD_UNIT_DIR}/${TASK_COMPLETION_WORKER_SERVICE}"
+  local stk_mins_worker_dst="${SYSTEMD_UNIT_DIR}/${STK_MINS_WORKER_SERVICE}"
+  local index_mins_worker_dst="${SYSTEMD_UNIT_DIR}/${INDEX_MINS_WORKER_SERVICE}"
   local realtime_collector_dst="${SYSTEMD_UNIT_DIR}/${REALTIME_COLLECTOR_SERVICE}"
 
   if sync_systemd_unit "${WEB_UNIT_SRC}" "${web_dst}"; then
@@ -110,6 +116,12 @@ sync_units_if_needed() {
     changed=1
   fi
   if sync_systemd_unit "${TASK_COMPLETION_WORKER_UNIT_SRC}" "${task_completion_worker_dst}"; then
+    changed=1
+  fi
+  if sync_systemd_unit "${STK_MINS_WORKER_UNIT_SRC}" "${stk_mins_worker_dst}"; then
+    changed=1
+  fi
+  if sync_systemd_unit "${INDEX_MINS_WORKER_UNIT_SRC}" "${index_mins_worker_dst}"; then
     changed=1
   fi
   if sync_systemd_unit "${REALTIME_COLLECTOR_UNIT_SRC}" "${realtime_collector_dst}"; then
@@ -159,6 +171,8 @@ ensure_sudo_ready() {
   - systemctl restart/status goldenshare-ops-scheduler.service
   - systemctl restart/status goldenshare-date-completeness-worker.service
   - systemctl restart/status/enable goldenshare-ops-task-completion-worker.service
+  - systemctl restart/status/enable goldenshare-ops-stk-mins-worker.service
+  - systemctl restart/status/enable goldenshare-ops-index-mins-worker.service
   - systemctl restart/status goldenshare-realtime-collector.service
   - systemctl enable goldenshare-realtime-collector.service
 EOF
@@ -212,6 +226,25 @@ restart_task_completion_worker_if_needed() {
     sudo_systemctl restart "${TASK_COMPLETION_WORKER_SERVICE}"
   else
     log "跳过 Ops 任务完成副作用 worker 重启（DEPLOY_FOUNDATION=0 且 DEPLOY_OPS=0）"
+  fi
+}
+
+restart_minute_workers_if_needed() {
+  if [[ "${DEPLOY_FOUNDATION}" == "1" || "${DEPLOY_OPS}" == "1" ]]; then
+    log "启用股票分钟线专用 worker 自启动"
+    sudo_systemctl enable "${STK_MINS_WORKER_SERVICE}" >/dev/null
+    log "重启股票分钟线专用 worker"
+    sudo_systemctl restart "${STK_MINS_WORKER_SERVICE}"
+    log "启用指数分钟线专用 worker 自启动"
+    sudo_systemctl enable "${INDEX_MINS_WORKER_SERVICE}" >/dev/null
+    log "重启指数分钟线专用 worker"
+    sudo_systemctl restart "${INDEX_MINS_WORKER_SERVICE}"
+    if [[ "${DEPLOY_FOUNDATION}" != "1" && "${DEPLOY_OPS}" == "1" ]]; then
+      log "重启通用 worker 以加载分钟线排除规则（Ops-only 发布）"
+      sudo_systemctl restart "${WORKER_SERVICE}"
+    fi
+  else
+    log "跳过分钟线专用 worker 重启（DEPLOY_FOUNDATION=0 且 DEPLOY_OPS=0）"
   fi
 }
 
@@ -361,6 +394,7 @@ main() {
   fi
 
   restart_task_completion_worker_if_needed
+  restart_minute_workers_if_needed
 
   if [[ "${DEPLOY_PLATFORM}" == "1" ]]; then
     restart_layer_services platform
@@ -394,6 +428,8 @@ main() {
   print_service_status "${SCHEDULER_SERVICE}"
   print_service_status "${DATE_COMPLETENESS_WORKER_SERVICE}"
   print_service_status "${TASK_COMPLETION_WORKER_SERVICE}"
+  print_service_status "${STK_MINS_WORKER_SERVICE}"
+  print_service_status "${INDEX_MINS_WORKER_SERVICE}"
   print_service_status "${REALTIME_COLLECTOR_SERVICE}"
 
   log "分层发版完成"

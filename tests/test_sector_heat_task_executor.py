@@ -3,13 +3,15 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
 from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from src.app.runtime.ops_worker_factory import build_operations_worker
+from src.app.runtime.ops_worker_factory import build_index_mins_worker, build_operations_worker, build_stk_mins_worker
 from src.app.runtime.sector_heat_task_executor import SectorHeatTaskExecutor
 from src.ops.runtime.maintenance_executor import MaintenanceExecutionUnit
+from src.ops.runtime.worker_lane import WorkerLane
 
 
 class _EmptyEvidenceProvider:
@@ -95,6 +97,22 @@ def test_worker_factory_reuses_one_existing_session_factory_and_registers_heat_e
     executor = worker.dispatcher.maintenance_executors["wealth_sector_heat"]
     assert isinstance(executor, SectorHeatTaskExecutor)
     assert executor._session_factory is factory
+
+
+@pytest.mark.parametrize(
+    ("factory", "lane"),
+    [
+        (build_operations_worker, WorkerLane.GENERAL),
+        (build_stk_mins_worker, WorkerLane.STK_MINS),
+        (build_index_mins_worker, WorkerLane.INDEX_MINS),
+    ],
+)
+def test_worker_factories_share_dispatcher_assembly_and_select_lane(factory, lane) -> None:
+    worker = factory(session_factory=_session_factory())
+
+    assert worker.lane is lane
+    assert set(worker.dispatcher.maintenance_executors) == {"wealth_sector_heat"}
+    assert isinstance(worker.dispatcher.maintenance_executors["wealth_sector_heat"], SectorHeatTaskExecutor)
 
 
 def test_heat_business_transactions_use_repeatable_read_on_postgresql() -> None:

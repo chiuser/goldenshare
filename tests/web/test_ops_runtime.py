@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import select
 
+from src.app.exceptions import WebAppError
 from src.foundation.ingestion import DatasetActionRequest, DatasetTimeInput
 from src.foundation.ingestion.errors import IngestionError, StructuredError
 from src.ops.action_catalog import END_DATE_PARAM, START_DATE_PARAM, TRADE_DATE_PARAM, WORKFLOW_DEFINITION_REGISTRY, WorkflowDefinition
@@ -16,7 +17,7 @@ from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.queries.task_run_query_service import TaskRunQueryService
-from src.ops.runtime import OperationsScheduler, OperationsWorker, TaskRunDispatchOutcome, TaskRunDispatcher
+from src.ops.runtime import OperationsScheduler, OperationsWorker, TaskRunDispatchOutcome, TaskRunDispatcher, WorkerLane
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshResult
 from src.ops.services.task_run_ingestion_context import TaskRunIngestionContext
 
@@ -1007,6 +1008,119 @@ def test_worker_claims_queued_task_run_and_marks_success(db_session, task_run_fa
     assert result.rows_saved == 8
     assert result.rows_rejected == 2
     assert dispatcher.calls == [task_run.id]
+
+
+def test_general_worker_excludes_minute_dataset_tasks(db_session, task_run_factory) -> None:
+    stk_task = task_run_factory(resource_key="stk_mins", title="股票历史分钟线")
+    ordinary_task = task_run_factory(resource_key="daily", title="股票日线")
+    dispatcher = StubDispatcher(TaskRunDispatchOutcome(status="success"))
+
+    result = OperationsWorker(dispatcher=dispatcher).run_next(db_session)
+
+    assert result is not None
+    assert result.id == ordinary_task.id
+    assert result.resource_key == "daily"
+    assert dispatcher.calls == [ordinary_task.id]
+    refreshed_stk_task = db_session.get(TaskRun, stk_task.id)
+    assert refreshed_stk_task is not None
+    assert refreshed_stk_task.status == "queued"
+
+
+@pytest.mark.parametrize("minute_key", ["stk_mins", "index_mins"])
+def test_general_worker_excludes_each_minute_dataset(db_session, task_run_factory, minute_key) -> None:
+    minute_task = task_run_factory(resource_key=minute_key, title=minute_key)
+    ordinary_task = task_run_factory(resource_key="daily", title="股票日线")
+    dispatcher = StubDispatcher(TaskRunDispatchOutcome(status="success"))
+
+    result = OperationsWorker(dispatcher=dispatcher).run_next(db_session)
+
+    assert result is not None
+    assert result.id == ordinary_task.id
+    assert db_session.get(TaskRun, minute_task.id).status == "queued"
+
+
+def test_dedicated_worker_claims_only_its_minute_dataset(db_session, task_run_factory) -> None:
+    ordinary_task = task_run_factory(resource_key="daily", title="股票日线")
+    stk_task = task_run_factory(resource_key="stk_mins", title="股票历史分钟线")
+    dispatcher = StubDispatcher(TaskRunDispatchOutcome(status="success"))
+
+    result = OperationsWorker(dispatcher=dispatcher, lane=WorkerLane.STK_MINS).run_next(db_session)
+
+    assert result is not None
+    assert result.id == stk_task.id
+    assert dispatcher.calls == [stk_task.id]
+    refreshed_ordinary_task = db_session.get(TaskRun, ordinary_task.id)
+    assert refreshed_ordinary_task is not None
+    assert refreshed_ordinary_task.status == "queued"
+
+
+def test_index_mins_worker_claims_only_index_mins(db_session, task_run_factory) -> None:
+    ordinary_task = task_run_factory(resource_key="daily", title="股票日线")
+    index_task = task_run_factory(resource_key="index_mins", title="指数历史分钟线")
+    dispatcher = StubDispatcher(TaskRunDispatchOutcome(status="success"))
+
+    result = OperationsWorker(dispatcher=dispatcher, lane=WorkerLane.INDEX_MINS).run_next(db_session)
+
+    assert result is not None
+    assert result.id == index_task.id
+    assert dispatcher.calls == [index_task.id]
+    assert db_session.get(TaskRun, ordinary_task.id).status == "queued"
+
+
+def test_worker_lane_filter_is_enforced_by_atomic_claim_and_explicit_execution(
+    db_session,
+    task_run_factory,
+) -> None:
+    stk_task = task_run_factory(resource_key="stk_mins", title="股票历史分钟线")
+    general_worker = OperationsWorker(dispatcher=StubDispatcher(TaskRunDispatchOutcome(status="success")))
+    dedicated_worker = OperationsWorker(
+        dispatcher=StubDispatcher(TaskRunDispatchOutcome(status="success")),
+        lane=WorkerLane.STK_MINS,
+    )
+
+    assert general_worker._claim_task_run(db_session, stk_task.id) is False
+    assert dedicated_worker._claim_task_run(db_session, stk_task.id) is True
+
+    db_session.refresh(stk_task)
+    assert stk_task.status == "running"
+    mismatch_task = task_run_factory(resource_key="stk_mins", title="股票历史分钟线")
+    with pytest.raises(WebAppError, match="任务不属于当前 worker 执行车道"):
+        general_worker.run_task_run(db_session, mismatch_task.id)
+
+
+def test_two_workers_cannot_claim_the_same_minute_task(db_session, task_run_factory) -> None:
+    task_run = task_run_factory(resource_key="index_mins", title="指数历史分钟线")
+    first_worker = OperationsWorker(
+        dispatcher=StubDispatcher(TaskRunDispatchOutcome(status="success")),
+        lane=WorkerLane.INDEX_MINS,
+    )
+    second_worker = OperationsWorker(
+        dispatcher=StubDispatcher(TaskRunDispatchOutcome(status="success")),
+        lane=WorkerLane.INDEX_MINS,
+    )
+
+    assert first_worker._claim_task_run(db_session, task_run.id) is True
+    assert second_worker._claim_task_run(db_session, task_run.id) is False
+
+
+def test_cancel_queue_isolated_by_worker_lane(db_session, task_run_factory) -> None:
+    stk_task = task_run_factory(
+        resource_key="stk_mins",
+        title="股票历史分钟线",
+        cancel_requested_at=datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc),
+    )
+    general_worker = OperationsWorker(dispatcher=StubDispatcher(TaskRunDispatchOutcome(status="success")))
+    dedicated_worker = OperationsWorker(
+        dispatcher=StubDispatcher(TaskRunDispatchOutcome(status="success")),
+        lane=WorkerLane.STK_MINS,
+    )
+
+    assert general_worker.run_next(db_session) is None
+    canceled = dedicated_worker.run_next(db_session)
+
+    assert canceled is not None
+    assert canceled.id == stk_task.id
+    assert canceled.status == "canceled"
 
 
 def test_worker_preserves_structured_planning_error(db_session, task_run_factory) -> None:

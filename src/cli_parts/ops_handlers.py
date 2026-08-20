@@ -420,6 +420,70 @@ def run_ops_worker_run(
         )
 
 
+def _run_ops_lane_worker_once(*, worker, session, limit: int, lane_name: str, echo_fn) -> int:  # type: ignore[no-untyped-def]
+    processed = 0
+    for _ in range(limit):
+        task_run = worker.run_next(session)
+        if task_run is None:
+            break
+        processed += 1
+        echo_fn(
+            "processed "
+            f"lane={lane_name} "
+            f"task_run#{task_run.id} "
+            f"status={task_run.status} "
+            f"rows_fetched={task_run.rows_fetched} "
+            f"rows_saved={task_run.rows_saved}"
+        )
+    return processed
+
+
+def run_ops_lane_worker_run(
+    *,
+    session_local,
+    worker_factory,
+    lane_name: str,
+    limit: int,
+    echo_fn: Callable[[str], None],
+) -> None:
+    with session_local() as session:
+        processed = _run_ops_lane_worker_once(
+            worker=worker_factory(),
+            session=session,
+            limit=limit,
+            lane_name=lane_name,
+            echo_fn=echo_fn,
+        )
+        echo_fn(f"ops-{lane_name}-worker-run: 本轮新接任务={processed}")
+
+
+def run_ops_lane_worker_serve(
+    *,
+    session_local,
+    worker_factory,
+    lane_name: str,
+    limit: int,
+    sleep_seconds: float,
+    max_cycles: int | None,
+    echo_fn: Callable[[str], None],
+) -> None:
+    cycles = 0
+    while True:
+        with session_local() as session:
+            processed = _run_ops_lane_worker_once(
+                worker=worker_factory(),
+                session=session,
+                limit=limit,
+                lane_name=lane_name,
+                echo_fn=echo_fn,
+            )
+            echo_fn(f"ops-{lane_name}-worker-serve: 本轮新接任务={processed}")
+        cycles += 1
+        if max_cycles is not None and cycles >= max_cycles:
+            break
+        time.sleep(sleep_seconds)
+
+
 def run_ops_date_completeness_worker_run(
     *,
     session_local,

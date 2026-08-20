@@ -34,6 +34,8 @@ from src.cli_parts.ops_handlers import (
     run_ops_seed_moneyflow_multi_source as _run_ops_seed_moneyflow_multi_source_impl,
     run_ops_seed_realtime_runtime_config as _run_ops_seed_realtime_runtime_config_impl,
     run_ops_task_completion_worker_serve as _run_ops_task_completion_worker_serve_impl,
+    run_ops_lane_worker_run as _run_ops_lane_worker_run_impl,
+    run_ops_lane_worker_serve as _run_ops_lane_worker_serve_impl,
     run_ops_validate_market_mood as _run_ops_validate_market_mood_impl,
     run_ops_worker_run as _run_ops_worker_run_impl,
     run_ops_worker_serve as _run_ops_worker_serve_impl,
@@ -54,7 +56,7 @@ from src.foundation.dao.factory import DAOFactory
 from src.foundation.config.logging import configure_logging
 from src.foundation.config.settings import get_settings
 from src.db import SessionLocal
-from src.app.runtime import build_operations_scheduler, build_operations_worker
+from src.app.runtime import build_index_mins_worker, build_operations_scheduler, build_operations_worker, build_stk_mins_worker
 from src.foundation.ingestion.linter import lint_all_dataset_definitions
 from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY, build_dataset_maintain_service
 from src.foundation.realtime.runtime_config_seed_service import RealtimeRuntimeConfigSeedService
@@ -556,6 +558,32 @@ def ops_worker_run(
     )
 
 
+@app.command("ops-stk-mins-worker-run")
+def ops_stk_mins_worker_run(
+    limit: int = typer.Option(1, min=1, max=1000, help="Maximum queued stk_mins task runs to consume in one run."),
+) -> None:
+    _run_ops_lane_worker_run_impl(
+        session_local=SessionLocal,
+        worker_factory=build_stk_mins_worker,
+        lane_name="stk-mins",
+        limit=limit,
+        echo_fn=typer.echo,
+    )
+
+
+@app.command("ops-index-mins-worker-run")
+def ops_index_mins_worker_run(
+    limit: int = typer.Option(1, min=1, max=1000, help="Maximum queued index_mins task runs to consume in one run."),
+) -> None:
+    _run_ops_lane_worker_run_impl(
+        session_local=SessionLocal,
+        worker_factory=build_index_mins_worker,
+        lane_name="index-mins",
+        limit=limit,
+        echo_fn=typer.echo,
+    )
+
+
 @app.command("ops-date-completeness-worker-run")
 def ops_date_completeness_worker_run(
     limit: int = typer.Option(1, min=1, max=1000, help="Maximum queued date completeness audit runs to consume."),
@@ -653,6 +681,40 @@ def ops_worker_serve(
         sleep_seconds=sleep_seconds,
         max_cycles=max_cycles,
         auto_reconcile_limit=auto_reconcile_limit,
+        echo_fn=typer.echo,
+    )
+
+
+@app.command("ops-stk-mins-worker-serve")
+def ops_stk_mins_worker_serve(
+    limit: int = typer.Option(10, min=1, max=1000, help="Maximum queued stk_mins task runs to consume per cycle."),
+    sleep_seconds: float = typer.Option(5.0, min=1.0, help="Seconds to sleep between worker cycles."),
+    max_cycles: int | None = typer.Option(None, min=1, help="Optional max cycles for testing or one-off runs."),
+) -> None:
+    _run_ops_lane_worker_serve_impl(
+        session_local=SessionLocal,
+        worker_factory=build_stk_mins_worker,
+        lane_name="stk-mins",
+        limit=limit,
+        sleep_seconds=sleep_seconds,
+        max_cycles=max_cycles,
+        echo_fn=typer.echo,
+    )
+
+
+@app.command("ops-index-mins-worker-serve")
+def ops_index_mins_worker_serve(
+    limit: int = typer.Option(10, min=1, max=1000, help="Maximum queued index_mins task runs to consume per cycle."),
+    sleep_seconds: float = typer.Option(5.0, min=1.0, help="Seconds to sleep between worker cycles."),
+    max_cycles: int | None = typer.Option(None, min=1, help="Optional max cycles for testing or one-off runs."),
+) -> None:
+    _run_ops_lane_worker_serve_impl(
+        session_local=SessionLocal,
+        worker_factory=build_index_mins_worker,
+        lane_name="index-mins",
+        limit=limit,
+        sleep_seconds=sleep_seconds,
+        max_cycles=max_cycles,
         echo_fn=typer.echo,
     )
 
