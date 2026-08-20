@@ -55,6 +55,9 @@ canonical logical range
     Figma 与正式实现必须保持一致。
 13. max/min 所在水平线就是指标绘图区的动态上边界和下边界；不得在相同位置再叠加指标
     绘图区外框线或固定分隔线。
+14. MACD/KDJ 指标面板关闭 Lightweight Charts 自动水平网格线和自动中间刻度文本：
+    MACD 只允许显示 max、跨零时的 zero、min，KDJ 只允许显示 max、min。K 线和成交量
+    面板的自动网格保持不变。
 
 ### 1.3 明确不做
 
@@ -516,6 +519,10 @@ autoscale；不得销毁或重建 chart/series。
 3. 指标 panel 不得再绘制与 min boundary 重合的 `border-bottom`；KDJ 作为末端 panel 也保持
    无额外底部外框。共享 workspace 外框和不同 panel header 不属于本条禁止范围。
 4. 退化范围只显示真实值对应的一条 max boundary；安全 domain 两端不生成伪极值边界线。
+5. `buildChartOptions(...)` 对 `macd/kdj` 设置 `grid.horzLines.visible=false`，避免图表库
+   在动态边界之间继续生成自动水平网格线。
+6. 指标自定义 `priceFormat.tickmarksFormatter` 对自动 tick 返回空文本，只保留 price line
+   自己的 max/min/zero 轴标签；不得出现 KDJ `50.00` 一类未冻结的中间标签。
 
 price line 负责右轴标签、max/min 动态边界和 MACD 0 线；确定 domain 的唯一事实仍是
 autoscale provider，price line 不得反向扩大范围。
@@ -611,6 +618,8 @@ autoscale provider，price line 不得反向扩大范围。
 10. max/min boundary 可见，使用中性实线；MACD zero 仍为中性虚线。
 11. 指标右轴格式化文本长度一致、保留 2 位小数并从右侧对齐。
 12. MACD/KDJ panel 带专属 class，样式门禁证明没有与 min boundary 重合的底部边框。
+13. MACD/KDJ 自动水平网格关闭，K 线/成交量自动水平网格保持开启。
+14. 指标自动 tick 文本为空，price line 的 max/min/zero formatter 仍输出等宽两位小数。
 
 ### 9.6 四消费者回归
 
@@ -735,6 +744,7 @@ git status --short
 | 标签等宽右对齐 | 7.4 | custom price formatter |
 | 标签背景与 Figma 一致 | 7.4 | price-line color + Figma contract |
 | 极值线即动态上下边界 | 7.4 | price-line mock + panel class/CSS |
+| 指标无额外自动横线/刻度 | 7.4 | pane grid options + tickmarks formatter |
 | 相等值安全范围 | 6.2、7.4 | 0/100 退化测试 |
 | 单边 MACD 不含 0 | 7.4 | 全正/全负测试 |
 | 四场景共享 | 第 8 章 | 四消费者回归 |
@@ -756,6 +766,7 @@ git status --short
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v1.3 | 2026-08-20 | 修正图层遗漏：MACD/KDJ 关闭自动水平网格和自动中间刻度，只保留显式极值边界与可选 zero 线 |
 | v1.2 | 2026-08-20 | 冻结右轴标签等宽右对齐与红/灰/绿背景；max/min 水平线改为动态上下边界，并禁止叠加指标 panel 外框线 |
 | v1.1 | 2026-08-20 | 按 M1～M4 完成代码开发与自动化验证，记录测试结果；状态保持待部署和人工验收 |
 | v1 | 2026-08-20 | 基于当前后端 DTO/mapper、四类详情图表 adapter 和共享 workspace 完成代码级设计；冻结成交量展示合同、MACD/KDJ 动态纵轴、右轴标签、退化范围和单边 MACD 规则 |

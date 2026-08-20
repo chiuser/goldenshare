@@ -224,17 +224,22 @@ describe("DetailChartWorkspace", () => {
     expect(screen.getByLabelText("共享MACD")).toHaveClass("macd-panel");
     expect(screen.getByLabelText("共享KDJ")).toHaveClass("kdj-panel");
     expect(chartMock.createChart.mock.calls[1]?.[1]).toMatchObject({
+      grid: { horzLines: { visible: false } },
       rightPriceScale: { scaleMargins: { bottom: 0, top: 0 } },
     });
     expect(chartMock.createChart.mock.calls[3]?.[1]).toMatchObject({
+      grid: { horzLines: { visible: false } },
       rightPriceScale: { scaleMargins: { bottom: 0, top: 0 } },
     });
     expect(chartMock.createChart.mock.calls[0]?.[1]).toMatchObject({
+      grid: { horzLines: { visible: true } },
       rightPriceScale: { scaleMargins: { bottom: 0.12, top: 0.12 } },
     });
     expect(chartMock.createChart.mock.calls[2]?.[1]).toMatchObject({
+      grid: { horzLines: { visible: true } },
       rightPriceScale: { scaleMargins: { bottom: 0.12, top: 0.12 } },
     });
+    expect(macdSeries.options.priceFormat.tickmarksFormatter([7.77, 0, -9.55])).toEqual(["", "", ""]);
   });
 
   it("recomputes indicator ranges after zoom without rebuilding charts or forcing zero into one-sided MACD", () => {

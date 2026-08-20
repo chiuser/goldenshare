@@ -637,6 +637,7 @@ function buildChartOptions(
   crosshairPresentation: DetailChartCrosshairPresentation,
   panel: DetailChartPanelKey,
 ) {
+  const isIndicatorPanel = panel === "macd" || panel === "kdj";
   const crosshair = crosshairPresentation === "native-axis-labels"
     ? { mode: CrosshairMode.Normal }
     : {
@@ -670,7 +671,7 @@ function buildChartOptions(
       ? { timeFormatter: formatShanghaiMinuteAxisLabel }
       : undefined,
     grid: {
-      horzLines: { color: DETAIL_CHART_COLORS.grid },
+      horzLines: { color: DETAIL_CHART_COLORS.grid, visible: !isIndicatorPanel },
       vertLines: { color: "rgba(148, 163, 184, 0.08)" },
     },
     crosshair,
@@ -678,7 +679,7 @@ function buildChartOptions(
       autoScale: true,
       borderColor: DETAIL_CHART_COLORS.axis,
       minimumWidth: RIGHT_PRICE_SCALE_WIDTH,
-      scaleMargins: panel === "macd" || panel === "kdj"
+      scaleMargins: isIndicatorPanel
         ? { bottom: 0, top: 0 }
         : { bottom: 0.12, top: 0.12 },
     },
@@ -702,6 +703,7 @@ const INDICATOR_BOUNDARY_LINE_COLOR = "rgba(148, 163, 184, 0.28)";
 const INDICATOR_PRICE_FORMAT = {
   formatter: (value: number) => value.toFixed(2).padStart(INDICATOR_AXIS_VALUE_WIDTH, "\u2007"),
   minMove: 0.01,
+  tickmarksFormatter: (values: number[]) => values.map(() => ""),
   type: "custom",
 } as const;
 
