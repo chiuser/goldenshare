@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Mapping
 
+from src.biz.services.wealth.market.detail_volume_display import format_daily_volume_display
 from src.biz.schemas.wealth.market.stock_detail import (
     StockBollDto,
     StockDetailDataStatusDto,
@@ -63,6 +64,7 @@ def build_data_status(*, expected_trade_date: date, observed_trade_date: date | 
 def build_quote(row: Mapping[str, Any]) -> StockQuoteSnapshotDto:
     change_pct = to_float(row.get("pct_chg"))
     close = to_float(row.get("close_qfq"))
+    vol = to_float(row.get("vol"))
     return StockQuoteSnapshotDto(
         tradeDate=row["trade_date"],
         price=close,
@@ -76,7 +78,8 @@ def build_quote(row: Mapping[str, Any]) -> StockQuoteSnapshotDto:
         preClose=to_float(row.get("pre_close")),
         turnoverRate=to_float(row.get("turnover_rate")),
         volumeRatio=to_float(row.get("volume_ratio")),
-        vol=to_float(row.get("vol")),
+        vol=vol,
+        volDisplay=format_daily_volume_display(vol),
         amount=to_float(row.get("amount")),
     )
 
@@ -88,6 +91,7 @@ def build_kline_bar(row: Mapping[str, Any]) -> StockKlineBarDto:
     close_price = to_float(row.get("close_qfq"))
     pre_close = to_float(row.get("pre_close"))
     change_pct = to_float(row.get("pct_chg"))
+    vol = to_float(row.get("vol"))
     return StockKlineBarDto(
         tradeDate=row["trade_date"],
         open=open_price,
@@ -98,7 +102,8 @@ def build_kline_bar(row: Mapping[str, Any]) -> StockKlineBarDto:
         change=to_float(row.get("change")),
         changePct=change_pct,
         amplitude=calculate_amplitude(high=high_price, low=low_price, pre_close=pre_close),
-        vol=to_float(row.get("vol")),
+        vol=vol,
+        volDisplay=format_daily_volume_display(vol),
         amount=to_float(row.get("amount")),
         turnoverRate=to_float(row.get("turnover_rate")),
         volumeRatio=to_float(row.get("volume_ratio")),

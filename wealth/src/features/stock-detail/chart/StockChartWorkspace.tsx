@@ -107,6 +107,7 @@ function toDetailChartPoint(point: StockCandlePoint): DetailChartPoint {
     changePct: point.changePct,
     amplitude: point.amplitude,
     volume: point.volume,
+    volumeDisplay: point.volumeDisplay,
     amount: point.amount,
     turnoverRate: point.turnoverRate,
     macd: point.macd,
@@ -230,12 +231,12 @@ function StockIndicatorPanelHeader({
   return (
     <>
       <strong>{title}</strong>
-      {metrics.map(([label, value]) => (
+      {metrics.map(({ display, label, value }) => (
         <span
           className={`metric ${directionClass(isFiniteChartNumber(value) && value >= 0 ? "UP" : "DOWN")}`}
           key={label}
         >
-          {label}:{formatPanelMetric(value)}
+          {label}:{display ?? formatPanelMetric(value)}
         </span>
       ))}
       <button className="detail-chart-gear" title="指标设置" type="button">⚙</button>
@@ -246,12 +247,24 @@ function StockIndicatorPanelHeader({
 function panelMetrics(
   panel: Exclude<DetailChartPanelKey, "kline">,
   point: DetailChartPoint,
-): Array<[string, number | null]> {
-  if (panel === "macd") return [["MACD", point.macd], ["DIF", point.dif], ["DEA", point.dea]];
+): Array<{ display?: string; label: string; value: number | null }> {
+  if (panel === "macd") return [
+    { label: "MACD", value: point.macd },
+    { label: "DIF", value: point.dif },
+    { label: "DEA", value: point.dea },
+  ];
   if (panel === "volume") {
-    return [["总量", point.volume], ["MA5", readStockFactor(point, "ma5")], ["MA10", readStockFactor(point, "ma10")]];
+    return [
+      { display: point.volumeDisplay ?? "--", label: "总量", value: point.volume },
+      { label: "MA5", value: readStockFactor(point, "ma5") },
+      { label: "MA10", value: readStockFactor(point, "ma10") },
+    ];
   }
-  return [["K", point.k], ["D", point.d], ["J", point.j]];
+  return [
+    { label: "K", value: point.k },
+    { label: "D", value: point.d },
+    { label: "J", value: point.j },
+  ];
 }
 
 function StockIndicatorBar({
@@ -296,7 +309,7 @@ function StockKlineTooltip({ point, side }: { point: DetailChartPoint; side: Det
     ["最低", formatTooltipNumber(point.low), directionClass(resolvePriceDirection(point.low, point.preClose, { equalAsDown: true }))],
     ["涨幅", `${formatTooltipNumber(point.changePct)}%`, directionClass(resolveValueDirection(point.changePct))],
     ["振幅", `${formatTooltipNumber(point.amplitude)}%`, "secondary"],
-    ["成交量", formatTooltipVolume(point.volume), "secondary"],
+    ["成交量", point.volumeDisplay ?? "--", "secondary"],
     ["成交额", formatTooltipAmount(point.amount), "secondary"],
     ["换手率", `${formatTooltipNumber(point.turnoverRate)}%`, "secondary"],
   ];
@@ -367,13 +380,6 @@ function formatPanelMetric(value: number | null): string {
 
 function formatTooltipNumber(value: number | null): string {
   return isFiniteChartNumber(value) ? value.toFixed(2) : "--";
-}
-
-function formatTooltipVolume(value: number | null): string {
-  if (!isFiniteChartNumber(value)) return "--";
-  if (value >= 100_000_000) return `${(value / 100_000_000).toFixed(2)}亿手`;
-  if (value >= 10_000) return `${(value / 10_000).toFixed(2)}万手`;
-  return `${Math.round(value)}手`;
 }
 
 function formatTooltipAmount(value: number | null): string {

@@ -37,6 +37,7 @@ export interface IndexCandlePoint {
   changePct: number | null;
   amplitude: number | null;
   volume: number | null;
+  volumeDisplay: string | null;
   amount: number | null;
   ma5: number | null;
   ma10: number | null;

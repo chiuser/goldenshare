@@ -57,6 +57,7 @@ class StockQuoteSnapshotDto(BaseModel):
     turnoverRate: float | None = None
     volumeRatio: float | None = None
     vol: float | None = None
+    volDisplay: str | None
     amount: float | None = None
 
 
@@ -147,6 +148,7 @@ class StockKlineBarDto(BaseModel):
     changePct: float | None = None
     amplitude: float | None = None
     vol: float | None = None
+    volDisplay: str | None
     amount: float | None = None
     turnoverRate: float | None = None
     volumeRatio: float | None = None

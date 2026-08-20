@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Mapping, Protocol
 
+from src.biz.services.wealth.market.detail_volume_display import format_daily_volume_display
 from src.biz.schemas.wealth.market.index_detail import (
     IndexBollDto,
     IndexDetailDailyBasicDto,
@@ -80,6 +81,7 @@ def build_identity(row: Mapping[str, Any]) -> IndexDetailIdentityDto:
 
 def build_quote(row: Mapping[str, Any]) -> IndexDetailQuoteDto:
     change_pct = to_float(row.get("pct_chg"))
+    vol = to_float(row.get("factor_vol"))
     return IndexDetailQuoteDto(
         tradeDate=row["trade_date"],
         point=to_float(row.get("close")),
@@ -90,7 +92,8 @@ def build_quote(row: Mapping[str, Any]) -> IndexDetailQuoteDto:
         high=to_float(row.get("high")),
         low=to_float(row.get("low")),
         preClose=to_float(row.get("pre_close")),
-        vol=to_float(row.get("factor_vol")),
+        vol=vol,
+        volDisplay=format_daily_volume_display(vol),
         amount=to_float(row.get("factor_amount")),
     )
 
@@ -111,6 +114,7 @@ def build_kline_bar(row: Mapping[str, Any]) -> IndexKlineBarDto:
     high = to_float(row.get("high"))
     low = to_float(row.get("low"))
     pre_close = to_float(row.get("pre_close"))
+    vol = to_float(row.get("vol"))
     return IndexKlineBarDto(
         tradeDate=row["trade_date"],
         open=to_float(row.get("open")),
@@ -121,7 +125,8 @@ def build_kline_bar(row: Mapping[str, Any]) -> IndexKlineBarDto:
         change=to_float(row.get("change")),
         changePct=to_float(row.get("pct_change")),
         amplitude=calculate_amplitude(high=high, low=low, pre_close=pre_close),
-        vol=to_float(row.get("vol")),
+        vol=vol,
+        volDisplay=format_daily_volume_display(vol),
         amount=to_float(row.get("amount")),
         factors=IndexKlineFactorsDto(
             ma=IndexMovingAverageDto(

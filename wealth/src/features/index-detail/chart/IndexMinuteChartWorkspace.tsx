@@ -83,6 +83,7 @@ function toDetailChartPoint(point: IndexMinuteChartViewModel["points"][number]):
   return {
     ...point,
     time: point.time as UTCTimestamp,
+    volumeDisplay: null,
     turnoverRate: null,
     overlays: {
       ma5: point.ma5, ma10: point.ma10, ma20: point.ma20, ma30: point.ma30,

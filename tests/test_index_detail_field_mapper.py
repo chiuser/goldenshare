@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from src.biz.schemas.wealth.market.index_detail import IndexDetailDataStatusDto
 from src.biz.services.wealth.market.index_detail.index_detail_field_mapper import (
+    build_quote,
     build_kline_bar,
     calculate_amplitude,
     resolve_direction,
@@ -47,6 +48,8 @@ def _row() -> dict:
 def test_index_kline_mapper_uses_frozen_factor_field_names() -> None:
     bar = build_kline_bar(_row())
 
+    assert bar.vol == 1234.0
+    assert bar.volDisplay == "0.12万"
     assert bar.changePct == 5.0
     assert bar.amplitude == 20.0
     assert bar.factors.ma.ma250 is None
@@ -57,6 +60,21 @@ def test_index_kline_mapper_uses_frozen_factor_field_names() -> None:
     assert bar.factors.kdj.j == 66.0
     assert "ma15" not in bar.factors.ma.model_dump()
     assert "ma120" not in bar.factors.ma.model_dump()
+
+
+def test_index_quote_mapper_uses_factor_volume_for_raw_and_display_contract() -> None:
+    quote = build_quote(
+        {
+            "trade_date": date(2026, 8, 10),
+            "close": 105.0,
+            "pct_chg": 1.0,
+            "factor_vol": 586_339.0,
+            "factor_amount": 123.0,
+        }
+    )
+
+    assert quote.vol == 586_339.0
+    assert quote.volDisplay == "58.63万"
 
 
 @pytest.mark.parametrize(

@@ -18,6 +18,7 @@ export interface DetailChartPoint {
   changePct: number | null;
   amplitude: number | null;
   volume: number | null;
+  volumeDisplay: string | null;
   amount: number | null;
   turnoverRate: number | null;
   macd: number | null;

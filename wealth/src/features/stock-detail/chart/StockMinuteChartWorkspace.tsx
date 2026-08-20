@@ -106,6 +106,7 @@ function toDetailChartPoint(point: StockMinuteChartPoint): DetailChartPoint {
     changePct: null,
     amplitude: null,
     volume: point.volume,
+    volumeDisplay: null,
     amount: point.amount,
     turnoverRate: null,
     macd: point.macd,

@@ -110,6 +110,8 @@ def test_stock_detail_page_init_returns_context_stock_quote_and_defaults(app_cli
     assert payload["quote"]["open"] == 28.6
     assert payload["quote"]["high"] == 29.9
     assert payload["quote"]["low"] == 28.1
+    assert payload["quote"]["vol"] == 123456.0
+    assert payload["quote"]["volDisplay"] == "12.35万"
     assert payload["chartDefaults"]["defaultAdjustment"] == "forward"
     assert payload["chartDefaults"]["sourceAdjustment"] == "qfq"
     assert payload["chartDefaults"]["availablePeriods"] == ["day"]
@@ -141,6 +143,8 @@ def test_stock_detail_kline_returns_day_forward_bars_without_forbidden_ma(app_cl
     assert latest["low"] == 28.1
     assert latest["close"] == 29.1
     assert latest["amplitude"] == 9.5238095238
+    assert latest["vol"] == 123456.0
+    assert latest["volDisplay"] == "12.35万"
     ma = latest["factors"]["ma"]
     assert ma["ma5"] == 19.0
     assert ma["ma10"] == 18.9

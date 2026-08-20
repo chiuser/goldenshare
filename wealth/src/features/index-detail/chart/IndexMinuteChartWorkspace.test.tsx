@@ -61,6 +61,7 @@ function makeData(): IndexMinuteChartViewModel {
       changePct: null,
       amplitude: null,
       volume: 1000,
+      volumeDisplay: null,
       amount: 2_000_000,
       ma5: 3901,
       ma10: null,

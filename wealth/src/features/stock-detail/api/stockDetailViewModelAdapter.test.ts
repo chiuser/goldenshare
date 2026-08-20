@@ -16,6 +16,22 @@ describe("buildStockDetailViewModel", () => {
     expect(point.ma60).toBeNull();
     expect(point.ma90).toBeNull();
     expect(point.ma250).toBeNull();
+    expect(point.volumeDisplay).toBe("10.00万");
+  });
+
+  it("preserves unavailable MACD and KDJ values as null and uses backend volume display", () => {
+    const pageInit = makePageInit();
+    const kline = makeKline();
+    kline.bars[0].factors.macd = { dif: null, dea: null, macd: null };
+    kline.bars[0].factors.kdj = { k: null, d: null, j: null };
+
+    const viewModel = buildStockDetailViewModel(pageInit, kline);
+    const point = viewModel.chart.candles[0]!;
+
+    expect(viewModel.quote.volumeText).toBe("10.00万");
+    expect([point.macd, point.dif, point.dea, point.k, point.d, point.j]).toEqual([
+      null, null, null, null, null, null,
+    ]);
   });
 
   it("keeps mock moving averages empty until the full observation window exists", () => {
@@ -65,6 +81,7 @@ function makePageInit(): StockDetailPageInitResponseDto {
       turnoverRate: 5,
       volumeRatio: 1.2,
       vol: 100_000,
+      volDisplay: "10.00万",
       amount: 30_000_000,
     },
     chartDefaults: {
@@ -113,6 +130,7 @@ function makeKline(): StockDetailKlineResponseDto {
       changePct: 3.45,
       amplitude: 7.59,
       vol: 100_000,
+      volDisplay: "10.00万",
       amount: 30_000_000,
       turnoverRate: 5,
       volumeRatio: 1.2,

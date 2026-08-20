@@ -32,9 +32,15 @@ const chartMock = vi.hoisted(() => {
       }),
     };
     const chart: Record<string, any> = {
-      addSeries: vi.fn(() => {
+      addSeries: vi.fn((_seriesType?: unknown, initialOptions: Record<string, any> = {}) => {
+        const priceLines: Array<Record<string, any>> = [];
         const item: Record<string, any> = {
           attachedPrimitives: [] as any[],
+          options: { ...initialOptions },
+          priceLines,
+          applyOptions: vi.fn((options: Record<string, any>) => {
+            item.options = { ...item.options, ...options };
+          }),
           attachPrimitive: vi.fn((primitive: any) => {
             item.attachedPrimitives.push(primitive);
             primitive.attached?.({
@@ -44,6 +50,16 @@ const chartMock = vi.hoisted(() => {
             });
           }),
           coordinateToPrice: vi.fn(() => 12.34),
+          createPriceLine: vi.fn((options: Record<string, any>) => {
+            const priceLine: Record<string, any> = {
+              options: { ...options },
+              applyOptions: vi.fn((nextOptions: Record<string, any>) => {
+                priceLine.options = { ...priceLine.options, ...nextOptions };
+              }),
+            };
+            priceLines.push(priceLine);
+            return priceLine;
+          }),
           detachPrimitive: vi.fn((primitive: any) => {
             const index = item.attachedPrimitives.indexOf(primitive);
             if (index >= 0) item.attachedPrimitives.splice(index, 1);
@@ -160,6 +176,84 @@ describe("DetailChartWorkspace", () => {
     expect(screen.getByLabelText("共享MACD")).toBeInTheDocument();
     expect(screen.getByLabelText("共享成交量")).toBeInTheDocument();
     expect(screen.getByLabelText("共享KDJ")).toBeInTheDocument();
+  });
+
+  it("fits MACD and KDJ to their shared visible extrema and renders labels only on the right scale", () => {
+    const points = makePoints(300);
+    points[180]!.macd = -9;
+    points[180]!.dif = 7;
+    points[180]!.j = -20;
+    points[299]!.dea = 4;
+    points[299]!.j = 140;
+
+    renderWorkspace(points);
+
+    const macdSeries = chartMock.charts[1].series[0];
+    const kdjSeries = chartMock.charts[3].series[0];
+    expect(macdSeries.options.autoscaleInfoProvider(() => null)).toEqual({
+      priceRange: { maxValue: 7, minValue: -9 },
+    });
+    expect(kdjSeries.options.autoscaleInfoProvider(() => null)).toEqual({
+      priceRange: { maxValue: 140, minValue: -20 },
+    });
+    expect(macdSeries.priceLines).toHaveLength(3);
+    expect(macdSeries.priceLines[0].options).toMatchObject({ axisLabelVisible: true, lineVisible: false, price: 7 });
+    expect(macdSeries.priceLines[1].options).toMatchObject({ axisLabelVisible: true, lineVisible: false, price: -9 });
+    expect(macdSeries.priceLines[2].options).toMatchObject({ axisLabelVisible: true, lineVisible: true, price: 0 });
+    expect(kdjSeries.priceLines).toHaveLength(2);
+    expect(kdjSeries.priceLines[0].options.price).toBe(140);
+    expect(kdjSeries.priceLines[1].options.price).toBe(-20);
+    expect(chartMock.createChart.mock.calls[1]?.[1]).toMatchObject({
+      rightPriceScale: { scaleMargins: { bottom: 0, top: 0 } },
+    });
+    expect(chartMock.createChart.mock.calls[3]?.[1]).toMatchObject({
+      rightPriceScale: { scaleMargins: { bottom: 0, top: 0 } },
+    });
+    expect(chartMock.createChart.mock.calls[0]?.[1]).toMatchObject({
+      rightPriceScale: { scaleMargins: { bottom: 0.12, top: 0.12 } },
+    });
+    expect(chartMock.createChart.mock.calls[2]?.[1]).toMatchObject({
+      rightPriceScale: { scaleMargins: { bottom: 0.12, top: 0.12 } },
+    });
+  });
+
+  it("recomputes indicator ranges after zoom without rebuilding charts or forcing zero into one-sided MACD", () => {
+    const points = makePoints(300);
+    points[180]!.macd = -9;
+    points[180]!.dif = 7;
+    points[195]!.macd = 0.05;
+    points[299]!.dea = 4;
+    renderWorkspace(points);
+    const macdSeries = chartMock.charts[1].series[0];
+    const createCount = chartMock.createChart.mock.calls.length;
+
+    fireEvent.click(screen.getByRole("button", { name: "放大K线，减少可见根数" }));
+
+    expect(chartMock.createChart).toHaveBeenCalledTimes(createCount);
+    expect(macdSeries.options.autoscaleInfoProvider(() => null)).toEqual({
+      priceRange: { maxValue: 4, minValue: 0.05 },
+    });
+    expect(macdSeries.priceLines[0].options.price).toBe(4);
+    expect(macdSeries.priceLines[1].options.price).toBe(0.05);
+    expect(macdSeries.priceLines[2].options).toMatchObject({ axisLabelVisible: false, lineVisible: false });
+  });
+
+  it("uses a safe domain and one visible right-axis label for a degenerate indicator range", () => {
+    const points = makePoints(100);
+    points.forEach((point) => {
+      point.macd = 5;
+      point.dif = 5;
+      point.dea = 5;
+    });
+    renderWorkspace(points);
+    const macdSeries = chartMock.charts[1].series[0];
+
+    expect(macdSeries.options.autoscaleInfoProvider(() => null)).toEqual({
+      priceRange: { maxValue: 5.05, minValue: 4.95 },
+    });
+    expect(macdSeries.priceLines[0].options).toMatchObject({ axisLabelVisible: true, price: 5 });
+    expect(macdSeries.priceLines[1].options).toMatchObject({ axisLabelVisible: false, price: 5 });
+    expect(macdSeries.priceLines[2].options).toMatchObject({ axisLabelVisible: false, lineVisible: false });
   });
 
   it("uses whitespace or omission for null values and never converts them to zero", () => {
@@ -598,6 +692,7 @@ function makePoints(count: number): DetailChartPoint[] {
       changePct: 1 + index,
       amplitude: 2 + index,
       volume: 100 + index,
+      volumeDisplay: null,
       amount: 1000 + index,
       turnoverRate: 1.2,
       macd: 0.3,

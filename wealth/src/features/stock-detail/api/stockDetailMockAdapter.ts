@@ -48,6 +48,7 @@ function generateCandleSeries(): StockCandlePoint[] {
       low,
       close,
       volume,
+      volumeDisplay: null,
       amount: round((volume * close) / 10000, 2),
     };
   });
@@ -136,7 +137,7 @@ export function getStockDetailViewModel(tsCode: string): StockDetailViewModel {
       low: 17.98,
       turnoverRate: 1.24,
       volumeRatio: 1.18,
-      volumeText: "12.86万手",
+      volumeText: "12.86万",
       amountText: "2.37亿",
     },
     periods: STOCK_PERIOD_OPTIONS,

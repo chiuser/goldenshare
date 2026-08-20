@@ -66,6 +66,7 @@ function point(time: string, high: number, low: number): DetailChartPoint {
     time,
     turnoverRate: 1,
     volume: 1,
+    volumeDisplay: null,
     changePct: 1,
   };
 }

@@ -250,6 +250,7 @@ def test_page_init_uses_daily_prices_factor_volume_and_complete_basic_contract(a
     }
     assert payload["quote"]["point"] == 1000.0
     assert payload["quote"]["vol"] == 123456.0
+    assert payload["quote"]["volDisplay"] == "12.35万"
     assert payload["quote"]["amount"] == 654321.0
     assert payload["quote"]["vol"] != 999999999.0
     assert payload["dailyBasic"]["peTtm"] == 16.88
@@ -408,6 +409,7 @@ def test_kline_is_factor_only_ascending_and_has_no_adjustment_contract(app_clien
     assert [bar["tradeDate"] for bar in payload["bars"]] == ["2026-08-07", "2026-08-10"]
     assert payload["bars"][-1]["close"] == 105.0
     assert payload["bars"][-1]["vol"] == 123456.0
+    assert payload["bars"][-1]["volDisplay"] == "12.35万"
     assert payload["bars"][-1]["amount"] == 654321.0
     assert payload["bars"][-1]["factors"]["kdj"]["j"] == 66.0
     assert "ma15" not in payload["bars"][-1]["factors"]["ma"]

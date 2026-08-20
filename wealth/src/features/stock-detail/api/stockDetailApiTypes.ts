@@ -40,6 +40,7 @@ export interface StockQuoteSnapshotDto {
   turnoverRate?: number | null;
   volumeRatio?: number | null;
   vol?: number | null;
+  volDisplay: string | null;
   amount?: number | null;
 }
 
@@ -92,6 +93,7 @@ export interface StockKlineBarDto {
   changePct?: number | null;
   amplitude?: number | null;
   vol?: number | null;
+  volDisplay: string | null;
   amount?: number | null;
   turnoverRate?: number | null;
   volumeRatio?: number | null;

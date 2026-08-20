@@ -98,6 +98,7 @@ function toDetailChartPoint(point: IndexCandlePoint): DetailChartPoint {
     changePct: point.changePct,
     amplitude: point.amplitude,
     volume: point.volume,
+    volumeDisplay: point.volumeDisplay,
     amount: point.amount,
     turnoverRate: null,
     macd: point.macd,
@@ -163,10 +164,13 @@ function MainMetrics({ overlay, point, trendPoint }: { overlay: IndexMainOverlay
 
 function IndexPanelHeader({ panel, point }: { panel: Exclude<DetailChartPanelKey, "kline">; point: DetailChartPoint | null }) {
   const title = panel === "macd" ? "MACD(12,26,9)" : panel === "volume" ? "成交量" : "KDJ(9,3,3)";
-  const values = !point ? [] : panel === "macd" ? [["MACD", point.macd], ["DIF", point.dif], ["DEA", point.dea]] : panel === "volume" ? [["总量", point.volume]] : [["K", point.k], ["D", point.d], ["J", point.j]];
-  return <><strong>{title}</strong>{values.map(([label, raw]) => {
-    const value = typeof raw === "number" ? raw : null;
-    return <span className={`metric ${directionClass(resolveDirection(value))}`} key={String(label)}>{label}:{format(value)}</span>;
+  const values: Array<{ display?: string; label: string; value: number | null }> = !point ? [] : panel === "macd"
+    ? [{ label: "MACD", value: point.macd }, { label: "DIF", value: point.dif }, { label: "DEA", value: point.dea }]
+    : panel === "volume"
+      ? [{ display: point.volumeDisplay ?? "--", label: "总量", value: point.volume }]
+      : [{ label: "K", value: point.k }, { label: "D", value: point.d }, { label: "J", value: point.j }];
+  return <><strong>{title}</strong>{values.map(({ display, label, value }) => {
+    return <span className={`metric ${directionClass(resolveDirection(value))}`} key={label}>{label}:{display ?? format(value)}</span>;
   })}<button className="detail-chart-gear" disabled title="指标设置暂未开通" type="button">⚙</button></>;
 }
 
@@ -188,7 +192,7 @@ function IndexTooltip({ point, side }: { point: DetailChartPoint; side: DetailCh
     ["最低", format(point.low), directionClass(compare(point.low, point.preClose))],
     ["涨幅", isFiniteChartNumber(point.changePct) ? `${point.changePct.toFixed(2)}%` : "--", directionClass(resolveDirection(point.changePct))],
     ["振幅", isFiniteChartNumber(point.amplitude) ? `${point.amplitude.toFixed(2)}%` : "--", "secondary"],
-    ["成交量", formatCompact(point.volume, "手"), "secondary"],
+    ["成交量", point.volumeDisplay ?? "--", "secondary"],
     ["成交额", formatCompact(point.amount, ""), "secondary"],
   ];
   return <div className={`detail-chart-tooltip ${side}`}><div className="detail-chart-tooltip-grid">{rows.map(([label, value, tone]) => <div className="detail-chart-tooltip-row" key={label}><span>{label}</span><b className={tone}>{value}</b></div>)}</div></div>;

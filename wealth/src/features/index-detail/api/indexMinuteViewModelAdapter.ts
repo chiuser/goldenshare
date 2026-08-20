@@ -114,6 +114,7 @@ function toPoint(
     changePct: null,
     amplitude: null,
     volume: bar.vol,
+    volumeDisplay: null,
     amount: bar.amount,
     ma5: indicator?.ma5 ?? null,
     ma10: indicator?.ma10 ?? null,

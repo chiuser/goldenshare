@@ -30,8 +30,10 @@ const chartMock = vi.hoisted(() => {
     const chart = {
       addSeries: vi.fn(() => {
         const addedSeries = {
+          applyOptions: vi.fn(),
           attachPrimitive: vi.fn(),
           coordinateToPrice: vi.fn(() => 12.34),
+          createPriceLine: vi.fn(() => ({ applyOptions: vi.fn() })),
           detachPrimitive: vi.fn(),
           setData: vi.fn(),
         };
@@ -226,6 +228,7 @@ function makeCandles(count: number): StockCandlePoint[] {
       changePct: 0.5,
       amplitude: 1.2,
       volume: 100_000 + index,
+      volumeDisplay: "10.00万",
       amount: 1_000_000 + index,
       turnoverRate: 1.3,
       volumeRatio: 1.1,

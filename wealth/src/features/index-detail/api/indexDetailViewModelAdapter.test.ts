@@ -15,6 +15,8 @@ describe("buildIndexDetailViewModel", () => {
     expect(viewModel.basicMetrics.find((item) => item.key === "pe")?.value).toBe("--");
     expect(viewModel.basicMetrics.find((item) => item.key === "pb")?.value).toBe("--");
     expect(viewModel.basicMetrics.find((item) => item.key === "totalMv")?.value).toBe("6.95万亿");
+    expect(viewModel.basicMetrics.find((item) => item.key === "vol")?.value).toBe("5.42万");
+    expect(viewModel.chart.candles[0].volumeDisplay).toBe("5.00万");
     expect(viewModel.periods.filter((period) => period.supported).map((period) => period.key)).toEqual(["day"]);
   });
 

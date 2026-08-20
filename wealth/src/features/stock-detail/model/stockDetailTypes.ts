@@ -64,6 +64,7 @@ export interface StockCandlePoint {
   changePct: number;
   amplitude: number;
   volume: number;
+  volumeDisplay: string | null;
   amount: number;
   turnoverRate: number;
   volumeRatio: number;
@@ -77,12 +78,12 @@ export interface StockCandlePoint {
   bollUpper: number;
   bollMiddle: number;
   bollLower: number;
-  macd: number;
-  dif: number;
-  dea: number;
-  k: number;
-  d: number;
-  j: number;
+  macd: number | null;
+  dif: number | null;
+  dea: number | null;
+  k: number | null;
+  d: number | null;
+  j: number | null;
 }
 
 export interface StockChartSeries {

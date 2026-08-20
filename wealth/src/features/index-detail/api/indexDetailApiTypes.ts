@@ -61,6 +61,7 @@ export interface IndexDetailPageInitResponseDto {
     low: number | null;
     preClose: number | null;
     vol: number | null;
+    volDisplay: string | null;
     amount: number | null;
   } | null;
   dailyBasic: {
@@ -115,6 +116,7 @@ export interface IndexKlineBarDto {
   changePct: number | null;
   amplitude: number | null;
   vol: number | null;
+  volDisplay: string | null;
   amount: number | null;
   factors: {
     ma: {

@@ -7,7 +7,9 @@ import {
   LineSeries,
   LineStyle,
   createChart,
+  type AutoscaleInfoProvider,
   type IChartApi,
+  type IPriceLine,
   type ISeriesApi,
   type SeriesType,
   type Time,
@@ -31,6 +33,12 @@ import {
   DETAIL_CHART_COLORS,
   isFiniteChartNumber,
 } from "./detailChartSeries";
+import {
+  KDJ_RANGE_FIELDS,
+  MACD_RANGE_FIELDS,
+  resolveVisibleIndicatorRange,
+  type DetailChartIndicatorRange,
+} from "./detailChartIndicatorRange";
 import type {
   DetailChartAxisFloatLabelState,
   DetailChartCrosshairPresentation,
@@ -87,7 +95,14 @@ interface DetailChartViewportUiState {
 
 interface DetailChartRuntime {
   applyRange: (range: DetailChartLogicalRange) => void;
+  applyIndicatorRanges: (range: DetailChartLogicalRange) => void;
   getRange: () => DetailChartLogicalRange | null;
+}
+
+interface IndicatorAxisPriceLines {
+  max: IPriceLine;
+  min: IPriceLine;
+  zero: IPriceLine | null;
 }
 
 const EMPTY_MAIN_PRIMITIVES: NonNullable<DetailChartWorkspaceProps["mainPrimitives"]> = [];
@@ -146,7 +161,10 @@ export function DetailChartWorkspace({
     setViewportUi((current) => current.dataKey === viewport.dataKey && current.visibleCount === visibleCount
       ? current
       : { dataKey: viewport.dataKey, visibleCount });
-    if (range && options.applyToCharts !== false) runtimeRef.current?.applyRange(range);
+    if (range) {
+      runtimeRef.current?.applyIndicatorRanges(range);
+      if (options.applyToCharts !== false) runtimeRef.current?.applyRange(range);
+    }
   }, []);
 
   const zoom = useCallback((direction: "in" | "out") => {
@@ -176,7 +194,7 @@ export function DetailChartWorkspace({
       const showTimeScale = timeMode === "minute" && (timeAxisPlacement === "each-pane" || panel === "kdj");
       const chart = createChart(
         container,
-        buildChartOptions(height, showTimeScale, timeMode, crosshairPresentation),
+        buildChartOptions(height, showTimeScale, timeMode, crosshairPresentation, panel),
       );
       charts.push(chart);
       return chart;
@@ -205,11 +223,13 @@ export function DetailChartWorkspace({
       chart: IChartApi,
       color: string,
       valueOf: (point: DetailChartPoint) => number | null,
+      fixedPrecision = false,
     ) => {
       const series = chart.addSeries(LineSeries, {
         color,
         lastValueVisible: false,
         lineWidth: 1,
+        ...(fixedPrecision ? { priceFormat: INDICATOR_PRICE_FORMAT } : {}),
         priceLineVisible: false,
       });
       series.setData(buildLineData(points, valueOf));
@@ -234,6 +254,7 @@ export function DetailChartWorkspace({
     const macdBars = macdChart.addSeries(HistogramSeries, {
       base: 0,
       lastValueVisible: false,
+      priceFormat: INDICATOR_PRICE_FORMAT,
       priceLineVisible: false,
     });
     macdBars.setData(buildHistogramData(
@@ -241,19 +262,21 @@ export function DetailChartWorkspace({
       (point) => point.macd,
       (_point, value) => value >= 0 ? "rgba(255, 77, 90, 0.64)" : "rgba(24, 208, 146, 0.64)",
     ));
-    addLine(macdChart, DETAIL_CHART_COLORS.brand, (point) => point.dif);
-    addLine(macdChart, DETAIL_CHART_COLORS.blue, (point) => point.dea);
+    const difSeries = addLine(macdChart, DETAIL_CHART_COLORS.brand, (point) => point.dif, true);
+    const deaSeries = addLine(macdChart, DETAIL_CHART_COLORS.blue, (point) => point.dea, true);
 
-    const kdjReferenceLine = addLine(kdjChart, DETAIL_CHART_COLORS.brand, (point) => point.k);
-    addLine(kdjChart, DETAIL_CHART_COLORS.blue, (point) => point.d);
-    addLine(kdjChart, DETAIL_CHART_COLORS.purple, (point) => point.j);
+    const kSeries = addLine(kdjChart, DETAIL_CHART_COLORS.brand, (point) => point.k, true);
+    const dSeries = addLine(kdjChart, DETAIL_CHART_COLORS.blue, (point) => point.d, true);
+    const jSeries = addLine(kdjChart, DETAIL_CHART_COLORS.purple, (point) => point.j, true);
+    const macdAxisPriceLines = createIndicatorAxisPriceLines(macdBars, true);
+    const kdjAxisPriceLines = createIndicatorAxisPriceLines(kSeries, false);
 
     const pointByTime = new Map(points.map((point, index) => [String(point.time), { index, point }]));
     const syncTargets: Record<DetailChartPanelKey, ChartSyncTarget> = {
       kline: { chart: klineChart, formatter: formatPriceAxisValue, series: klineSeries, valueOf: (point) => point.close },
       macd: { chart: macdChart, formatter: formatSignedAxisValue, series: macdBars, valueOf: (point) => point.macd },
       volume: { chart: volumeChart, formatter: formatCompactAxisValue, series: volumeSeries, valueOf: (point) => point.volume },
-      kdj: { chart: kdjChart, formatter: formatPriceAxisValue, series: kdjReferenceLine, valueOf: (point) => point.k },
+      kdj: { chart: kdjChart, formatter: formatPriceAxisValue, series: kSeries, valueOf: (point) => point.k },
     };
     let isSyncingCrosshair = false;
 
@@ -365,8 +388,25 @@ export function DetailChartWorkspace({
       isSyncingVisibleRange = false;
       queueTimeAxisMarkerUpdate();
     };
+    let macdRange: DetailChartIndicatorRange | null = null;
+    let kdjRange: DetailChartIndicatorRange | null = null;
+    const macdAutoscaleProvider: AutoscaleInfoProvider = () => toAutoscaleInfo(macdRange);
+    const kdjAutoscaleProvider: AutoscaleInfoProvider = () => toAutoscaleInfo(kdjRange);
+    const applyIndicatorRanges = (range: DetailChartLogicalRange) => {
+      macdRange = resolveVisibleIndicatorRange(points, range, MACD_RANGE_FIELDS);
+      kdjRange = resolveVisibleIndicatorRange(points, range, KDJ_RANGE_FIELDS);
+      [macdBars, difSeries, deaSeries].forEach((series) => {
+        series.applyOptions({ autoscaleInfoProvider: macdAutoscaleProvider });
+      });
+      [kSeries, dSeries, jSeries].forEach((series) => {
+        series.applyOptions({ autoscaleInfoProvider: kdjAutoscaleProvider });
+      });
+      applyIndicatorAxisPriceLines(macdAxisPriceLines, macdRange);
+      applyIndicatorAxisPriceLines(kdjAxisPriceLines, kdjRange);
+    };
     const runtime: DetailChartRuntime = {
       applyRange: applyVisibleRange,
+      applyIndicatorRanges,
       getRange: () => klineChart.timeScale().getVisibleLogicalRange(),
     };
     runtimeRef.current = runtime;
@@ -594,6 +634,7 @@ function buildChartOptions(
   showTimeScale: boolean,
   timeMode: "daily" | "minute",
   crosshairPresentation: DetailChartCrosshairPresentation,
+  panel: DetailChartPanelKey,
 ) {
   const crosshair = crosshairPresentation === "native-axis-labels"
     ? { mode: CrosshairMode.Normal }
@@ -636,7 +677,9 @@ function buildChartOptions(
       autoScale: true,
       borderColor: DETAIL_CHART_COLORS.axis,
       minimumWidth: RIGHT_PRICE_SCALE_WIDTH,
-      scaleMargins: { bottom: 0.12, top: 0.12 },
+      scaleMargins: panel === "macd" || panel === "kdj"
+        ? { bottom: 0, top: 0 }
+        : { bottom: 0.12, top: 0.12 },
     },
     timeScale: {
       borderColor: DETAIL_CHART_COLORS.axis,
@@ -651,6 +694,70 @@ function buildChartOptions(
     handleScale: false,
     handleScroll: false,
   };
+}
+
+const INDICATOR_PRICE_FORMAT = { minMove: 0.01, precision: 2, type: "price" } as const;
+
+function createIndicatorAxisPriceLines(
+  referenceSeries: ISeriesApi<SeriesType>,
+  includeZeroLine: boolean,
+): IndicatorAxisPriceLines {
+  const hiddenLine = {
+    axisLabelTextColor: "#f8fafc",
+    axisLabelVisible: false,
+    lineStyle: LineStyle.Dotted,
+    lineVisible: false,
+    lineWidth: 1 as const,
+    price: 0,
+    title: "",
+  };
+  return {
+    max: referenceSeries.createPriceLine({
+      ...hiddenLine,
+      axisLabelColor: DETAIL_CHART_COLORS.up,
+      color: DETAIL_CHART_COLORS.up,
+    }),
+    min: referenceSeries.createPriceLine({
+      ...hiddenLine,
+      axisLabelColor: DETAIL_CHART_COLORS.down,
+      color: DETAIL_CHART_COLORS.down,
+    }),
+    zero: includeZeroLine
+      ? referenceSeries.createPriceLine({
+          ...hiddenLine,
+          axisLabelColor: DETAIL_CHART_COLORS.axis,
+          color: DETAIL_CHART_COLORS.axis,
+        })
+      : null,
+  };
+}
+
+function applyIndicatorAxisPriceLines(
+  lines: IndicatorAxisPriceLines,
+  range: DetailChartIndicatorRange | null,
+) {
+  lines.max.applyOptions({
+    axisLabelVisible: range !== null,
+    lineVisible: false,
+    price: range?.dataMax ?? 0,
+  });
+  lines.min.applyOptions({
+    axisLabelVisible: range !== null && !range.isDegenerate,
+    lineVisible: false,
+    price: range?.dataMin ?? 0,
+  });
+  const crossesZero = range !== null && range.dataMin < 0 && range.dataMax > 0;
+  lines.zero?.applyOptions({
+    axisLabelVisible: crossesZero,
+    lineVisible: crossesZero,
+    price: 0,
+  });
+}
+
+function toAutoscaleInfo(range: DetailChartIndicatorRange | null) {
+  return range
+    ? { priceRange: { maxValue: range.domainMax, minValue: range.domainMin } }
+    : null;
 }
 
 function DailyTimeAxis({ ariaLabel, markers }: { ariaLabel: string; markers: DetailChartTimeAxisMarker[] }) {

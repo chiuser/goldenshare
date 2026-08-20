@@ -112,6 +112,7 @@ class IndexDetailQuoteDto(BaseModel):
     low: float | None
     preClose: float | None
     vol: float | None
+    volDisplay: str | None
     amount: float | None
 
 
@@ -237,6 +238,7 @@ class IndexKlineBarDto(BaseModel):
     changePct: float | None
     amplitude: float | None
     vol: float | None
+    volDisplay: str | None
     amount: float | None
     factors: IndexKlineFactorsDto
 

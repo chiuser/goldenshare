@@ -78,7 +78,7 @@ export function buildBasicMetrics(pageInit: IndexDetailPageInitResponseDto): Ind
   return [
     metric("preClose", "昨收", quote?.preClose, formatFixed, "secondary"),
     metric("open", "今开", quote?.open, formatFixed, compareTone(quote?.open, quote?.preClose)),
-    metric("vol", "总量", quote?.vol, formatHands, "secondary"),
+    displayMetric("vol", "总量", quote?.volDisplay, "secondary"),
     metric("high", "最高", quote?.high, formatFixed, compareTone(quote?.high, quote?.preClose)),
     metric("low", "最低", quote?.low, formatFixed, compareTone(quote?.low, quote?.preClose)),
     metric("amount", "金额", quote?.amount, formatAmountFromThousandYuan, "secondary"),
@@ -124,6 +124,7 @@ function toCandlePoint(bar: IndexDetailKlineResponseDto["bars"][number]): IndexC
     changePct: finiteOrNull(bar.changePct),
     amplitude: finiteOrNull(bar.amplitude),
     volume: finiteOrNull(bar.vol),
+    volumeDisplay: bar.volDisplay,
     amount: finiteOrNull(bar.amount),
     ma5: finiteOrNull(bar.factors.ma.ma5),
     ma10: finiteOrNull(bar.factors.ma.ma10),
@@ -154,6 +155,15 @@ function metric(
   return { key, label, value: formatter(value), tone };
 }
 
+function displayMetric(
+  key: string,
+  label: string,
+  value: string | null | undefined,
+  tone: IndexBasicMetric["tone"],
+): IndexBasicMetric {
+  return { key, label, value: value ?? "--", tone };
+}
+
 function compareTone(value: number | null | undefined, base: number | null | undefined): IndexBasicMetric["tone"] {
   if (!isFiniteNumber(value) || !isFiniteNumber(base)) return "secondary";
   if (value > base) return "up";
@@ -171,13 +181,6 @@ function formatPercent(value: number | null | undefined): string {
 
 function formatInteger(value: number | null | undefined): string {
   return isFiniteNumber(value) ? Math.round(value).toLocaleString("zh-CN") : "--";
-}
-
-function formatHands(value: number | null | undefined): string {
-  if (!isFiniteNumber(value)) return "--";
-  if (Math.abs(value) >= 100_000_000) return `${(value / 100_000_000).toFixed(2)}亿手`;
-  if (Math.abs(value) >= 10_000) return `${(value / 10_000).toFixed(2)}万手`;
-  return `${value.toFixed(0)}手`;
 }
 
 function formatAmountFromThousandYuan(value: number | null | undefined): string {

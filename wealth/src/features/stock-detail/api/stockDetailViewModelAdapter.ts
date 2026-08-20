@@ -30,6 +30,7 @@ function toCandlePoint(bar: StockDetailKlineResponseDto["bars"][number]): StockC
     changePct: valueOrZero(bar.changePct),
     amplitude: valueOrZero(bar.amplitude),
     volume: valueOrZero(bar.vol),
+    volumeDisplay: bar.volDisplay,
     amount: valueOrZero(bar.amount),
     turnoverRate: valueOrZero(bar.turnoverRate),
     volumeRatio: valueOrZero(bar.volumeRatio),
@@ -43,19 +44,13 @@ function toCandlePoint(bar: StockDetailKlineResponseDto["bars"][number]): StockC
     bollUpper: valueOrZero(bar.factors.boll.upper),
     bollMiddle: valueOrZero(bar.factors.boll.middle),
     bollLower: valueOrZero(bar.factors.boll.lower),
-    macd: valueOrZero(bar.factors.macd.macd),
-    dif: valueOrZero(bar.factors.macd.dif),
-    dea: valueOrZero(bar.factors.macd.dea),
-    k: valueOrZero(bar.factors.kdj.k),
-    d: valueOrZero(bar.factors.kdj.d),
-    j: valueOrZero(bar.factors.kdj.j),
+    macd: finiteOrNull(bar.factors.macd.macd),
+    dif: finiteOrNull(bar.factors.macd.dif),
+    dea: finiteOrNull(bar.factors.macd.dea),
+    k: finiteOrNull(bar.factors.kdj.k),
+    d: finiteOrNull(bar.factors.kdj.d),
+    j: finiteOrNull(bar.factors.kdj.j),
   };
-}
-
-function formatVolumeText(vol: number | null | undefined): string {
-  const value = valueOrZero(vol);
-  if (value >= 10000) return `${(value / 10000).toFixed(2)}万手`;
-  return `${Math.round(value)}手`;
 }
 
 function formatAmountText(amount: number | null | undefined): string {
@@ -101,7 +96,7 @@ export function buildStockDetailViewModel(
       low: valueOrZero(quote.low),
       turnoverRate: valueOrZero(quote.turnoverRate),
       volumeRatio: valueOrZero(quote.volumeRatio),
-      volumeText: formatVolumeText(quote.vol),
+      volumeText: quote.volDisplay ?? "--",
       amountText: formatAmountText(quote.amount),
     },
     periods: STOCK_PERIOD_OPTIONS.map((period) => {
