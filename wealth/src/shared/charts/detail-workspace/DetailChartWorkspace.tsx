@@ -15,6 +15,7 @@ import {
 
 import { DetailChartPane } from "./DetailChartPane";
 import { DetailChartZoomControls } from "./DetailChartZoomControls";
+import { VisibleExtremaPrimitive } from "./VisibleExtremaPrimitive";
 import {
   buildDailyTimeAxisMarkers,
   formatCompactAxisValue,
@@ -196,6 +197,8 @@ export function DetailChartWorkspace({
       upColor: "rgba(255, 77, 90, 0.82)",
     });
     klineSeries.setData(candleData);
+    const visibleExtremaPrimitive = new VisibleExtremaPrimitive(candleData);
+    klineSeries.attachPrimitive(visibleExtremaPrimitive);
     primitives.forEach((primitive) => klineSeries.attachPrimitive(primitive));
 
     const addLine = (
@@ -527,6 +530,7 @@ export function DetailChartWorkspace({
       chartArea.removeEventListener("mousedown", handleMouseDown, { capture: true });
       window.removeEventListener("mousemove", handleMouseMove, { capture: true });
       window.removeEventListener("mouseup", handleMouseUp, { capture: true });
+      klineSeries.detachPrimitive(visibleExtremaPrimitive);
       primitives.forEach((primitive) => klineSeries.detachPrimitive(primitive));
       charts.forEach((chart) => chart.remove());
     };

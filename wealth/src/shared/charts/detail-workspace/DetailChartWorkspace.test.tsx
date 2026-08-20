@@ -2,8 +2,13 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DetailChartWorkspace } from "./DetailChartWorkspace";
+import { VisibleExtremaPrimitive } from "./VisibleExtremaPrimitive";
 import { buildCandlestickData, buildHistogramData, buildLineData } from "./detailChartSeries";
-import type { DetailChartLineDefinition, DetailChartPoint } from "./detailChartTypes";
+import type {
+  DetailChartLineDefinition,
+  DetailChartPoint,
+  DetailChartWorkspaceProps,
+} from "./detailChartTypes";
 
 const chartMock = vi.hoisted(() => {
   const charts: Array<Record<string, any>> = [];
@@ -26,12 +31,25 @@ const chartMock = vi.hoisted(() => {
         if (index >= 0) visibleRangeHandlers.splice(index, 1);
       }),
     };
-    const chart = {
+    const chart: Record<string, any> = {
       addSeries: vi.fn(() => {
-        const item = {
-          attachPrimitive: vi.fn(),
+        const item: Record<string, any> = {
+          attachedPrimitives: [] as any[],
+          attachPrimitive: vi.fn((primitive: any) => {
+            item.attachedPrimitives.push(primitive);
+            primitive.attached?.({
+              chart,
+              requestUpdate: vi.fn(),
+              series: item,
+            });
+          }),
           coordinateToPrice: vi.fn(() => 12.34),
-          detachPrimitive: vi.fn(),
+          detachPrimitive: vi.fn((primitive: any) => {
+            const index = item.attachedPrimitives.indexOf(primitive);
+            if (index >= 0) item.attachedPrimitives.splice(index, 1);
+            primitive.detached?.();
+          }),
+          priceToCoordinate: vi.fn((price: number) => price),
           setData: vi.fn(),
         };
         series.push(item);
@@ -290,6 +308,50 @@ describe("DetailChartWorkspace", () => {
     fetchSpy.mockRestore();
   });
 
+  it("attaches the built-in extrema primitive before external business primitives", () => {
+    const externalPrimitive = {
+      attached: vi.fn(),
+      detached: vi.fn(),
+      paneViews: () => [],
+    };
+    const rendered = render(workspaceElement(
+      makePoints(300),
+      "daily",
+      "shared:primitives:day",
+      mainLines,
+      [externalPrimitive as never],
+    ));
+    const candleSeries = chartMock.charts[0].series[0];
+
+    expect(candleSeries.attachedPrimitives).toHaveLength(2);
+    expect(candleSeries.attachedPrimitives[0]).toBeInstanceOf(VisibleExtremaPrimitive);
+    expect(candleSeries.attachedPrimitives[1]).toBe(externalPrimitive);
+    expect(externalPrimitive.attached).toHaveBeenCalledTimes(1);
+
+    rendered.unmount();
+    expect(candleSeries.attachedPrimitives).toHaveLength(0);
+    expect(externalPrimitive.detached).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolves extrema from the new range after zoom without rebuilding charts", () => {
+    renderWorkspace(makePoints(300));
+    const candleSeries = chartMock.charts[0].series[0];
+    const primitive = candleSeries.attachedPrimitives[0] as VisibleExtremaPrimitive;
+    const before = primitiveDrawingTarget();
+    primitive.draw(before.target);
+    expect(before.fillText).toHaveBeenCalledWith("310.00", expect.any(Number), 310);
+    expect(before.fillText).toHaveBeenCalledWith("189.00", expect.any(Number), 189);
+    const createCount = chartMock.createChart.mock.calls.length;
+
+    fireEvent.click(screen.getByRole("button", { name: "放大K线，减少可见根数" }));
+    const after = primitiveDrawingTarget();
+    primitive.draw(after.target);
+
+    expect(chartMock.createChart).toHaveBeenCalledTimes(createCount);
+    expect(after.fillText).toHaveBeenCalledWith("310.00", expect.any(Number), 310);
+    expect(after.fillText).toHaveBeenCalledWith("204.00", expect.any(Number), 204);
+  });
+
   it("disables zoom-in at 45 and zoom-out at 180", () => {
     renderWorkspace(makePoints(300));
     const zoomIn = screen.getByRole("button", { name: "放大K线，减少可见根数" });
@@ -432,6 +494,8 @@ describe("DetailChartWorkspace", () => {
     const rendered = renderWorkspace(makePoints(300), "daily", "shared:cleanup:day");
     const observer = resizeObserverMock.instances.at(-1)!;
     const charts = [...chartMock.charts];
+    const candleSeries = charts[0].series[0];
+    const builtInPrimitive = candleSeries.attachedPrimitives[0];
 
     rendered.unmount();
 
@@ -441,6 +505,8 @@ describe("DetailChartWorkspace", () => {
       expect(chart.timeScale().unsubscribeVisibleLogicalRangeChange).toHaveBeenCalled();
       expect(chart.remove).toHaveBeenCalledTimes(1);
     });
+    expect(candleSeries.detachPrimitive).toHaveBeenCalledWith(builtInPrimitive);
+    expect(candleSeries.attachedPrimitives).toHaveLength(0);
   });
 });
 
@@ -457,6 +523,7 @@ function workspaceElement(
   timeMode: "daily" | "minute",
   dataKey: string,
   lines = mainLines,
+  primitives?: DetailChartWorkspaceProps["mainPrimitives"],
 ) {
   return (
     <DetailChartWorkspace
@@ -465,6 +532,7 @@ function workspaceElement(
       bottomBarAriaLabel="共享指标栏"
       dataKey={dataKey}
       mainLines={lines}
+      mainPrimitives={primitives}
       panelAriaLabels={{
         kline: "共享K线主图",
         macd: "共享MACD",
@@ -479,6 +547,41 @@ function workspaceElement(
       timeMode={timeMode}
     />
   );
+}
+
+function primitiveDrawingTarget() {
+  const fillText = vi.fn();
+  const context = {
+    beginPath: vi.fn(),
+    fillText,
+    lineTo: vi.fn(),
+    measureText: vi.fn(() => ({ width: 40 })),
+    moveTo: vi.fn(),
+    restore: vi.fn(),
+    save: vi.fn(),
+    stroke: vi.fn(),
+  };
+  for (const property of [
+    "fillStyle",
+    "font",
+    "lineCap",
+    "lineJoin",
+    "lineWidth",
+    "strokeStyle",
+    "textAlign",
+    "textBaseline",
+  ]) {
+    Object.defineProperty(context, property, { set: vi.fn() });
+  }
+  return {
+    fillText,
+    target: {
+      useMediaCoordinateSpace: (draw: (scope: unknown) => void) => draw({
+        context,
+        mediaSize: { height: 400, width: 600 },
+      }),
+    } as never,
+  };
 }
 
 function makePoints(count: number): DetailChartPoint[] {
