@@ -73,7 +73,7 @@ vi.mock("lightweight-charts", () => ({
   CrosshairMode: { Normal: 0 },
   HistogramSeries: "HistogramSeries",
   LineSeries: "LineSeries",
-  LineStyle: { Dotted: 1 },
+  LineStyle: { Dotted: 1, Solid: 0 },
   createChart: chartMock.createChart,
 }));
 

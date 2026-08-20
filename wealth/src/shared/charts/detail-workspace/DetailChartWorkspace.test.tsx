@@ -104,7 +104,7 @@ vi.mock("lightweight-charts", () => ({
   CrosshairMode: { Normal: 0 },
   HistogramSeries: "HistogramSeries",
   LineSeries: "LineSeries",
-  LineStyle: { Dotted: 1 },
+  LineStyle: { Dotted: 1, Solid: 0 },
   createChart: chartMock.createChart,
 }));
 
@@ -197,12 +197,32 @@ describe("DetailChartWorkspace", () => {
       priceRange: { maxValue: 140, minValue: -20 },
     });
     expect(macdSeries.priceLines).toHaveLength(3);
-    expect(macdSeries.priceLines[0].options).toMatchObject({ axisLabelVisible: true, lineVisible: false, price: 7 });
-    expect(macdSeries.priceLines[1].options).toMatchObject({ axisLabelVisible: true, lineVisible: false, price: -9 });
+    expect(macdSeries.priceLines[0].options).toMatchObject({
+      axisLabelColor: "#ff4d5a",
+      axisLabelVisible: true,
+      color: "rgba(148, 163, 184, 0.28)",
+      lineStyle: 0,
+      lineVisible: true,
+      price: 7,
+    });
+    expect(macdSeries.priceLines[1].options).toMatchObject({
+      axisLabelColor: "#18d092",
+      axisLabelVisible: true,
+      color: "rgba(148, 163, 184, 0.28)",
+      lineStyle: 0,
+      lineVisible: true,
+      price: -9,
+    });
     expect(macdSeries.priceLines[2].options).toMatchObject({ axisLabelVisible: true, lineVisible: true, price: 0 });
     expect(kdjSeries.priceLines).toHaveLength(2);
     expect(kdjSeries.priceLines[0].options.price).toBe(140);
     expect(kdjSeries.priceLines[1].options.price).toBe(-20);
+    const indicatorFormatter = macdSeries.options.priceFormat.formatter as (value: number) => string;
+    const formattedLabels = [indicatorFormatter(7.77), indicatorFormatter(0), indicatorFormatter(-9.55)];
+    expect(formattedLabels.map((label) => label.length)).toEqual([8, 8, 8]);
+    expect(formattedLabels.map((label) => label.trimStart())).toEqual(["7.77", "0.00", "-9.55"]);
+    expect(screen.getByLabelText("共享MACD")).toHaveClass("macd-panel");
+    expect(screen.getByLabelText("共享KDJ")).toHaveClass("kdj-panel");
     expect(chartMock.createChart.mock.calls[1]?.[1]).toMatchObject({
       rightPriceScale: { scaleMargins: { bottom: 0, top: 0 } },
     });
@@ -251,8 +271,8 @@ describe("DetailChartWorkspace", () => {
     expect(macdSeries.options.autoscaleInfoProvider(() => null)).toEqual({
       priceRange: { maxValue: 5.05, minValue: 4.95 },
     });
-    expect(macdSeries.priceLines[0].options).toMatchObject({ axisLabelVisible: true, price: 5 });
-    expect(macdSeries.priceLines[1].options).toMatchObject({ axisLabelVisible: false, price: 5 });
+    expect(macdSeries.priceLines[0].options).toMatchObject({ axisLabelVisible: true, lineVisible: true, price: 5 });
+    expect(macdSeries.priceLines[1].options).toMatchObject({ axisLabelVisible: false, lineVisible: false, price: 5 });
     expect(macdSeries.priceLines[2].options).toMatchObject({ axisLabelVisible: false, lineVisible: false });
   });
 

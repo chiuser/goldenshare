@@ -49,6 +49,12 @@ canonical logical range
    `padding=max(abs(value)*0.01, 0.01)`，有效域为
    `[value-padding,value+padding]`。
 10. 动态范围只统计 logical range 内完整可见 K 线，忽略两侧半根 K 线。
+11. 指标右轴标签使用统一固定字符宽度，数值右对齐；MACD 的 max/zero/min 与 KDJ 的
+    max/min 不得因正负号或整数位数不同形成参差宽度。
+12. max 标签使用上涨色背景，min 标签使用下跌色背景，MACD zero 标签使用中性色背景；
+    Figma 与正式实现必须保持一致。
+13. max/min 所在水平线就是指标绘图区的动态上边界和下边界；不得在相同位置再叠加指标
+    绘图区外框线或固定分隔线。
 
 ### 1.3 明确不做
 
@@ -485,21 +491,34 @@ autoscale；不得销毁或重建 chart/series。
 
 每个 indicator pane 在 reference series 上创建三条可复用 price line：
 
-1. max label：`lineVisible=false`，`axisLabelVisible=true`。
-2. min label：`lineVisible=false`，`axisLabelVisible=true`。
+1. max boundary：`lineVisible=true`，`axisLabelVisible=true`。
+2. min boundary：非退化范围时 `lineVisible=true`，`axisLabelVisible=true`。
 3. zero line：中性虚线；只有 MACD `dataMin < 0 < dataMax` 时显示。
 
 标签规则：
 
 1. max/min 只出现在右侧纵轴，不渲染左侧 DOM/Canvas 标签。
-2. max 使用现有上涨色，min 使用现有下跌色。
+2. max 标签使用现有上涨色背景，min 标签使用现有下跌色背景，zero 标签使用中性色背景；
+   标签文字统一使用高对比度浅色。
 3. 正常范围分别标记 `dataMax/dataMin`。
 4. 退化范围只显示一条 `dataMin == dataMax` 的真实值标签，隐藏重复标签。
 5. 无有限值时隐藏 max/min/zero，provider 返回 `null`。
 6. 全正/全负 MACD 隐藏 zero line，不扩大 domain。
 7. KDJ 不创建 0/20/50/80/100 固定参考线。
+8. 指标价格格式固定为 2 位小数，并以统一固定字符宽度输出；不足位使用数字等宽空格在
+   左侧补齐，使右轴标签数值右对齐。
 
-price line 只负责右轴标签和 MACD 0 线，确定 domain 的唯一事实仍是 autoscale provider。
+边界线规则：
+
+1. max/min 水平线使用同一中性网格线色和实线样式，避免整条边界线被误读为涨跌状态；
+   涨跌色只承载右轴标签背景语义。
+2. max/min 水平线直接位于 `domainMax/domainMin` 对应的绘图区上下边界，并随可见窗口变化。
+3. 指标 panel 不得再绘制与 min boundary 重合的 `border-bottom`；KDJ 作为末端 panel 也保持
+   无额外底部外框。共享 workspace 外框和不同 panel header 不属于本条禁止范围。
+4. 退化范围只显示真实值对应的一条 max boundary；安全 domain 两端不生成伪极值边界线。
+
+price line 负责右轴标签、max/min 动态边界和 MACD 0 线；确定 domain 的唯一事实仍是
+autoscale provider，price line 不得反向扩大范围。
 
 ### 7.5 刷新触发矩阵
 
@@ -589,6 +608,9 @@ price line 只负责右轴标签和 MACD 0 线，确定 domain 的唯一事实�
 7. indicator pane margin 为 0，K 线/volume 仍为 0.12。
 8. `createChart` 数量在范围变化前后保持 4，不因 autoscale 更新重建。
 9. 不触发 API request。
+10. max/min boundary 可见，使用中性实线；MACD zero 仍为中性虚线。
+11. 指标右轴格式化文本长度一致、保留 2 位小数并从右侧对齐。
+12. MACD/KDJ panel 带专属 class，样式门禁证明没有与 min boundary 重合的底部边框。
 
 ### 9.6 四消费者回归
 
@@ -710,6 +732,9 @@ git status --short
 | KDJ 三值共同 extrema | 6、7 | 纯函数 + workspace |
 | 只统计完整 K 线 | 6.2 | fractional range |
 | 标签只在右轴 | 7.4 | price-line mock |
+| 标签等宽右对齐 | 7.4 | custom price formatter |
+| 标签背景与 Figma 一致 | 7.4 | price-line color + Figma contract |
+| 极值线即动态上下边界 | 7.4 | price-line mock + panel class/CSS |
 | 相等值安全范围 | 6.2、7.4 | 0/100 退化测试 |
 | 单边 MACD 不含 0 | 7.4 | 全正/全负测试 |
 | 四场景共享 | 第 8 章 | 四消费者回归 |
@@ -724,10 +749,13 @@ git status --short
 2. 后端目标测试 `51 passed`；前端目标测试 `48 passed`。
 3. 前端 TypeScript typecheck 与 production build 均通过。
 4. 未部署、未启动或重启服务、未执行人工交互验收；这些动作按用户要求留给后续人工完成。
+5. v1.2 边界线与标签对齐修正完成后，目标测试 `24 passed`、前端完整测试 `270 passed`，
+   TypeScript typecheck 与 production build 再次通过。
 
 ## 14. 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v1.2 | 2026-08-20 | 冻结右轴标签等宽右对齐与红/灰/绿背景；max/min 水平线改为动态上下边界，并禁止叠加指标 panel 外框线 |
 | v1.1 | 2026-08-20 | 按 M1～M4 完成代码开发与自动化验证，记录测试结果；状态保持待部署和人工验收 |
 | v1 | 2026-08-20 | 基于当前后端 DTO/mapper、四类详情图表 adapter 和共享 workspace 完成代码级设计；冻结成交量展示合同、MACD/KDJ 动态纵轴、右轴标签、退化范围和单边 MACD 规则 |

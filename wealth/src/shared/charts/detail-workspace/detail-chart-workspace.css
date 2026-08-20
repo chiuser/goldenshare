@@ -91,6 +91,11 @@
   border-bottom: none;
 }
 
+.detail-chart-panel.macd-panel,
+.detail-chart-panel.kdj-panel {
+  border-bottom: none;
+}
+
 .detail-chart-panel-header {
   align-items: center;
   background: linear-gradient(180deg, rgba(12, 19, 33, 0.94), rgba(12, 19, 33, 0.64));

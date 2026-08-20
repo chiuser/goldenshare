@@ -614,6 +614,7 @@ export function DetailChartWorkspace({
           <DetailChartPane
             ariaLabel={panelAriaLabels[panel]}
             axisFloatLabel={axisFloatLabel?.panel === panel ? axisFloatLabel : null}
+            className={`${panel}-panel`}
             header={renderPanelHeader(panel, latest)}
             hostRef={(node) => { chartRefs.current[panel] = node; }}
             key={panel}
@@ -696,7 +697,13 @@ function buildChartOptions(
   };
 }
 
-const INDICATOR_PRICE_FORMAT = { minMove: 0.01, precision: 2, type: "price" } as const;
+const INDICATOR_AXIS_VALUE_WIDTH = 8;
+const INDICATOR_BOUNDARY_LINE_COLOR = "rgba(148, 163, 184, 0.28)";
+const INDICATOR_PRICE_FORMAT = {
+  formatter: (value: number) => value.toFixed(2).padStart(INDICATOR_AXIS_VALUE_WIDTH, "\u2007"),
+  minMove: 0.01,
+  type: "custom",
+} as const;
 
 function createIndicatorAxisPriceLines(
   referenceSeries: ISeriesApi<SeriesType>,
@@ -715,12 +722,14 @@ function createIndicatorAxisPriceLines(
     max: referenceSeries.createPriceLine({
       ...hiddenLine,
       axisLabelColor: DETAIL_CHART_COLORS.up,
-      color: DETAIL_CHART_COLORS.up,
+      color: INDICATOR_BOUNDARY_LINE_COLOR,
+      lineStyle: LineStyle.Solid,
     }),
     min: referenceSeries.createPriceLine({
       ...hiddenLine,
       axisLabelColor: DETAIL_CHART_COLORS.down,
-      color: DETAIL_CHART_COLORS.down,
+      color: INDICATOR_BOUNDARY_LINE_COLOR,
+      lineStyle: LineStyle.Solid,
     }),
     zero: includeZeroLine
       ? referenceSeries.createPriceLine({
@@ -738,12 +747,12 @@ function applyIndicatorAxisPriceLines(
 ) {
   lines.max.applyOptions({
     axisLabelVisible: range !== null,
-    lineVisible: false,
+    lineVisible: range !== null,
     price: range?.dataMax ?? 0,
   });
   lines.min.applyOptions({
     axisLabelVisible: range !== null && !range.isDegenerate,
-    lineVisible: false,
+    lineVisible: range !== null && !range.isDegenerate,
     price: range?.dataMin ?? 0,
   });
   const crossesZero = range !== null && range.dataMin < 0 && range.dataMax > 0;
