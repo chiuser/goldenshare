@@ -10,6 +10,10 @@ const chartMock = vi.hoisted(() => {
   const charts: Array<Record<string, any>> = [];
   const createChart = vi.fn(() => {
     const series: Array<Record<string, any>> = [];
+    const rightPriceScale = {
+      applyOptions: vi.fn(),
+      width: vi.fn(() => 56),
+    };
     let visibleRange: { from: number; to: number } | null = null;
     const visibleRangeHandlers: Array<() => void> = [];
     const crosshairHandlers: Array<(param: { point?: { x: number; y: number }; time?: string }) => void> = [];
@@ -42,7 +46,9 @@ const chartMock = vi.hoisted(() => {
       }),
       clearCrosshairPosition: vi.fn(),
       crosshairHandlers,
+      priceScale: vi.fn(() => rightPriceScale),
       remove: vi.fn(),
+      rightPriceScale,
       series,
       setCrosshairPosition: vi.fn(),
       subscribeCrosshairMove: vi.fn((handler: (param: { point?: { x: number; y: number }; time?: string }) => void) => {

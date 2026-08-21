@@ -11,6 +11,8 @@
 }
 
 .detail-chart-area {
+  --detail-chart-right-price-scale-width: 56px;
+
   display: grid;
   grid-template-rows: 44fr 17fr 17fr 17fr;
   min-height: 0;
@@ -222,7 +224,7 @@
 
 .detail-chart-tooltip.right {
   left: auto;
-  right: 58px;
+  right: calc(var(--detail-chart-right-price-scale-width, 56px) + 2px);
 }
 
 .detail-chart-tooltip-title,
@@ -259,7 +261,7 @@
   display: flex;
   gap: 4px;
   position: absolute;
-  right: 64px;
+  right: calc(var(--detail-chart-right-price-scale-width, 56px) + 8px);
   z-index: 9;
 }
 

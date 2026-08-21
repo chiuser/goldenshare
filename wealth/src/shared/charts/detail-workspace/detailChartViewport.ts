@@ -18,17 +18,47 @@ export interface DetailChartZoomAvailability {
   canZoomOut: boolean;
 }
 
+export function resolveSharedRightPriceScaleWidth(
+  measuredWidths: readonly number[],
+  minimumWidth = RIGHT_PRICE_SCALE_WIDTH,
+): number {
+  const normalizedMinimumWidth = Number.isFinite(minimumWidth) && minimumWidth >= 1
+    ? Math.ceil(minimumWidth)
+    : RIGHT_PRICE_SCALE_WIDTH;
+  return measuredWidths.reduce((maximum, width) => (
+    Number.isFinite(width) && width > 0
+      ? Math.max(maximum, Math.ceil(width))
+      : maximum
+  ), normalizedMinimumWidth);
+}
+
+export function resolveDetailChartPlotWidth(
+  hostWidth: number,
+  rightPriceScaleWidth: number,
+): number {
+  if (!Number.isFinite(hostWidth) || hostWidth <= 0) return 1;
+  const normalizedRightPriceScaleWidth = Number.isFinite(rightPriceScaleWidth) && rightPriceScaleWidth > 0
+    ? rightPriceScaleWidth
+    : RIGHT_PRICE_SCALE_WIDTH;
+  return Math.max(1, hostWidth - normalizedRightPriceScaleWidth);
+}
+
 export function resolveAdaptiveVisibleCount(
   klineHostWidth: number,
   pointCount: number,
+  rightPriceScaleWidth = RIGHT_PRICE_SCALE_WIDTH,
 ): number {
   if (!Number.isFinite(pointCount) || pointCount <= 0) return 0;
 
-  const base = !Number.isFinite(klineHostWidth) || klineHostWidth <= RIGHT_PRICE_SCALE_WIDTH
+  const normalizedRightPriceScaleWidth = Number.isFinite(rightPriceScaleWidth) && rightPriceScaleWidth > 0
+    ? rightPriceScaleWidth
+    : RIGHT_PRICE_SCALE_WIDTH;
+  const base = !Number.isFinite(klineHostWidth) || klineHostWidth <= normalizedRightPriceScaleWidth
     ? DEFAULT_VISIBLE_BARS
     : clamp(
         Math.round(
-          ((klineHostWidth - RIGHT_PRICE_SCALE_WIDTH) / TARGET_PIXELS_PER_BAR) / ZOOM_STEP_BARS,
+          (resolveDetailChartPlotWidth(klineHostWidth, normalizedRightPriceScaleWidth) / TARGET_PIXELS_PER_BAR)
+            / ZOOM_STEP_BARS,
         ) * ZOOM_STEP_BARS,
         MIN_ADAPTIVE_DEFAULT_BARS,
         MAX_ADAPTIVE_DEFAULT_BARS,

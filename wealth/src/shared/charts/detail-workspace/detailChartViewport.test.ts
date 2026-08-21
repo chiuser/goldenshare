@@ -5,8 +5,10 @@ import {
   MAX_VISIBLE_BARS,
   MIN_VISIBLE_BARS,
   resolveAdaptiveVisibleCount,
+  resolveDetailChartPlotWidth,
   resolveInitialRange,
   resolveRangeAfterPointCountChange,
+  resolveSharedRightPriceScaleWidth,
   resolveVisibleCount,
   resolveZoomAvailability,
   resolveZoomedRange,
@@ -14,8 +16,33 @@ import {
 } from "./detailChartViewport";
 
 describe("detailChartViewport", () => {
+  it("uses the widest measured right price scale with the configured minimum", () => {
+    expect(resolveSharedRightPriceScaleWidth([56, 72, 88, 64])).toBe(88);
+    expect(resolveSharedRightPriceScaleWidth([72.1, 72, 64, 0])).toBe(73);
+    expect(resolveSharedRightPriceScaleWidth([40, 48], 64)).toBe(64);
+  });
+
+  it("ignores invalid price scale widths and falls back to the approved minimum", () => {
+    expect(resolveSharedRightPriceScaleWidth([])).toBe(56);
+    expect(resolveSharedRightPriceScaleWidth([0, -1, Number.NaN, Number.POSITIVE_INFINITY])).toBe(56);
+    expect(resolveSharedRightPriceScaleWidth([80], Number.NaN)).toBe(80);
+  });
+
+  it("resolves the drawable plot width without allowing zero or invalid divisors", () => {
+    expect(resolveDetailChartPlotWidth(1000, 88)).toBe(912);
+    expect(resolveDetailChartPlotWidth(1000, Number.NaN)).toBe(944);
+    expect(resolveDetailChartPlotWidth(56, 56)).toBe(1);
+    expect(resolveDetailChartPlotWidth(40, 56)).toBe(1);
+    expect(resolveDetailChartPlotWidth(Number.NaN, 56)).toBe(1);
+  });
+
   it("resolves 120 bars for the approved 1600px chart width", () => {
     expect(resolveAdaptiveVisibleCount(1193, 300)).toBe(120);
+  });
+
+  it("uses the shared actual right scale width for adaptive density", () => {
+    expect(resolveAdaptiveVisibleCount(1193, 300, 56)).toBe(120);
+    expect(resolveAdaptiveVisibleCount(1193, 300, 180)).toBe(105);
   });
 
   it("clamps adaptive defaults to 75 on narrow hosts and 150 on wide hosts", () => {
@@ -29,6 +56,11 @@ describe("detailChartViewport", () => {
       expect(resolveAdaptiveVisibleCount(width, 300)).toBe(DEFAULT_VISIBLE_BARS);
     },
   );
+
+  it("keeps the 120-bar fallback when the host cannot contain the shared right scale", () => {
+    expect(resolveAdaptiveVisibleCount(100, 300, 120)).toBe(DEFAULT_VISIBLE_BARS);
+    expect(resolveAdaptiveVisibleCount(1193, 300, Number.NaN)).toBe(120);
+  });
 
   it.each([
     [0, 0],

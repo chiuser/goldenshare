@@ -1,4 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DetailChartWorkspace } from "./DetailChartWorkspace";
@@ -12,11 +14,26 @@ import type {
 
 const chartMock = vi.hoisted(() => {
   const charts: Array<Record<string, any>> = [];
-  const createChart = vi.fn((_container?: unknown, _options?: unknown) => {
+  let intrinsicRightPriceScaleWidths = [56, 56, 56, 56];
+  const createChart = vi.fn((_container?: unknown, options?: Record<string, any>) => {
+    const chartIndex = charts.length % 4;
     let visibleRange: { from: number; to: number } | null = null;
     const visibleRangeHandlers: Array<() => void> = [];
     const crosshairHandlers: Array<(param: { point?: { x: number; y: number }; time?: string | number }) => void> = [];
     const series: Array<Record<string, any>> = [];
+    const rightPriceScale = {
+      appliedMinimumWidth: Number(options?.rightPriceScale?.minimumWidth) || 56,
+      applyOptions: vi.fn((nextOptions: Record<string, any>) => {
+        if (Number.isFinite(nextOptions.minimumWidth)) {
+          rightPriceScale.appliedMinimumWidth = nextOptions.minimumWidth;
+        }
+      }),
+      intrinsicWidth: intrinsicRightPriceScaleWidths[chartIndex] ?? 56,
+      width: vi.fn(() => Math.max(
+        rightPriceScale.intrinsicWidth,
+        rightPriceScale.appliedMinimumWidth,
+      )),
+    };
     const timeScale = {
       fitContent: vi.fn(),
       getVisibleLogicalRange: vi.fn(() => visibleRange),
@@ -73,7 +90,12 @@ const chartMock = vi.hoisted(() => {
       }),
       clearCrosshairPosition: vi.fn(),
       crosshairHandlers,
+      priceScale: vi.fn((id: string) => {
+        if (id !== "right") throw new Error(`Unexpected price scale id: ${id}`);
+        return rightPriceScale;
+      }),
       remove: vi.fn(),
+      rightPriceScale,
       series,
       setCrosshairPosition: vi.fn(),
       subscribeCrosshairMove: vi.fn((handler: (param: { point?: { x: number; y: number }; time?: string | number }) => void) => {
@@ -94,6 +116,10 @@ const chartMock = vi.hoisted(() => {
     reset() {
       charts.splice(0, charts.length);
       createChart.mockClear();
+      intrinsicRightPriceScaleWidths = [56, 56, 56, 56];
+    },
+    setIntrinsicRightPriceScaleWidths(widths: number[]) {
+      intrinsicRightPriceScaleWidths = [...widths];
     },
   };
 });
@@ -163,6 +189,108 @@ describe("DetailChartWorkspace", () => {
 
   afterAll(() => {
     globalThis.ResizeObserver = defaultResizeObserver;
+  });
+
+  it("aligns all four actual right price scale widths to the widest pane", () => {
+    chartMock.setIntrinsicRightPriceScaleWidths([72, 88, 60, 80]);
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const fetchCount = fetchSpy.mock.calls.length;
+
+    renderWorkspace(makePoints(300));
+
+    expect(chartMock.createChart).toHaveBeenCalledTimes(4);
+    chartMock.charts.forEach((chart) => {
+      expect(chart.priceScale).toHaveBeenCalledWith("right");
+      expect(chart.rightPriceScale.applyOptions).toHaveBeenCalledTimes(1);
+      expect(chart.rightPriceScale.applyOptions).toHaveBeenCalledWith({ minimumWidth: 88 });
+      expect(chart.rightPriceScale.width()).toBe(88);
+      expect(chart.timeScale().getVisibleLogicalRange()).toEqual({ from: 180, to: 299 });
+      expect(chart.timeScale().fitContent).not.toHaveBeenCalled();
+    });
+    expect(document.querySelector(".detail-chart-area")).toHaveStyle({
+      "--detail-chart-right-price-scale-width": "88px",
+    });
+    expect(fetchSpy).toHaveBeenCalledTimes(fetchCount);
+    fetchSpy.mockRestore();
+  });
+
+  it("does not rewrite equal price scales and only grows once when a wider label appears", () => {
+    vi.useFakeTimers();
+    const rendered = renderWorkspace(makePoints(300));
+    const chartArea = document.querySelector(".detail-chart-area") as HTMLElement;
+    chartMock.charts.forEach((chart) => {
+      expect(chart.rightPriceScale.applyOptions).not.toHaveBeenCalled();
+    });
+
+    chartMock.charts[2].rightPriceScale.intrinsicWidth = 96;
+    act(() => {
+      vi.runOnlyPendingTimers();
+    });
+    chartMock.charts.forEach((chart) => {
+      expect(chart.rightPriceScale.applyOptions).toHaveBeenCalledTimes(1);
+      expect(chart.rightPriceScale.applyOptions).toHaveBeenCalledWith({ minimumWidth: 96 });
+    });
+
+    chartMock.charts[2].rightPriceScale.intrinsicWidth = 64;
+    fireEvent.click(screen.getByRole("button", { name: "放大K线，减少可见根数" }));
+    act(() => {
+      vi.runOnlyPendingTimers();
+    });
+    chartMock.charts.forEach((chart) => {
+      expect(chart.rightPriceScale.applyOptions).toHaveBeenCalledTimes(1);
+    });
+
+    rendered.unmount();
+    expect(chartArea.style.getPropertyValue("--detail-chart-right-price-scale-width")).toBe("");
+    vi.useRealTimers();
+  });
+
+  it("uses the aligned scale width for untouched resize density and resets it for a new data key", () => {
+    vi.useFakeTimers();
+    chartMock.setIntrinsicRightPriceScaleWidths([180, 180, 180, 180]);
+    const points = makePoints(300);
+    const rendered = renderWorkspace(points, "daily", "shared:wide-axis:day");
+    const host = screen.getByLabelText("共享K线主图").querySelector(".detail-chart-host")!;
+    const observer = resizeObserverMock.instances.at(-1)!;
+
+    act(() => {
+      observer.trigger(host, 1193);
+      vi.runAllTimers();
+    });
+    expect(chartMock.charts[0].timeScale().getVisibleLogicalRange()).toEqual({ from: 195, to: 299 });
+    expect(document.querySelector(".detail-chart-area")).toHaveStyle({
+      "--detail-chart-right-price-scale-width": "180px",
+    });
+
+    chartMock.setIntrinsicRightPriceScaleWidths([56, 56, 56, 56]);
+    rendered.rerender(workspaceElement(points, "daily", "shared:base-axis:day"));
+    const nextCharts = chartMock.charts.slice(-4);
+    nextCharts.forEach((chart) => {
+      expect(chart.rightPriceScale.applyOptions).not.toHaveBeenCalled();
+      expect(chart.timeScale().getVisibleLogicalRange()).toEqual({ from: 180, to: 299 });
+    });
+    expect(document.querySelector(".detail-chart-area")).toHaveStyle({
+      "--detail-chart-right-price-scale-width": "56px",
+    });
+    act(() => {
+      vi.runOnlyPendingTimers();
+    });
+    rendered.unmount();
+    vi.useRealTimers();
+  });
+
+  it("positions shared controls from the runtime right price scale CSS variable", () => {
+    const css = readFileSync(
+      resolve(process.cwd(), "src/shared/charts/detail-workspace/detail-chart-workspace.css"),
+      "utf8",
+    );
+
+    expect(css).toContain("--detail-chart-right-price-scale-width: 56px;");
+    expect(css).toContain("right: calc(var(--detail-chart-right-price-scale-width, 56px) + 8px);");
+    expect(css).toContain("right: calc(var(--detail-chart-right-price-scale-width, 56px) + 2px);");
+    expect(css).not.toMatch(/\.detail-chart-zoom-controls\s*\{[^}]*right:\s*64px/s);
+    expect(css).not.toMatch(/\.detail-chart-tooltip\.right\s*\{[^}]*right:\s*58px/s);
+    expect(css).toMatch(/\.detail-chart-axis-float-label\s*\{[^}]*right:\s*8px/s);
   });
 
   it("keeps four panes synchronized on the latest adaptive 120 observations", () => {
@@ -575,9 +703,12 @@ describe("DetailChartWorkspace", () => {
     fireEvent.mouseUp(window);
     const historicalRange = chartMock.charts[0].timeScale().getVisibleLogicalRange();
     historicalRendered.rerender(workspaceElement(makePoints(301), "daily", "shared:history:day"));
-    expect(chartMock.charts.slice(-4).every((chart) => (
-      JSON.stringify(chart.timeScale().getVisibleLogicalRange()) === JSON.stringify(historicalRange)
-    ))).toBe(true);
+    chartMock.charts.slice(-4).forEach((chart) => {
+      const restoredRange = chart.timeScale().getVisibleLogicalRange();
+      expect(restoredRange.from).toBeCloseTo(historicalRange.from);
+      expect(restoredRange.to).toBeCloseTo(historicalRange.to);
+      expect(restoredRange.to - restoredRange.from).toBeCloseTo(historicalRange.to - historicalRange.from);
+    });
   });
 
   it("preserves the logical span while dragging and excludes zoom buttons from drag start", () => {
@@ -598,7 +729,9 @@ describe("DetailChartWorkspace", () => {
     fireEvent.mouseUp(window);
     const draggedRange = chartMock.charts[0].timeScale().getVisibleLogicalRange();
     expect(draggedRange.to - draggedRange.from).toBeCloseTo(initialRange.to - initialRange.from);
-    expect(draggedRange.to).toBeLessThan(initialRange.to);
+    expect(draggedRange.to).toBeCloseTo(
+      initialRange.to - (100 * (initialRange.to - initialRange.from)) / (1000 - 56),
+    );
 
     act(() => {
       resizeObserverMock.instances.at(-1)!.trigger(host, 800);
