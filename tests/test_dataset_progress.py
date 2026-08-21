@@ -127,6 +127,36 @@ def test_maintain_progress_reports_only_committed_rows_as_saved() -> None:
     assert captured[0]["rows_saved"] == 0
 
 
+def test_maintain_progress_passes_committed_and_failed_units_separately() -> None:
+    captured: list[dict[str, object]] = []
+
+    class CaptureRunContext:
+        def is_cancel_requested(self, *, run_id: int) -> bool:
+            return False
+
+        def update_progress(self, **kwargs) -> None:  # type: ignore[no-untyped-def]
+            captured.append(kwargs)
+
+    service = DatasetMaintainService(object(), dataset_key="daily", run_context=CaptureRunContext())
+    snapshot = SimpleNamespace(
+        run_id=123,
+        unit_done=2,
+        unit_failed=1,
+        unit_total=5,
+        rows_fetched=100,
+        rows_written=100,
+        rows_committed=100,
+        rows_rejected=0,
+        current_object={},
+    )
+
+    service._progress_reporter(snapshot, "股票日线：3/5；累计读取 100；累计保存 100")
+
+    assert captured[0]["unit_done"] == 2
+    assert captured[0]["unit_failed"] == 1
+    assert "current" not in captured[0]
+
+
 def test_ops_progress_failure_does_not_rollback_committed_business_rows() -> None:
     class StubSession:
         def __init__(self) -> None:

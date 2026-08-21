@@ -12,7 +12,7 @@ import {
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { apiRequest } from "../shared/api/client";
 import type {
@@ -32,6 +32,12 @@ import { OpsTableCellText } from "../shared/ui/ops-table";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 import { OpsTaskPagedUnitProgress } from "./ops-task-paged-unit-progress";
+import {
+  calculateEtaEstimate,
+  ETA_SAMPLE_INTERVAL_MS,
+  type EtaEstimate,
+  type EtaSample,
+} from "./ops-task-detail-eta";
 
 function buildRefetchInterval(status: string | undefined) {
   return status === "queued" || status === "running" || status === "canceling" ? 3000 : false;
@@ -191,6 +197,9 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
   const queryClient = useQueryClient();
   const [diagnosticOpened, setDiagnosticOpened] = useState(false);
   const [rejectReasonOpened, setRejectReasonOpened] = useState(false);
+  const latestProgressRef = useRef<Omit<EtaSample, "monotonicMs" | "wallClockMs"> | null>(null);
+  const previousEtaSampleRef = useRef<EtaSample | null>(null);
+  const [etaEstimate, setEtaEstimate] = useState<EtaEstimate>({ status: "unavailable" });
 
   const viewQuery = useQuery({
     queryKey: ["ops", "task-run-view", taskRunId],
@@ -237,22 +246,63 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
   });
 
   const view = viewQuery.data;
+  const activeNodeId = view?.nodes.find((item) => item.status === "running")?.id ?? null;
+
+  useEffect(() => {
+    if (!view || activeNodeId === null || (view.run.status !== "running" && view.run.status !== "canceling")) {
+      latestProgressRef.current = null;
+      previousEtaSampleRef.current = null;
+      setEtaEstimate({ status: "unavailable" });
+      return;
+    }
+    latestProgressRef.current = {
+      nodeId: activeNodeId,
+      unitDone: view.progress.unit_done,
+      unitTotal: view.progress.unit_total,
+    };
+  }, [activeNodeId, view]);
+
+  useEffect(() => {
+    latestProgressRef.current = null;
+    previousEtaSampleRef.current = null;
+    setEtaEstimate({ status: "unavailable" });
+
+    const timer = window.setInterval(() => {
+      const latest = latestProgressRef.current;
+      if (!latest) {
+        return;
+      }
+      const current: EtaSample = {
+        ...latest,
+        monotonicMs: performance.now(),
+        wallClockMs: Date.now(),
+      };
+      setEtaEstimate(calculateEtaEstimate(current, previousEtaSampleRef.current));
+      previousEtaSampleRef.current = current;
+    }, ETA_SAMPLE_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [taskRunId]);
+
   const headline = view ? buildStatusHeadline(view) : null;
   const successReturnHref = buildDatasetCardPageHref(view?.run.source_key);
   const periodSourceSummary = view?.progress.period_source_summary ?? null;
   const pagedUnitProgress = view?.progress.paged_unit_progress ?? null;
+  const etaContextMatches =
+    activeNodeId !== null &&
+    previousEtaSampleRef.current?.nodeId === activeNodeId &&
+    previousEtaSampleRef.current?.unitTotal === view?.progress.unit_total;
   const nodeColumns: DataTableColumn<TaskRunViewResponse["nodes"][number]>[] = [
     {
       key: "sequence",
       header: "序号",
-      width: "8%",
+      width: "7%",
       render: (item) => <OpsTableCellText size="xs">{item.sequence_no}</OpsTableCellText>,
     },
     {
       key: "node",
       header: "执行节点",
       align: "left",
-      width: "32%",
+      width: "27%",
       render: (item) => (
         <Stack gap={2}>
           <OpsTableCellText fw={600} size="sm">{item.title}</OpsTableCellText>
@@ -263,14 +313,14 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
     {
       key: "status",
       header: "状态",
-      width: "12%",
+      width: "10%",
       render: (item) => <StatusBadge value={item.status} />,
     },
     {
       key: "rows",
       header: "结果",
       align: "left",
-      width: "22%",
+      width: "21%",
       render: (item) => (
         <Text size="sm">
           {`读取 ${item.rows_fetched}，保存 ${item.rows_saved}，拒绝 ${item.rows_rejected}${
@@ -283,7 +333,7 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
       key: "time",
       header: "时间",
       align: "left",
-      width: "18%",
+      width: "15%",
       render: (item) => <Text size="sm">{item.started_at ? formatDateTimeLabel(item.started_at) : "—"}</Text>,
     },
     {
@@ -291,6 +341,32 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
       header: "耗时",
       width: "8%",
       render: (item) => <Text size="sm">{formatDuration(item.duration_ms)}</Text>,
+    },
+    {
+      key: "eta",
+      header: "预计完成",
+      width: "12%",
+      render: (item) => {
+        if (item.status === "success") {
+          return <Text size="sm">已完成</Text>;
+        }
+        if (item.status === "failed" || item.status === "canceled") {
+          return <Text size="sm">未完成</Text>;
+        }
+        if (item.id !== activeNodeId) {
+          return <Text size="sm">{item.status === "queued" ? "待执行" : "—"}</Text>;
+        }
+        if (view?.run.status === "canceling") {
+          return <Text size="sm">停止中</Text>;
+        }
+        if (etaEstimate.status === "ready" && etaContextMatches) {
+          return <Text size="sm">约 {formatDateTimeLabel(new Date(etaEstimate.estimatedAtMs).toISOString())}</Text>;
+        }
+        if (etaEstimate.status === "completed" && etaContextMatches) {
+          return <Text size="sm">已完成</Text>;
+        }
+        return <Text size="sm">{etaEstimate.status === "warming_up" ? "正在计算" : "暂不可估算"}</Text>;
+      },
     },
   ];
 
@@ -508,7 +584,7 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
               columns={nodeColumns}
               emptyState={<Text c="dimmed" size="sm">暂时还没有执行节点。</Text>}
               getRowKey={(item) => item.id}
-              minWidth={820}
+              minWidth={980}
               rows={view.nodes}
             />
           </SectionCard>

@@ -280,7 +280,8 @@ class DatasetMaintainService:
             if progress_snapshot.run_id is not None:
                 self.run_context.update_progress(
                     run_id=progress_snapshot.run_id,
-                    current=progress_snapshot.unit_done + progress_snapshot.unit_failed,
+                    unit_done=progress_snapshot.unit_done,
+                    unit_failed=progress_snapshot.unit_failed,
                     total=progress_snapshot.unit_total,
                     message=message,
                     rows_fetched=progress_snapshot.rows_fetched,

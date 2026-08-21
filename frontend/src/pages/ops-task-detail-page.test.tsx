@@ -338,6 +338,7 @@ describe("任务详情页", () => {
     expect(screen.queryByText(/当前对象：/)).not.toBeInTheDocument();
     expect(await screen.findByText(/问题位置：美欣达（002034\.SZ）/)).toBeInTheDocument();
     expect(await screen.findByText("执行过程")).toBeInTheDocument();
+    expect(await screen.findByText("预计完成")).toBeInTheDocument();
     expect(await screen.findByText("读取 6，保存 5，拒绝 1")).toBeInTheDocument();
 
     await user.click(await screen.findByRole("button", { name: "查看原因" }));

@@ -38,7 +38,8 @@ class TaskRunIngestionContext(IngestionRunContext):
         self,
         *,
         run_id: int,
-        current: int,
+        unit_done: int,
+        unit_failed: int,
         total: int,
         message: str,
         rows_fetched: int | None = None,
@@ -58,9 +59,14 @@ class TaskRunIngestionContext(IngestionRunContext):
             task_run = progress_session.get(TaskRun, run_id)
             if task_run is None:
                 return
-            task_run.unit_done = max(int(current), 0)
-            task_run.unit_total = max(int(total), 0)
-            task_run.progress_percent = int((current / total) * 100) if total else None
+            committed_units = max(int(unit_done), 0)
+            failed_units = max(int(unit_failed), 0)
+            total_units = max(int(total), 0)
+            handled_units = committed_units + failed_units
+            task_run.unit_done = committed_units
+            task_run.unit_failed = failed_units
+            task_run.unit_total = total_units
+            task_run.progress_percent = min(int((handled_units / total_units) * 100), 100) if total_units else None
             task_run.rows_fetched = int(rows_fetched if rows_fetched is not None else task_run.rows_fetched or 0)
             task_run.rows_saved = int(rows_saved if rows_saved is not None else task_run.rows_saved or 0)
             task_run.rows_rejected = int(rows_rejected if rows_rejected is not None else task_run.rows_rejected or 0)

@@ -1333,7 +1333,8 @@ def test_task_run_progress_updates_current_running_node_rows(db_session, task_ru
 
     TaskRunIngestionContext(db_session).update_progress(
         run_id=task_run.id,
-        current=1,
+        unit_done=1,
+        unit_failed=0,
         total=5,
         message="unused structured progress",
         rows_fetched=10514,
@@ -1351,6 +1352,9 @@ def test_task_run_progress_updates_current_running_node_rows(db_session, task_ru
     db_session.refresh(task_run)
     db_session.refresh(node)
     assert task_run.rows_fetched == 10514
+    assert task_run.unit_done == 1
+    assert task_run.unit_failed == 0
+    assert task_run.progress_percent == 20
     assert task_run.rows_saved == 10514
     assert node.rows_fetched == 10514
     assert node.rows_saved == 10514
@@ -1362,6 +1366,24 @@ def test_task_run_progress_updates_current_running_node_rows(db_session, task_ru
         "rows_matched_existing": 0,
     }
     assert node.ingestion_diagnostics_json == task_run.ingestion_diagnostics_json
+
+
+def test_task_run_progress_keeps_committed_and_failed_units_separate(db_session, task_run_factory) -> None:
+    task_run = task_run_factory(status="running", resource_key="daily", title="股票日线")
+
+    TaskRunIngestionContext(db_session).update_progress(
+        run_id=task_run.id,
+        unit_done=2,
+        unit_failed=1,
+        total=5,
+        message="unused structured progress",
+    )
+
+    db_session.refresh(task_run)
+    assert task_run.unit_done == 2
+    assert task_run.unit_failed == 1
+    assert task_run.unit_total == 5
+    assert task_run.progress_percent == 60
 
 
 def test_ingestion_diagnostics_are_bounded_to_16_kib() -> None:
@@ -1502,7 +1524,8 @@ def test_task_run_progress_write_failure_is_fail_soft(
 
     TaskRunIngestionContext(db_session).update_progress(
         run_id=task_run.id,
-        current=1,
+        unit_done=1,
+        unit_failed=0,
         total=2,
         message="page progress",
         rows_fetched=2_000,
@@ -1534,7 +1557,8 @@ def test_task_run_progress_updates_rejected_reason_counts(
 
     TaskRunIngestionContext(db_session).update_progress(
         run_id=task_run.id,
-        current=3,
+        unit_done=3,
+        unit_failed=0,
         total=5,
         message="unused structured progress",
         rows_fetched=1530,
@@ -1552,6 +1576,8 @@ def test_task_run_progress_updates_rejected_reason_counts(
     db_session.refresh(task_run)
     db_session.refresh(node)
     assert task_run.rows_rejected == 3
+    assert task_run.unit_done == 3
+    assert task_run.unit_failed == 0
     assert task_run.rejected_reason_counts_json == {"write.duplicate_conflict_key_in_batch:ts_code": 3}
     assert task_run.rejected_reason_samples_json["write.duplicate_conflict_key_in_batch:ts_code"][0]["value"] == "000001.SZ"
     assert node.rejected_reason_counts_json == {"write.duplicate_conflict_key_in_batch:ts_code": 3}

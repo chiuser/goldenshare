@@ -1194,3 +1194,7 @@ CodeGraph 已确认直接影响：
 ### 12.6 实施状态
 
 截至 2026-08-10，本节已完成 staged executor 覆盖式快照、独立 Ops 事务的有界 diagnostics、强类型 View API、任务详情页展示及自动化验收。定向后端测试、完整前端测试、生产构建和 12 项 Playwright smoke/视觉门禁均通过；延迟 fixture 已验证 `page 1 -> page 2 -> publishing -> completed` 四次轮询，未调用真实 Tushare。没有新增数据库列、业务表或 migration。提交 `14effd17` 已部署 Prod（用户确认）；本轮没有新的生产长分页 TaskRun，因此运行态页面验收仍待下一次真实多页任务完成。
+
+## 13. 实时 Unit 预计完成时间（已实现，待发版验收）
+
+任务详情页实时 Unit 预计完成时间的低层设计见 [Ops 任务详情实时 Unit 预计完成时间 LLD v1](/Users/congming/github/goldenshare/docs/ops/ops-task-run-live-unit-eta-display-lld-v1.md)。该专项按逻辑 unit 统计，只有业务事务提交后的 unit 才进入速度计算，每 10 秒采样一次并比较前后两次快照；ETA 只在浏览器内存中存在，不新增表、字段、事件日志、缓存或 API。实现阶段必须修正当前 `unit_done` 将成功与失败 unit 合并的进度写回语义，并完成全量消费者回归。

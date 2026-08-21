@@ -308,3 +308,4 @@ docs/
 
 - [行情图表页接口需求说明](/Users/congming/github/goldenshare/docs/product/行情图表页接口需求说明_基于当前数据基座.md)
 - [财势乾坤交易系统需求说明（PDF）](/Users/congming/github/goldenshare/docs/product/财势乾坤交易系统需求说明.pdf)
+- [Ops 任务详情实时 Unit 预计完成时间 LLD v1（已实现，待发版验收）](/Users/congming/github/goldenshare/docs/ops/ops-task-run-live-unit-eta-display-lld-v1.md)

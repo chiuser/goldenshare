@@ -15,7 +15,8 @@ class NullRunContext(IngestionRunContext):
         self,
         *,
         run_id: int,
-        current: int,
+        unit_done: int,
+        unit_failed: int,
         total: int,
         message: str,
         rows_fetched: int | None = None,
@@ -27,7 +28,14 @@ class NullRunContext(IngestionRunContext):
         rejected_reason_samples: dict[str, list[dict[str, Any]]] | None = None,
         current_object: dict[str, Any] | None = None,
     ) -> None:
-        _ = (rejected_reason_counts, rejected_reason_samples, rows_deduplicated, ingestion_diagnostics)
+        _ = (
+            unit_done,
+            unit_failed,
+            rejected_reason_counts,
+            rejected_reason_samples,
+            rows_deduplicated,
+            ingestion_diagnostics,
+        )
         return None
 
 
