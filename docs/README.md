@@ -89,6 +89,7 @@ docs/
 
 - [Ops 运营后台 API 全量说明 v1](/Users/congming/github/goldenshare/docs/ops/ops-api-reference-v1.md)
 - [Ops TaskRun 执行观测模型重设计方案 v1（已上线）](/Users/congming/github/goldenshare/docs/ops/ops-task-run-observability-redesign-plan-v1.md)
+- [Ops 任务详情实时 Unit 预计完成时间 LLD v1（已实现，待发版验收）](/Users/congming/github/goldenshare/docs/ops/ops-task-run-live-unit-eta-display-lld-v1.md)
 - [手动维护动作模型收敛方案 v2](/Users/congming/github/goldenshare/docs/ops/ops-manual-action-model-alignment-plan-v2.md)
 - [Ops 手动维护时间模式升级方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-manual-action-time-mode-upgrade-plan-v1.md)
 - [Ops 自动任务日期策略方案 v1（第一期已落地）](/Users/congming/github/goldenshare/docs/ops/ops-schedule-calendar-policy-plan-v1.md)
@@ -308,4 +309,3 @@ docs/
 
 - [行情图表页接口需求说明](/Users/congming/github/goldenshare/docs/product/行情图表页接口需求说明_基于当前数据基座.md)
 - [财势乾坤交易系统需求说明（PDF）](/Users/congming/github/goldenshare/docs/product/财势乾坤交易系统需求说明.pdf)
-- [Ops 任务详情实时 Unit 预计完成时间 LLD v1（已实现，待发版验收）](/Users/congming/github/goldenshare/docs/ops/ops-task-run-live-unit-eta-display-lld-v1.md)
