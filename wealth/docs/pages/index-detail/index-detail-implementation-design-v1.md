@@ -7,6 +7,7 @@
 > 正式 DTO：[指数详情页正式 API / DTO 合同 v1](./index-detail-api-contract-v1.md)
 > M0 审计：[指数详情页 M0 生产因子审计 v1](./index-detail-m0-production-audit-v1.md)
 > 分钟 DTO：[指数详情本地分钟 API / DTO 合同 v1](./index-detail-minutes-api-contract-v1.md)
+> 已闭环专项：[详情页指标动态纵轴与日线成交量展示技术方案 v1](../../system/detail-chart-indicator-visible-range-and-daily-volume-display-implementation-design-v1.md)
 
 ---
 

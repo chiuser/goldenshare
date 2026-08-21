@@ -6,6 +6,7 @@
 > 对应 LLD：[详情页共享图表与 K 线缩放 LLD v1](./detail-chart-zoom-low-level-design-v1.md)
 > 对应门禁：[详情页共享图表与 K 线缩放 M2 编码前门禁 v1](./detail-chart-zoom-m2-coding-gate-v1.md)
 > 后续共享交互扩展：[详情页 K 线可见区间最高/最低价标注技术方案 v1](./detail-chart-visible-extrema-annotation-implementation-design-v1.md)及其[代码级 LLD](./detail-chart-visible-extrema-annotation-low-level-design-v1.md)。该扩展已完成前端开发、自动化门禁、部署和用户人工交互验收，并已独立闭环；它不属于本文已完成的 M1/M2 实施结果。
+> 已闭环共享交互扩展：[详情页指标动态纵轴与日线成交量展示技术方案 v1](./detail-chart-indicator-visible-range-and-daily-volume-display-implementation-design-v1.md)。该专项已完成技术方案、LLD、开发、自动化验证、部署和用户人工交互验收；复用本文 canonical viewport，不改变缩放根数和四 pane 时间同步合同。
 
 ---
 
