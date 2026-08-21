@@ -1,6 +1,6 @@
 # 详情页 K 线可见区间最高/最低价标注 LLD v1
 
-> 状态：M1～M3 前端开发与自动化门禁已完成；M4 部署和人工交互验收按用户安排另行执行。
+> 状态：已闭环完成。M1～M4、部署和用户人工交互验收均已通过。
 > 日期：2026-08-20。
 > 技术方案：[详情页 K 线可见区间最高/最低价标注技术方案 v1](./detail-chart-visible-extrema-annotation-implementation-design-v1.md)
 > 共享基础：[详情页共享图表与 K 线缩放 LLD v1](./detail-chart-zoom-low-level-design-v1.md)
@@ -834,11 +834,14 @@ high.index === low.index && high.value === low.value
 
 验收：zoom/drag 不重建，四场景 adapter 测试全绿。
 
-### M4：浏览器验收与文档收口（未执行人工交互验收）
+### M4：浏览器验收与文档收口（已完成）
 
-1. 执行四场景与边界 fixture 验收。
-2. 保存截图、记录误差和性能结果。
-3. 更新技术方案/LLD 状态与实际文件、测试数量。
+1. 用户已将实现部署到实际页面并完成人工交互验证。
+2. 用户确认本需求功能符合预期，验收结论为合格。
+3. 技术方案、LLD 和共享缩放文档的交叉引用已统一更新为闭环状态。
+
+本次收口以用户在实际部署环境中的人工验收结论为准；未额外补写用户未提供的截图路径、
+逐像素误差或独立性能量测数据。
 
 ### Definition of Done
 
@@ -864,13 +867,15 @@ high.index === low.index && high.value === low.value
    `buildCandlestickData` 事实改为传入同一 drawable `candleData`，并同步修正方案和本文。
 6. 专项 8 个测试文件、50 项测试通过；Wealth 全量 38 个测试文件、257 项测试通过。
 7. `npm run typecheck` 与 `npm run build` 通过。build 仅保留仓库既有的大 chunk 提示。
-8. 按用户要求未部署、未启动页面、未执行 M4 浏览器和人工交互验收。
+8. 用户已完成部署和实际页面人工交互验收，确认需求没有问题、验收合格；M4 已闭环。
+9. 本专项没有待开发、待部署、待验收或待拍板事项。
 
 ## 17. 变更记录
 
 | 版本 | 日期 | 说明 | 作者 |
 |---|---|---|---|
-| v1.3 | 2026-08-20 | 完成 M1～M3 实现和自动化门禁，记录 drawable candle 索引修正与 M4 人工验收边界 | Codex |
+| v1.4 | 2026-08-21 | 用户完成部署和实际页面人工交互验收，验收合格；关闭 M4 并完成专项文档收口 | Codex |
+| v1.3 | 2026-08-20 | 完成 M1～M3 实现和自动化门禁，记录 drawable candle 索引修正与当时的 M4 验收边界；后续已由 v1.4 闭环 | Codex |
 | v1.2 | 2026-08-20 | 按 `buildCandlestickData` 的过滤事实改用 drawable candle data，保证 logical index 与真实 series 对齐 | Codex |
 | v1.1 | 2026-08-20 | 冻结完全平价窗口只绘制一个价格标注，清除开发前最后待定项 | Codex |
 | v1 | 2026-08-20 | 完成当前代码、CodeGraph、Primitive、viewport、测试与 Figma 对账，形成代码级开发合同 | Codex |

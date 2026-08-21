@@ -1,6 +1,6 @@
 # 详情页 K 线可见区间最高/最低价标注技术方案 v1
 
-> 状态：前端开发与自动化门禁已完成；部署和人工交互验收按用户安排另行执行。
+> 状态：已闭环完成。前端开发、自动化门禁、部署和用户人工交互验收均已通过。
 > 适用范围：股票日线、股票分钟线、指数日线、指数分钟线的 K 线主图区。
 > 共享基础：[详情页共享图表与 K 线缩放技术实施方案 v1](./detail-chart-zoom-implementation-design-v1.md)
 > 对应 LLD：[详情页 K 线可见区间最高/最低价标注 LLD v1](./detail-chart-visible-extrema-annotation-low-level-design-v1.md)
@@ -240,17 +240,19 @@ Figma 数值仅为视觉 fixture，不作为接口或测试金标。
 - 不提供关闭开关或配置项。
 - 不在四个页面分别实现一套逻辑。
 
-## 10. 后续推进
+## 10. 闭环结论
 
-1. 按 LLD 依次完成 shared helper、geometry、primitive 和 workspace 接入。
-2. 执行纯算法、primitive、workspace 与四 adapter 回归门禁。
-3. 完成四场景浏览器验收后收口。
+1. shared helper、geometry、primitive 和 workspace 接入已完成。
+2. 纯算法、primitive、workspace 与四 adapter 回归门禁已通过。
+3. 功能已由用户部署并完成实际页面人工交互验证，验收结论为合格。
+4. 本专项不再保留待开发、待部署、待验收或待拍板事项。
 
 ## 11. 变更记录
 
 | 版本 | 日期 | 说明 | 作者 |
 |---|---|---|---|
-| v1.7 | 2026-08-20 | 完成 shared extrema helper、geometry、Primitive、workspace 接入及自动化回归；人工交互验收待用户执行 | Codex |
+| v1.8 | 2026-08-21 | 用户已完成部署和实际页面人工交互验收，验收合格；专项正式闭环 | Codex |
+| v1.7 | 2026-08-20 | 完成 shared extrema helper、geometry、Primitive、workspace 接入及自动化回归；记录当时的 M4 验收边界，后续已由 v1.8 闭环 | Codex |
 | v1.6 | 2026-08-20 | 按当前 series builder 事实将 logical index 输入收敛为可绘制 candle data，避免 OHLC 空值造成索引错位 | Codex |
 | v1.5 | 2026-08-20 | 冻结完全平价窗口只绘制一个价格标注的去重口径，清除最后待定项 | Codex |
 | v1.4 | 2026-08-20 | 完成代码级 LLD 审计；按最终参考稿纠正价格线垂直坐标、Primitive range 读取与缓存口径 | Codex |

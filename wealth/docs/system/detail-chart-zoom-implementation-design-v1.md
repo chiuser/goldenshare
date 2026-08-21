@@ -5,7 +5,7 @@
 > 对应需求：[详情页 K 线缩放标杆需求 v1](./detail-chart-zoom-benchmark-requirement-v1.md)
 > 对应 LLD：[详情页共享图表与 K 线缩放 LLD v1](./detail-chart-zoom-low-level-design-v1.md)
 > 对应门禁：[详情页共享图表与 K 线缩放 M2 编码前门禁 v1](./detail-chart-zoom-m2-coding-gate-v1.md)
-> 后续共享交互扩展：[详情页 K 线可见区间最高/最低价标注技术方案 v1](./detail-chart-visible-extrema-annotation-implementation-design-v1.md)及其[代码级 LLD](./detail-chart-visible-extrema-annotation-low-level-design-v1.md)。该扩展的前端开发与自动化门禁已完成，部署和人工交互验收待执行；它不属于本文已完成的 M1/M2 实施结果。
+> 后续共享交互扩展：[详情页 K 线可见区间最高/最低价标注技术方案 v1](./detail-chart-visible-extrema-annotation-implementation-design-v1.md)及其[代码级 LLD](./detail-chart-visible-extrema-annotation-low-level-design-v1.md)。该扩展已完成前端开发、自动化门禁、部署和用户人工交互验收，并已独立闭环；它不属于本文已完成的 M1/M2 实施结果。
 
 ---
 
