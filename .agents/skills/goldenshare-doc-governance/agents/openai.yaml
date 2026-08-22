@@ -1,0 +1,7 @@
+interface:
+  display_name: "Goldenshare Doc Governance"
+  short_description: "文档与当前代码证据对账审计"
+  default_prompt: "Use $goldenshare-doc-governance to audit one Goldenshare document group against current code and evidence."
+
+policy:
+  allow_implicit_invocation: true
