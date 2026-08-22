@@ -54,7 +54,7 @@ docs/
 2. 共享顶部栏：`../src/shared/ui/top-market-bar/`。
 3. 市场总览：`../src/pages/market-overview/` 与 `../src/features/market-overview/`。
 4. 股票详情：`../src/pages/stock-detail/` 与 `../src/features/stock-detail/`。
-5. 指数详情：`pages/index-detail/`；M1 后端已在仓库根 `src/biz/**/index_detail` 落地，M2 已在 `../src/shared/charts/detail-workspace/` 提取共享图表，M3 已建立 Loaded 页面、三 Tab 与趋势 primitive，M4 已在 `../src/features/index-detail/state/` 和页面 controller 中完成五态、404、Delayed 与模块级重试；M5-B/P10 已完成本地七频正式 Gold canonical bars + Gold technical、Mock 清零与生产分钟路由 404 的环境隔离。
+5. 指数详情：`pages/index-detail/`；M1～M5-B/P10 已完成后端、共享图表、Loaded/状态页、趋势通道、本地七频正式 Gold canonical bars + Gold technical、Mock 清零与生产分钟路由 404 的环境隔离；九转 M6-D 与日线数据/性能最终生产验收已于 2026-08-22 收口，生产版本为 `57ece8a3`。
 6. 当前正式视觉与组件规则：[设计系统基线](./system/design-system-baseline.md)、[组件规范基线](./system/component-guidelines-baseline.md)。
 7. API/数据字典：以 `pages/market-overview/` 下各模块当前版本三件套和 `api-contract-baseline.md` 为准；板块速览当前规划版本为 v2，其 v1 只解释切换前代码；`reference/api/*` 仅保留历史参考。
 
@@ -70,8 +70,8 @@ docs/
 - [策略配置中心 v1（统一策略读取）](./system/strategy-config-center-v1.md)
 - [策略配置中心 M1 编码门禁 v1](./system/strategy-config-center-m1-coding-gate-v1.md)
 - [策略配置中心一页式接入手册 v1](./system/strategy-config-consumer-guide-v1.md)
-- [股票与主要指数详情页九转接入总方案 v1（M0-M5、M6-0、M6-A 已完成）](./system/detail-page-nine-turn-integration-implementation-design-v1.md)
-- [股票与主要指数详情页九转接入低层设计 v1（M6-A 已完成，M6-B 待独立审批）](./system/detail-page-nine-turn-integration-low-level-design-v1.md)
+- [股票与主要指数详情页九转接入总方案 v1（M0-M6 已完成）](./system/detail-page-nine-turn-integration-implementation-design-v1.md)
+- [股票与主要指数详情页九转接入低层设计 v1（M0-M6 已完成）](./system/detail-page-nine-turn-integration-low-level-design-v1.md)
 - [股票详情九转纵向切片 M2 编码门禁与实施对账 v1（已通过）](./system/detail-page-nine-turn-m2-coding-gate-v1.md)
 - [股票日线九转 M3 serving 发布门禁 v1（M3-A/M3-B/M3-C 已完成）](./system/detail-page-nine-turn-m3-serving-publication-gate-v1.md)
 
@@ -128,13 +128,13 @@ docs/
 - [股票详情分钟线与分钟技术指标 API M2 编码前门禁 v1](./pages/stock-detail/stock-detail-minutes-api-m2-coding-gate-v1.md)
 - [股票详情页 Figma 像素级还原执行计划 v1（M0-M7 已完成）](./pages/stock-detail/stock-detail-figma-pixel-reconstruction-plan-v1.md)
 - [股票详情页 Figma 像素级验收台账 v1](./pages/stock-detail/stock-detail-figma-pixel-verification-ledger-v1.md)
-- [指数详情页标杆需求 v1（指数分钟交付完成）](./pages/index-detail/index-detail-benchmark-requirement-v1.md)
-- [指数详情页技术实施方案 v1（指数分钟交付完成）](./pages/index-detail/index-detail-implementation-design-v1.md)
-- [指数详情页低层设计（LLD）v1（指数分钟交付完成）](./pages/index-detail/index-detail-low-level-design-v1.md)
+- [指数详情页标杆需求 v1（开发与生产验收完成）](./pages/index-detail/index-detail-benchmark-requirement-v1.md)
+- [指数详情页技术实施方案 v1（开发与生产验收完成）](./pages/index-detail/index-detail-implementation-design-v1.md)
+- [指数详情页低层设计（LLD）v1（开发与生产验收完成）](./pages/index-detail/index-detail-low-level-design-v1.md)
 - [指数详情页正式 API / DTO 合同 v1（1.3.1 已冻结）](./pages/index-detail/index-detail-api-contract-v1.md)
 - [指数详情本地分钟 API / DTO 合同 v1（P10 1.1.0 已冻结，Gold-only）](./pages/index-detail/index-detail-minutes-api-contract-v1.md)
-- [指数详情页 M0 生产因子审计 v1](./pages/index-detail/index-detail-m0-production-audit-v1.md)
-- [指数详情页 M2 编码前门禁 v1（指数分钟条目全部通过）](./pages/index-detail/index-detail-m2-coding-gate-v1.md)
+- [指数详情页 M0 生产因子审计 v1（2026-08-22 最终复验）](./pages/index-detail/index-detail-m0-production-audit-v1.md)
+- [指数详情页 M2 编码前门禁 v1（全部关闭）](./pages/index-detail/index-detail-m2-coding-gate-v1.md)
 
 ## 模块开发模板
 

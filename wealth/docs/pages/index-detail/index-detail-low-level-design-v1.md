@@ -1,6 +1,6 @@
 # 指数详情页低层设计（LLD）v1
 
-> 状态：指数分钟交付已完成。M1–M5-B、P10、共享图表和发布边界验收均已按冻结合同实现；主要指数 bars/indicators 只读正式 Gold，无 Silver fallback 或 Mock。本地按 capability 开放七个分钟周期，生产只开放日线且分钟路由保持 404。九转 S7/M5 与 M6-A 已完成；M6-B～M6-D 属于独立运维阶段。
+> 状态：指数详情开发与生产验收已完成。M1～M5-B、P10、共享图表、九转 S7/M5/M6-A～M6-D 和日线最终数据/性能门禁均已按冻结合同实现；主要指数 bars/indicators 只读正式 Gold，无 Silver fallback 或 Mock。本地按 capability 开放七个分钟周期，生产只开放日线且分钟路由保持 404。
 > 需求依据：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 技术方案：[指数详情页技术实施方案 v1](./index-detail-implementation-design-v1.md)
 > 编码门禁：[指数详情页 M2 编码前门禁 v1](./index-detail-m2-coding-gate-v1.md)
@@ -1127,7 +1127,7 @@ MainContent Loaded/Loading/Empty/Partial：左右 padding 10、gap 10、左 `119
 
 ### 14.3 技术 Tab
 
-Technical 读取已经加载的 kline 最新指标和 trend 状态，不发“技术结论”请求；九转则通过共享 registry 按 capability 独立 ensure day/60/30，并消费各周期 API 的 `latestMarker`。技术结论固定显示 `--`；九转未开放、源空或无 marker 时显示 `--`，没有 mock 句子。
+Technical 读取已经加载的 kline 最新指标和 trend 状态，不发“技术结论”请求；九转则通过共享 registry 按 capability 独立 ensure 固定 day/15/30/60/90/120 六周期，并消费各周期 API 的 `latestMarker`。技术结论固定显示 `--`；九转未开放、源空或无 marker 时显示 `--`，没有 mock 句子。
 
 ### 14.4 周期切换
 
@@ -1176,7 +1176,7 @@ IndexInfoRail
 1. 最新日 MA/BOLL/MACD/KDJ 客观值。
 2. 上证指数最新对齐日的短期上轨/下轨、长期上轨/下轨；其余指数显示 `--` 或按 Figma 隐藏趋势分组，不发请求。
 3. 技术结论 `--`。
-4. 九转按 capability 展示 day/60/30 的最新“上序 N/下序 N”；未开放、源空或无 marker 显示 `--`。
+4. 九转按 capability 展示固定 day/15/30/60/90/120 六周期的最新“上序 N/下序 N”；未开放、源空或无 marker 显示 `--`。
 5. 不出现买入、卖出、建议、机会、风险评级等主观结论。
 
 ---
@@ -1430,7 +1430,7 @@ wealth/src/shared/charts/detail-workspace/DetailChartWorkspace.test.tsx
 5. 快速切 code 时旧响应不能覆盖新页面。
 6. 15 项顺序、下跌数半宽、null 为 `--`、无旧字段。
 7. 权重第一次激活才请求；cache、retry、完整 rowcount、末行可达。
-8. Technical 的技术结论为 `--`；九转按 day/60/30 capability 展示 `latestMarker`，未开放/源空/无 marker 为 `--`，没有主观建议。
+8. Technical 的技术结论为 `--`；九转按固定 day/15/30/60/90/120 六周期 capability 展示 `latestMarker`，未开放/源空/无 marker 为 `--`，没有主观建议。
 9. trend N 点 segment 数量、每日竖线、四种颜色、等于下轨边界、缺日断开。
 10. trend error 不清空 kline/basic。
 11. line/histogram null 不被送成 0。
@@ -1448,8 +1448,8 @@ wealth/src/shared/charts/detail-workspace/DetailChartWorkspace.test.tsx
 5. 图表、坐标轴、趋势、Tooltip、十字线不得因右栏或状态切换位移。
 6. Weights 表头固定、视窗恰好 10 行、可滚到全量末行。
 7. Partial 用至少两组不同缺失字段 fixture，证明提示非写死。
-8. M4 本机截图证据位于 `/private/tmp/goldenshare-index-detail-m4/`：`loading.png`、`empty.png`、`error.png`、`partial.png`、`forbidden.png`、`not-found.png`、`delayed.png`；临时证据不提交仓库。
-9. M5-A 本机截图证据位于 `/private/tmp/`：`goldenshare-m5-index-daily-1600x1200.png`、`goldenshare-m5-index-1min-1600x1200.png`、`goldenshare-m5-index-60min-1600x1200.png`、`goldenshare-m5-index-120min-1600x1200.png`、`goldenshare-m5-index-minute-tooltip-1600x1200.png`；临时证据不提交仓库。北证50局部空态与切回日线另由浏览器 DOM 和页面回归测试验收。
+8. M4 当时的本机截图曾位于 `/private/tmp/goldenshare-index-detail-m4/`；这些 session-local 临时文件现已不存在，只保留为历史执行记录，不作为 2026-08-22 的可复核证据。
+9. M5-A 当时的本机截图曾位于 `/private/tmp/`；这些 session-local 临时文件现已不存在，只保留为历史执行记录。北证50局部空态与切回日线仍由浏览器 DOM 和页面回归测试验收。
 10. 日线与分钟量测完全一致：图表 `1193.203125×1038 @ (10,152)`，右栏 `376.796875×1038 @ (1213.203125,152)`，页面 `1600×1200` 无水平/垂直溢出。
 
 验证命令：
@@ -1517,9 +1517,9 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 
 | 风险/阻断 | 当前事实 | 处理 |
 |---|---|---|
-| factor 实际历史仍少于 2000 根 | 当前 9 个指数 630 根、A500 455 根，不能证明真实 2000 行 payload | M1 的 2000 上限请求已验收当前实返行数；真实 2000 行仍保留为发布前门禁 |
+| factor 实际历史仍少于 2000 根 | 2026-08-22 九个指数 881 根、A500 464 根，无法产生真实 2000 行 payload | 按 `N/A — accepted physical limitation` 关闭；2000 保留为参数上限，当前最大历史性能已通过，未来自然达到后进入常规回归 |
 | 深市两源量额分叉 | 399001/399006 自 2026-07-06 起 factor 与 daily 不同 | 外部核对确认 factor 准确；指数详情统一取 factor，禁止 daily fallback 或倍率换算 |
-| 历史回填改变 MA 可计算边界 | 当前 A500 空值前缀被固化为 code/date 规则 | 按实际有效历史根数判断；回填后自动重分类并复审覆盖 |
+| 历史回填改变 MA 可计算边界 | 若把某次 A500 前缀空值固化为 code/date 规则会产生错误 | 当前实现按实际有效历史根数动态判断；2024 回填后的复审证明达到周期后的异常 null 为 0，后续回填继续自动重分类 |
 | 趋势旧契约命名不同 | snake_case，与 Wealth DTO 风格不同 | feature-local adapter，不改旧 API |
 | 趋势 state 与视觉颜色不同 | 后端是迟滞状态，页面是 close/lower | 明确忽略 state 判色并做冲突样本测试 |
 | 上证官方权重批次 2224 行、页面 A 股子集 2184 行 | API/DOM 可能膨胀；误把 B 股算缺失 | ORM 事实字段过滤 + 集合查询 + <1 MiB + 虚拟化；A 股权重不归一化 |
@@ -1534,11 +1534,11 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 ### 22.1 进入编码前必须确认的检查项
 
 1. [x] 本 LLD 已完成产品、后端、前端评审，并按批准方案进入 M1-M4。
-2. [x] 10 指数 factor 审计、最终 SQL、完整服务链和当前实返 payload P95 通过；真实 2000 行仍保留为后续门禁。
+2. [x] 10 指数 factor 审计、最终 SQL、完整服务链和当前实返 payload P95 通过；真实 2000 行因物理历史不足按 `N/A — accepted physical limitation` 关闭。
 3. [x] page-init/kline/weights DTO `1.3.1` 已冻结；字段集不变，成分集合、停牌解析与贡献排序语义已收紧。
 4. [x] 贡献输出按 4 位舍入、UI 2 位的精度规则已冻结。
 5. [x] 异常码已登记。
-6. [x] shared chart M2 的股票截图/测试基线已保存；1600×1200 前后截图及结构量测位于本机验证目录 `/private/tmp/goldenshare-index-detail-m2/`。
+6. [x] shared chart M2 的股票测试、1600×1200 结构量测和当时截图验收已完成；历史 `/private/tmp` 文件现不可作为长期证据。
 7. [x] Figma `414:447` 权重行高已从节点属性实测为 40px；实现使用 400px 十行视窗。
 8. [x] M5-A 正式 Silver 合同与物理数据验收通过；Gold 不作为 bars 前置。
 9. [x] M5-B 前 Gold 70 checks 已由 Definitions 正确发现；跨边界合同和 fixture 防漂移门禁已建立。
@@ -1552,7 +1552,16 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 
 2026-08-13 最终批次结果：Definitions 为 14 assets/70 checks；Silver/Gold technical 七频率各 4,277 个分区，29,939 个频率-日期分区对完成全历史 schema、版本、有限值、唯一键和双向时间键检查且零失败；Technical/state 共 59,878 个文件、10,150,506 行。九个页面可用指数 × 七频率 × 10 次共 630 个默认 500 根样本全部 READY，频率级 P95 282.243–322.982ms。10000 根因超过 5MB 正确拒绝，5000 根返回 3,181,443 bytes、cursor 有效且耗时 334.441ms。前端 155 项全量测试、构建和 1/60/120 分钟真实浏览器回归通过；页面无 Mock 标识，日线/分钟图表区和右栏几何差值为 0px。
 
-2026-08-15 发布边界验收确认生产环境仅挂载指数日线能力，指数分钟路由保持 404；本地七频分钟不因生产发布而暴露。该结果完成本 LLD 的 M6 退出条件。九转专项后续 sensor、自然更新与运维验收不改变指数分钟 Reader/API、前端或图表的完成状态。
+2026-08-15 发布边界验收确认生产环境仅挂载指数日线能力，指数分钟路由保持 404；2026-08-22 最终复验再次确认该边界。九转 M6-B～M6-D 已完成，不改变指数分钟 Reader/API、前端或图表的完成状态。
+
+### 22.2 2026-08-22 最终生产验收
+
+1. 生产 `dev-interface@57ece8a3` 工作区干净且与远端一致，并包含 `874f647b` 权重贡献排序、`673161cf` 固定六周期摘要和指数九转接入。
+2. 十指数 factor 最新日均为 2026-08-21、重复键为 0；九个指数 881 根，A500 464 根。2024 可用历史与 daily 双向零缺口，达到对应周期后的异常 MA null 为 0。
+3. 数据库 factor-only 300/当前最大窗口 P95 为 0.799/2.326ms，历史基数 P95 0.718ms；生产 Web 主机同拓扑 page-init/Kline 300/当前最大窗口 P95 为 26.649/17.373/78.741ms，均通过预算。
+4. 真实 2000 行按 `N/A — accepted physical limitation` 关闭；2000 继续作为 API 参数上限并保留边界测试。
+5. 十指数日线九转 50 次真实服务请求全部 200/READY、300 根完全对齐，P95 12.795ms；`000680.SH` 为 404，生产分钟 K 线、指标与九转路由均为 404。
+6. 用户于 2026-08-22 完成当前生产页面视觉检查并批准收口。本轮没有新的持久截图；旧 `/private/tmp` 记录不再作为当前证据。
 
 ---
 
@@ -1571,6 +1580,7 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.22 | 2026-08-22 | 最终收口指数详情 LLD：同步当前生产 SHA、2024/动态 MA、数据库与 Web-host 同拓扑性能、真实 2000 行 N/A 边界、权重排序、九转 M6-D、固定六周期与用户视觉验收；历史临时截图不再冒充持久证据 | Codex |
 | v1.21 | 2026-08-17 | 权重最终排序从源 weight 顺序改为 service 在贡献点四位舍入后按数值降序、null 置底、weight/code 决胜；SQL 与前端不复制排序公式 | Codex |
 | v1.20 | 2026-08-16 | 收敛指数分钟完成状态：修正当前 Gold bars 路径、12 列物理合同、Gold-to-Gold 对齐与真实指标测试；M6 发布边界验收完成，并将九转后续运维阶段从指数分钟未完成项中剥离 | Codex |
 | v1.19 | 2026-08-15 | 同步 M6-0 通过：生产路由与配置基线、platform-only 发布边界及 M5 定向回滚已冻结；板块测试竞态修复后 Wealth 全量回归通过，M6-A 仍待独立批准 | Codex |

@@ -1,6 +1,6 @@
 # 指数详情页 M2 编码前门禁 v1
 
-> 状态：指数分钟交付门禁已全部通过。M5-A、M5-B、P10 与分钟生产隔离验收均已闭环；共享图表缩放门禁已由 `61a5adea` 完成；bars/indicators 只读正式 Gold，无 Silver fallback 或 Mock。生产分钟路由保持 404 是最终产品边界，不是待开发项。指数日线仍保留第 9.3 节三项因子/Web-host 后续门禁，不阻塞分钟收口。
+> 状态：全部门禁已关闭。M1～M5-B、P10、共享图表、生产隔离、日线数据/性能、权重排序和九转 M6-D 均已验收；bars/indicators 只读正式 Gold，无 Silver fallback 或 Mock。生产分钟路由保持 404 是最终产品边界，不是待开发项。
 > 需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 方案：[指数详情页技术实施方案 v1](./index-detail-implementation-design-v1.md)
 > LLD：[指数详情页低层设计 v1](./index-detail-low-level-design-v1.md)
@@ -33,8 +33,8 @@
 
 ## 2. 总门禁
 
-1. [x] 指数分钟三件套与交付口径已完成评审；其它指数日线待验项继续按本门禁保留。
-2. [x] 10 指数 `index_factor_pro` 生产覆盖与当前生产数据库内性能审计通过；真实 2000 行 API P95 仍属实现后门禁。
+1. [x] 指数分钟三件套与交付口径已完成评审；指数日线各项门禁也已全部关闭。
+2. [x] 10 指数 `index_factor_pro` 生产覆盖、动态 MA、数据库与生产 Web 主机同拓扑性能均通过；真实历史不足 2000 根，按 `N/A — accepted physical limitation` 关闭并保留参数上限测试。
 3. [x] 趋势通道边界冻结：既有 SSE 契约保持不变，仅上证指数消费；无十指数适配层。
 4. [x] page-init/kline/weights 请求、响应 DTO 与核心样例已按 `1.3.1` 冻结；字段集不变，收紧 A 股集合、停牌解析与贡献排序语义。
 5. [x] 权重 SQL、贡献公式、日期、完整批次和贡献点最终排序已冻结。
@@ -194,16 +194,16 @@ interface IndexKlineBarDto {
 
 门禁：
 
-1. [ ] 所有历史不足/源缺失值保持 `null`，不补 0、不向前填充、不临时重算 MA。
-2. [ ] `pct_change -> changePct` 映射集中在后端 mapper。
-3. [ ] `kdj_bfq -> j`、`kdj_k_bfq -> k`、`kdj_d_bfq -> d` 固定。
-4. [ ] 不返回 MA15/MA120，不临时计算。
+1. [x] 所有历史不足/源缺失值保持 `null`，不补 0、不向前填充、不临时重算 MA。
+2. [x] `pct_change -> changePct` 映射集中在后端 mapper。
+3. [x] `kdj_bfq -> j`、`kdj_k_bfq -> k`、`kdj_d_bfq -> d` 固定。
+4. [x] 不返回 MA15/MA120，不临时计算。
 5. [x] DTO 源已冻结：Kline 价格/量额/技术指标均取 factor；page-init `vol/amount` 取 `asOfTradeDate` 同日 factor；禁止 daily 量额 fallback/倍率换算。
 6. [x] MA null 口径不含 code/date 特例：同 code 截至该日有效历史根数小于 N 才属于合理历史不足；达到 N 后仍为空则 PARTIAL。
-7. [ ] 正向测试：有效历史为 249 根且 `ma250=null` 时保留 null，不因该字段单独标记 PARTIAL。
-8. [ ] 负向测试：有效历史达到 250 根但 `ma250=null` 时返回 null + `ID_FACTOR_PARTIAL`。
-9. [ ] 回填测试：加入更早历史后，同一 bar 无需修改 code/date 规则即可按新历史根数重新分类。
-10. [ ] 静态审计：kline service/mapper 中不存在 `000510.SH`、`2025-09-30` 或其它 MA warm-up 特例。
+7. [x] 正向测试：有效历史为 249 根且 `ma250=null` 时保留 null，不因该字段单独标记 PARTIAL。
+8. [x] 负向测试：有效历史达到 250 根但 `ma250=null` 时返回 null + `ID_FACTOR_PARTIAL`。
+9. [x] 回填测试：加入更早历史后，同一 bar 无需修改 code/date 规则即可按新历史根数重新分类。
+10. [x] 静态审计：kline service/mapper 中不存在 `000510.SH`、`2025-09-30` 或其它 MA warm-up 特例。
 
 ### 4.3 权重正常样例
 
@@ -300,12 +300,12 @@ interface IndexKlineBarDto {
 
 ### 5.1 标的与完成交易日
 
-1. [ ] `StrategyConfigService.get_payload(module_key="majorIndices", market="CN_A")` 是名单唯一来源。
-2. [ ] `MarketPageContextQuery` 是日期上下文唯一来源。
-3. [ ] 服务层不根据 `sessionStatus` 二次减一天；默认期望日直接使用 `pageContext.tradeDate`。
-4. [ ] quote 查询 `<= pageContext.tradeDate` 的最近行；该 observed date 是 `asOfTradeDate`。
-5. [ ] 权重贡献使用 `asOfTradeDate`，source delayed 时仍保持同日输入并标记 DELAYED。
-6. [ ] 默认日期、显式日期、非交易日和 source delayed 均有测试。
+1. [x] `IndexDetailUniverseService.load_universe()` 通过 `StrategyConfigService.get_config(module_key="majorIndices", market="CN_A")` 读取名单唯一来源。
+2. [x] `MarketPageContextQuery` 是日期上下文唯一来源。
+3. [x] 服务层不根据 `sessionStatus` 二次减一天；默认期望日直接使用 `pageContext.tradeDate`。
+4. [x] quote 查询 `<= pageContext.tradeDate` 的最近行；该 observed date 是 `asOfTradeDate`。
+5. [x] 权重贡献使用 `asOfTradeDate`，source delayed 时仍保持同日输入并标记 DELAYED。
+6. [x] 默认日期、显式日期、非交易日和 source delayed 均有测试。
 
 ### 5.2 日线与因子
 
@@ -326,7 +326,7 @@ ORDER BY f.trade_date DESC
 LIMIT :limit;
 ```
 
-返回前在服务层反转为升序。价格、量额与技术指标全部取 factor；禁止 daily 量额 fallback 或倍率修正。查询必须利用 factor `(ts_code, trade_date)` 主键索引。M0 旧候选 joined 查询的数据库内 P95 为 300 根 1.636ms、2000-limit 2.127ms，可作保守参考；factor-only 精确 SQL、真实 2000 行与 API P95 仍是实现后门禁。
+返回前在服务层反转为升序。价格、量额与技术指标全部取 factor；禁止 daily 量额 fallback 或倍率修正。查询必须利用 factor `(ts_code, trade_date)` 主键索引。M0 旧候选 joined 查询的数据库内 P95 为 300 根 1.636ms、2000-limit 2.127ms，仅作历史参考；factor-only 精确 SQL与生产 Web 主机同拓扑 P95 已于 2026-08-22 通过，真实 2000 行因物理历史不足按 N/A 关闭。
 
 ### 5.2.1 基本行情日度指标与成分涨跌统计
 
@@ -422,7 +422,7 @@ WHERE w.index_code = :index_code
 | 403 | 未请求 | 未请求 | 任意 | FORBIDDEN |
 
 1. [x] 权重和技术 tab 状态不覆盖页面主状态。
-2. [ ] minute 状态不污染日线缓存。
+2. [x] minute 状态不污染日线缓存。
 3. [x] delayed 必须显示 observed date，不仅在 debug 中存在。
 4. [x] 真实失败不回退 mock/scaffold 数值。
 5. [x] 页面级状态优先级固定为：401 认证跳转 > 403 FORBIDDEN > 404/非法指数 > fatal ERROR > EMPTY > PARTIAL/DELAYED > READY。
@@ -520,20 +520,16 @@ WHERE w.index_code = :index_code
 4. [x] 2026-08-12 复核上证最新页面日 `2026-08-11`、权重日 `2026-07-31`：官方源批次 2224 行，其中 Security 事实字段认定 A 股 2184 行、B 股 40 行。A 股 daily 原始计数为 up 648、flat 49、down 1485，另有 2 个精确日 `suspend_type='S'`；按冻结规则结果为 total/matched 2184、up 648、flat 51、down 1485、missing 0。B 股不计缺失，A 股权重不归一化。
 5. [x] 1.2.0 最终查询已完成只读性能复验：10 指数各 5 轮 page-init P95 245.589ms、weights P95 267.319ms；最大权重响应 2184 行/275,543B，数据库内上证最终 SQL 约 19~22ms。
 
-### 9.3 已完成：指数因子
+### 9.3 已完成：指数因子最终生产验收
 
-1. [x] 10 code 均有 388 行，日期范围 2025-01-02 ~ 2026-08-10，无重复主键。
-2. [x] 10 code 最新日均与 index daily 对齐到 2026-08-10。
-3. [x] 每 code 至少覆盖默认 300 根；审计时 `000510.SH` 有 182 行 MA250 前缀空值，但该结果仅为 2026-08-11 快照，不进入代码规则。
-4. [x] 最近 300 根 OHLC/昨收/涨跌/涨跌幅同日最大绝对差为 0。
-5. [x] 发现 `399001.SZ`、`399006.SZ` 自 2026-07-06 起 26 日量额分叉；外部核对确认 factor 准确，基本行情与 Kline 量额统一取 factor，不做换算或 daily fallback。
-6. [x] MA/BOLL/MACD/KDJ 除上述 MA250 快照空值外均满足最近 300 根覆盖；MA 合理历史不足按实际根数动态判断。
-7. [x] 旧候选 factor/daily join 命中两侧主键；数据库内 P95：300 根 1.636ms、2000-limit 2.127ms，作为更复杂查询的保守参考。
-8. [ ] 真实 2000 行响应体与 Web-host 端到端 P95：当前 factor 仅 388 行，待 API 落地且数据具备后验收。
-9. [ ] 2024 技术因子同步完成后重跑 10 指数覆盖审计，并验证 MA null 分类随实际历史变化而变化。
-10. [ ] factor-only 主查询 + MA 历史基数条件查询的完整 Kline 链路通过索引计划、300/2000 上限和 Web-host P95 验收。
+第 1～7 项的 2026-08-11 数值属于历史快照，完整明细保留在 M0 审计第 4～9 节。2026-08-22 最终结果如下：
 
-以上 8–10 项属于指数日线 factor/大窗口 Web-host 后续验收，不是指数分钟 M5-A、M5-B、P10 的退出条件。
+1. [x] 十指数最新日均为 2026-08-21、重复键为 0，且与 daily 最新日对齐；九个指数各 881 根，A500 为 464 根。
+2. [x] 2024 可用历史逐日双向对齐：九个指数各 242/242，A500 自 2024-09-23 起 67/67；daily 无 factor、factor 无 daily 均为 0。
+3. [x] MA null 按实际有效历史动态分类；A500、北证50达到对应周期后的异常 null 全为 0，不存在 code/date 特例。
+4. [x] factor-only、MA 历史基数和生产 Web 主机同拓扑服务链均通过：page-init P95 26.649ms、Kline 300 P95 17.373ms、`limit=2000` 当前最大历史 P95 78.741ms。
+5. [x] 真实 2000 行按 `N/A — accepted physical limitation` 关闭：当前九个指数最多 881 根、A500 464 根；2000 继续作为参数上限并保留边界测试，未来自然达到后进入常规性能回归。
+6. [x] 权重贡献排序提交 `874f647b` 已包含在生产 `57ece8a3`；九转 M6-D、固定六周期摘要和生产分钟 404 也已通过最终验收。
 
 ### 9.4 M5-A 已完成：本地分钟
 
@@ -568,9 +564,9 @@ P10 业务读取切换记录（2026-08-14）：上述 Silver bars 仅保留为 M
 1. [x] 所有 M1 查询只选所需列，不 `SELECT *`。
 2. [x] 权重名称/行情补列使用集合 LEFT JOIN，无 N+1。
 3. [x] M1 未修改趋势接口或新增十指数缓存。
-4. [x] M1 当前实现链 P95 全部低于硬门禁，未调整 timeout；page-init 跨网络 P95 仍需在生产 Web-host 同拓扑复核 200ms 目标。
+4. [x] M1 当前实现链 P95 全部低于硬门禁，未调整 timeout；2026-08-22 生产 Web 主机同拓扑复核也通过 page-init 200ms 目标。
 
-M1 实现后 50 样本跨网络服务链 P95：page-init 246.054ms、kline 300 211.169ms、kline 2000 上限实返 455~630 行 248.925ms、weights 271.337ms；最大 payload 分别为 1,653 B、162,606 B、337,689 B、276,419 B。page-init 通过 500ms 硬门禁但高于 200ms 目标；本机跨网络结果不替代生产 Web-host 同拓扑验收。真实 2000 行仍未具备物理数据，不得标成已验收。
+M1 实现后的跨网络服务链结果保留为历史参考。2026-08-22 生产 Web 主机同拓扑 50 样本为：page-init P95 26.649ms、Kline 300 P95 17.373ms、`limit=2000` 当前最大 464/881 根 P95 78.741ms，均通过目标。正式历史仍不足 2000 根，该项按 `N/A — accepted physical limitation` 关闭，不写成真实 2000 行 PASS。
 
 ## 11. 测试门禁
 
@@ -634,6 +630,7 @@ cd wealth && npm run build
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.23 | 2026-08-22 | 关闭全部门禁：补齐字段映射、动态 MA、页面上下文和缓存测试对账；登记 2024 覆盖、Web-host 同拓扑性能、真实 2000 行 N/A 物理边界、生产权重排序与九转 M6-D 最终验收 | Codex |
 | v1.22 | 2026-08-17 | 冻结权重贡献列表新排序门禁：四位贡献点数值降序、null 置底、同值 weight/code 决胜；最终排序只在 service，前端不得二次排序 | Codex |
 | v1.21 | 2026-08-16 | 按最终交付结论关闭指数分钟三件套与跨角色签字项；明确 M5-A/M5-B/P10、正式 Gold 与生产 404 均为最终分钟合同，并保留指数日线后续门禁 | Codex |
 | v1.20 | 2026-08-13 | 完成 M5-B 前端真实 provider、Mock 清零、全量回归与浏览器门禁；更新最终正式 Gold 覆盖、性能和最大响应证据 | Codex |

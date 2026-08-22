@@ -188,7 +188,7 @@
 
 ## 9. 九转详情图层（Phase-4，股票与指数后端及 UI active）
 
-> 最终 DTO、状态优先级和恢复动作见 [股票与主要指数详情页九转接入低层设计 v1](./detail-page-nine-turn-integration-low-level-design-v1.md)。股票日线、本地 30/60/90/120 分钟及指数日线、本地 5/15/30/60/90/120 分钟后端、正式数据和页面消费均已落地；M6-A 生产窄发布已完成，M6-B–M6-D 的自然更新与最终运维验收仍是独立后续阶段。
+> 最终 DTO、状态优先级和恢复动作见 [股票与主要指数详情页九转接入低层设计 v1](./detail-page-nine-turn-integration-low-level-design-v1.md)。股票日线、本地 30/60/90/120 分钟及指数日线、本地 5/15/30/60/90/120 分钟后端、正式数据和页面消费均已落地；M6-A～M6-D 的生产发布、自然更新与最终运维验收已于 2026-08-22 全部完成。异常码语义不因阶段收口而改变。
 
 | code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
 |---|---|---|---|---|---|---|---|---|---|---|

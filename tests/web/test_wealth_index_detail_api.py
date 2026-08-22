@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -278,6 +279,42 @@ def test_page_init_uses_daily_prices_factor_volume_and_complete_basic_contract(a
     assert no_debug.json()["debugInfo"] is None
 
 
+def test_page_init_without_trade_date_uses_shared_default_page_context(app_client, db_session) -> None:
+    _ensure_index_detail_tables(db_session)
+    today = datetime.now(ZoneInfo("Asia/Shanghai")).date()
+    db_session.add_all(
+        [
+            TradeCalendar(
+                exchange="SSE",
+                trade_date=today,
+                is_open=True,
+                pretrade_date=today - timedelta(days=1),
+            ),
+            IndexBasic(
+                ts_code=_INDEX_CODE,
+                name="上证指数",
+                market="SSE",
+                category="综合指数",
+                publisher="中证指数有限公司",
+            ),
+            _daily_row(trade_date=today),
+            _factor_row(ts_code=_INDEX_CODE, trade_date=today, close=100.0),
+        ]
+    )
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/wealth/market/index-detail/page-init",
+        params={"tsCode": _INDEX_CODE},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["pageContext"]["tradeDate"] == today.isoformat()
+    assert payload["pageContext"]["source"] == "default"
+    assert payload["asOfTradeDate"] == today.isoformat()
+
+
 def test_page_init_uses_the_index_nine_turn_router_capability_resolver(monkeypatch) -> None:
     enabled = LocalMinuteCapability(enabled=True, lake_root=None, reason_code=None)
     disabled = LocalMinuteCapability(enabled=False, lake_root=None, reason_code=None)
@@ -360,6 +397,11 @@ def test_page_init_can_be_delayed_without_becoming_partial(app_client, db_sessio
 
     assert response.status_code == 200
     payload = response.json()
+    assert payload["pageContext"]["tradeDate"] == "2026-08-11"
+    assert payload["pageContext"]["prevTradeDate"] == "2026-08-10"
+    assert payload["pageContext"]["isTradingDay"] is False
+    assert payload["pageContext"]["sessionStatus"] == "CLOSED"
+    assert payload["pageContext"]["source"] == "explicit"
     assert payload["asOfTradeDate"] == "2026-08-10"
     assert payload["dataStatus"]["status"] == "DELAYED"
     assert {item["code"] for item in payload["debugInfo"]["exceptions"]} == {"ID_SOURCE_DELAYED"}
