@@ -241,6 +241,52 @@ def test_etf_share_size_normalizer_keeps_all_source_fields_and_rejects_blank_cod
     ]
 
 
+def test_etf_sz_cons_normalizer_keeps_all_source_fields_and_rejects_blank_component_code() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("etf_sz_cons"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-etf-sz-cons",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "20260821",
+                    "ts_code": " 159919.sz ",
+                    "con_code": " 000001.sz ",
+                    "con_name": " 平安银行\x00 ",
+                    "qty": "1500.000000",
+                    "sub_flag": " 允许 ",
+                    "cpr": "0.10000000",
+                    "rdr": "0.20000000",
+                    "sub_cc": "100.00000000",
+                    "red_cc": "200.00000000",
+                    "exchange": " szse ",
+                },
+                {"trade_date": "20260821", "ts_code": "159919.SZ", "con_code": " "},
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 1
+    assert batch.rejected_reasons == {"normalize.empty_not_allowed:con_code": 1}
+    assert batch.rows_normalized == [
+        {
+            "trade_date": date(2026, 8, 21),
+            "ts_code": "159919.SZ",
+            "con_code": "000001.SZ",
+            "con_name": "平安银行",
+            "qty": Decimal("1500.000000"),
+            "sub_flag": "允许",
+            "cpr": Decimal("0.10000000"),
+            "rdr": Decimal("0.20000000"),
+            "sub_cc": Decimal("100.00000000"),
+            "red_cc": Decimal("200.00000000"),
+            "exchange": "SZSE",
+        }
+    ]
+
+
 def test_top_list_normalizer_hashes_punctuation_variants_to_same_reason_hash() -> None:
     batch = DatasetNormalizer().normalize(
         definition=get_dataset_definition("top_list"),

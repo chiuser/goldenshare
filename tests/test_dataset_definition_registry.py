@@ -28,7 +28,7 @@ def test_dataset_definition_registry_covers_runtime_registry() -> None:
     runtime_keys = set(DATASET_RUNTIME_REGISTRY)
 
     assert definition_keys == runtime_keys
-    assert len(definition_keys) == 88
+    assert len(definition_keys) == 89
 
 
 def test_dataset_definition_registry_covers_freshness_policy_mapping() -> None:
@@ -45,7 +45,7 @@ def test_dataset_definition_universe_policy_current_state_is_explicit() -> None:
     assert Counter(policies.values()) == Counter(
         {
             "no_pool": 79,
-            "pool": 9,
+            "pool": 10,
         }
     )
     assert {dataset_key for dataset_key, policy in policies.items() if policy == "none"} == set()
@@ -321,6 +321,55 @@ def test_dataset_definition_projects_etf_share_size_raw_view_facts() -> None:
     assert definition.normalization.decimal_fields == ("total_share", "total_size", "nav", "close")
     assert definition.normalization.required_fields == ("trade_date", "ts_code")
     assert definition.normalization.row_transform_name == "_etf_share_size_row_transform"
+    assert definition.capabilities.get_action("maintain").schedule_enabled is True
+    assert definition.capabilities.get_action("maintain").supported_time_modes == ("point", "range")
+
+
+def test_dataset_definition_projects_etf_sz_cons_raw_view_facts() -> None:
+    definition = get_dataset_definition("etf_sz_cons")
+
+    assert definition.identity.display_name == "ETF 每日持仓组合（深市）"
+    assert definition.domain.domain_key == "index_fund"
+    assert definition.source.api_name == "etf_sz_cons"
+    assert definition.source.source_fields == (
+        "trade_date",
+        "ts_code",
+        "con_code",
+        "con_name",
+        "qty",
+        "sub_flag",
+        "cpr",
+        "rdr",
+        "sub_cc",
+        "red_cc",
+        "exchange",
+    )
+    assert definition.source.request_builder_key == "_etf_sz_cons_params"
+    assert definition.date_model.date_axis == "trade_open_day"
+    assert definition.date_model.input_shape == "trade_date_or_start_end"
+    assert definition.date_model.audit_applicable is False
+    assert definition.completeness.scope == "not_applicable"
+    assert definition.observability.freshness_policy == "continuous_open_day"
+    assert definition.storage.raw_dao_name == "raw_etf_sz_cons"
+    assert definition.storage.core_dao_name == "raw_etf_sz_cons"
+    assert definition.storage.raw_table == "raw_tushare.etf_sz_cons"
+    assert definition.storage.target_table == "raw_tushare.etf_sz_cons"
+    assert definition.storage.serving_table == "core_serving.etf_sz_cons"
+    assert definition.storage.delivery_mode == "raw_with_serving_view"
+    assert definition.storage.write_path == "raw_only_upsert"
+    assert definition.storage.conflict_columns == ("trade_date", "ts_code", "con_code")
+    assert definition.planning.universe_policy == "pool"
+    assert definition.planning.unit_builder_key == "build_etf_sz_cons_units"
+    assert definition.planning.universe is not None
+    assert [(source.type, source.resource) for source in definition.planning.universe.sources] == [
+        ("ops_etf_series_active", "etf_sz_cons"),
+    ]
+    assert definition.planning.pagination_policy == "offset_limit"
+    assert definition.planning.page_limit == 3000
+    assert definition.normalization.date_fields == ("trade_date",)
+    assert definition.normalization.decimal_fields == ("qty", "cpr", "rdr", "sub_cc", "red_cc")
+    assert definition.normalization.required_fields == ("trade_date", "ts_code", "con_code")
+    assert definition.normalization.row_transform_name == "_etf_sz_cons_row_transform"
     assert definition.capabilities.get_action("maintain").schedule_enabled is True
     assert definition.capabilities.get_action("maintain").supported_time_modes == ("point", "range")
 

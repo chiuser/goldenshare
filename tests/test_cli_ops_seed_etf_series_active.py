@@ -121,3 +121,38 @@ def test_cli_ops_seed_etf_series_active_accepts_etf_sh_cons_resource(mocker) -> 
         seed_csv_path=Path("reports/etf_sh_cons_available_codes_20260618.csv"),
         dry_run=True,
     )
+
+
+def test_cli_ops_seed_etf_series_active_accepts_etf_sz_cons_resource(mocker) -> None:
+    session = _patch_session_local(mocker)
+    service = mocker.Mock()
+    service.run.return_value = mocker.Mock(
+        resource="etf_sz_cons",
+        seed_csv_path="reports/etf_sz_cons_active_codes.csv",
+        candidate_count=726,
+        created_count=726,
+        skipped_count=0,
+        invalid_count=0,
+    )
+    mocker.patch("src.cli.EtfSeriesActiveSeedService", return_value=service)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "ops-seed-etf-series-active",
+            "--resource",
+            "etf_sz_cons",
+            "--from-seed-csv",
+            "reports/etf_sz_cons_active_codes.csv",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "ops-seed-etf-series-active [dry-run] resource=etf_sz_cons" in result.stdout
+    assert "candidate=726" in result.stdout
+    service.run.assert_called_once_with(
+        session,
+        resource="etf_sz_cons",
+        seed_csv_path=Path("reports/etf_sz_cons_active_codes.csv"),
+        dry_run=True,
+    )

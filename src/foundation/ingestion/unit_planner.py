@@ -31,6 +31,7 @@ from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStoc
 
 CYQ_CHIPS_RANGE_WINDOW_DAYS = 1095
 ETF_SH_CONS_RESOURCE = "etf_sh_cons"
+ETF_SZ_CONS_RESOURCE = "etf_sz_cons"
 SCOPED_REPAIR_POLICY_EXISTING_POINT_BUCKET_ONLY = "existing_point_bucket_only"
 SCOPED_REPAIR_POLICY_EXISTING_OBSERVED_POINT_SCOPE_ONLY = "existing_observed_point_scope_only"
 _TS_CODE_PATTERN = re.compile(r"^\d{6}\.(SH|SZ|BJ)$")
@@ -1090,6 +1091,17 @@ def _split_calendar_half_year_windows(start_date: date, end_date: date) -> list[
     return windows
 
 
+def _split_calendar_month_windows(start_date: date, end_date: date) -> list[tuple[date, date]]:
+    windows: list[tuple[date, date]] = []
+    cursor = start_date
+    while cursor <= end_date:
+        month_end = date(cursor.year, cursor.month, monthrange(cursor.year, cursor.month)[1])
+        window_end = min(month_end, end_date)
+        windows.append((cursor, window_end))
+        cursor = window_end + timedelta(days=1)
+    return windows
+
+
 def _resolve_etf_sh_cons_targets(
     *,
     planner: DatasetUnitPlanner,
@@ -1143,6 +1155,96 @@ def _build_etf_sh_cons_units(planner: DatasetUnitPlanner, request: ValidatedData
         windows = _split_calendar_half_year_windows(request.start_date, request.end_date)
     else:
         raise DatasetUnitPlanner._planning_error("run_profile_unsupported", f"ETF 申赎清单不支持该运行模式：{request.run_profile}")
+
+    units: list[PlanUnitSnapshot] = []
+    ordinal = 0
+    for ts_code in targets:
+        for window_start, window_end in windows:
+            if request.run_profile == "point_incremental":
+                unit_trade_date = window_start
+                date_values = {"trade_date": window_start.isoformat()}
+            else:
+                unit_trade_date = None
+                date_values = {"start_date": window_start.isoformat(), "end_date": window_end.isoformat()}
+            merged_values = {"ts_code": ts_code, **date_values}
+            units.append(
+                PlanUnitSnapshot(
+                    unit_id=build_unit_id(
+                        dataset_key=request.dataset_key,
+                        anchor=unit_trade_date,
+                        merged_values=merged_values,
+                        ordinal=ordinal,
+                    ),
+                    dataset_key=request.dataset_key,
+                    source_key=request.source_key or definition.source.source_key_default,
+                    trade_date=unit_trade_date,
+                    request_params=request_builder(request, unit_trade_date, merged_values),
+                    progress_context={"unit": "etf", "ts_code": ts_code, **date_values},
+                    pagination_policy=definition.planning.pagination_policy,
+                    page_limit=definition.planning.page_limit,
+                )
+            )
+            ordinal += 1
+    return units
+
+
+def _resolve_etf_sz_cons_targets(
+    *,
+    planner: DatasetUnitPlanner,
+    request: ValidatedDatasetActionRequest,
+    definition: DatasetDefinition,
+) -> list[str]:
+    universe = definition.planning.universe
+    if definition.planning.universe_policy != "pool" or universe is None:
+        raise DatasetUnitPlanner._planning_error("invalid_universe_config", "深市 ETF 持仓组合缺少对象池规划配置")
+    if universe.request_field != "ts_code" or universe.override_fields != ("ts_code",):
+        raise DatasetUnitPlanner._planning_error("invalid_universe_config", "深市 ETF 持仓组合对象池配置必须绑定 ts_code")
+    actual_sources = tuple((source.type, source.resource) for source in universe.sources)
+    if actual_sources != (("ops_etf_series_active", ETF_SZ_CONS_RESOURCE),):
+        raise DatasetUnitPlanner._planning_error("invalid_universe_source", "深市 ETF 持仓组合对象池来源配置不符合当前主链")
+
+    pool_codes = _normalize_universe_codes(planner.dao.etf_series_active.list_active_codes(ETF_SZ_CONS_RESOURCE))
+    if not pool_codes:
+        raise DatasetUnitPlanner._planning_error("universe_empty", "深市 ETF 持仓组合需要先配置 etf_sz_cons ETF 激活池")
+
+    invalid_pool_codes = [code for code in pool_codes if not code.endswith(".SZ")]
+    if invalid_pool_codes:
+        raise DatasetUnitPlanner._planning_error(
+            "invalid_enum",
+            f"深市 ETF 持仓组合 active 池只允许 .SZ ETF 代码：{', '.join(invalid_pool_codes)}",
+        )
+
+    explicit_codes = _normalize_universe_codes(split_multi_values(request.params.get("ts_code")))
+    if not explicit_codes:
+        return pool_codes
+    if len(explicit_codes) > 1:
+        raise DatasetUnitPlanner._planning_error("invalid_enum", "深市 ETF 持仓组合一次只支持维护一个显式 ETF 代码")
+
+    explicit_code = explicit_codes[0]
+    if not explicit_code.endswith(".SZ"):
+        raise DatasetUnitPlanner._planning_error("invalid_enum", f"深市 ETF 持仓组合只支持深交所 ETF 代码：{explicit_code}")
+    if explicit_code not in set(pool_codes):
+        raise DatasetUnitPlanner._planning_error("invalid_enum", f"深市 ETF 持仓组合代码未配置到 active 池：{explicit_code}")
+    return [explicit_code]
+
+
+def _build_etf_sz_cons_units(
+    planner: DatasetUnitPlanner,
+    request: ValidatedDatasetActionRequest,
+    definition: DatasetDefinition,
+) -> list[PlanUnitSnapshot]:
+    request_builder = planner._resolve_request_builder(definition)
+    targets = _resolve_etf_sz_cons_targets(planner=planner, request=request, definition=definition)
+    if request.run_profile == "point_incremental":
+        if request.trade_date is None:
+            raise DatasetUnitPlanner._planning_error("missing_anchor_fields", "深市 ETF 持仓组合单日维护缺少交易日期")
+        windows = [(request.trade_date, request.trade_date)]
+    elif request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise DatasetUnitPlanner._planning_error("range_required", "深市 ETF 持仓组合区间维护必须同时填写开始日期和结束日期")
+        windows = _split_calendar_month_windows(request.start_date, request.end_date)
+    else:
+        raise DatasetUnitPlanner._planning_error("run_profile_unsupported", f"深市 ETF 持仓组合不支持该运行模式：{request.run_profile}")
 
     units: list[PlanUnitSnapshot] = []
     ordinal = 0
@@ -1564,6 +1666,7 @@ _CUSTOM_UNIT_BUILDERS: dict[str, Callable[[DatasetUnitPlanner, ValidatedDatasetA
     "build_cyq_chips_units": _build_cyq_chips_units,
     "build_etf_sh_cons_units": _build_etf_sh_cons_units,
     "build_etf_share_size_units": _build_etf_share_size_units,
+    "build_etf_sz_cons_units": _build_etf_sz_cons_units,
     "build_cctv_news_units": _build_cctv_news_units,
     "build_dc_member_units": _build_dc_member_units,
     "build_major_news_units": _build_major_news_units,

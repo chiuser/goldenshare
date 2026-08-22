@@ -1,16 +1,16 @@
 # ETF 每日持仓组合（深市）（`etf_sz_cons`）数据集接入方案
 
-状态：审计完成，接入口径已确认；尚未进入编码、迁移、自动任务或生产数据写入。
+状态：代码已实现，待运营部署、执行迁移、初始化对象池、同步与页面验收。
 
 审计日期：2026-08-22  
 上游接口：Tushare `etf_sz_cons`，文档 0472  
-源站文档：[ETF每日持仓组合（深市）](https://github.com/congming/tushare/blob/main/docs/tushare-v45/ETF专题/0472_ETF每日持仓组合(深市）.md)
+源站文档：[0472 ETF每日持仓组合（深市）](/Users/congming/github/goldenshare/docs/sources/tushare/ETF专题/0472_ETF每日持仓组合(深市）.md)
 
-> 0472 源站文档由运营方下载并作为本轮开发输入；本轮不重复补录到 Goldenshare 的 `docs/sources/tushare/`。编码前仍须使用项目 connector 验证分页、月窗口、重复键、字段、短页终止和错误语义，不能仅凭上游文档完成接入。
+> 0472 源站文档已作为本轮开发输入保存在 Goldenshare。实现前已使用项目 connector 验证小 ETF 点日期与大 ETF 月窗口的字段、分页、重复键和短页终止；不能仅凭上游文档完成接入。
 
 ## 1. 结论
 
-`etf_sz_cons` 当前没有进入 Goldenshare 的 DatasetDefinition、ingestion、ORM/DAO、Ops 目录或生产表。
+审计启动时，`etf_sz_cons` 尚未进入 Goldenshare 的 DatasetDefinition、ingestion、ORM/DAO、Ops 目录或生产表。本轮代码已完成接入；生产表仍待运营部署后执行迁移创建。
 
 它与 `etf_share_size` 的关键区别是：一个交易日全市场请求直接触及源站单页上限 3,000 条，不能把“返回 3,000 条”当成完整结果。因此，不能采用“交易日 × 全市场深分页”的主链，也不能把宽区间直接交给源站。
 
@@ -31,14 +31,14 @@
 
 | 检查项 | 当前结果 |
 | --- | --- |
-| DatasetDefinition | 未发现 `etf_sz_cons` |
-| request builder | 未发现 `_etf_sz_cons_params` |
-| unit planner | 未发现 `build_etf_sz_cons_units` |
-| raw ORM / DAO | 未发现 `raw_tushare.etf_sz_cons` |
-| Ops catalog | 未发现 `etf_sz_cons` |
-| freshness policy | 未登记 |
-| 自动任务 / 工作流 | 未发现 |
-| 本地 Goldenshare 源站文档 | 由运营方提供；本轮不由 Codex 补录 |
+| DatasetDefinition | 已登记 `etf_sz_cons` |
+| request builder | 已实现 `_etf_sz_cons_params` |
+| unit planner | 已实现 `build_etf_sz_cons_units`，区间按自然月拆窗 |
+| raw ORM / DAO | 已新增 `raw_tushare.etf_sz_cons` 与 `raw_etf_sz_cons` |
+| Ops catalog | 已投影到 `etf_fund`，排序紧随 `etf_share_size` |
+| freshness policy | 已登记 `continuous_open_day` |
+| 自动任务 / 工作流 | 普通自动任务可用；不加入 workflow、不支持专用 probe |
+| 本地 Goldenshare 源站文档 | 已存在本地 0472 文档 |
 | 上游 Tushare 文档索引 | 有 `472, ETF每日持仓组合(深市）, etf_sz_cons` |
 
 现有同类实现 `etf_sh_cons` 位于 `market_fund.py`，使用独立 ETF active resource、按 ETF code 拆分、raw-only upsert + view。新数据集可以复用通用结构，但不能直接复制它的 `.SH` 校验和自然半年窗口，因为深市持仓组合的单 code 数据量更大。
@@ -244,15 +244,15 @@ Goldenshare 内部字段 `api_name`、`fetched_at`、`raw_payload` 按现有 raw
 
 | 阶段 | 目标 | 关键动作 |
 | --- | --- | --- |
-| M0 | 源文档与 connector 门禁 | 0472 源站文档由运营方提供；分页代表性验证已完成，编码前仍需用项目 connector 验证月窗口、大样本 ETF、重复键、字段、短页终止和错误语义，并确认迁移 head |
-| M1 | 对象池口径 | 按拍板结果建立 `etf_sz_cons` 资源；补 `.SZ` 后缀、空池、显式 code 门禁；不做源站 fallback |
-| M2 | Schema 与 view | 新增 raw ORM、DAO、迁移和 `core_serving.etf_sz_cons` view；不建 serving 物理表 |
-| M3 | Definition 与 planner | 新增 point 单 code 和 range 月窗口 unit；request builder 只生成源接口日期和 code 参数 |
-| M4 | Normalizer / writer | 全字段落 raw，数值/日期清洗，按 `(trade_date, ts_code, con_code)` 幂等 upsert |
-| M5 | Ops 与 freshness | ETF 分类目录、手动/自动能力、freshness 登记；不加入既有工作流 |
-| M6 | 本地测试与交接 | 代表小/大 ETF 做 point、month range、分页和写入对账；任何 reject 必须有 reason code 和样本；输出运营验收清单 |
-| M7 | 运营方部署与验收 | 由运营方自行部署、迁移、同步数据和审计页面；本方案不代执行这些动作 |
-| M8 | 文档收口 | 更新开发文档、README 和硬需求追溯账本；源站文档由运营方提供，不纳入本轮 Codex 发布；未通过 connector 与最小真实同步不得标为已接入 |
+| M0 | 源文档与 connector 门禁 | 已完成。使用本地 0472 文档，实施前确认迁移 head；项目 connector 已验证小 ETF 点日期与大 ETF 月窗口分页、字段、重复键和短页终止 |
+| M1 | 对象池口径 | 已完成。`etf_sz_cons` resource 和 `.SZ` 后缀、空池、显式 code 门禁已落地；不做源站 fallback |
+| M2 | Schema 与 view | 已完成。新增 raw ORM、DAO、迁移和 `core_serving.etf_sz_cons` view；不建 serving 物理表 |
+| M3 | Definition 与 planner | 已完成。point 单 code 和 range 自然月窗口已落地；request builder 只生成源接口日期和 code 参数 |
+| M4 | Normalizer / writer | 已完成。11 个源字段落 raw，数值/日期清洗，按 `(trade_date, ts_code, con_code)` 幂等 upsert |
+| M5 | Ops 与 freshness | 已完成。ETF 分类目录、手动/普通自动任务能力、freshness 已登记；不加入既有工作流 |
+| M6 | 本地测试与交接 | 已完成。代表小/大 ETF 的 connector 验证和定向测试通过；生产数据写入仍由运营方验收 |
+| M7 | 运营方部署与验收 | 待运营方自行部署、迁移、初始化对象池、同步数据和验收页面；本轮不代执行这些动作 |
+| M8 | 文档收口 | 已完成。开发文档与 LLD 已按实际代码和验证口径收口 |
 
 ## 10. 已确认口径
 

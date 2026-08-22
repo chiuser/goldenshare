@@ -14,6 +14,7 @@ from src.foundation.ingestion.request_builders import (
     _cyq_chips_params,
     _etf_sh_cons_params,
     _etf_share_size_params,
+    _etf_sz_cons_params,
     _index_daily_params,
     _idx_factor_pro_params,
     _stk_factor_pro_params,
@@ -660,6 +661,143 @@ def test_etf_share_size_request_builder_only_emits_point_date_and_optional_code(
     }
     with pytest.raises(ValueError, match="ETF 份额规模维护缺少交易日期"):
         _etf_share_size_params(request, None, {})
+
+
+def test_etf_sz_cons_default_point_uses_only_sz_active_pool(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["159919.SZ", "159001.SZ"])),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+
+    plan = resolver.build_plan(
+        DatasetActionRequest(
+            dataset_key="etf_sz_cons",
+            action="maintain",
+            time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 8, 21)),
+        )
+    )
+
+    assert plan.run_profile == "point_incremental"
+    assert plan.planning.unit_count == 2
+    assert [unit.request_params for unit in plan.units] == [
+        {"ts_code": "159001.SZ", "trade_date": "20260821"},
+        {"ts_code": "159919.SZ", "trade_date": "20260821"},
+    ]
+    assert [unit.progress_context for unit in plan.units] == [
+        {"unit": "etf", "ts_code": "159001.SZ", "trade_date": "2026-08-21"},
+        {"unit": "etf", "ts_code": "159919.SZ", "trade_date": "2026-08-21"},
+    ]
+    assert {unit.pagination_policy for unit in plan.units} == {"offset_limit"}
+    assert {unit.page_limit for unit in plan.units} == {3000}
+    fake_dao.etf_series_active.list_active_codes.assert_called_once_with("etf_sz_cons")
+
+
+def test_etf_sz_cons_range_chunks_by_natural_month_without_trade_day_expansion(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["159919.SZ"])),
+        trade_calendar=SimpleNamespace(
+            get_open_dates=mocker.Mock(side_effect=AssertionError("etf_sz_cons range must not expand by trade day"))
+        ),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+
+    plan = resolver.build_plan(
+        DatasetActionRequest(
+            dataset_key="etf_sz_cons",
+            action="maintain",
+            time_input=DatasetTimeInput(mode="range", start_date=date(2026, 1, 15), end_date=date(2026, 3, 10)),
+        )
+    )
+
+    assert plan.run_profile == "range_rebuild"
+    assert plan.planning.unit_count == 3
+    assert [unit.request_params for unit in plan.units] == [
+        {"ts_code": "159919.SZ", "start_date": "20260115", "end_date": "20260131"},
+        {"ts_code": "159919.SZ", "start_date": "20260201", "end_date": "20260228"},
+        {"ts_code": "159919.SZ", "start_date": "20260301", "end_date": "20260310"},
+    ]
+    assert all(unit.trade_date is None for unit in plan.units)
+    fake_dao.trade_calendar.get_open_dates.assert_not_called()
+
+
+def test_etf_sz_cons_explicit_code_must_be_single_sz_and_in_active_pool(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["159919.SZ"])),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+
+    plan = resolver.build_plan(
+        DatasetActionRequest(
+            dataset_key="etf_sz_cons",
+            action="maintain",
+            time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 8, 21)),
+            filters={"ts_code": "159919.sz"},
+        )
+    )
+
+    assert plan.planning.unit_count == 1
+    assert plan.units[0].request_params == {"ts_code": "159919.SZ", "trade_date": "20260821"}
+
+
+@pytest.mark.parametrize(
+    ("pool_codes", "filters", "message", "error_code"),
+    (
+        ([], {}, "先配置 etf_sz_cons ETF 激活池", "universe_empty"),
+        (["159919.SZ", "510300.SH"], {}, "只允许 .SZ ETF 代码", "invalid_enum"),
+        (["159919.SZ"], {"ts_code": "510300.SH"}, "只支持深交所 ETF 代码", "invalid_enum"),
+        (["159919.SZ"], {"ts_code": "159001.SZ"}, "未配置到 active 池", "invalid_enum"),
+        (["159919.SZ", "159001.SZ"], {"ts_code": "159919.SZ,159001.SZ"}, "一次只支持维护一个显式 ETF 代码", "invalid_enum"),
+    ),
+)
+def test_etf_sz_cons_rejects_invalid_pool_and_explicit_code(
+    mocker,
+    pool_codes: list[str],
+    filters: dict[str, str],
+    message: str,
+    error_code: str,
+) -> None:
+    fake_dao = SimpleNamespace(
+        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=pool_codes)),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+
+    with pytest.raises(IngestionPlanningError, match=message) as exc_info:
+        resolver.build_plan(
+            DatasetActionRequest(
+                dataset_key="etf_sz_cons",
+                action="maintain",
+                time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 8, 21)),
+                filters=filters,
+            )
+        )
+
+    assert exc_info.value.structured_error.error_code == error_code
+
+
+def test_etf_sz_cons_request_builder_emits_only_unit_parameters() -> None:
+    range_request = SimpleNamespace(
+        run_profile="range_rebuild",
+        trade_date=None,
+        start_date=date(2026, 8, 1),
+        end_date=date(2026, 8, 21),
+        params={"con_code": "000001.SZ", "limit": 1, "offset": 1},
+    )
+
+    assert _etf_sz_cons_params(
+        range_request,
+        None,
+        {"ts_code": "159919.sz", "start_date": "2026-08-01", "end_date": "2026-08-21"},
+    ) == {
+        "ts_code": "159919.SZ",
+        "start_date": "20260801",
+        "end_date": "20260821",
+    }
+    with pytest.raises(ValueError, match="深市 ETF 持仓组合缺少 ETF 代码"):
+        _etf_sz_cons_params(range_request, None, {})
 
 
 def test_stk_factor_pro_request_builder_keeps_trade_date_request() -> None:

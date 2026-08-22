@@ -1,6 +1,6 @@
 # `etf_sz_cons` 低层设计 LLD v1
 
-状态：LLD 已完成，尚未编码、迁移、部署或写入生产数据。
+状态：代码已实现，待运营部署、执行迁移、初始化对象池、同步与页面验收。
 对应方案：[ETF 每日持仓组合（深市）数据集接入方案](/Users/congming/github/goldenshare/docs/datasets/etf-sz-cons-dataset-development.md)
 审计日期：2026-08-22
 
@@ -21,11 +21,11 @@
 
 ### 2.1 当前接入状态
 
-当前代码只有已落地的 `etf_sh_cons`：
+实施前代码只有已落地的 `etf_sh_cons`。本轮实现后的当前状态如下：
 
-- Definition、`build_etf_sh_cons_units`、`_etf_sh_cons_params`、`RawEtfShCons`、DAO、migration 和 `core_serving.etf_sh_cons` view 均已存在；
-- `etf_sz_cons` 的 Definition、planner、request builder、raw ORM、DAO 属性、migration、view、freshness、catalog item 均不存在；
-- `EtfSeriesActiveSeedService` 当前 resource 白名单包含 `fund_daily`、`etf_rt_daily`、`etf_sh_cons`，新增深市资源必须显式加入，不得只在 planner 里接受字符串；
+- `etf_sh_cons` 继续保持既有 Definition、半年窗口、`.SH` 对象池和 raw/view 路径；
+- `etf_sz_cons` 已新增 Definition、planner、request builder、raw ORM、DAO 属性、migration、view、freshness 和 catalog item；
+- `EtfSeriesActiveSeedService` resource 白名单已包含 `fund_daily`、`etf_rt_daily`、`etf_sh_cons`、`etf_sz_cons`；深市资源只接受 `.SZ` code，不得只在 planner 中接受字符串；
 - `DatasetWriter` 已有 `raw_only_upsert`，无需增加新的 writer 路径；
 - `table_model_registry` 自动发现模型，但 DAOFactory 仍需显式暴露 raw DAO。
 
@@ -150,7 +150,7 @@ observability.freshness_policy = "continuous_open_day"
 修改 `src/ops/services/etf_series_active_seed_service.py`：
 
 1. `ETF_SERIES_ACTIVE_RESOURCES` 增加 `etf_sz_cons`；
-2. 为 `etf_sz_cons` 增加独立的 seed row count/输入校验入口，不复用 `fund_daily` 的 1,395 行预期；
+2. `etf_sz_cons` 不复用 `fund_daily` 的 1,395 行预期；它没有硬编码行数，只使用独立 `.SZ` 输入校验；
 3. seed 行必须是 `.SZ`；`.OF`、`.SH` 和其他后缀直接报错；
 4. 不在 seed service 中自动请求 Tushare、自动生成池或从其他 resource 复制；
 5. `EtfSeriesActiveDAO.list_active_codes("etf_sz_cons")` 是 planner 唯一对象来源。
@@ -207,7 +207,7 @@ unit 生成：
 
 ### 8.1 raw 表
 
-新增迁移必须接实施时真实 head；本次审计当前 `uv run alembic heads` 为 `20260822_000139`，实施前需再次确认。
+新增迁移必须接实施时真实 head；本轮实施前 `uv run alembic heads` 为 `20260822_000140`，新迁移已正确接续该 head。
 
 表：`raw_tushare.etf_sz_cons`。
 
@@ -230,7 +230,7 @@ unit 生成：
 
 主键固定为 `(trade_date, ts_code, con_code)`。`exchange` 不能替代主键，因为它是成分证券市场，不是 ETF 对象池市场。实施前需复核同 ETF/日期分页合并后的业务键无重复。
 
-索引：`(trade_date)`、`(ts_code, trade_date)`、`(con_code)`。view `core_serving.etf_sz_cons` 与 raw 逐列一致。
+索引：`(ts_code, trade_date)`、`(con_code)`。不建冗余单列 `(trade_date)` 索引，因为主键 `(trade_date, ts_code, con_code)` 已覆盖按业务日期的前缀查询。view `core_serving.etf_sz_cons` 与 raw 逐列一致。
 
 ### 8.2 ORM 与 DAO
 
@@ -257,7 +257,7 @@ writer 必须命中 `raw_only_upsert`，只调用 `raw_etf_sz_cons`。`core_serv
 
 ## 10. Ops、freshness 与 workflow
 
-- `dataset_catalog_views.py` 增加 `DatasetCatalogItem("etf_sz_cons", "etf_fund", <order>)`；
+- `dataset_catalog_views.py` 已增加 `DatasetCatalogItem("etf_sz_cons", "etf_fund", 60)`；
 - manual action 自动从 Definition 得到“单日/区间/ETF代码”字段；
 - ordinary schedule 可配置，运行时间由运营安排在深交所源站盘前组合发布完成后；
 - `freshness_policies.py` 登记 `etf_sz_cons -> continuous_open_day`，观测 raw `trade_date`；
@@ -269,7 +269,7 @@ writer 必须命中 `raw_only_upsert`，只调用 `raw_etf_sz_cons`。`core_serv
 
 | 硬口径 | 正向测试 | 负向测试/验收 |
 | --- | --- | --- |
-| 726 `.SZ + L` 对象池 | planner 使用 `resource=etf_sz_cons` 并逐 code 生成 unit | 空池、`.SH/.OF/P/D`、池内非法后缀必须失败；不能 fallback |
+| `.SZ + L` 对象池 | planner 使用 `resource=etf_sz_cons` 并逐 code 生成 unit | 运营初始化时排除 `.OF/.SH/P/D`；运行时空池、池内非 `.SZ` 后缀必须失败，不能 fallback |
 | 显式单 code | 单个池内 `.SZ` code 生成 unit | 非 `.SZ`、不在池内、逗号多 code 拒绝 |
 | point/range | point 一 code 一 unit；range 一 code 一自然月 unit | range 不得按每交易日拆分，不得限制总跨度 |
 | 请求参数 | point 为 `ts_code+trade_date`；range 为 `ts_code+start/end` | 不得输出 `con_code/limit/offset`，不得把月键提前传给源端 |
@@ -284,11 +284,19 @@ writer 必须命中 `raw_only_upsert`，只调用 `raw_etf_sz_cons`。`core_serv
 
 ## 12. 实施顺序与停止条件
 
-1. M0：重读本 LLD、方案和 0472 源文档；确认真实迁移 head；重跑 connector 的大/小 ETF 月窗口分页和重复键验证。
-2. M1：active resource 白名单与 `.SZ` 门禁测试。
-3. M2：raw ORM、DAO、migration、view。
-4. M3：Definition、freshness、planner、request builder、row transform。
-5. M4：Ops catalog 与全套定向测试。
-6. M5：计划对账、真实最小同步闭环、文档完整性检查；再交给运营方部署和验收。
+1. M0：已完成。实施前复核 Alembic head 为 `20260822_000140`；已用项目 connector 验证小 ETF 点日期和大 ETF 月窗口。
+2. M1：已完成。`etf_sz_cons` 已加入 active resource 白名单，并在 seed/planner 两处强制 `.SZ`。
+3. M2：已完成。新增 raw ORM、DAO、迁移和 view。
+4. M3：已完成。Definition、freshness、自然月 planner、request builder 和 row transform 已落地。
+5. M4：已完成。Ops catalog 自动投影和定向测试已覆盖。
+6. M5：代码侧验证已完成；生产部署、迁移、对象池初始化、同步和页面验收交由运营方执行。
 
 以下情况必须停止，不做临时兼容：active pool 与 `.SZ + L` 不一致、源端同键重复、月窗口分页不闭合、源字段缺失、迁移 head 不明确、reject 无法解释、业务事务和 Ops 状态事务发生耦合。
+
+## 13. 本轮实现与运营交接
+
+本轮代码实现已完成，未执行任何部署、迁移、对象池写入、生产同步或页面验收。
+
+- 新迁移为 `20260822_000141_add_etf_sz_cons_dataset.py`，`down_revision` 为实施时确认的 `20260822_000140`。
+- 项目 connector 只读验证：`159001.SZ + 20260731` 返回 1 行、1 次请求、业务键无重复；`159919.SZ + 20260701~20260731` 返回 6,020 行、3 次分页请求、20 个业务日期、`(trade_date, ts_code, con_code)` 无重复，11 个源字段齐备。
+- 运营后续顺序：部署代码并执行迁移；以 `.SZ + list_status='L'` 初始化 `ops.etf_series_active(resource='etf_sz_cons')`；再自行发起同步与页面验收。

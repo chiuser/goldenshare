@@ -354,6 +354,46 @@ def test_etf_share_size_source_client_fetches_next_page_after_full_market_page(m
     )
 
 
+def test_etf_sz_cons_source_client_fetches_until_short_page(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    first_page = [
+        {"trade_date": "20260821", "ts_code": "159919.SZ", "con_code": f"{index:06d}.SZ"}
+        for index in range(3000)
+    ]
+    connector = PaginatedConnector(
+        {
+            0: first_page,
+            3000: [{"trade_date": "20260821", "ts_code": "159919.SZ", "con_code": "999999.SZ"}],
+        }
+    )
+    monkeypatch.setattr(source_client_module, "create_source_connector", lambda source_key: connector)
+
+    result = DatasetSourceClient().fetch(
+        definition=get_dataset_definition("etf_sz_cons"),
+        unit=PlanUnitSnapshot(
+            unit_id="etf-sz-cons-u1",
+            dataset_key="etf_sz_cons",
+            source_key="tushare",
+            trade_date=None,
+            request_params={"ts_code": "159919.SZ", "start_date": "20260801", "end_date": "20260821"},
+            progress_context={},
+            pagination_policy="offset_limit",
+            page_limit=3000,
+        ),
+    )
+
+    assert result.request_count == 2
+    assert len(result.rows_raw) == 3001
+    assert [call["params"] for call in connector.calls] == [
+        {"ts_code": "159919.SZ", "start_date": "20260801", "end_date": "20260821", "offset": 0, "limit": 3000},
+        {"ts_code": "159919.SZ", "start_date": "20260801", "end_date": "20260821", "offset": 3000, "limit": 3000},
+    ]
+    assert all(
+        call["fields"]
+        == ("trade_date", "ts_code", "con_code", "con_name", "qty", "sub_flag", "cpr", "rdr", "sub_cc", "red_cc", "exchange")
+        for call in connector.calls
+    )
+
+
 def test_idx_factor_pro_source_client_pages_full_trade_date_result(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     first_page = [{"ts_code": f"000{index:04d}.SH", "trade_date": "20260424"} for index in range(8000)]
     connector = PaginatedConnector(

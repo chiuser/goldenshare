@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from src.ops.models.ops.etf_series_active import EtfSeriesActive
 
 
-ETF_SERIES_ACTIVE_RESOURCES: frozenset[str] = frozenset({"fund_daily", "etf_rt_daily", "etf_sh_cons"})
+ETF_SERIES_ACTIVE_RESOURCES: frozenset[str] = frozenset({"fund_daily", "etf_rt_daily", "etf_sh_cons", "etf_sz_cons"})
 ETF_SERIES_ACTIVE_SEED_EXPECTED_ROWS = 1395
 ETF_SERIES_ACTIVE_SEED_EXPECTED_ROWS_BY_RESOURCE: dict[str, int] = {
     "fund_daily": ETF_SERIES_ACTIVE_SEED_EXPECTED_ROWS,
@@ -126,6 +126,8 @@ def _load_seed_rows(seed_csv_path: Path, *, resource: str) -> tuple[_SeedRow, ..
             raise ValueError(f"ETF active seed csv row {index}: unsupported ts_code suffix: {ts_code}")
         if resource == "etf_sh_cons" and not ts_code.endswith(".SH"):
             raise ValueError(f"ETF active seed csv row {index}: etf_sh_cons only allows .SH code: {ts_code}")
+        if resource == "etf_sz_cons" and not ts_code.endswith(".SZ"):
+            raise ValueError(f"ETF active seed csv row {index}: etf_sz_cons only allows .SZ code: {ts_code}")
 
         selection_group = str(raw_row.get("selection_group") or "").strip()
         if selection_group and selection_group not in ETF_SERIES_ACTIVE_ALLOWED_SELECTION_GROUPS:
