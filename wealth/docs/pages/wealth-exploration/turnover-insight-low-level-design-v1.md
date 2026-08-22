@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：基础版本已开发、部署并验收闭环；5日/20日均值补充功能已开发完成，待用户部署与视觉验收
+- 状态：基础版本已开发、部署并验收闭环；5日/20日均值首轮实现已部署，视觉修订已冻结，待代码修正和用户复验
 - 编写日期：2026-08-22
 - 适用仓库：`/Users/congming/github/goldenshare`
 - 上游技术方案：`wealth/docs/pages/wealth-exploration/turnover-insight-implementation-design-v1.md`
@@ -19,6 +19,8 @@
 
 2026-08-22 补充功能开发完成：基础版本的历史实现与验收记录继续保留；第 15 节定义的 5 日/20 日成交额均值卡片与上图参考线已经落地并通过自动化验证。补充功能尚未经过用户部署与浏览器视觉验收，不得提前标记为验收闭环。
 
+2026-08-23 视觉修订：首轮部署暴露出两条均值标签接近时重叠、虚线节奏偏长、图例缺少均值说明、均值卡金额与线色未建立视觉映射四个问题。Figma 组件源已完成修订；第 15 节新增代码级修正口径。该修订尚未编码，不得沿用 2026-08-22 的完成标记宣称需求闭环。
+
 ## 1. 冻结口径与代码约束
 
 | 冻结口径 | 代码落点 | 必须证明的测试 |
@@ -33,7 +35,7 @@
 | 金额在后端换算 | 后端 `Decimal` 累计、相减、`ROUND_HALF_UP` | 前端不存在 `/100000`、累计或 delta 计算 |
 | 展示金额无小数，单位为亿 | API 返回整数 `amountYi` 和 `displayText` | 卡片、tooltip、轴标签逐项断言 |
 | 当日红、昨日白 | `TurnoverInsightChart` design token 映射 | canvas draw command/截图验收 |
-| 均值卡片与参考线 | `summary.avg5d/avg20d` + 单 Canvas 上图虚线 | 五卡布局；品牌金/紫色虚线；右端上方 2px 标签；下图和 tooltip 无均值内容 |
+| 均值卡片与参考线 | `summary.avg5d/avg20d` + 单 Canvas 上图虚线 | 五卡布局；品牌金/紫色 `4/4` 虚线；高值标签在线上、低值标签在线下；四项图例；均值卡金额与线色一致；下图和 tooltip 无均值内容 |
 | 差值是累计差值 | 后端 `current cumulative - previous cumulative` | 反例证明不是单分钟差值 |
 | 横轴每 15 分钟 | 后端返回 `showAxisLabel`；前端不重新判定业务时点 | 17 个标签，无 13:00 |
 | 无预测 | schema、组件和文案均无 forecast 字段 | response extra forbid + 前端文本门禁 |
@@ -256,13 +258,14 @@ Tooltip           w=248, h=116
 13:15, 13:30, 13:45, 14:00, 14:15, 14:30, 14:45, 15:00
 ```
 
-设计中没有 `Alignment Note` 和对比日期说明；图例只有当日累计、昨日累计且右对齐。
+设计中没有 `Alignment Note` 和对比日期说明；图例固定右对齐，包含当日累计、昨日累计、5 日均值、20 日均值四项。
 
 均值补充设计事实：
 
 - 5 日卡片示例 `23,771亿`，20 日卡片示例 `28,064亿`。
-- 5 日参考线使用品牌金色，20 日参考线使用紫色，均为 `1px` 虚线。
-- 标签位于参考线右端上方 `2px`，分别为 `5日均值 23,771亿`、`20日均值 28,064亿`。
+- 5 日参考线使用品牌金色，20 日参考线使用紫色，均为 `1px`、`4/4` 短密虚线；图例 swatch 使用相同颜色和虚线节奏。
+- 两个值都存在时，高值标签位于参考线右端上方 `2px`，低值标签位于参考线右端下方 `2px`；相等时固定 5 日在上、20 日在下；单值时放在线上方。
+- 5 日卡片金额使用品牌金色，20 日卡片金额使用紫色，卡片标题保持中性弱化色。
 - 上图示例纵轴扩展为 `0/8000/16000/24000/32000`，证明均值必须参与上图 domain 计算。
 - 三个 Loaded 页面实例 `807:164`、`807:309`、`807:434` 均已继承同一 Loaded 主组件的上述节点。
 
@@ -1597,6 +1600,9 @@ npm run build
 5. 均值必须参与 upper axis domain；下方 delta axis、差值柱、tooltip、hover 和 crosshair 不变。
 6. 均值为空时卡片显示 `--`、参考线不绘制；禁止填 0。
 7. 不修改快照生产、数据表、Lake、Dagster、路由、页面时间合同或旧首页 API schema。
+8. 两条均值标签必须按金额高低分配到参考线上下两侧，不允许都固定在线上方。
+9. 参考线和均值图例 swatch 统一使用 `4/4` 短密虚线；图例固定包含四项。
+10. 5 日/20 日均值卡金额必须分别使用参考线的品牌金/紫色，颜色只表达字段身份，不参与金额或状态计算。
 
 ### 15.2 页面中立日成交额均值 Query
 
@@ -1712,7 +1718,24 @@ summary: {
 
 adapter 只复制 `avg5d/avg20d` 字段，不得调用 `reduce`、选择交易日、计算平均数、除以 `100000`、取整或拼接 `referenceLabel`。
 
-`TurnoverInsightSummary` 继续复用 `TurnoverMetricCard`，按固定顺序渲染五张卡。CSS 固定：
+`TurnoverInsightSummary` 继续复用 `TurnoverMetricCard`，按固定顺序渲染五张卡。`TurnoverMetricCard` 增加显式、可选的视觉身份参数，禁止根据中文 label 判断颜色：
+
+```ts
+type TurnoverMetricCardAccent = "default" | "avg5d" | "avg20d";
+
+interface TurnoverMetricCardProps {
+  label: string;
+  value: TurnoverInsightAmountViewModel;
+  accent?: TurnoverMetricCardAccent;
+}
+```
+
+- 前三张卡保持 `accent="default"`，继续按既有 direction 显示金额色。
+- 5 日卡传 `accent="avg5d"`，金额使用 `--cs-color-brand`。
+- 20 日卡传 `accent="avg20d"`，金额使用 `--cs-color-purple`。
+- `amountYi=null` 时仍显示 `--`，但均值卡身份色不变；不得用灰色假装是另一个状态。
+
+CSS 固定：
 
 ```text
 card width     148px
@@ -1721,7 +1744,16 @@ card gap       12px
 card x         58/218/378/538/698 (1564px Figma 基准)
 ```
 
-Loading skeleton 的卡片区域宽度同步为 `5 * 148 + 4 * 12 = 788px`。不得新增另一套均值卡组件，也不得移动右侧当日/昨日图例。
+Loading skeleton 的卡片区域宽度同步为 `5 * 148 + 4 * 12 = 788px`。不得新增另一套均值卡组件。
+
+`TurnoverInsightLegend` 固定按以下顺序渲染四项：
+
+1. 当日累计：红色实线。
+2. 昨日累计：白色实线。
+3. 5 日均值：品牌金色 `4/4` 虚线。
+4. 20 日均值：紫色 `4/4` 虚线。
+
+图例仍整体靠右并与文字垂直居中；允许图例容器向左扩展以容纳四项，但不得与五张卡重叠。均值图例不显示金额，不读取或计算 summary 数值。
 
 ### 15.5 Canvas 参考线
 
@@ -1737,16 +1769,41 @@ drawAverageReferenceLine(
 ): void
 ```
 
+新增纯布局类型与 resolver：
+
+```ts
+type AverageLabelPlacement = "above" | "below";
+
+interface AverageReferenceRenderItem {
+  key: "avg5d" | "avg20d";
+  average: TurnoverInsightAverageViewModel;
+  color: string;
+  labelPlacement: AverageLabelPlacement;
+}
+
+resolveAverageReferenceRenderItems(avg5d, avg20d, colors): readonly AverageReferenceRenderItem[]
+```
+
+resolver 固定规则：
+
+1. 两个 `amountYi` 都存在且不相等：金额较高者 `above`，较低者 `below`。
+2. 两个 `amountYi` 相等：`avg5d=above`、`avg20d=below`，保证顺序确定且标签不重叠。
+3. 只有一个值存在：该项 `above`。
+4. 空值项不进入 render items，不绘制参考线或标签。
+
+不得按 `avg5d/avg20d` 身份固定上下位置，也不得在 Canvas 内通过像素碰撞后临时移动；金额顺序是唯一布局事实。
+
 绘制合同：
 
 - `amountYi=null` 时直接返回。
 - `y = yForValue(amountYi, upperAxis, upperTop, upperBottom)`，不得建立第二套 y 公式。
 - 线段范围只为 `plotLeft..plotRight`、`y..y`，不进入 lower plot。
-- `lineWidth=1`、`setLineDash([8, 6])`。
+- `lineWidth=1`、`setLineDash([4, 4])`，图例 swatch 必须使用相同节奏。
 - 5 日线颜色使用现有品牌金 token 值，20 日线使用现有紫色 token 值；禁止新增散落页面色值。
-- 标签 `textAlign='right'`，锚点为 `plotRight`，垂直基线位于线段上方 `2px`，文本直接使用后端 `referenceLabel`。
+- 标签 `textAlign='right'`，锚点为 `plotRight`，文本直接使用后端 `referenceLabel`。
+- `above` 使用 `textBaseline='bottom'`、`y=lineY-2`；`below` 使用 `textBaseline='top'`、`y=lineY+2`。
 - 参考线在普通网格之后、累计曲线之前绘制；标签在曲线之后绘制，确保可读。
-- 两条均值线不加入当日/昨日图例，不参与 tooltip，不产生 hover 点。
+- 两条均值线加入固定图例说明，但不把金额写入图例；它们不参与 tooltip，不产生 hover 点。
 
 若均值高于当日/昨日累计终值，后端 upper axis 已包含该值并留出展示余量，前端不得裁切或自行扩轴。当前 Figma fixture：
 
@@ -1802,7 +1859,15 @@ wealth/src/features/wealth-exploration/turnover-insight/ui/turnoverInsightGeomet
 wealth/src/pages/wealth-exploration/WealthExplorationPage.test.tsx
 ```
 
-覆盖：五卡顺序、空均值、两条虚线的颜色/虚线/范围/标签、只在上图绘制、tooltip 不增加均值、`1564px/1330px` 无重叠、前端无均值计算和标签拼接。
+覆盖：
+
+- 五卡顺序、空均值和 5 日/20 日金额身份色。
+- 图例固定四项、两条均值 swatch 的颜色和 `4/4` 虚线。
+- `avg5d > avg20d` 与 `avg20d > avg5d` 两个反向样本，证明高值在上、低值在下。
+- 两值相等时 5 日在上、20 日在下；只有一个均值时单标签在线上方。
+- 两条参考线的颜色、`4/4` 虚线、范围、标签基线和 `2px` 间距。
+- 参考线只在上图绘制、tooltip 不增加均值、`1564px/1330px` 下五卡与四项图例无重叠。
+- 前端无均值计算和标签拼接。
 
 ### 15.8 性能门禁
 
@@ -1814,6 +1879,8 @@ wealth/src/pages/wealth-exploration/WealthExplorationPage.test.tsx
 - Canvas 只增加两条线和两个标签，不增加 DOM 图元、第二个 Canvas 或第二个 ResizeObserver。
 
 ### 15.9 M6 完成条件
+
+以下勾选项是 2026-08-22 首轮实现的历史验收快照；2026-08-23 视觉反馈产生的新工作以第 15.10 节为准，不得由这些旧勾选项推导为当前已闭环。
 
 - [x] Figma、技术方案、本文和代码字段完全一致。
 - [x] 首页 API 契约和值无回退。
@@ -1832,8 +1899,29 @@ M6 自动化验证结果（2026-08-22）：
 - `npm run build`：通过；仅保留仓库既有的大 chunk warning，本轮未修改打包策略。
 - 未启动服务、未部署、未执行浏览器视觉验收，符合本轮开发边界。
 
+### 15.10 2026-08-23 视觉反馈修订
+
+Figma 组件源已完成以下修订：
+
+- `Average 5/20 Reference Line` 的 `dashPattern` 从 `8/6` 改为 `4/4`。
+- 当前样本中 20 日值较高，标签保留在线上方；5 日值较低，标签移到线下方。
+- `Turnover Legend Group` 扩展为四项，新增 `Legend Item / Average 5`（`867:50`）和 `Legend Item / Average 20`（`867:53`）。
+- `Metric Card / Average 5`、`Metric Card / Average 20` 的金额分别使用品牌金和紫色。
+- 三个 Loaded 实例及状态/响应式实例均继承同一个组件源，无需逐实例维护。
+
+代码修订必须依次完成：
+
+1. 为 `TurnoverMetricCard` 增加显式 accent，并由 `TurnoverInsightSummary` 传入。
+2. 把 `TurnoverInsightLegend` 扩展为四项，并在 CSS 中实现均值虚线 swatch。
+3. 新增 `resolveAverageReferenceRenderItems(...)`，统一决定线、颜色和标签上下位置。
+4. 将 Canvas 参考线改为 `4/4`，标签按 resolver 的 placement 绘制。
+5. 扩展组件和 Canvas 测试，完成 typecheck/build/diff check。
+6. 用户部署复验通过后，才能重新勾选 M6 的视觉验收并关闭本补充功能。
+
+本节当前状态：Figma 和文档已完成，代码与用户复验未完成。
+
 ## 16. 结论
 
 本需求不缺数据基础，也不需要新增预计算链路。开发核心是：在共享一分钟快照之上建立完全独立的成交额洞察业务合同，并把财势探查页面接入现有 TopMarketBar、Breadcrumb 和 Market Context 三个共享能力。
 
-当前没有待拍板项。基础版本 M1 至 M5、自动化验证、用户部署和浏览器视觉验收均已完成；M6 均值补充功能已按第 15 节完成开发及自动化验证，当前只待用户部署和浏览器视觉验收。前端没有引入均值计算，首页与洞察共同消费页面中立均值 query，旧 API 契约保持不变。
+当前没有待拍板项。基础版本 M1 至 M5、自动化验证、用户部署和浏览器视觉验收均已完成；M6 均值补充功能已完成首轮开发，但 2026-08-23 的视觉修订仍待按第 15.10 节编码和用户复验。前端不得引入均值计算，首页与洞察继续共同消费页面中立均值 query，旧 API 契约保持不变。
