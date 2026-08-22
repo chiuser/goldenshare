@@ -367,9 +367,16 @@ def run_ops_archive_etf_realtime_minute_stats(
     service_cls,
     store_factory,
     runtime_config_factory,
-    trade_date,
+    trade_date: str,
     echo_fn: Callable[[str], None],
 ) -> None:
+    try:
+        if len(trade_date) != 10 or trade_date[4] != "-" or trade_date[7] != "-":
+            raise ValueError
+        parsed_trade_date = date.fromisoformat(trade_date)
+    except ValueError as exc:
+        raise typer.BadParameter("trade_date 必须为 YYYY-MM-DD 格式") from exc
+
     with session_local() as session:
         config = runtime_config_factory(session)
     store = store_factory(config.redis_url)
@@ -378,7 +385,7 @@ def run_ops_archive_etf_realtime_minute_stats(
             session,
             store=store,
             feed_key=config.etf_rt_daily.feed_key,
-            trade_date=trade_date,
+            trade_date=parsed_trade_date,
         )
     echo_fn("ops-archive-etf-realtime-minute-stats")
     echo_fn(f"trade_date={report.trade_date}")

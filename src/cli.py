@@ -535,7 +535,7 @@ def ops_cleanup_etf_fund_daily_serving(
 
 @app.command("ops-archive-etf-realtime-minute-stats")
 def ops_archive_etf_realtime_minute_stats(
-    trade_date: date = typer.Option(..., "--trade-date", help="归档交易日，格式 YYYY-MM-DD。"),
+    trade_date: str = typer.Option(..., "--trade-date", help="归档交易日，格式 YYYY-MM-DD。"),
 ) -> None:
     _run_ops_archive_etf_realtime_minute_stats_impl(
         session_local=SessionLocal,
