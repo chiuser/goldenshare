@@ -678,7 +678,7 @@
               <text x="406" y="116" fill="#e5eef9" font-size="21" font-weight="800">财势量化平台</text>
 
               <rect x="406" y="144" width="138" height="70" rx="9" fill="#0d1422" stroke="#33425a"/>
-              <text x="475" y="172" text-anchor="middle" fill="#e5eef9" font-size="12" font-weight="700">准入审计</text>
+              <text x="475" y="172" text-anchor="middle" fill="#e5eef9" font-size="12" font-weight="700">Run 输入门禁</text>
               <text x="475" y="194" text-anchor="middle" fill="#8290a5" font-size="10">只读检查 · 不清洗</text>
               <rect x="563" y="144" width="138" height="70" rx="9" fill="#0d1422" stroke="#33425a"/>
               <text x="632" y="172" text-anchor="middle" fill="#e5eef9" font-size="12" font-weight="700">加工与回测</text>
@@ -737,7 +737,7 @@
             <div class="card"><h3>从用户问题出发</h3><p>先说清要发现什么、如何判断成功和本轮不做什么，再选择数据和参数；不让用户从底层任务或脚本入口开始。</p></div>
             <div class="card"><h3>研究可复现</h3><p>一次结果必须能追溯到数据指纹、对象池、公式版本、最终生效参数、样本切分、评估口径、代码版本和运行环境。</p></div>
             <div class="card"><h3>研究与生产分离</h3><p>研究允许比较多个候选；生产只允许绑定一个已审批、可回滚、带生效日期的发布版本。</p></div>
-            <div class="card"><h3>数据直读、质量上游负责</h3><p>QTF 每次运行直接读取 Data Lake 或 Prod，只做只读准入审计；不清洗、不修复、不回填、不保存输入副本。审计失败由对应上游修复，失败 Run 保持不可变，修复后以新的 Run 重新直读和计算。</p></div>
+            <div class="card"><h3>数据直读、质量上游负责</h3><p>QTF 每次运行直接读取 Data Lake 或 Prod，只对本次 Run 的对象池和日期范围做只读输入门禁；不重新盘点数据源，不清洗、不修复、不回填、不保存输入副本。门禁失败由对应上游修复，失败 Run 保持不可变，修复后以新的 Run 重新直读和计算。</p></div>
             <div class="card"><h3>参数受 Schema 约束</h3><p>支持有限调整周期、阈值和权重，但不是任意键值。类型、范围、步长、依赖、默认值和组合规模必须预先定义。</p></div>
             <div class="card"><h3>同核双模式</h3><p>回测和生产信号共享同一公式实现与参数解释，区别只在输入窗口、执行模式和输出目标。</p></div>
             <div class="card"><h3>证据先于排名</h3><p>运行结束先判断结果是否有效、样本是否充足、样本外是否成立，再比较候选；“成功执行”和“最优参数”都不是科学结论。</p></div>
@@ -785,7 +785,7 @@
             <div class="layer" style="border-color:rgba(247,199,107,.4)">
               <div class="layer-title" style="background:var(--gold-soft)"><strong style="color:var(--gold)">QTF 产品域</strong><span>qtf/</span></div>
               <div class="layer-content">
-                <div class="layer-box">输入准入审计与对象池</div><div class="layer-box">公式与参数</div><div class="layer-box">实验计划与执行</div><div class="layer-box">评估验证与产物</div><div class="layer-box">审批发布与信号</div>
+                <div class="layer-box">Run 输入门禁与对象池</div><div class="layer-box">公式与参数</div><div class="layer-box">实验计划与执行</div><div class="layer-box">评估验证与产物</div><div class="layer-box">审批发布与信号</div>
               </div>
             </div>
             <div class="layer">
@@ -820,7 +820,7 @@
               <tbody>
                 <tr><td><code>src/foundation</code> / Data Lake / Prod</td><td>保障来源数据的采集、清洗、修复、完整性和正式发布；提供数据集、交易日和访问契约。</td><td>底层库与基础设施。</td><td>实验、公式、候选参数或审批语义。</td></tr>
                 <tr><td><code>src/ops</code></td><td>记录运行意图与 TaskRun 状态，调度 worker，提供进度、失败、取消和审计日志。</td><td>Foundation 与通用运行协议。</td><td>量化公式、参数优劣、实验结论和发布决策。</td></tr>
-                <tr><td><code>qtf</code></td><td>量化领域模型、只读准入审计、实验、验证、公式/参数版本和发布。</td><td>自身领域与明确的 Foundation / Lake / Prod 只读端口。</td><td>清洗、修复、回填或复制来源数据；反向依赖 Ops/Biz/App；直接拼装页面。</td></tr>
+                <tr><td><code>qtf</code></td><td>量化领域模型、单次 Run 输入门禁、实验、验证、公式/参数版本和发布。</td><td>自身领域与明确的 Foundation / Lake / Prod 只读端口。</td><td>重复开展来源选型或平台级覆盖审计；清洗、修复、回填或复制来源数据；反向依赖 Ops/Biz/App；直接拼装页面。</td></tr>
                 <tr><td><code>src/app</code></td><td>把 QTF executor、TaskRun、数据库 session、鉴权和 API 路由装配在一起。</td><td>Foundation、Ops、Biz、QTF。</td><td>承载量化业务规则或计算公式。</td></tr>
                 <tr><td><code>src/biz</code></td><td>现有行情模块读取已发布的 serving 指标和信号。</td><td>Foundation 与已稳定的 serving contract。</td><td>读取实验草稿、自己选择参数、在查询时重算研究指标。</td></tr>
                 <tr><td><code>wealth</code></td><td>量化研究工作台和财势乾坤行情展示前端。</td><td>QTF 业务 API、现有 Wealth API。</td><td>直接访问 Ops API、数据库或本地实验文件。</td></tr>
@@ -832,7 +832,7 @@
             <div class="card purple"><h3>新建实验配置，不复用静态策略配置</h3><p>现有 StrategyConfig 适合仓库 JSON + 重启生效的静态模块配置；交互式实验草稿、参数冻结和版本比较应由 QTF 自己管理。</p></div>
             <div class="card green"><h3>Serving 隔离实验域</h3><p>下游只能读发布后的 compact facts。实验过程表和大结果文件永远不成为财势乾坤页面的直接依赖。</p></div>
           </div>
-          <div class="section-note" style="margin-top:10px"><strong>数据责任边界：</strong>QTF 的审计报告只负责说明“哪个数据集、哪个日期、哪个字段、哪项准入条件不合格”，并阻止该 Run 继续计算；数据修复、补录、清洗和重新发布必须回到 Data Lake 或 Prod 的正式维护链路。失败 Run 不恢复、不覆盖；上游修复后，由同一冻结实验派生新的 Run，重新直读并完整执行。</div>
+          <div class="section-note" style="margin-top:10px"><strong>数据责任边界：</strong>既有来源与覆盖结论直接复用 <a href="../../wealth/docs/pages/wealth-exploration/sector-radar-data-coverage-audit-v1.md">板块雷达数据覆盖审计</a>，M1、M2 不再重复审计 Prod。QTF 只在 M3 以后针对某次 Run 的精确对象池和日期范围记录“哪个数据集、哪个日期、哪个字段、哪项运行条件不合格”，并阻止该 Run 继续计算；数据修复、补录、清洗和重新发布必须回到 Data Lake 或 Prod 的正式维护链路。</div>
         </div>
       </section>
 
@@ -844,10 +844,10 @@
               <thead><tr><th style="width:190px">能力域</th><th>用户要完成的事</th><th>平台内部职责</th><th>首版核心输出</th><th>关键边界</th></tr></thead>
               <tbody>
                 <tr><td>01 研究模板与问题定义</td><td>选择“二级行业转热研究”等模板，说清希望发现什么和如何判断成功。</td><td>把业务问题映射为对象类别、比较范围、因子族、成功定义和非目标。</td><td>Research Template、Hypothesis、Evaluation Contract。</td><td>模板限制可选能力，首版不提供任意脚本入口。</td></tr>
-                <tr><td>02 输入范围与准入审计</td><td>确认本次研究直接读取哪些行业、哪些交易日，哪些日期不具备研究资格。</td><td>公共层只读检查来源可访问性、必要字段、日期覆盖、唯一键、重复、缺失、非法数值和对象池范围；具体能力再检查历史长度、比较组规模和研究样本要求。</td><td>Backtest Input Audit Record、覆盖报告、排除清单。</td><td>两层审计都只检查、不修复；不合格数据回到上游，研究样本不足则结束当前 Run。</td></tr>
+                <tr><td>02 本次 Run 输入门禁</td><td>确认本次研究实际读取哪些行业、哪些交易日，哪些日期不具备研究资格。</td><td>复用既有来源合同和覆盖审计，只检查本次 Run 的精确范围：必要字段、业务键、缺失、非法数值、历史长度、比较组规模和研究样本要求。</td><td>Run Input Preflight Record、排除清单。</td><td>不重新做来源选型或全库覆盖盘点；只检查、不修复，不合格数据回到上游。</td></tr>
                 <tr><td>03 公式与参数定义</td><td>理解公式用什么事实、参数有什么含义，并在允许范围内选择候选。</td><td>注册公式输入输出、回看/预热、时间语义、横截面范围；解析默认值与实验覆盖值。</td><td>Formula Contract、Parameter Schema、Effective Parameter Set。</td><td>网页不能提交 Python；冻结后不存在隐式配置覆盖。</td></tr>
                 <tr><td>04 实验与执行计划</td><td>在启动前看清组合数、时间范围、样本切分、预计扫描量与停止条件。</td><td>生成有限参数矩阵、样本内/样本外切分、对照、成本计划和可取消执行单元。</td><td>Frozen Experiment、Execution Plan、Run Record。</td><td>超出本次批准范围必须停止并建立新实验版本。</td></tr>
-                <tr><td>05 回测计算与可信门禁</td><td>知道任务虽然跑完，但结果是否真的可信，以及为什么无效。</td><td>直接读取已通过审计的上游事实，同核计算逐日因子和信号；执行时间前沿、未来泄漏、预热稳定、覆盖和样本外门禁。</td><td>逐日事实、信号事件、Validation Report。</td><td>运行成功不等于研究有效；INVALID 不参加候选比较。</td></tr>
+                <tr><td>05 回测计算与可信门禁</td><td>知道任务虽然跑完，但结果是否真的可信，以及为什么无效。</td><td>直接读取已通过本次输入门禁的上游事实，同核计算逐日因子和信号；执行时间前沿、未来泄漏、预热稳定、覆盖和样本外门禁。</td><td>逐日事实、信号事件、Validation Report。</td><td>运行成功不等于研究有效；INVALID 不参加候选比较。</td></tr>
                 <tr><td>06 结果比较与研究结论</td><td>比较候选的准确率、覆盖、提前量、样本外表现和参数敏感性。</td><td>分离主要目标、硬约束和诊断指标，生成对照、敏感性、失败样本和局限说明。</td><td>Evaluation Report、参数敏感性图、案例明细。</td><td>不只展示冠军参数；样本不足必须明确为证据不足。</td></tr>
                 <tr><td>07 候选评审与版本发布</td><td>把有证据的结果提交评审，确认适用范围、风险和生效日期。</td><td>绑定数据、公式、参数、验证和审批记录，生成不可变 release。</td><td>Candidate、Approval、Published Release。</td><td>不能自动晋升；不能覆盖旧版本或静默改写历史。</td></tr>
                 <tr><td>08 生产信号与反馈</td><td>在财势乾坤看到稳定、带日期和解释的信号，并观察后续实际表现。</td><td>按公共业务交易日和已发布版本运行同一公式，原子写 serving；成熟后回收命中、误报与漂移。</td><td>Serving Fact、质量状态、release_id、反馈统计。</td><td>数据延迟按产品降级口径处理；生产不搜索参数。</td></tr>
@@ -910,8 +910,8 @@
             <div class="card"><h3>FormulaDefinition</h3><p>公式身份、输入字段、回看与预热、时间语义、横截面范围、空值规则、输出 Schema、实现入口和代码哈希。</p></div>
             <div class="card"><h3>ParameterSchema / Set</h3><p>参数类型、范围、步长、依赖、默认值；冻结集保存全部最终生效值、值来源和参数哈希，而非只保存覆盖项。</p></div>
             <div class="card"><h3>UniverseVersion</h3><p>对象列表、层级关系、比较范围、纳入/排除理由和有效日期。</p></div>
-            <div class="card"><h3>BacktestInputAuditRecord</h3><p>记录本次直接读取的上游数据集、字段、业务交易日、as_of、对象池、比较范围、缺口、排除日、行数和内容指纹；只保存审计元数据，不保存源数据快照或副本。</p></div>
-            <div class="card"><h3>ExperimentRevision</h3><p>研究假设、输入审计记录、公式、有限参数空间、样本切分、主要目标、硬约束、预算和停止条件。</p></div>
+            <div class="card"><h3>RunInputPreflightRecord</h3><p>记录本次 Run 直接读取的上游数据集、字段、业务交易日、as_of、对象池、比较范围、缺口、排除日、行数和内容指纹；这是运行门禁记录，不是新的数据源覆盖审计，也不保存源数据快照或副本。</p></div>
+            <div class="card"><h3>ExperimentRevision</h3><p>研究假设、输入门禁记录、公式、有限参数空间、样本切分、主要目标、硬约束、预算和停止条件。</p></div>
             <div class="card"><h3>ExperimentRun</h3><p>冻结实验的一次执行，关联 TaskRun、代码版本、环境和运行记录；运行记录只描述执行条件与结果，不承载上游输入副本。</p></div>
             <div class="card"><h3>ValidationReport</h3><p>数据、时间前沿、未来泄漏、预热稳定、样本覆盖和样本外门禁的逐项状态与证据。</p></div>
             <div class="card"><h3>EvaluationReport</h3><p>主要目标、约束结果、对照、置信信息、样本内/样本外、敏感性、失败样本、局限和候选建议。</p></div>
@@ -965,7 +965,7 @@
               <tbody>
                 <tr><td>研究问题</td><td>目标板块、信号含义、成功定义、非目标。</td><td>在父级直属二级行业中，能否提前发现未来 1/3/5 日继续热的行业；不做个体行业专属参数。</td></tr>
                 <tr><td>数据范围</td><td>来源、字段、日期、as_of、对象池、层级、比较范围、排除规则和数据指纹。</td><td>Prod 既有东财层级、交易日和板块日行情；父级内比较为主，全市场同级只作辅助。</td></tr>
-                <tr><td>公式与参数</td><td>公式版本、输入输出、回看/预热、候选维度、候选值、默认值和全部最终生效值。</td><td>首轮沿用已批准的价格/成交因子族，基线只比较 60/120；其余候选需在 R2 计划中逐项批准。</td></tr>
+                <tr><td>公式与参数</td><td>公式版本、输入输出、回看/预热、候选维度、候选值、默认值和全部最终生效值。</td><td>首轮迁移一级行业探索中使用过的价格/成交候选公式，并验证计算语义；其预测有效性和二级行业适用性均未验证。60/120 等具体候选仍须在 R2 计划中逐项批准。</td></tr>
                 <tr><td>时间切分</td><td>参数选择区间、校准区间、未见样本外区间，以及每段用途。</td><td>按交易日顺序切分，不随机打乱；已被查看过的一级行业历史窗口不能伪装成新样本外证据。</td></tr>
                 <tr><td>评价规则</td><td>主要目标、硬约束、诊断指标、简单基线和置信方法。</td><td>进入与留存分开；报告成功率、Lift、覆盖、提前量、样本量、父级分布与简单价格/成交规则。</td></tr>
                 <tr><td>执行预算</td><td>组合数、扫描量、执行次数、时间/内存估算、取消点和停止条件。</td><td>每轮有限尝试，看到结果后不得在同一 Run 追加参数；新假设必须新建实验版本并重新审批。</td></tr>
@@ -1008,26 +1008,26 @@
       </section>
 
       <section class="section" id="storage">
-        <div class="section-head"><div><h2>9. 上游直读与存储边界</h2><p>平台直接读取 Data Lake 或 Prod，只保存审计元数据、研究结果和正式输出；大型回测产物的保存方式由具体回测能力按实际规模决定。</p></div><span class="badge gate">不保存输入副本</span></div>
+        <div class="section-head"><div><h2>9. 上游直读与存储边界</h2><p>平台直接读取 Data Lake 或 Prod，只保存平台业务状态、单次 Run 输入门禁证据、研究结果和正式输出；大型回测产物的保存方式由具体回测能力按实际规模决定。</p></div><span class="badge gate">不保存输入副本</span></div>
         <div class="section-body">
           <div class="grid-3">
             <div class="card blue"><h3>Data Lake：直接读取正式资产</h3><ul><li>适合长历史、多对象、大范围列式扫描。</li><li>只读取上游正式发布的数据，不复制到 QTF。</li><li>使用 DuckDB / Parquet 向量化读取，限定列和分区。</li></ul></div>
             <div class="card blue"><h3>Prod DB：首个切片主来源</h3><ul><li>二级行业首轮研究直接只读 Prod，不复制数据。</li><li>所有研究查询保持只读、显式字段和范围约束。</li><li>PLAN 先估算扫描量；若可能影响生产热路径，停止并另行批准改为直接读取 Lake。</li></ul></div>
-            <div class="card gold"><h3>只读准入审计</h3><ul><li>一次实验的同一事实只选择一个主来源。</li><li>只记录 source、as_of、范围、数量、缺口与内容指纹。</li><li>不生成输入快照、缓存、副本，不清洗或修复来源数据。</li></ul></div>
+            <div class="card gold"><h3>单次 Run 输入门禁</h3><ul><li>直接复用已经冻结的数据源与字段合同。</li><li>只记录本次 Run 的 source、as_of、范围、数量、缺口与内容指纹。</li><li>不重复做全库覆盖审计，不生成输入快照、缓存、副本，不清洗或修复来源数据。</li></ul></div>
           </div>
 
           <div class="table-wrap" style="margin-top:10px">
             <table>
               <thead><tr><th>存储区</th><th>保存内容</th><th>建议介质</th><th>写入者</th><th>消费边界</th></tr></thead>
               <tbody>
-                <tr><td>QTF Metadata</td><td>公式、参数、实验、输入准入审计、评估、审批和发布的结构化元数据与关系；不包含来源数据副本。</td><td>现有 Prod PostgreSQL 的独立 <code>qtf</code> schema</td><td>QTF application</td><td>QTF API；不直接给行情页面。</td></tr>
+                <tr><td>QTF Platform State</td><td>Research、Revision、Run、公式、参数、单次输入门禁、评估、审批和发布等平台业务状态与关系；它不是来源数据元数据，也不包含来源数据副本。</td><td>现有 Prod PostgreSQL 的独立 <code>qtf</code> schema</td><td>QTF application</td><td>QTF API；不直接给行情页面。</td></tr>
                 <tr><td>Run Artifacts</td><td>具体回测能力真正需要保留的派生因子、信号样本、诊断结果、图表数据和运行记录；禁止保存原始输入副本。</td><td>由该能力的技术方案与 LLD 在 PostgreSQL、受控派生文件或仅保留摘要之间选择</td><td>对应 QTF capability executor</td><td>保存粒度、介质、保留期和复现要求均按能力合同冻结。</td></tr>
                 <tr><td>Serving Facts</td><td>已发布公式与参数生成的正式指标、信号、质量状态和 release_id。</td><td>Prod serving 表</td><td>QTF production runtime</td><td>Biz 查询和财势乾坤页面。</td></tr>
                 <tr><td>TaskRun</td><td>执行意图、运行状态、进度、失败信息和耗时。</td><td>现有 Ops 存储</td><td>Ops runtime</td><td>QTF 通过安全视图展示；不是实验结果事实源。</td></tr>
               </tbody>
             </table>
           </div>
-          <div class="section-note" style="margin-top:10px"><strong>已确认口径：</strong>平台不建立输入数据仓、不落输入快照，也不把来源数据复制为 QTF 缓存。开发某项具体回测能力时，只针对派生结果决定保存内容、介质和保留期。若上游数据后来被修订，QTF 可以通过审计记录识别内容变化，但精确保留和恢复旧版来源数据是 Data Lake / Prod 的责任。</div>
+          <div class="section-note" style="margin-top:10px"><strong>已确认口径：</strong>平台不建立输入数据仓、不落输入快照，也不把来源数据复制为 QTF 缓存。开发某项具体回测能力时，只针对派生结果决定保存内容、介质和保留期。若上游数据后来被修订，QTF 可以通过 Run 输入门禁记录识别内容变化，但精确保留和恢复旧版来源数据是 Data Lake / Prod 的责任。</div>
         </div>
       </section>
 
@@ -1040,7 +1040,7 @@
 │   ├── AGENTS.md                # QTF 边界与研究门禁
 │   ├── contracts/               # 跨能力稳定合同
 │   │   ├── research_template.py
-│   │   ├── input_audit.py
+│   │   ├── input_preflight.py
 │   │   ├── formula.py
 │   │   ├── parameters.py
 │   │   ├── experiment.py
@@ -1079,7 +1079,7 @@
               </div>
               <div class="lane">
                 <div class="lane-name">QTF Worker 进程</div>
-                <div class="lane-items"><div class="lane-item">数据审计</div><div class="lane-item">计划执行</div><div class="lane-item">回测与验证</div><div class="lane-item">Artifact 持久化</div></div>
+                <div class="lane-items"><div class="lane-item">Run 输入门禁</div><div class="lane-item">计划执行</div><div class="lane-item">回测与验证</div><div class="lane-item">Artifact 持久化</div></div>
               </div>
               <div class="lane">
                 <div class="lane-name">生产信号进程</div>
@@ -1216,10 +1216,10 @@
         <div class="section-head"><div><h2>13. 建设里程碑</h2><p>先纵向打通二级行业，再从真实实现中提炼通用合同；不先建设一批没有业务验收的空模块。</p></div><span class="badge proposal">建议顺序</span></div>
         <div class="section-body grid-2">
           <div>
-            <div class="milestone"><h3>M0 · 架构评审与边界冻结</h3><p>确认本修订稿、QTF 目录边界、依赖方向、现有管理员认证复用、业务审核动作、可信门禁和二级行业首个切片；通过前不进入技术方案。</p></div>
-            <div class="milestone"><h3>M1 · 二级行业输入准入</h3><p>首轮直接只读 Prod，建立公共审计与二级行业能力审计、最小 Backtest Input Audit Record、对象池、父级内比较范围、有效交易日与缺口证据；不落输入快照或副本。</p></div>
-            <div class="milestone"><h3>M2 · 二级行业同核公式与参数</h3><p>从现有离线研究中提取经审计的价格/成交公式，建立时间语义、预热、输入输出和最终生效参数合同。</p></div>
-            <div class="milestone"><h3>M3 · 有限计划与执行主链</h3><p>冻结 R2 参数矩阵、IS/OOS、评价合同和预算；新 Run 每次重新直读上游并完整计算，不自动复用历史结果；接入现有 TaskRun 进度、取消和失败观测。</p></div>
+            <div class="milestone"><h3>M0 · 架构评审与边界冻结</h3><p>确认本修订稿、QTF 目录边界、依赖方向、现有管理员认证复用、业务审核动作、可信门禁和二级行业首个切片；通过前不进入代码开发。</p></div>
+            <div class="milestone"><h3>M1 · QTF 平台基础与研究状态</h3><p>建立顶层 QTF 包、依赖边界和 Research/Revision 最小平台状态；不读取 Prod，不重复来源或覆盖审计，不执行回测。</p></div>
+            <div class="milestone"><h3>M2 · 二级行业候选公式内核</h3><p>从一级行业离线探索中迁移价格/成交候选公式，冻结输入输出、时间语义、预热和参数解释，并以正反例验证计算语义；不声称预测有效，也不执行真实 R2。</p></div>
+            <div class="milestone"><h3>M3 · 输入门禁、有限计划与执行主链</h3><p>复用既有 Prod 来源合同，实现本次 Run 精确范围的只读输入门禁，冻结 R2 参数矩阵、IS/OOS、评价合同和预算；新 Run 每次重新直读上游并完整计算，接入现有 TaskRun 进度、取消和失败观测。</p></div>
             <div class="milestone"><h3>M4 · 可信门禁与结果证据</h3><p>实现时间前沿、未来泄漏差分、预热稳定、样本覆盖、样本外和参数敏感性；形成明确 VALID/INVALID/INSUFFICIENT 结论。</p></div>
           </div>
           <div>
@@ -1236,40 +1236,40 @@
         <div class="section-head"><div><h2>14. 首版门禁与明确非目标</h2><p>功能范围不打折，但首版不靠增加平台复杂度来制造“高级感”。</p></div><span class="badge no">禁止越界</span></div>
         <div class="section-body">
           <div class="grid-2">
-            <div class="card green"><h3>首版必须具备</h3><ul><li>从业务模板开始，冻结研究问题、成功定义和非目标。</li><li>每次直接读取 Lake/Prod，来源、字段、业务日期、对象池、比较范围、缺口和内容指纹可追溯。</li><li>输入审计不合格即阻断运行，并明确交由哪个上游修复。</li><li>公式有时间语义、回看/预热、输入输出、代码版本；参数有完整最终生效值。</li><li>具体回测能力在开发前明确计算范围、资源门禁与派生产物保存策略。</li><li>未来泄漏、预热稳定、样本覆盖和样本外验证成为自动门禁。</li><li>结果分离主要目标、硬约束和诊断指标，并展示简单基线与参数敏感性。</li><li>完整运行记录支持追溯；修订数据后旧结果不得被当作当前结果。</li><li>业务审核动作完成后生成不可变 release，生产与回测使用同一公式内核。</li><li>生产信号附 release_id、业务交易日和质量状态，可追溯到研究证据。</li><li>QTF 业务事务与 TaskRun 状态事务隔离。</li></ul></div>
+            <div class="card green"><h3>首版必须具备</h3><ul><li>从业务模板开始，冻结研究问题、成功定义和非目标。</li><li>每次直接读取 Lake/Prod，来源、字段、业务日期、对象池、比较范围、缺口和内容指纹可追溯。</li><li>本次 Run 输入门禁不合格即阻断运行，并明确交由哪个上游修复。</li><li>公式有时间语义、回看/预热、输入输出、代码版本；参数有完整最终生效值。</li><li>具体回测能力在开发前明确计算范围、资源门禁与派生产物保存策略。</li><li>未来泄漏、预热稳定、样本覆盖和样本外验证成为自动门禁。</li><li>结果分离主要目标、硬约束和诊断指标，并展示简单基线与参数敏感性。</li><li>完整运行记录支持追溯；修订数据后旧结果不得被当作当前结果。</li><li>业务审核动作完成后生成不可变 release，生产与回测使用同一公式内核。</li><li>生产信号附 release_id、业务交易日和质量状态，可追溯到研究证据。</li><li>QTF 业务事务与 TaskRun 状态事务隔离。</li></ul></div>
             <div class="card orange"><h3>首版明确不做</h3><ul><li>不引入 Qlib、Freqtrade 或 LEAN 作为运行依赖；不复制外部平台代码。</li><li>不允许用户在网页上传或执行任意 Python 代码。</li><li>不建设自动 Hyperopt，不自动扩大参数空间，不自动发布候选。</li><li>不为每个具体行业配置独立参数。</li><li>不建设机器学习平台、分布式计算集群或实时分钟量化。</li><li>不建设订单、撮合、仓位、组合、券商或自动交易系统。</li><li>不做申万行业、跨体系映射或相关性研究。</li><li>不清洗、修复、回填上游数据，也不保存输入快照、缓存或副本。</li><li>不新增 QTF 角色、权限键、数据库账号或角色管理页面。</li><li>不复制 Ops TaskRun，也不复用静态 JSON 配置代替实验管理。</li><li>不把回测预测表述为交易指令或收益承诺。</li></ul></div>
           </div>
         </div>
       </section>
 
       <section class="section" id="decisions">
-        <div class="section-head"><div><h2>15. 架构决策记录</h2><p>既有拍板项保持不变；本轮新增的对标吸收设计仍需整体评审后冻结。</p></div><span class="badge proposal">2026-08-21 修订</span></div>
+        <div class="section-head"><div><h2>15. 架构决策记录</h2><p>既有拍板项保持不变；本轮纠正数据审计、公式有效性和里程碑依赖表述。</p></div><span class="badge proposal">2026-08-22 修订</span></div>
         <div class="section-body">
           <div class="table-wrap">
             <table>
               <thead><tr><th>决策项</th><th>已确认结论</th><th>状态</th><th>落地时点</th></tr></thead>
               <tbody>
-                <tr><td>QTF 顶层子系统</td><td>仓库根目录新增 <code>qtf/</code> 正式产品域；量化工作台继续放在现有 <code>wealth/</code> 前端工程，由 <code>src/app</code> 组合。</td><td><span class="badge fact">已确认</span></td><td>M0 同步依赖矩阵、包配置和目录规则。</td></tr>
-                <tr><td>元数据存储</td><td>使用现有 Prod PostgreSQL 的独立 <code>qtf</code> schema，复用现有 <code>DATABASE_URL</code>、engine 与 session；不新增数据库、登录账号或专用连接。</td><td><span class="badge fact">已确认</span></td><td>M0 技术方案，迁移细节在 LLD 冻结。</td></tr>
+                <tr><td>QTF 顶层子系统</td><td>仓库根目录新增 <code>qtf/</code> 正式产品域；量化工作台继续放在现有 <code>wealth/</code> 前端工程，由 <code>src/app</code> 组合。</td><td><span class="badge fact">已确认</span></td><td>M1 同步依赖矩阵、包配置和目录规则。</td></tr>
+                <tr><td>QTF 平台状态存储</td><td>Research、Revision、Run 等平台业务状态使用现有 Prod PostgreSQL 的独立 <code>qtf</code> schema，复用现有 <code>DATABASE_URL</code>、engine 与 session；它不是来源数据元数据，不新增数据库、登录账号或专用连接。</td><td><span class="badge fact">已确认</span></td><td>M1 建立最小研究状态，后续里程碑按需增加运行与发布状态。</td></tr>
                 <tr><td>开源经验范围</td><td>只吸收 Freqtrade 的参数/泄漏/预热/后台任务经验，以及 LEAN 的同核/时间前沿/目标约束/样本外经验；不借鉴 Qlib，不引入任何外部平台作为依赖。</td><td><span class="badge fact">已确认</span></td><td>本架构稿；实现时以本地合同和测试为准。</td></tr>
-                <tr><td>输入数据责任</td><td>Data Lake / Prod 负责采集、清洗、修复、回填、完整性与正式发布；QTF 只做只读准入审计。审计不合格时阻断当前 Run，并把问题交回对应上游修复。</td><td><span class="badge fact">已确认</span></td><td>M1 写入输入审计合同与正反例。</td></tr>
-                <tr><td>上游读取方式</td><td>每次运行直接读取 Data Lake 或 Prod；QTF 不保存输入快照、缓存或副本。每个 Run 只保存 Backtest Input Audit Record，记录来源、字段、as_of、日期、对象池、比较范围、缺口、行数和内容指纹。</td><td><span class="badge fact">已确认</span></td><td>M1 随二级行业垂直切片验证。</td></tr>
-                <tr><td>首个切片主来源</td><td>二级行业首轮研究直接只读 Prod。PLAN 必须先估算扫描量；如可能影响生产热路径，停止执行并单独批准改为直接读取 Lake，仍不得复制来源数据。</td><td><span class="badge fact">已确认</span></td><td>M1 输入适配与 M3 PLAN 门禁。</td></tr>
-                <tr><td>准入审计分层</td><td>平台公共层检查可访问性、必要字段、日期覆盖、唯一键、重复、缺失、非法数值和对象池；具体能力层检查历史长度、比较组规模和样本要求。两层都只检查，不清洗或修复。</td><td><span class="badge fact">已确认</span></td><td>M1 公共合同与二级行业能力合同。</td></tr>
-                <tr><td>审计失败后的运行语义</td><td>失败 Run 保持不可变，不恢复、不覆盖。上游完成修复后，由同一冻结实验创建新的 Run，重新直读并完整执行，保留修复前后两次证据。</td><td><span class="badge fact">已确认</span></td><td>M1 审计状态与 M3 执行状态机。</td></tr>
-                <tr><td>可信回测门禁</td><td>输入准入、时间前沿、未来泄漏差分、预热稳定、样本覆盖、样本外和敏感性为候选前门禁；TaskRun success 不等于研究 VALID。</td><td><span class="badge proposal">本轮新增</span></td><td>M4 自动化，M5 真实研究验收。</td></tr>
+                <tr><td>输入数据责任</td><td>Data Lake / Prod 负责采集、清洗、修复、回填、完整性与正式发布；既有来源与覆盖结论直接复用，不在 M1/M2 重做。QTF 仅在单次 Run 输入门禁不合格时阻断运行，并把问题交回对应上游修复。</td><td><span class="badge fact">已确认</span></td><td>M3 写入输入门禁合同与正反例。</td></tr>
+                <tr><td>上游读取方式</td><td>每次运行直接读取 Data Lake 或 Prod；QTF 不保存输入快照、缓存或副本。每个 Run 只保存 RunInputPreflightRecord，记录来源、字段、as_of、日期、对象池、比较范围、缺口、行数和内容指纹。</td><td><span class="badge fact">已确认</span></td><td>M3 随二级行业垂直切片验证。</td></tr>
+                <tr><td>首个切片主来源</td><td>二级行业首轮研究直接只读 Prod。PLAN 必须先估算扫描量；如可能影响生产热路径，停止执行并单独批准改为直接读取 Lake，仍不得复制来源数据。</td><td><span class="badge fact">已确认</span></td><td>M3 输入适配与 PLAN 门禁。</td></tr>
+                <tr><td>来源审计与 Run 门禁</td><td>数据源选择、字段和历史覆盖以既有审计文档为准，除非来源或契约发生变化，否则不得重复审计。每次 Run 只检查获批对象池和日期范围的可访问性、业务键、缺失、非法数值、历史长度、比较组规模和样本要求。</td><td><span class="badge fact">已确认</span></td><td>M3 单次 Run 合同。</td></tr>
+                <tr><td>门禁失败后的运行语义</td><td>失败 Run 保持不可变，不恢复、不覆盖。上游完成修复后，由同一冻结实验创建新的 Run，重新直读并完整执行，保留修复前后两次证据。</td><td><span class="badge fact">已确认</span></td><td>M3 执行状态机。</td></tr>
+                <tr><td>可信回测门禁</td><td>单次 Run 输入门禁、时间前沿、未来泄漏差分、预热稳定、样本覆盖、样本外和敏感性为候选前门禁；TaskRun success 不等于研究 VALID。</td><td><span class="badge proposal">本轮新增</span></td><td>M4 自动化，M5 真实研究验收。</td></tr>
                 <tr><td>参数解析</td><td>冻结实验保存全部最终生效参数及其来源；执行时不再叠加页面、文件或代码默认值。首版只运行人工批准的有限参数矩阵。</td><td><span class="badge proposal">本轮新增</span></td><td>M2 参数合同，M3 执行门禁。</td></tr>
                 <tr><td>历史结果自动复用</td><td>首版不自动复用历史计算结果。已完成 Run 可以继续查看，但每次新建 Run 都重新直读上游并完整计算；不得通过输入快照、缓存或副本规避重算。</td><td><span class="badge fact">已确认</span></td><td>M3 执行合同与正反例。</td></tr>
                 <tr><td>大型回测产物</td><td>不制定全平台统一介质和保留期。开发具体回测能力时，再根据数据量、访问方式、复现要求和成本决定保存内容、PostgreSQL / Parquet / 仅摘要及保留期限。</td><td><span class="badge gate">Case by case</span></td><td>每项回测能力进入开发前的技术方案与 LLD。</td></tr>
                 <tr><td>身份与业务审核</td><td>首版只复用现有管理员认证与 <code>require_admin</code>，不新增角色、权限键、数据库账号或角色页面。同一个管理员可以完成全部操作，但候选提交、审核确认、批准版本、发布生效仍是独立业务动作和记录。</td><td><span class="badge fact">已确认</span></td><td>M0 技术方案与 M7 工作台按此验收。</td></tr>
                 <tr><td>单次计算规模</td><td>不设置全平台统一的组合数、日期跨度、耗时或内存上限。每项回测能力根据真实复杂度决定 PLAN、并发、取消点和拒绝阈值。</td><td><span class="badge gate">Case by case</span></td><td>每项回测能力进入开发前的 benchmark、技术方案与 LLD。</td></tr>
-                <tr><td>发布与回滚</td><td>公式和参数 release 不可变；新版本默认下一交易日生效，正式结果完整计算并校验成功后才原子切换。失败保留旧版本，回滚通过重新激活旧版本完成，不删除版本、不静默改写历史。</td><td><span class="badge fact">已确认</span></td><td>M7 细化日切、原子发布和修复契约。</td></tr>
-                <tr><td>公式管理方式</td><td>公式通过代码注册、测试和版本发布；工作台只查看、选择、激活、废弃和追踪版本，不允许网页提交或执行任意 Python。</td><td><span class="badge fact">已确认</span></td><td>M1 建立 Formula Contract，M5 提供管理视图。</td></tr>
+                <tr><td>发布与回滚</td><td>公式和参数 release 不可变；新版本默认下一交易日生效，正式结果完整计算并校验成功后才原子切换。失败保留旧版本，回滚通过重新激活旧版本完成，不删除版本、不静默改写历史。</td><td><span class="badge fact">已确认</span></td><td>M8 细化日切、原子发布和修复契约。</td></tr>
+                <tr><td>公式管理方式</td><td>公式通过代码注册、测试和版本发布；工作台只查看、选择、激活、废弃和追踪版本，不允许网页提交或执行任意 Python。</td><td><span class="badge fact">已确认</span></td><td>M2 建立 Formula Contract，M6 提供管理视图。</td></tr>
                 <tr><td>研究与生产计算方式</td><td>回测研究按需直读上游并现算，不预计算全部参数组合，也不自动复用历史 Run；生产只按已发布参数定时计算，不在生产任务中搜索参数。</td><td><span class="badge fact">已确认</span></td><td>M3 实现研究执行合同，M8 实现生产执行合同。</td></tr>
               </tbody>
             </table>
           </div>
-          <div class="section-note" style="margin-top:10px"><strong>本轮结论：</strong>数据质量归上游、QTF 直接读取、不保存输入副本、首个切片读取 Prod、公共/能力两层审计、失败后新建 Run、首版不自动复用结果以及不新增角色或权限均已冻结。业务审核动作、可信门禁、最终参数和纵向里程碑继续作为整体架构接受评审。大型回测产物与单次计算规模仍按具体回测能力 case by case 决定。</div>
+          <div class="section-note" style="margin-top:10px"><strong>本轮结论：</strong>数据质量归上游、既有数据源审计直接复用、QTF 直接读取且不保存输入副本、M1 不读 Prod、M2 只证明候选公式计算语义、M3 才实现单次 Run 输入门禁与执行主链，以上边界均已冻结。M1 与 M2 是 M3 的两个前置：M2 依赖 M1 建立的 QTF 包和边界，M3 同时依赖 M1 的研究状态与 M2 的计算内核。大型回测产物与单次计算规模仍按具体回测能力 case by case 决定。</div>
         </div>
       </section>
 

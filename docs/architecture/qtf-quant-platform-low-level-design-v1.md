@@ -23,7 +23,8 @@
    - `12 QTF Quant Platform - First Flow`，页面节点 `774:52`；
    - `12.5 QTF Quant Platform - Components`，页面节点 `774:53`。
 4. [东财行业板块雷达量化因子与回测设计 v1](../../wealth/docs/pages/wealth-exploration/sector-radar-quant-factor-backtest-design-v1.md)。
-5. 当前仓库代码、测试、包配置、迁移链与 Design System。
+5. [板块雷达数据覆盖审计 v1](../../wealth/docs/pages/wealth-exploration/sector-radar-data-coverage-audit-v1.md)。
+6. 当前仓库代码、测试、包配置、迁移链与 Design System。
 
 冲突处理顺序：用户最新拍板 > 当前代码事实与本 LLD 记录的接入约束 > QTF 架构方案 > Figma 示例文案。Figma 负责视觉和用户流程，不负责批准某次真实回测的参数与数据范围。
 
@@ -44,8 +45,8 @@
 |---|---|---|
 | C01 | `qtf/` 是仓库根目录新的正式产品域 | 不把主实现塞入 `src/biz`、`src/ops` 或 `scripts/research` |
 | C02 | QTF 上游只读 Prod 或正式 Lake | 首个切片只读 Prod；不写来源表 |
-| C03 | QTF 不清洗、不修复、不回填上游 | 审计不合格即 BLOCKED，并指出由 Prod 或 Lake 修复 |
-| C04 | 不保存输入快照、缓存或副本 | 只保存输入审计元数据、内容指纹和派生结果 |
+| C03 | QTF 不清洗、不修复、不回填上游 | 单次 Run 输入门禁不合格即 BLOCKED，并指出由 Prod 或 Lake 修复 |
+| C04 | 不保存输入快照、缓存或副本 | 只保存平台业务状态、单次 Run 输入门禁证据、内容指纹和派生结果 |
 | C05 | 每个新 Run 重新直读并完整计算 | 不自动复用历史 Run 结果；同一 Run 内允许候选共享一次内存读取 |
 | C06 | 公式和参数受控、完整、可版本化 | 公式由代码注册；网页不能提交或执行任意 Python；冻结时保存所有生效值 |
 | C07 | 研究状态与执行状态分开 | TaskRun success 不等于研究 VALID；VALID 也不等于必须提名或发布 |
@@ -60,6 +61,7 @@
 | C16 | 单次规模按能力逐案批准 | 平台不设置一个虚假的全局“最大回测量”；每个冻结计划必须给出自己的预算 |
 | C17 | R2 尚未获批 | Figma 的 128 个对象、8 组参数和结果百分比都是交互示例，不得触发真实读取或运行 |
 | C18 | 申万研究暂缓 | 首个切片不得加入申万、跨体系映射或相关性 |
+| C19 | 既有来源与覆盖审计直接复用 | M1、M2 不读取 Prod、不重复盘点数据源；只有来源或字段契约变化时才另立数据审计，正常 Run 只做精确范围输入门禁 |
 
 ---
 
@@ -99,14 +101,14 @@ tests/test_sector_radar_backtest.py
 tests/test_sector_radar_robustness.py
 ```
 
-它们已经验证一级行业 60/120 日研究的部分纯算法和历史结论，但不是平台代码：
+它们已经在一级行业探索中执行过 60/120 日候选计算，并以单元测试覆盖部分计算语义；这不等于算法预测有效，也不能证明同一公式适用于二级行业：
 
 1. 脚本含固定实验 ID、固定一级行业对象数和固定候选常量。
-2. 输出以本地文件为主，没有 Research、Revision、Input Audit、Run、Candidate、Release 状态。
+2. 输出以本地文件为主，没有 Research、Revision、Run Input Preflight、Run、Candidate、Release 状态。
 3. 没有 TaskRun、管理员 API、数据库元数据或 Wealth 页面接入。
 4. R2 所需父级内比较、小同组门禁和二级行业计划尚未实现。
 
-实施时不得由 `qtf` import `scripts.research.*`。M2 只迁移经过合同化和正反例测试的纯函数；历史脚本保留为证据，不能被改名后冒充平台内核。
+实施时不得由 `qtf` import `scripts.research.*`。M2 迁移的是“已在历史探索中使用过的候选公式实现”，并重新用正反例验证公式、窗口、缺失值和时间前沿语义；预测有效性只能由后续获批的 R2 回测判断。历史脚本保留为探索证据，不能被改名后冒充平台内核或正式参数。
 
 ### 2.3 前端现状
 
@@ -129,7 +131,7 @@ tests/test_sector_radar_robustness.py
 |---|---|---|
 | `778:52` | 研究总览 | `/wealth/exploration/quant` |
 | `778:120` | 定义研究 | `/wealth/exploration/quant/researches/{researchKey}/edit` |
-| `778:188` | 输入审计与冻结计划 | `/wealth/exploration/quant/researches/{researchKey}/freeze` |
+| `778:188` | 输入审计与冻结计划（Figma 当前名称；实际语义为单次输入检查） | `/wealth/exploration/quant/researches/{researchKey}/freeze` |
 | `778:256` | 运行详情 | `/wealth/exploration/quant/runs/{runKey}` |
 | `778:324` | 结果比较 | `/wealth/exploration/quant/runs/{runKey}/results` |
 | `778:392` | 候选评审 | `/wealth/exploration/quant/candidates/{candidateKey}` |
@@ -261,7 +263,7 @@ qtf/
       templates.py
       parameter_schema.py
       input_contract.py
-      input_auditor.py
+      input_preflight.py
       input_reader.py
       factor_kernel.py
       signal_engine.py
@@ -276,7 +278,7 @@ qtf/
     services/
       overview_service.py
       research_service.py
-      input_audit_service.py
+      input_preflight_service.py
       experiment_service.py
       run_query_service.py
       candidate_service.py
@@ -317,7 +319,7 @@ qtf/
 | 根 `AGENTS.md`、`src/AGENTS.md` | 增加 QTF 目录责任和禁止回流规则 |
 | `tests/architecture/test_subsystem_dependency_matrix.py` | 扫描 QTF，并禁止现有三个业务子系统反向导入 QTF |
 | `src/app/model_registry.py` | 由 App 注册 QTF ORM |
-| `alembic/versions/<new>_add_qtf_foundation.py` | 创建 `qtf` schema 和首版表；实施日连接真实 head |
+| `alembic/versions/<new>_add_qtf_<milestone_scope>.py` | 按里程碑拆分迁移：M1 只创建 `qtf` schema 与 Research/Revision，M3 增加 preflight/Run，M4 增加结果证据，M8 增加 candidate/release；每次实施日连接真实 head |
 | `src/ops/contracts/external_task.py` | 定义通用外部任务 definition/executor 合同 |
 | `src/ops/services/task_run_service.py` | 通过注入 definition 校验外部任务；默认 Ops API 仍不接受 QTF |
 | `src/ops/runtime/task_run_dispatcher.py` | 通过注入 executor 派发外部任务；不 import QTF |
@@ -432,7 +434,7 @@ Figma 目前只让用户选择 `baseline_days` 和 `trend_days`。其余值必�
 
 1. 使用现有 PostgreSQL 的 `qtf` schema、现有 `DATABASE_URL` 和共享 `Base`。
 2. 不创建数据库、登录账号、角色或专用连接配置。
-3. QTF 表只保存研究元数据、审计证据、派生结果、评审和发布记录。
+3. QTF 表只保存 Research/Revision/Run 等平台业务状态、单次 Run 输入门禁证据、派生结果、评审和发布记录；这些不是来源数据元数据。
 4. 不在 QTF 表中保存 `dc_daily`、hierarchy 或 Lake 原始行副本。
 5. 用户 ID 只保存为审计字段，不对 App 用户表建立 ORM 依赖。
 6. `task_run_id` 只作逻辑关联和唯一索引，不建立迫使 QTF 依赖 Ops 模型的 ORM 关系。
@@ -485,20 +487,22 @@ Figma 目前只让用户选择 `baseline_days` 和 `trend_days`。其余值必�
 
 只有 DRAFT 可编辑。FROZEN 的 JSON、公式、参数、预算和哈希都不可修改；任何变更创建新 revision。
 
-### 6.4 `qtf.input_audit` 与 `qtf.input_audit_issue`
+### 6.4 `qtf.input_preflight` 与 `qtf.input_preflight_issue`
 
-`input_audit`：
+这里的 preflight 只检查某个草稿或 Run 已批准的对象池与日期范围，不重新选择数据源，也不重新执行平台级历史覆盖审计。
+
+`input_preflight`：
 
 | 字段 | 含义 |
 |---|---|
-| `audit_key` | 公开键 |
-| `request_key` | 本次审计命令幂等键；unique |
-| `revision_id` | 审计所依据的 revision；草稿预审可绑定 `draft_hash` |
+| `preflight_key` | 公开键 |
+| `request_key` | 本次输入检查命令幂等键；unique |
+| `revision_id` | 检查所依据的 revision；草稿预检可绑定 `draft_hash` |
 | `phase` | `DRAFT_PREVIEW/RUN_PREFLIGHT` |
 | `status` | `PASS/BLOCKED` |
 | `source_kind` | 首版固定 `PROD` |
 | `source_contract_hash` | 来源、字段、过滤合同哈希 |
-| `as_of` | 审计完成时点 |
+| `as_of` | 输入检查完成时点 |
 | `requested_start/end_date` | 申请范围 |
 | `effective_start/end_date` | 实际有效交易日范围 |
 | `dataset_evidence_json` | 每张表的字段、行数、日期、唯一键、缺失和内容指纹 |
@@ -509,9 +513,9 @@ Figma 目前只让用户选择 `baseline_days` 和 `trend_days`。其余值必�
 | `content_hash` | 按稳定键顺序计算的输入内容指纹 |
 | `completed_at` | 完成时间 |
 
-`input_audit_issue` 每条保存 `audit_id / code / severity / dataset_key / trade_date / field_name / object_key / message / remediation_owner / evidence_json`。`remediation_owner` 只能是 `PROD` 或 `LAKE`，不能写成 QTF 自修复。
+`input_preflight_issue` 每条保存 `preflight_id / code / severity / dataset_key / trade_date / field_name / object_key / message / remediation_owner / evidence_json`。`remediation_owner` 只能是 `PROD` 或 `LAKE`，不能写成 QTF 自修复。
 
-审计只保存计数、键、缺口和摘要样本，不保存来源原始行。
+输入门禁只保存计数、键、缺口和摘要样本，不保存来源原始行。
 
 ### 6.5 `qtf.experiment_run`
 
@@ -520,7 +524,7 @@ Figma 目前只让用户选择 `baseline_days` 和 `trend_days`。其余值必�
 | `run_key` | 公开键 |
 | `request_key` | 启动命令幂等键；unique |
 | `revision_id` | 冻结 revision |
-| `input_audit_id` | 本 Run 的 `RUN_PREFLIGHT` 审计 |
+| `input_preflight_id` | 本 Run 的 `RUN_PREFLIGHT` 输入门禁记录 |
 | `task_run_id` | Ops TaskRun ID，nullable unique |
 | `status` | `PLANNED/QUEUED/EXECUTING/COMPLETED/FAILED/CANCELED/BLOCKED` |
 | `validation_status` | `PENDING/VALID/INVALID/INSUFFICIENT/BLOCKED` |
@@ -571,7 +575,7 @@ Run 不保存 TaskRun 的进度副本。QTF API 查询运行详情时，由 App 
 
 ### 6.8 Key、hash 与时间
 
-1. `researchKey/revisionKey/auditKey/runKey/resultKey/parameterSetKey/candidateKey/releaseKey/requestKey` 都是后端生成或校验的 opaque string；前端不得解析其前缀获得业务含义。
+1. `researchKey/revisionKey/preflightKey/runKey/resultKey/parameterSetKey/candidateKey/releaseKey/requestKey` 都是后端生成或校验的 opaque string；前端不得解析其前缀获得业务含义。
 2. 所有 `*_hash` 使用 SHA-256 小写十六进制。JSON 先按 UTF-8、key 排序、无多余空白的 canonical 形式序列化；日期为 ISO `YYYY-MM-DD`，时间为带时区 ISO-8601，Decimal 转为不丢精度的十进制字符串。
 3. 来源内容指纹按冻结字段、稳定业务键顺序流式更新 hash；不为计算 hash 保存完整输入副本。
 4. `revision_hash` 覆盖问题、成功定义、非目标、来源、对象池、比较范围、公式、全部生效参数、验证合同和预算；任何一项变化都必须产生新 hash。
@@ -649,7 +653,7 @@ CANDIDATE -> UNDER_REVIEW -> REVIEWED -> APPROVED -> PUBLISHED -> RETIRED
 5. POST 动作通过业务键幂等；同一动作重复提交返回当前结果，不重复创建 Run、候选或 release。
 6. API 不返回 TaskRun 的 `technical_payload_json`、SQL、连接信息或内部堆栈。
 
-里程碑开放顺序：M3 只开放二级行业垂直切片所需的 template、draft、audit、freeze、run command 和 run detail；M4 增加 results/conclusion；M6 才补齐 overview、完整 registry、candidate 查询并收敛为工作台稳定合同。所有阶段调用同一 application service，不建设临时脚本 API。
+里程碑开放顺序：M3 只开放二级行业垂直切片所需的 template、draft、preflight、freeze、run command 和 run detail；M4 增加 results/conclusion；M6 才补齐 overview、完整 registry、candidate 查询并收敛为工作台稳定合同。所有阶段调用同一 application service，不建设临时脚本 API。
 
 ### 8.2 总览和注册表
 
@@ -662,7 +666,7 @@ CANDIDATE -> UNDER_REVIEW -> REVIEWED -> APPROVED -> PUBLISHED -> RETIRED
 
 研究列表固定按 `updated_at desc, research_key asc`，不能由前端自行排序出“最后活动”。
 
-### 8.3 草稿、审计和冻结
+### 8.3 草稿、单次输入预检和冻结
 
 | 方法 | 路径 | 作用 |
 |---|---|---|
@@ -670,21 +674,21 @@ CANDIDATE -> UNDER_REVIEW -> REVIEWED -> APPROVED -> PUBLISHED -> RETIRED
 | GET | `/researches/{researchKey}` | 当前研究和版本摘要 |
 | PUT | `/researches/{researchKey}/draft` | 保存 DRAFT；要求 `draftVersion` |
 | POST | `/researches/{researchKey}/revisions` | 从已冻结版本或候选派生新 DRAFT |
-| POST | `/researches/{researchKey}/input-audits` | 对当前 draft hash 做有界 Prod 只读预审 |
-| POST | `/researches/{researchKey}/freeze` | 绑定 PASS audit、完整参数和批准的 PLAN hash，生成 FROZEN revision |
+| POST | `/researches/{researchKey}/input-preflights` | 复用既有来源合同，对当前 draft hash 的精确对象池和日期范围做有界 Prod 只读预检 |
+| POST | `/researches/{researchKey}/freeze` | 绑定 PASS preflight、完整参数和批准的 PLAN hash，生成 FROZEN revision |
 
 冻结请求至少包含：
 
 ```json
 {
   "draftVersion": 4,
-  "inputAuditKey": "AUDIT-QTF-...",
+  "inputPreflightKey": "PREFLIGHT-QTF-...",
   "approvedPlanHash": "sha256:...",
   "acknowledgedExclusions": true
 }
 ```
 
-冻结服务必须重新计算 revision hash，并拒绝已变化的草稿、过期审计、缺少预算或不完整参数。
+冻结服务必须重新计算 revision hash，并拒绝已变化的草稿、过期输入预检、缺少预算或不完整参数。
 
 ### 8.4 Run
 
@@ -754,17 +758,17 @@ scope {
   candidateTrendDays[], candidateBaselineDays[], futureHorizons[],
   sharedParameterScope, runPolicy, dataResponsibility
 }
-canEdit, canAudit, blockingReasons[]
+canEdit, canPreflight, blockingReasons[]
 ```
 
-对象数只来自最近一次审计；没有审计时为 null，不能使用 Figma 的 128。模板和参数 schema 分别来自代码 registry；草稿只保存用户选择及完整生效值。
+对象数只来自最近一次输入预检；没有预检时为 null，不能使用 Figma 的 128。模板和参数 schema 分别来自代码 registry；草稿只保存用户选择及完整生效值。
 
 #### `FreezePlanResponse`
 
 ```text
 researchKey, revisionKey, draftVersion, draftHash
-audit {
-  auditKey, auditStatus, sourceKind, asOf,
+preflight {
+  preflightKey, preflightStatus, sourceKind, asOf,
   requestedStartDate, requestedEndDate, effectiveStartDate, effectiveEndDate,
   universeCount, groupCount, validGroupDayCount, excludedGroupDayCount,
   datasetEvidence[], issues[], contentHash
@@ -832,7 +836,7 @@ Actor 只用于审计展示；接口不引入分析员/审核员等新角色。M
 
 1. 创建 Research：`requestKey/templateKey/title`。
 2. 保存草稿：`draftVersion/problemStatement/successDefinitionKeys/nonGoalKeys/parameterSelections`。
-3. 输入审计：`requestKey/draftVersion/requestedStartDate/requestedEndDate`。
+3. 单次输入预检：`requestKey/draftVersion/requestedStartDate/requestedEndDate`。
 4. 冻结：第 8.3 节字段外加 `requestKey`；相同 revision hash 重试返回已有 FROZEN revision。
 5. 创建 Run：`requestKey/revisionHash`；App 必须调用 `stage_task_run()`，与 Run/link 一次 commit，不能调用会自行 commit 的 `create_task_run()`。
 6. 取消、结论和所有候选动作：`requestKey/currentVersion/comment?`；`NOMINATE` 额外要求 `resultKey`；重复 requestKey 返回原结果。
@@ -891,7 +895,7 @@ WorkerLane.STK_MINS / INDEX_MINS
 
 ### 9.3 QTF 执行阶段
 
-1. `RUN_PREFLIGHT`：重新直读并生成本 Run input audit。
+1. `RUN_PREFLIGHT`：复用既有来源合同重新直读，并生成本 Run 的 input preflight；不做新的来源选型或全库覆盖审计。
 2. `LOAD_INPUT`：一次性读取冻结字段和范围，形成只存在于进程内的不可变输入集合。
 3. `RUN_PARAMETER_SETS`：按冻结顺序逐组合计算并单独提交完整参数结果。
 4. `VALIDATE`：运行六道可信门禁。
@@ -910,7 +914,7 @@ TaskRun 节点标题使用上述业务语言，不展示 DAO、SQL 或内部类�
 
 ### 9.5 事务隔离
 
-1. QTF executor 用 QTF business session 提交审计、参数组合结果、门禁和 Run 状态。
+1. QTF executor 用 QTF business session 提交输入门禁记录、参数组合结果、可信门禁和 Run 状态。
 2. App observer 用另一条 Ops session 写 TaskRun 进度、节点和问题。
 3. Ops 进度写失败由 observer 捕获并降级为观测异常；不得 rollback 已提交的 QTF 结果。
 4. Worker 最终 TaskRun 状态写失败时，QTF Run 仍保留真实终态；QTF API 显示“结果已生成，运行观测异常”。
@@ -930,19 +934,23 @@ TaskRun 节点标题使用上述业务语言，不展示 DAO、SQL 或内部类�
 
 不读取 `dc_member`、资金流、新闻、宽基指数、申万或分钟数据。
 
+来源选择、字段和历史覆盖直接复用 2026-08-16 的[板块雷达数据覆盖审计](../../wealth/docs/pages/wealth-exploration/sector-radar-data-coverage-audit-v1.md)：当时已确认当前行业层级共 496 个节点（一级 31、二级 128、三级 337），`dc_daily` 覆盖 634 个交易日，最近 250 个交易日的板块日行情与相关核心输入为 250/250。该结论同时保留一个已知限制：行业层级只有当前发布基线，没有历史版本。除非来源表、字段合同或层级发布机制发生变化，M1、M2 以及 R2 计划阶段不得再做一次同类 Prod 覆盖审计。
+
 ### 10.2 只读与查询要求
 
-1. 每次审计和 Run 都显式开启 read-only transaction。
+1. 草稿输入预检和每个 Run 都显式开启 read-only transaction。
 2. 只选择上述字段，查询必须用交易日范围、category 和代码池下推。
 3. 稳定排序为 `trade_date, ts_code`，用于内容指纹。
 4. Run 内只读一次来源；8 个候选可以共享进程内输入，Run 结束即释放。
-5. 新 Run 必须重新执行查询与审计，不能加载旧 CSV、旧 JSON 或旧 Run 事件作为输入。
+5. 新 Run 必须重新执行精确范围查询与输入门禁，不能加载旧 CSV、旧 JSON 或旧 Run 事件作为输入；这不是重新盘点数据源或重做全库覆盖审计。
 
-### 10.3 输入准入
+### 10.3 单次研究输入门禁
 
-公共门禁：
+以下检查只针对当前草稿或 Run 已批准的对象池、日期范围和来源合同。
 
-1. 三张表可访问。
+范围级门禁：
+
+1. 既有合同中的三张表在本次只读事务中可访问。
 2. hierarchy 非空且只有一个 baseline version。
 3. 二级节点的父级存在、层级为 1、root 闭包正确。
 4. `dc_daily` 业务键 `trade_date + ts_code + category` 唯一。
@@ -955,11 +963,11 @@ TaskRun 节点标题使用上述业务语言，不展示 DAO、SQL 或内部类�
 2. 父级组日只有在该组全部冻结成员当日事实齐备时才有效。
 3. 缺失只排除对应父级组日，不前向填充，不用其他父级数据补齐。
 4. 小组是否可产生二元“上榜”由冻结 `minimum_group_size + ranking_rule` 决定；未获批前不得默认成前 20%。
-5. 所有排除组日、原因、父级、缺少对象和来源表写入 audit issue。
+5. 所有排除组日、原因、父级、缺少对象和来源表写入 preflight issue。
 
 ### 10.4 因子与时间语义
 
-首版迁移现有研究中已解释的价格和成交候选：
+首版迁移现有一级行业探索中使用过的价格和成交候选公式。以下公式已具备历史实现和部分计算语义测试，但其预测有效性、二级行业适用性和最终参数均未验证：
 
 ```text
 relativeReturn1d(i,t)
@@ -993,7 +1001,7 @@ heatState_B(i,t)
 
 平台 schema 支持但本文不拍板：
 
-1. 实际二级行业对象数和父级组分布。
+1. 本次 Run 根据当前已发布层级解析出的二级行业对象数和父级组分布；这是 PLAN 运行范围，不是新的数据覆盖审计。
 2. 实际研究起止日期、完整组日和排除规则结果。
 3. `W` 是否一次执行 `5/10/20/30` 全部候选。
 4. 信号阈值、reset、向上占比、lambda、权重和事件簇规则。
@@ -1062,11 +1070,11 @@ qtfApi client -> strict response type -> adapter -> page view model -> QTF compo
 
 1. 只能选择注册模板和 schema 允许的候选。
 2. 保存草稿调用 PUT；成功后更新 draftVersion。
-3. “继续：输入准入”先保存，再触发有界输入审计；失败留在当前页。
+3. “继续：输入检查”先保存，再触发精确对象池和日期范围的有界输入预检；失败留在当前页。
 
 #### 冻结计划 `778:188`
 
-1. 展示审计通过/阻断、所有排除项、日期范围、参数矩阵、固定参数和预算。
+1. 展示本次输入门禁通过/阻断、所有排除项、日期范围、参数矩阵、固定参数和预算。
 2. 任一 BLOCKED、缺少确认或 PLAN hash 变化时禁用“冻结并启动”。
 3. 前端顺序调用 freeze、create Run；启动失败时保留已冻结版本并展示“重试启动”。
 
@@ -1129,7 +1137,7 @@ qtfApi client -> strict response type -> adapter -> page view model -> QTF compo
 | `QTF_TEMPLATE_NOT_FOUND` | 模板/公式/schema 不存在或未激活 | 404/409 | 阻止创建或冻结 |
 | `QTF_STATE_CONFLICT` | 当前状态不允许该动作 | 409 | 刷新最新状态 |
 | `QTF_DRAFT_CONFLICT` | draftVersion 或 hash 已变化 | 409 | 禁止覆盖，重新加载 |
-| `QTF_INPUT_AUDIT_BLOCKED` | 输入准入不合格 | 200 + BLOCKED 或 422 | 展示问题和上游责任，不启动 |
+| `QTF_INPUT_PREFLIGHT_BLOCKED` | 本次输入门禁不合格 | 200 + BLOCKED 或 422 | 展示问题和上游责任，不启动 |
 | `QTF_PLAN_NOT_APPROVED` | PLAN hash 未确认或已变化 | 409 | 返回冻结页重新确认 |
 | `QTF_PLAN_BUDGET_EXCEEDED` | 实际范围超过本 Run 获批预算 | 409/BLOCKED | 停止并重新审批 |
 | `QTF_INPUT_CHANGED_DURING_RUN` | preflight 后输入内容在同一 Run 内变化 | FAILED/BLOCKED | 新建 Run，不覆盖旧 Run |
@@ -1154,20 +1162,21 @@ qtfApi client -> strict response type -> adapter -> page view model -> QTF compo
 ### 13.2 迁移与模型
 
 1. 实施日先断言单一 Alembic head，再生成 migration。
-2. PostgreSQL upgrade 创建 `qtf` schema、约束、索引和唯一键。
-3. SQLite 测试使用兼容类型；不能因测试方便移除 PostgreSQL 约束。
-4. FROZEN revision 不能更新冻结字段。
-5. 同一 Run、候选或 action 的幂等键不能重复。
-6. `task_run_id` 唯一但无跨域 ORM 关系。
+2. M1 migration 只创建 `qtf` schema、Research/Revision 及其约束；不得顺手创建尚未进入里程碑的 Run、结果、候选或发布表。
+3. M3、M4、M8 分别以实施当日真实 head 追加各自范围的 preflight/Run、结果证据、candidate/release 表和约束，不预先猜测 `down_revision`。
+4. SQLite 测试使用兼容类型；不能因测试方便移除 PostgreSQL 约束。
+5. FROZEN revision 不能更新冻结字段。
+6. 同一 Run、候选或 action 的幂等键不能重复。
+7. `task_run_id` 唯一但无跨域 ORM 关系。
 
-### 13.3 输入审计正反例
+### 13.3 单次 Run 输入门禁正反例
 
 正例：
 
 1. 单一 hierarchy version、父子闭包正确。
 2. 每个父级完整组日只出现一次。
 3. 交易日、有界字段、行数、对象数、组数和 content hash 稳定。
-4. 同样输入重复审计产生相同内容指纹，但生成新的 audit 记录。
+4. 同样输入重复预检产生相同内容指纹，但生成新的 preflight 记录。
 
 反例：
 
@@ -1176,7 +1185,7 @@ qtfApi client -> strict response type -> adapter -> page view model -> QTF compo
 3. 某父级缺一个子行业时，只排除该父级组日，不补零、不前向填充。
 4. 小组低于冻结门槛时不能生成二元上榜标签。
 5. 扫描或派生规模超过获批预算时 BLOCKED，零公式执行。
-6. 审计失败只写 issue，不修改来源表。
+6. 输入门禁失败只写 issue，不修改来源表。
 
 ### 13.4 公式、未来泄漏与验证
 
@@ -1191,7 +1200,7 @@ qtfApi client -> strict response type -> adapter -> page view model -> QTF compo
 
 ### 13.5 Run、TaskRun 与事务
 
-1. DRAFT、BLOCKED audit、缺参数、未确认 PLAN 均不能创建执行 TaskRun。
+1. DRAFT、BLOCKED preflight、缺参数、未确认 PLAN 均不能创建执行 TaskRun。
 2. Run 与 TaskRun 的启动意图同事务成功或同事务回滚，不产生单边孤儿记录。
 3. 每个新 Run 都调用 Prod reader；不得读取旧 Run 结果作为输入。
 4. 同一 Run 多个候选只触发一次来源读取。
@@ -1217,7 +1226,7 @@ qtfApi client -> strict response type -> adapter -> page view model -> QTF compo
 ### 13.7 API 集成
 
 1. 无 token 401；非管理员 403；管理员正常。
-2. 核心真实 API case 覆盖 overview、draft、audit、freeze、run、result、candidate。
+2. 核心真实 API case 覆盖 overview、draft、preflight、freeze、run、result、candidate。
 3. 响应断言覆盖前端实际字段，不只测 HTTP 状态。
 4. 技术 payload、SQL 和连接信息不能出现在 QTF API。
 5. 版本冲突、幂等重试和状态跳跃都有 409 反例。
@@ -1284,7 +1293,7 @@ sourceStatementTimeoutMs
 
 ## 15. 开发顺序
 
-每个里程碑只在前一项门禁通过后进入；不得因为 Figma 有完整示例就跳过数据和执行合同。
+执行顺序保持 `M0 → M1 → M2 → M3 → ...`，但依赖含义必须明确：M1 只建立 QTF 包、依赖边界和研究状态；M2 在该包内建立候选公式内核；M3 同时依赖 M1 的平台状态和 M2 的计算内核，才接入 Prod、输入门禁和 TaskRun。从纯代码依赖看，M2 只依赖 M1 的包与边界骨架，不依赖 Research/Revision 已落库，更不依赖 Prod 审计；为保持每个里程碑独立验收，交付时仍先完整收口 M1 再进入 M2。M1 不包含重复数据审计，M2 不包含预测有效性结论；不得因为 Figma 有完整示例就跳过执行合同。
 
 ### M0：架构评审与边界冻结
 
@@ -1292,26 +1301,27 @@ sourceStatementTimeoutMs
 2. 确认顶层 `qtf/`、只读上游、现有管理员、独立 QTF worker、业务审核动作和二级行业首切片。
 3. 本 LLD 获批即完成 M0；M0 不改代码、不建表、不读 Prod、不执行研究。
 
-### M1：二级行业输入准入
+### M1：QTF 平台基础与研究状态
 
 1. 先建立 `qtf/AGENTS.md`、包骨架、包发现、根目录责任、依赖矩阵、自动护栏和 wheel 验证。
-2. 建立 Research/Revision/Input Audit 最小合同；实施日确认 Alembic head，创建 `qtf` schema 和对应 metadata 表，并由 App 注册 ORM。
-3. 实现 Prod 只读 adapter、公共审计和 sector L2 父级组审计。
-4. 完成模型约束、hash、幂等、正反例和经批准的最小真实只读验收；不执行参数回测。
+2. 建立 Research/Revision 最小平台状态合同；它们用于保存研究草稿、冻结版本和后续 Run 的归属，不是来源数据元数据。
+3. 实施日重新确认 Alembic head，创建 `qtf` schema、Research/Revision 表并由 App 注册 ORM。
+4. 完成平台状态约束、revision hash、幂等和正反例；本里程碑不实现 Prod adapter、不读取 Prod、不重新审计来源或历史覆盖，也不执行参数回测。
 
-### M2：二级行业同核公式与参数
+### M2：二级行业候选公式内核
 
 1. 建立 template/formula/parameter registry 和完整生效参数合同。
-2. 从历史脚本迁移经过核验的纯算法，不 import `scripts.research.*`。
-3. 实现父级内排名、稳健标准化、EWMA、时间前沿和正反例。
-4. 不预设 R2 最终固定参数，不执行真实 R2。
+2. 从一级行业历史探索脚本迁移曾经使用过的价格、成交候选公式，不 import `scripts.research.*`。
+3. 实现父级内排名、稳健标准化、EWMA、时间前沿，并以正反例验证公式、窗口、缺失值和无未来数据语义。
+4. M2 的“验证通过”只表示计算实现符合冻结公式合同，不表示候选具有预测效果，也不表示适用于二级行业；不预设 R2 最终固定参数，不执行真实 R2。
 
-### M3：有限计划与执行主链
+### M3：输入门禁、有限计划与执行主链
 
-1. 增加 Run/result 所需 metadata，实施 PLAN 预算、revision freeze 和原子 Run/TaskRun 启动意图。
-2. 增加 Ops 通用 external task 扩展点、QTF 独立 lane 和 App QTF adapter。
-3. 先登记第 12 节异常码，再增加二级行业垂直切片的最小管理员 API，以及 QTF worker CLI、systemd unit、release commit、部署脚本与最小 sudo 白名单；API 不得拥有另一套公式或默认参数。
-4. 完成 lane 隔离、启动原子性、每 Run 重读、同 Run 单次读取、安全取消、进度和运行期事务隔离测试。
+1. 实施日重新确认 Alembic head，增加 Run、Run Input Preflight 及执行主链所需的平台状态表。
+2. 复用第 10.1 节既有 Prod 来源合同，实现只针对当前草稿或 Run 精确对象池和日期范围的只读 adapter 与输入门禁；不重新做来源选型或全库覆盖审计。
+3. 实施 PLAN 预算、revision freeze 和原子 Run/TaskRun 启动意图；增加 Ops 通用 external task 扩展点、QTF 独立 lane 和 App QTF adapter。
+4. 先登记第 12 节异常码，再增加二级行业垂直切片的最小管理员 API，以及 QTF worker CLI、systemd unit、release commit、部署脚本与最小 sudo 白名单；API 不得拥有另一套公式或默认参数。
+5. 完成输入门禁正反例、lane 隔离、启动原子性、每 Run 重读、同 Run 单次读取、安全取消、进度和运行期事务隔离测试。
 
 ### M4：可信门禁与结果证据
 
@@ -1327,7 +1337,7 @@ sourceStatementTimeoutMs
 
 ### M6：提炼通用平台合同与业务 API
 
-1. 只从 M1–M5 已证明的共同点收敛 overview、research、audit、freeze、run、result、candidate 合同，不保留脚本旁路。
+1. 只从 M1–M5 已证明的共同点收敛 overview、research、preflight、freeze、run、result、candidate 合同，不保留脚本旁路。
 2. 补齐工作台全部管理员 API、registry 查询和安全 TaskRun 视图。
 3. 完成真实路由集成测试、状态冲突、幂等和技术信息泄漏反例。
 
@@ -1363,16 +1373,16 @@ sourceStatementTimeoutMs
 | G01 | QTF 是顶层产品域 | `qtf/**`、package config | wheel 可 import qtf | qtf 未被打包时失败 | OPEN |
 | G02 | 不破坏依赖方向 | architecture guardrails | App 可装配 QTF | QTF/下层反向导入被阻断 | OPEN |
 | G03 | 复用现有 DB/管理员 | App DI、`require_admin` | admin 200 | 新账号/非管理员不可绕过 | OPEN |
-| G04 | 不保存输入副本 | Prod adapter、audit model | 只保存 hash/summary | QTF 表/产物含原始输入时失败 | OPEN |
-| G05 | 数据问题交回上游 | input auditor | PASS 可继续 | BLOCKED 零修复、零公式执行 | OPEN |
+| G04 | 不保存输入副本 | Prod adapter、preflight model | 只保存 hash/summary | QTF 表/产物含原始输入时失败 | OPEN |
+| G05 | 数据问题交回上游 | run input preflight | PASS 可继续 | BLOCKED 零修复、零公式执行 | OPEN |
 | G06 | 每个新 Run 重读 | experiment service | 新 Run 调 reader | 复用旧 result/input 被阻断 | OPEN |
 | G07 | 同一 Run 不重复扫 Prod | sector executor | 多候选一次 load | 每候选重查来源测试失败 | OPEN |
 | G08 | 公式和参数完整冻结 | registry/revision | 所有有效值入 hash | 缺值/运行时默认值被拒绝 | OPEN |
 | G09 | 不允许任意 Python | registry/API | 选择注册 formula | 上传源码/表达式被拒绝 | OPEN |
 | G10 | 时间前沿正确 | engine/time_frontier | t 只看历史 | 修改未来不影响 t | OPEN |
 | G11 | 父级内比较 | sector ranking | 同父排名正确 | 其他父级不能改变结果 | OPEN |
-| G12 | 小组规则显式 | audit/parameter schema | 达门槛可评价 | 低于门槛不生成伪标签 | OPEN |
-| G13 | 缺失不补数 | input auditor | 完整组日参与 | 缺行不补零/不前填 | OPEN |
+| G12 | 小组规则显式 | preflight/parameter schema | 达门槛可评价 | 低于门槛不生成伪标签 | OPEN |
+| G13 | 缺失不补数 | run input preflight | 完整组日参与 | 缺行不补零/不前填 | OPEN |
 | G14 | TaskRun success != VALID | run/result API | success+VALID 可提名 | success+INVALID 不可提名 | OPEN |
 | G15 | 取消在安全点 | executor/observer | 组合后停止 | 半条参数组合结果不可见 | OPEN |
 | G16 | Ops 与 QTF 事务隔离 | App runtime adapter | Ops 正常观测 | Ops 写失败不回滚 QTF | OPEN |
@@ -1424,4 +1434,4 @@ git diff --check
 5. 真实 R2 仍未获批；平台开发和真实研究执行是两次独立授权。
 6. M9 的生产 serving 与板块雷达/板块速览消费必须另立能力 LLD，不能在平台框架开发中顺手接入。
 
-因此，本 LLD 评审通过即完成 **M0：架构评审与边界冻结**；下一步只能进入 **M1：二级行业输入准入**，不能直接进入真实回测或发布。
+因此，本 LLD 评审通过即完成 **M0：架构评审与边界冻结**；下一步只能进入 **M1：QTF 平台基础与研究状态**，不能重复开展 Prod 数据覆盖审计，也不能直接进入真实回测或发布。
