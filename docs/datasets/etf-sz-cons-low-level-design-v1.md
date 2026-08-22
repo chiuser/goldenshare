@@ -1,12 +1,12 @@
 # `etf_sz_cons` 低层设计 LLD v1
 
-状态：代码已实现，待运营部署、执行迁移、初始化对象池、同步与页面验收。
+状态：已完成生产验收。
 对应方案：[ETF 每日持仓组合（深市）数据集接入方案](/Users/congming/github/goldenshare/docs/datasets/etf-sz-cons-dataset-development.md)
 审计日期：2026-08-22
 
 ## 1. 本 LLD 的边界
 
-本 LLD 只落地深市 ETF 每日持仓组合的代码设计。部署、数据库迁移、对象池初始化、历史同步和页面验收由运营方执行，不由本轮自动完成。
+本 LLD 落地深市 ETF 每日持仓组合的代码设计。部署、数据库迁移、对象池初始化、历史同步和页面验收由运营手动执行，不由本轮自动完成；这些生产步骤已于 2026-08-22 完成。
 
 首期固定：
 
@@ -280,7 +280,7 @@ writer 必须命中 `raw_only_upsert`，只调用 `raw_etf_sz_cons`。`core_serv
 
 必须新增/更新测试：Definition registry、planner、request builder、source pagination、normalizer、raw-only writer、model registry、active seed service、Ops catalog/manual action、freshness policy。必须通过 `ingestion-lint-definitions` 和 docs integrity。
 
-真实闭环必须记录：每个代表性小/大 ETF 的 fetched、normalized、written、rejected、reason code 样本、目标表唯一键数量。任一 reject 无法解释，或分页集合不闭合，不能标记接入完成。
+生产闭环已记录：TaskRun `9080` 对 `2026-01-05 ~ 2026-08-21` 完成 5,808 个 unit，读取和写入均为 11,251,932 行，拒绝为 0。`raw_tushare.etf_sz_cons` 与 `core_serving.etf_sz_cons` view 均为 11,251,932 行，日期范围同为 `2026-01-05 ~ 2026-08-21`。代表性小/大 ETF 的 connector 分页、字段和业务键验证见第 13 节；本次无 reject reason 需要解释。
 
 ## 12. 实施顺序与停止条件
 
@@ -289,14 +289,17 @@ writer 必须命中 `raw_only_upsert`，只调用 `raw_etf_sz_cons`。`core_serv
 3. M2：已完成。新增 raw ORM、DAO、迁移和 view。
 4. M3：已完成。Definition、freshness、自然月 planner、request builder 和 row transform 已落地。
 5. M4：已完成。Ops catalog 自动投影和定向测试已覆盖。
-6. M5：代码侧验证已完成；生产部署、迁移、对象池初始化、同步和页面验收交由运营方执行。
+6. M5：已完成。代码侧验证、生产部署、迁移、对象池初始化、同步和页面验收均已完成。
 
 以下情况必须停止，不做临时兼容：active pool 与 `.SZ + L` 不一致、源端同键重复、月窗口分页不闭合、源字段缺失、迁移 head 不明确、reject 无法解释、业务事务和 Ops 状态事务发生耦合。
 
-## 13. 本轮实现与运营交接
+## 13. 实现与生产验收闭环
 
-本轮代码实现已完成，未执行任何部署、迁移、对象池写入、生产同步或页面验收。
+代码、部署和生产验收均已完成。
 
 - 新迁移为 `20260822_000141_add_etf_sz_cons_dataset.py`，`down_revision` 为实施时确认的 `20260822_000140`。
 - 项目 connector 只读验证：`159001.SZ + 20260731` 返回 1 行、1 次请求、业务键无重复；`159919.SZ + 20260701~20260731` 返回 6,020 行、3 次分页请求、20 个业务日期、`(trade_date, ts_code, con_code)` 无重复，11 个源字段齐备。
-- 运营后续顺序：部署代码并执行迁移；以 `.SZ + list_status='L'` 初始化 `ops.etf_series_active(resource='etf_sz_cons')`；再自行发起同步与页面验收。
+- 生产激活池已按 `.SZ + list_status='L'` 初始化 `ops.etf_series_active(resource='etf_sz_cons')`：726 个代码，非法后缀数量为 0。
+- 生产区间任务 `TaskRun 9080` 成功完成：`unit_total=unit_done=5808`、`unit_failed=0`、`rows_fetched=rows_saved=11251932`、`rows_rejected=0`。
+- 生产 raw 表和 serving view 均为 11,251,932 行，覆盖 154 个交易日、717 个实际返回数据的 ETF，日期范围同为 `2026-01-05 ~ 2026-08-21`；运营页面验收通过。
+- 当前没有本数据集的待部署、待迁移、待对象池初始化或待页面验收事项。
