@@ -1,8 +1,9 @@
-import { wealthFetch } from "../../../../shared/api/wealthApiClient";
+import { wealthFetch } from "../../../shared/api/wealthApiClient";
 
 export interface MarketPageContextRequest {
-  market?: "CN_A";
+  market?: string;
   tradeDate?: string;
+  debug?: 1;
 }
 
 export interface MarketPageContextResponse {
@@ -27,7 +28,15 @@ export class MarketPageContextApiError extends Error {
   }
 }
 
-function buildMarketPageContextUrl(params: MarketPageContextRequest): string {
+export function readMarketContextRequest(search: string): MarketPageContextRequest {
+  const params = new URLSearchParams(search);
+  const market = params.get("market")?.trim() || "CN_A";
+  const tradeDate = params.get("tradeDate")?.trim() || undefined;
+  const debug = params.get("debug") === "1" ? 1 : undefined;
+  return { market, tradeDate, debug };
+}
+
+export function buildMarketPageContextUrl(params: MarketPageContextRequest): string {
   const url = new URL("/api/v1/wealth/market/context", window.location.origin);
   if (params.market) url.searchParams.set("market", params.market);
   if (params.tradeDate) url.searchParams.set("tradeDate", params.tradeDate);
@@ -51,7 +60,7 @@ export async function fetchMarketPageContext(
       if (payload.message) message = payload.message;
       if (payload.code) code = payload.code;
     } catch {
-      // ignore parse failure and keep default message
+      // Keep the bounded HTTP fallback when the error body is not JSON.
     }
     throw new MarketPageContextApiError(message, code);
   }

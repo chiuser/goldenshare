@@ -26,6 +26,7 @@ from src.biz.api.wealth.market import streak_ladder as wealth_market_streak_ladd
 from src.biz.api.wealth.market import style as wealth_market_style
 from src.biz.api.wealth.market import summary as wealth_market_summary
 from src.biz.api.wealth.market import turnover as wealth_market_turnover
+from src.biz.api.wealth.market import turnover_insight as wealth_market_turnover_insight
 from src.foundation.config.local_minute_capability import (
     resolve_index_minute_capability,
     resolve_index_nine_turn_minute_capability,
@@ -53,6 +54,7 @@ router.include_router(wealth_market_major_indices.router)
 router.include_router(wealth_market_breadth.router)
 router.include_router(wealth_market_style.router)
 router.include_router(wealth_market_turnover.router)
+router.include_router(wealth_market_turnover_insight.router)
 router.include_router(wealth_market_money_flow.router)
 router.include_router(wealth_market_leaderboards.router)
 router.include_router(wealth_market_limit_up.router)

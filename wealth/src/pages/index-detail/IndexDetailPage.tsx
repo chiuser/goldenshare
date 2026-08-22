@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { buildIndexDetailPath, DEFAULT_WEALTH_PATH, navigateWealth, returnToWealthOverview } from "../../app/routes/routerState";
+import {
+  buildIndexDetailPath,
+  DEFAULT_WEALTH_PATH,
+  navigateWealth,
+  resolveTopMarketNavPath,
+  returnToWealthOverview,
+} from "../../app/routes/routerState";
 import { IndexChartWorkspace } from "../../features/index-detail/chart/IndexChartWorkspace";
 import { IndexMinuteChartWorkspace } from "../../features/index-detail/chart/IndexMinuteChartWorkspace";
 import { useIndexDetailController } from "../../features/index-detail/controller/useIndexDetailController";
@@ -15,14 +21,18 @@ import { IndexInfoRail } from "../../features/index-detail/sidebar/IndexInfoRail
 import { IndexDetailLoadingSkeleton } from "../../features/index-detail/state/IndexDetailLoadingSkeleton";
 import { IndexDetailPageState } from "../../features/index-detail/state/IndexDetailPageState";
 import { IndexDetailToast } from "../../features/index-detail/ui/IndexDetailToast";
-import { fetchMarketMajorIndices } from "../../features/market-overview/indices/api/marketMajorIndicesApi";
+import {
+  buildMajorIndicesViewModelFromApi,
+  buildTopMarketTickersFromMajorIndices,
+} from "../../features/major-indices/api/marketMajorIndicesAdapter";
+import { fetchMarketMajorIndices } from "../../features/major-indices/api/marketMajorIndicesApi";
 import { fetchIndexNineTurnSeries } from "../../features/nine-turn/api/nineTurnApiClient";
 import type { NineTurnPeriod } from "../../features/nine-turn/api/nineTurnApiTypes";
 import type { NineTurnSeriesLoader } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
 import { useNineTurnSeriesRegistry } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
 import { unsupportedNineTurnLayer } from "../../features/nine-turn/model/nineTurnAdapter";
 import { TopMarketBar } from "../../shared/ui/top-market-bar/TopMarketBar";
-import type { TopMarketTicker } from "../../shared/ui/top-market-bar/topMarketBarTypes";
+import type { TopMarketNavKey, TopMarketTicker } from "../../shared/ui/top-market-bar/topMarketBarTypes";
 import "./index-detail-page.css";
 
 interface IndexDetailPageProps { search: string; tsCode: string; }
@@ -108,16 +118,13 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
     window.setTimeout(() => setToast(""), 1800);
   }
 
-  function handleTopBarAction(message: string) {
-    if (message === "跳转：/market/overview") {
-      navigateWealth(DEFAULT_WEALTH_PATH);
+  function handleTopNavigate(target: TopMarketNavKey) {
+    const path = resolveTopMarketNavPath(target);
+    if (path) {
+      navigateWealth(path);
       return;
     }
-    if (message.startsWith("进入详情：")) {
-      navigateWealth(buildIndexDetailPath(message.slice("进入详情：".length)));
-      return;
-    }
-    showToast(message);
+    showToast("该入口暂未开放");
   }
 
   function showRecentTradeDay() {
@@ -129,7 +136,12 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
   }
 
   const pageShell = <>
-    <TopMarketBar onAction={handleTopBarAction} tickers={tickers} />
+    <TopMarketBar
+      activeNav="market"
+      onNavigate={handleTopNavigate}
+      onTickerSelect={(tickerCode) => navigateWealth(buildIndexDetailPath(tickerCode))}
+      tickers={tickers}
+    />
     <IndexBreadcrumbActionBar identity={identity} onReturnHome={returnToWealthOverview} />
     <IndexChartToolbar
       activePeriod={periods.some((period) => period.key === activePeriod && period.supported) ? activePeriod : "day"}
@@ -246,16 +258,9 @@ function useTopMarketTickers(): TopMarketTicker[] {
   useEffect(() => {
     const controller = new AbortController();
     fetchMarketMajorIndices({ market: "CN_A" }, { signal: controller.signal })
-      .then((payload) => setTickers(payload.majorIndices.rows.flatMap((row) => {
-        if (!Number.isFinite(row.point) || !Number.isFinite(row.changePct)) return [];
-        return [{
-          code: row.subject.subjectCode,
-          name: row.subject.subjectName ?? row.subject.subjectCode,
-          point: row.point as number,
-          pct: row.changePct as number,
-          direction: row.direction,
-        }];
-      })))
+      .then((payload) => setTickers([
+        ...buildTopMarketTickersFromMajorIndices(buildMajorIndicesViewModelFromApi(payload)),
+      ]))
       .catch(() => { if (!controller.signal.aborted) setTickers([]); });
     return () => controller.abort();
   }, []);

@@ -646,7 +646,7 @@ describe("MarketOverviewPage", () => {
     render(<MarketOverviewPage />);
 
     fireEvent.click(await screen.findByRole("button", { name: "交易助手" }));
-    expect(screen.getByText("跳转：交易助手")).toBeInTheDocument();
+    expect(screen.getByText("该入口暂未开放")).toBeInTheDocument();
   });
 
   it("summary module smoke supports both 5-card and 6-card layouts", async () => {

@@ -2,7 +2,7 @@ import { Panel } from "../../../shared/ui/Panel";
 import { directionClass } from "../../../shared/lib/marketDirection";
 import { formatPoint, formatSignedPercent } from "../../../shared/lib/formatters";
 import { SkeletonBlock } from "../../../shared/ui/SkeletonBlock";
-import type { MajorIndexViewItem } from "./api/marketMajorIndicesAdapter";
+import type { MajorIndexViewItem } from "../../major-indices/api/marketMajorIndicesAdapter";
 
 interface MajorIndexPanelProps {
   viewState: "loading" | "ready" | "error";

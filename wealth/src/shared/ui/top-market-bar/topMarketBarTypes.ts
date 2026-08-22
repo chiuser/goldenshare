@@ -8,3 +8,11 @@ export interface TopMarketTicker {
   pct: number;
   direction: MarketDirection;
 }
+
+export type TopMarketNavKey =
+  | "market"
+  | "exploration"
+  | "assistant"
+  | "training"
+  | "data"
+  | "settings";

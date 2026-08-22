@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { marketOverviewModuleSources } from "../../features/market-overview/api/moduleSources";
 import { fetchMarketOverviewMock } from "../../features/market-overview/api/marketOverviewMockAdapter";
-import type { MarketOverview, QuoteItem } from "../../features/market-overview/api/marketOverviewTypes";
+import type { MarketOverview } from "../../features/market-overview/api/marketOverviewTypes";
 import { MarketBreadthPanel } from "../../features/market-overview/breadth/MarketBreadthPanel";
 import {
   buildBreadthViewModelFromApi,
@@ -12,16 +12,19 @@ import { fetchMarketBreadth, type BreadthDebugInfo } from "../../features/market
 import {
   buildMarketPageContextViewModelFromApi,
   type MarketPageContextViewModel,
-} from "../../features/market-overview/context/api/marketPageContextAdapter";
-import { fetchMarketPageContext } from "../../features/market-overview/context/api/marketPageContextApi";
+} from "../../features/market-context/api/marketPageContextAdapter";
+import {
+  fetchMarketPageContext,
+  readMarketContextRequest,
+} from "../../features/market-context/api/marketPageContextApi";
 import { MajorIndexPanel } from "../../features/market-overview/indices/MajorIndexPanel";
 import {
   buildMajorIndicesViewModelFromApi,
-  buildMajorIndicesViewModelFromMock,
+  buildTopMarketTickersFromMajorIndices,
   type MarketMajorIndicesViewModel,
-} from "../../features/market-overview/indices/api/marketMajorIndicesAdapter";
-import { fetchMarketMajorIndices, type MajorIndicesDebugInfo } from "../../features/market-overview/indices/api/marketMajorIndicesApi";
-import { Breadcrumb } from "../../features/market-overview/layout/Breadcrumb";
+} from "../../features/major-indices/api/marketMajorIndicesAdapter";
+import { fetchMarketMajorIndices, type MajorIndicesDebugInfo } from "../../features/major-indices/api/marketMajorIndicesApi";
+import { buildMajorIndicesViewModelFromMock } from "../../features/market-overview/indices/api/marketMajorIndicesMockAdapter";
 import { ShortcutBar } from "../../features/market-overview/layout/ShortcutBar";
 import { LeaderboardPanel } from "../../features/market-overview/leaderboards/LeaderboardPanel";
 import {
@@ -82,9 +85,16 @@ import {
   type MarketTurnoverViewModel,
 } from "../../features/market-overview/turnover/api/marketTurnoverAdapter";
 import { fetchMarketTurnover, type TurnoverDebugInfo } from "../../features/market-overview/turnover/api/marketTurnoverApi";
-import { buildIndexDetailPath, buildStockDetailPath, navigateWealth } from "../../app/routes/routerState";
+import {
+  buildIndexDetailPath,
+  buildStockDetailPath,
+  navigateWealth,
+  resolveTopMarketNavPath,
+} from "../../app/routes/routerState";
 import { SkeletonBlock } from "../../shared/ui/SkeletonBlock";
+import { PageBreadcrumb } from "../../shared/ui/page-breadcrumb/PageBreadcrumb";
 import { TopMarketBar } from "../../shared/ui/top-market-bar/TopMarketBar";
+import type { TopMarketNavKey, TopMarketTicker } from "../../shared/ui/top-market-bar/topMarketBarTypes";
 import "./market-overview-page.css";
 
 const SUMMARY_FETCH_TIMEOUT_MS = 5000;
@@ -100,33 +110,13 @@ const LIMIT_UP_FETCH_TIMEOUT_MS = 5000;
 const STREAK_LADDER_FETCH_TIMEOUT_MS = 5000;
 const PAGE_CONTEXT_FETCH_TIMEOUT_MS = 5000;
 
-function isFiniteNumber(value: number | null | undefined): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
 function buildHeaderTickers(
   overview: MarketOverview | null,
   majorIndices: MarketMajorIndicesViewModel | null,
-): QuoteItem[] {
+): readonly TopMarketTicker[] {
   const fallback = overview?.tickers ?? [];
   if (!majorIndices?.indices.length) return fallback;
-
-  const mapped = majorIndices.indices.flatMap<QuoteItem>((row) => {
-    if (!isFiniteNumber(row.point) || !isFiniteNumber(row.change) || !isFiniteNumber(row.pct)) {
-      return [];
-    }
-    return [
-      {
-        code: row.code,
-        name: row.name,
-        point: row.point,
-        change: row.change,
-        pct: row.pct,
-        direction: row.direction,
-      },
-    ];
-  });
-
+  const mapped = buildTopMarketTickersFromMajorIndices(majorIndices);
   return mapped.length > 0 ? mapped : fallback;
 }
 
@@ -139,14 +129,10 @@ function readRouteSearch(search: string | undefined): string {
   return typeof window === "undefined" ? "" : window.location.search;
 }
 
-function readOptionalQueryValue(search: string, key: string): string | undefined {
-  const value = new URLSearchParams(search).get(key)?.trim();
-  return value || undefined;
-}
-
 export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
   const routeSearch = readRouteSearch(search);
-  const requestedTradeDate = useMemo(() => readOptionalQueryValue(routeSearch, "tradeDate"), [routeSearch]);
+  const contextRequest = useMemo(() => readMarketContextRequest(routeSearch), [routeSearch]);
+  const requestedTradeDate = contextRequest.tradeDate;
   const [overview, setOverview] = useState<MarketOverview | null>(null);
   const [pageContext, setPageContext] = useState<MarketPageContextViewModel | null>(null);
   const [pageContextViewState, setPageContextViewState] = useState<"loading" | "ready" | "error">("loading");
@@ -222,8 +208,8 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
   const headerTickers = useMemo(() => buildHeaderTickers(overview, majorIndices), [overview, majorIndices]);
   const pageDebugEnabled = useMemo(() => {
     if (!import.meta.env.DEV) return false;
-    return readOptionalQueryValue(routeSearch, "debug") === "1";
-  }, [routeSearch]);
+    return contextRequest.debug === 1;
+  }, [contextRequest.debug]);
   const overviewDebugInfo = useMemo(() => {
     if (!pageDebugEnabled) return null;
     const moduleItems = [
@@ -280,7 +266,7 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
     setPageContextViewState("loading");
     setPageContextErrorMessage(null);
 
-    fetchMarketPageContext({ market: "CN_A", tradeDate: requestedTradeDate }, { signal: abortController.signal })
+    fetchMarketPageContext(contextRequest, { signal: abortController.signal })
       .then((payload) => {
         if (!canceled) {
           setPageContext(buildMarketPageContextViewModelFromApi(payload));
@@ -310,7 +296,7 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
       canceled = true;
       abortController.abort();
     };
-  }, [requestedTradeDate]);
+  }, [contextRequest.market, contextRequest.tradeDate]);
 
   useEffect(() => {
     fetchMarketOverviewMock().then((response) => {
@@ -945,6 +931,15 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
     navigateWealth(buildIndexDetailPath(tsCode));
   }
 
+  function handleTopNavigate(target: TopMarketNavKey) {
+    const path = resolveTopMarketNavPath(target);
+    if (path) {
+      navigateWealth(path);
+      return;
+    }
+    showToast("该入口暂未开放");
+  }
+
   if (pageContextViewState === "error") {
     return (
       <main className="page-shell">
@@ -968,9 +963,22 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
 
   return (
     <div className="market-terminal">
-      <TopMarketBar onAction={showToast} tickers={headerTickers} />
+      <TopMarketBar
+        activeNav="market"
+        onNavigate={handleTopNavigate}
+        onTickerSelect={openIndexDetail}
+        tickers={headerTickers}
+      />
       <main className="page-shell">
-        <Breadcrumb onAction={showToast} sessionStatus={pageContext.sessionStatus} />
+        <PageBreadcrumb
+          items={[
+            { label: "财势乾坤", path: "/wealth/market/overview" },
+            { label: "乾坤行情", path: "/wealth/market/overview" },
+            { label: "市场总览" },
+          ]}
+          onNavigate={navigateWealth}
+          sessionStatus={pageContext.sessionStatus}
+        />
         <ShortcutBar onAction={showToast} />
         <div className="content-grid">
           <MarketNewsPanelGroup

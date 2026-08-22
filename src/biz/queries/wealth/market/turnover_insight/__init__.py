@@ -1,0 +1,1 @@
+"""Turnover insight query domain."""

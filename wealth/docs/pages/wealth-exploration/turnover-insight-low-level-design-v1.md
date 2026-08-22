@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：最新 Figma 与代码级设计已对齐，编码门禁矩阵已内嵌，待评审后开发
+- 状态：开发完成，待用户部署与视觉验收
 - 编写日期：2026-08-22
 - 适用仓库：`/Users/congming/github/goldenshare`
 - 上游技术方案：`wealth/docs/pages/wealth-exploration/turnover-insight-implementation-design-v1.md`
@@ -34,11 +34,11 @@
 | 横轴每 15 分钟 | 后端返回 `showAxisLabel`；前端不重新判定业务时点 | 17 个标签，无 13:00 |
 | 无预测 | schema、组件和文案均无 forecast 字段 | response extra forbid + 前端文本门禁 |
 | 成交额洞察位于板块雷达上方 | `WealthExplorationPage` 模块顺序 | DOM 顺序测试；本轮不实现板块雷达业务 |
-| 三个板块维度复用同一成交额组件 | `TurnoverInsightSection` 位于板块雷达维度状态之外 | 维度切换不增加请求参数、不重新请求或重置成交额状态 |
+| 三个板块维度复用同一成交额组件 | `TurnoverInsightSection` 位于无业务内容的 `sector-radar` slot 之外 | 本轮静态证明请求合同不含 dimension、组件位于 slot 之前；真实维度切换回归留到板块雷达接入阶段 |
 | 六种设计状态只有一套组件实现 | `TurnoverInsightSection` 根据 viewState 分支，复用同一组件树 | 六态组件测试；禁止复制六份页面 JSX |
 | 1366 参考不裁切 | 模块内容宽度 `1330px` 时重算 canvas geometry | 1366 组件级截图/几何测试；禁止 CSS scale 和视口字体缩放 |
 
-## 2. 当前实现审计
+## 2. 开发前实现审计（保留为改动基线）
 
 ### 2.1 预计算表与生产链
 
@@ -333,17 +333,25 @@ wealth/src/features/market-overview/context/api/marketPageContextApi.ts
 wealth/src/features/market-overview/context/api/marketPageContextAdapter.ts
   -> wealth/src/features/market-context/api/marketPageContextAdapter.ts
 
+wealth/src/features/market-overview/indices/api/marketMajorIndicesApi.ts
+  -> wealth/src/features/major-indices/api/marketMajorIndicesApi.ts
+
+wealth/src/features/market-overview/indices/api/marketMajorIndicesAdapter.ts
+  -> wealth/src/features/major-indices/api/marketMajorIndicesAdapter.ts
+
 wealth/src/features/market-overview/layout/Breadcrumb.tsx
   -> wealth/src/shared/ui/page-breadcrumb/PageBreadcrumb.tsx
 ```
 
-旧文件删除，不保留 re-export 或 wrapper。
+旧文件删除，不保留 re-export 或 wrapper。`marketMajorIndicesAdapter.ts` 移动前必须把页面私有 mock 映射拆出；共享 adapter 不得 import `features/market-overview/**`。
 
 ### 4.4 前端新增
 
 ```text
 wealth/src/pages/wealth-exploration/WealthExplorationPage.tsx
 wealth/src/pages/wealth-exploration/wealth-exploration-page.css
+
+wealth/src/features/market-overview/indices/api/marketMajorIndicesMockAdapter.ts
 
 wealth/src/features/wealth-exploration/turnover-insight/api/turnoverInsightApi.ts
 wealth/src/features/wealth-exploration/turnover-insight/api/turnoverInsightAdapter.ts
@@ -368,6 +376,7 @@ wealth/src/app/routes/routerState.ts
 wealth/src/app/routes/WealthRouter.tsx
 wealth/src/shared/ui/top-market-bar/TopMarketBar.tsx
 wealth/src/shared/ui/top-market-bar/topMarketBarTypes.ts
+wealth/src/features/market-overview/indices/MajorIndexPanel.tsx
 wealth/src/pages/market-overview/MarketOverviewPage.tsx
 wealth/src/pages/market-overview/market-overview-page.css
 wealth/src/pages/stock-detail/StockDetailPage.tsx
@@ -393,6 +402,8 @@ wealth/src/features/wealth-exploration/turnover-insight/api/turnoverInsightAdapt
 wealth/src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightSection.test.tsx
 wealth/src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightChart.test.tsx
 wealth/src/features/wealth-exploration/turnover-insight/ui/turnoverInsightGeometry.test.ts
+wealth/src/features/market-context/api/marketPageContextAdapter.test.ts
+wealth/src/features/major-indices/api/marketMajorIndicesAdapter.test.ts
 wealth/src/shared/ui/page-breadcrumb/PageBreadcrumb.test.tsx
 wealth/src/shared/ui/top-market-bar/TopMarketBar.test.tsx
 wealth/src/app/routes/routerState.test.ts
@@ -414,7 +425,7 @@ router = APIRouter(prefix="/wealth/market", tags=["wealth-market"])
 def get_turnover_insight(
     market: str = Query(default="CN_A"),
     trade_date: date | None = Query(default=None, alias="tradeDate"),
-    debug: bool = Query(default=False),
+    debug: int = Query(default=0, ge=0, le=1),
     _user: AuthenticatedUser | None = Depends(require_quote_access),
     session: Session = Depends(get_db_session),
 ) -> TurnoverInsightResponseDto:
@@ -425,7 +436,7 @@ def get_turnover_insight(
 
 - `market.strip().upper()` 后只接受 `CN_A`。
 - `tradeDate` 沿用 FastAPI `date` 解析。
-- `debug` 的生产禁用方式与现有 Wealth API 保持一致。
+- `debug` 与现有 Wealth API 一致，只接受 `0/1`。API 通过现有 `get_settings().app_env` 计算 `effective_debug = debug == 1 and app_env in {"local", "dev", "test"}`；只有 `effective_debug` 传给 service。其它环境强制关闭，不新增配置项。
 - API 只实例化 `TurnoverInsightQueryService`，不得实例化旧 service。
 - router 在 `src/app/api/v1/router.py` 中独立 include，不能挂到旧 turnover router 下。
 
@@ -469,7 +480,7 @@ SELECT
   s.points_json,
   s.built_at
 FROM core_serving.wealth_market_turnover_snapshot AS s
-LEFT JOIN core.trade_calendar AS c
+LEFT JOIN core_serving.trade_calendar AS c
   ON c.exchange = 'SSE'
  AND c.trade_date = s.trade_date
 WHERE s.type = 'stock'
@@ -596,14 +607,21 @@ class TurnoverInsightValueAxisDto(BaseModel):
 累计图：
 
 - `minYi=0`。
-- `maxYi` 使用覆盖两条累计曲线的 nice ceiling。
-- 目标 4 个区间，tick step 从 `1/2/5 x 10^n` 中向上选择。
+- 取两条累计曲线最大值 `domainMax`，增加 `10%` 展示余量，固定生成四个区间。
+- `granularity = 10 ^ max(0, floor(log10(abs(domainMax))) - 1)`。
+- `step = ceil((domainMax * 1.10 / 4) / granularity) * granularity`。
+- `maxYi = step * 4`，ticks 固定为 `0/step/2*step/3*step/4*step`。
+- 当前样本 `domainMax=20939` 时得到 `0/6000/12000/18000/24000`。
+- 全零时固定为 `minYi=0, maxYi=4, ticks=0/1/2/3/4`。
 
 差值图：
 
 - 必须包含 0。
 - 全负时 `maxYi=0`，全正时 `minYi=0`。
-- 正负同时存在时分别向外 nice rounding。
+- 每个实际存在的正负方向各生成两个区间；每一侧使用该侧绝对极值，按累计图相同的十进制量级规则计算 `step`，但区间数为 2。
+- 正负同时存在时允许上下两侧使用不同 step，分别向外取整。
+- 当前全负样本绝对极值 `2018` 时得到 `0/-1200/-2400`。
+- 全零时固定为 `minYi=-1, maxYi=1, zeroYi=0, ticks=-1/0/1`。
 
 前端只把 API 的 `minYi/maxYi/ticks` 映射为像素和文本，不自行换单位或生成领域刻度。
 
@@ -811,7 +829,23 @@ tradeDate=<context.tradeDate>
 
 不新建“财势探查专用指数接口”。页面在 Context ready 后发起一次请求，5 秒超时，使用现有 major-indices adapter 映射为 `TopMarketTicker[]`。
 
-本轮不重构首页主要指数面板；共享的是正式 API、adapter 和 TopMarketBar，不复制指数计算。
+现有 API 和 adapter 必须从 `features/market-overview/indices/api` 上移到：
+
+```text
+wealth/src/features/major-indices/api/marketMajorIndicesApi.ts
+wealth/src/features/major-indices/api/marketMajorIndicesAdapter.ts
+```
+
+共享 adapter 固定提供：
+
+```ts
+buildMajorIndicesViewModelFromApi(payload): MarketMajorIndicesViewModel;
+buildTopMarketTickersFromMajorIndices(model): readonly TopMarketTicker[];
+```
+
+`buildTopMarketTickersFromMajorIndices(...)` 只保留 `point/change/pct` 均为有限数字的行，不提供页面 fallback。行情首页若需要 mock/fallback，继续由页面私有的 `marketMajorIndicesMockAdapter.ts` 和现有 overview 数据负责；共享目录不得 import `features/market-overview/**`。
+
+本轮不重构首页 `MajorIndexPanel` 的展示职责；共享的是正式 API、真实响应 adapter、TopMarketBar ticker mapper 和 TopMarketBar，不复制指数计算，也不允许财势探查跨 feature import `features/market-overview/**`。
 
 ### 6.5 PageBreadcrumb
 
@@ -1182,7 +1216,7 @@ muted labels               -> text-muted
 6. 两日 key 不同进入 mismatch。
 7. point sum 与 total 超容差失败。
 8. 横轴恰好 17 个，不含 13:00。
-9. axis nice step 覆盖全正、全负、跨零和全零。
+9. axis 十进制量级 step 覆盖全正、全负、跨零和全零，并精确断言 Figma 样本 `0/6000/12000/18000/24000` 与 `0/-1200/-2400`。
 
 ### 8.3 service/status
 
@@ -1212,7 +1246,11 @@ muted labels               -> text-muted
 - 新模块不得 import `.turnover.` 业务类。
 - 不出现 `EquityDailyBar`、`RawStkMins`、DuckDB、Dagster、Lake 路径。
 - query 必须出现 `freq == 1/build_status == READY/limit(4)`。
+- query 通过 `TradeCalendar` model 访问 `core_serving.trade_calendar`，不得出现错误的 `core.trade_calendar` 字面量。
+- 新 API 的 `debug` 必须沿用现有 Wealth `0/1` query contract；只有 `APP_ENV in {local, dev, test}` 且 `debug=1` 时允许返回 `debugInfo`，其它环境强制关闭。
 - 前端 adapter 不出现累计、delta、亿元换算和取整逻辑。
+- `features/wealth-exploration/**` 和 `features/major-indices/**` 不得 import `features/market-overview/**`。
+- major-indices 旧 API/adapter 路径必须删除，不得保留 re-export、wrapper 或双份合同。
 - response/schema 不出现 forecast/predict。
 
 ### 8.6 前端共享契约
@@ -1236,6 +1274,12 @@ Market Context：
 - adapter 保留完整字段。
 - 两页向 Context API 传相同 `market/tradeDate`。
 - turnover 请求收到 resolved date，而不是 URL 原值。
+
+Major Indices：
+
+- 正式 API 和真实响应 adapter 位于 `features/major-indices`，首页与财势探查共同消费。
+- 共享 adapter 不依赖 `features/market-overview`，mock mapper 只保留在首页私有目录。
+- 两页使用同一个 `buildTopMarketTickersFromMajorIndices(...)`，不能分别实现 ticker 过滤和字段转换。
 
 ### 8.7 前端模块
 
@@ -1261,7 +1305,8 @@ Market Context：
 - Context ready 前不请求 turnover。
 - turnover 与 major indices 均收到同一 resolved tradeDate。
 - Turnover DOM 出现在 sector radar slot 之前。
-- 板块雷达 dimension 状态不进入 turnover request key；维度切换不重新请求或 remount 成交额图表。
+- turnover request 类型、URL builder 和 controller key 均不存在 industry/concept/region/dimension 字段。
+- 本轮不实现板块雷达，因此不伪造 dimension 切换运行测试；真实“切换维度不重新请求或 remount 成交额图表”测试作为板块雷达接入门禁。
 - turnover 失败不移除 TopBar/Breadcrumb。
 
 ## 9. 性能门禁
@@ -1311,9 +1356,10 @@ Market Context：
 ### M3 共享前端契约
 
 1. 移动 Market Context 并更新首页 import。
-2. 移动 PageBreadcrumb 和 CSS，证明首页视觉/DOM不变。
-3. 修改 TopMarketBar typed navigation，更新四类页面消费者。
-4. 增加 exploration route。
+2. 上移 major-indices 正式 API/真实 adapter，拆出首页私有 mock mapper，统一 TopMarketBar ticker 映射。
+3. 移动 PageBreadcrumb 和 CSS，证明首页视觉/DOM不变。
+4. 修改 TopMarketBar typed navigation，更新四类页面消费者。
+5. 增加 exploration route。
 
 ### M4 页面与图表
 
@@ -1325,7 +1371,7 @@ Market Context：
 ### M5 收口
 
 1. 后端/前端全量目标测试。
-2. 浏览器人工视觉验收。
+2. 用户部署后执行浏览器人工视觉验收。
 3. 确认旧首页 turnover、首页、股票详情、指数详情无回退。
 4. 更新技术方案与 LLD 状态。
 
@@ -1350,6 +1396,8 @@ cd /Users/congming/github/goldenshare/wealth
 npm test -- \
   src/pages/wealth-exploration/WealthExplorationPage.test.tsx \
   src/features/wealth-exploration/turnover-insight \
+  src/features/market-context/api/marketPageContextAdapter.test.ts \
+  src/features/major-indices/api/marketMajorIndicesAdapter.test.ts \
   src/shared/ui/page-breadcrumb/PageBreadcrumb.test.tsx \
   src/shared/ui/top-market-bar/TopMarketBar.test.tsx \
   src/app/routes/routerState.test.ts \
@@ -1376,8 +1424,8 @@ npm run build
 | G05 | 六态穷尽 | 必须 | `TurnoverInsightSection` + controller | loading/ready/delayed/partial/empty/error 六态组件测试 | 禁止用旧数据或 mock 伪装 ready；禁止复制六份页面 JSX |
 | G06 | 图表与 Hover | 必须 | 单 `TurnoverInsightChart` Canvas + geometry + tooltip | 上下图区同 x、单 hoverIndex、单 crosshair、单 tooltip | 禁止双 chart 实例互相同步；禁止两个 tooltip/crosshair |
 | G07 | 响应式 | 必须 | ResizeObserver + `turnoverInsightGeometry.ts` | `1564px`、`1330px` 宽度几何与截图验收均无裁切/重叠 | 禁止 CSS scale、viewport 字体缩放和硬编码第二套坐标 |
-| G08 | 页面共享契约 | 必须 | shared Market Context、TopMarketBar、PageBreadcrumb | 首页与财势探查的参数、DOM/class、导航回归通过 | 禁止复制 TopBar/Breadcrumb 或自行解析另一套日期 |
-| G09 | 板块维度隔离 | 必须 | Turnover 位于 sector-radar slot 外 | dimension 变化不改变 turnover request key、不发新请求、不 remount | 禁止向成交额 API 增加 industry/concept/region 参数 |
+| G08 | 页面共享契约 | 必须 | shared Market Context、Major Indices API/adapter、TopMarketBar、PageBreadcrumb | 首页与财势探查的参数、ticker 映射、DOM/class、导航回归通过 | 禁止跨 feature 引用 `market-overview`、复制 TopBar/Breadcrumb 或自行解析另一套日期 |
+| G09 | 板块维度隔离 | 本轮静态门禁 | Turnover 位于空 `sector-radar` slot 外；request/controller 无 dimension | DOM 顺序测试 + request 类型/URL/static gate 不含 industry/concept/region/dimension | 本轮禁止伪造板块雷达交互；真实切换回归在板块雷达接入阶段执行 |
 | G10 | 性能预算 | 必须 | query、calculator、controller、Canvas | DB 1 次、limit 4、P95 <=120ms、payload <=64KB、页面请求各 1 次 | 禁止 Redis、无界候选、重复 effect 或放宽 5 秒 timeout 掩盖问题 |
 | G11 | 无预测与范围边界 | 必须 | schema、文案、静态门禁 | response/页面均不出现 forecast/predict | 禁止修改快照生产、表结构、Lake、Dagster 或实现板块雷达业务 |
 | G12 | 异常与安全 | 必须 | exception registry、resolver、API auth | `TI_*` 已登记；非法 market/debug/日期有受控响应 | 禁止泄露 SQL、表名、路径、堆栈或复用 `TO_*` 异常码 |
@@ -1404,7 +1452,7 @@ npm run build
 | 状态可观测 | 本文 6.9、G05、G12 | 六态 + 异常测试 |
 | 计算下沉 | G03-G04 | adapter 静态门禁 |
 | 性能预算前置 | 本文 9、G10 | 查询与 payload 实测 |
-| 共享能力复用 | G08-G09 | 全消费者回归 |
+| 共享能力复用 | G08-G09 | 全消费者回归 + feature 依赖静态门禁 |
 | 用户可见结果优先 | G01、G05-G07、G13 | 真实 API 展示与 Figma 验收 |
 
 ### 12.3 例外白名单
@@ -1413,24 +1461,57 @@ npm run build
 
 ## 13. 计划对账清单
 
-编码交付时必须逐条填写：
+开发对账结果（2026-08-22）：
 
-- [ ] 旧首页半小时预计算事实已保留，旧 API/DTO 未修改。
-- [ ] 新 API、service、query、schema、status、exception 完全独立。
-- [ ] 新 query 只读 `freq=1` 预计算表和交易日历。
-- [ ] 页面公共时间使用与首页相同的 Context 和参数。
-- [ ] TopMarketBar 直接复用且财势探查高亮正确。
-- [ ] Breadcrumb 直接复用，路径为 `财势乾坤 / 财势探查`。
-- [ ] 卡片、曲线、差值、单位、取整全部由后端定义。
-- [ ] 前端没有累计、相减、亿元换算和取整。
-- [ ] 17 个横轴标签、单 canvas 双图区和共享 crosshair 符合 Figma。
-- [ ] Figma 六态全部由同一个 `TurnoverInsightSection` 组件树表达。
-- [ ] `1564px` 与 `1330px` 宽度均不裁切、不重叠，且未使用 CSS scale/viewport 字体缩放。
-- [ ] 板块雷达 dimension 切换不改变成交额请求键、不重新请求或重置图表。
-- [ ] 不包含预测能力。
-- [ ] 成交额洞察位于板块雷达之前。
-- [ ] 首页、股票详情、指数详情共享组件无回退。
-- [ ] 性能门禁通过。
+- [x] 旧首页半小时预计算事实已保留，旧 API/DTO 未修改。
+- [x] 新 API、service、query、schema、status、exception 完全独立。
+- [x] 新 query 只读 `freq=1` 预计算表和交易日历。
+- [x] 页面公共时间使用与首页相同的 Context 和参数。
+- [x] TopMarketBar 直接复用且财势探查高亮正确。
+- [x] Breadcrumb 直接复用，路径为 `财势乾坤 / 财势探查`。
+- [x] 卡片、曲线、差值、单位、取整全部由后端定义。
+- [x] 前端没有累计、相减、亿元换算和取整。
+- [x] 17 个横轴标签、单 canvas 双图区和共享 crosshair 已按 Figma 几何落地。
+- [x] Figma 六态全部由同一个 `TurnoverInsightSection` 组件树表达。
+- [x] `1564px` 与 `1330px` 使用同一响应式 geometry，且未使用 CSS scale/viewport 字体缩放。
+- [x] 成交额 request/controller 不包含板块 dimension，且组件位于空 `sector-radar` slot 之前；真实维度切换回归已登记为板块雷达接入门禁。
+- [x] 不包含预测能力。
+- [x] 成交额洞察位于板块雷达之前。
+- [x] 首页、股票详情、指数详情共享组件自动化回归通过。
+- [x] 单次候选查询、`LIMIT 4`、响应小于 64KB、5 秒请求超时和单 Canvas 性能门禁已落实。
+- [ ] 用户完成本地部署和浏览器视觉验收。
+
+### 13.1 实际验证结果
+
+后端目标回归：`23 passed`。覆盖 calculator、真实 SQLAlchemy session/真实 API 路由、五种服务状态、debug 环境门禁、静态禁止项和旧 turnover API。
+
+前端完整回归：`46` 个测试文件、`299 passed`。覆盖首页、股票详情、指数详情、财势探查、共享导航、共享 Breadcrumb、Context、Major Indices、六态、请求取消和 Canvas 几何。
+
+构建门禁：
+
+- `npm run typecheck`：通过。
+- `npm run build`：通过；保留仓库既有的大 chunk warning，本需求未修改打包策略。
+- `git diff --check`：通过。
+- 未启动后端、前端或浏览器，未部署，未执行视觉验收。
+
+### 13.2 G01-G14 收口
+
+| Gate | 开发结果 |
+| --- | --- |
+| G01 | 使用已评审 Figma 节点和本文冻结几何实现；视觉验收待用户执行。 |
+| G02 | 独立 endpoint/query/service/schema 已落地，旧 turnover 无复用。 |
+| G03 | 查询仅访问一分钟 READY snapshot 与交易日历，候选上限 4。 |
+| G04 | Decimal 累计、累计差值、亿元换算和 ROUND_HALF_UP 均在后端。 |
+| G05 | 一个 `TurnoverInsightSection` 穷尽六态。 |
+| G06 | 一个 Canvas、一个 hoverIndex、一个 crosshair、一个 tooltip。 |
+| G07 | ResizeObserver 和共享 geometry 覆盖 `1564px/1330px`；无 CSS scale。 |
+| G08 | Context、Major Indices、TopMarketBar、PageBreadcrumb 已共享，旧路径已删除。 |
+| G09 | 请求合同不含 dimension，空 `sector-radar` slot 位于成交额之后。 |
+| G10 | 单查询、响应小于 64KB、页面模块各一次请求、5 秒超时已测试。 |
+| G11 | 无预测字段、文案或实现；未触碰板块雷达业务。 |
+| G12 | 六个 `TI_*` 已登记，参数错误和内部错误均受控。 |
+| G13 | 后端真实路由集成与前端真实 API payload 渲染测试通过。 |
+| G14 | 首页、股票详情、指数详情和旧 turnover 回归通过。 |
 
 ## 14. 边界与风险
 
@@ -1458,4 +1539,4 @@ npm run build
 
 本需求不缺数据基础，也不需要新增预计算链路。开发核心是：在共享一分钟快照之上建立完全独立的成交额洞察业务合同，并把财势探查页面接入现有 TopMarketBar、Breadcrumb 和 Market Context 三个共享能力。
 
-当前没有待拍板项。编码必须按 M1 至 M5 顺序推进；若实现时发现必须修改快照表、生产链或旧 turnover DTO，应立即停止，因为这说明代码已经偏离本 LLD。
+当前没有待拍板项。M1 至 M5 的开发与自动化验证已完成；用户部署与浏览器视觉验收尚未执行。若后续验收发现必须修改快照表、生产链或旧 turnover DTO，应重新评审本 LLD，不能用兼容代码绕过边界。

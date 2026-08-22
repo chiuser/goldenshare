@@ -5,11 +5,13 @@ import { LoginPage } from "../../features/auth/ui/LoginPage";
 import { MarketOverviewPage } from "../../pages/market-overview/MarketOverviewPage";
 import { IndexDetailPage } from "../../pages/index-detail/IndexDetailPage";
 import { StockDetailPage } from "../../pages/stock-detail/StockDetailPage";
+import { WealthExplorationPage } from "../../pages/wealth-exploration/WealthExplorationPage";
 import {
   addWealthRouteListener,
   buildLoginPath,
   DEFAULT_WEALTH_PATH,
   isLoginPath,
+  isWealthExplorationPath,
   navigateWealth,
   readRedirectPath,
   readWealthLocation,
@@ -44,6 +46,10 @@ export function WealthRouter() {
   const indexDetailTsCode = parseIndexDetailTsCode(location.pathname);
   if (indexDetailTsCode) {
     return <IndexDetailPage search={location.search} tsCode={indexDetailTsCode} />;
+  }
+
+  if (isWealthExplorationPath(location.pathname)) {
+    return <WealthExplorationPage search={location.search} />;
   }
 
   return <MarketOverviewPage search={location.search} />;

@@ -2,9 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   DEFAULT_WEALTH_PATH,
+  WEALTH_EXPLORATION_PATH,
   buildIndexDetailPath,
   buildStockDetailPath,
+  buildWealthExplorationPath,
+  isWealthExplorationPath,
   navigateWealth,
+  resolveTopMarketNavPath,
   returnToWealthOverview,
 } from "./routerState";
 
@@ -31,6 +35,23 @@ describe("buildIndexDetailPath", () => {
   it("normalizes, trims and encodes index codes", () => {
     expect(buildIndexDetailPath(" 000001.sh ")).toBe("/wealth/market/index/000001.SH");
     expect(buildIndexDetailPath("abc/def.sz")).toBe("/wealth/market/index/ABC%2FDEF.SZ");
+  });
+});
+
+describe("wealth exploration route", () => {
+  it("builds and recognizes the exact route", () => {
+    const params = new URLSearchParams({ market: "CN_A", tradeDate: "2026-08-21" });
+    expect(buildWealthExplorationPath(params)).toBe(
+      "/wealth/exploration?market=CN_A&tradeDate=2026-08-21",
+    );
+    expect(isWealthExplorationPath(WEALTH_EXPLORATION_PATH)).toBe(true);
+    expect(isWealthExplorationPath("/wealth/exploration/extra")).toBe(false);
+  });
+
+  it("maps only released top navigation targets to routes", () => {
+    expect(resolveTopMarketNavPath("market")).toBe(DEFAULT_WEALTH_PATH);
+    expect(resolveTopMarketNavPath("exploration")).toBe(WEALTH_EXPLORATION_PATH);
+    expect(resolveTopMarketNavPath("assistant")).toBeNull();
   });
 });
 

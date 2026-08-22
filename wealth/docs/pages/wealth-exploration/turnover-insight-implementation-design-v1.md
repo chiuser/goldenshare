@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：方案口径与 Figma 已冻结，LLD 已内嵌编码门禁，待评审后开发
+- 状态：开发完成，待用户部署与视觉验收
 - 编写日期：2026-08-21
 - 适用仓库：`/Users/congming/github/goldenshare`
 - 目标页面：财势探查（Wealth Exploration）
@@ -15,6 +15,8 @@
   - 组件页：`11.5 Wealth Exploration - Components`（`797:2`）
   - 状态与交互页：`11.8 Wealth Exploration - States and Interaction Notes`（`797:3`）
 - 事实基线：当前代码与 2026-08-21 正式只读数据审计
+
+2026-08-22 开发收口：独立后端接口、财势探查页面、共享顶部栏/面包屑/时间上下文、单 Canvas 双图区和六态均已按本方案落地；自动化测试、TypeScript 类型检查和生产构建通过。按用户约定，本轮没有启动服务、部署或执行浏览器视觉验收。
 
 2026-08-22 补充冻结：
 
@@ -131,9 +133,9 @@
 
 1366 参考用于证明模块在 `1330px` 内容宽度下不裁切、不重叠；实现不得使用 CSS `transform: scale(...)` 或按视口缩放字体。当前全局宽桌面最小宽度规则保持不变，本需求不修改全站 viewport 策略。
 
-## 4. 当前代码审计
+## 4. 开发前代码审计（保留为实现依据）
 
-### 4.1 财势探查页面尚未接入路由
+### 4.1 开发前财势探查页面尚未接入路由
 
 当前 `wealth/src/app/routes/WealthRouter.tsx` 只显式装配：
 
@@ -154,7 +156,7 @@
 
 本轮只增加财势探查的显式匹配，不顺手改变其它未知 Wealth 路径的既有回落行为；未知路由治理另立范围。
 
-### 4.2 顶部导航当前没有真实跳转
+### 4.2 开发前顶部导航没有真实跳转
 
 `wealth/src/shared/ui/top-market-bar/TopMarketBar.tsx` 已展示“财势探查”，但当前按钮只触发文本 action，且“乾坤行情”为硬编码激活状态。
 
@@ -175,7 +177,7 @@ onNavigate(target)
 
 禁止只在财势探查页面增加一套私有导航处理。
 
-### 4.3 页面上下文当前被行情首页私有化
+### 4.3 开发前页面上下文被行情首页私有化
 
 现有交易日上下文实现位于：
 
@@ -377,7 +379,7 @@ GET /api/v1/wealth/market/turnover-insight
 | --- | --- | --- |
 | `tradeDate` | `YYYY-MM-DD` | 可选；语义与行情首页一致。页面先通过共享 Market Context 解析，随后对模块请求显式传入解析后的日期 |
 | `market` | string | 当前仅允许 `CN_A` |
-| `debug` | boolean | 仅本地/开发环境允许，生产禁用 |
+| `debug` | `0/1` | 仅 `APP_ENV in {local, dev, test}` 且值为 `1` 时返回 `debugInfo`；其它环境强制关闭 |
 
 不开放 `freq`。该模块的事实频率固定为一分钟。
 
@@ -418,7 +420,19 @@ GET /api/v1/wealth/market/turnover-insight
     }
   },
   "axis": {
-    "timeLabels": ["09:30", "09:45", "10:00", "...", "15:00"]
+    "timeLabels": ["09:30", "09:45", "10:00", "...", "15:00"],
+    "cumulative": {
+      "minYi": 0,
+      "maxYi": 24000,
+      "zeroYi": 0,
+      "ticks": ["0", "6000", "12000", "18000", "24000"]
+    },
+    "delta": {
+      "minYi": -2400,
+      "maxYi": 0,
+      "zeroYi": 0,
+      "ticks": ["-2400", "-1200", "0"]
+    }
   },
   "series": [
     {
@@ -445,6 +459,14 @@ GET /api/v1/wealth/market/turnover-insight
 - `direction` 由后端根据精确差值判定，不能根据取整后可能为 0 的展示值反推。
 - 不返回预测字段，也不预留伪预测字段。
 - `tradingDay.expectedTradeDate/sessionStatus/timezone/generatedAt` 与共享 Market Context 同口径；`observedTradeDate` 明确实际展示数据日期，DELAYED 时不得伪装成 expected date。
+
+纵轴合同以已评审 Figma 为准：
+
+- 累计图区取当日、昨日两条累计曲线的最大值并增加 `10%` 展示余量，固定生成四个区间。
+- 设原始极值为 `domainMax`，取 `granularity = 10 ^ max(0, floor(log10(abs(domainMax))) - 1)`，再计算 `step = ceil((domainMax * 1.10 / 4) / granularity) * granularity`；纵轴为 `0, step, 2*step, 3*step, 4*step`。当前样本得到 `0/6000/12000/18000/24000`。
+- 差值图区必须包含 `0`；每个实际存在的正负方向各生成两个区间，各方向独立按其绝对极值使用同一量级规则向外取整。当前全负样本得到 `0/-1200/-2400`。
+- 累计图全零时固定使用 `0..4`；差值图全零时固定使用 `-1/0/1`，防止零跨度。
+- 前端只使用 API 返回的 `minYi/maxYi/ticks` 做像素映射，不重新计算刻度。
 
 ## 8. 计算口径
 
@@ -625,7 +647,7 @@ amount_yi = round_half_up(amount_thousand_yuan / 100000)
 
 - API 继续使用 `require_quote_access`。
 - 当前市场固定为 `CN_A`，非法市场返回受控参数错误。
-- `debug` 只允许本地/开发环境，生产强制关闭。
+- API 参数只接受 `debug=0|1`。仅当 `APP_ENV in {local, dev, test}` 且 `debug=1` 时返回 `debugInfo`；其它环境强制关闭，不新增配置项。
 - 不返回 SQL、表名、文件路径或内部堆栈。
 - 本需求不新增运行配置项。
 - 频率、单位、对比日和横轴标记均是冻结业务合同，不散落为页面常量或环境变量。

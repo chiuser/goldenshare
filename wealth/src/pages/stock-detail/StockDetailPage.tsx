@@ -15,8 +15,14 @@ import { StockBreadcrumbActionBar } from "../../features/stock-detail/layout/Sto
 import { StockChartToolbar } from "../../features/stock-detail/layout/StockChartToolbar";
 import { StockInfoRail } from "../../features/stock-detail/sidebar/StockInfoRail";
 import { StockDetailToast } from "../../features/stock-detail/ui/StockDetailToast";
-import { returnToWealthOverview } from "../../app/routes/routerState";
+import {
+  buildIndexDetailPath,
+  navigateWealth,
+  resolveTopMarketNavPath,
+  returnToWealthOverview,
+} from "../../app/routes/routerState";
 import { TopMarketBar } from "../../shared/ui/top-market-bar/TopMarketBar";
+import type { TopMarketNavKey } from "../../shared/ui/top-market-bar/topMarketBarTypes";
 import type { StockDetailViewModel, StockPeriodKey } from "../../features/stock-detail/model/stockDetailTypes";
 import type { StockDetailPageInitResponseDto, StockMinuteFrequency } from "../../features/stock-detail/api/stockDetailApiTypes";
 import type { StockMinuteChartViewModel } from "../../features/stock-detail/api/stockMinuteViewModelAdapter";
@@ -176,10 +182,28 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
     window.setTimeout(() => setToast(""), 1800);
   }
 
+  function handleTopNavigate(target: TopMarketNavKey) {
+    const path = resolveTopMarketNavPath(target);
+    if (path) {
+      navigateWealth(path);
+      return;
+    }
+    showToast("该入口暂未开放");
+  }
+
+  function openIndexDetail(indexCode: string) {
+    navigateWealth(buildIndexDetailPath(indexCode));
+  }
+
   if (loadState !== "ready" || viewModel === null) {
     return (
       <div className="stock-detail-app">
-        <TopMarketBar onAction={showToast} tickers={scaffoldViewModel.topMarketTickers} />
+        <TopMarketBar
+          activeNav="market"
+          onNavigate={handleTopNavigate}
+          onTickerSelect={openIndexDetail}
+          tickers={scaffoldViewModel.topMarketTickers}
+        />
         <section className="stock-detail-state-panel" aria-label={loadState === "loading" ? "股票详情加载中" : "股票详情加载失败"}>
           <div className="state-title">{loadState === "loading" ? "正在加载股票详情" : "股票详情加载失败"}</div>
           <div className="state-detail">{loadState === "loading" ? "正在读取真实行情数据，请稍候。" : errorMessage}</div>
@@ -191,7 +215,12 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
 
   return (
     <div className="stock-detail-app">
-      <TopMarketBar onAction={showToast} tickers={viewModel.topMarketTickers} />
+      <TopMarketBar
+        activeNav="market"
+        onNavigate={handleTopNavigate}
+        onTickerSelect={openIndexDetail}
+        tickers={viewModel.topMarketTickers}
+      />
       <StockBreadcrumbActionBar onReturnHome={returnToWealthOverview} stock={viewModel.stock} />
       <StockChartToolbar
         activePeriod={activePeriod}

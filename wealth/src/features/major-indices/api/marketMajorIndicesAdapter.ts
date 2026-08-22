@@ -1,5 +1,5 @@
-import type { MarketDirection } from "../../../../shared/model/market";
-import type { QuoteItem } from "../../api/marketOverviewTypes";
+import type { MarketDirection } from "../../../shared/model/market";
+import type { TopMarketTicker } from "../../../shared/ui/top-market-bar/topMarketBarTypes";
 import type { MarketMajorIndicesResponse } from "./marketMajorIndicesApi";
 
 export interface MajorIndexViewItem {
@@ -18,23 +18,9 @@ export interface MarketMajorIndicesViewModel {
   source: "mock" | "real";
 }
 
-export function buildMajorIndicesViewModelFromMock(indices: QuoteItem[]): MarketMajorIndicesViewModel {
-  return {
-    indices: indices.map((row) => ({
-      code: row.code,
-      name: row.name,
-      point: row.point,
-      change: row.change,
-      pct: row.pct,
-      direction: row.direction,
-    })),
-    statusLabel: "事实聚合已就绪",
-    statusTone: "ready",
-    source: "mock",
-  };
-}
-
-export function buildMajorIndicesViewModelFromApi(payload: MarketMajorIndicesResponse): MarketMajorIndicesViewModel {
+export function buildMajorIndicesViewModelFromApi(
+  payload: MarketMajorIndicesResponse,
+): MarketMajorIndicesViewModel {
   return {
     indices: payload.majorIndices.rows.map((row) => ({
       code: row.subject.subjectCode,
@@ -50,3 +36,18 @@ export function buildMajorIndicesViewModelFromApi(payload: MarketMajorIndicesRes
   };
 }
 
+export function buildTopMarketTickersFromMajorIndices(
+  model: MarketMajorIndicesViewModel,
+): readonly TopMarketTicker[] {
+  return model.indices.flatMap<TopMarketTicker>((row) => {
+    if (!Number.isFinite(row.point) || !Number.isFinite(row.change) || !Number.isFinite(row.pct)) return [];
+    return [{
+      code: row.code,
+      name: row.name,
+      point: row.point as number,
+      change: row.change as number,
+      pct: row.pct as number,
+      direction: row.direction,
+    }];
+  });
+}

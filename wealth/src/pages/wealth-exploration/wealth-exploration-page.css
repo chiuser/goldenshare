@@ -1,0 +1,13 @@
+.wealth-exploration-page {
+  min-height: 100vh;
+}
+
+.wealth-exploration-shell {
+  margin: 0 auto;
+  max-width: var(--cs-layout-content-max-width);
+  padding: 14px 18px 34px;
+}
+
+.wealth-exploration-shell [data-module-slot="sector-radar"] {
+  height: 0;
+}

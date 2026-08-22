@@ -1,5 +1,5 @@
-import { wealthFetch } from "../../../../shared/api/wealthApiClient";
-import type { DataStatus, MarketDirection } from "../../../../shared/model/market";
+import { wealthFetch } from "../../../shared/api/wealthApiClient";
+import type { DataStatus, MarketDirection } from "../../../shared/model/market";
 
 export interface MarketMajorIndicesRequest {
   market?: "CN_A";
@@ -74,7 +74,7 @@ export class MarketMajorIndicesApiError extends Error {
   }
 }
 
-function buildMajorIndicesUrl(params: MarketMajorIndicesRequest): string {
+export function buildMajorIndicesUrl(params: MarketMajorIndicesRequest): string {
   const url = new URL("/api/v1/wealth/market/major-indices", window.location.origin);
   if (params.market) url.searchParams.set("market", params.market);
   if (params.tradeDate) url.searchParams.set("tradeDate", params.tradeDate);
@@ -99,7 +99,7 @@ export async function fetchMarketMajorIndices(
       if (payload.message) message = payload.message;
       if (payload.code) code = payload.code;
     } catch {
-      // ignore parse failure and keep default message
+      // Keep the bounded HTTP fallback when the error body is not JSON.
     }
     throw new MarketMajorIndicesApiError(message, code);
   }

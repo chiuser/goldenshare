@@ -1,4 +1,7 @@
+import type { TopMarketNavKey } from "../../shared/ui/top-market-bar/topMarketBarTypes";
+
 export const DEFAULT_WEALTH_PATH = "/wealth/market/overview";
+export const WEALTH_EXPLORATION_PATH = "/wealth/exploration";
 
 const ROUTE_CHANGE_EVENT = "wealth-route-change";
 const WEALTH_NAVIGATION_STATE_KEY = "__goldenshareWealthNavigation";
@@ -65,6 +68,21 @@ export function buildIndexDetailPath(tsCode: string): string {
   return `/wealth/market/index/${encodeURIComponent(normalized)}`;
 }
 
+export function buildWealthExplorationPath(search?: URLSearchParams): string {
+  const query = search?.toString();
+  return query ? `${WEALTH_EXPLORATION_PATH}?${query}` : WEALTH_EXPLORATION_PATH;
+}
+
+export function isWealthExplorationPath(pathname: string): boolean {
+  return pathname === WEALTH_EXPLORATION_PATH;
+}
+
+export function resolveTopMarketNavPath(target: TopMarketNavKey): string | null {
+  if (target === "market") return DEFAULT_WEALTH_PATH;
+  if (target === "exploration") return WEALTH_EXPLORATION_PATH;
+  return null;
+}
+
 export function readRedirectPath(search: string): string {
   const redirect = new URLSearchParams(search).get("redirect");
   if (!redirect) return DEFAULT_WEALTH_PATH;
@@ -91,7 +109,7 @@ function readWealthNavigationState(state: unknown): WealthNavigationState | null
 }
 
 function isWealthRoute(pathname: string): boolean {
-  return pathname === DEFAULT_WEALTH_PATH || pathname.startsWith("/wealth/market/");
+  return isWealthExplorationPath(pathname) || pathname === DEFAULT_WEALTH_PATH || pathname.startsWith("/wealth/market/");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
