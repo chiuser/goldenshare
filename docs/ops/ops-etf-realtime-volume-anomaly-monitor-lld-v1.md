@@ -1,6 +1,6 @@
 # ETF 实时成交额异动监控 LLD v1
 
-状态：本地实现完成 / 待部署验收
+状态：M8.1/M8.2/M8.3 本地代码与测试完成 / 待重新部署验收
 创建日期：2026-08-22
 依据方案：[ETF 实时成交额异动监控方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-etf-realtime-volume-anomaly-monitor-plan-v1.md)
 
@@ -21,6 +21,17 @@ etf_rt_daily Redis 批次
 ```
 
 V1 不是新增 Tushare 数据集，不进入 `DatasetDefinition`、TaskRun、freshness、date audit，也不引入 Doris。
+
+### 1.1 本轮收口记录（2026-08-22）
+
+生产前置只读复核已完成：`foundation.realtime_runtime_config` 中 `etf_rt_daily.keep_recent_batches=260`、collector apply state 已上报版本 `3`，休市期间 ETF feed 为 `market_closed`，未发现本轮相关业务表写入。代码与测试本轮完成以下收口：
+
+1. `src/ops/services/etf_realtime_monitor_service.py` 先提交告警记录，再发送 Feishu，发送结果单独回写；名称从 `core.etf_basic` 做快照，名称缺失保留空值；单个 ETF/窗口失败只增加失败计数并继续处理。
+2. `src/foundation/realtime/etf_volume_metrics.py` 不再使用 `date.min/time.min`；缺失和无效指标必须有真实交易日与分钟桶，监控读取不凭单批次制造指标，归档读取时补齐真实交易时段桶。
+3. `src/ops/services/etf_realtime_minute_archive_service.py` 对同一 ETF、交易日、分钟桶只保留最终指标，优先最新有效源快照；午休前后独立计算，使用数据库主键 upsert 保证重复归档幂等。
+4. 测试已补齐监控提交顺序、Feishu 失败、observe 不通知、异常隔离、冷却升级、归档午休边界/缺失键/重复执行，以及告警/汇总 API 和前端配置中心 API 隔离契约。
+
+本轮不执行生产迁移、清理、监控池/规则/Feishu 配置、部署或重启；完成代码交付后停在“等待重新部署验收”。
 
 ---
 
@@ -910,8 +921,8 @@ tests/test_etf_realtime_monitor_models.py
 tests/test_etf_realtime_volume_metrics.py
 tests/test_etf_realtime_monitor_pool_service.py
 tests/test_etf_realtime_monitor_rule_service.py
-tests/test_etf_realtime_monitor_service.py
-tests/test_etf_realtime_minute_archive_service.py
+tests/web/test_etf_realtime_monitor_service.py
+tests/web/test_etf_realtime_minute_archive_service.py
 tests/web/test_ops_etf_realtime_monitor_api.py
 ```
 

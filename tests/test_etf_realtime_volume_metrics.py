@@ -43,7 +43,7 @@ def test_etf_volume_metrics_use_cumulative_amount_delta_and_do_not_fill_missing_
         trade_date=__import__("datetime").date(2026, 8, 21),
     )
 
-    ok_metric = next(item for item in metrics if item.ts_code == "510300.SH")
+    ok_metric = next(item for item in metrics if item.ts_code == "510300.SH" and item.data_quality == DATA_QUALITY_OK)
     missing_metric = next(item for item in metrics if item.ts_code == "159919.SZ")
     assert ok_metric.data_quality == DATA_QUALITY_OK
     assert str(ok_metric.amount_delta_yuan) == "600"
@@ -72,8 +72,8 @@ def test_etf_volume_metrics_mark_decreased_cumulative_amount_invalid() -> None:
         trade_date=__import__("datetime").date(2026, 8, 21),
     )
 
-    assert metrics[0].data_quality == DATA_QUALITY_INVALID
-    assert metrics[0].missing_reason == "amount_decreased"
+    invalid_metric = next(item for item in metrics if item.data_quality == DATA_QUALITY_INVALID)
+    assert invalid_metric.missing_reason == "amount_decreased"
 
 
 def test_etf_window_metrics_require_complete_window() -> None:
@@ -98,5 +98,5 @@ def test_etf_window_metrics_require_complete_window() -> None:
 
     window_metrics = aggregate_etf_window_metrics(minute_metrics, window_minutes=5)
 
-    assert window_metrics[0].data_quality == DATA_QUALITY_OK
-    assert str(window_metrics[0].amount_yuan) == "500"
+    complete_window = next(item for item in window_metrics if item.data_quality == DATA_QUALITY_OK)
+    assert str(complete_window.amount_yuan) == "500"

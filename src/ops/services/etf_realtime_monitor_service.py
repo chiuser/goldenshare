@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.realtime.etf_volume_metrics import (
     DATA_QUALITY_OK,
     EtfWindowMetric,
@@ -34,6 +35,7 @@ class EtfRealtimeMonitorRunResult:
     status: str
     evaluated_count: int
     alert_count: int
+    failed_count: int = 0
     message: str | None = None
 
 
@@ -71,6 +73,7 @@ class EtfRealtimeMonitorService:
         now = datetime.now(CN_TIMEZONE)
         target_trade_date = (trade_date or now).astimezone(CN_TIMEZONE).date()
         ts_codes = [item.ts_code for item in pool_items]
+        etf_names = _load_etf_names(session, ts_codes, logger=self._logger)
         minute_metrics = build_etf_minute_metrics_for_trade_date(
             store,
             feed_key=feed_key,
@@ -80,64 +83,91 @@ class EtfRealtimeMonitorService:
         )
         alerts_created = 0
         evaluated = 0
+        failed = 0
         pool_by_code = {item.ts_code: item for item in pool_items}
         for window in (1, 5, 15):
             for metric in _latest_window_metrics(aggregate_etf_window_metrics(minute_metrics, window_minutes=window)):
-                if metric.data_quality != DATA_QUALITY_OK or metric.amount_yuan is None:
-                    continue
-                pool_item = pool_by_code.get(metric.ts_code)
-                if pool_item is None:
-                    continue
-                rule = _resolve_rule(rule_items, ts_code=metric.ts_code, group_key=pool_item.group_key, window_minutes=window)
-                if rule is None:
-                    continue
-                baseline_amount, baseline_trade_dates = _baseline_amount(
-                    session,
-                    ts_code=metric.ts_code,
-                    bucket_end_time=metric.bucket_end_time,
-                    window_minutes=window,
-                    before_trade_date=target_trade_date,
-                )
-                if baseline_amount is None or not baseline_trade_dates:
-                    continue
-                evaluated += 1
-                severity = _severity(metric.amount_yuan, baseline_amount, rule)
-                if severity is None:
-                    continue
-                if not _cooldown_allows(session, rule=rule, severity=severity, metric=metric, now=now):
-                    continue
-                alert = EtfRealtimeAlert(
-                    trade_date=target_trade_date,
-                    triggered_at=now,
-                    bucket_end_time=metric.bucket_end_time,
-                    window_minutes=window,
-                    ts_code=metric.ts_code,
-                    etf_name=None,
-                    group_key=pool_item.group_key,
-                    group_name=pool_item.group_name,
-                    rule_id=rule.id,
-                    severity=severity,
-                    current_amount_yuan=metric.amount_yuan,
-                    baseline_amount_yuan=baseline_amount,
-                    ratio=_ratio(metric.amount_yuan, baseline_amount),
-                    baseline_trade_dates_json=[item.isoformat() for item in baseline_trade_dates],
-                    cooldown_key=_cooldown_key(metric.ts_code, window, rule.id),
-                    feishu_status="skipped" if severity == "observe" or not rule.feishu_enabled else "pending",
-                )
-                session.add(alert)
-                session.flush()
-                if alert.feishu_status == "pending":
-                    message_id, error_message = self._feishu_service.send_alert(alert)
-                    if error_message:
-                        alert.feishu_status = "failed"
-                        alert.feishu_error = error_message
-                    else:
-                        alert.feishu_status = "success"
-                        alert.feishu_message_id = message_id
-                        alert.notified_at = datetime.now(CN_TIMEZONE)
-                alerts_created += 1
+                try:
+                    if metric.data_quality != DATA_QUALITY_OK or metric.amount_yuan is None:
+                        continue
+                    pool_item = pool_by_code.get(metric.ts_code)
+                    if pool_item is None:
+                        continue
+                    rule = _resolve_rule(rule_items, ts_code=metric.ts_code, group_key=pool_item.group_key, window_minutes=window)
+                    if rule is None:
+                        continue
+                    baseline_amount, baseline_trade_dates = _baseline_amount(
+                        session,
+                        ts_code=metric.ts_code,
+                        bucket_end_time=metric.bucket_end_time,
+                        window_minutes=window,
+                        before_trade_date=target_trade_date,
+                    )
+                    if baseline_amount is None or not baseline_trade_dates:
+                        continue
+                    evaluated += 1
+                    severity = _severity(metric.amount_yuan, baseline_amount, rule)
+                    if severity is None:
+                        continue
+                    if not _cooldown_allows(session, rule=rule, severity=severity, metric=metric, now=now):
+                        continue
+                    alert = EtfRealtimeAlert(
+                        trade_date=target_trade_date,
+                        triggered_at=now,
+                        bucket_end_time=metric.bucket_end_time,
+                        window_minutes=window,
+                        ts_code=metric.ts_code,
+                        etf_name=etf_names.get(metric.ts_code),
+                        group_key=pool_item.group_key,
+                        group_name=pool_item.group_name,
+                        rule_id=rule.id,
+                        severity=severity,
+                        current_amount_yuan=metric.amount_yuan,
+                        baseline_amount_yuan=baseline_amount,
+                        ratio=_ratio(metric.amount_yuan, baseline_amount),
+                        baseline_trade_dates_json=[item.isoformat() for item in baseline_trade_dates],
+                        cooldown_key=_cooldown_key(metric.ts_code, window, rule.id),
+                        feishu_status="skipped" if severity == "observe" or not rule.feishu_enabled else "pending",
+                    )
+                    self._persist_alert_and_notify(session, alert)
+                    alerts_created += 1
+                except Exception as exc:
+                    session.rollback()
+                    failed += 1
+                    self._logger.exception(
+                        "ETF monitor item failed: ts_code=%s window_minutes=%s reason=%s",
+                        metric.ts_code,
+                        window,
+                        exc,
+                    )
+        return EtfRealtimeMonitorRunResult(
+            status="ok",
+            evaluated_count=evaluated,
+            alert_count=alerts_created,
+            failed_count=failed,
+        )
+
+    def _persist_alert_and_notify(self, session: Session, alert: EtfRealtimeAlert) -> None:
+        session.add(alert)
         session.commit()
-        return EtfRealtimeMonitorRunResult(status="ok", evaluated_count=evaluated, alert_count=alerts_created)
+        if alert.feishu_status != "pending":
+            return
+
+        try:
+            message_id, error_message = self._feishu_service.send_alert(alert)
+        except Exception as exc:  # notification failure must not abort monitor evaluation
+            message_id, error_message = None, str(exc)
+        persisted = session.get(EtfRealtimeAlert, alert.id)
+        if persisted is None:
+            return
+        if error_message:
+            persisted.feishu_status = "failed"
+            persisted.feishu_error = error_message
+        else:
+            persisted.feishu_status = "success"
+            persisted.feishu_message_id = message_id
+            persisted.notified_at = datetime.now(CN_TIMEZONE)
+        session.commit()
 
 
 def _latest_window_metrics(metrics: Sequence[EtfWindowMetric]) -> list[EtfWindowMetric]:
@@ -241,3 +271,19 @@ def _cooldown_allows(
 
 def _cooldown_key(ts_code: str, window_minutes: int, rule_id: int | None) -> str:
     return f"etf_realtime:{ts_code}:{window_minutes}:{rule_id or 'none'}"
+
+
+def _load_etf_names(session: Session, ts_codes: Sequence[str], *, logger: logging.Logger) -> dict[str, str | None]:
+    try:
+        rows = session.execute(
+            select(EtfBasic.ts_code, EtfBasic.csname, EtfBasic.extname, EtfBasic.cname)
+            .where(EtfBasic.ts_code.in_(list(ts_codes)))
+        ).all()
+    except Exception as exc:
+        session.rollback()
+        logger.warning("ETF monitor name snapshot unavailable: %s", exc)
+        return {}
+    return {
+        row.ts_code: row.csname or row.extname or row.cname or None
+        for row in rows
+    }

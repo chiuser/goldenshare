@@ -49,7 +49,8 @@ def run_realtime_collector_serve(
                     echo_fn(
                         "realtime-collector-serve: "
                         f"feed_key={result.feed_key} monitor_status={monitor_result.status} "
-                        f"evaluated={monitor_result.evaluated_count} alerts={monitor_result.alert_count}"
+                        f"evaluated={monitor_result.evaluated_count} alerts={monitor_result.alert_count} "
+                        f"failed={monitor_result.failed_count}"
                     )
                     if monitor_result.message:
                         echo_fn(f"realtime-collector-serve: feed_key={result.feed_key} monitor_message={monitor_result.message}")

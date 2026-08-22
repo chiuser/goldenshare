@@ -62,15 +62,27 @@ def build_etf_minute_metrics_for_trade_date(
     ts_codes: Sequence[str],
     trade_date: date,
     batch_limit: int | None = None,
+    complete_missing: bool = False,
 ) -> list[EtfMinuteMetric]:
     batch_ids = list(reversed(store.list_batch_ids(feed_key, limit=batch_limit)))
     filtered_batch_ids: list[str] = []
+    batch_expected_times: dict[str, datetime] = {}
     for batch_id in batch_ids:
         meta = store.get_batch_meta(feed_key, batch_id) or {}
         meta_date = _parse_iso_datetime(meta.get("published_at") or meta.get("received_at"))
         if meta_date is not None and meta_date.astimezone(CN_TIMEZONE).date() == trade_date:
             filtered_batch_ids.append(batch_id)
-    return _build_pairwise_metrics(store, feed_key=feed_key, batch_ids=filtered_batch_ids, ts_codes=ts_codes)
+            batch_expected_times[batch_id] = meta_date.astimezone(CN_TIMEZONE)
+    metrics = _build_pairwise_metrics(
+        store,
+        feed_key=feed_key,
+        batch_ids=filtered_batch_ids,
+        ts_codes=ts_codes,
+        batch_expected_times=batch_expected_times,
+    )
+    if not complete_missing:
+        return _collapse_trade_date_metrics(metrics, trade_date=trade_date)
+    return _complete_trade_date_metrics(metrics, ts_codes=ts_codes, trade_date=trade_date)
 
 
 def aggregate_etf_window_metrics(
@@ -156,10 +168,11 @@ def _build_pairwise_metrics(
     feed_key: str,
     batch_ids: Sequence[str],
     ts_codes: Sequence[str],
+    batch_expected_times: Mapping[str, datetime] | None = None,
 ) -> list[EtfMinuteMetric]:
     normalized_codes = [_normalize_ts_code(item) for item in ts_codes if _normalize_ts_code(item)]
     if len(batch_ids) < 2:
-        return [_missing_metric(ts_code=code, reason="insufficient_batches") for code in normalized_codes]
+        return []
 
     results: list[EtfMinuteMetric] = []
     previous_snapshots: dict[str, dict[str, Any]] | None = None
@@ -168,15 +181,16 @@ def _build_pairwise_metrics(
         current_snapshots = store.get_batch_snapshots(feed_key, batch_id, ts_codes=normalized_codes)
         if previous_snapshots is not None and previous_batch_id is not None:
             for code in normalized_codes:
-                results.append(
-                    _metric_from_pair(
-                        ts_code=code,
-                        batch_id=batch_id,
-                        snapshot=current_snapshots.get(code),
-                        previous_batch_id=previous_batch_id,
-                        previous_snapshot=previous_snapshots.get(code),
-                    )
+                metric = _metric_from_pair(
+                    ts_code=code,
+                    batch_id=batch_id,
+                    snapshot=current_snapshots.get(code),
+                    previous_batch_id=previous_batch_id,
+                    previous_snapshot=previous_snapshots.get(code),
+                    expected_trade_time=(batch_expected_times or {}).get(batch_id),
                 )
+                if metric is not None:
+                    results.append(metric)
         previous_snapshots = current_snapshots
         previous_batch_id = batch_id
     return results
@@ -189,15 +203,35 @@ def _metric_from_pair(
     snapshot: Mapping[str, Any] | None,
     previous_batch_id: str,
     previous_snapshot: Mapping[str, Any] | None,
-) -> EtfMinuteMetric:
+    expected_trade_time: datetime | None = None,
+) -> EtfMinuteMetric | None:
     if snapshot is None:
-        return _missing_metric(ts_code=ts_code, reason="current_snapshot_missing", batch_id=batch_id, previous_batch_id=previous_batch_id)
+        return _missing_metric(
+            ts_code=ts_code,
+            reason="current_snapshot_missing",
+            batch_id=batch_id,
+            previous_batch_id=previous_batch_id,
+            expected_trade_time=expected_trade_time,
+        )
     if previous_snapshot is None:
-        return _missing_metric(ts_code=ts_code, reason="previous_snapshot_missing", batch_id=batch_id, previous_batch_id=previous_batch_id)
+        return _missing_metric(
+            ts_code=ts_code,
+            reason="previous_snapshot_missing",
+            batch_id=batch_id,
+            previous_batch_id=previous_batch_id,
+            source_trade_time=_parse_iso_datetime(snapshot.get("trade_time")),
+            expected_trade_time=expected_trade_time,
+        )
 
     source_trade_time = _parse_iso_datetime(snapshot.get("trade_time"))
     if source_trade_time is None:
-        return _invalid_metric(ts_code=ts_code, reason="invalid_trade_time", batch_id=batch_id, previous_batch_id=previous_batch_id)
+        return _invalid_metric(
+            ts_code=ts_code,
+            reason="invalid_trade_time",
+            batch_id=batch_id,
+            previous_batch_id=previous_batch_id,
+            expected_trade_time=expected_trade_time,
+        )
     source_trade_time = source_trade_time.astimezone(CN_TIMEZONE)
     bucket = _minute_bucket_end(source_trade_time)
     if bucket is None:
@@ -206,7 +240,7 @@ def _metric_from_pair(
             reason="trade_time_outside_session",
             batch_id=batch_id,
             previous_batch_id=previous_batch_id,
-            source_trade_time=source_trade_time,
+            expected_trade_time=expected_trade_time,
         )
 
     current_amount = _parse_decimal(snapshot.get("amount"))
@@ -246,12 +280,20 @@ def _missing_metric(
     batch_id: str | None = None,
     previous_batch_id: str | None = None,
     source_trade_time: datetime | None = None,
-) -> EtfMinuteMetric:
-    trade_date = source_trade_time.date() if source_trade_time is not None else date.min
-    minute_bucket = _minute_bucket_end(source_trade_time) if source_trade_time is not None else time.min
+    expected_trade_time: datetime | None = None,
+    expected_trade_date: date | None = None,
+    expected_minute_bucket: time | None = None,
+) -> EtfMinuteMetric | None:
+    reference_time = source_trade_time or expected_trade_time
+    if reference_time is not None:
+        reference_time = reference_time.astimezone(CN_TIMEZONE)
+    trade_date = reference_time.date() if reference_time is not None else expected_trade_date
+    minute_bucket = _minute_bucket_end(reference_time) if reference_time is not None else expected_minute_bucket
+    if trade_date is None or minute_bucket is None:
+        return None
     return EtfMinuteMetric(
         trade_date=trade_date,
-        minute_bucket=minute_bucket or time.min,
+        minute_bucket=minute_bucket,
         ts_code=ts_code,
         source_trade_time=source_trade_time,
         source_batch_id=batch_id,
@@ -272,12 +314,20 @@ def _invalid_metric(
     batch_id: str | None = None,
     previous_batch_id: str | None = None,
     source_trade_time: datetime | None = None,
-) -> EtfMinuteMetric:
-    trade_date = source_trade_time.date() if source_trade_time is not None else date.min
-    minute_bucket = _minute_bucket_end(source_trade_time) if source_trade_time is not None else time.min
+    expected_trade_time: datetime | None = None,
+    expected_trade_date: date | None = None,
+    expected_minute_bucket: time | None = None,
+) -> EtfMinuteMetric | None:
+    reference_time = source_trade_time or expected_trade_time
+    if reference_time is not None:
+        reference_time = reference_time.astimezone(CN_TIMEZONE)
+    trade_date = reference_time.date() if reference_time is not None else expected_trade_date
+    minute_bucket = _minute_bucket_end(reference_time) if reference_time is not None else expected_minute_bucket
+    if trade_date is None or minute_bucket is None:
+        return None
     return EtfMinuteMetric(
         trade_date=trade_date,
-        minute_bucket=minute_bucket or time.min,
+        minute_bucket=minute_bucket,
         ts_code=ts_code,
         source_trade_time=source_trade_time,
         source_batch_id=batch_id,
@@ -355,3 +405,57 @@ def _parse_iso_datetime(value: Any) -> datetime | None:
 
 def _normalize_ts_code(value: Any) -> str:
     return str(value or "").strip().upper()
+
+
+def _complete_trade_date_metrics(
+    metrics: Sequence[EtfMinuteMetric],
+    *,
+    ts_codes: Sequence[str],
+    trade_date: date,
+) -> list[EtfMinuteMetric]:
+    normalized_codes = [_normalize_ts_code(item) for item in ts_codes if _normalize_ts_code(item)]
+    by_key = _collapse_trade_date_metrics(metrics, trade_date=trade_date)
+    by_key_map = {(metric.trade_date, metric.minute_bucket, metric.ts_code): metric for metric in by_key}
+
+    for ts_code in normalized_codes:
+        for minute_bucket in _expected_minute_buckets():
+            key = (trade_date, minute_bucket, ts_code)
+            if key not in by_key_map:
+                missing = _missing_metric(
+                    ts_code=ts_code,
+                    reason="missing_batch_for_minute",
+                    expected_trade_date=trade_date,
+                    expected_minute_bucket=minute_bucket,
+                )
+                if missing is not None:
+                    by_key_map[key] = missing
+    return sorted(by_key_map.values(), key=lambda item: (item.ts_code, item.minute_bucket))
+
+
+def _collapse_trade_date_metrics(metrics: Sequence[EtfMinuteMetric], *, trade_date: date) -> list[EtfMinuteMetric]:
+    by_key: dict[tuple[date, time, str], EtfMinuteMetric] = {}
+    for metric in metrics:
+        if metric.trade_date != trade_date:
+            continue
+        key = (metric.trade_date, metric.minute_bucket, metric.ts_code)
+        existing = by_key.get(key)
+        if existing is None or _prefer_metric(existing, metric):
+            by_key[key] = metric
+    return sorted(by_key.values(), key=lambda item: (item.ts_code, item.minute_bucket))
+
+
+def _prefer_metric(current: EtfMinuteMetric, candidate: EtfMinuteMetric) -> bool:
+    if candidate.data_quality == DATA_QUALITY_OK:
+        return True
+    return current.data_quality != DATA_QUALITY_OK
+
+
+def _expected_minute_buckets() -> tuple[time, ...]:
+    buckets: list[time] = []
+    for start, end in ((time(9, 31), time(11, 30)), (time(13, 1), time(15, 0))):
+        current = datetime.combine(date(2000, 1, 1), start)
+        end_dt = datetime.combine(date(2000, 1, 1), end)
+        while current <= end_dt:
+            buckets.append(current.time())
+            current += timedelta(minutes=1)
+    return tuple(buckets)

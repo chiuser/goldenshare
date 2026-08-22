@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 
 from src.foundation.models.core.etf_basic import EtfBasic
+from src.ops.models.ops.etf_realtime_alert import EtfRealtimeAlert
+from src.ops.models.ops.etf_realtime_monitor_pool import EtfRealtimeMonitorPool
 from src.ops.models.ops.etf_series_active import EtfSeriesActive
 
 
@@ -120,3 +122,70 @@ def test_etf_realtime_monitor_default_rules_are_explicit_action(app_client, user
     rules_after = app_client.get("/api/v1/ops/realtime/etf-monitor/rules", headers=headers)
     assert rules_after.status_code == 200
     assert sorted(item["window_minutes"] for item in rules_after.json()["items"]) == [1, 5, 15]
+
+
+def test_etf_realtime_monitor_alerts_summary_and_invalid_window(app_client, user_factory, db_session) -> None:
+    _seed_active_etf(db_session)
+    db_session.add(
+        EtfRealtimeMonitorPool(
+            ts_code="510300.SH",
+            group_key="broad_base",
+            group_name="宽基ETF",
+            enabled=True,
+            display_order=1,
+        )
+    )
+    db_session.add(
+        EtfRealtimeAlert(
+            trade_date=date(2026, 8, 22),
+            triggered_at=datetime(2026, 8, 22, 10, 0, tzinfo=timezone.utc),
+            bucket_end_time=datetime.strptime("10:00", "%H:%M").time(),
+            window_minutes=1,
+            ts_code="510300.SH",
+            etf_name="沪深300ETF",
+            group_key="broad_base",
+            group_name="宽基ETF",
+            severity="alert",
+            current_amount_yuan=300,
+            baseline_amount_yuan=100,
+            ratio=3,
+            baseline_trade_dates_json=["2026-08-21"],
+            cooldown_key="etf_realtime:510300.SH:1:1",
+            feishu_status="failed",
+            feishu_error="test failure",
+        )
+    )
+    db_session.commit()
+    headers = _login_headers(app_client, user_factory)
+
+    alerts = app_client.get(
+        "/api/v1/ops/realtime/etf-monitor/alerts?trade_date=2026-08-22&severity=alert&page=1&page_size=50",
+        headers=headers,
+    )
+    assert alerts.status_code == 200
+    assert alerts.json()["total"] == 1
+    assert alerts.json()["items"][0]["feishu_status"] == "failed"
+
+    summary = app_client.get("/api/v1/ops/realtime/etf-monitor/summary?trade_date=2026-08-22", headers=headers)
+    assert summary.status_code == 200
+    assert summary.json()["monitor_total"] == 1
+    assert summary.json()["alert_count"] == 1
+    assert summary.json()["feishu_failed_count"] == 1
+
+    invalid_window = app_client.post(
+        "/api/v1/ops/realtime/etf-monitor/rules",
+        headers=headers,
+        json={
+            "scope_type": "global",
+            "scope_key": "__GLOBAL__",
+            "window_minutes": 2,
+            "observe_ratio": 2,
+            "alert_ratio": 3,
+            "strong_ratio": 5,
+            "cooldown_minutes": 15,
+            "feishu_enabled": True,
+            "enabled": True,
+        },
+    )
+    assert invalid_window.status_code == 422
+    assert invalid_window.json()["code"] == "invalid_window"
