@@ -1,9 +1,11 @@
-# 股票历史分钟行情 tablespace 冷热分层记录 v1
+# 股票历史分钟行情 tablespace 冷热分层执行记录 v1
 
-状态：当前生效  
+状态：历史执行记录；2026-04-26 快照
 执行日期：2026-04-26  
 适用对象：远程生产库 `goldenshare`，表 `raw_tushare.stk_mins` 及其月分区。  
 操作性质：生产数据库物理存储布局调整，非业务表结构变更。
+
+> 名称边界：本记录执行时 PostgreSQL catalog tablespace 名称为 `gs_stk_mins_hdd`。2026-06-01 后续迁移已将该 catalog 名称改为 `gs_raw_cold_hdd`，物理目录仍为 `/data/disk/postgresql/tablespaces/gs_stk_mins_hdd`。本文第 2、6 节保留 2026-04-26 的历史快照；第 7、8 节的日常审计和未来维护使用当前名称 `gs_raw_cold_hdd`。
 
 ---
 
@@ -17,7 +19,7 @@
 
 ---
 
-## 2. 目标规则
+## 2. 目标规则（2026-04-26 执行口径）
 
 | 数据范围 | 存储位置 | tablespace |
 |---|---|---|
@@ -64,12 +66,12 @@ sudo -n findmnt --verify --verbose /data/disk
 
 ---
 
-## 4. PostgreSQL tablespace
+## 4. PostgreSQL tablespace（当前名称）
 
 tablespace 名称：
 
 ```text
-gs_stk_mins_hdd
+gs_raw_cold_hdd
 ```
 
 目录：
@@ -91,10 +93,10 @@ tablespace 注释：
 Goldenshare stk_mins cold partitions <=2025 on HDD; 2026+ stay on pg_default SSD.
 ```
 
-授权：
+当前授权对象：
 
 ```sql
-GRANT CREATE ON TABLESPACE gs_stk_mins_hdd TO goldenshare_user;
+GRANT CREATE ON TABLESPACE gs_raw_cold_hdd TO goldenshare_user;
 ```
 
 ---
@@ -121,7 +123,7 @@ GRANT CREATE ON TABLESPACE gs_stk_mins_hdd TO goldenshare_user;
 
 ---
 
-## 6. 当前验证结果
+## 6. 执行时验证结果（2026-04-26 快照）
 
 执行后校验结果：
 
@@ -175,7 +177,7 @@ WITH parts AS (
 )
 SELECT 'history_table_not_hdd' AS check_name, count(*) AS violations
 FROM parts
-WHERE year <= 2025 AND table_ts <> 'gs_stk_mins_hdd'
+WHERE year <= 2025 AND table_ts <> 'gs_raw_cold_hdd'
 UNION ALL
 SELECT 'current_future_table_not_default', count(*)
 FROM parts
@@ -202,7 +204,7 @@ WITH idx AS (
 )
 SELECT 'history_index_not_hdd' AS check_name, count(*) AS violations
 FROM idx
-WHERE year <= 2025 AND index_ts <> 'gs_stk_mins_hdd'
+WHERE year <= 2025 AND index_ts <> 'gs_raw_cold_hdd'
 UNION ALL
 SELECT 'current_future_index_not_default', count(*)
 FROM idx
@@ -235,8 +237,8 @@ ORDER BY table_ts;
 如果继续使用“当前年份在 SSD、历史年份在 HDD”的规则，每年进入新年份后需要执行一次 rollover：
 
 1. 确认上一年份已经不再属于当前热数据。
-2. 将上一年份的 `stk_mins_YYYY_01` 到 `stk_mins_YYYY_12` 分区表迁到 `gs_stk_mins_hdd`。
-3. 将上述分区索引迁到 `gs_stk_mins_hdd`。
+2. 将上一年份的 `stk_mins_YYYY_01` 到 `stk_mins_YYYY_12` 分区表迁到 `gs_raw_cold_hdd`。
+3. 将上述分区索引迁到 `gs_raw_cold_hdd`。
 4. 执行第 7 章审计 SQL，确认违规数为 `0`。
 
 ### 8.2 新分区创建规则
@@ -244,7 +246,7 @@ ORDER BY table_ts;
 后续如果新增自动建分区能力，必须遵守：
 
 1. 当前年份分区默认创建在 `pg_default`。
-2. 历史年份补建分区必须创建在 `gs_stk_mins_hdd`。
+2. 历史年份补建分区必须创建在 `gs_raw_cold_hdd`。
 3. 表分区和索引必须同步指定 tablespace。
 
 ### 8.3 运维检查

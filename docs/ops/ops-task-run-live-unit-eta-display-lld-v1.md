@@ -41,10 +41,10 @@ GET /api/v1/ops/task-runs/{task_run_id}/view
 页面在 `queued/running/canceling` 状态下每 3 秒轮询，终态停止轮询。执行过程列表使用 `view.nodes`，当前列为：
 
 ```text
-序号、执行节点、状态、结果、时间、耗时
+序号、执行节点、状态、结果、时间、耗时、预计完成
 ```
 
-当前没有 ETA 状态、速率样本或本地估算器。
+当前 ETA 由页面在浏览器内存中维护采样，并由 `ops-task-detail-eta.ts` 计算；不写入 TaskRun、数据库、缓存或 API payload。
 
 后端入口是 [task_runs.py](/Users/congming/github/goldenshare/src/ops/api/task_runs.py) 的 `GET /{task_run_id}/view`，查询实现位于 [task_run_query_service.py](/Users/congming/github/goldenshare/src/ops/queries/task_run_query_service.py) 的 `TaskRunQueryService.get_view()`。它读取一个 `TaskRun`、其 `TaskRunNode` 列表和问题摘要，按 `sequence_no,id` 返回节点，不拼接旧任务表或旧日志。
 
@@ -86,19 +86,19 @@ fetch unit
 
 并发 fetch 路径仍由主线程执行 normalize、writer、commit 和进度报告；staged stream 路径在 `publisher.finalize_unit` 完成后才增加 `unit_done`。因此，执行器内部具备“业务提交后才计数”的正确边界。
 
-### 3.4 当前存在的进度语义缺口
+### 3.4 实施前进度语义审计（已收口）
 
-在 [service.py](/Users/congming/github/goldenshare/src/foundation/ingestion/service.py) 的 `_progress_reporter()` 中，当前写回的是：
+实施前版本在 [service.py](/Users/congming/github/goldenshare/src/foundation/ingestion/service.py) 的 `_progress_reporter()` 中曾将成功和失败 unit 合并为处理进度：
 
 ```python
 current = progress_snapshot.unit_done + progress_snapshot.unit_failed
 ```
 
-随后 [task_run_ingestion_context.py](/Users/congming/github/goldenshare/src/ops/services/task_run_ingestion_context.py) 把 `current` 写入 `task_run.unit_done`，但没有单独写入 `task_run.unit_failed`。
+随后旧版本的 `TaskRunIngestionContext` 将 `current` 写入 `task_run.unit_done`，没有单独写入 `task_run.unit_failed`。
 
-这会导致当前数据库字段 `task_run.unit_done` 实际表达“已处理 unit”，而不是严格的“已提交成功 unit”。它与本需求的速度统计口径不一致：失败 unit 不能被算作已提交入库 unit。
+这会使 `task_run.unit_done` 表达“已处理 unit”，而不是严格的“已提交成功 unit”；失败 unit 不能进入 ETA 速度统计。
 
-因此，正式开发前必须修正这个已有契约：
+本专项已完成该契约修正：
 
 ```text
 task_run.unit_done   = 已完成业务提交的 unit 数
@@ -106,7 +106,7 @@ task_run.unit_failed = 已终态失败的 unit 数
 progress_percent     = 继续按现有页面进度语义计算已处理比例
 ```
 
-这不是新增 ETA 存储，而是把现有进度字段恢复为可被详情页可靠消费的事实语义。此修正会影响现有 TaskRun 进度消费者，必须在 implementation 阶段做全量消费者审计和回归测试，不能只改一个写入点。
+这不是新增 ETA 存储，而是恢复现有进度字段可被详情页可靠消费的事实语义。当前代码已分别写入两个计数，并保留 `progress_percent` 的已处理比例语义；相关后端进度、ETA 纯函数和任务详情测试已完成。
 
 ### 3.5 Ops 状态写入与业务事务隔离
 
@@ -388,7 +388,7 @@ python3 scripts/check_docs_integrity.py
 
 现在 `unit_done` 被写成“成功 + 失败”的已处理数量，不能直接代表“已提交入库 unit”。如果不修正，ETA 会把失败 unit 当作已提交 unit，直接违反本次确认的口径。
 
-修正方式不是新增字段，而是：
+当前实现口径不是新增字段，而是：
 
 ```text
 unit_done = committed successful units
@@ -396,7 +396,7 @@ unit_failed = terminal failed units
 progress_percent = handled units / total
 ```
 
-因为这会影响现有页面进度百分比、工作流终态和通知摘要，所以实现前必须完成全量消费者审计并补齐正反例测试。它不是 ETA 存储设计，而是修正 ETA 所依赖的既有进度事实。
+该口径已完成全量消费者审计和正反例测试。它不是 ETA 存储设计，而是 ETA 所依赖的既有进度事实。
 
 ## 10. 验收标准
 

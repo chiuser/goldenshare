@@ -40,7 +40,7 @@
 
 每个 workflow step 的执行参数按以下顺序合并：
 
-1. `execution.params_json`（工作流执行参数）
+1. `task_run.request_payload_json`（工作流任务参数）
 2. `workflow_step.default_params`
 3. `workflow_step.params_override`
 
@@ -57,7 +57,7 @@
 - 当步骤失败且策略是 `fail_fast` 时，workflow 立即返回：
   - 已有成功步骤 -> `partial_success`
   - 无成功步骤 -> `failed`
-- 取消请求在当前单元抛出 `ExecutionCanceledError` 后返回 `canceled`。
+- 取消请求在当前处理边界抛出 `IngestionCanceledError` 后返回 `canceled`。
 
 ### 2.4 最终状态判定
 
@@ -211,7 +211,7 @@
 
 ## 4. 运维排查建议（面向值守）
 
-1. 先看 step 粒度状态，不要只看 execution 总状态。
+1. 先看 step 粒度状态，不要只看 workflow 总状态。
 2. `partial_success` 通常表示：
    - 失败策略是 `continue_on_error` 并且后续步骤继续执行，或
    - fail-fast 之前已有部分步骤成功。

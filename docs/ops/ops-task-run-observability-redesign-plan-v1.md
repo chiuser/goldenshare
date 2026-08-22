@@ -1197,4 +1197,4 @@ CodeGraph 已确认直接影响：
 
 ## 13. 实时 Unit 预计完成时间（已实现，待发版验收）
 
-任务详情页实时 Unit 预计完成时间的低层设计见 [Ops 任务详情实时 Unit 预计完成时间 LLD v1](/Users/congming/github/goldenshare/docs/ops/ops-task-run-live-unit-eta-display-lld-v1.md)。该专项按逻辑 unit 统计，只有业务事务提交后的 unit 才进入速度计算，每 10 秒采样一次并比较前后两次快照；ETA 只在浏览器内存中存在，不新增表、字段、事件日志、缓存或 API。实现阶段必须修正当前 `unit_done` 将成功与失败 unit 合并的进度写回语义，并完成全量消费者回归。
+任务详情页实时 Unit 预计完成时间的低层设计见 [Ops 任务详情实时 Unit 预计完成时间 LLD v1](/Users/congming/github/goldenshare/docs/ops/ops-task-run-live-unit-eta-display-lld-v1.md)。该专项按逻辑 unit 统计，只有业务事务提交后的 unit 才进入速度计算，每 10 秒采样一次并比较前后两次快照；ETA 只在浏览器内存中存在，不新增表、字段、事件日志、缓存或 API。`unit_done` 与 `unit_failed` 的进度写回语义及全量消费者回归已经完成，生产发版后的运行态验收仍单独待确认。

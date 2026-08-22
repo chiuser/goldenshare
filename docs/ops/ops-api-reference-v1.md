@@ -44,7 +44,7 @@
 - 功能：返回运营首页完整概览（今日 KPI、执行 KPI、freshness 汇总、最近执行/失败）。
 - Query 参数：无。
 - 返回：`OpsOverviewResponse`
-  - `today_kpis, kpis, freshness_summary, lagging_datasets, recent_executions, recent_failures`
+  - `today_kpis, kpis, freshness_summary, lagging_datasets, recent_task_runs, recent_failures`
 - 示例（字段节选）：
 
 ```bash
@@ -55,7 +55,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 ```json
 {
   "today_kpis": {"business_date": "2026-04-23", "total_requests": 18},
-  "kpis": {"total_executions": 320, "running_executions": 1},
+  "kpis": {"total_task_runs": 320, "running_task_runs": 1},
   "freshness_summary": {"total_datasets": 56}
 }
 ```
@@ -325,7 +325,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
   - `token`：必填，管理员 JWT。
 - 返回：`text/event-stream`
   - 事件名：`schedules`
-  - payload 字段：`schedule_updated_at, execution_requested_at, active_executions`
+  - payload 字段：`schedule_updated_at, task_run_requested_at, active_task_runs`
 - 示例：
 
 ```bash
@@ -334,7 +334,7 @@ curl -N "http://127.0.0.1:8000/api/v1/ops/schedules/stream?token=<TOKEN>"
 
 ```text
 event: schedules
-data: {"schedule_updated_at":"2026-04-23T09:02:00","execution_requested_at":"2026-04-23T09:03:11","active_executions":2}
+data: {"schedule_updated_at":"2026-04-23T09:02:00","task_run_requested_at":"2026-04-23T09:03:11","active_task_runs":2}
 ```
 
 ### 3.3 POST /api/v1/ops/schedules
@@ -701,7 +701,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
   "id": 88,
   "task_run_id": 285,
   "severity": "error",
-  "code": "execution_failed",
+  "code": "ingestion_failed",
   "title": "任务处理失败",
   "operator_message": "任务处理过程中发生异常，需要查看技术诊断后决定是否重提。",
   "technical_message": "Tushare API error: 查询数据失败，请确认参数！可以反馈管理员协助您排查问题",
