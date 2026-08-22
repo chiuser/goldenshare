@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session
 
 from src.app.exceptions import WebAppError
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.fund_daily_bar import FundDailyBar
+from src.foundation.models.raw.raw_etf_share_size import RawEtfShareSize
 from src.ops.models.ops.etf_realtime_alert import EtfRealtimeAlert
 from src.ops.models.ops.etf_realtime_monitor_pool import EtfRealtimeMonitorPool
 from src.ops.models.ops.etf_realtime_monitor_rule import EtfRealtimeMonitorRule
@@ -38,6 +39,7 @@ class EtfRealtimeMonitorPoolService:
         page_size: int,
     ) -> EtfRealtimeMonitorActiveEtfListResponse:
         latest_daily = _latest_fund_daily_subquery()
+        latest_size = _latest_etf_share_size_subquery()
         stmt = (
             select(
                 EtfSeriesActive.ts_code,
@@ -49,10 +51,14 @@ class EtfRealtimeMonitorPoolService:
                 EtfBasic.list_date,
                 EtfBasic.list_status,
                 latest_daily.c.latest_fund_daily_date,
+                latest_size.c.size_trade_date,
+                latest_size.c.total_share_wan,
+                latest_size.c.total_size_wan,
                 EtfRealtimeMonitorPool.id.label("pool_id"),
             )
             .outerjoin(EtfBasic, EtfBasic.ts_code == EtfSeriesActive.ts_code)
             .outerjoin(latest_daily, latest_daily.c.ts_code == EtfSeriesActive.ts_code)
+            .outerjoin(latest_size, latest_size.c.ts_code == EtfSeriesActive.ts_code)
             .outerjoin(EtfRealtimeMonitorPool, EtfRealtimeMonitorPool.ts_code == EtfSeriesActive.ts_code)
             .where(EtfSeriesActive.resource == ETF_RT_DAILY_RESOURCE)
         )
@@ -68,7 +74,12 @@ class EtfRealtimeMonitorPoolService:
             )
         total = session.execute(select(func.count()).select_from(stmt.subquery())).scalar_one()
         rows = session.execute(
-            stmt.order_by(EtfSeriesActive.ts_code).offset((page - 1) * page_size).limit(page_size)
+            stmt.order_by(
+                latest_size.c.total_size_wan.desc().nullslast(),
+                EtfSeriesActive.ts_code.asc(),
+            )
+            .offset((page - 1) * page_size)
+            .limit(page_size)
         ).all()
         return EtfRealtimeMonitorActiveEtfListResponse(
             items=[
@@ -82,6 +93,9 @@ class EtfRealtimeMonitorPoolService:
                     list_date=row.list_date,
                     list_status=row.list_status,
                     latest_fund_daily_date=row.latest_fund_daily_date,
+                    size_trade_date=row.size_trade_date,
+                    total_share_wan=row.total_share_wan,
+                    total_size_wan=row.total_size_wan,
                     in_monitor_pool=row.pool_id is not None,
                 )
                 for row in rows
@@ -100,6 +114,7 @@ class EtfRealtimeMonitorPoolService:
         page: int,
         page_size: int,
     ) -> EtfRealtimeMonitorPoolListResponse:
+        latest_size = _latest_etf_share_size_subquery()
         latest_alert = (
             select(
                 EtfRealtimeAlert.ts_code.label("ts_code"),
@@ -117,9 +132,13 @@ class EtfRealtimeMonitorPoolService:
                 EtfBasic.cname,
                 latest_alert.c.latest_alert_at,
                 EtfRealtimeAlert.severity.label("latest_alert_severity"),
+                latest_size.c.size_trade_date,
+                latest_size.c.total_share_wan,
+                latest_size.c.total_size_wan,
                 func.count(EtfRealtimeMonitorRule.id).label("rule_override_count"),
             )
             .outerjoin(EtfBasic, EtfBasic.ts_code == EtfRealtimeMonitorPool.ts_code)
+            .outerjoin(latest_size, latest_size.c.ts_code == EtfRealtimeMonitorPool.ts_code)
             .outerjoin(latest_alert, latest_alert.c.ts_code == EtfRealtimeMonitorPool.ts_code)
             .outerjoin(
                 EtfRealtimeAlert,
@@ -135,7 +154,15 @@ class EtfRealtimeMonitorPoolService:
                     EtfRealtimeMonitorRule.scope_key == EtfRealtimeMonitorPool.ts_code,
                 ),
             )
-            .group_by(EtfRealtimeMonitorPool.id, EtfBasic.ts_code, latest_alert.c.latest_alert_at, EtfRealtimeAlert.severity)
+            .group_by(
+                EtfRealtimeMonitorPool.id,
+                EtfBasic.ts_code,
+                latest_alert.c.latest_alert_at,
+                EtfRealtimeAlert.severity,
+                latest_size.c.size_trade_date,
+                latest_size.c.total_share_wan,
+                latest_size.c.total_size_wan,
+            )
         )
         if enabled is not None:
             stmt = stmt.where(EtfRealtimeMonitorPool.enabled.is_(enabled))
@@ -150,8 +177,18 @@ class EtfRealtimeMonitorPoolService:
                 )
             )
         total = session.execute(select(func.count()).select_from(stmt.subquery())).scalar_one()
+        group_priority = case(
+            (EtfRealtimeMonitorPool.group_key == "broad_base", 0),
+            (EtfRealtimeMonitorPool.group_key == "theme", 1),
+            else_=2,
+        )
         rows = session.execute(
-            stmt.order_by(EtfRealtimeMonitorPool.display_order, EtfRealtimeMonitorPool.ts_code)
+            stmt.order_by(
+                group_priority,
+                latest_size.c.total_size_wan.desc().nullslast(),
+                EtfRealtimeMonitorPool.display_order.asc(),
+                EtfRealtimeMonitorPool.ts_code.asc(),
+            )
             .offset((page - 1) * page_size)
             .limit(page_size)
         ).all()
@@ -169,6 +206,9 @@ class EtfRealtimeMonitorPoolService:
                     has_etf_rule_override=int(row.rule_override_count or 0) > 0,
                     latest_alert_at=row.latest_alert_at,
                     latest_alert_severity=row.latest_alert_severity,
+                    size_trade_date=row.size_trade_date,
+                    total_share_wan=row.total_share_wan,
+                    total_size_wan=row.total_size_wan,
                     created_at=row.EtfRealtimeMonitorPool.created_at,
                     updated_at=row.EtfRealtimeMonitorPool.updated_at,
                 )
@@ -255,6 +295,20 @@ def _latest_fund_daily_subquery():
             func.max(FundDailyBar.trade_date).label("latest_fund_daily_date"),
         )
         .group_by(FundDailyBar.ts_code)
+        .subquery()
+    )
+
+
+def _latest_etf_share_size_subquery():
+    latest_trade_date = select(func.max(RawEtfShareSize.trade_date)).scalar_subquery()
+    return (
+        select(
+            RawEtfShareSize.ts_code.label("ts_code"),
+            RawEtfShareSize.trade_date.label("size_trade_date"),
+            RawEtfShareSize.total_share.label("total_share_wan"),
+            RawEtfShareSize.total_size.label("total_size_wan"),
+        )
+        .where(RawEtfShareSize.trade_date == latest_trade_date)
         .subquery()
     )
 

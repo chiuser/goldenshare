@@ -16,6 +16,9 @@ class EtfRealtimeMonitorActiveEtfItem(BaseModel):
     list_date: date | None = None
     list_status: str | None = None
     latest_fund_daily_date: date | None = None
+    size_trade_date: date | None = None
+    total_share_wan: Decimal | None = None
+    total_size_wan: Decimal | None = None
     in_monitor_pool: bool
 
 
@@ -38,6 +41,9 @@ class EtfRealtimeMonitorPoolItem(BaseModel):
     has_etf_rule_override: bool
     latest_alert_at: datetime | None = None
     latest_alert_severity: str | None = None
+    size_trade_date: date | None = None
+    total_share_wan: Decimal | None = None
+    total_size_wan: Decimal | None = None
     created_at: datetime
     updated_at: datetime
 

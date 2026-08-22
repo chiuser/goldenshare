@@ -33,6 +33,7 @@ from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyS
 from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
 from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.foundation.models.raw.raw_etf_share_size import RawEtfShareSize
 from src.foundation.models.raw.raw_index_daily import RawIndexDaily
 from src.foundation.models.meta.realtime_runtime_config import RealtimeRuntimeConfigRecord
 from src.ops.models.ops.config_revision import ConfigRevision
@@ -108,6 +109,7 @@ def web_engine(configured_web_env) -> Generator:
         IndexWeeklyServing.__table__.create(connection)
         IndexMonthlyServing.__table__.create(connection)
         RawIndexDaily.__table__.create(connection)
+        RawEtfShareSize.__table__.create(connection)
         ThsIndex.__table__.create(connection)
         ThsMember.__table__.create(connection)
         DcIndex.__table__.create(connection)

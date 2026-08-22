@@ -1,6 +1,6 @@
 # ETF 实时成交额异动监控方案 v1
 
-状态：M8.1/M8.2/M8.3 本地代码与测试完成 / 待重新部署验收
+状态：M8.1/M8.2/M8.3 本地代码与测试完成 / 待重新部署验收；M9 ETF 规模展示本地代码与测试完成，待部署和页面验收
 创建日期：2026-08-22
 适用范围：ETF 实时日线 Redis 批次、ETF 监控池、成交额异动判断、Feishu 通知、Ops 配置与复盘能力
 关联上位文档：
@@ -231,6 +231,72 @@ ETF实时监控配置中心
 1. 现在监控哪些 ETF。
 2. 每只 ETF 使用什么阈值规则。
 3. 最近触发了哪些异动，以及 Feishu 是否真的发送成功。
+
+### 6.4 ETF 规模展示（M9）
+
+本节只解决“添加 ETF 抽屉”和“已添加 ETF 列表”如何展示与排序 ETF 规模；不改变实时采集、成交额计算、监控池写入或告警规则。
+
+#### 规模事实与时间口径
+
+唯一来源是已接入的数据集 `etf_share_size`：
+
+```text
+raw_tushare.etf_share_size
+  -> core_serving.etf_share_size（只读 view）
+```
+
+Ops 查询实现直接使用 foundation 的 `RawEtfShareSize` 模型读取 raw 事实。每次列表请求先确定该表的**全局最新 `trade_date`**，两张列表都只关联这一天的同一份全市场快照：
+
+| API 字段 | 来源列 | 单位 | 说明 |
+| --- | --- | --- | --- |
+| `size_trade_date` | `trade_date` | 日期 | 本次规模快照的统一截至日 |
+| `total_share_wan` | `total_share` | 万份 | ETF 总份额 |
+| `total_size_wan` | `total_size` | 万元 | ETF 总规模 |
+
+硬规则：
+
+1. 不按单只 ETF 回退到旧日期。某只 ETF 在全局最新快照中没有规模值时，API 返回 `null`，页面显示 `—`；不能把旧规模伪装成最新规模。
+2. 缺失规模不是 0，不参与数值换算；排序一律 `NULLS LAST`。
+3. 页面只格式化展示，不换算后回传、不自行拼接最新日期、不自行排序。总份额可显示为“万份/亿份”，总规模可显示为“万元/亿元”，但 API 与数据库字段始终保留原始单位语义。
+4. 截至 2026-08-22 的生产只读核验：最新规模日为 `2026-08-21`；`etf_rt_daily` 活跃池 1,395 只 ETF 全部有该日记录，`total_share` 全部非空，`total_size` 有 1,360 只非空、35 只为空。空规模样本均保留为源端缺值，不做补值。
+
+#### 两处列表行为
+
+**添加 ETF 抽屉**
+
+1. `GET /active-etfs` 返回总份额、总规模和规模截至日；默认按 `total_size_wan DESC NULLS LAST, ts_code ASC` 排序后分页。
+2. 抽屉表格新增“总份额”“总规模”两列；现有关键词搜索仍仅搜索代码与名称，搜索结果保持同一规模排序。
+3. 抽屉继续使用加宽布局，不在抽屉内增加横向滚动；新列不改变既定的名称主显示、代码次显示、行内添加和添加后继续操作规则。
+
+**已添加 ETF 列表**
+
+1. `GET /pool` 返回同一组规模字段，并在主表新增“总份额”“总规模”两列。
+2. “ETF 类别”在本页面固定指运营维护的监控分组 `group_key`（当前为 `broad_base` 宽基 ETF、`theme` 主题 ETF），不是 `etf_basic.etf_type` 的源端分类字段。
+3. 先按既定监控分组顺序（宽基 ETF、主题 ETF）排列；每个分组内按 `total_size_wan DESC NULLS LAST` 排列；相同规模时才按既有 `display_order ASC, ts_code ASC` 稳定排序。
+4. 本需求不删除 `display_order`，也不改变新增/编辑请求；它只从主排序降为同规模时的稳定次序，避免与“同分类按总规模降序”冲突。
+
+#### API 与边界
+
+不新增 endpoint、不新增表、不做迁移、不触发 Tushare 请求。仅扩展现有只读响应：
+
+```text
+GET /api/v1/ops/realtime/etf-monitor/active-etfs
+GET /api/v1/ops/realtime/etf-monitor/pool
+```
+
+两个 item 都增加：
+
+```json
+{
+  "size_trade_date": "2026-08-21",
+  "total_share_wan": "2348148.770000",
+  "total_size_wan": "10996615.504800"
+}
+```
+
+数值以 decimal 字符串返回，保留精度与单位；前端 TypeScript 使用 `string | null`。规模快照暂时不可用时，列表仍正常返回，只是这三个字段均为 `null`，不能因此阻断监控池管理。
+
+M9 实现状态：查询已落在 `src/ops/services/etf_realtime_monitor_pool_service.py`，响应契约在 `src/ops/schemas/etf_realtime_monitor.py` 与 `frontend/src/shared/api/etf-realtime-monitor-types.ts`，页面在 `frontend/src/pages/ops-etf-realtime-monitor-config-page.tsx`。本地已验证规模关联、排序、空值展示和现有行内添加流程；待部署后由运营进行页面验收。
 
 ---
 
@@ -715,7 +781,10 @@ DELETE /api/v1/ops/realtime/etf-monitor/pool/{id}
 ```text
 ops.etf_series_active(resource='etf_rt_daily')
   + core_serving.etf_basic
+  + raw_tushare.etf_share_size（全局最新 trade_date 快照）
 ```
+
+`pool` 在现有监控池、ETF 基础信息、告警摘要关联基础上，也关联同一份最新规模快照。两条 API 不请求 Tushare、不读取 Redis、不写任何数据。
 
 新增监控池请求示例：
 
@@ -896,16 +965,19 @@ sequenceDiagram
 
 1. 监控池只能从 `etf_rt_daily` 活跃池选择 ETF。
 2. 监控池分页 50 条、关键词搜索、增删改查。
-3. 阈值优先级：ETF > group > global。
-4. 阈值校验：窗口只能是 `1/5/15`，倍数必须递增，冷却期必须大于 0。
-5. Redis 批次不足时标记 `missing`，不当作 0。
-6. 午休不跨窗。
-7. 最近 5 个交易日基准，不使用自然日。
-8. 基准不足时不发 Feishu。
-9. `observe` 入库但不发 Feishu。
-10. `alert/strong` 冷却与升级逻辑。
-11. Feishu 失败不影响 alert 记录入库和下一轮计算。
-12. 收盘归档幂等。
+3. 规模字段只能来自 `etf_share_size` 的全局最新交易日；不得按单 ETF 回退旧日期，不得把 `null` 写成 0。
+4. 添加抽屉按总规模降序、空值末尾；已添加列表按监控分组、组内总规模降序、同规模时展示排序和代码稳定排序。
+5. 两个列表 API 都透传 `size_trade_date/total_share_wan/total_size_wan`，且不请求 Tushare、Redis。
+6. 阈值优先级：ETF > group > global。
+7. 阈值校验：窗口只能是 `1/5/15`，倍数必须递增，冷却期必须大于 0。
+8. Redis 批次不足时标记 `missing`，不当作 0。
+9. 午休不跨窗。
+10. 最近 5 个交易日基准，不使用自然日。
+11. 基准不足时不发 Feishu。
+12. `observe` 入库但不发 Feishu。
+13. `alert/strong` 冷却与升级逻辑。
+14. Feishu 失败不影响 alert 记录入库和下一轮计算。
+15. 收盘归档幂等。
 
 ### 17.2 前端
 
@@ -943,6 +1015,7 @@ sequenceDiagram
 | M6 | 收盘归档 | Redis 当天批次归档到 1m 统计表 |
 | M7 | Ops 告警记录页与查询 API | 支持复盘告警与通知结果 |
 | M8 | 生产验收 | Redis 容量、盘中计算、Feishu、收盘归档验收 |
+| M9 | ETF 规模展示 | 只扩展两条既有 Ops 列表 API 与监控池页面；不改数据集、实时采集、Redis、迁移或池数据 |
 
 ---
 
@@ -962,6 +1035,8 @@ sequenceDiagram
 | D8 | 监控分组 | V1 先使用受控分组：`宽基ETF`、`主题ETF` |
 | D9 | Redis Store 扩展 | 必须扩展 `RealtimeStateStore`，禁止服务层临时拼 Redis key |
 | D10 | Feishu 失败重试 | V1 不做后台重试队列；本轮即时发送一次，失败入库 |
+| D11 | ETF 规模展示来源 | 只取 `etf_share_size` 全局最新交易日；不做单 ETF 历史回退，空规模展示 `—` 并排在末尾 |
+| D12 | 监控池规模排序 | “ETF 类别”指监控分组 `group_key`；宽基、主题依次展示，组内按总规模降序，`display_order` 仅作同规模稳定次序 |
 
 ---
 
@@ -972,3 +1047,4 @@ sequenceDiagram
 3. ETF 成交额差异很大，统一阈值只能作为默认值，后续必须依赖 ETF 级规则调参。
 4. Feishu 通知如果没有独立超时和失败隔离，会拖慢实时计算，开发时必须强制隔离。
 5. 收盘归档如果漏跑，会影响第二天基准，必须有归档状态检查。
+6. `etf_share_size.total_size` 当前对部分 QDII ETF 为空；M9 必须原样展示为空，不能以旧日期或 0 掩盖源端缺失。

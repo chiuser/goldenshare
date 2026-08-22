@@ -8,6 +8,9 @@ export interface EtfRealtimeMonitorActiveEtfItem {
   list_date: string | null;
   list_status: string | null;
   latest_fund_daily_date: string | null;
+  size_trade_date: string | null;
+  total_share_wan: string | null;
+  total_size_wan: string | null;
   in_monitor_pool: boolean;
 }
 
@@ -30,6 +33,9 @@ export interface EtfRealtimeMonitorPoolItem {
   has_etf_rule_override: boolean;
   latest_alert_at: string | null;
   latest_alert_severity: string | null;
+  size_trade_date: string | null;
+  total_share_wan: string | null;
+  total_size_wan: string | null;
   created_at: string;
   updated_at: string;
 }

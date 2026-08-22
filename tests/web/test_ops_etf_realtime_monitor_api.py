@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
+from decimal import Decimal
 
 from src.foundation.models.core.etf_basic import EtfBasic
+from src.foundation.models.raw.raw_etf_share_size import RawEtfShareSize
 from src.ops.models.ops.etf_realtime_alert import EtfRealtimeAlert
 from src.ops.models.ops.etf_realtime_monitor_pool import EtfRealtimeMonitorPool
 from src.ops.models.ops.etf_series_active import EtfSeriesActive
@@ -15,7 +17,12 @@ def _login_headers(app_client, user_factory, *, username: str = "admin", is_admi
     return {"Authorization": f"Bearer {login.json()['token']}"}
 
 
-def _seed_active_etf(db_session, ts_code: str = "510300.SH") -> None:
+def _seed_active_etf(
+    db_session,
+    ts_code: str = "510300.SH",
+    *,
+    csname: str = "沪深300ETF",
+) -> None:
     db_session.add(
         EtfSeriesActive(
             resource="etf_rt_daily",
@@ -28,7 +35,7 @@ def _seed_active_etf(db_session, ts_code: str = "510300.SH") -> None:
     db_session.add(
         EtfBasic(
             ts_code=ts_code,
-            csname="沪深300ETF",
+            csname=csname,
             extname="华泰柏瑞沪深300ETF",
             exchange="SH",
             etf_type="宽基",
@@ -37,6 +44,30 @@ def _seed_active_etf(db_session, ts_code: str = "510300.SH") -> None:
         )
     )
     db_session.commit()
+
+
+def _seed_etf_share_size(
+    db_session,
+    *,
+    trade_date: date,
+    ts_code: str,
+    total_share: Decimal | None,
+    total_size: Decimal | None,
+) -> None:
+    db_session.add(
+        RawEtfShareSize(
+            trade_date=trade_date,
+            ts_code=ts_code,
+            etf_name=ts_code,
+            total_share=total_share,
+            total_size=total_size,
+            nav=Decimal("1"),
+        close=Decimal("1"),
+        exchange=ts_code.split(".")[-1],
+        api_name="etf_share_size",
+        fetched_at=datetime.now(timezone.utc),
+    )
+    )
 
 
 def test_etf_realtime_monitor_api_rejects_non_admin(app_client, user_factory) -> None:
@@ -56,6 +87,9 @@ def test_etf_realtime_monitor_active_etfs_and_pool_crud(app_client, user_factory
     assert active_response.status_code == 200
     assert active_response.json()["total"] == 1
     assert active_response.json()["items"][0]["in_monitor_pool"] is False
+    assert active_response.json()["items"][0]["size_trade_date"] is None
+    assert active_response.json()["items"][0]["total_share_wan"] is None
+    assert active_response.json()["items"][0]["total_size_wan"] is None
 
     create_response = app_client.post(
         "/api/v1/ops/realtime/etf-monitor/pool",
@@ -76,6 +110,9 @@ def test_etf_realtime_monitor_active_etfs_and_pool_crud(app_client, user_factory
     assert pool_response.status_code == 200
     assert pool_response.json()["total"] == 1
     assert pool_response.json()["items"][0]["etf_name"] == "沪深300ETF"
+    assert pool_response.json()["items"][0]["size_trade_date"] is None
+    assert pool_response.json()["items"][0]["total_share_wan"] is None
+    assert pool_response.json()["items"][0]["total_size_wan"] is None
 
     update_response = app_client.put(
         f"/api/v1/ops/realtime/etf-monitor/pool/{item_id}",
@@ -86,6 +123,108 @@ def test_etf_realtime_monitor_active_etfs_and_pool_crud(app_client, user_factory
 
     delete_response = app_client.delete(f"/api/v1/ops/realtime/etf-monitor/pool/{item_id}", headers=headers)
     assert delete_response.status_code == 200
+
+
+def test_etf_realtime_monitor_lists_use_global_latest_share_size_snapshot_and_sorting(
+    app_client,
+    user_factory,
+    db_session,
+) -> None:
+    _seed_active_etf(db_session, "510300.SH", csname="沪深300ETF")
+    _seed_active_etf(db_session, "510500.SH", csname="中证500ETF")
+    _seed_active_etf(db_session, "159915.SZ", csname="创业板ETF")
+    _seed_active_etf(db_session, "159916.SZ", csname="新能源ETF")
+
+    latest_trade_date = date(2026, 8, 21)
+    _seed_etf_share_size(
+        db_session,
+        trade_date=date(2026, 8, 20),
+        ts_code="510300.SH",
+        total_share=Decimal("99999"),
+        total_size=Decimal("99999"),
+    )
+    _seed_etf_share_size(
+        db_session,
+        trade_date=latest_trade_date,
+        ts_code="510300.SH",
+        total_share=Decimal("200"),
+        total_size=Decimal("200"),
+    )
+    _seed_etf_share_size(
+        db_session,
+        trade_date=latest_trade_date,
+        ts_code="510500.SH",
+        total_share=Decimal("300"),
+        total_size=Decimal("300"),
+    )
+    _seed_etf_share_size(
+        db_session,
+        trade_date=latest_trade_date,
+        ts_code="159915.SZ",
+        total_share=Decimal("9000000"),
+        total_size=Decimal("9000000"),
+    )
+    _seed_etf_share_size(
+        db_session,
+        trade_date=latest_trade_date,
+        ts_code="159916.SZ",
+        total_share=Decimal("400"),
+        total_size=None,
+    )
+    db_session.add_all(
+        [
+            EtfRealtimeMonitorPool(
+                ts_code="510300.SH",
+                group_key="broad_base",
+                group_name="宽基ETF",
+                enabled=True,
+                display_order=1,
+            ),
+            EtfRealtimeMonitorPool(
+                ts_code="510500.SH",
+                group_key="broad_base",
+                group_name="宽基ETF",
+                enabled=True,
+                display_order=99,
+            ),
+            EtfRealtimeMonitorPool(
+                ts_code="159915.SZ",
+                group_key="theme",
+                group_name="主题ETF",
+                enabled=True,
+                display_order=0,
+            ),
+        ]
+    )
+    db_session.commit()
+    headers = _login_headers(app_client, user_factory)
+
+    active_page_one = app_client.get(
+        "/api/v1/ops/realtime/etf-monitor/active-etfs?page=1&page_size=2",
+        headers=headers,
+    )
+    active_page_two = app_client.get(
+        "/api/v1/ops/realtime/etf-monitor/active-etfs?page=2&page_size=2",
+        headers=headers,
+    )
+    assert active_page_one.status_code == 200
+    assert active_page_two.status_code == 200
+    assert active_page_one.json()["total"] == 4
+    assert [item["ts_code"] for item in active_page_one.json()["items"]] == ["159915.SZ", "510500.SH"]
+    assert [item["ts_code"] for item in active_page_two.json()["items"]] == ["510300.SH", "159916.SZ"]
+    latest_item = active_page_two.json()["items"][0]
+    assert latest_item["size_trade_date"] == "2026-08-21"
+    assert Decimal(latest_item["total_share_wan"]) == Decimal("200")
+    assert Decimal(latest_item["total_size_wan"]) == Decimal("200")
+    assert active_page_two.json()["items"][1]["total_size_wan"] is None
+
+    pool_response = app_client.get("/api/v1/ops/realtime/etf-monitor/pool", headers=headers)
+    assert pool_response.status_code == 200
+    assert [item["ts_code"] for item in pool_response.json()["items"]] == [
+        "510500.SH",
+        "510300.SH",
+        "159915.SZ",
+    ]
 
 
 def test_etf_realtime_monitor_pool_rejects_non_active_etf(app_client, user_factory) -> None:

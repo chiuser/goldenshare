@@ -1,6 +1,6 @@
 # ETF 实时成交额异动监控 LLD v1
 
-状态：M8.1/M8.2/M8.3 本地代码与测试完成 / 待重新部署验收
+状态：M8.1/M8.2/M8.3 本地代码与测试完成 / 待重新部署验收；M9 ETF 规模展示本地代码与测试完成，待部署和页面验收
 创建日期：2026-08-22
 依据方案：[ETF 实时成交额异动监控方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-etf-realtime-volume-anomaly-monitor-plan-v1.md)
 
@@ -114,13 +114,19 @@ ETF 告警 Feishu 通道已拍板为独立通道：
 
 ### 2.4 Alembic 迁移 head
 
-本次审计时 `uv run alembic heads` 返回：
+本方案最初审计时的历史 head 为：
 
 ```text
 20260818_000138 (head)
 ```
 
-进入开发时必须重新确认真实 head，新迁移 `down_revision` 只能接当时真实 head，禁止按本文日期或印象猜。
+截至 M9 规模展示审计，当前真实 head 为：
+
+```text
+20260822_000140 (head)
+```
+
+M9 不新增迁移。后续如新增迁移，`down_revision` 仍只能接开发当时重新核验的真实 head，禁止按本文日期或印象猜。
 
 ### 2.5 CodeGraph 影响面
 
@@ -129,6 +135,16 @@ ETF 告警 Feishu 通道已拍板为独立通道：
 1. `RealtimeStateStore` 影响 Redis store、股票日线、股票分钟、ETF 日线、snapshot reader、Ops health、配置中心、相关测试。
 2. `ReviewCenterQueryService` 当前覆盖 ETF 活跃池列表和 summary，可作为可选 ETF 查询口径参考。
 3. `EtfRtDailyCollector` 只被统一 collector 和 ETF 实时测试引用；后续接监控引擎时必须保持 ETF feed 失败隔离。
+
+### 2.6 `etf_share_size` 可用性与消费边界（M9）
+
+本轮通过当前代码、迁移和生产只读查询确认：
+
+1. `etf_share_size` 已由 `20260822_000140` 迁移创建 `raw_tushare.etf_share_size`，并提供 `core_serving.etf_share_size` view；当前 DatasetDefinition、raw ORM、DAO、catalog 和 freshness 均已接入。
+2. 生产表的最新规模日为 `2026-08-21`，该日有 1,637 个唯一 `ts_code`；`total_share` 有 1,637 个非空值，`total_size` 有 1,595 个非空值。
+3. `ops.etf_series_active(resource='etf_rt_daily')` 的 1,395 只 ETF 全部命中该日规模快照；其中 1,360 只的 `total_size` 非空，35 只的 `total_size` 为源端空值，主要是 QDII ETF。
+4. 因为 raw 表主键是 `(trade_date, ts_code)`，一次按全局最新日期关联至多返回一行，不会放大 active-etf 或 monitor-pool 查询的行数。
+5. 本轮只在 Ops 查询服务消费该事实；不修改数据集、迁移、实时 feed、Redis、监控计算、告警或监控池写入。
 
 ---
 
@@ -143,6 +159,10 @@ ETF 告警 Feishu 通道已拍板为独立通道：
 7. 所有状态写入失败只影响观测与告警自身，不允许回滚或污染实时源快照。
 8. 初始监控池必须为空；不得在迁移或 seed 中默认导入全部 ETF。
 9. 默认全局规则不得在迁移中自动 seed；只能由页面显式动作创建。
+10. 规模字段只读自 `raw_tushare.etf_share_size` 的全局最新 `trade_date`；禁止对单 ETF 回退旧日期、禁止把缺失规模转为 0。
+11. 排序必须在 Ops 查询层完成，前端只消费 API 返回顺序；抽屉按总规模降序，监控池按监控分组后组内总规模降序。
+12. `total_share` 与 `total_size` 的原始单位分别为万份、万元；API 字段必须带 `_wan` 后缀，页面只做展示换算。
+13. 本轮不删除、更新或重建任何 `etf_share_size`、活跃池或监控池数据。
 
 ---
 
@@ -494,10 +514,46 @@ src/ops/services/etf_realtime_monitor_pool_service.py
 
 职责：
 
-1. 查询可选 ETF：只从 `ops.etf_series_active(resource='etf_rt_daily')` + `core_serving.etf_basic`。
-2. 维护监控池 CRUD。
-3. 校验 `ts_code` 在 `etf_rt_daily` 活跃池内。
-4. 提供 50/page 分页与 keyword 搜索。
+1. 查询可选 ETF：从 `ops.etf_series_active(resource='etf_rt_daily')`、`core_serving.etf_basic` 和 `raw_tushare.etf_share_size` 的全局最新快照读取。
+2. 查询已添加监控池：在现有监控池、ETF 基础信息、告警摘要关联上，再关联同一份规模快照。
+3. 维护监控池 CRUD；本轮不改变写入字段和写入语义。
+4. 校验 `ts_code` 在 `etf_rt_daily` 活跃池内。
+5. 提供 50/page 分页与 keyword 搜索；关键词只匹配代码/名称，不匹配规模数值。
+6. 确保所有规模排序在数据库查询中完成，前端不自行排序或筛选源端快照。
+
+新增私有只读 subquery：
+
+```python
+def _latest_etf_share_size_subquery():
+    latest_trade_date = select(func.max(RawEtfShareSize.trade_date)).scalar_subquery()
+    return (
+        select(
+            RawEtfShareSize.ts_code.label("ts_code"),
+            RawEtfShareSize.trade_date.label("size_trade_date"),
+            RawEtfShareSize.total_share.label("total_share_wan"),
+            RawEtfShareSize.total_size.label("total_size_wan"),
+        )
+        .where(RawEtfShareSize.trade_date == latest_trade_date)
+        .subquery()
+    )
+```
+
+`list_active_etfs()` 以 `EtfSeriesActive` 为主表，outer join 该 subquery，排序固定为：
+
+```text
+total_size_wan DESC NULLS LAST, ts_code ASC
+```
+
+`list_pool()` 以 `EtfRealtimeMonitorPool` 为主表，outer join 同一 subquery，排序固定为：
+
+```text
+group_key priority（broad_base -> theme -> 其它）
+  -> total_size_wan DESC NULLS LAST
+  -> display_order ASC
+  -> ts_code ASC
+```
+
+这里的“类别”固定是运营维护的 `group_key`，不是 `EtfBasic.etf_type`。`display_order` 保留为相同规模时的稳定次序，不再覆盖规模主排序。
 
 ### 8.2 阈值规则服务
 
@@ -629,10 +685,13 @@ GET /api/v1/ops/realtime/etf-monitor/active-etfs?keyword=沪深300&page=1&page_s
       "csname": "沪深300ETF",
       "extname": "华泰柏瑞沪深300ETF",
       "exchange": "SH",
-      "fund_type": "股票型",
+      "etf_type": "宽基",
       "list_date": "2012-05-28",
       "list_status": "L",
       "latest_fund_daily_date": "2026-08-21",
+      "size_trade_date": "2026-08-21",
+      "total_share_wan": "2348148.770000",
+      "total_size_wan": "10996615.504800",
       "in_monitor_pool": true
     }
   ],
@@ -650,6 +709,16 @@ POST /api/v1/ops/realtime/etf-monitor/pool
 PUT /api/v1/ops/realtime/etf-monitor/pool/{id}
 DELETE /api/v1/ops/realtime/etf-monitor/pool/{id}
 ```
+
+两个列表 item 都新增以下只读字段：
+
+| 字段 | 后端类型 | 前端类型 | 语义 |
+| --- | --- | --- | --- |
+| `size_trade_date` | `date | None` | `string | null` | 全局最新规模快照日 |
+| `total_share_wan` | `Decimal | None` | `string | null` | 总份额，万份 |
+| `total_size_wan` | `Decimal | None` | `string | null` | 总规模，万元 |
+
+规模 source 行、`total_share` 或 `total_size` 任一缺失时，对应字段返回 `null`；不得查该 ETF 的历史行补值。`active-etfs` 默认按 `total_size_wan` 降序并在分页前排序；`pool` 默认按监控分组、组内 `total_size_wan` 降序排序。
 
 新增请求：
 
@@ -780,10 +849,14 @@ Tab 结构：
 | ETF 代码 | `ts_code` |
 | 名称 | `csname/extname/cname` 优先级由后端确定 |
 | 分组 | `group_name` 标签 |
+| 总份额 | `total_share_wan`；显示“万份/亿份”，空值显示 `—` |
+| 总规模 | `total_size_wan`；显示“万元/亿元”，空值显示 `—` |
 | 状态 | 启用/停用 |
 | 阈值覆盖 | 是否存在 ETF 专属规则 |
 | 最近告警 | 最近一条 alert/strong |
 | 操作 | 编辑、停用、删除 |
+
+主表不在浏览器内排序。服务端先按 `group_key` 的既定顺序分组，再在每个分组内按总规模降序，缺失总规模排在分组末尾。
 
 新增 ETF：
 
@@ -792,12 +865,13 @@ Tab 结构：
 3. 搜索只作用于抽屉内的激活 ETF 列表，使用 `/active-etfs?keyword=...`；不复用页面上方的监控池关键词。
 4. 搜索结果每页 50 条，关键词变化后回到第 1 页。
 5. 抽屉使用加宽的固定宽度展示完整表格，不在抽屉内引入横向滚动；保持现有表格行高，不因新增控件额外撑高。
-6. 每行直接展示 ETF 名称/代码、交易所、监控分组、展示排序、启用监控开关和操作按钮；名称作为主信息使用较大字号，代码作为次信息使用较小字号。
+6. 每行直接展示 ETF 名称/代码、总份额、总规模、交易所、监控分组、展示排序、启用监控开关和操作按钮；名称作为主信息使用较大字号，代码作为次信息使用较小字号。
 7. 输入搜索关键词后，名称和代码中的命中片段都用橙色背景高亮。
 8. 未加入监控池的行显示“添加”按钮；点击后立即提交该行的分组、排序和启用状态，不需要滚动到底部或再点击统一保存。
 9. 添加成功后，该行按钮立即显示为浅绿色、置灰的“已添加”；抽屉保持打开，运营可以继续添加其他行。
 10. 已在监控池中的 ETF 直接显示“已添加”，行内配置控件只读，不可重复添加。
 11. 新增和编辑页面均不展示备注输入，也不提交备注字段；后端已有的 `note` 字段不作为本轮交互入口。
+12. 抽屉默认由 API 按总规模降序返回，分页发生在排序之后；前端不重排当前页。抽屉保持加宽，不使用横向滚动承载新增的规模列。
 
 编辑 ETF：
 
@@ -953,6 +1027,9 @@ tests/web/test_ops_etf_realtime_monitor_api.py
 10. alert/strong 冷却与升级。
 11. Feishu 失败不影响 alert 记录。
 12. 收盘归档幂等。
+13. `active-etfs` 和 `pool` 都只读取 `etf_share_size` 的全局最新交易日；缺失规模返回 `null`，不回退旧日期、不转为 0。
+14. `active-etfs` 在分页前按总规模降序、空值末尾排序；`pool` 按监控分组、组内总规模降序、展示排序和代码稳定排序。
+15. 规模关联不能导致一只 ETF 重复出现在任一列表中；两个接口继续不读 Redis、不请求 Tushare、不写入数据库。
 
 ### 13.2 前端
 
@@ -971,6 +1048,8 @@ frontend/src/pages/ops-etf-realtime-monitor-config-page.test.tsx
 5. 告警记录展示等级、倍数、Feishu 状态。
 6. API 失败只影响当前区块。
 7. 页面不调用 health API、Biz realtime API、Tushare、Redis。
+8. 添加抽屉与监控池主表均展示总份额、总规模；`null` 显示 `—`，不显示 0。
+9. 前端按 API 返回顺序展示，不再对规模字段自行排序；添加抽屉的当前页首项应为后端返回的最大规模 ETF。
 
 ### 13.3 回归
 
@@ -982,6 +1061,8 @@ uv run pytest -q tests/test_realtime_etf_rt_daily.py tests/test_realtime_state_s
 uv run pytest -q tests/architecture/test_subsystem_dependency_matrix.py tests/architecture/test_platform_legacy_guardrails.py tests/architecture/test_operations_legacy_guardrails.py
 cd frontend && npm run typecheck
 cd frontend && npm run test -- ops-etf-realtime-monitor-config-page
+cd frontend && npm run build
+uv run ruff check src/foundation/models/all_models.py src/ops/services/etf_realtime_monitor_pool_service.py src/ops/schemas/etf_realtime_monitor.py tests/web/conftest.py tests/web/test_ops_etf_realtime_monitor_api.py
 python3 scripts/check_docs_integrity.py
 ```
 
@@ -1000,6 +1081,7 @@ python3 scripts/check_docs_integrity.py
 | M6 | Feishu 发送闭环 | 非阻塞发送与状态回写 |
 | M7 | 收盘归档 | 写 1m stat，幂等 |
 | M8 | 告警记录页与生产验收 | 盘中验证、Redis 容量、Feishu 验证 |
+| M9 | ETF 规模展示 | 只扩展两条既有 Ops 列表 API 与监控池页面；不改数据集、实时采集、Redis、迁移或池数据 |
 
 ---
 
@@ -1017,6 +1099,8 @@ python3 scripts/check_docs_integrity.py
 | D8 | 监控分组 | V1 先受控为 `宽基ETF`、`主题ETF` 两类 |
 | D9 | Redis Store 扩展 | 必须扩展 `RealtimeStateStore`，禁止服务层临时拼 Redis key |
 | D10 | Feishu 失败重试 | V1 不做后台重试队列；即时发送一次，失败入库 |
+| D11 | ETF 规模展示来源 | 只取 `etf_share_size` 全局最新交易日；不做单 ETF 历史回退，空规模展示 `—` 并排在末尾 |
+| D12 | 监控池规模排序 | “ETF 类别”指监控分组 `group_key`；宽基、主题依次展示，组内按总规模降序，`display_order` 仅作同规模稳定次序 |
 
 ---
 
@@ -1026,6 +1110,7 @@ python3 scripts/check_docs_integrity.py
 2. 不新增业务侧 ETF 异动 API。
 3. 不接普通用户页面。
 4. 不改 `rt_etf_k` 请求范围。
-5. 不改 ETF 活跃池表。
-6. 不把 Feishu secret 写入 DB。
-7. 不把监控池和实时流配置中心混在一个页面。
+5. 不新增 ETF 规模业务 API、规模回补任务或页面筛选条件。
+6. 不改 ETF 活跃池表。
+7. 不把 Feishu secret 写入 DB。
+8. 不把监控池和实时流配置中心混在一个页面。

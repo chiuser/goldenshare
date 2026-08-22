@@ -306,13 +306,15 @@ function PoolTable({
       hasData={(data?.items ?? []).length > 0}
       emptyState={<EmptyState title="监控池为空" description="点击添加ETF，从实时 ETF 活跃池中选择代表性 ETF。" />}
       summary={<Pager page={page} pageCount={pageCount} total={data?.total ?? 0} onPageChange={onPageChange} />}
-      minWidth={980}
+      minWidth={1180}
     >
       <OpsTable>
         <Table.Thead>
           <Table.Tr>
             <OpsTableHeaderCell align="left">ETF</OpsTableHeaderCell>
             <OpsTableHeaderCell align="left">分组</OpsTableHeaderCell>
+            <OpsTableHeaderCell align="left">总份额</OpsTableHeaderCell>
+            <OpsTableHeaderCell align="left">总规模</OpsTableHeaderCell>
             <OpsTableHeaderCell align="left">状态</OpsTableHeaderCell>
             <OpsTableHeaderCell align="left">阈值覆盖</OpsTableHeaderCell>
             <OpsTableHeaderCell align="left">最近告警</OpsTableHeaderCell>
@@ -324,6 +326,8 @@ function PoolTable({
             <Table.Tr key={item.id}>
               <OpsTableCell align="left"><Stack gap={2}><Text fw={600}>{item.etf_name || "—"}</Text><Text size="xs" c="dimmed">{item.ts_code}</Text></Stack></OpsTableCell>
               <OpsTableCell align="left"><Badge variant="light">{item.group_name}</Badge></OpsTableCell>
+              <OpsTableCell align="left">{formatEtfShare(item.total_share_wan)}</OpsTableCell>
+              <OpsTableCell align="left">{formatEtfSize(item.total_size_wan)}</OpsTableCell>
               <OpsTableCell align="left"><Badge color={item.enabled ? "green" : "gray"}>{item.enabled ? "启用" : "停用"}</Badge></OpsTableCell>
               <OpsTableCell align="left">{item.has_etf_rule_override ? <Badge color="blue" variant="light">ETF专属</Badge> : <Badge color="gray" variant="light">继承规则</Badge>}</OpsTableCell>
               <OpsTableCell align="left">{item.latest_alert_at ? `${formatDateTimeLabel(item.latest_alert_at)} · ${item.latest_alert_severity}` : "—"}</OpsTableCell>
@@ -495,18 +499,22 @@ function PoolDrawer({
                 <OpsTable>
                   <Table.Thead>
                     <Table.Tr>
-                      <OpsTableHeaderCell align="left" width="24%">ETF</OpsTableHeaderCell>
-                      <OpsTableHeaderCell align="left" width="10%">交易所</OpsTableHeaderCell>
-                      <OpsTableHeaderCell align="left" width="22%">监控分组</OpsTableHeaderCell>
-                      <OpsTableHeaderCell align="left" width="14%">展示排序</OpsTableHeaderCell>
-                      <OpsTableHeaderCell align="left" width="14%">启用监控</OpsTableHeaderCell>
-                      <OpsTableHeaderCell align="left" width="16%">操作</OpsTableHeaderCell>
+                      <OpsTableHeaderCell align="left" width="19%">ETF</OpsTableHeaderCell>
+                      <OpsTableHeaderCell align="left" width="12%">总份额</OpsTableHeaderCell>
+                      <OpsTableHeaderCell align="left" width="12%">总规模</OpsTableHeaderCell>
+                      <OpsTableHeaderCell align="left" width="8%">交易所</OpsTableHeaderCell>
+                      <OpsTableHeaderCell align="left" width="18%">监控分组</OpsTableHeaderCell>
+                      <OpsTableHeaderCell align="left" width="11%">展示排序</OpsTableHeaderCell>
+                      <OpsTableHeaderCell align="left" width="11%">启用监控</OpsTableHeaderCell>
+                      <OpsTableHeaderCell align="left" width="9%">操作</OpsTableHeaderCell>
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
                     {(activeEtfs?.items ?? []).map((item) => (
                       <Table.Tr key={item.ts_code}>
                         <OpsTableCell align="left"><Stack gap={0}><Text fw={600}><HighlightMatch value={item.csname || item.extname || item.cname || "—"} keyword={activeEtfKeyword} /></Text><Text size="xs" c="dimmed"><HighlightMatch value={item.ts_code} keyword={activeEtfKeyword} /></Text></Stack></OpsTableCell>
+                        <OpsTableCell align="left">{formatEtfShare(item.total_share_wan)}</OpsTableCell>
+                        <OpsTableCell align="left">{formatEtfSize(item.total_size_wan)}</OpsTableCell>
                         <OpsTableCell align="left">{item.exchange || "—"}</OpsTableCell>
                         <OpsTableCell align="left">
                           <Select
@@ -662,6 +670,23 @@ function formatYuan(value: string): string {
   if (amount >= 100_000_000) return `${(amount / 100_000_000).toFixed(2)} 亿`;
   if (amount >= 10_000) return `${(amount / 10_000).toFixed(2)} 万`;
   return `${amount.toFixed(2)} 元`;
+}
+
+function formatEtfShare(value: string | null): string {
+  return formatEtfScale(value, "份");
+}
+
+function formatEtfSize(value: string | null): string {
+  return formatEtfScale(value, "元");
+}
+
+function formatEtfScale(value: string | null, unit: "份" | "元"): string {
+  if (value === null || value.trim() === "") return "—";
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return "—";
+  const useYi = Math.abs(amount) >= 10_000;
+  const displayValue = useYi ? amount / 10_000 : amount;
+  return `${new Intl.NumberFormat("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(displayValue)} ${useYi ? "亿" : "万"}${unit}`;
 }
 
 function HighlightMatch({ value, keyword }: { value: string; keyword: string }) {

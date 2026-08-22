@@ -111,6 +111,7 @@ from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
 from src.foundation.models.raw.raw_dividend import RawDividend
 from src.foundation.models.raw.raw_etf_basic import RawEtfBasic
 from src.foundation.models.raw.raw_etf_index import RawEtfIndex
+from src.foundation.models.raw.raw_etf_share_size import RawEtfShareSize
 from src.foundation.models.raw.raw_fund_daily import RawFundDaily
 from src.foundation.models.raw.raw_fund_adj import RawFundAdj
 from src.foundation.models.raw.raw_hk_basic import RawHkBasic
@@ -248,6 +249,7 @@ __all__ = [
     "RawDividend",
     "RawEtfBasic",
     "RawEtfIndex",
+    "RawEtfShareSize",
     "RawFundDaily",
     "RawFundAdj",
     "RawHkBasic",

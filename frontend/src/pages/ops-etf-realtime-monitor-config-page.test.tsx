@@ -26,6 +26,9 @@ const poolResponse = {
       has_etf_rule_override: false,
       latest_alert_at: null,
       latest_alert_severity: null,
+      size_trade_date: "2026-08-21",
+      total_share_wan: "2348148.770000",
+      total_size_wan: "10996615.504800",
       created_at: "2026-08-22T09:00:00+08:00",
       updated_at: "2026-08-22T09:00:00+08:00",
     },
@@ -103,6 +106,9 @@ const activeEtfsResponse = {
       list_date: "2013-03-29",
       list_status: "L",
       latest_fund_daily_date: "2026-08-21",
+      size_trade_date: "2026-08-21",
+      total_share_wan: "560000.000000",
+      total_size_wan: "2500000.000000",
       in_monitor_pool: false,
     },
     {
@@ -115,6 +121,9 @@ const activeEtfsResponse = {
       list_date: "2011-12-09",
       list_status: "L",
       latest_fund_daily_date: "2026-08-21",
+      size_trade_date: "2026-08-21",
+      total_share_wan: null,
+      total_size_wan: null,
       in_monitor_pool: false,
     },
   ],
@@ -170,6 +179,8 @@ describe("ETF实时监控配置中心", () => {
     expect(apiRequest).toHaveBeenCalledWith(expect.stringContaining("/alerts?trade_date="));
     expect(apiRequest).toHaveBeenCalledWith(expect.stringContaining("/summary?trade_date="));
     expect(screen.getByRole("button", { name: "删除" })).toHaveAttribute("data-variant", "light");
+    expect(screen.getByText("234.81 亿份")).toBeInTheDocument();
+    expect(screen.getByText("1,099.66 亿元")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "阈值规则" }));
     expect(await screen.findByText("observe")).toBeInTheDocument();
@@ -183,6 +194,9 @@ describe("ETF实时监控配置中心", () => {
 
     expect(await screen.findByText("选择并添加 ETF")).toBeInTheDocument();
     expect(await screen.findByText("510500.SH")).toBeInTheDocument();
+    expect(screen.getByText("56.00 亿份")).toBeInTheDocument();
+    expect(screen.getByText("250.00 亿元")).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /创业板ETF 159915\.SZ/ })).toHaveTextContent("—");
     expect(screen.getByRole("switch", { name: "510500.SH启用监控" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "510500.SH展示排序" })).toBeInTheDocument();
     await waitFor(() => {
