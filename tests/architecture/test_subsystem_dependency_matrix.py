@@ -69,7 +69,7 @@ RULES = (
     DependencyRule(
         name="qtf_only_foundation",
         source_root="qtf",
-        banned_prefixes=(),
+        banned_prefixes=("scripts.research",),
         whitelist={},
         deny_unlisted_prefixes=("src",),
         allowed_prefixes=("src.foundation",),
@@ -182,6 +182,7 @@ def test_qtf_dependency_rule_allows_only_qtf_and_foundation() -> None:
     assert _is_rule_violation("src", qtf_rule)
     assert _is_rule_violation("src.db", qtf_rule)
     assert _is_rule_violation("src.ops.runtime.worker", qtf_rule)
+    assert _is_rule_violation("scripts.research.sector_radar_backtest", qtf_rule)
 
 
 def test_lower_subsystems_cannot_import_qtf() -> None:

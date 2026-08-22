@@ -622,10 +622,10 @@
           </div>
         </div>
         <div class="meta">
-          <div class="meta-row"><span>文档状态</span><span>M1 开发已收口 / 生产迁移待部署</span></div>
+          <div class="meta-row"><span>文档状态</span><span>M2 开发已收口 / M1 生产迁移待部署</span></div>
           <div class="meta-row"><span>事实日期</span><span>2026-08-22</span></div>
           <div class="meta-row"><span>首个需求</span><span>行业二级热度参数研究</span></div>
-          <div class="meta-row"><span>当前阶段</span><span>M1 已完成，下一步只可进入 M2</span></div>
+          <div class="meta-row"><span>当前阶段</span><span>M2 已完成，下一步只可进入 M3</span></div>
           <div class="meta-row"><span>总体形态</span><span>模块化单体 + 独立量化执行进程</span></div>
           <div class="meta-row"><span>代码域名</span><span><code>qtf/</code></span></div>
         </div>
@@ -634,7 +634,7 @@
       <section class="section" id="summary">
         <div class="section-head">
           <div><h2>0. 方案摘要</h2><p>先打通二级行业真实研究闭环，再从真实闭环中提炼平台能力。</p></div>
-          <span class="badge fact">M1 已收口</span>
+          <span class="badge fact">M2 已收口</span>
         </div>
         <div class="section-body">
           <div class="grid-4">
@@ -1218,7 +1218,7 @@
           <div>
             <div class="milestone"><h3>M0 · 架构评审与边界冻结 · 已完成</h3><p>已确认本架构稿、QTF 目录边界、依赖方向、现有管理员认证复用、业务审核动作、可信门禁和二级行业首个切片；M0 未修改代码、数据库或上游数据。</p></div>
             <div class="milestone"><h3>M1 · QTF 平台基础与研究状态 · 已完成</h3><p>已建立顶层 QTF 包、依赖护栏、Research/Revision 最小状态、迁移与正反例；未读取或修改 Prod，生产迁移等待部署。</p></div>
-            <div class="milestone"><h3>M2 · 二级行业候选公式内核</h3><p>从一级行业离线探索中迁移价格/成交候选公式，冻结输入输出、时间语义、预热和参数解释，并以正反例验证计算语义；不声称预测有效，也不执行真实 R2。</p></div>
+            <div class="milestone"><h3>M2 · 二级行业候选公式内核 · 已完成</h3><p>已从一级行业离线探索中迁移价格/成交候选公式，冻结输入输出、时间语义、预热和参数解释，并以正反例验证父级内比较、缺失不补数和无未来数据语义；未声称预测有效，也未执行真实 R2。</p></div>
             <div class="milestone"><h3>M3 · 输入门禁、有限计划与执行主链</h3><p>复用既有 Prod 来源合同，实现本次 Run 精确范围的只读输入门禁，冻结 R2 参数矩阵、IS/OOS、评价合同和预算；新 Run 每次重新直读上游并完整计算，接入现有 TaskRun 进度、取消和失败观测。</p></div>
             <div class="milestone"><h3>M4 · 可信门禁与结果证据</h3><p>实现时间前沿、未来泄漏差分、预热稳定、样本覆盖、样本外和参数敏感性；形成明确 VALID/INVALID/INSUFFICIENT 结论。</p></div>
           </div>
@@ -1269,11 +1269,11 @@
               </tbody>
             </table>
           </div>
-          <div class="section-note" style="margin-top:10px"><strong>本轮结论：</strong>数据质量归上游、既有数据源审计直接复用、QTF 直接读取且不保存输入副本、M1 不读 Prod、M2 只证明候选公式计算语义、M3 才实现单次 Run 输入门禁与执行主链，以上边界均已冻结。M1 与 M2 是 M3 的两个前置：M2 依赖 M1 建立的 QTF 包和边界，M3 同时依赖 M1 的研究状态与 M2 的计算内核。大型回测产物与单次计算规模仍按具体回测能力 case by case 决定。</div>
+          <div class="section-note" style="margin-top:10px"><strong>本轮结论：</strong>数据质量归上游、既有数据源审计直接复用、QTF 直接读取且不保存输入副本、M1 不读 Prod、M2 只证明候选公式计算语义、M3 才实现单次 Run 输入门禁与执行主链，以上边界均已冻结。M1 与 M2 已完成开发收口，是 M3 的两个前置；M1 生产迁移仍待部署。大型回测产物与单次计算规模仍按具体回测能力 case by case 决定。</div>
         </div>
       </section>
 
-      <footer class="footer">Goldenshare · 财势量化平台（QTF）首版系统架构方案 v1 · Freqtrade / LEAN 经验本地化修订稿 · 本文档描述目标架构，不代表当前代码已实现。</footer>
+      <footer class="footer">Goldenshare · 财势量化平台（QTF）首版系统架构方案 v1 · Freqtrade / LEAN 经验本地化修订稿 · M1/M2 已实现，后续能力仍以里程碑状态为准。</footer>
     </main>
   </div>
 </body>

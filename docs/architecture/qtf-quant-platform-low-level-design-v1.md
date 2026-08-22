@@ -5,7 +5,7 @@
 | 项目 | 当前结论 |
 |---|---|
 | 文档性质 | 代码级 LLD 与内嵌编码门禁矩阵 |
-| 当前状态 | M1 开发已收口，生产迁移待部署；下一步只可进入 M2 |
+| 当前状态 | M2 开发已收口；M1 生产迁移待部署，下一步只可进入 M3 |
 | 审计日期 | 2026-08-22 |
 | 目标产品 | 财势乾坤 / 财势探查 / 量化研究工作台 |
 | 首个垂直切片 | 东财二级行业统一参数研究 |
@@ -13,7 +13,7 @@
 | 本文是否授权生产写入或发布 | 否 |
 | 当前 Alembic head | M1 实施前重新确认仓库单一 head 为 `20260822_000142`；M1 迁移已接为 `20260822_000143`。本轮未连接或修改 Prod，生产部署仍须核对远端 head |
 
-本文把已经确认的 QTF 系统架构、当前 Figma 六个正式页面、东财行业量化研究口径和仓库真实代码接入点落成可编码设计。本文不代表 QTF 已实现，也不把 Figma 中的示例数值解释为真实研究结果。
+本文把已经确认的 QTF 系统架构、当前 Figma 六个正式页面、东财行业量化研究口径和仓库真实代码接入点落成可编码设计。当前 M1 平台基础和 M2 候选公式内核已经实现，但 Prod 输入、执行、验证、API、前端和发布尚未实现；Figma 中的示例数值仍不得解释为真实研究结果。
 
 ### 0.1 依据与优先级
 
@@ -28,14 +28,14 @@
 
 冲突处理顺序：用户最新拍板 > 当前代码事实与本 LLD 记录的接入约束 > QTF 架构方案 > Figma 示例文案。Figma 负责视觉和用户流程，不负责批准某次真实回测的参数与数据范围。
 
-### 0.2 本次只完成什么
+### 0.2 本文冻结什么
 
 1. 冻结 QTF 顶层包、依赖方向、数据库模型、API、TaskRun 接入、前端路由和状态机。
 2. 冻结首个二级行业研究能力在平台中的接口边界。
 3. 列出 Figma 与当前代码尚未闭合的点，形成实施前门禁。
 4. 给出文件级改动面、正反例测试和开发顺序。
 
-本次不修改业务代码、数据库、Figma 或生产数据，不执行 R2，不生成候选参数，不发布任何行情信号。
+本文不授权修改 Figma 或生产数据，不授权执行 R2、生成候选参数或发布任何行情信号。各开发里程碑只按第 15 节的独立授权和状态推进。
 
 ---
 
@@ -71,11 +71,11 @@
 
 | 位置 | 当前事实 | 对 QTF 的影响 |
 |---|---|---|
-| 仓库根目录 | 当前不存在正式 `qtf/` 包；`src/**`、`wealth/**` 也没有 QTF 实现 | 当前仍是目标设计，任何 Figma loaded 内容都不能表述成已开发 |
-| `pyproject.toml` | `[tool.setuptools] packages = ["src"]` | 根目录 `qtf/` 目前不会作为正式包发布；M1 开工第一步必须修改包发现并做安装验证 |
-| `docs/architecture/dependency-matrix.md` | 只定义 `foundation / ops / biz / app` | M1 开工第一步必须加入 QTF；禁止靠口头约定维持边界 |
-| `tests/architecture/test_subsystem_dependency_matrix.py` | 只扫描现有四类规则 | M1 开工第一步必须增加 QTF 和“现有子系统不得反向导入 QTF”的自动护栏 |
-| `src/app/model_registry.py` | 只注册 Foundation、App、Ops 模型 | QTF ORM 必须由 App 组合根显式注册，不能让 Foundation 反向导入 QTF |
+| 仓库根目录 | 已存在正式 `qtf/` 产品域；M1 已建立研究状态，M2 已建立二级行业候选公式内核 | 当前仍未接入 Prod、TaskRun、API、Wealth 或生产发布 |
+| `pyproject.toml` | 受控发现 `src*` 与 `qtf*`，排除脚本、测试、前端和 Lake Console | M1 wheel 验收已通过，M2 新模块继续受同一包边界保护 |
+| `docs/architecture/dependency-matrix.md` | 已定义 `qtf -> foundation, qtf`，并禁止下层反向依赖 QTF | 依赖方向由自动护栏持续验证 |
+| `tests/architecture/test_subsystem_dependency_matrix.py` | 已扫描 QTF，禁止现有子系统反向导入 QTF，并禁止 QTF 导入历史研究脚本 | M2 新内核不复用 `scripts.research` 运行时代码 |
+| `src/app/model_registry.py` | App 已显式注册 M1 QTF ORM | Foundation 无反向依赖；M2 无新增 ORM 或迁移 |
 | `alembic/env.py` | 调用 `register_all_models()`，使用共享 `Base.metadata` | QTF ORM 可继承共享 `Base`，由 App 注册后进入现有 Alembic 链 |
 | `src/app/api/v1/router.py` | 聚合 Auth、Ops、Biz 路由 | QTF FastAPI 接线应在这里完成；QTF 核心不得导入 App |
 | `src/ops/services/task_run_service.py` | 只允许 `dataset_action / workflow / maintenance_action` | 不能直接创建 `qtf_experiment`，需要通用、注入式扩展点 |
@@ -108,7 +108,7 @@ tests/test_sector_radar_robustness.py
 3. 没有 TaskRun、管理员 API、数据库元数据或 Wealth 页面接入。
 4. R2 所需父级内比较、小同组门禁和二级行业计划尚未实现。
 
-实施时不得由 `qtf` import `scripts.research.*`。M2 迁移的是“已在历史探索中使用过的候选公式实现”，并重新用正反例验证公式、窗口、缺失值和时间前沿语义；预测有效性只能由后续获批的 R2 回测判断。历史脚本保留为探索证据，不能被改名后冒充平台内核或正式参数。
+M2 已把“历史探索中实际使用过的候选公式语义”重新实现为 QTF 纯计算内核，并以正反例验证公式、窗口、缺失值、父级隔离和时间前沿；自动依赖护栏明确禁止 `qtf` import `scripts.research.*`。预测有效性仍只能由后续获批的 R2 回测判断。历史脚本继续保留为探索证据，不能被改名后冒充平台内核或正式参数。
 
 ### 2.3 前端现状
 
@@ -1314,14 +1314,17 @@ sourceStatementTimeoutMs
 3. 实施前已确认仓库单一 Alembic head 为 `20260822_000142`；新增 `20260822_000143`，且迁移范围只包含 `qtf` schema、`research` 与 `experiment_revision`。App 已显式注册 QTF ORM。
 4. 已完成状态约束、FROZEN 不可变、canonical revision hash、创建幂等、draftVersion 乐观并发及正反例测试。
 5. 本轮未实现 Prod adapter、未读取或修改 Prod、未重复审计来源或历史覆盖、未接入 TaskRun，也未执行参数回测。当前配置指向远程生产库，因此只验证离线 PostgreSQL DDL，未执行远程 `alembic upgrade`。
-6. G01、G02 已通过 M1 自动化与 wheel 验收；G03–G26 继续保持 `OPEN`，分别等待其所属后续里程碑。
+6. M1 收口时只有 G01、G02 通过自动化与 wheel 验收；M2 后的最新 Gate 状态以第 16 节为准。
 
 ### M2：二级行业候选公式内核
 
-1. 建立 template/formula/parameter registry 和完整生效参数合同。
-2. 从一级行业历史探索脚本迁移曾经使用过的价格、成交候选公式，不 import `scripts.research.*`。
-3. 实现父级内排名、稳健标准化、EWMA、时间前沿，并以正反例验证公式、窗口、缺失值和无未来数据语义。
-4. M2 的“验证通过”只表示计算实现符合冻结公式合同，不表示候选具有预测效果，也不表示适用于二级行业；不预设 R2 最终固定参数，不执行真实 R2。
+**状态：2026-08-22 开发已收口。**
+
+1. 已建立 `sector_l2_turn_hot_v1` template、`sector_heat_research_v1@1` formula、`sector_l2_heat_params_v1@1` 参数注册表和完整生效参数合同。
+2. 已将一级行业历史探索中实际使用过的价格、成交、稳健标准化、状态映射、EWMA、趋势穿越和 reset 语义迁入独立纯计算实现；QTF 不 import `scripts.research.*`。
+3. 已实现同一一级父行业内的二级行业排名、显式小组门槛、缺失组日隔离、60/120 独立预热和时间前沿，并完成正反例验证。
+4. 参数解析不使用运行时默认值；只有 `baseline_days` 与 `trend_days` 可以成为候选维度，其余值必须由后续获批 PLAN 显式冻结。
+5. M2 的“验证通过”只表示计算实现符合冻结公式合同，不表示候选具有预测效果，也不表示已验证适用于二级行业；本轮未读 Prod、未预设 R2 最终参数、未执行真实 R2，也未新增 API、数据库、迁移、TaskRun、前端或发布能力。
 
 ### M3：输入门禁、有限计划与执行主链
 
@@ -1385,12 +1388,12 @@ sourceStatementTimeoutMs
 | G05 | 数据问题交回上游 | run input preflight | PASS 可继续 | BLOCKED 零修复、零公式执行 | OPEN |
 | G06 | 每个新 Run 重读 | experiment service | 新 Run 调 reader | 复用旧 result/input 被阻断 | OPEN |
 | G07 | 同一 Run 不重复扫 Prod | sector executor | 多候选一次 load | 每候选重查来源测试失败 | OPEN |
-| G08 | 公式和参数完整冻结 | registry/revision | 所有有效值入 hash | 缺值/运行时默认值被拒绝 | OPEN |
-| G09 | 不允许任意 Python | registry/API | 选择注册 formula | 上传源码/表达式被拒绝 | OPEN |
-| G10 | 时间前沿正确 | engine/time_frontier | t 只看历史 | 修改未来不影响 t | OPEN |
-| G11 | 父级内比较 | sector ranking | 同父排名正确 | 其他父级不能改变结果 | OPEN |
-| G12 | 小组规则显式 | preflight/parameter schema | 达门槛可评价 | 低于门槛不生成伪标签 | OPEN |
-| G13 | 缺失不补数 | run input preflight | 完整组日参与 | 缺行不补零/不前填 | OPEN |
+| G08 | 公式和参数完整冻结 | registry/revision | 所有有效值入 hash | 缺值/运行时默认值被拒绝 | OPEN（M2 参数合同完成，等待 M3 freeze） |
+| G09 | 不允许任意 Python | registry/API | 选择注册 formula | 上传源码/表达式被拒绝 | OPEN（M2 静态 registry 完成，等待 M6 API） |
+| G10 | 时间前沿正确 | engine/time_frontier | t 只看历史 | 修改未来不影响 t | PASS (M2) |
+| G11 | 父级内比较 | sector ranking | 同父排名正确 | 其他父级不能改变结果 | PASS (M2) |
+| G12 | 小组规则显式 | preflight/parameter schema | 达门槛可评价 | 低于门槛不生成伪标签 | OPEN（M2 schema/kernel 完成，等待 M3 preflight） |
+| G13 | 缺失不补数 | run input preflight | 完整组日参与 | 缺行不补零/不前填 | OPEN（M2 kernel 完成，等待 M3 preflight） |
 | G14 | TaskRun success != VALID | run/result API | success+VALID 可提名 | success+INVALID 不可提名 | OPEN |
 | G15 | 取消在安全点 | executor/observer | 组合后停止 | 半条参数组合结果不可见 | OPEN |
 | G16 | Ops 与 QTF 事务隔离 | App runtime adapter | Ops 正常观测 | Ops 写失败不回滚 QTF | OPEN |
@@ -1401,7 +1404,7 @@ sourceStatementTimeoutMs
 | G21 | 六页匹配 Figma | QTF pages/components | 1600px 截图通过 | 表头错位、按钮非组件失败 | OPEN |
 | G22 | 六类页面状态稳定 | controllers/UI | 状态逐一渲染 | error 回退示例数据失败 | OPEN |
 | G23 | R2 未经批准不执行 | freeze/run service | 获批 hash 后可建 Run | Figma 示例直接启动被阻断 | OPEN |
-| G24 | 申万与跨体系为零 | sector contracts | 只接受 DC L2 | SW/跨体系参数被拒绝 | OPEN |
+| G24 | 申万与跨体系为零 | sector contracts | 只接受 DC L2 | SW/跨体系参数被拒绝 | PASS (M2) |
 | G25 | QTF 独立 worker 进程 | worker lane/CLI/systemd | QTF lane 领取实验 | GENERAL/分钟 lane 抢占或 QTF 领取既有任务时失败 | OPEN |
 | G26 | 运行代码可追溯 | release env/run fingerprint | 合法 commit 写入 Run | 缺失/伪 commit 时零来源读取 | OPEN |
 
@@ -1442,4 +1445,4 @@ git diff --check
 5. 真实 R2 仍未获批；平台开发和真实研究执行是两次独立授权。
 6. M9 的生产 serving 与板块雷达/板块速览消费必须另立能力 LLD，不能在平台框架开发中顺手接入。
 
-因此，**M1：QTF 平台基础与研究状态** 已于 2026-08-22 完成开发收口，生产迁移等待部署；下一步只能进入 **M2：二级行业候选公式内核**，不能重复开展 Prod 数据覆盖审计，也不能直接进入 Prod 接入、TaskRun、真实回测、前端或发布。
+因此，**M2：二级行业候选公式内核** 已于 2026-08-22 完成开发收口；M1 生产迁移仍等待部署。下一步只能进入 **M3：输入门禁、有限计划与执行主链**，届时复用既有 Prod 来源合同做单次 Run 精确范围门禁，不能重复开展 Prod 数据覆盖审计，也不能越级进入真实 R2、前端或发布。
