@@ -105,10 +105,22 @@ const activeEtfsResponse = {
       latest_fund_daily_date: "2026-08-21",
       in_monitor_pool: false,
     },
+    {
+      ts_code: "159915.SZ",
+      csname: "创业板ETF",
+      extname: null,
+      cname: null,
+      exchange: "SZ",
+      etf_type: "宽基",
+      list_date: "2011-12-09",
+      list_status: "L",
+      latest_fund_daily_date: "2026-08-21",
+      in_monitor_pool: false,
+    },
   ],
   page: 1,
   page_size: 50,
-  total: 1,
+  total: 2,
 };
 
 function renderPage() {
@@ -124,13 +136,24 @@ function renderPage() {
 
 describe("ETF实时监控配置中心", () => {
   beforeEach(() => {
+    const addedActiveEtfCodes = new Set<string>();
     apiRequest.mockReset();
-    apiRequest.mockImplementation(async (path: string) => {
+    apiRequest.mockImplementation(async (path: string, options?: { method?: string; body?: { ts_code?: string } }) => {
+      if (path === "/api/v1/ops/realtime/etf-monitor/pool" && options?.method === "POST") {
+        const tsCode = options.body?.ts_code;
+        if (tsCode) addedActiveEtfCodes.add(tsCode);
+        return { id: 4, ts_code: tsCode };
+      }
       if (path.startsWith("/api/v1/ops/realtime/etf-monitor/pool?")) return poolResponse;
       if (path === "/api/v1/ops/realtime/etf-monitor/rules") return rulesResponse;
       if (path.startsWith("/api/v1/ops/realtime/etf-monitor/alerts?")) return alertsResponse;
       if (path.startsWith("/api/v1/ops/realtime/etf-monitor/summary?")) return summaryResponse;
-      if (path.startsWith("/api/v1/ops/realtime/etf-monitor/active-etfs?")) return activeEtfsResponse;
+      if (path.startsWith("/api/v1/ops/realtime/etf-monitor/active-etfs?")) {
+        return {
+          ...activeEtfsResponse,
+          items: activeEtfsResponse.items.map((item) => ({ ...item, in_monitor_pool: addedActiveEtfCodes.has(item.ts_code) })),
+        };
+      }
       throw new Error(`unexpected api path: ${path}`);
     });
   });
@@ -157,8 +180,10 @@ describe("ETF实时监控配置中心", () => {
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "添加ETF" }));
 
-    expect(await screen.findByText("选择ETF")).toBeInTheDocument();
+    expect(await screen.findByText("选择并添加 ETF")).toBeInTheDocument();
     expect(await screen.findByText("510500.SH")).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "510500.SH启用监控" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "510500.SH展示排序" })).toBeInTheDocument();
     await waitFor(() => {
       expect(apiRequest).toHaveBeenCalledWith(expect.stringContaining("/active-etfs?page=1&page_size=50"));
     });
@@ -169,6 +194,21 @@ describe("ETF实时监控配置中心", () => {
         return url.pathname.endsWith("/active-etfs") && url.searchParams.get("keyword") === "中证500";
       })).toBe(true);
     });
+    fireEvent.click(screen.getAllByRole("button", { name: "添加", exact: true })[0]);
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/realtime/etf-monitor/pool", {
+        method: "POST",
+        body: expect.objectContaining({
+          ts_code: "510500.SH",
+          group_key: "broad_base",
+          enabled: true,
+          display_order: 0,
+        }),
+      });
+    });
+    expect(await screen.findByRole("button", { name: "已添加" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "添加", exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "添加监控ETF" })).toBeInTheDocument();
     const paths = apiRequest.mock.calls.map(([path]) => String(path));
     expect(paths.some((path) => path.includes("tushare"))).toBe(false);
     expect(paths.some((path) => path.includes("/api/v1/realtime/"))).toBe(false);

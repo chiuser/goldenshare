@@ -13,7 +13,6 @@ import {
   Tabs,
   Text,
   TextInput,
-  Textarea,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -61,7 +60,6 @@ type PoolDraft = {
   group_name: string;
   enabled: boolean;
   display_order: number;
-  note: string;
 };
 
 type RuleDraft = {
@@ -125,27 +123,37 @@ export function OpsEtfRealtimeMonitorConfigPage() {
   const poolPageCount = Math.max(1, Math.ceil((poolQuery.data?.total || 0) / 50));
 
   const savePoolMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (draft: PoolDraft) => {
       const body = {
-        ts_code: poolDraft.ts_code,
-        group_key: poolDraft.group_key,
-        group_name: poolDraft.group_name,
-        enabled: poolDraft.enabled,
-        display_order: poolDraft.display_order,
-        note: poolDraft.note || null,
+        ts_code: draft.ts_code,
+        group_key: draft.group_key,
+        group_name: draft.group_name,
+        enabled: draft.enabled,
+        display_order: draft.display_order,
       };
-      if (poolDraft.id) {
-        return apiRequest(`${API_PREFIX}/pool/${poolDraft.id}`, {
+      if (draft.id) {
+        return apiRequest(`${API_PREFIX}/pool/${draft.id}`, {
           method: "PUT",
           body: { ...body, ts_code: undefined },
         });
       }
       return apiRequest(`${API_PREFIX}/pool`, { method: "POST", body });
     },
-    onSuccess: async () => {
-      setPoolDrawerOpen(false);
-      notifications.show({ color: "green", title: "已保存", message: "ETF监控池已更新。" });
+    onSuccess: async (_response, draft) => {
+      if (draft.id) {
+        setPoolDrawerOpen(false);
+        notifications.show({ color: "green", title: "已保存", message: "ETF监控池已更新。" });
+      } else {
+        notifications.show({ color: "green", title: "已添加", message: `${draft.ts_code} 已加入监控池。` });
+      }
       await queryClient.invalidateQueries({ queryKey: ["ops", "etf-realtime-monitor"] });
+    },
+    onError: (error, draft) => {
+      notifications.show({
+        color: "red",
+        title: draft.id ? "保存失败" : "添加失败",
+        message: error instanceof Error ? error.message : `${draft.ts_code} 操作失败。`,
+      });
     },
   });
   const deletePoolMutation = useMutation({
@@ -255,7 +263,9 @@ export function OpsEtfRealtimeMonitorConfigPage() {
         onActiveEtfKeywordChange={setActiveEtfKeyword}
         onClose={() => setPoolDrawerOpen(false)}
         onDraftChange={setPoolDraft}
-        onSubmit={() => savePoolMutation.mutate()}
+        onAdd={(draft) => savePoolMutation.mutate(draft)}
+        onSubmit={() => savePoolMutation.mutate(poolDraft)}
+        addingTsCode={savePoolMutation.isPending && savePoolMutation.variables && !savePoolMutation.variables.id ? savePoolMutation.variables.ts_code : null}
         saving={savePoolMutation.isPending}
       />
       <RuleDrawer
@@ -431,7 +441,9 @@ function PoolDrawer({
   onClose,
   onActiveEtfKeywordChange,
   onDraftChange,
+  onAdd,
   onSubmit,
+  addingTsCode,
   saving,
 }: {
   opened: boolean;
@@ -444,15 +456,34 @@ function PoolDrawer({
   onActiveEtfKeywordChange: (keyword: string) => void;
   onClose: () => void;
   onDraftChange: (draft: PoolDraft) => void;
+  onAdd: (draft: PoolDraft) => void;
   onSubmit: () => void;
+  addingTsCode: string | null;
   saving: boolean;
 }) {
   const activePageCount = Math.max(1, Math.ceil((activeEtfs?.total || 0) / 50));
+  const [rowDrafts, setRowDrafts] = useState<Record<string, PoolDraft>>({});
+
+  useEffect(() => {
+    if (opened && !draft.id) setRowDrafts({});
+  }, [opened, draft.id]);
+
+  useEffect(() => {
+    if (draft.id || !activeEtfs) return;
+    setRowDrafts((current) => {
+      const next = { ...current };
+      for (const item of activeEtfs.items) {
+        if (!next[item.ts_code]) next[item.ts_code] = emptyPoolDraft(item.ts_code);
+      }
+      return next;
+    });
+  }, [activeEtfs, draft.id]);
+
   return (
-    <Drawer opened={opened} onClose={onClose} title={draft.id ? "编辑监控ETF" : "添加监控ETF"} position="right" size="xl">
+    <Drawer opened={opened} onClose={onClose} title={draft.id ? "编辑监控ETF" : "添加监控ETF"} position="right" size={1120}>
       <Stack gap="md">
         {!draft.id ? (
-          <SectionCard title="选择ETF">
+          <SectionCard title="选择并添加 ETF">
             <Stack gap="md">
               <TextInput
                 label="搜索待添加 ETF"
@@ -460,14 +491,76 @@ function PoolDrawer({
                 value={activeEtfKeyword}
                 onChange={(event) => onActiveEtfKeywordChange(event.currentTarget.value)}
               />
-              <TableShell loading={activeEtfsLoading} hasData={(activeEtfs?.items ?? []).length > 0} emptyState={<EmptyState title="没有匹配的 ETF" />} summary={<Pager page={activeEtfPage} pageCount={activePageCount} total={activeEtfs?.total ?? 0} onPageChange={onActiveEtfPageChange} />} minWidth={720}>
+              <TableShell loading={activeEtfsLoading} hasData={(activeEtfs?.items ?? []).length > 0} emptyState={<EmptyState title="没有匹配的 ETF" />} summary={<Pager page={activeEtfPage} pageCount={activePageCount} total={activeEtfs?.total ?? 0} onPageChange={onActiveEtfPageChange} />} minWidth={0}>
                 <OpsTable>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <OpsTableHeaderCell align="left" width="24%">ETF</OpsTableHeaderCell>
+                      <OpsTableHeaderCell align="left" width="10%">交易所</OpsTableHeaderCell>
+                      <OpsTableHeaderCell align="left" width="22%">监控分组</OpsTableHeaderCell>
+                      <OpsTableHeaderCell align="left" width="14%">展示排序</OpsTableHeaderCell>
+                      <OpsTableHeaderCell align="left" width="14%">启用监控</OpsTableHeaderCell>
+                      <OpsTableHeaderCell align="left" width="16%">操作</OpsTableHeaderCell>
+                    </Table.Tr>
+                  </Table.Thead>
                   <Table.Tbody>
                     {(activeEtfs?.items ?? []).map((item) => (
                       <Table.Tr key={item.ts_code}>
                         <OpsTableCell align="left"><Stack gap={0}><Text fw={600}>{item.ts_code}</Text><Text size="xs" c="dimmed">{item.csname || item.extname || item.cname || "—"}</Text></Stack></OpsTableCell>
                         <OpsTableCell align="left">{item.exchange || "—"}</OpsTableCell>
-                        <OpsTableCell align="left">{item.in_monitor_pool ? <Badge color="gray">已加入</Badge> : <Button size="xs" onClick={() => onDraftChange({ ...draft, ts_code: item.ts_code })}>选择</Button>}</OpsTableCell>
+                        <OpsTableCell align="left">
+                          <Select
+                            aria-label={`${item.ts_code}监控分组`}
+                            data={GROUP_OPTIONS}
+                            value={(rowDrafts[item.ts_code] || emptyPoolDraft(item.ts_code)).group_key}
+                            allowDeselect={false}
+                            disabled={item.in_monitor_pool}
+                            onChange={(value) => {
+                              const rowDraft = rowDrafts[item.ts_code] || emptyPoolDraft(item.ts_code);
+                              setRowDrafts((current) => ({
+                                ...current,
+                                [item.ts_code]: { ...rowDraft, group_key: value || "broad_base", group_name: groupName(value || "broad_base") },
+                              }));
+                            }}
+                          />
+                        </OpsTableCell>
+                        <OpsTableCell align="left">
+                          <NumberInput
+                            aria-label={`${item.ts_code}展示排序`}
+                            value={(rowDrafts[item.ts_code] || emptyPoolDraft(item.ts_code)).display_order}
+                            min={0}
+                            disabled={item.in_monitor_pool}
+                            onChange={(value) => {
+                              const rowDraft = rowDrafts[item.ts_code] || emptyPoolDraft(item.ts_code);
+                              setRowDrafts((current) => ({ ...current, [item.ts_code]: { ...rowDraft, display_order: Number(value || 0) } }));
+                            }}
+                          />
+                        </OpsTableCell>
+                        <OpsTableCell align="left">
+                          <Switch
+                            aria-label={`${item.ts_code}启用监控`}
+                            checked={(rowDrafts[item.ts_code] || emptyPoolDraft(item.ts_code)).enabled}
+                            disabled={item.in_monitor_pool}
+                            onChange={(event) => {
+                              const rowDraft = rowDrafts[item.ts_code] || emptyPoolDraft(item.ts_code);
+                              setRowDrafts((current) => ({ ...current, [item.ts_code]: { ...rowDraft, enabled: event.currentTarget.checked } }));
+                            }}
+                          />
+                        </OpsTableCell>
+                        <OpsTableCell align="left">
+                          {item.in_monitor_pool ? (
+                            <Button size="xs" color="green" variant="light" disabled>已添加</Button>
+                          ) : (
+                            <Button
+                              size="xs"
+                              loading={addingTsCode === item.ts_code}
+                              disabled={Boolean(addingTsCode) && addingTsCode !== item.ts_code}
+                              onClick={() => onAdd(rowDrafts[item.ts_code] || emptyPoolDraft(item.ts_code))}
+                            >
+                              添加
+                            </Button>
+                          )}
+                        </OpsTableCell>
                       </Table.Tr>
                     ))}
                   </Table.Tbody>
@@ -476,12 +569,15 @@ function PoolDrawer({
             </Stack>
           </SectionCard>
         ) : null}
-        <TextInput label="ETF代码" value={draft.ts_code} disabled={Boolean(draft.id)} onChange={(event) => onDraftChange({ ...draft, ts_code: event.currentTarget.value })} />
-        <Select label="监控分组" data={GROUP_OPTIONS} value={draft.group_key} allowDeselect={false} onChange={(value) => onDraftChange({ ...draft, group_key: value || "broad_base", group_name: groupName(value || "broad_base") })} />
-        <Switch label="启用监控" checked={draft.enabled} onChange={(event) => onDraftChange({ ...draft, enabled: event.currentTarget.checked })} />
-        <NumberInput label="展示排序" value={draft.display_order} onChange={(value) => onDraftChange({ ...draft, display_order: Number(value || 0) })} />
-        <Textarea label="备注" value={draft.note} onChange={(event) => onDraftChange({ ...draft, note: event.currentTarget.value })} />
-        <Button onClick={onSubmit} loading={saving} disabled={!draft.ts_code}>保存</Button>
+        {draft.id ? (
+          <>
+            <TextInput label="ETF代码" value={draft.ts_code} disabled />
+            <Select label="监控分组" data={GROUP_OPTIONS} value={draft.group_key} allowDeselect={false} onChange={(value) => onDraftChange({ ...draft, group_key: value || "broad_base", group_name: groupName(value || "broad_base") })} />
+            <Switch label="启用监控" checked={draft.enabled} onChange={(event) => onDraftChange({ ...draft, enabled: event.currentTarget.checked })} />
+            <NumberInput label="展示排序" value={draft.display_order} onChange={(value) => onDraftChange({ ...draft, display_order: Number(value || 0) })} />
+            <Button onClick={onSubmit} loading={saving} disabled={!draft.ts_code}>保存</Button>
+          </>
+        ) : null}
       </Stack>
     </Drawer>
   );
@@ -526,8 +622,8 @@ function Pager({ page, pageCount, total, onPageChange }: { page: number; pageCou
   );
 }
 
-function emptyPoolDraft(): PoolDraft {
-  return { ts_code: "", group_key: "broad_base", group_name: "宽基ETF", enabled: true, display_order: 0, note: "" };
+function emptyPoolDraft(tsCode = ""): PoolDraft {
+  return { ts_code: tsCode, group_key: "broad_base", group_name: "宽基ETF", enabled: true, display_order: 0 };
 }
 
 function emptyRuleDraft(): RuleDraft {
@@ -535,7 +631,7 @@ function emptyRuleDraft(): RuleDraft {
 }
 
 function poolDraftFromItem(item: EtfRealtimeMonitorPoolItem): PoolDraft {
-  return { id: item.id, ts_code: item.ts_code, group_key: item.group_key, group_name: item.group_name, enabled: item.enabled, display_order: item.display_order, note: item.note || "" };
+  return { id: item.id, ts_code: item.ts_code, group_key: item.group_key, group_name: item.group_name, enabled: item.enabled, display_order: item.display_order };
 }
 
 function ruleDraftFromItem(item: EtfRealtimeMonitorRuleItem): RuleDraft {
