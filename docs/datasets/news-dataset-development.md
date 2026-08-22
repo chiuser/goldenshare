@@ -16,7 +16,7 @@
 
 - 源站接口：Tushare `news`
 - 源站文档链接：<https://tushare.pro/document/2?doc_id=143>
-- 本地源站文档：[0143_新闻快讯.md](/Users/congming/github/goldenshare/docs/sources/tushare/大模型语料专题数据/0143_新闻快讯.md)
+- 本地源站文档：[0143_新闻快讯.md](/Users/congming/github/goldenshare/docs/sources/tushare/大模型语料/0143_新闻快讯.md)
 - `docs_index.csv` 记录：`doc_id=143`，`api_name=news`
 - 文档抓取日期：`2026-05-02 23:42:59`
 - 接口说明：获取主流新闻网站的快讯新闻数据。
@@ -79,7 +79,7 @@
 - 数据源：`tushare`
 - 源站 API 名称：`news`
 - 源站文档链接：<https://tushare.pro/document/2?doc_id=143>
-- 本地源站文档路径：[0143_新闻快讯.md](/Users/congming/github/goldenshare/docs/sources/tushare/大模型语料专题数据/0143_新闻快讯.md)
+- 本地源站文档路径：[0143_新闻快讯.md](/Users/congming/github/goldenshare/docs/sources/tushare/大模型语料/0143_新闻快讯.md)
 - 文档抓取日期：`2026-05-02 23:42:59`
 - 是否对外服务：是，raw 表写入后通过 `core_serving_light` 普通 view 直出
 - 是否多源融合：否

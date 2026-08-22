@@ -8,7 +8,7 @@
 
 - 仓库根规则：[AGENTS.md](/Users/congming/github/goldenshare/AGENTS.md)
 - 数据集模板：[dataset-development-template.md](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)
-- 源站文档：[0415_券商研究报告.md](/Users/congming/github/goldenshare/docs/sources/tushare/大模型语料专题数据/0415_券商研究报告.md)
+- 源站文档：[0415_券商研究报告.md](/Users/congming/github/goldenshare/docs/sources/tushare/大模型语料/0415_券商研究报告.md)
 - 参考实现：`src/foundation/datasets/definitions/market_equity.py` 中 `broker_recommend` 的券商推荐领域归属，以及 `src/foundation/datasets/definitions/news.py` 中文本类 raw + serving light 模式
 
 禁止项：

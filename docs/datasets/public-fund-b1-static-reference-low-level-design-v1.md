@@ -49,7 +49,7 @@ MCP schema 未展示 `limit/offset`，但不能据此断言“不可分页”。
 
 ### 2.2 `mkt_idx_bmk`
 
-本地源文档：`docs/sources/tushare/ETF专题/0462_公募基金业绩基准库.md`（doc 462）。无参数和显式请求都返回 141 行、完整 8 字段；`ts_code` 无空值且不重复：
+本地源文档：`docs/sources/tushare/公募基金/0462_公募基金业绩基准库.md`（doc 462）。无参数和显式请求都返回 141 行、完整 8 字段；`ts_code` 无空值且不重复：
 
 ```text
 ts_code, symbol, name, fullname, bmk_level, bmk_type, bmk_src, idx_type

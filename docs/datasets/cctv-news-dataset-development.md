@@ -15,7 +15,7 @@
 ## 1. 源站事实
 
 - 源站接口：Tushare `cctv_news`
-- 本地源站文档：[0154_新闻联播.md](/Users/congming/github/goldenshare/docs/sources/tushare/大模型语料专题数据/0154_新闻联播.md)
+- 本地源站文档：[0154_新闻联播.md](/Users/congming/github/goldenshare/docs/sources/tushare/大模型语料/0154_新闻联播.md)
 - `docs_index.csv` 记录：`doc_id=154`，`api_name=cctv_news`
 - 接口说明：获取新闻联播文字稿，数据开始于 2017 年。
 - 权限说明：需要单独开权限。

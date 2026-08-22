@@ -15,7 +15,7 @@
 ## 1. 源站事实
 
 - 源站接口：Tushare `major_news`
-- 本地源站文档：[0195_新闻通讯.md](/Users/congming/github/goldenshare/docs/sources/tushare/大模型语料专题数据/0195_新闻通讯.md)
+- 本地源站文档：[0195_新闻通讯.md](/Users/congming/github/goldenshare/docs/sources/tushare/大模型语料/0195_新闻通讯.md)
 - `docs_index.csv` 记录：`doc_id=195`，`api_name=major_news`
 - 接口说明：获取长篇通讯信息，覆盖主要新闻资讯源。
 - 权限说明：需要单独开权限。
