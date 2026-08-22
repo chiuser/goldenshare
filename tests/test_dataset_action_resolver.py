@@ -13,6 +13,7 @@ from src.ops.runtime.task_run_dispatcher import TaskRunDispatcher
 from src.foundation.ingestion.request_builders import (
     _cyq_chips_params,
     _etf_sh_cons_params,
+    _etf_share_size_params,
     _index_daily_params,
     _idx_factor_pro_params,
     _stk_factor_pro_params,
@@ -561,6 +562,104 @@ def test_etf_sh_cons_request_builder_requires_ts_code() -> None:
 
     with pytest.raises(ValueError, match="ETF 申赎清单缺少 ETF 代码"):
         _etf_sh_cons_params(request, date(2026, 6, 18), {})
+
+
+def test_etf_share_size_default_point_uses_one_full_market_unit_without_pool(mocker) -> None:
+    fake_dao = SimpleNamespace(trade_calendar=SimpleNamespace(get_open_dates=mocker.Mock()))
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+
+    plan = resolver.build_plan(
+        DatasetActionRequest(
+            dataset_key="etf_share_size",
+            action="maintain",
+            time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 6, 18)),
+        )
+    )
+
+    assert plan.planning.unit_count == 1
+    assert plan.units[0].trade_date == date(2026, 6, 18)
+    assert plan.units[0].request_params == {"trade_date": "20260618"}
+    assert plan.units[0].progress_context == {"unit": "trade_date", "trade_date": "2026-06-18"}
+    fake_dao.trade_calendar.get_open_dates.assert_not_called()
+    assert not hasattr(fake_dao, "etf_series_active")
+
+
+def test_etf_share_size_range_expands_only_open_dates_and_keeps_single_market_units(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        trade_calendar=SimpleNamespace(get_open_dates=mocker.Mock(return_value=[date(2026, 6, 18), date(2026, 6, 19)])),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+
+    plan = resolver.build_plan(
+        DatasetActionRequest(
+            dataset_key="etf_share_size",
+            action="maintain",
+            time_input=DatasetTimeInput(mode="range", start_date=date(2026, 6, 18), end_date=date(2026, 6, 21)),
+        )
+    )
+
+    assert [unit.trade_date for unit in plan.units] == [date(2026, 6, 18), date(2026, 6, 19)]
+    assert [unit.request_params for unit in plan.units] == [
+        {"trade_date": "20260618"},
+        {"trade_date": "20260619"},
+    ]
+    fake_dao.trade_calendar.get_open_dates.assert_called_once_with("SSE", date(2026, 6, 18), date(2026, 6, 21))
+    assert not hasattr(fake_dao, "etf_series_active")
+
+
+def test_etf_share_size_explicit_single_code_does_not_read_pool(mocker) -> None:
+    fake_dao = SimpleNamespace(trade_calendar=SimpleNamespace(get_open_dates=mocker.Mock()))
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+
+    plan = resolver.build_plan(
+        DatasetActionRequest(
+            dataset_key="etf_share_size",
+            action="maintain",
+            time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 6, 18)),
+            filters={"ts_code": "510300.sh"},
+        )
+    )
+
+    assert plan.planning.unit_count == 1
+    assert plan.units[0].request_params == {"trade_date": "20260618", "ts_code": "510300.SH"}
+    assert not hasattr(fake_dao, "etf_series_active")
+
+
+def test_etf_share_size_rejects_multi_code_input(mocker) -> None:
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=SimpleNamespace())
+    resolver = DatasetActionResolver(mocker.Mock())
+
+    with pytest.raises(IngestionPlanningError, match="一次只支持维护一个显式 ETF 代码") as exc_info:
+        resolver.build_plan(
+            DatasetActionRequest(
+                dataset_key="etf_share_size",
+                action="maintain",
+                time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 6, 18)),
+                filters={"ts_code": "510300.SH,159919.SZ"},
+            )
+        )
+
+    assert exc_info.value.structured_error.error_code == "invalid_enum"
+
+
+def test_etf_share_size_request_builder_only_emits_point_date_and_optional_code() -> None:
+    request = SimpleNamespace(
+        run_profile="range_rebuild",
+        trade_date=None,
+        start_date=date(2026, 6, 18),
+        end_date=date(2026, 6, 19),
+        params={"ts_code": "510300.sh"},
+    )
+
+    assert _etf_share_size_params(request, date(2026, 6, 18), {}) == {
+        "trade_date": "20260618",
+        "ts_code": "510300.SH",
+    }
+    with pytest.raises(ValueError, match="ETF 份额规模维护缺少交易日期"):
+        _etf_share_size_params(request, None, {})
 
 
 def test_stk_factor_pro_request_builder_keeps_trade_date_request() -> None:

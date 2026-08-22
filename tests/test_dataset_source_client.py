@@ -315,6 +315,45 @@ def test_cyq_chips_source_client_uses_offset_limit_pagination(monkeypatch) -> No
     ]
 
 
+def test_etf_share_size_source_client_fetches_next_page_after_full_market_page(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    first_page = [{"trade_date": "20260821", "ts_code": f"51{index:04d}.SH"} for index in range(5000)]
+    connector = PaginatedConnector(
+        {
+            0: first_page,
+            5000: [
+                {"trade_date": "20260821", "ts_code": "159001.SZ"},
+                {"trade_date": "20260821", "ts_code": "159002.SZ"},
+            ],
+        }
+    )
+    monkeypatch.setattr(source_client_module, "create_source_connector", lambda source_key: connector)
+
+    result = DatasetSourceClient().fetch(
+        definition=get_dataset_definition("etf_share_size"),
+        unit=PlanUnitSnapshot(
+            unit_id="etf-share-size-u1",
+            dataset_key="etf_share_size",
+            source_key="tushare",
+            trade_date=None,
+            request_params={"trade_date": "20260821"},
+            progress_context={},
+            pagination_policy="offset_limit",
+            page_limit=5000,
+        ),
+    )
+
+    assert result.request_count == 2
+    assert len(result.rows_raw) == 5002
+    assert [call["params"] for call in connector.calls] == [
+        {"trade_date": "20260821", "offset": 0, "limit": 5000},
+        {"trade_date": "20260821", "offset": 5000, "limit": 5000},
+    ]
+    assert all(
+        call["fields"] == ("trade_date", "ts_code", "etf_name", "total_share", "total_size", "nav", "close", "exchange")
+        for call in connector.calls
+    )
+
+
 def test_idx_factor_pro_source_client_pages_full_trade_date_result(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     first_page = [{"ts_code": f"000{index:04d}.SH", "trade_date": "20260424"} for index in range(8000)]
     connector = PaginatedConnector(

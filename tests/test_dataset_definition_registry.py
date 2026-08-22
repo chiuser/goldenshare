@@ -28,7 +28,7 @@ def test_dataset_definition_registry_covers_runtime_registry() -> None:
     runtime_keys = set(DATASET_RUNTIME_REGISTRY)
 
     assert definition_keys == runtime_keys
-    assert len(definition_keys) == 87
+    assert len(definition_keys) == 88
 
 
 def test_dataset_definition_registry_covers_freshness_policy_mapping() -> None:
@@ -44,7 +44,7 @@ def test_dataset_definition_universe_policy_current_state_is_explicit() -> None:
 
     assert Counter(policies.values()) == Counter(
         {
-            "no_pool": 78,
+            "no_pool": 79,
             "pool": 9,
         }
     )
@@ -279,6 +279,49 @@ def test_dataset_definition_projects_etf_sh_cons_raw_view_facts() -> None:
     assert definition.normalization.required_fields == ("trade_date", "ts_code", "con_code")
     assert definition.normalization.row_transform_name == "_etf_sh_cons_row_transform"
     assert definition.quality.required_fields == ("trade_date", "ts_code", "con_code")
+    assert definition.capabilities.get_action("maintain").supported_time_modes == ("point", "range")
+
+
+def test_dataset_definition_projects_etf_share_size_raw_view_facts() -> None:
+    definition = get_dataset_definition("etf_share_size")
+
+    assert definition.identity.display_name == "ETF 份额规模"
+    assert definition.domain.domain_key == "index_fund"
+    assert definition.source.api_name == "etf_share_size"
+    assert definition.source.source_fields == (
+        "trade_date",
+        "ts_code",
+        "etf_name",
+        "total_share",
+        "total_size",
+        "nav",
+        "close",
+        "exchange",
+    )
+    assert definition.source.request_builder_key == "_etf_share_size_params"
+    assert definition.date_model.date_axis == "trade_open_day"
+    assert definition.date_model.bucket_rule == "every_open_day"
+    assert definition.date_model.input_shape == "trade_date_or_start_end"
+    assert definition.date_model.audit_applicable is False
+    assert definition.observability.freshness_policy == "continuous_open_day"
+    assert definition.storage.raw_dao_name == "raw_etf_share_size"
+    assert definition.storage.core_dao_name == "raw_etf_share_size"
+    assert definition.storage.raw_table == "raw_tushare.etf_share_size"
+    assert definition.storage.target_table == "raw_tushare.etf_share_size"
+    assert definition.storage.serving_table == "core_serving.etf_share_size"
+    assert definition.storage.delivery_mode == "raw_with_serving_view"
+    assert definition.storage.write_path == "raw_only_upsert"
+    assert definition.storage.conflict_columns == ("trade_date", "ts_code")
+    assert definition.planning.universe_policy == "no_pool"
+    assert definition.planning.universe is None
+    assert definition.planning.pagination_policy == "offset_limit"
+    assert definition.planning.page_limit == 5000
+    assert definition.planning.unit_builder_key == "build_etf_share_size_units"
+    assert definition.normalization.date_fields == ("trade_date",)
+    assert definition.normalization.decimal_fields == ("total_share", "total_size", "nav", "close")
+    assert definition.normalization.required_fields == ("trade_date", "ts_code")
+    assert definition.normalization.row_transform_name == "_etf_share_size_row_transform"
+    assert definition.capabilities.get_action("maintain").schedule_enabled is True
     assert definition.capabilities.get_action("maintain").supported_time_modes == ("point", "range")
 
 
@@ -1105,6 +1148,7 @@ def test_dataset_definition_storage_layer_facts_are_explicit() -> None:
     for dataset_key, raw_dao_name, raw_table, serving_table in (
         ("cyq_perf", "raw_cyq_perf", "raw_tushare.cyq_perf", "core_serving.equity_cyq_perf"),
         ("stk_nineturn", "raw_stk_nineturn", "raw_tushare.stk_nineturn", "core_serving.equity_nineturn"),
+        ("etf_share_size", "raw_etf_share_size", "raw_tushare.etf_share_size", "core_serving.etf_share_size"),
     ):
         definition = get_dataset_definition(dataset_key)
         assert definition.storage.raw_dao_name == raw_dao_name
@@ -1134,6 +1178,7 @@ def test_raw_serving_view_definitions_project_raw_freshness_targets() -> None:
     for dataset_key, raw_table in (
         ("cyq_perf", "raw_tushare.cyq_perf"),
         ("stk_nineturn", "raw_tushare.stk_nineturn"),
+        ("etf_share_size", "raw_tushare.etf_share_size"),
     ):
         projection = dataset_definition_projection.get_dataset_freshness_projection(dataset_key)
         assert projection is not None

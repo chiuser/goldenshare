@@ -1,6 +1,6 @@
 # `etf_share_size` 低层设计 LLD v1
 
-状态：LLD 已完成，尚未编码、迁移、部署或写入生产数据。
+状态：代码已实现，待运营部署、迁移、同步和页面验收。
 对应方案：[ETF 份额规模数据集接入方案](/Users/congming/github/goldenshare/docs/datasets/etf-share-size-dataset-development.md)
 审计日期：2026-08-22
 
@@ -19,7 +19,7 @@
 
 ### 2.1 当前接入状态
 
-截至审计日，代码中没有 `etf_share_size` 的 DatasetDefinition、request builder、custom unit builder、raw ORM、DAO 属性、迁移、view、freshness 登记或 Ops catalog item。当前唯一相关 ETF 主线是 `etf_sh_cons` 和 `fund_daily`。
+本轮已新增 `etf_share_size` 的 DatasetDefinition、request builder、custom unit builder、raw ORM、DAO 属性、Alembic 迁移、serving view、freshness 登记和 Ops catalog item。既有 ETF 主线 `etf_sh_cons`、`fund_daily` 未改动。
 
 ### 2.2 已确认的复用点与新增点
 
@@ -59,10 +59,11 @@ CodeGraph 索引状态正常：2,563 个文件、45,133 个节点、103,096 条�
 | --- | --- | --- |
 | `{}` | 5,000 条，日期混杂 | 不能当作全集 |
 | `ts_code=510300.SH` | 3,297 条，跨历史日期 | 只适合局部过滤，不作为默认规划方式 |
-| `trade_date=20260731` | 1,613 条，均为目标日 | 默认单日全市场 unit 可行 |
-| `trade_date=20260731, exchange=SSE/SZSE` | 909 / 704 条，合计 1,613 | V1 不拆交易所，保存源站 exchange 字段 |
-| `ts_code=510300.SH,start_date=20250701,end_date=20250731` | 23 条 | 不作为默认区间主链 |
-| 项目 connector 分页 `limit=100` | offset 0 至 1,600，共 17 页，合计 1,613；`(trade_date, ts_code)` 无重复 | connector 分页与短页终止可复用 |
+| `trade_date=20260821` | 1,637 条，均为目标日 | 默认单日全市场 unit 可行 |
+| `ts_code=510300.SH,start_date=20260818,end_date=20260821` | 4 条 | 单 ETF 区间可返回历史，但不作为默认区间主链 |
+| 项目 connector，`trade_date=20260821,limit=5000,offset=0` | 1,637 条，显式 8 字段齐备，`(trade_date, ts_code)` 无重复 | 默认 unit 的短页和字段契约已实测 |
+| 项目 connector，`trade_date=20260821,limit=5000,offset=5000` | 0 条 | 默认 unit 的短页终止边界已实测 |
+| 项目 connector，不传业务日期、连续两页 | 两页各 5,000 条，跨 4 个日期且跨页有 91 个重复业务键 | 无日期请求不能进入默认维护链路 |
 | 显式全部字段 | 8 个字段均可返回，`nav/close` 需要显式请求 | `source_fields` 必须列全 8 个字段 |
 
 这组证据不代表生产快照永远少于 5,000。实施时必须用实际 Definition + 项目 connector 重跑同日分页验证；若真实日结果超过 5,000，必须先重新评估是否按交易所拆 unit，不能静默接受截断。
@@ -71,9 +72,9 @@ CodeGraph 索引状态正常：2,563 个文件、45,133 个节点、103,096 条�
 
 | 层 | 固定语义 | 示例 |
 | --- | --- | --- |
-| Ops/TaskRun | 保存用户意图：单日、区间、可选单 code | `trade_date=2026-07-31` |
-| resolver/planner | 把区间展开为开市日 anchors；每个 anchor 生成一个全市场 unit | `2026-07-31` |
-| request builder | 把 unit 的日期格式化为 Tushare 参数 | `{"trade_date":"20260731"}` |
+| Ops/TaskRun | 保存用户意图：单日、区间、可选单 code | `trade_date=2026-08-21` |
+| resolver/planner | 把区间展开为开市日 anchors；每个 anchor 生成一个全市场 unit | `2026-08-21` |
+| request builder | 把 unit 的日期格式化为 Tushare 参数 | `{"trade_date":"20260821"}` |
 
 建议 Definition 输入：
 
@@ -164,9 +165,9 @@ unit 示例：
 
 ```json
 {
-  "unit_id": "etf_share_size:2026-07-31:0",
-  "trade_date": "2026-07-31",
-  "request_params": {"trade_date": "20260731"},
+  "unit_id": "etf_share_size:2026-08-21:0",
+  "trade_date": "2026-08-21",
+  "request_params": {"trade_date": "20260821"},
   "pagination_policy": "offset_limit",
   "page_limit": 5000
 }
@@ -176,7 +177,7 @@ unit 示例：
 
 ```json
 {
-  "request_params": {"ts_code": "510300.SH", "trade_date": "20260731"}
+  "request_params": {"ts_code": "510300.SH", "trade_date": "20260821"}
 }
 ```
 
@@ -193,15 +194,15 @@ unit 示例：
 
 `DatasetSourceClient` 对每个 unit 依次请求：`limit=5000, offset=0, 5000, ...`，直到返回短页。一个 unit 的所有页必须先合并，再 normalize、write、commit；不能一页一事务，也不能把多个日期合并为一个大事务。
 
-按当前实测：单日 1 unit、约 1,613 行、通常 1 页；一年约 245 个开市日 unit。实际请求量必须以 connector 日志中的 page_count 为准，不能把 unit 数直接当 HTTP 请求数。
+按当前实测：单日 1 unit、约 1,637 行、通常 1 页；一年约 245 个开市日 unit。实际请求量必须以 connector 日志中的 page_count 为准，不能把 unit 数直接当 HTTP 请求数。
 
 ## 7. Schema、模型、DAO 与 view
 
 ### 7.1 raw 表
 
-新增迁移文件必须接实施时 `uv run alembic heads` 返回的真实 head；本次审计当前 head 为 `20260822_000139`，不能把该值硬编码进后续迁移。
+迁移已创建为 `20260822_000140_add_etf_share_size_dataset.py`，并且在创建时接真实 head `20260822_000139`。部署前仍须复核部署分支的 Alembic head。
 
-建议表：`raw_tushare.etf_share_size`。
+实际表：`raw_tushare.etf_share_size`。
 
 | 列 | 类型 | 空值 | 说明 |
 | --- | --- | --- | --- |
@@ -217,9 +218,9 @@ unit 示例：
 | `fetched_at` | `TIMESTAMPTZ` | 否 | 入库时间 |
 | `raw_payload` | `TEXT` | 是 | 原始行载荷 |
 
-主键固定为 `(trade_date, ts_code)`。实施前必须再次用项目 connector 检查同日重复键；若出现重复，不得用 hash 临时绕过，必须停下来重新评审。
+主键固定为 `(trade_date, ts_code)`。项目 connector 已实测 `2026-08-21` 同日 1,637 行无重复键；若后续源端出现重复，不得用 hash 临时绕过，必须停下来重新评审。
 
-索引：`(trade_date)`、`(ts_code, trade_date)`。view `core_serving.etf_share_size` 逐列直出 raw，不过滤、不重命名、不派生。
+主键 `(trade_date, ts_code)` 已覆盖交易日查询，因此不再建立冗余单列 `(trade_date)` 索引；仅建立 `(ts_code, trade_date)` 辅助局部 ETF 查询。view `core_serving.etf_share_size` 逐列直出 raw，不过滤、不重命名、不派生。
 
 ### 7.2 ORM、DAO、模型注册
 
@@ -268,15 +269,15 @@ unit 示例：
 
 ### 10.2 真实 connector 门禁
 
-实施后必须使用项目 connector 验证至少：一个普通交易日、一个接近 5,000 行的日期、显式 `fields`、第二页及短页、重复键集合。最小闭环必须记录：`fetched_rows`、`normalized_rows`、`written_rows`、`rejected_rows`、reason code 样本和目标表行数。
+本轮已使用项目 connector 验证普通交易日、显式 `fields`、短页、空第二页和同日重复键集合；未带业务日期的两页结果也证明该请求形态跨日且跨页重复，不能复用。生产最小闭环仍必须记录：`fetched_rows`、`normalized_rows`、`written_rows`、`rejected_rows`、reason code 样本和目标表行数。
 
 ## 11. 实施顺序与停止条件
 
-1. M0：重读本 LLD、确认迁移 head、重跑 connector 分页和字段证据。
-2. M1：raw ORM、DAO、迁移和 view。
-3. M2：Definition、freshness、planner、request builder、row transform。
-4. M3：Ops catalog 与测试。
-5. M4：本地目标测试、linter、docs integrity；逐条对账本 LLD。
-6. M5：交给运营方自行部署、迁移、同步和页面验收。
+1. M0：已重读本 LLD、确认迁移 head，并重跑 connector 分页和字段证据。
+2. M1：已新增 raw ORM、DAO、迁移和 view。
+3. M2：已新增 Definition、freshness、planner、request builder、row transform。
+4. M3：已新增 Ops catalog 投影与测试。
+5. M4：已完成本地目标测试、linter 和 docs integrity；逐条对账本 LLD。
+6. M5：待运营方部署、迁移、同步和页面验收。
 
 出现以下任一情况必须停止，不用临时兼容绕过：源端同键重复、单日超过 5,000 且分页不完整、字段与文档/MCP/connector 不一致、无法确认真实迁移 head、任何 reject 无法解释。

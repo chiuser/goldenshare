@@ -73,6 +73,7 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     actions = _actions_by_key(payload)
     assert any(action["action_key"] == "dc_hot.maintain" for action in leader_board_group["actions"])
     assert any(action["action_key"] == "etf_sh_cons.maintain" for action in etf_fund_group["actions"])
+    assert any(action["action_key"] == "etf_share_size.maintain" for action in etf_fund_group["actions"])
     assert [action["action_key"] for action in public_fund_group["actions"]] == [
         "fund_company.maintain",
         "mkt_idx_bmk.maintain",
@@ -100,6 +101,10 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert actions["etf_sh_cons.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
     assert actions["etf_sh_cons.maintain"]["time_form"]["default_mode"] == "point"
     assert [item["mode"] for item in actions["etf_sh_cons.maintain"]["time_form"]["modes"]] == ["point", "range"]
+    assert actions["etf_share_size.maintain"]["display_name"] == "维护ETF 份额规模"
+    assert actions["etf_share_size.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
+    assert actions["etf_share_size.maintain"]["time_form"]["default_mode"] == "point"
+    assert [item["mode"] for item in actions["etf_share_size.maintain"]["time_form"]["modes"]] == ["point", "range"]
     assert actions["idx_factor_pro.maintain"]["display_name"] == "维护指数技术因子(专业版)"
     assert actions["idx_factor_pro.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
     assert actions["idx_factor_pro.maintain"]["time_form"]["default_mode"] == "point"
@@ -187,6 +192,7 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
         "cyq_perf.maintain",
         "cyq_chips.maintain",
         "etf_sh_cons.maintain",
+        "etf_share_size.maintain",
         "fund_daily.maintain",
         "index_daily.maintain",
         "index_daily_basic.maintain",

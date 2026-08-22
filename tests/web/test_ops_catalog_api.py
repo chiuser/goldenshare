@@ -33,6 +33,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert "dc_hot.maintain" in actions
     assert "cyq_chips.maintain" in actions
     assert "etf_sh_cons.maintain" in actions
+    assert "etf_share_size.maintain" in actions
     assert "index_weight.maintain" in actions
     assert "index_mins.maintain" in actions
     assert "idx_factor_pro.maintain" in actions
@@ -114,6 +115,14 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert etf_sh_cons["freshness_policy"] == "continuous_open_day"
     assert [param["key"] for param in etf_sh_cons["parameters"]] == ["trade_date", "start_date", "end_date", "ts_code"]
 
+    etf_share_size = actions["etf_share_size.maintain"]
+    assert etf_share_size["target_display_name"] == "ETF 份额规模"
+    assert etf_share_size["group_key"] == "etf_fund"
+    assert etf_share_size["group_label"] == "ETF基金"
+    assert etf_share_size["freshness_policy"] == "continuous_open_day"
+    assert etf_share_size["schedule_enabled"] is True
+    assert [param["key"] for param in etf_share_size["parameters"]] == ["trade_date", "start_date", "end_date", "ts_code"]
+
     bse_mapping = actions["bse_mapping.maintain"]
     assert bse_mapping["group_key"] == "reference_data"
     assert bse_mapping["group_label"] == "A股基础数据"
@@ -151,6 +160,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
         "cyq_perf.maintain",
         "cyq_chips.maintain",
         "etf_sh_cons.maintain",
+        "etf_share_size.maintain",
         "fund_daily.maintain",
         "index_daily.maintain",
         "index_daily_basic.maintain",
@@ -199,7 +209,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert actions["maintenance.rebuild_dm"]["display_name"] == "刷新数据集市快照"
 
     catalog_items = [*actions.values(), *workflows.values()]
-    assert sum(item["schedule_enabled"] for item in catalog_items) == 90
+    assert sum(item["schedule_enabled"] for item in catalog_items) == 91
     assert all(
         (item["automation_capability"] is not None) is item["schedule_enabled"]
         for item in catalog_items

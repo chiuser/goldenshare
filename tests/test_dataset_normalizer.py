@@ -201,6 +201,46 @@ def test_etf_sh_cons_normalizer_rejects_blank_required_con_code() -> None:
     assert batch.rows_normalized == []
 
 
+def test_etf_share_size_normalizer_keeps_all_source_fields_and_rejects_blank_code() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("etf_share_size"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-etf-share-size",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "20260821",
+                    "ts_code": " 510300.sh ",
+                    "etf_name": " 沪深300ETF\x00 ",
+                    "total_share": "1000000.123456",
+                    "total_size": "4200000.123456",
+                    "nav": "4.20000001",
+                    "close": "4.21000001",
+                    "exchange": " sse ",
+                },
+                {"trade_date": "20260821", "ts_code": "  ", "etf_name": "无效 ETF"},
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 1
+    assert batch.rejected_reasons == {"normalize.empty_not_allowed:ts_code": 1}
+    assert batch.rows_normalized == [
+        {
+            "trade_date": date(2026, 8, 21),
+            "ts_code": "510300.SH",
+            "etf_name": "沪深300ETF",
+            "total_share": Decimal("1000000.123456"),
+            "total_size": Decimal("4200000.123456"),
+            "nav": Decimal("4.20000001"),
+            "close": Decimal("4.21000001"),
+            "exchange": "SSE",
+        }
+    ]
+
+
 def test_top_list_normalizer_hashes_punctuation_variants_to_same_reason_hash() -> None:
     batch = DatasetNormalizer().normalize(
         definition=get_dataset_definition("top_list"),

@@ -723,6 +723,16 @@ def _etf_sh_cons_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     return transformed
 
 
+def _etf_share_size_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    for field in ("ts_code", "exchange"):
+        value = _strip_nul_text(transformed.get(field)).strip().upper()
+        transformed[field] = value if field == "ts_code" else value or None
+    etf_name = _strip_nul_text(transformed.get("etf_name")).strip()
+    transformed["etf_name"] = etf_name or None
+    return transformed
+
+
 def _index_daily_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
     transformed["change_amount"] = transformed.get("change")
@@ -1041,6 +1051,7 @@ __all__ = [
     "_research_report_row_transform",
     "_fund_daily_row_transform",
     "_etf_sh_cons_row_transform",
+    "_etf_share_size_row_transform",
     "_index_daily_row_transform",
     "_limit_list_row_transform",
     "_limit_list_ths_row_transform",

@@ -1,6 +1,6 @@
 # ETF 份额规模（`etf_share_size`）数据集接入方案
 
-状态：审计完成，接入口径已确认；尚未进入编码、迁移、自动任务或生产数据写入。
+状态：代码已实现，待运营部署、迁移、同步和页面验收；尚未写入生产数据。
 
 审计日期：2026-08-22  
 上游接口：Tushare `etf_share_size`，文档 0408  
@@ -15,7 +15,7 @@
 - 保留源站返回的全部字段和全部当日结果。
 - 写入 `raw_tushare.etf_share_size`。
 - `core_serving.etf_share_size` 只建立普通 view，直接读取 raw，不再写第二份 serving 物理表。
-- 默认不使用 ETF 激活池。原因是实测一个交易日源站返回 1,613 条，而当前 ETF 池的规模小于源站当日结果，使用激活池会把源站事实截断。
+- 默认不使用 ETF 激活池。原因是实测一个交易日源站返回 1,637 条，而当前 ETF 池的规模小于源站当日结果，使用激活池会把源站事实截断。
 - 手动任务和自动任务均可支持；首期不加入既有工作流，不做专用 probe。
 - 默认维护按交易日执行；区间维护由 resolver 展开为交易日 unit，每个 unit 请求该交易日全市场数据。
 
@@ -69,20 +69,19 @@ CodeGraph 已审计现有 `etf_sh_cons` 的 Definition、planner、request build
 
 ### 2.4 `tushareMcp` 实测矩阵
 
-实测使用接口返回的默认字段和显式字段；测试日期为 `20260731`，对象样本为 `510300.SH`。
+实测使用接口返回的默认字段和显式字段；测试日期为 `20260821`，对象样本为 `510300.SH`。
 
 | 请求形态 | 实际参数 | 返回情况 | 结论 |
 | --- | --- | --- | --- |
 | 不传业务参数 | `{}` | 5,000 条；首行 `trade_date=20260821`，末行 `trade_date=20260818` | 命中单次上限，日期混杂，不能作为全集基线 |
 | 只传对象 | `ts_code=510300.SH` | 3,297 条，首日 `20260821`，末日 `20130123` | 可查单 ETF 历史，但仍需 connector 分页验证 |
-| 只传时间点 | `trade_date=20260731` | 1,613 条，均为 `20260731` | 当前规模低于 5,000，适合默认日 unit |
-| 时间点 + 交易所 | `trade_date=20260731, exchange=SSE` | 909 条 | 可按交易所拆分，但 V1 不需要拆分 |
-| 时间点 + 交易所 | `trade_date=20260731, exchange=SZSE` | 704 条 | 与 SSE 合计 1,613 条；仍保留源站返回的 `exchange` 字段 |
-| 对象 + 时间区间 | `ts_code=510300.SH, start_date=20260701, end_date=20260731` | 23 条，日期为该区间内交易日 | 可用于单 ETF 修复，但默认全量维护不采用 |
-| 显式关键字段 | `trade_date,ts_code,etf_name,total_share,total_size,nav,close,exchange` | `510300.SH + 20260731` 返回 1 条，`nav`、`close` 均存在 | 全部 8 个源字段必须进入 `source_fields` |
-| 分页 | MCP 工具未暴露 `limit/offset` 参数；项目 connector 使用 `limit=100` | `trade_date=20260731` 从 offset 0 到 1600 共 17 页，合计 1,613 条，末页 13 条；`(trade_date,ts_code)` 无重复 | connector 分页、短页终止和业务键合并已完成开发前验证；仍需在实现后用真实 Definition 再跑一次端到端验证 |
+| 只传时间点 | `trade_date=20260821` | 1,637 条，均为 `20260821` | 当前规模低于 5,000，适合默认日 unit |
+| 对象 + 时间区间 | `ts_code=510300.SH, start_date=20260818, end_date=20260821` | 4 条，日期为该区间内交易日 | 可用于单 ETF 修复，但默认全量维护不采用 |
+| 显式关键字段 | `trade_date,ts_code,etf_name,total_share,total_size,nav,close,exchange` | `20260821` 全市场 1,637 行均包含 `nav`、`close` | 全部 8 个源字段必须进入 `source_fields` |
+| 默认日分页 | 项目 connector：`trade_date=20260821, limit=5000, offset=0/5000` | 第 1 页 1,637 条，第 2 页 0 条；同日无重复主键 | 短页终止、字段和业务键已实测 |
+| 无日期分页 | 项目 connector：`limit=5000, offset=0/5000` | 两页各 5,000 条，跨日期且有 91 个跨页重复业务键 | 无日期请求不能进入默认维护链路 |
 
-补充证据：`etf_basic(exchange='SZ')` 实测返回 788 条，其中 `.SZ` 786 条、`.OF` 2 条；这说明当前 ETF 主数据范围与 `etf_share_size` 单日返回的 1,613 条不是同一个数量口径，不能用某个现有池替代源站日快照。
+补充证据：`etf_basic(exchange='SZ')` 实测返回 788 条，其中 `.SZ` 786 条、`.OF` 2 条；这说明当前 ETF 主数据范围与 `etf_share_size` 单日返回的 1,637 条不是同一个数量口径，不能用某个现有池替代源站日快照。
 
 生产激活池只作为对账参考，不作为入库过滤条件：只读审计显示，`ops.etf_series_active(resource='fund_daily')` 当前有 1,395 个代码；在 2026-08-18 至 2026-08-21 四个业务日，`etf_share_size` 源站结果均命中这 1,395 个代码，同时还返回激活池之外的源站代码。因此默认维护必须保存源站返回的全部结果，不能只保存激活池命中的数据。
 
@@ -91,7 +90,7 @@ CodeGraph 已审计现有 `etf_sh_cons` 的 Definition、planner、request build
 | 语义层 | 本方案口径 | 核验依据 |
 | --- | --- | --- |
 | 时间输入语义 | 运营提交一个交易日，或一段交易日期区间；日期表达的是要拉取的 ETF 份额规模业务日 | 源文档 `trade_date/start_date/end_date`；MCP 点查询只返回目标日 |
-| 执行 / unit 语义 | 单日一个全市场 unit；区间由 resolver 按交易日展开为多个全市场日 unit；不做 ETF × 日期 fan-out | `trade_date=20260731` 返回 1,613 条且低于 5,000 上限 |
+| 执行 / unit 语义 | 单日一个全市场 unit；区间由 resolver 按交易日展开为多个全市场日 unit；不做 ETF × 日期 fan-out | `trade_date=20260821` 返回 1,637 条且低于 5,000 上限 |
 | freshness / audit 语义 | V1 只做 freshness，不做日期 × ETF 完整性审计；判断的是源站日快照是否已进入 raw，不把当前 ETF 数量硬编码成完整性基准 | 源站存在海外 ETF 延迟，且未建立稳定的全量 subject universe |
 
 `bucket_rule` 建议为 `every_open_day`，`date_axis` 为 `trade_open_day`，`input_shape` 为 `trade_date_or_start_end`。`audit_applicable=false` 只表示暂不做日期对象矩阵审计，不表示不支持日期输入。
@@ -128,7 +127,7 @@ CodeGraph 已审计现有 `etf_sh_cons` 的 Definition、planner、request build
 - 显式单 ETF 单日：`ts_code=<code>, trade_date=YYYYMMDD`。
 - 区间：resolver 先按交易日拆 unit，每个 unit 仍请求 `trade_date=YYYYMMDD`；不直接把全市场区间请求交给源站。
 
-这样做的原因是：全市场宽区间会混合多日数据并触及 5,000 上限，按交易日 unit 可以把完整性和事务边界固定在一个业务日。
+这样做的原因是：不带日期的全市场请求会混合多日数据、触及 5,000 上限并出现跨页重复；按交易日 unit 可以把完整性和事务边界固定在一个业务日。
 
 ## 5. 存储与字段设计
 
@@ -195,7 +194,7 @@ Writer 复用现有 `raw_only_upsert`；不能为本数据集新增 serving 双�
 
 | 场景 | unit 数 | 请求量估计 |
 | --- | ---: | ---: |
-| 单日全量 | 1 | 1 页，当前约 1,613 行 |
+| 单日全量 | 1 | 1 页，当前约 1,637 行 |
 | 1 年历史 | 约 245 个交易日 unit | 约 245 页，若未来超过 5,000 则按分页增加 |
 | 3 年历史 | 约 735 个交易日 unit | 约 735 页，按实际分页增加 |
 | 单 ETF 修复 | 1 个 code × 输入日期 unit | 按日期范围拆分，避免宽区间单事务 |
@@ -211,18 +210,18 @@ Writer 复用现有 `raw_only_upsert`；不能为本数据集新增 serving 双�
 
 | 阶段 | 目标 | 关键动作 |
 | --- | --- | --- |
-| M0 | connector 与字段门禁 | 已用项目 connector 完成代表性分页、重复键、显式字段和短页终止的开发前验证；编码前仍需确认迁移 head 并补齐 0.3 四张审计表 |
-| M1 | Schema 与 view | 新增 raw ORM、DAO、迁移、`core_serving.etf_share_size` view；不建 serving 物理表 |
-| M2 | Definition 与 planner | 新增按交易日 unit 的 Definition、resolver 投影、request builder；显式 code 只做修复过滤 |
-| M3 | Normalizer / writer | 接通全部 8 个源字段，数值/日期转换，按 `(trade_date, ts_code)` 幂等 upsert |
-| M4 | Ops 与 freshness | ETF 分类目录、手动/自动能力、freshness policy；不加入既有收盘工作流 |
-| M5 | 本地测试与交接 | 对账 fetched/normalized/written/rejected/目标表唯一键；提供单日、短区间、单 ETF 修复的可执行验收清单 |
+| M0 | connector 与字段门禁 | 已确认真实 Alembic head；项目 connector 已验证默认日短页、显式字段、同日唯一键和无日期分页风险 |
+| M1 | Schema 与 view | 已新增 raw ORM、DAO、迁移、`core_serving.etf_share_size` view；未建 serving 物理表 |
+| M2 | Definition 与 planner | 已新增按交易日 unit 的 Definition、resolver 投影、request builder；显式 code 只做局部过滤 |
+| M3 | Normalizer / writer | 已接通全部 8 个源字段，数值/日期转换，按 `(trade_date, ts_code)` 幂等 upsert |
+| M4 | Ops 与 freshness | 已加入 ETF 分类目录、手动/自动能力、freshness policy；未加入既有收盘工作流 |
+| M5 | 本地测试与交接 | 已完成 Definition、planner、source、normalizer、writer、model、Ops 和架构护栏测试；生产对账待运营执行 |
 | M6 | 运营方部署与验收 | 由运营方自行部署、迁移、同步数据和审计页面；本方案不代执行这些动作 |
 | M7 | 文档收口 | 补 README、状态、追溯账本和双方验收证据；未完成项不能标为已接入 |
 
 ## 10. 已确认口径
 
-1. **默认不使用 ETF 激活池**：源站单日实测 1,613 条，而当前 ETF 池规模更小；复用激活池会让 raw 不再代表源站当日全量。
+1. **默认不使用 ETF 激活池**：源站单日实测 1,637 条，而当前 ETF 池规模更小；复用激活池会让 raw 不再代表源站当日全量。
 2. **首期不加入既有工作流**：只支持手动和自动任务，避免在源站发布前触发。
 3. **采用 raw-only + view**：保留源站事实且不产生第二份 serving 物理数据。
 4. **允许单 ETF `ts_code` 修复过滤**：不改变默认全市场按日维护语义；不允许多个 code 拼接。

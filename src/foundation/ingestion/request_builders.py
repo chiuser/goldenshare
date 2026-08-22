@@ -327,6 +327,16 @@ def _etf_sh_cons_params(request, anchor_date: date | None, enum_values: dict[str
     raise ValueError(f"ETF 申赎清单不支持该运行模式：{request.run_profile}")
 
 
+def _etf_share_size_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("ETF 份额规模维护缺少交易日期")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = enum_values.get("ts_code") or request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
 def _index_basic_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     params: dict[str, Any] = {}
     ts_code = request.params.get("ts_code")

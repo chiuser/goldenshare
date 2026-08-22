@@ -1176,6 +1176,33 @@ def _build_etf_sh_cons_units(planner: DatasetUnitPlanner, request: ValidatedData
     return units
 
 
+def _build_etf_share_size_units(
+    planner: DatasetUnitPlanner,
+    request: ValidatedDatasetActionRequest,
+    definition: DatasetDefinition,
+) -> list[PlanUnitSnapshot]:
+    explicit_codes = _normalize_universe_codes(split_multi_values(request.params.get("ts_code")))
+    if len(explicit_codes) > 1:
+        raise DatasetUnitPlanner._planning_error("invalid_enum", "ETF 份额规模一次只支持维护一个显式 ETF 代码")
+
+    request_builder = planner._resolve_request_builder(definition)
+    anchors = planner._resolve_anchors(request, definition)
+    enum_combinations = [{"ts_code": explicit_codes[0]}] if explicit_codes else [{}]
+
+    return build_plan_units(
+        request=request,
+        definition=definition,
+        anchors=anchors,
+        enum_combinations=enum_combinations,
+        request_builder=request_builder,
+        progress_context_builder=lambda anchor, values, _params: {
+            "unit": "trade_date",
+            "trade_date": anchor.isoformat() if anchor is not None else None,
+            **({"ts_code": values["ts_code"]} if values.get("ts_code") else {}),
+        },
+    )
+
+
 def _resolve_cyq_chips_targets(
     *,
     planner: DatasetUnitPlanner,
@@ -1536,6 +1563,7 @@ _CUSTOM_UNIT_BUILDERS: dict[str, Callable[[DatasetUnitPlanner, ValidatedDatasetA
     "build_biying_moneyflow_units": _build_biying_moneyflow_units,
     "build_cyq_chips_units": _build_cyq_chips_units,
     "build_etf_sh_cons_units": _build_etf_sh_cons_units,
+    "build_etf_share_size_units": _build_etf_share_size_units,
     "build_cctv_news_units": _build_cctv_news_units,
     "build_dc_member_units": _build_dc_member_units,
     "build_major_news_units": _build_major_news_units,
