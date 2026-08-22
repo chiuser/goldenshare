@@ -195,22 +195,19 @@ src/biz/
 4. 领域模块组件优先放 `features`，确认跨页面复用后再上升到 `shared/ui`。
 5. 图表组件可以先使用 SVG/CSS 实现，不为首期引入重型图表库。
 
-## 模块开发流程规范（三件套）
+## 模块开发流程规范（交付事实链）
 
 新增业务模块时，必须按以下顺序推进，禁止跳步：
 
-1. 先写标杆需求文档（benchmark requirement）  
-   模板：`wealth/docs/templates/benchmark-requirement-template.md`
-2. 再写技术实施方案（implementation design）  
-   模板：`wealth/docs/templates/implementation-design-template.md`
-3. 再写编码前门禁（coding gate）  
-   模板：`wealth/docs/templates/coding-gate-template.md`
-4. 三件套评审通过后，才能进入代码实现阶段。
+1. 冻结视觉/交互基准。完整且已评审的 Figma 可直接承担 benchmark；没有完整 Figma、或需求无法由 Figma 表达时，才使用 `wealth/docs/templates/benchmark-requirement-template.md` 补独立需求基线。
+2. 编写技术实施方案（implementation design），模板为 `wealth/docs/templates/implementation-design-template.md`。
+3. 编写代码级 LLD，并在 LLD 中内嵌编码门禁矩阵；独立 coding gate 仅在专项复杂度或用户明确要求时使用 `wealth/docs/templates/coding-gate-template.md`。
+4. Figma/需求基线、implementation design、LLD 和门禁矩阵评审通过后，才能进入代码实现阶段。
 
 硬约束：
 
-1. 三件套文档必须互相引用，形成可追溯链路。
-2. coding gate 未通过，不允许提交模块实现代码。
+1. 交付事实必须互相引用，形成从用户可见结果到代码与测试的可追溯链路；不按文件数量判定是否合格。
+2. LLD 编码门禁矩阵未通过，不允许提交模块实现代码。
 3. 异常码必须先登记到 `wealth/docs/system/exception-code-registry.md`，再进入设计与代码。
 
 ## 模块级渐进替换规范（执行层）

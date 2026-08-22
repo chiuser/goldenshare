@@ -84,7 +84,7 @@ Drive 中的以下材料是系统演进时保留的历史输入，不是当前�
 
 发生冲突时，必须以“用户最新指令 -> 当前页面 DOM/CSS/已验证交互 -> `wealth/docs/system/**` -> `wealth/docs/pages/**` -> Drive 原始资料”的顺序决策。
 
-当前视觉与组件规范以 `wealth/docs/system/design-system-baseline.md` 和 `wealth/docs/system/component-guidelines-baseline.md` 为准；当前 API 与数据模型实现契约以相应页面的模块三件套和 `wealth/docs/system/**` 为准。
+当前视觉与组件规范以 `wealth/docs/system/design-system-baseline.md` 和 `wealth/docs/system/component-guidelines-baseline.md` 为准；当前 API 与数据模型实现契约以相应页面评审通过的 Figma/需求基线、implementation design、LLD 和 `wealth/docs/system/**` 为准。
 
 ## 当前拍板结论
 

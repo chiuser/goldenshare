@@ -27,7 +27,7 @@ wealth/
 - `wealth` 负责财势乾坤行情系统前端。
 - 当前主线是“乾坤行情 / 市场总览”页面按模块逐步接入真实后端 API。
 - 已完成真实接入的模块继续保持真实 API；未完成模块才允许保留 mock。
-- 新模块必须按“三件套 + 模块级渐进替换”流程推进，禁止参考旧聚合 API 直接编码。
+- 新模块必须按“交付事实链 + 模块级渐进替换”流程推进，禁止参考旧聚合 API 直接编码。交付事实链不按文档数量考核，完整 Figma 可承担视觉/交互基准，implementation design 负责业务与架构，LLD 必须内嵌编码门禁矩阵。
 
 ### 视觉事实优先级
 
@@ -36,7 +36,7 @@ wealth/
 1. 用户最新明确指令。
 2. 当前实际页面的 DOM、CSS、共享组件与已验证交互行为。
 3. `wealth/docs/system/design-system-baseline.md` 与 `component-guidelines-baseline.md`。
-4. 当前页面级设计文档、模块三件套和验收账本。
+4. 当前评审通过的 Figma、页面级设计文档、implementation design、LLD 与验收账本。
 5. `wealth/docs/reference/**` 的历史 HTML、Design、Showcase 和组件集合页。
 
 当前代码/CSS 是页面还原的第一事实源。历史资料只能用于补足未覆盖状态和设计意图，不能覆盖当前页面的尺寸、布局、样式、组件边界、数据模型或 API 契约。
@@ -136,7 +136,7 @@ wealth/
 - 默认路由首期规划为 `/market/overview`。
 - 真实 API 命名空间统一为 `/api/v1/wealth/market/{module}`；整页聚合接口如需恢复，必须单独设计并评审。
 - 模块真实 API 已接入后，前端不得回退到整页 mock 或旧 reference API 口径。
-- `wealth/docs/reference/**` 只作为历史原始资料与视觉/产品背景参考；API、数据模型、字段映射、测试门禁必须以 `wealth/docs/pages/**` 三件套和 `wealth/docs/system/**` 当前基线为准。
+- `wealth/docs/reference/**` 只作为历史原始资料与视觉/产品背景参考；API、数据模型、字段映射、测试门禁必须以当前评审通过的 Figma、`wealth/docs/pages/**` implementation design/LLD 和 `wealth/docs/system/**` 当前基线为准。
 
 ---
 
@@ -230,7 +230,7 @@ wealth/
 9. 后续接真实后端 API 时，`src/biz` 必须按模块目录组织（`api/queries/schemas/services` 四层都要按 `wealth/market/<module>` 分层），禁止扁平堆文件；规范见 `wealth/docs/system/engineering-architecture.md`。
 10. 模块接口只返回模块对象；整页聚合对象必须独立接口与独立 DTO 文件，不允许混在模块 schema 中。
 11. 禁止把 `wealth/docs/reference/api/**`、旧 Codex prompt、旧产品稿中的 `/api/market/home-overview`、`/api/moneyflow/market`、`/api/index/summary` 等旧路径作为新方案依据。
-12. 旧 reference 文档出现的 `includeHistory`、旧聚合根对象、旧扁平字段，只能作为历史输入材料；进入代码前必须先在当前模块三件套中重新定义。
+12. 旧 reference 文档出现的 `includeHistory`、旧聚合根对象、旧扁平字段，只能作为历史输入材料；进入代码前必须先在当前模块的 implementation design 或 LLD 中重新定义。
 
 ---
 
@@ -256,23 +256,23 @@ Bug 修复必须先说明原因与影响面。禁止临时补丁叠补丁。
 3. 禁止“先写代码再倒改文档适配实现”。文档变更必须先于（或至少同步于）实现变更，并经过确认。
 4. 任何“实现收敛后再改文档兜底”的行为，视为流程违规。
 
-新增模块（或中等以上模块改造）必须执行“三件套”流程：
+新增模块（或中等以上模块改造）必须建立并评审“交付事实链”：
 
-1. 先产出 benchmark requirement（需求基线）
-2. 再产出 implementation design（实施设计）
-3. 再产出 coding gate（编码前门禁）
-4. 用 `wealth/docs/system/module-delivery-checklist-v1.md` 做一次提交前通用检查
-5. 三件套评审通过后才允许编码
+1. 视觉/交互基准：优先使用完整且已评审的 Figma；Figma 必须明确页面、节点、组件、状态、交互和响应式基准。没有完整 Figma、或需求无法由 Figma 表达时，才补独立 benchmark requirement。
+2. implementation design：冻结业务范围、数据/API 合同、状态、性能与架构边界。
+3. LLD：细化到代码符号、调用链、组件、测试和验收，并内嵌“编码门禁矩阵”。不再强制独立 coding-gate 文件。
+4. 用 `wealth/docs/system/module-delivery-checklist-v1.md` 做提交前通用检查。
+5. 上述事实链评审通过后才允许编码；独立 benchmark/coding-gate 可按专项复杂度或用户要求保留，但不是固定必需产物。
 
-三件套执行补充硬门禁（必须同时满足）：
+交付事实链补充硬门禁（必须同时满足）：
 
-1. 每个模块 `coding-gate` 必须包含“通用清单映射矩阵”，逐条标注适用/不适用及理由；缺失不得开工。
-2. 偏离通用清单的规则必须登记模块级“例外白名单”并评审通过；未登记视为违规。
+1. 每个模块 LLD 的“编码门禁矩阵”必须逐条标注通用清单的适用/不适用、落地位置和验证方式；缺失不得开工。
+2. 偏离通用清单的规则必须在 LLD 中登记模块级“例外白名单”并评审通过；未登记视为违规。
 3. 关键语义（如累计值图表纵轴非负、固定刻度）必须有可执行测试断言，禁止只写文档不写测试。
 4. 每个模块必须定义并落地“核心测试 case”，且进入提测前必须执行通过：
    - 后端真实 API 校验：走真实路由（非 mock service），断言页面消费所需核心字段齐全且语义正确；
    - 前端真实展示校验：前端请求真实后端 API（非 mock adapter），断言页面关键展示要素与核心字段一一对应。
-5. 核心测试 case 的字段清单必须来自模块三件套文档（benchmark + implementation + coding-gate），不得临时发挥。
+5. 核心测试 case 的字段清单必须来自当前评审通过的 Figma、implementation design 和 LLD，不能临时发挥。
 6. 仅有 mock 测试不允许作为模块可交付依据；mock 只能用于开发阶段占位与极端态演示。
 
 ---
@@ -302,7 +302,7 @@ npm run build
 ## 禁止事项
 
 1. 禁止把运营后台 `frontend` 的页面、Shell、路由直接搬入 `wealth`。
-2. 禁止无计划修改后端 `src/**`；后端改动必须按模块三件套与门禁执行。
+2. 禁止无计划修改后端 `src/**`；后端改动必须按模块交付事实链与 LLD 编码门禁执行。
 3. 禁止整页一次性切真实 API；必须按模块级渐进替换规范逐个切换。
 4. 禁止把 ops 内部状态表或 TaskRun 观测模型暴露给行情前端。
 5. 禁止新增无计划功能。

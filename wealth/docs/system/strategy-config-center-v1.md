@@ -144,7 +144,7 @@ src/biz/services/wealth/config/definitions/
 
 1. 模块内部不再直接读取本地 JSON。
 2. 模块实现中只消费 `strategy_config_service` 返回对象。
-3. 模块文档（三件套）中明确引用本规范。
+3. 模块 implementation design 或 LLD 中明确引用本规范。
 4. 模块 payload 的字段定义写入该模块 implementation design。
 
 ---
@@ -176,6 +176,7 @@ src/biz/services/wealth/config/definitions/
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
 | v1 | 2026-05-08 | 首版：冻结策略配置中心最小方案（JSON/严格失败/重启生效/版本元信息） | Codex |
+| v1.1 | 2026-08-22 | 配套文档引用改为 implementation design/LLD，适配交付事实链治理口径 | Codex |
 
 ---
 

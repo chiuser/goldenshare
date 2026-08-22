@@ -49,7 +49,7 @@
 2. 非目标模块的 contract、mock 数据形态、页面行为不得改变。
 3. 目标模块切到 `real` 后，失败必须走该模块 error/empty/delayed，不得自动回退 mock。
 4. 禁止在同一轮中“顺手”改其他模块样式、字段、排序、交互。
-5. 目标模块的三件套（benchmark / implementation / coding gate）必须齐全且已评审通过。
+5. 目标模块的交付事实链必须齐全且已评审通过：完整 Figma 或独立需求基线、implementation design、LLD 及其内嵌编码门禁矩阵。
 6. 目标模块异常码必须先登记到异常码注册表，再进入代码实现。
 
 ---
@@ -117,10 +117,10 @@ interface MarketOverviewModuleSources {
 
 1. **步骤 A：范围冻结**  
    明确目标模块与非目标模块清单。
-2. **步骤 B：三件套冻结**  
-   完成并评审目标模块 benchmark / implementation / coding gate。
+2. **步骤 B：交付事实链冻结**
+   完成并评审目标模块的 Figma/需求基线、implementation design 与 LLD。
 3. **步骤 B1：映射矩阵与例外白名单冻结**  
-   在目标模块 `coding-gate` 中补齐“通用清单映射矩阵”；若存在规则例外，必须登记模块级白名单并完成评审。
+   在目标模块 LLD 中补齐“编码门禁矩阵”；若存在规则例外，必须登记模块级白名单并完成评审。
 4. **步骤 C：实现落地**  
    仅实现目标模块 provider、模块 API 接入、模块状态处理。
 5. **步骤 D：模块切换**  
@@ -171,7 +171,7 @@ interface MarketOverviewModuleSources {
 
 ## 10. 与现有规范关系
 
-1. 本文与三件套模板配合使用，不替代三件套。
+1. 本文与 Figma/需求基线、implementation design、LLD 及其内嵌编码门禁配合使用，不按独立文档数量设置门槛。
 2. 本文属于系统级开发流程约束，优先于模块内部“临时加速方案”。
 3. 与 `engineering-architecture.md`、`exception-code-registry.md` 一起构成编码前门禁。
 
@@ -183,3 +183,4 @@ interface MarketOverviewModuleSources {
 |---|---|---|---|
 | v1 | 2026-05-08 | 首版：冻结“开发一个替换一个，其余模块保持 mock 不动”流程 | Codex |
 | v1.1 | 2026-05-10 | 新增步骤 B1：通用清单映射矩阵与模块例外白名单；补充语义断言测试门禁 | Codex |
+| v1.2 | 2026-08-22 | 由固定“三件套”调整为交付事实链：完整 Figma 可承担 benchmark，编码门禁矩阵内嵌 LLD | Codex |
