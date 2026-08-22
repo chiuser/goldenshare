@@ -208,6 +208,8 @@ docs/
 - [ETF 日线行情](/Users/congming/github/goldenshare/docs/datasets/etf-fund-daily-dataset-development.md)
 - [ETF 申赎清单](/Users/congming/github/goldenshare/docs/datasets/etf-sh-cons-dataset-development.md)
 - [ETF 申赎清单低层设计 LLD v1](/Users/congming/github/goldenshare/docs/datasets/etf-sh-cons-low-level-design-v1.md)
+- [ETF 份额规模接入方案（审计完成，接入口径已确认）](/Users/congming/github/goldenshare/docs/datasets/etf-share-size-dataset-development.md)
+- [ETF 每日持仓组合（深市）接入方案（审计完成，接入口径已确认）](/Users/congming/github/goldenshare/docs/datasets/etf-sz-cons-dataset-development.md)
 - [基金复权因子](/Users/congming/github/goldenshare/docs/datasets/fund-adj-dataset-development.md)
 - [融资融券交易汇总](/Users/congming/github/goldenshare/docs/datasets/margin-dataset-development.md)
 - [融资融券交易明细低层设计 LLD v1（M0–M4 与 HDD 落盘已完成，待 M5a 手工历史回补 / M5b 自动增量授权）](/Users/congming/github/goldenshare/docs/datasets/margin-detail-low-level-design-v1.md)
