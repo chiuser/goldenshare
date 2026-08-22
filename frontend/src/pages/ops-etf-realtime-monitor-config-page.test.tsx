@@ -194,7 +194,7 @@ describe("ETF实时监控配置中心", () => {
         return url.pathname.endsWith("/active-etfs") && url.searchParams.get("keyword") === "中证500";
       })).toBe(true);
     });
-    fireEvent.click(screen.getAllByRole("button", { name: "添加", exact: true })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /^添加$/ })[0]);
     await waitFor(() => {
       expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/realtime/etf-monitor/pool", {
         method: "POST",
@@ -207,7 +207,7 @@ describe("ETF实时监控配置中心", () => {
       });
     });
     expect(await screen.findByRole("button", { name: "已添加" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "添加", exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^添加$/ })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "添加监控ETF" })).toBeInTheDocument();
     const paths = apiRequest.mock.calls.map(([path]) => String(path));
     expect(paths.some((path) => path.includes("tushare"))).toBe(false);
