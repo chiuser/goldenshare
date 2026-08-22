@@ -7,6 +7,10 @@ export interface TurnoverInsightAmountViewModel {
   direction: TurnoverInsightDirection;
 }
 
+export interface TurnoverInsightAverageViewModel extends TurnoverInsightAmountViewModel {
+  referenceLabel: string;
+}
+
 export interface TurnoverInsightAxisViewModel {
   minYi: number;
   maxYi: number;
@@ -38,6 +42,8 @@ export interface TurnoverInsightViewModel {
     current: TurnoverInsightAmountViewModel;
     previous: TurnoverInsightAmountViewModel;
     delta: TurnoverInsightAmountViewModel;
+    avg5d: TurnoverInsightAverageViewModel;
+    avg20d: TurnoverInsightAverageViewModel;
   };
   upperAxis: TurnoverInsightAxisViewModel | null;
   deltaAxis: TurnoverInsightAxisViewModel | null;

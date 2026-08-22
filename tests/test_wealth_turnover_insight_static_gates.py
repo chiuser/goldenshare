@@ -6,6 +6,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BACKEND_ROOT = REPO_ROOT / "src/biz"
 QUERY_FILE = BACKEND_ROOT / "queries/wealth/market/turnover_insight/turnover_insight_query.py"
+COMMON_QUERY_FILE = BACKEND_ROOT / "queries/wealth/market/turnover_common/turnover_daily_average_query.py"
 API_FILE = BACKEND_ROOT / "api/wealth/market/turnover_insight.py"
 SCHEMA_FILE = BACKEND_ROOT / "schemas/wealth/market/turnover_insight.py"
 FRONTEND_ROOT = REPO_ROOT / "wealth/src"
@@ -37,6 +38,12 @@ def test_turnover_insight_uses_only_bounded_snapshot_and_calendar_query() -> Non
     for forbidden in ("EquityDailyBar", "RawStkMins", "duckdb", "dagster", "data_lake"):
         assert forbidden not in source
 
+    common_source = COMMON_QUERY_FILE.read_text(encoding="utf-8")
+    assert "EquityDailyBar" in common_source
+    assert "_AVERAGE_WINDOW_DAYS = 20" in common_source
+    assert ".limit(_AVERAGE_WINDOW_DAYS)" in common_source
+    assert ".group_by(EquityDailyBar.trade_date)" in common_source
+
 
 def test_turnover_insight_does_not_reuse_old_turnover_domain_or_prediction_fields() -> None:
     source = _module_source()
@@ -67,7 +74,7 @@ def test_turnover_insight_frontend_keeps_domain_math_on_the_backend() -> None:
         TURNOVER_FRONTEND_ROOT / "api/turnoverInsightApi.ts"
     ).read_text(encoding="utf-8")
 
-    for forbidden in ("reduce(", "/ 100000", "Math.round", "current - previous"):
+    for forbidden in ("reduce(", "/ 100000", "Math.round", "current - previous", "referenceLabel: `"):
         assert forbidden not in adapter_source
         assert forbidden not in controller_source
     for forbidden in ("dimension", "industry", "concept", "region"):

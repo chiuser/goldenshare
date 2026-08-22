@@ -33,6 +33,8 @@ function emptyPayload(tradeDate: string): TurnoverInsightResponse {
       current: { amountYi: null, displayText: "--", direction: "neutral" },
       previous: { amountYi: null, displayText: "--", direction: "neutral" },
       delta: { amountYi: null, displayText: "--", direction: "neutral" },
+      avg5d: { amountYi: null, displayText: "--", direction: "neutral", referenceLabel: "5日均值 --" },
+      avg20d: { amountYi: null, displayText: "--", direction: "neutral", referenceLabel: "20日均值 --" },
     },
     upperAxis: null,
     deltaAxis: null,

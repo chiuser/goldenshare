@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：已开发、部署并验收闭环
+- 状态：基础版本已开发、部署并验收闭环；5日/20日均值补充功能已开发完成，待用户部署与视觉验收
 - 编写日期：2026-08-22
 - 适用仓库：`/Users/congming/github/goldenshare`
 - 上游技术方案：`wealth/docs/pages/wealth-exploration/turnover-insight-implementation-design-v1.md`
@@ -17,12 +17,15 @@
 
 本文档只设计“成交额洞察”及其接入财势探查页面所必需的共享契约。它不实现板块雷达、不修改成交额快照生产、不修改 Dagster/Lake、不扩展旧首页 turnover API。
 
+2026-08-22 补充功能开发完成：基础版本的历史实现与验收记录继续保留；第 15 节定义的 5 日/20 日成交额均值卡片与上图参考线已经落地并通过自动化验证。补充功能尚未经过用户部署与浏览器视觉验收，不得提前标记为验收闭环。
+
 ## 1. 冻结口径与代码约束
 
 | 冻结口径 | 代码落点 | 必须证明的测试 |
 | --- | --- | --- |
 | 在线事实来自预计算表 | `WealthMarketTurnoverSnapshot`，固定 `type=stock/market=CN_A/freq=1/build_status=READY` | 新 query 不引用 `RawStkMins`、Lake 或 Dagster |
 | 旧首页半小时数据和新模块共享表事实 | 旧模块继续读取 `freq=30`；新模块独立读取 `freq=1` | 旧 turnover API 回归；新 API 只读取一分钟快照 |
+| 5/20 日均值与首页同口径 | 页面中立 `TurnoverDailyAverageQuery`，固定读取最近 20 个 SSE 开市日及 `EquityDailyBar.amount` 日聚合 | 同日期两个 API 的 `avg5d/avg20d` 对账完全一致 |
 | 后端接口完全独立 | 新 endpoint/query/service/schema/status/exception | static gate 禁止 import 旧 turnover 业务类 |
 | 页面公共时间与首页一致 | 共享 `MarketPageContextQuery` 和前端 `market-context` feature | 两页同参数得到同一 `tradeDate/prevTradeDate/sessionStatus` |
 | 页面顶部结构与首页一致 | 直接复用 `TopMarketBar`、共享 `PageBreadcrumb`、共享 CSS | DOM/class/导航高亮和面包屑路径测试 |
@@ -30,6 +33,7 @@
 | 金额在后端换算 | 后端 `Decimal` 累计、相减、`ROUND_HALF_UP` | 前端不存在 `/100000`、累计或 delta 计算 |
 | 展示金额无小数，单位为亿 | API 返回整数 `amountYi` 和 `displayText` | 卡片、tooltip、轴标签逐项断言 |
 | 当日红、昨日白 | `TurnoverInsightChart` design token 映射 | canvas draw command/截图验收 |
+| 均值卡片与参考线 | `summary.avg5d/avg20d` + 单 Canvas 上图虚线 | 五卡布局；品牌金/紫色虚线；右端上方 2px 标签；下图和 tooltip 无均值内容 |
 | 差值是累计差值 | 后端 `current cumulative - previous cumulative` | 反例证明不是单分钟差值 |
 | 横轴每 15 分钟 | 后端返回 `showAxisLabel`；前端不重新判定业务时点 | 17 个标签，无 13:00 |
 | 无预测 | schema、组件和文案均无 forecast 字段 | response extra forbid + 前端文本门禁 |
@@ -203,12 +207,16 @@ wealth/src/features/market-overview/layout/Breadcrumb.tsx
 
 ```text
 PageBreadcrumb / Wealth Exploration  802:14
-TurnoverMetricCard                   803:14 (Current / Previous / Delta)
+TurnoverMetricCard                   803:14 (base component)
+Metric Card / Average 5             818:46
+Metric Card / Average 20            818:49
 TurnoverLegendItem                  803:23 (Current / Previous)
 TurnoverTooltip                     804:13
 DimensionTab                        804:20 (Active / Inactive)
 TurnoverInsight                     805:639 (六态)
 TurnoverHoverLayer                  808:68 (Idle / Active)
+Average 5 Reference Line/Label      817:50 / 817:51
+Average 20 Reference Line/Label     817:48 / 817:49
 ```
 
 `TurnoverInsight` 六态主件：
@@ -233,7 +241,7 @@ TurnoverHoverLayer                  808:68 (Idle / Active)
 ```text
 Panel width       1564
 Plot left/right   x=58 / x=1534, width=1476
-Cards             x=58/218/378, y=10, w=148, h=66
+Cards             x=58/218/378/538/698, y=10, w=148, h=66, gap=12
 Upper plot        y=96..270
 Lower plot        y=318..392
 Time labels       y=408
@@ -249,6 +257,14 @@ Tooltip           w=248, h=116
 ```
 
 设计中没有 `Alignment Note` 和对比日期说明；图例只有当日累计、昨日累计且右对齐。
+
+均值补充设计事实：
+
+- 5 日卡片示例 `23,771亿`，20 日卡片示例 `28,064亿`。
+- 5 日参考线使用品牌金色，20 日参考线使用紫色，均为 `1px` 虚线。
+- 标签位于参考线右端上方 `2px`，分别为 `5日均值 23,771亿`、`20日均值 28,064亿`。
+- 上图示例纵轴扩展为 `0/8000/16000/24000/32000`，证明均值必须参与上图 domain 计算。
+- 三个 Loaded 页面实例 `807:164`、`807:309`、`807:434` 均已继承同一 Loaded 主组件的上述节点。
 
 三个 Loaded frame 中的成交额洞察必须视为同一个业务组件的三个实例，不允许按 Industry/Concept/Region 复制实现。`DimensionTab` 只控制板块雷达；本轮不实现板块雷达业务，也不把 dimension 传入成交额 API。
 
@@ -281,6 +297,8 @@ Tooltip           w=248, h=116
               -> MarketPageContextQuery.resolve_context
               -> TurnoverInsightQuery.load_candidates
               -> one bounded snapshot/calendar query, limit 4
+              -> TurnoverDailyAverageQuery.load(end_trade_date=observed date)
+              -> bounded latest-20 SSE calendar + EquityDailyBar aggregate
               -> TurnoverInsightCalculator
               -> TurnoverInsightStatusResolver
               -> independent DTO
@@ -647,10 +665,15 @@ class TurnoverInsightAmountDto(BaseModel):
     displayText: str
     direction: Literal["up", "down", "flat", "neutral"]
 
+class TurnoverInsightAverageAmountDto(TurnoverInsightAmountDto):
+    referenceLabel: str
+
 class TurnoverInsightSummaryDto(BaseModel):
     current: TurnoverInsightAmountDto
     previous: TurnoverInsightAmountDto
     delta: TurnoverInsightAmountDto
+    avg5d: TurnoverInsightAverageAmountDto
+    avg20d: TurnoverInsightAverageAmountDto
 
 class TurnoverInsightSeriesPointDto(BaseModel):
     time: str
@@ -684,6 +707,7 @@ class TurnoverInsightResponseDto(BaseModel):
 - PARTIAL：允许只有 current 字段，previous/delta 必须为 null，不得伪造 0。
 - EMPTY/ERROR：`series=[]`，axis 可为 null。
 - `displayText` 由后端生成；null 使用 `--`。
+- `referenceLabel` 由后端生成完整文案；前端不得拼接 `5日均值/20日均值`。
 - 不允许任何 forecast 字段。
 
 ### 5.10 状态 resolver
@@ -981,7 +1005,7 @@ interface TurnoverInsightSectionProps {
 渲染：
 
 - Header：标题、描述、右侧 as-of chip。
-- Panel 顶部：三个 148x66 摘要卡片和右侧图例。
+- Panel 顶部：五个 `148x66` 摘要卡片，间距 `12px`，以及右侧图例。
 - READY/DELAYED：完整 chart。
 - PARTIAL：只画有证据的 current；previous/delta 卡片为 `--`，下图显示受控说明。
 - EMPTY：空态，无 canvas。
@@ -1000,7 +1024,7 @@ Figma 到 React 的组件映射：
 | `TurnoverHoverLayer` | `TurnoverInsightChart.tsx` 内的 hover state | 共享一个 hoverIndex、crosshair 和 tooltip |
 | `DimensionTab` | 板块雷达专项 | 不属于本轮代码范围，不进入成交额 feature |
 
-`TurnoverInsightSummary.tsx` 负责三张卡片和图例布局；`TurnoverInsightChart.tsx` 只负责 Canvas 生命周期、绘制和指针事件；`turnoverInsightGeometry.ts` 只提供纯几何计算。上述组件首次仅用于成交额洞察，全部保留在 feature 内，不提前上升到 `shared/ui`。
+`TurnoverInsightSummary.tsx` 负责五张卡片和图例布局；`TurnoverInsightChart.tsx` 只负责 Canvas 生命周期、均值参考线、曲线/柱、绘制和指针事件；`turnoverInsightGeometry.ts` 只提供纯几何计算。上述组件首次仅用于成交额洞察，全部保留在 feature 内，不提前上升到 `shared/ui`。
 
 六态必须由同一个 `viewState` 穷尽分支：
 
@@ -1079,12 +1103,13 @@ yDelta(value) = lowerBottom - (value - deltaMin) / (deltaMax - deltaMin) * lower
 1. 背景。
 2. 后端 axis ticks 对应的水平网格。
 3. 17 个共享竖向网格，贯穿 upper/lower。
-4. delta 0 轴。
-5. 差值柱。
-6. previous 白线。
-7. current 红线。
-8. y/time 文本。
-9. hover 点、共享 crosshair、tooltip。
+4. 上图区 5 日/20 日均值参考虚线。
+5. delta 0 轴。
+6. 差值柱。
+7. previous 白线。
+8. current 红线。
+9. y/time 文本与均值参考标签。
+10. hover 点、共享 crosshair、tooltip。
 
 ### 6.11 Hover 与 tooltip
 
@@ -1151,18 +1176,30 @@ muted labels               -> text-muted
   "summary": {
     "current": {"amountYi": 18921, "displayText": "18,921亿", "direction": "neutral"},
     "previous": {"amountYi": 20939, "displayText": "20,939亿", "direction": "neutral"},
-    "delta": {"amountYi": -2018, "displayText": "-2,018亿", "direction": "down"}
+    "delta": {"amountYi": -2018, "displayText": "-2,018亿", "direction": "down"},
+    "avg5d": {
+      "amountYi": 23771,
+      "displayText": "23,771亿",
+      "referenceLabel": "5日均值 23,771亿",
+      "direction": "neutral"
+    },
+    "avg20d": {
+      "amountYi": 28064,
+      "displayText": "28,064亿",
+      "referenceLabel": "20日均值 28,064亿",
+      "direction": "neutral"
+    }
   },
   "upperAxis": {
     "minYi": 0,
-    "maxYi": 24000,
+    "maxYi": 32000,
     "zeroYi": 0,
     "ticks": [
       {"valueYi": 0, "displayText": "0"},
-      {"valueYi": 6000, "displayText": "6,000亿"},
-      {"valueYi": 12000, "displayText": "12,000亿"},
-      {"valueYi": 18000, "displayText": "18,000亿"},
-      {"valueYi": 24000, "displayText": "24,000亿"}
+      {"valueYi": 8000, "displayText": "8,000亿"},
+      {"valueYi": 16000, "displayText": "16,000亿"},
+      {"valueYi": 24000, "displayText": "24,000亿"},
+      {"valueYi": 32000, "displayText": "32,000亿"}
     ]
   },
   "deltaAxis": {
@@ -1285,7 +1322,7 @@ Major Indices：
 
 - loading/ready/delayed/partial/empty/error。
 - 六态由一个 `TurnoverInsightSection` 组件树表达，不存在按状态复制的页面实现。
-- 三个卡片只显示 API `displayText`。
+- 五个卡片只显示 API `displayText`；前端不得计算 5 日/20 日均值或拼接均值标签。
 - 当日红、昨日白、负差绿。
 - 17 个横轴标签。
 - 卡片一左边沿和 09:30 plotLeft 一致。
@@ -1316,6 +1353,7 @@ Major Indices：
 | 项目 | 门禁 |
 | --- | ---: |
 | snapshot SQL | 单次，limit 4 |
+| daily average SQL | 2 次有界查询：最近 20 个 SSE 开市日 + 对应日聚合；禁止逐日查询 |
 | 解析点数 | 最多 `4 x 241`，实际计算一组 `2 x 241` |
 | 原始分钟/Lake/Dagster 查询 | 0 |
 | API P95 | <= 120ms |
@@ -1375,6 +1413,14 @@ Major Indices：
 3. 确认旧首页 turnover、首页、股票详情、指数详情无回退。
 4. 更新技术方案与 LLD 状态。
 
+### M6 5日/20日均值补充功能
+
+1. 新增页面中立 `TurnoverDailyAverageQuery`，迁移首页现有 5/20 日均值读取语义，保持旧 API 输出不变。
+2. 扩展成交额洞察 schema、calculator、service 和前端 contract。
+3. 将 Loaded 摘要区扩展为五卡，将均值纳入 upper axis domain，并绘制两条上图区参考虚线和标签。
+4. 增加同日期 API 对账、DELAYED 截止日、空均值、五卡响应式和 Canvas 绘制测试。
+5. 开发完成后更新第 13 节补充功能对账；用户部署和视觉验收后再关闭 M6。
+
 ## 11. 验证命令
 
 后端建议：
@@ -1419,14 +1465,14 @@ npm run build
 | --- | --- | --- | --- | --- | --- |
 | G01 | Figma 事实源 | 必须 | 本文 2.7、6.9；Figma `741:52`、`797:2`、`797:3` | 三个 Loaded 实例、六态、Hover 和 1366 参考可定位 | 禁止使用旧 `762:*`/`763:*` 节点或凭截图猜组件 |
 | G02 | 独立真实 API | 必须 | `/api/v1/wealth/market/turnover-insight`、独立 query/service/schema | 真实路由集成测试返回页面所需完整字段 | 禁止 import/call 旧 turnover query/service/schema/status/exception |
-| G03 | 单一事实源 | 必须 | `core_serving.wealth_market_turnover_snapshot`，固定 `freq=1` | SQL 只读 snapshot + trade calendar，最多 4 行 | 禁止查询 RawStkMins、Lake、Dagster、`equity_daily_bar` |
+| G03 | 有界事实源 | 必须 | 分钟曲线固定 `freq=1` snapshot；均值固定页面中立 daily-average query | snapshot 最多 4 行；均值仅最近 20 个 SSE 开市日；两个 API 同日期对账 | 禁止 RawStkMins、Lake、Dagster、全历史日线扫描、逐日 N+1 或前端均值计算 |
 | G04 | 后端领域计算 | 必须 | calculator + response DTO | 241 点累计、累计差值、亿元换算、ROUND_HALF_UP 测试通过 | 禁止前端累计、相减、换算、取整或推导上一交易日 |
 | G05 | 六态穷尽 | 必须 | `TurnoverInsightSection` + controller | loading/ready/delayed/partial/empty/error 六态组件测试 | 禁止用旧数据或 mock 伪装 ready；禁止复制六份页面 JSX |
 | G06 | 图表与 Hover | 必须 | 单 `TurnoverInsightChart` Canvas + geometry + tooltip | 上下图区同 x、单 hoverIndex、单 crosshair、单 tooltip | 禁止双 chart 实例互相同步；禁止两个 tooltip/crosshair |
 | G07 | 响应式 | 必须 | ResizeObserver + `turnoverInsightGeometry.ts` | `1564px`、`1330px` 宽度几何与截图验收均无裁切/重叠 | 禁止 CSS scale、viewport 字体缩放和硬编码第二套坐标 |
 | G08 | 页面共享契约 | 必须 | shared Market Context、Major Indices API/adapter、TopMarketBar、PageBreadcrumb | 首页与财势探查的参数、ticker 映射、DOM/class、导航回归通过 | 禁止跨 feature 引用 `market-overview`、复制 TopBar/Breadcrumb 或自行解析另一套日期 |
 | G09 | 板块维度隔离 | 本轮静态门禁 | Turnover 位于空 `sector-radar` slot 外；request/controller 无 dimension | DOM 顺序测试 + request 类型/URL/static gate 不含 industry/concept/region/dimension | 本轮禁止伪造板块雷达交互；真实切换回归在板块雷达接入阶段执行 |
-| G10 | 性能预算 | 必须 | query、calculator、controller、Canvas | DB 1 次、limit 4、P95 <=120ms、payload <=64KB、页面请求各 1 次 | 禁止 Redis、无界候选、重复 effect 或放宽 5 秒 timeout 掩盖问题 |
+| G10 | 性能预算 | 必须 | query、calculator、controller、Canvas | snapshot 1 次 + 均值 2 次有界查询、limit 4/20 日、P95 <=120ms、payload <=64KB、页面请求各 1 次 | 禁止 Redis、无界候选、逐日查询、重复 effect 或放宽 5 秒 timeout 掩盖问题 |
 | G11 | 无预测与范围边界 | 必须 | schema、文案、静态门禁 | response/页面均不出现 forecast/predict | 禁止修改快照生产、表结构、Lake、Dagster 或实现板块雷达业务 |
 | G12 | 异常与安全 | 必须 | exception registry、resolver、API auth | `TI_*` 已登记；非法 market/debug/日期有受控响应 | 禁止泄露 SQL、表名、路径、堆栈或复用 `TO_*` 异常码 |
 | G13 | 核心真实测试 | 必须 | 本文 8.4、8.7、8.8、11 | 后端真实 API 集成测试 + 前端真实 API 展示测试同时通过 | 仅 mock、仅 schema、仅状态码测试不能作为交付证据 |
@@ -1438,6 +1484,7 @@ npm run build
 
 - `status`、`tradingDay.expectedTradeDate`、`observedTradeDate`、`previousObservedTradeDate`、`sessionStatus`、`asOf`。
 - `summary.current/previous/delta` 的 `amountYi`、`displayText`、`direction`。
+- `summary.avg5d/avg20d` 的 `amountYi`、`displayText`、`referenceLabel`、`direction`。
 - `upperAxis`、`deltaAxis` 的边界和 ticks。
 - `series.time/showAxisLabel/current/previous/delta` 及其 displayText/direction。
 - `message`、`exceptionCode` 和生产环境不暴露 `debugInfo`。
@@ -1462,6 +1509,8 @@ npm run build
 ## 13. 计划对账清单
 
 开发对账结果（2026-08-22）：
+
+以下勾选项仅代表基础版本 M1-M5；M6 补充功能另见第 15 节，不得继承这些完成标记。
 
 - [x] 旧首页半小时预计算事实已保留，旧 API/DTO 未修改。
 - [x] 新 API、service、query、schema、status、exception 完全独立。
@@ -1500,14 +1549,14 @@ npm run build
 | --- | --- |
 | G01 | 使用已评审 Figma 节点和本文冻结几何实现；用户部署后的浏览器视觉验收已通过。 |
 | G02 | 独立 endpoint/query/service/schema 已落地，旧 turnover 无复用。 |
-| G03 | 查询仅访问一分钟 READY snapshot 与交易日历，候选上限 4。 |
+| G03 | 一分钟 READY snapshot 候选查询上限 4；M6 另通过共享 query 执行一次最近 20 日历查询和一次日成交额聚合查询。 |
 | G04 | Decimal 累计、累计差值、亿元换算和 ROUND_HALF_UP 均在后端。 |
 | G05 | 一个 `TurnoverInsightSection` 穷尽六态。 |
 | G06 | 一个 Canvas、一个 hoverIndex、一个 crosshair、一个 tooltip。 |
 | G07 | ResizeObserver 和共享 geometry 覆盖 `1564px/1330px`；无 CSS scale。 |
 | G08 | Context、Major Indices、TopMarketBar、PageBreadcrumb 已共享，旧路径已删除。 |
 | G09 | 请求合同不含 dimension，空 `sector-radar` slot 位于成交额之后。 |
-| G10 | 单查询、响应小于 64KB、页面模块各一次请求、5 秒超时已测试。 |
+| G10 | 响应小于 64KB、页面模块各一次请求、5 秒超时已测试；M6 的两次有界均值查询通过查询计数和目标回归。 |
 | G11 | 无预测字段、文案或实现；未触碰板块雷达业务。 |
 | G12 | 六个 `TI_*` 已登记，参数错误和内部错误均受控。 |
 | G13 | 后端真实路由集成与前端真实 API payload 渲染测试通过。 |
@@ -1535,8 +1584,256 @@ npm run build
 | 共享 TopBar/Breadcrumb 回退 | 全消费者测试和首页 DOM 回归 |
 | 板块雷达范围扩散 | 本轮只留页面装配顺序，不实现其数据和组件 |
 
-## 15. 结论
+## 15. 5日/20日均值补充功能代码级设计
+
+本节是 M6 的实施依据。基础版本章节用于说明现有代码事实；若基础版本中的“三卡”“只读 snapshot”“DB 单查询”等历史描述与本节冲突，以本节补充口径为准，但不得改动基础版本已经验收的其它行为。
+
+### 15.1 硬约束
+
+1. 卡片顺序固定为：当日累计、昨日累计、累计增减、5 日均值、20 日均值。
+2. 5/20 日均值必须与首页相同，不允许成交额洞察复制一套独立算法。
+3. DELAYED 场景的均值窗口截止实际 `observedTradeDate`，不能截止 expected date。
+4. 后端返回整数亿元、卡片 `displayText` 和完整 `referenceLabel`；前端只做字段映射与像素坐标映射。
+5. 均值必须参与 upper axis domain；下方 delta axis、差值柱、tooltip、hover 和 crosshair 不变。
+6. 均值为空时卡片显示 `--`、参考线不绘制；禁止填 0。
+7. 不修改快照生产、数据表、Lake、Dagster、路由、页面时间合同或旧首页 API schema。
+
+### 15.2 页面中立日成交额均值 Query
+
+新增：
+
+```text
+src/biz/queries/wealth/market/turnover_common/__init__.py
+src/biz/queries/wealth/market/turnover_common/turnover_daily_average_query.py
+```
+
+稳定内存合同：
+
+```python
+@dataclass(frozen=True, slots=True)
+class TurnoverDailyAverageSnapshot:
+    end_trade_date: date
+    avg5d_amount: Decimal | None
+    avg20d_amount: Decimal | None
+    available5d_count: int
+    available20d_count: int
+
+class TurnoverDailyAverageQuery:
+    def load(
+        self,
+        session: Session,
+        *,
+        end_trade_date: date,
+    ) -> TurnoverDailyAverageSnapshot: ...
+```
+
+`load(...)` 固定执行：
+
+1. 从 `TradeCalendar` 选择 `exchange='SSE' AND is_open=true AND trade_date<=end_trade_date` 的最近 20 个开市日，结果恢复为升序。
+2. 单次聚合读取这些日期的 `EquityDailyBar.amount`，按 `trade_date` 分组；禁止逐日 SQL。
+3. 5 日窗口取交易日列表最后 5 日，20 日窗口取完整列表。
+4. 只对实际存在的日总额求算术平均；没有有效值返回 `None`。这是首页当前 `_average_amount(...)` 的真实语义，本轮不得借机修改成“必须满 5/20 日”。
+5. 聚合和均值使用 `Decimal(str(value))`，不在共享 query 中换算成亿元。
+
+`TurnoverQuery.load_metrics(...)` 必须改为调用该 query 取得 `avg5d_amount/avg20d_amount`，其 `TurnoverMetricsDto` 字段、单位和页面结果保持不变。`TurnoverInsightQueryService` 也调用同一 query，但不得 import 旧 `TurnoverQuery` 或旧 service/schema/status/exception。
+
+### 15.3 后端文件与符号改动
+
+修改：
+
+```text
+src/biz/queries/wealth/market/turnover/turnover_query.py
+src/biz/queries/wealth/market/turnover_insight/turnover_insight_calculator.py
+src/biz/queries/wealth/market/turnover_insight/turnover_insight_query_service.py
+src/biz/schemas/wealth/market/turnover_insight.py
+wealth/docs/system/exception-code-registry.md
+```
+
+DTO 增量：
+
+```python
+class TurnoverInsightAverageAmountDto(TurnoverInsightAmountDto):
+    referenceLabel: str
+
+class TurnoverInsightSummaryDto(_StrictDto):
+    current: TurnoverInsightAmountDto
+    previous: TurnoverInsightAmountDto
+    delta: TurnoverInsightAmountDto
+    avg5d: TurnoverInsightAverageAmountDto
+    avg20d: TurnoverInsightAverageAmountDto
+```
+
+`TurnoverInsightCalculator.calculate_pair(...)` 增加 `daily_averages` 输入，并统一完成：
+
+- `Decimal thousand_yuan -> int yi` 的 `ROUND_HALF_UP`。
+- `displayText`：`23,771亿`。
+- `referenceLabel`：`5日均值 23,771亿` 或 `20日均值 28,064亿`。
+- `direction='neutral'`。
+- `build_cumulative_axis(...)` 的 values 必须包含 current、previous 以及所有非空均值。
+
+`TurnoverInsightQueryService` 只有在选定有效 current 快照后才查询均值，截止日期固定为选中的 `current.trade_date`：
+
+- READY：expected current date。
+- DELAYED：fallback pair 中较新的实际 observed date。
+- PARTIAL：有效 current 的实际 date。
+- EMPTY/ERROR：不执行均值 query，返回两个空均值 DTO。
+
+均值 query 抛异常时不得抹掉已经合法的分钟曲线。服务保留原核心状态，返回两个空均值 DTO，并登记 `TI_DAILY_AVERAGE_UNAVAILABLE` 到 debug exception；该异常码必须先写入异常码注册表再编码。自然缺少日总额但 query 正常返回 `None` 时不记系统异常。
+
+### 15.4 前端合同与组件改动
+
+修改：
+
+```text
+wealth/src/features/wealth-exploration/turnover-insight/api/turnoverInsightApi.ts
+wealth/src/features/wealth-exploration/turnover-insight/api/turnoverInsightAdapter.ts
+wealth/src/features/wealth-exploration/turnover-insight/model/turnoverInsightTypes.ts
+wealth/src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightSection.tsx
+wealth/src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightSummary.tsx
+wealth/src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightChart.tsx
+wealth/src/features/wealth-exploration/turnover-insight/ui/turnover-insight.css
+```
+
+TypeScript 增量合同：
+
+```ts
+interface TurnoverInsightAverageViewModel extends TurnoverInsightAmountViewModel {
+  referenceLabel: string;
+}
+
+summary: {
+  current: TurnoverInsightAmountViewModel;
+  previous: TurnoverInsightAmountViewModel;
+  delta: TurnoverInsightAmountViewModel;
+  avg5d: TurnoverInsightAverageViewModel;
+  avg20d: TurnoverInsightAverageViewModel;
+}
+```
+
+adapter 只复制 `avg5d/avg20d` 字段，不得调用 `reduce`、选择交易日、计算平均数、除以 `100000`、取整或拼接 `referenceLabel`。
+
+`TurnoverInsightSummary` 继续复用 `TurnoverMetricCard`，按固定顺序渲染五张卡。CSS 固定：
+
+```text
+card width     148px
+card height    66px
+card gap       12px
+card x         58/218/378/538/698 (1564px Figma 基准)
+```
+
+Loading skeleton 的卡片区域宽度同步为 `5 * 148 + 4 * 12 = 788px`。不得新增另一套均值卡组件，也不得移动右侧当日/昨日图例。
+
+### 15.5 Canvas 参考线
+
+`TurnoverInsightSection` 向 `TurnoverInsightChart` 传入 `avg5d/avg20d`。图表新增纯绘制 helper：
+
+```ts
+drawAverageReferenceLine(
+  context,
+  geometry,
+  upperAxis,
+  average,
+  color,
+): void
+```
+
+绘制合同：
+
+- `amountYi=null` 时直接返回。
+- `y = yForValue(amountYi, upperAxis, upperTop, upperBottom)`，不得建立第二套 y 公式。
+- 线段范围只为 `plotLeft..plotRight`、`y..y`，不进入 lower plot。
+- `lineWidth=1`、`setLineDash([8, 6])`。
+- 5 日线颜色使用现有品牌金 token 值，20 日线使用现有紫色 token 值；禁止新增散落页面色值。
+- 标签 `textAlign='right'`，锚点为 `plotRight`，垂直基线位于线段上方 `2px`，文本直接使用后端 `referenceLabel`。
+- 参考线在普通网格之后、累计曲线之前绘制；标签在曲线之后绘制，确保可读。
+- 两条均值线不加入当日/昨日图例，不参与 tooltip，不产生 hover 点。
+
+若均值高于当日/昨日累计终值，后端 upper axis 已包含该值并留出展示余量，前端不得裁切或自行扩轴。当前 Figma fixture：
+
+```text
+current  18,921
+previous 20,939
+avg5d    23,771
+avg20d   28,064
+ticks    0 / 8,000 / 16,000 / 24,000 / 32,000
+```
+
+### 15.6 状态合同
+
+| 状态 | 均值卡 | 参考线 |
+| --- | --- | --- |
+| READY | 有值则展示，否则 `--` | 仅绘制非空值 |
+| DELAYED | 以 actual observed date 为截止日 | 仅绘制非空值 |
+| PARTIAL | 与 current 同截止日；previous/delta 仍为 `--` | 上图仍可绘制非空均值 |
+| LOADING | 五卡 skeleton | 无 Canvas |
+| EMPTY/ERROR | 保持现有空态/错误态 | 无 Canvas |
+
+均值缺失不创建第七种状态，也不把 READY 降级为 PARTIAL；现有六态继续只表达分钟对比主体的可用性。
+
+### 15.7 测试增量
+
+后端必须新增或扩展：
+
+```text
+tests/test_wealth_market_turnover_daily_average_query.py
+tests/test_wealth_market_turnover_insight_query_service.py
+tests/web/test_wealth_market_turnover_insight_api.py
+tests/web/test_wealth_market_turnover_api.py
+tests/test_wealth_turnover_insight_static_gates.py
+```
+
+覆盖：
+
+- 最近 5/20 个 SSE 开市日与“只对存在值求均值”的既有语义。
+- 首页和成交额洞察在同一截止日期的均值金额完全一致。
+- DELAYED 使用 observed date，反例证明不使用 expected date。
+- 均值 query 失败时主体曲线保留、均值为空并产生受控异常。
+- `summary.avg5d/avg20d/referenceLabel` 的 strict DTO 合同。
+- upper axis 同时包含曲线与均值；Figma fixture 必须得到 `0/8000/16000/24000/32000`。
+- 静态禁止成交额洞察 import 旧 `TurnoverQuery/MarketTurnoverQueryService`，同时允许且只允许 common query 读取 `EquityDailyBar`。
+
+前端必须扩展：
+
+```text
+wealth/src/features/wealth-exploration/turnover-insight/api/turnoverInsightAdapter.test.ts
+wealth/src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightSection.test.tsx
+wealth/src/features/wealth-exploration/turnover-insight/ui/TurnoverInsightChart.test.tsx
+wealth/src/features/wealth-exploration/turnover-insight/ui/turnoverInsightGeometry.test.ts
+wealth/src/pages/wealth-exploration/WealthExplorationPage.test.tsx
+```
+
+覆盖：五卡顺序、空均值、两条虚线的颜色/虚线/范围/标签、只在上图绘制、tooltip 不增加均值、`1564px/1330px` 无重叠、前端无均值计算和标签拼接。
+
+### 15.8 性能门禁
+
+- 每次 insight 请求仍只有一次 snapshot candidate 查询，`LIMIT 4`。
+- 均值只增加一次最近 20 日历查询和一次对应日期集合聚合查询；禁止 20 次逐日 SQL。
+- 不读取 20 日之外的日线，不扫描全历史。
+- 只增加两个 summary 对象，不给 241 个 series 点复制均值字段；未压缩 payload 继续小于 `64KB`。
+- 后端 P95 目标继续 `<=120ms`，实现后必须用测试 session 和最小正式只读样本复核，不能通过放宽前端 `5s` timeout 处理性能回退。
+- Canvas 只增加两条线和两个标签，不增加 DOM 图元、第二个 Canvas 或第二个 ResizeObserver。
+
+### 15.9 M6 完成条件
+
+- [x] Figma、技术方案、本文和代码字段完全一致。
+- [x] 首页 API 契约和值无回退。
+- [x] 成交额洞察返回五个 summary 项和完整 referenceLabel。
+- [x] 两个 API 的 5/20 日均值同日期对账一致。
+- [x] 两条均值线只绘制在上图，纵轴包含均值且响应式无重叠。
+- [x] 六态、hover、tooltip、下图差值和板块维度隔离无回退。
+- [x] 后端/前端目标测试、typecheck、build、`git diff --check` 全部通过。
+- [x] 文档状态更新为“开发完成，待用户部署与视觉验收”。
+
+M6 自动化验证结果（2026-08-22）：
+
+- 后端目标回归：`29 passed`，包含首页与洞察同日期均值对账、DELAYED 截止实际观察日、均值查询失败降级、真实 API 路由和响应体积门禁。
+- 前端完整回归：`48` 个测试文件、`304 passed`，包含五卡顺序、均值字段直传、上图区参考线、缺失均值省略、六态及共享页面回归。
+- `npm run typecheck`：通过。
+- `npm run build`：通过；仅保留仓库既有的大 chunk warning，本轮未修改打包策略。
+- 未启动服务、未部署、未执行浏览器视觉验收，符合本轮开发边界。
+
+## 16. 结论
 
 本需求不缺数据基础，也不需要新增预计算链路。开发核心是：在共享一分钟快照之上建立完全独立的成交额洞察业务合同，并把财势探查页面接入现有 TopMarketBar、Breadcrumb 和 Market Context 三个共享能力。
 
-当前没有待拍板项。M1 至 M5、自动化验证、用户部署和浏览器视觉验收均已完成，本需求正式闭环。后续若需要修改快照表、生产链、旧 turnover DTO 或本需求冻结口径，应作为新需求重新评审，不能用兼容代码绕过边界。
+当前没有待拍板项。基础版本 M1 至 M5、自动化验证、用户部署和浏览器视觉验收均已完成；M6 均值补充功能已按第 15 节完成开发及自动化验证，当前只待用户部署和浏览器视觉验收。前端没有引入均值计算，首页与洞察共同消费页面中立均值 query，旧 API 契约保持不变。

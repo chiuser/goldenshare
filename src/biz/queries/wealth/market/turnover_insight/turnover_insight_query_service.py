@@ -8,8 +8,12 @@ from src.biz.queries.wealth.market.context.market_page_context_query import (
     MarketPageContext,
     MarketPageContextQuery,
 )
+from src.biz.queries.wealth.market.turnover_common.turnover_daily_average_query import (
+    TurnoverDailyAverageQuery,
+)
 from src.biz.schemas.wealth.market.turnover_insight import (
     TurnoverInsightAmountDto,
+    TurnoverInsightAverageAmountDto,
     TurnoverInsightDebugInfoDto,
     TurnoverInsightResponseDto,
     TurnoverInsightSummaryDto,
@@ -42,6 +46,7 @@ class TurnoverInsightQueryService:
     def __init__(self) -> None:
         self._context_query = MarketPageContextQuery()
         self._query = TurnoverInsightQuery()
+        self._daily_average_query = TurnoverDailyAverageQuery()
         self._calculator = TurnoverInsightCalculator()
         self._status = TurnoverInsightStatusResolver()
         self._exceptions = TurnoverInsightExceptionBuilder()
@@ -82,16 +87,23 @@ class TurnoverInsightQueryService:
         current = self._find_row(candidates.rows, context.trade_date)
         if current is not None:
             return self._build_expected_response(
+                session=session,
                 context=context,
                 candidates=candidates,
                 current=current,
                 debug=debug,
             )
-        return self._build_fallback_response(context=context, candidates=candidates, debug=debug)
+        return self._build_fallback_response(
+            session=session,
+            context=context,
+            candidates=candidates,
+            debug=debug,
+        )
 
     def _build_expected_response(
         self,
         *,
+        session: Session,
         context: MarketPageContext,
         candidates: TurnoverInsightCandidateSet,
         current: TurnoverInsightSnapshotRow,
@@ -111,6 +123,7 @@ class TurnoverInsightQueryService:
                     details={"expectedTradeDate": context.trade_date.isoformat()},
                 )
                 return self._calculated_response(
+                    session=session,
                     context=context,
                     resolution=self._status.partial(),
                     current=current,
@@ -127,6 +140,7 @@ class TurnoverInsightQueryService:
         except TurnoverInsightTimeGridError:
             if previous is not None:
                 return self._partial_from_valid_current(
+                    session=session,
                     context=context,
                     candidates=candidates,
                     current=current,
@@ -154,6 +168,7 @@ class TurnoverInsightQueryService:
                         message="current turnover snapshot point quality is invalid",
                     )
                 return self._partial_from_valid_current(
+                    session=session,
                     context=context,
                     candidates=candidates,
                     current=current,
@@ -170,6 +185,7 @@ class TurnoverInsightQueryService:
             )
 
         return self._calculated_response(
+            session=session,
             context=context,
             resolution=self._status.ready(),
             current=current,
@@ -183,6 +199,7 @@ class TurnoverInsightQueryService:
     def _build_fallback_response(
         self,
         *,
+        session: Session,
         context: MarketPageContext,
         candidates: TurnoverInsightCandidateSet,
         debug: bool,
@@ -211,6 +228,7 @@ class TurnoverInsightQueryService:
                 },
             )
             return self._calculated_response(
+                session=session,
                 context=context,
                 resolution=self._status.delayed(),
                 current=newer,
@@ -238,6 +256,7 @@ class TurnoverInsightQueryService:
     def _partial_from_valid_current(
         self,
         *,
+        session: Session,
         context: MarketPageContext,
         candidates: TurnoverInsightCandidateSet,
         current: TurnoverInsightSnapshotRow,
@@ -265,6 +284,7 @@ class TurnoverInsightQueryService:
             exception_code=code,
         )
         return self._calculated_response(
+            session=session,
             context=context,
             resolution=resolution,
             current=current,
@@ -301,6 +321,7 @@ class TurnoverInsightQueryService:
     def _calculated_response(
         self,
         *,
+        session: Session,
         context: MarketPageContext,
         resolution: TurnoverInsightStatusResolution,
         current: TurnoverInsightSnapshotRow,
@@ -310,6 +331,23 @@ class TurnoverInsightQueryService:
         candidate_count: int,
         exceptions: list,
     ) -> TurnoverInsightResponseDto:
+        response_exceptions = list(exceptions)
+        try:
+            daily_averages = self._daily_average_query.load(
+                session,
+                end_trade_date=current.trade_date,
+            )
+        except Exception:  # noqa: BLE001
+            daily_averages = None
+            response_exceptions.append(
+                self._exceptions.build(
+                    code="TI_DAILY_AVERAGE_UNAVAILABLE",
+                    severity="warn",
+                    message="turnover daily averages are unavailable",
+                    details={"observedTradeDate": current.trade_date.isoformat()},
+                )
+            )
+        calculation = self._calculator.with_daily_averages(calculation, daily_averages)
         return TurnoverInsightResponseDto(
             status=resolution.status,
             tradingDay=self._trading_day(
@@ -324,7 +362,11 @@ class TurnoverInsightQueryService:
             series=list(calculation.series),
             message=resolution.message,
             exceptionCode=resolution.exception_code,
-            debugInfo=self._debug_info(debug, candidate_count=candidate_count, exceptions=exceptions),
+            debugInfo=self._debug_info(
+                debug,
+                candidate_count=candidate_count,
+                exceptions=response_exceptions,
+            ),
         )
 
     def _empty_response(
@@ -382,6 +424,18 @@ class TurnoverInsightQueryService:
             current=TurnoverInsightAmountDto(amountYi=None, displayText="--", direction="neutral"),
             previous=TurnoverInsightAmountDto(amountYi=None, displayText="--", direction="neutral"),
             delta=TurnoverInsightAmountDto(amountYi=None, displayText="--", direction="neutral"),
+            avg5d=TurnoverInsightAverageAmountDto(
+                amountYi=None,
+                displayText="--",
+                direction="neutral",
+                referenceLabel="5日均值 --",
+            ),
+            avg20d=TurnoverInsightAverageAmountDto(
+                amountYi=None,
+                displayText="--",
+                direction="neutral",
+                referenceLabel="20日均值 --",
+            ),
         )
 
     @staticmethod

@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from src.foundation.config.settings import get_settings
 from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.wealth_market_turnover_snapshot import (
     WealthMarketTurnoverSnapshot,
 )
@@ -21,6 +22,7 @@ def _minute_grid() -> list[str]:
 
 def _ensure_tables(db_session) -> None:
     TradeCalendar.__table__.create(db_session.connection(), checkfirst=True)
+    EquityDailyBar.__table__.create(db_session.connection(), checkfirst=True)
     WealthMarketTurnoverSnapshot.__table__.create(db_session.connection(), checkfirst=True)
 
 
@@ -35,6 +37,7 @@ def _seed_day(db_session, *, trade_date: date, previous_date: date | None, amoun
     )
     points = [{"tradeTime": label, "amount": str(amount)} for label in _minute_grid()]
     total = amount * Decimal(len(points))
+    _seed_daily_amount(db_session, trade_date=trade_date, amount=total)
     db_session.add(
         WealthMarketTurnoverSnapshot(
             type="stock",
@@ -51,6 +54,25 @@ def _seed_day(db_session, *, trade_date: date, previous_date: date | None, amoun
             build_version="v1",
             built_at=datetime(2026, 8, 22, 20, 0),
             build_note=None,
+        )
+    )
+
+
+def _seed_daily_amount(db_session, *, trade_date: date, amount: Decimal) -> None:
+    db_session.add(
+        EquityDailyBar(
+            ts_code="000001.SZ",
+            trade_date=trade_date,
+            open=Decimal("10"),
+            high=Decimal("10"),
+            low=Decimal("10"),
+            close=Decimal("10"),
+            pre_close=Decimal("10"),
+            change_amount=Decimal("0"),
+            pct_chg=Decimal("0"),
+            vol=Decimal("1"),
+            amount=amount,
+            source="test",
         )
     )
 
@@ -77,6 +99,10 @@ def test_turnover_insight_api_returns_complete_real_route_payload(app_client, db
     assert payload["summary"]["current"]["displayText"] == "482亿"
     assert payload["summary"]["previous"]["displayText"] == "603亿"
     assert payload["summary"]["delta"]["displayText"] == "-121亿"
+    assert payload["summary"]["avg5d"]["displayText"] == "542亿"
+    assert payload["summary"]["avg5d"]["referenceLabel"] == "5日均值 542亿"
+    assert payload["summary"]["avg20d"]["displayText"] == "542亿"
+    assert payload["summary"]["avg20d"]["referenceLabel"] == "20日均值 542亿"
     assert len(payload["series"]) == 241
     assert sum(point["showAxisLabel"] for point in payload["series"]) == 17
     assert payload["debugInfo"]["candidateCount"] == 2
@@ -115,6 +141,7 @@ def test_turnover_insight_api_uses_strict_adjacent_delayed_pair(app_client, db_s
             pretrade_date=delayed_current,
         )
     )
+    _seed_daily_amount(db_session, trade_date=expected, amount=Decimal("999999999"))
     _seed_day(
         db_session,
         trade_date=delayed_previous,
@@ -139,6 +166,8 @@ def test_turnover_insight_api_uses_strict_adjacent_delayed_pair(app_client, db_s
     assert payload["tradingDay"]["expectedTradeDate"] == expected.isoformat()
     assert payload["tradingDay"]["observedTradeDate"] == delayed_current.isoformat()
     assert payload["exceptionCode"] == "TI_SOURCE_DELAYED"
+    assert payload["summary"]["avg5d"]["displayText"] == "542亿"
+    assert payload["summary"]["avg20d"]["displayText"] == "542亿"
 
 
 def test_turnover_insight_api_returns_empty_when_no_current_snapshot_exists(

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type {
+  TurnoverInsightAverageViewModel,
   TurnoverInsightAxisViewModel,
   TurnoverInsightChartPoint,
 } from "../model/turnoverInsightTypes";
@@ -16,6 +17,8 @@ interface TurnoverInsightChartProps {
   points: readonly TurnoverInsightChartPoint[];
   upperAxis: TurnoverInsightAxisViewModel;
   deltaAxis: TurnoverInsightAxisViewModel | null;
+  avg5d: TurnoverInsightAverageViewModel;
+  avg20d: TurnoverInsightAverageViewModel;
 }
 
 const COLORS = {
@@ -27,12 +30,18 @@ const COLORS = {
   crosshair: "rgba(226, 232, 240, 0.62)",
 };
 
-export function TurnoverInsightChart({ points, upperAxis, deltaAxis }: TurnoverInsightChartProps) {
+const AVERAGE_COLOR_TOKENS = {
+  avg5d: { property: "--cs-color-brand", fallback: "#f7c76b" },
+  avg20d: { property: "--cs-color-purple", fallback: "#a78bfa" },
+};
+
+export function TurnoverInsightChart({ points, upperAxis, deltaAxis, avg5d, avg20d }: TurnoverInsightChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(1330);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const geometry = useMemo(() => buildTurnoverInsightGeometry(width), [width]);
+  const averageColors = useMemo(resolveAverageColors, []);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -58,8 +67,17 @@ export function TurnoverInsightChart({ points, upperAxis, deltaAxis }: TurnoverI
     canvas.style.width = `${geometry.width}px`;
     canvas.style.height = `${geometry.height}px`;
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    drawChart(context, { geometry, points, upperAxis, deltaAxis, hoverIndex });
-  }, [deltaAxis, geometry, hoverIndex, points, upperAxis]);
+    drawChart(context, {
+      geometry,
+      points,
+      upperAxis,
+      deltaAxis,
+      avg5d,
+      avg20d,
+      averageColors,
+      hoverIndex,
+    });
+  }, [averageColors, avg20d, avg5d, deltaAxis, geometry, hoverIndex, points, upperAxis]);
 
   const hoveredPoint = hoverIndex === null ? null : points[hoverIndex] ?? null;
   const hoverX = hoverIndex === null ? 0 : xForIndex(geometry, hoverIndex, points.length);
@@ -91,11 +109,21 @@ export function TurnoverInsightChart({ points, upperAxis, deltaAxis }: TurnoverI
 
 interface DrawChartInput extends TurnoverInsightChartProps {
   geometry: ReturnType<typeof buildTurnoverInsightGeometry>;
+  averageColors: { avg5d: string; avg20d: string };
   hoverIndex: number | null;
 }
 
 function drawChart(context: CanvasRenderingContext2D, input: DrawChartInput) {
-  const { geometry, points, upperAxis, deltaAxis, hoverIndex } = input;
+  const {
+    geometry,
+    points,
+    upperAxis,
+    deltaAxis,
+    avg5d,
+    avg20d,
+    averageColors,
+    hoverIndex,
+  } = input;
   context.clearRect(0, 0, geometry.width, geometry.height);
   context.font = "12px var(--cs-font-family-number, monospace)";
   context.lineWidth = 1;
@@ -130,8 +158,12 @@ function drawChart(context: CanvasRenderingContext2D, input: DrawChartInput) {
     context.globalAlpha = 1;
   }
 
+  drawAverageReferenceLine(context, geometry, upperAxis, avg5d, averageColors.avg5d);
+  drawAverageReferenceLine(context, geometry, upperAxis, avg20d, averageColors.avg20d);
   drawLine(context, geometry, points, upperAxis, "previousAmountYi", COLORS.previous);
   drawLine(context, geometry, points, upperAxis, "currentAmountYi", COLORS.current);
+  drawAverageReferenceLabel(context, geometry, upperAxis, avg5d, averageColors.avg5d);
+  drawAverageReferenceLabel(context, geometry, upperAxis, avg20d, averageColors.avg20d);
 
   if (hoverIndex !== null) {
     const point = points[hoverIndex];
@@ -148,6 +180,59 @@ function drawChart(context: CanvasRenderingContext2D, input: DrawChartInput) {
     drawHoverPoint(context, x, point.previousAmountYi, upperAxis, geometry, COLORS.previous);
     drawHoverPoint(context, x, point.currentAmountYi, upperAxis, geometry, COLORS.current);
   }
+}
+
+export function drawAverageReferenceLine(
+  context: CanvasRenderingContext2D,
+  geometry: ReturnType<typeof buildTurnoverInsightGeometry>,
+  upperAxis: TurnoverInsightAxisViewModel,
+  average: TurnoverInsightAverageViewModel,
+  color: string,
+) {
+  if (average.amountYi === null) return;
+  const y = yForValue(average.amountYi, upperAxis, geometry.upperTop, geometry.upperBottom);
+  context.save();
+  context.strokeStyle = color;
+  context.lineWidth = 1;
+  context.setLineDash([8, 6]);
+  context.beginPath();
+  context.moveTo(geometry.plotLeft, y);
+  context.lineTo(geometry.plotRight, y);
+  context.stroke();
+  context.restore();
+}
+
+export function drawAverageReferenceLabel(
+  context: CanvasRenderingContext2D,
+  geometry: ReturnType<typeof buildTurnoverInsightGeometry>,
+  upperAxis: TurnoverInsightAxisViewModel,
+  average: TurnoverInsightAverageViewModel,
+  color: string,
+) {
+  if (average.amountYi === null) return;
+  const y = yForValue(average.amountYi, upperAxis, geometry.upperTop, geometry.upperBottom);
+  context.save();
+  context.fillStyle = color;
+  context.textAlign = "right";
+  context.textBaseline = "bottom";
+  context.fillText(average.referenceLabel, geometry.plotRight, y - 2);
+  context.restore();
+}
+
+function resolveAverageColors(): { avg5d: string; avg20d: string } {
+  if (typeof window === "undefined") {
+    return {
+      avg5d: AVERAGE_COLOR_TOKENS.avg5d.fallback,
+      avg20d: AVERAGE_COLOR_TOKENS.avg20d.fallback,
+    };
+  }
+  const styles = window.getComputedStyle(document.documentElement);
+  return {
+    avg5d: styles.getPropertyValue(AVERAGE_COLOR_TOKENS.avg5d.property).trim()
+      || AVERAGE_COLOR_TOKENS.avg5d.fallback,
+    avg20d: styles.getPropertyValue(AVERAGE_COLOR_TOKENS.avg20d.property).trim()
+      || AVERAGE_COLOR_TOKENS.avg20d.fallback,
+  };
 }
 
 function drawHorizontalAxis(

@@ -16,6 +16,8 @@ export function buildTurnoverInsightViewModelFromApi(
       current: { ...payload.summary.current },
       previous: { ...payload.summary.previous },
       delta: { ...payload.summary.delta },
+      avg5d: { ...payload.summary.avg5d },
+      avg20d: { ...payload.summary.avg20d },
     },
     upperAxis: payload.upperAxis
       ? { ...payload.upperAxis, ticks: payload.upperAxis.ticks.map((tick) => ({ ...tick })) }

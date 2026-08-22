@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy import select
 
@@ -102,6 +102,46 @@ def _seed_turnover_facts(db_session, *, end_date: date, days: int = 62) -> None:
     db_session.commit()
 
 
+def _seed_turnover_insight_pair(db_session, *, current_date: date, previous_date: date) -> None:
+    minute_grid = [
+        *[
+            f"{minute // 60:02d}:{minute % 60:02d}"
+            for minute in range(9 * 60 + 30, 11 * 60 + 31)
+        ],
+        *[
+            f"{minute // 60:02d}:{minute % 60:02d}"
+            for minute in range(13 * 60 + 1, 15 * 60 + 1)
+        ],
+    ]
+    for trade_day, pretrade_date, per_minute_amount in (
+        (previous_date, previous_date - timedelta(days=1), Decimal("90000")),
+        (current_date, previous_date, Decimal("100000")),
+    ):
+        points = [
+            {"tradeTime": trade_time, "amount": str(per_minute_amount)}
+            for trade_time in minute_grid
+        ]
+        db_session.add(
+            WealthMarketTurnoverSnapshot(
+                type="stock",
+                market="CN_A",
+                trade_date=trade_day,
+                freq=1,
+                latest_trade_time=datetime.combine(trade_day, time(hour=15)),
+                security_count=5000,
+                source_row_count=len(points) * 5000,
+                total_amount=per_minute_amount * Decimal(len(points)),
+                total_vol=1,
+                points_json=points,
+                build_status="READY",
+                build_version="v1",
+                built_at=datetime.now(),
+                build_note=None,
+            )
+        )
+    db_session.commit()
+
+
 def test_market_turnover_endpoint_returns_metrics_intraday_and_history(app_client, db_session) -> None:
     _ensure_turnover_tables(db_session)
     target_date = date(2026, 4, 28)
@@ -131,6 +171,45 @@ def test_market_turnover_endpoint_returns_metrics_intraday_and_history(app_clien
     assert no_debug_response.status_code == 200
     no_debug_payload = no_debug_response.json()
     assert "debugInfo" not in no_debug_payload or no_debug_payload["debugInfo"] is None
+
+
+def test_homepage_and_insight_share_daily_average_values(app_client, db_session) -> None:
+    _ensure_turnover_tables(db_session)
+    target_date = date(2026, 4, 28)
+    previous_date = target_date - timedelta(days=1)
+    _seed_turnover_facts(db_session, end_date=target_date)
+    _seed_turnover_insight_pair(
+        db_session,
+        current_date=target_date,
+        previous_date=previous_date,
+    )
+
+    homepage = app_client.get(
+        "/api/v1/wealth/market/turnover",
+        params={"tradeDate": target_date.isoformat()},
+    ).json()
+    insight = app_client.get(
+        "/api/v1/wealth/market/turnover-insight",
+        params={"tradeDate": target_date.isoformat()},
+    ).json()
+
+    homepage_metrics = homepage["turnover"]["metrics"]
+    expected_avg5d_yi = int(
+        (Decimal(str(homepage_metrics["avg5dAmount"])) / Decimal("100000")).quantize(
+            Decimal("1"),
+            rounding=ROUND_HALF_UP,
+        )
+    )
+    expected_avg20d_yi = int(
+        (Decimal(str(homepage_metrics["avg20dAmount"])) / Decimal("100000")).quantize(
+            Decimal("1"),
+            rounding=ROUND_HALF_UP,
+        )
+    )
+    assert expected_avg5d_yi == 15900
+    assert expected_avg20d_yi == 15150
+    assert insight["summary"]["avg5d"]["amountYi"] == expected_avg5d_yi
+    assert insight["summary"]["avg20d"]["amountYi"] == expected_avg20d_yi
 
 
 def test_market_turnover_rejects_unsupported_market(app_client) -> None:

@@ -31,10 +31,16 @@ class TurnoverInsightAmountDto(_StrictDto):
     direction: TurnoverInsightDirection
 
 
+class TurnoverInsightAverageAmountDto(TurnoverInsightAmountDto):
+    referenceLabel: str
+
+
 class TurnoverInsightSummaryDto(_StrictDto):
     current: TurnoverInsightAmountDto
     previous: TurnoverInsightAmountDto
     delta: TurnoverInsightAmountDto
+    avg5d: TurnoverInsightAverageAmountDto
+    avg20d: TurnoverInsightAverageAmountDto
 
 
 class TurnoverInsightAxisTickDto(_StrictDto):

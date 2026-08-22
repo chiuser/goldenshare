@@ -22,6 +22,18 @@ function model(status: TurnoverInsightViewModel["status"]): TurnoverInsightViewM
       delta: partial
         ? { amountYi: null, displayText: "--", direction: "neutral" }
         : { amountYi: -2018, displayText: "-2,018亿", direction: "down" },
+      avg5d: {
+        amountYi: 23771,
+        displayText: "23,771亿",
+        direction: "neutral",
+        referenceLabel: "5日均值 23,771亿",
+      },
+      avg20d: {
+        amountYi: 28064,
+        displayText: "28,064亿",
+        direction: "neutral",
+        referenceLabel: "20日均值 28,064亿",
+      },
     },
     upperAxis: { minYi: 0, maxYi: 24000, zeroYi: 0, ticks: [{ valueYi: 0, displayText: "0" }] },
     deltaAxis: partial ? null : { minYi: -2400, maxYi: 0, zeroYi: 0, ticks: [{ valueYi: 0, displayText: "0" }] },
@@ -60,6 +72,26 @@ describe("TurnoverInsightSection", () => {
     );
     expect(screen.getByLabelText("成交额洞察加载中")).toBeInTheDocument();
     expect(container.querySelector("canvas")).toBeNull();
+  });
+
+  it("renders the five metric cards in the reviewed order", () => {
+    const { container } = render(
+      <TurnoverInsightSection model={model("READY")} onRetry={vi.fn()} viewState="ready" />,
+    );
+
+    const labels = Array.from(
+      container.querySelectorAll(".turnover-insight-metric > span"),
+      (element) => element.textContent,
+    );
+    expect(labels).toEqual([
+      "当日累计成交额",
+      "昨日累计成交额",
+      "较昨日累计增减",
+      "5日成交额均值",
+      "20日成交额均值",
+    ]);
+    expect(screen.getByText("23,771亿")).toBeInTheDocument();
+    expect(screen.getByText("28,064亿")).toBeInTheDocument();
   });
 
   it.each(["empty", "error"] as const)("renders %s without stale chart data", (viewState) => {

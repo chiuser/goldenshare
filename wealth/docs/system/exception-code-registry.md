@@ -107,6 +107,7 @@
 | `TI_TIME_GRID_MISMATCH` | `turnoverInsight` | error | false | true | 成交额洞察分钟时间网格不符合合同 | 时间点不是严格唯一升序的 241 点，或两日时间键不一致 | 模块显示 partial/error，不渲染伪造对比 | biz-api | Phase-4 | active |
 | `TI_POINT_QUALITY_INVALID` | `turnoverInsight` | error | false | true | 成交额洞察分钟点质量无效 | JSON、金额、日期、重复或尾值对账失败 | 模块显示 error，保留页面其它模块 | biz-api | Phase-4 | active |
 | `TI_QUERY_FAILED` | `turnoverInsight` | error | false | true | 成交额洞察查询失败 | SQL 或未分类服务异常 | 模块显示 error，允许用户重试 | biz-api | Phase-4 | active |
+| `TI_DAILY_AVERAGE_UNAVAILABLE` | `turnoverInsight` | warn | false | true | 成交额洞察日均值查询暂不可用 | 5 日/20 日成交额均值的有界交易日或日线聚合查询失败 | 保留分钟累计曲线与原状态；均值卡显示 `--`，不绘制均值参考线 | biz-api | Phase-4 | active |
 | `MF_SOURCE_DELAYED` | `moneyFlow` | warn | false | true | 资金流模块数据日期落后 | `observedTradeDate < expectedTradeDate` | 模块 delayed，页面可能 PARTIAL | biz-api | Phase-1 | active |
 | `MF_SOURCE_EMPTY` | `moneyFlow` | warn | false | true | 资金流模块关键源无数据 | 双卡与历史数据都为空 | 模块 empty，展示空态 | biz-api | Phase-1 | active |
 | `MF_HISTORY_INCOMPLETE` | `moneyFlow` | warn | false | true | 资金流历史样本不足 | 历史点少于 22（1m）或 62（3m） | 模块 partial，debug 标记历史不足 | biz-api | Phase-1 | active |

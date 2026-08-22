@@ -32,6 +32,8 @@ export function TurnoverInsightSection({ viewState, model, errorMessage, onRetry
             {viewState === "delayed" ? <p className="turnover-insight-notice">{model.message}</p> : null}
             {chartReady ? (
               <TurnoverInsightChart
+                avg5d={model.summary.avg5d}
+                avg20d={model.summary.avg20d}
                 deltaAxis={model.deltaAxis}
                 points={model.points}
                 upperAxis={model.upperAxis!}

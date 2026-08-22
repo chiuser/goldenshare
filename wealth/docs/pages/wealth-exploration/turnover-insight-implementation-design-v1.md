@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：已开发、部署并验收闭环
+- 状态：基础版本已开发、部署并验收闭环；5日/20日均值补充功能已开发完成，待用户部署与视觉验收
 - 编写日期：2026-08-21
 - 适用仓库：`/Users/congming/github/goldenshare`
 - 目标页面：财势探查（Wealth Exploration）
@@ -18,7 +18,9 @@
 
 2026-08-22 开发收口：独立后端接口、财势探查页面、共享顶部栏/面包屑/时间上下文、单 Canvas 双图区和六态均已按本方案落地；自动化测试、TypeScript 类型检查和生产构建通过。开发阶段按约定未启动服务或部署。
 
-2026-08-22 验收闭环：用户已完成部署和浏览器人工验收，功能与视觉效果均未发现问题。本需求正式闭环，后续若调整业务口径应作为新需求重新评审。
+2026-08-22 基础版本验收闭环：用户已完成部署和浏览器人工验收，基础功能与视觉效果均未发现问题。该闭环不包含下述 5 日/20 日均值补充功能。
+
+2026-08-22 补充功能开发完成：在基础版本上增加 5 日、20 日成交额均值卡片，并在累计成交额图区增加对应水平参考虚线。后端共享均值查询、严格 DTO、受控降级、前端五卡片和单 Canvas 参考线均已落地；自动化测试、类型检查和生产构建通过。按约定未执行部署与浏览器视觉验收。
 
 2026-08-22 补充冻结：
 
@@ -33,16 +35,18 @@
 
 在财势探查页面的板块雷达上方新增“成交额洞察”模块，用一分钟全市场成交额快照对比最近完整交易日与上一交易日的盘中累计成交额走势。
 
-模块需要同时回答三个问题：
+模块需要同时回答五个问题：
 
 1. 最近完整交易日累计成交额是多少。
 2. 上一交易日总成交额是多少。
 3. 最近完整交易日每一分钟相对上一交易日同一时刻多成交或少成交多少。
+4. 以实际展示交易日为截止日的最近 5 个 SSE 开市日成交额均值是多少。
+5. 以实际展示交易日为截止日的最近 20 个 SSE 开市日成交额均值是多少。
 
 模块由三部分组成：
 
-- 三个紧凑摘要卡片：当日累计成交额、昨日总成交额、较昨日累计增减。
-- 上图：当日与昨日累计成交额曲线。
+- 五个紧凑摘要卡片：当日累计成交额、昨日总成交额、较昨日累计增减、5 日成交额均值、20 日成交额均值。
+- 上图：当日与昨日累计成交额曲线，以及 5 日、20 日成交额均值水平参考线。
 - 下图：当日累计成交额与昨日同一时刻累计成交额的差值柱状图。
 
 ## 2. 明确不做
@@ -53,8 +57,9 @@
 - 不在前端累计一分钟成交额。
 - 不在前端计算当日与昨日差值。
 - 不在前端执行“千元转亿元”或金额取整。
+- 不在前端查询日线、选择最近 5/20 个交易日、计算均值或拼接均值标签。
 - 不复用首页成交额总览的固定五点 DTO 冒充本模块接口。
-- 不 import 或调用首页 `MarketTurnoverQueryService`、`TurnoverQuery`、旧 schema、旧 status resolver 或旧 exception builder。
+- 不 import 或调用首页 `MarketTurnoverQueryService`、`TurnoverQuery`、旧 schema、旧 status resolver 或旧 exception builder；均值共享只能下沉为页面中立的底层日成交额均值 query，由两个模块共同消费。
 - 不把成交额洞察并入板块雷达内部状态或接口。
 - 不增加面向用户的计算参数、频率开关或市场开关。
 
@@ -68,11 +73,13 @@
 
 ### 3.2 摘要卡片
 
-固定展示三个卡片：
+固定展示五个卡片：
 
 1. 当日累计成交额。
 2. 昨日总成交额。
 3. 较昨日累计增减。
+4. 5 日成交额均值。
+5. 20 日成交额均值。
 
 展示规则：
 
@@ -80,7 +87,9 @@
 - 不显示小数，按四舍五入取整数。
 - 第一个卡片左边沿与上图 09:30 纵向网格线对齐。
 - 卡片宽度按可完整容纳 `18,921亿` 一类金额设计，不保留大块无意义留白。
-- 摘要卡片与曲线、差值柱均来自同一组一分钟快照事实，禁止混用其它日线汇总表。
+- 五张卡片固定宽度 `148px`，卡片间距 `12px`；在 `1564px` 和 `1330px` 模块宽度下都不能与右侧图例重叠。
+- 当日、昨日和累计增减来自同一组一分钟快照事实；5 日、20 日均值与行情首页保持完全相同的交易日、源表和均值算法，不允许从一分钟曲线反推。
+- 均值缺失时展示 `--`，不得填 `0`；对应参考线不绘制。
 
 ### 3.3 上图累计曲线
 
@@ -88,6 +97,9 @@
 - 昨日累计成交额：白色曲线。
 - 图例整体靠右，仅保留图例，不显示“对比某日/某日”等额外说明。
 - 图例横线与文字垂直居中。
+- 5 日均值使用品牌金色水平虚线，20 日均值使用紫色水平虚线；均值线不是曲线图例，图例仍只保留“当日累计/昨日累计”。
+- 每条均值线在绘图区右端、线段上方 `2px` 显示后端提供的完整标签，例如 `5日均值 23,771亿`、`20日均值 28,064亿`。
+- 均值线只作用于上方累计图区，不进入下方累计差值图区，不进入 tooltip，也不改变 hover/crosshair 合同。
 - 横坐标按交易时段每 15 分钟标记。
 - 不伪造午间休市点；下午首个实际一分钟点为 13:01，因此不创建 13:00 数据点。
 
@@ -118,12 +130,15 @@
 组件页固定提供：
 
 - `PageBreadcrumb / Wealth Exploration`（`802:14`）。
-- `TurnoverMetricCard` 三种类型（`803:14`）：Current、Previous、Delta。
+- `TurnoverMetricCard` 基础组件继续复用；Loaded 组件新增两个实例：`Metric Card / Average 5`（`818:46`）和 `Metric Card / Average 20`（`818:49`）。
 - `TurnoverLegendItem` 两种类型（`803:23`）：Current、Previous。
 - `TurnoverTooltip`（`804:13`）。
 - `TurnoverInsight` 六种状态（`805:639`）：Loaded、Delayed、Partial、Loading、Empty、Error。
 - `TurnoverHoverLayer` 两种状态（`808:68`）：Idle、Active。
 - `DimensionTab`（`804:20`）属于板块雷达维度切换，不属于成交额洞察业务组件。
+- Loaded 组件（`805:130`）新增：
+  - `Average 5 Reference Line`（`817:50`）与 `Average 5 Reference Label`（`817:51`）。
+  - `Average 20 Reference Line`（`817:48`）与 `Average 20 Reference Label`（`817:49`）。
 
 状态与交互页固定提供：
 
@@ -238,6 +253,8 @@ wealth/src/features/market-overview/turnover/
 - `MarketTurnoverQueryService`、`TurnoverQuery` 和固定五点 DTO。
 - 旧模块的 status resolver、exception builder 和前端 adapter/controller。
 
+本次补充功能允许新增页面中立的底层 `TurnoverDailyAverageQuery`，并让旧首页 `TurnoverQuery` 与新成交额洞察共同调用。该 query 只负责“最近 20 个 SSE 开市日 + `EquityDailyBar.amount` 日聚合 + 5/20 日均值”这一项稳定事实，不返回页面 DTO、不处理状态、不处理盘中曲线。这样既保持两个 endpoint 和服务合同独立，也避免复制两套均值算法。
+
 该边界必须由 import/static gate 和集成测试共同证明，不能只靠目录命名区分。
 
 ### 4.5 一分钟正式快照已经具备所需源事实
@@ -328,10 +345,13 @@ WealthExplorationPage
     -> TurnoverInsightQueryService
     -> TurnoverInsightQuery
     -> core_serving.wealth_market_turnover_snapshot (normal 2 rows, bounded max 4, freq=1)
-    -> backend cumulative/alignment/delta/unit conversion
+    -> TurnoverDailyAverageQuery
+         -> core.trade_calendar (bounded latest 20 SSE open dates)
+         -> core_serving.equity_daily_bar (bounded date aggregate)
+    -> backend cumulative/alignment/delta/average/unit conversion
     -> frontend adapter (shape only)
     -> TurnoverInsightSection
-         -> TurnoverMetricCards
+         -> TurnoverMetricCards (Current / Previous / Delta / Avg5 / Avg20)
          -> TurnoverInsightLegend
          -> TurnoverInsightChart (single Canvas: upper + lower)
          -> TurnoverInsightTooltip / shared crosshair
@@ -345,6 +365,8 @@ src/biz/queries/wealth/market/turnover_insight/
   turnover_insight_query.py
   turnover_insight_query_service.py
   turnover_insight_calculator.py
+src/biz/queries/wealth/market/turnover_common/
+  turnover_daily_average_query.py
 src/biz/schemas/wealth/market/turnover_insight.py
 src/biz/services/wealth/market/turnover_insight/
   turnover_insight_status_resolver.py
@@ -419,15 +441,25 @@ GET /api/v1/wealth/market/turnover-insight
       "amountYi": -2018,
       "displayText": "-2,018亿",
       "direction": "down"
+    },
+    "avg5d": {
+      "amountYi": 23771,
+      "displayText": "23,771亿",
+      "direction": "neutral"
+    },
+    "avg20d": {
+      "amountYi": 28064,
+      "displayText": "28,064亿",
+      "direction": "neutral"
     }
   },
   "axis": {
     "timeLabels": ["09:30", "09:45", "10:00", "...", "15:00"],
     "cumulative": {
       "minYi": 0,
-      "maxYi": 24000,
+      "maxYi": 32000,
       "zeroYi": 0,
-      "ticks": ["0", "6000", "12000", "18000", "24000"]
+      "ticks": ["0", "8000", "16000", "24000", "32000"]
     },
     "delta": {
       "minYi": -2400,
@@ -459,12 +491,13 @@ GET /api/v1/wealth/market/turnover-insight
 - 所有页面展示文本由后端生成。
 - 前端 adapter 只能改字段形状，禁止重新累计、相减、换算或取整。
 - `direction` 由后端根据精确差值判定，不能根据取整后可能为 0 的展示值反推。
+- `summary.avg5d/avg20d` 是 nullable；存在时使用 `neutral`，缺失时返回 `amountYi=null/displayText="--"`。
 - 不返回预测字段，也不预留伪预测字段。
 - `tradingDay.expectedTradeDate/sessionStatus/timezone/generatedAt` 与共享 Market Context 同口径；`observedTradeDate` 明确实际展示数据日期，DELAYED 时不得伪装成 expected date。
 
 纵轴合同以已评审 Figma 为准：
 
-- 累计图区取当日、昨日两条累计曲线的最大值并增加 `10%` 展示余量，固定生成四个区间。
+- 累计图区取当日、昨日两条累计曲线以及非空 5 日/20 日均值的共同最大值并增加 `10%` 展示余量，固定生成四个区间。
 - 设原始极值为 `domainMax`，取 `granularity = 10 ^ max(0, floor(log10(abs(domainMax))) - 1)`，再计算 `step = ceil((domainMax * 1.10 / 4) / granularity) * granularity`；纵轴为 `0, step, 2*step, 3*step, 4*step`。当前样本得到 `0/6000/12000/18000/24000`。
 - 差值图区必须包含 `0`；每个实际存在的正负方向各生成两个区间，各方向独立按其绝对极值使用同一量级规则向外取整。当前全负样本得到 `0/-1200/-2400`。
 - 累计图全零时固定使用 `0..4`；差值图全零时固定使用 `-1/0/1`，防止零跨度。
@@ -542,6 +575,19 @@ amount_yi = round_half_up(amount_thousand_yuan / 100000)
 
 所有 241 个数据点仍参与绘图，15 分钟规则只控制横轴标签显示。
 
+### 8.7 5 日/20 日成交额均值
+
+均值必须与行情首页当前口径完全一致：
+
+1. 截止日期使用实际展示的 `observedTradeDate`；DELAYED 场景不能使用没有快照的 expected date。
+2. 从 SSE 交易日历选择不晚于截止日期的最近 20 个开市日。
+3. 对 `core_serving.equity_daily_bar` 按 `trade_date` 汇总 `amount`，源单位保持 `thousand_yuan`。
+4. 5 日均值使用最近 5 个开市日中实际存在的日总额；20 日均值使用最近 20 个开市日中实际存在的日总额。该“对存在值求均值”的语义与当前首页保持一致，不在本补充功能中擅自收紧。
+5. 没有任何有效日总额时返回空值，不填 `0`。
+6. 均值先使用精确金额计算，再按现有 `ROUND_HALF_UP` 规则换算为整数亿元和 `displayText`。
+
+均值是日成交额统计事实，不从分钟曲线尾值推导。两个页面必须复用同一个底层 query，并增加同日期 API 对账测试，防止未来算法漂移。
+
 ## 9. 状态与异常
 
 ### 9.1 状态定义
@@ -549,7 +595,7 @@ amount_yi = round_half_up(amount_thousand_yuan / 100000)
 | 状态 | 条件 | 页面行为 |
 | --- | --- | --- |
 | `LOADING` | 请求未完成 | 使用与最终布局同尺寸 skeleton |
-| `READY` | 当日和上一交易日快照均完整且严格对齐 | 展示三个卡片、双曲线和差值柱 |
+| `READY` | 当日和上一交易日快照均完整且严格对齐 | 展示五个卡片、双曲线、两条均值参考线和差值柱；均值缺失时对应卡片显示 `--` 并省略参考线 |
 | `DELAYED` | 预期当日尚未 READY，但有界候选中存在上一组完整相邻交易日 | 展示最近完整对比，并同时明确 expected、observed 和 `asOf` 日期 |
 | `PARTIAL` | 当日可用，但上一交易日缺失或时间网格不一致 | 只展示可证明的当日摘要/曲线；昨日和差值区域禁用并说明原因 |
 | `EMPTY` | 没有可展示的完整当日快照 | 展示空态，不渲染 0 值假数据 |
@@ -613,7 +659,7 @@ amount_yi = round_half_up(amount_thousand_yuan / 100000)
 
 - 使用当前 Wealth Design System token，不新增私有颜色体系。
 - 当日红、昨日白、负差绿色。
-- 维持紧凑金融终端密度，不把三个摘要卡片扩大成营销卡片。
+- 维持紧凑金融终端密度，不把五个摘要卡片扩大成营销卡片。
 - 第一个卡片左边沿和 09:30 plot grid 对齐。
 - 图例靠右，线段和文字垂直居中。
 - 删除 `Alignment Note` 和对比日期说明文案。
@@ -625,14 +671,14 @@ amount_yi = round_half_up(amount_thousand_yuan / 100000)
 - 正常请求读取两条一分钟 READY 快照；单次有界查询最多返回 4 条，用于识别严格相邻的 DELAYED 日期对。
 - 使用现有 lookup index。
 - 禁止扫描 `raw_stk_mins_*`、Lake Parquet 或 Dagster event。
-- 禁止为了摘要卡片额外查询 `equity_daily_bar`。
+- 允许且只允许通过页面中立的 `TurnoverDailyAverageQuery` 有界读取最近 20 个 SSE 开市日和对应 `equity_daily_bar` 日聚合；禁止全历史扫描或逐日 N+1 查询。
 - 后端最多解析 `4 x 241` 个候选点，只对最终选中的一组 `2 x 241` 个点做累计、差值和轴合同计算。
 
 ### 11.2 性能目标
 
 | 指标 | 目标 |
 | --- | ---: |
-| 数据库往返 | 1 次 |
+| 成交额洞察模块数据查询 | 1 次快照候选查询 + 2 次有界均值查询；不含共享 Context 请求 |
 | 快照行数 | 正常 2 行，硬上限 4 行 |
 | 单日分钟点 | 241 |
 | 后端 P95 | 不超过 120ms |
@@ -667,12 +713,13 @@ amount_yi = round_half_up(amount_thousand_yuan / 100000)
 
 - `TopMarketBar` 的 active nav 和导航回调。
 - 页面上下文从行情首页私有 feature 收敛为共享 feature。
+- 日成交额 5/20 日均值读取下沉为页面中立 query；旧首页和成交额洞察共用，两个 endpoint/DTO/service 仍保持独立。
 - 行情首页 Breadcrumb 从私有组件收敛为共享组件，DOM/CSS 不变。
 - `WealthRouter` 增加显式财势探查路由；不改变其它未知路由既有行为。
 
 ### 13.3 不受影响
 
-- 首页 `/api/v1/wealth/market/turnover` 的现有契约。
+- 首页 `/api/v1/wealth/market/turnover` 的现有 API 契约和展示结果；内部均值查询改为共享 helper，但字段和值不得变化。
 - 首页成交额总览组件。
 - 股票详情和指数详情的业务 API。
 - 成交额快照生产器和表结构。
@@ -696,7 +743,11 @@ amount_yi = round_half_up(amount_thousand_yuan / 100000)
 - 当前缺失、上一日缺失、时间不一致、重复点、负金额分别进入正确状态。
 - DELAYED 只能使用完整相邻交易日对。
 - API 权限、日期、market 和 debug 边界。
-- 查询实现不引用原始分钟表、Lake 或 `equity_daily_bar`。
+- 快照查询不引用原始分钟表或 Lake；`equity_daily_bar` 只能由页面中立的日均值 query 做最近 20 个 SSE 开市日的有界聚合。
+- 5/20 日均值与首页同一日期的 `avg5dAmount/avg20dAmount` 对账一致。
+- 均值截止日使用实际 `observedTradeDate`，DELAYED 场景不得错用 expected date。
+- 均值为空时返回 `--`，累计曲线仍按原状态展示，参考线省略。
+- 累计纵轴把非空均值纳入 domain；当前 Figma 样本得到 `0/8000/16000/24000/32000`。
 
 ### 14.2 前端
 
@@ -707,7 +758,8 @@ amount_yi = round_half_up(amount_thousand_yuan / 100000)
 - 行情首页、股票详情、指数详情的共享导航无回退。
 - loading/ready/delayed/partial/empty/error 全状态。
 - 六态复用同一个 `TurnoverInsight` 组件，不按页面变体复制实现。
-- 三个卡片展示后端整数亿文本。
+- 五个卡片展示后端整数亿文本，均值卡片不在前端计算。
+- 5 日/20 日均值虚线只出现在上图，右端标签位于对应线段上方 `2px`，下图和 tooltip 不增加均值内容。
 - 当日红线、昨日白线、正红负绿差值柱。
 - 15 分钟标签和午间休市行为正确。
 - 单 Canvas 上下图区共享 x geometry、hoverIndex 和 crosshair。
@@ -733,6 +785,8 @@ amount_yi = round_half_up(amount_thousand_yuan / 100000)
 - 当日卡片 `18,921亿`。
 - 昨日卡片 `20,939亿`。
 - 差值卡片 `-2,018亿`。
+- 5 日均值卡片与参考线 `23,771亿`。
+- 20 日均值卡片与参考线 `28,064亿`。
 - 11:30 等代表时间点的累计值与离线 SQL 一致。
 
 ## 15. 开发里程碑
@@ -767,6 +821,16 @@ amount_yi = round_half_up(amount_thousand_yuan / 100000)
 - Figma 对照验收。
 - 更新文档状态并闭环。
 
+### M5：5日/20日均值补充功能
+
+- 下沉页面中立的日成交额均值 query，首页与成交额洞察共同消费，保持首页 API 契约不变。
+- 扩展成交额洞察 summary DTO、calculator、adapter 和五卡布局。
+- 扩展累计纵轴 domain，并绘制两条均值虚线及右端标签。
+- 增加首页/成交额洞察同日期均值对账、DELAYED 截止日、空均值和响应式布局测试。
+- 用户完成部署与视觉验收后，再把补充功能状态更新为闭环。
+
+开发结果：前四项已完成；最后一项仍待用户部署与视觉验收。
+
 ## 16. 编码前硬门禁
 
 正式开发前必须全部满足：
@@ -775,7 +839,7 @@ amount_yi = round_half_up(amount_thousand_yuan / 100000)
 2. 新 API 与旧首页 turnover API 的边界明确，并有 import/static gate 禁止复用旧 query/service/schema/status/exception。
 3. TopMarketBar、Breadcrumb 和 MarketContext 的全部消费者列入修改与回归清单。
 4. `TI_*` 异常码先登记、后编码。
-5. 后端测试明确禁止查询原始分钟线和 `equity_daily_bar`。
+5. 后端测试明确禁止查询原始分钟线；`equity_daily_bar` 只允许由页面中立均值 query 做最近 20 个交易日的有界聚合。
 6. 前端测试明确禁止金额累计、差值、换算和取整。
 7. 真实只读样本继续满足 241 点和时间集合一致。
 8. 代码实现不得修改快照生产、Lake 或 Dagster 主链。
@@ -788,7 +852,9 @@ amount_yi = round_half_up(amount_thousand_yuan / 100000)
 | 前端自行累计/换算 | 多端口径漂移 | 后端返回最终亿值和展示文本 |
 | 新模块复用旧首页大 DTO | 两页面互相牵制 | 建立独立 endpoint 和 feature |
 | 误把独立接口理解成重复建表 | 重复事实源、数据漂移 | 只共享预计算表和 ORM model，不共享旧业务接口 |
-| 日总额混用其它表 | 卡片与曲线尾值不一致 | 所有内容只用一分钟快照 |
+| 均值算法复制两份 | 首页与成交额洞察数值逐渐漂移 | 下沉页面中立均值 query，并做同日期 API 对账 |
+| DELAYED 均值仍截止 expected date | 曲线与均值不属于同一观察日 | 均值窗口固定截止实际 `observedTradeDate` |
+| 均值高于两条累计曲线但未进入纵轴 | 虚线被裁切或贴边 | 共同参与累计轴 domain 计算 |
 | 两日时间点错位 | 差值柱含义错误 | 按时间键严格集合对账 |
 | 页面上下文继续私有化 | 页面间依赖倒置 | 收敛为共享 MarketContext |
 | 新模块自行求最近日期 | 与首页同页显示日期不一致 | 页面先解析共享 Context，再把 resolved tradeDate 传给所有模块 |
@@ -798,7 +864,7 @@ amount_yi = round_half_up(amount_thousand_yuan / 100000)
 
 ## 18. 方案结论
 
-现有正式一分钟成交额快照已经完整支持本需求：最近两个完整交易日各有 241 个严格对齐的分钟点，金额、时间范围和索引性能均满足在线读取条件。无需新增数据集、无需扫描 Lake，也无需修改快照生产链路。
+现有正式一分钟成交额快照继续完整支持累计曲线与差值；5 日/20 日均值沿用行情首页现有 `EquityDailyBar` 日成交额事实。无需新增数据集、无需扫描 Lake，也无需修改快照生产链路。
 
 真正的开发工作集中在三处：
 
@@ -806,4 +872,4 @@ amount_yi = round_half_up(amount_thousand_yuan / 100000)
 2. 建立正式财势探查页面与独立前端 feature，还原 Figma 中的摘要卡片、双曲线和累计差值柱。
 3. 收敛 TopMarketBar、Breadcrumb 和 MarketContext 三个共享契约，保证页面顶部结构、面包屑和时间事实与行情首页一致，同时不让行情首页和详情页产生回退。
 
-本方案没有未决业务口径。LLD 已落于 `turnover-insight-low-level-design-v1.md`，M1 至 M5、自动化验证、部署和浏览器人工验收均已完成，本需求正式闭环。
+基础版本 M1 至 M4 已完成自动化验证、部署和浏览器人工验收。新增的 M5 均值卡片与参考线功能已经按 Figma、本文和 `turnover-insight-low-level-design-v1.md` 完成开发及自动化验证，当前只待用户部署和浏览器视觉验收。

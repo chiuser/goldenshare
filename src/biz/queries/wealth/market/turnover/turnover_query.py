@@ -11,6 +11,10 @@ from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.wealth_market_turnover_snapshot import WealthMarketTurnoverSnapshot
 
+from src.biz.queries.wealth.market.turnover_common.turnover_daily_average_query import (
+    TurnoverDailyAverageQuery,
+)
+
 
 _INTRADAY_TIME_POINTS = ("09:30", "10:30", "11:30", "14:00", "15:00")
 
@@ -60,6 +64,9 @@ class TurnoverIntradayResult:
 class TurnoverQuery:
     """Load turnover metrics, history and intraday cumulative points."""
 
+    def __init__(self) -> None:
+        self._daily_average_query = TurnoverDailyAverageQuery()
+
     def load_recent_trade_dates(
         self,
         session: Session,
@@ -89,15 +96,20 @@ class TurnoverQuery:
         today_amount = self._load_daily_total(session, trade_date=trade_date)
         prev_amount = self._load_daily_total(session, trade_date=prev_trade_date) if prev_trade_date else None
 
-        recent_20_trade_dates = self.load_recent_trade_dates(
+        daily_averages = self._daily_average_query.load(
             session,
             end_trade_date=trade_date,
-            limit_days=20,
         )
-        amounts_map = self.load_amounts_by_trade_dates(session, trade_dates=recent_20_trade_dates)
-        recent_5_trade_dates = recent_20_trade_dates[-5:]
-        avg5d_amount = self._average_amount(amounts_map=amounts_map, trade_dates=recent_5_trade_dates)
-        avg20d_amount = self._average_amount(amounts_map=amounts_map, trade_dates=recent_20_trade_dates)
+        avg5d_amount = (
+            float(daily_averages.avg5d_amount)
+            if daily_averages.avg5d_amount is not None
+            else None
+        )
+        avg20d_amount = (
+            float(daily_averages.avg20d_amount)
+            if daily_averages.avg20d_amount is not None
+            else None
+        )
 
         amount_delta: float | None = None
         amount_delta_pct: float | None = None
@@ -213,10 +225,3 @@ class TurnoverQuery:
             select(func.sum(EquityDailyBar.amount)).where(EquityDailyBar.trade_date == trade_date)
         )
         return float(amount) if amount is not None else None
-
-    @staticmethod
-    def _average_amount(*, amounts_map: dict[date, float], trade_dates: list[date]) -> float | None:
-        values = [amounts_map[trade_day] for trade_day in trade_dates if trade_day in amounts_map]
-        if not values:
-            return None
-        return float(sum(values) / len(values))

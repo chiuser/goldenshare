@@ -7,10 +7,14 @@ import re
 
 from src.biz.schemas.wealth.market.turnover_insight import (
     TurnoverInsightAmountDto,
+    TurnoverInsightAverageAmountDto,
     TurnoverInsightAxisTickDto,
     TurnoverInsightSeriesPointDto,
     TurnoverInsightSummaryDto,
     TurnoverInsightValueAxisDto,
+)
+from src.biz.queries.wealth.market.turnover_common.turnover_daily_average_query import (
+    TurnoverDailyAverageSnapshot,
 )
 
 from .turnover_insight_query import TurnoverInsightSnapshotRow
@@ -106,6 +110,7 @@ class TurnoverInsightCalculator:
         *,
         current_snapshot: TurnoverInsightSnapshotRow,
         previous_snapshot: TurnoverInsightSnapshotRow | None,
+        daily_averages: TurnoverDailyAverageSnapshot | None = None,
     ) -> TurnoverInsightCalculation:
         current_points = self.parse_snapshot(current_snapshot)
         previous_points = self.parse_snapshot(previous_snapshot) if previous_snapshot is not None else None
@@ -175,15 +180,54 @@ class TurnoverInsightCalculator:
             )
             delta_axis = self.build_delta_axis(delta_values)
 
-        return TurnoverInsightCalculation(
+        calculation = TurnoverInsightCalculation(
             summary=TurnoverInsightSummaryDto(
                 current=current_summary,
                 previous=previous_summary,
                 delta=delta_summary,
+                avg5d=self._average_summary(days=5, amount_thousand_yuan=None),
+                avg20d=self._average_summary(days=20, amount_thousand_yuan=None),
             ),
             upper_axis=self.build_cumulative_axis([*current_values, *previous_values]),
             delta_axis=delta_axis,
             series=tuple(series),
+        )
+        return self.with_daily_averages(calculation, daily_averages)
+
+    def with_daily_averages(
+        self,
+        calculation: TurnoverInsightCalculation,
+        daily_averages: TurnoverDailyAverageSnapshot | None,
+    ) -> TurnoverInsightCalculation:
+        avg5d = self._average_summary(
+            days=5,
+            amount_thousand_yuan=daily_averages.avg5d_amount if daily_averages is not None else None,
+        )
+        avg20d = self._average_summary(
+            days=20,
+            amount_thousand_yuan=daily_averages.avg20d_amount if daily_averages is not None else None,
+        )
+        axis_values = [
+            value
+            for value in (
+                calculation.summary.current.amountYi,
+                calculation.summary.previous.amountYi,
+                avg5d.amountYi,
+                avg20d.amountYi,
+            )
+            if value is not None
+        ]
+        return TurnoverInsightCalculation(
+            summary=TurnoverInsightSummaryDto(
+                current=calculation.summary.current,
+                previous=calculation.summary.previous,
+                delta=calculation.summary.delta,
+                avg5d=avg5d,
+                avg20d=avg20d,
+            ),
+            upper_axis=self.build_cumulative_axis(axis_values),
+            delta_axis=calculation.delta_axis,
+            series=calculation.series,
         )
 
     @staticmethod
@@ -269,3 +313,19 @@ class TurnoverInsightCalculator:
             return "--"
         prefix = "+" if signed and value > 0 else ""
         return f"{prefix}{value:,}亿"
+
+    @classmethod
+    def _average_summary(
+        cls,
+        *,
+        days: int,
+        amount_thousand_yuan: Decimal | None,
+    ) -> TurnoverInsightAverageAmountDto:
+        amount_yi = cls.round_yi(amount_thousand_yuan) if amount_thousand_yuan is not None else None
+        display_text = cls._display_amount(amount_yi)
+        return TurnoverInsightAverageAmountDto(
+            amountYi=amount_yi,
+            displayText=display_text,
+            direction="neutral",
+            referenceLabel=f"{days}日均值 {display_text}",
+        )

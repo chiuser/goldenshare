@@ -12,6 +12,9 @@ from src.biz.queries.wealth.market.turnover_insight.turnover_insight_calculator 
     TurnoverInsightPointQualityError,
     TurnoverInsightTimeGridError,
 )
+from src.biz.queries.wealth.market.turnover_common.turnover_daily_average_query import (
+    TurnoverDailyAverageSnapshot,
+)
 from src.biz.queries.wealth.market.turnover_insight.turnover_insight_query import (
     TurnoverInsightSnapshotRow,
 )
@@ -63,11 +66,11 @@ def test_turnover_insight_calculator_builds_exact_241_point_contract() -> None:
 def test_turnover_insight_axis_matches_reviewed_figma_examples() -> None:
     calculator = TurnoverInsightCalculator()
 
-    upper = calculator.build_cumulative_axis([18921, 20939])
+    upper = calculator.build_cumulative_axis([18921, 20939, 23771, 28064])
     delta = calculator.build_delta_axis([-2018, -1000, -1])
 
-    assert [tick.valueYi for tick in upper.ticks] == [0, 6000, 12000, 18000, 24000]
-    assert [tick.displayText for tick in upper.ticks] == ["0", "6,000亿", "12,000亿", "18,000亿", "24,000亿"]
+    assert [tick.valueYi for tick in upper.ticks] == [0, 8000, 16000, 24000, 32000]
+    assert [tick.displayText for tick in upper.ticks] == ["0", "8,000亿", "16,000亿", "24,000亿", "32,000亿"]
     assert [tick.valueYi for tick in delta.ticks] == [-2400, -1200, 0]
     assert [tick.valueYi for tick in calculator.build_cumulative_axis([0]).ticks] == [0, 1, 2, 3, 4]
     assert [tick.valueYi for tick in calculator.build_delta_axis([0]).ticks] == [-1, 0, 1]
@@ -78,6 +81,32 @@ def test_turnover_insight_axis_matches_reviewed_figma_examples() -> None:
         470,
         940,
     ]
+
+
+def test_turnover_insight_calculator_adds_daily_averages_to_summary_and_axis() -> None:
+    calculator = TurnoverInsightCalculator()
+    current = _snapshot(trade_date=date(2026, 8, 21), per_minute_amount=Decimal("200000"))
+    previous = _snapshot(trade_date=date(2026, 8, 20), per_minute_amount=Decimal("250000"))
+    daily_averages = TurnoverDailyAverageSnapshot(
+        end_trade_date=date(2026, 8, 21),
+        avg5d_amount=Decimal("2377100000"),
+        avg20d_amount=Decimal("2806400000"),
+        available5d_count=5,
+        available20d_count=20,
+    )
+
+    result = calculator.calculate_pair(
+        current_snapshot=current,
+        previous_snapshot=previous,
+        daily_averages=daily_averages,
+    )
+
+    assert result.summary.avg5d.amountYi == 23771
+    assert result.summary.avg5d.displayText == "23,771亿"
+    assert result.summary.avg5d.referenceLabel == "5日均值 23,771亿"
+    assert result.summary.avg20d.amountYi == 28064
+    assert result.summary.avg20d.referenceLabel == "20日均值 28,064亿"
+    assert [tick.valueYi for tick in result.upper_axis.ticks] == [0, 8000, 16000, 24000, 32000]
 
 
 def test_turnover_insight_uses_decimal_and_direction_before_rounding() -> None:

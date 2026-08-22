@@ -30,12 +30,24 @@ function turnoverPayload() {
       current: { amountYi: 18921, displayText: "18,921亿", direction: "neutral" },
       previous: { amountYi: 20939, displayText: "20,939亿", direction: "neutral" },
       delta: { amountYi: -2018, displayText: "-2,018亿", direction: "down" },
+      avg5d: {
+        amountYi: 23771,
+        displayText: "23,771亿",
+        direction: "neutral",
+        referenceLabel: "5日均值 23,771亿",
+      },
+      avg20d: {
+        amountYi: 28064,
+        displayText: "28,064亿",
+        direction: "neutral",
+        referenceLabel: "20日均值 28,064亿",
+      },
     },
     upperAxis: {
       minYi: 0,
-      maxYi: 24000,
+      maxYi: 32000,
       zeroYi: 0,
-      ticks: [0, 6000, 12000, 18000, 24000].map((value) => ({ valueYi: value, displayText: String(value) })),
+      ticks: [0, 8000, 16000, 24000, 32000].map((value) => ({ valueYi: value, displayText: String(value) })),
     },
     deltaAxis: {
       minYi: -2400,

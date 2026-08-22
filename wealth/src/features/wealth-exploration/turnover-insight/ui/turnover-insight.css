@@ -54,7 +54,7 @@
 
 .turnover-insight-summary__cards {
   display: flex;
-  gap: 10px;
+  gap: 12px;
 }
 
 .turnover-insight-metric {
@@ -191,7 +191,7 @@
   left: 58px;
   position: absolute;
   top: 10px;
-  width: 464px;
+  width: 788px;
 }
 
 .turnover-insight-loading__chart {

@@ -15,6 +15,10 @@ export interface TurnoverInsightAmountResponse {
   direction: TurnoverInsightDirection;
 }
 
+export interface TurnoverInsightAverageAmountResponse extends TurnoverInsightAmountResponse {
+  referenceLabel: string;
+}
+
 export interface TurnoverInsightAxisResponse {
   minYi: number;
   maxYi: number;
@@ -53,6 +57,8 @@ export interface TurnoverInsightResponse {
     current: TurnoverInsightAmountResponse;
     previous: TurnoverInsightAmountResponse;
     delta: TurnoverInsightAmountResponse;
+    avg5d: TurnoverInsightAverageAmountResponse;
+    avg20d: TurnoverInsightAverageAmountResponse;
   };
   upperAxis: TurnoverInsightAxisResponse | null;
   deltaAxis: TurnoverInsightAxisResponse | null;
