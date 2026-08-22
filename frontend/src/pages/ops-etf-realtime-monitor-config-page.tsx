@@ -80,7 +80,8 @@ type RuleDraft = {
 export function OpsEtfRealtimeMonitorConfigPage() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<string | null>("pool");
-  const [keyword, setKeyword] = useState("");
+  const [poolKeyword, setPoolKeyword] = useState("");
+  const [activeEtfKeyword, setActiveEtfKeyword] = useState("");
   const [poolPage, setPoolPage] = useState(1);
   const [activeEtfPage, setActiveEtfPage] = useState(1);
   const [poolDrawerOpen, setPoolDrawerOpen] = useState(false);
@@ -90,21 +91,21 @@ export function OpsEtfRealtimeMonitorConfigPage() {
   const today = new Date().toISOString().slice(0, 10);
 
   const poolQuery = useQuery({
-    queryKey: ["ops", "etf-realtime-monitor", "pool", keyword, poolPage],
+    queryKey: ["ops", "etf-realtime-monitor", "pool", poolKeyword, poolPage],
     placeholderData: keepPreviousData,
     queryFn: () => {
       const params = new URLSearchParams({ page: String(poolPage), page_size: "50" });
-      if (keyword.trim()) params.set("keyword", keyword.trim());
+      if (poolKeyword.trim()) params.set("keyword", poolKeyword.trim());
       return apiRequest<EtfRealtimeMonitorPoolListResponse>(`${API_PREFIX}/pool?${params.toString()}`);
     },
   });
   const activeEtfQuery = useQuery({
-    queryKey: ["ops", "etf-realtime-monitor", "active-etfs", keyword, activeEtfPage],
+    queryKey: ["ops", "etf-realtime-monitor", "active-etfs", activeEtfKeyword, activeEtfPage],
     enabled: poolDrawerOpen && !poolDraft.id,
     placeholderData: keepPreviousData,
     queryFn: () => {
       const params = new URLSearchParams({ page: String(activeEtfPage), page_size: "50" });
-      if (keyword.trim()) params.set("keyword", keyword.trim());
+      if (activeEtfKeyword.trim()) params.set("keyword", activeEtfKeyword.trim());
       return apiRequest<EtfRealtimeMonitorActiveEtfListResponse>(`${API_PREFIX}/active-etfs?${params.toString()}`);
     },
   });
@@ -178,8 +179,18 @@ export function OpsEtfRealtimeMonitorConfigPage() {
 
   useEffect(() => {
     setPoolPage(1);
+  }, [poolKeyword]);
+
+  useEffect(() => {
     setActiveEtfPage(1);
-  }, [keyword]);
+  }, [activeEtfKeyword]);
+
+  const openAddPoolDrawer = () => {
+    setPoolDraft(emptyPoolDraft());
+    setActiveEtfKeyword("");
+    setActiveEtfPage(1);
+    setPoolDrawerOpen(true);
+  };
 
   return (
     <Stack gap="lg">
@@ -193,9 +204,9 @@ export function OpsEtfRealtimeMonitorConfigPage() {
 
       <SectionCard title="ETF实时监控">
         <Stack gap="md">
-          <FilterBar actions={<Button onClick={() => { setPoolDraft(emptyPoolDraft()); setPoolDrawerOpen(true); }}>添加ETF</Button>}>
+          <FilterBar actions={<Button onClick={openAddPoolDrawer}>添加ETF</Button>}>
             <FilterBarItem span={{ base: 12, md: 6 }}>
-              <TextInput label="关键词" placeholder="ETF 代码或名称" value={keyword} onChange={(event) => setKeyword(event.currentTarget.value)} />
+              <TextInput label="监控池关键词" placeholder="ETF 代码或名称" value={poolKeyword} onChange={(event) => setPoolKeyword(event.currentTarget.value)} />
             </FilterBarItem>
           </FilterBar>
           <Tabs value={tab} onChange={setTab}>
@@ -239,7 +250,9 @@ export function OpsEtfRealtimeMonitorConfigPage() {
         activeEtfs={activeEtfQuery.data}
         activeEtfsLoading={activeEtfQuery.isLoading}
         activeEtfPage={activeEtfPage}
+        activeEtfKeyword={activeEtfKeyword}
         onActiveEtfPageChange={setActiveEtfPage}
+        onActiveEtfKeywordChange={setActiveEtfKeyword}
         onClose={() => setPoolDrawerOpen(false)}
         onDraftChange={setPoolDraft}
         onSubmit={() => savePoolMutation.mutate()}
@@ -413,8 +426,10 @@ function PoolDrawer({
   activeEtfs,
   activeEtfsLoading,
   activeEtfPage,
+  activeEtfKeyword,
   onActiveEtfPageChange,
   onClose,
+  onActiveEtfKeywordChange,
   onDraftChange,
   onSubmit,
   saving,
@@ -424,7 +439,9 @@ function PoolDrawer({
   activeEtfs?: EtfRealtimeMonitorActiveEtfListResponse;
   activeEtfsLoading: boolean;
   activeEtfPage: number;
+  activeEtfKeyword: string;
   onActiveEtfPageChange: (page: number) => void;
+  onActiveEtfKeywordChange: (keyword: string) => void;
   onClose: () => void;
   onDraftChange: (draft: PoolDraft) => void;
   onSubmit: () => void;
@@ -436,19 +453,27 @@ function PoolDrawer({
       <Stack gap="md">
         {!draft.id ? (
           <SectionCard title="选择ETF">
-            <TableShell loading={activeEtfsLoading} hasData={(activeEtfs?.items ?? []).length > 0} emptyState={<EmptyState title="没有可选 ETF" />} summary={<Pager page={activeEtfPage} pageCount={activePageCount} total={activeEtfs?.total ?? 0} onPageChange={onActiveEtfPageChange} />} minWidth={720}>
-              <OpsTable>
-                <Table.Tbody>
-                  {(activeEtfs?.items ?? []).map((item) => (
-                    <Table.Tr key={item.ts_code}>
-                      <OpsTableCell align="left"><Stack gap={0}><Text fw={600}>{item.ts_code}</Text><Text size="xs" c="dimmed">{item.csname || item.extname || item.cname || "—"}</Text></Stack></OpsTableCell>
-                      <OpsTableCell align="left">{item.exchange || "—"}</OpsTableCell>
-                      <OpsTableCell align="left">{item.in_monitor_pool ? <Badge color="gray">已加入</Badge> : <Button size="xs" onClick={() => onDraftChange({ ...draft, ts_code: item.ts_code })}>选择</Button>}</OpsTableCell>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </OpsTable>
-            </TableShell>
+            <Stack gap="md">
+              <TextInput
+                label="搜索待添加 ETF"
+                placeholder="输入代码或名称"
+                value={activeEtfKeyword}
+                onChange={(event) => onActiveEtfKeywordChange(event.currentTarget.value)}
+              />
+              <TableShell loading={activeEtfsLoading} hasData={(activeEtfs?.items ?? []).length > 0} emptyState={<EmptyState title="没有匹配的 ETF" />} summary={<Pager page={activeEtfPage} pageCount={activePageCount} total={activeEtfs?.total ?? 0} onPageChange={onActiveEtfPageChange} />} minWidth={720}>
+                <OpsTable>
+                  <Table.Tbody>
+                    {(activeEtfs?.items ?? []).map((item) => (
+                      <Table.Tr key={item.ts_code}>
+                        <OpsTableCell align="left"><Stack gap={0}><Text fw={600}>{item.ts_code}</Text><Text size="xs" c="dimmed">{item.csname || item.extname || item.cname || "—"}</Text></Stack></OpsTableCell>
+                        <OpsTableCell align="left">{item.exchange || "—"}</OpsTableCell>
+                        <OpsTableCell align="left">{item.in_monitor_pool ? <Badge color="gray">已加入</Badge> : <Button size="xs" onClick={() => onDraftChange({ ...draft, ts_code: item.ts_code })}>选择</Button>}</OpsTableCell>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </OpsTable>
+              </TableShell>
+            </Stack>
           </SectionCard>
         ) : null}
         <TextInput label="ETF代码" value={draft.ts_code} disabled={Boolean(draft.id)} onChange={(event) => onDraftChange({ ...draft, ts_code: event.currentTarget.value })} />

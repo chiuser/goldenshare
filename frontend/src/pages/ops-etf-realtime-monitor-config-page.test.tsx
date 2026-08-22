@@ -162,6 +162,13 @@ describe("ETF实时监控配置中心", () => {
     await waitFor(() => {
       expect(apiRequest).toHaveBeenCalledWith(expect.stringContaining("/active-etfs?page=1&page_size=50"));
     });
+    fireEvent.change(screen.getByRole("textbox", { name: "搜索待添加 ETF" }), { target: { value: "中证500" } });
+    await waitFor(() => {
+      expect(apiRequest.mock.calls.some(([path]) => {
+        const url = new URL(String(path), "http://localhost");
+        return url.pathname.endsWith("/active-etfs") && url.searchParams.get("keyword") === "中证500";
+      })).toBe(true);
+    });
     const paths = apiRequest.mock.calls.map(([path]) => String(path));
     expect(paths.some((path) => path.includes("tushare"))).toBe(false);
     expect(paths.some((path) => path.includes("/api/v1/realtime/"))).toBe(false);
