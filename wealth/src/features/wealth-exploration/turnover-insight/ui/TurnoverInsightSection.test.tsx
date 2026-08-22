@@ -92,6 +92,46 @@ describe("TurnoverInsightSection", () => {
     ]);
     expect(screen.getByText("23,771亿")).toBeInTheDocument();
     expect(screen.getByText("28,064亿")).toBeInTheDocument();
+
+    const cards = container.querySelectorAll(".turnover-insight-metric");
+    expect(cards[0]).toHaveClass("turnover-insight-metric--default");
+    expect(cards[1]).toHaveClass("turnover-insight-metric--default");
+    expect(cards[2]).toHaveClass("turnover-insight-metric--default");
+    expect(cards[3]).toHaveClass("turnover-insight-metric--avg5d");
+    expect(cards[4]).toHaveClass("turnover-insight-metric--avg20d");
+  });
+
+  it("renders the four fixed legend items in the reviewed order", () => {
+    const { container } = render(
+      <TurnoverInsightSection model={model("READY")} onRetry={vi.fn()} viewState="ready" />,
+    );
+
+    const legendItems = container.querySelectorAll(".turnover-insight-legend > span");
+    expect(Array.from(legendItems, (element) => element.textContent)).toEqual([
+      "当日累计",
+      "昨日累计",
+      "5日均值",
+      "20日均值",
+    ]);
+    expect(legendItems[2]?.querySelector("i")).toHaveClass("turnover-insight-legend__line--avg5d");
+    expect(legendItems[3]?.querySelector("i")).toHaveClass("turnover-insight-legend__line--avg20d");
+  });
+
+  it("keeps the average identity accent when an average value is unavailable", () => {
+    const missingAverageModel = model("READY");
+    missingAverageModel.summary.avg5d = {
+      ...missingAverageModel.summary.avg5d,
+      amountYi: null,
+      displayText: "--",
+    };
+
+    const { container } = render(
+      <TurnoverInsightSection model={missingAverageModel} onRetry={vi.fn()} viewState="ready" />,
+    );
+
+    const avg5dCard = container.querySelectorAll(".turnover-insight-metric")[3];
+    expect(avg5dCard).toHaveClass("turnover-insight-metric--avg5d");
+    expect(avg5dCard?.querySelector("strong")).toHaveTextContent("--");
   });
 
   it.each(["empty", "error"] as const)("renders %s without stale chart data", (viewState) => {

@@ -43,6 +43,7 @@
 .turnover-insight-summary {
   align-items: center;
   display: flex;
+  gap: 12px;
   justify-content: space-between;
   left: 58px;
   min-height: 66px;
@@ -54,6 +55,7 @@
 
 .turnover-insight-summary__cards {
   display: flex;
+  flex-shrink: 0;
   gap: 12px;
 }
 
@@ -85,12 +87,15 @@
 
 .turnover-insight-metric--up strong { color: var(--cs-color-market-up); }
 .turnover-insight-metric--down strong { color: var(--cs-color-market-down); }
+.turnover-insight-metric--avg5d strong { color: var(--cs-color-brand); }
+.turnover-insight-metric--avg20d strong { color: var(--cs-color-purple); }
 
 .turnover-insight-legend {
   align-items: center;
   color: var(--cs-color-text-secondary);
   display: flex;
-  gap: 20px;
+  flex-shrink: 0;
+  gap: 16px;
   justify-content: flex-end;
 }
 
@@ -99,6 +104,7 @@
   display: inline-flex;
   font-size: 12px;
   gap: 7px;
+  white-space: nowrap;
 }
 
 .turnover-insight-legend__line {
@@ -109,6 +115,19 @@
 
 .turnover-insight-legend__line--current { background: var(--cs-color-market-up); }
 .turnover-insight-legend__line--previous { background: var(--cs-color-text-primary); }
+.turnover-insight-legend__line--avg5d,
+.turnover-insight-legend__line--avg20d {
+  background-position: left center;
+  background-repeat: repeat-x;
+  background-size: 8px 1px;
+  height: 1px;
+}
+.turnover-insight-legend__line--avg5d {
+  background-image: linear-gradient(to right, var(--cs-color-brand) 0 4px, transparent 4px 8px);
+}
+.turnover-insight-legend__line--avg20d {
+  background-image: linear-gradient(to right, var(--cs-color-purple) 0 4px, transparent 4px 8px);
+}
 
 .turnover-insight-chart {
   height: 420px;

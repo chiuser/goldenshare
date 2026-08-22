@@ -35,6 +35,52 @@ const AVERAGE_COLOR_TOKENS = {
   avg20d: { property: "--cs-color-purple", fallback: "#a78bfa" },
 };
 
+export type AverageLabelPlacement = "above" | "below";
+
+export interface AverageReferenceRenderItem {
+  key: "avg5d" | "avg20d";
+  average: TurnoverInsightAverageViewModel;
+  color: string;
+  labelPlacement: AverageLabelPlacement;
+}
+
+export function resolveAverageReferenceRenderItems(
+  avg5d: TurnoverInsightAverageViewModel,
+  avg20d: TurnoverInsightAverageViewModel,
+  colors: Readonly<Record<AverageReferenceRenderItem["key"], string>>,
+): readonly AverageReferenceRenderItem[] {
+  const avg5dAmount = avg5d.amountYi;
+  const avg20dAmount = avg20d.amountYi;
+  const hasAvg5d = avg5dAmount !== null;
+  const hasAvg20d = avg20dAmount !== null;
+
+  if (hasAvg5d && hasAvg20d) {
+    const avg5dAbove = avg5dAmount >= avg20dAmount;
+    return [
+      {
+        key: "avg5d",
+        average: avg5d,
+        color: colors.avg5d,
+        labelPlacement: avg5dAbove ? "above" : "below",
+      },
+      {
+        key: "avg20d",
+        average: avg20d,
+        color: colors.avg20d,
+        labelPlacement: avg5dAbove ? "below" : "above",
+      },
+    ];
+  }
+
+  if (hasAvg5d) {
+    return [{ key: "avg5d", average: avg5d, color: colors.avg5d, labelPlacement: "above" }];
+  }
+  if (hasAvg20d) {
+    return [{ key: "avg20d", average: avg20d, color: colors.avg20d, labelPlacement: "above" }];
+  }
+  return [];
+}
+
 export function TurnoverInsightChart({ points, upperAxis, deltaAxis, avg5d, avg20d }: TurnoverInsightChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -124,6 +170,7 @@ function drawChart(context: CanvasRenderingContext2D, input: DrawChartInput) {
     averageColors,
     hoverIndex,
   } = input;
+  const averageRenderItems = resolveAverageReferenceRenderItems(avg5d, avg20d, averageColors);
   context.clearRect(0, 0, geometry.width, geometry.height);
   context.font = "12px var(--cs-font-family-number, monospace)";
   context.lineWidth = 1;
@@ -158,12 +205,21 @@ function drawChart(context: CanvasRenderingContext2D, input: DrawChartInput) {
     context.globalAlpha = 1;
   }
 
-  drawAverageReferenceLine(context, geometry, upperAxis, avg5d, averageColors.avg5d);
-  drawAverageReferenceLine(context, geometry, upperAxis, avg20d, averageColors.avg20d);
+  averageRenderItems.forEach((item) => {
+    drawAverageReferenceLine(context, geometry, upperAxis, item.average, item.color);
+  });
   drawLine(context, geometry, points, upperAxis, "previousAmountYi", COLORS.previous);
   drawLine(context, geometry, points, upperAxis, "currentAmountYi", COLORS.current);
-  drawAverageReferenceLabel(context, geometry, upperAxis, avg5d, averageColors.avg5d);
-  drawAverageReferenceLabel(context, geometry, upperAxis, avg20d, averageColors.avg20d);
+  averageRenderItems.forEach((item) => {
+    drawAverageReferenceLabel(
+      context,
+      geometry,
+      upperAxis,
+      item.average,
+      item.color,
+      item.labelPlacement,
+    );
+  });
 
   if (hoverIndex !== null) {
     const point = points[hoverIndex];
@@ -194,7 +250,7 @@ export function drawAverageReferenceLine(
   context.save();
   context.strokeStyle = color;
   context.lineWidth = 1;
-  context.setLineDash([8, 6]);
+  context.setLineDash([4, 4]);
   context.beginPath();
   context.moveTo(geometry.plotLeft, y);
   context.lineTo(geometry.plotRight, y);
@@ -208,14 +264,15 @@ export function drawAverageReferenceLabel(
   upperAxis: TurnoverInsightAxisViewModel,
   average: TurnoverInsightAverageViewModel,
   color: string,
+  placement: AverageLabelPlacement,
 ) {
   if (average.amountYi === null) return;
   const y = yForValue(average.amountYi, upperAxis, geometry.upperTop, geometry.upperBottom);
   context.save();
   context.fillStyle = color;
   context.textAlign = "right";
-  context.textBaseline = "bottom";
-  context.fillText(average.referenceLabel, geometry.plotRight, y - 2);
+  context.textBaseline = placement === "above" ? "bottom" : "top";
+  context.fillText(average.referenceLabel, geometry.plotRight, placement === "above" ? y - 2 : y + 2);
   context.restore();
 }
 
