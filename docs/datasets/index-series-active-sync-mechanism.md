@@ -22,14 +22,14 @@
    - `api`：来自 Tushare 周线/月线接口。
    - `derived_daily`：由指数日线派生补齐。
 
-当前远程生产库核验结果：
+对象池语义核验（2026-05-05）：
 
-| 项目 | 当前值 |
-| --- | ---: |
-| `ops.index_series_active resource='index_daily'` | 1130 个代码 |
-| `ops.index_series_active resource='index_daily_raw'` | 日线源站请求池，逐代码请求 Tushare |
-| active 池来源 | 基于 2026-04-15 指数日线 code 集合审阅后写入 |
-| 周线/月线展示来源 | TaskRun view 按最终 serving 表只读统计 |
+- `ops.index_series_active resource='index_daily'`：指数日线、周线、月线共同使用的 serving 入库门禁。
+- `ops.index_series_active resource='index_daily_raw'`：指数日线源站请求池，按代码请求 Tushare。
+- active 池来源：基于 2026-04-15 指数日线代码集合审阅后写入。
+- 周线/月线展示来源：TaskRun view 按最终 serving 表只读统计。
+
+本文不固化 active 池当前代码数量；精确数量以当前代码、对应测试和独立只读审计为准。
 
 ---
 
