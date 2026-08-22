@@ -1,6 +1,6 @@
 # ETF 实时日线流接入方案 v1
 
-状态：源接口开市实测完成 / 代码主线已接入 / 生产配置已启用 / 开市批次验收待执行
+状态：源接口开市实测完成 / 代码主线已接入 / 生产配置已启用 / 开市批次验收已完成
 源接口事实：[Tushare 0400 ETF实时日线](/Users/congming/github/goldenshare/docs/sources/tushare/ETF专题/0400_ETF实时日线.md)  
 关联上位方案：[实时行情流架构方案 v1](/Users/congming/github/goldenshare/docs/architecture/realtime-market-data-stream-architecture-v1.html)  
 关联配置中心：[Ops 实时流配置中心技术方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.html)  
@@ -259,7 +259,7 @@ GET /api/v1/realtime/etf-rt-daily?ts_codes=510300.SH,159919.SZ
 | M3 | Collector 调度 | 已完成：接入统一 collector；保证独立 due time、独立 lease、独立 health |
 | M4 | Ops health / 配置中心接入 | 已完成：新增 health API，配置中心对象列表/detail/validate/publish 支持 ETF |
 | M5 | 前端实时流监控与配置中心展示 | 已完成：新增 ETF 分组和配置对象；不改股票日线/分钟现有展示 |
-| M6 | 生产部署与开市验收 | 部分完成：生产已 seed `etf_rt_daily`、发布启用并重启 collector；待开市验证 current batch |
+| M6 | 生产部署与开市验收 | 已完成：生产已 seed `etf_rt_daily`、发布启用并重启 collector，并已完成开市批次验收 |
 | M7 | 可选业务 API | 只有出现明确业务消费页面时再做 |
 
 ## 10. 测试与验收
@@ -279,7 +279,7 @@ GET /api/v1/realtime/etf-rt-daily?ts_codes=510300.SH,159919.SZ
 
 ### 10.2 验收命令建议
 
-后续开发完成后至少执行：
+持续回归至少执行：
 
 ```bash
 uv run pytest -q tests/test_realtime_etf_rt_daily.py
@@ -314,7 +314,7 @@ python3 scripts/check_docs_integrity.py
 5. collector 已上报 `etf_rt_daily.applied_version=2`，配置中心应显示“已应用”。
 6. 收盘后 health 符合预期：`enabled=true`、`collection_status=idle`、`current_batch_id=null`、`active_pool_count=1395`，未请求源站。
 
-仍待开市验收：
+开市验收已完成：
 
 1. `tushare_etf_rt_k` 产生 current batch。
 2. `segment_counts` 同时包含 `SH` 与 `SZ`。

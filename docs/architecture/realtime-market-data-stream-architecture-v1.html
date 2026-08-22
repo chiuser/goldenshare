@@ -350,7 +350,7 @@ pre {
       <a href="#ops">10. Ops 菜单与观测</a>
       <a href="#pilot">11. 0372 接入口径</a>
       <a href="#milestones">12. 推进里程碑</a>
-      <a href="#decisions">13. 待拍板项</a>
+      <a href="#decisions">13. 已确认口径</a>
     </nav>
   </aside>
 
@@ -366,7 +366,7 @@ pre {
         </p>
       </div>
       <div class="meta">
-        <div class="meta-row"><span>状态</span><span>日线已上线 / 分钟分组已接入</span></div>
+        <div class="meta-row"><span>状态</span><span>日线已上线 / 分钟分组已接入 / 端到端验收已完成</span></div>
         <div class="meta-row"><span>版本</span><span>v1</span></div>
         <div class="meta-row"><span>日期</span><span>2026-06-02</span></div>
         <div class="meta-row"><span>V1 范围</span><span>股票实时日线 + 股票实时分钟</span></div>
@@ -1201,8 +1201,8 @@ pre {
     <section id="decisions" class="section">
       <div class="section-header">
         <div>
-          <h2>13. 已确认与待解决项</h2>
-          <p>这些点会影响后续代码设计，已确认的直接作为实现约束，待解决项进入实现和验收清单。</p>
+          <h2>13. 已确认口径</h2>
+          <p>这些口径已作为当前实现约束；WebSocket 等 V1 之外的后续事项单独保留，不改变本方案的验收结论。</p>
         </div>
       </div>
       <div class="section-body">
@@ -1252,8 +1252,8 @@ pre {
             <p>已确认：Ops 页面进入时先请求一次 health API；只有处于交易日交易时段时，才每 1 分钟继续请求 health API，只局部更新状态区域、批次信息、错误信息和指标展示。午休、收盘后、夜间、非交易日、feed disabled 时不持续轮询。不得整页刷新，不得重新挂载整个页面，避免页面闪烁。health API 返回 `page_polling_enabled` 和 `recommended_poll_interval_seconds`，前端按服务端返回决定是否继续轮询，禁止前端自己按本地时间推导交易日或交易时段。</p>
           </div>
           <div class="decision-item">
-            <h3>R1 待解决事项</h3>
-            <p>已完成：开市时段真实源接口验证、生产 Redis 与 <code>REDIS_URL</code> 配置、collector + Redis batch pointer 最小闭环、业务 API、Ops health API、实时流监控页面与远程收市 smoke。剩余：下一交易时段端到端验收；WebSocket 推送作为 P1，基于 V1 current batch 和 delta stream 另立实现，不进入 V1 主闭环。</p>
+            <h3>R1 后续事项</h3>
+            <p>已完成：开市时段真实源接口验证、生产 Redis 与 <code>REDIS_URL</code> 配置、collector + Redis batch pointer 最小闭环、业务 API、Ops health API、实时流监控页面、远程收市 smoke 与下一交易时段端到端验收。WebSocket 推送作为 P1，基于 V1 current batch 和 delta stream 另立实现，不进入 V1 主闭环。</p>
           </div>
         </div>
       </div>

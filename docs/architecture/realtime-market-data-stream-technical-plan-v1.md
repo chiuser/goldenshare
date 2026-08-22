@@ -1,6 +1,6 @@
 # 股票实时日线流技术落地方案 v1
 
-状态：日线已上线 / 分钟 M7 页面已落地 / 配置中心 M8 旧 env 收口中 / 收市 idle 验收通过 / 待下一交易时段端到端验收
+状态：日线已上线 / 分钟 M7 页面已落地 / 生产配置已切到配置中心 / 收市 idle 验收通过 / 下一交易时段端到端验收已完成
 上位方案：[实时行情流架构方案 v1（HTML）](/Users/congming/github/goldenshare/docs/architecture/realtime-market-data-stream-architecture-v1.html)  
 源接口事实：[Tushare 0372 A股实时日线](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/行情数据/0372_A股实时日线.md)  
 适用范围：Tushare 0372 `rt_k` 股票实时日线 V1
@@ -51,9 +51,9 @@ M6/M7 已完成股票实时分钟业务 API、Ops health API 与“实时流监�
 1. 前端页面 API 原先只有字段映射，现在补成完整页面契约：接口、鉴权、轮询、状态枚举、字段映射和禁用行为。
 2. Redis TTL 原先沿用短实时缓存思路；在“不采集午休/收盘后”的口径下，已改为建议 72 小时 TTL + 只保留最近 3 批，避免非采集时段页面无当前批次。
 3. `stale_after_seconds=20` 已明确只适用于采集时段内。
-4. 收盘后与开市时段源接口真实探测已落档；远程 collector 已完成收市 idle 验收，下一步等待交易时段端到端验收。
+4. 收盘后与开市时段源接口真实探测已落档；远程 collector 已完成收市 idle 验收与交易时段端到端验收。
 
-### 0.3 已确认与待解决
+### 0.3 已确认口径
 
 | 编号 | 事项 | 口径 |
 | --- | --- | --- |
@@ -67,7 +67,7 @@ M6/M7 已完成股票实时分钟业务 API、Ops health API 与“实时流监�
 
 ### 0.4 全链路一致性复核
 
-复核结论：当前文档主链已经收敛为“collector 负责请求源站和刷新 Redis；API 和页面只读 Redis；实时链路不进入离线数据集和 TaskRun”。后续实现必须逐项按下表验收。
+复核结论：当前文档主链已经收敛为“collector 负责请求源站和刷新 Redis；API 和页面只读 Redis；实时链路不进入离线数据集和 TaskRun”。当前实现按下表保持一致。
 
 | 链路环节 | 当前一致性结论 | 实现约束 |
 | --- | --- | --- |
@@ -94,7 +94,7 @@ M6/M7 已完成股票实时分钟业务 API、Ops health API 与“实时流监�
 | P0 | 实时流监控页面。 | 已完成：页面只消费 health API，状态局部刷新，不展示 TaskRun/freshness。 |
 | P0 | realtime feed config 单一读取层。 | 已完成：日线与分钟统一从配置对象读取；日线 lease TTL 硬编码退场；配置关系测试通过。 |
 | P0 | 股票实时分钟生产配置切换。 | 已完成：生产启停事实已切到 `foundation.realtime_runtime_config`，统一 collector 与 Web 可在无旧 env 情况下启动；当前启停值以配置中心/DB 为准。 |
-| P0 | 下一交易时段端到端验收。 | 待交易时段验证日线 6 秒采集、分钟 60 秒五频率采集、Redis current batch、业务 snapshot API、Ops 页面局部刷新。 |
+| P0 | 下一交易时段端到端验收。 | 已完成：已验证日线 6 秒采集、分钟 60 秒五频率采集、Redis current batch、业务 snapshot API、Ops 页面局部刷新。 |
 | P1 | WebSocket 推送。 | 基于 V1 Redis current batch 和 delta stream 单独设计，不进入 V1。 |
 
 ### 0.6 前端页面 API 设计结论
@@ -1075,14 +1075,13 @@ REDIS_URL=redis://127.0.0.1:6379/0
 10. 生产实时流配置入口已切到 `foundation.realtime_runtime_config`，旧 env 清理后已重启 collector 与 Web；当前启停值以配置中心/DB 为准。
 11. 远程收市验收通过：统一 collector active/running，股票实时分钟五频率 feed 被调度但因非采集时段显示 idle，不请求源站或写行情批次。
 
-未完成：
+后续阶段：
 
-1. 下一交易时段端到端验收：日线 6 秒采集、分钟 60 秒五频率采集、Redis current batch、业务 snapshot API、Ops 页面局部刷新。
-2. WebSocket 推送仍是后续阶段，不在本轮范围内。
+1. WebSocket 推送仍是后续阶段，不在本轮范围内。
 
 ---
 
-## 14. 已确认与待解决项
+## 14. 已确认口径
 
 ### D1 `stale_after_seconds`
 

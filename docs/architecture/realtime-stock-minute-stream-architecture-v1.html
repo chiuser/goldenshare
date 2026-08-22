@@ -330,7 +330,7 @@ th:last-child, td:last-child { border-right: 0; }
         </p>
       </div>
       <div class="meta">
-        <div class="meta-row"><span>状态</span><span>M7 已完成 / M8 待开市验收</span></div>
+        <div class="meta-row"><span>状态</span><span>M7/M8 已完成（WebSocket 仍为后续独立事项）</span></div>
         <div class="meta-row"><span>日期</span><span>2026-06-02</span></div>
         <div class="meta-row"><span>主接口</span><span>rt_min</span></div>
         <div class="meta-row"><span>源文档</span><span>docs/sources/tushare/.../0374</span></div>
@@ -860,9 +860,9 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
               <td>页面刷新不触发 collector，不请求 Tushare。</td>
             </tr>
             <tr>
-              <td>配置中心待办</td>
+              <td>实时流配置中心</td>
               <td>实时流启停、启用频率、采集间隔、stale 阈值、错误阈值</td>
-              <td>V1 先用服务端配置承载；后续在数据运营后台建设“实时流配置中心”，统一覆盖实时日线与实时分钟。</td>
+              <td>已由数据运营后台“实时流配置中心”统一承载实时日线与实时分钟的运行配置；发布后按页面提示重启 collector 生效。</td>
             </tr>
           </tbody>
         </table>
@@ -957,7 +957,7 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
             <tr>
               <td>M8</td>
               <td>测试、部署与验收</td>
-              <td>进行中：生产实时分钟启停事实已切到 <code>foundation.realtime_runtime_config</code>，统一 collector 与 Web 可在无旧 env 情况下启动；当前启停值以配置中心/DB 为准。仍需下一开市时段在启用后验证五频率源站请求、Redis current batch、业务 API 与 Ops 页面状态。WebSocket 仍为后续独立事项，不进入 V1 主闭环。</td>
+              <td>已完成：生产实时分钟启停事实已切到 <code>foundation.realtime_runtime_config</code>，统一 collector 与 Web 可在无旧 env 情况下启动；当前启停值以配置中心/DB 为准。下一开市时段已完成五频率源站请求、Redis current batch、业务 API 与 Ops 页面状态验收。WebSocket 仍为后续独立事项，不进入 V1 主闭环。</td>
             </tr>
           </tbody>
         </table>
