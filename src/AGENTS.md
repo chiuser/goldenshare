@@ -15,6 +15,7 @@
 5. 数据集事实源收敛到 `src/foundation/datasets/**` 的 `DatasetDefinition`。
 6. 数据维护请求到执行计划的长期模型收敛到 `src/foundation/ingestion/**` 的 `DatasetExecutionPlan`。
 7. 运维任务运行、任务详情与问题诊断收敛到 `src/ops` TaskRun 主链。
+8. 仓库根目录 `qtf/` 是独立量化产品域，不属于 `src` 四层；`src/app` 可以装配 QTF，其余 `src` 子系统不得反向依赖 QTF。
 
 ---
 
@@ -27,6 +28,7 @@
 5. 不得新增 `src.foundation.services.sync.*` 导入路径；数据维护执行主链只允许落在 `src/foundation/ingestion/**`。
 6. 不得把 `sync_daily / backfill_* / sync_history` 重新作为用户可见或 API 主执行模型。
 7. 不得恢复 `JobExecution*`、`sync_run_log` 或 `/api/v1/ops/executions*` 作为任务详情事实源。
+8. `foundation`、`ops`、`biz`、`platform`、`operations` 不得导入 `qtf`；QTF 只允许依赖自身与 `src.foundation`。
 
 边界违规由以下测试守护：
 
@@ -51,6 +53,7 @@
 - 业务 API/查询：`src/biz/**`
 - 应用壳装配：`src/app/**`
 - 底层数据基座：`src/foundation/**`（DatasetDefinition、DatasetExecutionPlan、IngestionExecutor 与数据模型）
+- 量化产品域：仓库根目录 `qtf/**`（由 App 装配，不反向进入 `src` 下层）
 
 ---
 

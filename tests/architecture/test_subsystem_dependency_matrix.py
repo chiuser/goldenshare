@@ -20,6 +20,8 @@ class DependencyRule:
     source_root: str
     banned_prefixes: tuple[str, ...]
     whitelist: dict[str, WhitelistEntry]
+    deny_unlisted_prefixes: tuple[str, ...] = ()
+    allowed_prefixes: tuple[str, ...] = ()
 
 
 def _wl(reason: str, *allowed_modules: str) -> WhitelistEntry:
@@ -37,26 +39,40 @@ RULES = (
     DependencyRule(
         name="foundation_no_upper",
         source_root="src/foundation",
-        banned_prefixes=("src.ops", "src.operations", "src.biz", "src.platform", "src.app"),
+        banned_prefixes=("src.ops", "src.operations", "src.biz", "src.platform", "src.app", "qtf"),
         whitelist=FOUNDATION_WHITELIST,
     ),
     DependencyRule(
         name="ops_no_biz",
         source_root="src/ops",
-        banned_prefixes=("src.biz",),
+        banned_prefixes=("src.biz", "qtf"),
         whitelist={},
     ),
     DependencyRule(
         name="operations_no_biz",
         source_root="src/operations",
-        banned_prefixes=("src.biz",),
+        banned_prefixes=("src.biz", "qtf"),
         whitelist=OPERATIONS_WHITELIST,
     ),
     DependencyRule(
         name="biz_no_ops_or_operations",
         source_root="src/biz",
-        banned_prefixes=("src.ops", "src.operations"),
+        banned_prefixes=("src.ops", "src.operations", "qtf"),
         whitelist={},
+    ),
+    DependencyRule(
+        name="platform_no_qtf",
+        source_root="src/platform",
+        banned_prefixes=("qtf",),
+        whitelist={},
+    ),
+    DependencyRule(
+        name="qtf_only_foundation",
+        source_root="qtf",
+        banned_prefixes=(),
+        whitelist={},
+        deny_unlisted_prefixes=("src",),
+        allowed_prefixes=("src.foundation",),
     ),
 )
 
@@ -88,6 +104,14 @@ def _is_banned_module(module: str, banned_prefixes: tuple[str, ...]) -> bool:
     return any(_matches_prefix(module, prefix) for prefix in banned_prefixes)
 
 
+def _is_rule_violation(module: str, rule: DependencyRule) -> bool:
+    if _is_banned_module(module, rule.banned_prefixes):
+        return True
+    if not any(_matches_prefix(module, prefix) for prefix in rule.deny_unlisted_prefixes):
+        return False
+    return not any(_matches_prefix(module, prefix) for prefix in rule.allowed_prefixes)
+
+
 def _validate_rule_config(rule: DependencyRule) -> list[str]:
     errors: list[str] = []
     for file_path, entry in rule.whitelist.items():
@@ -102,7 +126,7 @@ def _validate_rule_config(rule: DependencyRule) -> list[str]:
         if not entry.allowed_modules:
             errors.append(f"{rule.name}: 白名单缺少允许模块列表: {file_path}")
         for module in entry.allowed_modules:
-            if not _is_banned_module(module, rule.banned_prefixes):
+            if not _is_rule_violation(module, rule):
                 errors.append(f"{rule.name}: 白名单模块不属于本规则禁用集合: {file_path} -> {module}")
     return errors
 
@@ -114,7 +138,7 @@ def _scan_rule(rule: DependencyRule) -> list[str]:
     for file_path in _iter_python_files(rule.source_root):
         rel_path = file_path.relative_to(REPO_ROOT).as_posix()
         for line_no, module in _iter_import_modules(file_path):
-            if not _is_banned_module(module, rule.banned_prefixes):
+            if not _is_rule_violation(module, rule):
                 continue
             whitelist_entry = rule.whitelist.get(rel_path)
             if whitelist_entry is None:
@@ -149,3 +173,22 @@ def test_subsystem_dependency_matrix() -> None:
     for rule in RULES:
         violations.extend(_scan_rule(rule))
     assert not violations, "发现违反子系统依赖矩阵的导入:\n" + "\n".join(sorted(violations))
+
+
+def test_qtf_dependency_rule_allows_only_qtf_and_foundation() -> None:
+    qtf_rule = next(rule for rule in RULES if rule.name == "qtf_only_foundation")
+    assert not _is_rule_violation("qtf.contracts.research", qtf_rule)
+    assert not _is_rule_violation("src.foundation.models.base", qtf_rule)
+    assert _is_rule_violation("src", qtf_rule)
+    assert _is_rule_violation("src.db", qtf_rule)
+    assert _is_rule_violation("src.ops.runtime.worker", qtf_rule)
+
+
+def test_lower_subsystems_cannot_import_qtf() -> None:
+    lower_rules = [
+        rule
+        for rule in RULES
+        if rule.source_root in {"src/foundation", "src/ops", "src/operations", "src/biz", "src/platform"}
+    ]
+    assert lower_rules
+    assert all(_is_rule_violation("qtf.contracts.research", rule) for rule in lower_rules)

@@ -4,6 +4,7 @@ from importlib import import_module
 
 
 MODEL_MODULES: tuple[str, ...] = (
+    "qtf.adapters.persistence.models.research",
     "src.foundation.models.all_models",
     "src.foundation.models.meta.realtime_runtime_config",
     "src.app.models.app_user",

@@ -622,10 +622,10 @@
           </div>
         </div>
         <div class="meta">
-          <div class="meta-row"><span>文档状态</span><span>首版架构方案 / 对标吸收修订稿 / 待评审</span></div>
-          <div class="meta-row"><span>事实日期</span><span>2026-08-21</span></div>
+          <div class="meta-row"><span>文档状态</span><span>M1 开发已收口 / 生产迁移待部署</span></div>
+          <div class="meta-row"><span>事实日期</span><span>2026-08-22</span></div>
           <div class="meta-row"><span>首个需求</span><span>行业二级热度参数研究</span></div>
-          <div class="meta-row"><span>当前阶段</span><span>仅架构设计，不代表已实现</span></div>
+          <div class="meta-row"><span>当前阶段</span><span>M1 已完成，下一步只可进入 M2</span></div>
           <div class="meta-row"><span>总体形态</span><span>模块化单体 + 独立量化执行进程</span></div>
           <div class="meta-row"><span>代码域名</span><span><code>qtf/</code></span></div>
         </div>
@@ -634,7 +634,7 @@
       <section class="section" id="summary">
         <div class="section-head">
           <div><h2>0. 方案摘要</h2><p>先打通二级行业真实研究闭环，再从真实闭环中提炼平台能力。</p></div>
-          <span class="badge proposal">待评审修订稿</span>
+          <span class="badge fact">M1 已收口</span>
         </div>
         <div class="section-body">
           <div class="grid-4">
@@ -978,7 +978,7 @@
             <table>
               <thead><tr><th style="width:170px">门禁</th><th>平台怎样检查</th><th>用户看到什么</th><th>失败后果</th></tr></thead>
               <tbody>
-                <tr><td>输入准入</td><td>平台公共层只读检查可访问性、字段、日期覆盖、唯一键、重复、缺失、非法数值和对象池；能力层检查本次公式需要的历史长度、父级比较组规模和样本要求。不清洗、不修复、不补零、不前向填充。</td><td>上游数据集、有效日数、排除日期、缺失原因、各父级可比对象数量和修复归属。</td><td>上游合同或数据不合格为 <code>BLOCKED</code>，交回 Lake/Prod；仅研究样本不足为 <code>INSUFFICIENT</code>。两者都结束当前 Run，不允许原地恢复。</td></tr>
+                <tr><td>单次 Run 输入门禁</td><td>复用既有来源和覆盖审计结论，只读检查本次 Run 精确对象池与日期范围的可访问性、业务键、重复、缺失、非法数值、历史长度、父级比较组规模和样本要求。不清洗、不修复、不补零、不前向填充。</td><td>本次 Run 的上游数据集、有效日数、排除日期、缺失原因、各父级可比对象数量和修复归属。</td><td>本次输入不符合既有上游合同为 <code>BLOCKED</code>，交回 Lake/Prod；仅研究样本不足为 <code>INSUFFICIENT</code>。两者都结束当前 Run，不允许原地恢复。</td></tr>
                 <tr><td>时间前沿</td><td>对历史日 t 构造只包含 t 及此前已发布事实的视图；未来标签只能从 t+1 开始。</td><td>信号日可见数据截止时间、未来结果窗口。</td><td><code>INVALID</code>。</td></tr>
                 <tr><td>未来泄漏差分</td><td>改变 t 之后的数据并重算，验证 t 及此前因子和信号完全不变；检查公式 lag 与横截面日期。</td><td>通过/失败、受影响的日期、公式和字段。</td><td><code>INVALID</code>，禁止比较和发布。</td></tr>
                 <tr><td>预热稳定</td><td>在满足正式回看期的前提下，用不同额外预载长度重算重叠区间；比较因子值、信号日和排名差异。</td><td>重叠样本差异率、最大偏差、首个稳定日期。</td><td>超出公式合同阈值则 <code>INVALID</code>；历史不足则 <code>INSUFFICIENT</code>。</td></tr>
@@ -1216,8 +1216,8 @@
         <div class="section-head"><div><h2>13. 建设里程碑</h2><p>先纵向打通二级行业，再从真实实现中提炼通用合同；不先建设一批没有业务验收的空模块。</p></div><span class="badge proposal">建议顺序</span></div>
         <div class="section-body grid-2">
           <div>
-            <div class="milestone"><h3>M0 · 架构评审与边界冻结</h3><p>确认本修订稿、QTF 目录边界、依赖方向、现有管理员认证复用、业务审核动作、可信门禁和二级行业首个切片；通过前不进入代码开发。</p></div>
-            <div class="milestone"><h3>M1 · QTF 平台基础与研究状态</h3><p>建立顶层 QTF 包、依赖边界和 Research/Revision 最小平台状态；不读取 Prod，不重复来源或覆盖审计，不执行回测。</p></div>
+            <div class="milestone"><h3>M0 · 架构评审与边界冻结 · 已完成</h3><p>已确认本架构稿、QTF 目录边界、依赖方向、现有管理员认证复用、业务审核动作、可信门禁和二级行业首个切片；M0 未修改代码、数据库或上游数据。</p></div>
+            <div class="milestone"><h3>M1 · QTF 平台基础与研究状态 · 已完成</h3><p>已建立顶层 QTF 包、依赖护栏、Research/Revision 最小状态、迁移与正反例；未读取或修改 Prod，生产迁移等待部署。</p></div>
             <div class="milestone"><h3>M2 · 二级行业候选公式内核</h3><p>从一级行业离线探索中迁移价格/成交候选公式，冻结输入输出、时间语义、预热和参数解释，并以正反例验证计算语义；不声称预测有效，也不执行真实 R2。</p></div>
             <div class="milestone"><h3>M3 · 输入门禁、有限计划与执行主链</h3><p>复用既有 Prod 来源合同，实现本次 Run 精确范围的只读输入门禁，冻结 R2 参数矩阵、IS/OOS、评价合同和预算；新 Run 每次重新直读上游并完整计算，接入现有 TaskRun 进度、取消和失败观测。</p></div>
             <div class="milestone"><h3>M4 · 可信门禁与结果证据</h3><p>实现时间前沿、未来泄漏差分、预热稳定、样本覆盖、样本外和参数敏感性；形成明确 VALID/INVALID/INSUFFICIENT 结论。</p></div>
@@ -1243,7 +1243,7 @@
       </section>
 
       <section class="section" id="decisions">
-        <div class="section-head"><div><h2>15. 架构决策记录</h2><p>既有拍板项保持不变；本轮纠正数据审计、公式有效性和里程碑依赖表述。</p></div><span class="badge proposal">2026-08-22 修订</span></div>
+        <div class="section-head"><div><h2>15. 架构决策记录</h2><p>既有拍板项保持不变；本轮纠正数据审计、公式有效性和里程碑依赖表述。</p></div><span class="badge fact">2026-08-22 已冻结</span></div>
         <div class="section-body">
           <div class="table-wrap">
             <table>
@@ -1257,8 +1257,8 @@
                 <tr><td>首个切片主来源</td><td>二级行业首轮研究直接只读 Prod。PLAN 必须先估算扫描量；如可能影响生产热路径，停止执行并单独批准改为直接读取 Lake，仍不得复制来源数据。</td><td><span class="badge fact">已确认</span></td><td>M3 输入适配与 PLAN 门禁。</td></tr>
                 <tr><td>来源审计与 Run 门禁</td><td>数据源选择、字段和历史覆盖以既有审计文档为准，除非来源或契约发生变化，否则不得重复审计。每次 Run 只检查获批对象池和日期范围的可访问性、业务键、缺失、非法数值、历史长度、比较组规模和样本要求。</td><td><span class="badge fact">已确认</span></td><td>M3 单次 Run 合同。</td></tr>
                 <tr><td>门禁失败后的运行语义</td><td>失败 Run 保持不可变，不恢复、不覆盖。上游完成修复后，由同一冻结实验创建新的 Run，重新直读并完整执行，保留修复前后两次证据。</td><td><span class="badge fact">已确认</span></td><td>M3 执行状态机。</td></tr>
-                <tr><td>可信回测门禁</td><td>单次 Run 输入门禁、时间前沿、未来泄漏差分、预热稳定、样本覆盖、样本外和敏感性为候选前门禁；TaskRun success 不等于研究 VALID。</td><td><span class="badge proposal">本轮新增</span></td><td>M4 自动化，M5 真实研究验收。</td></tr>
-                <tr><td>参数解析</td><td>冻结实验保存全部最终生效参数及其来源；执行时不再叠加页面、文件或代码默认值。首版只运行人工批准的有限参数矩阵。</td><td><span class="badge proposal">本轮新增</span></td><td>M2 参数合同，M3 执行门禁。</td></tr>
+                <tr><td>可信回测门禁</td><td>单次 Run 输入门禁、时间前沿、未来泄漏差分、预热稳定、样本覆盖、样本外和敏感性为候选前门禁；TaskRun success 不等于研究 VALID。</td><td><span class="badge fact">已确认</span></td><td>M4 自动化，M5 真实研究验收。</td></tr>
+                <tr><td>参数解析</td><td>冻结实验保存全部最终生效参数及其来源；执行时不再叠加页面、文件或代码默认值。首版只运行人工批准的有限参数矩阵。</td><td><span class="badge fact">已确认</span></td><td>M2 参数合同，M3 执行门禁。</td></tr>
                 <tr><td>历史结果自动复用</td><td>首版不自动复用历史计算结果。已完成 Run 可以继续查看，但每次新建 Run 都重新直读上游并完整计算；不得通过输入快照、缓存或副本规避重算。</td><td><span class="badge fact">已确认</span></td><td>M3 执行合同与正反例。</td></tr>
                 <tr><td>大型回测产物</td><td>不制定全平台统一介质和保留期。开发具体回测能力时，再根据数据量、访问方式、复现要求和成本决定保存内容、PostgreSQL / Parquet / 仅摘要及保留期限。</td><td><span class="badge gate">Case by case</span></td><td>每项回测能力进入开发前的技术方案与 LLD。</td></tr>
                 <tr><td>身份与业务审核</td><td>首版只复用现有管理员认证与 <code>require_admin</code>，不新增角色、权限键、数据库账号或角色页面。同一个管理员可以完成全部操作，但候选提交、审核确认、批准版本、发布生效仍是独立业务动作和记录。</td><td><span class="badge fact">已确认</span></td><td>M0 技术方案与 M7 工作台按此验收。</td></tr>

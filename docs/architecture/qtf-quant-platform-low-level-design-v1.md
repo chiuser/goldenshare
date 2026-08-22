@@ -5,13 +5,13 @@
 | 项目 | 当前结论 |
 |---|---|
 | 文档性质 | 代码级 LLD 与内嵌编码门禁矩阵 |
-| 当前状态 | 待评审，尚未编码 |
+| 当前状态 | M1 开发已收口，生产迁移待部署；下一步只可进入 M2 |
 | 审计日期 | 2026-08-22 |
 | 目标产品 | 财势乾坤 / 财势探查 / 量化研究工作台 |
 | 首个垂直切片 | 东财二级行业统一参数研究 |
 | 本文是否批准 R2 回测 | 否。R2 仍处于事前计划待评审状态 |
 | 本文是否授权生产写入或发布 | 否 |
-| 当前 Alembic head | 2026-08-22 最终校验时为 `20260822_000142`；实施迁移当天必须重新执行 `alembic heads`，不得把本值直接写成 `down_revision` |
+| 当前 Alembic head | M1 实施前重新确认仓库单一 head 为 `20260822_000142`；M1 迁移已接为 `20260822_000143`。本轮未连接或修改 Prod，生产部署仍须核对远端 head |
 
 本文把已经确认的 QTF 系统架构、当前 Figma 六个正式页面、东财行业量化研究口径和仓库真实代码接入点落成可编码设计。本文不代表 QTF 已实现，也不把 Figma 中的示例数值解释为真实研究结果。
 
@@ -1297,16 +1297,24 @@ sourceStatementTimeoutMs
 
 ### M0：架构评审与边界冻结
 
-1. 评审 QTF 架构方案、本 LLD、Figma 差距 F01–F06 和门禁 G01–G26。
-2. 确认顶层 `qtf/`、只读上游、现有管理员、独立 QTF worker、业务审核动作和二级行业首切片。
-3. 本 LLD 获批即完成 M0；M0 不改代码、不建表、不读 Prod、不执行研究。
+**状态：2026-08-22 已收口。**
+
+1. 已评审 QTF 架构方案、本 LLD、Figma 差距 F01–F06 和门禁 G01–G26。
+2. 已冻结顶层 `qtf/`、只读上游、现有管理员、独立 QTF worker、业务审核动作和二级行业首切片。
+3. M0 收口时 F01–F06 和 G01–G26 均未通过；此后只有 G01、G02 随 M1 完成，其余差距和门禁仍按各自后续里程碑处理。
+4. 当前代码中尚无顶层 `qtf/`；M0 未改代码、未建表、未读 Prod、未执行研究，也未授权 R2 回测或生产发布。
+5. M0 当时只批准进入 M1；当前后续顺序以紧邻的 M1 状态为准，仍不得越级进入 Prod 接入、TaskRun、真实回测、前端或发布工作。
 
 ### M1：QTF 平台基础与研究状态
 
-1. 先建立 `qtf/AGENTS.md`、包骨架、包发现、根目录责任、依赖矩阵、自动护栏和 wheel 验证。
-2. 建立 Research/Revision 最小平台状态合同；它们用于保存研究草稿、冻结版本和后续 Run 的归属，不是来源数据元数据。
-3. 实施日重新确认 Alembic head，创建 `qtf` schema、Research/Revision 表并由 App 注册 ORM。
-4. 完成平台状态约束、revision hash、幂等和正反例；本里程碑不实现 Prod adapter、不读取 Prod、不重新审计来源或历史覆盖，也不执行参数回测。
+**状态：2026-08-22 开发已收口，生产迁移待部署。**
+
+1. 已建立 `qtf/AGENTS.md`、M1 包骨架、受控包发现、根目录责任、依赖矩阵和自动护栏；实际 wheel 已验证只包含 `src*`、`qtf*` 与发行元数据。
+2. 已建立 Research/Revision 最小平台状态合同、应用端口、服务和 SQLAlchemy repository；只保存研究草稿与版本状态，不保存来源数据副本。
+3. 实施前已确认仓库单一 Alembic head 为 `20260822_000142`；新增 `20260822_000143`，且迁移范围只包含 `qtf` schema、`research` 与 `experiment_revision`。App 已显式注册 QTF ORM。
+4. 已完成状态约束、FROZEN 不可变、canonical revision hash、创建幂等、draftVersion 乐观并发及正反例测试。
+5. 本轮未实现 Prod adapter、未读取或修改 Prod、未重复审计来源或历史覆盖、未接入 TaskRun，也未执行参数回测。当前配置指向远程生产库，因此只验证离线 PostgreSQL DDL，未执行远程 `alembic upgrade`。
+6. G01、G02 已通过 M1 自动化与 wheel 验收；G03–G26 继续保持 `OPEN`，分别等待其所属后续里程碑。
 
 ### M2：二级行业候选公式内核
 
@@ -1370,8 +1378,8 @@ sourceStatementTimeoutMs
 
 | Gate | 用户可见结果/硬口径 | 代码落点 | 正向测试 | 反向测试 | 当前状态 |
 |---|---|---|---|---|---|
-| G01 | QTF 是顶层产品域 | `qtf/**`、package config | wheel 可 import qtf | qtf 未被打包时失败 | OPEN |
-| G02 | 不破坏依赖方向 | architecture guardrails | App 可装配 QTF | QTF/下层反向导入被阻断 | OPEN |
+| G01 | QTF 是顶层产品域 | `qtf/**`、package config | wheel 可 import qtf | qtf 未被打包时失败 | PASS (M1) |
+| G02 | 不破坏依赖方向 | architecture guardrails | App 可装配 QTF | QTF/下层反向导入被阻断 | PASS (M1) |
 | G03 | 复用现有 DB/管理员 | App DI、`require_admin` | admin 200 | 新账号/非管理员不可绕过 | OPEN |
 | G04 | 不保存输入副本 | Prod adapter、preflight model | 只保存 hash/summary | QTF 表/产物含原始输入时失败 | OPEN |
 | G05 | 数据问题交回上游 | run input preflight | PASS 可继续 | BLOCKED 零修复、零公式执行 | OPEN |
@@ -1434,4 +1442,4 @@ git diff --check
 5. 真实 R2 仍未获批；平台开发和真实研究执行是两次独立授权。
 6. M9 的生产 serving 与板块雷达/板块速览消费必须另立能力 LLD，不能在平台框架开发中顺手接入。
 
-因此，本 LLD 评审通过即完成 **M0：架构评审与边界冻结**；下一步只能进入 **M1：QTF 平台基础与研究状态**，不能重复开展 Prod 数据覆盖审计，也不能直接进入真实回测或发布。
+因此，**M1：QTF 平台基础与研究状态** 已于 2026-08-22 完成开发收口，生产迁移等待部署；下一步只能进入 **M2：二级行业候选公式内核**，不能重复开展 Prod 数据覆盖审计，也不能直接进入 Prod 接入、TaskRun、真实回测、前端或发布。

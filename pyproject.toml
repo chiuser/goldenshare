@@ -38,8 +38,10 @@ local-lake = [
 goldenshare = "src.cli:app"
 goldenshare-web = "src.app.web.run:main"
 
-[tool.setuptools]
-packages = ["src"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src", "src.*", "qtf", "qtf.*"]
+exclude = ["tests", "tests.*", "scripts", "scripts.*", "wealth", "wealth.*", "frontend", "frontend.*", "lake_console", "lake_console.*"]
 
 [tool.setuptools.package-dir]
 "" = "."

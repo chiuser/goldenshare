@@ -15,10 +15,12 @@ src/
   app/
   platform/      # legacy/compat（冻结）
   operations/    # legacy/compat（冻结）
+qtf/             # 财势量化平台正式产品域
 ```
 
 - `foundation` / `ops` / `biz` 是三个业务子系统
 - `app` 是组合根（composition root），不是业务子系统
+- `qtf` 是仓库根目录的独立产品域，只允许依赖自身与 `src.foundation`
 - `platform` / `operations` 已进入 legacy 冻结态，不承接新主实现
 - 数据集事实源收敛到 `src/foundation/datasets/**` 的 `DatasetDefinition`
 - 数据维护执行计划收敛到 `src/foundation/ingestion/**` 的 `DatasetExecutionPlan`
@@ -165,6 +167,7 @@ src/
 32. 任何新增或修改配置项前，必须先完成配置项审计并落档，至少列清：配置名、默认值、来源与持久化位置（env/Settings/数据库/配置文件）、作用范围、所有消费者、配置之间的依赖关系、生效方式、运维可见性与测试门禁。配置项不得散落在页面常量、代码常量、脚本和文档口径中各自为政；未完成配置审计的实现不得进入开发。
 33. 禁止 Codex 私自创建临时分支、临时 worktree 或在非当前开发分支上提交代码。默认且只能在当前 `dev-interface` 工作区推进；若工作区存在阻塞、冲突或脏文件导致无法继续，必须停下说明情况并等待用户处理或明确授权，不能自行绕开。
 34. 架构分析、重构、依赖边界调整、共享 contract 修改、dispatcher/worker/service 修改前，必须先完成 CodeGraph 上下文与影响面分析，并在交付时说明分析范围。
+35. 不得引入 `foundation|ops|biz|platform|operations -> qtf` 反向依赖；`qtf` 只允许依赖自身与 `src.foundation`，由 `src.app` 负责组合装配。
 
 ---
 
@@ -186,6 +189,7 @@ src/
 - `src/ops/**`：运维治理、TaskRun 运行时编排与观测
 - `src/biz/**`：对上业务 API/查询/服务
 - `src/app/**`：入口装配、聚合路由、认证壳、运行壳
+- `qtf/**`：量化研究、计算、验证与发布产品域；只依赖自身与 `src.foundation`
 - `src/platform/**`：legacy 目录（兼容与清理）
 - `src/operations/**`：legacy 目录（兼容与清理）
 
