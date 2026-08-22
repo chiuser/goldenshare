@@ -1,12 +1,12 @@
 # `etf_share_size` 低层设计 LLD v1
 
-状态：代码已实现，待运营部署、迁移、同步和页面验收。
+状态：已完成。已完成运营部署、数据库迁移、最小生产同步与页面验收。
 对应方案：[ETF 份额规模数据集接入方案](/Users/congming/github/goldenshare/docs/datasets/etf-share-size-dataset-development.md)
 审计日期：2026-08-22
 
 ## 1. 本 LLD 的边界
 
-本 LLD 只落地 `etf_share_size` 的 Goldenshare 代码设计，不执行部署、Alembic 迁移、生产同步、回补或页面验收。首期固定：
+本 LLD 记录 `etf_share_size` 的 Goldenshare 代码设计与最终落地事实。部署、Alembic 迁移、最小生产同步和页面验收已由运营方完成。首期固定：
 
 - raw 保存 Tushare 返回的全部当日结果，不用 ETF 激活池过滤。
 - `core_serving.etf_share_size` 只做普通 view，禁止建立第二份 serving 物理表。
@@ -278,6 +278,6 @@ unit 示例：
 3. M2：已新增 Definition、freshness、planner、request builder、row transform。
 4. M3：已新增 Ops catalog 投影与测试。
 5. M4：已完成本地目标测试、linter 和 docs integrity；逐条对账本 LLD。
-6. M5：待运营方部署、迁移、同步和页面验收。
+6. M5：已完成运营部署、迁移、最小生产同步和页面验收。
 
 出现以下任一情况必须停止，不用临时兼容绕过：源端同键重复、单日超过 5,000 且分页不完整、字段与文档/MCP/connector 不一致、无法确认真实迁移 head、任何 reject 无法解释。
