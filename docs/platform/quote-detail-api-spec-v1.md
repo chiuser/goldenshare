@@ -25,24 +25,24 @@
 - Router：`src/biz/api/quote.py`、`src/biz/api/market.py`
 - Schema：`src/biz/schemas/quote.py`
 - Query Service：`src/biz/queries/quote_query_service.py`
-- 复用 `core`/`dm` 数据，不在 web 层新增重型跑数逻辑
+- 复用已接入的 `core_serving`、`core_serving_light` 数据模型，不在 web 层新增重型跑数逻辑
 
 ### 2.2 协议规范
 
 - 路由前缀：`/api/v1`
 - 默认返回 JSON 对象，字段命名 `snake_case`
 - 时间字段统一 `YYYY-MM-DD`
-- 数值字段默认 `number`（后端 `Decimal` 转 JSON 数字）
+- 价格、指标等后端 `Decimal` 字段序列化为 JSON 字符串，以保留四位小数精度；计数、布尔等原生字段按 JSON 原生类型返回
 - 所有错误返回顶层 `code`、`message`、`request_id` 字段，禁止暴露内部 SQL/栈信息给前端
 
 ### 2.3 鉴权规范
 
-- 当前阶段与现有业务页面一致：需要登录态（JWT）
+- 行情接口统一复用 JWT 鉴权依赖；是否强制登录由 `QUOTE_API_AUTH_REQUIRED` 运行时配置决定，当前代码默认值为 `false`
 - 后续若需行情匿名访问，再单独拆“公开行情接口”版本
 
 ### 2.4 安全与鉴权预留（必须）
 
-即使当前阶段暂未完成完整登录体系，业务主系统接口也必须预留统一鉴权能力，避免后续返工。
+行情接口始终接入统一鉴权依赖；开发或内网验收环境可以通过配置放行，生产环境应按部署安全策略决定是否强制登录。
 
 #### v1（当前可落地）
 
@@ -52,6 +52,8 @@
 - 生产环境支持开关：
   - `QUOTE_API_AUTH_REQUIRED=true|false`
   - `false` 仅允许在开发或内网验收环境使用。
+
+以下 v1.1/v1.2 内容属于后续安全治理建议，不代表当前代码已经实现。
 
 #### v1.1（上线前必须开启）
 
@@ -167,44 +169,46 @@
   },
   "price_summary": {
     "trade_date": "2026-04-03",
-    "latest_price": 1705.0,
-    "pre_close": 1690.0,
-    "change_amount": 15.0,
-    "pct_chg": 0.008876,
-    "open": 1696.0,
-    "high": 1710.0,
-    "low": 1690.0,
-    "vol": 2350000,
-    "amount": 3523000000,
-    "turnover_rate": 0.81,
-    "volume_ratio": 1.18,
-    "pe_ttm": 31.25,
-    "pb": 9.88,
-    "total_mv": 2142300000000,
-    "circ_mv": 2109000000000
+    "latest_price": "1705.0000",
+    "pre_close": "1690.0000",
+    "change_amount": "15.0000",
+    "pct_chg": "0.0089",
+    "open": "1696.0000",
+    "high": "1710.0000",
+    "low": "1690.0000",
+    "vol": "2350000.0000",
+    "amount": "3523000000.0000",
+    "turnover_rate": "0.8100",
+    "volume_ratio": "1.1800",
+    "pe_ttm": "31.2500",
+    "pb": "9.8800",
+    "total_mv": "2142300000000.0000",
+    "circ_mv": "2109000000000.0000"
   },
   "default_chart": {
     "default_period": "day",
     "default_adjustment": "forward"
   },
   "chart_header_defaults": {
-    "ma5": 1698.32,
-    "ma10": 1685.24,
-    "ma20": 1662.7,
-    "ma60": 1608.42,
-    "ma120": 1542.18,
-    "ma250": 1476.85,
-    "volume_ma5": 2120000,
-    "volume_ma10": 2030000,
-    "macd": 8.142,
-    "dif": 12.356,
-    "dea": 8.285,
-    "k": 63.428,
-    "d": 58.771,
-    "j": 72.742
+    "ma5": "1698.3200",
+    "ma10": "1685.2400",
+    "ma20": "1662.7000",
+    "ma60": "1608.4200",
+    "ma120": "1542.1800",
+    "ma250": "1476.8500",
+    "volume_ma5": "2120000.0000",
+    "volume_ma10": "2030000.0000",
+    "macd": "8.1420",
+    "dif": "12.3560",
+    "dea": "8.2850",
+    "k": "63.4280",
+    "d": "58.7710",
+    "j": "72.7420"
   }
 }
 ```
+
+股票 page-init 默认使用 `forward`；当复权因子或复权锚点不完整时，服务端会将 `default_adjustment` 回退为 `none`，并按不复权数据返回头部指标。
 
 ---
 
@@ -242,32 +246,32 @@
   "bars": [
     {
       "trade_date": "2026-04-03",
-      "open": 16.9,
-      "high": 17.11,
-      "low": 16.36,
-      "close": 16.45,
-      "pre_close": 16.99,
-      "change_amount": -0.54,
-      "pct_chg": -3.18,
-      "vol": 455000,
-      "amount": 75700,
-      "turnover_rate": 4.19,
-      "ma5": 16.99,
-      "ma10": 17.12,
-      "ma15": 17.4,
-      "ma20": 17.45,
-      "ma30": 17.56,
-      "ma60": 16.98,
-      "ma120": 16.77,
-      "ma250": 15.98,
-      "volume_ma5": 622000,
-      "volume_ma10": 648600,
-      "macd": -0.2,
-      "dif": -0.15,
-      "dea": -0.05,
-      "k": 26.33,
-      "d": 37.54,
-      "j": 3.9
+      "open": "16.9000",
+      "high": "17.1100",
+      "low": "16.3600",
+      "close": "16.4500",
+      "pre_close": "16.9900",
+      "change_amount": "-0.5400",
+      "pct_chg": "-3.1800",
+      "vol": "455000.0000",
+      "amount": "75700.0000",
+      "turnover_rate": "4.1900",
+      "ma5": "16.9900",
+      "ma10": "17.1200",
+      "ma15": "17.4000",
+      "ma20": "17.4500",
+      "ma30": "17.5600",
+      "ma60": "16.9800",
+      "ma120": "16.7700",
+      "ma250": "15.9800",
+      "volume_ma5": "622000.0000",
+      "volume_ma10": "648600.0000",
+      "macd": "-0.2000",
+      "dif": "-0.1500",
+      "dea": "-0.0500",
+      "k": "26.3300",
+      "d": "37.5400",
+      "j": "3.9000"
     }
   ],
   "meta": {
@@ -414,26 +418,17 @@
 ## 8. v1 能力降级说明
 
 - 分钟线：返回 `501/UNSUPPORTED_PERIOD`
-- 公告：返回空数组 + `capability.placeholder`
+- 公告：返回空数组 + `capability.status=placeholder`，并提供 `capability.reason=announcement_source_not_ready`
 - 相关 ETF：在 `capability` 中标记不可用，不影响主流程
 
 ---
 
-## 9. 实施优先级
+## 9. 当前实现状态
 
-P0：
-
-1. `GET /api/v1/quote/detail/kline`
-2. `GET /api/v1/quote/detail/page-init`
-
-P1：
-
-3. `GET /api/v1/market/trade-calendar`
-4. `GET /api/v1/quote/detail/related-info`
-
-P2：
-
-5. `GET /api/v1/quote/detail/announcements`（占位接口）
+- `page-init`、`kline`、`related-info`、`trade-calendar`：当前代码已实现，并有接口测试覆盖。
+- `announcements`：当前代码已实现为占位接口，返回空列表和 `announcement_source_not_ready` 能力状态。
+- 分钟线/分时：Quote v1 的 `kline` 接口仍按约定返回 `501/UNSUPPORTED_PERIOD`。
+- 新增接口或能力的优先级，应在对应专题方案中单独确定，不在本 v1 清单中保留 P0/P1/P2 排序。
 
 ---
 
