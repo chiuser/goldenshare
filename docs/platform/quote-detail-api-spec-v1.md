@@ -81,17 +81,18 @@
 
 可直接支撑：
 
-- 证券基础：`core.security`、`core.index_basic`、`core.etf_basic`
-- 股票日线：`core.equity_daily_bar` + `core.equity_daily_basic`
-- 股票周/月：`core.stk_period_bar`、`core.stk_period_bar_adj`
-- 指数日/周/月：`core.index_daily_serving`、`core.index_weekly_serving`、`core.index_monthly_serving`
-- ETF 日线：`core.fund_daily_bar`
+- 证券基础：`core_serving.security_serving`、`core_serving.index_basic`、`core_serving.etf_basic`
+- 股票日线：默认优先读取 `core_serving_light.equity_daily_bar_light`，按配置回退到 `core_serving.equity_daily_bar`；基础指标读取 `core_serving.equity_daily_basic`
+- 股票周/月：`core_serving.stk_period_bar`、`core_serving.stk_period_bar_adj`
+- 指数日/周/月：`core_serving.index_daily_serving`、`core_serving.index_weekly_serving`、`core_serving.index_monthly_serving`
+- ETF 日线：`core_serving.fund_daily_bar`
 - 复权因子：`core.equity_adj_factor`
-- 交易日历：`core.trade_calendar`
+- 交易日历：`core_serving.trade_calendar`
+- 股票日线 MACD/KDJ 已有值时还会读取 `core_serving.equity_factor_pro` 进行覆盖；其余指标由查询服务计算。
 
 当前缺口（v1 明确降级）：
 
-- 分钟线/分时：暂无底表
+- `/api/v1/quote/detail/kline` 暂不支持分钟线/分时；其他业务域的分钟接口不属于本文档范围
 - 公告正文流：暂无稳定数据源
 - 股票->ETF 推荐映射：暂无统一映射表
 
@@ -120,7 +121,7 @@
 
 ### 5.2 枚举值
 
-- `security_type`: `stock | index | etf`
+- `security_type`: `stock | index | etf`；未传时由服务端按标的事实自动识别
 - `period`: `day | week | month | minute5 | minute15 | minute30 | minute60 | timeline`
 - `adjustment`: `none | forward | backward`
 
@@ -130,6 +131,7 @@
   - v1 返回 `400`（`UNSUPPORTED_ADJUSTMENT`）
 - 分钟周期请求（`timeline`、`minute*`）：
   - v1 返回 `501`（`UNSUPPORTED_PERIOD`）
+- ETF 当前仅支持 `day` 周期；请求 `week`/`month` 返回 `400`（`INVALID_ARGUMENT`）
 
 ---
 
@@ -217,9 +219,9 @@
 - `ts_code?: string`
 - `symbol?: string`
 - `market?: string`
-- `security_type?: stock|index|etf`（默认 `stock`）
+- `security_type?: stock|index|etf`（未传时由服务端自动识别）
 - `period: day|week|month|minute5|minute15|minute30|minute60|timeline`
-- `adjustment?: none|forward|backward`（默认 `forward`，仅 `stock`）
+- `adjustment?: none|forward|backward`（默认 `forward`；股票支持三种取值，指数/ETF 必须使用 `none`）
 - `start_date?: YYYY-MM-DD`
 - `end_date?: YYYY-MM-DD`
 - `limit?: int`（默认 300，最大 2000）
@@ -345,10 +347,7 @@
 
 ### Query
 
-- `ts_code?: string`
-- `symbol?: string`
-- `market?: string`
-- `limit?: int`（默认 5，最大 50）
+当前占位实现不接收业务查询参数，调用只返回空列表和能力状态。
 
 ### Response（200，占位）
 
@@ -405,9 +404,10 @@
 
 - `INVALID_SYMBOL`：标的不存在或无法识别
 - `UNSUPPORTED_PERIOD`：请求分钟周期（v1 不支持）
+- `INVALID_ADJUSTMENT`：请求了不支持的复权枚举值
 - `UNSUPPORTED_ADJUSTMENT`：指数/ETF 请求复权
 - `INVALID_DATE_RANGE`：日期区间非法
-- `DATA_NOT_READY`：数据未同步到可用范围
+- `INVALID_ARGUMENT`：查询服务无法按当前参数构造结果
 
 ---
 
