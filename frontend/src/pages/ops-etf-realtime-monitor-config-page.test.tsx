@@ -169,6 +169,7 @@ describe("ETF实时监控配置中心", () => {
     expect(apiRequest).toHaveBeenCalledWith(expect.stringContaining("/pool?page=1&page_size=50"));
     expect(apiRequest).toHaveBeenCalledWith(expect.stringContaining("/alerts?trade_date="));
     expect(apiRequest).toHaveBeenCalledWith(expect.stringContaining("/summary?trade_date="));
+    expect(screen.getByRole("button", { name: "删除" })).toHaveAttribute("data-variant", "light");
 
     fireEvent.click(screen.getByRole("tab", { name: "阈值规则" }));
     expect(await screen.findByText("observe")).toBeInTheDocument();
@@ -194,6 +195,8 @@ describe("ETF实时监控配置中心", () => {
         return url.pathname.endsWith("/active-etfs") && url.searchParams.get("keyword") === "中证500";
       })).toBe(true);
     });
+    expect(screen.getByText("中证500", { exact: true }).tagName).toBe("MARK");
+    expect(screen.getByRole("row", { name: /中证500ETF 510500\.SH/ })).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("button", { name: /^添加$/ })[0]);
     await waitFor(() => {
       expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/realtime/etf-monitor/pool", {

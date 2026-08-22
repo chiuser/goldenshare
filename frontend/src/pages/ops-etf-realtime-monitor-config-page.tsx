@@ -322,12 +322,12 @@ function PoolTable({
         <Table.Tbody>
           {(data?.items ?? []).map((item) => (
             <Table.Tr key={item.id}>
-              <OpsTableCell align="left"><Stack gap={2}><Text fw={600}>{item.ts_code}</Text><Text size="xs" c="dimmed">{item.etf_name || "—"}</Text></Stack></OpsTableCell>
+              <OpsTableCell align="left"><Stack gap={2}><Text fw={600}>{item.etf_name || "—"}</Text><Text size="xs" c="dimmed">{item.ts_code}</Text></Stack></OpsTableCell>
               <OpsTableCell align="left"><Badge variant="light">{item.group_name}</Badge></OpsTableCell>
               <OpsTableCell align="left"><Badge color={item.enabled ? "green" : "gray"}>{item.enabled ? "启用" : "停用"}</Badge></OpsTableCell>
               <OpsTableCell align="left">{item.has_etf_rule_override ? <Badge color="blue" variant="light">ETF专属</Badge> : <Badge color="gray" variant="light">继承规则</Badge>}</OpsTableCell>
               <OpsTableCell align="left">{item.latest_alert_at ? `${formatDateTimeLabel(item.latest_alert_at)} · ${item.latest_alert_severity}` : "—"}</OpsTableCell>
-              <OpsTableCell align="left"><Group gap="xs"><Button size="xs" variant="light" onClick={() => onEdit(item)}>编辑</Button><Button size="xs" color="red" variant="subtle" onClick={() => onDelete(item.id)}>删除</Button></Group></OpsTableCell>
+              <OpsTableCell align="left"><Group gap="xs"><Button size="xs" variant="light" onClick={() => onEdit(item)}>编辑</Button><Button size="xs" color="red" variant="light" onClick={() => onDelete(item.id)}>删除</Button></Group></OpsTableCell>
             </Table.Tr>
           ))}
         </Table.Tbody>
@@ -506,7 +506,7 @@ function PoolDrawer({
                   <Table.Tbody>
                     {(activeEtfs?.items ?? []).map((item) => (
                       <Table.Tr key={item.ts_code}>
-                        <OpsTableCell align="left"><Stack gap={0}><Text fw={600}>{item.ts_code}</Text><Text size="xs" c="dimmed">{item.csname || item.extname || item.cname || "—"}</Text></Stack></OpsTableCell>
+                        <OpsTableCell align="left"><Stack gap={0}><Text fw={600}><HighlightMatch value={item.csname || item.extname || item.cname || "—"} keyword={activeEtfKeyword} /></Text><Text size="xs" c="dimmed"><HighlightMatch value={item.ts_code} keyword={activeEtfKeyword} /></Text></Stack></OpsTableCell>
                         <OpsTableCell align="left">{item.exchange || "—"}</OpsTableCell>
                         <OpsTableCell align="left">
                           <Select
@@ -662,4 +662,24 @@ function formatYuan(value: string): string {
   if (amount >= 100_000_000) return `${(amount / 100_000_000).toFixed(2)} 亿`;
   if (amount >= 10_000) return `${(amount / 10_000).toFixed(2)} 万`;
   return `${amount.toFixed(2)} 元`;
+}
+
+function HighlightMatch({ value, keyword }: { value: string; keyword: string }) {
+  const query = keyword.trim();
+  if (!query) return <>{value}</>;
+
+  const parts = value.split(new RegExp(`(${escapeRegExp(query)})`, "ig"));
+  return (
+    <>
+      {parts.map((part, index) => part.toLowerCase() === query.toLowerCase() ? (
+        <mark key={`${part}-${index}`} style={{ backgroundColor: "var(--mantine-color-orange-2)", borderRadius: "var(--mantine-radius-xs)", color: "inherit", padding: "0 2px" }}>
+          {part}
+        </mark>
+      ) : part)}
+    </>
+  );
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
