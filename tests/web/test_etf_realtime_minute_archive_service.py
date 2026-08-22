@@ -34,7 +34,6 @@ def test_archive_uses_real_buckets_latest_valid_snapshot_and_is_idempotent(db_se
             group_key="broad_base",
             group_name="宽基ETF",
             enabled=True,
-            display_order=1,
         )
     )
     db_session.commit()

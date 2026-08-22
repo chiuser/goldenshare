@@ -75,7 +75,6 @@ def add_etf_monitor_pool_item(
         group_key=body.group_key,
         group_name=body.group_name,
         enabled=body.enabled,
-        display_order=body.display_order,
         note=body.note,
         user_id=user.id,
     )
@@ -94,7 +93,6 @@ def update_etf_monitor_pool_item(
         group_key=body.group_key,
         group_name=body.group_name,
         enabled=body.enabled,
-        display_order=body.display_order,
         note=body.note,
         user_id=user.id,
     )

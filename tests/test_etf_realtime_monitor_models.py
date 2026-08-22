@@ -31,3 +31,15 @@ def test_etf_realtime_monitor_migration_uses_current_head_and_does_not_seed() ->
     assert "etf_realtime_minute_stat" in migration_text
     assert "etf_realtime_alert" in migration_text
     assert "INSERT" not in migration_text.upper()
+
+
+def test_etf_realtime_monitor_pool_display_order_is_fully_retired() -> None:
+    migration_text = Path("alembic/versions/20260822_000142_drop_etf_realtime_monitor_pool_display_order.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "display_order" not in EtfRealtimeMonitorPool.__table__.c
+    assert 'revision = "20260822_000142"' in migration_text
+    assert 'down_revision = "20260822_000141"' in migration_text
+    assert "op.drop_index(_INDEX" in migration_text
+    assert 'op.drop_column(_TABLE, "display_order"' in migration_text

@@ -46,7 +46,6 @@ def _seed_monitor_inputs(db_session, *, alert_ratio: str = "3.0", observe_ratio:
             group_key="broad_base",
             group_name="宽基ETF",
             enabled=True,
-            display_order=1,
         )
     )
     db_session.add(
@@ -166,7 +165,6 @@ def test_single_metric_failure_does_not_stop_other_metrics(db_session, monkeypat
             group_key="broad_base",
             group_name="宽基ETF",
             enabled=True,
-            display_order=2,
         )
     )
     db_session.add(

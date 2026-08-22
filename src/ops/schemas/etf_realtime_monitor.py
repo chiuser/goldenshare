@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime, time
 from decimal import Decimal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class EtfRealtimeMonitorActiveEtfItem(BaseModel):
@@ -36,7 +36,6 @@ class EtfRealtimeMonitorPoolItem(BaseModel):
     group_key: str
     group_name: str
     enabled: bool
-    display_order: int
     note: str | None = None
     has_etf_rule_override: bool
     latest_alert_at: datetime | None = None
@@ -56,19 +55,21 @@ class EtfRealtimeMonitorPoolListResponse(BaseModel):
 
 
 class EtfRealtimeMonitorPoolRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     ts_code: str
     group_key: str
     group_name: str
     enabled: bool = True
-    display_order: int = 0
     note: str | None = None
 
 
 class EtfRealtimeMonitorPoolUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     group_key: str
     group_name: str
     enabled: bool
-    display_order: int = 0
     note: str | None = None
 
 

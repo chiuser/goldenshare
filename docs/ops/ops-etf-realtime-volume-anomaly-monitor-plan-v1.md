@@ -1,6 +1,6 @@
 # ETF 实时成交额异动监控方案 v1
 
-状态：M8.1/M8.2/M8.3 本地代码与测试完成 / 待重新部署验收；M9 ETF 规模展示本地代码与测试完成，待部署和页面验收
+状态：M8.1/M8.2/M8.3 本地代码与测试完成 / 待重新部署验收；M9 ETF 规模展示与展示排序退场本地代码与测试完成，待重新部署和页面验收
 创建日期：2026-08-22
 适用范围：ETF 实时日线 Redis 批次、ETF 监控池、成交额异动判断、Feishu 通知、Ops 配置与复盘能力
 关联上位文档：
@@ -272,8 +272,8 @@ Ops 查询实现直接使用 foundation 的 `RawEtfShareSize` 模型读取 raw �
 
 1. `GET /pool` 返回同一组规模字段，并在主表新增“总份额”“总规模”两列。
 2. “ETF 类别”在本页面固定指运营维护的监控分组 `group_key`（当前为 `broad_base` 宽基 ETF、`theme` 主题 ETF），不是 `etf_basic.etf_type` 的源端分类字段。
-3. 先按既定监控分组顺序（宽基 ETF、主题 ETF）排列；每个分组内按 `total_size_wan DESC NULLS LAST` 排列；相同规模时才按既有 `display_order ASC, ts_code ASC` 稳定排序。
-4. 本需求不删除 `display_order`，也不改变新增/编辑请求；它只从主排序降为同规模时的稳定次序，避免与“同分类按总规模降序”冲突。
+3. 先按既定监控分组顺序（宽基 ETF、主题 ETF）排列；每个分组内按 `total_size_wan DESC NULLS LAST` 排列；相同规模时按 `ts_code ASC` 稳定排序。
+4. `display_order` 已从监控池页面、API、ORM 和数据库结构完整退场；旧请求携带该字段必须被拒绝，不能静默忽略。
 
 #### API 与边界
 
@@ -536,7 +536,6 @@ V1 建议新增 4 张表，全部放在 `ops` schema。
 | `group_key` | varchar(64) | 分组 key，例如 `broad_base`、`theme` |
 | `group_name` | varchar(64) | 分组中文名 |
 | `enabled` | boolean | 是否启用监控 |
-| `display_order` | integer | 展示顺序 |
 | `note` | text | 后端保留字段；V1 页面不展示、不提交 |
 | `created_by_user_id` | bigint | 创建人 |
 | `updated_by_user_id` | bigint | 更新人 |
@@ -794,7 +793,6 @@ ops.etf_series_active(resource='etf_rt_daily')
   "group_key": "broad_base",
   "group_name": "宽基ETF",
   "enabled": true,
-  "display_order": 10,
   "note": "沪深300代表ETF"
 }
 ```
@@ -875,7 +873,7 @@ ETF实时监控配置中心
 2. 监控池新增 ETF 时，从加宽的添加抽屉内的激活 ETF 列表直接行内添加；不使用横向滚动，不改变现有表格行高基线。
 3. 添加抽屉必须有独立的“搜索待添加 ETF”输入框，按代码或名称请求 `/active-etfs?keyword=...`。
 4. 添加列表每页 50 条，关键词变化后回到第 1 页；它不复用、也不影响监控池列表上方的关键词筛选。
-5. 添加列表每行都提供名称/代码、监控分组、展示排序、启用监控开关和操作按钮；名称为主信息、代码为次信息，搜索命中片段使用橙色背景高亮。
+5. 添加列表每行都提供名称/代码、监控分组、启用监控开关和操作按钮；名称为主信息、代码为次信息，搜索命中片段使用橙色背景高亮。
 6. 点击“添加”立即提交该行，不需要底部统一保存；添加成功后按钮变为浅绿色、置灰的“已添加”，行内配置控件变为只读，抽屉不关闭，允许连续添加多只 ETF。
 7. 新增和编辑交互均不展示备注输入；本轮不提交后端已有的 `note` 字段。
 8. 阈值规则必须明确展示生效层级：全局、分组、ETF。
@@ -966,7 +964,7 @@ sequenceDiagram
 1. 监控池只能从 `etf_rt_daily` 活跃池选择 ETF。
 2. 监控池分页 50 条、关键词搜索、增删改查。
 3. 规模字段只能来自 `etf_share_size` 的全局最新交易日；不得按单 ETF 回退旧日期，不得把 `null` 写成 0。
-4. 添加抽屉按总规模降序、空值末尾；已添加列表按监控分组、组内总规模降序、同规模时展示排序和代码稳定排序。
+4. 添加抽屉按总规模降序、空值末尾；已添加列表按监控分组、组内总规模降序、同规模时 ETF 代码稳定排序。
 5. 两个列表 API 都透传 `size_trade_date/total_share_wan/total_size_wan`，且不请求 Tushare、Redis。
 6. 阈值优先级：ETF > group > global。
 7. 阈值校验：窗口只能是 `1/5/15`，倍数必须递增，冷却期必须大于 0。
@@ -1015,7 +1013,7 @@ sequenceDiagram
 | M6 | 收盘归档 | Redis 当天批次归档到 1m 统计表 |
 | M7 | Ops 告警记录页与查询 API | 支持复盘告警与通知结果 |
 | M8 | 生产验收 | Redis 容量、盘中计算、Feishu、收盘归档验收 |
-| M9 | ETF 规模展示 | 只扩展两条既有 Ops 列表 API 与监控池页面；不改数据集、实时采集、Redis、迁移或池数据 |
+| M9 | ETF 规模展示与展示排序退场 | 扩展两条既有 Ops 列表 API 与监控池页面，并删除无业务意义的 `display_order` 字段及数据库列；不改数据集、实时采集、Redis 或池数据 |
 
 ---
 
@@ -1036,7 +1034,7 @@ sequenceDiagram
 | D9 | Redis Store 扩展 | 必须扩展 `RealtimeStateStore`，禁止服务层临时拼 Redis key |
 | D10 | Feishu 失败重试 | V1 不做后台重试队列；本轮即时发送一次，失败入库 |
 | D11 | ETF 规模展示来源 | 只取 `etf_share_size` 全局最新交易日；不做单 ETF 历史回退，空规模展示 `—` 并排在末尾 |
-| D12 | 监控池规模排序 | “ETF 类别”指监控分组 `group_key`；宽基、主题依次展示，组内按总规模降序，`display_order` 仅作同规模稳定次序 |
+| D12 | 监控池规模排序 | “ETF 类别”指监控分组 `group_key`；宽基、主题依次展示，组内按总规模降序、ETF 代码稳定排序；不保留人工展示排序 |
 
 ---
 

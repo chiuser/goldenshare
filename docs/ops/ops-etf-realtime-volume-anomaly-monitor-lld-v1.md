@@ -1,6 +1,6 @@
 # ETF 实时成交额异动监控 LLD v1
 
-状态：M8.1/M8.2/M8.3 本地代码与测试完成 / 待重新部署验收；M9 ETF 规模展示本地代码与测试完成，待部署和页面验收
+状态：M8.1/M8.2/M8.3 本地代码与测试完成 / 待重新部署验收；M9 ETF 规模展示与展示排序退场本地代码与测试完成，待重新部署和页面验收
 创建日期：2026-08-22
 依据方案：[ETF 实时成交额异动监控方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-etf-realtime-volume-anomaly-monitor-plan-v1.md)
 
@@ -120,13 +120,13 @@ ETF 告警 Feishu 通道已拍板为独立通道：
 20260818_000138 (head)
 ```
 
-截至 M9 规模展示审计，当前真实 head 为：
+截至本轮展示排序退场开发，当前迁移链 head 为：
 
 ```text
-20260822_000140 (head)
+20260822_000142 (head)
 ```
 
-M9 不新增迁移。后续如新增迁移，`down_revision` 仍只能接开发当时重新核验的真实 head，禁止按本文日期或印象猜。
+`20260822_000142` 只删除 `ops.etf_realtime_monitor_pool.display_order` 及旧索引 `idx_etf_realtime_monitor_pool_enabled_order`，不清理监控池数据。后续如新增迁移，`down_revision` 仍只能接开发当时重新核验的真实 head，禁止按本文日期或印象猜。
 
 ### 2.5 CodeGraph 影响面
 
@@ -181,7 +181,6 @@ V1 新增 4 张表，均在 `ops` schema。
 | `group_key` | varchar(64) | not null | 监控分组 |
 | `group_name` | varchar(64) | not null | 分组展示名 |
 | `enabled` | boolean | not null default true | 是否启用 |
-| `display_order` | integer | not null default 0 | 展示排序 |
 | `note` | text | nullable | 后端保留字段；V1 页面不展示、不提交 |
 | `created_by_user_id` | bigint | nullable | 创建人 |
 | `updated_by_user_id` | bigint | nullable | 更新人 |
@@ -193,7 +192,6 @@ V1 新增 4 张表，均在 `ops` schema。
 ```text
 unique(ts_code)
 index(group_key, enabled)
-index(enabled, display_order)
 ```
 
 服务层校验：
@@ -516,7 +514,7 @@ src/ops/services/etf_realtime_monitor_pool_service.py
 
 1. 查询可选 ETF：从 `ops.etf_series_active(resource='etf_rt_daily')`、`core_serving.etf_basic` 和 `raw_tushare.etf_share_size` 的全局最新快照读取。
 2. 查询已添加监控池：在现有监控池、ETF 基础信息、告警摘要关联上，再关联同一份规模快照。
-3. 维护监控池 CRUD；本轮不改变写入字段和写入语义。
+3. 维护监控池 CRUD；新增和编辑只提交监控分组、启用状态与备注，`display_order` 不再是写入字段。
 4. 校验 `ts_code` 在 `etf_rt_daily` 活跃池内。
 5. 提供 50/page 分页与 keyword 搜索；关键词只匹配代码/名称，不匹配规模数值。
 6. 确保所有规模排序在数据库查询中完成，前端不自行排序或筛选源端快照。
@@ -549,11 +547,10 @@ total_size_wan DESC NULLS LAST, ts_code ASC
 ```text
 group_key priority（broad_base -> theme -> 其它）
   -> total_size_wan DESC NULLS LAST
-  -> display_order ASC
   -> ts_code ASC
 ```
 
-这里的“类别”固定是运营维护的 `group_key`，不是 `EtfBasic.etf_type`。`display_order` 保留为相同规模时的稳定次序，不再覆盖规模主排序。
+这里的“类别”固定是运营维护的 `group_key`，不是 `EtfBasic.etf_type`。人工展示排序不保留；相同规模时按 ETF 代码得到稳定顺序。
 
 ### 8.2 阈值规则服务
 
@@ -728,7 +725,6 @@ DELETE /api/v1/ops/realtime/etf-monitor/pool/{id}
   "group_key": "broad_base",
   "group_name": "宽基ETF",
   "enabled": true,
-  "display_order": 10,
   "note": "沪深300代表ETF"
 }
 ```
@@ -865,9 +861,9 @@ Tab 结构：
 3. 搜索只作用于抽屉内的激活 ETF 列表，使用 `/active-etfs?keyword=...`；不复用页面上方的监控池关键词。
 4. 搜索结果每页 50 条，关键词变化后回到第 1 页。
 5. 抽屉使用加宽的固定宽度展示完整表格，不在抽屉内引入横向滚动；保持现有表格行高，不因新增控件额外撑高。
-6. 每行直接展示 ETF 名称/代码、总份额、总规模、交易所、监控分组、展示排序、启用监控开关和操作按钮；名称作为主信息使用较大字号，代码作为次信息使用较小字号。
+6. 每行直接展示 ETF 名称/代码、总份额、总规模、交易所、监控分组、启用监控开关和操作按钮；名称作为主信息使用较大字号，代码作为次信息使用较小字号。
 7. 输入搜索关键词后，名称和代码中的命中片段都用橙色背景高亮。
-8. 未加入监控池的行显示“添加”按钮；点击后立即提交该行的分组、排序和启用状态，不需要滚动到底部或再点击统一保存。
+8. 未加入监控池的行显示“添加”按钮；点击后立即提交该行的分组和启用状态，不需要滚动到底部或再点击统一保存。
 9. 添加成功后，该行按钮立即显示为浅绿色、置灰的“已添加”；抽屉保持打开，运营可以继续添加其他行。
 10. 已在监控池中的 ETF 直接显示“已添加”，行内配置控件只读，不可重复添加。
 11. 新增和编辑页面均不展示备注输入，也不提交备注字段；后端已有的 `note` 字段不作为本轮交互入口。
@@ -876,7 +872,7 @@ Tab 结构：
 编辑 ETF：
 
 1. 监控池主表继续通过“编辑”打开独立编辑态。
-2. 编辑态只维护监控分组、启用状态和展示排序，点击底部“保存”后提交更新。
+2. 编辑态只维护监控分组和启用状态，点击底部“保存”后提交更新。
 3. 编辑态不复用新增抽屉的行内添加按钮，也不展示备注输入。
 
 监控池主表的 ETF 单元格同样使用“名称主显示、代码次显示”的层次；删除操作使用明确的浅红按钮样式，不使用无背景的文字按钮。
@@ -1028,7 +1024,7 @@ tests/web/test_ops_etf_realtime_monitor_api.py
 11. Feishu 失败不影响 alert 记录。
 12. 收盘归档幂等。
 13. `active-etfs` 和 `pool` 都只读取 `etf_share_size` 的全局最新交易日；缺失规模返回 `null`，不回退旧日期、不转为 0。
-14. `active-etfs` 在分页前按总规模降序、空值末尾排序；`pool` 按监控分组、组内总规模降序、展示排序和代码稳定排序。
+14. `active-etfs` 在分页前按总规模降序、空值末尾排序；`pool` 按监控分组、组内总规模降序和 ETF 代码稳定排序；旧 `display_order` 请求必须返回校验错误。
 15. 规模关联不能导致一只 ETF 重复出现在任一列表中；两个接口继续不读 Redis、不请求 Tushare、不写入数据库。
 
 ### 13.2 前端
@@ -1081,7 +1077,7 @@ python3 scripts/check_docs_integrity.py
 | M6 | Feishu 发送闭环 | 非阻塞发送与状态回写 |
 | M7 | 收盘归档 | 写 1m stat，幂等 |
 | M8 | 告警记录页与生产验收 | 盘中验证、Redis 容量、Feishu 验证 |
-| M9 | ETF 规模展示 | 只扩展两条既有 Ops 列表 API 与监控池页面；不改数据集、实时采集、Redis、迁移或池数据 |
+| M9 | ETF 规模展示与展示排序退场 | 扩展两条既有 Ops 列表 API 与监控池页面，并删除无业务意义的 `display_order` 字段及数据库列；不改数据集、实时采集、Redis 或池数据 |
 
 ---
 
@@ -1100,7 +1096,7 @@ python3 scripts/check_docs_integrity.py
 | D9 | Redis Store 扩展 | 必须扩展 `RealtimeStateStore`，禁止服务层临时拼 Redis key |
 | D10 | Feishu 失败重试 | V1 不做后台重试队列；即时发送一次，失败入库 |
 | D11 | ETF 规模展示来源 | 只取 `etf_share_size` 全局最新交易日；不做单 ETF 历史回退，空规模展示 `—` 并排在末尾 |
-| D12 | 监控池规模排序 | “ETF 类别”指监控分组 `group_key`；宽基、主题依次展示，组内按总规模降序，`display_order` 仅作同规模稳定次序 |
+| D12 | 监控池规模排序 | “ETF 类别”指监控分组 `group_key`；宽基、主题依次展示，组内按总规模降序、ETF 代码稳定排序；不保留人工展示排序 |
 
 ---
 

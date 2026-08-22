@@ -21,7 +21,6 @@ const poolResponse = {
       group_key: "broad_base",
       group_name: "宽基ETF",
       enabled: true,
-      display_order: 1,
       note: null,
       has_etf_rule_override: false,
       latest_alert_at: null,
@@ -198,7 +197,7 @@ describe("ETF实时监控配置中心", () => {
     expect(screen.getByText("250.00 亿元")).toBeInTheDocument();
     expect(screen.getByRole("row", { name: /创业板ETF 159915\.SZ/ })).toHaveTextContent("—");
     expect(screen.getByRole("switch", { name: "510500.SH启用监控" })).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "510500.SH展示排序" })).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "510500.SH展示排序" })).not.toBeInTheDocument();
     await waitFor(() => {
       expect(apiRequest).toHaveBeenCalledWith(expect.stringContaining("/active-etfs?page=1&page_size=50"));
     });
@@ -219,7 +218,6 @@ describe("ETF实时监控配置中心", () => {
           ts_code: "510500.SH",
           group_key: "broad_base",
           enabled: true,
-          display_order: 0,
         }),
       });
     });

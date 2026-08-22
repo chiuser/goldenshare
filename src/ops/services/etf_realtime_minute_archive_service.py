@@ -34,7 +34,7 @@ class EtfRealtimeMinuteArchiveService:
             item.ts_code
             for item in session.query(EtfRealtimeMonitorPool)
             .filter(EtfRealtimeMonitorPool.enabled.is_(True))
-            .order_by(EtfRealtimeMonitorPool.display_order, EtfRealtimeMonitorPool.ts_code)
+            .order_by(EtfRealtimeMonitorPool.ts_code)
             .all()
         ]
         if not ts_codes:

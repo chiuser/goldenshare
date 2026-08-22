@@ -28,7 +28,6 @@ export interface EtfRealtimeMonitorPoolItem {
   group_key: string;
   group_name: string;
   enabled: boolean;
-  display_order: number;
   note: string | null;
   has_etf_rule_override: boolean;
   latest_alert_at: string | null;

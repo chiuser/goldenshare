@@ -99,7 +99,6 @@ def test_etf_realtime_monitor_active_etfs_and_pool_crud(app_client, user_factory
             "group_key": "broad_base",
             "group_name": "宽基ETF",
             "enabled": True,
-            "display_order": 10,
             "note": "沪深300代表",
         },
     )
@@ -117,12 +116,32 @@ def test_etf_realtime_monitor_active_etfs_and_pool_crud(app_client, user_factory
     update_response = app_client.put(
         f"/api/v1/ops/realtime/etf-monitor/pool/{item_id}",
         headers=headers,
-        json={"group_key": "theme", "group_name": "主题ETF", "enabled": False, "display_order": 20, "note": None},
+        json={"group_key": "theme", "group_name": "主题ETF", "enabled": False, "note": None},
     )
     assert update_response.status_code == 200
 
     delete_response = app_client.delete(f"/api/v1/ops/realtime/etf-monitor/pool/{item_id}", headers=headers)
     assert delete_response.status_code == 200
+
+
+def test_etf_realtime_monitor_pool_rejects_retired_display_order(app_client, user_factory, db_session) -> None:
+    _seed_active_etf(db_session)
+    headers = _login_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/realtime/etf-monitor/pool",
+        headers=headers,
+        json={
+            "ts_code": "510300.SH",
+            "group_key": "broad_base",
+            "group_name": "宽基ETF",
+            "enabled": True,
+            "display_order": 0,
+        },
+    )
+
+    assert response.status_code == 422
+    assert db_session.query(EtfRealtimeMonitorPool).count() == 0
 
 
 def test_etf_realtime_monitor_lists_use_global_latest_share_size_snapshot_and_sorting(
@@ -147,8 +166,8 @@ def test_etf_realtime_monitor_lists_use_global_latest_share_size_snapshot_and_so
         db_session,
         trade_date=latest_trade_date,
         ts_code="510300.SH",
-        total_share=Decimal("200"),
-        total_size=Decimal("200"),
+        total_share=Decimal("300"),
+        total_size=Decimal("300"),
     )
     _seed_etf_share_size(
         db_session,
@@ -178,21 +197,18 @@ def test_etf_realtime_monitor_lists_use_global_latest_share_size_snapshot_and_so
                 group_key="broad_base",
                 group_name="宽基ETF",
                 enabled=True,
-                display_order=1,
             ),
             EtfRealtimeMonitorPool(
                 ts_code="510500.SH",
                 group_key="broad_base",
                 group_name="宽基ETF",
                 enabled=True,
-                display_order=99,
             ),
             EtfRealtimeMonitorPool(
                 ts_code="159915.SZ",
                 group_key="theme",
                 group_name="主题ETF",
                 enabled=True,
-                display_order=0,
             ),
         ]
     )
@@ -210,19 +226,19 @@ def test_etf_realtime_monitor_lists_use_global_latest_share_size_snapshot_and_so
     assert active_page_one.status_code == 200
     assert active_page_two.status_code == 200
     assert active_page_one.json()["total"] == 4
-    assert [item["ts_code"] for item in active_page_one.json()["items"]] == ["159915.SZ", "510500.SH"]
-    assert [item["ts_code"] for item in active_page_two.json()["items"]] == ["510300.SH", "159916.SZ"]
-    latest_item = active_page_two.json()["items"][0]
+    assert [item["ts_code"] for item in active_page_one.json()["items"]] == ["159915.SZ", "510300.SH"]
+    assert [item["ts_code"] for item in active_page_two.json()["items"]] == ["510500.SH", "159916.SZ"]
+    latest_item = active_page_one.json()["items"][1]
     assert latest_item["size_trade_date"] == "2026-08-21"
-    assert Decimal(latest_item["total_share_wan"]) == Decimal("200")
-    assert Decimal(latest_item["total_size_wan"]) == Decimal("200")
+    assert Decimal(latest_item["total_share_wan"]) == Decimal("300")
+    assert Decimal(latest_item["total_size_wan"]) == Decimal("300")
     assert active_page_two.json()["items"][1]["total_size_wan"] is None
 
     pool_response = app_client.get("/api/v1/ops/realtime/etf-monitor/pool", headers=headers)
     assert pool_response.status_code == 200
     assert [item["ts_code"] for item in pool_response.json()["items"]] == [
-        "510500.SH",
         "510300.SH",
+        "510500.SH",
         "159915.SZ",
     ]
 
@@ -238,7 +254,6 @@ def test_etf_realtime_monitor_pool_rejects_non_active_etf(app_client, user_facto
             "group_key": "broad_base",
             "group_name": "宽基ETF",
             "enabled": True,
-            "display_order": 0,
             "note": None,
         },
     )
@@ -271,7 +286,6 @@ def test_etf_realtime_monitor_alerts_summary_and_invalid_window(app_client, user
             group_key="broad_base",
             group_name="宽基ETF",
             enabled=True,
-            display_order=1,
         )
     )
     db_session.add(

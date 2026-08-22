@@ -186,7 +186,6 @@ class EtfRealtimeMonitorPoolService:
             stmt.order_by(
                 group_priority,
                 latest_size.c.total_size_wan.desc().nullslast(),
-                EtfRealtimeMonitorPool.display_order.asc(),
                 EtfRealtimeMonitorPool.ts_code.asc(),
             )
             .offset((page - 1) * page_size)
@@ -201,7 +200,6 @@ class EtfRealtimeMonitorPoolService:
                     group_key=row.EtfRealtimeMonitorPool.group_key,
                     group_name=row.EtfRealtimeMonitorPool.group_name,
                     enabled=row.EtfRealtimeMonitorPool.enabled,
-                    display_order=row.EtfRealtimeMonitorPool.display_order,
                     note=row.EtfRealtimeMonitorPool.note,
                     has_etf_rule_override=int(row.rule_override_count or 0) > 0,
                     latest_alert_at=row.latest_alert_at,
@@ -227,7 +225,6 @@ class EtfRealtimeMonitorPoolService:
         group_key: str,
         group_name: str,
         enabled: bool,
-        display_order: int,
         note: str | None,
         user_id: int | None,
     ) -> EtfRealtimeMonitorMutationResponse:
@@ -242,7 +239,6 @@ class EtfRealtimeMonitorPoolService:
             group_key=group_key,
             group_name=group_name,
             enabled=enabled,
-            display_order=display_order,
             note=note,
             created_by_user_id=user_id,
             updated_by_user_id=user_id,
@@ -260,7 +256,6 @@ class EtfRealtimeMonitorPoolService:
         group_key: str,
         group_name: str,
         enabled: bool,
-        display_order: int,
         note: str | None,
         user_id: int | None,
     ) -> EtfRealtimeMonitorMutationResponse:
@@ -271,7 +266,6 @@ class EtfRealtimeMonitorPoolService:
         item.group_key = group_key
         item.group_name = group_name
         item.enabled = enabled
-        item.display_order = display_order
         item.note = note
         item.updated_by_user_id = user_id
         session.commit()

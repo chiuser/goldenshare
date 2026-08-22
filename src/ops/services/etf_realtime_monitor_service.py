@@ -61,7 +61,7 @@ class EtfRealtimeMonitorService:
             session.scalars(
                 select(EtfRealtimeMonitorPool)
                 .where(EtfRealtimeMonitorPool.enabled.is_(True))
-                .order_by(EtfRealtimeMonitorPool.display_order, EtfRealtimeMonitorPool.ts_code)
+                .order_by(EtfRealtimeMonitorPool.ts_code)
             ).all()
         )
         if not pool_items:

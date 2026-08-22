@@ -59,7 +59,6 @@ type PoolDraft = {
   group_key: string;
   group_name: string;
   enabled: boolean;
-  display_order: number;
 };
 
 type RuleDraft = {
@@ -129,7 +128,6 @@ export function OpsEtfRealtimeMonitorConfigPage() {
         group_key: draft.group_key,
         group_name: draft.group_name,
         enabled: draft.enabled,
-        display_order: draft.display_order,
       };
       if (draft.id) {
         return apiRequest(`${API_PREFIX}/pool/${draft.id}`, {
@@ -499,13 +497,12 @@ function PoolDrawer({
                 <OpsTable>
                   <Table.Thead>
                     <Table.Tr>
-                      <OpsTableHeaderCell align="left" width="19%">ETF</OpsTableHeaderCell>
-                      <OpsTableHeaderCell align="left" width="12%">总份额</OpsTableHeaderCell>
-                      <OpsTableHeaderCell align="left" width="12%">总规模</OpsTableHeaderCell>
+                      <OpsTableHeaderCell align="left" width="23%">ETF</OpsTableHeaderCell>
+                      <OpsTableHeaderCell align="left" width="14%">总份额</OpsTableHeaderCell>
+                      <OpsTableHeaderCell align="left" width="14%">总规模</OpsTableHeaderCell>
                       <OpsTableHeaderCell align="left" width="8%">交易所</OpsTableHeaderCell>
-                      <OpsTableHeaderCell align="left" width="18%">监控分组</OpsTableHeaderCell>
-                      <OpsTableHeaderCell align="left" width="11%">展示排序</OpsTableHeaderCell>
-                      <OpsTableHeaderCell align="left" width="11%">启用监控</OpsTableHeaderCell>
+                      <OpsTableHeaderCell align="left" width="20%">监控分组</OpsTableHeaderCell>
+                      <OpsTableHeaderCell align="left" width="12%">启用监控</OpsTableHeaderCell>
                       <OpsTableHeaderCell align="left" width="9%">操作</OpsTableHeaderCell>
                     </Table.Tr>
                   </Table.Thead>
@@ -529,18 +526,6 @@ function PoolDrawer({
                                 ...current,
                                 [item.ts_code]: { ...rowDraft, group_key: value || "broad_base", group_name: groupName(value || "broad_base") },
                               }));
-                            }}
-                          />
-                        </OpsTableCell>
-                        <OpsTableCell align="left">
-                          <NumberInput
-                            aria-label={`${item.ts_code}展示排序`}
-                            value={(rowDrafts[item.ts_code] || emptyPoolDraft(item.ts_code)).display_order}
-                            min={0}
-                            disabled={item.in_monitor_pool}
-                            onChange={(value) => {
-                              const rowDraft = rowDrafts[item.ts_code] || emptyPoolDraft(item.ts_code);
-                              setRowDrafts((current) => ({ ...current, [item.ts_code]: { ...rowDraft, display_order: Number(value || 0) } }));
                             }}
                           />
                         </OpsTableCell>
@@ -582,7 +567,6 @@ function PoolDrawer({
             <TextInput label="ETF代码" value={draft.ts_code} disabled />
             <Select label="监控分组" data={GROUP_OPTIONS} value={draft.group_key} allowDeselect={false} onChange={(value) => onDraftChange({ ...draft, group_key: value || "broad_base", group_name: groupName(value || "broad_base") })} />
             <Switch label="启用监控" checked={draft.enabled} onChange={(event) => onDraftChange({ ...draft, enabled: event.currentTarget.checked })} />
-            <NumberInput label="展示排序" value={draft.display_order} onChange={(value) => onDraftChange({ ...draft, display_order: Number(value || 0) })} />
             <Button onClick={onSubmit} loading={saving} disabled={!draft.ts_code}>保存</Button>
           </>
         ) : null}
@@ -631,7 +615,7 @@ function Pager({ page, pageCount, total, onPageChange }: { page: number; pageCou
 }
 
 function emptyPoolDraft(tsCode = ""): PoolDraft {
-  return { ts_code: tsCode, group_key: "broad_base", group_name: "宽基ETF", enabled: true, display_order: 0 };
+  return { ts_code: tsCode, group_key: "broad_base", group_name: "宽基ETF", enabled: true };
 }
 
 function emptyRuleDraft(): RuleDraft {
@@ -639,7 +623,7 @@ function emptyRuleDraft(): RuleDraft {
 }
 
 function poolDraftFromItem(item: EtfRealtimeMonitorPoolItem): PoolDraft {
-  return { id: item.id, ts_code: item.ts_code, group_key: item.group_key, group_name: item.group_name, enabled: item.enabled, display_order: item.display_order };
+  return { id: item.id, ts_code: item.ts_code, group_key: item.group_key, group_name: item.group_name, enabled: item.enabled };
 }
 
 function ruleDraftFromItem(item: EtfRealtimeMonitorRuleItem): RuleDraft {
