@@ -1,5 +1,7 @@
 # Local Lake Sync Center 统一设计与链路审计 v1
 
+> **文档状态：历史/冻结（旧 `lake_console/backend` 总审计证据）**：本文保留旧 Local Lake Console 同步中心的历史方案与审计结论，不代表当前 Dagster Lake 或新开发、迁移、历史补录、bootstrap、修复、写湖主线。当前正式 Lake 路径和安全规则以根目录 `AGENTS.md` 与 `lake_console/orchestrator/src/orchestrator/defs/paths.py` 为准；禁止新增或调用 Kopia。
+
 ## 1. 文档目的
 
 本文把 Local Lake 从远程生产库同步数据到本地 Parquet Lake 的长线讨论，统一整理成一个可执行、可审计、可评审的总文档。

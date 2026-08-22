@@ -456,8 +456,8 @@
                 </tr>
                 <tr>
                   <td class="path">lake_console/</td>
-                  <td>本地数据湖管理台与 Dagster 新湖编排</td>
-                  <td>本地 Parquet Lake、DuckDB、Sync Center、Kopia、Dagster assets/jobs/sensors/checks</td>
+                  <td>冻结的旧 Local Lake 管理台与当前 Dagster 新湖编排（两条边界）</td>
+                  <td>旧 backend 的 Parquet/Sync Center/Kopia 证据；新 orchestrator 的 Dagster assets/jobs/sensors/checks</td>
                   <td class="path">lake_console/backend/app, lake_console/frontend/src, lake_console/orchestrator/src</td>
                   <td><a href="local-lake-console-architecture-plan-v1.md">Local Lake 架构</a>、<a href="../../lake_console/AGENTS.md">lake_console/AGENTS.md</a></td>
                 </tr>
@@ -749,13 +749,13 @@
       <section id="lake" class="section">
         <div class="section-header">
           <h2>数据湖情况</h2>
-          <p><code>lake_console</code> 是本地独立工程，不是生产 Ops 子模块。它管理本地移动盘 Parquet Lake，并逐步承接 Dagster 新湖资产编排。</p>
+          <p><code>lake_console</code> 是本地独立工程，不是生产 Ops 子模块。<code>backend</code> 是冻结的旧 Local Lake Console，<code>orchestrator</code> 才是当前正式 Dagster 新湖主线；两者不能共用 Lake 事实或写入规则。</p>
         </div>
         <div class="section-body">
           <div class="grid-3">
             <div class="card">
               <h3>lake_console/backend</h3>
-              <p>本地 FastAPI + CLI。负责 Lake Root 检查、文件事实扫描、DuckDB sample/query、Sync Center、Tushare 同步、prod-raw/core 只读导出、Kopia Recovery、Parquet 写入与计算。</p>
+              <p>冻结的旧本地 FastAPI + CLI。负责旧 Lake Root 检查、文件事实扫描、DuckDB sample/query、Sync Center、Tushare 同步、prod-raw/core 只读导出、Kopia Recovery、Parquet 写入与计算；其中 Kopia 只作历史实现证据，不得进入新 Lake 主线。</p>
               <div class="tag-row">
                 <span class="tag blue">python3 -m lake_console.backend.app.main</span>
                 <span class="tag green">lake-console CLI</span>
@@ -771,7 +771,7 @@
             </div>
             <div class="card">
               <h3>lake_console/orchestrator</h3>
-              <p>正式 Dagster 项目，目标是用 assets、jobs、sensors、asset checks、partitions 管理新数据湖 <code>data_lake/raw|silver|gold</code>。</p>
+              <p>当前正式 Dagster 项目，用 assets、jobs、sensors、asset checks、partitions 管理新数据湖 <code>data_lake/raw|silver|gold</code>。正式路径以 <code>orchestrator/defs/paths.py</code> 为准，不使用 Kopia。</p>
               <div class="tag-row">
                 <span class="tag purple">Dagster 1.13.8</span>
                 <span class="tag red">执行命令需用户批准</span>
@@ -794,8 +794,8 @@
               <tbody>
                 <tr>
                   <td>Lake Root</td>
-                  <td>唯一数据根由 <code>GOLDENSHARE_LAKE_ROOT</code> 或 <code>lake_console/config.local.toml</code> 指定。</td>
-                  <td class="path">lake_root = "/Volumes/TushareData/goldenshare-tushare-lake"</td>
+                  <td>旧 backend 的数据根由 <code>GOLDENSHARE_LAKE_ROOT</code> 或 <code>lake_console/config.local.toml</code> 指定；这不是新 Dagster Lake 根。</td>
+                  <td class="path">旧 backend：<br />lake_root = "/Volumes/TushareData/goldenshare-tushare-lake"</td>
                   <td>没有明确 Lake Root 时禁止写入；不得默认写仓库、home 或 /tmp。</td>
                 </tr>
                 <tr>
@@ -806,7 +806,7 @@
                 </tr>
                 <tr>
                   <td>新 Dagster Lake</td>
-                  <td>新 Dagster asset 只使用三层路径：<code>data_lake/raw</code>、<code>data_lake/silver</code>、<code>data_lake/gold</code>。</td>
+                  <td>新 Dagster asset 只使用三层路径：<code>data_lake/raw</code>、<code>data_lake/silver</code>、<code>data_lake/gold</code>；禁止 Kopia。</td>
                   <td class="path">lake_console/orchestrator/src/orchestrator/defs/assets/*</td>
                   <td>旧路径是迁移来源，不是新 asset 正式 path。</td>
                 </tr>

@@ -1,8 +1,8 @@
 # CodeGraph 架构快照
 
-生成日期：2026-08-11
+生成日期：2026-08-22
 索引根：`/Users/congming/github/goldenshare`
-索引结果：2,258 files，38,946 nodes，89,060 edges，DB 97.10 MB
+索引结果：2,508 files，44,388 nodes，101,669 edges，DB 110.44 MB
 
 本文是基于 CodeGraph 根索引生成的当前事实快照，不是新的重构方案。后续做架构分析、重构、依赖边界调整、共享 contract 修改、dispatcher/worker/service 修改前，应先回到 CodeGraph 做上下文和影响面分析。
 
@@ -28,13 +28,13 @@
 
 后端对应入口在 `src/biz/api/wealth/market/**`，统一挂到 `/api/v1/wealth/market/**`。
 
-### 本地 Lake 管理台：`lake_console/`
+### 本地 Lake 管理台与新湖：`lake_console/`
 
-`lake_console` 是本地独立工程，不是生产 Ops 子系统，也不是生产 Web app 的一部分。
+`lake_console` 是本地独立工程，不是生产 Ops 子系统，也不是生产 Web app 的一部分。`backend` 是冻结的旧 Local Lake Console，`orchestrator` 是当前正式 Dagster 新湖主线；两者不能合并为一套 Lake 事实或写入规则。
 
-1. `lake_console/backend/**`：本地 Lake 管理台后端。入口是 `lake_console/backend/app/main.py:create_app`，API 包括 `/api/lake/status`、datasets、partitions、recovery、sync center 等。
+1. `lake_console/backend/**`：冻结的旧本地 Lake 管理台后端。入口是 `lake_console/backend/app/main.py:create_app`，API 包括 `/api/lake/status`、datasets、partitions、recovery、sync center 等；其中 Kopia、旧 Lake Root、`raw_tushare`、`derived`、`research`、`manifest` 只作为旧实现证据，不得作为新主链依据。
 2. `lake_console/frontend/**`：本地 Lake 管理台前端。入口是 `lake_console/frontend/src/main.tsx`，共享 API adapter 是 `lake_console/frontend/src/services/lakeApi.ts`。
-3. `lake_console/orchestrator/**`：新湖 Dagster 编排工程。入口是 `lake_console/orchestrator/src/orchestrator/definitions.py:defs`，通过 Dagster `load_from_defs_folder` 加载 `defs/**` 下的 assets、checks、jobs、sensors、run contracts。
+3. `lake_console/orchestrator/**`：当前正式新湖 Dagster 编排工程。入口是 `lake_console/orchestrator/src/orchestrator/definitions.py:defs`，通过 Dagster `load_from_defs_folder` 加载 `defs/**` 下的 assets、checks、jobs、sensors、run contracts；正式路径以 `orchestrator/defs/paths.py` 为准，不使用 Kopia。
 
 ## 关键调用链
 
@@ -113,7 +113,9 @@ MarketOverviewPage / TopMarketBar
 
 `wealthFetch` 是 Wealth 前端真实 API 模块的共享 adapter。CodeGraph 显示它被 market overview 的 breadth、context、indices、leaderboards、limit-up、money-flow、news、sectors、style、summary、turnover，以及 index detail 的 page-init、kline、weights、SSE-only trend 客户端调用。
 
-### Lake Console Sync Center 链
+### Legacy Lake Console Sync Center 链（冻结旧 backend）
+
+以下链路只记录旧 `lake_console/backend` 的现存代码事实，不是当前 Dagster Lake 主线，也不是新开发、迁移、历史补录、bootstrap、修复或写湖依据。
 
 ```text
 lake_console/frontend/src/services/lakeApi.ts
@@ -125,7 +127,7 @@ lake_console/frontend/src/services/lakeApi.ts
   -> dataset-specific lake sync services
 ```
 
-`start_run` 明确要求 `confirmed_backup_required` 与 `confirmed_no_sql`。常规 Sync Profile run 会读取 plan token、校验 blockers、获取 Lake 写入锁、创建 Kopia prewrite backup，然后执行 `SyncProfileRunner.run`，最后写 run/current/events 状态并释放锁。`stk_mins` 特殊 profile 走 pipeline state run 分支。
+旧 backend 的 `start_run` 曾要求 `confirmed_backup_required` 与 `confirmed_no_sql`，并在写入前创建 Kopia prewrite backup；这些是冻结旧实现事实，禁止据此新增或恢复 Kopia 主链。`stk_mins` 特殊 profile 也只作为旧 backend 历史证据保留。
 
 ### Dagster 新湖编排链
 
@@ -162,7 +164,7 @@ lake_console/orchestrator/src/orchestrator/definitions.py:defs
 2. `TaskRunDispatcher` 是执行观测主链。CodeGraph impact 显示它直接影响 `src/ops/runtime/worker.py` 与 `tests/web/test_ops_runtime.py`。修改 dispatcher 时必须同时确认 worker、TaskRunNode、TaskRunIssue、progress、serving light refresh 和异常状态。
 3. `frontend` 手动任务页消费的是后端投影后的 `time_form` 和 filters。若后端自行变更字段或选择规则，前端控件会直接受影响。
 4. `wealth` 和 `frontend` 是两个独立前端，不共享 Shell 与路由。不能把运营后台组件或视觉规范默认套到 Wealth。
-5. `lake_console` 是本地工程，允许访问本地 Lake、Kopia、DuckDB/Parquet、限定场景下的生产库只读导出；不得把它当作生产 Ops 主链。
+5. `lake_console/backend` 是本地旧工程，现存 Kopia 代码只能作为冻结实现证据；不得把 Kopia 复用、下沉或重新启用到 Dagster orchestrator、Direct Lake Bootstrap 或新主链。新 Lake 的正式路径和写入安全规则以根 `AGENTS.md` 与 `orchestrator/defs/paths.py` 为准。
 6. `lake_console/orchestrator` 与 `lake_console/backend` 都涉及新湖/旧湖、文件事件、Dagster materialization 和 ClickHouse serving。修改时要先确认目标属于管理台、编排工程还是生产后端。
 7. `.codegraph/` 是本地索引产物，已加入根 `.gitignore`，不得提交索引数据库。
 

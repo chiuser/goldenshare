@@ -1,13 +1,15 @@
 # Local Lake Recovery / Write Safety 页面交互设计 v1
 
 - 版本：v1
-- 状态：待评审
+- 状态：历史/冻结（旧 `lake_console/backend` 文档；原阶段状态仅代表文档记录时点）
 - 更新时间：2026-05-11
 - 适用范围：`lake_console/frontend` 第一期新增页面
 - 关联文档：
   - [Local Lake 管理台升级路线图 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-management-roadmap-v1.md)
   - [Local Lake 页面演进边界卡 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-page-evolution-boundary-card-v1.md)
   - [Local Lake Kopia 集成恢复管理方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-write-recovery-management-plan-v1.md)
+
+> **当前边界声明**：本文保留旧 Local Lake Console Recovery / Write Safety 页面证据。文中的 Kopia、旧 Lake Root 和旧恢复链路不得作为当前 Dagster Lake 或新开发、迁移、历史补录、bootstrap、修复、写湖依据。当前正式 Lake 路径和安全规则以根目录 `AGENTS.md` 与 `lake_console/orchestrator/src/orchestrator/defs/paths.py` 为准；禁止新增或调用 Kopia。
 
 ---
 

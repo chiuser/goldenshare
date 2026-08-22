@@ -1,13 +1,15 @@
 # Local Lake Console 数据集模型 v1
 
 - 版本：v1
-- 状态：已部分落地；已补充 `stk_mins` clean_next 基准层口径
+- 状态：历史/冻结（旧 `lake_console/backend` 文档；原阶段状态仅代表文档记录时点）
 - 更新时间：2026-05-13
 - 适用范围：`lake_console` 本地移动盘 Parquet Lake
 - 相关文档：
   - [Local Lake Console 架构方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-architecture-plan-v1.md)
   - [Local Lake Console 数据模型关系图 v1（HTML）](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-data-model-map-v1.html)
   - [股票历史分钟行情 Parquet Lake 方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md)
+
+> **当前边界声明**：本文保留旧 Local Lake Console 数据模型证据。文中的旧 Lake Root、Kopia、`raw_tushare`、`derived`、`research`、`manifest` 等口径不得作为当前 Dagster Lake 或新开发、迁移、历史补录、bootstrap、修复、写湖任务的依据。当前正式 Lake 路径和安全规则以根目录 `AGENTS.md` 与 `lake_console/orchestrator/src/orchestrator/defs/paths.py` 为准；禁止新增或调用 Kopia。
 
 ---
 

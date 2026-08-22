@@ -1,5 +1,7 @@
 # Local Lake Console 模型/API 阻断项审计 v1
 
+> **文档状态：历史/冻结（旧 `lake_console/backend` 审计证据）**：本文的模型、API 和 Kopia/旧 Lake 口径仅代表审计记录时点，不是当前 Dagster Lake 或新开发、迁移、历史补录、bootstrap、修复、写湖依据。当前正式 Lake 路径和安全规则以根目录 `AGENTS.md` 与 `lake_console/orchestrator/src/orchestrator/defs/paths.py` 为准；禁止新增或调用 Kopia。
+
 - 审计日期：2026-05-14
 - 审计对象：`lake_console` 数据湖总览页、后端模型/API 契约、前端展示消费、相关测试门禁
 - 主依据：`docs/architecture/local-lake-console-architecture-plan-v1.md` 第 11 章

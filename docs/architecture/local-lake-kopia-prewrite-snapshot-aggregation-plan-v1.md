@@ -1,5 +1,7 @@
 # Local Lake Kopia Prewrite Snapshot 聚合改造方案 v1
 
+> **文档状态：历史/冻结（旧 `lake_console/backend` 方案证据）**：本文只记录旧 Kopia prewrite 实现及其历史收口讨论，不代表当前批准的写湖或恢复主线。不得据此开展新开发、迁移、历史补录、bootstrap、修复或写湖任务；当前正式 Lake 路径和安全规则以根目录 `AGENTS.md` 与 `lake_console/orchestrator/src/orchestrator/defs/paths.py` 为准；禁止新增或调用 Kopia。
+
 ## 1. 背景
 
 Sync Center 写入任务在执行真实写盘前，会创建 Kopia prewrite snapshot，目的是在写入失败或误写时保留恢复点。

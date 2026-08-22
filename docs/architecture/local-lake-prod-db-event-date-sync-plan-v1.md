@@ -1,7 +1,7 @@
 # Local Lake 远程 DB 事件日期同步独立链路方案 v1
 
 - 版本：v1
-- 状态：开发中；已完成 profile、plan/API、只读 DB 层、exporter/runner、scanner/catalog/frontend 最小链路，本地限定测试通过；真实小样本验收待执行
+- 状态：历史/冻结（旧 `lake_console/backend` 文档；原阶段状态仅代表文档记录时点）
 - 更新时间：2026-05-16
 - 适用范围：`lake_console` 本地 Tushare Parquet Lake
 - 目标 profile：`prod_db_event_date`
@@ -15,6 +15,8 @@
   - [Local Lake 远程 DB 同步 API 契约 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-prod-db-sync-api-contract-v1.html)
   - [Local Lake Kopia 预写快照聚合方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-kopia-prewrite-snapshot-aggregation-plan-v1.md)
   - [Local Lake 数据集访问模式检查清单 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-dataset-access-mode-checklist-v1.md)
+
+> **当前边界声明**：本文保留旧 Local Lake Console 远程 DB 事件日期同步链路证据。文中的旧 Lake Root、Kopia、`raw_tushare`、`derived`、`research`、`manifest` 等口径不得作为当前 Dagster Lake 或新开发、迁移、历史补录、bootstrap、修复、写湖任务的依据。当前正式 Lake 路径和安全规则以根目录 `AGENTS.md` 与 `lake_console/orchestrator/src/orchestrator/defs/paths.py` 为准；禁止新增或调用 Kopia。
 
 ---
 

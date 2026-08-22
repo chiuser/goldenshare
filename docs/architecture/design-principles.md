@@ -1,14 +1,16 @@
 # Goldenshare Design Principles
 
 > 说明：本文中的目录示例若与当前代码不一致，请以 [subsystem-boundary-plan.md](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md) 为准。
+>
+> **文档状态：历史设计原则 / 非当前架构基线。** 本文保留早期产品、前端和工程设计思想；其中 `foundation / web / core / dm` 等历史分层、旧路径和执行归属不作为当前实现依据。当前子系统边界、数据维护主链和 Ops 责任分别以 [subsystem-boundary-plan.md](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md)、[dependency-matrix.md](/Users/congming/github/goldenshare/docs/architecture/dependency-matrix.md)、[foundation-current-standards.md](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md) 和 [ops-consolidation-plan.md](/Users/congming/github/goldenshare/docs/architecture/ops-consolidation-plan.md) 为准。
 
 ## Purpose
 
-This document defines the architectural rules and engineering principles for `goldenshare`.
+This document preserves the early architectural rules and engineering principles for `goldenshare`.
 
-It is not a loose reference. It is the default decision framework for future development.
+It is a historical reference, not the current implementation authority.
 
-When we add new features, new tables, new APIs, new pages, or new workflows, we should first check whether the design follows the rules in this document. If we intentionally break a rule, we should document why and how we plan to converge back later.
+For new features, tables, APIs, pages, and workflows, first check the current architecture baselines linked above. If a historical principle is intentionally retained, record that decision in the current design document for the scoped change.
 
 ## System Positioning
 
@@ -21,9 +23,9 @@ The market data foundation remains the system of record for ingestion, normaliza
 
 The web application is an application layer and BFF layer on top of the foundation. It is not allowed to reshape the data foundation around temporary page needs.
 
-## Data Foundation Execution Boundary
+## Historical Data Foundation Execution Boundary
 
-Data-running capability belongs to the data foundation.
+This section records the earlier broad foundation-boundary model. It must not be used to assign current runtime ownership.
 
 Rules:
 
