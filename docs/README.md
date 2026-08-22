@@ -123,6 +123,8 @@ docs/
 - [Ops 实时流监控页面设计 v1（HTML，日线/分钟/ETF 分组已落地）](/Users/congming/github/goldenshare/docs/ops/ops-realtime-market-data-page-design-v1.html)
 - [Ops 实时流配置中心技术方案 v1（HTML，三对象配置中心已落地）](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.html)
 - [Ops 实时流配置中心 Showcase v1（HTML，查看/编辑态交互 mock）](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-showcase-v1.html)
+- [ETF 实时成交额异动监控方案 v1（已拍板，待开发）](/Users/congming/github/goldenshare/docs/ops/ops-etf-realtime-volume-anomaly-monitor-plan-v1.md)
+- [ETF 实时成交额异动监控 LLD v1（已拍板，待开发）](/Users/congming/github/goldenshare/docs/ops/ops-etf-realtime-volume-anomaly-monitor-lld-v1.md)
 - [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
 - [审查中心设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)
 - [数据集日期完整性审计设计 v2（独立审计系统，M7 已完成本地验证）](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v2.md)
