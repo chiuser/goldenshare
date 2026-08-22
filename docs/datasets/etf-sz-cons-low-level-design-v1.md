@@ -11,7 +11,7 @@
 首期固定：
 
 - 默认对象来自 `ops.etf_series_active(resource='etf_sz_cons')`。
-- 对象池只允许 `.SZ + list_status='L'`，当前审计候选为 726 个；`.OF`、`.SH`、P/D 和其他后缀均不是有效对象。
+- 对象池 seed 只接受 `.SZ + list_status='L'`，初始审计候选为 726 个；`.OF`、`.SH`、P/D 和其他后缀均不是有效对象。对象池不绑定固定行数，当前生产运营池为 720 个。
 - 单日是“一个 ETF code 一个 unit”；区间是“一个 ETF code 一个自然月窗口 unit”。窗口内分页完成后才写入和提交。
 - raw 保存全部 11 个源字段；`core_serving.etf_sz_cons` 仅普通 view 直出 raw，不建立 serving 物理表。
 - 手动和普通自动任务可用；不加入既有 workflow，不新增 probe；输入区间不设置总跨度限制。
@@ -71,7 +71,7 @@ CodeGraph 索引正常：2,563 个文件、45,133 个节点、103,096 条边。�
 | 全部 11 个显式字段 | 样本字段均可返回，部分数值字段可空 | 全字段进入 `source_fields` 和 raw |
 | 项目 connector 分页 `limit=100` | `159919.SZ + 20260731` offset 0/100/200/300，共 301 行；业务键无重复 | 分页和短页终止可复用，实施后仍需用真实 Definition 重跑 |
 
-对象池审计：Tushare `etf_basic(exchange='SZ', list_status='L')` 返回 727 行，其中 `.SZ=726`、`.OF=1`（`158008.OF`）。因此实现对象范围只能是 726 个 `.SZ`，不能把 `exchange='SZ'` 当作后缀门禁。
+对象池 seed 审计：Tushare `etf_basic(exchange='SZ', list_status='L')` 返回 727 行，其中 `.SZ=726`、`.OF=1`（`158008.OF`）。因此 seed 输入只能取 726 个 `.SZ` 候选，不能把 `exchange='SZ'` 当作后缀门禁；候选数量不等于源端 `etf_sz_cons` 的可服务数量，也不是运行时固定值。
 
 ## 4. 三层语义与输入契约
 
@@ -201,7 +201,7 @@ unit 生成：
 
 `DatasetSourceClient` 对每个 unit 追加 `limit=3000` 和递增 offset，直到短页。分页全部完成后才进入 normalizer/writer/commit。一个 unit 一个业务事务；页与页之间不提交。
 
-性能基线：当前 pool 726 个 code，单日约 726 个 unit；一年约 8,724 个 code×自然月 unit，三年约 26,172 个 unit，实际 HTTP 请求数按每 unit page_count 计算。不能用全市场单日 3,000 条截断结果减少请求，也不能把一个长区间直接交给 Tushare。
+性能基线：当前生产 pool 为 720 个 code，单日约 720 个 unit；一年约 8,640 个 code×自然月 unit，三年约 25,920 个 unit，实际 HTTP 请求数按每 unit page_count 计算。对象池数量可运营调整，估算必须以任务发起时的真实 pool 为准。不能用全市场单日 3,000 条截断结果减少请求，也不能把一个长区间直接交给 Tushare。
 
 ## 8. Schema、模型、DAO 与 view
 
@@ -291,7 +291,7 @@ writer 必须命中 `raw_only_upsert`，只调用 `raw_etf_sz_cons`。`core_serv
 5. M4：已完成。Ops catalog 自动投影和定向测试已覆盖。
 6. M5：已完成。代码侧验证、生产部署、迁移、对象池初始化、同步和页面验收均已完成。
 
-以下情况必须停止，不做临时兼容：active pool 与 `.SZ + L` 不一致、源端同键重复、月窗口分页不闭合、源字段缺失、迁移 head 不明确、reject 无法解释、业务事务和 Ops 状态事务发生耦合。
+以下情况必须停止，不做临时兼容：seed 输入含非 `.SZ` 或非 L 代码、active pool 含非法后缀、源端同键重复、月窗口分页不闭合、源字段缺失、迁移 head 不明确、reject 无法解释、业务事务和 Ops 状态事务发生耦合。
 
 ## 13. 实现与生产验收闭环
 
@@ -299,7 +299,7 @@ writer 必须命中 `raw_only_upsert`，只调用 `raw_etf_sz_cons`。`core_serv
 
 - 新迁移为 `20260822_000141_add_etf_sz_cons_dataset.py`，`down_revision` 为实施时确认的 `20260822_000140`。
 - 项目 connector 只读验证：`159001.SZ + 20260731` 返回 1 行、1 次请求、业务键无重复；`159919.SZ + 20260701~20260731` 返回 6,020 行、3 次分页请求、20 个业务日期、`(trade_date, ts_code, con_code)` 无重复，11 个源字段齐备。
-- 生产激活池已按 `.SZ + list_status='L'` 初始化 `ops.etf_series_active(resource='etf_sz_cons')`：726 个代码，非法后缀数量为 0。
+- 生产激活池初始按 `.SZ + list_status='L'` seed 为 726 个候选，非法后缀数量为 0。源端复核后，6 个 `list_status='L'` 但 `etf_sz_cons` 无日期请求和 `2026-01-05 ~ 2026-08-21` 区间请求均返回空数组的代码已退出池：`158001.SZ`、`158008.SZ`、`158010.SZ`、`158017.SZ`、`158019.SZ`、`159096.SZ`。
 - 生产区间任务 `TaskRun 9080` 成功完成：`unit_total=unit_done=5808`、`unit_failed=0`、`rows_fetched=rows_saved=11251932`、`rows_rejected=0`。
-- 生产 raw 表和 serving view 均为 11,251,932 行，覆盖 154 个交易日、717 个实际返回数据的 ETF，日期范围同为 `2026-01-05 ~ 2026-08-21`；运营页面验收通过。
+- 生产 raw 表和 serving view 均为 11,251,932 行，覆盖 154 个交易日、717 个实际返回数据的 ETF，日期范围同为 `2026-01-05 ~ 2026-08-21`；运营页面验收通过。当前 active 池为 720 个，其中另 3 个待上市代码 `158000.SZ`、`158005.SZ`、`159043.SZ` 分别计划于 `2026-08-26`、`2026-08-24`、`2026-08-24` 上市，保留等待后续源端数据发布。
 - 当前没有本数据集的待部署、待迁移、待对象池初始化或待页面验收事项。
