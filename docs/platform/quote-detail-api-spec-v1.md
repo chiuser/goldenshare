@@ -375,7 +375,7 @@
 
 ### Query
 
-- `exchange?: SSE|SZSE`（默认 `SSE`）
+- `exchange?: string`（默认 `SSE`；服务端统一转为大写后查询）
 - `start_date: YYYY-MM-DD`
 - `end_date: YYYY-MM-DD`
 
