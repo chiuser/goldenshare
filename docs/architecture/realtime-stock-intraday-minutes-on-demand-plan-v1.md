@@ -1,6 +1,6 @@
 # 股票当日分时序列按需查询方案 v1
 
-状态：开盘初期真实验证已完成 / 午休、下午盘、收盘后待补测 / 待开发  
+状态：方案待开发 / 开盘初期真实验证已完成 / 午休、下午盘、收盘后补充验证待完成
 日期：2026-06-02  
 源接口文档：[Tushare 0457 A股实时分钟-日累计](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/行情数据/0457_A股实时分钟-日累计.md)  
 关联方案：[A股实时分钟流架构方案 v1](/Users/congming/github/goldenshare/docs/architecture/realtime-stock-minute-stream-architecture-v1.html)

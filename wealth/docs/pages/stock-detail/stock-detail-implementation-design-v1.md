@@ -10,6 +10,7 @@
 2. [股票详情页 M2 编码前门禁 v1](/Users/congming/github/goldenshare/wealth/docs/pages/stock-detail/stock-detail-m2-coding-gate-v1.md)
 3. [股票详情页真实 API 对接方案 v1](/Users/congming/github/goldenshare/wealth/docs/pages/stock-detail/stock-detail-real-api-stk-factor-pro-integration-plan-v1.html)
 4. [stk_factor_pro 数据覆盖审计 v1](/Users/congming/github/goldenshare/wealth/docs/pages/stock-detail/stk-factor-pro-data-coverage-audit-v1.md)
+5. [详情页指标动态纵轴与日线成交量展示技术方案 v1](/Users/congming/github/goldenshare/wealth/docs/system/detail-chart-indicator-visible-range-and-daily-volume-display-implementation-design-v1.md)
 
 ---
 

@@ -1,6 +1,6 @@
 # 分钟线数据集独立执行车道 LLD v1
 
-状态：已实现，待本地验证与生产验收  
+状态：已实现，待生产验收
 依据方案：[分钟线数据集独立执行车道方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-stk-mins-dedicated-worker-execution-lane-plan-v1.md)  
 更新时间：2026-08-20  
 适用范围：`stk_mins`、`index_mins` 的 Ops TaskRun 消费隔离

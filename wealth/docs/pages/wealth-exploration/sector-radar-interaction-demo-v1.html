@@ -1,0 +1,771 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>财势探查｜东财行业板块雷达交互 Demo v2</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #070b12;
+      --topbar: #0a1020;
+      --panel: #101827;
+      --panel-soft: #0d1422;
+      --card: #121b2c;
+      --card-hover: #182235;
+      --border: rgba(148, 163, 184, .22);
+      --border-soft: rgba(148, 163, 184, .14);
+      --gold: #f7c76b;
+      --gold-soft: rgba(247, 199, 107, .12);
+      --text: #e5eef9;
+      --secondary: #9ba8bc;
+      --muted: #64748b;
+      --up: #ff4d5a;
+      --down: #15c784;
+      --info: #5aa7ff;
+      --warning: #f59e0b;
+      --shadow: 0 16px 36px rgba(0, 0, 0, .24);
+      font-family: Inter, "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 1460px;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 14% -10%, rgba(90, 167, 255, .08), transparent 28%),
+        radial-gradient(circle at 88% 2%, rgba(247, 199, 107, .06), transparent 24%),
+        var(--bg);
+    }
+    button, select { font: inherit; }
+    button { color: inherit; }
+    button:focus-visible, select:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+    .num {
+      font-family: "DIN Alternate", "Roboto Mono", "SF Mono", monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .topbar {
+      height: 56px;
+      padding: 0 18px;
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      background: rgba(10, 16, 32, .96);
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 194px; }
+    .brand-mark {
+      width: 36px; height: 36px; border-radius: 10px;
+      display: grid; place-items: center;
+      color: #1a1408; font-weight: 900;
+      background: linear-gradient(145deg, #ffe0a1, #c8912e);
+      box-shadow: 0 0 24px rgba(247, 199, 107, .14);
+    }
+    .brand strong { display: block; font-size: 15px; }
+    .brand small { display: block; color: var(--secondary); font-size: 10px; margin-top: 2px; }
+    .nav { display: flex; align-items: stretch; height: 100%; gap: 4px; }
+    .nav span { padding: 0 14px; display: grid; place-items: center; color: var(--secondary); font-size: 13px; }
+    .nav .active { color: var(--gold); border-bottom: 2px solid var(--gold); background: var(--gold-soft); }
+    .ticker { margin-left: auto; color: var(--secondary); font-size: 12px; }
+    .ticker b { color: var(--up); margin-left: 8px; }
+
+    .shell { max-width: 1780px; margin: 0 auto; padding: 14px 18px 32px; }
+    .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 12px; }
+    .page-head h1 { font-size: 24px; margin: 0 0 5px; letter-spacing: .02em; }
+    .page-head p { margin: 0; color: var(--secondary); font-size: 13px; }
+    .page-meta { display: flex; align-items: center; gap: 10px; }
+    .demo-badge, .date-badge {
+      height: 30px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px;
+      display: inline-flex; align-items: center; color: var(--secondary); background: var(--panel-soft); font-size: 12px;
+    }
+    .demo-badge { color: var(--warning); border-color: rgba(245, 158, 11, .36); }
+    select {
+      height: 30px; padding: 0 28px 0 10px; color: var(--secondary);
+      border: 1px solid var(--border); border-radius: 8px; background: var(--panel-soft);
+    }
+
+    .delay-banner {
+      display: none; align-items: center; justify-content: space-between; gap: 16px;
+      min-height: 42px; padding: 9px 12px; margin-bottom: 12px;
+      border: 1px solid rgba(245, 158, 11, .38); border-radius: 10px;
+      color: #f7d795; background: rgba(245, 158, 11, .08); font-size: 13px;
+    }
+    .delay-banner.show { display: flex; }
+    .delay-banner small { color: var(--secondary); }
+
+    .panel {
+      background: rgba(16, 24, 39, .94); border: 1px solid var(--border-soft);
+      border-radius: 12px; box-shadow: var(--shadow);
+    }
+    .context-bar {
+      min-height: 62px; padding: 10px 14px; margin-bottom: 12px;
+      display: flex; align-items: center; justify-content: space-between; gap: 20px;
+    }
+    .drill-path { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .drill-path button {
+      height: 30px; max-width: 220px; padding: 0 10px; border: 1px solid transparent; border-radius: 7px;
+      color: var(--secondary); background: transparent; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .drill-path button:hover { color: var(--text); background: var(--card-hover); border-color: var(--border-soft); }
+    .drill-path button.current { color: var(--gold); background: var(--gold-soft); border-color: rgba(247, 199, 107, .28); }
+    .drill-path i { color: var(--muted); font-style: normal; }
+    .context-meta { color: var(--muted); font-size: 11px; text-align: right; }
+
+    .layout { display: grid; grid-template-columns: minmax(820px, 1.55fr) minmax(420px, .72fr); gap: 12px; margin-bottom: 12px; }
+    .panel-head {
+      min-height: 54px; padding: 11px 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .panel-title strong { display: block; font-size: 14px; }
+    .panel-title small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
+    .metric-tabs { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+    .metric-tabs button {
+      height: 28px; padding: 0 9px; border: 1px solid var(--border); border-radius: 7px;
+      color: var(--secondary); background: var(--panel-soft); cursor: pointer; font-size: 11px;
+    }
+    .metric-tabs button:hover { color: var(--text); background: var(--card-hover); }
+    .metric-tabs button.active { color: var(--gold); border-color: rgba(247, 199, 107, .5); background: var(--gold-soft); }
+
+    .controls {
+      min-height: 48px; padding: 8px 14px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .control-group { display: flex; align-items: center; gap: 7px; }
+    .control-label { color: var(--muted); font-size: 11px; }
+    .segment { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--panel-soft); }
+    .segment button {
+      min-width: 55px; height: 30px; padding: 0 9px; border: 0; border-right: 1px solid var(--border-soft);
+      background: transparent; color: var(--secondary); cursor: pointer; font-size: 12px;
+    }
+    .segment button:last-child { border-right: 0; }
+    .segment button:hover { background: var(--card-hover); color: var(--text); }
+    .segment button.active { color: var(--gold); background: var(--gold-soft); box-shadow: inset 0 0 0 1px rgba(247, 199, 107, .2); }
+    .segment button:disabled { cursor: default; color: var(--muted); opacity: .45; }
+    .scope-control[hidden] { display: none; }
+    .control-note { margin-left: auto; color: var(--muted); font-size: 11px; }
+
+    .table-wrap { height: 486px; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    thead { position: sticky; top: 0; z-index: 2; background: #101827; }
+    th { height: 36px; color: var(--muted); font-size: 11px; font-weight: 500; text-align: right; border-bottom: 1px solid var(--border-soft); }
+    th:first-child, th:nth-child(2) { text-align: left; }
+    th:first-child { width: 58px; padding-left: 14px; }
+    th:nth-child(2) { width: 220px; }
+    th:last-child { width: 96px; padding-right: 14px; }
+    td { height: 46px; text-align: right; font-size: 12px; border-bottom: 1px solid rgba(148, 163, 184, .08); }
+    td:first-child { text-align: left; padding-left: 14px; color: var(--muted); }
+    td:nth-child(2) { text-align: left; }
+    td:last-child { padding-right: 14px; }
+    tbody tr { cursor: pointer; }
+    tbody tr:hover { background: var(--card-hover); }
+    tbody tr.selected { background: rgba(247, 199, 107, .07); box-shadow: inset 2px 0 var(--gold); }
+    .sector-name { display: block; color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sector-code { display: block; color: var(--muted); font-size: 10px; margin-top: 3px; }
+    .up { color: var(--up); }
+    .down { color: var(--down); }
+    .heat-cell { display: inline-flex; align-items: center; justify-content: flex-end; gap: 7px; }
+    .heat-bar { width: 56px; height: 4px; overflow: hidden; border-radius: 9px; background: rgba(148, 163, 184, .12); }
+    .heat-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #d99f3f, #ff6a4c); }
+    .drill-action { color: var(--gold); font-size: 11px; }
+    .view-action { color: var(--secondary); font-size: 11px; }
+
+    .detail { min-height: 590px; }
+    .detail-body { padding: 14px; }
+    .identity { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+    .identity h2 { margin: 0; font-size: 19px; }
+    .identity p { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+    .heat-pill { padding: 6px 9px; border-radius: 8px; color: #f7d795; background: rgba(245, 158, 11, .11); border: 1px solid rgba(245, 158, 11, .28); font-size: 11px; }
+    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .metric-card { min-height: 74px; padding: 10px; border: 1px solid var(--border-soft); border-radius: 10px; background: var(--card); }
+    .metric-card span { display: block; color: var(--muted); font-size: 10px; }
+    .metric-card strong { display: block; margin-top: 8px; font-size: 19px; }
+    .metric-card small { display: block; margin-top: 4px; color: var(--secondary); font-size: 10px; }
+    .explain { padding: 12px; border-radius: 10px; background: var(--panel-soft); border: 1px solid var(--border-soft); }
+    .explain h3 { margin: 0 0 8px; font-size: 12px; }
+    .explain ul { margin: 0; padding: 0 0 0 18px; color: var(--secondary); font-size: 11px; line-height: 1.9; }
+    .scope-note { margin-top: 10px; padding: 9px 10px; border-left: 2px solid var(--info); color: var(--secondary); background: rgba(90, 167, 255, .06); font-size: 11px; line-height: 1.65; }
+
+    .trend-panel { overflow: hidden; }
+    .trend-controls { padding: 10px 14px; border-bottom: 1px solid var(--border-soft); display: flex; align-items: center; gap: 18px; }
+    .trend-context { margin-left: auto; display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; }
+    .research-badge { padding: 4px 7px; border: 1px solid rgba(90, 167, 255, .28); border-radius: 6px; color: #8bc0ff; background: rgba(90, 167, 255, .07); }
+    .chart-area { padding: 14px 16px 16px; }
+    .chart-summary { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+    .chart-summary h2 { margin: 0; font-size: 18px; }
+    .chart-summary p { margin: 5px 0 0; color: var(--secondary); font-size: 11px; }
+    .chart-value { text-align: right; }
+    .chart-value strong { display: block; color: var(--gold); font-size: 26px; }
+    .chart-value span { color: var(--secondary); font-size: 10px; }
+    .chart-shell { position: relative; height: 330px; border: 1px solid var(--border-soft); border-radius: 10px; background: var(--panel-soft); overflow: hidden; }
+    #trendChart { width: 100%; height: 100%; display: block; }
+    .chart-tooltip {
+      position: absolute; display: none; pointer-events: none; min-width: 164px; padding: 8px 9px;
+      border: 1px solid var(--border); border-radius: 8px; background: rgba(7, 11, 18, .96);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, .38); font-size: 10px; line-height: 1.7;
+    }
+    .chart-tooltip.show { display: block; }
+    .chart-tooltip b { color: var(--gold); }
+    .chart-foot { display: flex; justify-content: space-between; gap: 14px; margin-top: 9px; color: var(--muted); font-size: 10px; }
+    .trend-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 11px; }
+    .trend-metrics .metric-card { min-height: 66px; }
+    .trend-metrics .metric-card strong { font-size: 16px; }
+
+    .footer-note { margin-top: 12px; color: var(--muted); font-size: 10px; text-align: center; }
+    .toast {
+      position: fixed; right: 22px; bottom: 22px; z-index: 10; transform: translateY(18px); opacity: 0;
+      padding: 10px 12px; color: var(--text); background: #172033; border: 1px solid var(--border); border-radius: 9px;
+      box-shadow: var(--shadow); font-size: 11px; transition: .16s ease; pointer-events: none;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark">乾</div><div><strong>财势乾坤</strong><small>GOLDENSHARE WEALTH</small></div></div>
+    <nav class="nav" aria-label="系统导航"><span>乾坤行情</span><span class="active">财势探查</span><span>交易助手</span><span>交易训练</span><span>数据中心</span></nav>
+    <div class="ticker">上证指数 <b class="num">+0.62%</b></div>
+  </header>
+
+  <main class="shell">
+    <div class="page-head">
+      <div><h1>板块雷达 · 东财行业</h1><p>从一级行业总榜开始，沿父子层级下钻，跟踪行业横截面位置与自身趋势</p></div>
+      <div class="page-meta">
+        <span class="demo-badge">交互 Demo · 演示数据</span>
+        <span class="date-badge num" id="dateBadge">数据日期 2026-08-20</span>
+        <label><select id="stateSelect" aria-label="演示数据状态"><option value="ready">Ready</option><option value="delayed">Delayed</option></select></label>
+      </div>
+    </div>
+
+    <div class="delay-banner" id="delayBanner">
+      <span>当前展示 <b class="num">2026-08-19</b> 盘后数据</span>
+      <small>期望交易日 2026-08-20，来源尚未完成更新；页面保留最近完整事实，不混用跨日数据。</small>
+    </div>
+
+    <section class="panel context-bar" aria-label="行业层级路径">
+      <div class="drill-path" id="drillPath"></div>
+      <div class="context-meta" id="contextMeta">默认范围：全部一级行业</div>
+    </section>
+
+    <section class="layout">
+      <article class="panel ranking-panel">
+        <div class="panel-head">
+          <div class="panel-title"><strong id="rankTitle">一级行业总榜</strong><small id="rankSubtitle">1日榜 · 全部一级行业 · 今日热度</small></div>
+          <div class="metric-tabs" id="metricTabs" aria-label="榜单指标">
+            <button class="active" data-metric="heat">今日热度</button>
+            <button data-metric="price">价格强度</button>
+            <button data-metric="activity">成交活跃</button>
+          </div>
+        </div>
+        <div class="controls">
+          <div class="control-group"><span class="control-label">榜单周期</span><div class="segment" data-control="period"><button class="active" data-value="1">1日</button><button data-value="5">5日</button><button data-value="10">10日</button><button data-value="20">20日</button><button data-value="30">30日</button></div></div>
+          <div class="control-group scope-control" id="scopeControl" hidden><span class="control-label">榜单范围</span><div class="segment" data-control="scope"><button class="active" data-value="parent">当前父级</button><button data-value="all">全市场同级</button></div></div>
+          <span class="control-note" id="periodRule">1日展示当前范围的当日完整排名</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr id="rankHead"></tr></thead>
+            <tbody id="rankBody"></tbody>
+          </table>
+        </div>
+      </article>
+
+      <aside class="panel detail">
+        <div class="panel-head"><div class="panel-title"><strong>当前行业</strong><small>点击一级或二级行业直接进入下一层子行业榜</small></div><span class="date-badge" id="detailLevel">东财一级</span></div>
+        <div class="detail-body">
+          <div class="identity"><div><h2 id="detailName">电子</h2><p class="num" id="detailCode">BK0459.DC · 数据日期 2026-08-20</p></div><span class="heat-pill" id="detailTrend">逐渐转热</span></div>
+          <div class="metrics">
+            <div class="metric-card"><span>今日热度</span><strong class="num" id="detailHeat">82.6</strong><small>横截面候选值</small></div>
+            <div class="metric-card"><span>今日涨跌幅</span><strong class="num up" id="detailChange">+2.84%</strong><small id="detailRank">一级行业第 1 / 31</small></div>
+            <div class="metric-card"><span>成交活跃度</span><strong class="num" id="detailActivity">76.2</strong><small>相对自身近期事实</small></div>
+            <div class="metric-card"><span id="detailPeriodLabel">1日排名</span><strong class="num" id="detailPeriodValue">1 / 31</strong><small id="detailPeriodNote">当前比较范围</small></div>
+          </div>
+          <div class="explain"><h3>当前解释</h3><ul id="detailExplain"></ul></div>
+          <div class="scope-note" id="detailScopeNote">一级行业之间具备直接横向比较意义。进入行业后，默认只比较该父行业的直接子行业；全市场同级榜保留为辅助研究入口。</div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="panel trend-panel">
+      <div class="panel-head">
+        <div class="panel-title"><strong>当前行业趋势</strong><small>趋势绑定当前选中行业，不再提供脱离层级路径的全市场趋势候选榜</small></div>
+        <div class="metric-tabs" id="seriesTabs" aria-label="趋势指标"><button class="active" data-series="heat">自身热度状态</button><button data-series="price">价格强度</button><button data-series="activity">成交活跃</button></div>
+      </div>
+      <div class="trend-controls">
+        <div class="control-group"><span class="control-label">图表范围</span><div class="segment" data-control="range"><button data-value="20">20日</button><button data-value="30">30日</button><button class="active" data-value="60">60日</button></div></div>
+        <div class="trend-context"><span>趋势判断固定观察最近10日</span><span class="research-badge">历史基线待回测，不向用户开放</span></div>
+      </div>
+      <div class="chart-area">
+        <div class="chart-summary"><div><h2 id="chartTitle">电子 · 自身热度状态</h2><p id="chartMeta">展示最近60个交易日；曲线为交互示意，正式历史基线与信号阈值等待量化回测。</p></div><div class="chart-value"><strong class="num" id="chartValue">82.6</strong><span id="chartState">逐渐转热</span></div></div>
+        <div class="chart-shell" id="chartShell"><svg id="trendChart" role="img" aria-label="行业趋势曲线演示"></svg><div class="chart-tooltip" id="chartTooltip"></div></div>
+        <div class="chart-foot"><span>历史不足时只显示已有交易日，不补零、不前向填充。</span><span>图表范围只改变可视点数，不改变信号模型。</span></div>
+        <div class="trend-metrics">
+          <div class="metric-card"><span>近10日趋势斜率</span><strong class="num up" id="slopeValue">+1.28</strong><small>固定研究窗口</small></div>
+          <div class="metric-card"><span>近10日单调率</span><strong class="num" id="monoValue">66.7%</strong><small>同方向变化占比</small></div>
+          <div class="metric-card"><span>近10日拟合度</span><strong class="num" id="fitValue">0.72</strong><small>R² 候选事实</small></div>
+          <div class="metric-card"><span>近10日最大回撤</span><strong class="num down" id="pullbackValue">-6.4</strong><small>不是收益预测</small></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer-note">本文件只用于产品交互评审。行业、排名、热度和趋势数值均为演示数据，不连接生产 API，不构成正式产品契约或投资建议。</div>
+  </main>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const hierarchy = [
+      { id: "electronics", name: "电子", code: "BK0459.DC", level: 1, seed: 11, children: [
+        { id: "semiconductor", name: "半导体", code: "BK1036.DC", level: 2, seed: 21, children: [
+          { id: "analog-chip", name: "模拟芯片设计", code: "BK1381.DC", level: 3, seed: 31 },
+          { id: "digital-chip", name: "数字芯片设计", code: "BK1382.DC", level: 3, seed: 32 },
+          { id: "packaging-test", name: "集成电路封测", code: "BK1383.DC", level: 3, seed: 33 }
+        ]},
+        { id: "consumer-electronics", name: "消费电子", code: "BK1046.DC", level: 2, seed: 22, children: [
+          { id: "components", name: "消费电子组件", code: "BK1391.DC", level: 3, seed: 34 },
+          { id: "brand-oem", name: "品牌消费电子", code: "BK1392.DC", level: 3, seed: 35 },
+          { id: "optics", name: "光学元件", code: "BK1393.DC", level: 3, seed: 36 }
+        ]},
+        { id: "electronic-chemicals", name: "电子化学品", code: "BK1052.DC", level: 2, seed: 23, children: [
+          { id: "panel-material", name: "面板材料", code: "BK1401.DC", level: 3, seed: 37 },
+          { id: "semiconductor-material", name: "半导体材料", code: "BK1402.DC", level: 3, seed: 38 },
+          { id: "electronic-gas", name: "电子特气", code: "BK1403.DC", level: 3, seed: 39 }
+        ]}
+      ]},
+      { id: "nonferrous", name: "有色金属", code: "BK0478.DC", level: 1, seed: 12, children: [
+        { id: "industrial-metal", name: "工业金属", code: "BK1104.DC", level: 2, seed: 24, children: [
+          { id: "copper", name: "铜产业", code: "BK1412.DC", level: 3, seed: 40 },
+          { id: "aluminum", name: "铝产业", code: "BK1413.DC", level: 3, seed: 41 },
+          { id: "lead-zinc", name: "铅锌产业", code: "BK1414.DC", level: 3, seed: 42 }
+        ]},
+        { id: "precious-metal", name: "贵金属", code: "BK1105.DC", level: 2, seed: 25, children: [
+          { id: "gold", name: "黄金", code: "BK1415.DC", level: 3, seed: 43 },
+          { id: "silver", name: "白银", code: "BK1416.DC", level: 3, seed: 44 },
+          { id: "precious-service", name: "贵金属服务", code: "BK1417.DC", level: 3, seed: 45 }
+        ]},
+        { id: "energy-metal", name: "能源金属", code: "BK1106.DC", level: 2, seed: 26, children: [
+          { id: "lithium", name: "锂资源", code: "BK1418.DC", level: 3, seed: 46 },
+          { id: "nickel", name: "镍资源", code: "BK1419.DC", level: 3, seed: 47 },
+          { id: "cobalt", name: "钴资源", code: "BK1420.DC", level: 3, seed: 48 }
+        ]}
+      ]},
+      { id: "communication", name: "通信", code: "BK0486.DC", level: 1, seed: 13, children: [
+        { id: "communication-equipment", name: "通信设备", code: "BK1085.DC", level: 2, seed: 27, children: [
+          { id: "optical-module", name: "光模块", code: "BK1376.DC", level: 3, seed: 49 },
+          { id: "network-equipment", name: "网络设备", code: "BK1421.DC", level: 3, seed: 50 },
+          { id: "wireless-equipment", name: "无线设备", code: "BK1422.DC", level: 3, seed: 51 }
+        ]},
+        { id: "communication-service", name: "通信服务", code: "BK1086.DC", level: 2, seed: 28, children: [
+          { id: "operator", name: "通信运营", code: "BK1423.DC", level: 3, seed: 52 },
+          { id: "value-added", name: "增值服务", code: "BK1424.DC", level: 3, seed: 53 },
+          { id: "cloud-communication", name: "云通信", code: "BK1425.DC", level: 3, seed: 54 }
+        ]},
+        { id: "satellite", name: "卫星通信", code: "BK1087.DC", level: 2, seed: 29, children: [
+          { id: "satellite-manufacture", name: "卫星制造", code: "BK1426.DC", level: 3, seed: 55 },
+          { id: "satellite-application", name: "卫星应用", code: "BK1427.DC", level: 3, seed: 56 },
+          { id: "ground-equipment", name: "地面设备", code: "BK1428.DC", level: 3, seed: 57 }
+        ]}
+      ]},
+      { id: "machinery", name: "机械设备", code: "BK0544.DC", level: 1, seed: 14, children: [
+        { id: "automation", name: "自动化设备", code: "BK1068.DC", level: 2, seed: 30, children: [
+          { id: "robot", name: "机器人", code: "BK1254.DC", level: 3, seed: 58 },
+          { id: "industrial-control", name: "工控设备", code: "BK1429.DC", level: 3, seed: 59 },
+          { id: "laser-equipment", name: "激光设备", code: "BK1430.DC", level: 3, seed: 60 }
+        ]},
+        { id: "general-equipment", name: "通用设备", code: "BK1069.DC", level: 2, seed: 61, children: [
+          { id: "machine-tool", name: "机床工具", code: "BK1431.DC", level: 3, seed: 62 },
+          { id: "components-general", name: "机械基础件", code: "BK1432.DC", level: 3, seed: 63 },
+          { id: "refrigeration", name: "制冷设备", code: "BK1433.DC", level: 3, seed: 64 }
+        ]},
+        { id: "special-equipment", name: "专用设备", code: "BK1070.DC", level: 2, seed: 65, children: [
+          { id: "energy-equipment", name: "能源设备", code: "BK1434.DC", level: 3, seed: 66 },
+          { id: "construction-machinery", name: "工程机械", code: "BK1435.DC", level: 3, seed: 67 },
+          { id: "rail-equipment", name: "轨交设备", code: "BK1436.DC", level: 3, seed: 68 }
+        ]}
+      ]},
+      { id: "automobile", name: "汽车", code: "BK0481.DC", level: 1, seed: 15, children: [
+        { id: "auto-parts", name: "汽车零部件", code: "BK1029.DC", level: 2, seed: 69, children: [
+          { id: "auto-electronics", name: "汽车电子", code: "BK1335.DC", level: 3, seed: 70 },
+          { id: "chassis", name: "底盘系统", code: "BK1437.DC", level: 3, seed: 71 },
+          { id: "interior", name: "汽车内饰", code: "BK1438.DC", level: 3, seed: 72 }
+        ]},
+        { id: "passenger-car", name: "乘用车", code: "BK1030.DC", level: 2, seed: 73, children: [
+          { id: "new-energy-car", name: "新能源乘用车", code: "BK1439.DC", level: 3, seed: 74 },
+          { id: "traditional-car", name: "传统乘用车", code: "BK1440.DC", level: 3, seed: 75 },
+          { id: "auto-service", name: "汽车服务", code: "BK1441.DC", level: 3, seed: 76 }
+        ]},
+        { id: "commercial-car", name: "商用车", code: "BK1031.DC", level: 2, seed: 77, children: [
+          { id: "truck", name: "商用载货车", code: "BK1442.DC", level: 3, seed: 78 },
+          { id: "bus", name: "商用客车", code: "BK1443.DC", level: 3, seed: 79 },
+          { id: "special-car", name: "专用车辆", code: "BK1444.DC", level: 3, seed: 80 }
+        ]}
+      ]},
+      { id: "defense", name: "国防军工", code: "BK0490.DC", level: 1, seed: 16, children: [
+        { id: "defense-electronics", name: "军工电子", code: "BK1157.DC", level: 2, seed: 81, children: [
+          { id: "defense-information", name: "军工信息化", code: "BK1452.DC", level: 3, seed: 82 },
+          { id: "defense-components", name: "军工元器件", code: "BK1453.DC", level: 3, seed: 83 },
+          { id: "defense-material", name: "军工材料", code: "BK1454.DC", level: 3, seed: 84 }
+        ]},
+        { id: "aerospace", name: "航空航天", code: "BK1158.DC", level: 2, seed: 85, children: [
+          { id: "aircraft", name: "航空装备", code: "BK1455.DC", level: 3, seed: 86 },
+          { id: "spacecraft", name: "航天装备", code: "BK1456.DC", level: 3, seed: 87 },
+          { id: "engine", name: "航空发动机", code: "BK1457.DC", level: 3, seed: 88 }
+        ]},
+        { id: "naval", name: "船舶装备", code: "BK1159.DC", level: 2, seed: 89, children: [
+          { id: "ship-manufacture", name: "船舶制造", code: "BK1458.DC", level: 3, seed: 90 },
+          { id: "marine-system", name: "海洋系统", code: "BK1459.DC", level: 3, seed: 91 },
+          { id: "naval-support", name: "船舶配套", code: "BK1460.DC", level: 3, seed: 92 }
+        ]}
+      ]}
+    ];
+
+    const state = {
+      path: [],
+      selectedId: "communication",
+      period: 1,
+      scope: "parent",
+      metric: "heat",
+      range: 60,
+      series: "heat",
+      delayed: false
+    };
+    const metricLabels = { heat: "今日热度", price: "价格强度", activity: "成交活跃" };
+    const seriesLabels = { heat: "自身热度状态", price: "价格强度", activity: "成交活跃" };
+    const hitThreshold = { 5: 3, 10: 5, 20: 10, 30: 15 };
+
+    function flatten(nodes, parents = [], result = []) {
+      nodes.forEach(node => {
+        result.push({ node, parents });
+        if (node.children) flatten(node.children, [...parents, node], result);
+      });
+      return result;
+    }
+
+    const flat = flatten(hierarchy);
+
+    function pathFor(id) {
+      const match = flat.find(entry => entry.node.id === id);
+      return match ? [...match.parents, match.node] : [];
+    }
+
+    function nodeFor(id) {
+      return flat.find(entry => entry.node.id === id)?.node || hierarchy[0];
+    }
+
+    function allAtLevel(level) {
+      return flat.filter(entry => entry.node.level === level).map(entry => entry.node);
+    }
+
+    function listLevel() {
+      if (state.path.length === 0) return 1;
+      return Math.min(3, state.path.length + 1);
+    }
+
+    function listNodes() {
+      const level = listLevel();
+      if (level === 1 || state.scope === "all") return allAtLevel(level);
+      const parent = level === 2 ? state.path[0] : state.path[1];
+      return parent?.children || [];
+    }
+
+    function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+
+    function stats(node) {
+      const levelOffset = (node.level - 1) * 1.4;
+      const heat = clamp(86 - ((node.seed * 7) % 29) - levelOffset + Math.sin(node.seed) * 2.7, 38, 92);
+      const change = clamp(3.4 - ((node.seed * 5) % 41) / 10 + Math.cos(node.seed) * .35, -2.8, 3.8);
+      const activity = clamp(88 - ((node.seed * 11) % 43) + Math.sin(node.seed * .7) * 3.2, 36, 94);
+      const trend = heat >= 76 ? "逐渐转热" : heat >= 63 ? "温和改善" : heat >= 52 ? "高位整理" : "尚未形成趋势";
+      return { heat, change, activity, trend };
+    }
+
+    function rankedRows() {
+      const nodes = listNodes();
+      const key = state.metric === "price" ? "change" : state.metric === "activity" ? "activity" : "heat";
+      const base = nodes.map(node => ({ ...node, ...stats(node) })).sort((a, b) => b[key] - a[key]);
+      if (state.period === 1) return base.map((item, index) => ({ ...item, rank: index + 1 }));
+      return base.map((item, index) => {
+        const quality = 1 - index / Math.max(1, base.length);
+        const hits = clamp(Math.round(state.period * (.28 + quality * .52 + (item.seed % 3) * .025)), 1, state.period);
+        const avgRank = clamp(index + 1 + ((item.seed % 5) - 2) * .35, 1, base.length);
+        return { ...item, hits, hitRate: hits / state.period, avgRank };
+      }).sort((a, b) => b.hits - a.hits || a.avgRank - b.avgRank).map((item, index) => ({ ...item, rank: index + 1 }));
+    }
+
+    function levelName(level) { return ["", "一级", "二级", "三级"][level]; }
+
+    function scopeDescription() {
+      const level = listLevel();
+      if (level === 1) return "全部一级行业";
+      if (state.scope === "all") return `全市场${levelName(level)}行业`;
+      const parent = level === 2 ? state.path[0] : state.path[1];
+      return `${parent.name}直属${levelName(level)}行业`;
+    }
+
+    function setActive(group, value) {
+      document.querySelectorAll(`[data-control="${group}"] button`).forEach(button => button.classList.toggle("active", button.dataset.value === String(value)));
+    }
+
+    function renderPath() {
+      const rootCurrent = state.path.length === 0;
+      const parts = [`<button class="${rootCurrent ? "current" : ""}" data-path-index="-1">东财一级行业总榜</button>`];
+      state.path.forEach((node, index) => {
+        parts.push(`<i>›</i><button class="${index === state.path.length - 1 ? "current" : ""}" data-path-index="${index}" title="${node.name}">${node.name}</button>`);
+      });
+      document.getElementById("drillPath").innerHTML = parts.join("");
+      document.getElementById("drillPath").querySelectorAll("button").forEach(button => button.addEventListener("click", () => navigatePath(Number(button.dataset.pathIndex))));
+      document.getElementById("contextMeta").textContent = `${scopeDescription()} · ${listNodes().length} 个演示行业`;
+    }
+
+    function navigatePath(index) {
+      if (index < 0) {
+        state.path = [];
+        state.selectedId = "communication";
+      } else {
+        state.path = state.path.slice(0, index + 1);
+        state.selectedId = state.path.at(-1).id;
+      }
+      state.scope = "parent";
+      setActive("scope", "parent");
+      renderAll();
+    }
+
+    function renderContext() {
+      document.getElementById("dateBadge").textContent = `数据日期 ${state.delayed ? "2026-08-19" : "2026-08-20"}`;
+      document.getElementById("delayBanner").classList.toggle("show", state.delayed);
+      const scopeControl = document.getElementById("scopeControl");
+      scopeControl.hidden = listLevel() === 1;
+      document.getElementById("rankTitle").textContent = listLevel() === 1 ? "一级行业总榜" : `${scopeDescription()}榜`;
+      document.getElementById("rankSubtitle").textContent = `${state.period}日榜 · ${scopeDescription()} · ${metricLabels[state.metric]}`;
+      document.getElementById("periodRule").textContent = state.period === 1
+        ? "1日展示当前范围的当日完整排名"
+        : `${state.period}日统计每日前20%命中次数；候选门槛为至少${hitThreshold[state.period]}日`;
+      renderPath();
+    }
+
+    function renderTable() {
+      const rows = rankedRows();
+      const head = document.getElementById("rankHead");
+      head.innerHTML = state.period === 1
+        ? "<th>排名</th><th>行业</th><th>今日热度</th><th>涨跌幅</th><th>成交活跃</th><th>操作</th>"
+        : `<th>排名</th><th>行业</th><th>${state.period}日命中</th><th>命中率</th><th>上榜日均名次</th><th>今日热度</th>`;
+      document.getElementById("rankBody").innerHTML = rows.map(item => {
+        if (state.period === 1) {
+          return `<tr data-id="${item.id}" class="${item.id === state.selectedId ? "selected" : ""}">
+            <td class="num">${String(item.rank).padStart(2, "0")}</td>
+            <td><span class="sector-name" title="${item.name}">${item.name}</span><span class="sector-code num">${item.code}</span></td>
+            <td><span class="heat-cell"><span class="heat-bar"><i style="width:${item.heat}%"></i></span><b class="num">${item.heat.toFixed(1)}</b></span></td>
+            <td class="num ${item.change >= 0 ? "up" : "down"}">${item.change >= 0 ? "+" : ""}${item.change.toFixed(2)}%</td>
+            <td class="num">${item.activity.toFixed(1)}</td>
+            <td><span class="${item.level < 3 ? "drill-action" : "view-action"}">${item.level < 3 ? `下钻${levelName(item.level + 1)}` : "查看详情"}</span></td>
+          </tr>`;
+        }
+        return `<tr data-id="${item.id}" class="${item.id === state.selectedId ? "selected" : ""}">
+          <td class="num">${String(item.rank).padStart(2, "0")}</td>
+          <td><span class="sector-name" title="${item.name}">${item.name}</span><span class="sector-code num">${item.code}</span></td>
+          <td class="num">${item.hits} / ${state.period}</td>
+          <td class="num">${(item.hitRate * 100).toFixed(0)}%</td>
+          <td class="num">${item.avgRank.toFixed(1)}</td>
+          <td><span class="heat-cell"><span class="heat-bar"><i style="width:${item.heat}%"></i></span><b class="num">${item.heat.toFixed(1)}</b></span></td>
+        </tr>`;
+      }).join("");
+      document.getElementById("rankBody").querySelectorAll("tr").forEach(row => row.addEventListener("click", () => selectNode(row.dataset.id)));
+    }
+
+    function selectNode(id) {
+      const node = nodeFor(id);
+      state.selectedId = id;
+      if (node.level < 3) {
+        const fullPath = pathFor(id);
+        state.path = fullPath;
+        state.scope = "parent";
+        setActive("scope", "parent");
+      } else {
+        state.path = pathFor(id);
+      }
+      renderAll();
+    }
+
+    function ownRankInfo(node) {
+      const path = pathFor(node.id);
+      const peers = node.level === 1 ? hierarchy : path[node.level - 2].children;
+      const key = state.metric === "price" ? "change" : state.metric === "activity" ? "activity" : "heat";
+      let rows = peers.map(peer => ({ ...peer, ...stats(peer) })).sort((a, b) => b[key] - a[key]);
+      if (state.period > 1) {
+        rows = rows.map((item, index) => {
+          const quality = 1 - index / Math.max(1, rows.length);
+          const hits = clamp(Math.round(state.period * (.28 + quality * .52 + (item.seed % 3) * .025)), 1, state.period);
+          const avgRank = clamp(index + 1 + ((item.seed % 5) - 2) * .35, 1, rows.length);
+          return { ...item, hits, hitRate: hits / state.period, avgRank };
+        }).sort((a, b) => b.hits - a.hits || a.avgRank - b.avgRank);
+      }
+      const index = rows.findIndex(item => item.id === node.id);
+      const scope = node.level === 1 ? "全部一级行业" : `${path[node.level - 2].name}直属${levelName(node.level)}行业`;
+      return { rank: index + 1, total: rows.length, item: rows[index], scope };
+    }
+
+    function renderDetail() {
+      const node = nodeFor(state.selectedId);
+      const value = stats(node);
+      const rankInfo = ownRankInfo(node);
+      const currentDate = state.delayed ? "2026-08-19" : "2026-08-20";
+      document.getElementById("detailLevel").textContent = `东财${levelName(node.level)}`;
+      document.getElementById("detailName").textContent = node.name;
+      document.getElementById("detailCode").textContent = `${node.code} · 数据日期 ${currentDate}`;
+      document.getElementById("detailTrend").textContent = value.trend;
+      document.getElementById("detailHeat").textContent = value.heat.toFixed(1);
+      const changeEl = document.getElementById("detailChange");
+      changeEl.textContent = `${value.change >= 0 ? "+" : ""}${value.change.toFixed(2)}%`;
+      changeEl.classList.toggle("up", value.change >= 0);
+      changeEl.classList.toggle("down", value.change < 0);
+      document.getElementById("detailActivity").textContent = value.activity.toFixed(1);
+      document.getElementById("detailRank").textContent = `${rankInfo.scope}第 ${rankInfo.rank} / ${rankInfo.total}`;
+      document.getElementById("detailPeriodLabel").textContent = state.period === 1 ? "1日排名" : `${state.period}日上榜`;
+      document.getElementById("detailPeriodValue").textContent = state.period === 1
+        ? `${rankInfo.rank} / ${rankInfo.total}`
+        : `${rankInfo.item.hits} / ${state.period}`;
+      document.getElementById("detailPeriodNote").textContent = state.period === 1 ? rankInfo.scope : "窗口命中，不要求连续";
+      const childText = node.level < 3 ? `点击该行业后，榜单已切换为其直属${levelName(node.level + 1)}行业。` : "三级行业为当前层级终点，本轮不继续扩展新的页面能力。";
+      document.getElementById("detailExplain").innerHTML = `<li>${metricLabels[state.metric]}处于“${rankInfo.scope}”第 ${rankInfo.rank} 位。</li><li>成交和价格只作为盘后客观事实，不输出买卖建议。</li><li>${childText}</li>`;
+      document.getElementById("detailScopeNote").textContent = node.level === 1
+        ? "一级行业之间具备直接横向比较意义。进入行业后，默认只比较该父行业的直接子行业；全市场同级榜保留为辅助研究入口。"
+        : `当前路径：${pathFor(node.id).map(item => item.name).join(" > ")}。趋势和详情始终绑定当前行业，不因切换全市场同级榜而混淆对象。`;
+    }
+
+    function tradingDates(count) {
+      const values = [];
+      const date = new Date("2026-08-20T00:00:00");
+      while (values.length < count) {
+        if (date.getDay() !== 0 && date.getDay() !== 6) values.unshift(`${date.getMonth() + 1}/${date.getDate()}`);
+        date.setDate(date.getDate() - 1);
+      }
+      return values;
+    }
+
+    function seriesValues(count) {
+      const node = nodeFor(state.selectedId);
+      const value = stats(node);
+      const anchor = state.series === "price" ? 49 + value.change * 3.2 : state.series === "activity" ? value.activity - 10 : value.heat - 17;
+      const amplitude = state.series === "activity" ? 8.5 : 5.6;
+      const raw = Array.from({ length: count + 24 }, (_, index) => {
+        const rise = index * (state.series === "price" ? .19 : state.series === "activity" ? .11 : .17);
+        const wave = Math.sin(index * .31 + node.seed * .21) * amplitude + Math.sin(index * .09 + node.seed) * 3.4;
+        return clamp(anchor + rise + wave, 10, 96);
+      });
+      const smooth = [];
+      raw.forEach((point, index) => smooth.push(index === 0 ? point : .3 * point + .7 * smooth[index - 1]));
+      return smooth.slice(-count);
+    }
+
+    function drawChart() {
+      const svg = document.getElementById("trendChart");
+      const width = svg.clientWidth || 1200;
+      const height = svg.clientHeight || 330;
+      const pad = { left: 42, right: 20, top: 22, bottom: 34 };
+      const values = seriesValues(state.range);
+      const dates = tradingDates(state.range);
+      const min = Math.max(0, Math.floor((Math.min(...values) - 8) / 10) * 10);
+      const max = Math.min(100, Math.ceil((Math.max(...values) + 8) / 10) * 10);
+      const x = index => pad.left + index * (width - pad.left - pad.right) / (values.length - 1 || 1);
+      const y = point => pad.top + (max - point) * (height - pad.top - pad.bottom) / (max - min || 1);
+      const grid = Array.from({ length: 5 }, (_, index) => {
+        const tick = min + (max - min) * index / 4;
+        const yy = y(tick);
+        return `<line x1="${pad.left}" y1="${yy}" x2="${width - pad.right}" y2="${yy}" stroke="rgba(148,163,184,.11)"/><text x="${pad.left - 8}" y="${yy + 3}" text-anchor="end" fill="#64748b" font-size="9">${tick.toFixed(0)}</text>`;
+      }).join("");
+      const points = values.map((point, index) => `${x(index)},${y(point)}`).join(" ");
+      const area = `${pad.left},${height - pad.bottom} ${points} ${width - pad.right},${height - pad.bottom}`;
+      const labelIndexes = [0, Math.floor((values.length - 1) / 4), Math.floor((values.length - 1) / 2), Math.floor((values.length - 1) * .75), values.length - 1];
+      const labels = labelIndexes.map(index => `<text x="${x(index)}" y="${height - 12}" text-anchor="middle" fill="#64748b" font-size="9">${dates[index]}</text>`).join("");
+      const circles = values.map((point, index) => `<circle class="data-point" data-index="${index}" cx="${x(index)}" cy="${y(point)}" r="5" fill="transparent" stroke="transparent"/>`).join("");
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      svg.innerHTML = `<defs><linearGradient id="trendArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7c76b" stop-opacity=".22"/><stop offset="1" stop-color="#f7c76b" stop-opacity="0"/></linearGradient></defs>${grid}<polygon points="${area}" fill="url(#trendArea)"/><polyline points="${points}" fill="none" stroke="#f7c76b" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>${labels}${circles}`;
+
+      const node = nodeFor(state.selectedId);
+      const current = values.at(-1);
+      const lastTen = values.slice(-10);
+      const rises = lastTen.slice(1).filter((point, index) => point > lastTen[index]).length;
+      document.getElementById("chartTitle").textContent = `${node.name} · ${seriesLabels[state.series]}`;
+      document.getElementById("chartMeta").textContent = `展示最近${state.range}个交易日；趋势判断固定观察最近10日，正式历史基线与信号阈值等待量化回测。`;
+      document.getElementById("chartValue").textContent = current.toFixed(1);
+      document.getElementById("chartState").textContent = stats(node).trend;
+      document.getElementById("slopeValue").textContent = `${current >= lastTen[0] ? "+" : ""}${((current - lastTen[0]) / 9).toFixed(2)}`;
+      document.getElementById("monoValue").textContent = `${(rises / 9 * 100).toFixed(1)}%`;
+      document.getElementById("fitValue").textContent = clamp(.56 + Math.abs(current - lastTen[0]) / 28, .52, .91).toFixed(2);
+      document.getElementById("pullbackValue").textContent = `-${clamp(8.2 - rises * .42 + node.seed % 3, 2.1, 9.8).toFixed(1)}`;
+      bindTooltip(values, dates);
+    }
+
+    function bindTooltip(values, dates) {
+      const tooltip = document.getElementById("chartTooltip");
+      const shell = document.getElementById("chartShell");
+      document.querySelectorAll(".data-point").forEach(point => {
+        point.addEventListener("mouseenter", () => {
+          const index = Number(point.dataset.index);
+          tooltip.innerHTML = `<b>${dates[index]}</b><br>${seriesLabels[state.series]} <span class="num">${values[index].toFixed(1)}</span><br><span style="color:#9ba8bc">演示曲线 · 基线参数待回测</span>`;
+          tooltip.classList.add("show");
+        });
+        point.addEventListener("mousemove", event => {
+          const box = shell.getBoundingClientRect();
+          const left = event.clientX - box.left;
+          tooltip.style.left = `${Math.min(box.width - 178, Math.max(8, left + 12))}px`;
+          tooltip.style.top = `${Math.max(8, event.clientY - box.top - 72)}px`;
+        });
+        point.addEventListener("mouseleave", () => tooltip.classList.remove("show"));
+      });
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toast.classList.remove("show"), 2200);
+    }
+
+    function renderAll() {
+      renderContext();
+      renderTable();
+      renderDetail();
+      requestAnimationFrame(drawChart);
+    }
+
+    document.querySelectorAll("[data-control]").forEach(group => group.addEventListener("click", event => {
+      const button = event.target.closest("button");
+      if (!button || button.disabled) return;
+      const key = group.dataset.control;
+      const value = button.dataset.value;
+      if (key === "period") state.period = Number(value);
+      if (key === "scope") state.scope = value;
+      if (key === "range") state.range = Number(value);
+      setActive(key, value);
+      renderAll();
+    }));
+
+    document.getElementById("metricTabs").addEventListener("click", event => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      state.metric = button.dataset.metric;
+      document.querySelectorAll("#metricTabs button").forEach(item => item.classList.toggle("active", item === button));
+      renderAll();
+    });
+
+    document.getElementById("seriesTabs").addEventListener("click", event => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      state.series = button.dataset.series;
+      document.querySelectorAll("#seriesTabs button").forEach(item => item.classList.toggle("active", item === button));
+      drawChart();
+    });
+
+    document.getElementById("stateSelect").addEventListener("change", event => {
+      state.delayed = event.target.value === "delayed";
+      renderAll();
+      showToast(state.delayed ? "已切换到延迟状态：展示最近完整盘后日" : "已恢复 Ready 状态");
+    });
+
+    window.addEventListener("resize", drawChart);
+    renderAll();
+  </script>
+</body>
+</html>

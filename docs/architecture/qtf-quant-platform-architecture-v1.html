@@ -1,0 +1,1280 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>财势量化平台（QTF）首版系统架构方案 v1</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --page: #070b12;
+      --page-soft: #0a101b;
+      --panel: #101827;
+      --panel-2: #121b2c;
+      --panel-3: #0d1422;
+      --line: #263248;
+      --line-soft: #1d293b;
+      --text: #e5eef9;
+      --text-2: #b6c2d4;
+      --muted: #8290a5;
+      --gold: #f7c76b;
+      --gold-soft: rgba(247, 199, 107, 0.12);
+      --blue: #5aa7ff;
+      --blue-soft: rgba(90, 167, 255, 0.12);
+      --green: #55d49b;
+      --green-soft: rgba(85, 212, 155, 0.12);
+      --purple: #af8cff;
+      --purple-soft: rgba(175, 140, 255, 0.12);
+      --orange: #ff9f61;
+      --orange-soft: rgba(255, 159, 97, 0.12);
+      --red: #ff7188;
+      --red-soft: rgba(255, 113, 136, 0.12);
+      --mono: "SFMono-Regular", "Menlo", "Consolas", "Liberation Mono", monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 82% 2%, rgba(90, 167, 255, 0.08), transparent 27%),
+        radial-gradient(circle at 35% 0%, rgba(247, 199, 107, 0.06), transparent 24%),
+        var(--page);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    code, pre { font-family: var(--mono); }
+    code {
+      padding: 0.1em 0.38em;
+      border: 1px solid var(--line-soft);
+      border-radius: 5px;
+      background: rgba(255,255,255,0.035);
+      color: #dce8f7;
+      font-size: 0.92em;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .side {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      height: 100vh;
+      overflow: auto;
+      padding: 20px 14px;
+      border-right: 1px solid var(--line-soft);
+      background: rgba(7, 11, 18, 0.94);
+      backdrop-filter: blur(18px);
+    }
+
+    .brand {
+      padding: 4px 8px 18px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .brand-kicker {
+      color: var(--gold);
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .brand-title {
+      margin-top: 7px;
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .brand-sub {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .nav-label {
+      margin: 15px 8px 5px;
+      color: #68758a;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+    }
+
+    .nav a {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 8px;
+      border-radius: 7px;
+      color: #9eacc0;
+      font-size: 12px;
+    }
+
+    .nav a::before {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #40506a;
+      content: "";
+    }
+
+    .nav a:hover {
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+    }
+
+    .main {
+      min-width: 0;
+      max-width: 1560px;
+      padding: 34px 36px 72px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 330px;
+      gap: 20px;
+      align-items: stretch;
+      margin-bottom: 16px;
+    }
+
+    .hero-main,
+    .meta,
+    .section {
+      border: 1px solid var(--line-soft);
+      border-radius: 12px;
+      background: rgba(16, 24, 39, 0.92);
+      box-shadow: 0 12px 38px rgba(0,0,0,0.2);
+    }
+
+    .hero-main { padding: 26px 28px 24px; }
+    .eyebrow {
+      color: var(--gold);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 920px;
+      margin: 10px 0 8px;
+      font-size: clamp(26px, 3.1vw, 42px);
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+
+    h2, h3, h4 { margin: 0; line-height: 1.3; }
+    h2 { font-size: 19px; }
+    h3 { font-size: 15px; }
+    h4 { font-size: 13px; }
+
+    p { margin: 7px 0 0; }
+    .lead {
+      max-width: 1040px;
+      color: var(--text-2);
+      font-size: 15px;
+    }
+
+    .hero-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 18px;
+    }
+
+    .tag, .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 24px;
+      padding: 3px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--text-2);
+      background: rgba(255,255,255,0.03);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .badge.fact { border-color: rgba(90,167,255,.35); color: var(--blue); background: var(--blue-soft); }
+    .badge.proposal { border-color: rgba(247,199,107,.35); color: var(--gold); background: var(--gold-soft); }
+    .badge.gate { border-color: rgba(255,159,97,.35); color: var(--orange); background: var(--orange-soft); }
+    .badge.no { border-color: rgba(255,113,136,.35); color: var(--red); background: var(--red-soft); }
+
+    .meta {
+      display: grid;
+      align-content: start;
+      gap: 0;
+      padding: 10px 15px;
+    }
+
+    .meta-row {
+      display: grid;
+      grid-template-columns: 94px minmax(0, 1fr);
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--line-soft);
+      font-size: 12px;
+    }
+
+    .meta-row:last-child { border-bottom: 0; }
+    .meta-row span:first-child { color: var(--muted); }
+    .meta-row span:last-child { color: var(--text); text-align: right; }
+
+    .section {
+      margin-top: 16px;
+      overflow: hidden;
+      scroll-margin-top: 18px;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: start;
+      padding: 15px 18px;
+      border-bottom: 1px solid var(--line-soft);
+      background: var(--panel-3);
+    }
+
+    .section-head p { color: var(--muted); font-size: 12px; }
+    .section-body { padding: 18px; }
+    .section-note {
+      padding: 10px 12px;
+      border: 1px solid rgba(247,199,107,.26);
+      border-radius: 8px;
+      background: var(--gold-soft);
+      color: #e9d4a7;
+      font-size: 12px;
+    }
+
+    .grid-2, .grid-3, .grid-4, .grid-5 {
+      display: grid;
+      gap: 10px;
+    }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+    .grid-5 { grid-template-columns: repeat(5, minmax(0,1fr)); }
+
+    .card {
+      min-width: 0;
+      padding: 13px 14px;
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+      background: var(--panel-2);
+    }
+
+    .card p { color: var(--muted); font-size: 12px; }
+    .card ul { margin: 8px 0 0; padding-left: 17px; color: var(--text-2); font-size: 12px; }
+    .card li + li { margin-top: 4px; }
+    .card.gold { border-color: rgba(247,199,107,.28); }
+    .card.blue { border-color: rgba(90,167,255,.28); }
+    .card.green { border-color: rgba(85,212,155,.28); }
+    .card.purple { border-color: rgba(175,140,255,.28); }
+    .card.orange { border-color: rgba(255,159,97,.28); }
+
+    .n {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      margin-right: 7px;
+      border-radius: 7px;
+      background: var(--gold-soft);
+      color: var(--gold);
+      font: 700 11px var(--mono);
+    }
+
+    .diagram-wrap {
+      overflow-x: auto;
+      padding: 6px;
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+      background:
+        linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+        #0b111c;
+      background-size: 24px 24px;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      min-width: 980px;
+      height: auto;
+      font-family: var(--sans);
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; }
+    .dot.blue { background: var(--blue); }
+    .dot.gold { background: var(--gold); }
+    .dot.green { background: var(--green); }
+    .dot.purple { background: var(--purple); }
+    .dot.orange { background: var(--orange); }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(110px, 1fr));
+      gap: 18px;
+      min-width: 1010px;
+      padding: 4px 2px;
+    }
+
+    .flow-step {
+      position: relative;
+      min-height: 112px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--panel-2);
+    }
+
+    .flow-step:not(:last-child)::after {
+      position: absolute;
+      top: 48%;
+      right: -18px;
+      width: 18px;
+      border-top: 1px solid #566985;
+      content: "";
+    }
+
+    .flow-step:not(:last-child)::before {
+      position: absolute;
+      z-index: 2;
+      top: calc(48% - 3px);
+      right: -18px;
+      width: 6px;
+      height: 6px;
+      border-top: 1px solid #7f93b2;
+      border-right: 1px solid #7f93b2;
+      transform: rotate(45deg);
+      content: "";
+    }
+
+    .flow-step strong { display: block; font-size: 12px; }
+    .flow-step small { display: block; margin-top: 6px; color: var(--muted); line-height: 1.5; }
+
+    .layer-stack { display: grid; gap: 8px; }
+    .layer {
+      display: grid;
+      grid-template-columns: 160px minmax(0,1fr);
+      min-height: 90px;
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .layer-title {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 14px;
+      border-right: 1px solid var(--line-soft);
+      background: rgba(255,255,255,.025);
+    }
+
+    .layer-title strong { font-size: 13px; }
+    .layer-title span { margin-top: 3px; color: var(--muted); font-size: 10px; font-family: var(--mono); }
+    .layer-content {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap: 8px;
+      align-items: stretch;
+      padding: 10px;
+    }
+
+    .layer-box {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 52px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-2);
+      color: var(--text-2);
+      font-size: 11px;
+      line-height: 1.4;
+      text-align: center;
+    }
+
+    .table-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      min-width: 920px;
+      border-collapse: separate;
+      border-spacing: 0;
+      border: 1px solid var(--line-soft);
+      border-radius: 9px;
+      overflow: hidden;
+      font-size: 12px;
+    }
+
+    th, td {
+      padding: 10px 11px;
+      border-right: 1px solid var(--line-soft);
+      border-bottom: 1px solid var(--line-soft);
+      vertical-align: top;
+      text-align: left;
+    }
+    th:last-child, td:last-child { border-right: 0; }
+    tr:last-child td { border-bottom: 0; }
+    th { background: var(--panel-3); color: var(--text-2); font-weight: 700; }
+    td { color: var(--text-2); }
+    td:first-child { color: var(--text); font-weight: 700; }
+
+    .state-line {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 920px;
+      padding: 6px 0;
+    }
+    .state {
+      flex: 1;
+      min-width: 120px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-2);
+      text-align: center;
+    }
+    .state strong { display: block; font: 700 11px var(--mono); }
+    .state small { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; }
+    .state-arrow { color: #62738f; font-size: 18px; }
+
+    pre.tree {
+      margin: 0;
+      padding: 14px 16px;
+      border: 1px solid var(--line-soft);
+      border-radius: 9px;
+      background: #0a101a;
+      color: #c5d3e6;
+      overflow: auto;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+
+    .lane {
+      display: grid;
+      grid-template-columns: 140px minmax(0, 1fr);
+      gap: 10px;
+      align-items: stretch;
+      margin-top: 8px;
+    }
+    .lane-name {
+      display: flex;
+      align-items: center;
+      padding: 11px;
+      border-radius: 8px;
+      background: rgba(255,255,255,.035);
+      color: var(--text-2);
+      font-weight: 700;
+      font-size: 11px;
+    }
+    .lane-items {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(130px,1fr));
+      gap: 8px;
+    }
+    .lane-item {
+      padding: 10px;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      color: var(--text-2);
+      background: var(--panel-2);
+      font-size: 11px;
+      text-align: center;
+    }
+
+    .milestone {
+      position: relative;
+      padding-left: 28px;
+    }
+    .milestone::before {
+      position: absolute;
+      left: 9px;
+      top: 5px;
+      bottom: -15px;
+      width: 1px;
+      background: var(--line);
+      content: "";
+    }
+    .milestone:last-child::before { bottom: 50%; }
+    .milestone::after {
+      position: absolute;
+      left: 5px;
+      top: 7px;
+      width: 9px;
+      height: 9px;
+      border: 2px solid var(--gold);
+      border-radius: 50%;
+      background: var(--panel);
+      content: "";
+    }
+    .milestone + .milestone { margin-top: 13px; }
+    .milestone p { color: var(--muted); font-size: 12px; }
+
+    .footer {
+      margin-top: 18px;
+      padding: 18px;
+      border-top: 1px solid var(--line-soft);
+      color: var(--muted);
+      font-size: 11px;
+      text-align: center;
+    }
+
+    @media (max-width: 1100px) {
+      .shell { grid-template-columns: 1fr; }
+      .side { position: static; width: auto; height: auto; border-right: 0; border-bottom: 1px solid var(--line-soft); }
+      .nav { display: none; }
+      .main { padding: 22px 18px 56px; }
+      .hero { grid-template-columns: 1fr; }
+      .grid-4, .grid-5 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .layer { grid-template-columns: 125px minmax(0,1fr); }
+      .layer-content { grid-template-columns: repeat(3, minmax(120px,1fr)); }
+    }
+
+    @media (max-width: 680px) {
+      .main { padding: 14px 10px 44px; }
+      .hero-main { padding: 20px; }
+      .grid-2, .grid-3, .grid-4, .grid-5 { grid-template-columns: 1fr; }
+      .section-head { display: block; }
+      .layer { display: block; }
+      .layer-title { border-right: 0; border-bottom: 1px solid var(--line-soft); }
+      .layer-content { grid-template-columns: 1fr; }
+      .lane { grid-template-columns: 1fr; }
+      .lane-items { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="side">
+      <div class="brand">
+        <div class="brand-kicker">Goldenshare / QTF</div>
+        <div class="brand-title">财势量化平台</div>
+        <div class="brand-sub">首版系统架构方案 v1</div>
+      </div>
+      <nav class="nav">
+        <div class="nav-label">总体设计</div>
+        <a href="#summary">方案摘要</a>
+        <a href="#context">系统定位与闭环</a>
+        <a href="#principles">首版设计原则</a>
+        <a href="#benchmarks">经验吸收与本地化</a>
+        <a href="#architecture">总体架构图</a>
+        <a href="#boundaries">系统边界</a>
+        <div class="nav-label">平台能力</div>
+        <a href="#subsystems">子系统设计</a>
+        <a href="#flows">三条核心链路</a>
+        <a href="#objects">核心对象与状态</a>
+        <a href="#trust">可信回测框架</a>
+        <a href="#storage">数据与存储</a>
+        <a href="#runtime">运行与部署</a>
+        <div class="nav-label">落地路线</div>
+        <a href="#vertical">首个垂直需求</a>
+        <a href="#workbench">工作台设计</a>
+        <a href="#milestones">建设里程碑</a>
+        <a href="#gates">门禁与非目标</a>
+        <a href="#decisions">架构决策记录</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="hero">
+        <div class="hero-main">
+          <div class="eyebrow">Architecture Proposal · Localized Benchmark Revision</div>
+          <h1>让研究人员从一个问题出发，得到可验证、可复现、可发布的行情信号</h1>
+          <p class="lead">QTF 是财势乾坤系统中的量化分析平台，不是某一类板块脚本的存放目录。它把研究人员提出的问题，转化为受约束的数据范围、公式、参数和验证计划；运行结束后先呈现证据与失败原因，再由人工决定是否形成正式版本，最后由财势乾坤消费稳定的指标和信号。</p>
+          <div class="hero-tags">
+            <span class="tag">数据只读接入</span>
+            <span class="tag">数据质量由上游负责</span>
+            <span class="tag">公式与参数可版本化</span>
+            <span class="tag">实验可复现</span>
+            <span class="tag">结果需人工审批</span>
+            <span class="tag">生产信号可追溯</span>
+          </div>
+        </div>
+        <div class="meta">
+          <div class="meta-row"><span>文档状态</span><span>首版架构方案 / 对标吸收修订稿 / 待评审</span></div>
+          <div class="meta-row"><span>事实日期</span><span>2026-08-21</span></div>
+          <div class="meta-row"><span>首个需求</span><span>行业二级热度参数研究</span></div>
+          <div class="meta-row"><span>当前阶段</span><span>仅架构设计，不代表已实现</span></div>
+          <div class="meta-row"><span>总体形态</span><span>模块化单体 + 独立量化执行进程</span></div>
+          <div class="meta-row"><span>代码域名</span><span><code>qtf/</code></span></div>
+        </div>
+      </header>
+
+      <section class="section" id="summary">
+        <div class="section-head">
+          <div><h2>0. 方案摘要</h2><p>先打通二级行业真实研究闭环，再从真实闭环中提炼平台能力。</p></div>
+          <span class="badge proposal">待评审修订稿</span>
+        </div>
+        <div class="section-body">
+          <div class="grid-4">
+            <div class="card blue"><h3><span class="n">01</span>提出问题</h3><p>管理员从受控模板开始，明确研究对象、希望提前发现什么、如何判断成功，以及本轮不测试什么。</p></div>
+            <div class="card gold"><h3><span class="n">02</span>冻结计划</h3><p>系统把数据范围、交易日边界、公式版本、最终生效参数、样本切分、评价目标和执行预算冻结成可审阅计划。</p></div>
+            <div class="card purple"><h3><span class="n">03</span>验证证据</h3><p>运行成功不等于研究有效。结果必须通过数据、时间、未来泄漏、预热稳定、样本外和参数敏感性门禁。</p></div>
+            <div class="card green"><h3><span class="n">04</span>受控发布</h3><p>通过门禁的结果只成为候选；人工批准后生成不可变版本，生产按同一公式计算，财势乾坤只读取稳定 serving 事实。</p></div>
+          </div>
+          <div class="section-note" style="margin-top:10px"><strong>架构判断：</strong>首版不先建设一套空泛的通用平台，也不拆成独立微服务集群。QTF 作为新的产品子系统进入同一仓库，以“二级行业统一参数研究”为首个垂直切片，继续复用 Foundation 数据契约、Ops TaskRun 运行观测和 App 组合根；平台合同只从真实切片中提炼。</div>
+        </div>
+      </section>
+
+      <section class="section" id="context">
+        <div class="section-head">
+          <div><h2>1. 系统定位与产品闭环</h2><p>QTF 位于数据基础设施与行情产品之间，承担“研究事实转化为生产能力”的责任。</p></div>
+          <span class="badge proposal">目标架构</span>
+        </div>
+        <div class="section-body">
+          <div class="diagram-wrap">
+            <svg viewBox="0 0 1320 470" role="img" aria-label="QTF 系统上下游闭环图">
+              <defs>
+                <marker id="arrowBlue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#5aa7ff"/></marker>
+                <marker id="arrowGold" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#f7c76b"/></marker>
+                <marker id="arrowGreen" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#55d49b"/></marker>
+                <filter id="shadow"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#000" flood-opacity=".3"/></filter>
+              </defs>
+
+              <text x="42" y="42" fill="#8290a5" font-size="12" font-weight="700" letter-spacing="1.8">UPSTREAM · DATA FACTS</text>
+              <rect x="40" y="62" width="235" height="112" rx="12" fill="#121b2c" stroke="#3a5273" filter="url(#shadow)"/>
+              <text x="65" y="96" fill="#5aa7ff" font-size="15" font-weight="700">数据湖</text>
+              <text x="65" y="122" fill="#b6c2d4" font-size="12">长历史 · 大范围 · Parquet</text>
+              <text x="65" y="145" fill="#8290a5" font-size="11">正式 Lake 资产与质量检查</text>
+
+              <rect x="40" y="194" width="235" height="112" rx="12" fill="#121b2c" stroke="#3a5273" filter="url(#shadow)"/>
+              <text x="65" y="228" fill="#5aa7ff" font-size="15" font-weight="700">Prod DB</text>
+              <text x="65" y="254" fill="#b6c2d4" font-size="12">当前事实 · 轻量范围 · Serving</text>
+              <text x="65" y="277" fill="#8290a5" font-size="11">现有生产数据表与数据契约</text>
+
+              <rect x="375" y="48" width="530" height="290" rx="18" fill="#101827" stroke="#786334" stroke-width="1.5" filter="url(#shadow)"/>
+              <text x="406" y="84" fill="#f7c76b" font-size="12" font-weight="700" letter-spacing="1.5">QTF · QUANTITATIVE ANALYSIS PLATFORM</text>
+              <text x="406" y="116" fill="#e5eef9" font-size="21" font-weight="800">财势量化平台</text>
+
+              <rect x="406" y="144" width="138" height="70" rx="9" fill="#0d1422" stroke="#33425a"/>
+              <text x="475" y="172" text-anchor="middle" fill="#e5eef9" font-size="12" font-weight="700">准入审计</text>
+              <text x="475" y="194" text-anchor="middle" fill="#8290a5" font-size="10">只读检查 · 不清洗</text>
+              <rect x="563" y="144" width="138" height="70" rx="9" fill="#0d1422" stroke="#33425a"/>
+              <text x="632" y="172" text-anchor="middle" fill="#e5eef9" font-size="12" font-weight="700">加工与回测</text>
+              <text x="632" y="194" text-anchor="middle" fill="#8290a5" font-size="10">因子 · 信号 · 对照</text>
+              <rect x="720" y="144" width="153" height="70" rx="9" fill="#0d1422" stroke="#33425a"/>
+              <text x="796" y="172" text-anchor="middle" fill="#e5eef9" font-size="12" font-weight="700">验证与比较</text>
+              <text x="796" y="194" text-anchor="middle" fill="#8290a5" font-size="10">成功率 · 稳健性 · 成本</text>
+
+              <rect x="406" y="231" width="138" height="70" rx="9" fill="#15172a" stroke="#584b78"/>
+              <text x="475" y="259" text-anchor="middle" fill="#af8cff" font-size="12" font-weight="700">公式管理</text>
+              <text x="475" y="281" text-anchor="middle" fill="#8290a5" font-size="10">语义版本 · 代码哈希</text>
+              <rect x="563" y="231" width="138" height="70" rx="9" fill="#15172a" stroke="#584b78"/>
+              <text x="632" y="259" text-anchor="middle" fill="#af8cff" font-size="12" font-weight="700">参数管理</text>
+              <text x="632" y="281" text-anchor="middle" fill="#8290a5" font-size="10">Schema · 参数集 · 冻结</text>
+              <rect x="720" y="231" width="153" height="70" rx="9" fill="#15172a" stroke="#584b78"/>
+              <text x="796" y="259" text-anchor="middle" fill="#af8cff" font-size="12" font-weight="700">版本与发布</text>
+              <text x="796" y="281" text-anchor="middle" fill="#8290a5" font-size="10">审批 · 生效 · 退役</text>
+
+              <text x="1015" y="42" fill="#8290a5" font-size="12" font-weight="700" letter-spacing="1.8">DOWNSTREAM · PRODUCT</text>
+              <rect x="1010" y="62" width="265" height="112" rx="12" fill="#121b2c" stroke="#3b705a" filter="url(#shadow)"/>
+              <text x="1036" y="96" fill="#55d49b" font-size="15" font-weight="700">生产指标与信号</text>
+              <text x="1036" y="122" fill="#b6c2d4" font-size="12">已发布公式 + 已发布参数</text>
+              <text x="1036" y="145" fill="#8290a5" font-size="11">写入稳定 serving 契约</text>
+
+              <rect x="1010" y="194" width="265" height="112" rx="12" fill="#121b2c" stroke="#3b705a" filter="url(#shadow)"/>
+              <text x="1036" y="228" fill="#55d49b" font-size="15" font-weight="700">财势乾坤行情系统</text>
+              <text x="1036" y="254" fill="#b6c2d4" font-size="12">板块雷达 · 板块速览 · 后续场景</text>
+              <text x="1036" y="277" fill="#8290a5" font-size="11">只消费已发布生产事实</text>
+
+              <line x1="275" y1="118" x2="375" y2="118" stroke="#5aa7ff" stroke-width="2" marker-end="url(#arrowBlue)"/>
+              <line x1="275" y1="250" x2="375" y2="250" stroke="#5aa7ff" stroke-width="2" marker-end="url(#arrowBlue)"/>
+              <line x1="905" y1="118" x2="1010" y2="118" stroke="#55d49b" stroke-width="2" marker-end="url(#arrowGreen)"/>
+              <line x1="1142" y1="174" x2="1142" y2="194" stroke="#55d49b" stroke-width="2" marker-end="url(#arrowGreen)"/>
+
+              <path d="M 1142 307 C 1142 405, 700 421, 640 341" fill="none" stroke="#f7c76b" stroke-width="2" stroke-dasharray="6 6" marker-end="url(#arrowGold)"/>
+              <text x="760" y="423" fill="#d6b66f" font-size="11">实际表现反馈：命中、失效、漂移与新研究问题</text>
+
+              <rect x="386" y="366" width="508" height="64" rx="10" fill="#15130d" stroke="#806b39"/>
+              <text x="410" y="391" fill="#f7c76b" font-size="12" font-weight="700">硬门禁</text>
+              <text x="410" y="414" fill="#c9b88e" font-size="11">实验结果 ≠ 生产信号；只有审批并发布的不可变版本可以进入下游。</text>
+            </svg>
+          </div>
+          <div class="legend">
+            <span><i class="dot blue"></i>数据事实流</span>
+            <span><i class="dot gold"></i>研究反馈流</span>
+            <span><i class="dot green"></i>生产发布流</span>
+            <span><i class="dot purple"></i>治理能力</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="principles">
+        <div class="section-head"><div><h2>2. 首版设计原则</h2><p>这些原则决定后续实现能否形成平台，而不是堆积新的专项脚本。</p></div><span class="badge gate">架构约束</span></div>
+        <div class="section-body">
+          <div class="grid-4">
+            <div class="card"><h3>从用户问题出发</h3><p>先说清要发现什么、如何判断成功和本轮不做什么，再选择数据和参数；不让用户从底层任务或脚本入口开始。</p></div>
+            <div class="card"><h3>研究可复现</h3><p>一次结果必须能追溯到数据指纹、对象池、公式版本、最终生效参数、样本切分、评估口径、代码版本和运行环境。</p></div>
+            <div class="card"><h3>研究与生产分离</h3><p>研究允许比较多个候选；生产只允许绑定一个已审批、可回滚、带生效日期的发布版本。</p></div>
+            <div class="card"><h3>数据直读、质量上游负责</h3><p>QTF 每次运行直接读取 Data Lake 或 Prod，只做只读准入审计；不清洗、不修复、不回填、不保存输入副本。审计失败由对应上游修复，失败 Run 保持不可变，修复后以新的 Run 重新直读和计算。</p></div>
+            <div class="card"><h3>参数受 Schema 约束</h3><p>支持有限调整周期、阈值和权重，但不是任意键值。类型、范围、步长、依赖、默认值和组合规模必须预先定义。</p></div>
+            <div class="card"><h3>同核双模式</h3><p>回测和生产信号共享同一公式实现与参数解释，区别只在输入窗口、执行模式和输出目标。</p></div>
+            <div class="card"><h3>证据先于排名</h3><p>运行结束先判断结果是否有效、样本是否充足、样本外是否成立，再比较候选；“成功执行”和“最优参数”都不是科学结论。</p></div>
+            <div class="card"><h3>先有限探索</h3><p>先估算组合数、扫描量、耗时和内存，再执行有限次数的研究；不自动扩大搜索空间，不把平台变成无边界调参器。</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="benchmarks">
+        <div class="section-head"><div><h2>2.1 开源经验的本地化吸收</h2><p>只吸收能解决当前问题的设计原则，不复制交易系统，也不引入新的技术栈。</p></div><span class="badge fact">Freqtrade + LEAN</span></div>
+        <div class="section-body">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th style="width:150px">经验来源</th><th>吸收的设计点</th><th>结合 Goldenshare 后的落法</th><th>明确不照搬</th></tr></thead>
+              <tbody>
+                <tr><td><a href="https://github.com/freqtrade/freqtrade">Freqtrade</a></td><td>类型化参数空间、最终配置留痕、未来数据泄漏分析、预热稳定性分析、后台回测与结果比较。</td><td>参数只能来自受控 Schema；冻结时保存全部最终生效值；未来泄漏和预热稳定性成为候选门禁；复用 TaskRun 展示进度、失败和取消。</td><td>不引入交易对、订单、仓位、自动 Hyperopt、TTL 结果缓存；不复制 GPL 代码。</td></tr>
+                <tr><td><a href="https://github.com/QuantConnect/Lean">QuantConnect LEAN</a></td><td>回测与生产同核、时间前沿、目标与约束分离、样本内/样本外验证、参数敏感性阅读。</td><td>每个历史点只看当时已发布事实；研究和盘后生产共用公式包；主要目标、硬约束和诊断指标分开；候选必须有未见样本证据。</td><td>不引入撮合、券商、订单、组合、C# 引擎、云计算节点或自动交易运行时。</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="grid-3" style="margin-top:10px">
+            <div class="card blue"><h3>不是引入开源框架</h3><p>首版继续使用现有 Python、PostgreSQL、Lake、DuckDB/Parquet 和 TaskRun。外部项目只用于校准设计，不成为新的运行依赖。</p></div>
+            <div class="card gold"><h3>不是复制交易语义</h3><p>我们的研究对象是行业、概念和地域信号，目标是发现、验证与发布行情事实，不是模拟成交收益或生成交易指令。</p></div>
+            <div class="card purple"><h3>明确排除 Qlib</h3><p>不采用 Qlib 的数据格式、MLflow、Recorder、在线模型或机器学习工作流；本文所有平台合同均从 Goldenshare 现有边界和板块业务需要出发。</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="architecture">
+        <div class="section-head"><div><h2>3. 总体逻辑架构</h2><p>保持现有 Goldenshare 子系统边界，由 App 组合，不让 Ops、Biz 与 QTF 形成反向依赖。</p></div><span class="badge fact">结构已确认</span></div>
+        <div class="section-body">
+          <div class="layer-stack">
+            <div class="layer">
+              <div class="layer-title"><strong>交互层</strong><span>wealth / web</span></div>
+              <div class="layer-content">
+                <div class="layer-box">量化总览</div><div class="layer-box">实验设计器</div><div class="layer-box">结果比较</div><div class="layer-box">公式 / 参数管理</div><div class="layer-box">发布中心</div>
+              </div>
+            </div>
+            <div class="layer">
+              <div class="layer-title"><strong>接口与组合层</strong><span>src/app</span></div>
+              <div class="layer-content">
+                <div class="layer-box">QTF Research API</div><div class="layer-box">现有管理员认证</div><div class="layer-box">QTF Executor 装配</div><div class="layer-box">TaskRun 视图适配</div><div class="layer-box">生产 Serving API 装配</div>
+              </div>
+            </div>
+            <div class="layer" style="border-color:rgba(247,199,107,.4)">
+              <div class="layer-title" style="background:var(--gold-soft)"><strong style="color:var(--gold)">QTF 产品域</strong><span>qtf/</span></div>
+              <div class="layer-content">
+                <div class="layer-box">输入准入审计与对象池</div><div class="layer-box">公式与参数</div><div class="layer-box">实验计划与执行</div><div class="layer-box">评估验证与产物</div><div class="layer-box">审批发布与信号</div>
+              </div>
+            </div>
+            <div class="layer">
+              <div class="layer-title"><strong>运行与观测层</strong><span>src/ops</span></div>
+              <div class="layer-content">
+                <div class="layer-box">TaskRun 意图</div><div class="layer-box">Worker / Dispatcher</div><div class="layer-box">进度与取消</div><div class="layer-box">错误与耗时</div><div class="layer-box">自动任务</div>
+              </div>
+            </div>
+            <div class="layer">
+              <div class="layer-title"><strong>数据基础层</strong><span>src/foundation</span></div>
+              <div class="layer-content">
+                <div class="layer-box">DatasetDefinition</div><div class="layer-box">交易日与基础契约</div><div class="layer-box">Prod DAO / Session</div><div class="layer-box">Lake 资产契约</div><div class="layer-box">存储与序列化基础</div>
+              </div>
+            </div>
+            <div class="layer">
+              <div class="layer-title"><strong>数据与消费端</strong><span>external boundaries</span></div>
+              <div class="layer-content">
+                <div class="layer-box">正式 Data Lake</div><div class="layer-box">Prod 来源表</div><div class="layer-box">QTF 元数据与产物</div><div class="layer-box">生产信号 Serving</div><div class="layer-box">财势乾坤业务页面</div>
+              </div>
+            </div>
+          </div>
+          <div class="section-note" style="margin-top:10px"><strong>需要先确认的结构变化：</strong><code>qtf/</code> 是新的顶层产品域。现有 Python 打包只包含 <code>src</code>，现有依赖矩阵也没有 QTF；因此进入开发前必须正式补充包配置、依赖方向和 AGENTS 边界，不能直接把 QTF 代码塞进 <code>biz</code> 或脚本目录。</div>
+        </div>
+      </section>
+
+      <section class="section" id="boundaries">
+        <div class="section-head"><div><h2>4. 系统边界与依赖关系</h2><p>“复用现有能力”不等于混用领域对象；组合发生在 App，业务事实各归其位。</p></div><span class="badge gate">必须遵守</span></div>
+        <div class="section-body">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>系统 / 目录</th><th>在 QTF 闭环中的职责</th><th>可以依赖</th><th>禁止承担</th></tr></thead>
+              <tbody>
+                <tr><td><code>src/foundation</code> / Data Lake / Prod</td><td>保障来源数据的采集、清洗、修复、完整性和正式发布；提供数据集、交易日和访问契约。</td><td>底层库与基础设施。</td><td>实验、公式、候选参数或审批语义。</td></tr>
+                <tr><td><code>src/ops</code></td><td>记录运行意图与 TaskRun 状态，调度 worker，提供进度、失败、取消和审计日志。</td><td>Foundation 与通用运行协议。</td><td>量化公式、参数优劣、实验结论和发布决策。</td></tr>
+                <tr><td><code>qtf</code></td><td>量化领域模型、只读准入审计、实验、验证、公式/参数版本和发布。</td><td>自身领域与明确的 Foundation / Lake / Prod 只读端口。</td><td>清洗、修复、回填或复制来源数据；反向依赖 Ops/Biz/App；直接拼装页面。</td></tr>
+                <tr><td><code>src/app</code></td><td>把 QTF executor、TaskRun、数据库 session、鉴权和 API 路由装配在一起。</td><td>Foundation、Ops、Biz、QTF。</td><td>承载量化业务规则或计算公式。</td></tr>
+                <tr><td><code>src/biz</code></td><td>现有行情模块读取已发布的 serving 指标和信号。</td><td>Foundation 与已稳定的 serving contract。</td><td>读取实验草稿、自己选择参数、在查询时重算研究指标。</td></tr>
+                <tr><td><code>wealth</code></td><td>量化研究工作台和财势乾坤行情展示前端。</td><td>QTF 业务 API、现有 Wealth API。</td><td>直接访问 Ops API、数据库或本地实验文件。</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="grid-3" style="margin-top:10px">
+            <div class="card blue"><h3>复用 TaskRun，不复制运行系统</h3><p>实验业务状态由 QTF 管，执行进度和错误由 TaskRun 管；两者通过 task_run_id 关联，不再造一套 worker 和任务状态机。</p></div>
+            <div class="card purple"><h3>新建实验配置，不复用静态策略配置</h3><p>现有 StrategyConfig 适合仓库 JSON + 重启生效的静态模块配置；交互式实验草稿、参数冻结和版本比较应由 QTF 自己管理。</p></div>
+            <div class="card green"><h3>Serving 隔离实验域</h3><p>下游只能读发布后的 compact facts。实验过程表和大结果文件永远不成为财势乾坤页面的直接依赖。</p></div>
+          </div>
+          <div class="section-note" style="margin-top:10px"><strong>数据责任边界：</strong>QTF 的审计报告只负责说明“哪个数据集、哪个日期、哪个字段、哪项准入条件不合格”，并阻止该 Run 继续计算；数据修复、补录、清洗和重新发布必须回到 Data Lake 或 Prod 的正式维护链路。失败 Run 不恢复、不覆盖；上游修复后，由同一冻结实验派生新的 Run，重新直读并完整执行。</div>
+        </div>
+      </section>
+
+      <section class="section" id="subsystems">
+        <div class="section-head"><div><h2>5. QTF 能力框架</h2><p>按用户完成一次可信研究所需的八组能力组织，不把内部类和服务直接暴露成产品入口。</p></div><span class="badge proposal">模块化单体</span></div>
+        <div class="section-body">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th style="width:190px">能力域</th><th>用户要完成的事</th><th>平台内部职责</th><th>首版核心输出</th><th>关键边界</th></tr></thead>
+              <tbody>
+                <tr><td>01 研究模板与问题定义</td><td>选择“二级行业转热研究”等模板，说清希望发现什么和如何判断成功。</td><td>把业务问题映射为对象类别、比较范围、因子族、成功定义和非目标。</td><td>Research Template、Hypothesis、Evaluation Contract。</td><td>模板限制可选能力，首版不提供任意脚本入口。</td></tr>
+                <tr><td>02 输入范围与准入审计</td><td>确认本次研究直接读取哪些行业、哪些交易日，哪些日期不具备研究资格。</td><td>公共层只读检查来源可访问性、必要字段、日期覆盖、唯一键、重复、缺失、非法数值和对象池范围；具体能力再检查历史长度、比较组规模和研究样本要求。</td><td>Backtest Input Audit Record、覆盖报告、排除清单。</td><td>两层审计都只检查、不修复；不合格数据回到上游，研究样本不足则结束当前 Run。</td></tr>
+                <tr><td>03 公式与参数定义</td><td>理解公式用什么事实、参数有什么含义，并在允许范围内选择候选。</td><td>注册公式输入输出、回看/预热、时间语义、横截面范围；解析默认值与实验覆盖值。</td><td>Formula Contract、Parameter Schema、Effective Parameter Set。</td><td>网页不能提交 Python；冻结后不存在隐式配置覆盖。</td></tr>
+                <tr><td>04 实验与执行计划</td><td>在启动前看清组合数、时间范围、样本切分、预计扫描量与停止条件。</td><td>生成有限参数矩阵、样本内/样本外切分、对照、成本计划和可取消执行单元。</td><td>Frozen Experiment、Execution Plan、Run Record。</td><td>超出本次批准范围必须停止并建立新实验版本。</td></tr>
+                <tr><td>05 回测计算与可信门禁</td><td>知道任务虽然跑完，但结果是否真的可信，以及为什么无效。</td><td>直接读取已通过审计的上游事实，同核计算逐日因子和信号；执行时间前沿、未来泄漏、预热稳定、覆盖和样本外门禁。</td><td>逐日事实、信号事件、Validation Report。</td><td>运行成功不等于研究有效；INVALID 不参加候选比较。</td></tr>
+                <tr><td>06 结果比较与研究结论</td><td>比较候选的准确率、覆盖、提前量、样本外表现和参数敏感性。</td><td>分离主要目标、硬约束和诊断指标，生成对照、敏感性、失败样本和局限说明。</td><td>Evaluation Report、参数敏感性图、案例明细。</td><td>不只展示冠军参数；样本不足必须明确为证据不足。</td></tr>
+                <tr><td>07 候选评审与版本发布</td><td>把有证据的结果提交评审，确认适用范围、风险和生效日期。</td><td>绑定数据、公式、参数、验证和审批记录，生成不可变 release。</td><td>Candidate、Approval、Published Release。</td><td>不能自动晋升；不能覆盖旧版本或静默改写历史。</td></tr>
+                <tr><td>08 生产信号与反馈</td><td>在财势乾坤看到稳定、带日期和解释的信号，并观察后续实际表现。</td><td>按公共业务交易日和已发布版本运行同一公式，原子写 serving；成熟后回收命中、误报与漂移。</td><td>Serving Fact、质量状态、release_id、反馈统计。</td><td>数据延迟按产品降级口径处理；生产不搜索参数。</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="section-note" style="margin-top:10px"><strong>产品与系统的对应关系：</strong>用户看到的是模板、计划、运行、证据、候选和版本；Source Adapter、Formula Kernel、Validator、Artifact Store 和 TaskRun Adapter 是实现这些用户任务的内部模块，不单独成为页面栏目。</div>
+        </div>
+      </section>
+
+      <section class="section" id="flows">
+        <div class="section-head"><div><h2>6. 三条核心链路</h2><p>研究、发布和反馈是三条不同的链路，必须通过显式版本连接。</p></div><span class="badge fact">闭环已确认</span></div>
+        <div class="section-body">
+          <h3 style="margin-bottom:8px;color:var(--blue)">A. 研究链：从假设到可评审证据</h3>
+          <div class="diagram-wrap">
+            <div class="flow">
+              <div class="flow-step"><strong>选择模板</strong><small>业务问题、对象范围、成功定义和不做事项。</small></div>
+              <div class="flow-step"><strong>冻结合同</strong><small>数据清单、公式、最终参数、IS/OOS 与评价规则。</small></div>
+              <div class="flow-step"><strong>审阅计划</strong><small>组合数、扫描量、执行预算和停止条件。</small></div>
+              <div class="flow-step"><strong>执行回测</strong><small>按时间前沿计算因子、信号、未来结果和对照。</small></div>
+              <div class="flow-step"><strong>可信门禁</strong><small>泄漏、预热、覆盖、样本外和敏感性检查。</small></div>
+              <div class="flow-step"><strong>阅读证据</strong><small>目标、约束、基线、失败样本和局限。</small></div>
+              <div class="flow-step"><strong>人工结论</strong><small>候选、待验证或本轮未找到。</small></div>
+            </div>
+          </div>
+
+          <h3 style="margin:18px 0 8px;color:var(--green)">B. 发布链：从候选参数到生产信号</h3>
+          <div class="diagram-wrap">
+            <div class="flow">
+              <div class="flow-step"><strong>候选版本</strong><small>绑定实验、公式、参数、结果与已知风险。</small></div>
+              <div class="flow-step"><strong>人工评审</strong><small>核对方法、样本、漂移、成本和业务解释。</small></div>
+              <div class="flow-step"><strong>批准版本</strong><small>生成不可变 release_id 和内容哈希。</small></div>
+              <div class="flow-step"><strong>指定生效</strong><small>记录生效日期、适用范围和替代版本。</small></div>
+              <div class="flow-step"><strong>生产计算</strong><small>同一公式包按已批准参数运行。</small></div>
+              <div class="flow-step"><strong>Serving 发布</strong><small>写入稳定指标/信号契约并附 release_id。</small></div>
+              <div class="flow-step"><strong>行情消费</strong><small>财势乾坤页面只展示正式结果。</small></div>
+            </div>
+          </div>
+
+          <h3 style="margin:18px 0 8px;color:var(--gold)">C. 反馈链：从真实表现回到新研究</h3>
+          <div class="diagram-wrap">
+            <div class="flow">
+              <div class="flow-step"><strong>记录预测</strong><small>信号日、值、版本和当时可见数据。</small></div>
+              <div class="flow-step"><strong>等待验证窗</strong><small>次日、3日、5日等真实结果成熟。</small></div>
+              <div class="flow-step"><strong>归因统计</strong><small>命中、误报、漏报、持续性和提前量。</small></div>
+              <div class="flow-step"><strong>漂移监测</strong><small>样本分布、命中率与数据质量变化。</small></div>
+              <div class="flow-step"><strong>提出问题</strong><small>定位公式、参数、对象池或市场阶段问题。</small></div>
+              <div class="flow-step"><strong>派生实验</strong><small>继承来源关系，但创建新的冻结版本。</small></div>
+              <div class="flow-step"><strong>重新验证</strong><small>任何改进再次经过完整研究与发布门禁。</small></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="objects">
+        <div class="section-head"><div><h2>7. 核心领域对象与状态</h2><p>平台要管理的是“研究证据链”，不是孤立的一份参数 JSON。</p></div><span class="badge proposal">领域模型</span></div>
+        <div class="section-body">
+          <div class="grid-3">
+            <div class="card"><h3>ResearchTemplate</h3><p>业务问题、对象类别、允许的因子/参数、默认比较范围、成功定义和首版非目标；二级行业研究是第一个模板。</p></div>
+            <div class="card"><h3>FormulaDefinition</h3><p>公式身份、输入字段、回看与预热、时间语义、横截面范围、空值规则、输出 Schema、实现入口和代码哈希。</p></div>
+            <div class="card"><h3>ParameterSchema / Set</h3><p>参数类型、范围、步长、依赖、默认值；冻结集保存全部最终生效值、值来源和参数哈希，而非只保存覆盖项。</p></div>
+            <div class="card"><h3>UniverseVersion</h3><p>对象列表、层级关系、比较范围、纳入/排除理由和有效日期。</p></div>
+            <div class="card"><h3>BacktestInputAuditRecord</h3><p>记录本次直接读取的上游数据集、字段、业务交易日、as_of、对象池、比较范围、缺口、排除日、行数和内容指纹；只保存审计元数据，不保存源数据快照或副本。</p></div>
+            <div class="card"><h3>ExperimentRevision</h3><p>研究假设、输入审计记录、公式、有限参数空间、样本切分、主要目标、硬约束、预算和停止条件。</p></div>
+            <div class="card"><h3>ExperimentRun</h3><p>冻结实验的一次执行，关联 TaskRun、代码版本、环境和运行记录；运行记录只描述执行条件与结果，不承载上游输入副本。</p></div>
+            <div class="card"><h3>ValidationReport</h3><p>数据、时间前沿、未来泄漏、预热稳定、样本覆盖和样本外门禁的逐项状态与证据。</p></div>
+            <div class="card"><h3>EvaluationReport</h3><p>主要目标、约束结果、对照、置信信息、样本内/样本外、敏感性、失败样本、局限和候选建议。</p></div>
+            <div class="card"><h3>PublishedRelease</h3><p>获批公式与参数、适用对象、生效日、替代关系、审批记录和 release hash。</p></div>
+          </div>
+
+          <h3 style="margin:18px 0 8px">公式生命周期</h3>
+          <div class="diagram-wrap"><div class="state-line">
+            <div class="state"><strong>DRAFT</strong><small>定义中</small></div><span class="state-arrow">→</span>
+            <div class="state"><strong>REGISTERED</strong><small>合同冻结</small></div><span class="state-arrow">→</span>
+            <div class="state"><strong>ACTIVE</strong><small>允许实验引用</small></div><span class="state-arrow">→</span>
+            <div class="state"><strong>DEPRECATED</strong><small>禁止新实验，保留追溯</small></div>
+          </div></div>
+
+          <h3 style="margin:14px 0 8px">实验生命周期</h3>
+          <div class="diagram-wrap"><div class="state-line">
+            <div class="state"><strong>DRAFT</strong><small>可编辑</small></div><span class="state-arrow">→</span>
+            <div class="state"><strong>FROZEN</strong><small>合同不可变</small></div><span class="state-arrow">→</span>
+            <div class="state"><strong>PLANNED</strong><small>成本已确认</small></div><span class="state-arrow">→</span>
+            <div class="state"><strong>EXECUTING</strong><small>TaskRun 运行中</small></div><span class="state-arrow">→</span>
+            <div class="state"><strong>COMPLETED / FAILED</strong><small>产物或错误已固定</small></div><span class="state-arrow">→</span>
+            <div class="state"><strong>REVIEWED</strong><small>已形成研究结论</small></div>
+          </div></div>
+
+          <h3 style="margin:14px 0 8px">研究有效性状态</h3>
+          <div class="diagram-wrap"><div class="state-line">
+            <div class="state"><strong>PENDING</strong><small>尚未完成门禁</small></div><span class="state-arrow">→</span>
+            <div class="state"><strong>VALID</strong><small>方法与证据门禁通过</small></div>
+            <div class="state"><strong>INVALID</strong><small>存在未来泄漏等方法错误</small></div>
+            <div class="state"><strong>INSUFFICIENT</strong><small>数据或样本不足</small></div>
+          </div></div>
+          <div class="section-note" style="margin-top:10px"><strong>状态不得混用：</strong>TaskRun 的 <code>success</code> 只表示计算程序执行完成；研究状态 <code>VALID</code> 才表示方法门禁通过；即使 VALID，效果也可能不优于基线，因此仍可能不产生候选。</div>
+
+          <h3 style="margin:14px 0 8px">发布生命周期</h3>
+          <div class="diagram-wrap"><div class="state-line">
+            <div class="state"><strong>CANDIDATE</strong><small>实验推荐</small></div><span class="state-arrow">→</span>
+            <div class="state"><strong>APPROVED</strong><small>人工批准</small></div><span class="state-arrow">→</span>
+            <div class="state"><strong>PUBLISHED</strong><small>生产生效</small></div><span class="state-arrow">→</span>
+            <div class="state"><strong>RETIRED</strong><small>停止新计算，历史可追溯</small></div>
+          </div></div>
+        </div>
+      </section>
+
+      <section class="section" id="trust">
+        <div class="section-head"><div><h2>8. 可信回测框架</h2><p>把 Freqtrade 的泄漏/预热检查与 LEAN 的时间前沿/样本外原则，落实为板块研究可执行门禁。</p></div><span class="badge gate">候选前硬门禁</span></div>
+        <div class="section-body">
+          <h3 style="margin-bottom:8px">8.1 冻结的回测合同</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>合同部分</th><th>必须冻结的内容</th><th>二级行业首个用例</th></tr></thead>
+              <tbody>
+                <tr><td>研究问题</td><td>目标板块、信号含义、成功定义、非目标。</td><td>在父级直属二级行业中，能否提前发现未来 1/3/5 日继续热的行业；不做个体行业专属参数。</td></tr>
+                <tr><td>数据范围</td><td>来源、字段、日期、as_of、对象池、层级、比较范围、排除规则和数据指纹。</td><td>Prod 既有东财层级、交易日和板块日行情；父级内比较为主，全市场同级只作辅助。</td></tr>
+                <tr><td>公式与参数</td><td>公式版本、输入输出、回看/预热、候选维度、候选值、默认值和全部最终生效值。</td><td>首轮沿用已批准的价格/成交因子族，基线只比较 60/120；其余候选需在 R2 计划中逐项批准。</td></tr>
+                <tr><td>时间切分</td><td>参数选择区间、校准区间、未见样本外区间，以及每段用途。</td><td>按交易日顺序切分，不随机打乱；已被查看过的一级行业历史窗口不能伪装成新样本外证据。</td></tr>
+                <tr><td>评价规则</td><td>主要目标、硬约束、诊断指标、简单基线和置信方法。</td><td>进入与留存分开；报告成功率、Lift、覆盖、提前量、样本量、父级分布与简单价格/成交规则。</td></tr>
+                <tr><td>执行预算</td><td>组合数、扫描量、执行次数、时间/内存估算、取消点和停止条件。</td><td>每轮有限尝试，看到结果后不得在同一 Run 追加参数；新假设必须新建实验版本并重新审批。</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="margin:18px 0 8px">8.2 六道可信度门禁</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th style="width:170px">门禁</th><th>平台怎样检查</th><th>用户看到什么</th><th>失败后果</th></tr></thead>
+              <tbody>
+                <tr><td>输入准入</td><td>平台公共层只读检查可访问性、字段、日期覆盖、唯一键、重复、缺失、非法数值和对象池；能力层检查本次公式需要的历史长度、父级比较组规模和样本要求。不清洗、不修复、不补零、不前向填充。</td><td>上游数据集、有效日数、排除日期、缺失原因、各父级可比对象数量和修复归属。</td><td>上游合同或数据不合格为 <code>BLOCKED</code>，交回 Lake/Prod；仅研究样本不足为 <code>INSUFFICIENT</code>。两者都结束当前 Run，不允许原地恢复。</td></tr>
+                <tr><td>时间前沿</td><td>对历史日 t 构造只包含 t 及此前已发布事实的视图；未来标签只能从 t+1 开始。</td><td>信号日可见数据截止时间、未来结果窗口。</td><td><code>INVALID</code>。</td></tr>
+                <tr><td>未来泄漏差分</td><td>改变 t 之后的数据并重算，验证 t 及此前因子和信号完全不变；检查公式 lag 与横截面日期。</td><td>通过/失败、受影响的日期、公式和字段。</td><td><code>INVALID</code>，禁止比较和发布。</td></tr>
+                <tr><td>预热稳定</td><td>在满足正式回看期的前提下，用不同额外预载长度重算重叠区间；比较因子值、信号日和排名差异。</td><td>重叠样本差异率、最大偏差、首个稳定日期。</td><td>超出公式合同阈值则 <code>INVALID</code>；历史不足则 <code>INSUFFICIENT</code>。</td></tr>
+                <tr><td>样本与覆盖</td><td>检查事件数、父行业覆盖、时间分布、小同组可比性和是否由少数行业/时段支配。</td><td>样本数、覆盖父级、最大集中度、排除组。</td><td><code>INSUFFICIENT</code>，允许保留研究记录但不得形成候选。</td></tr>
+                <tr><td>样本外与敏感性</td><td>冻结参数后只执行一次未见区间；比较样本内/外衰减、简单基线和邻近参数。</td><td>IS/OOS 对照、衰减、参数敏感性热图、失败样本。</td><td>门禁不通过则无候选；不得回改参数后继续使用同一 OOS。</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="margin:18px 0 8px">8.3 评价结果的阅读顺序</h3>
+          <div class="flow">
+            <div class="flow-step"><strong>先看有效性</strong><small>数据、时间、泄漏和预热是否通过。</small></div>
+            <div class="flow-step"><strong>再看硬约束</strong><small>样本、覆盖、稳定性和样本外是否达标。</small></div>
+            <div class="flow-step"><strong>再看主要目标</strong><small>1/3/5 日成功率、Lift、捕捉率与提前量。</small></div>
+            <div class="flow-step"><strong>再看敏感性</strong><small>邻近参数是否也合理，避免孤立尖峰。</small></div>
+            <div class="flow-step"><strong>最后看案例</strong><small>成功、误报、漏报和异常父级样本。</small></div>
+            <div class="flow-step"><strong>人工结论</strong><small>提名候选、保留观察或本轮未找到。</small></div>
+          </div>
+
+          <h3 style="margin:18px 0 8px">8.4 最终参数与运行追溯</h3>
+          <div class="grid-2">
+            <div class="card blue"><h3>最终生效参数清单</h3><p>冻结时保存每个参数的名称、类型、最终值、默认值、覆盖来源、允许范围和参数哈希。运行时只读取这一份冻结结果，不再从页面、文件或代码默认值二次叠加。</p></div>
+            <div class="card purple"><h3>完整运行指纹</h3><p>每次运行直接读取上游，并记录来源、范围、内容指纹、对象池、公式代码、最终参数、时间切分、评价合同、代码版本和运行环境。上游内容变化后必须产生新 Run，不覆盖旧结果。</p></div>
+          </div>
+          <div class="section-note" style="margin-top:10px"><strong>已确认口径：</strong>不引入自动参数优化，也不自动复用历史计算结果。已完成 Run 可继续查看；每次新建 Run 都重新直读上游并完整计算。平台先提供有限参数矩阵、明确目标/约束、可信门禁和敏感性阅读；是否扩展搜索空间由每轮研究计划单独审批。</div>
+        </div>
+      </section>
+
+      <section class="section" id="storage">
+        <div class="section-head"><div><h2>9. 上游直读与存储边界</h2><p>平台直接读取 Data Lake 或 Prod，只保存审计元数据、研究结果和正式输出；大型回测产物的保存方式由具体回测能力按实际规模决定。</p></div><span class="badge gate">不保存输入副本</span></div>
+        <div class="section-body">
+          <div class="grid-3">
+            <div class="card blue"><h3>Data Lake：直接读取正式资产</h3><ul><li>适合长历史、多对象、大范围列式扫描。</li><li>只读取上游正式发布的数据，不复制到 QTF。</li><li>使用 DuckDB / Parquet 向量化读取，限定列和分区。</li></ul></div>
+            <div class="card blue"><h3>Prod DB：首个切片主来源</h3><ul><li>二级行业首轮研究直接只读 Prod，不复制数据。</li><li>所有研究查询保持只读、显式字段和范围约束。</li><li>PLAN 先估算扫描量；若可能影响生产热路径，停止并另行批准改为直接读取 Lake。</li></ul></div>
+            <div class="card gold"><h3>只读准入审计</h3><ul><li>一次实验的同一事实只选择一个主来源。</li><li>只记录 source、as_of、范围、数量、缺口与内容指纹。</li><li>不生成输入快照、缓存、副本，不清洗或修复来源数据。</li></ul></div>
+          </div>
+
+          <div class="table-wrap" style="margin-top:10px">
+            <table>
+              <thead><tr><th>存储区</th><th>保存内容</th><th>建议介质</th><th>写入者</th><th>消费边界</th></tr></thead>
+              <tbody>
+                <tr><td>QTF Metadata</td><td>公式、参数、实验、输入准入审计、评估、审批和发布的结构化元数据与关系；不包含来源数据副本。</td><td>现有 Prod PostgreSQL 的独立 <code>qtf</code> schema</td><td>QTF application</td><td>QTF API；不直接给行情页面。</td></tr>
+                <tr><td>Run Artifacts</td><td>具体回测能力真正需要保留的派生因子、信号样本、诊断结果、图表数据和运行记录；禁止保存原始输入副本。</td><td>由该能力的技术方案与 LLD 在 PostgreSQL、受控派生文件或仅保留摘要之间选择</td><td>对应 QTF capability executor</td><td>保存粒度、介质、保留期和复现要求均按能力合同冻结。</td></tr>
+                <tr><td>Serving Facts</td><td>已发布公式与参数生成的正式指标、信号、质量状态和 release_id。</td><td>Prod serving 表</td><td>QTF production runtime</td><td>Biz 查询和财势乾坤页面。</td></tr>
+                <tr><td>TaskRun</td><td>执行意图、运行状态、进度、失败信息和耗时。</td><td>现有 Ops 存储</td><td>Ops runtime</td><td>QTF 通过安全视图展示；不是实验结果事实源。</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="section-note" style="margin-top:10px"><strong>已确认口径：</strong>平台不建立输入数据仓、不落输入快照，也不把来源数据复制为 QTF 缓存。开发某项具体回测能力时，只针对派生结果决定保存内容、介质和保留期。若上游数据后来被修订，QTF 可以通过审计记录识别内容变化，但精确保留和恢复旧版来源数据是 Data Lake / Prod 的责任。</div>
+        </div>
+      </section>
+
+      <section class="section" id="runtime">
+        <div class="section-head"><div><h2>10. 运行、代码与部署形态</h2><p>首版用同仓模块化单体降低复杂度；高耗时计算通过独立 worker lane 与 Web 请求隔离。</p></div><span class="badge fact">形态已确认</span></div>
+        <div class="section-body">
+          <div class="grid-2">
+            <pre class="tree">goldenshare/
+├── qtf/                         # 新的量化产品域
+│   ├── AGENTS.md                # QTF 边界与研究门禁
+│   ├── contracts/               # 跨能力稳定合同
+│   │   ├── research_template.py
+│   │   ├── input_audit.py
+│   │   ├── formula.py
+│   │   ├── parameters.py
+│   │   ├── experiment.py
+│   │   ├── validation.py
+│   │   └── release.py
+│   ├── engine/                  # 同核计算与可信门禁
+│   │   ├── time_frontier.py
+│   │   ├── planner.py
+│   │   ├── executor.py
+│   │   └── validators/
+│   ├── modules/
+│   │   └── sector/              # 首个真实垂直能力
+│   │       ├── templates.py
+│   │       ├── data.py
+│   │       ├── formulas.py
+│   │       └── evaluation.py
+│   ├── application/
+│   │   ├── services/
+│   │   └── ports/
+│   ├── adapters/
+│   │   ├── lake/
+│   │   ├── prod/
+│   │   ├── persistence/
+│   │   └── artifacts/
+│   ├── api/
+│   └── tests/
+├── src/app/                     # 组合 QTF、Ops、DB、API
+├── src/ops/                     # TaskRun / worker / schedule
+├── src/foundation/              # 数据与基础契约
+├── src/biz/                     # 行情模块读取 serving
+└── wealth/                      # 工作台与行情前端</pre>
+            <div>
+              <div class="lane">
+                <div class="lane-name">Web / API 进程</div>
+                <div class="lane-items"><div class="lane-item">实验草稿与查询</div><div class="lane-item">结果摘要</div><div class="lane-item">评审与发布意图</div><div class="lane-item">TaskRun 只读视图</div></div>
+              </div>
+              <div class="lane">
+                <div class="lane-name">QTF Worker 进程</div>
+                <div class="lane-items"><div class="lane-item">数据审计</div><div class="lane-item">计划执行</div><div class="lane-item">回测与验证</div><div class="lane-item">Artifact 持久化</div></div>
+              </div>
+              <div class="lane">
+                <div class="lane-name">生产信号进程</div>
+                <div class="lane-items"><div class="lane-item">读取 Published Release</div><div class="lane-item">正式输入就绪检查</div><div class="lane-item">同公式计算</div><div class="lane-item">Serving 原子发布</div></div>
+              </div>
+              <div class="section-note" style="margin-top:10px"><strong>事务要求：</strong>QTF 业务产物提交与 Ops TaskRun 状态提交使用独立 session / transaction。状态写入失败只能影响观测，不能回滚已经完成的实验产物或生产 serving。</div>
+            </div>
+          </div>
+          <div class="grid-3" style="margin-top:10px">
+            <div class="card"><h3>计算内核</h3><p>优先 SQL / DuckDB / Arrow / NumPy 风格的向量化计算；公式只接收明确表结构和业务交易日，不依赖全局连接、浏览器时钟或页面状态。</p></div>
+            <div class="card"><h3>能力级资源治理</h3><p>平台提供计划、成本估算和安全取消的扩展点；是否启用、计算哪些复杂度指标以及具体上限，由每项回测能力在自己的技术方案与 LLD 中确定，不设置全平台统一数值。</p></div>
+            <div class="card"><h3>部署边界</h3><p>先保持同一仓库和版本发布，按进程隔离资源。只有真实性能数据证明需要时，才讨论拆分独立服务或分布式计算。</p></div>
+          </div>
+          <div class="table-wrap" style="margin-top:10px">
+            <table>
+              <thead><tr><th>场景</th><th>业务交易日</th><th>数据可见边界</th><th>延迟或失败时</th></tr></thead>
+              <tbody>
+                <tr><td>历史回测</td><td>实验合同中的每个交易日 t。</td><td>只允许使用 t 日盘后当时已经发布的数据；未来标签从下一交易日开始。</td><td>该日排除或标记不可验证，不能混入其他日期事实。</td></tr>
+                <tr><td>盘后生产信号</td><td>使用与财势乾坤 <code>pageContext.tradeDate</code> 同源的后端业务日期规则，不自行读取系统当前日期。</td><td>只有该业务日全部必需输入通过就绪检查，才计算并发布新 serving。</td><td>不覆盖上一有效版本；下游继续展示最近完整盘后日并明确数据日期。</td></tr>
+                <tr><td>财势乾坤消费</td><td>API 返回事实自带 <code>trade_date/as_of/release_id/quality_status</code>。</td><td>页面只展示已发布事实，不根据浏览器时间猜测数据日期或自行重算。</td><td>沿用现有延迟体验，提示“当前展示 YYYY-MM-DD 盘后数据”。</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="vertical">
+        <div class="section-head"><div><h2>11. 首个垂直需求：行业二级热度参数研究</h2><p>用真实、边界明确的研究任务检验平台骨架，而不是先造一个空平台。</p></div><span class="badge fact">首个用例</span></div>
+        <div class="section-body">
+          <div class="diagram-wrap">
+            <svg viewBox="0 0 1320 300" role="img" aria-label="行业二级热度研究垂直切片">
+              <defs><marker id="vArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#f7c76b"/></marker></defs>
+              <text x="34" y="35" fill="#8290a5" font-size="11" font-weight="700" letter-spacing="1.4">FIXED RESEARCH INPUTS</text>
+              <rect x="34" y="56" width="236" height="188" rx="12" fill="#121b2c" stroke="#365372"/>
+              <text x="57" y="91" fill="#5aa7ff" font-size="14" font-weight="700">数据与对象池</text>
+              <text x="57" y="122" fill="#b6c2d4" font-size="11">• trade_calendar</text>
+              <text x="57" y="146" fill="#b6c2d4" font-size="11">• wealth_sector_hierarchy</text>
+              <text x="57" y="170" fill="#b6c2d4" font-size="11">• dc_daily</text>
+              <text x="57" y="202" fill="#8290a5" font-size="10">行业二级，默认同一父级内比较</text>
+
+              <rect x="328" y="56" width="236" height="188" rx="12" fill="#121b2c" stroke="#6f5c31"/>
+              <text x="351" y="91" fill="#f7c76b" font-size="14" font-weight="700">可配置参数</text>
+              <text x="351" y="122" fill="#b6c2d4" font-size="11">• 基线 B = 60 / 120</text>
+              <text x="351" y="146" fill="#b6c2d4" font-size="11">• 计算窗口 W</text>
+              <text x="351" y="170" fill="#b6c2d4" font-size="11">• 衰减、权重、阈值</text>
+              <text x="351" y="194" fill="#b6c2d4" font-size="11">• 信号与未来验证窗口</text>
+              <text x="351" y="222" fill="#8290a5" font-size="10">有限矩阵，执行前显示复杂度</text>
+
+              <rect x="622" y="56" width="236" height="188" rx="12" fill="#121b2c" stroke="#584b78"/>
+              <text x="645" y="91" fill="#af8cff" font-size="14" font-weight="700">统一回测框架</text>
+              <text x="645" y="122" fill="#b6c2d4" font-size="11">• 时间前沿 / 泄漏 / 预热门禁</text>
+              <text x="645" y="146" fill="#b6c2d4" font-size="11">• 因子 / 信号研究生产同核</text>
+              <text x="645" y="170" fill="#b6c2d4" font-size="11">• 次日 / 3日 / 5日样本外验证</text>
+              <text x="645" y="194" fill="#b6c2d4" font-size="11">• 基准、覆盖、提前量与敏感性</text>
+              <text x="645" y="222" fill="#8290a5" font-size="10">结果可比较、可复现</text>
+
+              <rect x="916" y="56" width="368" height="188" rx="12" fill="#121b2c" stroke="#3b705a"/>
+              <text x="939" y="91" fill="#55d49b" font-size="14" font-weight="700">两类输出，严格分流</text>
+              <rect x="939" y="113" width="150" height="92" rx="8" fill="#0d1422" stroke="#43536b"/>
+              <text x="1014" y="140" text-anchor="middle" fill="#e5eef9" font-size="11" font-weight="700">研究报告</text>
+              <text x="1014" y="164" text-anchor="middle" fill="#8290a5" font-size="10">最佳候选、失败样本</text>
+              <text x="1014" y="183" text-anchor="middle" fill="#8290a5" font-size="10">不自动上线</text>
+              <rect x="1111" y="113" width="150" height="92" rx="8" fill="#0d1422" stroke="#43536b"/>
+              <text x="1186" y="140" text-anchor="middle" fill="#e5eef9" font-size="11" font-weight="700">候选参数集</text>
+              <text x="1186" y="164" text-anchor="middle" fill="#8290a5" font-size="10">等待评审与审批</text>
+              <text x="1186" y="183" text-anchor="middle" fill="#8290a5" font-size="10">批准后才可发布</text>
+
+              <line x1="270" y1="150" x2="328" y2="150" stroke="#f7c76b" stroke-width="2" marker-end="url(#vArrow)"/>
+              <line x1="564" y1="150" x2="622" y2="150" stroke="#f7c76b" stroke-width="2" marker-end="url(#vArrow)"/>
+              <line x1="858" y1="150" x2="916" y2="150" stroke="#f7c76b" stroke-width="2" marker-end="url(#vArrow)"/>
+            </svg>
+          </div>
+          <div class="grid-3" style="margin-top:10px">
+            <div class="card blue"><h3>平台必须证明的能力</h3><p>固定数据类目，灵活调整有限参数；每轮计划执行前可审阅复杂度；输出结果可横向比较并完整复现。</p></div>
+            <div class="card gold"><h3>研究原则</h3><p>先寻找二级行业统一参数，不为每个具体行业单独调参；有限次数、有限范围、每轮先审批，找不到也允许如实结束。</p></div>
+            <div class="card purple"><h3>后续延伸</h3><p>同一框架再研究三级行业、概念和地域；一级/二级/三级联合信号属于后续研究，不提前写死在首版内核。</p></div>
+          </div>
+          <div class="table-wrap" style="margin-top:10px">
+            <table>
+              <thead><tr><th>用户步骤</th><th>首个用例中的实际内容</th><th>页面必须回答</th></tr></thead>
+              <tbody>
+                <tr><td>选择模板</td><td>二级行业“逐渐转热 / 高位延续”统一参数研究。</td><td>研究什么、为什么研究、成功如何定义。</td></tr>
+                <tr><td>确认范围</td><td>当前有效二级行业；默认在同一一级父行业的直属子行业中比较。</td><td>有哪些父级、每组多少子行业、哪些组因样本过少被排除。</td></tr>
+                <tr><td>配置候选</td><td>60/120 历史基线及 R2 计划明确批准的有限控制变量。</td><td>最终组合数、每个参数含义、哪些参数固定不变。</td></tr>
+                <tr><td>审阅计划</td><td>交易日范围、样本切分、扫描量、预计耗时、对照和停止条件。</td><td>这次会算什么、不会算什么、是否超出批准范围。</td></tr>
+                <tr><td>阅读证据</td><td>可信门禁、IS/OOS、1/3/5 日结果、Lift、覆盖、提前量、父级分布和敏感性。</td><td>结果是否可信、是否稳定、是否优于简单规则、失败发生在哪里。</td></tr>
+                <tr><td>形成结论</td><td>提名有限候选、保留待验证，或明确“本轮未找到统一参数”。</td><td>结论依据、局限、下一轮是否值得继续。</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="section-note" style="margin-top:10px">现有 <code>scripts/research/sector_radar_*</code> 与一级行业结论只作为历史研究证据。是否迁移、如何映射为 QTF 对象，需要单独的受控开发切片，首版架构不假设已有脚本等于平台实现。</div>
+        </div>
+      </section>
+
+      <section class="section" id="workbench">
+        <div class="section-head"><div><h2>12. 首版工作台的信息架构</h2><p>页面围绕“定义问题—审阅计划—等待运行—判断证据—提交候选”组织，不让用户理解内部任务或存储结构。</p></div><span class="badge proposal">产品草案</span></div>
+        <div class="section-body">
+          <div class="grid-3">
+            <div class="card"><h3>研究总览</h3><p>继续未完成草稿、查看运行中任务、待判断结果、待审批候选、当前生产版本和异常提醒。</p></div>
+            <div class="card"><h3>新建研究</h3><p>从业务模板开始，依次确认问题、对象范围、数据、公式与候选参数、样本切分、评价规则和执行预算。</p></div>
+            <div class="card"><h3>运行详情</h3><p>展示冻结计划、当前阶段、参数组合进度、取消入口和失败原因；不把 TaskRun 技术字段直接暴露给用户。</p></div>
+            <div class="card"><h3>结果比较</h3><p>先显示有效性门禁，再显示硬约束、主要目标、样本内/外、敏感性、简单基线和失败样本。</p></div>
+            <div class="card"><h3>公式与参数</h3><p>解释公式使用哪些事实、何时可见、需要多少历史；参数页显示全部最终生效值及被哪些实验和版本引用。</p></div>
+            <div class="card"><h3>候选与发布</h3><p>提交候选、查看评审清单、批准/拒绝、生效/退役、替代关系、生产计算状态和下游页面使用情况。</p></div>
+          </div>
+          <div class="table-wrap" style="margin-top:10px">
+            <table>
+              <thead><tr><th style="width:180px">页面时刻</th><th>默认先展示</th><th>用户需要做的决定</th><th>必须避免</th></tr></thead>
+              <tbody>
+                <tr><td>启动前</td><td>研究问题、对象池、有效交易日、最终参数组合、IS/OOS、成本和停止条件摘要。</td><td>冻结并启动，或返回缩小范围。</td><td>隐藏默认参数、只显示底层命令、未审阅即运行。</td></tr>
+                <tr><td>运行中</td><td>业务阶段、已完成组合、当前组合、预计规模、可读失败原因。</td><td>继续等待或安全取消。</td><td>把部分结果当最终结论；用状态写入失败回滚业务产物。</td></tr>
+                <tr><td>运行完成</td><td>可信门禁结论和无效原因，而不是冠军参数。</td><td>进入结果阅读，或修正研究设计后派生新版本。</td><td>把 TaskRun success 显示成“研究已通过”。</td></tr>
+                <tr><td>结果阅读</td><td>硬约束、主要目标、OOS、参数敏感性和简单基线对照。</td><td>提名候选、保留观察或结束研究。</td><td>只显示一个最高成功率；隐藏样本量和失败样本。</td></tr>
+                <tr><td>发布评审</td><td>候选证据、适用范围、已知风险、生产成本、生效日和替代版本。</td><td>批准、拒绝或要求新实验。</td><td>自动发布、覆盖旧版本、改变候选参数。</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="grid-2" style="margin-top:10px">
+            <div class="card blue"><h3>首版直接复用现有管理员</h3><p>不创建分析员、操作员、QTF 管理员或行情用户等新角色，不新增 QTF 权限键、数据库账号或角色管理页面。当前管理员可以创建、冻结、运行、取消、阅读、提交、审核、批准和发布。</p></div>
+            <div class="card purple"><h3>同一人操作，业务步骤仍分离</h3><p>研究完成不能直接变成生产版本。候选提交、审核确认、批准版本和发布生效仍是独立动作与状态，分别记录操作者、时间、意见和所依据的实验结果；首版允许同一个管理员依次完成。</p></div>
+          </div>
+          <div class="flow" style="margin-top:10px">
+            <div class="flow-step"><strong>研究完成</strong><small>证据通过或明确本轮未找到。</small></div>
+            <div class="flow-step"><strong>提名候选</strong><small>选择不可变的公式与参数结果。</small></div>
+            <div class="flow-step"><strong>审核确认</strong><small>检查适用范围、风险和生产成本。</small></div>
+            <div class="flow-step"><strong>批准版本</strong><small>形成不可变 release，不静默改参数。</small></div>
+            <div class="flow-step"><strong>发布生效</strong><small>计算成功后原子切换，下游开始消费。</small></div>
+          </div>
+          <div class="section-note" style="margin-top:10px"><strong>已确认身份口径：</strong>首版只调用现有管理员认证与 <code>require_admin</code>，不做任何新角色、权限分层或账号体系开发。这里保留的是防止研究结果未经复核就进入生产的业务流程，不是多人权限流程。</div>
+        </div>
+      </section>
+
+      <section class="section" id="milestones">
+        <div class="section-head"><div><h2>13. 建设里程碑</h2><p>先纵向打通二级行业，再从真实实现中提炼通用合同；不先建设一批没有业务验收的空模块。</p></div><span class="badge proposal">建议顺序</span></div>
+        <div class="section-body grid-2">
+          <div>
+            <div class="milestone"><h3>M0 · 架构评审与边界冻结</h3><p>确认本修订稿、QTF 目录边界、依赖方向、现有管理员认证复用、业务审核动作、可信门禁和二级行业首个切片；通过前不进入技术方案。</p></div>
+            <div class="milestone"><h3>M1 · 二级行业输入准入</h3><p>首轮直接只读 Prod，建立公共审计与二级行业能力审计、最小 Backtest Input Audit Record、对象池、父级内比较范围、有效交易日与缺口证据；不落输入快照或副本。</p></div>
+            <div class="milestone"><h3>M2 · 二级行业同核公式与参数</h3><p>从现有离线研究中提取经审计的价格/成交公式，建立时间语义、预热、输入输出和最终生效参数合同。</p></div>
+            <div class="milestone"><h3>M3 · 有限计划与执行主链</h3><p>冻结 R2 参数矩阵、IS/OOS、评价合同和预算；新 Run 每次重新直读上游并完整计算，不自动复用历史结果；接入现有 TaskRun 进度、取消和失败观测。</p></div>
+            <div class="milestone"><h3>M4 · 可信门禁与结果证据</h3><p>实现时间前沿、未来泄漏差分、预热稳定、样本覆盖、样本外和参数敏感性；形成明确 VALID/INVALID/INSUFFICIENT 结论。</p></div>
+          </div>
+          <div>
+            <div class="milestone"><h3>M5 · R2 真实研究验收</h3><p>只执行获批的二级行业首轮探索；交付候选、失败样本或“本轮未找到”，验证平台最小闭环确实支持研究判断。</p></div>
+            <div class="milestone"><h3>M6 · 提炼通用平台合同</h3><p>基于 M1～M5 已证明的共同点，收敛研究模板、数据清单、公式、参数、实验、验证和产物接口；不保留专项脚本式旁路。</p></div>
+            <div class="milestone"><h3>M7 · 首版量化工作台</h3><p>落地研究总览、新建研究、运行详情、结果比较、公式参数关系和候选评审，按用户阅读顺序验收。</p></div>
+            <div class="milestone"><h3>M8 · 候选与不可变发布</h3><p>完成人工审批、不可变 release、生效/退役、生产计算同核和 serving 原子切换。</p></div>
+            <div class="milestone"><h3>M9 · 财势乾坤接入与反馈</h3><p>板块雷达/速览消费稳定 serving；验收数据延迟、失败保旧版本、版本追溯和实际表现反馈，不暴露实验结构。</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="gates">
+        <div class="section-head"><div><h2>14. 首版门禁与明确非目标</h2><p>功能范围不打折，但首版不靠增加平台复杂度来制造“高级感”。</p></div><span class="badge no">禁止越界</span></div>
+        <div class="section-body">
+          <div class="grid-2">
+            <div class="card green"><h3>首版必须具备</h3><ul><li>从业务模板开始，冻结研究问题、成功定义和非目标。</li><li>每次直接读取 Lake/Prod，来源、字段、业务日期、对象池、比较范围、缺口和内容指纹可追溯。</li><li>输入审计不合格即阻断运行，并明确交由哪个上游修复。</li><li>公式有时间语义、回看/预热、输入输出、代码版本；参数有完整最终生效值。</li><li>具体回测能力在开发前明确计算范围、资源门禁与派生产物保存策略。</li><li>未来泄漏、预热稳定、样本覆盖和样本外验证成为自动门禁。</li><li>结果分离主要目标、硬约束和诊断指标，并展示简单基线与参数敏感性。</li><li>完整运行记录支持追溯；修订数据后旧结果不得被当作当前结果。</li><li>业务审核动作完成后生成不可变 release，生产与回测使用同一公式内核。</li><li>生产信号附 release_id、业务交易日和质量状态，可追溯到研究证据。</li><li>QTF 业务事务与 TaskRun 状态事务隔离。</li></ul></div>
+            <div class="card orange"><h3>首版明确不做</h3><ul><li>不引入 Qlib、Freqtrade 或 LEAN 作为运行依赖；不复制外部平台代码。</li><li>不允许用户在网页上传或执行任意 Python 代码。</li><li>不建设自动 Hyperopt，不自动扩大参数空间，不自动发布候选。</li><li>不为每个具体行业配置独立参数。</li><li>不建设机器学习平台、分布式计算集群或实时分钟量化。</li><li>不建设订单、撮合、仓位、组合、券商或自动交易系统。</li><li>不做申万行业、跨体系映射或相关性研究。</li><li>不清洗、修复、回填上游数据，也不保存输入快照、缓存或副本。</li><li>不新增 QTF 角色、权限键、数据库账号或角色管理页面。</li><li>不复制 Ops TaskRun，也不复用静态 JSON 配置代替实验管理。</li><li>不把回测预测表述为交易指令或收益承诺。</li></ul></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="decisions">
+        <div class="section-head"><div><h2>15. 架构决策记录</h2><p>既有拍板项保持不变；本轮新增的对标吸收设计仍需整体评审后冻结。</p></div><span class="badge proposal">2026-08-21 修订</span></div>
+        <div class="section-body">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>决策项</th><th>已确认结论</th><th>状态</th><th>落地时点</th></tr></thead>
+              <tbody>
+                <tr><td>QTF 顶层子系统</td><td>仓库根目录新增 <code>qtf/</code> 正式产品域；量化工作台继续放在现有 <code>wealth/</code> 前端工程，由 <code>src/app</code> 组合。</td><td><span class="badge fact">已确认</span></td><td>M0 同步依赖矩阵、包配置和目录规则。</td></tr>
+                <tr><td>元数据存储</td><td>使用现有 Prod PostgreSQL 的独立 <code>qtf</code> schema，复用现有 <code>DATABASE_URL</code>、engine 与 session；不新增数据库、登录账号或专用连接。</td><td><span class="badge fact">已确认</span></td><td>M0 技术方案，迁移细节在 LLD 冻结。</td></tr>
+                <tr><td>开源经验范围</td><td>只吸收 Freqtrade 的参数/泄漏/预热/后台任务经验，以及 LEAN 的同核/时间前沿/目标约束/样本外经验；不借鉴 Qlib，不引入任何外部平台作为依赖。</td><td><span class="badge fact">已确认</span></td><td>本架构稿；实现时以本地合同和测试为准。</td></tr>
+                <tr><td>输入数据责任</td><td>Data Lake / Prod 负责采集、清洗、修复、回填、完整性与正式发布；QTF 只做只读准入审计。审计不合格时阻断当前 Run，并把问题交回对应上游修复。</td><td><span class="badge fact">已确认</span></td><td>M1 写入输入审计合同与正反例。</td></tr>
+                <tr><td>上游读取方式</td><td>每次运行直接读取 Data Lake 或 Prod；QTF 不保存输入快照、缓存或副本。每个 Run 只保存 Backtest Input Audit Record，记录来源、字段、as_of、日期、对象池、比较范围、缺口、行数和内容指纹。</td><td><span class="badge fact">已确认</span></td><td>M1 随二级行业垂直切片验证。</td></tr>
+                <tr><td>首个切片主来源</td><td>二级行业首轮研究直接只读 Prod。PLAN 必须先估算扫描量；如可能影响生产热路径，停止执行并单独批准改为直接读取 Lake，仍不得复制来源数据。</td><td><span class="badge fact">已确认</span></td><td>M1 输入适配与 M3 PLAN 门禁。</td></tr>
+                <tr><td>准入审计分层</td><td>平台公共层检查可访问性、必要字段、日期覆盖、唯一键、重复、缺失、非法数值和对象池；具体能力层检查历史长度、比较组规模和样本要求。两层都只检查，不清洗或修复。</td><td><span class="badge fact">已确认</span></td><td>M1 公共合同与二级行业能力合同。</td></tr>
+                <tr><td>审计失败后的运行语义</td><td>失败 Run 保持不可变，不恢复、不覆盖。上游完成修复后，由同一冻结实验创建新的 Run，重新直读并完整执行，保留修复前后两次证据。</td><td><span class="badge fact">已确认</span></td><td>M1 审计状态与 M3 执行状态机。</td></tr>
+                <tr><td>可信回测门禁</td><td>输入准入、时间前沿、未来泄漏差分、预热稳定、样本覆盖、样本外和敏感性为候选前门禁；TaskRun success 不等于研究 VALID。</td><td><span class="badge proposal">本轮新增</span></td><td>M4 自动化，M5 真实研究验收。</td></tr>
+                <tr><td>参数解析</td><td>冻结实验保存全部最终生效参数及其来源；执行时不再叠加页面、文件或代码默认值。首版只运行人工批准的有限参数矩阵。</td><td><span class="badge proposal">本轮新增</span></td><td>M2 参数合同，M3 执行门禁。</td></tr>
+                <tr><td>历史结果自动复用</td><td>首版不自动复用历史计算结果。已完成 Run 可以继续查看，但每次新建 Run 都重新直读上游并完整计算；不得通过输入快照、缓存或副本规避重算。</td><td><span class="badge fact">已确认</span></td><td>M3 执行合同与正反例。</td></tr>
+                <tr><td>大型回测产物</td><td>不制定全平台统一介质和保留期。开发具体回测能力时，再根据数据量、访问方式、复现要求和成本决定保存内容、PostgreSQL / Parquet / 仅摘要及保留期限。</td><td><span class="badge gate">Case by case</span></td><td>每项回测能力进入开发前的技术方案与 LLD。</td></tr>
+                <tr><td>身份与业务审核</td><td>首版只复用现有管理员认证与 <code>require_admin</code>，不新增角色、权限键、数据库账号或角色页面。同一个管理员可以完成全部操作，但候选提交、审核确认、批准版本、发布生效仍是独立业务动作和记录。</td><td><span class="badge fact">已确认</span></td><td>M0 技术方案与 M7 工作台按此验收。</td></tr>
+                <tr><td>单次计算规模</td><td>不设置全平台统一的组合数、日期跨度、耗时或内存上限。每项回测能力根据真实复杂度决定 PLAN、并发、取消点和拒绝阈值。</td><td><span class="badge gate">Case by case</span></td><td>每项回测能力进入开发前的 benchmark、技术方案与 LLD。</td></tr>
+                <tr><td>发布与回滚</td><td>公式和参数 release 不可变；新版本默认下一交易日生效，正式结果完整计算并校验成功后才原子切换。失败保留旧版本，回滚通过重新激活旧版本完成，不删除版本、不静默改写历史。</td><td><span class="badge fact">已确认</span></td><td>M7 细化日切、原子发布和修复契约。</td></tr>
+                <tr><td>公式管理方式</td><td>公式通过代码注册、测试和版本发布；工作台只查看、选择、激活、废弃和追踪版本，不允许网页提交或执行任意 Python。</td><td><span class="badge fact">已确认</span></td><td>M1 建立 Formula Contract，M5 提供管理视图。</td></tr>
+                <tr><td>研究与生产计算方式</td><td>回测研究按需直读上游并现算，不预计算全部参数组合，也不自动复用历史 Run；生产只按已发布参数定时计算，不在生产任务中搜索参数。</td><td><span class="badge fact">已确认</span></td><td>M3 实现研究执行合同，M8 实现生产执行合同。</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="section-note" style="margin-top:10px"><strong>本轮结论：</strong>数据质量归上游、QTF 直接读取、不保存输入副本、首个切片读取 Prod、公共/能力两层审计、失败后新建 Run、首版不自动复用结果以及不新增角色或权限均已冻结。业务审核动作、可信门禁、最终参数和纵向里程碑继续作为整体架构接受评审。大型回测产物与单次计算规模仍按具体回测能力 case by case 决定。</div>
+        </div>
+      </section>
+
+      <footer class="footer">Goldenshare · 财势量化平台（QTF）首版系统架构方案 v1 · Freqtrade / LEAN 经验本地化修订稿 · 本文档描述目标架构，不代表当前代码已实现。</footer>
+    </main>
+  </div>
+</body>
+</html>

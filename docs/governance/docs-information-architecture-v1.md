@@ -91,6 +91,13 @@ Architecture 组按以下顺序判断文档是否具备当前权威性：
 
 `docs/README.md` 负责导航和阅读顺序，不重复承载上述事实。
 
+本轮 Architecture 入口治理结论：
+
+1. S0 保留仓库上手总览、QTF 方案和 Foundation 当前强约束；S1 不再重复列出这些入口。
+2. `Dataset Maintain M-1 到 M8` 仅保留为历史执行索引，不再作为 Architecture 主入口；当前实施状态回到关联主案、代码和测试。
+3. 方案与 LLD 成对保留时，必须分别承担上位方案与落地细节；独立验收记录、审计记录和旧 Local Lake 证据不提升为当前主入口。
+4. `top_list` 版本收口方案已实施，后续未决范围仅限数值冲突业务规则，不再使用无状态标签的“专项方案”表述。
+
 ### 4.2 Ops 组
 
 1. `ops-contract-current.md`（主文档）

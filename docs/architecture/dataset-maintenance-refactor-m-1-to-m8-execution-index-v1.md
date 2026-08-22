@@ -1,12 +1,14 @@
 # Dataset Maintain 重构 M-1 到 M8 执行索引 v1
 
-- 状态：执行索引 / 记忆锚点
+- 状态：历史执行索引 / 非当前事实源
 - 日期：2026-04-26
 - 适用范围：`src/foundation/**`、`src/ops/**`、Ops Web API、任务中心前端、相关测试与迁移脚本
 - 关联方案：
   - [DatasetDefinition 单一事实源重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
   - [DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)
   - [工程风险登记簿](/Users/congming/github/goldenshare/docs/governance/engineering-risk-register.md)
+
+> 本文保留 2026-04-26 数据集维护重构的阶段执行索引和验收口径。当前实施状态以关联主案、代码、测试和现行治理索引为准；本文不作为当前架构基线、执行计划或开发入口。
 
 ---
 
