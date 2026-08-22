@@ -1,6 +1,6 @@
 # ETF 实时成交额异动监控 LLD v1
 
-状态：已拍板 / 待开发
+状态：本地实现完成 / 待部署验收
 创建日期：2026-08-22
 依据方案：[ETF 实时成交额异动监控方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-etf-realtime-volume-anomaly-monitor-plan-v1.md)
 
@@ -46,14 +46,11 @@ V1 不是新增 Tushare 数据集，不进入 `DatasetDefinition`、TaskRun、fr
 3. 获取 batch meta。
 4. 获取指定 `ts_codes` 的 snapshots。
 5. 获取 snapshot 数量。
+6. 按 feed 列出最近 N 个 batch。
+7. 按 batch 读取全部 snapshot。
+8. 按 batch 读取 snapshot code 集合。
 
-当前 Redis store 尚不支持：
-
-1. 按 feed 列出最近 N 个 batch。
-2. 按 batch 读取全部 snapshot。
-3. 按交易日过滤 batch。
-
-因此本需求不能在监控引擎里临时拼 Redis key。必须先扩展 `RealtimeStateStore` 公共契约，并同步 Redis / InMemory / Unavailable 实现与测试。
+ETF 监控引擎必须继续通过 `RealtimeStateStore` 读取批次与 snapshot，禁止临时拼 Redis key。
 
 ### 2.2 ETF 活跃池与可选列表
 

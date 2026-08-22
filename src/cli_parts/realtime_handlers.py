@@ -6,6 +6,8 @@ from typing import Callable
 from sqlalchemy.orm import Session
 
 from src.foundation.realtime import RealtimeCollectorService, build_realtime_state_store, get_realtime_runtime_config
+from src.foundation.realtime.config_catalog import ETF_RT_DAILY_FEED_KEY
+from src.ops.services.etf_realtime_monitor_service import EtfRealtimeMonitorService
 
 
 def run_realtime_collector_serve(
@@ -36,6 +38,23 @@ def run_realtime_collector_serve(
             )
             if result.message:
                 echo_fn(f"realtime-collector-serve: feed_key={result.feed_key}{freq} message={result.message}")
+            if result.feed_key == ETF_RT_DAILY_FEED_KEY and result.status == "ok" and result.batch_id:
+                try:
+                    with session_local() as monitor_session:
+                        monitor_result = EtfRealtimeMonitorService().run_after_etf_batch(
+                            monitor_session,
+                            store=store,
+                            feed_key=result.feed_key,
+                        )
+                    echo_fn(
+                        "realtime-collector-serve: "
+                        f"feed_key={result.feed_key} monitor_status={monitor_result.status} "
+                        f"evaluated={monitor_result.evaluated_count} alerts={monitor_result.alert_count}"
+                    )
+                    if monitor_result.message:
+                        echo_fn(f"realtime-collector-serve: feed_key={result.feed_key} monitor_message={monitor_result.message}")
+                except Exception as exc:
+                    echo_fn(f"realtime-collector-serve: feed_key={result.feed_key} monitor_status=failed message={exc}")
         if max_cycles is not None and cycle >= max_cycles:
             return
         time.sleep(cycle_result.next_sleep_seconds)

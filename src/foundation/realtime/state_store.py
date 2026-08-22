@@ -51,6 +51,21 @@ class RealtimeStateStore(Protocol):
     def get_batch_snapshot_count(self, feed_key: str, batch_id: str) -> int:
         ...
 
+    def list_batch_ids(self, feed_key: str, *, limit: int | None = None) -> list[str]:
+        ...
+
+    def get_batch_snapshot_codes(self, feed_key: str, batch_id: str) -> set[str]:
+        ...
+
+    def get_batch_snapshots(
+        self,
+        feed_key: str,
+        batch_id: str,
+        *,
+        ts_codes: Sequence[str] | None = None,
+    ) -> dict[str, dict[str, Any]]:
+        ...
+
     def get_snapshots(self, feed_key: str, batch_id: str, ts_codes: Sequence[str]) -> dict[str, dict[str, Any]]:
         ...
 
@@ -163,6 +178,32 @@ class RedisRealtimeStateStore:
             return int(self._client.scard(RealtimeRedisKeys(feed_key).batch_index(batch_id)))
         except Exception as exc:
             raise RealtimeStateStoreUnavailable(str(exc)) from exc
+
+    def list_batch_ids(self, feed_key: str, *, limit: int | None = None) -> list[str]:
+        keys = RealtimeRedisKeys(feed_key)
+        stop = -1 if limit is None else max(limit - 1, 0)
+        try:
+            return [_coerce_text(item) for item in self._client.zrevrange(keys.batches(), 0, stop)]
+        except Exception as exc:
+            raise RealtimeStateStoreUnavailable(str(exc)) from exc
+
+    def get_batch_snapshot_codes(self, feed_key: str, batch_id: str) -> set[str]:
+        try:
+            return {_coerce_text(item) for item in self._client.smembers(RealtimeRedisKeys(feed_key).batch_index(batch_id))}
+        except Exception as exc:
+            raise RealtimeStateStoreUnavailable(str(exc)) from exc
+
+    def get_batch_snapshots(
+        self,
+        feed_key: str,
+        batch_id: str,
+        *,
+        ts_codes: Sequence[str] | None = None,
+    ) -> dict[str, dict[str, Any]]:
+        if ts_codes is not None:
+            return self.get_snapshots(feed_key, batch_id, ts_codes)
+        codes = sorted(self.get_batch_snapshot_codes(feed_key, batch_id))
+        return self.get_snapshots(feed_key, batch_id, codes)
 
     def get_snapshots(self, feed_key: str, batch_id: str, ts_codes: Sequence[str]) -> dict[str, dict[str, Any]]:
         keys = RealtimeRedisKeys(feed_key)
@@ -280,6 +321,25 @@ class InMemoryRealtimeStateStore:
     def get_batch_snapshot_count(self, feed_key: str, batch_id: str) -> int:
         return len(self.snapshots.get((feed_key, batch_id), {}))
 
+    def list_batch_ids(self, feed_key: str, *, limit: int | None = None) -> list[str]:
+        ordered = list(reversed(self.batch_order.get(feed_key, [])))
+        return ordered if limit is None else ordered[:limit]
+
+    def get_batch_snapshot_codes(self, feed_key: str, batch_id: str) -> set[str]:
+        return set(self.snapshots.get((feed_key, batch_id), {}).keys())
+
+    def get_batch_snapshots(
+        self,
+        feed_key: str,
+        batch_id: str,
+        *,
+        ts_codes: Sequence[str] | None = None,
+    ) -> dict[str, dict[str, Any]]:
+        batch_snapshots = self.snapshots.get((feed_key, batch_id), {})
+        if ts_codes is None:
+            return {code: dict(snapshot) for code, snapshot in batch_snapshots.items()}
+        return self.get_snapshots(feed_key, batch_id, ts_codes)
+
     def get_snapshots(self, feed_key: str, batch_id: str, ts_codes: Sequence[str]) -> dict[str, dict[str, Any]]:
         batch_snapshots = self.snapshots.get((feed_key, batch_id), {})
         return {
@@ -340,6 +400,23 @@ class UnavailableRealtimeStateStore:
         raise RealtimeStateStoreUnavailable(self.reason)
 
     def get_batch_snapshot_count(self, _feed_key: str, _batch_id: str) -> int:
+        raise RealtimeStateStoreUnavailable(self.reason)
+
+    def list_batch_ids(self, _feed_key: str, *, limit: int | None = None) -> list[str]:
+        del limit
+        raise RealtimeStateStoreUnavailable(self.reason)
+
+    def get_batch_snapshot_codes(self, _feed_key: str, _batch_id: str) -> set[str]:
+        raise RealtimeStateStoreUnavailable(self.reason)
+
+    def get_batch_snapshots(
+        self,
+        _feed_key: str,
+        _batch_id: str,
+        *,
+        ts_codes: Sequence[str] | None = None,
+    ) -> dict[str, dict[str, Any]]:
+        del ts_codes
         raise RealtimeStateStoreUnavailable(self.reason)
 
     def get_snapshots(self, _feed_key: str, _batch_id: str, _ts_codes: Sequence[str]) -> dict[str, dict[str, Any]]:

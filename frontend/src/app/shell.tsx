@@ -171,6 +171,16 @@ export function OpsShell(_props: PropsWithChildren) {
               color="brand"
               style={{ marginLeft: 8 }}
             />
+            <NavLink
+              component={Link}
+              to="/ops/v21/realtime/etf-monitor"
+              label="ETF实时监控配置中心"
+              leftSection={<IconSettings size={16} />}
+              active={location.pathname === "/ops/v21/realtime/etf-monitor"}
+              variant="subtle"
+              color="brand"
+              style={{ marginLeft: 8 }}
+            />
 
             <ShellParentNavLabel label="审查中心" icon={IconStack2} active={isReviewSectionActive} />
             {opsV21ReviewLinks.map((link) => (

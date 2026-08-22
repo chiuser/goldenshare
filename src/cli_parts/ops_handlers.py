@@ -361,6 +361,32 @@ def run_ops_cleanup_etf_fund_daily_serving(
     echo_fn(f"active_task_runs={report.active_task_run_count}")
 
 
+def run_ops_archive_etf_realtime_minute_stats(
+    *,
+    session_local,
+    service_cls,
+    store_factory,
+    runtime_config_factory,
+    trade_date,
+    echo_fn: Callable[[str], None],
+) -> None:
+    with session_local() as session:
+        config = runtime_config_factory(session)
+    store = store_factory(config.redis_url)
+    with session_local() as session:
+        report = service_cls().run(
+            session,
+            store=store,
+            feed_key=config.etf_rt_daily.feed_key,
+            trade_date=trade_date,
+        )
+    echo_fn("ops-archive-etf-realtime-minute-stats")
+    echo_fn(f"trade_date={report.trade_date}")
+    echo_fn(f"monitor_count={report.monitor_count}")
+    echo_fn(f"metric_count={report.metric_count}")
+    echo_fn(f"upserted={report.upserted_count}")
+
+
 def run_ops_scheduler_tick(
     *,
     session_local,

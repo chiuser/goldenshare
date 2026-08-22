@@ -53,3 +53,27 @@ def test_in_memory_state_store_reads_only_current_batch_and_retains_recent_batch
             "close": "10.02",
         }
     }
+
+
+def test_in_memory_state_store_lists_batches_and_reads_full_batch_snapshots() -> None:
+    store = InMemoryRealtimeStateStore()
+
+    for batch_id, close in (("batch-1", "10.01"), ("batch-2", "10.02")):
+        store.publish_batch(
+            feed_key=STOCK_RT_DAILY_FEED_KEY,
+            batch_id=batch_id,
+            snapshots=[
+                {"ts_code": "600000.SH", "close": close},
+                {"ts_code": "000001.SZ", "close": close},
+            ],
+            meta={"published_at": f"2026-05-15T09:30:0{batch_id[-1]}+08:00"},
+            ttl_seconds=259200,
+            keep_recent_batches=3,
+            batch_stream_maxlen=5000,
+            delta_stream_maxlen=200000,
+        )
+
+    assert store.list_batch_ids(STOCK_RT_DAILY_FEED_KEY) == ["batch-2", "batch-1"]
+    assert store.list_batch_ids(STOCK_RT_DAILY_FEED_KEY, limit=1) == ["batch-2"]
+    assert store.get_batch_snapshot_codes(STOCK_RT_DAILY_FEED_KEY, "batch-2") == {"600000.SH", "000001.SZ"}
+    assert set(store.get_batch_snapshots(STOCK_RT_DAILY_FEED_KEY, "batch-2")) == {"600000.SH", "000001.SZ"}

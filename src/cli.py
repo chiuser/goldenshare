@@ -21,6 +21,7 @@ from src.cli_parts.ingestion_handlers import (
 from src.cli_parts.ops_handlers import (
     run_ops_audit_schedule_automation_capability as _run_ops_audit_schedule_automation_capability_impl,
     run_ops_cleanup_etf_fund_daily_serving as _run_ops_cleanup_etf_fund_daily_serving_impl,
+    run_ops_archive_etf_realtime_minute_stats as _run_ops_archive_etf_realtime_minute_stats_impl,
     run_ops_date_completeness_scheduler_tick as _run_ops_date_completeness_scheduler_tick_impl,
     run_ops_date_completeness_worker_run as _run_ops_date_completeness_worker_run_impl,
     run_ops_date_completeness_worker_serve as _run_ops_date_completeness_worker_serve_impl,
@@ -59,6 +60,7 @@ from src.db import SessionLocal
 from src.app.runtime import build_index_mins_worker, build_operations_scheduler, build_operations_worker, build_stk_mins_worker
 from src.foundation.ingestion.linter import lint_all_dataset_definitions
 from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY, build_dataset_maintain_service
+from src.foundation.realtime import build_realtime_state_store, get_realtime_runtime_config
 from src.foundation.realtime.runtime_config_seed_service import RealtimeRuntimeConfigSeedService
 from src.foundation.services.migration import RawTushareBootstrapService
 from src.foundation.services.migration import StockStMissingDateRepairService
@@ -78,6 +80,7 @@ from src.ops.services.operations_stock_basic_reconcile_service import StockBasic
 from src.ops.services.date_completeness_audit_service import DateCompletenessAuditWorker
 from src.ops.services.date_completeness_schedule_service import DateCompletenessScheduleCommandService
 from src.ops.services.etf_fund_daily_serving_cleanup_service import EtfFundDailyServingCleanupService
+from src.ops.services.etf_realtime_minute_archive_service import EtfRealtimeMinuteArchiveService
 from src.biz.services.market_mood_walkforward_validation_service import MarketMoodWalkForwardValidationService
 from src.biz.services.wealth.market.turnover.turnover_snapshot_materialize_service import (
     TurnoverSnapshotMaterializeService,
@@ -526,6 +529,20 @@ def ops_cleanup_etf_fund_daily_serving(
         apply=apply,
         output=output,
         confirm_report=confirm_report,
+        echo_fn=typer.echo,
+    )
+
+
+@app.command("ops-archive-etf-realtime-minute-stats")
+def ops_archive_etf_realtime_minute_stats(
+    trade_date: date = typer.Option(..., "--trade-date", help="归档交易日，格式 YYYY-MM-DD。"),
+) -> None:
+    _run_ops_archive_etf_realtime_minute_stats_impl(
+        session_local=SessionLocal,
+        service_cls=EtfRealtimeMinuteArchiveService,
+        store_factory=build_realtime_state_store,
+        runtime_config_factory=get_realtime_runtime_config,
+        trade_date=trade_date,
         echo_fn=typer.echo,
     )
 

@@ -5,6 +5,7 @@ from src.ops.api import (
     codebook,
     date_completeness,
     dataset_cards,
+    etf_realtime_monitor,
     freshness,
     manual_actions,
     overview,
@@ -25,6 +26,7 @@ router.include_router(freshness.router)
 router.include_router(schedules.router)
 router.include_router(probes.router)
 router.include_router(realtime.router)
+router.include_router(etf_realtime_monitor.router)
 router.include_router(resolution_releases.router)
 router.include_router(std_rules.router)
 router.include_router(runtime.router)
