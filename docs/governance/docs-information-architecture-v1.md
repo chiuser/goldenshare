@@ -1,6 +1,6 @@
 # 文档信息架构与待整合清单 v1
 
-更新时间：2026-04-26
+更新时间：2026-08-22
 
 ## 1. 目标
 
@@ -77,6 +77,19 @@ docs/
 1. `foundation-current-standards.md` 继续保持“唯一强约束源”定位。
 2. 专题文档仅保留领域细节，避免再复制主约束。
 3. 后续若发现专题与主文档冲突，先修正文档再改代码。
+
+### 4.1.1 当前权威入口与专题角色（G1）
+
+Architecture 组按以下顺序判断文档是否具备当前权威性：
+
+1. 当前运行时行为、API 契约和数据字段：以代码、测试、配置与实际运行事实为准。
+2. 系统边界与依赖方向：以 `subsystem-boundary-plan.md`、`dependency-matrix.md` 及对应的当前基线为准。
+3. 数据集静态事实：以 `src/foundation/datasets/**` 的 `DatasetDefinition` 为准；执行计划以 `src/foundation/ingestion/**` 的 `DatasetExecutionPlan` 为准。
+4. `dataset-definition-enum-reference-v1.md` 只维护枚举语义和约束边界，不维护易漂移的数量快照；精确数量由代码 registry 与测试提供。
+5. 方案、LLD 与验收记录保留各自角色：方案/LLD 解释设计与局部实现，验收记录提供时点证据，均不能覆盖当前代码事实。
+6. 已标记“历史/冻结”的 Local Lake 文档仅用于追溯旧 backend、旧 Lake 路径和迁移背景，不作为当前 Dagster Lake、新开发或写湖依据。
+
+`docs/README.md` 负责导航和阅读顺序，不重复承载上述事实。
 
 ### 4.2 Ops 组
 

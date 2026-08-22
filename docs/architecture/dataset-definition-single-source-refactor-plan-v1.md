@@ -10,8 +10,8 @@
 ## 0. 当前落地状态（2026-05-16）
 
 1. `src/foundation/datasets/models.py` 与 `registry.py` 已建立 DatasetDefinition 主模型与查询入口。
-2. `src/foundation/datasets/definitions/**` 已按领域落下当前 70 个数据集的静态事实；`registry.py` 不再运行时遍历旧 contract 生成 DatasetDefinition。
-3. [DatasetDefinition 枚举语义参考 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-enum-reference-v1.md) 维护当前枚举语义与统计口径；完整数据集清单以 `src/foundation/datasets/registry.py::list_dataset_definitions()` 和测试为准，不再维护手工事实矩阵。
+2. `src/foundation/datasets/definitions/**` 已按领域落下数据集的静态事实；`registry.py` 不再运行时遍历旧 contract 生成 DatasetDefinition。
+3. [DatasetDefinition 枚举语义参考 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-enum-reference-v1.md) 只维护枚举语义与约束边界；完整数据集清单和数量以 `src/foundation/datasets/registry.py::list_dataset_definitions()` 与测试为准，不再维护手工事实矩阵。
 4. `dc_index`、`dc_daily`、`dc_member` 的 `idx_type` 已收口为东方财富板块类型枚举：`行业板块 / 概念板块 / 地域板块`。
 5. 执行静态事实已随 Definition 收口：source request builder、planning page_limit/unit builder、transaction policy 不再由旧 contract 持有。
 6. 新增用户可见的数据集身份、中文名、日期模型、输入能力，应优先收敛到 DatasetDefinition，不再从旧任务规格、旧执行契约或前端 formatter 反推。

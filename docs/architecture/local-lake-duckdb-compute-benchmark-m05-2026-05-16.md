@@ -1,5 +1,7 @@
 # Local Lake DuckDB Compute M0.5 基线样本 Benchmark 报告
 
+> **文档状态：历史/冻结（旧 `lake_console/backend` 验证证据）**：本文只记录旧 Local Lake Console DuckDB 计算壳的点时 benchmark，不代表当前 Dagster Lake 或新开发、迁移、历史补录、bootstrap、修复、写湖依据。当前正式 Lake 路径和安全规则以根目录 `AGENTS.md` 与 `lake_console/orchestrator/src/orchestrator/defs/paths.py` 为准；禁止新增或调用 Kopia。
+
 日期：2026-05-16
 
 关联方案：

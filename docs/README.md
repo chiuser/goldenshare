@@ -20,6 +20,14 @@
 - [Local Lake prod-raw-db 导出接入规则与 Checklist](/Users/congming/github/goldenshare/docs/templates/lake-prod-raw-db-export-template.md)
 - [工作流开发说明模板](/Users/congming/github/goldenshare/docs/templates/workflow-development-template.md)
 
+### 权威入口判定
+
+- 当前运行时行为、API 契约和数据字段：以代码、测试、配置与实际运行事实为准。
+- 系统边界与依赖方向：先看子系统边界基线、依赖矩阵和 Foundation/Ops 当前基线。
+- 数据集语义与执行事实：分别看 `DatasetDefinition`、`DatasetExecutionPlan` 的现行主案及其代码/测试；枚举参考只解释语义，不维护数量快照。
+- 专题方案与 LLD：用于补充局部设计和决策背景；与当前代码冲突时不能替代当前事实源。
+- 验收记录、研究报告、历史/冻结文档：用于追溯证据，不作为当前实现依据。
+
 ## 2. 目录结构（当前）
 
 ```text
@@ -45,6 +53,7 @@ docs/
 - [数据集发布治理规范 v1（Raw -> Std -> Serving）](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
 - [DatasetDefinition 单一事实源重构方案 v1（现行主案）](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
 - [DatasetDefinition 枚举语义参考 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-enum-reference-v1.md)
+- [Dataset Universe 模型收口方案 v1（已完成）](/Users/congming/github/goldenshare/docs/architecture/dataset-universe-model-refactor-plan-v1.md)
 - [DatasetDefinition 输入筛选契约清理方案 v1（已实施）](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-input-filter-cleanup-plan-v1.md)
 - [DatasetExecutionPlan 执行计划模型重构方案 v1（现行主案）](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)
 - [数据集源端拉取并发执行方案 v1（已实现，待生产验收）](/Users/congming/github/goldenshare/docs/architecture/dataset-fetch-concurrency-execution-plan-v1.md)
@@ -56,13 +65,14 @@ docs/
 - [A股实时分钟流架构方案 v1（HTML，M7 已完成 / M8 待开市验收）](/Users/congming/github/goldenshare/docs/architecture/realtime-stock-minute-stream-architecture-v1.html)
 - [股票当日分时序列按需查询方案 v1（待开市验证）](/Users/congming/github/goldenshare/docs/architecture/realtime-stock-intraday-minutes-on-demand-plan-v1.md)
 - [ETF 实时日线流接入方案 v1（代码已接入 / 生产已启用 / 待开市批次验收）](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-daily-stream-plan-v1.md)
-- [上证指数日线趋势通道实时计算方案 v1（已拍板，待开发）](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-plan-v1.md)
-- [上证指数日线趋势通道实时计算 LLD v1（已拍板，待开发）](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md)
+- [上证指数日线趋势通道实时计算方案 v1（代码已实现，生产验收待完成）](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-plan-v1.md)
+- [上证指数日线趋势通道实时计算 LLD v1（代码已实现，生产验收待完成）](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md)
 - [ETF 活跃池设计方案 v1（核心能力已落地）](/Users/congming/github/goldenshare/docs/architecture/etf-active-pool-design-plan-v1.md)
 - [ETF 活跃池低层设计 LLD v1（核心能力已落地）](/Users/congming/github/goldenshare/docs/architecture/etf-active-pool-low-level-design-v1.md)
 - [股票周/月线自然锚点日期模型修正方案 v1（已实施）](/Users/congming/github/goldenshare/docs/architecture/stk-period-calendar-anchor-date-model-fix-plan-v1.md)
 - [周/月锚点交易日口径确认 v1](/Users/congming/github/goldenshare/docs/architecture/weekly-monthly-trade-date-anchor-confirmation-v1.md)
 - [Core Serving + Serving Light 分层设计 v1](/Users/congming/github/goldenshare/docs/architecture/core-serving-light-design-v1.md)
+- [`top_list` 业务身份与来源版本收口方案 V1（专项方案）](/Users/congming/github/goldenshare/docs/architecture/top-list-business-identity-and-source-version-plan-v1.md)
 > 本节中涉及旧 `lake_console/backend`、Kopia 或旧 Lake Root 的条目，均保留作历史实现/方案证据；不作为当前 Dagster Lake、新开发、迁移、bootstrap、修复或写湖依据。当前正式 Lake 规则以根目录 `AGENTS.md` 和 `lake_console/orchestrator/src/orchestrator/defs/paths.py` 为准，禁止新增或调用 Kopia。
 
 - [Local Lake Console 架构方案 v1（历史/冻结）](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-architecture-plan-v1.md)
@@ -80,12 +90,12 @@ docs/
 - [Local Lake Console 数据集模型 v1（历史/冻结）](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-dataset-model-v1.md)
 - [Local Lake Console 数据模型关系图 v1（HTML，历史/冻结）](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-data-model-map-v1.html)
 - [Local Lake 数据集总览 v1（HTML，历史/冻结）](/Users/congming/github/goldenshare/docs/architecture/local-lake-dataset-inventory-overview-v1.html)
-- [Local Lake 数据集同步扩展方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-dataset-sync-expansion-plan-v1.md)
-- [Local Lake 数据集接入模式分类与 Checklist v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-dataset-access-mode-checklist-v1.md)
-- [Local Lake CLI / Planner / Engine 架构收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-cli-planner-engine-refactor-plan-v1.md)
+- [Local Lake 数据集同步扩展方案 v1（历史/冻结）](/Users/congming/github/goldenshare/docs/architecture/local-lake-dataset-sync-expansion-plan-v1.md)
+- [Local Lake 数据集接入模式分类与 Checklist v1（历史/冻结）](/Users/congming/github/goldenshare/docs/architecture/local-lake-dataset-access-mode-checklist-v1.md)
+- [Local Lake CLI / Planner / Engine 架构收口方案 v1（历史/冻结）](/Users/congming/github/goldenshare/docs/architecture/local-lake-cli-planner-engine-refactor-plan-v1.md)
 - [Local Lake DuckDB 计算执行壳与受控发布方案 v1（HTML，历史/冻结）](/Users/congming/github/goldenshare/docs/architecture/local-lake-large-compute-foundation-design-v1.html)
-- [Local Lake DuckDB Compute M0.5 基线样本 Benchmark 报告](/Users/congming/github/goldenshare/docs/architecture/local-lake-duckdb-compute-benchmark-m05-2026-05-16.md)
-- [Local Lake 命令示例页面技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-command-examples-page-plan-v1.md)
+- [Local Lake DuckDB Compute M0.5 基线样本 Benchmark 报告（历史/冻结）](/Users/congming/github/goldenshare/docs/architecture/local-lake-duckdb-compute-benchmark-m05-2026-05-16.md)
+- [Local Lake 命令示例页面技术方案 v1（历史/冻结）](/Users/congming/github/goldenshare/docs/architecture/local-lake-command-examples-page-plan-v1.md)
 
 ## 4. Ops 运营（S2）
 
@@ -103,6 +113,8 @@ docs/
 - [Ops Freshness 单一事实源与旧分层观测退场计划 v1（已完成）](/Users/congming/github/goldenshare/docs/ops/ops-freshness-single-source-layer-snapshot-retirement-plan-v1.md)
 - [Ops Freshness Policy 显式映射方案 v1（已实施）](/Users/congming/github/goldenshare/docs/ops/ops-freshness-policy-explicit-mapping-plan-v1.md)
 - [`stk_mins` 远程源站探测触发方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-stk-mins-remote-source-probe-plan-v1.md)
+- [分钟线数据集独立执行车道方案 v1（已确认三车道，待开发）](/Users/congming/github/goldenshare/docs/ops/ops-stk-mins-dedicated-worker-execution-lane-plan-v1.md)
+- [分钟线数据集独立执行车道 LLD v1（已完成，待开发）](/Users/congming/github/goldenshare/docs/ops/ops-minute-datasets-dedicated-worker-execution-lane-lld-v1.md)
 - [`kpl_list` 次日发布适配与自动维护方案 v1（已实现，待生产验收）](/Users/congming/github/goldenshare/docs/ops/ops-kpl-list-next-day-release-plan-v1.md)
 - [指数日线完整性闭环与激活池服务能力收口方案 v2（已拍板，LLD 已就绪，待开发）](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-completeness-reconciliation-plan-v2.md)
 - [指数日线完整性闭环与激活池服务能力收口 LLD v2（待开发）](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-completeness-reconciliation-lld-v2.md)
