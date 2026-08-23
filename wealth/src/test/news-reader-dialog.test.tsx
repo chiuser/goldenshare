@@ -36,6 +36,43 @@ afterEach(() => {
 
 
 describe("NewsReaderDialog", () => {
+  it("renders the complete title and orders publish time before the labeled source", () => {
+    const title = "【伊朗外长：伊朗从未害怕过美国制裁】当地时间23日，伊朗外长阿拉格齐表示，伊朗从未害怕过美国制裁，他们所有的举动都会失败";
+    render(
+      <NewsReaderDialog
+        state={readyState(
+          readyItem({
+            title,
+            source: "sina",
+            displayPublishTime: "2026年8月23日 19:19:52",
+          }),
+        )}
+        onClose={vi.fn()}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: title })).toHaveTextContent(title);
+    const publishTime = screen.getByText("2026年8月23日 19:19:52");
+    const source = screen.getByText("来源：sina");
+    expect(publishTime.parentElement?.children[0]).toBe(publishTime);
+    expect(publishTime.parentElement?.children[1]).toBe(source);
+    expect(publishTime.parentElement?.querySelector("i")).toBeNull();
+  });
+
+  it("omits the source label when the source is absent", () => {
+    render(
+      <NewsReaderDialog
+        state={readyState(readyItem({ source: null }))}
+        onClose={vi.fn()}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(/来源：/)).not.toBeInTheDocument();
+    expect(screen.getByText("2026/8/23 10:00:00")).toBeInTheDocument();
+  });
+
   it("uses native modal lifecycle, Escape close, and ignores backdrop clicks", async () => {
     const onClose = vi.fn();
     const showModalSpy = vi.spyOn(HTMLDialogElement.prototype, "showModal");
@@ -56,7 +93,10 @@ describe("NewsReaderDialog", () => {
 
     const dialog = screen.getByRole("dialog");
     expect(showModalSpy).toHaveBeenCalledOnce();
-    await waitFor(() => expect(screen.getByRole("button", { name: "关闭新闻阅读器" })).toHaveFocus());
+    const closeButton = screen.getByRole("button", { name: "关闭新闻阅读器" });
+    await waitFor(() => expect(closeButton).toHaveFocus());
+    expect(closeButton.querySelector('svg[data-icon-ref="material:close"]')).toBeInTheDocument();
+    expect(closeButton).not.toHaveTextContent("×");
 
     fireEvent.click(dialog);
     expect(onClose).not.toHaveBeenCalled();
@@ -163,6 +203,10 @@ describe("NewsReaderDialog", () => {
     const css = readFileSync(resolve(process.cwd(), "src/shared/ui/news-reader/news-reader.css"), "utf8");
     expect(css).toContain("calc(100vw - 64px)");
     expect(css).toContain("calc(100vh - 64px)");
+    expect(css).toContain("grid-template-rows: auto minmax(0, 1fr)");
+    expect(css).toContain("overflow-wrap: anywhere");
+    expect(css).not.toContain("text-overflow: ellipsis");
+    expect(css).not.toContain("white-space: nowrap");
     expect(css).not.toContain("@media");
   });
 

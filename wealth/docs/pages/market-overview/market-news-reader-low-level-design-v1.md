@@ -1,6 +1,6 @@
 # 市场总览｜新闻弹窗阅读器低层设计 v1（LLD）
 
-> 状态：开发完成，待用户部署与视觉验收。
+> 状态：首轮部署反馈修正开发完成，待用户重新部署与视觉复验。
 > 日期：2026-08-23
 > 技术方案：[market-news-reader-implementation-design-v1.md](./market-news-reader-implementation-design-v1.md)
 > 视觉依据：Figma `RADlZzREU4lPVviYfkLy6x`，`13 News Reader - Components and States`（node `876:2`）。
@@ -877,3 +877,74 @@ HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); 
 2. `1920×1080`、`1440×900`、`1280×720` 三种 PC 视口视觉验收。
 3. 对实际 URL 新闻验证外站 iframe 允许/拒绝时的 ready/error 表现。
 4. 用户验收完成前，本文状态保持“开发完成，待用户部署与视觉验收”。
+
+## 20. 首轮部署反馈修正 LLD
+
+### 20.1 根因与边界
+
+部署截图对应的标题确实来自 `NewsReaderQueryService` 返回的 `row.title`，即 `NewsLight.title`。只有该字段为空时才会调用 `_build_content_title()`。本轮不修改后端 query、service、schema 或 API。
+
+显示不完整的直接原因位于 `news-reader.css`：
+
+1. `.news-reader-shell` 将头部固定为 `76px`。
+2. `.news-reader-heading h2` 使用 `white-space: nowrap`、`overflow: hidden` 和 `text-overflow: ellipsis`。
+3. `.news-reader-meta` 当前按“source、圆点、publishTime”顺序渲染。
+4. 关闭按钮正文仍是字体字符 `×`，没有使用正式图标资产。
+
+允许修改的实现文件仅为：
+
+```text
+wealth/src/shared/ui/news-reader/NewsReaderDialog.tsx
+wealth/src/shared/ui/news-reader/news-reader.css
+wealth/src/test/news-reader-dialog.test.tsx
+```
+
+以及本技术方案和 LLD。禁止修改新闻数据、详情 API、列表契约、controller、正文 renderer 和其它页面。
+
+### 20.2 标题与头部布局
+
+1. `.news-reader-shell` 改为 `grid-template-rows: auto minmax(0, 1fr)`。
+2. `.news-reader-header` 保留最小高度 `76px`，实际高度由标题自然折行撑开。
+3. `.news-reader-heading` 占据剩余宽度并继续设置 `min-width: 0`。
+4. 标题删除单行截断三件套，改为 `white-space: normal` 和 `overflow-wrap: anywhere`，不得设置行数截断。
+5. 关闭按钮保持固定尺寸和 `flex-shrink`，不得被长标题挤压。
+
+### 20.3 元信息合同
+
+`NewsReaderDialog` 的 ready 头部固定渲染：
+
+```tsx
+<time>{displayPublishTime}</time>
+{source ? <span>来源：{source}</span> : null}
+```
+
+删除中间圆点元素，不保留“来源在前”的兼容分支。loading/empty/error 没有来源时只显示发布时间。
+
+### 20.4 关闭图标
+
+通过 Supericons 检索并冻结 `material:close`：
+
+1. 使用工具返回的原始 `viewBox` 和 path。
+2. SVG 使用 `fill="currentColor"`，尺寸由 `.news-reader-close svg` 固定为 `20px × 20px`。
+3. SVG 设置 `aria-hidden="true"` 和 `focusable="false"`；可访问名称继续由 button 的 `aria-label="关闭新闻阅读器"` 提供。
+4. button 的点击、焦点、Escape、hover 和 focus-visible 行为全部保持不变。
+5. 不新增图标 npm 依赖，不手写另一种关闭符号。
+
+### 20.5 测试门禁
+
+1. 长标题完整进入 heading，CSS 不得出现 `white-space: nowrap` 或 `text-overflow: ellipsis`。
+2. `time` 必须排在 `来源：sina` 之前，且不得出现圆点分隔元素。
+3. 来源为空时只显示时间。
+4. 关闭按钮必须包含 `data-icon-ref="material:close"` 的 SVG，不得再包含文本字符 `×`。
+5. 原有 native dialog、Escape、焦点、scroll lock、URL sandbox、HTML sanitizer 和 PC 安全边距测试继续通过。
+6. 验证命令固定为阅读器目标测试、`npm run typecheck`、`npm run test`、`npm run build` 和 `git diff --check`。
+
+### 20.6 修正完成记录
+
+1. `NewsReaderDialog` 已按“发布时间、来源”顺序渲染元信息，并移除圆点分隔。
+2. 标题已取消单行截断，头部改为最小 `76px`、内容自适应高度。
+3. 关闭按钮已替换为 Supericons 检索确认的 `material:close` SVG，关闭与可访问行为不变。
+4. 阅读器目标测试：`3` 个文件、`21 passed`。
+5. Wealth 全量回归：`52` 个测试文件、`334 passed`。
+6. `npm run typecheck`、`npm run build` 通过；保留既有 bundle size warning，不扩散到本轮范围。
+7. 用户重新部署前，真实 PC 视口下的标题折行和头部高度仍标记为待视觉复验。

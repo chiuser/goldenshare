@@ -63,9 +63,8 @@ export function NewsReaderDialog({ state, onClose, onRetry }: NewsReaderDialogPr
           <div className="news-reader-heading">
             <h2 id="news-reader-title">{header.title}</h2>
             <div className="news-reader-meta">
-              {header.source ? <span>{header.source}</span> : null}
-              {header.source && header.publishTime ? <i aria-hidden="true" /> : null}
               {header.publishTime ? <time>{header.publishTime}</time> : null}
+              {header.source ? <span>来源：{header.source}</span> : null}
             </div>
           </div>
           <button
@@ -77,7 +76,14 @@ export function NewsReaderDialog({ state, onClose, onRetry }: NewsReaderDialogPr
             type="button"
             onClick={onClose}
           >
-            <span aria-hidden="true">×</span>
+            <svg
+              aria-hidden="true"
+              data-icon-ref="material:close"
+              focusable="false"
+              viewBox="0 -960 960 960"
+            >
+              <path d="M256-213.85 213.85-256l224-224-224-224L256-746.15l224 224 224-224L746.15-704l-224 224 224 224L704-213.85l-224-224-224 224Z" />
+            </svg>
           </button>
         </header>
         <div className="news-reader-body" id="news-reader-state-description">
