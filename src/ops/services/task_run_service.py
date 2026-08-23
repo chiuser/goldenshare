@@ -25,6 +25,7 @@ from src.ops.action_catalog import (
 )
 from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.task_run import TaskRun
+from src.ops.contracts.external_task import ExternalTaskDefinition
 from src.ops.services.dataset_schedule_time_policy_resolver import DatasetScheduleTimePolicyResolver
 from src.ops.services.ingestion_error_presentation import present_ingestion_error
 from src.ops.services.news_stock_linking_service import (
@@ -64,6 +65,15 @@ class TaskRunCreateContext:
 
 
 class TaskRunCommandService:
+    def __init__(
+        self,
+        *,
+        external_task_definitions: dict[str, ExternalTaskDefinition] | None = None,
+    ) -> None:
+        self._external_task_definitions = dict(external_task_definitions or {})
+        if any(key != definition.task_type for key, definition in self._external_task_definitions.items()):
+            raise ValueError("external task definition key must match task_type")
+
     def create_manual_task_run(
         self,
         session: Session,
@@ -623,8 +633,11 @@ class TaskRunCommandService:
             "end_month": month_key,
         }
 
-    @staticmethod
-    def _validate_context(context: TaskRunCreateContext) -> None:
+    def _validate_context(self, context: TaskRunCreateContext) -> None:
+        external = self._external_task_definitions.get(context.task_type)
+        if external is not None:
+            external.validate_context(context)
+            return
         if context.task_type == "dataset_action":
             if not context.resource_key:
                 raise WebAppError(status_code=422, code="validation_error", message="数据集任务缺少维护对象")
@@ -659,8 +672,10 @@ class TaskRunCommandService:
             return
         raise WebAppError(status_code=422, code="validation_error", message="不支持的任务类型")
 
-    @staticmethod
-    def _resolve_title(context: TaskRunCreateContext) -> str:
+    def _resolve_title(self, context: TaskRunCreateContext) -> str:
+        external = self._external_task_definitions.get(context.task_type)
+        if external is not None:
+            return external.resolve_title(context)
         if context.resource_key:
             return get_dataset_definition(context.resource_key).display_name
         target_key = str((context.request_payload or {}).get("target_key") or "").strip()

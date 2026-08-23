@@ -5,15 +5,15 @@
 | 项目 | 当前结论 |
 |---|---|
 | 文档性质 | 代码级 LLD 与内嵌编码门禁矩阵 |
-| 当前状态 | M2 开发已收口；M1 生产迁移待部署，下一步只可进入 M3 |
-| 审计日期 | 2026-08-22 |
+| 当前状态 | M3 开发已收口；生产迁移与 QTF systemd 实机验收待部署，下一步只可进入 M4 |
+| 审计日期 | 2026-08-23 |
 | 目标产品 | 财势乾坤 / 财势探查 / 量化研究工作台 |
 | 首个垂直切片 | 东财二级行业统一参数研究 |
 | 本文是否批准 R2 回测 | 否。R2 仍处于事前计划待评审状态 |
 | 本文是否授权生产写入或发布 | 否 |
-| 当前 Alembic head | M1 实施前重新确认仓库单一 head 为 `20260822_000142`；M1 迁移已接为 `20260822_000143`。本轮未连接或修改 Prod，生产部署仍须核对远端 head |
+| 当前 Alembic 口径 | M3 实施前重新确认单一 head 为 `20260822_000143`；M3 迁移接为 `20260823_000144`。本轮未连接或修改 Prod，部署前仍须核对远端 head |
 
-本文把已经确认的 QTF 系统架构、当前 Figma 六个正式页面、东财行业量化研究口径和仓库真实代码接入点落成可编码设计。当前 M1 平台基础和 M2 候选公式内核已经实现，但 Prod 输入、执行、验证、API、前端和发布尚未实现；Figma 中的示例数值仍不得解释为真实研究结果。
+本文把已经确认的 QTF 系统架构、当前 Figma 六个正式页面、东财行业量化研究口径和仓库真实代码接入点落成可编码设计。当前 M1 平台基础、M2 候选公式内核和 M3 输入门禁与执行主链已经实现；可信结果证据、真实研究、完整平台 API、前端和发布仍未实现。Figma 中的示例数值仍不得解释为真实研究结果。
 
 ### 0.1 依据与优先级
 
@@ -71,17 +71,17 @@
 
 | 位置 | 当前事实 | 对 QTF 的影响 |
 |---|---|---|
-| 仓库根目录 | 已存在正式 `qtf/` 产品域；M1 已建立研究状态，M2 已建立二级行业候选公式内核 | 当前仍未接入 Prod、TaskRun、API、Wealth 或生产发布 |
+| 仓库根目录 | 已存在正式 `qtf/` 产品域；M1 已建立研究状态，M2 已建立二级行业候选公式内核，M3 已建立 Prod 只读输入门禁和执行主链 | 当前仍未实现 M4 结果证据、真实 R2、Wealth 前端或生产发布 |
 | `pyproject.toml` | 受控发现 `src*` 与 `qtf*`，排除脚本、测试、前端和 Lake Console | M1 wheel 验收已通过，M2 新模块继续受同一包边界保护 |
 | `docs/architecture/dependency-matrix.md` | 已定义 `qtf -> foundation, qtf`，并禁止下层反向依赖 QTF | 依赖方向由自动护栏持续验证 |
 | `tests/architecture/test_subsystem_dependency_matrix.py` | 已扫描 QTF，禁止现有子系统反向导入 QTF，并禁止 QTF 导入历史研究脚本 | M2 新内核不复用 `scripts.research` 运行时代码 |
-| `src/app/model_registry.py` | App 已显式注册 M1 QTF ORM | Foundation 无反向依赖；M2 无新增 ORM 或迁移 |
+| `src/app/model_registry.py` | App 已显式注册 M1 Research/Revision 与 M3 Preflight/Run ORM | Foundation 无反向依赖；QTF 模型仍由 App 组合注册 |
 | `alembic/env.py` | 调用 `register_all_models()`，使用共享 `Base.metadata` | QTF ORM 可继承共享 `Base`，由 App 注册后进入现有 Alembic 链 |
-| `src/app/api/v1/router.py` | 聚合 Auth、Ops、Biz 路由 | QTF FastAPI 接线应在这里完成；QTF 核心不得导入 App |
-| `src/ops/services/task_run_service.py` | 只允许 `dataset_action / workflow / maintenance_action` | 不能直接创建 `qtf_experiment`，需要通用、注入式扩展点 |
-| `src/ops/runtime/task_run_dispatcher.py` | 只派发三类现有任务 | 需要通用外部任务执行器合同；Ops 不得导入 `qtf` |
-| `src/ops/runtime/worker_lane.py` | GENERAL 车道当前会接纳所有非分钟任务 | 技术方案要求 QTF 与 Web、通用任务进程隔离；必须新增 QTF 专用 lane，并让 GENERAL 明确排除 `qtf_experiment` |
-| `src/app/runtime/ops_worker_factory.py` | App 已负责向 Ops 注入 Heat executor | QTF executor 同样由 App 装配，但不得伪装成 maintenance action |
+| `src/app/api/v1/router.py` | 已装配 M3 最小 `/api/v1/qtf` 管理员 API | QTF 核心不导入 App；M4/M6 再按里程碑扩展 results 与完整 registry |
+| `src/ops/services/task_run_service.py` | 已支持可选注入 `ExternalTaskDefinition`；默认实例仍只允许既有任务 | 默认 Ops API 不能创建 `qtf_experiment`，QTF 只经 App 专用定义接入 |
+| `src/ops/runtime/task_run_dispatcher.py` | 已支持可选注入 `ExternalTaskExecutor` | Ops 不导入 QTF；未注入时保持既有三类任务行为 |
+| `src/ops/runtime/worker_lane.py` | 已新增 QTF lane，GENERAL 明确排除 `qtf_experiment` | QTF、GENERAL、股票分钟和指数分钟领取范围已由自动化隔离 |
+| `src/app/runtime/ops_worker_factory.py` | App 已负责注入 QTF definition/executor 并构造独立 worker | QTF executor 不伪装成 maintenance action；生产 unit 待远程验收 |
 | `src/ops/models/ops/task_run*.py` | 已有任务、节点、问题、取消和进度事实 | 继续复用；不在 QTF 再建一套执行状态表 |
 | `src/db.py` | 单一 `DATABASE_URL`、engine、session factory | QTF 复用当前连接，不新增数据库或专用账号 |
 
@@ -426,6 +426,15 @@ event_cluster_rule
 
 Figma 目前只让用户选择 `baseline_days` 和 `trend_days`。其余值必须由获批计划明确展示为“固定参数”，不能悄悄来自函数默认值。R2 的这些固定值仍待事前计划批准。
 
+### 5.4 DRAFT、PLAN 与完整冻结值
+
+1. DRAFT 是可编辑的研究意图，允许问题、成功定义、非目标、参数选择、验证合同或预算暂时不完整；不完整 DRAFT 只能保存，不能冻结或创建 Run。
+2. 创建 Research 时，模板只写入自身身份、公式/schema 身份和固定来源、对象、比较范围合同；未选择内容保持明确未配置状态，不写可执行默认值。
+3. 草稿必须保存管理员做出的全部显式参数选择。`DRAFT_PREVIEW` 在当前 draft hash 上执行精确输入预检，并生成可审阅 PLAN：时间顺序 `50%/25%/25%` IS/校准/OOS 建议、未来 `[1,3,5]` 交易日、`RESET_ONLY` 事件语义、有限候选矩阵、硬门禁、停止条件和本次预算。
+4. 本次预算中的对象、来源行、组日、组合和执行次数来自预检真实计数；耗时、内存和存储使用版本化二级行业估算器。估算器身份、输入和输出全部进入 `plan_hash`，不新增平台全局资源配置。
+5. freeze 必须重新计算 draft hash 与 plan hash。只有 PASS preflight、当前草稿、完整参数、已确认排除项和完全一致的 `approvedPlanHash` 才能把 PLAN 中的验证合同、预算与完整生效参数写入同一 revision 并转为 FROZEN。
+6. FROZEN 后运行时禁止再从模板、页面、环境变量或函数默认值补齐参数。真实 R2 的候选、日期和预算仍须 M5 单独批准；M3 不执行真实研究。
+
 ---
 
 ## 6. 数据库低层设计
@@ -594,9 +603,11 @@ DRAFT --discard--> RETIRED
 FROZEN --derive new revision--> new DRAFT
 ```
 
-1. “保存草稿”只更新 DRAFT，并校验 `draftVersion`。
-2. “返回修改”回到同一 DRAFT；FROZEN 不可返回后直接覆盖。
-3. FROZEN 需要修改时创建下一 revision。
+1. “保存草稿”只更新 DRAFT，并校验 `draftVersion`；DRAFT 可以不完整，但不完整状态不得冻结或运行。
+2. `DRAFT_PREVIEW` 绑定当前 draft hash 生成输入证据与 PLAN，不改变 revision 状态。
+3. freeze 绑定 PASS preflight 与管理员确认的 plan hash，补齐完整验证合同、预算和生效参数后一次性转为 FROZEN。
+4. “返回修改”回到同一 DRAFT；FROZEN 不可返回后直接覆盖。
+5. FROZEN 需要修改时创建下一 revision。
 
 ### 7.2 Run
 
@@ -689,6 +700,8 @@ CANDIDATE -> UNDER_REVIEW -> REVIEWED -> APPROVED -> PUBLISHED -> RETIRED
 ```
 
 冻结服务必须重新计算 revision hash，并拒绝已变化的草稿、过期输入预检、缺少预算或不完整参数。
+
+这里的“缺少预算或不完整参数”以 freeze 最终将要写入的完整合同为准：DRAFT 本身允许不完整；PLAN 只能补齐已明确展示并由管理员通过 `approvedPlanHash` 确认的验证合同和预算，不能补入隐藏默认值。
 
 ### 8.4 Run
 
@@ -1328,11 +1341,16 @@ sourceStatementTimeoutMs
 
 ### M3：输入门禁、有限计划与执行主链
 
-1. 实施日重新确认 Alembic head，增加 Run、Run Input Preflight 及执行主链所需的平台状态表。
-2. 复用第 10.1 节既有 Prod 来源合同，实现只针对当前草稿或 Run 精确对象池和日期范围的只读 adapter 与输入门禁；不重新做来源选型或全库覆盖审计。
-3. 实施 PLAN 预算、revision freeze 和原子 Run/TaskRun 启动意图；增加 Ops 通用 external task 扩展点、QTF 独立 lane 和 App QTF adapter。
-4. 先登记第 12 节异常码，再增加二级行业垂直切片的最小管理员 API，以及 QTF worker CLI、systemd unit、release commit、部署脚本与最小 sudo 白名单；API 不得拥有另一套公式或默认参数。
-5. 完成输入门禁正反例、lane 隔离、启动原子性、每 Run 重读、同 Run 单次读取、安全取消、进度和运行期事务隔离测试。
+**状态：2026-08-23 开发已收口，生产迁移与 QTF systemd 实机验收待部署。**
+
+1. 实施前确认单一 Alembic head 为 `20260822_000143`，新增 `20260823_000144`，且迁移仅增加 `qtf.input_preflight`、`qtf.input_preflight_issue`、`qtf.experiment_run`；`task_run_id` 保持逻辑唯一关联，不建立 Ops ORM 外键。
+2. 复用第 10.1 节既有 Prod 来源合同，实现只读取 `trade_calendar / wealth_sector_hierarchy / dc_daily` 的 `REPEATABLE READ, READ ONLY` adapter；只保存范围、计数、问题摘要和内容指纹，不保存来源行副本，也不修改上游。
+3. DRAFT 允许不完整；完整显式参数通过 DRAFT_PREVIEW 生成带 `50/25/25`、`[1,3,5]`、`RESET_ONLY`、真实预检计数和版本化估算器预算的 PLAN。冻结校验当前 draft、最新 PASS preflight、完整合同和管理员确认的 `planHash`。
+4. 已实现同事务的 `PLANNED QTF Run → staged TaskRun → task_run_id → QUEUED`；任一步失败整体回滚。每个新 Run 重新读源，同一 Run 全部候选共享一次不可变内存输入，并在运行前再次核验来源契约、内容指纹和批准预算。
+5. Ops 只增加不感知 QTF 业务的 external definition/executor 扩展点；App 完成 QTF adapter 和独立 lane 装配。GENERAL、QTF、股票分钟和指数分钟领取范围保持隔离，Ops 观测使用独立 session，失败只把 `observerStatus` 降为 `DEGRADED`。
+6. 已增加计划规定的 9 个最小管理员 API、QTF worker CLI、独立 systemd unit、`--qtf-only`、精确 sudo 白名单和发布 commit 门禁；默认 Ops API 仍拒绝创建 `qtf_experiment`。
+7. 本地自动化已覆盖输入正反例、启动原子性、幂等与版本冲突、每 Run 重读、同 Run 单次读取、预算增长阻断、安全取消、非法 commit 零来源读取、管理员认证、敏感信息屏蔽和部署范围。M3 不创建 M4 结果表，成功运行仍保持 `validationStatus=PENDING`，不产生 Candidate。
+8. “预检过期”在 M3 中指当前草稿 hash 已变化，或同一 revision 已生成更新的 DRAFT_PREVIEW；不引入未经批准的墙钟 TTL 或全局资源配置。
 
 ### M4：可信门禁与结果证据
 
@@ -1383,54 +1401,51 @@ sourceStatementTimeoutMs
 |---|---|---|---|---|---|
 | G01 | QTF 是顶层产品域 | `qtf/**`、package config | wheel 可 import qtf | qtf 未被打包时失败 | PASS (M1) |
 | G02 | 不破坏依赖方向 | architecture guardrails | App 可装配 QTF | QTF/下层反向导入被阻断 | PASS (M1) |
-| G03 | 复用现有 DB/管理员 | App DI、`require_admin` | admin 200 | 新账号/非管理员不可绕过 | OPEN |
-| G04 | 不保存输入副本 | Prod adapter、preflight model | 只保存 hash/summary | QTF 表/产物含原始输入时失败 | OPEN |
-| G05 | 数据问题交回上游 | run input preflight | PASS 可继续 | BLOCKED 零修复、零公式执行 | OPEN |
-| G06 | 每个新 Run 重读 | experiment service | 新 Run 调 reader | 复用旧 result/input 被阻断 | OPEN |
-| G07 | 同一 Run 不重复扫 Prod | sector executor | 多候选一次 load | 每候选重查来源测试失败 | OPEN |
-| G08 | 公式和参数完整冻结 | registry/revision | 所有有效值入 hash | 缺值/运行时默认值被拒绝 | OPEN（M2 参数合同完成，等待 M3 freeze） |
-| G09 | 不允许任意 Python | registry/API | 选择注册 formula | 上传源码/表达式被拒绝 | OPEN（M2 静态 registry 完成，等待 M6 API） |
+| G03 | 复用现有 DB/管理员 | App DI、`require_admin` | admin 200 | 新账号/非管理员不可绕过 | PASS (M3) |
+| G04 | 不保存输入副本 | Prod adapter、preflight model | 只保存 hash/summary | QTF 表/产物含原始输入时失败 | PASS (M3) |
+| G05 | 数据问题交回上游 | run input preflight | PASS 可继续 | BLOCKED 零修复、零公式执行 | PASS (M3) |
+| G06 | 每个新 Run 重读 | experiment service | 新 Run 调 reader | 复用旧 result/input 被阻断 | PASS (M3) |
+| G07 | 同一 Run 不重复扫 Prod | sector executor | 多候选一次 load | 每候选重查来源测试失败 | PASS (M3) |
+| G08 | 公式和参数完整冻结 | registry/revision | 所有有效值入 hash | 缺值/运行时默认值被拒绝 | PASS (M3) |
+| G09 | 不允许任意 Python | registry/API | 选择注册 formula | 上传源码/表达式被拒绝 | PASS (M3) |
 | G10 | 时间前沿正确 | engine/time_frontier | t 只看历史 | 修改未来不影响 t | PASS (M2) |
 | G11 | 父级内比较 | sector ranking | 同父排名正确 | 其他父级不能改变结果 | PASS (M2) |
-| G12 | 小组规则显式 | preflight/parameter schema | 达门槛可评价 | 低于门槛不生成伪标签 | OPEN（M2 schema/kernel 完成，等待 M3 preflight） |
-| G13 | 缺失不补数 | run input preflight | 完整组日参与 | 缺行不补零/不前填 | OPEN（M2 kernel 完成，等待 M3 preflight） |
+| G12 | 小组规则显式 | preflight/parameter schema | 达门槛可评价 | 低于门槛不生成伪标签 | PASS (M3) |
+| G13 | 缺失不补数 | run input preflight | 完整组日参与 | 缺行不补零/不前填 | PASS (M3) |
 | G14 | TaskRun success != VALID | run/result API | success+VALID 可提名 | success+INVALID 不可提名 | OPEN |
-| G15 | 取消在安全点 | executor/observer | 组合后停止 | 半条参数组合结果不可见 | OPEN |
-| G16 | Ops 与 QTF 事务隔离 | App runtime adapter | Ops 正常观测 | Ops 写失败不回滚 QTF | OPEN |
-| G17 | 有限计划获批 | plan/freeze service | hash 相同可冻结 | hash 漂移/超预算阻断 | OPEN |
+| G15 | 取消在安全点 | executor/observer | 组合后停止 | 半条参数组合结果不可见 | PASS (M3) |
+| G16 | Ops 与 QTF 事务隔离 | App runtime adapter | Ops 正常观测 | Ops 写失败不回滚 QTF | PASS (M3) |
+| G17 | 有限计划获批 | plan/freeze service | hash 相同可冻结 | hash 漂移/超预算阻断 | PASS (M3) |
 | G18 | 候选不自动发布 | candidate/release | 四步分别成功 | 跳步、确认审核即发布被拒绝 | OPEN |
 | G19 | 发布失败保护旧版本 | release service | 原子生效 | 新版失败时旧版仍 current | OPEN |
 | G20 | Wealth 只读 QTF API | frontend client | QTF API 驱动页面 | `/ops`/文件/mock fallback 为零 | OPEN |
 | G21 | 六页匹配 Figma | QTF pages/components | 1600px 截图通过 | 表头错位、按钮非组件失败 | OPEN |
 | G22 | 六类页面状态稳定 | controllers/UI | 状态逐一渲染 | error 回退示例数据失败 | OPEN |
-| G23 | R2 未经批准不执行 | freeze/run service | 获批 hash 后可建 Run | Figma 示例直接启动被阻断 | OPEN |
+| G23 | R2 未经批准不执行 | freeze/run service | 获批 hash 后可建 Run | Figma 示例直接启动被阻断 | PASS (M3) |
 | G24 | 申万与跨体系为零 | sector contracts | 只接受 DC L2 | SW/跨体系参数被拒绝 | PASS (M2) |
-| G25 | QTF 独立 worker 进程 | worker lane/CLI/systemd | QTF lane 领取实验 | GENERAL/分钟 lane 抢占或 QTF 领取既有任务时失败 | OPEN |
-| G26 | 运行代码可追溯 | release env/run fingerprint | 合法 commit 写入 Run | 缺失/伪 commit 时零来源读取 | OPEN |
+| G25 | QTF 独立 worker 进程 | worker lane/CLI/systemd | QTF lane 领取实验 | GENERAL/分钟 lane 抢占或 QTF 领取既有任务时失败 | 代码完成，部署待验收 (M3) |
+| G26 | 运行代码可追溯 | release env/run fingerprint | 合法 commit 写入 Run | 缺失/伪 commit 时零来源读取 | 代码完成，部署待验收 (M3) |
 
-所有 Gate 在实现、测试和真实验收完成前保持 OPEN。文档完成不等于 Gate 通过。
+只有具备对应实现与自动化证据的 Gate 才标记 PASS。G25/G26 仍需远程 systemd、release env 与迁移实机验收；文档完成不等于 Gate 通过。
 
 ---
 
 ## 17. 实施验证命令
 
-实施阶段至少执行：
+M3 本地开发收口执行：
 
 ```bash
-python3 -m pytest -q tests/architecture/test_subsystem_dependency_matrix.py
-python3 -m pytest -q qtf/tests
-python3 -m pytest -q tests/web/test_qtf_api.py
-python3 -m pytest -q tests/test_worker_lane.py tests/test_cli_ops_runtime.py tests/web/test_ops_runtime.py
-alembic heads
-alembic upgrade head
-python3 -m pytest -q tests/test_qtf_models.py tests/test_qtf_task_runtime.py
-cd wealth && npm run typecheck
-cd wealth && npm run test
-cd wealth && npm run build
+uv run pytest -q qtf/tests tests/test_qtf_models.py tests/test_worker_lane.py \
+  tests/test_cli_ops_runtime.py tests/test_deploy_layered_systemd_script.py \
+  tests/web/test_ops_runtime.py tests/web/test_qtf_api.py \
+  tests/architecture/test_subsystem_dependency_matrix.py
+uv run alembic heads
+uv run python scripts/check_docs_integrity.py
 bash -n scripts/deploy-systemd.sh scripts/deploy-layered-systemd.sh
-python3 scripts/check_docs_integrity.py
 git diff --check
 ```
+
+另在 `/private/tmp` 构建 wheel，并从独立目标目录导入 `qtf`、二级行业 executor 和 Prod adapter；仓库内不得留下构建产物。远程 `alembic upgrade head`、systemd unit、`/etc/goldenshare/release.env` 和 `--qtf-only` 实机验证属于部署验收，未获部署指令时不得在本地开发收口中执行。M3 不涉及 Wealth 前端，因此不运行或修改前端构建链。
 
 真实 R2 只读验收、性能证据和具体运行命令必须由获批 PLAN 生成，不能提前在本 LLD 中写死。
 
@@ -1445,4 +1460,4 @@ git diff --check
 5. 真实 R2 仍未获批；平台开发和真实研究执行是两次独立授权。
 6. M9 的生产 serving 与板块雷达/板块速览消费必须另立能力 LLD，不能在平台框架开发中顺手接入。
 
-因此，**M2：二级行业候选公式内核** 已于 2026-08-22 完成开发收口；M1 生产迁移仍等待部署。下一步只能进入 **M3：输入门禁、有限计划与执行主链**，届时复用既有 Prod 来源合同做单次 Run 精确范围门禁，不能重复开展 Prod 数据覆盖审计，也不能越级进入真实 R2、前端或发布。
+因此，**M3：输入门禁、有限计划与执行主链** 已于 2026-08-23 完成开发收口；生产迁移、QTF worker 与 release env 仍等待部署实机验收。下一步只能进入 **M4：可信门禁与结果证据**，不得直接执行真实 R2、进入前端或发布。

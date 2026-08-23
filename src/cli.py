@@ -57,7 +57,13 @@ from src.foundation.dao.factory import DAOFactory
 from src.foundation.config.logging import configure_logging
 from src.foundation.config.settings import get_settings
 from src.db import SessionLocal
-from src.app.runtime import build_index_mins_worker, build_operations_scheduler, build_operations_worker, build_stk_mins_worker
+from src.app.runtime import (
+    build_index_mins_worker,
+    build_operations_scheduler,
+    build_operations_worker,
+    build_qtf_worker,
+    build_stk_mins_worker,
+)
 from src.foundation.ingestion.linter import lint_all_dataset_definitions
 from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY, build_dataset_maintain_service
 from src.foundation.realtime import build_realtime_state_store, get_realtime_runtime_config
@@ -601,6 +607,19 @@ def ops_index_mins_worker_run(
     )
 
 
+@app.command("qtf-worker-run")
+def qtf_worker_run(
+    limit: int = typer.Option(1, min=1, max=1000, help="Maximum queued QTF experiment runs to consume."),
+) -> None:
+    _run_ops_lane_worker_run_impl(
+        session_local=SessionLocal,
+        worker_factory=build_qtf_worker,
+        lane_name="qtf",
+        limit=limit,
+        echo_fn=typer.echo,
+    )
+
+
 @app.command("ops-date-completeness-worker-run")
 def ops_date_completeness_worker_run(
     limit: int = typer.Option(1, min=1, max=1000, help="Maximum queued date completeness audit runs to consume."),
@@ -729,6 +748,23 @@ def ops_index_mins_worker_serve(
         session_local=SessionLocal,
         worker_factory=build_index_mins_worker,
         lane_name="index-mins",
+        limit=limit,
+        sleep_seconds=sleep_seconds,
+        max_cycles=max_cycles,
+        echo_fn=typer.echo,
+    )
+
+
+@app.command("qtf-worker-serve")
+def qtf_worker_serve(
+    limit: int = typer.Option(10, min=1, max=1000, help="Maximum queued QTF experiment runs per cycle."),
+    sleep_seconds: float = typer.Option(5.0, min=1.0, help="Seconds to sleep between QTF worker cycles."),
+    max_cycles: int | None = typer.Option(None, min=1, help="Optional max cycles for testing or one-off runs."),
+) -> None:
+    _run_ops_lane_worker_serve_impl(
+        session_local=SessionLocal,
+        worker_factory=build_qtf_worker,
+        lane_name="qtf",
         limit=limit,
         sleep_seconds=sleep_seconds,
         max_cycles=max_cycles,

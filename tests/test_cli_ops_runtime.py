@@ -69,6 +69,7 @@ def test_ops_worker_run_consumes_until_limit_or_queue_is_empty(mocker) -> None:
     [
         ("ops-stk-mins-worker-run", "build_stk_mins_worker", "stk-mins"),
         ("ops-index-mins-worker-run", "build_index_mins_worker", "index-mins"),
+        ("qtf-worker-run", "build_qtf_worker", "qtf"),
     ],
 )
 def test_minute_lane_run_commands_use_their_dedicated_worker(mocker, command, factory_name, lane_name) -> None:
@@ -96,6 +97,7 @@ def test_minute_lane_run_commands_use_their_dedicated_worker(mocker, command, fa
     [
         ("ops-stk-mins-worker-serve", "build_stk_mins_worker", "stk-mins"),
         ("ops-index-mins-worker-serve", "build_index_mins_worker", "index-mins"),
+        ("qtf-worker-serve", "build_qtf_worker", "qtf"),
     ],
 )
 def test_minute_lane_serve_commands_do_not_run_global_reconciliation(

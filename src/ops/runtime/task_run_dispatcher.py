@@ -24,6 +24,7 @@ from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
+from src.ops.contracts.external_task import ExternalTaskExecutor
 from src.ops.runtime.maintenance_executor import (
     MaintenanceExecutionPlan,
     MaintenanceExecutionRequest,
@@ -62,11 +63,27 @@ class TaskRunDispatcher:
         serving_light_refresh_service: ServingLightRefreshService | None = None,
         *,
         maintenance_executors: Mapping[str, MaintenanceExecutor] | None = None,
+        external_executors: Mapping[str, ExternalTaskExecutor] | None = None,
     ) -> None:
         self.serving_light_refresh_service = serving_light_refresh_service or ServingLightRefreshService()
         self.maintenance_executors = dict(maintenance_executors or {})
+        self.external_executors = dict(external_executors or {})
 
     def dispatch(self, session: Session, task_run: TaskRun) -> TaskRunDispatchOutcome:
+        external = self.external_executors.get(task_run.task_type)
+        if external is not None:
+            outcome = external.execute(
+                task_run_id=task_run.id,
+                request_payload=dict(task_run.request_payload_json or {}),
+            )
+            return TaskRunDispatchOutcome(
+                status=outcome.status,
+                rows_fetched=outcome.rows_fetched,
+                rows_saved=outcome.rows_saved,
+                rows_rejected=outcome.rows_rejected,
+                summary_message=outcome.summary_message,
+                status_reason_code=outcome.status_reason_code,
+            )
         if task_run.task_type == "dataset_action":
             return self._dispatch_dataset_action(session, task_run)
         if task_run.task_type == "workflow":

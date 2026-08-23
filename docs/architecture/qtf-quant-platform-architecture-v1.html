@@ -622,10 +622,10 @@
           </div>
         </div>
         <div class="meta">
-          <div class="meta-row"><span>文档状态</span><span>M2 开发已收口 / M1 生产迁移待部署</span></div>
-          <div class="meta-row"><span>事实日期</span><span>2026-08-22</span></div>
+          <div class="meta-row"><span>文档状态</span><span>M3 开发已收口 / 生产迁移与 worker 实机验收待部署</span></div>
+          <div class="meta-row"><span>事实日期</span><span>2026-08-23</span></div>
           <div class="meta-row"><span>首个需求</span><span>行业二级热度参数研究</span></div>
-          <div class="meta-row"><span>当前阶段</span><span>M2 已完成，下一步只可进入 M3</span></div>
+          <div class="meta-row"><span>当前阶段</span><span>M3 已完成，下一步只可进入 M4</span></div>
           <div class="meta-row"><span>总体形态</span><span>模块化单体 + 独立量化执行进程</span></div>
           <div class="meta-row"><span>代码域名</span><span><code>qtf/</code></span></div>
         </div>
@@ -634,7 +634,7 @@
       <section class="section" id="summary">
         <div class="section-head">
           <div><h2>0. 方案摘要</h2><p>先打通二级行业真实研究闭环，再从真实闭环中提炼平台能力。</p></div>
-          <span class="badge fact">M2 已收口</span>
+          <span class="badge fact">M3 已收口</span>
         </div>
         <div class="section-body">
           <div class="grid-4">
@@ -845,7 +845,7 @@
               <tbody>
                 <tr><td>01 研究模板与问题定义</td><td>选择“二级行业转热研究”等模板，说清希望发现什么和如何判断成功。</td><td>把业务问题映射为对象类别、比较范围、因子族、成功定义和非目标。</td><td>Research Template、Hypothesis、Evaluation Contract。</td><td>模板限制可选能力，首版不提供任意脚本入口。</td></tr>
                 <tr><td>02 本次 Run 输入门禁</td><td>确认本次研究实际读取哪些行业、哪些交易日，哪些日期不具备研究资格。</td><td>复用既有来源合同和覆盖审计，只检查本次 Run 的精确范围：必要字段、业务键、缺失、非法数值、历史长度、比较组规模和研究样本要求。</td><td>Run Input Preflight Record、排除清单。</td><td>不重新做来源选型或全库覆盖盘点；只检查、不修复，不合格数据回到上游。</td></tr>
-                <tr><td>03 公式与参数定义</td><td>理解公式用什么事实、参数有什么含义，并在允许范围内选择候选。</td><td>注册公式输入输出、回看/预热、时间语义、横截面范围；解析默认值与实验覆盖值。</td><td>Formula Contract、Parameter Schema、Effective Parameter Set。</td><td>网页不能提交 Python；冻结后不存在隐式配置覆盖。</td></tr>
+                <tr><td>03 公式与参数定义</td><td>理解公式用什么事实、参数有什么含义，并在允许范围内选择候选。</td><td>注册公式输入输出、回看/预热、时间语义和横截面范围；草稿记录全部显式选择，计划补齐并展示验证合同与预算。</td><td>Formula Contract、Parameter Schema、Effective Parameter Set。</td><td>网页不能提交 Python；冻结后不存在隐式配置覆盖或运行时默认值。</td></tr>
                 <tr><td>04 实验与执行计划</td><td>在启动前看清组合数、时间范围、样本切分、预计扫描量与停止条件。</td><td>生成有限参数矩阵、样本内/样本外切分、对照、成本计划和可取消执行单元。</td><td>Frozen Experiment、Execution Plan、Run Record。</td><td>超出本次批准范围必须停止并建立新实验版本。</td></tr>
                 <tr><td>05 回测计算与可信门禁</td><td>知道任务虽然跑完，但结果是否真的可信，以及为什么无效。</td><td>直接读取已通过本次输入门禁的上游事实，同核计算逐日因子和信号；执行时间前沿、未来泄漏、预热稳定、覆盖和样本外门禁。</td><td>逐日事实、信号事件、Validation Report。</td><td>运行成功不等于研究有效；INVALID 不参加候选比较。</td></tr>
                 <tr><td>06 结果比较与研究结论</td><td>比较候选的准确率、覆盖、提前量、样本外表现和参数敏感性。</td><td>分离主要目标、硬约束和诊断指标，生成对照、敏感性、失败样本和局限说明。</td><td>Evaluation Report、参数敏感性图、案例明细。</td><td>不只展示冠军参数；样本不足必须明确为证据不足。</td></tr>
@@ -864,9 +864,10 @@
           <h3 style="margin-bottom:8px;color:var(--blue)">A. 研究链：从假设到可评审证据</h3>
           <div class="diagram-wrap">
             <div class="flow">
-              <div class="flow-step"><strong>选择模板</strong><small>业务问题、对象范围、成功定义和不做事项。</small></div>
-              <div class="flow-step"><strong>冻结合同</strong><small>数据清单、公式、最终参数、IS/OOS 与评价规则。</small></div>
-              <div class="flow-step"><strong>审阅计划</strong><small>组合数、扫描量、执行预算和停止条件。</small></div>
+              <div class="flow-step"><strong>选择模板</strong><small>建立可继续编辑、暂不可运行的研究草稿。</small></div>
+              <div class="flow-step"><strong>编辑草稿</strong><small>业务问题、成功定义、非目标和全部显式参数选择。</small></div>
+              <div class="flow-step"><strong>预检并审阅计划</strong><small>对象范围、IS/OOS、组合数、扫描量、执行预算和停止条件。</small></div>
+              <div class="flow-step"><strong>确认冻结</strong><small>管理员确认 plan hash 后生成完整不可变合同。</small></div>
               <div class="flow-step"><strong>执行回测</strong><small>按时间前沿计算因子、信号、未来结果和对照。</small></div>
               <div class="flow-step"><strong>可信门禁</strong><small>泄漏、预热、覆盖、样本外和敏感性检查。</small></div>
               <div class="flow-step"><strong>阅读证据</strong><small>目标、约束、基线、失败样本和局限。</small></div>
@@ -1000,7 +1001,7 @@
 
           <h3 style="margin:18px 0 8px">8.4 最终参数与运行追溯</h3>
           <div class="grid-2">
-            <div class="card blue"><h3>最终生效参数清单</h3><p>冻结时保存每个参数的名称、类型、最终值、默认值、覆盖来源、允许范围和参数哈希。运行时只读取这一份冻结结果，不再从页面、文件或代码默认值二次叠加。</p></div>
+            <div class="card blue"><h3>最终生效参数清单</h3><p>草稿可以暂不完整但不能运行。单次输入预检根据全部显式参数选择生成可审阅 PLAN，按交易日顺序提出 50%/25%/25% 的 IS/校准/OOS 切分，固定未来 1/3/5 日和 RESET_ONLY 事件语义，并用版本化估算器给出本次预算。管理员确认 plan hash 后，冻结版本保存全部最终值、来源和参数哈希；运行时不再二次补值。</p></div>
             <div class="card purple"><h3>完整运行指纹</h3><p>每次运行直接读取上游，并记录来源、范围、内容指纹、对象池、公式代码、最终参数、时间切分、评价合同、代码版本和运行环境。上游内容变化后必须产生新 Run，不覆盖旧结果。</p></div>
           </div>
           <div class="section-note" style="margin-top:10px"><strong>已确认口径：</strong>不引入自动参数优化，也不自动复用历史计算结果。已完成 Run 可继续查看；每次新建 Run 都重新直读上游并完整计算。平台先提供有限参数矩阵、明确目标/约束、可信门禁和敏感性阅读；是否扩展搜索空间由每轮研究计划单独审批。</div>
@@ -1219,7 +1220,7 @@
             <div class="milestone"><h3>M0 · 架构评审与边界冻结 · 已完成</h3><p>已确认本架构稿、QTF 目录边界、依赖方向、现有管理员认证复用、业务审核动作、可信门禁和二级行业首个切片；M0 未修改代码、数据库或上游数据。</p></div>
             <div class="milestone"><h3>M1 · QTF 平台基础与研究状态 · 已完成</h3><p>已建立顶层 QTF 包、依赖护栏、Research/Revision 最小状态、迁移与正反例；未读取或修改 Prod，生产迁移等待部署。</p></div>
             <div class="milestone"><h3>M2 · 二级行业候选公式内核 · 已完成</h3><p>已从一级行业离线探索中迁移价格/成交候选公式，冻结输入输出、时间语义、预热和参数解释，并以正反例验证父级内比较、缺失不补数和无未来数据语义；未声称预测有效，也未执行真实 R2。</p></div>
-            <div class="milestone"><h3>M3 · 输入门禁、有限计划与执行主链</h3><p>复用既有 Prod 来源合同，实现本次 Run 精确范围的只读输入门禁，冻结 R2 参数矩阵、IS/OOS、评价合同和预算；新 Run 每次重新直读上游并完整计算，接入现有 TaskRun 进度、取消和失败观测。</p></div>
+            <div class="milestone"><h3>M3 · 输入门禁、有限计划与执行主链 · 开发已完成</h3><p>已复用既有 Prod 来源合同，实现精确范围只读门禁、有限 PLAN、不可变冻结、原子 Run/TaskRun 启动、每 Run 重读、同 Run 单次读取、独立 QTF lane、最小管理员 API、CLI 与部署接线；成功运行保持 PENDING，不生成 M4 结果或 Candidate。生产迁移、systemd 与 release env 仍待部署实机验收。</p></div>
             <div class="milestone"><h3>M4 · 可信门禁与结果证据</h3><p>实现时间前沿、未来泄漏差分、预热稳定、样本覆盖、样本外和参数敏感性；形成明确 VALID/INVALID/INSUFFICIENT 结论。</p></div>
           </div>
           <div>
@@ -1269,11 +1270,11 @@
               </tbody>
             </table>
           </div>
-          <div class="section-note" style="margin-top:10px"><strong>本轮结论：</strong>数据质量归上游、既有数据源审计直接复用、QTF 直接读取且不保存输入副本、M1 不读 Prod、M2 只证明候选公式计算语义、M3 才实现单次 Run 输入门禁与执行主链，以上边界均已冻结。M1 与 M2 已完成开发收口，是 M3 的两个前置；M1 生产迁移仍待部署。大型回测产物与单次计算规模仍按具体回测能力 case by case 决定。</div>
+          <div class="section-note" style="margin-top:10px"><strong>本轮结论：</strong>数据质量归上游、既有数据源审计直接复用、QTF 直接读取且不保存输入副本。M1/M2/M3 已完成开发收口；M3 已建立单次 Run 输入门禁与执行主链，但没有执行真实 R2，也没有生成可信结论、候选或发布。生产迁移与独立 QTF worker 实机验收仍待部署；下一步只能进入 M4。大型回测产物与单次计算规模仍按具体回测能力 case by case 决定。</div>
         </div>
       </section>
 
-      <footer class="footer">Goldenshare · 财势量化平台（QTF）首版系统架构方案 v1 · Freqtrade / LEAN 经验本地化修订稿 · M1/M2 已实现，后续能力仍以里程碑状态为准。</footer>
+      <footer class="footer">Goldenshare · 财势量化平台（QTF）首版系统架构方案 v1 · Freqtrade / LEAN 经验本地化修订稿 · M1/M2/M3 已实现，后续能力仍以里程碑状态为准。</footer>
     </main>
   </div>
 </body>

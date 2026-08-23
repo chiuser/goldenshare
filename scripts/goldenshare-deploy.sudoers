@@ -10,10 +10,12 @@ goldenshare ALL=(root) NOPASSWD: \
   /usr/bin/systemctl restart goldenshare-ops-task-completion-worker.service, \
   /usr/bin/systemctl restart goldenshare-ops-stk-mins-worker.service, \
   /usr/bin/systemctl restart goldenshare-ops-index-mins-worker.service, \
+  /usr/bin/systemctl restart goldenshare-qtf-worker.service, \
   /usr/bin/systemctl restart goldenshare-realtime-collector.service, \
   /usr/bin/systemctl enable goldenshare-ops-task-completion-worker.service, \
   /usr/bin/systemctl enable goldenshare-ops-stk-mins-worker.service, \
   /usr/bin/systemctl enable goldenshare-ops-index-mins-worker.service, \
+  /usr/bin/systemctl enable goldenshare-qtf-worker.service, \
   /usr/bin/systemctl enable goldenshare-realtime-collector.service, \
   /usr/bin/systemctl status goldenshare-web.service, \
   /usr/bin/systemctl status goldenshare-ops-worker.service, \
@@ -22,6 +24,7 @@ goldenshare ALL=(root) NOPASSWD: \
   /usr/bin/systemctl status goldenshare-ops-task-completion-worker.service, \
   /usr/bin/systemctl status goldenshare-ops-stk-mins-worker.service, \
   /usr/bin/systemctl status goldenshare-ops-index-mins-worker.service, \
+  /usr/bin/systemctl status goldenshare-qtf-worker.service, \
   /usr/bin/systemctl status goldenshare-realtime-collector.service, \
   /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-web.service /etc/systemd/system/goldenshare-web.service, \
   /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-ops-worker.service /etc/systemd/system/goldenshare-ops-worker.service, \
@@ -30,4 +33,7 @@ goldenshare ALL=(root) NOPASSWD: \
   /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-ops-task-completion-worker.service /etc/systemd/system/goldenshare-ops-task-completion-worker.service, \
   /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-ops-stk-mins-worker.service /etc/systemd/system/goldenshare-ops-stk-mins-worker.service, \
   /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-ops-index-mins-worker.service /etc/systemd/system/goldenshare-ops-index-mins-worker.service, \
+  /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-qtf-worker.service /etc/systemd/system/goldenshare-qtf-worker.service, \
+  /usr/bin/install -m 644 /opt/goldenshare/goldenshare/.qtf-release.env.next /etc/goldenshare/release.env.next, \
+  /usr/bin/mv /etc/goldenshare/release.env.next /etc/goldenshare/release.env, \
   /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-realtime-collector.service /etc/systemd/system/goldenshare-realtime-collector.service

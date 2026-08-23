@@ -17,12 +17,15 @@ DATE_COMPLETENESS_WORKER_SERVICE="${DATE_COMPLETENESS_WORKER_SERVICE:-goldenshar
 TASK_COMPLETION_WORKER_SERVICE="${TASK_COMPLETION_WORKER_SERVICE:-goldenshare-ops-task-completion-worker.service}"
 STK_MINS_WORKER_SERVICE="${STK_MINS_WORKER_SERVICE:-goldenshare-ops-stk-mins-worker.service}"
 INDEX_MINS_WORKER_SERVICE="${INDEX_MINS_WORKER_SERVICE:-goldenshare-ops-index-mins-worker.service}"
+QTF_WORKER_SERVICE="${QTF_WORKER_SERVICE:-goldenshare-qtf-worker.service}"
 REALTIME_COLLECTOR_SERVICE="${REALTIME_COLLECTOR_SERVICE:-goldenshare-realtime-collector.service}"
 
 DEPLOY_FOUNDATION="${DEPLOY_FOUNDATION:-1}"
 DEPLOY_OPS="${DEPLOY_OPS:-1}"
 DEPLOY_PLATFORM="${DEPLOY_PLATFORM:-1}"
 DEPLOY_REALTIME="${DEPLOY_REALTIME:-1}"
+DEPLOY_QTF="${DEPLOY_QTF:-1}"
+QTF_ONLY_MODE="${QTF_ONLY_MODE:-0}"
 RUN_DB_MIGRATION="${RUN_DB_MIGRATION:-1}"
 RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-1}"
 RUN_WEALTH_BUILD="${RUN_WEALTH_BUILD:-1}"
@@ -41,7 +44,10 @@ DATE_COMPLETENESS_WORKER_UNIT_SRC="${DATE_COMPLETENESS_WORKER_UNIT_SRC:-${SCRIPT
 TASK_COMPLETION_WORKER_UNIT_SRC="${TASK_COMPLETION_WORKER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-ops-task-completion-worker.service}"
 STK_MINS_WORKER_UNIT_SRC="${STK_MINS_WORKER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-ops-stk-mins-worker.service}"
 INDEX_MINS_WORKER_UNIT_SRC="${INDEX_MINS_WORKER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-ops-index-mins-worker.service}"
+QTF_WORKER_UNIT_SRC="${QTF_WORKER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-qtf-worker.service}"
 REALTIME_COLLECTOR_UNIT_SRC="${REALTIME_COLLECTOR_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-realtime-collector.service}"
+RELEASE_ENV_FILE="/etc/goldenshare/release.env"
+RELEASE_ENV_STAGE="${REPO_DIR}/.qtf-release.env.next"
 
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8000/api/health}"
 HEALTH_V1_URL="${HEALTH_V1_URL:-http://127.0.0.1:8000/api/v1/health}"
@@ -101,7 +107,18 @@ sync_units_if_needed() {
   local task_completion_worker_dst="${SYSTEMD_UNIT_DIR}/${TASK_COMPLETION_WORKER_SERVICE}"
   local stk_mins_worker_dst="${SYSTEMD_UNIT_DIR}/${STK_MINS_WORKER_SERVICE}"
   local index_mins_worker_dst="${SYSTEMD_UNIT_DIR}/${INDEX_MINS_WORKER_SERVICE}"
+  local qtf_worker_dst="${SYSTEMD_UNIT_DIR}/${QTF_WORKER_SERVICE}"
   local realtime_collector_dst="${SYSTEMD_UNIT_DIR}/${REALTIME_COLLECTOR_SERVICE}"
+
+  if [[ "${QTF_ONLY_MODE}" == "1" ]]; then
+    if sync_systemd_unit "${QTF_WORKER_UNIT_SRC}" "${qtf_worker_dst}"; then
+      changed=1
+    fi
+    if [[ "${changed}" == "1" ]]; then
+      sudo_systemctl daemon-reload
+    fi
+    return
+  fi
 
   if sync_systemd_unit "${WEB_UNIT_SRC}" "${web_dst}"; then
     changed=1
@@ -122,6 +139,9 @@ sync_units_if_needed() {
     changed=1
   fi
   if sync_systemd_unit "${INDEX_MINS_WORKER_UNIT_SRC}" "${index_mins_worker_dst}"; then
+    changed=1
+  fi
+  if [[ "${DEPLOY_QTF}" == "1" ]] && sync_systemd_unit "${QTF_WORKER_UNIT_SRC}" "${qtf_worker_dst}"; then
     changed=1
   fi
   if sync_systemd_unit "${REALTIME_COLLECTOR_UNIT_SRC}" "${realtime_collector_dst}"; then
@@ -173,11 +193,30 @@ ensure_sudo_ready() {
   - systemctl restart/status/enable goldenshare-ops-task-completion-worker.service
   - systemctl restart/status/enable goldenshare-ops-stk-mins-worker.service
   - systemctl restart/status/enable goldenshare-ops-index-mins-worker.service
+  - systemctl restart/status/enable goldenshare-qtf-worker.service
   - systemctl restart/status goldenshare-realtime-collector.service
   - systemctl enable goldenshare-realtime-collector.service
 EOF
     exit 1
   fi
+}
+
+publish_qtf_release_commit() {
+  if [[ "${DEPLOY_QTF}" != "1" ]]; then
+    return
+  fi
+  local release_commit
+  release_commit="$(git rev-parse HEAD)"
+  if [[ ! "${release_commit}" =~ ^[0-9a-f]{40}$ ]]; then
+    echo "当前 Git commit 非 40 位小写十六进制，拒绝启动 QTF worker。"
+    exit 1
+  fi
+  umask 022
+  printf 'GOLDENSHARE_RELEASE_COMMIT=%s\n' "${release_commit}" >"${RELEASE_ENV_STAGE}"
+  sudo -n install -m 644 "${RELEASE_ENV_STAGE}" "${RELEASE_ENV_FILE}.next"
+  sudo -n /usr/bin/mv "${RELEASE_ENV_FILE}.next" "${RELEASE_ENV_FILE}"
+  rm -f "${RELEASE_ENV_STAGE}"
+  log "已写入 QTF 发布版本: ${release_commit}"
 }
 
 ensure_runtime_ready() {
@@ -248,6 +287,17 @@ restart_minute_workers_if_needed() {
   fi
 }
 
+restart_qtf_worker_if_needed() {
+  if [[ "${DEPLOY_QTF}" == "1" ]]; then
+    log "启用 QTF worker 自启动"
+    sudo_systemctl enable "${QTF_WORKER_SERVICE}" >/dev/null
+    log "重启 QTF worker"
+    sudo_systemctl restart "${QTF_WORKER_SERVICE}"
+  else
+    log "跳过 QTF worker 重启（DEPLOY_QTF=0）"
+  fi
+}
+
 print_service_status() {
   local service_name="$1"
   local output
@@ -284,7 +334,9 @@ health_check() {
 main() {
   log "开始分层发版，分支=${BRANCH}"
   require_cmd git
-  require_cmd npm
+  if [[ "${RUN_FRONTEND_BUILD}" == "1" || "${RUN_WEALTH_BUILD}" == "1" ]]; then
+    require_cmd npm
+  fi
   require_cmd curl
   require_cmd sudo
   require_cmd cmp
@@ -304,6 +356,7 @@ main() {
 
   log "2/12 安装后端依赖（target=${PIP_INSTALL_TARGET}）"
   .venv/bin/pip install -e "${PIP_INSTALL_TARGET}"
+  publish_qtf_release_commit
 
   if [[ "${RUN_FRONTEND_BUILD}" == "1" ]]; then
     log "3/12 构建前端"
@@ -326,7 +379,9 @@ main() {
   fi
 
   sync_units_if_needed
-  assert_web_entry_module
+  if [[ "${QTF_ONLY_MODE}" != "1" ]]; then
+    assert_web_entry_module
+  fi
 
   if [[ "${RUN_DB_MIGRATION}" == "1" ]]; then
     log "5/12 执行数据库迁移"
@@ -395,6 +450,7 @@ main() {
 
   restart_task_completion_worker_if_needed
   restart_minute_workers_if_needed
+  restart_qtf_worker_if_needed
 
   if [[ "${DEPLOY_PLATFORM}" == "1" ]]; then
     restart_layer_services platform
@@ -411,26 +467,35 @@ main() {
     log "跳过 Realtime 实时采集层重启（DEPLOY_REALTIME=0）"
   fi
 
-  log "9/12 Foundation 自检"
-  load_runtime_env
-  .venv/bin/goldenshare list-resources >/dev/null
+  if [[ "${QTF_ONLY_MODE}" != "1" ]]; then
+    log "9/12 Foundation 自检"
+    load_runtime_env
+    .venv/bin/goldenshare list-resources >/dev/null
 
-  log "10/12 Ops 自检"
-  .venv/bin/goldenshare ops-reconcile-task-runs >/dev/null
+    log "10/12 Ops 自检"
+    .venv/bin/goldenshare ops-reconcile-task-runs >/dev/null
 
-  log "11/12 Platform 健康检查"
-  health_check "${HEALTH_URL}" "Platform /api/health"
-  health_check "${HEALTH_V1_URL}" "Platform /api/v1/health"
+    log "11/12 Platform 健康检查"
+    health_check "${HEALTH_URL}" "Platform /api/health"
+    health_check "${HEALTH_V1_URL}" "Platform /api/v1/health"
+  else
+    log "9-11/12 QTF-only：跳过其他子系统自检和 Web 健康检查"
+  fi
 
   log "12/12 服务状态"
-  print_service_status "${WEB_SERVICE}"
-  print_service_status "${WORKER_SERVICE}"
-  print_service_status "${SCHEDULER_SERVICE}"
-  print_service_status "${DATE_COMPLETENESS_WORKER_SERVICE}"
-  print_service_status "${TASK_COMPLETION_WORKER_SERVICE}"
-  print_service_status "${STK_MINS_WORKER_SERVICE}"
-  print_service_status "${INDEX_MINS_WORKER_SERVICE}"
-  print_service_status "${REALTIME_COLLECTOR_SERVICE}"
+  if [[ "${QTF_ONLY_MODE}" != "1" ]]; then
+    print_service_status "${WEB_SERVICE}"
+    print_service_status "${WORKER_SERVICE}"
+    print_service_status "${SCHEDULER_SERVICE}"
+    print_service_status "${DATE_COMPLETENESS_WORKER_SERVICE}"
+    print_service_status "${TASK_COMPLETION_WORKER_SERVICE}"
+    print_service_status "${STK_MINS_WORKER_SERVICE}"
+    print_service_status "${INDEX_MINS_WORKER_SERVICE}"
+    print_service_status "${REALTIME_COLLECTOR_SERVICE}"
+  fi
+  if [[ "${DEPLOY_QTF}" == "1" ]]; then
+    print_service_status "${QTF_WORKER_SERVICE}"
+  fi
 
   log "分层发版完成"
 }

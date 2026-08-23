@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -104,6 +105,78 @@ class SqlAlchemyResearchRepository:
         research = self._session.get(Research, revision.research_id)
         if research is None:
             raise QtfStateConflict("revision exists without its research")
+        return _bundle_record(research, revision)
+
+    def get_bundle_by_research_key(self, research_key: str) -> ResearchBundle:
+        research = self._session.scalar(select(Research).where(Research.research_key == research_key))
+        if research is None:
+            raise QtfStateConflict("research does not exist")
+        revision = self._session.scalar(
+            select(ExperimentRevision)
+            .where(ExperimentRevision.research_id == research.id)
+            .order_by(ExperimentRevision.revision_no.desc())
+            .limit(1)
+        )
+        if revision is None:
+            raise QtfStateConflict("research exists without a revision")
+        return _bundle_record(research, revision)
+
+    def get_bundle_by_revision_key(self, revision_key: str) -> ResearchBundle:
+        revision = self._session.scalar(
+            select(ExperimentRevision).where(ExperimentRevision.revision_key == revision_key)
+        )
+        if revision is None:
+            raise QtfStateConflict("revision does not exist")
+        research = self._session.get(Research, revision.research_id)
+        if research is None:
+            raise QtfStateConflict("revision exists without its research")
+        return _bundle_record(research, revision)
+
+    def get_bundle_by_revision_id(self, revision_id: int) -> ResearchBundle:
+        revision = self._session.get(ExperimentRevision, revision_id)
+        if revision is None:
+            raise QtfStateConflict("revision does not exist")
+        research = self._session.get(Research, revision.research_id)
+        if research is None:
+            raise QtfStateConflict("revision exists without its research")
+        return _bundle_record(research, revision)
+
+    def freeze_revision(
+        self,
+        *,
+        revision_key: str,
+        expected_draft_version: int,
+        content: RevisionContent,
+        revision_hash: str,
+        frozen_by_user_id: int,
+    ) -> ResearchBundle:
+        revision = self._session.scalar(
+            select(ExperimentRevision).where(ExperimentRevision.revision_key == revision_key)
+        )
+        if revision is None:
+            raise QtfStateConflict("revision does not exist")
+        if revision.status != ExperimentRevisionStatus.DRAFT.value:
+            if revision.status == ExperimentRevisionStatus.FROZEN.value and revision.revision_hash == revision_hash:
+                research = self._session.get(Research, revision.research_id)
+                if research is None:
+                    raise QtfStateConflict("revision exists without its research")
+                return _bundle_record(research, revision)
+            raise QtfStateConflict("only DRAFT revisions can be frozen")
+        if revision.draft_version != expected_draft_version:
+            raise QtfDraftConflict("draft version changed; reload before freezing")
+        if frozen_by_user_id <= 0:
+            raise QtfStateConflict("freezing actor is required")
+
+        _apply_content(revision, content)
+        revision.status = ExperimentRevisionStatus.FROZEN.value
+        revision.revision_hash = revision_hash
+        revision.frozen_by_user_id = frozen_by_user_id
+        revision.frozen_at = datetime.now(timezone.utc)
+        research = self._session.get(Research, revision.research_id)
+        if research is None:
+            raise QtfStateConflict("revision exists without its research")
+        research.status = ResearchStatus.ACTIVE.value
+        self._session.flush()
         return _bundle_record(research, revision)
 
 

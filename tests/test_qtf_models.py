@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from qtf.adapters.persistence.models.research import ExperimentRevision, Research
+from qtf.adapters.persistence.models.runtime import ExperimentRun, InputPreflight, InputPreflightIssue
 from qtf.adapters.persistence.repositories.research_repository import SqlAlchemyResearchRepository
 from qtf.application.services.research_service import ResearchService
 from qtf.contracts.errors import QtfDraftConflict, QtfRequestConflict, QtfStateConflict
@@ -23,6 +24,7 @@ from src.foundation.models.base import Base
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MIGRATION_PATH = REPO_ROOT / "alembic/versions/20260822_000143_add_qtf_research_state.py"
+M3_MIGRATION_PATH = REPO_ROOT / "alembic/versions/20260823_000144_add_qtf_run_preflight_state.py"
 
 
 @pytest.fixture()
@@ -48,11 +50,17 @@ def session() -> Session:
         yield active_session
 
 
-def test_app_registry_registers_only_the_two_m1_qtf_models() -> None:
+def test_app_registry_registers_m1_and_m3_qtf_models() -> None:
     register_all_models()
     assert MODEL_MODULES[0] == "qtf.adapters.persistence.models.research"
     qtf_tables = {table.name for table in Base.metadata.tables.values() if table.schema == "qtf"}
-    assert qtf_tables == {"research", "experiment_revision"}
+    assert qtf_tables == {
+        "research",
+        "experiment_revision",
+        "input_preflight",
+        "input_preflight_issue",
+        "experiment_run",
+    }
 
 
 def test_research_creation_is_idempotent_and_conflicting_replay_is_rejected(session: Session) -> None:
@@ -185,10 +193,13 @@ def test_database_constraints_reject_invalid_status_and_duplicate_revision_reque
         session.commit()
 
 
-def test_m1_migration_is_single_head_and_contains_only_research_state() -> None:
+def test_m1_migration_contains_only_research_state_and_m3_follows_it() -> None:
     config = Config(str(REPO_ROOT / "alembic.ini"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["20260822_000143"]
+    assert script.get_revision("20260822_000143") is not None
+    m3_revision = script.get_revision("20260823_000144")
+    assert m3_revision is not None
+    assert m3_revision.down_revision == "20260822_000143"
 
     migration = MIGRATION_PATH.read_text(encoding="utf-8")
     assert 'down_revision = "20260822_000142"' in migration
@@ -196,6 +207,26 @@ def test_m1_migration_is_single_head_and_contains_only_research_state() -> None:
     assert 'op.create_table(\n        "experiment_revision"' in migration
     for forbidden_table in ("input_preflight", "experiment_run", "run_gate_result", "candidate", "release"):
         assert f'op.create_table(\n        "{forbidden_table}"' not in migration
+
+
+def test_m3_models_keep_task_run_as_a_logical_reference() -> None:
+    for model in (InputPreflight, InputPreflightIssue, ExperimentRun):
+        assert not inspect(model).relationships
+    assert not ExperimentRun.__table__.c.task_run_id.foreign_keys
+    assert {foreign_key.target_fullname for foreign_key in ExperimentRun.__table__.foreign_keys} == {
+        "qtf.experiment_revision.id",
+        "qtf.input_preflight.id",
+    }
+
+
+def test_m3_migration_contains_only_preflight_and_run_state() -> None:
+    migration = M3_MIGRATION_PATH.read_text(encoding="utf-8")
+    for table in ("input_preflight", "input_preflight_issue", "experiment_run"):
+        assert f'op.create_table(\n        "{table}"' in migration
+    for forbidden in ("run_gate_result", "run_parameter_result", "sector_signal_event", "candidate", "release"):
+        assert f'op.create_table(\n        "{forbidden}"' not in migration
+    assert "ops.task_run" not in migration
+    assert 'down_revision = "20260822_000143"' in migration
 
 
 def test_qtf_models_do_not_create_user_or_ops_orm_relationships() -> None:

@@ -19,6 +19,7 @@ usage() {
   --platform-only         仅发布 platform(web)
   --ops-only              仅发布 ops(scheduler/date-completeness/task-completion/minute workers)
   --foundation-only       仅发布 foundation(worker/task-completion/minute workers)
+  --qtf-only              仅安装后端、执行迁移并同步/重启 QTF worker
   --seed-default-source   启用“默认单源规则缺失检测 + 按需初始化”（默认启用）
   --skip-seed-default-source 关闭“默认单源规则缺失检测 + 按需初始化”
   --seed-source <key>     初始化使用的数据源（默认 tushare）
@@ -48,6 +49,7 @@ export DEPLOY_FOUNDATION="${DEPLOY_FOUNDATION:-1}"
 export DEPLOY_OPS="${DEPLOY_OPS:-1}"
 export DEPLOY_PLATFORM="${DEPLOY_PLATFORM:-1}"
 export DEPLOY_REALTIME="${DEPLOY_REALTIME:-1}"
+export DEPLOY_QTF="${DEPLOY_QTF:-1}"
 export RUN_DB_MIGRATION="${RUN_DB_MIGRATION:-1}"
 export RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-1}"
 export RUN_WEALTH_BUILD="${RUN_WEALTH_BUILD:-1}"
@@ -57,6 +59,7 @@ export RUN_MONEYFLOW_MULTI_SOURCE_SEED="${RUN_MONEYFLOW_MULTI_SOURCE_SEED:-0}"
 export RUN_SYNC_UNITS="${RUN_SYNC_UNITS:-1}"
 export PIP_INSTALL_TARGET="${PIP_INSTALL_TARGET:-.}"
 ONLY_MODE=0
+export QTF_ONLY_MODE="${QTF_ONLY_MODE:-0}"
 REALTIME_OVERRIDE=""
 
 if [[ $# -gt 0 && "${1}" != -* ]]; then
@@ -75,18 +78,34 @@ while [[ $# -gt 0 ]]; do
       export DEPLOY_FOUNDATION=0
       export DEPLOY_OPS=0
       export DEPLOY_PLATFORM=1
+      export DEPLOY_QTF=0
       ONLY_MODE=1
       ;;
     --ops-only)
       export DEPLOY_FOUNDATION=0
       export DEPLOY_OPS=1
       export DEPLOY_PLATFORM=0
+      export DEPLOY_QTF=0
       ONLY_MODE=1
       ;;
     --foundation-only)
       export DEPLOY_FOUNDATION=1
       export DEPLOY_OPS=0
       export DEPLOY_PLATFORM=0
+      export DEPLOY_QTF=0
+      ONLY_MODE=1
+      ;;
+    --qtf-only)
+      export DEPLOY_FOUNDATION=0
+      export DEPLOY_OPS=0
+      export DEPLOY_PLATFORM=0
+      export DEPLOY_REALTIME=0
+      export DEPLOY_QTF=1
+      export QTF_ONLY_MODE=1
+      export RUN_FRONTEND_BUILD=0
+      export RUN_WEALTH_BUILD=0
+      export RUN_DEFAULT_SINGLE_SOURCE_SEED=0
+      export RUN_MONEYFLOW_MULTI_SOURCE_SEED=0
       ONLY_MODE=1
       ;;
     --skip-build)
@@ -141,6 +160,8 @@ while [[ $# -gt 0 ]]; do
       export DEPLOY_OPS=1
       export DEPLOY_PLATFORM=1
       export DEPLOY_REALTIME=1
+      export DEPLOY_QTF=1
+      export QTF_ONLY_MODE=0
       ONLY_MODE=0
       ;;
     -h|--help)
@@ -156,7 +177,19 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-if [[ -n "${REALTIME_OVERRIDE}" ]]; then
+if [[ "${QTF_ONLY_MODE}" == "1" ]]; then
+  export DEPLOY_FOUNDATION=0
+  export DEPLOY_OPS=0
+  export DEPLOY_PLATFORM=0
+  export DEPLOY_REALTIME=0
+  export DEPLOY_QTF=1
+  export RUN_DB_MIGRATION=1
+  export RUN_FRONTEND_BUILD=0
+  export RUN_WEALTH_BUILD=0
+  export RUN_DEFAULT_SINGLE_SOURCE_SEED=0
+  export RUN_MONEYFLOW_MULTI_SOURCE_SEED=0
+  export RUN_SYNC_UNITS=1
+elif [[ -n "${REALTIME_OVERRIDE}" ]]; then
   export DEPLOY_REALTIME="${REALTIME_OVERRIDE}"
 elif [[ "${ONLY_MODE}" == "1" ]]; then
   export DEPLOY_REALTIME=0

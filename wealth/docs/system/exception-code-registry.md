@@ -210,7 +210,27 @@
 
 ---
 
-## 10. 变更规则
+## 10. 财势量化平台（QTF M3）
+
+| code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `QTF_REQUEST_INVALID` | `quantPlatform` | error | true | false | 请求、参数或日期合同非法 | 请求字段、完整参数或日期范围不符合冻结合同 | 保留当前输入并提示修正 | qtf/app | M3 | active |
+| `QTF_TEMPLATE_NOT_FOUND` | `quantPlatform` | error | true | false | 模板、公式或参数合同不存在或未激活 | 请求引用未注册身份或版本 | 阻止创建或冻结并刷新模板 | qtf/app | M3 | active |
+| `QTF_STATE_CONFLICT` | `quantPlatform` | error | true | false | 当前研究状态不允许该动作 | 对非 DRAFT 编辑、非 FROZEN 启动等 | 刷新最新状态 | qtf/app | M3 | active |
+| `QTF_DRAFT_CONFLICT` | `quantPlatform` | error | true | false | 草稿版本或内容哈希已变化 | 旧页面保存、预检或冻结覆盖新内容 | 禁止覆盖并重新加载 | qtf/app | M3 | active |
+| `QTF_INPUT_PREFLIGHT_BLOCKED` | `quantPlatform` | warn | true | false | 本次输入不满足研究门禁 | 精确对象池或日期范围存在来源、完整性或小组问题 | 展示问题和上游责任，不启动 | qtf/app | M3 | active |
+| `QTF_PLAN_NOT_APPROVED` | `quantPlatform` | error | true | false | PLAN 未确认或已变化 | plan hash 缺失、过期或与服务器重算不一致 | 返回计划页重新确认 | qtf/app | M3 | active |
+| `QTF_PLAN_BUDGET_EXCEEDED` | `quantPlatform` | error | true | false | 实际工作量超过本 Run 获批预算 | 来源行数、组日、组合、耗时、内存或产物越界 | 在安全点停止并重新审批 | qtf/app | M3 | active |
+| `QTF_INPUT_CHANGED_DURING_RUN` | `quantPlatform` | error | true | false | Run 重读输入与已批准内容不一致 | RUN_PREFLIGHT 内容指纹变化 | 结束当前 Run 并新建 Run | qtf/app | M3 | active |
+| `QTF_RUN_FAILED` | `quantPlatform` | error | true | false | 回测执行程序失败 | 公式或执行主链出现未恢复异常 | 展示简要原因，可新建 Run | qtf/app | M3 | active |
+| `QTF_VALIDATION_INVALID` | `quantPlatform` | warn | true | false | 执行完成但可信门禁失败 | M4 验证结果为 INVALID | 禁止提名，保留证据 | qtf/app | M4 | active |
+| `QTF_VALIDATION_INSUFFICIENT` | `quantPlatform` | warn | true | false | 研究样本不足 | M4 验证结果为 INSUFFICIENT | 禁止提名，可保留观察 | qtf/app | M4 | active |
+| `QTF_RELEASE_CONFLICT` | `quantPlatform` | error | true | false | 候选或发布状态冲突 | M8 审核、批准或替代关系不合法 | 保留当前 release 并刷新 | qtf/app | M8 | active |
+| `QTF_QUERY_FAILED` | `quantPlatform` | error | true | false | 未分类查询或服务异常 | 数据库或服务出现未分类失败 | 页面错误态，可重试 | qtf/app | M3 | active |
+
+401/403 继续复用认证层，不新增 QTF 用户、角色或权限码。
+
+## 11. 变更规则
 
 1. 已上线的 `code` 不允许重用为新语义。
 2. 废弃码必须保留历史记录，`status=deprecated`，并补替代码。

@@ -9,6 +9,9 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from qtf.adapters.persistence.models.research import ExperimentRevision, Research
+from qtf.adapters.persistence.models.runtime import ExperimentRun, InputPreflight, InputPreflightIssue
+
 from src.foundation.config.settings import get_settings
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.app.models.app_user import AppUser
@@ -92,6 +95,12 @@ def web_engine(configured_web_env) -> Generator:
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS foundation")
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS ops")
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS raw_tushare")
+        connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS qtf")
+        Research.__table__.create(connection)
+        ExperimentRevision.__table__.create(connection)
+        InputPreflight.__table__.create(connection)
+        InputPreflightIssue.__table__.create(connection)
+        ExperimentRun.__table__.create(connection)
         AppUser.__table__.create(connection)
         AuthRole.__table__.create(connection)
         AuthPermission.__table__.create(connection)

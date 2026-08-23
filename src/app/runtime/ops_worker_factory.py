@@ -7,17 +7,24 @@ from src.ops.runtime.worker_lane import WorkerLane
 
 from .sector_heat_task_executor import SectorHeatTaskExecutor
 from .news_stock_linking_task_executor import NewsStockLinkingTaskExecutor
+from .qtf_task_executor import QtfTaskExecutor
 
 
 def _build_worker(*, lane: WorkerLane, session_factory=None) -> OperationsWorker:  # type: ignore[no-untyped-def]
     resolved_session_factory = session_factory or get_session_factory()
     heat_executor = SectorHeatTaskExecutor(session_factory=resolved_session_factory)
     news_stock_linking_executor = NewsStockLinkingTaskExecutor(session_factory=resolved_session_factory)
+    external_executors = (
+        {"qtf_experiment": QtfTaskExecutor(session_factory=resolved_session_factory)}
+        if lane is WorkerLane.QTF
+        else {}
+    )
     dispatcher = TaskRunDispatcher(
         maintenance_executors={
             "wealth_sector_heat": heat_executor,
             "news_stock_linking": news_stock_linking_executor,
         },
+        external_executors=external_executors,
     )
     return OperationsWorker(dispatcher=dispatcher, lane=lane)
 
@@ -32,3 +39,7 @@ def build_stk_mins_worker(*, session_factory=None) -> OperationsWorker:  # type:
 
 def build_index_mins_worker(*, session_factory=None) -> OperationsWorker:  # type: ignore[no-untyped-def]
     return _build_worker(lane=WorkerLane.INDEX_MINS, session_factory=session_factory)
+
+
+def build_qtf_worker(*, session_factory=None) -> OperationsWorker:  # type: ignore[no-untyped-def]
+    return _build_worker(lane=WorkerLane.QTF, session_factory=session_factory)
