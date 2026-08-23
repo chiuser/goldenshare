@@ -134,6 +134,14 @@ EXECUTION_MODE_PARAM = ActionParameter(
     required=True,
     options=("PLAN", "APPLY"),
 )
+NEWS_LINK_MODE_PARAM = ActionParameter(
+    key="mode",
+    display_name="执行模式",
+    param_type="enum",
+    description="首次执行自动全量初始化；已有成功游标后按 fetched_at 增量处理。",
+    options=("full", "incremental"),
+    default_value="incremental",
+)
 PLAN_TASK_RUN_ID_PARAM = ActionParameter(
     key="plan_task_run_id",
     display_name="计划任务 ID",
@@ -236,6 +244,25 @@ MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
         ),
         manual_enabled=True,
         schedule_enabled=False,
+        retry_enabled=True,
+    ),
+    "maintenance.materialize_news_stock_links": MaintenanceActionDefinition(
+        key="maintenance.materialize_news_stock_links",
+        display_name="物化新闻—个股关联",
+        domain_key="maintenance",
+        domain_display_name="维护动作",
+        description="按规则将 core_serving_light.news 关联到股票代码，供股票详情页展示。",
+        executor_key="news_stock_linking",
+        execution_config={"target_tables": ("core_serving.news_stock_link",)},
+        parameters=(NEWS_LINK_MODE_PARAM,),
+        default_params={
+            "mode": "incremental",
+            "overlap_seconds": 3600,
+            "rule_version": "news-stock-rule-v1",
+            "news_scope": "all",
+        },
+        manual_enabled=True,
+        schedule_enabled=True,
         retry_enabled=True,
     ),
 }

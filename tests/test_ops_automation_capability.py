@@ -24,7 +24,7 @@ def test_every_schedulable_target_has_a_capability() -> None:
     resolver = ScheduleAutomationCapabilityResolver()
     targets = _schedulable_targets()
 
-    assert len(targets) == 90
+    assert len(targets) == 93
     assert all(resolver.resolve(target_type=target_type, target_key=target_key) is not None for target_type, target_key in targets)
     assert resolver.resolve(target_type="workflow", target_key="index_extension_maintenance") is None
 

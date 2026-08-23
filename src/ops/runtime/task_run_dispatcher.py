@@ -43,6 +43,8 @@ class TaskRunDispatchOutcome:
     rows_fetched: int = 0
     rows_saved: int = 0
     rows_rejected: int = 0
+    rows_deduplicated: int = 0
+    ingestion_diagnostics: dict[str, Any] | None = None
     rejected_reason_counts: dict[str, int] | None = None
     rejected_reason_samples: dict[str, list[dict[str, Any]]] | None = None
     summary_message: str | None = None
@@ -435,6 +437,10 @@ class TaskRunDispatcher:
             if action.key == "maintenance.replay_wealth_sector_heat_history":
                 self._validate_replay_apply_params(params)
                 units = self._load_replay_apply_units(session=session, task_run=task_run, action=action, params=params)
+            elif action.key == "maintenance.materialize_news_stock_links":
+                plan = executor.plan(MaintenanceExecutionRequest(action_key=action.key, params=params))
+                task_run.plan_snapshot_json = self._maintenance_plan_snapshot(action=action, plan=plan)
+                units = plan.units
             else:
                 units = (self._single_day_heat_unit(params),)
 
@@ -446,7 +452,9 @@ class TaskRunDispatcher:
             total_fetched = 0
             total_saved = 0
             total_rejected = 0
+            total_deduplicated = 0
             rejected_reason_counts: dict[str, int] = {}
+            ingestion_diagnostics: dict[str, Any] = {}
             last_message: str | None = None
             for sequence_no, unit in enumerate(units, start=1):
                 node = self._create_node(
@@ -472,13 +480,17 @@ class TaskRunDispatcher:
                     rows_fetched=result.rows_fetched,
                     rows_saved=result.rows_saved,
                     rows_rejected=result.rows_rejected,
+                    rows_deduplicated=int(result.metadata.get("rows_deduplicated") or 0),
+                    ingestion_diagnostics=dict(result.metadata),
                     rejected_reason_counts=dict(result.rejected_reason_counts),
                     rejected_reason_samples={},
                 )
                 total_fetched += result.rows_fetched
                 total_saved += result.rows_saved
                 total_rejected += result.rows_rejected
+                total_deduplicated += int(result.metadata.get("rows_deduplicated") or 0)
                 self._merge_reason_counts(rejected_reason_counts, dict(result.rejected_reason_counts))
+                self._merge_diagnostics(ingestion_diagnostics, result.metadata)
                 last_message = result.summary_message
                 task_run.unit_done = sequence_no
                 task_run.progress_percent = int(sequence_no / len(units) * 100) if units else 100
@@ -488,6 +500,8 @@ class TaskRunDispatcher:
                 rows_fetched=total_fetched,
                 rows_saved=total_saved,
                 rows_rejected=total_rejected,
+                rows_deduplicated=total_deduplicated,
+                ingestion_diagnostics=ingestion_diagnostics,
                 rejected_reason_counts=rejected_reason_counts,
                 summary_message=last_message or action.display_name,
             )
@@ -1067,6 +1081,8 @@ class TaskRunDispatcher:
         rows_fetched: int | None = None,
         rows_saved: int | None = None,
         rows_rejected: int | None = None,
+        rows_deduplicated: int | None = None,
+        ingestion_diagnostics: dict[str, Any] | None = None,
         rejected_reason_counts: dict[str, int] | None = None,
         rejected_reason_samples: dict[str, list[dict[str, Any]]] | None = None,
     ) -> None:
@@ -1079,6 +1095,10 @@ class TaskRunDispatcher:
             node.rows_saved = rows_saved
         if rows_rejected is not None:
             node.rows_rejected = rows_rejected
+        if rows_deduplicated is not None:
+            node.rows_deduplicated = rows_deduplicated
+        if ingestion_diagnostics is not None:
+            node.ingestion_diagnostics_json = dict(ingestion_diagnostics)
         if rejected_reason_counts is not None:
             node.rejected_reason_counts_json = TaskRunDispatcher._normalize_reason_counts(rejected_reason_counts)
         if rejected_reason_samples is not None:
@@ -1108,6 +1128,23 @@ class TaskRunDispatcher:
     def _merge_reason_counts(target: dict[str, int], source: dict[str, int] | None) -> None:
         for key, count in TaskRunDispatcher._normalize_reason_counts(source).items():
             target[key] = target.get(key, 0) + count
+
+    @staticmethod
+    def _merge_diagnostics(target: dict[str, Any], source: Mapping[str, Any] | None) -> None:
+        if not isinstance(source, Mapping):
+            return
+        for key, value in source.items():
+            if isinstance(value, bool):
+                target[key] = value
+            elif isinstance(value, int | float):
+                if key == "overlap_seconds":
+                    target[key] = value
+                else:
+                    target[key] = int(target.get(key, 0) or 0) + value
+            elif key == "last_cursor" and isinstance(value, Mapping):
+                target[key] = dict(value)
+            else:
+                target[key] = value
 
     @staticmethod
     def _normalize_reason_samples(value: dict[str, list[dict[str, Any]]] | None) -> dict[str, list[dict[str, Any]]]:

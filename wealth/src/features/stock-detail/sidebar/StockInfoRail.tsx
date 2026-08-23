@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { directionClass } from "../../../shared/lib/marketDirection";
 import { formatPoint, formatSignedPercent } from "../../../shared/lib/formatters";
+import { StockDetailNewsPanel } from "../news/StockDetailNewsPanel";
 import type { StockDetailViewModel } from "../model/stockDetailTypes";
 
 interface StockInfoRailProps {
@@ -10,7 +11,7 @@ interface StockInfoRailProps {
 }
 
 export function StockInfoRail({ viewModel, onAction }: StockInfoRailProps) {
-  const [activeTab, setActiveTab] = useState<"quote" | "profile">("quote");
+  const [activeTab, setActiveTab] = useState<"quote" | "profile" | "news">("quote");
   const quoteDirection = directionClass(viewModel.quote.direction);
 
   return (
@@ -62,17 +63,26 @@ export function StockInfoRail({ viewModel, onAction }: StockInfoRailProps) {
         >
           资料
         </button>
+        <button
+          className={activeTab === "news" ? "right-tab active" : "right-tab"}
+          role="tab"
+          type="button"
+          onClick={() => setActiveTab("news")}
+        >
+          新闻
+        </button>
       </div>
 
       <div className="right-tab-content">
-        {activeTab === "quote" ? (
+        {activeTab === "quote" && (
           <section className="tab-pane active" id="quotePane">
             <QuoteSummary viewModel={viewModel} />
             <RelatedSectorTable viewModel={viewModel} />
             <StockMoneyFlowPanel viewModel={viewModel} />
             <ProductBoundaryNotes notes={viewModel.rightRail.productBoundaryNotes} />
           </section>
-        ) : (
+        )}
+        {activeTab === "profile" && (
           <section className="tab-pane active" id="profilePane">
             <div className="profile-placeholder">
               <b>资料页签</b>
@@ -80,6 +90,9 @@ export function StockInfoRail({ viewModel, onAction }: StockInfoRailProps) {
             </div>
           </section>
         )}
+        <div className="stock-detail-news-tab-pane" hidden={activeTab !== "news"}>
+          <StockDetailNewsPanel tsCode={viewModel.stock.tsCode} active={activeTab === "news"} />
+        </div>
       </div>
     </aside>
   );

@@ -6,12 +6,19 @@ from src.ops.runtime.worker import OperationsWorker
 from src.ops.runtime.worker_lane import WorkerLane
 
 from .sector_heat_task_executor import SectorHeatTaskExecutor
+from .news_stock_linking_task_executor import NewsStockLinkingTaskExecutor
 
 
 def _build_worker(*, lane: WorkerLane, session_factory=None) -> OperationsWorker:  # type: ignore[no-untyped-def]
     resolved_session_factory = session_factory or get_session_factory()
     heat_executor = SectorHeatTaskExecutor(session_factory=resolved_session_factory)
-    dispatcher = TaskRunDispatcher(maintenance_executors={"wealth_sector_heat": heat_executor})
+    news_stock_linking_executor = NewsStockLinkingTaskExecutor(session_factory=resolved_session_factory)
+    dispatcher = TaskRunDispatcher(
+        maintenance_executors={
+            "wealth_sector_heat": heat_executor,
+            "news_stock_linking": news_stock_linking_executor,
+        },
+    )
     return OperationsWorker(dispatcher=dispatcher, lane=lane)
 
 

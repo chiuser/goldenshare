@@ -182,9 +182,11 @@ class OperationsWorker:
         task_run.status = final_status
         task_run.status_reason_code = outcome.status_reason_code
         task_run.ended_at = now
-        task_run.rows_fetched = int(outcome.rows_fetched or task_run.rows_fetched or 0)
-        task_run.rows_saved = int(outcome.rows_saved or task_run.rows_saved or 0)
-        task_run.rows_rejected = int(outcome.rows_rejected or task_run.rows_rejected or 0)
+        task_run.rows_fetched = int(outcome.rows_fetched)
+        task_run.rows_saved = int(outcome.rows_saved)
+        task_run.rows_rejected = int(outcome.rows_rejected)
+        task_run.rows_deduplicated = int(outcome.rows_deduplicated)
+        task_run.ingestion_diagnostics_json = dict(outcome.ingestion_diagnostics or {})
         task_run.rejected_reason_counts_json = dict(outcome.rejected_reason_counts or task_run.rejected_reason_counts_json or {})
         task_run.rejected_reason_samples_json = dict(outcome.rejected_reason_samples or task_run.rejected_reason_samples_json or {})
         task_run.primary_issue_id = outcome.issue_id or task_run.primary_issue_id

@@ -20,6 +20,7 @@ from src.foundation.dao.index_weight_dao import IndexWeightDAO
 from src.foundation.dao.index_weekly_bar_dao import IndexWeeklyBarDAO
 from src.foundation.dao.major_news_dao import RawMajorNewsDAO
 from src.foundation.dao.news_dao import RawNewsDAO
+from src.foundation.dao.news_stock_link_dao import NewsStockLinkDAO
 from src.foundation.dao.observed_snapshot_dao import ObservedSnapshotDAO
 from src.foundation.dao.immutable_fact_dao import ImmutableFactDAO
 from src.foundation.dao.fund_portfolio_dao import FundPortfolioDAO
@@ -165,6 +166,7 @@ class DAOFactory:
     def __init__(self, session: Session) -> None:
         self.session = session
         self.security = SecurityDAO(session)
+        self.news_stock_link = NewsStockLinkDAO(session)
         self.trade_calendar = TradeCalendarDAO(session)
         self.equity_daily_bar = EquityDailyBarDAO(session)
         self.equity_adj_factor = EquityAdjFactorDAO(session)

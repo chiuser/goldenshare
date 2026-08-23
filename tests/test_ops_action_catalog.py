@@ -19,6 +19,7 @@ def test_maintenance_action_registry_keeps_only_explicit_actions() -> None:
         "maintenance.rebuild_index_kline_serving",
         "maintenance.materialize_wealth_sector_heat_daily",
         "maintenance.replay_wealth_sector_heat_history",
+        "maintenance.materialize_news_stock_links",
     }
     assert {action.domain_key for action in MAINTENANCE_ACTION_REGISTRY.values()} == {"maintenance"}
     assert MAINTENANCE_ACTION_REGISTRY["maintenance.rebuild_dm"].executor_key == "refresh_materialized_view"
@@ -45,6 +46,10 @@ def test_maintenance_action_registry_keeps_only_explicit_actions() -> None:
         "deadline_next_day_local_time": "00:30",
     }
     assert MAINTENANCE_ACTION_REGISTRY["maintenance.replay_wealth_sector_heat_history"].schedule_enabled is False
+    news_action = MAINTENANCE_ACTION_REGISTRY["maintenance.materialize_news_stock_links"]
+    assert news_action.executor_key == "news_stock_linking"
+    assert news_action.target_tables == ("core_serving.news_stock_link",)
+    assert news_action.default_params["overlap_seconds"] == 3600
 
 
 def test_dataset_actions_are_resolved_from_dataset_definitions() -> None:

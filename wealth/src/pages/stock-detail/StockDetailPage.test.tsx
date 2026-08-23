@@ -122,6 +122,15 @@ describe("StockDetailPage", () => {
       meta: { count: 2, limit: 300, endDate: "2026-05-29" },
       dataStatus: pageInit.dataStatus,
     };
+    const stockNews = {
+      stockRef: { tsCode: "603806.SH", name: "福斯特" },
+      items: [
+        { newsId: "news-3", publishTime: "2026-05-29T16:00:03+08:00", title: "第三条新闻" },
+        { newsId: "news-1", publishTime: "2026-05-29T16:00:01+08:00", title: "第一条新闻" },
+        { newsId: "news-2", publishTime: "2026-05-29T16:00:02+08:00", title: "第二条新闻" },
+      ],
+      meta: { count: 3, limit: 50, startAt: "2026-06-23T00:00:00+08:00", endAt: "2026-08-23T00:00:00+08:00" },
+    };
 
     const minuteBars = {
       tsCode: "603806.SH",
@@ -248,6 +257,7 @@ describe("StockDetailPage", () => {
       if (fail) return new Response(JSON.stringify({ code: "internal_error", message: "接口失败" }), { status: 500 });
       if (url.includes("/page-init")) return new Response(JSON.stringify(pageInit), { status: 200 });
       if (url.includes("/kline")) return new Response(JSON.stringify(kline), { status: 200 });
+      if (url.includes("/stock-detail/news")) return new Response(JSON.stringify(stockNews), { status: 200 });
       if (url.includes("/minute-nine-turn")) {
         const period = new URL(url).searchParams.get("freq") ?? "30";
         return new Response(JSON.stringify({ ...minuteNineTurn, period }), { status: 200 });
@@ -321,6 +331,7 @@ describe("StockDetailPage", () => {
   });
 
   it("supports visible period, overlay, tab and toast interactions", async () => {
+    const fetchMock = mockStockDetailFetch();
     render(<StockDetailPage tsCode="603806.SH" />);
 
     expect(await screen.findByText("福斯特 603806.SH")).toBeInTheDocument();
@@ -332,6 +343,20 @@ describe("StockDetailPage", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "资料" }));
     expect(screen.getByText("公司资料、财务摘要与公告入口将在后续真实 API 方案中接入。")).toBeInTheDocument();
+
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["盘口", "资料", "新闻"]);
+    expect(fetchMock.mock.calls.map(([input]) => String(input)).some((url) => url.includes("/stock-detail/news"))).toBe(false);
+    fireEvent.click(screen.getByRole("tab", { name: "新闻" }));
+    expect(await screen.findByText("第三条新闻")).toBeInTheDocument();
+    const newsRequests = fetchMock.mock.calls
+      .map(([input]) => String(input))
+      .filter((url) => url.includes("/stock-detail/news"));
+    expect(newsRequests).toHaveLength(1);
+    expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "第三条新闻05-29",
+      "第一条新闻05-29",
+      "第二条新闻05-29",
+    ]);
 
     fireEvent.click(screen.getByRole("button", { name: "主力密码" }));
     expect(screen.getByText("主力密码 指标暂未支持")).toBeInTheDocument();

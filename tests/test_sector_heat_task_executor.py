@@ -93,7 +93,7 @@ def test_worker_factory_reuses_one_existing_session_factory_and_registers_heat_e
 
     worker = build_operations_worker(session_factory=factory)
 
-    assert set(worker.dispatcher.maintenance_executors) == {"wealth_sector_heat"}
+    assert set(worker.dispatcher.maintenance_executors) == {"wealth_sector_heat", "news_stock_linking"}
     executor = worker.dispatcher.maintenance_executors["wealth_sector_heat"]
     assert isinstance(executor, SectorHeatTaskExecutor)
     assert executor._session_factory is factory
@@ -111,7 +111,7 @@ def test_worker_factories_share_dispatcher_assembly_and_select_lane(factory, lan
     worker = factory(session_factory=_session_factory())
 
     assert worker.lane is lane
-    assert set(worker.dispatcher.maintenance_executors) == {"wealth_sector_heat"}
+    assert set(worker.dispatcher.maintenance_executors) == {"wealth_sector_heat", "news_stock_linking"}
     assert isinstance(worker.dispatcher.maintenance_executors["wealth_sector_heat"], SectorHeatTaskExecutor)
 
 
