@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：基础版本已开发、部署并验收闭环；5日/20日均值首轮实现已部署，视觉修订已冻结，待代码修正和用户复验
+- 状态：基础版本及 5 日/20 日均值补充功能均已开发、部署并通过用户 UI 验收，需求闭环
 - 编写日期：2026-08-22
 - 适用仓库：`/Users/congming/github/goldenshare`
 - 上游技术方案：`wealth/docs/pages/wealth-exploration/turnover-insight-implementation-design-v1.md`
@@ -19,7 +19,7 @@
 
 2026-08-22 补充功能开发完成：基础版本的历史实现与验收记录继续保留；第 15 节定义的 5 日/20 日成交额均值卡片与上图参考线已经落地并通过自动化验证。补充功能尚未经过用户部署与浏览器视觉验收，不得提前标记为验收闭环。
 
-2026-08-23 视觉修订开发完成：首轮部署暴露出的均值标签重叠、虚线节奏偏长、图例缺少均值说明、均值卡金额与线色未建立视觉映射四个问题，已按 Figma 和第 15 节口径完成代码修正。目标测试、全量前端测试、TypeScript 检查和生产构建均通过；待用户部署与视觉复验，尚不标记为验收闭环。
+2026-08-23 视觉修订验收闭环：首轮部署暴露出的均值标签重叠、虚线节奏偏长、图例缺少均值说明、均值卡金额与线色未建立视觉映射四个问题，已按 Figma 和第 15 节口径完成代码修正。目标测试、全量前端测试、TypeScript 检查和生产构建均通过；用户已完成部署和 UI 审查，效果符合预期，本补充功能闭环。
 
 ## 1. 冻结口径与代码约束
 
@@ -1889,7 +1889,7 @@ wealth/src/pages/wealth-exploration/WealthExplorationPage.test.tsx
 - [x] 两条均值线只绘制在上图，纵轴包含均值且响应式无重叠。
 - [x] 六态、hover、tooltip、下图差值和板块维度隔离无回退。
 - [x] 后端/前端目标测试、typecheck、build、`git diff --check` 全部通过。
-- [x] 文档状态更新为“开发完成，待用户部署与视觉验收”。
+- [x] 文档状态已完成开发阶段更新，并在第 15.10 节记录最终用户验收闭环。
 
 M6 自动化验证结果（2026-08-22）：
 
@@ -1909,19 +1909,19 @@ Figma 组件源已完成以下修订：
 - `Metric Card / Average 5`、`Metric Card / Average 20` 的金额分别使用品牌金和紫色。
 - 三个 Loaded 实例及状态/响应式实例均继承同一个组件源，无需逐实例维护。
 
-代码修订必须依次完成：
+代码修订完成项：
 
-1. 为 `TurnoverMetricCard` 增加显式 accent，并由 `TurnoverInsightSummary` 传入。
-2. 把 `TurnoverInsightLegend` 扩展为四项，并在 CSS 中实现均值虚线 swatch。
-3. 新增 `resolveAverageReferenceRenderItems(...)`，统一决定线、颜色和标签上下位置。
-4. 将 Canvas 参考线改为 `4/4`，标签按 resolver 的 placement 绘制。
-5. 扩展组件和 Canvas 测试，完成 typecheck/build/diff check。
-6. 用户部署复验通过后，才能重新勾选 M6 的视觉验收并关闭本补充功能。
+1. [x] 为 `TurnoverMetricCard` 增加显式 accent，并由 `TurnoverInsightSummary` 传入。
+2. [x] 把 `TurnoverInsightLegend` 扩展为四项，并在 CSS 中实现均值虚线 swatch。
+3. [x] 新增 `resolveAverageReferenceRenderItems(...)`，统一决定线、颜色和标签上下位置。
+4. [x] 将 Canvas 参考线改为 `4/4`，标签按 resolver 的 placement 绘制。
+5. [x] 扩展组件和 Canvas 测试，完成 typecheck/build/diff check。
+6. [x] 用户已完成部署与 UI 复验，效果符合预期。
 
-本节当前状态：Figma、文档和代码修订已完成。目标测试 19 项、全量前端测试 313 项、`npm run typecheck` 和 `npm run build` 均通过；待用户部署与视觉复验。
+本节当前状态：Figma、文档、代码、自动化验证和用户 UI 验收均已完成，视觉修订闭环。
 
 ## 16. 结论
 
 本需求不缺数据基础，也不需要新增预计算链路。开发核心是：在共享一分钟快照之上建立完全独立的成交额洞察业务合同，并把财势探查页面接入现有 TopMarketBar、Breadcrumb 和 Market Context 三个共享能力。
 
-当前没有待拍板项。基础版本 M1 至 M5、自动化验证、用户部署和浏览器视觉验收均已完成；M6 均值补充功能及 2026-08-23 视觉修订已完成开发和自动化验证，待用户部署与视觉复验。前端不得引入均值计算，首页与洞察继续共同消费页面中立均值 query，旧 API 契约保持不变。
+当前没有待拍板项。基础版本 M1 至 M5、M6 均值补充功能及 2026-08-23 视觉修订均已完成开发、自动化验证、用户部署和 UI 验收，需求闭环。前端不得引入均值计算，首页与洞察继续共同消费页面中立均值 query，旧 API 契约保持不变。
