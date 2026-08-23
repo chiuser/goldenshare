@@ -127,6 +127,27 @@ def test_minute_lane_serve_commands_do_not_run_global_reconciliation(
     assert f"ops-{lane_name}-worker-serve: 本轮新接任务=0" in result.stdout
 
 
+def test_qtf_worker_serve_freezes_one_worker_for_all_polling_cycles(mocker) -> None:
+    session_context = mocker.MagicMock()
+    session_context.__enter__.return_value = mocker.Mock()
+    session_context.__exit__.return_value = False
+    mocker.patch("src.cli.SessionLocal", return_value=session_context)
+    worker = mocker.Mock()
+    worker.run_next.side_effect = [None, None]
+    worker_factory = mocker.patch("src.cli.build_qtf_worker", return_value=worker)
+    sleep = mocker.patch("src.cli_parts.ops_handlers.time.sleep")
+
+    result = CliRunner().invoke(
+        app,
+        ["qtf-worker-serve", "--limit", "1", "--sleep-seconds", "1", "--max-cycles", "2"],
+    )
+
+    assert result.exit_code == 0
+    worker_factory.assert_called_once_with()
+    assert worker.run_next.call_count == 2
+    sleep.assert_called_once_with(1.0)
+
+
 def test_ops_scheduler_serve_runs_multiple_cycles(mocker) -> None:
     session_context = mocker.MagicMock()
     session = mocker.Mock()

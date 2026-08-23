@@ -326,13 +326,13 @@ qtf/
 | `src/ops/runtime/worker_lane.py` | 增加 `QTF` lane；QTF 只领取 `qtf_experiment`，GENERAL 明确排除它 |
 | `src/ops/services/task_run_progress_service.py` | 提供独立 session 的阶段、进度和问题写入接口 |
 | `src/app/runtime/qtf_task_definition_adapter.py` | 把 QTF 冻结运行映射为 TaskRun 意图 |
-| `src/app/runtime/qtf_task_executor.py` | 把 TaskRun 请求映射给 QTF executor，并提供进度/取消适配 |
-| `src/app/runtime/ops_worker_factory.py` | 新增 `build_qtf_worker()`；只在 QTF worker 注入 QTF executor |
+| `src/app/runtime/qtf_task_executor.py` | 把 TaskRun 请求映射给 QTF executor，接收进程启动时冻结的 Git commit，并提供进度/取消适配；不得读取环境变量或在每个任务中重新解析版本 |
+| `src/app/runtime/ops_worker_factory.py` | `build_qtf_worker()` 从当前部署仓库读取并校验一次 Git commit，只在 QTF worker 注入该固定版本和 QTF executor；无效版本时在建立 worker 前失败 |
 | `src/app/api/v1/qtf.py` | FastAPI、`require_admin`、Session 和 QTF facade 接线 |
 | `src/app/api/v1/router.py` | include QTF router |
 | `src/cli.py`、`src/cli_parts/ops_handlers.py` | 增加 `qtf-worker-run/serve`，复用现有 lane worker handler |
-| `scripts/goldenshare-qtf-worker.service` | 新增独立常驻 QTF worker unit |
-| `scripts/deploy-systemd.sh`、`scripts/deploy-layered-systemd.sh`、`scripts/goldenshare-deploy.sudoers` | 纳入 unit 同步、enable/restart/status 和最小 sudo 白名单 |
+| `scripts/goldenshare-qtf-worker.service` | 独立常驻 QTF worker unit，显式使用现有 `goldenshare:goldenshare`，不读取专用 release 环境文件 |
+| `scripts/deploy-systemd.sh`、`scripts/deploy-layered-systemd.sh`、`scripts/goldenshare-deploy.sudoers` | 纳入 unit 同步、enable/restart/status 和最小 sudo 白名单；部署开始前逐项只读预检，不允许写入 QTF 环境文件 |
 
 `qtf_experiment` 不是数据维护、工作流或系统维护动作，不得注册成 `maintenance_action`，也不得被 GENERAL worker 领取。
 
@@ -905,6 +905,8 @@ WorkerLane.STK_MINS / INDEX_MINS
 3. 生产以 `goldenshare-qtf-worker.service` 独立常驻；Web 进程只创建意图和查询，不执行回测。
 4. GENERAL、股票分钟和指数分钟 worker 都不能领取 QTF TaskRun；QTF worker 也不能领取既有任务。
 5. QTF worker 仍使用现有数据库连接和部署版本，不新增服务数据库、账号或消息队列。
+6. QTF unit 显式以 `goldenshare:goldenshare` 运行，不得使用 systemd 默认 root 身份。
+7. App 在 QTF worker 进程启动时从当前部署仓库解析一次 Git `HEAD`，校验为 40 位小写十六进制 commit 后固定注入 executor；同一进程内所有 Run 共用该版本，部署后通过重启 worker 切换版本。
 
 ### 9.3 QTF 执行阶段
 
@@ -1299,8 +1301,10 @@ sourceStatementTimeoutMs
 3. 部署脚本增加 `QTF_WORKER_SERVICE` 和 `DEPLOY_QTF` 两个脚本级变量：全量部署默认处理 QTF；`--qtf-only` 只安装依赖、执行已批准迁移并同步/重启 QTF worker，不重启无关 worker。
 4. `DEPLOY_QTF` 只存在于部署进程环境，不写数据库、不写应用配置文件；消费者仅限两个部署脚本。
 5. 新 unit 必须按 `scripts/AGENTS.md` 同步到 `/etc/systemd/system`、执行 `daemon-reload`、enable、restart 并检查 status；sudoers 只增加该 unit 的 install/enable/restart/status 精确命令。
-6. 为满足运行代码可追溯，新增唯一运行配置 `GOLDENSHARE_RELEASE_COMMIT`：部署脚本在安装当前 revision 后读取精确 commit，原子写入 `/etc/goldenshare/release.env`；只有 QTF worker unit 读取。它不进入 Web 请求、不写业务配置表，也没有代码默认值。
-7. QTF worker 开始计算前把 `GOLDENSHARE_RELEASE_COMMIT` 和无敏感信息的 runtime version 组成运行指纹；变量缺失或不是 40 位十六进制 commit 时，在读取 Prod 前失败关闭。测试显式注入固定 commit。
+6. QTF unit 必须显式声明 `User=goldenshare`、`Group=goldenshare`。禁止让部署用户写入会被 root 服务读取的环境文件；不得创建 `/etc/goldenshare/release.env`、仓库 staging 文件或对应 install/mv sudo 权限。
+7. 运行代码版本不是配置项。`build_qtf_worker()` 在进程启动时使用参数数组调用 Git，从当前部署仓库读取一次 `HEAD`，只接受 40 位小写十六进制 commit，并把它作为必填构造参数注入 `QtfTaskExecutor`。解析失败必须在 worker 进入轮询和读取 Prod 前终止；测试可以显式注入固定 commit，但生产没有环境变量或代码默认值兜底。
+8. `QtfTaskExecutor` 在进程生命周期内固定保存该 commit，每次 Run 将其与无敏感信息的 Python/QTF runtime version 组成运行指纹并写入 `experiment_run`。仓库更新后必须重启 QTF worker，新进程才读取新 commit；运行中的进程不得随磁盘 `HEAD` 变化而漂移。
+9. 部署脚本在 `git fetch/pull`、依赖安装、前端构建、数据库迁移、unit 同步和服务重启之前，通过 `sudo -n -l <exact command>` 逐项检查本次部署范围需要的权限。QTF 未纳入本次范围时不检查 QTF 权限；缺少任一权限时输出具体命令并立即停止，不执行 sudo 写操作，也不留下临时文件。
 
 ---
 
@@ -1348,8 +1352,8 @@ sourceStatementTimeoutMs
 3. DRAFT 允许不完整；完整显式参数通过 DRAFT_PREVIEW 生成带 `50/25/25`、`[1,3,5]`、`RESET_ONLY`、真实预检计数和版本化估算器预算的 PLAN。冻结校验当前 draft、最新 PASS preflight、完整合同和管理员确认的 `planHash`。
 4. 已实现同事务的 `PLANNED QTF Run → staged TaskRun → task_run_id → QUEUED`；任一步失败整体回滚。每个新 Run 重新读源，同一 Run 全部候选共享一次不可变内存输入，并在运行前再次核验来源契约、内容指纹和批准预算。
 5. Ops 只增加不感知 QTF 业务的 external definition/executor 扩展点；App 完成 QTF adapter 和独立 lane 装配。GENERAL、QTF、股票分钟和指数分钟领取范围保持隔离，Ops 观测使用独立 session，失败只把 `observerStatus` 降为 `DEGRADED`。
-6. 已增加计划规定的 9 个最小管理员 API、QTF worker CLI、独立 systemd unit、`--qtf-only`、精确 sudo 白名单和发布 commit 门禁；默认 Ops API 仍拒绝创建 `qtf_experiment`。
-7. 本地自动化已覆盖输入正反例、启动原子性、幂等与版本冲突、每 Run 重读、同 Run 单次读取、预算增长阻断、安全取消、非法 commit 零来源读取、管理员认证、敏感信息屏蔽和部署范围。M3 不创建 M4 结果表，成功运行仍保持 `validationStatus=PENDING`，不产生 Candidate。
+6. 已增加计划规定的 9 个最小管理员 API、QTF worker CLI、独立 systemd unit、`--qtf-only`、精确 sudo 白名单和发布 commit 门禁；部署安全纠偏后，QTF unit 以 `goldenshare` 运行，commit 由 worker 启动时从部署仓库一次性解析，不再使用 release 环境文件；默认 Ops API 仍拒绝创建 `qtf_experiment`。
+7. 本地自动化已覆盖输入正反例、启动原子性、幂等与版本冲突、每 Run 重读、同 Run 单次读取、预算增长阻断、安全取消、非法 commit 零来源读取、管理员认证、敏感信息屏蔽、worker 启动版本冻结、降权 unit 和部署权限前置失败。M3 不创建 M4 结果表，成功运行仍保持 `validationStatus=PENDING`，不产生 Candidate。
 8. “预检过期”在 M3 中指当前草稿 hash 已变化，或同一 revision 已生成更新的 DRAFT_PREVIEW；不引入未经批准的墙钟 TTL 或全局资源配置。
 
 ### M4：可信门禁与结果证据
@@ -1424,9 +1428,9 @@ sourceStatementTimeoutMs
 | G23 | R2 未经批准不执行 | freeze/run service | 获批 hash 后可建 Run | Figma 示例直接启动被阻断 | PASS (M3) |
 | G24 | 申万与跨体系为零 | sector contracts | 只接受 DC L2 | SW/跨体系参数被拒绝 | PASS (M2) |
 | G25 | QTF 独立 worker 进程 | worker lane/CLI/systemd | QTF lane 领取实验 | GENERAL/分钟 lane 抢占或 QTF 领取既有任务时失败 | 代码完成，部署待验收 (M3) |
-| G26 | 运行代码可追溯 | release env/run fingerprint | 合法 commit 写入 Run | 缺失/伪 commit 时零来源读取 | 代码完成，部署待验收 (M3) |
+| G26 | 运行代码可追溯 | worker startup/run fingerprint | 进程启动解析一次合法 commit 并写入 Run | 缺失/伪 commit 时 worker 不进入轮询且零来源读取 | 代码完成，部署待验收 (M3) |
 
-只有具备对应实现与自动化证据的 Gate 才标记 PASS。G25/G26 仍需远程 systemd、release env 与迁移实机验收；文档完成不等于 Gate 通过。
+只有具备对应实现与自动化证据的 Gate 才标记 PASS。G25/G26 仍需远程降权 systemd unit、精确 sudo 权限、进程启动 commit 与迁移实机验收；文档完成不等于 Gate 通过。
 
 ---
 
@@ -1445,7 +1449,7 @@ bash -n scripts/deploy-systemd.sh scripts/deploy-layered-systemd.sh
 git diff --check
 ```
 
-另在 `/private/tmp` 构建 wheel，并从独立目标目录导入 `qtf`、二级行业 executor 和 Prod adapter；仓库内不得留下构建产物。远程 `alembic upgrade head`、systemd unit、`/etc/goldenshare/release.env` 和 `--qtf-only` 实机验证属于部署验收，未获部署指令时不得在本地开发收口中执行。M3 不涉及 Wealth 前端，因此不运行或修改前端构建链。
+另在 `/private/tmp` 构建 wheel，并从独立目标目录导入 `qtf`、二级行业 executor 和 Prod adapter；仓库内不得留下构建产物。远程 `alembic upgrade head`、降权 systemd unit、精确 sudo 权限、worker 启动 commit 和 `--qtf-only` 实机验证属于部署验收，未获部署指令时不得在本地开发收口中执行。M3 不涉及 Wealth 前端，因此不运行或修改前端构建链。
 
 真实 R2 只读验收、性能证据和具体运行命令必须由获批 PLAN 生成，不能提前在本 LLD 中写死。
 
@@ -1460,4 +1464,4 @@ git diff --check
 5. 真实 R2 仍未获批；平台开发和真实研究执行是两次独立授权。
 6. M9 的生产 serving 与板块雷达/板块速览消费必须另立能力 LLD，不能在平台框架开发中顺手接入。
 
-因此，**M3：输入门禁、有限计划与执行主链** 已于 2026-08-23 完成开发收口；生产迁移、QTF worker 与 release env 仍等待部署实机验收。下一步只能进入 **M4：可信门禁与结果证据**，不得直接执行真实 R2、进入前端或发布。
+因此，**M3：输入门禁、有限计划与执行主链** 已于 2026-08-23 完成开发及部署安全纠偏收口；生产迁移、降权 QTF worker、精确 sudo 权限与进程启动版本指纹仍等待部署实机验收。下一步只能进入 **M4：可信门禁与结果证据**，不得直接执行真实 R2、进入前端或发布。

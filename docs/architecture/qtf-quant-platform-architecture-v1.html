@@ -1220,7 +1220,7 @@
             <div class="milestone"><h3>M0 · 架构评审与边界冻结 · 已完成</h3><p>已确认本架构稿、QTF 目录边界、依赖方向、现有管理员认证复用、业务审核动作、可信门禁和二级行业首个切片；M0 未修改代码、数据库或上游数据。</p></div>
             <div class="milestone"><h3>M1 · QTF 平台基础与研究状态 · 已完成</h3><p>已建立顶层 QTF 包、依赖护栏、Research/Revision 最小状态、迁移与正反例；未读取或修改 Prod，生产迁移等待部署。</p></div>
             <div class="milestone"><h3>M2 · 二级行业候选公式内核 · 已完成</h3><p>已从一级行业离线探索中迁移价格/成交候选公式，冻结输入输出、时间语义、预热和参数解释，并以正反例验证父级内比较、缺失不补数和无未来数据语义；未声称预测有效，也未执行真实 R2。</p></div>
-            <div class="milestone"><h3>M3 · 输入门禁、有限计划与执行主链 · 开发已完成</h3><p>已复用既有 Prod 来源合同，实现精确范围只读门禁、有限 PLAN、不可变冻结、原子 Run/TaskRun 启动、每 Run 重读、同 Run 单次读取、独立 QTF lane、最小管理员 API、CLI 与部署接线；成功运行保持 PENDING，不生成 M4 结果或 Candidate。生产迁移、systemd 与 release env 仍待部署实机验收。</p></div>
+            <div class="milestone"><h3>M3 · 输入门禁、有限计划与执行主链 · 开发已完成</h3><p>已复用既有 Prod 来源合同，实现精确范围只读门禁、有限 PLAN、不可变冻结、原子 Run/TaskRun 启动、每 Run 重读、同 Run 单次读取、独立 QTF lane、最小管理员 API、CLI 与部署接线；成功运行保持 PENDING，不生成 M4 结果或 Candidate。生产迁移、降权 systemd unit、最小 sudo 权限与进程启动版本指纹仍待部署实机验收。</p></div>
             <div class="milestone"><h3>M4 · 可信门禁与结果证据</h3><p>实现时间前沿、未来泄漏差分、预热稳定、样本覆盖、样本外和参数敏感性；形成明确 VALID/INVALID/INSUFFICIENT 结论。</p></div>
           </div>
           <div>
@@ -1244,7 +1244,7 @@
       </section>
 
       <section class="section" id="decisions">
-        <div class="section-head"><div><h2>15. 架构决策记录</h2><p>既有拍板项保持不变；本轮纠正数据审计、公式有效性和里程碑依赖表述。</p></div><span class="badge fact">2026-08-22 已冻结</span></div>
+        <div class="section-head"><div><h2>15. 架构决策记录</h2><p>既有拍板项保持不变；本轮纠正数据审计、公式有效性、里程碑依赖和部署安全表述。</p></div><span class="badge fact">2026-08-23 已纠偏</span></div>
         <div class="section-body">
           <div class="table-wrap">
             <table>
@@ -1263,6 +1263,7 @@
                 <tr><td>历史结果自动复用</td><td>首版不自动复用历史计算结果。已完成 Run 可以继续查看，但每次新建 Run 都重新直读上游并完整计算；不得通过输入快照、缓存或副本规避重算。</td><td><span class="badge fact">已确认</span></td><td>M3 执行合同与正反例。</td></tr>
                 <tr><td>大型回测产物</td><td>不制定全平台统一介质和保留期。开发具体回测能力时，再根据数据量、访问方式、复现要求和成本决定保存内容、PostgreSQL / Parquet / 仅摘要及保留期限。</td><td><span class="badge gate">Case by case</span></td><td>每项回测能力进入开发前的技术方案与 LLD。</td></tr>
                 <tr><td>身份与业务审核</td><td>首版只复用现有管理员认证与 <code>require_admin</code>，不新增角色、权限键、数据库账号或角色页面。同一个管理员可以完成全部操作，但候选提交、审核确认、批准版本、发布生效仍是独立业务动作和记录。</td><td><span class="badge fact">已确认</span></td><td>M0 技术方案与 M7 工作台按此验收。</td></tr>
+                <tr><td>运行版本追溯与部署权限</td><td>QTF worker 必须显式以现有 <code>goldenshare</code> 用户运行。进程启动时由 App 组合根从当前部署仓库读取一次并校验 40 位 Git commit，作为该进程生命周期内不可变的运行版本注入实验执行器；不得通过部署用户可写、root 进程读取的环境文件传递版本，也不得为此增加环境文件安装或移动权限。部署脚本在拉代码、安装依赖、构建和迁移前逐项只读检查本次范围所需的精确 sudo 命令，缺项立即停止且不得留下临时文件。</td><td><span class="badge fact">已纠偏</span></td><td>M3 部署安全纠偏；远程只验收 unit、精确 sudo 和 Run 指纹。</td></tr>
                 <tr><td>单次计算规模</td><td>不设置全平台统一的组合数、日期跨度、耗时或内存上限。每项回测能力根据真实复杂度决定 PLAN、并发、取消点和拒绝阈值。</td><td><span class="badge gate">Case by case</span></td><td>每项回测能力进入开发前的 benchmark、技术方案与 LLD。</td></tr>
                 <tr><td>发布与回滚</td><td>公式和参数 release 不可变；新版本默认下一交易日生效，正式结果完整计算并校验成功后才原子切换。失败保留旧版本，回滚通过重新激活旧版本完成，不删除版本、不静默改写历史。</td><td><span class="badge fact">已确认</span></td><td>M8 细化日切、原子发布和修复契约。</td></tr>
                 <tr><td>公式管理方式</td><td>公式通过代码注册、测试和版本发布；工作台只查看、选择、激活、废弃和追踪版本，不允许网页提交或执行任意 Python。</td><td><span class="badge fact">已确认</span></td><td>M2 建立 Formula Contract，M6 提供管理视图。</td></tr>

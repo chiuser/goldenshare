@@ -34,6 +34,4 @@ goldenshare ALL=(root) NOPASSWD: \
   /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-ops-stk-mins-worker.service /etc/systemd/system/goldenshare-ops-stk-mins-worker.service, \
   /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-ops-index-mins-worker.service /etc/systemd/system/goldenshare-ops-index-mins-worker.service, \
   /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-qtf-worker.service /etc/systemd/system/goldenshare-qtf-worker.service, \
-  /usr/bin/install -m 644 /opt/goldenshare/goldenshare/.qtf-release.env.next /etc/goldenshare/release.env.next, \
-  /usr/bin/mv /etc/goldenshare/release.env.next /etc/goldenshare/release.env, \
   /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-realtime-collector.service /etc/systemd/system/goldenshare-realtime-collector.service

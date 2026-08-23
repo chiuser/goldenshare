@@ -5,10 +5,11 @@ After=network.target
 [Service]
 WorkingDirectory=/opt/goldenshare/goldenshare
 Environment=GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env
-EnvironmentFile=-/etc/goldenshare/release.env
 ExecStart=/opt/goldenshare/goldenshare/.venv/bin/goldenshare qtf-worker-serve
 Restart=always
 RestartSec=3
+User=goldenshare
+Group=goldenshare
 
 [Install]
 WantedBy=multi-user.target

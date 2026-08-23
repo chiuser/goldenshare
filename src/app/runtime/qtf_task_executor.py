@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from collections.abc import Callable, Mapping
 
 from sqlalchemy.orm import Session
@@ -18,8 +17,9 @@ SessionFactory = Callable[[], Session]
 
 
 class QtfTaskExecutor:
-    def __init__(self, *, session_factory: SessionFactory) -> None:
+    def __init__(self, *, session_factory: SessionFactory, release_commit: str) -> None:
         self._session_factory = session_factory
+        self._release_commit = release_commit
 
     def execute(
         self,
@@ -51,7 +51,7 @@ class QtfTaskExecutor:
                 unit_of_work=_SqlAlchemyUnitOfWork(business_session),
                 observer=_TaskRunObserver(TaskRunProgressService(self._session_factory)),
                 cancellation_probe=_TaskRunCancellationProbe(self._session_factory),
-                release_commit=os.environ.get("GOLDENSHARE_RELEASE_COMMIT", ""),
+                release_commit=self._release_commit,
             )
             outcome = executor.execute(
                 run_key=run_key,

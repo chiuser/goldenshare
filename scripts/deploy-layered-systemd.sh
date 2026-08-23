@@ -46,8 +46,6 @@ STK_MINS_WORKER_UNIT_SRC="${STK_MINS_WORKER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-
 INDEX_MINS_WORKER_UNIT_SRC="${INDEX_MINS_WORKER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-ops-index-mins-worker.service}"
 QTF_WORKER_UNIT_SRC="${QTF_WORKER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-qtf-worker.service}"
 REALTIME_COLLECTOR_UNIT_SRC="${REALTIME_COLLECTOR_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-realtime-collector.service}"
-RELEASE_ENV_FILE="/etc/goldenshare/release.env"
-RELEASE_ENV_STAGE="${REPO_DIR}/.qtf-release.env.next"
 
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8000/api/health}"
 HEALTH_V1_URL="${HEALTH_V1_URL:-http://127.0.0.1:8000/api/v1/health}"
@@ -181,7 +179,7 @@ acquire_deploy_lock() {
 }
 
 ensure_sudo_ready() {
-  if ! sudo_systemctl daemon-reload >/dev/null 2>&1; then
+  if ! sudo -n -l "${SYSTEMCTL_BIN}" daemon-reload >/dev/null 2>&1; then
     cat <<'EOF'
 当前用户无法无密码执行 sudo。
 请先为部署用户配置受控 sudo 权限，至少允许：
@@ -201,22 +199,36 @@ EOF
   fi
 }
 
-publish_qtf_release_commit() {
+check_sudo_permission() {
+  if sudo -n -l "$@" >/dev/null 2>&1; then
+    return 0
+  fi
+  printf '  -'
+  printf ' %q' "$@"
+  printf '\n'
+  return 1
+}
+
+ensure_qtf_sudo_ready() {
   if [[ "${DEPLOY_QTF}" != "1" ]]; then
     return
   fi
-  local release_commit
-  release_commit="$(git rev-parse HEAD)"
-  if [[ ! "${release_commit}" =~ ^[0-9a-f]{40}$ ]]; then
-    echo "当前 Git commit 非 40 位小写十六进制，拒绝启动 QTF worker。"
+  local missing=0
+  local qtf_worker_dst="${SYSTEMD_UNIT_DIR}/${QTF_WORKER_SERVICE}"
+
+  if [[ "${RUN_SYNC_UNITS}" == "1" ]]; then
+    check_sudo_permission /usr/bin/install -m 644 "${QTF_WORKER_UNIT_SRC}" "${qtf_worker_dst}" || missing=1
+  fi
+  check_sudo_permission "${SYSTEMCTL_BIN}" daemon-reload || missing=1
+  check_sudo_permission "${SYSTEMCTL_BIN}" enable "${QTF_WORKER_SERVICE}" || missing=1
+  check_sudo_permission "${SYSTEMCTL_BIN}" restart "${QTF_WORKER_SERVICE}" || missing=1
+  check_sudo_permission "${SYSTEMCTL_BIN}" status "${QTF_WORKER_SERVICE}" || missing=1
+
+  if [[ "${missing}" == "1" ]]; then
+    echo "QTF 部署缺少以上无密码 sudo 精确权限；尚未拉代码、安装依赖、构建、迁移或重启服务。"
+    echo "请先安全更新 /etc/sudoers.d/goldenshare-deploy 并通过 visudo -cf 校验。"
     exit 1
   fi
-  umask 022
-  printf 'GOLDENSHARE_RELEASE_COMMIT=%s\n' "${release_commit}" >"${RELEASE_ENV_STAGE}"
-  sudo -n install -m 644 "${RELEASE_ENV_STAGE}" "${RELEASE_ENV_FILE}.next"
-  sudo -n /usr/bin/mv "${RELEASE_ENV_FILE}.next" "${RELEASE_ENV_FILE}"
-  rm -f "${RELEASE_ENV_STAGE}"
-  log "已写入 QTF 发布版本: ${release_commit}"
 }
 
 ensure_runtime_ready() {
@@ -343,6 +355,7 @@ main() {
   require_cmd install
   require_cmd "${SYSTEMCTL_BIN}"
 
+  ensure_qtf_sudo_ready
   acquire_deploy_lock
   ensure_sudo_ready
   ensure_runtime_ready
@@ -356,7 +369,6 @@ main() {
 
   log "2/12 安装后端依赖（target=${PIP_INSTALL_TARGET}）"
   .venv/bin/pip install -e "${PIP_INSTALL_TARGET}"
-  publish_qtf_release_commit
 
   if [[ "${RUN_FRONTEND_BUILD}" == "1" ]]; then
     log "3/12 构建前端"

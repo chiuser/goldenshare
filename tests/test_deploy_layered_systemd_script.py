@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import subprocess
 from pathlib import Path
 
 
@@ -84,17 +86,18 @@ def test_qtf_worker_has_independent_unit_release_commit_and_deploy_lane() -> Non
     assert 'sync_systemd_unit "${QTF_WORKER_UNIT_SRC}" "${qtf_worker_dst}"' in layered
     assert 'sudo_systemctl enable "${QTF_WORKER_SERVICE}"' in layered
     assert 'sudo_systemctl restart "${QTF_WORKER_SERVICE}"' in layered
-    assert "release_commit=\"$(git rev-parse HEAD)\"" in layered
-    assert "^[0-9a-f]{40}$" in layered
-    assert 'GOLDENSHARE_RELEASE_COMMIT=%s' in layered
+    assert "release.env" not in layered
+    assert "GOLDENSHARE_RELEASE_COMMIT" not in layered
     assert "--qtf-only" in wrapper
     assert 'export DEPLOY_FOUNDATION=0' in wrapper
     assert 'export DEPLOY_OPS=0' in wrapper
     assert 'export DEPLOY_PLATFORM=0' in wrapper
     assert 'export RUN_DB_MIGRATION=1' in wrapper
     assert 'export RUN_FRONTEND_BUILD=0' in wrapper
-    assert 'EnvironmentFile=-/etc/goldenshare/release.env' in unit
     assert 'ExecStart=/opt/goldenshare/goldenshare/.venv/bin/goldenshare qtf-worker-serve' in unit
+    assert "User=goldenshare" in unit
+    assert "Group=goldenshare" in unit
+    assert "EnvironmentFile=" not in unit
 
     qtf_case_start = wrapper.index("--qtf-only)")
     qtf_case_end = wrapper.index(";;", qtf_case_start)
@@ -127,8 +130,70 @@ def test_sudoers_allows_only_exact_qtf_deploy_commands() -> None:
         "/usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-qtf-worker.service "
         "/etc/systemd/system/goldenshare-qtf-worker.service"
     ) in sudoers
-    assert (
-        "/usr/bin/install -m 644 /opt/goldenshare/goldenshare/.qtf-release.env.next "
-        "/etc/goldenshare/release.env.next"
-    ) in sudoers
-    assert "/usr/bin/mv /etc/goldenshare/release.env.next /etc/goldenshare/release.env" in sudoers
+    assert "release.env" not in sudoers
+    assert "/usr/bin/mv" not in sudoers
+
+
+def test_qtf_sudo_permissions_are_checked_before_any_deploy_mutation() -> None:
+    script = (ROOT / "scripts" / "deploy-layered-systemd.sh").read_text(encoding="utf-8")
+    main_start = script.index("main() {")
+    main_body = script[main_start:]
+
+    qtf_preflight = main_body.index("ensure_qtf_sudo_ready")
+    lock = main_body.index("acquire_deploy_lock")
+    git_fetch = main_body.index("git fetch --all --prune")
+    dependency_install = main_body.index('.venv/bin/pip install -e "${PIP_INSTALL_TARGET}"')
+    migration = main_body.index('.venv/bin/goldenshare init-db')
+
+    assert qtf_preflight < lock < git_fetch < dependency_install < migration
+    for command in (
+        'check_sudo_permission /usr/bin/install -m 644 "${QTF_WORKER_UNIT_SRC}" "${qtf_worker_dst}"',
+        'check_sudo_permission "${SYSTEMCTL_BIN}" daemon-reload',
+        'check_sudo_permission "${SYSTEMCTL_BIN}" enable "${QTF_WORKER_SERVICE}"',
+        'check_sudo_permission "${SYSTEMCTL_BIN}" restart "${QTF_WORKER_SERVICE}"',
+        'check_sudo_permission "${SYSTEMCTL_BIN}" status "${QTF_WORKER_SERVICE}"',
+    ):
+        assert command in script
+
+
+def test_missing_qtf_sudo_permission_fails_before_git_or_lock(tmp_path: Path) -> None:
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    git_marker = tmp_path / "git-called"
+    fake_git = fake_bin / "git"
+    fake_git.write_text(f'#!/usr/bin/env bash\ntouch "{git_marker}"\n', encoding="utf-8")
+    fake_git.chmod(0o755)
+    fake_sudo = fake_bin / "sudo"
+    fake_sudo.write_text("#!/usr/bin/env bash\nexit 1\n", encoding="utf-8")
+    fake_sudo.chmod(0o755)
+    fake_systemctl = fake_bin / "systemctl"
+    fake_systemctl.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    fake_systemctl.chmod(0o755)
+    lock_file = tmp_path / "deploy.lock"
+    env = os.environ.copy()
+    env.update(
+        {
+            "PATH": f"{fake_bin}:{env['PATH']}",
+            "DEPLOY_QTF": "1",
+            "RUN_FRONTEND_BUILD": "0",
+            "RUN_WEALTH_BUILD": "0",
+            "REPO_DIR": str(tmp_path / "repo"),
+            "DEPLOY_LOCK_FILE": str(lock_file),
+            "SYSTEMCTL_BIN": str(fake_systemctl),
+        }
+    )
+
+    result = subprocess.run(
+        ["bash", str(ROOT / "scripts" / "deploy-layered-systemd.sh"), "dev-interface"],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "QTF 部署缺少以上无密码 sudo 精确权限" in result.stdout
+    assert "尚未拉代码、安装依赖、构建、迁移或重启服务" in result.stdout
+    assert "password is required" not in (result.stdout + result.stderr)
+    assert not git_marker.exists()
+    assert not lock_file.exists()

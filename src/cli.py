@@ -761,9 +761,10 @@ def qtf_worker_serve(
     sleep_seconds: float = typer.Option(5.0, min=1.0, help="Seconds to sleep between QTF worker cycles."),
     max_cycles: int | None = typer.Option(None, min=1, help="Optional max cycles for testing or one-off runs."),
 ) -> None:
+    worker = build_qtf_worker()
     _run_ops_lane_worker_serve_impl(
         session_local=SessionLocal,
-        worker_factory=build_qtf_worker,
+        worker_factory=lambda: worker,
         lane_name="qtf",
         limit=limit,
         sleep_seconds=sleep_seconds,
