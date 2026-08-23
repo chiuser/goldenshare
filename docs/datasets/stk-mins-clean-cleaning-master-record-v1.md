@@ -27,7 +27,7 @@
 | [stk_mins clean 2024-10-30 多频率混入 1min 专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-20241030-multifreq-repair-plan-v1.md) | `2024-10-30` 多频率混入 `1min` 专项方案 |
 | [stk_mins clean 2022 北交所 30min 缺失专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-2022-bj-freq30-repair-plan-v1.md) | `2022` 北交所 `30min` 缺失专项方案 |
 | [股票分钟线 MACD v2 重算与增量可靠性方案](/Users/congming/github/goldenshare/docs/datasets/stk-mins-macd-v2-recompute-and-incremental-plan.md) | 指标依赖 clean 前置条件 |
-| [股票历史分钟行情存储瘦身方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md) | 分钟线字段与存储优化背景 |
+| [股票历史分钟行情存储瘦身与滚动冷热治理方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md) | 已实施表结构基线与当前 PostgreSQL 滚动冷热治理入口 |
 
 ## 3. 数据位置与文件结构
 

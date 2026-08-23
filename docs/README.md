@@ -133,7 +133,7 @@ docs/
 - [指数日线完整性补漏方案 v1（历史实施基线）](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-completeness-repair-plan-v1.md)
 - [指数日线完整性补漏 LLD v1（历史实施基线）](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-completeness-repair-lld-v1.md)
 - [Prod 每日筹码分布 HDD Tablespace 迁移方案 v1（已执行）](/Users/congming/github/goldenshare/docs/ops/prod-cyq-chips-hdd-tablespace-migration-plan-v1.md)
-- [股票历史分钟行情 tablespace 冷热分层执行记录 v1（历史快照）](/Users/congming/github/goldenshare/docs/ops/stk-mins-tablespace-layout-v1.md)
+- [股票历史分钟行情 tablespace 冷热分层执行记录 v1（2026-04-26 历史快照；年度规则已被两个月滚动热窗口取代）](/Users/congming/github/goldenshare/docs/ops/stk-mins-tablespace-layout-v1.md)
 - [Ops 实时流监控页面设计 v1（HTML，日线/分钟/ETF 分组已落地）](/Users/congming/github/goldenshare/docs/ops/ops-realtime-market-data-page-design-v1.html)
 - [Ops 实时流配置中心技术方案 v1（HTML，三对象配置中心已落地）](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.html)
 - [Ops 实时流配置中心 M1 消费者审计清单 v1（M1–M8 已收口）](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-m1-consumer-audit-v1.md)
@@ -251,7 +251,7 @@ docs/
 - [stk_mins clean_next 前复权候选层重建与两阶段发布方案 v1（HTML，已发布，待下游重建）](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-next-qfq-candidate-publish-plan-v1.html)
 - [stk_mins clean 2024-10-30 多频率混入 1min 专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-20241030-multifreq-repair-plan-v1.md)
 - [stk_mins clean 2022 北交所 30min 缺失专项修复方案 v1（历史专项执行记录）](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-2022-bj-freq30-repair-plan-v1.md)
-- [股票历史分钟行情存储瘦身方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)
+- [股票历史分钟行情存储瘦身与滚动冷热治理方案 v1（表结构已实施；P0 生产迁移待单独授权）](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)
 - [股票技术面因子（专业版）](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-dataset-development.md)
 - [股票技术面因子基于复权因子变化的历史重刷方案 v1（已落地）](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-adj-factor-driven-refresh-plan-v1.md)
 - [股票技术面因子 raw 直出与复权因子门禁方案 v1（已落地）](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-raw-view-adj-factor-gate-plan-v1.md)
@@ -338,7 +338,7 @@ docs/
 
 ## 8. 文档治理
 
-- [生产 PostgreSQL 存储空间优化治理专项 v1（一期已完成；新闻快讯分区方案已撤回，整表下沉待单独实施）](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v1.md)
+- [生产 PostgreSQL 存储空间优化治理专项 v1（既有专项已验收；2026-08-23 Top 20 已复审，当前 P0 待单独授权）](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v1.md)
 - [文档信息架构与待整合清单 v1](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md)
 - [文档维护基线 v1](/Users/congming/github/goldenshare/docs/governance/docs-maintenance-baseline-v1.md)
 - [工程风险登记簿](/Users/congming/github/goldenshare/docs/governance/engineering-risk-register.md)

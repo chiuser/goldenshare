@@ -1,11 +1,11 @@
 # 股票历史分钟行情 tablespace 冷热分层执行记录 v1
 
-状态：历史执行记录；2026-04-26 快照
+状态：历史执行记录；2026-04-26 快照；年度 rollover 规则已于 2026-08-23 被两个月滚动热窗口取代
 执行日期：2026-04-26  
 适用对象：远程生产库 `goldenshare`，表 `raw_tushare.stk_mins` 及其月分区。  
 操作性质：生产数据库物理存储布局调整，非业务表结构变更。
 
-> 名称边界：本记录执行时 PostgreSQL catalog tablespace 名称为 `gs_stk_mins_hdd`。2026-06-01 后续迁移已将该 catalog 名称改为 `gs_raw_cold_hdd`，物理目录仍为 `/data/disk/postgresql/tablespaces/gs_stk_mins_hdd`。本文第 2、6 节保留 2026-04-26 的历史快照；第 7、8 节的日常审计和未来维护使用当前名称 `gs_raw_cold_hdd`。
+> 权威边界：本记录只证明 2026-04-26 当时执行了什么。PostgreSQL catalog tablespace 后于 2026-06-01 改名为 `gs_raw_cold_hdd`，物理目录仍为 `/data/disk/postgresql/tablespaces/gs_stk_mins_hdd`。本文的年度冷热规则和第 7 节 SQL 仅用于复现历史口径，不再是当前合规检查；当前 P0 与后续月度规则统一以[股票历史分钟行情存储瘦身与滚动冷热治理方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)为准。
 
 ---
 
@@ -31,7 +31,7 @@
 
 1. `stk_mins_default` 不是明确年份分区，本次不迁移。
 2. 分区表和对应索引必须放在同一冷热层，避免容量与性能判断混乱。
-3. 以后进入新年份时，如继续执行“今年 SSD、去年及以前 HDD”策略，需要做年度 rollover，把上一年的月分区迁入 `gs_stk_mins_hdd`。
+3. 当时曾计划以后按年度 rollover；该计划已于 2026-08-23 明确废止，不能继续据此安排未来迁移。
 
 ---
 
@@ -66,7 +66,7 @@ sudo -n findmnt --verify --verbose /data/disk
 
 ---
 
-## 4. PostgreSQL tablespace（当前名称）
+## 4. PostgreSQL tablespace（当前名称与遗留注释）
 
 tablespace 名称：
 
@@ -87,11 +87,13 @@ postgres:postgres
 700
 ```
 
-tablespace 注释：
+2026-08-23 只读复验确认，catalog 仍保留以下历史注释：
 
 ```text
 Goldenshare stk_mins cold partitions <=2025 on HDD; 2026+ stay on pg_default SSD.
 ```
+
+该注释已经失真，只能作为遗留事实记录，不能作为当前分层策略。P0 验收阶段应在单独授权下把它改成通用冷存储说明，并指向数据集各自的 placement 规则。
 
 当前授权对象：
 
@@ -157,7 +159,9 @@ GRANT CREATE ON TABLESPACE gs_raw_cold_hdd TO goldenshare_user;
 
 ---
 
-## 7. 日常审计 SQL
+## 7. 历史审计 SQL（仅复现 2026-04-26 口径）
+
+以下 SQL 按“2025 及以前 HDD、2026 及以后 SSD”的旧规则编写。它可以复现当时验收，但会把当前应迁入 HDD 的 2026-01～06 误判为必须留在 SSD，因此禁止用作 2026-08-23 之后的合规门禁。当前审计必须按“两个月滚动热窗口”动态计算边界。
 
 ### 7.1 检查分区表是否放错 tablespace
 
@@ -230,34 +234,35 @@ ORDER BY table_ts;
 
 ---
 
-## 8. 未来维护要求
+## 8. 当前维护规则的替代关系
 
-### 8.1 年度 rollover
+### 8.1 年度 rollover 已废止
 
-如果继续使用“当前年份在 SSD、历史年份在 HDD”的规则，每年进入新年份后需要执行一次 rollover：
+“当前年份在 SSD、历史年份在 HDD”的规则在 2026-08 已导致 1～8 月约 38 GiB 同时堆积于根盘，不能继续作为长期策略。当前规则为：
 
-1. 确认上一年份已经不再属于当前热数据。
-2. 将上一年份的 `stk_mins_YYYY_01` 到 `stk_mins_YYYY_12` 分区表迁到 `gs_raw_cold_hdd`。
-3. 将上述分区索引迁到 `gs_raw_cold_hdd`。
-4. 执行第 7 章审计 SQL，确认违规数为 `0`。
+1. 当前自然月和上一个自然月留在 `pg_default`。
+2. `M-2` 及以前关闭月份进入 `gs_raw_cold_hdd` 候选。
+3. 每月只处理明确月份白名单，逐 heap/索引执行和验收；不自动执行 DDL。
+4. 详细门禁、顺序、失败处理和验收见当前 `stk_mins` 滚动冷热治理方案。
 
-### 8.2 新分区创建规则
+### 8.2 新分区规则
 
-后续如果新增自动建分区能力，必须遵守：
+当前迁移已经预创建到 2036 年。未来新增分区能力时：
 
-1. 当前年份分区默认创建在 `pg_default`。
-2. 历史年份补建分区必须创建在 `gs_raw_cold_hdd`。
-3. 表分区和索引必须同步指定 tablespace。
+1. 必须按创建时的两个月热窗口选择 tablespace，不能硬编码年份。
+2. 补建关闭月份必须创建在 `gs_raw_cold_hdd`。
+3. heap/TOAST 和全部物理索引必须最终位于同一层。
+4. `gs_raw_cold_hdd` 不存在时必须 fail-closed，禁止静默回退默认 SSD。
 
 ### 8.3 运维检查
 
-同步或回补大规模 `stk_mins` 前，至少检查：
+同步、回补或迁移大规模 `stk_mins` 前，至少检查真实挂载、tablespace、SSD/HDD、WAL、开放 TaskRun、长事务、锁和动态月边界。旧第 7 节 SQL不能代替这些门禁。
 
 ```bash
 ssh goldenshare-prod 'sudo -n df -hT / /data/disk'
 ```
 
-并执行第 7 章 SQL，确认 tablespace 规则没有漂移。
+当前审计 SQL 和执行白名单由滚动冷热治理方案提供，并且每次生产执行前重新从 catalog 生成。
 
 ---
 

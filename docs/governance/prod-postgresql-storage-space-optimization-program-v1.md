@@ -1,9 +1,11 @@
 # 生产 PostgreSQL 存储空间优化治理专项 v1
 
-状态：一期、新闻快讯整表下沉、融资融券交易明细全量 HDD 落盘与重复 core 物理表收口第一批均已执行并验收
-更新时间：2026-08-03
+状态：一期及既有专项均保留为历史验收记录；2026-08-23 已完成新一轮生产只读容量审计，当前 P0 为 `stk_mins` 关闭月份滚动下沉，尚未执行生产 DDL
+更新时间：2026-08-23
 范围：生产 PostgreSQL `goldenshare` 的 SSD/HDD 存储分层与重复物理存储治理。
 不在范围：删除、清空 raw 业务数据；改变数据集请求语义；修改 API 或前端业务行为。
+
+权威边界：本文的架构原则与已拍板存储策略是治理依据；带日期的容量、行数、任务状态和磁盘水位只是当时快照，生产操作前必须重新只读核验。本文不是生产迁移授权。
 
 ---
 
@@ -14,25 +16,83 @@
 1. 将确认属于冷数据的 PostgreSQL 关系迁移到现有 HDD tablespace `gs_raw_cold_hdd`。
 2. 对 HDD 迁移，保持 schema、表名、索引名、view 定义、DAO、API 和数据集写入契约不变。
 3. 对重复 core 收口，保持 `core_serving` 查询名称、ORM、DAO、API 和数据集外部契约不变；允许删除其重复物理表和索引，并改为同名 view。
-4. 当前年份持续读写的数据留在 SSD；不能为了释放空间而把热数据整体降到 HDD。第 6.3 节已获明确决策的 `margin_detail` 是唯一例外，不得把该例外泛化到其它表。
+4. 热数据默认留在 SSD，但“热”必须按真实访问、写入和修订窗口定义，不能再用“整个当前年份”代替。新增数据集可以在 LLD 中明确选择 HDD-first；该选择必须有容量、延迟、WAL、查询消费者和回滚边界证据。
 5. 每次迁移只处理明确白名单中的表和索引，先验证，再进入下一批。
 6. 对仅复制 raw 业务字段的 serving 物理表，可改为 raw-backed serving view，删除重复写入和重复物理表；下游仍只读取原 `core_serving` 名称。
+7. PostgreSQL WAL 是实例级共享日志，继续位于现有根盘；业务 relation 迁移到 tablespace 不等于迁移 WAL。
 
 这里的“下游透明”只表示 SQL 与应用契约不变。历史数据迁到 HDD 后，访问该历史数据的 I/O 延迟可能升高；这属于预期性能取舍，不能被表名不变掩盖。
 
 ## 2. 固定原则
 
-1. 优先迁移已按年份分区且不再写入的历史分区。
-2. 未分区表若仍包含 2026 热数据，不允许以“迁冷数据”为名整表下沉。
+1. 优先迁移已分区、已关闭且已超出数据集热窗口的最小叶分区；优先级不再限定为年分区。
+2. 未分区表若仍混有热数据，不允许以“迁冷数据”为名整表下沉。
 3. 只有同时满足“当前无 Biz API 直接查询路径、低活跃、无持续高频维护”的整表数据集，才进入整表候选。
-4. 表 heap 与该表全部索引必须迁到同一 tablespace；禁止只迁 heap 或遗漏索引。
+4. 一个迁移批次最终必须让目标 heap、TOAST 与全部物理索引位于同一 tablespace；紧急分步执行允许短暂中间态，但必须记录并在同一月批次内闭环。
 5. 迁移前必须确认没有相关 `TaskRun` 运行、排队或取消中，也没有长事务访问目标关系。
-6. 不使用清表、复制后删除、表重建或自定义兼容 view 作为一期手段。
+6. 不使用清表、复制后删除、表重建或临时兼容 view 处理单纯 tablespace 迁移。
 7. 生产 DDL 必须逐对象执行、逐对象验收；不得批量盲跑。
+8. 迁移前必须验证 HDD 是真实挂载而不是空目录，并确认 tablespace 的实际路径、权限、备份和恢复覆盖。
+9. 根盘剩余空间必须同时覆盖当前关系迁移的瞬时开销和 WAL 安全余量；`max_wal_size` 不是硬上限，不能当作容量保证。
 
-## 3. 一期审计事实
+### 2.1 2026-08-23 当前生产容量快照
 
-审计时间：2026-08-02。所有审计均通过 `bash scripts/psql-remote.sh` 与 `ssh goldenshare-prod` 只读执行。
+本轮通过 `bash scripts/psql-remote.sh` 查询 PostgreSQL catalog/统计视图，并通过 `ssh goldenshare-prod` 只读检查文件系统、挂载、tablespace 与 WAL。没有读取业务明细、修改数据库或暂停任务。
+
+| 项目 | 当前事实 |
+| --- | --- |
+| 根盘 `/` | 约 216.4 GiB，已用约 202.0 GiB，可用约 5.5 GiB，使用率 98% |
+| HDD `/data/disk` | 约 393.5 GiB，可用约 316 GiB，使用率 16% |
+| PostgreSQL 数据库 | 约 195 GiB |
+| 默认 PostgreSQL 目录 | 约 149.7 GiB；根盘仍有约 52 GiB 非该目录占用，不能假定都可删除 |
+| HDD tablespace | `gs_raw_cold_hdd`，路径 `/data/disk/postgresql/tablespaces/gs_stk_mins_hdd` |
+| HDD tablespace 目录 | 约 57 GiB |
+| `pg_wal` | 约 417 MiB；`archive_mode=off`，无 replication slot，`max_wal_size=1GB`，`checkpoint_timeout=5min` |
+| 介质识别边界 | 虚拟机内两块设备均报告 `ROTA=1`，无法据此确认底层物理介质；本文沿用既有“根盘 SSD、`/data/disk` HDD”运营口径 |
+| 统计窗口 | PostgreSQL 自 2026-05-29 启动后累计；未安装 `pg_stat_statements`，扫描次数无法完全区分 ingestion、后台任务与用户查询 |
+
+审计时仍有运行中和排队中的 TaskRun；这只说明当时不能立即执行迁移，正式维护窗口必须重新检查，不能沿用该快照判断。
+
+### 2.2 当前逻辑体积 Top 20 与真实 SSD 占用
+
+表按逻辑总大小排序；“SSD 占用”按 heap/TOAST/索引各自真实 tablespace 汇总，避免把已经位于 HDD 的大表误判成 SSD 候选。大小均为约值。
+
+| # | 数据表 | 总大小 | 当前 SSD 占用 | 当前结论 | 优先级 | 风险 |
+| ---: | --- | ---: | ---: | --- | --- | --- |
+| 1 | `raw_tushare.stk_mins` | 38 GiB | 38 GiB | 只迁 2026-01～06 关闭月份，保留 07～08 热窗口 | **P0** | 中低（限定叶分区）；整表迁移为高风险 |
+| 2 | `raw_tushare.cyq_chips` | 37 GiB | 接近 0 | 已在 HDD | 无动作 | 无新增风险 |
+| 3 | `raw_tushare.index_mins` | 17 GiB | 17 GiB | 未分区，需先设计月分区或专门维护窗口 | P2 | 高 |
+| 4 | `raw_tushare.news` | 7.0 GiB | 0 | 已在 HDD | 无动作 | 无新增风险 |
+| 5 | `raw_tushare.stk_factor_pro` | 6.5 GiB | 6.5 GiB | serving view 有实际消费者，先做冷热结构设计 | P2/P3 | 高 |
+| 6 | `core_serving_light.equity_daily_bar_light` | 6.0 GiB | 0.39 GiB | 历史已在 HDD，剩余收益很小 | P3 | 低收益 |
+| 7 | `core_serving.dc_member` | 4.5 GiB | 4.5 GiB | 热 serving 表，保留 SSD | P3 | 高 |
+| 8 | `core_serving.equity_daily_basic` | 4.4 GiB | 4.4 GiB | 热 serving 表，保留 SSD | P3 | 高 |
+| 9 | `raw_tushare.dc_member` | 3.9 GiB | 3.9 GiB | serving 使用独立 core 副本，可进入下一批 | P1-A | 中 |
+| 10 | `core_serving.equity_moneyflow` | 3.75 GiB | 3.75 GiB | 热 serving 表，保留 SSD | P3 | 高 |
+| 11 | `core_serving.equity_daily_bar` | 3.6 GiB | 3.6 GiB | 核心行情及多下游依赖，保留 SSD | P3 | 很高 |
+| 12 | `raw_tushare.bak_basic` | 3.47 GiB | 3.47 GiB | 存在 serving view，先补消费者与延迟验证 | P1-B | 中 |
+| 13 | `raw_tushare.moneyflow` | 3.45 GiB | 3.45 GiB | serving 使用独立 core 副本，可进入下一批 | P1-A | 中低 |
+| 14 | `raw_tushare.daily` | 3.38 GiB | 3.38 GiB | serving 使用独立 core 副本，可进入下一批 | P1-A | 中低 |
+| 15 | `raw_tushare.daily_basic` | 3.29 GiB | 3.29 GiB | serving 使用独立 core 副本，可进入下一批 | P1-A | 中低 |
+| 16 | `raw_tushare.major_news` | 2.50 GiB | 2.50 GiB | TOAST 占比高但小时级更新且直接 serving | P1-C/P2 | 中高 |
+| 17 | `raw_tushare.idx_factor_pro` | 2.33 GiB | 2.33 GiB | 指数详情通过 serving view 消费 | P2/P3 | 高 |
+| 18 | `raw_tushare.etf_sz_cons` | 2.27 GiB | 2.27 GiB | 有 serving view，需先确认外部消费者 | P1-B | 中 |
+| 19 | `raw_tushare.cyq_perf` | 2.08 GiB | 2.08 GiB | 有 serving view，需先确认外部消费者 | P1-B | 中 |
+| 20 | `core.equity_adj_factor` | 2.01 GiB | 2.01 GiB | 复权行情基础表，保留 SSD | P3 | 高 |
+
+### 2.3 当前优先级
+
+1. **P0**：只处理 `raw_tushare.stk_mins` 的 `2026-01`～`2026-06` 六个月叶分区及其全部物理索引，预计释放约 28.3 GiB。详细执行契约见[股票历史分钟行情存储瘦身与滚动冷热治理方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)。
+2. **P1-A**：P0 完成并观察后，若容量仍不足，再评审 `raw_tushare.dc_member/moneyflow/daily/daily_basic`，合计约 14.0 GiB。它们必须各自重新做任务、消费者、锁与写入频率门禁，不能因列入本表直接执行。
+3. **P1-B/P1-C**：`bak_basic/etf_sz_cons/cyq_perf/major_news` 需要直接 view 消费者、外部查询和代表性延迟证据后再决定。
+4. **P2**：`index_mins/stk_factor_pro/idx_factor_pro` 需要单表 LLD；禁止把未分区大表作为本轮应急整表迁移。
+5. **P3**：核心 serving 表和仅剩少量 SSD 热分区的表不迁移。
+
+P0 单独完成后，根盘理论可用空间将由约 5.5 GiB 提升到约 33.7 GiB，使用率预计由 98% 降至约 84%。实际值受 WAL、并发写入、文件系统保留块和统计时点影响，不能以估算替代逐对象 `df` 复验。
+
+## 3. 一期历史审计事实
+
+审计时间：2026-08-02。以下内容保留为一期历史证据，不代表 2026-08-23 当前容量。所有审计均通过 `bash scripts/psql-remote.sh` 与 `ssh goldenshare-prod` 只读执行。
 
 | 项目 | 审计结果 |
 | --- | --- |
@@ -44,7 +104,7 @@
 | 执行资源 | 一期目标表均由 `goldenshare_user` 持有，该用户具备 `gs_raw_cold_hdd` 的 `CREATE` 权限 |
 | WAL 约束 | `max_wal_size=1GB`、`checkpoint_timeout=5min`、未启用归档；迁移必须逐对象自动提交并立即复验，禁止把一期对象放入一个长事务 |
 
-### 3.1 已排除的高占用对象
+### 3.1 一期当时排除的高占用对象
 
 | 对象 | 大小 | 审计结论 | 不进入一期的原因 |
 | --- | ---: | --- | --- |
@@ -373,21 +433,31 @@ ALTER INDEX raw_tushare.idx_raw_tushare_news_src_time
 3. 独立连接最终复验：叶分区 `19/19`、物理叶索引 `57/57` 位于 `gs_raw_cold_hdd`，父表默认 tablespace 同为该目标，业务行数仍为 0。
 4. 没有复制、删除、清空、重建或写入任何业务数据；由于迁移对象为空，SSD/HDD 的文件系统可用空间前后未出现有意义变化。
 
-### 第三期：持续治理
+### 持续治理（2026-08-23 起的当前口径）
 
-1. 每季度复查 SSD/HDD 容量、tablespace 分布和数据集读写活跃度。
-2. 对新增的大体量数据集，在接入文档中明确存储增长、冷热属性和未来分区策略。
-3. 对已分区表，在每年切换后评估上一年的分区是否可以下沉 HDD；只在确认不再属于热数据后执行。
+1. 根盘达到 90% 时进入容量预警，达到 95% 时停止新增大规模回补并启动只读 Top 20 审计；阈值只定义运维动作，不授权自动 DDL。
+2. 每月至少复查一次 SSD/HDD 容量、tablespace 分布、WAL、最大关系增长和 TaskRun 写入负载；季度审计不足以覆盖分钟级大表增长。
+3. `stk_mins` 改用“当前自然月 + 上一个自然月留 SSD，更早关闭月份进入 HDD 候选”的两月滚动热窗口，不再执行年度 rollover。每个月份仍需在维护窗口内逐对象迁移并验收，当前不自动执行 DDL。
+4. 新增大体量数据集必须在 LLD 中明确：稳定/峰值容量、索引放大、分区、冷热窗口、WAL、tablespace 缺失策略、备份恢复和消费者延迟。
+5. 当前已明确 HDD-first 的数据集包括 `margin_detail`、已接入公募基金业务表以及 `equity_express`；它们是各自 LLD 的显式决策，不代表所有 direct-serving 表默认进入 HDD。
+6. raw/core 字段和索引等价且没有独立业务转换时，继续优先评估 raw-backed serving view，避免重复物理存储；任何收口必须先做全量消费者和数据一致性审计。
+7. `index_mins`、技术因子和其它未分区大表必须单独设计，不能借容量告警临时整表下沉。
 
 ## 7. 本专项的边界
 
 1. 本文档不是对任何表的自动迁移授权；每次生产 DDL 仍需要用户明确确认。
-2. HDD 一期不修改 `DatasetDefinition`、ingestion、writer、DAO、Ops、Biz、API 或前端；第 6.2 节仅允许按其白名单修改对应 Definition、迁移、Ops 交付模式投影和测试。
-3. 一期不迁移任何 `core_serving` 主服务表，不迁移当前年份的 `stk_mins` 分区。
-4. 一期不删除、清空、重建、归档或导出任何业务表数据。
+2. 单纯 tablespace 迁移不修改 `DatasetDefinition`、ingestion、writer、DAO、Ops、Biz、API 或前端；重复物理表收口必须另立代码与迁移范围。
+3. 当前 P0 只允许处理 `stk_mins` 已明确白名单的关闭月份，不迁移 2026-07、2026-08、父级 partitioned relation 或 default 分区。
+4. 本专项不删除、清空、重建、归档或导出任何业务数据。
+5. 本文记录的 P1/P2/P3 只是审计结论，不构成对应表的开发、迁移、停任务或生产执行授权。
 
 ## 8. 相关文档
 
 1. [Prod 每日筹码分布 HDD Tablespace 迁移方案 v1（已执行）](/Users/congming/github/goldenshare/docs/ops/prod-cyq-chips-hdd-tablespace-migration-plan-v1.md)
-2. [股票历史分钟行情 tablespace 冷热分层记录 v1](/Users/congming/github/goldenshare/docs/ops/stk-mins-tablespace-layout-v1.md)
-3. [文档维护基线 v1](/Users/congming/github/goldenshare/docs/governance/docs-maintenance-baseline-v1.md)
+2. [股票历史分钟行情 tablespace 冷热分层记录 v1（2026-04-26 历史快照）](/Users/congming/github/goldenshare/docs/ops/stk-mins-tablespace-layout-v1.md)
+3. [股票历史分钟行情存储瘦身与滚动冷热治理方案 v1（当前 P0 执行依据）](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)
+4. [Core Serving + Serving Light 分层设计 v1](/Users/congming/github/goldenshare/docs/architecture/core-serving-light-design-v1.md)
+5. [融资融券交易明细 LLD v1](/Users/congming/github/goldenshare/docs/datasets/margin-detail-low-level-design-v1.md)
+6. [公募基金九数据集接入总览与分批推进计划 v1](/Users/congming/github/goldenshare/docs/datasets/public-fund-nine-dataset-onboarding-program-plan-v1.md)
+7. [A股业绩快报 `express` LLD v1](/Users/congming/github/goldenshare/docs/datasets/equity-express-low-level-design-v1.md)
+8. [文档维护基线 v1](/Users/congming/github/goldenshare/docs/governance/docs-maintenance-baseline-v1.md)
