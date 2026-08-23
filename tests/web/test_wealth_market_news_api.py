@@ -150,7 +150,10 @@ def test_market_news_endpoints_return_split_panels(app_client, db_session) -> No
     ]
     assert briefs_payload["newsBriefs"]["items"][0]["title"] == "同一展示标题"
     assert briefs_payload["newsBriefs"]["items"][0]["category"] == "market"
-    assert briefs_payload["newsBriefs"]["items"][0]["clickable"] is False
+    assert briefs_payload["newsBriefs"]["clickablePolicy"] == "reader"
+    assert briefs_payload["newsBriefs"]["items"][0]["clickable"] is True
+    assert briefs_payload["newsBriefs"]["items"][0]["readerMode"] == "TEXT"
+    assert not {"url", "html", "content"}.intersection(briefs_payload["newsBriefs"]["items"][0])
     assert briefs_payload["newsBriefs"]["items"][2]["title"] == "市场流动性保持合理充裕"
     assert briefs_payload["newsBriefs"]["items"][3]["title"] == "重复旧新闻"
     assert briefs_payload["debugInfo"]["modules"][0]["moduleKey"] == "newsBriefs"
@@ -169,7 +172,8 @@ def test_market_news_endpoints_return_split_panels(app_client, db_session) -> No
     ]
     assert stocks_payload["stockNews"]["items"][0]["category"] == "stock"
     assert stocks_payload["stockNews"]["items"][0]["subject"] is None
-    assert stocks_payload["stockNews"]["items"][0]["clickable"] is False
+    assert stocks_payload["stockNews"]["items"][0]["clickable"] is True
+    assert stocks_payload["stockNews"]["items"][0]["readerMode"] == "TEXT"
     assert stocks_payload["debugInfo"]["modules"][0]["moduleKey"] == "stockNews"
 
     no_debug_response = app_client.get("/api/v1/wealth/market/news/briefs")
@@ -225,6 +229,35 @@ def test_market_news_endpoint_returns_300_item_candidate_pool(app_client, db_ses
     assert len(items) == 300
     assert items[0]["newsId"] == "market-news-bulk-304"
     assert items[-1]["newsId"] == "market-news-bulk-005"
+
+
+def test_market_news_list_reader_hints_match_detail_classification(app_client, db_session) -> None:
+    _ensure_news_tables(db_session)
+    _, in_window_time, _ = _news_window_sample_times()
+    samples = [
+        ("market-reader-url", "https://example.com/news", "URL"),
+        ("market-reader-html", "<article><p>HTML 正文</p></article>", "HTML"),
+        ("market-reader-text", "纯文本正文", "TEXT"),
+    ]
+    for index, (news_id, content, _) in enumerate(samples):
+        _add_news(
+            db_session,
+            row_key_hash=news_id,
+            news_time=in_window_time + timedelta(minutes=index),
+            title=f"阅读模式 {index}",
+            channels="宏观",
+            content=content,
+        )
+    db_session.commit()
+
+    response = app_client.get("/api/v1/wealth/market/news/briefs")
+
+    assert response.status_code == 200
+    items = {item["newsId"]: item for item in response.json()["newsBriefs"]["items"]}
+    for news_id, _, expected_mode in samples:
+        assert items[news_id]["readerMode"] == expected_mode
+        assert items[news_id]["clickable"] is True
+        assert not {"url", "html", "content"}.intersection(items[news_id])
 
 
 def test_market_news_rejects_unsupported_market(app_client) -> None:

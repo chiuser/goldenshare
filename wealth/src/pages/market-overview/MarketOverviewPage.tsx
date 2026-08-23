@@ -65,6 +65,7 @@ import {
   fetchStockNews,
   type MarketNewsDebugInfo,
 } from "../../features/market-overview/news/api/marketNewsApi";
+import { useMarketNewsReader } from "../../features/market-overview/news/model/useMarketNewsReader";
 import { SectorOverviewPanel } from "../../features/market-overview/sectors/SectorOverviewPanel";
 import type { SectorOverviewDebugInfo } from "../../features/market-overview/sectors/api/marketSectorOverviewApi";
 import { useSectorOverviewController } from "../../features/market-overview/sectors/useSectorOverviewController";
@@ -92,6 +93,7 @@ import {
   resolveTopMarketNavPath,
 } from "../../app/routes/routerState";
 import { SkeletonBlock } from "../../shared/ui/SkeletonBlock";
+import { NewsReaderDialog } from "../../shared/ui/news-reader/NewsReaderDialog";
 import { PageBreadcrumb } from "../../shared/ui/page-breadcrumb/PageBreadcrumb";
 import { TopMarketBar } from "../../shared/ui/top-market-bar/TopMarketBar";
 import type { TopMarketNavKey, TopMarketTicker } from "../../shared/ui/top-market-bar/topMarketBarTypes";
@@ -205,6 +207,7 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
   const [streakLadderDebugInfo, setStreakLadderDebugInfo] = useState<StreakLadderDebugInfo | null>(null);
   const [sectorOverviewDebugInfo, setSectorOverviewDebugInfo] = useState<SectorOverviewDebugInfo | null>(null);
   const [toast, setToast] = useState("");
+  const newsReader = useMarketNewsReader();
   const headerTickers = useMemo(() => buildHeaderTickers(overview, majorIndices), [overview, majorIndices]);
   const pageDebugEnabled = useMemo(() => {
     if (!import.meta.env.DEV) return false;
@@ -988,6 +991,7 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
                 viewState={newsBriefsViewState}
                 panel={newsBriefs}
                 errorMessage={newsBriefsErrorMessage ?? undefined}
+                onItemOpen={newsReader.open}
               />
             }
             stockNews={
@@ -996,6 +1000,7 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
                 viewState={stockNewsViewState}
                 panel={stockNews}
                 errorMessage={stockNewsErrorMessage ?? undefined}
+                onItemOpen={newsReader.open}
               />
             }
             marketSummary={
@@ -1080,6 +1085,7 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
           <StateBaselinePanel />
         </div>
       </main>
+      <NewsReaderDialog state={newsReader.state} onClose={newsReader.close} onRetry={newsReader.retry} />
       {toast ? <div id="toast">{toast}</div> : null}
     </div>
   );

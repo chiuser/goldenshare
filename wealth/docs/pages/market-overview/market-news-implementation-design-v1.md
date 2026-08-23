@@ -1,5 +1,7 @@
 # 市场总览｜新闻速览与个股新闻技术实施方案 v1
 
+> 2026-08-23 增量说明：本文保留列表、来源、排序、刷新与页面布局基线；其中 `clickable=false`、`clickablePolicy=disabled` 和“不实现新闻详情”的条款已由 [新闻弹窗阅读器技术实施方案 v1](./market-news-reader-implementation-design-v1.md) 替代。阅读器代码落地前，当前实现仍保持旧行为。
+
 > 对应需求文档：`market-news-benchmark-requirement-v1.md`  
 > 阶段：编码前。  
 > 产物性质：实现设计基线（不写业务代码）。

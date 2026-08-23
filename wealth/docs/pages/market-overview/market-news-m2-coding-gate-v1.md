@@ -1,5 +1,7 @@
 # 市场总览｜新闻速览与个股新闻 M2 编码前门禁 v1
 
+> 2026-08-23 增量说明：本文是首版列表实现的历史编码门禁。所有“不可点击”与 `clickablePolicy=disabled` 断言不再作为后续阅读器开发门禁；新实现必须先依据 [新闻弹窗阅读器技术实施方案 v1](./market-news-reader-implementation-design-v1.md) 形成独立 LLD 和编码门禁。其它来源、排序、时间窗与刷新规则继续有效。
+
 > 对应需求文档：`market-news-benchmark-requirement-v1.md`  
 > 对应实施方案：`market-news-implementation-design-v1.md`  
 > 阶段：M2 开工前。  

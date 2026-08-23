@@ -18,6 +18,7 @@ from src.biz.api.wealth.market import limit_up as wealth_market_limit_up
 from src.biz.api.wealth.market import major_indices as wealth_market_major_indices
 from src.biz.api.wealth.market import money_flow as wealth_market_money_flow
 from src.biz.api.wealth.market import news_briefs as wealth_market_news_briefs
+from src.biz.api.wealth.market import news_item as wealth_market_news_item
 from src.biz.api.wealth.market import sector_overview as wealth_market_sector_overview
 from src.biz.api.wealth.market import stock_detail as wealth_market_stock_detail
 from src.biz.api.wealth.market import stock_detail_news as wealth_market_stock_detail_news
@@ -66,6 +67,7 @@ router.include_router(wealth_market_stock_detail_news.router)
 router.include_router(wealth_market_stock_detail_nine_turn.router)
 router.include_router(wealth_market_sector_overview.router)
 router.include_router(wealth_market_news_briefs.router)
+router.include_router(wealth_market_news_item.router)
 router.include_router(wealth_market_stock_news.router)
 
 

@@ -145,6 +145,11 @@
 | `NEWS_SOURCE_DELAYED` | `marketNews` | warn | false | true | 新闻模块源数据日期落后 | 目标日无数据但存在更早新闻 | debug delayed，不自动展示旧日新闻冒充当前日 | biz-api | Phase-1 | active |
 | `NEWS_CHANNEL_RULE_INVALID` | `marketNews` | error | false | true | 新闻频道分类规则不可用 | `core_serving_light.news.channels` 无法支撑 `公司/非公司` 分类 | 停止编码/发布，必须先确认真实频道取值 | biz-api | Phase-1 | active |
 | `NEWS_QUERY_FAILED` | `marketNews` | error | false | true | 新闻模块查询失败 | SQL/服务异常 | 模块 error，保留其他模块渲染 | biz-api | Phase-1 | active |
+| `NEWS_READER_NOT_FOUND` | `marketNewsReader` | warn | false | false | 新闻详情不存在或已没有可读正文 | 指定 `newsId` 不存在，或正文为空白 | 阅读器显示统一 empty 文案，不回退同标题其它新闻 | biz-api | Phase-5 | active |
+| `NEWS_READER_REQUEST_INVALID` | `marketNewsReader` | warn | false | false | 新闻详情请求标识不符合有界 URL-safe 合同 | `newsId` 为空、超过 64 字符或包含非字母数字、下划线、连字符 | 阅读器显示不可重试 error，不执行模糊查询或回退 | biz-api | Phase-5 | active |
+| `NEWS_READER_CONTENT_INVALID` | `marketNewsReader` | error | false | false | 新闻正文类型或安全合同非法 | 内容无法按 URL/HTML/TEXT 合同安全解析 | 阅读器显示统一 error 文案，不渲染可疑内容 | biz-api | Phase-5 | active |
+| `NEWS_READER_CONTENT_TOO_LARGE` | `marketNewsReader` | error | false | false | 新闻正文超过阅读器有界载荷上限 | UTF-8 正文大于 `256 KiB` | 阅读器显示统一 error 文案，不截断冒充完整正文 | biz-api | Phase-5 | active |
+| `NEWS_READER_QUERY_FAILED` | `marketNewsReader` | error | false | false | 新闻详情查询失败 | 主键查询或未分类服务异常 | 阅读器显示统一 error 文案，保留首页并允许重试 | biz-api | Phase-5 | active |
 
 ## 7. 股票详情分钟模块（Phase-2）
 

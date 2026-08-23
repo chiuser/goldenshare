@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { marketOverviewModuleSources } from "../features/market-overview/api/moduleSources";
 import { MarketOverviewPage } from "../pages/market-overview/MarketOverviewPage";
@@ -33,7 +33,7 @@ const newsBriefsPayload = {
     visibleItemCount: 10,
     updatedAt: "2026-05-11T15:05:00+08:00",
     sortRule: "publishTime_desc_priority_desc",
-    clickablePolicy: "disabled",
+    clickablePolicy: "reader",
     items: [
       {
         newsId: "market-1",
@@ -44,8 +44,8 @@ const newsBriefsPayload = {
         source: "Tushare",
         subject: null,
         priority: null,
-        url: null,
-        clickable: false,
+        readerMode: "TEXT",
+        clickable: true,
       },
     ],
   },
@@ -74,7 +74,7 @@ const stockNewsPayload = {
     visibleItemCount: 10,
     updatedAt: "2026-05-11T15:05:00+08:00",
     sortRule: "publishTime_desc_priority_desc",
-    clickablePolicy: "disabled",
+    clickablePolicy: "reader",
     items: [
       {
         newsId: "stock-1",
@@ -85,8 +85,8 @@ const stockNewsPayload = {
         source: "Tushare",
         subject: null,
         priority: null,
-        url: null,
-        clickable: false,
+        readerMode: "TEXT",
+        clickable: true,
       },
     ],
   },
@@ -337,6 +337,67 @@ describe("market-overview news real api", () => {
     expect(within(stockPanel).queryByText("loading")).not.toBeInTheDocument();
     expect(briefsCalls).toBe(2);
     expect(stocksCalls).toBe(2);
+  });
+
+  it("opens one reader from either panel and keeps its content through list refresh", async () => {
+    vi.useFakeTimers();
+    let briefsCalls = 0;
+    let stocksCalls = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = urlString(input);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) return contextResponse;
+      if (url.includes("/api/v1/wealth/market/news/items/market-1")) {
+        return responseJson({
+          newsId: "market-1",
+          title: "宏观政策保持连续性",
+          source: "Tushare",
+          publishTime: newsBriefsPayload.newsBriefs.items[0].publishTime,
+          readerMode: "TEXT",
+          url: null,
+          html: null,
+          content: "阅读器中的完整新闻正文",
+        });
+      }
+      if (url.includes("/api/v1/wealth/market/news/briefs")) {
+        briefsCalls += 1;
+        return responseJson(briefsCalls === 1 ? newsBriefsPayload : refreshedNewsBriefsPayload);
+      }
+      if (url.includes("/api/v1/wealth/market/news/stocks")) {
+        stocksCalls += 1;
+        return responseJson(stocksCalls === 1 ? stockNewsPayload : refreshedStockNewsPayload);
+      }
+      throw new Error(`unexpected url: ${url}`);
+    });
+
+    render(<MarketOverviewPage />);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const newsPanel = screen.getByLabelText("新闻速览");
+    const stockPanel = screen.getByLabelText("个股新闻");
+    const marketTrigger = within(newsPanel).getByRole("button", { name: /宏观政策保持连续性/ });
+    const stockTrigger = within(stockPanel).getByRole("button", { name: /公司公告披露一季度经营情况/ });
+    expect(marketTrigger).toHaveAttribute("aria-haspopup", "dialog");
+    expect(stockTrigger).toHaveAttribute("aria-haspopup", "dialog");
+
+    fireEvent.click(marketTrigger);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(screen.getByText("阅读器中的完整新闻正文")).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+      await Promise.resolve();
+    });
+    expect(within(newsPanel).getByText("最新宏观新闻滚动展示")).toBeInTheDocument();
+    expect(screen.getByText("阅读器中的完整新闻正文")).toBeInTheDocument();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
   });
 
   it("keeps current news visible when a background refresh fails", async () => {

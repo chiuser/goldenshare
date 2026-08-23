@@ -1,5 +1,8 @@
 import { wealthFetch } from "../../../../shared/api/wealthApiClient";
 import type { DataStatus } from "../../../../shared/model/market";
+import type { NewsReaderMode } from "../../../../shared/ui/news-reader/newsReaderTypes";
+
+export type { NewsReaderMode } from "../../../../shared/ui/news-reader/newsReaderTypes";
 
 export interface MarketNewsRequest {
   market?: "CN_A";
@@ -41,8 +44,8 @@ export interface NewsPanelItemResponse {
     subjectName?: string | null;
   } | null;
   priority?: number | null;
-  url?: string | null;
-  clickable: false;
+  readerMode: NewsReaderMode;
+  clickable: true;
 }
 
 export interface NewsListPanelResponse {
@@ -53,7 +56,7 @@ export interface NewsListPanelResponse {
   updatedAt: string;
   items: NewsPanelItemResponse[];
   sortRule: "publishTime_desc_priority_desc";
-  clickablePolicy: "disabled";
+  clickablePolicy: "reader";
 }
 
 export interface MarketNewsBaseResponse {

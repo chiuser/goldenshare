@@ -76,8 +76,8 @@ class NewsPanelItemDto(BaseModel):
     source: str | None = None
     subject: NewsSubjectRefDto | None = None
     priority: int | None = Field(default=0)
-    url: str | None = None
-    clickable: Literal[False] = False
+    readerMode: Literal["URL", "HTML", "TEXT"]
+    clickable: Literal[True] = True
 
 
 class NewsListPanelDto(BaseModel):
@@ -90,7 +90,7 @@ class NewsListPanelDto(BaseModel):
     updatedAt: datetime
     items: list[NewsPanelItemDto]
     sortRule: Literal["publishTime_desc_priority_desc"] = "publishTime_desc_priority_desc"
-    clickablePolicy: Literal["disabled"] = "disabled"
+    clickablePolicy: Literal["reader"] = "reader"
 
 
 class NewsBriefsResponseDto(BaseModel):

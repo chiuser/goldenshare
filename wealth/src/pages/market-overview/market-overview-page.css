@@ -614,14 +614,22 @@ h1 {
   align-items: center;
   border-radius: 6px;
   color: var(--cs-color-text-secondary);
-  cursor: default;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
   display: grid;
   gap: 8px;
   grid-template-columns: 96px minmax(0, 1fr);
   height: 22px;
   padding: 0 6px;
+  text-align: left;
   user-select: text;
   white-space: nowrap;
+}
+
+.market-news-item:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--cs-color-brand);
+  outline: none;
 }
 
 .market-news-item:hover {

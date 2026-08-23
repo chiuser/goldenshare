@@ -1,3 +1,4 @@
+import type { NewsReaderMode } from "../../../../shared/ui/news-reader/newsReaderTypes";
 import type { MarketNewsBriefsResponse, NewsListPanelResponse, StockNewsResponse } from "./marketNewsApi";
 
 export interface MarketNewsViewItem {
@@ -5,7 +6,8 @@ export interface MarketNewsViewItem {
   publishTime: string;
   displayTime: string;
   title: string;
-  clickable: false;
+  readerMode: NewsReaderMode;
+  clickable: true;
 }
 
 export interface MarketNewsPanelViewModel {
@@ -40,7 +42,8 @@ function buildPanelViewModel(
       publishTime: item.publishTime,
       displayTime: item.displayTime,
       title: item.title,
-      clickable: false,
+      readerMode: item.readerMode,
+      clickable: true,
     })),
     statusLabel,
     statusTone: status === "READY" ? "ready" : "delayed",

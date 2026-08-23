@@ -8,9 +8,10 @@ interface MarketNewsPanelProps {
   viewState: "loading" | "ready" | "error";
   panel?: MarketNewsPanelViewModel | null;
   errorMessage?: string;
+  onItemOpen?: (item: MarketNewsPanelViewModel["items"][number], trigger: HTMLButtonElement) => void;
 }
 
-export function MarketNewsPanel({ title, viewState, panel, errorMessage }: MarketNewsPanelProps) {
+export function MarketNewsPanel({ title, viewState, panel, errorMessage, onItemOpen }: MarketNewsPanelProps) {
   const visibleItemCount = panel?.visibleItemCount ?? 10;
   const items = panel?.items ?? [];
   const trackKey = `${panel?.updatedAt ?? "pending"}-${items[0]?.newsId ?? "empty"}-${items.length}`;
@@ -41,7 +42,7 @@ export function MarketNewsPanel({ title, viewState, panel, errorMessage }: Marke
           </div>
         ) : null}
         {viewState === "ready" && items.length > 0 ? (
-          <NewsTickerList key={trackKey} items={items} visibleItemCount={visibleItemCount} />
+          <NewsTickerList key={trackKey} items={items} visibleItemCount={visibleItemCount} onItemOpen={onItemOpen} />
         ) : null}
       </div>
     </section>
@@ -51,9 +52,10 @@ export function MarketNewsPanel({ title, viewState, panel, errorMessage }: Marke
 interface NewsTickerListProps {
   items: MarketNewsPanelViewModel["items"];
   visibleItemCount: number;
+  onItemOpen?: MarketNewsPanelProps["onItemOpen"];
 }
 
-function NewsTickerList({ items, visibleItemCount }: NewsTickerListProps) {
+function NewsTickerList({ items, visibleItemCount, onItemOpen }: NewsTickerListProps) {
   const shouldScroll = items.length > visibleItemCount;
   const renderItems = shouldScroll ? [...items, ...items] : items;
   const scrollDurationSeconds = Math.max(40, items.length * 2);
@@ -64,16 +66,19 @@ function NewsTickerList({ items, visibleItemCount }: NewsTickerListProps) {
       style={{ "--news-scroll-duration": `${scrollDurationSeconds}s` } as CSSProperties}
     >
       {renderItems.map((item, index) => (
-        <div
+        <button
+          type="button"
           className="market-news-item"
+          data-news-reader-trigger
           data-news-id={item.newsId}
           key={`${item.newsId}-${index}`}
           title={`${item.displayTime}｜${item.title}`}
-          aria-disabled="true"
+          aria-haspopup="dialog"
+          onClick={(event) => onItemOpen?.(item, event.currentTarget)}
         >
           <span className="market-news-time">{item.displayTime}</span>
           <span className="market-news-text">{item.title}</span>
-        </div>
+        </button>
       ))}
     </div>
   );

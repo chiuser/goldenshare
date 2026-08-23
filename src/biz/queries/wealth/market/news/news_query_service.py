@@ -234,8 +234,8 @@ class MarketNewsQueryService:
                     source=row.source,
                     subject=None,
                     priority=0,
-                    url=None,
-                    clickable=False,
+                    readerMode=row.reader_mode,
+                    clickable=True,
                 )
                 for row in query_result.rows
             ],

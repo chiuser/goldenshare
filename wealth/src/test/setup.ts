@@ -10,6 +10,14 @@ class ResizeObserverMock implements ResizeObserver {
 
 globalThis.ResizeObserver = ResizeObserverMock;
 
+HTMLDialogElement.prototype.showModal = function showModal() {
+  this.setAttribute("open", "");
+};
+
+HTMLDialogElement.prototype.close = function close() {
+  this.removeAttribute("open");
+};
+
 HTMLCanvasElement.prototype.getContext = function getContext() {
   return {
     arc: () => {},
