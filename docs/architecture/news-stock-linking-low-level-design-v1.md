@@ -231,6 +231,7 @@ CREATE INDEX ix_news_stock_link_ts_code
 5. upsert 冲突键只能是 `(news_id, ts_code)`；冲突更新 `match_method/source_field/rule_version/updated_at`，不更新 `created_at`。
 6. 一批新闻即使识别结果为空，也必须先删除这批新闻原有关系，避免规则重算后残留旧关系。
 7. migration 只新增这张表和索引，不修改 `core_serving_light.news`、`security_serving` 或 `namechange`。
+8. PostgreSQL 多行 INSERT 的每一行必须使用相同列集合。`NewsStockLinkDAO` 在批量写入前统一补齐 `created_at`：已有关系沿用原值，新关系使用同一个批次 UTC 时间；禁止把“带 `created_at` 的旧关系”和“依赖 server default 的新关系”直接混入同一条 VALUES。
 
 ## 5. 识别内核与词典适配
 

@@ -487,6 +487,8 @@ CREATE INDEX ix_news_stock_link_ts_code
 3. 对仍然存在的关系保留原 `created_at`，更新 `match_method/source_field/rule_version/updated_at`。
 4. 当前识别结果为空时只执行删除，不保留已经失效的旧关系。
 
+批量重建可能在同一批同时包含旧关系和新关系。进入 PostgreSQL 多行 INSERT 前，DAO 必须把所有行归一为相同列集合：旧关系使用已查询到的原 `created_at`，新关系使用本批统一的 UTC 时间。不能让部分行显式携带 `created_at`、部分行依赖 server default，否则 SQLAlchemy 会在 VALUES 编译阶段拒绝整批写入。
+
 因此，TaskRun 记录的是“这次任务处理了哪个窗口、使用了哪套规则、产生了多少结果”，关联表记录的是“最终新闻和股票的当前派生关系”，
 两者职责不同。只做 upsert 不能清理“新闻内容更新后已经不再命中”的旧关系，所以每批写入前还要按本批 `news_id` 删除旧派生关系，
 再批量 upsert 当前识别结果；这仍然只修改 `news_stock_link`，不修改新闻源事实。这里的旧关系清理针对同一个 `news_id` 的规则重算；

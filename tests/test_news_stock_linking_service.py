@@ -225,6 +225,69 @@ def test_range_rerun_is_idempotent_and_preserves_created_at() -> None:
     assert current_created_at == created_at
 
 
+def test_range_rerun_handles_existing_and_new_links_in_the_same_batch() -> None:
+    _engine, session_factory = _session_factory()
+    base_time = datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc)
+    _seed(session_factory, base_time)
+    service = NewsStockLinkingService(session_factory=session_factory, batch_size=10)
+
+    service.materialize(window_start=ALL_NEWS_START, window_end=base_time + timedelta(hours=1))
+    with session_factory() as session:
+        preserved_created_at = session.scalar(
+            select(NewsStockLink.created_at).where(
+                NewsStockLink.news_id == "news-code",
+                NewsStockLink.ts_code == "000001.SZ",
+            )
+        )
+        session.add(
+            NewsLight(
+                row_key_hash="news-added-after-first-run",
+                src="sina",
+                news_time=base_time + timedelta(seconds=4),
+                title="300308.SZ 新增新闻",
+                content=None,
+                channels="公司",
+                source="tushare",
+                fetched_at=base_time + timedelta(seconds=4),
+            )
+        )
+        session.add(
+            Security(
+                ts_code="300308.SZ",
+                symbol="300308",
+                name="中际旭创",
+                fullname="中际旭创股份有限公司",
+                security_type="EQUITY",
+                source="tushare",
+            )
+        )
+        session.commit()
+
+    stats = service.materialize(
+        window_start=ALL_NEWS_START,
+        window_end=base_time + timedelta(hours=1),
+    )
+
+    with session_factory() as session:
+        current_created_at = session.scalar(
+            select(NewsStockLink.created_at).where(
+                NewsStockLink.news_id == "news-code",
+                NewsStockLink.ts_code == "000001.SZ",
+            )
+        )
+        new_created_at = session.scalar(
+            select(NewsStockLink.created_at).where(
+                NewsStockLink.news_id == "news-added-after-first-run",
+                NewsStockLink.ts_code == "300308.SZ",
+            )
+        )
+
+    assert stats.links_updated == 3
+    assert stats.links_inserted == 1
+    assert current_created_at == preserved_created_at
+    assert new_created_at is not None
+
+
 def test_news_time_selects_rows_independently_from_fetched_at() -> None:
     _engine, session_factory = _session_factory()
     base_time = datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc)

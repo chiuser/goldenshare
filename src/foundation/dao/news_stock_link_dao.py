@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -58,4 +58,12 @@ class NewsStockLinkDAO(BaseDAO[NewsStockLink]):
         return deleted
 
     def bulk_upsert_current(self, rows: list[dict[str, object]]) -> int:
-        return self.bulk_upsert(rows, conflict_columns=["news_id", "ts_code"])
+        batch_created_at = datetime.now(timezone.utc)
+        normalized_rows = [
+            {
+                **row,
+                "created_at": row.get("created_at") or batch_created_at,
+            }
+            for row in rows
+        ]
+        return self.bulk_upsert(normalized_rows, conflict_columns=["news_id", "ts_code"])
