@@ -231,6 +231,22 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
         "timezone": "Asia/Shanghai",
         "display_text": "工作日 21:15（北京时间）",
     }
+    assert heat_capability["repeat_policy"] is None
+
+    news_linking_capability = actions["maintenance.materialize_news_stock_links"]["automation_capability"]
+    assert news_linking_capability["trigger_options"] == [
+        {"mode": "schedule", "allowed_schedule_types": ["cron"]}
+    ]
+    assert news_linking_capability["calendar_policy_rules"] == []
+    assert news_linking_capability["time_input_contract"] is None
+    assert news_linking_capability["fixed_schedule"] is None
+    assert news_linking_capability["repeat_policy"] == {
+        "allowed_modes": ["intraday_interval"],
+        "default_mode": "intraday_interval",
+        "default_interval_minutes": 5,
+        "minimum_interval_minutes": 3,
+        "timezone": "Asia/Shanghai",
+    }
 
     daily_capability = actions["daily.maintain"]["automation_capability"]
     assert daily_capability == {
@@ -273,6 +289,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
             "granularity": "day",
         },
         "fixed_schedule": None,
+        "repeat_policy": None,
     }
 
     margin_detail_capability = actions["margin_detail.maintain"]["automation_capability"]
@@ -312,6 +329,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
             "granularity": "day",
         },
         "fixed_schedule": None,
+        "repeat_policy": None,
     }
     for workflow in workflows.values():
         if workflow["schedule_enabled"]:
@@ -323,6 +341,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
                 "calendar_policy_rules": [],
                 "time_input_contract": None,
                 "fixed_schedule": None,
+                "repeat_policy": None,
             }
         else:
             assert workflow["automation_capability"] is None

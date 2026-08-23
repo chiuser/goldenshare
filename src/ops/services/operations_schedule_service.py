@@ -42,6 +42,11 @@ from src.ops.action_catalog import (
 from src.app.exceptions import WebAppError
 from src.foundation.datasets.registry import get_dataset_definition_by_action_key
 from src.ops.services.dataset_schedule_time_policy_resolver import DatasetScheduleTimePolicyResolver
+from src.ops.services.news_stock_linking_service import NEWS_STOCK_LINKING_ACTION_KEY
+from src.ops.services.news_stock_linking_window_resolver import (
+    NewsStockLinkingWindowEmpty,
+    NewsStockLinkingWindowResolver,
+)
 
 
 MONTHLY_LAST_DAY_POLICY = "monthly_last_day"
@@ -64,6 +69,7 @@ SUPPORTED_CALENDAR_POLICIES = {
 FALLBACK_PROBE_EFFECTIVE_TASK_STATUSES = ("queued", "running", "canceling", "success", "partial_success")
 logger = logging.getLogger(__name__)
 HEAT_DAILY_ACTION_KEY = "maintenance.materialize_wealth_sector_heat_daily"
+NEWS_STOCK_LINKING_TIMEZONE = "Asia/Shanghai"
 
 
 class OperationsScheduleService:
@@ -105,6 +111,27 @@ class OperationsScheduleService:
             params_json=normalized_params,
         )
         self._validate_unique_heat_schedule(
+            session,
+            target_type=target_type,
+            target_key=target_key,
+        )
+        self._validate_news_stock_linking_schedule_contract(
+            target_type=target_type,
+            target_key=target_key,
+            schedule_type=schedule_type,
+            trigger_mode=trigger_mode,
+            cron_expr=cron_expr,
+            timezone_name=timezone_name,
+            calendar_policy=calendar_policy,
+            probe_config_json=probe_config_json,
+            params_json=normalized_params,
+        )
+        self._validate_unique_news_stock_linking_schedule(
+            session,
+            target_type=target_type,
+            target_key=target_key,
+        )
+        self._require_news_stock_linking_baseline(
             session,
             target_type=target_type,
             target_key=target_key,
@@ -298,6 +325,29 @@ class OperationsScheduleService:
             target_key=schedule.target_key,
             exclude_schedule_id=schedule.id,
         )
+        self._validate_news_stock_linking_schedule_contract(
+            target_type=schedule.target_type,
+            target_key=schedule.target_key,
+            schedule_type=schedule.schedule_type,
+            trigger_mode=schedule.trigger_mode,
+            cron_expr=schedule.cron_expr,
+            timezone_name=schedule.timezone,
+            calendar_policy=schedule.calendar_policy,
+            probe_config_json=dict(schedule.probe_config_json or {}),
+            params_json=dict(schedule.params_json or {}),
+        )
+        self._validate_unique_news_stock_linking_schedule(
+            session,
+            target_type=schedule.target_type,
+            target_key=schedule.target_key,
+            exclude_schedule_id=schedule.id,
+        )
+        if schedule.status == "active":
+            self._require_news_stock_linking_baseline(
+                session,
+                target_type=schedule.target_type,
+                target_key=schedule.target_key,
+            )
 
         schedule.updated_by_user_id = updated_by_user_id
         self.probe_binding_service.sync_for_schedule(session, schedule=schedule, actor_user_id=updated_by_user_id)
@@ -381,6 +431,28 @@ class OperationsScheduleService:
             target_type=schedule.target_type,
             target_key=schedule.target_key,
             exclude_schedule_id=schedule.id,
+        )
+        self._validate_news_stock_linking_schedule_contract(
+            target_type=schedule.target_type,
+            target_key=schedule.target_key,
+            schedule_type=schedule.schedule_type,
+            trigger_mode=schedule.trigger_mode,
+            cron_expr=schedule.cron_expr,
+            timezone_name=schedule.timezone,
+            calendar_policy=schedule.calendar_policy,
+            probe_config_json=dict(schedule.probe_config_json or {}),
+            params_json=dict(schedule.params_json or {}),
+        )
+        self._validate_unique_news_stock_linking_schedule(
+            session,
+            target_type=schedule.target_type,
+            target_key=schedule.target_key,
+            exclude_schedule_id=schedule.id,
+        )
+        self._require_news_stock_linking_baseline(
+            session,
+            target_type=schedule.target_type,
+            target_key=schedule.target_key,
         )
         before = self._snapshot(schedule)
         if schedule.schedule_type == "once":
@@ -502,6 +574,16 @@ class OperationsScheduleService:
                     session.refresh(task_run)
                     task_runs.append(task_run)
                 continue
+            if self._is_news_stock_linking_schedule(schedule):
+                task_run = self._process_news_stock_linking_schedule(
+                    session,
+                    schedule=schedule,
+                    current_time=current_time,
+                )
+                if task_run is not None:
+                    session.refresh(task_run)
+                    task_runs.append(task_run)
+                continue
             scheduled_at = self._stored_datetime(schedule.next_run_at) or current_time
             try:
                 context = self.task_run_service.build_schedule_task_context(
@@ -568,6 +650,88 @@ class OperationsScheduleService:
     @staticmethod
     def _is_heat_daily_schedule(schedule: OpsSchedule) -> bool:
         return schedule.target_type == "maintenance_action" and schedule.target_key == HEAT_DAILY_ACTION_KEY
+
+    @staticmethod
+    def _is_news_stock_linking_schedule(schedule: OpsSchedule) -> bool:
+        return (
+            schedule.target_type == "maintenance_action"
+            and schedule.target_key == NEWS_STOCK_LINKING_ACTION_KEY
+        )
+
+    def _process_news_stock_linking_schedule(
+        self,
+        session: Session,
+        *,
+        schedule: OpsSchedule,
+        current_time: datetime,
+    ) -> TaskRun | None:
+        if self.task_run_service.has_active_news_stock_linking_task(session):
+            self._advance_schedule_after_skipped_due_run(
+                session,
+                schedule=schedule,
+                current_time=current_time,
+            )
+            return None
+        context = self.task_run_service.build_schedule_task_context(
+            session,
+            target_type=schedule.target_type,
+            target_key=schedule.target_key,
+            params_json=dict(schedule.params_json or {}),
+            trigger_source="scheduled",
+            requested_by_user_id=None,
+            schedule_id=schedule.id,
+            calendar_policy=schedule.calendar_policy,
+            scheduled_at=current_time,
+            timezone_name=schedule.timezone,
+        )
+        try:
+            frozen_payload = self.task_run_service.prepare_task_run_payload(
+                session,
+                context=context,
+                task_frozen_at=current_time,
+            )
+        except NewsStockLinkingWindowEmpty:
+            self._advance_schedule_after_skipped_due_run(
+                session,
+                schedule=schedule,
+                current_time=current_time,
+            )
+            return None
+        if not NewsStockLinkingWindowResolver().window_has_news(session, frozen_payload):
+            self._advance_schedule_after_skipped_due_run(
+                session,
+                schedule=schedule,
+                current_time=current_time,
+            )
+            return None
+        try:
+            task_run = self.task_run_service.stage_task_run(
+                session,
+                context=context,
+                task_frozen_at=current_time,
+                prepared_request_payload=frozen_payload,
+            )
+        except WebAppError as exc:
+            if exc.status_code != 409 or exc.code != "conflict":
+                raise
+            self._advance_schedule_after_skipped_due_run(
+                session,
+                schedule=schedule,
+                current_time=current_time,
+            )
+            return None
+        schedule.last_triggered_at = current_time
+        schedule.next_run_at = self._resolve_next_run_at(
+            session=session,
+            schedule_type=schedule.schedule_type,
+            cron_expr=schedule.cron_expr,
+            timezone_name=schedule.timezone,
+            next_run_at=None,
+            calendar_policy=schedule.calendar_policy,
+            after=current_time,
+        )
+        session.commit()
+        return task_run
 
     @staticmethod
     def _validate_heat_schedule_contract(
@@ -662,6 +826,75 @@ class OperationsScheduleService:
                 code="heat_schedule.already_exists",
                 message="生产只允许一条板块热度自动任务，请更新已有任务",
             )
+
+    @staticmethod
+    def _validate_news_stock_linking_schedule_contract(
+        *,
+        target_type: str,
+        target_key: str,
+        schedule_type: str,
+        trigger_mode: str | None,
+        cron_expr: str | None,
+        timezone_name: str,
+        calendar_policy: str | None,
+        probe_config_json: dict | None,
+        params_json: dict,
+    ) -> None:
+        if target_type != "maintenance_action" or target_key != NEWS_STOCK_LINKING_ACTION_KEY:
+            return
+        if schedule_type != "cron" or str(trigger_mode or "schedule").strip().lower() != "schedule":
+            raise WebAppError(
+                status_code=422,
+                code="news_stock_linking.schedule_contract_invalid",
+                message="新闻关联自动任务只支持周期定时触发",
+            )
+        if timezone_name != NEWS_STOCK_LINKING_TIMEZONE:
+            raise WebAppError(
+                status_code=422,
+                code="news_stock_linking.schedule_contract_invalid",
+                message="新闻关联自动任务必须使用 Asia/Shanghai 时区",
+            )
+        if calendar_policy not in (None, "") or probe_config_json or params_json:
+            raise WebAppError(
+                status_code=422,
+                code="news_stock_linking.schedule_contract_invalid",
+                message="新闻关联自动任务禁止配置日期策略、探测参数或任务参数",
+            )
+        OperationsScheduleService._validate_intraday_interval_cron(cron_expr)
+
+    @staticmethod
+    def _validate_unique_news_stock_linking_schedule(
+        session: Session,
+        *,
+        target_type: str,
+        target_key: str,
+        exclude_schedule_id: int | None = None,
+    ) -> None:
+        if target_type != "maintenance_action" or target_key != NEWS_STOCK_LINKING_ACTION_KEY:
+            return
+        stmt = select(OpsSchedule.id).where(
+            OpsSchedule.target_type == "maintenance_action",
+            OpsSchedule.target_key == NEWS_STOCK_LINKING_ACTION_KEY,
+        )
+        if exclude_schedule_id is not None:
+            stmt = stmt.where(OpsSchedule.id != exclude_schedule_id)
+        if session.scalar(stmt.limit(1)) is not None:
+            raise WebAppError(
+                status_code=409,
+                code="news_stock_linking.schedule_already_exists",
+                message="新闻关联只允许一条自动任务，请更新已有任务",
+            )
+
+    @staticmethod
+    def _require_news_stock_linking_baseline(
+        session: Session,
+        *,
+        target_type: str,
+        target_key: str,
+    ) -> None:
+        if target_type != "maintenance_action" or target_key != NEWS_STOCK_LINKING_ACTION_KEY:
+            return
+        NewsStockLinkingWindowResolver().require_manual_baseline(session)
 
     def _process_heat_daily_schedule(
         self,

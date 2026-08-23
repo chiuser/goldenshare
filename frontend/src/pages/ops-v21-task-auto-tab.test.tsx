@@ -38,6 +38,16 @@ describe("自动任务日期策略", () => {
   const monthlyWindowCapability = capability("monthly_window_current_month", ["monthly"]);
   const annDateRangeCapability = capability("trigger_day_single_range", ["daily", "weekly", "monthly"]);
   const newsCapability = capability("trigger_day_point", ["intraday_interval"]);
+  const newsLinkingRepeatPolicyCapability = {
+    calendar_policy_rules: [],
+    repeat_policy: {
+      allowed_modes: ["intraday_interval"],
+      default_mode: "intraday_interval",
+      default_interval_minutes: 5,
+      minimum_interval_minutes: 3,
+      timezone: "Asia/Shanghai",
+    },
+  };
   const fundShareCapability = capability("trigger_day_point", ["daily", "weekly", "monthly", "intraday_interval"]);
   const fundPortfolioCapability = {
     calendar_policy_rules: [
@@ -204,6 +214,24 @@ describe("自动任务日期策略", () => {
     expect(formatScheduleRule("cron", "*/3 * * * *", null, "trigger_day_point")).toBe("每 3 分钟，维护触发日");
     expect(() => buildCronExpression("intraday_interval", "19:00", [], "1", "trigger_day_point", "2")).toThrow(
       "日内高频策略最小间隔为 3 分钟。",
+    );
+  });
+
+  it("uses repeat_policy for news-stock linking interval and existing Cron hydration", () => {
+    const repeatPolicy = newsLinkingRepeatPolicyCapability.repeat_policy;
+    expect(getAllowedCronRepeatModes(newsLinkingRepeatPolicyCapability as never)).toEqual(["intraday_interval"]);
+    expect(buildCronExpression("intraday_interval", "19:00", [], "1", "", "5", repeatPolicy)).toBe(
+      "*/5 * * * *",
+    );
+    expect(() => buildCronExpression("intraday_interval", "19:00", [], "1", "", "2", repeatPolicy)).toThrow(
+      "日内高频策略最小间隔为 3 分钟。",
+    );
+    expect(parseCronExpression("*/7 * * * *", null, true)).toMatchObject({
+      repeatMode: "intraday_interval",
+      intradayIntervalMinutes: "7",
+    });
+    expect(formatScheduleRule("cron", "*/7 * * * *", null, null, repeatPolicy)).toBe(
+      "每 7 分钟，按成功游标处理到本次实际触发时间",
     );
   });
 

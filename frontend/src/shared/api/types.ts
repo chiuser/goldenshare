@@ -574,6 +574,13 @@ export interface OpsAutomationCapability {
     timezone: string;
     display_text: string;
   } | null;
+  repeat_policy: {
+    allowed_modes: Array<"intraday_interval">;
+    default_mode: "intraday_interval";
+    default_interval_minutes: number;
+    minimum_interval_minutes: number;
+    timezone: string;
+  } | null;
   probe_conditions: Array<{
     kind: string;
     label: string;

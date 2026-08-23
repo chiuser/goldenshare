@@ -5,6 +5,7 @@ import { apiRequest } from "../../shared/api/client";
 import type { MarketTradeCalendarItem, MarketTradeCalendarResponse } from "../../shared/api/calendar-types";
 
 interface UseTradeCalendarFieldOptions {
+  enabled?: boolean;
   exchange?: string;
   value?: string;
 }
@@ -66,7 +67,7 @@ export function createTradingDayResolver(items: MarketTradeCalendarItem[]): Trad
   return (date: string) => tradingDayMap.get(date);
 }
 
-export function useTradeCalendarField({ exchange = "SSE", value = "" }: UseTradeCalendarFieldOptions) {
+export function useTradeCalendarField({ enabled = true, exchange = "SSE", value = "" }: UseTradeCalendarFieldOptions) {
   const [calendarDate, setCalendarDate] = useState(() => normalizeCalendarDate(value));
 
   useEffect(() => {
@@ -87,6 +88,7 @@ export function useTradeCalendarField({ exchange = "SSE", value = "" }: UseTrade
       apiRequest<MarketTradeCalendarResponse>(
         `/api/v1/market/trade-calendar?exchange=${encodeURIComponent(exchange)}&start_date=${range.startDate}&end_date=${range.endDate}`,
       ),
+    enabled,
     staleTime: 5 * 60 * 1000,
   });
 

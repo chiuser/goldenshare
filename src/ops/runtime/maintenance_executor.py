@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Protocol
+from typing import Any, Mapping, Protocol, runtime_checkable
+
+from src.foundation.kernel.contracts.ingestion_run_context import IngestionRunContext
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,7 +37,23 @@ class MaintenanceExecutionResult:
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True, slots=True)
+class MaintenanceTaskRunContext:
+    task_run_id: int
+    run_context: IngestionRunContext
+
+
 class MaintenanceExecutor(Protocol):
     def plan(self, request: MaintenanceExecutionRequest) -> MaintenanceExecutionPlan: ...
 
     def execute_unit(self, unit: MaintenanceExecutionUnit) -> MaintenanceExecutionResult: ...
+
+
+@runtime_checkable
+class TaskRunAwareMaintenanceExecutor(MaintenanceExecutor, Protocol):
+    def execute_unit_for_task_run(
+        self,
+        unit: MaintenanceExecutionUnit,
+        *,
+        context: MaintenanceTaskRunContext,
+    ) -> MaintenanceExecutionResult: ...

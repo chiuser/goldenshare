@@ -381,6 +381,34 @@ describe("任务详情页", () => {
     expect(screen.queryByRole("button", { name: "查看技术诊断" })).not.toBeInTheDocument();
   });
 
+  it("新闻关联运行中展示批次累计进度且不显示虚假百分比", async () => {
+    const view = createTaskRunView("running");
+    view.run.task_type = "maintenance_action";
+    view.run.action_key = "maintenance.materialize_news_stock_links";
+    view.run.title = "物化新闻—个股关联";
+    view.progress.unit_total = 1;
+    view.progress.unit_done = 0;
+    view.progress.progress_percent = 0;
+    view.progress.rows_fetched = 12_000;
+    view.progress.rows_saved = 42_752;
+    view.progress.current_object = {
+      title: "正在处理：新闻—个股关联",
+      description: "处理范围：2026-08-01T00:00:00+08:00 ~ 2026-08-23T19:01:16+08:00",
+      fields: [{ label: "类型", value: "批次 12：已处理新闻 12000，已生成关联 42752" }],
+    };
+    apiRequest.mockResolvedValue(view);
+
+    renderPage();
+
+    expect(await screen.findByText("批次级进度")).toBeInTheDocument();
+    expect(await screen.findByText("已处理新闻 12,000 / 已生成关联 42,752")).toBeInTheDocument();
+    expect((await screen.findAllByText("执行中")).length).toBeGreaterThan(0);
+    expect(screen.getByText("已处理新闻").parentElement).toHaveTextContent("12,000");
+    expect(screen.getByText("已生成关联").parentElement).toHaveTextContent("42,752");
+    expect(screen.queryByText("0 / 1")).not.toBeInTheDocument();
+    expect(screen.queryByText("0%")).not.toBeInTheDocument();
+  });
+
   it.each([
     {
       label: "第一页请求前",

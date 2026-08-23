@@ -14,6 +14,8 @@ from src.foundation.datasets.registry import (
 ParameterType = Literal["string", "date", "month", "integer", "boolean", "enum"]
 ActionType = Literal["dataset_action", "maintenance_action", "workflow"]
 WorkflowTimeRegime = Literal["trade_open_day", "natural_day", "none"]
+MaintenanceManualTimeRegime = Literal["none", "natural_day_range"]
+ScheduleRepeatMode = Literal["intraday_interval"]
 WORKFLOW_DOMAIN_KEY = "workflow"
 WORKFLOW_DOMAIN_DISPLAY_NAME = "工作流"
 WORKFLOW_GROUP_ORDER = 80
@@ -29,6 +31,15 @@ class ActionParameter:
     options: tuple[str, ...] = ()
     multi_value: bool = False
     default_value: Any | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class ScheduleRepeatPolicy:
+    allowed_modes: tuple[ScheduleRepeatMode, ...]
+    default_mode: ScheduleRepeatMode
+    default_interval_minutes: int
+    minimum_interval_minutes: int
+    timezone: str
 
 
 def dataset_field_default_value(field: DatasetInputField, enum_fanout_defaults: dict[str, tuple[str, ...]]) -> Any | None:
@@ -52,6 +63,8 @@ class MaintenanceActionDefinition:
     manual_enabled: bool = True
     schedule_enabled: bool = False
     retry_enabled: bool = True
+    manual_time_regime: MaintenanceManualTimeRegime = "none"
+    schedule_repeat_policy: ScheduleRepeatPolicy | None = None
     readiness_condition: str | None = None
     readiness_policy: Mapping[str, Any] = field(default_factory=dict)
 
@@ -133,14 +146,6 @@ EXECUTION_MODE_PARAM = ActionParameter(
     description="PLAN 只冻结回放计划，APPLY 按已成功计划执行。",
     required=True,
     options=("PLAN", "APPLY"),
-)
-NEWS_LINK_MODE_PARAM = ActionParameter(
-    key="mode",
-    display_name="执行模式",
-    param_type="enum",
-    description="首次执行自动全量初始化；已有成功游标后按 fetched_at 增量处理。",
-    options=("full", "incremental"),
-    default_value="incremental",
 )
 PLAN_TASK_RUN_ID_PARAM = ActionParameter(
     key="plan_task_run_id",
@@ -254,16 +259,37 @@ MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
         description="按规则将 core_serving_light.news 关联到股票代码，供股票详情页展示。",
         executor_key="news_stock_linking",
         execution_config={"target_tables": ("core_serving.news_stock_link",)},
-        parameters=(NEWS_LINK_MODE_PARAM,),
+        parameters=(
+            ActionParameter(
+                key="start_date",
+                display_name="开始日期",
+                param_type="date",
+                description="按上海自然日选择新闻范围的开始日期。",
+                required=True,
+            ),
+            ActionParameter(
+                key="end_date",
+                display_name="截止日期",
+                param_type="date",
+                description="按上海自然日选择新闻范围的截止日期；截止日期包含整天。",
+                required=True,
+            ),
+        ),
         default_params={
-            "mode": "incremental",
-            "overlap_seconds": 3600,
             "rule_version": "news-stock-rule-v1",
             "news_scope": "all",
         },
         manual_enabled=True,
         schedule_enabled=True,
         retry_enabled=True,
+        manual_time_regime="natural_day_range",
+        schedule_repeat_policy=ScheduleRepeatPolicy(
+            allowed_modes=("intraday_interval",),
+            default_mode="intraday_interval",
+            default_interval_minutes=5,
+            minimum_interval_minutes=3,
+            timezone="Asia/Shanghai",
+        ),
     ),
 }
 

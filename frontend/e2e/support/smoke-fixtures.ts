@@ -663,6 +663,8 @@ function mockTaskAuto(route: Route, pathname: string) {
           automation_capability: {
             version: 1,
             default_trigger_mode: "schedule",
+            calendar_policy_rules: [],
+            repeat_policy: null,
             trigger_options: [
               { mode: "schedule", allowed_schedule_types: ["cron", "once"] },
               { mode: "probe", allowed_schedule_types: ["cron", "once"] },
@@ -730,6 +732,8 @@ function mockTaskAuto(route: Route, pathname: string) {
           automation_capability: {
             version: 1,
             default_trigger_mode: "probe",
+            calendar_policy_rules: [],
+            repeat_policy: null,
             trigger_options: [{ mode: "probe", allowed_schedule_types: ["cron", "once"] }],
             probe_conditions: [
               {

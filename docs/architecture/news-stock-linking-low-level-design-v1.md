@@ -5,8 +5,8 @@
 - 文档类型：低层设计（LLD）
 - 依据方案：[新闻—个股关联技术方案 v1](./news-stock-linking-technical-solution-v1.md)
 - 审计基准：2026-08-23 当前工作区代码、测试和数据模型
-- 当前状态：M0～M6 主链和批次级实时进度增强已实现；`news_time` 手动范围与可配置自动增量尚待开发
-- 本文目的：记录当前实现事实，并给出下一轮时间范围与自动增量改造的文件落点、调用链、事务边界和验收契约
+- 当前状态：M0～M6、批次级实时进度、`news_time` 手动范围与可配置自动增量均已在当前工作区实现；尚未部署
+- 本文目的：记录最终实现事实、文件落点、调用链、事务边界和验收契约
 
 本文记录的是当前工作区代码事实，不据此宣称已经上线；生产迁移、回填、Schedule 启用和部署验收仍以实际运行记录为准。
 
@@ -42,12 +42,12 @@
 4. `news_time` 同时负责物化范围、批次 keyset、历史名称生效判断、API 时间过滤和最终排序；`fetched_at` 只保留为新闻源事实字段。
 5. 自动任务记录由运营部署后创建和启用；本次代码不能 seed、创建或修改生产 Schedule。
 
-### 1.3 实施前门禁
+### 1.3 实施与上线门禁
 
-这些事项需要开发时核验，但不阻塞本 LLD，也不构成新的产品拍板项：
+这些事项不构成新的产品拍板项：
 
-- 创建 migration 前重新读取当时真实 Alembic head，`down_revision` 只能接真实 head。
-- 用生产只读 SQL/EXPLAIN 核验 `news_time` 范围条件和 `news_time,row_key_hash` keyset 的查询计划。
+- 本轮没有新增 migration 或数据库结构变更。
+- 2026-08-23 已用生产只读 `EXPLAIN` 核验范围 + keyset SQL：命中 `idx_raw_tushare_news_time`，同时间戳通过 Incremental Sort 完成 `row_key_hash ASC`；没有使用 `ANALYZE`，没有读取业务行。
 - 全量回填前测量新闻行数、识别耗时、关联行数、批次提交耗时和 API 查询计划。
 - 全新初始化上线前先完成一次成功手动历史范围物化；若已有旧 Full 结果，则按 12.13 执行桥接范围。之后再由运营创建唯一的新闻关联 Schedule 并配置间隔。
 
@@ -65,13 +65,13 @@
 | 股票详情页面 | `wealth/src/pages/stock-detail/StockDetailPage.tsx` | 已存在；新闻不进入 page-init/K 线链路 |
 | 右侧 Tab | `wealth/src/features/stock-detail/sidebar/StockInfoRail.tsx` | 已实现“盘口”“资料”“新闻”三个 Tab，保持 36px 高度 |
 | 关联表/ORM/DAO | `alembic/versions/20260823_000145_add_news_stock_link.py`、`src/foundation/models/core_serving/news_stock_link.py`、`src/foundation/dao/news_stock_link_dao.py` | 已实现；主键 `(news_id, ts_code)`，只增加 `ts_code` 索引 |
-| 物化服务 | `src/ops/services/news_stock_linking_service.py` | 已实现批次 delete/upsert、独立提交和实时进度；当前仍按 `fetched_at` 窗口/keyset，待切换 `news_time` |
+| 物化服务 | `src/ops/services/news_stock_linking_service.py` | 已实现 `news_time ASC, row_key_hash ASC` 范围/keyset、批次 delete/upsert、独立提交和实时进度 |
 | TaskRun executor | `src/app/runtime/news_stock_linking_task_executor.py`、`src/ops/runtime/maintenance_executor.py`、`src/ops/runtime/task_run_dispatcher.py` | 已实现；单窗口单 unit，批次进度通过 action-specific TaskRun 运行上下文写回，dispatcher 保留终态权威写回 |
 | 股票详情新闻 API | `src/biz/queries/wealth/market/stock_detail/news_query.py`、`src/biz/api/wealth/market/stock_detail_news.py` | 已实现；完整 `news_time DESC` 和 `row_key_hash ASC` tie-breaker |
 | Wealth 新闻 feature | `wealth/src/features/stock-detail/news/**` | 已实现；点击懒加载、AbortController、四态、原样保持 API 顺序 |
 | Ops TaskRun 主链 | `src/ops/services/task_run_service.py`、`src/ops/runtime/worker.py`、`src/ops/runtime/task_run_dispatcher.py` | 已存在；支持 dataset、workflow、maintenance 三类任务 |
-| 手动任务时间表单 | `src/ops/queries/manual_action_query_service.py`、`src/ops/services/manual_action_service.py` | 已支持 `start_date/end_date`；当前 maintenance range 被推导为交易日范围，新闻动作需声明自然日范围 |
-| 自动任务能力 | `src/ops/services/schedule_automation_capability_resolver.py`、`src/ops/services/operations_schedule_service.py`、`frontend/src/pages/ops-v21-task-auto-tab.tsx` | 已支持 Schedule 启停和 Cron；普通 maintenance action 当前不开放每 N 分钟 |
+| 手动任务时间表单 | `src/ops/queries/manual_action_query_service.py`、`src/ops/services/manual_action_service.py` | 新闻动作已声明必填上海自然日范围，复用通用日期格式和顺序校验；不调用交易日历 |
+| 自动任务能力 | `src/ops/services/schedule_automation_capability_resolver.py`、`src/ops/services/operations_schedule_service.py`、`frontend/src/pages/ops-v21-task-auto-tab.tsx` | 新闻动作已通过通用 `repeat_policy` 开放 Cron 日内间隔，默认 5 分钟、最小 3 分钟，并实现唯一 Schedule、基线门禁和触发合并 |
 
 ### 2.2 已存在但不能直接复用的部分
 
@@ -102,9 +102,9 @@
 这不是关联表正确性缺陷，而是运行观测延迟和单 unit 进度展示缺陷。当前实现已经通过批次 commit 后累计快照、独立
 TaskRun observer、固定 3 秒节流和新闻动作专属页面展示修复；没有修改关联表、API 或算法规则。
 
-### 2.4 本轮时间契约审计发现
+### 2.4 本轮时间契约实施对账
 
-| 当前代码点 | 当前行为 | 目标修改 |
+| 代码点 | 替换前行为 | 当前实现 |
 |---|---|---|
 | `src/ops/action_catalog.py` | 新闻动作参数为 `mode=full/incremental`，默认带 `overlap_seconds=3600` | 替换为手动 `start_date/end_date` 自然日范围；Schedule 静态参数为空 |
 | `TaskRunCommandService._freeze_news_stock_linking_payload` | 用 `datetime.now()` 冻结上界；无成功游标自动 Full；增量起点减 1 小时 | 按 trigger source 解析 `manual_range/scheduled_incremental`，生成 `cursor_end`，无初始化基线拒绝自动任务 |
@@ -116,7 +116,7 @@ TaskRun observer、固定 3 秒节流和新闻动作专属页面展示修复；�
 | `ScheduleAutomationCapabilityResolver` | 普通 maintenance action 只开放日/周/月，允许 once | 新闻动作只开放 Cron 日内 `*/N`，推荐 5 分钟、最小 3 分钟 |
 | `OperationsScheduleService` | 重复 active TaskRun 触发 409；允许多条新闻 Schedule | 自动触发时合并跳过；新闻动作只允许一条 Schedule |
 
-以上均是待开发目标。关联表、识别内核、股票详情新闻 API、Wealth 新闻 Tab 和实时进度的基本事务隔离不需要重写。
+以上目标均已实现。关联表、识别内核、股票详情新闻 API、Wealth 新闻 Tab 和实时进度事务隔离未被重写。
 
 ## 3. 端到端调用链
 
@@ -863,7 +863,7 @@ Tab 顺序固定为：
 
 继续保留 `tests/test_stock_news_linker.py` 的现有覆盖：代码/全称/简称独立命中、并集去重、匹配优先级、source field、代码边界、简称第一条、历史名称区间、非股票过滤、文本标准化、输入错误。
 
-### 10.2 物化服务与范围任务（本轮需更新）
+### 10.2 物化服务与范围任务（当前实现）
 
 `tests/test_news_stock_linking_service.py` 和 `tests/test_news_stock_task_runtime.py` 至少覆盖：
 
@@ -917,7 +917,7 @@ Tab 顺序固定为：
 
 新增反例：进度诊断、`last_cursor` 和 `current_object.time.field` 必须显示 `news_time`，不得残留 `fetched_at` 或 `overlap_seconds`。
 
-### 10.6 手动入口、自动能力与调度（本轮新增）
+### 10.6 手动入口、自动能力与调度（当前实现）
 
 后端：
 
@@ -934,7 +934,7 @@ Tab 顺序固定为：
 
 前端：
 
-1. `frontend/src/pages/ops-v21-task-manual-tab.test.tsx` 验证新闻动作只显示自然日开始/截止日期，截止日期文案明确“包含当天”。
+1. `frontend/src/pages/ops-v21-task-manual-tab.test.tsx` 验证新闻动作只显示自然日开始/截止日期、不请求交易日历，并原样提交起止自然日；`tests/web/test_ops_manual_actions_api.py` 验证 capability 描述明确“截止日期包含整天”。
 2. `frontend/src/pages/ops-v21-task-auto-tab.test.tsx` 验证页面由 `repeat_policy` 展示可配置日内间隔，默认 5、最小 3；不按 action key 特判。
 3. 自动任务详情能显示当前 cron、开关状态和时区；不出现手动日期输入、新闻窗口或 overlap 参数。
 
@@ -943,7 +943,7 @@ Tab 顺序固定为：
 ### 11.1 当前实现基线
 
 1. 关联表、ORM、DAO、算法内核、词典加载、批次 delete/upsert、独立事务、实时进度、股票详情 API 和新闻 Tab 已实现，继续复用。
-2. 当前 M3/M4 的 `mode=full/incremental`、`fetched_at` 游标、overlap 和首次自动 Full 已被本方案废止，是本轮必须替换的代码事实，不能视为目标验收。
+2. 旧 `mode=full/incremental`、`fetched_at` 游标、overlap 和首次自动 Full 已从新任务消费者中清零；只在严格拒绝旧 payload 的负向校验和历史说明中保留名称。
 3. 现有 API 的完整 `news_time DESC, row_key_hash ASC` 排序和前端保持数组顺序不变；它们与本轮物化窗口改造没有契约冲突。
 
 ### 11.2 已完成的批次级实时进度增强
@@ -958,9 +958,9 @@ Tab 顺序固定为：
 5. **P4 任务详情展示**：只对 `maintenance.materialize_news_stock_links` 显示累计“已处理新闻/已生成关联”和不确定进度状态；其他任务页面逻辑不变。
 6. **P5 测试与本地验收**：完成 commit 时序、累计统计、observer 隔离、节流、终态、dispatcher 最终一致性和前端回归测试；验证现有 TaskRun view API 无需改契约。
 
-### 11.3 本轮代码开发顺序
+### 11.3 本轮代码实施结果
 
-只按以下顺序修改，不扩展到其他动作或数据集：
+已按以下顺序完成，没有扩展到其他动作或数据集：
 
 1. **R0 契约门禁**：把 action catalog 的旧 `mode` 替换为自然日范围和日内间隔能力元数据；先更新 action catalog、manual action、automation capability 的契约测试。
 2. **R1 手动入口**：修改 `src/ops/queries/manual_action_query_service.py`、必要 schema/adapter 和手动任务页面，使新闻动作输出并提交自然日 range；复用通用 resolver 的范围校验。
@@ -972,7 +972,14 @@ Tab 顺序固定为：
 6. **R5 调度语义**：修改 `src/ops/services/operations_schedule_service.py` 及现有 scheduler enqueue 链，落实唯一 Schedule、基线门禁、空窗口跳过和活跃任务合并；不改其他 action 行为。
 7. **R6 回归与清零**：更新 10.2、10.5、10.6 所列测试；全仓检索清零该 action 的旧字段消费者；执行后端定向/全量测试、前端 typecheck/test/build 和文档完整性检查。
 
-预计修改文件严格限于上述真实调用链及对应 schema/types/tests；不修改算法内核、关联表模型/DAO、股票详情 API、Wealth 新闻 Tab、市场总览新闻和其他维护动作业务逻辑。
+修改文件严格限于上述真实调用链及对应 schema/types/tests；没有修改算法内核、关联表模型/DAO、股票详情 API、Wealth 新闻 Tab、市场总览新闻和其他维护动作业务逻辑。
+
+本轮最终本地验证结果（2026-08-23）：
+
+1. 新闻关联、TaskRun、Schedule、catalog、manual API、依赖矩阵和 Heat 守卫定向套件 `269 passed`。
+2. 前端 `typecheck`、`check:rules`、`149` 条单元测试、生产构建和 `13` 条 smoke 全部通过；构建仅保留既有大 chunk 警告。
+3. 默认 `pytest -q` 在收集阶段被一个已不存在的 Lake Console 模块和两个同名测试模块阻塞；用 importlib 隔离并排除该缺失模块后，仓库其余测试为 `1984 passed, 10 failed, 10 skipped`。失败项位于既有架构守卫、Lake Console、CLI、ETF 报告和板块总览范围，不在本需求改动白名单内，本轮没有越界修复。
+4. 生产只读 `EXPLAIN` 命中 `idx_raw_tushare_news_time`，并使用 Incremental Sort 完成 `row_key_hash` tie-breaker；未执行 `ANALYZE`、数据写入或 migration。
 
 ### 11.4 明确不在本轮开发范围
 
@@ -981,7 +988,7 @@ Tab 顺序固定为：
 - 不修改市场总览新闻逻辑、K 线、盘口和资料 Tab。
 - 不执行生产 migration、生产回填、Schedule 创建/启用或部署；运营部署后自行配置自动任务。
 
-现有运行中任务不会热加载本轮待开发实现。旧契约成功任务也不会自动成为新 `news_time` 游标；部署后需按 12.9 的切换步骤建立一次新基线。
+现有运行中任务不会热加载本轮实现。旧契约成功任务也不会自动成为新 `news_time` 游标；部署后需按 12.13 的切换步骤建立一次新基线。
 
 ## 12. 风险与当前判断
 
@@ -995,9 +1002,9 @@ Tab 顺序固定为：
 8. observer 失败采用 fail-soft，代价是页面可能短暂停留在上一个快照，但不能以观测可见性换取业务事务回滚。
 9. 自动增量严格按 `news_time` 向前推进。若新闻在游标推进后才写入、但其 `news_time` 早于游标，自动任务不会回看；这是已接受限制，运营需手动补跑对应自然日期范围。
 10. 自动任务无新闻或与活跃任务重叠时不创建失败/空 TaskRun；因此 Schedule 的触发次数不等于 TaskRun 数量，观测口径以实际创建任务和成功游标为准。
-11. `core_serving_light.news` 当前已有 `news_time` 及 `(src, news_time)` 索引，本轮不计划 migration；开发验收仍需对范围 + keyset SQL 做 `EXPLAIN`，若未命中索引必须停下重新评审，不能顺手加索引。
+11. `core_serving_light.news` 当前已有 `news_time` 及 `(src, news_time)` 索引，本轮没有 migration；生产只读 `EXPLAIN` 已确认使用 `idx_raw_tushare_news_time`，并通过 Incremental Sort 完成同时间戳 tie-breaker。
 12. 截止日期包含整天会生成可能晚于当前时间的 `window_end`；手动任务可以安全扫描完整范围，但基线使用
     `cursor_end=min(window_end, task_frozen_at)`，不能把尚未发生的当天后续时间误记为已覆盖。
 13. 切换到新版本时，旧 Full 任务即使成功也没有新契约游标。无需重新跑全部历史；部署后应手动运行一个覆盖“旧 Full 冻结时间至当前时间”所在自然日期的范围任务，成功后再创建/恢复自动 Schedule。
 
-当前没有新的业务口径需要拍板。开发门禁是：按第 11.3 节实现并通过测试后，由运营执行第 12.13 节的基线切换和自动任务配置；本轮文档不执行这些生产动作。
+当前没有新的业务口径需要拍板。本地验证结果已记录在第 11.3 节；剩余门禁仅是由运营执行第 12.13 节的部署、基线切换和自动任务配置，本轮不执行这些生产动作。

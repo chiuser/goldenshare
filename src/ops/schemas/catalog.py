@@ -90,6 +90,14 @@ class FixedScheduleCapabilityResponse(BaseModel):
     display_text: str
 
 
+class RepeatPolicyCapabilityResponse(BaseModel):
+    allowed_modes: list[Literal["intraday_interval"]]
+    default_mode: Literal["intraday_interval"]
+    default_interval_minutes: int
+    minimum_interval_minutes: int
+    timezone: str
+
+
 class AutomationCapabilityResponse(BaseModel):
     version: Literal[1]
     default_trigger_mode: Literal["schedule", "probe", "schedule_probe_fallback"]
@@ -98,6 +106,7 @@ class AutomationCapabilityResponse(BaseModel):
     calendar_policy_rules: list[CalendarPolicyCapabilityResponse]
     time_input_contract: AutomationTimeInputContractResponse | None = None
     fixed_schedule: FixedScheduleCapabilityResponse | None = None
+    repeat_policy: RepeatPolicyCapabilityResponse | None = None
 
 
 class ActionCatalogItem(BaseModel):

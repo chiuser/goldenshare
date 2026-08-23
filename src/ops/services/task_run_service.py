@@ -28,11 +28,8 @@ from src.ops.models.ops.task_run import TaskRun
 from src.ops.contracts.external_task import ExternalTaskDefinition
 from src.ops.services.dataset_schedule_time_policy_resolver import DatasetScheduleTimePolicyResolver
 from src.ops.services.ingestion_error_presentation import present_ingestion_error
-from src.ops.services.news_stock_linking_service import (
-    DEFAULT_OVERLAP_SECONDS,
-    NEWS_STOCK_LINKING_ACTION_KEY,
-    NEWS_STOCK_RULE_VERSION,
-)
+from src.ops.services.news_stock_linking_service import NEWS_STOCK_LINKING_ACTION_KEY
+from src.ops.services.news_stock_linking_window_resolver import NewsStockLinkingWindowResolver
 
 
 NEWS_STOCK_LINKING_ADVISORY_LOCK_KEY = 8_491_716_203
@@ -182,20 +179,28 @@ class TaskRunCommandService:
         session.refresh(task_run)
         return task_run
 
-    def stage_task_run(self, session: Session, *, context: TaskRunCreateContext) -> TaskRun:
+    def stage_task_run(
+        self,
+        session: Session,
+        *,
+        context: TaskRunCreateContext,
+        task_frozen_at: datetime | None = None,
+        prepared_request_payload: dict[str, Any] | None = None,
+    ) -> TaskRun:
         """Build and flush a TaskRun in the caller's transaction without committing."""
         self._validate_context(context)
-        now = datetime.now(timezone.utc)
+        now = task_frozen_at or datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            raise ValueError("task_frozen_at must include a timezone")
+        now = now.astimezone(timezone.utc)
         title = self._resolve_title(context)
-        request_payload = {
-            **dict(context.request_payload or {}),
-            "task_type": context.task_type,
-            "resource_key": context.resource_key,
-            "action": context.action,
-            "time_input": dict(context.time_input or {}),
-            "filters": dict(context.filters or {}),
-        }
-        request_payload = self._freeze_news_stock_linking_payload(session, request_payload)
+        request_payload = (
+            dict(prepared_request_payload)
+            if prepared_request_payload is not None
+            else self.prepare_task_run_payload(session, context=context, task_frozen_at=now)
+        )
+        if self._is_news_stock_linking_payload(request_payload):
+            NewsStockLinkingWindowResolver().validate_frozen_payload(request_payload)
         self._ensure_news_stock_linking_not_running(session, request_payload)
         task_run = TaskRun(
             task_type=context.task_type,
@@ -216,64 +221,46 @@ class TaskRunCommandService:
         session.flush()
         return task_run
 
-    @staticmethod
-    def _freeze_news_stock_linking_payload(session: Session, payload: dict[str, Any]) -> dict[str, Any]:
-        target_key = str(payload.get("target_key") or "").strip()
-        if payload.get("task_type") != "maintenance_action" or target_key != NEWS_STOCK_LINKING_ACTION_KEY:
-            return payload
-
-        requested_mode = str(payload.get("mode") or "incremental").strip().lower()
-        if requested_mode not in {"full", "incremental"}:
-            raise WebAppError(status_code=422, code="validation_error", message="新闻关联执行模式必须是 full 或 incremental")
-
-        window_end = datetime.now(timezone.utc)
-        overlap_seconds = DEFAULT_OVERLAP_SECONDS if requested_mode == "incremental" else 0
-        window_start: datetime | None = None
-        mode = requested_mode
-        if requested_mode == "incremental":
-            previous_payload = next(
-                (
-                    candidate
-                    for candidate in session.scalars(
-                        select(TaskRun.request_payload_json)
-                        .where(TaskRun.task_type == "maintenance_action")
-                        .where(TaskRun.status == "success")
-                        .order_by(TaskRun.ended_at.desc(), TaskRun.id.desc())
-                    )
-                    if isinstance(candidate, dict) and candidate.get("target_key") == NEWS_STOCK_LINKING_ACTION_KEY
-                ),
-                None,
-            )
-            previous_end = None
-            if isinstance(previous_payload, dict) and previous_payload.get("target_key") == NEWS_STOCK_LINKING_ACTION_KEY:
-                raw_previous_end = previous_payload.get("window_end")
-                if raw_previous_end not in (None, ""):
-                    try:
-                        previous_end = datetime.fromisoformat(str(raw_previous_end).replace("Z", "+00:00"))
-                    except ValueError as exc:
-                        raise WebAppError(
-                            status_code=422,
-                            code="validation_error",
-                            message="新闻关联成功游标的 window_end 无法解析",
-                        ) from exc
-            if previous_end is None:
-                mode = "full"
-                overlap_seconds = 0
-            else:
-                if previous_end.tzinfo is None:
-                    previous_end = previous_end.replace(tzinfo=timezone.utc)
-                window_start = previous_end - timedelta(seconds=overlap_seconds)
-
-        return {
-            **payload,
-            "target_key": NEWS_STOCK_LINKING_ACTION_KEY,
-            "mode": mode,
-            "window_start": window_start.isoformat() if window_start else None,
-            "window_end": window_end.isoformat(),
-            "overlap_seconds": overlap_seconds,
-            "rule_version": str(payload.get("rule_version") or NEWS_STOCK_RULE_VERSION),
-            "news_scope": "all",
+    def prepare_task_run_payload(
+        self,
+        session: Session,
+        *,
+        context: TaskRunCreateContext,
+        task_frozen_at: datetime,
+    ) -> dict[str, Any]:
+        payload = {
+            **dict(context.request_payload or {}),
+            "task_type": context.task_type,
+            "resource_key": context.resource_key,
+            "action": context.action,
+            "time_input": dict(context.time_input or {}),
+            "filters": dict(context.filters or {}),
         }
+        if not self._is_news_stock_linking_payload(payload):
+            return payload
+        return NewsStockLinkingWindowResolver().freeze_payload(
+            session,
+            trigger_source=context.trigger_source,
+            time_input=dict(context.time_input or {}),
+            request_payload=payload,
+            task_frozen_at=task_frozen_at,
+        )
+
+    @staticmethod
+    def _is_news_stock_linking_payload(payload: dict[str, Any]) -> bool:
+        return (
+            payload.get("task_type") == "maintenance_action"
+            and str(payload.get("target_key") or "").strip() == NEWS_STOCK_LINKING_ACTION_KEY
+        )
+
+    @staticmethod
+    def has_active_news_stock_linking_task(session: Session) -> bool:
+        active_runs = session.scalars(
+            select(TaskRun)
+            .where(TaskRun.task_type == "maintenance_action")
+            .where(TaskRun.status.in_(("queued", "running", "canceling")))
+        ).all()
+        return any((run.request_payload_json or {}).get("target_key") == NEWS_STOCK_LINKING_ACTION_KEY for run in active_runs)
 
     @staticmethod
     def _ensure_news_stock_linking_not_running(session: Session, payload: dict[str, Any]) -> None:
@@ -281,12 +268,7 @@ class TaskRunCommandService:
             return
         if session.get_bind().dialect.name == "postgresql":
             session.execute(select(func.pg_advisory_xact_lock(NEWS_STOCK_LINKING_ADVISORY_LOCK_KEY)))
-        active_runs = session.scalars(
-            select(TaskRun)
-            .where(TaskRun.task_type == "maintenance_action")
-            .where(TaskRun.status.in_(("queued", "running", "canceling")))
-        ).all()
-        if any((run.request_payload_json or {}).get("target_key") == NEWS_STOCK_LINKING_ACTION_KEY for run in active_runs):
+        if TaskRunCommandService.has_active_news_stock_linking_task(session):
             raise WebAppError(status_code=409, code="conflict", message="新闻关联维护任务已有 queued/running/canceling 任务")
 
     @staticmethod

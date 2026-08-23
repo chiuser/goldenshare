@@ -128,6 +128,15 @@ class FixedScheduleCapability:
 
 
 @dataclass(frozen=True, slots=True)
+class RepeatPolicyCapability:
+    allowed_modes: tuple[Literal["intraday_interval"], ...]
+    default_mode: Literal["intraday_interval"]
+    default_interval_minutes: int
+    minimum_interval_minutes: int
+    timezone: str
+
+
+@dataclass(frozen=True, slots=True)
 class AutomationCapability:
     version: Literal[1]
     default_trigger_mode: TriggerMode
@@ -136,6 +145,7 @@ class AutomationCapability:
     calendar_policy_rules: tuple[DatasetScheduleTimePolicyCapability, ...]
     time_input_contract: "AutomationTimeInputContract | None" = None
     fixed_schedule: FixedScheduleCapability | None = None
+    repeat_policy: RepeatPolicyCapability | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -204,6 +214,18 @@ class ScheduleAutomationCapabilityResolver:
             action = get_maintenance_action(target_key)
             if action is None or not action.schedule_enabled:
                 return None
+            if action.schedule_repeat_policy is not None:
+                policy = action.schedule_repeat_policy
+                return self._schedule_only_capability(
+                    allowed_schedule_types=("cron",),
+                    repeat_policy=RepeatPolicyCapability(
+                        allowed_modes=policy.allowed_modes,
+                        default_mode=policy.default_mode,
+                        default_interval_minutes=policy.default_interval_minutes,
+                        minimum_interval_minutes=policy.minimum_interval_minutes,
+                        timezone=policy.timezone,
+                    ),
+                )
             if action.readiness_condition is not None:
                 initial_check = str(action.readiness_policy["initial_check_local_time"])
                 hour_text, minute_text = initial_check.split(":", maxsplit=2)[:2]
@@ -575,6 +597,7 @@ class ScheduleAutomationCapabilityResolver:
         time_input_contract: AutomationTimeInputContract | None = None,
         allowed_schedule_types: tuple[ScheduleType, ...] = DEFAULT_SCHEDULE_TYPES,
         fixed_schedule: FixedScheduleCapability | None = None,
+        repeat_policy: RepeatPolicyCapability | None = None,
     ) -> AutomationCapability:
         return AutomationCapability(
             version=1,
@@ -584,6 +607,7 @@ class ScheduleAutomationCapabilityResolver:
             calendar_policy_rules=calendar_policy_rules,
             time_input_contract=time_input_contract,
             fixed_schedule=fixed_schedule,
+            repeat_policy=repeat_policy,
         )
 
     @staticmethod

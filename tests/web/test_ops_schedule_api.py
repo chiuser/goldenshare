@@ -11,8 +11,63 @@ from sqlalchemy import select
 
 from src.app.exceptions import WebAppError
 from src.ops.models.ops.probe_rule import ProbeRule
+from src.ops.models.ops.task_run import TaskRun
 from src.ops.services.schedule_automation_capability_resolver import ScheduleAutomationCapabilityResolver
 from src.ops.services.schedule_probe_binding_service import ScheduleProbeBindingService
+
+
+NEWS_STOCK_LINKING_ACTION_KEY = "maintenance.materialize_news_stock_links"
+
+
+def _seed_news_linking_baseline(db_session, *, cursor_end: str = "2026-08-23T10:00:00+00:00") -> TaskRun:
+    task_run = TaskRun(
+        task_type="maintenance_action",
+        resource_key=None,
+        action="maintain",
+        title="物化新闻—个股关联",
+        trigger_source="manual",
+        status="success",
+        time_input_json={"mode": "range", "start_date": "2026-08-23", "end_date": "2026-08-23"},
+        filters_json={},
+        request_payload_json={
+            "task_type": "maintenance_action",
+            "resource_key": None,
+            "action": "maintain",
+            "target_type": "maintenance_action",
+            "target_key": NEWS_STOCK_LINKING_ACTION_KEY,
+            "time_input": {"mode": "range", "start_date": "2026-08-23", "end_date": "2026-08-23"},
+            "filters": {},
+            "run_mode": "manual_range",
+            "window_field": "news_time",
+            "window_start": "2026-08-22T16:00:00+00:00",
+            "window_end": "2026-08-23T16:00:00+00:00",
+            "cursor_end": cursor_end,
+            "task_frozen_at": cursor_end,
+            "rule_version": "news-stock-rule-v1",
+            "news_scope": "all",
+        },
+        requested_at=datetime.now(ZoneInfo("UTC")),
+        ended_at=datetime.now(ZoneInfo("UTC")),
+    )
+    db_session.add(task_run)
+    db_session.commit()
+    db_session.refresh(task_run)
+    return task_run
+
+
+def _news_linking_schedule_payload(**changes) -> dict:
+    return {
+        "target_type": "maintenance_action",
+        "target_key": NEWS_STOCK_LINKING_ACTION_KEY,
+        "display_name": "新闻个股自动增量",
+        "schedule_type": "cron",
+        "trigger_mode": "schedule",
+        "cron_expr": "*/5 * * * *",
+        "timezone": "Asia/Shanghai",
+        "calendar_policy": None,
+        "params_json": {},
+        **changes,
+    }
 
 
 def test_ops_schedule_list_rejects_non_admin(app_client, user_factory) -> None:
@@ -115,6 +170,148 @@ def test_ops_schedule_create_allows_only_the_fixed_heat_automation_contract(app_
     duplicate = app_client.post("/api/v1/ops/schedules", headers=headers, json=payload)
     assert duplicate.status_code == 409
     assert duplicate.json()["code"] == "heat_schedule.already_exists"
+
+
+def test_ops_schedule_news_linking_requires_new_contract_baseline(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {login.json()['token']}"},
+        json=_news_linking_schedule_payload(),
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "news_stock_linking.baseline_required"
+
+
+def test_ops_schedule_news_linking_accepts_three_minutes_and_rejects_duplicate(
+    app_client,
+    user_factory,
+    db_session,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    headers = {"Authorization": f"Bearer {login.json()['token']}"}
+    _seed_news_linking_baseline(db_session)
+
+    created = app_client.post(
+        "/api/v1/ops/schedules",
+        headers=headers,
+        json=_news_linking_schedule_payload(cron_expr="*/3 * * * *"),
+    )
+
+    assert created.status_code == 200
+    assert created.json()["cron_expr"] == "*/3 * * * *"
+    assert created.json()["params_json"] == {}
+    duplicate = app_client.post(
+        "/api/v1/ops/schedules",
+        headers=headers,
+        json=_news_linking_schedule_payload(),
+    )
+    assert duplicate.status_code == 409
+    assert duplicate.json()["code"] == "news_stock_linking.schedule_already_exists"
+
+
+@pytest.mark.parametrize(
+    "changes",
+    (
+        {"cron_expr": "*/2 * * * *"},
+        {"cron_expr": "5 * * * *"},
+        {"timezone": "UTC"},
+        {"schedule_type": "once", "cron_expr": None, "next_run_at": "2026-08-24T10:00:00+00:00"},
+        {"params_json": {"start_date": "2026-08-23", "end_date": "2026-08-23"}},
+        {"calendar_policy": "trigger_day_single_range"},
+    ),
+)
+def test_ops_schedule_news_linking_rejects_contract_drift(
+    app_client,
+    user_factory,
+    db_session,
+    changes: dict,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    _seed_news_linking_baseline(db_session)
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {login.json()['token']}"},
+        json=_news_linking_schedule_payload(**changes),
+    )
+
+    assert response.status_code == 422
+
+
+def test_ops_schedule_news_linking_resume_revalidates_baseline(
+    app_client,
+    user_factory,
+    db_session,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    headers = {"Authorization": f"Bearer {login.json()['token']}"}
+    baseline = _seed_news_linking_baseline(db_session)
+    created = app_client.post("/api/v1/ops/schedules", headers=headers, json=_news_linking_schedule_payload())
+    assert created.status_code == 200
+    schedule_id = created.json()["id"]
+    assert app_client.post(f"/api/v1/ops/schedules/{schedule_id}/pause", headers=headers).status_code == 200
+    db_session.delete(baseline)
+    db_session.commit()
+
+    resumed = app_client.post(f"/api/v1/ops/schedules/{schedule_id}/resume", headers=headers)
+
+    assert resumed.status_code == 422
+    assert resumed.json()["code"] == "news_stock_linking.baseline_required"
+
+
+def test_ops_schedule_update_cannot_bypass_news_linking_uniqueness(
+    app_client,
+    user_factory,
+    db_session,
+    ops_schedule_factory,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    headers = {"Authorization": f"Bearer {login.json()['token']}"}
+    _seed_news_linking_baseline(db_session)
+    ops_schedule_factory(
+        target_type="maintenance_action",
+        target_key=NEWS_STOCK_LINKING_ACTION_KEY,
+        display_name="已有新闻关联自动任务",
+        schedule_type="cron",
+        trigger_mode="schedule",
+        cron_expr="*/5 * * * *",
+        timezone_name="Asia/Shanghai",
+    )
+    candidate = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="stock_basic.maintain",
+        display_name="待修改自动任务",
+        schedule_type="cron",
+        cron_expr="0 19 * * *",
+        timezone_name="Asia/Shanghai",
+    )
+
+    response = app_client.patch(
+        f"/api/v1/ops/schedules/{candidate.id}",
+        headers=headers,
+        json={
+            "target_type": "maintenance_action",
+            "target_key": NEWS_STOCK_LINKING_ACTION_KEY,
+            "schedule_type": "cron",
+            "trigger_mode": "schedule",
+            "cron_expr": "*/5 * * * *",
+            "timezone": "Asia/Shanghai",
+            "calendar_policy": None,
+            "probe_config": None,
+            "params_json": {},
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "news_stock_linking.schedule_already_exists"
 
 
 @pytest.mark.parametrize(

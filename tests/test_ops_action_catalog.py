@@ -49,7 +49,18 @@ def test_maintenance_action_registry_keeps_only_explicit_actions() -> None:
     news_action = MAINTENANCE_ACTION_REGISTRY["maintenance.materialize_news_stock_links"]
     assert news_action.executor_key == "news_stock_linking"
     assert news_action.target_tables == ("core_serving.news_stock_link",)
-    assert news_action.default_params["overlap_seconds"] == 3600
+    assert news_action.manual_time_regime == "natural_day_range"
+    assert [parameter.key for parameter in news_action.parameters] == ["start_date", "end_date"]
+    assert all(parameter.required for parameter in news_action.parameters)
+    assert news_action.default_params == {
+        "rule_version": "news-stock-rule-v1",
+        "news_scope": "all",
+    }
+    assert news_action.schedule_repeat_policy is not None
+    assert news_action.schedule_repeat_policy.allowed_modes == ("intraday_interval",)
+    assert news_action.schedule_repeat_policy.default_interval_minutes == 5
+    assert news_action.schedule_repeat_policy.minimum_interval_minutes == 3
+    assert news_action.schedule_repeat_policy.timezone == "Asia/Shanghai"
 
 
 def test_dataset_actions_are_resolved_from_dataset_definitions() -> None:

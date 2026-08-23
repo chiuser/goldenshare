@@ -26,6 +26,7 @@ from src.ops.schemas.catalog import (
     ProbeConfigCapabilityResponse,
     ProbeIntegerCapabilityResponse,
     ProbeWindowCapabilityResponse,
+    RepeatPolicyCapabilityResponse,
     TriggerModeCapabilityResponse,
     WorkflowCatalogItem,
     WorkflowStepCatalogItem,
@@ -284,6 +285,17 @@ class OpsCatalogQueryService:
                     display_text=capability.fixed_schedule.display_text,
                 )
                 if capability.fixed_schedule is not None
+                else None
+            ),
+            repeat_policy=(
+                RepeatPolicyCapabilityResponse(
+                    allowed_modes=list(capability.repeat_policy.allowed_modes),
+                    default_mode=capability.repeat_policy.default_mode,
+                    default_interval_minutes=capability.repeat_policy.default_interval_minutes,
+                    minimum_interval_minutes=capability.repeat_policy.minimum_interval_minutes,
+                    timezone=capability.repeat_policy.timezone,
+                )
+                if capability.repeat_policy is not None
                 else None
             ),
         )

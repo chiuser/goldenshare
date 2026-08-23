@@ -30,6 +30,8 @@ from src.ops.runtime.maintenance_executor import (
     MaintenanceExecutionRequest,
     MaintenanceExecutionUnit,
     MaintenanceExecutor,
+    MaintenanceTaskRunContext,
+    TaskRunAwareMaintenanceExecutor,
 )
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshService
 from src.ops.services.ingestion_error_presentation import present_ingestion_error, structured_error_payload
@@ -490,7 +492,18 @@ class TaskRunDispatcher:
                 task_run.current_object_json = dict(unit.payload)
                 session.commit()
 
-                result = executor.execute_unit(unit)
+                if action.key == "maintenance.materialize_news_stock_links":
+                    if not isinstance(executor, TaskRunAwareMaintenanceExecutor):
+                        raise TypeError("news stock linking executor requires TaskRun runtime context")
+                    result = executor.execute_unit_for_task_run(
+                        unit,
+                        context=MaintenanceTaskRunContext(
+                            task_run_id=task_run.id,
+                            run_context=TaskRunIngestionContext(session),
+                        ),
+                    )
+                else:
+                    result = executor.execute_unit(unit)
                 self._finish_node(
                     node,
                     status="success",
@@ -1154,10 +1167,7 @@ class TaskRunDispatcher:
             if isinstance(value, bool):
                 target[key] = value
             elif isinstance(value, int | float):
-                if key == "overlap_seconds":
-                    target[key] = value
-                else:
-                    target[key] = int(target.get(key, 0) or 0) + value
+                target[key] = int(target.get(key, 0) or 0) + value
             elif key == "last_cursor" and isinstance(value, Mapping):
                 target[key] = dict(value)
             else:

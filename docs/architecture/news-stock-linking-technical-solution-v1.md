@@ -3,13 +3,13 @@
 ## 文档状态
 
 - 文档类型：技术方案
-- 当前状态：M0～M6 主链和批次级实时进度增强已实现；`news_time` 手动范围与可配置自动增量尚待开发
+- 当前状态：M0～M6、批次级实时进度、`news_time` 手动范围与可配置自动增量均已在当前工作区实现；尚未部署
 - 方案范围：从生产新闻内容生成个股关联，并在财势乾坤股票详情页提供个股新闻
 - 当前事实源：代码、测试和当前数据模型
 - 方案权威性：本方案记录当前工作区代码事实；未部署代码不能作为当前生产运行事实
 
-本文把当前实现事实与下一轮目标设计分开记录。当前代码仍使用 `fetched_at + full/incremental + overlap` 物化窗口；本文新增的
-`news_time` 手动范围和自动增量设计尚未落入代码。本轮只更新文档，没有修改代码、数据库、Schedule 或生产任务。
+本文记录当前工作区最终实现。物化窗口已经收敛为 `news_time + manual_range/scheduled_incremental + cursor_end`；旧
+`fetched_at + full/incremental + overlap` 只作为历史契约和负向拒绝样本保留。本轮没有部署、创建生产 Schedule 或执行生产回填。
 
 ## 1. 目标与边界
 
@@ -59,7 +59,7 @@
 8. M0～M6 的数据库迁移、物化任务、TaskRun 接入、业务 API、前端页面和批次级实时进度增强已经落在当前代码中；生产迁移、
    生产回填、Schedule 实际启用和部署不因本文更新而自动完成。
 9. 不在新闻 ingestion 成功后直接跨层调用物化服务；本期采用可配置的 5 分钟级定时增量，不建设任务成功事件总线。
-10. 不保留旧 `full/incremental` 用户参数或 `fetched_at/overlap` 兼容分支；实现时一次性收敛到手动范围与自动增量两种意图。
+10. 不保留旧 `full/incremental` 用户参数或 `fetched_at/overlap` 兼容执行分支；当前代码已一次性收敛到手动范围与自动增量两种意图。
 
 ## 2. 当前代码事实
 
@@ -114,21 +114,16 @@ ts_code, name, start_date, end_date, ann_date, change_reason
 `src/biz/schemas/wealth/market/stock_detail_news.py`。它使用独立的
 `/api/v1/wealth/market/stock-detail/news`，没有回到旧的 `/api/v1/quote/detail/*`，也没有复用市场总览新闻接口。
 
-### 2.4 当前物化与自动任务能力的差距
+### 2.4 当前物化与自动任务实现
 
-当前代码事实与本次目标存在以下差距，不能把本文目标误写成已实现：
+当前代码已经完成以下收敛：
 
-1. `TaskRunCommandService._freeze_news_stock_linking_payload()` 仍接受 `full/incremental`，增量使用上次成功 `window_end - 3600 秒`，
-   没有成功游标时会静默切换为 Full。
-2. `NewsStockLinkingService._fetch_news_batch()` 仍按 `fetched_at` 过滤、排序和 keyset；运行诊断的 `last_cursor` 也是
-   `fetched_at + row_key_hash`。
-3. `maintenance.materialize_news_stock_links` 虽然已经 `schedule_enabled=true`，但普通 maintenance action 的自动任务 capability
-   当前只开放日/周/月周期；“每 N 分钟”只对声明了特定数据集日期策略的 action 开放。
-4. 手动任务页面根据 maintenance action 的 `start_date/end_date` 推导时间控件时，当前默认使用交易日范围；新闻需要自然日范围，
-   包括周末和节假日。
-5. 当前并发门禁会对重复任务返回 409；自动调度触发时尚未把这个冲突转成“本次合并跳过、下次继续追赶”。
-6. `ops.schedule` 已经具备 `status/cron_expr/timezone/params_json/next_run_at/last_triggered_at`，因此不需要新表或环境变量；需要补的是
-   新闻 action 的时间契约、日内周期 capability 和窗口解析逻辑。
+1. `NewsStockLinkingWindowResolver` 按 trigger source 生成 `manual_range/scheduled_incremental` 冻结窗口，旧 payload 明确失败；没有新契约成功基线时自动任务返回 422，不再静默 Full。
+2. `NewsStockLinkingService._fetch_news_batch()` 按 `news_time ASC, row_key_hash ASC` 过滤、排序和 keyset；运行诊断的 `last_cursor` 同步使用 `news_time + row_key_hash`。
+3. `maintenance.materialize_news_stock_links` 通过通用 `repeat_policy` 只开放 Cron 日内间隔，默认 5 分钟、最小 3 分钟、时区固定 `Asia/Shanghai`。
+4. 手动任务只展示并校验自然日 `start_date/end_date`，截止日转换为上海次日零点排他上界，周末和节假日不被交易日历过滤。
+5. 自动调度发现空窗口或已有 `queued/running/canceling` 任务时只推进 `next_run_at`，不创建空/失败 TaskRun，不更新 `last_triggered_at`；成功 TaskRun 的 `cursor_end` 才进入下一窗口。
+6. 继续复用现有 `ops.schedule`，没有新增表、环境变量或代码定时器；同一新闻动作最多保留一条 Schedule，创建 active 和恢复 paused 时验证新契约成功基线。
 
 ## 3. 总体架构
 
@@ -541,7 +536,7 @@ CREATE INDEX ix_news_stock_link_ts_code
 | `ingestion_diagnostics_json` | `matched_news_count`、`links_inserted`、`links_updated`、`links_deleted`、`last_cursor` 等运行统计 |
 | `current_object_json` | 当前批次的窗口、批次序号和阶段展示信息 |
 
-目标运行边界如下：
+当前运行边界如下：
 
 1. 最近一次成功自动任务的 `cursor_end` 才能成为下一次自动增量游标；没有自动成功游标时，使用所有成功新契约手动任务中最大的
    `cursor_end`。失败或取消的 TaskRun 不参与，后完成的旧日期补跑不能把起点向后倒退。
@@ -550,8 +545,8 @@ CREATE INDEX ix_news_stock_link_ts_code
 4. TaskRun 的状态和观测写入失败不得回滚或阻塞新闻事实写入；关联表事务也不能反向污染 `raw_*` 或 `core_serving_light.*`。
 5. TaskRun 只记录任务意图和运行观测；新闻关联的业务事实唯一存放在 `core_serving.news_stock_link`。
 
-当前代码已经完成 action catalog、registered maintenance executor、dispatcher 单 unit 执行、批次事务和实时进度；但上述
-`run_mode/news_time/cursor_end` 请求契约尚待开发，不能与当前 `mode/fetched_at/overlap` 实现混为一谈。
+当前代码已经完成 action catalog、registered maintenance executor、dispatcher 单 unit 执行、批次事务、实时进度，以及上述
+`run_mode/news_time/cursor_end` 请求契约；旧 `mode/fetched_at/overlap` 不再作为新任务执行契约。
 
 修复前，业务批次虽然已经提交，但 TaskRun 观测没有批次级写回，这是页面“执行中但读取/保存仍为 0”的直接原因。
 当前实现已补齐该观测链路；新闻动作执行中不再显示误导性的 `0/1` 和 `0%`。
@@ -803,7 +798,7 @@ frontend/src/pages/ops-task-detail-page.tsx          # 仅为新闻动作改善�
 后续若新增 migration 仍必须重新读取当时真实 head，不能根据文件名、日期或印象猜测。现有 migration 只创建关联表和索引，
 没有修改新闻源表、股票主数据表或历史名称表。
 
-本次 `news_time` 范围与自动增量的待开发落点：
+本次 `news_time` 范围与自动增量的实现落点：
 
 ```text
 src/ops/action_catalog.py                              # 移除 mode/overlap，声明自然日手动范围和可配置日内周期
@@ -826,13 +821,13 @@ frontend/src/shared/api/types.ts                      # 对齐自动任务 capab
 ### M0～M6 与实时进度增强的已完成实施顺序
 
 1. **M0～M1**：完成边界冻结、migration、ORM、约束、`ts_code` 索引和批量 delete/upsert DAO。
-2. **M2～M4**：完成词典加载、当前 `fetched_at` 全量/增量窗口、keyset 读取、批次事务、规则重算清理、TaskRun 游标和本地集成测试。
+2. **M2～M4**：完成词典加载、初版物化窗口、keyset 读取、批次事务、规则重算清理、TaskRun 游标和本地集成测试。
 3. **M3～M6**：完成 action catalog、executor、worker/dispatcher 装配、股票详情新闻 API、排序契约和 Wealth 新闻 Tab。
 4. **实时进度 P1（已完成）**：为物化服务增加“commit 后累计快照”回调，接入独立 observer session；补充首批立即写、3 秒节流、终态强制 flush 和 observer fail-soft。
 5. **实时进度 P2（已完成）**：仅为新闻关联动作调整任务详情页的执行中展示，不改变其他任务的 unit/progress 语义。
 6. **实时进度 P3（已完成）**：增加服务、executor、observer、dispatcher 和前端测试；本地验证现有 API、任务详情轮询和业务结果一致性。
 
-下一轮按以下顺序收敛时间范围与自动增量：
+本轮已按以下顺序收敛时间范围与自动增量：
 
 1. **R0 契约门禁**：动作目录移除旧 `mode`，声明自然日 range 和 action-specific 日内间隔 capability，先锁定 API/消费者测试。
 2. **R1 手动入口**：手动动作查询和页面改为自然日期起止，复用现有 range 校验。
@@ -920,7 +915,7 @@ frontend/src/shared/api/types.ts                      # 对齐自动任务 capab
 4. dispatcher 最终结果与累计实时快照一致；失败、取消和未开始任务不推进成功游标。
 5. 任务详情页对新闻动作显示累计已处理新闻和已生成关联；其他维护动作的原有进度展示回归通过。
 
-### 10.6 手动范围与自动增量验收（待开发）
+### 10.6 手动范围与自动增量验收（当前实现）
 
 1. 手动开始日包含当天零点，截止日包含整天并转换为上海次日零点；周末、节假日可以选择。
 2. 缺少任一日期、日期格式错误或开始日晚于截止日返回 422，不能退回 Full 或默认窗口。
@@ -966,15 +961,15 @@ wealth frontend ──────> biz API contract
 6. 简称冲突按第一条词典记录映射。
 7. 定向单元测试。
 8. 关联表 migration、ORM、DAO 和幂等批次写入。
-9. 当前 `fetched_at` 全量/增量物化任务、TaskRun 接入、窗口游标和并发防重。
+9. `news_time` 手动范围与成功游标自动增量物化任务、TaskRun 接入、窗口游标和并发防重。
 10. 股票详情新闻 API、完整时间排序契约和 Wealth 新闻 Tab。
 11. 本方案文档及算法链接。
 12. 批次级实时进度写回和新闻动作专属执行中展示。
 
 当前仍未完成：
 
-1. 手动自然日起止范围、`news_time` keyset、成功 `cursor_end` 和旧 `fetched_at/overlap` 契约清零。
-2. 新闻 maintenance action 的可配置日内 Cron capability、唯一 Schedule、初始化门禁、空窗口跳过和并发合并。
+1. 生产部署与新版本运行验收。
+2. 部署后的桥接自然日范围任务。
 3. 生产 Schedule 实际创建、启用和更新间隔配置；这些由运营在部署后完成，不由代码自动执行。
 
 ## 12. 风险、边界与实施前门禁
@@ -992,8 +987,8 @@ wealth frontend ──────> biz API contract
 
 1. 本次时间契约变更不新增 migration；若实现过程中发现必须改表，必须停止并重新核验真实 Alembic head和方案边界。
 2. 用生产只读样本确认 `core_serving_light.news`、`security_serving`、`namechange` 三者的 join 字段和时间类型一致。
-3. 对 `core_serving_light.news` 的 `news_time` 范围与 `news_time,row_key_hash` keyset 做 SQL/EXPLAIN 验证；源表已有 `news_time`
-   索引，本轮不先增加新闻表索引或 migration。
+3. 2026-08-23 已对 `core_serving_light.news` 的 `news_time` 范围与 `news_time,row_key_hash` keyset 执行生产只读 `EXPLAIN`：命中
+   `idx_raw_tushare_news_time` 并使用 Incremental Sort 处理同时间戳 tie-breaker；没有执行 `ANALYZE`，本轮不增加新闻表索引或 migration。
 4. 验证手动历史范围的新闻行数、关联结果行数、跳过原因和任务耗时；这些验证用于上线安全，不用于决定是否做这个功能。
 5. 验证 `news_stock_link` API 查询在 50 条和 2000 条上限下的查询计划和响应时间。
 6. 增强上线后确认 TaskRun 页面计数与关联表已提交批次一致；不能把页面瞬时快照当成物理表实时 count。
@@ -1001,13 +996,15 @@ wealth frontend ──────> biz API contract
 8. 升级切换时，旧 `mode/fetched_at` Full TaskRun 不作为新游标。若旧 Full 已成功，无需重跑全部历史；部署新代码后手动执行一个覆盖
    “旧 Full 冻结时间至当前时间”所在自然日期的桥接范围，成功后再创建或恢复自动 Schedule。
 
-### 12.3 本轮文档修改的外部影响
+### 12.3 本轮实现的外部影响
 
-本轮只修改本技术方案文档，没有修改代码、数据库、migration、Schedule、TaskRun、API 路由或页面，也没有执行生产回填。
-文中“已实现”只描述当前工作区代码事实；`news_time` 范围和自动增量明确标记为待开发目标。
+本轮修改新闻物化 action、TaskRun 窗口解析、物化查询轴、Schedule 能力和自动任务页面；没有修改数据库结构、识别算法、关联表、
+股票详情新闻 API、Wealth 新闻 Tab 或市场总览新闻，也没有部署、创建生产 Schedule 或执行生产回填。
+
+2026-08-23 本地验收结果：新闻关联及直接回归套件 `269 passed`；前端 typecheck、规则检查、`149` 条单元测试、生产构建和 `13` 条 smoke 全部通过。默认全仓 `pytest -q` 仍受两个既有收集问题阻塞；隔离收集后的其余仓库测试为 `1984 passed, 10 failed, 10 skipped`，失败均位于本需求白名单外，未在本轮修复。生产只读 `EXPLAIN` 已确认 `news_time` 索引路径可用，未执行 `ANALYZE` 或任何写入。
 
 ### 12.4 拍板项审计
 
 当前没有未决业务口径：5 分钟推荐间隔、最小 3 分钟、运营自行配置、上海自然日截止日期包含整天、按 `news_time` 推进、晚到旧时间新闻手动补跑、每批删除后重建均已确认。
 
-剩余事项是实施和上线门禁，不是方案选择：按 LLD 完成代码与测试；部署后执行一次新契约手动基线；再由运营创建或恢复唯一自动 Schedule。
+本地验证结果已记录在第 12.3 节。剩余事项只有上线门禁，不是方案选择：部署后执行一次新契约手动桥接范围；再由运营创建或恢复唯一自动 Schedule。

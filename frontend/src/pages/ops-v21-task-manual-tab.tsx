@@ -664,9 +664,19 @@ export function OpsManualTaskTab() {
     () => selectedAction ? shouldRenderTimeSection(selectedAction, effectiveTimeModes) : false,
     [effectiveTimeModes, selectedAction],
   );
-  const singleTradeCalendar = useTradeCalendarField({ value: draft.selected_date });
-  const rangeStartTradeCalendar = useTradeCalendarField({ value: draft.start_date });
-  const rangeEndTradeCalendar = useTradeCalendarField({ value: draft.end_date });
+  const tradeCalendarControl = selectedTimeMode?.control;
+  const singleTradeCalendar = useTradeCalendarField({
+    enabled: tradeCalendarControl === "trade_date",
+    value: draft.selected_date,
+  });
+  const rangeStartTradeCalendar = useTradeCalendarField({
+    enabled: tradeCalendarControl === "trade_date_range",
+    value: draft.start_date,
+  });
+  const rangeEndTradeCalendar = useTradeCalendarField({
+    enabled: tradeCalendarControl === "trade_date_range",
+    value: draft.end_date,
+  });
   const actionGuidance = useMemo(() => getActionGuidance(selectedAction), [selectedAction]);
   const selectedPlanningLimitHint = useMemo(
     () => selectedAction ? planningLimitHint(selectedAction, selectedTimeMode) : null,

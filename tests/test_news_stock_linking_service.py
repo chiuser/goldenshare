@@ -12,7 +12,10 @@ from src.foundation.models.core_serving.news_stock_link import NewsStockLink
 from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core_serving_light.namechange import NamechangeLight
 from src.foundation.models.core_serving_light.news import NewsLight
-from src.ops.services.news_stock_linking_service import NewsStockLinkingService
+from src.ops.services.news_stock_linking_service import NewsStockLinkingService, NewsStockLinkingStats
+
+
+ALL_NEWS_START = datetime(2000, 1, 1, tzinfo=timezone.utc)
 
 
 def _session_factory():
@@ -120,7 +123,7 @@ def test_materialize_processes_all_channels_and_cleans_empty_matches() -> None:
     _seed(session_factory, base_time)
 
     stats = NewsStockLinkingService(session_factory=session_factory, batch_size=2).materialize(
-        window_start=None,
+        window_start=ALL_NEWS_START,
         window_end=base_time + timedelta(hours=1),
     )
 
@@ -143,13 +146,59 @@ def test_materialize_processes_all_channels_and_cleans_empty_matches() -> None:
     ]
 
 
-def test_overlap_rerun_is_idempotent_and_preserves_created_at() -> None:
+def test_progress_sink_receives_only_committed_cumulative_snapshots() -> None:
+    _engine, session_factory = _session_factory()
+    base_time = datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc)
+    _seed(session_factory, base_time)
+    snapshots: list[tuple[int, int, int, set[str]]] = []
+
+    def capture_committed_snapshot(stats: NewsStockLinkingStats) -> None:
+        with session_factory() as session:
+            committed_news_ids = set(session.scalars(select(NewsStockLink.news_id)))
+        snapshots.append((stats.batch_count, stats.rows_fetched, stats.rows_saved, committed_news_ids))
+
+    stats = NewsStockLinkingService(session_factory=session_factory, batch_size=2).materialize(
+        window_start=ALL_NEWS_START,
+        window_end=base_time + timedelta(hours=1),
+        progress_sink=capture_committed_snapshot,
+    )
+
+    assert [(batch, fetched, saved) for batch, fetched, saved, _news_ids in snapshots] == [
+        (1, 2, 2),
+        (2, 4, 3),
+    ]
+    assert {"news-history-name", "news-code"}.issubset(snapshots[0][3])
+    assert snapshots[-1][3] == {"news-code", "news-current-name", "news-history-name"}
+    assert stats.rows_fetched == snapshots[-1][1]
+    assert stats.rows_saved == snapshots[-1][2]
+
+
+def test_progress_sink_failure_does_not_affect_business_commits() -> None:
+    _engine, session_factory = _session_factory()
+    base_time = datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc)
+    _seed(session_factory, base_time)
+
+    def fail_observer(_stats: NewsStockLinkingStats) -> None:
+        raise RuntimeError("synthetic observer failure")
+
+    stats = NewsStockLinkingService(session_factory=session_factory, batch_size=2).materialize(
+        window_start=ALL_NEWS_START,
+        window_end=base_time + timedelta(hours=1),
+        progress_sink=fail_observer,
+    )
+
+    assert stats.rows_fetched == 4
+    with session_factory() as session:
+        assert session.scalar(select(func.count()).select_from(NewsStockLink)) == 3
+
+
+def test_range_rerun_is_idempotent_and_preserves_created_at() -> None:
     _engine, session_factory = _session_factory()
     base_time = datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc)
     _seed(session_factory, base_time)
     service = NewsStockLinkingService(session_factory=session_factory, batch_size=10)
 
-    first = service.materialize(window_start=None, window_end=base_time + timedelta(hours=1))
+    first = service.materialize(window_start=ALL_NEWS_START, window_end=base_time + timedelta(hours=1))
     with session_factory() as session:
         created_at = session.scalar(
             select(NewsStockLink.created_at).where(
@@ -158,9 +207,8 @@ def test_overlap_rerun_is_idempotent_and_preserves_created_at() -> None:
             )
         )
     second = service.materialize(
-        window_start=base_time - timedelta(hours=1),
+        window_start=ALL_NEWS_START,
         window_end=base_time + timedelta(hours=1),
-        overlap_seconds=3600,
     )
 
     with session_factory() as session:
@@ -177,22 +225,34 @@ def test_overlap_rerun_is_idempotent_and_preserves_created_at() -> None:
     assert current_created_at == created_at
 
 
-def test_late_news_uses_fetched_at_cursor_even_when_news_time_is_old() -> None:
+def test_news_time_selects_rows_independently_from_fetched_at() -> None:
     _engine, session_factory = _session_factory()
     base_time = datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc)
     _seed(session_factory, base_time)
     with session_factory() as session:
-        session.add(
-            NewsLight(
-                row_key_hash="news-late",
-                src="sina",
-                news_time=datetime(2020, 1, 1, tzinfo=timezone.utc),
-                title="600519.SH 晚到新闻",
-                content=None,
-                channels="其他",
-                source="tushare",
-                fetched_at=base_time + timedelta(minutes=30),
-            )
+        session.add_all(
+            [
+                NewsLight(
+                    row_key_hash="news-fetched-inside-news-outside",
+                    src="sina",
+                    news_time=datetime(2020, 1, 1, tzinfo=timezone.utc),
+                    title="600519.SH 旧时间新闻",
+                    content=None,
+                    channels="其他",
+                    source="tushare",
+                    fetched_at=base_time + timedelta(minutes=30),
+                ),
+                NewsLight(
+                    row_key_hash="news-time-inside-fetched-outside",
+                    src="sina",
+                    news_time=base_time + timedelta(minutes=30),
+                    title="600519.SH 窗口内新闻",
+                    content=None,
+                    channels="公司",
+                    source="tushare",
+                    fetched_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
+                ),
+            ]
         )
         session.commit()
 
@@ -204,8 +264,48 @@ def test_late_news_uses_fetched_at_cursor_even_when_news_time_is_old() -> None:
     assert stats.rows_fetched == 1
     with session_factory() as session:
         assert session.scalar(
-            select(NewsStockLink.ts_code).where(NewsStockLink.news_id == "news-late")
+            select(NewsStockLink.ts_code).where(NewsStockLink.news_id == "news-time-inside-fetched-outside")
         ) == "600519.SH"
+        assert session.scalar(
+            select(NewsStockLink.ts_code).where(
+                NewsStockLink.news_id == "news-fetched-inside-news-outside"
+            )
+        ) is None
+
+
+def test_news_time_keyset_uses_row_key_hash_to_cover_equal_timestamps() -> None:
+    _engine, session_factory = _session_factory()
+    base_time = datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc)
+    _seed(session_factory, base_time)
+    with session_factory() as session:
+        session.add_all(
+            [
+                NewsLight(
+                    row_key_hash=f"same-time-{suffix}",
+                    src="sina",
+                    news_time=base_time + timedelta(minutes=30),
+                    title="600519.SH 同时刻新闻",
+                    content=None,
+                    channels="其他",
+                    source="tushare",
+                    fetched_at=base_time,
+                )
+                for suffix in ("c", "a", "b")
+            ]
+        )
+        session.commit()
+
+    stats = NewsStockLinkingService(session_factory=session_factory, batch_size=2).materialize(
+        window_start=base_time + timedelta(minutes=10),
+        window_end=base_time + timedelta(hours=1),
+    )
+
+    assert stats.rows_fetched == 3
+    assert stats.batch_count == 2
+    assert stats.last_cursor == {
+        "news_time": (base_time + timedelta(minutes=30)).isoformat(),
+        "row_key_hash": "same-time-c",
+    }
 
 
 def test_failed_batch_rolls_back_only_current_batch(monkeypatch) -> None:
@@ -223,15 +323,18 @@ def test_failed_batch_rolls_back_only_current_batch(monkeypatch) -> None:
         return original_upsert(self, rows)
 
     monkeypatch.setattr(NewsStockLinkDAO, "bulk_upsert_current", fail_second_batch)
+    committed_snapshots: list[int] = []
     with pytest.raises(RuntimeError, match="synthetic second batch failure"):
         NewsStockLinkingService(session_factory=session_factory, batch_size=2).materialize(
-            window_start=None,
+            window_start=ALL_NEWS_START,
             window_end=base_time + timedelta(hours=1),
+            progress_sink=lambda stats: committed_snapshots.append(stats.rows_fetched),
         )
 
     with session_factory() as session:
         keys = set(session.execute(select(NewsStockLink.news_id, NewsStockLink.ts_code)).all())
     assert ("news-code", "000001.SZ") in keys
-    assert ("news-current-name", "000001.SZ") in keys
+    assert ("news-history-name", "000001.SZ") in keys
     assert ("news-unmatched", "600519.SH") in keys
-    assert ("news-history-name", "000001.SZ") not in keys
+    assert ("news-current-name", "000001.SZ") not in keys
+    assert committed_snapshots == [2]

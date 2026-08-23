@@ -445,6 +445,43 @@ const mockManualActions = {
         },
       ],
     },
+    {
+      group_key: "maintenance",
+      group_label: "系统维护",
+      group_order: 99,
+      actions: [
+        {
+          action_key: "maintenance.materialize_news_stock_links",
+          action_type: "maintenance_action",
+          display_name: "物化新闻—个股关联",
+          description: "按新闻发布时间范围重建个股关联。",
+          resource_key: null,
+          resource_display_name: "新闻—个股关联",
+          date_model: {
+            date_axis: "natural_day",
+            bucket_rule: "every_calendar_day",
+            window_mode: "range",
+            input_shape: "start_end",
+            observed_field: "news_time",
+            audit_applicable: false,
+            not_applicable_reason: null,
+          },
+          time_form: buildTimeForm("range", [
+            {
+              mode: "range",
+              label: "处理新闻发布时间范围",
+              description: "按自然日选择新闻发布时间范围，截止日期包含整天。",
+              control: "calendar_date_range",
+              selection_rule: "calendar_day",
+              date_field: "news_time",
+            },
+          ]),
+          filters: [],
+          search_keywords: ["新闻", "个股", "物化"],
+          action_order: 100,
+        },
+      ],
+    },
   ],
 };
 
@@ -605,6 +642,53 @@ describe("手动任务页", () => {
     fireEvent.click(screen.getByRole("button", { name: "只处理一天" }));
 
     expect(await screen.findByLabelText("选择日期")).toBeInTheDocument();
+  });
+
+  it("新闻个股物化只显示自然日起止范围，并原样提交包含截止日的范围", async () => {
+    vi.mocked(apiRequest).mockImplementation(async (path: string, options?: { method?: string }) => {
+      if (path === "/api/v1/ops/manual-actions") return mockManualActions;
+      if (
+        path === "/api/v1/ops/manual-actions/maintenance.materialize_news_stock_links/task-runs"
+        && options?.method === "POST"
+      ) {
+        return { run: { id: 9876 } };
+      }
+      throw new Error(`unexpected path: ${path}`);
+    });
+    window.localStorage.setItem(
+      "goldenshare.frontend.ops.task-center.manual.draft",
+      JSON.stringify({
+        action_id: "maintenance.materialize_news_stock_links",
+        time_mode: "range",
+        selected_date: "",
+        start_date: "2026-08-23",
+        end_date: "2026-08-24",
+        selected_month: "",
+        start_month: "",
+        end_month: "",
+        field_values: {},
+      }),
+    );
+    renderPage(
+      "/app/ops/v21/datasets/tasks?tab=manual&action_key=maintenance.materialize_news_stock_links&action_type=maintenance_action",
+    );
+
+    expect((await screen.findAllByText("物化新闻—个股关联")).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("开始日期")).toBeInTheDocument();
+    expect(screen.getByLabelText("结束日期")).toBeInTheDocument();
+    expect(apiRequest).not.toHaveBeenCalledWith(expect.stringContaining("/api/v1/market/trade-calendar"));
+    fireEvent.click(screen.getByRole("button", { name: "提交维护任务" }));
+
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
+      "/api/v1/ops/manual-actions/maintenance.materialize_news_stock_links/task-runs",
+      {
+        method: "POST",
+        body: {
+          time_input: { mode: "range", start_date: "2026-08-23", end_date: "2026-08-24" },
+          filters: {},
+        },
+      },
+    ));
   });
 
   it("基金持仓展示八季度上限，并在请求发出前拒绝九季度范围", async () => {

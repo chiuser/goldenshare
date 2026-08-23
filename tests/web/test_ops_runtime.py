@@ -10,6 +10,7 @@ from sqlalchemy import select
 from src.app.exceptions import WebAppError
 from src.foundation.ingestion import DatasetActionRequest, DatasetTimeInput
 from src.foundation.ingestion.errors import IngestionError, StructuredError
+from src.foundation.models.core_serving_light.news import NewsLight
 from src.ops.action_catalog import END_DATE_PARAM, START_DATE_PARAM, TRADE_DATE_PARAM, WORKFLOW_DEFINITION_REGISTRY, WorkflowDefinition
 from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
 from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCompletenessSchedule
@@ -20,6 +21,74 @@ from src.ops.queries.task_run_query_service import TaskRunQueryService
 from src.ops.runtime import OperationsScheduler, OperationsWorker, TaskRunDispatchOutcome, TaskRunDispatcher, WorkerLane
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshResult
 from src.ops.services.task_run_ingestion_context import TaskRunIngestionContext
+
+
+NEWS_STOCK_LINKING_ACTION_KEY = "maintenance.materialize_news_stock_links"
+
+
+def _news_linking_frozen_payload(
+    *,
+    run_mode: str,
+    window_start: datetime,
+    window_end: datetime,
+) -> dict:
+    return {
+        "task_type": "maintenance_action",
+        "resource_key": None,
+        "action": "maintain",
+        "target_type": "maintenance_action",
+        "target_key": NEWS_STOCK_LINKING_ACTION_KEY,
+        "time_input": (
+            {"mode": "range", "start_date": "2026-08-23", "end_date": "2026-08-23"}
+            if run_mode == "manual_range"
+            else {"mode": "none"}
+        ),
+        "filters": {},
+        "run_mode": run_mode,
+        "window_field": "news_time",
+        "window_start": window_start.isoformat(),
+        "window_end": window_end.isoformat(),
+        "cursor_end": window_end.isoformat(),
+        "task_frozen_at": window_end.isoformat(),
+        "rule_version": "news-stock-rule-v1",
+        "news_scope": "all",
+    }
+
+
+def _seed_news_linking_success(task_run_factory, *, cursor_end: datetime, run_mode: str = "manual_range") -> TaskRun:
+    return task_run_factory(
+        task_type="maintenance_action",
+        resource_key=None,
+        action="maintain",
+        title="物化新闻—个股关联",
+        trigger_source="manual" if run_mode == "manual_range" else "scheduled",
+        status="success",
+        time_input_json={"mode": "range", "start_date": "2026-08-23", "end_date": "2026-08-23"},
+        filters_json={},
+        request_payload_json=_news_linking_frozen_payload(
+            run_mode=run_mode,
+            window_start=cursor_end - timedelta(minutes=10),
+            window_end=cursor_end,
+        ),
+        ended_at=cursor_end,
+    )
+
+
+def _seed_news_row(db_session, *, row_key_hash: str, news_time: datetime) -> None:
+    NewsLight.__table__.create(db_session.get_bind(), checkfirst=True)
+    db_session.add(
+        NewsLight(
+            row_key_hash=row_key_hash,
+            src="sina",
+            news_time=news_time,
+            title="300308.SZ 新闻",
+            content=None,
+            channels="公司",
+            source="tushare",
+            fetched_at=news_time - timedelta(days=30),
+        )
+    )
+    db_session.commit()
 
 
 class StubDispatcher:
@@ -268,6 +337,137 @@ def test_scheduler_reschedules_cron_schedule_after_trigger(db_session, ops_sched
     assert refreshed.status == "active"
     assert refreshed.next_run_at is not None
     assert refreshed.next_run_at.replace(tzinfo=timezone.utc) == datetime(2026, 3, 30, 11, 5, tzinfo=timezone.utc)
+
+
+def test_scheduler_news_linking_freezes_actual_trigger_window_and_enqueues_only_when_news_exists(
+    db_session,
+    ops_schedule_factory,
+    task_run_factory,
+) -> None:
+    now = datetime(2026, 8, 23, 12, 0, tzinfo=timezone.utc)
+    cursor = now - timedelta(minutes=10)
+    _seed_news_linking_success(task_run_factory, cursor_end=cursor)
+    schedule = ops_schedule_factory(
+        target_type="maintenance_action",
+        target_key=NEWS_STOCK_LINKING_ACTION_KEY,
+        display_name="新闻个股自动增量",
+        schedule_type="cron",
+        trigger_mode="schedule",
+        cron_expr="*/5 * * * *",
+        timezone_name="Asia/Shanghai",
+        params_json={},
+        next_run_at=now,
+    )
+    _seed_news_row(db_session, row_key_hash="news-in-window", news_time=now - timedelta(minutes=1))
+
+    created = OperationsScheduler().run_once(db_session, now=now)
+
+    assert len(created) == 1
+    task_run = created[0]
+    assert task_run.schedule_id == schedule.id
+    assert task_run.trigger_source == "scheduled"
+    assert task_run.request_payload_json["run_mode"] == "scheduled_incremental"
+    assert task_run.request_payload_json["window_field"] == "news_time"
+    assert task_run.request_payload_json["window_start"] == cursor.isoformat()
+    assert task_run.request_payload_json["window_end"] == now.isoformat()
+    assert task_run.request_payload_json["cursor_end"] == now.isoformat()
+    assert task_run.request_payload_json["task_frozen_at"] == now.isoformat()
+    refreshed = db_session.get(type(schedule), schedule.id)
+    assert refreshed is not None
+    assert refreshed.last_triggered_at.replace(tzinfo=timezone.utc) == now
+    assert refreshed.next_run_at.replace(tzinfo=timezone.utc) > now
+
+
+def test_scheduler_news_linking_empty_window_does_not_advance_business_cursor(
+    db_session,
+    ops_schedule_factory,
+    task_run_factory,
+) -> None:
+    first_due = datetime(2026, 8, 23, 12, 0, tzinfo=timezone.utc)
+    cursor = first_due - timedelta(minutes=10)
+    _seed_news_linking_success(task_run_factory, cursor_end=cursor)
+    NewsLight.__table__.create(db_session.get_bind(), checkfirst=True)
+    schedule = ops_schedule_factory(
+        target_type="maintenance_action",
+        target_key=NEWS_STOCK_LINKING_ACTION_KEY,
+        display_name="新闻个股自动增量",
+        schedule_type="cron",
+        trigger_mode="schedule",
+        cron_expr="*/5 * * * *",
+        timezone_name="Asia/Shanghai",
+        params_json={},
+        next_run_at=first_due,
+    )
+
+    first_created = OperationsScheduler().run_once(db_session, now=first_due)
+
+    assert first_created == []
+    refreshed = db_session.get(type(schedule), schedule.id)
+    assert refreshed is not None
+    assert refreshed.last_triggered_at is None
+    second_due = refreshed.next_run_at.replace(tzinfo=timezone.utc)
+    _seed_news_row(db_session, row_key_hash="news-after-empty-trigger", news_time=first_due + timedelta(minutes=1))
+
+    second_created = OperationsScheduler().run_once(db_session, now=second_due)
+
+    assert len(second_created) == 1
+    assert second_created[0].request_payload_json["window_start"] == cursor.isoformat()
+    assert second_created[0].request_payload_json["window_end"] == second_due.isoformat()
+
+
+def test_scheduler_news_linking_coalesces_due_trigger_while_task_is_active_and_catches_up_after_success(
+    db_session,
+    ops_schedule_factory,
+    task_run_factory,
+) -> None:
+    first_due = datetime(2026, 8, 23, 12, 0, tzinfo=timezone.utc)
+    cursor = first_due - timedelta(minutes=10)
+    _seed_news_linking_success(task_run_factory, cursor_end=cursor)
+    schedule = ops_schedule_factory(
+        target_type="maintenance_action",
+        target_key=NEWS_STOCK_LINKING_ACTION_KEY,
+        display_name="新闻个股自动增量",
+        schedule_type="cron",
+        trigger_mode="schedule",
+        cron_expr="*/5 * * * *",
+        timezone_name="Asia/Shanghai",
+        params_json={},
+        next_run_at=first_due,
+    )
+    active = task_run_factory(
+        task_type="maintenance_action",
+        resource_key=None,
+        action="maintain",
+        title="物化新闻—个股关联",
+        trigger_source="scheduled",
+        status="running",
+        schedule_id=schedule.id,
+        time_input_json={"mode": "none"},
+        request_payload_json=_news_linking_frozen_payload(
+            run_mode="scheduled_incremental",
+            window_start=cursor,
+            window_end=first_due,
+        ),
+    )
+    _seed_news_row(db_session, row_key_hash="news-during-active", news_time=first_due - timedelta(minutes=1))
+
+    first_created = OperationsScheduler().run_once(db_session, now=first_due)
+
+    assert first_created == []
+    refreshed = db_session.get(type(schedule), schedule.id)
+    assert refreshed is not None
+    assert refreshed.last_triggered_at is None
+    second_due = refreshed.next_run_at.replace(tzinfo=timezone.utc)
+    active.status = "success"
+    active.ended_at = first_due
+    db_session.commit()
+    _seed_news_row(db_session, row_key_hash="news-after-active", news_time=first_due + timedelta(minutes=1))
+
+    second_created = OperationsScheduler().run_once(db_session, now=second_due)
+
+    assert len(second_created) == 1
+    assert second_created[0].request_payload_json["window_start"] == first_due.isoformat()
+    assert second_created[0].request_payload_json["window_end"] == second_due.isoformat()
 
 
 def test_scheduler_monthly_last_day_policy_uses_due_schedule_month_for_task_run(db_session, ops_schedule_factory) -> None:

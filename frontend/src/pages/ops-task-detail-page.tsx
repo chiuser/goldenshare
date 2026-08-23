@@ -39,6 +39,8 @@ import {
   type EtaSample,
 } from "./ops-task-detail-eta";
 
+const NEWS_STOCK_LINKING_ACTION_KEY = "maintenance.materialize_news_stock_links";
+
 function buildRefetchInterval(status: string | undefined) {
   return status === "queued" || status === "running" || status === "canceling" ? 3000 : false;
 }
@@ -287,6 +289,12 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
   const successReturnHref = buildDatasetCardPageHref(view?.run.source_key);
   const periodSourceSummary = view?.progress.period_source_summary ?? null;
   const pagedUnitProgress = view?.progress.paged_unit_progress ?? null;
+  const isNewsStockLinkingTask = view?.run.action_key === NEWS_STOCK_LINKING_ACTION_KEY;
+  const isNewsStockLinkingActive = Boolean(
+    isNewsStockLinkingTask
+      && view
+      && (view.run.status === "queued" || view.run.status === "running" || view.run.status === "canceling"),
+  );
   const etaContextMatches =
     activeNodeId !== null &&
     previousEtaSampleRef.current?.nodeId === activeNodeId &&
@@ -468,18 +476,37 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
             <Grid.Col span={{ base: 12, lg: 7 }}>
               <SectionCard title="当前进度" description="这里展示覆盖式快照，不再追加重复日志。">
                 <Stack gap="md">
-                  <Group justify="space-between" align="end">
-                    <Stack gap={2}>
-                      <Text c="dimmed" size="sm">处理单元</Text>
-                      <Text fw={700} size="xl">
-                        {view.progress.unit_done} / {view.progress.unit_total || "—"}
-                      </Text>
-                    </Stack>
-                    <Text fw={700} size="lg" c="var(--mantine-color-brand-6)">
-                      {view.progress.progress_percent ?? 0}%
-                    </Text>
-                  </Group>
-                  <Progress value={view.progress.progress_percent ?? 0} radius="md" size="lg" color="brand" />
+                  {isNewsStockLinkingActive ? (
+                    <Group justify="space-between" align="center">
+                      <Stack gap={2}>
+                        <Text c="dimmed" size="sm">批次级进度</Text>
+                        <Text fw={700} size="xl">
+                          {`已处理新闻 ${view.progress.rows_fetched.toLocaleString()} / 已生成关联 ${view.progress.rows_saved.toLocaleString()}`}
+                        </Text>
+                      </Stack>
+                      <Group gap="xs">
+                        <Loader size="xs" />
+                        <Text fw={700} c="var(--mantine-color-brand-6)">
+                          {view.run.status === "queued" ? "等待执行" : view.run.status === "canceling" ? "正在停止" : "执行中"}
+                        </Text>
+                      </Group>
+                    </Group>
+                  ) : (
+                    <>
+                      <Group justify="space-between" align="end">
+                        <Stack gap={2}>
+                          <Text c="dimmed" size="sm">处理单元</Text>
+                          <Text fw={700} size="xl">
+                            {view.progress.unit_done} / {view.progress.unit_total || "—"}
+                          </Text>
+                        </Stack>
+                        <Text fw={700} size="lg" c="var(--mantine-color-brand-6)">
+                          {view.progress.progress_percent ?? 0}%
+                        </Text>
+                      </Group>
+                      <Progress value={view.progress.progress_percent ?? 0} radius="md" size="lg" color="brand" />
+                    </>
+                  )}
                   {view.progress.current_object && !pagedUnitProgress?.active ? (
                     <Stack gap={2}>
                       <Text size="sm" fw={600}>{view.progress.current_object.title}</Text>
@@ -489,10 +516,10 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
                     </Stack>
                   ) : null}
                   <SimpleGrid cols={{ base: 1, sm: 2, xl: 4 }} spacing="md">
-                    <MetricPanel label="读取">
+                    <MetricPanel label={isNewsStockLinkingTask ? "已处理新闻" : "读取"}>
                       <Text fw={700}>{view.progress.rows_fetched.toLocaleString()}</Text>
                     </MetricPanel>
-                    <MetricPanel label="保存">
+                    <MetricPanel label={isNewsStockLinkingTask ? "已生成关联" : "保存"}>
                       <Text fw={700}>{view.progress.rows_saved.toLocaleString()}</Text>
                     </MetricPanel>
                     <MetricPanel label="拒绝">

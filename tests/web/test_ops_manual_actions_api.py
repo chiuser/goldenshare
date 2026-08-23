@@ -129,6 +129,17 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert daily_modes["range"]["selection_rule"] == "trading_day_only"
     assert actions["daily.maintain"]["action_type"] == "dataset_action"
 
+    news_linking = actions["maintenance.materialize_news_stock_links"]
+    assert news_linking["action_type"] == "maintenance_action"
+    assert news_linking["time_form"]["default_mode"] == "range"
+    assert [item["mode"] for item in news_linking["time_form"]["modes"]] == ["range"]
+    news_range = _time_modes(news_linking)["range"]
+    assert news_range["control"] == "calendar_date_range"
+    assert news_range["selection_rule"] == "calendar_day"
+    assert news_range["date_field"] == "news_time"
+    assert "截止日期包含整天" in news_range["description"]
+    assert news_linking["filters"] == []
+
     assert _time_modes(actions["stk_period_bar_week.maintain"])["point"]["control"] == "calendar_date"
     assert _time_modes(actions["stk_period_bar_week.maintain"])["point"]["selection_rule"] == "week_friday"
     assert _time_modes(actions["stk_period_bar_month.maintain"])["point"]["control"] == "calendar_date"
@@ -333,6 +344,59 @@ def test_ops_manual_action_task_run_creates_point_job(app_client, user_factory, 
         "time_input": {"mode": "point", "trade_date": "2026-04-24"},
         "filters": {},
     }
+
+
+def test_ops_manual_action_creates_news_time_natural_day_range(app_client, user_factory, db_session) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/maintenance.materialize_news_stock_links/task-runs",
+        headers=headers,
+        json={
+            "time_input": {"mode": "range", "start_date": "2026-08-21", "end_date": "2026-08-22"},
+            "filters": {},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()["run"]
+    assert payload["time_input"] == {
+        "mode": "range",
+        "start_date": "2026-08-21",
+        "end_date": "2026-08-22",
+    }
+    task_run = db_session.get(TaskRun, payload["id"])
+    assert task_run is not None
+    frozen = task_run.request_payload_json
+    assert frozen["run_mode"] == "manual_range"
+    assert frozen["window_field"] == "news_time"
+    assert frozen["window_start"] == "2026-08-20T16:00:00+00:00"
+    assert frozen["window_end"] == "2026-08-22T16:00:00+00:00"
+    assert frozen["cursor_end"] == frozen["window_end"]
+    assert frozen["news_scope"] == "all"
+    assert "mode" not in frozen
+    assert "overlap_seconds" not in frozen
+
+
+@pytest.mark.parametrize(
+    "time_input",
+    (
+        {"mode": "range", "end_date": "2026-08-22"},
+        {"mode": "range", "start_date": "2026-08-21"},
+        {"mode": "range", "start_date": "2026/08/21", "end_date": "2026-08-22"},
+        {"mode": "range", "start_date": "2026-08-23", "end_date": "2026-08-22"},
+    ),
+)
+def test_ops_manual_action_rejects_invalid_news_time_range(app_client, user_factory, time_input: dict) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/maintenance.materialize_news_stock_links/task-runs",
+        headers=headers,
+        json={"time_input": time_input, "filters": {}},
+    )
+
+    assert response.status_code == 422
 
 
 def test_ops_manual_action_task_run_supports_trade_cal_default_none_mode(app_client, user_factory) -> None:

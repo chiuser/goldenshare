@@ -152,7 +152,11 @@ function buildFieldValues(paramsJson: Record<string, unknown> | undefined) {
   );
 }
 
-export function parseCronExpression(cronExpr: string | null | undefined, calendarPolicy?: string | null): ParsedCronExpression | null {
+export function parseCronExpression(
+  cronExpr: string | null | undefined,
+  calendarPolicy?: string | null,
+  allowIntradayInterval = false,
+): ParsedCronExpression | null {
   const raw = String(cronExpr || "").trim();
   const match = raw.match(/^(\S+)\s+(\S+)\s+(.+)\s+(.+)\s+(.+)$/);
   if (!match) {
@@ -165,7 +169,7 @@ export function parseCronExpression(cronExpr: string | null | undefined, calenda
   const dayOfWeek = match[5];
   const intervalMatch = minuteExpr.match(/^\*\/(\d+)$/);
   if (
-    calendarPolicy === "trigger_day_point"
+    (calendarPolicy === "trigger_day_point" || allowIntradayInterval)
     && intervalMatch
     && hourExpr === "*"
     && dayOfMonth === "*"
@@ -228,14 +232,16 @@ export function buildCronExpression(
   repeatMonthDay: string,
   calendarPolicy: CalendarPolicy = "",
   intradayIntervalMinutes = "3",
+  repeatPolicy?: { minimum_interval_minutes: number } | null,
 ) {
   if (repeatMode === "intraday_interval") {
-    if (calendarPolicy !== "trigger_day_point") {
+    if (calendarPolicy !== "trigger_day_point" && !repeatPolicy) {
       throw new Error("日内高频策略仅支持新闻快讯和新闻通讯。");
     }
     const interval = Number(intradayIntervalMinutes);
-    if (!Number.isInteger(interval) || interval < 3) {
-      throw new Error("日内高频策略最小间隔为 3 分钟。");
+    const minimumInterval = repeatPolicy?.minimum_interval_minutes || 3;
+    if (!Number.isInteger(interval) || interval < minimumInterval) {
+      throw new Error(`日内高频策略最小间隔为 ${minimumInterval} 分钟。`);
     }
     return `*/${interval} * * * *`;
   }
@@ -288,6 +294,7 @@ export function formatScheduleRule(
   cronExpr: string | null,
   nextRunAt: string | null,
   calendarPolicy?: string | null,
+  repeatPolicy?: { allowed_modes: string[] } | null,
 ) {
   const weekdayLabel: Record<string, string> = {
     "1": "周一",
@@ -302,7 +309,11 @@ export function formatScheduleRule(
     const base = nextRunAt ? `单次执行：${nextRunAt.replace("T", " ").slice(0, 16)}` : "单次执行";
     return calendarPolicy === "latest_completed_calendar_quarter" ? `${base}，维护最近已完成季度` : base;
   }
-  const parsed = parseCronExpression(cronExpr, calendarPolicy);
+  const parsed = parseCronExpression(
+    cronExpr,
+    calendarPolicy,
+    Boolean(repeatPolicy?.allowed_modes.includes("intraday_interval")),
+  );
   if (!parsed) {
     return cronExpr || "未设置";
   }
@@ -325,6 +336,9 @@ export function formatScheduleRule(
             ? `每周 ${parsed.repeatWeekdays.map((item) => weekdayLabel[item] || item).join("、")} ${parsed.repeatTime}`
             : `每月 ${parsed.repeatMonthDay} 日 ${parsed.repeatTime}`;
     return `${base}，维护触发日`;
+  }
+  if (repeatPolicy && parsed.repeatMode === "intraday_interval") {
+    return `每 ${parsed.intradayIntervalMinutes} 分钟，按成功游标处理到本次实际触发时间`;
   }
   if (calendarPolicy === "trigger_day_single_range") {
     const base =
@@ -430,6 +444,9 @@ export function hasCompletePolicyParameters(
 export function getAllowedCronRepeatModes(
   capability: AutomationCapability | null | undefined,
 ): RepeatMode[] {
+  if (capability?.repeat_policy?.allowed_modes.length) {
+    return [...capability.repeat_policy.allowed_modes];
+  }
   const declared = capability?.calendar_policy_rules
     ?.filter((rule) => rule.schedule_types.includes("cron"))
     .flatMap((rule) => rule.cron_repeat_modes) || [];
@@ -851,14 +868,16 @@ export function OpsAutomationPage() {
   );
   const selectedActionSupportsIntraday = useMemo(
     () =>
-      capabilitySupportsCalendarPolicy(
-        selectedAutomationCapability,
-        "trigger_day_point",
-        "cron",
-        "intraday_interval",
-      ),
+      Boolean(selectedAutomationCapability?.repeat_policy?.allowed_modes.includes("intraday_interval"))
+      || capabilitySupportsCalendarPolicy(
+          selectedAutomationCapability,
+          "trigger_day_point",
+          "cron",
+          "intraday_interval",
+        ),
     [selectedAutomationCapability],
   );
+  const selectedRepeatPolicy = selectedAutomationCapability?.repeat_policy || null;
   const selectedProbeCondition = getProbeCondition(selectedAutomationCapability, form.probe_condition_kind);
   const selectedProbeForbidsTimeInput = selectedProbeCondition?.time_input === "forbidden";
   const selectedProbeForbidsFilters = selectedProbeCondition?.filters.mode === "forbidden";
@@ -920,6 +939,15 @@ export function OpsAutomationPage() {
     if (!allowedScheduleTypes.length || allowedScheduleTypes.includes(form.schedule_type as "cron" | "once")) return;
     setForm((current) => ({ ...current, schedule_type: allowedScheduleTypes[0] }));
   }, [allowedScheduleTypes, form.schedule_type, setForm]);
+  useEffect(() => {
+    if (!selectedRepeatPolicy || form.id !== null) return;
+    setForm((current) => ({
+      ...current,
+      repeat_mode: selectedRepeatPolicy.default_mode,
+      intraday_interval_minutes: String(selectedRepeatPolicy.default_interval_minutes),
+      timezone: selectedRepeatPolicy.timezone,
+    }));
+  }, [form.action_key, form.id, selectedRepeatPolicy, setForm]);
   useEffect(() => {
     if (form.repeat_mode === "intraday_interval" && !selectedActionSupportsIntraday) {
       setForm((current) => ({ ...current, repeat_mode: "daily" }));
@@ -1172,6 +1200,7 @@ export function OpsAutomationPage() {
         form.repeat_month_day,
         effectiveCalendarPolicy,
         form.intraday_interval_minutes,
+        selectedRepeatPolicy,
       );
       const policySuffix =
         effectiveCalendarPolicy === "trigger_day_single_range" || effectiveCalendarPolicy === "trigger_day_point"
@@ -1181,7 +1210,9 @@ export function OpsAutomationPage() {
           : "";
       const detail =
         form.repeat_mode === "intraday_interval"
-          ? `每 ${form.intraday_interval_minutes} 分钟，维护触发日`
+          ? selectedRepeatPolicy
+            ? `每 ${form.intraday_interval_minutes} 分钟，按成功游标处理到本次实际触发时间`
+            : `每 ${form.intraday_interval_minutes} 分钟，维护触发日`
           : form.repeat_mode === "daily"
           ? `每天 ${form.repeat_time}${policySuffix}`
             : form.repeat_mode === "weekly"
@@ -1209,7 +1240,7 @@ export function OpsAutomationPage() {
         cronExpr: null as string | null,
       };
     }
-  }, [effectiveCalendarPolicy, fixedSchedule, form.intraday_interval_minutes, form.once_date, form.once_time, form.repeat_mode, form.repeat_month_day, form.repeat_time, form.repeat_weekdays, form.schedule_type]);
+  }, [effectiveCalendarPolicy, fixedSchedule, form.intraday_interval_minutes, form.once_date, form.once_time, form.repeat_mode, form.repeat_month_day, form.repeat_time, form.repeat_weekdays, form.schedule_type, selectedRepeatPolicy]);
 
   const resolvedParameterRows = useMemo(() => {
     const labelMap = new Map([
@@ -1285,6 +1316,7 @@ export function OpsAutomationPage() {
           form.repeat_month_day,
           effectiveCalendarPolicy,
           form.intraday_interval_minutes,
+          selectedRepeatPolicy,
         )
         : null);
       const nextRunAt = scheduleType === "once" ? buildOnceRunAt(form.once_date, form.once_time) : null;
@@ -1374,6 +1406,7 @@ export function OpsAutomationPage() {
           form.repeat_month_day,
           effectiveCalendarPolicy,
           form.intraday_interval_minutes,
+          selectedRepeatPolicy,
         )
         : null);
       const nextRunAt = scheduleType === "once" ? buildOnceRunAt(form.once_date, form.once_time) : null;
@@ -1495,7 +1528,15 @@ export function OpsAutomationPage() {
   const openEdit = () => {
     const detail = detailQuery.data;
     if (!detail) return;
-    const parsedCron = parseCronExpression(detail.cron_expr, detail.calendar_policy);
+    const detailCapability = (
+      findCatalogAction(catalogQuery.data, detail.target_type, detail.target_key)
+      || findCatalogWorkflow(catalogQuery.data, detail.target_type, detail.target_key)
+    )?.automation_capability;
+    const parsedCron = parseCronExpression(
+      detail.cron_expr,
+      detail.calendar_policy,
+      Boolean(detailCapability?.repeat_policy?.allowed_modes.includes("intraday_interval")),
+    );
     const nextRunAt = detail.next_run_at ? String(detail.next_run_at) : "";
     const paramsJson = detail.params_json || {};
     const tradeDate = typeof paramsJson.trade_date === "string" ? paramsJson.trade_date : "";
@@ -1678,6 +1719,9 @@ export function OpsAutomationPage() {
                               detailQuery.data.cron_expr,
                               detailQuery.data.next_run_at,
                               detailQuery.data.calendar_policy,
+                              (findCatalogAction(catalogQuery.data, detailQuery.data.target_type, detailQuery.data.target_key)
+                                || findCatalogWorkflow(catalogQuery.data, detailQuery.data.target_type, detailQuery.data.target_key))
+                                ?.automation_capability?.repeat_policy,
                             )}
                           </Text>
                         </DetailInfoPanel>
@@ -1990,10 +2034,12 @@ export function OpsAutomationPage() {
                   {form.repeat_mode === "intraday_interval" ? (
                     <TextInput
                       label="间隔分钟"
-                      description="仅当前数据集能力允许时可用；最小 3 分钟。每次触发维护当天数据。"
-                      placeholder="3"
+                      description={selectedRepeatPolicy
+                        ? `最小 ${selectedRepeatPolicy.minimum_interval_minutes} 分钟；每次按成功游标处理到实际触发时间。`
+                        : "仅当前数据集能力允许时可用；最小 3 分钟。每次触发维护当天数据。"}
+                      placeholder={String(selectedRepeatPolicy?.default_interval_minutes || 3)}
                       type="number"
-                      min={3}
+                      min={selectedRepeatPolicy?.minimum_interval_minutes || 3}
                       value={form.intraday_interval_minutes}
                       onChange={(event) =>
                         setForm((current) => ({ ...current, intraday_interval_minutes: event.currentTarget.value }))}

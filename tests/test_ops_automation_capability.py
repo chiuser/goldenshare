@@ -55,8 +55,21 @@ def test_workflow_and_maintenance_capabilities_are_schedule_only() -> None:
             assert capability.fixed_schedule.cron_expr == "15 21 * * 1-5"
             assert capability.fixed_schedule.timezone == "Asia/Shanghai"
             assert capability.fixed_schedule.display_text == "工作日 21:15（北京时间）"
+            assert capability.repeat_policy is None
+        elif action.key == "maintenance.materialize_news_stock_links":
+            assert capability.trigger_options[0].allowed_schedule_types == ("cron",)
+            assert capability.fixed_schedule is None
+            assert capability.calendar_policy_rules == ()
+            assert capability.time_input_contract is None
+            assert capability.repeat_policy is not None
+            assert capability.repeat_policy.allowed_modes == ("intraday_interval",)
+            assert capability.repeat_policy.default_mode == "intraday_interval"
+            assert capability.repeat_policy.default_interval_minutes == 5
+            assert capability.repeat_policy.minimum_interval_minutes == 3
+            assert capability.repeat_policy.timezone == "Asia/Shanghai"
         else:
             assert capability.fixed_schedule is None
+            assert capability.repeat_policy is None
 
 
 def test_remote_probe_capabilities_are_bound_to_their_exact_dataset_actions() -> None:

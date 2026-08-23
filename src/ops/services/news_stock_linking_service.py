@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
@@ -25,7 +26,9 @@ from src.foundation.news_linking import (
 SHANGHAI = ZoneInfo("Asia/Shanghai")
 NEWS_STOCK_LINKING_ACTION_KEY = "maintenance.materialize_news_stock_links"
 NEWS_STOCK_RULE_VERSION = "news-stock-rule-v1"
-DEFAULT_OVERLAP_SECONDS = 3600
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,7 +42,6 @@ class NewsStockLinkingStats:
     unmatched_news_count: int = 0
     batch_count: int = 0
     last_cursor: dict[str, str] | None = None
-    overlap_seconds: int = 0
     invalid_dictionary_rows: int = 0
 
     @property
@@ -54,11 +56,13 @@ class NewsStockLinkingStats:
             "links_deleted": self.links_deleted,
             "rows_deduplicated": self.rows_deduplicated,
             "unmatched_news_count": self.unmatched_news_count,
-            "overlap_seconds": self.overlap_seconds,
             "batch_count": self.batch_count,
             "last_cursor": self.last_cursor,
             "invalid_dictionary_rows": self.invalid_dictionary_rows,
         }
+
+
+BatchProgressSink = Callable[[NewsStockLinkingStats], None]
 
 
 class NewsStockLinkingService:
@@ -71,22 +75,19 @@ class NewsStockLinkingService:
     def materialize(
         self,
         *,
-        window_start: datetime | None,
+        window_start: datetime,
         window_end: datetime,
-        overlap_seconds: int = 0,
         rule_version: str = NEWS_STOCK_RULE_VERSION,
+        progress_sink: BatchProgressSink | None = None,
     ) -> NewsStockLinkingStats:
-        start = _ensure_aware(window_start) if window_start is not None else None
+        start = _ensure_aware(window_start)
         end = _ensure_aware(window_end)
-        if start is not None and start >= end:
+        if start >= end:
             raise ValueError("news linking window_start must be before window_end")
 
         entries, historical_names, invalid_dictionary_rows = self._load_lexicon()
         linker = StockNewsLinker(entries, historical_names=historical_names, rule_version=rule_version)
-        stats = NewsStockLinkingStats(
-            overlap_seconds=max(int(overlap_seconds), 0),
-            invalid_dictionary_rows=invalid_dictionary_rows,
-        )
+        stats = NewsStockLinkingStats(invalid_dictionary_rows=invalid_dictionary_rows)
         cursor: tuple[datetime, str] | None = None
 
         with self._session_factory() as read_session:
@@ -130,13 +131,20 @@ class NewsStockLinkingService:
                     unmatched_news_count=stats.unmatched_news_count + batch_stats["unmatched_news_count"],
                     batch_count=stats.batch_count + 1,
                     last_cursor={
-                        "fetched_at": _ensure_aware(rows[-1].fetched_at).isoformat(),
+                        "news_time": _ensure_aware(rows[-1].news_time).isoformat(),
                         "row_key_hash": str(rows[-1].row_key_hash),
                     },
-                    overlap_seconds=stats.overlap_seconds,
                     invalid_dictionary_rows=stats.invalid_dictionary_rows,
                 )
-                cursor = (_ensure_aware(rows[-1].fetched_at), str(rows[-1].row_key_hash))
+                if progress_sink is not None:
+                    try:
+                        progress_sink(stats)
+                    except Exception:
+                        logger.warning(
+                            "news stock linking progress observer failed after committed batch",
+                            exc_info=True,
+                        )
+                cursor = (_ensure_aware(rows[-1].news_time), str(rows[-1].row_key_hash))
 
         return stats
 
@@ -195,25 +203,23 @@ class NewsStockLinkingService:
         self,
         session: Any,
         *,
-        window_start: datetime | None,
+        window_start: datetime,
         window_end: datetime,
         cursor: tuple[datetime, str] | None,
     ) -> tuple[NewsLight, ...]:
-        conditions = [NewsLight.fetched_at < window_end]
-        if window_start is not None:
-            conditions.append(NewsLight.fetched_at >= window_start)
+        conditions = [NewsLight.news_time >= window_start, NewsLight.news_time < window_end]
         if cursor is not None:
-            cursor_fetched_at, cursor_news_id = cursor
+            cursor_news_time, cursor_news_id = cursor
             conditions.append(
                 or_(
-                    NewsLight.fetched_at > cursor_fetched_at,
-                    and_(NewsLight.fetched_at == cursor_fetched_at, NewsLight.row_key_hash > cursor_news_id),
+                    NewsLight.news_time > cursor_news_time,
+                    and_(NewsLight.news_time == cursor_news_time, NewsLight.row_key_hash > cursor_news_id),
                 )
             )
         statement = (
             select(NewsLight)
             .where(and_(*conditions))
-            .order_by(NewsLight.fetched_at.asc(), NewsLight.row_key_hash.asc())
+            .order_by(NewsLight.news_time.asc(), NewsLight.row_key_hash.asc())
             .limit(self._batch_size)
         )
         return tuple(session.scalars(statement))

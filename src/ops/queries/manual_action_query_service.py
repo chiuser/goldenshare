@@ -281,6 +281,19 @@ class ManualActionQueryService:
     def _time_form_from_maintenance_action(
         cls, action: MaintenanceActionDefinition
     ) -> ManualActionTimeFormResponse:
+        if action.manual_time_regime == "natural_day_range":
+            return cls._time_form(
+                [
+                    cls._mode_response(
+                        mode="range",
+                        label="处理一个新闻时间区间",
+                        description="指定开始和截止自然日；截止日期包含整天。",
+                        control="calendar_date_range",
+                        selection_rule="calendar_day",
+                        date_field="news_time",
+                    )
+                ]
+            )
         keys = {param.key for param in action.parameters}
         modes: list[ManualActionTimeModeResponse] = []
         if "trade_date" in keys:
