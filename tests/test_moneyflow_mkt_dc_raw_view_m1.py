@@ -181,7 +181,12 @@ def test_moneyflow_mkt_dc_migration_is_independent_atomic_and_fail_closed() -> N
     assert 'down_revision = "20260823_000145"' in source
     assert "SET LOCAL lock_timeout = '15s'" in source
     assert "SET LOCAL statement_timeout = '120s'" in source
-    assert "SET LOCAL temp_file_limit = '64MB'" in source
+    assert "SET LOCAL work_mem = '16MB'" in source
+    assert "SET LOCAL temp_file_limit" not in source
+    assert "max_relation_rows constant bigint := 5000" in source
+    assert "relation size exceeds migration safety cap" in source
+    assert "SELECT pg_catalog.count(*) INTO raw_row_count" in source
+    assert "SELECT pg_catalog.count(*) INTO serving_row_count" in source
     assert "raw_tushare.moneyflow_mkt_dc must remain on SSD pg_default" in source
     assert "idx_raw_tushare_moneyflow_mkt_dc_trade_date" in source
     assert "idx_market_moneyflow_dc_trade_date" in source

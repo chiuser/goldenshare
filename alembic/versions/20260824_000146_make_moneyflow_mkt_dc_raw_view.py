@@ -20,7 +20,6 @@ _SET_BOUNDED_SESSION_LIMITS = (
     "SET LOCAL lock_timeout = '15s'",
     "SET LOCAL statement_timeout = '120s'",
     "SET LOCAL work_mem = '16MB'",
-    "SET LOCAL temp_file_limit = '64MB'",
 )
 
 
@@ -108,6 +107,9 @@ DECLARE
     raw_index_columns text[];
     raw_index_tablespace text;
     serving_index_columns text[];
+    raw_row_count bigint;
+    serving_row_count bigint;
+    max_relation_rows constant bigint := 5000;
 BEGIN
     SELECT pg_catalog.array_agg(
         a.attname || '|' || pg_catalog.format_type(a.atttypid, a.atttypmod) || '|' ||
@@ -174,6 +176,23 @@ BEGIN
         'updated_at|timestamp with time zone|NOT NULL'
     ]::text[] THEN
         RAISE EXCEPTION 'Unexpected core_serving.market_moneyflow_dc column contract: %', serving_signature;
+    END IF;
+
+    -- The production relation owner is intentionally not allowed to set the
+    -- superuser-scoped temp_file_limit parameter. Both relations are already
+    -- SHARE-locked when this block runs, and every compared business column
+    -- has a bounded fixed-width/numeric type. Cap the complete input instead
+    -- so both full-set equality checks fit the 16 MB work_mem budget without granting
+    -- the application role additional server privileges.
+    SELECT pg_catalog.count(*) INTO raw_row_count
+    FROM raw_tushare.moneyflow_mkt_dc;
+    SELECT pg_catalog.count(*) INTO serving_row_count
+    FROM core_serving.market_moneyflow_dc;
+
+    IF raw_row_count > max_relation_rows OR serving_row_count > max_relation_rows THEN
+        RAISE EXCEPTION
+            'moneyflow_mkt_dc relation size exceeds migration safety cap: raw=%, serving=%, cap=%',
+            raw_row_count, serving_row_count, max_relation_rows;
     END IF;
 
     SELECT pg_catalog.array_agg(a.attname ORDER BY key_column.ordinality)
