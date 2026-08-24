@@ -9,6 +9,7 @@ from src.foundation.datasets.registry import get_dataset_definition
 from src.foundation.ingestion.normalizer import NormalizedBatch
 from src.foundation.ingestion.writer import DatasetWriter
 from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
+from src.foundation.models.raw.raw_moneyflow_cnt_ths import RawMoneyflowCntThs
 from src.foundation.models.raw.raw_moneyflow_ind_ths import RawMoneyflowIndThs
 from src.foundation.models.raw.raw_moneyflow_mkt_dc import RawMoneyflowMktDc
 from src.foundation.models.raw.raw_st import RawSt
@@ -42,6 +43,18 @@ class _RecordingRawDao:
             RawStkNineTurn,
             {"ts_code": "000001.SZ", "trade_date": date(2026, 8, 3), "freq": "daily"},
             "raw_tushare.stk_nineturn",
+            None,
+        ),
+        (
+            "moneyflow_cnt_ths",
+            "raw_moneyflow_cnt_ths",
+            RawMoneyflowCntThs,
+            {
+                "trade_date": date(2026, 8, 22),
+                "ts_code": "885001.TI",
+                "net_amount": 0,
+            },
+            "raw_tushare.moneyflow_cnt_ths",
             None,
         ),
         (
