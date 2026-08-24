@@ -85,6 +85,20 @@ bash scripts/deploy-layered-systemd.sh main
 - `RUN_DB_MIGRATION=0`：跳过数据库迁移
 - `RUN_FRONTEND_BUILD=0`：跳过前端构建
 
+需要在数据库维护窗口中“拉取代码、安装后端、执行 migration，但保持现有服务启停状态”时，使用统一入口：
+
+```bash
+bash scripts/deploy-systemd.sh dev-interface --maintenance-migration
+```
+
+该模式固定关闭前端/Wealth 构建、默认规则 seed、moneyflow seed、systemd unit 同步以及 Foundation、Ops、Platform、Realtime、QTF 服务重启，并强制执行 migration；迁移后只运行 Foundation 资源加载自检，不执行 Ops 状态协调、Web 健康检查或服务状态读取，确保服务保持调用前状态。它**不负责**暂停自动任务、停止服务或恢复服务；执行前仍必须由维护流程完成 schedule 暂停、worker/scheduler 停止、开放 TaskRun/锁/长事务检查，执行后再独立完成连接池回收、服务恢复和验收。禁止再用一长串临时环境变量手工拼出同一模式，也禁止把该模式当成完整发版或恢复服务命令。
+
+维护模式的配置审计固定如下：
+
+| 配置 | 默认值与来源 | 持久化/范围 | 消费者与依赖 | 生效与可见性 | 测试门禁 |
+| --- | --- | --- | --- | --- | --- |
+| `MAINTENANCE_MIGRATION_MODE` | 默认 `0`；只由 `deploy-systemd.sh --maintenance-migration` 在当前进程导出为 `1`，运营不直接维护该变量 | 不持久化，仅本次部署子进程 | `deploy-layered-systemd.sh`；依赖 wrapper 同时把所有 deploy/build/seed/unit 开关固定为安全值，且与 `--qtf-only` 互斥 | 立即生效；日志明确显示保持 systemd 状态并跳过 Ops/健康/状态步骤 | `tests/test_deploy_layered_systemd_script.py` 固化全部关闭项、migration 开启项、互斥关系和 layered 消费分支 |
+
 关键前提：
 
 - `/etc/goldenshare/web.env` 可读

@@ -75,6 +75,103 @@ def test_sudoers_allows_both_minute_worker_deploy_commands() -> None:
         ) in sudoers
 
 
+def test_maintenance_migration_lane_cannot_restart_or_seed_services() -> None:
+    wrapper = (ROOT / "scripts" / "deploy-systemd.sh").read_text(encoding="utf-8")
+    layered = (ROOT / "scripts" / "deploy-layered-systemd.sh").read_text(encoding="utf-8")
+
+    assert "--maintenance-migration" in wrapper
+    mode_start = wrapper.index('if [[ "${MAINTENANCE_MIGRATION_MODE}" == "1" ]]')
+    mode_end = wrapper.index('elif [[ "${QTF_ONLY_MODE}" == "1" ]]', mode_start)
+    mode = wrapper[mode_start:mode_end]
+
+    for disabled in (
+        "DEPLOY_FOUNDATION",
+        "DEPLOY_OPS",
+        "DEPLOY_PLATFORM",
+        "DEPLOY_REALTIME",
+        "DEPLOY_QTF",
+        "RUN_FRONTEND_BUILD",
+        "RUN_WEALTH_BUILD",
+        "RUN_DEFAULT_SINGLE_SOURCE_SEED",
+        "RUN_MONEYFLOW_MULTI_SOURCE_SEED",
+        "RUN_SYNC_UNITS",
+    ):
+        assert f"export {disabled}=0" in mode
+    assert "export RUN_DB_MIGRATION=1" in mode
+    assert "export MAINTENANCE_MIGRATION_MODE=1" in mode
+    assert "不负责暂停 schedule 或停止服务" in mode
+    assert '--maintenance-migration 不能与 --qtf-only 同时使用' in wrapper
+    assert 'MAINTENANCE_MIGRATION_MODE="${MAINTENANCE_MIGRATION_MODE:-0}"' in layered
+    assert 'if [[ "${MAINTENANCE_MIGRATION_MODE}" != "1" ]]; then\n    ensure_sudo_ready' in layered
+    assert '维护迁移模式：保持 systemd 与全部服务当前状态' in layered
+    assert '维护迁移模式：跳过 Ops 状态协调、Web 健康检查和服务状态读取' in layered
+    assert '服务仍保持调用前状态，必须由维护流程单独验收并恢复' in layered
+
+
+def test_maintenance_migration_lane_exports_safe_effective_contract(tmp_path: Path) -> None:
+    wrapper = tmp_path / "deploy-systemd.sh"
+    layered = tmp_path / "deploy-layered-systemd.sh"
+    wrapper.write_text((ROOT / "scripts" / "deploy-systemd.sh").read_text(encoding="utf-8"), encoding="utf-8")
+    layered.write_text(
+        """#!/usr/bin/env bash
+set -Eeuo pipefail
+printf '%s\\n' \\
+  "branch=$1" \\
+  "foundation=${DEPLOY_FOUNDATION}" \\
+  "ops=${DEPLOY_OPS}" \\
+  "platform=${DEPLOY_PLATFORM}" \\
+  "realtime=${DEPLOY_REALTIME}" \\
+  "qtf=${DEPLOY_QTF}" \\
+  "migration=${RUN_DB_MIGRATION}" \\
+  "frontend=${RUN_FRONTEND_BUILD}" \\
+  "wealth=${RUN_WEALTH_BUILD}" \\
+  "default_seed=${RUN_DEFAULT_SINGLE_SOURCE_SEED}" \\
+  "moneyflow_seed=${RUN_MONEYFLOW_MULTI_SOURCE_SEED}" \\
+  "sync_units=${RUN_SYNC_UNITS}" \\
+  "maintenance=${MAINTENANCE_MIGRATION_MODE}"
+""",
+        encoding="utf-8",
+    )
+    layered.chmod(0o755)
+
+    result = subprocess.run(
+        ["bash", str(wrapper), "dev-interface", "--maintenance-migration"],
+        check=True,
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "DEPLOY_FOUNDATION": "1",
+            "DEPLOY_OPS": "1",
+            "DEPLOY_PLATFORM": "1",
+            "DEPLOY_REALTIME": "1",
+            "DEPLOY_QTF": "1",
+            "RUN_DB_MIGRATION": "0",
+            "RUN_FRONTEND_BUILD": "1",
+            "RUN_WEALTH_BUILD": "1",
+            "RUN_DEFAULT_SINGLE_SOURCE_SEED": "1",
+            "RUN_MONEYFLOW_MULTI_SOURCE_SEED": "1",
+            "RUN_SYNC_UNITS": "1",
+        },
+    )
+
+    assert result.stdout.splitlines() == [
+        "branch=dev-interface",
+        "foundation=0",
+        "ops=0",
+        "platform=0",
+        "realtime=0",
+        "qtf=0",
+        "migration=1",
+        "frontend=0",
+        "wealth=0",
+        "default_seed=0",
+        "moneyflow_seed=0",
+        "sync_units=0",
+        "maintenance=1",
+    ]
+
+
 def test_qtf_worker_has_independent_unit_release_commit_and_deploy_lane() -> None:
     layered = (ROOT / "scripts" / "deploy-layered-systemd.sh").read_text(encoding="utf-8")
     wrapper = (ROOT / "scripts" / "deploy-systemd.sh").read_text(encoding="utf-8")

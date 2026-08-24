@@ -26,6 +26,7 @@ DEPLOY_PLATFORM="${DEPLOY_PLATFORM:-1}"
 DEPLOY_REALTIME="${DEPLOY_REALTIME:-1}"
 DEPLOY_QTF="${DEPLOY_QTF:-1}"
 QTF_ONLY_MODE="${QTF_ONLY_MODE:-0}"
+MAINTENANCE_MIGRATION_MODE="${MAINTENANCE_MIGRATION_MODE:-0}"
 RUN_DB_MIGRATION="${RUN_DB_MIGRATION:-1}"
 RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-1}"
 RUN_WEALTH_BUILD="${RUN_WEALTH_BUILD:-1}"
@@ -357,7 +358,9 @@ main() {
 
   ensure_qtf_sudo_ready
   acquire_deploy_lock
-  ensure_sudo_ready
+  if [[ "${MAINTENANCE_MIGRATION_MODE}" != "1" ]]; then
+    ensure_sudo_ready
+  fi
   ensure_runtime_ready
 
   cd "${REPO_DIR}"
@@ -391,7 +394,7 @@ main() {
   fi
 
   sync_units_if_needed
-  if [[ "${QTF_ONLY_MODE}" != "1" ]]; then
+  if [[ "${QTF_ONLY_MODE}" != "1" && "${MAINTENANCE_MIGRATION_MODE}" != "1" ]]; then
     assert_web_entry_module
   fi
 
@@ -445,8 +448,12 @@ main() {
     log "7/12 跳过 moneyflow 多源骨架检测/初始化（RUN_MONEYFLOW_MULTI_SOURCE_SEED=0）"
   fi
 
-  log "8/12 重新加载 systemd 配置"
-  sudo_systemctl daemon-reload
+  if [[ "${MAINTENANCE_MIGRATION_MODE}" == "1" ]]; then
+    log "8/12 维护迁移模式：保持 systemd 与全部服务当前状态"
+  else
+    log "8/12 重新加载 systemd 配置"
+    sudo_systemctl daemon-reload
+  fi
 
   if [[ "${DEPLOY_FOUNDATION}" == "1" ]]; then
     restart_layer_services foundation
@@ -479,7 +486,12 @@ main() {
     log "跳过 Realtime 实时采集层重启（DEPLOY_REALTIME=0）"
   fi
 
-  if [[ "${QTF_ONLY_MODE}" != "1" ]]; then
+  if [[ "${MAINTENANCE_MIGRATION_MODE}" == "1" ]]; then
+    log "9/12 Foundation 只读自检"
+    load_runtime_env
+    .venv/bin/goldenshare list-resources >/dev/null
+    log "10-12/12 维护迁移模式：跳过 Ops 状态协调、Web 健康检查和服务状态读取"
+  elif [[ "${QTF_ONLY_MODE}" != "1" ]]; then
     log "9/12 Foundation 自检"
     load_runtime_env
     .venv/bin/goldenshare list-resources >/dev/null
@@ -494,8 +506,12 @@ main() {
     log "9-11/12 QTF-only：跳过其他子系统自检和 Web 健康检查"
   fi
 
-  log "12/12 服务状态"
-  if [[ "${QTF_ONLY_MODE}" != "1" ]]; then
+  if [[ "${MAINTENANCE_MIGRATION_MODE}" == "1" ]]; then
+    log "维护迁移完成；服务仍保持调用前状态，必须由维护流程单独验收并恢复"
+  else
+    log "12/12 服务状态"
+  fi
+  if [[ "${QTF_ONLY_MODE}" != "1" && "${MAINTENANCE_MIGRATION_MODE}" != "1" ]]; then
     print_service_status "${WEB_SERVICE}"
     print_service_status "${WORKER_SERVICE}"
     print_service_status "${SCHEDULER_SERVICE}"

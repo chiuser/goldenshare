@@ -1,14 +1,14 @@
 # 生产 PostgreSQL raw 直出一期低层设计 v1
 
 - 版本：v1
-- 状态：P1-B0-M3 已通过；P1-B1 首项 `moneyflow_ind_ths` M1/M2 与 M3 生产切换、即时验收已通过，首个正常 schedule 观察待 `2026-08-24 20:00`；下一项尚未授权
+- 状态：P1-B0-M3 已通过；P1-B1 首项 `moneyflow_ind_ths` M1/M2 与 M3a 生产切换、即时验收已通过，M3b 首个正常 schedule 观察待闭环；该观察不阻塞后续数据集另行授权的 M1/M2，但未闭环前不得进入下一次生产 M3a
 - 更新时间：2026-08-24
 - 上位方案：[生产 PostgreSQL 存储空间优化治理专项 v2](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v2.md)
 - 目标：把一期 12 个无业务转换的 raw/core_serving 双写数据集收敛为“raw 唯一物理事实表 + 原 serving 名称只读 view”，预计释放约 3.305 GiB SSD
 
 ## 0. 边界与完成定义
 
-本文定义一期实施合同，并记录已获授权完成的 P1-B0-M1～M3 以及 P1-B1 首项 M0～M3 证据；已完成阶段不构成后续数据集开发、部署、生产 migration 或 TaskRun 授权。
+本文定义一期实施合同，并记录已获授权完成的 P1-B0-M1～M3 以及 P1-B1 首项 M0、M1、M2、M3a 证据；M3b 尚待证据闭环，已完成阶段不构成后续数据集开发、部署、生产 migration 或 TaskRun 授权。
 
 一期完成必须同时满足：
 
@@ -17,7 +17,7 @@
 3. 所有已知 Biz、Ops、QTF、Lake Console 和 DG 只读消费者通过结果及性能验收；
 4. serving view 的任何 `INSERT/UPDATE/DELETE` 都被数据库明确拒绝；
 5. 每个数据集在切换前完成全量业务字段双向差集，差异必须为 0；
-6. 每个数据集独立 migration、独立发布、独立验收，上一项通过后才进入下一项；
+6. 每个数据集独立 migration、独立发布、独立验收；任何时刻最多一个数据集进入生产 M3a，后续项的 M1/M2 可在单独授权下并行准备，但不能把前项授权外推为后项生产授权；
 7. 不改 Tushare fields、分页、日期模型、planner、unit、自动任务时间策略和 Lake 文件；
 8. 生产物理表释放量与目标 serving 表切换前大小一致，扣除本轮新增 raw 索引后再计算净收益。
 
@@ -110,7 +110,7 @@ conflict_columns = 保持现有值
 6. owner 均为 `goldenshare_user`；部分 relation 的非 owner SELECT grant 不同，migration 必须逐对象恢复。
 7. P1-B0 已在生产完成最终 812 行全字段双向差集、relation 切换、权限与拒写、真实查询计划、连接池回收及最小 TaskRun 验收；详见第 8 节。
 8. P1-B1 三项已完成全字段对账：行业与概念按 24 个自然月逐窗双向差集均为 0，margin 全量双向差集为 0。
-9. P1-B1 首项 `moneyflow_ind_ths` 已在生产完成 revision 147、42,030 行 raw-backed view、拒写、查询计划、连接池、TaskRun `9217` 与 schedule 原样恢复的即时验收；首个正常 schedule 观察仍是进入下一数据集前门禁，详见第 8 节。
+9. P1-B1 首项 `moneyflow_ind_ths` 已在生产完成 revision 147、42,030 行 raw-backed view、拒写、查询计划、连接池、TaskRun `9217` 与 schedule 原样恢复的 M3a 即时验收；首个正常 schedule 观察属于 M3b，只约束下一次生产 M3a，不约束另行授权的 M1/M2，详见第 8 节。
 
 尚未完成：
 
@@ -170,7 +170,7 @@ conflict_columns = 保持现有值
 | RD-006 | 现有 schedule 不重建 | action key/date/capability 不变 | 暂停后原 schedule 恢复 | 禁止自动 seed/重建 | P1-B0 生产原本无 schedule，M3 未创建 schedule |
 | RD-007 | Lake/DG 已知读取合同不变 | Lake raw 白名单、DG `dc_board_source_probe` | 既有测试与真实只读查询通过 | 禁止切换 Lake source 或写 Lake | 静态审计完成 |
 | RD-008 | 不改变源端请求 | Definition 只改 storage | connector/request 测试不变 | 禁止改 fields/分页/date model | P1-B0 Definition/plan 反向测试已通过 |
-| RD-009 | 一个数据集一个发布单元 | 独立 revision/commit/deploy 记录 | 上一项验收后进入下一项 | 禁止批量 drop | 已固定 |
+| RD-009 | 一个数据集一个发布单元 | 独立 revision/commit/deploy 记录 | M3a/M3b 与下一次生产切换有明确门禁 | 禁止批量 drop 或把生产授权外推 | 已固定；M1/M2 不被自然任务观察错误阻塞 |
 | RD-010 | owner/grant/comment 可追溯 | migration 动态快照与恢复 | 非 owner SELECT 权限一致 | 未知 grant/comment 阻断 | P1-B0 M3 生产 owner、既有 `lake_raw_reader` SELECT 与空 comment 状态均保持不变 |
 | RD-011 | Ops 观测改读 raw | `target_table` 派生、freshness registry | 新 TaskRun/freshness 读 raw | 历史 TaskRun 不回写 | P1-B0 M3 TaskRun 9210 已通过 raw target 写入并由 view 即时读到 |
 | RD-012 | 失败不破坏 raw | 同事务 DDL、禁止自动 downgrade | 提交前失败原子回滚 | 禁止清表/删 raw | P1-B0 M2 在 drop 后、create view 时注入失败，旧版本、原表 OID/数据/索引/权限全部回滚 |
@@ -426,7 +426,14 @@ P1-B0-M2 于 2026-08-24 在临时、仅 Unix socket 可访问的 PostgreSQL 18.4
 7. 在 migration 已取得排他锁并删除旧 serving 表后，于 `CREATE VIEW` 注入失败。事务回滚后 Alembic 版本仍为 `20260823_000145`，旧 relation 仍为表、OID 不变、812 行 raw/serving 数据及 metadata/index 均不变，拒写函数和 trigger 均未残留；
 8. 隔离实例已停止并删除；M2 不产生可复用环境，也不构成生产 migration 授权。
 
-### S3：生产维护窗口
+### S3：生产维护窗口与自然运行观察
+
+S3 拆成两个不同目的的阶段，禁止再把二者合并成一个模糊的“上一项通过”门禁：
+
+- **M3a：生产切换与即时验收**。证明代码、migration、relation、拒写、查询、连接池和受控最小 TaskRun 在生产已闭环；
+- **M3b：首个自然自动化观察**。证明恢复后的既有 schedule/probe 能按原配置触发，并且目标数据集对应的工作流 node 或 probe TaskRun 正常完成。
+
+M3a 固定执行：
 
 1. 暂停该数据集 schedule；停止会领取该数据集的 worker；Web 只读可保留，但 relation 切换可能短暂等待锁；
 2. 完成最终全量分块双向差集；
@@ -435,8 +442,15 @@ P1-B0-M2 于 2026-08-24 在临时、仅 Unix socket 可访问的 PostgreSQL 18.4
 5. 回收 Web、QTF 和其它直接消费者的长连接池，避免旧 relation OID/缓存计划跨越切换窗口；无法确认连接已回收时不得进入业务验收；
 6. 完成 relation、view、ACL/comment、DML 拒绝、查询结果和性能验收；
 7. 启动 worker，执行 1 个受控最小维护 TaskRun，完成 fetched/normalized/written/rejected/raw/view 五段对账；
-8. 恢复原 schedule；没有 schedule 的数据集不创建新 schedule；
-9. 观察首个正常任务和业务查询，再决定是否进入下一数据集。
+8. 恢复原 schedule；没有 schedule 的数据集不创建新 schedule。
+
+M3b 固定执行：
+
+1. 普通 workflow 必须核对父 TaskRun 的 `status/unit_done/unit_failed`，再核对目标数据集 node 的 `status/time_input_json/rows_saved/rows_rejected/rows_deduplicated/ingestion_diagnostics_json`；`TaskRunNode` 没有独立 unit 字段，父任务 unit 代表 workflow step 完成数，不能把它冒充目标数据集的 source unit 数；
+2. probe 数据集必须核对下一次有效 probe 窗口、源端 readiness、实际触发 TaskRun 和每日触发上限，不能套用 workflow 验收；
+3. 没有既有 schedule/probe 的数据集，M3b 为不适用，M3a 的受控最小 TaskRun 即为生产运行门禁；
+4. M3b 尚未到触发时刻时，不阻塞后续数据集在另行授权下执行 M1 编码或 M2 隔离验证；它只阻塞下一数据集的生产 M3a；
+5. M3b 若失败，先按目标 node、源端、调度、worker、写入或下游消费归因。未归因的失败阻断下一次生产切换；若已证明与本次 raw 直出无关，是否解除阻断必须记录证据并单独拍板，禁止自动放行。
 
 P1-B0-M3 于 2026-08-24 在生产完成，实际证据如下：
 
@@ -452,7 +466,7 @@ P1-B0-M3 于 2026-08-24 在生产完成，实际证据如下：
 10. 生产 `MarketMoneyFlowQueryService` 7 次中位数 3.998 ms、`MarketSummaryQueryService` 7 次中位数 12.153 ms，均无查询异常。无登录态 HTTP 只能验证认证层返回 401，未将其冒充浏览器业务验收；
 11. M3 后全部服务恢复 active、开放 TaskRun 为 0；该数据集原本没有 schedule，本轮没有创建。catalog 可确认释放的 serving 物理 relation 为 237,568 B；根文件系统可用字节受发布依赖、WAL 和运行噪声影响反而减少，不能用一次 `df` 差值替代 relation 释放量。
 
-### P1-B1：专属顺序、M0 证据与首项 M1～M3
+### P1-B1：专属顺序、M0 证据与首项 M1/M2/M3a
 
 P1-B1 固定按 `moneyflow_ind_ths -> moneyflow_cnt_ths -> margin` 顺序推进；每项都必须依次完成 M1 编码、M2 隔离 PostgreSQL、M3 生产验收，禁止把三个 relation 放进同一个 revision 或维护窗口。2026-08-24 M0 证据如下：
 
@@ -488,7 +502,7 @@ P1-B1 首项 `moneyflow_ind_ths` M2 于 2026-08-24 在临时、仅 Unix socket �
 8. 在另一套 42,030 行基线库中，于取得排他锁并删除旧 serving 表后注入异常。事务关闭后 revision 仍为 146，旧物理表 OID、42,030 行、3 个有效索引、权限和注释全部恢复，证明切换不会留下半完成 relation；
 9. 隔离实例已停止，受控目录已可恢复地移入废纸篓；M2 不产生可复用环境，也不构成生产 migration 授权。
 
-P1-B1 首项 `moneyflow_ind_ths` M3 于 2026-08-24 在生产完成，实际证据如下：
+P1-B1 首项 `moneyflow_ind_ths` M3a 于 2026-08-24 在生产完成，实际证据如下：
 
 1. 最终只读预检确认 PostgreSQL `16.13`、Alembic `20260824_000146`、raw/serving 均为 42,030 行和 42,030 个唯一 `(trade_date, ts_code)`，日期范围均为 `2024-09-10..2026-08-21`，单月最大 2,070 行；12 个业务字段全量双向 `EXCEPT ALL` 均为 0；
 2. 目标 relation 没有 inheritance、外键、用户 trigger、RLS、依赖 view/function、扩展统计或 publication；没有开放 TaskRun、超过 5 分钟的事务或目标锁。`daily_moneyflow_maintenance` schedule #4 原为 active，cron `0 20 * * 1-5`、时区 `Asia/Shanghai`、下一次 `2026-08-24 20:00`；
@@ -500,16 +514,72 @@ P1-B1 首项 `moneyflow_ind_ths` M3 于 2026-08-24 在生产完成，实际证�
 8. Web、date-completeness、task-completion 和两个分钟线 worker 通过正式 service restart 回收连接池，健康检查通过；generic worker 在静态验收后才启动，scheduler 在 schedule 恢复后才启动。QTF 当前没有该 relation 消费者，因此没有做无关重启；
 9. 正式最小 TaskRun `9217` 请求 `2026-08-21` 一个 unit，状态 success，`1/1` 完成、0 失败；源端 1 页读取 90 行，短页正常结束、0 重试，归一化 90、写入 90、拒绝 0、去重 0；
 10. TaskRun 后该日 raw/view 均为 90 行和 90 个唯一身份，90 行 `fetched_at` 全部位于任务执行窗口，view 审计时间即时一致；全表仍为 42,030 行，业务字段双向差集、审计时间投影差异和关键字段异常均为 0；
-11. schedule #4 通过正式服务恢复为 active，`next_run_at` 仍为 `2026-08-24 20:00+08`；`ops.config_revision` 留有同一用户的 `paused/resumed` 审计记录。最终 Web、worker、scheduler 及相关 Ops worker 全部 active，开放 TaskRun 为 0；首个正常工作流尚未到触发时间，仍是进入下一数据集前的观察门禁；
+11. schedule #4 通过正式服务恢复为 active，`next_run_at` 仍为 `2026-08-24 20:00+08`；`ops.config_revision` 留有同一用户的 `paused/resumed` 审计记录。最终 Web、worker、scheduler 及相关 Ops worker 全部 active，开放 TaskRun 为 0；首个正常工作流尚未到触发时间，因此 M3b 待闭环，但它不阻塞 `moneyflow_cnt_ths` 的 M1/M2，只阻塞其生产 M3a；
 12. 根盘可用空间从维护窗口前 4,461,560 KiB 变为验收后的 4,485,480 KiB，但发布依赖、WAL 与运行噪声会影响 `df`；因此只以 catalog 的 9,756,672 B 作为本项已释放 serving 物理量，不把文件系统瞬时差额当作精确收益。
 
 ### S4：文档证据
 
 将 revision、部署 commit、TaskRun ID、对账结果、查询计划、磁盘释放量和残余风险写回 v2；未验收项不得标完成。
 
-## 9. 测试清单
+## 9. 已验证经验与后续执行加固
 
-### 9.1 Foundation/Ops
+### 9.1 两轮实施暴露的问题与固定规则
+
+| 已发生问题或误判 | 根因 | 后续固定规则 | 落实位置 |
+| --- | --- | --- | --- |
+| 把首个正常 workflow 观察说成下一数据集 M1 的前置条件 | 没有区分编码/隔离验证与生产切换风险 | M3 拆成 M3a/M3b；M3b 只阻塞下一次生产 M3a，不阻塞另行授权的 M1/M2 | 第 8 节阶段合同与第 13 节完成边界 |
+| 隔离 migration 曾被显式 env 文件指向 Prod | `get_settings()` 的既有合同是 `GOLDENSHARE_ENV_FILE` 内容覆盖同名 shell 变量，不能靠临时 `DATABASE_URL` 改目标 | M2 必须使用独立 env 文件，并在 Alembic 前核对 host/database/user/server address/port/data directory；禁止改变全局配置优先级来修本专项 | S2 与现有 `tests/test_db.py` 配置合同 |
+| 维护发布依赖多组临时环境变量，存在漏关 seed、构建或服务重启的风险 | 通用部署入口默认执行完整发版 | 使用 `--maintenance-migration` 固定变更动作仅为拉代码、安装后端和 migration，另保留只读资源加载自检；该模式不代替 schedule 暂停、停服和恢复 | `scripts/deploy-systemd.sh`、发布文档与部署脚本测试 |
+| B0 首次生产 migration 试图设置业务角色无权修改的 `temp_file_limit` | 把隔离环境能力误当成生产最小权限能力 | migration 只使用已验证的最小权限能力；工作集通过每数据集独立行数上限、分块和 `work_mem` 有界，禁止为迁移追加超管权限 | 第 7.1 节与各 revision 负向容量测试 |
+| 一次验收 SQL 曾按 dataset key 猜 serving 表名 | action key、dataset key 与物理 relation 名并非机械映射 | 每项 S0 冻结显式对象表：dataset/action/raw/serving/ORM/DAO/index/schedule；所有 SQL 只从已核验对象表生成 | 第 9.2 节准入清单 |
+| `df` 瞬时变化与 relation 释放量不一致 | 发布依赖、WAL、日志和后台活动共同影响文件系统水位 | 精确收益只取 PostgreSQL catalog 中被删除 heap/index 的字节；`df` 仅做容量安全水位 | S4 证据合同 |
+| TaskRun 顶层诊断不能完整代表 workflow 内单个数据集 | workflow node 才保存目标步骤的 rows、reject 和分页诊断；父任务 unit 表达 step 完成数，`TaskRunNode` 本身没有 unit 字段 | 自然 workflow 验收必须同时查询目标 node；字段名称以当前 ORM 的 `rows_saved` 和 `ingestion_diagnostics_json` 为准，禁止猜 `rows_written` 或把父任务 unit 当 source unit | M3b 与五段对账模板 |
+| raw upsert 的插入/匹配细分不能照搬 immutable writer 指标 | writer 语义不同，部分持久化诊断字段对 raw upsert 没有同一含义 | raw 直出验收以 `rows_saved`、reject、去重、任务时间窗内 `fetched_at` 和物理 raw/view 对账为主；不得把不适用的 immutable 指标填 0 后宣称闭环 | M3a TaskRun 对账 |
+| 连续拼接多项生产状态修改曾出现本地引号错误 | 一个命令同时承担暂停、停服、恢复等多个状态变化，失败边界不清 | 一次只做一个状态修改；每次修改后立即只读回查 schedule、service、TaskRun 和 relation，再进入下一步 | M3a 操作顺序 |
+| B0 的拒写函数可以被 B1 复用，但不能因此抽成通用迁移框架 | 可复用的是数据库函数契约，不是各表字段、依赖、容量和切换 SQL | 仅在 owner、参数、语言、security、search_path、ACL 完全匹配时复用拒写函数；每张 view 保留独立 trigger 和独立 migration | 第 5.2、6、9.2 节 |
+| 小表验收阈值容易被误当成一期通用阈值 | 每表行宽、月峰值、索引、消费者和锁预算不同 | 5,000/20,000 行、20% 时延和分块粒度都必须在对应 S0 重新证明；大表不得复制小表上限或无界全表 `EXCEPT ALL` | 第 7 节与第 9.3 节差异矩阵 |
+| “保留原表名”容易被误解为物理完全透明 | view 的 OID、relkind、catalog nullability、PK/index 与审计时间来源都会变化 | 只承诺已登记只读业务合同透明；catalog 工具、写入方和审计字段消费者必须单独登记和验收 | 第 1 节透明性边界 |
+
+### 9.2 每个后续数据集必须重新完成的零假设审计
+
+以下清单可以复用审计方法，不能复用结论。任何一项仍靠命名、历史文档或前一数据集推断时，不得开始编码：
+
+1. **事实与对象**：读取当前 `DatasetDefinition`，显式记录 dataset/action key、source fields、date/unit/pagination、raw/serving relation、ORM、DAO、冲突键和审计列投影；
+2. **调用链**：CodeGraph 与精确搜索同时覆盖 writer、resolver、manual action、workflow/probe、freshness、Biz、QTF、Lake Console、DG、测试和仓库内脚本；动态 registry 引用不能只靠 CodeGraph 搜索结果；
+3. **物理合同**：生产只读核验 relation kind/OID、列、主键、索引、owner/ACL/comment、依赖、trigger、RLS、publication、tablespace、锁和长事务；
+4. **数据合同**：按当前表的真实日期范围、峰值、行宽和业务身份设计有界双向 `EXCEPT ALL`；行数相等、主键相等或前一项差异为 0 都不能替代本项全字段证明；
+5. **容量与性能**：从真实消费者 SQL 提取 point/range/join/order by，确认 raw 等价索引、buffer、timeout、锁时间、WAL 和临时空间预算；每项单独固定停止阈值；
+6. **自动化类型**：明确无 schedule、普通 workflow、dataset schedule、probe 或下游 readiness 中的哪一种；冻结 pause/resume 对象和 M3b 验收对象，禁止机械复制上一项；
+7. **迁移链**：编码前读取当时真实 Alembic head；离线渲染完整 PostgreSQL SQL，验证参数解析、最小权限、DDL 中途回滚和超限 fail-closed；
+8. **环境身份**：M2 使用独立 env 文件和六项数据库身份门禁；M3 只使用生产正式 env 文件与维护迁移模式，禁止临时 `DATABASE_URL` 覆盖和手拼发布开关；
+9. **运行对账**：受控 TaskRun 与自然任务都读取当前 ORM 的真实字段；workflow 进入目标 node，probe 进入 probe/触发链；源端、归一化、保存、reject、去重、raw/view 逐段闭环；
+10. **变更边界**：一个数据集一个 Definition、revision、测试集和生产授权；只有现有实现语义完全相同时才复用 writer 或数据库函数，不新增跨数据集共享框架。
+
+### 9.3 后续批次的差异化门禁
+
+| 范围 | 已从当前代码确认的不同点 | 允许复用 | 禁止照搬 |
+| --- | --- | --- | --- |
+| `moneyflow_cnt_ths` | 与行业同属 `daily_moneyflow_maintenance`，当前无 Biz/QTF/DG serving 直读；月峰值和总量更高 | raw-only writer、显式 view、拒写函数契约、workflow pause/resume 方法 | 行业 5,000 行/月上限、行业字段/索引、把 M3b 当 M1/M2 门禁 |
+| `margin` | 不在 workflow；由固定源端 probe 管理，并要求 SSE/SZSE/BSE readiness | raw-only writer、view/ACL/DML/事务回滚审计方法 | workflow 自然任务验收、概念/行业分块和请求语义 |
+| `moneyflow_ind_dc` | 属于每日资金 workflow；有 Wealth 直接读取，且进入 sector heat 上游 readiness | relation 切换骨架和有界差集方法 | “无业务消费者”的验收范围；M3b 还需核对目标 node 与下游 readiness |
+| `dc_daily` | 属于每日收盘 workflow；Wealth、QTF 和 DG 都有直接读取 | 只读 relation 名与显式列合同 | 只做 Ops SQL；必须增加 QTF bounded range、DG 单日 probe 和业务返回验收 |
+| `suspend_d` | 属于每日收盘 workflow；多条 Wealth/市场情绪链消费，冲突键含 `row_key_hash`，物理事实还含 `id` | 分块、拒写、事务回滚方法 | 只比较业务 hash；必须证明 `id` 逐行一致并验证日期范围 join |
+| P1-B3/B4 百万行表 | 分别受每日收盘或每日资金 workflow 覆盖，行数、锁时、WAL、缓存和查询面显著增大 | 阶段状态机、只读透明边界、单数据集 revision | 小表全量/单月阈值、单次微秒样本、无界锁内对账或合并发布 |
+
+### 9.4 后续统一状态机
+
+1. **S0/M0 只读复审**：可以在前项 M3b 等待期间开展；输出本项对象表、差异化门禁和停止条件，不写代码或数据库；
+2. **M1 编码**：必须有本项授权；只改本项 Definition/ORM/migration/tests。前项 M3b 不阻塞，但若观察暴露共享 writer、scheduler 或 workflow 契约问题，应暂停 M1 并重新评审；
+3. **M2 隔离验证**：必须独立授权和数据库身份门禁；不连接 Prod、不调用 Tushare、不创建任务；
+4. **M3a 生产切换**：必须独立授权；前项 M3a 已闭环，且共享 schedule/runtime 的前项 M3b 已通过或其失败已完成有证据的单独处置；
+5. **M3b 自然观察**：只验证既有自动化恢复后的真实路径；不重复源端扫描，不自动创建或修改 schedule；
+6. **S4 文档闭环**：实际 revision、commit、TaskRun/node、释放量、查询和残余风险写回本文及 v2，历史事实与当前状态分开记录。
+
+这套状态机的目标是把“可提前准备”与“不可叠加生产风险”分开，而不是减少任何数据、权限、消费者或回滚门禁。
+
+## 10. 测试清单
+
+### 10.1 Foundation/Ops
 
 1. 12 个 Definition 的 raw-only/view storage contract；
 2. 参数化 writer 测试证明每项只调用 raw DAO 一次，serving DAO 零调用；
@@ -520,7 +590,7 @@ P1-B1 首项 `moneyflow_ind_ths` M3 于 2026-08-24 在生产完成，实际证�
 7. `ServingPublishService` 不存在这 12 个 target mapping；
 8. 静态扫描禁止任何一期 serving DML。
 
-### 9.2 migration
+### 10.2 migration
 
 1. 非 PostgreSQL 不执行；PostgreSQL 正确切换；
 2. raw/serving relation kind 错误时失败；
@@ -532,7 +602,7 @@ P1-B1 首项 `moneyflow_ind_ths` M3 于 2026-08-24 在生产完成，实际证�
 8. downgrade 明确拒绝自动重建空表；
 9. 每个 revision 只处理一个数据集。
 
-### 9.3 直接消费者
+### 10.3 直接消费者
 
 1. Wealth 市场资金/市场总览；
 2. Wealth 板块概览、板块热度、指数详情、板块成员、连板天梯；
@@ -542,7 +612,7 @@ P1-B1 首项 `moneyflow_ind_ths` M3 于 2026-08-24 在生产完成，实际证�
 6. DG `dc_board_source_probe` 静态及隔离查询测试；
 7. 不运行正式 Dagster instance，不触发正式 asset/job/sensor。
 
-## 10. 发布停止条件与回退
+## 11. 发布停止条件与回退
 
 出现任一情况立即停止当前项和后续批次：
 
@@ -558,7 +628,7 @@ P1-B1 首项 `moneyflow_ind_ths` M3 于 2026-08-24 在生产完成，实际证�
 
 原 raw 表始终保留，因此本方案不会删除唯一源事实。DDL 提交前失败由事务回滚；提交后回退是独立 forward migration，不自动 downgrade、不清表、不从 Tushare 重拉。
 
-## 11. 不做事项
+## 12. 不做事项
 
 一期不做：
 
@@ -571,14 +641,14 @@ P1-B1 首项 `moneyflow_ind_ths` M3 于 2026-08-24 在生产完成，实际证�
 7. 不做共享 writer/DAO/Definition 重构；
 8. 不保证 relation OID、relkind、PK/index catalog 或历史审计时间值不变。
 
-## 12. 当前完成边界与下一阶段
+## 13. 当前完成边界与下一阶段
 
-1. P1-B0-M1～M3 已完成；P1-B1-M0 已完成，首项 `moneyflow_ind_ths` M1/M2 与 M3 生产切换、即时验收已通过；首个正常 schedule 观察待 `2026-08-24 20:00`，`moneyflow_cnt_ths` 与 `margin` 尚未修改 Definition 或创建 migration；
-2. 在首个正常工作流观察通过且另获授权后，下一阶段才是 P1-B1 第二项 `moneyflow_cnt_ths` 的 M1 编码与自动化测试；不得把行业 M3 授权外推为概念数据集的开发或生产动作；
-3. `moneyflow_cnt_ths` 后续仍必须独立完成 M1、隔离 PostgreSQL M2 和生产维护窗口 M3，并按同一每日资金工作流的暂停/恢复契约执行；禁止与 `margin` 合并 revision 或维护窗口；
+1. P1-B0-M1～M3 已完成；P1-B1-M0 已完成，首项 `moneyflow_ind_ths` M1/M2 与 M3a 生产切换、即时验收已通过；M3b 首个正常 schedule 观察待闭环，`moneyflow_cnt_ths` 与 `margin` 尚未修改 Definition 或创建 migration；
+2. `moneyflow_cnt_ths` 的 M1 编码和 M2 隔离验证可在分别获得授权后开展，不以行业 M3b 为前置条件；行业 M3b 未闭环前不得进入概念数据集的生产 M3a；
+3. `moneyflow_cnt_ths` 后续仍必须独立完成 M1、M2、M3a 和 M3b，并按同一每日资金工作流的暂停/恢复契约执行；禁止把行业授权外推为概念授权，也禁止与 `margin` 合并 revision 或维护窗口；
 4. 仓库外 SQL/BI/人工脚本无法由仓库审计穷尽，若存在依赖 OID、relkind、约束 catalog、旧审计时间或 serving DML 的未登记消费者，仍是每项 migration 的残余运营风险。
 
-## 13. 依据
+## 14. 依据
 
 1. `src/foundation/ingestion/writer.py`
 2. `src/foundation/datasets/definitions/moneyflow.py`

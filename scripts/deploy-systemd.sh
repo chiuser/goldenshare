@@ -34,6 +34,7 @@ usage() {
   --with-realtime         显式发布/重启 realtime collector（*-only 模式默认不处理）
   --skip-realtime         跳过 realtime collector 发布/重启
   --skip-migration        跳过数据库迁移
+  --maintenance-migration 维护窗口模式：只拉代码、安装后端并执行迁移，不构建、不 seed、不同步 unit、不重启服务
   --full                  全量发布（默认）
   -h, --help              显示帮助
 
@@ -41,6 +42,7 @@ usage() {
   bash scripts/deploy-systemd.sh dev-interface --platform-only
   bash scripts/deploy-systemd.sh --branch dev-interface --skip-build
   bash scripts/deploy-systemd.sh dev-interface --seed-default-source --seed-source tushare
+  bash scripts/deploy-systemd.sh dev-interface --maintenance-migration
 EOF
 }
 
@@ -60,6 +62,7 @@ export RUN_SYNC_UNITS="${RUN_SYNC_UNITS:-1}"
 export PIP_INSTALL_TARGET="${PIP_INSTALL_TARGET:-.}"
 ONLY_MODE=0
 export QTF_ONLY_MODE="${QTF_ONLY_MODE:-0}"
+MAINTENANCE_MIGRATION_MODE=0
 REALTIME_OVERRIDE=""
 
 if [[ $# -gt 0 && "${1}" != -* ]]; then
@@ -155,6 +158,9 @@ while [[ $# -gt 0 ]]; do
     --skip-migration)
       export RUN_DB_MIGRATION=0
       ;;
+    --maintenance-migration)
+      MAINTENANCE_MIGRATION_MODE=1
+      ;;
     --full)
       export DEPLOY_FOUNDATION=1
       export DEPLOY_OPS=1
@@ -177,7 +183,29 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-if [[ "${QTF_ONLY_MODE}" == "1" ]]; then
+if [[ "${MAINTENANCE_MIGRATION_MODE}" == "1" && "${QTF_ONLY_MODE}" == "1" ]]; then
+  echo "--maintenance-migration 不能与 --qtf-only 同时使用"
+  exit 1
+fi
+
+if [[ "${MAINTENANCE_MIGRATION_MODE}" == "1" ]]; then
+  # 该模式只收敛部署脚本的动作边界，不负责暂停 schedule 或停止服务。
+  # 调用方必须先完成维护窗口预检和停服；这里确保迁移完成前不会被脚本意外拉起。
+  export DEPLOY_FOUNDATION=0
+  export DEPLOY_OPS=0
+  export DEPLOY_PLATFORM=0
+  export DEPLOY_REALTIME=0
+  export DEPLOY_QTF=0
+  export QTF_ONLY_MODE=0
+  export MAINTENANCE_MIGRATION_MODE=1
+  export RUN_DB_MIGRATION=1
+  export RUN_FRONTEND_BUILD=0
+  export RUN_WEALTH_BUILD=0
+  export RUN_DEFAULT_SINGLE_SOURCE_SEED=0
+  export RUN_MONEYFLOW_MULTI_SOURCE_SEED=0
+  export RUN_SYNC_UNITS=0
+  ONLY_MODE=1
+elif [[ "${QTF_ONLY_MODE}" == "1" ]]; then
   export DEPLOY_FOUNDATION=0
   export DEPLOY_OPS=0
   export DEPLOY_PLATFORM=0
