@@ -5,15 +5,15 @@
 | 项目 | 当前结论 |
 |---|---|
 | 文档性质 | 代码级 LLD 与内嵌编码门禁矩阵 |
-| 当前状态 | M3 开发已收口；生产迁移与 QTF systemd 实机验收待部署，下一步只可进入 M4 |
-| 审计日期 | 2026-08-23 |
+| 当前状态 | M3 开发与生产部署验收已收口；下一步只可进入 M4 |
+| 审计日期 | 2026-08-24 |
 | 目标产品 | 财势乾坤 / 财势探查 / 量化研究工作台 |
 | 首个垂直切片 | 东财二级行业统一参数研究 |
 | 本文是否批准 R2 回测 | 否。R2 仍处于事前计划待评审状态 |
 | 本文是否授权生产写入或发布 | 否 |
-| 当前 Alembic 口径 | M3 实施前重新确认单一 head 为 `20260822_000143`；M3 迁移接为 `20260823_000144`。本轮未连接或修改 Prod，部署前仍须核对远端 head |
+| 当前 Alembic 口径 | M3 实施前单一 head 为 `20260822_000143`，M3 迁移接为 `20260823_000144`；2026-08-24 生产只读验收时当前 head 已为后续迁移 `20260824_000147`，M1/M3 的五张 QTF 状态表均已存在 |
 
-本文把已经确认的 QTF 系统架构、当前 Figma 六个正式页面、东财行业量化研究口径和仓库真实代码接入点落成可编码设计。当前 M1 平台基础、M2 候选公式内核和 M3 输入门禁与执行主链已经实现；可信结果证据、真实研究、完整平台 API、前端和发布仍未实现。Figma 中的示例数值仍不得解释为真实研究结果。
+本文把已经确认的 QTF 系统架构、当前 Figma 六个正式页面、东财行业量化研究口径和仓库真实代码接入点落成可编码设计。当前 M1 平台基础、M2 候选公式内核和 M3 输入门禁与执行主链已经实现，M1/M3 生产迁移与 QTF Worker 实机验收也已完成；可信结果证据、真实研究、完整平台 API、前端和发布仍未实现。Figma 中的示例数值仍不得解释为真实研究结果。
 
 ### 0.1 依据与优先级
 
@@ -81,7 +81,7 @@
 | `src/ops/services/task_run_service.py` | 已支持可选注入 `ExternalTaskDefinition`；默认实例仍只允许既有任务 | 默认 Ops API 不能创建 `qtf_experiment`，QTF 只经 App 专用定义接入 |
 | `src/ops/runtime/task_run_dispatcher.py` | 已支持可选注入 `ExternalTaskExecutor` | Ops 不导入 QTF；未注入时保持既有三类任务行为 |
 | `src/ops/runtime/worker_lane.py` | 已新增 QTF lane，GENERAL 明确排除 `qtf_experiment` | QTF、GENERAL、股票分钟和指数分钟领取范围已由自动化隔离 |
-| `src/app/runtime/ops_worker_factory.py` | App 已负责注入 QTF definition/executor 并构造独立 worker | QTF executor 不伪装成 maintenance action；生产 unit 待远程验收 |
+| `src/app/runtime/ops_worker_factory.py` | App 已负责注入 QTF definition/executor 并构造独立 worker | QTF executor 不伪装成 maintenance action；生产 unit 已于 2026-08-24 完成远程验收 |
 | `src/ops/models/ops/task_run*.py` | 已有任务、节点、问题、取消和进度事实 | 继续复用；不在 QTF 再建一套执行状态表 |
 | `src/db.py` | 单一 `DATABASE_URL`、engine、session factory | QTF 复用当前连接，不新增数据库或专用账号 |
 
@@ -1324,7 +1324,7 @@ sourceStatementTimeoutMs
 
 ### M1：QTF 平台基础与研究状态
 
-**状态：2026-08-22 开发已收口，生产迁移待部署。**
+**状态：2026-08-22 开发已收口；生产迁移已于 2026-08-24 验收。**
 
 1. 已建立 `qtf/AGENTS.md`、M1 包骨架、受控包发现、根目录责任、依赖矩阵和自动护栏；实际 wheel 已验证只包含 `src*`、`qtf*` 与发行元数据。
 2. 已建立 Research/Revision 最小平台状态合同、应用端口、服务和 SQLAlchemy repository；只保存研究草稿与版本状态，不保存来源数据副本。
@@ -1345,7 +1345,7 @@ sourceStatementTimeoutMs
 
 ### M3：输入门禁、有限计划与执行主链
 
-**状态：2026-08-23 开发已收口，生产迁移与 QTF systemd 实机验收待部署。**
+**状态：2026-08-23 开发已收口；生产迁移与 QTF systemd 实机验收已于 2026-08-24 完成。**
 
 1. 实施前确认单一 Alembic head 为 `20260822_000143`，新增 `20260823_000144`，且迁移仅增加 `qtf.input_preflight`、`qtf.input_preflight_issue`、`qtf.experiment_run`；`task_run_id` 保持逻辑唯一关联，不建立 Ops ORM 外键。
 2. 复用第 10.1 节既有 Prod 来源合同，实现只读取 `trade_calendar / wealth_sector_hierarchy / dc_daily` 的 `REPEATABLE READ, READ ONLY` adapter；只保存范围、计数、问题摘要和内容指纹，不保存来源行副本，也不修改上游。
@@ -1355,6 +1355,7 @@ sourceStatementTimeoutMs
 6. 已增加计划规定的 9 个最小管理员 API、QTF worker CLI、独立 systemd unit、`--qtf-only`、精确 sudo 白名单和发布 commit 门禁；部署安全纠偏后，QTF unit 以 `goldenshare` 运行，commit 由 worker 启动时从部署仓库一次性解析，不再使用 release 环境文件；默认 Ops API 仍拒绝创建 `qtf_experiment`。
 7. 本地自动化已覆盖输入正反例、启动原子性、幂等与版本冲突、每 Run 重读、同 Run 单次读取、预算增长阻断、安全取消、非法 commit 零来源读取、管理员认证、敏感信息屏蔽、worker 启动版本冻结、降权 unit 和部署权限前置失败。M3 不创建 M4 结果表，成功运行仍保持 `validationStatus=PENDING`，不产生 Candidate。
 8. “预检过期”在 M3 中指当前草稿 hash 已变化，或同一 revision 已生成更新的 DRAFT_PREVIEW；不引入未经批准的墙钟 TTL 或全局资源配置。
+9. 2026-08-24 生产只读验收确认：`dev-interface` 已包含 M3；Web、Ops Worker、Scheduler 与 QTF Worker 均为 `active`；QTF unit 以 `goldenshare:goldenshare` 运行；`/api/v1/qtf/templates` 已挂载并由登录门禁保护；生产 Alembic 当前为 `20260824_000147 (head)`，五张 QTF 状态表均存在。当前五张表记录数均为 0，符合尚未创建研究、运行真实 R2 的边界。旧失败发布残留的 `.qtf-release.env.next` 已移出远程仓库并保留于 `/var/backups`，远程 Git 工作区已恢复干净。
 
 ### M4：可信门禁与结果证据
 
@@ -1427,10 +1428,10 @@ sourceStatementTimeoutMs
 | G22 | 六类页面状态稳定 | controllers/UI | 状态逐一渲染 | error 回退示例数据失败 | OPEN |
 | G23 | R2 未经批准不执行 | freeze/run service | 获批 hash 后可建 Run | Figma 示例直接启动被阻断 | PASS (M3) |
 | G24 | 申万与跨体系为零 | sector contracts | 只接受 DC L2 | SW/跨体系参数被拒绝 | PASS (M2) |
-| G25 | QTF 独立 worker 进程 | worker lane/CLI/systemd | QTF lane 领取实验 | GENERAL/分钟 lane 抢占或 QTF 领取既有任务时失败 | 代码完成，部署待验收 (M3) |
-| G26 | 运行代码可追溯 | worker startup/run fingerprint | 进程启动解析一次合法 commit 并写入 Run | 缺失/伪 commit 时 worker 不进入轮询且零来源读取 | 代码完成，部署待验收 (M3) |
+| G25 | QTF 独立 worker 进程 | worker lane/CLI/systemd | QTF lane 领取实验 | GENERAL/分钟 lane 抢占或 QTF 领取既有任务时失败 | PASS (M3，2026-08-24 生产验收) |
+| G26 | 运行代码可追溯 | worker startup/run fingerprint | 进程启动解析一次合法 commit 并写入 Run | 缺失/伪 commit 时 worker 不进入轮询且零来源读取 | PASS (M3，自动化合同 + 2026-08-24 生产进程启动验收；首个获批 Run 的指纹实数回读随 M5 执行) |
 
-只有具备对应实现与自动化证据的 Gate 才标记 PASS。G25/G26 仍需远程降权 systemd unit、精确 sudo 权限、进程启动 commit 与迁移实机验收；文档完成不等于 Gate 通过。
+只有具备对应实现与自动化证据的 Gate 才标记 PASS。G25/G26 已结合自动化证据与 2026-08-24 远程降权 systemd unit、精确 sudo 权限、进程启动和迁移实机证据通过；由于当前未获批创建真实研究，首个 Run 的实际版本指纹回读归入 M5 首次获批执行验收，不允许为验收伪造 Run。
 
 ---
 
@@ -1449,7 +1450,7 @@ bash -n scripts/deploy-systemd.sh scripts/deploy-layered-systemd.sh
 git diff --check
 ```
 
-另在 `/private/tmp` 构建 wheel，并从独立目标目录导入 `qtf`、二级行业 executor 和 Prod adapter；仓库内不得留下构建产物。远程 `alembic upgrade head`、降权 systemd unit、精确 sudo 权限、worker 启动 commit 和 `--qtf-only` 实机验证属于部署验收，未获部署指令时不得在本地开发收口中执行。M3 不涉及 Wealth 前端，因此不运行或修改前端构建链。
+另在 `/private/tmp` 构建 wheel，并从独立目标目录导入 `qtf`、二级行业 executor 和 Prod adapter；仓库内不得留下构建产物。远程 `alembic upgrade head`、降权 systemd unit、精确 sudo 权限和 worker 启动 commit 已于 2026-08-24 完成实机验收；`--qtf-only` 仍是后续 QTF 独立发布模式，不为重复验收而再次执行。M3 不涉及 Wealth 前端，因此没有新增或修改 QTF 前端页面。
 
 真实 R2 只读验收、性能证据和具体运行命令必须由获批 PLAN 生成，不能提前在本 LLD 中写死。
 
@@ -1464,4 +1465,4 @@ git diff --check
 5. 真实 R2 仍未获批；平台开发和真实研究执行是两次独立授权。
 6. M9 的生产 serving 与板块雷达/板块速览消费必须另立能力 LLD，不能在平台框架开发中顺手接入。
 
-因此，**M3：输入门禁、有限计划与执行主链** 已于 2026-08-23 完成开发及部署安全纠偏收口；生产迁移、降权 QTF worker、精确 sudo 权限与进程启动版本指纹仍等待部署实机验收。下一步只能进入 **M4：可信门禁与结果证据**，不得直接执行真实 R2、进入前端或发布。
+因此，**M3：输入门禁、有限计划与执行主链** 已于 2026-08-23 完成开发及部署安全纠偏，并于 2026-08-24 完成生产迁移、降权 QTF Worker、精确 sudo 权限与进程启动版本门禁的实机验收。下一步只能进入 **M4：可信门禁与结果证据**，不得直接执行真实 R2、进入前端或发布。
