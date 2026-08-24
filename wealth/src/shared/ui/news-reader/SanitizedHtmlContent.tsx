@@ -38,11 +38,13 @@ const ALLOWED_TAGS = [
   "div",
 ] as const;
 
+const SELF_CLOSING_IFRAME_PATTERN = /<iframe\b(?:[^>"']|"[^"]*"|'[^']*')*\/\s*>/gi;
+
 
 export function SanitizedHtmlContent({ html }: { html: string }) {
   const sanitizedHtml = useMemo(
     () =>
-      DOMPurify.sanitize(html, {
+      DOMPurify.sanitize(removeUnsupportedSelfClosingIframes(html), {
         ALLOWED_TAGS: [...ALLOWED_TAGS],
         ALLOWED_ATTR: [],
       }),
@@ -50,4 +52,8 @@ export function SanitizedHtmlContent({ html }: { html: string }) {
   );
 
   return <article className="news-reader-html" dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />;
+}
+
+function removeUnsupportedSelfClosingIframes(html: string): string {
+  return html.replace(SELF_CLOSING_IFRAME_PATTERN, "");
 }

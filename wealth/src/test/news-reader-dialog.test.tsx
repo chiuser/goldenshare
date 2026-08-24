@@ -186,6 +186,26 @@ describe("NewsReaderDialog", () => {
     expect(container.querySelector("[style]")).toBeNull();
   });
 
+  it("removes malformed self-closing iframes before parsing and preserves following article text", () => {
+    const { container } = render(
+      <NewsReaderDialog
+        state={readyState(
+          readyItem({
+            readerMode: "HTML",
+            html: '<div><p><iframe width="100%" src="https://stockpage.example/news"/></p><p>iframe 后的完整新闻正文</p></div>',
+            content: null,
+          }),
+        )}
+        onClose={vi.fn()}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("iframe 后的完整新闻正文")).toBeInTheDocument();
+    expect(container.querySelector("iframe")).toBeNull();
+    expect(container.querySelector('[src="https://stockpage.example/news"]')).toBeNull();
+  });
+
   it("renders HTML-looking text as plain text", () => {
     const { container } = render(
       <NewsReaderDialog

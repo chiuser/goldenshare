@@ -38,6 +38,7 @@ major_news 正文: HTML/TEXT，URL 仅 originalUrl
 | N12 | 性能有界 | query/detail | list limit 300、detail limit 1 | 禁止正文进入列表、跨表扫描 |
 | N13 | 股票详情不受影响 | stock-detail files/tests | 原测试通过 | 本轮不得改 stock-detail news |
 | N14 | 无兼容层 | router/types/files | 新合同唯一 | 无 alias route/re-export/旧 DTO |
+| N15 | 畸形 iframe 不吞正文 | `SanitizedHtmlContent` | 自闭合 iframe 后段落保留 | iframe/属性仍不得进入 DOM |
 
 ## 3. 影响面审计
 
@@ -570,6 +571,24 @@ response 增加 `contentSource` 和 `originalUrl`。
 data-news-source={item.contentSource}
 ```
 
+### 6.6 畸形自闭合 iframe 容错
+
+正式 `major_news.content` 已确认存在如下源端 HTML：
+
+```html
+<p><iframe src="..."/></p><p>正常正文</p>
+```
+
+`iframe` 不是 HTML void element，浏览器不会把 `/>` 视为真正闭合；若直接交给 DOM parser，后续正文会被吸收为 iframe 子内容，再随禁止标签一起被 DOMPurify 删除。
+
+`SanitizedHtmlContent.tsx` 必须在 DOMPurify 之前执行唯一一项有界预处理：删除 `<iframe .../>` 自闭合起始标签。实现要求：
+
+1. 匹配大小写不敏感，并允许单引号/双引号属性值。
+2. 只处理明确以 `/>` 结束的 iframe，不改写普通段落、链接或规范闭合标签。
+3. 预处理后仍必须经过原有 DOMPurify allowlist；不得把 iframe 或任何属性加入 allowlist。
+4. 不请求 iframe 的 `src`，不生成替代链接，不修改 URL/TEXT 阅读模式。
+5. 回归测试必须证明 iframe 后的正文保留，同时 DOM 中不存在 iframe 和 `src` 属性。
+
 ## 7. 旧代码删除清单
 
 开发完成后以下内容必须为 0：
@@ -737,5 +756,6 @@ git diff --check
 | N01-N03 | `market_news_query.py`、`major_news_query.py`、`news_query_service.py`、新闻列表 DTO | `test_wealth_market_news_api.py` | 已完成：news 全频道、major_news 独立查询、跨源同名保留且源内去重 |
 | N04-N09 | 双源 reader query/service/resolver、`news_item.py`、前后端 API/adapter、router 与旧 stock 合同删除 | `test_wealth_market_news_reader_api.py`、`market-news-reader-controller.test.tsx`、`market-overview-news-real-api.test.tsx` | 已完成：双维身份、major HTML/TEXT、originalUrl 仅溯源、旧路由/字段清零 |
 | N10-N14 | `MarketOverviewPage.tsx`、`MarketNewsPanelGroup.tsx`、`useMarketNewsReader.ts`，shared reader 保持不变 | `MarketOverviewPage.test.tsx`、`news-reader-dialog.test.tsx`、静态清零门禁 | 已完成：独立状态刷新、modal 行为不变、10 分钟窗口与无兼容层 |
+| N15 | `SanitizedHtmlContent.tsx` | `news-reader-dialog.test.tsx` | 已完成：移除畸形自闭合 iframe，保留后续正文且安全边界不放宽 |
 
 未完成项不得默认为完成；若任何正式数据事实与本 LLD 冲突，先停下审计并更新方案，不允许临时回退 URL 或保留旧 `/stocks` 兜底。
