@@ -1,14 +1,14 @@
 # 生产 PostgreSQL raw 直出一期低层设计 v1
 
 - 版本：v1
-- 状态：P1-B0-M3 已通过；P1-B1 首项 `moneyflow_ind_ths` M1/M2 已通过，待独立授权 M3 生产验收
+- 状态：P1-B0-M3 已通过；P1-B1 首项 `moneyflow_ind_ths` M1/M2 与 M3 生产切换、即时验收已通过，首个正常 schedule 观察待 `2026-08-24 20:00`；下一项尚未授权
 - 更新时间：2026-08-24
 - 上位方案：[生产 PostgreSQL 存储空间优化治理专项 v2](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v2.md)
 - 目标：把一期 12 个无业务转换的 raw/core_serving 双写数据集收敛为“raw 唯一物理事实表 + 原 serving 名称只读 view”，预计释放约 3.305 GiB SSD
 
 ## 0. 边界与完成定义
 
-本文定义一期实施合同，并记录已获授权完成的 P1-B0-M1～M3 以及 P1-B1 首项 M0～M2 证据；已完成阶段不构成后续数据集开发、部署、生产 migration 或 TaskRun 授权。
+本文定义一期实施合同，并记录已获授权完成的 P1-B0-M1～M3 以及 P1-B1 首项 M0～M3 证据；已完成阶段不构成后续数据集开发、部署、生产 migration 或 TaskRun 授权。
 
 一期完成必须同时满足：
 
@@ -110,14 +110,15 @@ conflict_columns = 保持现有值
 6. owner 均为 `goldenshare_user`；部分 relation 的非 owner SELECT grant 不同，migration 必须逐对象恢复。
 7. P1-B0 已在生产完成最终 812 行全字段双向差集、relation 切换、权限与拒写、真实查询计划、连接池回收及最小 TaskRun 验收；详见第 8 节。
 8. P1-B1 三项已完成全字段对账：行业与概念按 24 个自然月逐窗双向差集均为 0，margin 全量双向差集为 0。
+9. P1-B1 首项 `moneyflow_ind_ths` 已在生产完成 revision 147、42,030 行 raw-backed view、拒写、查询计划、连接池、TaskRun `9217` 与 schedule 原样恢复的即时验收；首个正常 schedule 观察仍是进入下一数据集前门禁，详见第 8 节。
 
 尚未完成：
 
 1. 除 `moneyflow_mkt_dc`、`moneyflow_ind_ths`、`moneyflow_cnt_ths`、`margin` 外，其余 8 组尚未完成全历史业务字段双向 `EXCEPT ALL`；
-2. P1-B1 三项已记录生产切换前代表性查询计划；切换后计划和时延仍须在各自 M3 验收，其余 8 项尚未建立前后基线；
+2. P1-B1 中 `moneyflow_ind_ths` 已完成切换前后生产计划和时延验收；`moneyflow_cnt_ths` 与 `margin` 仍只有切换前基线，其余 8 项尚未建立前后基线；
 3. 仓库外 SQL、BI、人工脚本和依赖 relation catalog 的工具尚未完成签字；
 4. `suspend_d` 的 raw/serving `id` 必须逐行一致，不能只比较 `row_key_hash`；
-5. P1-B0 已运行生产 Biz 查询服务，但未做带登录态的浏览器验收；其它 11 项的 API/QTF/DG 验收仍须按实际消费者逐项执行。
+5. P1-B0 已运行生产 Biz 查询服务，但未做带登录态的浏览器验收；行业 relation 当前没有 Biz/QTF/DG serving 读取，已按 Ops/freshness、真实 SQL 和 TaskRun 完成验收；其余 10 项仍须按实际消费者逐项执行。
 
 因此，名单已固定，但每项当前状态仍是“候选”；未通过第 7 节门禁前禁止 drop serving 表。
 
@@ -451,7 +452,7 @@ P1-B0-M3 于 2026-08-24 在生产完成，实际证据如下：
 10. 生产 `MarketMoneyFlowQueryService` 7 次中位数 3.998 ms、`MarketSummaryQueryService` 7 次中位数 12.153 ms，均无查询异常。无登录态 HTTP 只能验证认证层返回 401，未将其冒充浏览器业务验收；
 11. M3 后全部服务恢复 active、开放 TaskRun 为 0；该数据集原本没有 schedule，本轮没有创建。catalog 可确认释放的 serving 物理 relation 为 237,568 B；根文件系统可用字节受发布依赖、WAL 和运行噪声影响反而减少，不能用一次 `df` 差值替代 relation 释放量。
 
-### P1-B1：专属顺序、M0 证据与首项 M1/M2
+### P1-B1：专属顺序、M0 证据与首项 M1～M3
 
 P1-B1 固定按 `moneyflow_ind_ths -> moneyflow_cnt_ths -> margin` 顺序推进；每项都必须依次完成 M1 编码、M2 隔离 PostgreSQL、M3 生产验收，禁止把三个 relation 放进同一个 revision 或维护窗口。2026-08-24 M0 证据如下：
 
@@ -486,6 +487,21 @@ P1-B1 首项 `moneyflow_ind_ths` M2 于 2026-08-24 在临时、仅 Unix socket �
 7. 负向容量库在同一自然月放入 5,001 行后，migration 在任何 DDL 前以 `monthly reconciliation exceeds safety cap` 明确失败；revision 仍为 146，旧 relation OID、物理表类型和 raw/serving 各 5,001 行均不变，未残留 trigger；
 8. 在另一套 42,030 行基线库中，于取得排他锁并删除旧 serving 表后注入异常。事务关闭后 revision 仍为 146，旧物理表 OID、42,030 行、3 个有效索引、权限和注释全部恢复，证明切换不会留下半完成 relation；
 9. 隔离实例已停止，受控目录已可恢复地移入废纸篓；M2 不产生可复用环境，也不构成生产 migration 授权。
+
+P1-B1 首项 `moneyflow_ind_ths` M3 于 2026-08-24 在生产完成，实际证据如下：
+
+1. 最终只读预检确认 PostgreSQL `16.13`、Alembic `20260824_000146`、raw/serving 均为 42,030 行和 42,030 个唯一 `(trade_date, ts_code)`，日期范围均为 `2024-09-10..2026-08-21`，单月最大 2,070 行；12 个业务字段全量双向 `EXCEPT ALL` 均为 0；
+2. 目标 relation 没有 inheritance、外键、用户 trigger、RLS、依赖 view/function、扩展统计或 publication；没有开放 TaskRun、超过 5 分钟的事务或目标锁。`daily_moneyflow_maintenance` schedule #4 原为 active，cron `0 20 * * 1-5`、时区 `Asia/Shanghai`、下一次 `2026-08-24 20:00`；
+3. 维护窗口通过正式 `OperationsScheduleService` 暂停 schedule #4，并停止 scheduler 与 generic worker；Web 保持只读可用。部署 commit `60f2ce28` 只安装后端并执行 migration，不构建前端、不 seed、不提前重启执行服务；
+4. migration `20260824_000146 -> 20260824_000147` 一次成功。`raw_tushare.moneyflow_ind_ths` 仍是 `pg_default` 物理表，heap/index 分别为 6,512,640/4,096,000 B；`core_serving.industry_moneyflow_ths` 已是普通 view，物理 heap/index 均为 0，原 serving 释放 9,756,672 B；
+5. 切换后 raw/view 仍为 42,030 行，身份数、日期范围和 12 个业务字段保持一致，审计时间固定投影 `fetched_at -> created_at/updated_at` 差异为 0。owner 仍为 `goldenshare_user`，生产原本没有 serving 非 owner grant/comment，切换后保持相同；raw 既有关系和索引未改变；
+6. 对 serving view 的 `INSERT`、`UPDATE`、`DELETE` 均由独立 trigger 以 SQLSTATE `55000` 拒绝；三类验证均在可回滚事务内执行，raw 行数前后均为 42,030；共享函数仍为 `SECURITY INVOKER`、固定 `search_path=pg_catalog` 且仅 owner 可执行；
+7. 生产日期点查切换前后执行时间为 `0.244/0.234 ms`，行业代码区间为 `0.880/0.959 ms`，最大日期为 `0.028/0.024 ms`；三类查询均下推 raw 的等价日期或 `(ts_code, trade_date)` 索引，单次时延变化低于 20% 阻断线，未出现顺序扫描或临时文件；单次微秒值只作为计划证据；
+8. Web、date-completeness、task-completion 和两个分钟线 worker 通过正式 service restart 回收连接池，健康检查通过；generic worker 在静态验收后才启动，scheduler 在 schedule 恢复后才启动。QTF 当前没有该 relation 消费者，因此没有做无关重启；
+9. 正式最小 TaskRun `9217` 请求 `2026-08-21` 一个 unit，状态 success，`1/1` 完成、0 失败；源端 1 页读取 90 行，短页正常结束、0 重试，归一化 90、写入 90、拒绝 0、去重 0；
+10. TaskRun 后该日 raw/view 均为 90 行和 90 个唯一身份，90 行 `fetched_at` 全部位于任务执行窗口，view 审计时间即时一致；全表仍为 42,030 行，业务字段双向差集、审计时间投影差异和关键字段异常均为 0；
+11. schedule #4 通过正式服务恢复为 active，`next_run_at` 仍为 `2026-08-24 20:00+08`；`ops.config_revision` 留有同一用户的 `paused/resumed` 审计记录。最终 Web、worker、scheduler 及相关 Ops worker 全部 active，开放 TaskRun 为 0；首个正常工作流尚未到触发时间，仍是进入下一数据集前的观察门禁；
+12. 根盘可用空间从维护窗口前 4,461,560 KiB 变为验收后的 4,485,480 KiB，但发布依赖、WAL 与运行噪声会影响 `df`；因此只以 catalog 的 9,756,672 B 作为本项已释放 serving 物理量，不把文件系统瞬时差额当作精确收益。
 
 ### S4：文档证据
 
@@ -557,9 +573,9 @@ P1-B1 首项 `moneyflow_ind_ths` M2 于 2026-08-24 在临时、仅 Unix socket �
 
 ## 12. 当前完成边界与下一阶段
 
-1. P1-B0-M1～M3 已完成；P1-B1-M0 已完成，首项 `moneyflow_ind_ths` M1/M2 已通过；`moneyflow_cnt_ths` 与 `margin` 尚未修改 Definition 或创建 migration；
-2. 下一阶段是 `moneyflow_ind_ths` 的独立 M3：生产只读预检、暂停覆盖它的 active 每日资金工作流、确认无开放 TaskRun、部署 raw-only Definition、应用 revision 147、回收连接池并完成真实查询与最小 TaskRun 验收；M2 不构成这些生产动作的授权；
-3. M3 必须单独授权并在每日资金工作流之外选择维护窗口；该项生产验收完成前不得编码或迁移 `moneyflow_cnt_ths`；
+1. P1-B0-M1～M3 已完成；P1-B1-M0 已完成，首项 `moneyflow_ind_ths` M1/M2 与 M3 生产切换、即时验收已通过；首个正常 schedule 观察待 `2026-08-24 20:00`，`moneyflow_cnt_ths` 与 `margin` 尚未修改 Definition 或创建 migration；
+2. 在首个正常工作流观察通过且另获授权后，下一阶段才是 P1-B1 第二项 `moneyflow_cnt_ths` 的 M1 编码与自动化测试；不得把行业 M3 授权外推为概念数据集的开发或生产动作；
+3. `moneyflow_cnt_ths` 后续仍必须独立完成 M1、隔离 PostgreSQL M2 和生产维护窗口 M3，并按同一每日资金工作流的暂停/恢复契约执行；禁止与 `margin` 合并 revision 或维护窗口；
 4. 仓库外 SQL/BI/人工脚本无法由仓库审计穷尽，若存在依赖 OID、relkind、约束 catalog、旧审计时间或 serving DML 的未登记消费者，仍是每项 migration 的残余运营风险。
 
 ## 13. 依据
