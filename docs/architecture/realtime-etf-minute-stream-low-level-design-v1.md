@@ -1,93 +1,93 @@
 # ETF 实时分钟流接入 LLD v1
 
-状态：待 M0 实测冻结后开发。本文定义编码位置、类型、配置、接口、测试和清理边界；不代表任何 `etf_rt_min` 代码已经存在。
+状态：设计已按实测源端事实更新，尚未编码。本文是 ETF 实时分钟流的编码依据；不复用旧成交额监控归档代码，也不代表任何目标表、provider 或 collector 已存在。
 
 创建日期：2026-08-24
+最近更新：2026-08-24
+
 上位方案：[ETF 实时分钟流接入方案 v1](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-minute-stream-plan-v1.md)
-下游契约：[ETF 实时成交额异动监控 LLD v1](/Users/congming/github/goldenshare/docs/ops/ops-etf-realtime-volume-anomaly-monitor-lld-v1.md)
+源端事实：[Tushare 0416 ETF 实时分钟](/Users/congming/github/goldenshare/docs/sources/tushare/ETF专题/0416_ETF实时分钟.md)
+历史补数事实：[Tushare 0387 ETF 历史分钟行情](/Users/congming/github/goldenshare/docs/sources/tushare/ETF专题/0387_ETF历史分钟行情.md)
 
 ---
 
-## 1. 实施约束
+## 1. 实施约束和已冻结事实
 
-1. 新主实现仅位于 `src/foundation/realtime/**`、`src/ops/**`、`src/app/**` 和 `frontend/**`；不得进入 `platform/operations`。
-2. `foundation` 不读取 `ops.etf_realtime_monitor_pool`，不 import Ops model/service。分钟源代码范围只通过现有 `EtfSeriesActiveStore` contract 读取 `ops.etf_series_active(resource='etf_rt_min')`；不得依赖任何下游业务名单。
-3. 不新增 DatasetDefinition、TaskRun、业务表、Alembic 表迁移或 systemd 服务。`foundation.realtime_runtime_config` 是现有泛化配置表，只新增一行配置对象。
-4. 所有 health/配置/采集日志写失败都不得阻塞或回滚已有 Redis 当前批次，更不得影响业务数据事务。
-5. 未通过 M0 前，禁止在代码中硬编码 HTTP API 名、topic、bar finality、grace、代码分片上限或 ETF/股票分钟的限速关系。
+1. 新实现位于 `src/foundation/realtime/**`、`src/foundation/dao/**`、`src/foundation/models/**`、`src/ops/**`、`src/app/**` 与 `frontend/**`；不得进入 `src/platform/**` 或 `src/operations/**`。
+2. `foundation` 只能经 `EtfSeriesActiveStore` 读取 `ops.etf_series_active(resource='etf_rt_min')`，不得 import Ops ORM，也不得读 `ops.etf_realtime_monitor_pool`、规则、告警或 Feishu 配置。
+3. `rt_min` provider 只传 `ts_code`、`freq` 和显式字段。`topic`、`HQ_FND_TICK` 不是 0416 文档支持的参数，禁止出现在 request builder、配置、测试或回退分支中。
+4. `rt_min` 当前每个 ETF/频率响应只给最新一根；`1MIN` 是已闭合分钟事实。实时 source 只写 Redis final-fact state，不能从 collector 直接提交 PostgreSQL。
+5. 新的 PostgreSQL 表只保存 ETF 分钟源的 `1MIN` 事实，部署到已确认的 HDD tablespace。它不能命名或放入 `ops.etf_realtime_minute_stat`，也不承接累计差额、监控规则或告警职责。
+6. 所有 configuration、health、state 失败不得回滚已经发布的 Redis batch，更不得影响任何业务数据事务。
+7. 本 LLD 不改 ETF 成交额监控。监控后续只能读取本 LLD 的 Redis/Persistent minute fact contract。
 
----
+### 1.1 当前代码中不能复用的旧归档
 
-## 2. 文件级改造清单
+`src/ops/services/etf_realtime_minute_archive_service.py` 当前：
 
-| 文件 | 改造 |
-|---|---|
-| `src/foundation/realtime/constants.py` | M0 后新增 ETF minute source/display/feed 常量 |
-| `src/foundation/realtime/config_catalog.py` | 新增 `ETF_RT_MIN_OBJECT_KEY`、catalog 和锁定事实 |
-| `src/foundation/realtime/runtime_config.py` | 新增 `RealtimeEtfRtMinConfig`；runtime root/load/build/limiter 逻辑扩展 |
-| `src/foundation/realtime/runtime_config_seed_service.py` | 新增受控默认配置；seed 从 3 对象扩展为 4 对象 |
-| `src/foundation/dao/etf_series_active_dao.py` | 复用既有 `list_active_codes(resource)`；ETF minute 只传 `resource='etf_rt_min'`，不 import Ops ORM |
-| `src/foundation/realtime/etf_rt_min.py` | 新建 provider、normalizer、按独立 source 活跃池读取代码的 per-frequency publisher/collector 结果类型 |
-| `src/foundation/realtime/collector_service.py` | 注入 ETF minute collector，按 frequency 独立调度并写 apply state |
-| `src/foundation/realtime/state_store.py` | 新增分钟采集/最终分钟事实的类型化 contract；三种 store 实现同步 |
-| `src/foundation/realtime/config_apply_state.py` | apply state 增加 `etf_rt_min.version` |
-| `src/foundation/clients/tushare_client.py` | 仅在 M0 确认共享 API 配额时改为共享 realtime rate-limit resolver；不得猜测 |
-| `src/ops/services/etf_series_active_seed_service.py` | 扩展受控 resource 白名单，允许独立 seed `etf_rt_min`；不得由监控池写入或派生 |
-| `src/ops/queries/realtime_feed_health_query_service.py` | 新增 ETF minute 五频率 health wrapper/item |
-| `src/ops/schemas/realtime.py` | 新增 ETF minute health response schema |
-| `src/ops/api/realtime.py` | 新增 ETF minute health routes |
-| `src/ops/services/realtime_config_service.py` | 将 ETF minute 加入 object spec、字段元信息、validate/publish/apply state |
-| `src/cli_parts/realtime_handlers.py` | 继续仅装配统一 collector；不得在 ETF minute 结果后隐式调用成交额监控、Feishu 或归档 |
-| `frontend/src/shared/api/realtime-config-types.ts` | 仅新增后端 contract 类型字段 |
-| `frontend/src/shared/api/realtime-types.ts` | 新增 ETF minute health contract |
-| `frontend/src/pages/ops-realtime-config-center-page.tsx` | 复用对象目录/查看编辑态，渲染第四个对象与 checkbox group |
-| `frontend/src/pages/ops-realtime-monitor-page.tsx` | 新增 ETF minute health 区块，局部 refetch |
+```text
+读取 ops.etf_realtime_monitor_pool
+调用 build_etf_minute_metrics_for_trade_date
+写 ops.etf_realtime_minute_stat
+把 rt_etf_k 累计值差额解释为分钟量
+```
 
-现有 `src/foundation/realtime/etf_rt_daily.py` 不改为 ETF minute 实现；二者源接口、请求范围、时间语义和配置对象不同。
+它的输入、对象范围和量值语义均与 `rt_min` 闭合分钟不同。因此 ETF 分钟流实现不得 import、调用、改造或间接触发它；长期该旧监控链路如何退场，由成交额监控需求另行处理。
 
 ---
 
-## 3. Foundation contract
+## 2. 目标职责与数据流
 
-### 3.1 常量与 catalog
+```text
+EtfSeriesActiveStore(resource=etf_rt_min)
+  -> TushareEtfRtMinProvider(api=rt_min)
+  -> EtfRtMinCollector（按 source freq）
+  -> RealtimeStateStore
+       - per-frequency current batch / health
+       - ETF 1MIN final facts
+  -> EtfRealtimeMinuteArchiveService（独立收盘任务）
+  -> foundation.etf_realtime_minute_bar_1m（HDD）
+  -> EtfRealtimeMinuteHistoryRepairService(api=etf_mins)
+  -> 1MIN-derived period query / future consumers
+```
 
-M0 冻结后新增：
+`EtfRtMinCollector` 和 archive/repair 是分钟流内部的两个独立服务：collector 发布实时源事实，archive/repair 读取这些事实并持久化。它们与 ETF 成交额监控不构成调用链。
+
+---
+
+## 3. runtime config、catalog 与 source 活跃池
+
+### 3.1 新增对象
+
+在 `src/foundation/realtime/config_catalog.py` 增加：
 
 ```python
 ETF_RT_MIN_OBJECT_KEY = "etf_rt_min"
 ETF_RT_MIN_DISPLAY_NAME = "ETF 实时分钟"
-ETF_RT_MIN_FEED_KEY_PREFIX = "tushare_etf_rt_min"
 ETF_RT_MIN_SUPPORTED_FREQS = ("1MIN", "5MIN", "15MIN", "30MIN", "60MIN")
+ETF_RT_MIN_FEED_KEY_PREFIX = "tushare_etf_rt_min"
 ```
 
-`RealtimeConfigCatalogEntry`：
+catalog 锁定事实：
 
 ```python
-ETF_RT_MIN_CATALOG = RealtimeConfigCatalogEntry(
-    object_key=ETF_RT_MIN_OBJECT_KEY,
+RealtimeConfigCatalogEntry(
+    object_key="etf_rt_min",
     object_kind="feed_group",
-    display_name=ETF_RT_MIN_DISPLAY_NAME,
-    source_api_name=<M0 frozen value>,
-    exchange="SSE",  # 只用于交易日历，非代码市场过滤
+    display_name="ETF 实时分钟",
+    source_api_name="rt_min",
+    exchange="SSE",  # 只服务交易日历，不用于过滤 ETF 市场
     collection_sessions="09:30-11:30,13:00-15:00",
     ts_code_pattern="ops.etf_series_active(resource=etf_rt_min)",
-    feed_key_prefix=ETF_RT_MIN_FEED_KEY_PREFIX,
+    feed_key_prefix="tushare_etf_rt_min",
 )
 ```
 
-M0 确认 `topic_policy=omit` 后，应以 catalog 锁定事实展示；不可进入 `runtime_config_json`。
+不得增加 `topic_policy`、代码通配符或任何源端未声明参数。
 
-### 3.2 Source 活跃池边界
+### 3.2 config 类型
 
-`ops.etf_series_active(resource='etf_rt_min')` 是 ETF 分钟流自己的 source 活跃池。它定义“上游分钟流应请求哪些 ETF”，不属于实时流配置中心的可编辑配置，也不属于 `ops.etf_realtime_monitor_pool` 的下游选股范围。
-
-初始 seed 可复用当前 ETF 活跃池的代码基线，但必须通过独立 resource 写入 `etf_rt_min`；以后 source 范围调整也只能经 ETF 活跃池治理流程完成。`src/ops/services/etf_series_active_seed_service.py` 的受控 resource 白名单必须显式允许 `etf_rt_min`，并为该 resource 保留独立的 seed 校验测试。
-
-`EtfRtMinCollector` 只能经 foundation `EtfSeriesActiveStore.list_active_codes("etf_rt_min")` 读取这一事实。它不得读取 `ops.etf_realtime_monitor_pool`，也不得因监控页面添加、停用或删除 ETF 改变请求范围。
-
-### 3.3 Runtime config
-
-新增：
+在 `src/foundation/realtime/runtime_config.py` 新增：
 
 ```python
 @dataclass(frozen=True, slots=True)
@@ -97,7 +97,8 @@ class RealtimeEtfRtMinConfig:
     source_api_name: str
     enabled: bool
     enabled_freqs: tuple[str, ...]
-    closed_bar_grace_seconds: int
+    poll_interval_seconds: int
+    collection_sessions: str
     max_calls_per_minute: int
     lease_ttl_seconds: int
     stale_after_seconds: int
@@ -107,219 +108,333 @@ class RealtimeEtfRtMinConfig:
     def feed_key_for_freq(self, freq: str) -> str: ...
 ```
 
-`RealtimeRuntimeConfig` 新增 `etf_rt_min` 字段；`load_realtime_runtime_config()` 必须读取第四条配置记录，缺失直接 fail-fast，不回退默认值。`build_realtime_runtime_config_from_json()`、测试 helper、seed service、config apply state 和所有构造方必须同步新增该参数，禁止只修改 dataclass。
+`RealtimeRuntimeConfig`、load/build helper、seed service、apply state、config service 和所有测试 fixture 必须同步增加 `etf_rt_min`；缺该行时 fail-fast，不回退 env/default。
 
-seed 默认行：`enabled=false`、五个 `enabled_freqs`、72 小时 TTL、最近 3 批；`closed_bar_grace_seconds`、最大请求数和 timeout 仅在 M0 冻结后填入代码默认模板。已存在配置行仍 skip，不覆盖运营发布的值。
+初始数据库配置模板：
 
-### 3.4 共享限速分支
+```text
+enabled=false
+enabled_freqs=[1MIN]
+poll_interval_seconds=60
+keep_recent_batches=260
+snapshot_ttl_seconds=259200
+```
 
-现有 `TushareHttpClient._get_rate_limiter(api_name)` 以 API 名为 key，且 `get_realtime_tushare_max_calls_per_minute("rt_min")` 当前只返回股票分钟对象的配置。这不能被 ETF minute 直接复用。
+`storage.keep_recent_batches` 仍是整个 `etf_rt_min` 对象的单个值，发布到每个独立 feed。V1 不新增 per-frequency storage JSON。其他频率默认未启用，不产生 Redis 留存。`1MIN` 启用时，`poll_interval_seconds` 必须不大于 60，且 due-time 算法必须以交易分钟结束为锚点，不能因 collector 进程启动时刻而漂移。
 
-M0 的 API 名结论决定唯一实现分支：
+### 3.3 source 活跃池
 
-1. **ETF 实际 HTTP API 名独立**：为该 API 名新增 runtime config 映射，ETF config 的 `max_calls_per_minute` 生效。
-2. **ETF 与股票实际 HTTP API 均为 `rt_min`**：新增一个明确的共享源站 rate-limit resolver；它读取股票分钟和 ETF 分钟当前 demand，按照总峰值设定同一个 `_RateLimiter`。配置中心 validate 与 ETF minute source 活跃池变更/seed 的校验都必须校验总需求，不允许两个 feed 各自通过而合计超限。
+扩展 `src/ops/services/etf_series_active_seed_service.py` 的 resource 白名单，允许：
 
-M0 前不选择分支，不在 `TushareHttpClient` 中加临时条件。
+```text
+fund_daily
+etf_rt_daily
+etf_rt_min
+```
+
+ETF 分钟 collector 只能调用：
+
+```python
+dao.etf_series_active.list_active_codes("etf_rt_min")
+```
+
+seed `etf_rt_min` 时独立写入、独立校验；不得由监控页面、监控池或实时配置中心隐式创建、删改或裁剪。
 
 ---
 
-## 4. Provider、normalizer 与 Redis publish
+## 4. Provider、normalizer 与实时 collector
 
-### 4.1 `etf_rt_min.py` 类型
+### 4.1 provider
+
+新文件：`src/foundation/realtime/etf_rt_min.py`。
+
+```python
+class TushareEtfRtMinProvider:
+    def fetch_codes(
+        self,
+        *,
+        freq: str,
+        ts_codes: Sequence[str],
+    ) -> EtfRtMinFetchChunkResult: ...
+```
+
+调用 Tushare 时固定：
+
+```python
+client.query(
+    "rt_min",
+    ts_code=",".join(ts_codes),
+    freq=freq,
+    fields="ts_code,freq,time,open,close,high,low,vol,amount",
+)
+```
+
+实施前以真实 source 活跃池样本测出 `validated_codes_per_request`，再写入受控 catalog/validation 逻辑；不得把文档的“最多 1000 行”误当成生产单次代码上限。
+
+`TushareHttpClient` 的限速接入须先验证 ETF/股票分钟是否共用 source API 限速桶。若都走 `rt_min`，新增一个明确的共享 limiter resolver；不得让两个独立 config 各自放行后合计突破 token 限额。
+
+### 4.2 normalizer
 
 ```python
 @dataclass(frozen=True, slots=True)
-class EtfRtMinFetchChunkResult:
-    chunk_index: int
-    requested_ts_codes: tuple[str, ...]
-    rows: list[dict[str, Any]]
-    requested_at: datetime
-    received_at: datetime
-    source_elapsed_ms: float
-
-@dataclass(frozen=True, slots=True)
-class EtfRtMinFetchResult:
-    freq: str
-    feed_key: str
-    chunks: tuple[EtfRtMinFetchChunkResult, ...]
-
-@dataclass(frozen=True, slots=True)
 class EtfRtMinNormalizeResult:
     snapshots: list[dict[str, Any]]
+    final_facts: list[EtfRealtimeMinuteFinalFact]
     missing_ts_codes: tuple[str, ...]
     invalid_count: int
     invalid_reason_counts: dict[str, int]
 ```
 
-`TushareEtfRtMinProvider.fetch_codes(freq, ts_codes)`：
-
-1. 先用 `normalize_etf_rt_min_freq` 验证 freq。
-2. 只传 M0 冻结的 HTTP API 名、`ts_code`、`freq` 和显式 fields。
-3. 绝不传 `HQ_FND_TICK`。
-4. 分片按 M0 冻结的 `validated_codes_per_request` 执行，顺序请求，记录每分片 receive time。
-5. 分片失败即抛结构化 source exception；publisher 不发布半批次。
-
-normalizer 必须保留：
+每一行校验：
 
 ```text
-ts_code,freq,time,open,close,high,low,vol,amount,
-source=tushare,source_api_name,requested_at,received_at,raw_payload_hash
+required: ts_code, freq, time, amount
+freq: 必须等于本次请求频率
+time: 必须可解析为中国交易日 minute end time
 ```
 
-`time` 解析失败、freq 不符、缺代码、缺 amount 为 invalid。`amount=0`、无成交、source time 旧不能自动拒绝。是否可接受“当前形成中 bar”由 M0 的 acceptance policy 决定；未被确认最终的 bar 只能进入观测记录，不能作为 final minute fact。
+缺字段、频率不符或不可解析时间记为 `invalid`；`amount=0`、无成交、非活跃下游监控 ETF、旧时间行不自动拒绝。`1MIN` 正常行记为 `quality=valid` final fact；其他 source frequency 在 V1 仅保留 feed snapshot/health，不进入持久化 minute bar。
 
-### 4.2 Publisher
+### 4.3 collector 顺序
 
-每个 `(freq, due_at)` 生成独立 batch：
+`EtfRtMinCollector.run_frequency(session, *, freq, due_at)` 的顺序固定：
 
-```text
-feed_key = config.feed_key_for_freq(freq)
-batch_id = build_batch_id(published_at)
-```
+1. 判断交易日与时段；非采集时段只写 idle/market_closed health，不请求源站。
+2. 获取该 `feed_key` lease；失败返回 skipped，不影响其他 feed。
+3. 读取 `EtfSeriesActiveStore.list_active_codes("etf_rt_min")`；空池写 `pool_empty` health，不发布空 batch。
+4. 用已冻结分片上限顺序拉取所有分片；任一分片失败，整 frequency 不 publish。
+5. normalize 后，只有全分片成功才 `publish_batch` 并原子切换本 feed 的 current pointer。
+6. `freq == "1MIN"` 时，publish 成功后将 valid/missing/invalid 记录写入 type-safe final fact store。状态写失败只降级该 frequency health，不回滚已发布 Redis batch。
+7. 汇总 health；每个频率单独 error isolation。
 
-只有全部 chunks 成功且 normalizer 覆盖规则通过时才调用：
+`src/foundation/realtime/collector_service.py` 只在既有 `goldenshare-realtime-collector.service` 中调度该 collector；不得增加 systemd service，更不得在本调用链启动 archive、repair、监控计算或 Feishu。
+
+---
+
+## 5. Redis 分钟事实 contract
+
+在 `src/foundation/realtime/state_store.py` 的 `RealtimeStateStore` 增加 ETF 专用类型化方法；禁止由 Ops 拼 Redis key：
 
 ```python
-store.publish_batch(
-    feed_key=feed_key,
-    batch_id=batch_id,
-    snapshots=...,
-    meta={...},
-    ttl_seconds=config.storage.snapshot_ttl_seconds,
-    keep_recent_batches=config.storage.keep_recent_batches,
-    ...,
-)
-```
-
-meta 至少包含：`freq`、`expected_bar_end`、`requested_code_count`、`chunk_count`、`chunk_counts`、`source_row_count`、`snapshot_count`、`missing_ts_codes`、`invalid_count`、`source_elapsed_ms`、`requested_at`、`received_at`、`published_at`。
-
-错误/半分片失败只写该 feed health，不改变 current pointer。
-
-### 4.3 State store 的分钟事实 contract
-
-在 `RealtimeStateStore` 中新增类型化方法，而不是由 Ops 拼 Redis key：
-
-```python
-record_etf_rt_min_observation(...)
-list_etf_rt_min_observations(...)
-upsert_etf_rt_min_final_fact(...)
+record_etf_rt_min_final_facts(...)
 list_etf_rt_min_final_facts(...)
+upsert_etf_rt_min_fact_quality(...)
 ```
 
-事实键：`(trade_date, minute_end_time, ts_code, freq)`。每个值必须有 `quality=valid|missing|invalid`、`reason_code`、`source_batch_id`、`source_time`、`amount_yuan` 和 `captured_at`。
-
-写入优先级：后到的 `valid` 可更新 earlier valid；`missing/invalid` 不得覆盖已有 valid。该 contract 的 TTL 需覆盖当日收盘归档，再由 M0/LLD 冻结实际秒数；它不依赖 `keep_recent_batches`。
-
----
-
-## 5. source collector 与调度装配
-
-新增 `EtfRtMinCollector`，属于 `src/foundation/realtime/etf_rt_min.py`，构造时只依赖 `RealtimeStateStore`、`RealtimeEtfRtMinConfig`、Tushare client 和 `EtfSeriesActiveStore`：
+建议实体：
 
 ```python
-class EtfRtMinCollector:
-    def run_frequency(
-        self, session: Session, *, freq: str, expected_bar_end: datetime
-    ) -> EtfRtMinCycleResult: ...
+@dataclass(frozen=True, slots=True)
+class EtfRealtimeMinuteFinalFact:
+    trade_date: date
+    minute_end_time: time
+    ts_code: str
+    open: Decimal | None
+    high: Decimal | None
+    low: Decimal | None
+    close: Decimal | None
+    vol: Decimal | None
+    amount_yuan: Decimal | None
+    source_time: datetime | None
+    source_batch_id: str
+    captured_at: datetime
+    quality: Literal["valid", "missing", "invalid"]
+    reason_code: str | None
 ```
 
-调用顺序：
-
-1. 通过 foundation `EtfSeriesActiveStore.list_active_codes("etf_rt_min")` 读取 source 活跃池；空池返回 `pool_empty`。
-2. 按 M0 冻结的分片规则调用 foundation provider/publisher。
-3. 用 M0 acceptance policy 将每行标记 final/observed/missing/invalid。
-4. 成功发布 Redis feed 后写 state-store final facts/observations。
-5. 合并 health；任一异常只返回这个 frequency `degraded`。
-
-`RealtimeCollectorService` 负责 due/lease/频率隔离，并直接调用这个 foundation collector；不得依赖 Ops ORM、监控池、阈值规则、Feishu 或归档服务。`src/cli_parts/realtime_handlers.py` 只装配统一 collector，不得在 ETF minute result 后隐式触发成交额监控。
-
-不得新增第二个 systemd 服务。
-
----
-
-## 6. Ops API、配置中心与监控页
-
-### 6.1 配置中心后端
-
-在 `_OBJECT_SPECS` 增加 `etf_rt_min`；`_build_valid_runtime_config`、candidate build、field metadata、locked field rejection、affected feed 列表、revision 和 apply state 必须同时支持第四对象。
-
-detail 契约：
-
-```json
-{
-  "object_key": "etf_rt_min",
-  "object_kind": "feed_group",
-  "effective_config": {"enabled": false, "enabled_freqs": ["1MIN", "5MIN"]},
-  "locked_config": {"feed_key_pattern": "tushare_etf_rt_min_{freq_lower}"},
-  "fields": ["switch", "checkbox_group", "number_input", "locked_text"],
-  "apply_state": {"status": "applied|pending_restart|unknown"}
-}
-```
-
-`validate` 由 Ops service 通过 `EtfSeriesActiveStore` 查询 `resource='etf_rt_min'` 的 source 活跃池数量，计算 chunk count 和 peak budget；它不得读取监控池，也不得让 foundation import Ops DAO。发布仍是 version optimistic lock，写 `ops.config_revision`。
-
-### 6.2 Health API
-
-新增路由：
-
-```python
-@router.get("/ops/realtime/etf-rt-min/health")
-def get_etf_rt_min_health(freq: str | None = None, ...): ...
-```
-
-不传 `freq`：总是返回五个 supported frequency item；传 `freq`：同一 wrapper 只返回一个。无 Redis、disabled、idle、degraded、stale、unavailable 沿用 stock minute health 的语义；不能用前端推导。
-
-### 6.3 前端
-
-`ops-realtime-config-center-page.tsx` 不新增单独页面逻辑：对象列表从 API 获取第四项，字段 control 从 API metadata 生成。必须做到：
-
-1. `enabled_freqs` 是五个明确 checkbox，不接受手填字符串。
-2. 查看态把已启用频率显示成标签；锁定事实只读。
-3. 编辑态的 diff/预算/重启影响只在校验后展示。
-4. 版本冲突、apply unknown、restart pending 沿用当前配置中心三态。
-
-`ops-realtime-monitor-page.tsx` 新增 ETF minute 区块：按五个 health item 展示频率、状态、启用、预期分钟、源端最新时间、pool 覆盖、缺失/无效数、当前批次、耗时和错误。两个页面均只调 Ops API，不连 Redis/Tushare。
-
----
-
-## 7. 测试矩阵
-
-| 层级 | 必测内容 |
-|---|---|
-| Runtime config | 四对象加载/seed/fail-fast、五频率、非法 freq/空 selection、grace/stale/lease、共享限速分支 |
-| Provider | M0 API 名、omit topic、显式 fields、多代码与分片、chunk failure、source time/freq/amount 无效 |
-| Publisher/store | per-frequency key 隔离、原子 current pointer、meta、valid 覆盖、missing/invalid 不覆盖 valid |
-| Collector | source 活跃池空/变更、每频率 due、午休、lease skip、单频失败隔离、health；证明不读取监控池 |
-| Config API | objects/detail/validate/publish/revision/apply state，source 活跃池容量/峰值预算，locked/unknown field rejection |
-| Health API | 五项 wrapper、单 freq、disabled/idle/degraded/stale/unavailable、Redis unavailable |
-| Frontend | checkbox、查看/编辑态、预算 warning、第四对象、五频率 health、局部轮询与错误隔离 |
-| Architecture | subsystem dependency matrix、legacy guardrails、无 foundation -> ops 依赖 |
-
-建议新增测试文件：
+键为 `(trade_date, minute_end_time, ts_code)`。写入优先级为：
 
 ```text
-tests/test_realtime_etf_rt_min.py
-tests/test_realtime_etf_rt_min_collector.py
-tests/test_realtime_etf_rt_min_state_store.py
-tests/web/test_ops_realtime_etf_rt_min_api.py
-tests/web/test_ops_realtime_config_api.py  # 扩第四对象
-frontend/src/pages/ops-realtime-config-center-page.test.tsx
-frontend/src/pages/ops-realtime-monitor-page.test.tsx
+valid -> valid：允许同键幂等更新到更晚捕获的有效 source 事实
+valid <- missing/invalid：禁止覆盖
+missing/invalid -> valid：允许修复为 valid
+missing/invalid -> missing/invalid：保留最新 reason/captured_at
 ```
+
+final-fact key 的 TTL 是独立 retention，必须覆盖收盘归档与失败重试；它不等于、也不得用 `keep_recent_batches` 推导。
 
 ---
 
-## 8. 开发前检查清单
+## 6. PostgreSQL HDD 分钟归档
 
-编码前必须逐项完成：
+### 6.1 新表
 
-1. M0 实测文件已落档，且解决 HTTP API 名和 topic policy 冲突。
-2. 已明确 ETF/股票分钟共享或独立限速的唯一实现分支。
-3. 已冻结各频率 `expected_bar_end`、grace 和 finality policy。
-4. 已验证单请求实际容量，得到 `validated_codes_per_request`。
-5. 配置项审计表包含来源、持久化、消费者、依赖、生效方式和页面可见性。
-6. ETF minute source 活跃池变更后的峰值预算校验路径已设计到 API/service/test，不依靠人工记忆；成交额监控池变更不得影响该预算。
-7. 依赖矩阵、前端组件/页面规范和现有 realtime config API 消费者已再次审计。
+新迁移创建：
 
-任一项未完成时，停止在设计状态，不实现 provider 或配置对象。
+```sql
+foundation.etf_realtime_minute_bar_1m
+```
+
+该表是当前分钟源的唯一长期 `1MIN` 事实表。建议以 `trade_date` 做月分区，父表和每个 child partition 都部署到已经由运维预置并确认的 PostgreSQL HDD tablespace；迁移不得硬编码主机路径或悄悄回退默认 tablespace。
+
+最小字段：
+
+| 字段 | 约束/含义 |
+| --- | --- |
+| `trade_date` | `date not null`，主键组成 |
+| `minute_end_time` | `time not null`，主键组成；保存源端 minute 标签 |
+| `ts_code` | `varchar(16) not null`，主键组成 |
+| `open/high/low/close` | `numeric`，`missing/invalid` 可空 |
+| `vol` | `numeric`，单位沿用源端股数 |
+| `amount_yuan` | `numeric`，单位固定为元 |
+| `source_api_name` | `varchar not null`，`rt_min` 或 `etf_mins` |
+| `source_time` | `timestamptz null`，valid 行保存原始时间归一化结果；missing/invalid 可为空 |
+| `source_batch_id` | `varchar null`，实时源批次可追溯；历史补数可空 |
+| `captured_at` | `timestamptz not null` |
+| `quality` | `valid/missing/invalid`，not null |
+| `reason_code` | `varchar null` |
+| `created_at/updated_at` | 审计时间 |
+
+主键固定为 `(trade_date, minute_end_time, ts_code)`；额外索引：
+
+```text
+(ts_code, trade_date, minute_end_time)
+(trade_date, quality)
+```
+
+不得存入 derived 5/15/30/60/90/120 分钟行，也不得增加累计量、差额量、监控规则或告警列。
+
+### 6.2 archive service
+
+新 foundation service：`src/foundation/realtime/etf_realtime_minute_archive.py`。
+
+```python
+class EtfRealtimeMinuteArchiveService:
+    def archive_trade_date(
+        self,
+        session: Session,
+        *,
+        trade_date: date,
+    ) -> EtfRealtimeMinuteArchiveReport: ...
+```
+
+行为：
+
+1. 读取 `etf_rt_min` source 活跃池和 Redis final facts。
+2. 用实际 `trade_date` 与 session minute grid 生成期望键。`09:30` 为独立键；上午 `09:31-11:30`、下午 `13:01-15:00`；绝不生成午休键。
+3. 每个预期键写入一条 valid/missing/invalid 最终记录；不得使用 `date.min/time.min`。
+4. 对冲突键幂等 upsert，且遵守第 5 节的 quality 优先级。
+5. archive 事务只覆盖这张 minute fact 表；Ops 健康写入失败不回滚 minute 事实事务。
+
+archive 由独立的收盘调度/受控 CLI 触发，不能由 collector 的循环、实时流监控页或 ETF 成交额监控触发。
+
+---
+
+## 7. 历史缺口修复与派生周期
+
+### 7.1 历史修复 service
+
+新 foundation service：`src/foundation/realtime/etf_realtime_minute_history_repair.py`。
+
+```python
+class EtfRealtimeMinuteHistoryRepairService:
+    def repair_missing_ranges(
+        self,
+        session: Session,
+        *,
+        trade_date: date,
+        ts_codes: Sequence[str] | None = None,
+    ) -> EtfRealtimeMinuteRepairReport: ...
+```
+
+执行边界：
+
+1. 只选择 `foundation.etf_realtime_minute_bar_1m` 中真实 `missing` 的 key，并按单 ETF 合并连续分钟区间。
+2. 调用当前实际接口 `etf_mins(ts_code, freq="1min", start_date, end_date)`；按 source 返回倒序排序后归一化。
+3. 仅修复已成为历史交易日、且 source 实测可用的缺口。当日请求空数组时保留 `missing`，记录 source unavailable，不补零。
+4. 不覆盖 `quality=valid`，不修改 source 活跃池，不调用任何监控/告警服务。
+
+本地 0387 文档 API 名与 MCP 实测不一致，实施前必须完成该 source 文档更正和一次当前 SDK/HTTP 实测；不得把 `stk_mins` 当成代码常量。
+
+### 7.2 派生周期
+
+新 query/aggregate helper 只读 `foundation.etf_realtime_minute_bar_1m` 中 `quality=valid` 的 `1MIN`：
+
+```python
+build_etf_realtime_minute_periods(
+    *, trade_date: date, ts_code: str, window_minutes: int
+) -> list[EtfRealtimeDerivedMinuteBar]
+```
+
+允许的 `window_minutes`：`5, 15, 30, 60, 90, 120`。
+
+桶规则固定：
+
+```text
+09:30：独立开盘 1MIN，不进入常规派生桶
+上午常规连续段：09:31-11:30
+下午常规连续段：13:01-15:00
+每个会话分别从连续段第一分钟按 N 切桶，午休不跨窗
+```
+
+每个派生桶必须有 N 根 `valid` 的 1MIN；否则返回 `missing/incomplete`，不产生金额或 OHLC。金额是 1MIN `amount_yuan` 求和，故不依赖源端 5MIN 的逐元舍入结果。
+
+---
+
+## 8. Ops API、配置中心和页面
+
+### 8.1 配置中心
+
+在 `src/ops/services/realtime_config_service.py` 的对象 spec 增加 `etf_rt_min`。对象列表、detail、validate、publish、revision 与 apply state 均自动纳入第四个对象。
+
+`enabled_freqs` 使用五项 checkbox group。`enabled`、限速、lease、stale、storage 和 timeout 可编辑；第 3.1 节 catalog 事实锁定。publish 只更新 `foundation.realtime_runtime_config` 和 `ops.config_revision`，之后必须重启既有 collector 才生效。
+
+validate 必须读取 source 活跃池数量、计算分片数和峰值请求量；不得读取监控池或规则。
+
+### 8.2 health 与实时流监控
+
+新增 `src/ops/queries/realtime_feed_health_query_service.py` ETF minute item builder、`src/ops/schemas/realtime.py` schema 和 `src/ops/api/realtime.py` 路由：
+
+```text
+GET /api/v1/ops/realtime/etf-rt-min/health
+GET /api/v1/ops/realtime/etf-rt-min/health?freq=1MIN
+```
+
+前端改动只在既有：
+
+```text
+frontend/src/shared/api/realtime-types.ts
+frontend/src/pages/ops-realtime-config-center-page.tsx
+frontend/src/pages/ops-realtime-monitor-page.tsx
+```
+
+页面只使用 Ops API。配置中心从 objects/detail 得到第四个对象；实时流监控按五个频率展示独立 health。不得把持久化分钟行、派生周期、监控指标或告警操作塞入这两个页面。
+
+---
+
+## 9. 文件清单与测试
+
+| 文件/区域 | 目标改动 |
+| --- | --- |
+| `src/foundation/realtime/config_catalog.py` | `etf_rt_min` 锁定事实 |
+| `src/foundation/realtime/runtime_config.py` | 新 config 和 fail-fast load/build |
+| `src/foundation/realtime/runtime_config_seed_service.py` | seed 第四对象，初始仅 `1MIN` / 260 批 |
+| `src/foundation/realtime/etf_rt_min.py` | provider、normalizer、collector、per-frequency publisher |
+| `src/foundation/realtime/state_store.py` | ETF 1MIN final fact contract；Redis/in-memory/test store 同步 |
+| `src/foundation/realtime/collector_service.py` | 统一服务调度 ETF minute，不加 systemd |
+| `src/foundation/realtime/etf_realtime_minute_archive.py` | 独立分钟源归档 service |
+| `src/foundation/realtime/etf_realtime_minute_history_repair.py` | `etf_mins` 历史缺口修复 |
+| `src/foundation/models/realtime/**`、DAO、registry、Alembic | `foundation.etf_realtime_minute_bar_1m` 的 HDD 表/分区/DAO |
+| `src/ops/services/etf_series_active_seed_service.py` | `etf_rt_min` resource 白名单 |
+| `src/ops/** realtime config/health` | config object、health API；不接监控服务 |
+| `frontend/** realtime config/monitor` | 第四对象和 ETF minute health 区块 |
+
+必须新增或扩展的测试：
+
+1. `rt_min` 只传 `ts_code/freq`、显式 fields、非法行、分片与失败原子性。
+2. per-frequency Redis key 隔离、260 共享留存、`1MIN` valid/missing/invalid quality upsert。
+3. 09:30 特殊键、午休边界、N 分钟完整覆盖、源端 5MIN 舍入差不影响自身聚合。
+4. archive 按真实 key 幂等、HDD migration/partition metadata、状态失败不回滚 minute fact transaction。
+5. `etf_mins` 历史补数、source 倒序、当日空数组、只修 missing、不覆盖 valid。
+6. 配置/health/page 不读取监控池；existing monitor archive service 不能成为 source collector 的 consumer。
+
+---
+
+## 10. 部署与验收门禁
+
+1. 新增迁移前重新确认 Alembic head；HDD tablespace 已由运维预置并能在部署环境验证，迁移不得降级到默认存储。
+2. 先 seed `ops.etf_series_active(resource='etf_rt_min')`，再发布 config，初始只启用 `1MIN` 并设置 `keep_recent_batches=260`。
+3. collector 重启后验证 apply state、非交易时段 `market_closed`、交易时段 source 分片、Redis final fact、health 和页面。
+4. 收盘验收 archive：241 个期望分钟键（09:30 独立键、上午 120 根、下午 120 根）的 source 事实、真实缺失、午休不跨窗和重跑幂等。
+5. 历史日验收 repair：选定缺口，`etf_mins` 补数后从 `missing` 变 `valid`；当日空数组不得被填零。
+6. ETF 成交额监控另立部署和业务验收，不作为本 LLD 的完成条件。
