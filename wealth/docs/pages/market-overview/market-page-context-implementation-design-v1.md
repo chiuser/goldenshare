@@ -372,7 +372,7 @@ fetchMarketStreakLadder({ market: "CN_A", tradeDate: pageContext.tradeDate, debu
 3. 所有按交易日的真实模块继续只消费 `pageContext.tradeDate`，因此一次回看请求的页面数据日期一致。
 4. 不传 `tradeDate` 时，后端继续按默认交易日规则处理，当前 `20:00` 盘后切换口径不变。
 5. `tradeDate` 非法时由 context API 按既有参数校验返回页面级 error；前端不得静默回退到默认日期。
-6. 新闻速览和个股新闻仍使用自然时间窗口，不跟随该参数。
+6. 新闻速览和新闻通讯仍使用自然时间窗口，不跟随该参数。
 
 ## 8.3 页面 header 字段调整
 

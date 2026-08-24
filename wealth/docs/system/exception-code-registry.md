@@ -73,7 +73,7 @@
 
 ## 6. 首期（Phase-1）已登记模块
 
-> 当前已登记：榜单模块 + 今日市场客观总结模块 + 主要指数模块 + 市场风格模块 + 成交额总览模块 + 大盘资金流向模块 + 涨跌分布模块 + 涨跌停统计与分布模块 + 连板天梯模块 + 板块速览模块 + 新闻速览/个股新闻模块。
+> 当前已登记：榜单模块 + 今日市场客观总结模块 + 主要指数模块 + 市场风格模块 + 成交额总览模块 + 大盘资金流向模块 + 涨跌分布模块 + 涨跌停统计与分布模块 + 连板天梯模块 + 板块速览模块 + 新闻速览/新闻通讯模块。
 
 | code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -141,13 +141,13 @@
 | `SO_MEMBER_COVERAGE_LOW` | `sectorOverview` | warn | false | true | 板块成分盘后行情覆盖不足 | 成员数小于 10 或有效行情覆盖率小于 80% | Heat 无效，详情保留并显示缺失 | biz-api | Phase-2 | active |
 | `NEWS_CONFIG_MISSING` | `marketNews` | error | false | true | 新闻模块配置缺失 | 找不到新闻模块策略配置 | 模块 error，保留其它模块渲染 | biz-api | Phase-1 | active |
 | `NEWS_CONFIG_INVALID` | `marketNews` | error | false | true | 新闻模块配置非法 | `visibleItemCount`、源配置或返回条数配置非法 | 模块 error，拒绝按非法配置输出 | biz-api | Phase-1 | active |
-| `NEWS_SOURCE_EMPTY` | `marketNews` | warn | false | true | 新闻模块当前列表为空 | `core_serving_light.news` 按当前接口筛选规则无可展示项 | 当前板块 empty，debug 标记来源为空 | biz-api | Phase-1 | active |
+| `NEWS_SOURCE_EMPTY` | `marketNews` | warn | false | true | 新闻模块当前列表为空 | 对应接口的 `core_serving_light.news` 或 `core_serving_light.major_news` 无可展示项 | 当前板块 empty，debug 标记来源为空 | biz-api | Phase-1 | active |
 | `NEWS_SOURCE_DELAYED` | `marketNews` | warn | false | true | 新闻模块源数据日期落后 | 目标日无数据但存在更早新闻 | debug delayed，不自动展示旧日新闻冒充当前日 | biz-api | Phase-1 | active |
-| `NEWS_CHANNEL_RULE_INVALID` | `marketNews` | error | false | true | 新闻频道分类规则不可用 | `core_serving_light.news.channels` 无法支撑 `公司/非公司` 分类 | 停止编码/发布，必须先确认真实频道取值 | biz-api | Phase-1 | active |
+| `NEWS_CHANNEL_RULE_INVALID` | `marketNews` | error | false | true | （历史）新闻频道分类规则不可用 | 首版曾依赖 `news.channels` 分流 | 新方案取消频道分流，不再产出 | biz-api | Phase-1 | deprecated |
 | `NEWS_QUERY_FAILED` | `marketNews` | error | false | true | 新闻模块查询失败 | SQL/服务异常 | 模块 error，保留其他模块渲染 | biz-api | Phase-1 | active |
-| `NEWS_READER_NOT_FOUND` | `marketNewsReader` | warn | false | false | 新闻详情不存在或已没有可读正文 | 指定 `newsId` 不存在，或正文为空白 | 阅读器显示统一 empty 文案，不回退同标题其它新闻 | biz-api | Phase-5 | active |
-| `NEWS_READER_REQUEST_INVALID` | `marketNewsReader` | warn | false | false | 新闻详情请求标识不符合有界 URL-safe 合同 | `newsId` 为空、超过 64 字符或包含非字母数字、下划线、连字符 | 阅读器显示不可重试 error，不执行模糊查询或回退 | biz-api | Phase-5 | active |
-| `NEWS_READER_CONTENT_INVALID` | `marketNewsReader` | error | false | false | 新闻正文类型或安全合同非法 | 内容无法按 URL/HTML/TEXT 合同安全解析 | 阅读器显示统一 error 文案，不渲染可疑内容 | biz-api | Phase-5 | active |
+| `NEWS_READER_NOT_FOUND` | `marketNewsReader` | warn | false | false | 新闻详情不存在或已没有可读正文 | 指定 `contentSource + newsId` 不存在，或正文为空白 | 阅读器显示统一 empty 文案，不跨来源或按同标题回退 | biz-api | Phase-5 | active |
+| `NEWS_READER_REQUEST_INVALID` | `marketNewsReader` | warn | false | false | 新闻详情来源或标识不符合有界合同 | 来源不是 `news/major_news`，或 `newsId` 不符合 URL-safe 规则 | 阅读器显示不可重试 error，不执行模糊查询或回退 | biz-api | Phase-5 | active |
+| `NEWS_READER_CONTENT_INVALID` | `marketNewsReader` | error | false | false | 新闻正文类型或安全合同非法 | `news` 无法按 URL/HTML/TEXT 解析，或 `major_news` 无法按 HTML/TEXT 合同安全解析 | 阅读器显示统一 error 文案，不渲染可疑内容 | biz-api | Phase-5 | active |
 | `NEWS_READER_CONTENT_TOO_LARGE` | `marketNewsReader` | error | false | false | 新闻正文超过阅读器有界载荷上限 | UTF-8 正文大于 `256 KiB` | 阅读器显示统一 error 文案，不截断冒充完整正文 | biz-api | Phase-5 | active |
 | `NEWS_READER_QUERY_FAILED` | `marketNewsReader` | error | false | false | 新闻详情查询失败 | 主键查询或未分类服务异常 | 阅读器显示统一 error 文案，保留首页并允许重试 | biz-api | Phase-5 | active |
 

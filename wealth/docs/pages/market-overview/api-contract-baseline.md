@@ -1,5 +1,7 @@
 # 市场总览 API 契约基线（当前生效）
 
+> 新闻模块过渡说明（2026-08-24）：当前代码仍注册 `/news/stocks` 和无来源详情路由，但它们已进入待删除状态。新闻模块下一次开发必须直接执行 [新闻速览、新闻通讯与阅读器技术实施方案 v2](./market-news-implementation-design-v1.md) 与 [LLD v2](./market-news-reader-low-level-design-v1.md)，不得把本文件记录的旧路由当作新实现依据。代码完成后再将本基线切换为新合同。
+
 ## 来源
 
 本基线来自当前工程化文档，而不是 `reference/api/**` 旧草案：
@@ -77,7 +79,7 @@ GET /api/v1/wealth/market/news/stocks
 | `GET /api/market/style` | 早期市场风格接口 | 统一走 `GET /api/v1/wealth/market/style` |
 | `GET /api/market/turnover` | 早期成交额总览接口 | 统一走 `GET /api/v1/wealth/market/turnover` |
 | `GET /api/moneyflow/market` | 早期大盘资金流接口 | 统一走 `GET /api/v1/wealth/market/money-flow` |
-| `marketNewsFlash` / `marketOverviewNewsBlocks` | 早期顶部统一快讯条或整页新闻聚合字段 | 统一走两个独立模块接口：`GET /api/v1/wealth/market/news/briefs` 与 `GET /api/v1/wealth/market/news/stocks`，不放入 PageHeader |
+| `marketNewsFlash` / `marketOverviewNewsBlocks` | 早期顶部统一快讯条或整页新闻聚合字段 | 不放入 PageHeader；当前代码仍为 briefs/stocks，目标合同为 briefs/communications |
 | `includeHistory` | 早期由前端决定是否返回历史序列 | 不再作为通用参数；历史窗口由模块契约定义 |
 | 整页 mock 根对象 `data.moneyFlow/data.indices/...` | 早期从整页对象直接喂组件 | 已接真实 API 的模块必须通过模块 provider + view-model adapter |
 
@@ -184,7 +186,7 @@ subjectiveMarketConclusion
 2. 连板天梯：独立模块接口 `GET /api/v1/wealth/market/streak-ladder`，基于 `equity_limit_list / limit_list_d`，分组固定“首板/二板/三板/四板/五板及以上”，并全量返回 `boardCount`。
 3. 板块速览前后端均已在本地切换为 V2 判别式契约，旧 `columns + heatMapItems` 及前端旧 adapter/fixture 已删除；部署时仍必须作为同一发布单元上线，禁止只部署其中一侧。行业层级来自 `core_serving.wealth_sector_hierarchy`，行业/概念/地域盘后行情、资金与成员来自 `dc_daily + dc_index + board_moneyflow_dc + dc_member`，成员盘后行情来自 `equity_daily_bar`，证券资格与停牌解释来自 `security_serving + equity_suspend_d`，概念热度来自 `core_serving.wealth_sector_heat_daily`。V2 提供 `INDUSTRY/CONCEPT/REGION` 三个独立视图，使用 `heatDelta1d` 和有效 A 股成分池，不引入实时行情、分钟热度或 Redis 事实源。
 4. 模块级 delayed 仅用于 debug mode；正式产品默认展示页面级状态。
-5. 新闻速览与个股新闻：分别使用独立模块接口 `GET /api/v1/wealth/market/news/briefs` 与 `GET /api/v1/wealth/market/news/stocks`；页面侧再组合为双列新闻组。本期 item 不可点击，不使用旧顶部统一快讯条。新闻接口不接收 `tradeDate`，按“昨日 00:00 到当前服务器时间”的 `newsWindow` 查询；候选集先过滤 `content` 为空的新闻，再按最终展示标题严格去重后返回。
+5. 新闻模块当前代码使用 `/briefs` 与 `/stocks`，item 已可点击打开共享阅读器；该合同是过渡现状，不是下一轮编码目标。已确认的目标是 `/briefs` 展示全部 `news` 快讯、`/communications` 展示 `major_news` 新闻通讯，详情使用 `contentSource + newsId`，且 `major_news.url` 只作原文溯源。两列仍不接收 `tradeDate`，继续使用“昨日 00:00 到当前服务器时间”的 `newsWindow`。
 
 ## 性能原则
 

@@ -1,477 +1,333 @@
-# 市场总览｜新闻速览与个股新闻技术实施方案 v1
+# 市场总览｜新闻速览、新闻通讯与阅读器技术实施方案 v2
 
-> 2026-08-23 增量说明：本文保留列表、来源、排序、刷新与页面布局基线；其中 `clickable=false`、`clickablePolicy=disabled` 和“不实现新闻详情”的条款已由 [新闻弹窗阅读器技术实施方案 v1](./market-news-reader-implementation-design-v1.md) 替代。阅读器代码落地前，当前实现仍保持旧行为。
+> 稳定文档路径沿用 `market-news-implementation-design-v1.md`，正文版本升级为 v2。
+> 状态：方案已确认，待按 LLD 开发。
+> 日期：2026-08-24。
+> 代码级设计：[market-news-reader-low-level-design-v1.md](./market-news-reader-low-level-design-v1.md)。
+> 阅读器视觉与交互基线：[market-news-reader-implementation-design-v1.md](./market-news-reader-implementation-design-v1.md)。
 
-> 对应需求文档：`market-news-benchmark-requirement-v1.md`  
-> 阶段：编码前。  
-> 产物性质：实现设计基线（不写业务代码）。
+## 1. 目标
 
----
+本轮重组市场总览首页的两列新闻数据，并保持现有 PC Web 弹窗阅读体验：
 
-## 1. 文档目的
+1. `新闻速览` 展示 `core_serving_light.news` 当前自然时间窗口内的全部可读快讯，不再按 `channels` 分类过滤。
+2. 原 `个股新闻` 更名为 `新闻通讯`，数据源切换为 `core_serving_light.major_news`。
+3. 两列新闻均可点击打开同一个新闻阅读器。
+4. `major_news` 优先展示数据库内的正文：正文是 HTML 时按 HTML 阅读；正文不是 HTML 时按纯文本阅读。
+5. `major_news.url` 只作为原文溯源事实保留，不作为阅读器的主动网页载荷，不自动打开、不嵌入 iframe、不由后端抓取。
+6. `news` 继续沿用现有正文识别规则：正文自身是 URL 时使用 URL 模式，否则依次识别 HTML 和纯文本。
 
-1. 对应需求文档：`wealth/docs/pages/market-overview/market-news-benchmark-requirement-v1.md`
-2. 本文目标：
-   - 将 Review v9 / `market-overview-v1.8.html` 中有效的新闻板块需求转为当前 `wealth` 架构下可实施的模块方案；
-   - 明确 API、后端目录、前端目录、状态、配置、测试门禁；
-   - 阻断旧 `/api/market/home-overview` 与旧顶部快讯条方案回流。
-3. 本文不做：
-   - 不写代码；
-   - 不实现新闻详情页；
-   - 不改变其它市场总览模块；
-   - 不处理用户侧新闻订阅；
-   - 不把 update 文档中的其它页面改动纳入本轮。
-4. 跨模块抽象门禁原则适配结论：本模块适用全部 8 条原则，其中配置、排序、测试和事实源单一是高风险重点。
+本轮不是给原有 `channels='公司'` 分类打补丁，而是一次完整的数据源和契约替换。旧 `/stocks`、`stockNews`、`StockNewsQuery` 及相关前端命名必须在同一开发批次清零，不保留兼容路由或别名字段。
 
----
+## 2. 已确认的产品口径
 
-## 1.1 跨模块抽象门禁原则适配
+| 模块 | 标题 | 列表事实源 | 列表范围 | 阅读器正文 | URL 语义 |
+|---|---|---|---|---|---|
+| 左列 | 新闻速览 | `core_serving_light.news` | 现有自然时间窗口内全部频道 | `news.content` 按 URL > HTML > TEXT 识别 | 仅当 `content` 本身是 URL 时作为主动载荷 |
+| 右列 | 新闻通讯 | `core_serving_light.major_news` | 现有自然时间窗口内的长篇新闻通讯 | 优先展示 `major_news.content` 中的 HTML；非 HTML 正文按 TEXT | `major_news.url` 仅作 `originalUrl` 溯源事实 |
 
-| 原则 | 本模块结论 | 设计落点 | 计划测试 |
-|---|---|---|---|
-| 事实源单一原则 | 后端两个独立接口分别产出新闻速览和个股新闻事实 | `/api/v1/wealth/market/news/briefs`、`/api/v1/wealth/market/news/stocks` + view-model adapter | 后端 API 断言字段齐全；前端真实 API 展示断言 |
-| 契约先行与冻结原则 | `NewsListPanel/NewsPanelItem` 字段冻结；页面侧 `MarketNewsPanelGroup` 只负责组合 | schema + TypeScript 类型 | 契约字段快照测试 |
-| 配置一致性原则 | `visibleItemCount` 与 `queryLimit` 走策略配置中心，默认 10 条可见、每板块 300 条候选 | `market_news.cn_a.v1.json` | 配置读取测试 + 非法配置失败测试 |
-| 默认行为显式原则 | 不用旧日新闻冒充目标日 ready | status resolver | 空数据/partial/delayed 测试 |
-| 排序与筛选确定性原则 | `publishTime desc -> priority desc -> newsId asc` | query service | 同时间排序稳定测试 |
-| 性能预算前置原则 | 每板块默认查询 300 条候选新闻，字段少、索引按时间命中 | SQL 查询只取必要列 | API 耗时测试 |
-| 可观测与异常标准化原则 | `NEWS_*` 异常码统一注册 | exception builder + debugInfo | debug 面板字段测试 |
-| 测试以用户可见结果为中心原则 | 时间、标题、不可点击、滚动是主断言 | 前端 smoke | 真实 API 驱动展示测试 |
+其它冻结口径：
 
----
+1. 两列继续使用“昨日 00:00 至当前服务器时间”的 `Asia/Shanghai` 自然时间窗口，不接收 `tradeDate`。
+2. 两列继续按发布时间倒序，标题相同只保留最新一条；相同发布时间以 `row_key_hash ASC` 稳定选择。
+3. 两列继续使用策略配置中的 `visibleItemCount=10` 和 `queryLimit=300`，不新增配置项。
+4. 不跨 `news` 与 `major_news` 做标题相似度、正文相似度或 URL 去重。快讯与长篇通讯可以同时出现。
+5. 首页列表只返回轻量标题信息，不返回正文 HTML。
+6. 股票详情页现有“个股新闻”是另一个独立模块，本轮不改名、不换源、不改接口。
+7. 阅读器的弹窗尺寸、焦点捕获、背景不可点击、Escape、关闭后焦点恢复、HTML 清洗和 URL sandbox 规则保持现状。
 
-## 2. 代码现状审计（基于真实代码）
+## 3. 当前代码审计
 
-### 2.1 当前已有前端落点
+### 3.1 当前后端
 
-1. 页面装配：`wealth/src/pages/market-overview/MarketOverviewPage.tsx`
-2. 模块 source 开关：`wealth/src/features/market-overview/api/moduleSources.ts`
-3. 市场总览 mock 根类型：`wealth/src/features/market-overview/api/marketOverviewTypes.ts`
-4. 当前页面首屏组合：`summary-index-row` 只包含 `MarketSummaryPanel` 与 `MajorIndexPanel`。
-
-### 2.2 当前已有后端落点
-
-1. 已存在 wealth market 模块化 API 目录：
-   - `src/biz/api/wealth/market/`
-   - `src/biz/queries/wealth/market/<module>/`
-   - `src/biz/schemas/wealth/market/`
-   - `src/biz/services/wealth/market/<module>/`
-2. 已存在策略配置中心：
-   - `src/biz/services/wealth/config/strategy_config_service.py`
-   - `src/biz/services/wealth/config/definitions/*.json`
-3. 已存在新闻类数据集定义：
-   - `src/foundation/datasets/definitions/news.py`
-   - `core_serving_light.news`
-
-### 2.3 现有冲突与技术债
-
-1. 历史 update 快照中的顶部中间统一快讯条已被作废，不能复用布局。
-2. `wealth/docs/reference/showcase/market-overview-v1.8.html` 是新闻板块最新 UI 参考，已经采用两个独立 `.market-news-panel`。
-3. 历史 update API 快照仍使用旧聚合接口 `GET /api/market/home-overview`，不能作为当前 API 路径依据。
-4. 当前正式文档尚未登记新闻模块的独立三件套、异常码和 API 路径。
-5. 当前页面没有 news 模块 source 开关和 view-model adapter。
-
-### 2.4 结论
-
-新闻板块必须按独立模块新增，不允许塞回整页聚合，也不允许复用旧顶部快讯条。推荐模块 key：
-
-```text
-frontend module source key: news
-debug module keys: newsBriefs / stockNews
-API paths:
-  - /api/v1/wealth/market/news/briefs
-  - /api/v1/wealth/market/news/stocks
-feature dir: wealth/src/features/market-overview/news/
-backend dir: src/biz/**/wealth/market/news/
-```
-
----
-
-## 3. 分层架构与目录落点
-
-### 3.1 接口范围
-
-1. 模块接口路径：
-   - 新闻速览：`GET /api/v1/wealth/market/news/briefs`
-   - 个股新闻：`GET /api/v1/wealth/market/news/stocks`
-2. 是否整页聚合接口：否。
-3. 是否提供新闻组大聚合接口：否。页面侧 adapter 负责把两个接口响应组装成首屏双列展示。
-4. 单个模块接口返回范围：
-   - `newsWindow`
-   - `pageStatus`
-   - `newsBriefs` 或 `stockNews`
-   - `debugInfo?`
-
-### 3.2 后端目录模板
-
-```text
-src/biz/
-  api/
-    wealth/
-      market/
-        news_briefs.py
-        stock_news.py
-  queries/
-    wealth/
-      market/
-        news/
-          market_news_query.py
-          stock_news_query.py
-          news_query_service.py
-          news_state_query.py
-  schemas/
-    wealth/
-      market/
-        news_briefs.py
-        stock_news.py
-  services/
-    wealth/
-      market/
-        news/
-          news_exception_builder.py
-          news_status_resolver.py
-          news_strategy_config_resolver.py
-```
-
-### 3.3 前端目录模板
-
-```text
-wealth/src/features/market-overview/
-  news/
-    MarketNewsPanelGroup.tsx
-    MarketNewsPanel.tsx
-    NewsTickerList.tsx
-    NewsTickerItem.tsx
-    api/
-      marketNewsApi.ts
-      marketNewsAdapter.ts
-      marketNewsTypes.ts
-```
-
-### 3.4 配置文件模板
-
-```text
-src/biz/services/wealth/config/definitions/market_news.cn_a.v1.json
-```
-
-配置只面向运营，不面向用户。
-
----
-
-## 4. 数据流与执行链路
-
-1. 请求入口：
-   - `src/biz/api/wealth/market/news_briefs.py`
-   - `src/biz/api/wealth/market/stock_news.py`
-2. 参数校验：
-   - `market` 默认 `CN_A`
-   - `debug` 可选，默认 `0`
-3. 查询编排：
-   - 读取策略配置；
-   - 使用当前服务器自然时间生成 `newsWindow`，窗口为“昨日 00:00:00 到当前时刻”，时区 `Asia/Shanghai`；
-   - `news/briefs` 只查询新闻速览；
-   - `news/stocks` 只查询个股新闻；
-   - 页面侧 adapter 合并两个接口的状态与异常，用于 debug 面板展示。
-4. 状态归并：
-   - 单接口有数据：`READY`
-   - 单接口无数据：`EMPTY`
-   - 页面侧一侧有数据、一侧为空：组合态 `PARTIAL`
-   - 查询或配置失败：`ERROR`
-5. 异常组装：使用 `NEWS_*` 异常码。
-6. 响应输出：只返回新闻模块对象，不返回其它页面模块。
-
-### 4.1 `v1.8` 前端结构还原要求
-
-编码时必须按 `wealth/docs/reference/showcase/market-overview-v1.8.html` 的新闻模块结构还原，不允许回退到旧头部快讯条：
-
-```text
-summary-index-row
-  summary-column
-    MarketNewsPanel(title="新闻速览")
-    MarketSummaryPanel
-  summary-column
-    MarketNewsPanel(title="个股新闻")
-    MajorIndexPanel
-```
-
-结构要求：
-
-1. `MarketNewsPanelGroup` 只负责组织左右两列，不承载业务查询。
-2. `MarketNewsPanel` 对应 `.market-news-panel`，包含标题栏和 viewport。
-3. `NewsTickerList` 对应 `.market-news-viewport` + `.market-news-track`。
-4. `NewsTickerItem` 对应 `.market-news-item`，只渲染时间和标题。
-5. `NewsTickerList` 必须按候选新闻条数设置滚动周期：`max(40s, items.length * 2s)`，避免候选池扩大到 300 条后滚动过快。
-6. 页面编排层负责新闻模块 10 分钟局部刷新；刷新成功后用最新数据替换面板，刷新失败时保留旧列表。
-7. `NewsTickerList` 通过 `updatedAt + first newsId + item count` 生成 remount key，确保刷新成功后滚动从最新新闻重新开始。
-8. `PageHeader`、`TopMarketBar`、`Breadcrumb`、`ShortcutBar` 不允许承载新闻内容。
-
-### 4.3 自动刷新策略
-
-1. 刷新间隔：`10 * 60 * 1000ms`。
-2. 初次加载：
-   - 无数据时展示 loading；
-   - 5 秒超时后展示 error；
-   - 失败时可 toast 提示。
-3. 后台刷新：
-   - 不清空 `newsBriefs` / `stockNews`；
-   - 不把 viewState 切成 loading；
-   - 请求成功后更新对应列表和 debugInfo；
-   - 请求失败时保留旧列表，不切 error，不 toast 打扰用户。
-4. 并发控制：
-   - 上一轮新闻请求未结束时，不启动下一轮刷新；
-   - 页面卸载时取消当前请求并清理 interval。
-
----
-
-## 5. 查询编排策略
-
-### 5.1 主查询：新闻速览
-
-主源：
-
-```text
-core_serving_light.news
-```
-
-字段：
-
-```text
-row_key_hash, news_time, title, content, channels, src
-```
-
-规则：
-
-1. 查询 `news_time` 落在 `newsWindow.startAt <= news_time <= newsWindow.endAt` 的新闻。
-2. 筛选条件：`channels IS DISTINCT FROM '公司'`。
-3. `content IS NULL` 或 trim 后为空字符串的行直接剔除。
-4. 后端生成最终展示标题 `displayTitle`：优先使用 trim 后非空 `title`，否则截取 trim 后 `content` 前 80 字；前端不得拼接。
-5. 按 `displayTitle` 严格去重：相同 `displayTitle` 只保留 `news_time` 最新的一条；若 `news_time` 相同，则按 `row_key_hash asc` 稳定选择。
-6. 排序：去重后按 `news_time desc, row_key_hash asc`。
-7. 截断：每个板块按配置取 `queryLimit=300` 条候选新闻；前端只按 `visibleItemCount=10` 控制可见窗口。
-
-### 5.2 主查询：个股新闻
-
-主源：
-
-```text
-core_serving_light.news
-```
-
-字段：
-
-```text
-row_key_hash, news_time, title, content, channels, src
-```
-
-规则：
-
-1. 查询 `news_time` 落在 `newsWindow.startAt <= news_time <= newsWindow.endAt` 的新闻。
-2. 筛选条件：`channels = '公司'`。
-3. `content IS NULL` 或 trim 后为空字符串的行直接剔除。
-4. 后端生成最终展示标题 `displayTitle`：优先使用 trim 后非空 `title`，否则截取 trim 后 `content` 前 80 字；前端不得拼接。
-5. 按 `displayTitle` 严格去重：相同 `displayTitle` 只保留 `news_time` 最新的一条；若 `news_time` 相同，则按 `row_key_hash asc` 稳定选择。
-6. 排序：去重后按 `news_time desc, row_key_hash asc`。
-7. 本期不从标题中解析股票代码，也不做股票主数据关联；`subject` 可为空。
-
-### 5.3 辅助查询
-
-1. 本期不额外查股票名称表。
-2. 本期不对新闻标题做股票代码解析。
-3. 本期不使用 `anns_d`、`major_news` 或其它公告/新闻表。
-
-### 5.4 空数据与异常数据处理
-
-1. 必需字段缺失行丢弃，并在 debug 计数。
-2. 单接口无可展示项时返回 `EMPTY`，不回退旧日。
-3. 两个接口分别表达自己的状态；页面侧组合后若一侧为空、另一侧 ready，可在 debug 面板标记组合态 `PARTIAL`。
-4. 查询失败返回当前接口 `ERROR`，不影响另一个新闻接口，也不影响其它市场总览模块。
-
-### 5.5 默认行为与边界行为
-
-1. 新闻接口不接收 `tradeDate`，也不使用页面全局 `tradingDay`。
-2. `newsWindow.startAt` 固定为当前自然日前一天 00:00:00。
-3. `newsWindow.endAt` 固定为当前服务器时间。
-4. `visibleItemCount` 非法：配置错误，模块 error。
-5. 新闻少于 `visibleItemCount`：展示实际数量，不补空行。
-
----
-
-## 6. 状态与异常落地
-
-### 6.1 pageStatus 归并规则
-
-新闻模块不单独决定页面级状态。页面状态由市场总览现有归并规则决定。
-
-### 6.2 moduleStatus 归并规则
-
-| 条件 | moduleStatus | 说明 |
+| 当前代码 | 当前事实 | 与目标的差异 |
 |---|---|---|
-| 单接口有数据 | `READY` | 当前新闻板块正常展示 |
-| 单接口无数据 | `EMPTY` | 当前新闻板块显示空态 |
-| 页面侧一侧有数据、一侧无数据 | `PARTIAL` | 正式页展示已有列表；debug 标记缺失侧 |
-| 查询异常或配置异常 | `ERROR` | 显示模块 error |
-| 目标日无数据但旧日有数据 | `DELAYED` | debug 标记，不自动展示旧日 |
+| `market_news_query.py` | 查 `NewsLight`，排除 `channels='公司'` | 应删除频道过滤，改为所有可读 `news` |
+| `stock_news_query.py` | 查 `NewsLight`，只取 `channels='公司'` | 应删除，替换为 `MajorNewsQuery` |
+| `news_query_service.py` | `newsBriefs/stockNews` 两套 panel | `stockNews` 应完整替换为 `newsCommunications` |
+| `news_briefs.py` / `stock_news.py` | 暴露 `/briefs` 和 `/stocks` | `/stocks` 应删除，新增 `/communications` |
+| `news_reader_query.py` | 详情只按 ID 查 `NewsLight` | 无法读取 `major_news`，必须按显式来源查询 |
+| `news_reader_content_resolver.py` | 所有正文统一按 URL > HTML > TEXT | 只适用于 `news`；`major_news` 必须禁止 URL 抢占 HTML 正文 |
+| `news_item.py` | `/items/{news_id}` 不带来源 | 两表 ID 无法安全归属，必须增加来源路径参数 |
 
-### 6.3 debug 输出结构
+### 3.2 当前前端
+
+| 当前代码 | 当前事实 | 目标修改 |
+|---|---|---|
+| `marketNewsApi.ts` | `/briefs`、`/stocks`，`stockNews` | 改为 `/briefs`、`/communications`，`newsCommunications` |
+| `marketNewsAdapter.ts` | 标题为“新闻速览/个股新闻” | 改为“新闻速览/新闻通讯” |
+| `MarketOverviewPage.tsx` | 维护 `stockNews*` 状态和请求 | 全量重命名为 `newsCommunications*` |
+| `MarketNewsPanelGroup.tsx` | 右列 prop 为 `stockNews` | 改为 `newsCommunications` |
+| `useMarketNewsReader.ts` | 详情请求只传 `newsId` | 必须同时传 `contentSource` |
+| `marketNewsReaderApi.ts` | 请求 `/items/{newsId}` | 改为 `/items/{contentSource}/{newsId}` |
+
+当前阅读器共享 UI 本身不依赖具体新闻表，可以继续复用；需要变更的是列表合同、详情路由和来源解析，不需要重写弹窗。
+
+## 4. 数据审计结论
+
+审计时点为 2026-08-24，正式数据库只读统计以 2026-08-23 自然日为样本：
+
+| 指标 | `news` | `major_news` |
+|---|---:|---:|
+| 当日行数 | 1,203 | 522 |
+| 非空标题 | 780 | 522 |
+| 标题缺失 | 423 | 0 |
+| 平均正文大小 | 约 444 bytes | 约 11,398 bytes |
+| URL 非空 | 无独立 URL 列 | 522 |
+| 正文识别为 HTML | 非主要形态 | 522 |
+
+补充证据：
+
+1. `major_news` 正文大小中位数约 11.5 KiB，P95 约 21.6 KiB，最大约 55.6 KiB，样本均低于现有 256 KiB 阅读器上限。
+2. `major_news` 522 条样本正文全部可识别为 HTML，说明库内正文足以承担主要阅读体验。
+3. 两表精确标题交集只有 26 条，占 `major_news` 约 4.98%；相似度大于等于 0.85 的标题也只有约 6.5%。因此不能把 `major_news` 当作 `news` 的稳定子集，也不做跨源模糊去重。
+4. 2026-08-23 `news.channels='公司'` 只有 180 条，其它频道 1,023 条。取消频道过滤后，新闻速览会覆盖完整快讯流。
+5. 两个来源截至审计时点都在持续更新，适合继续沿用当前自然时间窗口和 10 分钟前端刷新节奏。
+
+这些统计只证明本次来源选型和载荷预算，不作为永久业务阈值，也不进入运行时代码。
+
+## 5. 目标数据流
+
+```text
+core_serving_light.news
+  -> MarketNewsQuery（无 channels 过滤）
+  -> GET /api/v1/wealth/market/news/briefs
+  -> 新闻速览
+  -> GET /api/v1/wealth/market/news/items/news/{newsId}
+  -> news.content: URL > HTML > TEXT
+
+core_serving_light.major_news
+  -> MajorNewsQuery
+  -> GET /api/v1/wealth/market/news/communications
+  -> 新闻通讯
+  -> GET /api/v1/wealth/market/news/items/major_news/{newsId}
+  -> major_news.content: HTML > TEXT
+  -> major_news.url: originalUrl only
+```
+
+详情查询禁止：
+
+1. 只按 `newsId` 同时扫两张表。
+2. 第一张表查不到后自动回退第二张表。
+3. 按标题、URL 或发布时间猜来源。
+4. 从 `major_news.url` 下载、代理或 iframe 加载原文。
+
+来源必须由列表响应中的 `contentSource` 明确下发，并由前端原样带回详情路由。
+
+## 6. 目标 API
+
+### 6.1 新闻速览
+
+```http
+GET /api/v1/wealth/market/news/briefs?market=CN_A&debug=0
+```
+
+返回根字段保持 `newsBriefs`。
+
+### 6.2 新闻通讯
+
+```http
+GET /api/v1/wealth/market/news/communications?market=CN_A&debug=0
+```
+
+返回根字段固定为 `newsCommunications`，不继续使用 `stockNews`。
+
+### 6.3 新闻详情
+
+```http
+GET /api/v1/wealth/market/news/items/{content_source}/{news_id}
+```
+
+`content_source` 只允许：
+
+```text
+news
+major_news
+```
+
+旧 `/items/{news_id}` 与 `/news/stocks` 在同一批次删除，不保留 alias。
+
+### 6.4 列表项合同
 
 ```ts
-interface MarketNewsDebugInfo {
-  modules: Array<{
-    moduleKey: "newsBriefs" | "stockNews";
-    expectedTradeDate: string;
-    observedTradeDate?: string | null;
-    lagDays?: number | null;
-    status: "READY" | "PARTIAL" | "EMPTY" | "DELAYED" | "ERROR";
-    note?: string | null;
-  }>;
-  exceptions: Array<{
-    module: "newsBriefs" | "stockNews";
-    code: "NEWS_CONFIG_MISSING" | "NEWS_CONFIG_INVALID" | "NEWS_SOURCE_EMPTY" | "NEWS_SOURCE_DELAYED" | "NEWS_CHANNEL_RULE_INVALID" | "NEWS_QUERY_FAILED";
-    severity: "info" | "warn" | "error";
-    message: string;
-  }>;
+interface NewsPanelItem {
+  newsId: string;
+  contentSource: "news" | "major_news";
+  publishTime: string;
+  displayTime: string;
+  title: string;
+  category: "brief" | "communication";
+  source: string | null;
+  readerMode: "URL" | "HTML" | "TEXT";
+  clickable: true;
 }
 ```
 
-### 6.4 异常码映射表
+旧 `subject` 和恒定为 0 的 `priority` 不再属于首页新闻合同；`sortRule` 收敛为 `publishTime_desc`。前端没有消费者依赖这两个字段，开发时必须同时删除后端 DTO、前端 type 和 fixture，不保留兼容字段。
 
-异常码必须来自 `wealth/docs/system/exception-code-registry.md`：
+### 6.5 详情合同
 
-| code | 场景 |
-|---|---|
-| `NEWS_CONFIG_MISSING` | 新闻模块配置缺失 |
-| `NEWS_CONFIG_INVALID` | `visibleItemCount` 或源配置非法 |
-| `NEWS_SOURCE_EMPTY` | `core_serving_light.news` 按当前接口筛选规则无可展示数据 |
-| `NEWS_SOURCE_DELAYED` | 目标日无数据但存在旧日新闻 |
-| `NEWS_CHANNEL_RULE_INVALID` | `core_serving_light.news.channels` 取值无法支撑 `公司/非公司` 分类 |
-| `NEWS_QUERY_FAILED` | SQL/服务异常 |
-
----
-
-## 7. 性能与缓存策略
-
-1. 性能预算：P95 `< 300ms`，payload `< 600KB`。
-2. 首版策略：无 Redis 缓存，SQL 只按时间倒序取必要字段。
-3. 二期缓存策略：如新闻量或页面并发增加，可按 `market + newsWindowEndMinute + configVersion` 做短期缓存。
-4. 一致性策略：配置变更重启生效；新闻源更新后下一次请求读取最新数据。
-
----
-
-## 8. 安全与权限
-
-1. 鉴权依赖：沿用 wealth market API 现有鉴权基线。
-2. 权限点：本期不新增独立权限点。
-3. 防误用策略：
-   - 不暴露 `visibleItemCount` 给用户；
-   - 不暴露新闻来源选择给用户；
-   - 不允许前端通过 query 参数修改新闻源或条数。
-
----
-
-## 9. 测试与验证计划
-
-1. 单元测试：
-   - 配置解析；
-   - view-model adapter；
-   - 时间格式化；
-   - 不可点击渲染。
-2. 集成测试：
-   - `GET /api/v1/wealth/market/news/briefs` 真实路由；
-   - `GET /api/v1/wealth/market/news/stocks` 真实路由；
-   - 配置缺失/非法路径；
-   - newsBriefs/stockNews 空数据与页面侧 partial。
-3. 冒烟验证：
-   - 页面加载新闻模块；
-   - 两列布局和下方模块等宽；
-   - hover 暂停当前列；
-   - 标题省略。
-4. 失败回滚：
-   - source 开关仅回滚 news 模块；
-   - 不影响其它已 real 的模块。
-
-### 9.1 核心测试 case（必填）
-
-1. 核心字段清单：
-   - `visibleItemCount`
-   - `newsBriefs.items[].publishTime/displayTime/title/clickable`
-   - `stockNews.items[].publishTime/displayTime/title/subject/clickable`
-   - `title` 由后端生成：优先使用非空 `title`，否则截取 `content` 前 80 字；前端不得自行拼接。
-   - `debugInfo.modules[].status`
-   - `debugInfo.exceptions[].code`
-2. 后端真实 API 集成测试：
-   - `tests/web/test_wealth_market_news_api.py`
-   - 禁止 mock service/query。
-3. 前端真实 API 展示校验：
-   - `wealth/src/test/market-overview-news-real-api.test.tsx`
-   - 禁止 mock adapter。
-4. 执行命令：
-
-```bash
-pytest -q tests/web/test_wealth_market_news_api.py
-cd wealth
-npm run test -- market-overview-news-real-api
-npm run typecheck
-npm run build
+```ts
+interface NewsReaderItem {
+  newsId: string;
+  contentSource: "news" | "major_news";
+  title: string;
+  source: string | null;
+  publishTime: string;
+  readerMode: "URL" | "HTML" | "TEXT";
+  url: string | null;
+  html: string | null;
+  content: string | null;
+  originalUrl: string | null;
+}
 ```
 
-通过标准：
+载荷互斥规则保持不变：`url/html/content` 中只能有一个与 `readerMode` 对应的非空字段。
 
-1. 两个后端接口分别返回对应列表对象和可追踪状态。
-2. 前端展示时间 + 标题，不展示 pointer，不跳转。
-3. 真实 API 未返回前保持 loading；超时显示 error。
+`originalUrl` 是溯源元数据，不参与互斥载荷：
 
----
-
-## 10. 分期里程碑
-
-1. M1（方案冻结）：
-   - 三件套评审通过；
-   - 真实数据源可用性确认；
-   - 配置文件口径确认。
-2. M2（后端实现）：
-   - 新增 schema/api/query/service/config；
-   - 注册异常码；
-   - 后端真实 API 测试通过。
-3. M3（前端接入）：
-   - 新增 news feature；
-   - 页面首屏插入新闻组；
-   - source 开关切 real；
-   - 前端真实 API 展示测试通过。
-4. M4（回归发布）：
-   - typecheck/test/build；
-   - 页面视觉检查；
-   - debug 面板确认。
-
----
-
-## 11. 风险与缓解
-
-| 风险 | 触发条件 | 缓解动作 |
+| 来源 | 主动载荷 | `originalUrl` |
 |---|---|---|
-| 旧顶部快讯条回流 | 直接照搬 v8 HTML 或 update 旧稿 | coding gate 明确禁止；页面测试断言不在 PageHeader 中渲染新闻 |
-| 频道分类口径漂移 | `channels` 无 `公司` 或取值与预期不一致 | M2 前真实库探针；不可用则停下确认，不用其它源冒充 |
-| 两个新闻接口重新耦合 | 为省事恢复单一大接口 | 门禁明确拆成 `/news/briefs` 与 `/news/stocks`，页面侧只做组合展示 |
-| 新闻标题为空 | 源端只有 content | 后端明确标题生成策略后再启用；前端不截断 content |
-| 新闻过多拖慢接口 | 查询未限制 | SQL limit + 索引时间倒序 + payload 预算 |
-| 滚动交互影响可读性 | hover 暂停实现错误 | 前端 smoke 覆盖当前列暂停、另一列继续 |
+| `news` | 由 `content` 识别出的 URL/HTML/TEXT | `null` |
+| `major_news` | `content` 对应的 HTML 或 TEXT；绝不为 URL | `major_news.url` 的 trim 后值，可为空 |
 
----
+当前 UI 不展示原文链接，不把 `originalUrl` 写入 DOM，不允许点击跳转。该字段仅用于保留来源事实和后续经单独评审的能力扩展。
 
-## 12. 待拍板项
+## 7. 查询规则
 
-已确认清零。当前方案按以下口径冻结：
+### 7.1 新闻速览
 
-1. 默认展示 10 条。
-2. 展示条数由运营配置控制，用户不可改。
-3. P0 新闻 item 不可点击。
-4. 不使用顶部统一快讯条。
-5. 不使用旧聚合接口。
+1. 表：`NewsLight`。
+2. 时间：`news_time` 位于统一 `newsWindow`。
+3. 正文：trim 后非空。
+4. 不再读取或判断 `channels`。
+5. 展示标题：优先 trim 后非空 `title`，否则取 trim 后 `content` 前 80 字。
+6. 去重：按最终展示标题分组，只保留最新记录。
+7. 排序：`news_time DESC, row_key_hash ASC`。
+8. 上限：策略配置 `queryLimit`，当前为 300。
 
----
+### 7.2 新闻通讯
 
-## 13. 版本记录
+1. 表：`MajorNewsLight`。
+2. 时间：`pub_time` 位于统一 `newsWindow`。
+3. 标题：trim 后非空。
+4. 正文：trim 后非空，且详情请求仍受 256 KiB 上限保护。
+5. 去重：按 trim 后标题分组，只保留最新记录。
+6. 排序：`pub_time DESC, row_key_hash ASC`。
+7. 列表 `source` 使用 `src`，不得误用技术来源字段 `source`。
+8. 上限：同一策略配置 `queryLimit`，当前为 300。
+9. 不检查 URL 可达性，不访问外网。
 
-| 版本 | 日期 | 变更摘要 | 负责人 |
-|---|---|---|---|
-| v1 | 2026-05-14 | 初版：按当前 wealth 模块化架构设计新闻模块实施方案 | Codex |
-| v1.1 | 2026-05-14 | 校准 `market-overview-v1.8.html` 结构，补充前端组件还原边界 | Codex |
+### 7.3 状态
+
+两个接口独立计算 `READY/DELAYED/EMPTY/ERROR`，一个来源失败不得清空另一个面板。现有 `MarketNewsStatusResolver`、自然时间窗口和 debug 结构继续复用，module key 改为：
+
+```text
+newsBriefs
+newsCommunications
+```
+
+`NEWS_CHANNEL_RULE_INVALID` 随频道分类删除而退役。其它通用新闻和阅读器异常码继续使用，不新增来源猜测或跨表回退异常。
+
+## 8. 阅读器内容策略
+
+### 8.1 `news`
+
+继续使用现有安全解析：
+
+```text
+content 自身是合法 HTTP(S) URL -> URL
+否则包含允许识别的 HTML 结构 -> HTML
+否则 -> TEXT
+```
+
+### 8.2 `major_news`
+
+固定使用库内 `content`：
+
+```text
+content 包含 HTML 结构 -> HTML
+否则 -> TEXT
+```
+
+即使 `major_news.url` 非空，也不得改变正文模式。若 `content` 本身恰好长得像 URL，也按 TEXT 处理，不把它升级为外部网页加载。
+
+所有 HTML 仍由前端现有 DOMPurify allowlist 清洗后渲染。URL 模式只可能来自 `news.content`，继续使用受限 sandbox iframe。
+
+## 9. 前端交互
+
+1. 页面布局不变：左列新闻速览，右列新闻通讯；右列下方仍是主要指数。
+2. 两个面板继续独立请求、独立 loading/error/empty/ready 状态和 10 分钟刷新。
+3. 面板刷新不得关闭已经打开的阅读器，也不得替换当前正文。
+4. 点击列表项时使用 `(contentSource, newsId)` 作为详情身份。
+5. 焦点恢复 selector 同时包含来源和 ID，避免未来两表出现相同 ID 时恢复到错误按钮。
+6. 弹窗标题、时间、来源、关闭按钮和正文区域的视觉不变。
+7. 新闻通讯正文加载期间不先打开原文 URL，不显示外链 loading。
+
+## 10. 性能与安全
+
+| 路径 | 门禁 |
+|---|---|
+| 列表查询 | 每个面板一次有界 SQL，最多 300 条，不返回正文 |
+| 详情查询 | 按来源和主键只查一张表，`LIMIT 1` |
+| 正文大小 | UTF-8 最大 256 KiB，超限受控失败 |
+| 外部网络 | `major_news` 路径 0 次；不探测 URL，不代理网页 |
+| 跨源操作 | 0 次模糊匹配、0 次跨表回退、0 次跨表去重 |
+| 前端刷新 | 沿用 10 分钟节奏，不增加轮询 |
+| HTML 安全 | 继续使用现有 DOMPurify allowlist，不使用 `dangerouslySetInnerHTML` 直出未清洗正文 |
+
+数据库已有按时间和来源的索引，当前有界窗口和主键详情查询不需要新增迁移。若后续真实查询计划不使用现有索引，必须单独审计，不在本轮凭猜测加索引。
+
+## 11. 测试与验收
+
+### 后端
+
+1. 新闻速览包含 `channels='公司'`、其它频道和 `channels=NULL` 的记录。
+2. 新闻速览不再生成频道分类异常。
+3. 新闻通讯只来自 `MajorNewsLight`，不从 `NewsLight` 回退。
+4. 两列标题去重、稳定排序、窗口和 300 条上限正确。
+5. 列表项带正确 `contentSource`。
+6. 详情来源为 `news` 时继续覆盖 URL/HTML/TEXT。
+7. 详情来源为 `major_news` 时 HTML 正文优先，`url` 主动载荷始终为空，`originalUrl` 保留。
+8. 来源非法、ID 非法、正文为空、正文过大、查询失败均受控返回。
+9. 旧 `/stocks` 和旧无来源详情路由不再注册。
+
+### 前端
+
+1. 页面显示“新闻速览”和“新闻通讯”。
+2. 请求 `/briefs` 与 `/communications`，不再请求 `/stocks`。
+3. 两列点击均按来源请求详情。
+4. 新闻通讯 HTML 进入现有清洗渲染路径，不进入 iframe。
+5. `originalUrl` 不出现在 DOM，也不触发导航。
+6. 刷新、超时、重试、取消、焦点恢复和阅读器 modal 回归通过。
+7. 股票详情页新闻测试保持不变。
+
+## 12. 开发边界
+
+本轮允许修改：
+
+1. 市场总览首页新闻列表 query/service/schema/API。
+2. 市场总览首页新闻前端 API、adapter、状态、面板命名和阅读器请求身份。
+3. 共享新闻阅读器 DTO 中的来源与原文溯源字段。
+4. 对应测试、异常码登记和本文档。
+
+本轮禁止修改：
+
+1. `news`、`major_news` 采集和数据库结构。
+2. 股票详情页“个股新闻”。
+3. 首页其它模块、布局和 Design System。
+4. 新闻推荐、搜索、跨源聚合评分、原文代理、缓存或新配置。
+5. 移动端阅读器。
+
+## 13. 实施顺序
+
+1. 先改后端 DTO 与来源枚举。
+2. 修改两套列表 query 和 service，新增 `/communications`，删除 `/stocks`。
+3. 改详情来源路由、两表 query 和 source-specific resolver。
+4. 完成后端正反测试。
+5. 一次性迁移前端 types、API、adapter、页面状态和 panel 命名。
+6. 修改 reader hook，以 `(contentSource, newsId)` 请求并恢复焦点。
+7. 完成前端测试、typecheck 和 build。
+8. 更新当前 API 基线与异常码登记，确认旧词和旧路由只存在于明确标记的历史证据中。
+
+任何一步发现 `major_news.content` 在正式数据中不再是可读正文，必须停止开发并重新审计数据，不允许自动回退 URL 掩盖问题。

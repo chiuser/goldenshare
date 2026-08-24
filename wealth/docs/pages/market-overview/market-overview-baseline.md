@@ -9,7 +9,7 @@
 财势乾坤/产品文档/市场总览产品需求文档 v0.2.md
 财势乾坤/设计/02-market-overview-page-design.md
 财势乾坤/codex/market-overview-codex-prompt-v1.md
-wealth/docs/reference/showcase/market-overview-v1.8.html（仅新闻速览与个股新闻视觉参考）
+wealth/docs/reference/showcase/market-overview-v1.8.html（仅新闻双列历史几何参考，右列现行名称为新闻通讯）
 ```
 
 以上资料保留历史页面结构、产品意图与未覆盖状态。发生冲突时，以“用户最新指令 -> 当前市场总览 DOM/CSS/已验证交互 -> `wealth/docs/system/design-system-baseline.md` -> 本文 -> Drive 原始资料”为准。
@@ -71,7 +71,7 @@ market-overview-v1.2.html
 
 本文记录的模块顺序用于解释历史页面意图；当前模块顺序和网格以 `MarketOverviewPage` 及其 CSS 为准。
 
-新闻板块新增需求已经吸收到新闻模块三件套；视觉参考保留在 `wealth/docs/reference/showcase/market-overview-v1.8.html`。该版本只用于校验“新闻速览 + 个股新闻”两个独立新闻面板，不改变其它已落地模块口径。
+新闻板块现行需求已收敛到 [新闻速览、新闻通讯与阅读器技术实施方案 v2](./market-news-implementation-design-v1.md) 和对应 LLD；视觉参考保留在 `wealth/docs/reference/showcase/market-overview-v1.8.html`，只用于校验两个独立新闻面板的历史几何，不决定数据源与接口。
 
 ## 硬性布局
 
@@ -87,19 +87,19 @@ market-overview-v1.2.html
 
 右侧：
 
-- 个股新闻位于主要指数正上方，与主要指数等宽
+- 新闻通讯位于主要指数正上方，与主要指数等宽
 - 10 个主要指数
 - 2 行 x 5 列
 
-### 新闻速览 + 个股新闻
+### 新闻速览 + 新闻通讯
 
-1. `新闻速览` 和 `个股新闻` 是两个独立 Panel，不放入 PageHeader、TopMarketBar 或头部中间区域。
+1. `新闻速览` 和 `新闻通讯` 是两个独立 Panel，不放入 PageHeader、TopMarketBar 或头部中间区域。
 2. 两个新闻 Panel 高度一致。
 3. 默认每个 Panel 可见 10 条新闻，展示文案为 `10 条可见`。
 4. 单条新闻格式固定为 `MM-DD HH:mm:ss  新闻标题`，标题单行省略。
 5. 默认向上自动滚动；hover 当前 Panel 只暂停当前 Panel，另一个 Panel 继续滚动。
-6. 本期新闻 item 不可点击，不显示 pointer，不跳转详情或外链。
-7. 旧 `ICON 预留位｜新闻速览｜个股新闻` 顶部统一快讯条方案已废弃。
+6. 两列新闻 item 均可点击打开共享弹窗阅读器；不跳页面路由，新闻通讯的原文 URL 不直接打开。
+7. 旧 `ICON 预留位｜新闻速览｜个股新闻` 顶部统一快讯条方案已废弃，仅作为历史命名证据保留。
 
 ### 榜单速览
 

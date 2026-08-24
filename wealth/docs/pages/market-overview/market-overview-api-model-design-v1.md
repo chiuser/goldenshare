@@ -32,7 +32,8 @@
 | 板块总览 | `core_serving.dc_index` | 板块涨跌、上涨下跌家数、龙头信息 |
 | 板块行情 | `core_serving.dc_daily` | 板块日线补充（涨跌幅/成交额等） |
 | 板块资金流 | `core_serving.board_moneyflow_dc` | 行业/概念/地域资金流 |
-| 新闻快讯 | `core_serving_light.news` | 新闻速览与个股新闻统一查询出口；按 `channels` 分流 |
+| 新闻快讯 | `core_serving_light.news` | 新闻速览完整快讯流，不按 `channels` 分流 |
+| 新闻通讯 | `core_serving_light.major_news` | 新闻通讯标题与库内 HTML/TEXT 正文；URL 仅作原文溯源 |
 | 名称映射（股票） | `core_serving.security_serving` | `ts_code -> name`（个股名称兜底） |
 | 名称映射（指数） | `core_serving.index_basic` | `ts_code -> name`（指数名称兜底） |
 
@@ -142,84 +143,47 @@ interface MajorIndexRow {
 
 ## 3.5 `MarketNewsPanelGroup` + `NewsListPanel`
 
-> 新闻速览与个股新闻的完整需求、实现与门禁，见：
-> `market-news-benchmark-requirement-v1.md`、
-> `market-news-implementation-design-v1.md`、
-> `market-news-m2-coding-gate-v1.md`。
+> 新闻模块现行目标合同以 [新闻速览、新闻通讯与阅读器技术实施方案 v2](./market-news-implementation-design-v1.md) 和 [对应 LLD](./market-news-reader-low-level-design-v1.md) 为准。首版 `news.channels` 分流和 `stockNews` 模型已经归档，不得恢复。
 
 ```ts
 interface MarketNewsPanelGroup {
-  newsWindow: NewsWindow;
-  visibleItemCount: number;
-  updatedAt: string;
-  newsBriefs: NewsPanelItem[];
-  stockNews: NewsPanelItem[];
-  sortRule: "publishTime_desc_priority_desc";
-  clickablePolicy: "disabled";
+  newsBriefs: NewsListPanel;
+  newsCommunications: NewsListPanel;
 }
 
 interface NewsListPanel {
   windowStartAt: string;
   windowEndAt: string;
-  panelKey: "newsBriefs" | "stockNews";
+  panelKey: "newsBriefs" | "newsCommunications";
   visibleItemCount: number;
   updatedAt: string;
   items: NewsPanelItem[];
-  sortRule: "publishTime_desc_priority_desc";
-  clickablePolicy: "disabled";
-}
-
-interface NewsWindow {
-  market: "CN_A";
-  startAt: string;
-  endAt: string;
-  timezone: "Asia/Shanghai";
+  sortRule: "publishTime_desc";
+  clickablePolicy: "reader";
 }
 
 interface NewsPanelItem {
   newsId: string;
+  contentSource: "news" | "major_news";
   publishTime: string;
   displayTime: string;
   title: string;
-  category: "market" | "stock";
-  source?: string | null;
-  subject?: SubjectRef | null;
-  priority?: number | null;
-  url?: string | null;
-  clickable: false;
+  category: "brief" | "communication";
+  source: string | null;
+  readerMode: "URL" | "HTML" | "TEXT";
+  clickable: true;
 }
 ```
 
 | 字段 | 来源表 | 来源列 | 映射/转换 |
 |---|---|---|---|
-| `newsWindow.startAt` | 后端自然时间窗口 | 当前自然日前一天 00:00:00 | `Asia/Shanghai` |
-| `newsWindow.endAt` | 后端自然时间窗口 | 当前服务器时间 | `Asia/Shanghai` |
-| `visibleItemCount` | 策略配置中心 | `visible_item_count` | 默认 10，用户不可改 |
-| `queryLimit` | 策略配置中心 | `query_limit` | 默认 300，只用于后端候选查询，不控制可见高度 |
-| `updatedAt` | 后端组装 | server time / 查询时间 | 标准 datetime |
-| `newsBriefs.newsId` | `core_serving_light.news` | `row_key_hash` | 原样 |
-| `newsBriefs.publishTime` | `core_serving_light.news` | `news_time` | datetime -> 标准 datetime |
-| `newsBriefs.displayTime` | 后端/adapter | `news_time` | `MM-DD HH:mm:ss` |
-| `newsBriefs.title` | `core_serving_light.news` | `title` / `content` | 优先用非空 title；title 缺失时后端截取 content 前 80 字；不得由前端拼 |
-| `newsBriefs.source` | `core_serving_light.news` | `src` | 原样 |
-| `newsBriefs.category` | `core_serving_light.news` | `channels` | `channels IS DISTINCT FROM '公司'` |
-| `stockNews.newsId` | `core_serving_light.news` | `row_key_hash` | 原样 |
-| `stockNews.publishTime` | `core_serving_light.news` | `news_time` | datetime -> 标准 datetime |
-| `stockNews.displayTime` | 后端/adapter | `news_time` | `MM-DD HH:mm:ss` |
-| `stockNews.title` | `core_serving_light.news` | `title` / `content` | 优先用非空 title；title 缺失时后端截取 content 前 80 字；不得由前端拼 |
-| `stockNews.source` | `core_serving_light.news` | `src` | 原样 |
-| `stockNews.category` | `core_serving_light.news` | `channels` | `channels = '公司'` |
-| `stockNews.subject` | - | - | 本期不解析标题，不强制返回主体 |
-| `clickable` | 常量 | - | 本期固定 `false` |
+| `newsBriefs.*` | `core_serving_light.news` | `row_key_hash/news_time/title/content/src` | 全频道；标题优先 `title`，否则正文前 80 字；正文只用于标题 fallback 和 readerMode hint |
+| `newsCommunications.*` | `core_serving_light.major_news` | `row_key_hash/pub_time/title/content/src` | 标题和正文必须非空；列表不返回正文；readerMode 仅 HTML/TEXT |
+| `contentSource` | 后端常量 | - | briefs=`news`，communications=`major_news` |
+| `source` | 两表 | `src` | 用户可见来源；不得使用技术来源字段 `source` |
+| `visibleItemCount/queryLimit` | 策略配置中心 | `visible_item_count/query_limit` | 默认 10/300，不新增配置 |
 
-说明：
-
-1. 本期新闻模块只读 `core_serving_light.news`，不直接读 `raw_tushare.news`，不使用 `anns_d`、`major_news` 或其它新闻/公告源。
-2. 编码前必须确认线上 `core_serving_light.news.channels` 的真实取值包含 `公司`，且 `channels='公司'` 样本可作为个股新闻板块数据。
-3. 新闻速览与个股新闻分别由 `GET /api/v1/wealth/market/news/briefs` 和 `GET /api/v1/wealth/market/news/stocks` 返回；页面侧可组合为 `MarketNewsPanelGroup`。
-4. 新闻接口不读取页面全局 `tradingDay/tradeDate`，只按 `newsWindow` 查询。
-5. 查询候选集必须删除 `content` 为空的新闻，并按最终展示标题严格去重；展示标题生成规则为优先使用 trim 后非空 `title`，否则截取 trim 后 `content` 前 80 字。相同展示标题只保留发布时间最新的一条，发布时间相同时按 `row_key_hash ASC` 稳定选择。
-6. 旧 `marketNewsFlash` / `marketOverviewNewsBlocks` 不进入当前模型。
+两列使用相同自然时间窗口，但独立请求、独立状态和独立标题去重。详情必须按 `contentSource + newsId` 精确读取指定表；`major_news.url` 只进入 `originalUrl` 溯源字段，不作为阅读载荷。
 
 ---
 

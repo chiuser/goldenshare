@@ -90,9 +90,9 @@ wealth/
 41. `wealth/docs/pages/market-overview/streak-ladder-benchmark-requirement-v1.md`
 42. `wealth/docs/pages/market-overview/streak-ladder-implementation-design-v1.md`
 43. `wealth/docs/pages/market-overview/streak-ladder-m2-coding-gate-v1.md`
-44. `wealth/docs/pages/market-overview/market-news-benchmark-requirement-v1.md`
-45. `wealth/docs/pages/market-overview/market-news-implementation-design-v1.md`
-46. `wealth/docs/pages/market-overview/market-news-m2-coding-gate-v1.md`
+44. `wealth/docs/pages/market-overview/market-news-implementation-design-v1.md`
+45. `wealth/docs/pages/market-overview/market-news-reader-implementation-design-v1.md`
+46. `wealth/docs/pages/market-overview/market-news-reader-low-level-design-v1.md`
 47. `wealth/docs/templates/benchmark-requirement-template.md`
 48. `wealth/docs/templates/implementation-design-template.md`
 49. `wealth/docs/templates/coding-gate-template.md`

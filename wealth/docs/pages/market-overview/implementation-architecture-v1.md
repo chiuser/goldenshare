@@ -12,7 +12,7 @@
 wealth/docs/reference/showcase/market-overview-v1.1.html
 ```
 
-新闻速览与个股新闻的新增需求已经吸收到正式三件套；视觉参考保留在 `wealth/docs/reference/showcase/market-overview-v1.8.html`，只用于校验两个独立新闻面板。
+新闻模块现行口径已收敛到 `market-news-implementation-design-v1.md` 与 `market-news-reader-low-level-design-v1.md`：左列为全量快讯“新闻速览”，右列为 `major_news`“新闻通讯”。历史 Showcase 只校验两个独立面板的几何。
 
 本文件只回答“代码怎么组织、组件怎么拆、数据怎么流、样式怎么落、测试怎么守住高保真”。不实现真实后端 API，不扩展新页面，不新增与市场总览无关的功能。
 
@@ -31,9 +31,9 @@ wealth/docs/reference/showcase/market-overview-v1.1.html
 9. `wealth/docs/pages/market-overview/market-overview-baseline.md`
 10. `wealth/docs/pages/market-overview/api-contract-baseline.md`
 11. `wealth/docs/pages/market-overview/implementation-prompt-baseline.md`
-12. `wealth/docs/pages/market-overview/market-news-benchmark-requirement-v1.md`
-13. `wealth/docs/pages/market-overview/market-news-implementation-design-v1.md`
-14. `wealth/docs/pages/market-overview/market-news-m2-coding-gate-v1.md`
+12. `wealth/docs/pages/market-overview/market-news-implementation-design-v1.md`
+13. `wealth/docs/pages/market-overview/market-news-reader-implementation-design-v1.md`
+14. `wealth/docs/pages/market-overview/market-news-reader-low-level-design-v1.md`
 
 优先级：
 
@@ -66,7 +66,7 @@ React 页面必须按 V1.1 原型顺序组织：
 3. `PageHeader`
 4. `ShortcutBar`
 5. 新闻速览 + 今日市场客观总结，左侧组合列
-6. 个股新闻 + 主要指数，右侧组合列
+6. 新闻通讯 + 主要指数，右侧组合列
 7. 涨跌分布
 8. 市场风格
 9. 成交额总览
@@ -203,7 +203,7 @@ wealth/src/
 1. `layout/`：TopMarketBar、Breadcrumb、PageHeader、ShortcutBar 与终端页壳。
 2. `summary/`：今日市场客观总结。
 3. `indices/`：主要指数和顶部指数条。
-4. `news/`：新闻速览与个股新闻。
+4. `news/`：新闻速览、新闻通讯与共享阅读器。
 5. `breadth/`：涨跌分布。
 6. `style/`：市场风格。
 7. `turnover/`：成交额总览。
@@ -241,7 +241,7 @@ feature 组件可以知道市场总览业务字段，但不能调用后端，也
 | Breadcrumb | `Breadcrumb` | `features/market-overview/layout/` |
 | PageHeader | `PageHeader` | `features/market-overview/layout/` |
 | ShortcutBar | `ShortcutBar` | `features/market-overview/layout/` |
-| 新闻速览 + 个股新闻 | `MarketNewsPanelGroup` | `features/market-overview/news/` |
+| 新闻速览 + 新闻通讯 | `MarketNewsPanelGroup` | `features/market-overview/news/` |
 | 新闻 Panel | `MarketNewsPanel` | `features/market-overview/news/` |
 | 新闻滚动列表 | `NewsTickerList` | `features/market-overview/news/` |
 | 新闻条目 | `NewsTickerItem` | `features/market-overview/news/` |

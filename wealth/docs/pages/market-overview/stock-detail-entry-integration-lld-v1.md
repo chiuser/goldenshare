@@ -1,5 +1,7 @@
 # 市场总览｜股票详情入口接入 LLD v1
 
+> 新闻交互澄清（2026-08-24）：本文的新闻负向门禁只禁止从首页新闻 item 导航到股票详情。首页新闻 item 可打开弹窗阅读器；旧 `aria-disabled` 描述已被新闻阅读器方案替代，不得作为当前实现口径。
+
 > 状态：Draft / 待评审  
 > 上游方案：`wealth/docs/pages/market-overview/stock-detail-entry-integration-plan-v1.md`  
 > 范围：只设计市场总览页中股票主体点击进入股票详情页的代码级落地方案。  
