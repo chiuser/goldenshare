@@ -1198,6 +1198,12 @@ def test_dataset_definition_storage_layer_facts_are_explicit() -> None:
         ("cyq_perf", "raw_cyq_perf", "raw_tushare.cyq_perf", "core_serving.equity_cyq_perf"),
         ("stk_nineturn", "raw_stk_nineturn", "raw_tushare.stk_nineturn", "core_serving.equity_nineturn"),
         ("etf_share_size", "raw_etf_share_size", "raw_tushare.etf_share_size", "core_serving.etf_share_size"),
+        (
+            "moneyflow_mkt_dc",
+            "raw_moneyflow_mkt_dc",
+            "raw_tushare.moneyflow_mkt_dc",
+            "core_serving.market_moneyflow_dc",
+        ),
     ):
         definition = get_dataset_definition(dataset_key)
         assert definition.storage.raw_dao_name == raw_dao_name
@@ -1228,6 +1234,7 @@ def test_raw_serving_view_definitions_project_raw_freshness_targets() -> None:
         ("cyq_perf", "raw_tushare.cyq_perf"),
         ("stk_nineturn", "raw_tushare.stk_nineturn"),
         ("etf_share_size", "raw_tushare.etf_share_size"),
+        ("moneyflow_mkt_dc", "raw_tushare.moneyflow_mkt_dc"),
     ):
         projection = dataset_definition_projection.get_dataset_freshness_projection(dataset_key)
         assert projection is not None
