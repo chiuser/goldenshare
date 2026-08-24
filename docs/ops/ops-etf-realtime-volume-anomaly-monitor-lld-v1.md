@@ -1,1112 +1,632 @@
 # ETF 实时成交额异动监控 LLD v1
 
-状态：M8.1/M8.2/M8.3 本地代码与测试完成 / 待重新部署验收；M9 ETF 规模展示与展示排序退场本地代码与测试完成，待重新部署和页面验收
+状态：下游监控 LLD，待 ETF 实时分钟流 M0 验证和上游接入完成后开发。旧的 `rt_etf_k` 批次差额分钟监控实现不得继续扩展、验收或作为历史基准。
+
 创建日期：2026-08-22
-依据方案：[ETF 实时成交额异动监控方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-etf-realtime-volume-anomaly-monitor-plan-v1.md)
+最近修订：2026-08-24
+上位方案：[ETF 实时成交额异动监控方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-etf-realtime-volume-anomaly-monitor-plan-v1.md)
+上游接入 LLD：[ETF 实时分钟流接入 LLD v1](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-minute-stream-low-level-design-v1.md)。ETF 分钟源的 provider、配置、per-frequency feed、调度、finality 和 health 只由上游 LLD 定义；本文只定义它们完成后监控主链如何消费 `1MIN final/valid` 事实。
 
 ---
 
-## 1. 本轮目标
+## 1. 目标、边界与替换结论
 
-把 ETF 实时成交额异动监控拆到可开发的代码级设计：
+### 1.1 目标
 
-```text
-etf_rt_daily Redis 批次
-  -> 监控池与阈值规则
-  -> 1m/5m/15m 成交额窗口计算
-  -> observe/alert/strong 告警
-  -> Feishu 通知
-  -> 收盘后 1m 历史统计归档
-  -> Ops ETF实时监控配置中心
-```
+在交易时段内，以运营维护的 ETF 监控池为范围：
 
-V1 不是新增 Tushare 数据集，不进入 `DatasetDefinition`、TaskRun、freshness、date audit，也不引入 Doris。
+1. 用 `rt_etf_k` 的高频累计成交额提供盘中提前信号。
+2. 用 ETF 实时分钟流发布的 `1MIN final/valid` 分钟事实保存真实分钟成交额，并作为上一开市日的分钟基准。
+3. 支持 `1m`、`5m`、`15m` 窗口的单 ETF、单规则阈值与 Feishu 通知。
+4. 收盘后将真实分钟事实幂等归档到 PostgreSQL，供下一交易日使用。
 
-### 1.1 本轮收口记录（2026-08-22）
+### 1.2 本轮明确不做
 
-生产前置只读复核已完成：`foundation.realtime_runtime_config` 中 `etf_rt_daily.keep_recent_batches=260`、collector apply state 已上报版本 `3`，休市期间 ETF feed 为 `market_closed`，未发现本轮相关业务表写入。代码与测试本轮完成以下收口：
+1. 不新增 DatasetDefinition、TaskRun、freshness、date audit 或面向用户的 ETF 实时查询 API。
+2. 不修改 `rt_etf_k` 的全市场源端事实范围，不在 provider 阶段按监控池过滤。
+3. 不增加 systemd 服务；继续由 `goldenshare-realtime-collector.service` 运行统一 collector。
+4. 不引入 WebSocket、Doris、秒级历史落库或自动生成监控池/规则。
+5. 不将 Feishu secret 写入数据库、Redis、页面、文档或仓库。
 
-1. `src/ops/services/etf_realtime_monitor_service.py` 先提交告警记录，再发送 Feishu，发送结果单独回写；名称从 `core.etf_basic` 做快照，名称缺失保留空值；单个 ETF/窗口失败只增加失败计数并继续处理。
-2. `src/foundation/realtime/etf_volume_metrics.py` 不再使用 `date.min/time.min`；缺失和无效指标必须有真实交易日与分钟桶，监控读取不凭单批次制造指标，归档读取时补齐真实交易时段桶。
-3. `src/ops/services/etf_realtime_minute_archive_service.py` 对同一 ETF、交易日、分钟桶只保留最终指标，优先最新有效源快照；午休前后独立计算，使用数据库主键 upsert 保证重复归档幂等。
-4. 测试已补齐监控提交顺序、Feishu 失败、observe 不通知、异常隔离、冷却升级、归档午休边界/缺失键/重复执行，以及告警/汇总 API 和前端配置中心 API 隔离契约。
+### 1.3 已确认的替换范围
 
-本轮不执行生产迁移、清理、监控池/规则/Feishu 配置、部署或重启；完成代码交付后停在“等待重新部署验收”。
+| 当前代码/表 | 当前语义问题 | 目标替换 |
+|---|---|---|
+| `src/foundation/realtime/etf_volume_metrics.py` | 相邻 `rt_etf_k.amount` 差额被命名为真实分钟成交额 | 拆分为采样窗口信号计算与真实分钟事实计算；不再以 batch 差额生成分钟历史 |
+| `src/ops/services/etf_realtime_monitor_service.py` | 扫描最近 260 个全市场批次，按旧 5 日均值判级 | 只维护监控池轻量窗口状态，按上一开市日同窗口曲线判级 |
+| `src/ops/services/etf_realtime_minute_archive_service.py` | 将全市场累计差额归档为分钟历史 | 只归档 ETF 分钟流的 `1MIN final/valid` 事实 |
+| `src/cli_parts/realtime_handlers.py` | 每次 `rt_etf_k` 成功后直接进入旧监控 | 上游分钟 feed 发布后，再调度窗口计算和收盘归档；上游采集由 ETF 分钟流 LLD 定义 |
+| `ops.etf_realtime_minute_stat` | 保存旧差额、累计值与伪分钟质量 | 明确重建为真实分钟事实表 |
+| `ops.etf_realtime_monitor_rule` | `observe_ratio/alert_ratio/strong_ratio` 表达旧 5 日均值 | 明确重建为速度比与完整窗口比的规则表 |
+| `ops.etf_realtime_alert` | 事件、通知结果与旧测量语义混在一行 | 重建为告警事件表，并新增独立 delivery 表 |
 
----
-
-## 2. 已审计代码事实
-
-### 2.1 实时 ETF 主线
-
-| 事实 | 当前代码 |
-|---|---|
-| ETF 实时 feed key | `tushare_etf_rt_k`，定义在 `src/foundation/realtime/config_catalog.py` |
-| ETF 实时 collector | `src/foundation/realtime/etf_rt_daily.py` |
-| Redis key 模型 | `src/foundation/realtime/redis_keys.py` |
-| Redis store 公共契约 | `src/foundation/realtime/state_store.py` |
-| Ops ETF health | `src/ops/queries/realtime_feed_health_query_service.py` |
-| Ops realtime API | `src/ops/api/realtime.py` |
-| 实时流监控页 | `frontend/src/pages/ops-realtime-monitor-page.tsx` |
-| 实时流配置中心页 | `frontend/src/pages/ops-realtime-config-center-page.tsx` |
-
-当前 Redis store 已支持：
-
-1. 发布一个 batch。
-2. 获取 current batch。
-3. 获取 batch meta。
-4. 获取指定 `ts_codes` 的 snapshots。
-5. 获取 snapshot 数量。
-6. 按 feed 列出最近 N 个 batch。
-7. 按 batch 读取全部 snapshot。
-8. 按 batch 读取 snapshot code 集合。
-
-ETF 监控引擎必须继续通过 `RealtimeStateStore` 读取批次与 snapshot，禁止临时拼 Redis key。
-
-### 2.2 ETF 活跃池与可选列表
-
-| 事实 | 当前代码 |
-|---|---|
-| 活跃池表 | `ops.etf_series_active` |
-| ORM | `src/ops/models/ops/etf_series_active.py` |
-| 只读 API | `GET /api/v1/ops/review/etf/active` |
-| 查询服务 | `src/ops/queries/review_center_query_service.py` |
-| 前端页面 | `frontend/src/pages/ops-v21-review-etf-page.tsx` |
-
-ETF 审查页已有能力：
-
-1. `resource=fund_daily` / `resource=etf_rt_daily` 隔离。
-2. keyword 搜索覆盖 `ts_code/csname/extname/cname`。
-3. page/page_size 分页。
-4. 列表可展示 ETF 基础信息与最新 `fund_daily` 日期。
-
-ETF 监控配置中心可以复用相同查询口径，但不应直接长期依赖审查中心 API。建议新增监控域 API：
-
-```http
-GET /api/v1/ops/realtime/etf-monitor/active-etfs
-```
-
-它内部可复用查询逻辑或抽公共 query helper，但页面契约归属于 ETF 实时监控。
-
-### 2.3 Feishu 能力
-
-当前已有：
-
-```text
-src/ops/services/feishu_task_notification_service.py
-```
-
-它服务于 TaskRun 完成通知，配置项为：
-
-1. `OPS_TASK_NOTIFY_FEISHU_ENABLED`
-2. `GOLDENSHARE_FEISHU_WEBHOOK_URL`
-3. `GOLDENSHARE_FEISHU_WEBHOOK_SECRET`
-4. `OPS_TASK_NOTIFY_TIMEOUT_SECONDS`
-
-ETF 异动告警不能直接复用 TaskRun 通知服务作为业务入口，因为两者的启停、消息模板、失败语义不同。V1 只复用签名、超时、错误解析经验，新增 ETF 告警发送服务。
-
-ETF 告警 Feishu 通道已拍板为独立通道：
-
-1. 新建 ETF 告警专用 Feishu 机器人。
-2. webhook URL 使用 ETF 专用部署级 env。
-3. secret 初始允许为空；为空时不签名。
-4. 不复用 TaskRun 完成通知的启停开关和消息模板。
-
-### 2.4 Alembic 迁移 head
-
-本方案最初审计时的历史 head 为：
-
-```text
-20260818_000138 (head)
-```
-
-截至本轮展示排序退场开发，当前迁移链 head 为：
-
-```text
-20260822_000142 (head)
-```
-
-`20260822_000142` 只删除 `ops.etf_realtime_monitor_pool.display_order` 及旧索引 `idx_etf_realtime_monitor_pool_enabled_order`，不清理监控池数据。后续如新增迁移，`down_revision` 仍只能接开发当时重新核验的真实 head，禁止按本文日期或印象猜。
-
-### 2.5 CodeGraph 影响面
-
-已用 CodeGraph 查过的关键影响面：
-
-1. `RealtimeStateStore` 影响 Redis store、股票日线、股票分钟、ETF 日线、snapshot reader、Ops health、配置中心、相关测试。
-2. `ReviewCenterQueryService` 当前覆盖 ETF 活跃池列表和 summary，可作为可选 ETF 查询口径参考。
-3. `EtfRtDailyCollector` 只被统一 collector 和 ETF 实时测试引用；后续接监控引擎时必须保持 ETF feed 失败隔离。
-
-### 2.6 `etf_share_size` 可用性与消费边界（M9）
-
-本轮通过当前代码、迁移和生产只读查询确认：
-
-1. `etf_share_size` 已由 `20260822_000140` 迁移创建 `raw_tushare.etf_share_size`，并提供 `core_serving.etf_share_size` view；当前 DatasetDefinition、raw ORM、DAO、catalog 和 freshness 均已接入。
-2. 生产表的最新规模日为 `2026-08-21`，该日有 1,637 个唯一 `ts_code`；`total_share` 有 1,637 个非空值，`total_size` 有 1,595 个非空值。
-3. `ops.etf_series_active(resource='etf_rt_daily')` 的 1,395 只 ETF 全部命中该日规模快照；其中 1,360 只的 `total_size` 非空，35 只的 `total_size` 为源端空值，主要是 QDII ETF。
-4. 因为 raw 表主键是 `(trade_date, ts_code)`，一次按全局最新日期关联至多返回一行，不会放大 active-etf 或 monitor-pool 查询的行数。
-5. 本轮只在 Ops 查询服务消费该事实；不修改数据集、迁移、实时 feed、Redis、监控计算、告警或监控池写入。
+切换不是兼容改造：三个旧语义表必须在实施前取得单独清理重建授权。`ops.etf_realtime_monitor_pool` 保留，不清空。
 
 ---
 
-## 3. 硬约束
+## 2. 已审计的当前代码与依赖边界
 
-1. 监控范围只能来自 `ops.etf_series_active(resource='etf_rt_daily')` 的子集。
-2. `rt_etf_k` 源端 Redis 批次继续保存全市场事实，不能为了监控池裁剪源端 batch。
-3. 监控计算与 Feishu 失败不能影响 ETF 实时采集、Redis 发布、业务数据表。
-4. `foundation` 不允许 import `ops` ORM、Ops service 或 app 依赖。
-5. 配置项必须集中审计；阈值、监控池进 DB；Feishu secret 留在部署 env。
-6. 页面必须遵守运营后台现有设计规范，不能做成 showcase 或解释型 demo。
-7. 所有状态写入失败只影响观测与告警自身，不允许回滚或污染实时源快照。
-8. 初始监控池必须为空；不得在迁移或 seed 中默认导入全部 ETF。
-9. 默认全局规则不得在迁移中自动 seed；只能由页面显式动作创建。
-10. 规模字段只读自 `raw_tushare.etf_share_size` 的全局最新 `trade_date`；禁止对单 ETF 回退旧日期、禁止把缺失规模转为 0。
-11. 排序必须在 Ops 查询层完成，前端只消费 API 返回顺序；抽屉按总规模降序，监控池按监控分组后组内总规模降序。
-12. `total_share` 与 `total_size` 的原始单位分别为万份、万元；API 字段必须带 `_wan` 后缀，页面只做展示换算。
-13. 本轮不删除、更新或重建任何 `etf_share_size`、活跃池或监控池数据。
+### 2.1 当前主链入口
+
+| 职责 | 当前代码 | 改造后职责 |
+|---|---|---|
+| 统一调度入口 | `src/cli_parts/realtime_handlers.py` | 继续作为 collector CLI 的 orchestration 入口 |
+| 统一 collector | `src/foundation/realtime/collector_service.py` | 调度全市场 `rt_etf_k`；不能直接读取 Ops 监控池 |
+| ETF 日内快照 provider/collector | `src/foundation/realtime/etf_rt_daily.py` | 保留全市场采样；增加分段 `captured_at` 回传 |
+| realtime 配置 | `src/foundation/realtime/runtime_config.py`、`config_catalog.py` | ETF 分钟流 LLD 定义 `etf_rt_min`；本 LLD 只消费其已发布配置语义 |
+| Redis store contract | `src/foundation/realtime/state_store.py` | ETF 分钟流 LLD 定义分钟事实与采集日志；本 LLD 只新增/消费窗口状态 contract |
+| 监控服务 | `src/ops/services/etf_realtime_monitor_service.py` | 按新双源语义重写 |
+| 分钟归档服务 | `src/ops/services/etf_realtime_minute_archive_service.py` | 从分钟事实归档，不再读取全市场差额 |
+| ETF 监控 API | `src/ops/api/etf_realtime_monitor.py` | 保留路由域，替换规则/告警 schema |
+| 前端配置页 | `frontend/src/pages/ops-etf-realtime-monitor-config-page.tsx` | 监控池维持现状；规则与告警消费新契约 |
+
+`foundation` 只处理源接口、配置、Redis contract 和纯计算；不得 import `ops` ORM、DAO 或 service。监控池读取、规则决策、告警持久化、Feishu 发送和收盘编排属于 `ops`。`app`/CLI 负责装配二者。
+
+### 2.2 现有 Redis batch contract
+
+`RealtimeStateStore` 已提供按 `feed_key` 的 current pointer、batch meta、snapshot、stream、health 访问。新实现必须继续通过该 contract 读写，禁止 Ops service 直接拼 Redis key。
+
+`rt_etf_k` 当前 feed key 为 `tushare_etf_rt_k`。ETF 分钟流按频率使用独立 feed：
+
+```text
+tushare_etf_rt_min_1min
+tushare_etf_rt_min_5min
+tushare_etf_rt_min_15min
+tushare_etf_rt_min_30min
+tushare_etf_rt_min_60min
+```
+
+两个 feed 的 current pointer、batch、snapshot、health 与 stream 必须完全隔离。
+
+### 2.3 CodeGraph 审计结果
+
+本 LLD 编写前已用 CodeGraph 检查 `build_etf_minute_metrics_for_trade_date` 与 `EtfRealtimeMonitorService` 影响面，确认直接链路覆盖：
+
+1. `src/foundation/realtime/etf_volume_metrics.py`。
+2. `src/ops/services/etf_realtime_monitor_service.py`。
+3. `src/ops/services/etf_realtime_minute_archive_service.py`。
+4. `src/cli_parts/realtime_handlers.py`。
+5. `tests/test_etf_realtime_volume_metrics.py`、`tests/web/test_etf_realtime_monitor_service.py`、`tests/web/test_etf_realtime_minute_archive_service.py` 及 realtime state store/collector/config API 消费者。
+
+实施前如以上调用关系有变化，必须重新运行 CodeGraph impact/callers/callees，不得仅按本文路径猜测。
 
 ---
 
-## 4. 数据表设计
+## 3. 源接口与时间语义
 
-V1 新增 4 张表，均在 `ops` schema。
+### 3.1 `rt_etf_k`：高频累计快照
 
-### 4.1 `ops.etf_realtime_monitor_pool`
+职责是盘中采样信号，源端 `amount` 是当日截至该源端时点的累计成交额，不是某一分钟的成交额。
 
-用途：实际监控名单。
+全市场每轮固定两段请求：
 
-| 字段 | 类型 | 约束 | 说明 |
-|---|---|---|---|
-| `id` | bigserial | pk | 主键 |
-| `ts_code` | varchar(16) | unique, not null | ETF 代码 |
-| `group_key` | varchar(64) | not null | 监控分组 |
-| `group_name` | varchar(64) | not null | 分组展示名 |
-| `enabled` | boolean | not null default true | 是否启用 |
-| `note` | text | nullable | 后端保留字段；V1 页面不展示、不提交 |
-| `created_by_user_id` | bigint | nullable | 创建人 |
-| `updated_by_user_id` | bigint | nullable | 更新人 |
-| `created_at` | timestamptz | not null | 创建时间 |
-| `updated_at` | timestamptz | not null | 更新时间 |
+| 市场 | `ts_code` | `topic` |
+|---|---|---|
+| SH | `5*.SH` | `HQ_FND_TICK` |
+| SZ | `1*.SZ` | 空 |
 
-索引：
+实现位置：`src/foundation/realtime/etf_rt_daily.py`。
 
-```text
-unique(ts_code)
-index(group_key, enabled)
-```
-
-服务层校验：
-
-1. 新增或启用时，`ts_code` 必须存在于 `ops.etf_series_active(resource='etf_rt_daily')`。
-2. 删除只删除监控关系，不删除历史告警和统计。
-
-### 4.2 `ops.etf_realtime_monitor_rule`
-
-用途：阈值规则。
-
-| 字段 | 类型 | 约束 | 说明 |
-|---|---|---|---|
-| `id` | bigserial | pk | 主键 |
-| `scope_type` | varchar(16) | not null | `global`、`group`、`etf` |
-| `scope_key` | varchar(64) | not null | `__GLOBAL__`、分组 key 或 ETF 代码 |
-| `window_minutes` | smallint | not null | `1`、`5`、`15` |
-| `observe_ratio` | numeric(10,4) | not null | 观察倍数 |
-| `alert_ratio` | numeric(10,4) | not null | 普通提醒倍数 |
-| `strong_ratio` | numeric(10,4) | not null | 强提醒倍数 |
-| `cooldown_minutes` | integer | not null | 冷却分钟 |
-| `feishu_enabled` | boolean | not null | 是否发送 Feishu |
-| `enabled` | boolean | not null | 是否启用 |
-| `created_by_user_id` | bigint | nullable | 创建人 |
-| `updated_by_user_id` | bigint | nullable | 更新人 |
-| `created_at` | timestamptz | not null | 创建时间 |
-| `updated_at` | timestamptz | not null | 更新时间 |
-
-约束：
-
-```text
-unique(scope_type, scope_key, window_minutes)
-check(scope_type in ('global', 'group', 'etf'))
-check(window_minutes in (1, 5, 15))
-check(observe_ratio > 0)
-check(observe_ratio <= alert_ratio)
-check(alert_ratio <= strong_ratio)
-check(cooldown_minutes > 0)
-```
-
-服务层校验：
-
-1. ETF 规则的 `scope_key` 必须存在于监控池。
-2. group 规则的 `scope_key` 必须存在于监控池分组。
-3. global 规则的 `scope_key` 固定为 `__GLOBAL__`。
-
-### 4.3 `ops.etf_realtime_minute_stat`
-
-用途：收盘后归档 1 分钟统计，供未来交易日做 5 个交易日历史同期基准。
-
-| 字段 | 类型 | 约束 | 说明 |
-|---|---|---|---|
-| `trade_date` | date | pk | 交易日 |
-| `minute_bucket` | time | pk | 1 分钟桶结束时间 |
-| `ts_code` | varchar(16) | pk | ETF 代码 |
-| `source_trade_time` | timestamptz | nullable | 源端时间 |
-| `source_batch_id` | varchar(64) | nullable | 当前批次 |
-| `previous_batch_id` | varchar(64) | nullable | 上一分钟参考批次 |
-| `cumulative_amount_yuan` | numeric(24,4) | nullable | 当前累计成交额，元 |
-| `amount_delta_yuan` | numeric(24,4) | nullable | 本分钟成交额，元 |
-| `cumulative_vol` | numeric(24,4) | nullable | 当前累计成交量 |
-| `vol_delta` | numeric(24,4) | nullable | 本分钟成交量 |
-| `data_quality` | varchar(16) | not null | `ok`、`missing`、`invalid` |
-| `missing_reason` | varchar(128) | nullable | 缺失或无效原因 |
-| `created_at` | timestamptz | not null | 创建时间 |
-
-索引：
-
-```text
-index(ts_code, trade_date)
-index(trade_date, minute_bucket)
-index(data_quality, trade_date)
-```
-
-硬规则：
-
-1. `missing` 要入库，不允许缺行伪装成 0。
-2. 只存 1m，5m/15m 从 1m 聚合。
-3. 重复归档同一天必须幂等。
-
-### 4.4 `ops.etf_realtime_alert`
-
-用途：保存 observe/alert/strong 异动记录与通知结果。
-
-| 字段 | 类型 | 约束 | 说明 |
-|---|---|---|---|
-| `id` | bigserial | pk | 主键 |
-| `trade_date` | date | not null | 交易日 |
-| `triggered_at` | timestamptz | not null | 触发时间 |
-| `bucket_end_time` | time | not null | 窗口结束时间 |
-| `window_minutes` | smallint | not null | `1`、`5`、`15` |
-| `ts_code` | varchar(16) | not null | ETF 代码 |
-| `etf_name` | varchar(128) | nullable | ETF 名称快照 |
-| `group_key` | varchar(64) | not null | 分组 key 快照 |
-| `group_name` | varchar(64) | not null | 分组名快照 |
-| `rule_id` | bigint | nullable | 命中规则 |
-| `severity` | varchar(16) | not null | `observe`、`alert`、`strong` |
-| `current_amount_yuan` | numeric(24,4) | not null | 当前窗口成交额 |
-| `baseline_amount_yuan` | numeric(24,4) | not null | 历史同期均值 |
-| `ratio` | numeric(12,4) | not null | 当前 / 基准 |
-| `baseline_trade_dates_json` | jsonb | not null | 参与基准的交易日 |
-| `cooldown_key` | varchar(256) | not null | 冷却键 |
-| `feishu_status` | varchar(16) | not null | `skipped`、`pending`、`success`、`failed` |
-| `feishu_message_id` | varchar(128) | nullable | Feishu 返回 ID |
-| `feishu_error` | text | nullable | 失败摘要 |
-| `notified_at` | timestamptz | nullable | 通知成功时间 |
-| `created_at` | timestamptz | not null | 创建时间 |
-
-索引：
-
-```text
-index(trade_date, ts_code, window_minutes)
-index(triggered_at)
-index(severity, triggered_at)
-index(cooldown_key, triggered_at)
-```
-
-不设置 `(cooldown_key)` 唯一约束，因为同一冷却期允许 `alert` 升级到 `strong`。
-
----
-
-## 5. 迁移与模型文件
-
-### 5.1 迁移
-
-新增迁移文件：
-
-```text
-alembic/versions/<next_revision>_add_etf_realtime_monitor_tables.py
-```
-
-规则：
-
-1. 进入开发时先运行 `uv run alembic heads`。
-2. `down_revision` 接真实 head。
-3. 迁移只建表、索引、约束，不 seed 阈值，不写监控池，不清任何数据。
-
-### 5.2 ORM
-
-新增：
-
-```text
-src/ops/models/ops/etf_realtime_monitor_pool.py
-src/ops/models/ops/etf_realtime_monitor_rule.py
-src/ops/models/ops/etf_realtime_minute_stat.py
-src/ops/models/ops/etf_realtime_alert.py
-```
-
-注册：
-
-```text
-src/ops/models/ops/__init__.py
-src/app/model_registry.py
-tests/web/conftest.py
-```
-
----
-
-## 6. Redis Store 扩展
-
-### 6.1 新增公共方法
-
-在 `src/foundation/realtime/state_store.py` 的 `RealtimeStateStore` Protocol 新增：
+现有 provider 只在整轮完成后使用一个 `received_at`。新实现须改为每个请求段创建 `captured_at`，并让该段返回的每一行 snapshot 带该值：
 
 ```python
-def list_batch_ids(self, feed_key: str, *, limit: int | None = None) -> list[str]: ...
+@dataclass(frozen=True)
+class EtfRtKSourceSegmentResult:
+    market: Literal["SH", "SZ"]
+    captured_at: datetime
+    rows: list[dict[str, object]]
+    source_elapsed_ms: int
 
-def get_batch_snapshot_codes(self, feed_key: str, batch_id: str) -> set[str]: ...
-
-def get_batch_snapshots(
-    self,
-    feed_key: str,
-    batch_id: str,
-    *,
-    ts_codes: Sequence[str] | None = None,
-) -> dict[str, dict[str, Any]]: ...
+@dataclass(frozen=True)
+class EtfRtKFetchResult:
+    segments: tuple[EtfRtKSourceSegmentResult, ...]
 ```
 
-实现范围：
+`captured_at` 是服务端收到该段响应的 UTC 时间，用于窗口进度和采样间隔。`trade_time` 是源端行情时间，只用于新鲜度展示和排障；禁止用它推导采样间隔、窗口进度或跨段先后。
 
-1. `RedisRealtimeStateStore`
-2. `InMemoryRealtimeStateStore`
-3. `UnavailableRealtimeStateStore`
+两段中任一段请求失败时，保持现有全市场 feed 的原子发布语义：不得切换 current pointer，仅将该 feed health 写为 `degraded`。监控服务也不得从失败轮生成窗口信号。
 
-实现口径：
+### 3.2 ETF 分钟流：下游输入契约
 
-1. `list_batch_ids` 按 Redis zset 分数倒序返回最近批次。
-2. `get_batch_snapshot_codes` 读取 batch index。
-3. `get_batch_snapshots` 若传 `ts_codes`，走现有 mget；不传则先读 index 再批量读取。
+ETF 分钟流接入实现只存在于 [ETF 实时分钟流接入 LLD v1](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-minute-stream-low-level-design-v1.md)。它支持由运营配置选择 `1MIN/5MIN/15MIN/30MIN/60MIN`，并为每个频率独立发布 Redis feed。
 
-### 6.2 为什么必须扩展 store
+本 LLD 只消费其中的 `1MIN` 最终事实。调用方必须经 `RealtimeStateStore` 的类型化读取 contract 获取，不能直接请求 Tushare、拼 Redis key 或自行判断 bar 是否闭合。可用于监控基准/归档的行至少满足：
 
-ETF 监控需要读取当天多个 batch 做分钟差分。当前 `get_snapshots(feed_key,batch_id,ts_codes)` 只能服务“业务方查几只代码的当前快照”，无法支持：
+```text
+ts_code, freq=1MIN, source_time, amount_yuan, vol,
+received_at, batch_id, quality=valid, final=true,
+source, source_api_name, raw_payload_hash
+```
 
-1. 收盘后遍历全天 260 批。
-2. 计算上一分钟与当前分钟的累计成交额差值。
-3. 对缺采进行 `missing` 标记。
-
-禁止在服务里直接拼 Redis key，因为这会绕过 `RealtimeStateStore` 抽象，破坏后续 InMemory 测试和 Redis key 统一治理。
+`time` 的真实语义、源端 API 名、`topic` 规则、代码池、请求分批和 `final` 判定均由上游 M0 实测冻结。任何尚未 `final`、缺少身份字段或 `quality != valid` 的行不得参与历史基准、分钟归档或告警最终值。
 
 ---
 
-## 7. 计算模型
+## 4. 配置模型与发布校验
 
-### 7.1 Foundation 纯计算层
+运行时可编辑配置仍持久化于 `foundation.realtime_runtime_config`，锁定源端事实保留在 `src/foundation/realtime/config_catalog.py`。`REDIS_URL` 是部署级 env，不进入运营配置中心。
 
-新增：
+### 4.1 `etf_rt_daily` 高速采样配置
+
+`etf_rt_daily.poll_interval_seconds` 允许整数 `1..60`。每个采样周期必须执行 SH、SZ 两个源请求，所以最小调用预算是：
 
 ```text
-src/foundation/realtime/etf_volume_metrics.py
+required_calls_per_minute = 2 * ceil(60 / poll_interval_seconds)
 ```
 
-职责：
+乘以 `2` 的原因不是重试，而是单轮全市场事实天然需要沪市和深市两次独立 Tushare 请求。
 
-1. 读取 `RealtimeStateStore` 中指定 feed 的 batch 与 snapshot。
-2. 从 `rt_etf_k.amount` 计算 `amount_delta_yuan`。
-3. 生成 1m 统计行。
-4. 从 1m 统计聚合 5m/15m 窗口。
-5. 输出数据质量：`ok`、`missing`、`invalid`。
+`src/foundation/realtime/runtime_config.py` 的 ETF 配置构建函数必须验证：
 
-禁止：
+1. interval 在 `1..60`。
+2. `max_calls_per_minute >= required_calls_per_minute`。
+3. `stale_after_seconds >= poll_interval_seconds`。
+4. `lease_ttl_seconds > poll_interval_seconds`，避免同一 feed 周期重叠。
+5. 采集耗时超过 interval 时，统一 collector 不重叠执行；记录滞后/缺采，不能并发补跑同一周期。
 
-1. import `src.ops`。
-2. 查询监控池、阈值或 Feishu。
-3. 写数据库。
+`keep_recent_batches=260` 是全市场 Redis 快照保留策略，不得成为监控计算或历史归档的前提。
 
-建议类型：
+### 4.2 `etf_rt_min` 配置边界
+
+`etf_rt_min` 是 ETF 分钟流的独立配置对象，与 `etf_rt_daily` 独立 version、apply state 和 health。其全部可编辑字段、锁定事实、五频率 checkbox、发布校验、重启生效逻辑以及配置中心展示由 ETF 分钟流接入方案定义。本监控 LLD 不得再次定义或覆盖这些字段。
+
+监控代码只依赖一项明确事实：运营启用了 `1MIN` 后，上游会发布可消费的 `1MIN final/valid` 行；如果未启用、health degraded 或没有 final row，本轮监控必须标记该分钟为 `missing`，不得把旧数据或 `0` 当作正常值。
+
+---
+
+## 5. Redis contract：分钟事实输入与窗口状态
+
+### 5.1 不能用全市场 batch 回扫代替状态
+
+实时 monitoring 不应在每次采样时扫描 260 个全市场 batch：这会把全市场 Redis 留存量变成监控计算依赖，也会让采样缺口无法精确表达。新流程只维护监控池中当前窗口需要的最小状态。
+
+### 5.2 监控侧新增的类型化 `RealtimeStateStore` 方法
+
+ETF 分钟流 LLD 负责定义和写入每频率的分钟事实、采集日志与 `final` 状态；本 LLD 不得重复提供写入分钟源事实的方法。监控侧只新增自己的窗口状态方法，并使用上游提供的类型化 final-fact 查询：
 
 ```python
-@dataclass(frozen=True, slots=True)
-class EtfMinuteMetric:
+async def get_etf_window_sample_state(
+    self, *, trade_date: date, ts_code: str, window_minutes: int, window_end_time: time
+) -> EtfWindowSampleState | None: ...
+
+async def put_etf_window_sample_state(self, state: EtfWindowSampleState) -> None: ...
+
+async def delete_etf_window_sample_state(
+    self, *, trade_date: date, ts_code: str, window_minutes: int, window_end_time: time
+) -> None: ...
+
+async def list_etf_final_minute_facts(
+    self, *, feed_key: str, trade_date: date, ts_codes: Sequence[str], freq: str = "1MIN"
+) -> list[EtfFinalMinuteFact]: ...
+```
+
+Ops 只能调用这些方法，不能拼 key。具体 Redis key 前缀由 `redis_keys.py` 统一管理；每类状态必须带 TTL，交易日结束后可保留到收盘归档完成，但不能无限增长。
+
+### 5.3 `EtfWindowSampleState`
+
+键：
+
+```text
+trade_date + ts_code + window_minutes + window_end_time
+```
+
+值至少包括：
+
+```text
+anchor_captured_at
+anchor_cumulative_amount_yuan
+anchor_source_trade_time
+last_captured_at
+last_cumulative_amount_yuan
+last_source_trade_time
+last_batch_id
+sample_count
+quality
+missing_reason
+```
+
+只在同一交易时段、同一逻辑窗口写入。累计金额下降、采样间隔超限、跨午休或跨交易日时，先删除旧状态，再以当前有效样本建立新锚点；禁止对断点两侧的累计值相减。
+
+### 5.4 上游分钟 capture 的下游消费
+
+分钟采集日志不是分钟统计表。其写入模型和 Redis key 由 ETF 分钟流 LLD 定义；本 LLD 只约束归档/监控读取它时必须能区分真实 `valid`、`invalid` 和 `missing`，用于识别真实缺失：
+
+```text
+trade_date
+requested_at
+ts_code
+request_group_id
+source_time
+batch_id
+amount_yuan
+vol
+quality=valid|invalid|missing
+reason_code
+raw_payload_hash
+```
+
+即使某次请求失败、某代码没有返回行或行无效，上游也必须以真实交易日、真实预期分钟桶和 reason 记录 capture。禁止使用 `date.min` 或 `time.min` 填充假键。失败记录不能覆盖分钟 feed current pointer，也不能把 `missing` 转为金额 `0`。
+
+---
+
+## 6. 纯计算口径
+
+纯计算函数放在 `src/foundation/realtime/etf_volume_metrics.py`，只接受明确的 input dataclass，不能读 Redis、数据库、时钟单例或 Ops 配置。
+
+### 6.1 逻辑窗口
+
+窗口类型仅为 `1/5/15` 分钟。`RealtimeMarketClock` 负责判断交易日和 `09:30-11:30`、`13:00-15:00` 时段；窗口不能跨午休。
+
+```python
+@dataclass(frozen=True)
+class EtfWindowDefinition:
     trade_date: date
-    minute_bucket: time
-    ts_code: str
+    window_minutes: Literal[1, 5, 15]
+    start_at: datetime
+    end_at: datetime
+    session: Literal["morning", "afternoon"]
+```
+
+`resolve_etf_window(captured_at, window_minutes, market_clock)` 必须：
+
+1. 在非交易时段返回 `None`。
+2. 将 `1m` 映射为 `[10:00:00, 10:01:00)`；`5m` 为 `[10:00:00, 10:05:00)`；`15m` 为 `[10:00:00, 10:15:00)`。
+3. 按上午、下午各自对齐，不跨 `11:30 -> 13:00`。
+4. `09:30` 特殊边界只能按 M0 实测后的冻结规则实现，不能凭本文示例猜测。
+
+### 6.2 盘中采样金额
+
+输入为当前窗口内两个或以上有效累计样本：
+
+```python
+@dataclass(frozen=True)
+class EtfCumulativeSample:
+    captured_at: datetime
+    cumulative_amount_yuan: Decimal
     source_trade_time: datetime | None
-    source_batch_id: str | None
-    previous_batch_id: str | None
-    cumulative_amount_yuan: Decimal | None
-    amount_delta_yuan: Decimal | None
-    cumulative_vol: Decimal | None
-    vol_delta: Decimal | None
-    data_quality: str
-    missing_reason: str | None
+    batch_id: str
 ```
-
-### 7.2 时间桶
-
-交易时段固定来自实时 ETF feed 的 collection sessions：
-
-```text
-09:30-11:30
-13:00-15:00
-```
-
-桶口径：
-
-| 窗口 | 桶结束示例 |
-|---|---|
-| 1m | `09:31`、`09:32` |
-| 5m | `09:35`、`09:40` |
-| 15m | `09:45`、`10:00` |
 
 规则：
 
-1. 午休不跨桶。
-2. `11:30` 是上午最后一个闭合桶。
-3. `13:00` 下午重新开始，不和上午合并。
-4. 未闭合窗口不参与告警。
-
-### 7.3 missing 与 invalid
-
-以下情况标记 `missing`：
-
-1. 当前桶没有可用 batch。
-2. 监控池 ETF 在当前 batch 没有 snapshot。
-3. 当前 snapshot 的 `trade_time` 不属于当前分钟桶。
-4. 上一分钟参考 snapshot 缺失，无法做差分。
-
-以下情况标记 `invalid`：
-
-1. `amount` 无法解析为数字。
-2. `vol` 无法解析为数字。
-3. 当前累计成交额小于上一分钟累计成交额。
-4. `ts_code` 缺失或不匹配。
-
-`missing` 和 `invalid` 都不能当 0。
-
-### 7.4 基准计算
-
-基准来源：
-
 ```text
-ops.etf_realtime_minute_stat
+anchor = 窗口开始后的第一条有效 sample
+current = 窗口内最新有效 sample
+sampled_amount_yuan = current.cumulative_amount_yuan - anchor.cumulative_amount_yuan
+elapsed_seconds = current.captured_at - anchor.captured_at
 ```
 
-口径：
+`sampled_amount_yuan` 的名称必须始终带 `sampled`，不得写入 `amount_yuan`、`minute_amount_yuan` 或历史分钟表。它代表已观察采样区间的成交额，下限保守但不是完整分钟事实。
 
-1. 最近 5 个交易日。
-2. 同 ETF。
-3. 同窗口。
-4. 同时间桶。
-5. 只使用 `data_quality='ok'` 的 1m 统计。
-6. 至少 3 个交易日可用才计算。
+下列情形返回 `quality=invalid|missing`，不出金额：累计金额下降、两样本不足、负 elapsed、间隔大于 `2 * poll_interval_seconds`、窗口/时段不一致、无法解析金额。
 
-5m/15m 基准按每个历史交易日先聚合，再对 5 个交易日取平均值。
+### 6.3 昨日同期曲线
 
----
-
-## 8. Ops 服务
-
-### 8.1 监控池服务
-
-新增：
-
-```text
-src/ops/services/etf_realtime_monitor_pool_service.py
-```
-
-职责：
-
-1. 查询可选 ETF：从 `ops.etf_series_active(resource='etf_rt_daily')`、`core_serving.etf_basic` 和 `raw_tushare.etf_share_size` 的全局最新快照读取。
-2. 查询已添加监控池：在现有监控池、ETF 基础信息、告警摘要关联上，再关联同一份规模快照。
-3. 维护监控池 CRUD；新增和编辑只提交监控分组、启用状态与备注，`display_order` 不再是写入字段。
-4. 校验 `ts_code` 在 `etf_rt_daily` 活跃池内。
-5. 提供 50/page 分页与 keyword 搜索；关键词只匹配代码/名称，不匹配规模数值。
-6. 确保所有规模排序在数据库查询中完成，前端不自行排序或筛选源端快照。
-
-新增私有只读 subquery：
+基准日期只取当前日期之前最近一个开市日：
 
 ```python
-def _latest_etf_share_size_subquery():
-    latest_trade_date = select(func.max(RawEtfShareSize.trade_date)).scalar_subquery()
-    return (
-        select(
-            RawEtfShareSize.ts_code.label("ts_code"),
-            RawEtfShareSize.trade_date.label("size_trade_date"),
-            RawEtfShareSize.total_share.label("total_share_wan"),
-            RawEtfShareSize.total_size.label("total_size_wan"),
-        )
-        .where(RawEtfShareSize.trade_date == latest_trade_date)
-        .subquery()
-    )
+TradeCalendarDAO(session).get_latest_open_date(
+    exchange="SSE",
+    before_or_on=trade_date - timedelta(days=1),
+)
 ```
 
-`list_active_etfs()` 以 `EtfSeriesActive` 为主表，outer join 该 subquery，排序固定为：
+不得回退到 5 日或更早日期。
+
+昨日基准仅来自 `ops.etf_realtime_minute_stat` 中 `quality=valid` 的真实 `1MIN final` 分钟记录。令当前窗口的昨日分钟金额序列为 `b1...bn`，构造累计函数 `F_y(t)`：
+
+1. 已完全经过的分钟，累计完整 `amount_yuan`。
+2. 只对 anchor 和 current 所在的首尾不完整分钟，按已过秒数线性比例分摊。
+3. 所需分钟任一不存在、`missing` 或 `invalid` 时，返回 `baseline_unavailable`，不回填 `0`，不告警。
 
 ```text
-total_size_wan DESC NULLS LAST, ts_code ASC
+expected_amount_yuan = F_y(current.captured_at) - F_y(anchor.captured_at)
+pace_ratio = sampled_amount_yuan / expected_amount_yuan
+window_ratio = sampled_amount_yuan / baseline_window_amount_yuan
 ```
 
-`list_pool()` 以 `EtfRealtimeMonitorPool` 为主表，outer join 同一 subquery，排序固定为：
+没有保存昨天的 `rt_etf_k` 秒级采样。整数分钟部分完全使用真实分钟事实；只有不足一分钟的窗口首尾做比例近似。
 
-```text
-group_key priority（broad_base -> theme -> 其它）
-  -> total_size_wan DESC NULLS LAST
-  -> ts_code ASC
-```
+### 6.4 判级与窗口收盘复核
 
-这里的“类别”固定是运营维护的 `group_key`，不是 `EtfBasic.etf_type`。人工展示排序不保留；相同规模时按 ETF 代码得到稳定顺序。
+新规则字段与顺序：
 
-### 8.2 阈值规则服务
+1. `min_signal_elapsed_seconds` 未达到时，不产生盘中判定。
+2. `pace_ratio >= observe_pace_ratio`，创建或更新 `observe` 事件，仅入库。
+3. `window_ratio >= alert_window_ratio`，创建或升级为 `alert`，允许通知。
+4. `window_ratio >= strong_window_ratio`，创建或升级为 `strong`，允许通知。
+5. 窗口收盘后，由真实分钟和重新计算最终窗口金额并更新同一个事件；只能升级严重度，不能降级、删除或重复发送同级通知。
 
-新增：
-
-```text
-src/ops/services/etf_realtime_monitor_rule_service.py
-```
-
-职责：
-
-1. 维护规则 CRUD。
-2. 校验 scope/window/ratio/cooldown。
-3. 提供规则解析：
-
-```text
-ETF 专属 > 分组 > 全局
-```
-
-4. 规则读取使用 60 秒短缓存。
-
-缓存说明：
-
-1. 缓存只缓存规则读取结果。
-2. 写规则后清当前进程缓存。
-3. 多进程最多 60 秒内生效。
-4. 该 TTL 是 V1 受控默认，若要运营可编辑，必须另进配置中心。
-
-### 8.3 监控引擎
-
-新增：
-
-```text
-src/ops/services/etf_realtime_monitor_service.py
-```
-
-职责：
-
-1. 读取启用监控池。
-2. 调用 `foundation.realtime.etf_volume_metrics` 获取当前闭合窗口指标。
-3. 查询最近 5 个交易日历史基准。
-4. 命中阈值后写 `ops.etf_realtime_alert`。
-5. 执行冷却与升级判断。
-6. 调用 Feishu 发送器。
-
-运行方式：
-
-1. V1 推荐挂在现有 `goldenshare-realtime-collector.service` 内。
-2. ETF batch 发布成功后，触发一次监控计算。
-3. 监控计算必须包在独立 try/except 中。
-4. 监控失败只记录日志或自身状态，不影响下一次 ETF batch 发布。
-
-### 8.4 收盘归档服务
-
-新增：
-
-```text
-src/ops/services/etf_realtime_minute_archive_service.py
-```
-
-职责：
-
-1. 收盘后读取当天 Redis batch。
-2. 对监控池 ETF 生成全天 1m 统计。
-3. upsert 到 `ops.etf_realtime_minute_stat`。
-4. 重复执行同一天幂等。
-
-建议 CLI：
-
-```text
-goldenshare ops-archive-etf-realtime-minute-stats --trade-date YYYY-MM-DD
-```
-
-V1 可以先手工执行或接现有 Ops schedule；不要进入 Dataset TaskRun。
-
-### 8.5 Feishu 告警发送器
-
-新增：
-
-```text
-src/ops/services/etf_realtime_feishu_alert_service.py
-```
-
-配置：
-
-1. 读取 ETF 告警专用部署级 `ETF_REALTIME_ALERT_FEISHU_WEBHOOK_URL`。
-2. 读取 ETF 告警专用部署级 `ETF_REALTIME_ALERT_FEISHU_WEBHOOK_SECRET`，允许为空。
-3. secret 为空时不生成 Feishu 签名；secret 非空时按当前 Feishu 签名算法发送。
-4. 超时可复用 `OPS_TASK_NOTIFY_TIMEOUT_SECONDS`，但 ETF 告警是否启用由规则表的 `feishu_enabled` 决定。
-
-行为：
-
-1. `observe` 不发送，直接 `feishu_status='skipped'`。
-2. `alert/strong` 先写 alert，再发送。
-3. 发送失败回写 `failed` 和错误摘要，不抛出影响主循环。
-4. V1 只即时发送一次，不做后台重试队列。
+`observe_pace_ratio` 与 `alert_window_ratio` 衡量对象不同，不强制设置大小关系；但 `strong_window_ratio > alert_window_ratio` 是发布校验硬约束。
 
 ---
 
-## 9. API 设计
+## 7. 数据表、迁移与清理门禁
 
-建议新增独立模块：
+### 7.1 保留表
 
-```text
-src/ops/api/etf_realtime_monitor.py
-```
+`ops.etf_realtime_monitor_pool` 保留。它是运营通过页面从 `ops.etf_series_active(resource='etf_rt_min')` 中选择出的下游计算子集；不会在迁移中自动插入 ETF，也不会反向写入、裁剪或改变 ETF 分钟流的 source 活跃池。
 
-并在：
+### 7.2 重建 `ops.etf_realtime_monitor_rule`
 
-```text
-src/ops/api/router.py
-```
+清理旧表后建立的新字段：
 
-注册。不要继续把所有 realtime 子能力堆到 `src/ops/api/realtime.py`。
-
-### 9.1 可选 ETF
-
-```http
-GET /api/v1/ops/realtime/etf-monitor/active-etfs?keyword=沪深300&page=1&page_size=50
-```
-
-返回字段：
-
-```json
-{
-  "items": [
-    {
-      "ts_code": "510300.SH",
-      "csname": "沪深300ETF",
-      "extname": "华泰柏瑞沪深300ETF",
-      "exchange": "SH",
-      "etf_type": "宽基",
-      "list_date": "2012-05-28",
-      "list_status": "L",
-      "latest_fund_daily_date": "2026-08-21",
-      "size_trade_date": "2026-08-21",
-      "total_share_wan": "2348148.770000",
-      "total_size_wan": "10996615.504800",
-      "in_monitor_pool": true
-    }
-  ],
-  "page": 1,
-  "page_size": 50,
-  "total": 1395
-}
-```
-
-### 9.2 监控池
-
-```http
-GET /api/v1/ops/realtime/etf-monitor/pool?page=1&page_size=50&keyword=&enabled=true
-POST /api/v1/ops/realtime/etf-monitor/pool
-PUT /api/v1/ops/realtime/etf-monitor/pool/{id}
-DELETE /api/v1/ops/realtime/etf-monitor/pool/{id}
-```
-
-两个列表 item 都新增以下只读字段：
-
-| 字段 | 后端类型 | 前端类型 | 语义 |
-| --- | --- | --- | --- |
-| `size_trade_date` | `date | None` | `string | null` | 全局最新规模快照日 |
-| `total_share_wan` | `Decimal | None` | `string | null` | 总份额，万份 |
-| `total_size_wan` | `Decimal | None` | `string | null` | 总规模，万元 |
-
-规模 source 行、`total_share` 或 `total_size` 任一缺失时，对应字段返回 `null`；不得查该 ETF 的历史行补值。`active-etfs` 默认按 `total_size_wan` 降序并在分页前排序；`pool` 默认按监控分组、组内 `total_size_wan` 降序排序。
-
-新增请求：
-
-```json
-{
-  "ts_code": "510300.SH",
-  "group_key": "broad_base",
-  "group_name": "宽基ETF",
-  "enabled": true,
-  "note": "沪深300代表ETF"
-}
-```
-
-### 9.3 阈值规则
-
-```http
-GET /api/v1/ops/realtime/etf-monitor/rules?scope_type=etf&window_minutes=5
-POST /api/v1/ops/realtime/etf-monitor/rules
-PUT /api/v1/ops/realtime/etf-monitor/rules/{id}
-DELETE /api/v1/ops/realtime/etf-monitor/rules/{id}
-```
-
-### 9.4 告警记录
-
-```http
-GET /api/v1/ops/realtime/etf-monitor/alerts?trade_date=2026-08-22&severity=alert&page=1&page_size=50
-GET /api/v1/ops/realtime/etf-monitor/alerts/{id}
-```
-
-### 9.5 汇总
-
-```http
-GET /api/v1/ops/realtime/etf-monitor/summary?trade_date=2026-08-22
-```
-
-建议返回：
-
-1. 监控 ETF 总数。
-2. 启用监控 ETF 数。
-3. 今日 observe/alert/strong 数。
-4. Feishu 成功/失败数。
-5. 最近归档日期。
-
----
-
-## 10. 前端 LLD
-
-### 10.1 路由与菜单
-
-新增页面：
-
-```text
-frontend/src/pages/ops-etf-realtime-monitor-config-page.tsx
-```
-
-路由：
-
-```text
-/ops/v21/realtime/etf-monitor
-```
-
-菜单位置：
-
-```text
-实时流监控
-  实时流配置中心
-  ETF实时监控配置中心
-```
-
-修改文件：
-
-```text
-frontend/src/app/router.tsx
-frontend/src/app/shell.tsx
-```
-
-### 10.2 API 类型
-
-新增：
-
-```text
-frontend/src/shared/api/etf-realtime-monitor-types.ts
-```
-
-只放 API contract 类型，不放页面展示函数或文案。
-
-### 10.3 页面结构
-
-页面必须使用现有运营后台组件：
-
-1. `PageHeader`
-2. `SectionCard`
-3. `StatCard`
-4. `FilterBar`
-5. `TableShell`
-6. `OpsTable`
-7. `EmptyState`
-8. Mantine `Drawer`、`Badge`、`Alert`
-
-Tab 结构：
-
-```text
-监控池
-阈值规则
-告警记录
-```
-
-禁止：
-
-1. 大面积说明段落。
-2. showcase 风格的 hero 区。
-3. 只读信息和编辑校验混在同一区块。
-4. 页面内直连 Redis、Tushare 或业务行情 API。
-
-### 10.4 监控池交互
-
-初始状态：
-
-1. 监控池初始为空。
-2. 页面空态提示运营从激活 ETF 列表中添加。
-3. 不提供自动导入全部活跃 ETF。
-
-主表：
-
-| 列 | 说明 |
+| 字段 | 约束/含义 |
 |---|---|
-| ETF 代码 | `ts_code` |
-| 名称 | `csname/extname/cname` 优先级由后端确定 |
-| 分组 | `group_name` 标签 |
-| 总份额 | `total_share_wan`；显示“万份/亿份”，空值显示 `—` |
-| 总规模 | `total_size_wan`；显示“万元/亿元”，空值显示 `—` |
-| 状态 | 启用/停用 |
-| 阈值覆盖 | 是否存在 ETF 专属规则 |
-| 最近告警 | 最近一条 alert/strong |
-| 操作 | 编辑、停用、删除 |
+| `id` | 主键 |
+| `scope_type` | `global|group|etf` |
+| `scope_key` | 作用域 key；global 固定值由 service 统一校验 |
+| `window_minutes` | 仅 `1|5|15` |
+| `min_signal_elapsed_seconds` | 正整数，且小于该窗口秒数 |
+| `observe_pace_ratio` | 大于 0 |
+| `alert_window_ratio` | 大于 0 |
+| `strong_window_ratio` | 大于 `alert_window_ratio` |
+| `cooldown_minutes` | 非负整数 |
+| `feishu_enabled` | 仅 `alert/strong` 是否允许发送 |
+| `enabled` | 规则启停 |
+| `created_at/updated_at` | 审计时间 |
 
-主表不在浏览器内排序。服务端先按 `group_key` 的既定顺序分组，再在每个分组内按总规模降序，缺失总规模排在分组末尾。
+规则优先级固定为：`etf` > `group` > `global`。同一个 `(scope_type, scope_key, window_minutes)` 不允许多条 enabled 规则。旧 `observe_ratio/alert_ratio/strong_ratio` 不迁移。
 
-新增 ETF：
+### 7.3 重建 `ops.etf_realtime_minute_stat`
 
-1. 点击“添加 ETF”打开抽屉。
-2. 抽屉内显示“搜索待添加 ETF”输入框，按 ETF 代码或名称搜索。
-3. 搜索只作用于抽屉内的激活 ETF 列表，使用 `/active-etfs?keyword=...`；不复用页面上方的监控池关键词。
-4. 搜索结果每页 50 条，关键词变化后回到第 1 页。
-5. 抽屉使用加宽的固定宽度展示完整表格，不在抽屉内引入横向滚动；保持现有表格行高，不因新增控件额外撑高。
-6. 每行直接展示 ETF 名称/代码、总份额、总规模、交易所、监控分组、启用监控开关和操作按钮；名称作为主信息使用较大字号，代码作为次信息使用较小字号。
-7. 输入搜索关键词后，名称和代码中的命中片段都用橙色背景高亮。
-8. 未加入监控池的行显示“添加”按钮；点击后立即提交该行的分组和启用状态，不需要滚动到底部或再点击统一保存。
-9. 添加成功后，该行按钮立即显示为浅绿色、置灰的“已添加”；抽屉保持打开，运营可以继续添加其他行。
-10. 已在监控池中的 ETF 直接显示“已添加”，行内配置控件只读，不可重复添加。
-11. 新增和编辑页面均不展示备注输入，也不提交备注字段；后端已有的 `note` 字段不作为本轮交互入口。
-12. 抽屉默认由 API 按总规模降序返回，分页发生在排序之后；前端不重排当前页。抽屉保持加宽，不使用横向滚动承载新增的规模列。
+主键固定：
 
-编辑 ETF：
+```text
+(trade_date, minute_end_time, ts_code)
+```
 
-1. 监控池主表继续通过“编辑”打开独立编辑态。
-2. 编辑态只维护监控分组和启用状态，点击底部“保存”后提交更新。
-3. 编辑态不复用新增抽屉的行内添加按钮，也不展示备注输入。
+字段：
 
-监控池主表的 ETF 单元格同样使用“名称主显示、代码次显示”的层次；删除操作使用明确的浅红按钮样式，不使用无背景的文字按钮。
+```text
+trade_date
+minute_end_time
+ts_code
+source_time
+source_batch_id
+captured_at
+amount_yuan NUMERIC
+vol NUMERIC NULL
+quality valid|missing|invalid
+quality_reason NULL
+raw_payload_hash NULL
+created_at
+updated_at
+```
 
-### 10.5 阈值规则交互
+`amount_yuan` 只有 `quality=valid` 才可非空；missing/invalid 必须为 `NULL`，不得为 0。旧 `cumulative_amount_yuan`、`amount_delta_yuan`、`previous_batch_id`、`cumulative_vol`、`vol_delta` 不存在于新表。
 
-默认规则：
+同一 `(trade_date, minute_end_time, ts_code)` 多次拿到 valid 行时，以 `captured_at` 最新的有效事实覆盖；invalid/missing 不覆盖已有 valid。该规则确保重跑归档幂等。
 
-1. 初始不自动创建全局规则。
-2. 页面提供“创建默认全局规则”显式动作。
-3. 点击后创建 1m/5m/15m 三条 global 规则，默认值为 `observe=2.0`、`alert=3.0`、`strong=5.0`、`cooldown_minutes=15`。
+### 7.4 重建 `ops.etf_realtime_alert`
 
-规则表：
+事件唯一键：
 
-| 列 | 说明 |
-|---|---|
-| 生效层级 | 全局 / 分组 / ETF |
-| 对象 | 分组名或 ETF 代码名称 |
-| 窗口 | `1m/5m/15m` 标签 |
-| observe | 倍数 |
-| alert | 倍数 |
-| strong | 倍数 |
-| 冷却 | 分钟 |
-| Feishu | 启用/关闭 |
-| 状态 | 启用/停用 |
+```text
+(trade_date, ts_code, window_end_time, window_minutes, rule_id)
+```
 
-编辑：
+字段：
 
-1. 使用抽屉。
-2. `window_minutes` 用单选或下拉，不允许手填。
-3. 倍数用数字输入。
-4. 阈值顺序错误时前端可即时提示，但后端仍必须校验。
+```text
+id
+trade_date
+ts_code
+etf_name_snapshot NULL
+group_key
+rule_id
+window_minutes
+window_start_time
+window_end_time
+measurement_kind sampled|closed
+severity observe|alert|strong
+sampled_amount_yuan NULL
+final_amount_yuan NULL
+baseline_trade_date NULL
+baseline_expected_amount_yuan NULL
+baseline_window_amount_yuan NULL
+pace_ratio NULL
+window_ratio NULL
+quality
+quality_reason NULL
+cooldown_key
+last_notified_severity NULL
+created_at
+updated_at
+```
 
-### 10.6 告警记录交互
+同键冲突时只更新最新测量值与最高 severity。`etf_name_snapshot` 从 `core_serving.etf_basic` 读取；名称缺失写 `NULL`，不能中断计算。
 
-只读查询。
+### 7.5 新建 `ops.etf_realtime_alert_delivery`
 
-筛选：
+告警事件和外部发送结果必须分表。字段：
 
-1. 交易日。
-2. ETF 关键词。
-3. 告警等级。
-4. Feishu 状态。
+```text
+id
+alert_id FK -> ops.etf_realtime_alert.id
+severity observe|alert|strong
+channel feishu
+status pending|sent|failed|skipped
+attempt_count
+requested_at
+sent_at NULL
+provider_message_id NULL
+error_message NULL
+payload_summary_json NULL
+created_at
+updated_at
+```
 
-表格：
+唯一约束 `(alert_id, severity, channel)`。这样 `alert -> strong` 各有一条真实投递证据，重复计算同等级无法重复发送。
 
-| 列 | 说明 |
-|---|---|
-| 时间 | `triggered_at` |
-| ETF | 代码 + 名称 |
-| 窗口 | `1m/5m/15m` |
-| 当前成交额 | 展示可格式化为“亿”，字段语义仍是元 |
-| 历史基准 | 最近 5 交易日同期均值 |
-| 倍数 | `ratio` |
-| 等级 | observe/alert/strong |
-| 通知 | skipped/pending/success/failed |
+### 7.6 迁移顺序与不可自动执行的门禁
 
-详情抽屉展示：
+实施迁移前必须：
 
-1. 基准交易日样本。
-2. 命中规则。
-3. 冷却键。
-4. Feishu 错误摘要。
+1. 重新检查 Alembic 单一 head，`down_revision` 只接当时真实 head。
+2. 由运营明确授权清空并重建 `minute_stat`、`monitor_rule`、`alert`；不备份、不做旧数据兼容。
+3. 新迁移在同一发布批中删除三表旧数据/约束、建立新 schema 和 delivery 表。
+4. 迁移后监控池保留、规则为空、告警为空；运营通过新页面重建规则。
+
+这不是本 LLD 阶段要执行的操作。没有逐表授权时，开发只能停在新代码/测试完成，禁止代码擅自清表。
 
 ---
 
-## 11. 运行时流程
+## 8. 服务编排、事务与异常隔离
 
-### 11.1 盘中告警
+### 8.1 ETF 分钟流与监控的编排边界
 
-```text
-EtfRtDailyCollector 发布 Redis batch
-  -> EtfRealtimeMonitorService.run_after_etf_batch()
-  -> 读取启用监控池
-  -> 读取规则缓存
-  -> foundation.etf_volume_metrics 计算已闭合窗口
-  -> 查询最近 5 个交易日基准
-  -> 判断 observe/alert/strong
-  -> 写 ops.etf_realtime_alert
-  -> alert/strong 调 Feishu
-  -> 回写 Feishu 结果
+ETF 分钟流 collector 的 provider 调用、source 活跃池代码选择、分批、每频率独立 publish、capture、health 与异常隔离，全部由 ETF 分钟流 LLD 定义。它必须先发布 `1MIN final/valid` 事实，监控主链才有资格消费。
+
+本 LLD 只增加一个编排约束：上游某次 ETF 分钟流失败、未 final 或没有命中行时，监控服务不能把旧分钟行冒充当前分钟；它只能记录真实 `missing` 并继续处理其他 ETF、窗口和规则。上游采集失败不得阻断 `rt_etf_k`、股票日线或股票分钟 feed。
+
+### 8.2 `rt_etf_k` 盘中窗口服务
+
+重写 `EtfRealtimeMonitorService`，入口命名为：
+
+```python
+async def process_rt_etf_k_batch(
+    self, *, batch_id: str, batch_published_at: datetime
+) -> EtfMonitorRunSummary: ...
 ```
 
-失败隔离：
+步骤：
 
-1. Redis batch 已发布后，监控引擎失败不能回滚 batch。
-2. Feishu 失败不能回滚 alert。
-3. 单只 ETF 计算失败不能阻塞其他 ETF。
+1. 读取 enabled pool、解析有效规则、按 current `batch_id` 批量读 snapshots。
+2. 只处理当前 batch 中命中监控池的 ETF；未命中、旧源端时间或非活跃池代码不当作 collector 失败。
+3. 用 snapshot 段级 `captured_at` 解析当前逻辑窗口；更新/重置 `EtfWindowSampleState`。
+4. 两样本、质量、最少观察时长和昨日基准都满足时，调用纯计算函数并 upsert alert event。
+5. 事件数据库事务提交成功后，再处理 Feishu delivery；单对象/单规则失败写本次 run summary 并 continue。
 
-### 11.2 收盘归档
+服务不得扫描 `keep_recent_batches`，不得调用旧 `build_etf_minute_metrics_for_trade_date`。
 
-```text
-ops-archive-etf-realtime-minute-stats
-  -> 读取当天 Redis batch ids
-  -> 读取监控池
-  -> 生成 1m metric
-  -> upsert ops.etf_realtime_minute_stat
-  -> 输出归档摘要
+### 8.3 窗口闭合复核与收盘归档
+
+`EtfRealtimeMinuteArchiveService` 拆为两个显式入口：
+
+```python
+async def finalize_closed_windows(self, *, trade_date: date, now: datetime) -> ...
+async def archive_trade_date(self, *, trade_date: date) -> ...
 ```
 
-归档只写 `ops.etf_realtime_minute_stat`，不写 raw/core/serving。
+`finalize_closed_windows`：对已经闭合且分钟事实完备的 `1/5/15` 窗口求真实 minute sum，更新已有 alert 的 `final_amount_yuan`/`measurement_kind=closed`，只允许升级。
+
+`archive_trade_date`：读取当日 `EtfMinuteCaptureRecord` 与分钟 feed batch，将每个真实 `(trade_date, minute_end_time, ts_code)` upsert 到 minute stat。它必须：
+
+1. 以行级 `source_time` 选择分钟桶。
+2. 写已请求但无有效返回的真实缺失分钟；不补 0。
+3. 不跨午休计算、不使用 `date.min/time.min`。
+4. 重复运行产生相同最终内容。
+
+### 8.4 告警与 Feishu
+
+`src/ops/services/etf_realtime_feishu_notification_service.py` 是独立通道服务，复用签名/超时/错误解析经验但不复用 TaskRun 通知的开关和模板。
+
+固定事务顺序：
+
+```text
+计算事件
+  -> upsert ops.etf_realtime_alert
+  -> commit alert event
+  -> insert/update pending delivery
+  -> commit pending delivery
+  -> 调用 Feishu
+  -> 独立事务更新 sent/failed、attempt_count、错误摘要
+```
+
+Feishu 失败只能更新 delivery；不得回滚 alert event、minute facts、Redis batch 或任何业务数据。`observe` 创建 delivery `skipped` 或不创建可由实现统一选择，但必须保留事件且不得请求 Feishu；`alert/strong` 才进入真实发送。
+
+冷却键为 `ts_code + window_minutes + rule_id`。冷却期内同级/低级事件只更新事件，不新增发送；升到 `strong` 可创建新的 `strong` delivery。
 
 ---
 
-## 12. 配置审计
+## 9. 统一 collector 调度
 
-| 配置 | 默认值 | 来源 | 持久化 | 消费者 | 生效 |
-|---|---:|---|---|---|---|
-| `etf_rt_daily.keep_recent_batches` | `260` | 实时流配置中心 | `foundation.realtime_runtime_config` | collector / Redis store | 发布后重启 collector |
-| 监控池 | 空 | Ops 页面 | `ops.etf_realtime_monitor_pool` | monitor service / archive service / 页面 | DB 短缓存，最多 60 秒 |
-| 阈值规则 | 见方案默认 | Ops 页面 | `ops.etf_realtime_monitor_rule` | monitor service / 页面 | DB 短缓存，最多 60 秒 |
-| 规则缓存 TTL | `60s` | V1 代码受控默认 | 无 | rule service | 进程内生效 |
-| ETF Feishu webhook URL | 空 | 部署 env | `/etc/goldenshare/web.env` | ETF Feishu sender | 重启 Web/worker |
-| ETF Feishu webhook secret | 空 | 部署 env | `/etc/goldenshare/web.env` | ETF Feishu sender；为空则不签名 | 重启 Web/worker |
-| Feishu timeout | `5s` | Settings | `/etc/goldenshare/web.env` | ETF Feishu sender | 重启 Web/worker |
-
-如果后续要让规则缓存 TTL 或 Feishu 开关进入页面配置，必须新增配置中心设计，不能临时加 env 或页面常量。
-
----
-
-## 13. 测试计划
-
-### 13.1 后端
-
-新增测试建议：
+仍使用一个 `goldenshare-realtime-collector.service`，不新增 systemd unit。源 feed 的 due time、闭合延迟、五频率调度和发布顺序由 ETF 分钟流 LLD 冻结；监控相关的单循环顺序是：
 
 ```text
-tests/test_etf_realtime_monitor_models.py
-tests/test_etf_realtime_volume_metrics.py
-tests/test_etf_realtime_monitor_pool_service.py
-tests/test_etf_realtime_monitor_rule_service.py
-tests/web/test_etf_realtime_monitor_service.py
-tests/web/test_etf_realtime_minute_archive_service.py
-tests/web/test_ops_etf_realtime_monitor_api.py
+1. ETF 分钟流按其独立配置完成某频率的采集与 publish
+2. `etf_rt_daily` 成功发布后，尝试 `process_rt_etf_k_batch`
+3. `1MIN final/valid` 分钟事实到达后，调度 `finalize_closed_windows`
+4. 收盘归档窗口调度 `archive_trade_date`
 ```
 
-必须覆盖：
+每个步骤必须有独立 `try/except` 和独立日志字段。ETF 分钟采集失败、监控计算失败、归档失败均不得阻断后续 feed 的 collector loop。
 
-1. 迁移 head 与 4 表字段。
-2. 监控池只能选择 `etf_rt_daily` 活跃池内 ETF。
-3. `/active-etfs` 每页 50 条、keyword 搜索。
-4. 阈值优先级 ETF > group > global。
-5. 阈值递增校验。
-6. Redis batch 不足时 `missing`，不当作 0。
-7. 午休不跨窗口。
-8. 最近 5 个交易日同桶基准，少于 3 个样本不告警。
-9. observe 入库不发 Feishu。
-10. alert/strong 冷却与升级。
-11. Feishu 失败不影响 alert 记录。
-12. 收盘归档幂等。
-13. `active-etfs` 和 `pool` 都只读取 `etf_share_size` 的全局最新交易日；缺失规模返回 `null`，不回退旧日期、不转为 0。
-14. `active-etfs` 在分页前按总规模降序、空值末尾排序；`pool` 按监控分组、组内总规模降序和 ETF 代码稳定排序；旧 `display_order` 请求必须返回校验错误。
-15. 规模关联不能导致一只 ETF 重复出现在任一列表中；两个接口继续不读 Redis、不请求 Tushare、不写入数据库。
-
-### 13.2 前端
-
-新增：
+日志最少包含：
 
 ```text
-frontend/src/pages/ops-etf-realtime-monitor-config-page.test.tsx
-```
-
-必须覆盖：
-
-1. 菜单和路由。
-2. 三个 Tab：监控池、阈值规则、告警记录。
-3. 监控池新增抽屉使用 active ETF API，默认 50/page。
-4. 阈值规则编辑使用受控输入，不手填窗口枚举。
-5. 告警记录展示等级、倍数、Feishu 状态。
-6. API 失败只影响当前区块。
-7. 页面不调用 health API、Biz realtime API、Tushare、Redis。
-8. 添加抽屉与监控池主表均展示总份额、总规模；`null` 显示 `—`，不显示 0。
-9. 前端按 API 返回顺序展示，不再对规模字段自行排序；添加抽屉的当前页首项应为后端返回的最大规模 ETF。
-
-### 13.3 回归
-
-建议命令：
-
-```bash
-uv run pytest -q tests/test_etf_realtime_volume_metrics.py tests/web/test_ops_etf_realtime_monitor_api.py
-uv run pytest -q tests/test_realtime_etf_rt_daily.py tests/test_realtime_state_store.py tests/web/test_realtime_api.py
-uv run pytest -q tests/architecture/test_subsystem_dependency_matrix.py tests/architecture/test_platform_legacy_guardrails.py tests/architecture/test_operations_legacy_guardrails.py
-cd frontend && npm run typecheck
-cd frontend && npm run test -- ops-etf-realtime-monitor-config-page
-cd frontend && npm run build
-uv run ruff check src/foundation/models/all_models.py src/ops/services/etf_realtime_monitor_pool_service.py src/ops/schemas/etf_realtime_monitor.py tests/web/conftest.py tests/web/test_ops_etf_realtime_monitor_api.py
-python3 scripts/check_docs_integrity.py
+feed_key, batch_id, trade_date, window_minutes, window_end,
+pool_count, fetched, valid, missing, invalid, signals, deliveries,
+source_elapsed_ms, write_elapsed_ms, error
 ```
 
 ---
 
-## 14. 开发里程碑
+## 10. Ops API 与前端契约
 
-| Milestone | 目标 | 边界 |
+### 10.1 保留不变的监控池
+
+`/api/v1/ops/realtime/etf-monitor/active-etfs` 与 pool CRUD 继续只管理监控池；规模、关键词、行内添加交互不属于本次双源重构范围。
+
+### 10.2 替换规则契约
+
+规则 API 路由可以保留 `/rules`，但 schema 只暴露第 7.2 节的新字段。旧 `default-global` endpoint 和旧 ratios 不得保留为兼容入口，也不得自动 seed 默认规则。
+
+页面按 rule scope、窗口和新阈值字段编辑；页面不计算 expected amount、窗口、severity 或 cooldown。
+
+### 10.3 替换告警契约
+
+告警列表/详情应展示：
+
+```text
+ETF、名称快照、分组、规则、窗口、当前严重度、measurement_kind、
+sampled/final amount、上一开市日、pace_ratio、window_ratio、质量、
+delivery 历史
+```
+
+`delivery` 历史从独立 API 或详情内嵌只读列表返回。前端不得把 `sent` 推断为事件成功，也不得将 failed delivery 隐藏为“未告警”。
+
+### 10.4 页面原则
+
+页面必须遵循现有数据运营后台 token、`SectionCard/StatCard/StatusBadge/OpsTable/AlertBar` 模式。监控池、规则、告警是三个独立区块；只读展示与编辑态分开；无解释型 demo 文案、无前端重算、无浏览器端事实拼装。
+
+---
+
+## 11. 开发顺序与测试门禁
+
+| 里程碑 | 代码范围 | 通过条件 |
 |---|---|---|
-| M0 | 方案与 LLD 评审冻结 | 只改文档 |
-| M1 | 建表、ORM、迁移 | 不 seed、不跑生产 |
-| M2 | Redis store 扩展与 foundation 指标计算 | 不写 Ops 表、不发通知 |
-| M3 | 监控池 API + 页面 | 只做监控池 |
-| M4 | 阈值规则 API + 页面 | 只做规则 |
-| M5 | 告警计算服务 | 写 alert，Feishu 可 mock |
-| M6 | Feishu 发送闭环 | 非阻塞发送与状态回写 |
-| M7 | 收盘归档 | 写 1m stat，幂等 |
-| M8 | 告警记录页与生产验收 | 盘中验证、Redis 容量、Feishu 验证 |
-| M9 | ETF 规模展示与展示排序退场 | 扩展两条既有 Ops 列表 API 与监控池页面，并删除无业务意义的 `display_order` 字段及数据库列；不改数据集、实时采集、Redis 或池数据 |
+| S0 | ETF 分钟流 M0 真实验证与记录 | 源 API、finality、五频率延迟、批大小、限速关系证据落档 |
+| S1 | ETF 分钟流 provider、config、per-frequency feed、health 与页面 | 上游 `1MIN final/valid` contract 可被读取 |
+| M1 | `rt_etf_k` 段级 captured_at、窗口状态、纯窗口计算 | 不直接拼 Redis key；采样断点/午休/首尾比例测试通过 |
+| M2 | 真实分钟归档与昨天基准 | 只使用 `1MIN final/valid`；missing 非 0、归档幂等 |
+| M3 | 新 schema、规则/event/delivery service、Feishu | 取得三表清理授权；事件先提交、通知后回写 |
+| M4 | CLI 编排、API/frontend 契约替换 | 单 systemd；无旧 ratio/old metric consumer |
+| M5 | 部署、首日采集、次日告警验收 | 首日仅积累基准，次日才允许通知 |
+
+必须新增/改写的测试至少覆盖：
+
+1. `rt_etf_k` 两段请求、段级 `captured_at` 与 `1..60` 请求预算。
+2. ETF 分钟流的 source request、五频率隔离、行级 `time`、finality、缺字段、分批和 health，按其独立 LLD 的测试矩阵验证。
+3. 监控侧 Redis window state 隔离、窗口锚点重置、上游 capture missing/invalid 不覆盖有效事实。
+4. `1/5/15` 窗口、午休、首尾秒数比例、采样中断、累计金额回退。
+5. 前一开市日精确选择、昨天分钟缺失、首日无基准和不回退到 5 日。
+6. 规则优先级、observe/alert/strong、同窗口幂等、alert 到 strong 升级、跨窗口冷却。
+7. alert commit 在 Feishu 之前、Feishu 失败隔离、delivery 唯一性与重试。
+8. 收盘归档真实键、valid 覆盖优先、missing 不为 0、重复执行幂等。
+9. API 权限、旧字段/旧 endpoint 清零、前端契约和类型检查。
+10. architecture dependency matrix 与 legacy guardrails。
 
 ---
 
-## 15. 已拍板口径
+## 12. 开发前必须完成的 M0 决策记录
 
-| 编号 | 事项 | 已确认口径 |
-|---|---|---|
-| D1 | 默认阈值 | `observe=2.0`，`alert=3.0`，`strong=5.0` |
-| D2 | 默认冷却期 | `15` 分钟 |
-| D3 | 监控池初始名单 | 初始监控池为空；功能完成后由运营在页面手工选择 |
-| D4 | Feishu 通道 | 新建 ETF 告警专用 Feishu 通道；webhook URL 放部署 env，secret 允许先留空 |
-| D5 | 收盘归档触发方式 | 先提供 CLI，再接 Ops schedule |
-| D6 | 监控引擎运行位置 | 放在现有 `goldenshare-realtime-collector.service` 内，ETF batch 发布成功后触发 |
-| D7 | 默认全局规则创建 | 不在迁移中自动 seed；页面提供显式“创建默认全局规则”动作 |
-| D8 | 监控分组 | V1 先受控为 `宽基ETF`、`主题ETF` 两类 |
-| D9 | Redis Store 扩展 | 必须扩展 `RealtimeStateStore`，禁止服务层临时拼 Redis key |
-| D10 | Feishu 失败重试 | V1 不做后台重试队列；即时发送一次，失败入库 |
-| D11 | ETF 规模展示来源 | 只取 `etf_share_size` 全局最新交易日；不做单 ETF 历史回退，空规模展示 `—` 并排在末尾 |
-| D12 | 监控池规模排序 | “ETF 类别”指监控分组 `group_key`；宽基、主题依次展示，组内按总规模降序、ETF 代码稳定排序；不保留人工展示排序 |
+下列值未实测前不得进入 provider/collector 的最终实现：
 
----
+1. ETF 分钟流 M0 的真实 HTTP API 名、`09:30` 集合竞价与 `09:31` 第一根连续竞价 minute bucket 归属，以及独立 `etf_rt_min` source 活跃池的初始 seed 校验。
+2. ETF 分钟流 M0 的 `11:29-11:30`、`13:00-13:01` finality/延迟、午休不跨窗、多代码允许上限、合理 batch size、每频率请求预算与共享限速关系。
+3. 一份同 ETF 的 `rt_etf_k` 窗口 sample 与上游 `1MIN final/valid` 真实分钟的完整对账；应记录请求参数、server capture time、source time、金额和差异。
+5. 三张旧语义表的清理重建授权。没有授权，不实施重建迁移、不启用新规则/告警主链。
 
-## 16. 当前不做
-
-1. 不引入 Doris。
-2. 不新增业务侧 ETF 异动 API。
-3. 不接普通用户页面。
-4. 不改 `rt_etf_k` 请求范围。
-5. 不新增 ETF 规模业务 API、规模回补任务或页面筛选条件。
-6. 不改 ETF 活跃池表。
-7. 不把 Feishu secret 写入 DB。
-8. 不把监控池和实时流配置中心混在一个页面。
+这些是功能正确性门禁，不是可选优化项。
