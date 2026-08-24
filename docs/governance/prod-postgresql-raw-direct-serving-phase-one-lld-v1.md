@@ -1,14 +1,14 @@
 # 生产 PostgreSQL raw 直出一期低层设计 v1
 
 - 版本：v1
-- 状态：P1-B0-M2 `moneyflow_mkt_dc` 隔离 PostgreSQL 实证已通过；尚未授权生产迁移；其余 11 个数据集尚未编码
+- 状态：P1-B0-M3 `moneyflow_mkt_dc` 生产迁移与最小 TaskRun 验收已通过；其余 11 个数据集尚未编码
 - 更新时间：2026-08-24
 - 上位方案：[生产 PostgreSQL 存储空间优化治理专项 v2](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v2.md)
 - 目标：把一期 12 个无业务转换的 raw/core_serving 双写数据集收敛为“raw 唯一物理事实表 + 原 serving 名称只读 view”，预计释放约 3.305 GiB SSD
 
 ## 0. 边界与完成定义
 
-本文定义一期实施合同，并记录已获授权完成的 P1-B0-M1 代码证据与 M2 隔离 PostgreSQL 实证；它不构成部署、生产 migration 或生产 TaskRun 授权。
+本文定义一期实施合同，并记录已获授权完成的 P1-B0-M1～M3 代码、隔离 PostgreSQL 与生产验收证据；P1-B0 已完成不构成其余 11 个数据集的开发、部署、生产 migration 或 TaskRun 授权。
 
 一期完成必须同时满足：
 
@@ -108,14 +108,15 @@ conflict_columns = 保持现有值
 4. 未发现外键、外部 view/materialized view 依赖、用户 trigger 或 RLS policy；
 5. 当前开放 TaskRun 为 0；仅 `margin` 存在 1 个 active schedule；
 6. owner 均为 `goldenshare_user`；部分 relation 的非 owner SELECT grant 不同，migration 必须逐对象恢复。
+7. P1-B0 已在生产完成最终 812 行全字段双向差集、relation 切换、权限与拒写、真实查询计划、连接池回收及最小 TaskRun 验收；详见第 8 节。
 
 尚未完成：
 
 1. 除先前已验证的 `moneyflow_mkt_dc`、`margin` 外，其余 10 组尚未完成全历史业务字段双向 `EXCEPT ALL`；
-2. 生产前后代表性查询的 `EXPLAIN (ANALYZE, BUFFERS)` 尚未执行；
+2. 除 P1-B0 外，其余 11 项尚未执行生产前后代表性查询的 `EXPLAIN (ANALYZE, BUFFERS)`；
 3. 仓库外 SQL、BI、人工脚本和依赖 relation catalog 的工具尚未完成签字；
 4. `suspend_d` 的 raw/serving `id` 必须逐行一致，不能只比较 `row_key_hash`；
-5. 浏览器/API、QTF 和 DG 的切换后真实验收尚未执行。
+5. P1-B0 已运行生产 Biz 查询服务，但未做带登录态的浏览器验收；其它 11 项的 API/QTF/DG 验收仍须按实际消费者逐项执行。
 
 因此，名单已固定，但每项当前状态仍是“候选”；未通过第 7 节门禁前禁止 drop serving 表。
 
@@ -154,17 +155,17 @@ conflict_columns = 保持现有值
 
 | ID | 硬需求 | 实现落点 | 正向门禁 | 反向门禁 | 当前状态 |
 | --- | --- | --- | --- | --- | --- |
-| RD-001 | raw 成为唯一物理事实表 | 3 个 Definition 文件、现有 `raw_only_upsert` | writer 仅调用 raw DAO | serving DAO 零调用 | P1-B0 M1 writer 测试和 M2 物理切换已通过；生产尚未切换 |
-| RD-002 | 原 serving 名称和业务列合同不变 | 每数据集独立 migration、原 serving ORM | ORM/SQL 查询结果一致 | 禁止改 Biz/QTF/DG relation 名 | P1-B0 M2 以 812 行受控数据完成双向差集、字段与 relation 合同实证 |
-| RD-003 | serving 禁止写入 | Definition + DB INSTEAD OF reject trigger | SELECT 正常 | INSERT/UPDATE/DELETE 均失败 | P1-B0 M2 三类 DML 均以 SQLSTATE `55000` 拒绝 |
+| RD-001 | raw 成为唯一物理事实表 | 3 个 Definition 文件、现有 `raw_only_upsert` | writer 仅调用 raw DAO | serving DAO 零调用 | P1-B0 M3 生产切换已通过；serving 已为零物理字节 view |
+| RD-002 | 原 serving 名称和业务列合同不变 | 每数据集独立 migration、原 serving ORM | ORM/SQL 查询结果一致 | 禁止改 Biz/QTF/DG relation 名 | P1-B0 M3 以生产 812 行完成双向差集、字段与 relation 合同实证 |
+| RD-003 | serving 禁止写入 | Definition + DB INSTEAD OF reject trigger | SELECT 正常 | INSERT/UPDATE/DELETE 均失败 | P1-B0 M3 生产三类 DML 均以 SQLSTATE `55000` 拒绝 |
 | RD-004 | 全量事实无差异 | 生产维护窗口分块对账 | 两层差集均为 0 | 任一差异阻断 migration | 2/12 已证 |
-| RD-005 | raw 索引覆盖查询 | raw ORM index 声明、生产索引、计划基准 | 代表查询使用等价索引 | 计划/延迟退化阻断 | P1-B0 M2 代表查询由 serving 索引透明切换为 raw 索引；生产计划仍需复验 |
-| RD-006 | 现有 schedule 不重建 | action key/date/capability 不变 | 暂停后原 schedule 恢复 | 禁止自动 seed/重建 | 待生产验收 |
+| RD-005 | raw 索引覆盖查询 | raw ORM index 声明、生产索引、计划基准 | 代表查询使用等价索引 | 计划/延迟退化阻断 | P1-B0 M3 生产点查、最大日期和 90 日范围查询均下推 raw 等价索引 |
+| RD-006 | 现有 schedule 不重建 | action key/date/capability 不变 | 暂停后原 schedule 恢复 | 禁止自动 seed/重建 | P1-B0 生产原本无 schedule，M3 未创建 schedule |
 | RD-007 | Lake/DG 已知读取合同不变 | Lake raw 白名单、DG `dc_board_source_probe` | 既有测试与真实只读查询通过 | 禁止切换 Lake source 或写 Lake | 静态审计完成 |
 | RD-008 | 不改变源端请求 | Definition 只改 storage | connector/request 测试不变 | 禁止改 fields/分页/date model | P1-B0 Definition/plan 反向测试已通过 |
 | RD-009 | 一个数据集一个发布单元 | 独立 revision/commit/deploy 记录 | 上一项验收后进入下一项 | 禁止批量 drop | 已固定 |
-| RD-010 | owner/grant/comment 可追溯 | migration 动态快照与恢复 | 非 owner SELECT 权限一致 | 未知 grant/comment 阻断 | P1-B0 M2 已实证 owner、PUBLIC/普通/可转授权 SELECT、relation/列 comment 恢复 |
-| RD-011 | Ops 观测改读 raw | `target_table` 派生、freshness registry | 新 TaskRun/freshness 读 raw | 历史 TaskRun 不回写 | P1-B0 projection 自动化测试已通过 |
+| RD-010 | owner/grant/comment 可追溯 | migration 动态快照与恢复 | 非 owner SELECT 权限一致 | 未知 grant/comment 阻断 | P1-B0 M3 生产 owner、既有 `lake_raw_reader` SELECT 与空 comment 状态均保持不变 |
+| RD-011 | Ops 观测改读 raw | `target_table` 派生、freshness registry | 新 TaskRun/freshness 读 raw | 历史 TaskRun 不回写 | P1-B0 M3 TaskRun 9210 已通过 raw target 写入并由 view 即时读到 |
 | RD-012 | 失败不破坏 raw | 同事务 DDL、禁止自动 downgrade | 提交前失败原子回滚 | 禁止清表/删 raw | P1-B0 M2 在 drop 后、create view 时注入失败，旧版本、原表 OID/数据/索引/权限全部回滚 |
 
 ## 4. Definition、writer、ORM 与 DAO 设计
@@ -430,6 +431,20 @@ P1-B0-M2 于 2026-08-24 在临时、仅 Unix socket 可访问的 PostgreSQL 18.4
 8. 恢复原 schedule；没有 schedule 的数据集不创建新 schedule；
 9. 观察首个正常任务和业务查询，再决定是否进入下一数据集。
 
+P1-B0-M3 于 2026-08-24 在生产完成，实际证据如下：
+
+1. 生产只读预检确认 PostgreSQL `16.13`、Alembic head `20260823_000145`、raw/serving 均为 812 行且 15 个业务字段双向 `EXCEPT ALL` 为 0；目标无锁、无超过 5 分钟事务、无开放 TaskRun、无 schedule，依赖、RLS、用户 trigger、列 ACL、rewrite rule、扩展统计、security label 与 publication 阻塞均为 0；
+2. 维护窗口停止 Web、scheduler 与 generic worker 后再次核对任务、锁、事务、行数和差集，结果保持不变；部署 commit 为 `11dbe4c6`，迁移修正 commit 为 `e15483a4`；
+3. 首次 migration 因最小权限生产角色无权执行 `SET LOCAL temp_file_limit='64MB'`，在任何 DDL 前安全失败；Alembic 仍为 `20260823_000145`，两张表 OID、relation kind 与 812 行数据均未改变。修正后取消该特权参数，改为持锁后分别检查 raw/serving 不超过 5,000 行，并以 `work_mem=16MB` 限定完整对账工作集；
+4. 修正方案在 PostgreSQL 18.4 非超级用户隔离实例再次验证：812 行迁移成功；5,001 行在 DDL 前拒绝，Alembic 版本、旧表与数据保持不变。随后生产 migration `20260823_000145 -> 20260824_000146` 成功；
+5. 生产 `core_serving.market_moneyflow_dc` 已从物理表切换为普通 view，物理大小从 237,568 B 变为 0；`raw_tushare.moneyflow_mkt_dc` 保持物理表和既有有效索引，raw/view 均为 812 行、812 个唯一交易日，日期范围仍为 `2023-04-17..2026-08-21`，业务字段和审计时间投影差异均为 0；
+6. owner 保持 `goldenshare_user`，raw 的 `lake_raw_reader` SELECT 保持不变，serving 原无非 owner grant 和 comment，切换后仍一致；生产 INSERT/UPDATE/DELETE 均被 reject trigger 以 SQLSTATE `55000` 拒绝，回滚后 raw/view 仍为 812 行；
+7. 生产点查、最大日期和 90 日范围查询均下推 raw 的等价索引。切换前后 total cost 分别保持 `8.29`、等价反向索引计划和 `8.38`；单次执行时间均为亚毫秒级，buffer 形态一致。单次微秒值只作为计划证据，不据此宣称固定百分比加速；
+8. Web 与所有 Ops worker/scheduler 的连接池均通过正式服务重启回收，Web 健康检查通过。QTF 当前没有该数据集消费者，因此未做无关重启；
+9. 正式最小 TaskRun `9210` 请求 `2026-08-21` 一个 unit，状态 success，`1/1` unit 完成、0 失败；源端读取 1、归一化 1、写入 1、拒绝 0、去重 0，分页 1 页且短页正常结束。raw/view 该日均为 1 行且业务值一致，view 的 `created_at/updated_at` 与 raw `fetched_at` 即时一致；
+10. 生产 `MarketMoneyFlowQueryService` 7 次中位数 3.998 ms、`MarketSummaryQueryService` 7 次中位数 12.153 ms，均无查询异常。无登录态 HTTP 只能验证认证层返回 401，未将其冒充浏览器业务验收；
+11. M3 后全部服务恢复 active、开放 TaskRun 为 0；该数据集原本没有 schedule，本轮没有创建。catalog 可确认释放的 serving 物理 relation 为 237,568 B；根文件系统可用字节受发布依赖、WAL 和运行噪声影响反而减少，不能用一次 `df` 差值替代 relation 释放量。
+
 ### S4：文档证据
 
 将 revision、部署 commit、TaskRun ID、对账结果、查询计划、磁盘释放量和残余风险写回 v2；未验收项不得标完成。
@@ -498,12 +513,12 @@ P1-B0-M2 于 2026-08-24 在临时、仅 Unix socket 可访问的 PostgreSQL 18.4
 7. 不做共享 writer/DAO/Definition 重构；
 8. 不保证 relation OID、relkind、PK/index catalog 或历史审计时间值不变。
 
-## 12. P1-B0 下一阶段仍需确认的事项
+## 12. P1-B0 完成边界与下一阶段
 
-1. “业务读取合同透明，但物理 relation 身份和 `created_at/updated_at` 历史值不透明”的边界已作为 M1 实现口径固定；
-2. 仓库外 SQL/BI/人工脚本是否存在，仍需由运营在 P1-B0 生产维护窗口前完成登记；
-3. P1-B0-M2 已完成，但只证明受控 PostgreSQL 18.4 隔离环境中的迁移、权限、拒写、即时可见、计划形态和事务原子性；不替代生产数据、锁、空间、连接池和真实查询验收；
-4. 生产迁移仍需独立授权；每个后续数据集也需单独授权，不能用本 LLD 一次授权 12 次 drop。
+1. P1-B0-M1～M3 已完成，`moneyflow_mkt_dc` 的生产 raw 直出试点验收通过；不需要重建 schedule，也没有未完成的数据迁移步骤；
+2. “业务读取合同透明，但物理 relation 身份和 `created_at/updated_at` 历史值不透明”的边界保持不变；带登录态浏览器验收尚未执行，但生产实际 Biz 查询服务和数据库结果/计划已通过；
+3. 仓库外 SQL/BI/人工脚本无法由仓库审计穷尽，若存在依赖 OID、relkind、约束 catalog、旧审计时间或 serving DML 的未登记消费者，仍是残余运营风险；
+4. 下一阶段是 P1-B1，必须先逐数据集重新审计、编写实现和 migration，并分别获得授权；P1-B0 的完成不能一次授权后续 11 次 relation 切换。
 
 ## 13. 依据
 
