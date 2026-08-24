@@ -19,16 +19,15 @@ from qtf.engine.canonical_hash import canonical_json_hash
 from qtf.modules.sector.input_contract import SectorInputSnapshot
 from qtf.modules.sector.parameter_schema import resolve_sector_heat_parameters
 from qtf.modules.sector.plan_estimator import SECTOR_L2_ESTIMATOR_VERSION, estimate_plan_budget
-
-
-HARD_GATES = (
-    "INPUT",
-    "TIME_FRONTIER",
-    "FUTURE_LEAKAGE",
-    "WARMUP",
-    "COVERAGE",
-    "OUT_OF_SAMPLE_SENSITIVITY",
+from qtf.modules.sector.validation_contract import (
+    SECTOR_L2_VALIDATION_CONTRACT,
+    build_sector_validation_gate_config,
+    validate_sector_validation_selection,
+    validation_success_definition,
 )
+
+
+HARD_GATES = tuple(item.value for item in SECTOR_L2_VALIDATION_CONTRACT.hard_gates)
 STOP_CONDITIONS = (
     "INPUT_BLOCKED",
     "PLAN_BUDGET_EXCEEDED",
@@ -53,12 +52,21 @@ def evaluate_sector_input(
     *,
     draft_effective_params: Mapping[str, object],
     success_definition: Mapping[str, object],
+    validation_gate_selection: Mapping[str, object],
+    requested_start_date: date,
+    requested_end_date: date,
 ) -> SectorPreflightEvaluation:
     parameter_matrix = resolve_parameter_matrix(draft_effective_params)
+    normalized_validation_selection = validate_sector_validation_selection(
+        validation_gate_selection
+    )
     return evaluate_sector_input_with_matrix(
         snapshot,
         parameter_matrix=parameter_matrix,
         success_definition=success_definition,
+        validation_gate_selection=normalized_validation_selection,
+        requested_start_date=requested_start_date,
+        requested_end_date=requested_end_date,
     )
 
 
@@ -67,6 +75,9 @@ def evaluate_sector_input_with_matrix(
     *,
     parameter_matrix: tuple[dict[str, object], ...],
     success_definition: Mapping[str, object],
+    validation_gate_selection: Mapping[str, object] | None = None,
+    requested_start_date: date | None = None,
+    requested_end_date: date | None = None,
 ) -> SectorPreflightEvaluation:
     if not parameter_matrix:
         raise QtfRequestInvalid("frozen parameter matrix must not be empty")
@@ -168,11 +179,16 @@ def evaluate_sector_input_with_matrix(
 
     blocked = any(issue.severity == "ERROR" for issue in issues)
     plan = None
-    if not blocked:
+    if not blocked and validation_gate_selection is not None:
+        if requested_start_date is None or requested_end_date is None:
+            raise QtfRequestInvalid("requested evaluation dates are required for PLAN generation")
         plan = build_execution_plan(
             snapshot=snapshot,
             parameter_matrix=parameter_matrix,
             success_definition=success_definition,
+            validation_gate_selection=validation_gate_selection,
+            requested_start_date=requested_start_date,
+            requested_end_date=requested_end_date,
             group_day_count=len(valid_group_days) + excluded_count,
             valid_object_day_count=valid_object_day_count,
         )
@@ -232,6 +248,9 @@ def build_execution_plan(
     snapshot: SectorInputSnapshot,
     parameter_matrix: tuple[dict[str, object], ...],
     success_definition: Mapping[str, object],
+    validation_gate_selection: Mapping[str, object],
+    requested_start_date: date,
+    requested_end_date: date,
     group_day_count: int,
     valid_object_day_count: int,
 ) -> ExecutionPlan:
@@ -241,6 +260,22 @@ def build_execution_plan(
         raise QtfRequestInvalid("success definition is not registered for this template")
     if success_definition["future_horizons"] != [1, 3, 5]:
         raise QtfRequestInvalid("success definition future horizons must be [1, 3, 5]")
+    required_history_trade_days = max(
+        _required_source_history_days(item)
+        for item in parameter_matrix
+    )
+    validation_gate_config = build_sector_validation_gate_config(
+        validation_gate_selection,
+        requested_start_date=requested_start_date,
+        requested_end_date=requested_end_date,
+        source_trade_dates=snapshot.trade_dates,
+        required_history_trade_days=required_history_trade_days,
+    )
+    evaluation_calendar = validation_gate_config["evaluation_calendar"]
+    confidence_method = validation_gate_config["confidence_method"]
+    if not isinstance(evaluation_calendar, dict) or not isinstance(confidence_method, dict):
+        raise AssertionError("registered validation config must contain calendar and confidence method")
+    registered_success_definition = validation_success_definition()
     first_values = parameter_matrix[0]["values"]
     if not isinstance(first_values, Mapping):
         raise AssertionError("resolved parameter values must be a mapping")
@@ -256,8 +291,8 @@ def build_execution_plan(
     payload: dict[str, object] = {
         "input_scope": {
             "source_content_hash": snapshot.content_hash,
-            "effective_start_date": snapshot.trade_dates[0] if snapshot.trade_dates else None,
-            "effective_end_date": snapshot.trade_dates[-1] if snapshot.trade_dates else None,
+            "effective_start_date": evaluation_calendar["resolved_source_start_date"],
+            "effective_end_date": evaluation_calendar["resolved_source_end_date"],
             "universe_count": len([node for node in snapshot.hierarchy if node.industry_level == 2]),
         },
         "estimator_inputs": estimator_inputs,
@@ -265,14 +300,19 @@ def build_execution_plan(
         "fixed_parameters": fixed,
         "future_horizons": [1, 3, 5],
         "comparison_scope": "SIBLINGS",
+        "validation_contract_key": SECTOR_L2_VALIDATION_CONTRACT.contract_key,
+        "validation_contract_version": SECTOR_L2_VALIDATION_CONTRACT.contract_version,
+        "evaluation_calendar": evaluation_calendar,
         "sample_split": {
-            "kind": "ORDERED_TRADING_DAYS",
+            "kind": SECTOR_L2_VALIDATION_CONTRACT.split_rule,
             "in_sample_pct": 50,
             "calibration_pct": 25,
             "out_of_sample_pct": 25,
         },
         "primary_objective": "FUTURE_SIBLING_RANK_CONTINUATION",
-        "success_definition": dict(success_definition),
+        "success_definition": registered_success_definition,
+        "confidence_method": confidence_method,
+        "validation_gate_config": validation_gate_config,
         "hard_gates": list(HARD_GATES),
         "stop_conditions": list(STOP_CONDITIONS),
         "budget": budget,
@@ -286,9 +326,14 @@ def build_execution_plan(
         fixed_parameters=fixed,
         future_horizons=(1, 3, 5),
         comparison_scope="SIBLINGS",
+        validation_contract_key=SECTOR_L2_VALIDATION_CONTRACT.contract_key,
+        validation_contract_version=SECTOR_L2_VALIDATION_CONTRACT.contract_version,
+        evaluation_calendar=evaluation_calendar,
         sample_split=payload["sample_split"],  # type: ignore[arg-type]
         primary_objective="FUTURE_SIBLING_RANK_CONTINUATION",
-        success_definition=dict(success_definition),
+        success_definition=registered_success_definition,
+        confidence_method=confidence_method,
+        validation_gate_config=validation_gate_config,
         hard_gates=HARD_GATES,
         stop_conditions=STOP_CONDITIONS,
         budget=budget,
@@ -301,6 +346,20 @@ def execution_plan_hash(plan: ExecutionPlan) -> str:
     payload = plan.as_dict()
     payload.pop("plan_hash")
     return canonical_json_hash(payload)
+
+
+def required_source_history_days(parameter_matrix: tuple[dict[str, object], ...]) -> int:
+    if not parameter_matrix:
+        raise QtfRequestInvalid("parameter matrix must not be empty")
+    return max(_required_source_history_days(item) for item in parameter_matrix)
+
+
+def _required_source_history_days(parameter_set: Mapping[str, object]) -> int:
+    values = parameter_set.get("values")
+    sources = parameter_set.get("sources")
+    if not isinstance(values, Mapping) or not isinstance(sources, Mapping):
+        raise QtfRequestInvalid("parameter set is missing values or sources")
+    return resolve_sector_heat_parameters(values, sources).parameters.required_source_history_days
 
 
 def _issue(

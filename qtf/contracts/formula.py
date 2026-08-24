@@ -42,6 +42,7 @@ class ResearchTemplate:
     parameter_schema_version: str
     input_contract_key: str
     validation_contract_key: str
+    validation_contract_version: int
     active: bool = True
 
 

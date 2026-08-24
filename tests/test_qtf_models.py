@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,12 @@ from sqlalchemy.pool import StaticPool
 
 from qtf.adapters.persistence.models.research import ExperimentRevision, Research
 from qtf.adapters.persistence.models.runtime import ExperimentRun, InputPreflight, InputPreflightIssue
+from qtf.adapters.persistence.models.validation import (
+    RunConclusion,
+    RunGateResult,
+    RunParameterResult,
+    SectorSignalEvent,
+)
 from qtf.adapters.persistence.repositories.research_repository import SqlAlchemyResearchRepository
 from qtf.application.services.research_service import ResearchService
 from qtf.contracts.errors import QtfDraftConflict, QtfRequestConflict, QtfStateConflict
@@ -25,6 +32,7 @@ from src.foundation.models.base import Base
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MIGRATION_PATH = REPO_ROOT / "alembic/versions/20260822_000143_add_qtf_research_state.py"
 M3_MIGRATION_PATH = REPO_ROOT / "alembic/versions/20260823_000144_add_qtf_run_preflight_state.py"
+M4_MIGRATION_PATH = REPO_ROOT / "alembic/versions/20260824_000149_add_qtf_validation_evidence.py"
 
 
 @pytest.fixture()
@@ -50,7 +58,7 @@ def session() -> Session:
         yield active_session
 
 
-def test_app_registry_registers_m1_and_m3_qtf_models() -> None:
+def test_app_registry_registers_m1_m3_and_m4_qtf_models() -> None:
     register_all_models()
     assert MODEL_MODULES[0] == "qtf.adapters.persistence.models.research"
     qtf_tables = {table.name for table in Base.metadata.tables.values() if table.schema == "qtf"}
@@ -60,6 +68,10 @@ def test_app_registry_registers_m1_and_m3_qtf_models() -> None:
         "input_preflight",
         "input_preflight_issue",
         "experiment_run",
+        "run_gate_result",
+        "run_parameter_result",
+        "sector_signal_event",
+        "run_conclusion",
     }
 
 
@@ -227,6 +239,195 @@ def test_m3_migration_contains_only_preflight_and_run_state() -> None:
         assert f'op.create_table(\n        "{forbidden}"' not in migration
     assert "ops.task_run" not in migration
     assert 'down_revision = "20260822_000143"' in migration
+
+
+def test_m4_migration_follows_real_head_and_contains_only_validation_evidence() -> None:
+    config = Config(str(REPO_ROOT / "alembic.ini"))
+    script = ScriptDirectory.from_config(config)
+    assert script.get_current_head() == "20260824_000149"
+    revision = script.get_revision("20260824_000149")
+    assert revision is not None
+    assert revision.down_revision == "20260824_000148"
+
+    migration = M4_MIGRATION_PATH.read_text(encoding="utf-8")
+    for table in (
+        "run_gate_result",
+        "run_parameter_result",
+        "sector_signal_event",
+        "run_conclusion",
+    ):
+        assert f'op.create_table(\n        "{table}"' in migration
+    for forbidden in ("candidate", "candidate_action", "release"):
+        assert f'op.create_table(\n        "{forbidden}"' not in migration
+
+
+def test_m4_models_have_only_qtf_run_foreign_keys_and_no_orm_relationships() -> None:
+    for model in (RunGateResult, RunParameterResult, SectorSignalEvent, RunConclusion):
+        assert not inspect(model).relationships
+        assert {key.target_fullname for key in model.__table__.foreign_keys} == {
+            "qtf.experiment_run.id"
+        }
+
+
+def test_m4_model_constraints_accept_evidence_and_reject_nomination() -> None:
+    engine = create_engine(
+        "sqlite+pysqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+
+    @event.listens_for(engine, "connect")
+    def _attach_qtf(dbapi_connection: object, _connection_record: object) -> None:
+        cursor = dbapi_connection.cursor()  # type: ignore[attr-defined]
+        cursor.execute("ATTACH DATABASE ':memory:' AS qtf")
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            Research.__table__,
+            ExperimentRevision.__table__,
+            InputPreflight.__table__,
+            ExperimentRun.__table__,
+            RunGateResult.__table__,
+            RunParameterResult.__table__,
+            SectorSignalEvent.__table__,
+            RunConclusion.__table__,
+        ],
+    )
+    with Session(engine) as active:
+        bundle = _service(active).create_research(_command())
+        active.flush()
+        run = ExperimentRun(
+            run_key="run-m4-model",
+            request_key="run-m4-model-request",
+            revision_id=bundle.revision.id,
+            status="COMPLETED",
+            validation_status="VALID",
+            runtime_fingerprint_json={},
+            formula_version="1",
+            completed_parameter_set_count=1,
+        )
+        active.add(run)
+        active.flush()
+        now = datetime.now(timezone.utc)
+        active.add_all(
+            [
+                RunGateResult(
+                    run_id=run.id,
+                    gate_key="INPUT",
+                    status="PASS",
+                    summary="输入合同一致",
+                    evidence_json={"validation_contract_version": 1},
+                    checked_at=now,
+                ),
+                RunParameterResult(
+                    result_key="result-m4-model",
+                    run_id=run.id,
+                    parameter_set_key="parameter-set-1",
+                    parameter_values_json={"baseline_days": 60},
+                    entry_metrics_json={"1": {"success_rate": 0.5}},
+                    retention_metrics_json={"1": {"success_rate": 0.6}},
+                    baseline_metrics_json={},
+                    lift_metrics_json={},
+                    coverage_metrics_json={},
+                    sample_metrics_json={},
+                    confidence_intervals_json={},
+                    metrics_json={},
+                    effect_status="SUPPORTED",
+                    result_hash="a" * 64,
+                ),
+                SectorSignalEvent(
+                    run_id=run.id,
+                    parameter_set_key="parameter-set-1",
+                    signal_trade_date=date(2026, 8, 1),
+                    sector_code="BK0001",
+                    parent_sector_code="BK0000",
+                    sector_level=2,
+                    entry_type="ENTRY",
+                    signal_state_json={"heat_state": 72.0},
+                    signal_rank_pct=Decimal("88.000000"),
+                    future_outcomes_json={"1": "SUCCESS", "3": "UNEVALUABLE"},
+                    input_completeness_json={"complete": True},
+                    event_hash="b" * 64,
+                ),
+                RunConclusion(
+                    run_id=run.id,
+                    request_key="conclusion-m4-model",
+                    conclusion="OBSERVED",
+                    actor_user_id=7,
+                    comment="继续观察",
+                    concluded_at=now,
+                ),
+            ]
+        )
+        active.commit()
+
+        conclusion = active.scalar(select(RunConclusion).where(RunConclusion.run_id == run.id))
+        assert conclusion is not None and conclusion.conclusion == "OBSERVED"
+
+        active.add(
+            RunGateResult(
+                run_id=run.id,
+                gate_key="INPUT",
+                status="PASS",
+                summary="重复门禁",
+                evidence_json={},
+                checked_at=now,
+            )
+        )
+        with pytest.raises(IntegrityError):
+            active.commit()
+        active.rollback()
+
+        active.add(
+            RunParameterResult(
+                result_key="result-m4-duplicate",
+                run_id=run.id,
+                parameter_set_key="parameter-set-1",
+                parameter_values_json={},
+                entry_metrics_json={},
+                retention_metrics_json={},
+                baseline_metrics_json={},
+                lift_metrics_json={},
+                coverage_metrics_json={},
+                sample_metrics_json={},
+                confidence_intervals_json={},
+                metrics_json={},
+                effect_status="SUPPORTED",
+                result_hash="c" * 64,
+            )
+        )
+        with pytest.raises(IntegrityError):
+            active.commit()
+        active.rollback()
+
+        active.add(
+            SectorSignalEvent(
+                run_id=run.id,
+                parameter_set_key="parameter-set-1",
+                signal_trade_date=date(2026, 8, 1),
+                sector_code="BK0001",
+                parent_sector_code="BK0000",
+                sector_level=2,
+                entry_type="ENTRY",
+                signal_state_json={},
+                signal_rank_pct=Decimal("50.000000"),
+                future_outcomes_json={},
+                input_completeness_json={},
+                event_hash="d" * 64,
+            )
+        )
+        with pytest.raises(IntegrityError):
+            active.commit()
+        active.rollback()
+
+        conclusion = active.scalar(select(RunConclusion).where(RunConclusion.run_id == run.id))
+        assert conclusion is not None
+        conclusion.conclusion = "NOMINATED"
+        with pytest.raises(IntegrityError):
+            active.commit()
 
 
 def test_qtf_models_do_not_create_user_or_ops_orm_relationships() -> None:

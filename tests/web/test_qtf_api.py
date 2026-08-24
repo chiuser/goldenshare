@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -18,7 +18,6 @@ from qtf.modules.sector.input_contract import (
 )
 from src.app.api.v1.qtf import get_qtf_input_source
 from src.app.runtime.qtf_task_intent_stager import QtfTaskRunIntentStager
-from src.app.models.app_user import AppUser
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.contracts.external_task import ExternalTaskExecutionOutcome
 from src.ops.runtime.task_run_dispatcher import TaskRunDispatcher
@@ -30,9 +29,11 @@ class StubSectorInputSource:
     def __init__(self, snapshot: SectorInputSnapshot) -> None:
         self.snapshot = snapshot
         self.read_count = 0
+        self.requests: list[object] = []
 
-    def read(self, _request):  # type: ignore[no-untyped-def]
+    def read(self, request):  # type: ignore[no-untyped-def]
         self.read_count += 1
+        self.requests.append(request)
         return self.snapshot
 
 
@@ -86,7 +87,8 @@ def test_qtf_draft_preflight_freeze_run_and_cancel_flow(
             "requestedEndDate": "2026-08-04",
         },
     )
-    assert incomplete.status_code == 422
+    assert incomplete.status_code == 400
+    assert incomplete.json()["code"] == "QTF_REQUEST_INVALID"
     assert source.read_count == 0
 
     saved = app_client.put(
@@ -98,6 +100,7 @@ def test_qtf_draft_preflight_freeze_run_and_cancel_flow(
             "successDefinitionKeys": ["FUTURE_SIBLING_RANK_CONTINUATION"],
             "nonGoalKeys": ["PER_SECTOR_TUNING", "PRODUCTION_RELEASE"],
             "parameterSelections": _parameter_selections(),
+            "validationGateConfig": _validation_gate_config(),
         },
     )
     assert saved.status_code == 200
@@ -125,20 +128,29 @@ def test_qtf_draft_preflight_freeze_run_and_cancel_flow(
             "requestKey": "preflight-1",
             "draftVersion": 2,
             "requestedStartDate": "2026-08-03",
-            "requestedEndDate": "2026-08-04",
+            "requestedEndDate": "2026-08-06",
         },
     )
     assert preview.status_code == 200
     preview_body = preview.json()
     assert source.read_count == 1
+    assert source.requests[0].history_trade_days == 159  # type: ignore[attr-defined]
+    assert source.requests[0].future_trade_days == 5  # type: ignore[attr-defined]
     assert preview_body["preflight"]["preflightStatus"] == "PASS"
     assert preview_body["plan"]["sampleSplit"] == {
-        "kind": "ORDERED_TRADING_DAYS",
+        "kind": "ORDERED_TRADING_DAYS_50_25_25",
         "inSamplePct": 50,
         "calibrationPct": 25,
         "outOfSamplePct": 25,
     }
     assert preview_body["plan"]["futureHorizons"] == [1, 3, 5]
+    assert preview_body["plan"]["validationContractKey"] == "sector_l2_continuation_validation_v1"
+    assert preview_body["plan"]["validationContractVersion"] == 1
+    assert preview_body["plan"]["evaluationCalendar"]["requiredHistoryTradeDays"] == 149
+    assert preview_body["plan"]["evaluationCalendar"]["warmupProbeTradeDays"] == 10
+    assert preview_body["plan"]["validationGateConfig"]["gates"]["TIME_FRONTIER"] == {
+        "maxFutureReadCount": 0
+    }
     assert len(preview_body["plan"]["parameterMatrix"]) == 4
 
     wrong_freeze = app_client.post(
@@ -339,20 +351,31 @@ def _parameter_selections() -> dict[str, object]:
 
 
 def _snapshot() -> SectorInputSnapshot:
-    now = datetime(2026, 8, 4, 13, 0, tzinfo=timezone.utc)
-    trade_dates = (date(2026, 8, 3), date(2026, 8, 4))
+    now = datetime(2026, 8, 11, 13, 0, tzinfo=timezone.utc)
+    evaluation_start = date(2026, 8, 3)
+    evaluation_end = date(2026, 8, 6)
+    required_history = 20 + 120 + 10 - 1
+    first_source_date = evaluation_start - timedelta(days=required_history + 10)
+    last_source_date = evaluation_end + timedelta(days=5)
+    trade_dates = tuple(
+        first_source_date + timedelta(days=offset)
+        for offset in range((last_source_date - first_source_date).days + 1)
+    )
     hierarchy = (
         SectorHierarchyNode("P", "父行业", 1, None, "P", 1, "v1", now),
         SectorHierarchyNode("A", "子行业A", 2, "P", "P", 1, "v1", now),
         SectorHierarchyNode("B", "子行业B", 2, "P", "P", 2, "v1", now),
     )
     observations = tuple(
-        SectorObservation(day, sector, "", pct_change, amount)
-        for day, rows in (
-            (trade_dates[0], (("A", 1.0, 100.0), ("B", -1.0, 120.0))),
-            (trade_dates[1], (("A", 2.0, 130.0), ("B", 0.5, 140.0))),
+        SectorObservation(
+            day,
+            sector,
+            "",
+            float(index if sector == "A" else -index),
+            float(100 + index + (20 if sector == "B" else 0)),
         )
-        for sector, pct_change, amount in rows
+        for index, day in enumerate(trade_dates, start=1)
+        for sector in ("A", "B")
     )
     evidence = tuple(
         DatasetEvidence(
@@ -367,9 +390,9 @@ def _snapshot() -> SectorInputSnapshot:
             content_hash=canonical_json_hash({"key": key, "count": count}),
         )
         for key, count in (
-            ("core_serving.trade_calendar", 2),
+            ("core_serving.trade_calendar", len(trade_dates)),
             ("core_serving.wealth_sector_hierarchy", 3),
-            ("core_serving.dc_daily", 4),
+            ("core_serving.dc_daily", len(observations)),
         )
     )
     source_hash = canonical_json_hash(SECTOR_L2_SOURCE_CONTRACT)
@@ -379,6 +402,54 @@ def _snapshot() -> SectorInputSnapshot:
         hierarchy=hierarchy,
         observations=observations,
         dataset_evidence=evidence,
-        content_hash=canonical_json_hash({"source": source_hash, "rows": 9}),
+        content_hash=canonical_json_hash(
+            {"source": source_hash, "rows": len(trade_dates) + len(hierarchy) + len(observations)}
+        ),
         source_contract_hash=source_hash,
     )
+
+
+def _validation_gate_config() -> dict[str, object]:
+    return {
+        "validationContractKey": "sector_l2_continuation_validation_v1",
+        "validationContractVersion": 1,
+        "warmupProbeTradeDays": 10,
+        "confidenceMethod": {
+            "kind": "MOVING_BLOCK_BOOTSTRAP",
+            "blockTradeDays": 5,
+            "resampleCount": 200,
+            "confidenceLevel": 0.95,
+            "randomSeed": 7,
+        },
+        "gates": {
+            "INPUT": {
+                "requirePassPreflight": True,
+                "requireSourceHashMatch": True,
+            },
+            "TIME_FRONTIER": {"maxFutureReadCount": 0},
+            "FUTURE_LEAKAGE": {"maxChangedPreFrontierPointCount": 0},
+            "WARMUP": {
+                "comparisonTradeDays": 5,
+                "maxHeatStateAbsoluteDelta": 0.01,
+                "maxSignalMismatchRate": 0.0,
+            },
+            "COVERAGE": {
+                "minEvaluableTradeDays": 1,
+                "minSignalEventCount": 1,
+                "minEntryEventCount": 0,
+                "minRetentionEventCount": 0,
+                "minParentCoverageRate": 0.5,
+                "maxSingleParentEventShare": 1.0,
+            },
+            "OUT_OF_SAMPLE_SENSITIVITY": {
+                "requiredHorizons": [1, 3, 5],
+                "minOosLiftLowerBoundByHorizon": {"1": 0.0, "3": 0.0, "5": 0.0},
+                "maxCalibrationToOosSuccessRateDropByHorizon": {
+                    "1": 0.2,
+                    "3": 0.2,
+                    "5": 0.2,
+                },
+                "minNeighborPassRate": 0.5,
+            },
+        },
+    }

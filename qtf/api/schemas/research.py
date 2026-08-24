@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import math
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from qtf.api.schemas.common import QtfApiModel
 
@@ -49,12 +50,92 @@ class ParameterSelectionsRequest(QtfApiModel):
         return self
 
 
+class ConfidenceMethodRequest(QtfApiModel):
+    kind: Literal["MOVING_BLOCK_BOOTSTRAP"]
+    block_trade_days: int = Field(ge=1)
+    resample_count: int = Field(ge=1)
+    confidence_level: float = Field(gt=0, lt=1, allow_inf_nan=False)
+    random_seed: int = Field(ge=0)
+
+
+class InputGateRequest(QtfApiModel):
+    require_pass_preflight: Literal[True]
+    require_source_hash_match: Literal[True]
+
+
+class TimeFrontierGateRequest(QtfApiModel):
+    max_future_read_count: Literal[0]
+
+
+class FutureLeakageGateRequest(QtfApiModel):
+    max_changed_pre_frontier_point_count: Literal[0]
+
+
+class WarmupGateRequest(QtfApiModel):
+    comparison_trade_days: int = Field(ge=1)
+    max_heat_state_absolute_delta: float = Field(ge=0, allow_inf_nan=False)
+    max_signal_mismatch_rate: float = Field(ge=0, le=1, allow_inf_nan=False)
+
+
+class CoverageGateRequest(QtfApiModel):
+    min_evaluable_trade_days: int = Field(ge=0)
+    min_signal_event_count: int = Field(ge=0)
+    min_entry_event_count: int = Field(ge=0)
+    min_retention_event_count: int = Field(ge=0)
+    min_parent_coverage_rate: float = Field(ge=0, le=1, allow_inf_nan=False)
+    max_single_parent_event_share: float = Field(ge=0, le=1, allow_inf_nan=False)
+
+
+class OutOfSampleSensitivityGateRequest(QtfApiModel):
+    required_horizons: tuple[Literal[1], Literal[3], Literal[5]]
+    min_oos_lift_lower_bound_by_horizon: dict[Literal["1", "3", "5"], float]
+    max_calibration_to_oos_success_rate_drop_by_horizon: dict[Literal["1", "3", "5"], float]
+    min_neighbor_pass_rate: float = Field(ge=0, le=1, allow_inf_nan=False)
+
+    @field_validator(
+        "min_oos_lift_lower_bound_by_horizon",
+        "max_calibration_to_oos_success_rate_drop_by_horizon",
+    )
+    @classmethod
+    def validate_horizon_maps(cls, value: dict[str, float], info):  # type: ignore[no-untyped-def]
+        if set(value) != {"1", "3", "5"}:
+            raise ValueError(f"{info.field_name} must contain exactly horizons 1, 3 and 5")
+        if any(not math.isfinite(item) for item in value.values()):
+            raise ValueError(f"{info.field_name} must contain finite numbers")
+        if (
+            info.field_name == "max_calibration_to_oos_success_rate_drop_by_horizon"
+            and any(item < 0 or item > 1 for item in value.values())
+        ):
+            raise ValueError("calibration-to-OOS success-rate drops must be within 0..1")
+        return value
+
+
+class ValidationGatesRequest(QtfApiModel):
+    input: InputGateRequest = Field(alias="INPUT")
+    time_frontier: TimeFrontierGateRequest = Field(alias="TIME_FRONTIER")
+    future_leakage: FutureLeakageGateRequest = Field(alias="FUTURE_LEAKAGE")
+    warmup: WarmupGateRequest = Field(alias="WARMUP")
+    coverage: CoverageGateRequest = Field(alias="COVERAGE")
+    out_of_sample_sensitivity: OutOfSampleSensitivityGateRequest = Field(
+        alias="OUT_OF_SAMPLE_SENSITIVITY"
+    )
+
+
+class ValidationGateSelectionRequest(QtfApiModel):
+    validation_contract_key: Literal["sector_l2_continuation_validation_v1"]
+    validation_contract_version: Literal[1]
+    warmup_probe_trade_days: int = Field(ge=1)
+    confidence_method: ConfidenceMethodRequest
+    gates: ValidationGatesRequest
+
+
 class SaveDraftRequest(QtfApiModel):
     draft_version: int = Field(ge=1)
     problem_statement: str = Field(max_length=4_000)
     success_definition_keys: list[Literal["FUTURE_SIBLING_RANK_CONTINUATION"]] = Field(max_length=1)
     non_goal_keys: list[Literal["PER_SECTOR_TUNING", "PRODUCTION_RELEASE"]] = Field(max_length=2)
     parameter_selections: ParameterSelectionsRequest | None = None
+    validation_gate_config: ValidationGateSelectionRequest | None = None
 
 
 class InputPreflightRequest(QtfApiModel):
@@ -122,6 +203,7 @@ class ResearchEditorResponse(QtfApiModel):
     success_definition_keys: list[str]
     non_goal_keys: list[str]
     parameter_selections: ParameterSelectionsRequest | None
+    validation_gate_config: ValidationGateSelectionRequest | None
     scope: ScopeView
     revision_hash: str | None
     can_edit: bool
@@ -191,14 +273,58 @@ class PlanBudgetView(QtfApiModel):
     source_statement_timeout_ms: int
 
 
+class EvaluationCalendarView(QtfApiModel):
+    requested_evaluation_start_date: date
+    requested_evaluation_end_date: date
+    resolved_source_start_date: date
+    resolved_source_end_date: date
+    required_history_trade_days: int
+    warmup_probe_trade_days: int
+    label_tail_trade_days: Literal[5]
+    split_rule: Literal["ORDERED_TRADING_DAYS_50_25_25"]
+    evaluation_trade_day_count: int
+    in_sample_trade_day_count: int
+    calibration_trade_day_count: int
+    out_of_sample_trade_day_count: int
+
+
+class ValidationGateConfigView(QtfApiModel):
+    validation_contract_key: Literal["sector_l2_continuation_validation_v1"]
+    validation_contract_version: Literal[1]
+    evaluation_calendar: EvaluationCalendarView
+    confidence_method: ConfidenceMethodRequest
+    gates: ValidationGatesRequest
+
+
+class FutureHorizonRuleView(QtfApiModel):
+    horizon_trade_days: Literal[1, 3, 5]
+    required_on_list_days: int = Field(ge=1, le=5)
+
+
+class ValidationSuccessDefinitionView(QtfApiModel):
+    selected_keys: list[Literal["FUTURE_SIBLING_RANK_CONTINUATION"]]
+    validation_contract_key: Literal["sector_l2_continuation_validation_v1"]
+    validation_contract_version: Literal[1]
+    event_types: tuple[Literal["ENTRY"], Literal["RETENTION"]]
+    future_horizons: tuple[Literal[1], Literal[3], Literal[5]]
+    future_horizon_rules: list[FutureHorizonRuleView]
+    ranking_source: Literal["OBJECTIVE_SIBLING_PRICE_AMOUNT_EQUAL_WEIGHT"]
+    missing_future_policy: Literal["UNEVALUABLE"]
+
+
 class PlanView(QtfApiModel):
     parameter_matrix: list[dict[str, object]]
     fixed_parameters: dict[str, object]
     future_horizons: list[int]
     comparison_scope: str
+    validation_contract_key: str
+    validation_contract_version: int
+    evaluation_calendar: EvaluationCalendarView
     sample_split: SampleSplitView
     primary_objective: str
-    success_definition: dict[str, object]
+    success_definition: ValidationSuccessDefinitionView
+    confidence_method: ConfidenceMethodRequest
+    validation_gate_config: ValidationGateConfigView
     hard_gates: list[str]
     stop_conditions: list[str]
     budget: PlanBudgetView

@@ -89,9 +89,14 @@ class ExecutionPlan:
     fixed_parameters: dict[str, object]
     future_horizons: tuple[int, ...]
     comparison_scope: str
+    validation_contract_key: str
+    validation_contract_version: int
+    evaluation_calendar: dict[str, object]
     sample_split: dict[str, object]
     primary_objective: str
     success_definition: dict[str, object]
+    confidence_method: dict[str, object]
+    validation_gate_config: dict[str, object]
     hard_gates: tuple[str, ...]
     stop_conditions: tuple[str, ...]
     budget: dict[str, int]
@@ -106,9 +111,14 @@ class ExecutionPlan:
             "fixed_parameters": dict(self.fixed_parameters),
             "future_horizons": list(self.future_horizons),
             "comparison_scope": self.comparison_scope,
+            "validation_contract_key": self.validation_contract_key,
+            "validation_contract_version": self.validation_contract_version,
+            "evaluation_calendar": dict(self.evaluation_calendar),
             "sample_split": dict(self.sample_split),
             "primary_objective": self.primary_objective,
             "success_definition": dict(self.success_definition),
+            "confidence_method": dict(self.confidence_method),
+            "validation_gate_config": dict(self.validation_gate_config),
             "hard_gates": list(self.hard_gates),
             "stop_conditions": list(self.stop_conditions),
             "budget": dict(self.budget),

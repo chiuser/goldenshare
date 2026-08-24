@@ -65,7 +65,7 @@ class PlanFreezeService:
         plan = preflight.plan
         frozen_content = RevisionContent(
             problem_statement=revision.content.problem_statement.strip(),
-            success_definition=dict(revision.content.success_definition),
+            success_definition=dict(plan.success_definition),
             non_goals=list(revision.content.non_goals),
             source_contract=dict(revision.content.source_contract),
             universe_spec=dict(revision.content.universe_spec),
@@ -81,9 +81,14 @@ class PlanFreezeService:
                 "comparison_scope": plan.comparison_scope,
             },
             validation_spec={
+                "validation_contract_key": plan.validation_contract_key,
+                "validation_contract_version": plan.validation_contract_version,
+                "evaluation_calendar": dict(plan.evaluation_calendar),
                 "sample_split": dict(plan.sample_split),
                 "primary_objective": plan.primary_objective,
                 "success_definition": dict(plan.success_definition),
+                "confidence_method": dict(plan.confidence_method),
+                "validation_gate_config": dict(plan.validation_gate_config),
                 "hard_gates": list(plan.hard_gates),
                 "stop_conditions": list(plan.stop_conditions),
             },
@@ -110,6 +115,8 @@ def _validate_draft(content: RevisionContent) -> None:
         raise QtfRequestInvalid("problem statement must be completed before freezing")
     if not content.success_definition:
         raise QtfRequestInvalid("success definition must be completed before freezing")
+    if set(content.validation_spec) != {"validation_gate_config"}:
+        raise QtfRequestInvalid("validation gate config must be completed before freezing")
     if set(content.non_goals) != {"PER_SECTOR_TUNING", "PRODUCTION_RELEASE"}:
         raise QtfRequestInvalid("registered non-goals must be explicitly confirmed")
     if content.source_contract != SECTOR_L2_SOURCE_CONTRACT:

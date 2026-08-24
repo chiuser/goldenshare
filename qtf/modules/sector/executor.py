@@ -14,13 +14,11 @@ from qtf.application.ports.runtime import CancellationProbe, RunObserver, RunUni
 from qtf.contracts.errors import (
     QtfInputChangedDuringRun,
     QtfPlanBudgetExceeded,
-    QtfRunFailed,
     QtfStateConflict,
 )
 from qtf.contracts.research import ExperimentRevisionStatus
 from qtf.contracts.runtime import (
     ExperimentRunStatus,
-    InputPreflightIssueRecord,
     InputPreflightPhase,
     InputPreflightStatus,
     ValidationStatus,
@@ -117,6 +115,15 @@ class SectorExperimentExecutor:
             input_scope = revision.content.budget.get("input_scope")
             if not isinstance(input_scope, dict):
                 raise QtfStateConflict("frozen revision is missing input scope")
+            evaluation_calendar = revision.content.validation_spec.get("evaluation_calendar")
+            if not isinstance(evaluation_calendar, dict):
+                raise QtfStateConflict("frozen revision is missing evaluation calendar")
+            requested_start_date = date.fromisoformat(
+                str(evaluation_calendar["requested_evaluation_start_date"])
+            )
+            requested_end_date = date.fromisoformat(
+                str(evaluation_calendar["requested_evaluation_end_date"])
+            )
             request = SectorInputRequest(
                 start_date=date.fromisoformat(str(input_scope["effective_start_date"])),
                 end_date=date.fromisoformat(str(input_scope["effective_end_date"])),
@@ -140,8 +147,8 @@ class SectorExperimentExecutor:
                 status=evaluation.status.value,
                 source_contract_hash=snapshot.source_contract_hash,
                 as_of=snapshot.as_of,
-                requested_start_date=request.start_date,
-                requested_end_date=request.end_date,
+                requested_start_date=requested_start_date,
+                requested_end_date=requested_end_date,
                 effective_start_date=snapshot.trade_dates[0] if snapshot.trade_dates else None,
                 effective_end_date=snapshot.trade_dates[-1] if snapshot.trade_dates else None,
                 dataset_evidence=[_jsonable(item.as_dict()) for item in snapshot.dataset_evidence],

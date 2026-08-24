@@ -61,6 +61,8 @@ class SectorHierarchyNode:
 class SectorInputRequest:
     start_date: date
     end_date: date
+    history_trade_days: int = 0
+    future_trade_days: int = 0
     statement_timeout_ms: int = 60_000
 
 

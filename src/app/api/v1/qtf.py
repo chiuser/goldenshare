@@ -25,6 +25,7 @@ from qtf.api.schemas.research import (
     ScopeView,
     TemplateListResponse,
     TemplateSummary,
+    ValidationGateSelectionRequest,
 )
 from qtf.api.schemas.run import (
     CancelRunRequest,
@@ -55,7 +56,6 @@ from qtf.contracts.errors import (
 )
 from qtf.contracts.research import CreateResearchCommand, ExperimentRevisionStatus, ResearchBundle, RevisionContent
 from qtf.contracts.runtime import ExperimentRunStatus, InputPreflightRecord
-from qtf.engine.canonical_hash import revision_content_hash
 from qtf.modules.sector.input_contract import (
     SECTOR_L2_COMPARISON_SPEC,
     SECTOR_L2_SOURCE_CONTRACT,
@@ -166,7 +166,7 @@ def save_research_draft(
                 parameter_schema_key=content.parameter_schema_key,
                 parameter_schema_version=content.parameter_schema_version,
                 effective_params=_effective_params(body.parameter_selections),
-                validation_spec={},
+                validation_spec=_validation_spec(body.validation_gate_config),
                 budget={},
             ),
         )
@@ -375,9 +375,28 @@ def _effective_params(selection: ParameterSelectionsRequest | None) -> dict[str,
     return {"values": values, "sources": sources}
 
 
+def _validation_spec(selection: ValidationGateSelectionRequest | None) -> dict[str, object]:
+    if selection is None:
+        return {}
+    raw = selection.model_dump()
+    gates = raw["gates"]
+    if not isinstance(gates, dict):
+        raise AssertionError("validated gate selection must contain a gate mapping")
+    raw["gates"] = {
+        "INPUT": gates["input"],
+        "TIME_FRONTIER": gates["time_frontier"],
+        "FUTURE_LEAKAGE": gates["future_leakage"],
+        "WARMUP": gates["warmup"],
+        "COVERAGE": gates["coverage"],
+        "OUT_OF_SAMPLE_SENSITIVITY": gates["out_of_sample_sensitivity"],
+    }
+    return {"validation_gate_config": raw}
+
+
 def _research_response(bundle: ResearchBundle) -> ResearchEditorResponse:
     revision = bundle.revision
     selection = _selection_from_content(revision.content)
+    validation_selection = _validation_selection_from_content(revision.content)
     reasons: list[str] = []
     if revision.status is ExperimentRevisionStatus.DRAFT:
         if not revision.content.problem_statement.strip():
@@ -388,6 +407,8 @@ def _research_response(bundle: ResearchBundle) -> ResearchEditorResponse:
             reasons.append("非目标尚未配置")
         if selection is None:
             reasons.append("参数尚未完整配置")
+        if validation_selection is None:
+            reasons.append("验证门禁尚未完整配置")
     return ResearchEditorResponse(
         research_key=bundle.research.research_key,
         revision_key=revision.revision_key,
@@ -407,6 +428,7 @@ def _research_response(bundle: ResearchBundle) -> ResearchEditorResponse:
         success_definition_keys=list(revision.content.success_definition.get("selected_keys", [])),
         non_goal_keys=[str(item) for item in revision.content.non_goals],
         parameter_selections=selection,
+        validation_gate_config=validation_selection,
         scope=ScopeView(
             source_kind="PROD",
             object_type="EASTMONEY_INDUSTRY_L2",
@@ -441,6 +463,28 @@ def _selection_from_content(content: RevisionContent) -> ParameterSelectionsRequ
     raw["baseline_days"] = sorted({int(item["values"]["baseline_days"]) for item in matrix})
     raw["trend_days"] = sorted({int(item["values"]["trend_days"]) for item in matrix})
     return ParameterSelectionsRequest.model_validate(raw)
+
+
+def _validation_selection_from_content(
+    content: RevisionContent,
+) -> ValidationGateSelectionRequest | None:
+    value = content.validation_spec.get("validation_gate_config")
+    if not isinstance(value, dict):
+        return None
+    if "warmup_probe_trade_days" in value:
+        raw = deepcopy(value)
+    else:
+        evaluation_calendar = value.get("evaluation_calendar")
+        if not isinstance(evaluation_calendar, dict):
+            return None
+        raw = {
+            "validation_contract_key": value.get("validation_contract_key"),
+            "validation_contract_version": value.get("validation_contract_version"),
+            "warmup_probe_trade_days": evaluation_calendar.get("warmup_probe_trade_days"),
+            "confidence_method": deepcopy(value.get("confidence_method")),
+            "gates": deepcopy(value.get("gates")),
+        }
+    return ValidationGateSelectionRequest.model_validate(raw)
 
 
 def _freeze_plan_response(bundle: ResearchBundle, preflight: InputPreflightRecord) -> FreezePlanResponse:
@@ -561,7 +605,7 @@ def _run_detail(run, bundle: ResearchBundle, task_run: TaskRun | None, nodes: tu
 
 
 def _raise_web(exc: QtfError) -> None:
-    status = 422
+    status = 400
     if isinstance(exc, (QtfDraftConflict, QtfRequestConflict, QtfStateConflict, QtfPlanNotApproved, QtfPlanBudgetExceeded, QtfInputPreflightBlocked)):
         status = 409
     if isinstance(exc, QtfTemplateNotFound) or "does not exist" in str(exc):
@@ -569,7 +613,7 @@ def _raise_web(exc: QtfError) -> None:
     if isinstance(exc, QtfQueryFailed):
         status = 503
     if isinstance(exc, QtfRequestInvalid):
-        status = 422
+        status = 400
     raise WebAppError(status_code=status, code=exc.code, message=_public_message(exc)) from exc
 
 

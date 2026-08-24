@@ -296,9 +296,14 @@ def _plan_from_json(value: dict[str, object]) -> ExecutionPlan | None:
         fixed_parameters=deepcopy(value["fixed_parameters"]),  # type: ignore[arg-type]
         future_horizons=tuple(int(item) for item in value["future_horizons"]),  # type: ignore[arg-type]
         comparison_scope=str(value["comparison_scope"]),
+        validation_contract_key=str(value["validation_contract_key"]),
+        validation_contract_version=int(value["validation_contract_version"]),
+        evaluation_calendar=deepcopy(value["evaluation_calendar"]),  # type: ignore[arg-type]
         sample_split=deepcopy(value["sample_split"]),  # type: ignore[arg-type]
         primary_objective=str(value["primary_objective"]),
         success_definition=deepcopy(value["success_definition"]),  # type: ignore[arg-type]
+        confidence_method=deepcopy(value["confidence_method"]),  # type: ignore[arg-type]
+        validation_gate_config=deepcopy(value["validation_gate_config"]),  # type: ignore[arg-type]
         hard_gates=tuple(str(item) for item in value["hard_gates"]),  # type: ignore[arg-type]
         stop_conditions=tuple(str(item) for item in value["stop_conditions"]),  # type: ignore[arg-type]
         budget={key: int(item) for key, item in value["budget"].items()},  # type: ignore[union-attr]

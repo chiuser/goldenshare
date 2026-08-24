@@ -5,15 +5,15 @@
 | 项目 | 当前结论 |
 |---|---|
 | 文档性质 | 代码级 LLD 与内嵌编码门禁矩阵 |
-| 当前状态 | M3 开发与生产部署验收已收口；M4.0 契约纠偏已完成；下一步只可进入 M4.1 |
+| 当前状态 | M3 开发与生产部署验收已收口；M4.0 契约纠偏和 M4.1 验证合同与结果模型已完成；下一步只可进入 M4.2 |
 | 审计日期 | 2026-08-24 |
 | 目标产品 | 财势乾坤 / 财势探查 / 量化研究工作台 |
 | 首个垂直切片 | 东财二级行业统一参数研究 |
 | 本文是否批准 R2 回测 | 否。R2 仍处于事前计划待评审状态 |
 | 本文是否授权生产写入或发布 | 否 |
-| 当前 Alembic 口径 | M3 实施前单一 head 为 `20260822_000143`，M3 迁移接为 `20260823_000144`；2026-08-24 QTF 生产只读验收时生产 head 为 `20260824_000147`，当前仓库单一 head 已推进到 `20260824_000148`。M4.1 实施时必须重新读取真实 head，不得沿用本行猜 `down_revision` |
+| 当前 Alembic 口径 | M3 实施前单一 head 为 `20260822_000143`，M3 迁移接为 `20260823_000144`；2026-08-24 QTF 生产只读验收时生产 head 为 `20260824_000147`。M4.1 实施前重新确认仓库单一 head 为 `20260824_000148`，结果证据迁移已接为 `20260824_000149`；该迁移尚未部署生产 |
 
-本文把已经确认的 QTF 系统架构、当前 Figma 六个正式页面、东财行业量化研究口径和仓库真实代码接入点落成可编码设计。当前 M1 平台基础、M2 候选公式内核和 M3 输入门禁与执行主链已经实现，M1/M3 生产迁移与 QTF Worker 实机验收也已完成；M4.0 已冻结可信验证的合同语义，但结果表、验证内核、结果 API、真实研究、前端和发布仍未实现。Figma 中的示例数值仍不得解释为真实研究结果。
+本文把已经确认的 QTF 系统架构、当前 Figma 六个正式页面、东财行业量化研究口径和仓库真实代码接入点落成可编码设计。当前 M1 平台基础、M2 候选公式内核和 M3 输入门禁与执行主链已经实现，M1/M3 生产迁移与 QTF Worker 实机验收也已完成；M4.0 已冻结可信验证语义，M4.1 已实现版本化验证合同、完整 PLAN/freeze/hash 合同和四张结果证据表模型。M4.2 验证内核、M4.3 worker 结果写入、M4.4 结果 API、真实研究、前端和发布仍未实现；Figma 中的示例数值仍不得解释为真实研究结果。
 
 ### 0.1 依据与优先级
 
@@ -1471,7 +1471,7 @@ sourceStatementTimeoutMs
 
 ### M4：可信门禁与结果证据
 
-**M4.0 状态：2026-08-24 已完成契约纠偏，仅修改架构方案与本 LLD；尚未实现 M4 代码。**
+**M4 状态：2026-08-24 已完成 M4.0 契约纠偏和 M4.1 验证合同与结果模型；下一步只可进入 M4.2。**
 
 #### M4.0：契约纠偏（已完成）
 
@@ -1483,9 +1483,13 @@ sourceStatementTimeoutMs
 
 #### M4.1：验证合同与结果模型
 
-1. 实施日重新确认单一 Alembic head；迁移只新增 `run_gate_result/run_parameter_result/sector_signal_event/run_conclusion`，不得创建 candidate/release 表，也不在文档中预猜 `down_revision`。
-2. 增加版本化 validation registry、完整 `validationGateConfig` contract、结果状态与稳定 hash；扩展 ExecutionPlan/freeze 使评价日历、成功定义、置信方法和门禁配置完整进入 plan/revision hash。
-3. 正反例覆盖缺值、未知字段、非法数值、旧 hash、隐藏默认值和 M4 `NOMINATE` 拒绝。
+**状态：2026-08-24 开发已收口；迁移待生产部署验收。**
+
+1. 实施前重新确认单一 Alembic head 为 `20260824_000148`；新增 `20260824_000149`，且只创建 `run_gate_result/run_parameter_result/sector_signal_event/run_conclusion`，未创建 candidate/release 表。
+2. 已增加 `sector_l2_continuation_validation_v1@1` registry、无生产默认值的完整 `validationGateConfig`、ENTRY/RETENTION 与结果状态合同及稳定证据 hash；PLAN/freeze/revision hash 已完整覆盖评价日历、成功定义、置信方法和六道门禁配置。
+3. DRAFT 缺少完整门禁配置时在读取来源前拒绝；预检按候选最大公式历史、显式预热探针和固定 5 日标签尾部读取同一 Prod 来源，PLAN 明确区分评价范围与解析后的来源范围。
+4. ORM 与迁移已落实四张表的业务唯一键、状态检查、hash 形状和仅指向 `qtf.experiment_run` 的外键；`run_conclusion` 数据库约束只接受 `ENDED/OBSERVED`，拒绝 `NOMINATED`。
+5. 自动化正反例覆盖注册唯一性、缺值/未知字段/非有限数值、固定零容忍门禁、未来 horizon、历史/尾部/切分不足、旧 plan hash、证据 hash 确定性、四表约束和 M4 `NOMINATE` 拒绝。尚未实现验证计算、worker 结果写入、结果 API 或真实 R2。
 
 #### M4.2：纯验证与评价内核
 
@@ -1578,11 +1582,11 @@ sourceStatementTimeoutMs
 | G24 | 申万与跨体系为零 | sector contracts | 只接受 DC L2 | SW/跨体系参数被拒绝 | PASS (M2) |
 | G25 | QTF 独立 worker 进程 | worker lane/CLI/systemd | QTF lane 领取实验 | GENERAL/分钟 lane 抢占或 QTF 领取既有任务时失败 | PASS (M3，2026-08-24 生产验收) |
 | G26 | 运行代码可追溯 | worker startup/run fingerprint | 进程启动解析一次合法 commit 并写入 Run | 缺失/伪 commit 时 worker 不进入轮询且零来源读取 | PASS (M3，自动化合同 + 2026-08-24 生产进程启动验收；首个获批 Run 的指纹实数回读随 M5 执行) |
-| G27 | 成功定义唯一 | validation registry/evaluator | 1/3/5 日按 1/1、2/3、3/5 且 ENTRY/RETENTION 分开 | 未来 heat 自证、混合事件或缺失记失败被拒绝 | SPEC FROZEN (M4.0)，实现 OPEN |
-| G28 | 评价时间边界唯一 | plan/input adapter/evaluator | 预热、评价、5 日尾部各司其职 | 预热/尾部进入切分或指标时失败 | SPEC FROZEN (M4.0)，实现 OPEN |
-| G29 | 门禁配置完整冻结 | validation contract/plan hash | 全部显式值可冻结 | 缺值、默认值兜底、旧 hash 被拒绝 | SPEC FROZEN (M4.0)，实现 OPEN |
+| G27 | 成功定义唯一 | validation registry/evaluator | 1/3/5 日按 1/1、2/3、3/5 且 ENTRY/RETENTION 分开 | 未来 heat 自证、混合事件或缺失记失败被拒绝 | CONTRACT PASS (M4.1)，evaluator OPEN (M4.2) |
+| G28 | 评价时间边界唯一 | plan/input adapter/evaluator | 预热、评价、5 日尾部各司其职 | 预热/尾部进入切分或指标时失败 | PLAN/INPUT PASS (M4.1)，evaluator OPEN (M4.2) |
+| G29 | 门禁配置完整冻结 | validation contract/plan hash | 全部显式值可冻结 | 缺值、默认值兜底、旧 hash 被拒绝 | PASS (M4.1) |
 | G30 | 可信状态不等于效果胜出 | validation aggregator/results API | VALID + 零 SUPPORTED 返回本轮未找到 | 无参数达标被误写 INVALID 时失败 | SPEC FROZEN (M4.0)，实现 OPEN |
-| G31 | M4 不创建 Candidate | conclusion API/migration guard | END/OBSERVE 幂等成功 | NOMINATE、candidate/release 表或动作提前出现时失败 | SPEC FROZEN (M4.0)，实现 OPEN |
+| G31 | M4 不创建 Candidate | conclusion API/migration guard | END/OBSERVE 幂等成功 | NOMINATE、candidate/release 表或动作提前出现时失败 | MODEL/MIGRATION PASS (M4.1)，API OPEN (M4.4) |
 
 只有具备对应实现与自动化证据的 Gate 才标记 PASS。G25/G26 已结合自动化证据与 2026-08-24 远程降权 systemd unit、精确 sudo 权限、进程启动和迁移实机证据通过；由于当前未获批创建真实研究，首个 Run 的实际版本指纹回读归入 M5 首次获批执行验收，不允许为验收伪造 Run。
 
@@ -1618,4 +1622,4 @@ git diff --check
 5. 真实 R2 仍未获批；平台开发和真实研究执行是两次独立授权。
 6. M9 的生产 serving 与板块雷达/板块速览消费必须另立能力 LLD，不能在平台框架开发中顺手接入。
 
-因此，**M3：输入门禁、有限计划与执行主链** 已于 2026-08-23 完成开发及部署安全纠偏，并于 2026-08-24 完成生产迁移、降权 QTF Worker、精确 sudo 权限与进程启动版本门禁的实机验收；**M4.0：契约纠偏** 已于 2026-08-24 完成。下一步只能进入 **M4.1：验证合同与结果模型**，不得直接执行真实 R2、进入前端、创建 Candidate 或发布。
+因此，**M3：输入门禁、有限计划与执行主链** 已于 2026-08-23 完成开发及部署安全纠偏，并于 2026-08-24 完成生产迁移、降权 QTF Worker、精确 sudo 权限与进程启动版本门禁的实机验收；**M4.0：契约纠偏** 和 **M4.1：验证合同与结果模型** 已于 2026-08-24 完成开发收口，M4.1 迁移仍待生产部署验收。下一步只能进入 **M4.2：纯验证与评价内核**，不得直接执行真实 R2、进入前端、创建 Candidate 或发布。

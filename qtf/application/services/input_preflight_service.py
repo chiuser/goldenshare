@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import date
 from uuid import uuid4
 
@@ -12,8 +12,16 @@ from qtf.contracts.runtime import InputPreflightPhase, InputPreflightRecord
 from qtf.engine.canonical_hash import revision_content_hash
 from qtf.modules.sector.input_contract import SectorInputRequest
 from qtf.modules.sector.input_contract import SECTOR_L2_SOURCE_CONTRACT
-from qtf.modules.sector.input_preflight import evaluate_sector_input, resolve_parameter_matrix
+from qtf.modules.sector.input_preflight import (
+    evaluate_sector_input,
+    required_source_history_days,
+    resolve_parameter_matrix,
+)
 from qtf.modules.sector.plan_estimator import SOURCE_STATEMENT_TIMEOUT_MS
+from qtf.modules.sector.validation_contract import (
+    SECTOR_L2_VALIDATION_CONTRACT,
+    validate_sector_validation_selection,
+)
 from qtf.engine.canonical_hash import canonical_json_hash
 
 
@@ -67,11 +75,20 @@ class InputPreflightService:
             return existing
 
         # Fail before any source read when the parameter selection is incomplete or illegal.
-        resolve_parameter_matrix(revision.content.effective_params)
+        parameter_matrix = resolve_parameter_matrix(revision.content.effective_params)
+        validation_gate_selection = _validation_gate_selection(revision.content.validation_spec)
+        normalized_validation_selection = validate_sector_validation_selection(
+            validation_gate_selection
+        )
+        history_trade_days = required_source_history_days(parameter_matrix) + int(
+            normalized_validation_selection["warmup_probe_trade_days"]
+        )
         snapshot = self._input_source.read(
             SectorInputRequest(
                 start_date=requested_start_date,
                 end_date=requested_end_date,
+                history_trade_days=history_trade_days,
+                future_trade_days=SECTOR_L2_VALIDATION_CONTRACT.label_tail_trade_days,
                 statement_timeout_ms=SOURCE_STATEMENT_TIMEOUT_MS,
             )
         )
@@ -81,6 +98,9 @@ class InputPreflightService:
             snapshot,
             draft_effective_params=revision.content.effective_params,
             success_definition=revision.content.success_definition,
+            validation_gate_selection=normalized_validation_selection,
+            requested_start_date=requested_start_date,
+            requested_end_date=requested_end_date,
         )
         plan_payload = {} if evaluation.plan is None else _jsonable(evaluation.plan.as_dict())
         return self._runtime_repository.create_preflight(
@@ -115,4 +135,15 @@ def _jsonable(value: object) -> object:
         return {str(key): _jsonable(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [_jsonable(item) for item in value]
+    return value
+
+
+def _validation_gate_selection(validation_spec: Mapping[str, object]) -> Mapping[str, object]:
+    if set(validation_spec) != {"validation_gate_config"}:
+        raise QtfRequestInvalid(
+            "draft validation spec must contain exactly validation_gate_config"
+        )
+    value = validation_spec["validation_gate_config"]
+    if not isinstance(value, Mapping):
+        raise QtfRequestInvalid("validationGateConfig must be an object")
     return value

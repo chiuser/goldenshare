@@ -14,6 +14,11 @@ from qtf.modules.sector.parameter_schema import (
     SECTOR_L2_PARAMETER_SCHEMA_VERSION,
     SECTOR_PARAMETER_SCHEMA_REGISTRY,
 )
+from qtf.modules.sector.validation_contract import (
+    SECTOR_L2_VALIDATION_CONTRACT_KEY,
+    SECTOR_L2_VALIDATION_CONTRACT_VERSION,
+    SECTOR_VALIDATION_CONTRACT_REGISTRY,
+)
 
 
 SECTOR_L2_TEMPLATE_KEY = "sector_l2_turn_hot_v1"
@@ -63,7 +68,8 @@ SECTOR_L2_TEMPLATE = ResearchTemplate(
     parameter_schema_key=SECTOR_L2_PARAMETER_SCHEMA_KEY,
     parameter_schema_version=SECTOR_L2_PARAMETER_SCHEMA_VERSION,
     input_contract_key="sector_l2_prod_input_v1",
-    validation_contract_key="sector_l2_continuation_validation_v1",
+    validation_contract_key=SECTOR_L2_VALIDATION_CONTRACT_KEY,
+    validation_contract_version=SECTOR_L2_VALIDATION_CONTRACT_VERSION,
 )
 
 SECTOR_FORMULA_REGISTRY = FormulaRegistry(
@@ -78,6 +84,10 @@ def validate_sector_registry_integrity() -> None:
     schema = SECTOR_PARAMETER_SCHEMA_REGISTRY.get(
         template.parameter_schema_key,
         template.parameter_schema_version,
+    )
+    SECTOR_VALIDATION_CONTRACT_REGISTRY.get(
+        template.validation_contract_key,
+        template.validation_contract_version,
     )
     if formula.definition.parameter_schema_key != schema.schema_key:
         raise ValueError("sector formula and parameter schema registration do not match")

@@ -37,11 +37,13 @@ class ProdSectorInputSource:
             raise QtfRequestInvalid("requested start date must not be after end date")
         if request.statement_timeout_ms <= 0:
             raise QtfRequestInvalid("source statement timeout must be positive")
+        if request.history_trade_days < 0 or request.future_trade_days < 0:
+            raise QtfRequestInvalid("source history and future trade-day counts must be non-negative")
 
         session = self._session_factory()
         try:
             _begin_read_only(session, statement_timeout_ms=request.statement_timeout_ms)
-            calendar_rows = tuple(
+            requested_calendar_rows = tuple(
                 session.execute(
                     select(
                         TradeCalendar.exchange,
@@ -56,6 +58,51 @@ class ProdSectorInputSource:
                     )
                     .order_by(TradeCalendar.trade_date.asc())
                 ).all()
+            )
+            history_calendar_rows = ()
+            if request.history_trade_days:
+                history_calendar_rows = tuple(
+                    reversed(
+                        session.execute(
+                            select(
+                                TradeCalendar.exchange,
+                                TradeCalendar.trade_date,
+                                TradeCalendar.is_open,
+                                TradeCalendar.pretrade_date,
+                            )
+                            .where(
+                                TradeCalendar.exchange == "SSE",
+                                TradeCalendar.is_open.is_(True),
+                                TradeCalendar.trade_date < request.start_date,
+                            )
+                            .order_by(TradeCalendar.trade_date.desc())
+                            .limit(request.history_trade_days)
+                        ).all()
+                    )
+                )
+            future_calendar_rows = ()
+            if request.future_trade_days:
+                future_calendar_rows = tuple(
+                    session.execute(
+                        select(
+                            TradeCalendar.exchange,
+                            TradeCalendar.trade_date,
+                            TradeCalendar.is_open,
+                            TradeCalendar.pretrade_date,
+                        )
+                        .where(
+                            TradeCalendar.exchange == "SSE",
+                            TradeCalendar.is_open.is_(True),
+                            TradeCalendar.trade_date > request.end_date,
+                        )
+                        .order_by(TradeCalendar.trade_date.asc())
+                        .limit(request.future_trade_days)
+                    ).all()
+                )
+            calendar_rows = (
+                *history_calendar_rows,
+                *requested_calendar_rows,
+                *future_calendar_rows,
             )
             hierarchy_rows = tuple(
                 session.execute(
@@ -79,7 +126,9 @@ class ProdSectorInputSource:
             )
             l2_codes = tuple(row.sector_code for row in hierarchy_rows if row.industry_level == 2)
             daily_rows = ()
-            if l2_codes:
+            if l2_codes and calendar_rows:
+                effective_start_date = calendar_rows[0].trade_date
+                effective_end_date = calendar_rows[-1].trade_date
                 daily_statement = (
                     select(
                         DcDaily.ts_code,
@@ -90,7 +139,7 @@ class ProdSectorInputSource:
                     )
                     .where(
                         DcDaily.category == "行业板块",
-                        DcDaily.trade_date.between(request.start_date, request.end_date),
+                        DcDaily.trade_date.between(effective_start_date, effective_end_date),
                         DcDaily.ts_code.in_(l2_codes),
                     )
                     .order_by(DcDaily.trade_date.asc(), DcDaily.ts_code.asc())
@@ -220,6 +269,10 @@ def _streaming_row_hash(rows: tuple[object, ...]) -> str:
 
     digest = hashlib.sha256()
     for row in rows:
-        digest.update(canonical_json_hash(tuple(row)).encode("ascii"))  # type: ignore[arg-type]
+        normalized = tuple(
+            _aware(item) if isinstance(item, datetime) else item
+            for item in row  # type: ignore[union-attr]
+        )
+        digest.update(canonical_json_hash(normalized).encode("ascii"))
         digest.update(b"\n")
     return digest.hexdigest()

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import create_engine, event, func, select
@@ -29,6 +29,11 @@ from qtf.modules.sector.input_contract import (
 )
 from qtf.modules.sector.input_preflight import evaluate_sector_input
 from src.foundation.models.base import Base
+
+
+EVALUATION_START = date(2026, 8, 3)
+EVALUATION_END = date(2026, 8, 6)
+WARMUP_PROBE_TRADE_DAYS = 10
 
 
 @pytest.fixture()
@@ -65,9 +70,11 @@ class StubSource:
     def __init__(self, snapshot: SectorInputSnapshot) -> None:
         self.snapshot = snapshot
         self.read_count = 0
+        self.requests: list[object] = []
 
-    def read(self, _request):  # type: ignore[no-untyped-def]
+    def read(self, request):  # type: ignore[no-untyped-def]
         self.read_count += 1
+        self.requests.append(request)
         return self.snapshot
 
 
@@ -142,24 +149,26 @@ def test_draft_preflight_is_idempotent_and_missing_group_day_is_not_filled(sessi
         research_key=bundle.research.research_key,
         request_key="request-1",
         draft_version=1,
-        requested_start_date=date(2026, 8, 3),
-        requested_end_date=date(2026, 8, 4),
+        requested_start_date=EVALUATION_START,
+        requested_end_date=EVALUATION_END,
     )
     session.commit()
     replay = service.preview(
         research_key=bundle.research.research_key,
         request_key="request-1",
         draft_version=1,
-        requested_start_date=date(2026, 8, 3),
-        requested_end_date=date(2026, 8, 4),
+        requested_start_date=EVALUATION_START,
+        requested_end_date=EVALUATION_END,
     )
 
     assert first.status is InputPreflightStatus.PASS
     assert first.excluded_group_day_count == 1
-    assert first.valid_group_day_count == 1
+    assert first.valid_group_day_count == len(snapshot.trade_dates) - 1
     assert any(issue.code == "INCOMPLETE_GROUP_DAY" for issue in first.issues)
     assert replay.id == first.id
     assert source.read_count == 1
+    assert source.requests[0].history_trade_days == 159  # type: ignore[attr-defined]
+    assert source.requests[0].future_trade_days == 5  # type: ignore[attr-defined]
 
 
 def test_blocked_preflight_contains_upstream_owner_and_cannot_freeze(session: Session) -> None:
@@ -174,8 +183,8 @@ def test_blocked_preflight_contains_upstream_owner_and_cannot_freeze(session: Se
         research_key=bundle.research.research_key,
         request_key="blocked-request",
         draft_version=1,
-        requested_start_date=date(2026, 8, 3),
-        requested_end_date=date(2026, 8, 4),
+        requested_start_date=EVALUATION_START,
+        requested_end_date=EVALUATION_END,
     )
     session.commit()
 
@@ -228,6 +237,9 @@ def test_input_preflight_blocks_invalid_hierarchy_calendar_and_values(
         snapshot,
         draft_effective_params=_draft_content().effective_params,
         success_definition=_draft_content().success_definition,
+        validation_gate_selection=_validation_gate_config(),
+        requested_start_date=EVALUATION_START,
+        requested_end_date=EVALUATION_END,
     )
 
     assert evaluation.status is InputPreflightStatus.BLOCKED
@@ -241,6 +253,9 @@ def test_input_preflight_small_group_never_creates_an_evaluable_group_day() -> N
         _snapshot(),
         draft_effective_params=content.effective_params,
         success_definition=content.success_definition,
+        validation_gate_selection=_validation_gate_config(),
+        requested_start_date=EVALUATION_START,
+        requested_end_date=EVALUATION_END,
     )
 
     assert evaluation.status is InputPreflightStatus.BLOCKED
@@ -284,8 +299,8 @@ def test_newer_preflight_supersedes_old_plan(session: Session) -> None:
         research_key=bundle.research.research_key,
         request_key="preflight-newer-request",
         draft_version=1,
-        requested_start_date=date(2026, 8, 3),
-        requested_end_date=date(2026, 8, 4),
+        requested_start_date=EVALUATION_START,
+        requested_end_date=EVALUATION_END,
     )
     session.commit()
     assert second.id != first.id
@@ -323,6 +338,23 @@ def test_task_staging_failure_rolls_back_the_planned_qtf_run(session: Session) -
     session.rollback()
 
     assert session.scalar(select(func.count()).select_from(ExperimentRun)) == 0
+
+
+def test_freeze_persists_complete_versioned_validation_contract(session: Session) -> None:
+    frozen = _freeze(session)
+    validation = frozen.revision.content.validation_spec
+
+    assert validation["validation_contract_key"] == "sector_l2_continuation_validation_v1"
+    assert validation["validation_contract_version"] == 1
+    assert validation["evaluation_calendar"]["label_tail_trade_days"] == 5  # type: ignore[index]
+    assert validation["success_definition"]["future_horizon_rules"] == [  # type: ignore[index]
+        {"horizon_trade_days": 1, "required_on_list_days": 1},
+        {"horizon_trade_days": 3, "required_on_list_days": 2},
+        {"horizon_trade_days": 5, "required_on_list_days": 3},
+    ]
+    assert validation["validation_gate_config"]["gates"]["TIME_FRONTIER"] == {  # type: ignore[index]
+        "max_future_read_count": 0
+    }
 
 
 def test_illegal_run_transition_is_rejected(session: Session) -> None:
@@ -572,8 +604,8 @@ def _preview_pass(session: Session):  # type: ignore[no-untyped-def]
         research_key=bundle.research.research_key,
         request_key=f"preflight-request-{bundle.revision.id}",
         draft_version=1,
-        requested_start_date=date(2026, 8, 3),
-        requested_end_date=date(2026, 8, 4),
+        requested_start_date=EVALUATION_START,
+        requested_end_date=EVALUATION_END,
     )
     session.commit()
     return bundle, preflight
@@ -648,7 +680,7 @@ def _draft_content(*, minimum_group_size: int = 2) -> RevisionContent:
             "values": values,
             "sources": {key: "CANDIDATE" if key in {"baseline_days", "trend_days"} else "FIXED" for key in values},
         },
-        validation_spec={},
+        validation_spec={"validation_gate_config": _validation_gate_config()},
         budget={},
     )
 
@@ -663,8 +695,16 @@ def _snapshot(
     include_observation_date: date | None = None,
     invalid_amount: bool = False,
 ) -> SectorInputSnapshot:
-    now = datetime(2026, 8, 4, 13, 0, tzinfo=timezone.utc)
-    trade_dates = trade_dates or (date(2026, 8, 3), date(2026, 8, 4))
+    now = datetime(2026, 8, 11, 13, 0, tzinfo=timezone.utc)
+    required_history = 20 + 120 + 10 - 1
+    first_source_date = EVALUATION_START - timedelta(
+        days=required_history + WARMUP_PROBE_TRADE_DAYS
+    )
+    last_source_date = EVALUATION_END + timedelta(days=5)
+    trade_dates = trade_dates or tuple(
+        first_source_date + timedelta(days=offset)
+        for offset in range((last_source_date - first_source_date).days + 1)
+    )
     hierarchy = hierarchy or (
         SectorHierarchyNode("P", "父行业", 1, None, "P", 1, "v1", now),
         SectorHierarchyNode("A", "子行业A", 2, "P", "P", 1, "v1", now),
@@ -699,3 +739,53 @@ def _snapshot(
         content_hash=content_hash or canonical_json_hash({"source": source_hash, "observations": len(observations)}),
         source_contract_hash=source_hash,
     )
+
+
+def _validation_gate_config() -> dict[str, object]:
+    return {
+        "validation_contract_key": "sector_l2_continuation_validation_v1",
+        "validation_contract_version": 1,
+        "warmup_probe_trade_days": WARMUP_PROBE_TRADE_DAYS,
+        "confidence_method": {
+            "kind": "MOVING_BLOCK_BOOTSTRAP",
+            "block_trade_days": 5,
+            "resample_count": 200,
+            "confidence_level": 0.95,
+            "random_seed": 7,
+        },
+        "gates": {
+            "INPUT": {
+                "require_pass_preflight": True,
+                "require_source_hash_match": True,
+            },
+            "TIME_FRONTIER": {"max_future_read_count": 0},
+            "FUTURE_LEAKAGE": {"max_changed_pre_frontier_point_count": 0},
+            "WARMUP": {
+                "comparison_trade_days": 5,
+                "max_heat_state_absolute_delta": 0.01,
+                "max_signal_mismatch_rate": 0.0,
+            },
+            "COVERAGE": {
+                "min_evaluable_trade_days": 1,
+                "min_signal_event_count": 1,
+                "min_entry_event_count": 0,
+                "min_retention_event_count": 0,
+                "min_parent_coverage_rate": 0.5,
+                "max_single_parent_event_share": 1.0,
+            },
+            "OUT_OF_SAMPLE_SENSITIVITY": {
+                "required_horizons": [1, 3, 5],
+                "min_oos_lift_lower_bound_by_horizon": {
+                    "1": 0.0,
+                    "3": 0.0,
+                    "5": 0.0,
+                },
+                "max_calibration_to_oos_success_rate_drop_by_horizon": {
+                    "1": 0.2,
+                    "3": 0.2,
+                    "5": 0.2,
+                },
+                "min_neighbor_pass_rate": 0.5,
+            },
+        },
+    }
