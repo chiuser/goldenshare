@@ -948,3 +948,70 @@ wealth/src/test/news-reader-dialog.test.tsx
 5. Wealth 全量回归：`52` 个测试文件、`334 passed`。
 6. `npm run typecheck`、`npm run build` 通过；保留既有 bundle size warning，不扩散到本轮范围。
 7. 用户重新部署前，真实 PC 视口下的标题折行和头部高度仍标记为待视觉复验。
+
+## 21. 第二轮部署反馈修正 LLD：头部居中
+
+### 21.1 影响面与禁止项
+
+CodeGraph 与源码复核确认，本轮唯一运行时修改点为：
+
+```text
+wealth/src/shared/ui/news-reader/news-reader.css
+wealth/src/test/news-reader-dialog.test.tsx
+```
+
+`NewsReaderDialog.tsx` 的 DOM 已满足“标题在上、元信息在下、关闭按钮为独立兄弟节点”的语义，不需要修改 JSX。禁止修改后端 API、新闻字段、adapter、controller、正文 renderer、弹窗状态机和其它页面。
+
+### 21.2 精确布局合同
+
+1. `.news-reader-header` 改为相对定位容器，不再使用关闭按钮参与分配宽度的横向 flex 布局。
+2. Header 左右内边距必须对称，使 `.news-reader-heading` 的几何中心与整个阅读器中心一致。
+3. `.news-reader-heading` 占满 Header 可用宽度并设置对称安全内边距，安全区至少覆盖右上角 `36px` 关闭按钮及其间距；长标题不得与关闭按钮重叠。
+4. `.news-reader-heading h2` 使用 `text-align: center`，继续保留 `white-space: normal` 与 `overflow-wrap: anywhere`。
+5. `.news-reader-meta` 使用 `justify-content: center`；时间和来源仍保持“发布时间、来源”的 DOM 顺序。
+6. `.news-reader-close` 使用 `position: absolute` 固定在 Header 右上角；其大小、SVG、hover、focus-visible 和点击行为保持不变。
+7. Header 继续保持最小高度 `76px`，多行标题通过内容自然撑高；正文仍由 `grid-template-rows: auto minmax(0, 1fr)` 使用剩余高度。
+
+推荐实现口径：
+
+```css
+.news-reader-header {
+  position: relative;
+  padding: 14px 18px;
+}
+
+.news-reader-heading {
+  box-sizing: border-box;
+  padding-inline: 52px;
+  text-align: center;
+  width: 100%;
+}
+
+.news-reader-meta {
+  justify-content: center;
+}
+
+.news-reader-close {
+  position: absolute;
+  right: 18px;
+  top: 14px;
+}
+```
+
+### 21.3 测试门禁
+
+1. CSS 必须同时包含 Header `position: relative`、Close `position: absolute`、Heading `text-align: center` 和 Meta `justify-content: center`。
+2. Heading 必须具有左右对称的关闭按钮安全区，禁止只给右侧留白造成视觉偏移。
+3. 标题完整展示、时间在来源之前、来源为空、关闭图标、native dialog、scroll lock、URL sandbox 和 HTML sanitizer 现有测试继续通过。
+4. CSS 继续禁止 `text-overflow: ellipsis`、`white-space: nowrap` 和移动端 media branch。
+5. 验证只运行阅读器目标测试、Wealth typecheck、全量测试、build 和 `git diff --check`；不启动服务或执行浏览器验收。
+
+### 21.4 完成记录
+
+1. Figma `13 News Reader - Components and States` 的 8 个桌面 Modal 状态已改为标题、元信息全宽居中，关闭按钮固定右上。
+2. `.news-reader-header` 已改为相对定位；Heading 使用对称安全区，Close 使用绝对定位，不再影响视觉中心。
+3. 标题完整折行、元信息顺序、关闭图标和全部既有 reader 行为保持不变。
+4. 阅读器目标测试：`10 passed`。
+5. Wealth 全量回归：`52` 个测试文件、`334 passed`。
+6. `npm run typecheck`、`npm run build` 通过；保留既有 bundle size warning，不扩散到本轮范围。
+7. 当前状态为“开发完成，待用户部署与视觉复验”。

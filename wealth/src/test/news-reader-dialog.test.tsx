@@ -205,6 +205,10 @@ describe("NewsReaderDialog", () => {
     expect(css).toContain("calc(100vh - 64px)");
     expect(css).toContain("grid-template-rows: auto minmax(0, 1fr)");
     expect(css).toContain("overflow-wrap: anywhere");
+    expect(css).toMatch(/\.news-reader-header\s*{[^}]*position: relative;/s);
+    expect(css).toMatch(/\.news-reader-heading\s*{[^}]*padding: 0 52px;[^}]*text-align: center;[^}]*width: 100%;/s);
+    expect(css).toMatch(/\.news-reader-meta\s*{[^}]*justify-content: center;/s);
+    expect(css).toMatch(/\.news-reader-close\s*{[^}]*position: absolute;[^}]*right: 18px;[^}]*top: 14px;/s);
     expect(css).not.toContain("text-overflow: ellipsis");
     expect(css).not.toContain("white-space: nowrap");
     expect(css).not.toContain("@media");

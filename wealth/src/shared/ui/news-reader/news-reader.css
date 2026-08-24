@@ -29,20 +29,20 @@
 }
 
 .news-reader-header {
-  align-items: flex-start;
   box-sizing: border-box;
   border-bottom: 1px solid var(--cs-color-border-subtle);
-  display: flex;
-  gap: 20px;
-  justify-content: space-between;
   min-height: 76px;
   min-width: 0;
-  padding: 14px 18px 14px 24px;
+  padding: 14px 18px;
+  position: relative;
 }
 
 .news-reader-heading {
-  flex: 1 1 auto;
+  box-sizing: border-box;
   min-width: 0;
+  padding: 0 52px;
+  text-align: center;
+  width: 100%;
 }
 
 .news-reader-heading h2 {
@@ -52,6 +52,7 @@
   line-height: 1.35;
   margin: 0;
   overflow-wrap: anywhere;
+  text-align: center;
   white-space: normal;
 }
 
@@ -61,6 +62,7 @@
   display: flex;
   font-size: 12px;
   gap: 8px;
+  justify-content: center;
   margin-top: 7px;
 }
 
@@ -76,13 +78,15 @@
   color: var(--cs-color-text-secondary);
   cursor: pointer;
   display: inline-flex;
-  flex: 0 0 36px;
   font-family: var(--cs-font-family-base);
   font-size: 26px;
   height: 36px;
   justify-content: center;
   line-height: 1;
   padding: 0;
+  position: absolute;
+  right: 18px;
+  top: 14px;
   width: 36px;
 }
 
