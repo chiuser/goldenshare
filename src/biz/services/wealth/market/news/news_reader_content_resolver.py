@@ -52,16 +52,26 @@ def classify_news_reader_mode(content: str) -> NewsReaderMode:
 
 
 def resolve_news_reader_content(content: str | None) -> ResolvedNewsReaderContent:
-    if content is None or not content.strip():
-        raise NewsReaderContentEmptyError("news content is empty")
-
-    text = content.strip()
-    if len(text.encode("utf-8")) > NEWS_READER_MAX_CONTENT_BYTES:
-        raise NewsReaderContentTooLargeError("news content exceeds the size limit")
-
+    text = _validate_nonempty_and_size(content)
     mode = classify_news_reader_mode(text)
     if mode == "URL":
         return ResolvedNewsReaderContent(mode=mode, url=text, html=None, content=None)
     if mode == "HTML":
         return ResolvedNewsReaderContent(mode=mode, url=None, html=text, content=None)
     return ResolvedNewsReaderContent(mode=mode, url=None, html=None, content=text)
+
+
+def resolve_major_news_reader_content(content: str | None) -> ResolvedNewsReaderContent:
+    text = _validate_nonempty_and_size(content)
+    if re.search(NEWS_READER_HTML_PATTERN, text):
+        return ResolvedNewsReaderContent(mode="HTML", url=None, html=text, content=None)
+    return ResolvedNewsReaderContent(mode="TEXT", url=None, html=None, content=text)
+
+
+def _validate_nonempty_and_size(content: str | None) -> str:
+    if content is None or not content.strip():
+        raise NewsReaderContentEmptyError("news content is empty")
+    text = content.strip()
+    if len(text.encode("utf-8")) > NEWS_READER_MAX_CONTENT_BYTES:
+        raise NewsReaderContentTooLargeError("news content exceeds the size limit")
+    return text

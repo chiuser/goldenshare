@@ -2,12 +2,17 @@ import type { ReactNode } from "react";
 
 interface MarketNewsPanelGroupProps {
   marketNews: ReactNode;
-  stockNews: ReactNode;
+  newsCommunications: ReactNode;
   marketSummary: ReactNode;
   majorIndices: ReactNode;
 }
 
-export function MarketNewsPanelGroup({ marketNews, stockNews, marketSummary, majorIndices }: MarketNewsPanelGroupProps) {
+export function MarketNewsPanelGroup({
+  marketNews,
+  newsCommunications,
+  marketSummary,
+  majorIndices,
+}: MarketNewsPanelGroupProps) {
   return (
     <div className="summary-index-row" aria-label="新闻、今日市场客观总结与主要指数组合">
       <div className="summary-column">
@@ -15,7 +20,7 @@ export function MarketNewsPanelGroup({ marketNews, stockNews, marketSummary, maj
         {marketSummary}
       </div>
       <div className="summary-column">
-        {stockNews}
+        {newsCommunications}
         {majorIndices}
       </div>
     </div>

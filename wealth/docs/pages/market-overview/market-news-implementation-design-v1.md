@@ -1,7 +1,7 @@
 # 市场总览｜新闻速览、新闻通讯与阅读器技术实施方案 v2
 
 > 稳定文档路径沿用 `market-news-implementation-design-v1.md`，正文版本升级为 v2。
-> 状态：方案已确认，待按 LLD 开发。
+> 状态：开发完成，待用户部署与页面验收。
 > 日期：2026-08-24。
 > 代码级设计：[market-news-reader-low-level-design-v1.md](./market-news-reader-low-level-design-v1.md)。
 > 阅读器视觉与交互基线：[market-news-reader-implementation-design-v1.md](./market-news-reader-implementation-design-v1.md)。

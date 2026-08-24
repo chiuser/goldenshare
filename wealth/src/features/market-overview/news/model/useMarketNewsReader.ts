@@ -12,6 +12,12 @@ import {
 const NEWS_READER_FETCH_TIMEOUT_MS = 5_000;
 
 
+export interface MarketNewsReaderIdentity {
+  contentSource: MarketNewsViewItem["contentSource"];
+  newsId: string;
+}
+
+
 export interface MarketNewsReaderController {
   state: NewsReaderDialogState;
   open(item: MarketNewsViewItem, trigger: HTMLElement): void;
@@ -26,7 +32,7 @@ export function useMarketNewsReader(): MarketNewsReaderController {
   const abortControllerRef = useRef<AbortController | null>(null);
   const selectedItemRef = useRef<MarketNewsViewItem | null>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
-  const triggerNewsIdRef = useRef<string | null>(null);
+  const triggerIdentityRef = useRef<MarketNewsReaderIdentity | null>(null);
 
   const load = useCallback((item: MarketNewsViewItem) => {
     abortControllerRef.current?.abort();
@@ -48,11 +54,12 @@ export function useMarketNewsReader(): MarketNewsReaderController {
       requestId,
     });
 
-    fetchMarketNewsReaderItem(item.newsId, { signal: abortController.signal })
+    const identity = { contentSource: item.contentSource, newsId: item.newsId } satisfies MarketNewsReaderIdentity;
+    fetchMarketNewsReaderItem(identity.contentSource, identity.newsId, { signal: abortController.signal })
       .then((payload) => {
         if (abortController.signal.aborted || requestSequenceRef.current !== requestId) return;
-        if (payload.newsId !== item.newsId) {
-          throw new MarketNewsReaderApiError("新闻标识与请求不一致", "NEWS_READER_CONTRACT_INVALID", 502);
+        if (payload.newsId !== identity.newsId || payload.contentSource !== identity.contentSource) {
+          throw new MarketNewsReaderApiError("新闻身份与请求不一致", "NEWS_READER_CONTRACT_INVALID", 502);
         }
         setState({ status: "ready", requestId, item: buildNewsReaderViewModelFromApi(payload) });
       })
@@ -93,7 +100,7 @@ export function useMarketNewsReader(): MarketNewsReaderController {
     (item: MarketNewsViewItem, trigger: HTMLElement) => {
       selectedItemRef.current = item;
       triggerRef.current = trigger;
-      triggerNewsIdRef.current = item.newsId;
+      triggerIdentityRef.current = { contentSource: item.contentSource, newsId: item.newsId };
       load(item);
     },
     [load],
@@ -107,18 +114,19 @@ export function useMarketNewsReader(): MarketNewsReaderController {
     setState({ status: "closed" });
 
     const trigger = triggerRef.current;
-    const newsId = triggerNewsIdRef.current;
+    const identity = triggerIdentityRef.current;
     triggerRef.current = null;
-    triggerNewsIdRef.current = null;
+    triggerIdentityRef.current = null;
     window.requestAnimationFrame(() => {
       if (trigger?.isConnected) {
         trigger.focus({ preventScroll: true });
         return;
       }
-      if (!newsId) return;
-      const escapedNewsId = window.CSS?.escape ? window.CSS.escape(newsId) : newsId.replace(/["\\]/g, "\\$&");
+      if (!identity) return;
+      const escapedSource = escapeAttributeValue(identity.contentSource);
+      const escapedNewsId = escapeAttributeValue(identity.newsId);
       const replacement = document.querySelector<HTMLElement>(
-        `[data-news-reader-trigger][data-news-id="${escapedNewsId}"]`,
+        `[data-news-reader-trigger][data-news-source="${escapedSource}"][data-news-id="${escapedNewsId}"]`,
       );
       replacement?.focus({ preventScroll: true });
     });
@@ -138,4 +146,9 @@ export function useMarketNewsReader(): MarketNewsReaderController {
   );
 
   return { state, open, close, retry };
+}
+
+
+function escapeAttributeValue(value: string): string {
+  return window.CSS?.escape ? window.CSS.escape(value) : value.replace(/["\\]/g, "\\$&");
 }

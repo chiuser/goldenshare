@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal
-
 from sqlalchemy.orm import Session
 
+from src.biz.schemas.wealth.market.news_common import NewsCategoryValue, NewsPanelKeyValue
 from src.biz.schemas.wealth.market.news_briefs import (
     MarketNewsDebugInfoDto,
     NewsWindowDto,
@@ -14,7 +13,7 @@ from src.biz.schemas.wealth.market.news_briefs import (
     NewsPanelItemDto,
     PageStatusDto,
 )
-from src.biz.schemas.wealth.market.stock_news import StockNewsResponseDto
+from src.biz.schemas.wealth.market.news_communications import NewsCommunicationsResponseDto
 from src.biz.services.wealth.config import StrategyConfigNotFoundError, StrategyConfigValidationError
 from src.biz.services.wealth.market.news.news_exception_builder import MarketNewsExceptionBuilder
 from src.biz.services.wealth.market.news.news_status_resolver import MarketNewsStatusResolver
@@ -24,28 +23,24 @@ from src.biz.services.wealth.market.news.news_strategy_config_resolver import (
 )
 
 from .market_news_query import MarketNewsQuery, NewsQueryResult
+from .major_news_query import MajorNewsQuery
 from .news_state_query import NewsStateQuery, NewsWindowContext
-from .stock_news_query import StockNewsQuery
-
-
-PanelKey = Literal["newsBriefs", "stockNews"]
-Category = Literal["market", "stock"]
 
 
 @dataclass(frozen=True, slots=True)
 class _PanelRequest:
-    panel_key: PanelKey
+    panel_key: NewsPanelKeyValue
     module_key: str
-    category: Category
+    category: NewsCategoryValue
 
 
 class MarketNewsQueryService:
-    """Orchestrate news briefs and stock news responses."""
+    """Orchestrate news briefs and long-form communications responses."""
 
     def __init__(self) -> None:
         self._state_query = NewsStateQuery()
         self._market_news_query = MarketNewsQuery()
-        self._stock_news_query = StockNewsQuery()
+        self._major_news_query = MajorNewsQuery()
         self._strategy_resolver = MarketNewsStrategyConfigResolver()
         self._status_resolver = MarketNewsStatusResolver()
         self._exception_builder = MarketNewsExceptionBuilder()
@@ -57,7 +52,7 @@ class MarketNewsQueryService:
         market: str,
         debug: bool,
     ) -> NewsBriefsResponseDto:
-        panel_request = _PanelRequest(panel_key="newsBriefs", module_key="newsBriefs", category="market")
+        panel_request = _PanelRequest(panel_key="newsBriefs", module_key="newsBriefs", category="brief")
         news_window_context = self._state_query.resolve_news_window(
             market=market,
         )
@@ -74,14 +69,18 @@ class MarketNewsQueryService:
             debugInfo=debug_info if debug else None,
         )
 
-    def build_stock_news(
+    def build_news_communications(
         self,
         session: Session,
         *,
         market: str,
         debug: bool,
-    ) -> StockNewsResponseDto:
-        panel_request = _PanelRequest(panel_key="stockNews", module_key="stockNews", category="stock")
+    ) -> NewsCommunicationsResponseDto:
+        panel_request = _PanelRequest(
+            panel_key="newsCommunications",
+            module_key="newsCommunications",
+            category="communication",
+        )
         news_window_context = self._state_query.resolve_news_window(
             market=market,
         )
@@ -91,10 +90,10 @@ class MarketNewsQueryService:
             news_window_context=news_window_context,
             debug=debug,
         )
-        return StockNewsResponseDto(
+        return NewsCommunicationsResponseDto(
             newsWindow=self._build_news_window(news_window_context),
             pageStatus=page_status,
-            stockNews=panel,
+            newsCommunications=panel,
             debugInfo=debug_info if debug else None,
         )
 
@@ -191,7 +190,7 @@ class MarketNewsQueryService:
         self,
         session: Session,
         *,
-        panel_key: PanelKey,
+        panel_key: NewsPanelKeyValue,
         window_start_at: datetime,
         window_end_at: datetime,
         strategy: MarketNewsStrategyConfig,
@@ -203,12 +202,14 @@ class MarketNewsQueryService:
                 window_end_at=window_end_at,
                 limit=strategy.query_limit,
             )
-        return self._stock_news_query.load_rows(
-            session,
-            window_start_at=window_start_at,
-            window_end_at=window_end_at,
-            limit=strategy.query_limit,
-        )
+        if panel_key == "newsCommunications":
+            return self._major_news_query.load_rows(
+                session,
+                window_start_at=window_start_at,
+                window_end_at=window_end_at,
+                limit=strategy.query_limit,
+            )
+        raise AssertionError(f"unsupported news panel key: {panel_key}")
 
     def _build_panel_dto(
         self,
@@ -227,13 +228,12 @@ class MarketNewsQueryService:
             items=[
                 NewsPanelItemDto(
                     newsId=row.news_id,
+                    contentSource=row.content_source,
                     publishTime=row.publish_time,
                     displayTime=row.publish_time.strftime("%m-%d %H:%M:%S"),
                     title=row.title,
                     category=panel_request.category,
                     source=row.source,
-                    subject=None,
-                    priority=0,
                     readerMode=row.reader_mode,
                     clickable=True,
                 )

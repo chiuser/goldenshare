@@ -3,6 +3,7 @@ import type { DataStatus } from "../../../../shared/model/market";
 import type { NewsReaderMode } from "../../../../shared/ui/news-reader/newsReaderTypes";
 
 export type { NewsReaderMode } from "../../../../shared/ui/news-reader/newsReaderTypes";
+export type NewsContentSource = "news" | "major_news";
 
 export interface MarketNewsRequest {
   market?: "CN_A";
@@ -33,17 +34,12 @@ export interface MarketNewsDebugInfo {
 
 export interface NewsPanelItemResponse {
   newsId: string;
+  contentSource: NewsContentSource;
   publishTime: string;
   displayTime: string;
   title: string;
-  category: "market" | "stock";
+  category: "brief" | "communication";
   source?: string | null;
-  subject?: {
-    subjectType: "stock";
-    subjectCode: string;
-    subjectName?: string | null;
-  } | null;
-  priority?: number | null;
   readerMode: NewsReaderMode;
   clickable: true;
 }
@@ -51,11 +47,11 @@ export interface NewsPanelItemResponse {
 export interface NewsListPanelResponse {
   windowStartAt: string;
   windowEndAt: string;
-  panelKey: "newsBriefs" | "stockNews";
+  panelKey: "newsBriefs" | "newsCommunications";
   visibleItemCount: number;
   updatedAt: string;
   items: NewsPanelItemResponse[];
-  sortRule: "publishTime_desc_priority_desc";
+  sortRule: "publishTime_desc";
   clickablePolicy: "reader";
 }
 
@@ -78,8 +74,8 @@ export interface MarketNewsBriefsResponse extends MarketNewsBaseResponse {
   newsBriefs: NewsListPanelResponse;
 }
 
-export interface StockNewsResponse extends MarketNewsBaseResponse {
-  stockNews: NewsListPanelResponse;
+export interface NewsCommunicationsResponse extends MarketNewsBaseResponse {
+  newsCommunications: NewsListPanelResponse;
 }
 
 export class MarketNewsApiError extends Error {
@@ -91,14 +87,18 @@ export class MarketNewsApiError extends Error {
   }
 }
 
-function buildNewsUrl(path: "/briefs" | "/stocks", params: MarketNewsRequest): string {
+function buildNewsUrl(path: "/briefs" | "/communications", params: MarketNewsRequest): string {
   const url = new URL(`/api/v1/wealth/market/news${path}`, window.location.origin);
   if (params.market) url.searchParams.set("market", params.market);
   if (typeof params.debug !== "undefined") url.searchParams.set("debug", String(params.debug));
   return url.toString();
 }
 
-async function fetchJson<T>(path: "/briefs" | "/stocks", params: MarketNewsRequest, options: MarketNewsFetchOptions): Promise<T> {
+async function fetchJson<T>(
+  path: "/briefs" | "/communications",
+  params: MarketNewsRequest,
+  options: MarketNewsFetchOptions,
+): Promise<T> {
   const response = await wealthFetch(buildNewsUrl(path, params), {
     method: "GET",
     headers: { Accept: "application/json" },
@@ -126,9 +126,9 @@ export function fetchMarketNewsBriefs(
   return fetchJson<MarketNewsBriefsResponse>("/briefs", params, options);
 }
 
-export function fetchStockNews(
+export function fetchNewsCommunications(
   params: MarketNewsRequest = {},
   options: MarketNewsFetchOptions = {},
-): Promise<StockNewsResponse> {
-  return fetchJson<StockNewsResponse>("/stocks", params, options);
+): Promise<NewsCommunicationsResponse> {
+  return fetchJson<NewsCommunicationsResponse>("/communications", params, options);
 }

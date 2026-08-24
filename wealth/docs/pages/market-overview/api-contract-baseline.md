@@ -1,6 +1,6 @@
 # 市场总览 API 契约基线（当前生效）
 
-> 新闻模块过渡说明（2026-08-24）：当前代码仍注册 `/news/stocks` 和无来源详情路由，但它们已进入待删除状态。新闻模块下一次开发必须直接执行 [新闻速览、新闻通讯与阅读器技术实施方案 v2](./market-news-implementation-design-v1.md) 与 [LLD v2](./market-news-reader-low-level-design-v1.md)，不得把本文件记录的旧路由当作新实现依据。代码完成后再将本基线切换为新合同。
+> 新闻模块当前合同（2026-08-24）：左列 `/news/briefs` 展示 `core_serving_light.news` 全部可读快讯，右列 `/news/communications` 展示 `core_serving_light.major_news` 新闻通讯；详情必须使用 `contentSource + newsId`。旧 `/news/stocks` 和无来源详情路由已删除。
 
 ## 来源
 
@@ -64,7 +64,8 @@ GET /api/v1/wealth/market/streak-ladder
 GET /api/v1/wealth/market/money-flow
 GET /api/v1/wealth/market/sector-overview
 GET /api/v1/wealth/market/news/briefs
-GET /api/v1/wealth/market/news/stocks
+GET /api/v1/wealth/market/news/communications
+GET /api/v1/wealth/market/news/items/{contentSource}/{newsId}
 ```
 
 模块接口只返回模块对象；整页聚合后续再由 overview 聚合接口统一编排。
@@ -79,7 +80,9 @@ GET /api/v1/wealth/market/news/stocks
 | `GET /api/market/style` | 早期市场风格接口 | 统一走 `GET /api/v1/wealth/market/style` |
 | `GET /api/market/turnover` | 早期成交额总览接口 | 统一走 `GET /api/v1/wealth/market/turnover` |
 | `GET /api/moneyflow/market` | 早期大盘资金流接口 | 统一走 `GET /api/v1/wealth/market/money-flow` |
-| `marketNewsFlash` / `marketOverviewNewsBlocks` | 早期顶部统一快讯条或整页新闻聚合字段 | 不放入 PageHeader；当前代码仍为 briefs/stocks，目标合同为 briefs/communications |
+| `marketNewsFlash` / `marketOverviewNewsBlocks` | 早期顶部统一快讯条或整页新闻聚合字段 | 不放入 PageHeader；当前合同为 briefs/communications |
+| `GET /api/v1/wealth/market/news/stocks` | 旧首页右列个股新闻 | 已删除；首页右列固定使用 `/news/communications` |
+| `GET /api/v1/wealth/market/news/items/{newsId}` | 旧无来源详情路由 | 已删除；详情固定使用 `contentSource + newsId` |
 | `includeHistory` | 早期由前端决定是否返回历史序列 | 不再作为通用参数；历史窗口由模块契约定义 |
 | 整页 mock 根对象 `data.moneyFlow/data.indices/...` | 早期从整页对象直接喂组件 | 已接真实 API 的模块必须通过模块 provider + view-model adapter |
 
@@ -176,7 +179,7 @@ tomorrowPrediction
 subjectiveMarketConclusion
 ```
 
-## 真实 API 待后续实现（已拍板口径）
+## 真实 API 与已拍板口径
 
 以下内容已确定口径，后续按该口径落地：
 
@@ -186,7 +189,7 @@ subjectiveMarketConclusion
 2. 连板天梯：独立模块接口 `GET /api/v1/wealth/market/streak-ladder`，基于 `equity_limit_list / limit_list_d`，分组固定“首板/二板/三板/四板/五板及以上”，并全量返回 `boardCount`。
 3. 板块速览前后端均已在本地切换为 V2 判别式契约，旧 `columns + heatMapItems` 及前端旧 adapter/fixture 已删除；部署时仍必须作为同一发布单元上线，禁止只部署其中一侧。行业层级来自 `core_serving.wealth_sector_hierarchy`，行业/概念/地域盘后行情、资金与成员来自 `dc_daily + dc_index + board_moneyflow_dc + dc_member`，成员盘后行情来自 `equity_daily_bar`，证券资格与停牌解释来自 `security_serving + equity_suspend_d`，概念热度来自 `core_serving.wealth_sector_heat_daily`。V2 提供 `INDUSTRY/CONCEPT/REGION` 三个独立视图，使用 `heatDelta1d` 和有效 A 股成分池，不引入实时行情、分钟热度或 Redis 事实源。
 4. 模块级 delayed 仅用于 debug mode；正式产品默认展示页面级状态。
-5. 新闻模块当前代码使用 `/briefs` 与 `/stocks`，item 已可点击打开共享阅读器；该合同是过渡现状，不是下一轮编码目标。已确认的目标是 `/briefs` 展示全部 `news` 快讯、`/communications` 展示 `major_news` 新闻通讯，详情使用 `contentSource + newsId`，且 `major_news.url` 只作原文溯源。两列仍不接收 `tradeDate`，继续使用“昨日 00:00 到当前服务器时间”的 `newsWindow`。
+5. 新闻模块已使用 `/briefs` 与 `/communications`，item 可点击打开共享阅读器。`/briefs` 展示全部可读 `news` 快讯，不按 `channels` 过滤；`/communications` 展示 `major_news` 新闻通讯。详情身份固定为 `contentSource + newsId`，两张表不跨源去重或 fallback；`major_news` 正文只按 HTML > TEXT 展示，`url` 仅作为 `originalUrl` 溯源事实，不写入 DOM、不导航。两列仍不接收 `tradeDate`，继续使用“昨日 00:00 到当前服务器时间”的 `newsWindow`。
 
 ## 性能原则
 

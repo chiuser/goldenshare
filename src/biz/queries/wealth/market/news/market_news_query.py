@@ -3,10 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import case, func, literal, or_, select
+from sqlalchemy import case, func, literal, select
 from sqlalchemy.orm import Session
 
 from src.foundation.models.core_serving_light.news import NewsLight
+from src.biz.schemas.wealth.market.news_common import NewsContentSourceValue
 from src.biz.services.wealth.market.news.news_reader_content_resolver import (
     NEWS_READER_HTML_PATTERN,
     NEWS_READER_URL_PATTERN,
@@ -20,6 +21,7 @@ class NewsQueryRow:
     publish_time: datetime
     title: str
     source: str | None
+    content_source: NewsContentSourceValue
     reader_mode: NewsReaderMode
 
 
@@ -59,7 +61,6 @@ class MarketNewsQuery:
             .where(
                 NewsLight.news_time >= window_start_at,
                 NewsLight.news_time <= window_end_at,
-                or_(NewsLight.channels.is_(None), NewsLight.channels != "公司"),
                 _has_nonempty_content(),
             )
             .subquery()
@@ -84,6 +85,7 @@ class MarketNewsQuery:
                     publish_time=row.news_time,
                     title=row.display_title,
                     source=row.src,
+                    content_source="news",
                     reader_mode=row.reader_mode,
                 )
                 for row in rows
@@ -94,7 +96,6 @@ class MarketNewsQuery:
     def load_observed_at(self, session: Session) -> datetime | None:
         observed_at = session.scalar(
             select(func.max(NewsLight.news_time)).where(
-                or_(NewsLight.channels.is_(None), NewsLight.channels != "公司"),
                 _has_nonempty_content(),
             )
         )

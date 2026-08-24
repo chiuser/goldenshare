@@ -1,7 +1,7 @@
 # 市场总览｜新闻速览、新闻通讯与阅读器低层设计 v2（LLD）
 
 > 稳定文档路径沿用 `market-news-reader-low-level-design-v1.md`，正文版本升级为 v2。
-> 状态：代码级设计完成，待开发。
+> 状态：开发完成，待用户部署与页面验收。
 > 日期：2026-08-24。
 > 技术方案：[market-news-implementation-design-v1.md](./market-news-implementation-design-v1.md)。
 > 视觉与 modal 合同：[market-news-reader-implementation-design-v1.md](./market-news-reader-implementation-design-v1.md)。
@@ -734,8 +734,8 @@ git diff --check
 
 | ID | 代码文件 | 测试 | 结果 |
 |---|---|---|---|
-| N01-N03 | 待填写 | 待填写 | 待开发 |
-| N04-N09 | 待填写 | 待填写 | 待开发 |
-| N10-N14 | 待填写 | 待填写 | 待开发 |
+| N01-N03 | `market_news_query.py`、`major_news_query.py`、`news_query_service.py`、新闻列表 DTO | `test_wealth_market_news_api.py` | 已完成：news 全频道、major_news 独立查询、跨源同名保留且源内去重 |
+| N04-N09 | 双源 reader query/service/resolver、`news_item.py`、前后端 API/adapter、router 与旧 stock 合同删除 | `test_wealth_market_news_reader_api.py`、`market-news-reader-controller.test.tsx`、`market-overview-news-real-api.test.tsx` | 已完成：双维身份、major HTML/TEXT、originalUrl 仅溯源、旧路由/字段清零 |
+| N10-N14 | `MarketOverviewPage.tsx`、`MarketNewsPanelGroup.tsx`、`useMarketNewsReader.ts`，shared reader 保持不变 | `MarketOverviewPage.test.tsx`、`news-reader-dialog.test.tsx`、静态清零门禁 | 已完成：独立状态刷新、modal 行为不变、10 分钟窗口与无兼容层 |
 
 未完成项不得默认为完成；若任何正式数据事实与本 LLD 冲突，先停下审计并更新方案，不允许临时回退 URL 或保留旧 `/stocks` 兜底。

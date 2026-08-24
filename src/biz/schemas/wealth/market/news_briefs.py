@@ -5,11 +5,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .news_common import NewsCategoryValue, NewsContentSourceValue, NewsPanelKeyValue
+
 
 PageStatusValue = Literal["READY", "DELAYED", "PARTIAL", "EMPTY", "ERROR"]
 SeverityValue = Literal["info", "warn", "error"]
-NewsCategoryValue = Literal["market", "stock"]
-NewsPanelKeyValue = Literal["newsBriefs", "stockNews"]
 
 
 class NewsWindowDto(BaseModel):
@@ -57,25 +57,16 @@ class MarketNewsDebugInfoDto(BaseModel):
     exceptions: list[ModuleExceptionItemDto]
 
 
-class NewsSubjectRefDto(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    subjectType: Literal["stock"]
-    subjectCode: str
-    subjectName: str | None = None
-
-
 class NewsPanelItemDto(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     newsId: str
+    contentSource: NewsContentSourceValue
     publishTime: datetime
     displayTime: str
     title: str
     category: NewsCategoryValue
     source: str | None = None
-    subject: NewsSubjectRefDto | None = None
-    priority: int | None = Field(default=0)
     readerMode: Literal["URL", "HTML", "TEXT"]
     clickable: Literal[True] = True
 
@@ -89,7 +80,7 @@ class NewsListPanelDto(BaseModel):
     visibleItemCount: int = Field(ge=1)
     updatedAt: datetime
     items: list[NewsPanelItemDto]
-    sortRule: Literal["publishTime_desc_priority_desc"] = "publishTime_desc_priority_desc"
+    sortRule: Literal["publishTime_desc"] = "publishTime_desc"
     clickablePolicy: Literal["reader"] = "reader"
 
 

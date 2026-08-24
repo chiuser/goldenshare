@@ -57,12 +57,12 @@ import { MarketNewsPanel } from "../../features/market-overview/news/MarketNewsP
 import { MarketNewsPanelGroup } from "../../features/market-overview/news/MarketNewsPanelGroup";
 import {
   buildNewsBriefsViewModelFromApi,
-  buildStockNewsViewModelFromApi,
+  buildNewsCommunicationsViewModelFromApi,
   type MarketNewsPanelViewModel,
 } from "../../features/market-overview/news/api/marketNewsAdapter";
 import {
   fetchMarketNewsBriefs,
-  fetchStockNews,
+  fetchNewsCommunications,
   type MarketNewsDebugInfo,
 } from "../../features/market-overview/news/api/marketNewsApi";
 import { useMarketNewsReader } from "../../features/market-overview/news/model/useMarketNewsReader";
@@ -181,12 +181,12 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
   );
   const [newsBriefsErrorMessage, setNewsBriefsErrorMessage] = useState<string | null>(null);
   const [newsBriefsDebugInfo, setNewsBriefsDebugInfo] = useState<MarketNewsDebugInfo | null>(null);
-  const [stockNews, setStockNews] = useState<MarketNewsPanelViewModel | null>(null);
-  const [stockNewsViewState, setStockNewsViewState] = useState<"loading" | "ready" | "error">(
+  const [newsCommunications, setNewsCommunications] = useState<MarketNewsPanelViewModel | null>(null);
+  const [newsCommunicationsViewState, setNewsCommunicationsViewState] = useState<"loading" | "ready" | "error">(
     marketOverviewModuleSources.news === "real" ? "loading" : "ready",
   );
-  const [stockNewsErrorMessage, setStockNewsErrorMessage] = useState<string | null>(null);
-  const [stockNewsDebugInfo, setStockNewsDebugInfo] = useState<MarketNewsDebugInfo | null>(null);
+  const [newsCommunicationsErrorMessage, setNewsCommunicationsErrorMessage] = useState<string | null>(null);
+  const [newsCommunicationsDebugInfo, setNewsCommunicationsDebugInfo] = useState<MarketNewsDebugInfo | null>(null);
   const [leaderboards, setLeaderboards] = useState<MarketLeaderboardsViewModel | null>(null);
   const [leaderboardsViewState, setLeaderboardsViewState] = useState<"loading" | "ready" | "error">(
     marketOverviewModuleSources.leaderboards === "real" ? "loading" : "ready",
@@ -223,7 +223,7 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
       ...(turnoverDebugInfo?.modules ?? []),
       ...(moneyFlowDebugInfo?.modules ?? []),
       ...(newsBriefsDebugInfo?.modules ?? []),
-      ...(stockNewsDebugInfo?.modules ?? []),
+      ...(newsCommunicationsDebugInfo?.modules ?? []),
       ...(leaderboardsDebugInfo?.modules ?? []),
       ...(limitUpDebugInfo?.modules ?? []),
       ...(streakLadderDebugInfo?.modules ?? []),
@@ -237,7 +237,7 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
       ...(turnoverDebugInfo?.exceptions ?? []),
       ...(moneyFlowDebugInfo?.exceptions ?? []),
       ...(newsBriefsDebugInfo?.exceptions ?? []),
-      ...(stockNewsDebugInfo?.exceptions ?? []),
+      ...(newsCommunicationsDebugInfo?.exceptions ?? []),
       ...(leaderboardsDebugInfo?.exceptions ?? []),
       ...(limitUpDebugInfo?.exceptions ?? []),
       ...(streakLadderDebugInfo?.exceptions ?? []),
@@ -254,7 +254,7 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
     turnoverDebugInfo,
     moneyFlowDebugInfo,
     newsBriefsDebugInfo,
-    stockNewsDebugInfo,
+    newsCommunicationsDebugInfo,
     leaderboardsDebugInfo,
     limitUpDebugInfo,
     streakLadderDebugInfo,
@@ -364,9 +364,9 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
         setNewsBriefs(null);
         setNewsBriefsViewState("loading");
         setNewsBriefsErrorMessage(null);
-        setStockNews(null);
-        setStockNewsViewState("loading");
-        setStockNewsErrorMessage(null);
+        setNewsCommunications(null);
+        setNewsCommunicationsViewState("loading");
+        setNewsCommunicationsErrorMessage(null);
       }
       if (marketOverviewModuleSources.limitUp === "mock") {
         setLimitUp(buildLimitUpViewModelFromMock(response.data));
@@ -397,7 +397,12 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
 
     const requestParams = { market: "CN_A" as const, debug: pageDebugEnabled ? (1 as const) : (0 as const) };
 
-    function handleNewsError(error: unknown, moduleName: "新闻速览" | "个股新闻", url: string, mode: "initial" | "refresh") {
+    function handleNewsError(
+      error: unknown,
+      moduleName: "新闻速览" | "新闻通讯",
+      url: string,
+      mode: "initial" | "refresh",
+    ) {
       if (mode === "refresh") return;
       const timeout = error instanceof DOMException && error.name === "AbortError";
       const message = timeout ? `请求超时：${url}` : error instanceof Error ? error.message : `${moduleName}加载失败`;
@@ -407,10 +412,10 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
         setNewsBriefsErrorMessage(message);
         setNewsBriefsDebugInfo(null);
       } else {
-        setStockNews(null);
-        setStockNewsViewState("error");
-        setStockNewsErrorMessage(message);
-        setStockNewsDebugInfo(null);
+        setNewsCommunications(null);
+        setNewsCommunicationsViewState("error");
+        setNewsCommunicationsErrorMessage(message);
+        setNewsCommunicationsDebugInfo(null);
       }
       showToast(`${moduleName}模块异常：${message}`);
     }
@@ -427,10 +432,10 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
         setNewsBriefsViewState("loading");
         setNewsBriefsErrorMessage(null);
         setNewsBriefsDebugInfo(null);
-        setStockNews(null);
-        setStockNewsViewState("loading");
-        setStockNewsErrorMessage(null);
-        setStockNewsDebugInfo(null);
+        setNewsCommunications(null);
+        setNewsCommunicationsViewState("loading");
+        setNewsCommunicationsErrorMessage(null);
+        setNewsCommunicationsDebugInfo(null);
       }
 
       const briefsPromise = fetchMarketNewsBriefs(requestParams, { signal: abortController.signal })
@@ -448,22 +453,22 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
           }
         });
 
-      const stocksPromise = fetchStockNews(requestParams, { signal: abortController.signal })
+      const communicationsPromise = fetchNewsCommunications(requestParams, { signal: abortController.signal })
         .then((payload) => {
           if (!canceled) {
-            setStockNews(buildStockNewsViewModelFromApi(payload));
-            setStockNewsViewState("ready");
-            setStockNewsErrorMessage(null);
-            setStockNewsDebugInfo(pageDebugEnabled ? payload.debugInfo ?? null : null);
+            setNewsCommunications(buildNewsCommunicationsViewModelFromApi(payload));
+            setNewsCommunicationsViewState("ready");
+            setNewsCommunicationsErrorMessage(null);
+            setNewsCommunicationsDebugInfo(pageDebugEnabled ? payload.debugInfo ?? null : null);
           }
         })
         .catch((error) => {
           if (!canceled) {
-            handleNewsError(error, "个股新闻", "/api/v1/wealth/market/news/stocks", mode);
+            handleNewsError(error, "新闻通讯", "/api/v1/wealth/market/news/communications", mode);
           }
         });
 
-      Promise.allSettled([briefsPromise, stocksPromise]).finally(() => {
+      Promise.allSettled([briefsPromise, communicationsPromise]).finally(() => {
         window.clearTimeout(timeoutId);
         if (activeAbortController === abortController) activeAbortController = null;
         requestInFlight = false;
@@ -994,12 +999,12 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
                 onItemOpen={newsReader.open}
               />
             }
-            stockNews={
+            newsCommunications={
               <MarketNewsPanel
-                title="个股新闻"
-                viewState={stockNewsViewState}
-                panel={stockNews}
-                errorMessage={stockNewsErrorMessage ?? undefined}
+                title="新闻通讯"
+                viewState={newsCommunicationsViewState}
+                panel={newsCommunications}
+                errorMessage={newsCommunicationsErrorMessage ?? undefined}
                 onItemOpen={newsReader.open}
               />
             }

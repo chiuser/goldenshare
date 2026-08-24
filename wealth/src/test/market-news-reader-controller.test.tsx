@@ -9,6 +9,7 @@ import { NewsReaderDialog } from "../shared/ui/news-reader/NewsReaderDialog";
 
 const itemA: MarketNewsViewItem = {
   newsId: "news-a",
+  contentSource: "news",
   publishTime: "2026-08-23T09:30:00+08:00",
   displayTime: "08-23 09:30:00",
   title: "新闻 A",
@@ -19,6 +20,7 @@ const itemA: MarketNewsViewItem = {
 const itemB: MarketNewsViewItem = {
   ...itemA,
   newsId: "news-b",
+  contentSource: "major_news",
   title: "新闻 B",
 };
 
@@ -32,10 +34,10 @@ function Harness() {
   const reader = useMarketNewsReader();
   return (
     <>
-      <button type="button" data-news-reader-trigger data-news-id="news-a" onClick={(event) => reader.open(itemA, event.currentTarget)}>
+      <button type="button" data-news-reader-trigger data-news-source="news" data-news-id="news-a" onClick={(event) => reader.open(itemA, event.currentTarget)}>
         打开 A
       </button>
-      <button type="button" data-news-reader-trigger data-news-id="news-b" onClick={(event) => reader.open(itemB, event.currentTarget)}>
+      <button type="button" data-news-reader-trigger data-news-source="major_news" data-news-id="news-b" onClick={(event) => reader.open(itemB, event.currentTarget)}>
         打开 B
       </button>
       <NewsReaderDialog state={reader.state} onClose={reader.close} onRetry={reader.retry} />
@@ -53,6 +55,7 @@ function RefreshHarness() {
         key={version}
         type="button"
         data-news-reader-trigger
+        data-news-source="news"
         data-news-id="news-a"
         onClick={(event) => reader.open(itemA, event.currentTarget)}
       >
@@ -73,9 +76,10 @@ afterEach(() => {
 
 describe("useMarketNewsReader", () => {
   it("opens immediately, resolves one item, and restores trigger focus", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       responseJson({
         newsId: "news-a",
+        contentSource: "news",
         title: "新闻 A 详情",
         source: "Tushare",
         publishTime: itemA.publishTime,
@@ -83,6 +87,7 @@ describe("useMarketNewsReader", () => {
         url: null,
         html: null,
         content: "A 正文",
+        originalUrl: null,
       }),
     );
     render(<Harness />);
@@ -92,6 +97,7 @@ describe("useMarketNewsReader", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("新闻 A")).toBeInTheDocument();
     expect(await screen.findByText("A 正文")).toBeInTheDocument();
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/api/v1/wealth/market/news/items/news/news-a");
 
     fireEvent.click(screen.getByRole("button", { name: "关闭新闻阅读器" }));
     await waitFor(() => expect(trigger).toHaveFocus());
@@ -102,6 +108,7 @@ describe("useMarketNewsReader", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       responseJson({
         newsId: "news-a",
+        contentSource: "news",
         title: "新闻 A 详情",
         source: null,
         publishTime: itemA.publishTime,
@@ -109,6 +116,7 @@ describe("useMarketNewsReader", () => {
         url: null,
         html: null,
         content: "A 正文",
+        originalUrl: null,
       }),
     );
     render(<RefreshHarness />);
@@ -137,6 +145,7 @@ describe("useMarketNewsReader", () => {
       return Promise.resolve(
         responseJson({
           newsId: "news-b",
+          contentSource: "major_news",
           title: "新闻 B 详情",
           source: null,
           publishTime: itemB.publishTime,
@@ -144,6 +153,7 @@ describe("useMarketNewsReader", () => {
           url: null,
           html: null,
           content: "B 正文",
+          originalUrl: "https://example.com/news-b",
         }),
       );
     });
@@ -152,12 +162,15 @@ describe("useMarketNewsReader", () => {
     fireEvent.click(screen.getByRole("button", { name: "打开 A" }));
     fireEvent.click(screen.getByRole("button", { name: "打开 B" }));
     expect(await screen.findByText("B 正文")).toBeInTheDocument();
+    expect(screen.queryByText("https://example.com/news-b")).not.toBeInTheDocument();
+    expect(document.querySelector('a[href="https://example.com/news-b"]')).toBeNull();
 
     if (!resolveA) throw new Error("A resolver missing");
     await act(async () => {
       resolveA?.(
         responseJson({
           newsId: "news-a",
+          contentSource: "news",
           title: "新闻 A 详情",
           source: null,
           publishTime: itemA.publishTime,
@@ -165,6 +178,7 @@ describe("useMarketNewsReader", () => {
           url: null,
           html: null,
           content: "A 晚到正文",
+          originalUrl: null,
         }),
       );
     });

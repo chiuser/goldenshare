@@ -622,8 +622,8 @@ describe("MarketOverviewPage", () => {
     fireEvent.click(sectorButton);
     expect(window.location.pathname).toBe("/wealth/market/overview");
 
-    const stockNewsSection = await screen.findByLabelText("个股新闻");
-    fireEvent.click(stockNewsSection);
+    const newsCommunicationsSection = await screen.findByLabelText("新闻通讯");
+    fireEvent.click(newsCommunicationsSection);
     expect(window.location.pathname).toBe("/wealth/market/overview");
   });
 

@@ -5,10 +5,10 @@ from pydantic import BaseModel, ConfigDict
 from .news_briefs import MarketNewsDebugInfoDto, NewsListPanelDto, NewsWindowDto, PageStatusDto
 
 
-class StockNewsResponseDto(BaseModel):
+class NewsCommunicationsResponseDto(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     newsWindow: NewsWindowDto
     pageStatus: PageStatusDto
-    stockNews: NewsListPanelDto
+    newsCommunications: NewsListPanelDto
     debugInfo: MarketNewsDebugInfoDto | None = None

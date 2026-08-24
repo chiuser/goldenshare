@@ -11,6 +11,12 @@ export function buildNewsReaderViewModelFromApi(payload: NewsReaderItemResponse)
   if (!payloads[payload.readerMode] || Object.entries(payloads).some(([mode, value]) => mode !== payload.readerMode && value !== null)) {
     throw new MarketNewsReaderApiError("新闻内容合同无效", "NEWS_READER_CONTRACT_INVALID", 502);
   }
+  if (payload.contentSource === "news" && payload.originalUrl !== null) {
+    throw new MarketNewsReaderApiError("新闻来源合同无效", "NEWS_READER_CONTRACT_INVALID", 502);
+  }
+  if (payload.contentSource === "major_news" && (payload.readerMode === "URL" || payload.url !== null)) {
+    throw new MarketNewsReaderApiError("新闻通讯正文合同无效", "NEWS_READER_CONTRACT_INVALID", 502);
+  }
   return {
     newsId: payload.newsId,
     title: payload.title,

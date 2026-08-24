@@ -4,7 +4,7 @@ import { SkeletonBlock } from "../../../shared/ui/SkeletonBlock";
 import type { MarketNewsPanelViewModel } from "./api/marketNewsAdapter";
 
 interface MarketNewsPanelProps {
-  title: "新闻速览" | "个股新闻";
+  title: "新闻速览" | "新闻通讯";
   viewState: "loading" | "ready" | "error";
   panel?: MarketNewsPanelViewModel | null;
   errorMessage?: string;
@@ -70,6 +70,7 @@ function NewsTickerList({ items, visibleItemCount, onItemOpen }: NewsTickerListP
           type="button"
           className="market-news-item"
           data-news-reader-trigger
+          data-news-source={item.contentSource}
           data-news-id={item.newsId}
           key={`${item.newsId}-${index}`}
           title={`${item.displayTime}｜${item.title}`}

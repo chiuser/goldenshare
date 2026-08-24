@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.foundation.models.core_serving_light.news import NewsLight
+from src.biz.schemas.wealth.market.news_common import NewsContentSourceValue
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,6 +17,8 @@ class NewsReaderQueryRow:
     title: str | None
     source: str
     content: str | None
+    content_source: NewsContentSourceValue
+    original_url: str | None
 
 
 class NewsReaderQuery:
@@ -39,4 +42,6 @@ class NewsReaderQuery:
             title=row.title,
             source=row.src,
             content=row.content,
+            content_source="news",
+            original_url=None,
         )

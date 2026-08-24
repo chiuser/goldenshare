@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime, time, timedelta, timezone
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from src.foundation.models.core_serving_light.major_news import MajorNewsLight
 from src.foundation.models.core_serving_light.news import NewsLight
 
 
 def _ensure_news_tables(db_session) -> None:
     bind = db_session.get_bind()
-    for table in [
-        NewsLight.__table__,
-    ]:
+    for table in (NewsLight.__table__, MajorNewsLight.__table__):
         table.create(bind, checkfirst=True)
 
 
@@ -45,141 +45,147 @@ def _add_news(
     )
 
 
-def test_market_news_endpoints_return_split_panels(app_client, db_session) -> None:
+def _add_major_news(
+    db_session,
+    *,
+    row_key_hash: str,
+    pub_time: datetime,
+    title: str | None,
+    content: str | None,
+    src: str = "cls",
+    url: str | None = "https://example.com/original",
+) -> None:
+    db_session.add(
+        MajorNewsLight(
+            row_key_hash=row_key_hash,
+            src=src,
+            pub_time=pub_time,
+            title=title,
+            content=content,
+            url=url,
+            source="tushare-source-must-not-leak",
+            fetched_at=datetime(2026, 5, 8, 16, 0, tzinfo=timezone.utc),
+        )
+    )
+
+
+def test_market_news_endpoints_use_independent_sources(app_client, db_session) -> None:
     _ensure_news_tables(db_session)
     now, in_window_time, before_window_time = _news_window_sample_times()
     _add_news(
         db_session,
-        row_key_hash="market-news-001",
+        row_key_hash="brief-company",
         news_time=in_window_time + timedelta(minutes=5),
-        title="央行公开市场开展逆回购操作",
-        channels="宏观",
-        content="央行公开市场开展逆回购操作正文",
+        title="两列共有标题",
+        channels="公司",
+        content="公司频道也属于完整快讯流",
     )
     _add_news(
         db_session,
-        row_key_hash="market-news-title-duplicate-new",
-        news_time=in_window_time + timedelta(minutes=7),
-        title="同一展示标题",
-        channels="宏观",
-        content="同一展示标题的较新正文",
-    )
-    _add_news(
-        db_session,
-        row_key_hash="market-news-title-duplicate-old",
-        news_time=in_window_time + timedelta(minutes=6),
-        title="同一展示标题",
-        channels="宏观",
-        content="同一展示标题的较旧正文",
-    )
-    _add_news(
-        db_session,
-        row_key_hash="market-news-002",
+        row_key_hash="brief-macro",
         news_time=in_window_time + timedelta(minutes=4),
-        title=None,
-        content="市场流动性保持合理充裕",
-        channels=None,
+        title="宏观快讯",
+        channels="宏观",
+        content="宏观快讯正文",
     )
     _add_news(
         db_session,
-        row_key_hash="market-news-duplicate-old",
+        row_key_hash="brief-null-channel",
         news_time=in_window_time + timedelta(minutes=3),
-        title="重复旧新闻",
-        content="市场流动性保持合理充裕",
-        channels="宏观",
+        title=None,
+        channels=None,
+        content="无频道快讯正文",
     )
     _add_news(
         db_session,
-        row_key_hash="market-news-empty-content",
-        news_time=in_window_time + timedelta(minutes=2),
-        title="只有标题没有正文",
-        content=" ",
-        channels="宏观",
-    )
-    _add_news(
-        db_session,
-        row_key_hash="market-news-before-window",
+        row_key_hash="brief-outside-window",
         news_time=before_window_time,
-        title="窗口外旧新闻",
-        content="窗口外旧新闻正文",
+        title="窗口外快讯",
         channels="宏观",
+        content="窗口外快讯正文",
     )
-    _add_news(
+    _add_major_news(
         db_session,
-        row_key_hash="stock-news-001",
-        news_time=in_window_time + timedelta(minutes=1),
-        title="某上市公司发布一季度经营进展",
-        channels="公司",
-        content="某上市公司发布一季度经营进展正文",
+        row_key_hash="communication-shared-title",
+        pub_time=in_window_time + timedelta(minutes=7),
+        title="两列共有标题",
+        content="<article><p>通讯正文</p></article>",
     )
-    _add_news(
+    _add_major_news(
         db_session,
-        row_key_hash="stock-news-title-duplicate-new",
-        news_time=in_window_time + timedelta(minutes=2),
-        title="同一公司标题",
-        channels="公司",
-        content="同一公司标题的较新正文",
+        row_key_hash="communication-duplicate-old",
+        pub_time=in_window_time + timedelta(minutes=2),
+        title="重复通讯标题",
+        content="较旧通讯正文",
     )
-    _add_news(
+    _add_major_news(
         db_session,
-        row_key_hash="stock-news-title-duplicate-old",
-        news_time=in_window_time,
-        title="同一公司标题",
-        channels="公司",
-        content="同一公司标题的较旧正文",
+        row_key_hash="communication-duplicate-new",
+        pub_time=in_window_time + timedelta(minutes=6),
+        title="重复通讯标题",
+        content="较新通讯正文",
+    )
+    _add_major_news(
+        db_session,
+        row_key_hash="communication-empty-title",
+        pub_time=in_window_time + timedelta(minutes=8),
+        title=" ",
+        content="不能进入列表",
+    )
+    _add_major_news(
+        db_session,
+        row_key_hash="communication-empty-content",
+        pub_time=in_window_time + timedelta(minutes=9),
+        title="空正文通讯",
+        content=" ",
     )
     db_session.commit()
 
-    briefs_response = app_client.get(
-        "/api/v1/wealth/market/news/briefs",
+    briefs_response = app_client.get("/api/v1/wealth/market/news/briefs", params={"debug": 1})
+    communications_response = app_client.get(
+        "/api/v1/wealth/market/news/communications",
         params={"debug": 1},
     )
+
     assert briefs_response.status_code == 200
     briefs_payload = briefs_response.json()
     assert briefs_payload["newsWindow"]["market"] == "CN_A"
     assert briefs_payload["newsWindow"]["startAt"][:10] == (now.date() - timedelta(days=1)).isoformat()
-    assert briefs_payload["newsWindow"]["endAt"][:10] == now.date().isoformat()
     assert briefs_payload["pageStatus"]["status"] == "READY"
     assert briefs_payload["newsBriefs"]["panelKey"] == "newsBriefs"
-    assert briefs_payload["newsBriefs"]["visibleItemCount"] == 10
+    assert briefs_payload["newsBriefs"]["sortRule"] == "publishTime_desc"
     assert [item["newsId"] for item in briefs_payload["newsBriefs"]["items"]] == [
-        "market-news-title-duplicate-new",
-        "market-news-001",
-        "market-news-002",
-        "market-news-duplicate-old",
+        "brief-company",
+        "brief-macro",
+        "brief-null-channel",
     ]
-    assert briefs_payload["newsBriefs"]["items"][0]["title"] == "同一展示标题"
-    assert briefs_payload["newsBriefs"]["items"][0]["category"] == "market"
-    assert briefs_payload["newsBriefs"]["clickablePolicy"] == "reader"
-    assert briefs_payload["newsBriefs"]["items"][0]["clickable"] is True
-    assert briefs_payload["newsBriefs"]["items"][0]["readerMode"] == "TEXT"
-    assert not {"url", "html", "content"}.intersection(briefs_payload["newsBriefs"]["items"][0])
-    assert briefs_payload["newsBriefs"]["items"][2]["title"] == "市场流动性保持合理充裕"
-    assert briefs_payload["newsBriefs"]["items"][3]["title"] == "重复旧新闻"
-    assert briefs_payload["debugInfo"]["modules"][0]["moduleKey"] == "newsBriefs"
-
-    stocks_response = app_client.get(
-        "/api/v1/wealth/market/news/stocks",
-        params={"debug": 1},
+    assert {item["contentSource"] for item in briefs_payload["newsBriefs"]["items"]} == {"news"}
+    assert {item["category"] for item in briefs_payload["newsBriefs"]["items"]} == {"brief"}
+    assert briefs_payload["newsBriefs"]["items"][2]["title"] == "无频道快讯正文"
+    assert not {"subject", "priority", "url", "html", "content"}.intersection(
+        briefs_payload["newsBriefs"]["items"][0]
     )
-    assert stocks_response.status_code == 200
-    stocks_payload = stocks_response.json()
-    assert stocks_payload["pageStatus"]["status"] == "READY"
-    assert stocks_payload["stockNews"]["panelKey"] == "stockNews"
-    assert [item["newsId"] for item in stocks_payload["stockNews"]["items"]] == [
-        "stock-news-title-duplicate-new",
-        "stock-news-001",
-    ]
-    assert stocks_payload["stockNews"]["items"][0]["category"] == "stock"
-    assert stocks_payload["stockNews"]["items"][0]["subject"] is None
-    assert stocks_payload["stockNews"]["items"][0]["clickable"] is True
-    assert stocks_payload["stockNews"]["items"][0]["readerMode"] == "TEXT"
-    assert stocks_payload["debugInfo"]["modules"][0]["moduleKey"] == "stockNews"
 
-    no_debug_response = app_client.get("/api/v1/wealth/market/news/briefs")
-    assert no_debug_response.status_code == 200
-    no_debug_payload = no_debug_response.json()
-    assert "debugInfo" not in no_debug_payload or no_debug_payload["debugInfo"] is None
+    assert communications_response.status_code == 200
+    communications_payload = communications_response.json()
+    assert communications_payload["pageStatus"]["status"] == "READY"
+    assert communications_payload["newsCommunications"]["panelKey"] == "newsCommunications"
+    assert [item["newsId"] for item in communications_payload["newsCommunications"]["items"]] == [
+        "communication-shared-title",
+        "communication-duplicate-new",
+    ]
+    assert {item["contentSource"] for item in communications_payload["newsCommunications"]["items"]} == {
+        "major_news"
+    }
+    assert {item["category"] for item in communications_payload["newsCommunications"]["items"]} == {
+        "communication"
+    }
+    assert communications_payload["newsCommunications"]["items"][0]["source"] == "cls"
+    assert communications_payload["newsCommunications"]["items"][0]["readerMode"] == "HTML"
+    assert briefs_payload["newsBriefs"]["items"][0]["title"] == "两列共有标题"
+    assert communications_payload["newsCommunications"]["items"][0]["title"] == "两列共有标题"
+    assert communications_payload["debugInfo"]["modules"][0]["moduleKey"] == "newsCommunications"
+    assert app_client.get("/api/v1/wealth/market/news/stocks").status_code == 404
 
 
 def test_market_news_endpoint_marks_delayed_without_old_day_fallback(app_client, db_session) -> None:
@@ -187,7 +193,7 @@ def test_market_news_endpoint_marks_delayed_without_old_day_fallback(app_client,
     _, _, before_window_time = _news_window_sample_times()
     _add_news(
         db_session,
-        row_key_hash="market-news-old",
+        row_key_hash="brief-old",
         news_time=before_window_time,
         title="旧日市场新闻",
         channels="宏观",
@@ -195,10 +201,8 @@ def test_market_news_endpoint_marks_delayed_without_old_day_fallback(app_client,
     )
     db_session.commit()
 
-    response = app_client.get(
-        "/api/v1/wealth/market/news/briefs",
-        params={"debug": 1},
-    )
+    response = app_client.get("/api/v1/wealth/market/news/briefs", params={"debug": 1})
+
     assert response.status_code == 200
     payload = response.json()
     assert payload["pageStatus"]["status"] == "DELAYED"
@@ -213,55 +217,46 @@ def test_market_news_endpoint_returns_300_item_candidate_pool(app_client, db_ses
     for index in range(305):
         _add_news(
             db_session,
-            row_key_hash=f"market-news-bulk-{index:03d}",
+            row_key_hash=f"brief-bulk-{index:03d}",
             news_time=in_window_time + timedelta(seconds=index),
             title=f"市场新闻 {index:03d}",
-            channels="宏观",
+            channels="公司" if index % 2 else "宏观",
             content=f"市场新闻正文 {index:03d}",
         )
     db_session.commit()
 
     response = app_client.get("/api/v1/wealth/market/news/briefs")
+
     assert response.status_code == 200
-    payload = response.json()
-    items = payload["newsBriefs"]["items"]
-    assert payload["newsBriefs"]["visibleItemCount"] == 10
+    items = response.json()["newsBriefs"]["items"]
     assert len(items) == 300
-    assert items[0]["newsId"] == "market-news-bulk-304"
-    assert items[-1]["newsId"] == "market-news-bulk-005"
-
-
-def test_market_news_list_reader_hints_match_detail_classification(app_client, db_session) -> None:
-    _ensure_news_tables(db_session)
-    _, in_window_time, _ = _news_window_sample_times()
-    samples = [
-        ("market-reader-url", "https://example.com/news", "URL"),
-        ("market-reader-html", "<article><p>HTML 正文</p></article>", "HTML"),
-        ("market-reader-text", "纯文本正文", "TEXT"),
-    ]
-    for index, (news_id, content, _) in enumerate(samples):
-        _add_news(
-            db_session,
-            row_key_hash=news_id,
-            news_time=in_window_time + timedelta(minutes=index),
-            title=f"阅读模式 {index}",
-            channels="宏观",
-            content=content,
-        )
-    db_session.commit()
-
-    response = app_client.get("/api/v1/wealth/market/news/briefs")
-
-    assert response.status_code == 200
-    items = {item["newsId"]: item for item in response.json()["newsBriefs"]["items"]}
-    for news_id, _, expected_mode in samples:
-        assert items[news_id]["readerMode"] == expected_mode
-        assert items[news_id]["clickable"] is True
-        assert not {"url", "html", "content"}.intersection(items[news_id])
+    assert items[0]["newsId"] == "brief-bulk-304"
+    assert items[-1]["newsId"] == "brief-bulk-005"
 
 
 def test_market_news_rejects_unsupported_market(app_client) -> None:
     response = app_client.get("/api/v1/wealth/market/news/briefs", params={"market": "US"})
     assert response.status_code == 400
-    payload = response.json()
-    assert payload["code"] == "400001"
+    assert response.json()["code"] == "400001"
+
+
+def test_market_news_source_contract_has_no_stock_compatibility() -> None:
+    root = Path(__file__).resolve().parents[2]
+    market_query = (root / "src/biz/queries/wealth/market/news/market_news_query.py").read_text(encoding="utf-8")
+    scoped_files = [
+        root / "src/biz/queries/wealth/market/news/news_query_service.py",
+        root / "src/app/api/v1/router.py",
+        root / "wealth/src/features/market-overview/news/api/marketNewsApi.ts",
+        root / "wealth/src/features/market-overview/news/api/marketNewsAdapter.ts",
+        root / "wealth/src/features/market-overview/news/MarketNewsPanelGroup.tsx",
+    ]
+    source = "\n".join(path.read_text(encoding="utf-8") for path in scoped_files)
+
+    assert "channels" not in market_query
+    assert "StockNewsQuery" not in source
+    assert "build_stock_news" not in source
+    assert "stockNews" not in source
+    assert "/news/stocks" not in source
+    assert not (root / "src/biz/api/wealth/market/stock_news.py").exists()
+    assert not (root / "src/biz/schemas/wealth/market/stock_news.py").exists()
+    assert not (root / "src/biz/queries/wealth/market/news/stock_news_query.py").exists()

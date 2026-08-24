@@ -1,8 +1,14 @@
 import type { NewsReaderMode } from "../../../../shared/ui/news-reader/newsReaderTypes";
-import type { MarketNewsBriefsResponse, NewsListPanelResponse, StockNewsResponse } from "./marketNewsApi";
+import type {
+  MarketNewsBriefsResponse,
+  NewsCommunicationsResponse,
+  NewsContentSource,
+  NewsListPanelResponse,
+} from "./marketNewsApi";
 
 export interface MarketNewsViewItem {
   newsId: string;
+  contentSource: NewsContentSource;
   publishTime: string;
   displayTime: string;
   title: string;
@@ -11,7 +17,7 @@ export interface MarketNewsViewItem {
 }
 
 export interface MarketNewsPanelViewModel {
-  title: "新闻速览" | "个股新闻";
+  title: "新闻速览" | "新闻通讯";
   visibleItemCount: number;
   updatedAt: string;
   items: MarketNewsViewItem[];
@@ -23,13 +29,20 @@ export function buildNewsBriefsViewModelFromApi(payload: MarketNewsBriefsRespons
   return buildPanelViewModel(payload.newsBriefs, "新闻速览", payload.pageStatus.displayText, payload.pageStatus.status);
 }
 
-export function buildStockNewsViewModelFromApi(payload: StockNewsResponse): MarketNewsPanelViewModel {
-  return buildPanelViewModel(payload.stockNews, "个股新闻", payload.pageStatus.displayText, payload.pageStatus.status);
+export function buildNewsCommunicationsViewModelFromApi(
+  payload: NewsCommunicationsResponse,
+): MarketNewsPanelViewModel {
+  return buildPanelViewModel(
+    payload.newsCommunications,
+    "新闻通讯",
+    payload.pageStatus.displayText,
+    payload.pageStatus.status,
+  );
 }
 
 function buildPanelViewModel(
   panel: NewsListPanelResponse,
-  title: "新闻速览" | "个股新闻",
+  title: "新闻速览" | "新闻通讯",
   statusLabel: string,
   status: string,
 ): MarketNewsPanelViewModel {
@@ -39,6 +52,7 @@ function buildPanelViewModel(
     updatedAt: panel.updatedAt,
     items: panel.items.map((item) => ({
       newsId: item.newsId,
+      contentSource: item.contentSource,
       publishTime: item.publishTime,
       displayTime: item.displayTime,
       title: item.title,

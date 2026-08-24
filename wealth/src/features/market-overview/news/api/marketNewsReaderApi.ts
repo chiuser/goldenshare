@@ -1,9 +1,11 @@
 import { wealthFetch } from "../../../../shared/api/wealthApiClient";
 import type { NewsReaderMode } from "../../../../shared/ui/news-reader/newsReaderTypes";
+import type { NewsContentSource } from "./marketNewsApi";
 
 
 export interface NewsReaderItemResponse {
   newsId: string;
+  contentSource: NewsContentSource;
   title: string;
   source: string | null;
   publishTime: string;
@@ -11,6 +13,7 @@ export interface NewsReaderItemResponse {
   url: string | null;
   html: string | null;
   content: string | null;
+  originalUrl: string | null;
 }
 
 
@@ -27,11 +30,12 @@ export class MarketNewsReaderApiError extends Error {
 
 
 export async function fetchMarketNewsReaderItem(
+  contentSource: NewsContentSource,
   newsId: string,
   options: { signal?: AbortSignal } = {},
 ): Promise<NewsReaderItemResponse> {
   const response = await wealthFetch(
-    `/api/v1/wealth/market/news/items/${encodeURIComponent(newsId)}`,
+    `/api/v1/wealth/market/news/items/${encodeURIComponent(contentSource)}/${encodeURIComponent(newsId)}`,
     {
       method: "GET",
       headers: { Accept: "application/json" },

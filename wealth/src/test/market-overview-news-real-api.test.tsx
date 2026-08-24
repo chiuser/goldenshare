@@ -32,18 +32,17 @@ const newsBriefsPayload = {
     panelKey: "newsBriefs",
     visibleItemCount: 10,
     updatedAt: "2026-05-11T15:05:00+08:00",
-    sortRule: "publishTime_desc_priority_desc",
+    sortRule: "publishTime_desc",
     clickablePolicy: "reader",
     items: [
       {
         newsId: "market-1",
+        contentSource: "news",
         publishTime: "2026-05-11T10:01:02",
         displayTime: "05-11 10:01:02",
         title: "宏观政策保持连续性",
-        category: "market",
+        category: "brief",
         source: "Tushare",
-        subject: null,
-        priority: null,
         readerMode: "TEXT",
         clickable: true,
       },
@@ -64,27 +63,26 @@ const newsBriefsPayload = {
   },
 };
 
-const stockNewsPayload = {
+const newsCommunicationsPayload = {
   newsWindow: newsBriefsPayload.newsWindow,
-  pageStatus: { status: "READY", displayText: "个股新闻已就绪", asOfTime: "2026-05-11T15:05:00+08:00" },
-  stockNews: {
+  pageStatus: { status: "READY", displayText: "新闻通讯已就绪", asOfTime: "2026-05-11T15:05:00+08:00" },
+  newsCommunications: {
     windowStartAt: "2026-05-10T00:00:00+08:00",
     windowEndAt: "2026-05-11T15:05:00+08:00",
-    panelKey: "stockNews",
+    panelKey: "newsCommunications",
     visibleItemCount: 10,
     updatedAt: "2026-05-11T15:05:00+08:00",
-    sortRule: "publishTime_desc_priority_desc",
+    sortRule: "publishTime_desc",
     clickablePolicy: "reader",
     items: [
       {
-        newsId: "stock-1",
+        newsId: "communication-1",
+        contentSource: "major_news",
         publishTime: "2026-05-11T09:31:10",
         displayTime: "05-11 09:31:10",
         title: "公司公告披露一季度经营情况",
-        category: "stock",
-        source: "Tushare",
-        subject: null,
-        priority: null,
+        category: "communication",
+        source: "cls",
         readerMode: "TEXT",
         clickable: true,
       },
@@ -93,7 +91,7 @@ const stockNewsPayload = {
   debugInfo: {
     modules: [
       {
-        moduleKey: "stockNews",
+        moduleKey: "newsCommunications",
         expectedTradeDate: "2026-05-11",
         observedTradeDate: "2026-05-11",
         lagDays: 0,
@@ -122,16 +120,16 @@ const refreshedNewsBriefsPayload = {
   },
 };
 
-const refreshedStockNewsPayload = {
-  ...stockNewsPayload,
-  pageStatus: { status: "READY", displayText: "个股新闻已刷新", asOfTime: "2026-05-11T15:15:00+08:00" },
-  stockNews: {
-    ...stockNewsPayload.stockNews,
+const refreshedNewsCommunicationsPayload = {
+  ...newsCommunicationsPayload,
+  pageStatus: { status: "READY", displayText: "新闻通讯已刷新", asOfTime: "2026-05-11T15:15:00+08:00" },
+  newsCommunications: {
+    ...newsCommunicationsPayload.newsCommunications,
     updatedAt: "2026-05-11T15:15:00+08:00",
     items: [
       {
-        ...stockNewsPayload.stockNews.items[0],
-        newsId: "stock-2",
+        ...newsCommunicationsPayload.newsCommunications.items[0],
+        newsId: "communication-2",
         displayTime: "05-11 15:15:00",
         title: "最新公司新闻滚动展示",
       },
@@ -176,10 +174,10 @@ describe("market-overview news real api", () => {
     window.history.pushState({}, "", "/");
   });
 
-  it("renders news briefs and stock news from independent module APIs", async () => {
+  it("renders news briefs and news communications from independent module APIs", async () => {
     const requestUrls: string[] = [];
     let resolveBriefsFetch: ((value: Response | PromiseLike<Response>) => void) | undefined;
-    let resolveStocksFetch: ((value: Response | PromiseLike<Response>) => void) | undefined;
+    let resolveCommunicationsFetch: ((value: Response | PromiseLike<Response>) => void) | undefined;
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = urlString(input);
       requestUrls.push(url);
@@ -190,9 +188,9 @@ describe("market-overview news real api", () => {
           resolveBriefsFetch = resolve;
         });
       }
-      if (url.includes("/api/v1/wealth/market/news/stocks")) {
+      if (url.includes("/api/v1/wealth/market/news/communications")) {
         return new Promise<Response>((resolve) => {
-          resolveStocksFetch = resolve;
+          resolveCommunicationsFetch = resolve;
         });
       }
       throw new Error(`unexpected url: ${url}`);
@@ -201,15 +199,15 @@ describe("market-overview news real api", () => {
     render(<MarketOverviewPage />);
 
     const newsPanel = await screen.findByLabelText("新闻速览");
-    const stockPanel = await screen.findByLabelText("个股新闻");
+    const stockPanel = await screen.findByLabelText("新闻通讯");
     expect(within(newsPanel).getByText("loading")).toBeInTheDocument();
     expect(within(stockPanel).getByText("loading")).toBeInTheDocument();
 
-    if (typeof resolveBriefsFetch !== "function" || typeof resolveStocksFetch !== "function") {
+    if (typeof resolveBriefsFetch !== "function" || typeof resolveCommunicationsFetch !== "function") {
       throw new Error("news fetch resolvers are missing");
     }
     resolveBriefsFetch(responseJson(newsBriefsPayload));
-    resolveStocksFetch(responseJson(stockNewsPayload));
+    resolveCommunicationsFetch(responseJson(newsCommunicationsPayload));
 
     await waitFor(() => {
       expect(within(newsPanel).getByText("宏观政策保持连续性")).toBeInTheDocument();
@@ -221,11 +219,11 @@ describe("market-overview news real api", () => {
     expect(stockPanel.querySelectorAll("a")).toHaveLength(0);
 
     const briefsRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/news/briefs"));
-    const stocksRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/news/stocks"));
+    const communicationsRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/news/communications"));
     expect(briefsRequest).toBeDefined();
-    expect(stocksRequest).toBeDefined();
+    expect(communicationsRequest).toBeDefined();
     expect(new URL(briefsRequest as string).searchParams.has("tradeDate")).toBe(false);
-    expect(new URL(stocksRequest as string).searchParams.has("tradeDate")).toBe(false);
+    expect(new URL(communicationsRequest as string).searchParams.has("tradeDate")).toBe(false);
   });
 
   it("uses page-level debug switch for both news endpoints", async () => {
@@ -237,7 +235,7 @@ describe("market-overview news real api", () => {
       const contextResponse = maybeContextResponse(url);
       if (contextResponse) return contextResponse;
       if (url.includes("/api/v1/wealth/market/news/briefs")) return responseJson(newsBriefsPayload);
-      if (url.includes("/api/v1/wealth/market/news/stocks")) return responseJson(stockNewsPayload);
+      if (url.includes("/api/v1/wealth/market/news/communications")) return responseJson(newsCommunicationsPayload);
       throw new Error(`unexpected url: ${url}`);
     });
 
@@ -245,11 +243,11 @@ describe("market-overview news real api", () => {
 
     expect(await screen.findByText("页面调试信息（本地 DEV）")).toBeInTheDocument();
     expect(screen.getByText("newsBriefs")).toBeInTheDocument();
-    expect(screen.getByText("stockNews")).toBeInTheDocument();
+    expect(screen.getByText("newsCommunications")).toBeInTheDocument();
     const briefsRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/news/briefs"));
-    const stocksRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/news/stocks"));
+    const communicationsRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/news/communications"));
     expect(new URL(briefsRequest as string).searchParams.get("debug")).toBe("1");
-    expect(new URL(stocksRequest as string).searchParams.get("debug")).toBe("1");
+    expect(new URL(communicationsRequest as string).searchParams.get("debug")).toBe("1");
   });
 
   it("shows independent error states when news requests exceed 5 seconds", async () => {
@@ -258,7 +256,7 @@ describe("market-overview news real api", () => {
       const url = urlString(input);
       const contextResponse = maybeContextResponse(url);
       if (contextResponse) return contextResponse;
-      if (!url.includes("/api/v1/wealth/market/news/briefs") && !url.includes("/api/v1/wealth/market/news/stocks")) {
+      if (!url.includes("/api/v1/wealth/market/news/briefs") && !url.includes("/api/v1/wealth/market/news/communications")) {
         return Promise.reject(new Error(`unexpected url: ${url}`));
       }
       const signal = (init as RequestInit | undefined)?.signal;
@@ -277,7 +275,7 @@ describe("market-overview news real api", () => {
     });
 
     const newsPanel = rendered.container.querySelector<HTMLElement>('[aria-label="新闻速览"]');
-    const stockPanel = rendered.container.querySelector<HTMLElement>('[aria-label="个股新闻"]');
+    const stockPanel = rendered.container.querySelector<HTMLElement>('[aria-label="新闻通讯"]');
     expect(newsPanel).not.toBeNull();
     expect(stockPanel).not.toBeNull();
     if (!newsPanel || !stockPanel) {
@@ -291,7 +289,7 @@ describe("market-overview news real api", () => {
       await Promise.resolve();
     });
     expect(within(newsPanel).getByText("请求超时：/api/v1/wealth/market/news/briefs")).toBeInTheDocument();
-    expect(within(stockPanel).getByText("请求超时：/api/v1/wealth/market/news/stocks")).toBeInTheDocument();
+    expect(within(stockPanel).getByText("请求超时：/api/v1/wealth/market/news/communications")).toBeInTheDocument();
     expect(within(newsPanel).getByText("error")).toBeInTheDocument();
     expect(within(stockPanel).getByText("error")).toBeInTheDocument();
   }, 15000);
@@ -299,7 +297,7 @@ describe("market-overview news real api", () => {
   it("refreshes news panels every 10 minutes without clearing existing items", async () => {
     vi.useFakeTimers();
     let briefsCalls = 0;
-    let stocksCalls = 0;
+    let communicationsCalls = 0;
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = urlString(input);
       const contextResponse = maybeContextResponse(url);
@@ -308,9 +306,9 @@ describe("market-overview news real api", () => {
         briefsCalls += 1;
         return responseJson(briefsCalls === 1 ? newsBriefsPayload : refreshedNewsBriefsPayload);
       }
-      if (url.includes("/api/v1/wealth/market/news/stocks")) {
-        stocksCalls += 1;
-        return responseJson(stocksCalls === 1 ? stockNewsPayload : refreshedStockNewsPayload);
+      if (url.includes("/api/v1/wealth/market/news/communications")) {
+        communicationsCalls += 1;
+        return responseJson(communicationsCalls === 1 ? newsCommunicationsPayload : refreshedNewsCommunicationsPayload);
       }
       throw new Error(`unexpected url: ${url}`);
     });
@@ -322,7 +320,7 @@ describe("market-overview news real api", () => {
     });
 
     const newsPanel = screen.getByLabelText("新闻速览");
-    const stockPanel = screen.getByLabelText("个股新闻");
+    const stockPanel = screen.getByLabelText("新闻通讯");
     expect(within(newsPanel).getByText("宏观政策保持连续性")).toBeInTheDocument();
     expect(within(stockPanel).getByText("公司公告披露一季度经营情况")).toBeInTheDocument();
 
@@ -336,20 +334,21 @@ describe("market-overview news real api", () => {
     expect(within(newsPanel).queryByText("loading")).not.toBeInTheDocument();
     expect(within(stockPanel).queryByText("loading")).not.toBeInTheDocument();
     expect(briefsCalls).toBe(2);
-    expect(stocksCalls).toBe(2);
+    expect(communicationsCalls).toBe(2);
   });
 
   it("opens one reader from either panel and keeps its content through list refresh", async () => {
     vi.useFakeTimers();
     let briefsCalls = 0;
-    let stocksCalls = 0;
+    let communicationsCalls = 0;
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = urlString(input);
       const contextResponse = maybeContextResponse(url);
       if (contextResponse) return contextResponse;
-      if (url.includes("/api/v1/wealth/market/news/items/market-1")) {
+      if (url.includes("/api/v1/wealth/market/news/items/news/market-1")) {
         return responseJson({
           newsId: "market-1",
+          contentSource: "news",
           title: "宏观政策保持连续性",
           source: "Tushare",
           publishTime: newsBriefsPayload.newsBriefs.items[0].publishTime,
@@ -357,15 +356,16 @@ describe("market-overview news real api", () => {
           url: null,
           html: null,
           content: "阅读器中的完整新闻正文",
+          originalUrl: null,
         });
       }
       if (url.includes("/api/v1/wealth/market/news/briefs")) {
         briefsCalls += 1;
         return responseJson(briefsCalls === 1 ? newsBriefsPayload : refreshedNewsBriefsPayload);
       }
-      if (url.includes("/api/v1/wealth/market/news/stocks")) {
-        stocksCalls += 1;
-        return responseJson(stocksCalls === 1 ? stockNewsPayload : refreshedStockNewsPayload);
+      if (url.includes("/api/v1/wealth/market/news/communications")) {
+        communicationsCalls += 1;
+        return responseJson(communicationsCalls === 1 ? newsCommunicationsPayload : refreshedNewsCommunicationsPayload);
       }
       throw new Error(`unexpected url: ${url}`);
     });
@@ -377,7 +377,7 @@ describe("market-overview news real api", () => {
     });
 
     const newsPanel = screen.getByLabelText("新闻速览");
-    const stockPanel = screen.getByLabelText("个股新闻");
+    const stockPanel = screen.getByLabelText("新闻通讯");
     const marketTrigger = within(newsPanel).getByRole("button", { name: /宏观政策保持连续性/ });
     const stockTrigger = within(stockPanel).getByRole("button", { name: /公司公告披露一季度经营情况/ });
     expect(marketTrigger).toHaveAttribute("aria-haspopup", "dialog");
@@ -403,7 +403,7 @@ describe("market-overview news real api", () => {
   it("keeps current news visible when a background refresh fails", async () => {
     vi.useFakeTimers();
     let briefsCalls = 0;
-    let stocksCalls = 0;
+    let communicationsCalls = 0;
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = urlString(input);
       const contextResponse = maybeContextResponse(url);
@@ -413,10 +413,10 @@ describe("market-overview news real api", () => {
         if (briefsCalls === 1) return responseJson(newsBriefsPayload);
         throw new Error("briefs refresh failed");
       }
-      if (url.includes("/api/v1/wealth/market/news/stocks")) {
-        stocksCalls += 1;
-        if (stocksCalls === 1) return responseJson(stockNewsPayload);
-        throw new Error("stocks refresh failed");
+      if (url.includes("/api/v1/wealth/market/news/communications")) {
+        communicationsCalls += 1;
+        if (communicationsCalls === 1) return responseJson(newsCommunicationsPayload);
+        throw new Error("communications refresh failed");
       }
       throw new Error(`unexpected url: ${url}`);
     });
@@ -428,7 +428,7 @@ describe("market-overview news real api", () => {
     });
 
     const newsPanel = screen.getByLabelText("新闻速览");
-    const stockPanel = screen.getByLabelText("个股新闻");
+    const stockPanel = screen.getByLabelText("新闻通讯");
     expect(within(newsPanel).getByText("宏观政策保持连续性")).toBeInTheDocument();
     expect(within(stockPanel).getByText("公司公告披露一季度经营情况")).toBeInTheDocument();
 
@@ -442,6 +442,6 @@ describe("market-overview news real api", () => {
     expect(within(newsPanel).queryByText("error")).not.toBeInTheDocument();
     expect(within(stockPanel).queryByText("error")).not.toBeInTheDocument();
     expect(briefsCalls).toBe(2);
-    expect(stocksCalls).toBe(2);
+    expect(communicationsCalls).toBe(2);
   });
 });
