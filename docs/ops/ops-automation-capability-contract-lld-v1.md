@@ -1,7 +1,7 @@
 # Ops 自动任务能力契约 LLD v1
 
-状态：P1–P4 已完成
-日期：2026-08-03
+状态：P1–P4 已完成；P5 代码与本地验证已完成，生产迁移待独立维护窗口
+日期：2026-08-24
 上位方案：[Ops 自动任务能力契约收敛方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-automation-capability-contract-plan-v1.md)。
 
 ---
@@ -20,6 +20,11 @@
 | `AC-008` | Runtime 7 类探测及防篡改不变 | Probe Runtime | 7 类回归、detail 全市场单日回归 |
 | `AC-009` | 不改变现有 28 schedule / 6 ProbeRule 语义 | 只读 preflight | 零 mismatch；无 bulk rebind |
 | `AC-010` | 不提前创建 margin_detail 自动任务 | 无 seed/migration | 生产仍为 0；M5b 独立授权 |
+| `AC-011` | 纯 probe 没有 cron/next-run 语义 | service + resolver + DB constraint | create/update/resume 后两字段均为 `NULL` |
+| `AC-012` | 纯 probe 请求不能夹带定时字段 | service + API | cron、next-run、once 三类反例分别 422 |
+| `AC-013` | fallback 保留真实定时兜底 | resolver + scheduler | fallback cron/next-run 和跳过逻辑回归不变 |
+| `AC-014` | 存量纯 probe 原位归一化，不重建 rule | Alembic `20260824_000150` | schedule 字段清空；ProbeRule id/数量/内容不变 |
+| `AC-015` | 前端不生成或展示伪定时信息 | 自动任务页 | 请求为 null；列表显示持续探测/探测窗口 |
 
 ## 1. 模块和边界
 
@@ -33,8 +38,11 @@
 | 新增只读 audit service | 扫描 schedule/ProbeRule，不写库 |
 | Probe Runtime 和 7 个 service | 保留显式 dispatch；增加 workflow rule 防御 |
 | 前端 `types.ts` 与自动任务页 | 只读 Catalog contract，删除本地特例 |
+| `operations_schedule_service.py` | P5 在 create/update/resume 固定纯 probe 无定时字段 |
+| `schedule.py` + migration `20260824_000150` | P5 数据库约束与存量字段归一化 |
+| capability audit service | P5 对 active/paused 纯 probe 检查无效时间字段 |
 
-不改 `DatasetDefinition`，不新增 `foundation -> ops` 依赖，不改业务数据表或迁移。
+不改 `DatasetDefinition`，不新增 `foundation -> ops` 依赖，不改任何业务数据表。P5 只新增一条 `ops.schedule` 契约迁移。
 
 ## 2. Catalog 数据契约
 
@@ -65,6 +73,8 @@ class ProbeConditionCapability(BaseModel):
 ```
 
 `trigger_options` 和 `probe_conditions` 不得被前端做笛卡尔积；一个 condition 只能用于其声明的 trigger mode。
+
+其中，纯 `probe` 的 `allowed_schedule_types` 固定为 `cron`，只是为了兼容现有非空 `schedule_type` 列并表达“持续型任务”；它不表示存在 cron 定时。`schedule_probe_fallback` 仍按目标能力返回 `cron/once`，并保留真实定时兜底语义。
 
 ### 2.2 来源模型
 
@@ -163,6 +173,28 @@ workflow 请求出现 `probe`、`schedule_probe_fallback`、condition、probe wi
 4. pause 只删除 rule，不让遗留无效配置阻止暂停。
 5. `on_success_action_json`、内部 source、时间和 filters 只能取自 validated intent，不得重读原始 request。
 
+### 3.5 纯 probe 时间不变量
+
+纯 probe 的持久化不变量固定为：
+
+```text
+trigger_mode = probe
+schedule_type = cron
+cron_expr IS NULL
+next_run_at IS NULL
+```
+
+服务层执行顺序如下：
+
+1. Create 先完成目标参数与 capability 校验，再拒绝非空 `cron_expr/next_run_at`，且不调用 `compute_next_run_at()`。
+2. Update 先按变更后的 target、trigger 和 schedule type 校验；纯 probe 只接受空时间字段，并把存量无效字段归一为 `NULL`。
+3. Pause 维持现有语义，只移除活动 ProbeRule，不修改时间字段。
+4. Resume 对纯 probe 强制恢复上述不变量，再由 binding 按固定 capability 重建 ProbeRule；不得计算 `next_run_at`。
+5. Resolver 的 `validate_schedule()` 和只读 audit 均再次检查该不变量，避免服务层旁路。
+6. 数据库 CheckConstraint 作为最后一道防线，禁止脚本或其他写链重新写入伪时间字段。
+
+迁移 `20260824_000150` 在建立约束前，只将存量纯 probe 的 `schedule_type` 归一为 `cron` 并清空 `cron_expr/next_run_at`。它不删除或重建 Schedule、ProbeRule，不修改 TaskRun、ConfigRevision 或业务数据；downgrade 只移除约束，不伪造恢复已经确认无效的旧时间字段。
+
 ## 4. Runtime、前端与预检
 
 ### 4.1 Runtime
@@ -183,6 +215,7 @@ Runtime 保留 7 个探测器的显式 condition dispatch。防御性约束：
 3. probe 表单显示“系统默认来源”，没有 Select，也不提交 `source_key`。
 4. 缺 capability 时失败关闭，不能保存，也不能回退 action-key 白名单。
 5. 删除 `actionSupportsRemote*`、`defaultProbeConditionForAction`、`buildProbeConditionOptions`、`getStrictRemoteMarginProbeConfig` 及 source option/helper。
+6. 纯 probe 不调用排程预览，不构造 cron/next-run；列表和详情显示“持续探测 / 按探测窗口”。fallback 继续显示自己的真实执行方式和下次运行时间。
 
 ### 4.3 只读 preflight
 
@@ -192,7 +225,7 @@ Runtime 保留 7 个探测器的显式 condition dispatch。防御性约束：
 
 2026-08-03 的首次正式预检读取 28 条 schedule、6 条 ProbeRule（均为一页），未创建 TaskRun，但发现两条历史记录未通过：ProbeRule 10（schedule 31，`index_mins.maintain`）和 12（schedule 33，`margin.maintain`）的 `source_key` 是 `NULL`，按当前 `DatasetDefinition` 及 resolver 均应为 `tushare`。它们来自 P3 前“父任务空 source 写入空 rule source”的旧 binding 语义。经运营明确授权后，以 `id + schedule_id + dataset_key + source_key IS NULL` 乐观条件在单一事务中仅回填这两个 `source_key`，并断言恰好影响 2 行；未重绑、PATCH schedule、迁移或创建 TaskRun。重跑同一只读门禁后为 28 / 6、各一页、零 mismatch，P4 通过。
 
-建议 reason code：`capability.missing`、`trigger_mode.forbidden`、`condition.unsupported`、`source_key.operator_forbidden`、`probe_rule.target_forbidden`、`probe_rule.missing`、`probe_rule.orphan`、`probe_rule.mismatch`、`filters.forbidden`、`filters.incomplete`。
+建议 reason code：`capability.missing`、`trigger_mode.forbidden`、`schedule_type.forbidden`、`probe_schedule_timing.forbidden`、`condition.unsupported`、`source_key.operator_forbidden`、`probe_rule.target_forbidden`、`probe_rule.missing`、`probe_rule.orphan`、`probe_rule.mismatch`、`filters.forbidden`、`filters.incomplete`。
 
 生产门禁：28 条 schedule / 6 条 ProbeRule 零 mismatch；任何问题逐条评审，禁止自动修复。
 
@@ -208,8 +241,11 @@ Runtime 保留 7 个探测器的显式 condition dispatch。防御性约束：
 6. remote-only 单独 dataset action 的普通 schedule 绕过 422。
 7. 校验失败不删旧 rule；pause 可删除遗留 rule；runtime workflow-rule 防御。
 8. 只读 audit 的正常、missing、orphan、workflow rule、source/action/window mismatch。
+9. 纯 probe create/update/resume 后 `cron_expr/next_run_at` 均为空；非空 cron、非空 next-run、once 三类输入分别失败关闭。
+10. fallback 的真实 cron/next-run、到期扫描、同日 probe 已成功时跳过 fallback 等原有回归不变。
+11. ORM 与 Alembic 同时声明纯 probe CheckConstraint；迁移只更新 `ops.schedule` 并接当时真实 head。
 
-前端/浏览器必须覆盖：workflow 无 probe/source，直接 `index_daily` 有 probe，`margin_detail` 的唯一 condition 和固定约束，缺 capability 失败关闭。
+前端/浏览器必须覆盖：workflow 无 probe/source，直接 `index_daily` 有 probe，`margin_detail` 的唯一 condition 和固定约束，缺 capability 失败关闭；纯 probe 请求不含 cron/next-run 且显示“持续探测”，fallback 仍显示真实定时信息。
 
 最小门禁：
 
@@ -229,5 +265,6 @@ git diff --check
 2. P2：实现 Catalog 的只读 capability 投影、前端 API 类型与契约测试；旧页面仍使用原有字段，不能在本阶段让 request/response 断链。
 3. P3（已完成）：联合实现 request schema、binding/runtime 和自动任务页：删除可写 `source_key`、`workflow_dataset_keys`、来源 Select 与 action-key/condition 特例；删除旧 ProbeRule CRUD，只保留只读规则/运行日志查询，并以正反例验证端到端约束。
 4. P4（已完成）：实现并执行只读 preflight；仅 28 条 schedule / 6 条 ProbeRule 零 mismatch 时完成发布验证；不创建 TaskRun、不修改既有排程。2026-08-03 经授权仅定点回填两条历史 rule 的 `source_key` 后重跑通过。
+5. P5（代码与本地验证已完成）：已实现纯 probe 时间字段服务校验、Catalog 收窄、前端语义、只读 audit、ORM 约束和存量归一化迁移，并通过后端 `292` 项定向回归、前端 `149` 项单测及 `13` 项浏览器 smoke。今天不执行 migration；生产部署与 migration 必须另选维护窗口并独立授权。
 
-禁止保留 workflow probe、`workflow_dataset_keys`、`probe_trigger_enabled`、frontend fallback 或可写 source；禁止把 dataset action 的 probe 条件用于 workflow 步骤；禁止通过 migration、seed 或批量 PATCH 重建存量 schedule/ProbeRule。
+禁止保留 workflow probe、`workflow_dataset_keys`、`probe_trigger_enabled`、frontend fallback 或可写 source；禁止把 dataset action 的 probe 条件用于 workflow 步骤；禁止通过 migration、seed 或批量 PATCH 重建存量 schedule/ProbeRule。P5 migration 只允许清理无效时间字段和增加约束，不能扩展为共享 schedule 数据治理。

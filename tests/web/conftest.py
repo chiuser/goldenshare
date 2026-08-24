@@ -359,7 +359,7 @@ def ops_schedule_factory(db_session: Session) -> Callable[..., OpsSchedule]:
         target_key: str = "stock_basic.maintain",
         display_name: str = "股票主数据刷新",
         status: str = "active",
-        schedule_type: str = "once",
+        schedule_type: str | None = None,
         trigger_mode: str = "schedule",
         cron_expr: str | None = None,
         timezone_name: str = "Asia/Shanghai",
@@ -374,13 +374,14 @@ def ops_schedule_factory(db_session: Session) -> Callable[..., OpsSchedule]:
         updated_by_user_id: int | None = None,
     ) -> OpsSchedule:
         next_id = (db_session.scalar(select(func.max(OpsSchedule.id))) or 0) + 1
+        resolved_schedule_type = schedule_type or ("cron" if trigger_mode == "probe" else "once")
         schedule = OpsSchedule(
             id=next_id,
             target_type=target_type,
             target_key=target_key,
             display_name=display_name,
             status=status,
-            schedule_type=schedule_type,
+            schedule_type=resolved_schedule_type,
             trigger_mode=trigger_mode,
             cron_expr=cron_expr,
             timezone=timezone_name,

@@ -19,6 +19,11 @@ class OpsSchedule(TimestampMixin, Base):
             "(target_type <> 'dataset_action') OR (target_key LIKE '%.maintain')",
             name="ck_ops_schedule_dataset_action_target_key_maintain",
         ),
+        CheckConstraint(
+            "(trigger_mode <> 'probe') OR "
+            "(schedule_type = 'cron' AND cron_expr IS NULL AND next_run_at IS NULL)",
+            name="ck_ops_schedule_pure_probe_has_no_schedule_timing",
+        ),
         Index("idx_ops_schedule_status_next_run_at", "status", "next_run_at"),
         Index("idx_ops_schedule_target_type_target_key", "target_type", "target_key"),
         {"schema": "ops"},

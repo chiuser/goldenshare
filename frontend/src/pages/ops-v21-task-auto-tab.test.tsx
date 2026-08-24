@@ -11,11 +11,13 @@ import {
   getProbeConditionOptions,
   getAllowedCronRepeatModes,
   getScheduleTimeFieldLabel,
+  formatScheduleExecutionMode,
   hasCompleteRequiredProbeFilters,
   hasCompletePolicyParameters,
   hasRequiredVisibleParameters,
   isTriggerModeAllowed,
   parseCronExpression,
+  normalizeScheduleTimingForTrigger,
   resolveEffectiveCalendarPolicy,
   shouldShowScheduleTimingFields,
 } from "./ops-v21-task-auto-tab";
@@ -320,7 +322,7 @@ describe("自动任务日期策略", () => {
   const marginDetailCapability = {
     version: 1,
     default_trigger_mode: "probe",
-    trigger_options: [{ mode: "probe", allowed_schedule_types: ["cron", "once"] }],
+    trigger_options: [{ mode: "probe", allowed_schedule_types: ["cron"] }],
     probe_conditions: [
       {
         kind: "remote_margin_detail_ready",
@@ -405,6 +407,18 @@ describe("自动任务日期策略", () => {
     expect(shouldShowScheduleTimingFields("schedule_probe_fallback")).toBe(true);
     expect(getScheduleTimeFieldLabel("schedule")).toBe("执行时间");
     expect(getScheduleTimeFieldLabel("schedule_probe_fallback")).toBe("兜底执行时间");
+    expect(normalizeScheduleTimingForTrigger("probe", "cron", "0 19 * * *", "2099-01-01T19:00:00+08:00")).toEqual({
+      schedule_type: "cron",
+      cron_expr: null,
+      next_run_at: null,
+    });
+    expect(normalizeScheduleTimingForTrigger("schedule_probe_fallback", "cron", "0 19 * * *", null)).toEqual({
+      schedule_type: "cron",
+      cron_expr: "0 19 * * *",
+      next_run_at: null,
+    });
+    expect(formatScheduleExecutionMode("cron", "probe")).toBe("持续探测");
+    expect(formatScheduleExecutionMode("cron", "schedule_probe_fallback")).toBe("按周期执行");
   });
 
   it("opens maintenance parameters when visible required parameters exist", () => {

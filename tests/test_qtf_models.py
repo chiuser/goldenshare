@@ -244,7 +244,7 @@ def test_m3_migration_contains_only_preflight_and_run_state() -> None:
 def test_m4_migration_follows_real_head_and_contains_only_validation_evidence() -> None:
     config = Config(str(REPO_ROOT / "alembic.ini"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_current_head() == "20260824_000149"
+    assert script.get_current_head() == "20260824_000150"
     revision = script.get_revision("20260824_000149")
     assert revision is not None
     assert revision.down_revision == "20260824_000148"

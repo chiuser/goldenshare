@@ -8,9 +8,11 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from src.app.exceptions import WebAppError
 from src.ops.models.ops.probe_rule import ProbeRule
+from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.services.schedule_automation_capability_resolver import ScheduleAutomationCapabilityResolver
 from src.ops.services.schedule_probe_binding_service import ScheduleProbeBindingService
@@ -1089,11 +1091,12 @@ def test_ops_schedule_create_supports_express_success_cursor_policy(app_client, 
                 "time_input": {"mode": "range"},
                 "schedule_policy_params": {"initial_start_date": "2026-08-01"},
             },
-            "当前执行方式不支持",
+            "触发方式不支持所选执行方式",
         ),
         (
             {
                 "trigger_mode": "probe",
+                "cron_expr": None,
                 "probe_config": {"condition_kind": "freshness_latest_open"},
             },
             {
@@ -1515,7 +1518,7 @@ def test_ops_schedule_probe_mode_rejects_workflow_target(app_client, user_factor
             "display_name": "收盘探测触发",
             "schedule_type": "cron",
             "trigger_mode": "probe",
-            "cron_expr": "0 19 * * 1-5",
+            "cron_expr": None,
             "timezone": "Asia/Shanghai",
             "probe_config": {
                 "condition_kind": "freshness_latest_open",
@@ -1525,6 +1528,54 @@ def test_ops_schedule_probe_mode_rejects_workflow_target(app_client, user_factor
 
     assert response.status_code == 422
     assert response.json()["code"] == "trigger_mode.forbidden"
+
+
+@pytest.mark.parametrize(
+    ("timing_patch", "expected_code"),
+    (
+        ({"cron_expr": "0 19 * * *"}, "probe_schedule_timing.forbidden"),
+        ({"next_run_at": "2099-01-01T19:00:00+08:00"}, "probe_schedule_timing.forbidden"),
+        ({"schedule_type": "once"}, "schedule_type.forbidden"),
+    ),
+)
+def test_ops_schedule_pure_probe_rejects_schedule_timing(
+    app_client,
+    user_factory,
+    timing_patch: dict,
+    expected_code: str,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    token = app_client.post(
+        "/api/v1/auth/login",
+        json={"username": "admin", "password": "secret"},
+    ).json()["token"]
+    payload = {
+        "target_type": "dataset_action",
+        "target_key": "margin.maintain",
+        "display_name": "融资融券汇总源站探测",
+        "schedule_type": "cron",
+        "trigger_mode": "probe",
+        "cron_expr": None,
+        "timezone": "Asia/Shanghai",
+        "probe_config": {
+            "window_start": "09:00",
+            "window_end": "09:30",
+            "probe_interval_seconds": 300,
+            "max_triggers_per_day": 1,
+            "condition_kind": "remote_margin_ready",
+        },
+        "params_json": {"time_input": {"mode": "point"}, "filters": {}},
+        **timing_patch,
+    }
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json=payload,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == expected_code
 
 
 def test_ops_schedule_schedule_mode_rejects_workflow_probe_config(app_client, user_factory) -> None:
@@ -1573,7 +1624,7 @@ def test_ops_schedule_rejects_operator_owned_probe_fields(app_client, user_facto
             "display_name": "禁止运营端来源字段",
             "schedule_type": "cron",
             "trigger_mode": "probe",
-            "cron_expr": "*/5 9 * * 1-5",
+            "cron_expr": None,
             "timezone": "Asia/Shanghai",
             "probe_config": probe_config,
         },
@@ -1663,7 +1714,7 @@ def test_ops_schedule_remote_stk_mins_probe_mode_creates_probe_rule(app_client, 
             "display_name": "分钟源站就绪后同步",
             "schedule_type": "cron",
             "trigger_mode": "probe",
-            "cron_expr": "*/5 15-18 * * 1-5",
+            "cron_expr": None,
             "timezone": "Asia/Shanghai",
             "probe_config": {
                 "window_start": "15:20",
@@ -1712,7 +1763,7 @@ def test_ops_schedule_remote_index_daily_probe_mode_creates_probe_rule(app_clien
             "display_name": "指数日线源站就绪后同步",
             "schedule_type": "cron",
             "trigger_mode": "probe",
-            "cron_expr": "*/5 15-18 * * 1-5",
+            "cron_expr": None,
             "timezone": "Asia/Shanghai",
             "probe_config": {
                 "window_start": "15:20",
@@ -1761,7 +1812,7 @@ def test_ops_schedule_remote_index_mins_probe_mode_creates_probe_rule(app_client
             "display_name": "指数分钟行情源站就绪后同步",
             "schedule_type": "cron",
             "trigger_mode": "probe",
-            "cron_expr": "*/5 15-18 * * 1-5",
+            "cron_expr": None,
             "timezone": "Asia/Shanghai",
             "probe_config": {
                 "window_start": "15:20",
@@ -1808,7 +1859,7 @@ def test_ops_schedule_remote_kpl_list_probe_mode_creates_probe_rule(app_client, 
             "display_name": "开盘啦榜单源站就绪后同步",
             "schedule_type": "cron",
             "trigger_mode": "probe",
-            "cron_expr": "*/30 * * * *",
+            "cron_expr": None,
             "timezone": "Asia/Shanghai",
             "probe_config": {
                 "window_start": "08:35",
@@ -1891,7 +1942,7 @@ def test_ops_schedule_remote_stk_mins_probe_mode_rejects_invalid_binding(
         "display_name": "错误分钟源站探测",
         "schedule_type": "cron",
         "trigger_mode": "probe",
-        "cron_expr": "*/5 15-18 * * 1-5",
+        "cron_expr": None,
         "timezone": "Asia/Shanghai",
         "probe_config": {
             "window_start": "15:20",
@@ -1976,7 +2027,7 @@ def test_ops_schedule_remote_index_daily_probe_mode_rejects_invalid_binding(
         "display_name": "错误指数日线源站探测",
         "schedule_type": "cron",
         "trigger_mode": "probe",
-        "cron_expr": "*/5 15-18 * * 1-5",
+        "cron_expr": None,
         "timezone": "Asia/Shanghai",
         "probe_config": {
             "window_start": "15:20",
@@ -2015,7 +2066,7 @@ def test_ops_schedule_remote_idx_factor_pro_probe_mode_creates_empty_filter_rule
             "display_name": "指数技术因子源站探测",
             "schedule_type": "cron",
             "trigger_mode": "probe",
-            "cron_expr": "*/5 15-18 * * 1-5",
+            "cron_expr": None,
             "timezone": "Asia/Shanghai",
             "probe_config": {
                 "window_start": "15:20",
@@ -2050,7 +2101,7 @@ def test_ops_schedule_remote_idx_factor_pro_probe_mode_creates_empty_filter_rule
             {"target_type": "workflow", "target_key": "daily_market_close_maintenance"},
             "trigger_mode.forbidden",
         ),
-        ({"trigger_mode": "schedule"}, "trigger_mode.forbidden"),
+        ({"trigger_mode": "schedule", "cron_expr": "0 19 * * *"}, "trigger_mode.forbidden"),
         ({"calendar_policy": "monthly_last_day"}, "validation_error"),
         (
             {"params_json": {"time_input": {"mode": "point"}, "filters": {"ts_code": "000001.SH"}}},
@@ -2085,7 +2136,7 @@ def test_ops_schedule_remote_idx_factor_pro_probe_mode_rejects_invalid_binding(
         "display_name": "错误指数技术因子源站探测",
         "schedule_type": "cron",
         "trigger_mode": "probe",
-        "cron_expr": "*/5 15-18 * * 1-5",
+        "cron_expr": None,
         "timezone": "Asia/Shanghai",
         "probe_config": {
             "window_start": "15:20",
@@ -2154,7 +2205,7 @@ def test_ops_schedule_remote_index_mins_probe_mode_rejects_invalid_binding(
         "display_name": "错误指数分钟行情源站探测",
         "schedule_type": "cron",
         "trigger_mode": "probe",
-        "cron_expr": "*/5 15-18 * * 1-5",
+        "cron_expr": None,
         "timezone": "Asia/Shanghai",
         "probe_config": {
             "window_start": "15:20",
@@ -2194,7 +2245,7 @@ def test_ops_schedule_index_mins_rejects_local_freshness_probe(app_client, user_
             "display_name": "错误本地分钟线探测",
             "schedule_type": "cron",
             "trigger_mode": "probe",
-            "cron_expr": "*/5 15-18 * * 1-5",
+            "cron_expr": None,
             "timezone": "Asia/Shanghai",
             "probe_config": {
                 "window_start": "15:20",
@@ -2225,7 +2276,7 @@ def test_ops_schedule_margin_rejects_local_freshness_probe(app_client, user_fact
             "display_name": "错误本地融资融券探测",
             "schedule_type": "cron",
             "trigger_mode": "probe",
-            "cron_expr": "*/5 9 * * 1-5",
+            "cron_expr": None,
             "timezone": "Asia/Shanghai",
             "probe_config": {
                 "window_start": "09:00",
@@ -2246,7 +2297,7 @@ def test_ops_schedule_margin_rejects_local_freshness_probe(app_client, user_fact
     ("payload_patch", "expected_code"),
     [
         (
-            {"trigger_mode": "schedule_probe_fallback"},
+            {"trigger_mode": "schedule_probe_fallback", "cron_expr": "0 19 * * *"},
             "trigger_mode.forbidden",
         ),
         (
@@ -2283,7 +2334,7 @@ def test_ops_schedule_remote_kpl_list_probe_mode_rejects_invalid_binding(
         "display_name": "错误开盘啦榜单源站探测",
         "schedule_type": "cron",
         "trigger_mode": "probe",
-        "cron_expr": "*/30 * * * *",
+        "cron_expr": None,
         "timezone": "Asia/Shanghai",
         "probe_config": {
             "window_start": "08:35",
@@ -2312,7 +2363,7 @@ def test_ops_schedule_remote_kpl_list_probe_mode_rejects_invalid_binding(
 @pytest.mark.parametrize(
     ("payload_patch", "expected_code"),
     [
-        ({"trigger_mode": "schedule_probe_fallback"}, "trigger_mode.forbidden"),
+        ({"trigger_mode": "schedule_probe_fallback", "cron_expr": "0 19 * * *"}, "trigger_mode.forbidden"),
         (
             {"target_type": "workflow", "target_key": "daily_market_close_maintenance"},
             "trigger_mode.forbidden",
@@ -2350,7 +2401,7 @@ def test_ops_schedule_remote_margin_probe_rejects_invalid_binding(
         "display_name": "融资融券汇总源站探测",
         "schedule_type": "cron",
         "trigger_mode": "probe",
-        "cron_expr": "*/5 9 * * 1-5",
+        "cron_expr": None,
         "timezone": "Asia/Shanghai",
         "probe_config": {
             "window_start": "09:00",
@@ -2387,7 +2438,7 @@ def test_ops_schedule_remote_margin_probe_creates_fixed_probe_rule(app_client, u
             "display_name": "融资融券汇总源站探测",
             "schedule_type": "cron",
             "trigger_mode": "probe",
-            "cron_expr": "*/5 9 * * 1-5",
+            "cron_expr": None,
             "timezone": "Asia/Shanghai",
             "probe_config": {
                 "window_start": "09:00",
@@ -2401,7 +2452,10 @@ def test_ops_schedule_remote_margin_probe_creates_fixed_probe_rule(app_client, u
     )
 
     assert response.status_code == 200
-    schedule_id = response.json()["id"]
+    payload = response.json()
+    assert payload["cron_expr"] is None
+    assert payload["next_run_at"] is None
+    schedule_id = payload["id"]
     rules = db_session.scalars(select(ProbeRule).where(ProbeRule.schedule_id == schedule_id)).all()
     assert len(rules) == 1
     assert rules[0].probe_condition_json == {"type": "remote_margin_ready"}
@@ -2410,9 +2464,109 @@ def test_ops_schedule_remote_margin_probe_creates_fixed_probe_rule(app_client, u
     assert rules[0].probe_interval_seconds == 300
 
 
+def test_ops_schedule_pure_probe_resume_keeps_schedule_timing_empty(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    token = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"}).json()["token"]
+    create_response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "margin.maintain",
+            "display_name": "融资融券汇总源站探测",
+            "schedule_type": "cron",
+            "trigger_mode": "probe",
+            "cron_expr": None,
+            "timezone": "Asia/Shanghai",
+            "probe_config": {
+                "window_start": "09:00",
+                "window_end": "09:30",
+                "probe_interval_seconds": 300,
+                "max_triggers_per_day": 1,
+                "condition_kind": "remote_margin_ready",
+            },
+            "params_json": {"time_input": {"mode": "point"}, "filters": {}},
+        },
+    )
+    assert create_response.status_code == 200
+    schedule_id = create_response.json()["id"]
+
+    pause_response = app_client.post(
+        f"/api/v1/ops/schedules/{schedule_id}/pause",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert pause_response.status_code == 200
+    resume_response = app_client.post(
+        f"/api/v1/ops/schedules/{schedule_id}/resume",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert resume_response.status_code == 200
+    assert resume_response.json()["cron_expr"] is None
+    assert resume_response.json()["next_run_at"] is None
+
+
+def test_ops_schedule_pure_probe_update_rejects_schedule_timing(
+    app_client,
+    user_factory,
+    db_session,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    token = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"}).json()["token"]
+    create_response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "margin.maintain",
+            "display_name": "融资融券汇总源站探测",
+            "schedule_type": "cron",
+            "trigger_mode": "probe",
+            "cron_expr": None,
+            "timezone": "Asia/Shanghai",
+            "probe_config": {
+                "window_start": "09:00",
+                "window_end": "09:30",
+                "probe_interval_seconds": 300,
+                "max_triggers_per_day": 1,
+                "condition_kind": "remote_margin_ready",
+            },
+            "params_json": {"time_input": {"mode": "point"}, "filters": {}},
+        },
+    )
+    assert create_response.status_code == 200
+    schedule_id = create_response.json()["id"]
+
+    update_response = app_client.patch(
+        f"/api/v1/ops/schedules/{schedule_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"cron_expr": "0 19 * * *"},
+    )
+
+    assert update_response.status_code == 422
+    assert update_response.json()["code"] == "probe_schedule_timing.forbidden"
+    db_session.expire_all()
+    schedule = db_session.scalar(select(OpsSchedule).where(OpsSchedule.id == schedule_id))
+    assert schedule is not None
+    assert schedule.cron_expr is None
+    assert schedule.next_run_at is None
+
+
+def test_ops_schedule_database_rejects_pure_probe_schedule_timing(db_session, ops_schedule_factory) -> None:
+    schedule = ops_schedule_factory(target_key="margin.maintain", trigger_mode="probe")
+    schedule.cron_expr = "0 19 * * *"
+
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+
 def test_schedule_automation_capability_rejects_remote_index_daily_probe_with_calendar_policy() -> None:
     schedule = SimpleNamespace(
         trigger_mode="probe",
+        schedule_type="cron",
+        cron_expr=None,
+        next_run_at=None,
         target_type="dataset_action",
         target_key="index_daily.maintain",
         calendar_policy="monthly_last_day",
@@ -2449,6 +2603,9 @@ def test_schedule_automation_capability_keeps_public_fund_snapshots_schedule_onl
 
     schedule = SimpleNamespace(
         trigger_mode="schedule",
+        schedule_type="once",
+        cron_expr=None,
+        next_run_at=None,
         target_type="dataset_action",
         target_key=target_key,
         calendar_policy=None,

@@ -254,7 +254,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
         "default_trigger_mode": "schedule",
         "trigger_options": [
             {"mode": "schedule", "allowed_schedule_types": ["cron", "once"]},
-            {"mode": "probe", "allowed_schedule_types": ["cron", "once"]},
+            {"mode": "probe", "allowed_schedule_types": ["cron"]},
             {"mode": "schedule_probe_fallback", "allowed_schedule_types": ["cron", "once"]},
         ],
         "probe_conditions": [
@@ -296,7 +296,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert margin_detail_capability == {
         "version": 1,
         "default_trigger_mode": "probe",
-        "trigger_options": [{"mode": "probe", "allowed_schedule_types": ["cron", "once"]}],
+        "trigger_options": [{"mode": "probe", "allowed_schedule_types": ["cron"]}],
         "probe_conditions": [
             {
                 "kind": "remote_margin_detail_ready",

@@ -1,7 +1,7 @@
 # Ops 自动任务能力契约收敛方案 v1
 
-状态：P1–P4 已完成
-日期：2026-08-03
+状态：P1–P4 已完成；P5 代码与本地验证已完成，生产迁移待独立维护窗口
+日期：2026-08-24
 适用范围：`src/ops/**`、`frontend/src/pages/ops-v21-task-auto-tab.tsx`、`GET /api/v1/ops/catalog`。
 配套 LLD：[Ops 自动任务能力契约 LLD v1](/Users/congming/github/goldenshare/docs/ops/ops-automation-capability-contract-lld-v1.md)。
 
@@ -70,7 +70,7 @@ source-ready probe 的来源不是运营配置项：
 1. 不改变 `DatasetDefinition`、数据维护执行计划、源接口请求或业务数据写入。
 2. 不合并 7 个 source-ready 探测器，不改变其完成判定、去重或 TaskRun 语义。
 3. 不把手动维护表单并入自动任务 capability。
-4. 不新增数据库表、迁移、seed 排程或批量重建 ProbeRule。
+4. P1–P4 不新增数据库表、迁移、seed 排程或批量重建 ProbeRule；P5 仅允许增加一次存量纯 probe 时间字段归一化迁移，不新建表、不重建 ProbeRule。
 5. 不从工作流中移除 `index_daily` 等步骤；只禁止 workflow 的 probe 触发。
 
 ## 5. 目标架构
@@ -176,9 +176,52 @@ resolve(target_type, target_key) -> AutomationCapability | null
 | P2（已完成） | Catalog API 的只读 capability 投影、前端 API 类型 | 所有目标字段完整；API 契约测试通过 |
 | P3（已完成） | 请求 schema、binding/runtime 收口、前端删除白名单与旧 ProbeRule 写链 | `source_key` 422；workflow probe 422；workflow 内 `index_daily` 直接执行回归；直接绕过 422；Probe API 只读 |
 | P4（已完成） | 只读预检与发布验证 | 两条经授权的历史 `source_key=NULL` rule 已定点回填为 `tushare`；重跑确认 28 schedule / 6 ProbeRule、零 mismatch；无 TaskRun |
+| P5（代码与本地验证已完成） | 清除纯 probe 的伪 cron/next-run 语义 | 新建、编辑、恢复均保持 `cron_expr/next_run_at=NULL`；fallback 不变；存量迁移和生产验收待维护窗口 |
 
 `source_key` 的拒绝与来源控件删除不得拆入 P2：它同时涉及 request schema、binding 持久化语义和自动任务页。P2 只先发布向后兼容的只读 capability 字段；P3 再以一个可运行闭环删除可写来源和前端白名单。这样任何已提交阶段都不会出现“页面仍提交 source、API 已拒绝”的断链。
 
 P3 实现补充：旧 `/ops/probes` 的规则 CRUD 已删除，仅保留规则和运行日志的只读查询。这样 `ProbeRule.source_key`、condition、on-success action 只能由 `ScheduleProbeBindingService` 从已验证 intent 派生，不能通过遗留 direct API 绕过自动任务 capability。
 
 开发开始前必须按 LLD 的追溯账本逐条映射实现、正反测试和浏览器验证；任一硬约束没有落点时不得进入 P4。
+
+## 9. P5：纯 probe 时间契约修复
+
+### 9.1 发现与结论
+
+2026-08-24 对生产 Schedule `#33` 及其首次配置修订做只读核验后确认：该任务创建时已经是 `trigger_mode=probe`，但同时保存了 `cron_expr=0 19 * * *` 与相应 `next_run_at`。`last_triggered_at` 为空，运行时扫描也明确排除纯 probe，因此这两个字段不是兜底时间，只是创建链遗留的无效配置。
+
+根因是旧自动任务表单和服务以 `cron/once` 为基础模型，新增 probe 时只隐藏了定时输入，却仍由表单默认值生成 cron，并由通用 Schedule 服务计算 next-run。运行时防重保护正确，但持久化契约与界面语义不正确。
+
+### 9.2 固定契约
+
+1. `trigger_mode=probe` 表示持续按 ProbeRule 窗口探测；`schedule_type=cron` 只保留为现有 Schedule 生命周期分类，不具有 cron 执行含义。
+2. 纯 probe 必须满足 `schedule_type=cron`、`cron_expr=NULL`、`next_run_at=NULL`。
+3. Create/Update API 显式提交非空 `cron_expr` 或 `next_run_at` 必须返回 `422 probe_schedule_timing.forbidden`；提交 `schedule_type=once` 返回 `422 schedule_type.forbidden`。
+4. 暂停不改变时间字段；恢复只恢复 ProbeRule，不计算 `next_run_at`。
+5. `schedule_probe_fallback` 仍保存并执行自己的 cron/next-run；P5 不改变任何兜底触发语义。
+6. Catalog 中 `probe.allowed_schedule_types` 固定为 `cron`；fallback 继续按目标能力返回允许的 schedule types。
+7. 前端纯 probe 不生成、不提交、不预览定时字段；列表显示“持续探测 / 按探测窗口”，不再显示为普通周期任务。
+
+### 9.3 存量与发布边界
+
+迁移 `20260824_000150` 只更新 `ops.schedule` 中 `trigger_mode=probe` 且时间字段不符合契约的行：将 `schedule_type` 归一为 `cron`，并清空 `cron_expr/next_run_at`，随后建立数据库 CheckConstraint。它不修改 `ops.probe_rule`、ProbeRun、TaskRun、业务数据或历史 ConfigRevision。
+
+生产发布必须另选维护窗口，停止 Web scheduler/worker 后执行；今天不执行生产迁移。迁移后需要核验：
+
+1. 所有纯 probe 行的三个字段满足固定契约。
+2. 所有 fallback 行的 cron/next-run 前后不变。
+3. Schedule 与 ProbeRule 数量、父子关系和 rule id 不变。
+4. Schedule `#33` 仍为 active，ProbeRule 仍为原规则，09:00–09:30 窗口不变。
+5. 只读 capability audit 零 mismatch；恢复服务后普通 schedule、fallback 和 probe 各做一次非写入契约验收。
+
+### 9.4 本地验证证据
+
+2026-08-24 已完成：
+
+1. 后端 Schedule/Catalog/Probe/Runtime/audit/migration 定向回归 `292 passed`。
+2. 前端 `typecheck`、规则检查、`149` 项单测和生产构建通过。
+3. 浏览器 smoke/visual gate `13 passed`，未刷新截图基线。
+4. Alembic 唯一 head 为 `20260824_000150`，其 `down_revision` 为实施时真实 head `20260824_000149`。
+5. 文档完整性检查和 `git diff --check` 通过。
+
+上述证据只代表代码与本地验证完成，不代表生产 migration 已执行，也不代表生产 Schedule `#33` 已被清理。

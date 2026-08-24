@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from sqlalchemy import event
 
-from src.ops.services.schedule_automation_capability_audit_service import ScheduleAutomationCapabilityAuditService
+from src.ops.services.schedule_automation_capability_audit_service import (
+    ScheduleAuditRecord,
+    ScheduleAutomationCapabilityAuditService,
+)
 from src.ops.services.schedule_automation_capability_resolver import ScheduleAutomationCapabilityResolver
 from src.ops.services.schedule_probe_binding_service import ScheduleProbeBindingService
 
@@ -153,3 +156,28 @@ def test_capability_audit_rejects_invalid_paging_bounds(db_session) -> None:
             assert "必须在 1 到 1000 之间" in str(exc)
         else:
             raise AssertionError("无效的分页边界必须失败关闭")
+
+
+def test_capability_audit_reports_legacy_pure_probe_schedule_timing() -> None:
+    schedule = ScheduleAuditRecord(
+        id=33,
+        target_type="dataset_action",
+        target_key="margin.maintain",
+        status="paused",
+        schedule_type="cron",
+        trigger_mode="probe",
+        cron_expr="0 19 * * *",
+        timezone="Asia/Shanghai",
+        calendar_policy=None,
+        probe_config_json={"condition_kind": "remote_margin_ready"},
+        params_json={"time_input": {"mode": "point"}, "filters": {}},
+        next_run_at=None,
+    )
+    issues = []
+
+    intent = ScheduleAutomationCapabilityAuditService()._audit_schedule(schedule, issues=issues)
+
+    assert intent is None
+    assert len(issues) == 1
+    assert issues[0].code == "probe_schedule_timing.forbidden"
+    assert issues[0].fields == ("cron_expr",)

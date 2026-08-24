@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from dataclasses import asdict, dataclass
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -29,10 +30,12 @@ class ScheduleAuditRecord:
     status: str
     schedule_type: str
     trigger_mode: str
+    cron_expr: str | None
     timezone: str
     calendar_policy: str | None
     probe_config_json: dict
     params_json: dict
+    next_run_at: datetime | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,6 +216,28 @@ class ScheduleAutomationCapabilityAuditService:
         *,
         issues: list[ScheduleAutomationCapabilityAuditIssue],
     ) -> ValidatedAutomationIntent | None:
+        if schedule.trigger_mode == "probe" and (
+            schedule.schedule_type != "cron" or schedule.cron_expr is not None or schedule.next_run_at is not None
+        ):
+            issues.append(
+                ScheduleAutomationCapabilityAuditIssue(
+                    code="probe_schedule_timing.forbidden",
+                    message="纯探测任务包含不应存在的 cron 或下次运行时间",
+                    entity_type="schedule",
+                    entity_id=schedule.id,
+                    schedule_id=schedule.id,
+                    fields=tuple(
+                        field_name
+                        for field_name, invalid in (
+                            ("schedule_type", schedule.schedule_type != "cron"),
+                            ("cron_expr", schedule.cron_expr is not None),
+                            ("next_run_at", schedule.next_run_at is not None),
+                        )
+                        if invalid
+                    ),
+                )
+            )
+            return None
         if schedule.status != "active":
             return None
         try:
@@ -410,10 +435,12 @@ class ScheduleAutomationCapabilityAuditService:
                 OpsSchedule.status.label("status"),
                 OpsSchedule.schedule_type.label("schedule_type"),
                 OpsSchedule.trigger_mode.label("trigger_mode"),
+                OpsSchedule.cron_expr.label("cron_expr"),
                 OpsSchedule.timezone.label("timezone"),
                 OpsSchedule.calendar_policy.label("calendar_policy"),
                 OpsSchedule.probe_config_json.label("probe_config_json"),
                 OpsSchedule.params_json.label("params_json"),
+                OpsSchedule.next_run_at.label("next_run_at"),
             ).order_by(OpsSchedule.id.asc()).limit(min(batch_size, max_records - len(rows)))
             if last_id is not None:
                 statement = statement.where(OpsSchedule.id > last_id)

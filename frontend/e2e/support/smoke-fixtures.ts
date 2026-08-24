@@ -667,7 +667,7 @@ function mockTaskAuto(route: Route, pathname: string) {
             repeat_policy: null,
             trigger_options: [
               { mode: "schedule", allowed_schedule_types: ["cron", "once"] },
-              { mode: "probe", allowed_schedule_types: ["cron", "once"] },
+              { mode: "probe", allowed_schedule_types: ["cron"] },
               { mode: "schedule_probe_fallback", allowed_schedule_types: ["cron", "once"] },
             ],
             probe_conditions: [
@@ -734,7 +734,7 @@ function mockTaskAuto(route: Route, pathname: string) {
             default_trigger_mode: "probe",
             calendar_policy_rules: [],
             repeat_policy: null,
-            trigger_options: [{ mode: "probe", allowed_schedule_types: ["cron", "once"] }],
+            trigger_options: [{ mode: "probe", allowed_schedule_types: ["cron"] }],
             probe_conditions: [
               {
                 kind: "remote_margin_detail_ready",

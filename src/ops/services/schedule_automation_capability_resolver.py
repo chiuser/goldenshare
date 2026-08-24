@@ -63,6 +63,7 @@ REMOTE_SOURCE_PROBE_CONDITIONS = frozenset(
 )
 SUPPORTED_PROBE_CONDITIONS = frozenset({FRESHNESS_LATEST_OPEN_CONDITION, *REMOTE_SOURCE_PROBE_CONDITIONS})
 DEFAULT_SCHEDULE_TYPES: tuple[ScheduleType, ...] = ("cron", "once")
+PURE_PROBE_SCHEDULE_TYPES: tuple[ScheduleType, ...] = ("cron",)
 TIME_PARAM_KEYS = {"trade_date", "ann_date", "month", "start_date", "end_date", "start_month", "end_month"}
 PARAM_RESERVED_KEYS = {"dataset_key", "action", "time_input", "filters", "schedule_policy_params"}
 DEFAULT_PROBE_WINDOW_START = "15:30"
@@ -258,16 +259,42 @@ class ScheduleAutomationCapabilityResolver:
                 raise ValueError("源端探测条件与数据集维护动作不匹配")
         return definition.source.source_key_default
 
-    def validate_schedule(self, schedule: OpsSchedule) -> ValidatedAutomationIntent:
-        """Validate an active automatic-task intent without mutating schedules or rules."""
-        capability = self.resolve(target_type=schedule.target_type, target_key=schedule.target_key)
+    def validate_trigger(
+        self,
+        *,
+        target_type: str,
+        target_key: str,
+        trigger_mode: str | None,
+        schedule_type: str,
+    ) -> tuple[AutomationCapability, TriggerMode]:
+        capability = self.resolve(target_type=target_type, target_key=target_key)
         if capability is None:
             raise WebAppError(status_code=422, code="capability.missing", message="自动任务目标不支持排程")
-
-        trigger_mode = self._normalize_trigger_mode(schedule.trigger_mode)
-        allowed_modes = {option.mode for option in capability.trigger_options}
-        if trigger_mode not in allowed_modes:
+        normalized_trigger_mode = self._normalize_trigger_mode(trigger_mode)
+        trigger_option = next(
+            (option for option in capability.trigger_options if option.mode == normalized_trigger_mode),
+            None,
+        )
+        if trigger_option is None:
             raise WebAppError(status_code=422, code="trigger_mode.forbidden", message="该自动任务目标不支持所选触发方式")
+        if schedule_type not in trigger_option.allowed_schedule_types:
+            raise WebAppError(status_code=422, code="schedule_type.forbidden", message="该自动任务触发方式不支持所选执行方式")
+        return capability, normalized_trigger_mode
+
+    def validate_schedule(self, schedule: OpsSchedule) -> ValidatedAutomationIntent:
+        """Validate an active automatic-task intent without mutating schedules or rules."""
+        capability, trigger_mode = self.validate_trigger(
+            target_type=schedule.target_type,
+            target_key=schedule.target_key,
+            trigger_mode=schedule.trigger_mode,
+            schedule_type=schedule.schedule_type,
+        )
+        if trigger_mode == "probe" and (schedule.cron_expr is not None or schedule.next_run_at is not None):
+            raise WebAppError(
+                status_code=422,
+                code="probe_schedule_timing.forbidden",
+                message="纯探测任务不能配置 cron 表达式或下次运行时间",
+            )
 
         config = dict(schedule.probe_config_json or {})
         if trigger_mode == "schedule":
@@ -553,7 +580,10 @@ class ScheduleAutomationCapabilityResolver:
                 version=1,
                 default_trigger_mode=remote_condition.allowed_trigger_modes[0],
                 trigger_options=tuple(
-                    TriggerModeCapability(mode=mode, allowed_schedule_types=allowed_schedule_types)
+                    TriggerModeCapability(
+                        mode=mode,
+                        allowed_schedule_types=(PURE_PROBE_SCHEDULE_TYPES if mode == "probe" else allowed_schedule_types),
+                    )
                     for mode in remote_condition.allowed_trigger_modes
                 ),
                 probe_conditions=(remote_condition,),
@@ -577,7 +607,7 @@ class ScheduleAutomationCapabilityResolver:
                 default_trigger_mode="schedule",
                 trigger_options=(
                     TriggerModeCapability(mode="schedule", allowed_schedule_types=allowed_schedule_types),
-                    TriggerModeCapability(mode="probe", allowed_schedule_types=DEFAULT_SCHEDULE_TYPES),
+                    TriggerModeCapability(mode="probe", allowed_schedule_types=PURE_PROBE_SCHEDULE_TYPES),
                     TriggerModeCapability(mode="schedule_probe_fallback", allowed_schedule_types=DEFAULT_SCHEDULE_TYPES),
                 ),
                 probe_conditions=(freshness_condition,),

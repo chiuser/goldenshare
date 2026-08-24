@@ -15,6 +15,7 @@ from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.services.schedule_probe_binding_service import ScheduleProbeBindingService
+from src.ops.services.schedule_automation_capability_resolver import ScheduleAutomationCapabilityResolver
 from src.ops.services.schedule_planner import (
     compute_next_run_at,
     ensure_schedule_type,
@@ -76,6 +77,7 @@ class OperationsScheduleService:
     def __init__(self, *, heat_readiness_evaluator: HeatReadinessEvaluator | None = None) -> None:
         self.task_run_service = TaskRunCommandService()
         self.probe_binding_service = ScheduleProbeBindingService()
+        self.automation_capability_resolver = ScheduleAutomationCapabilityResolver()
         self.heat_readiness_evaluator = heat_readiness_evaluator
 
     def create_schedule(
@@ -138,7 +140,25 @@ class OperationsScheduleService:
         )
         ensure_schedule_type(schedule_type)
         ensure_timezone(timezone_name)
+        trigger_mode = self._normalize_trigger_mode(trigger_mode)
         normalized_calendar_policy = self._normalize_calendar_policy(calendar_policy)
+        self.task_run_service.validate_schedule_target(
+            target_type=target_type,
+            target_key=target_key,
+            params_json=normalized_params,
+        )
+        self.automation_capability_resolver.validate_trigger(
+            target_type=target_type,
+            target_key=target_key,
+            trigger_mode=trigger_mode,
+            schedule_type=schedule_type,
+        )
+        self._validate_pure_probe_create_timing(
+            trigger_mode=trigger_mode,
+            schedule_type=schedule_type,
+            cron_expr=cron_expr,
+            next_run_at=next_run_at,
+        )
         self._validate_calendar_policy(
             target_type=target_type,
             target_key=target_key,
@@ -147,19 +167,17 @@ class OperationsScheduleService:
             calendar_policy=normalized_calendar_policy,
             params_json=normalized_params,
         )
-        self.task_run_service.validate_schedule_target(
-            target_type=target_type,
-            target_key=target_key,
-            params_json=normalized_params,
-        )
-        trigger_mode = self._normalize_trigger_mode(trigger_mode)
-        normalized_next_run_at = self._resolve_next_run_at(
-            session=session,
-            schedule_type=schedule_type,
-            cron_expr=cron_expr,
-            timezone_name=timezone_name,
-            next_run_at=next_run_at,
-            calendar_policy=normalized_calendar_policy,
+        normalized_next_run_at = (
+            None
+            if trigger_mode == "probe"
+            else self._resolve_next_run_at(
+                session=session,
+                schedule_type=schedule_type,
+                cron_expr=cron_expr,
+                timezone_name=timezone_name,
+                next_run_at=next_run_at,
+                calendar_policy=normalized_calendar_policy,
+            )
         )
         if normalized_calendar_policy == SINCE_LAST_SUCCESS_DAY_RANGE_POLICY:
             assert normalized_next_run_at is not None
@@ -258,7 +276,21 @@ class OperationsScheduleService:
         if "concurrency_policy_json" in changed_fields:
             schedule.concurrency_policy_json = dict(changes["concurrency_policy_json"] or {})
 
-        if "next_run_at" in changed_fields:
+        self.task_run_service.validate_schedule_target(
+            target_type=schedule.target_type,
+            target_key=schedule.target_key,
+            params_json=dict(schedule.params_json or {}),
+        )
+        self.automation_capability_resolver.validate_trigger(
+            target_type=schedule.target_type,
+            target_key=schedule.target_key,
+            trigger_mode=schedule.trigger_mode,
+            schedule_type=schedule.schedule_type,
+        )
+
+        if schedule.trigger_mode == "probe":
+            self._normalize_pure_probe_update_timing(schedule=schedule, changes=changes)
+        elif "next_run_at" in changed_fields:
             explicit_next_run = normalize_schedule_datetime(changes["next_run_at"], field_name="next_run_at")
             if explicit_next_run is None and schedule.status == "active" and schedule.schedule_type != "once":
                 explicit_next_run = self._resolve_next_run_at(
@@ -270,7 +302,10 @@ class OperationsScheduleService:
                     calendar_policy=schedule.calendar_policy,
                 )
             schedule.next_run_at = explicit_next_run
-        elif {"schedule_type", "cron_expr", "timezone", "calendar_policy"} & changed_fields and schedule.status == "active":
+        elif (
+            {"schedule_type", "cron_expr", "timezone", "calendar_policy"} & changed_fields
+            and schedule.status == "active"
+        ):
             schedule.next_run_at = self._resolve_next_run_at(
                 session=session,
                 schedule_type=schedule.schedule_type,
@@ -280,7 +315,12 @@ class OperationsScheduleService:
                 calendar_policy=schedule.calendar_policy,
             )
 
-        if schedule.schedule_type == "once" and schedule.status == "active" and schedule.next_run_at is None:
+        if (
+            schedule.trigger_mode != "probe"
+            and schedule.schedule_type == "once"
+            and schedule.status == "active"
+            and schedule.next_run_at is None
+        ):
             raise WebAppError(status_code=422, code="validation_error", message="单次排程必须填写下次运行时间")
 
         schedule.calendar_policy = self._normalize_calendar_policy(schedule.calendar_policy)
@@ -290,11 +330,6 @@ class OperationsScheduleService:
             schedule_type=schedule.schedule_type,
             cron_expr=schedule.cron_expr,
             calendar_policy=schedule.calendar_policy,
-            params_json=dict(schedule.params_json or {}),
-        )
-        self.task_run_service.validate_schedule_target(
-            target_type=schedule.target_type,
-            target_key=schedule.target_key,
             params_json=dict(schedule.params_json or {}),
         )
         if schedule.calendar_policy == SINCE_LAST_SUCCESS_DAY_RANGE_POLICY and schedule.next_run_at is not None:
@@ -402,6 +437,12 @@ class OperationsScheduleService:
             return schedule
 
         schedule.calendar_policy = self._normalize_calendar_policy(schedule.calendar_policy)
+        self.automation_capability_resolver.validate_trigger(
+            target_type=schedule.target_type,
+            target_key=schedule.target_key,
+            trigger_mode=schedule.trigger_mode,
+            schedule_type=schedule.schedule_type,
+        )
         self._validate_calendar_policy(
             target_type=schedule.target_type,
             target_key=schedule.target_key,
@@ -455,7 +496,11 @@ class OperationsScheduleService:
             target_key=schedule.target_key,
         )
         before = self._snapshot(schedule)
-        if schedule.schedule_type == "once":
+        if schedule.trigger_mode == "probe":
+            schedule.schedule_type = "cron"
+            schedule.cron_expr = None
+            schedule.next_run_at = None
+        elif schedule.schedule_type == "once":
             if schedule.next_run_at is None:
                 raise WebAppError(
                     status_code=409,
@@ -1347,6 +1392,46 @@ class OperationsScheduleService:
         if mode not in {"schedule", "probe", "schedule_probe_fallback"}:
             raise WebAppError(status_code=422, code="validation_error", message=f"不支持的触发方式：{mode}")
         return mode
+
+    @staticmethod
+    def _validate_pure_probe_create_timing(
+        *,
+        trigger_mode: str,
+        schedule_type: str,
+        cron_expr: str | None,
+        next_run_at: datetime | None,
+    ) -> None:
+        if trigger_mode != "probe":
+            return
+        if schedule_type != "cron":
+            raise WebAppError(
+                status_code=422,
+                code="schedule_type.forbidden",
+                message="纯探测任务只支持持续探测",
+            )
+        if cron_expr is not None or next_run_at is not None:
+            raise WebAppError(
+                status_code=422,
+                code="probe_schedule_timing.forbidden",
+                message="纯探测任务不能配置 cron 表达式或下次运行时间",
+            )
+
+    @staticmethod
+    def _normalize_pure_probe_update_timing(*, schedule: OpsSchedule, changes: dict) -> None:
+        if schedule.schedule_type != "cron":
+            raise WebAppError(
+                status_code=422,
+                code="schedule_type.forbidden",
+                message="纯探测任务只支持持续探测",
+            )
+        if changes.get("cron_expr") is not None or changes.get("next_run_at") is not None:
+            raise WebAppError(
+                status_code=422,
+                code="probe_schedule_timing.forbidden",
+                message="纯探测任务不能配置 cron 表达式或下次运行时间",
+            )
+        schedule.cron_expr = None
+        schedule.next_run_at = None
 
     @staticmethod
     def _stored_datetime(value: datetime | None) -> datetime | None:

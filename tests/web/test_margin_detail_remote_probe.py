@@ -45,7 +45,7 @@ def _margin_detail_schedule_payload(*, probe_config: dict | None = None, params_
         "display_name": "融资融券交易明细源站探测",
         "schedule_type": "cron",
         "trigger_mode": "probe",
-        "cron_expr": "*/5 9 * * 1-5",
+        "cron_expr": None,
         "timezone": "Asia/Shanghai",
         "probe_config": probe_config
         or {
@@ -439,7 +439,7 @@ def test_ops_schedule_margin_detail_probe_creates_fixed_empty_filter_rule(app_cl
 @pytest.mark.parametrize(
     ("payload_patch", "expected_code"),
     (
-        ({"trigger_mode": "schedule_probe_fallback"}, "trigger_mode.forbidden"),
+        ({"trigger_mode": "schedule_probe_fallback", "cron_expr": "0 19 * * *"}, "trigger_mode.forbidden"),
         (
             {"target_type": "workflow", "target_key": "daily_market_close_maintenance"},
             "trigger_mode.forbidden",
@@ -507,6 +507,9 @@ def test_ops_schedule_margin_detail_rejects_generic_freshness_condition(app_clie
 def test_schedule_binding_rejects_margin_detail_probe_calendar_policy() -> None:
     schedule = SimpleNamespace(
         trigger_mode="probe",
+        schedule_type="cron",
+        cron_expr=None,
+        next_run_at=None,
         target_type="dataset_action",
         target_key="margin_detail.maintain",
         calendar_policy="monthly_last_day",

@@ -397,6 +397,30 @@ function formatTriggerModeLabel(triggerMode: string): string {
   return "定时触发";
 }
 
+export function normalizeScheduleTimingForTrigger(
+  triggerMode: TriggerMode,
+  scheduleType: string,
+  cronExpr: string | null,
+  nextRunAt: string | null,
+) {
+  if (triggerMode === "probe") {
+    return {
+      schedule_type: "cron",
+      cron_expr: null,
+      next_run_at: null,
+    };
+  }
+  return {
+    schedule_type: scheduleType,
+    cron_expr: cronExpr,
+    next_run_at: nextRunAt,
+  };
+}
+
+export function formatScheduleExecutionMode(scheduleType: string, triggerMode: string): string {
+  return triggerMode === "probe" ? "持续探测" : formatScheduleTypeLabel(scheduleType);
+}
+
 export function getProbeCondition(
   capability: AutomationCapability | null | undefined,
   conditionKind: string | null | undefined,
@@ -1260,8 +1284,9 @@ export function OpsAutomationPage() {
       total: items.length,
       active: items.filter((item) => item.status === "active").length,
       paused: items.filter((item) => item.status === "paused").length,
-      once: items.filter((item) => item.schedule_type === "once").length,
-      cron: items.filter((item) => item.schedule_type === "cron").length,
+      probe: items.filter((item) => item.trigger_mode === "probe").length,
+      once: items.filter((item) => item.trigger_mode !== "probe" && item.schedule_type === "once").length,
+      cron: items.filter((item) => item.trigger_mode !== "probe" && item.schedule_type === "cron").length,
     };
   }, [schedulesQuery.data?.items]);
 
@@ -1290,7 +1315,9 @@ export function OpsAutomationPage() {
       key: "schedule_type",
       header: "执行方式",
       width: "12%",
-      render: (item) => <OpsTableCellText size="xs">{formatScheduleTypeLabel(item.schedule_type)}</OpsTableCellText>,
+      render: (item) => (
+        <OpsTableCellText size="xs">{formatScheduleExecutionMode(item.schedule_type, item.trigger_mode)}</OpsTableCellText>
+      ),
     },
     {
       key: "next_run_at",
@@ -1299,13 +1326,14 @@ export function OpsAutomationPage() {
       width: "20%",
       render: (item) => (
         <OpsTableCellText ff="var(--mantine-font-family-monospace)" fw={500} size="xs">
-          {formatDateTimeLabel(item.next_run_at)}
+          {item.trigger_mode === "probe" ? "按探测窗口" : formatDateTimeLabel(item.next_run_at)}
         </OpsTableCellText>
       ),
     },
   ], []);
 
   const previewPayload = useMemo(() => {
+    if (form.trigger_mode === "probe") return null;
     try {
       const scheduleType = fixedSchedule ? "cron" : form.schedule_type;
       const cronExpr = fixedSchedule?.cron_expr || (scheduleType === "cron"
@@ -1343,6 +1371,7 @@ export function OpsAutomationPage() {
     form.repeat_weekdays,
     form.schedule_type,
     form.timezone,
+    form.trigger_mode,
   ]);
 
   const previewTriggerKey = useMemo(() => {
@@ -1397,8 +1426,9 @@ export function OpsAutomationPage() {
       if (!hasCompletePolicyParameters(selectedPolicyParameters, form.policy_field_values)) {
         throw new Error("请填写日期策略的全部必填参数。");
       }
-      const scheduleType = fixedSchedule ? "cron" : form.schedule_type;
-      const cronExpr = fixedSchedule?.cron_expr || (scheduleType === "cron"
+      const requestedTriggerMode = fixedSchedule ? "schedule" : form.trigger_mode;
+      const requestedScheduleType = fixedSchedule ? "cron" : form.schedule_type;
+      const requestedCronExpr = requestedTriggerMode === "probe" ? null : fixedSchedule?.cron_expr || (requestedScheduleType === "cron"
         ? buildCronExpression(
           form.repeat_mode,
           form.repeat_time,
@@ -1409,17 +1439,25 @@ export function OpsAutomationPage() {
           selectedRepeatPolicy,
         )
         : null);
-      const nextRunAt = scheduleType === "once" ? buildOnceRunAt(form.once_date, form.once_time) : null;
+      const requestedNextRunAt = requestedTriggerMode !== "probe" && requestedScheduleType === "once"
+        ? buildOnceRunAt(form.once_date, form.once_time)
+        : null;
+      const timing = normalizeScheduleTimingForTrigger(
+        requestedTriggerMode,
+        requestedScheduleType,
+        requestedCronExpr,
+        requestedNextRunAt,
+      );
       const body = {
         target_type: form.action_type,
         target_key: form.action_key,
         display_name: form.display_name,
-        schedule_type: scheduleType,
-        trigger_mode: fixedSchedule ? "schedule" : form.trigger_mode,
-        cron_expr: cronExpr,
+        schedule_type: timing.schedule_type,
+        trigger_mode: requestedTriggerMode,
+        cron_expr: timing.cron_expr,
         timezone: fixedSchedule?.timezone || form.timezone,
         calendar_policy: fixedSchedule ? null : effectiveCalendarPolicy || null,
-        next_run_at: nextRunAt,
+        next_run_at: timing.next_run_at,
         probe_config:
           form.trigger_mode === "schedule"
             ? null
@@ -1605,11 +1643,14 @@ export function OpsAutomationPage() {
           <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
             <StatCard label="已暂停" value={summary.paused} />
           </Grid.Col>
-          <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+          <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
             <StatCard label="单次执行" value={summary.once} />
           </Grid.Col>
-          <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+          <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
             <StatCard label="按周期执行" value={summary.cron} hint="按周期执行需要填写周期规则。" />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
+            <StatCard label="持续探测" value={summary.probe} hint="按探测窗口检查源端就绪状态。" />
           </Grid.Col>
         </Grid>
       </SectionCard>
@@ -1684,7 +1725,9 @@ export function OpsAutomationPage() {
                   <Text fw={600} size="lg">{detailQuery.data.display_name}</Text>
                   <Group gap="xs">
                     <StatusBadge value={detailQuery.data.status} />
-                    <Badge variant="light">{formatScheduleTypeLabel(detailQuery.data.schedule_type)}</Badge>
+                    {detailQuery.data.trigger_mode !== "probe" ? (
+                      <Badge variant="light">{formatScheduleTypeLabel(detailQuery.data.schedule_type)}</Badge>
+                    ) : null}
                     <Badge variant="light" color="info">{formatTriggerModeLabel(detailQuery.data.trigger_mode)}</Badge>
                     <Badge variant="light">{formatTimezoneLabel(detailQuery.data.timezone)}</Badge>
                   </Group>
@@ -1849,7 +1892,10 @@ export function OpsAutomationPage() {
                   { label: "任务名称", value: lastAction.display_name },
                   { label: "执行对象", value: getScheduleTargetLabel(lastAction) },
                   { label: "当前状态", value: lastAction.status },
-                  { label: "下次运行", value: formatDateTimeLabel(lastAction.next_run_at) },
+                  {
+                    label: lastAction.trigger_mode === "probe" ? "触发时机" : "下次运行",
+                    value: lastAction.trigger_mode === "probe" ? "按探测窗口" : formatDateTimeLabel(lastAction.next_run_at),
+                  },
                 ]}
               />
             ) : null}
