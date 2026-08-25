@@ -396,7 +396,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             "partition_keys[-MAJOR_INDEX_NINETURN_HISTORY_CHECK_WINDOW:]",
             event_source,
         )
-        self.assertIn("check_required = partition_key in retained_check_partitions", event_source)
+        self.assertIn(
+            "check_required = partition_key in retained_check_partitions", event_source
+        )
         self.assertNotIn(
             '"planned_check_event_count": len(partition_keys)',
             event_source,
@@ -739,9 +741,7 @@ class RunContractStaticGateTests(unittest.TestCase):
 
     def test_gold_wealth_market_turnover_wmt7_contract_is_fail_closed(self) -> None:
         contract_source = (DEFS_DIR / "wealth_market_turnover_contract.py").read_text()
-        asset_source = (
-            DEFS_DIR / "assets" / "wealth_market_turnover.py"
-        ).read_text()
+        asset_source = (DEFS_DIR / "assets" / "wealth_market_turnover.py").read_text()
         history_source = (
             DEFS_DIR / "bootstrap" / "wealth_market_turnover_history.py"
         ).read_text()
@@ -5499,8 +5499,7 @@ def use_nested_resource(context):
             ASSET_GUARDS_DIR / "major_index_mins_technical.py"
         ).read_text()
         sensor_source = (
-            SENSORS_DIR
-            / "gold_major_index_mins_technical_daily_update_job_sensor.py"
+            SENSORS_DIR / "gold_major_index_mins_technical_daily_update_job_sensor.py"
         ).read_text()
 
         for fragment in (
@@ -5548,9 +5547,7 @@ def use_nested_resource(context):
             self.assertNotIn(forbidden, sensor_source)
 
     def test_cn_a_minute_gold_p2_uses_bounded_lake_only_automation(self) -> None:
-        writer_source = (
-            DEFS_DIR / "io" / "cn_a_gold_minute_writer.py"
-        ).read_text()
+        writer_source = (DEFS_DIR / "io" / "cn_a_gold_minute_writer.py").read_text()
         readiness_source = (
             ASSET_GUARDS_DIR / "cn_a_gold_minute_lake_readiness.py"
         ).read_text()
@@ -5603,9 +5600,7 @@ def use_nested_resource(context):
         readiness_source = (
             ASSET_GUARDS_DIR / "idx_factor_pro_lake_readiness.py"
         ).read_text()
-        source_probe = (
-            ASSET_GUARDS_DIR / "idx_factor_pro_source_probe.py"
-        ).read_text()
+        source_probe = (ASSET_GUARDS_DIR / "idx_factor_pro_source_probe.py").read_text()
         partition_sensor = (
             SENSORS_DIR / "idx_factor_pro_partition_sensor.py"
         ).read_text()
@@ -5735,9 +5730,7 @@ def use_nested_resource(context):
     def test_major_index_mins_p7b_fallback_is_bounded_bootstrap_only(
         self,
     ) -> None:
-        contract_source = (
-            DEFS_DIR / "run_contracts/major_index_mins.py"
-        ).read_text()
+        contract_source = (DEFS_DIR / "run_contracts/major_index_mins.py").read_text()
         fallback_source = (
             DEFS_DIR / "bootstrap/major_index_mins_silver_fallback.py"
         ).read_text()
@@ -5803,9 +5796,7 @@ def use_nested_resource(context):
             SENSORS_DIR / "index_mins_partition_sensor.py"
         ).read_text()
         sensor_source = (SENSORS_DIR / "index_mins_sensor.py").read_text()
-        combined = (
-            f"{readiness_source}\n{partition_sensor_source}\n{sensor_source}"
-        )
+        combined = f"{readiness_source}\n{partition_sensor_source}\n{sensor_source}"
 
         self.assertIn("INDEX_MINS_SENSOR_WINDOW_LIMIT", readiness_source)
         self.assertIn("cn_a_index_mins_trade_days", combined)
@@ -6224,9 +6215,9 @@ def use_nested_resource(context):
         ).read_text(encoding="utf-8"):
             issues.append("qfq derived path does not use shared after-hours rule")
 
-        gold_builder_source = (
-            DEFS_DIR / "io" / "cn_a_gold_minute_bars.py"
-        ).read_text(encoding="utf-8")
+        gold_builder_source = (DEFS_DIR / "io" / "cn_a_gold_minute_bars.py").read_text(
+            encoding="utf-8"
+        )
         for fragment in (
             "canonical_gold_minute_window_map_sql",
             "cn_a_derived_minute_completion_predicate",
@@ -6468,16 +6459,19 @@ def use_nested_resource(context):
                 issues.append(f"qfq nineturn job contains forbidden {forbidden}")
         self.assertEqual(issues, [])
 
-    def test_bse_minute_history_recovery_keeps_r0_r1_stage_boundaries(self) -> None:
+    def test_bse_minute_history_recovery_keeps_r0_r2_stage_boundaries(self) -> None:
         helper_source = (
             DEFS_DIR / "bootstrap" / "stk_mins_bse_history_recovery.py"
         ).read_text(encoding="utf-8")
         cli_source = (
             DEFS_DIR / "bootstrap" / "stk_mins_bse_history_recovery_cli.py"
         ).read_text(encoding="utf-8")
-        r1_source = helper_source.split(
-            "def build_bse_raw_recovery_candidates(", 1
-        )[1].split("def audit_bse_raw_recovery_candidates(", 1)[0]
+        r1_source = helper_source.split("def build_bse_raw_recovery_candidates(", 1)[
+            1
+        ].split("def audit_bse_raw_recovery_candidates(", 1)[0]
+        r2_source = helper_source.split("def build_bse_silver_recovery_candidates(", 1)[
+            1
+        ].split("def parse_scope_file(", 1)[0]
         issues = []
         required_helper_fragments = (
             "DEFAULT_LAKE_STAGING_ROOT",
@@ -6486,6 +6480,13 @@ def use_nested_resource(context):
             "build_bse_raw_recovery_candidates",
             "audit_bse_raw_recovery_candidates",
             "promote_bse_raw_recovery_candidates",
+            "audit_bse_one_minute_fallback_eligibility",
+            "build_bse_silver_recovery_candidates",
+            "audit_bse_silver_recovery_candidates",
+            "promote_bse_silver_recovery_candidates",
+            "write_silver_stk_mins_partition",
+            "evaluate_silver_stk_mins_partition_diagnostics",
+            "r2_actual_changed_silver_manifest",
             "identity_source",
             "< CAST(valid_to AS DATE)",
             "os.replace(source, target)",
@@ -6505,6 +6506,11 @@ def use_nested_resource(context):
             '"--confirm-source-request"',
             '"--confirm-candidate-write"',
             '"--confirm-raw-promote"',
+            '"build-silver-candidates"',
+            '"audit-silver-candidates"',
+            '"promote-silver"',
+            '"--confirm-silver-candidate-write"',
+            '"--confirm-silver-promote"',
         )
         issues.extend(
             f"BSE minute recovery CLI misses {fragment}"
@@ -6518,6 +6524,10 @@ def use_nested_resource(context):
         ):
             if forbidden in r1_source:
                 issues.append(f"BSE Raw R1 re-enters source request path: {forbidden}")
+            if forbidden in r2_source:
+                issues.append(
+                    f"BSE Silver R2 re-enters source request path: {forbidden}"
+                )
         for forbidden in (
             "@dg.asset",
             "@dg.sensor",

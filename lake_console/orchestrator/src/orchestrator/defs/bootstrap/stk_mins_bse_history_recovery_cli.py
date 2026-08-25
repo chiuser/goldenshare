@@ -11,10 +11,13 @@ from orchestrator.defs.bootstrap.stk_mins_bse_history_recovery import (
     DEFAULT_RECOVERY_STAGING_ROOT,
     BseMinuteRecoveryError,
     audit_bse_raw_recovery_candidates,
+    audit_bse_silver_recovery_candidates,
     build_bse_raw_recovery_candidates,
+    build_bse_silver_recovery_candidates,
     parse_scope_file,
     plan_bse_stk_mins_history_recovery,
     promote_bse_raw_recovery_candidates,
+    promote_bse_silver_recovery_candidates,
     stage_bse_stk_mins_source_pages,
 )
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT
@@ -44,6 +47,8 @@ def _parser() -> argparse.ArgumentParser:
     source.add_argument("--plan", type=Path, required=True)
     source.add_argument("--output", type=Path, required=True)
     source.add_argument("--max-window-count", type=int)
+    source.add_argument("--reuse-plan", type=Path)
+    source.add_argument("--reuse-source-bundle", type=Path)
     source.add_argument("--confirm-source-request", action="store_true")
 
     candidate = subparsers.add_parser(
@@ -74,6 +79,43 @@ def _parser() -> argparse.ArgumentParser:
     promote.add_argument("--checkpoint", type=Path, required=True)
     promote.add_argument("--output", type=Path, required=True)
     promote.add_argument("--confirm-raw-promote", action="store_true")
+
+    silver_candidate = subparsers.add_parser(
+        "build-silver-candidates",
+        help="Build resumable R2 five-frequency Silver candidates.",
+    )
+    silver_candidate.add_argument("--plan", type=Path, required=True)
+    silver_candidate.add_argument("--bundle", type=Path, required=True)
+    silver_candidate.add_argument("--raw-promote-report", type=Path, required=True)
+    silver_candidate.add_argument("--max-date-count", type=int)
+    silver_candidate.add_argument("--output", type=Path, required=True)
+    silver_candidate.add_argument(
+        "--confirm-silver-candidate-write", action="store_true"
+    )
+
+    silver_audit = subparsers.add_parser(
+        "audit-silver-candidates",
+        help="Audit resumable R2 Silver candidates and freeze real changes.",
+    )
+    silver_audit.add_argument("--plan", type=Path, required=True)
+    silver_audit.add_argument("--bundle", type=Path, required=True)
+    silver_audit.add_argument("--raw-promote-report", type=Path, required=True)
+    silver_audit.add_argument("--candidate-report", type=Path, required=True)
+    silver_audit.add_argument("--max-candidate-count", type=int)
+    silver_audit.add_argument("--output", type=Path, required=True)
+
+    silver_promote = subparsers.add_parser(
+        "promote-silver",
+        help="Promote changed R2 Silver candidates and freeze the changed manifest.",
+    )
+    silver_promote.add_argument("--plan", type=Path, required=True)
+    silver_promote.add_argument("--bundle", type=Path, required=True)
+    silver_promote.add_argument("--raw-promote-report", type=Path, required=True)
+    silver_promote.add_argument("--audit-report", type=Path, required=True)
+    silver_promote.add_argument("--checkpoint", type=Path, required=True)
+    silver_promote.add_argument("--changed-manifest", type=Path, required=True)
+    silver_promote.add_argument("--output", type=Path, required=True)
+    silver_promote.add_argument("--confirm-silver-promote", action="store_true")
     return parser
 
 
@@ -114,6 +156,8 @@ def main(argv: list[str] | None = None) -> int:
                 duckdb_resource=resource,
                 output_path=args.output,
                 max_window_count=args.max_window_count,
+                reuse_plan_path=args.reuse_plan,
+                reuse_source_bundle_path=args.reuse_source_bundle,
             )
         elif args.command == "build-raw-candidates":
             if not args.confirm_candidate_write:
@@ -149,6 +193,49 @@ def main(argv: list[str] | None = None) -> int:
                 audit_report_path=args.audit_report,
                 confirm=True,
                 checkpoint_path=args.checkpoint,
+                output_path=args.output,
+            )
+        elif args.command == "build-silver-candidates":
+            if not args.confirm_silver_candidate_write:
+                print(
+                    "Silver candidate write requires --confirm-silver-candidate-write",
+                    file=sys.stderr,
+                )
+                return 2
+            payload = build_bse_silver_recovery_candidates(
+                plan_path=args.plan,
+                bundle_path=args.bundle,
+                raw_promote_report_path=args.raw_promote_report,
+                duckdb_resource=resource,
+                max_date_count=args.max_date_count,
+                output_path=args.output,
+            )
+        elif args.command == "audit-silver-candidates":
+            payload = audit_bse_silver_recovery_candidates(
+                plan_path=args.plan,
+                bundle_path=args.bundle,
+                raw_promote_report_path=args.raw_promote_report,
+                candidate_report_path=args.candidate_report,
+                duckdb_resource=resource,
+                max_candidate_count=args.max_candidate_count,
+                output_path=args.output,
+            )
+        elif args.command == "promote-silver":
+            if not args.confirm_silver_promote:
+                print(
+                    "formal Silver promotion requires --confirm-silver-promote",
+                    file=sys.stderr,
+                )
+                return 2
+            payload = promote_bse_silver_recovery_candidates(
+                plan_path=args.plan,
+                bundle_path=args.bundle,
+                raw_promote_report_path=args.raw_promote_report,
+                audit_report_path=args.audit_report,
+                confirm=True,
+                checkpoint_path=args.checkpoint,
+                changed_manifest_path=args.changed_manifest,
+                duckdb_resource=resource,
                 output_path=args.output,
             )
         else:  # pragma: no cover - argparse owns the command domain.

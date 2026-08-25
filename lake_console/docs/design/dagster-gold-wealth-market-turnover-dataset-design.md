@@ -1,6 +1,6 @@
 # Dagster Gold Wealth Market Turnover Dataset Design
 
-状态：WMT-1 至 WMT-6 的代码、历史 Lake、最近 20 日 runless event 和 Prod Serving 同步已按原口径闭环。WMT-7“北交所收盘集合竞价成交量/成交额校准”已完成代码开发和本地测试；正式历史 plan 在首个分区发现历史北交所分钟源代码集合缺口后，于候选生成和正式写入前安全停止。WMT-7R 负责先恢复可恢复的 Raw/Silver 及真实受影响下游，并对源站仍为空的旧日期按冻结清单跳过；截至 `2026-08-25`，R0A/R0B/R1 代码和本地隔离测试已完成，尚未执行真实 Tushare source request、正式 Raw promote、下游重建、Prod 回写或 Dagster event。WMT-7 历史修复明确不补任何 Gold/Prod 历史 materialization/check event。WMT-7/WMT-7R 生效后，本文第 17、18 节是当前计算、依赖、校验和恢复口径；前文 WMT-1 至 WMT-6 与其冲突的“只读五频分钟线”描述仅保留为历史实施记录，不再作为后续开发事实。
+状态：WMT-1 至 WMT-6 的代码、历史 Lake、最近 20 日 runless event 和 Prod Serving 同步已按原口径闭环。WMT-7“北交所收盘集合竞价成交量/成交额校准”已完成代码开发和本地测试；正式历史 plan 在首个分区发现历史北交所分钟源代码集合缺口后，于候选生成和正式写入前安全停止。WMT-7R 负责先恢复可恢复的 Raw/Silver 及真实受影响下游，并对源站仍为空的旧日期按冻结清单跳过；截至 `2026-08-26`，修正版 R0A/R0B 和 R1 Raw candidate/audit/promote 已正式完成，203 个 Raw 分区通过正式 hash 对账。尚未执行 R2 Silver、下游重建、Prod 回写或 Dagster event。WMT-7 历史修复明确不补任何 Gold/Prod 历史 materialization/check event。WMT-7/WMT-7R 生效后，本文第 17、18 节是当前计算、依赖、校验和恢复口径；前文 WMT-1 至 WMT-6 与其冲突的“只读五频分钟线”描述仅保留为历史实施记录，不再作为后续开发事实。
 
 ## 1. 目标
 
@@ -1178,7 +1178,7 @@ WMT-7R 解决的不是 WMT 计算公式，而是历史北交所分钟源覆盖�
 | 模式 | 判定 | 动作 |
 | --- | --- | --- |
 | `SOURCE_RECOVERABLE` | 现有 Raw 规范化后存在 latest-code 缺口，Tushare 当前对这些缺失代码的首选历史 source alias 返回完整数据，日期、频率、schema、主键和交易时段均合法 | 只把冻结的缺失 source rows 合入 Raw candidate，再生成 Silver candidate |
-| `SILVER_FALLBACK_RECOVERABLE` | 原生粗频率仍为空，但同日 Raw `1min` 具备完整 expected code set，且每个 code-day 恰有 241 个合法点 | 保留 Raw 粗频率原事实，使用现有 Silver set-based fallback 生成粗频率 |
+| `SILVER_FALLBACK_RECOVERABLE` | 原生粗频率仍为空，但同日 Raw `1min` 具备完整 expected code set，且每个 code-day 完整包含 241 个规范交易时点；Raw 可额外保留源站 15:01-15:30 的合法尾部行 | 保留 Raw 粗频率原事实，使用现有 Silver set-based fallback 只投影 241 个规范交易时点生成粗频率 |
 | `SOURCE_EMPTY_SKIP` | 源站仍为空，且没有完整低频源可聚合 | 不写 Raw/Silver；该频率在 WMT 历史维护中保留原结果并记录跳过原因 |
 | `PARTIAL_BLOCKED` | 已存在代码只有部分 bar、请求的缺失代码只返回部分数据，或 identity/date/key/session 任一合同不完整 | 整个日期/频率停止，不接受部分覆盖；先恢复缺失代码或转入明确跳过清单 |
 
@@ -1187,9 +1187,10 @@ expected 业务集合固定来自同日 `silver_stock_daily` 的 latest code set
 当前 identity map 同时保留 latest code 的 self row 和北交所旧代码的 `bse_mapping` row，因此不得按 `latest_ts_code` 反向连接后要求“只能有一行”。历史源 alias 选择规则固定为：
 
 1. 对同一 latest code 和目标日期，优先选择唯一有效的 `identity_source=bse_mapping` 历史 source code。
-2. 不存在有效 `identity_source=bse_mapping` 时，才回退到唯一有效的 self mapping，即 `source_ts_code=latest_ts_code`。
-3. 同层级存在多个有效 alias、缺少有效映射或有效期重叠时才标记 `PARTIAL_BLOCKED`。
-4. Raw 保存实际源站返回的 source code；Silver writer 按同一半开有效期规范化为 latest code。
+2. 不存在有效 `identity_source=bse_mapping` 时，选择唯一有效、且 `source_ts_code != latest_ts_code` 的 `identity_source=namechange` 历史 source code。
+3. 前两层均不存在时，才回退到唯一有效的 self mapping，即 `source_ts_code=latest_ts_code`。
+4. 同层级存在多个有效 alias、缺少有效映射或有效期重叠时才标记 `PARTIAL_BLOCKED`；不得在多个 `namechange` alias 间猜测。
+5. Raw 保存实际源站返回的 source code；Silver writer 按同一半开有效期规范化为 latest code。
 
 现有 Raw 物理代码集合不能直接与 expected latest set 比较。必须先按相同 identity 规则将现有 `source_ts_code` 规范化，再计算：
 
@@ -1199,11 +1200,18 @@ missing_latest_codes = expected_latest_codes - canonicalized_existing_raw_codes
 
 正式 source request 只请求 `missing_latest_codes` 的首选 source alias；已经覆盖的代码不得重复请求或重复合入。`2025-09-03` 的真实请求范围因此只有缺失业务代码 `920392.BJ` 对应的历史 source `872392.BJ`，而不是重拉当日全部北交所代码。
 
+Raw 覆盖判断必须保持源站事实，不得把 Silver 的规范交易时点合同反向强加给 Raw：
+
+1. 每个 code-day 必须唯一覆盖对应频率的全部规范交易时点；`1min` 的规范集合为 `09:30..11:30` 与 `13:01..15:00`，共 `241` 点。
+2. Raw 允许保留源站在 `15:00` 后按该频率继续返回、且不晚于 `15:30` 的尾部行。例如 `1min` 可保留 `15:01..15:30`，完整 source-faithful code-day 因此可有 `271` 行。
+3. 合法尾部行是可选源事实，不参与 Silver fallback 的规范点投影，也不得导致现有 Raw 被误判为 partial。
+4. 缺少任一规范交易时点、业务时间重复，或出现超出上述源端允许集合的时间，仍必须标记 `PARTIAL_BLOCKED`。
+
 模式是审计结论，不是根据“粗频率缺失”自动推导。任何日期在完成模式审计前只能标记为 `UNCLASSIFIED_CANDIDATE`。其中 `SILVER_FALLBACK_RECOVERABLE` 必须同时满足：
 
 1. 同日 Raw `1min` 北交所 latest code set 与 `silver_stock_daily` expected set 完全一致。
-2. 每个 expected code-day 恰有 `241` 行、`241` 个唯一 `trade_time`。
-3. 时间集合精确等于 `09:30..11:30` 与 `13:01..15:00`，不存在缺点、重复点或越界点。
+2. 每个 expected code-day 唯一包含全部 `241` 个规范 `trade_time`；Raw 总行数可因合法源站尾部行大于 `241`，但业务时间不得重复。
+3. fallback 只投影 `09:30..11:30` 与 `13:01..15:00` 的 241 个规范点；缺少规范点或出现不属于“规范点 + 15:00 后按频率延伸至 15:30”的时间均失败。
 4. 1m schema、主键、OHLC、`vol/amount` 和 exchange 合同全部通过。
 5. 目标粗频率对该 code-day 是“整只代码完全缺失”；若只缺部分 bar，不能使用 missing-source fallback，必须标记 `PARTIAL_BLOCKED`。
 6. 使用现有 Silver writer 生成的 candidate 通过窗口行数、schema、主键、日期、代码集合和回读校验。
@@ -1224,6 +1232,8 @@ missing_latest_codes = expected_latest_codes - canonicalized_existing_raw_codes
 8. R0 分为两个子阶段：R0A 只读正式 Lake/身份事实并在 staging 生成 scope plan；R0B 经显式确认后只向 `/Volumes/datasource/data_lake_staging` 写源页 Parquet 和 sidecar。每个 sidecar 记录请求参数、分页计数、row/key hash 和文件 hash。
 9. R0B 完成后生成不可变 source bundle manifest，包含模式、expected/existing/missing/returned code count、有限缺口样本、scope manifest hash、source request fingerprint、源页路径/hash 和目标文件 fingerprint。
 10. R1 只能消费上述冻结 source bundle，不得重新请求 Tushare；这样避免 R0/R1 之间的源站回刷漂移和重复配额消耗。
+11. 如果身份规则修正后产生新 plan，R0B 允许低成本复用旧 plan 下已经完整落盘的 source-page 证据，但只能逐 window 复用：旧 bundle 必须完成全部 expected windows、无请求失败、bundle hash 正确；旧 sidecar、request contract、page hash 和 Parquet hash 必须全部通过校验；新旧 window 的 `trade_date/freq/latest_ts_code/source_ts_code/start_date/end_date/fields/limit` 必须完全一致。
+12. 复用时在新 plan 根目录建立独立 immutable page，并重新绑定新 `plan_hash`；旧 bundle 和旧 page 保持不变。任何合同或 hash 不一致都不得复用，只能重新请求对应 window。不得因少数 alias 变化重放全部 7,586 个 source windows。
 
 ### 18.4 Raw 与 Silver 恢复
 
@@ -1240,11 +1250,13 @@ Raw 恢复只处理 `SOURCE_RECOVERABLE`：
 Silver 恢复按“实际受影响日期”执行：
 
 1. Raw `1min` 或同频 Raw 被恢复后，使用现有 `write_silver_stk_mins_partition(..., output_path_override=...)` 为同日五频生成候选。
-2. 在生成 fallback candidate 前，必须先输出独立的 1m eligibility audit；未同时通过代码集合、逐代码 241 点、精确时间集合和字段合同的日期不得进入 `SILVER_FALLBACK_RECOVERABLE`。
+2. 在生成 fallback candidate 前，必须先输出独立的 1m eligibility audit；先按正式 Silver writer 的同一 `silver_stock_suspend_daily` 口径排除 `suspend_type='S' AND suspend_timing IS NULL` 的整日停牌 Raw code-day，再验证 expected 代码集合、逐代码 241 个规范点、Raw 允许时间集合和字段合同。未通过的日期不得进入 `SILVER_FALLBACK_RECOVERABLE`。Raw 的合法 15:01-15:30 尾部行保留在 Raw，但不进入 fallback 投影。
 3. `SILVER_FALLBACK_RECOVERABLE` 只在上述 eligibility audit 通过后启用；由现有 DuckDB set-based writer 聚合，不新增第二套公式。
-4. 每个频率比较 candidate 与正式文件 canonical hash，只 promote 真正变化的 Silver 文件。
-5. `2025-09-03` 必须先恢复历史 source code `872392.BJ` 的 Raw `1min`，随后重新执行完整 eligibility audit；不能因为单代码 MCP 抽样已有数据就直接派生粗频率。
-6. `SOURCE_EMPTY_SKIP` 不生成空文件、不用日线补分钟、不修改现有 Silver。
+4. 通用 Silver writer 会同时处理沪深和北交所的历史 missing-source fallback。WMT-7R 是北交所专项，因此完整 writer candidate 生成后，必须在 staging 内按市场投影：正式 Silver 的非北交所行原样保留，writer candidate 只采用 `.BJ` 行；不得让本专项顺带修复 SH/SZ 历史缺口。
+5. 上述投影只限制维护范围，不复制或修改 Silver 公式；投影后的 candidate 仍须通过现有正式 diagnostics，并证明 affected code 全部为 `.BJ`。
+6. 每个频率比较投影后 candidate 与正式文件 canonical hash，只 promote 真正变化的 Silver 文件。
+7. `2025-09-03` 必须先恢复历史 source code `872392.BJ` 的 Raw `1min`，随后重新执行完整 eligibility audit；不能因为单代码 MCP 抽样已有数据就直接派生粗频率。
+8. `SOURCE_EMPTY_SKIP` 不生成空文件、不用日线补分钟、不修改现有 Silver。
 
 ### 18.5 下游影响和恢复顺序
 
@@ -1327,16 +1339,35 @@ WMT 正常日常 writer 继续要求五频完整，不接受降级。历史维�
 9. 无 Kopia、无正式 Lake sibling temp、无无边界 Tushare 请求、无全历史 Python 扫描。
 10. 未经单独批准，不执行正式 Lake、Prod 或 Dagster event 写入。
 
-### 18.10 R0/R1 开发落地状态
+### 18.10 R0/R1/R2 开发落地状态
 
-截至 `2026-08-25`，本轮只完成代码与隔离测试，没有执行恢复数据写入：
+截至 `2026-08-26`，本节已完成 R0A/R0B、R1 Raw 和 R2 Silver；R3-R6 尚未执行：
 
-1. 新增显式维护模块和 CLI，阶段固定为 `plan -> stage-source -> build-raw-candidates -> audit-raw-candidates -> promote-raw`。
-2. R0A 将 expected latest code、canonicalized existing Raw coverage、missing latest code 和首选历史 alias 冻结到 staging scope plan；`valid_to` 按排除边界处理，唯一有效 `bse_mapping` 优先于 self row。
-3. R0B 复用共享 bounded request session，只请求缺失 alias；每个源页立即写 staging，并冻结 request contract、offset、row/key hash 和 Parquet hash。部分返回会令 bundle `should_stop=true`，全空才进入 skip/fallback 分类。
+1. 显式维护模块和 CLI 已固定为 `plan -> stage-source -> build-raw-candidates -> audit-raw-candidates -> promote-raw -> build-silver-candidates -> audit-silver-candidates -> promote-silver`，每个正式写入阶段独立确认。
+2. R0A 将 expected latest code、canonicalized existing Raw coverage、missing latest code 和首选历史 alias 冻结到 staging scope plan；`valid_to` 按排除边界处理，优先级固定为唯一 `bse_mapping`、唯一非 self `namechange`、唯一 self row。
+3. R0B 复用共享 bounded request session，只请求缺失 alias；每个源页立即写 staging，并冻结 request contract、offset、row/key hash 和 Parquet hash。部分返回会令 bundle `should_stop=true`，全空才进入 skip/fallback 分类。身份规则修正后的新 plan 可以按上一节的严格合同复用旧 source-page，只请求实际变化的 window。
 4. R1 源码和静态门禁均禁止再次调用 Tushare；candidate 只合并冻结缺失行，检查完整 canonical latest set、非北交所 hash 和目标 fingerprint。
 5. promote 必须显式确认，使用同文件系统 `os.replace()`；checkpoint 区分 replace 前后中断，可通过 candidate/target hash 安全续跑，无法判定时 fail closed。
-6. 本地隔离验证覆盖 source full/zero/partial/fallback、半开 identity 有效期、bundle/candidate hash、正式 Raw promote 前不变、确认门禁和共享请求预算；相关回归共 `163 passed`。
-7. 本轮没有新增或修改 asset、check、job、sensor、run key、dynamic partition 或 Dagster event 逻辑。
+6. R0A 初次执行发现 planner 错把 Raw `1min` 合法保留的 `15:01-15:30` 源站尾部行判为 partial。代码现状核验确认 `2025-09-03` 已有的 272 个北交所 code-day 均为 271 个唯一时点、覆盖全部 241 个规范时点；planner 与 source bundle 校验已统一改为“规范时点必须完整 + 合法源端尾部行可保留”。
+7. 隔离测试新增合法尾部行正例和“尾部行不能掩盖规范点缺失”反例；目标回归、请求策略和静态门禁合计 `134 passed`。
+8. 本轮没有新增或修改 asset、check、job、sensor、run key、dynamic partition 或 Dagster event 逻辑。
+9. 修正后的正式 R0A 报告为 `/Volumes/datasource/data_lake_staging/stk_mins_bse_recovery/reports/r0a_scope_plan_20260825_231037.json`，plan hash 为 `bed439ade761e7faa863a157ba8318d4af397f13b2556de1e1eae35c522f4f55`。报告覆盖 413 个 `trade_date + freq` scope，`should_stop=false`、identity failure 为 0、existing partial code-day 为 0，耗时 `23.709s`。
+10. R0A 后只读复核 827 份 identity/daily/Raw fingerprint，变化数为 0；active runs 为 0，正式 Raw 未出现 `.tmp/.new` 文件。R0A 只写 staging plan/manifest，没有请求 Tushare，也没有写正式 Lake 或 Dagster DB。
+11. 首轮 R0B 已完成全部 `7,586` 个 source windows，请求层无失败、无 incomplete window，bundle hash 为 `e8e834089ed2969748dd4fc2a01d65e9e081761ecb779f84b29f63f67c0f9fca`；但模式对账出现 `202` 个 `PARTIAL_BLOCKED`，因此没有进入 R1。只读根因审计证明其中 8 个 latest code 在 `2023-02-17..2023-05-12` 存在唯一有效的历史 `namechange` alias，旧 planner 却错误回退到 modern self code。
+12. 8 组已核实映射为 `920021.BJ -> 834021.BJ`、`920122.BJ -> 873122.BJ`、`920163.BJ -> 838163.BJ`、`920305.BJ -> 835305.BJ`、`920810.BJ -> 838810.BJ`、`920834.BJ -> 831834.BJ`、`920879.BJ -> 830879.BJ`、`920961.BJ -> 831961.BJ`；有效期内不存在同层多 alias 歧义。
+13. 修正版 R0A 报告为 `/Volumes/datasource/data_lake_staging/stk_mins_bse_recovery/reports/r0a_scope_plan_namechange_20260826_004828.json`，plan hash 为 `c0cc8fa91ac4d13db0b762cf3be5781483a61541a7cdab5ebbd35e596ca2674d`，`should_stop=false`，耗时 `26.972s`。新旧 scope key 和行数均一致，只有上述 8 个 latest code 的首选 source alias 变化。
+14. 修正版 R0B 报告为 `/Volumes/datasource/data_lake_staging/stk_mins_bse_recovery/reports/r0b_source_bundle_namechange_20260826_005012.json`，bundle hash 为 `2cb309b98a8946ecc44faa97294f54ade55d5a5b533893746f5aea84e977fa59`。共完成 `7,586/7,586` 个 windows，其中严格复用 `7,337` 个、只请求 8 个历史 alias 对应的 `249` 个，实际分页请求 `257` 次、重试 `0`、失败 `0`，耗时 `108.446s`。
+15. 新 bundle 最终模式为 `SOURCE_RECOVERABLE=203`、`SILVER_FALLBACK_RECOVERABLE=13`、`SOURCE_EMPTY_SKIP=197`、`PARTIAL_BLOCKED=0`，`should_stop=false`。R0B 后再次核验 827 份正式 identity/daily/Raw fingerprint，变化数为 0；active runs 为 0，正式 Raw `.tmp/.new` 为 0。
+16. R1 执行前确认 `dg dev`、webserver 和 daemon 已停止，active runs 为 0；203 个 candidate 预计约 `1.50 GiB`，staging 可用空间约 `2.29 TiB`。candidate 全部位于新 plan 的 staging root，不访问 Tushare、Prod 或 Dagster event history。
+17. Candidate 报告为 `/Volumes/datasource/data_lake_staging/stk_mins_bse_recovery/reports/r1_raw_candidates_20260826_010940.json`：`203/203` 生成成功，candidate 总大小 `1,647,970,125` bytes，总行数 `82,133,944`，失败 `0`，耗时 `26.709s`。独立审计报告为 `/Volumes/datasource/data_lake_staging/stk_mins_bse_recovery/reports/r1_raw_candidate_audit_20260826_011035.json`：`203/203` 通过，失败 `0`，耗时 `7.411s`。
+18. Promote 报告为 `/Volumes/datasource/data_lake_staging/stk_mins_bse_recovery/reports/r1_raw_promote_20260826_011105.json`，checkpoint 记录 `203` 个分区全部完成且 `in_progress=null`。正式 Raw 共补入 `3,274,241` 行冻结源数据；203 个目标 hash 与 audit 完全一致，变化 fingerprint 精确等于 promote 集合，非目标 Raw、identity 和 daily fingerprint 变化均为 0。
+19. R1 后 candidate 残留、正式 `.tmp/.new`、active runs 均为 0。Dagster 保持停止；R1 没有生成 Silver、Gold、Prod 数据或 Dagster materialization/check event。
+20. R2 首次正式候选在 `2023-02-17:5m` 被非目标市场门禁安全停止。报告 `/Volumes/datasource/data_lake_staging/stk_mins_bse_recovery/reports/r2_silver_candidates_20260826_014850.json` 证明通用 Silver writer 同时补出了 `000156.SZ`、`002852.SZ`、`600052.SH`、`603530.SH` 四个沪深历史 code-day；正式 Silver 未被改写。
+21. R2 随后按第 18.4 节收敛为 staging BSE-only 投影：沪深行逐行沿用正式文件，只采用 writer candidate 的 `.BJ` 行。目标测试加入“writer 输出非北交所额外行但维护 candidate 必须剔除”的反例；R2 目标/静态测试 `126 passed`，Silver 回归 `47 passed`，ruff 和 `dg check defs` 均通过。
+22. 续跑至 `2025-07-11` 时，eligibility 又安全识别出 `920305.BJ` 的 271 行额外 Raw。只读代码和数据核验确认该代码当日为 `suspend_type='S' AND suspend_timing IS NULL` 的整日停牌，Raw 271 根均为零成交，正式 Silver writer 会明确删除；eligibility 已改为复用同一停牌过滤语义。修正后真实只读结果为 expected/returned/241-point/allowed code count 均为 `266`，invalid 为 `0`。
+23. 最终 candidate 报告 `/Volumes/datasource/data_lake_staging/stk_mins_bse_recovery/reports/r2_silver_candidates_retry_batch_14_20260826.json` 为 `290/290` 完成、失败 `0`，真正变化 `221`。变化频率分布为 1m `52`、5m `51`、15m `54`、30m `57`、60m `7`；候选按最多 5 个日期分批，最慢单批 `145.132s`，未越过 5 分钟门禁。
+24. 最终审计报告 `/Volumes/datasource/data_lake_staging/stk_mins_bse_recovery/reports/r2_silver_audit_batch_15_20260826.json` 对 `290/290` candidate 完成 diagnostics、canonical hash、affected-code 和 target fingerprint 回读，`audit_hash=7226faa54f219fb02f9492710c62c14fcdaec2c53bf12ea0089204c3eaf2cacf`，失败 `0`；15 个审计批次最慢 `5.097s`。
+25. Promote 报告 `/Volumes/datasource/data_lake_staging/stk_mins_bse_recovery/reports/r2_silver_promote_20260826.json` 记录 `221/221` 个真正变化文件原子提升成功，checkpoint `in_progress=null`。actual changed manifest 位于同 plan 根目录的 `actual-changed-silver-manifest.json`，`manifest_hash=e3983a1145d65cc0c19c0e113615327c885990cfc555551dccea0a4b56d6e5ea`。
+26. Promote 内置 post audit 已对全部 290 个正式目标重算 canonical hash，均与审计候选一致；69 个等值 candidate 未替换正式文件。Silver staging candidate 文件已清零，Dagster 进程和 active runs 前后均为 0；R2 没有写 Gold、Prod、Dagster event 或 dynamic partition。
 
-下一步若要执行恢复，先单独运行 R0A scope plan；R0B 会消耗 Tushare 配额，R1 promote 会改写正式 Raw，均须按执行阶段另行确认。
+R2 已完成。下一步只能由 R3 读取上述 actual changed Silver manifest 规划 bounded QFQ 恢复；不得按 Raw plan 或 58 个日期直接扩大下游范围，也不得在 R3 单独审批前写 Gold。
