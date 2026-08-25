@@ -285,7 +285,47 @@ class DatasetSourceClient:
             request_params=request_params,
             unit_id=unit.unit_id,
         )
+        self._validate_etf_mins_freq_rows(
+            definition=definition,
+            rows=rows,
+            request_params=request_params,
+            unit_id=unit.unit_id,
+        )
         return rows, retries
+
+    @staticmethod
+    def _validate_etf_mins_freq_rows(
+        *,
+        definition: DatasetDefinition,
+        rows: list[dict],
+        request_params: dict,
+        unit_id: str,
+    ) -> None:
+        if definition.source.api_name != "etf_mins":
+            return
+        expected = str(request_params.get("freq") or "").strip()
+        mismatched = [
+            {"row_index": index, "actual": row.get("freq")}
+            for index, row in enumerate(rows)
+            if str(row.get("freq") or "").strip() != expected
+        ]
+        if mismatched:
+            raise IngestionSourceError(
+                StructuredError(
+                    error_code="source_variant_mismatch",
+                    error_type="source",
+                    phase="source_client",
+                    message="ETF 历史分钟行情返回频率与请求频率不一致",
+                    retryable=False,
+                    unit_id=unit_id,
+                    details={
+                        "field_name": "freq",
+                        "expected": expected,
+                        "mismatch_count": len(mismatched),
+                        "samples": mismatched[:3],
+                    },
+                )
+            )
 
     @staticmethod
     def _validate_request_variant_rows(

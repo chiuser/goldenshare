@@ -181,6 +181,14 @@ def test_etf_series_active_seed_old_resources_keep_fixed_row_count(tmp_path: Pat
         EtfSeriesActiveSeedService().run(session, resource="fund_daily", seed_csv_path=seed_path)
 
 
+def test_etf_series_active_seed_etf_mins_requires_full_1395_pool(tmp_path: Path) -> None:
+    session = _session()
+    seed_path = _write_seed_csv(tmp_path, row_count=2)
+
+    with pytest.raises(ValueError, match="row count mismatch"):
+        EtfSeriesActiveSeedService().run(session, resource="etf_mins", seed_csv_path=seed_path)
+
+
 def test_etf_series_active_seed_rejects_of_code(tmp_path: Path) -> None:
     session = _session()
     seed_path = _write_seed_csv(tmp_path, override={0: {"ts_code": "510300.OF"}})

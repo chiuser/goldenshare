@@ -20,8 +20,8 @@ class IngestionCodebookEntry:
         }
 
 
-INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-19.v2"
-INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-19T00:00:00Z"
+INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-25.v1"
+INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-25T00:00:00Z"
 
 INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("dataset_mismatch", "请求数据集与定义不一致", "validator", "检查 dataset_key 与定义绑定"),
@@ -97,6 +97,7 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("normalize.duplicate_conflict_key_inconsistent", "同一主键出现不一致数据", "normalize", "检查分页结果与源端一致性"),
     IngestionCodebookEntry("dao_not_found", "写入 DAO 路由缺失", "writer", "检查 storage.write_path 与 DAOFactory 注册"),
     IngestionCodebookEntry("write.snapshot_rows_rejected", "完整观察快照存在拒绝行", "writer", "先解决拒绝原因，不能用部分结果替换当前快照"),
+    IngestionCodebookEntry("write.unit_rows_rejected", "执行单元存在拒绝行", "writer", "先解决全部拒绝原因，当前单元不会写入"),
     IngestionCodebookEntry("write.snapshot_empty", "完整观察快照为空", "writer", "检查源端返回与字段请求，不能清空当前快照"),
     IngestionCodebookEntry("write.source_entity_key_missing", "观察快照实体键缺失", "writer", "检查数据集行转换的 source_entity_key"),
     IngestionCodebookEntry("write.source_field_missing", "显式请求字段缺失", "writer", "检查 source_fields 与源端返回字段"),

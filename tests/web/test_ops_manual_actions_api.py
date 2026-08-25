@@ -75,6 +75,7 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert any(action["action_key"] == "etf_sh_cons.maintain" for action in etf_fund_group["actions"])
     assert any(action["action_key"] == "etf_share_size.maintain" for action in etf_fund_group["actions"])
     assert any(action["action_key"] == "etf_sz_cons.maintain" for action in etf_fund_group["actions"])
+    assert any(action["action_key"] == "etf_mins.maintain" for action in etf_fund_group["actions"])
     assert [action["action_key"] for action in public_fund_group["actions"]] == [
         "fund_company.maintain",
         "mkt_idx_bmk.maintain",
@@ -110,6 +111,21 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert actions["etf_sz_cons.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
     assert actions["etf_sz_cons.maintain"]["time_form"]["default_mode"] == "point"
     assert [item["mode"] for item in actions["etf_sz_cons.maintain"]["time_form"]["modes"]] == ["point", "range"]
+    assert actions["etf_mins.maintain"]["display_name"] == "维护ETF 历史分钟行情"
+    assert actions["etf_mins.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
+    assert [item["mode"] for item in actions["etf_mins.maintain"]["time_form"]["modes"]] == ["point", "range"]
+    etf_mins_filters = {
+        item["key"]: item for item in actions["etf_mins.maintain"]["filters"]
+    }
+    assert etf_mins_filters["freq"]["required"] is True
+    assert etf_mins_filters["freq"]["multi_value"] is True
+    assert etf_mins_filters["freq"]["options"] == [
+        "1min",
+        "5min",
+        "15min",
+        "30min",
+        "60min",
+    ]
     assert actions["idx_factor_pro.maintain"]["display_name"] == "维护指数技术因子(专业版)"
     assert actions["idx_factor_pro.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
     assert actions["idx_factor_pro.maintain"]["time_form"]["default_mode"] == "point"

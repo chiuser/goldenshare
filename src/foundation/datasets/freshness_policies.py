@@ -39,6 +39,7 @@ FRESHNESS_POLICY_BY_DATASET: dict[str, FreshnessPolicy] = {
     "dividend": EVENT_RUN_TRACE,
     "etf_basic": SNAPSHOT_RUN_TRACE,
     "etf_index": SNAPSHOT_RUN_TRACE,
+    "etf_mins": CONTINUOUS_OPEN_DAY,
     "etf_sh_cons": CONTINUOUS_OPEN_DAY,
     "etf_share_size": CONTINUOUS_OPEN_DAY,
     "etf_sz_cons": CONTINUOUS_OPEN_DAY,

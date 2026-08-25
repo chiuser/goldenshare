@@ -35,6 +35,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert "etf_sh_cons.maintain" in actions
     assert "etf_share_size.maintain" in actions
     assert "etf_sz_cons.maintain" in actions
+    assert "etf_mins.maintain" in actions
     assert "index_weight.maintain" in actions
     assert "index_mins.maintain" in actions
     assert "idx_factor_pro.maintain" in actions
@@ -132,6 +133,18 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert etf_sz_cons["schedule_enabled"] is True
     assert [param["key"] for param in etf_sz_cons["parameters"]] == ["trade_date", "start_date", "end_date", "ts_code"]
 
+    etf_mins = actions["etf_mins.maintain"]
+    assert etf_mins["target_display_name"] == "ETF 历史分钟行情"
+    assert etf_mins["group_key"] == "etf_fund"
+    assert etf_mins["group_label"] == "ETF基金"
+    assert etf_mins["freshness_policy"] == "continuous_open_day"
+    assert etf_mins["schedule_enabled"] is True
+    etf_mins_params = {param["key"]: param for param in etf_mins["parameters"]}
+    assert list(etf_mins_params) == ["trade_date", "start_date", "end_date", "ts_code", "freq"]
+    assert etf_mins_params["freq"]["multi_value"] is True
+    assert etf_mins_params["freq"]["default_value"] is None
+    assert etf_mins_params["freq"]["options"] == ["1min", "5min", "15min", "30min", "60min"]
+
     bse_mapping = actions["bse_mapping.maintain"]
     assert bse_mapping["group_key"] == "reference_data"
     assert bse_mapping["group_label"] == "A股基础数据"
@@ -219,7 +232,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert actions["maintenance.rebuild_dm"]["display_name"] == "刷新数据集市快照"
 
     catalog_items = [*actions.values(), *workflows.values()]
-    assert sum(item["schedule_enabled"] for item in catalog_items) == 93
+    assert sum(item["schedule_enabled"] for item in catalog_items) == 94
     assert all(
         (item["automation_capability"] is not None) is item["schedule_enabled"]
         for item in catalog_items

@@ -30,6 +30,14 @@ from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStoc
 
 
 CYQ_CHIPS_RANGE_WINDOW_DAYS = 1095
+ETF_MINS_RESOURCE = "etf_mins"
+ETF_MINS_RANGE_WINDOW_MONTHS = {
+    "1min": 2,
+    "5min": 12,
+    "15min": 36,
+    "30min": 72,
+    "60min": 120,
+}
 ETF_SH_CONS_RESOURCE = "etf_sh_cons"
 ETF_SZ_CONS_RESOURCE = "etf_sz_cons"
 SCOPED_REPAIR_POLICY_EXISTING_POINT_BUCKET_ONLY = "existing_point_bucket_only"
@@ -1102,6 +1110,35 @@ def _split_calendar_month_windows(start_date: date, end_date: date) -> list[tupl
     return windows
 
 
+def _split_calendar_month_span_windows(
+    start_date: date,
+    end_date: date,
+    *,
+    months: int,
+) -> tuple[tuple[date, date], ...]:
+    if months <= 0 or start_date > end_date:
+        raise DatasetUnitPlanner._planning_error(
+            "invalid_range_window",
+            "ETF 历史分钟行情切窗参数非法",
+        )
+
+    windows: list[tuple[date, date]] = []
+    cursor = start_date
+    while cursor <= end_date:
+        last_month_index = cursor.year * 12 + (cursor.month - 1) + (months - 1)
+        last_year, last_month_zero_based = divmod(last_month_index, 12)
+        last_month = last_month_zero_based + 1
+        natural_window_end = date(
+            last_year,
+            last_month,
+            monthrange(last_year, last_month)[1],
+        )
+        window_end = min(natural_window_end, end_date)
+        windows.append((cursor, window_end))
+        cursor = window_end + timedelta(days=1)
+    return tuple(windows)
+
+
 def _resolve_etf_sh_cons_targets(
     *,
     planner: DatasetUnitPlanner,
@@ -1348,6 +1385,172 @@ def _resolve_cyq_chips_targets(
     if not targets:
         raise DatasetUnitPlanner._planning_error("universe_empty", "每日筹码分布需要先准备股票主数据")
     return targets
+
+
+def _resolve_etf_mins_targets(
+    *,
+    planner: DatasetUnitPlanner,
+    request: ValidatedDatasetActionRequest,
+    definition: DatasetDefinition,
+) -> list[str]:
+    universe = definition.planning.universe
+    if definition.planning.universe_policy != "pool" or universe is None:
+        raise DatasetUnitPlanner._planning_error(
+            "unknown_universe_policy",
+            "ETF 历史分钟行情缺少对象池规划配置",
+        )
+    if universe.request_field != "ts_code" or universe.override_fields != ("ts_code",):
+        raise DatasetUnitPlanner._planning_error(
+            "unknown_universe_policy",
+            "ETF 历史分钟行情对象池配置必须绑定 ts_code",
+        )
+    actual_sources = tuple((source.type, source.resource) for source in universe.sources)
+    if actual_sources != (("ops_etf_series_active", ETF_MINS_RESOURCE),):
+        raise DatasetUnitPlanner._planning_error(
+            "unknown_universe_policy",
+            "ETF 历史分钟行情对象池来源配置不符合当前主链",
+        )
+
+    pool_codes = _normalize_universe_codes(
+        planner.dao.etf_series_active.list_active_codes(ETF_MINS_RESOURCE)
+    )
+    if not pool_codes:
+        raise DatasetUnitPlanner._planning_error(
+            "universe_empty",
+            "ETF 历史分钟行情需要先初始化 etf_mins ETF 激活池",
+        )
+    invalid_pool_codes = [
+        code for code in pool_codes if not (code.endswith(".SH") or code.endswith(".SZ"))
+    ]
+    if invalid_pool_codes:
+        raise DatasetUnitPlanner._planning_error(
+            "invalid_enum",
+            "ETF 历史分钟行情激活池只允许 .SH/.SZ 代码："
+            + ", ".join(invalid_pool_codes),
+        )
+
+    explicit_codes = _normalize_universe_codes(split_multi_values(request.params.get("ts_code")))
+    if not explicit_codes:
+        return pool_codes
+    if len(explicit_codes) > 1:
+        raise DatasetUnitPlanner._planning_error(
+            "invalid_enum",
+            "ETF 历史分钟行情一次只支持维护一个显式 ETF 代码",
+        )
+    explicit_code = explicit_codes[0]
+    if not (explicit_code.endswith(".SH") or explicit_code.endswith(".SZ")):
+        raise DatasetUnitPlanner._planning_error(
+            "invalid_enum",
+            f"ETF 历史分钟行情只支持 .SH/.SZ ETF 代码：{explicit_code}",
+        )
+    if explicit_code not in set(pool_codes):
+        raise DatasetUnitPlanner._planning_error(
+            "invalid_enum",
+            f"ETF 历史分钟行情代码未配置到 etf_mins 激活池：{explicit_code}",
+        )
+    return [explicit_code]
+
+
+def _build_etf_mins_units(
+    planner: DatasetUnitPlanner,
+    request: ValidatedDatasetActionRequest,
+    definition: DatasetDefinition,
+) -> list[PlanUnitSnapshot]:
+    request_builder = planner._resolve_request_builder(definition)
+    allowed_freqs = tuple(ETF_MINS_RANGE_WINDOW_MONTHS)
+    raw_freqs = split_multi_values(request.params.get("freq"))
+    if not raw_freqs:
+        raise DatasetUnitPlanner._planning_error(
+            "required_param_missing",
+            "ETF 历史分钟行情至少需要选择一个频率",
+        )
+    invalid_freqs = sorted({freq for freq in raw_freqs if freq not in allowed_freqs})
+    if invalid_freqs:
+        raise DatasetUnitPlanner._planning_error(
+            "invalid_enum",
+            f"ETF 历史分钟行情频率无效：{', '.join(invalid_freqs)}",
+        )
+    selected_freqs = [freq for freq in allowed_freqs if freq in set(raw_freqs)]
+    targets = _resolve_etf_mins_targets(
+        planner=planner,
+        request=request,
+        definition=definition,
+    )
+
+    units: list[PlanUnitSnapshot] = []
+    ordinal = 0
+    for ts_code in targets:
+        for freq in selected_freqs:
+            if request.run_profile == "point_incremental":
+                if request.trade_date is None:
+                    raise DatasetUnitPlanner._planning_error(
+                        "missing_anchor_fields",
+                        "ETF 历史分钟行情单日维护缺少交易日期",
+                    )
+                date_windows = ((request.trade_date, request.trade_date),)
+            elif request.run_profile == "range_rebuild":
+                if request.start_date is None or request.end_date is None:
+                    raise DatasetUnitPlanner._planning_error(
+                        "range_required",
+                        "ETF 历史分钟行情区间维护必须同时填写开始日期和结束日期",
+                    )
+                date_windows = _split_calendar_month_span_windows(
+                    request.start_date,
+                    request.end_date,
+                    months=ETF_MINS_RANGE_WINDOW_MONTHS[freq],
+                )
+            else:
+                raise DatasetUnitPlanner._planning_error(
+                    "run_profile_unsupported",
+                    f"ETF 历史分钟行情不支持该运行模式：{request.run_profile}",
+                )
+
+            for window_index, (window_start_date, window_end_date) in enumerate(
+                date_windows,
+                start=1,
+            ):
+                unit_trade_date = (
+                    window_start_date if request.run_profile == "point_incremental" else None
+                )
+                window_start = f"{window_start_date.isoformat()} 09:00:00"
+                window_end = f"{window_end_date.isoformat()} 19:00:00"
+                merged_values = {
+                    "ts_code": ts_code,
+                    "freq": freq,
+                    "window_start": window_start,
+                    "window_end": window_end,
+                }
+                units.append(
+                    PlanUnitSnapshot(
+                        unit_id=(
+                            f"etf_mins:ts_code={ts_code}:freq={freq}:"
+                            f"start={window_start.replace(' ', 'T')}:"
+                            f"end={window_end.replace(' ', 'T')}:{ordinal}"
+                        ),
+                        dataset_key=request.dataset_key,
+                        source_key=request.source_key or definition.source.source_key_default,
+                        trade_date=unit_trade_date,
+                        request_params=request_builder(
+                            request,
+                            unit_trade_date,
+                            merged_values,
+                        ),
+                        progress_context={
+                            "unit": "etf",
+                            "ts_code": ts_code,
+                            "freq": freq,
+                            "start_date": window_start,
+                            "end_date": window_end,
+                            "window_index": window_index,
+                            "window_total": len(date_windows),
+                        },
+                        pagination_policy="offset_limit",
+                        page_limit=definition.planning.page_limit,
+                        max_source_rows_per_unit=definition.planning.max_source_rows_per_unit,
+                    )
+                )
+                ordinal += 1
+    return units
 
 
 def _build_stk_mins_units(planner: DatasetUnitPlanner, request: ValidatedDatasetActionRequest, definition: DatasetDefinition) -> list[PlanUnitSnapshot]:
@@ -1664,6 +1867,7 @@ _CUSTOM_UNIT_BUILDERS: dict[str, Callable[[DatasetUnitPlanner, ValidatedDatasetA
     "build_biying_equity_daily_units": _build_biying_equity_daily_units,
     "build_biying_moneyflow_units": _build_biying_moneyflow_units,
     "build_cyq_chips_units": _build_cyq_chips_units,
+    "build_etf_mins_units": _build_etf_mins_units,
     "build_etf_sh_cons_units": _build_etf_sh_cons_units,
     "build_etf_share_size_units": _build_etf_share_size_units,
     "build_etf_sz_cons_units": _build_etf_sz_cons_units,

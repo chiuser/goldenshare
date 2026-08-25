@@ -89,6 +89,26 @@ class DatasetWriter:
                             unit_id=batch.unit_id,
                         )
                     )
+        if (
+            definition.storage.write_path == "raw_only_upsert"
+            and definition.quality.reject_policy == "fail_unit_on_any_rejection"
+            and batch.rows_rejected > 0
+        ):
+            raise IngestionWriteError(
+                StructuredError(
+                    error_code="write.unit_rows_rejected",
+                    error_type="write",
+                    phase="writer",
+                    message="执行单元存在拒绝行，已在业务写入前终止",
+                    retryable=False,
+                    unit_id=batch.unit_id,
+                    details={
+                        "rows_rejected": batch.rows_rejected,
+                        "rejected_reasons": dict(batch.rejected_reasons),
+                        "rejected_samples": dict(batch.rejected_samples),
+                    },
+                )
+            )
         try:
             if definition.storage.write_path == "serving_direct_scope_replace":
                 return self._write_serving_direct_scope_replace(

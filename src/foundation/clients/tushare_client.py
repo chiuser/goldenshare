@@ -61,6 +61,7 @@ _API_RATE_LIMITS = {
     "stock_basic": 50,
     "index_daily": 420,
     "idx_mins": 100,
+    "etf_mins": 500,
     "stk_mins": 500,
 }
 

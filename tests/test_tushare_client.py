@@ -115,6 +115,10 @@ def test_tushare_index_daily_rate_limit_keeps_safety_margin() -> None:
     assert _API_RATE_LIMITS["index_daily"] < 500
 
 
+def test_tushare_etf_mins_uses_documented_endpoint_limit() -> None:
+    assert _API_RATE_LIMITS["etf_mins"] == 500
+
+
 def test_tushare_realtime_rate_limits_use_runtime_config(monkeypatch) -> None:
     session = _runtime_config_session()
     seed_realtime_runtime_config(

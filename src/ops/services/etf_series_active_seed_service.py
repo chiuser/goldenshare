@@ -11,10 +11,13 @@ from sqlalchemy.orm import Session
 from src.ops.models.ops.etf_series_active import EtfSeriesActive
 
 
-ETF_SERIES_ACTIVE_RESOURCES: frozenset[str] = frozenset({"fund_daily", "etf_rt_daily", "etf_sh_cons", "etf_sz_cons"})
+ETF_SERIES_ACTIVE_RESOURCES: frozenset[str] = frozenset(
+    {"fund_daily", "etf_mins", "etf_rt_daily", "etf_sh_cons", "etf_sz_cons"}
+)
 ETF_SERIES_ACTIVE_SEED_EXPECTED_ROWS = 1395
 ETF_SERIES_ACTIVE_SEED_EXPECTED_ROWS_BY_RESOURCE: dict[str, int] = {
     "fund_daily": ETF_SERIES_ACTIVE_SEED_EXPECTED_ROWS,
+    "etf_mins": ETF_SERIES_ACTIVE_SEED_EXPECTED_ROWS,
     "etf_rt_daily": ETF_SERIES_ACTIVE_SEED_EXPECTED_ROWS,
 }
 ETF_SERIES_ACTIVE_ALLOWED_SELECTION_GROUPS: frozenset[str] = frozenset(

@@ -827,6 +827,36 @@ def _stk_mins_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     return transformed
 
 
+def _etf_mins_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    trade_time = _parse_quote_time(transformed.get("trade_time"))
+    current_time = trade_time.time()
+    is_trading_session = (
+        time(9, 30) <= current_time <= time(11, 30)
+        or time(13, 0) <= current_time <= time(15, 0)
+    )
+    if not is_trading_session:
+        raise ValueError(f"ETF 分钟时间不在交易时段内：{trade_time}")
+
+    freq = str(transformed.get("freq") or "").strip()
+    if freq not in {"1min", "5min", "15min", "30min", "60min"}:
+        raise ValueError(f"ETF 分钟频率无效：{freq}")
+    exchange = transformed.get("exchange")
+    return {
+        "ts_code": str(transformed.get("ts_code") or "").strip().upper(),
+        "freq": freq,
+        "trade_time": trade_time,
+        "open": _optional_float(transformed.get("open")),
+        "close": _optional_float(transformed.get("close")),
+        "high": _optional_float(transformed.get("high")),
+        "low": _optional_float(transformed.get("low")),
+        "vol": _optional_int(transformed.get("vol")),
+        "amount": _optional_float(transformed.get("amount")),
+        "vwap": _optional_float(transformed.get("vwap")),
+        "exchange": str(exchange).strip().upper() if exchange not in (None, "") else None,
+    }
+
+
 def _index_mins_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
     trade_time = _parse_quote_time(transformed.get("trade_time"))
@@ -1072,6 +1102,7 @@ __all__ = [
     "_stk_period_bar_row_transform",
     "_stk_period_bar_adj_row_transform",
     "_stk_mins_row_transform",
+    "_etf_mins_row_transform",
     "_index_mins_row_transform",
     "_dividend_row_transform",
     "_holdernumber_row_transform",

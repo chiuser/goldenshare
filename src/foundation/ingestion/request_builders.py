@@ -142,6 +142,17 @@ def _stk_mins_params(request, anchor_date: date | None, enum_values: dict[str, A
     }
 
 
+def _etf_mins_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del request
+    del anchor_date
+    return {
+        "ts_code": str(enum_values["ts_code"]).strip().upper(),
+        "freq": str(enum_values["freq"]).strip(),
+        "start_date": str(enum_values["window_start"]).strip(),
+        "end_date": str(enum_values["window_end"]).strip(),
+    }
+
+
 def _idx_mins_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     del request
     del anchor_date
@@ -1222,6 +1233,7 @@ __all__ = [
     "_stk_auction_o_params",
     "_stk_auction_c_params",
     "_stk_mins_params",
+    "_etf_mins_params",
     "_idx_mins_params",
     "_daily_basic_params",
     "_daily_params",
