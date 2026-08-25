@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Iterator
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.task_run import TaskRun
@@ -61,6 +62,40 @@ def _schedule_signature(session: Session) -> dict[str, str | int | None]:
     }
 
 
+def _build_stream_session_factory(session: Session) -> sessionmaker[Session]:
+    return sessionmaker(
+        bind=session.get_bind(),
+        autoflush=False,
+        autocommit=False,
+        future=True,
+    )
+
+
+def _read_schedule_signature(
+    session_factory: sessionmaker[Session],
+) -> dict[str, str | int | None]:
+    with session_factory() as session:
+        try:
+            return _schedule_signature(session)
+        finally:
+            session.rollback()
+
+
+def _schedule_event_stream(
+    session_factory: sessionmaker[Session],
+) -> Iterator[str]:
+    last_signature: dict[str, str | int | None] | None = None
+    while True:
+        current_signature = _read_schedule_signature(session_factory)
+        if current_signature != last_signature:
+            payload = json.dumps(current_signature, ensure_ascii=False)
+            yield f"event: schedules\ndata: {payload}\n\n"
+            last_signature = current_signature
+        else:
+            yield ": ping\n\n"
+        time.sleep(2)
+
+
 @router.get("", response_model=ScheduleListResponse)
 def list_ops_schedules(
     _user: AuthenticatedUser = Depends(require_admin),
@@ -84,22 +119,14 @@ def stream_ops_schedules(
     token: str = Query(..., min_length=8),
     session: Session = Depends(get_db_session),
 ):
-    _require_admin_from_stream_token(session, token)
-
-    def event_stream():
-        last_signature: dict[str, str | int | None] | None = None
-        while True:
-            current_signature = _schedule_signature(session)
-            if current_signature != last_signature:
-                payload = json.dumps(current_signature, ensure_ascii=False)
-                yield f"event: schedules\ndata: {payload}\n\n"
-                last_signature = current_signature
-            else:
-                yield ": ping\n\n"
-            time.sleep(2)
+    try:
+        _require_admin_from_stream_token(session, token)
+        stream_session_factory = _build_stream_session_factory(session)
+    finally:
+        session.rollback()
 
     return StreamingResponse(
-        event_stream(),
+        _schedule_event_stream(stream_session_factory),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

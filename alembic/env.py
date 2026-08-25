@@ -19,6 +19,8 @@ if config.config_file_name is not None:
 register_all_models()
 target_metadata = Base.metadata
 
+_ALEMBIC_LOCK_TIMEOUT_SQL = "SET LOCAL lock_timeout = '15s'"
+
 
 def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
@@ -36,6 +38,8 @@ def run_migrations_online() -> None:
     with connectable.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
         with context.begin_transaction():
+            if connection.dialect.name == "postgresql":
+                connection.exec_driver_sql(_ALEMBIC_LOCK_TIMEOUT_SQL)
             context.run_migrations()
 
 
