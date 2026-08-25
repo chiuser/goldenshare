@@ -1,6 +1,6 @@
 # ETF 历史分钟行情数据集 LLD v1
 
-状态：本地代码、迁移文件和定向测试已完成；尚未部署、执行迁移、初始化 `etf_mins` 活跃池或同步生产数据。
+状态：M1-M8 已完成；代码、生产 HDD 迁移、活跃池、手动任务、全池区间同步和自动任务均已验收通过。
 
 创建日期：2026-08-24
 最近更新：2026-08-25
@@ -77,18 +77,18 @@ Manual action / Dataset schedule
 
 | ID | 硬需求 | 影响层 / 消费者 | 后端权威约束 | 前端表现 / 直接消费者 | 实现文件 | 正向测试 | 反向测试 | 真实验证 | 阶段 | 状态 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `ETFM-001` | API 只能是 `etf_mins` | source / connector | Definition 固定 `api_name=etf_mins` | 数据源页只展示该 API 事实 | `market_fund.py`、`source_client.py` | connector payload 调用 `etf_mins` | 不得调用 `stk_mins` | 最小真实同步记录请求 API | M1/M3/M5 | 本地已实现，待部署验收 |
-| `ETFM-002` | 只支持五种源端频率 | input / planner / normalizer | enum 与返回值校验固定五种值 | 手动、自动任务使用通用多选 | `market_fund.py`、`unit_planner.py`、`row_transforms.py` | 五种频率均可生成 unit | 其他值返回结构化错误 | 五频率最小任务 | M1/M3/M5 | 本地已实现，待部署验收 |
-| `ETFM-003` | 所有行直接来自 Tushare | source / raw writer | 只接受 connector 返回行，不生成行情 | 无额外加工控件 | `source_client.py`、`writer.py` | 源端唯一键与 raw 唯一键一致 | 返回频率错配时 unit 失败 | source/normalized/written key 对账 | M3/M5 | 本地已实现，待部署验收 |
-| `ETFM-004` | 只有一个 raw 物理表 | storage / DAO / cards | storage 只声明 `raw_tushare.etf_minute_bar` | 页面展示 raw-only，不显示虚假 serving | migration、raw ORM、`market_fund.py` | raw-only upsert 成功 | 迁移不得创建第二张业务表 | PostgreSQL relation 清单 | M2/M5 | 本地已实现，待迁移验收 |
-| `ETFM-005` | 所有 relation 在 HDD | PostgreSQL storage | tablespace 缺失时迁移失败；预建 `2009-01` 至 `2037-12` 月分区和 HDD 默认分区 | 不新增页面配置 | migration | 父表、分区、索引均为 `gs_raw_cold_hdd` | 禁止静默落 SSD 或运行时建分区 | `pg_class/pg_tablespace/pg_inherits` 对账 | M2/M5 | 迁移文件已实现，待执行验收 |
-| `ETFM-006` | point/range 使用标准时间输入并按频率切窗 | resolver / planner / builder | point 当日窗口；range 按 `2/12/36/72/120` 个自然月切割 | 通用单日 / 区间控件 | `unit_planner.py`、`request_builders.py` | 两种模式参数与窗口边界正确 | 窗口不得重叠、遗漏或超出输入范围，none 被拒绝 | 真实 point/range 请求 | M1/M3/M5 | 本地已实现，待部署验收 |
-| `ETFM-007` | 对象池使用独立 `etf_mins` resource | planner / seed / review center | 全池和显式代码都只读 `ops.etf_series_active(resource='etf_mins')` | 复用现有 ETF 活跃池审查能力 | `unit_planner.py`、`etf_series_active_seed_service.py` | 1,395 个代码稳定生成 unit，池内显式代码可执行 | 不读取 `fund_daily/etf_rt_daily`，拒绝 `.OF` 和池外显式代码 | seed dry-run 数量与样本 | M1/M5 | 本地已实现，待 seed 验收 |
-| `ETFM-008` | 支持手动和独立自动任务，不进 workflow | Ops / TaskRun / frontend | capabilities 开启 manual/schedule | 通用手动页和自动任务页可配置 | `market_fund.py`、既有 Ops/前端消费者 | 两类任务均生成同一 action plan | workflow registry 无 `etf_mins` | 实际页面路径与 TaskRun | M1/M4/M5 | 本地已实现，待页面验收 |
-| `ETFM-009` | 单页 8,000，窗口按一到两页测算、最多接纳三个数据页，endpoint 限速 500/min | source / limiter | `page_limit=8000`、`max_source_rows_per_unit=24000` 与独立 limiter | 数据集详情展示分页事实 | `market_fund.py`、`source_client.py`、`tushare_client.py` | offset `0/8000/16000`、短页结束 | 超过 24,000 行立即失败，不得接纳第四个数据页或回退通用限速 | 分页唯一键集合、边界探测与 `source_rows_exceeded` 对账 | M3/M5 | 本地已实现，待真实同步验收 |
-| `ETFM-010` | identity 重复或任意 reject 时 unit 失败 | normalizer / writer / TaskRun issue | DAO 前执行 fail-any policy | 任务详情显示原因和样本 | `normalizer.py`、`writer.py`、`codebook.py` | 干净批次正常提交 | 重复、冲突、任意 reject 均零写入并失败 | reject 样本对账 | M3/M5 | 本地已实现，待真实同步验收 |
-| `ETFM-011` | 每个 unit 一次业务提交 | source pagination / writer | 页只负责拉取，完整 unit 才写入提交 | 页面只显示已提交行数 | `source_client.py`、`executor.py`、`writer.py` | 多页 unit 一次提交 | 不得逐页提交 | TaskRun 与目标表行数对账 | M3/M5 | 本地已实现，待真实同步验收 |
-| `ETFM-012` | raw 保留源端价格精度 | normalizer / ORM | ETF transform 不做两位小数裁剪 | 页面无精度编辑能力 | `row_transforms.py`、raw ORM | 多位小数样本原样保存 | 不得复用股票分钟价格裁剪 | 源行与 raw 数值抽样 | M3/M5 | 本地已实现，待真实同步验收 |
+| `ETFM-001` | API 只能是 `etf_mins` | source / connector | Definition 固定 `api_name=etf_mins` | 数据源页只展示该 API 事实 | `market_fund.py`、`source_client.py` | connector payload 调用 `etf_mins` | 不得调用 `stk_mins` | 最小真实同步记录请求 API | M1/M3/M5 | 已完成生产验收 |
+| `ETFM-002` | 只支持五种源端频率 | input / planner / normalizer | enum 与返回值校验固定五种值 | 手动、自动任务使用通用多选 | `market_fund.py`、`unit_planner.py`、`row_transforms.py` | 五种频率均可生成 unit | 其他值返回结构化错误 | 五频率最小任务 | M1/M3/M5 | 已完成生产验收 |
+| `ETFM-003` | 所有行直接来自 Tushare | source / raw writer | 只接受 connector 返回行，不生成行情 | 无额外加工控件 | `source_client.py`、`writer.py` | 源端唯一键与 raw 唯一键一致 | 返回频率错配时 unit 失败 | source/normalized/written key 对账 | M3/M5 | 已完成生产验收 |
+| `ETFM-004` | 只有一个 raw 物理表 | storage / DAO / cards | storage 只声明 `raw_tushare.etf_minute_bar` | 页面展示 raw-only，不显示虚假 serving | migration、raw ORM、`market_fund.py` | raw-only upsert 成功 | 迁移不得创建第二张业务表 | PostgreSQL relation 清单 | M2/M5 | 已完成生产验收 |
+| `ETFM-005` | 所有 relation 在 HDD | PostgreSQL storage | tablespace 缺失时迁移失败；预建 `2009-01` 至 `2037-12` 月分区和 HDD 默认分区 | 不新增页面配置 | migration | 父表、分区、索引均为 `gs_raw_cold_hdd` | 禁止静默落 SSD 或运行时建分区 | `pg_class/pg_tablespace/pg_inherits` 对账 | M2/M5 | 已完成生产验收 |
+| `ETFM-006` | point/range 使用标准时间输入并按频率切窗 | resolver / planner / builder | point 当日窗口；range 按 `2/12/36/72/120` 个自然月切割 | 通用单日 / 区间控件 | `unit_planner.py`、`request_builders.py` | 两种模式参数与窗口边界正确 | 窗口不得重叠、遗漏或超出输入范围，none 被拒绝 | 真实 point/range 请求 | M1/M3/M5 | 已完成生产验收 |
+| `ETFM-007` | 对象池使用独立 `etf_mins` resource | planner / seed / review center | 全池和显式代码都只读 `ops.etf_series_active(resource='etf_mins')` | 复用现有 ETF 活跃池审查能力 | `unit_planner.py`、`etf_series_active_seed_service.py` | 1,395 个代码稳定生成 unit，池内显式代码可执行 | 不读取 `fund_daily/etf_rt_daily`，拒绝 `.OF` 和池外显式代码 | seed dry-run 数量与样本 | M1/M5 | 已完成生产验收 |
+| `ETFM-008` | 支持手动和独立自动任务，不进 workflow | Ops / TaskRun / frontend | capabilities 开启 manual/schedule | 通用手动页和自动任务页可配置 | `market_fund.py`、既有 Ops/前端消费者 | 两类任务均生成同一 action plan | workflow registry 无 `etf_mins` | 实际页面路径与 TaskRun | M1/M4/M5 | 已完成生产验收 |
+| `ETFM-009` | 单页 8,000，窗口按一到两页测算、最多接纳三个数据页，endpoint 限速 500/min | source / limiter | `page_limit=8000`、`max_source_rows_per_unit=24000` 与独立 limiter | 数据集详情展示分页事实 | `market_fund.py`、`source_client.py`、`tushare_client.py` | offset `0/8000/16000`、短页结束 | 超过 24,000 行立即失败，不得接纳第四个数据页或回退通用限速 | 分页唯一键集合、边界探测与 `source_rows_exceeded` 对账 | M3/M5 | 已完成生产验收 |
+| `ETFM-010` | identity 重复或任意 reject 时 unit 失败 | normalizer / writer / TaskRun issue | DAO 前执行 fail-any policy | 任务详情显示原因和样本 | `normalizer.py`、`writer.py`、`codebook.py` | 干净批次正常提交 | 重复、冲突、任意 reject 均零写入并失败 | reject 样本对账 | M3/M5 | 已完成生产验收 |
+| `ETFM-011` | 每个 unit 一次业务提交 | source pagination / writer | 页只负责拉取，完整 unit 才写入提交 | 页面只显示已提交行数 | `source_client.py`、`executor.py`、`writer.py` | 多页 unit 一次提交 | 不得逐页提交 | TaskRun 与目标表行数对账 | M3/M5 | 已完成生产验收 |
+| `ETFM-012` | raw 保留源端价格精度 | normalizer / ORM | ETF transform 不做两位小数裁剪 | 页面无精度编辑能力 | `row_transforms.py`、raw ORM | 多位小数样本原样保存 | 不得复用股票分钟价格裁剪 | 源行与 raw 数值抽样 | M3/M5 | 已完成生产验收 |
 
 ---
 
@@ -1039,13 +1039,27 @@ second run does not increase unique-key count
 
 ## 15. 开发顺序
 
-1. **M1 Definition / planner 契约（本地已完成）**：定义、频率、时间、active resource、catalog 和静态测试。
-2. **M2 HDD 表 / ORM / DAO（本地已完成）**：已核对 Alembic head，落唯一 raw 表迁移及完整 HDD 门禁；尚未执行迁移。
-3. **M3 source / normalize / writer（本地已完成）**：按频率切窗、一到两页正常容量与第三页安全余量、builder、分页 fields、500/min、transform、fail-any 质量策略。
-4. **M4 manual / schedule 契约（本地已完成）**：通用页面和自动任务消费者测试已覆盖，不新增专属交互，且 workflow 反向门禁已覆盖。
-5. **M5 回归与真实验收（部分完成）**：本地单元、架构、通用前端契约与文档检查已完成；最小真实同步和 HDD 元数据核验待部署后执行。
+1. **M1 Definition / planner 契约（已完成）**：定义、频率、时间、active resource、catalog 和静态测试。
+2. **M2 HDD 表 / ORM / DAO（已完成）**：已核对 Alembic head，唯一 raw 表迁移已执行；父表、349 个子表和 700 个索引全部位于 `gs_raw_cold_hdd`。
+3. **M3 source / normalize / writer（已完成）**：按频率切窗、一到两页正常容量与第三页安全余量、builder、分页 fields、500/min、transform、fail-any 质量策略。
+4. **M4 manual / schedule 契约（已完成）**：通用页面和自动任务消费者测试已覆盖，不新增专属交互，且 workflow 反向门禁已覆盖。
+5. **M5 部署与最小生产验收（已完成）**：TaskRun `9334/9335/9336/9338` 完成单频 point 幂等、五频率 point 和 range 切窗验证；HDD 元数据、默认分区和业务唯一键已对账。
+6. **M6 全池区间验收（已完成）**：TaskRun `9340` 对 `2026-07-01~2026-08-24` 完成 1,395 只 ETF、五频率同步，`6,975/6,975` 个 unit 成功，保存 17,464,005 行，拒绝、去重和 issue 均为 0。
+7. **M7 自动任务验收（已完成）**：Schedule `39` 已启用；TaskRun `9384` 正确解析 `2026-08-25` 开市日，`6,975/6,975` 个 unit 成功，保存 447,795 行，拒绝、去重和 issue 均为 0。
+8. **M8 文档与事实收口（已完成）**：方案、LLD 和主索引已按生产代码、表结构、对象池、TaskRun 与自动任务事实更新。
 
 每个 milestone 只做表中列出的范围。若实现时发现源接口真实字段、当前 Alembic head、HDD tablespace 名称或通用手动/自动任务契约与本文不一致，必须停下更新方案，不得靠兼容代码绕过。
+
+### 15.1 生产验收记录
+
+| 验收对象 | 事实证据 | 结果 |
+| --- | --- | --- |
+| 表与分区 | `raw_tushare.etf_minute_bar`，迁移 `20260825_000151` | 父表、349 个子表、700 个索引全部在 HDD；默认分区 0 行；主键为 `(ts_code,freq,trade_time)`。 |
+| 活跃池 | `ops.etf_series_active(resource='etf_mins')` | 1,395 个不重复 `.SH/.SZ` 代码，与 `fund_daily` 集合完全一致。 |
+| 最小 point | TaskRun `9334/9335/9336` | 单频重复执行幂等；五频率共 321 个唯一键，无 reject。 |
+| range 切窗 | TaskRun `9338` | `2025-01-15~2025-05-10`、`1min/5min` 生成 4 个 unit，读取和保存均为 21,170 行。 |
+| 全池 range | TaskRun `9340` | 39 个开市日、1,395 个代码、五频率共 17,464,005 行；每个代码每日根数严格为 `241/49/17/9/5`，无缺码、错频、越界时间和池外数据。 |
+| 自动 point | Schedule `39`、TaskRun `9384` | 工作日 20:35 自动触发；运行日解析为 `2026-08-25`，五频率全池 447,795 行全部提交。 |
 
 ---
 
