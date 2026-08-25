@@ -8,8 +8,8 @@ from orchestrator.defs.wealth_market_turnover_contract import (
     WEALTH_MARKET_TURNOVER_CHECK_NAME,
     WealthMarketTurnoverIntegrityAudit,
     audit_gold_wealth_market_turnover_file_contract,
-    audit_gold_wealth_market_turnover_recomputed_from_silver,
-    wealth_market_turnover_input_paths,
+    audit_gold_wealth_market_turnover_recomputed_from_sources,
+    wealth_market_turnover_source_paths,
 )
 
 
@@ -21,7 +21,7 @@ def gold_wealth_market_turnover_integrity_check(
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
     target_path = gold_wealth_market_turnover_path(lake_root.root(), partition_key)
-    input_paths = wealth_market_turnover_input_paths(lake_root.root(), partition_key)
+    source_paths = wealth_market_turnover_source_paths(lake_root.root(), partition_key)
     duckdb_resource = duckdb
 
     with duckdb_resource.connect() as connection:
@@ -33,10 +33,10 @@ def gold_wealth_market_turnover_integrity_check(
         if not file_audit.passed:
             return _check_result_from_audit(file_audit, file_path=target_path)
 
-        recompute_audit = audit_gold_wealth_market_turnover_recomputed_from_silver(
+        recompute_audit = audit_gold_wealth_market_turnover_recomputed_from_sources(
             connection=connection,
             target_path=target_path,
-            input_paths=input_paths,
+            source_paths=source_paths,
             partition_key=partition_key,
         )
         return _check_result_from_audit(recompute_audit, file_path=target_path)
@@ -55,7 +55,7 @@ def _check_result_from_audit(
     next_action = (
         "无需处理，等待 prod core serving 同步。"
         if audit.passed
-        else "先修复缺失的 silver_stk_mins 五频度输入或 gold points_json 输出，再重跑 gold_wealth_market_turnover。"
+        else "先修复缺失的 silver_stk_mins 五频度、silver_stock_daily 同日输入或 gold points_json 输出，再重跑 gold_wealth_market_turnover。"
     )
     return dg.AssetCheckResult(
         passed=audit.passed,

@@ -1,10 +1,14 @@
+from pathlib import Path
+
 import dagster as dg
 
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.paths import (
+    DEFAULT_LAKE_STAGING_ROOT,
     PATH_TEMPLATE_LAKE_ROOT,
     PATH_TEMPLATE_PARTITION_KEY,
     gold_wealth_market_turnover_path,
+    gold_wealth_market_turnover_staging_path,
     lake_path_template,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
@@ -24,7 +28,8 @@ from orchestrator.defs.run_contracts.metadata import (
 from orchestrator.defs.wealth_market_turnover_contract import (
     GOLD_WEALTH_MARKET_TURNOVER_COLUMNS,
     STK_MINS_FREQS,
-    wealth_market_turnover_input_paths,
+    WEALTH_MARKET_TURNOVER_BUILD_VERSION,
+    wealth_market_turnover_source_paths,
     write_gold_wealth_market_turnover_partition,
 )
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
@@ -33,7 +38,8 @@ from orchestrator.utils.dg_log_helper import DgStdoutLogger
 def _human_materialization_metadata(
     *,
     partition_key: str,
-    input_path_count: int,
+    source_minute_file_count: int,
+    source_stock_daily_path: Path,
     audit,
 ) -> dict[str, object]:
     return {
@@ -41,10 +47,11 @@ def _human_materialization_metadata(
         "next_action": "等待 gold_wealth_market_turnover_integrity_check 通过；通过后同一个 job 会同步 prod core serving。",
         "result_status": "written",
         "input_summary": {
-            "source_asset_family": "silver_stk_mins",
+            "source_asset_family": "silver_stk_mins + silver_stock_daily",
             "partition_key": partition_key,
             "freqs": list(STK_MINS_FREQS),
-            "input_file_count": input_path_count,
+            "source_minute_file_count": source_minute_file_count,
+            "source_stock_daily_path": str(source_stock_daily_path),
         },
         "metric_summary": {
             "output_row_count": audit.row_count,
@@ -52,6 +59,9 @@ def _human_materialization_metadata(
             "total_amount": audit.total_amount,
             "total_vol": audit.total_vol,
             "security_count_by_freq": audit.security_count_by_freq,
+            "bse_security_count": audit.bse_security_count,
+            "bse_residual_vol_by_freq": audit.bse_residual_vol_by_freq,
+            "bse_residual_amount_by_freq": audit.bse_residual_amount_by_freq,
         },
         "diagnostic_ref": "完整诊断看 gold_wealth_market_turnover_integrity_check、points_json hash 和 run stdout。",
     }
@@ -60,11 +70,15 @@ def _human_materialization_metadata(
 @dg.asset(
     name="gold_wealth_market_turnover",
     deps=[
-        "silver_stk_mins_1m",
-        "silver_stk_mins_5m",
-        "silver_stk_mins_15m",
-        "silver_stk_mins_30m",
-        "silver_stk_mins_60m",
+        dg.AssetDep("silver_stk_mins_1m"),
+        dg.AssetDep("silver_stk_mins_5m"),
+        dg.AssetDep("silver_stk_mins_15m"),
+        dg.AssetDep("silver_stk_mins_30m"),
+        dg.AssetDep("silver_stk_mins_60m"),
+        dg.AssetDep(
+            "silver_stock_daily",
+            partition_mapping=dg.IdentityPartitionMapping(),
+        ),
     ],
     partitions_def=cn_a_stock_mins_silver_trade_days,
     group_name="wealth",
@@ -83,13 +97,19 @@ def _human_materialization_metadata(
         column_schema=GOLD_WEALTH_MARKET_TURNOVER_SCHEMA,
         extra_metadata={
             "calculation_contract": (
-                "source=silver_stk_mins; freqs=1/5/15/30/60; "
+                "source=five silver_stk_mins + same-date silver_stock_daily; "
+                "freqs=1/5/15/30/60; "
+                "BSE closing-auction volume and amount are reconciled from daily residuals; "
                 "amount is converted from yuan to thousand_yuan; "
                 "points_json stores the full minute point array."
             )
         },
     ),
-    description="财富端市场成交额 gold 快照，从 silver_stk_mins 五频度生成 points_json，供财富市场总览和 prod core serving 消费。",
+    description=(
+        "财富端市场成交额 gold 快照，从 silver_stk_mins 五频分钟线生成，"
+        "用同日 silver_stock_daily 校准北交所收盘集合竞价，并输出 points_json，"
+        "供财富市场总览和 prod core serving 消费。"
+    ),
 )
 def gold_wealth_market_turnover(
     context: dg.AssetExecutionContext,
@@ -98,7 +118,7 @@ def gold_wealth_market_turnover(
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
-    input_paths = wealth_market_turnover_input_paths(lake_root.root(), partition_key)
+    source_paths = wealth_market_turnover_source_paths(lake_root.root(), partition_key)
     target_path = gold_wealth_market_turnover_path(lake_root.root(), partition_key)
     log = DgStdoutLogger("wealth_market_turnover")
     log.stdout(
@@ -109,8 +129,13 @@ def gold_wealth_market_turnover(
 
     audit = write_gold_wealth_market_turnover_partition(
         duckdb_resource=duckdb,
-        input_paths=input_paths,
+        source_paths=source_paths,
         partition_key=partition_key,
+        staging_path=gold_wealth_market_turnover_staging_path(
+            Path(DEFAULT_LAKE_STAGING_ROOT),
+            operation_id=context.run_id,
+            partition_key=partition_key,
+        ),
         target_path=target_path,
     )
     log.stdout(
@@ -129,18 +154,31 @@ def gold_wealth_market_turnover(
             extra_metadata={
                 **_human_materialization_metadata(
                     partition_key=partition_key,
-                    input_path_count=len(input_paths),
+                    source_minute_file_count=len(source_paths.minute_paths),
+                    source_stock_daily_path=source_paths.stock_daily_path,
                     audit=audit,
                 ),
                 "partition_key": partition_key,
-                "input_file_paths": [str(input_path.path) for input_path in input_paths],
+                "source_minute_file_count": len(source_paths.minute_paths),
+                "source_minute_file_paths": [
+                    str(source_path.path)
+                    for source_path in source_paths.minute_paths
+                ],
+                "source_stock_daily_path": str(source_paths.stock_daily_path),
+                "correction_method": "bse_close_auction_daily_residual",
                 "freqs": list(STK_MINS_FREQS),
-                "build_version": "v1",
+                "build_version": WEALTH_MARKET_TURNOVER_BUILD_VERSION,
                 "source_row_count": audit.source_row_count,
                 "total_amount": audit.total_amount,
                 "total_vol": audit.total_vol,
                 "security_count_by_freq": audit.security_count_by_freq,
                 "latest_trade_time_by_freq": audit.latest_trade_time_by_freq,
+                "bse_security_count": audit.bse_security_count,
+                "bse_residual_vol_by_freq": audit.bse_residual_vol_by_freq,
+                "bse_residual_amount_by_freq": audit.bse_residual_amount_by_freq,
+                "bse_rounding_residual_code_count_by_freq": (
+                    audit.bse_rounding_residual_code_count_by_freq
+                ),
             },
         )
     )

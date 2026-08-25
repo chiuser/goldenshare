@@ -16,7 +16,6 @@ from orchestrator.defs.run_contracts.dc_daily_technical_serving import (
     PROD_CH_DC_DAILY_TECHNICAL_CHECKS,
 )
 
-
 CN_A_SENSOR_TIMEZONE = ZoneInfo("Asia/Shanghai")
 CHECK_HISTORY_LIMIT = 5000
 SILVER_INDEX_DAILY_READINESS_WINDOW_LIMIT = 10
@@ -264,9 +263,13 @@ RAW_STOCK_DAILY_READINESS_SPEC = AssetReadinessSpec(
     RAW_STOCK_DAILY_ASSET_KEY,
     RAW_STOCK_DAILY_CHECKS,
 )
+SILVER_STOCK_DAILY_READINESS_SPEC = AssetReadinessSpec(
+    SILVER_STOCK_DAILY_ASSET_KEY,
+    SILVER_STOCK_DAILY_BLOCKING_CHECKS,
+)
 STOCK_DAILY_READINESS_SPECS = (
     RAW_STOCK_DAILY_READINESS_SPEC,
-    AssetReadinessSpec(SILVER_STOCK_DAILY_ASSET_KEY, SILVER_STOCK_DAILY_BLOCKING_CHECKS),
+    SILVER_STOCK_DAILY_READINESS_SPEC,
 )
 RAW_ADJ_FACTOR_READINESS_SPEC = AssetReadinessSpec(
     RAW_ADJ_FACTOR_ASSET_KEY,
@@ -994,6 +997,17 @@ def stock_daily_ready_for_trade_date(
     return dataset_readiness_status(
         instance,
         STOCK_DAILY_READINESS_SPECS,
+        partition_key=trade_date,
+    )
+
+
+def silver_stock_daily_ready_for_trade_date(
+    instance: dg.DagsterInstance,
+    trade_date: str,
+) -> AssetReadinessStatus:
+    return asset_readiness_status(
+        instance,
+        SILVER_STOCK_DAILY_READINESS_SPEC,
         partition_key=trade_date,
     )
 

@@ -332,9 +332,9 @@ def _sample_rows(partition_key: str) -> list[dict[str, object]]:
                     f'[{{"tradeTime":"09:30","tradeTimeTs":"{partition_key} 09:30:00",'
                     f'"amount":{freq}.00,"vol":{freq * 100},"securityCount":2}}]'
                 ),
-                "build_version": "v1",
+                "build_version": "v2",
                 "built_at": datetime(2026, 6, 23, 20, 0),
-                "build_note": None,
+                "build_note": "bse_close_auction_reconciled_from_silver_stock_daily",
             }
         )
     return rows

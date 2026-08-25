@@ -16,17 +16,20 @@ from orchestrator.defs.asset_guards.wealth_market_turnover_lake_readiness import
     WealthMarketTurnoverBatchReadiness,
     WealthMarketTurnoverDateReadiness,
 )
-from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
+from orchestrator.defs.partitions import (
+    cn_a_stock_mins_silver_trade_days,
+    cn_a_stock_trade_days,
+)
 from orchestrator.defs.sensors.gold_wealth_market_turnover_sensor import (
     GOLD_WEALTH_MARKET_TURNOVER_RUN_START,
     GOLD_WEALTH_MARKET_TURNOVER_SENSOR_JOB_NAME,
     _cursor_payload,
-    _run_request_for_trade_date,
     _run_key_for_trade_date,
+    _run_request_for_trade_date,
     build_gold_wealth_market_turnover_update_decision,
     gold_wealth_market_turnover_update_job_sensor,
 )
-
+from orchestrator.defs.sensors.readiness import AssetReadinessStatus
 
 PARTITION_KEY = "2026-06-22"
 NEXT_PARTITION_KEY = "2026-06-23"
@@ -166,6 +169,22 @@ def _gold_batch_status(
     )
 
 
+def _stock_daily_status(trade_date: str, *, ready: bool) -> AssetReadinessStatus:
+    return AssetReadinessStatus(
+        asset_key="silver_stock_daily",
+        partition_key=trade_date,
+        ready=ready,
+        materialized=ready,
+        checks_passed=ready,
+        freshness_passed=True,
+        materialization_storage_id=1 if ready else None,
+        materialization_date=trade_date if ready else None,
+        missing_check_names=() if ready else ("silver_stock_daily_contract_check",),
+        failed_check_names=(),
+        reason="ready" if ready else "missing blocking checks",
+    )
+
+
 class _FakeLakeRoot:
     def root(self):
         return Path("/fake/lake")
@@ -192,11 +211,13 @@ class _FakeInstance:
         self,
         *,
         trade_days: tuple[str, ...],
+        stock_daily_trade_days: tuple[str, ...] | None = None,
         prod_core_materialized_trade_dates: tuple[str, ...] = (),
         failed_run_keys: tuple[str, ...] = (),
     ):
         self.dynamic_partitions = {
             cn_a_stock_mins_silver_trade_days.name: set(trade_days),
+            cn_a_stock_trade_days.name: set(stock_daily_trade_days or trade_days),
         }
         self.prod_core_materialized_trade_dates = set(prod_core_materialized_trade_dates)
         self.failed_run_keys = set(failed_run_keys)
@@ -227,11 +248,13 @@ class _FakeContext:
         self,
         *,
         trade_days: tuple[str, ...] = (PARTITION_KEY, NEXT_PARTITION_KEY),
+        stock_daily_trade_days: tuple[str, ...] | None = None,
         prod_core_materialized_trade_dates: tuple[str, ...] = (),
         failed_run_keys: tuple[str, ...] = (),
     ):
         self.instance = _FakeInstance(
             trade_days=trade_days,
+            stock_daily_trade_days=stock_daily_trade_days,
             prod_core_materialized_trade_dates=prod_core_materialized_trade_dates,
             failed_run_keys=failed_run_keys,
         )
@@ -239,6 +262,20 @@ class _FakeContext:
 
 
 class GoldWealthMarketTurnoverSensorTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.stock_daily_readiness = patch(
+            "orchestrator.defs.sensors.gold_wealth_market_turnover_sensor."
+            "silver_stock_daily_ready_for_trade_date",
+            side_effect=lambda _instance, trade_date: _stock_daily_status(
+                trade_date,
+                ready=True,
+            ),
+        )
+        self.stock_daily_readiness.start()
+
+    def tearDown(self) -> None:
+        self.stock_daily_readiness.stop()
+
     def test_sensor_definition_targets_job_and_stays_stopped(self) -> None:
         self.assertEqual(
             gold_wealth_market_turnover_update_job_sensor.name,
@@ -288,6 +325,19 @@ class GoldWealthMarketTurnoverSensorTests(unittest.TestCase):
         self.assertEqual(ready.reason_code, "wealth_market_turnover_chain_ready")
         self.assertEqual(request.selected_trade_date, PARTITION_KEY)
         self.assertEqual(request.reason_code, "request_run")
+
+    def test_stock_daily_decision_blocks_request(self) -> None:
+        decision = build_gold_wealth_market_turnover_update_decision(
+            target_trade_date=PARTITION_KEY,
+            run_window_started=True,
+            silver_ready=True,
+            stock_daily_ready=False,
+            gold_ready=False,
+        )
+
+        self.assertIsNone(decision.selected_trade_date)
+        self.assertEqual(decision.reason_code, "stock_daily_not_ready")
+        self.assertEqual(decision.blocked_component, "silver_stock_daily")
 
     def test_run_request_contract(self) -> None:
         request = _run_request_for_trade_date(PARTITION_KEY)
@@ -426,6 +476,97 @@ class GoldWealthMarketTurnoverSensorTests(unittest.TestCase):
             cursor["details"]["summary"],
         )
         self.assertIn("prod core", cursor["details"]["next_action"])
+
+    def test_gold_missing_skips_when_stock_daily_partition_is_not_registered(self) -> None:
+        trade_dates = (PARTITION_KEY, NEXT_PARTITION_KEY)
+        with (
+            patch(
+                "orchestrator.defs.sensors.gold_wealth_market_turnover_sensor.datetime",
+                _datetime_with_now(AFTER_WINDOW),
+            ),
+            patch(
+                "orchestrator.defs.sensors.gold_wealth_market_turnover_sensor."
+                "_load_stock_mins_silver_expected_trade_dates",
+                return_value=trade_dates,
+            ),
+            patch(
+                "orchestrator.defs.sensors.gold_wealth_market_turnover_sensor."
+                "batch_silver_stk_mins_lake_readiness",
+                return_value=_silver_batch_status(
+                    trade_dates,
+                    ready_dates=trade_dates,
+                ),
+            ),
+            patch(
+                "orchestrator.defs.sensors.gold_wealth_market_turnover_sensor."
+                "batch_gold_wealth_market_turnover_lake_readiness",
+                return_value=_gold_batch_status(
+                    trade_dates,
+                    ready_dates=(PARTITION_KEY,),
+                ),
+            ),
+        ):
+            result = gold_wealth_market_turnover_update_job_sensor._raw_fn(
+                _FakeContext(stock_daily_trade_days=(PARTITION_KEY,))
+            )
+
+        self.assertEqual(result.run_requests, [])
+        cursor = json.loads(result.cursor)
+        self.assertEqual(
+            cursor["details"]["reason_code"],
+            "missing_stock_daily_registered_partition",
+        )
+        self.assertEqual(
+            cursor["details"]["blocked_component"],
+            "cn_a_stock_trade_days",
+        )
+
+    def test_gold_missing_skips_when_stock_daily_is_not_ready(self) -> None:
+        trade_dates = (PARTITION_KEY, NEXT_PARTITION_KEY)
+        with (
+            patch(
+                "orchestrator.defs.sensors.gold_wealth_market_turnover_sensor.datetime",
+                _datetime_with_now(AFTER_WINDOW),
+            ),
+            patch(
+                "orchestrator.defs.sensors.gold_wealth_market_turnover_sensor."
+                "_load_stock_mins_silver_expected_trade_dates",
+                return_value=trade_dates,
+            ),
+            patch(
+                "orchestrator.defs.sensors.gold_wealth_market_turnover_sensor."
+                "batch_silver_stk_mins_lake_readiness",
+                return_value=_silver_batch_status(
+                    trade_dates,
+                    ready_dates=trade_dates,
+                ),
+            ),
+            patch(
+                "orchestrator.defs.sensors.gold_wealth_market_turnover_sensor."
+                "batch_gold_wealth_market_turnover_lake_readiness",
+                return_value=_gold_batch_status(
+                    trade_dates,
+                    ready_dates=(PARTITION_KEY,),
+                ),
+            ),
+            patch(
+                "orchestrator.defs.sensors.gold_wealth_market_turnover_sensor."
+                "silver_stock_daily_ready_for_trade_date",
+                return_value=_stock_daily_status(NEXT_PARTITION_KEY, ready=False),
+            ) as stock_daily_readiness,
+        ):
+            result = gold_wealth_market_turnover_update_job_sensor._raw_fn(
+                _FakeContext()
+            )
+
+        self.assertEqual(result.run_requests, [])
+        stock_daily_readiness.assert_called_once()
+        cursor = json.loads(result.cursor)
+        self.assertEqual(cursor["details"]["reason_code"], "stock_daily_not_ready")
+        self.assertEqual(
+            cursor["details"]["blocked_component"],
+            "silver_stock_daily",
+        )
 
     def test_gold_ready_prod_missing_submits_same_job(self) -> None:
         trade_dates = (PARTITION_KEY, NEXT_PARTITION_KEY)

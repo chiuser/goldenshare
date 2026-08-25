@@ -12,8 +12,8 @@ from orchestrator.defs.run_contracts.stk_mins import STK_MINS_CONTINUITY_WINDOW_
 from orchestrator.defs.wealth_market_turnover_contract import (
     WEALTH_MARKET_TURNOVER_CHECK_NAME,
     audit_gold_wealth_market_turnover_file_contract,
-    audit_gold_wealth_market_turnover_recomputed_from_silver,
-    wealth_market_turnover_input_paths,
+    audit_gold_wealth_market_turnover_recomputed_from_sources,
+    wealth_market_turnover_source_paths,
 )
 
 
@@ -102,7 +102,7 @@ def _status_for_trade_date(
     trade_date: str,
 ) -> WealthMarketTurnoverDateReadiness:
     target_path = gold_wealth_market_turnover_path(lake_root, trade_date)
-    input_paths = wealth_market_turnover_input_paths(lake_root, trade_date)
+    source_paths = wealth_market_turnover_source_paths(lake_root, trade_date)
     file_audit = audit_gold_wealth_market_turnover_file_contract(
         connection=connection,
         target_path=target_path,
@@ -123,10 +123,10 @@ def _status_for_trade_date(
             summary=file_audit.metadata,
         )
 
-    recompute_audit = audit_gold_wealth_market_turnover_recomputed_from_silver(
+    recompute_audit = audit_gold_wealth_market_turnover_recomputed_from_sources(
         connection=connection,
         target_path=target_path,
-        input_paths=input_paths,
+        source_paths=source_paths,
         partition_key=trade_date,
     )
     if not recompute_audit.passed:
@@ -135,7 +135,7 @@ def _status_for_trade_date(
             ready=False,
             materialized=True,
             checks_passed=False,
-            reason=recompute_audit.reason_code or "recomputed_from_silver_failed",
+            reason=recompute_audit.reason_code or "recomputed_from_sources_failed",
             failed_check_names=(WEALTH_MARKET_TURNOVER_CHECK_NAME,),
             missing_file_paths=recompute_audit.missing_file_paths,
             checked_row_count=recompute_audit.checked_row_count,

@@ -6,7 +6,9 @@ import dagster as dg
 import duckdb
 
 from orchestrator.defs.bootstrap.wealth_market_turnover_history import (
-    generate_wealth_market_turnover_history,
+    build_wealth_market_turnover_history_candidates,
+    plan_wealth_market_turnover_history,
+    promote_wealth_market_turnover_history_candidates,
 )
 from orchestrator.defs.bootstrap.wealth_market_turnover_runless_events import (
     GOLD_WEALTH_MARKET_TURNOVER_ASSET_KEY,
@@ -15,7 +17,7 @@ from orchestrator.defs.bootstrap.wealth_market_turnover_runless_events import (
     recent_wealth_market_turnover_partitions,
     report_wealth_market_turnover_runless_events,
 )
-from orchestrator.defs.paths import silver_stk_mins_path
+from orchestrator.defs.paths import silver_stk_mins_path, silver_stock_daily_path
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.stk_mins import STK_MINS_FREQS
 from orchestrator.defs.sensors.readiness import (
@@ -25,7 +27,6 @@ from orchestrator.defs.sensors.readiness import (
 from orchestrator.defs.wealth_market_turnover_contract import (
     WEALTH_MARKET_TURNOVER_CHECK_NAME,
 )
-
 
 DATE_1 = "2026-06-22"
 
@@ -129,10 +130,24 @@ class WealthMarketTurnoverRunlessEventTests(unittest.TestCase):
 def _write_valid_gold_partition(root: Path, partition_key: str) -> None:
     for freq in STK_MINS_FREQS:
         _write_silver_file(root, partition_key, freq)
-    generate_wealth_market_turnover_history(
+    _write_stock_daily_file(root, partition_key)
+    plan = plan_wealth_market_turnover_history(
+        duckdb_resource=DuckDBResource(),
+        lake_root=root,
+        staging_root=root / "staging",
+        partition_keys=(partition_key,),
+    )
+    write_report = build_wealth_market_turnover_history_candidates(
+        plan=plan,
         lake_root=root,
         duckdb_resource=DuckDBResource(),
         partition_keys=(partition_key,),
+    )
+    promote_wealth_market_turnover_history_candidates(
+        plan=plan,
+        lake_root=root,
+        partition_keys=(partition_key,),
+        candidate_hashes=write_report.candidate_hashes,
     )
 
 
@@ -143,9 +158,9 @@ def _write_silver_file(root: Path, partition_key: str, freq: int) -> None:
         "(" + ", ".join(_sql_literal(value) for value in row) + ")"
         for row in (
             ("000001.SZ", freq, f"{partition_key} 09:30:00", 100, 1000.0),
-            ("000002.SZ", freq, f"{partition_key} 09:30:00", 300, 3000.0),
-            ("000001.SZ", freq, f"{partition_key} 09:31:00", 200, 2000.0),
-            ("000002.SZ", freq, f"{partition_key} 09:31:00", 400, 4000.0),
+            ("920001.BJ", freq, f"{partition_key} 09:30:00", 100 + freq, 1000.0 + freq * 10),
+            ("000001.SZ", freq, f"{partition_key} 15:00:00", 200, 2000.0),
+            ("920001.BJ", freq, f"{partition_key} 15:00:00", 0, 0.0),
         )
     )
     with duckdb.connect(database=":memory:") as connection:
@@ -162,6 +177,24 @@ def _write_silver_file(root: Path, partition_key: str, freq: int) -> None:
               FROM (
                 VALUES {values_sql}
               ) AS rows(ts_code, freq, trade_time, vol, amount)
+            ) TO '{path.as_posix()}' (FORMAT PARQUET)
+            """
+        )
+
+
+def _write_stock_daily_file(root: Path, partition_key: str) -> None:
+    path = silver_stock_daily_path(root, partition_key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with duckdb.connect(database=":memory:") as connection:
+        connection.execute(
+            f"""
+            COPY (
+              SELECT *
+              FROM (
+                VALUES
+                  ('000001.SZ', DATE '{partition_key}', 3.0, 3.0),
+                  ('920001.BJ', DATE '{partition_key}', 10.0, 10.0)
+              ) rows(ts_code, trade_date, vol, amount)
             ) TO '{path.as_posix()}' (FORMAT PARQUET)
             """
         )

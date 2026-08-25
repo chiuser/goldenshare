@@ -737,6 +737,62 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_gold_wealth_market_turnover_wmt7_contract_is_fail_closed(self) -> None:
+        contract_source = (DEFS_DIR / "wealth_market_turnover_contract.py").read_text()
+        asset_source = (
+            DEFS_DIR / "assets" / "wealth_market_turnover.py"
+        ).read_text()
+        history_source = (
+            DEFS_DIR / "bootstrap" / "wealth_market_turnover_history.py"
+        ).read_text()
+        history_cli_source = (
+            DEFS_DIR / "bootstrap" / "wealth_market_turnover_history_cli.py"
+        ).read_text()
+        paths_source = (DEFS_DIR / "paths.py").read_text()
+
+        for required in (
+            'WEALTH_MARKET_TURNOVER_BUILD_VERSION = "v2"',
+            "bse_close_auction_reconciled_from_silver_stock_daily",
+            "daily_bse_rows",
+            "bse_residuals_by_code_freq",
+            "point_rows_corrected",
+            "audit_gold_wealth_market_turnover_recomputed_from_sources",
+        ):
+            self.assertIn(required, contract_source)
+        for forbidden in (
+            "audit_gold_wealth_market_turnover_recomputed_from_silver",
+            ".tmp.parquet",
+            "TushareResource",
+            "ProdPostgresResource",
+            "raw_tushare_stock_daily",
+        ):
+            self.assertNotIn(forbidden, contract_source)
+
+        self.assertIn('"silver_stock_daily",', asset_source)
+        self.assertIn("partition_mapping=dg.IdentityPartitionMapping()", asset_source)
+        self.assertIn("gold_wealth_market_turnover_staging_path", asset_source)
+        self.assertIn("DEFAULT_LAKE_STAGING_ROOT", asset_source)
+        self.assertIn("gold_wealth_market_turnover_staging_path", paths_source)
+
+        combined_history_source = history_source + history_cli_source
+        for required in (
+            '"build-candidates"',
+            '"audit-candidates"',
+            '"promote"',
+            '"formal-audit"',
+            '"prod-publish"',
+            "planned_event_count=0",
+            "WEALTH_MARKET_TURNOVER_HISTORY_BATCH_SIZE_LIMIT = 20",
+            "WEALTH_MARKET_TURNOVER_HISTORY_AUDIT_SECONDS_LIMIT = 300",
+        ):
+            self.assertIn(required, combined_history_source)
+        for forbidden in (
+            "report_runless_asset_event",
+            "wealth_market_turnover_runless_events",
+            "generate_wealth_market_turnover_history",
+        ):
+            self.assertNotIn(forbidden, combined_history_source)
+
     def test_dc_board_silver_sensor_is_bounded_and_event_history_free(self) -> None:
         sensor_path = DEFS_DIR / "sensors" / "dc_board_silver_sensor.py"
         readiness_path = DEFS_DIR / "asset_guards" / "dc_board_silver_lake_readiness.py"

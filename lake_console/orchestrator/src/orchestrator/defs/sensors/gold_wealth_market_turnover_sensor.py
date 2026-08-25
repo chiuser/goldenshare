@@ -19,18 +19,21 @@ from orchestrator.defs.asset_guards.wealth_market_turnover_lake_readiness import
     WealthMarketTurnoverDateReadiness,
     batch_gold_wealth_market_turnover_lake_readiness,
 )
-from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
-from orchestrator.defs.paths import silver_trade_calendar_path
-from orchestrator.defs.run_contracts.cursors import (
-    SensorCursorDecision,
-    build_sensor_cursor,
+from orchestrator.defs.partitions import (
+    cn_a_stock_mins_silver_trade_days,
+    cn_a_stock_trade_days,
 )
+from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.defs.run_contracts.cursor_payloads import (
     build_cursor_details,
     compact_batch_frontier,
     compact_continuity_frontier,
     compact_gate_statuses,
     compact_readiness_status,
+)
+from orchestrator.defs.run_contracts.cursors import (
+    SensorCursorDecision,
+    build_sensor_cursor,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
@@ -45,14 +48,17 @@ from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_FREQS,
     STK_MINS_SILVER_HISTORY_START_DATE,
 )
-from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
+from orchestrator.defs.sensors.readiness import (
+    CN_A_SENSOR_TIMEZONE,
+    AssetReadinessStatus,
+    silver_stock_daily_ready_for_trade_date,
+)
 from orchestrator.defs.sensors.stock_mins_silver_sensor import (
     STOCK_MINS_SILVER_RUN_START,
 )
 from orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor import (
     STOCK_MINS_SILVER_TRADE_DAY_REGISTER_START,
 )
-
 
 GOLD_WEALTH_MARKET_TURNOVER_SENSOR_JOB_NAME = (
     "gold_wealth_market_turnover_update_job"
@@ -106,6 +112,7 @@ def build_gold_wealth_market_turnover_update_decision(
     target_trade_date: str | None,
     run_window_started: bool,
     silver_ready: bool = False,
+    stock_daily_ready: bool = True,
     gold_ready: bool = False,
     prod_sync_ready: bool = False,
     prod_sync_failed: bool = False,
@@ -139,6 +146,15 @@ def build_gold_wealth_market_turnover_update_decision(
             reason="股票分钟线 silver 五频度尚未全部 ready，暂不触发财富成交额更新。",
             reason_code=reason_code or "silver_stk_mins_not_ready",
             blocked_component=blocked_component or "silver_stk_mins",
+        )
+    if not stock_daily_ready:
+        return GoldWealthMarketTurnoverUpdateDecision(
+            target_trade_date=target_trade_date,
+            run_window_started=True,
+            selected_trade_date=None,
+            reason="同日 silver_stock_daily 尚未 ready，暂不触发财富成交额更新。",
+            reason_code=reason_code or "stock_daily_not_ready",
+            blocked_component=blocked_component or "silver_stock_daily",
         )
     if not gold_ready:
         if gold_has_materialized_check_problem:
@@ -299,6 +315,16 @@ def _summary_and_next_action(
             f"跳过：{decision.target_trade_date or '-'} 的 silver_stk_mins 五频度还没有全部 ready。",
             "先修复同日 1/5/15/30/60 分钟 silver 文件或 checks；部分频度 ready 不会触发。",
         )
+    if decision.blocked_component == "cn_a_stock_trade_days":
+        return (
+            "跳过：股票日线交易日分区还没有注册目标日期。",
+            "先补齐 cn_a_stock_trade_days 分区，再等待下一次 sensor tick。",
+        )
+    if decision.blocked_component == "silver_stock_daily":
+        return (
+            f"跳过：{decision.target_trade_date or '-'} 的 silver_stock_daily 尚未 ready。",
+            "先修复同日日线 materialization 或 blocking checks，再等待下一次 sensor tick。",
+        )
     if decision.blocked_component == "gold_wealth_market_turnover":
         return (
             f"跳过：{decision.target_trade_date or '-'} 的财富成交额 gold 已有问题状态。",
@@ -330,7 +356,9 @@ def _cursor_payload(
     decision: GoldWealthMarketTurnoverUpdateDecision,
     evaluated_at: datetime,
     registered_trade_day_count: int,
+    stock_daily_registered_trade_day_count: int = 0,
     silver_status: StkMinsDateReadiness | None = None,
+    stock_daily_status: AssetReadinessStatus | None = None,
     gold_status: WealthMarketTurnoverDateReadiness | None = None,
     prod_core_status: WealthMarketTurnoverProdCoreReadiness | None = None,
     silver_continuity_status: StockMinsContinuityStatus | None = None,
@@ -347,6 +375,9 @@ def _cursor_payload(
     blocked_count = 0
     if not decision.selected_trade_date:
         blocked_count += 0 if silver_status is None or silver_status.ready else 1
+        blocked_count += (
+            0 if stock_daily_status is None or stock_daily_status.ready else 1
+        )
         blocked_count += 0 if gold_status is None or gold_status.ready else 1
         blocked_count += 0 if prod_core_status is None or prod_core_status.ready else 1
         if (
@@ -418,6 +449,7 @@ def _cursor_payload(
                 **compact_gate_statuses(
                     {
                         "silver_stk_mins": silver_status,
+                        "silver_stock_daily": stock_daily_status,
                         "gold_wealth_market_turnover": gold_status,
                     }
                 ),
@@ -427,6 +459,9 @@ def _cursor_payload(
             },
             evidence={
                 "registered_trade_day_count": registered_trade_day_count,
+                "stock_daily_registered_trade_day_count": (
+                    stock_daily_registered_trade_day_count
+                ),
                 "selected_trade_date": decision.selected_trade_date,
                 "run_window_started": decision.run_window_started,
                 "run_start_time": GOLD_WEALTH_MARKET_TURNOVER_RUN_START.isoformat(),
@@ -549,9 +584,13 @@ def gold_wealth_market_turnover_update_job_sensor(
             )
         )
     )
+    stock_daily_registered_trade_days = frozenset(
+        context.instance.get_dynamic_partitions(cn_a_stock_trade_days.name)
+    )
     silver_batch_status: StkMinsBatchReadiness | None = None
     gold_batch_status: WealthMarketTurnoverBatchReadiness | None = None
     prod_core_status: WealthMarketTurnoverProdCoreReadiness | None = None
+    stock_daily_status: AssetReadinessStatus | None = None
     prod_core_continuity_status: StockMinsContinuityStatus | None = None
 
     def _silver_status_for_trade_date(trade_date: str) -> StkMinsDateReadiness:
@@ -584,6 +623,34 @@ def gold_wealth_market_turnover_update_job_sensor(
                     expected_trade_dates=window_trade_dates,
                 )
         return gold_batch_status.status_for_trade_date(trade_date)
+
+    def _stock_daily_gate_decision(
+        trade_date: str,
+    ) -> GoldWealthMarketTurnoverUpdateDecision | None:
+        nonlocal stock_daily_status
+        if trade_date not in stock_daily_registered_trade_days:
+            return build_gold_wealth_market_turnover_update_decision(
+                target_trade_date=trade_date,
+                run_window_started=True,
+                silver_ready=True,
+                stock_daily_ready=False,
+                blocked_component="cn_a_stock_trade_days",
+                reason_code="missing_stock_daily_registered_partition",
+            )
+        stock_daily_status = silver_stock_daily_ready_for_trade_date(
+            context.instance,
+            trade_date,
+        )
+        if stock_daily_status.ready:
+            return None
+        return build_gold_wealth_market_turnover_update_decision(
+            target_trade_date=trade_date,
+            run_window_started=True,
+            silver_ready=True,
+            stock_daily_ready=False,
+            blocked_component="silver_stock_daily",
+            reason_code="stock_daily_not_ready",
+        )
 
     silver_selection = select_first_not_ready_trade_date(
         partition_set_name=cn_a_stock_mins_silver_trade_days.name,
@@ -699,23 +766,29 @@ def gold_wealth_market_turnover_update_job_sensor(
             elif prod_core_selection.selected_trade_date is not None:
                 if prod_core_status is None:
                     raise RuntimeError("prod core readiness selected status is missing.")
-                selected_gold_status = _gold_status_for_trade_date(
-                    prod_core_selection.selected_trade_date
-                )
-                selected_silver_status = _silver_status_for_trade_date(
-                    prod_core_selection.selected_trade_date
-                )
-                decision = build_gold_wealth_market_turnover_update_decision(
-                    target_trade_date=prod_core_selection.selected_trade_date,
-                    run_window_started=True,
-                    silver_ready=selected_silver_status.ready,
-                    gold_ready=selected_gold_status.ready,
-                    prod_sync_ready=prod_core_status.ready,
-                    reason_code=prod_core_status.reason_code,
-                    blocked_component="prod_core_db",
-                )
-                silver_status = selected_silver_status
-                gold_status = selected_gold_status
+                selected_trade_date = prod_core_selection.selected_trade_date
+                stock_daily_gate = _stock_daily_gate_decision(selected_trade_date)
+                if stock_daily_gate is not None:
+                    decision = stock_daily_gate
+                else:
+                    selected_gold_status = _gold_status_for_trade_date(
+                        selected_trade_date
+                    )
+                    selected_silver_status = _silver_status_for_trade_date(
+                        selected_trade_date
+                    )
+                    decision = build_gold_wealth_market_turnover_update_decision(
+                        target_trade_date=selected_trade_date,
+                        run_window_started=True,
+                        silver_ready=selected_silver_status.ready,
+                        stock_daily_ready=True,
+                        gold_ready=selected_gold_status.ready,
+                        prod_sync_ready=prod_core_status.ready,
+                        reason_code=prod_core_status.reason_code,
+                        blocked_component="prod_core_db",
+                    )
+                    silver_status = selected_silver_status
+                    gold_status = selected_gold_status
             else:
                 decision = build_gold_wealth_market_turnover_update_decision(
                     target_trade_date=target_trade_date,
@@ -728,23 +801,34 @@ def gold_wealth_market_turnover_update_job_sensor(
             selected_trade_date = gold_selection.selected_trade_date
             selected_gold_status = _gold_status_for_trade_date(selected_trade_date)
             selected_silver_status = _silver_status_for_trade_date(selected_trade_date)
-            decision = build_gold_wealth_market_turnover_update_decision(
-                target_trade_date=selected_trade_date,
-                run_window_started=True,
-                silver_ready=selected_silver_status.ready,
-                gold_ready=selected_gold_status.ready,
-                gold_has_materialized_check_problem=_has_materialized_check_problem(
-                    selected_gold_status
-                ),
-                reason_code=selected_silver_status.reason
-                if not selected_silver_status.ready
-                else selected_gold_status.reason,
-                blocked_component=(
-                    "silver_stk_mins"
-                    if not selected_silver_status.ready
-                    else "gold_wealth_market_turnover"
-                ),
+            stock_daily_gate = (
+                None
+                if _has_materialized_check_problem(selected_gold_status)
+                else _stock_daily_gate_decision(selected_trade_date)
             )
+            if stock_daily_gate is not None:
+                decision = stock_daily_gate
+            else:
+                decision = build_gold_wealth_market_turnover_update_decision(
+                    target_trade_date=selected_trade_date,
+                    run_window_started=True,
+                    silver_ready=selected_silver_status.ready,
+                    stock_daily_ready=(
+                        stock_daily_status is None or stock_daily_status.ready
+                    ),
+                    gold_ready=selected_gold_status.ready,
+                    gold_has_materialized_check_problem=_has_materialized_check_problem(
+                        selected_gold_status
+                    ),
+                    reason_code=selected_silver_status.reason
+                    if not selected_silver_status.ready
+                    else selected_gold_status.reason,
+                    blocked_component=(
+                        "silver_stk_mins"
+                        if not selected_silver_status.ready
+                        else "gold_wealth_market_turnover"
+                    ),
+                )
             silver_status = selected_silver_status
             gold_status = selected_gold_status
 
@@ -752,7 +836,11 @@ def gold_wealth_market_turnover_update_job_sensor(
         decision=decision,
         evaluated_at=evaluated_at,
         registered_trade_day_count=len(registered_trade_days),
+        stock_daily_registered_trade_day_count=len(
+            stock_daily_registered_trade_days
+        ),
         silver_status=silver_status,
+        stock_daily_status=stock_daily_status,
         gold_status=gold_status,
         prod_core_status=prod_core_status,
         silver_continuity_status=silver_selection.status,

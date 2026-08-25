@@ -1,6 +1,6 @@
 # Dagster Gold Wealth Market Turnover Dataset Design
 
-状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3/WMT-4/WMT-5 已完成，包含 schema/path/catalog、正式 asset/writer、单一 blocking check、lake readiness helper、专用 job、默认停止的 sensor、历史 direct lake bootstrap 工具和最近 20 日 runless event 工具。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增需求为：在 `gold_wealth_market_turnover` 生产成功后，把同一分区同步写入 prod `core_serving.wealth_market_turnover_snapshot`；当前已完成 `ProdPostgresWriteResource` / `prod_postgres_write`、prod serving replace helper、prod schema 只读复核、active `prod_core_wealth_market_turnover` asset、现有 job selection 扩展、sensor readiness 扩展、catalog/governance 对账、正式 definitions 校验、prod 写库角色、rollback dry-run 和 `2026-06-24` 正式 apply。`gold_wealth_market_turnover_update_job_sensor` 已按审批停为 `STOPPED`，是否启用另行拍板。
+状态：WMT-1 至 WMT-6 的代码、历史 Lake、最近 20 日 runless event 和 Prod Serving 同步已按原口径闭环。WMT-7“北交所收盘集合竞价成交量/成交额校准”已完成代码开发和本地测试；正式历史 plan 在首个分区发现历史北交所分钟源代码集合缺口后，于候选生成和正式写入前安全停止。WMT-7R 负责先恢复可恢复的 Raw/Silver 及真实受影响下游，并对源站仍为空的旧日期按冻结清单跳过；截至 `2026-08-25` 仅完成只读审计和方案设计，未写正式 Lake、Prod 或 Dagster event。WMT-7 历史修复明确不补任何 Gold/Prod 历史 materialization/check event。WMT-7/WMT-7R 生效后，本文第 17、18 节是当前计算、依赖、校验和恢复口径；前文 WMT-1 至 WMT-6 与其冲突的“只读五频分钟线”描述仅保留为历史实施记录，不再作为后续开发事实。
 
 ## 1. 目标
 
@@ -11,7 +11,7 @@
 1. 资产名：`gold_wealth_market_turnover`。
 2. 数据层级：`gold`。这是服务型结果数据，但在 lake 内属于从 silver 派生的 gold 资产。
 3. 分区：按交易日分区，复用 `cn_a_stock_mins_silver_trade_days`。
-4. 数据源：只读 `silver/quote/stk_mins/freq=<freq>/trade_date=<YYYY-MM-DD>/part-000.parquet`。
+4. 原 WMT-1 数据源只读 `silver_stk_mins` 五频文件；WMT-7 生效后增加同日 `silver_stock_daily`，仅用于校准北交所缺失的收盘集合竞价成交量和成交额，详细口径见第 17 节。
 5. 频度：首期固定 `1/5/15/30/60`，与现有 `TURNOVER_SNAPSHOT_ALLOWED_FREQS` 和 `STK_MINS_FREQS` 对齐。
 6. 输出路径：`gold/wealth/market_turnover/trade_date=<YYYY-MM-DD>/part-000.parquet`。
 7. 输出字段：对齐当前 `core_serving.wealth_market_turnover_snapshot` 的业务 schema。
@@ -97,7 +97,7 @@ CodeGraph 搜索结果确认：当前 orchestrator active source 中没有 `weal
 | write policy | `WritePolicy.PARTITION_FILE_ATOMIC_REPLACE` |
 | event policy | `EventPolicy.DAGSTER_RUN_ONLY` |
 | compute engine | `ComputeEngine.DUCKDB_SQL` |
-| source request policy | `no external source request; read five local silver stk_mins parquet files` |
+| source request policy | `no external source request; read five local silver_stk_mins parquet files plus one same-date silver_stock_daily parquet file` |
 
 ## 3.1 WMT-6 Prod Serving 同步目标
 
@@ -935,3 +935,359 @@ WMT-6 完成后，新增验收：
 6. 不新增独立 prod sync job；如新增 repair/backfill job，必须另起方案并经拍板。
 7. `2026-06-24` 正式 apply 已通过，prod 表五行与 gold parquet 的 `points_json` canonical hash 一致。
 8. `gold_wealth_market_turnover_update_job_sensor` 已停为 `STOPPED`；启用必须另行审批。
+
+## 17. WMT-7 北交所收盘集合竞价校准方案
+
+### 17.1 问题事实与根因
+
+本节基于 `2026-08-24` 的正式 Lake 只读审计和同日 Tushare 真实请求抽样，修正原 WMT-1 的单源假设。
+
+已确认事实：
+
+1. 北交所当日 `1min` 分钟线存在 `15:00` 价格行，但该行 `vol=0`、`amount=0`；`14:59` 同样为零，`14:57/14:58` 仍有连续竞价成交。
+2. 以同一股票、同一交易日逐代码计算：
+   - `silver_stock_daily.vol * 100 - sum(silver_stk_mins.vol)`；
+   - `silver_stock_daily.amount * 1000 - sum(silver_stk_mins.amount)`。
+3. `2026-08-24` 共审计 `338` 只北交所股票，`334` 只存在正成交量差、`4` 只差额为零、负差额为零；缺失成交量合计 `8,753,250` 股。
+4. Tushare 抽查 `920045.BJ`、`920571.BJ`、`920438.BJ`、`920087.BJ`、`920088.BJ` 时，`1/5/15/30/60` 五个频率的全日累计成交量均比日线少同一段收盘集合竞价成交。高频率的 `15:00` bar 虽然非零，但只包含此前聚合窗口，仍缺少该差额。
+5. 个别北交所分钟 `15:00 close` 与日线 `close` 也可能不同，但 `gold_wealth_market_turnover` 只消费 `vol/amount`，本专项不修正 OHLC，也不修改分钟行情 Lake。
+
+根因不是 Gold 聚合遗漏某个现有分钟点，而是源端分钟行情没有把北交所收盘集合竞价成交量和成交额放入分钟数据。原 WMT-1 仅对五频分钟文件求和，因而五个频率都会低估北交所全日成交。
+
+### 17.2 目标、边界与生效链路
+
+WMT-7 只修正 `gold_wealth_market_turnover` 的生成口径：
+
+```text
+silver_stk_mins[1/5/15/30/60, trade_date]
+  + silver_stock_daily[trade_date]
+  -> gold_wealth_market_turnover[trade_date]
+  -> prod_core_wealth_market_turnover[trade_date]
+  -> prod core_serving.wealth_market_turnover_snapshot
+```
+
+边界固定为：
+
+1. 不修改 Raw/Silver 股票分钟线文件，不补写北交所 `15:00` 分钟 bar。
+2. 不修改 `silver_stock_daily`。
+3. 不修改 Gold/Prod 表 schema、主键、频率集合、API DTO 或 Wealth 前端。
+4. 不把 Prod daily 表作为计算源；Gold 在本机直接读取同日 `silver_stock_daily`，Prod 只接收修正后的 Gold 五行结果。
+5. 不修正 SH/SZ 分钟与日线之间的来源舍入差；该差异保持审计可见，但不进入北交所 closing-auction correction。
+6. 不新增 asset check。继续使用现有单一 blocking check，防止 Dagster DB 增量膨胀。
+7. 不新增日常 repair sensor。旧日期的 source 回刷由显式 bounded maintenance 入口处理，不让 sensor 扫描历史。
+8. 历史修复不补 Gold materialization、Gold check 或 Prod materialization event；未来新日期继续由正常 job 自然写入 `v2` 事件。
+
+### 17.3 源字段和单位合同
+
+| 来源 | 读取字段 | 单位 | 用途 |
+| --- | --- | --- | --- |
+| 五频 `silver_stk_mins` | `ts_code, freq, trade_date, trade_time, vol, amount` | `vol=股`，`amount=元` | 保留原全市场分钟点，并计算每个北交所代码、每个频率的全日累计值。 |
+| `silver_stock_daily` | `ts_code, trade_date, vol, amount` | `vol=手`，`amount=千元` | 只提供北交所同日成交量/成交额总量事实。 |
+
+转换必须在 DuckDB `DECIMAL` 表达式中完成：
+
+```text
+daily_vol_shares = silver_stock_daily.vol * 100
+daily_amount_yuan = silver_stock_daily.amount * 1000
+```
+
+禁止读取 `open/high/low/close/pre_close/change_amount/pct_chg`，避免把本专项扩大成行情价格修复。
+
+### 17.4 五频独立校准公式
+
+对每个频率 `f in {1,5,15,30,60}`、每个北交所代码 `c` 独立计算：
+
+```text
+minute_vol(c, f) = sum(minute.vol)
+minute_amount(c, f) = sum(minute.amount)
+
+residual_vol(c, f) = daily_vol_shares(c) - minute_vol(c, f)
+residual_amount(c, f) = daily_amount_yuan(c) - minute_amount(c, f)
+
+residual_vol(f) = sum(residual_vol(c, f))
+residual_amount(f) = sum(residual_amount(c, f))
+```
+
+然后只修改该频率聚合后的 `15:00` 市场点：
+
+```text
+corrected_15_00_vol(f) = original_15_00_vol(f) + residual_vol(f)
+corrected_15_00_amount_yuan(f) = original_15_00_amount_yuan(f) + residual_amount(f)
+```
+
+重要语义：
+
+1. `1min` 原 `15:00` 成交为零时，校准后该点承载北交所 closing-auction residual。
+2. `5/15/30/60` 原 `15:00` 点包含已有聚合窗口，必须在原值上增加 residual，不能覆盖原值。
+3. 每个频率都从自身分钟总量反算 residual。禁止先算 `1min` residual 再复制给另外四个频率，即使当前抽样结果相等。
+4. 不新增时间点；若源聚合没有唯一 `15:00` 点则 fail closed。
+5. `securityCount`、`security_count` 和 `source_row_count` 仍描述原分钟源行与代码覆盖，不因日线校准而增加。
+6. `points_json`、`total_amount`、`total_vol` 必须从同一份 corrected point rows 生成，禁止摘要与曲线使用两套公式。
+7. `build_version` 从 `v1` 升级为 `v2`，`build_note` 固定为 `bse_close_auction_reconciled_from_silver_stock_daily`。
+
+校准前必须满足：
+
+1. 同日五频分钟文件和日线文件全部存在。
+2. 日线与分钟源的 `trade_date` 等于目标分区。
+3. 每个来源的业务主键唯一，数量和金额非空且非负。
+4. 每个频率的北交所代码集合与日线北交所代码集合完全一致。
+5. 每个北交所代码在每个频率恰好有一个 `15:00` 源行。
+6. `residual_vol(c, f) >= 0`；存在负值立即失败。
+7. 对 `residual_vol(c, f) > 0` 的代码，`residual_amount(c, f)` 必须大于零。
+8. 每个频率的聚合 `residual_amount(f)` 必须非负。代码级微小正负舍入可以相互抵消，但必须记录数量和有限样本。
+
+以上门禁继续适用于日常正常链路。历史源缺口不得通过放宽正常 writer/check 解决；历史维护的可恢复、低频聚合恢复和跳过规则由第 18 节单独约束。
+
+校准后必须满足：
+
+1. 北交所 `total_vol` 与日线换算后的成交量完全一致。
+2. 北交所 `total_amount` 与日线换算后的成交额按 Gold `DECIMAL(20,2) thousand_yuan` 输出精度一致。
+3. SH/SZ 的分钟聚合 hash、总量和点数组不因 WMT-7 改变。
+4. 五行频率集合仍为 `{1,5,15,30,60}`，每行时间键集合不变。
+
+### 17.5 Asset、分区和日常触发
+
+`gold_wealth_market_turnover` 继续使用 `cn_a_stock_mins_silver_trade_days`，但新增同日 `silver_stock_daily` 依赖。由于其分区定义是 `cn_a_stock_trade_days`，依赖必须显式使用 `IdentityPartitionMapping`，不能靠不同 dynamic partition set 的隐式映射。
+
+日常 sensor 在原五频 minute readiness 之外增加两道选定日期门禁：
+
+1. 目标日期已注册到 `cn_a_stock_trade_days`。
+2. `silver_stock_daily[trade_date]` 的 materialization 和既有 blocking checks ready。
+
+门禁只检查已选中的 first-not-ready 日期，不对最近 10 日逐日扫描 stock daily event history。Gold lake readiness 仍在一个 DuckDB connection 内，对最近最多 10 日按新公式重算并比较；因此同日 daily source 变化会使旧 `v1` Gold 变为 not ready。
+
+若 Gold 文件已存在但按新源口径不一致，日常 sensor 保持 fail closed，不自动覆盖旧文件；WMT-7 首次切换和旧日期恢复统一走维护入口。
+
+现有 job 仍只选择：
+
+```text
+gold_wealth_market_turnover
+gold_wealth_market_turnover_integrity_check
+prod_core_wealth_market_turnover
+```
+
+不得把 `silver_stock_daily` 或五频 `silver_stk_mins` 加入 job selection。
+
+### 17.6 单一 Check 和 readiness 语义
+
+`gold_wealth_market_turnover_integrity_check` 名称和数量保持不变，内部仍为两个阶段：
+
+1. `file_contract`：五行、schema、主键、JSON、日期、频率、`build_version=v2`。
+2. `recomputed_from_sources`：用同日五频分钟与日线按第 17.4 节重算并逐频比较。
+
+check metadata 只保留低基数摘要：
+
+- daily/minute source path count；
+- 北交所代码数；
+- 五频 residual vol/amount；
+- 负 residual 数量；
+- 代码集合缺失数量与有限样本；
+- mismatch 数量与有限样本；
+- build version 和 correction method。
+
+不得增加逐频 check、逐代码 check 或完整代码列表。
+
+### 17.7 历史 Gold/Prod 恢复设计
+
+本节原设计假设五个分钟频率均具备完整北交所源代码集合。`2026-08-25` 正式 plan 已证明该假设对部分旧日期不成立，因此原“直接全量 WMT candidate”执行路径已停止，历史分区选择与恢复顺序由第 18 节 WMT-7R 取代。正常日常链路仍保持本节的严格五频门禁。
+
+WMT-7R 完成上游恢复后，Gold/Prod 历史恢复仍按以下安全步骤执行：
+
+1. **只读 plan**：从 `2021-11-15` 起，在五频 minute、stock daily 和 Gold 分区交集中筛选日线含 `.BJ` 的日期；冻结日期集合、源文件 fingerprint 和 plan hash。
+2. **候选生成**：每批最多 20 个交易日，串行生成到 `/Volumes/datasource/data_lake_staging/wealth_market_turnover/operation_id=<plan_hash>/`，不得在正式 Lake 目录生成 `.tmp`。
+3. **候选审计**：按批做聚合对账并抽查首日、中间日、最新日及异常 residual 样本。单个审计动作最长 5 分钟，不做无收益的全盘逐行 Python 审计。
+4. **原子 promote**：候选完整通过后，使用同文件系统 `os.replace()` 逐分区替换正式 Gold；中断时只允许使用同一 plan/checkpoint 续跑。
+5. **正式 Gold 抽样/统计验收**：核对文件数、五行频率、`build_version=v2`、北交所总量和有限样本；不重新跑一遍全量深审计。
+6. **Prod 分批回写**：复用现有事务性 `replace_prod_core_wealth_market_turnover_partition(...)`，每分区 delete/insert/read-back/commit；失败只回滚当前分区。
+7. **控制面保持不变**：不调用现有 runless event 工具，不为任何历史修复分区补 Gold materialization、Gold check 或 Prod materialization event；修复前后的 Dagster run/event 数量必须保持不变。
+
+正式恢复不得与 daemon、sensor、人工同资产 run 并发。任何源 fingerprint 变化、候选损坏、正式目标并发变化或 Prod read-back mismatch 都必须停止。
+
+历史事件不补录的影响已经接受并固定：
+
+1. Gold Lake 和 Prod serving 数据按 `v2` 变为正确事实，Wealth API 和页面读取修正后的数据。
+2. 历史分区在 Dagster UI 中继续显示原 materialization 时间、原 `v1` metadata 和原 check event，不代表物理文件仍是 `v1`。
+3. 原历史 materialization/check event 不删除，因此这些分区不会被视为从未物化，也不会因本次修复自动触发重跑。
+4. 日常 sensor 的新日期选择、未来 Gold 生成和 Prod 同步不依赖补写历史事件；代码切换后的新分区由正常 job 产生完整 `v2` 事件。
+5. 若未来确实需要 Dagster UI 精确证明某个历史分区已按 `v2` 重建，必须另立事件治理专项，不能在 WMT-7 中顺带补写。
+
+### 17.8 性能门禁
+
+| 路径 | 输入上限 | 计算口径 | 不可接受 |
+| --- | --- | --- | --- |
+| 日常 writer | 同日五频 minute + 1 个 stock daily 文件 | 一个 DuckDB set-based pipeline；只投影必要列 | Python 逐股票/逐分钟循环、读取全历史、调用 Tushare/Prod daily |
+| Gold readiness | 最近最多 10 日，最多 50 个 minute + 10 个 daily + 10 个 Gold 文件 | 每 tick 一个 DuckDB connection，返回聚合状态 | Dagster 全历史扫描、多个 connection、完整代码列表进入 cursor |
+| stock daily event gate | 只检查已选中的 1 个日期 | 一次 bounded readiness 调用 | 最近 10 日逐日读取全部 check history |
+| 历史修复 | 每批最多 20 日，串行 | staging、聚合审计、原子 promote | 全历史装入 Python、直接覆盖正式文件、单个审计动作超过 5 分钟 |
+| Prod 回写 | 每分区固定 5 行 | 单分区事务和 read-back | 跨分区大事务、跳过 Gold 契约校验 |
+| Dagster event | 历史修复新增 0 条 | 保留原事件，未来日期由正常 job 写事件 | 调用 runless event、补 Gold/Prod materialization 或 check event |
+
+### 17.9 WMT-7 验收标准
+
+代码阶段必须满足：
+
+1. `gold_wealth_market_turnover` 明确依赖同日 `silver_stock_daily`，definitions 可加载。
+2. 五频均独立计算 residual，并只修改各自 `15:00` 聚合点。
+3. SH/SZ 输出不变，北交所 corrected totals 与 daily source 对齐。
+4. Gold schema 和 Prod schema 不变，`build_version=v2`。
+5. check 数量仍为一个，job 名称、sensor 名称、run key 和 Prod asset 名称不变。
+6. missing daily、不同分区、代码集合不一致、负成交量 residual、缺 15:00、输出不一致全部 fail closed。
+7. sensor 在 stock daily 未注册或未 ready 时不提交 Gold run。
+8. normal writer 和 history writer 都只在 staging 审计通过后原子替换。
+9. 不修改 Wealth API、首页成交额总览或成交额洞察的前端计算。
+
+正式恢复阶段必须另外满足：
+
+1. 受影响 Gold 分区全部为 `v2`，无 staging 残留。
+2. Prod 对应分区与 Gold 五行及 `points_json` hash 一致。
+3. Dagster runs、materialization events 和 check events 数量未因历史修复增加。
+4. 历史 UI metadata 仍可能显示 `v1` 的已知取舍已记录，不把它误判为物理数据未修复。
+5. 当日成交额总览与成交额洞察在各自展示精度下不再因北交所 closing-auction 缺口产生差异。
+
+### 17.10 代码交付与正式恢复边界
+
+截至 `2026-08-25`：
+
+1. WMT-7 的 `v2` source bundle、五频 set-based residual、run-scoped staging、单一 check、Gold readiness、stock daily selected-date gate 和五阶段历史维护入口均已完成。
+2. 本地目标回归结果为 `169 passed`、`147 subtests passed`；语法/import 检查通过。
+3. 正式 Lake 路径层面的分区覆盖完整，但行级只读审计发现多个旧日期的 Raw/Silver 北交所代码集合为空或不完整；“文件存在”不能再等同于“WMT-7 source ready”。详细事实见第 18 节和独立缺口备案。
+4. 正式历史 plan `391beab59283c5594dc56884c581a98bd5187dbccb76955143dfb1276900f1c2` 在首个分区触发 `bse_code_set_mismatch`，因此没有生成 candidate、没有 promote、没有 Prod publish。
+5. 本轮没有运行 `dg`、job、sensor、runless event，也没有写正式 Lake、Prod 或 Dagster DB。
+6. 正式恢复必须先完成第 18 节 WMT-7R；不得重新执行原全量 plan 绕过源集合门禁。在 WMT-7R、Gold candidate/promote 和 Prod publish 全部验收前，不得把 WMT-7 标记为数据恢复完成。
+
+## 18. WMT-7R 北交所历史分钟源缺口恢复方案
+
+### 18.1 目标与事实来源
+
+WMT-7R 解决的不是 WMT 计算公式，而是历史北交所分钟源覆盖不一致。事实备案固定在：
+
+`../reports/stk-mins-bse-historical-source-gap-audit-2026-08-25.md`
+
+恢复目标按优先级固定为：
+
+1. 源站当前已补齐的历史数据，从 Raw 开始恢复，并按真实变化向 Silver、QFQ、MACD/KDJ state、分钟九转、WMT 和 Prod 传播。
+2. 源站仍为空的旧日期，不伪造 `1min`，不把日线差额硬塞进分钟行情。
+3. 若完整 `1min` 能按现有 Silver 聚合合同生成缺失的粗频率，则只恢复 Silver 粗频率，不伪造对应 Raw 粗频率。
+4. 既无原生源、也无完整低频源可聚合的日期/频率，保留原事实并跳过；不因旧历史缺口阻塞其它可恢复频率。
+5. 正常日常 sensor/writer/check 继续严格 fail closed，不引入历史例外。
+
+### 18.2 四类恢复判定
+
+每个 `trade_date + freq` 必须在写入前归入且只能归入以下一种模式：
+
+| 模式 | 判定 | 动作 |
+| --- | --- | --- |
+| `SOURCE_RECOVERABLE` | Tushare 当前返回完整 expected 历史 source code set，日期、频率、schema、主键和交易时段均合法 | 从 Raw candidate 开始恢复，再生成 Silver candidate |
+| `SILVER_FALLBACK_RECOVERABLE` | 原生粗频率仍为空，但同日 Raw `1min` 具备完整 expected code set，且每个 code-day 恰有 241 个合法点 | 保留 Raw 粗频率原事实，使用现有 Silver set-based fallback 生成粗频率 |
+| `SOURCE_EMPTY_SKIP` | 源站仍为空，且没有完整低频源可聚合 | 不写 Raw/Silver；该频率在 WMT 历史维护中保留原结果并记录跳过原因 |
+| `PARTIAL_BLOCKED` | 只返回部分 expected code set，或 identity/date/key/session 任一合同不完整 | 整个日期/频率停止，不接受部分覆盖；先恢复缺失代码或转入明确跳过清单 |
+
+expected historical source code set 不能直接使用当前 `920xxx.BJ`。必须以同日 `silver_stock_daily` 的 latest code set 为业务集合，再按 `stock_identity_map.valid_from/valid_to` 反查历史 `source_ts_code`；Raw 保存历史源代码，Silver 才规范化为 latest code。
+
+### 18.3 源站探测与性能边界
+
+源站探测只为决定恢复模式，不做无边界全历史扫描：
+
+1. 对连续日期段，按 `source_ts_code + freq + bounded date range` 请求，禁止 `date × code × freq` 三重循环。
+2. 使用项目既有有界分页、重试、请求量和耗时预算；每个探测批次及其对账最长 5 分钟。
+3. 只有实际返回的规范化 `code-date` 集合与 expected 集合完全一致，才能标记 `SOURCE_RECOVERABLE`。
+4. 抽样命中只证明“值得进入完整有界探测”，不能直接把整段日期标记为可写。
+5. 结果冻结为不可变 manifest，包含模式、expected/returned code count、有限缺口样本、source request fingerprint 和文件 fingerprint。
+
+### 18.4 Raw 与 Silver 恢复
+
+Raw 恢复只处理 `SOURCE_RECOVERABLE`：
+
+1. 在 `/Volumes/datasource/data_lake_staging` 生成候选，基于现有 Raw 文件合并北交所历史 source rows。
+2. SH/SZ、非目标日期和非目标代码必须逐字节或 canonical hash 不变。
+3. 禁止直接调用当前会原位修改目标的 repair helper；正式恢复入口必须是 `plan -> candidate -> audit -> promote`。
+4. candidate 通过 schema、主键、日期、频率、交易时段、expected source code set 和 source-row hash 后，才按单分区 `os.replace()` 原子提升。
+5. 任一 source code 空结果、部分结果或目标并发变化均停止该日期/频率。
+
+Silver 恢复按“实际受影响日期”执行：
+
+1. Raw `1min` 或同频 Raw 被恢复后，使用现有 `write_silver_stk_mins_partition(..., output_path_override=...)` 为同日五频生成候选。
+2. `SILVER_FALLBACK_RECOVERABLE` 只在 Raw `1min` 完整时启用；由现有 DuckDB set-based writer 聚合，不新增第二套公式。
+3. 每个频率比较 candidate 与正式文件 canonical hash，只 promote 真正变化的 Silver 文件。
+4. `2025-09-03` 必须先恢复历史 source code `872392.BJ` 的 Raw `1min`，使 latest code `920392.BJ` 的 Silver `1min` 集合完整，再考虑派生粗频率。
+5. `SOURCE_EMPTY_SKIP` 不生成空文件、不用日线补分钟、不修改现有 Silver。
+
+### 18.5 下游影响和恢复顺序
+
+下游不得按“计划范围”盲目全量重建，只消费实际 changed Silver manifest。
+
+| 实际变化源 | 必须评估/恢复的下游 |
+| --- | --- |
+| 任一 `silver_stk_mins` 1/5/15/30/60 | 同日 `gold_wealth_market_turnover`，随后回写 Prod serving |
+| Silver 1m | QFQ 1m、5m |
+| Silver 5m | QFQ 15m、30m |
+| Silver 30m | QFQ 60m、90m |
+| Silver 60m | QFQ 120m |
+| Silver 15m | 无 QFQ consumer；仅影响 WMT 15m |
+| 任一 changed QFQ 频率 | 对应频率 MACD/KDJ 与递推 state，从最早变化日期重建至当前 frontier |
+| changed QFQ 30/60/90/120 | 对应分钟九转，从最早变化日期重建至当前 frontier |
+
+恢复顺序固定为：
+
+```text
+bounded source probe
+  -> Raw candidate/audit/promote
+  -> Silver candidate/audit/promote
+  -> freeze changed Silver manifest
+  -> bounded QFQ rebuild
+  -> MACD/KDJ + state forward rebuild
+  -> minute nineturn forward rebuild
+  -> WMT mixed-mode historical rebuild
+  -> Prod transactional publish
+  -> control-plane reconciliation
+```
+
+QFQ 不使用 factor repair job 猜范围，因为本次变化来源是分钟 bar 修复，不是 adj factor 变化。应复用 canonical/history maintenance 计算口径，并仅重写 manifest 命中的北交所 code/date/stock-year 文件。
+
+### 18.6 源站仍为空时的 WMT 处理
+
+WMT 正常日常 writer 继续要求五频完整，不接受降级。历史维护入口则逐频处理：
+
+1. 完整恢复后的频率按 WMT-7 `v2` 公式重建。
+2. `SOURCE_EMPTY_SKIP` 频率保留现有 Gold 行及原构建语义，不向 `15:00` 注入无法由分钟源解释的日线差额。
+3. 同一 Gold 分区允许在历史维护报告中出现“已重建频率 + 保留频率”，但跳过频率必须来自冻结 manifest；禁止运行时临时决定。
+4. `PARTIAL_BLOCKED` 不允许生成 Gold candidate，因为部分代码比完全跳过更容易造成静默误差。
+5. 若某日五频全部 `SOURCE_EMPTY_SKIP`，该 Gold 分区保持不变，也不重复发布 Prod。
+6. Prod 只发布 Gold 实际发生变化的日期，逐分区事务写入并 read-back。
+
+这一历史例外不进入正常 asset check/readiness，不扩大 sensor 热路径，也不把“旧日期已知降级”伪装成完整 `v2`。
+
+### 18.7 Dagster 事件口径
+
+事件按数据安全而非“历史补齐好看”处理：
+
+1. Raw、Silver、QFQ 和 WMT 的旧日期不补全历史 materialization/check event。
+2. WMT/Prod 历史恢复继续新增零条 event，与第 17 节保持一致。
+3. MACD/KDJ state 和分钟九转属于递推数据；若 forward rebuild 实际改写最近 20 个交易日，则只对这些实际变化的最近 20 日刷新 materialization/check，确保后续日常 previous-state/readiness 读取的是新物理事实。
+4. 第 3 项必须单独审批；若 recent-window canonical hash 未变化，则事件写入为零。
+5. 不删除旧事件，不补全历史事件，不触碰 dynamic partitions、runs 或 run_tags。
+
+### 18.8 分阶段执行和停止条件
+
+1. **R0 只读计划**：生成 source mode manifest、文件 fingerprint、changed-downstream 预计映射和磁盘/耗时预算。
+2. **R1 Raw**：只处理 `SOURCE_RECOVERABLE`，每批 candidate 审计不超过 5 分钟。
+3. **R2 Silver**：处理 Raw 变化及 `SILVER_FALLBACK_RECOVERABLE`，冻结 actual changed manifest。
+4. **R3 QFQ**：按第 18.5 节映射做 bounded rebuild；没有 changed source 的频率不动。
+5. **R4 指标/九转**：按 affected code/freq 从最早变化日递推至 frontier，按年份/频率分批。
+6. **R5 WMT/Prod**：逐频重建可恢复行，保留 source-empty 行，Prod 只发布 changed partitions。
+7. **R6 控制面**：只读对账；如需最近 20 日事件刷新，另行批准后执行。
+
+任一阶段遇到以下情况立即停止：source 集合部分返回、identity 映射不唯一、candidate 改变非目标市场数据、正常 writer/check 被放宽、审计超过 5 分钟、正式目标并发变化、递推范围无法确定、或需要通过猜测补数据。
+
+### 18.9 验收标准
+
+1. 每个 gap 都有唯一 mode 和 source evidence，不存在未分类日期/频率。
+2. 源站已补齐项从 Raw 开始恢复，Raw 保存历史 source code，Silver 输出 latest code。
+3. 可由完整 1m 聚合的粗频率在 Silver 补齐，Raw 粗频率不伪造。
+4. source-empty 旧日期没有新增 1m 行，也没有用 daily 合成分钟 bar。
+5. changed Silver 到 QFQ、指标/state、九转、WMT/Prod 的传播清单可逐项对账。
+6. SH/SZ 和非目标日期 canonical hash 不变。
+7. WMT 可恢复频率与日线北交所总量对齐；跳过频率保留既有值并在报告中可见。
+8. 正常日常链路、asset/check/job/sensor/run key 和 API contract 无回退。
+9. 无 Kopia、无正式 Lake sibling temp、无无边界 Tushare 请求、无全历史 Python 扫描。
+10. 未经单独批准，不执行正式 Lake、Prod 或 Dagster event 写入。

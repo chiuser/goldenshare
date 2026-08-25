@@ -1,6 +1,6 @@
 # Dagster Gold Wealth Market Turnover Dataset Low-Level Design
 
-状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3 已按当前治理测试事实合并为第一个可验证闭环并完成；WMT-4 job/sensor 已完成；WMT-5 历史 bootstrap/runless event 工具已完成。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增 prod PostgreSQL serving 同步需求，当前已完成 `ProdPostgresWriteResource` / `prod_postgres_write`、prod serving replace helper、prod schema 只读复核、active `prod_core_wealth_market_turnover` asset、现有 job selection 扩展、sensor readiness 扩展、catalog/governance 对账、正式 definitions 校验、prod 写库角色、rollback dry-run 和 `2026-06-24` 正式 apply。`gold_wealth_market_turnover_update_job_sensor` 已按审批停为 `STOPPED`，是否启用另行拍板。本文档是 [Dagster Gold Wealth Market Turnover Dataset Design](dagster-gold-wealth-market-turnover-dataset-design.md) 的编码级落地方案和执行对账记录。
+状态：WMT-1 至 WMT-6 已按原口径闭环。WMT-7“北交所收盘集合竞价成交量/成交额校准”已完成代码开发和本地测试；正式历史 plan 因旧日期北交所分钟源代码集合不完整而在候选生成前安全停止。WMT-7R 已完成代码/物理数据/Tushare 抽样审计和编码级设计，尚未开发或执行。WMT-7/WMT-7R 未写正式 Lake、Prod 或 Dagster event。WMT-7 生效后，本文第 16、17 节覆盖前文中与“只读五频分钟线”有关的旧实现口径；WMT-1 至 WMT-6 的执行记录继续保留为历史审计事实。本文档是 [Dagster Gold Wealth Market Turnover Dataset Design](dagster-gold-wealth-market-turnover-dataset-design.md) 的编码级落地方案和执行对账记录。
 
 ## 0. 依据和硬口径
 
@@ -25,7 +25,7 @@ CodeGraph 审计范围：
 6. `ProdPostgresResource`：确认当前 prod Postgres resource 的 `connect()` 固定 `readonly=True` 和 `autocommit=True`，不能用于 WMT-6 写 prod serving。
 7. `prod_ch_share_fact_market_breadth_daily`：确认现有 prod serving 同步采用下游 asset 表达，不把 prod 写入塞进上游 gold asset。
 
-WMT-1 到 WMT-5 硬口径：
+WMT-1 到 WMT-5 历史硬口径（WMT-7 对数据源与计算公式的变更见第 16 节）：
 
 1. 只新增 `gold_wealth_market_turnover` 资产族，不改现有 Wealth API、旧 serving 表、旧 CLI。
 2. 数据源只读 `silver_stk_mins` 五个频度文件。
@@ -1529,3 +1529,859 @@ WMT-6 完成后，必须新增满足：
 7. `dg check defs` 已经单独审批执行并通过，证明新增 asset/job/sensor/resource/catalog 可被正式 Definitions 加载。
 8. prod write dry-run / transaction rollback 验证和正式 apply 已单独审批执行并通过。
 9. `gold_wealth_market_turnover_update_job_sensor` 已停为 `STOPPED`；启用必须另行审批。
+
+## 16. WMT-7 北交所收盘集合竞价校准 LLD
+
+### 16.1 编码目标和禁止项
+
+本节是 WMT-7 的唯一编码依据。目标是让 `gold_wealth_market_turnover` 使用同日 `silver_stock_daily` 校准北交所五频分钟源缺失的 closing-auction 成交量和成交额，然后由现有 Prod sync 原样发布。
+
+必须保持：
+
+1. asset key、check name、job name、sensor name、Prod asset name和 run key 不变。
+2. Gold/Prod schema、五行频率集合、`points_json` 结构不变。
+3. 现有单一 blocking check 不拆分。
+4. job 仍只执行 Gold、Gold check 和 Prod sync，不物化任何上游。
+5. 日常 sensor 每 tick 最多一个 RunRequest。
+
+禁止：
+
+1. 修改 Raw/Silver minute 或 stock daily 文件。
+2. 从 Prod daily、Tushare、Raw DB 或 Wealth API 反向补数。
+3. 用 daily `close` 修正分钟 OHLC。
+4. 只修 `1min` 或把 `1min` residual 复制给其它频率。
+5. 新增逐频/逐股票 check、repair asset、repair sensor、manifest asset 或状态表。
+6. 在正式 Lake 根目录创建 candidate、`.tmp` 或 checkpoint。
+7. 为历史恢复创建任何 Dagster run、Gold/Prod materialization event 或 check event。
+
+### 16.2 当前代码调用链和影响面
+
+CodeGraph 与源码审计确认的调用链：
+
+```text
+gold_wealth_market_turnover_update_job_sensor
+  -> gold_wealth_market_turnover_update_job
+  -> gold_wealth_market_turnover asset
+  -> write_gold_wealth_market_turnover_partition
+  -> gold_wealth_market_turnover_integrity_check
+  -> prod_core_wealth_market_turnover
+  -> replace_prod_core_wealth_market_turnover_partition
+  -> prod core_serving.wealth_market_turnover_snapshot
+  -> Wealth turnover / turnover-insight queries
+```
+
+需要修改的生产文件：
+
+| 文件 | WMT-7 修改 |
+| --- | --- |
+| `defs/wealth_market_turnover_contract.py` | 新 source bundle、daily source contract、五频 residual SQL、`v2` writer、source recompute audit、低基数 correction metadata。 |
+| `defs/paths.py` | 增加 WMT-7 run-scoped staging path helper；复用已有 `silver_stock_daily_path` 和正式 Gold path。 |
+| `defs/assets/wealth_market_turnover.py` | 增加 `silver_stock_daily` identity dependency，传入六个源路径和显式 staging path，更新 metadata。 |
+| `defs/checks/wealth_market_turnover_checks.py` | 继续一个 check，第二阶段改为 `recomputed_from_sources`。 |
+| `defs/asset_guards/wealth_market_turnover_lake_readiness.py` | Gold readiness 使用五频 minute + daily 的同口径重算。 |
+| `defs/sensors/readiness.py` | 抽出稳定的 `SILVER_STOCK_DAILY_READINESS_SPEC` 和单资产单分区 helper。 |
+| `defs/sensors/gold_wealth_market_turnover_sensor.py` | 增加 stock daily partition registration 和 selected-date readiness gate，cursor 增加紧凑摘要。 |
+| `defs/bootstrap/wealth_market_turnover_history.py` | 现有 history planner/writer/audit 升级为 WMT-7 source plan、staging candidate 和 bounded promote。 |
+| `defs/bootstrap/wealth_market_turnover_history_cli.py` | 阶段化 `plan/build/audit/promote/formal-audit/prod-publish`；写操作继续要求显式确认。 |
+
+明确不修改：
+
+- `defs/jobs/gold_wealth_market_turnover_update.py` 的 selection；
+- `defs/assets/wealth_market_turnover_prod_core.py`；
+- `defs/prod_db/wealth_market_turnover.py`；
+- `defs/bootstrap/wealth_market_turnover_runless_events.py` 及其 CLI；
+- Gold/Prod schema 和 catalog check 集合；
+- `src/biz` 的 turnover、turnover-insight query/schema/API；
+- Wealth 前端。
+
+`write_gold_wealth_market_turnover_partition(...)` 当前被正式 asset、history helper 和测试消费。修改其签名时必须一次性更新全部调用方，删除旧 minute-only source helper，不保留兼容 wrapper。
+
+### 16.3 Source bundle 和常量
+
+在 `wealth_market_turnover_contract.py` 中用一个不可变 source bundle 取代当前 `WealthMarketTurnoverInputPath` 裸序列：
+
+```python
+@dataclass(frozen=True, slots=True)
+class WealthMarketTurnoverMinuteSourcePath:
+    freq: int
+    path: Path
+
+
+@dataclass(frozen=True, slots=True)
+class WealthMarketTurnoverSourcePaths:
+    minute_paths: tuple[WealthMarketTurnoverMinuteSourcePath, ...]
+    stock_daily_path: Path
+```
+
+新增唯一构造入口：
+
+```python
+def wealth_market_turnover_source_paths(
+    lake_root: Path,
+    partition_key: str,
+) -> WealthMarketTurnoverSourcePaths:
+    ...
+```
+
+构造规则：
+
+1. `minute_paths` 严格按 `STK_MINS_FREQS=(1,5,15,30,60)` 排序。
+2. minute 使用 `silver_stk_mins_path(...)`。
+3. daily 使用 `silver_stock_daily_path(...)`。
+4. 删除 `wealth_market_turnover_input_paths(...)` 和旧 `WealthMarketTurnoverInputPath`；所有消费者迁移后静态门禁禁止回流。
+
+常量：
+
+```python
+WEALTH_MARKET_TURNOVER_BUILD_VERSION = "v2"
+WEALTH_MARKET_TURNOVER_BUILD_NOTE = (
+    "bse_close_auction_reconciled_from_silver_stock_daily"
+)
+WEALTH_MARKET_TURNOVER_BSE_SUFFIX = ".BJ"
+WEALTH_MARKET_TURNOVER_CLOSE_TIME = "15:00:00"
+```
+
+扩展 `WealthMarketTurnoverWriteAudit`，只增加聚合字段：
+
+```python
+bse_security_count: int
+bse_residual_vol_by_freq: dict[str, int]
+bse_residual_amount_by_freq: dict[str, str]
+bse_rounding_residual_code_count_by_freq: dict[str, int]
+```
+
+不得把逐代码 residual 放进 dataclass、materialization metadata 或 cursor。
+
+### 16.4 源文件校验
+
+将 `_validate_silver_input_files(...)` 改为 `_validate_source_files(...)`，在一个 DuckDB connection 内完成：
+
+#### 五频 minute
+
+沿用现有门禁：
+
+- 五频齐全且顺序正确；
+- 文件存在、非空；
+- `trade_date` 等于 partition；
+- `(ts_code, trade_time)` 唯一；
+- 必要列存在；
+- `vol/amount` 非空且非负。
+
+新增北交所门禁：
+
+- 每个频率每个 `.BJ` 代码恰好一个 `15:00` 行；
+- 每个频率的 `.BJ` 代码集合与 daily `.BJ` 集合一致。
+
+#### stock daily
+
+只投影 `ts_code, trade_date, vol, amount`，检查：
+
+- 文件存在、非空；
+- schema 至少包含四个必要列；
+- `trade_date` 唯一且等于 partition；
+- `ts_code` 非空且唯一；
+- `vol/amount` 非空且非负；
+- 至少存在一个 `.BJ` 行时才启用 correction；无 `.BJ` 的历史日期允许 residual 为零并按 v2 正常输出。
+
+错误 reason code 固定为 ASCII，例如：
+
+```text
+missing_stock_daily_source
+stock_daily_schema_mismatch
+stock_daily_partition_mismatch
+stock_daily_duplicate_key
+bse_code_set_mismatch
+bse_close_point_missing
+negative_bse_volume_residual
+nonpositive_bse_amount_residual
+```
+
+### 16.5 DuckDB SQL 结构
+
+`wealth_market_turnover_select_sql(...)` 签名改为：
+
+```python
+def wealth_market_turnover_select_sql(
+    *,
+    source_paths: WealthMarketTurnoverSourcePaths,
+    partition_key: str,
+    built_at_sql: str = "current_timestamp",
+) -> str:
+    ...
+```
+
+SQL 必须使用以下 set-based CTE 分层，不在 Python 中逐代码计算：
+
+```text
+minute_source_rows
+daily_bse_rows
+minute_bse_totals_by_code_freq
+bse_residuals_by_code_freq
+bse_correction_by_freq
+point_rows_base
+point_rows_corrected
+point_json
+summary
+```
+
+关键 SQL 语义：
+
+```sql
+daily_bse_rows AS (
+  SELECT
+    ts_code,
+    CAST(vol AS DECIMAL(38,4)) * 100 AS daily_vol_shares,
+    CAST(amount AS DECIMAL(38,4)) * 1000 AS daily_amount_yuan
+  FROM read_parquet(stock_daily_path)
+  WHERE suffix(ts_code, 3) = '.BJ'
+),
+minute_bse_totals_by_code_freq AS (
+  SELECT
+    freq,
+    ts_code,
+    sum(CAST(vol AS DECIMAL(38,4))) AS minute_vol_shares,
+    sum(CAST(amount AS DECIMAL(38,4))) AS minute_amount_yuan
+  FROM minute_source_rows
+  WHERE suffix(ts_code, 3) = '.BJ'
+  GROUP BY freq, ts_code
+),
+bse_residuals_by_code_freq AS (
+  SELECT
+    freq,
+    ts_code,
+    daily_vol_shares - minute_vol_shares AS residual_vol,
+    daily_amount_yuan - minute_amount_yuan AS residual_amount
+  FROM ...
+),
+bse_correction_by_freq AS (
+  SELECT freq, sum(residual_vol), sum(residual_amount)
+  FROM bse_residuals_by_code_freq
+  GROUP BY freq
+)
+```
+
+`point_rows_corrected` 只在 `trade_time = TIME '15:00:00'` 时增加同频 correction。金额先在元口径完成校准，再统一转换为 `DECIMAL(20,2) thousand_yuan`。`point_json` 和 `summary` 都必须从 `point_rows_corrected` 派生。
+
+`summary.source_row_count` 和 `security_count` 仍从 `minute_source_rows` 计算；daily source 不计入这两个字段。
+
+SQL 拒绝门禁在写 candidate 前执行聚合查询确认：
+
+1. `min(residual_vol) >= 0`。
+2. `residual_vol > 0` 时 `residual_amount > 0`。
+3. 每频 aggregate residual amount 非负。
+4. 五频都能命中一个 `15:00` 聚合点。
+
+### 16.6 Writer、staging 和原子替换
+
+当前 writer 在正式目标旁生成 `part-000.tmp.parquet`，与仓库当前 Lake staging 规则冲突。WMT-7 修改时一并收敛，不保留旧路径行为。
+
+在 `paths.py` 新增：
+
+```python
+def gold_wealth_market_turnover_staging_path(
+    staging_root: Path,
+    *,
+    operation_id: str,
+    partition_key: str,
+) -> Path:
+    ...
+```
+
+正式 asset 使用 `DEFAULT_LAKE_STAGING_ROOT` 和 `context.run_id`；历史入口使用冻结的 `plan_hash`/batch id。候选路径必须位于：
+
+```text
+/Volumes/datasource/data_lake_staging/wealth_market_turnover/
+  operation_id=<run_id-or-plan-hash>/trade_date=<date>/part-000.parquet
+```
+
+writer 新签名：
+
+```python
+def write_gold_wealth_market_turnover_partition(
+    *,
+    duckdb_resource: Any,
+    source_paths: WealthMarketTurnoverSourcePaths,
+    partition_key: str,
+    staging_path: Path,
+    target_path: Path,
+    built_at_sql: str = "current_timestamp",
+) -> WealthMarketTurnoverWriteAudit:
+    ...
+```
+
+固定顺序：
+
+```text
+validate source files
+  -> validate BSE code/15:00/residual gates
+  -> COPY corrected SQL to staging
+  -> staging file_contract
+  -> staging recomputed_from_sources audit
+  -> verify staging and target are on same filesystem
+  -> os.replace(staging, target)
+  -> formal summary read-back
+```
+
+任一失败删除本次 staging，正式目标字节不变。禁止在 writer 内删除或覆盖其它 operation 的 staging。
+
+### 16.7 Asset 和 metadata
+
+`assets/wealth_market_turnover.py` 的依赖改为：
+
+```python
+deps=[
+    dg.AssetDep("silver_stk_mins_1m"),
+    dg.AssetDep("silver_stk_mins_5m"),
+    dg.AssetDep("silver_stk_mins_15m"),
+    dg.AssetDep("silver_stk_mins_30m"),
+    dg.AssetDep("silver_stk_mins_60m"),
+    dg.AssetDep(
+        "silver_stock_daily",
+        partition_mapping=dg.IdentityPartitionMapping(),
+    ),
+]
+```
+
+definition metadata 的 calculation contract 改为 `five silver_stk_mins + same-date silver_stock_daily BSE reconciliation`。
+
+materialization metadata 增加：
+
+- `source_minute_file_count=5`；
+- `source_stock_daily_path`；
+- `correction_method=bse_close_auction_daily_residual`；
+- `bse_security_count`；
+- `bse_residual_vol_by_freq`；
+- `bse_residual_amount_by_freq`；
+- `build_version=v2`。
+
+不记录完整代码列表、逐代码 residual 或 daily OHLC。
+
+### 16.8 Check 和 Gold readiness
+
+`checks/wealth_market_turnover_checks.py`：
+
+1. 保持 `gold_wealth_market_turnover_integrity_check` 一个 definition。
+2. 第一阶段继续调用 `audit_gold_wealth_market_turnover_file_contract(...)`。
+3. 第二阶段改为 `audit_gold_wealth_market_turnover_recomputed_from_sources(...)`，传入 source bundle。
+4. 删除旧 `audit_gold_wealth_market_turnover_recomputed_from_silver(...)`，避免 minute-only 公式继续被其它消费者调用。
+5. `next_action` 同时说明 minute 和 stock daily source，不再只提示五频 minute。
+
+`asset_guards/wealth_market_turnover_lake_readiness.py`：
+
+1. batch 上限继续使用 `STK_MINS_CONTINUITY_WINDOW_LIMIT=10`。
+2. 每日期使用同一个 source bundle完成 file contract + source recompute。
+3. `materialized=False` 仅表示 Gold 文件缺失，可成为触发目标。
+4. Gold 文件存在但 `v1`、source mismatch 或 correction mismatch 时，返回 `materialized=True, checks_passed=False`，日常 sensor 不自动覆盖。
+5. readiness summary 只保留每日期 reason、文件数、residual 摘要和 elapsed，不返回逐代码数据。
+
+### 16.9 Stock daily readiness 和 sensor
+
+在 `sensors/readiness.py` 将当前匿名 Silver spec 提升为常量：
+
+```python
+SILVER_STOCK_DAILY_READINESS_SPEC = AssetReadinessSpec(
+    SILVER_STOCK_DAILY_ASSET_KEY,
+    SILVER_STOCK_DAILY_BLOCKING_CHECKS,
+)
+```
+
+`STOCK_DAILY_READINESS_SPECS` 复用该常量，并新增：
+
+```python
+def silver_stock_daily_ready_for_trade_date(
+    instance: dg.DagsterInstance,
+    trade_date: str,
+) -> AssetReadinessStatus:
+    return asset_readiness_status(
+        instance,
+        SILVER_STOCK_DAILY_READINESS_SPEC,
+        partition_key=trade_date,
+    )
+```
+
+该 helper 只检查 Silver asset，不把 Raw daily 重新引入 Gold 门禁。
+
+`gold_wealth_market_turnover_sensor.py` 的顺序固定为：
+
+```text
+19:50 time gate
+  -> minute partition registration and five-freq batch readiness
+  -> gold batch readiness and first-not-ready selection
+  -> selected date exists in cn_a_stock_trade_days
+  -> selected-date silver_stock_daily readiness once
+  -> existing prod readiness/failed-run gate
+  -> at most one RunRequest
+```
+
+新 blocked components/reason codes：
+
+```text
+cn_a_stock_trade_days / missing_stock_daily_registered_partition
+silver_stock_daily / stock_daily_not_ready
+```
+
+cursor 只增加：
+
+- `stock_daily_registered_trade_day_count`；
+- selected-date stock daily readiness payload；
+- `blocked_component`/`reason_code`。
+
+禁止把 stock daily 最近 10 日完整 check history、逐文件或逐代码内容写入 cursor。
+
+### 16.10 历史维护入口
+
+`bootstrap/wealth_market_turnover_history.py` 不再允许 `overwrite=True` 直接逐日改正式 Lake。WMT-7 将其改为五阶段 plan：
+
+```text
+plan
+  -> build-candidates
+  -> audit-candidates
+  -> promote
+  -> formal-audit
+```
+
+plan 至少冻结：
+
+- selected partition keys；
+- 五频 minute 和 stock daily 文件 path/size/mtime；
+- current Gold target path/size/hash；
+- source plan fingerprint；
+- batch size，固定不超过 20；
+- build version/correction method；
+- staging root 和 plan hash。
+
+选区规则：
+
+1. 起点不早于 `2021-11-15`。
+2. 五频 minute 和 stock daily 文件都存在。
+3. stock daily 当日存在 `.BJ` 代码。
+4. 已有 Gold 是 `v1` 或按 v2 重算不一致的日期进入候选。
+
+每个审计动作必须在 5 分钟内完成，采用批量聚合和有限样本；禁止全历史逐行 Python 审计。
+
+Prod publish 新阶段复用现有：
+
+```python
+replace_prod_core_wealth_market_turnover_partition(...)
+```
+
+每个日期独立事务，读取已通过 formal audit 的 Gold。Prod 失败不回滚已成功的 Gold，也不继续后续日期。报告记录最后成功日期以支持幂等续跑。
+
+WMT-7 不调用、扩展或复用现有 `wealth_market_turnover_runless_events` 工具。历史修复前后必须只读记录以下计数并确认没有增加：
+
+- Dagster runs；
+- `gold_wealth_market_turnover` materialization events；
+- `gold_wealth_market_turnover_integrity_check` events；
+- `prod_core_wealth_market_turnover` materialization events。
+
+历史事件继续保留原 materialization 时间和 `v1` metadata，这是本专项明确接受的控制面取舍。数据正确性以 formal Gold audit 和 Prod read-back 为准。未来新交易日仍由正常 job 自然生成 `v2` Gold materialization、Gold check 和 Prod materialization，不影响自动触发。
+
+### 16.11 测试矩阵
+
+#### `test_gold_wealth_market_turnover_asset.py`
+
+- BSE `1min` 的零值 `15:00` 被 daily residual 校准。
+- BSE `5/15/30/60` 在已有 `15:00` 值上增加各自 residual。
+- 五频 residual 独立计算；构造不同频率缺口，证明不能复用 `1min`。
+- SH/SZ point rows 和总量在 v1/v2 计算间不变。
+- corrected `points_json` 与 summary totals 来自同一 point rows。
+- `source_row_count/security_count` 不包含 daily source。
+- missing/empty/wrong-date/duplicate daily fail closed。
+- BSE code set mismatch、缺 15:00、负 vol residual、正 vol 但非正 amount residual fail closed。
+- writer 失败时正式目标 bytes 不变，candidate 只位于 staging root。
+
+#### `test_gold_wealth_market_turnover_checks.py`
+
+- 单一 check 数量和名称不变。
+- `file_contract` 接受 v2，拒绝 v1。
+- `recomputed_from_sources` 可发现 minute、daily 或 Gold 任一篡改。
+- metadata 只有聚合 correction 统计和有限样本。
+
+#### `test_gold_wealth_market_turnover_lake_readiness.py`
+
+- 最近 10 日使用 minute+daily v2 公式。
+- daily 缺失时 fail closed。
+- v1 Gold 返回 materialized but checks failed。
+- 一个 DuckDB connection，窗口不超过 10 日。
+
+#### `test_gold_wealth_market_turnover_sensor.py`
+
+- stock daily 分区未注册时 skip。
+- selected-date Silver daily 未 ready 时 skip，且不检查 Prod readiness、不提交 run。
+- minute、daily ready 且 Gold missing 时提交原 job/run key。
+- Gold v1/mismatch 已 materialized 时不自动覆盖。
+- 每 tick 最多一个 RunRequest；cursor 不含完整代码列表。
+
+#### History/Prod/静态回归
+
+- `test_wealth_market_turnover_history_bootstrap.py`：plan fingerprint、20 日 batch、candidate-only、并发目标变化、续跑和 5 分钟审计门禁。
+- `test_gold_wealth_market_turnover_prod_core_sync.py`：Prod helper 无需改公式，继续验证 Gold 五行原样写入和 rollback。
+- `test_wealth_market_turnover_runless_events.py`：原工具保持不变；WMT-7 history CLI 和 helper 不得 import 或调用它。
+- `test_gold_wealth_market_turnover_job.py`：job 不选择六个上游 asset。
+- `test_run_contract_static_gates.py`：禁止旧 minute-only helper、正式 Lake sibling tmp、新 check、API/Prod daily/Tushare import、手写 run key。
+- `test_asset_check_incremental_governance.py`：check governance 集合不变。
+
+### 16.12 开发与正式恢复顺序
+
+#### WMT-7A 合同和 fixture
+
+1. 新 source bundle、v2 常量和 BSE fixture。
+2. 先写正反测试，固定单位、五频独立 residual、15:00 和 fail-closed 语义。
+
+#### WMT-7B Writer/check/readiness
+
+1. 实现 set-based SQL 和 source audit。
+2. 收敛 run-scoped staging。
+3. 修改现有 check 和 Gold readiness，不增加 definition。
+
+#### WMT-7C Asset/sensor/history tool
+
+1. 增加 identity dependency 和 selected-date stock daily gate。
+2. 将历史工具改为 plan/candidate/audit/promote/formal-audit/prod-publish。
+3. 更新静态门禁和现有测试。
+
+#### WMT-7D 本地验证
+
+运行目标测试、全套 wealth turnover 回归、静态门禁、`git diff --check`。`dg check defs` 需要单独审批；本阶段不写正式 Lake/Prod/event。
+
+#### WMT-7E 正式 Gold 恢复
+
+在 daemon/sensor/相关 run 停止后，单独批准执行 plan、20 日 candidate 批次、候选审计和 promote。每批审计动作不得超过 5 分钟。
+
+#### WMT-7F Prod 和无事件收口
+
+Gold formal audit 通过后，单独批准 Prod 分批 publish；最后核对 Wealth 两个展示口径，并只读证明 Dagster run/materialization/check event 数量没有因 WMT-7 历史修复增加。
+
+### 16.13 停止条件和完成定义
+
+出现以下任一情况必须停止：
+
+1. 同日 BSE daily/minute 代码集合无法对齐且原因不能解释。
+2. 任一频率出现负成交量 residual。
+3. 修正需要读取 daily OHLC、Prod daily 或 Tushare。
+4. 需要新增 check 或让 sensor 扫描历史才能判断 ready。
+5. candidate 与正式 Lake 不在同一文件系统，无法安全原子 promote。
+6. 单个审计动作超过 5 分钟且无法通过批次缩小解决。
+7. 修正导致 SH/SZ 点数组变化、Gold/Prod schema 变化或 API contract 变化。
+
+WMT-7 代码完成定义：
+
+1. 五频独立 BSE closing-auction correction 全部有正反测试。
+2. Gold v2 writer、单一 check、readiness、asset、sensor 和历史工具口径一致。
+3. job/Prod/API/前端边界不变。
+4. 所有 candidate 位于正式 staging root，正式 Lake 不再出现 sibling tmp。
+5. 本地目标测试和静态门禁通过。
+6. WMT-7 history 代码不存在 Dagster instance/event 写入路径，静态门禁禁止 import runless event 工具。
+7. 文档状态更新为“代码完成，待正式恢复审批”；在实际写 Lake/Prod 前不得标记数据修复完成。
+
+### 16.14 开发实施对账
+
+截至 `2026-08-25`，WMT-7A 至 WMT-7D 已完成：
+
+1. `wealth_market_turnover_contract.py` 已实现六文件 source bundle、五频独立 BSE residual、`v2` 输出、source recompute audit 和低基数 correction 统计。
+2. 正常 asset 已增加同日 `silver_stock_daily` identity dependency，并使用 run-scoped staging；正式 Lake 目录不再承载 sibling `.tmp`。
+3. 原单一 blocking check 已迁移到 `recomputed_from_sources`，check 名称和 governance 集合不变。
+4. Gold lake readiness 与日常 sensor 已增加同口径 daily source 和 selected-date readiness 门禁；job、sensor、run key 和 Prod asset 名称不变。
+5. 历史入口已拆分为 `plan -> build-candidates -> audit-candidates -> promote -> formal-audit -> prod-publish`，每批不超过 20 日，历史路径的 `planned_event_count=0`，且不 import/call runless event 工具。
+6. `assets/wealth_market_turnover_prod_core.py` 与 `prod_db/wealth_market_turnover.py` 保持原实现，无 WMT-7 代码改动；历史 publish 继续复用既有 loader 和事务 replace helper。
+7. 本地目标回归结果为 `169 passed`、`147 subtests passed`；语法/import 检查通过。未运行 `dg check defs`，因为本轮明确不执行 Dagster 运行时或部署验收。
+8. 正式 Lake 路径覆盖虽完整，但行级审计确认部分旧日期 Raw/Silver 北交所代码集合为空或不完整；原计划的“文件存在即 source ready”前提无效。正式 plan 在首个 `bse_code_set_mismatch` 处停止，没有生成 candidate 或写正式目标。
+
+WMT-7E/WMT-7F 尚未执行。正式 candidate/promote、Prod publish 和页面口径验收仍需单独批准；在此之前本专项状态固定为“代码完成，待正式恢复审批”。
+
+## 17. WMT-7R 北交所历史分钟源恢复 LLD
+
+### 17.1 开发目标和禁止项
+
+WMT-7R 新增一个显式维护链，解决“历史 source 已回刷但本地 Raw/Silver 未恢复”和“原生粗频率仍为空但完整 1m 可聚合”两类问题。
+
+开发目标：
+
+1. 生成不可变 source gap/mode manifest。
+2. 对 `SOURCE_RECOVERABLE` 从 Raw candidate 开始恢复。
+3. 对 `SILVER_FALLBACK_RECOVERABLE` 只生成 Silver candidate。
+4. 根据 actual changed Silver manifest 触发 bounded downstream rebuild。
+5. 为 source-empty 旧频率保留原 WMT 行，其它可恢复频率继续处理。
+
+禁止：
+
+- 不改正常 Raw/Silver/QFQ/WMT asset、job、sensor、check 和 run key 语义。
+- 不用日线合成 1m 或任意分钟 bar。
+- 不把 current latest code 写进历史 Raw source file。
+- 不在 source 只返回部分代码时做部分 promote。
+- 不直接复用会原位修改正式 Raw 的 repair helper。
+- 不新增自动 repair sensor、状态表、summary asset 或全历史 event backfill。
+- 不访问 Kopia，不在正式 Lake 根生成 staging。
+
+### 17.2 文件和模块落点
+
+建议新增：
+
+```text
+orchestrator/defs/bootstrap/stk_mins_bse_history_recovery.py
+orchestrator/defs/bootstrap/stk_mins_bse_history_recovery_cli.py
+tests/test_stk_mins_bse_history_recovery.py
+```
+
+按现有事实扩展但不改变正常调用语义：
+
+```text
+orchestrator/defs/assets/stk_mins.py
+orchestrator/defs/bootstrap/stk_mins_silver_history.py
+orchestrator/defs/bootstrap/stk_mins_qfq_canonical_history.py
+orchestrator/defs/bootstrap/stk_mins_qfq_macd_kdj_history.py
+orchestrator/defs/bootstrap/stk_nineturn_history.py
+orchestrator/defs/bootstrap/wealth_market_turnover_history.py
+```
+
+实际符号若与上述路径不一致，编码前必须以当前 CodeGraph 和源码重新定位；禁止按文档文件名猜实现。
+
+### 17.3 核心内存合同
+
+新增枚举：
+
+```python
+class BseMinuteRecoveryMode(str, Enum):
+    SOURCE_RECOVERABLE = "source_recoverable"
+    SILVER_FALLBACK_RECOVERABLE = "silver_fallback_recoverable"
+    SOURCE_EMPTY_SKIP = "source_empty_skip"
+    PARTIAL_BLOCKED = "partial_blocked"
+```
+
+每个 scope row 至少包含：
+
+```text
+trade_date
+freq
+mode
+expected_latest_code_count
+expected_source_code_count
+returned_source_code_count
+missing_source_code_count
+missing_source_code_samples
+source_request_fingerprint
+raw_target_fingerprint
+silver_target_fingerprint
+raw_1m_complete_code_count
+reason_code
+```
+
+plan 顶层包含：
+
+```text
+plan_hash
+created_at
+trade_calendar_hash
+identity_map_hash
+daily_source_hash
+scope_rows
+source_request_budget
+audit_timeout_seconds=300
+staging_root
+planned_event_count
+```
+
+manifest JSON 不保存完整分钟行或无界代码列表；完整 expected/returned code set 只作为 staging 内部 DuckDB 临时表参与 hash，对外只保留 count、hash 和有限样本。
+
+### 17.4 Expected source code 解析
+
+DuckDB set-based 解析固定为：
+
+```text
+silver_stock_daily latest_ts_code set for trade_date
+  JOIN stock_identity_map
+    ON latest_ts_code matches
+   AND trade_date BETWEEN valid_from AND coalesce(valid_to, infinity)
+  -> historical source_ts_code set
+```
+
+门禁：
+
+1. 每个 latest code 必须唯一映射到一个 source code。
+2. 无映射、多映射、valid range 重叠均为 `PARTIAL_BLOCKED`。
+3. Raw candidate 保存 source code；Silver writer负责规范化为 latest code。
+4. `2025-09-03` 的 `920392.BJ` 必须请求历史 source code `872392.BJ`。
+
+### 17.5 Bounded source probe
+
+抽取当前 Raw repair 中的纯 fetch 能力，但不调用其正式文件 merge/promote：
+
+```python
+probe_bse_stk_mins_source(
+    tushare,
+    source_ts_code,
+    freq,
+    start_trade_date,
+    end_trade_date,
+    request_policy,
+) -> BseSourceProbeResult
+```
+
+要求：
+
+1. 连续日期段按 code+freq 请求，显式 fields、limit、offset。
+2. 复用现有 bounded pagination/retry；单批 wall time 不超过 300 秒。
+3. 返回后用 DuckDB 比对 expected `source_code + trade_date` 集合。
+4. 频率、日期、交易时段、主键、列集合任一异常都不得标记 recoverable。
+5. 返回零行且 expected 非空标记 `SOURCE_EMPTY_SKIP`；返回非零但集合不完整标记 `PARTIAL_BLOCKED`。
+6. source probe 不写 Raw，不访问 Dagster instance。
+
+### 17.6 Raw candidate 和 promote
+
+```python
+build_bse_raw_recovery_candidates(plan, *, batch_id)
+audit_bse_raw_recovery_candidates(plan, candidate_report)
+promote_bse_raw_recovery_candidates(plan, audit_report, *, confirm)
+```
+
+实现：
+
+1. 只处理 `SOURCE_RECOVERABLE` scope。
+2. `read_parquet(existing_raw) UNION ALL recovered_bse_rows`，按业务 key 检测冲突；不得覆盖 SH/SZ。
+3. candidate 路径位于 `/Volumes/datasource/data_lake_staging/stk_mins_bse_recovery/plan_hash=<hash>/raw/...`。
+4. audit 比较非目标行 canonical hash、目标 source set、schema、日期、频率和 row count。
+5. promote 前重新核对 source/target fingerprint；变化即停止。
+6. 每文件同文件系统 `os.replace()`，checkpoint 记录 promoted path/hash。
+
+### 17.7 Silver candidate 和 actual changed manifest
+
+对涉及某日任一 Raw 修复或 fallback scope 的日期，调用现有同日 Silver writer五次，并传 `output_path_override`：
+
+```python
+write_silver_stk_mins_partition(
+    lake_root,
+    trade_date,
+    freq,
+    output_path_override=candidate_path,
+)
+```
+
+现有 writer 语义必须复用：
+
+- 非 1m 同时读取同频 Raw 与 Raw1。
+- 完整 1m code-day 必须恰有 241 行。
+- 同频 Raw 完整时保留原生粗频率。
+- 同频 Raw 完全缺 code 时从 1m 聚合。
+- identity map 把历史 source code 规范化为 latest code。
+
+每个 Silver candidate 与正式文件计算 canonical hash。只有 hash 变化的文件进入：
+
+```text
+changed_silver_rows[trade_date, freq, old_hash, new_hash, affected_latest_code_hash]
+```
+
+该 manifest 是所有下游恢复的唯一范围事实；不得使用 Raw plan 范围直接推导“全部下游都变化”。
+
+### 17.8 QFQ 范围映射
+
+严格复用 `CN_A_GOLD_MINUTE_SOURCE_FREQ_BY_TARGET`：
+
+```text
+Silver 1m  -> QFQ 1m, 5m
+Silver 5m  -> QFQ 15m, 30m
+Silver 30m -> QFQ 60m, 90m
+Silver 60m -> QFQ 120m
+Silver 15m -> no QFQ target
+```
+
+QFQ maintenance planner 只接收 changed Silver manifest，按 target freq/year/affected latest code 生成 candidate。adj factor 继续使用现有正式口径；不得调用 factor repair sensor/op 伪装成 adj-factor repair。
+
+候选验收：schema/key、canonical bars、source/output code-date coverage、非目标 code/date hash 和 staging 原子替换合同。每批审计最多 300 秒。
+
+### 17.9 MACD/KDJ state 与分钟九转
+
+MACD/KDJ 和 state 对同一 code/freq 具有递推依赖：
+
+1. 对每个 changed QFQ `freq + affected code` 找最早变化 expected date。
+2. 从该日期的 exact previous state 开始，重建至当前 registered frontier。
+3. candidate 全部通过后按既有 history checkpoint promote。
+4. 不允许只改缺口当日而保留后续旧 state。
+
+分钟九转只覆盖 `30/60/90/120`：
+
+1. 对 changed QFQ 中这些频率按 affected code 找最早变化日。
+2. 复用 `build_gold_stk_mins_qfq_nineturn_history_batch_select_sql(...)` 和既有 compact seed/context。
+3. 从最早变化日重建至 frontier；九转文件不保存价格，但计数序列仍依赖 QFQ close 顺序。
+
+### 17.10 WMT mixed-mode history candidate
+
+扩展 history planner，不修改 normal writer：
+
+```text
+freq action = REBUILD_V2 | PRESERVE_EXISTING | BLOCK
+```
+
+规则：
+
+1. Silver code set 完整：`REBUILD_V2`，使用 WMT-7 daily residual 公式。
+2. mode 为 `SOURCE_EMPTY_SKIP`：`PRESERVE_EXISTING`，从当前 Gold 原行复制，不改变 totals/points/build metadata。
+3. mode 为 `PARTIAL_BLOCKED`：整个 Gold partition `BLOCK`。
+4. 五频全 preserve：不生成 candidate、不发布 Prod。
+5. mixed candidate audit 必须逐频证明 rebuilt row 与 source 对账、preserved row canonical hash 不变。
+6. normal Gold file contract/check/readiness 不接受历史 preserve 作为日常成功路径；该例外只存在于显式 history report。
+
+Prod publisher 只消费 formal-audit 通过且 Gold hash 发生变化的分区，继续使用现有单分区事务 replace/read-back。
+
+### 17.11 Event 计划
+
+默认 `planned_event_count=0`。仅当 MACD/KDJ state 或分钟九转 forward rebuild 实际改写最近 20 个交易日时，生成独立 event refresh plan：
+
+1. 只覆盖 changed asset/freq 的最近 20 日。
+2. 每个 materialization/check 绑定真实 partition。
+3. 不补 Raw/Silver/QFQ/WMT 全历史事件。
+4. 不删除旧事件，不改 dynamic partitions/runs/run_tags。
+5. apply 必须单独审批；没有审批则物理修复可先完成，但不得宣称控制面已收口。
+
+### 17.12 测试和静态门禁
+
+新增测试至少覆盖：
+
+- historical latest/source code 唯一映射和 `872392.BJ -> 920392.BJ` fixture。
+- source zero、source full、partial source 四模式判定。
+- probe 只读、bounded pagination、超时和请求预算。
+- Raw candidate 不改变 SH/SZ/非目标日期，promote 前正式目标不变。
+- 完整 1m fallback 可生成 coarse Silver；不完整 1m 必须 skip/block。
+- changed Silver manifest 只记录 hash 真正变化文件。
+- QFQ 映射正向和 Silver15 无 consumer 反例。
+- MACD/KDJ state 与九转从最早变化日向前递推，禁止单日补丁。
+- WMT rebuilt/preserved mixed audit、partial blocked、全 preserve no-op。
+- normal asset/check/sensor 不接受 source-empty 历史例外。
+- 无 Dagster instance/event、无 Kopia、无正式 Lake staging、无 Tushare 调用出现在 sensor。
+
+### 17.13 性能门禁
+
+| 阶段 | 门禁 |
+| --- | --- |
+| source probe | 连续 date range + 单 code/freq bounded 请求；单批最长 300 秒 |
+| Raw/Silver | 单日期/频率 candidate；DuckDB set-based；单审计最长 300 秒 |
+| QFQ | 按 freq/year/code scope；不加载全市场全历史到 Python |
+| MACD/KDJ/九转 | 按 freq/year 或既有 history batch checkpoint；峰值内存沿用现有维护工具门禁 |
+| WMT | 每批最多 20 日期；逐频 action；单审计最长 300 秒 |
+| Dagster history | 正常执行 0 次；可选最近 20 日事件另批审批 |
+
+任一阶段超时，必须缩小批次并保留同一 plan hash；禁止提高为无界扫描。
+
+### 17.14 开发和正式执行里程碑
+
+1. **R0**：实现只读 planner/probe，生成完整 mode manifest。
+2. **R1**：实现 Raw candidate/audit/promote 和测试。
+3. **R2**：实现 Silver candidate、fallback 和 changed manifest。
+4. **R3**：接入 bounded QFQ history scope。
+5. **R4**：接入 MACD/KDJ state 与九转 forward rebuild。
+6. **R5**：实现 WMT per-frequency action 和 Prod changed-only publish。
+7. **R6**：统计/抽样验收；必要时另行审批最近 20 日 event refresh。
+
+每个正式写入阶段都需要独立批准。R0 只读 manifest 通过前，不允许恢复 Raw；R2 actual changed manifest 通过前，不允许启动任何下游重建。
+
+### 17.15 完成定义
+
+WMT-7R 完成必须同时满足：
+
+1. 独立缺口备案中的所有 scope 都有最终 mode 和证据。
+2. source-recoverable 项已从 Raw/Silver恢复，fallback 项只在 Silver 恢复，source-empty 项保持未伪造。
+3. actual changed manifest 到 QFQ、指标/state、九转、WMT/Prod 完整对账。
+4. 非目标市场、日期和代码 hash 不变。
+5. WMT rebuilt rows 正确、preserved rows不变、partial rows未写。
+6. 正常日常自动链路和性能门禁不回退。
+7. 所有审计动作小于等于 5 分钟，没有全盘深审计。
+8. 正式 Lake、Prod 和控制面执行报告均经单独审批；未执行阶段必须明确标为待办。

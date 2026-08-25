@@ -5,13 +5,16 @@ from types import SimpleNamespace
 
 from orchestrator.defs.assets.wealth_market_turnover import (
     _human_materialization_metadata as gold_human_metadata,
+)
+from orchestrator.defs.assets.wealth_market_turnover import (
     gold_wealth_market_turnover,
 )
 from orchestrator.defs.assets.wealth_market_turnover_prod_core import (
     _human_materialization_metadata as prod_core_human_metadata,
+)
+from orchestrator.defs.assets.wealth_market_turnover_prod_core import (
     prod_core_wealth_market_turnover,
 )
-
 
 GOLD_ASSET_PATH = Path("src/orchestrator/defs/assets/wealth_market_turnover.py")
 PROD_CORE_ASSET_PATH = Path(
@@ -67,13 +70,17 @@ class GoldWealthMarketTurnoverHumanReadableContractTests(unittest.TestCase):
     def test_human_metadata_summarizes_freqs_and_prod_target(self) -> None:
         gold_metadata = gold_human_metadata(
             partition_key="2026-06-23",
-            input_path_count=5,
+            source_minute_file_count=5,
+            source_stock_daily_path=Path("/tmp/stock_daily.parquet"),
             audit=SimpleNamespace(
                 row_count=5,
                 source_row_count=100,
                 total_amount="123.45",
                 total_vol=678,
                 security_count_by_freq={"1": 10},
+                bse_security_count=338,
+                bse_residual_vol_by_freq={"1": 8753250},
+                bse_residual_amount_by_freq={"1": "12345678.90"},
             ),
         )
         prod_metadata = prod_core_human_metadata(
@@ -86,6 +93,10 @@ class GoldWealthMarketTurnoverHumanReadableContractTests(unittest.TestCase):
 
         self.assertIn("财富端市场成交额 gold", gold_metadata["summary"])
         self.assertEqual(gold_metadata["input_summary"]["freqs"], [1, 5, 15, 30, 60])
+        self.assertEqual(
+            gold_metadata["input_summary"]["source_asset_family"],
+            "silver_stk_mins + silver_stock_daily",
+        )
         self.assertEqual(gold_metadata["metric_summary"]["output_row_count"], 5)
         self.assertIn("prod PostgreSQL", prod_metadata["summary"])
         self.assertEqual(

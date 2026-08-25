@@ -292,6 +292,21 @@ def silver_stock_daily_path(root: Path, partition_key: str) -> Path:
     )
 
 
+def gold_wealth_market_turnover_staging_path(
+    staging_root: Path,
+    *,
+    operation_id: str,
+    partition_key: str,
+) -> Path:
+    return (
+        Path(staging_root)
+        / "wealth_market_turnover"
+        / _safe_operation_id_part(operation_id)
+        / f"trade_date={partition_key}"
+        / "part-000.parquet"
+    )
+
+
 def silver_adj_factor_path(root: Path, partition_key: str) -> Path:
     return lake_path(
         root,
@@ -450,6 +465,20 @@ def _safe_run_id_part(run_id: str, *, asset_family: str) -> str:
     ):
         raise ValueError(f"{asset_family} run_id must be a safe non-empty path component")
     return f"run_id={normalized}"
+
+
+def _safe_operation_id_part(operation_id: str) -> str:
+    normalized = str(operation_id).strip()
+    if (
+        not normalized
+        or normalized in {".", ".."}
+        or "/" in normalized
+        or "\\" in normalized
+    ):
+        raise ValueError(
+            "wealth_market_turnover operation_id must be a safe non-empty path component"
+        )
+    return f"operation_id={normalized}"
 
 
 def _idx_factor_pro_partition_component(partition_key: str) -> str:
