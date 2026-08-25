@@ -1,6 +1,6 @@
 # Dagster Gold Wealth Market Turnover Dataset Low-Level Design
 
-状态：WMT-1 至 WMT-6 已按原口径闭环。WMT-7“北交所收盘集合竞价成交量/成交额校准”已完成代码开发和本地测试；正式历史 plan 因旧日期北交所分钟源代码集合不完整而在候选生成前安全停止。WMT-7R 已完成代码/物理数据/Tushare 抽样审计和编码级设计，尚未开发或执行。WMT-7/WMT-7R 未写正式 Lake、Prod 或 Dagster event。WMT-7 生效后，本文第 16、17 节覆盖前文中与“只读五频分钟线”有关的旧实现口径；WMT-1 至 WMT-6 的执行记录继续保留为历史审计事实。本文档是 [Dagster Gold Wealth Market Turnover Dataset Design](dagster-gold-wealth-market-turnover-dataset-design.md) 的编码级落地方案和执行对账记录。
+状态：WMT-1 至 WMT-6 已按原口径闭环。WMT-7“北交所收盘集合竞价成交量/成交额校准”已完成代码开发和本地测试；正式历史 plan 因旧日期北交所分钟源代码集合不完整而在候选生成前安全停止。WMT-7R 的 R0A/R0B/R1 代码与本地隔离测试已完成，尚未执行真实 Tushare source request、正式 Raw promote 或 R2-R6。WMT-7/WMT-7R 本轮未写正式 Lake、Prod 或 Dagster event。WMT-7 生效后，本文第 16、17 节覆盖前文中与“只读五频分钟线”有关的旧实现口径；WMT-1 至 WMT-6 的执行记录继续保留为历史审计事实。本文档是 [Dagster Gold Wealth Market Turnover Dataset Design](dagster-gold-wealth-market-turnover-dataset-design.md) 的编码级落地方案和执行对账记录。
 
 ## 0. 依据和硬口径
 
@@ -2142,52 +2142,65 @@ orchestrator/defs/bootstrap/wealth_market_turnover_history.py
 
 ```python
 class BseMinuteRecoveryMode(str, Enum):
+    UNCLASSIFIED_CANDIDATE = "unclassified_candidate"
     SOURCE_RECOVERABLE = "source_recoverable"
     SILVER_FALLBACK_RECOVERABLE = "silver_fallback_recoverable"
     SOURCE_EMPTY_SKIP = "source_empty_skip"
     PARTIAL_BLOCKED = "partial_blocked"
 ```
 
-每个 scope row 至少包含：
+R0A 的 `scope.parquet` 每行固定包含：
+
+```text
+trade_date
+freq
+latest_ts_code
+preferred_source_ts_code
+alias_rule
+existing_source_ts_code
+existing_row_count
+coverage_status
+reason_code
+```
+
+R0A 的 `scope_summaries` 每个日期/频率至少包含：
 
 ```text
 trade_date
 freq
 mode
-expected_latest_code_count
-expected_source_code_count
-returned_source_code_count
-missing_source_code_count
-missing_source_code_samples
-source_request_fingerprint
+expected_latest_code_count/hash
+canonical_existing_latest_code_count
+missing_latest_code_count/hash/samples
+partial_existing_code_count/samples
+identity_failure_count/samples
 raw_target_fingerprint
-silver_target_fingerprint
-raw_1m_complete_code_count
-raw_1m_expected_code_count
-raw_1m_241_point_code_count
-raw_1m_exact_time_set_code_count
-raw_1m_invalid_code_count
-raw_1m_invalid_code_samples
+daily_source_fingerprint
+raw_1m_expected/complete/241_point/exact_time_set/invalid_code_count
 fallback_eligibility_status
-reason_code
 ```
 
-plan 顶层包含：
+R0A plan 顶层包含：
 
 ```text
 plan_hash
 created_at
-trade_calendar_hash
-identity_map_hash
-daily_source_hash
-scope_rows
+identity_map_fingerprint
+selected_scopes
+scope_summaries
+logical_scope_hash
+scope_manifest_path/sha256/row_count
 source_request_budget
 audit_timeout_seconds=300
+lake_root
 staging_root
 planned_event_count
+should_stop/stop_reason_codes
 ```
 
-manifest JSON 不保存完整分钟行或无界代码列表；完整 expected/returned code set 只作为 staging 内部 DuckDB 临时表参与 hash，对外只保留 count、hash 和有限样本。
+R0B source bundle 的 mode row 记录 expected/existing/missing/returned code 和 row count；每个 source window sidecar 记录 request contract、offset、page count、request/retry/elapsed、page row/key hash 与 Parquet sha256。bundle 顶层另记录 plan/scope hash、完成/未完成 window 数、blocked mode 和有限失败样本。
+
+manifest JSON 不保存完整分钟行或无界代码列表。完整 expected/existing/missing/alias code rows 写入 staging 内的 `scope.parquet`，plan 只保存路径、sha256、count、hash 和有限样本；R0B 的完整源行写入 immutable source-page Parquet，R1 通过 source bundle manifest 引用，不重新请求源站。
 
 ### 17.4 Expected source code 解析
 
@@ -2195,49 +2208,60 @@ DuckDB set-based 解析固定为：
 
 ```text
 silver_stock_daily latest_ts_code set for trade_date
-  JOIN stock_identity_map
+  LEFT JOIN stock_identity_map
     ON latest_ts_code matches
-   AND trade_date BETWEEN valid_from AND coalesce(valid_to, infinity)
-  -> historical source_ts_code set
+   AND trade_date >= valid_from
+   AND (valid_to IS NULL OR trade_date < valid_to)
+  -> rank identity_source=bse_mapping before self mapping
+  -> preferred historical source_ts_code
+
+existing Raw source_ts_code set
+  JOIN stock_identity_map with the same half-open validity predicate
+  -> canonicalized_existing_latest_code set
+
+missing_latest_codes
+  = expected_latest_codes - canonicalized_existing_latest_codes
 ```
 
 门禁：
 
-1. 每个 latest code 必须唯一映射到一个 source code。
-2. 无映射、多映射、valid range 重叠均为 `PARTIAL_BLOCKED`。
-3. Raw candidate 保存 source code；Silver writer负责规范化为 latest code。
-4. `2025-09-03` 的 `920392.BJ` 必须请求历史 source code `872392.BJ`。
+1. `valid_to` 是排除边界，禁止使用 `BETWEEN`。
+2. 每个 latest code 允许同时存在一条 self row 和一条 `identity_source=bse_mapping` row；这不是歧义。唯一有效 `bse_mapping` 优先，无 `bse_mapping` 才使用唯一 self row。
+3. 同一优先层级存在多条有效映射、无有效映射或有效期重叠才为 `PARTIAL_BLOCKED`。
+4. 已有 Raw 必须先映射为 latest code 再做覆盖差集，禁止比较物理 source code set。
+5. Raw candidate 保存源站实际 source code；Silver writer负责规范化为 latest code。
+6. `2025-09-03` 只请求缺失 latest code `920392.BJ` 的历史 source `872392.BJ`，不得重拉当日已覆盖代码。
 
 ### 17.5 Bounded source probe
 
 抽取当前 Raw repair 中的纯 fetch 能力，但不调用其正式文件 merge/promote。参数类型必须显式为仓库运行时 `TushareResource`：
 
 ```python
-probe_bse_stk_mins_source(
+stage_bse_stk_mins_source_pages(
     tushare: TushareResource,
-    source_ts_code,
-    freq,
-    start_trade_date,
-    end_trade_date,
-    request_policy,
-) -> BseSourceProbeResult
+    scope_plan: BseMinuteRecoveryScopePlan,
+    request_policy: TushareRequestPolicy,
+    staging_root: Path,
+) -> BseSourceBundle
 ```
 
 要求：
 
 1. `tushareMCP` 只用于开发期人工抽样，不得被 Python 模块 import、不得进入 CLI 参数、不得向 candidate 提供行数据。
-2. 正式 probe 只使用项目 `TushareResource.call("stk_mins", ...)`，连续日期段按 code+freq 请求，显式 fields、limit、offset。
+2. R0A 只读正式 Lake/身份事实并仅向 staging 生成 `scope.parquet + scope-plan.json`；R0B 必须显式确认 source request，只使用项目 `TushareResource.call("stk_mins", ...)`，连续日期段按 code+freq 请求，显式 fields、limit、offset。
 3. 复用共享 `TushareRequestPolicy`，固定默认门禁：`minimum_interval_seconds=0.13`、`max_retries=3`、`backoff=1/2/4s`、`max_requests=1_200`、`max_elapsed_seconds=300`；禁止在 WMT-7R 再实现一套重试器。
-4. 返回后用 DuckDB 比对 expected `source_code + trade_date` 集合。
-5. 频率、日期、交易时段、主键、列集合任一异常都不得标记 recoverable。
-6. 返回零行且 expected 非空标记 `SOURCE_EMPTY_SKIP`；返回非零但集合不完整标记 `PARTIAL_BLOCKED`。
-7. source probe 不写 Raw，不访问 Dagster instance。
-8. `TushareResource` 请求参数、分页结果、请求数、重试数和耗时必须进入 plan report；MCP 抽样结果只进入事实备案，不进入 plan hash。
+4. missing code 按小批次共享一个 `BoundedCodePageRequestSession`；每个 code/page 完成后立即写 source-page staging，不得调用会把全历史行积累到 Python list 的 `_fetch_raw_stk_mins_rows(...)`。
+5. 每个 source-page sidecar 记录 plan hash、请求参数、offset、page row count、key hash、Parquet sha256、request/retry/elapsed；临时目录完成后原子替换为 immutable page 目录。
+6. source staging 完成后用 DuckDB 比对 requested missing alias、returned source code/date 和现有 Raw 合并后的 canonical latest set。
+7. 频率、日期、交易时段、主键、列集合任一异常都不得标记 recoverable。
+8. 请求的 missing alias 全部零行标记 `SOURCE_EMPTY_SKIP`；只返回部分 missing latest code/date 标记 `PARTIAL_BLOCKED`。
+9. R0B 只写 staging source bundle，不写 Raw，不访问 Dagster instance。
+10. `TushareResource` 请求参数、分页结果、请求数、重试数和耗时必须进入 source bundle report；MCP 抽样结果只进入事实备案，不进入 plan hash。
 
 ### 17.6 Raw candidate 和 promote
 
 ```python
-build_bse_raw_recovery_candidates(plan, *, batch_id)
+build_bse_raw_recovery_candidates(plan, source_bundle, *, batch_id)
 audit_bse_raw_recovery_candidates(plan, candidate_report)
 promote_bse_raw_recovery_candidates(plan, audit_report, *, confirm)
 ```
@@ -2245,11 +2269,13 @@ promote_bse_raw_recovery_candidates(plan, audit_report, *, confirm)
 实现：
 
 1. 只处理 `SOURCE_RECOVERABLE` scope。
-2. `read_parquet(existing_raw) UNION ALL recovered_bse_rows`，按业务 key 检测冲突；不得覆盖 SH/SZ。
-3. candidate 路径位于 `/Volumes/datasource/data_lake_staging/stk_mins_bse_recovery/plan_hash=<hash>/raw/...`。
-4. audit 比较非目标行 canonical hash、目标 source set、schema、日期、频率和 row count。
-5. promote 前重新核对 source/target fingerprint；变化即停止。
-6. 每文件同文件系统 `os.replace()`，checkpoint 记录 promoted path/hash。
+2. R1 只读取 R0B source bundle；源码和 CLI 静态门禁禁止 R1 调用 `TushareResource` 或 `stk_mins`。
+3. `recovered_bse_rows` 必须只对应 scope manifest 中的 `missing_latest_codes`；已有 code-day、部分 bar code-day 或业务 key collision 立即失败。
+4. `read_parquet(existing_raw) UNION ALL recovered_bse_rows` 后按业务 key 检测冲突；不得覆盖 SH/SZ。
+5. candidate 路径位于 `/Volumes/datasource/data_lake_staging/stk_mins_bse_recovery/plan_hash=<hash>/raw/...`。
+6. audit 比较非目标行 canonical hash、完整 candidate 规范化后的 latest set、schema、日期、频率和 row count；最终 canonical latest set 必须与 expected set 精确相等。
+7. promote 前重新核对 scope/source bundle hash 和正式 target fingerprint；变化即停止。
+8. 每文件同文件系统 `os.replace()`，checkpoint 记录 promoted path/hash。
 
 ### 17.7 Silver candidate 和 actual changed manifest
 
@@ -2403,15 +2429,16 @@ Prod publisher 只消费 formal-audit 通过且 Gold hash 发生变化的分区�
 
 ### 17.14 开发和正式执行里程碑
 
-1. **R0**：实现只读 planner/probe 和 1m fallback eligibility audit；正式 source 行只来自 `TushareResource`，生成完整 mode manifest。
-2. **R1**：实现 Raw candidate/audit/promote 和测试。
-3. **R2**：实现 Silver candidate、fallback 和 changed manifest。
-4. **R3**：接入 bounded QFQ history scope。
-5. **R4**：接入 MACD/KDJ state 与九转 forward rebuild。
-6. **R5**：实现 WMT per-frequency action 和 Prod changed-only publish。
-7. **R6**：统计/抽样验收；必要时另行审批最近 20 日 event refresh。
+1. **R0A**：实现只读 scope planner 和 1m fallback eligibility audit，生成 `scope.parquet + scope-plan.json`。
+2. **R0B**：实现 `TushareResource` bounded source-page staging 和 source bundle audit；只写 staging，生成完整 mode manifest。
+3. **R1**：实现只消费冻结 source bundle 的 Raw candidate/audit/promote 和测试；R1 不得发起 Tushare 请求。
+4. **R2**：实现 Silver candidate、fallback 和 changed manifest。
+5. **R3**：接入 bounded QFQ history scope。
+6. **R4**：接入 MACD/KDJ state 与九转 forward rebuild。
+7. **R5**：实现 WMT per-frequency action 和 Prod changed-only publish。
+8. **R6**：统计/抽样验收；必要时另行审批最近 20 日 event refresh。
 
-每个正式写入阶段都需要独立批准。R0 只读 manifest 通过前，不允许恢复 Raw；R2 actual changed manifest 通过前，不允许启动任何下游重建。
+每个正式写入阶段都需要独立批准。R0A 是只读；R0B 只写 staging 但会消耗 Tushare 配额，执行时仍需显式确认。R0B source bundle 通过前不允许进入 R1；R2 actual changed manifest 通过前不允许启动任何下游重建。
 
 ### 17.15 完成定义
 
@@ -2426,17 +2453,28 @@ WMT-7R 完成必须同时满足：
 7. 所有审计动作小于等于 5 分钟，没有全盘深审计。
 8. 正式 Lake、Prod 和控制面执行报告均经单独审批；未执行阶段必须明确标为待办。
 
-### 17.16 开发前审计结论
+### 17.16 开发审计与 R0/R1 落地结论
 
-截至 `2026-08-25`，WMT-7R 已具备进入代码开发的条件，但只允许从 R0/R1 开始，不代表已批准正式数据写入：
+截至 `2026-08-25`，WMT-7R 已完成 R0/R1 开发，但不代表已批准真实 source request 或正式数据写入：
 
 1. CodeGraph 索引为最新状态；已核对 Raw fetch/merge、Silver writer、QFQ canonical history、MACD/KDJ history、QFQ nineturn history 和 WMT history 的真实入口。
 2. `TushareResource.call(...)` 强制显式 fields；共享 `TushareRequestPolicy` 已提供 `1,200` 请求/`300s`/重试退避门禁，可直接复用。
-3. 当前 `_fetch_raw_stk_mins_rows(...)` 只支持单分区并把返回行保存在 Python list；WMT-7R 只能抽取其字段和行级校验语义，range probe 必须走共享 bounded runner，并按批落 staging，不得直接扩大现有循环。
-4. 当前 `merge_repair_raw_stk_mins_partition_from_tushare(...)` 会在正式目标旁生成 sibling temp 并立即 `os.replace()`；因此不能作为正式历史入口，只能复用 merge SQL 语义。
-5. `write_silver_stk_mins_partition(..., output_path_override=...)` 已支持 candidate 输出，且现有 SQL 已具备完整 1m code-day 和 missing coarse code fallback；新增工作是 eligibility audit 和 history orchestration，不需要重写聚合公式。
-6. QFQ canonical、MACD/KDJ history 和 WMT history 已有 planner/candidate/audit 能力；需要增加 changed-manifest scope。QFQ nineturn history 当前是完整 asset/year planner，必须扩展 affected code/date scope后才能复用。
-7. 计划新增/修改的 orchestrator 目标文件当前没有未提交代码冲突；仓库其它目录存在的无关脏改不进入本专项。
-8. 当前没有新增配置项、schema、asset、job、sensor、check 或 API contract 的需要，也没有待用户拍板的业务口径。
+3. `stock_identity_map.valid_to` 已由 schema、Silver SQL 和单测共同证明为排除边界；反向 latest join 会同时得到 self 与 `bse_mapping`，不能用“多行即失败”。历史请求必须优先唯一有效 `bse_mapping`，无该映射时才回退 self。
+4. 当前 `_fetch_raw_stk_mins_rows(...)` 只支持单分区并把返回行保存在 Python list；WMT-7R 只能抽取其字段和行级校验语义，range probe 必须走共享 bounded runner，源页立即落 staging，不得直接扩大现有循环。
+5. 当前 `merge_repair_raw_stk_mins_partition_from_tushare(...)` 会在正式目标旁生成 sibling temp 并立即 `os.replace()`；因此不能作为正式历史入口，只能复用 merge SQL 语义。
+6. `write_silver_stk_mins_partition(..., output_path_override=...)` 已支持 candidate 输出，且现有 SQL 已具备完整 1m code-day 和 missing coarse code fallback；新增工作是 eligibility audit 和 history orchestration，不需要重写聚合公式。
+7. QFQ canonical、MACD/KDJ history 和 WMT history 已有 planner/candidate/audit 能力；需要增加 changed-manifest scope。QFQ nineturn history 当前是完整 asset/year planner，必须扩展 affected code/date scope后才能复用。
+8. 计划新增/修改的 orchestrator 目标文件当前没有未提交代码冲突；仓库其它目录存在的无关脏改不进入本专项。
+9. 当前没有新增配置项、schema、asset、job、sensor、check 或 API contract 的需要，也没有待用户拍板的业务口径。
 
-因此下一步可以开发 R0：只读 mode planner、正式 `TushareResource` bounded probe 和 1m fallback eligibility audit；在 R0 报告通过并单独批准前，不得执行 Raw candidate/promote。
+本轮实际落地：
+
+1. `stk_mins_bse_history_recovery.py` 实现 scope plan、source-page staging、source bundle、Raw candidate、candidate audit 和 checkpointed promote。
+2. `stk_mins_bse_history_recovery_cli.py` 暴露五个显式阶段；source request、candidate write 和 Raw promote 分别要求独立确认参数。
+3. 共享 `BoundedCodePageRequestSession` 增加 generic page streaming，多个 source window 共享同一个 request/time/retry budget，`retain_rows=False` 时不累计完整历史行。
+4. R0A 对正式 Lake 只读，只向 `/Volumes/datasource/data_lake_staging` 写 scope plan；R0B 只写 source pages/bundle 到 staging；R1 candidate/audit 只写 staging，只有显式 promote 才能改写正式 Raw。
+5. plan、scope、source page、bundle、candidate、audit 和 target fingerprint 均形成 hash/fingerprint 交接；部分 source、现有部分 code-day、hash 漂移、并发目标变化和中断状态不可判定都会 fail closed。
+6. `test_stk_mins_bse_history_recovery.py`、`test_tushare_request_policy.py` 和共享静态门禁已覆盖本节 R0/R1 正反合同；连同分钟线、identity map 和 WMT history 回归共 `163 passed`。
+7. 本轮没有运行 CLI，没有请求 Tushare，没有生成正式 candidate/promote，没有写 Dagster runtime/event，也没有进入 R2。
+
+正式执行的下一步只能是 R0A scope plan；R0B 和 R1 promote 仍需分别确认。

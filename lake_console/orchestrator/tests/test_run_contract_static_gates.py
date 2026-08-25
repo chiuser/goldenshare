@@ -6468,6 +6468,69 @@ def use_nested_resource(context):
                 issues.append(f"qfq nineturn job contains forbidden {forbidden}")
         self.assertEqual(issues, [])
 
+    def test_bse_minute_history_recovery_keeps_r0_r1_stage_boundaries(self) -> None:
+        helper_source = (
+            DEFS_DIR / "bootstrap" / "stk_mins_bse_history_recovery.py"
+        ).read_text(encoding="utf-8")
+        cli_source = (
+            DEFS_DIR / "bootstrap" / "stk_mins_bse_history_recovery_cli.py"
+        ).read_text(encoding="utf-8")
+        r1_source = helper_source.split(
+            "def build_bse_raw_recovery_candidates(", 1
+        )[1].split("def audit_bse_raw_recovery_candidates(", 1)[0]
+        issues = []
+        required_helper_fragments = (
+            "DEFAULT_LAKE_STAGING_ROOT",
+            "BoundedCodePageRequestSession",
+            "stage_bse_stk_mins_source_pages",
+            "build_bse_raw_recovery_candidates",
+            "audit_bse_raw_recovery_candidates",
+            "promote_bse_raw_recovery_candidates",
+            "identity_source",
+            "< CAST(valid_to AS DATE)",
+            "os.replace(source, target)",
+            '"in_progress"',
+        )
+        issues.extend(
+            f"BSE minute recovery helper misses {fragment}"
+            for fragment in required_helper_fragments
+            if fragment not in helper_source
+        )
+        required_cli_fragments = (
+            '"plan"',
+            '"stage-source"',
+            '"build-raw-candidates"',
+            '"audit-raw-candidates"',
+            '"promote-raw"',
+            '"--confirm-source-request"',
+            '"--confirm-candidate-write"',
+            '"--confirm-raw-promote"',
+        )
+        issues.extend(
+            f"BSE minute recovery CLI misses {fragment}"
+            for fragment in required_cli_fragments
+            if fragment not in cli_source
+        )
+        for forbidden in (
+            "TushareResource",
+            ".call(",
+            "tushare",
+        ):
+            if forbidden in r1_source:
+                issues.append(f"BSE Raw R1 re-enters source request path: {forbidden}")
+        for forbidden in (
+            "@dg.asset",
+            "@dg.sensor",
+            "define_asset_job",
+            "report_runless_asset_event",
+            "get_event_records",
+        ):
+            if forbidden in helper_source or forbidden in cli_source:
+                issues.append(
+                    f"BSE minute recovery creates forbidden Dagster runtime: {forbidden}"
+                )
+        self.assertEqual(issues, [])
+
 
 if __name__ == "__main__":
     unittest.main()

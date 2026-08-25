@@ -400,6 +400,61 @@ class TushareRequestPolicyTests(unittest.TestCase):
         self.assertEqual(session.request_count, 1)
         self.assertEqual(calls, ["BK0001.DC"])
 
+    def test_page_session_streams_multiple_scopes_under_one_request_budget(self) -> None:
+        clock = _FakeClock()
+        calls: list[tuple[str, int]] = []
+        consumed: list[tuple[str, int]] = []
+        session = BoundedCodePageRequestSession(
+            policy=TushareRequestPolicy(
+                minimum_interval_seconds=0.13,
+                max_retries=0,
+                max_requests=2,
+                max_elapsed_seconds=30.0,
+            ),
+            clock=clock.clock,
+            sleep_fn=clock.sleep,
+        )
+
+        first = session.execute_pages(
+            request_page=lambda offset: calls.append(("first", offset)) or [{"id": 1}],
+            extract_rows=lambda response: response,
+            page_size=8_000,
+            scope="872392.BJ:1:2025-09-03",
+            row_key=lambda row: row["id"],
+            consume_page=lambda _offset, rows: consumed.extend(
+                ("first", int(row["id"])) for row in rows
+            ),
+            retain_rows=False,
+        )
+        second = session.execute_pages(
+            request_page=lambda offset: calls.append(("second", offset)) or [{"id": 2}],
+            extract_rows=lambda response: response,
+            page_size=8_000,
+            scope="872393.BJ:1:2025-09-03",
+            row_key=lambda row: row["id"],
+            consume_page=lambda _offset, rows: consumed.extend(
+                ("second", int(row["id"])) for row in rows
+            ),
+            retain_rows=False,
+        )
+        exhausted = session.execute_pages(
+            request_page=lambda offset: calls.append(("third", offset)) or [{"id": 3}],
+            extract_rows=lambda response: response,
+            page_size=8_000,
+            scope="872394.BJ:1:2025-09-03",
+            row_key=lambda row: row["id"],
+            retain_rows=False,
+        )
+
+        self.assertTrue(first.ready)
+        self.assertTrue(second.ready)
+        self.assertFalse(exhausted.ready)
+        self.assertEqual(exhausted.budget_reason, "max_requests_exceeded")
+        self.assertEqual(session.request_count, 2)
+        self.assertEqual(calls, [("first", 0), ("second", 0)])
+        self.assertEqual(consumed, [("first", 1), ("second", 2)])
+        self.assertEqual(clock.sleeps, [0.13])
+
 
 if __name__ == "__main__":
     unittest.main()

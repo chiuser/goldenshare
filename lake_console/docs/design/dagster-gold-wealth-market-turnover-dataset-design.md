@@ -1,6 +1,6 @@
 # Dagster Gold Wealth Market Turnover Dataset Design
 
-状态：WMT-1 至 WMT-6 的代码、历史 Lake、最近 20 日 runless event 和 Prod Serving 同步已按原口径闭环。WMT-7“北交所收盘集合竞价成交量/成交额校准”已完成代码开发和本地测试；正式历史 plan 在首个分区发现历史北交所分钟源代码集合缺口后，于候选生成和正式写入前安全停止。WMT-7R 负责先恢复可恢复的 Raw/Silver 及真实受影响下游，并对源站仍为空的旧日期按冻结清单跳过；截至 `2026-08-25` 仅完成只读审计和方案设计，未写正式 Lake、Prod 或 Dagster event。WMT-7 历史修复明确不补任何 Gold/Prod 历史 materialization/check event。WMT-7/WMT-7R 生效后，本文第 17、18 节是当前计算、依赖、校验和恢复口径；前文 WMT-1 至 WMT-6 与其冲突的“只读五频分钟线”描述仅保留为历史实施记录，不再作为后续开发事实。
+状态：WMT-1 至 WMT-6 的代码、历史 Lake、最近 20 日 runless event 和 Prod Serving 同步已按原口径闭环。WMT-7“北交所收盘集合竞价成交量/成交额校准”已完成代码开发和本地测试；正式历史 plan 在首个分区发现历史北交所分钟源代码集合缺口后，于候选生成和正式写入前安全停止。WMT-7R 负责先恢复可恢复的 Raw/Silver 及真实受影响下游，并对源站仍为空的旧日期按冻结清单跳过；截至 `2026-08-25`，R0A/R0B/R1 代码和本地隔离测试已完成，尚未执行真实 Tushare source request、正式 Raw promote、下游重建、Prod 回写或 Dagster event。WMT-7 历史修复明确不补任何 Gold/Prod 历史 materialization/check event。WMT-7/WMT-7R 生效后，本文第 17、18 节是当前计算、依赖、校验和恢复口径；前文 WMT-1 至 WMT-6 与其冲突的“只读五频分钟线”描述仅保留为历史实施记录，不再作为后续开发事实。
 
 ## 1. 目标
 
@@ -1177,12 +1177,27 @@ WMT-7R 解决的不是 WMT 计算公式，而是历史北交所分钟源覆盖�
 
 | 模式 | 判定 | 动作 |
 | --- | --- | --- |
-| `SOURCE_RECOVERABLE` | Tushare 当前返回完整 expected 历史 source code set，日期、频率、schema、主键和交易时段均合法 | 从 Raw candidate 开始恢复，再生成 Silver candidate |
+| `SOURCE_RECOVERABLE` | 现有 Raw 规范化后存在 latest-code 缺口，Tushare 当前对这些缺失代码的首选历史 source alias 返回完整数据，日期、频率、schema、主键和交易时段均合法 | 只把冻结的缺失 source rows 合入 Raw candidate，再生成 Silver candidate |
 | `SILVER_FALLBACK_RECOVERABLE` | 原生粗频率仍为空，但同日 Raw `1min` 具备完整 expected code set，且每个 code-day 恰有 241 个合法点 | 保留 Raw 粗频率原事实，使用现有 Silver set-based fallback 生成粗频率 |
 | `SOURCE_EMPTY_SKIP` | 源站仍为空，且没有完整低频源可聚合 | 不写 Raw/Silver；该频率在 WMT 历史维护中保留原结果并记录跳过原因 |
-| `PARTIAL_BLOCKED` | 只返回部分 expected code set，或 identity/date/key/session 任一合同不完整 | 整个日期/频率停止，不接受部分覆盖；先恢复缺失代码或转入明确跳过清单 |
+| `PARTIAL_BLOCKED` | 已存在代码只有部分 bar、请求的缺失代码只返回部分数据，或 identity/date/key/session 任一合同不完整 | 整个日期/频率停止，不接受部分覆盖；先恢复缺失代码或转入明确跳过清单 |
 
-expected historical source code set 不能直接使用当前 `920xxx.BJ`。必须以同日 `silver_stock_daily` 的 latest code set 为业务集合，再按 `stock_identity_map.valid_from/valid_to` 反查历史 `source_ts_code`；Raw 保存历史源代码，Silver 才规范化为 latest code。
+expected 业务集合固定来自同日 `silver_stock_daily` 的 latest code set。`stock_identity_map` 的有效期语义固定为半开区间 `[valid_from, valid_to)`；`valid_to` 当日已经不再有效，禁止使用 `BETWEEN`。
+
+当前 identity map 同时保留 latest code 的 self row 和北交所旧代码的 `bse_mapping` row，因此不得按 `latest_ts_code` 反向连接后要求“只能有一行”。历史源 alias 选择规则固定为：
+
+1. 对同一 latest code 和目标日期，优先选择唯一有效的 `identity_source=bse_mapping` 历史 source code。
+2. 不存在有效 `identity_source=bse_mapping` 时，才回退到唯一有效的 self mapping，即 `source_ts_code=latest_ts_code`。
+3. 同层级存在多个有效 alias、缺少有效映射或有效期重叠时才标记 `PARTIAL_BLOCKED`。
+4. Raw 保存实际源站返回的 source code；Silver writer 按同一半开有效期规范化为 latest code。
+
+现有 Raw 物理代码集合不能直接与 expected latest set 比较。必须先按相同 identity 规则将现有 `source_ts_code` 规范化，再计算：
+
+```text
+missing_latest_codes = expected_latest_codes - canonicalized_existing_raw_codes
+```
+
+正式 source request 只请求 `missing_latest_codes` 的首选 source alias；已经覆盖的代码不得重复请求或重复合入。`2025-09-03` 的真实请求范围因此只有缺失业务代码 `920392.BJ` 对应的历史 source `872392.BJ`，而不是重拉当日全部北交所代码。
 
 模式是审计结论，不是根据“粗频率缺失”自动推导。任何日期在完成模式审计前只能标记为 `UNCLASSIFIED_CANDIDATE`。其中 `SILVER_FALLBACK_RECOVERABLE` 必须同时满足：
 
@@ -1202,21 +1217,25 @@ expected historical source code set 不能直接使用当前 `920xxx.BJ`。必�
 1. `tushareMCP` 只用于开发期、方案期的交互式抽样，证明接口当前是否可能返回某个代码/日期/频率；MCP 结果不得直接生成 Raw candidate，也不得成为正式恢复的执行依赖。
 2. 正式 source probe 和 Raw 数据获取必须由仓库运行时的 `TushareResource` 调用 `stk_mins`，复用项目 token、显式 fields、有界分页、限速、重试、报告和 checkpoint。
 3. 正式代码不得 import、调用或封装 `tushareMCP`；MCP 不是可部署的数据管道组件。
-4. 对连续日期段，正式 probe 按 `source_ts_code + freq + bounded date range` 请求，禁止 `date × code × freq` 三重循环。
+4. 对连续日期段，正式 probe 按 `source_ts_code + freq + bounded date range` 请求，禁止 `date × code × freq` 三重循环；代码按小批次共享同一个 bounded request session，源页完成后立即落到 staging，不在 Python 中保留整段历史明细。
 5. 使用共享 `TushareRequestPolicy`：最小请求间隔 `0.13s`、最多重试 `3` 次、`1/2/4s` 指数退避、单批最多 `1,200` 次请求、最长 `300s`；每个探测批次及其对账最长 5 分钟。
-6. 只有 `TushareResource` 实际返回的规范化 `code-date` 集合与 expected 集合完全一致，才能标记 `SOURCE_RECOVERABLE`。
+6. 只有 `TushareResource` 实际返回的规范化 `code-date` 集合与本次 `missing_latest_codes` 完全一致，且与现有 Raw 规范化覆盖合并后等于完整 expected latest set，才能标记 `SOURCE_RECOVERABLE`。
 7. MCP 抽样命中只证明“值得进入完整有界探测”，不能直接把整段日期标记为可写。
-8. 结果冻结为不可变 manifest，包含模式、expected/returned code count、有限缺口样本、source request fingerprint 和文件 fingerprint。
+8. R0 分为两个子阶段：R0A 只读正式 Lake/身份事实并在 staging 生成 scope plan；R0B 经显式确认后只向 `/Volumes/datasource/data_lake_staging` 写源页 Parquet 和 sidecar。每个 sidecar 记录请求参数、分页计数、row/key hash 和文件 hash。
+9. R0B 完成后生成不可变 source bundle manifest，包含模式、expected/existing/missing/returned code count、有限缺口样本、scope manifest hash、source request fingerprint、源页路径/hash 和目标文件 fingerprint。
+10. R1 只能消费上述冻结 source bundle，不得重新请求 Tushare；这样避免 R0/R1 之间的源站回刷漂移和重复配额消耗。
 
 ### 18.4 Raw 与 Silver 恢复
 
 Raw 恢复只处理 `SOURCE_RECOVERABLE`：
 
-1. 在 `/Volumes/datasource/data_lake_staging` 生成候选，基于现有 Raw 文件合并北交所历史 source rows。
+1. 在 `/Volumes/datasource/data_lake_staging` 生成候选，基于现有 Raw 文件只合并 source bundle 中的缺失北交所 source rows。
 2. SH/SZ、非目标日期和非目标代码必须逐字节或 canonical hash 不变。
 3. 禁止直接调用当前会原位修改目标的 repair helper；正式恢复入口必须是 `plan -> candidate -> audit -> promote`。
-4. candidate 通过 schema、主键、日期、频率、交易时段、expected source code set 和 source-row hash 后，才按单分区 `os.replace()` 原子提升。
-5. 任一 source code 空结果、部分结果或目标并发变化均停止该日期/频率。
+4. 合并前必须证明 staged source 对应的 latest code 均属于 `missing_latest_codes`；任何已有 code-day、业务主键或 source row 冲突都停止，禁止覆盖或补丁式改写部分 bar。
+5. candidate 必须把全部 Raw source code 规范化后，与 expected latest set 精确相等；不能用物理 source code 集合直接对账。
+6. candidate 通过 schema、主键、日期、频率、交易时段、canonical expected latest set 和 source-row hash 后，才按单分区 `os.replace()` 原子提升。
+7. 任一 source code 空结果、部分结果、冻结源页 hash 变化或正式目标并发变化均停止该日期/频率。
 
 Silver 恢复按“实际受影响日期”执行：
 
@@ -1284,13 +1303,14 @@ WMT 正常日常 writer 继续要求五频完整，不接受降级。历史维�
 
 ### 18.8 分阶段执行和停止条件
 
-1. **R0 只读计划**：使用 `TushareResource` 生成 source mode manifest，并对所有 fallback 候选执行逐代码 241 点 eligibility audit；同时冻结文件 fingerprint、changed-downstream 预计映射和磁盘/耗时预算。MCP 抽样不计作 R0 验收。
-2. **R1 Raw**：只处理 `SOURCE_RECOVERABLE`，每批 candidate 审计不超过 5 分钟。
-3. **R2 Silver**：处理 Raw 变化及 `SILVER_FALLBACK_RECOVERABLE`，冻结 actual changed manifest。
-4. **R3 QFQ**：按第 18.5 节映射做 bounded rebuild；没有 changed source 的频率不动。
-5. **R4 指标/九转**：按 affected code/freq 从最早变化日递推至 frontier，按年份/频率分批。
-6. **R5 WMT/Prod**：逐频重建可恢复行，保留 source-empty 行，Prod 只发布 changed partitions。
-7. **R6 控制面**：只读对账；如需最近 20 日事件刷新，另行批准后执行。
+1. **R0A scope plan**：只读正式 Lake/身份事实，计算 canonicalized existing Raw coverage、`missing_latest_codes`、首选历史 source alias、fallback 候选和预算；仅在 staging 冻结 scope manifest、文件 fingerprint 与 plan hash。MCP 抽样不计作 R0 验收。
+2. **R0B source staging**：经显式确认后使用 `TushareResource` 对缺失 alias 做 bounded probe，请求页立即写入 staging，并冻结 source bundle manifest；不写正式 Raw。
+3. **R1 Raw**：只消费 R0B 冻结 source bundle，处理 `SOURCE_RECOVERABLE` 的 candidate/audit/promote；不得二次请求 Tushare，每批 candidate 审计不超过 5 分钟。
+4. **R2 Silver**：处理 Raw 变化及 `SILVER_FALLBACK_RECOVERABLE`，冻结 actual changed manifest。
+5. **R3 QFQ**：按第 18.5 节映射做 bounded rebuild；没有 changed source 的频率不动。
+6. **R4 指标/九转**：按 affected code/freq 从最早变化日递推至 frontier，按年份/频率分批。
+7. **R5 WMT/Prod**：逐频重建可恢复行，保留 source-empty 行，Prod 只发布 changed partitions。
+8. **R6 控制面**：只读对账；如需最近 20 日事件刷新，另行批准后执行。
 
 任一阶段遇到以下情况立即停止：source 集合部分返回、identity 映射不唯一、candidate 改变非目标市场数据、正常 writer/check 被放宽、审计超过 5 分钟、正式目标并发变化、递推范围无法确定、或需要通过猜测补数据。
 
@@ -1306,3 +1326,17 @@ WMT 正常日常 writer 继续要求五频完整，不接受降级。历史维�
 8. 正常日常链路、asset/check/job/sensor/run key 和 API contract 无回退。
 9. 无 Kopia、无正式 Lake sibling temp、无无边界 Tushare 请求、无全历史 Python 扫描。
 10. 未经单独批准，不执行正式 Lake、Prod 或 Dagster event 写入。
+
+### 18.10 R0/R1 开发落地状态
+
+截至 `2026-08-25`，本轮只完成代码与隔离测试，没有执行恢复数据写入：
+
+1. 新增显式维护模块和 CLI，阶段固定为 `plan -> stage-source -> build-raw-candidates -> audit-raw-candidates -> promote-raw`。
+2. R0A 将 expected latest code、canonicalized existing Raw coverage、missing latest code 和首选历史 alias 冻结到 staging scope plan；`valid_to` 按排除边界处理，唯一有效 `bse_mapping` 优先于 self row。
+3. R0B 复用共享 bounded request session，只请求缺失 alias；每个源页立即写 staging，并冻结 request contract、offset、row/key hash 和 Parquet hash。部分返回会令 bundle `should_stop=true`，全空才进入 skip/fallback 分类。
+4. R1 源码和静态门禁均禁止再次调用 Tushare；candidate 只合并冻结缺失行，检查完整 canonical latest set、非北交所 hash 和目标 fingerprint。
+5. promote 必须显式确认，使用同文件系统 `os.replace()`；checkpoint 区分 replace 前后中断，可通过 candidate/target hash 安全续跑，无法判定时 fail closed。
+6. 本地隔离验证覆盖 source full/zero/partial/fallback、半开 identity 有效期、bundle/candidate hash、正式 Raw promote 前不变、确认门禁和共享请求预算；相关回归共 `163 passed`。
+7. 本轮没有新增或修改 asset、check、job、sensor、run key、dynamic partition 或 Dagster event 逻辑。
+
+下一步若要执行恢复，先单独运行 R0A scope plan；R0B 会消耗 Tushare 配额，R1 promote 会改写正式 Raw，均须按执行阶段另行确认。

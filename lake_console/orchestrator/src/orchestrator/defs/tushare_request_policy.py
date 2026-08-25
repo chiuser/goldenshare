@@ -503,6 +503,30 @@ class BoundedCodePageRequestSession:
             row_key=row_key,
         )
 
+    def execute_pages(
+        self,
+        *,
+        request_page: Callable[[int], TushareResponse],
+        extract_rows: Callable[[TushareResponse], Sequence[Mapping[str, Any]]],
+        page_size: int,
+        scope: str,
+        row_key: Callable[[Mapping[str, Any]], Hashable] | None = None,
+        consume_page: Callable[[int, Sequence[Mapping[str, Any]]], None] | None = None,
+        retain_rows: bool = True,
+    ) -> BoundedPageRequestResult[TushareResponse]:
+        """Stream one paginated scope under this session's shared budget."""
+
+        return _execute_bounded_pages_with_runner(
+            runner=self._runner,
+            request_page=request_page,
+            extract_rows=extract_rows,
+            page_size=page_size,
+            scope=scope,
+            row_key=row_key,
+            consume_page=consume_page,
+            retain_rows=retain_rows,
+        )
+
 
 def _execute_bounded_code_pages_with_runner(
     *,
@@ -681,12 +705,38 @@ def execute_bounded_pages(
     immediately without accumulating full response rows in Python.
     """
 
+    runner = _BoundedRequestRunner(policy=policy, clock=clock, sleep_fn=sleep_fn)
+    return _execute_bounded_pages_with_runner(
+        runner=runner,
+        request_page=request_page,
+        extract_rows=extract_rows,
+        page_size=page_size,
+        scope=scope,
+        row_key=row_key,
+        consume_page=consume_page,
+        retain_rows=retain_rows,
+    )
+
+
+def _execute_bounded_pages_with_runner(
+    *,
+    runner: _BoundedRequestRunner,
+    request_page: Callable[[int], TushareResponse],
+    extract_rows: Callable[[TushareResponse], Sequence[Mapping[str, Any]]],
+    page_size: int,
+    scope: str,
+    row_key: Callable[[Mapping[str, Any]], Hashable] | None = None,
+    consume_page: Callable[[int, Sequence[Mapping[str, Any]]], None] | None = None,
+    retain_rows: bool = True,
+) -> BoundedPageRequestResult[TushareResponse]:
     if page_size <= 0:
         raise ValueError("page_size must be positive.")
     if not str(scope).strip():
         raise ValueError("scope must be non-empty.")
 
-    runner = _BoundedRequestRunner(policy=policy, clock=clock, sleep_fn=sleep_fn)
+    initial_request_count = runner.request_count
+    initial_retry_count = runner.retry_count
+    initial_elapsed_seconds = runner.elapsed_seconds()
     rows: list[dict[str, Any]] = []
     page_offsets: list[int] = []
     failed_pages: list[TushareCodeFailure] = []
@@ -717,9 +767,9 @@ def execute_bounded_pages(
                 page_count=len(page_offsets),
                 page_offsets=tuple(page_offsets),
                 failed_pages=tuple(failed_pages),
-                request_count=runner.request_count,
-                retry_count=runner.retry_count,
-                elapsed_ms=runner.elapsed_seconds() * 1000,
+                request_count=runner.request_count - initial_request_count,
+                retry_count=runner.retry_count - initial_retry_count,
+                elapsed_ms=(runner.elapsed_seconds() - initial_elapsed_seconds) * 1000,
                 budget_exceeded=True,
                 budget_reason=outcome.budget_reason,
             )
@@ -764,9 +814,9 @@ def execute_bounded_pages(
         page_count=len(page_offsets),
         page_offsets=tuple(page_offsets),
         failed_pages=tuple(failed_pages),
-        request_count=runner.request_count,
-        retry_count=runner.retry_count,
-        elapsed_ms=runner.elapsed_seconds() * 1000,
+        request_count=runner.request_count - initial_request_count,
+        retry_count=runner.retry_count - initial_retry_count,
+        elapsed_ms=(runner.elapsed_seconds() - initial_elapsed_seconds) * 1000,
         budget_exceeded=False,
         budget_reason=None,
     )
