@@ -1184,15 +1184,29 @@ WMT-7R 解决的不是 WMT 计算公式，而是历史北交所分钟源覆盖�
 
 expected historical source code set 不能直接使用当前 `920xxx.BJ`。必须以同日 `silver_stock_daily` 的 latest code set 为业务集合，再按 `stock_identity_map.valid_from/valid_to` 反查历史 `source_ts_code`；Raw 保存历史源代码，Silver 才规范化为 latest code。
 
+模式是审计结论，不是根据“粗频率缺失”自动推导。任何日期在完成模式审计前只能标记为 `UNCLASSIFIED_CANDIDATE`。其中 `SILVER_FALLBACK_RECOVERABLE` 必须同时满足：
+
+1. 同日 Raw `1min` 北交所 latest code set 与 `silver_stock_daily` expected set 完全一致。
+2. 每个 expected code-day 恰有 `241` 行、`241` 个唯一 `trade_time`。
+3. 时间集合精确等于 `09:30..11:30` 与 `13:01..15:00`，不存在缺点、重复点或越界点。
+4. 1m schema、主键、OHLC、`vol/amount` 和 exchange 合同全部通过。
+5. 目标粗频率对该 code-day 是“整只代码完全缺失”；若只缺部分 bar，不能使用 missing-source fallback，必须标记 `PARTIAL_BLOCKED`。
+6. 使用现有 Silver writer 生成的 candidate 通过窗口行数、schema、主键、日期、代码集合和回读校验。
+
+因此，事实备案中按代码数量识别出的 2025 日期只能是 fallback 候选，不是已经确认的 `SILVER_FALLBACK_RECOVERABLE`。
+
 ### 18.3 源站探测与性能边界
 
 源站探测只为决定恢复模式，不做无边界全历史扫描：
 
-1. 对连续日期段，按 `source_ts_code + freq + bounded date range` 请求，禁止 `date × code × freq` 三重循环。
-2. 使用项目既有有界分页、重试、请求量和耗时预算；每个探测批次及其对账最长 5 分钟。
-3. 只有实际返回的规范化 `code-date` 集合与 expected 集合完全一致，才能标记 `SOURCE_RECOVERABLE`。
-4. 抽样命中只证明“值得进入完整有界探测”，不能直接把整段日期标记为可写。
-5. 结果冻结为不可变 manifest，包含模式、expected/returned code count、有限缺口样本、source request fingerprint 和文件 fingerprint。
+1. `tushareMCP` 只用于开发期、方案期的交互式抽样，证明接口当前是否可能返回某个代码/日期/频率；MCP 结果不得直接生成 Raw candidate，也不得成为正式恢复的执行依赖。
+2. 正式 source probe 和 Raw 数据获取必须由仓库运行时的 `TushareResource` 调用 `stk_mins`，复用项目 token、显式 fields、有界分页、限速、重试、报告和 checkpoint。
+3. 正式代码不得 import、调用或封装 `tushareMCP`；MCP 不是可部署的数据管道组件。
+4. 对连续日期段，正式 probe 按 `source_ts_code + freq + bounded date range` 请求，禁止 `date × code × freq` 三重循环。
+5. 使用共享 `TushareRequestPolicy`：最小请求间隔 `0.13s`、最多重试 `3` 次、`1/2/4s` 指数退避、单批最多 `1,200` 次请求、最长 `300s`；每个探测批次及其对账最长 5 分钟。
+6. 只有 `TushareResource` 实际返回的规范化 `code-date` 集合与 expected 集合完全一致，才能标记 `SOURCE_RECOVERABLE`。
+7. MCP 抽样命中只证明“值得进入完整有界探测”，不能直接把整段日期标记为可写。
+8. 结果冻结为不可变 manifest，包含模式、expected/returned code count、有限缺口样本、source request fingerprint 和文件 fingerprint。
 
 ### 18.4 Raw 与 Silver 恢复
 
@@ -1207,10 +1221,11 @@ Raw 恢复只处理 `SOURCE_RECOVERABLE`：
 Silver 恢复按“实际受影响日期”执行：
 
 1. Raw `1min` 或同频 Raw 被恢复后，使用现有 `write_silver_stk_mins_partition(..., output_path_override=...)` 为同日五频生成候选。
-2. `SILVER_FALLBACK_RECOVERABLE` 只在 Raw `1min` 完整时启用；由现有 DuckDB set-based writer 聚合，不新增第二套公式。
-3. 每个频率比较 candidate 与正式文件 canonical hash，只 promote 真正变化的 Silver 文件。
-4. `2025-09-03` 必须先恢复历史 source code `872392.BJ` 的 Raw `1min`，使 latest code `920392.BJ` 的 Silver `1min` 集合完整，再考虑派生粗频率。
-5. `SOURCE_EMPTY_SKIP` 不生成空文件、不用日线补分钟、不修改现有 Silver。
+2. 在生成 fallback candidate 前，必须先输出独立的 1m eligibility audit；未同时通过代码集合、逐代码 241 点、精确时间集合和字段合同的日期不得进入 `SILVER_FALLBACK_RECOVERABLE`。
+3. `SILVER_FALLBACK_RECOVERABLE` 只在上述 eligibility audit 通过后启用；由现有 DuckDB set-based writer 聚合，不新增第二套公式。
+4. 每个频率比较 candidate 与正式文件 canonical hash，只 promote 真正变化的 Silver 文件。
+5. `2025-09-03` 必须先恢复历史 source code `872392.BJ` 的 Raw `1min`，随后重新执行完整 eligibility audit；不能因为单代码 MCP 抽样已有数据就直接派生粗频率。
+6. `SOURCE_EMPTY_SKIP` 不生成空文件、不用日线补分钟、不修改现有 Silver。
 
 ### 18.5 下游影响和恢复顺序
 
@@ -1269,7 +1284,7 @@ WMT 正常日常 writer 继续要求五频完整，不接受降级。历史维�
 
 ### 18.8 分阶段执行和停止条件
 
-1. **R0 只读计划**：生成 source mode manifest、文件 fingerprint、changed-downstream 预计映射和磁盘/耗时预算。
+1. **R0 只读计划**：使用 `TushareResource` 生成 source mode manifest，并对所有 fallback 候选执行逐代码 241 点 eligibility audit；同时冻结文件 fingerprint、changed-downstream 预计映射和磁盘/耗时预算。MCP 抽样不计作 R0 验收。
 2. **R1 Raw**：只处理 `SOURCE_RECOVERABLE`，每批 candidate 审计不超过 5 分钟。
 3. **R2 Silver**：处理 Raw 变化及 `SILVER_FALLBACK_RECOVERABLE`，冻结 actual changed manifest。
 4. **R3 QFQ**：按第 18.5 节映射做 bounded rebuild；没有 changed source 的频率不动。

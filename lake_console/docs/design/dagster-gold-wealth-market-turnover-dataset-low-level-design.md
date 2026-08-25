@@ -2130,7 +2130,7 @@ orchestrator/defs/assets/stk_mins.py
 orchestrator/defs/bootstrap/stk_mins_silver_history.py
 orchestrator/defs/bootstrap/stk_mins_qfq_canonical_history.py
 orchestrator/defs/bootstrap/stk_mins_qfq_macd_kdj_history.py
-orchestrator/defs/bootstrap/stk_nineturn_history.py
+orchestrator/defs/bootstrap/qfq_nineturn_history.py
 orchestrator/defs/bootstrap/wealth_market_turnover_history.py
 ```
 
@@ -2163,6 +2163,12 @@ source_request_fingerprint
 raw_target_fingerprint
 silver_target_fingerprint
 raw_1m_complete_code_count
+raw_1m_expected_code_count
+raw_1m_241_point_code_count
+raw_1m_exact_time_set_code_count
+raw_1m_invalid_code_count
+raw_1m_invalid_code_samples
+fallback_eligibility_status
 reason_code
 ```
 
@@ -2204,11 +2210,11 @@ silver_stock_daily latest_ts_code set for trade_date
 
 ### 17.5 Bounded source probe
 
-抽取当前 Raw repair 中的纯 fetch 能力，但不调用其正式文件 merge/promote：
+抽取当前 Raw repair 中的纯 fetch 能力，但不调用其正式文件 merge/promote。参数类型必须显式为仓库运行时 `TushareResource`：
 
 ```python
 probe_bse_stk_mins_source(
-    tushare,
+    tushare: TushareResource,
     source_ts_code,
     freq,
     start_trade_date,
@@ -2219,12 +2225,14 @@ probe_bse_stk_mins_source(
 
 要求：
 
-1. 连续日期段按 code+freq 请求，显式 fields、limit、offset。
-2. 复用现有 bounded pagination/retry；单批 wall time 不超过 300 秒。
-3. 返回后用 DuckDB 比对 expected `source_code + trade_date` 集合。
-4. 频率、日期、交易时段、主键、列集合任一异常都不得标记 recoverable。
-5. 返回零行且 expected 非空标记 `SOURCE_EMPTY_SKIP`；返回非零但集合不完整标记 `PARTIAL_BLOCKED`。
-6. source probe 不写 Raw，不访问 Dagster instance。
+1. `tushareMCP` 只用于开发期人工抽样，不得被 Python 模块 import、不得进入 CLI 参数、不得向 candidate 提供行数据。
+2. 正式 probe 只使用项目 `TushareResource.call("stk_mins", ...)`，连续日期段按 code+freq 请求，显式 fields、limit、offset。
+3. 复用共享 `TushareRequestPolicy`，固定默认门禁：`minimum_interval_seconds=0.13`、`max_retries=3`、`backoff=1/2/4s`、`max_requests=1_200`、`max_elapsed_seconds=300`；禁止在 WMT-7R 再实现一套重试器。
+4. 返回后用 DuckDB 比对 expected `source_code + trade_date` 集合。
+5. 频率、日期、交易时段、主键、列集合任一异常都不得标记 recoverable。
+6. 返回零行且 expected 非空标记 `SOURCE_EMPTY_SKIP`；返回非零但集合不完整标记 `PARTIAL_BLOCKED`。
+7. source probe 不写 Raw，不访问 Dagster instance。
+8. `TushareResource` 请求参数、分页结果、请求数、重试数和耗时必须进入 plan report；MCP 抽样结果只进入事实备案，不进入 plan hash。
 
 ### 17.6 Raw candidate 和 promote
 
@@ -2245,7 +2253,32 @@ promote_bse_raw_recovery_candidates(plan, audit_report, *, confirm)
 
 ### 17.7 Silver candidate 和 actual changed manifest
 
-对涉及某日任一 Raw 修复或 fallback scope 的日期，调用现有同日 Silver writer五次，并传 `output_path_override`：
+在调用 Silver writer 前，新增纯 DuckDB 只读 eligibility helper：
+
+```python
+audit_bse_one_minute_fallback_eligibility(
+    *,
+    lake_root: Path,
+    trade_date: str,
+    expected_latest_codes: Sequence[str],
+) -> BseOneMinuteFallbackEligibility
+```
+
+只有以下计数全部相等且 invalid count 为零时，才能把候选模式提升为 `SILVER_FALLBACK_RECOVERABLE`：
+
+```text
+expected_latest_code_count
+= raw_1m_returned_latest_code_count
+= raw_1m_241_point_code_count
+= raw_1m_exact_time_set_code_count
+invalid_code_count == 0
+```
+
+精确时间集合由 DuckDB set-based 生成，不允许只检查 `count(*)=241`：必须同时验证 241 个唯一 `trade_time`，并且每个时间均属于 `09:30..11:30` 或 `13:01..15:00`，缺点、重复点和越界点都返回有限 code 样本。
+
+目标粗频率还必须满足：同一 code-day 在同频 Raw 中完全没有行。若同频 Raw 已有部分 bar，当前 missing-source fallback 的 code-day `NOT EXISTS` 语义不会补齐它，该 scope 必须标记 `PARTIAL_BLOCKED`，不能误报为 fallback 成功。
+
+eligibility audit 通过后，对涉及某日任一 Raw 修复或 fallback scope 的日期，调用现有同日 Silver writer 五次，并传 `output_path_override`：
 
 ```python
 write_silver_stk_mins_partition(
@@ -2263,6 +2296,8 @@ write_silver_stk_mins_partition(
 - 同频 Raw 完整时保留原生粗频率。
 - 同频 Raw 完全缺 code 时从 1m 聚合。
 - identity map 把历史 source code 规范化为 latest code。
+
+当前事实备案中的 2025 日期在完成该 helper 审计前都只是 `FALLBACK_CANDIDATE`，不得提前写入 `mode=SILVER_FALLBACK_RECOVERABLE`。
 
 每个 Silver candidate 与正式文件计算 canonical hash。只有 hash 变化的文件进入：
 
@@ -2301,7 +2336,8 @@ MACD/KDJ 和 state 对同一 code/freq 具有递推依赖：
 
 1. 对 changed QFQ 中这些频率按 affected code 找最早变化日。
 2. 复用 `build_gold_stk_mins_qfq_nineturn_history_batch_select_sql(...)` 和既有 compact seed/context。
-3. 从最早变化日重建至 frontier；九转文件不保存价格，但计数序列仍依赖 QFQ close 顺序。
+3. 当前 `plan_qfq_nineturn_history(...)` 默认按选中 asset 的完整年份源文件规划，没有 affected code/date 参数；WMT-7R 必须先扩展 scoped planner，禁止直接运行当前全量入口。
+4. scoped planner 只允许 changed manifest 中的分钟 asset/freq、affected latest code 和最早变化日进入 candidate；从最早变化日重建至 frontier。九转文件不保存价格，但计数序列仍依赖 QFQ close 顺序。
 
 ### 17.10 WMT mixed-mode history candidate
 
@@ -2338,9 +2374,13 @@ Prod publisher 只消费 formal-audit 通过且 Gold hash 发生变化的分区�
 
 - historical latest/source code 唯一映射和 `872392.BJ -> 920392.BJ` fixture。
 - source zero、source full、partial source 四模式判定。
+- `tushareMCP` 只作为文档抽样证据；正式模块必须使用 `TushareResource`，源码中禁止 MCP adapter/import。
 - probe 只读、bounded pagination、超时和请求预算。
 - Raw candidate 不改变 SH/SZ/非目标日期，promote 前正式目标不变。
-- 完整 1m fallback 可生成 coarse Silver；不完整 1m 必须 skip/block。
+- fallback 候选只有代码数量对齐但不足 241 点时仍必须 block。
+- 241 行但时间重复、缺少一个 expected 时间或含越界时间时仍必须 block。
+- 同频 Raw 只有部分粗频率 bar 时必须 block，不能套用 code-day missing fallback。
+- 代码集合、241 点和精确时间集合全部通过后才可生成 coarse Silver。
 - changed Silver manifest 只记录 hash 真正变化文件。
 - QFQ 映射正向和 Silver15 无 consumer 反例。
 - MACD/KDJ state 与九转从最早变化日向前递推，禁止单日补丁。
@@ -2363,7 +2403,7 @@ Prod publisher 只消费 formal-audit 通过且 Gold hash 发生变化的分区�
 
 ### 17.14 开发和正式执行里程碑
 
-1. **R0**：实现只读 planner/probe，生成完整 mode manifest。
+1. **R0**：实现只读 planner/probe 和 1m fallback eligibility audit；正式 source 行只来自 `TushareResource`，生成完整 mode manifest。
 2. **R1**：实现 Raw candidate/audit/promote 和测试。
 3. **R2**：实现 Silver candidate、fallback 和 changed manifest。
 4. **R3**：接入 bounded QFQ history scope。
@@ -2385,3 +2425,18 @@ WMT-7R 完成必须同时满足：
 6. 正常日常自动链路和性能门禁不回退。
 7. 所有审计动作小于等于 5 分钟，没有全盘深审计。
 8. 正式 Lake、Prod 和控制面执行报告均经单独审批；未执行阶段必须明确标为待办。
+
+### 17.16 开发前审计结论
+
+截至 `2026-08-25`，WMT-7R 已具备进入代码开发的条件，但只允许从 R0/R1 开始，不代表已批准正式数据写入：
+
+1. CodeGraph 索引为最新状态；已核对 Raw fetch/merge、Silver writer、QFQ canonical history、MACD/KDJ history、QFQ nineturn history 和 WMT history 的真实入口。
+2. `TushareResource.call(...)` 强制显式 fields；共享 `TushareRequestPolicy` 已提供 `1,200` 请求/`300s`/重试退避门禁，可直接复用。
+3. 当前 `_fetch_raw_stk_mins_rows(...)` 只支持单分区并把返回行保存在 Python list；WMT-7R 只能抽取其字段和行级校验语义，range probe 必须走共享 bounded runner，并按批落 staging，不得直接扩大现有循环。
+4. 当前 `merge_repair_raw_stk_mins_partition_from_tushare(...)` 会在正式目标旁生成 sibling temp 并立即 `os.replace()`；因此不能作为正式历史入口，只能复用 merge SQL 语义。
+5. `write_silver_stk_mins_partition(..., output_path_override=...)` 已支持 candidate 输出，且现有 SQL 已具备完整 1m code-day 和 missing coarse code fallback；新增工作是 eligibility audit 和 history orchestration，不需要重写聚合公式。
+6. QFQ canonical、MACD/KDJ history 和 WMT history 已有 planner/candidate/audit 能力；需要增加 changed-manifest scope。QFQ nineturn history 当前是完整 asset/year planner，必须扩展 affected code/date scope后才能复用。
+7. 计划新增/修改的 orchestrator 目标文件当前没有未提交代码冲突；仓库其它目录存在的无关脏改不进入本专项。
+8. 当前没有新增配置项、schema、asset、job、sensor、check 或 API contract 的需要，也没有待用户拍板的业务口径。
+
+因此下一步可以开发 R0：只读 mode planner、正式 `TushareResource` bounded probe 和 1m fallback eligibility audit；在 R0 报告通过并单独批准前，不得执行 Raw candidate/promote。
