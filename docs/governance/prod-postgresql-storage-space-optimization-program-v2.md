@@ -1,7 +1,7 @@
 # 生产 PostgreSQL 存储空间优化治理专项 v2
 
 - 版本：v2
-- 状态：截至 2026-08-24 18:07+08 暂停生产迁移；P1-B0-M3 已通过，P1-B1 行业与概念 M3a 已通过、两项 M3b 等待今晚 20:00 自然工作流后统一核验；`margin` 尚未进入 M1
+- 状态：P1-B0 市场资金与 P1-B1 行业/概念资金的自然工作流数据链验收已通过；20:00 准点性因部署锁等待不作为本次证据；`margin` 尚未进入 M1，后续生产 M3a 受 SSE 长事务修复门禁约束
 - 更新时间：2026-08-24
 - 范围：生产 PostgreSQL 小对象 SSD→HDD 迁移，以及无业务转换的 raw/core_serving 重复物理存储收口
 - 不在范围：`stk_mins` 大分区迁移、删除 raw 源事实、修改 Tushare 请求语义、自动执行生产 DDL
@@ -151,7 +151,7 @@ Definition 固定为：
 1. 行业 42,030 行、概念 181,560 行、margin 1,146 行，raw/serving 行数和主键身份数逐项一致；行业与概念覆盖 `2024-09-10..2026-08-21`，margin 覆盖 `2025-01-02..2026-08-21`；
 2. 行业与概念按 24 个自然月比较全部业务字段，每个窗口双向差集均为 0；margin 全量双向差集为 0；
 3. 三张 serving 表均无 inheritance、外键、用户 trigger、列 ACL、RLS、依赖 view/function、rewrite rule、扩展统计、security label 或 publication；raw 的等价索引均 valid、ready 且位于 `pg_default`；
-4. `moneyflow_ind_ths` 和 `moneyflow_cnt_ths` 由 active 的 `daily_moneyflow_maintenance` 工作流覆盖；`margin` 保留 active 的 `09:00..09:30` 固定源端 probe。后续维护窗口必须处理这些入口，不能按 B0 的无 schedule 假设执行；
+4. `moneyflow_mkt_dc`、`moneyflow_ind_ths` 和 `moneyflow_cnt_ths` 均由 active 的 `daily_moneyflow_maintenance` 工作流覆盖；`margin` 保留 active 的 `09:00..09:30` 固定源端 probe。B0 当时只确认“没有创建或重建 schedule”，却误写成该数据集没有自动入口；后续必须从 workflow step 反查真实覆盖关系；
 5. 单月最大行数实测为行业 2,070、概念 9,070、margin 69；对应 migration 上限分别固定为 5,000/月、20,000/月和 5,000/全表，禁止直接复用 B0 的全表小表口径；
 6. 首项行业 revision `20260824_000147` 已完成 M1 编码和离线验证，只修改行业 Definition storage、raw ORM 索引 metadata、独立 migration 与测试；它复用 B0 的稳定数据库拒写函数，但不新增共享 Python 框架；
 7. M2 已在仅 Unix socket 可访问的 PostgreSQL 18.4 隔离实例，以非超级用户从 revision 146 成功升到 147。42,030 行受控样本的 raw/view 行数、身份、12 个业务字段与审计时间投影完全一致，view 物理大小为 0；owner、comments、PUBLIC/普通/带授权选项 SELECT 和 raw reader 权限完整恢复；
@@ -200,6 +200,24 @@ Definition 固定为：
 当时 schedule #4 仍为 active，下一次触发为 `2026-08-24 20:00+08`，当天尚无该 schedule 创建的 TaskRun，因此行业与概念 M3b 只能标记为“尚未到触发时刻”，不能提前标完成或失败。生产另有两个与本专项无关的开放任务：TaskRun `9229`（`stk_mins`，17,368/29,450 unit）和 `9230`（`index_mins`，2,200/2,650 unit），均为 running；所以当日不再进入任何生产维护窗口。
 
 本地 `dev-interface` 已提交 pure-probe 时间字段收口 commit `6221f5d9`，对应 migration `20260824_000150`，但尚未推送或部署；其前面还有未在生产应用的 revision `20260824_000149`。因此生产 schedule #33 仍保留历史 `cron_expr/next_run_at` 字段，运行时仍按 probe rule 工作。该事实不属于 `margin` raw 直出 M1 完成项；未来任何生产 migration 前必须重新核对“生产 148、本地 150+”的累计 revision 链，禁止把 149/150 与 margin relation 切换无审计地捆绑自动应用。
+
+### 2.9 2026-08-24 夜间自然工作流验收与迁移锁事件
+
+18:07 暂停点是历史快照。随后生产完成 revision `20260824_000149/000150`，当前 Alembic 为 `20260824_000150`，schedule #33 的 pure-probe 时间字段已归一化，检查约束有效。20:00 的 `daily_moneyflow_maintenance` 因本次部署迁移锁等待，在 scheduler 恢复后于 `20:07:29+08` 创建 schedule #4 TaskRun `9244`；父任务于 `20:08:25` 开始、`20:08:56` 结束，状态 `success`，7/7 workflow step 完成、0 失败、读取/保存 18,267、reject 0、去重 0。
+
+本轮验收只查询既有 TaskRun、节点和目标日期数据，没有创建任务、额外请求 Tushare 或写数据库。三个已直出节点的结果如下：
+
+| 完整阶段编号 | 数据集/node | 时间输入 | 读取/保存 | reject/去重 | 分页 | raw/view 与内容对账 | 结论 |
+| --- | --- | --- | ---: | ---: | --- | --- | --- |
+| `P1-B0-market-M3b` | `moneyflow_mkt_dc` | point `2026-08-24` | 1 / 1 | 0 / 0 | 1 页、短页结束、0 重试、未截断 | 1/1 行、1/1 身份；15 个业务字段双向差集 0；审计时间投影差异 0 | 补充自然运行数据链通过 |
+| `P1-B1-industry-M3b` | `moneyflow_ind_ths` | point `2026-08-24` | 90 / 90 | 0 / 0 | 1 页、短页结束、0 重试、未截断 | 90/90 行、90/90 身份；12 个业务字段双向差集 0；空 `ts_code` 与审计时间投影差异均为 0 | 通过 |
+| `P1-B1-concept-M3b` | `moneyflow_cnt_ths` | point `2026-08-24` | 387 / 387 | 0 / 0 | 1 页、短页结束、0 重试、未截断 | 387/387 行、387/387 身份；12 个业务字段双向差集 0；空 `ts_code` 与审计时间投影差异均为 0 | 通过 |
+
+该证据证明 `schedule -> workflow -> source -> raw-only writer -> serving view` 的真实运行链路正常。TaskRun 原定 20:00，但实际在 20:07 创建，因此本轮不能作为 scheduler 准点性证据；延迟由部署事件导致，不归因为三个数据集的直出契约。
+
+部署卡顿的直接阻塞者是 Web 的 `/api/v1/ops/schedules/stream` SSE：它在无限流生命周期内复用同一 SQLAlchemy Session，每两秒查询一次 schedule/task 状态，却不结束事务。数据库 PID `37355` 从 `19:45:59` 起 `idle in transaction` 并持有 `ops.schedule` 的 `AccessShareLock`；migration PID `38772` 在添加 pure-probe check constraint 时等待 `AccessExclusiveLock`，scheduler PID `37410` 又排在 migration 后。生产 `lock_timeout` 与 `idle_in_transaction_session_timeout` 均为 0，所以连接若不释放会无限等待。连接结束后 migration 正常提交，服务和健康端点恢复。
+
+这是已观察且尚未修复的共享运行链问题：不阻塞 `margin` M1/M2 的开发和隔离验证，但在 SSE 改为有界短事务、migration 增加有界锁等待/预检并完成回归前，阻塞任何后续生产 M3a。禁止把本次最终成功解释为发布流程已经安全。
 
 ## 3. Track A：独立小对象 SSD→HDD 迁移
 
@@ -313,11 +331,11 @@ raw 直出一期口径固定后，原 A1 不能再作为六表迁移批次执行
 | `index_daily_basic` | 1.0 MiB | **已证** | 否，缺 1 组 | 当前有 1 个 active schedule |
 | `index_weight` | 951.6 MiB | 待分块证明 | 否，缺 2 组 | Wealth 指数详情读取；当前有 1 个 active schedule |
 | `margin` | 0.3 MiB | **已证** | 是 | 当前有 1 个 active schedule |
-| `moneyflow_cnt_ths` | 41.9 MiB | **已证** | 是 | **P1-B1 第二项 M3a 即时验收通过；已切换为 raw-backed view，M3b 证据待闭环** |
+| `moneyflow_cnt_ths` | 41.9 MiB | **已证** | 是 | **P1-B1-concept-M3a/M3b 通过；已切换为 raw-backed view** |
 | `moneyflow_dc` | 1.05 GiB | 待分块证明 | 是 | 高收益候选；先核验历史漂移 |
 | `moneyflow_ind_dc` | 83.5 MiB | 待证明 | 是 | Wealth 板块查询直接读取 |
-| `moneyflow_ind_ths` | 9.3 MiB | **已证** | 是 | **P1-B1 首项 M3a 即时验收通过；已切换为 raw-backed view，M3b 证据待闭环** |
-| `moneyflow_mkt_dc` | 0.2 MiB | **已证** | 是 | **一期 P1-B0 试点已固定** |
+| `moneyflow_ind_ths` | 9.3 MiB | **已证** | 是 | **P1-B1-industry-M3a/M3b 通过；已切换为 raw-backed view** |
+| `moneyflow_mkt_dc` | 0.2 MiB | **已证** | 是 | **P1-B0-M3 通过；补充自然工作流数据链通过** |
 | `moneyflow_ths` | 460.9 MiB | 待分块证明 | 是 | 一期 P1-B3；raw 固定留 SSD |
 | `stk_auction_c` | 364.1 MiB | 待分块证明 | 是 | 一期 P1-B3；raw 固定留 SSD |
 | `stk_auction_o` | 361.9 MiB | 待分块证明 | 是 | 一期 P1-B3；raw 固定留 SSD |
@@ -383,9 +401,9 @@ raw 直出一期口径固定后，原 A1 不能再作为六表迁移批次执行
 
 | 批次 | 顺序 | 数据集 | raw → serving | serving 大小 | raw/serving 精确行数 | 当前状态 |
 | --- | ---: | --- | --- | ---: | ---: | --- |
-| P1-B0 | 1 | `moneyflow_mkt_dc` | `raw_tushare.moneyflow_mkt_dc` → `core_serving.market_moneyflow_dc` | 0.2 MiB | 812 / 812 | **M3 生产验收通过；已释放物理 serving 237,568 B** |
-| P1-B1 | 2 | `moneyflow_ind_ths` | `raw_tushare.moneyflow_ind_ths` → `core_serving.industry_moneyflow_ths` | 9.3 MiB | 42,030 / 42,030 | **M3a 即时验收通过；已释放 9,756,672 B，M3b 证据待闭环** |
-| P1-B1 | 3 | `moneyflow_cnt_ths` | `raw_tushare.moneyflow_cnt_ths` → `core_serving.concept_moneyflow_ths` | 41.9 MiB | 181,560 / 181,560 | **M3a 即时验收通过；已释放 43,958,272 B，M3b 证据待闭环** |
+| P1-B0 | 1 | `moneyflow_mkt_dc` | `raw_tushare.moneyflow_mkt_dc` → `core_serving.market_moneyflow_dc` | 0.2 MiB | 812 / 812 | **M3 生产验收及补充自然工作流数据链通过；已释放物理 serving 237,568 B** |
+| P1-B1 | 2 | `moneyflow_ind_ths` | `raw_tushare.moneyflow_ind_ths` → `core_serving.industry_moneyflow_ths` | 9.3 MiB | 42,030 / 42,030 | **M3a/M3b 通过；已释放 9,756,672 B** |
+| P1-B1 | 3 | `moneyflow_cnt_ths` | `raw_tushare.moneyflow_cnt_ths` → `core_serving.concept_moneyflow_ths` | 41.9 MiB | 181,560 / 181,560 | **M3a/M3b 通过；已释放 43,958,272 B** |
 | P1-B1 | 4 | `margin` | `raw_tushare.margin` → `core_serving.equity_margin` | 0.3 MiB | 1,146 / 1,146 | 全字段等价已证；固定 probe，批次内最后执行 |
 | P1-B2 | 5 | `moneyflow_ind_dc` | `raw_tushare.moneyflow_ind_dc` → `core_serving.board_moneyflow_dc` | 83.5 MiB | 336,175 / 336,175 | Wealth 直接消费；全字段等价待证 |
 | P1-B2 | 6 | `dc_daily` | `raw_tushare.dc_daily` → `core_serving.dc_daily` | 154.0 MiB | 629,993 / 629,993 | Wealth/QTF/DG 直接消费；全字段等价待证 |
@@ -493,8 +511,8 @@ raw 直出一期口径固定后，原 A1 不能再作为六表迁移批次执行
 | Milestone | 范围 | 目标 | 当前状态 |
 | --- | --- | --- | --- |
 | V2-M0 | 本文、代码/生产只读审计、一期 LLD | 固定一期名单、批次、透明性边界和实施门禁 | **本轮完成** |
-| P1-B0 | `moneyflow_mkt_dc` | raw-backed serving view 契约试点 | **M3 生产 migration、查询与 TaskRun 验收通过** |
-| P1-B1 | `moneyflow_ind_ths` → `moneyflow_cnt_ths` → `margin` | 小表逐项验证；margin 最后处理 probe | **截至 2026-08-24 18:07 暂停：行业与概念 M3a 通过、两项 M3b 待 20:00 后闭环；margin 尚未进入 M1** |
+| P1-B0 | `moneyflow_mkt_dc` | raw-backed serving view 契约试点 | **M3 生产验收及 schedule #4 补充自然运行数据链通过** |
+| P1-B1 | `moneyflow_ind_ths` → `moneyflow_cnt_ths` → `margin` | 小表逐项验证；margin 最后处理 probe | **行业与概念 M3a/M3b 通过；margin 尚未进入 M1；共享 SSE 锁问题阻塞后续生产 M3a** |
 | P1-B2 | `moneyflow_ind_dc` → `dc_daily` → `suspend_d` | 验证 Wealth/QTF/DG 直接消费者与特殊身份键 | B1 全部验收后逐项授权 |
 | P1-B3 | `stk_auction_o` → `stk_auction_c` → `moneyflow_ths` | 验证百万行级数据等价、切换和查询性能 | B2 全部验收后逐项授权 |
 | P1-B4 | `moneyflow_dc` → `stk_limit` | 释放一期主要空间并验收市场情绪消费者 | B3 全部验收后逐项授权 |
@@ -555,18 +573,18 @@ raw 直出一期口径固定后，原 A1 不能再作为六表迁移批次执行
 ### 8.2 后续执行前需要单独拍板
 
 1. P1-B0 已按“业务读取合同透明、物理 relation 身份和历史审计时间不透明”的边界完成生产验收；后续数据集继续沿用该边界，但不得复用 B0 的行数上限或性能结论；
-2. P1-B1 三项 M0 已完成，行业与概念 M3a 生产切换和即时验收已通过，两项 M3b 已进入统一夜间验收台账；下一项开发是 `margin` 的独立 M1，待核验的夜间 M3b 本身不构成开发阻塞。margin 仍需按 probe 契约独立执行，禁止因同属 B1 合并 migration、维护窗口或自动化处理口径；
+2. P1-B1 三项 M0 已完成，行业与概念 M3a/M3b 已通过；下一项开发是 `margin` 的独立 M1。margin 仍需按 probe 契约独立执行，禁止因同属 B1 合并 migration、维护窗口或自动化处理口径；SSE 长事务与 migration 无限锁等待尚未修复，因此 margin M1/M2 可准备，但生产 M3a 暂停；
 3. 仓库外 SQL、BI、人工脚本和 catalog 工具仍需由运营持续登记；P1-B0 未发现仓库内异常消费者不能证明仓库外消费者不存在；
 4. Track A 与一期外 `daily_basic/dc_member` 是否推进，继续后置，不由本 LLD 自动授权。
 
 ## 9. 本轮未完成事项与残余不确定性
 
 1. 一期 12 组已完成精确行数核对；`moneyflow_mkt_dc`、`moneyflow_ind_ths`、`moneyflow_cnt_ths`、`margin` 完成全部业务字段双向差集，其余 8 组内容等价待有界分块证明。行数一致不能证明内容一致。
-2. P1-B0 已完成全部 M3；P1-B1 行业与概念均已完成 M1/M2/生产 M3a，两个目标节点的 M3b 自然工作流证据在 18:07+08 尚未到触发时刻；margin 尚未编码。概念 M3a 的标准部署提前自动应用 migration 偏差已记录，后续生产切换必须先进入维护窗口再显式迁移。详细复盘、零假设审计清单、后续批次差异门禁和统一状态机见一期 LLD 第 9 节。
+2. P1-B0 已完成 M3，并补充通过 schedule #4 的市场资金节点自然运行数据链；P1-B1 行业与概念均已完成 M1/M2/M3a/M3b；margin 尚未编码。本次 M3b TaskRun 因部署锁等待于 20:07 而非 20:00 创建，不能作为准点性证据。概念 M3a 的自动 migration 偏差和本次 SSE 长事务阻塞 migration 150 均已记录；后续生产切换必须先完成共享锁问题修复，再进入维护窗口显式迁移。
 3. 未核验所有仓库外 SQL 消费者；这是 P1-B0 的残余运营风险，也是每个后续数据集的独立准入门禁。
 4. 没有整库可恢复备份条件时，极端磁盘/实例故障风险仍存在；本文只能通过小对象、单事务和 fail-closed 降低人为操作风险。
 5. SSD 扩容后的 51.68 GiB 可用空间只是 2026-08-24 18:07+08 快照；当前磁盘、任务和锁状态都会漂移，任何未来执行必须重新采样，不能因名义容量升至 270 GB 而跳过容量门禁。
-6. 当日暂停时生产 head 为 148，本地提交链已到 150；在 margin 或其它数据集进入生产 M3a 前，必须先独立审计并处理 149/150，禁止再次由标准部署在维护窗口外隐式应用累计 migration。
+6. 生产已升至 revision 150，149/150 的版本差异已消除；但标准部署在服务存活时执行 migration 150，受到 schedule SSE 长事务阻塞。后续生产 M3a 的剩余门禁已经从“版本差异”转为“SSE 短事务修复、锁等待 fail-fast、维护窗口顺序回归”。
 
 ## 10. 相关基线
 
