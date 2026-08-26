@@ -422,7 +422,7 @@ def _schema_matches_sample(
     return True
 
 
-def _stock_indicator_state_recent_audits(
+def audit_stock_indicator_state_partitions(
     *,
     lake_root: Path,
     freq: int,
@@ -1458,7 +1458,7 @@ def build_p9_plan(
         recent_stock = recent[cn_a_stock_mins_silver_trade_days.name]
         for freq in P9_FREQUENCIES:
             check_audits.update(
-                _stock_indicator_state_recent_audits(
+                audit_stock_indicator_state_partitions(
                     lake_root=lake_root,
                     freq=freq,
                     dates=recent_stock,

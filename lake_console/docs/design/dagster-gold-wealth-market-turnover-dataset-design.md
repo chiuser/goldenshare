@@ -1,6 +1,6 @@
 # Dagster Gold Wealth Market Turnover Dataset Design
 
-状态：WMT-1 至 WMT-6 的代码、历史 Lake、最近 20 日 runless event 和 Prod Serving 同步已按原口径闭环。WMT-7/WMT-7R 的 R0A-R5 已于 `2026-08-27` 正式完成：可恢复的 Raw/Silver 和真实受影响的 QFQ、MACD/KDJ/state/分钟九转已按冻结范围恢复，Gold/Prod 已覆盖 `2021-11-15..2026-08-25` 的 `1,159` 个交易日。实际变化 `1,158` 日，`2026-08-25` 为 canonical no-op；`2023-07-11:1m` 按 source-unusable 合同保留旧事实，另外四频重建。Prod 最终为 `5,795` 行、非 READY 行 `0`，代表日期与正式 Lake 逐字段一致。R6 控制面未执行，本轮没有补 Gold/Prod 历史 materialization/check event。WMT-7/WMT-7R 生效后，本文第 17、18 节是当前计算、依赖、校验和恢复口径；前文 WMT-1 至 WMT-6 与其冲突的“只读五频分钟线”描述仅保留为历史实施记录，不再作为后续开发事实。
+状态：WMT-1 至 WMT-6 的代码、历史 Lake、最近 20 日 runless event 和 Prod Serving 同步已按原口径闭环。WMT-7/WMT-7R 的 R0A-R6 已于 `2026-08-27` 正式完成：可恢复的 Raw/Silver 和真实受影响的 QFQ、MACD/KDJ/state/分钟九转已按冻结范围恢复，Gold/Prod 已覆盖 `2021-11-15..2026-08-25` 的 `1,159` 个交易日。实际变化 `1,158` 日，`2026-08-25` 为 canonical no-op；`2023-07-11:1m` 按 source-unusable 合同保留旧事实，另外四频重建。Prod 最终为 `5,795` 行、非 READY 行 `0`，代表日期与正式 Lake 逐字段一致。R6 只对两份 actual-changed recursive manifest 并集中的最近 20 日递推资产追加 `283` 条 materialization 和 `563` 条 latest-bound blocking check；没有补 Gold/WMT/Prod、Raw、Silver、QFQ 本体的历史事件，也没有改 runs、run tags 或 dynamic partitions。WMT-7/WMT-7R 生效后，本文第 17、18 节是当前计算、依赖、校验和恢复口径；前文 WMT-1 至 WMT-6 与其冲突的“只读五频分钟线”描述仅保留为历史实施记录，不再作为后续开发事实。
 
 ## 1. 目标
 
@@ -1369,9 +1369,9 @@ WMT 正常日常 writer 继续要求五频完整，不接受降级。历史维�
 9. 无 Kopia、无正式 Lake sibling temp、无无边界 Tushare 请求、无全历史 Python 扫描。
 10. 未经单独批准，不执行正式 Lake、Prod 或 Dagster event 写入。
 
-### 18.10 R0-R4 开发落地状态
+### 18.10 R0-R6 开发落地状态
 
-截至 `2026-08-26`，本节已完成 R0A/R0B、R1 Raw、R2 Silver、R3 QFQ 和 R4 指标/九转；R5 已安全停止在新的 partial-source 门禁，R6 尚未执行：
+本节记录 WMT-7R 从 R0A 到 R6 的实际执行事实；中途被门禁阻断的历史状态保留为审计证据，最终完成状态以本节末尾为准：
 
 1. 显式维护模块和 CLI 已固定为 `plan -> stage-source -> build-raw-candidates -> audit-raw-candidates -> promote-raw -> build-silver-candidates -> audit-silver-candidates -> promote-silver`，每个正式写入阶段独立确认。
 2. R0A 将 expected latest code、canonicalized existing Raw coverage、missing latest code 和首选历史 alias 冻结到 staging scope plan；`valid_to` 按排除边界处理，优先级固定为唯一 `bse_mapping`、唯一非 self `namechange`、唯一 self row。
@@ -1412,7 +1412,7 @@ WMT 正常日常 writer 继续要求五频完整，不接受降级。历史维�
 36. 最终 candidate 报告 `/private/tmp/stk_mins_bse_recursive_candidates_20260826_v3.json` 完成 `528/528` 个 MACD/KDJ 批次和 `2,844/2,844` 个九转分区，共生成 `13,749` 个候选，staging 体积约 `4.1 GiB`。最慢 candidate 调用 `214.08s`，最大 RSS 约 `8.49 GiB`，均低于 `300s/20GiB` 门禁。
 37. Audit 报告 `/private/tmp/stk_mins_bse_recursive_audit_20260826_v3.json` 对 `13,749/13,749` 个候选完成 schema、主键、domain、非目标行 hash、candidate hash 和 formal target fingerprint 对账，失败 `0`；其中实际变化 `10,567`、逻辑 no-op `3,182`，`audit_hash=a7f799d905d7fbc2695b596521cd092c66ef9b0df1fed2bebbe888e013a7206f`。所有审计批次均低于 5 分钟，最慢 `183.67s`。
 38. Promote 报告 `/private/tmp/stk_mins_bse_recursive_promote_20260826_v3.json` 记录 `10,567/10,567` 个 changed 文件经同文件系统 `os.replace()` 原子提升，`3,182` 个 no-op 未写正式 Lake，耗时 `267.933s`。checkpoint 的 `in_progress=null`；36 个资产族/频率首尾代表文件正式 sha256 与 manifest 完全一致，正式临时文件和 recursive candidate 残留均为 0。
-39. `actual-changed-recursive-manifest.json` 位于同 plan staging 根，`manifest_hash=9e1ce4bda0a75fd3376713a8fd8012efd8aab11371510a4b6a07976d613c932c`，记录实际变化 `45,328,706` 行。最近 20 个 registered trade dates 中，MACD/KDJ 与 state 均有真实变化，分钟九转无变化；该事实只供 R6 独立决定 event refresh，不代表 R4 已写事件。
+39. `actual-changed-recursive-manifest.json` 位于同 plan staging 根，`manifest_hash=9e1ce4bda0a75fd3376713a8fd8012efd8aab11371510a4b6a07976d613c932c`，记录实际变化 `45,328,706` 行。该主 manifest 的最近 20 个 registered trade dates 中，MACD/KDJ 与 state 均有真实变化，分钟九转无变化；R5 partial-source follow-up 后另有第二份 recursive manifest，最终 R6 必须取两份 manifest 的并集，不能只沿用本项的阶段性结论。
 40. R4 前后 Dagster `runs=49,281`、`event_logs=4,410,202`、`cn_a_stock_mins_silver_trade_days=3,075` 均不变，active runs 为 0；R4 没有访问 Tushare、Prod DB 或 Dagster event history，也没有写 WMT/Prod。R5 只能消费既有 source recovery/changed manifests 进入 WMT mixed-mode rebuild，不得回头扩大 R4 范围。
 41. R5 首轮 planner 只按旧 source bundle 判定 `REBUILD_V2`，没有批量核验 bundle 范围外的正式 Silver 北交所 code set，导致 candidate build 到 `2023-05-15:1m` 才发现 `920263.BJ` 缺失。该行为违反“partial rows 未写”的门禁，正式执行已立即停止；当前 plan 只完成前 18 个 20 日批次，Prod 尚未发布。
 42. Planner 必须在 candidate 之前一次性批量核验所有 requested `REBUILD_V2` 日期/频率：同日 `silver_stock_daily` 北交所代码集合与分钟源完全一致，且每个代码恰好有一个 `15:00` 行。`SOURCE_EMPTY_SKIP` 仍只按冻结 bundle 保留既有 Gold，不参与该 rebuild 门禁。
@@ -1427,4 +1427,9 @@ WMT 正常日常 writer 继续要求五频完整，不接受降级。历史维�
 46. 正式数据暴露并校准了两类源累计精度边界：成交量使用 `max(2 shares, ceil(daily_vol_shares * 1 ppm))`，金额使用 `100 yuan + abs(residual_vol) * daily_average_price_yuan`。该动态门禁只容纳有量纲的微小独立累计差，负向越界、超动态金额上限及大于精度带但金额非正仍 fail closed。
 47. 最终 Prod 统计为 `5,795` 行、`1,159` 个交易日、非 READY 行 `0`；6 个边界/代表日期与正式 Lake 逐字段一致。报告位于 `/private/tmp/cn_a_wmt7r_20260827/r5_final_prod_reconciliation.json`。
 
-R5 Gold/Prod 已完成。R6 控制面仍需独立处理；R5 没有写 Dagster event、run 或 dynamic partition，不能把物理恢复完成解释为已补录控制面历史状态。
+48. R6 新增专用维护模块 `stk_mins_bse_recursive_events.py` 和显式 `plan -> apply -> post-audit` CLI。计划只消费两份不可变 actual-changed recursive manifest，绑定 Lake 根、manifest hash 和 `1,837` 个最近窗口相关正式文件 fingerprint；不读取 WMT/Prod 范围，也不增加 asset、job、sensor 或 definition。
+49. 正式 R6 plan 为 `/private/tmp/cn_a_wmt7r_20260827/r6/r6_event_plan.json`，`plan_hash=905dfe7578b9d2559773cd05686363e8a8d22b3c2dc235e70b0175c683bc7771`。只读批量审计耗时 `41.933s`，`should_stop=false`、active runs `0`、缺注册分区 `0`、失败 check `0`。精确范围为 14 个 MACD/KDJ 与 state 资产各最近 20 日，以及 follow-up manifest 中 `2026-07-29` 的 60m/90m/120m 九转，共 17 个资产。
+50. R6 apply 报告 `/private/tmp/cn_a_wmt7r_20260827/r6/r6_event_apply.json` 精确追加 `283` 条 materialization 和 `563` 条 blocking check，共 `846` 条 event；check 全部绑定本轮最新 materialization。checkpoint 完成项为 `846`，未删除或改写任何旧事件。
+51. R6 post-audit 报告 `/private/tmp/cn_a_wmt7r_20260827/r6/r6_event_post_audit.json` 对 `846/846` 项验收通过。数据库前后 `event_logs 4,410,202 -> 4,411,048`、`asset_check_executions 432,673 -> 433,236`，`runs=49,281`、`dynamic_partitions=45,900` 均不变，active runs 仍为 `0`。本轮没有写 Lake、Prod、Gold/WMT、Raw、Silver 或 QFQ 本体事件。
+
+R0A-R6 已完成。WMT-7R 的物理恢复、Prod 回写和必要的最近窗口递推资产控制面刷新均已闭环；后续日常链路继续使用既有 asset/check/job/sensor 口径。
