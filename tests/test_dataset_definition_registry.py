@@ -1216,6 +1216,12 @@ def test_dataset_definition_storage_layer_facts_are_explicit() -> None:
             "raw_tushare.moneyflow_mkt_dc",
             "core_serving.market_moneyflow_dc",
         ),
+        (
+            "margin",
+            "raw_margin",
+            "raw_tushare.margin",
+            "core_serving.equity_margin",
+        ),
     ):
         definition = get_dataset_definition(dataset_key)
         assert definition.storage.raw_dao_name == raw_dao_name
@@ -1249,6 +1255,7 @@ def test_raw_serving_view_definitions_project_raw_freshness_targets() -> None:
         ("moneyflow_cnt_ths", "raw_tushare.moneyflow_cnt_ths"),
         ("moneyflow_ind_ths", "raw_tushare.moneyflow_ind_ths"),
         ("moneyflow_mkt_dc", "raw_tushare.moneyflow_mkt_dc"),
+        ("margin", "raw_tushare.margin"),
     ):
         projection = dataset_definition_projection.get_dataset_freshness_projection(dataset_key)
         assert projection is not None

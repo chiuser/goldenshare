@@ -12,6 +12,7 @@ from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
 from src.foundation.models.raw.raw_moneyflow_cnt_ths import RawMoneyflowCntThs
 from src.foundation.models.raw.raw_moneyflow_ind_ths import RawMoneyflowIndThs
 from src.foundation.models.raw.raw_moneyflow_mkt_dc import RawMoneyflowMktDc
+from src.foundation.models.raw.raw_margin import RawMargin
 from src.foundation.models.raw.raw_st import RawSt
 from src.foundation.models.raw.raw_stk_nineturn import RawStkNineTurn
 
@@ -78,6 +79,18 @@ class _RecordingRawDao:
                 "net_amount": 0,
             },
             "raw_tushare.moneyflow_mkt_dc",
+            None,
+        ),
+        (
+            "margin",
+            "raw_margin",
+            RawMargin,
+            {
+                "trade_date": date(2026, 8, 22),
+                "exchange_id": "SSE",
+                "rzye": 0,
+            },
+            "raw_tushare.margin",
             None,
         ),
         (

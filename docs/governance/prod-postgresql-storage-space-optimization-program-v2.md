@@ -1,7 +1,7 @@
 # 生产 PostgreSQL 存储空间优化治理专项 v2
 
 - 版本：v2
-- 状态：P1-B0 市场资金与 P1-B1 行业/概念资金的自然工作流数据链验收已通过；`P1-GATE-SSE-M1/M2` 已完成，生产 M3 尚未授权；`margin` 仍未进入 M1，后续生产 M3a 继续受共享门禁约束
+- 状态：P1-B0 市场资金与 P1-B1 行业/概念资金的自然工作流数据链验收已通过；`P1-GATE-SSE-M1/M2/M3` 已完成，共享生产门禁已解除；`margin` 独立 M1 已完成，尚待独立授权的 M2/M3a/M3b
 - 更新时间：2026-08-26
 - 范围：生产 PostgreSQL 小对象 SSD→HDD 迁移，以及无业务转换的 raw/core_serving 重复物理存储收口
 - 不在范围：`stk_mins` 大分区迁移、删除 raw 源事实、修改 Tushare 请求语义、自动执行生产 DDL
@@ -195,7 +195,7 @@ Definition 固定为：
 | `moneyflow_mkt_dc` | 物理表，`pg_default`，262,144 B | 普通 view，0 B，直接读取 raw | 812 / 812 | `2023-04-17..2026-08-21` | P1-B0-M3 已完成 |
 | `moneyflow_ind_ths` | 物理表，`pg_default`，10,657,792 B | 普通 view，0 B，直接读取 raw | 42,030 / 42,030 | `2024-09-10..2026-08-21` | P1-B1-industry-M3a 已完成；M3b 待 20:00 后核验 |
 | `moneyflow_cnt_ths` | 物理表，`pg_default`，47,153,152 B | 普通 view，0 B，直接读取 raw | 181,560 / 181,560 | `2024-09-10..2026-08-21` | P1-B1-concept-M3a 已完成；M3b 待 20:00 后核验 |
-| `margin` | 物理表，`pg_default`，352,256 B | 物理表，`pg_default`，335,872 B | 1,146 / 1,146 | `2025-01-02..2026-08-21` | 仅 M0 等价审计完成；尚未进入 M1 |
+| `margin` | 物理表，`pg_default`，352,256 B | 物理表，`pg_default`，335,872 B | 1,146 / 1,146 | `2025-01-02..2026-08-21` | 仅 M0 等价审计完成；尚未完成 M1 |
 
 三张已切换 view 的定义均为显式字段投影并直接读取对应 raw 表；各 view 当前行数、业务身份数和日期范围与 raw 一致，且分别存在 enabled 的 `INSTEAD OF INSERT/UPDATE/DELETE` 拒写 trigger。生产 Alembic 仍为 `20260824_000148`，生产代码检出为 `bbcff0e7`，二者覆盖市场、行业和概念三项已完成切换。
 
@@ -221,7 +221,7 @@ Definition 固定为：
 
 这是已观察的共享运行链问题。2026-08-26 已完成 `P1-GATE-SSE-M1`：SSE 鉴权事务在返回流前结束，每轮轮询改用独立短会话并在输出/休眠前回滚关闭；PostgreSQL 在线 Alembic migration 在 migration transaction 内统一设置 `SET LOCAL lock_timeout='15s'`，且不修改全局数据库参数。定向自动化测试已覆盖事务成功/失败、会话隔离、event/ping 兼容和 online/offline Alembic 分支。
 
-M1 只证明代码合同，尚未部署。隔离 PostgreSQL M2 与生产 M3 均未授权；因此它不阻塞 `margin` M1/M2 的开发和隔离验证，但在真实 SSE 长连接与锁冲突验收闭环前，仍阻塞任何后续生产 M3a。禁止把 M1 完成解释为发布流程已经安全。
+本段记录 M1 完成时的阶段边界：当时 M1 只证明代码合同且尚未部署，仍须隔离 PostgreSQL M2 与生产 M3；后续第 2.10、2.11 节已经记录两项门禁的实际闭环证据，不能再把这段历史边界误读为当前状态。
 
 ### 2.10 2026-08-26 `P1-GATE-SSE-M2` 隔离验收
 
@@ -229,7 +229,27 @@ M2 在仅 Unix socket 可访问的 PostgreSQL 18.4 临时实例，以非超级�
 
 真实 HTTP SSE 跨越多个 2 秒周期返回 2 个数据事件和 2 个 ping；216 次数据库采样只捕获 1 次 0.997ms 的查询结束到 rollback 瞬时窗口，连续采样 1 次，没有 idle relation lock，流结束后 `idle in transaction=0`。独立连接持有 `ops.schedule AccessShareLock` 时，revision 150 于 15.815 秒 lock timeout 失败；revision 149、legacy probe 字段、物理表类型和约束不存在状态全部原子保留。释放锁后 migration 成功，probe 字段归一化、约束 validated，违规写入以 SQLSTATE `23514` 拒绝并回滚，新会话 `lock_timeout=0`。最终升级到当前 head 151 成功，167 项回归通过。
 
-M2 据此通过；共享生产门禁只剩独立授权的 M3。M3 未完成前，不得把隔离证据外推为生产已安全，也不得进入任何后续数据集生产 M3a。
+M2 据此通过；当时共享生产门禁只剩独立授权的 M3。生产结论见下述 M3 证据。
+
+### 2.11 2026-08-26 `P1-GATE-SSE-M3` 生产验收
+
+M3 于 `2026-08-26 11:07..11:14+08` 完成。执行前生产 Alembic 为 `20260825_000151`，开放 TaskRun、长期事务、锁等待和目标 idle relation lock 均为 0；schedule #33 与 probe rule #12 保持既有 pure-probe 契约，根盘约 51 GiB 可用，相关服务均为 active。
+
+本轮只把包含 SSE/Alembic 修复的 `origin/dev-interface` commit `99e1148f` 部署到 Web，未执行数据库升级、前端构建、seed、unit 同步、worker/scheduler 重启、TaskRun、schedule/probe 修改或 Tushare 请求。真实生产 SSE 返回 HTTP 200、1 个 schedule event 和 3 个 ping；302 次数据库采样中，目标 SSE `idle in transaction`、跨采样事务、idle relation lock 和锁等待均为 0，断流后也无残留。
+
+生产已经位于 head，因此没有倒退 revision 或重放业务 DDL。运行时配置先证明连接的是 `/etc/goldenshare/web.env` 指向的正式库；真实 `alembic upgrade head` no-op 前后均为 revision 151。独立 advisory transaction lock 冲突下，`SET LOCAL lock_timeout='15s'` 的竞争会话于 15.11 秒明确失败，释放持锁会话后残留 advisory lock、长事务和锁等待均为 0。生产 M3 验证有界等待，revision 150 的真实 migration 失败原子回滚继续以 M2 证据为准，不为重复证明在生产制造降级或临时 revision。
+
+部署现场另确认：`goldenshare` 运行用户缺少标准 `--platform-only` 所要求的无密码 `systemctl` 权限。标准入口会在拉代码前失败，因此本轮由该用户在部署锁内完成拉取和安装，再由现有管理账号只重启 Web。最终远端工作区干净、全部相关服务 active、健康端点正常、开放 TaskRun 和数据库异常状态均为 0。该权限边界需保留为发布工具事实，但不影响本轮最小发布和运行合同结论。
+
+`P1-GATE-SSE-M3` 据此通过，共享生产门禁解除；后续数据集仍须逐项完成自己的 M1/M2/M3a/M3b，不能把共享 gate 通过解释为自动授权生产切换。
+
+### 2.12 2026-08-26 `P1-B1-margin-M1` 编码事实
+
+`margin` 已完成独立 M1。Definition 仅把写入合同从 raw/core 双写改为 `raw_tushare.margin` 的 `raw_only_upsert`，原 `core_serving.equity_margin` 名称由后续 migration 切换为 raw-backed view；9 个 source fields、交易日 point/range、SSE/SZSE/BSE 三交易所 fan-out、4,000 行分页、发布时机和固定源端 probe 均未改变。
+
+独立 revision `20260826_000152` 接编码时真实 head `20260825_000151`，只处理 margin。它在持有 raw/serving `SHARE` 锁时，对不超过 5,000 行的两层全表执行 9 个业务字段双向差集和复合身份唯一性核对；raw heap、主键与两个二级索引必须继续位于 `pg_default`。通过后才把 serving 物理表原子替换为显式列 view，恢复 owner、SELECT grants 和 comments，并复用现有拒写函数挂 margin 独立 trigger。migration 使用 15 秒锁等待、120 秒语句上限和 16 MB `work_mem`，禁止 `temp_file_limit`、`CASCADE`、raw 删除、共享函数重建和自动 downgrade。
+
+M1 自动化测试覆盖 Definition/plan/filter、source fields/分页、raw-only writer、freshness、ORM/索引、ServingPublish 无旁路、migration 有界资源/原子顺序/显式投影/共享函数前置和离线 SQL 渲染；Ops Catalog、固定 probe、schedule capability、definition lint 与 runtime registry 回归通过。M1 没有连接数据库、请求 Tushare、部署、应用 migration、创建 TaskRun 或修改 schedule/probe。生产 relation 仍保持 M0 时的两张物理表；下一阶段是另行授权的隔离 PostgreSQL M2，而不是直接生产切换。
 
 ## 3. Track A：独立小对象 SSD→HDD 迁移
 
@@ -524,8 +544,8 @@ raw 直出一期口径固定后，原 A1 不能再作为六表迁移批次执行
 | --- | --- | --- | --- |
 | V2-M0 | 本文、代码/生产只读审计、一期 LLD | 固定一期名单、批次、透明性边界和实施门禁 | **本轮完成** |
 | P1-B0 | `moneyflow_mkt_dc` | raw-backed serving view 契约试点 | **M3 生产验收及 schedule #4 补充自然运行数据链通过** |
-| P1-GATE-SSE | schedule SSE 与在线 Alembic | 消除长事务并使锁等待有界 | **M1/M2 完成；生产 M3 尚未授权，生产门禁未解除** |
-| P1-B1 | `moneyflow_ind_ths` → `moneyflow_cnt_ths` → `margin` | 小表逐项验证；margin 最后处理 probe | **行业与概念 M3a/M3b 通过；margin 尚未进入 M1；共享 gate M3 阻塞后续生产 M3a** |
+| P1-GATE-SSE | schedule SSE 与在线 Alembic | 消除长事务并使锁等待有界 | **M1/M2/M3 通过；共享生产门禁已解除** |
+| P1-B1 | `moneyflow_ind_ths` → `moneyflow_cnt_ths` → `margin` | 小表逐项验证；margin 最后处理 probe | **行业与概念 M3a/M3b 通过；margin 独立 M1 已完成，待授权 M2/M3a/M3b** |
 | P1-B2 | `moneyflow_ind_dc` → `dc_daily` → `suspend_d` | 验证 Wealth/QTF/DG 直接消费者与特殊身份键 | B1 全部验收后逐项授权 |
 | P1-B3 | `stk_auction_o` → `stk_auction_c` → `moneyflow_ths` | 验证百万行级数据等价、切换和查询性能 | B2 全部验收后逐项授权 |
 | P1-B4 | `moneyflow_dc` → `stk_limit` | 释放一期主要空间并验收市场情绪消费者 | B3 全部验收后逐项授权 |
@@ -586,18 +606,18 @@ raw 直出一期口径固定后，原 A1 不能再作为六表迁移批次执行
 ### 8.2 后续执行前需要单独拍板
 
 1. P1-B0 已按“业务读取合同透明、物理 relation 身份和历史审计时间不透明”的边界完成生产验收；后续数据集继续沿用该边界，但不得复用 B0 的行数上限或性能结论；
-2. P1-B1 三项 M0 已完成，行业与概念 M3a/M3b 已通过；`P1-GATE-SSE-M1/M2` 已完成，生产 M3 尚未授权；下一项数据集开发仍是 `margin` 的独立 M1。margin 必须按 probe 契约独立执行，禁止因同属 B1 合并 migration、维护窗口或自动化处理口径；margin M1/M2 可准备，但共享 gate 的 M3 闭环前生产 M3a 继续暂停；
+2. P1-B1 三项 M0 已完成，行业与概念 M3a/M3b 已通过，`margin` 独立 M1 已完成；`P1-GATE-SSE-M1/M2/M3` 已完成，共享生产门禁已解除。下一项只能是另行授权的 `P1-B1-margin-M2`；margin 必须按 probe 契约独立执行，禁止因同属 B1 合并 migration、维护窗口或自动化处理口径；共享 gate 和 margin M1 均不替代隔离验证与独立生产授权；
 3. 仓库外 SQL、BI、人工脚本和 catalog 工具仍需由运营持续登记；P1-B0 未发现仓库内异常消费者不能证明仓库外消费者不存在；
 4. Track A 与一期外 `daily_basic/dc_member` 是否推进，继续后置，不由本 LLD 自动授权。
 
 ## 9. 本轮未完成事项与残余不确定性
 
 1. 一期 12 组已完成精确行数核对；`moneyflow_mkt_dc`、`moneyflow_ind_ths`、`moneyflow_cnt_ths`、`margin` 完成全部业务字段双向差集，其余 8 组内容等价待有界分块证明。行数一致不能证明内容一致。
-2. P1-B0 已完成 M3，并补充通过 schedule #4 的市场资金节点自然运行数据链；P1-B1 行业与概念均已完成 M1/M2/M3a/M3b；margin 尚未编码。本次 M3b TaskRun 因部署锁等待于 20:07 而非 20:00 创建，不能作为准点性证据。概念 M3a 的自动 migration 偏差和 SSE 长事务阻塞 migration 150 均已记录；共享问题已完成 M1 代码收口和 M2 隔离真实验收，但仍须生产 M3 才能进入后续生产切换。
+2. P1-B0 已完成 M3，并补充通过 schedule #4 的市场资金节点自然运行数据链；P1-B1 行业与概念均已完成 M1/M2/M3a/M3b；margin 已完成独立 M1，但隔离 M2 与生产 M3a/M3b 尚未开始。本次 M3b TaskRun 因部署锁等待于 20:07 而非 20:00 创建，不能作为准点性证据。概念 M3a 的自动 migration 偏差和 SSE 长事务阻塞 migration 150 均已记录；共享问题现已完成 M1 代码收口、M2 隔离真实 migration 验收和 M3 生产 SSE/有界锁等待验收。
 3. 未核验所有仓库外 SQL 消费者；这是 P1-B0 的残余运营风险，也是每个后续数据集的独立准入门禁。
 4. 没有整库可恢复备份条件时，极端磁盘/实例故障风险仍存在；本文只能通过小对象、单事务和 fail-closed 降低人为操作风险。
 5. SSD 扩容后的 51.68 GiB 可用空间只是 2026-08-24 18:07+08 快照；当前磁盘、任务和锁状态都会漂移，任何未来执行必须重新采样，不能因名义容量升至 270 GB 而跳过容量门禁。
-6. 2026-08-26 只读复核时生产 Alembic 已升至 revision 151，历史版本差异已消除；`P1-GATE-SSE-M1` 代码尚未部署，M2 仅形成隔离验证证据。后续生产 M3a 的剩余共享门禁是“生产 M3 证明 SSE 无跨轮询长期事务、锁等待 15 秒 fail-fast 且完整回滚，以及维护窗口顺序回归”。
+6. 2026-08-26 M3 完成后，生产代码为 `99e1148f`、Alembic 为 revision 151，真实 SSE 302 次采样无跨轮询长期事务或目标 idle relation lock，生产 advisory lock 冲突于 15.11 秒 fail-fast 且无残留锁。共享门禁已解除；每个后续数据集仍须在自己的生产 M3a 重新执行实时任务、schedule/probe、锁和维护窗口顺序检查。
 
 ## 10. 相关基线
 

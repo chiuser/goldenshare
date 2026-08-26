@@ -1,14 +1,14 @@
 # 生产 PostgreSQL raw 直出一期低层设计 v1
 
 - 版本：v1
-- 状态：P1-B0 市场资金补充自然运行数据链通过，P1-B1 行业与概念 M1/M2/M3a/M3b 已通过；`P1-GATE-SSE-M1/M2` 已完成，生产 M3 尚未授权；`margin` 仍未进入 M1，后续生产 M3a 继续受共享门禁约束
+- 状态：P1-B0 市场资金补充自然运行数据链通过，P1-B1 行业与概念 M1/M2/M3a/M3b 已通过；`P1-GATE-SSE-M1/M2/M3` 已完成，共享生产门禁已解除；`margin` 独立 M1 已完成，尚待独立授权的 M2/M3a/M3b
 - 更新时间：2026-08-26
 - 上位方案：[生产 PostgreSQL 存储空间优化治理专项 v2](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v2.md)
 - 目标：把一期 12 个无业务转换的 raw/core_serving 双写数据集收敛为“raw 唯一物理事实表 + 原 serving 名称只读 view”，预计释放约 3.305 GiB SSD
 
 ## 0. 边界与完成定义
 
-本文定义一期实施合同，并记录已获授权完成的 P1-B0-M1～M3、P1-B0 市场资金补充 M3b、P1-B1 M0、行业与概念 M1/M2/M3a/M3b 证据，以及 `P1-GATE-SSE-M1/M2` 的代码、自动化测试和隔离 PostgreSQL 证据；`margin` 尚未进入 M1。已完成阶段不构成后续数据集部署、生产 migration 或 TaskRun 授权；共享门禁仍须通过生产 M3，才能解除后续生产 M3a 阻塞。
+本文定义一期实施合同，并记录已获授权完成的 P1-B0-M1～M3、P1-B0 市场资金补充 M3b、P1-B1 M0、行业与概念 M1/M2/M3a/M3b、`margin` 独立 M1 证据，以及 `P1-GATE-SSE-M1/M2/M3` 的代码、隔离 PostgreSQL 和生产验收证据。共享 SSE/Alembic 生产门禁已经关闭，但不替代 `margin` 尚未完成的隔离验证、生产授权、迁移与运行验收。
 
 一期完成必须同时满足：
 
@@ -612,7 +612,7 @@ revision 150 的部署同时暴露了一项尚未修复的共享运行链风险�
 5. `lock_timeout` 只限制等待数据库锁的时间。15 秒内无法取得所需锁时整次 migration 明确失败并回滚；取得锁后不会因为本设置而中止后续 DDL 或数据对账；
 6. 自动化测试覆盖鉴权成功/失败均结束请求事务、每轮使用不同会话、读取成功/失败均回滚关闭、SSE event/ping 合同不变，以及 Alembic PostgreSQL dialect guard、offline 不注入和在线执行顺序。
 
-本节只关闭 `P1-GATE-SSE-M1`。隔离 PostgreSQL 必须在 M2 真实证明持续 SSE 期间不存在长期 `idle in transaction`，并证明持锁冲突下 Alembic 在 15 秒内 fail-fast、事务完整回滚；生产 M3 还须独立授权并重新执行只读预检、部署后长连接观测和受控锁等待验收。M2/M3 未闭环前，`margin` 及其它数据集的生产 M3a 仍保持阻塞。
+本节记录 M1 完成时的阶段边界：当时仍须由 M2 证明持续 SSE 与真实 migration 回滚，再由独立授权的生产 M3 完成只读预检、部署后长连接观测和受控锁等待验收；后续小节已经记录这两项门禁的实际闭环证据。
 
 #### 2026-08-26 `P1-GATE-SSE-M2` 隔离 PostgreSQL 验证
 
@@ -631,7 +631,38 @@ M2 在临时 PostgreSQL 18.4 隔离实例完成。实例只监听 `/private/tmp/
 7. 最后升级到当前 head `20260825_000151` 成功；revision 151 创建的 ETF 分区表及索引共核对 1,048 个 relation，位于非 HDD tablespace 的数量为 0。该项只证明当前迁移链没有被共享 gate 改动破坏，不构成 ETF 数据集额外验收；
 8. 相关定向、schedule/probe、架构边界和部署脚本回归共 167 项通过。M2 不包含前端构建，SSE 浏览合同已由真实 HTTP event/ping 验证。
 
-M2 据此通过，但只证明隔离实例中的事务与锁合同。`P1-GATE-SSE-M3` 仍须独立授权，在生产重新做实时只读预检、部署后实际 SSE 连接观测和受控 migration 锁等待验收；M3 完成前，后续生产 M3a 继续阻塞。
+M2 据此通过，但只证明隔离实例中的事务与锁合同；生产结论见下述 M3 证据。
+
+#### 2026-08-26 `P1-GATE-SSE-M3` 生产验收
+
+M3 于 `2026-08-26 11:07..11:14+08` 完成。执行前确认生产数据库为 `goldenshare/goldenshare_user`、Alembic revision 为 `20260825_000151`，queued/running/canceling TaskRun 为 0，`ops.schedule`/`ops.task_run` 没有等待锁或长期事务；schedule #33 仍为 active pure-probe，`cron_expr/next_run_at` 均为 `NULL`，probe rule #12 仍为 `09:00..09:30`、300 秒间隔、每日最多一次。根盘约 51 GiB 可用，Web、worker、scheduler 和相关执行服务均为 active。
+
+生产执行和验收证据如下：
+
+1. 生产只部署已经推送到 `origin/dev-interface` 的 commit `99e1148f4429a9bc7bc4f9dea594b9a5733062d2`，其中 SSE/Alembic 修复来自 `a27f1470`。本轮只拉取代码、安装后端并重启 Web；没有执行数据库升级、构建前端、seed、同步 unit、重启 worker/scheduler、创建 TaskRun、修改 schedule/probe 或请求 Tushare；
+2. 远端 `goldenshare` 运行用户当前不具备标准 `--platform-only` 脚本所要求的无密码 `systemctl` 权限，标准入口会在拉代码前失败。为避免修改 sudo 配置，本轮由 `goldenshare` 在部署锁内完成 `git pull + pip install`，随后由现有管理账号只重启 Web。发布后远端工作区干净，Web 主进程启动于 `11:09:44+08`，两个健康端点均返回 prod `ok`；这是已记录的发布工具权限边界，不得在后续步骤中误写成标准脚本已完整执行；
+3. 使用生产 Web、真实管理员鉴权和 `/api/v1/ops/schedules/stream` 建立实际 SSE 连接，收到 HTTP 200、1 个 `event: schedules` 和跨越三个轮询周期的 3 个 ping。约 9 秒内以 20ms 间隔采样 302 次 `pg_stat_activity/pg_locks`，目标 SSE 事务命中 0 次 `idle in transaction`，连续跨采样次数 0，idle session 持有 `ops.schedule/ops.task_run` relation lock 的次数 0，锁等待次数 0；断流后开放 idle transaction、锁等待和目标 relation lock 均为 0；
+4. 生产已经位于 Alembic head，没有安全理由倒退 revision 150 或重放业务 DDL。M3 因此先核对运行时 `get_settings()` 与 `/etc/goldenshare/web.env` 的数据库地址完全一致，再执行真实 Alembic `upgrade head` no-op；前后 revision 均为 `20260825_000151`。随后用不涉及业务 relation 的 PostgreSQL advisory transaction lock 制造受控冲突，竞争会话执行 `SET LOCAL lock_timeout='15s'` 后于 15.11 秒明确报 `canceling statement due to lock timeout`，持锁会话取消后残留 advisory lock、长事务和锁等待均为 0；
+5. 第 4 项证明生产数据库中的 15 秒事务级锁等待有界，以及当前 Alembic 在线入口能安全连接正确生产库且不改变 head；它不冒充“在生产重演 revision 150 的失败回滚”。真实 migration 的失败原子回滚已经由 M2 的 revision 150 冲突实验完成，M3 不为重复证据而对生产结构做降级、临时 revision 或业务 DDL；
+6. 最终生产 commit 为 `99e1148f`、Alembic 为 head 151、远端工作区变更数 0，全部相关服务 active，健康端点正常，开放 TaskRun、长事务、锁等待和目标 idle relation lock 均为 0。schedule #33 与 probe rule #12 的字段和最后触发事实未被本轮改变。
+
+`P1-GATE-SSE-M3` 据此通过，共享生产门禁解除。该结论只关闭 schedule SSE 长事务和在线 Alembic 无界锁等待问题；`margin` 或其它数据集仍须获得各自的 M1/M2/M3a/M3b 授权并执行独立门禁。
+
+#### 2026-08-26 `P1-B1-margin-M1` 编码与自动化测试
+
+本阶段严格按 `margin` 自身合同推进，只修改 Definition 的 storage facts、新增单数据集 revision 和专项/既有参数化测试；没有连接 PostgreSQL、调用 Tushare、部署、应用 migration、创建 TaskRun，或修改 schedule/probe。编码前重新确认本地真实 Alembic head 为 `20260825_000151`，因此独立 revision 固定为 `20260826_000152`，不沿用行业、概念或历史文件名推断 `down_revision`。
+
+实际落点如下：
+
+1. `margin` Definition 只把 `core_dao_name/target_table/delivery_mode/layer_plan/write_path` 收敛为 `raw_margin/raw_tushare.margin/raw_with_serving_view/raw->serving_view/raw_only_upsert`；9 个显式 source fields、`next_open_day_0930` 发布事实、交易日 point/range、`exchange_id` 三交易所 fan-out、4,000 行 offset 分页、manual/schedule/retry 与固定源端 probe 合同全部保持不变；
+2. 复用现有 `DatasetWriter._write_raw_only_upsert()`、`raw_margin` DAO 和既有 ORM；`RawMargin` 已声明 `(trade_date, exchange_id)` 主键、`trade_date` 与 `(exchange_id, trade_date)` 两个生产等价索引，因此 M1 没有修改 ORM、DAO factory、writer、resolver、request builder、normalizer、probe service、schedule capability resolver 或前端；
+3. revision `20260826_000152` 只处理 `raw_tushare.margin -> core_serving.equity_margin`。它要求 raw/serving 均为当前用户所有的普通物理表，raw heap、主键索引和两个二级索引全部留在 `pg_default`，字段、主键、索引、约束、依赖、ACL、comment、trigger、RLS、rewrite、扩展统计、security label 与 publication 任一未知状态均 fail-closed；
+4. migration 固定 `lock_timeout=15s`、`statement_timeout=120s`、`work_mem=16MB`，不使用特权 `temp_file_limit`；两层按 raw → serving 获取 `SHARE` 锁后，全表分别不得超过 5,000 行，并对 9 个业务字段执行双向 `EXCEPT ALL`、行数及 `(trade_date, exchange_id)` 身份唯一性核对，通过后才升级 serving 的 `ACCESS EXCLUSIVE` 锁；
+5. view 显式投影 `trade_date, exchange_id, rzye, rzmre, rzche, rqye, rqmcl, rzrqye, rqyl`，并固定 `fetched_at AS created_at/updated_at`；migration 保留原 owner、非 owner SELECT grant、relation/column comment，复用且验证现有 `core_serving.reject_raw_direct_serving_view_dml()`，只为 margin 创建独立拒写 trigger；禁止 `CASCADE`、删除 raw、重建共享函数和自动 downgrade；
+6. CodeGraph 对 Definition、resolver、raw-only writer、DAO/ORM、ServingPublish target、freshness、Ops probe 和 schedule 消费者做了影响面分析；精确静态搜索未发现仓库内 serving DML 旁路。`margin_remote_probe_service` 只用正式 resolver 生成三交易所 point unit 并探测源端，不读取或写入 serving relation，因此本次 storage 收口不需要改变 probe；
+7. 自动化测试已覆盖 Definition 未变事实、三交易所默认/显式 filter 与未知 filter 反例、planner/request fields/4,000 行分页、raw-only writer、freshness raw target、ORM 字段/主键/索引、ServingPublish 无旁路、migration 独立性/有界资源/锁顺序/5,000 行上限/显式 view/共享函数前置/禁止回退和离线 PostgreSQL SQL 渲染；同时回归 Ops Catalog、固定 margin probe、schedule capability、source client、definition lint 与 runtime registry 均通过。
+
+M1 据此完成，但只证明代码和静态 migration 合同。生产中 raw/serving 仍是两张物理表；下一阶段只能是另行授权的 `P1-B1-margin-M2`，在隔离 PostgreSQL 真实验证 migration、5,001 行 fail-closed、三类 DML 拒绝、事务回滚、view 即时可见与查询计划。M2 通过后仍需单独授权 M3a；M1 不构成生产部署或 migration 授权。
 
 ### S4：文档证据
 
@@ -647,8 +678,8 @@ M2 据此通过，但只证明隔离实例中的事务与锁合同。`P1-GATE-SS
 | 隔离 migration 曾被显式 env 文件指向 Prod | `get_settings()` 的既有合同是 `GOLDENSHARE_ENV_FILE` 内容覆盖同名 shell 变量，不能靠临时 `DATABASE_URL` 改目标 | M2 必须使用独立 env 文件，并在 Alembic 前核对 host/database/user/server address/port/data directory；禁止改变全局配置优先级来修本专项 | S2 与现有 `tests/test_db.py` 配置合同 |
 | 维护发布依赖多组临时环境变量，存在漏关 seed、构建或服务重启的风险 | 通用部署入口默认执行完整发版 | 使用 `--maintenance-migration` 固定变更动作仅为拉代码、安装后端和 migration，另保留只读资源加载自检；该模式不代替 schedule 暂停、停服和恢复 | `scripts/deploy-systemd.sh`、发布文档与部署脚本测试 |
 | 概念 M3a 的标准部署在维护窗口前自动应用了 revision 148 | 把“部署代码”和“生产 migration”当成可分开的口头步骤，但标准部署实际会自动升级到 head | 生产 M3a 在暂停目标 schedule/worker 前不得运行会自动 migration 的标准部署；先用不迁移模式安装代码，再在维护窗口内显式应用 migration。若顺序已偏离，禁止重复 migration 或补造前置证据，必须记录偏差并完成切换后全量验收 | `P1-B1-concept-M3a` 实证与后续 M3a 发布清单 |
-| schedule SSE 长连接持有数据库事务并阻塞 revision 150 | SSE endpoint 复用 request-scoped `Session` 无限轮询，读取完成后事务未结束，持续持有 `ops.schedule` 的 `AccessShareLock` | `P1-GATE-SSE-M1` 已改为鉴权事务先结束、每轮独立短会话并在输出/休眠前释放；自动化回归已覆盖，仍须 M2/M3 真实证明不存在长期 `idle in transaction` | 夜间 revision 150 锁事件、`src/ops/api/schedules.py` 与 `tests/web/test_ops_schedule_stream_transaction_boundary.py` |
-| 生产 DDL 在锁冲突时可以无限等待 | 生产 `lock_timeout` 与 `idle_in_transaction_session_timeout` 均为 0，标准部署又在在线服务存活时执行 migration | `P1-GATE-SSE-M1` 已在 PostgreSQL 在线 Alembic migration transaction 内集中设置 `SET LOCAL lock_timeout='15s'`；M2/M3 仍须证明锁超时 fail-fast、完整回滚和发布恢复，禁止把代码完成等同于生产门禁解除 | `alembic/env.py`、`tests/test_alembic_runtime_lock_timeout.py` 与后续 M2/M3 |
+| schedule SSE 长连接持有数据库事务并阻塞 revision 150 | SSE endpoint 复用 request-scoped `Session` 无限轮询，读取完成后事务未结束，持续持有 `ops.schedule` 的 `AccessShareLock` | `P1-GATE-SSE-M1` 已改为鉴权事务先结束、每轮独立短会话并在输出/休眠前释放；M2/M3 已分别在隔离库和生产真实 SSE 证明不存在跨轮询长期事务或目标 idle relation lock | 夜间 revision 150 锁事件、`src/ops/api/schedules.py`、相关测试与 `P1-GATE-SSE-M2/M3` |
+| 生产 DDL 在锁冲突时可以无限等待 | 生产全局 `lock_timeout` 与 `idle_in_transaction_session_timeout` 均为 0，标准部署又在在线服务存活时执行 migration | PostgreSQL 在线 Alembic 已在 migration transaction 内设置 `SET LOCAL lock_timeout='15s'`；M2 证明真实 migration 超时和原子回滚，M3 证明生产事务级锁冲突于 15.11 秒 fail-fast 且无残留锁。后续仍须在每次 migration 前做实时锁预检 | `alembic/env.py`、相关测试与 `P1-GATE-SSE-M2/M3` |
 | B0 首次生产 migration 试图设置业务角色无权修改的 `temp_file_limit` | 把隔离环境能力误当成生产最小权限能力 | migration 只使用已验证的最小权限能力；工作集通过每数据集独立行数上限、分块和 `work_mem` 有界，禁止为迁移追加超管权限 | 第 7.1 节与各 revision 负向容量测试 |
 | 一次验收 SQL 曾按 dataset key 猜 serving 表名 | action key、dataset key 与物理 relation 名并非机械映射 | 每项 S0 冻结显式对象表：dataset/action/raw/serving/ORM/DAO/index/schedule；所有 SQL 只从已核验对象表生成 | 第 9.2 节准入清单 |
 | `df` 瞬时变化与 relation 释放量不一致 | 发布依赖、WAL、日志和后台活动共同影响文件系统水位 | 精确收益只取 PostgreSQL catalog 中被删除 heap/index 的字节；`df` 仅做容量安全水位 | S4 证据合同 |
@@ -762,11 +793,11 @@ M2 据此通过，但只证明隔离实例中的事务与锁合同。`P1-GATE-SS
 
 ## 13. 当前完成边界与下一阶段
 
-1. P1-B0 市场资金已完成 M1～M3，并补充通过 `P1-B0-market-M3b`；P1-B1 行业与概念均已完成 M1/M2/M3a/M3b。`margin` 仍只完成 M0 等价审计，尚未修改 Definition 或创建 raw 直出 migration；
+1. P1-B0 市场资金已完成 M1～M3，并补充通过 `P1-B0-market-M3b`；P1-B1 行业与概念均已完成 M1/M2/M3a/M3b。`margin` 已完成独立 M1，Definition 与 revision `20260826_000152` 已落地，但生产 raw/serving 尚未切换；
 2. schedule #4 TaskRun `9244` 已逐个关闭市场、行业、概念三项自然工作流数据链验收：目标 node 全部 success、拒绝和去重均为 0、分页短页结束、raw/view 当日全字段一致。任务受部署锁等待影响在 `20:07` 创建，因此本轮不提供 `20:00` 准点触发 SLA 证据；
-3. `margin` 是下一项开发对象，必须按自身固定源端 probe 契约独立完成 M1/M2/M3a/M3b，禁止复用每日资金 workflow 的暂停/恢复细节，也禁止与概念数据集合并 revision、维护窗口或生产授权；
-4. 2026-08-26 只读复核时生产 Alembic 为 `20260825_000151`，生产代码为 commit `0cfc7e79e6a1d0303cc7164b71d443071ef343e7`；schedule #33 的纯 probe 历史时间字段已归一化；`P1-GATE-SSE-M1` 代码尚未部署，M2 仅形成隔离验证证据；
-5. schedule SSE 长事务和生产 DDL 无限锁等待的代码根因已在 M1 收口，并由 M2 隔离 PostgreSQL 真实证明事务不跨轮询、15 秒锁超时和失败回滚；生产 M3 尚未授权，因此共享生产门禁仍未解除，margin 及任何其它数据集仍不得进入生产 M3a；
+3. `margin` 下一阶段是独立 M2，必须按自身固定源端 probe 契约完成隔离 PostgreSQL 验证，再另行授权 M3a/M3b；禁止复用每日资金 workflow 的暂停/恢复细节，也禁止与概念数据集合并 revision、维护窗口或生产授权；
+4. 2026-08-26 M3 完成后，生产 Alembic 为 `20260825_000151`，生产代码为 commit `99e1148f4429a9bc7bc4f9dea594b9a5733062d2`；schedule #33 的纯 probe 历史时间字段仍已归一化，SSE 修复已部署；
+5. schedule SSE 长事务和生产 DDL 无限锁等待问题已依次完成 M1 代码收口、M2 隔离真实 migration 验收和 M3 生产 SSE/有界锁等待验收，共享生产门禁已经解除；这不自动授权 `margin` 生产切换，下一步仍是完成其独立 M2 后再申请 M3a；
 6. 未来任何生产操作仍须实时确认开放 TaskRun 为 0、目标 schedule/probe 已按本项契约暂停、worker 已停止、目标锁和磁盘水位满足门禁。扩容后的容量快照不是跳过这些检查的理由；
 7. 仓库外 SQL/BI/人工脚本无法由仓库审计穷尽，若存在依赖 OID、relkind、约束 catalog、旧审计时间或 serving DML 的未登记消费者，仍是每项 migration 的残余运营风险。
 
