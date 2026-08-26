@@ -784,12 +784,19 @@ class RunContractStaticGateTests(unittest.TestCase):
             "planned_event_count=0",
             "WEALTH_MARKET_TURNOVER_HISTORY_BATCH_SIZE_LIMIT = 20",
             "WEALTH_MARKET_TURNOVER_HISTORY_AUDIT_SECONDS_LIMIT = 300",
+            "WealthMarketTurnoverFrequencyAction.PRESERVE_EXISTING",
+            "r5_actual_changed_wmt_manifest",
+            "changed_manifest=changed_manifest",
+            "candidate_audits=",
+            "checkpoint_path=",
         ):
             self.assertIn(required, combined_history_source)
         for forbidden in (
             "report_runless_asset_event",
             "wealth_market_turnover_runless_events",
             "generate_wealth_market_turnover_history",
+            "load_gold_wealth_market_turnover_rows_for_prod_sync",
+            "get_event_records(",
         ):
             self.assertNotIn(forbidden, combined_history_source)
 
@@ -6539,6 +6546,101 @@ def use_nested_resource(context):
                 issues.append(
                     f"BSE minute recovery creates forbidden Dagster runtime: {forbidden}"
                 )
+        self.assertEqual(issues, [])
+
+    def test_bse_qfq_r3_stays_scoped_and_outside_dagster_runtime(self) -> None:
+        helper_source = (
+            DEFS_DIR / "bootstrap" / "stk_mins_bse_qfq_recovery.py"
+        ).read_text(encoding="utf-8")
+        cli_source = (
+            DEFS_DIR / "bootstrap" / "stk_mins_bse_history_recovery_cli.py"
+        ).read_text(encoding="utf-8")
+        issues = []
+        required = (
+            "changed_silver_manifest_path",
+            "CN_A_GOLD_MINUTE_SOURCE_FREQ_BY_TARGET",
+            "build_canonical_gold_stk_mins_qfq_select_sql",
+            "R3_AUDIT_MAX_SECONDS = 300.0",
+            "r3-qfq-candidates",
+            "actual-changed-qfq-manifest.json",
+            "os.replace(candidate, target)",
+            "_zero_control_plane_writes",
+        )
+        issues.extend(
+            f"BSE QFQ R3 helper misses {fragment}"
+            for fragment in required
+            if fragment not in helper_source
+        )
+        for fragment in (
+            '"plan-qfq"',
+            '"build-qfq-candidates"',
+            '"audit-qfq-candidates"',
+            '"promote-qfq"',
+            '"--confirm-qfq-candidate-write"',
+            '"--confirm-qfq-promote"',
+        ):
+            if fragment not in cli_source:
+                issues.append(f"BSE QFQ R3 CLI misses {fragment}")
+        for forbidden in (
+            "TushareResource",
+            "get_event_records",
+            "report_runless_asset_event",
+            "@dg.asset",
+            "@dg.sensor",
+            "factor_repair",
+            "macd_kdj",
+            "nineturn",
+        ):
+            if forbidden in helper_source:
+                issues.append(f"BSE QFQ R3 contains forbidden {forbidden}")
+        self.assertEqual(issues, [])
+
+    def test_bse_recursive_recovery_uses_staged_bounded_forward_rebuild(self) -> None:
+        helper_source = (
+            DEFS_DIR / "bootstrap" / "stk_mins_bse_recursive_recovery.py"
+        ).read_text(encoding="utf-8")
+        cli_source = (
+            DEFS_DIR / "bootstrap" / "stk_mins_bse_history_recovery_cli.py"
+        ).read_text(encoding="utf-8")
+        issues = []
+        required = (
+            "changed_qfq_manifest_path",
+            "earliest_changed_trade_date",
+            "write_gold_stk_mins_qfq_macd_kdj_rows",
+            "build_gold_stk_mins_qfq_nineturn_select_sql",
+            "recursive-candidates",
+            "actual-changed-recursive-manifest.json",
+            "RECURSIVE_MAX_STAGE_SECONDS = 300.0",
+            "os.replace(candidate, target)",
+            "_zero_control_plane_writes",
+        )
+        issues.extend(
+            f"BSE recursive helper misses {fragment}"
+            for fragment in required
+            if fragment not in helper_source
+        )
+        for fragment in (
+            '"plan-recursive"',
+            '"build-recursive-candidates"',
+            '"audit-recursive-candidates"',
+            '"promote-recursive"',
+            '"--confirm-recursive-candidate-write"',
+            '"--confirm-recursive-promote"',
+        ):
+            if fragment not in cli_source:
+                issues.append(f"BSE recursive CLI misses {fragment}")
+        for forbidden in (
+            "TushareResource",
+            "ProdPostgres",
+            "get_event_records",
+            "report_runless_asset_event",
+            "@dg.asset",
+            "@dg.sensor",
+            "kopia",
+            "backup_root",
+        ):
+            if forbidden in helper_source:
+                issues.append(f"BSE recursive helper contains forbidden {forbidden}")
         self.assertEqual(issues, [])
 
 

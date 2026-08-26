@@ -7,6 +7,8 @@ import os
 import sys
 from pathlib import Path
 
+import dagster as dg
+
 from orchestrator.defs.bootstrap.stk_mins_bse_history_recovery import (
     DEFAULT_RECOVERY_STAGING_ROOT,
     BseMinuteRecoveryError,
@@ -20,6 +22,19 @@ from orchestrator.defs.bootstrap.stk_mins_bse_history_recovery import (
     promote_bse_silver_recovery_candidates,
     stage_bse_stk_mins_source_pages,
 )
+from orchestrator.defs.bootstrap.stk_mins_bse_qfq_recovery import (
+    audit_bse_qfq_recovery_candidates,
+    build_bse_qfq_recovery_candidates,
+    plan_bse_qfq_recovery,
+    promote_bse_qfq_recovery_candidates,
+)
+from orchestrator.defs.bootstrap.stk_mins_bse_recursive_recovery import (
+    audit_bse_recursive_recovery_candidates,
+    build_bse_recursive_recovery_candidates,
+    plan_bse_recursive_recovery,
+    promote_bse_recursive_recovery_candidates,
+)
+from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT
 from orchestrator.defs.resources import DuckDBResource, TushareResource
 
@@ -116,6 +131,85 @@ def _parser() -> argparse.ArgumentParser:
     silver_promote.add_argument("--changed-manifest", type=Path, required=True)
     silver_promote.add_argument("--output", type=Path, required=True)
     silver_promote.add_argument("--confirm-silver-promote", action="store_true")
+
+    qfq_plan = subparsers.add_parser(
+        "plan-qfq",
+        help="Freeze the exact R3 QFQ scope from the R2 changed manifest.",
+    )
+    qfq_plan.add_argument("--changed-silver-manifest", type=Path, required=True)
+    qfq_plan.add_argument("--output", type=Path, required=True)
+
+    qfq_candidate = subparsers.add_parser(
+        "build-qfq-candidates",
+        help="Build resumable R3 QFQ candidates under formal staging.",
+    )
+    qfq_candidate.add_argument("--plan", type=Path, required=True)
+    qfq_candidate.add_argument("--max-batch-count", type=int)
+    qfq_candidate.add_argument("--output", type=Path, required=True)
+    qfq_candidate.add_argument(
+        "--confirm-qfq-candidate-write", action="store_true"
+    )
+
+    qfq_audit = subparsers.add_parser(
+        "audit-qfq-candidates",
+        help="Audit R3 QFQ candidates without changing formal Gold.",
+    )
+    qfq_audit.add_argument("--plan", type=Path, required=True)
+    qfq_audit.add_argument("--candidate-report", type=Path, required=True)
+    qfq_audit.add_argument("--max-candidate-count", type=int)
+    qfq_audit.add_argument("--output", type=Path, required=True)
+
+    qfq_promote = subparsers.add_parser(
+        "promote-qfq",
+        help="Promote audited R3 QFQ candidates into formal Gold.",
+    )
+    qfq_promote.add_argument("--plan", type=Path, required=True)
+    qfq_promote.add_argument("--candidate-report", type=Path, required=True)
+    qfq_promote.add_argument("--audit-report", type=Path, required=True)
+    qfq_promote.add_argument("--checkpoint", type=Path, required=True)
+    qfq_promote.add_argument("--changed-manifest", type=Path, required=True)
+    qfq_promote.add_argument("--output", type=Path, required=True)
+    qfq_promote.add_argument("--confirm-qfq-promote", action="store_true")
+
+    recursive_plan = subparsers.add_parser(
+        "plan-recursive",
+        help="Freeze the exact recursive indicator scope from the R3 manifest.",
+    )
+    recursive_plan.add_argument("--changed-qfq-manifest", type=Path, required=True)
+    recursive_plan.add_argument("--output", type=Path, required=True)
+
+    recursive_candidate = subparsers.add_parser(
+        "build-recursive-candidates",
+        help="Build resumable recursive indicator candidates under staging.",
+    )
+    recursive_candidate.add_argument("--plan", type=Path, required=True)
+    recursive_candidate.add_argument("--max-macd-batch-count", type=int)
+    recursive_candidate.add_argument("--max-nineturn-date-count", type=int)
+    recursive_candidate.add_argument("--output", type=Path, required=True)
+    recursive_candidate.add_argument(
+        "--confirm-recursive-candidate-write", action="store_true"
+    )
+
+    recursive_audit = subparsers.add_parser(
+        "audit-recursive-candidates",
+        help="Audit recursive candidates without changing formal Gold.",
+    )
+    recursive_audit.add_argument("--plan", type=Path, required=True)
+    recursive_audit.add_argument("--candidate-report", type=Path, required=True)
+    recursive_audit.add_argument("--max-candidate-count", type=int)
+    recursive_audit.add_argument("--output", type=Path, required=True)
+
+    recursive_promote = subparsers.add_parser(
+        "promote-recursive",
+        help="Promote audited recursive candidates into formal Gold.",
+    )
+    recursive_promote.add_argument("--plan", type=Path, required=True)
+    recursive_promote.add_argument("--candidate-report", type=Path, required=True)
+    recursive_promote.add_argument("--audit-report", type=Path, required=True)
+    recursive_promote.add_argument("--checkpoint", type=Path, required=True)
+    recursive_promote.add_argument("--changed-manifest", type=Path, required=True)
+    recursive_promote.add_argument("--output", type=Path, required=True)
+    recursive_promote.add_argument("--confirm-recursive-promote", action="store_true")
     return parser
 
 
@@ -237,6 +331,100 @@ def main(argv: list[str] | None = None) -> int:
                 changed_manifest_path=args.changed_manifest,
                 duckdb_resource=resource,
                 output_path=args.output,
+            )
+        elif args.command == "plan-qfq":
+            payload = plan_bse_qfq_recovery(
+                changed_silver_manifest_path=args.changed_silver_manifest,
+                duckdb_resource=resource,
+                output_path=args.output,
+            )
+        elif args.command == "build-qfq-candidates":
+            if not args.confirm_qfq_candidate_write:
+                print(
+                    "QFQ candidate write requires --confirm-qfq-candidate-write",
+                    file=sys.stderr,
+                )
+                return 2
+            payload = build_bse_qfq_recovery_candidates(
+                plan_path=args.plan,
+                duckdb_resource=resource,
+                output_path=args.output,
+                confirm=True,
+                max_batch_count=args.max_batch_count,
+            )
+        elif args.command == "audit-qfq-candidates":
+            payload = audit_bse_qfq_recovery_candidates(
+                plan_path=args.plan,
+                candidate_report_path=args.candidate_report,
+                duckdb_resource=resource,
+                output_path=args.output,
+                max_candidate_count=args.max_candidate_count,
+            )
+        elif args.command == "promote-qfq":
+            if not args.confirm_qfq_promote:
+                print(
+                    "formal QFQ promotion requires --confirm-qfq-promote",
+                    file=sys.stderr,
+                )
+                return 2
+            payload = promote_bse_qfq_recovery_candidates(
+                plan_path=args.plan,
+                candidate_report_path=args.candidate_report,
+                audit_report_path=args.audit_report,
+                checkpoint_path=args.checkpoint,
+                changed_manifest_path=args.changed_manifest,
+                output_path=args.output,
+                confirm=True,
+            )
+        elif args.command == "plan-recursive":
+            with dg.DagsterInstance.get() as instance:
+                registered = instance.get_dynamic_partitions(
+                    cn_a_stock_mins_silver_trade_days.name
+                )
+            payload = plan_bse_recursive_recovery(
+                changed_qfq_manifest_path=args.changed_qfq_manifest,
+                registered_partition_keys=registered,
+                output_path=args.output,
+            )
+        elif args.command == "build-recursive-candidates":
+            if not args.confirm_recursive_candidate_write:
+                print(
+                    "recursive candidate write requires "
+                    "--confirm-recursive-candidate-write",
+                    file=sys.stderr,
+                )
+                return 2
+            payload = build_bse_recursive_recovery_candidates(
+                plan_path=args.plan,
+                duckdb_resource=resource,
+                output_path=args.output,
+                confirm=True,
+                max_macd_batch_count=args.max_macd_batch_count,
+                max_nineturn_date_count=args.max_nineturn_date_count,
+            )
+        elif args.command == "audit-recursive-candidates":
+            payload = audit_bse_recursive_recovery_candidates(
+                plan_path=args.plan,
+                candidate_report_path=args.candidate_report,
+                duckdb_resource=resource,
+                output_path=args.output,
+                max_candidate_count=args.max_candidate_count,
+            )
+        elif args.command == "promote-recursive":
+            if not args.confirm_recursive_promote:
+                print(
+                    "formal recursive promotion requires --confirm-recursive-promote",
+                    file=sys.stderr,
+                )
+                return 2
+            payload = promote_bse_recursive_recovery_candidates(
+                plan_path=args.plan,
+                candidate_report_path=args.candidate_report,
+                audit_report_path=args.audit_report,
+                checkpoint_path=args.checkpoint,
+                changed_manifest_path=args.changed_manifest,
+                output_path=args.output,
+                confirm=True,
             )
         else:  # pragma: no cover - argparse owns the command domain.
             raise AssertionError(f"unsupported command: {args.command}")

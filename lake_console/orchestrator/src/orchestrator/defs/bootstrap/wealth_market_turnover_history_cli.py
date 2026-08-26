@@ -44,7 +44,12 @@ def main(argv: list[str] | None = None) -> Path:
     parser.add_argument("--partition-keys")
     parser.add_argument("--batch-size", type=int, default=20)
     parser.add_argument("--plan-file")
+    parser.add_argument("--recovery-source-bundle")
+    parser.add_argument("--changed-silver-manifest")
     parser.add_argument("--candidate-report")
+    parser.add_argument("--candidate-audit-report")
+    parser.add_argument("--checkpoint-file")
+    parser.add_argument("--changed-wmt-manifest")
     parser.add_argument("--formal-audit-report")
     parser.add_argument("--confirm-lake-write", action="store_true")
     parser.add_argument("--confirm-prod-write", action="store_true")
@@ -57,8 +62,15 @@ def main(argv: list[str] | None = None) -> Path:
     duckdb = DuckDBResource()
 
     if args.stage == "plan":
+        if not args.recovery_source_bundle or not args.changed_silver_manifest:
+            raise ValueError(
+                "R5 plan requires --recovery-source-bundle and "
+                "--changed-silver-manifest"
+            )
         report = plan_wealth_market_turnover_history(
             duckdb_resource=duckdb,
+            recovery_source_bundle_path=Path(args.recovery_source_bundle),
+            changed_silver_manifest_path=Path(args.changed_silver_manifest),
             lake_root=lake_root,
             staging_root=staging_root,
             partition_keys=requested_keys,
@@ -100,20 +112,38 @@ def main(argv: list[str] | None = None) -> Path:
                 lake_root=lake_root,
                 partition_keys=keys,
                 candidate_hashes=_load_candidate_hashes(args.candidate_report),
+                candidate_audits=_load_partition_audits(
+                    args.candidate_audit_report,
+                    label="candidate audit",
+                ),
+                checkpoint_path=_required_path(
+                    args.checkpoint_file,
+                    label="promote requires --checkpoint-file",
+                ),
+                changed_manifest_path=_required_path(
+                    args.changed_wmt_manifest,
+                    label="promote requires --changed-wmt-manifest",
+                ),
             ).to_dict()
         elif args.stage == "formal-audit":
+            changed_manifest = _load_changed_manifest(args.changed_wmt_manifest)
             report = audit_wealth_market_turnover_history(
                 plan=plan,
                 lake_root=lake_root,
                 duckdb_resource=duckdb,
                 partition_keys=keys,
-                expected_hashes=_load_candidate_hashes(args.candidate_report),
+                expected_hashes=_changed_file_hashes(changed_manifest),
             ).to_dict()
         elif args.stage == "prod-publish":
             _require_confirmation(
                 args.confirm_prod_write,
                 "prod-publish requires --confirm-prod-write",
             )
+            changed_manifest = _load_changed_manifest(args.changed_wmt_manifest)
+            if requested_keys is None:
+                keys = tuple(
+                    sorted(_changed_file_hashes(changed_manifest))
+                )[: plan.batch_size]
             report = publish_wealth_market_turnover_history_to_prod(
                 plan=plan,
                 lake_root=lake_root,
@@ -123,6 +153,7 @@ def main(argv: list[str] | None = None) -> Path:
                 formal_audit_hashes=_load_audit_hashes(
                     args.formal_audit_report
                 ),
+                changed_manifest=changed_manifest,
             ).to_dict()
         else:
             raise ValueError(f"Unsupported stage: {args.stage}")
@@ -168,6 +199,54 @@ def _load_audit_hashes(audit_report: str | None) -> Mapping[str, str]:
     if not hashes:
         raise ValueError("formal audit report does not contain green file hashes")
     return hashes
+
+
+def _load_partition_audits(
+    audit_report: str | None,
+    *,
+    label: str,
+) -> Mapping[str, Mapping[str, object]]:
+    if not audit_report:
+        raise ValueError(f"{label} report is required")
+    payload = json.loads(Path(audit_report).read_text(encoding="utf-8"))
+    if int(payload.get("failed_partition_count", -1)) != 0:
+        raise ValueError(f"{label} report is not green")
+    rows = payload.get("partition_audits")
+    if not isinstance(rows, list) or not rows:
+        raise ValueError(f"{label} report does not contain partition audits")
+    return {
+        str(row["partition_key"]): row
+        for row in rows
+        if isinstance(row, dict) and row.get("passed") is True
+    }
+
+
+def _required_path(value: str | None, *, label: str) -> Path:
+    if not value:
+        raise ValueError(label)
+    return Path(value)
+
+
+def _load_changed_manifest(path: str | None) -> Mapping[str, object]:
+    if not path:
+        raise ValueError("stage requires --changed-wmt-manifest")
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise TypeError("changed WMT manifest must be a JSON object")
+    return payload
+
+
+def _changed_file_hashes(
+    changed_manifest: Mapping[str, object],
+) -> Mapping[str, str]:
+    rows = changed_manifest.get("changed_rows")
+    if not isinstance(rows, list):
+        raise TypeError("changed WMT manifest does not contain changed_rows")
+    return {
+        str(row["partition_key"]): str(row["file_hash"])
+        for row in rows
+        if isinstance(row, dict) and row.get("file_hash")
+    }
 
 
 def _require_confirmation(confirmed: bool, message: str) -> None:

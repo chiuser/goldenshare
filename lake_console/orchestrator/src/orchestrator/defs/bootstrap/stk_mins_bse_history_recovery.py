@@ -70,6 +70,7 @@ class BseMinuteRecoveryMode(str, Enum):
     SOURCE_RECOVERABLE = "source_recoverable"
     SILVER_FALLBACK_RECOVERABLE = "silver_fallback_recoverable"
     SOURCE_EMPTY_SKIP = "source_empty_skip"
+    SOURCE_UNUSABLE_SKIP = "source_unusable_skip"
     PARTIAL_BLOCKED = "partial_blocked"
 
 
@@ -92,6 +93,14 @@ class BseMinuteRecoveryScope:
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class BseSourceScopeCoverage:
+    total_row_count: int
+    complete_aliases: tuple[str, ...]
+    canonical_session_complete_aliases: tuple[str, ...]
+    returned_alias_count: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -1153,7 +1162,7 @@ def _source_rows_for_scope(
     window_sidecars: Sequence[Mapping[str, object]],
     trade_date: str,
     freq: int,
-) -> tuple[int, tuple[str, ...], int]:
+) -> BseSourceScopeCoverage:
     missing_rows = tuple(
         row
         for row in scope_rows
@@ -1173,7 +1182,7 @@ def _source_rows_for_scope(
         for page in sidecar.get("pages") or ()
     )
     if not page_paths:
-        return 0, (), 0
+        return BseSourceScopeCoverage(0, (), (), 0)
     relation = _relation_for_paths(page_paths)
     aliases_sql = ", ".join(duckdb_string(value) for value in aliases)
     expected_times = ", ".join(
@@ -1199,7 +1208,16 @@ def _source_rows_for_scope(
                OR vol IS NULL OR amount IS NULL OR vol < 0 OR amount < 0
                OR high < greatest(open, close, low)
                OR low > least(open, close, high)
-          ) AS invalid_value_count
+          ) AS invalid_value_count,
+          count(*) FILTER (
+            WHERE strftime(CAST(trade_time AS TIMESTAMP), '%H:%M:%S') IN ({expected_times})
+              AND (
+                open IS NULL OR high IS NULL OR low IS NULL OR close IS NULL
+                OR vol IS NULL OR amount IS NULL OR vol < 0 OR amount < 0
+                OR high < greatest(open, close, low)
+                OR low > least(open, close, high)
+              )
+          ) AS invalid_required_value_count
         FROM {relation}
         WHERE CAST(trade_time AS DATE) = CAST({duckdb_string(trade_date)} AS DATE)
           AND upper(trim(CAST(ts_code AS VARCHAR))) IN ({aliases_sql})
@@ -1216,14 +1234,36 @@ def _source_rows_for_scope(
             required_time_count,
             invalid_time,
             invalid_value,
+            _invalid_required_value,
         ) in rows
         if int(row_count) == int(distinct_count)
         and int(required_time_count) == EXPECTED_BAR_COUNT_BY_FREQ[freq]
         and int(invalid_time) == 0
         and int(invalid_value) == 0
     )
+    canonical_session_complete = tuple(
+        str(source)
+        for (
+            source,
+            row_count,
+            distinct_count,
+            required_time_count,
+            invalid_time,
+            _invalid_value,
+            invalid_required_value,
+        ) in rows
+        if int(row_count) == int(distinct_count)
+        and int(required_time_count) == EXPECTED_BAR_COUNT_BY_FREQ[freq]
+        and int(invalid_time) == 0
+        and int(invalid_required_value) == 0
+    )
     total_rows = sum(int(row[1]) for row in rows)
-    return total_rows, complete, len(rows)
+    return BseSourceScopeCoverage(
+        total_row_count=total_rows,
+        complete_aliases=complete,
+        canonical_session_complete_aliases=canonical_session_complete,
+        returned_alias_count=len(rows),
+    )
 
 
 def _source_window_from_payload(payload: Mapping[str, object]) -> BseSourceWindow:
@@ -1495,15 +1535,16 @@ def stage_bse_stk_mins_source_pages(
                     returned_count = 0
                     returned_rows = 0
                 else:
-                    returned_rows, complete_aliases, returned_count = (
-                        _source_rows_for_scope(
-                            connection=connection,
-                            scope_rows=scope_rows,
-                            window_sidecars=all_sidecars,
-                            trade_date=trade_date,
-                            freq=freq,
-                        )
+                    coverage = _source_rows_for_scope(
+                        connection=connection,
+                        scope_rows=scope_rows,
+                        window_sidecars=all_sidecars,
+                        trade_date=trade_date,
+                        freq=freq,
                     )
+                    returned_rows = coverage.total_row_count
+                    complete_aliases = coverage.complete_aliases
+                    returned_count = coverage.returned_alias_count
                     expected_missing = int(summary["missing_latest_code_count"])
                     if returned_count == 0:
                         if (
@@ -1518,6 +1559,19 @@ def stage_bse_stk_mins_source_pages(
                     elif len(complete_aliases) == expected_missing:
                         mode = BseMinuteRecoveryMode.SOURCE_RECOVERABLE
                         reason = "missing_source_scope_complete"
+                    elif (
+                        freq != 1
+                        and summary["fallback_eligibility_status"] == "candidate"
+                    ):
+                        mode = BseMinuteRecoveryMode.SILVER_FALLBACK_RECOVERABLE
+                        reason = "source_partial_complete_1m_fallback"
+                    elif (
+                        freq == 1
+                        and len(coverage.canonical_session_complete_aliases)
+                        == expected_missing
+                    ):
+                        mode = BseMinuteRecoveryMode.SOURCE_UNUSABLE_SKIP
+                        reason = "source_optional_tail_invalid"
                     else:
                         mode = BseMinuteRecoveryMode.PARTIAL_BLOCKED
                         reason = "source_scope_partial"
@@ -1710,6 +1764,29 @@ def _canonical_bse_codes(
     return tuple(str(row[0]) for row in rows)
 
 
+def _assert_raw_candidate_bse_code_contract(
+    *,
+    existing_codes: Sequence[str],
+    candidate_codes: Sequence[str],
+    expected_codes: Sequence[str],
+) -> None:
+    existing = set(existing_codes)
+    candidate = set(candidate_codes)
+    expected = set(expected_codes)
+    missing_expected = tuple(sorted(expected - candidate))
+    existing_extras = existing - expected
+    candidate_extras = candidate - expected
+    introduced_extras = tuple(sorted(candidate_extras - existing_extras))
+    removed_extras = tuple(sorted(existing_extras - candidate_extras))
+    if missing_expected or introduced_extras or removed_extras:
+        raise BseMinuteRecoveryError(
+            "Raw candidate BSE code contract failed: "
+            f"missing_expected={missing_expected[:SAMPLE_LIMIT]},"
+            f"introduced_extras={introduced_extras[:SAMPLE_LIMIT]},"
+            f"removed_extras={removed_extras[:SAMPLE_LIMIT]}"
+        )
+
+
 def build_bse_raw_recovery_candidates(
     *,
     plan_path: Path,
@@ -1832,14 +1909,21 @@ def build_bse_raw_recovery_candidates(
                     identity_path=identity_path,
                     trade_date=trade_date,
                 )
-                if (
-                    duplicate_count
-                    or scope_invalid_count
-                    or canonical_codes != expected_all_codes
-                ):
+                existing_canonical_codes = _canonical_bse_codes(
+                    connection,
+                    existing_relation,
+                    identity_path=identity_path,
+                    trade_date=trade_date,
+                )
+                if duplicate_count or scope_invalid_count:
                     raise BseMinuteRecoveryError(
                         f"Raw candidate contract failed: {trade_date}:{freq}"
                     )
+                _assert_raw_candidate_bse_code_contract(
+                    existing_codes=existing_canonical_codes,
+                    candidate_codes=canonical_codes,
+                    expected_codes=expected_all_codes,
+                )
                 if _non_bse_hash(connection, existing_relation) != _non_bse_hash(
                     connection, candidate_relation
                 ):
@@ -1987,11 +2071,23 @@ def audit_bse_raw_recovery_candidates(
                     identity_path=identity_path,
                     trade_date=trade_date,
                 )
-                if duplicate_count or scope_invalid_count or canonical != expected:
-                    raise BseMinuteRecoveryError("candidate content audit failed")
                 target = raw_stk_mins_path(lake_root, freq, trade_date)
+                target_relation = read_parquet(target, hive_partitioning=False)
+                existing_canonical = _canonical_bse_codes(
+                    connection,
+                    target_relation,
+                    identity_path=identity_path,
+                    trade_date=trade_date,
+                )
+                if duplicate_count or scope_invalid_count:
+                    raise BseMinuteRecoveryError("candidate content audit failed")
+                _assert_raw_candidate_bse_code_contract(
+                    existing_codes=existing_canonical,
+                    candidate_codes=canonical,
+                    expected_codes=expected,
+                )
                 if _non_bse_hash(
-                    connection, read_parquet(target, hive_partitioning=False)
+                    connection, target_relation
                 ) != _non_bse_hash(connection, relation):
                     raise BseMinuteRecoveryError("candidate non-BSE hash changed")
                 audited.append(
@@ -2259,17 +2355,18 @@ def _load_r1_raw_promote_report(
     return report, _hash_payload(frozen)
 
 
-def _r2_affected_dates(bundle: Mapping[str, Any]) -> tuple[str, ...]:
+def _r2_affected_keys(bundle: Mapping[str, Any]) -> tuple[tuple[str, int], ...]:
     return tuple(
         sorted(
-            {
-                str(row["trade_date"])
-                for row in bundle["frozen_bundle"]["mode_rows"]
-                if row["mode"]
-                in {
-                    BseMinuteRecoveryMode.SOURCE_RECOVERABLE.value,
-                    BseMinuteRecoveryMode.SILVER_FALLBACK_RECOVERABLE.value,
-                }
+            (
+                str(row["trade_date"]),
+                int(row["freq"]),
+            )
+            for row in bundle["frozen_bundle"]["mode_rows"]
+            if row["mode"]
+            in {
+                BseMinuteRecoveryMode.SOURCE_RECOVERABLE.value,
+                BseMinuteRecoveryMode.SILVER_FALLBACK_RECOVERABLE.value,
             }
         )
     )
@@ -2446,26 +2543,44 @@ def _assert_coarse_fallback_scopes_absent(
     connection,
     lake_root: Path,
     identity_path: Path,
+    scope_relation: str,
     bundle: Mapping[str, Any],
     trade_date: str,
-    expected_latest_codes: Sequence[str],
 ) -> None:
     for row in bundle["frozen_bundle"]["mode_rows"]:
         if str(row["trade_date"]) != trade_date or int(row["freq"]) == 1:
             continue
-        if row["mode"] not in {
-            BseMinuteRecoveryMode.SILVER_FALLBACK_RECOVERABLE.value,
-            BseMinuteRecoveryMode.SOURCE_EMPTY_SKIP.value,
-        }:
+        if (
+            row["mode"]
+            != BseMinuteRecoveryMode.SILVER_FALLBACK_RECOVERABLE.value
+        ):
             continue
         freq = int(row["freq"])
+        missing_codes = tuple(
+            str(value[0])
+            for value in connection.execute(
+                f"""
+                SELECT latest_ts_code
+                FROM {scope_relation}
+                WHERE trade_date = {duckdb_string(trade_date)}
+                  AND freq = {freq}
+                  AND coverage_status = 'missing'
+                  AND reason_code = ''
+                ORDER BY latest_ts_code
+                """
+            ).fetchall()
+        )
+        if not missing_codes:
+            raise BseMinuteRecoveryError(
+                f"coarse fallback scope has no frozen missing codes: {trade_date}:{freq}"
+            )
         coverage = _existing_coverage(
             connection=connection,
             raw_path=raw_stk_mins_path(lake_root, freq, trade_date),
             identity_path=identity_path,
             trade_date=trade_date,
             freq=freq,
-            expected_latest_codes=expected_latest_codes,
+            expected_latest_codes=missing_codes,
         )
         if coverage:
             samples = sorted(coverage)[:SAMPLE_LIMIT]
@@ -2517,7 +2632,7 @@ def build_bse_silver_recovery_candidates(
     max_date_count: int | None = None,
     output_path: Path | None = None,
 ) -> dict[str, object]:
-    """R2: rebuild five Silver candidates for every actually affected date."""
+    """R2: rebuild the exact recoverable Silver date/frequency scopes."""
 
     started_at = perf_counter()
     if max_date_count is not None and max_date_count <= 0:
@@ -2536,8 +2651,21 @@ def build_bse_silver_recovery_candidates(
         lake_root=lake_root,
         label="Silver candidate report",
     )
-    affected_dates = _r2_affected_dates(bundle)
-    expected_candidate_count = len(affected_dates) * len(SUPPORTED_FREQS)
+    affected_keys = _r2_affected_keys(bundle)
+    affected_dates = tuple(sorted({trade_date for trade_date, _freq in affected_keys}))
+    frequencies_by_date = {
+        trade_date: tuple(
+            freq for date, freq in affected_keys if date == trade_date
+        )
+        for trade_date in affected_dates
+    }
+    fallback_keys = {
+        (str(row["trade_date"]), int(row["freq"]))
+        for row in bundle["frozen_bundle"]["mode_rows"]
+        if row["mode"]
+        == BseMinuteRecoveryMode.SILVER_FALLBACK_RECOVERABLE.value
+    }
+    expected_candidate_count = len(affected_keys)
     candidate_root = Path(str(plan["scope_manifest_path"])).parent / "silver"
     checkpoint_path = _r2_checkpoint_path(plan, "silver-candidate-checkpoint.json")
     checkpoint = _load_or_initialize_r2_checkpoint(
@@ -2549,9 +2677,7 @@ def build_bse_silver_recovery_candidates(
     )
     candidates = list(checkpoint["candidates"])
     completed = {(str(row["trade_date"]), int(row["freq"])) for row in candidates}
-    expected_keys = {
-        (trade_date, freq) for trade_date in affected_dates for freq in SUPPORTED_FREQS
-    }
+    expected_keys = set(affected_keys)
     if not completed.issubset(expected_keys):
         raise BseMinuteRecoveryError("Silver candidate checkpoint escaped R2 scope")
     for row in candidates:
@@ -2568,7 +2694,10 @@ def build_bse_silver_recovery_candidates(
     pending_dates = tuple(
         trade_date
         for trade_date in affected_dates
-        if any((trade_date, freq) not in completed for freq in SUPPORTED_FREQS)
+        if any(
+            (trade_date, freq) not in completed
+            for freq in frequencies_by_date[trade_date]
+        )
     )
     selected_dates = (
         pending_dates[:max_date_count] if max_date_count is not None else pending_dates
@@ -2588,26 +2717,34 @@ def build_bse_silver_recovery_candidates(
                     connection,
                     silver_stock_daily_path(lake_root, trade_date),
                 )
-                eligibility = audit_bse_one_minute_fallback_eligibility(
-                    lake_root=lake_root,
-                    trade_date=trade_date,
-                    expected_latest_codes=expected_codes,
-                    duckdb_resource=resource,
-                )
-                if not eligibility.passed:
-                    raise BseMinuteRecoveryError(
-                        "1m fallback eligibility failed: "
-                        f"{trade_date}:{eligibility.to_dict()}"
+                date_frequencies = frequencies_by_date[trade_date]
+                date_fallback_keys = {
+                    (trade_date, freq)
+                    for freq in date_frequencies
+                    if (trade_date, freq) in fallback_keys
+                }
+                eligibility = None
+                if date_fallback_keys:
+                    eligibility = audit_bse_one_minute_fallback_eligibility(
+                        lake_root=lake_root,
+                        trade_date=trade_date,
+                        expected_latest_codes=expected_codes,
+                        duckdb_resource=resource,
                     )
-                _assert_coarse_fallback_scopes_absent(
-                    connection=connection,
-                    lake_root=lake_root,
-                    identity_path=identity_path,
-                    bundle=bundle,
-                    trade_date=trade_date,
-                    expected_latest_codes=expected_codes,
-                )
-                for freq in SUPPORTED_FREQS:
+                    if not eligibility.passed:
+                        raise BseMinuteRecoveryError(
+                            "1m fallback eligibility failed: "
+                            f"{trade_date}:{eligibility.to_dict()}"
+                        )
+                    _assert_coarse_fallback_scopes_absent(
+                        connection=connection,
+                        lake_root=lake_root,
+                        identity_path=identity_path,
+                        scope_relation=_scope_manifest_relation(plan),
+                        bundle=bundle,
+                        trade_date=trade_date,
+                    )
+                for freq in date_frequencies:
                     key = (trade_date, freq)
                     if key in completed:
                         continue
@@ -2681,7 +2818,9 @@ def build_bse_silver_recovery_candidates(
                         "changed": changed,
                         "affected_latest_code_count": len(affected_codes),
                         "affected_latest_code_hash": _hash_payload(affected_codes),
-                        "eligibility": eligibility.to_dict(),
+                        "eligibility": (
+                            eligibility.to_dict() if eligibility is not None else None
+                        ),
                         "write_result": {
                             "source_row_count": write_result.source_row_count,
                             "mapped_row_count": write_result.mapped_row_count,
@@ -2736,6 +2875,7 @@ def build_bse_silver_recovery_candidates(
         "raw_promote_hash": raw_promote_hash,
         "candidate_report_hash": candidate_report_hash,
         "affected_date_count": len(affected_dates),
+        "affected_scope_count": len(affected_keys),
         "expected_candidate_count": expected_candidate_count,
         "candidate_count": len(candidates),
         "changed_candidate_count": sum(bool(row["changed"]) for row in candidates),

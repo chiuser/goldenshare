@@ -329,7 +329,7 @@ def _sample_rows(partition_key: str) -> list[dict[str, object]]:
                 "security_count": 2,
                 "source_row_count": 4,
                 "points_json": (
-                    f'[{{"tradeTime":"09:30","tradeTimeTs":"{partition_key} 09:30:00",'
+                    f'[{{"tradeTime":"15:00","tradeTimeTs":"{partition_key} 15:00:00",'
                     f'"amount":{freq}.00,"vol":{freq * 100},"securityCount":2}}]'
                 ),
                 "build_version": "v2",

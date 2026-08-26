@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from collections.abc import Mapping, Sequence
@@ -35,6 +36,9 @@ WEALTH_MARKET_TURNOVER_BUILD_NOTE = (
 )
 WEALTH_MARKET_TURNOVER_BSE_SUFFIX = ".BJ"
 WEALTH_MARKET_TURNOVER_CLOSE_TIME = "15:00:00"
+WEALTH_MARKET_TURNOVER_ROUNDING_VOLUME_TOLERANCE_SHARES = 2
+WEALTH_MARKET_TURNOVER_ROUNDING_VOLUME_RELATIVE_TOLERANCE = Decimal("0.000001")
+WEALTH_MARKET_TURNOVER_ROUNDING_AMOUNT_TOLERANCE_YUAN = Decimal(100)
 WEALTH_MARKET_TURNOVER_CHECK_NAME = "gold_wealth_market_turnover_integrity_check"
 
 GOLD_WEALTH_MARKET_TURNOVER_COLUMNS = tuple(
@@ -125,11 +129,19 @@ def wealth_market_turnover_select_sql(
 ) -> str:
     if not source_paths.minute_paths:
         raise ValueError("wealth market turnover minute_paths must not be empty.")
+    selected_freqs = tuple(path.freq for path in source_paths.minute_paths)
+    if (
+        len(set(selected_freqs)) != len(selected_freqs)
+        or any(freq not in STK_MINS_FREQS for freq in selected_freqs)
+    ):
+        raise ValueError(
+            "wealth market turnover minute_paths contain invalid or duplicate freqs."
+        )
     source_unions = "\nUNION ALL\n".join(
         _silver_stk_mins_source_select(input_path)
         for input_path in source_paths.minute_paths
     )
-    freq_values = ", ".join(f"({freq})" for freq in STK_MINS_FREQS)
+    freq_values = ", ".join(f"({freq})" for freq in selected_freqs)
     return f"""
 WITH minute_source_rows AS (
   {source_unions}
@@ -422,6 +434,7 @@ def audit_gold_wealth_market_turnover_file_contract(
     connection,
     target_path: Path,
     partition_key: str,
+    preserve_freqs: Sequence[int] = (),
 ) -> WealthMarketTurnoverIntegrityAudit:
     if not target_path.exists():
         return _failed_audit(
@@ -458,7 +471,12 @@ def audit_gold_wealth_market_turnover_file_contract(
             },
         )
 
-    invalid_rows = _file_contract_invalid_rows(connection, target_path, partition_key)
+    invalid_rows = _file_contract_invalid_rows(
+        connection,
+        target_path,
+        partition_key,
+        preserve_freqs=preserve_freqs,
+    )
     if invalid_rows:
         return _failed_audit(
             failure_stage="file_contract",
@@ -501,7 +519,11 @@ def audit_gold_wealth_market_turnover_file_contract(
             },
         )
 
-    points_failure = _points_json_failure(connection, target_path)
+    points_failure = _points_json_failure(
+        connection,
+        target_path,
+        preserve_freqs=preserve_freqs,
+    )
     if points_failure is not None:
         return _failed_audit(
             failure_stage="file_contract",
@@ -540,7 +562,11 @@ def audit_gold_wealth_market_turnover_recomputed_from_sources(
     source_paths: WealthMarketTurnoverSourcePaths,
     partition_key: str,
     source_files_validated: bool = False,
+    expected_freqs: Sequence[int] = STK_MINS_FREQS,
 ) -> WealthMarketTurnoverIntegrityAudit:
+    normalized_expected_freqs = tuple(
+        normalize_stk_mins_freq(freq) for freq in expected_freqs
+    )
     missing_input_paths = tuple(
         str(path)
         for path in _source_file_paths(source_paths)
@@ -571,6 +597,7 @@ def audit_gold_wealth_market_turnover_recomputed_from_sources(
                 connection=connection,
                 source_paths=source_paths,
                 partition_key=partition_key,
+                expected_freqs=normalized_expected_freqs,
             )
         except (FileNotFoundError, RuntimeError, ValueError) as error:
             return _failed_audit(
@@ -593,7 +620,11 @@ def audit_gold_wealth_market_turnover_recomputed_from_sources(
                 },
             )
 
-    target_rows = _normalised_target_rows(connection, target_path)
+    target_rows = {
+        freq: row
+        for freq, row in _normalised_target_rows(connection, target_path).items()
+        if freq in normalized_expected_freqs
+    }
     recomputed_rows = _normalised_recomputed_rows(
         connection=connection,
         source_paths=source_paths,
@@ -631,6 +662,52 @@ def audit_gold_wealth_market_turnover_recomputed_from_sources(
             "row_count": len(target_rows),
         },
     )
+
+
+def validate_wealth_market_turnover_source_paths(
+    *,
+    connection,
+    source_paths: WealthMarketTurnoverSourcePaths,
+    partition_key: str,
+    expected_freqs: Sequence[int],
+) -> WealthMarketTurnoverCorrectionStats:
+    """Validate a bounded frequency subset for explicit history maintenance."""
+
+    return _validate_source_files(
+        connection=connection,
+        source_paths=source_paths,
+        partition_key=partition_key,
+        expected_freqs=expected_freqs,
+    )
+
+
+def wealth_market_turnover_canonical_rows(
+    *,
+    connection,
+    path: Path,
+) -> dict[int, dict[str, object]]:
+    """Return logical rows excluding built_at, which is execution metadata."""
+
+    return _normalised_target_rows(connection, path)
+
+
+def wealth_market_turnover_canonical_hash(
+    *,
+    connection,
+    path: Path,
+) -> str:
+    payload = wealth_market_turnover_canonical_rows(
+        connection=connection,
+        path=path,
+    )
+    return hashlib.sha256(
+        json.dumps(
+            payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
 
 
 def summarize_gold_wealth_market_turnover_file(
@@ -708,6 +785,8 @@ def _silver_stk_mins_source_select(
     CAST(vol AS BIGINT) AS vol,
     CAST(amount AS DECIMAL(38,4)) AS amount
   FROM {read_parquet(input_path.path, hive_partitioning=False)}
+  WHERE CAST(trade_time AS TIME)
+        <= TIME {duckdb_string(WEALTH_MARKET_TURNOVER_CLOSE_TIME)}
 """
 
 
@@ -720,9 +799,15 @@ def _validate_source_files(
     connection,
     source_paths: WealthMarketTurnoverSourcePaths,
     partition_key: str,
+    expected_freqs: Sequence[int] = STK_MINS_FREQS,
 ) -> WealthMarketTurnoverCorrectionStats:
-    if tuple(path.freq for path in source_paths.minute_paths) != tuple(STK_MINS_FREQS):
-        raise ValueError("wealth market turnover input paths must cover all source freqs.")
+    normalized_expected_freqs = tuple(
+        normalize_stk_mins_freq(freq) for freq in expected_freqs
+    )
+    if tuple(path.freq for path in source_paths.minute_paths) != normalized_expected_freqs:
+        raise ValueError(
+            "wealth market turnover input paths do not match expected source freqs."
+        )
     for input_path in source_paths.minute_paths:
         if not input_path.path.exists():
             raise FileNotFoundError(
@@ -844,6 +929,7 @@ def _validate_source_files(
     return _validate_and_summarize_bse_residuals(
         connection=connection,
         source_paths=source_paths,
+        expected_freqs=normalized_expected_freqs,
     )
 
 
@@ -926,8 +1012,12 @@ def _validate_and_summarize_bse_residuals(
     *,
     connection,
     source_paths: WealthMarketTurnoverSourcePaths,
+    expected_freqs: Sequence[int],
 ) -> WealthMarketTurnoverCorrectionStats:
-    residual_sql = _bse_residual_rows_sql(source_paths)
+    residual_sql = _bse_residual_rows_sql(
+        source_paths,
+        expected_freqs=expected_freqs,
+    )
     minute_source_sql = "\nUNION ALL\n".join(
         _silver_stk_mins_source_select(path)
         for path in source_paths.minute_paths
@@ -939,19 +1029,34 @@ def _validate_and_summarize_bse_residuals(
           CAST(round(sum(residual_vol), 0) AS BIGINT) AS residual_vol,
           CAST(sum(residual_amount) AS VARCHAR) AS residual_amount,
           count(*) FILTER (
-            WHERE residual_vol = 0 AND residual_amount != 0
+            WHERE residual_vol
+                  BETWEEN -rounding_volume_tolerance_shares
+                      AND rounding_volume_tolerance_shares
+              AND (residual_vol != 0 OR residual_amount != 0)
           ) AS rounding_residual_code_count,
-          count(*) FILTER (WHERE residual_vol < 0) AS negative_vol_count,
           count(*) FILTER (
-            WHERE residual_vol > 0 AND residual_amount <= 0
-          ) AS nonpositive_amount_count
+            WHERE residual_vol < -rounding_volume_tolerance_shares
+          ) AS negative_vol_count,
+          count(*) FILTER (
+            WHERE residual_vol > rounding_volume_tolerance_shares
+              AND residual_amount <= 0
+          ) AS nonpositive_amount_count,
+          count(*) FILTER (
+            WHERE residual_vol
+                  BETWEEN -rounding_volume_tolerance_shares
+                      AND rounding_volume_tolerance_shares
+              AND abs(residual_amount) > (
+                {WEALTH_MARKET_TURNOVER_ROUNDING_AMOUNT_TOLERANCE_YUAN}
+                + abs(residual_vol) * daily_average_price_yuan
+              )
+          ) AS excessive_rounding_residual_count
         FROM ({residual_sql}) residuals
         GROUP BY freq
         ORDER BY freq
         """
     ).fetchall()
     observed_freqs = tuple(int(row[0]) for row in rows)
-    if observed_freqs not in ((), tuple(STK_MINS_FREQS)):
+    if observed_freqs not in ((), tuple(expected_freqs)):
         raise RuntimeError(
             "bse_residual_freq_set_mismatch: "
             f"observed_freqs={list(observed_freqs)}."
@@ -960,8 +1065,8 @@ def _validate_and_summarize_bse_residuals(
         raise RuntimeError("negative_bse_volume_residual")
     if any(int(row[5]) > 0 for row in rows):
         raise RuntimeError("nonpositive_bse_amount_residual")
-    if any(Decimal(str(row[2])) < 0 for row in rows):
-        raise RuntimeError("negative_bse_aggregate_amount_residual")
+    if any(int(row[6]) > 0 for row in rows):
+        raise RuntimeError("bse_rounding_residual_exceeded")
 
     close_freq_count = int(
         connection.execute(
@@ -975,7 +1080,7 @@ def _validate_and_summarize_bse_residuals(
             """
         ).fetchone()[0]
     )
-    if close_freq_count != len(STK_MINS_FREQS):
+    if close_freq_count != len(expected_freqs):
         raise RuntimeError("missing_close_aggregate_point")
 
     bse_security_count = int(
@@ -1004,11 +1109,15 @@ def _validate_and_summarize_bse_residuals(
     )
 
 
-def _bse_residual_rows_sql(source_paths: WealthMarketTurnoverSourcePaths) -> str:
+def _bse_residual_rows_sql(
+    source_paths: WealthMarketTurnoverSourcePaths,
+    *,
+    expected_freqs: Sequence[int] = STK_MINS_FREQS,
+) -> str:
     minute_unions = "\nUNION ALL\n".join(
         _silver_stk_mins_source_select(path) for path in source_paths.minute_paths
     )
-    freq_values = ", ".join(f"({freq})" for freq in STK_MINS_FREQS)
+    freq_values = ", ".join(f"({freq})" for freq in expected_freqs)
     return f"""
       WITH minute_source_rows AS (
         {minute_unions}
@@ -1018,7 +1127,15 @@ def _bse_residual_rows_sql(source_paths: WealthMarketTurnoverSourcePaths) -> str
         SELECT
           upper(trim(CAST(ts_code AS VARCHAR))) AS ts_code,
           CAST(vol AS DECIMAL(38,4)) * 100 AS daily_vol_shares,
-          CAST(amount AS DECIMAL(38,4)) * 1000 AS daily_amount_yuan
+          CAST(amount AS DECIMAL(38,4)) * 1000 AS daily_amount_yuan,
+          CASE
+            WHEN CAST(vol AS DECIMAL(38,4)) > 0
+            THEN (
+              CAST(amount AS DECIMAL(38,4)) * 10
+              / CAST(vol AS DECIMAL(38,4))
+            )
+            ELSE CAST(0 AS DECIMAL(38,4))
+          END AS daily_average_price_yuan
         FROM {read_parquet(source_paths.stock_daily_path, hive_partitioning=False)}
         WHERE ends_with(upper(trim(CAST(ts_code AS VARCHAR))),
                         {duckdb_string(WEALTH_MARKET_TURNOVER_BSE_SUFFIX)})
@@ -1040,7 +1157,15 @@ def _bse_residual_rows_sql(source_paths: WealthMarketTurnoverSourcePaths) -> str
         daily_bse_rows.daily_vol_shares
           - coalesce(minute_totals.minute_vol_shares, 0) AS residual_vol,
         daily_bse_rows.daily_amount_yuan
-          - coalesce(minute_totals.minute_amount_yuan, 0) AS residual_amount
+          - coalesce(minute_totals.minute_amount_yuan, 0) AS residual_amount,
+        daily_bse_rows.daily_average_price_yuan,
+        greatest(
+          {WEALTH_MARKET_TURNOVER_ROUNDING_VOLUME_TOLERANCE_SHARES},
+          ceil(
+            daily_bse_rows.daily_vol_shares
+            * {WEALTH_MARKET_TURNOVER_ROUNDING_VOLUME_RELATIVE_TOLERANCE}
+          )
+        ) AS rounding_volume_tolerance_shares
       FROM daily_bse_rows
       CROSS JOIN freqs
       LEFT JOIN minute_totals
@@ -1069,7 +1194,7 @@ def _source_validation_reason_code(error: Exception) -> str:
         "bse_close_point_missing",
         "negative_bse_volume_residual",
         "nonpositive_bse_amount_residual",
-        "negative_bse_aggregate_amount_residual",
+        "bse_rounding_residual_exceeded",
         "missing_close_aggregate_point",
     )
     for reason_code in known_reason_codes:
@@ -1139,7 +1264,15 @@ def _file_contract_invalid_rows(
     connection,
     path: Path,
     partition_key: str,
+    *,
+    preserve_freqs: Sequence[int] = (),
 ) -> tuple[dict[str, object], ...]:
+    preserved = tuple(normalize_stk_mins_freq(freq) for freq in preserve_freqs)
+    version_contract_applies = (
+        f"freq NOT IN ({', '.join(str(freq) for freq in preserved)})"
+        if preserved
+        else "TRUE"
+    )
     rows = connection.execute(
         f"""
         SELECT type, market, trade_date, freq, build_status, build_note
@@ -1161,8 +1294,15 @@ def _file_contract_invalid_rows(
            OR market != {duckdb_string(WEALTH_MARKET_TURNOVER_MARKET)}
            OR CAST(trade_date AS DATE) != DATE {duckdb_string(partition_key)}
            OR build_status != {duckdb_string(WEALTH_MARKET_TURNOVER_BUILD_STATUS)}
-           OR build_version != {duckdb_string(WEALTH_MARKET_TURNOVER_BUILD_VERSION)}
-           OR build_note != {duckdb_string(WEALTH_MARKET_TURNOVER_BUILD_NOTE)}
+           OR (
+             {version_contract_applies}
+             AND (
+               build_version != {duckdb_string(WEALTH_MARKET_TURNOVER_BUILD_VERSION)}
+               OR build_note != {duckdb_string(WEALTH_MARKET_TURNOVER_BUILD_NOTE)}
+               OR CAST(latest_trade_time AS TIME)
+                  != TIME {duckdb_string(WEALTH_MARKET_TURNOVER_CLOSE_TIME)}
+             )
+           )
         LIMIT 10
         """
     ).fetchall()
@@ -1206,7 +1346,13 @@ def _duplicate_target_key_count(connection, path: Path) -> int:
     )
 
 
-def _points_json_failure(connection, path: Path) -> dict[str, object] | None:
+def _points_json_failure(
+    connection,
+    path: Path,
+    *,
+    preserve_freqs: Sequence[int] = (),
+) -> dict[str, object] | None:
+    preserved = {normalize_stk_mins_freq(freq) for freq in preserve_freqs}
     rows = connection.execute(
         f"""
         SELECT freq, CAST(points_json AS VARCHAR)
@@ -1245,6 +1391,16 @@ def _points_json_failure(connection, path: Path) -> dict[str, object] | None:
             return {
                 "reason_code": "points_json_trade_time_not_sorted",
                 "freq": int(freq),
+            }
+        if (
+            int(freq) not in preserved
+            and trade_time_values[-1][11:]
+            != WEALTH_MARKET_TURNOVER_CLOSE_TIME
+        ):
+            return {
+                "reason_code": "points_json_not_closed_at_1500",
+                "freq": int(freq),
+                "latest_trade_time": trade_time_values[-1],
             }
     return None
 

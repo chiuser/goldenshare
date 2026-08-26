@@ -102,6 +102,317 @@ class GoldWealthMarketTurnoverAssetTests(unittest.TestCase):
                 ["JSON"],
             )
 
+    def test_write_partition_excludes_source_faithful_post_close_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            for freq in STK_MINS_FREQS:
+                self._write_silver_file(
+                    root,
+                    "2026-06-22",
+                    freq,
+                    include_post_close_tail=True,
+                )
+            self._write_stock_daily_file(root, "2026-06-22")
+            target_path = gold_wealth_market_turnover_path(root, "2026-06-22")
+
+            write_gold_wealth_market_turnover_partition(
+                duckdb_resource=DuckDBResource(),
+                source_paths=wealth_market_turnover_source_paths(
+                    root,
+                    "2026-06-22",
+                ),
+                partition_key="2026-06-22",
+                staging_path=root / "staging/part-000.parquet",
+                target_path=target_path,
+                built_at_sql="TIMESTAMP '2026-06-22 20:00:00'",
+            )
+
+            with duckdb.connect(database=":memory:") as connection:
+                rows = connection.execute(
+                    f"""
+                    SELECT
+                      freq,
+                      CAST(latest_trade_time AS TIME),
+                      CAST(points_json AS VARCHAR)
+                    FROM read_parquet(
+                      '{target_path.as_posix()}',
+                      hive_partitioning=false
+                    )
+                    ORDER BY freq
+                    """
+                ).fetchall()
+
+            self.assertEqual([str(row[1]) for row in rows], ["15:00:00"] * 5)
+            self.assertTrue(all('"tradeTime":"15:30"' not in row[2] for row in rows))
+
+    def test_write_partition_accepts_bounded_source_rounding_residuals(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            for freq in STK_MINS_FREQS:
+                self._write_silver_file(
+                    root,
+                    "2026-06-22",
+                    freq,
+                    bse_source_vol=160,
+                    bse_source_amount=1600.0,
+                )
+            self._write_stock_daily_file(
+                root,
+                "2026-06-22",
+                bse_vol=1.59,
+                bse_amount=1.603,
+            )
+
+            audit = write_gold_wealth_market_turnover_partition(
+                duckdb_resource=DuckDBResource(),
+                source_paths=wealth_market_turnover_source_paths(
+                    root,
+                    "2026-06-22",
+                ),
+                partition_key="2026-06-22",
+                staging_path=root / "staging/part-000.parquet",
+                target_path=gold_wealth_market_turnover_path(
+                    root,
+                    "2026-06-22",
+                ),
+            )
+
+            self.assertEqual(audit.bse_residual_vol_by_freq["60"], -1)
+            self.assertEqual(
+                audit.bse_rounding_residual_code_count_by_freq["60"],
+                1,
+            )
+
+    def test_write_partition_accepts_signed_amount_only_rounding_residual(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            for freq in STK_MINS_FREQS:
+                self._write_silver_file(
+                    root,
+                    "2026-06-22",
+                    freq,
+                    bse_source_vol=100,
+                    bse_source_amount=1000.0,
+                )
+            self._write_stock_daily_file(
+                root,
+                "2026-06-22",
+                bse_vol=1.0,
+                bse_amount=0.999,
+            )
+
+            audit = write_gold_wealth_market_turnover_partition(
+                duckdb_resource=DuckDBResource(),
+                source_paths=wealth_market_turnover_source_paths(
+                    root,
+                    "2026-06-22",
+                ),
+                partition_key="2026-06-22",
+                staging_path=root / "staging/part-000.parquet",
+                target_path=gold_wealth_market_turnover_path(
+                    root,
+                    "2026-06-22",
+                ),
+            )
+
+            self.assertEqual(audit.bse_residual_vol_by_freq["1"], 0)
+            self.assertEqual(audit.bse_residual_amount_by_freq["1"], "-1")
+            self.assertEqual(
+                audit.bse_rounding_residual_code_count_by_freq["1"],
+                1,
+            )
+
+    def test_write_partition_accepts_positive_one_share_rounding_residual(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            for freq in STK_MINS_FREQS:
+                self._write_silver_file(
+                    root,
+                    "2026-06-22",
+                    freq,
+                    bse_source_vol=99,
+                    bse_source_amount=1007.5,
+                )
+            self._write_stock_daily_file(
+                root,
+                "2026-06-22",
+                bse_vol=1.0,
+                bse_amount=1.0,
+            )
+
+            audit = write_gold_wealth_market_turnover_partition(
+                duckdb_resource=DuckDBResource(),
+                source_paths=wealth_market_turnover_source_paths(
+                    root,
+                    "2026-06-22",
+                ),
+                partition_key="2026-06-22",
+                staging_path=root / "staging/part-000.parquet",
+                target_path=gold_wealth_market_turnover_path(
+                    root,
+                    "2026-06-22",
+                ),
+            )
+
+            self.assertEqual(audit.bse_residual_vol_by_freq["30"], 1)
+            self.assertEqual(audit.bse_residual_amount_by_freq["30"], "-7.5")
+            self.assertEqual(
+                audit.bse_rounding_residual_code_count_by_freq["30"],
+                1,
+            )
+
+    def test_write_partition_accepts_high_price_one_share_rounding_residual(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            for freq in STK_MINS_FREQS:
+                self._write_silver_file(
+                    root,
+                    "2026-06-22",
+                    freq,
+                    bse_source_vol=99,
+                    bse_source_amount=12136.87,
+                )
+            self._write_stock_daily_file(
+                root,
+                "2026-06-22",
+                bse_vol=1.0,
+                bse_amount=12.2592,
+            )
+
+            audit = write_gold_wealth_market_turnover_partition(
+                duckdb_resource=DuckDBResource(),
+                source_paths=wealth_market_turnover_source_paths(
+                    root,
+                    "2026-06-22",
+                ),
+                partition_key="2026-06-22",
+                staging_path=root / "staging/part-000.parquet",
+                target_path=gold_wealth_market_turnover_path(
+                    root,
+                    "2026-06-22",
+                ),
+            )
+
+            self.assertEqual(audit.bse_residual_vol_by_freq["5"], 1)
+            self.assertEqual(
+                audit.bse_rounding_residual_code_count_by_freq["5"],
+                1,
+            )
+
+    def test_write_partition_accepts_two_share_signed_rounding_residual(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            for freq in STK_MINS_FREQS:
+                self._write_silver_file(
+                    root,
+                    "2026-06-22",
+                    freq,
+                    bse_source_vol=98,
+                    bse_source_amount=1005.5,
+                )
+            self._write_stock_daily_file(
+                root,
+                "2026-06-22",
+                bse_vol=1.0,
+                bse_amount=1.0,
+            )
+
+            audit = write_gold_wealth_market_turnover_partition(
+                duckdb_resource=DuckDBResource(),
+                source_paths=wealth_market_turnover_source_paths(
+                    root,
+                    "2026-06-22",
+                ),
+                partition_key="2026-06-22",
+                staging_path=root / "staging/part-000.parquet",
+                target_path=gold_wealth_market_turnover_path(
+                    root,
+                    "2026-06-22",
+                ),
+            )
+
+            self.assertEqual(audit.bse_residual_vol_by_freq["30"], 2)
+            self.assertEqual(audit.bse_residual_amount_by_freq["30"], "-5.5")
+            self.assertEqual(
+                audit.bse_rounding_residual_code_count_by_freq["30"],
+                1,
+            )
+
+    def test_write_partition_accepts_bounded_relative_volume_residual(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            for freq in STK_MINS_FREQS:
+                self._write_silver_file(
+                    root,
+                    "2026-06-22",
+                    freq,
+                    bse_source_vol=132671529,
+                    bse_source_amount=1889727440.0,
+                )
+            self._write_stock_daily_file(
+                root,
+                "2026-06-22",
+                bse_vol=1326715.36,
+                bse_amount=1889727.44,
+            )
+
+            audit = write_gold_wealth_market_turnover_partition(
+                duckdb_resource=DuckDBResource(),
+                source_paths=wealth_market_turnover_source_paths(
+                    root,
+                    "2026-06-22",
+                ),
+                partition_key="2026-06-22",
+                staging_path=root / "staging/part-000.parquet",
+                target_path=gold_wealth_market_turnover_path(
+                    root,
+                    "2026-06-22",
+                ),
+            )
+
+            self.assertEqual(audit.bse_residual_vol_by_freq["60"], 7)
+            self.assertEqual(audit.bse_residual_amount_by_freq["60"], "0")
+            self.assertEqual(
+                audit.bse_rounding_residual_code_count_by_freq["60"],
+                1,
+            )
+
+    def test_write_partition_rejects_excessive_amount_rounding_residual(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            for freq in STK_MINS_FREQS:
+                self._write_silver_file(
+                    root,
+                    "2026-06-22",
+                    freq,
+                    bse_source_vol=100,
+                    bse_source_amount=1000.0,
+                )
+            self._write_stock_daily_file(
+                root,
+                "2026-06-22",
+                bse_vol=1.0,
+                bse_amount=0.88,
+            )
+
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "bse_rounding_residual_exceeded",
+            ):
+                write_gold_wealth_market_turnover_partition(
+                    duckdb_resource=DuckDBResource(),
+                    source_paths=wealth_market_turnover_source_paths(
+                        root,
+                        "2026-06-22",
+                    ),
+                    partition_key="2026-06-22",
+                    staging_path=root / "staging/part-000.parquet",
+                    target_path=gold_wealth_market_turnover_path(
+                        root,
+                        "2026-06-22",
+                    ),
+                )
+
     def test_write_partition_fails_closed_for_missing_freq(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_dir:
             root = Path(temporary_dir)
@@ -302,16 +613,41 @@ class GoldWealthMarketTurnoverAssetTests(unittest.TestCase):
         trade_date: str | None = None,
         duplicate_first_row: bool = False,
         omit_bse_close: bool = False,
+        include_post_close_tail: bool = False,
+        bse_source_vol: float | None = None,
+        bse_source_amount: float | None = None,
     ) -> None:
         path = silver_stk_mins_path(root, freq, partition_key)
         path.parent.mkdir(parents=True, exist_ok=True)
         data_trade_date = trade_date or partition_key
         rows = [
             ("000001.SZ", freq, data_trade_date, f"{partition_key} 09:30:00", 100, 1000.0),
-            ("920001.BJ", freq, data_trade_date, f"{partition_key} 09:30:00", 100 + freq, 1000.0 + freq * 10),
+            (
+                "920001.BJ",
+                freq,
+                data_trade_date,
+                f"{partition_key} 09:30:00",
+                bse_source_vol if bse_source_vol is not None else 100 + freq,
+                (
+                    bse_source_amount
+                    if bse_source_amount is not None
+                    else 1000.0 + freq * 10
+                ),
+            ),
             ("000001.SZ", freq, data_trade_date, f"{partition_key} 15:00:00", 200, 2000.0),
             ("920001.BJ", freq, data_trade_date, f"{partition_key} 15:00:00", 0, 0.0),
         ]
+        if include_post_close_tail:
+            rows.append(
+                (
+                    "920001.BJ",
+                    freq,
+                    data_trade_date,
+                    f"{partition_key} 15:30:00",
+                    999999,
+                    9999999.0,
+                )
+            )
         if omit_bse_close:
             rows = [
                 row

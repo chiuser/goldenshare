@@ -5,11 +5,6 @@ from pathlib import Path
 import dagster as dg
 import duckdb
 
-from orchestrator.defs.bootstrap.wealth_market_turnover_history import (
-    build_wealth_market_turnover_history_candidates,
-    plan_wealth_market_turnover_history,
-    promote_wealth_market_turnover_history_candidates,
-)
 from orchestrator.defs.bootstrap.wealth_market_turnover_runless_events import (
     GOLD_WEALTH_MARKET_TURNOVER_ASSET_KEY,
     WEALTH_MARKET_TURNOVER_RUNLESS_WINDOW_SIZE,
@@ -17,7 +12,11 @@ from orchestrator.defs.bootstrap.wealth_market_turnover_runless_events import (
     recent_wealth_market_turnover_partitions,
     report_wealth_market_turnover_runless_events,
 )
-from orchestrator.defs.paths import silver_stk_mins_path, silver_stock_daily_path
+from orchestrator.defs.paths import (
+    gold_wealth_market_turnover_path,
+    silver_stk_mins_path,
+    silver_stock_daily_path,
+)
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.stk_mins import STK_MINS_FREQS
 from orchestrator.defs.sensors.readiness import (
@@ -26,6 +25,8 @@ from orchestrator.defs.sensors.readiness import (
 )
 from orchestrator.defs.wealth_market_turnover_contract import (
     WEALTH_MARKET_TURNOVER_CHECK_NAME,
+    wealth_market_turnover_source_paths,
+    write_gold_wealth_market_turnover_partition,
 )
 
 DATE_1 = "2026-06-22"
@@ -131,23 +132,12 @@ def _write_valid_gold_partition(root: Path, partition_key: str) -> None:
     for freq in STK_MINS_FREQS:
         _write_silver_file(root, partition_key, freq)
     _write_stock_daily_file(root, partition_key)
-    plan = plan_wealth_market_turnover_history(
+    write_gold_wealth_market_turnover_partition(
         duckdb_resource=DuckDBResource(),
-        lake_root=root,
-        staging_root=root / "staging",
-        partition_keys=(partition_key,),
-    )
-    write_report = build_wealth_market_turnover_history_candidates(
-        plan=plan,
-        lake_root=root,
-        duckdb_resource=DuckDBResource(),
-        partition_keys=(partition_key,),
-    )
-    promote_wealth_market_turnover_history_candidates(
-        plan=plan,
-        lake_root=root,
-        partition_keys=(partition_key,),
-        candidate_hashes=write_report.candidate_hashes,
+        source_paths=wealth_market_turnover_source_paths(root, partition_key),
+        partition_key=partition_key,
+        staging_path=root / "staging" / f"{partition_key}.parquet",
+        target_path=gold_wealth_market_turnover_path(root, partition_key),
     )
 
 

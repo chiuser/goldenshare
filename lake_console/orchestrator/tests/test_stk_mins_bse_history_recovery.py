@@ -15,7 +15,9 @@ from orchestrator.defs.bootstrap.stk_mins_bse_history_recovery import (
     BseMinuteRecoveryScope,
     _active_identity_rows,
     _allowed_raw_source_times,
+    _assert_coarse_fallback_scopes_absent,
     _expected_session_times,
+    _scope_manifest_relation,
     _select_aliases,
     audit_bse_one_minute_fallback_eligibility,
     audit_bse_raw_recovery_candidates,
@@ -391,7 +393,7 @@ class BseMinuteHistoryRecoveryTests(unittest.TestCase):
                     "BSE",
                 )
             )
-        if freq == 5:
+        if freq in (1, 5):
             rows.append(
                 (
                     "000156.SZ",
@@ -653,6 +655,56 @@ class BseMinuteHistoryRecoveryTests(unittest.TestCase):
         )
         self.assertEqual(resumed["promoted_count"], 1)
 
+    def test_r1_preserves_existing_bse_code_outside_daily_expected_set(self) -> None:
+        _write_rows(
+            self.raw_path,
+            RAW_SCHEMA,
+            _minute_rows("920001.BJ", self.trade_date, 1)
+            + _minute_rows("920305.BJ", self.trade_date, 1)
+            + _minute_rows("000001.SZ", self.trade_date, 1),
+        )
+        _plan, plan_path = self._plan()
+        bundle_path = self.root / "extra-bse-bundle.json"
+        stage_bse_stk_mins_source_pages(
+            plan_path=plan_path,
+            tushare=_FakeTushare(self._source_rows()),
+            duckdb_resource=self.resource,
+            output_path=bundle_path,
+            request_policy=TushareRequestPolicy(
+                minimum_interval_seconds=0.0,
+                max_retries=0,
+                max_requests=10,
+                max_elapsed_seconds=30.0,
+            ),
+        )
+        candidate_path = self.root / "extra-bse-candidate.json"
+        candidate = build_bse_raw_recovery_candidates(
+            plan_path=plan_path,
+            bundle_path=bundle_path,
+            duckdb_resource=self.resource,
+            output_path=candidate_path,
+        )
+
+        self.assertFalse(candidate["should_stop"])
+        with self.resource.connect() as connection:
+            codes = connection.execute(
+                "SELECT DISTINCT ts_code "
+                f"FROM read_parquet({duckdb_string(Path(candidate['candidates'][0]['path']))}) "
+                "WHERE ts_code LIKE '%.BJ' ORDER BY ts_code"
+            ).fetchall()
+        self.assertEqual(
+            codes,
+            [("872392.BJ",), ("920001.BJ",), ("920305.BJ",)],
+        )
+
+        audit = audit_bse_raw_recovery_candidates(
+            plan_path=plan_path,
+            bundle_path=bundle_path,
+            candidate_report_path=candidate_path,
+            duckdb_resource=self.resource,
+        )
+        self.assertFalse(audit["should_stop"])
+
     def test_source_bundle_detects_page_tampering(self) -> None:
         _plan, plan_path = self._plan()
         fake = _FakeTushare(self._source_rows())
@@ -810,6 +862,32 @@ class BseMinuteHistoryRecoveryTests(unittest.TestCase):
         )
         self.assertEqual(self.raw_path.read_bytes(), raw_before)
 
+    def test_one_minute_source_with_invalid_optional_tail_is_preserved(self) -> None:
+        _plan, plan_path = self._plan()
+        raw_before = self.raw_path.read_bytes()
+        rows = self._source_rows()
+        tail = next(row for row in rows if str(row["trade_time"]).endswith("15:30:00"))
+        tail["vol"] = -1
+        tail["amount"] = -1.0
+
+        bundle = stage_bse_stk_mins_source_pages(
+            plan_path=plan_path,
+            tushare=_FakeTushare(rows),
+            duckdb_resource=self.resource,
+            request_policy=TushareRequestPolicy(
+                minimum_interval_seconds=0.0,
+                max_retries=0,
+                max_requests=10,
+                max_elapsed_seconds=30.0,
+            ),
+        )
+
+        self.assertFalse(bundle["should_stop"])
+        mode = bundle["frozen_bundle"]["mode_rows"][0]
+        self.assertEqual(mode["mode"], "source_unusable_skip")
+        self.assertEqual(mode["reason_code"], "source_optional_tail_invalid")
+        self.assertEqual(self.raw_path.read_bytes(), raw_before)
+
     def test_empty_coarse_source_uses_fallback_only_with_complete_1m(self) -> None:
         _write_rows(
             self.raw_path,
@@ -840,6 +918,94 @@ class BseMinuteHistoryRecoveryTests(unittest.TestCase):
         mode = bundle["frozen_bundle"]["mode_rows"][0]
         self.assertEqual(mode["mode"], "silver_fallback_recoverable")
         self.assertEqual(mode["reason_code"], "source_empty_complete_1m_fallback")
+
+    def test_partial_coarse_source_uses_complete_one_minute_fallback(self) -> None:
+        _write_rows(
+            self.raw_path,
+            RAW_SCHEMA,
+            _minute_rows("920001.BJ", self.trade_date, 1)
+            + _minute_rows("872392.BJ", self.trade_date, 1),
+        )
+        raw_5m_path = raw_stk_mins_path(self.lake_root, 5, self.trade_date)
+        _write_rows(
+            raw_5m_path,
+            RAW_SCHEMA,
+            _minute_rows("920001.BJ", self.trade_date, 5),
+        )
+        _plan, plan_path = self._plan(5)
+        rows = self._source_rows()
+        for row in rows:
+            row["freq"] = "5min"
+
+        bundle = stage_bse_stk_mins_source_pages(
+            plan_path=plan_path,
+            tushare=_FakeTushare(rows),
+            duckdb_resource=self.resource,
+            request_policy=TushareRequestPolicy(
+                minimum_interval_seconds=0.0,
+                max_retries=0,
+                max_requests=10,
+                max_elapsed_seconds=30.0,
+            ),
+        )
+
+        self.assertFalse(bundle["should_stop"])
+        mode = bundle["frozen_bundle"]["mode_rows"][0]
+        self.assertEqual(mode["mode"], "silver_fallback_recoverable")
+        self.assertEqual(
+            mode["reason_code"],
+            "source_partial_complete_1m_fallback",
+        )
+
+    def test_coarse_fallback_absence_checks_only_frozen_missing_codes(self) -> None:
+        _write_rows(
+            raw_stk_mins_path(self.lake_root, 5, self.trade_date),
+            RAW_SCHEMA,
+            _minute_rows("920001.BJ", self.trade_date, 5),
+        )
+        plan, _plan_path = self._plan(5)
+        bundle = {
+            "frozen_bundle": {
+                "mode_rows": [
+                    {
+                        "trade_date": self.trade_date,
+                        "freq": 5,
+                        "mode": "silver_fallback_recoverable",
+                    }
+                ]
+            }
+        }
+        with self.resource.connect() as connection:
+            _assert_coarse_fallback_scopes_absent(
+                connection=connection,
+                lake_root=self.lake_root,
+                identity_path=silver_stock_identity_map_path(self.lake_root),
+                scope_relation=_scope_manifest_relation(plan),
+                bundle=bundle,
+                trade_date=self.trade_date,
+            )
+
+        _write_rows(
+            raw_stk_mins_path(self.lake_root, 5, self.trade_date),
+            RAW_SCHEMA,
+            _minute_rows("920001.BJ", self.trade_date, 5)
+            + _minute_rows("872392.BJ", self.trade_date, 5)[:1],
+        )
+        with (
+            self.resource.connect() as connection,
+            self.assertRaisesRegex(
+                BseMinuteRecoveryError,
+                "coarse fallback target contains existing BSE code-days",
+            ),
+        ):
+            _assert_coarse_fallback_scopes_absent(
+                connection=connection,
+                lake_root=self.lake_root,
+                identity_path=silver_stock_identity_map_path(self.lake_root),
+                scope_relation=_scope_manifest_relation(plan),
+                bundle=bundle,
+                trade_date=self.trade_date,
+            )
 
     def test_r2_one_minute_eligibility_accepts_source_faithful_tail(self) -> None:
         _write_rows(
@@ -947,16 +1113,16 @@ class BseMinuteHistoryRecoveryTests(unittest.TestCase):
 
         self.assertTrue(candidates["complete"])
         self.assertFalse(candidates["should_stop"])
-        self.assertEqual(candidates["candidate_count"], 5)
+        self.assertEqual(candidates["candidate_count"], 1)
         self.assertEqual(candidates["changed_candidate_count"], 1)
-        freq5_candidate = next(
-            row for row in candidates["candidates"] if int(row["freq"]) == 5
+        freq1_candidate = next(
+            row for row in candidates["candidates"] if int(row["freq"]) == 1
         )
         with self.resource.connect() as connection:
             non_bse_count = connection.execute(
                 f"""
                 SELECT count(*)
-                FROM read_parquet('{freq5_candidate["path"]}')
+                FROM read_parquet('{freq1_candidate["path"]}')
                 WHERE ts_code = '000156.SZ'
                 """
             ).fetchone()[0]
