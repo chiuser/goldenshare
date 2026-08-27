@@ -8,6 +8,41 @@
   padding: 14px 18px 34px;
 }
 
-.wealth-exploration-shell [data-module-slot="sector-radar"] {
-  height: 0;
+.sector-analysis-method-bar {
+  align-items: center;
+  background: var(--cs-color-surface-card);
+  border: 1px solid var(--cs-color-border-subtle);
+  border-radius: var(--cs-radius-card);
+  display: flex;
+  gap: 4px;
+  height: 48px;
+  padding: 4px;
+}
+
+.sector-analysis-method-bar button {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--cs-color-text-secondary);
+  cursor: pointer;
+  font: inherit;
+  height: 38px;
+  padding: 0 18px;
+}
+
+.sector-analysis-method-bar button:hover {
+  background: var(--cs-color-surface-card-hover);
+  color: var(--cs-color-text-primary);
+}
+
+.sector-analysis-method-bar button:focus-visible {
+  outline: 2px solid var(--cs-color-brand);
+  outline-offset: 1px;
+}
+
+.sector-analysis-method-bar button.active {
+  background: var(--cs-color-brand-weak);
+  border-color: var(--cs-color-border-strong);
+  color: var(--cs-color-brand);
 }

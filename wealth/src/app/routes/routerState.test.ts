@@ -3,11 +3,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_WEALTH_PATH,
   WEALTH_EXPLORATION_PATH,
+  WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH,
+  WEALTH_EXPLORATION_SECTOR_PATH,
+  WEALTH_EXPLORATION_TURNOVER_PATH,
   buildIndexDetailPath,
+  buildSectorAnalysisMomentumPath,
+  buildSectorAnalysisPath,
   buildStockDetailPath,
+  buildTurnoverInsightPath,
   buildWealthExplorationPath,
-  isWealthExplorationPath,
   navigateWealth,
+  resolveWealthExplorationRoute,
   resolveTopMarketNavPath,
   returnToWealthOverview,
 } from "./routerState";
@@ -39,13 +45,29 @@ describe("buildIndexDetailPath", () => {
 });
 
 describe("wealth exploration route", () => {
-  it("builds and recognizes the exact route", () => {
+  it("builds each exact route while preserving the query", () => {
     const params = new URLSearchParams({ market: "CN_A", tradeDate: "2026-08-21" });
     expect(buildWealthExplorationPath(params)).toBe(
       "/wealth/exploration?market=CN_A&tradeDate=2026-08-21",
     );
-    expect(isWealthExplorationPath(WEALTH_EXPLORATION_PATH)).toBe(true);
-    expect(isWealthExplorationPath("/wealth/exploration/extra")).toBe(false);
+    expect(buildTurnoverInsightPath(params)).toBe(
+      "/wealth/exploration/turnover-insight?market=CN_A&tradeDate=2026-08-21",
+    );
+    expect(buildSectorAnalysisPath("?market=CN_A&tradeDate=2026-08-21")).toBe(
+      "/wealth/exploration/sector-analysis?market=CN_A&tradeDate=2026-08-21",
+    );
+    expect(buildSectorAnalysisMomentumPath("?market=CN_A&tradeDate=2026-08-21")).toBe(
+      "/wealth/exploration/sector-analysis/momentum-ranking?market=CN_A&tradeDate=2026-08-21",
+    );
+  });
+
+  it("resolves only the four frozen exploration paths", () => {
+    expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_PATH)).toEqual({ kind: "landing" });
+    expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_TURNOVER_PATH)).toEqual({ kind: "turnover-insight" });
+    expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_SECTOR_PATH)).toEqual({ kind: "sector-analysis-redirect" });
+    expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH)).toEqual({ kind: "sector-analysis-momentum" });
+    expect(resolveWealthExplorationRoute("/wealth/exploration/extra")).toEqual({ kind: "not-exploration" });
+    expect(resolveWealthExplorationRoute("/wealth/exploration/sector-analysis/unknown")).toEqual({ kind: "not-exploration" });
   });
 
   it("maps only released top navigation targets to routes", () => {

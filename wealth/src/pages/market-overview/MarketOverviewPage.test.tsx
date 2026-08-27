@@ -514,6 +514,15 @@ describe("MarketOverviewPage", () => {
     expect(screen.getByLabelText("主要指数")).toBeInTheDocument();
     expect(screen.getByLabelText("涨跌停统计与分布")).toBeInTheDocument();
     expect(screen.getByLabelText("板块速览")).toBeInTheDocument();
+
+    const shortcutBar = screen.getByLabelText("ShortcutBar / 页面内快捷入口");
+    const shortcutButtons = within(shortcutBar).getAllByRole("button");
+    expect(shortcutButtons).toHaveLength(6);
+    expect(shortcutButtons.map((button) => button.querySelector(".shortcut-title")?.textContent)).toEqual([
+      "市场温度与情绪", "机会雷达", "我的自选", "我的持仓", "提醒中心", "用户设置",
+    ]);
+    expect(shortcutButtons[0]).toHaveClass("shortcut-card", "selected");
+    expect(shortcutBar.querySelectorAll("article")).toHaveLength(0);
   });
 
   it("uses the URL tradeDate for page context and all date-driven real modules", async () => {

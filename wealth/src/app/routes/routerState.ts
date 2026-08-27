@@ -1,7 +1,14 @@
 import type { TopMarketNavKey } from "../../shared/ui/top-market-bar/topMarketBarTypes";
+import {
+  EXPLORATION_SECTOR_MOMENTUM_PATH,
+  EXPLORATION_TURNOVER_PATH,
+} from "../../features/wealth-exploration/navigation/explorationNavigation";
 
 export const DEFAULT_WEALTH_PATH = "/wealth/market/overview";
 export const WEALTH_EXPLORATION_PATH = "/wealth/exploration";
+export const WEALTH_EXPLORATION_TURNOVER_PATH = EXPLORATION_TURNOVER_PATH;
+export const WEALTH_EXPLORATION_SECTOR_PATH = "/wealth/exploration/sector-analysis";
+export const WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH = EXPLORATION_SECTOR_MOMENTUM_PATH;
 
 const ROUTE_CHANGE_EVENT = "wealth-route-change";
 const WEALTH_NAVIGATION_STATE_KEY = "__goldenshareWealthNavigation";
@@ -68,13 +75,37 @@ export function buildIndexDetailPath(tsCode: string): string {
   return `/wealth/market/index/${encodeURIComponent(normalized)}`;
 }
 
-export function buildWealthExplorationPath(search?: URLSearchParams): string {
-  const query = search?.toString();
-  return query ? `${WEALTH_EXPLORATION_PATH}?${query}` : WEALTH_EXPLORATION_PATH;
+export type WealthExplorationRoute =
+  | { kind: "landing" }
+  | { kind: "turnover-insight" }
+  | { kind: "sector-analysis-redirect" }
+  | { kind: "sector-analysis-momentum" }
+  | { kind: "not-exploration" };
+
+type RouteSearch = URLSearchParams | string | undefined;
+
+export function buildWealthExplorationPath(search?: RouteSearch): string {
+  return appendSearch(WEALTH_EXPLORATION_PATH, search);
 }
 
-export function isWealthExplorationPath(pathname: string): boolean {
-  return pathname === WEALTH_EXPLORATION_PATH;
+export function buildTurnoverInsightPath(search?: RouteSearch): string {
+  return appendSearch(WEALTH_EXPLORATION_TURNOVER_PATH, search);
+}
+
+export function buildSectorAnalysisPath(search?: RouteSearch): string {
+  return appendSearch(WEALTH_EXPLORATION_SECTOR_PATH, search);
+}
+
+export function buildSectorAnalysisMomentumPath(search?: RouteSearch): string {
+  return appendSearch(WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH, search);
+}
+
+export function resolveWealthExplorationRoute(pathname: string): WealthExplorationRoute {
+  if (pathname === WEALTH_EXPLORATION_PATH) return { kind: "landing" };
+  if (pathname === WEALTH_EXPLORATION_TURNOVER_PATH) return { kind: "turnover-insight" };
+  if (pathname === WEALTH_EXPLORATION_SECTOR_PATH) return { kind: "sector-analysis-redirect" };
+  if (pathname === WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH) return { kind: "sector-analysis-momentum" };
+  return { kind: "not-exploration" };
 }
 
 export function resolveTopMarketNavPath(target: TopMarketNavKey): string | null {
@@ -109,7 +140,17 @@ function readWealthNavigationState(state: unknown): WealthNavigationState | null
 }
 
 function isWealthRoute(pathname: string): boolean {
-  return isWealthExplorationPath(pathname) || pathname === DEFAULT_WEALTH_PATH || pathname.startsWith("/wealth/market/");
+  return resolveWealthExplorationRoute(pathname).kind !== "not-exploration"
+    || pathname === DEFAULT_WEALTH_PATH
+    || pathname.startsWith("/wealth/market/");
+}
+
+function appendSearch(path: string, search: RouteSearch): string {
+  if (search === undefined) return path;
+  const query = typeof search === "string"
+    ? search.replace(/^\?/, "")
+    : search.toString();
+  return query ? `${path}?${query}` : path;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

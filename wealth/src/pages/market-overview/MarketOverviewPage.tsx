@@ -25,7 +25,7 @@ import {
 } from "../../features/major-indices/api/marketMajorIndicesAdapter";
 import { fetchMarketMajorIndices, type MajorIndicesDebugInfo } from "../../features/major-indices/api/marketMajorIndicesApi";
 import { buildMajorIndicesViewModelFromMock } from "../../features/market-overview/indices/api/marketMajorIndicesMockAdapter";
-import { ShortcutBar } from "../../features/market-overview/layout/ShortcutBar";
+import { MarketShortcutBar } from "../../features/market-overview/layout/MarketShortcutBar";
 import { LeaderboardPanel } from "../../features/market-overview/leaderboards/LeaderboardPanel";
 import {
   buildLeaderboardsViewModelFromApi,
@@ -987,7 +987,7 @@ export function MarketOverviewPage({ search }: MarketOverviewPageProps) {
           onNavigate={navigateWealth}
           sessionStatus={pageContext.sessionStatus}
         />
-        <ShortcutBar onAction={showToast} />
+        <MarketShortcutBar onAction={showToast} />
         <div className="content-grid">
           <MarketNewsPanelGroup
             marketNews={

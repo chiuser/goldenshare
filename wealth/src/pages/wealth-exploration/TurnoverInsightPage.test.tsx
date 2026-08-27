@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { WealthExplorationPage } from "./WealthExplorationPage";
+import { TurnoverInsightPage } from "./TurnoverInsightPage";
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -78,8 +78,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("WealthExplorationPage", () => {
-  it("loads context first and renders the two independent real API modules", async () => {
+describe("TurnoverInsightPage", () => {
+  it("loads context first and renders the existing turnover module on its own route", async () => {
     const urls: string[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -126,7 +126,7 @@ describe("WealthExplorationPage", () => {
     }));
 
     const { container } = render(
-      <WealthExplorationPage search="?market=CN_A&tradeDate=2026-08-22" />,
+      <TurnoverInsightPage search="?market=CN_A&tradeDate=2026-08-22" />,
     );
 
     expect(urls).toHaveLength(1);
@@ -136,17 +136,18 @@ describe("WealthExplorationPage", () => {
     expect(urls).toHaveLength(3);
     expect(urls.filter((url) => url.includes("turnover-insight"))).toHaveLength(1);
     expect(urls.find((url) => url.includes("turnover-insight"))).toContain("tradeDate=2026-08-21");
-    expect(screen.getByRole("button", { name: "财势探查" })).toHaveClass("active");
-    expect(screen.getByText("财势探查", { selector: ".current" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "财势探查" }).some((button) => button.classList.contains("active"))).toBe(true);
+    expect(screen.getByText("成交额洞察", { selector: ".current" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /成交额洞察/ })).toHaveClass("selected");
     expect(container.querySelectorAll("canvas")).toHaveLength(1);
-    expect(container.querySelector("[data-module-slot='sector-radar']")).toBeInTheDocument();
+    expect(container.querySelector("[data-module-slot='sector-radar']")).not.toBeInTheDocument();
   });
 
   it("does not start module requests when the shared context fails", async () => {
     const fetchMock = vi.fn(async () => jsonResponse({ message: "时间上下文不可用" }, 500));
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WealthExplorationPage search="?market=CN_A&tradeDate=2026-08-21" />);
+    render(<TurnoverInsightPage search="?market=CN_A&tradeDate=2026-08-21" />);
 
     expect(await screen.findByText("成交额洞察加载失败")).toBeInTheDocument();
     expect(screen.getByText("时间上下文不可用")).toBeInTheDocument();

@@ -5,16 +5,19 @@ import { LoginPage } from "../../features/auth/ui/LoginPage";
 import { MarketOverviewPage } from "../../pages/market-overview/MarketOverviewPage";
 import { IndexDetailPage } from "../../pages/index-detail/IndexDetailPage";
 import { StockDetailPage } from "../../pages/stock-detail/StockDetailPage";
-import { WealthExplorationPage } from "../../pages/wealth-exploration/WealthExplorationPage";
+import { SectorAnalysisPage } from "../../pages/wealth-exploration/SectorAnalysisPage";
+import { TurnoverInsightPage } from "../../pages/wealth-exploration/TurnoverInsightPage";
+import { WealthExplorationLandingPage } from "../../pages/wealth-exploration/WealthExplorationLandingPage";
 import {
   addWealthRouteListener,
+  buildSectorAnalysisMomentumPath,
   buildLoginPath,
   DEFAULT_WEALTH_PATH,
   isLoginPath,
-  isWealthExplorationPath,
   navigateWealth,
   readRedirectPath,
   readWealthLocation,
+  resolveWealthExplorationRoute,
   type WealthLocation,
 } from "./routerState";
 
@@ -48,8 +51,14 @@ export function WealthRouter() {
     return <IndexDetailPage search={location.search} tsCode={indexDetailTsCode} />;
   }
 
-  if (isWealthExplorationPath(location.pathname)) {
-    return <WealthExplorationPage search={location.search} />;
+  const explorationRoute = resolveWealthExplorationRoute(location.pathname);
+  if (explorationRoute.kind === "landing") return <WealthExplorationLandingPage search={location.search} />;
+  if (explorationRoute.kind === "turnover-insight") return <TurnoverInsightPage search={location.search} />;
+  if (explorationRoute.kind === "sector-analysis-redirect") {
+    return <ExplorationRedirect search={location.search} />;
+  }
+  if (explorationRoute.kind === "sector-analysis-momentum") {
+    return <SectorAnalysisPage search={location.search} />;
   }
 
   return <MarketOverviewPage search={location.search} />;
@@ -72,4 +81,11 @@ function AuthRedirect({ redirectPath }: { redirectPath: string }) {
     navigateWealth(buildLoginPath(redirectPath), { replace: true });
   }, [redirectPath]);
   return <LoginPage redirectPath={redirectPath} onAuthenticated={(path) => navigateWealth(path || DEFAULT_WEALTH_PATH)} />;
+}
+
+function ExplorationRedirect({ search }: { search: string }) {
+  useEffect(() => {
+    navigateWealth(buildSectorAnalysisMomentumPath(search), { replace: true });
+  }, [search]);
+  return null;
 }

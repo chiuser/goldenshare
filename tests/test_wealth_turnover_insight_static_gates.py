@@ -11,8 +11,19 @@ API_FILE = BACKEND_ROOT / "api/wealth/market/turnover_insight.py"
 SCHEMA_FILE = BACKEND_ROOT / "schemas/wealth/market/turnover_insight.py"
 FRONTEND_ROOT = REPO_ROOT / "wealth/src"
 TURNOVER_FRONTEND_ROOT = FRONTEND_ROOT / "features/wealth-exploration/turnover-insight"
-EXPLORATION_PAGE = FRONTEND_ROOT / "pages/wealth-exploration/WealthExplorationPage.tsx"
+LANDING_PAGE = FRONTEND_ROOT / "pages/wealth-exploration/WealthExplorationLandingPage.tsx"
+TURNOVER_PAGE = FRONTEND_ROOT / "pages/wealth-exploration/TurnoverInsightPage.tsx"
+SECTOR_PAGE = FRONTEND_ROOT / "pages/wealth-exploration/SectorAnalysisPage.tsx"
+EXPLORATION_SHELL_HOOK = (
+    FRONTEND_ROOT / "pages/wealth-exploration/layout/useWealthExplorationShell.ts"
+)
+REMOVED_EXPLORATION_PAGE = (
+    FRONTEND_ROOT / "pages/wealth-exploration/WealthExplorationPage.tsx"
+)
 MARKET_OVERVIEW_PAGE = FRONTEND_ROOT / "pages/market-overview/MarketOverviewPage.tsx"
+MARKET_OVERVIEW_CSS = FRONTEND_ROOT / "pages/market-overview/market-overview-page.css"
+SHARED_SHORTCUT_ROOT = FRONTEND_ROOT / "shared/ui/shortcut-bar"
+REMOVED_MARKET_SHORTCUT = FRONTEND_ROOT / "features/market-overview/layout/ShortcutBar.tsx"
 
 
 def _module_source() -> str:
@@ -81,16 +92,25 @@ def test_turnover_insight_frontend_keeps_domain_math_on_the_backend() -> None:
         assert forbidden not in request_source.lower()
 
 
-def test_turnover_insight_frontend_has_one_page_slot_and_no_cross_feature_dependency() -> None:
+def test_turnover_insight_frontend_has_one_owned_page_and_no_cross_feature_dependency() -> None:
     feature_source = "\n".join(
         path.read_text(encoding="utf-8")
         for path in sorted(TURNOVER_FRONTEND_ROOT.rglob("*.ts*"))
     )
-    page_source = EXPLORATION_PAGE.read_text(encoding="utf-8")
+    turnover_page_source = TURNOVER_PAGE.read_text(encoding="utf-8")
+    landing_page_source = LANDING_PAGE.read_text(encoding="utf-8")
+    sector_page_source = SECTOR_PAGE.read_text(encoding="utf-8")
 
     assert "features/market-overview" not in feature_source
-    assert page_source.count('data-module-slot="sector-radar"') == 1
-    assert page_source.index("<TurnoverInsightSection") < page_source.index('data-module-slot="sector-radar"')
+    assert turnover_page_source.count("<TurnoverInsightSection") == 1
+    assert "TurnoverInsight" not in landing_page_source
+    assert "SectorAnalysis" not in landing_page_source
+    assert "TurnoverInsight" not in sector_page_source
+    assert not REMOVED_EXPLORATION_PAGE.exists()
+    assert "sector-radar" not in "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (LANDING_PAGE, TURNOVER_PAGE, SECTOR_PAGE)
+    )
     assert "forecast" not in feature_source.lower()
     assert "predict" not in feature_source.lower()
 
@@ -105,5 +125,24 @@ def test_shared_frontend_moves_leave_no_compatibility_wrappers() -> None:
     )
 
     assert all(not path.exists() for path in removed_paths)
-    assert "readMarketContextRequest" in EXPLORATION_PAGE.read_text(encoding="utf-8")
+    assert not REMOVED_MARKET_SHORTCUT.exists()
+    assert "readMarketContextRequest" in EXPLORATION_SHELL_HOOK.read_text(encoding="utf-8")
     assert "readMarketContextRequest" in MARKET_OVERVIEW_PAGE.read_text(encoding="utf-8")
+
+    shared_shortcut_source = (SHARED_SHORTCUT_ROOT / "ShortcutCard.tsx").read_text(encoding="utf-8")
+    shared_shortcut_css = (SHARED_SHORTCUT_ROOT / "shortcut-bar.css").read_text(encoding="utf-8")
+    market_css = MARKET_OVERVIEW_CSS.read_text(encoding="utf-8")
+    assert '<button' in shared_shortcut_source
+    assert '<article' not in shared_shortcut_source
+    for required in (
+        "grid-template-columns: repeat(6, minmax(0, 1fr))",
+        "gap: 10px",
+        "min-height: 72px",
+        "padding: 10px 11px",
+        "appearance: none",
+        "font: inherit",
+        "width: 100%",
+    ):
+        assert required in shared_shortcut_css
+    assert ".shortcut-bar" not in market_css
+    assert ".shortcut-card" not in market_css

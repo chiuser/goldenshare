@@ -1,0 +1,101 @@
+.shortcut-bar {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin-bottom: 12px;
+}
+
+.shortcut-card {
+  appearance: none;
+  background: linear-gradient(180deg, rgba(18, 27, 44, 0.96), rgba(14, 21, 35, 0.96));
+  border: 1px solid var(--cs-color-border-subtle);
+  border-radius: var(--cs-radius-card);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  min-height: 72px;
+  overflow: hidden;
+  padding: 10px 11px;
+  position: relative;
+  text-align: left;
+  transition: 160ms ease;
+  width: 100%;
+}
+
+.shortcut-card::after {
+  background: transparent;
+  bottom: 0;
+  content: "";
+  height: 2px;
+  left: 0;
+  position: absolute;
+  right: 0;
+}
+
+.shortcut-card:hover {
+  background: var(--cs-color-surface-card-hover);
+  border-color: rgba(247, 199, 107, 0.26);
+  transform: translateY(-1px);
+}
+
+.shortcut-card:focus-visible {
+  outline: 2px solid var(--cs-color-brand);
+  outline-offset: 2px;
+}
+
+.shortcut-card:active {
+  transform: translateY(1px);
+}
+
+.shortcut-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.shortcut-card.selected {
+  background: linear-gradient(180deg, rgba(247, 199, 107, 0.1), rgba(18, 27, 44, 0.96));
+  border-color: var(--cs-color-border-strong);
+}
+
+.shortcut-card.selected::after {
+  background: var(--cs-color-brand);
+}
+
+.shortcut-top {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.shortcut-title {
+  font-weight: 650;
+}
+
+.shortcut-desc {
+  color: var(--cs-color-text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.badge {
+  align-items: center;
+  background: rgba(255, 77, 90, 0.14);
+  border: 1px solid rgba(255, 77, 90, 0.22);
+  border-radius: 999px;
+  color: var(--cs-color-market-up);
+  display: inline-grid;
+  font-family: var(--cs-font-family-number);
+  font-size: 12px;
+  height: 20px;
+  min-width: 20px;
+  padding: 0 7px;
+  place-items: center;
+}
+
+.badge.neutral {
+  background: rgba(148, 163, 184, 0.08);
+  border-color: rgba(148, 163, 184, 0.18);
+  color: var(--cs-color-text-secondary);
+}

@@ -1,7 +1,7 @@
 # 财势探查｜板块分析技术实施方案 v1
 
-> - 文档性质：编码前技术实施方案，不是 LLD，不包含业务代码。
-> - 当前状态：v1.5 编码基线；M0 合同与治理收口已于 2026-08-27 完成，尚未进入页面或业务代码开发，下一步固定为 M1。
+> - 文档性质：技术实施方案与里程碑对账，不是 LLD。
+> - 当前状态：v1.6；M0 合同与治理、M1 页面结构与共享 Shortcut 已于 2026-08-27 完成，下一步固定为 M2。
 > - 产品事实源：[财势乾坤板块分析产品交互基线文档 v1](./sector-analysis-product-interaction-baseline-v1.md)。
 > - Figma 文件：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`。
 > - 基线日期：2026-08-27。
@@ -91,28 +91,31 @@ Figma 页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）负责板块�
 
 ## 2. 当前代码审计结论
 
-### 2.1 当前页面与路由事实
+### 2.1 M1 完成后的页面与路由事实
 
-当前代码只有一个精确财势探查路由：
+当前代码已经实现四个精确财势探查路由：
 
 ```text
 /wealth/exploration
+/wealth/exploration/turnover-insight
+/wealth/exploration/sector-analysis
+/wealth/exploration/sector-analysis/momentum-ranking
 ```
 
-`WealthRouter` 命中该路由后直接渲染 `WealthExplorationPage`。该页面当前会依次请求公共页面上下文、主要指数和成交额洞察，并直接展开 `TurnoverInsightSection`；页面尾部只有一个高度为 0 的旧 `sector-radar` 占位节点。
+`WealthRouter` 通过有界 route resolver 分别渲染 landing、turnover 和 sector 页面；板块根地址使用 `replace` 并保留 query 后进入动量地址。公共 Shell 只读取页面上下文和主要指数，业务 controller 只由对应子页挂载。
 
-这与已确认交互存在三项真实差异：
+M1 已关闭原先三项页面差异：
 
-1. `/wealth/exploration` 当前不是入口首页，而是成交额洞察页。
-2. 成交额洞察当前没有独立子页面地址。
-3. 板块分析当前没有路由、页面、feature 或 API。
+1. `/wealth/exploration` 已是零业务预加载的入口首页。
+2. 成交额洞察已有独立子页面，继续复用原 API、adapter、controller 和 5 秒超时合同。
+3. 板块分析已有独立路由、页面壳和方法栏，但尚无板块 API、查询、计算、Mock 或结果工作区。
 
 ### 2.2 当前公共组件事实
 
 1. `TopMarketBar` 已是共享组件，市场总览、详情页和财势探查可以继续直接复用；本期无需复制或改版。
 2. `PageBreadcrumb` 已是共享组件，可通过 items 配置三层路径；本期只增加页面级配置，不新增第二套面包屑。
-3. 当前 `ShortcutBar` 位于 `features/market-overview/layout`，入口数据写死为市场总览六项，样式仍位于 `market-overview-page.css`。它在视觉上可复用，在代码上还不是共享组件。
-4. 财势探查当前没有公共页面壳；页面上下文、顶部 ticker 和 toast 都写在单一 `WealthExplorationPage` 中。
+3. `ShortcutBar / ShortcutCard` 已移至 `shared/ui/shortcut-bar`；市场总览六项仍由 `MarketShortcutBar` 持有，财势探查两项由自己的 feature 配置持有。
+4. `WealthExplorationShell` 已统一 TopBar、公共上下文、ticker、面包屑、快捷入口、toast 和内容插槽，不读取业务模块。
 
 ### 2.3 当前后端能力事实
 
@@ -130,9 +133,9 @@ Figma 页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）负责板块�
 
 本轮已用仓库根 CodeGraph 索引核验：
 
-1. `WealthExplorationPage` 的直接入口是 `WealthRouter`，现有页面测试和成交额静态门禁是主要消费者。
+1. `WealthRouter` 通过判别联合解析三个页面和一个 replace 入口；三个页面测试及成交额静态门禁是当前消费者证据。
 2. `TopMarketBar` 是公共组件，实际消费者覆盖市场总览、财势探查、股票详情和指数详情；本期不修改其 props 与视觉。
-3. `ShortcutBar` 当前只有市场总览一个消费者，适合在保持 props 语义可配置的前提下提取为 shared 展示组件。
+3. 共享 `ShortcutBar` 当前由市场总览和财势探查两类 feature wrapper 消费；页面不持有两套展示实现。
 4. `MarketPageContextQuery` 同时被公共 context、股票／指数详情和部分行情查询使用；本期复用，不修改其 20:00 规则。
 5. `MarketSectorOverviewQueryService` 及其 schema、API、测试是首页板块速览独立消费者；本期只允许因行业层级公共查询提取而发生无行为变化的 import 调整。
 
@@ -822,10 +825,13 @@ rollingReturns / historicalRanks
 
 ### M1：财势探查页面结构收口
 
+状态：`PASS (2026-08-27)`。
+
 1. 将 `/wealth/exploration` 改为纯入口首页。
 2. 建立成交额洞察与板块分析独立子页面。
 3. 提取共享 Shortcut 组件并完成市场总览零漂移回归。
 4. 只完成页面壳和路由，不接板块真实数据。
+5. 验收证据：46 项 M1 前端定向测试、16 项静态/架构门禁、TypeScript 检查和生产构建通过；旧单页、旧私有 Shortcut 和零高度占位已删除。
 
 ### M2：动量排名后端
 
@@ -836,7 +842,7 @@ rollingReturns / historicalRanks
 
 ### M3：动量排名前端
 
-1. 实现方法栏和动量排名 controller/adapter/UI。
+1. 在 M1 已完成的方法栏下实现动量排名 controller/adapter/UI。
 2. 完成五类榜单、涨跌榜、日期复盘、父子下钻和双历史图。
 3. 接入真实 API，禁止 mock 兜底。
 
@@ -877,7 +883,7 @@ rollingReturns / historicalRanks
 
 ## 16. 编码入口与停止门禁
 
-[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md)已经回答最终 DTO 和可空策略、查询与窗口、排名算法、Shortcut 迁移、页面拆分、层级 Query 移动、异常码、测试矩阵和例外白名单。M0 合同与治理门禁已经通过，下一步固定为 M1；不得跳过 M1 直接实现后端或动量工作区。
+[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md)已经回答最终 DTO 和可空策略、查询与窗口、排名算法、层级 Query 移动、异常码、测试矩阵和例外白名单。M0 与 M1 已通过，下一步固定为 M2：只实现动量排名后端，不进入 M3 前端工作区。
 
 编码期间若发现当前数据字段、索引、消费者、真实性能或 Figma 与本文/LLD 冲突，必须停止并回到方案层修正，禁止边编码边改口径。任何新增索引、迁移、缓存、结果表、第三方依赖或范围扩张都不在本方案授权内。
 
@@ -885,6 +891,7 @@ rollingReturns / historicalRanks
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.6 | 2026-08-27 | 完成 M1 页面结构收口：三个页面、四个精确路由、公共 Shell、共享 Shortcut、成交额入口迁移、方法栏及旧占位删除；下一步固定为 M2 | Codex |
 | v1.5 | 2026-08-27 | 完成 M0 合同与治理收口；新增静态架构门禁，冻结三张 Prod 来源表、无迁移、无 QTF/DG/Lake/预测及统一 `SA_*` 异常码合同 | Codex |
 | v1.4 | 2026-08-27 | 完成 Figma 二次纠偏与逐项对账；补齐二／三级总榜、双排名摘要、共享 Hover、百分位、完整日期选择和 Prod DuckDB 缺口审计，冻结覆盖元数据及完整 N+1 门禁 | Codex |
 | v1.3 | 2026-08-27 | 完成代码级 LLD 和首轮 Figma 开发交付收口；补齐四个正式异常态、单一显示范围、滚动语义、精确 90 日历史边界和编码入口 | Codex |

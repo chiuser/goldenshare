@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：v1.2；M0 合同与治理收口已于 2026-08-27 完成，当前代码尚未实现本页，下一步固定为 M1。
+- 状态：v1.3；M0 合同与治理、M1 页面结构与共享 Shortcut 已于 2026-08-27 完成，下一步固定为 M2。
 - 编写日期：2026-08-27。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
@@ -49,7 +49,7 @@ formulaVersion = 1
 
 ### 2.1 CodeGraph 与代码影响面
 
-开发前使用仓库根 CodeGraph 索引完成了入口、调用方、被调用方、共享契约、测试和前端消费者核验。索引状态为 healthy；审计覆盖的主链为：
+M1 开发前使用仓库根 CodeGraph 索引完成了入口、调用方、被调用方、共享契约、测试和前端消费者核验。索引状态为 healthy；M1 前基线主链为：
 
 ```text
 WealthRouter
@@ -68,18 +68,35 @@ sector-overview API
       -> SectorSelectionResolver(SectorHierarchyNode)
 ```
 
-结论：当前实现仍是“单一财势探查页 + 成交额洞察 + 零高度板块占位”，板块分析没有路由、feature、API 或查询实现。本轮 LLD 不能把 Figma 或技术方案写成已完成代码。
+M1 完成后的当前主链为：
+
+```text
+WealthRouter
+  -> resolveWealthExplorationRoute
+      -> WealthExplorationLandingPage
+      -> TurnoverInsightPage
+      -> SectorAnalysisPage
+  -> WealthExplorationShell
+      -> MarketPageContext API
+      -> MajorIndices API
+
+MarketOverviewPage
+  -> MarketShortcutBar
+      -> shared/ui/shortcut-bar
+```
+
+结论：页面结构、精确路由和共享 Shortcut 已完成；板块分析当前只有页面壳和五按钮方法栏，没有板块 API、查询、计算、Mock、图表或结果工作区。后端现状仍与 M0 审计一致。
 
 ### 2.2 前端真实现状
 
-1. `routerState.ts` 只定义 `/wealth/exploration`，`isWealthExplorationPath()` 仅做精确相等判断。
-2. `WealthRouter.tsx` 对财势探查只渲染 `WealthExplorationPage`，没有子路由解析。
-3. `WealthExplorationPage.tsx` 自己加载公共时间、主要指数 ticker 和成交额洞察，并渲染高度为 0 的 `[data-module-slot="sector-radar"]`。
-4. `WealthExplorationPage.test.tsx` 把“成交额直接出现在根页”和“存在旧占位”写成当前断言。
-5. `tests/test_wealth_turnover_insight_static_gates.py` 同样要求旧占位存在且成交额位于其上方；这两个断言是历史页面合同，不是新需求门禁。
-6. `features/market-overview/layout/ShortcutBar.tsx` 只被市场总览消费，六项数据硬编码；卡片使用可点击 `article`，没有原生 button 语义。
-7. Shortcut 的 CSS 位于 `market-overview-page.css`：6 等分、10px 列距、12px 底距、最小高 72px、内边距 10px/11px、卡片圆角 Token。
-8. `TopMarketBar`、`PageBreadcrumb`、market context 和主要指数 ticker 已经是可直接复用的公共能力，本期不得复制。
+1. `routerState.ts` 使用判别联合解析四个精确地址；未知 `/wealth/exploration/**` 不会被宽松吞入模块路由。
+2. `/wealth/exploration`、`/turnover-insight` 和 `/sector-analysis/momentum-ranking` 分别由 landing、turnover、sector 三页承载；板块根地址以 `replace` 保留 query 后进入动量地址。
+3. `WealthExplorationShell` 只加载公共时间和主要指数 ticker；入口首页没有成交额或板块业务请求。
+4. `TurnoverInsightPage` 独占既有 `TurnoverInsightSection/controller`，接口、超时和 adapter 合同未变。
+5. `SectorAnalysisPage` 只有一个 active 方法和四个“待建设”按钮；四按钮只产生本地 toast，不改变 URL，不发板块请求。
+6. 市场总览六项数据已移入 `MarketShortcutBar`；共享卡片外层改为原生 button，内部 DOM/class、6 等分、10px 列距、12px 底距、最小高 72px 和内边距保持不变。
+7. 旧 `WealthExplorationPage`、旧私有 Shortcut、零高度 `sector-radar` 节点和对应历史门禁已经删除，不留 wrapper 或 re-export。
+8. `TopMarketBar`、`PageBreadcrumb`、market context 和主要指数 ticker 继续复用既有公共能力，没有复制或改契约。
 
 ### 2.3 后端真实现状
 
@@ -97,10 +114,10 @@ sector-overview API
 
 | 事项 | 当前代码 | 本期目标 | 处理方式 |
 |---|---|---|---|
-| 财势探查根页 | 成交额业务页 | 纯入口首页 | 拆页，不保留旧语义兼容分支 |
-| 成交额路由 | 无独立路由 | `/turnover-insight` | 移动既有组件，不改业务合同 |
-| 板块分析 | 零高度旧占位 | 独立子页 | 删除占位和旧静态断言 |
-| Shortcut | 市场总览私有、硬编码 | 共享展示 + 两个 feature wrapper | 原样迁移视觉，补 button 语义 |
+| 财势探查根页 | 纯入口首页（M1 已完成） | 纯入口首页 | 保持 landing 零业务请求 |
+| 成交额路由 | `/turnover-insight`（M1 已完成） | 独立子页 | 保持既有业务合同 |
+| 板块分析 | 独立子页与方法栏（M1 已完成） | 动量工作区 | M2 只实现后端，M3 才接前端 |
+| Shortcut | 共享展示 + 两个 feature wrapper（M1 已完成） | 零漂移共享能力 | 后续不得回写 feature 私有副本 |
 | 行业层级 Query | 首页私有目录 | Biz 公共 Query | 彻底移动并修改全部 import |
 | 动量事实 | 无 | 三个独立只读 API | 新建 sector_analysis 模块 |
 | 页面异常态 | 无板块状态 | 五态稳定骨架 | 按 Figma 正式节点实现 |
@@ -694,7 +711,7 @@ Meta 无法构建页面对象池时返回 500；rankings/history 已有稳定响
 
 ### 8.1 Shell 状态
 
-`useWealthExplorationShell(search)` 从当前 `WealthExplorationPage` 迁移：
+`useWealthExplorationShell(search)` 按 M1 前 `WealthExplorationPage` 的既有请求语义迁移：
 
 ```ts
 interface WealthExplorationShellModel {
@@ -1009,11 +1026,14 @@ tests/test_wealth_turnover_insight_static_gates.py
 
 ### M1：页面结构与共享 Shortcut
 
+状态：`PASS (2026-08-27)`。
+
 1. 提取共享 Shortcut，完成市场总览零漂移测试。
 2. 建立 Shell、landing、turnover、sector 三页和精确路由。
 3. 移动既有成交额入口，不改其 API/feature 合同。
 4. 删除旧页面和 sector-radar 占位及历史门禁。
 5. 停止点：三个地址可独立刷新；sector 只有稳定壳和方法栏，无板块 API。
+6. 验收证据：46 项 M1 前端定向测试、16 项静态/架构门禁、TypeScript 检查和生产构建通过；未新增 API、查询、模型、迁移、依赖或板块请求。
 
 ### M2：后端动量事实
 
@@ -1027,7 +1047,7 @@ tests/test_wealth_turnover_insight_static_gates.py
 
 1. 实现 URL 状态、API/adapter/controller。
 2. 实现控件、全列表、详情摘要和两张联动 SVG 图。
-3. 实现五态和四个待建设 toast。
+3. 实现五态，并回归 M1 已完成的四个待建设 toast 保持零副作用。
 4. 停止点：全部使用真实 API，仓库无 Mock 兜底。
 
 ### M4：联调和交付
@@ -1073,9 +1093,9 @@ git diff --check
 | G03 Figma states | Loading/Delayed/Empty/Error 正式画板 | PASS |
 | G04 Design System | 公共组件复用、核心 Token、Auto Layout/绝对坐标边界正确 | PASS；共享组件遗留原始色值不扩改 |
 | G04A M0 治理门禁 | 三张 Prod 来源、无迁移、无 QTF/DG/Lake/预测、统一异常码 | PASS (M0 static guardrail) |
-| G05 路由 | 精确四 path、未知子路由反例 | OPEN (M1) |
-| G06 页面请求边界 | landing 零业务请求、模块按需挂载 | OPEN (M1) |
-| G07 Shortcut 零漂移 | 市场总览 DOM/视觉/交互回归 | OPEN (M1) |
+| G05 路由 | 精确四 path、未知子路由反例 | PASS (M1) |
+| G06 页面请求边界 | landing 零业务请求、模块按需挂载 | PASS (M1) |
+| G07 Shortcut 零漂移 | 市场总览 DOM/视觉/交互回归 | PASS (M1) |
 | G08 事实源 | 只读三张 Prod 表 | OPEN (M2) |
 | G09 公式 | 1/5/10/20/30 与 N+1 完整窗口；真实缺口不得被隐藏或补值 | OPEN (M2) |
 | G10 排名语义 | listPosition/strengthRank/percentile 分离 | OPEN (M2) |
@@ -1104,13 +1124,14 @@ git diff --check
 5. LLD 已冻结文件、DTO、查询、算法、状态、交互、测试和里程碑。
 6. DuckDB 只读审计已证明生产历史存在 20 个缺口日和 N+1 传导影响；Meta 覆盖 DTO 与计算完整性门禁已据此冻结。
 7. M0 静态门禁已冻结三张 Prod 来源表、无迁移、禁用 QTF/DG/Lake/预测范围和统一 `SA_*` 异常码；6 项架构测试通过。
+8. M1 已完成三个页面、四个精确路由、公共 Shell、共享 Shortcut、成交额入口迁移、方法栏和旧占位安全删除；板块业务请求仍为 0。
 
 ### 16.2 尚未完成
 
-1. 没有前后端代码实现。
+1. M2/M3 的板块后端和动量工作区尚未实现。
 2. `SA_*` 已在统一注册表登记，但尚无业务代码实现或 API 映射。
-3. 没有生产只读 EXPLAIN、性能或页面验收。
-4. 没有页面或业务代码提交、推送、迁移或部署。
+3. 没有生产只读 EXPLAIN、性能或板块结果页面验收。
+4. M1 修改尚未提交、推送或部署；本期没有迁移。
 
 ## 17. 风险、回滚与停止条件
 
@@ -1135,4 +1156,4 @@ git diff --check
 
 ## 18. 结论
 
-当前 LLD 已达到进入编码评审的粒度：目标代码文件、共享移动、删除步骤、API/DTO、只读 SQL 边界、收益与排名算法、状态机、URL 规则、组件尺寸、Figma 节点、测试矩阵和里程碑均已明确。M0 合同与治理门禁已经通过，下一步固定为 M1，不得直接跳到 M2/M3。
+M0 与 M1 已按本文收口，页面结构和请求边界具备承接真实业务的条件。下一步固定为 M2：只实现动量排名后端事实、API 与性能门禁，不进入 M3 前端工作区。
