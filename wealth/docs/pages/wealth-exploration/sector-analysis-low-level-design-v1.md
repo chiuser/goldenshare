@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：编码基线已形成，等待用户确认后进入 M0；当前代码尚未实现本页。
+- 状态：v1.1 编码基线已形成；Prod DuckDB 覆盖审计和 Figma 二次纠偏已完成，等待用户确认后进入 M0；当前代码尚未实现本页。
 - 编写日期：2026-08-27。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
@@ -23,6 +23,7 @@
 | 首期只做行业动量排名 | `sector-analysis/momentum-ranking/**` | 仓库没有概念、地域、申万、Heat、预测或 QTF 依赖 |
 | Prod 是唯一在线事实源 | 三个只读 Query | 只出现 `TradeCalendar`、`WealthSectorHierarchy`、`DcDaily` |
 | 公共业务日期唯一 | `MarketPageContextQuery` + URL `tradeDate` | 20:00 默认口径、显式历史严格命中；前端无本机业务日计算 |
+| 历史缺口必须可见 | Meta 日期覆盖 DTO + 日期选择器 | 覆盖区间内全部 SSE 开市日均返回；COMPLETE/PARTIAL/MISSING 不被过滤 |
 | 五类比较池固定 | `SectorMomentumScope` + `resolve_scope_pool()` | 全体一级/二级/三级与两类直属子级集合完全正确 |
 | 周期固定为 1/5/10/20/30 | `SectorMomentumPeriod` | 未批准周期和任意整数被拒绝 |
 | 1 日读取 `pct_change`，多日读取完整 N+1 收盘窗口 | `SectorMomentumCalculator` | 缺任一日期、空值、非正收盘均不可计算，不补值 |
@@ -31,7 +32,7 @@
 | 完整列表，不做 TopN | rankings DTO + table | 返回当前比较池全部对象，null 行仍保留在末尾 |
 | 当前行业尽量保留 | URL reducer + controller | 日期、周期、方向、显示范围变化不擅自换行业 |
 | 两图同时展示并联动 | `MomentumDetailPanel` | 同一交易日索引、独立纵轴、缺点断线、排名第 1 在顶部 |
-| 状态只用五态 | API 四态 + 前端 LOADING | READY/DELAYED/EMPTY/ERROR；不存在 PARTIAL |
+| 页面状态只用五态 | API 四态 + 前端 LOADING | READY/DELAYED/EMPTY/ERROR；PARTIAL 只能作为日期覆盖元数据，不能成为第六种页面状态 |
 | 未建设方法零副作用 | `SectorAnalysisMethodBar` | 点击只 toast；URL、请求、图表和工作区均不变化 |
 | 不新增持久化能力 | 无迁移、表、缓存服务 | Alembic head 不变；无新 ORM model、Redis 或后台任务 |
 
@@ -104,6 +105,18 @@ sector-overview API
 | 动量事实 | 无 | 三个独立只读 API | 新建 sector_analysis 模块 |
 | 页面异常态 | 无板块状态 | 五态稳定骨架 | 按 Figma 正式节点实现 |
 
+### 2.5 Prod DuckDB 只读覆盖证据
+
+2026-08-27 用 DuckDB 1.5.5 `postgres` 扩展，通过现有 Web 只读连接直接附加 Prod，白名单只包含 `trade_calendar/wealth_sector_hierarchy/dc_daily`。审计没有写库、导出来源行或建立快照。
+
+1. 当前层级为一级 31、二级 128、三级 337，共 496 个行业。
+2. `2024-01-02..2026-08-26` 有 642 个 SSE 开市日、317,825 条当前行业池行情；重复业务键、非开市日行情、无效 close 和无效 pct_change 均为 0。
+3. 20 个开市日存在 607 个行业日缺口：2026-05-20 缺 484、2026-05-18 缺 97、2026-05-25 缺 9，其余 17 日各缺 1。完整日期表见技术方案第 5.5 节。
+4. 另有 14 个不属于当前发布层级的历史行情代码、7,216 行；它们不得进入当前行业池、覆盖分母或排名。
+5. 以 2026-08-26 为结束日审计最近 60 个结束点：5 日完整窗口 29,760/29,760；10 日 29,249/29,760；20 日 24,391/29,760；30 日 19,531/29,760。历史缺口会真实传导到 N+1 可计算性。
+
+这项审计关闭“是否存在缺口”的事实问题，但不关闭 M2 的实现验收：编码仍必须用同一门禁生成日期覆盖状态、空值行和断点，并通过正反例证明没有补值或隐藏缺口。
+
 ## 3. Figma 开发交付审计
 
 ### 3.1 正式节点基线
@@ -112,8 +125,12 @@ sector-overview API
 |---|---|---:|---|
 | Ready／一级总榜涨幅 | `965:55` | 1600×1292.390625 | 默认视觉基线 |
 | Ready／一级总榜跌幅 | `971:352` | 1600×1292.390625 | 方向切换 |
+| Ready／二级总榜 | `1051:951` | 1600×1292.390625 | 全部二级、所属一级路径和双排名摘要 |
+| Ready／三级总榜 | `1051:1251` | 1600×1292.390625 | 全部三级、一级／二级路径和双排名摘要 |
 | Ready／一级内二级 | `987:476` | 1600×1292.390625 | 单父级选择器及下钻结果 |
 | Ready／二级内三级 | `987:776` | 1600×1292.390625 | 两级联动及下钻结果 |
+| Ready／双图 Hover | `1053:5261` | 1600×1292.390625 | 两图同日期十字线和联合 Tooltip |
+| Ready／交易日选择器 | `1062:2` | 1600×1292.390625 | COMPLETE/PARTIAL/MISSING 可见且均可选择 |
 | Loading | `1036:634` | 1600×1292.390625 | 稳定骨架加载态 |
 | Delayed | `1036:1014` | 1600×1292.390625 | 保留上一完整交易日内容 |
 | Empty | `1036:1386` | 1600×1292.390625 | 全部不可计算或显式日无数据 |
@@ -131,10 +148,10 @@ sector-overview API
 4. 榜单固定表头高 40px，行高 56px；`Ranking Rows` 是纵向 Auto Layout，滚动 viewport 为 `776×772`，`clipsContent=true`、`overflowDirection=VERTICAL`。
 5. 图表、涨跌数据条和滚动条叠层保留绝对坐标。它们是几何绘图区，不应改成 Auto Layout。
 6. 页面普通容器、工具栏、行、摘要卡、状态面板均使用 Auto Layout；不存在用补偿坐标模拟页面布局的新增节点。
-7. 核心颜色已绑定 `CSQ / Market Overview / M0 / Color` 变量；Delayed 新增语义变量 `System/Warning`（`VariableID:1033:2`，`#f59e0b`），与 Web `--cs-color-warning` 一致。
+7. 核心颜色已绑定 `CSQ / Market Overview / M0 / Color` 变量；Delayed 新增语义变量 `System/Warning`（`VariableID:1033:2`，`#f59e0b`），Web syntax 为 `var(--cs-color-warning)`，scope 覆盖 Frame/Shape/Text Fill 和 Stroke。
 8. Shortcut 外层容器已从原始色值绑定到 `Background/Panel` 和 `Border/Subtle`。
 9. Loading skeleton 已绑定 `Background/PanelSoft`；Error 重试复用 `Button / Neutral / M0`。
-10. 共享 TopMarketBar 和 ShortcutCard 内仍有少量继承自既有组件的原始色值和无 textStyleId 文本。它们是现有共享组件债务，本期不修改，否则会扩大到全站；其实际颜色与 Web Token 一致，不阻塞本模块编码。
+10. 模块自有正式文本已绑定可精确匹配的本地 Text Style；共享 TopMarketBar 和 ShortcutCard 内仍有少量继承自既有组件的原始色值和无 textStyleId 文本。它们是现有共享组件债务，本期不修改，否则会扩大到全站；其实际颜色与 Web Token 一致，不阻塞本模块编码。
 
 ### 3.3 已修正的问题
 
@@ -142,12 +159,19 @@ sector-overview API
 |---|---|---|---|
 | F01 | 列表“排名”与详情“当前排名”混淆展示序号和业务排名 | 高 | 改为“序号”与“同组强度排名” |
 | F02 | 上下两图各有一套 20/30/60 控件，可能形成两套显示范围 | 高 | 每张 Ready 画板只保留上图一套共用控件 |
-| F03 | viewport 只有手绘滚动条，没有 Figma 纵向滚动语义 | 高 | 四张 Ready 均设置 `VERTICAL` overflow |
+| F03 | viewport 只有手绘滚动条，没有 Figma 纵向滚动语义 | 高 | 六类 Ready 榜单画板均设置 `VERTICAL` overflow |
 | F04 | 只有 Ready，没有 Loading/Delayed/Empty/Error 正式页 | 高 | 新增四张完整正式状态画板 |
 | F05 | 图题“历史排名”未说明范围，滚动收益未显示计算周期 | 中 | 标题改为周期和比较范围专属文案 |
 | F06 | Shortcut 外层未绑定变量 | 中 | 绑定 Panel/Subtle Token |
 | F07 | 本地 Breadcrumb 组件横向溢出 section 32px | 中 | `966:55.x` 从 32 改为 0 |
 | F08 | Loading skeleton 继承白色底和原始灰 | 中 | 清除白底并绑定 PanelSoft |
+| F09 | 涨跌榜把展示序号误当业务排名，百分位端点不符合公式 | 高 | 跌幅最弱示例改为 `31/31、0.0%`，涨幅最强示例改为 `100.0%`；方向只改变展示顺序 |
+| F10 | 缺二级／三级总榜和双排名摘要 | 高 | 新增 `1051:951/1051:1251`；二／三级同时表达全层级和直属父级排名 |
+| F11 | 四个待建设按钮跳草稿，行选择与下钻边界不清 | 高 | 清除草稿导航；行点击只选中，独立箭头下钻，三级明确无下钻 |
+| F12 | 两图共用范围和 Hover 无正式编码状态 | 高 | 六张 Ready 均标注“两图共用”；新增 `1053:5261` 展示共享十字线和联合 Tooltip |
+| F13 | 一级排名轴只到 20，无法表达 31 个对象 | 高 | 涨／跌与 Hover 纵轴完整覆盖 `1..31`；二／三级总榜分别覆盖 `1..128`、`1..337` |
+| F14 | Warning Token 和模块文字样式未完成开发交付绑定 | 中 | 补 Web syntax/scope；模块自有正式文本绑定本地 Text Style，不拆共享实例 |
+| F15 | 日期字段只表达当前值，无法看到缺口日 | 高 | 新增 `1062:2`；Popover 使用真实覆盖示例显示日期、完整／部分缺失／无数据图例及 `valid/expected`，所有状态均可选择 |
 
 ### 3.4 Figma 到代码的固定尺寸映射
 
@@ -379,10 +403,11 @@ class SectorRankFact:
 服务同时接收 `trade_date: date | None`，不能只接收 context 的日期结果，因为必须区分默认和显式模式：
 
 1. 先用 `MarketPageContextQuery.resolve_context()` 得到 `expectedTradeDate`。
-2. 显式模式：只查 `expectedTradeDate`；该日没有行业事实时返回 EMPTY，不回退。
-3. 默认模式：在 `dc_daily.category='行业板块' and trade_date <= expected` 中取 `max(trade_date)` 作为 observed；若更早则 DELAYED。
+2. 显式模式：只查 `expectedTradeDate`；`COMPLETE` 和 `PARTIAL` 日都严格命中该日，`MISSING` 日返回 EMPTY，不回退。
+3. 默认模式：先计算 expected 日的当前 496 行业来源覆盖；只有 `COMPLETE` 才直接使用 expected。若为 `PARTIAL/MISSING`，向前取最近一个 `COMPLETE` SSE 开市日作为 observed 并返回 DELAYED，不能把“当天只来了几行”误当当日数据已经发布完整。
 4. observed 必须同时位于 SSE 开市日；非开市脏日期不能成为页面日期。
 5. history 的结束日期固定为 observed，rankings 与 history 不得分别选择日期。
+6. 显式日期早于 `coverageStartDate` 或晚于 `coverageEndDate` 是范围非法，不作为来源缺失；Meta 不把覆盖起始日前的历史交易日伪装成 MISSING。
 
 ### 6.5 交易日窗口
 
@@ -399,6 +424,8 @@ LIMIT :count
 ```
 
 取回后在内存反转为升序。rankings 最大 `count=31`；history 最大 `count=90`（60 个显示日 + 最早显示点之前 30 个交易日，最早一日已经是分母日）。禁止自然日减法或再多取第 91 日。
+
+Meta 的日期覆盖查询使用当前层级 496 个代码作为固定分母，对 `coverageStartDate..coverageEndDate` 的全部 SSE 开市日做日级聚合并左连接有效行情计数。结果必须按日期升序返回：`valid=expected` 为 COMPLETE，`0<valid<expected` 为 PARTIAL，`valid=0` 为 MISSING。当前层级外代码不参与计数；不能用 `INNER JOIN dc_daily` 过滤掉缺口日。
 
 ### 6.6 行情查询
 
@@ -511,11 +538,21 @@ GET /api/v1/wealth/market/sector-analysis/meta?market=CN_A
 ```
 
 ```python
+class SectorTradeDateAvailabilityDto(StrictDto):
+    tradeDate: date
+    availability: Literal["COMPLETE", "PARTIAL", "MISSING"]
+    expectedSectorCount: int
+    validSectorCount: int
+
 class SectorAnalysisMetaResponseDto(StrictDto):
     formula: SectorFormulaDto
     hierarchy: SectorHierarchyDto
-    availableTradeDates: list[date]
+    coverageStartDate: date
+    coverageEndDate: date
+    tradeDates: list[SectorTradeDateAvailabilityDto]
 ```
+
+Meta 的 `tradeDates` 日期严格升序、无重复，且必须等于覆盖闭区间内 SSE 开市日全集。`expectedSectorCount` 从本次请求加载的 hierarchy snapshot 节点数动态取得，本次审计值为 496，禁止写成代码常量；`validSectorCount` 只统计当前层级代码中业务键唯一、close 有限且大于 0、pct_change 有限的行。`COMPLETE/PARTIAL/MISSING` 分别对应 `valid=expected`、`0<valid<expected`、`valid=0`。
 
 `SectorHierarchyNodeDto` 字段：
 
@@ -553,6 +590,16 @@ class SectorMomentumRankingsResponseDto(StrictDto):
     exceptionCode: str | None
     debugInfo: SectorAnalysisDebugInfoDto | None
 ```
+
+`SectorAnalysisTradingDayDto` 固定字段：
+
+```text
+expectedTradeDate, observedTradeDate,
+expectedAvailability, expectedSectorCount, expectedValidSectorCount,
+observedAvailability, observedValidSectorCount
+```
+
+显式完整／部分缺失日的 expected 与 observed 相同；默认目标日不完整时，expected 保留目标日及其 PARTIAL/MISSING 覆盖，observed 指向最近 COMPLETE 日。这样页面既能展示回退事实，也不会隐藏当天为何回退。
 
 `SectorRankingDto`：
 
@@ -623,9 +670,10 @@ Pydantic 全部 `ConfigDict(extra="forbid")`，并增加模型级校验：
 2. EMPTY/ERROR rankings 的 ranking 可保留规范化选择和空 rows，但不得带伪造可计算值；首版统一设 `ranking=null`，减少歧义。
 3. READY/DELAYED history 必须有 detail，两数组日期一一对应。
 4. EMPTY/ERROR history 必须 detail=null、两数组为空。
-5. DELAYED 必须 `observedTradeDate < expectedTradeDate`；READY 必须相等。
-6. exceptionCode 与状态一致；READY 为 null。
-7. debugInfo 只在现有 local/dev/test debug 门禁下出现。
+5. DELAYED 必须 `observedTradeDate < expectedTradeDate`、`expectedAvailability in {PARTIAL,MISSING}` 且 `observedAvailability=COMPLETE`；READY 必须日期相等且 expectedAvailability 不得为 MISSING。
+6. 所有 count 非负且不大于 expectedSectorCount；COMPLETE/PARTIAL/MISSING 与 count 关系必须满足 Meta 的同一判定式。
+7. exceptionCode 与状态一致；READY 为 null。
+8. debugInfo 只在现有 local/dev/test debug 门禁下出现。
 
 ### 7.6 HTTP 与异常映射
 
@@ -635,8 +683,8 @@ Pydantic 全部 `ConfigDict(extra="forbid")`，并增加模型级校验：
 | 未知/重复参数、非法市场 | 400 | `SA_SCOPE_INVALID` 或通用请求错误 | 不发后续请求 |
 | scope/父级闭包非法 | 400 | `SA_SCOPE_INVALID` | 保留当前页面并提示修正 |
 | sectorCode 不在比较池 | 400 | `SA_SELECTION_INVALID` | URL 状态无效，不静默换行业 |
-| 默认目标日落后 | 200 | `SA_SOURCE_DELAYED` | DELAYED，保留旧日内容 |
-| 显式日期无数据或全部不可计算 | 200 | `SA_SOURCE_EMPTY` | EMPTY |
+| 默认目标日 PARTIAL/MISSING | 200 | `SA_SOURCE_DELAYED` | DELAYED，保留最近 COMPLETE 日内容并说明目标日覆盖 |
+| 显式 MISSING 日或当前周期全部不可计算 | 200 | `SA_SOURCE_EMPTY` | EMPTY；日期缺口仍保留在选择器 |
 | 层级不可用 | 500(meta) / 200(业务响应) | `SA_HIERARCHY_UNAVAILABLE` | ERROR |
 | 未分类查询/计算异常 | 200 | `SA_QUERY_FAILED` | ERROR |
 
@@ -701,14 +749,15 @@ type MomentumViewState =
 请求阶段：
 
 1. context ready 后请求 meta。
-2. meta 成功后按 URL/default 请求 rankings。
-3. rankings READY/DELAYED 后确定选中行业：保留池内现值；否则首条可计算；否则第一行。
-4. 只对选中行业请求 history。
-5. direction 变化只刷新 rankings；history key 不含 direction。
-6. range 变化只刷新 history。
-7. scope/父级/period/tradeDate 变化刷新 rankings 和 history。
-8. 每个请求使用 AbortController 和规范化 requestKey；旧响应必须在 reducer 前丢弃。
-9. rankings 与 history 的 observedDate、hierarchyVersion、formulaVersion 任一不一致时进入 ERROR，不拼接不同事实。
+2. meta 成功后构造覆盖闭区间内的完整交易日选择器：COMPLETE/PARTIAL/MISSING 均保留并显示状态，不允许过滤缺口日。
+3. 按 URL/default 请求 rankings；显式 MISSING 日仍发送请求并由真实 EMPTY 响应驱动页面，不能在前端静默改成别的日期。
+4. rankings READY/DELAYED 后确定选中行业：保留池内现值；否则首条可计算；否则第一行。
+5. 只对选中行业请求 history。
+6. direction 变化只刷新 rankings；history key 不含 direction。
+7. range 变化只刷新 history。
+8. scope/父级/period/tradeDate 变化刷新 rankings 和 history。
+9. 每个请求使用 AbortController 和规范化 requestKey；旧响应必须在 reducer 前丢弃。
+10. rankings 与 history 的 observedDate、hierarchyVersion、formulaVersion 或日期覆盖计数任一不一致时进入 ERROR，不拼接不同事实。
 
 ### 8.4 Adapter 边界
 
@@ -716,8 +765,9 @@ Adapter 允许：
 
 1. 枚举大小写映射。
 2. 数值显示文本、`--`、百分号和“第 N / M 名”。
-3. 按 API 有效 min/max 生成 ReturnBar 几何。
-4. 把两历史数组按日期 zip 为图表 view model，并在不一致时拒绝。
+3. 把 Meta 的 COMPLETE/PARTIAL/MISSING 映射为日期控件的完整、部分缺失和整日缺失标记，并展示 `valid/expected`；不得重新判断覆盖状态。
+4. 按 API 有效 min/max 生成 ReturnBar 几何。
+5. 把两历史数组按日期 zip 为图表 view model，并在不一致时拒绝。
 
 Adapter 禁止：
 
@@ -793,12 +843,12 @@ SVG viewBox 使用组件实测宽高，不使用固定 1600 坐标：
 | 前端态 | 来源 | UI |
 |---|---|---|
 | LOADING | 任一当前 request pending | `1036:634`，保留 shell/method/toolbar，正文 skeleton |
-| READY | 至少一个可计算行业且 observed=expected | Ready 四画板之一 |
+| READY | 至少一个可计算行业且 observed=expected | 对应六类 Ready 榜单画板；共享 Hover 见 `1053:5261` |
 | DELAYED | 默认请求 observed<expected | `1036:1014`，保留内容并显示实际日期 |
 | EMPTY | 显式日无数据或当前池全部不可计算 | `1036:1386`，不展示旧事实 |
 | ERROR | meta、query、合同或组合失败 | `1036:1762`，安全文案和重试 |
 
-个别行业缺值不是 PARTIAL。行继续存在，`returnPct/strengthRank/percentile` 显示 `--`；只要 calculableCount>0 就是 READY 或 DELAYED。
+`PARTIAL` 只描述交易日来源覆盖，不是页面态。显式 PARTIAL 日仍使用 READY 骨架，缺值行业继续存在，`returnPct/strengthRank/percentile` 显示 `--`，并展示 `validSectorCount/expectedSectorCount`；默认目标日为 PARTIAL 时按公共延迟体验进入 DELAYED 并回退最近 COMPLETE 日。
 
 ### 9.2 默认与保留选择
 
@@ -863,17 +913,18 @@ tests/architecture/test_wealth_sector_analysis_guardrails.py
 
 1. 五个 scope 的精确 code 集合和父子闭包反例。
 2. 1/5/10/20/30 公式与 N+1 日期；缺中间日也必须 null。
-3. Decimal 取舍、非正收盘、pct_change 空、重复业务键。
-4. GAINERS/LOSERS 全列表、null 末尾、sectorCode 稳定 tie-break。
-5. `listPosition` 随方向变化；`strengthRank/percentile` 不变。
-6. 竞赛排名、平均百分位、n=1 和全部 null。
-7. 二/三级全局与父级内摘要。
-8. 20/30/60 历史、预热、缺点日期槽、分母变化和方向参数拒绝。
-9. 默认 READY/DELAYED、显式 EMPTY、层级 ERROR、query ERROR。
-10. Meta/rankings/history 未知参数、重复参数、非法日期/market/code。
-11. 401/403、debug 环境门禁和敏感信息反例。
-12. SQL 数不随行业数和历史点线性增长。
-13. 公共层级 Query 移动后 `/sector-overview` 响应与既有测试零回退。
+3. 日期覆盖全集：COMPLETE/PARTIAL/MISSING 三类、左连接缺口不丢日、当前层级外代码不计数、coverage 边界和稳定日期排序。
+4. Decimal 取舍、非正收盘、pct_change 空、重复业务键。
+5. GAINERS/LOSERS 全列表、null 末尾、sectorCode 稳定 tie-break。
+6. `listPosition` 随方向变化；`strengthRank/percentile` 不变。
+7. 竞赛排名、平均百分位、最强 100.0、最弱 0.0、n=1 和全部 null。
+8. 二/三级全局与父级内摘要。
+9. 20/30/60 历史、预热、缺点日期槽、分母变化和方向参数拒绝。
+10. 默认 COMPLETE 为 READY、默认 PARTIAL/MISSING 回退为 DELAYED、显式 PARTIAL 为 READY、显式 MISSING 为 EMPTY、层级 ERROR、query ERROR。
+11. Meta/rankings/history 未知参数、重复参数、非法日期/market/code。
+12. 401/403、debug 环境门禁和敏感信息反例。
+13. SQL 数不随行业数和历史点线性增长。
+14. 公共层级 Query 移动后 `/sector-overview` 响应与既有测试零回退。
 
 ### 11.2 前端测试
 
@@ -898,14 +949,15 @@ tests/test_wealth_turnover_insight_static_gates.py
 4. 市场总览 Shortcut 提取前后 class、顺序、选中、hover/focus 和视觉不漂移。
 5. 入口两卡顺序、active、breadcrumb 和直达切换正确。
 6. 默认控件和首条可计算选择正确。
-7. 五 scope、父级级联、行选择、独立下钻和三级无下钻。
-8. 全列表固定表头和内部滚动；null 行显示 `--`。
-9. direction 只导致 rankings 请求，history 请求数不增加。
-10. 两图同时存在，共享 hover index；rank 1 在顶部，null 断线。
-11. 选择保留规则覆盖日期、周期、方向、range、scope 和父级。
-12. 四个待建设按钮只 toast，零路由/请求/图表副作用。
-13. 五态真实 API 驱动；重试只重发失败链路。
-14. 快速切换时旧响应不能覆盖当前 URL 状态。
+7. 日期选择器完整显示覆盖区间内全部 SSE 开市日及三类覆盖标记；PARTIAL/MISSING 不被禁用或隐藏。
+8. 五 scope、父级级联、行选择、独立下钻和三级无下钻。
+9. 全列表固定表头和内部滚动；null 行显示 `--`。
+10. direction 只导致 rankings 请求，history 请求数不增加。
+11. 两图同时存在，共享 hover index；rank 1 在顶部，null 断线。
+12. 选择保留规则覆盖日期、周期、方向、range、scope 和父级。
+13. 四个待建设按钮只 toast，零路由/请求/图表副作用。
+14. 五态真实 API 驱动；显式 PARTIAL 使用 READY 骨架并展示缺失数，显式 MISSING 进入 EMPTY；重试只重发失败链路。
+15. 快速切换时旧响应不能覆盖当前 URL 状态。
 
 ### 11.3 删除旧门禁的安全步骤
 
@@ -920,9 +972,9 @@ tests/test_wealth_turnover_insight_static_gates.py
 
 ### 11.4 Figma/浏览器验收
 
-1. 1600px 对照八个正式节点。
+1. 1600px 对照 12 个正式节点。
 2. 1366px 和内容最小宽度验证无页面级 CSS scale、横向重叠或文字裁剪。
-3. Ready 默认/跌幅/一级内二级/二级内三级分别验收。
+3. Ready 默认/跌幅/二级总榜/三级总榜/一级内二级/二级内三级/Hover/交易日选择器分别验收。
 4. 长列表验证真实固定表头和内部滚动，不以短 fixture 替代。
 5. Tooltip、键盘、focus-visible、下钻事件隔离和双图 hover 联动人工验收。
 6. 普通 UI 相对 Figma 允许误差不超过 2px；图表坐标轴、plot padding 和零线不得无依据移动。
@@ -978,7 +1030,7 @@ tests/test_wealth_turnover_insight_static_gates.py
 ### M4：联调和交付
 
 1. 跑后端、前端、架构、typecheck、build 和 docs 检查。
-2. 完成八节点 Figma 像素/交互验收及 1366 宽验证。
+2. 完成 12 节点 Figma 像素/交互验收及 1366 宽验证。
 3. 对账市场总览、成交额、首页板块速览、股票/指数详情无回退。
 4. 用户部署后做生产只读 API 和页面验收。
 
@@ -1014,14 +1066,14 @@ git diff --check
 | Gate | 通过条件 | 当前状态 |
 |---|---|---|
 | G01 产品范围 | 只有动量排名，四方法待建设 | PASS (docs/Figma) |
-| G02 Figma Ready | 四张 Ready 尺寸、术语、单 range、滚动正确 | PASS |
+| G02 Figma Ready | 八张 Ready/交互画板覆盖六类榜单状态、共享 Hover 和交易日覆盖选择器；尺寸、术语、单 range、滚动正确 | PASS |
 | G03 Figma states | Loading/Delayed/Empty/Error 正式画板 | PASS |
 | G04 Design System | 公共组件复用、核心 Token、Auto Layout/绝对坐标边界正确 | PASS；共享组件遗留原始色值不扩改 |
 | G05 路由 | 精确四 path、未知子路由反例 | OPEN (M1) |
 | G06 页面请求边界 | landing 零业务请求、模块按需挂载 | OPEN (M1) |
 | G07 Shortcut 零漂移 | 市场总览 DOM/视觉/交互回归 | OPEN (M1) |
 | G08 事实源 | 只读三张 Prod 表 | OPEN (M2) |
-| G09 公式 | 1/5/10/20/30 与 N+1 完整窗口 | OPEN (M2) |
+| G09 公式 | 1/5/10/20/30 与 N+1 完整窗口；真实缺口不得被隐藏或补值 | OPEN (M2) |
 | G10 排名语义 | listPosition/strengthRank/percentile 分离 | OPEN (M2) |
 | G11 时间前沿 | 历史逐日只读截至当日事实 | OPEN (M2) |
 | G12 API strict | unknown/duplicate/闭包/状态 validator | OPEN (M2) |
@@ -1043,9 +1095,10 @@ git diff --check
 
 1. 产品口径、技术方案、当前代码和测试消费者已完成对账。
 2. CodeGraph 影响面已覆盖路由、页面、Shortcut、MarketPageContext、hierarchy Query、sector-overview 消费者及测试。
-3. Figma 已从四张 Ready 收口为四 Ready + 四异常态正式交付基线。
-4. Figma 已消除排名术语、重复显示范围、无滚动语义和局部 Token/溢出问题。
+3. Figma 已收口为六类 Ready 榜单状态、一个共享 Hover、一个交易日覆盖选择器和四个异常态，共 12 张正式交付画板。
+4. Figma 已消除排名／百分位语义、缺失同级总榜、父级双排名、草稿跳转、下钻边界、重复显示范围、无共享悬停、纵轴裁剪、滚动语义和模块 Token/Text Style 问题。
 5. LLD 已冻结文件、DTO、查询、算法、状态、交互、测试和里程碑。
+6. DuckDB 只读审计已证明生产历史存在 20 个缺口日和 N+1 传导影响；Meta 覆盖 DTO 与计算完整性门禁已据此冻结。
 
 ### 16.2 尚未完成
 
