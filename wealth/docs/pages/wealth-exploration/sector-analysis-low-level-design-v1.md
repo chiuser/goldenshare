@@ -1000,7 +1000,7 @@ tests/test_wealth_turnover_insight_static_gates.py
 ### M0：合同和治理收口
 
 1. 用户确认本 LLD 和 Figma 交付节点。
-2. 在统一注册表登记 `SA_*`。
+2. 核对统一注册表中已登记的 `SA_*` 与本文 COMPLETE/PARTIAL/MISSING、DELAYED 和 EMPTY 语义一致；不得重复登记同义码。
 3. 新增静态架构门禁，冻结三张来源表、无迁移、无 QTF/DG/Lake/预测。
 4. 停止点：文档与门禁通过，不改页面和业务。
 
