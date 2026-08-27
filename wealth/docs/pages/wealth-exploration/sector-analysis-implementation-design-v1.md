@@ -1,7 +1,7 @@
 # 财势探查｜板块分析技术实施方案 v1
 
 > - 文档性质：技术实施方案与里程碑对账，不是 LLD。
-> - 当前状态：v1.6；M0 合同与治理、M1 页面结构与共享 Shortcut 已于 2026-08-27 完成，下一步固定为 M2。
+> - 当前状态：v1.7；M0 合同与治理、M1 页面结构与共享 Shortcut 已于 2026-08-27 完成；M2 开始前先执行 Pre-M2 公共日期查询单语句化。
 > - 产品事实源：[财势乾坤板块分析产品交互基线文档 v1](./sector-analysis-product-interaction-baseline-v1.md)。
 > - Figma 文件：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`。
 > - 基线日期：2026-08-27。
@@ -136,8 +136,8 @@ M1 已关闭原先三项页面差异：
 1. `WealthRouter` 通过判别联合解析三个页面和一个 replace 入口；三个页面测试及成交额静态门禁是当前消费者证据。
 2. `TopMarketBar` 是公共组件，实际消费者覆盖市场总览、财势探查、股票详情和指数详情；本期不修改其 props 与视觉。
 3. 共享 `ShortcutBar` 当前由市场总览和财势探查两类 feature wrapper 消费；页面不持有两套展示实现。
-4. `MarketPageContextQuery` 同时被公共 context、股票／指数详情和部分行情查询使用；本期复用，不修改其 20:00 规则。
-5. `MarketSectorOverviewQueryService` 及其 schema、API、测试是首页板块速览独立消费者；本期只允许因行业层级公共查询提取而发生无行为变化的 import 调整。
+4. `MarketPageContextQuery` 同时被公共 context、股票／指数详情和部分行情查询使用。Pre-M2 只把其内部 1～4 条交易日历查询收敛为 1 条，公开方法、返回结构、20:00 规则和全部消费者语义保持不变。
+5. 当前工作区已把行业层级查询移到 Biz 公共目录，并更新 `MarketSectorOverviewQueryService` 与 `SectorSelectionResolver` 两个消费者；首页板块速览和架构回归 33 项通过。该已完成移动不代表 M2 API 已开始或完成。
 
 ## 3. 目标信息架构与正式路由
 
@@ -655,7 +655,24 @@ API 不访问 Ops、TaskRun、DG 或 QTF。`src/biz` 继续只依赖 `src.founda
 
 默认请求不附 `tradeDate` 不是另算日期，而是保留公共接口已经存在的“默认日期可延迟回退”与“显式历史日期严格命中”的区别。最终响应必须校验 `expectedTradeDate/observedTradeDate` 与页面上下文一致。
 
-### 9.2 状态机
+### 9.2 Pre-M2 公共日期查询单语句化
+
+当前 `MarketPageContextQuery.resolve_context()` 的业务语义正确，但默认交易日模式会分步查询“最近开市日、今天是否开市、上一开市日和最终日期记录”，最坏执行 4 条 SQL。该查询有 9 个直接调用入口，不能为了板块分析复制另一套 20:00 日期算法，也不能让 Meta 信任前端传入的业务日期。
+
+Pre-M2 将其内部数据库访问收敛为一条只读 SQL，方案如下：
+
+1. Python 端只生成一次 `Asia/Shanghai` 的 `localNow`，把 `localDate`、是否已到 20:00 和可选 `requestedTradeDate` 作为绑定参数；禁止使用数据库会话时区推导当前日期。
+2. 同一 SQL 使用标量子查询或 CTE 取得：截至 `localDate` 的最近 SSE 开市日、今天的日历记录、今天之前最近的 SSE 开市日、显式日期的日历记录，以及最终业务日期之前最近的 SSE 开市日。
+3. 显式模式始终以 `requestedTradeDate` 为 `resolvedTradeDate`；存在日历记录时直接读取其 `is_open/pretrade_date`，不存在时 `isTradingDay=false`，`prevTradeDate` 取该日期之前最近的 SSE 开市日。
+4. 默认模式在“今天是 SSE 开市日、当前时间早于 20:00 且今天之前存在开市日”时使用查询得到的最近前一开市日；其余情况使用截至今天最近的 SSE 开市日。若没有任何开市日，继续使用 `localDate`，不得凭空生成交易日。该规则保持当前 `max(open trade_date < localDate)` 语义，不改为信任 `today.pretrade_date`。
+5. 最终 SQL 一次返回 `resolvedTradeDate/isTradingDay/prevTradeDate` 所需事实；`sessionStatus/generatedAt/source` 继续在 Python 中按现有规则组装。
+6. 保持 `MarketPageContextQuery.resolve_context(session, market, requested_trade_date)` 方法签名、`MarketPageContext` 字段和所有消费者不变；不新增缓存、配置、数据库对象或兼容分支。
+
+验收必须使用 SQLAlchemy event counter 证明每次 `resolve_context()` 恰好 1 条 SQL，并覆盖：交易日 19:59、20:00、周末／节假日、显式开市日、显式休市日、显式日期无日历记录、无任何开市日以及不支持市场。公共 context、个股详情、指数详情／K 线／权重、成交额洞察、个股九转和指数九转必须完成回归。
+
+完成 Pre-M2 后，板块分析查询预算统一为：Meta 最多 3 条，Rankings 最多 5 条，History 最多 5 条。不得为了把 Meta 压到 2 条而合并行业层级和日期覆盖职责。
+
+### 9.3 状态机
 
 | 状态 | 条件 | 页面行为 |
 |---|---|---|
@@ -667,7 +684,7 @@ API 不访问 Ops、TaskRun、DG 或 QTF。`src/biz` 继续只依赖 `src.founda
 
 本期不新增 `PARTIAL` 页面状态。`PARTIAL` 只存在于 Meta 的交易日覆盖标记；用户显式进入该日时页面仍使用 READY 骨架，完整行业行仍返回，`validSectorCount/expectedSectorCount` 与 `calculableCount/totalCount` 共同使来源和计算覆盖可观测。只有完全不可计算时进入 EMPTY。
 
-### 9.3 异常码规划
+### 9.4 异常码规划
 
 编码前必须先在异常码注册表登记：
 
@@ -736,6 +753,8 @@ API 不访问 Ops、TaskRun、DG 或 QTF。`src/biz` 继续只依赖 `src.founda
 | 首次工作区可用 | `<= 1.5s`（不含网络环境异常） |
 | 单 endpoint payload | `<= 256KB` |
 | 同一交互重复请求 | `1` 次有效请求；旧请求必须取消或丢弃 |
+
+后端正常路径 SQL 数量门禁为：Meta `<=3`、Rankings `<=5`、History `<=5`。三者都包含 Pre-M2 收敛后的 1 条公共日期查询；查询数不得随行业数、历史日期数或空值行数线性增长。
 
 这些是待真实只读 EXPLAIN 和候选环境测量的预算，不是当前已经验收的性能结论。若现有索引无法满足，必须先回到 LLD 单独提出索引方案并重新确认 Alembic head；不得在本方案阶段预设迁移。
 
@@ -833,9 +852,16 @@ rollingReturns / historicalRanks
 4. 只完成页面壳和路由，不接板块真实数据。
 5. 验收证据：46 项 M1 前端定向测试、16 项静态/架构门禁、TypeScript 检查和生产构建通过；旧单页、旧私有 Shortcut 和零高度占位已删除。
 
+### Pre-M2：公共业务日期查询收敛
+
+1. 将 `MarketPageContextQuery.resolve_context()` 的交易日历访问从默认最坏 4 条、显式最坏 2 条统一收敛为 1 条 SQL。
+2. 保持 `MarketPageContext`、20:00 日期规则、显式历史语义、Session 状态和 9 个直接消费者合同不变。
+3. 补齐时间边界、空日历、显式日期和 SQL 数量正反例，并回归全部消费者。
+4. 停止点：公共日期查询单次调用严格为 1 条 SQL，Meta 的后续预算固定为 3 条；未通过不得继续 M2 API。
+
 ### M2：动量排名后端
 
-1. 提取公共层级查询，保持首页板块速览行为不变。
+1. 保留当前工作区已完成的公共层级查询移动，并在 M2 收口时再次证明首页板块速览行为不变。
 2. 实现 meta、rankings、history 三个只读 API。
 3. 完成公式、比较池、状态、异常和真实 API 测试。
 4. 生产只读 EXPLAIN 与性能预算验收后停止。
@@ -883,7 +909,7 @@ rollingReturns / historicalRanks
 
 ## 16. 编码入口与停止门禁
 
-[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md)已经回答最终 DTO 和可空策略、查询与窗口、排名算法、层级 Query 移动、异常码、测试矩阵和例外白名单。M0 与 M1 已通过，下一步固定为 M2：只实现动量排名后端，不进入 M3 前端工作区。
+[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md)已经回答最终 DTO 和可空策略、查询与窗口、排名算法、层级 Query 移动、异常码、测试矩阵和例外白名单。M0 与 M1 已通过，下一步固定为 Pre-M2：先完成公共业务日期查询单语句化；通过后才继续 M2 动量排名后端，不进入 M3 前端工作区。
 
 编码期间若发现当前数据字段、索引、消费者、真实性能或 Figma 与本文/LLD 冲突，必须停止并回到方案层修正，禁止边编码边改口径。任何新增索引、迁移、缓存、结果表、第三方依赖或范围扩张都不在本方案授权内。
 
@@ -891,6 +917,7 @@ rollingReturns / historicalRanks
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.7 | 2026-08-27 | 新增 Pre-M2 公共日期查询单语句化：保持20:00与公开合同不变，将单次调用收敛为1条 SQL；Meta/Rankings/History 预算调整为3/5/5 | Codex |
 | v1.6 | 2026-08-27 | 完成 M1 页面结构收口：三个页面、四个精确路由、公共 Shell、共享 Shortcut、成交额入口迁移、方法栏及旧占位删除；下一步固定为 M2 | Codex |
 | v1.5 | 2026-08-27 | 完成 M0 合同与治理收口；新增静态架构门禁，冻结三张 Prod 来源表、无迁移、无 QTF/DG/Lake/预测及统一 `SA_*` 异常码合同 | Codex |
 | v1.4 | 2026-08-27 | 完成 Figma 二次纠偏与逐项对账；补齐二／三级总榜、双排名摘要、共享 Hover、百分位、完整日期选择和 Prod DuckDB 缺口审计，冻结覆盖元数据及完整 N+1 门禁 | Codex |

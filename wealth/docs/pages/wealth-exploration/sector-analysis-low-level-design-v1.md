@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：v1.3；M0 合同与治理、M1 页面结构与共享 Shortcut 已于 2026-08-27 完成，下一步固定为 M2。
+- 状态：v1.4；M0 合同与治理、M1 页面结构与共享 Shortcut 已于 2026-08-27 完成；M2 剩余开发前必须先通过 Pre-M2 公共日期查询单语句化。
 - 编写日期：2026-08-27。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
@@ -22,7 +22,7 @@
 |---|---|---|
 | 首期只做行业动量排名 | `sector-analysis/momentum-ranking/**` | 仓库没有概念、地域、申万、Heat、预测或 QTF 依赖 |
 | Prod 是唯一在线事实源 | 三个只读 Query | 只出现 `TradeCalendar`、`WealthSectorHierarchy`、`DcDaily` |
-| 公共业务日期唯一 | `MarketPageContextQuery` + URL `tradeDate` | 20:00 默认口径、显式历史严格命中；前端无本机业务日计算 |
+| 公共业务日期唯一 | `MarketPageContextQuery` + URL `tradeDate` | Pre-M2 将内部访问收敛为 1 条 SQL；20:00 默认口径、显式历史严格命中和公开合同不变；前端无本机业务日计算 |
 | 历史缺口必须可见 | Meta 日期覆盖 DTO + 日期选择器 | 覆盖区间内全部 SSE 开市日均返回；COMPLETE/PARTIAL/MISSING 不被过滤 |
 | 五类比较池固定 | `SectorMomentumScope` + `resolve_scope_pool()` | 全体一级/二级/三级与两类直属子级集合完全正确 |
 | 周期固定为 1/5/10/20/30 | `SectorMomentumPeriod` | 未批准周期和任意整数被拒绝 |
@@ -103,10 +103,8 @@ MarketOverviewPage
 1. `DcDaily` 映射 `core_serving.dc_daily`，业务键为 `(ts_code, trade_date, category)`；本需求使用 `close/pct_change`，已有 `trade_date` 及 `(trade_date, category)` 索引。
 2. `WealthSectorHierarchy` 映射 `core_serving.wealth_sector_hierarchy`，包含本需求所需层级、父级、root、路径、排序、版本和发布时间字段；已有 level/parent/root 三组查找索引。
 3. `TradeCalendar` 映射 `core_serving.trade_calendar`，业务键 `(exchange, trade_date)`，已有 `trade_date` 索引。
-4. `MarketPageContextQuery` 已实现 SSE 交易日和 20:00 默认切换，不能修改或复制。
-5. `SectorHierarchyQuery` 位于 `sector_overview` 私有目录，但其语义已是页面中立的当前发布层级查询。直接消费者只有：
-   - `MarketSectorOverviewQueryService` 的相对 import；
-   - `SectorSelectionResolver` 对 `SectorHierarchyNode` 的绝对 import。
+4. `MarketPageContextQuery` 已实现 SSE 交易日和 20:00 默认切换。当前显式模式最坏 2 条、默认模式最坏 4 条 SQL；Pre-M2 允许只重构其内部只读查询为 1 条 SQL，但不得修改或复制 20:00 规则、公开方法、返回字段或消费者语义。
+5. 当前工作区已把 `SectorHierarchyQuery` 移到 `queries/wealth/market/common/sector_hierarchy_query.py`，补齐父／root 名称、`is_leaf` 和最大 `published_at`；两个直接消费者均已切换到公共绝对 import，首页板块速览与架构回归 33 项通过。该独立完成项不等于 M2 API 已开始或完成。
 6. 现有 `sector-overview` DTO 绑定首页 Top5、概念、地域、成员、资金和 Heat，不能扩写为本页 DTO。
 7. `src/app/api/v1/router.py` 逐模块 include `src.biz.api.wealth.market.*`；板块分析只需新增一个 Biz router include，App 不承载业务逻辑。
 
@@ -118,7 +116,7 @@ MarketOverviewPage
 | 成交额路由 | `/turnover-insight`（M1 已完成） | 独立子页 | 保持既有业务合同 |
 | 板块分析 | 独立子页与方法栏（M1 已完成） | 动量工作区 | M2 只实现后端，M3 才接前端 |
 | Shortcut | 共享展示 + 两个 feature wrapper（M1 已完成） | 零漂移共享能力 | 后续不得回写 feature 私有副本 |
-| 行业层级 Query | 首页私有目录 | Biz 公共 Query | 彻底移动并修改全部 import |
+| 行业层级 Query | Biz 公共 Query（当前工作区已移动） | Biz 公共 Query | M2 收口时再次回归首页板块速览，不再重复移动 |
 | 动量事实 | 无 | 三个独立只读 API | 新建 sector_analysis 模块 |
 | 页面异常态 | 无板块状态 | 五态稳定骨架 | 按 Figma 正式节点实现 |
 
@@ -304,6 +302,16 @@ resolveWealthExplorationRoute(pathname: string): WealthExplorationRoute
 
 移动后必须保留：单一版本、代码唯一、一级 root、父级层次、root 闭包、`industry_level/display_order/sector_code` 稳定次序。为 Meta DTO 扩展 `SectorHierarchyNode` 的 `parent_sector_name/root_sector_name/is_leaf`，并把所有行 `published_at` 的最大值作为 Snapshot `published_at`；不新增“发布时间必须完全相同”的阻断规则，不改变首页现有选择或错误语义。
 
+### 5.4A Pre-M2 公共日期查询收敛
+
+| 操作 | 文件 | 精确要求 |
+|---|---|---|
+| 修改 | `src/biz/queries/wealth/market/context/market_page_context_query.py` | 保持公开合同和 20:00 语义不变，把单次 `resolve_context()` 收敛为 1 条只读 SQL |
+| 新增 | `tests/test_wealth_market_page_context_query.py` | 注入固定北京时间，覆盖时间边界、显式／默认、日历缺失和 SQL 数量 |
+| 修改 | `tests/web/test_wealth_market_context_api.py` | 保持公共 context HTTP 响应合同不变，补充 20:00 前后和无日历记录反例 |
+
+Pre-M2 不修改任何调用方 API，不新增模型、迁移、缓存或配置。CodeGraph 当前确认的 9 个直接调用入口全部继续调用同一个 `resolve_context()`；实施后必须回归公共 context、个股详情、指数详情／K 线／权重、成交额洞察、个股九转和指数九转。
+
 ### 5.5 后端新增
 
 ```text
@@ -414,6 +422,44 @@ class SectorRankFact:
 5. `LEVEL_2_CHILDREN`：先验证 level2 是 level1 直属子级，再取其直属 level=3。
 6. 返回次序固定为 `(display_order, sector_code)`；不因行情值变化改变对象池顺序。
 7. 缺父级、错层、跨父级分别抛有界合同异常，API 映射 `SA_SCOPE_INVALID`。
+
+### 6.3.1 Pre-M2 单语句日期锚点
+
+`MarketPageContextQuery.resolve_context()` 保持现有入口：
+
+```python
+resolve_context(
+    session: Session,
+    *,
+    market: str,
+    requested_trade_date: date | None,
+) -> MarketPageContext
+```
+
+内部只允许执行一条 SQL。Python 端先且只生成一次 `local_now=datetime.now(ZoneInfo("Asia/Shanghai"))`，SQL 使用绑定参数 `local_date`、`before_eod_switch` 和可选 `requested_trade_date`，不得使用数据库 `CURRENT_DATE/current_timestamp` 推导业务时间。
+
+单条 SQL 必须通过标量子查询或 CTE 同时构造以下事实：
+
+```text
+latest_open_date      = max(SSE open trade_date <= local_date)
+today_calendar        = SSE calendar row at local_date
+previous_open_before_today = max(SSE open trade_date < local_date)
+requested_calendar    = SSE calendar row at requested_trade_date（显式模式）
+resolved_trade_date   = 显式日期；否则在今天开市、20:00前且存在 previous_open_before_today 时取该值，其余取 latest_open_date
+resolved_calendar     = SSE calendar row at resolved_trade_date
+previous_open_fallback = max(SSE open trade_date < resolved_trade_date)
+```
+
+结果映射规则冻结为：
+
+1. 显式模式：`trade_date=requested_trade_date`。若 `resolved_calendar` 存在，`is_trading_day=resolved_calendar.is_open`、`prev_trade_date=resolved_calendar.pretrade_date`；若不存在，`is_trading_day=false`、`prev_trade_date=previous_open_fallback`。
+2. 默认模式：今天开市、`local_now.hour < 20` 且 `previous_open_before_today` 非空时使用该日期；否则使用 `latest_open_date`。必须保持当前 `max(open trade_date < local_date)` 语义，不改为信任 `today_calendar.pretrade_date`。
+3. 默认模式没有任何开市日时，继续使用 `local_date`。若该日存在日历记录，仍读取其 `is_open/pretrade_date`；若不存在，返回 `is_trading_day=false` 和有界 fallback。
+4. `session_status` 继续按现有 `_resolve_session_status(local_now=local_now, is_trading_day=is_trading_day)` 原样计算；Pre-M2 不额外引入“最终日期必须等于 local_date”的判断，避免改变现有显式日期与调用方合同。
+5. `source` 仍严格为 `explicit/default`，`generated_at` 必须等于本次唯一的 `local_now`。
+6. 禁止第二次查询最终日历行、禁止再次查询上一开市日、禁止在调用方复制20:00分支、禁止服务端全局缓存。
+
+SQLAlchemy event counter 必须证明所有正反例都是恰好 1 条 SQL。参数或市场在发 SQL 前即可判定非法时允许 0 条；不得为了满足计数跳过合法日期事实。
 
 ### 6.4 日期解析
 
@@ -530,11 +576,11 @@ percentile = (n - averageRank) / (n - 1) * 100
 
 | Endpoint | 正常路径最大 SQL 数 |
 |---|---:|
-| meta | 2：层级（含发布时间）和可用日期 |
-| rankings | 显式日期最多 5；默认日期最多 8，包含现有 `MarketPageContextQuery` 最坏 4 条、层级、observed、窗口日历和一次行情事实 |
-| history | 显式日期最多 5；默认日期最多 8，行情仍为一次有界集合查询 |
+| meta | 3：公共日期 1、层级（含发布时间）1、可用日期 1 |
+| rankings | 显式／默认日期均最多 5：公共日期 1、层级 1、observed 1、窗口日历 1、行情事实 1 |
+| history | 显式／默认日期均最多 5；行情仍为一次有界集合查询 |
 
-实现测试使用 SQLAlchemy event counter 记录数量；出现按行增长即失败。允许同一请求内复用已经加载的 hierarchy snapshot，不允许增加服务端全局缓存。
+实现测试使用 SQLAlchemy event counter 记录数量；Pre-M2 必须先证明公共日期查询严格为 1 条，M2 再证明 Meta/Rankings/History 分别不超过 3/5/5 条。出现按行增长即失败。允许同一请求内复用已经加载的 hierarchy snapshot，不允许增加服务端全局缓存。
 
 ## 7. API 与 DTO 冻结
 
@@ -919,6 +965,7 @@ chart instances +0
 新增：
 
 ```text
+tests/test_wealth_market_page_context_query.py
 tests/test_wealth_sector_analysis_contract.py
 tests/test_wealth_sector_momentum_calculator.py
 tests/test_wealth_sector_momentum_query_service.py
@@ -928,20 +975,21 @@ tests/architecture/test_wealth_sector_analysis_guardrails.py
 
 必须覆盖：
 
-1. 五个 scope 的精确 code 集合和父子闭包反例。
-2. 1/5/10/20/30 公式与 N+1 日期；缺中间日也必须 null。
-3. 日期覆盖全集：COMPLETE/PARTIAL/MISSING 三类、左连接缺口不丢日、当前层级外代码不计数、coverage 边界和稳定日期排序。
-4. Decimal 取舍、非正收盘、pct_change 空、重复业务键。
-5. GAINERS/LOSERS 全列表、null 末尾、sectorCode 稳定 tie-break。
-6. `listPosition` 随方向变化；`strengthRank/percentile` 不变。
-7. 竞赛排名、平均百分位、最强 100.0、最弱 0.0、n=1 和全部 null。
-8. 二/三级全局与父级内摘要。
-9. 20/30/60 历史、预热、缺点日期槽、分母变化和方向参数拒绝。
-10. 默认 COMPLETE 为 READY、默认 PARTIAL/MISSING 回退为 DELAYED、显式 PARTIAL 为 READY、显式 MISSING 为 EMPTY、层级 ERROR、query ERROR。
-11. Meta/rankings/history 未知参数、重复参数、非法日期/market/code。
-12. 401/403、debug 环境门禁和敏感信息反例。
-13. SQL 数不随行业数和历史点线性增长。
-14. 公共层级 Query 移动后 `/sector-overview` 响应与既有测试零回退。
+1. Pre-M2 公共日期查询在交易日 19:59／20:00、周末／节假日、显式开市／休市／缺行、空日历下保持原语义；每个合法调用严格 1 条 SQL，9 个直接消费者无回退。
+2. 五个 scope 的精确 code 集合和父子闭包反例。
+3. 1/5/10/20/30 公式与 N+1 日期；缺中间日也必须 null。
+4. 日期覆盖全集：COMPLETE/PARTIAL/MISSING 三类、左连接缺口不丢日、当前层级外代码不计数、coverage 边界和稳定日期排序。
+5. Decimal 取舍、非正收盘、pct_change 空、重复业务键。
+6. GAINERS/LOSERS 全列表、null 末尾、sectorCode 稳定 tie-break。
+7. `listPosition` 随方向变化；`strengthRank/percentile` 不变。
+8. 竞赛排名、平均百分位、最强 100.0、最弱 0.0、n=1 和全部 null。
+9. 二/三级全局与父级内摘要。
+10. 20/30/60 历史、预热、缺点日期槽、分母变化和方向参数拒绝。
+11. 默认 COMPLETE 为 READY、默认 PARTIAL/MISSING 回退为 DELAYED、显式 PARTIAL 为 READY、显式 MISSING 为 EMPTY、层级 ERROR、query ERROR。
+12. Meta/rankings/history 未知参数、重复参数、非法日期/market/code。
+13. 401/403、debug 环境门禁和敏感信息反例。
+14. Meta/Rankings/History SQL 数分别不超过 3/5/5，且不随行业数和历史点线性增长。
+15. 公共层级 Query 移动后 `/sector-overview` 响应与既有测试零回退。
 
 ### 11.2 前端测试
 
@@ -1035,6 +1083,13 @@ tests/test_wealth_turnover_insight_static_gates.py
 5. 停止点：三个地址可独立刷新；sector 只有稳定壳和方法栏，无板块 API。
 6. 验收证据：46 项 M1 前端定向测试、16 项静态/架构门禁、TypeScript 检查和生产构建通过；未新增 API、查询、模型、迁移、依赖或板块请求。
 
+### Pre-M2：公共业务日期查询单语句化
+
+1. 保持 `MarketPageContextQuery` 公开方法、返回合同、20:00规则和消费者调用方式不变。
+2. 将显式最坏 2 条、默认最坏 4 条 SQL 统一收敛为 1 条只读 SQL。
+3. 补齐固定北京时间、交易／休市、显式缺行、空日历、SQL event counter 和 9 个消费者回归。
+4. 停止点：所有合法调用恰好 1 条 SQL，公共 context HTTP 合同和消费者结果零回退；未通过不得继续 M2 API。
+
 ### M2：后端动量事实
 
 1. 移动公共 hierarchy Query，修改全部消费者并回归首页板块速览。
@@ -1065,6 +1120,13 @@ tests/test_wealth_turnover_insight_static_gates.py
 
 ```text
 uv run pytest -q \
+  tests/test_wealth_market_page_context_query.py \
+  tests/web/test_wealth_market_context_api.py \
+  tests/web/test_wealth_stock_detail_api.py \
+  tests/web/test_wealth_index_detail_api.py \
+  tests/web/test_wealth_turnover_insight_api.py \
+  tests/web/test_wealth_stock_nine_turn_api.py \
+  tests/web/test_wealth_index_nine_turn_api.py \
   tests/test_wealth_sector_analysis_contract.py \
   tests/test_wealth_sector_momentum_calculator.py \
   tests/test_wealth_sector_momentum_query_service.py \
@@ -1096,6 +1158,7 @@ git diff --check
 | G05 路由 | 精确四 path、未知子路由反例 | PASS (M1) |
 | G06 页面请求边界 | landing 零业务请求、模块按需挂载 | PASS (M1) |
 | G07 Shortcut 零漂移 | 市场总览 DOM/视觉/交互回归 | PASS (M1) |
+| G07A 公共日期单语句 | 20:00与显式日期语义零变化；所有合法调用恰好1条 SQL；9个消费者回归 | OPEN (Pre-M2) |
 | G08 事实源 | 只读三张 Prod 表 | OPEN (M2) |
 | G09 公式 | 1/5/10/20/30 与 N+1 完整窗口；真实缺口不得被隐藏或补值 | OPEN (M2) |
 | G10 排名语义 | listPosition/strengthRank/percentile 分离 | OPEN (M2) |
@@ -1125,13 +1188,14 @@ git diff --check
 6. DuckDB 只读审计已证明生产历史存在 20 个缺口日和 N+1 传导影响；Meta 覆盖 DTO 与计算完整性门禁已据此冻结。
 7. M0 静态门禁已冻结三张 Prod 来源表、无迁移、禁用 QTF/DG/Lake/预测范围和统一 `SA_*` 异常码；6 项架构测试通过。
 8. M1 已完成三个页面、四个精确路由、公共 Shell、共享 Shortcut、成交额入口迁移、方法栏和旧占位安全删除；板块业务请求仍为 0。
+9. 当前工作区已独立完成公共行业层级 Query 移动，首页板块速览与架构测试 33 项通过；尚未因此进入或完成板块分析 API。
 
 ### 16.2 尚未完成
 
-1. M2/M3 的板块后端和动量工作区尚未实现。
+1. Pre-M2 公共日期查询单语句化、M2 剩余后端 API/计算和 M3 动量工作区尚未完成。
 2. `SA_*` 已在统一注册表登记，但尚无业务代码实现或 API 映射。
 3. 没有生产只读 EXPLAIN、性能或板块结果页面验收。
-4. M1 修改尚未提交、推送或部署；本期没有迁移。
+4. M1 已由提交 `e712c1ed` 收口；Pre-M2 与当前 M2 工作区修改尚未提交、推送或部署，本期没有迁移。
 
 ## 17. 风险、回滚与停止条件
 
@@ -1156,4 +1220,4 @@ git diff --check
 
 ## 18. 结论
 
-M0 与 M1 已按本文收口，页面结构和请求边界具备承接真实业务的条件。下一步固定为 M2：只实现动量排名后端事实、API 与性能门禁，不进入 M3 前端工作区。
+M0 与 M1 已按本文收口，页面结构和请求边界具备承接真实业务的条件。下一步固定为 Pre-M2：先把公共业务日期查询收敛为 1 条 SQL 并证明全部消费者零回退；通过后再继续 M2 动量排名后端，不进入 M3 前端工作区。
