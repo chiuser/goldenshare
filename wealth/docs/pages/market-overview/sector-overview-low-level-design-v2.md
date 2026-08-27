@@ -1132,7 +1132,7 @@ Slice 11 未关闭 A01-A19 整体问题；Slice 12 已完成 A02/A08 生产事�
 
 Slice 14 PASS 标准：代码/自动化测试全部通过、生产 schedule 唯一且 active、真实开放日完成一次成功自动发布与一次同日幂等核验、没有重复 TaskRun/DML、超时/缺源反例可观测。任一条件缺失均不得进入 Slice 15。
 
-执行记录（2026-08-15）：**首次生产验收失败，修复代码与生产形态回归 PASS，生产重新部署/恢复/新开放日验收 OPEN**。
+执行记录（截至 2026-08-27）：**首次生产验收失败，修复代码、生产形态回归与双上游时间契约发布 PASS，新开放日自然验收 OPEN**。
 
 1. `MaintenanceActionDefinition` 已声明唯一 Heat readiness policy；历史 replay 仍不可调度。
 2. Ops 已实现 SSE 开放日、收盘工作流 21:00/资金流工作流 20:00 的独立门槛、同一 TaskRun 必需节点、10 分钟复查、跨午夜目标日锁定、00:30 单一超时以及同一 schedule/action/trade_date 单次自动尝试。
@@ -1140,7 +1140,8 @@ Slice 14 PASS 标准：代码/自动化测试全部通过、生产 schedule 唯�
 4. CLI `ops-scheduler-tick/serve` 已统一使用 app factory；未新增表、迁移、账号、连接、环境变量、ProbeRule、DG sensor 或外部 timer。
 5. 2026-08-14 生产 schedule `36` 持续误判上游未齐，并于 2026-08-15 00:30 创建超时 TaskRun `8327`；生产上游节点和7张来源表实际齐备，Heat 结果仍停在 8 月 12 日。根因是旧 readiness 查询父 TaskRun `trade_date`，而19条生产工作流父意图均只有 `{"mode":"point"}`；旧测试 fixture 伪造该字段，原“本地通过”结论不再作为有效生产契约证据。
 6. 修复后父 TaskRun 保持意图不变，dispatcher 将 resolver 解析后的真实日期写入数据集节点，readiness 逐节点核验日期；缺日期、错日期、早场、失败节点和跨 TaskRun 拼接均失败关闭。Heat/Ops/运行时/API/架构相关修复回归 115 项与文件级 Ruff 已通过。
-7. 尚缺：部署修复、按 8 月 13 日到 14 日顺序恢复 Heat、核验唯一 active schedule，并以至少一个新的真实开放日完成自动 TaskRun、Heat read-back/hash 与同日幂等。完成前 Slice 14 不得标记 PASS，也不得进入 Slice 15。
+7. 2026-08-27 发现第二个根因：原单值 `21:00` 同时约束收盘与 20:00 资金流工作流，导致后者自然成功仍永远不具备 readiness。现已改为收盘 `21:00`、资金流 `20:00` 的按 workflow 合同，缺失键、未知键和门槛前证据均 fail-closed；233 项受影响测试通过。
+8. commit `6c16ac31` 已于 `2026-08-27 18:47+08` 在开放 TaskRun 为 0 的窗口发布；跳过 migration、前端构建、seed 与全部业务 worker 重启，仅重启 scheduler。生产 Alembic 保持 `20260827_000153`，schedule #4/#36 仍分别为工作日 20:00/21:15，运行时 factory 装配通过。尚缺至少一个新的真实开放日自动 TaskRun、Heat read-back/hash 与同日幂等；完成前 Slice 14 不得标记 PASS，也不得进入 Slice 15。
 
 ### Slice 15：Figma 与首页像素验收（原 Slice 14，修正序号 7）
 

@@ -1,14 +1,14 @@
 # 生产 PostgreSQL raw 直出一期低层设计 v1
 
 - 版本：v1
-- 状态：P1-B0 与 P1-B1 已结案；`P1-B2-moneyflow_ind_dc` revision 153 已因完整部署提前应用，切换后只读合同通过；Heat 双上游时间契约修复已编码，待生产发布与自然运行验收后结案
+- 状态：P1-B0 与 P1-B1 已结案；`P1-B2-moneyflow_ind_dc` revision 153 已因完整部署提前应用，切换后只读合同通过；Heat 双上游时间契约修复已发布，待自然运行验收后结案
 - 更新时间：2026-08-27
 - 上位方案：[生产 PostgreSQL 存储空间优化治理专项 v2](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v2.md)
 - 目标：把一期 12 个无业务转换的 raw/core_serving 双写数据集收敛为“raw 唯一物理事实表 + 原 serving 名称只读 view”，预计释放约 3.305 GiB SSD
 
 ## 0. 边界与完成定义
 
-本文定义一期实施合同，并记录已获授权完成的 P1-B0-M1～M3、P1-B0 市场资金补充 M3b、P1-B1 M0、行业/概念/`margin` 的 M1/M2/M3a/M3b、`P1-GATE-SSE-M1/M2/M3`，以及 P1-B2 首项 `moneyflow_ind_dc` 的 M0/M1/M2 与生产提前切换事实。`moneyflow_ind_dc` 已完成只读生产基线、代码、自动化测试、隔离 PostgreSQL migration 和切换后生产只读合同验收；但完整部署在未暂停 schedule/worker 时自动应用 revision 153，发布顺序偏差必须保留。Heat 双上游时间契约修复已进入代码，仍须生产发布并通过自然运行验证。
+本文定义一期实施合同，并记录已获授权完成的 P1-B0-M1～M3、P1-B0 市场资金补充 M3b、P1-B1 M0、行业/概念/`margin` 的 M1/M2/M3a/M3b、`P1-GATE-SSE-M1/M2/M3`，以及 P1-B2 首项 `moneyflow_ind_dc` 的 M0/M1/M2 与生产提前切换事实。`moneyflow_ind_dc` 已完成只读生产基线、代码、自动化测试、隔离 PostgreSQL migration 和切换后生产只读合同验收；但完整部署在未暂停 schedule/worker 时自动应用 revision 153，发布顺序偏差必须保留。Heat 双上游时间契约修复已发布，仍须通过 schedule #4/#36 自然运行验证。
 
 一期完成必须同时满足：
 
@@ -86,7 +86,7 @@ conflict_columns = 保持现有值
 | P1-B1 | 2 | `moneyflow_ind_ths` | `raw_tushare.moneyflow_ind_ths` → `core_serving.industry_moneyflow_ths` | `(trade_date, ts_code)` | 9.3 MiB | 42,030 / 42,030 | Ops/freshness；Lake raw；active 每日资金工作流 |
 | P1-B1 | 3 | `moneyflow_cnt_ths` | `raw_tushare.moneyflow_cnt_ths` → `core_serving.concept_moneyflow_ths` | `(trade_date, ts_code)` | 41.9 MiB | 181,560 / 181,560 | Ops/freshness；Lake raw；active 每日资金工作流 |
 | P1-B1 | 4 | `margin` | `raw_tushare.margin` → `core_serving.equity_margin` | `(trade_date, exchange_id)` | 0.3 MiB | 1,155 / 1,155 | Ops/freshness；Lake raw；active 固定源端 probe；M3b 已通过 |
-| P1-B2 | 5 | `moneyflow_ind_dc` | `raw_tushare.moneyflow_ind_dc` → `core_serving.board_moneyflow_dc` | `(trade_date, content_type, name)` | 84.27 MiB | 339,268 / 339,268 | Wealth 板块概览/热度；Lake raw；revision 153 已提前应用，待 Heat 修复发布与自然验收 |
+| P1-B2 | 5 | `moneyflow_ind_dc` | `raw_tushare.moneyflow_ind_dc` → `core_serving.board_moneyflow_dc` | `(trade_date, content_type, name)` | 84.27 MiB | 339,268 / 339,268 | Wealth 板块概览/热度；Lake raw；revision 153 已提前应用，Heat 修复已发布，待自然验收 |
 | P1-B2 | 6 | `dc_daily` | `raw_tushare.dc_daily` → `core_serving.dc_daily` | `(ts_code, trade_date, category)` | 154.0 MiB | 629,993 / 629,993 | Wealth、QTF、DG source probe；Lake raw |
 | P1-B2 | 7 | `suspend_d` | `raw_tushare.suspend_d` → `core_serving.equity_suspend_d` | 写入冲突键 `row_key_hash`；物理 PK `id` | 211.9 MiB | 640,481 / 640,481 | Wealth 指数/板块/连板、市场情绪；Lake raw |
 | P1-B3 | 8 | `stk_auction_o` | `raw_tushare.stk_auction_o` → `core_serving.equity_auction_open` | `(ts_code, trade_date)` | 361.9 MiB | 2,161,633 / 2,161,633 | Ops/freshness；未发现当前 Lake/DG 读取 |
@@ -806,7 +806,9 @@ M2 在本轮受控创建的 PostgreSQL 18.4 临时实例完成，并做了两次
 
 同轮根因修复把旧单值 `upstream_not_before_local_time=21:00` 删除，改为 action catalog 唯一持有的 `upstream_workflow_not_before_local_times`：`daily_market_close_maintenance=21:00`、`daily_moneyflow_maintenance=20:00`。app scheduler factory 只负责解析和装配；Ops readiness service 要求配置键与两个必需 workflow 精确一致，并按各自时间门槛筛选同交易日成功节点。该配置不进入 env、数据库或页面，不设第二份默认值；修改后通过 scheduler 重启生效。正向测试证明 20:00 后资金流与 21:00 后收盘工作流可共同满足，反向测试证明 19:59 资金流、20:59 收盘工作流、缺失或未知 workflow 配置均 fail-closed。
 
-当前完成边界是“revision 153 已实际切换且只读合同通过，Heat 修复已编码”；仍须在无开放任务的受控窗口做无 migration 的 Ops 代码发布，并只读核对 scheduler 加载新映射。随后使用 schedule #4 当晚 20:00 的自然工作流验证 raw-only writer，再由 schedule #36 自然验证 Heat；禁止为验收额外请求 Tushare。两项自然证据通过前，`P1-B2-moneyflow_ind_dc-M3a` 不标记结案。
+`2026-08-27 18:47+08` 在开放 TaskRun 为 0、schedule #4 下一次为 20:00、schedule #36 下一次为 21:15 的窗口完成代码发布：远端 head 为 `6c16ac31`，跳过 migration、前端构建、seed、unit 同步和全部业务 worker 重启，仅在代码安装后于 `18:47:51` 重启 `goldenshare-ops-scheduler.service`。Web 与通用 worker 的启动时间保持 `17:09`，Alembic 保持 `20260827_000153`，schedule #4/#36 配置未改；运行时 factory 成功构造 `OperationsScheduler`，两个健康端点正常，发布后开放 TaskRun 仍为 0。
+
+当前完成边界是“revision 153 已实际切换且只读合同通过，Heat 修复已生产加载”；随后使用 schedule #4 当晚 20:00 的自然工作流验证 raw-only writer，再由 schedule #36 自然验证 Heat；禁止为验收额外请求 Tushare。两项自然证据通过前，`P1-B2-moneyflow_ind_dc-M3a` 不标记结案。
 
 ### S4：文档证据
 
@@ -856,7 +858,7 @@ M2 在本轮受控创建的 PostgreSQL 18.4 临时实例完成，并做了两次
 | --- | --- | --- | --- |
 | `moneyflow_cnt_ths` | 与行业同属 `daily_moneyflow_maintenance`，当前无 Biz/QTF/DG serving 直读；月峰值和总量更高 | raw-only writer、显式 view、拒写函数契约、workflow pause/resume 方法 | 行业 5,000 行/月上限、行业字段/索引、把 M3b 当 M1/M2 门禁 |
 | `margin` | 不在 workflow；由固定源端 probe 管理，并要求 SSE/SZSE/BSE readiness | raw-only writer、view/ACL/DML/事务回滚审计方法 | workflow 自然任务验收、概念/行业分块和请求语义 |
-| `moneyflow_ind_dc` | M0 已证 339,268 行、36 月全字段等价；月峰值 23,541；有 Wealth 直接读取并进入 sector heat readiness；revision 153 已提前应用，Heat 双门槛修复待发布和自然验收 | raw-only writer、显式 view、拒写函数、30,000 行/月有界差集方法 | THS 的 5,000/20,000 上限、“无业务消费者”的验收范围；不得把两个上游门槛重新压成单一时间 |
+| `moneyflow_ind_dc` | M0 已证 339,268 行、36 月全字段等价；月峰值 23,541；有 Wealth 直接读取并进入 sector heat readiness；revision 153 已提前应用，Heat 双门槛修复已发布、待自然验收 | raw-only writer、显式 view、拒写函数、30,000 行/月有界差集方法 | THS 的 5,000/20,000 上限、“无业务消费者”的验收范围；不得把两个上游门槛重新压成单一时间 |
 | `dc_daily` | 属于每日收盘 workflow；Wealth、QTF 和 DG 都有直接读取 | 只读 relation 名与显式列合同 | 只做 Ops SQL；必须增加 QTF bounded range、DG 单日 probe 和业务返回验收 |
 | `suspend_d` | 属于每日收盘 workflow；多条 Wealth/市场情绪链消费，冲突键含 `row_key_hash`，物理事实还含 `id` | 分块、拒写、事务回滚方法 | 只比较业务 hash；必须证明 `id` 逐行一致并验证日期范围 join |
 | P1-B3/B4 百万行表 | 分别受每日收盘或每日资金 workflow 覆盖，行数、锁时、WAL、缓存和查询面显著增大 | 阶段状态机、只读透明边界、单数据集 revision | 小表全量/单月阈值、单次微秒样本、无界锁内对账或合并发布 |
@@ -943,7 +945,7 @@ M2 在本轮受控创建的 PostgreSQL 18.4 临时实例完成，并做了两次
 3. `margin` 的 schedule #33/rule #14 已在 `2026-08-27 09:00..09:30+08` 自然窗口完成 M3b：log `3674` 唯一命中并创建 TaskRun `9573`，三交易所、分页、拒绝、写入和 raw/view 对账均通过；本项不再有待验收开发或生产步骤；
 4. `margin` 结案时生产 Alembic 为 `20260826_000152`、远端审计 commit 为 `f732f8bd`；随后 `moneyflow_ind_dc` 的完整部署已把生产推进到 `20260827_000153/b00d3d10`。两个快照属于不同执行阶段，不得互相覆盖；
 5. `P1-B2-moneyflow_ind_dc-M0/M1/M2` 已完成：36 月及全表 18 字段生产差异为 0，Definition 已收敛 raw-only，独立 revision `20260827_000153` 与自动化门禁通过；隔离 PostgreSQL 又以 36,000 行正向样本、30,001 行和四类负向样本、ACL/DML/writer/回滚/查询计划证明 migration 合同。revision 153 已在生产提前应用，切换后 339,268 行和静态只读合同通过，但发布顺序偏差保留；
-6. Heat 时间口径已固定为收盘工作流 21:00、资金流工作流 20:00，代码与正反向测试完成；生产仍加载旧合同，待无 migration 发布以及 schedule #4/#36 自然验收后闭环；
+6. Heat 时间口径已固定为收盘工作流 21:00、资金流工作流 20:00，代码、正反向测试和生产调度器发布均完成；待 schedule #4/#36 自然验收后闭环；
 7. 未来任何生产操作仍须实时确认开放 TaskRun 为 0、目标 schedule/probe 已按本项契约暂停、worker 已停止、目标锁和磁盘水位满足门禁。扩容后的容量快照不是跳过这些检查的理由；
 8. 仓库外 SQL/BI/人工脚本无法由仓库审计穷尽，若存在依赖 OID、relkind、约束 catalog、旧审计时间或 serving DML 的未登记消费者，仍是每项 migration 的残余运营风险。
 
