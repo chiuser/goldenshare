@@ -17,7 +17,7 @@ import {
   type WealthExplorationShellModel,
 } from "./useWealthExplorationShell";
 
-interface WealthExplorationShellRenderProps {
+export interface WealthExplorationShellRenderProps {
   model: WealthExplorationShellModel;
   contextErrorMessage: string | null;
   showToast: (message: string) => void;

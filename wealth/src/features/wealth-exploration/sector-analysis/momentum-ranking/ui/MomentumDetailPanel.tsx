@@ -23,22 +23,6 @@ export function MomentumDetailPanel({ history, period, range, onRangeChange }: M
   return (
     <div className="momentum-detail-panel">
       <SelectedSectorSummary detail={history.detail} />
-      <div className="momentum-history-toolbar">
-        <span>两图共用</span>
-        <div className="momentum-segmented-control" aria-label="历史显示范围">
-          {([20, 30, 60] as const).map((value) => (
-            <button
-              aria-pressed={range === value}
-              className={range === value ? "active" : ""}
-              key={value}
-              type="button"
-              onClick={() => onRangeChange(value)}
-            >
-              {value}日
-            </button>
-          ))}
-        </div>
-      </div>
       <div className="momentum-charts-grid">
         {activePoint ? <MomentumLinkedTooltip count={history.points.length} index={hoverIndex!} point={activePoint} /> : null}
         <RollingReturnChart
@@ -46,6 +30,24 @@ export function MomentumDetailPanel({ history, period, range, onRangeChange }: M
           onHoverIndex={setHoverIndex}
           period={period}
           points={history.points}
+          rangeControl={(
+            <div className="momentum-history-toolbar">
+              <span>两图共用</span>
+              <div className="momentum-segmented-control" aria-label="历史显示范围">
+                {([20, 30, 60] as const).map((value) => (
+                  <button
+                    aria-pressed={range === value}
+                    className={range === value ? "active" : ""}
+                    key={value}
+                    type="button"
+                    onClick={() => onRangeChange(value)}
+                  >
+                    {value}日
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           scopeTitle={history.detail.scopeTitle}
         />
         <HistoricalRankChart
@@ -58,4 +60,3 @@ export function MomentumDetailPanel({ history, period, range, onRangeChange }: M
     </div>
   );
 }
-

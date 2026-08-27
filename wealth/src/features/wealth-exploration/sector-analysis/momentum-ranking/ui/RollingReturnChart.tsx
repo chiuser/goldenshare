@@ -1,4 +1,4 @@
-import type { KeyboardEvent, PointerEvent } from "react";
+import type { KeyboardEvent, PointerEvent, ReactNode } from "react";
 
 import { formatReturnPct } from "../api/sectorMomentumAdapter";
 import type { SectorMomentumHistoryPointViewModel, SectorMomentumPeriod } from "../model/sectorMomentumTypes";
@@ -17,6 +17,7 @@ interface RollingReturnChartProps {
   period: SectorMomentumPeriod;
   hoverIndex: number | null;
   onHoverIndex: (index: number | null) => void;
+  rangeControl?: ReactNode;
   scopeTitle: string;
 }
 
@@ -25,6 +26,7 @@ export function RollingReturnChart({
   period,
   hoverIndex,
   onHoverIndex,
+  rangeControl,
   scopeTitle,
 }: RollingReturnChartProps) {
   const values = points.flatMap((point) => point.returnPct === null ? [] : [point.returnPct]);
@@ -43,7 +45,10 @@ export function RollingReturnChart({
     <section className="momentum-chart-card" aria-label={`${period}日区间涨跌幅趋势`}>
       <div className="momentum-chart-title">
         <strong>{period}日区间涨跌幅趋势</strong>
-        <span>每个点均按所选统计周期计算</span>
+        <div className="momentum-chart-title-actions">
+          <span>每个点均按所选统计周期计算</span>
+          {rangeControl}
+        </div>
       </div>
       <svg
         aria-label={`${scopeTitle}${period}日区间涨跌幅历史趋势`}
@@ -191,4 +196,3 @@ function axisAnchor(index: number, count: number): "start" | "middle" | "end" {
   if (index === count - 1) return "end";
   return "middle";
 }
-

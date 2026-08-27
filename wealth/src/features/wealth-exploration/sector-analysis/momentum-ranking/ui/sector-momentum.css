@@ -1,0 +1,467 @@
+.momentum-ranking-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cs-space-12);
+  margin-top: var(--cs-space-12);
+  min-width: 0;
+  width: 100%;
+}
+
+.momentum-control-bar {
+  background: var(--cs-color-surface-panel);
+  border: 0;
+  border-radius: var(--cs-radius-panel);
+  box-shadow: inset 0 0 0 1px var(--cs-color-border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 128px;
+  padding: 16px;
+  width: 100%;
+}
+
+.momentum-control-row {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  flex: 0 0 44px;
+  height: 44px;
+  min-width: 0;
+}
+
+.momentum-control-row-secondary {
+  border-top: 1px solid var(--cs-color-border-subtle);
+  padding-top: 8px;
+}
+
+.momentum-control-group,
+.momentum-select-control {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 7px;
+}
+
+.momentum-control-group > span,
+.momentum-select-control > span {
+  color: var(--cs-color-text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.momentum-segmented-control {
+  align-items: center;
+  background: var(--cs-color-bg-panel-soft);
+  border: 1px solid var(--cs-color-border-subtle);
+  border-radius: 8px;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+}
+
+.momentum-segmented-control button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--cs-color-text-secondary);
+  cursor: pointer;
+  height: 26px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.momentum-segmented-control button:hover,
+.momentum-segmented-control button.active {
+  background: var(--cs-color-brand-weak);
+  color: var(--cs-color-brand);
+}
+
+.momentum-segmented-control button:focus-visible,
+.momentum-select-control select:focus-visible,
+.momentum-ranking-row-select:focus-visible,
+.momentum-drill-button:focus-visible,
+.momentum-state-surface button:focus-visible,
+.momentum-chart-card svg:focus-visible {
+  outline: 2px solid var(--cs-color-brand);
+  outline-offset: 1px;
+}
+
+.momentum-select-control select {
+  appearance: none;
+  background: var(--cs-color-bg-panel-soft);
+  border: 1px solid var(--cs-color-border-default);
+  border-radius: 7px;
+  color: var(--cs-color-text-primary);
+  cursor: pointer;
+  height: 30px;
+  max-width: 190px;
+  min-width: 118px;
+  padding: 0 28px 0 9px;
+}
+
+.momentum-date-select {
+  margin-left: auto;
+}
+
+.momentum-date-select select {
+  max-width: 286px;
+  min-width: 238px;
+}
+
+.momentum-data-status {
+  align-items: center;
+  color: var(--cs-color-text-secondary);
+  display: inline-flex;
+  font-size: 12px;
+  gap: 7px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.momentum-data-status i {
+  background: var(--cs-color-market-down);
+  border-radius: 50%;
+  height: 7px;
+  width: 7px;
+}
+
+.momentum-data-status.delayed { color: var(--cs-color-warning); }
+.momentum-data-status.delayed i { background: var(--cs-color-warning); }
+
+.momentum-ready-grid {
+  display: grid;
+  gap: var(--cs-space-12);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  height: 866px;
+  min-width: 0;
+  width: 100%;
+}
+
+.momentum-ranking-panel,
+.momentum-selected-summary,
+.momentum-chart-card,
+.momentum-state-surface {
+  background: var(--cs-color-surface-panel);
+  border: 0;
+  border-radius: var(--cs-radius-panel);
+  box-shadow: inset 0 0 0 1px var(--cs-color-border-subtle);
+}
+
+.momentum-ranking-panel {
+  display: flex;
+  flex-direction: column;
+  height: 866px;
+  min-height: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+.momentum-panel-header {
+  align-items: center;
+  border-bottom: 1px solid var(--cs-color-border-subtle);
+  display: flex;
+  flex: 0 0 54px;
+  justify-content: space-between;
+  padding: 0 14px;
+}
+
+.momentum-panel-header > div { align-items: center; display: flex; gap: 8px; }
+.momentum-panel-header strong { font-size: 15px; }
+.momentum-panel-header > span { color: var(--cs-color-text-muted); font-size: 12px; }
+
+.momentum-period-chip,
+.momentum-level-chip {
+  background: var(--cs-color-brand-weak);
+  border: 1px solid var(--cs-color-border-strong);
+  border-radius: 999px;
+  color: var(--cs-color-brand);
+  font-size: 11px;
+  padding: 2px 6px;
+}
+
+.momentum-ranking-table {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.momentum-ranking-header,
+.momentum-ranking-row {
+  align-items: center;
+  column-gap: 8px;
+  display: grid;
+  grid-template-columns: 34px minmax(82px, 1fr) minmax(90px, 1.25fr) minmax(120px, 1.2fr) 64px 22px;
+}
+
+.momentum-ranking-header {
+  border-bottom: 1px solid var(--cs-color-border-subtle);
+  color: var(--cs-color-text-muted);
+  flex: 0 0 40px;
+  font-size: 11px;
+  padding: 0 10px;
+}
+
+.momentum-ranking-viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.momentum-ranking-row {
+  border-bottom: 1px solid var(--cs-color-border-subtle);
+  min-height: 56px;
+  padding: 0 10px;
+  position: relative;
+}
+
+.momentum-ranking-row:hover,
+.momentum-ranking-row.selected {
+  background: var(--cs-color-surface-card-hover);
+}
+
+.momentum-ranking-row.selected::before {
+  background: var(--cs-color-brand);
+  bottom: 5px;
+  content: "";
+  left: 0;
+  position: absolute;
+  top: 5px;
+  width: 2px;
+}
+
+.momentum-ranking-row-select {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  display: grid;
+  grid-column: 1 / 6;
+  grid-template-columns: 34px minmax(82px, 1fr) minmax(90px, 1.25fr) minmax(120px, 1.2fr) 64px;
+  height: 55px;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.momentum-list-position,
+.momentum-percentile { color: var(--cs-color-text-secondary); }
+.momentum-sector-name { color: var(--cs-color-text-primary); font-weight: 600; }
+.momentum-hierarchy-path { color: var(--cs-color-text-muted); font-size: 11px; }
+.momentum-sector-name,
+.momentum-hierarchy-path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.momentum-drill-button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--cs-color-brand);
+  cursor: pointer;
+  font-size: 20px;
+  grid-column: 6;
+  height: 28px;
+  padding: 0;
+  width: 22px;
+}
+
+.momentum-drill-placeholder { grid-column: 6; }
+
+.momentum-return-bar {
+  display: block;
+  height: 28px;
+  position: relative;
+  width: 100%;
+}
+
+.momentum-return-zero {
+  background: var(--cs-color-border-default);
+  bottom: 3px;
+  left: 50%;
+  position: absolute;
+  top: 3px;
+  width: 1px;
+}
+
+.momentum-return-fill {
+  border-radius: 2px;
+  bottom: 7px;
+  opacity: .28;
+  position: absolute;
+  top: 7px;
+}
+
+.momentum-return-fill.up-fill { background: var(--cs-color-market-up); }
+.momentum-return-fill.down-fill { background: var(--cs-color-market-down); }
+
+.momentum-return-value,
+.momentum-missing-value {
+  align-items: center;
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  position: relative;
+}
+
+.momentum-detail-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 866px;
+  min-width: 0;
+  width: 100%;
+}
+
+.momentum-selected-summary {
+  align-items: stretch;
+  display: grid;
+  grid-template-columns: minmax(180px, 1.6fr) repeat(5, minmax(94px, 1fr));
+  height: 112px;
+  min-height: 112px;
+  padding: 12px 14px;
+  width: 100%;
+}
+
+.momentum-selected-identity,
+.momentum-summary-metric {
+  border-right: 1px solid var(--cs-color-border-subtle);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: 0 12px;
+}
+
+.momentum-selected-identity { padding-left: 0; }
+.momentum-selected-identity > div { align-items: center; display: flex; gap: 8px; min-width: 0; }
+.momentum-selected-identity strong { font-size: 17px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.momentum-selected-identity > span,
+.momentum-summary-metric > span { color: var(--cs-color-text-muted); font-size: 11px; margin-top: 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.momentum-summary-metric:last-child { border-right: 0; }
+.momentum-summary-metric strong { font-size: 15px; margin-top: 7px; white-space: nowrap; }
+
+.momentum-history-toolbar {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 7px;
+}
+
+.momentum-history-toolbar > span { color: var(--cs-color-text-muted); font-size: 11px; }
+.momentum-history-toolbar .momentum-segmented-control button { height: 24px; }
+
+.momentum-charts-grid { display: grid; gap: 12px; min-width: 0; position: relative; }
+
+.momentum-chart-card {
+  height: 365px;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.momentum-chart-title {
+  align-items: center;
+  display: flex;
+  height: 52px;
+  justify-content: space-between;
+  left: 14px;
+  position: absolute;
+  right: 14px;
+  top: 0;
+}
+
+.momentum-chart-title strong { font-size: 14px; }
+.momentum-chart-title span { color: var(--cs-color-text-muted); font-size: 11px; }
+.momentum-chart-title-actions { align-items: center; display: flex; gap: 12px; }
+.momentum-chart-card svg { display: block; height: 365px; width: 100%; }
+
+.momentum-grid-line { stroke: var(--cs-color-chart-grid-primary); stroke-width: 1; }
+.momentum-zero-line { stroke: var(--cs-color-chart-zero-line); stroke-dasharray: 4 4; stroke-width: 1; }
+.momentum-axis-label { fill: var(--cs-color-chart-axis-label); font: 11px var(--cs-font-family-number); }
+.momentum-return-line { fill: none; stroke: var(--cs-color-brand); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
+.momentum-rank-line { fill: none; stroke: var(--cs-color-info); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
+.momentum-crosshair { stroke: var(--cs-color-chart-crosshair-line); stroke-dasharray: 3 3; stroke-width: 1; }
+.momentum-return-point { fill: var(--cs-color-brand); }
+.momentum-rank-point { fill: var(--cs-color-info); }
+.momentum-latest-pill rect { fill: var(--cs-color-bg-chip); stroke: var(--cs-color-border-default); }
+.momentum-latest-pill text { fill: var(--cs-color-text-primary); font-size: 10px; }
+.momentum-latest-pill.up-pill rect { stroke: var(--cs-color-market-up); }
+.momentum-latest-pill.down-pill rect { stroke: var(--cs-color-market-down); }
+.momentum-latest-pill.rank-pill rect { stroke: var(--cs-color-info); }
+
+.momentum-linked-tooltip {
+  background: var(--cs-color-chart-tooltip-bg);
+  border: 1px solid var(--cs-color-chart-tooltip-border);
+  border-radius: 8px;
+  box-shadow: var(--cs-shadow-panel);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 9px 11px;
+  pointer-events: none;
+  position: absolute;
+  top: 58px;
+  transform: translateX(-50%);
+  z-index: 4;
+}
+
+.momentum-linked-tooltip strong { font-size: 12px; }
+.momentum-linked-tooltip span { color: var(--cs-color-text-secondary); font-size: 11px; }
+.momentum-linked-tooltip b { color: var(--cs-color-text-primary); font-weight: 500; }
+
+.momentum-delay-notice,
+.momentum-partial-notice {
+  background: var(--cs-color-brand-weak);
+  border: 1px solid var(--cs-color-border-strong);
+  border-radius: var(--cs-radius-card);
+  color: var(--cs-color-warning);
+  font-size: 12px;
+  padding: 9px 12px;
+}
+
+.momentum-partial-notice { color: var(--cs-color-text-secondary); }
+
+.momentum-state-surface {
+  align-items: center;
+  display: flex;
+  height: 866px;
+  justify-content: center;
+  min-width: 0;
+  width: 100%;
+}
+
+.momentum-loading-state { align-items: stretch; display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px; }
+.momentum-loading-list,
+.momentum-loading-charts { display: flex; flex-direction: column; gap: 8px; }
+.momentum-loading-list i,
+.momentum-loading-charts i,
+.momentum-control-skeleton i {
+  animation: momentum-pulse 1.4s ease-in-out infinite;
+  background: var(--cs-color-surface-card-hover);
+  border-radius: 7px;
+}
+.momentum-loading-list i { height: 48px; }
+.momentum-loading-charts i { flex: 1 1 0; }
+.momentum-control-skeleton { align-items: center; flex-direction: row; }
+.momentum-control-skeleton i { height: 30px; width: 180px; }
+.momentum-control-skeleton i:last-child { margin-left: auto; }
+
+.momentum-empty-state,
+.momentum-error-state { flex-direction: column; gap: 10px; text-align: center; }
+.momentum-state-icon { align-items: center; background: var(--cs-color-bg-chip); border: 1px solid var(--cs-color-border-default); border-radius: 50%; color: var(--cs-color-text-muted); display: flex; font-size: 20px; height: 48px; justify-content: center; width: 48px; }
+.momentum-error-state .momentum-state-icon { color: var(--cs-color-danger-system); }
+.momentum-state-surface > strong { font-size: 17px; }
+.momentum-state-surface > span { color: var(--cs-color-text-muted); max-width: 460px; }
+.momentum-state-surface > button { appearance: none; background: var(--cs-color-brand-weak); border: 1px solid var(--cs-color-border-strong); border-radius: 8px; color: var(--cs-color-brand); cursor: pointer; height: 34px; padding: 0 16px; }
+
+@keyframes momentum-pulse {
+  0%, 100% { opacity: .45; }
+  50% { opacity: .9; }
+}
+
+@media (max-width: 1500px) {
+  .momentum-scope-control button { padding: 0 7px; }
+}

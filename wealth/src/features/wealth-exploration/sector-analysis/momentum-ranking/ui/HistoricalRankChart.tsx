@@ -17,7 +17,7 @@ interface HistoricalRankChartProps {
 }
 
 export function HistoricalRankChart({ points, hoverIndex, onHoverIndex, scopeTitle }: HistoricalRankChartProps) {
-  const maximum = Math.max(1, ...points.map((point) => point.totalCount));
+  const maximum = Math.max(1, ...points.map((point) => point.calculableCount));
   const yForRank = (rank: number) => CHART_LAYOUT.top + (rank - 1) / Math.max(1, maximum - 1) * plotHeight();
   const ticks = rankTicks(maximum);
   const path = buildLinePath(points.map((point) => point.strengthRank), yForRank);
@@ -79,4 +79,3 @@ export function HistoricalRankChart({ points, hoverIndex, onHoverIndex, scopeTit
 function rankTicks(maximum: number): number[] {
   return [...new Set([1, Math.max(1, Math.round(maximum * 0.25)), Math.max(1, Math.round(maximum * 0.5)), Math.max(1, Math.round(maximum * 0.75)), maximum])].sort((a, b) => a - b);
 }
-

@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：v1.6；M0 合同与治理、M1 页面结构与共享 Shortcut、Pre-M2 公共日期查询单语句化、M2 动量排名后端已于 2026-08-27 完成；下一步为 M3 动量排名前端。
+- 状态：v1.7；M0、M1、Pre-M2、M2 已完成；M3 动量排名前端已实现，正在进行响应式布局纠偏和用户验收。
 - 编写日期：2026-08-27。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
@@ -32,6 +32,7 @@
 | 完整列表，不做 TopN | rankings DTO + table | 返回当前比较池全部对象，null 行仍保留在末尾 |
 | 当前行业尽量保留 | URL reducer + controller | 日期、周期、方向、显示范围变化不擅自换行业 |
 | 两图同时展示并联动 | `MomentumDetailPanel` | 同一交易日索引、独立纵轴、缺点断线、排名第 1 在顶部 |
+| 1600 仅是像素基线，运行时必须等宽适配 | `sector-momentum.css` | 1600px 为 `776+12+776`；1512px 自动收缩且无裁剪；不得把 1564px 写成运行时固定宽度 |
 | 页面状态只用五态 | API 四态 + 前端 LOADING | READY/DELAYED/EMPTY/ERROR；PARTIAL 只能作为日期覆盖元数据，不能成为第六种页面状态 |
 | 未建设方法零副作用 | `SectorAnalysisMethodBar` | 点击只 toast；URL、请求、图表和工作区均不变化 |
 | 不新增持久化能力 | 无迁移、表、缓存服务 | Alembic head 不变；无新 ORM model、Redis 或后台任务 |
@@ -158,9 +159,9 @@ MarketOverviewPage
 ### 3.2 结构与 Design System 结论
 
 1. 正式画板直接复用 `TopMarketBar` 实例、`PageBreadcrumb` 实例、`ShortcutCard` 实例和方法 Tab 组件实例。
-2. PageShell 使用纵向 Auto Layout；桌面左右工作区固定为 `776 + 12 + 776 = 1564px`。
-3. 工具栏为 `1564×128`，内部纵向 8px 间距和 16px 内边距；正文 `1564×866`。
-4. 榜单固定表头高 40px，行高 56px；`Ranking Rows` 是纵向 Auto Layout，滚动 viewport 为 `776×772`，`clipsContent=true`、`overflowDirection=VERTICAL`。
+2. PageShell 使用纵向 Auto Layout；`1600px` 验收基线下左右工作区为 `776 + 12 + 776 = 1564px`，运行时两列使用等分弹性轨道，不得固定为 776px。
+3. `1600px` 基线下工具栏为 `1564×128`、正文为 `1564×866`；运行时宽度均为当前 PageShell 内容宽度的 `100%`，高度不变。
+4. `1600px` 基线下榜单滚动 viewport 为 `776×772`；运行时宽度随左列变化，高度仍为 772px。固定表头高 40px、行高 56px、`clipsContent=true`、`overflowDirection=VERTICAL` 不变。
 5. 图表、涨跌数据条和滚动条叠层保留绝对坐标。它们是几何绘图区，不应改成 Auto Layout。
 6. 页面普通容器、工具栏、行、摘要卡、状态面板均使用 Auto Layout；不存在用补偿坐标模拟页面布局的新增节点。
 7. 核心颜色已绑定 `CSQ / Market Overview / M0 / Color` 变量；Delayed 新增语义变量 `System/Warning`（`VariableID:1033:2`，`#f59e0b`），Web syntax 为 `var(--cs-color-warning)`，scope 覆盖 Frame/Shape/Text Fill 和 Stroke。
@@ -188,22 +189,32 @@ MarketOverviewPage
 | F14 | Warning Token 和模块文字样式未完成开发交付绑定 | 中 | 补 Web syntax/scope；模块自有正式文本绑定本地 Text Style，不拆共享实例 |
 | F15 | 日期字段只表达当前值，无法看到缺口日 | 高 | 新增 `1062:2`；Popover 使用真实覆盖示例显示日期、完整／部分缺失／无数据图例及 `valid/expected`，所有状态均可选择 |
 
-### 3.4 Figma 到代码的固定尺寸映射
+### 3.4 Figma 基线与运行时响应式映射
 
 | Figma 区域 | 代码约束 |
 |---|---|
-| 1600 根画板 | 设计验收宽度；运行时外壳使用现有 content max/min Token，不做 CSS scale，不写死 Figma 小数画板高度 |
+| 1600 根画板 | 设计验收宽度，不是运行时固定宽度；运行时外壳使用现有 content max/min Token，不做 CSS scale，不写死 Figma 小数画板高度 |
 | PageShell | `padding: 14px 18px 34px`，纵向 12px 基础节奏 |
-| ShortcutBar | 1564 宽、卡间 10px、当前两卡保持卡宽约 252.33px，不强制两卡拉满整行 |
+| ShortcutBar | 1600 基线宽 1564px，运行时跟随 PageShell 为 `width:100%`；卡间 10px、当前两卡保持卡宽约 252.33px，不强制两卡拉满整行 |
 | 方法栏 | 高 48px、内边距 4px、按钮间 4px |
-| 工具栏 | 1564×128、16px 内边距、两行各 44px、行间 8px |
-| 分析正文 | 两列各 776px、列间 12px、高 866px |
-| 榜单 | 标题 54px、固定表头 40px、viewport 772px、行 56px |
-| 详情摘要 | 776×112 |
-| 趋势图 | 每图 776×365、图间 12px |
-| 状态面板 | 1564×866，替换正文但保留工具栏及页面骨架 |
+| 工具栏 | 1600 基线为 1564×128；运行时 `width:100%`，16px 内边距、两行各 44px、行间 8px |
+| 分析正文 | 1600 基线为两列各 776px；运行时 `repeat(2,minmax(0,1fr))`、列间 12px、高 866px |
+| 榜单 | 运行时宽度等于左列；标题 54px、固定表头 40px、viewport 高 772px、行 56px |
+| 详情摘要 | 1600 基线 776×112；运行时 `width:100%`、高度 112px |
+| 趋势图 | 1600 基线每图 776×365；运行时 `width:100%`、高度 365px、图间 12px |
+| 状态面板 | 运行时 `width:100%`、高 866px，替换正文但保留工具栏及页面骨架 |
 
 Figma 是视觉和布局事实源；交互状态、数据语义、缺失处理和请求边界以产品基线与本 LLD 为准。不得从示例文字、示例日期或示例行业推导生产默认值。
+
+运行时宽度计算固定为：
+
+```text
+shellOuterWidth = min(max(viewportWidth, 1460), 1840)
+contentWidth = shellOuterWidth - 36
+columnWidth = (contentWidth - 12) / 2
+```
+
+在 1600px 下列宽为 776px；约 1512px 下列宽为 732px。低于全局 1460px 最小宽度时沿用全站页面级横向滚动，不允许本模块另加 CSS scale、固定 1564px 宽度或独立响应式断点。
 
 ## 4. 目标调用链
 
@@ -862,9 +873,9 @@ ReturnBar 只做视觉几何：有效值的 `maxAbs=max(abs(min),abs(max))`，�
 
 ### 8.7 双图几何
 
-SVG viewBox 使用组件实测宽高，不使用固定 1600 坐标：
+SVG 使用固定的 `776×365` 内部坐标系，但由浏览器按实际容器宽度缩放；页面不使用固定 1600px 坐标：
 
-1. 图外容器 776×365；plot padding 建议 left 58/right 28/top 76/bottom 53，与 Figma 基线一致。
+1. 1600px 基线下图外容器为 776×365；运行时宽度随右列变化、高度保持 365px。SVG 固定使用 `viewBox="0 0 776 365"`，plot padding 固定 left 58/right 28/top 76/bottom 53，与 Figma 基线一致。
 2. x 使用共同日期索引均匀分布；显示 20/30/60 时只减少标签密度，不删事实点。
 3. return y domain 包含 0；全为同值时增加最小视觉 padding，但 Tooltip 保留真实值。
 4. rank y domain 为 `1..max(calculableCount)`，SVG range 从 top 到 bottom，使第 1 名在顶部。
@@ -1038,7 +1049,7 @@ tests/test_wealth_turnover_insight_static_gates.py
 ### 11.4 Figma/浏览器验收
 
 1. 1600px 对照 12 个正式节点。
-2. 1366px 和内容最小宽度验证无页面级 CSS scale、横向重叠或文字裁剪。
+2. 1512px 验证两列等宽收缩且无横向裁剪；1460px 验证内容最小宽度无内部重叠；1366px 仅允许全局 `min-width:1460px` 产生页面级横向滚动，不允许模块自身再固定为 1564px，也不允许 CSS scale、文字裁剪或列间重叠。
 3. Ready 默认/跌幅/二级总榜/三级总榜/一级内二级/二级内三级/Hover/交易日选择器分别验收。
 4. 长列表验证真实固定表头和内部滚动，不以短 fixture 替代。
 5. Tooltip、键盘、focus-visible、下钻事件隔离和双图 hover 联动人工验收。
@@ -1107,10 +1118,13 @@ M2 Prod 只读验收已经证明现有索引满足本期查询：最重 History 
 
 ### M3：前端动量工作区
 
+状态：`IMPLEMENTED / PENDING USER ACCEPTANCE (2026-08-28)`。
+
 1. 实现 URL 状态、API/adapter/controller。
 2. 实现控件、全列表、详情摘要和两张联动 SVG 图。
 3. 实现五态，并回归 M1 已完成的四个待建设 toast 保持零副作用。
 4. 停止点：全部使用真实 API，仓库无 Mock 兜底。
+5. 1600px 命中 Figma 固定尺寸；1512px 和 1460px 按第 3.4 节连续等宽收缩；用户验收前不进入 M4。
 
 ### M4：联调和交付
 
@@ -1202,9 +1216,9 @@ git diff --check
 
 ### 16.2 尚未完成
 
-1. M3 动量工作区尚未完成，当前页面不会请求或展示 M2 数据。
-2. M4 的部署态真实 API P95、真实页面、Figma 像素和浏览器交互验收尚未完成。
-3. M1 已由提交 `e712c1ed` 收口；Pre-M2 与 M2 工作区修改尚未提交、推送或部署，本期没有迁移。
+1. M3 动量工作区已实现并读取 M2 真实 API；响应式宽度纠偏完成后仍等待用户验收，不得标记 PASS。
+2. M4 的部署态真实 API P95、最终 Figma 像素和全量浏览器交互验收尚未完成。
+3. 本期前端与文档修改尚未提交、推送或部署，本期没有迁移。
 
 ## 17. 风险、回滚与停止条件
 
@@ -1217,6 +1231,7 @@ git diff --check
 | direction 污染历史排名 | history schema 无 direction；纯函数分离 | API 契约测试失败即停止 |
 | 历史 SQL 变 N+1 | 有界一次查询 + SQL event counter | 性能门禁失败，回到 Query 设计 |
 | Figma 示例被写死 | LLD 明确示例非默认，默认由层级/排行事实产生 | code review/测试禁止固定行业代码 |
+| 1600 基线被误作运行时固定宽度 | 工作区、工具栏、状态面板使用 `width:100%`，两列使用等分弹性轨道；在 1600/1512/1460 三档实测 | 任一非 1600 宽度出现裁剪或模块级横向溢出即不通过 M3 |
 | 共享组件遗留 Token 债务 | 本期只记录，不扩大全站修改 | 不影响本模块；另立 Design System 任务 |
 
 必须停止并等待确认的情况：
@@ -1229,4 +1244,4 @@ git diff --check
 
 ## 18. 结论
 
-M0、M1、Pre-M2 与 M2 已按本文收口。M2 后端三个只读 API、计算和 strict 合同通过自动化与 Prod 只读分段性能验收；最终部署态端到端性能仍由 M4 负责。下一步固定为 M3 动量排名前端，本轮不进入 M3。
+M0、M1、Pre-M2 与 M2 已按本文收口。M3 动量工作区已经实现，当前严格停留在响应式布局与用户验收阶段；只有 1600px 像素基线、1512px 自适应、1460px 最小宽度及现有交互回归全部通过后才能标记 M3 PASS，之后才允许进入 M4。
