@@ -310,7 +310,7 @@
 
 | doc_id | Tushare 文档 | api_name | 备注 |
 | ---: | --- | --- | --- |
-| 387 | ETF历史分钟行情 | `stk_mins` | 与 `stk_mins` 同名，但当前内部定义只覆盖股票历史分钟行情 0370，不覆盖 ETF 历史分钟行情。 |
+| 387 | ETF历史分钟行情 | `etf_mins` | 当前没有内部定义；股票历史分钟行情 0370 的 `stk_mins` 定义不得复用为 ETF 历史分钟行情。 |
 | 400 | ETF实时日线 | `rt_etf_k` |  |
 | 408 | ETF份额规模 | `etf_share_size` |  |
 | 416 | ETF实时分钟 | `rt_min` |  |

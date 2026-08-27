@@ -1,6 +1,6 @@
 # 生产 PostgreSQL 存储空间优化治理专项 v1
 
-状态：一期及既有专项均保留为历史验收记录；2026-08-23 已完成新一轮生产只读容量审计，当前 P0 为 `stk_mins` 关闭月份滚动下沉，尚未执行生产 DDL
+状态：一期及既有专项均保留为历史验收记录；2026-08-23 已完成新一轮容量审计与 `stk_mins` P0 第二轮安全复审，生产 DDL 尚未执行；P0 当前因可恢复性证据未闭环保持 No-Go
 更新时间：2026-08-23
 范围：生产 PostgreSQL `goldenshare` 的 SSD/HDD 存储分层与重复物理存储治理。
 不在范围：删除、清空 raw 业务数据；改变数据集请求语义；修改 API 或前端业务行为。
@@ -34,6 +34,8 @@
 7. 生产 DDL 必须逐对象执行、逐对象验收；不得批量盲跑。
 8. 迁移前必须验证 HDD 是真实挂载而不是空目录，并确认 tablespace 的实际路径、权限、备份和恢复覆盖。
 9. 根盘剩余空间必须同时覆盖当前关系迁移的瞬时开销和 WAL 安全余量；`max_wal_size` 不是硬上限，不能当作容量保证。
+10. 外部 tablespace 是整个 PostgreSQL cluster 的一部分，不能独立备份或挂到另一 cluster。任何新的大关系下沉前，必须有覆盖 PGDATA、全部 tablespace 和恢复所需 WAL 的独立备份证据；“源端可以重拉”不能替代数据库恢复方案。
+11. 大表 `SET TABLESPACE` 验收默认不做全表 `count(*)`/hash。应依赖单关系事务原子性，并核对 OID、main fork 字节、filepath、tablespace、索引有效性和确定性索引样本，避免在容量告警时制造额外全表 I/O。
 
 ### 2.1 2026-08-23 当前生产容量快照
 
@@ -47,7 +49,9 @@
 | 默认 PostgreSQL 目录 | 约 149.7 GiB；根盘仍有约 52 GiB 非该目录占用，不能假定都可删除 |
 | HDD tablespace | `gs_raw_cold_hdd`，路径 `/data/disk/postgresql/tablespaces/gs_stk_mins_hdd` |
 | HDD tablespace 目录 | 约 57 GiB |
-| `pg_wal` | 约 417 MiB；`archive_mode=off`，无 replication slot，`max_wal_size=1GB`，`checkpoint_timeout=5min` |
+| `pg_wal` | 本轮多个时点约 240～417 MiB；`archive_mode=off`，无 replication slot，`max_wal_size=1GB`，`checkpoint_timeout=5min` |
+| 持久性 | PostgreSQL 16.13，`fsync=on`、`synchronous_commit=on`、`full_page_writes=on`、`data_checksums=off` |
+| 备份可见性 | 主机只有未启用的 `pg_basebackup` systemd 模板，未发现 PostgreSQL base backup/PITR 运行证据；外部云快照或异地备份状态未能从主机证明 |
 | 介质识别边界 | 虚拟机内两块设备均报告 `ROTA=1`，无法据此确认底层物理介质；本文沿用既有“根盘 SSD、`/data/disk` HDD”运营口径 |
 | 统计窗口 | PostgreSQL 自 2026-05-29 启动后累计；未安装 `pg_stat_statements`，扫描次数无法完全区分 ingestion、后台任务与用户查询 |
 
@@ -59,7 +63,7 @@
 
 | # | 数据表 | 总大小 | 当前 SSD 占用 | 当前结论 | 优先级 | 风险 |
 | ---: | --- | ---: | ---: | --- | --- | --- |
-| 1 | `raw_tushare.stk_mins` | 38 GiB | 38 GiB | 只迁 2026-01～06 关闭月份，保留 07～08 热窗口 | **P0** | 中低（限定叶分区）；整表迁移为高风险 |
+| 1 | `raw_tushare.stk_mins` | 38 GiB | 38 GiB | 只迁 2026-01～06 关闭月份，保留 07～08 热窗口；当前备份门禁 No-Go | **P0** | 中（限定叶分区）；整表迁移为高风险 |
 | 2 | `raw_tushare.cyq_chips` | 37 GiB | 接近 0 | 已在 HDD | 无动作 | 无新增风险 |
 | 3 | `raw_tushare.index_mins` | 17 GiB | 17 GiB | 未分区，需先设计月分区或专门维护窗口 | P2 | 高 |
 | 4 | `raw_tushare.news` | 7.0 GiB | 0 | 已在 HDD | 无动作 | 无新增风险 |
@@ -82,13 +86,13 @@
 
 ### 2.3 当前优先级
 
-1. **P0**：只处理 `raw_tushare.stk_mins` 的 `2026-01`～`2026-06` 六个月叶分区及其全部物理索引，预计释放约 28.3 GiB。详细执行契约见[股票历史分钟行情存储瘦身与滚动冷热治理方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)。
+1. **P0**：只处理 `raw_tushare.stk_mins` 的 `2026-01`～`2026-06` 六个月叶分区及其全部物理索引，当前实测为 6 个 heap + 6 个物理主键索引、无 TOAST，预计释放约 28.3 GiB。第二轮安全复审已完成，但生产主机没有可见的有效 base backup/PITR 证据，外部备份状态未知；在可恢复性、任务隔离和观察会话门禁全部关闭前保持 No-Go。详细执行契约见[股票历史分钟行情存储瘦身与滚动冷热治理方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)。
 2. **P1-A**：P0 完成并观察后，若容量仍不足，再评审 `raw_tushare.dc_member/moneyflow/daily/daily_basic`，合计约 14.0 GiB。它们必须各自重新做任务、消费者、锁与写入频率门禁，不能因列入本表直接执行。
 3. **P1-B/P1-C**：`bak_basic/etf_sz_cons/cyq_perf/major_news` 需要直接 view 消费者、外部查询和代表性延迟证据后再决定。
 4. **P2**：`index_mins/stk_factor_pro/idx_factor_pro` 需要单表 LLD；禁止把未分区大表作为本轮应急整表迁移。
 5. **P3**：核心 serving 表和仅剩少量 SSD 热分区的表不迁移。
 
-P0 单独完成后，根盘理论可用空间将由约 5.5 GiB 提升到约 33.7 GiB，使用率预计由 98% 降至约 84%。实际值受 WAL、并发写入、文件系统保留块和统计时点影响，不能以估算替代逐对象 `df` 复验。
+P0 单独完成后，根盘理论可用空间将由约 5.5 GiB 提升到约 33.7 GiB，使用率预计由 98% 降至约 84%。实际值受 WAL、并发写入、文件系统保留块和统计时点影响，不能以估算替代逐对象 `df` 复验。该收益估算不构成绕过备份门禁的理由。
 
 ## 3. 一期历史审计事实
 
@@ -437,7 +441,7 @@ ALTER INDEX raw_tushare.idx_raw_tushare_news_src_time
 
 1. 根盘达到 90% 时进入容量预警，达到 95% 时停止新增大规模回补并启动只读 Top 20 审计；阈值只定义运维动作，不授权自动 DDL。
 2. 每月至少复查一次 SSD/HDD 容量、tablespace 分布、WAL、最大关系增长和 TaskRun 写入负载；季度审计不足以覆盖分钟级大表增长。
-3. `stk_mins` 改用“当前自然月 + 上一个自然月留 SSD，更早关闭月份进入 HDD 候选”的两月滚动热窗口，不再执行年度 rollover。每个月份仍需在维护窗口内逐对象迁移并验收，当前不自动执行 DDL。
+3. `stk_mins` 改用“当前自然月 + 上一个自然月留 SSD，更早关闭月份进入 HDD 候选”的两月滚动热窗口，不再执行年度 rollover。每个月份仍需在维护窗口内逐对象迁移并验收；必须先确认独立备份、暂停 schedule 并删除绑定 probe rule、停止真实执行车道、观察 WAL/磁盘水位，当前不自动执行 DDL。
 4. 新增大体量数据集必须在 LLD 中明确：稳定/峰值容量、索引放大、分区、冷热窗口、WAL、tablespace 缺失策略、备份恢复和消费者延迟。
 5. 当前已明确 HDD-first 的数据集包括 `margin_detail`、已接入公募基金业务表以及 `equity_express`；它们是各自 LLD 的显式决策，不代表所有 direct-serving 表默认进入 HDD。
 6. raw/core 字段和索引等价且没有独立业务转换时，继续优先评估 raw-backed serving view，避免重复物理存储；任何收口必须先做全量消费者和数据一致性审计。
