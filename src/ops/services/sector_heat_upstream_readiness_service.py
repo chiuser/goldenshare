@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, time, timezone
 from typing import Any
@@ -40,8 +41,18 @@ class SectorHeatUpstreamReadinessService:
         ),
     )
 
-    def __init__(self, *, not_before_local_time: time) -> None:
-        self._not_before_local_time = not_before_local_time
+    def __init__(self, *, workflow_not_before_local_times: Mapping[str, time]) -> None:
+        expected_workflows = {requirement.workflow_key for requirement in self.REQUIREMENTS}
+        configured_workflows = set(workflow_not_before_local_times)
+        if configured_workflows != expected_workflows:
+            raise ValueError(
+                "Heat upstream timing contract mismatch: "
+                f"expected={sorted(expected_workflows)}, configured={sorted(configured_workflows)}"
+            )
+        self._workflow_not_before_local_times = {
+            workflow_key: workflow_not_before_local_times[workflow_key]
+            for workflow_key in expected_workflows
+        }
 
     def evaluate(self, session: Session, *, trade_date: date, checked_at: datetime) -> HeatReadinessResult:
         if not bool(
@@ -72,10 +83,14 @@ class SectorHeatUpstreamReadinessService:
                 requirement=requirement,
             )
             if workflow_evidence is None:
+                not_before = self._workflow_not_before_local_times[requirement.workflow_key]
                 return HeatReadinessResult(
                     ready=False,
                     reason_code=HEAT_UPSTREAM_NOT_READY,
-                    message=f"{requirement.workflow_key} 缺少 21:00 后同日必需节点成功证据",
+                    message=(
+                        f"{requirement.workflow_key} 缺少 "
+                        f"{not_before.strftime('%H:%M')} 后同日必需节点成功证据"
+                    ),
                     evidence={
                         **evidence,
                         "missingWorkflow": requirement.workflow_key,
@@ -99,7 +114,11 @@ class SectorHeatUpstreamReadinessService:
         checked_at: datetime,
         requirement: _WorkflowRequirement,
     ) -> dict[str, Any] | None:
-        local_not_before = datetime.combine(trade_date, self._not_before_local_time, tzinfo=SHANGHAI)
+        local_not_before = datetime.combine(
+            trade_date,
+            self._workflow_not_before_local_times[requirement.workflow_key],
+            tzinfo=SHANGHAI,
+        )
         not_before_utc = local_not_before.astimezone(timezone.utc)
         candidates = tuple(
             session.scalars(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import time
 
 from src.db import get_session_factory
@@ -17,11 +18,24 @@ def build_operations_scheduler(*, session_factory=None) -> OperationsScheduler: 
     action = get_maintenance_action(HEAT_DAILY_ACTION_KEY)
     if action is None:
         raise RuntimeError("Heat 自动任务 action contract 不存在")
-    not_before = time.fromisoformat(str(action.readiness_policy["upstream_not_before_local_time"]))
+    raw_workflow_not_before = action.readiness_policy.get(
+        "upstream_workflow_not_before_local_times"
+    )
+    if not isinstance(raw_workflow_not_before, Mapping):
+        raise RuntimeError("Heat 自动任务缺少按上游工作流区分的时间契约")
+    try:
+        workflow_not_before = {
+            str(workflow_key): time.fromisoformat(str(not_before))
+            for workflow_key, not_before in raw_workflow_not_before.items()
+        }
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("Heat 自动任务上游时间契约格式无效") from exc
     return OperationsScheduler(
         heat_readiness_evaluator=SectorHeatReadinessEvaluator(
             session_factory=resolved_session_factory,
-            upstream_service=SectorHeatUpstreamReadinessService(not_before_local_time=not_before),
+            upstream_service=SectorHeatUpstreamReadinessService(
+                workflow_not_before_local_times=workflow_not_before
+            ),
         )
     )
 

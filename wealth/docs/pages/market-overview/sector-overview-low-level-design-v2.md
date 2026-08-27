@@ -570,13 +570,16 @@ class HeatReadinessEvaluator(Protocol):
 schedule_enabled = true
 readiness_condition = wealth_sector_heat_sources_ready
 initial_check_local_time = 21:15
-upstream_not_before_local_time = 21:00
+upstream_workflow_not_before_local_times = {
+  daily_market_close_maintenance = 21:00,
+  daily_moneyflow_maintenance = 20:00
+}
 retry_interval_seconds = 600
 deadline_next_day_local_time = 00:30
 timezone = Asia/Shanghai
 ```
 
-1. 上述系统值由 action catalog 单一定义；Ops Schedule 只保存 `cron_expr/timezone/status/next_run_at` 和目标 action，不允许页面把间隔、截止时间或门禁键改成任意值。
+1. 上述系统值由 action catalog 单一定义；Ops Schedule 只保存 `cron_expr/timezone/status/next_run_at` 和目标 action，不允许页面把间隔、截止时间或门禁键改成任意值。`upstream_workflow_not_before_local_times` 不设环境变量、数据库副本或代码默认值，唯一消费者是 app scheduler factory 装配的 Ops readiness service；修改后必须重启 scheduler 才生效，并由 action catalog 与 readiness 正反向测试守护。
 2. 生产 schedule 的 cron 为工作日 `21:15`，目标为 `maintenance_action:maintenance.materialize_wealth_sector_heat_daily`；`params_json` 不固定日期，trade date 由 Heat 条件调度器按检查窗口解析。
 3. 当地时间 `21:15..23:59` 使用当天日期；`00:00..00:30` 使用前一天日期。只有 `trade_calendar(exchange='SSE', is_open=true)` 才继续核验；非开放日直接推进到下一次 cron。
 4. readiness 未命中且未过 deadline 时，schedule 保持 active，将 `next_run_at` 设为 `checked_at + 10min`，但不得超过次日 `00:30`。命中并 stage TaskRun 后立即按 cron 推进到下一个工作日 `21:15`；计算终态由现有 worker/TaskRun 观测，scheduler 不继续轮询，也不自动重提失败/取消任务。
@@ -588,8 +591,8 @@ timezone = Asia/Shanghai
 对目标日 `D`，Ops 查询必须按语义键而非生产 ID 识别：
 
 1. `daily_market_close_maintenance`：TaskRun 为 `success` 或其 Heat 必需节点均成功，且 `requested_at` 换算到 `Asia/Shanghai` 后不早于 `D 21:00`。必需节点为 `daily/dc_index/dc_member/dc_daily/limit_list/suspend_d`；每个必需节点的 `time_input_json.trade_date` 都必须为 `D`。
-2. `daily_moneyflow_maintenance`：同日、同样不早于 `21:00`，且 `moneyflow_ind_dc` 节点成功。
-3. 同一个 workflow 的必需节点必须来自同一个 TaskRun，禁止把多次 partial run 拼成成功；早于 21:00 的 TaskRun（包括 18:30）只作为历史记录，不作为 readiness 证据。
+2. `daily_moneyflow_maintenance`：TaskRun 的 `requested_at` 换算到 `Asia/Shanghai` 后不早于 `D 20:00`，且 `moneyflow_ind_dc` 节点成功、节点交易日为 `D`。该时间与生产固定工作流 schedule #4 的 20:00 合同一致，不要求为满足 Heat 再重复执行一次资金工作流。
+3. 同一个 workflow 的必需节点必须来自同一个 TaskRun，禁止把多次 partial run 拼成成功；每个 workflow 早于自身门槛的 TaskRun 只作为历史记录，不作为 readiness 证据。不得把两个门槛重新压缩成一个全局时间，否则会让资金流永远不满足，或错误放宽收盘工作流。
 4. Heat 无关节点失败时，只要 TaskRun 中全部必需节点成功即可继续 biz preview；必需节点缺失、失败、仍运行或被取消均返回 `HEAT_UPSTREAM_NOT_READY`。
 5. readiness evidence 记录 workflow key、TaskRun ID、node key/status、requested/ended time 和证据 hash；不得记录连接信息或敏感参数。
 6. 父 TaskRun 只保存调度意图，生产 point 工作流的真实结构是 `{"mode":"point"}`，不得要求或伪造父级 `trade_date`。`TaskRunDispatcher` 在 resolver 解析日期后，把规范化 time input 写入数据集 `TaskRunNode`；节点缺日期、日期错误或非法日期均不得成为 readiness 证据。
@@ -1132,7 +1135,7 @@ Slice 14 PASS 标准：代码/自动化测试全部通过、生产 schedule 唯�
 执行记录（2026-08-15）：**首次生产验收失败，修复代码与生产形态回归 PASS，生产重新部署/恢复/新开放日验收 OPEN**。
 
 1. `MaintenanceActionDefinition` 已声明唯一 Heat readiness policy；历史 replay 仍不可调度。
-2. Ops 已实现 SSE 开放日、21:00 后两个工作流同一 TaskRun 必需节点、10 分钟复查、跨午夜目标日锁定、00:30 单一超时以及同一 schedule/action/trade_date 单次自动尝试。
+2. Ops 已实现 SSE 开放日、收盘工作流 21:00/资金流工作流 20:00 的独立门槛、同一 TaskRun 必需节点、10 分钟复查、跨午夜目标日锁定、00:30 单一超时以及同一 schedule/action/trade_date 单次自动尝试。
 3. app scheduler factory 已装配 Ops 上游证据与独立 `REPEATABLE READ, READ ONLY` biz preview；worker 继续在独立业务事务二次校验。`limit_list_d/suspend_d` 合法零行以来源节点自身成功为准，即使同一工作流因无关节点失败，仍可读取完成证据。
 4. CLI `ops-scheduler-tick/serve` 已统一使用 app factory；未新增表、迁移、账号、连接、环境变量、ProbeRule、DG sensor 或外部 timer。
 5. 2026-08-14 生产 schedule `36` 持续误判上游未齐，并于 2026-08-15 00:30 创建超时 TaskRun `8327`；生产上游节点和7张来源表实际齐备，Heat 结果仍停在 8 月 12 日。根因是旧 readiness 查询父 TaskRun `trade_date`，而19条生产工作流父意图均只有 `{"mode":"point"}`；旧测试 fixture 伪造该字段，原“本地通过”结论不再作为有效生产契约证据。

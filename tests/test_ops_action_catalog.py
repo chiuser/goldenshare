@@ -41,7 +41,10 @@ def test_maintenance_action_registry_keeps_only_explicit_actions() -> None:
     assert dict(heat_action.readiness_policy) == {
         "timezone": "Asia/Shanghai",
         "initial_check_local_time": "21:15",
-        "upstream_not_before_local_time": "21:00",
+        "upstream_workflow_not_before_local_times": {
+            "daily_market_close_maintenance": "21:00",
+            "daily_moneyflow_maintenance": "20:00",
+        },
         "retry_interval_seconds": 600,
         "deadline_next_day_local_time": "00:30",
     }

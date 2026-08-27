@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -31,6 +31,10 @@ from src.ops.services.sector_heat_upstream_readiness_service import SectorHeatUp
 HEAT_ACTION = "maintenance.materialize_wealth_sector_heat_daily"
 TARGET_DATE = date(2026, 8, 14)
 CHECK_AT = datetime(2026, 8, 14, 13, 15, tzinfo=timezone.utc)
+UPSTREAM_WORKFLOW_NOT_BEFORE_LOCAL_TIMES = {
+    "daily_market_close_maintenance": time(21, 0),
+    "daily_moneyflow_maintenance": time(20, 0),
+}
 
 
 class StubReadinessEvaluator:
@@ -273,29 +277,31 @@ def test_heat_schedule_contract_rejects_wrong_time_params_and_duplicate(db_sessi
     assert duplicate.value.code == "heat_schedule.already_exists"
 
 
-def test_upstream_gate_requires_same_21_after_run_and_all_required_nodes(
+def test_upstream_gate_uses_independent_workflow_cutoffs_and_all_required_nodes(
     db_session,
     trade_calendar_factory,
     task_run_factory,
     task_run_node_factory,
 ) -> None:
     trade_calendar_factory(trade_date=TARGET_DATE, is_open=True)
-    early = datetime(2026, 8, 14, 12, 59, tzinfo=timezone.utc)
-    late = datetime(2026, 8, 14, 13, 1, tzinfo=timezone.utc)
+    early_moneyflow = datetime(2026, 8, 14, 11, 59, tzinfo=timezone.utc)
+    ready_moneyflow = datetime(2026, 8, 14, 12, 1, tzinfo=timezone.utc)
+    early_close = datetime(2026, 8, 14, 12, 59, tzinfo=timezone.utc)
+    ready_close_time = datetime(2026, 8, 14, 13, 1, tzinfo=timezone.utc)
     close_nodes = ("daily", "dc_index", "dc_member", "dc_daily", "limit_list", "suspend_d")
     _workflow_run_with_nodes(
         task_run_factory,
         task_run_node_factory,
         workflow_key="daily_market_close_maintenance",
         node_keys=close_nodes,
-        requested_at=early,
+        requested_at=early_close,
     )
     _workflow_run_with_nodes(
         task_run_factory,
         task_run_node_factory,
         workflow_key="daily_market_close_maintenance",
         node_keys=close_nodes,
-        requested_at=late,
+        requested_at=ready_close_time,
         failed_node="dc_member",
     )
     _workflow_run_with_nodes(
@@ -303,14 +309,21 @@ def test_upstream_gate_requires_same_21_after_run_and_all_required_nodes(
         task_run_node_factory,
         workflow_key="daily_moneyflow_maintenance",
         node_keys=("moneyflow_ind_dc",),
-        requested_at=late,
+        requested_at=early_moneyflow,
+    )
+    ready_moneyflow_run = _workflow_run_with_nodes(
+        task_run_factory,
+        task_run_node_factory,
+        workflow_key="daily_moneyflow_maintenance",
+        node_keys=("moneyflow_ind_dc",),
+        requested_at=ready_moneyflow,
     )
     _workflow_run_with_nodes(
         task_run_factory,
         task_run_node_factory,
         workflow_key="daily_market_close_maintenance",
         node_keys=close_nodes,
-        requested_at=late + timedelta(seconds=30),
+        requested_at=ready_close_time + timedelta(seconds=30),
         node_trade_date=TARGET_DATE - timedelta(days=1),
     )
     _workflow_run_with_nodes(
@@ -318,24 +331,29 @@ def test_upstream_gate_requires_same_21_after_run_and_all_required_nodes(
         task_run_node_factory,
         workflow_key="daily_market_close_maintenance",
         node_keys=close_nodes,
-        requested_at=late + timedelta(seconds=45),
+        requested_at=ready_close_time + timedelta(seconds=45),
         node_trade_date=None,
     )
 
-    service = SectorHeatUpstreamReadinessService(not_before_local_time=datetime.strptime("21:00", "%H:%M").time())
+    service = SectorHeatUpstreamReadinessService(
+        workflow_not_before_local_times=UPSTREAM_WORKFLOW_NOT_BEFORE_LOCAL_TIMES
+    )
     not_ready = service.evaluate(
         db_session,
         trade_date=TARGET_DATE,
         checked_at=CHECK_AT,
     )
     assert not_ready.reason_code == HEAT_UPSTREAM_NOT_READY
+    assert not_ready.message == (
+        "daily_market_close_maintenance 缺少 21:00 后同日必需节点成功证据"
+    )
 
     ready_close = _workflow_run_with_nodes(
         task_run_factory,
         task_run_node_factory,
         workflow_key="daily_market_close_maintenance",
         node_keys=close_nodes,
-        requested_at=late + timedelta(minutes=1),
+        requested_at=ready_close_time + timedelta(minutes=1),
     )
     ready = service.evaluate(
         db_session,
@@ -343,7 +361,10 @@ def test_upstream_gate_requires_same_21_after_run_and_all_required_nodes(
         checked_at=CHECK_AT,
     )
     assert ready.ready is True
-    assert {item["taskRunId"] for item in ready.evidence["workflows"]} >= {ready_close.id}
+    assert {item["taskRunId"] for item in ready.evidence["workflows"]} == {
+        ready_close.id,
+        ready_moneyflow_run.id,
+    }
     assert all(
         node["tradeDate"] == TARGET_DATE.isoformat()
         for workflow in ready.evidence["workflows"]
@@ -355,7 +376,7 @@ def test_upstream_gate_non_open_day_does_not_query_workflows(db_session, trade_c
     trade_calendar_factory(trade_date=TARGET_DATE, is_open=False)
 
     result = SectorHeatUpstreamReadinessService(
-        not_before_local_time=datetime.strptime("21:00", "%H:%M").time()
+        workflow_not_before_local_times=UPSTREAM_WORKFLOW_NOT_BEFORE_LOCAL_TIMES
     ).evaluate(
         db_session,
         trade_date=TARGET_DATE,
@@ -364,6 +385,58 @@ def test_upstream_gate_non_open_day_does_not_query_workflows(db_session, trade_c
 
     assert result.reason_code == HEAT_NON_TRADING_DAY
     assert result.evidence["isOpen"] is False
+
+
+def test_upstream_gate_rejects_moneyflow_before_its_20_cutoff(
+    db_session,
+    trade_calendar_factory,
+    task_run_factory,
+    task_run_node_factory,
+) -> None:
+    trade_calendar_factory(trade_date=TARGET_DATE, is_open=True)
+    close_nodes = ("daily", "dc_index", "dc_member", "dc_daily", "limit_list", "suspend_d")
+    _workflow_run_with_nodes(
+        task_run_factory,
+        task_run_node_factory,
+        workflow_key="daily_market_close_maintenance",
+        node_keys=close_nodes,
+        requested_at=datetime(2026, 8, 14, 13, 1, tzinfo=timezone.utc),
+    )
+    _workflow_run_with_nodes(
+        task_run_factory,
+        task_run_node_factory,
+        workflow_key="daily_moneyflow_maintenance",
+        node_keys=("moneyflow_ind_dc",),
+        requested_at=datetime(2026, 8, 14, 11, 59, tzinfo=timezone.utc),
+    )
+
+    result = SectorHeatUpstreamReadinessService(
+        workflow_not_before_local_times=UPSTREAM_WORKFLOW_NOT_BEFORE_LOCAL_TIMES
+    ).evaluate(
+        db_session,
+        trade_date=TARGET_DATE,
+        checked_at=CHECK_AT,
+    )
+
+    assert result.reason_code == HEAT_UPSTREAM_NOT_READY
+    assert result.message == "daily_moneyflow_maintenance 缺少 20:00 后同日必需节点成功证据"
+
+
+def test_upstream_gate_rejects_missing_or_unknown_workflow_timing_contract() -> None:
+    with pytest.raises(ValueError, match="Heat upstream timing contract mismatch"):
+        SectorHeatUpstreamReadinessService(
+            workflow_not_before_local_times={
+                "daily_market_close_maintenance": time(21, 0),
+            }
+        )
+
+    with pytest.raises(ValueError, match="Heat upstream timing contract mismatch"):
+        SectorHeatUpstreamReadinessService(
+            workflow_not_before_local_times={
+                **UPSTREAM_WORKFLOW_NOT_BEFORE_LOCAL_TIMES,
+                "unknown_workflow": time(19, 0),
+            }
+        )
 
 
 def test_app_readiness_maps_source_wait_and_unexpected_preview_error(db_session, web_engine) -> None:
