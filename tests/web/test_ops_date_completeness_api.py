@@ -57,7 +57,7 @@ def test_date_completeness_rules_are_grouped_by_applicability(app_client, user_f
             display_name="板块资金流向(DC)",
             domain_key="moneyflow",
             domain_display_name="资金流向",
-            target_table="core_serving.board_moneyflow_dc",
+            target_table="raw_tushare.moneyflow_ind_dc",
             earliest_business_date=date(2026, 4, 1),
             observed_business_date=date(2026, 4, 24),
             latest_business_date=date(2026, 4, 24),
@@ -100,7 +100,7 @@ def test_date_completeness_rules_are_grouped_by_applicability(app_client, user_f
     assert supported["moneyflow_ind_dc"]["group_label"] == "资金流向"
     assert supported["moneyflow_ind_dc"]["domain_key"] == "moneyflow"
     assert supported["moneyflow_ind_dc"]["domain_display_name"] == "资金流向"
-    assert supported["moneyflow_ind_dc"]["target_table"] == "core_serving.board_moneyflow_dc"
+    assert supported["moneyflow_ind_dc"]["target_table"] == "raw_tushare.moneyflow_ind_dc"
     assert supported["moneyflow_ind_dc"]["date_axis"] == "trade_open_day"
     assert supported["moneyflow_ind_dc"]["bucket_rule"] == "every_open_day"
     assert supported["moneyflow_ind_dc"]["observed_field"] == "trade_date"
@@ -191,7 +191,7 @@ def test_create_date_completeness_run_persists_independent_audit_record(app_clie
     detail_response = app_client.get(f"/api/v1/ops/review/date-completeness/runs/{created['id']}", headers=headers)
     assert detail_response.status_code == 200
     detail = detail_response.json()
-    assert detail["target_table"] == "core_serving.board_moneyflow_dc"
+    assert detail["target_table"] == "raw_tushare.moneyflow_ind_dc"
     assert detail["date_axis"] == "trade_open_day"
     assert detail["bucket_rule"] == "every_open_day"
     assert detail["observed_field"] == "trade_date"
@@ -450,11 +450,11 @@ def test_date_completeness_worker_executes_queued_run_and_records_gaps(app_clien
             TradeCalendar(exchange="SSE", trade_date=date(2026, 4, 24), is_open=True, pretrade_date=date(2026, 4, 23)),
         ]
     )
-    db_session.execute(text("create table core_serving.board_moneyflow_dc (trade_date date not null, board_code text not null)"))
+    db_session.execute(text("create table raw_tushare.moneyflow_ind_dc (trade_date date not null, board_code text not null)"))
     db_session.execute(
         text(
             """
-            insert into core_serving.board_moneyflow_dc (trade_date, board_code)
+            insert into raw_tushare.moneyflow_ind_dc (trade_date, board_code)
             values
               ('2026-04-20', 'BK001'),
               ('2026-04-21', 'BK001'),

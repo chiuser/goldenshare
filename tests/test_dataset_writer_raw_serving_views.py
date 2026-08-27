@@ -10,6 +10,7 @@ from src.foundation.ingestion.normalizer import NormalizedBatch
 from src.foundation.ingestion.writer import DatasetWriter
 from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
 from src.foundation.models.raw.raw_moneyflow_cnt_ths import RawMoneyflowCntThs
+from src.foundation.models.raw.raw_moneyflow_ind_dc import RawMoneyflowIndDc
 from src.foundation.models.raw.raw_moneyflow_ind_ths import RawMoneyflowIndThs
 from src.foundation.models.raw.raw_moneyflow_mkt_dc import RawMoneyflowMktDc
 from src.foundation.models.raw.raw_margin import RawMargin
@@ -56,6 +57,20 @@ class _RecordingRawDao:
                 "net_amount": 0,
             },
             "raw_tushare.moneyflow_cnt_ths",
+            None,
+        ),
+        (
+            "moneyflow_ind_dc",
+            "raw_moneyflow_ind_dc",
+            RawMoneyflowIndDc,
+            {
+                "trade_date": date(2026, 8, 22),
+                "content_type": "概念",
+                "name": "示例板块",
+                "ts_code": "BK001.DC",
+                "net_amount": 0,
+            },
+            "raw_tushare.moneyflow_ind_dc",
             None,
         ),
         (

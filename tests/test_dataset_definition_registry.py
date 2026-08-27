@@ -1205,6 +1205,12 @@ def test_dataset_definition_storage_layer_facts_are_explicit() -> None:
             "core_serving.concept_moneyflow_ths",
         ),
         (
+            "moneyflow_ind_dc",
+            "raw_moneyflow_ind_dc",
+            "raw_tushare.moneyflow_ind_dc",
+            "core_serving.board_moneyflow_dc",
+        ),
+        (
             "moneyflow_ind_ths",
             "raw_moneyflow_ind_ths",
             "raw_tushare.moneyflow_ind_ths",
@@ -1253,6 +1259,7 @@ def test_raw_serving_view_definitions_project_raw_freshness_targets() -> None:
         ("stk_nineturn", "raw_tushare.stk_nineturn"),
         ("etf_share_size", "raw_tushare.etf_share_size"),
         ("moneyflow_cnt_ths", "raw_tushare.moneyflow_cnt_ths"),
+        ("moneyflow_ind_dc", "raw_tushare.moneyflow_ind_dc"),
         ("moneyflow_ind_ths", "raw_tushare.moneyflow_ind_ths"),
         ("moneyflow_mkt_dc", "raw_tushare.moneyflow_mkt_dc"),
         ("margin", "raw_tushare.margin"),
