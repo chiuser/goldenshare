@@ -5,15 +5,15 @@
 | 项目 | 当前结论 |
 |---|---|
 | 文档性质 | 代码级 LLD 与内嵌编码门禁矩阵 |
-| 当前状态 | M3 开发与生产部署验收已收口；M4.0 契约纠偏和 M4.1 验证合同与结果模型已完成；下一步只可进入 M4.2 |
-| 审计日期 | 2026-08-24 |
+| 当前状态 | M0-M3 保持有效；旧 M4.0/M4.1 复杂验证方向已被否决，当前只完成文档纠偏，下一步必须先安全删除错误合同与空结果模型，不能直接进入 M4.2 |
+| 审计日期 | 2026-08-25 |
 | 目标产品 | 财势乾坤 / 财势探查 / 量化研究工作台 |
 | 首个垂直切片 | 东财二级行业统一参数研究 |
 | 本文是否批准 R2 回测 | 否。R2 仍处于事前计划待评审状态 |
 | 本文是否授权生产写入或发布 | 否 |
-| 当前 Alembic 口径 | M3 实施前单一 head 为 `20260822_000143`，M3 迁移接为 `20260823_000144`；2026-08-24 QTF 生产只读验收时生产 head 为 `20260824_000147`。M4.1 实施前重新确认仓库单一 head 为 `20260824_000148`，结果证据迁移已接为 `20260824_000149`；该迁移尚未部署生产 |
+| 当前 Alembic 口径 | 2026-08-25 本地单一 head 为 `20260824_000150`；旧 M4.1 迁移 `20260824_000149` 已随生产 head `20260824_000150` 部署。实施纠偏迁移前必须重新确认真实 head，禁止修改已执行迁移 |
 
-本文把已经确认的 QTF 系统架构、当前 Figma 六个正式页面、东财行业量化研究口径和仓库真实代码接入点落成可编码设计。当前 M1 平台基础、M2 候选公式内核和 M3 输入门禁与执行主链已经实现，M1/M3 生产迁移与 QTF Worker 实机验收也已完成；M4.0 已冻结可信验证语义，M4.1 已实现版本化验证合同、完整 PLAN/freeze/hash 合同和四张结果证据表模型。M4.2 验证内核、M4.3 worker 结果写入、M4.4 结果 API、真实研究、前端和发布仍未实现；Figma 中的示例数值仍不得解释为真实研究结果。
+本文把已经确认的 QTF 系统架构、当前 Figma 六个正式页面、东财行业量化研究口径和仓库真实代码接入点落成可编码设计。M1 平台基础、M2 候选公式内核和 M3 输入门禁与执行主链已经实现并完成生产部署验收。旧 M4.1 只实现了过度复杂的验证合同、PLAN 字段、四张空结果表模型和相关测试，没有实现成功率计算、结果写入、结果 API 或真实研究；该方向已被最新产品口径否决。本轮只修正文档并给出安全删除步骤，不修改代码。任何 M4.2 开发都必须等待错误合同和空模型完成代码纠偏后再单独批准。
 
 ### 0.1 依据与优先级
 
@@ -32,9 +32,9 @@
 
 1. 冻结 QTF 顶层包、依赖方向、数据库模型、API、TaskRun 接入、前端路由和状态机。
 2. 冻结首个二级行业研究能力在平台中的接口边界。
-3. 冻结 M4 的成功定义、评价日历、标签尾部、六道门禁配置和结果状态聚合规则。
-4. 列出 Figma 与当前代码尚未闭合的点，形成实施前门禁。
-5. 给出文件级改动面、正反例测试和开发顺序。
+3. 冻结 M4 的单一目标：用按时间先后切开的前段和后段，验证算法对“会转热/不会转热”的二元预测结果。
+4. 冻结完整结果对账口径：预测会转热、预测不会转热、实际转热、实际不转热的数量、正确数、错误数和绝对百分比必须全部展示。
+5. 列出旧 M4.1 错误合同、代码、迁移和测试的安全删除顺序，再给出简化后的文件级落点和开发顺序。
 
 本文不授权修改 Figma 或生产数据，不授权执行 R2、生成候选参数或发布任何行情信号。各开发里程碑只按第 15 节的独立授权和状态推进。
 
@@ -50,7 +50,7 @@
 | C04 | 不保存输入快照、缓存或副本 | 只保存平台业务状态、单次 Run 输入门禁证据、内容指纹和派生结果 |
 | C05 | 每个新 Run 重新直读并完整计算 | 不自动复用历史 Run 结果；同一 Run 内允许候选共享一次内存读取 |
 | C06 | 公式和参数受控、完整、可版本化 | 公式由代码注册；网页不能提交或执行任意 Python；冻结时保存所有生效值 |
-| C07 | 研究状态与执行状态分开 | TaskRun success 不等于研究 VALID；VALID 也不等于必须提名或发布 |
+| C07 | 执行完成与回测结果分开 | TaskRun success 只表示程序执行完成；回测优劣只看冻结口径下的真实预测对账结果 |
 | C08 | QTF 与 Ops 事务隔离 | QTF 业务产物提交不能被 TaskRun 观测写入失败回滚 |
 | C09 | 不新增角色、权限键、数据库账号 | 全部 QTF API 复用现有 `require_admin` |
 | C10 | 候选、审核、批准、发布是四个动作 | 即使同一管理员执行，也要分别记录，不允许一步自动发布 |
@@ -63,6 +63,8 @@
 | C17 | R2 尚未获批 | Figma 的 128 个对象、8 组参数和结果百分比都是交互示例，不得触发真实读取或运行 |
 | C18 | 申万研究暂缓 | 首个切片不得加入申万、跨体系映射或相关性 |
 | C19 | 既有来源与覆盖审计直接复用 | M1、M2 不读取 Prod、不重复盘点数据源；只有来源或字段契约变化时才另立数据审计，正常 Run 只做精确范围输入门禁 |
+| C20 | 当前只做简单转热预测回测 | 不做续热预测、行情归因、市场阶段分析、Bootstrap、置信区间、Lift、复杂基线、参数邻近敏感性或自动参数优选 |
+| C21 | 每次算法调整使用同一评价尺子 | 同一对象口径、时间切分、未来窗口和结果字段下比较；不得只报一个成功率或综合分数 |
 
 ---
 
@@ -72,11 +74,11 @@
 
 | 位置 | 当前事实 | 对 QTF 的影响 |
 |---|---|---|
-| 仓库根目录 | 已存在正式 `qtf/` 产品域；M1 已建立研究状态，M2 已建立二级行业候选公式内核，M3 已建立 Prod 只读输入门禁和执行主链 | 当前仍未实现 M4 结果证据、真实 R2、Wealth 前端或生产发布 |
+| 仓库根目录 | 已存在正式 `qtf/` 产品域；M1 已建立研究状态，M2 已建立二级行业候选公式内核，M3 已建立 Prod 只读输入门禁和执行主链；旧 M4.1 已增加复杂验证合同和空结果模型 | 当前没有成功率计算、结果写入、结果 API、真实 R2、Wealth 前端或生产发布；旧 M4.1 必须先纠偏 |
 | `pyproject.toml` | 受控发现 `src*` 与 `qtf*`，排除脚本、测试、前端和 Lake Console | M1 wheel 验收已通过，M2 新模块继续受同一包边界保护 |
 | `docs/architecture/dependency-matrix.md` | 已定义 `qtf -> foundation, qtf`，并禁止下层反向依赖 QTF | 依赖方向由自动护栏持续验证 |
 | `tests/architecture/test_subsystem_dependency_matrix.py` | 已扫描 QTF，禁止现有子系统反向导入 QTF，并禁止 QTF 导入历史研究脚本 | M2 新内核不复用 `scripts.research` 运行时代码 |
-| `src/app/model_registry.py` | App 已显式注册 M1 Research/Revision 与 M3 Preflight/Run ORM | Foundation 无反向依赖；QTF 模型仍由 App 组合注册 |
+| `src/app/model_registry.py` | App 已显式注册 M1/M3 ORM 及旧 M4.1 四张结果表模型 | Foundation 无反向依赖；纠偏时只调整 App 注册，不改变依赖方向 |
 | `alembic/env.py` | 调用 `register_all_models()`，使用共享 `Base.metadata` | QTF ORM 可继承共享 `Base`，由 App 注册后进入现有 Alembic 链 |
 | `src/app/api/v1/router.py` | 已装配 M3 最小 `/api/v1/qtf` 管理员 API | QTF 核心不导入 App；M4/M6 再按里程碑扩展 results 与完整 registry |
 | `src/ops/services/task_run_service.py` | 已支持可选注入 `ExternalTaskDefinition`；默认实例仍只允许既有任务 | 默认 Ops API 不能创建 `qtf_experiment`，QTF 只经 App 专用定义接入 |
@@ -107,7 +109,7 @@ tests/test_sector_radar_robustness.py
 1. 脚本含固定实验 ID、固定一级行业对象数和固定候选常量。
 2. 输出以本地文件为主，没有 Research、Revision、Run Input Preflight、Run、Candidate、Release 状态。
 3. 没有 TaskRun、管理员 API、数据库元数据或 Wealth 页面接入。
-4. R2 所需父级内比较、小同组门禁和二级行业计划尚未实现。
+4. 这些历史脚本自身没有父级内比较、小同组门禁和正式二级行业 PLAN；相关能力后来由 M2/M3 在 `qtf` 中独立实现，不能反向把脚本当成当前平台代码。
 
 M2 已把“历史探索中实际使用过的候选公式语义”重新实现为 QTF 纯计算内核，并以正反例验证公式、窗口、缺失值、父级隔离和时间前沿；自动依赖护栏明确禁止 `qtf` import `scripts.research.*`。预测有效性仍只能由后续获批的 R2 回测判断。历史脚本继续保留为探索证据，不能被改名后冒充平台内核或正式参数。
 
@@ -124,9 +126,9 @@ M2 已把“历史探索中实际使用过的候选公式语义”重新实现�
 9. 现有 `wealthFetch` 已统一处理 access token、401 refresh 和重新登录通知；QTF client 必须复用它。403 由 QTF 页面转换为 forbidden 状态，不增加前端角色或权限判断。
 10. `routerState.isWealthRoute()` 当前只把精确 `/wealth/exploration` 当成探查页。增加 QTF 子路由时必须同时扩展内部路由识别，否则从 QTF 页面导航时的返回语义会丢失。
 
-### 2.4 Figma 正式页面映射
+### 2.4 Figma 页面映射
 
-六个正式画板均为 `1600 × 1200`，根节点为纵向 Auto Layout，并复用当前 TopMarketBar 与页面 Shell。
+Figma 当前存在六个 `1600 × 1200` 画板，根节点为纵向 Auto Layout，并复用当前 TopMarketBar 与页面 Shell；当前开发合同只保留前五页。候选评审是已被推迟的历史设计，不建立路由。
 
 | Figma 节点 | 页面 | 目标前端路由 |
 |---|---|---|
@@ -135,7 +137,7 @@ M2 已把“历史探索中实际使用过的候选公式语义”重新实现�
 | `778:188` | 输入审计与冻结计划（Figma 当前名称；实际语义为单次输入检查） | `/wealth/exploration/quant/researches/{researchKey}/freeze` |
 | `778:256` | 运行详情 | `/wealth/exploration/quant/runs/{runKey}` |
 | `778:324` | 结果比较 | `/wealth/exploration/quant/runs/{runKey}/results` |
-| `778:392` | 候选评审 | `/wealth/exploration/quant/candidates/{candidateKey}` |
+| `778:392` | 候选评审（暂缓的历史设计） | 当前无路由；后续重新设计后再决定 |
 
 正式组件页已经包含：
 
@@ -155,9 +157,9 @@ M2 已把“历史探索中实际使用过的候选公式语义”重新实现�
 
 | 区域/组件 | Figma 真实属性 | 前端实现约束 |
 |---|---|---|
-| 六个 Desktop 根画板 | `1600×1200`，纵向 Auto Layout，Fixed/Fixed，2 个直属子节点 | 根只装 `TopMarketBar + PageShell`，不得加绝对定位补偿层 |
+| 六个 Desktop 根画板 | `1600×1200`，纵向 Auto Layout，Fixed/Fixed，2 个直属子节点 | 当前五页根只装 `TopMarketBar + PageShell`；候选页不开发 |
 | TopMarketBar 实例 | `1600×56`，横向 Auto Layout，左右 padding 18，gap 12，横向 Fill | 直接复用现有组件，不复制视觉壳 |
-| 六个 PageShell | `1600×1144`，纵向 Auto Layout，gap 12，padding `14 18 34 18` | 与 Header 正好组成 1200 高；页面内容宽固定 1564 |
+| 六个 PageShell | `1600×1144`，纵向 Auto Layout，gap 12，padding `14 18 34 18` | 当前五页与 Header 正好组成 1200 高；页面内容宽固定 1564 |
 | Breadcrumb | `1564×28`，横向 Auto Layout，gap 18；路径和 Meta 均 Hug | 复用现有 `PageBreadcrumb`，长文本不得挤压右侧 Meta |
 | Content | `1564×1056`，纵向 Auto Layout，gap 12，横纵 Fill | 主区域按画板子区块高度实现，不用绝对坐标堆叠 |
 | Workflow Step | 单实例 `220×64`，横向 Auto Layout，padding `10 12`，gap 12；3 个状态 | `Complete/Current/Upcoming` 显式 variant |
@@ -170,7 +172,7 @@ M2 已把“历史探索中实际使用过的候选公式语义”重新实现�
 | Template Option | 单实例 `491×112`，纵向 Auto Layout，padding `14 16`，gap 7 | 两列模板项等宽，Selected 为组件状态 |
 | Research List Row | 单实例 `948×78`，横向 Auto Layout，左右 padding 12，5 个直属列 | 表头和行复用同一列宽合同；状态、最后活动、操作不得各自定位 |
 
-六页 Content 的正式区块顺序也已核对：研究总览为 `Page Header / Overview Summary / Overview Main`；定义研究和冻结计划为 `Page Header / Workflow / Main / Actions`；运行详情增加 `Run Summary`；结果比较增加 `Trust Gates / Result Metrics`；候选评审使用 `Release Workflow / Candidate Main / Actions`。前端 DOM 顺序必须与此一致，只有图表绘图区内部才允许绝对定位。
+前五页 Content 的区块顺序已经核对：研究总览为 `Page Header / Overview Summary / Overview Main`；定义研究和冻结计划为 `Page Header / Workflow / Main / Actions`；运行详情增加 `Run Summary`。结果比较页现有 `Trust Gates / Result Metrics` 已失效，必须先按“四格结果 + 前后段”重新设计，不能作为开发结构。只有图表绘图区内部才允许绝对定位。
 
 | 页面 | Content 子区块固定高度，按顺序 |
 |---|---|
@@ -179,9 +181,8 @@ M2 已把“历史探索中实际使用过的候选公式语义”重新实现�
 | 冻结计划 | `70 / 88 / 808 / 54` |
 | 运行详情 | `70 / 88 / 100 / 696 / 54` |
 | 结果比较 | `70 / 88 / 92 / 106 / 586 / 54` |
-| 候选评审 | `70 / 88 / 808 / 54` |
 
-主区两列均使用 12px gap，宽度合同为：总览 `980/572`、定义研究 `1030/522`、冻结计划 `820/732`、运行详情 `940/612`、结果比较 `1000/552`、候选评审 `980/572`。Research List 外容器为 `980×842`、padding 16；内部正式行宽 `948`，五列依次为 `360/190/110/150/110`，行左右 padding 12。表头必须复用这组列宽，不能再单独写一组 grid template。
+主区两列均使用 12px gap，当前有效宽度合同为：总览 `980/572`、定义研究 `1030/522`、冻结计划 `820/732`、运行详情 `940/612`；结果比较页宽度在重做 Figma 时重新验收。Research List 外容器为 `980×842`、padding 16；内部正式行宽 `948`，五列依次为 `360/190/110/150/110`，行左右 padding 12。表头必须复用这组列宽，不能再单独写一组 grid template。
 
 ### 2.5 Figma 尚未闭合的交付门禁
 
@@ -190,13 +191,40 @@ M2 已把“历史探索中实际使用过的候选公式语义”重新实现�
 | 编号 | 缺口 | 严重程度 | 处理门禁 |
 |---|---|---:|---|
 | F01 | 研究总览的“公式与参数”按钮没有目标页面 | 中 | M2 建 registry，M6 可提供只读 API；对应前端页面必须等 Figma 补齐后开发 |
-| F02 | “保存草稿、返回修改、取消运行、拒绝候选、确认审核”没有原型目标 | 低 | 本 LLD 冻结其业务动作；若需要弹窗或新页面，M7 前补 Figma，不在代码中自由设计 |
+| F02 | “保存草稿、返回修改、取消运行”没有原型目标 | 低 | 若需要弹窗或新页面，M7 前补 Figma，不在代码中自由设计 |
 | F03 | Figma 没有展示冻结输入日期范围、父级最小可比组阈值和完整 PLAN 预算 | 高 | 冻结页进入开发前必须把这些字段补入设计，不能隐藏成后端默认值 |
-| F04 | 候选页声明“批准版本”和“发布生效”是独立动作，但没有对应按钮、状态或页面 | 高 | M8 前必须补齐 Figma；确认审核不能代替批准或发布 |
+| F04 | 候选页建立在已撤销的旧评价与准入逻辑上 | 暂缓 | 当前不开发、不建立路由；真实 R2 后如恢复候选能力，重新做产品方案与 Figma |
 | F05 | 当前 `/wealth/exploration` 没有进入量化研究工作台的正式入口设计 | 中 | QTF 深链路可先开发；M7 页面验收前必须补入口或明确固定入口位置 |
-| F06 | 六个画板只有 loaded 示例，没有 loading、empty、error、forbidden、conflict 状态稿 | 中 | API 和组件状态可先实现；最终视觉验收前必须补稳定骨架状态 |
+| F06 | 当前五页只有 loaded 示例，没有 loading、empty、error、forbidden、conflict 状态稿 | 中 | API 和组件状态可先实现；最终视觉验收前必须补稳定骨架状态 |
+| F07 | 结果比较页仍展示旧六道门禁、Lift、基线和敏感性 | 高 | M7 前按本 LLD 的二元预测对账表重新设计；后端不得为旧稿继续实现已否决字段 |
 
 Figma 中 `W=5/10/20/30`、`B=60/120`、128 个二级行业、8 个组合及所有百分比均是交互示例。它们只说明页面需要承载哪些信息，不构成 R2 读取或执行批准。
+
+### 2.6 旧 M4.1 代码与迁移审计
+
+本节记录 2026-08-25 对当前代码、测试、迁移和消费者的只读审计。它只用于指导后续安全纠偏，不表示本轮已经修改代码。
+
+| 当前实现 | 代码事实 | 纠偏结论 |
+|---|---|---|
+| `qtf/modules/sector/validation_contract.py` | 唯一注册 `sector_l2_continuation_validation_v1@1`，强制 `ENTRY/RETENTION`、`50/25/25`、Moving Block Bootstrap、六道门禁和 Lift/邻近参数门槛 | 整个旧合同删除，改为二级行业“会转热/不会转热”的简单双时段回测合同；不保留兼容别名 |
+| `qtf/contracts/validation.py` | 定义六道 Gate、`SUPPORTED/REJECTED`、`ENTRY/RETENTION` 和 Run conclusion 枚举 | 删除与当前需求无关的枚举；只保留预测结果所需的前段/后段、四种预测对账结果和不可评价状态 |
+| `qtf/api/schemas/research.py` | Draft、PLAN 和响应强制携带 `confidenceMethod`、六道 Gate、三段切分和旧成功定义 | 改为显式双时段配置与结果窗口；删除 Bootstrap、Lift、校准段、复杂门槛和续热字段 |
+| `qtf/contracts/formula.py`、`qtf/modules/sector/templates.py`、`qtf/contracts/runtime.py`、`qtf/modules/sector/input_preflight.py` | Template/Formula/ExecutionPlan 使用 `validation_contract_*` 身份，PLAN 还包含旧置信方法、六道门禁和 `50/25/25` | 统一改为 `backtest_contract_key/version`；保留 PLAN、hash、预算和冻结机制，只保留前段/后段边界、预测窗口和完整结果字段 |
+| `qtf/contracts/research.py`、研究 ORM/repository、canonical hash | Revision 从 M1 起使用通用名 `validation_spec/validation_spec_json`，当前被旧 M4 门禁占用 | 收缩为当前真实用途 `backtest_spec/backtest_spec_json`；同步 hash、repository、模型和测试，不做双写 |
+| `qtf/application/services/input_preflight_service.py` | 读取正式公式历史、额外预热稳定探针和 5 日标签尾部 | 保留公式实际所需历史和未来结果尾部；删除额外预热稳定探针，不再为 Bootstrap 或差分验证扩展来源范围 |
+| `qtf/application/services/plan_freeze_service.py` | freeze 固化旧 confidence/gates/sensitivity 合同 | 保留 draft/preflight/plan hash 并发与不可变冻结；改为固化简单双时段回测合同 |
+| `src/app/api/v1/qtf.py` | Draft/PLAN DTO 暴露旧门禁配置，当前没有 Wealth 前端消费者 | 直接替换 API 契约，不提供旧字段兼容层；同步删除旧响应拼装和 blocking reason |
+| `qtf/modules/sector/executor.py` | M3 只计算 M2 参数组合后丢弃结果，`VALIDATE/SUMMARIZE` 仍是等待 M4 的占位阶段 | 保留每 Run 重读、单次内存输入、预算、取消和事务边界；后续改成前段计算、后段验证和结果汇总 |
+| `qtf/modules/sector/parameter_schema.py`、`factor_kernel.py`、App 参数映射 | 暴露唯一允许值为 `RESET_ONLY` 的 `event_cluster_rule`；它不是可选择的研究参数 | 从公开参数合同、hash 和 API 中删除该伪配置；保留“发出一次转热预测后，跌破 reset 才重新具备再次预测资格”的固定算法语义 |
+| `qtf/api/schemas/run.py`、`qtf/adapters/persistence/models/runtime.py`、`runtime_repository.py` | Run DTO、ORM、repository 仍使用 `validation_status` 与旧 `ValidationStatus` | 统一更名为 `result_status/ResultStatus`，只允许 `PENDING/READY/INSUFFICIENT/BLOCKED`；App API 和 executor 同步，不留旧属性 |
+| `qtf/adapters/persistence/models/validation.py` | 四张表模型已注册，但没有 repository 或 evaluator 写入路径 | 删除 `run_gate_result`、`run_conclusion`；重做参数结果表；把只记录正向信号的 `sector_signal_event` 改为记录全部二元预测的结果表 |
+| `qtf/adapters/persistence/models/__init__.py`、`src/app/model_registry.py` | 旧四个 ORM 已导出并由 App 注册 | 与前向迁移同步删除旧导出/注册，只注册新的 `RunParameterResult/SectorPredictionResult` |
+| `qtf/engine/validation_hash.py` | 只实现旧 Gate、参数、signal event 的稳定 hash | 删除旧 Gate/event hash，按新的参数汇总和全部预测结果重建稳定 hash |
+| `wealth/docs/system/exception-code-registry.md` | 把 `QTF_VALIDATION_INVALID/INSUFFICIENT` 登记为旧六道门禁业务结果 | 代码纠偏时将二者退役；简化回测通过正常 `resultStatus`、原始数量和 `unevaluableReasons` 表达，不把算法效果包装成异常码 |
+| `20260822_000143`、`20260823_000144`、`20260824_000149` | 143 创建旧 `validation_spec_json`，144 创建旧 `validation_status`，149 创建四张旧 M4.1 表；均已部署 | 历史迁移不可修改、删除或 downgrade；后续只从实施日真实 head 新增前向纠偏迁移，并在任何 rename/drop/replace 前再次确认零行和零活跃 Run |
+| 自动化测试 | `qtf/tests/test_m3_execution_workflow.py`、`test_m4_validation_contract.py`、两组 sector 参数/内核测试、`tests/web/test_qtf_api.py` 和 `tests/test_qtf_models.py` 冻结了旧语义 | 逐文件删除旧 fixture/断言，补双时段、四格结果、完整分母分子、无未来读取、旧字段拒绝和迁移模型一致性测试 |
+
+CodeGraph 影响面确认：`ExecutionPlan` 直接影响 input preflight、freeze、executor、runtime repository、App API 和 M3/M4 测试；验证合同直接影响 PLAN 生成和模板注册。四张旧结果表当前只有 ORM 注册和模型测试消费者，没有业务 repository、结果 API 或 Wealth 前端消费者。因此纠偏必须先改合同和 PLAN，再改模型/迁移，不能只删表或只改页面。
 
 ---
 
@@ -223,7 +251,7 @@ src.biz -X-> qtf
 wealth -X-> /api/v1/ops/* | PostgreSQL | 本地研究文件
 ```
 
-QTF 需要任务能力时，定义自身的 `RunObserver` 端口；App 用 Ops TaskRun 实现该端口。Ops 只看通用任务合同，不知道“行业热度、公式、参数、VALID、候选”是什么。
+QTF 需要任务能力时，定义自身的 `RunObserver` 端口；App 用 Ops TaskRun 实现该端口。Ops 只看通用任务合同，不知道“行业热度、公式、参数、回测结果或候选”是什么。
 
 ### 3.3 包发现
 
@@ -269,7 +297,6 @@ qtf/
       factor_kernel.py
       signal_engine.py
       evaluator.py
-      validator.py
       executor.py
   application/
     ports/
@@ -282,8 +309,6 @@ qtf/
       input_preflight_service.py
       experiment_service.py
       run_query_service.py
-      candidate_service.py
-      release_service.py
   adapters/
     prod/
       sector_source_adapter.py
@@ -296,8 +321,6 @@ qtf/
       overview.py
       research.py
       run.py
-      candidate.py
-      release.py
   tests/
 ```
 
@@ -320,7 +343,7 @@ qtf/
 | 根 `AGENTS.md`、`src/AGENTS.md` | 增加 QTF 目录责任和禁止回流规则 |
 | `tests/architecture/test_subsystem_dependency_matrix.py` | 扫描 QTF，并禁止现有三个业务子系统反向导入 QTF |
 | `src/app/model_registry.py` | 由 App 注册 QTF ORM |
-| `alembic/versions/<new>_add_qtf_<milestone_scope>.py` | 按里程碑拆分迁移：M1 只创建 `qtf` schema 与 Research/Revision，M3 增加 preflight/Run，M4 增加结果证据，M8 增加 candidate/release；每次实施日连接真实 head |
+| `alembic/versions/<new>_add_qtf_<milestone_scope>.py` | 按里程碑拆分迁移：M1 创建 Research/Revision，M3 增加 preflight/Run，M4R 纠偏并增加简单双时段结果；每次实施日连接真实 head。候选/发布表等待后续专项 LLD，不在当前结构中预留 |
 | `src/ops/contracts/external_task.py` | 定义通用外部任务 definition/executor 合同 |
 | `src/ops/services/task_run_service.py` | 通过注入 definition 校验外部任务；默认 Ops API 仍不接受 QTF |
 | `src/ops/runtime/task_run_dispatcher.py` | 通过注入 executor 派发外部任务；不 import QTF |
@@ -355,7 +378,6 @@ wealth/src/
     plan-freeze/
     run-detail/
     result-comparison/
-    candidate-review/
     ui/
 ```
 
@@ -372,12 +394,12 @@ wealth/src/
 ```python
 ResearchTemplate(
     template_key="sector_l2_turn_hot_v1",
-    title="二级行业逐渐转热",
+    title="二级行业转热预测",
     capability_key="sector_heat_research",
     formula_key="sector_heat_research_v1",
     parameter_schema_key="sector_l2_heat_params_v1",
     input_contract_key="sector_l2_prod_input_v1",
-    validation_contract_key="sector_l2_continuation_validation_v1",
+    backtest_contract_key="sector_l2_turn_hot_backtest_v1",
     active=True,
 )
 ```
@@ -422,83 +444,100 @@ future_horizons
 comparison_scope
 minimum_group_size
 ranking_rule
-event_cluster_rule
 ```
 
 Figma 目前只让用户选择 `baseline_days` 和 `trend_days`。其余值必须由获批计划明确展示为“固定参数”，不能悄悄来自函数默认值。R2 的这些固定值仍待事前计划批准。
 
 ### 5.4 DRAFT、PLAN 与完整冻结值
 
-1. DRAFT 是可编辑的研究意图，允许问题、成功定义、非目标、参数选择、验证合同或预算暂时不完整；不完整 DRAFT 只能保存，不能冻结或创建 Run。
+1. DRAFT 是可编辑的研究意图，允许问题、成功定义、非目标、参数选择、双时段边界或预算暂时不完整；不完整 DRAFT 只能保存，不能冻结或创建 Run。
 2. 创建 Research 时，模板只写入自身身份、公式/schema 身份和固定来源、对象、比较范围合同；未选择内容保持明确未配置状态，不写可执行默认值。
-3. 草稿必须保存管理员做出的全部显式参数选择。`DRAFT_PREVIEW` 在当前 draft hash 上执行精确输入预检，并生成可审阅 PLAN：评价日历、预热与标签尾部、时间顺序 `50%/25%/25%` IS/校准/OOS、未来 `[1,3,5]` 交易日、`RESET_ONLY` 事件语义、有限候选矩阵、完整验证门禁配置、停止条件和本次预算。
+3. 草稿必须保存管理员做出的全部显式参数选择。`DRAFT_PREVIEW` 在当前 draft hash 上执行精确输入预检，并生成可审阅 PLAN：前段和后段的交易日边界、公式实际所需历史、未来结果尾部、未来 `[1,3,5]` 交易日、有限候选矩阵、结果字段、停止条件和本次预算。
 4. 本次预算中的对象、来源行、组日、组合和执行次数来自预检真实计数；耗时、内存和存储使用版本化二级行业估算器。估算器身份、输入和输出全部进入 `plan_hash`，不新增平台全局资源配置。
-5. freeze 必须重新计算 draft hash 与 plan hash。只有 PASS preflight、当前草稿、完整参数、完整 `validationGateConfig`、已确认排除项和完全一致的 `approvedPlanHash` 才能把 PLAN 中的评价日历、成功定义、验证合同、预算与完整生效参数写入同一 revision 并转为 FROZEN。
+5. freeze 必须重新计算 draft hash 与 plan hash。只有 PASS preflight、当前草稿、完整参数、完整 `backtestConfig`、已确认排除项和完全一致的 `approvedPlanHash` 才能把 PLAN 中的双时段边界、成功定义、预算与完整生效参数写入同一 revision 并转为 FROZEN。
 6. FROZEN 后运行时禁止再从模板、页面、环境变量或函数默认值补齐参数。真实 R2 的候选、日期和预算仍须 M5 单独批准；M3 不执行真实研究。
 
-### 5.5 `sector_l2_continuation_validation_v1` 成功合同
+### 5.5 `sector_l2_turn_hot_backtest_v1` 成功合同
 
-M4 只实现代码注册的 `sector_l2_continuation_validation_v1@1`，不接受自由 JSON 规则、表达式或运行时默认值。成功定义固定如下：
+M4 只实现代码注册的 `sector_l2_turn_hot_backtest_v1@1`，不接受自由 JSON 规则、表达式或运行时默认值。一个评价样本是“某个二级行业在某个交易日 `t` 的一次转热预测”，合同固定如下：
 
-1. 信号事件只来自 M2 公式在信号日 `t` 生成的 `signal=true`；`t` 日 `on_list=false` 记为 `ENTRY`，`on_list=true` 记为 `RETENTION`，`on_list` 无效时不生成事件。
-2. 未来客观榜单继续使用同一父级直属二级行业的完整组日：价格横向分位与成交横向分位各占 50%，再按冻结 `ranking_rule.threshold` 判定 `on_list`。该榜单不读取候选的历史基线、heat 或未来平滑状态。
-3. `h=1` 成功要求 `t+1` 的 1 个未来交易日上榜；`h=3` 成功要求未来 3 日至少 2 日上榜；`h=5` 成功要求未来 5 日至少 3 日上榜。
-4. `ENTRY` 与 `RETENTION` 分别计算成功率、样本量、基础概率、Lift 和置信区间，不允许合并成一个平均值。
-5. 每个 horizon 独立要求完整的未来父级组日。任一所需日期缺失时，该事件在该 horizon 标记 `UNEVALUABLE`，不记成功也不记失败；不补零、不缩短窗口、不前向填充。
-6. 自然基线使用同一时间阶段、同一父级比较合同、同一 `ENTRY/RETENTION` 起始状态下的全部可评价对象日；简单价格榜与成交榜作为诊断基线。候选和基线必须使用相同的未来窗口及有效组日。
-7. `successRates1d/3d/5d` 是并列的主要结果，不压成一个混合分数。M5 的获批 PLAN 必须显式指出哪些 horizon 进入效果门槛；未获批前 M4 不替 R2选择主要 horizon。
+1. 只有 `t` 日客观榜单状态为 `on_list=false` 的行业进入转热预测样本；已经上榜的行业属于续热问题，本轮不评价。
+2. M2 公式计算完成后，`signal=true` 表示算法预测该行业会转热；`signal=false` 表示算法预测该行业不会转热。两种预测都必须进入结果，不能只保存出现转热预测的信息。
+3. 未来客观榜单继续使用同一父级直属二级行业的完整组日：价格横向分位与成交横向分位各占 50%，再按冻结 `ranking_rule.threshold` 判定 `on_list`。未来真实结果不读取 heat、EWMA 或信号本身。
+4. `h=1` 的实际转热要求 `t+1` 上榜；`h=3` 要求未来 3 日至少 2 日上榜；`h=5` 要求未来 5 日至少 3 日上榜。三个窗口分别输出完整结果，不合并成综合分数。
+5. 每个样本和 horizon 形成四种可评价结果之一：预测会转热且实际转热、预测会转热但实际未转热、预测不会转热但实际转热、预测不会转热且实际未转热。
+6. 任一 horizon 所需未来父级组日不完整时，该样本在该 horizon 标记 `UNEVALUABLE`，不记入正确或错误分母；不补零、不缩短窗口、不前向填充。
+7. 前段和后段、每个参数组合、每个 horizon 都必须输出相同的一组原始数量和绝对百分比，不使用倍数型 Lift、置信区间、复杂基线或自动综合评分。
 
-### 5.6 `validationGateConfig` 冻结合同
-
-`validationGateConfig` 是 `validation_spec_json` 的必填、版本化部分，并完整进入 `planHash/revisionHash`。代码 registry 只定义字段、类型和约束，不提供可执行的生产默认值：
+每组结果至少包含：
 
 ```text
-validationContractKey = sector_l2_continuation_validation_v1
-validationContractVersion = 1
-evaluationCalendar {
-  requestedEvaluationStartDate, requestedEvaluationEndDate,
+predictedHotTotal
+predictedHotActualHotCount
+predictedHotActualNotHotCount
+predictedHotCorrectRate
+predictedHotErrorRate
+
+predictedNotHotTotal
+predictedNotHotActualNotHotCount
+predictedNotHotActualHotCount
+predictedNotHotCorrectRate
+predictedNotHotErrorRate
+
+actualHotTotal
+actualHotDiscoveredCount
+actualHotMissedCount
+actualHotDiscoveryRate
+actualHotMissRate
+
+actualNotHotTotal
+actualNotHotCorrectlyRejectedCount
+actualNotHotFalseAlarmCount
+actualNotHotRecognitionRate
+actualNotHotFalseAlarmRate
+
+evaluableTotal
+correctTotal
+incorrectTotal
+overallAccuracy
+unevaluableTotal
+```
+
+所有比率都必须能由同一响应中的分子和分母直接复算。算法或参数每次调整都必须在相同对象、相同时间切分、相同未来窗口和相同字段下比较，不能只展示一个成功率，也不能改变分母后宣称效果提升。
+
+### 5.6 `backtestConfig` 冻结合同
+
+`backtestConfig` 是目标字段 `backtest_spec_json` 的必填、版本化部分，并完整进入 `planHash/revisionHash`。当前数据库和代码中的旧字段名 `validation_spec_json` 按第 6.8 节以前向迁移更名，不保留双写或兼容读取。该对象只描述一次简单双时段回测，不包含置信方法或复杂效果门槛：
+
+```text
+backtestContractKey = sector_l2_turn_hot_backtest_v1
+backtestContractVersion = 1
+backtestPeriods {
+  requestedStartDate, requestedEndDate,
   resolvedSourceStartDate, resolvedSourceEndDate,
-  requiredHistoryTradeDays, warmupProbeTradeDays,
+  requiredHistoryTradeDays,
   labelTailTradeDays = 5,
-  splitRule = ORDERED_TRADING_DAYS_50_25_25
+  splitRule = ORDERED_TRADING_DAYS_TWO_SEGMENTS,
+  tuningStartDate, tuningEndDate,
+  validationStartDate, validationEndDate
 }
-confidenceMethod {
-  kind = MOVING_BLOCK_BOOTSTRAP,
-  blockTradeDays, resampleCount, confidenceLevel, randomSeed
-}
-gates {
-  INPUT { requirePassPreflight, requireSourceHashMatch }
-  TIME_FRONTIER { maxFutureReadCount = 0 }
-  FUTURE_LEAKAGE { maxChangedPreFrontierPointCount = 0 }
-  WARMUP {
-    comparisonTradeDays,
-    maxHeatStateAbsoluteDelta,
-    maxSignalMismatchRate
-  }
-  COVERAGE {
-    minEvaluableTradeDays,
-    minSignalEventCount,
-    minEntryEventCount,
-    minRetentionEventCount,
-    minParentCoverageRate,
-    maxSingleParentEventShare
-  }
-  OUT_OF_SAMPLE_SENSITIVITY {
-    requiredHorizons,
-    minOosLiftLowerBoundByHorizon,
-    maxCalibrationToOosSuccessRateDropByHorizon,
-    minNeighborPassRate
-  }
-}
+futureHorizonRules = [
+  { horizonTradeDays = 1, requiredOnListDays = 1 },
+  { horizonTradeDays = 3, requiredOnListDays = 2 },
+  { horizonTradeDays = 5, requiredOnListDays = 3 }
+]
+resultSchemaVersion = sector_turn_hot_confusion_matrix_v1
 ```
 
 冻结规则：
 
-1. `labelTailTradeDays=5`、时间顺序切分、两个零容忍方法门禁和成功合同是版本 1 的固定语义。
-2. 其余所有数值必须由具体研究 PLAN 显式提供；缺字段、未知字段、非有限数值、越界比例、空 horizon 或与 `[1,3,5]` 不相容都使用 `QTF_REQUEST_INVALID` 拒绝。
-3. M4 自动化测试可以使用显式测试配置，但测试数值不得注册为生产默认值，也不得写成 R2 已获批参数。
-4. PLAN、草稿或门禁配置变化后，旧 `planHash` 立即失效；freeze 只接受服务器重算后完全一致的当前 hash。
-5. `INPUT/TIME_FRONTIER/FUTURE_LEAKAGE/WARMUP/COVERAGE/OUT_OF_SAMPLE_SENSITIVITY` 六项均保存独立状态与证据。数值效果阈值用于判定每个参数结果是否 `SUPPORTED`，不把“没有参数达到效果阈值”误写成研究方法失效。
+1. 全部日期按 SSE 已发布交易日升序解析；前段和后段都必须非空，后段必须紧跟前段，禁止随机打散样本。
+2. 本文不拍板固定切分比例。每次研究 PLAN 必须显式展示切分日期和两段交易日数量，由管理员确认后冻结。
+3. `requiredHistoryTradeDays` 只满足公式实际计算；`labelTailTradeDays=5` 只满足后段末尾样本的未来真实结果。两者都不属于前段或后段的预测日期。
+4. 每个预测日 `t` 的公式只能读取 `t` 及以前的数据；未来结果只能在公式计算完成后读取，不能回流到参数、heat、signal 或排名计算。
+5. PLAN、草稿、参数、时间切分或结果合同变化后，旧 `planHash` 立即失效；freeze 只接受服务器重算后完全一致的当前 hash。
+6. 获批候选矩阵中的每组参数都按原值分别运行前段和后段；平台不根据前段结果自动挑一组参数再改写后段输入。若管理员调整参数，必须创建新 revision/Run，并继续使用同一四格评价口径。
+7. 平台不自动宣布“最佳参数”。结果页并列展示各参数在前段和后段的完整对账表，由管理员基于同一口径判断下一轮是否继续。
 
 ---
 
@@ -552,7 +591,7 @@ gates {
 | `formula_key/version` | varchar | 公式身份 |
 | `parameter_schema_key/version` | varchar | 参数合同身份 |
 | `effective_params_json` | json | 完整固定值与候选值 |
-| `validation_spec_json` | json | 评价日历、IS/校准/OOS、版本化成功定义、置信方法和完整门禁配置 |
+| `backtest_spec_json` | json | 版本化双时段、future horizon、实际转热定义和完整结果 schema；当前旧字段 `validation_spec_json` 由 M4.0R 前向迁移更名，不保留别名 |
 | `budget_json` | json | 本次获批扫描、组合、时间、内存和产物预算 |
 | `draft_version` | int | 乐观并发控制 |
 | `revision_hash` | char(64), unique | 冻结内容哈希 |
@@ -577,8 +616,8 @@ gates {
 | `source_kind` | 首版固定 `PROD` |
 | `source_contract_hash` | 来源、字段、过滤合同哈希 |
 | `as_of` | 输入检查完成时点 |
-| `requested_start/end_date` | 管理员申请的研究评价起止日，不含系统扩展的预热和标签尾部 |
-| `effective_start/end_date` | 实际只读来源范围；包含公式预热、预热稳定探针、评价区间和未来标签尾部 |
+| `requested_start/end_date` | 管理员申请的回测起止日，内部按冻结切分日期划成前段和后段 |
+| `effective_start/end_date` | 实际只读来源范围；包含公式实际所需历史、前后两段预测日和未来结果尾部 |
 | `dataset_evidence_json` | 每张表的字段、行数、日期、唯一键、缺失和内容指纹 |
 | `universe_count/group_count` | 对象数和父级组数 |
 | `valid_group_day_count` | 完整父级组日数量 |
@@ -601,7 +640,7 @@ gates {
 | `input_preflight_id` | 本 Run 的 `RUN_PREFLIGHT` 输入门禁记录 |
 | `task_run_id` | Ops TaskRun ID，nullable unique |
 | `status` | `PLANNED/QUEUED/EXECUTING/COMPLETED/FAILED/CANCELED/BLOCKED` |
-| `validation_status` | `PENDING/VALID/INVALID/INSUFFICIENT/BLOCKED` |
+| `result_status` | `PENDING/READY/INSUFFICIENT/BLOCKED`；旧 `validation_status` 在纠偏迁移中更名并收缩，不再承载六道门禁或效果胜出语义 |
 | `code_commit` | 执行代码提交；worker 认领前 nullable，执行前必须补齐 |
 | `runtime_fingerprint_json` | Python、QTF 包和关键计算依赖版本；不含主机 secret |
 | `formula_version` | 实际公式版本 |
@@ -615,47 +654,81 @@ Run 不保存 TaskRun 的进度副本。QTF API 查询运行详情时，由 App 
 
 ### 6.6 结果与证据表
 
-1. `qtf.run_gate_result`
-   - 唯一键：`run_id + gate_key`。
-   - `gate_key` 固定为 `INPUT/TIME_FRONTIER/FUTURE_LEAKAGE/WARMUP/COVERAGE/OUT_OF_SAMPLE_SENSITIVITY`；最后一项把样本外衰减、简单基线和邻近参数敏感性作为同一道门禁，与技术方案及 Figma 六格一致。
-   - `status` 只允许 `PASS/FAIL/INSUFFICIENT`；保存 `summary/evidence_json/checked_at`，证据必须带验证合同身份和本门禁实际阈值。
-   - `OUT_OF_SAMPLE_SENSITIVITY=PASS` 表示评价程序完整可信，不表示必然存在有效参数；每个参数的效果结论单独保存在 `run_parameter_result`。
-2. `qtf.run_parameter_result`
-   - 公开键为 `result_key`；唯一键：`run_id + parameter_set_key`。
-   - 保存完整 `parameter_values_json`、1/3/5 日进入与留存指标、基线值、Lift、覆盖率、样本量、置信区间、全部指标 JSON、`SUPPORTED/REJECTED/INSUFFICIENT` 效果结论和结果哈希。
-3. `qtf.sector_signal_event`
-   - 只保存实际触发的派生事件，不保存每日完整输入或完整因子矩阵。
-   - 唯一键：`run_id + parameter_set_key + signal_trade_date + sector_code + entry_type`。
-   - 保存层级、父级、信号状态、信号日排名、未来 1/3/5 日结果、输入完整性摘要和事件哈希。
+纠偏后的首个二级行业能力只保留两类结果表：
 
-首个二级行业能力使用 PostgreSQL 保存上述结构化结果，不新增 Parquet 产物。若获批 R2 PLAN 估算的事件结果超过该轮预算，必须停止并单独评审产物介质，不能自动切换到文件。
+1. `qtf.run_parameter_result`
+   - 公开键为 `result_key`；唯一键：`run_id + parameter_set_key`。
+   - 保存完整 `parameter_values_json`、`tuning_metrics_json`、`validation_metrics_json`、`result_status` 和 `result_hash`。
+   - 两段 metrics 都按 1/3/5 日分别保存第 5.5 节的全部分子、分母、正确数、错误数和绝对百分比。
+   - 不保存 `ENTRY/RETENTION`、基线、Lift、置信区间、邻近参数通过率或 `SUPPORTED/REJECTED`。
+2. `qtf.sector_prediction_result`
+   - 保存前段和后段的全部可评价预测与不可评价记录，不能只保存 `signal=true` 的正向预测，否则无法统计漏报和“预测不会转热”的正确率。
+   - 唯一键：`run_id + parameter_set_key + segment + prediction_trade_date + sector_code + horizon_trade_days`。
+   - 显式字段至少包含 `segment`、预测日、行业/父级、horizon、`predicted_turn_hot`、`actual_turn_hot`、`outcome`、`unevaluable_reason` 和稳定 hash。
+   - `outcome` 只允许 `PREDICTED_HOT_ACTUAL_HOT / PREDICTED_HOT_ACTUAL_NOT_HOT / PREDICTED_NOT_HOT_ACTUAL_HOT / PREDICTED_NOT_HOT_ACTUAL_NOT_HOT / UNEVALUABLE`。
+
+旧 `qtf.run_gate_result` 和 `qtf.run_conclusion` 不属于当前简化回测，后续以前向迁移删除；旧 `qtf.sector_signal_event` 不能满足负向预测和漏报统计，后续以 `qtf.sector_prediction_result` 替换。首个二级行业能力继续使用 PostgreSQL 保存上述结构化结果，不新增 Parquet 产物。若获批 R2 PLAN 估算的预测结果超过该轮预算，必须停止并单独评审产物介质，不能自动切换到文件。
 
 ### 6.7 结论、候选和发布
 
-1. `qtf.run_conclusion`（M4）
-   - 每个完成 Run 最多一条当前结论；保存 unique `request_key`、`ENDED/OBSERVED`、操作者、意见和时间。
-   - M4 不接受 `NOMINATED`，也不创建 Candidate；相同 `request_key` 幂等，不同 payload 复用同一 key 必须冲突。
-2. `qtf.candidate`（M8）
-   - 关联一个 VALID Run 和一个 `run_parameter_result`；只有提名后才生成真正的 Candidate。
-   - 状态：`CANDIDATE/UNDER_REVIEW/REVIEWED/CHANGES_REQUESTED/APPROVED/REJECTED/PUBLISHED/RETIRED`。
-   - 保存不可变公式、参数、适用范围、验证报告哈希和 candidate hash。
-3. `qtf.candidate_action`（M8）
-   - 追加写 `SUBMIT/CONFIRM_REVIEW/REQUEST_NEW_EXPERIMENT/APPROVE/REJECT/PUBLISH/RETIRE`。
-   - 保存 unique `request_key`、前后状态、actor、意见、时间和 action hash。
-4. `qtf.release`（M8）
-   - 由 APPROVE 创建不可变 release 内容。
-   - 保存 `release_key/candidate_id/formula_version/params_json/scope_json/effective_trade_date/supersedes_release_id/release_hash`。
-   - 生命周期字段只允许由独立 publish/retire 动作更新；公式、参数、范围和 hash 不可改。
+1. M4 不建立独立 Run conclusion 表，也不生成 Candidate。管理员本轮只查看前段、后段和参数对账结果；是否继续研究通过新 Research/Revision 表达。
+2. 旧文档预设的 Candidate 状态、自动准入条件、action 和 release 表结构全部撤销，不属于当前可编码合同。
+3. M8 若恢复推进，必须根据真实 R2 结果单独设计产品流程、准入条件、状态、API、表和发布回滚；不得沿用旧 `VALID/SUPPORTED` 语义。
 
-M4 migration 只创建结果、证据和 `run_conclusion` 表，不创建 candidate、candidate_action 或 release。M8 才实现提名、候选、批准和发布；批准只创建可发布版本，发布必须另行执行并验证生产计算与 serving。首版平台框架不在没有专项生产 LLD 的情况下创建板块 serving 表。
+M4 纠偏迁移只调整回测结果表，不创建 candidate、candidate_action、release 或 conclusion。首版平台框架不在没有专项产品方案、技术方案和生产 LLD 的情况下创建候选、发布或板块 serving 表。
 
-### 6.8 Key、hash 与时间
+### 6.8 旧 M4.1 代码与表的安全删除顺序
 
-1. `researchKey/revisionKey/preflightKey/runKey/resultKey/parameterSetKey/candidateKey/releaseKey/requestKey` 都是后端生成或校验的 opaque string；前端不得解析其前缀获得业务含义。
+本节是后续代码纠偏的强制顺序。本轮只记录，不执行。
+
+#### A. 实施前只读门禁
+
+1. 重新读取根、`src`、`qtf`、迁移和测试目录规则，确认仍在 `dev-interface`，记录工作区并使用文件白名单。
+2. 重新执行 CodeGraph status、`ValidationContractDefinition`、`ExecutionPlan`、`RunParameterResult`、`SectorSignalEvent`、App QTF API 和模型注册影响面；若出现当前审计之外的新消费者，立即停止。
+3. 重新确认本地与生产 Alembic 单一 head；新迁移的 `down_revision` 只能连接实施日真实 head。不得修改、删除或重写已经执行的 `20260824_000149`。
+4. 只读检查 `qtf.research`、`qtf.experiment_revision`、`qtf.input_preflight`、`qtf.experiment_run`、`qtf.run_gate_result`、`qtf.run_parameter_result`、`qtf.sector_signal_event` 和 `qtf.run_conclusion` 的数量与状态。
+5. 必须同时满足：`research/revision/preflight/preflight_issue/run` 五张基础状态表和四张旧 M4.1 结果表全部为 0 行，且不存在任何可领取的 QTF TaskRun。2026-08-24 的零行结果只作为历史证据，不能替代实施日检查。
+6. 任一条件不满足时停止，不 drop 表、不自动改写 revision JSON、不把旧研究解释成新合同；先提交逐条数据处置方案给用户拍板。
+
+#### B. 合同与计算主链纠偏
+
+1. 先用正反例测试冻结第 5.5 节四格结果和第 5.6 节双时段合同；测试必须先证明旧 Bootstrap、Lift、ENTRY/RETENTION、三段切分和六道门禁字段被拒绝。
+2. 删除 `qtf/contracts/validation.py` 与 `qtf/modules/sector/validation_contract.py`，分别建立 `backtest.py/backtest_contract.py`；删除旧枚举和 registry，注册 `sector_l2_turn_hot_backtest_v1@1`，不保留旧模块、旧 key 的 alias、fallback 或兼容解析。
+3. 收缩 `qtf/api/schemas/research.py`、`qtf/contracts/formula.py`、`qtf/contracts/research.py`、`qtf/contracts/runtime.py`、`qtf/modules/sector/templates.py`、`qtf/modules/sector/input_preflight.py`：Template/Formula/ExecutionPlan 统一使用 `backtest_contract_key/version`，Revision 使用 `backtest_spec`，API DTO 和 `planHash/revisionHash` 只保留双时段、未来窗口、结果 schema、参数矩阵、输入范围和预算；同步 repository 与 canonical hash。
+4. 同步 `InputPreflightService`、`PlanFreezeService` 和 App QTF API：删除额外预热探针、置信方法和六道门禁拼装；保留来源只读预检、draft/plan hash、幂等、版本冲突和冻结不可变语义。
+5. 从参数 schema、解析器、hash、API DTO/映射和测试中删除 `event_cluster_rule`；`factor_kernel` 继续把 reset 后重新 armed 作为固定公式行为，不增加替代配置项。
+6. 更新 `SectorExperimentExecutor` 的冻结字段读取与业务阶段名称；保留每 Run 重读、同 Run 一次来源读取、参数组合安全取消、预算和 QTF/Ops 事务隔离。
+7. 将异常码注册表中的 `QTF_VALIDATION_INVALID/INSUFFICIENT` 标记退役并删除运行代码消费者；API 只返回正常 `resultStatus` 和不可评价原因，不新增替代异常码。
+
+#### C. 前向迁移与 ORM
+
+1. 从实施日真实 head 新增一条前向迁移。迁移开始时再次执行数据库内零行断言；任一旧结果表非空必须主动失败，禁止静默丢数据。
+2. 删除空的 `qtf.run_gate_result` 和 `qtf.run_conclusion`。
+3. 删除空的旧 `qtf.sector_signal_event`，创建第 6.6 节 `qtf.sector_prediction_result`。不在原表上保留 `entry_type` 或其他兼容列。
+4. 删除并按第 6.6 节重建空的 `qtf.run_parameter_result`，移除 `entry_metrics_json/retention_metrics_json/baseline_metrics_json/lift_metrics_json/confidence_intervals_json/effect_status` 等旧字段。
+5. 删除 `qtf/adapters/persistence/models/validation.py`，建立只包含两类新结果 ORM 的 `backtest.py`；同步模型导出和 `src/app/model_registry.py`，模型约束、唯一键和迁移 DDL 必须逐项一致。
+6. 将 `qtf.experiment_revision.validation_spec_json` 更名为 `backtest_spec_json`；实施前断言不存在 FROZEN revision，迁移不转换旧 JSON，也不保留双列或兼容属性。
+7. 将空的 `qtf.experiment_run.validation_status` 更名为 `result_status`，约束收缩为 `PENDING/READY/INSUFFICIENT/BLOCKED`；同步 runtime contract、repository、executor、API 和测试，不保留旧响应字段。
+8. 删除 `qtf/engine/validation_hash.py`，建立 `backtest_hash.py`，只覆盖运行指纹、参数汇总和全部 prediction result；稳定排序键必须包含 segment 与 horizon。
+9. migration `downgrade()` 只负责结构回退：先断言两张新结果表和全部 QTF 状态表为 0 行，再恢复 143/144/149 的原列名、约束和空表结构；不转换或丢弃任何非空结果。生产不得为验收实际执行 downgrade，除非用户另行明确批准。
+
+#### D. 测试、发布与回读
+
+1. 删除旧 M4.1 测试断言，并补齐新合同、旧字段拒绝、四格计数、全部分母分子可复算、不可评价不进分母、前后段严格有序和未来数据不回流的正反例。
+2. 全量回归 M1-M3：Research/Revision、preflight、PLAN/freeze/hash、Run/TaskRun 原子启动、每 Run 重读、单次内存输入、lane 隔离、取消、预算、管理员 API、wheel 和依赖矩阵不得退化。
+3. 使用显式白名单提交。生产部署安排短维护窗口：先阻止新的 QTF 管理动作，再由管理员停止 Web 与 QTF worker，随后重新确认无 `PLANNED/QUEUED/EXECUTING` Run；任一步不满足都不执行迁移。该维护动作不得借本需求扩大常驻 sudo 白名单或修改无关 worker。
+4. 在服务停止期间部署同一提交中的代码和前向迁移，先执行迁移 read-back，再启动 Web 与 QTF worker。禁止让旧进程访问新表结构，也禁止新进程在迁移前启动。
+5. 部署后只读确认：Alembic head 正确；两张旧表和旧 signal 表不存在；两张新结果表的列、约束和索引一致；QTF 基础状态表不受影响；受保护 API 和 QTF worker 正常。
+6. 全仓搜索旧合同 key、Bootstrap、Lift、ENTRY/RETENTION、`50_25_25`、六道 Gate、`event_cluster_rule`、`validation_spec/validation_status`、两个旧异常码、`RunGateResult/SectorSignalEvent/RunConclusion` 以及 `RunParameterResult` 的旧列名。除已执行的 `20260822_000143/20260823_000144/20260824_000149` 历史迁移和本节审计记录外，运行代码、测试和活跃技术契约必须为 0。
+7. 完成纠偏后停止。不得在同一切片顺手实现回测 evaluator、真实 R2、前端、Candidate 或发布。
+
+### 6.9 Key、hash 与时间
+
+1. `researchKey/revisionKey/preflightKey/runKey/resultKey/parameterSetKey/requestKey` 都是后端生成或校验的 opaque string；前端不得解析其前缀获得业务含义。
 2. 所有 `*_hash` 使用 SHA-256 小写十六进制。JSON 先按 UTF-8、key 排序、无多余空白的 canonical 形式序列化；日期为 ISO `YYYY-MM-DD`，时间为带时区 ISO-8601，Decimal 转为不丢精度的十进制字符串。
 3. 来源内容指纹按冻结字段、稳定业务键顺序流式更新 hash；不为计算 hash 保存完整输入副本。
-4. `revision_hash` 覆盖问题、成功定义、非目标、来源、对象池、比较范围、公式、全部生效参数、验证合同和预算；任何一项变化都必须产生新 hash。
-5. `result_hash` 覆盖运行指纹、门禁、候选摘要和 signal events；排序必须稳定，重算相同事实应得到相同 hash。
+4. `revision_hash` 覆盖问题、成功定义、非目标、来源、对象池、比较范围、公式、全部生效参数、双时段回测合同和预算；任何一项变化都必须产生新 hash。
+5. `result_hash` 覆盖运行指纹、参数汇总和全部 prediction results；排序必须稳定，重算相同事实应得到相同 hash。
 6. 数据库时间统一保存 UTC `timestamptz`；业务交易日单独使用 `date`。前端只格式化，不以浏览器时间生成研究日期。
 
 ---
@@ -672,7 +745,7 @@ FROZEN --derive new revision--> new DRAFT
 
 1. “保存草稿”只更新 DRAFT，并校验 `draftVersion`；DRAFT 可以不完整，但不完整状态不得冻结或运行。
 2. `DRAFT_PREVIEW` 绑定当前 draft hash 生成输入证据与 PLAN，不改变 revision 状态。
-3. freeze 绑定 PASS preflight 与管理员确认的 plan hash，补齐完整验证合同、预算和生效参数后一次性转为 FROZEN。
+3. freeze 绑定 PASS preflight 与管理员确认的 plan hash，补齐完整双时段回测合同、预算和生效参数后一次性转为 FROZEN。
 4. “返回修改”回到同一 DRAFT；FROZEN 不可返回后直接覆盖。
 5. FROZEN 需要修改时创建下一 revision。
 
@@ -681,16 +754,16 @@ FROZEN --derive new revision--> new DRAFT
 ```text
 PLANNED -> QUEUED -> EXECUTING -> COMPLETED
                     |            |
-                    |            +-> validation VALID / INVALID / INSUFFICIENT
+                    |            +-> result READY / INSUFFICIENT
                     +-> FAILED / CANCELED / BLOCKED
 ```
 
 1. `BLOCKED`：输入或计划门禁不合格，未开始公式计算。
 2. `FAILED`：程序或基础设施执行失败。
 3. `CANCELED`：用户请求取消，并在当前参数组合安全点结束。
-4. `COMPLETED + INVALID/INSUFFICIENT` 是合法研究结论，不改写成系统失败。
-5. `VALID` 只表示方法、输入证据与评价过程可信；全部参数均为 `REJECTED` 时 Run 仍可 `VALID`，业务结论是“本轮未找到”。
-6. M4 对任何 `COMPLETED` Run 只开放 `END/OBSERVE`；M8 才允许从 `COMPLETED + VALID` 且效果为 `SUPPORTED` 的参数结果创建 Candidate。
+4. `COMPLETED + READY` 表示前后两段的完整预测对账结果已经生成，不表示算法一定足够好。
+5. `COMPLETED + INSUFFICIENT` 表示没有足够可评价样本；必须展示实际数量和不可评价原因，不改写成系统失败。
+6. M4 不自动形成结论或 Candidate；管理员只读取每个参数的原始结果，后续研究与发布分别按后续里程碑处理。
 
 ### 7.3 TaskRun 对应关系
 
@@ -703,21 +776,11 @@ PLANNED -> QUEUED -> EXECUTING -> COMPLETED
 | `FAILED/BLOCKED` | `failed` |
 | `CANCELED` | `canceled` |
 
-TaskRun success 只表示执行完成。QTF `validation_status` 是研究可信度的唯一事实。
+TaskRun success 只表示执行完成。QTF `result_status` 只说明回测结果是否已经生成或样本不足；算法优劣必须读取具体预测对账数据，不能从状态值推断。
 
 ### 7.4 候选与发布
 
-```text
-CANDIDATE -> UNDER_REVIEW -> REVIEWED -> APPROVED -> PUBLISHED -> RETIRED
-       |            |            |
-       +----------> REJECTED     +-> CHANGES_REQUESTED -> new DRAFT revision
-```
-
-1. “确认审核”只到 REVIEWED。
-2. “批准版本”只到 APPROVED，并生成 release 内容。
-3. “发布生效”单独到 PUBLISHED。
-4. 同一管理员可以依次操作，但每一步必须有独立 action row。
-5. 新版本生产计算或校验失败时，旧 PUBLISHED release 保持生效。
+当前不定义候选与发布状态机。M4 只到回测结果；真实 R2 完成后，如需继续产品化，再独立设计 Candidate、审批、release、生产计算和回滚合同。
 
 ---
 
@@ -729,16 +792,16 @@ CANDIDATE -> UNDER_REVIEW -> REVIEWED -> APPROVED -> PUBLISHED -> RETIRED
 2. 全部接口使用 `require_admin`，不新增 QTF 权限。
 3. DTO 使用 camelCase，`extra="forbid"`。
 4. 写接口必须带当前对象版本或 hash，防止重复点击和旧页面覆盖。
-5. POST 动作通过业务键幂等；同一动作重复提交返回当前结果，不重复创建 Run、候选或 release。
+5. POST 动作通过业务键幂等；同一动作重复提交返回当前结果，不重复创建 Research、Revision 或 Run。
 6. API 不返回 TaskRun 的 `technical_payload_json`、SQL、连接信息或内部堆栈。
 
-里程碑开放顺序：M3 只开放二级行业垂直切片所需的 template、draft、preflight、freeze、run command 和 run detail；M4 增加 results 与仅支持 `END/OBSERVE` 的 conclusion；M6 才补齐 overview 和完整 registry 并收敛为工作台稳定合同；M8 才增加 Candidate 创建、查询、评审与发布。所有阶段调用同一 application service，不建设临时脚本 API。
+里程碑开放顺序：M3 只开放二级行业垂直切片所需的 template、draft、preflight、freeze、run command 和 run detail；M4 只增加双时段回测 results；M6 才补齐 overview 和完整 registry 并收敛为工作台稳定合同。候选与发布等待后续专项设计。所有阶段调用同一 application service，不建设临时脚本 API。
 
 ### 8.2 总览和注册表
 
 | 方法 | 路径 | 作用 |
 |---|---|---|
-| GET | `/overview` | 卡片计数、下一决策、研究列表、当前 release |
+| GET | `/overview` | 卡片计数、下一决策和研究列表 |
 | GET | `/templates` | 可用研究模板 |
 | GET | `/formulas` | 已注册公式与版本，只读 |
 | GET | `/parameter-schemas/{schemaKey}` | 参数字段、范围、依赖和展示说明 |
@@ -752,7 +815,7 @@ CANDIDATE -> UNDER_REVIEW -> REVIEWED -> APPROVED -> PUBLISHED -> RETIRED
 | POST | `/researches` | 从 template 创建 research 和 revision 1 DRAFT |
 | GET | `/researches/{researchKey}` | 当前研究和版本摘要 |
 | PUT | `/researches/{researchKey}/draft` | 保存 DRAFT；要求 `draftVersion` |
-| POST | `/researches/{researchKey}/revisions` | 从已冻结版本或候选派生新 DRAFT |
+| POST | `/researches/{researchKey}/revisions` | 从已冻结版本派生新 DRAFT |
 | POST | `/researches/{researchKey}/input-preflights` | 复用既有来源合同，对当前 draft hash 的精确对象池和日期范围做有界 Prod 只读预检 |
 | POST | `/researches/{researchKey}/freeze` | 绑定 PASS preflight、完整参数和批准的 PLAN hash，生成 FROZEN revision |
 
@@ -778,8 +841,7 @@ CANDIDATE -> UNDER_REVIEW -> REVIEWED -> APPROVED -> PUBLISHED -> RETIRED
 | POST | `/revisions/{revisionKey}/runs` | 从 FROZEN revision 创建新 Run；每次重读，不复用旧结果 |
 | GET | `/runs/{runKey}` | QTF 状态 + 安全 TaskRun 进度视图 |
 | POST | `/runs/{runKey}/cancel` | 请求在安全点取消 |
-| GET | `/runs/{runKey}/results` | 门禁、候选比较、敏感性和失败样本 |
-| POST | `/runs/{runKey}/conclusion` | M4 只接受 `END/OBSERVE` |
+| GET | `/runs/{runKey}/results` | 每个参数在前段和后段的完整二元预测对账结果 |
 
 创建 Run 使用一个短暂的“执行意图事务”：
 
@@ -793,19 +855,9 @@ CANDIDATE -> UNDER_REVIEW -> REVIEWED -> APPROVED -> PUBLISHED -> RETIRED
 
 ### 8.5 候选和发布
 
-| 方法 | 路径 | 作用 |
-|---|---|---|
-| GET | `/candidates/{candidateKey}` | 候选、证据、评审清单和动作状态 |
-| POST | `/candidates/{candidateKey}/review` | 确认审核 |
-| POST | `/candidates/{candidateKey}/request-experiment` | 标记需新实验并派生 DRAFT |
-| POST | `/candidates/{candidateKey}/reject` | 拒绝候选 |
-| POST | `/candidates/{candidateKey}/approve` | 生成 APPROVED release |
-| POST | `/releases/{releaseKey}/publish` | 独立发布 |
-| GET | `/releases/current` | 当前生效 release |
+当前不存在候选和发布 API。任何 `/candidates/*`、`/releases/*` 或从 results 偷渡提名动作的请求都应为 404/不路由；后续必须有单独产品方案和 LLD 才能增加。
 
-`publish` 在 M8 前不得实现为空操作。没有生产计算、同核校验、serving 原子切换和回滚合同，就只能保留 APPROVED，不能返回 PUBLISHED。
-
-### 8.6 六页读取 DTO
+### 8.6 当前工作台读取 DTO
 
 所有 DTO 返回业务事实和业务动作，不返回 CSS tone、TaskRun 原始字段或 Figma 示例值。以下字段是首版最小合同；Pydantic 模型不得以无约束 `dict[str, Any]` 代替这些顶层结构。
 
@@ -813,16 +865,12 @@ CANDIDATE -> UNDER_REVIEW -> REVIEWED -> APPROVED -> PUBLISHED -> RETIRED
 
 ```text
 asOf
-summary { activeResearchCount, runningRunCount, pendingDecisionCount, currentReleaseCount }
+summary { activeResearchCount, runningRunCount, pendingResultCount }
 nextDecision? { decisionType, title, summary, targetType, targetKey }
 researches[] {
   researchKey, title, templateKey, templateTitle, researchStatus,
-  latestRevisionNo, latestRunStatus?, validationStatus?, lastActivityAt,
+  latestRevisionNo, latestRunStatus?, resultStatus?, lastActivityAt,
   nextAction { action, targetType, targetKey, enabled, disabledReason? }
-}
-currentRelease? {
-  releaseKey, title, formulaVersion, parameterSummary,
-  effectiveTradeDate, consumers[], publishedAt
 }
 ```
 
@@ -839,6 +887,7 @@ scope {
   candidateTrendDays[], candidateBaselineDays[], futureHorizons[],
   sharedParameterScope, runPolicy, dataResponsibility
 }
+backtestConfig? { splitRule, splitDate, futureHorizonRules, resultSchemaVersion }
 canEdit, canPreflight, blockingReasons[]
 ```
 
@@ -856,8 +905,7 @@ preflight {
 }
 plan {
   parameterMatrix[], fixedParameters[], futureHorizons[], comparisonScope,
-  evaluationCalendar, sampleSplit, primaryObjective, successDefinition,
-  validationGateConfig, hardGates[], stopConditions[], budget, planHash
+  backtestConfig, resultSchemaVersion, stopConditions[], budget, planHash
 }
 acknowledgements[] { key, label, required, acknowledged }
 canFreeze, blockingReasons[]
@@ -865,12 +913,12 @@ canFreeze, blockingReasons[]
 
 `datasetEvidence` 至少包含 `datasetKey/fields/dateRange/rowCount/uniqueKeyStatus/missingCount/duplicateCount/contentHash`；issue 至少包含 `code/severity/datasetKey/tradeDate?/objectKey?/message/remediationOwner`。
 
-`requestedStartDate/requestedEndDate` 是评价日历边界；`plan.evaluationCalendar` 必须同时返回系统解析出的来源起止日、正式预热天数、预热探针天数和 5 日标签尾部。前端不得把来源扩展范围误显示为用户选择的研究区间。
+`requestedStartDate/requestedEndDate` 是回测预测日历边界；`plan.backtestConfig.backtestPeriods` 必须同时返回前段、后段、系统解析出的来源起止日、公式实际所需历史和 5 日结果尾部。前端不得把来源扩展范围误显示为用户选择的回测区间。
 
 #### `RunDetailResponse`
 
 ```text
-runKey, researchKey, revisionKey, revisionNo, runStatus, validationStatus
+runKey, researchKey, revisionKey, revisionNo, runStatus, resultStatus
 formulaVersion, codeCommit?, sourceContentHash?, startedAt?, endedAt?
 progress {
   percent?, completedParameterSetCount, totalParameterSetCount,
@@ -878,43 +926,25 @@ progress {
   observerStatus, latestUpdates[] { occurredAt, stageKey, message }
 }
 stages[] { stageKey, label, status, summary? }
-frozenPlanSummary { objectCount, comparisonScope, candidateCount, sampleSplit, sourceKind }
+frozenPlanSummary { objectCount, comparisonScope, candidateCount, backtestPeriods, sourceKind }
 failure? { code, message, retryable }
 ```
 
-`observerStatus=DEGRADED` 只表示 TaskRun 观测异常；不能覆盖 QTF `runStatus/validationStatus`。percent 为空时展示不确定进度，不伪造百分比。
+`observerStatus=DEGRADED` 只表示 TaskRun 观测异常；不能覆盖 QTF `runStatus/resultStatus`。percent 为空时展示不确定进度，不伪造百分比。
 
 #### `RunResultsResponse`
 
 ```text
-runKey, runStatus, validationStatus, resultHash?
-gates[] { gateKey, status, summary, evidenceMetrics[] }
-decisionSummary { conclusion, explanation }
+runKey, runStatus, resultStatus, resultHash?
 parameterResults[] {
   resultKey, parameterSetKey, displayOrder, parameterValues,
-  sampleSize, coverageRate, successRates1d3d5d,
-  baselineRates1d3d5d, lifts1d3d5d, confidenceIntervals,
-  entryMetrics, retentionMetrics, diagnosticMetrics, resultStatus
+  tuningResultsByHorizon, validationResultsByHorizon,
+  resultStatus
 }
-sensitivity[]
-failureSamples[]
-allowedConclusions[]
+unevaluableSummary[]
 ```
 
-`parameterResults[]` 是“可比较的参数组合结果”，不是已经提名的 Candidate。`displayOrder` 由后端在全部参数组合完成且门禁结论生成后给出；未完成 Run 不返回排名。`parameterValues` 的 key 必须属于冻结 schema，指标集合由首个 sector template 的显式 Pydantic 子模型承载。M4 的 `allowedConclusions` 只能为 `END/OBSERVE`，不得返回 NOMINATE 或 Candidate 入口。
-
-#### `CandidateReviewResponse`
-
-```text
-candidateKey, candidateStatus, researchKey, revisionKey, runKey
-formulaVersion, parameterValues, scope, validationReportHash, candidateHash
-evidenceSummary, checklist[] { checkKey, status, label, evidence }
-actionHistory[] { action, fromStatus, toStatus, actorDisplayName, comment?, occurredAt }
-allowedActions[] { action, enabled, disabledReason? }
-release? { releaseKey, releaseStatus, effectiveTradeDate?, publishedAt? }
-```
-
-Actor 只用于审计展示；接口不引入分析员/审核员等新角色。M8 设计闭合前，`allowedActions` 只可返回 `REJECT/REQUEST_NEW_EXPERIMENT/CONFIRM_REVIEW`，不能提前返回 APPROVE/PUBLISH。
+`parameterResults[]` 是“可比较的参数组合结果”，不是已经提名的 Candidate。`displayOrder` 只提供稳定展示顺序，不代表系统自动评选最佳参数；未完成 Run 不返回结果。每个 horizon 的结果必须包含第 5.5 节全部分子、分母、正确数、错误数和绝对百分比，`parameterValues` 的 key 必须属于冻结 schema。M4 不返回 conclusion、NOMINATE 或 Candidate 入口。
 
 ### 8.7 写请求最小字段
 
@@ -923,9 +953,8 @@ Actor 只用于审计展示；接口不引入分析员/审核员等新角色。M
 3. 单次输入预检：`requestKey/draftVersion/requestedStartDate/requestedEndDate`。
 4. 冻结：第 8.3 节字段外加 `requestKey`；相同 revision hash 重试返回已有 FROZEN revision。
 5. 创建 Run：`requestKey/revisionHash`；App 必须调用 `stage_task_run()`，与 Run/link 一次 commit，不能调用会自行 commit 的 `create_task_run()`。
-6. 取消与 M4 结论：`requestKey/currentVersion/comment?`；结论 action 只允许 `END/OBSERVE`，重复 requestKey 返回原结果。
-7. M8 候选创建另设动作并要求 `resultKey/resultHash`；不得复用 M4 conclusion 路由偷渡 `NOMINATE`。
-8. publish 额外要求 `releaseHash/effectiveTradeDate`；M8 前路由不存在。
+6. 取消：`requestKey/currentVersion/comment?`。
+7. 当前没有候选或发布写请求；results 路由只读。
 
 ---
 
@@ -984,10 +1013,10 @@ WorkerLane.STK_MINS / INDEX_MINS
 
 1. `RUN_PREFLIGHT`：复用既有来源合同重新直读，并生成本 Run 的 input preflight；不做新的来源选型或全库覆盖审计。
 2. `LOAD_INPUT`：一次性读取冻结字段和范围，形成只存在于进程内的不可变输入集合。
-3. `RUN_PARAMETER_SETS`：按冻结顺序逐组合计算并单独提交完整参数结果。
-4. `VALIDATE`：运行六道可信门禁。
-5. `SUMMARIZE`：生成主要目标、基线、敏感性、失败样本和 result hash。
-6. `FINALIZE`：更新 QTF Run 业务终态。
+3. `CALCULATE_TUNING`：按冻结顺序计算每个参数在前段的逐日预测与真实结果。
+4. `CALCULATE_VALIDATION`：使用同一参数和公式计算后段，不改变参数或成功定义。
+5. `SUMMARIZE`：按参数、segment 和 horizon 汇总第 5.5 节全部分子、分母、正确数、错误数和 result hash。
+6. `FINALIZE`：更新 QTF Run 业务终态与 `result_status`。
 
 TaskRun 节点标题使用上述业务语言，不展示 DAO、SQL 或内部类名。
 
@@ -1001,11 +1030,11 @@ TaskRun 节点标题使用上述业务语言，不展示 DAO、SQL 或内部类�
 
 ### 9.5 事务隔离
 
-1. QTF executor 用 QTF business session 提交输入门禁记录、参数组合结果、可信门禁和 Run 状态。
+1. QTF executor 用 QTF business session 提交输入门禁记录、完整参数组合结果、逐样本预测结果和 Run 状态。
 2. App observer 用另一条 Ops session 写 TaskRun 进度、节点和问题。
 3. Ops 进度写失败由 observer 捕获并降级为观测异常；不得 rollback 已提交的 QTF 结果。
 4. Worker 最终 TaskRun 状态写失败时，QTF Run 仍保留真实终态；QTF API 显示“结果已生成，运行观测异常”。
-5. QTF 业务写失败时，TaskRun 可以失败，但不得生成 VALID、候选或 release。
+5. QTF 业务写失败时，TaskRun 可以失败，但不得生成 READY、候选或 release。
 
 ---
 
@@ -1072,7 +1101,7 @@ robustZ_B(x(i,t))
 
 1. 历史窗口不含 `t`。
 2. `MAD=0`、历史不足、组日不完整时生成无效原因，不补分数。
-3. 状态合成、EWMA、阈值、reset、事件簇规则均来自冻结参数。
+3. 状态合成、EWMA、阈值和 reset 数值均来自冻结参数；“发出一次转热预测后，跌破 reset 才重新具备再次预测资格”是固定公式语义，不再包装成只有一个允许值的 `event_cluster_rule` 参数。
 4. 未来标签只使用 `t+1` 之后的交易日。
 5. 未来成功不得用同一平滑 heat 序列自我证明，必须使用独立的未来父级内横向排名与客观价格/成交结果。
 
@@ -1084,9 +1113,9 @@ heatState_B(i,t)
   + (1 - lambda) * heatState_B(i,t-1)
 ```
 
-### 10.5 M4 评价日历、预热与未来标签尾部
+### 10.5 M4 双时段、公式历史与未来结果尾部
 
-API 保留 `requestedStartDate/requestedEndDate` 名称，但从 M4 起它们明确表示管理员希望评价信号的起止交易日，不再表示来源查询的原始边界。系统按当前冻结 PLAN 确定实际读取范围：
+API 保留 `requestedStartDate/requestedEndDate` 名称，它们表示管理员希望产生预测并评价结果的起止交易日，不是来源查询的原始边界。管理员还必须显式选择一个前段结束日；后段从下一个 SSE 开放交易日开始。系统按冻结 PLAN 确定实际读取范围：
 
 ```text
 requiredHistoryTradeDays
@@ -1094,7 +1123,7 @@ requiredHistoryTradeDays
 
 resolvedSourceStartDate
   = requestedStartDate 之前第
-    (requiredHistoryTradeDays + warmupProbeTradeDays) 个已发布交易日
+    requiredHistoryTradeDays 个已发布交易日
 
 resolvedSourceEndDate
   = requestedEndDate 之后第 5 个已发布交易日
@@ -1102,13 +1131,14 @@ resolvedSourceEndDate
 
 确定性规则：
 
-1. `requestedStartDate..requestedEndDate` 是评价日历；它之前的 `requiredHistoryTradeDays` 只用于公式正式预热，更早的 `warmupProbeTradeDays` 只用于预热稳定差分。两段均不产生研究事件、基础概率或评价指标。
-2. `requestedEndDate` 之后恰好 5 个已发布交易日是标签尾部，只用于 `t+1..t+5` 结果，不产生新的候选信号、不进入基础概率，也不参加 IS/校准/OOS 切分。
-3. `50%/25%/25%` 按评价日历中的 SSE 开放交易日升序确定一次：`IS=floor(N*0.50)`、`CALIBRATION=floor(N*0.25)`、`OOS=N-IS-CALIBRATION`。切分不按候选、父行业、事件数或有效结果重新计算。
-4. 某父级组日在评价日或标签日不完整时，只使该父级对应事件或 horizon 不可评价，不改变全局阶段边界，不借用其他父级事实。
-5. 来源内容指纹覆盖完整 `resolvedSourceStartDate..resolvedSourceEndDate`，包括预热、评价和标签尾部；任何范围内已读取事实变化都必须创建新 Run。
-6. 若历史前缀不足、三段中任一段为空，或请求日之后尚不存在完整 5 日标签尾部，PLAN 不得冻结。若只是请求结束日过晚，使用 `QTF_REQUEST_INVALID` 要求调整评价范围；若按 as_of 应已发布但 Prod 事实缺失，则由 input preflight BLOCKED 并交回 Prod 修复。
-7. 未来标签只能读取标签尾部的客观排名事实，不能回流到因子、EWMA、信号、阶段边界或参数选择。
+1. `requestedStartDate..tuningEndDate` 是前段；`validationStartDate..requestedEndDate` 是后段，且 `validationStartDate` 必须是 `tuningEndDate` 后的下一个 SSE 开放交易日。
+2. 不固定 `50/25/25` 或其他比例，也没有第三个“校准段”。PLAN 必须列出两段的真实日期和交易日数，两段都不得为空。
+3. `requestedStartDate` 之前只读取公式实际需要的历史。历史前缀不产生预测，不计算成功率；不再额外读取“预热稳定探针”。
+4. `requestedEndDate` 之后最多 5 个已发布交易日只用于判断最后几个预测的真实结果，不产生新预测，也不进入前段或后段。
+5. 每个预测日 `t` 的公式只能读取 `t` 及之前的事实；未来真实结果由独立步骤读取，不能回流到公式、参数选择或日期切分。
+6. 某父级组日在预测日或未来结果日不完整时，只把对应样本/horizon 标记为 `UNEVALUABLE`；不补零、不前向填充、不借用其他父级事实。
+7. 来源内容指纹覆盖实际读取的公式历史、前段、后段和未来结果尾部；范围内任何已读取事实变化都必须创建新 Run。
+8. 公式历史不足、任一段为空或未来结果尾部不足时不得启动。按 as-of 应有但 Prod 缺失的事实由 input preflight 标为 `BLOCKED` 并交回上游修复。
 
 ### 10.6 R2 仍需批准的内容
 
@@ -1117,9 +1147,9 @@ resolvedSourceEndDate
 1. 本次 Run 根据当前已发布层级解析出的二级行业对象数和父级组分布；这是 PLAN 运行范围，不是新的数据覆盖审计。
 2. 实际研究起止日期、完整组日和排除规则结果。
 3. `W` 是否一次执行 `5/10/20/30` 全部候选。
-4. 信号阈值、reset、向上占比、lambda、权重和事件簇规则。
+4. 信号阈值、reset、向上占比、lambda 和权重；固定的 reset 后重新具备预测资格语义不作为候选参数。
 5. 小组最小规模与上榜规则。
-6. `validationGateConfig` 中的预热探针长度与容差、覆盖门槛、效果门槛、置信区间数值和 required horizons；成功计算规则与时间切分算法已由 M4.0 固定，不再由 R2 自由改写。
+6. 明确的前段结束日、后段开始日和要评价的未来窗口；第 5.5 节的四格结果定义不得由 R2 改写。
 7. 扫描行数、组合数、预计耗时、峰值内存和事件产物预算。
 
 M5 执行时，这些字段必须先由正式 QTF application service 生成可读 PLAN 报告和 canonical plan hash，由用户在任务中明确批准后，再通过同一管理员 API 冻结；不能直接调用研究脚本。M7 页面实现后，同一合同必须完整显示在冻结页并由用户点击确认，不能另造一套页面默认值。
@@ -1138,8 +1168,7 @@ type QtfRoute =
   | { kind: "researchEdit"; researchKey: string }
   | { kind: "researchFreeze"; researchKey: string }
   | { kind: "runDetail"; runKey: string }
-  | { kind: "runResults"; runKey: string }
-  | { kind: "candidateReview"; candidateKey: string };
+  | { kind: "runResults"; runKey: string };
 ```
 
 路径参数必须 `decodeURIComponent`，空值和多余段落不匹配。`WealthRouter` 在普通 `/wealth/exploration` 之前识别 QTF 子路由。
@@ -1156,7 +1185,7 @@ type QtfRoute =
 4. 按 QTF route 装配一个子页面。
 5. 处理 401 登录跳转和 403 Forbidden 稳定骨架。
 
-它不得聚合或重算参数结果、Lift、门禁或研究状态。
+它不得聚合或重算参数结果、成功率或研究状态。
 
 ### 11.3 Feature 数据流
 
@@ -1166,17 +1195,17 @@ qtfApi client -> strict response type -> adapter -> page view model -> QTF compo
 
 1. 后端直接返回业务状态和展示所需事实。
 2. adapter 只做日期、百分比、数字和状态文案格式化。
-3. 组件不从 TaskRun status 推断 VALID。
-4. 结果表排序由 API 明确提供 `displayOrder`，前端不挑“冠军”。
+3. 组件不从 TaskRun status 推断回测结果已经完整生成。
+4. 结果表排序由 API 明确提供 `displayOrder`；前端不计算成功率，也不自动挑“冠军”。
 5. 示例数据和 mock 不得进入 real API error fallback。
 6. 所有请求经 `wealthFetch` 发出；401 沿用统一 refresh/登录流程，403 留在页面稳定骨架内显示 forbidden。
 
-### 11.4 六页行为
+### 11.4 当前五页行为
 
 #### 研究总览 `778:52`
 
-1. 展示真实计数、下一决策、研究列表和当前 release。
-2. “查看运行 / 阅读证据 / 继续编辑 / 查看结论”只使用 API 返回的目标 key 构造路由。
+1. 展示真实计数、下一决策和研究列表。
+2. “查看运行 / 阅读结果 / 继续编辑”只使用 API 返回的目标 key 构造路由。
 3. “新建研究”先打开模板选择，不创建空白自由研究。
 
 #### 定义研究 `778:120`
@@ -1200,17 +1229,12 @@ qtfApi client -> strict response type -> adapter -> page view model -> QTF compo
 
 #### 结果比较 `778:324`
 
-1. 先显示六道门禁，再显示参数组合结果。
-2. INVALID/INSUFFICIENT 时禁用提名，但允许结束或保留观察。
-3. 不提前展示运行中的局部冠军。
-4. Figma 百分比全部替换为 API 真实值；开发测试不得断言示例百分比。
+1. 先显示前段和后段的日期、交易日数、参数组合及可评价样本数，再显示每个参数在两个时段的完整四格结果。
+2. 每个参数、每个 future horizon 都展示第 5.5 节列出的全部原始数量、分子、分母和绝对百分比；不得只展示一个成功率，更不得展示 Lift、置信区间或综合评分。
+3. `INSUFFICIENT` 时显示不可评价数量和原因；它不是程序失败，也不自动形成研究结论。
+4. 不提前展示运行中的局部结果或“冠军”。Figma 当前旧门禁/基线/Lift 设计必须在 M7 前重做；前端不得为旧稿补造后端字段。
 
-#### 候选评审 `778:392`
-
-1. “拒绝候选”写 REJECT action。
-2. “要求新实验”写 CHANGES_REQUESTED，并派生新 DRAFT。
-3. “确认审核”只写 REVIEWED。
-4. 批准和发布等待 F04 设计闭合，不得借确认审核自动执行。
+Figma 候选评审节点 `778:392` 不属于当前五页交付范围，也不是可开发合同；保留节点仅作历史设计证据，后续若恢复候选能力必须重新审计和设计。
 
 ### 11.5 页面状态
 
@@ -1242,7 +1266,7 @@ qtfApi client -> strict response type -> adapter -> page view model -> QTF compo
 
 ## 12. 异常码设计
 
-以下条目已经登记到 `wealth/docs/system/exception-code-registry.md`；M4 API 编码只能复用这些已登记 code，401/403 继续复用认证层。本节中的 `QTF_VALIDATION_INVALID/INSUFFICIENT` 是业务结果 reason code，不是 HTTP 异常。
+以下为简化回测继续使用的异常码。401/403 继续复用认证层。旧 `QTF_VALIDATION_INVALID/INSUFFICIENT` 来自已否决的复杂门禁设计，代码纠偏时应在异常码注册表中退役；正常的结果完整、样本不足和不可评价均通过 200 业务响应表达。
 
 | code | 语义 | HTTP / 状态 | 前端动作 |
 |---|---|---|---|
@@ -1255,18 +1279,16 @@ qtfApi client -> strict response type -> adapter -> page view model -> QTF compo
 | `QTF_PLAN_BUDGET_EXCEEDED` | 实际范围超过本 Run 获批预算 | 409/BLOCKED | 停止并重新审批 |
 | `QTF_INPUT_CHANGED_DURING_RUN` | preflight 后输入内容在同一 Run 内变化 | FAILED/BLOCKED | 新建 Run，不覆盖旧 Run |
 | `QTF_RUN_FAILED` | 执行程序失败 | 500/FAILED | 展示简要原因和新 Run 入口 |
-| `QTF_VALIDATION_INVALID` | 执行成功，但时间前沿、未来泄漏、预热或评价程序违反冻结合同 | 200 + INVALID | 展示失败证据；M4 只允许 END/OBSERVE |
-| `QTF_VALIDATION_INSUFFICIENT` | 方法未发现错误，但历史、未来标签、事件或覆盖不足以评价 | 200 + INSUFFICIENT | 展示不足证据；M4 只允许 END/OBSERVE |
 | `QTF_RELEASE_CONFLICT` | 批准、发布或替代关系冲突 | 409 | 保留当前 release，刷新状态 |
 | `QTF_QUERY_FAILED` | 未分类查询/服务异常 | 500 | 页面 error，可重试 |
 
 M4 错误映射固定如下：
 
-1. `validationGateConfig` 缺失、未知字段、非法数值、成功定义或日期合同非法：`QTF_REQUEST_INVALID`。
+1. 双时段边界、参数、未来窗口或日期合同缺失、未知、非法：`QTF_REQUEST_INVALID`。
 2. PLAN 配置或范围变化导致管理员确认的 hash 失效：`QTF_PLAN_NOT_APPROVED`。
-3. Run 尚未完成就读取结果、重复写入不同结论或提交 M4 不支持的 `NOMINATE`：`QTF_STATE_CONFLICT`。
-4. `INVALID/INSUFFICIENT` 随正常 `200 RunResultsResponse` 返回，不抛异常、不把 TaskRun 改成 failed。
-5. 没有参数达到效果门槛不是异常码，也不是 `INVALID`；返回 `VALID` Run、零个 `SUPPORTED` 参数和“本轮未找到”的结果说明。
+3. Run 尚未完成就读取结果，或重复写入不同结果：`QTF_STATE_CONFLICT`。
+4. `READY/INSUFFICIENT` 随正常 `200 RunResultsResponse` 返回，不抛异常、不把 TaskRun 改成 failed。
+5. 某参数成功率较低不是异常，也不由平台改写成通过/不通过；API 仍返回它的全部原始数量和百分比。
 
 ---
 
@@ -1284,7 +1306,7 @@ M4 错误映射固定如下：
 
 1. 实施日先断言单一 Alembic head，再生成 migration。
 2. M1 migration 只创建 `qtf` schema、Research/Revision 及其约束；不得顺手创建尚未进入里程碑的 Run、结果、候选或发布表。
-3. M3、M4、M8 分别以实施当日真实 head 追加各自范围的 preflight/Run、结果证据、candidate/release 表和约束，不预先猜测 `down_revision`。
+3. M3、M4R 分别以实施当日真实 head 追加各自范围的 preflight/Run 与结果表和约束，不预先猜测 `down_revision`；候选/发布若恢复推进必须另立迁移设计。
 4. SQLite 测试使用兼容类型；不能因测试方便移除 PostgreSQL 约束。
 5. FROZEN revision 不能更新冻结字段。
 6. 同一 Run、候选或 action 的幂等键不能重复。
@@ -1311,18 +1333,17 @@ M4 错误映射固定如下：
 ### 13.4 公式、未来泄漏与验证
 
 1. `robustZ` 历史窗口不含当日，MAD=0 返回无效原因。
-2. 修改 `t+1` 及未来输入不能改变 `t` 日因子或信号。
+2. 修改 `t+1` 及未来输入不能改变 `t` 日因子和“会转热/不会转热”预测；该反例只证明程序没有偷看未来，不额外计算一套“未来泄漏门禁分数”。
 3. 60/120 分别预热，不允许用 60 的有效结果填 120。
 4. 父级内排名不混入其他一级行业的二级行业。
 5. 所有二级行业共享同一 effective parameter set。
 6. 未来成功使用独立横向事实，不以未来平滑 heat 自证。
-7. `ENTRY/RETENTION` 分开，1/3/5 日分别按 1/1、2/3、3/5 判定；缺任一所需未来组日为 `UNEVALUABLE` 而不是失败。
-8. 评价起止日只切分评价日；正式预热、预热探针和 5 日标签尾部不能进入事件、基础概率或 IS/校准/OOS 指标。
-9. `IS=floor(50%)`、`CALIBRATION=floor(25%)`、OOS 取剩余；不同候选和父级不能重新切分日期。
-10. 所有门禁配置值进入 plan hash；缺值、多值、旧 hash 和代码默认值兜底均被拒绝。
-11. 时间前沿和未来泄漏为零容忍；预热、覆盖、置信和 OOS/sensitivity 使用 PLAN 显式值。
-12. INVALID、INSUFFICIENT 与 VALID 三态均有正反例；“方法有效但零个参数达标”必须是 VALID + 本轮未找到。
-13. 简单价格/成交基线和候选使用相同未来窗口与有效组日。
+7. 只验证“转热”；当前已经热的样本不进入转热预测母体，不计算续热率。
+8. 1/3/5 日分别按 1/1、2/3、3/5 个未来客观上榜日判定实际是否转热；缺任一所需未来组日为 `UNEVALUABLE`，不是预测失败。
+9. 前段和后段必须按同一对象、同一参数、同一 horizon 和同一结果字段分别计算；后段结果不得参与前段参数计算。
+10. 每段、每参数、每 horizon 的四格数量及由其直接计算的所有绝对百分比必须逐项对账；任一分母为 0 时对应百分比为 `null/--`，不得伪造为 0%。
+11. 前段或后段样本不足时返回 `INSUFFICIENT` 和实际数量；不计算 Lift、置信区间、Bootstrap、复杂基线、参数邻近敏感性或综合分。
+12. 改一个参数后，测试必须证明比较对象、日期切分、future horizon 和输出字段没有同时偷偷变化。
 
 ### 13.5 Run、TaskRun 与事务
 
@@ -1331,44 +1352,38 @@ M4 错误映射固定如下：
 3. 每个新 Run 都调用 Prod reader；不得读取旧 Run 结果作为输入。
 4. 同一 Run 多个候选只触发一次来源读取。
 5. QTF worker 只领取 `qtf_experiment`；GENERAL 和分钟 worker 均不能领取它；QTF worker 不能领取既有任务。
-6. TaskRun success + validation INVALID 时 API 必须显示“执行完成、研究未通过”；TaskRun success 不能直接推导 VALID。
+6. TaskRun success 只表示程序执行完成；API 仍必须单独返回 `READY/INSUFFICIENT` 和完整结果数量。
 7. queued 取消立即 canceled；running 取消在组合安全点结束。
-8. 已完成参数组合证据保留，但 canceled Run 不允许写 Run 结论或进入后续候选流程。
-9. 模拟 Ops 进度写失败，QTF 已提交参数结果、门禁和终态不回滚。
-10. 模拟 QTF 业务提交失败，TaskRun 失败且不产生 VALID、Run 结论、candidate 或 release。
+8. 已完成参数组合结果可保留，但 canceled Run 不允许标记 `READY` 或进入后续候选流程。
+9. 模拟 Ops 进度写失败，QTF 已提交的预测结果和终态不回滚。
+10. 模拟 QTF 业务提交失败，TaskRun 失败且不产生 `READY`、candidate 或 release。
 11. TaskRun API 默认入口不能创建 `qtf_experiment`。
 12. release commit 缺失或非法时，在读取 Prod 和公式执行前失败；合法 commit 与 runtime fingerprint 写入 Run。
 
 ### 13.6 候选与发布
 
-1. M4 的 Run conclusion 只接受 END/OBSERVE；NOMINATE 正反例必须证明路由拒绝且 candidate 表不存在。
-2. M8 才验证只有 COMPLETED + VALID 且参数结果为 SUPPORTED 的 Run 可创建 Candidate。
-3. END/OBSERVE 永远不创建 candidate。
-4. M8 的 review、approve、publish 分别写一条 action；重复请求幂等。
-5. 同一管理员可以执行全部动作，但不能跳状态。
-6. 发布失败不改变旧 current release。
-7. release 内容 hash 固定，批准后不可修改参数或范围。
-8. 没有生产 serving 合同时 publish 必须失败关闭，不能空成功。
+1. M4 只生成和读取回测结果，不提供 Run conclusion、提名或 Candidate API；反例必须证明这些动作和表不会被提前创建。
+2. 是否把某组参数选为 Candidate 属于后续独立决策，不能由 M4 根据单个成功率或综合分自动完成。
+3. M8 若继续推进，再单独冻结 candidate、review、approve、publish 的准入条件和正反例；当前 LLD 不预设“通过线”。
 
 ### 13.7 API 集成
 
 1. 无 token 401；非管理员 403；管理员正常。
-2. 核心真实 API case 按里程碑覆盖：M3 的 draft/preflight/freeze/run、M4 的 results/conclusion、M6 的 overview/registry、M8 的 candidate/release。
+2. 核心真实 API case 按里程碑覆盖：M3 的 draft/preflight/freeze/run、M4 的 results、M6 的 overview/registry。
 3. 响应断言覆盖前端实际字段，不只测 HTTP 状态。
 4. 技术 payload、SQL 和连接信息不能出现在 QTF API。
 5. 版本冲突、幂等重试和状态跳跃都有 409 反例。
 
 ### 13.8 Wealth 前端
 
-1. 路由生成/解析覆盖六页、非法编码、空 key、未知 QTF 子路径、内部 referrer 和浏览器前进后退。
+1. 路由生成/解析覆盖当前五页、非法编码、空 key、未知 QTF 子路径、内部 referrer 和浏览器前进后退。
 2. 每页覆盖 loading、empty、error、forbidden、conflict、loaded。
 3. 真实 API DTO 经过 adapter 后驱动可见文本、按钮 enablement 和路由。
-4. TaskRun success 不得渲染成 VALID。
-5. M7 在 M8 前不得显示可执行的“提名候选”；INVALID/INSUFFICIENT 即使进入 M8 也永远不可提名。
-6. “确认审核”不会调用 approve 或 publish。
-7. 页面不请求 `/api/v1/ops/*`，不读取研究 JSON 文件。
-8. Figma 1600px 基线做截图对账；普通 UI 元素相对设计偏差不超过 2px。
-9. TopMarketBar、Breadcrumb 和既有 `/wealth/exploration` 回归不变。
+4. TaskRun success 不得渲染成算法有效；必须读取 `resultStatus` 和具体结果。
+5. 当前五页不得显示候选、审核、批准或发布动作；`INSUFFICIENT` 只能展示样本不足和实际数量。
+6. 页面不请求 `/api/v1/ops/*`，不读取研究 JSON 文件。
+7. Figma 1600px 基线做截图对账；普通 UI 元素相对设计偏差不超过 2px。
+8. TopMarketBar、Breadcrumb 和既有 `/wealth/exploration` 回归不变。
 
 ---
 
@@ -1376,7 +1391,7 @@ M4 错误映射固定如下：
 
 ### 14.1 本能力的保存策略
 
-1. QTF metadata、参数组合汇总、六道门禁和实际 signal events 保存到 PostgreSQL `qtf` schema。
+1. QTF metadata、每个参数的前后段汇总和全部二元预测结果保存到 PostgreSQL `qtf` schema。
 2. 不保存每日完整输入和每日完整因子矩阵。
 3. 不生成输入 CSV/Parquet、缓存或快照。
 4. 是否为后续大能力使用派生 Parquet，必须另立具体能力 LLD。
@@ -1387,8 +1402,7 @@ M4 错误映射固定如下：
 estimatedSourceRows
 estimatedGroupDays
 parameterCombinationCount
-executionPassCount
-estimatedSignalEventRows
+estimatedPredictionRows
 estimatedRuntimeSeconds
 peakMemoryMb
 resultStorageMb
@@ -1461,84 +1475,67 @@ sourceStatementTimeoutMs
 
 1. 实施前确认单一 Alembic head 为 `20260822_000143`，新增 `20260823_000144`，且迁移仅增加 `qtf.input_preflight`、`qtf.input_preflight_issue`、`qtf.experiment_run`；`task_run_id` 保持逻辑唯一关联，不建立 Ops ORM 外键。
 2. 复用第 10.1 节既有 Prod 来源合同，实现只读取 `trade_calendar / wealth_sector_hierarchy / dc_daily` 的 `REPEATABLE READ, READ ONLY` adapter；只保存范围、计数、问题摘要和内容指纹，不保存来源行副本，也不修改上游。
-3. DRAFT 允许不完整；完整显式参数通过 DRAFT_PREVIEW 生成带 `50/25/25`、`[1,3,5]`、`RESET_ONLY`、真实预检计数和版本化估算器预算的 PLAN。冻结校验当前 draft、最新 PASS preflight、完整合同和管理员确认的 `planHash`。
+3. DRAFT 允许不完整；完整显式参数通过 DRAFT_PREVIEW 生成带日期范围、未来窗口、真实预检计数和版本化估算器预算的 PLAN。M3 当时写入的 `50/25/25` 三段和 `RESET_ONLY` 公开参数已经被本次产品纠偏否决，列入第 6.8 节代码清理；draft、preflight、预算、确认 `planHash` 和冻结不可变机制继续保留。
 4. 已实现同事务的 `PLANNED QTF Run → staged TaskRun → task_run_id → QUEUED`；任一步失败整体回滚。每个新 Run 重新读源，同一 Run 全部候选共享一次不可变内存输入，并在运行前再次核验来源契约、内容指纹和批准预算。
 5. Ops 只增加不感知 QTF 业务的 external definition/executor 扩展点；App 完成 QTF adapter 和独立 lane 装配。GENERAL、QTF、股票分钟和指数分钟领取范围保持隔离，Ops 观测使用独立 session，失败只把 `observerStatus` 降为 `DEGRADED`。
 6. 已增加计划规定的 9 个最小管理员 API、QTF worker CLI、独立 systemd unit、`--qtf-only`、精确 sudo 白名单和发布 commit 门禁；部署安全纠偏后，QTF unit 以 `goldenshare` 运行，commit 由 worker 启动时从部署仓库一次性解析，不再使用 release 环境文件；默认 Ops API 仍拒绝创建 `qtf_experiment`。
-7. 本地自动化已覆盖输入正反例、启动原子性、幂等与版本冲突、每 Run 重读、同 Run 单次读取、预算增长阻断、安全取消、非法 commit 零来源读取、管理员认证、敏感信息屏蔽、worker 启动版本冻结、降权 unit 和部署权限前置失败。M3 不创建 M4 结果表，成功运行仍保持 `validationStatus=PENDING`，不产生 Candidate。
+7. 本地自动化已覆盖输入正反例、启动原子性、幂等与版本冲突、每 Run 重读、同 Run 单次读取、预算增长阻断、安全取消、非法 commit 零来源读取、管理员认证、敏感信息屏蔽、worker 启动版本冻结、降权 unit 和部署权限前置失败。M3 不创建 M4 结果表；现有 `validationStatus=PENDING` 字段按第 6.8 节改为只表示结果生成状态的 `resultStatus`，不产生 Candidate。
 8. “预检过期”在 M3 中指当前草稿 hash 已变化，或同一 revision 已生成更新的 DRAFT_PREVIEW；不引入未经批准的墙钟 TTL 或全局资源配置。
 9. 2026-08-24 生产只读验收确认：`dev-interface` 已包含 M3；Web、Ops Worker、Scheduler 与 QTF Worker 均为 `active`；QTF unit 以 `goldenshare:goldenshare` 运行；`/api/v1/qtf/templates` 已挂载并由登录门禁保护；生产 Alembic 当前为 `20260824_000147 (head)`，五张 QTF 状态表均存在。当前五张表记录数均为 0，符合尚未创建研究、运行真实 R2 的边界。旧失败发布残留的 `.qtf-release.env.next` 已移出远程仓库并保留于 `/var/backups`，远程 Git 工作区已恢复干净。
 
-### M4：可信门禁与结果证据
+### M4：简单双时段转热回测
 
-**M4 状态：2026-08-24 已完成 M4.0 契约纠偏和 M4.1 验证合同与结果模型；下一步只可进入 M4.2。**
+**M4 状态：旧 M4.0/M4.1 方向已于 2026-08-25 否决。本轮只完成文档纠偏；旧代码和已部署空表尚待安全删除，禁止进入旧 M4.2。**
 
-#### M4.0：契约纠偏（已完成）
+#### M4.0R：文档与代码纠偏
 
-1. 已固定 `sector_l2_continuation_validation_v1@1`：ENTRY/RETENTION 分开，未来 1/3/5 日分别按 1/1、2/3、3/5 个客观父级内榜单日判定。
-2. 已固定评价日历、最大公式预热、额外预热探针和 5 日标签尾部；`50%/25%/25%` 只切分评价日。
-3. 已固定 `validationGateConfig` 的必填字段、零容忍方法门禁、无生产默认值、全量入 `planHash` 和 `VALID/INVALID/INSUFFICIENT` 聚合语义。
-4. 已固定 M4 conclusion 只允许 `END/OBSERVE`；`NOMINATE`、candidate、review、approve 和 publish 留在 M8。
-5. 已对账异常码：M4 复用已登记的 `QTF_REQUEST_INVALID/QTF_PLAN_NOT_APPROVED/QTF_STATE_CONFLICT/QTF_VALIDATION_INVALID/QTF_VALIDATION_INSUFFICIENT`，不增加未登记 code。
+1. 本文已冻结第 5.5 节的二元预测和完整四格结果，以及第 10.5 节的前段/后段时间顺序。
+2. 不再实现续热、三段切分、Bootstrap、置信区间、Lift、自然/简单基线、市场阶段、复杂六道门禁、参数邻近敏感性、自动综合评分或 Run conclusion。
+3. 按第 6.8 节先改正测试和合同，再以前向迁移删除已部署的空旧表；迁移、代码、API 和 Figma 均不保留兼容字段。
+4. 本阶段完成后必须停止并报告代码清理、迁移 read-back、旧引用归零和 M1～M3 回归结果；未完成前不写回测内核。
 
-#### M4.1：验证合同与结果模型
+#### M4.1R：纯二元预测与评价内核
 
-**状态：2026-08-24 开发已收口；迁移待生产部署验收。**
+1. 接住 M2 `SectorHeatComputation`，对每个符合转热预测母体的行业/日期输出“会转热”或“不会转热”。
+2. 用独立的未来父级内客观上榜事实生成 1/3/5 日实际结果，形成第 5.5 节四种结果和 `UNEVALUABLE`。
+3. 对前段、后段、每个参数和每个 horizon 分别汇总完整数量、分子、分母和绝对百分比。
+4. 纯内核无数据库、Web、TaskRun 或 Prod IO；相同输入、PLAN 和代码生成相同结果 hash。
 
-1. 实施前重新确认单一 Alembic head 为 `20260824_000148`；新增 `20260824_000149`，且只创建 `run_gate_result/run_parameter_result/sector_signal_event/run_conclusion`，未创建 candidate/release 表。
-2. 已增加 `sector_l2_continuation_validation_v1@1` registry、无生产默认值的完整 `validationGateConfig`、ENTRY/RETENTION 与结果状态合同及稳定证据 hash；PLAN/freeze/revision hash 已完整覆盖评价日历、成功定义、置信方法和六道门禁配置。
-3. DRAFT 缺少完整门禁配置时在读取来源前拒绝；预检按候选最大公式历史、显式预热探针和固定 5 日标签尾部读取同一 Prod 来源，PLAN 明确区分评价范围与解析后的来源范围。
-4. ORM 与迁移已落实四张表的业务唯一键、状态检查、hash 形状和仅指向 `qtf.experiment_run` 的外键；`run_conclusion` 数据库约束只接受 `ENDED/OBSERVED`，拒绝 `NOMINATED`。
-5. 自动化正反例覆盖注册唯一性、缺值/未知字段/非有限数值、固定零容忍门禁、未来 horizon、历史/尾部/切分不足、旧 plan hash、证据 hash 确定性、四表约束和 M4 `NOMINATE` 拒绝。尚未实现验证计算、worker 结果写入、结果 API 或真实 R2。
+#### M4.2R：QTF worker 结果主链
 
-#### M4.2：纯验证与评价内核
+1. 每个参数组合完整计算后原子写入参数汇总和全部正负预测结果；取消只发生在组合边界，不暴露半个组合结果。
+2. `CALCULATE_TUNING/CALCULATE_VALIDATION/SUMMARIZE/FINALIZE` 只保存双时段结果和 Run 终态；Ops 观测失败不得回滚 QTF 业务结果。
+3. 形成明确 `READY/INSUFFICIENT`，不自动判定参数优劣，不创建 Candidate。
 
-1. 接住 M2 `SectorHeatComputation`，按冻结规则生成 ENTRY/RETENTION 信号事件和未来 1/3/5 日标签。
-2. 实现评价日历切分、自然/简单基线、Lift、置信区间、未来泄漏差分、预热稳定、覆盖及 OOS/sensitivity 评价。
-3. 纯内核无数据库、Web、TaskRun 或 Prod IO；相同输入、PLAN 和代码必须生成相同结果 hash。
+#### M4.3R：结果 API 与自动化验收
 
-#### M4.3：QTF worker 结果主链
-
-1. 每个参数组合完整计算后原子写入参数结果和实际 signal events；取消只发生在组合边界，不暴露半个组合结果。
-2. `VALIDATE/SUMMARIZE/FINALIZE` 保存六道门禁、结果摘要和 Run 终态；Ops 观测失败不得回滚 QTF 业务结果。
-3. 形成明确 `VALID/INVALID/INSUFFICIENT`；效果未达标但方法可信时保持 VALID，并输出零个 SUPPORTED 参数。
-
-#### M4.4：结果与结论 API
-
-1. 实现 `GET /runs/{runKey}/results` 和只接受 `END/OBSERVE` 的 `POST /runs/{runKey}/conclusion`。
-2. Run 未完成、版本冲突、幂等键复用不同 payload、NOMINATE 和任何 Candidate 创建请求均拒绝。
-3. `QTF_VALIDATION_INVALID/INSUFFICIENT` 以 200 业务结果返回，不泄露 SQL、连接、技术 payload 或内部堆栈。
-
-#### M4.5：自动化验收与停止
-
-1. 完成合成数据、冻结历史样本、未来扰动差分、预热稳定、缺失未来标签、覆盖、IS/校准/OOS、置信和敏感性正反例。
-2. 覆盖“方法有效但本轮未找到”、INVALID、INSUFFICIENT、取消安全、结果确定性、事务隔离和 M1～M3 全量回归。
-3. 只使用测试/冻结 fixture，不读取新生产研究窗口，不执行真实 R2；通过后停止，等待 M5 事前 PLAN。
+1. 实现 `GET /runs/{runKey}/results`；不实现 conclusion、提名或 Candidate API。
+2. 覆盖双时段边界、完整四格、分母为零、未来尾部缺失、未来扰动不改变历史预测、取消安全、结果确定性、事务隔离和 M1～M3 全量回归。
+3. 自动化必须证明旧合同 key、旧字段、旧 ORM 和旧 API 为零；只使用合成/冻结 fixture，不读取新生产研究窗口，不执行真实 R2。
+4. 通过后停止，等待 M5 事前 PLAN。
 
 ### M5：R2 真实研究验收
 
-1. 先单独提交第 10.6 节的完整 R2 事前 PLAN，列出对象、日期、参数、门禁数值、IS/OOS、预算和停止条件。
+1. 先单独提交第 10.6 节的完整 R2 事前 PLAN，列出对象、双时段日期、参数、future horizon、预算和停止条件。
 2. 只有用户批准该 PLAN 后，才执行一次有界真实 R2；批准本 LLD 不等于批准 R2。
-3. 交付有效候选、失败样本或“本轮未找到”；禁止看到结果后在同一 Run 扩参。
+3. 交付每组参数在前段和后段的完整四格结果；禁止看到结果后在同一 Run 扩参或改变成功定义。
 
 ### M6：提炼通用平台合同与业务 API
 
-1. 只从 M1–M5 已证明的共同点收敛 overview、research、preflight、freeze、run 和 result 合同，不保留脚本旁路；candidate 合同仍留在 M8。
+1. 只从 M1–M5 已证明的共同点收敛 overview、research、preflight、freeze、run 和 result 合同，不保留脚本旁路。
 2. 补齐工作台全部管理员 API、registry 查询和安全 TaskRun 视图。
 3. 完成真实路由集成测试、状态冲突、幂等和技术信息泄漏反例。
 
-### M7：Figma 交互闭合与前端六页
+### M7：Figma 交互闭合与前端五页
 
 1. 先补 F03、F05、F06；F01 可以独立后置，但按钮必须 disabled 或移除。
-2. 按六个正式节点实现路由、Shell、API、adapter、view model 和组件。
+2. 按当前五个有效页面实现路由、Shell、API、adapter、view model 和组件；候选页不实现。
 3. 完成 1600px 截图与状态验收。
 4. 不实现未设计的批准/发布页面。
 
-### M8：候选、批准与发布
+### M8：候选、批准与发布（暂缓）
 
-1. 先补 F04 设计。
-2. 实现候选动作、不可变 release 和独立 approve/publish。
-3. 发布前必须另有 sector production 同核计算、serving 原子切换和回滚 LLD。
+真实 R2 完成前不设计、不开发。若恢复，必须重新提交产品方案、Figma、技术方案、LLD 和迁移计划，不能沿用旧 M4 门禁、状态或表结构。
 
 ### M9：财势乾坤下游接入
 
@@ -1548,7 +1545,7 @@ sourceStatementTimeoutMs
 
 ### M5 的单独授权门禁
 
-完成 M1–M4 只表示平台已经具备执行条件，不自动授权 M5。真实 R2 必须再次提交第 10.6 节事前计划；用户批准具体日期、对象、参数、门禁数值、验证、预算和停止条件后，才允许创建并运行该 revision。
+完成 M1–M4R 只表示平台已经具备执行条件，不自动授权 M5。真实 R2 必须再次提交第 10.6 节事前计划；用户批准具体日期、对象、参数、双时段边界、future horizon、预算和停止条件后，才允许创建并运行该 revision。
 
 ---
 
@@ -1569,24 +1566,22 @@ sourceStatementTimeoutMs
 | G11 | 父级内比较 | sector ranking | 同父排名正确 | 其他父级不能改变结果 | PASS (M2) |
 | G12 | 小组规则显式 | preflight/parameter schema | 达门槛可评价 | 低于门槛不生成伪标签 | PASS (M3) |
 | G13 | 缺失不补数 | run input preflight | 完整组日参与 | 缺行不补零/不前填 | PASS (M3) |
-| G14 | TaskRun success != VALID | run/result API | success 后由六道门禁独立形成 VALID | success+INVALID 不能被渲染为 VALID | OPEN (M4) |
+| G14 | TaskRun success != 回测结果完整 | run/result API | success 后单独返回 READY/INSUFFICIENT 和数量 | success 被直接渲染成算法有效时失败 | OPEN (M4R) |
 | G15 | 取消在安全点 | executor/observer | 组合后停止 | 半条参数组合结果不可见 | PASS (M3) |
 | G16 | Ops 与 QTF 事务隔离 | App runtime adapter | Ops 正常观测 | Ops 写失败不回滚 QTF | PASS (M3) |
 | G17 | 有限计划获批 | plan/freeze service | hash 相同可冻结 | hash 漂移/超预算阻断 | PASS (M3) |
-| G18 | 候选不自动发布 | candidate/release | 四步分别成功 | 跳步、确认审核即发布被拒绝 | OPEN |
-| G19 | 发布失败保护旧版本 | release service | 原子生效 | 新版失败时旧版仍 current | OPEN |
 | G20 | Wealth 只读 QTF API | frontend client | QTF API 驱动页面 | `/ops`/文件/mock fallback 为零 | OPEN |
-| G21 | 六页匹配 Figma | QTF pages/components | 1600px 截图通过 | 表头错位、按钮非组件失败 | OPEN |
+| G21 | 当前五页匹配纠偏后 Figma | QTF pages/components | 1600px 截图通过 | 旧结果页、表头错位、按钮非组件失败 | OPEN |
 | G22 | 六类页面状态稳定 | controllers/UI | 状态逐一渲染 | error 回退示例数据失败 | OPEN |
 | G23 | R2 未经批准不执行 | freeze/run service | 获批 hash 后可建 Run | Figma 示例直接启动被阻断 | PASS (M3) |
 | G24 | 申万与跨体系为零 | sector contracts | 只接受 DC L2 | SW/跨体系参数被拒绝 | PASS (M2) |
 | G25 | QTF 独立 worker 进程 | worker lane/CLI/systemd | QTF lane 领取实验 | GENERAL/分钟 lane 抢占或 QTF 领取既有任务时失败 | PASS (M3，2026-08-24 生产验收) |
 | G26 | 运行代码可追溯 | worker startup/run fingerprint | 进程启动解析一次合法 commit 并写入 Run | 缺失/伪 commit 时 worker 不进入轮询且零来源读取 | PASS (M3，自动化合同 + 2026-08-24 生产进程启动验收；首个获批 Run 的指纹实数回读随 M5 执行) |
-| G27 | 成功定义唯一 | validation registry/evaluator | 1/3/5 日按 1/1、2/3、3/5 且 ENTRY/RETENTION 分开 | 未来 heat 自证、混合事件或缺失记失败被拒绝 | CONTRACT PASS (M4.1)，evaluator OPEN (M4.2) |
-| G28 | 评价时间边界唯一 | plan/input adapter/evaluator | 预热、评价、5 日尾部各司其职 | 预热/尾部进入切分或指标时失败 | PLAN/INPUT PASS (M4.1)，evaluator OPEN (M4.2) |
-| G29 | 门禁配置完整冻结 | validation contract/plan hash | 全部显式值可冻结 | 缺值、默认值兜底、旧 hash 被拒绝 | PASS (M4.1) |
-| G30 | 可信状态不等于效果胜出 | validation aggregator/results API | VALID + 零 SUPPORTED 返回本轮未找到 | 无参数达标被误写 INVALID 时失败 | SPEC FROZEN (M4.0)，实现 OPEN |
-| G31 | M4 不创建 Candidate | conclusion API/migration guard | END/OBSERVE 幂等成功 | NOMINATE、candidate/release 表或动作提前出现时失败 | MODEL/MIGRATION PASS (M4.1)，API OPEN (M4.4) |
+| G27 | 二元预测和实际结果定义唯一 | backtest contract/evaluator | 每个样本形成预测热/不热与实际热/不热四格之一 | 续热、自证或缺失记失败被拒绝 | SPEC PASS；旧代码待 M4.0R 清理 |
+| G28 | 双时段边界唯一 | plan/input adapter/evaluator | 前段在先、后段在后，公式历史和未来尾部各司其职 | 三段切分、随机打乱、历史/尾部进入样本时失败 | SPEC PASS；旧代码待 M4.0R 清理 |
+| G29 | 简单合同完整冻结 | backtest contract/plan hash | 双时段、参数、horizon、预算全部显式冻结 | 缺值、默认兜底、旧 hash 或旧门禁字段被拒绝 | OPEN (M4.0R) |
+| G30 | 所有绝对结果完整返回 | evaluator/results API | 四格数量、分子、分母和百分比逐项一致 | 只返回一个成功率、Lift 或综合分时失败 | SPEC PASS；实现 OPEN |
+| G31 | M4 不形成结论或 Candidate | API/migration guard | 仅 results 可读 | conclusion、NOMINATE、candidate/release 表或动作提前出现时失败 | OPEN (M4.0R/M4.3R) |
 
 只有具备对应实现与自动化证据的 Gate 才标记 PASS。G25/G26 已结合自动化证据与 2026-08-24 远程降权 systemd unit、精确 sudo 权限、进程启动和迁移实机证据通过；由于当前未获批创建真实研究，首个 Run 的实际版本指纹回读归入 M5 首次获批执行验收，不允许为验收伪造 Run。
 
@@ -1609,17 +1604,19 @@ git diff --check
 
 另在 `/private/tmp` 构建 wheel，并从独立目标目录导入 `qtf`、二级行业 executor 和 Prod adapter；仓库内不得留下构建产物。远程 `alembic upgrade head`、降权 systemd unit、精确 sudo 权限和 worker 启动 commit 已于 2026-08-24 完成实机验收；`--qtf-only` 仍是后续 QTF 独立发布模式，不为重复验收而再次执行。M3 不涉及 Wealth 前端，因此没有新增或修改 QTF 前端页面。
 
+M4.0R 代码纠偏除既有回归外还必须验证：实施日 Alembic 单一 head、前向迁移升级与降级 DDL、四张旧表和活跃 Run 的只读数量、迁移后模型 read-back、全仓旧合同引用归零、API 旧字段拒绝以及 wheel 导入。具体迁移 revision 只能在实施日确认真实 head 后生成，本文不提前写死。
+
 真实 R2 只读验收、性能证据和具体运行命令必须由获批 PLAN 生成，不能提前在本 LLD 中写死。
 
 ---
 
 ## 18. 开发进入结论
 
-1. M1–M6 的代码落点、依赖、存储、状态、API、TaskRun 和测试边界已经具备进入评审的 LLD 条件。
-2. Figma 六个 loaded 页面和组件结构可以支撑 M7 主流程，但 F03、F05、F06 必须在前端最终实现前闭合。
+1. M1–M3 的平台和执行主链继续有效；旧 M4.0/M4.1 的评价方向已经被否决，必须先完成第 6.8 节 M4.0R 安全纠偏，不能继续旧 M4.2。
+2. Figma 六个 loaded 页面保留页面骨架参考价值，但结果页仍是旧门禁、基线和 Lift 设计；M7 前必须按第 5.5 节重做，当前不能直接用于结果页开发。
 3. 公式与参数页 F01 可以后置；未设计时入口必须 disabled 或暂不出现，不能做假页面。
-4. 候选批准与发布 F04 是 M8 阻断项；当前候选页只能做到确认审核。
+4. 候选批准与发布不是当前简化回测范围；M8 若恢复推进，必须基于实际回测结果重新冻结准入规则，不能沿用旧 `VALID/SUPPORTED` 合同。
 5. 真实 R2 仍未获批；平台开发和真实研究执行是两次独立授权。
 6. M9 的生产 serving 与板块雷达/板块速览消费必须另立能力 LLD，不能在平台框架开发中顺手接入。
 
-因此，**M3：输入门禁、有限计划与执行主链** 已于 2026-08-23 完成开发及部署安全纠偏，并于 2026-08-24 完成生产迁移、降权 QTF Worker、精确 sudo 权限与进程启动版本门禁的实机验收；**M4.0：契约纠偏** 和 **M4.1：验证合同与结果模型** 已于 2026-08-24 完成开发收口，M4.1 迁移仍待生产部署验收。下一步只能进入 **M4.2：纯验证与评价内核**，不得直接执行真实 R2、进入前端、创建 Candidate 或发布。
+因此，当前唯一允许的下一步是 **M4.0R：按第 6.8 节安全删除旧 M4.1 合同、测试、模型和已部署空表，并把 M3 PLAN 收缩为简单双时段合同**。本轮仅完成文档，不修改代码；M4.0R 完成并验收前，不得开发新的回测内核、执行真实 R2、进入前端、创建 Candidate 或发布。
