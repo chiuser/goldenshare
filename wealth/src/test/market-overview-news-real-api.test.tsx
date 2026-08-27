@@ -4,6 +4,8 @@ import { marketOverviewModuleSources } from "../features/market-overview/api/mod
 import { MarketOverviewPage } from "../pages/market-overview/MarketOverviewPage";
 
 const moduleSourcesSnapshot = { ...marketOverviewModuleSources };
+const normalizedBracketTitle = "商务部等9部门：支持航空保税维修绿色化发展";
+const bracketTitleSummaryTail = "商务部等9部门发布关于促进航空保税维修高质量发展的意见";
 
 const pageContextPayload = {
   pageContext: {
@@ -40,7 +42,7 @@ const newsBriefsPayload = {
         contentSource: "news",
         publishTime: "2026-05-11T10:01:02",
         displayTime: "05-11 10:01:02",
-        title: "宏观政策保持连续性",
+        title: normalizedBracketTitle,
         category: "brief",
         source: "Tushare",
         readerMode: "TEXT",
@@ -210,10 +212,11 @@ describe("market-overview news real api", () => {
     resolveCommunicationsFetch(responseJson(newsCommunicationsPayload));
 
     await waitFor(() => {
-      expect(within(newsPanel).getByText("宏观政策保持连续性")).toBeInTheDocument();
+      expect(within(newsPanel).getByText(normalizedBracketTitle)).toBeInTheDocument();
       expect(within(stockPanel).getByText("公司公告披露一季度经营情况")).toBeInTheDocument();
     });
     expect(within(newsPanel).getByText("05-11 10:01:02")).toBeInTheDocument();
+    expect(within(newsPanel).queryByText(bracketTitleSummaryTail)).not.toBeInTheDocument();
     expect(within(stockPanel).getByText("05-11 09:31:10")).toBeInTheDocument();
     expect(newsPanel.querySelectorAll("a")).toHaveLength(0);
     expect(stockPanel.querySelectorAll("a")).toHaveLength(0);
@@ -321,7 +324,7 @@ describe("market-overview news real api", () => {
 
     const newsPanel = screen.getByLabelText("新闻速览");
     const stockPanel = screen.getByLabelText("新闻通讯");
-    expect(within(newsPanel).getByText("宏观政策保持连续性")).toBeInTheDocument();
+    expect(within(newsPanel).getByText(normalizedBracketTitle)).toBeInTheDocument();
     expect(within(stockPanel).getByText("公司公告披露一季度经营情况")).toBeInTheDocument();
 
     await act(async () => {
@@ -349,7 +352,7 @@ describe("market-overview news real api", () => {
         return responseJson({
           newsId: "market-1",
           contentSource: "news",
-          title: "宏观政策保持连续性",
+          title: normalizedBracketTitle,
           source: "Tushare",
           publishTime: newsBriefsPayload.newsBriefs.items[0].publishTime,
           readerMode: "TEXT",
@@ -378,7 +381,7 @@ describe("market-overview news real api", () => {
 
     const newsPanel = screen.getByLabelText("新闻速览");
     const stockPanel = screen.getByLabelText("新闻通讯");
-    const marketTrigger = within(newsPanel).getByRole("button", { name: /宏观政策保持连续性/ });
+    const marketTrigger = within(newsPanel).getByRole("button", { name: new RegExp(normalizedBracketTitle) });
     const stockTrigger = within(stockPanel).getByRole("button", { name: /公司公告披露一季度经营情况/ });
     expect(marketTrigger).toHaveAttribute("aria-haspopup", "dialog");
     expect(stockTrigger).toHaveAttribute("aria-haspopup", "dialog");
@@ -389,6 +392,8 @@ describe("market-overview news real api", () => {
       await Promise.resolve();
     });
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 2, name: normalizedBracketTitle })).toBeInTheDocument();
+    expect(screen.queryByText(bracketTitleSummaryTail)).not.toBeInTheDocument();
     expect(screen.getByText("阅读器中的完整新闻正文")).toBeInTheDocument();
 
     await act(async () => {
@@ -429,7 +434,7 @@ describe("market-overview news real api", () => {
 
     const newsPanel = screen.getByLabelText("新闻速览");
     const stockPanel = screen.getByLabelText("新闻通讯");
-    expect(within(newsPanel).getByText("宏观政策保持连续性")).toBeInTheDocument();
+    expect(within(newsPanel).getByText(normalizedBracketTitle)).toBeInTheDocument();
     expect(within(stockPanel).getByText("公司公告披露一季度经营情况")).toBeInTheDocument();
 
     await act(async () => {
@@ -437,7 +442,7 @@ describe("market-overview news real api", () => {
       await Promise.resolve();
     });
 
-    expect(within(newsPanel).getByText("宏观政策保持连续性")).toBeInTheDocument();
+    expect(within(newsPanel).getByText(normalizedBracketTitle)).toBeInTheDocument();
     expect(within(stockPanel).getByText("公司公告披露一季度经营情况")).toBeInTheDocument();
     expect(within(newsPanel).queryByText("error")).not.toBeInTheDocument();
     expect(within(stockPanel).queryByText("error")).not.toBeInTheDocument();

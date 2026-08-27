@@ -4,6 +4,15 @@ from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import pytest
+from sqlalchemy import literal, select
+from sqlalchemy.dialects import postgresql
+
+from src.biz.queries.wealth.market.news.news_display_title import (
+    build_news_display_title,
+    build_news_display_title_expr,
+    extract_leading_bracket_title,
+)
 from src.foundation.models.core_serving_light.major_news import MajorNewsLight
 from src.foundation.models.core_serving_light.news import NewsLight
 
@@ -67,6 +76,59 @@ def _add_major_news(
             fetched_at=datetime(2026, 5, 8, 16, 0, tzinfo=timezone.utc),
         )
     )
+
+
+@pytest.mark.parametrize(
+    ("raw_title", "content", "expected_title", "expected_extracted_title"),
+    [
+        ("【标题】摘要", "正文", "标题", "标题"),
+        ("  【 标题 】摘要  ", "正文", "标题", "标题"),
+        ("【第一标题】【第二标题】摘要", "正文", "第一标题", "第一标题"),
+        ("【缺少右括号", "正文", "【缺少右括号", None),
+        ("【】摘要", "正文", "【】摘要", None),
+        ("【   】摘要", "正文", "【   】摘要", None),
+        ("前缀【标题】摘要", "正文", "前缀【标题】摘要", None),
+        ("[半角标题]摘要", "正文", "[半角标题]摘要", None),
+        (None, "【正文中的括号】正文 fallback", "【正文中的括号】正文 fallback", None),
+        ("  ", "正文 fallback", "正文 fallback", None),
+    ],
+)
+def test_news_display_title_python_and_sql_rules_are_consistent(
+    db_session,
+    raw_title: str | None,
+    content: str,
+    expected_title: str,
+    expected_extracted_title: str | None,
+) -> None:
+    fallback_title = content.strip()[:80]
+
+    python_title = build_news_display_title(raw_title, fallback_title)
+    sql_title = db_session.scalar(
+        select(
+            build_news_display_title_expr(
+                literal(raw_title),
+                literal(content),
+            )
+        )
+    )
+
+    assert python_title == expected_title
+    assert sql_title == expected_title
+    assert extract_leading_bracket_title(raw_title) == expected_extracted_title
+
+
+def test_news_display_title_expression_uses_postgresql_substring_position() -> None:
+    statement = select(
+        build_news_display_title_expr(
+            literal("【标题】摘要"),
+            literal("正文"),
+        )
+    )
+
+    compiled = str(statement.compile(dialect=postgresql.dialect()))
+
+    assert "strpos(" in compiled
+    assert "instr(" not in compiled
 
 
 def test_market_news_endpoints_use_independent_sources(app_client, db_session) -> None:
@@ -186,6 +248,76 @@ def test_market_news_endpoints_use_independent_sources(app_client, db_session) -
     assert communications_payload["newsCommunications"]["items"][0]["title"] == "两列共有标题"
     assert communications_payload["debugInfo"]["modules"][0]["moduleKey"] == "newsCommunications"
     assert app_client.get("/api/v1/wealth/market/news/stocks").status_code == 404
+
+
+def test_market_news_extracts_leading_bracket_title_before_deduplication(
+    app_client,
+    db_session,
+) -> None:
+    _ensure_news_tables(db_session)
+    _, in_window_time, _ = _news_window_sample_times()
+    sample_title = "商务部等9部门：支持航空保税维修绿色化发展"
+    _add_news(
+        db_session,
+        row_key_hash="brief-bracket-sample",
+        news_time=in_window_time + timedelta(minutes=5),
+        title=f"【{sample_title}】商务部等9部门发布关于促进航空保税维修高质量发展的意见",
+        channels="宏观",
+        content="新闻正文",
+    )
+    _add_news(
+        db_session,
+        row_key_hash="brief-dedup-old",
+        news_time=in_window_time + timedelta(minutes=3),
+        title="【同一展示标题】较旧摘要",
+        channels="公司",
+        content="较旧正文",
+    )
+    _add_news(
+        db_session,
+        row_key_hash="brief-dedup-new",
+        news_time=in_window_time + timedelta(minutes=4),
+        title="【同一展示标题】较新摘要",
+        channels="公司",
+        content="较新正文",
+    )
+    _add_news(
+        db_session,
+        row_key_hash="brief-body-brackets",
+        news_time=in_window_time + timedelta(minutes=2),
+        title=None,
+        channels=None,
+        content="【正文中的括号】不能反向提取",
+    )
+    _add_major_news(
+        db_session,
+        row_key_hash="communication-brackets",
+        pub_time=in_window_time + timedelta(minutes=6),
+        title="【新闻通讯标题】尾部保持原样",
+        content="新闻通讯正文",
+    )
+    db_session.commit()
+
+    briefs_response = app_client.get("/api/v1/wealth/market/news/briefs")
+    communications_response = app_client.get("/api/v1/wealth/market/news/communications")
+
+    assert briefs_response.status_code == 200
+    briefs = briefs_response.json()["newsBriefs"]["items"]
+    assert [item["newsId"] for item in briefs] == [
+        "brief-bracket-sample",
+        "brief-dedup-new",
+        "brief-body-brackets",
+    ]
+    assert [item["title"] for item in briefs] == [
+        sample_title,
+        "同一展示标题",
+        "【正文中的括号】不能反向提取",
+    ]
+    assert "促进航空保税维修高质量发展的意见" not in briefs[0]["title"]
+
+    assert communications_response.status_code == 200
+    communications = communications_response.json()["newsCommunications"]["items"]
+    assert communications[0]["title"] == "【新闻通讯标题】尾部保持原样"
 
 
 def test_market_news_endpoint_marks_delayed_without_old_day_fallback(app_client, db_session) -> None:

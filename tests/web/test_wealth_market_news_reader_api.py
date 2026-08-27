@@ -135,6 +135,56 @@ def test_news_reader_builds_fallback_title_only_for_news(app_client, db_session)
     assert (major_response.status_code, major_response.json()["code"]) == (404, "NEWS_READER_NOT_FOUND")
 
 
+@pytest.mark.parametrize(
+    ("news_id", "raw_title", "content", "expected_title"),
+    [
+        (
+            "reader-bracket-sample",
+            "【商务部等9部门：支持航空保税维修绿色化发展】商务部等9部门发布关于促进航空保税维修高质量发展的意见",
+            "新闻正文",
+            "商务部等9部门：支持航空保税维修绿色化发展",
+        ),
+        ("reader-bracket-spaces", "  【 标题 】尾部摘要  ", "新闻正文", "标题"),
+        ("reader-missing-close", "【缺少右括号", "新闻正文", "【缺少右括号"),
+        ("reader-empty-bracket", "【】尾部摘要", "新闻正文", "【】尾部摘要"),
+        ("reader-middle-bracket", "前缀【标题】尾部摘要", "新闻正文", "前缀【标题】尾部摘要"),
+        ("reader-body-bracket", None, "【正文中的括号】不能反向提取", "【正文中的括号】不能反向提取"),
+    ],
+)
+def test_news_reader_applies_news_display_title_contract(
+    app_client,
+    db_session,
+    news_id: str,
+    raw_title: str | None,
+    content: str,
+    expected_title: str,
+) -> None:
+    _ensure_news_tables(db_session)
+    _add_news(db_session, news_id=news_id, title=raw_title, content=content)
+    db_session.commit()
+
+    response = app_client.get(f"/api/v1/wealth/market/news/items/news/{news_id}")
+
+    assert response.status_code == 200
+    assert response.json()["title"] == expected_title
+
+
+def test_major_news_reader_does_not_extract_leading_bracket_title(app_client, db_session) -> None:
+    _ensure_news_tables(db_session)
+    _add_major_news(
+        db_session,
+        news_id="major-bracket-title",
+        title="【新闻通讯标题】尾部保持原样",
+        content="新闻通讯正文",
+    )
+    db_session.commit()
+
+    response = app_client.get("/api/v1/wealth/market/news/items/major_news/major-bracket-title")
+
+    assert response.status_code == 200
+    assert response.json()["title"] == "【新闻通讯标题】尾部保持原样"
+
+
 def test_news_reader_does_not_fallback_across_sources(app_client, db_session) -> None:
     _ensure_news_tables(db_session)
     _add_news(db_session, news_id="news-only", title="快讯", content="快讯正文")

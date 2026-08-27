@@ -14,6 +14,8 @@ from src.biz.services.wealth.market.news.news_reader_content_resolver import (
     NewsReaderMode,
 )
 
+from .news_display_title import build_news_display_title_expr
+
 
 @dataclass(frozen=True, slots=True)
 class NewsQueryRow:
@@ -42,7 +44,7 @@ class MarketNewsQuery:
         window_end_at: datetime,
         limit: int,
     ) -> NewsQueryResult:
-        display_title = _display_title_expr()
+        display_title = build_news_display_title_expr(NewsLight.title, NewsLight.content)
         reader_mode = _reader_mode_expr()
         deduped = (
             select(
@@ -104,11 +106,6 @@ class MarketNewsQuery:
 
 def _has_nonempty_content():
     return func.length(func.trim(NewsLight.content)) > 0
-
-
-def _display_title_expr():
-    title_or_content = func.coalesce(func.nullif(func.trim(NewsLight.title), ""), func.trim(NewsLight.content))
-    return func.substr(title_or_content, 1, 80)
 
 
 def _reader_mode_expr():

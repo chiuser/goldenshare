@@ -14,6 +14,7 @@ from src.biz.services.wealth.market.news.news_reader_content_resolver import (
 )
 
 from .major_news_reader_query import MajorNewsReaderQuery
+from .news_display_title import build_news_display_title
 from .news_reader_query import NewsReaderQuery
 
 
@@ -51,9 +52,13 @@ class NewsReaderQueryService:
         except NewsReaderContentEmptyError as exc:
             raise NewsReaderNotFoundError("news content is unavailable") from exc
 
-        title = (row.title or "").strip()
-        if content_source == "news" and not title:
-            title = _build_content_title(row.content or "")
+        if content_source == "news":
+            title = build_news_display_title(
+                row.title,
+                _build_content_title(row.content or ""),
+            )
+        else:
+            title = (row.title or "").strip()
         if not title:
             raise NewsReaderNotFoundError("news title is unavailable")
 
