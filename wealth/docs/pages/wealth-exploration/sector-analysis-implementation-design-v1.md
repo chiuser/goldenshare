@@ -1,7 +1,7 @@
 # 财势探查｜板块分析技术实施方案 v1
 
 > - 文档性质：编码前技术实施方案，不是 LLD，不包含业务代码。
-> - 当前状态：v1.4 编码基线；产品口径、Prod DuckDB 覆盖审计和 Figma 开发交付纠偏已于 2026-08-27 完成对账，尚未进入 M0 或业务代码开发。
+> - 当前状态：v1.5 编码基线；M0 合同与治理收口已于 2026-08-27 完成，尚未进入页面或业务代码开发，下一步固定为 M1。
 > - 产品事实源：[财势乾坤板块分析产品交互基线文档 v1](./sector-analysis-product-interaction-baseline-v1.md)。
 > - Figma 文件：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`。
 > - 基线日期：2026-08-27。
@@ -813,9 +813,12 @@ rollingReturns / historicalRanks
 
 ### M0：合同与治理收口
 
+状态：`PASS (2026-08-27)`。
+
 1. 以已完成的[代码级 LLD](./sector-analysis-low-level-design-v1.md)为唯一编码明细，确认其路由、三 endpoint、公式、排名、状态、文件矩阵和测试门禁。
 2. 维护静态架构门禁，冻结三张 Prod 来源表、无迁移、无 QTF/DG/Lake/预测能力。
 3. 核对已登记的 `SA_*` 异常码，不在业务代码中新增未登记同义码。
+4. 证据为 `tests/architecture/test_wealth_sector_analysis_guardrails.py`；M0 只建立可持续门禁，没有实现页面、API、查询或计算逻辑。
 
 ### M1：财势探查页面结构收口
 
@@ -874,7 +877,7 @@ rollingReturns / historicalRanks
 
 ## 16. 编码入口与停止门禁
 
-[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md)已经回答最终 DTO 和可空策略、查询与窗口、排名算法、Shortcut 迁移、页面拆分、层级 Query 移动、异常码、测试矩阵和例外白名单。用户确认该 LLD 后，下一步固定为 M0；不得跳过 M0 直接实现后端或前端。
+[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md)已经回答最终 DTO 和可空策略、查询与窗口、排名算法、Shortcut 迁移、页面拆分、层级 Query 移动、异常码、测试矩阵和例外白名单。M0 合同与治理门禁已经通过，下一步固定为 M1；不得跳过 M1 直接实现后端或动量工作区。
 
 编码期间若发现当前数据字段、索引、消费者、真实性能或 Figma 与本文/LLD 冲突，必须停止并回到方案层修正，禁止边编码边改口径。任何新增索引、迁移、缓存、结果表、第三方依赖或范围扩张都不在本方案授权内。
 
@@ -882,6 +885,7 @@ rollingReturns / historicalRanks
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.5 | 2026-08-27 | 完成 M0 合同与治理收口；新增静态架构门禁，冻结三张 Prod 来源表、无迁移、无 QTF/DG/Lake/预测及统一 `SA_*` 异常码合同 | Codex |
 | v1.4 | 2026-08-27 | 完成 Figma 二次纠偏与逐项对账；补齐二／三级总榜、双排名摘要、共享 Hover、百分位、完整日期选择和 Prod DuckDB 缺口审计，冻结覆盖元数据及完整 N+1 门禁 | Codex |
 | v1.3 | 2026-08-27 | 完成代码级 LLD 和首轮 Figma 开发交付收口；补齐四个正式异常态、单一显示范围、滚动语义、精确 90 日历史边界和编码入口 | Codex |
 | v1.2 | 2026-08-27 | 双趋势图固定同时展示；区分榜单序号与方向无关的同组强度排名；切换日期、周期、方向和显示范围时保留当前行业 | Codex |

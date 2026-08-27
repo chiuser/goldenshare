@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：v1.1 编码基线已形成；Prod DuckDB 覆盖审计和 Figma 二次纠偏已完成，等待用户确认后进入 M0；当前代码尚未实现本页。
+- 状态：v1.2；M0 合同与治理收口已于 2026-08-27 完成，当前代码尚未实现本页，下一步固定为 M1。
 - 编写日期：2026-08-27。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
@@ -999,10 +999,13 @@ tests/test_wealth_turnover_insight_static_gates.py
 
 ### M0：合同和治理收口
 
+状态：`PASS (2026-08-27)`。
+
 1. 用户确认本 LLD 和 Figma 交付节点。
 2. 核对统一注册表中已登记的 `SA_*` 与本文 COMPLETE/PARTIAL/MISSING、DELAYED 和 EMPTY 语义一致；不得重复登记同义码。
 3. 新增静态架构门禁，冻结三张来源表、无迁移、无 QTF/DG/Lake/预测。
 4. 停止点：文档与门禁通过，不改页面和业务。
+5. 验收证据：`tests/architecture/test_wealth_sector_analysis_guardrails.py` 的 6 项门禁通过；M0 没有新增页面、API、查询、计算、模型或迁移。
 
 ### M1：页面结构与共享 Shortcut
 
@@ -1069,6 +1072,7 @@ git diff --check
 | G02 Figma Ready | 八张 Ready/交互画板覆盖六类榜单状态、共享 Hover 和交易日覆盖选择器；尺寸、术语、单 range、滚动正确 | PASS |
 | G03 Figma states | Loading/Delayed/Empty/Error 正式画板 | PASS |
 | G04 Design System | 公共组件复用、核心 Token、Auto Layout/绝对坐标边界正确 | PASS；共享组件遗留原始色值不扩改 |
+| G04A M0 治理门禁 | 三张 Prod 来源、无迁移、无 QTF/DG/Lake/预测、统一异常码 | PASS (M0 static guardrail) |
 | G05 路由 | 精确四 path、未知子路由反例 | OPEN (M1) |
 | G06 页面请求边界 | landing 零业务请求、模块按需挂载 | OPEN (M1) |
 | G07 Shortcut 零漂移 | 市场总览 DOM/视觉/交互回归 | OPEN (M1) |
@@ -1099,13 +1103,14 @@ git diff --check
 4. Figma 已消除排名／百分位语义、缺失同级总榜、父级双排名、草稿跳转、下钻边界、重复显示范围、无共享悬停、纵轴裁剪、滚动语义和模块 Token/Text Style 问题。
 5. LLD 已冻结文件、DTO、查询、算法、状态、交互、测试和里程碑。
 6. DuckDB 只读审计已证明生产历史存在 20 个缺口日和 N+1 传导影响；Meta 覆盖 DTO 与计算完整性门禁已据此冻结。
+7. M0 静态门禁已冻结三张 Prod 来源表、无迁移、禁用 QTF/DG/Lake/预测范围和统一 `SA_*` 异常码；6 项架构测试通过。
 
 ### 16.2 尚未完成
 
 1. 没有前后端代码实现。
 2. `SA_*` 已在统一注册表登记，但尚无业务代码实现或 API 映射。
 3. 没有生产只读 EXPLAIN、性能或页面验收。
-4. 没有 Git 提交、推送、迁移或部署。
+4. 没有页面或业务代码提交、推送、迁移或部署。
 
 ## 17. 风险、回滚与停止条件
 
@@ -1130,4 +1135,4 @@ git diff --check
 
 ## 18. 结论
 
-当前 LLD 已达到进入编码评审的粒度：目标代码文件、共享移动、删除步骤、API/DTO、只读 SQL 边界、收益与排名算法、状态机、URL 规则、组件尺寸、Figma 节点、测试矩阵和里程碑均已明确。用户确认后下一步固定为 M0，不得直接跳到 M2/M3。
+当前 LLD 已达到进入编码评审的粒度：目标代码文件、共享移动、删除步骤、API/DTO、只读 SQL 边界、收益与排名算法、状态机、URL 规则、组件尺寸、Figma 节点、测试矩阵和里程碑均已明确。M0 合同与治理门禁已经通过，下一步固定为 M1，不得直接跳到 M2/M3。
