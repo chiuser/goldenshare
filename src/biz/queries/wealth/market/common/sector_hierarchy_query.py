@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -18,15 +19,19 @@ class SectorHierarchyNode:
     sector_name: str
     industry_level: int
     parent_sector_code: str | None
+    parent_sector_name: str | None
     root_sector_code: str
+    root_sector_name: str
     hierarchy_path: str
     display_order: int
+    is_leaf: bool
     baseline_version: str
 
 
 @dataclass(frozen=True, slots=True)
 class SectorHierarchySnapshot:
     baseline_version: str
+    published_at: datetime
     nodes: tuple[SectorHierarchyNode, ...]
     nodes_by_code: dict[str, SectorHierarchyNode]
     children_by_parent: dict[str | None, tuple[SectorHierarchyNode, ...]]
@@ -42,10 +47,14 @@ class SectorHierarchyQuery:
                 WealthSectorHierarchy.sector_name,
                 WealthSectorHierarchy.industry_level,
                 WealthSectorHierarchy.parent_sector_code,
+                WealthSectorHierarchy.parent_sector_name,
                 WealthSectorHierarchy.root_sector_code,
+                WealthSectorHierarchy.root_sector_name,
                 WealthSectorHierarchy.hierarchy_path,
                 WealthSectorHierarchy.display_order,
+                WealthSectorHierarchy.is_leaf,
                 WealthSectorHierarchy.baseline_version,
+                WealthSectorHierarchy.published_at,
             ).order_by(
                 WealthSectorHierarchy.industry_level,
                 WealthSectorHierarchy.display_order,
@@ -65,9 +74,12 @@ class SectorHierarchyQuery:
                 sector_name=row.sector_name,
                 industry_level=int(row.industry_level),
                 parent_sector_code=row.parent_sector_code,
+                parent_sector_name=row.parent_sector_name,
                 root_sector_code=row.root_sector_code,
+                root_sector_name=row.root_sector_name,
                 hierarchy_path=row.hierarchy_path,
                 display_order=int(row.display_order),
+                is_leaf=bool(row.is_leaf),
                 baseline_version=row.baseline_version,
             )
             for row in rows
@@ -86,6 +98,7 @@ class SectorHierarchyQuery:
 
         return SectorHierarchySnapshot(
             baseline_version=versions.pop(),
+            published_at=max(row.published_at for row in rows),
             nodes=nodes,
             nodes_by_code=nodes_by_code,
             children_by_parent={key: tuple(value) for key, value in children.items()},

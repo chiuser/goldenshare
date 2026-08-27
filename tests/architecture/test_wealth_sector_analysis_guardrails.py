@@ -125,6 +125,15 @@ def _python_imports(path: Path) -> list[tuple[int, str]]:
     return imports
 
 
+def _python_string_literals(path: Path) -> list[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    return [
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    ]
+
+
 def _matches_prefix(module: str, prefix: str) -> bool:
     return module == prefix or module.startswith(f"{prefix}.")
 
@@ -201,11 +210,14 @@ def test_sector_analysis_has_no_forbidden_subsystem_or_persistence_dependency() 
         for token in WRITE_TOKENS:
             if token in lowered:
                 violations.append(f"{relative_path} contains persistence token {token}")
-        explicit_tables = set(
-            re.findall(
-                r"\b(?:core_serving|core|raw|raw_tushare)\.[a-z][a-z0-9_]*\b", lowered
+        explicit_tables = {
+            table
+            for literal in _python_string_literals(path)
+            for table in re.findall(
+                r"\b(?:core_serving|core|raw|raw_tushare)\.[a-z][a-z0-9_]*\b",
+                literal.lower(),
             )
-        )
+        }
         for table in sorted(explicit_tables - APPROVED_SOURCE_TABLES):
             violations.append(
                 f"{relative_path} references unapproved source table {table}"

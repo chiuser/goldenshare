@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.biz.queries.wealth.market.sector_overview.sector_hierarchy_query import SectorHierarchyNode
+from src.biz.queries.wealth.market.common.sector_hierarchy_query import SectorHierarchyNode
 
 
 @dataclass(frozen=True, slots=True)

@@ -45,7 +45,7 @@ from src.biz.services.wealth.market.sector_overview.sector_selection_resolver im
 )
 
 from .sector_heat_query import SectorHeatQuery, SectorHeatRow
-from .sector_hierarchy_query import (
+from src.biz.queries.wealth.market.common.sector_hierarchy_query import (
     SectorHierarchyNode,
     SectorHierarchyQuery,
     SectorHierarchyUnavailableError,
