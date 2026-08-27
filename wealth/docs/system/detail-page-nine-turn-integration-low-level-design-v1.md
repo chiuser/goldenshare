@@ -1210,6 +1210,12 @@ M6-B 第一段和启用前隔离测试完成时停在第二次批准前；该句
     - 运行态证据必须带时间戳：最后一次已完成的正式 Dagster 实例事实仍是 2026-08-17 三个指数 sensor 唯一 `RUNNING`、日线/六分钟/serving 自然 run 全部 `SUCCESS`。2026-08-22 收口没有在缺少精确命令确认时重新读取正式实例，所以不得把旧快照称为当前实时状态；后续 freshness 属于常规运维，不是 M6 页面开发缺口。
     - 最终回滚必须在当时最新 `dev-interface` 上生成并测试前向回滚提交。若移除整个指数九转 UI/capability，须逆序处理 `673161cf`、`4c426fd6` 及之后 `IndexDetailPage.tsx` 的冲突，只做 platform-only 发布；不得删除 `99f1f2f5`/`43372c89` 对应的 Lake 合同、Dagster events 或生产数据，不得恢复 Mock、客户端计算或 fallback。回滚后验证 health、日线 capability/请求、生产分钟 404 和其他详情页。
 
+11. **需求关闭复核（2026-08-27，已完成）**
+    - 生产只读复核为干净的 `dev-interface@f732f8bde271a8d7f5eb97039948362704aa15dc`，并仍包含 `4365e1dd` 需求关闭、`673161cf` 固定六周期与 `de0fcaa8` D6 提交；Web、Ops worker、Ops scheduler 均为 `active`，两个 health endpoint 均为 200。
+    - 股票/指数日线九转未登录请求均为 401，股票/指数分钟九转请求均为 404；生产权限和分钟隔离合同没有漂移。
+    - 当前分支四组九转 API 33 项、Wealth 全量 335 项、Orchestrator 九转合同 212 项及 14 个子测试全部通过，Wealth typecheck 与 production build 通过；用户已确认生产视觉验收完成。
+    - 本次未读取正式 Dagster instance，未执行或修改任何 job、sensor、materialization、backfill、event、Lake 或数据库状态。后续 freshness 属于常规运维，不再阻塞本需求关闭。
+
 M6-D 的产品、数据、性能、权限、路由、页面与回滚门禁均已关闭；后续正式 Dagster 实例只读快照或任何 sensor/运行写操作仍须按独立运维审批执行。
 
 ## 16. 测试矩阵
@@ -1915,3 +1921,4 @@ D6-2 与 D6-3 正式执行结果如下：
 | v1.38 | 2026-08-17 | D6-2 正式完成并收口 D6-3 边界：serving→Gold 两个 writer 已恢复为唯一 RUNNING，三日六个自然 run 全部 SUCCESS；16,619 行 Lake/Prod、六列/八列合同和六组 readiness/check 全绿，生产认证请求 200。READY 页面仍因 `equity_factor_pro` 全表最大交易日停在 2026-08-14 而返回 DELAYED；300 根窗口九转 300/300 对齐、缺键为 0，禁止把上游 freshness 问题误报为九转缺失或 D6 完成 | Codex |
 | v1.39 | 2026-08-17 | 纠正 D6-3 时间口径并同步实时进度：21:34 的 DELAYED 发生在当日收盘维护任务实际执行前，不是 freshness 故障；22:54 后 `equity_factor_pro` 已覆盖 2026-08-17 共 5,538 行，生产 `603806.SH` READY 页面复验通过，股票日线去价格 D6 完成。三个指数 sensor 均为唯一 RUNNING，2026-08-17 日线、六分钟与 serving 自然 run 全部 SUCCESS，M6-B/M6-C 完成；只剩 M6-D 最终验收 | Codex |
 | v1.40 | 2026-08-22 | M6-D 最终收口：登记生产 `57ece8a3`、十指数日线九转 50 次 READY/300 根完全对齐/P95 12.795ms、allowlist 与生产分钟 404、固定六周期摘要和用户视觉验收；冻结当前分支前向回滚步骤，并明确 2026-08-17 Dagster 快照不是 2026-08-22 实时状态 | Codex |
+| v1.41 | 2026-08-27 | 需求关闭复核：生产为干净的 `f732f8bd` 且仍包含关闭、固定六周期与 D6 提交；三项服务 active、双 health 200、日线未登录 401、分钟 404，当前 API/Wealth/Orchestrator 回归全绿。正式 Dagster 实例未重读，后续 freshness 归常规运维 | Codex |
