@@ -6,6 +6,7 @@ from sqlalchemy import case, func, literal, select
 from sqlalchemy.orm import Session
 
 from src.biz.services.wealth.market.news.news_reader_content_resolver import NEWS_READER_HTML_PATTERN
+from src.biz.services.wealth.market.news.major_news_display_policy import MAJOR_NEWS_EXCLUDED_SOURCE
 from src.foundation.models.core_serving_light.major_news import MajorNewsLight
 
 from .market_news_query import NewsQueryResult, NewsQueryRow
@@ -45,6 +46,7 @@ class MajorNewsQuery:
             .where(
                 MajorNewsLight.pub_time >= window_start_at,
                 MajorNewsLight.pub_time <= window_end_at,
+                func.trim(MajorNewsLight.src) != MAJOR_NEWS_EXCLUDED_SOURCE,
                 func.length(display_title) > 0,
                 func.length(normalized_content) > 0,
             )
@@ -80,6 +82,7 @@ class MajorNewsQuery:
     def load_observed_at(self, session: Session) -> datetime | None:
         return session.scalar(
             select(func.max(MajorNewsLight.pub_time)).where(
+                func.trim(MajorNewsLight.src) != MAJOR_NEWS_EXCLUDED_SOURCE,
                 func.length(func.trim(MajorNewsLight.title)) > 0,
                 func.length(func.trim(MajorNewsLight.content)) > 0,
             )

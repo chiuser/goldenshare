@@ -178,12 +178,12 @@ interface NewsPanelItem {
 | 字段 | 来源表 | 来源列 | 映射/转换 |
 |---|---|---|---|
 | `newsBriefs.*` | `core_serving_light.news` | `row_key_hash/news_time/title/content/src` | 全频道；标题优先 `title`，否则正文前 80 字；正文只用于标题 fallback 和 readerMode hint |
-| `newsCommunications.*` | `core_serving_light.major_news` | `row_key_hash/pub_time/title/content/src` | 标题和正文必须非空；列表不返回正文；readerMode 仅 HTML/TEXT |
+| `newsCommunications.*` | `core_serving_light.major_news` | `row_key_hash/pub_time/title/content/src` | 标题和正文必须非空；排除 `trim(src)='新浪财经'`；列表不返回正文；readerMode 仅 HTML/TEXT；同花顺详情正文移除固定推广文字后返回 |
 | `contentSource` | 后端常量 | - | briefs=`news`，communications=`major_news` |
 | `source` | 两表 | `src` | 用户可见来源；不得使用技术来源字段 `source` |
 | `visibleItemCount/queryLimit` | 策略配置中心 | `visible_item_count/query_limit` | 默认 10/300，不新增配置 |
 
-两列使用相同自然时间窗口，但独立请求、独立状态和独立标题去重。详情必须按 `contentSource + newsId` 精确读取指定表；`major_news.url` 只进入 `originalUrl` 溯源字段，不作为阅读载荷。
+两列使用相同自然时间窗口，但独立请求、独立状态和独立标题去重。详情必须按 `contentSource + newsId` 精确读取指定表；新浪财经来源在列表、状态观测和详情读取中使用同一排除口径；同花顺固定推广文字只在响应展示层清理，不修改数据库原文。`major_news.url` 只进入 `originalUrl` 溯源字段，不作为阅读载荷。
 
 ---
 

@@ -3,9 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from src.biz.services.wealth.market.news.major_news_display_policy import MAJOR_NEWS_EXCLUDED_SOURCE
 from src.foundation.models.core_serving_light.major_news import MajorNewsLight
 
 
@@ -30,7 +31,10 @@ class MajorNewsReaderQuery:
                 MajorNewsLight.content,
                 MajorNewsLight.url,
             )
-            .where(MajorNewsLight.row_key_hash == news_id)
+            .where(
+                MajorNewsLight.row_key_hash == news_id,
+                func.trim(MajorNewsLight.src) != MAJOR_NEWS_EXCLUDED_SOURCE,
+            )
             .limit(1)
         ).one_or_none()
         if row is None:

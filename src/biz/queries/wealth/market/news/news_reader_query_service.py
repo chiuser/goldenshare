@@ -47,7 +47,7 @@ class NewsReaderQueryService:
             resolved = (
                 resolve_news_reader_content(row.content)
                 if content_source == "news"
-                else resolve_major_news_reader_content(row.content)
+                else resolve_major_news_reader_content(row.content, source=row.source)
             )
         except NewsReaderContentEmptyError as exc:
             raise NewsReaderNotFoundError("news content is unavailable") from exc

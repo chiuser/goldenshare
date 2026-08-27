@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from typing import Literal
 from urllib.parse import urlsplit
 
+from .major_news_display_policy import strip_major_news_promotional_text
+
 
 NewsReaderMode = Literal["URL", "HTML", "TEXT"]
 NEWS_READER_MAX_CONTENT_BYTES = 256 * 1024
@@ -61,17 +63,31 @@ def resolve_news_reader_content(content: str | None) -> ResolvedNewsReaderConten
     return ResolvedNewsReaderContent(mode=mode, url=None, html=None, content=text)
 
 
-def resolve_major_news_reader_content(content: str | None) -> ResolvedNewsReaderContent:
+def resolve_major_news_reader_content(
+    content: str | None,
+    *,
+    source: str,
+) -> ResolvedNewsReaderContent:
     text = _validate_nonempty_and_size(content)
+    text = _validate_nonempty(
+        strip_major_news_promotional_text(
+            source=source,
+            content=text,
+        )
+    )
     if re.search(NEWS_READER_HTML_PATTERN, text):
         return ResolvedNewsReaderContent(mode="HTML", url=None, html=text, content=None)
     return ResolvedNewsReaderContent(mode="TEXT", url=None, html=None, content=text)
 
 
-def _validate_nonempty_and_size(content: str | None) -> str:
+def _validate_nonempty(content: str | None) -> str:
     if content is None or not content.strip():
         raise NewsReaderContentEmptyError("news content is empty")
-    text = content.strip()
+    return content.strip()
+
+
+def _validate_nonempty_and_size(content: str | None) -> str:
+    text = _validate_nonempty(content)
     if len(text.encode("utf-8")) > NEWS_READER_MAX_CONTENT_BYTES:
         raise NewsReaderContentTooLargeError("news content exceeds the size limit")
     return text

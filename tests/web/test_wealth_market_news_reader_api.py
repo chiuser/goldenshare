@@ -185,6 +185,90 @@ def test_major_news_reader_does_not_extract_leading_bracket_title(app_client, db
     assert response.json()["title"] == "【新闻通讯标题】尾部保持原样"
 
 
+def test_major_news_reader_hides_sina_finance_source(app_client, db_session) -> None:
+    _ensure_news_tables(db_session)
+    _add_major_news(
+        db_session,
+        news_id="major-sina-filtered",
+        title="新浪财经通讯不得展示",
+        content="新浪财经正文",
+        src=" 新浪财经 ",
+    )
+    db_session.commit()
+
+    response = app_client.get("/api/v1/wealth/market/news/items/major_news/major-sina-filtered")
+
+    assert (response.status_code, response.json()["code"]) == (404, "NEWS_READER_NOT_FOUND")
+
+
+@pytest.mark.parametrize(
+    ("news_id", "content", "expected_mode", "payload_key", "expected_body"),
+    [
+        (
+            "major-ths-html-footer",
+            '<article><p>正文主体</p><p class="bottomSign politics-hide"><a><strong>'
+            "关注同花顺财经（ths518），获取更多机会"
+            "</strong></a></p><span id=\"arctTailMark\"></span></article>",
+            "HTML",
+            "html",
+            '<article><p>正文主体</p><p class="bottomSign politics-hide"><a><strong>'
+            "</strong></a></p><span id=\"arctTailMark\"></span></article>",
+        ),
+        (
+            "major-ths-text-footer",
+            "正文主体\n关注同花顺财经（ths518），获取更多机会。",
+            "TEXT",
+            "content",
+            "正文主体",
+        ),
+    ],
+)
+def test_major_news_reader_removes_ths_promotional_text(
+    app_client,
+    db_session,
+    news_id: str,
+    content: str,
+    expected_mode: str,
+    payload_key: str,
+    expected_body: str,
+) -> None:
+    _ensure_news_tables(db_session)
+    _add_major_news(
+        db_session,
+        news_id=news_id,
+        title="同花顺通讯标题",
+        content=content,
+        src=" 同花顺 ",
+    )
+    db_session.commit()
+
+    response = app_client.get(f"/api/v1/wealth/market/news/items/major_news/{news_id}")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["readerMode"] == expected_mode
+    assert payload[payload_key] == expected_body
+    assert "关注同花顺财经" not in payload[payload_key]
+
+
+def test_major_news_reader_keeps_same_text_for_other_sources(app_client, db_session) -> None:
+    _ensure_news_tables(db_session)
+    content = "正文主体\n关注同花顺财经（ths518），获取更多机会。"
+    _add_major_news(
+        db_session,
+        news_id="major-cls-same-text",
+        title="财联社通讯标题",
+        content=content,
+        src="财联社",
+    )
+    db_session.commit()
+
+    response = app_client.get("/api/v1/wealth/market/news/items/major_news/major-cls-same-text")
+
+    assert response.status_code == 200
+    assert response.json()["content"] == content
+
+
 def test_news_reader_does_not_fallback_across_sources(app_client, db_session) -> None:
     _ensure_news_tables(db_session)
     _add_news(db_session, news_id="news-only", title="快讯", content="快讯正文")
@@ -200,9 +284,24 @@ def test_news_reader_does_not_fallback_across_sources(app_client, db_session) ->
 
 def test_news_reader_endpoint_maps_controlled_errors(app_client, db_session) -> None:
     _ensure_news_tables(db_session)
+    ths_promotion = "关注同花顺财经（ths518），获取更多机会。"
     _add_news(db_session, news_id="reader-empty", title="空正文", content=" ")
     _add_news(db_session, news_id="reader-large", title="超大正文", content="中" * 90_000)
     _add_news(db_session, news_id="reader-invalid", title="非法地址", content="http:///missing-host")
+    _add_major_news(
+        db_session,
+        news_id="major-empty-after-promotion",
+        title="清理后空正文",
+        content=ths_promotion,
+        src="同花顺",
+    )
+    _add_major_news(
+        db_session,
+        news_id="major-large-before-promotion",
+        title="清理前超大正文",
+        content=ths_promotion * 5_000,
+        src="同花顺",
+    )
     db_session.commit()
 
     missing = app_client.get("/api/v1/wealth/market/news/items/news/not-found")
@@ -212,6 +311,12 @@ def test_news_reader_endpoint_maps_controlled_errors(app_client, db_session) -> 
     invalid_source = app_client.get("/api/v1/wealth/market/news/items/unknown/reader-empty")
     invalid_id = app_client.get("/api/v1/wealth/market/news/items/news/bad%24id")
     legacy_route = app_client.get("/api/v1/wealth/market/news/items/reader-empty")
+    major_empty_after_promotion = app_client.get(
+        "/api/v1/wealth/market/news/items/major_news/major-empty-after-promotion"
+    )
+    major_large_before_promotion = app_client.get(
+        "/api/v1/wealth/market/news/items/major_news/major-large-before-promotion"
+    )
 
     assert (missing.status_code, missing.json()["code"]) == (404, "NEWS_READER_NOT_FOUND")
     assert (empty.status_code, empty.json()["code"]) == (404, "NEWS_READER_NOT_FOUND")
@@ -220,6 +325,14 @@ def test_news_reader_endpoint_maps_controlled_errors(app_client, db_session) -> 
     assert (invalid_source.status_code, invalid_source.json()["code"]) == (400, "NEWS_READER_REQUEST_INVALID")
     assert (invalid_id.status_code, invalid_id.json()["code"]) == (400, "NEWS_READER_REQUEST_INVALID")
     assert legacy_route.status_code == 404
+    assert (major_empty_after_promotion.status_code, major_empty_after_promotion.json()["code"]) == (
+        404,
+        "NEWS_READER_NOT_FOUND",
+    )
+    assert (major_large_before_promotion.status_code, major_large_before_promotion.json()["code"]) == (
+        413,
+        "NEWS_READER_CONTENT_TOO_LARGE",
+    )
 
 
 def test_news_reader_endpoint_hides_unexpected_query_details(app_client, monkeypatch) -> None:

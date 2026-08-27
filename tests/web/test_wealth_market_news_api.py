@@ -201,6 +201,14 @@ def test_market_news_endpoints_use_independent_sources(app_client, db_session) -
         title="空正文通讯",
         content=" ",
     )
+    _add_major_news(
+        db_session,
+        row_key_hash="communication-sina-filtered",
+        pub_time=now - timedelta(minutes=1),
+        title="新浪财经通讯不得展示",
+        content="新浪财经正文",
+        src=" 新浪财经 ",
+    )
     db_session.commit()
 
     briefs_response = app_client.get("/api/v1/wealth/market/news/briefs", params={"debug": 1})
@@ -244,6 +252,7 @@ def test_market_news_endpoints_use_independent_sources(app_client, db_session) -
     }
     assert communications_payload["newsCommunications"]["items"][0]["source"] == "cls"
     assert communications_payload["newsCommunications"]["items"][0]["readerMode"] == "HTML"
+    assert communications_payload["debugInfo"]["modules"][0]["observedTradeDate"] == in_window_time.date().isoformat()
     assert briefs_payload["newsBriefs"]["items"][0]["title"] == "两列共有标题"
     assert communications_payload["newsCommunications"]["items"][0]["title"] == "两列共有标题"
     assert communications_payload["debugInfo"]["modules"][0]["moduleKey"] == "newsCommunications"

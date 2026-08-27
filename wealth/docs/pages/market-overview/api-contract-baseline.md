@@ -1,6 +1,6 @@
 # 市场总览 API 契约基线（当前生效）
 
-> 新闻模块当前合同（2026-08-24）：左列 `/news/briefs` 展示 `core_serving_light.news` 全部可读快讯，右列 `/news/communications` 展示 `core_serving_light.major_news` 新闻通讯；详情必须使用 `contentSource + newsId`。旧 `/news/stocks` 和无来源详情路由已删除。
+> 新闻模块当前合同（更新至 2026-08-27）：左列 `/news/briefs` 展示 `core_serving_light.news` 全部可读快讯；右列 `/news/communications` 展示排除新浪财经来源后的 `core_serving_light.major_news` 新闻通讯，同花顺正文的固定推广文字在响应展示层移除；详情必须使用 `contentSource + newsId`。旧 `/news/stocks` 和无来源详情路由已删除。
 
 ## 来源
 
@@ -189,7 +189,7 @@ subjectiveMarketConclusion
 2. 连板天梯：独立模块接口 `GET /api/v1/wealth/market/streak-ladder`，基于 `equity_limit_list / limit_list_d`，分组固定“首板/二板/三板/四板/五板及以上”，并全量返回 `boardCount`。
 3. 板块速览前后端均已在本地切换为 V2 判别式契约，旧 `columns + heatMapItems` 及前端旧 adapter/fixture 已删除；部署时仍必须作为同一发布单元上线，禁止只部署其中一侧。行业层级来自 `core_serving.wealth_sector_hierarchy`，行业/概念/地域盘后行情、资金与成员来自 `dc_daily + dc_index + board_moneyflow_dc + dc_member`，成员盘后行情来自 `equity_daily_bar`，证券资格与停牌解释来自 `security_serving + equity_suspend_d`，概念热度来自 `core_serving.wealth_sector_heat_daily`。V2 提供 `INDUSTRY/CONCEPT/REGION` 三个独立视图，使用 `heatDelta1d` 和有效 A 股成分池，不引入实时行情、分钟热度或 Redis 事实源。
 4. 模块级 delayed 仅用于 debug mode；正式产品默认展示页面级状态。
-5. 新闻模块已使用 `/briefs` 与 `/communications`，item 可点击打开共享阅读器。`/briefs` 展示全部可读 `news` 快讯，不按 `channels` 过滤；`/communications` 展示 `major_news` 新闻通讯。详情身份固定为 `contentSource + newsId`，两张表不跨源去重或 fallback；`major_news` 正文只按 HTML > TEXT 展示，`url` 仅作为 `originalUrl` 溯源事实，不写入 DOM、不导航。两列仍不接收 `tradeDate`，继续使用“昨日 00:00 到当前服务器时间”的 `newsWindow`。
+5. 新闻模块已使用 `/briefs` 与 `/communications`，item 可点击打开共享阅读器。`/briefs` 展示全部可读 `news` 快讯，不按 `channels` 过滤；`/communications` 展示 `major_news` 新闻通讯，但在列表、状态观测和详情查询中统一排除 `trim(src)='新浪财经'`。同花顺正文在返回前移除固定推广文字“关注同花顺财经（ths518），获取更多机会”，数据库原文不变。详情身份固定为 `contentSource + newsId`，两张表不跨源去重或 fallback；`major_news` 正文只按 HTML > TEXT 展示，`url` 仅作为 `originalUrl` 溯源事实，不写入 DOM、不导航。两列仍不接收 `tradeDate`，继续使用“昨日 00:00 到当前服务器时间”的 `newsWindow`。
 
 ## 性能原则
 
