@@ -77,6 +77,9 @@ docs/
 
 ## 页面级文档
 
+- [财势乾坤板块分析产品交互基线文档 v1](./pages/wealth-exploration/sector-analysis-product-interaction-baseline-v1.md)
+- [财势探查｜板块分析技术实施方案 v1（编码基线）](./pages/wealth-exploration/sector-analysis-implementation-design-v1.md)
+- [财势探查｜板块分析低层设计 v1（待确认后进入 M0）](./pages/wealth-exploration/sector-analysis-low-level-design-v1.md)
 - [财势探查｜板块雷达产品设计方案 v1（首版研究稿）](./pages/wealth-exploration/sector-radar-product-design-v1.md)
 - [财势探查｜板块雷达数据覆盖审计 v1](./pages/wealth-exploration/sector-radar-data-coverage-audit-v1.md)
 - [市场总览页面基线](./pages/market-overview/market-overview-baseline.md)

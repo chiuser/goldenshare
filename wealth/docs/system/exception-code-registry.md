@@ -235,7 +235,24 @@
 
 401/403 继续复用认证层，不新增 QTF 用户、角色或权限码。
 
-## 11. 变更规则
+## 11. 财势探查板块分析（Phase-6，编码前已登记）
+
+| code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `SA_SOURCE_DELAYED` | `sectorAnalysis` | warn | false | true | 默认目标交易日行业行情尚未发布，使用最近完整盘后日 | 默认请求的 `observedTradeDate < expectedTradeDate` | 保留完整榜单和趋势，明确提示实际盘后日期 | biz-api | Phase-6 | active |
+| `SA_SOURCE_EMPTY` | `sectorAnalysis` | warn | false | true | 显式日期没有行业行情，或当前比较池全部不可计算 | 显式日期无有效行，或 `calculableCount=0` | 稳定 EMPTY；不回退旧日、不补零 | biz-api | Phase-6 | active |
+| `SA_HIERARCHY_UNAVAILABLE` | `sectorAnalysis` | error | false | true | 当前行业层级不可用于建立比较池 | 层级为空、多版本、重复代码、父级或 root 闭包非法 | 稳定 ERROR；禁止前端猜测层级或默认项 | biz-api | Phase-6 | active |
+| `SA_SCOPE_INVALID` | `sectorAnalysis` | warn | false | false | 比较范围、父级或固定枚举不符合合同 | scope 与父级参数错层、跨父级、缺失或使用未批准枚举 | HTTP 400；保留当前输入并修正 URL/选择 | biz-api | Phase-6 | active |
+| `SA_SELECTION_INVALID` | `sectorAnalysis` | warn | false | false | 选中行业不属于当前比较池 | `sectorCode` 不在当前 scope 与父级解析出的对象池 | HTTP 400；不得静默替换为另一行业 | biz-api | Phase-6 | active |
+| `SA_QUERY_FAILED` | `sectorAnalysis` | error | false | true | 板块分析查询或纯计算出现未分类失败 | SQL、日期窗口、结果唯一性、DTO 组合或未知内部异常 | 稳定 ERROR；安全文案和重试，不展示不完整结果 | biz-api | Phase-6 | active |
+
+补充规则：
+
+1. 前端 LOADING 是请求态，不登记业务异常码。
+2. 个别行业缺失时行保留并显示 `--`，不产生 PARTIAL 或独立异常码；只有全部不可计算时使用 `SA_SOURCE_EMPTY`。
+3. 401/403 继续复用认证层，不新增同义 `SA_*`。
+
+## 12. 变更规则
 
 1. 已上线的 `code` 不允许重用为新语义。
 2. 废弃码必须保留历史记录，`status=deprecated`，并补替代码。
