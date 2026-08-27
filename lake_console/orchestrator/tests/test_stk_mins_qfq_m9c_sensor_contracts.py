@@ -39,7 +39,7 @@ from orchestrator.defs.run_contracts.cursors import (
 
 PARTITION_KEY = "2026-05-29"
 EVALUATED_AT = datetime(2026, 5, 29, 20, 45, tzinfo=ZoneInfo("Asia/Shanghai"))
-BEFORE_WINDOW = datetime(2026, 5, 29, 20, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+BEFORE_WINDOW = datetime(2026, 5, 29, 19, 39, tzinfo=ZoneInfo("Asia/Shanghai"))
 
 
 def _asset_status(
@@ -210,7 +210,7 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
         self.assertIsNone(no_partition.selected_trade_date)
         self.assertIn("没有注册", no_partition.reason)
         self.assertIsNone(before_window.selected_trade_date)
-        self.assertIn("20:05", before_window.reason)
+        self.assertIn("19:40", before_window.reason)
 
     def test_decision_requires_gold_ready_and_skips_failed_gold_checks(self) -> None:
         not_ready = build_stock_mins_qfq_factor_repair_decision(
@@ -319,7 +319,7 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
         self.assertIsNotNone(cursor["details"]["gate_statuses"]["gold_stk_mins_qfq"])
         self.assertEqual(
             STOCK_MINS_QFQ_FACTOR_REPAIR_RUN_START.isoformat(),
-            "20:05:00",
+            "19:40:00",
         )
         for fragment in (
             "status_samples",
@@ -353,7 +353,7 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
             mock_datetime.now.return_value = BEFORE_WINDOW
             result = repair_sensor_module.stock_mins_qfq_factor_repair_sensor._raw_fn(context)
 
-        self.assertIn("20:05", result.skip_reason.skip_message)
+        self.assertIn("19:40", result.skip_reason.skip_message)
         cursor = json.loads(result.cursor)
         self.assertEqual(cursor["target_date"], None)
         self.assertEqual(cursor["selected_count"], 0)

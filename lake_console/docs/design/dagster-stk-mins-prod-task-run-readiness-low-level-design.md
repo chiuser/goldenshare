@@ -30,7 +30,7 @@ prod 使用 `ops.task_run` 记录运营任务。相关字段包括：
 
 ### 2.2 已完成的 DG 日常防护
 
-1. `stock_mins_raw_sensor` 先做既有交易日/raw 连续性与 `stock_basic` readiness；当前日仅在 19:30 后才读取 prod TaskRun，再做五频度代码覆盖，两个门都通过才提交原有 raw job。
+1. `stock_mins_raw_sensor` 先做既有交易日/raw 连续性与 `stock_basic` readiness；当前日仅在 19:05 后才读取 prod TaskRun，再做五频度代码覆盖，两个门都通过才提交原有 raw job。
 2. sensor 的最短评估间隔已由 600 秒收敛为 900 秒；跨日仍未就绪的历史日期会明确要求受控 recovery，不会被日常 sensor 静默补跑。
 3. `source=prod_db` 的 raw run 必须携带 sensor 冻结的 `ProdStkMinsCompletionReference`。五个 asset 在写入前按同一 TaskRun ID 复核，并只复核各自频度的代码覆盖；手工空配置会 fail closed。
 4. prod raw writer 在 staging promote 前要求返回股票代码数等于当日预期股票代码数；少代码时删除临时文件，既有正式文件不变。
@@ -105,10 +105,10 @@ rows_rejected = 0
 ### 4.1 日常当天
 
 ```text
-19:30 前
+19:05 前
   -> 不读 ops.task_run，不提交 run。
 
-19:30 至 24:00 前
+19:05 至 24:00 前
   -> 每次 sensor tick 先读取目标日 ops.task_run。
   -> 无合格全市场任务：skip；15 分钟后继续判断。
   -> 有合格全市场任务：读取一次 prod raw 五频度代码覆盖。
@@ -183,7 +183,7 @@ R1 当时不修改 `assets/stk_mins.py`、`run_contracts/configs.py`、job、sen
 | `defs/prod_db/stk_mins.py` | 已新增有界代码覆盖 read model：只用 `EXISTS` 读取 `freq`、`ts_code`、`trade_time`；不扫描 OHLC、成交量或全分钟键。 |
 | `defs/asset_guards/stk_mins_stock_universe.py` | 已抽取 raw writer 与门禁共用的当日股票集合、严格归一化与稳定 MD5 hash。 |
 | `defs/asset_guards/stk_mins_prod_readiness.py` | 已组合 TaskRun 与五频度覆盖，并提供 asset 写前按 TaskRun ID/单频度的二次复核。 |
-| `defs/run_contracts/stk_mins.py` | 已定义 19:30 起始、900 秒间隔与不可变 `ProdStkMinsCompletionReference` 的规范化/hash。 |
+| `defs/run_contracts/stk_mins.py` | 已定义 19:05 起始、900 秒间隔与不可变 `ProdStkMinsCompletionReference` 的规范化/hash。 |
 | `defs/run_contracts/configs.py` | 已扩展 raw config schema、parser 与 builder；`source=prod_db` 缺少 completion reference 必须 fail closed，Tushare repair 不受影响。 |
 | `defs/jobs/stock_mins_raw_update.py` | 保留 job 名称和 selection，但移除无法在 definitions 阶段构造的静态 prod config；只有 sensor 传入的 reference config 才能运行 prod 路径。 |
 | `defs/sensors/stock_mins_raw_sensor.py` | 已在 `stock_basic` gate 后读取 TaskRun 和完整五频度覆盖；cursor 只记录紧凑门禁事实；跨日历史缺口明确进入受控 recovery。 |
@@ -194,10 +194,10 @@ R1 当时不修改 `assets/stk_mins.py`、`run_contracts/configs.py`、job、sen
 
 | 路径 | 单次读取/写入 | 上限与拒绝策略 |
 |---|---|---|
-| raw sensor，19:30 前 | 不读 prod；仅保留既有轻量窗口判断 | 0 条 prod SQL。 |
+| raw sensor，19:05 前 | 不读 prod；仅保留既有轻量窗口判断 | 0 条 prod SQL。 |
 | raw sensor，未出现全市场成功任务 | 1 条 `ops.task_run` 有界查询，最多 20 条候选；既有 10 日 Lake batch readiness | 不读分钟源表，不读取 task node/issue/history。查询异常立即 skip。 |
 | raw sensor，已出现全市场成功任务 | 上述 TaskRun 查询 + 1 条五频度 `(freq, ts_code)` 主键存在性覆盖查询 | 不扫描 OHLC、成交量或全分钟键；缺代码立即 skip，源主键承担重复/空键约束。 |
-| 同日等待 | 最多约 18 次（19:30 至 23:45） | 仅在已有全市场成功 TaskRun 后才重复代码覆盖查询；15 分钟最短间隔。 |
+| 同日等待 | 最多约 19 次（19:05 至 23:45） | 仅在已有全市场成功 TaskRun 后才重复代码覆盖查询；15 分钟最短间隔。 |
 | raw job | 5 次按 TaskRun ID 的主键读取 + 5 次单频度代码覆盖复核 + 既有五频度导出 | TaskRun 不合格或代码覆盖不闭合即不 promote。 |
 | R1 历史 recovery plan | 1 次本地 `silver_stock_basic` code scan、最多 20 条 `ops.task_run` 候选、1 次五频度聚合身份查询、5 个现有 raw 文件 SHA-256 | 只读；任一 TaskRun、coverage、时间范围、target 文件异常即 stop。 |
 | R1 历史 recovery apply | 5 个 prod 全量导出、5 个 staging Parquet、5 个旧 raw quarantine、5 次 promote | 已冻结规模为 1,776,093 行、约 5 个单日文件；DuckDB `COPY` 写入，无 Python 行循环。任一 staging 或 promote 异常完整回滚已移动原文件。 |
@@ -212,7 +212,7 @@ R1 当时不修改 `assets/stk_mins.py`、`run_contracts/configs.py`、job、sen
 - running、failed、partial_success、缺结束时间、拒绝行、未完成单元、非 100% 进度、零行均 skip；
 - 单频度、代码子集、日期不匹配、JSON 异常均 skip；
 - 全市场成功但 prod 缺预期代码或代码覆盖查询异常均 skip；后续代码子集补跑使覆盖闭合后才可触发；源主键保证 prod 分钟键结构；
-- 19:30 前不查询 prod；19:30 后每 tick 查询一次；24:00 后不再提交 run；
+- 19:05 前不查询 prod；19:05 后每 tick 查询一次；24:00 后不再提交 run；
 - cursor 包含简短中文 summary / next_action / reason code，不包含完整 JSON、代码列表或 SQL；
 - asset 的 reference 缺失/变化/失效均 fail closed；
 - prod 返回少代码或 asset 二次覆盖复核失败时不 promote；

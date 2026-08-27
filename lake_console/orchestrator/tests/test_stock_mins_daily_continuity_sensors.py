@@ -47,7 +47,7 @@ class _AfterRawWindowDateTime(datetime):
 class _BeforeRawWindowDateTime(datetime):
     @classmethod
     def now(cls, tz=None):
-        return cls(2026, 6, 16, 19, 20, tzinfo=tz)
+        return cls(2026, 6, 16, 19, 0, tzinfo=tz)
 
 
 class _AfterSilverPartitionWindowDateTime(datetime):
@@ -59,7 +59,7 @@ class _AfterSilverPartitionWindowDateTime(datetime):
 class _BeforeSilverPartitionWindowDateTime(datetime):
     @classmethod
     def now(cls, tz=None):
-        return cls(2026, 6, 16, 19, 44, tzinfo=tz)
+        return cls(2026, 6, 16, 19, 9, tzinfo=tz)
 
 
 class _AfterSilverRunWindowDateTime(datetime):
@@ -71,7 +71,7 @@ class _AfterSilverRunWindowDateTime(datetime):
 class _BeforeSilverRunWindowDateTime(datetime):
     @classmethod
     def now(cls, tz=None):
-        return cls(2026, 6, 16, 19, 39, tzinfo=tz)
+        return cls(2026, 6, 16, 19, 14, tzinfo=tz)
 
 
 class _AfterQfqDailyWindowDateTime(datetime):
@@ -83,7 +83,7 @@ class _AfterQfqDailyWindowDateTime(datetime):
 class _BeforeQfqDailyWindowDateTime(datetime):
     @classmethod
     def now(cls, tz=None):
-        return cls(2026, 6, 16, 19, 45, tzinfo=tz)
+        return cls(2026, 6, 16, 19, 29, tzinfo=tz)
 
 
 class _AfterQfqFactorRepairWindowDateTime(datetime):
@@ -95,7 +95,7 @@ class _AfterQfqFactorRepairWindowDateTime(datetime):
 class _BeforeQfqFactorRepairWindowDateTime(datetime):
     @classmethod
     def now(cls, tz=None):
-        return cls(2026, 6, 16, 20, 0, tzinfo=tz)
+        return cls(2026, 6, 16, 19, 39, tzinfo=tz)
 
 
 class _Instance:
@@ -621,7 +621,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             result = stock_mins_raw_sensor._raw_fn(context)
 
         self.assertEqual(result.run_requests, [])
-        self.assertIn("19:30", _skip_message(result))
+        self.assertIn("19:05", _skip_message(result))
         stock_basic_ready_mock.assert_not_called()
 
         cursor = json.loads(result.cursor)
@@ -945,7 +945,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             result = stock_mins_silver_trade_day_sensor._raw_fn(context)
 
         self.assertEqual(result.dynamic_partitions_requests, [])
-        self.assertIn("19:45", _skip_message(result))
+        self.assertIn("19:10", _skip_message(result))
         raw_batch_mock.assert_called_once()
 
         cursor = json.loads(result.cursor)
@@ -1360,7 +1360,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             result = stock_mins_silver_sensor._raw_fn(context)
 
         self.assertEqual(result.run_requests, [])
-        self.assertIn("19:40", _skip_message(result))
+        self.assertIn("19:15", _skip_message(result))
         silver_batch_mock.assert_called_once()
         raw_batch_mock.assert_called_once()
 
@@ -1903,7 +1903,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             result = stock_mins_qfq_daily_sensor._raw_fn(context)
 
         self.assertEqual(result.run_requests, [])
-        self.assertIn("19:50", _skip_message(result))
+        self.assertIn("19:30", _skip_message(result))
 
         cursor = json.loads(result.cursor)
         self.assertIsNone(cursor["target_date"])
@@ -1936,7 +1936,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             result = stock_mins_qfq_factor_repair_sensor._raw_fn(context)
 
         self.assertEqual(result.run_requests, [])
-        self.assertIn("20:05", _skip_message(result))
+        self.assertIn("19:40", _skip_message(result))
 
         cursor = json.loads(result.cursor)
         self.assertIsNone(cursor["target_date"])

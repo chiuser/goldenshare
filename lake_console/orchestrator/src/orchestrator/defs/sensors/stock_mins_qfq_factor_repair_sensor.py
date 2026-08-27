@@ -56,7 +56,7 @@ from orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor import (
 
 
 STOCK_MINS_QFQ_FACTOR_REPAIR_SENSOR_JOB_NAME = "stock_mins_qfq_factor_repair_job"
-STOCK_MINS_QFQ_FACTOR_REPAIR_RUN_START = time(20, 5)
+STOCK_MINS_QFQ_FACTOR_REPAIR_RUN_START = time(19, 40)
 
 
 @dataclass(frozen=True)
@@ -209,7 +209,7 @@ def build_stock_mins_qfq_factor_repair_decision(
             target_trade_date=target_trade_date,
             run_window_started=False,
             selected_trade_date=None,
-            reason="股票分钟线 gold qfq factor repair 窗口尚未到 20:05，暂不触发。",
+            reason="股票分钟线 gold qfq factor repair 窗口尚未到 19:40，暂不触发。",
         )
     if gold_has_materialized_check_problem:
         return StockMinsQfqFactorRepairDecision(
@@ -294,7 +294,7 @@ def _cursor_summary_and_next_action(
     if reason_code == "run_window_not_started":
         return (
             "未触发：股票分钟线 qfq factor repair 窗口尚未开始。",
-            "等到 20:05 后，下一次 tick 会重新判断是否提交 repair。",
+            "等到 19:40 后，下一次 tick 会重新判断是否提交 repair。",
         )
     if reason_code == "no_registered_partition":
         return (
@@ -445,7 +445,7 @@ def _window_not_started_cursor_payload(
             reason_code="run_window_not_started",
             blocked_component="run_window",
             summary=reason,
-            next_action="等待 20:05 后由下一次 sensor tick 自动重试。",
+            next_action="等待 19:40 后由下一次 sensor tick 自动重试。",
             evidence={"run_window_started": False},
         ),
     )
@@ -532,7 +532,7 @@ def stock_mins_qfq_factor_repair_sensor(
         evaluated_at.time() >= STOCK_MINS_QFQ_FACTOR_REPAIR_RUN_START
     )
     if not run_window_started:
-        reason = "股票分钟线 gold qfq factor repair 窗口尚未到 20:05，暂不触发。"
+        reason = "股票分钟线 gold qfq factor repair 窗口尚未到 19:40，暂不触发。"
         return dg.SensorResult(
             skip_reason=reason,
             cursor=_window_not_started_cursor_payload(

@@ -694,7 +694,7 @@ selection = select_first_not_ready_trade_date(
     <p>决策规则：</p>
     <ul>
       <li><code>selection.status.first_missing_registered_date</code> 非空时 skip，原因写清“股票分钟线 raw 交易日分区存在缺口”。</li>
-      <li>source window 未到 19:30 时 skip，但 cursor 仍记录 continuity status。</li>
+      <li>source window 未到 19:05 时 skip，但 cursor 仍记录 continuity status。</li>
       <li><code>selection.selected_trade_date</code> 非空且 stock basic ready 时，提交同一 <code>_run_request_for_trade_date(...)</code>；run key 不变。</li>
       <li>若 selected date 已 materialized 但 checks 未绿，沿用人工处理 skip，不提交重跑。</li>
     </ul>

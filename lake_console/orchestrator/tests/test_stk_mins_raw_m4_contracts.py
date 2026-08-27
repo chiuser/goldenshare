@@ -98,7 +98,7 @@ class _AfterRawWindowDateTime(datetime):
 class _BeforeRawWindowDateTime(datetime):
     @classmethod
     def now(cls, tz=None):
-        return cls(2026, 5, 29, 19, 29, tzinfo=tz)
+        return cls(2026, 5, 29, 19, 0, tzinfo=tz)
 
 
 class _AfterMidnightDateTime(datetime):
@@ -1379,7 +1379,7 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
 
         self.assertEqual(selected.selected_keys, ("2026-05-29",))
         self.assertEqual(before_window.selected_keys, ())
-        self.assertIn("19:45", before_window.reason)
+        self.assertIn("19:10", before_window.reason)
         self.assertEqual(raw_blocked.selected_keys, ())
         self.assertIn("raw 五频度", raw_blocked.reason)
 
@@ -1425,7 +1425,7 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         )
         self.assertEqual(request.run_config, expected_config)
 
-    def test_stock_mins_raw_sensor_does_not_read_prod_before_1930(self) -> None:
+    def test_stock_mins_raw_sensor_does_not_read_prod_before_1905(self) -> None:
         context = _StockMinsRawSensorContext()
         raw_status = _raw_stk_mins_lake_status(ready=False)
         with patch(
@@ -1436,15 +1436,15 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             return_value=_raw_stk_mins_batch_status(raw_status),
         ), patch(
             "orchestrator.defs.sensors.stock_mins_raw_sensor.load_current_listed_stock_codes_for_stk_mins",
-            side_effect=AssertionError("sensor must not read the stock universe before 19:30"),
+            side_effect=AssertionError("sensor must not read the stock universe before 19:05"),
         ), patch(
             "orchestrator.defs.sensors.stock_mins_raw_sensor.stk_mins_prod_source_ready_for_trade_date",
-            side_effect=AssertionError("sensor must not read prod before 19:30"),
+            side_effect=AssertionError("sensor must not read prod before 19:05"),
         ):
             result = _stock_mins_raw_sensor_result(context)
 
         self.assertEqual(result.run_requests, [])
-        self.assertIn("19:30", _skip_message(result))
+        self.assertIn("19:05", _skip_message(result))
         cursor = json.loads(result.cursor)
         self.assertEqual(cursor["details"]["reason_code"], "run_window_not_started")
         self.assertLess(len(result.cursor), 3072)
@@ -1603,11 +1603,11 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             STOCK_MINS_RAW_SENSOR_JOB_NAME,
             "stock_mins_raw_update_from_prod_job",
         )
-        self.assertEqual(STOCK_MINS_RAW_RUN_START.isoformat(), "19:30:00")
+        self.assertEqual(STOCK_MINS_RAW_RUN_START.isoformat(), "19:05:00")
         self.assertEqual(STOCK_MINS_RAW_SOURCE, "prod_db")
         self.assertEqual(
             STOCK_MINS_SILVER_TRADE_DAY_REGISTER_START.isoformat(),
-            "19:45:00",
+            "19:10:00",
         )
 
     def test_stock_mins_sensor_detects_materialized_check_problem(self) -> None:

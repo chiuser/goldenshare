@@ -56,7 +56,7 @@ from orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor import (
 
 
 STOCK_MINS_SILVER_SENSOR_JOB_NAME = "stock_mins_silver_update_job"
-STOCK_MINS_SILVER_RUN_START = time(19, 40)
+STOCK_MINS_SILVER_RUN_START = time(19, 15)
 
 
 @dataclass(frozen=True)
@@ -135,7 +135,7 @@ def build_stock_mins_silver_update_decision(
             target_trade_date=target_trade_date,
             run_window_started=False,
             selected_trade_date=None,
-            reason="股票分钟线 silver 日常更新窗口尚未到 19:40，暂不触发。",
+            reason="股票分钟线 silver 日常更新窗口尚未到 19:15，暂不触发。",
         )
     if not raw_ready:
         reason = "股票分钟线 raw 五频度尚未全部 ready，暂不触发 silver 更新。"
@@ -239,7 +239,7 @@ def _cursor_summary_and_next_action(
     if reason_code == "run_window_not_started":
         return (
             "未触发：股票分钟线 silver 日常更新窗口尚未开始。",
-            "等到 19:40 后，下一次 tick 会重新判断是否提交更新。",
+            "等到 19:15 后，下一次 tick 会重新判断是否提交更新。",
         )
     if reason_code == "no_registered_partition":
         return (
@@ -521,7 +521,7 @@ def stock_mins_silver_sensor(context: dg.SensorEvaluationContext) -> dg.SensorRe
             target_trade_date=target_trade_date,
             run_window_started=False,
             selected_trade_date=None,
-            reason="股票分钟线 silver 日常更新窗口尚未到 19:40，暂不触发。",
+            reason="股票分钟线 silver 日常更新窗口尚未到 19:15，暂不触发。",
         )
     elif selection.selected_trade_date is None:
         if continuity_status.blocked_reason == "materialized_check_problem":

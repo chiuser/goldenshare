@@ -267,7 +267,7 @@ silver_stock_identity_map checks
 2. sensor 默认 `STOPPED`，每 10 分钟评估一次。
 3. 每天上海时间 17:30 前直接 skip，不检查上游、不提交 run。
 4. 17:30 后才检查基础事实 readiness。
-5. 该口径与基础股票事实使用的 `cn_a_stock_trade_days` 目标交易日集合一致，也能早于 19:30 后的 `stk_mins` raw 日常更新窗口完成。
+5. 该口径与基础股票事实使用的 `cn_a_stock_trade_days` 目标交易日集合一致，也能早于 19:05 后的 `stk_mins` raw 日常更新窗口完成。
 
 触发条件：
 

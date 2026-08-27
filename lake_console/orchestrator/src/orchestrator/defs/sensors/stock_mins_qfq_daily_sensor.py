@@ -59,7 +59,7 @@ from orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor import (
 
 
 STOCK_MINS_QFQ_DAILY_SENSOR_JOB_NAME = "stock_mins_qfq_daily_update_job"
-STOCK_MINS_QFQ_DAILY_RUN_START = time(19, 50)
+STOCK_MINS_QFQ_DAILY_RUN_START = time(19, 30)
 STOCK_MINS_QFQ_DAILY_READINESS_WINDOW_LIMIT = 5
 
 
@@ -180,7 +180,7 @@ def build_stock_mins_qfq_daily_update_decision(
             target_trade_date=target_trade_date,
             run_window_started=False,
             selected_trade_date=None,
-            reason="股票分钟线 gold qfq 日常更新窗口尚未到 19:50，暂不触发。",
+            reason="股票分钟线 gold qfq 日常更新窗口尚未到 19:30，暂不触发。",
         )
     if not silver_ready:
         reason = "股票分钟线 silver 五频度尚未全部 ready，暂不触发 gold qfq 更新。"
@@ -283,7 +283,7 @@ def _cursor_summary_and_next_action(
     if reason_code == "run_window_not_started":
         return (
             "未触发：股票分钟线 gold qfq 日常更新窗口尚未开始。",
-            "等到 19:50 后，下一次 tick 会重新判断是否提交更新。",
+            "等到 19:30 后，下一次 tick 会重新判断是否提交更新。",
         )
     if reason_code == "no_registered_partition":
         return (
@@ -454,7 +454,7 @@ def _window_not_started_cursor_payload(
             reason_code="run_window_not_started",
             blocked_component="run_window",
             summary=reason,
-            next_action="等待 19:50 后由下一次 sensor tick 自动重试。",
+            next_action="等待 19:30 后由下一次 sensor tick 自动重试。",
             evidence={"run_window_started": False},
         ),
     )
@@ -525,7 +525,7 @@ def stock_mins_qfq_daily_sensor(context: dg.SensorEvaluationContext) -> dg.Senso
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
     run_window_started = evaluated_at.time() >= STOCK_MINS_QFQ_DAILY_RUN_START
     if not run_window_started:
-        reason = "股票分钟线 gold qfq 日常更新窗口尚未到 19:50，暂不触发。"
+        reason = "股票分钟线 gold qfq 日常更新窗口尚未到 19:30，暂不触发。"
         return dg.SensorResult(
             skip_reason=reason,
             cursor=_window_not_started_cursor_payload(

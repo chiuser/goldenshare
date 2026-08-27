@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import datetime, time
 
 import dagster as dg
 from dagster._core.storage.dagster_run import RunsFilter
@@ -53,9 +53,6 @@ from orchestrator.defs.sensors.readiness import (
     AssetReadinessStatus,
     silver_stock_daily_ready_for_trade_date,
 )
-from orchestrator.defs.sensors.stock_mins_silver_sensor import (
-    STOCK_MINS_SILVER_RUN_START,
-)
 from orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor import (
     STOCK_MINS_SILVER_TRADE_DAY_REGISTER_START,
 )
@@ -67,10 +64,7 @@ PROD_CORE_WEALTH_MARKET_TURNOVER_ASSET_KEY = dg.AssetKey(
     "prod_core_wealth_market_turnover"
 )
 DAGSTER_RUN_KEY_TAG = "dagster/run_key"
-GOLD_WEALTH_MARKET_TURNOVER_RUN_START = (
-    datetime.combine(date.today(), STOCK_MINS_SILVER_RUN_START)
-    + timedelta(minutes=10)
-).time()
+GOLD_WEALTH_MARKET_TURNOVER_RUN_START = time(19, 50)
 
 
 @dataclass(frozen=True)

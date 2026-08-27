@@ -50,7 +50,7 @@ from orchestrator.defs.sensors.readiness import (
 )
 
 
-STOCK_MINS_SILVER_TRADE_DAY_REGISTER_START = time(19, 45)
+STOCK_MINS_SILVER_TRADE_DAY_REGISTER_START = time(19, 10)
 
 
 @dataclass(frozen=True)
@@ -126,7 +126,7 @@ def build_stock_mins_silver_trade_day_registration_decision(
             register_window_started=False,
             already_registered=already_registered,
             selected_keys=(),
-            reason="股票分钟线 silver 分区注册窗口尚未到 19:45，暂不注册。",
+            reason="股票分钟线 silver 分区注册窗口尚未到 19:10，暂不注册。",
         )
     if already_registered:
         return StockMinsSilverTradeDayRegistrationDecision(
@@ -334,7 +334,7 @@ def _cursor_payload(
     ),
     required_resource_keys={"lake_root", "duckdb"},
     description=(
-        "每天 19:45 后，在分钟线 raw、日线、停复牌和身份映射门禁满足后，"
+        "每天 19:10 后，在分钟线 raw、日线、停复牌和身份映射门禁满足后，"
         "注册股票分钟线 silver 交易日分区；不触发 silver job。"
     ),
 )

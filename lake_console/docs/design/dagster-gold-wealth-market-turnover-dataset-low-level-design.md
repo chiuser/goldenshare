@@ -19,7 +19,7 @@ CodeGraph 审计范围：
 
 1. `gold_market_breadth_daily`：确认 gold derived asset、path、schema、catalog、checks、job 的现有模式。
 2. `batch_silver_stk_mins_lake_readiness`：确认股票分钟线 silver readiness helper 的位置、签名和正式消费者。
-3. `STOCK_MINS_SILVER_RUN_START`：确认当前 silver 日更时间为 `time(19, 50)`。
+3. `STOCK_MINS_SILVER_RUN_START`：确认当前 silver 日更时间为 `time(19, 15)`；财富成交额 sensor 自身独立使用 `GOLD_WEALTH_MARKET_TURNOVER_RUN_START = time(19, 50)`。
 4. `lake_console/orchestrator/src/orchestrator/defs` 文件树：确认新增落点在现有 `assets/checks/jobs/sensors/asset_guards/bootstrap/run_contracts/catalog` 结构内。
 5. `gold_wealth_market_turnover` / `gold_wealth_market_turnover_update_job` / `gold_wealth_market_turnover_update_job_sensor`：确认当前 job 只选择 gold asset 和一个 check，sensor 当前只围绕 gold readiness 触发。
 6. `ProdPostgresResource`：确认当前 prod Postgres resource 的 `connect()` 固定 `readonly=True` 和 `autocommit=True`，不能用于 WMT-6 写 prod serving。
@@ -36,7 +36,7 @@ WMT-1 到 WMT-5 历史硬口径（WMT-7 对数据源与计算公式的变更见�
 7. 历史 backfill 必做，范围对齐 `silver_stk_mins` 历史范围。
 8. 历史文件生成走 `Direct Lake Bootstrap + Runless Event Backfill`，不走 Dagster backfill 为全历史创建 run。
 9. 历史 runless 状态只补最近 20 个交易日，不补全历史 materialization/check event。
-10. 日更 sensor 默认 `STOPPED`，窗口为 `STOCK_MINS_SILVER_RUN_START + 10min = 19:50`，且必须等五个 silver 频度全 ready。
+10. 日更 sensor 默认 `STOPPED`，窗口固定为 `19:50`，且必须等五个 silver 频度全 ready；该时间与 `stock_mins_silver_sensor` 独立。
 11. 部分频度 ready 时，全失败，不写部分结果。
 12. 不新增 resource、数据库表、summary asset、readiness asset、status manifest 或配置项。
 13. 不运行 `dg`、job、sensor、materialize、backfill 或正式 instance 命令，除非单独审批。
@@ -720,13 +720,10 @@ gold_wealth_market_turnover_update_job = dg.define_asset_job(
 
 ```python
 GOLD_WEALTH_MARKET_TURNOVER_SENSOR_JOB_NAME = "gold_wealth_market_turnover_update_job"
-GOLD_WEALTH_MARKET_TURNOVER_RUN_START = (
-    datetime.combine(date.today(), STOCK_MINS_SILVER_RUN_START)
-    + timedelta(minutes=10)
-).time()
+GOLD_WEALTH_MARKET_TURNOVER_RUN_START = time(19, 50)
 ```
 
-当前推导值为 `19:50`。
+该窗口独立固定为 `19:50`，不随股票分钟线 Silver sensor 的窗口调整而联动。
 
 ### 8.2 Sensor definition
 

@@ -44,7 +44,7 @@ from orchestrator.defs.run_contracts.cursors import (
 
 PARTITION_KEY = "2026-05-29"
 EVALUATED_AT = datetime(2026, 5, 29, 20, 15, tzinfo=ZoneInfo("Asia/Shanghai"))
-BEFORE_WINDOW = datetime(2026, 5, 29, 19, 45, tzinfo=ZoneInfo("Asia/Shanghai"))
+BEFORE_WINDOW = datetime(2026, 5, 29, 19, 29, tzinfo=ZoneInfo("Asia/Shanghai"))
 
 
 def _asset_status(
@@ -316,7 +316,7 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
         self.assertIsNone(no_partition.selected_trade_date)
         self.assertIn("没有注册", no_partition.reason)
         self.assertIsNone(before_window.selected_trade_date)
-        self.assertIn("19:50", before_window.reason)
+        self.assertIn("19:30", before_window.reason)
 
     def test_decision_skips_when_silver_or_adj_factor_is_not_ready(self) -> None:
         silver_blocked = build_stock_mins_qfq_daily_update_decision(
@@ -447,8 +447,8 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
         self.assertIsNotNone(cursor["details"]["gate_statuses"]["silver_stk_mins"])
         self.assertIsNotNone(cursor["details"]["gate_statuses"]["adj_factor"])
         self.assertIsNotNone(cursor["details"]["gate_statuses"]["gold_stk_mins_qfq"])
-        self.assertEqual(STOCK_MINS_QFQ_DAILY_RUN_START.isoformat(), "19:50:00")
-        self.assertEqual(BEFORE_WINDOW.time().isoformat(), "19:45:00")
+        self.assertEqual(STOCK_MINS_QFQ_DAILY_RUN_START.isoformat(), "19:30:00")
+        self.assertEqual(BEFORE_WINDOW.time().isoformat(), "19:29:00")
         for fragment in (
             "status_samples",
             "to_cursor_details",
@@ -565,7 +565,7 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
             mock_datetime.now.return_value = BEFORE_WINDOW
             result = daily_sensor_module.stock_mins_qfq_daily_sensor._raw_fn(context)
 
-        self.assertIn("19:50", result.skip_reason.skip_message)
+        self.assertIn("19:30", result.skip_reason.skip_message)
         cursor = json.loads(result.cursor)
         self.assertEqual(cursor["target_date"], None)
         self.assertEqual(cursor["selected_count"], 0)

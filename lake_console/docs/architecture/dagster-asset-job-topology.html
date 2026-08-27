@@ -392,7 +392,7 @@
           <td>Resources</td>
           <td><code>defs/resources.py</code></td>
           <td><code>LakeRootResource</code>、<code>DuckDBResource</code>、<code>TushareResource</code>、<code>ProdPostgresResource</code>、<code>ClickhouseResource</code>、<code>FeishuWebhookResource</code>。</td>
-          <td>外部能力集中在 resource；<code>TUSHARE_TOKEN</code>、<code>PROD_POSTGRES_*</code>、<code>CLICKHOUSE_*</code>、<code>PROD_CLICKHOUSE_*</code> 和飞书 webhook 配置通过环境变量读取，敏感值不写入代码、文档、metadata 或日志。<code>ProdPostgresResource</code> 只服务 <code>stock_mins_raw_update_from_prod_job</code>，读取 prod DB <code>raw_tushare.stk_mins</code> 字段白名单；该 job 既是 19:30 默认日常入口，也可经审批用于近期缺口补齐。主要指数名单改为仓库 seed 文件，不再注册本地 PostgreSQL metadata 或 prod JSON 初始化 resource。</td>
+          <td>外部能力集中在 resource；<code>TUSHARE_TOKEN</code>、<code>PROD_POSTGRES_*</code>、<code>CLICKHOUSE_*</code>、<code>PROD_CLICKHOUSE_*</code> 和飞书 webhook 配置通过环境变量读取，敏感值不写入代码、文档、metadata 或日志。<code>ProdPostgresResource</code> 只服务 <code>stock_mins_raw_update_from_prod_job</code>，读取 prod DB <code>raw_tushare.stk_mins</code> 字段白名单；该 job 既是 19:05 默认日常入口，也可经审批用于近期缺口补齐。主要指数名单改为仓库 seed 文件，不再注册本地 PostgreSQL metadata 或 prod JSON 初始化 resource。</td>
         </tr>
         <tr>
           <td>Prod DB Extractors</td>
@@ -632,7 +632,7 @@
           <td><span class="tag raw">raw</span></td>
           <td><code>cn_a_stock_mins_trade_days</code></td>
           <td>M3 历史 baseline 文件和 runless events 已对齐；M4 已接入正式 raw assets、blocking checks、<code>stock_mins_raw_update_job</code> 与两个 sensors；M4B 已新增手动 <code>stock_mins_raw_update_from_prod_job</code>。</td>
-          <td>交易日夜间日更；<code>stock_mins_trade_day_sensor</code> 18:00 后注册当天分区，<code>stock_mins_raw_sensor</code> 19:30 后触发 prod DB raw 更新。Tushare raw job 保留为人工备用入口。</td>
+          <td>交易日夜间日更；<code>stock_mins_trade_day_sensor</code> 18:00 后注册当天分区，<code>stock_mins_raw_sensor</code> 19:05 后触发 prod DB raw 更新。Tushare raw job 保留为人工备用入口。</td>
           <td>股票分钟线 raw 源镜像；只保存 backup/Tushare 原始 clean_next 事实，代码映射、停复牌对齐和 qfq 后移到 silver/gold。</td>
         </tr>
         <tr>
@@ -877,28 +877,28 @@
           <td><code>stock_mins_raw_update_from_prod_job</code></td>
           <td><code>raw_stk_mins_1m/5m/15m/30m/60m</code> + checks</td>
           <td>从 prod DB <code>raw_tushare.stk_mins</code> 只读抽取单个交易日五个频度分钟线 raw。M4E 已把 prod DB 主路径修正为 DuckDB <code>postgres_query</code> 直连批量抽取并 <code>COPY</code> 写 parquet，prod Postgres 挂载时强制使用只读选项；查询按 <code>freq + trade_date window + 股票池</code> 执行，避免逐股票查询，也避免 Python <code>fetchall</code> / <code>executemany</code> 搬运全量分钟明细。</td>
-          <td><code>stock_mins_raw_sensor</code> 在 19:30 后触发；历史缺口 backfill 仍需单独审批范围、查询量和回滚方式。</td>
+          <td><code>stock_mins_raw_sensor</code> 在 19:05 后触发；历史缺口 backfill 仍需单独审批范围、查询量和回滚方式。</td>
           <td>与 Tushare job 写入同一套 raw assets/path/checks；通过 job config 固定 <code>source=prod_db</code>，不创建平行 asset。</td>
         </tr>
         <tr>
           <td><code>stock_mins_silver_update_job</code></td>
           <td><code>silver_stk_mins_1m/5m/15m/30m/60m</code> + checks</td>
           <td>单个交易日五个频度分钟线 silver 标准化。</td>
-          <td>人工 partition run 或 <code>stock_mins_silver_sensor</code> 19:40 后自动触发；日常 silver 分区注册仍由 <code>stock_mins_silver_trade_day_sensor</code> 承担。</td>
+          <td>人工 partition run 或 <code>stock_mins_silver_sensor</code> 19:15 后自动触发；日常 silver 分区注册仍由 <code>stock_mins_silver_trade_day_sensor</code> 承担。</td>
           <td>只 selection silver assets 与 silver checks；不顺手更新 raw、gold、stock basic、stock daily、suspend、identity map 或 namechange。</td>
         </tr>
         <tr>
           <td><code>stock_mins_qfq_daily_update_job</code></td>
           <td><code>gold_stk_mins_qfq_1m/5m/15m/30m/60m/90m/120m</code> + checks</td>
           <td>单个交易日七个频度股票分钟线前复权 gold。</td>
-          <td>人工 partition run 或 <code>stock_mins_qfq_daily_sensor</code> 19:50 后自动触发；sensor readiness 使用最近 10 个 expected trade dates 的 lake batch readiness，并通过 effective qfq readiness 识别 repair-adjusted 历史日期。</td>
+          <td>人工 partition run 或 <code>stock_mins_qfq_daily_sensor</code> 19:30 后自动触发；sensor readiness 使用最近 10 个 expected trade dates 的 lake batch readiness，并通过 effective qfq readiness 识别 repair-adjusted 历史日期。</td>
           <td>只 selection gold qfq assets 与 gold qfq checks；不顺手更新 raw、silver、adj factor 或执行 factor repair。七个 gold qfq assets 共享 <code>gold_stk_mins_qfq_writer</code> pool；sensor 不得在稳定态逐 blocking check 扫 history。</td>
         </tr>
         <tr>
           <td><code>stock_mins_qfq_factor_repair_job</code></td>
           <td>维护型非分区 op job</td>
           <td>检测目标交易日复权因子相对上一交易日是否变化；无变化记录成功，有变化则以 <code>silver_adj_factor[trade_date]</code> 作为显式 as-of 分母，按 <code>freq/year</code> 批量回刷历史 gold qfq 股票年份文件。</td>
-          <td>人工 run 通过 typed <code>trade_date</code> run config 指定目标日期；<code>stock_mins_qfq_factor_repair_sensor</code> 20:05 后在当日七频度 effective gold qfq ready 时自动传入 first-not-completed 目标日期；sensor hot path 读取 repair status 时传入 <code>include_event_storage_ids=False</code>。</td>
+          <td>人工 run 通过 typed <code>trade_date</code> run config 指定目标日期；<code>stock_mins_qfq_factor_repair_sensor</code> 19:40 后在当日七频度 effective gold qfq ready 时自动传入 first-not-completed 目标日期；sensor hot path 读取 repair status 时传入 <code>include_event_storage_ids=False</code>。</td>
           <td>经确认不使用普通 asset selection；不新增 summary asset；repair check event 挂到七个 <code>gold_stk_mins_qfq_*</code> assets。job 不再绑定全历史 silver 分区，避免 UI missing partitions 噪音；repair op 使用同一个 <code>gold_stk_mins_qfq_writer</code> pool；sensor 不得因为 failed/missing gold checks 自动触发 repair；repair 不得扫描所有 <code>silver_adj_factor</code> 分区现场推导隐式最新分母；repair run 不内联补普通 qfq materialization/check events。</td>
         </tr>
         <tr>
@@ -1188,12 +1188,12 @@
 
 6. Stock minutes raw
    - raw_stk_mins_1m/5m/15m/30m/60m and raw checks are implemented
-   - stock_mins_raw_sensor defaults to stock_mins_raw_update_from_prod_job at 19:30
+   - stock_mins_raw_sensor defaults to stock_mins_raw_update_from_prod_job at 19:05
    - stock_mins_raw_update_job remains as a manual Tushare fallback entry
    - Tushare merge_repair is implemented as a manual raw asset run config, not as a sensor path
    - silver_stk_mins_1m/5m/15m/30m/60m assets and checks are implemented
    - stock_mins_silver_update_job is implemented as the silver-only daily entry
-   - stock_mins_silver_sensor triggers the silver job for the first silver not ready partition after 19:40; it no longer uses latest registered silver as the formal target
+   - stock_mins_silver_sensor triggers the silver job for the first silver not ready partition after 19:15; it no longer uses latest registered silver as the formal target
    - silver historical generation, runless events and 2014+ silver partition registration are completed
    - gold_stk_mins_qfq_1m/5m/15m/30m/60m/90m/120m assets are implemented
    - gold qfq blocking checks are implemented with one multi_asset_check per freq; native and derived check contracts are split

@@ -162,7 +162,7 @@ def _cursor_summary_and_next_action(
     if reason_code == "run_window_not_started":
         return (
             "未触发：股票分钟线 raw 日常更新窗口尚未开始。",
-            "等到 19:30 后，下一次 tick 会重新判断是否提交更新。",
+            f"等到 {STOCK_MINS_RAW_RUN_START.strftime('%H:%M')} 后，下一次 tick 会重新判断是否提交更新。",
         )
     if reason_code == "no_registered_partition":
         return (
@@ -513,7 +513,10 @@ def stock_mins_raw_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResul
         )
 
     if not source_window_started:
-        reason = "股票分钟线 raw 日常更新窗口尚未到 19:30，暂不触发。"
+        reason = (
+            "股票分钟线 raw 日常更新窗口尚未到 "
+            f"{STOCK_MINS_RAW_RUN_START.strftime('%H:%M')}，暂不触发。"
+        )
         cursor = _cursor_payload(
             evaluated_at=evaluated_at,
             registered_trade_day_count=len(registered_trade_days),
