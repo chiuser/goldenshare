@@ -1,6 +1,6 @@
 # ETF 基础信息重建与下游数据审计清理 LLD v1
 
-状态：低层设计已完成 / 待评审 / 尚未编码与生产执行
+状态：P0 已完成 / P1 因当前数据库迁移落后于代码 head 暂未开始 / 尚未编码与生产执行
 创建日期：2026-08-28
 依据方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)
 适用代码：`src/foundation/**`、`src/ops/**`、`src/app/**`、`frontend/**`、`alembic/**`
@@ -109,9 +109,9 @@ docs/sources/tushare/ETF专题/0400_ETF实时日线.md
 
 本轮还使用 Tushare MCP 对 `510300.SH` 显式请求 14 个 `etf_basic` 字段，返回当前 `L` 状态、`setup_date=20120504`、`list_date=20120528` 和 `exchange=SH`，验证了关键字段仍可由当前源端显式返回。行数快照不固化为永久代码门禁。
 
-### 2.6 Alembic 当前事实
+### 2.6 Alembic 基线事实
 
-2026-08-28 本轮只读检查结果：
+2026-08-28 LLD 编写时的只读检查结果：
 
 ```text
 heads   = 20260828_000155
@@ -119,7 +119,15 @@ current = 20260828_000155
 文件     = alembic/versions/20260828_000155_make_suspend_d_raw_view.py
 ```
 
-该值只是 LLD 审计快照。真正编码新增迁移前必须再次执行 `alembic heads/current`，新迁移的 `down_revision` 只能接当时的真实唯一 head。
+P0 复核期间，当前分支合入了本需求范围外的 `20260828_000156_make_stk_auction_o_raw_view.py`，实际结果变为：
+
+```text
+heads   = 20260828_000156
+current = 20260828_000155
+000156 down_revision = 20260828_000155
+```
+
+P0 没有修改或执行该迁移。代码端仍是唯一 head，但当前连接数据库落后一个版本；`heads != current` 已触发开发停止门禁。在数据库迁移基线重新对齐并再次确认唯一 head/current 前，不进入 P1，更不能创建本方案的 drop-table migration。新迁移的 `down_revision` 只能接实施时再次确认的真实唯一 head。
 
 ### 2.7 Prod 下游清理范围实测
 
@@ -916,6 +924,87 @@ downgrade:
 5. 用 Tushare MCP 做一个最小 `etf_basic` 字段样本；除非源文档或行为变化，不重复全量耗额度。
 
 停止条件：代码链、源字段、真实 migration head 或生产物理表与 LLD 不一致。
+
+#### P0 执行记录（2026-08-28）
+
+P0 严格限定为同步索引、静态搜索、迁移状态检查、Prod 白名单只读查询和一次最小源端抽样；没有修改运行时代码、数据库、Lake、配置或 schedule，也没有进入 P1。
+
+**CodeGraph 与引用基线**
+
+`codegraph sync/status` 完成并在 P0 收尾时复核后，索引为 2,798 个文件、49,327 个节点、125,393 条边。相较 LLD 编写时的数量变化来自当前工作区其他文件变化；对 `EtfSeriesActive`、`EtfSeriesActiveDAO`、`EtfSeriesActiveStore`、`EtfFundDailyServingCleanupService` 重新执行 impact 后，分别得到 18、13、10、14 个受影响符号，调用链仍落在本 LLD 已列出的 model、DAO、contract、adapter、seed、CLI、review、health、实时监控和测试范围，没有发现新的 ETF 池消费者。
+
+第 11.4 节八组旧引用在 `src/**`、`frontend/src/**`、`tests/**` 和当前配置中的实施前基线为：
+
+| 精确字符串 | 匹配数 | 文件数 |
+|---|---:|---:|
+| `EtfSeriesActive` | 121 | 19 |
+| `etf_series_active` | 115 | 31 |
+| `ops_etf_series_active` | 8 | 3 |
+| `ops-seed-etf-series-active` | 10 | 3 |
+| `/ops/review/etf/active` | 20 | 4 |
+| `active_pool_count` | 7 | 6 |
+| `active_snapshot_count` | 9 | 6 |
+| `/active-etfs` | 8 | 4 |
+
+当前配置文件的上述引用均为 0。该表是 P6 静态清零验收的对照基线，不代表 P0 已删除任何引用。
+
+**Prod Basic 与旧激活池基线**
+
+所有查询均限定在明确白名单内，以只读事务执行；未执行 DDL、DML 或数据导出。`raw_tushare.etf_basic` 与 `core_serving.etf_basic` 当前行数和以下分类统计一致：
+
+| 指标 | 数量 |
+|---|---:|
+| 总行数 / distinct code | 3,405 / 3,405 |
+| `.OF` | 1,585 |
+| 未知后缀 | 0 |
+| `L / P / D` | 3,089 / 62 / 254 |
+| `list_date IS NULL` | 71 |
+| 后缀与 `exchange` 冲突 | 0 |
+| 截至当日当前可请求 `.SH/.SZ` | 1,647 |
+
+按后缀和状态拆分：`.OF` 为 `L=1,437`（其中 5 个无上市日）、`P=23`（其中 22 个无上市日）、`D=125`；`.SH` 为 `L=924`（其中 3 个无上市日）、`P=23`（全部无上市日）、`D=82`；`.SZ` 为 `L=728`（其中 2 个无上市日）、`P=16`（全部无上市日）、`D=47`。
+
+旧 `ops.etf_series_active` 共 5,708 行：`etf_mins=1,395`、`etf_rt_daily=1,395`、`etf_sh_cons=803`、`etf_sz_cons=720`、`fund_daily=1,395`，非交易所后缀均为 0。该结果只用于退场前对账，不改变“直接删除旧池、不迁移池内容”的既定方案。
+
+**六类下游复核对象**
+
+本次 P0 按当前 Prod Basic 重新分类；它不是源端完整快照重建后的最终验收，最终仍须按第 9.2 节在 Basic 重建后复跑。
+
+| 对象 | 行数 | 代码数 | 非目标后缀/交易所冲突/不在当前 Prod Basic | 早于当前 `list_date` | 其他报告项 |
+|---|---:|---:|---:|---:|---:|
+| `raw_tushare.etf_minute_bar` | 67,423,145 | 1,395 | 0 / 0 / 0 | 0 | `P` 或 `L+空日期` 均为 0 |
+| `raw_tushare.etf_sh_cons` | 5,675,323 | 803 | 0 / 0 / 0 | 0 | `P` 或 `L+空日期` 均为 0 |
+| `raw_tushare.etf_sz_cons` | 11,567,504 | 720 | 0 / 0 / 0 | 0 | `P` 或 `L+空日期` 均为 0 |
+| `core_serving.fund_daily_bar` | 1,180,869 | 1,395 | 0 / 0 / 0 | 2,091 行 / 3 个代码 | `P` 或 `L+空日期` 均为 0 |
+| `ops.etf_realtime_monitor_pool` | 3 | 3 | 当前不可请求配置 0 | - | - |
+| `ops.etf_realtime_monitor_rule` | 0 条 ETF 规则 | 0 | 无效规则 0 | - | - |
+
+`fund_daily_bar` 的 2,091 行继续按已拍板口径只报告、不删除；其余明确删除候选仍为 0，因此不恢复通用清理 CLI/service 设计。
+
+**保护对象基线**
+
+| 保护对象 | 当前行数 |
+|---|---:|
+| `raw_tushare.fund_daily` | 2,608,675 |
+| `raw_tushare.fund_adj` | 2,792,339 |
+| `core.fund_adj_factor` | 2,792,339 |
+| `raw_tushare.etf_share_size` | 234,042 |
+| `core_serving.etf_share_size`（直出 view） | 234,042 |
+| `raw_tushare.etf_index` | 1,524 |
+| `core_serving.etf_index` | 1,524 |
+| `core_serving.fund_basic_current` | 32,412 |
+| `core_serving.fund_manager_current` | 84,357 |
+| `core_serving.fund_share_current` | 2,572,451 |
+| `ops.etf_realtime_alert` | 0 |
+| `ops.etf_realtime_minute_stat` | 0 |
+
+21 个白名单对象均存在，表/view 类型和主键与本 LLD 一致；`core_serving.etf_share_size` 仍是 raw 直出 view，没有发现需要新建 core 或迁移 view 的理由。
+
+**最小源端抽样与 P0 结论**
+
+仅对 `510300.SH` 发起一次 `etf_basic` 请求，并显式指定本 LLD 的 14 个字段。源端完整返回 14 个字段，其中 `list_status=L`、`setup_date=20120504`、`list_date=20120528`、`exchange=SH`，与第 2.5 节字段契约一致；没有重复发起源端全量请求。
+
+P0 五项动作均已完成。代码链、源字段和 Prod 物理对象没有发现与 LLD 冲突；唯一停止项是第 2.6 节所述当前连接数据库仍落后于代码 head。P1 保持未开始，待迁移 head/current 重新对齐并复核后再推进。
 
 ### P1：ETF Basic 快照发布
 
