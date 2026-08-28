@@ -1,10 +1,12 @@
 # 股票开盘集合竞价数据集接入方案（`stk_auction_o`）
 
-> 状态：数据集接入已落地；`P1-B3-stk_auction_o-M0/M1/M2` 已通过；下一阶段为另行授权的生产 M3a，且必须先关闭日期完整性性能门禁
+> 状态：数据集接入及 raw 直出 `P1-B3-stk_auction_o-M0/M1/M2/M3a/M3b` 已通过并结案；生产已是 raw 唯一物理事实表和 0 B serving view
 > 日期：2026-05-16
 > raw 直出 M0 复审：2026-08-28
 > raw 直出 M1 实现：2026-08-28
 > raw 直出 M2 隔离验证：2026-08-28
+> raw 直出 M3a 生产验收：2026-08-28
+> raw 直出 M3b 自然运行验收：2026-08-29
 > 文档模板：[数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)
 > 源站文档：[0353_股票开盘集合竞价数据.md](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/特色数据/0353_股票开盘集合竞价数据.md)
 
@@ -410,3 +412,23 @@ M2 使用 PostgreSQL 18.4 的一次性隔离实例，实例仅监听随机 Unix 
 6. 四类代表查询切换前后结果行数和 SHA-256 均一致且无临时块：单日 5,714 行由 Serving 日期索引下推为 Raw 日期索引，`2.520 -> 2.661 ms`；单股单日由 Serving PK 下推 Raw PK，`0.005 -> 0.007 ms`；最大日期由日期 index-only scan 下推，`0.005 -> 0.007 ms`；10 日日期完整性汇总继续使用日期索引，`8.306 -> 8.758 ms`。隔离数据上的最大正向退化约 5.4%，只证明计划形态与结果稳定，不替代生产 M3a 的可见页/vacuum 性能门禁。
 
 M2 结论为**通过**，revision 156 无需修改。生产仍是 revision 155，Raw/Serving 仍为两张物理表。下一阶段只有在另行授权后才能进入 `P1-B3-stk_auction_o-M3a`：实时只读预检后暂停 schedule #2/#24、停止目标 worker，先对生产 Raw 执行已设计的普通 `VACUUM (ANALYZE)` 并交错重测日期完整性；只有相对退化不超过 20%、结果/计划/临时块合同同时通过，才允许应用 revision 156。M2 不授权任何生产操作。
+
+## 14. 2026-08-28 `P1-B3-stk_auction_o-M3a` 生产即时验收
+
+M3a 于 `14:56..15:05+08` 完成。开始只读预检时发现，运营侧一次标准完整部署已在暂停 schedule/worker 之前拉取包含 M1 的 commit `bbb3befc`、自动应用 revision 156，并于 `14:58` 重启 Web、scheduler 与 worker。该顺序不符合本文固定维护窗口合同，已经作为发布流程偏差保留；本轮没有重复执行 migration，也没有倒推或补造迁移前门禁证据。发现时生产代码已包含 raw-only Definition，Serving 已是 view，开放 TaskRun、目标 node、等待锁和长事务均为 0，未出现旧双写代码向 view 写入的窗口。
+
+1. 迁移后 Raw OID 仍为 `808825`，主键与日期索引 OID/定义不变且 valid/ready；`core_serving.equity_auction_open` 为 OID `2032797` 的 0 B 普通 view，显式投影九个源字段及 `fetched_at AS created_at/updated_at`。owner、Raw 的 `lake_raw_reader SELECT` 和 Serving 原权限均存在；Serving `INSERT/UPDATE/DELETE` 分别以 SQLSTATE `55000` 拒绝。
+2. schedule #2/#24 经正式 `OpsScheduleCommandService` 暂停，config revision `113/114` 记录 `paused`；通用 worker 随后停止。再次确认开放 TaskRun、开放目标 node、目标锁、等待锁和超过 30 秒事务均为 0，根盘可用 `52,920,033,280 B`。
+3. 在维护窗口执行普通 `VACUUM (ANALYZE) raw_tushare.stk_auction_o`，未使用 `VACUUM FULL`、未改 OID/索引/表空间。Raw 的 all-visible page 从 80.18% 提升至 100%，`n_dead_tup` 统计归零；普通 vacuum 不计入空间释放量。
+4. M0 旧物理 Serving 的日期完整性三轮中位数为 `54.636 ms`；vacuum 后 Raw 为 `50.751 ms`，相对约快 7.1%，20% 性能门禁关闭。当前 Raw/Serving view 的五类查询结果校验值全部一致，计划均下推 Raw 的日期索引或主键索引，无临时块；其中日期完整性 Raw/view 为 `50.751/53.614 ms`。由于 Serving 已提前成为 view，本轮明确以 M0 留存的旧物理 Serving 基线作历史对照，不宣称补做了同一时点的迁移前测试。
+5. Web、日期完整性 worker 与 TaskRun 收尾 worker 的连接池已回收，健康端点正常；通用 worker 恢复后，通过正式 `ManualActionCommandService -> DatasetActionResolver -> TaskRun` 创建最小 TaskRun `9726`，只请求 `2026-08-27` 一个 point unit。任务 `1/1` 成功，1 页短页读取/保存 `5,512/5,512`，reject、去重、重试均为 0，无截断。
+6. TaskRun 时间窗内目标日 5,512 行全部刷新；Raw/view 均为 5,512 行和 5,512 个唯一 `(ts_code, trade_date)`，九字段双向差异为 0。全表最终均为 2,183,621 行和 2,183,621 个唯一身份，日期范围 `2025-01-02..2026-08-27`。
+7. TaskRun 完成且开放任务归零后，schedule #2/#24 通过正式 service 原样恢复，config revision `115/116` 记录 `resumed`；cron、时区、`next_run_at` 和 `last_triggered_at` 未被改写。最终 Web、scheduler、通用 worker、日期完整性 worker 与 TaskRun 收尾 worker均为 active，健康端点正常，目标锁和长事务为 0。
+
+M3a 结论为**通过，但保留“标准部署在维护门禁前自动应用 migration”的流程偏差**。原 Serving 物理 relation 的 `382,353,408 B（364.64 MiB）` 已释放；最终 view 为 0 B，Raw 继续位于 SSD `pg_default`。
+
+## 15. 2026-08-29 `P1-B3-stk_auction_o-M3b` 自然运行验收
+
+schedule #24 的 TaskRun `9747` 与 schedule #2 的 TaskRun `9773` 均成功处理 `2026-08-28`。18:30 的目标节点为 1 页空短页、读取/保存 `0/0`；21:02 的目标节点为 1 页短页、读取/保存 `5,508/5,508`。两个节点的 reject、去重、重试均为 0，均未截断。最终 Raw/view 各 5,508 行和 5,508 个唯一 `(ts_code, trade_date)`，九字段及审计时间投影双向差异为 0，必填身份无空值；最终数据覆盖 BJ 296、SH 2,315、SZ 2,897 行。
+
+这两次自然运行证明的是源端就绪时序：18:30 尚无数据，21:02 已返回完整单日结果，不能把它们伪装成两次相同非空快照的幂等试验。生产 TaskRun `9726` 已对已有日期 `2026-08-27` 重跑 5,512 行且目标日和全表行数未增加，结合当前 `(ts_code, trade_date)` 主键，幂等门禁已由该证据闭环。`P1-B3-stk_auction_o-M3b` 据此通过，M0/M1/M2/M3a/M3b 全部完成，本数据集结案；标准部署提前应用 revision 156 的历史流程偏差继续保留。

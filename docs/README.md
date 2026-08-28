@@ -347,8 +347,8 @@ docs/
 ## 8. 文档治理
 
 - [生产 PostgreSQL 存储空间优化治理专项 v1（既有专项与 stk_mins 原专项记录；本轮新工作不再追加）](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v1.md)
-- [生产 PostgreSQL 存储空间优化治理专项 v2（市场补充 M3b、行业与概念 M3b 数据链均已通过；margin 尚未进入 M1；SSE 长事务问题阻塞后续生产 M3a）](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v2.md)
-- [生产 PostgreSQL raw 直出一期低层设计 v1（市场、行业、概念三张 serving view 及自然工作流已验收；20:07 延迟不作为准点性证据，后续生产 M3a 门禁已记录）](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-raw-direct-serving-phase-one-lld-v1.md)
+- [生产 PostgreSQL 存储空间优化治理专项 v2（P1-B0、P1-B1、P1-B2 与 `stk_auction_o` 已结案；下一项 `stk_auction_c-M0`；`anns_d` 批内身份冲突另列只读审计 TODO）](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v2.md)
+- [生产 PostgreSQL raw 直出一期低层设计 v1（P1-B0、P1-B1、P1-B2 与 `stk_auction_o` 的生产切换及自然 M3b 已验收结案）](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-raw-direct-serving-phase-one-lld-v1.md)
 - [文档信息架构与待整合清单 v1](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md)
 - [文档维护基线 v1](/Users/congming/github/goldenshare/docs/governance/docs-maintenance-baseline-v1.md)
 - [工程风险登记簿](/Users/congming/github/goldenshare/docs/governance/engineering-risk-register.md)

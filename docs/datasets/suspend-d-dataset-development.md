@@ -1,6 +1,6 @@
 # Tushare 每日停复牌信息（`suspend_d`）数据集开发说明
 
-- 当前状态（2026-08-28）：raw 直出 M0/M1/M2/M3a 已完成；生产 revision 155 已将 `core_serving.equity_suspend_d` 切为 0 B raw-backed view，最小 TaskRun `9717` 通过。待 schedule #24/#2 的首个自然 workflow 完成 M3b 只读观察。
+- 当前状态（2026-08-29）：raw 直出 M0/M1/M2/M3a/M3b 已完成并结案；生产 revision 155 已将 `core_serving.equity_suspend_d` 切为 0 B raw-backed view，最小 TaskRun `9717` 与自然 TaskRun `9747/9773` 均通过。
 
 ## 1. 目标与边界
 
@@ -153,4 +153,4 @@
 - M1：Definition 已切到 `raw_only_upsert`，独立 revision 155 与专项自动化测试完成；没有修改源字段、日期/unit、分页或 workflow 合同。
 - M2：PostgreSQL 18.4 隔离实例已通过 20,000/20,001 行边界、字段及双身份差异、未知依赖、ACL/comment、三类 DML `55000`、正式 writer、raw/view 即时可见、事务回滚和三类查询计划验收。未连接 Prod、未请求 Tushare。
 - M3a：生产 revision 154→155，raw/view 各 640,504 行且六字段差异为 0；原 serving 物理 relation 释放 222,199,808 B。三类 DML、真实消费者查询、连接池回收与 TaskRun `9717` 五段对账均通过，schedule #2/#24 已原样恢复。
-- 待办：`P1-B2-suspend_d-M3b`；只读观察 schedule #24 的 18:30 与 schedule #2 的 21:02 自然 workflow，逐节点核验分页、读写、reject、双身份/六字段和幂等，不创建额外任务。
+- M3b：schedule #24 的 TaskRun `9747` 与 schedule #2 的 TaskRun `9773` 均成功处理 `2026-08-28`；两个 `suspend_d` 节点均为 1 页短页、读取/保存 `7/7`，reject、去重、重试为 0。最终 Raw/view 各 7 行，`row_key_hash` 和四字段源事实均唯一，包含 `id/row_key_hash` 的六字段双向差异为 0；最终 `fetched_at` 来自 21:02 第二轮原位更新，未制造重复。`P1-B2-suspend_d-M3b` 据此通过，本数据集结案。
