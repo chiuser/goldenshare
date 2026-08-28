@@ -200,6 +200,8 @@
   color: var(--cs-color-text-muted);
   flex: 0 0 40px;
   font-size: 11px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .dual-result-table-header > button {
@@ -226,6 +228,7 @@
   background: transparent;
   border: 0;
   color: inherit;
+  column-gap: var(--cs-space-8);
   cursor: pointer;
   display: grid;
   grid-column: 1 / 7;
@@ -247,14 +250,17 @@
 .dual-result-row .muted { color: var(--cs-color-text-muted); }
 
 .dual-status-chip {
+  align-items: center;
   border: 1px solid var(--cs-color-border-subtle);
   border-radius: 6px;
   color: var(--cs-color-text-secondary);
-  display: inline-block;
+  display: inline-flex;
   font-size: 11px;
+  justify-content: center;
   max-width: 116px;
   overflow: hidden;
   padding: 3px 7px;
+  text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

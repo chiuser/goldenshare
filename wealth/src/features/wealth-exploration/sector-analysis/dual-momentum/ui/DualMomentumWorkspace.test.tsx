@@ -302,6 +302,9 @@ describe("DualMomentumWorkspace", () => {
   it("keeps the frozen responsive grid and existing design-token boundary", () => {
     const css = readFileSync(`${process.cwd()}/src/features/wealth-exploration/sector-analysis/dual-momentum/ui/sector-dual-momentum.css`, "utf8");
     expect(css).toContain("grid-template-columns: minmax(0, 1fr) 12px minmax(0, 1fr)");
+    expect(css).toMatch(/\.dual-result-table-header\s*\{[^}]*overflow-y:\s*auto[^}]*scrollbar-gutter:\s*stable/s);
+    expect(css).toMatch(/\.dual-result-row-select\s*\{[^}]*column-gap:\s*var\(--cs-space-8\)/s);
+    expect(css).toMatch(/\.dual-status-chip\s*\{[^}]*align-items:\s*center[^}]*justify-content:\s*center[^}]*text-align:\s*center/s);
     expect(css).toContain("min-width: 0");
     expect(css).not.toMatch(/width:\s*1564px/);
     expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);
