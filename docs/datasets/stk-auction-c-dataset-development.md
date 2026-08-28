@@ -1,7 +1,8 @@
 # 股票收盘集合竞价数据集接入方案（`stk_auction_c`）
 
-> 状态：已落地  
+> 状态：数据集接入已落地；`P1-B3-stk_auction_c-M0` raw 直出只读复审通过，下一阶段为另行授权的 M1
 > 日期：2026-05-16  
+> raw 直出 M0 复审：2026-08-29
 > 文档模板：[数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)  
 > 源站文档：[0354_股票收盘集合竞价数据.md](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/特色数据/0354_股票收盘集合竞价数据.md)
 
@@ -353,3 +354,52 @@ flowchart TD
 - 不把 `limit` / `offset` 暴露给运营填写。
 - 不做无时间维度 snapshot 维护；即使源端不传参数能返回最近数据，本平台维护仍要求明确交易日或交易日区间。
 - 不引入股票池自动扇出。
+
+## 11. 2026-08-29 raw 直出 M0 复审结论
+
+本轮只读复审严格限定为 `P1-B3-stk_auction_c-M0`：没有修改代码、请求 Tushare、创建 TaskRun、部署、执行 migration、暂停 schedule 或写生产数据库。目标是确认当前双写实现、生产两层事实、消费者与查询性能是否允许进入独立 M1。
+
+### 11.1 当前实现与影响面
+
+1. Definition 仍显式请求并保存 9 个 source fields：`ts_code, trade_date, close, open, high, low, vol, amount, vwap`；按交易日 point/range 规划，range 按开市日逐 unit 展开，单 unit 使用 `limit/offset`、`page_limit=10,000` 分页，允许可选 `ts_code`。
+2. 当前 storage 仍为 `raw_core_upsert`：同一个归一化批次分别写入 `raw_tushare.stk_auction_c` 与 `core_serving.equity_auction_close`；两层业务主键均为 `(ts_code, trade_date)`，没有额外 serving 冲突消解。
+3. 仓库内未发现 Biz、QTF、DG、前端或 Lake Console 对 `core_serving.equity_auction_close` 的直接读取，也未发现 `ServingPublishService` 或显式 serving DML 旁路。已知消费者为 Definition 驱动的 Ops Catalog、freshness、日期完整性、TaskRun 观测，以及 `daily_market_close_maintenance` 工作流。
+4. 生产自动入口是 schedule #24（18:30）和 schedule #2（21:02）。最近自然运行中，18:30 节点为空短页，21:02 节点返回约 5,550 行；这属于源端就绪时序，不是 raw 直出异常。未来 M3a 必须同时暂停并恢复两个 schedule，M3b 也必须分别核对两个自然入口。
+5. raw 直出只改变 storage contract 与物理 relation 形态，不修改 source fields、请求参数、分页、日期模型、planner、unit、schedule 时间或工作流顺序，也不新增共享 writer/DAO 框架。
+
+### 11.2 生产物理合同与全量等价
+
+生产只读快照时间为 `2026-08-29 05:25+08`，Alembic head 为 `20260828_000156`：
+
+| 项目 | Raw | Serving |
+| --- | ---: | ---: |
+| relation | `raw_tushare.stk_auction_c` 物理表 | `core_serving.equity_auction_close` 物理表 |
+| 总大小 | 424,484,864 B（404.82 MiB） | 390,266,880 B（372.19 MiB） |
+| 总行数 | 2,255,593 | 2,255,593 |
+| 唯一 `(ts_code, trade_date)` | 2,255,593 | 2,255,593 |
+| 日期范围 | `2025-01-02..2026-08-28` | `2025-01-02..2026-08-28` |
+
+两表列类型、非空合同、主键与交易日索引一致；索引均 valid/ready。未发现外键、外部 view/materialized view、用户 trigger、RLS、publication、扩展统计或安全标签依赖。Raw 额外向 `lake_raw_reader` 授予 `SELECT`，未来 migration 必须动态保留两边 owner、ACL 和注释合同。
+
+对全部 20 个自然月逐月比较 9 个业务字段的双向 `EXCEPT ALL`，每个月 raw-only 与 serving-only 均为 0；全表行数、身份数和日期范围也一致。月峰值为 `2025-07` 的 132,619 行。`raw.fetched_at = serving.updated_at` 对全部 2,255,593 行成立；93,769 行的 `serving.created_at != serving.updated_at`，因此未来 view 把 `created_at/updated_at` 都投影为 `fetched_at` 会改变历史创建时间值，但当前仓库内没有该字段消费者，这仍属于已公开的物理透明性边界。
+
+M1 的本数据集 migration 容量门禁固定为每层每自然月最多 160,000 行：它高于当前月峰值约 20.6%，按实测最大业务行宽 97 B 计算，单层业务投影约 14.80 MiB。M2 必须证明 160,000 行通过、160,001 行在任何 serving DDL 前 fail-closed；不能因为 `stk_auction_o` 使用相同数值就省略本数据集的独立边界测试。
+
+### 11.3 查询与运行门禁
+
+生产代表查询的 Raw/Serving 结果摘要完全一致，Raw 计划均使用自身主键或交易日索引；三轮中位数如下：
+
+| 查询 | Raw | Serving | Raw 相对变化 |
+| --- | ---: | ---: | ---: |
+| 单日完整字段 | 11.516 ms | 11.041 ms | +4.30% |
+| 单股票历史 | 1.162 ms | 1.236 ms | -5.99% |
+| 5 日范围 | 58.333 ms | 56.401 ms | +3.43% |
+| 日期完整性范围 | 61.834 ms | 54.941 ms | +12.55% |
+
+日期完整性这一最慢代表查询仍低于 20% 停止阈值，且没有临时块；当前 M0 无性能阻塞。`max(trade_date)` 两边均为亚毫秒 index-only scan，绝对耗时受抖动主导，不用其百分比作为迁移判断。Raw 的 all-visible 页比例为 95.21%，无需在 M0 擅自执行 vacuum；M3a 仍须在同一维护窗口实时复测任务、锁、磁盘与查询性能。
+
+### 11.4 M0 判断与下一阶段
+
+`P1-B3-stk_auction_c-M0` **通过**，可以在另行授权后进入 M1。M1 只允许修改本数据集 Definition storage contract、必要的 raw ORM 索引 metadata、独立 Alembic revision 和专项测试；可以沿用已经验证的 raw-backed view 与数据库拒写合同，但必须基于本数据集 9 字段、160,000 行/月和两个收盘工作流入口独立实现，不得新增共享框架或照搬前一数据集的生产结论。
+
+M0 不构成 M1、M2 或生产 M3a 授权。生产 M3a 前仍须重新确认真实 Alembic head、开放 TaskRun 为 0、schedule #2/#24 均已暂停、目标 worker 已停止、无目标锁/长事务、根盘和 WAL 水位安全，并重跑全量等价与代表查询。仓库外 SQL、BI、人工脚本若依赖 OID、relkind、约束 catalog、历史审计时间或 serving DML，仍须由运营登记。
