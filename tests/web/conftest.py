@@ -51,7 +51,6 @@ from src.ops.models.ops.etf_realtime_alert import EtfRealtimeAlert
 from src.ops.models.ops.etf_realtime_minute_stat import EtfRealtimeMinuteStat
 from src.ops.models.ops.etf_realtime_monitor_pool import EtfRealtimeMonitorPool
 from src.ops.models.ops.etf_realtime_monitor_rule import EtfRealtimeMonitorRule
-from src.ops.models.ops.etf_series_active import EtfSeriesActive
 from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.probe_rule import ProbeRule
@@ -139,7 +138,6 @@ def web_engine(configured_web_env) -> Generator:
         EtfRealtimeMonitorRule.__table__.create(connection)
         EtfRealtimeMinuteStat.__table__.create(connection)
         EtfRealtimeAlert.__table__.create(connection)
-        EtfSeriesActive.__table__.create(connection)
         IndexSeriesActive.__table__.create(connection)
         DatasetStatusSnapshot.__table__.create(connection)
         ProbeRule.__table__.create(connection)

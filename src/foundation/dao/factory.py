@@ -9,7 +9,6 @@ from src.foundation.dao.equity_daily_bar_dao import EquityDailyBarDAO
 from src.foundation.dao.equity_daily_basic_dao import EquityDailyBasicDAO
 from src.foundation.dao.dividend_dao import EquityDividendDAO, RawDividendDAO
 from src.foundation.dao.equity_moneyflow_dao import EquityMoneyflowDAO
-from src.foundation.dao.etf_series_active_dao import EtfSeriesActiveDAO
 from src.foundation.dao.generic import GenericDAO
 from src.foundation.dao.holdernumber_dao import EquityHolderNumberDAO, RawHolderNumberDAO
 from src.foundation.dao.index_basic_dao import IndexBasicDAO
@@ -241,7 +240,6 @@ class DAOFactory:
         self.ths_hot = GenericDAO(session, ThsHot)
         self.equity_holder_number = EquityHolderNumberDAO(session)
         self.index_series_active = IndexSeriesActiveDAO(session)
-        self.etf_series_active = EtfSeriesActiveDAO(session)
         self.security_std = GenericDAO(session, SecurityStd)
         self.sw_industry_classification = GenericDAO(session, SwIndustryClassification)
         self.sw_industry_daily = GenericDAO(session, SwIndustryDaily)

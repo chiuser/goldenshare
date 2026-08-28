@@ -30,7 +30,6 @@ MODEL_MODULES: tuple[str, ...] = (
     "src.ops.models.ops.etf_realtime_minute_stat",
     "src.ops.models.ops.etf_realtime_monitor_pool",
     "src.ops.models.ops.etf_realtime_monitor_rule",
-    "src.ops.models.ops.etf_series_active",
     "src.ops.models.ops.index_series_active",
     "src.ops.models.ops.schedule",
     "src.ops.models.ops.probe_rule",

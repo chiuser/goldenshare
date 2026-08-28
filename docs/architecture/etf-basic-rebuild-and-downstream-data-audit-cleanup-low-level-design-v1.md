@@ -1,6 +1,6 @@
 # ETF 基础信息重建与下游数据审计清理 LLD v1
 
-状态：重新基线完成；P0-P7 已完成（未执行生产快照重建），原 P2-P9 执行序列已作废，新版 P8-P12 尚未开始
+状态：重新基线完成；P0-P8 已完成代码（未执行生产快照重建或生产删表），原 P2-P9 执行序列已作废，新版 P9-P12 尚未开始
 创建日期：2026-08-28
 依据方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)
 适用代码：`src/foundation/**`、`src/ops/**`、`src/app/**`、`frontend/**`、`alembic/**`
@@ -38,7 +38,7 @@
 | R20 | 曾给 Basic universe source 再挂一个 `resource='requestable_etf'` | Basic 没有多资源选择，这个伪 resource 没有信息量，还容易被理解成新池 | source 只保留 `type='core_serving_etf_basic'`；全市场/SH/SZ 由三个既有 builder 固定决定 |
 | R21 | 分钟 preview 未限定 6,500 万行 raw 的查询形状和 Prod 超时 | 可能出现 ETF×频率 N+1 查询或无界聚合，给生产库制造长期压力 | P9A 只允许集合查询、只读事务和 60 秒 statement timeout；现有索引仍不能满足时停止，不擅自加索引 |
 
-原 P2-P9 的文字不得再作为开发或发布依据。本文 P0-P6 的执行记录均为当前有效基线；P7 及以后没有已完成代码可继承。
+原 P2-P9 的文字不得再作为开发或发布依据。本文 P0-P8 的执行记录均为当前有效基线；P9 及以后没有已完成代码可继承。
 
 ### 1.2 重排后的核心结果
 
@@ -1429,8 +1429,14 @@ P8 只允许处理下表对象；若开工复核出现名单外的运行时消�
 | 清理测试装配/反例 | `tests/web/conftest.py` 删除旧表创建；`tests/web/test_ops_etf_realtime_monitor_api.py` 删除旧池 ORM 反例并保留 Basic 不回退语义 |
 | 保留负向门禁 | `tests/test_dataset_action_resolver.py` 的 `not hasattr(..., "etf_series_active")`；`tests/test_etf_sh_cons_model.py` 的旧表不得进入申赎清单 migration 断言；P7 的 review 404 断言 |
 | migration 边界 | 保留历史 `20260618_000117_add_etf_series_active.py`；P8 重新确认真实 head 后新增 drop-table migration，不回写历史 migration |
+| 新增退场门禁 | `tests/test_etf_series_active_retirement.py` 固定 model registry、DAOFactory、CLI、精确 drop 和不可逆 downgrade 的负向契约 |
+| 全面校准当前数据集文档 | `etf-mins`、`etf-sh-cons`、`etf-sz-cons` 的方案与 LLD 改写为 Basic Serving 当前可请求口径；`etf-share-size` 方案与 LLD、`fund-factor-pro` 发现审计改写为全市场请求/历史证据口径 |
+| 全面校准未来方案 | ETF 实时分钟方案/LLD/R0B、实时成交额监控方案/LLD、DG ETF 接入方案删除旧池可执行设计，保留实测事实并标记选择范围尚未重新基线、当前不可开工 |
+| 历史文档与索引 | 两份 ETF Active Pool 文档改写为退场历史记录；主方案、主 LLD 和 `docs/README.md` 同步阶段状态 |
 
 未登记为 P8 删除对象的 `index_series_active` model/DAO/service/API/页面/测试必须原样保留。ETF 实时分钟方案仍依赖旧池的历史设计已经在文首标为“选择池需重新基线”，P8 不顺带设计替代选择池。
+
+P8 开工复核（2026-08-29）：CodeGraph 索引为 up to date，包含 2,835 个文件、50,143 个节点和 127,454 条边；精确搜索未发现上述白名单之外的旧池运行时消费者。Alembic 唯一 head 仍为 `20260828_000156`。生产只读审计确认旧表共有 5,708 行，只有自身主键和两个索引，没有外键、依赖视图、自定义触发器或函数依赖；这些行不备份、不迁移，本阶段也不执行生产 DDL。
 
 ### P8：激活池基础设施与 schema 退场
 
@@ -1441,9 +1447,21 @@ P8 只允许处理下表对象；若开工复核出现名单外的运行时消�
 3. **不再处理**已由 P4 删除的 cleanup 和已由 P7 删除的 review。
 4. 同步 CodeGraph，执行全仓当前态字符串清零，精确保护 `index_series_active`。
 5. 重新确认唯一 Alembic head 后新增不可逆 drop-table migration；历史建表 migration 保留。
-6. 给历史激活池文档补充 superseded 链接。
+6. 按上述文档白名单全面改写旧池相关文档；不能只在文首补 superseded 提示后继续保留可执行的旧设计。
 
-完成门禁：运行时代码/前端/config 旧引用为 0；测试无旧能力 import/fixture/call，仅保留明确负向断言；指数池测试全部通过；migration 能从真实 head 升级。
+完成门禁：运行时代码/前端/config 旧引用为 0；测试无旧能力 import/fixture/call，仅保留明确负向断言；指数池测试全部通过；migration 能从真实 head 升级。这里的“升级”只指候选/测试环境与离线 SQL 验证，不表示生产表已删除；生产物理 drop 留给 P11。
+
+#### P8 执行记录（2026-08-29）
+
+1. 删除旧池 ORM、DAO、Foundation contract、Ops adapter、seed service；同步清理 `DAOFactory.etf_series_active`、Ops ORM export、App model registry、主 CLI、Ops handler 和 `ops-seed-etf-series-active`。没有兼容 DAO、alias、fallback 或双读。
+2. 删除五份只证明旧能力存在的 model/DAO/seed/CLI/report 测试；Web fixture 不再创建旧表。实时监控 candidate 的反例只使用 `P` 等 Basic 不可请求行，selector 异常直接传播，不再创建旧 ORM 行证明“不回退”。
+3. 新增 `tests/test_etf_series_active_retirement.py`，固定旧 model registry/DAOFactory/CLI 退场、指数池保留、migration 精确目标、不可逆 downgrade 和历史 create migration 保留。
+4. 新增 `20260829_000157_drop_etf_series_active.py`，真实 `down_revision` 为 `20260828_000156`。离线 SQL 只有 `DROP TABLE ops.etf_series_active` 和 Alembic 版本更新；没有 `CASCADE`、`IF EXISTS` 或其他 schema 对象操作。
+5. 两份旧池文档已改为历史退场记录；`etf_mins/etf_sh_cons/etf_sz_cons` 方案与 LLD 已改写为当前 Basic selector 和上市日裁剪；`etf_share_size` 明确继续按交易日源端全集、raw 直出 serving；`fund_factor_pro` 不再建议 active resource。
+6. 尚未实现的 ETF 实时分钟、实时成交额监控重构和 DG ETF 接入已删除旧池可执行设计，只保留源端/时序/路径/容量证据，并统一标记为范围重新基线前不可开工。ETF 实时日线方案和配置中心展示稿中遗漏的旧 Health 文案也已改为当前 `eligible_* + ETF Basic` 合同。
+7. 后置 CodeGraph 为 2,827 个文件、50,045 个节点、126,727 条边；四个旧池生产符号均无结果。`IndexSeriesActive` 仍有 40 个影响符号，指数 review、完整性、修复与 source serviceability 链保持。
+8. 重点业务回归 291 个测试通过；完整 Web 870 个通过、1 个跳过；架构护栏 22 个通过；前端实时监控目标 3 个通过；Ruff、唯一 Alembic head、离线 SQL、文档完整性和 `git diff --check` 均通过。全量 CLI 中 42 个通过，唯一失败是未改文件中的既有 `test_attach_cli_progress_reporter_emits_throttled_progress`：测试 fake 只有 `contract`，当前 helper 要求实例有 `definition`；该失败可独立复现，按既定范围不修改通用 CLI 进度逻辑。
+9. 本阶段没有执行生产 migration、生产写入、Tushare 请求、Basic 重建、分钟补拉、旧分钟归档、事实删除、Dagster 或 Lake 写入。生产旧表仍包含退场前审计的 5,708 行，物理 drop 只属于 P11 独立维护窗口。
 
 ### P9：分钟对齐 preview 与受控 TaskRun 提交
 
@@ -1688,4 +1706,4 @@ Foundation planner/writer 只访问 Foundation 的 `core_serving.etf_basic` DAO�
 4. 明确保护 `fund_adj`、`etf_share_size`、公募基金域、指数池和历史实时事实。
 5. 开发顺序阻止了“先删表再找消费者”，并明确当前不建设下游事实清理系统。
 
-本文中 P0-P6 的执行记录代表对应阶段已完成；原 P2-P9 已作废，新版 P7-P12 均未实施。本 LLD 不授权执行生产快照重建、删表迁移、下游删除或全量补拉。当前停在 P6 阶段边界，P7 及以后仍须按用户的阶段指令逐步推进。
+本文中 P0-P8 的执行记录代表对应阶段代码已完成；原 P2-P9 已作废，新版 P9-P12 均未实施。本 LLD 不授权执行生产快照重建、生产删表迁移、下游删除或全量补拉。当前停在 P8 阶段边界，P9 及以后仍须按用户的阶段指令逐步推进。

@@ -209,8 +209,8 @@ health 建议字段：
   "source_row_count": 2206,
   "snapshot_count": 2206,
   "source_snapshot_count": 2206,
-  "active_pool_count": 1395,
-  "active_snapshot_count": 1320,
+  "eligible_etf_count": 1395,
+  "eligible_snapshot_count": 1320,
   "segment_counts": {"SH": 1055, "SZ": 1151},
   "invalid_count": 0,
   "invalid_reason_counts": {},
@@ -312,11 +312,11 @@ python3 scripts/check_docs_integrity.py
 3. 通过配置服务发布 `etf_rt_daily.enabled=true`，配置版本从 `1` 升到 `2`，`ops.config_revision` 记录 revision `73`。
 4. 已重启 `goldenshare-realtime-collector.service`。
 5. collector 已上报 `etf_rt_daily.applied_version=2`，配置中心应显示“已应用”。
-6. 收盘后 health 符合预期：`enabled=true`、`collection_status=idle`、`current_batch_id=null`、`active_pool_count=1395`，未请求源站。
+6. 当时收盘后 health 符合预期且未请求源站。该次历史验收使用旧池字段记录 1,395；当前契约已改为按 API 调用时固定日期动态读取 ETF Basic，返回 `eligible_etf_count/eligible_snapshot_count`，不再把该数量固化为运行门禁。
 
 开市验收已完成：
 
 1. `tushare_etf_rt_k` 产生 current batch。
 2. `segment_counts` 同时包含 `SH` 与 `SZ`。
-3. `source_snapshot_count`、`source_row_count`、`active_snapshot_count` 与实时源和活跃池口径一致。
+3. `source_snapshot_count/source_row_count` 与实时源批次一致；`eligible_etf_count/eligible_snapshot_count` 与同一次 Health 调用固定的 ETF Basic 当前可请求集合一致。
 4. 任一分段失败时不切 current pointer，只写 degraded health。

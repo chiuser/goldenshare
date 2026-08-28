@@ -12,7 +12,6 @@ from src.foundation.models.raw.raw_etf_share_size import RawEtfShareSize
 from src.ops.models.ops.etf_realtime_alert import EtfRealtimeAlert
 from src.ops.models.ops.etf_realtime_monitor_pool import EtfRealtimeMonitorPool
 from src.ops.models.ops.etf_realtime_monitor_rule import EtfRealtimeMonitorRule
-from src.ops.models.ops.etf_series_active import EtfSeriesActive
 
 
 def _login_headers(
@@ -44,19 +43,6 @@ def _seed_requestable_etf(
             etf_type="宽基",
             list_date=date(2012, 5, 28),
             list_status="L",
-        )
-    )
-    db_session.commit()
-
-
-def _seed_legacy_active_etf(db_session, ts_code: str) -> None:
-    db_session.add(
-        EtfSeriesActive(
-            resource="etf_rt_daily",
-            ts_code=ts_code,
-            first_seen_date=date(2026, 6, 17),
-            last_seen_date=date(2026, 6, 17),
-            last_checked_at=datetime(2026, 6, 17, tzinfo=timezone.utc),
         )
     )
     db_session.commit()
@@ -375,8 +361,6 @@ def test_etf_realtime_monitor_eligible_candidates_apply_basic_contract_once_and_
     ]
     db_session.add_all(rows)
     db_session.commit()
-    _seed_legacy_active_etf(db_session, "510001.SH")
-    _seed_legacy_active_etf(db_session, "588888.SH")
     calls: list[tuple[date, str | None]] = []
     original_subquery = EtfBasicDAO.requestable_targets_subquery
 
@@ -408,12 +392,21 @@ def test_etf_realtime_monitor_eligible_candidates_apply_basic_contract_once_and_
     assert retired_response.status_code == 404
 
 
-def test_etf_realtime_monitor_eligible_candidates_return_empty_page_without_legacy_fallback(
+def test_etf_realtime_monitor_eligible_candidates_return_empty_page_when_basic_has_no_requestable_rows(
     app_client,
     user_factory,
     db_session,
 ) -> None:
-    _seed_legacy_active_etf(db_session, "588888.SH")
+    db_session.add(
+        EtfBasic(
+            ts_code="510001.SH",
+            csname="待上市",
+            list_date=date(2020, 1, 1),
+            list_status="P",
+            exchange="SH",
+        )
+    )
+    db_session.commit()
     headers = _login_headers(app_client, user_factory)
 
     response = app_client.get(
@@ -425,13 +418,12 @@ def test_etf_realtime_monitor_eligible_candidates_return_empty_page_without_lega
     assert response.json() == {"items": [], "page": 1, "page_size": 50, "total": 0}
 
 
-def test_etf_realtime_monitor_eligible_candidates_selector_failure_does_not_fallback(
+def test_etf_realtime_monitor_eligible_candidates_selector_failure_propagates(
     app_client,
     user_factory,
     db_session,
     mocker,
 ) -> None:
-    _seed_legacy_active_etf(db_session, "588888.SH")
     mocker.patch.object(
         EtfBasicDAO,
         "requestable_targets_subquery",

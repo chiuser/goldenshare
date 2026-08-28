@@ -30,7 +30,6 @@ from src.cli_parts.ops_handlers import (
     run_ops_scheduler_serve as _run_ops_scheduler_serve_impl,
     run_ops_scheduler_tick as _run_ops_scheduler_tick_impl,
     run_ops_seed_default_single_source as _run_ops_seed_default_single_source_impl,
-    run_ops_seed_etf_series_active as _run_ops_seed_etf_series_active_impl,
     run_ops_seed_moneyflow_multi_source as _run_ops_seed_moneyflow_multi_source_impl,
     run_ops_seed_realtime_runtime_config as _run_ops_seed_realtime_runtime_config_impl,
     run_ops_task_completion_worker_serve as _run_ops_task_completion_worker_serve_impl,
@@ -76,7 +75,6 @@ from src.ops.services.operations_daily_health_report_service import DailyHealthR
 from src.ops.services.schedule_automation_capability_audit_service import ScheduleAutomationCapabilityAuditService
 from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
 from src.ops.services.operations_default_single_source_seed_service import DefaultSingleSourceSeedService
-from src.ops.services.etf_series_active_seed_service import EtfSeriesActiveSeedService
 from src.ops.services.operations_task_run_reconciliation_service import OperationsTaskRunReconciliationService
 from src.ops.services.operations_moneyflow_multi_source_seed_service import MoneyflowMultiSourceSeedService
 from src.ops.services.operations_moneyflow_reconcile_service import MoneyflowReconcileService
@@ -486,29 +484,6 @@ def ops_seed_realtime_runtime_config(
     _run_ops_seed_realtime_runtime_config_impl(
         session_local=SessionLocal,
         service_cls=RealtimeRuntimeConfigSeedService,
-        apply=apply,
-        echo_fn=typer.echo,
-    )
-
-
-@app.command("ops-seed-etf-series-active")
-def ops_seed_etf_series_active(
-    resource: str = typer.Option(..., "--resource", help="ETF 活跃池 resource：fund_daily、etf_rt_daily、etf_sh_cons 或 etf_sz_cons。"),
-    from_seed_csv: Path = typer.Option(
-        ...,
-        "--from-seed-csv",
-        exists=False,
-        file_okay=True,
-        dir_okay=False,
-        help="ETF 活跃池 seed CSV 路径。",
-    ),
-    apply: bool = typer.Option(False, "--apply", help="执行写入。默认仅预览（dry-run）。"),
-) -> None:
-    _run_ops_seed_etf_series_active_impl(
-        session_local=SessionLocal,
-        service_cls=EtfSeriesActiveSeedService,
-        resource=resource,
-        seed_csv_path=from_seed_csv,
         apply=apply,
         echo_fn=typer.echo,
     )

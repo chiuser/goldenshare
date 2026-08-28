@@ -1,8 +1,8 @@
 # ETF 基础信息重建与下游数据审计清理技术方案 v1
 
-状态：核心业务口径 D1-D20 不变；LLD 已重新基线 / M0-M7 已完成（未执行生产重建）/ 原 M2-M8 执行序列作废，新版 M8-M12 尚未开始
+状态：核心业务口径 D1-D20 不变；LLD 已重新基线 / M0-M8 已完成代码（未执行生产重建或生产删表）/ 原 M2-M8 执行序列作废，新版 M9-M12 尚未开始
 创建日期：2026-08-28
-最近审计：2026-08-29（M7/P7 已完成；三个代码驱动 planner、`fund_daily` serving、实时 Health、实时监控和旧 ETF review 均已完成迁移或退场；实时 provider 保持不变，旧池基础设施和数据库表留给 M8/P8）
+最近审计：2026-08-29（M8/P8 已完成代码；旧池 model/DAO/contract/adapter/seed/CLI 与装配已删除，drop migration 已准备；生产物理表仍留待 M11 独立维护窗口）
 适用范围：`etf_basic`、ETF 下游历史数据、ETF 对象池、ETF 查询与运维消费者
 低层设计：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
 
@@ -381,7 +381,7 @@ serving 非 .SH/.SZ 行数 = 0
 | `fund_daily` raw | `raw_tushare.fund_daily` | 源端当日完整返回 | 永久保留，不按 ETF Basic 删除 |
 | `fund_adj` | `raw_tushare.fund_adj`、`core.fund_adj_factor` | 源端当日完整返回 | 永久保留，不按 ETF Basic 删除；当前不属于 ETF serving 清理范围 |
 | `etf_rt_daily` | 固定通配符源请求 + Redis 批次 | 源端完整批次；health/业务候选使用当前可请求清单 | provider 不改成逐代码请求；只替换旧激活池统计和候选口径 |
-| 旧 ETF 激活池 | `ops.etf_series_active` | 计划退场，当前仍在运行 | 删除表、模型、DAO、contract、seed、CLI、API、页面与测试，不保留兼容读取 |
+| 旧 ETF 激活池 | `ops.etf_series_active` | 运行时与代码基础设施已退场；生产物理表尚未执行 drop | 代码、API、页面和测试已删除；P11 独立维护窗口执行物理删表，不保留兼容读取 |
 | 实时监控池/规则/统计/告警 | `ops.etf_realtime_*` | 当前可请求清单 | 当前无无效配置；运行时按资格过滤；历史事实不删 |
 | `etf_index` | raw + serving 指数基准表 | 指数代码，不使用 ETF 主数据清单 | 明确排除；只能审计 `etf_basic.index_code -> etf_index.ts_code` 的引用关系 |
 | 公募基金基础、经理、份额等 | 公募基金域 raw/current/obs | 不使用 ETF 主数据清单 | 明确排除，合法 `.OF` 保留 |
@@ -806,11 +806,15 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 
 实现结果：两条旧 ETF review GET API、后端查询/schema/export、前端页面/测试/路由/导航/类型均已直接删除，无 alias、重定向或 Basic 替代页面。运行时代码和前端对旧 review 标识及旧池业务消费引用已经清零，测试只保留两条旧 GET 地址的 404 退场断言；P8 基础设施白名单已固化到配套 LLD。
 
-### M8：激活池基础设施和 schema 退场
+### M8：激活池基础设施和 schema 退场（已完成代码）
 
 1. 删除剩余 model/DAO/contract/adapter/seed/CLI 与独立旧测试。
 2. 从 DAOFactory/model registry 清除旧能力，保护 `index_series_active`。
 3. 确认真实 Alembic head 后新增不可逆 drop-table migration。
+4. 全面校准仍把旧池描述为现行机制的 ETF 数据集、实时分钟、实时监控和 DG 接入文档：已落地链路改写为真实的 Basic Serving 或全市场请求口径；尚未实现的方案只保留已验证事实，并明确选择范围尚未重新基线、当前不可开工。
+5. M8 完成只表示仓库运行时基础设施已删除、drop migration 已准备；本阶段不执行生产 migration。生产 `ops.etf_series_active` 的物理删除必须留到 M11 的独立维护窗口授权。
+
+实现结果：旧池五个生产文件、DAOFactory/model registry/ORM export、seed CLI/handler 和五份专属测试已删除；Web fixture 不再创建旧表，实时监控反例改为纯 Basic 不可请求样本。新增 `20260829_000157_drop_etf_series_active.py`，接真实 head `20260828_000156`，upgrade 只精确 drop `ops.etf_series_active`，downgrade 明确不可逆。已落地 ETF 数据集文档改写为当前 Basic 或全市场口径；未实现的实时分钟、监控重构和 DG 接入已移除旧池可执行设计并标记为重新基线前不可开工。生产 DDL、Tushare、Basic 重建、分钟补拉和历史事实删除均未执行。
 
 ### M9：分钟 alignment 计划与提交工具
 
@@ -867,7 +871,7 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 4. 激活池消费者按 planner、fund daily、Health、monitor、review 顺序切换；运行时消费者清零后才允许删除 DAO/model/seed 与表。
 5. 分钟 alignment 只补代码/频率的上市日前缀和现有尾部请求覆盖；不把停牌或源端空日猜成内部缺口。先只实现覆盖全部当前可请求 ETF × 五频率的 preview，用真实规模取得 TaskRun 数量和批次拍板后，才允许实现正式 submit。
 
-M7/P7 已完成，当前停在阶段边界；M8/P8 及以后仍须按用户的后续阶段指令推进。
+M8/P8 已完成代码，当前停在阶段边界；M9/P9 及以后仍须按用户的后续阶段指令推进。生产旧表仍存在，不能把 P8 代码完成写成生产删表完成。
 
 详细代码点、测试矩阵、下游只读复核、分钟补拉额度门禁和逐步开发流程见：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)。
 
@@ -891,6 +895,8 @@ M7/P7 已完成，当前停在阶段边界；M8/P8 及以后仍须按用户的�
 
 2026-08-29 P7 完成后再次同步 CodeGraph 并执行精确字符串搜索。旧 ETF review API、query method、schema、前端页面、路由、导航和共享类型均已从运行时代码清零；`ReviewCenterQueryService` 的剩余影响面只包含指数和板块 review。`EtfSeriesActive` 当前只存在于 P8 已登记的 model/DAO/contract/adapter/seed/CLI/装配与独立测试中，不再存在未登记业务消费者。
 
+2026-08-29 P8 完成后再次同步 CodeGraph，索引为 up to date，共 2,827 个文件、50,045 个节点和 126,727 条边。`EtfSeriesActive`、`EtfSeriesActiveDAO`、`EtfSeriesActiveStore`、`EtfSeriesActiveSeedService` 均无结果；`IndexSeriesActive` 仍有 40 个受影响符号，覆盖 model、review、日期完整性、修复、source serviceability 和相关测试，证明指数池未被误删。生产代码和前端对旧类型、DAO、store、seed、CLI 名的精确搜索为 0；Alembic 只在历史 create 与新 drop migration 中保留旧表名。
+
 源接口口径同时复核了本地 Tushare 文档 `127/199/385/387/400/407/408/471/472`。`fund_daily/fund_adj` 的全市场返回范围沿用 2026-08-28 已写入本地源文档的同日 MCP 实测，不重复发起相同源端请求；本轮没有修改源参数或字段契约，也没有把一次实测数量固化为永久门禁。
 
-这些结果已经与当前代码逐项核对并落入配套 LLD。重新基线时进一步确认：`DAOFactory.etf_basic` 已经存在；planner、fund daily writer、Health、monitor candidate 和 review 当时分别依赖旧池；candidate 分页需要 count/page 两条 SQL；旧 cleanup 与 review 曾被重复分配到多个删除阶段。新版 M2-M12 已据此重排。M1-M6 的实现与测试证据见 LLD 对应执行记录；M7 以后仍须重新同步 CodeGraph，对剩余 review、动态注册、前端路由和生产表复核，新出现的引用必须先补回 LLD，不能在实施时临时绕过。
+这些结果已经与当前代码逐项核对并落入配套 LLD。重新基线时进一步确认：`DAOFactory.etf_basic` 已经存在；planner、fund daily writer、Health、monitor candidate 和 review 当时分别依赖旧池；candidate 分页需要 count/page 两条 SQL；旧 cleanup 与 review 曾被重复分配到多个删除阶段。新版 M2-M12 已据此重排。M1-M8 的实现与测试证据见 LLD 对应执行记录；M9 以后仍须重新同步 CodeGraph 并复核真实生产范围，新出现的冲突必须先补回 LLD，不能在实施时临时绕过。

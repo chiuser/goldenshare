@@ -303,32 +303,6 @@ def run_ops_seed_realtime_runtime_config(
         echo_fn(f" - {item.object_key}: status={item.status} object_kind={item.object_kind}")
 
 
-def run_ops_seed_etf_series_active(
-    *,
-    session_local,
-    service_cls,
-    resource: str,
-    seed_csv_path: Path,
-    apply: bool,
-    echo_fn: Callable[[str], None],
-) -> None:
-    with session_local() as session:
-        report = service_cls().run(
-            session,
-            resource=resource,
-            seed_csv_path=seed_csv_path,
-            dry_run=not apply,
-        )
-
-    mode = "apply" if apply else "dry-run"
-    echo_fn(f"ops-seed-etf-series-active [{mode}] resource={report.resource}")
-    echo_fn(f"seed_csv={report.seed_csv_path}")
-    echo_fn(f"candidate={report.candidate_count}")
-    echo_fn(f"created={report.created_count}")
-    echo_fn(f"skipped={report.skipped_count}")
-    echo_fn(f"invalid={report.invalid_count}")
-
-
 def run_ops_archive_etf_realtime_minute_stats(
     *,
     session_local,
