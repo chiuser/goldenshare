@@ -1,7 +1,7 @@
 # 市场总览｜板块速览低层设计 v2（LLD）
 
-> 状态：Slice 14 修复已部署，8 月 13/14 日 Heat 已补齐；下一开放日自动发布/read-back 仍待验收，因此 Slice 14 保持 OPEN。2026-08-15 用户另行批准板块速览聚焦纠偏：先修正式 Figma，再原子修正行业双榜、概念固定列和可见范围 `PARTIAL`；不扩展其它功能。
-> 日期：2026-08-15
+> 状态：Slice 14 已由 `2026-08-27` 真实开放日自然链完成自动发布、read-back/hash 与同日防重复验收，结论 PASS；下一步仅可在独立授权后进入 Slice 15。2026-08-15 用户另行批准板块速览聚焦纠偏：先修正式 Figma，再原子修正行业双榜、概念固定列和可见范围 `PARTIAL`；不扩展其它功能。
+> 日期：2026-08-28
 > 需求基线：[sector-overview-benchmark-requirement-v2.md](./sector-overview-benchmark-requirement-v2.md)
 > 实施方案：[sector-overview-implementation-design-v2.md](./sector-overview-implementation-design-v2.md)
 > 编码门禁：[sector-overview-m2-coding-gate-v2.md](./sector-overview-m2-coding-gate-v2.md)
@@ -22,7 +22,7 @@
 8. Heat 不使用 Dagster asset、dynamic partition、asset check、sensor、Gold 路径、runless event 或 DG history CLI；60 日回放是 prod-native TaskRun。
 9. hierarchy、60+25 日 prod 来源、Heat/app 执行装配、事务与访问边界、60 日生产回放已经通过并继续作为有效基础；前后端 V2 只能记为“已实现、未验收”，不能再表述为完成。
 10. 2026-08-13 对照需求基线、implementation design、M2 Gate、正式 Figma 节点树与当前代码复审后，确认存在 API 展示契约不足、有效池字段口径、成员名称来源、排序空值、来源状态、默认日期、错误态、三工作台结构、详情结构、Heat 表达、交互、六态骨架、自动化测试、像素、性能与发布门禁等偏差；完整台账见第 2.5 节。
-11. 新修正步骤从 Slice 9 连续编号。Slice 9-13 已完成设计、后端、前端、生产 Heat v2 与全矩阵自动化；当前产品运行缺口是每日 Heat 没有自动门禁与自动提交，因此先执行 Slice 14 Heat 盘后自动化，原像素、候选部署和最终对账顺延到 Slice 15-17。
+11. 新修正步骤从 Slice 9 连续编号。Slice 9-14 已完成设计、后端、前端、生产 Heat v2、全矩阵自动化与真实开放日 Heat 自动发布验收；剩余工作依次为 Slice 15 像素、Slice 16 候选部署/性能和 Slice 17 最终对账。
 12. Slice 14 不修改 Heat 公式、hierarchy、回放语义或数据库结构。用户于 2026-08-15 单独批准的行业双榜、概念固定列和状态误报纠偏作为原子前后端修正先行，不改变 Slice 15-17 的像素、候选部署和最终对账顺序。
 
 ### 1.2 当前事实快照
@@ -30,14 +30,14 @@
 | 项目 | 当前结论 |
 |---|---|
 | Git 分支 | `dev-interface` |
-| Alembic head（部署后复核） | 仓库与生产当前单 head 均为 `20260813_000135`；本需求 revision `20260813_000134` 已位于有效链上并完成生产结构/授权验收 |
+| Alembic head（2026-08-28 只读复核） | 生产当前单 head 为 `20260827_000153`；本需求 revision `20260813_000134` 位于有效链上并已完成生产结构/授权验收 |
 | 当前 API | 前后端均已破坏性拆为 Industry/Concept/Region view-specific rank 与 detail；概念/地域固定列由后端直接返回，旧前端通用业务 rank/detail 契约已清零 |
 | 当前后端来源 | hierarchy、Heat、行情、成员与资金均读 Prod；DG 只发布 hierarchy。成员展示名已切到 `dc_member.name`，有效行情统一为 `close + pct_chg` |
 | 当前前端 | 已完成正式 header/tabs/toolbar、三个 view-specific workspace/rank/detail、七行滚动、20 日断点、地域 breadth、股票导航、默认日期和穷尽状态骨架；本轮须同步正式 Figma 的概念固定五列与行业双榜，正式整页像素仍后移到 Slice 15 |
 | 行业层级 Lake | 现有单文件正式 Silver，契约要求 496 行、31/128/337 |
 | Heat prod 来源 | `trade_calendar/dc_index/dc_daily/dc_member/board_moneyflow_dc/equity_daily_bar/equity_limit_list/security_serving/equity_suspend_d` 与前序 Heat |
 | 当前来源审计 | 目标窗 `2026-05-20..2026-08-12`、warm-up `2026-04-10..2026-05-19` 已冻结并完成整窗复核；资金流对目标概念 100% 覆盖、有效池无真实缺行情；`dc_daily@2026-05-18/20/22/25` 的 88/448/1/2 个缺行在 Prod Raw/Core 一致，按逐概念 `INVALID` 处理 |
-| 当前运行缺口 | v2 PLAN `8208`、APPLY `8210` 与幂等重放 `8213` 已完成；单日 condition-only schedule 修复已部署，8 月 13/14 日已人工补齐，仍缺下一开放日自动检查、单一 TaskRun、Heat read-back 与同日幂等验收；其后仍有 Slice 15 像素、Slice 16 候选部署/性能和 Slice 17 最终对账 |
+| 当前运行缺口 | v2 PLAN `8208`、APPLY `8210`、幂等重放 `8213` 与 `2026-08-27` 真实开放日单日 condition-only schedule 自然发布均已通过；Slice 14 已闭环，仍有 Slice 15 像素、Slice 16 候选部署/性能和 Slice 17 最终对账 |
 
 ### 1.3 禁止项
 
@@ -1132,7 +1132,7 @@ Slice 11 未关闭 A01-A19 整体问题；Slice 12 已完成 A02/A08 生产事�
 
 Slice 14 PASS 标准：代码/自动化测试全部通过、生产 schedule 唯一且 active、真实开放日完成一次成功自动发布与一次同日幂等核验、没有重复 TaskRun/DML、超时/缺源反例可观测。任一条件缺失均不得进入 Slice 15。
 
-执行记录（截至 2026-08-27）：**首次生产验收失败，修复代码、生产形态回归与双上游时间契约发布 PASS，新开放日自然验收 OPEN**。
+执行记录（截至 2026-08-28）：**首次生产验收失败事实保留；修复代码、生产形态回归、双上游时间契约发布与新开放日自然验收均 PASS，Slice 14 已闭环**。
 
 1. `MaintenanceActionDefinition` 已声明唯一 Heat readiness policy；历史 replay 仍不可调度。
 2. Ops 已实现 SSE 开放日、收盘工作流 21:00/资金流工作流 20:00 的独立门槛、同一 TaskRun 必需节点、10 分钟复查、跨午夜目标日锁定、00:30 单一超时以及同一 schedule/action/trade_date 单次自动尝试。
@@ -1141,7 +1141,8 @@ Slice 14 PASS 标准：代码/自动化测试全部通过、生产 schedule 唯�
 5. 2026-08-14 生产 schedule `36` 持续误判上游未齐，并于 2026-08-15 00:30 创建超时 TaskRun `8327`；生产上游节点和7张来源表实际齐备，Heat 结果仍停在 8 月 12 日。根因是旧 readiness 查询父 TaskRun `trade_date`，而19条生产工作流父意图均只有 `{"mode":"point"}`；旧测试 fixture 伪造该字段，原“本地通过”结论不再作为有效生产契约证据。
 6. 修复后父 TaskRun 保持意图不变，dispatcher 将 resolver 解析后的真实日期写入数据集节点，readiness 逐节点核验日期；缺日期、错日期、早场、失败节点和跨 TaskRun 拼接均失败关闭。Heat/Ops/运行时/API/架构相关修复回归 115 项与文件级 Ruff 已通过。
 7. 2026-08-27 发现第二个根因：原单值 `21:00` 同时约束收盘与 20:00 资金流工作流，导致后者自然成功仍永远不具备 readiness。现已改为收盘 `21:00`、资金流 `20:00` 的按 workflow 合同，缺失键、未知键和门槛前证据均 fail-closed；233 项受影响测试通过。
-8. commit `6c16ac31` 已于 `2026-08-27 18:47+08` 在开放 TaskRun 为 0 的窗口发布；跳过 migration、前端构建、seed 与全部业务 worker 重启，仅重启 scheduler。生产 Alembic 保持 `20260827_000153`，schedule #4/#36 仍分别为工作日 20:00/21:15，运行时 factory 装配通过。尚缺至少一个新的真实开放日自动 TaskRun、Heat read-back/hash 与同日幂等；完成前 Slice 14 不得标记 PASS，也不得进入 Slice 15。
+8. commit `6c16ac31` 已于 `2026-08-27 18:47+08` 在开放 TaskRun 为 0 的窗口发布；跳过 migration、前端构建、seed 与全部业务 worker 重启，仅重启 scheduler。生产 Alembic 保持 `20260827_000153`，schedule #4/#36 仍分别为工作日 20:00/21:15，运行时 factory 装配通过。该发布时点尚缺新的真实开放日自动 TaskRun、Heat read-back/hash 与同日幂等，现已由下一项自然证据关闭。
+9. `2026-08-28` 只读验收确认 `2026-08-27` 自然链完整通过：schedule #4 的资金工作流 TaskRun `9633` 于 20:00 后成功，`moneyflow_ind_dc` 节点读取/保存 `1,031/1,031` 行、拒绝和去重均为 0；schedule #2 的收盘工作流 TaskRun `9644` 中 Heat 依赖节点 `daily/dc_index/dc_member/dc_daily/limit_list/suspend_d` 均成功且日期一致。schedule #36 随后仅创建一个 Heat TaskRun `9645`，readiness 为 `HEAT_READY` 并明确引用 `9633/9644`；任务成功发布 504 个板块事实，其中 476 个 `VALID`，28 个按业务质量契约保留为 `INVALID`（12 个 `HISTORY_INSUFFICIENT`、16 个 `MEMBER_COUNT_LOW`），不是 ingestion 源行丢失。表内 504 个板块代码唯一、只有一个 `calculated_at`，readiness/task 的 config/source/plan/content hash 一致；21:15 后连续 scheduler tick 均未再次建 TaskRun 或写出第二版。同日防重复与 read-back 因此通过，Slice 14 结论为 PASS。
 
 ### Slice 15：Figma 与首页像素验收（原 Slice 14，修正序号 7）
 
@@ -1242,7 +1243,7 @@ Slice 14 PASS 标准：代码/自动化测试全部通过、生产 schedule 唯�
 
 ## 13. 当前修正状态与拍板边界
 
-1. 当前已部署历史 V2 不视为新版验收完成；不得继续其它新功能。Slice 9-13 已通过，下一项只能是 Slice 14 Heat 盘后自动化；像素、候选部署和最终对账依次后移到 Slice 15-17。
+1. Slice 9-14 已全部通过；这不等于新版 V2 整体完成。下一项只能在独立授权后进入 Slice 15 像素验收，候选部署/性能与最终对账依次保留在 Slice 16-17，不得跳步扩展其它新功能。
 2. 已确认不需要重新拍板的修正：20 日 Heat 历史、三工作台正式结构、地域保留、四指标详情、独立 Heat 标签、有效池 `close + pct_chg`、`dc_member.name`、null 排名排除、默认/显式日期、六态骨架、股票详情跳转、像素与性能门禁。
 3. 按现有批准范围，板块详情页和三个“进入××行情”入口不在本版本实现；Slice 9 已从正式 Figma 和文档删除该表达。只有用户明确改变范围时才重新设计路由。
 4. A02 改变 Heat canonical 来源字段集合后的 `concept-heat-eod-v2` 与 60 日重放已完成；后续验收不得沿用旧 v1 作为当前生产证据。
@@ -1255,6 +1256,7 @@ Slice 14 PASS 标准：代码/自动化测试全部通过、生产 schedule 唯�
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v2.23 | 2026-08-28 | 记录 `2026-08-27` 真实开放日自然链：资金/收盘上游 TaskRun `9633/9644`、唯一 Heat TaskRun `9645`、504 行 read-back/hash 与连续 scheduler tick 防重复均通过；Slice 14 关闭为 PASS，下一步为独立授权的 Slice 15 |
 | v2.22 | 2026-08-16 | 冻结概念 20 日 Heat 图坐标表达：每个有效柱顶上方 3px 显示原始热度值，第 1/5/10/15/20 槽显示 `MM-DD` 日期；INVALID 保留槽和刻度但不伪造柱/数值，外框尺寸不变 |
 | v2.21 | 2026-08-16 | 按最新产品口径删除三个工作台排序工具栏中的说明性上下文，仅保留排序维度与页签；同步正式 Figma、前端结构和负向测试 |
 | v2.20 | 2026-08-15 | 记录并冻结聚焦纠偏：Figma 概念五列固定网格、行业涨幅榜/跌幅榜、概念可见范围 `PARTIAL`；新增对应破坏性契约、实施顺序和正反测试门禁 |
