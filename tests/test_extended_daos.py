@@ -74,25 +74,3 @@ def test_dao_factory_exposes_etf_sh_cons_raw_dao(mocker) -> None:
     dao = DAOFactory(session)
 
     assert dao.raw_etf_sh_cons.model.__name__ == "RawEtfShCons"
-
-
-def test_etf_basic_dao_get_active_etfs_queries_supported_statuses(mocker) -> None:
-    session = mocker.Mock()
-    session.scalars.return_value = iter([mocker.Mock(ts_code="510300.SH"), mocker.Mock(ts_code="159915.SZ")])
-    dao = EtfBasicDAO(session)
-
-    rows = dao.get_active_etfs()
-
-    assert len(rows) == 2
-    session.scalars.assert_called_once()
-
-
-def test_etf_basic_dao_get_fund_daily_candidates_excludes_of_suffix(mocker) -> None:
-    session = mocker.Mock()
-    session.scalars.return_value = iter([mocker.Mock(ts_code="510300.SH"), mocker.Mock(ts_code="159915.SZ")])
-    dao = EtfBasicDAO(session)
-
-    rows = dao.get_fund_daily_candidates()
-
-    assert len(rows) == 2
-    session.scalars.assert_called_once()

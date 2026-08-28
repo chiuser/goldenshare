@@ -1,8 +1,8 @@
 # ETF 基础信息重建与下游数据审计清理技术方案 v1
 
-状态：核心业务口径已全部确认 / M0、M1 已完成（M1 已完成代码、测试与只读验收，未执行生产重建）/ M2-M8 未开始
+状态：核心业务口径 D1-D20 不变；LLD 已重新基线 / M0-M2 已完成（未执行生产重建）/ 原 M2-M8 执行序列作废，新版 M3-M12 尚未开始
 创建日期：2026-08-28
-最近审计：2026-08-28（补齐请求驱动、激活池消费者、`etf_share_size` 直出口径和 Prod 下游清理范围；同步 M1 实现与只读验收）
+最近审计：2026-08-28（新版 M2/P2 已按重新基线后的 LLD 完成 Basic selector 实现、影响面审计和定向回归；未迁移消费者、未删除旧池）
 适用范围：`etf_basic`、ETF 下游历史数据、ETF 对象池、ETF 查询与运维消费者
 低层设计：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
 
@@ -16,7 +16,7 @@
 2. `core_serving.etf_basic` 只发布真正供下游使用的沪深交易所 ETF，即 `.SH/.SZ`。
 3. 凡源接口需要按 ETF 代码展开请求，其代码、上市状态和最早请求日期都必须来自 `core_serving.etf_basic`；支持按交易日一次拉取源端全集的接口继续使用全市场请求，不得为了“使用 Basic”退化成逐 ETF 请求。
 4. 历史 `.OF` 别名不做改名、不与 `.SH/.SZ` 合并；当前下游未发现旧别名。若以后审计发现，先按精确范围另行评审，获批删除后再按交易所代码补拉缺失数据。
-5. 当前 Prod 下游没有命中已确认删除口径的数据，因此不建设通用清理 CLI、manifest 或 apply 工作流；首次重建后只复跑一次只读审计。代码消失或上市日期变晚只影响后续请求，不追溯删除既有历史。
+5. 当前 Prod 下游没有命中已确认删除口径的数据，因此不建设通用事实清理 CLI、删除 manifest 或 apply 工作流；首次重建后只复跑一次只读审计。代码消失或上市日期变晚只影响后续请求，不追溯删除既有历史。
 6. `ops.etf_series_active` 整套激活池机制退场，不再作为任何 ETF 下游的上游或二次筛选条件。
 7. `fund_daily`、`fund_adj`、`etf_share_size` 均保持源端全市场请求：`fund_daily` 的 raw 保存源端完整返回、ETF serving 受 ETF 主数据约束；`fund_adj` 的 raw/core 保存源端完整基金事实；`etf_share_size` 的 raw 与业务口径没有差异，继续采用 raw 单份存储和 serving 直出 view，不接入 ETF Basic 过滤。
 
@@ -210,8 +210,8 @@ ops.etf_series_active
 | D9 | 当前接口没有 `delist_date`，因此暂不按退市日做上界裁剪。 |
 | D10 | 公募基金域中的合法 `.OF` 不因 ETF 主数据重建被删除。 |
 | D11 | 3 条当前源端 `.OF` 可以保留在 raw，但不得进入 serving 和后续同步链路。 |
-| D12 | `ops.etf_series_active` 整套激活池机制彻底退场；所有需要判断 ETF 身份的下游统一以 `core_serving.etf_basic` 为身份上游，并按用途分别读取“ETF 主数据清单”或“当前可请求 ETF 清单”。 |
-| D13 | 当前 Prod 审计中已确认删除候选为 0，本方案不建设通用清理 CLI、manifest、apply 或备份/恢复能力；重建后复核若出现非零明确候选，另行按精确表和代码评审。 |
+| D12 | `ops.etf_series_active` 整套激活池机制彻底退场；所有需要判断 ETF 身份或发起新增请求的下游统一以 `core_serving.etf_basic` 为身份上游。运行时请求消费者只使用统一的“当前可请求 ETF”契约；全状态主数据只供受控审计，不再做第二个运行时清单接口。 |
+| D13 | 当前 Prod 审计中已确认删除候选为 0，本方案不建设通用事实清理 CLI、删除 manifest、apply 或备份/恢复能力；重建后复核若出现非零明确候选，另行按精确表和代码评审。 |
 | D14 | `etf_basic` 继续只保存当前态，不新增历史表、SCD 字段或每日快照表；TaskRun 只保留行数、hash 和变更摘要。 |
 | D15 | `etf_basic` 重建后，若某代码以后从主数据消失，或其 `list_date` 被改晚，只停止该代码后续请求并记录差异，不删除已经验收并落库的历史数据。 |
 | D16 | 删除 `ops.etf_series_active` 属于高风险迁移；编码前必须先完成独立 LLD、全量消费者映射、迁移顺序和回归门禁，禁止把“计划已列影响面”当成可以直接删表的依据。 |
@@ -220,18 +220,18 @@ ops.etf_series_active
 | D19 | `core_serving.fund_daily_bar` 改用当前可请求 ETF 清单做写入白名单，并校验 `trade_date >= list_date`；`fund_adj` 在出现明确 ETF serving 消费者前不新建 ETF 过滤层；`etf_share_size` 不接入 ETF 主数据门禁，也不新建物理 core/serving 表。 |
 | D20 | `etf_rt_daily` 继续使用固定沪深通配符获取源端批次，ETF Basic 只替代其 health/业务候选中的旧池口径，不改变 provider 请求段。 |
 
-### 4.1 两个长期清单与一次发布审计基准
+### 4.1 两个逻辑集合与一次发布审计基准
 
 原方案使用 `M/A/H` 三个字母只是文档缩写，不是现有数据库表，也不是应暴露给运营的业务概念。该写法不直观，并且在 D15 已确认后，“可保留历史集合”也不应继续作为日常删除依据，因此删除这组缩写。
 
-长期运行只保留两个说得清楚的清单：
+从业务概念上只保留两个说得清楚的集合；它们不是两张新表、两个持久化池或两个运行时 DAO 列表方法：
 
 1. **ETF 主数据清单**：`core_serving.etf_basic` 中全部 `.SH/.SZ` 行，用于回答“平台当前承认哪些 ETF 身份”，其中可以包含 `L/P/D`。
 2. **当前可请求 ETF 清单**：ETF 主数据清单中满足 `list_status='L'`、`list_date` 非空且 `list_date <= 执行日` 的行，用于回答“今天可以为哪些 ETF 发起新增请求”。
 
 首次重建后另外形成一份**一次发布审计基准**：它绑定验收通过的 `etf_basic` snapshot hash，只用于复跑下游只读统计并证明删除候选仍为 0。它不是长期选择器，不生成 delete manifest，也不能因代码消失或 `list_date` 变晚而删除历史。
 
-“统一提供”是指 Foundation 只实现一次公共判断，下游直接取结果。它不表示所有数据集的请求逻辑都相同：
+运行时只统一提供第 2 个集合的 snapshot/target/subquery；第 1 个集合是 serving 表本身，只供主数据展示或受控审计。“统一提供”不表示所有数据集的请求逻辑都相同：
 
 1. 共同规则——代码后缀、上市状态、上市日期——只能由公共选择器判断。
 2. 各下游仍负责自己的源接口规则，例如按日还是按代码请求、时间窗口、频率、分页和缺口计算。
@@ -446,11 +446,11 @@ UPDATE ... SET ts_code='100000.SZ' WHERE ts_code='100000.OF'
 
 ### 8.3 “所有下游直接使用 serving”的实现含义
 
-“直接使用 serving”不是让每个 planner、writer、查询服务各自写一套 SQL，而是由 Foundation 统一提供两类查询能力：
+“直接使用 serving”不是让每个 planner、writer、查询服务各自写一套 SQL。运行时由 Foundation 统一提供一种“当前可请求 ETF”口径，并按消费者形态提供 snapshot、单代码 target 和关系型 subquery；全状态主数据只由受控审计直接读取：
 
 ```text
-读取 ETF 主数据清单
-读取指定执行日的当前可请求 ETF 清单
+运行时：读取指定执行日的当前可请求 ETF
+审计：读取 serving 全状态主数据并分类，不暴露第二个运行时清单
 ```
 
 需要 ETF 身份判断的 planner、writer、实时健康统计和监控候选列表都消费统一结果。禁止这些消费者自行拼接 `.SH/.SZ`、`list_status` 和 `list_date` 等共同条件，否则很快又会产生多套口径。`etf_share_size` 直接表达源端 ETF 份额规模事实，raw 与业务口径相同，不属于需要 ETF Basic 二次判断身份的消费者。具体函数名和 DAO 形态在 LLD 决定，技术方案不提前把伪代码名称写成契约。
@@ -462,7 +462,7 @@ UPDATE ... SET ts_code='100000.SZ' WHERE ts_code='100000.OF'
 1. `etf_mins`、`etf_sh_cons`、`etf_sz_cons` 使用当前可请求 ETF 清单生成代码级请求，再按各自窗口和分页规则执行。
 2. `fund_daily`、`fund_adj`、`etf_share_size` 默认按 `trade_date` 一次请求当日源端全集并分页，不应为了“先读 Basic”改成每只 ETF 各发一次请求；只有 `fund_daily` 的 ETF serving 在写入时按主数据收口，`fund_adj` 保持源端基金事实，`etf_share_size` 保持 raw 与直出 view 同口径。
 3. `etf_rt_daily` 保留 `5*.SH`、`1*.SZ` 两个固定请求段，Basic 只负责替代 health/业务候选里的旧池集合。
-4. 主数据新增、`P -> L` 或补齐上市日期时，代码驱动接口只对变化代码生成定向补拉；按日全市场接口继续沿用原生每日请求，不额外制造逐代码补拉。
+4. 主数据新增、`P -> L` 或补齐上市日期时，下一次分钟 alignment preview 会发现对应前缀/尾部缺口；不会因 Basic 发布自动发请求。按日全市场接口继续沿用原生每日请求，不额外制造逐代码补拉。
 
 `ops.etf_realtime_monitor_pool` 是运营选择“重点监控哪些 ETF”的业务配置，不是数据同步激活池。它可以保留，但其候选项与有效性必须由当前可请求 ETF 清单约束。
 
@@ -548,7 +548,7 @@ min_fact_date / max_fact_date
 
 ### 10.2 结果门禁
 
-1. 本方案只执行只读统计，不新增产品 CLI、service、manifest、CSV 或 apply 模式。
+1. 本方案只执行只读统计，不新增事实清理 CLI、service、删除 manifest、候选 CSV 或 apply 模式。
 2. 当前已确认删除候选为 0；重建后仍为 0 时，本阶段直接验收结束。
 3. `CODE_NOT_IN_ETF_MASTER` 和 `BEFORE_CURRENT_LIST_DATE` 即使非零也只报告，不触发删除。
 4. 若 `NON_EXCHANGE_ETF_SUFFIX` 意外非零，停止后续发布动作，提交精确表、代码、主键和行数供单独评审。
@@ -663,11 +663,11 @@ app：组合装配
 删除 `ops.etf_series_active` 不能按文件清单机械执行。编码前必须先完成独立 LLD，并至少交付以下审计结果：
 
 1. **全量引用清单**：数据库表与索引、ORM、DAO factory、Foundation contract、Ops adapter、seed service、CLI、planner、writer、cleanup、review API、realtime health、monitor candidate、前端路由/导航/页面及全部测试。
-2. **逐消费者替代映射**：每个旧消费者必须明确改读“ETF 主数据清单”还是“当前可请求 ETF 清单”，或确认整项能力删除；禁止笼统写成“改读 serving”。
+2. **逐消费者替代映射**：每个旧消费者必须明确改读当前可请求 snapshot、单代码 target 或可复用 subquery，或确认整项能力删除；禁止笼统写成“改读 serving”。
 3. **调用链与边界复核**：使用 CodeGraph 的 symbol impact/caller/callee 结果，再用代码搜索补足动态注册、字符串路由、迁移和前端消费者；不能只依赖某一种工具。
 4. **迁移顺序**：先实现并验证新选择器，再切换全部运行时消费者，确认旧引用为 0，最后才删除 API/UI/DAO/contract/model，并在同一正式版本中通过 Alembic 删除表；不提供 fallback 或双读兼容路径。
 5. **迁移安全**：新增 Alembic 前重新确认真实 migration head；部署前后分别验证任务规划、日线 serving 写入、分钟规划、申赎清单、实时健康和监控候选。
-6. **清零证明**：代码、配置、路由、前端、测试和生产表六个层面都要给出旧口径为 0 的证据，不能只证明 Python import 已删除。
+6. **清零证明**：运行时代码、配置、路由、前端和生产表必须为 0；测试不得 import、创建或调用旧能力，但允许专门的 retirement/migration 负向断言提到旧表名。不能只证明某个 Python import 已删除。
 
 当前 CodeGraph 只能证明已发现一批明确依赖，不能代替开发时的最终 LLD 审计。尤其 `list_active_codes` 是指数池与 ETF 池共用的方法名，宽泛按方法名删除会误伤 `ops.index_series_active`，LLD 必须按 ETF 具体类型与资源逐项区分。
 
@@ -700,7 +700,7 @@ app：组合装配
 4. 上市日前窗口不得生成 unit。
 5. 不能把 `.OF` 行更新成 `.SH/.SZ`。
 6. ETF 改造不得对公募基金域执行删除。
-7. 不得新增通用下游清理 CLI、service、manifest 或 apply 模式。
+7. 不得新增通用下游事实清理 CLI、service、删除 manifest 或 apply 模式。
 8. DatasetDefinition、planner、writer、Ops API 和前端不得残留 `ops_etf_series_active` 或固定 1,395 池 fallback。
 9. serving 选择器为空时不得回退到旧激活池、seed CSV 或源端全量代码。
 10. 日常代码消失或 `list_date` 变晚不得触发下游 DELETE。
@@ -755,56 +755,77 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 3. 完成 raw/serving 同事务替换和集合对账。
 4. 补正向、负向和失败回滚测试。
 
-### M2：主数据选择器与下游门禁
+原 M2-M8 把 selector、所有消费者迁移、旧表删除、生产重建和分钟补拉混在过大的阶段中，无法独立验收，现已作废。新版里程碑与 LLD P2-P12 一一对应：
 
-1. 先评审通过配套 LLD 已完成的激活池退场清单和逐消费者替代映射；评审通过前不删代码、不删表。
-2. 提供 ETF 主数据清单和当前可请求 ETF 清单的统一查询能力。
-3. 三个代码驱动 planner、`fund_daily` writer、实时健康和监控候选按第 12.2 节映射接入统一选择器；`etf_share_size` 明确不接入。
-4. ETF 分钟 planner 接入当前可请求 ETF 清单和 `list_date`。
-5. 运行时消费者切换并验证完成后，删除 `ops.etf_series_active` model/DAO/contract/adapter/seed/CLI/API/UI 及全部消费者。
-6. 最后新增迁移删除 `ops.etf_series_active` 表，不保留兼容读取。
-7. 输出真实请求量预览。
+### M2：Basic selector 基础能力（已完成）
 
-### M3：只读审计基线
+1. 用户已明确批准按重新基线后的 LLD 推进 P2。
+2. 只扩展现有 `EtfBasicDAO`，统一当前可请求条件、目标值对象和排除统计。
+3. 不删除旧 DAO 属性、旧表或任何消费者，保证本阶段可独立合入。
 
-1. 将第 3.4 节的表范围、分类、统计字段和当前结果固化为发布检查项。
-2. 不新增通用清理 service、CLI、manifest、CSV 或 apply 模式。
-3. 保留 `source_snapshot_hash`，用于证明复核对应哪一版 Basic 快照。
+### M3：代码驱动 planner 迁移
 
-### M4：生产 `etf_basic` 重建
+1. `etf_mins/etf_sh_cons/etf_sz_cons` 改读 Basic selector。
+2. 在切窗前按 `list_date` 裁剪。
+3. 抽取正式 `etf_mins` 纯切窗函数，供 planner 与后续 alignment preview 共用，避免 preview 逐 action 重跑 resolver。
+4. Definition 与 planner 对旧 ETF resource 的引用清零；指数池不变。
 
-1. 完整拉取并验证当前源端。
-2. 使用正式 snapshot 路径原子替换，不做旧行备份。
-3. 执行源端/raw/serving 集合验收。
+### M4：`fund_daily` serving 门禁迁移
 
-### M5：下游只读审计
+1. 源端仍按交易日拉全市场，raw 先独立提交。
+2. serving 使用 Basic selector 与当前 `list_date`。
+3. 在本阶段删除旧 fund daily cleanup service/CLI，不建设替代事实清理能力。
 
-1. 对按代码展开的 ETF 专用表和需要 ETF 主数据对齐的 serving 复跑第 3.4 节统计。
-2. 对 `fund_daily/fund_adj` 源端全集 raw/core，以及 `etf_share_size` raw 与直出 serving view，只做边界核验，不生成 ETF 删除候选。
-3. 确认公募基金排除集不受影响。
-4. 确认 `NON_EXCHANGE_ETF_SUFFIX=0`；其他异常分类只报告。
+### M5：实时 Health 迁移
 
-### M6：审计结果门禁
+1. Health 分母和命中数改为当前可请求 ETF。
+2. 后端与前端字段改为 `eligible_*`。
+3. provider 通配符请求与 Redis 发布保持不变。
 
-1. M5 结果仍为 0 时，本阶段无操作并直接验收结束。
-2. 若发现非 `.SH/.SZ` 的明确旧身份，停止后续动作并另立一次性精确处理方案。
-3. 不因 `.SH/.SZ` 代码从 Basic 消失或当前 `list_date` 晚于历史事实日期而删除既有数据。
+### M6：实时监控迁移
 
-### M7：ETF 历史分钟补拉
+1. candidate endpoint、pool add、ETF rule 与 runtime 改用 Basic selector。
+2. 保留运营监控池、规则、历史告警与分钟统计。
+3. 空资格集合时候选返回空页、runtime 正常 no-op。
 
-1. 以当前可请求 ETF 清单和 `list_date` 生成全量差集计划。
-2. 先跑最小真实样本，核对源端行数、归一化行数、写入行数和 reject。
-3. 确认请求额度与预计耗时后再启动全量补拉。
-4. 完成幂等重跑和物理数据对账。
+### M7：旧 review 删除与消费者清零
 
-### M8：日常治理
+1. 删除旧 ETF 激活池 review API/UI、路由、导航和类型。
+2. CodeGraph 与精确搜索证明 planner、writer、Health、monitor、review 已无旧池消费者。
+3. 发现遗漏消费者则停止，不能进入基础设施删除。
 
-1. 每日 `etf_basic` 使用完整快照发布。
-2. 发布前比较新快照与当前 serving，只处理发生变化的代码，不每日全表扫描下游。
-3. 新增 ETF 或 `P -> L` 从其 `list_date` 开始进入补拉计划。
-4. `L -> D` 立即停止新增请求，但保留合法历史。
-5. 代码彻底消失时停止后续请求并记录差异，既有历史不删除。
-6. `list_date` 变晚时，后续新增请求使用新日期下界，变更前已验收的历史不追溯删除。
+### M8：激活池基础设施和 schema 退场
+
+1. 删除剩余 model/DAO/contract/adapter/seed/CLI 与独立旧测试。
+2. 从 DAOFactory/model registry 清除旧能力，保护 `index_series_active`。
+3. 确认真实 Alembic head 后新增不可逆 drop-table migration。
+
+### M9：分钟 alignment 计划与提交工具
+
+1. 生成当前可请求 ETF × 频率的上市日前缀和现有尾部请求缺口，不按交易日零行猜内部缺口。
+2. preview 输出 action/unit/请求上界，不请求 Tushare、不写业务表。
+3. 独立 submit 入口只创建正式 `etf_mins` TaskRun，并重新校验 Basic hash、上市日和已有覆盖。
+
+### M10：候选环境与发布门禁
+
+1. 完成后端、前端、架构、迁移、故障注入和零引用回归。
+2. 固化第 3.4 节只读 SQL 为生产 runbook；不新增通用事实清理 service、CLI、删除 manifest 或 apply。
+3. 候选环境不执行生产补拉或事实删除。
+
+### M11：生产切换、Basic 重建与只读审计
+
+1. 获得独立生产授权后，在维护窗口发布新代码并删除旧激活池表。
+2. 使用正式 snapshot 路径重建 `etf_basic`，不做旧行备份。
+3. 验收源端/raw/serving 集合，并复跑下游只读审计。
+4. 明确删除候选仍为 0 时恢复日常服务；意外非零时停止，不临时删除事实。
+
+### M12：分钟补拉与日常治理
+
+1. 在 M11 的 Basic snapshot 上生成生产 alignment plan。
+2. 向用户展示额度和耗时，取得第二次独立授权后分批创建正式 TaskRun。
+3. 完成请求、TaskRun、写入与幂等对账。
+4. 后续 Basic 新增或 `P -> L` 由下一次人工 preview 发现；不新增自动补拉 schedule。
+5. `L -> D`、代码消失或 `list_date` 变晚只影响新请求，不追溯删除历史。
 
 ---
 
@@ -824,10 +845,13 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 
 上述业务口径对应的工程设计已经在配套 LLD 中完成，编码必须以该文档为约束：
 
-1. `EtfBasicDAO` 统一提供主数据清单、当前可请求目标和可复用查询子句；`list_date` 通过不可空的请求目标值对象进入 planner。
+1. `EtfBasicDAO` 统一提供带排除统计的当前可请求 snapshot、单代码 target 和可复用查询子句；`list_date` 通过不可空的请求目标值对象进入 planner。
 2. `fund_daily` 使用 raw 先提交、serving 后发布的两阶段事务；选择器或 serving 失败不得回滚已提交 raw，也不得假成功。
 3. `etf_rt_daily` health 改为 `eligible_etf_count/eligible_snapshot_count`，监控候选改为 `/eligible-etfs`，不保留旧字段或 endpoint alias。
-4. 激活池消费者切换、静态清零、不可逆 Alembic drop-table 和无兼容维护窗口发布顺序均已逐项列清。
+4. 激活池消费者按 planner、fund daily、Health、monitor、review 顺序切换；运行时消费者清零后才允许删除 DAO/model/seed 与表。
+5. 分钟 alignment 只补代码/频率的上市日前缀和现有尾部请求覆盖；不把停牌或源端空日猜成内部缺口，preview 与正式 TaskRun 提交分两步授权。
+
+M2/P2 已完成，当前停在阶段边界；M3/P3 尚未开始，仍须按用户的后续阶段指令推进。
 
 详细代码点、测试矩阵、下游只读复核、分钟补拉额度门禁和逐步开发流程见：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)。
 
@@ -851,4 +875,4 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 
 源接口口径同时复核了本地 Tushare 文档 `127/199/385/387/400/407/408/471/472`。`fund_daily/fund_adj` 的全市场返回范围沿用 2026-08-28 已写入本地源文档的同日 MCP 实测，不重复发起相同源端请求；本轮没有修改源参数或字段契约，也没有把一次实测数量固化为永久门禁。
 
-这些结果已经与当前代码逐项核对并落入配套 LLD 的最终开发清单。M1 开发前已重新同步 CodeGraph，并对 `DatasetDefinition`、request builder、writer/`WriteResult`、executor 诊断、TaskRun 共用创建入口和生产 Basic 表完成复核；实现与只读证据见配套 LLD 的 P1 执行记录。M2 以后仍须按第 12.5 节重新同步 CodeGraph，对激活池删除迁移、动态注册、前端路由和生产表复核；新出现的引用必须先补回 LLD，不能在实施时临时绕过。
+这些结果已经与当前代码逐项核对并落入配套 LLD。重新基线时进一步确认：`DAOFactory.etf_basic` 已经存在；planner、fund daily writer、Health、monitor candidate 和 review 仍分别依赖旧池；candidate 分页需要 count/page 两条 SQL；旧 cleanup 与 review 曾被重复分配到多个删除阶段。新版 M2-M12 已据此重排。M1 实现与只读证据见 LLD 的 P1 执行记录。M2 已完成统一 Basic selector，并通过旧消费者未受影响的定向回归；详细实现和测试证据见 LLD 的 P2 执行记录。M3 以后仍须按第 12.5 节重新同步 CodeGraph，对激活池消费者迁移、动态注册、前端路由和生产表复核；新出现的引用必须先补回 LLD，不能在实施时临时绕过。

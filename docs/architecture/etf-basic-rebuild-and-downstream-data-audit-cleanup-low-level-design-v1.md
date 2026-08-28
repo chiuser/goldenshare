@@ -1,6 +1,6 @@
 # ETF 基础信息重建与下游数据审计清理 LLD v1
 
-状态：P0、P1 已完成（P1 已完成代码、测试与 Prod 只读验收；未执行生产快照重建）/ P2-P8 未开始
+状态：重新基线完成；P0-P2 已完成（未执行生产快照重建），原 P2-P9 执行序列已作废，新版 P3-P12 尚未开始
 创建日期：2026-08-28
 依据方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)
 适用代码：`src/foundation/**`、`src/ops/**`、`src/app/**`、`frontend/**`、`alembic/**`
@@ -10,7 +10,28 @@
 
 ## 1. 设计结果
 
-本 LLD 已把上层方案 D1-D20 落成可编码的实现方案，核心结果如下：
+本 LLD 在 P2 开发前重新逐项核对当前代码。业务口径 D1-D20 不变，但旧版 P2-P9 的阶段设计存在不可执行的依赖倒置，已经整体作废。新版开发链以“先新增替代能力、再逐个迁移消费者、全部引用清零后才删除旧基础设施”为唯一顺序。
+
+### 1.1 本次重审发现的严重问题
+
+| 编号 | 旧 LLD 问题 | 直接风险 | 新版处理 |
+|---|---|---|---|
+| R1 | 旧 P2 要求从 `DAOFactory` 删除 `etf_series_active`，但 P3-P5 的 planner、writer、health 和监控仍在调用它 | P2 一完成，后续阶段和现有运行时立即断裂 | P2 只新增 Basic selector；旧 DAO 属性保留到所有消费者完成迁移后的 P8 |
+| R2 | 旧 P2 的完成门禁要求 planner、发布、Health、候选和实时批次都完成生命周期测试 | P2 的验收依赖尚未开发的 P3-P5，阶段无法独立完成 | 每个消费者的生命周期测试归属自己的迁移阶段；P2 只验 selector 自身 |
+| R3 | 旧文档写“更新 DAOFactory 暴露新 DAO”，但当前 `DAOFactory.etf_basic` 已存在 | 会制造无意义修改，并掩盖真正工作量 | P2 不改 `DAOFactory.etf_basic` 装配，只扩展 `EtfBasicDAO` 契约 |
+| R4 | “每次只读一次”没有区分一次业务生命周期和一次 SQL；候选分页天然包含 count 与 page 两条 SQL | 容易为了字面上的“一条 SQL”破坏分页，或在循环中反复查 Basic | 统一解释为一次调用固定一个 `as_of_date` 和一份资格快照/子查询；候选允许 count + page 两条 SQL，但不得逐行、逐页重算条件 |
+| R5 | selector 要输出排除统计，但公共方法只返回 target list/subquery | 诊断无法从指定契约可靠产生，消费者只能自行拼统计 | 新增 `EtfRequestabilitySnapshot`，一次返回 targets 与互斥排除计数 |
+| R6 | 旧 cleanup service、旧 review API/UI 在多个阶段重复分配删除责任 | 同一文件可能被提前删除或重复处理，阶段边界失真 | cleanup 只在 P4 删除；review 只在 P7 删除；P8 只删除剩余激活池基础设施和表 |
+| R7 | 旧 P6 同时说“不做 manifest”，又要求分钟 alignment manifest | 下游清理候选和分钟请求计划两个不同概念混用 | 禁止的是“事实删除清单”；分钟对齐产物统一命名 `alignment_plan`，只描述请求，不包含 DELETE |
+| R8 | 分钟差集按“每个交易日至少一条 bar”判断，会把停牌/源端空日反复判成缺口 | 重复消耗额度，且仍不能证明分钟级完整 | V1 改为代码/频率的前缀与尾部请求覆盖；内部逐日缺口审计明确不在本需求 |
+| R9 | 旧 P9 把不可逆删表、Basic 重建和大规模分钟补拉放在一个生产阶段 | 一个授权动作意外放大成多种不可逆或高额度动作 | 拆成 P11 生产切换与 Basic 重建、P12 独立额度审批后的分钟补拉 |
+| R10 | 上位方案 M2 把 selector、全部消费者迁移和删表合成一个里程碑 | 无法做逐阶段验收，也无法判断何时允许删表 | 上位方案同步拆为与新版 P2-P12 一一对应的里程碑 |
+
+原 P2-P9 的文字不得再作为开发或发布依据。P0/P1 的执行记录仍然有效；新版 P2 已按本文重新实现并验收，P3 及以后没有已完成代码可继承。
+
+### 1.2 重排后的核心结果
+
+本 LLD 把 D1-D20 重新落成以下可独立验收的结果：
 
 1. `etf_basic` 改为无业务过滤的完整快照请求，新增专用快照替换 write path；raw 保存全部源端行，serving 只保存 `.SH/.SZ`。
 2. `EtfBasicDAO` 成为 ETF 身份与可请求资格的唯一查询入口，统一返回代码与 `list_date`；下游不得自行拼 `list_status`、后缀和上市日条件。
@@ -18,8 +39,8 @@
 4. `fund_daily` 保持按交易日拉源端全集，但写入改为“raw 先提交、serving 后发布”两阶段事务，Basic 选择器失败不能回滚已成功写入的 raw，也不能让 serving 假成功。
 5. `etf_rt_daily` 的源请求不变；health、实时监控候选和监控运行时在各自一次查询/运行开始时读取当前可请求 ETF，旧 `active_*` 契约彻底改名为 `eligible_*`。
 6. 删除 `ops.etf_series_active` 的全部运行时、运维和前端能力；`ops.index_series_active` 明确保留，禁止按同名 `list_active_codes` 误删。
-7. Prod 只读审计已确认下游已批准删除候选为 0；不实现通用清理 CLI、service、manifest 或 apply，只在 Basic 重建后复跑同口径只读核验。
-8. ETF 历史分钟全量对齐先计算“当前可请求 ETF × 上市日 × 已有覆盖”的差集和额度预览，再复用正式 `etf_mins` TaskRun 补拉，不新增旁路抓取器。
+7. Prod 只读审计已确认下游已批准删除候选为 0；不实现通用事实清理 CLI、service、删除 manifest 或 apply，只在 Basic 重建后复跑同口径只读核验。
+8. ETF 历史分钟全量对齐先计算“当前可请求 ETF × 频率”的上市日前缀/现有尾部请求缺口和额度预览，再复用正式 `etf_mins` TaskRun 补拉；内部逐日空洞不在 V1 猜测，不新增旁路抓取器。
 9. `fund_adj`、`etf_share_size` 的数据链不改；尤其不新建 `etf_share_size` 物理 core/serving，不迁移直出 view，不接入 Basic 过滤。
 
 本 LLD 没有新增业务口径待拍板。编码期间如果实测与本设计的当前代码事实不一致，必须停在对应开发阶段重新审计，不能自行引入兼容读取或临时旁路。
@@ -170,7 +191,7 @@ current = 20260828_000156
 | E7 | `etf_mins/sh_cons/sz_cons` 的 `universe_policy` 改为 `master_data` | 彻底删除“pool”语义，不把 Basic 冒充成新激活池 |
 | E8 | `WINDOW_BEFORE_LIST_DATE` 在切窗前计数；显式请求越界直接报结构化错误 | 不向源端发无效请求，同时保留可审计原因 |
 | E9 | health 改名为 `eligible_etf_count/eligible_snapshot_count`，候选接口改为 `/eligible-etfs` | 表退场后不再传播“激活池”概念；不留旧字段别名 |
-| E10 | 不新增通用下游清理 CLI、service、manifest 或 apply；旧 `fund_daily` cleanup 与 CLI 直接删除 | 当前已批准删除候选为 0，避免为零规模问题建设长期删除系统 |
+| E10 | 不新增通用下游事实清理 CLI、service、删除 manifest 或 apply；旧 `fund_daily` cleanup 与 CLI 直接删除 | 当前已批准删除候选为 0，避免为零规模问题建设长期删除系统 |
 | E11 | 激活池 migration 的 downgrade 明确不可逆 | 不允许降级时重建一个无事实依据的空池或旧池 |
 | E12 | 分钟全量对齐只生成正式 TaskRun，不直接调用 connector 或 writer | 保留正式分页、限流、归一化、幂等和观测链 |
 
@@ -190,7 +211,7 @@ current = 20260828_000156
 
 ## 4. ETF Basic 统一查询契约
 
-### 4.1 值对象
+### 4.1 值对象与统计口径
 
 在 `src/foundation/dao/etf_basic_dao.py` 定义不可变值对象：
 
@@ -199,30 +220,83 @@ current = 20260828_000156
 class EtfRequestTarget:
     ts_code: str
     list_date: date
-    exchange: str | None
+    exchange: Literal["SH", "SZ"]
+
+@dataclass(frozen=True, slots=True)
+class EtfRequestabilitySnapshot:
+    as_of_date: date
+    exchange: Literal["SH", "SZ"] | None
+    targets: tuple[EtfRequestTarget, ...]
+    serving_row_count: int
+    requestable_count: int
+    excluded_reason_counts: Mapping[str, int]
 ```
 
-`list_status` 不放入值对象，是因为能返回该对象本身就表示已满足 `L`。`list_date` 不允许为 `None`，从类型层阻止 planner 忘记上市日。
+`EtfRequestTarget` 不携带 `list_status`，因为能返回该对象本身就表示已满足 `L`。`list_date` 和 `exchange` 均不可空，从类型层阻止调用方忘记上市日或再次猜交易所。
+
+snapshot 的排除原因使用固定优先级，保证一行只能进入一个分类：
+
+```text
+NON_EXCHANGE_SUFFIX
+-> EXCHANGE_MISMATCH
+-> STATUS_NOT_LISTED
+-> LIST_DATE_NULL
+-> LIST_DATE_AFTER_AS_OF
+-> REQUESTABLE
+```
+
+全市场 snapshot 对 serving 全表分类，因此生产重建前残留的 `.OF` 会进入 `NON_EXCHANGE_SUFFIX`，绝不能成为 target。传 `exchange='SH'/'SZ'` 时，统计作用域只包含该规范后缀；另一交易所不算排除项。
 
 ### 4.2 DAO 公共方法
 
-删除：
+删除语义错误且无运行时消费者的旧方法：
 
 ```python
 get_active_etfs()
 get_fund_daily_candidates()
 ```
 
-新增：
+新增且只新增：
 
 ```python
-list_master_rows() -> list[EtfBasic]
-list_requestable_targets(*, as_of_date: date, exchange: str | None = None) -> list[EtfRequestTarget]
-get_requestable_target(*, ts_code: str, as_of_date: date) -> EtfRequestTarget | None
-requestable_targets_subquery(*, as_of_date: date, exchange: str | None = None)
+load_requestability_snapshot(
+    *,
+    as_of_date: date,
+    exchange: Literal["SH", "SZ"] | None = None,
+) -> EtfRequestabilitySnapshot
+
+get_requestable_target(
+    *,
+    ts_code: str,
+    as_of_date: date,
+    exchange: Literal["SH", "SZ"] | None = None,
+) -> EtfRequestTarget | None
+
+requestable_targets_subquery(
+    *,
+    as_of_date: date,
+    exchange: Literal["SH", "SZ"] | None = None,
+)
 ```
 
-其中 `requestable_targets_subquery()` 供 Ops 的分页 join 使用，避免 Ops 为监控候选自行复制资格条件。四个方法必须共同复用一个私有 statement builder。
+不新增无实际消费者的 `list_master_rows()`。审计用 snapshot 统计或受控 SQL，不能为了“以后可能用”扩大 DAO 契约。
+
+三个方法共同复用：
+
+1. `_normalize_exchange()`：只接受 `None/SH/SZ`，其他值抛 `ValueError`。
+2. `_normalize_ts_code()`：执行 `strip().upper()`；空值或非 `.SH/.SZ` 返回 `None`。
+3. `_requestable_predicates()`：资格条件的唯一实现。
+4. `_classify_master_row()`：只为 snapshot 生成互斥排除统计。
+
+`requestable_targets_subquery()` 固定暴露以下列，供 Ops 分页 join：
+
+```text
+ts_code, list_date, exchange, csname, extname, cname, etf_type, list_status
+```
+
+其中 `list_status` 对返回行恒为 `L`，保留它只是避免当前监控候选 DTO 再次 join Basic。Ops 不得在 subquery 外复制状态、后缀或上市日条件。
+
+当前 `DAOFactory` 已经暴露 `etf_basic`，P2 不修改该装配。`DAOFactory.etf_series_active` 在 P2 仍保留，直到 P3-P7 的所有消费者迁移并通过零引用门禁后，才在 P8 删除。
 
 ### 4.3 唯一资格条件
 
@@ -230,38 +304,41 @@ requestable_targets_subquery(*, as_of_date: date, exchange: str | None = None)
 list_status = 'L'
 AND list_date IS NOT NULL
 AND list_date <= :as_of_date
-AND (ts_code LIKE '%.SH' OR ts_code LIKE '%.SZ')
+AND (
+  (ts_code LIKE '%.SH' AND exchange = 'SH')
+  OR
+  (ts_code LIKE '%.SZ' AND exchange = 'SZ')
+)
 ```
 
-注意 SQL 中后缀条件必须整体加括号。传 `exchange='SH'` 时同时要求 `.SH`，传 `exchange='SZ'` 时同时要求 `.SZ`；不接受任意字符串。结果按 `ts_code` 排序。
-
-`list_master_rows()` 返回 serving 中全部状态的 `.SH/.SZ` 行，用于审计当前主数据，不等价于可请求集合。raw 中的 `.OF` 不会通过该 DAO 进入下游。
+SQL 中后缀组合必须整体加括号。传 `exchange='SH'` 时只保留第一支，传 `exchange='SZ'` 时只保留第二支。结果按 `ts_code` 排序。raw 中的 `.OF` 不会通过该 DAO 进入下游。
 
 ### 4.4 读取时点与调用日期
 
-“动态读取当前可请求 ETF”不是每天生成一个新池，也不是每发一个 Tushare 请求都查询一次数据库。各消费者按自己的调用生命周期读取一次，并在该次调用内固定结果：
+“动态读取当前可请求 ETF”不是每天生成一个新池，也不是每发一个 Tushare 请求都查询一次数据库。各消费者按一次业务生命周期固定资格结果：
 
 | 消费者 | 读取时点 | 本次结果使用范围 |
 |---|---|---|
-| `etf_mins/etf_sh_cons/etf_sz_cons` planner | 一次 `DatasetUnitPlanner.plan()` 开始时 | 同一次 plan 的所有日期锚点、代码、切窗和分页请求共用同一份目标快照 |
-| `fund_daily` serving 发布 | 一次 serving phase 开始时 | 本次发布的全部归一化行共用同一份资格 map |
-| `etf_rt_daily` Health | 每次 Health API 查询开始时 | 本次 Health 响应的 `eligible_*` 统计共用同一份代码集合 |
-| 实时监控候选列表 | 每次 `/eligible-etfs` API 请求开始时 | 本次分页查询使用同一个 `as_of_date` 和同一条 requestable subquery |
-| 实时监控运行时 | 每次 `run_after_etf_batch()` 开始时 | 本批次监控计算、规则匹配和告警共用同一份资格集合 |
+| `etf_mins/etf_sh_cons/etf_sz_cons` planner | 一次 `DatasetUnitPlanner.plan()` 开始时 | 调用一次 snapshot；同一次 plan 的代码、裁剪和切窗复用 targets |
+| `fund_daily` serving 发布 | 一次 serving phase 开始时 | 调用一次 snapshot；本批全部行复用 `ts_code -> target` map |
+| `etf_rt_daily` Health | 每次 Health API 查询开始时 | 调用一次 snapshot；本次响应复用 target codes |
+| 实时监控候选列表 | 每次 `/eligible-etfs` API 请求开始时 | 固定一个 `as_of_date` 并构造一次 subquery；允许 count 与 page 两条 SQL |
+| 实时监控运行时 | 每次 `run_after_etf_batch()` 开始时 | 调用一次 snapshot；本批规则和告警复用 target codes |
 
-每个调用者只计算一次 `as_of_date = datetime.now(ZoneInfo("Asia/Shanghai")).date()`，并把它显式传给 DAO。planner 取得的 `EtfRequestTarget` 已携带 `list_date`，后续切窗和每个 Tushare 请求不再次查询主数据。长任务跨过自然日零点也不在中途换集合；下一次任务重新读取，避免同一 TaskRun 前后口径漂移。
+“一次读取”指一次业务生命周期只解析一次资格口径，不是所有接口只能执行一条 SQL。禁止的是在逐代码、逐 unit、逐指标、逐规则或分页结果循环里重复查 Basic。
 
-日期和 selector 统计写入现有诊断 JSON：
+每个调用者只计算一次 `as_of_date = datetime.now(ZoneInfo("Asia/Shanghai")).date()` 并显式传给 DAO。长任务跨过自然日零点也不在中途换集合；下一次任务重新读取。
+
+planner、writer 与 monitor runtime 把 snapshot 统计写入现有诊断 JSON；Health 是只读 API，只返回响应字段，不写 TaskRun：
 
 ```json
 {
   "etf_eligibility": {
     "as_of_date": "2026-08-28",
-    "master_count": 0,
+    "exchange": null,
+    "serving_row_count": 0,
     "requestable_count": 0,
-    "excluded_status_count": 0,
-    "excluded_list_date_null_count": 0,
-    "excluded_future_list_date_count": 0
+    "excluded_reason_counts": {}
   }
 }
 ```
@@ -411,7 +488,7 @@ universe.sources = (
 
 `request_field='ts_code'` 和 `override_fields=('ts_code',)` 保持。旧 `ops_etf_series_active` resource 全部删除。
 
-新增一个 planner 私有 helper，校验上述 Definition 形状并调用 `EtfBasicDAO.list_requestable_targets()`。三个 builder 共用它，不能分别实现三套 SQL。
+新增一个 planner 私有 helper，校验上述 Definition 形状并调用 `EtfBasicDAO.load_requestability_snapshot()`。三个 builder 共用它，不能分别实现三套 SQL。全市场 snapshot 为空时抛 `etf_requestable_universe_empty`；SH/SZ 子集为空时分别在对应 planner 抛同一错误码并记录 exchange。不得回退旧池。
 
 ### 6.2 显式代码
 
@@ -431,6 +508,7 @@ universe.sources = (
 | `window_before_list_date` | planner | 显式请求窗口整体早于上市日 |
 | `etf_basic_snapshot_invalid` | validator/writer | Basic 完整快照校验或对账失败 |
 | `fund_daily_serving_publish_failed` | writer/executor | raw 已提交但 ETF serving 发布失败 |
+| `etf_requestable_universe_empty` | planner | 本次作用域没有当前可请求 ETF，自动任务停止且不生成源请求 |
 
 ### 6.3 上市日裁剪顺序
 
@@ -456,6 +534,8 @@ effective_end = requested_end
 
 自动全量计划中，空窗口只计入 `WINDOW_BEFORE_LIST_DATE`，不生成 unit；显式单代码请求的整个窗口为空时抛 `window_before_list_date`。point 请求要求 `trade_date >= list_date`。
 
+自动计划的 selector 排除统计与 `WINDOW_BEFORE_LIST_DATE` 是两层概念：前者解释某个 Basic 行为何不能成为请求对象，后者解释一个已经可请求的 ETF 为何在本次用户日期窗口内不生成 unit，二者不得混算。
+
 每个生成 unit 的 `progress_context` 增加：
 
 ```text
@@ -466,6 +546,14 @@ effective_start_date
 ```
 
 源请求 builder 只接收已经裁剪后的日期，不能再次自行改日期。
+
+P3 同时把当前 `etf_mins` 的频率窗口选择和自然月切窗抽成 Foundation 纯函数，例如：
+
+```python
+build_etf_minute_windows(*, freq: str, start_date: date, end_date: date) -> tuple[DateWindow, ...]
+```
+
+planner 在完成 selector 与 `list_date` 裁剪后调用该函数；P9 alignment preview 也只调用该纯函数计算 unit，不得为每个 action 实例化一次完整 resolver。这样正式请求与 preview 仍共享同一套 2/12/36/72/120 月规则，同时避免重复读取 Basic。
 
 ### 6.4 各数据集差异
 
@@ -593,7 +681,7 @@ active_pool_count     -> eligible_etf_count
 active_snapshot_count -> eligible_snapshot_count
 ```
 
-`eligible_etf_count` 来自 `EtfBasicDAO.list_requestable_targets(as_of_date)`；`eligible_snapshot_count` 是当前 Redis batch 中命中这些代码的数量。`source_snapshot_count` 等源端字段不改。
+`eligible_etf_count` 来自 `EtfBasicDAO.load_requestability_snapshot(as_of_date)`；`eligible_snapshot_count` 是当前 Redis batch 中命中这些代码的数量。`source_snapshot_count` 等源端字段不改。
 
 读取时点是**每次 `build_etf_rt_daily_health()` API 调用开始时一次**，不是 collector 的每个源请求，也不是每日预生成。两项只表达本次 Health 响应里的业务覆盖率，不改变 provider 请求，不作为 collector 是否发请求的门禁。
 
@@ -608,6 +696,8 @@ frontend/src/pages/ops-realtime-monitor-page.tsx
 ```
 
 不保留旧 JSON 字段、Pydantic alias 或前端 fallback。
+
+selector 返回空集合时 Health 仍正常返回，`eligible_etf_count=0`、`eligible_snapshot_count=0`；这表示业务资格集合为空，不得改写成 Redis 不可用，也不得回退到 provider 全量 snapshot 当分母。
 
 ### 8.3 监控候选接口
 
@@ -628,7 +718,7 @@ EtfRealtimeMonitorActiveEtfListResponse
 
 查询从 `requestable_targets_subquery(as_of_date)` 起表，再 outer join 最新 fund daily、最新 share size 和现有监控池。分页、关键词、规模排序逻辑保留。`RawEtfShareSize` 仍直接读取，这是直出存储设计，不是需要迁移的旁路。
 
-读取时点是**每次候选分页 API 请求开始时一次**。它决定这次页面可选哪些 ETF，不创建持久化 eligible pool，也不把所有 eligible ETF 自动加入运营监控池。
+读取时点是**每次候选分页 API 请求开始时一次**。服务先固定 `as_of_date`，再构造一次 subquery；总数与分页结果允许执行两条数据库 SQL，但两条 SQL 必须复用同一个 subquery 定义和日期。它决定这次页面可选哪些 ETF，不创建持久化 eligible pool，也不把所有 eligible ETF 自动加入运营监控池。当前可请求集合为空时正常返回 `total=0/items=[]`，不是 500，也不回退旧池。
 
 ### 8.4 监控配置与运行时
 
@@ -636,13 +726,13 @@ EtfRealtimeMonitorActiveEtfListResponse
 
 目标行为：
 
-1. 新增监控对象时用 `get_requestable_target()` 校验。
-2. 新增或修改 ETF scope rule 时同时校验监控池成员和当前可请求资格。
+1. 新增监控对象，以及把现有对象从 disabled 改为 enabled 时，用 `get_requestable_target()` 校验；保持 disabled 的备注/分组修改允许保存。
+2. 新增或修改 ETF scope rule 时同时校验监控池成员和当前可请求资格；group scope rule 不逐代码固化资格。
 3. `EtfRealtimeMonitorService.run_after_etf_batch()` 处理前将 enabled monitor pool 与当前可请求集合求交集。
 4. 已失效配置即使仍保留在配置表中，也不得产生新统计或告警。
 5. 历史 `etf_realtime_alert` 和分钟统计保留，不因主数据变化删除。
 
-第 3 项的读取时点是**每次实时批次进入 `run_after_etf_batch()` 时一次**，本批监控计算期间固定；不是每条指标或每条规则重查 Basic。
+第 3 项的读取时点是**每次实时批次进入 `run_after_etf_batch()` 时一次**，本批监控计算期间固定；不是每条指标或每条规则重查 Basic。当前可请求集合为空时，本批次正常 no-op，不写新统计、不发新告警，并记录 `eligible_etf_count=0`；provider 的抓取与 Redis 发布仍不受影响。
 
 ### 8.5 旧 review 页面删除
 
@@ -669,11 +759,11 @@ ops-v21-review-etf-page.tsx
 etf_master_alignment_cleanup_service.py
 ops-etf-master-alignment-cleanup CLI
 audit/apply 模式
-manifest/候选 CSV
+事实删除 manifest/候选 CSV
 分批 DELETE、断点续跑或恢复逻辑
 ```
 
-现有 `EtfFundDailyServingCleanupService` 和 `ops-cleanup-etf-fund-daily-serving` 随旧激活池直接删除，不改名、不复用，也不保留兼容入口。
+现有 `EtfFundDailyServingCleanupService` 和 `ops-cleanup-etf-fund-daily-serving` 在 P4 与 fund daily 旧门禁一起删除，不改名、不复用，也不保留兼容入口；P8 不再重复处理。
 
 ### 9.2 重建后的复核时点
 
@@ -723,84 +813,121 @@ ops.etf_realtime_minute_stat
 
 ## 10. ETF 历史分钟全量对齐
 
-### 10.1 目标能力
+### 10.1 V1 对齐目标与非目标
 
-新增只负责规划的 Ops service：
+V1 的目标是：对每个**当前可请求 ETF × Tushare 原生分钟频率**，从该 ETF 当前 `list_date` 起，到指定截止日为止，至少完成一次受控区间请求覆盖，并把源端实际返回写入正式 `raw_tushare.etf_minute_bar`。
+
+V1 不声称以下能力：
+
+1. 不以交易日历推断停牌日一定应有分钟数据。
+2. 不检查盘中每一个分钟格是否完整。
+3. 不自动补现有最早与最晚数据之间的内部空洞。
+4. 不从 `.OF`、其他频率或其他数据集复制数据。
+
+原因是“某交易日零行”既可能是未请求，也可能是停牌或源端本来无数据。没有可靠源端存在性证据时按日补洞，会重复消耗额度且仍不能证明逐 bar 完整。
+
+### 10.2 只读规划服务
+
+新增：
 
 ```text
 src/ops/services/etf_minute_history_alignment_plan_service.py
 ```
 
-它不调用 Tushare、不直接写 raw、不复制 unit planner。职责是生成当前生产缺口清单和正式 DatasetAction 请求草案。
-
-### 10.2 差集算法
-
-输入：
+服务只读取 Basic serving、分钟 raw 和成功的显式 `etf_mins` TaskRun 请求范围，不调用 Tushare、不写业务表、不创建 TaskRun。输入固定为：
 
 ```text
-current requestable targets from core_serving.etf_basic
-requested frequencies
-alignment end date
-raw_tushare.etf_minute_bar existing coverage
-trade calendar open dates
+as_of_date
+alignment_end_date（不得晚于 as_of_date 对应的最近开市日）
+frequencies（默认且只允许 1min/5min/15min/30min/60min）
+optional ts_codes（空表示全部当前可请求 ETF）
 ```
 
-逐 ETF、逐频率：
+它先加载一次 `EtfRequestabilitySnapshot`，再按 `ts_code + freq` 聚合：
 
 ```text
-candidate_open_dates = open dates in [list_date, alignment_end_date]
-covered_dates = distinct DATE(trade_time) already present for ts_code + freq
-missing_dates = candidate_open_dates - covered_dates
-missing_ranges = 将连续交易日压缩为区间
+desired_interval = [list_date, alignment_end_date]
+raw_observed_interval = [MIN(DATE(trade_time)), MAX(DATE(trade_time))]
+successful_explicit_task_intervals = 已成功、明确携带 ts_code/freq/start/end 的 etf_mins TaskRun
+covered_intervals = raw_observed_interval 与 successful_explicit_task_intervals 的并集
+missing_prefix = list_date 到第一个 covered interval 之前
+missing_suffix = 最后一个 covered interval 之后到 alignment_end_date
 ```
 
-再把每个缺失区间交给现有 `etf_mins` range planner，按既有频率自然月窗口生成 unit。对齐服务不能自行重新实现 2/12/36/72/120 月切窗。
+只生成 prefix/suffix；covered interval 之间的内部空洞列入 `interior_gap_not_audited=true`，不生成请求。没有 raw 的代码从 `list_date` 开始。显式成功但源端零行的 TaskRun 区间仍算“已请求覆盖”，避免下次 preview 重复请求空窗口。
 
-V1 以“某 ETF/频率/交易日至少存在一条分钟记录”视为该日已有覆盖。这能避免重复请求整日数据，但不证明分钟网格完整；停牌日、半日数据和盘中缺条的细粒度完整性审计不在本 LLD 中，不得把 V1 报告宣称为分钟级逐 bar 完整。
+成功 TaskRun 只有在 `resource_key='etf_mins'`、最终状态成功、`ts_code/freq/start_date/end_date` 均可无歧义还原时才进入覆盖；池式旧任务、失败任务、参数不完整任务均不猜测覆盖范围。
 
-### 10.3 额度预览
+每个 prefix/suffix 调用 P3 已抽取的 `build_etf_minute_windows()` 计算 unit 数。alignment service 自己已从同一份 snapshot 取得并应用 `list_date`，不为每个 action 再实例化 `DatasetActionResolver`，也不复制 2/12/36/72/120 月切窗算法。
 
-执行前 manifest 必须包含：
+### 10.3 `alignment_plan` 契约与额度
+
+输出统一命名为 `alignment_plan`，它是请求计划，不是下游事实删除 manifest。内存对象与可选 JSON 输出包含：
 
 ```text
-requestable_etf_count
-excluded status/null/future-list counts
-frequency_count and per-frequency unit_count
-candidate open-date count
-covered date count
-missing date/range count
-planned TaskRun count
-planned unit count
-page request upper bound
+plan_id, plan_content_hash and generated_at
+basic_snapshot_hash and eligibility_as_of
+alignment_end_date
+requestable_etf_count and excluded_reason_counts
+frequency counts
+raw-covered / successful-empty-covered / missing-prefix / missing-suffix counts
+per action: ts_code, freq, start_date, end_date, planned_unit_count
+planned_action_count
+planned_unit_count
+page_request_upper_bound
+interior_gap_not_audited=true
 ```
 
-当前 `page_limit=8000`、`max_source_rows_per_unit=24000`。因为分页必须看到短页才结束，一个正好返回 24,000 行的 unit 最多会发生 4 次调用：3 个满页加 1 个终止短页/空页。因此额度上界按每 unit 4 次计算，不能写成 3 次。
+这里的 `basic_snapshot_hash` 是对当前 `core_serving.etf_basic` 14 个业务字段按 P1 同一规范化规则计算的 serving hash，不读取某次历史 TaskRun 的截断样本，也不是只对 requestable codes 计算。
 
-### 10.4 执行方式
+不新增数据库 plan 表。只读 CLI 明确为：
 
-1. 默认只生成 preview manifest，不创建 TaskRun。
-2. 用户确认额度后，以 manifest 中的精确 `ts_code/freq/start_date/end_date` 创建正式 `etf_mins` range TaskRun。
-3. 创建 TaskRun 前再次校验 Basic snapshot hash；变化则重新预览。
-4. 已有日期不进入请求区间；不得统一从 2020 年或任意固定日期开始。
-5. 源端空窗口记为 `SOURCE_NOT_READY`，不从 `.OF` 复制数据。
-6. 重跑时重新读取 raw coverage，已成功日期自然退出差集。
-7. 全量执行必须分批，并沿用现有限流、重试、分页和 TaskRun 观测。
+```text
+ops-preview-etf-minute-alignment
+```
 
-该 service 可以有独立的只读 preview CLI，但不能附带任何下游事实删除能力，也不能增加新的抓取通道。
+默认把摘要输出到终端；只有运营显式传 `--output <json path>` 时才写 JSON 文件。该文件不包含 DELETE、数据库备份或源端响应数据。
+
+当前 `page_limit=8000`、`max_source_rows_per_unit=24000`。分页需要一个终止短页/空页，因此单 unit 请求上界按 4 次计算。`page_request_upper_bound = planned_unit_count * 4`，实际执行后必须以 TaskRun 真实 request count 对账。
+
+### 10.4 TaskRun 提交与执行
+
+新增独立提交入口：
+
+```text
+ops-submit-etf-minute-alignment \
+  --plan <json path> \
+  --confirm-plan-hash <plan_content_hash> \
+  --batch-size <positive integer>
+```
+
+`plan_content_hash` 使用去掉自身字段后的规范 JSON 计算 SHA-256；提交时先复算文件内容再比较，防止 preview 后文件被改。`--batch-size` 必填且只控制本次最多创建多少个 TaskRun，不落入 Settings 或数据库配置。
+
+提交入口只创建现有正式 `etf_mins` range TaskRun，不直接调用 connector、planner executor 或 writer。固定门禁：
+
+1. 用户必须在看到 action/unit/request 上界后单独授权执行；P11 的生产切换授权不包含本动作。
+2. 重新计算当前 Basic serving hash；与 plan 不一致则整批拒绝并要求重新 preview。
+3. 逐 action 重新调用 `get_requestable_target()`，并验证 `start_date >= 当前 list_date`。
+4. 重新读取 raw 与成功 TaskRun 覆盖；已经不缺的 action 跳过并计数。
+5. 只提交 plan 中前 `batch-size` 个仍缺失 action；剩余 action 留给下一次显式提交，不新增长期配置项。
+6. 任一 action 创建失败停止后续创建，已创建 TaskRun 保留并在结果中列出，不伪装原子批量。
+7. 请求、分页、限流、重试、幂等写入和观测全部走正式 `etf_mins` 主链。
+
+提交 CLI 不具备事实 DELETE、Basic 重建或激活池迁移能力。
 
 ### 10.5 日常主数据变化
 
-Basic snapshot writer 已经在替换前后计算新增、删除、状态变化和 `list_date` 变化。日常处理复用这份 TaskRun 诊断，不新增 Basic 历史表：
+本需求不新增 Basic 历史表，也不新增自动消费 Basic diff 的 schedule。日常 Basic 发布只改变下一次 selector 结果：
 
 | 变化 | 日常动作 |
 |---|---|
-| 新增 `.SH/.SZ` 且已可请求 | 把该代码交给 minute alignment service 生成从 `list_date` 到当前日的缺口 preview |
-| `P -> L` 或空 `list_date -> 有效日期` | 同上，只生成该代码的定向 preview |
-| `L -> D` | 下次 selector 自动停止新请求；不删除历史 |
-| 代码从当前 Basic 消失 | 下次 selector 自动停止新请求并报告；不删除历史 |
-| `list_date` 变晚 | 后续新计划采用新下界；不追溯删除已验收事实 |
+| 新增 `.SH/.SZ` 且已可请求 | 下一次 preview 自动发现无 raw/无成功覆盖，从 `list_date` 生成 prefix/suffix |
+| `P -> L` 或空 `list_date -> 有效日期` | 同上 |
+| `L -> D` | selector 停止新请求；不删除历史 |
+| 代码从当前 Basic 消失 | selector 停止新请求并由 Basic diff 报告；不删除历史 |
+| `list_date` 变晚 | 新 preview 使用新下界；不追溯删除历史 |
 
-诊断中的代码样本必须有 `sample_truncated` 标识。只有变更代码列表完整时，才允许生成定向 preview；如果变更数超过诊断样本上限，自动定向处理停止，改为运行第 10.2 节的全量只读差集预览。无论哪种情况，都只生成 preview，不因 Basic 发布成功自动消耗 Tushare 额度。
+Basic TaskRun 诊断只用于审计变化，不自动创建分钟 TaskRun。任何额度消耗都必须经过 preview 和独立提交授权。
 
 ---
 
@@ -808,20 +935,20 @@ Basic snapshot writer 已经在替换前后计算新增、删除、状态变化�
 
 ### 11.1 直接删除
 
-| 层 | 当前文件/对象 | 动作 |
-|---|---|---|
-| Migration | `20260618_000117_add_etf_series_active.py` | 保留历史迁移文件；新增新迁移 drop 当前表 |
-| ORM | `src/ops/models/ops/etf_series_active.py` | 删除 |
-| 注册 | `src/ops/models/ops/__init__.py`、`src/app/model_registry.py` | 删除 ETF model 注册 |
-| DAO | `src/foundation/dao/etf_series_active_dao.py`、`src/foundation/dao/factory.py` 中的 ETF 属性 | 删除 |
-| Contract | `src/foundation/kernel/contracts/etf_series_active_store.py` | 删除 |
-| Adapter | `src/ops/etf_series_active_store_adapter.py` | 删除 |
-| Seed | `src/ops/services/etf_series_active_seed_service.py` | 删除 |
-| CLI | `src/cli.py`、`src/cli_parts/ops_handlers.py` 中 `ops-seed-etf-series-active` 及 handler/import | 删除 |
-| Cleanup | `src/ops/services/etf_fund_daily_serving_cleanup_service.py` 与 `ops-cleanup-etf-fund-daily-serving` | 直接删除，不提供替代清理入口 |
-| Review | `review_center_query_service.py`、`review_center.py`、`schemas/review_center.py`、`schemas/__init__.py` 中 ETF active 类型/方法/路由 | 只删除 ETF active 部分，保留 review center 其他能力 |
-| Frontend | `ops-v21-review-etf-page*`、`app/router.tsx`、`app/shell.tsx`、`shared/api/types.ts` 中旧页面/路由/导航/类型 | 删除 ETF active 部分 |
-| Tests | model/DAO/seed/CLI/旧报告固定数量测试，以及 resolver/writer/Web/frontend 中的旧池断言 | 独立旧能力测试删除；消费者测试按新 selector 重写 |
+| 归属阶段 | 层 | 当前文件/对象 | 唯一动作 |
+|---|---|---|---|
+| P4 | Cleanup | `src/ops/services/etf_fund_daily_serving_cleanup_service.py` 与 `ops-cleanup-etf-fund-daily-serving` | 与 fund daily 旧门禁一起删除，不提供替代清理入口 |
+| P7 | Review | `review_center_query_service.py`、`review_center.py`、`schemas/review_center.py`、`schemas/__init__.py` 中 ETF active 类型/方法/路由 | 只删除 ETF active 部分，保留 review center 其他能力 |
+| P7 | Frontend review | `ops-v21-review-etf-page*`、router、shell、shared types 中旧页面/路由/导航/类型 | 删除 ETF active 部分 |
+| P8 | Migration | `20260618_000117_add_etf_series_active.py` | 保留历史迁移文件；新增迁移 drop 当前表 |
+| P8 | ORM | `src/ops/models/ops/etf_series_active.py` | 删除 |
+| P8 | 注册 | `src/ops/models/ops/__init__.py`、`src/app/model_registry.py` | 删除 ETF model 注册 |
+| P8 | DAO | `src/foundation/dao/etf_series_active_dao.py`、`src/foundation/dao/factory.py` 中的 ETF 属性 | 删除；必须晚于消费者迁移 |
+| P8 | Contract | `src/foundation/kernel/contracts/etf_series_active_store.py` | 删除 |
+| P8 | Adapter | `src/ops/etf_series_active_store_adapter.py` | 删除 |
+| P8 | Seed | `src/ops/services/etf_series_active_seed_service.py` | 删除 |
+| P8 | CLI | `src/cli.py`、`src/cli_parts/ops_handlers.py` 中 `ops-seed-etf-series-active` 及 handler/import | 删除 |
+| 各消费阶段 + P8 | Tests | resolver/writer/Health/monitor 测试由各迁移阶段重写；model/DAO/seed/CLI 独立测试由 P8 删除 | 不把旧测试集中拖到最后才处理 |
 
 历史 Alembic 文件保留是数据库迁移链要求，不算运行时兼容路径。历史设计文档保留作证据，但必须标注已被本方案和本 LLD 取代。
 
@@ -854,7 +981,7 @@ ETF 实时 provider 固定通配符请求
 
 ### 11.4 静态清零命令范围
 
-实现完成后对当前运行时代码、测试、前端和配置执行精确零引用检查：
+P7 结束时先做“业务消费者零引用”检查；P8 删除基础设施和旧测试后，再执行分层清零。不能把“字符串绝对为 0”写成测试层要求，因为新 migration 验证和负向 guardrail 必须提到被删除对象：
 
 ```text
 EtfSeriesActive
@@ -867,7 +994,13 @@ active_snapshot_count
 /active-etfs
 ```
 
-历史 migration 和明确标注为历史的文档允许保留旧名；`src/**`、`frontend/src/**`、`tests/**` 和当前配置中必须为 0。数据库验收要求 `to_regclass('ops.etf_series_active') IS NULL`。
+分层标准：
+
+1. `src/**`、`frontend/src/**` 和当前配置：上述旧名必须为 0。
+2. `tests/**`：不得 import、创建、seed、mock 或调用旧能力；只允许专门的 retirement/migration 负向测试在字符串断言中提到旧名。
+3. `alembic/**`：历史建表 migration 与新 drop migration 允许出现表名。
+4. 明确标注为历史/superseded 的文档允许保留旧名。
+5. 数据库验收要求 `to_regclass('ops.etf_series_active') IS NULL`。
 
 ---
 
@@ -955,7 +1088,7 @@ P0 严格限定为同步索引、静态搜索、迁移状态检查、Prod 白名
 | `active_snapshot_count` | 9 | 6 |
 | `/active-etfs` | 8 | 4 |
 
-当前配置文件的上述引用均为 0。该表是 P6 静态清零验收的对照基线，不代表 P0 已删除任何引用。
+当前配置文件的上述引用均为 0。该表是 P8 静态清零验收的对照基线，不代表 P0 已删除任何引用。
 
 **Prod Basic 与旧激活池基线**
 
@@ -1055,17 +1188,32 @@ Prod 只读输入严格限定为 `raw_tushare.etf_basic` 和 `core_serving.etf_b
 
 P1 完成门禁已满足：成功路径的 raw/serving 集合和 hash 不变量成立；空结果、拒绝行、校验失败、中途写失败与对账失败均不能改变事务前的旧快照。
 
-### P2：统一 Basic selector
+### P2：统一 Basic selector（已完成）
 
-编码：
+前置门禁：用户已在 2026-08-28 明确要求按重新基线后的 LLD 推进 P2，本阶段授权成立。
 
-1. 新增 `EtfRequestTarget` 和四个 DAO 方法。
-2. 删除两个语义错误的旧 DAO 方法。
-3. 更新 DAOFactory 暴露新 DAO；不再暴露 ETF series active DAO。
-4. 增加状态、空日期、未来上市日、后缀和 exchange 过滤测试。
-5. 增加调用生命周期测试：同一次 planner/发布/Health/候选请求/实时批次只读取一次资格结果，并在本次调用内复用。
+范围只限 Foundation selector：
 
-完成门禁：所有资格条件只存在于 DAO 私有 statement builder；消费者测试不能自己 mock 一组 `active_codes` 绕过 `list_date`，也不能在同一次任务的逐代码或逐分页请求中重复查询 Basic。
+1. 在 `etf_basic_dao.py` 新增 `EtfRequestTarget`、`EtfRequestabilitySnapshot` 和第 4 节三个方法。
+2. 用唯一 predicate builder 实现状态、上市日、后缀、exchange 规则；snapshot 分类为互斥计数。
+3. 删除无运行时消费者的 `get_active_etfs()/get_fund_daily_candidates()`。
+4. **不修改**已经存在的 `DAOFactory.etf_basic`。
+5. **不删除** `DAOFactory.etf_series_active`、旧 DAO、model、contract、adapter 或表。
+
+测试：L/P/D、空日期、未来上市、`.OF`、交易所冲突、SH/SZ scope、非法 exchange、代码规范化、排序、排除计数对账、subquery 列契约，以及同一 `as_of_date/exchange` 下 snapshot target codes 与 subquery codes 完全一致。
+
+完成门禁：P2 可以在所有旧消费者仍正常工作的情况下独立合入；资格 SQL 只存在于 DAO；本阶段没有 planner/writer/Ops/frontend 行为变化。
+
+**P2 执行记录**
+
+1. `EtfBasicDAO` 新增不可变的 `EtfRequestTarget`、`EtfRequestabilitySnapshot`，以及 snapshot、单代码 target、可复用 subquery 三个公共方法；三个方法共同复用 exchange/代码规范化和唯一资格 predicate。
+2. snapshot 只执行一次 Serving 查询，按规定优先级产生互斥排除计数；全市场统计包含 `.OF` 排除项，SH/SZ 统计只按对应代码后缀划定作用域。snapshot targets 和 subquery 在相同 `as_of_date/exchange` 下通过代码集合一致性测试。
+3. 删除了没有运行时消费者且语义不明确的 `get_active_etfs()`、`get_fund_daily_candidates()`；`fund_daily` 现行测试中的同名 mock 只用于证明 writer 不会回退该旧方法，不是运行时消费者，留到 P4 随 writer 测试一起迁移。
+4. 按阶段边界没有修改 `DAOFactory.etf_basic`，也没有删除 `DAOFactory.etf_series_active`、旧 DAO/model/contract/adapter/table；planner、writer、Ops、API 和前端均未改动。
+5. 开发前 CodeGraph 索引为 up to date，包含 2,814 个文件、49,646 个节点和 126,123 条边。query/impact 与精确代码搜索覆盖 `EtfBasicDAO`、`DAOFactory`、旧方法、旧激活池消费者和相关测试；确认 P2 可独立完成，旧池运行时消费者必须留给 P3-P8 逐阶段迁移。
+6. 新 selector 与 DAOFactory 定向测试 21 个全部通过；旧激活池 DAO、`fund_daily` 现行写入链和子系统依赖矩阵扩展回归 12 个全部通过；相关 Ruff 检查通过。测试覆盖 L/P/D、空/未来上市日期、`.OF`、交易所冲突、作用域、非法 exchange、规范化、排序、不可变性、排除计数对账、subquery 列契约和两条选择路径一致性。
+
+P2 完成门禁已满足：统一资格 SQL 只在 `EtfBasicDAO`，旧消费者仍可运行。本阶段没有数据库、源端或生产写入，也没有开始 P3。
 
 ### P3：三个代码驱动 planner
 
@@ -1074,12 +1222,13 @@ P1 完成门禁已满足：成功路径的 raw/serving 集合和 hash 不变量�
 1. Definition universe 改为 `master_data`。
 2. 三个 target resolver 改用 `EtfRequestTarget`。
 3. 上市日裁剪移到切窗前。
-4. 新增错误码、进度上下文和计划统计。
-5. 保护所有指数池 planner 不变。
+4. 抽取 `etf_mins` 纯切窗函数，正式 planner 与后续 alignment preview 共用。
+5. 新增错误码、进度上下文、snapshot 统计和各调用一次 snapshot 的测试。
+6. 保护所有指数池 planner 不变。
 
-测试：自动全集、显式单代码、SH/SZ 限制、P/D/L-null/未来上市、point 越界、range 部分重叠、range 全部早于上市日、每个频率的切窗边界。
+测试：自动全集、显式单代码、SH/SZ 限制、P/D/L-null/未来上市、point 越界、range 部分重叠、range 全部早于上市日、每个频率的纯切窗边界，以及 planner 与纯函数的窗口结果一致。
 
-完成门禁：生成的每个源请求起点都不早于 `list_date`；旧 ETF resource 引用从 Foundation planner 清零。
+完成门禁：生成的每个源请求起点都不早于 `list_date`；旧 ETF resource 引用从 DatasetDefinition 与 Foundation planner 清零；`DAOFactory.etf_series_active` 仍可被尚未迁移的 writer/Ops 使用。
 
 ### P4：`fund_daily` 两阶段发布
 
@@ -1089,59 +1238,92 @@ P1 完成门禁已满足：成功路径的 raw/serving 集合和 hash 不变量�
 2. 拆 raw/serving writer phase。
 3. executor 增加两提交点和 partial-business-commit 诊断。
 4. serving 接统一 selector 与 `trade_date >= list_date`。
-5. 删除旧 active-pool writer helper 和旧 cleanup service。
+5. 删除旧 active-pool writer helper。
+6. 在本阶段唯一一次删除旧 `EtfFundDailyServingCleanupService`、`ops-cleanup-etf-fund-daily-serving` 及其测试/导出；不在 P8 重复处理。
 
 测试：全市场 raw、ETF serving、LOF/REIT 只进 raw、上市日前只进 raw、selector 空、selector 异常、serving upsert 异常、raw upsert 异常、重试幂等、显式 ts_code 不扇出。
 
-完成门禁：selector/serving 失败时 raw 已提交且 TaskRun 失败；不得出现 raw 被回滚或 serving 假成功。
+完成门禁：selector/serving 失败时 raw 已提交且 TaskRun 失败；不得出现 raw 被回滚或 serving 假成功；`fund_daily` 与 cleanup 对旧池引用清零，其他未迁移消费者仍可运行。
 
-### P5：实时与前端切换
-
-编码：
-
-1. health 改 DAO 与字段名。
-2. candidate query 改 Basic subquery 起表并改 endpoint/DTO。
-3. monitor pool/rule 写入与 runtime 增加资格校验。
-4. 删除旧 review API/UI。
-5. 同步前端 types、页面、路由、导航和测试。
-
-完成门禁：provider 请求参数快照测试保持固定通配符；前后端不再出现 `active_pool_count/active_snapshot_count/active-etfs`。
-
-### P6：下游只读复核与分钟对齐预览
-
-动作：
-
-1. 不编写下游 cleanup service、CLI、manifest、CSV 或 apply 代码。
-2. 把第 2.7/9 节的 Prod 只读统计作为发布 runbook 门禁，Basic 重建后复跑。
-3. 实现分钟 alignment plan service、额度 preview 和 Basic 变更代码的定向 preview；诊断截断时回退为全量只读差集预览，不直接发源请求。
-
-测试：删除旧 cleanup service/CLI 的零引用测试；代码消失和 `list_date` 变晚不触发事实 DELETE 的负向测试；分钟缺口压缩和 4-call 上界。
-
-完成门禁：仓库没有通用下游事实清理入口；复核结果为 0 时不产生任何业务写入。
-
-### P7：激活池代码与 schema 退场
+### P5：实时 Health 后端与页面切换
 
 编码：
 
-1. 删除 model/DAO/contract/adapter/seed/CLI/review 页面和旧测试。
-2. 清理 model registry、schema export、router 和 frontend import。
-3. 重新跑 CodeGraph impact 与字符串清零。
-4. 确认真实 head 后新增不可逆 drop-table migration。
-5. 给历史激活池文档补充“已被取代”链接。
+1. `RealtimeFeedHealthQueryService` 改为一次加载 Basic snapshot。
+2. 后端 schema 将 `active_pool_count/active_snapshot_count` 改为 `eligible_etf_count/eligible_snapshot_count`。
+3. 同步 realtime frontend type、健康卡片文案和测试。
+4. 保持 provider 通配符、Redis key、batch/snapshot/delta 逻辑完全不变。
 
-完成门禁：运行时/测试/前端/config 零引用；指数池测试全部通过；migration 能从真实 head 升级。
+完成门禁：provider 请求参数快照测试保持固定通配符；Health 链不再引用旧池；候选、monitor runtime 和 review 尚未在本阶段删除。
 
-### P8：候选环境总回归
+### P6：实时监控候选、配置和运行时切换
+
+编码：
+
+1. candidate query 改由 Basic requestable subquery 起表；endpoint/DTO/method 从 `active` 改为 `eligible`。
+2. count 与 page 查询固定同一 `as_of_date`/subquery；增加空集合正常返回测试。
+3. 新增监控对象和 disabled -> enabled 更新用 `get_requestable_target()` 校验。
+4. ETF scope rule 写入同时校验监控池成员与当前资格；group rule 不逐代码校验。
+5. `run_after_etf_batch()` 每批加载一次 snapshot，并以 `enabled monitor pool ∩ requestable codes` 执行。
+6. 同步监控配置前端 API、DTO、页面和测试。
+7. 保留 `ops.etf_realtime_monitor_pool/rule/alert/minute_stat` 及历史数据。
+
+完成门禁：candidate、pool add、ETF rule 与 runtime 对旧池引用清零；空 selector 时 candidate 返回空页、runtime no-op；review 页面仍可暂时读旧池，留给 P7 独立删除。
+
+### P7：旧 ETF 激活池 review 能力删除与消费者清零
+
+编码：
+
+1. 删除 `/api/v1/ops/review/etf/active` 与 summary 路由、query method、ETF active schema/export。
+2. 删除 `ops-v21-review-etf-page*`、对应路由、导航、共享类型和测试。
+3. 不新建 Basic 浏览页面。
+4. 使用 CodeGraph impact + 精确字符串搜索证明运行时消费者已清零。
+
+P7 的“消费者零引用”允许旧基础设施本体暂时存在：model、DAO、contract、adapter、seed、CLI、历史 migration 及其独立测试仍由 P8 处理。除此以外，planner、writer、cleanup、Health、monitor、review 均不得再引用旧池。
+
+完成门禁：形成 P8 可核验的删除白名单；若发现未登记消费者，停止并修订 LLD，不进入 P8。
+
+### P8：激活池基础设施与 schema 退场
+
+编码：
+
+1. 按 P7 白名单删除 model、DAO、contract、adapter、seed service、seed CLI 和独立旧测试。
+2. 从 `DAOFactory` 删除 `etf_series_active`，清理 model registry 与 ORM export。
+3. **不再处理**已由 P4 删除的 cleanup 和已由 P7 删除的 review。
+4. 同步 CodeGraph，执行全仓当前态字符串清零，精确保护 `index_series_active`。
+5. 重新确认唯一 Alembic head 后新增不可逆 drop-table migration；历史建表 migration 保留。
+6. 给历史激活池文档补充 superseded 链接。
+
+完成门禁：运行时代码/前端/config 旧引用为 0；测试无旧能力 import/fixture/call，仅保留明确负向断言；指数池测试全部通过；migration 能从真实 head 升级。
+
+### P9：分钟对齐 preview 与 TaskRun 提交工具
+
+编码：
+
+1. 实现第 10 节只读 alignment plan service 和 `ops-preview-etf-minute-alignment`。
+2. 实现 `ops-submit-etf-minute-alignment`，只通过 `TaskRunCommandService` 创建正式 TaskRun。
+3. preview 复用 Basic selector 与 P3 纯切窗函数；submit 复用当前 TaskRun 创建契约，实际执行再由正式 resolver/planner 校验；不增加 connector/writer 旁路。
+4. 不新增数据库 plan/history 表，不新增 schedule，不自动跟随 Basic 发布执行。
+
+测试：无 raw、只有前缀、只有尾部、已有全区间、源端成功空区间由显式成功 TaskRun 覆盖、内部 gap 不生成请求、snapshot hash 变化整批拒绝、list_date 变晚重新拒绝、重复 submit 跳过已覆盖、4-call 上界、部分 TaskRun 创建失败可对账。
+
+完成门禁：preview 零网络/零业务写；submit 默认不执行，只有显式命令才创建 TaskRun；仓库不存在事实清理入口。
+
+### P10：候选环境总回归与发布门禁
 
 1. 执行全部后端目标测试、架构边界测试、前端 typecheck/rules/test/build。
 2. 在临时 PostgreSQL 从旧 schema 升级并验证新进程启动。
 3. 跑一次 Basic 小型完整快照 fixture。
 4. 跑一次 fund daily raw 成功/serving 故障注入。
-5. 按发布 runbook 复核下游统计，并运行分钟 preview；禁止事实删除和真实补拉。
+5. 验证 Health、eligible candidate、pool/rule/runtime 和 review 404。
+6. 按第 9 节受控 SQL复核下游统计，并运行分钟 preview；禁止事实删除、生产 TaskRun 和真实补拉。
+7. 复核 Alembic head/current、旧引用 0、`index_series_active` 正常。
 
 完成门禁：D1-D20 测试矩阵全部有证据，不能只以“测试总数通过”代替口径对账。
 
-### P9：生产执行
+### P11：生产切换、Basic 重建与只读审计
+
+本阶段需要用户单独授权，授权范围只包含新版本切换、`ops.etf_series_active` drop、`etf_basic` 正式快照重建和下游只读验收，不包含分钟补拉或下游事实删除。
 
 顺序固定：
 
@@ -1152,13 +1334,23 @@ P1 完成门禁已满足：成功路径的 raw/serving 集合和 hash 不变量�
 -> raw/serving 验收
 -> 下游只读复核
 -> 确认已批准删除候选为 0
--> 分钟 alignment preview
--> 用户确认额度
--> 分批正式 TaskRun 补拉
--> 最终对账与日常 schedule 恢复
+-> Health/eligible candidate/monitor 冒烟
+-> 恢复相关进程与 schedule
 ```
 
-生产删除旧激活池表和分钟全量补拉是两个不同授权动作。下游事实删除不在本 LLD 的生产步骤中；若复核意外非零，必须停止并另行评审。
+若 Basic 重建失败，P1 的快照事务保留上一版 raw/serving；新 selector 会过滤旧 serving 中的 `.OF`，但相关 schedule 保持暂停，必须前向修复并重新验收。若复核意外出现明确非交易所身份，停止并另行评审，不执行事实删除。
+
+### P12：分钟全量补拉与最终对账
+
+本阶段需要第二次独立授权：
+
+1. 在 P11 成功后的 Basic snapshot 上生成生产 alignment plan。
+2. 向用户展示 ETF 数、action 数、unit 数、请求上界、预计耗时和批量大小。
+3. 用户确认后按批提交正式 TaskRun；失败批次停止继续提交。
+4. 对账实际请求数、成功/失败 TaskRun、源端空结果、写入行数和重复主键。
+5. 重跑 preview，确认 prefix/suffix 请求缺口按 V1 口径归零或有明确失败原因。
+
+P12 不执行下游 DELETE，也不能用“P11 已授权”代替额度确认。
 
 ---
 
@@ -1171,7 +1363,7 @@ P1 完成门禁已满足：成功路径的 raw/serving 集合和 hash 不变量�
 | D5-D9 | Basic DAO + 三个 planner；状态、日期、后缀、切窗和无退市日上界测试 |
 | D10-D11 | serving 后缀测试；公募基金保护表 checksum；3 条 OF 仅 raw fixture |
 | D12 | 全量引用清零、drop-table migration、无 fallback 负向测试 |
-| D13 | 不新增通用 cleanup service/CLI/manifest/apply；旧 cleanup 直接退场 |
+| D13 | 不新增通用事实 cleanup service/CLI/删除 manifest/apply；旧 cleanup 在 P4 直接退场 |
 | D14 | 无新历史表/字段；现有 TaskRun diagnostics 承载 hash/摘要 |
 | D15 | 日常 Basic 变化测试只影响新计划，不调用事实 DELETE |
 | D16 | CodeGraph + 字符串 + DB 六层清零、维护窗口发布顺序 |
@@ -1195,6 +1387,7 @@ tests/test_etf_sh_cons_model.py
 tests/test_dataset_writer_fund_daily_master_gate.py
 tests/test_ingestion_executor_fund_daily_two_phase.py
 tests/test_etf_minute_history_alignment_plan_service.py
+tests/test_etf_minute_history_alignment_submit_service.py
 tests/web/test_realtime_api.py
 tests/web/test_ops_etf_realtime_monitor_api.py
 tests/web/test_ops_review_center_api.py 中删除旧 ETF review 用例
@@ -1253,7 +1446,8 @@ TaskRun snapshot hash = 只读复算 hash
 ### 15.2 激活池退场
 
 ```text
-src/frontend/tests/current config 旧引用 = 0
+src/frontend/current config 旧引用 = 0
+tests 旧能力 import/fixture/call = 0（允许 retirement/migration 负向字符串断言）
 旧 review routes = 404
 旧 CLI = 不存在
 ops.etf_series_active = 不存在
@@ -1276,12 +1470,14 @@ BEFORE_CURRENT_LIST_DATE = 只报告，不删除
 ```text
 每个实际请求 start_date >= 对应 list_date
 计划 TaskRun/unit/request 上界与实际可对账
-已覆盖日期未重复进入初始差集计划
-失败与 SOURCE_NOT_READY 有代码和样本
+已有 raw 观察区间不重复生成 prefix/suffix
+成功的显式空结果 TaskRun 区间不重复请求
+内部逐日/逐 bar 空洞明确标记为未审计
+失败与源端空结果有代码和样本
 重复执行不增加重复主键
 ```
 
-V1 验收只能声明“当前可请求 ETF、频率和交易日覆盖已对齐到本次差集口径”，不能声明每个交易日所有分钟 bar 均完整。
+V1 验收只能声明“当前可请求 ETF 与频率的区间请求前缀/尾部已按本次计划覆盖”，不能声明每个交易日或每个分钟 bar 均完整。
 
 ---
 
@@ -1333,4 +1529,4 @@ Foundation planner/writer 只访问 Foundation 的 `core_serving.etf_basic` DAO�
 4. 明确保护 `fund_adj`、`etf_share_size`、公募基金域、指数池和历史实时事实。
 5. 开发顺序阻止了“先删表再找消费者”，并明确当前不建设下游事实清理系统。
 
-本文中 P0/P1 的执行记录代表对应阶段已完成；P2-P8 仍是待实施契约。本 LLD 不授权执行生产快照重建、删表迁移、下游删除或全量补拉。下一步必须从 P2 开始，继续按阶段审计、编码和验收。
+本文中 P0-P2 的执行记录代表对应阶段已完成；原 P2-P9 已作废，新版 P3-P12 均未实施。本 LLD 不授权执行生产快照重建、删表迁移、下游删除或全量补拉。当前停在 P2 阶段边界，P3 及以后仍须按用户的阶段指令逐步推进。
