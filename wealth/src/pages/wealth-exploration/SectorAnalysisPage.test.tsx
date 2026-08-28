@@ -395,7 +395,7 @@ describe("SectorAnalysisPage", () => {
     expect(requestCount(urls, "/momentum/history")).toBe(1);
   });
 
-  it("keeps URL, requests, active method, and charts unchanged when an unavailable method is selected", async () => {
+  it("keeps URL, requests, active method, and charts unchanged when either unavailable method is selected", async () => {
     const urls: string[] = [];
     vi.stubGlobal("fetch", buildReadyFetch(urls));
     window.history.replaceState({}, "", `${WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH}?tradeDate=2026-08-21`);
@@ -405,7 +405,7 @@ describe("SectorAnalysisPage", () => {
     const sectorRequestCount = urls.filter((url) => url.includes("sector-analysis")).length;
     const chartCount = screen.getAllByRole("img").length;
 
-    ["相对轮动", "成员广度", "量价分布"].forEach((label) => {
+    ["成员广度", "量价分布"].forEach((label) => {
       fireEvent.click(screen.getByRole("tab", { name: label }));
       expect(screen.getByText("待建设", { selector: "#toast" })).toBeInTheDocument();
       expect(urls.filter((url) => url.includes("sector-analysis"))).toHaveLength(sectorRequestCount);

@@ -5,6 +5,7 @@ export type ExplorationShortcutKey = "turnover-insight" | "sector-analysis";
 export const EXPLORATION_TURNOVER_PATH = "/wealth/exploration/turnover-insight";
 export const EXPLORATION_SECTOR_MOMENTUM_PATH = "/wealth/exploration/sector-analysis/momentum-ranking";
 export const EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH = "/wealth/exploration/sector-analysis/dual-momentum";
+export const EXPLORATION_SECTOR_RELATIVE_ROTATION_PATH = "/wealth/exploration/sector-analysis/relative-rotation";
 
 export const explorationShortcutItems: readonly ShortcutItem[] = [
   {

@@ -1,7 +1,7 @@
 # 财势探查｜板块分析技术实施方案 v1
 
 > - 文档性质：技术实施方案与里程碑对账，不是 LLD。
-> - 当前状态：v1.27；横截面动量排名 M0～M3A 与双动量 M5～M8 已完成并关闭；相对轮动 M10 后端、正反例、来源边界和最大窗口自动化门禁已完成；下一步固定为 M11 前端，尚未开始。
+> - 当前状态：v1.28；横截面动量排名 M0～M3A 与双动量 M5～M8 已完成并关闭；相对轮动 M10 后端与 M11 前端已完成；下一步固定为 M12 真实 API 联调与交付验收。
 > - 产品事实源：[财势乾坤板块分析产品交互基线文档 v1](./sector-analysis-product-interaction-baseline-v1.md)。
 > - Figma 文件：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`。
 > - 基线日期：2026-08-28。
@@ -223,7 +223,7 @@ M1 已关闭原先三项页面差异：
 
 本轮再次对当前代码、消费者和测试进行 CodeGraph 影响面核验，得到以下约束：
 
-1. 前端路由已分别识别 `sector-analysis-momentum` 和 `sector-analysis-dual-momentum`；`SectorAnalysisPage` 按显式方法只挂载一个 controller，方法栏仅将相对轮动、成员广度和量价分布保留为“待建设”。双动量使用独立 API、adapter、URL、controller 和工作区，没有在既有动量 controller 中增加模式分支。
+1. 前端路由已分别识别动量排名、双动量和相对轮动三个精确方法；`SectorAnalysisPage` 按显式方法只挂载一个 controller，方法栏仅将成员广度和量价分布保留为“待建设”。三个已完成方法分别使用独立 API、adapter、URL、controller 和工作区，没有在既有 controller 中增加模式分支。
 2. 后端 `SectorMomentumCalculator` 已经实现区间累计涨跌幅、同组平均并列排名和百分位，是双动量需要复用的客观事实算法。双动量不得复制这些公式，也不得改变其版本和现有动量排名结果。
 3. `SectorMomentumQueryService.build_rankings()` 已改为消费页面无关的不可变单日动量事实快照，只负责方向排序、`listPosition` 和旧 DTO；`SectorDualMomentumQueryService` 直接消费同一快照，不调用旧页面 DTO、私有方法或第二次读取事实。
 4. 公共 Meta 已收敛为日期、层级和覆盖事实；既有动量 Meta 继续返回 1 日周期、方向和历史范围，双动量 Meta 使用独立 strict DTO，周期只允许 `5/10/20/30`。
@@ -231,7 +231,7 @@ M1 已关闭原先三项页面差异：
 6. 现有 `SectorAnalysisStatusResolver` 的 `READY/DELAYED/EMPTY/ERROR` 可继续作为页面主状态；`Partial Data`、`No Qualified`、`Small Group` 和 `Missing Selected Coordinate` 必须作为 Ready 内容态的确定性子状态，不能扩写公共主状态枚举。
 7. 影响面集中在 `src/biz/**/sector_analysis`、Biz 聚合路由、Wealth 板块分析路由与新双动量 feature，以及对应后端、前端和架构测试；`foundation`、`ops`、`qtf`、DG/Lake、首页板块速览和既有动量成员链路均不在修改范围。
 
-### 2.6 相对轮动代码可行性与当前缺口
+### 2.6 相对轮动代码可行性与实现结论
 
 本轮再次基于当前代码和 CodeGraph 做了实现前影响面审计，结论如下：
 
@@ -239,8 +239,8 @@ M1 已关闭原先三项页面差异：
 2. `SectorMomentumSnapshotQueryService.prepare_for_context()` 已能一次完成公共日期、层级版本、五类比较池和目标日期解析；相对轮动可复用该准备阶段，但现有 `build_prepared()` 只生成一个日期快照，不能通过循环调用它生成轨迹，否则会产生重复查询。
 3. `SectorMomentumQuery.load_open_dates()` 当前最多允许90个交易日。相对轮动最大需要 `60轨迹 + 5改善 + 30强度 = 95` 个交易日；M10 只能把该通用上限精确扩至95并增加 `96` 拒绝反例，不能解除边界或引入无限历史查询。
 4. 相对轮动一次 Results 计算必须批量读取最多95个开市日、当前比较池全部行业的日行情；随后在内存中一次生成最多65个目标日期（60个轨迹日期及其5日比较前沿）的收益和同组排名。禁止按行业或按日期循环查询数据库。
-5. 当前 API 只有动量 `meta/rankings/history/members` 和双动量 `meta/results`，没有相对轮动路由、DTO、公式合同或查询服务；本方案新增方法专属 `meta/results`，不改变现有六只 endpoint。
-6. 当前前端 `WealthExplorationRoute`、`SectorAnalysisMethod` 和 `SectorAnalysisPage` 只识别动量排名与双动量；相对轮动按钮仍走“待建设” toast。开发时需要新增第三个精确 route 和独立 feature/controller，不能向既有两个 controller 增加模式分支。
+5. M10 已新增相对轮动方法专属 `meta/results`、DTO、公式合同和查询服务，且没有改变既有六只 endpoint。
+6. M11 已让 `WealthExplorationRoute`、`SectorAnalysisMethod` 和 `SectorAnalysisPage` 识别相对轮动第三条精确 route，并使用独立 feature/controller；成员广度和量价分布仍走“待建设” toast。
 7. 双动量的 strict adapter、请求竞态保护、URL 恢复、响应式 SVG、放大 dialog 和长行业名测量可以作为工程模式参考，但相对轮动的 DTO、状态标签、图表几何和 CSS 必须留在自己的 feature 内，不得通过条件分支改写双动量组件。
 8. CodeGraph 影响面显示，共享快照服务的直接业务消费者是动量排名和双动量。相对轮动若修改其准备阶段或开市日上限，必须回归这两个消费者、四个既有动量 endpoint、两个双动量 endpoint 及架构护栏；首页板块速览、成员明细、QTF、Ops 和 Foundation 写链路不应被触碰。
 
@@ -255,7 +255,7 @@ M1 已关闭原先三项页面差异：
 | 板块分析默认入口 | `/wealth/exploration/sector-analysis` | `replace` 到动量排名 |
 | 横截面动量排名 | `/wealth/exploration/sector-analysis/momentum-ranking` | M3 与 M3A 已完成并通过验收 |
 | 双动量 | `/wealth/exploration/sector-analysis/dual-momentum` | M8 已完成并关闭；冷启动性能按用户决定接受现状 |
-| 相对轮动 | `/wealth/exploration/sector-analysis/relative-rotation` | 产品、Figma 与 M10 后端已收口；M11 完成前按钮仍提示“待建设” |
+| 相对轮动 | `/wealth/exploration/sector-analysis/relative-rotation` | M10 后端与 M11 前端已完成；M12 真实联调与交付验收待执行 |
 | 成员广度 | 暂不注册正式路由 | 按钮保留，点击提示“待建设” |
 | 量价分布 | 暂不注册正式路由 | 按钮保留，点击提示“待建设” |
 
@@ -1488,7 +1488,7 @@ M5 已完成以下编码前门禁；它们是进入 M6 的硬约束：
 3. 只读取 Prod 的 `trade_calendar / wealth_sector_hierarchy / dc_daily`，不读取宽基指数、成员、股票行情、资金流、Heat、新闻、概念、地域、申万、DG、Lake 或 QTF。
 4. 不增加数据库表、迁移、持久化结果、缓存服务、运营配置、定时任务、第三方图表依赖或后台写入。
 5. 不修改六只既有动量／双动量 endpoint 的请求、响应、排序、状态、SQL 或页面行为。
-6. 方法完成前继续显示“待建设”；只有 M9 LLD、M10 后端、M11 前端和 M12 联调验收依次通过后才切换为正式路由。
+6. M11 前保持“待建设”；M11 前端门禁通过后切换为正式路由，M12 继续完成真实 API、部署态性能和最终交付验收，不以半成品 Mock 代替服务端事实。
 
 ### 12B.2 参数、比较池、公式和默认值
 
@@ -2014,16 +2014,17 @@ M10 开工纠偏：`SectorRankFact` 不保存来源缺失原因，不能单独�
 
 ### M11：相对轮动前端
 
-状态：`NEXT / NOT STARTED`。
+状态：`PASS (2026-08-28)`。
 
-1. 新增第三个精确路由、独立 feature／adapter／controller 和可恢复 URL 状态，只挂载当前工作区。
-2. 严格实现正式 Figma 的工具栏、四象限图、完整滚动列表、选中轨迹、放大图和14种状态。
-3. 搜索、象限筛选、Hover 和放大不发业务请求；改变比较池、日期、周期、轨迹长度或选中行业按第12B.8节执行原子刷新和竞态保护。
-4. 未完成 M11 验收前，相对轮动按钮继续显示“待建设”，不得接入半成品页面。
+1. 已新增第三个精确路由、独立 feature／strict adapter／controller 和可恢复11项 URL 状态，只挂载当前工作区。
+2. 已严格实现正式 Figma 的工具栏、四象限图、完整滚动列表、选中轨迹、放大图和14种状态骨架；CSS 保持 Design Token 与既定响应式比例。
+3. 搜索、象限筛选、Hover 和放大零业务请求；比较池、日期、周期、轨迹长度或选中行业按第12B.8节执行原子刷新、过期响应丢弃和单次409重载。
+4. 相对轮动定向62项、前端全量473项、typecheck、production build和20项静态／架构门禁通过；M10 后端合同、依赖、配置和数据库均未修改。
+5. 真实只读 API、部署态 HTTP P95 和四档最终人工视觉验收仍属于 M12，不在 M11 以 Mock 或本地超时页面代替。
 
 ### M12：相对轮动联调与交付验收
 
-状态：`BLOCKED BY M11`。
+状态：`NEXT / NOT STARTED`。
 
 1. 用真实只读 API 对账五种比较范围、四个强度周期、三种轨迹长度、四象限、小组和缺失语义。
 2. 验收 `1600/1512/1460/1366` 四档宽度、普通图与放大图坐标一致、长名称、337行业密集点及完整列表滚动。
@@ -2083,7 +2084,7 @@ M10 开工纠偏：`SectorRankFact` 不保存来源缺失原因，不能单独�
 
 ## 16. 编码入口与停止门禁
 
-[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md) v1.20 已完成相对轮动 M10：专属合同、纯计算器、QueryService、strict DTO、两只只读 API、95/96窗口门禁、3/5 SQL、最大池结构、精确缺失原因和来源架构边界均有自动化证据。下一步固定为 M11 前端；在 M11 完成前，相对轮动按钮仍显示“待建设”。
+[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md) v1.21 已完成相对轮动 M10 后端与 M11 前端：第三条精确路由、按需挂载、独立 API adapter／URL／controller、14个正式状态、响应式 SVG 和完整滚动列表均已落地；搜索、象限筛选、Hover 和放大保持零业务请求。下一步固定为 M12，只做真实只读 API、部署态性能、四档宽度与交互交付验收；成员广度和量价分布仍显示“待建设”。
 
 M9～M12 期间若发现当前数据字段、索引、消费者、真实性能或 Figma 与本文/LLD 冲突，必须停止并回到方案层修正，禁止边编码边改口径。任何新增索引、迁移、缓存、结果表、第三方依赖或范围扩张都不在本方案授权内。
 
@@ -2091,6 +2092,7 @@ M9～M12 期间若发现当前数据字段、索引、消费者、真实性能�
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.28 | 2026-08-28 | 完成相对轮动 M11 前端：新增第三条精确路由、独立 strict adapter／URL／controller、14态响应式工作区、共享坐标 SVG、完整滚动列表、原子选择与零请求本地交互；相对轮动定向62项、前端全量473项、typecheck/build及架构门禁通过，下一步固定为 M12 真实 API 联调与交付验收 | Codex |
 | v1.27 | 2026-08-28 | 完成相对轮动 M10 后端：落实已批准的收益／排名事实对齐纠偏，新增版本化合同、纯计算器、QueryService、strict DTO 和两只只读 API；95允许／96拒绝、3/5 SQL、一次行情读取、最大337×95结构／payload、精确缺失、状态与来源边界正反例以及261项冻结回归通过，下一步固定为 M11 前端；部署态真实 HTTP P95 仍留在 M12 | Codex |
 | v1.26 | 2026-08-28 | M10 开工纠偏：日期切片同时保留同源收益事实和排名事实，使 current/comparison 缺失原因可由真实输入直接传递；不改变产品、公式、API、SQL 或里程碑边界 | Codex |
 | v1.25 | 2026-08-28 | 完成相对轮动 M9 代码级收口：当前代码与消费者影响面、两只 strict API、95日一次批量查询、公式／状态／URL／SVG几何、异常与测试矩阵均已写入 LLD v1.18；337行业×95日的有界只读分段性能门禁通过，下一步固定为 M10 后端，尚未编码 | Codex |

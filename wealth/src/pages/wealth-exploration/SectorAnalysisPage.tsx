@@ -3,12 +3,16 @@ import { useCallback } from "react";
 import {
   buildSectorAnalysisDualMomentumPath,
   buildSectorAnalysisMomentumPath,
+  buildSectorAnalysisRelativeRotationPath,
   navigateWealth,
 } from "../../app/routes/routerState";
 import { useSectorDualMomentumController } from "../../features/wealth-exploration/sector-analysis/dual-momentum/model/useSectorDualMomentumController";
 import { DualMomentumStateSurface } from "../../features/wealth-exploration/sector-analysis/dual-momentum/ui/DualMomentumStateSurface";
 import { DualMomentumWorkspace } from "../../features/wealth-exploration/sector-analysis/dual-momentum/ui/DualMomentumWorkspace";
 import { SectorAnalysisMethodBar, type SectorAnalysisMethod } from "../../features/wealth-exploration/sector-analysis/navigation/SectorAnalysisMethodBar";
+import { useSectorRelativeRotationController } from "../../features/wealth-exploration/sector-analysis/relative-rotation/model/useSectorRelativeRotationController";
+import { RelativeRotationStateSurface } from "../../features/wealth-exploration/sector-analysis/relative-rotation/ui/RelativeRotationStateSurface";
+import { RelativeRotationWorkspace } from "../../features/wealth-exploration/sector-analysis/relative-rotation/ui/RelativeRotationWorkspace";
 import { useMomentumRankingController } from "../../features/wealth-exploration/sector-analysis/momentum-ranking/model/useMomentumRankingController";
 import { MomentumRankingWorkspace } from "../../features/wealth-exploration/sector-analysis/momentum-ranking/ui/MomentumRankingWorkspace";
 import { MomentumStateSurface } from "../../features/wealth-exploration/sector-analysis/momentum-ranking/ui/MomentumStateSurface";
@@ -37,9 +41,12 @@ function SectorAnalysisContent({ method, search, shell }: { method: SectorAnalys
   const handleMethodSelect = useCallback((nextMethod: SectorAnalysisMethod) => {
     if (nextMethod === method) return;
     const sharedSearch = buildSharedMethodSearch(routeSearch);
-    navigateWealth(nextMethod === "momentum-ranking"
+    const path = nextMethod === "momentum-ranking"
       ? buildSectorAnalysisMomentumPath(sharedSearch)
-      : buildSectorAnalysisDualMomentumPath(sharedSearch));
+      : nextMethod === "dual-momentum"
+        ? buildSectorAnalysisDualMomentumPath(sharedSearch)
+        : buildSectorAnalysisRelativeRotationPath(sharedSearch);
+    navigateWealth(path);
   }, [method, routeSearch]);
 
   return (
@@ -49,11 +56,9 @@ function SectorAnalysisContent({ method, search, shell }: { method: SectorAnalys
         onSelect={handleMethodSelect}
         onUnavailable={() => shell.showToast("待建设")}
       />
-      {method === "momentum-ranking" ? (
-        <MomentumMethodContent contextMatchesRoute={contextMatchesRoute} routeSearch={routeSearch} shell={shell} />
-      ) : (
-        <DualMomentumMethodContent contextMatchesRoute={contextMatchesRoute} routeSearch={routeSearch} shell={shell} />
-      )}
+      {method === "momentum-ranking" ? <MomentumMethodContent contextMatchesRoute={contextMatchesRoute} routeSearch={routeSearch} shell={shell} /> : null}
+      {method === "dual-momentum" ? <DualMomentumMethodContent contextMatchesRoute={contextMatchesRoute} routeSearch={routeSearch} shell={shell} /> : null}
+      {method === "relative-rotation" ? <RelativeRotationMethodContent contextMatchesRoute={contextMatchesRoute} routeSearch={routeSearch} shell={shell} /> : null}
     </>
   );
 }
@@ -87,6 +92,21 @@ function DualMomentumMethodContent({ contextMatchesRoute, routeSearch, shell }: 
     <div className="dual-momentum-workspace"><DualMomentumStateSurface kind="error" message={shell.contextErrorMessage ?? "页面时间上下文加载失败。"} onRetry={shell.model.retryContext} retryable /></div>
   );
   return <DualMomentumWorkspace controller={controller} />;
+}
+
+function RelativeRotationMethodContent({ contextMatchesRoute, routeSearch, shell }: { contextMatchesRoute: boolean; routeSearch: string; shell: WealthExplorationShellRenderProps }) {
+  const handleNavigateSearch = useCallback((nextSearch: string, options?: { replace?: boolean }) => {
+    navigateWealth(buildSectorAnalysisRelativeRotationPath(nextSearch), options);
+  }, []);
+  const controller = useSectorRelativeRotationController({
+    enabled: shell.model.contextState === "ready" && contextMatchesRoute,
+    search: routeSearch,
+    onNavigateSearch: handleNavigateSearch,
+  });
+  if (shell.model.contextState === "error") return (
+    <div className="relative-rotation-workspace"><RelativeRotationStateSurface kind="error" message={shell.contextErrorMessage ?? "页面时间上下文加载失败。"} onRetry={shell.model.retryContext} retryable /></div>
+  );
+  return <RelativeRotationWorkspace controller={controller} />;
 }
 
 function buildSharedMethodSearch(search: string): string {

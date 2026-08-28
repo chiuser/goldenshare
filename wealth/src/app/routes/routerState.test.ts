@@ -5,11 +5,13 @@ import {
   WEALTH_EXPLORATION_PATH,
   WEALTH_EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH,
   WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH,
+  WEALTH_EXPLORATION_SECTOR_RELATIVE_ROTATION_PATH,
   WEALTH_EXPLORATION_SECTOR_PATH,
   WEALTH_EXPLORATION_TURNOVER_PATH,
   buildIndexDetailPath,
   buildSectorAnalysisDualMomentumPath,
   buildSectorAnalysisMomentumPath,
+  buildSectorAnalysisRelativeRotationPath,
   buildSectorAnalysisPath,
   buildStockDetailPath,
   buildTurnoverInsightPath,
@@ -64,14 +66,18 @@ describe("wealth exploration route", () => {
     expect(buildSectorAnalysisDualMomentumPath("?market=CN_A&tradeDate=2026-08-21")).toBe(
       "/wealth/exploration/sector-analysis/dual-momentum?market=CN_A&tradeDate=2026-08-21",
     );
+    expect(buildSectorAnalysisRelativeRotationPath("?market=CN_A&tradeDate=2026-08-21")).toBe(
+      "/wealth/exploration/sector-analysis/relative-rotation?market=CN_A&tradeDate=2026-08-21",
+    );
   });
 
-  it("resolves only the five frozen exploration paths", () => {
+  it("resolves only the six frozen exploration paths", () => {
     expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_PATH)).toEqual({ kind: "landing" });
     expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_TURNOVER_PATH)).toEqual({ kind: "turnover-insight" });
     expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_SECTOR_PATH)).toEqual({ kind: "sector-analysis-redirect" });
     expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH)).toEqual({ kind: "sector-analysis-momentum" });
     expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH)).toEqual({ kind: "sector-analysis-dual-momentum" });
+    expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_SECTOR_RELATIVE_ROTATION_PATH)).toEqual({ kind: "sector-analysis-relative-rotation" });
     expect(resolveWealthExplorationRoute("/wealth/exploration/extra")).toEqual({ kind: "not-exploration" });
     expect(resolveWealthExplorationRoute("/wealth/exploration/sector-analysis/unknown")).toEqual({ kind: "not-exploration" });
   });
