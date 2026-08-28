@@ -244,6 +244,7 @@
 | `SA_HIERARCHY_UNAVAILABLE` | `sectorAnalysis` | error | false | true | 当前行业层级不可用于建立比较池 | 层级为空、多版本、重复代码、父级或 root 闭包非法 | 稳定 ERROR；禁止前端猜测层级或默认项 | biz-api | Phase-6 | active |
 | `SA_SCOPE_INVALID` | `sectorAnalysis` | warn | false | false | 比较范围、父级或固定枚举不符合合同 | scope 与父级参数错层、跨父级、缺失或使用未批准枚举 | HTTP 400；保留当前输入并修正 URL/选择 | biz-api | Phase-6 | active |
 | `SA_SELECTION_INVALID` | `sectorAnalysis` | warn | false | false | 选中行业不属于当前比较池 | `sectorCode` 不在当前 scope 与父级解析出的对象池 | HTTP 400；不得静默替换为另一行业 | biz-api | Phase-6 | active |
+| `SA_FACT_VERSION_MISMATCH` | `sectorAnalysis` | warn | false | false | 双动量结果请求携带的行业层级版本与当前发布版本不一致 | 双动量 Meta 返回后层级重新发布，或客户端使用过期 hierarchyVersion 请求 Results | HTTP 409；丢弃双动量 Meta/Results 短期事实并从双动量 Meta 重新加载；不得继续读取行情 | biz-api | Phase-6-M5 | active |
 | `SA_MEMBER_FACT_MISMATCH` | `sectorAnalysis` | warn | false | false | 成员请求携带的行业层级版本与当前发布版本不一致 | rankings 返回后层级重新发布，或客户端使用过期 hierarchyVersion | HTTP 409；丢弃当前 meta/rankings/history/members 短期事实并从 meta 重新加载 | biz-api | Phase-6-M3A | active |
 | `SA_MEMBER_SOURCE_EMPTY` | `sectorAnalysis` | warn | false | true | 目标交易日所选三级行业没有来源成员 | 精确 `tradeDate + sectorCode` 的 dc_member 来源集合为空 | 只在成员下半区显示 EMPTY；上方行业榜单和右侧详情继续可用 | biz-api | Phase-6-M3A | active |
 | `SA_MEMBER_QUERY_FAILED` | `sectorAnalysis` | error | false | true | 成员关系、股票日行情或成员收益合同处理失败 | SQL、重复业务键、窗口、Decimal 计算或 DTO 不变量失败 | 只在成员下半区显示 ERROR 并重试 members；不清空整页事实 | biz-api | Phase-6-M3A | active |
@@ -255,6 +256,7 @@
 2. `PARTIAL` 只作为交易日来源覆盖元数据，不是页面状态或异常码。显式 PARTIAL 日期仍使用 READY 骨架，个别行业缺失时行保留并显示 `--`；只有当前比较池全部不可计算时使用 `SA_SOURCE_EMPTY`。
 3. 401/403 继续复用认证层，不新增同义 `SA_*`。
 4. `SA_MEMBER_SOURCE_EMPTY/SA_MEMBER_QUERY_FAILED` 只作用于成员下半区，不得升级为整页 EMPTY/ERROR；`SA_MEMBER_FACT_MISMATCH` 必须重新加载全部页面事实，禁止局部重试后拼接不同层级版本。
+5. `SA_FACT_VERSION_MISMATCH` 只用于双动量 Results 的层级版本冲突；它与 `SA_MEMBER_FACT_MISMATCH` 的恢复范围不同，不得互相替代。版本不一致必须在行业行情查询前返回 409。
 
 ## 12. 变更规则
 

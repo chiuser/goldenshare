@@ -1,22 +1,23 @@
 # 财势探查｜板块分析技术实施方案 v1
 
 > - 文档性质：技术实施方案与里程碑对账，不是 LLD。
-> - 当前状态：v1.17；M0、M1、Pre-M2、M2、M3 与 M3A 已完成并通过用户验收；M4 自动化联调门禁已通过，最终 Figma 像素与交互验收待说明后另行决定。
+> - 当前状态：v1.19；横截面动量排名 M0～M3A 已完成，M4 自动化门禁已通过；双动量 M5 代码级 LLD 与编码门禁已收口，下一步固定为 M6 后端实现，尚未进入双动量编码。
 > - 产品事实源：[财势乾坤板块分析产品交互基线文档 v1](./sector-analysis-product-interaction-baseline-v1.md)。
 > - Figma 文件：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`。
-> - 基线日期：2026-08-27。
+> - 基线日期：2026-08-28。
 
 ---
 
 ## 0. 结论摘要
 
-本方案把当前已确认的交互拆成两个明确交付范围：
+本方案把当前已确认的交互拆成四个明确交付范围：
 
 1. 先把现有财势探查单页改成“入口首页 + 独立模块子页面”，并让财势探查真正复用财势乾坤首页的快捷入口组件。
-2. 板块分析首期只建设已经确认完整的“横截面动量排名”；双动量、相对轮动、成员广度和量价分布只保留可点击的方法按钮并提示“待建设”，在各自产品口径和正式工作区评审完成前不注册路由，不实现数据接口或计算逻辑。
+2. 横截面动量排名及三级行业成分明细已经完成；双动量作为第二个独立方法，严格按产品基线 v1.4 和正式 Figma 建设独立路由、独立接口与独立工作区，不与动量排名混合成综合评分。
 3. 在三级行业可被选中的两个工作区中，左栏保持总高度不变并拆成上下两个独立滚动区：上部继续展示三级行业榜单，下部展示当前所选三级行业的成分股名称、代码、目标日收盘价和所选统计周期区间涨跌幅。该能力是动量排名的事实明细，不是“成员广度”方法，也不产生新的评分或预测。
+4. 相对轮动、成员广度和量价分布继续只保留可点击按钮并提示“待建设”；本版不为它们注册路由、接口、controller 或占位结果页。
 
-首期动量排名直接读取 Prod 已有正式事实：
+既有动量排名直接读取 Prod 已有正式事实：
 
 - `core_serving.trade_calendar`
 - `core_serving.wealth_sector_hierarchy`
@@ -24,7 +25,7 @@
 - `core_serving.dc_member`（仅三级行业成分关系）
 - `core_serving.equity_daily_bar`（仅成分股目标日收盘价和区间涨跌幅）
 
-不新增数据库表、不新增迁移、不读取 DG/Lake、不依赖 `dc_index`、资金流、Heat、QTF、申万、概念或地域数据。DG 只继续承担既有行业层级发布，Web 查询只读 Prod。
+双动量只复用其中前三张表，不读取成分股关系或股票行情。不新增数据库表、不新增迁移、不读取 DG/Lake、不依赖 `dc_index`、资金流、Heat、QTF、申万、概念或地域数据。DG 只继续承担既有行业层级发布，Web 查询只读 Prod。
 
 ## 1. 目标、依据与边界
 
@@ -38,6 +39,8 @@
 6. 所有业务日期继续服从公共 `pageContext.tradeDate` 和 20:00 盘后切换约定。
 7. 后端提供明确的行业层级、动量排行和历史趋势事实；前端只做展示适配，不自行拼接业务事实或计算排名。
 8. 三级行业成分股列表只读取当前页面实际展示的盘后交易日；切换行业、统计周期或榜单方向后独立刷新，不阻塞右侧详情和双趋势图。
+9. 双动量使用与动量排名相同的区间收益、比较池、同组强度排名和百分位事实，在此之上只判断“绝对动量是否为正”和“相对动量是否达到阈值”；不新增综合分、权重、预测或信号。
+10. 双动量支持五类比较范围、`5/10/20/30` 日观察周期、`70/80/90` 百分位阈值、历史日期复盘、符合条件／全部行业切换、列表与散点图联动及产品基线冻结的全部边界状态。
 
 ### 1.2 视觉与交互依据
 
@@ -57,14 +60,36 @@
 | Delayed | `1036:1014` | 保留最近完整交易日内容并明确实际盘后日期 |
 | Empty | `1036:1386` | 显式历史无数据或比较池全部不可计算 |
 | Error | `1036:1762` | 查询或合同失败后的稳定错误态与重试 |
-| 双动量草稿态 | `967:72` | 仅保留后续方法位置，不作为首期数据实现基线 |
+| 双动量旧草稿 | `967:72` | 已移动至 Archive 并标记 `Frozen / Do Not Implement`，不得作为编码依据 |
 | 相对轮动草稿态 | `967:158` | 仅保留后续方法位置，不作为首期数据实现基线 |
 | 成员广度草稿态 | `967:244` | 仅保留后续方法位置，不作为首期数据实现基线 |
 | 量价分布草稿态 | `967:330` | 仅保留后续方法位置，不作为首期数据实现基线 |
 
 Figma 页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）负责板块分析交互事实。旧板块雷达和原复杂量化研究画板保持冻结，不参与本方案。
 
-2026-08-27 最终节点树、属性、交互和 1600px 截图对账已通过：12 张正式画板均为 `1600×1292.390625`；一级涨／跌、二级总榜、三级总榜、两类父级榜、双图悬停、交易日覆盖选择器和四个异常态均具备独立开发基线。榜单 viewport 使用纵向滚动；页面壳、工具栏、行、摘要和状态面板使用 Auto Layout；图表、数据条、十字线、Tooltip、日期 Popover 和滚动条叠层保留必要绝对坐标。四个待建设方法按钮没有草稿跳转，行业行选择与独立下钻已区分，三级无下钻，`20/30/60` 明确为两图共用。
+双动量正式交互以同一页面中的以下节点为唯一视觉和状态依据；旧草稿节点 `967:72` 不再具备需求效力：
+
+| 双动量正式状态 | Figma 节点 | 技术语义 |
+|---|---|---|
+| 符合条件默认态 | `1096:1267` | 一级总榜、20 日、80% 阈值、符合条件列表 |
+| 全部行业 | `1101:5478` | 同一计算结果切换完整行业列表，不重新定义比较池 |
+| 一级内二级 | `1103:1425` | 仅比较所选一级行业直属二级行业 |
+| 二级内三级 | `1104:1898` | 仅比较所选二级行业直属三级行业 |
+| 二级总榜 | `1105:1583` | 全部二级行业同组比较 |
+| 三级总榜 | `1105:1938` | 全部三级行业同组比较 |
+| Hover | `1106:1741` | 散点 Hover、列表与图表关联 |
+| Partial Data | `1106:2109` | Ready 内容态中的覆盖提示，不是独立页面状态 |
+| Loading | `1106:2528` | 稳定页面骨架与加载占位 |
+| Delayed | `1106:7209` | 展示上一有效交易日事实及明确日期提示 |
+| Empty | `1106:2713` | 比较池不存在可计算事实 |
+| Error | `1106:2894` | 合同或查询失败与重试 |
+| Small Group | `1107:2216` | 小于 3 个可计算对象时展示事实但不判定是否符合条件 |
+| No Qualified | `1115:2295` | 有可计算事实但零个行业符合条件，仍属于 Ready |
+| Missing Selected Coordinate | `1115:2571` | 所选行业事实不完整，列表可选但散点不伪造坐标 |
+
+双动量正式工作区已收敛为组件集 `1132:9777` 的 15 个变体，每个工作区实例均为 `1564×1006`；交互说明节点为 `1137:422`。15 张正式页面均为 `1600×1292.390625`。运行时仍必须服从第 4.6 节的连续响应式合同：`1564px` 只是 1600px 视口下的设计基线，不能写成固定页面宽度。
+
+2026-08-27 横截面动量节点树、属性、交互和 1600px 截图对账已通过：12 张正式画板均为 `1600×1292.390625`；一级涨／跌、二级总榜、三级总榜、两类父级榜、双图悬停、交易日覆盖选择器和四个异常态均具备独立开发基线。榜单 viewport 使用纵向滚动；页面壳、工具栏、行、摘要和状态面板使用 Auto Layout；图表、数据条、十字线、Tooltip、日期 Popover 和滚动条叠层保留必要绝对坐标。该阶段四个后续方法按钮均未接草稿；此历史说明不覆盖上表已经正式收口的双动量设计。行业行选择与独立下钻已区分，三级无下钻，`20/30/60` 明确为动量排名两图共用。
 
 2026-08-28 的成分股增量已落到上述两张正式画板：左侧正文继续保持 `776×866`，内部改为上部行业榜单 `776×390`、间距 `12`、下部成分股列表 `776×464`；两个列表各自拥有固定表头和独立纵向滚动 viewport。下部四列固定表达名称、代码、收盘价和区间涨跌幅，不增加操作列；右侧详情仍位于 `x=788` 且保持 `776×866`，没有改变摘要和图表位置。Figma 的四列固定像素宽度只用于 `1600px` 基线验收；运行时必须按第 4.6 节使用共享响应式 Grid，不能把 `752px` 内容宽写死。
 
@@ -78,7 +103,7 @@ Figma 页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）负责板块�
 ### 1.3 本期明确不做
 
 1. 不做转热、续热、转冷、预测、成功率、Lift、信号或综合评分。
-2. 不实现双动量、相对轮动、成员广度和量价分布的业务计算、真实 API 或正式结果页。
+2. 不实现相对轮动、成员广度和量价分布的业务计算、真实 API 或正式结果页。
 3. 不接入 QTF，不建设参数审批、研究发布或行情信号发布。
 4. 不做概念、地域、申万行业或行业体系对比。
 5. 不使用 Heat、资金流、新闻、宽基或分钟数据；成分股日行情只用于已批准的三级行业成分事实列表，不扩展为成员广度、选股或预测能力。
@@ -87,17 +112,19 @@ Figma 页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）负责板块�
 8. 不扩展移动端设计；继续使用当前宽桌面基线。
 9. 不新增数据库表、迁移、账号、连接、定时任务、缓存服务或第三方前端依赖。
 10. 不增加成分股筛选器、搜索、分页控件、勾选、导出、股票详情跳转或更多行情字段；本增量严格保留已确认的四列。
+11. 双动量不读取成分股、资金流、Heat、新闻、宽基、分钟行情、概念、地域或申万数据，也不新增历史趋势、详情 API 或成员 API。
+12. 双动量不提供预测、转热信号、成功率、参数回测、多个方法勾选组合、综合分或对行情系统的发布流程。
 
 ### 1.4 跨模块抽象门禁原则适配
 
 | 原则 | 本模块结论 | 设计落点 | 计划测试 |
 |---|---|---|---|
 | 事实源单一原则 | 层级、交易日、行业日行情、三级成分关系和股票日行情只由后端 Prod 查询归一 | 第 5、6 节 | 前端无公式、无事实补值；真实 API 字段对账 |
-| 契约先行与冻结原则 | 既有三个只读 endpoint 已冻结；新增成员 endpoint 必须先完成拍板和 LLD 增量再编码 | 第 1.5、7 节 | schema 正反例、未知字段拒绝、前后端契约测试 |
-| 配置一致性原则 | 本期没有运营配置；周期、范围和版本为产品合同枚举 | 第 6.7 节 | 未批准枚举拒绝；仓库不存在第二套常量 |
-| 默认行为显式原则 | 默认一级总榜、1 日、涨幅榜、20 日图表；首次选中首条可计算行业，后续切换优先保留当前行业 | 第 4.4、6.6 节 | 无参数、非法参数、保留选择、父级切换和失效选择测试 |
+| 契约先行与冻结原则 | 既有四个动量只读 endpoint 已冻结；双动量两个 endpoint 必须先完成 M5 LLD 再编码 | 第 7、12A.5、13 节 | schema 正反例、未知字段拒绝、前后端契约测试 |
+| 配置一致性原则 | 本期没有运营配置；各方法的周期、范围、阈值和版本均为产品合同枚举 | 第 6.8、12A.2 节 | 未批准枚举拒绝；仓库不存在第二套常量 |
+| 默认行为显式原则 | 动量排名默认一级总榜／1 日／涨幅榜／20 日图表；双动量默认一级总榜／20 日／80%／符合条件 | 第 4.4、6.6、12A.2 节 | 无参数、非法参数、保留选择、父级切换和失效选择测试 |
 | 排序与筛选确定性原则 | 比较池、空值、并列和稳定次序全部固定 | 第 6.3、6.5 节 | 同值、缺值、跨父级、完整列表测试 |
-| 性能预算前置原则 | 只查询当前工作区；窗口最大为 60+30 个交易日 | 第 11 节 | SQL 数量、payload、P95、未选工作区零请求 |
+| 性能预算前置原则 | 只查询当前工作区；既有历史最重窗口为 60+30 日，双动量单日结果最大使用 30 日观察窗口 | 第 11、12A.9 节 | SQL 数量、payload、P95、未选工作区零请求 |
 | 可观测与异常标准化原则 | 只输出用户状态和已登记异常码；debug 不泄露 SQL | 第 9 节 | READY/DELAYED/EMPTY/ERROR 和未登录 401 反例 |
 | 测试以用户可见结果为中心原则 | 真实路由字段必须逐项驱动榜单、详情和双趋势图 | 第 12 节 | 后端真实 API + 前端真实 API smoke 双门禁 |
 
@@ -162,11 +189,23 @@ M1 已关闭原先三项页面差异：
 3. 共享 `ShortcutBar` 当前由市场总览和财势探查两类 feature wrapper 消费；页面不持有两套展示实现。
 4. `MarketPageContextQuery` 同时被公共 context、股票／指数详情和部分行情查询使用。Pre-M2 已把其内部 1～4 条交易日历查询收敛为 1 条，公开方法、返回结构、20:00 规则和全部消费者语义保持不变。
 5. 当前代码已把行业层级查询移到 Biz 公共目录，并更新 `MarketSectorOverviewQueryService` 与 `SectorSelectionResolver` 两个消费者；首页板块速览和架构回归已有证据，M2 三个 API 已完成。
-6. `SectorMomentumQueryService` 当前只组合 meta、rankings 和 history；CodeGraph 影响面集中在板块分析 route、schema、service 及既有 API 测试。M3A 应新增独立成员查询边界，不把成员循环塞进 `build_rankings()` 或 `build_history()`。
-7. 前端 `useMomentumRankingController` 当前只有 meta、ranking、history 三组请求状态，且现有 READY 依赖 ranking/history 对账。M3A 需要新增独立 member state，使成员失败不会降级整页状态。
-8. `MomentumRankingWorkspace` 当前固定渲染左榜单与右详情两列。M3A 的影响面仅为左栏容器、controller/API/adapter/type 和对应测试；`MomentumDetailPanel`、两张图、Shell、TopMarketBar 与其他财势探查页面不是改动目标。
-9. 首页 `SectorMemberQuery` 的 CodeGraph 消费者是 `MarketSectorOverviewQueryService`，其语义为 Top5 与单日涨跌幅；M3A 不修改该类，避免把板块分析的完整多周期成员合同反向污染首页。
-10. 当前 `test_wealth_sector_analysis_guardrails.py` 仍把来源冻结为三张表，并明确禁止 `dc_member`。这不是运行时缺陷，而是原 M0 的正确门禁；M3A 编码必须在同一受控变更中把允许模型精确扩展为 `DcMember/EquityDailyBar`、删除只针对这两个已批准来源的禁止项，并继续禁止其他股票、资金、Heat、DG/Lake 与 QTF 依赖。
+6. `SectorMomentumQueryService` 当前组合 meta、rankings 和 history；成员明细已经由独立 `SectorMemberDetailQueryService` 承担，没有把成员循环塞进 `build_rankings()` 或 `build_history()`。双动量只影响单日排名事实主链，不触碰成员 service。
+7. 前端 `useMomentumRankingController` 已包含 meta、ranking、history 和独立 member state；成员失败不会降级整页状态。双动量必须建立自己的 Meta／Results 状态，不得向该 controller 继续追加第五套方法状态。
+8. `MomentumRankingWorkspace` 已完成两类三级 scope 的上下双滚动左栏和右侧双趋势详情；双动量使用独立列表＋散点工作区，不复用或改写该 DOM。
+9. 首页 `SectorMemberQuery` 的 CodeGraph 消费者仍是 `MarketSectorOverviewQueryService`，语义仍为 Top5 与单日涨跌幅；板块分析完整多周期成员合同没有反向污染首页，本增量继续保持零修改。
+10. `test_wealth_sector_analysis_guardrails.py` 当前已把来源精确冻结为 `TradeCalendar/WealthSectorHierarchy/DcDaily/DcMember/EquityDailyBar` 并继续禁止资金、Heat、DG/Lake 与 QTF 依赖；双动量执行链只能使用其中前三类来源，LLD 必须为该更窄边界增加方法级反例，不能因为模块总白名单包含成员表就读取成员事实。
+
+### 2.5 双动量编码前现状与复用边界
+
+本轮再次对当前代码、消费者和测试进行 CodeGraph 影响面核验，得到以下约束：
+
+1. 前端路由目前只识别 `sector-analysis-momentum`；`SectorAnalysisPage` 只挂载 `useMomentumRankingController`，方法栏把双动量及其余三个按钮统一处理为“待建设”。双动量必须新增明确的路由判别值和独立 controller，不能在现有动量 controller 中增加模式分支。
+2. 后端 `SectorMomentumCalculator` 已经实现区间累计涨跌幅、同组平均并列排名和百分位，是双动量需要复用的客观事实算法。双动量不得复制这些公式，也不得改变其版本和现有动量排名结果。
+3. `SectorMomentumQueryService.build_rankings()` 当前同时承担日期、层级、比较池、行情窗口、计算、状态及动量排名 DTO 组装。新方法不得调用该页面 DTO 后再二次解释，也不得调用其私有方法；应先抽取页面无关的不可变“单日动量事实快照”，让现有 rankings 和新的双动量服务共同消费。
+4. 当前动量 Meta 的 `formula` 字段包含 1 日周期、榜单方向和历史范围等动量排名专属语义，不能当成双动量 Meta 使用。双动量必须拥有方法专属 Meta 响应，且周期只允许 `5/10/20/30`。
+5. 双动量不需要 history、members 或详情接口。其列表、摘要和散点图均由同一份当日全量结果产生；“符合条件／全部行业”、选中行业和表头排序是前端展示状态，不得触发额外业务查询。
+6. 现有 `SectorAnalysisStatusResolver` 的 `READY/DELAYED/EMPTY/ERROR` 可继续作为页面主状态；`Partial Data`、`No Qualified`、`Small Group` 和 `Missing Selected Coordinate` 必须作为 Ready 内容态的确定性子状态，不能扩写公共主状态枚举。
+7. 影响面集中在 `src/biz/**/sector_analysis`、Biz 聚合路由、Wealth 板块分析路由与新双动量 feature，以及对应后端、前端和架构测试；`foundation`、`ops`、`qtf`、DG/Lake、首页板块速览和既有动量成员链路均不在修改范围。
 
 ## 3. 目标信息架构与正式路由
 
@@ -177,13 +216,13 @@ M1 已关闭原先三项页面差异：
 | 财势探查入口首页 | `/wealth/exploration` | M1 已实现 |
 | 成交额洞察 | `/wealth/exploration/turnover-insight` | M1 已实现 |
 | 板块分析默认入口 | `/wealth/exploration/sector-analysis` | `replace` 到动量排名 |
-| 横截面动量排名 | `/wealth/exploration/sector-analysis/momentum-ranking` | M3 既有功能已实现，M3A 成分股增量待开发 |
-| 双动量 | 暂不注册正式路由 | 按钮保留，点击提示“待建设” |
+| 横截面动量排名 | `/wealth/exploration/sector-analysis/momentum-ranking` | M3 与 M3A 已完成并通过验收 |
+| 双动量 | `/wealth/exploration/sector-analysis/dual-momentum` | 本增量目标；技术方案已完成，待 LLD 后编码 |
 | 相对轮动 | 暂不注册正式路由 | 按钮保留，点击提示“待建设” |
 | 成员广度 | 暂不注册正式路由 | 按钮保留，点击提示“待建设” |
 | 量价分布 | 暂不注册正式路由 | 按钮保留，点击提示“待建设” |
 
-首期只有 `momentum-ranking` 是可用方法。其余四个按钮保持可点击，点击后通过当前 Design System 的轻量 toast 提示“待建设”，页面继续停留在当前动量排名路由和工作区。不得为未建设方法注册业务路由、创建 controller、空 API、占位结果页或 mock 数据。
+双动量完成后，`momentum-ranking` 与 `dual-momentum` 是两个可用且互相独立的方法路由。点击这两个按钮必须切换 URL 并只挂载目标工作区；相对轮动、成员广度和量价分布三个按钮继续通过当前 Design System 的轻量 toast 提示“待建设”，不得改变 URL、创建 controller、请求接口、渲染占位结果页或使用 mock 数据。
 
 ### 3.2 面包屑
 
@@ -204,14 +243,14 @@ flowchart TD
   B --> D["板块分析子页面"]
   D --> E["当前方法按钮"]
   E --> F["仅挂载当前工作区"]
-  F --> G["首期：动量排名"]
+  F --> G["动量排名或双动量"]
 ```
 
 1. 入口首页只请求页面公共上下文和 TopMarketBar ticker，不请求成交额或板块数据。
 2. 成交额子页面只请求现有成交额洞察接口。
-3. 板块分析只请求当前方法的数据；首期只会请求动量排名。
+3. 板块分析只请求当前路由方法的数据；动量排名和双动量不得同时挂载 controller、图表或隐藏 DOM。
 4. 未选方法不创建 controller、图表实例、网络请求或隐藏 DOM。
-5. 点击四个待建设按钮只触发本地 toast，不改变 URL、页面状态或已加载的动量排名事实。
+5. 点击三个待建设按钮只触发本地 toast，不改变 URL、页面状态或已加载的当前方法事实。
 
 ## 4. 前端目标架构
 
@@ -274,7 +313,7 @@ CSS 从 `market-overview-page.css` 原样移到共享组件 CSS；不得借提�
 
 ### 4.4 动量排名 URL 状态
 
-已建设的方法使用 path，工作区状态使用 query；首期只有动量排名 path：
+已建设的方法使用 path，工作区状态使用 query；本节只记录既有动量排名 path 的 URL 合同，双动量使用第 12A.7 节的独立合同：
 
 | query | 允许值 | 默认值 | 说明 |
 |---|---|---|---|
@@ -973,7 +1012,7 @@ M2 已完成 Prod 只读 EXPLAIN 和纯应用计算基准：最重 History 查�
 8. 两张图同时显示、共享 x 轴与悬停日期、独立 y 轴、强度排名第一位于顶部、缺点断线。
 9. 切换日期、周期、方向或显示范围时保留仍在比较池内的当前行业；只有 scope 或父级使其失效时才重置。
 10. 涨幅榜／跌幅榜切换只改变列表顺序和 `listPosition`，不改变 `strengthRank/percentile`，也不重新请求另一套 history。
-11. 快速切换时旧请求不能覆盖新状态；点击四个待建设按钮只显示 toast，URL 和动量工作区不变，并且零业务请求、零图表实例。
+11. 快速切换时旧请求不能覆盖新状态；动量排名与双动量通过正式路由切换且仅挂载当前工作区，另外三个待建设按钮只显示 toast、零业务请求、零图表实例。
 12. READY/DELAYED/EMPTY/ERROR 和重试全部由真实 API 响应驱动，不回退 mock。
 13. 只有两个三级 scope 渲染 `390 + 12 + 464` 左栏；其他 scope 保持既有单榜单，不发送 members 请求。
 14. 成员列表四列、固定表头、完整内部滚动、切换选择回顶、长名称不挤压数值列，并按第 1.5 节已拍板合同展示。
@@ -1008,6 +1047,386 @@ stockName / stockCode / close / member returnPct
 6. 额外执行运行时宽度验收：`1600px` 必须精确命中 Figma 尺寸；`1512px` 必须等宽收缩且无横向裁剪；`1460px` 内容最小宽度必须无内部重叠；`1366px` 只允许由全局最小宽度产生页面级横向滚动，不允许模块自身再固定为 `1564px`。
 7. 三级总榜 `1051:1251` 与二级内三级 `987:776` 必须单独验收：左栏总高仍为 `866px`，上榜单 `390px`、间距 `12px`、下成员列表 `464px`，两个 viewport 独立滚动；右栏位置、尺寸、摘要和图表相对增量修改前不漂移。
 8. 成分股真实长数据必须验证四列表头与行严格对齐，长股票名不能挤压代码和数值列；空值、正负值和最大成员数样本均不得造成换行、裁剪、重叠或横向溢出。
+
+## 12A. 双动量增量技术方案
+
+### 12A.1 目标合同
+
+双动量是“描述当前状态”的独立研究方法，不是预测模型。页面针对同一行业、同一交易日和同一观察周期，同时展示两项客观事实：
+
+1. 绝对动量：该行业所选周期的区间涨跌幅是否严格大于 `0`。
+2. 相对动量：该行业在当前比较池内的同组强度百分位是否达到所选阈值。
+
+只有两项同时满足，`qualificationStatus` 才能是 `QUALIFIED`。两个条件不设权重，不相互抵消，不合成为综合分。页面不得出现“信号触发”“未来继续上涨”“成功率”或买卖建议等预测表述。
+
+本增量只增加双动量，不改变已经验收的横截面动量排名公式、API、页面和成分股明细。相对轮动、成员广度和量价分布继续保持待建设。
+
+### 12A.2 参数、比较池与默认值
+
+| 参数 | 允许值 | 默认值 | 技术规则 |
+|---|---|---|---|
+| `scope` | `LEVEL_1/LEVEL_2/LEVEL_3/LEVEL_1_CHILDREN/LEVEL_2_CHILDREN` | `LEVEL_1` | 完全复用动量排名的当前发布行业层级和比较池解析规则 |
+| `level1Code` | 当前层级中的一级行业代码 | 无 | 只在两个父级内范围按既有规则要求或保留 |
+| `level2Code` | 所选一级行业直属二级行业代码 | 无 | 只在 `LEVEL_2_CHILDREN` 必填；闭包非法直接拒绝 |
+| `tradeDate` | SSE 已开市历史日期 | 公共 `pageContext.tradeDate` | 不自行使用浏览器当天或另一套时间戳 |
+| `period` | `5/10/20/30` | `20` | 绝对和相对动量使用同一周期；明确拒绝 `1` |
+| `leadingThreshold` | `70/80/90` | `80` | 判定为 `percentile >= leadingThreshold` |
+| `resultView` | `QUALIFIED/ALL` | `QUALIFIED` | 纯前端列表视图，不改变比较池和散点数据，不触发请求 |
+| `sectorCode` | 当前比较池中的行业代码 | 见选择规则 | 纯选择状态，不改变结果计算 |
+
+所有行业继续使用当前 `SW2021` 之外的既有东财行业层级事实；页面和 API 不出现“东财”或 `DC` 品牌字样。比较池、父子闭包、并列排名和百分位语义只允许复用第 6 节现有公式，不新建第二套行业池。
+
+### 12A.3 公式与分类状态
+
+底层事实版本保持：
+
+```text
+basisFormulaKey = sector-cross-sectional-momentum
+basisFormulaVersion = 1
+```
+
+双动量分类公式单独注册为：
+
+```text
+formulaKey = sector-dual-momentum
+formulaVersion = 1
+minimumGroupSize = 3
+```
+
+对每个行业按以下顺序计算：
+
+1. 复用 `SectorMomentumCalculator` 计算所选周期的 `returnPct`、`strengthRank` 和 `percentile`；完整 `N+1` 交易日、缺口传播、并列平均名次和稳定排序语义不变。
+2. `returnPct > 0` 为 `absoluteStatus=POSITIVE`；`returnPct <= 0` 为 `NOT_POSITIVE`；缺失为 `UNAVAILABLE`。恰好 `0%` 不算上涨。
+3. 当前比较池至少有 3 个可计算行业时，`percentile >= leadingThreshold` 为 `relativeStatus=LEADING`，否则为 `NOT_LEADING`。
+4. 当前比较池少于 3 个可计算行业时，仍返回客观排名、百分位和可绘制坐标，但所有可计算行业均为 `relativeStatus=SAMPLE_INSUFFICIENT`，不得判定领先。
+5. 只有 `absoluteStatus=POSITIVE` 且 `relativeStatus=LEADING` 时，`qualificationStatus=QUALIFIED`；其他具有完整且样本充分事实的组合为 `NOT_QUALIFIED`；缺数据或样本不足为 `NOT_EVALUATED`。
+6. 只要 `returnPct` 和 `percentile` 均存在，`coordinateStatus=PLOTTABLE`；缺少任一坐标时为 `UNAVAILABLE`，前端不得补零或伪造点位。
+
+为避免前端根据文案或颜色重新推导业务结论，后端逐行返回三类机器状态和一个展示状态：
+
+| 字段 | 枚举 |
+|---|---|
+| `absoluteStatus` | `POSITIVE / NOT_POSITIVE / UNAVAILABLE` |
+| `relativeStatus` | `LEADING / NOT_LEADING / SAMPLE_INSUFFICIENT / UNAVAILABLE` |
+| `qualificationStatus` | `QUALIFIED / NOT_QUALIFIED / NOT_EVALUATED` |
+| `coordinateStatus` | `PLOTTABLE / UNAVAILABLE` |
+| `displayStatus` | `QUALIFIED / UP_NOT_LEADING / NOT_UP_LEADING / NOT_UP_NOT_LEADING / SAMPLE_INSUFFICIENT / DATA_INSUFFICIENT` |
+
+`displayStatus` 只是上述事实的后端稳定映射，不是新的分数。接口还必须满足以下不变量：
+
+```text
+totalCount = 当前比较池的全部行业数
+calculableCount = returnPct 与 percentile 均可计算的行业数
+qualifiedCount = qualificationStatus == QUALIFIED 的行业数
+insufficientCount = qualificationStatus == NOT_EVALUATED 的行业数
+plottableCount = coordinateStatus == PLOTTABLE 的行业数
+0 <= qualifiedCount <= calculableCount <= totalCount
+0 <= plottableCount <= totalCount
+```
+
+小组样本不足时，`qualifiedCount` 固定为 `0`，但 `calculableCount` 和 `plottableCount` 仍按客观事实统计。缺数据行业不能从 `totalCount` 中静默删除。
+
+### 12A.4 后端复用结构
+
+为复用已验证事实且不让两个页面合同互相污染，目标结构为：
+
+```text
+SectorAnalysisMetaQueryService
+  ├── Momentum Meta mapper（保持现有响应不变）
+  └── Dual Momentum Meta mapper（方法专属公式与参数）
+
+SectorMomentumSnapshotQueryService
+  ├── MarketPageContextQuery
+  ├── SectorHierarchyQuery / resolve_scope_pool
+  ├── SectorMomentumQuery
+  └── SectorMomentumCalculator
+          ↓ immutable single-date snapshot
+      ├── SectorMomentumQueryService.build_rankings()（现有 DTO 映射）
+      └── SectorDualMomentumQueryService
+              └── SectorDualMomentumClassifier（纯分类）
+```
+
+实施约束：
+
+1. `SectorMomentumSnapshotQueryService` 返回页面无关、不可变的单日事实快照，至少包含公共日期、层级版本、比较池、父级选择、周期、全量行业身份、收益／排名／百分位和覆盖计数。
+2. 现有 `build_rankings()` 改为消费快照并映射原 DTO；其公开响应、排序、SQL 上限和全部既有测试必须零变化。
+3. `SectorDualMomentumQueryService` 消费同一快照和纯 `SectorDualMomentumClassifier`，不得调用动量排名 HTTP DTO、不得调用另一个 service 的私有方法、不得复制区间收益或百分位公式。
+4. Meta 的公共日期、层级和覆盖查询可抽为页面无关服务；现有动量 Meta 响应仍保持原字段，双动量 Meta 只返回本方法所需合同，禁止把动量排名的 `directions/historyRanges/period=1` 暴露给双动量。
+5. 不新增 ORM 模型、数据库表、迁移、物化结果、缓存服务或后台任务；每次查询仍直接只读 Prod 当前事实。
+6. 新实现只落 `src/biz/**` 和 `wealth/src/**`，由 `src.app` 组合路由；不得产生 `foundation|ops|biz -> qtf` 依赖。
+
+计划新增或调整的后端文件边界：
+
+```text
+src/biz/services/wealth/market/sector_analysis/
+  sector_analysis_meta_query_service.py
+  sector_momentum_snapshot_query_service.py
+  sector_dual_momentum_contract.py
+  sector_dual_momentum_classifier.py
+  sector_dual_momentum_query_service.py
+
+src/biz/schemas/wealth/market/
+  sector_dual_momentum.py
+
+src/biz/api/wealth/market/
+  sector_analysis.py                     # 只增加双动量路由
+```
+
+最终文件名和拆分可在 LLD 根据当前模块命名再次核定，但上述职责边界不可合并回通用大 service。
+
+### 12A.5 API 合同
+
+新增两个只读 endpoint：
+
+```text
+GET /api/v1/wealth/market/sector-analysis/dual-momentum/meta
+GET /api/v1/wealth/market/sector-analysis/dual-momentum/results
+```
+
+两者继续要求现有 Web 登录态，不新增角色或权限。请求和响应使用 camelCase 且 `extra="forbid"`；不得返回 SQL、连接、表名、堆栈或技术 payload。
+
+#### Meta
+
+请求只接受：
+
+```text
+market
+```
+
+响应至少包含：
+
+```text
+status / tradingDay / pageStatus / message / exceptionCode / debugInfo
+hierarchyVersion / hierarchy / coverage
+formulaKey / formulaVersion
+basisFormulaKey / basisFormulaVersion
+periods = [5, 10, 20, 30]
+leadingThresholds = [70, 80, 90]
+minimumGroupSize = 3
+scopes = [LEVEL_1, LEVEL_2, LEVEL_3, LEVEL_1_CHILDREN, LEVEL_2_CHILDREN]
+defaults = {scope: LEVEL_1, period: 20, leadingThreshold: 80, resultView: QUALIFIED}
+```
+
+Meta 继续遵守公共日期查询单语句化后的最多 3 条 SQL 预算：公共日期 1 条、当前发布层级 1 条、行情覆盖 1 条。
+
+#### Results
+
+请求只接受：
+
+```text
+market
+tradeDate
+scope
+level1Code?
+level2Code?
+period
+leadingThreshold
+hierarchyVersion
+debug?
+```
+
+`resultView`、`sectorCode` 和列表排序不进入请求：它们不改变业务事实，只由前端对返回的全量行做可逆展示。`hierarchyVersion` 必须与当前唯一发布版本一致；不一致返回 HTTP 409 `SA_FACT_VERSION_MISMATCH`，前端废弃旧 Meta 和 Results 后从 Meta 重新加载，禁止拼接两个层级版本。
+
+响应至少包含：
+
+```text
+status / tradingDay / pageStatus / message / exceptionCode / debugInfo
+formulaKey / formulaVersion / basisFormulaKey / basisFormulaVersion
+hierarchyVersion / scope / period / leadingThreshold / minimumGroupSize
+parentSelection
+totalCount / calculableCount / qualifiedCount / insufficientCount / plottableCount
+items[]
+```
+
+每个 `items[]` 至少包含：
+
+```text
+sectorCode / sectorName / industryLevel / hierarchyPath / canDrillDown
+returnPct / strengthRank / percentile
+absoluteStatus / relativeStatus / qualificationStatus / coordinateStatus / displayStatus
+missingReason?
+```
+
+服务端按“百分位降序、区间涨跌幅降序、行业代码升序”输出规范顺序。缺值参与排序时固定置底；前端本地切换表头排序不能改变服务端规范事实顺序。
+
+### 12A.6 日期、状态与缺失语义
+
+1. 默认日期必须来自公共 `pageContext.tradeDate`；20:00 前展示上一有效交易日，20:00 后优先展示当天盘后事实。
+2. 当天事实延迟时，沿用既有 Delayed 行为：继续展示上一有效交易日内容，并提示“当前展示某日盘后数据”。
+3. 历史复盘只通过交易日选择器切换；Results 的列表、摘要、散点坐标和统计数量必须使用同一 `tradingDay.actualTradeDate`。
+4. `Loading/Ready/Delayed/Empty/Error` 是页面主状态；不得增加 `PARTIAL` 主状态。
+5. `Partial Data` 是 Ready：保留所有可用行业、散点和统计，明确数据不足数量及原因。
+6. `No Qualified` 是 Ready：只要 `calculableCount > 0`，即使 `qualifiedCount=0`，摘要和散点图仍正常展示，符合条件列表显示局部空提示并允许切换到全部行业。
+7. `Small Group` 是 Ready：`0 < calculableCount < 3` 时展示客观事实和可绘制点，但不判定是否符合条件，也不使用符合条件填充色。
+8. `Missing Selected Coordinate` 是 Ready：所选行业仍保留在全部行业列表和摘要中，缺值显示 `--`，图中不伪造点并提示“当前行业坐标不可计算”；其独立层级下钻仍可使用。
+9. 只有 `calculableCount=0` 时才进入 Empty；查询、层级或合同失败进入 Error。
+
+### 12A.7 前端路由、状态与请求时序
+
+前端新增独立 feature：
+
+```text
+wealth/src/features/wealth-exploration/sector-analysis/dual-momentum/
+  api/
+    sectorDualMomentumApi.ts
+    sectorDualMomentumAdapter.ts
+  model/
+    sectorDualMomentumTypes.ts
+    sectorDualMomentumUrlState.ts
+    useSectorDualMomentumController.ts
+  ui/
+    DualMomentumWorkspace.tsx
+    DualMomentumToolbar.tsx
+    DualMomentumResultPanel.tsx
+    DualMomentumResultList.tsx
+    DualMomentumSelectedSummary.tsx
+    DualMomentumScatterPlot.tsx
+    DualMomentumStateSurface.tsx
+    DualMomentumWorkspace.css
+```
+
+路由和加载规则：
+
+1. `WealthRouter` 增加 `sector-analysis-dual-momentum` 判别值；`SectorAnalysisPage` 根据路由只挂载动量排名或双动量一个工作区。
+2. 方法栏改为受控 `activeMethod`。动量排名和双动量执行真实导航；其余三个按钮只提示待建设。
+3. 首次进入双动量先请求 Meta，再用 Meta 的 `hierarchyVersion` 和规范化 URL 状态请求 Results。
+4. 切换范围、父级、日期、周期或阈值时请求 Results；切换符合条件／全部行业、选择行业或切换列表排序时不得请求服务器。
+5. Meta 和 Results 均使用 `AbortController + requestKey`；旧响应不得覆盖当前筛选。收到 `SA_FACT_VERSION_MISMATCH` 时清除两类短期状态并从 Meta 重新加载。
+6. 未选中的方法不创建 controller、SVG 图表、请求或隐藏 DOM。
+
+可恢复 URL 状态固定为：
+
+```text
+market / debug / tradeDate / scope / level1Code / level2Code
+period / threshold / resultView / sectorCode
+```
+
+未知 query 参数忽略并从规范化 URL 中清除；非法枚举回到明确默认值。列表表头排序属于当前页面临时展示偏好，不进入业务 URL，也不改变选择或后端结果。
+
+父级状态与 API 参数必须区分：页面可以在切到全局总榜时继续记住最近一次合法的 `level1Code/level2Code`，以便返回父级内范围时恢复；Results request builder 只能按当前 scope 发送其要求的父级字段，全局总榜不得把隐藏父级参数发给后端。改变一级父级后，若原二级不再属于新一级，必须重置为新一级下首个合法二级；除此以外不得顺带重置日期、周期、阈值或结果视图。
+
+选择规则严格按产品基线：
+
+1. `QUALIFIED` 视图下，原选中行业仍符合条件则保留；否则选择规范结果中的第一只符合条件行业；零结果时清空选择。
+2. `ALL` 视图下，原选中行业仍属于比较池即保留；只有退出比较池才按规范结果第一行重置。
+3. 列表行和散点互相选择同一 `sectorCode`；“被选中”和“符合条件”是两个独立状态。
+4. 下钻使用独立控件：一级进入其直属二级，二级进入其直属三级，三级无下钻；下钻保留日期、周期和阈值，当前对象退出新池后才重置选择。
+
+### 12A.8 列表、摘要与散点图实现
+
+结果列表必须完整显示当前结果视图，不截断 Top N，并使用固定表头和内部纵向滚动。列固定为行业名称、行业路径、区间涨跌幅、同组强度排名、百分位和当前状态。
+
+1. 规范默认排序为百分位降序、区间涨跌幅降序、行业代码升序。
+2. 用户只能点击“区间涨跌幅”和“同组强度百分位”表头改变本地排序；不提供综合分排序。
+3. `QUALIFIED` 视图只过滤 `qualificationStatus=QUALIFIED`；`ALL` 展示全量 `items`，包括缺数据对象。
+4. 长名称和路径单行省略并提供 Tooltip；数字使用 `tabular-nums`；缺失显示 `--`。
+5. 选择摘要只展示所选行业已有事实和稳定状态，不把缺值转成 0，也不显示预测语言。
+6. 颜色、边框、圆角、阴影、字体和间距只能复用 `wealth/src/styles/design-tokens.css` 的 `--cs-*` 变量及既有板块分析公共样式；不得从 Figma 复制十六进制颜色或建立方法私有的同义 Token。涨跌继续使用中国市场红涨绿跌语义，选择态使用品牌色，系统异常使用系统语义色。
+
+二维散点图使用响应式 SVG：
+
+1. 横轴为所选周期 `returnPct`，纵轴固定为 `0..100` 的 `percentile`。
+2. 横轴域以 `0` 为中心包含所有可绘制值并保留边距；绘制 `0%` 竖线、当前阈值横线和右上符合条件区域。
+3. 无论列表当前是 `QUALIFIED` 还是 `ALL`，图中都绘制全部 `coordinateStatus=PLOTTABLE` 的行业，避免切换列表时误解比较池发生变化。
+4. 符合条件由填充色表达；选中由点尺寸和外描边表达。选中不改变资格状态；小组样本不足使用中性填充，即使被选中也只增加金色描边。
+5. 只让当前选中行业常驻名称；Hover 显示名称、路径、涨跌幅、同组排名和百分位。其他名称不常驻，避免重叠。
+6. 缺坐标行业没有点；若它被选中，摘要正常展示，图中显示局部提示。禁止用 `(0,0)`、上一日或组均值伪造位置。
+7. 图表放大仅放大同一事实视图，不新增轨迹或历史序列，也不默认显示全部名称。
+
+工作区根使用：
+
+```css
+grid-template-columns: minmax(0, 1fr) 12px minmax(0, 1fr);
+```
+
+在 1600px 视口命中 Figma 的 `776 + 12 + 776`；1512px 和 1460px 等宽收缩且内部使用 `min-width: 0`；1366px 只允许公共页面最小宽产生页面级横向滚动。运行时不得把工作区写死为 `1564px`。
+
+### 12A.9 数据源、查询和性能预算
+
+双动量只读取既有三张 Prod 事实表：
+
+| 表 | 用途 |
+|---|---|
+| `core_serving.trade_calendar` | 公共业务日期和 `N+1` 个 SSE 开市日窗口 |
+| `core_serving.wealth_sector_hierarchy` | 当前唯一发布行业层级、五类比较池和路径 |
+| `core_serving.dc_daily` | 行业每日收盘事实、区间收益和覆盖信息 |
+
+不读取 `dc_member`、`equity_daily_bar` 或其他成员／股票事实。前述三张来源已经在动量排名 M2 完成合同和覆盖审计，本增量不重新做数据集审计；编码验收只验证新查询计划、SQL 数量、响应体和真实只读性能。
+
+性能门禁：
+
+| 请求 | SQL 上限 | P95 | payload |
+|---|---:|---:|---:|
+| 双动量 Meta | 3 | `<= 500ms` | `<= 256KB` |
+| 双动量 Results | 5 | `<= 500ms` | `<= 256KB` |
+
+Results 一次返回当前比较池全量行；不得按列表视图发两次请求，不得为每个行业执行 N+1 SQL。首版不增加服务端缓存；若真实性能超预算，必须回到 LLD 审查查询计划，不能擅自新增缓存、结果表或索引。
+
+### 12A.10 异常码与安全
+
+M5 已在既有异常码注册表登记并在 LLD 冻结下列新增或复用关系：
+
+| 异常码 | 场景 | HTTP／页面处理 |
+|---|---|---|
+| `SA_FACT_VERSION_MISMATCH` | Results 携带的层级版本已过期 | `409`；清空 Meta/Results 并重载 |
+| 既有 `SA_SCOPE_INVALID` | 父级缺失、层级不符或闭包非法 | `400`；稳定 Error 文案 |
+| 既有 `SA_SELECTION_INVALID` | 非开市日、非法周期、非法阈值或其他选择值 | `400`；稳定 Error 文案 |
+| 既有 `SA_HIERARCHY_UNAVAILABLE` | 当前层级为空、多版本或闭包非法 | Error |
+| 既有来源／查询异常码 | Prod 事实不可读取或合同失败 | Error；不泄露内部信息 |
+
+若注册表已有语义完全相同的版本冲突码，LLD 必须复用而不是新增同义码。API 继续验证未登录为 401；不存在未授权匿名页面路径，也不新增角色、账号或权限配置。
+
+### 12A.11 自动化测试矩阵
+
+后端至少覆盖：
+
+1. 五类比较池及父子闭包正反例；其他一级父级数据变化不影响当前父级内结果。
+2. `5/10/20/30` 正例和 `1`、未知周期反例。
+3. `70/80/90` 正例、阈值边界相等入选及其他阈值拒绝。
+4. `returnPct > 0` 严格边界，`0` 与负数均不满足绝对动量。
+5. 四种完整组合的 `displayStatus`、资格状态和数量不变量。
+6. 可计算对象为 2 时保留排名、百分位和坐标，但所有对象不判定资格；达到 3 时恢复正常判断。
+7. 缺收益、缺百分位、完整窗口缺口、并列值、非有限值和稳定行业代码排序。
+8. 零个符合条件仍返回 Ready；零个可计算对象才返回 Empty；Partial、Delayed 和 Error 映射。
+9. `hierarchyVersion` 匹配与 409 失配；strict query 和响应 schema 拒绝未知字段。
+10. Meta/Results SQL 上限；新查询无 N+1；现有动量 meta/rankings/history/members 响应与测试零回退。
+11. 架构护栏证明只读取三张批准表、无迁移、无 QTF/DG/Lake/预测/资金/成员依赖。
+
+前端至少覆盖：
+
+1. 双动量正式路由、方法按钮高亮、刷新／前进／后退恢复；其余三个按钮继续 toast 且零请求。
+2. 同一时刻只挂载一个方法 controller；切换后旧请求被取消且不能提交状态。
+3. URL 白名单、默认值、五类范围、父级联动、日期、周期、阈值、结果视图和选中行业恢复。
+4. `QUALIFIED/ALL` 本地切换零请求；表头排序零请求且不改变资格和选择。
+5. 列表／散点双向选择、Hover、选中与符合条件两种视觉语义。
+6. 15 个 Figma 状态：默认、全部、三类其他范围、Hover、Partial、Loading、Delayed、Empty、Error、Small Group、No Qualified、Missing Selected Coordinate。
+7. 小组样本不足无资格高亮；缺坐标行业可在全部列表选择、图中无伪点、下钻仍可用。
+8. 409 自动废弃旧事实并从 Meta 重载；401、错误重试和过期响应丢弃。
+9. strict adapter 对未知字段、枚举和数量不变量失败闭合，不用 mock 或旧数据兜底。
+10. 1600／1512／1460／1366 四档宽度、长行业名、完整长列表和散点密集样本无换行、裁剪、重叠或模块级横向溢出。
+
+### 12A.12 Figma 交付验收
+
+编码验收必须逐个对照第 1.2 节的 15 张正式画板和组件集，不得只拿默认态截图代表全部交互：
+
+1. 1600px 下工作区严格命中 `1564×1006`，左右列为 `776 + 12 + 776`；普通 UI 相对 Figma 偏差不超过 2px。
+2. 工具栏、结果列表、选择摘要、散点图外壳和状态面板复用已冻结的局部组件／变体语义。
+3. `Ready / No Qualified` 与 `Ready / Missing Selected Coordinate` 必须是正常页面骨架中的局部状态，不得退化为 Empty 或 Error。
+4. Small Group 的“选中”描边和“符合条件”填充必须独立；不能因选中而看起来符合条件。
+5. 旧 Draft 已冻结且不在正式画板区域，开发不得引用 `967:72`。
+6. 列表与散点、Hover、下钻、结果视图、交易日选择和状态恢复均需真实交互验收，不只验静态像素。
+
+### 12A.13 编码停止门禁
+
+M5 已完成以下编码前门禁；它们是进入 M6 的硬约束：
+
+1. 把本节逐项映射到当前文件、类、DTO、路由、URL 状态、测试和 Figma 节点。
+2. 再次核验异常码注册表，冻结是否复用现有码及最终名称。
+3. 冻结共享单日事实快照的数据结构和现有动量 DTO 零变化证明方式。
+4. 冻结 Meta／Results 的完整请求响应 schema、SQL 预算和前端 adapter。
+5. 用 CodeGraph 对最终改动符号做调用方、被调用方和影响面复核。
+
+若 LLD 发现现有代码无法在不改变动量排名合同的情况下抽取共享快照，必须停下说明冲突，不得复制公式或在旧 service 上叠加页面模式参数。
 
 ## 13. 分期里程碑
 
@@ -1083,9 +1502,45 @@ stockName / stockCode / close / member returnPct
 3. 按用户 2026-08-28 的决定，不再单列周边页面专项人工回归；相关代码回退风险只由第 1 项现有自动化套件覆盖。
 4. 按用户 2026-08-28 的决定，本阶段不执行部署后生产只读数据和页面验收。
 
+### M5：双动量 LLD 与编码门禁
+
+状态：`PASS (2026-08-28)`。
+
+1. 依据第 12A 节和产品基线 v1.4 编写双动量 LLD，完成文件级职责、DTO、状态、URL、异常、测试和 Figma 节点映射。
+2. 使用 CodeGraph 再次核验共享快照抽取对现有动量排名、API、测试和前端消费者的影响。
+3. 冻结异常码、两个 endpoint、SQL 预算、数量不变量及动量排名零变化回归门禁。
+4. M5 只收口文档和编码合同，不实现接口或页面；出现方案与代码冲突时停止等待拍板。
+
+### M6：双动量后端
+
+状态：`READY / NOT STARTED`。
+
+1. 抽取页面无关的 Meta 事实和单日动量事实快照，保持四个既有动量 endpoint 合同不变。
+2. 实现版本化双动量分类器、Meta／Results 两个只读 endpoint 和异常码。
+3. 完成五类比较池、四周期、三阈值、四组合、小组／缺失／零符合条件及 SQL／性能正反例。
+4. 后端验收通过后停止，不自动进入前端。
+
+### M7：双动量前端
+
+状态：`BLOCKED BY M6`。
+
+1. 新增正式路由、受控方法栏、独立 controller、strict adapter 和 URL 恢复。
+2. 严格按 15 张 Figma 正式画板实现工具栏、结果列表、选择摘要、散点图和全部边界状态。
+3. 确保未选方法零请求、结果视图／选择／排序零请求，以及过期响应与 409 正确处理。
+4. 完成组件、交互、状态和响应式自动化后停止。
+
+### M8：双动量联调与交付验收
+
+状态：`BLOCKED BY M7`。
+
+1. 执行双动量真实 API smoke、动量排名全量防回退、前端全量、类型检查、构建、架构和文档门禁。
+2. 对 Meta／Results 做真实只读 SQL 数量、P95 和 payload 验收，不重复进行来源数据集覆盖审计。
+3. 逐一完成 15 个正式状态、组件集和 1600／1512／1460／1366 宽度的像素与交互验收。
+4. 用户验收前不把双动量标记为完成，不自动进入下一个方法。
+
 ### 后续方法
 
-双动量、相对轮动、成员广度和量价分布分别建立自己的产品补充、Figma 正式态、implementation design 增量和 LLD slice。不得在 M1-M4 中顺手实现。
+相对轮动、成员广度和量价分布分别建立自己的产品补充、Figma 正式态、implementation design 增量和 LLD slice。不得在 M5-M8 中顺手实现。
 
 ## 14. 影响面、风险与处理
 
@@ -1104,7 +1559,17 @@ stockName / stockCode / close / member returnPct
 | 快速切换串数据 | 多个异步请求乱序返回 | AbortController + request key，过期响应不可提交 UI |
 | 切换控件导致研究对象丢失 | 日期、周期、方向或显示范围变化后榜单重排 | 先按比较池验证 sectorCode；仍属于时保留，只有退出比较池才重置 |
 | 排名随榜单方向翻转 | 把涨幅／跌幅列表序号误作历史排名 | API 分离 listPosition 与 strengthRank；history 不接受 direction |
-| 草稿方法被误当已完成 | 四个草稿节点存在于 Figma | 按钮点击仅提示“待建设”；不跳路由，无 API、无 mock、无隐藏实现 |
+| 双动量复用动量排名页面 DTO | 为省代码直接调用 `build_rankings()` 或解释其响应 | 抽取不可变单日事实快照；两个页面 service 分别映射，现有响应零变化 |
+| 双动量 Meta 泄漏旧公式语义 | 复用包含 1 日、方向和历史范围的动量 Meta | 新增方法专属 Meta；公共服务只返回日期、层级和覆盖事实 |
+| 前端二次计算资格 | 只返回收益和百分位，让页面自行判断颜色与文案 | 后端返回绝对、相对、资格、坐标和展示状态；adapter 严格校验 |
+| 零符合条件被当成空页 | `qualifiedCount=0` 直接映射 Empty | 只要 `calculableCount>0` 就保持 Ready，并提供切换全部行业入口 |
+| 选中与符合条件视觉混淆 | 用同一种颜色表达两种状态 | 符合条件使用填充，选中使用尺寸／描边；小组不足永不使用资格填充 |
+| 缺坐标被伪造成零点 | 图表为缺值补 `(0,0)` 或上一日事实 | 后端返回 `coordinateStatus`；缺点只留列表和摘要，图中显示局部提示 |
+| 小组产生伪资格 | 两个行业也按百分位阈值判定领先 | `minimumGroupSize=3`；小组只展示事实，不判定资格 |
+| 层级版本混用 | Meta 后层级重发，Results 继续使用旧父子池 | Results 强制携带版本；409 后清空并从 Meta 重载 |
+| 双方法同时加载 | 页面隐藏挂载两个 controller | 路由判别联合只挂载当前方法；未选工作区零 DOM、零请求 |
+| Figma 固定宽度进入代码 | 把 `1564px` 设计基线写成运行时宽度 | 使用响应式等宽 Grid；四档视口作为验收门禁 |
+| 旧草稿被误当正式设计 | 开发继续引用 `967:72` | 旧节点已冻结移入 Archive；只接受第 1.2 节 15 个正式状态与组件集 |
 
 ## 15. 边界与依赖矩阵结论
 
@@ -1117,7 +1582,7 @@ stockName / stockCode / close / member returnPct
 
 ## 16. 编码入口与停止门禁
 
-[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md)已覆盖原 M0-M3 以及 2026-08-28 新增的 M3A。M3 与 M3A 已严格按冻结合同完成实现并通过用户验收；M4 当前只执行自动化联调门禁，最终 Figma 像素与交互验收待用户听取工作量说明后另行决定，不执行周边页面专项人工回归或生产部署验收。
+[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md) v1.13 已完成双动量 M5：第 12A 节已经逐项映射到当前文件、类、DTO、路由、URL、状态、测试和 Figma 节点，异常码与共享事实快照边界也已冻结。下一步严格固定为 M6 后端；M6 先证明既有四 endpoint 零变化，再实现双动量分类器与两只只读接口，不进入前端。
 
 编码期间若发现当前数据字段、索引、消费者、真实性能或 Figma 与本文/LLD 冲突，必须停止并回到方案层修正，禁止边编码边改口径。任何新增索引、迁移、缓存、结果表、第三方依赖或范围扩张都不在本方案授权内。
 
@@ -1125,6 +1590,8 @@ stockName / stockCode / close / member returnPct
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.19 | 2026-08-28 | M5 完成：代码与消费者影响面、公共 Meta／单日动量事实快照、专属 strict DTO、版本冲突异常、前端 URL/controller、15 状态与 M6～M8 编码门禁已在 LLD v1.13 冻结；下一步 M6，尚未编码 | Codex |
+| v1.18 | 2026-08-28 | 按产品基线 v1.4 与双动量 15 张正式 Figma 状态完成增量技术方案：冻结独立路由、两只只读 API、共享事实快照、双动量分类状态、五类比较池、四周期、三阈值、Ready 边界态、前端 URL／选择／散点交互、性能与测试门禁；旧草稿冻结，下一步固定为 M5 LLD，不进入编码 | Codex |
 | v1.17 | 2026-08-28 | 用户确认 M3/M3A 页面通过验收；M4 自动化联调门禁以 179 项后端、379 项前端、typecheck、build、单一 Alembic head、文档与 diff 检查通过。M4 不再单列周边页面专项人工回归或生产部署验收，最终 Figma 像素与交互验收待说明工作量后另行决定 | Codex |
 | v1.16 | 2026-08-28 | 完成 M3A：第四只读 endpoint、独立成员收益计算、局部状态与竞态保护、双滚动响应式页面、4 SQL 门禁、真实最大组日 API P95 和全量回归均通过；等待用户验收，不进入 M4 | Codex |
 | v1.15 | 2026-08-28 | 完成 M3A 编码前纠偏：生产聚合审计证明完整列表不分页可行；补齐产品事实源、必填 hierarchyVersion 与事实版本冲突处理、独立 Query/Calculator/Service 职责、响应式四列、局部状态不变量和 SQL 上限；下一步严格按 LLD 编码 | Codex |
