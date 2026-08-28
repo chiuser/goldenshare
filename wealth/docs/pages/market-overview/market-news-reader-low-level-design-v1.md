@@ -39,8 +39,8 @@ major_news 正文: HTML/TEXT，URL 仅 originalUrl
 | N13 | 股票详情不受影响 | stock-detail files/tests | 原测试通过 | 本轮不得改 stock-detail news |
 | N14 | 无兼容层 | router/types/files | 新合同唯一 | 无 alias route/re-export/旧 DTO |
 | N15 | 畸形 iframe 不吞正文 | `SanitizedHtmlContent` | 自闭合 iframe 后段落保留 | iframe/属性仍不得进入 DOM |
-| N16 | 新闻速览开头 `【...】` 标题在列表和详情统一提取 | `news_display_title.py`、list query、reader service | 示例标题两端一致 | 尾部摘要不得进入任一标题 |
-| N17 | 标题提取严格回退且不扩散 | title normalizer、major query/reader | 畸形括号回退原逻辑 | 不解析正文括号，不修改 major/stock-detail |
+| N16 | 新闻速览开头 `【...】` 标题在列表和详情统一提取 | `news_display_title.py`、list query、reader service | 非空 `title` 与空 `title` 正文开头示例两端一致 | 尾部摘要不得进入任一标题 |
+| N17 | 标题提取严格回退且不扩散 | title normalizer、major query/reader | 畸形括号回退原逻辑 | `title` 非空时不得检查正文；不得扫描正文中部；不修改 major/stock-detail |
 | N18 | 新闻通讯排除新浪财经 | major list/observed/detail query | 其它来源正常返回 | 新浪记录不进列表、不推进观测时间、详情 404 |
 | N19 | 同花顺固定推广文字仅在展示层移除 | major display policy/resolver | HTML/TEXT 主体保留 | 不回写 DB、不修改其它来源、不按文章尾部截断 |
 
@@ -104,29 +104,31 @@ src/biz/queries/wealth/market/news/news_display_title.py
 
 ```python
 extract_leading_bracket_title(title: str | None) -> str | None
-build_news_display_title(title: str | None, fallback_title: str) -> str
+build_news_display_title(title: str | None, content: str | None, fallback_title: str) -> str
 build_news_display_title_expr(title_column, content_column)
 ```
 
 确定性算法：
 
 ```text
-normalized = trim(title)
+normalized_title = trim(title)
+normalized_content = trim(content)
+candidate = normalized_title 非空 ? normalized_title : normalized_content
 
-if normalized 以“【”开头:
+if candidate 以“【”开头:
     close = 第一个“】”的位置
-    if close 存在且 trim(normalized[1:close]) 非空:
-        return trim(normalized[1:close])
+    if close 存在且 trim(candidate[1:close]) 非空:
+        return trim(candidate[1:close])
 
-return normalized 非空 ? normalized : 既有 content 前 80 字 fallback
+return normalized_title 非空 ? normalized_title : 既有 content 前 80 字 fallback
 ```
 
 约束：
 
-1. 只识别开头第一组全角 `【...】`，不识别半角 `[]`，也不扫描正文或标题中部的括号。
+1. `title` trim 后非空时只检查 `title`；`title` 为空时才检查 trim 后原始 `content`，并且只识别候选开头第一组全角 `【...】`，不识别半角 `[]`，也不扫描正文或标题中部的括号。
 2. 缺右括号、`【】`、`【   】` 均回到原逻辑，不返回空标题。
 3. 原始 `NewsLight.title` 不更新、不覆盖；归一化只发生在查询响应层。
-4. `build_news_display_title_expr()` 供列表 SQL 的最终展示标题与 `partition_by` 共同使用；Python 入口供详情 service 使用。两种入口必须共享括号常量和 case table，并用参数化测试证明命中、畸形和不命中分支完全一致；既有无标题正文 fallback 不在本增量中扩写新规则。
+4. `build_news_display_title_expr()` 供列表 SQL 的最终展示标题与 `partition_by` 共同使用；Python 入口供详情 service 使用。两种入口必须共享括号常量和 case table，并用参数化测试证明非空标题、空标题正文开头、畸形和不命中分支完全一致；未命中时既有无标题正文前 80 字 fallback 保持不变。
 5. 不把规则放进前端 adapter、Panel 或 shared reader；否则列表、loading header、详情 ready header 和重试路径会出现漂移。
 6. 不修改 `MajorNewsQuery`、`MajorNewsReaderQuery` 和股票详情新闻 query。
 7. SQLAlchemy 表达式通过方言编译保持现有运行环境一致：PostgreSQL 使用 `strpos`，SQLite 合同测试使用 `instr`；两者都只生成当前查询中的字符串表达式，不创建数据库函数或兼容表。
@@ -502,8 +504,8 @@ NewsReaderItemDto(
 
 标题规则：
 
-1. `news` 先调用 `build_news_display_title()`：完整命中开头第一组 `【...】` 时只返回括号内非空文本，且结果必须与列表 `title` 完全一致。
-2. `news` 未命中标题提取时继续允许由正文构造最多 80 字 fallback title。
+1. `news` 先调用 `build_news_display_title()`：`title` 非空时检查 `title`，`title` 为空时检查 trim 后原始 `content`；完整命中候选开头第一组 `【...】` 时只返回括号内非空文本，且结果必须与列表 `title` 完全一致。
+2. `news` 未命中标题提取时继续允许由正文构造最多 80 字 fallback title；正文中部的括号不得被提取。
 3. `major_news` 列表已要求标题非空；详情若标题为空则受控 `NOT_FOUND`，不从 HTML 正文拼标题，也不应用 `【...】` 提取。
 
 ### 5.6 `NewsReaderItemDto`
@@ -733,9 +735,9 @@ NEWS_CHANNEL_RULE_INVALID
 6. major 空标题、空正文不返回。
 7. 断言 `contentSource/category/panelKey/root field/sortRule`。
 8. 断言 `/stocks` 为 404，`/communications` 正常。
-9. 参数化覆盖：完整开头 `【标题】摘要`、前后空白、多个括号、缺右括号、空括号、标题中部括号和空标题正文 fallback。
+9. 参数化覆盖：非空标题完整开头 `【标题】摘要`、空标题正文完整开头 `【标题】正文`、前后空白、多个括号、缺右括号、空括号、标题中部括号、正文中部括号和普通空标题正文 fallback。
 10. 示例新闻的列表 `title` 精确等于 `商务部等9部门：支持航空保税维修绿色化发展`，且响应中不包含右括号后的摘要。
-11. 两条尾部摘要不同但括号标题相同的新闻，按最终展示标题去重并保留最新记录。
+11. 两条新闻的括号候选无论来自非空 `title` 还是空标题正文，只要提取后的标题相同，就按最终展示标题去重并保留最新记录。
 12. `major_news` 中形似 `【标题】摘要` 的原始标题保持不变，证明规则没有扩散到新闻通讯。
 13. 新浪财经 fixture 不进入列表；更晚的新浪记录不改变 `observed_at`；同一主键详情返回 404。
 
@@ -755,7 +757,7 @@ NEWS_CHANNEL_RULE_INVALID
 6. 非法来源、非法 ID、空正文、超大正文和查询异常受控。
 7. 旧 `/items/{news_id}` 为 404。
 8. `contentSource=news` 的详情 `title` 与列表同一新闻的 `title` 完全一致，并只包含括号内标题。
-9. 缺右括号、空括号和非开头括号继续使用原有标题；不得从正文中的 `【...】` 构造标题。
+9. 缺右括号、空括号和非开头括号继续使用原有标题或正文前 80 字 fallback；仅当 `title` 为空且正文候选以完整非空 `【...】` 开头时才从正文构造标题，不得扫描正文中部。
 10. `contentSource=major_news` 详情标题保持原始 trim 规则。
 11. 同花顺 HTML 和 TEXT fixture 均移除有/无句号的固定推广文字并保留正文主体。
 12. 财联社等其它来源即使包含相同文案也保持原文，证明清理规则没有扩散。
@@ -850,6 +852,8 @@ git diff --check
 
 2026-08-27 当前开发验证结果：后端目标测试 41 项通过；市场总览与阅读器目标前端测试 50 项通过；Wealth 全量测试 335 项、架构依赖测试 4 项、`typecheck`、`build` 通过；文档完整性与 `git diff --check` 通过。构建仅保留既有大 chunk 警告，不影响本增量。
 
+2026-08-28 空标题正文提取补充验证结果：后端新闻列表与阅读器目标测试 50 项通过；Wealth 全量测试 370 项、`typecheck`、`build` 通过；架构依赖护栏 16 项通过；文档完整性与 `git diff --check` 通过。扩大到 `tests/web` 后为 834 项通过、1 项跳过、1 项失败；唯一失败是未改动的板块总览地域详情仍返回 `hierarchyPath: null`，与其测试要求字段不存在冲突。仓库级 `pytest -q` 还在收集阶段被既有 Lake Console 缺失模块和两个同名 `test_tushare_client.py` 冲突阻断，未进入测试执行；这些阻断均不来自本次改动，未越界修复。
+
 ## 13. 计划对账模板
 
 开发收口时必须逐项填写：
@@ -860,7 +864,7 @@ git diff --check
 | N04-N09 | 双源 reader query/service/resolver、`news_item.py`、前后端 API/adapter、router 与旧 stock 合同删除 | `test_wealth_market_news_reader_api.py`、`market-news-reader-controller.test.tsx`、`market-overview-news-real-api.test.tsx` | 已完成：双维身份、major HTML/TEXT、originalUrl 仅溯源、旧路由/字段清零 |
 | N10-N14 | `MarketOverviewPage.tsx`、`MarketNewsPanelGroup.tsx`、`useMarketNewsReader.ts`，shared reader 保持不变 | `MarketOverviewPage.test.tsx`、`news-reader-dialog.test.tsx`、静态清零门禁 | 已完成：独立状态刷新、modal 行为不变、10 分钟窗口与无兼容层 |
 | N15 | `SanitizedHtmlContent.tsx` | `news-reader-dialog.test.tsx` | 已完成：移除畸形自闭合 iframe，保留后续正文且安全边界不放宽 |
-| N16-N17 | `news_display_title.py`、`market_news_query.py`、`news_reader_query_service.py`；前端只消费合同 | `test_wealth_market_news_api.py`、`test_wealth_market_news_reader_api.py`、`market-overview-news-real-api.test.tsx` | 已完成：开头括号标题统一提取、最终标题去重、畸形回退、正文不反向提取及 major/stock-detail 作用域隔离 |
+| N16-N17 | `news_display_title.py`、`market_news_query.py`、`news_reader_query_service.py`；前端只消费合同 | `test_wealth_market_news_api.py`、`test_wealth_market_news_reader_api.py`、`market-overview-news-real-api.test.tsx` | 已完成：空标题正文开头与非空标题统一提取并参与最终标题去重；畸形回退、正文中部不扫描及 major/stock-detail 作用域隔离保持不变 |
 | N18-N19 | `major_news_display_policy.py`、`major_news_query.py`、`major_news_reader_query.py`、major resolver 调用链 | `test_wealth_market_news_api.py`、`test_wealth_market_news_reader_api.py` | 已完成：新浪列表/观测/详情统一过滤；同花顺固定推广文字按来源清理且正文主体保留 |
 
 未完成项不得默认为完成；若任何正式数据事实与本 LLD 冲突，先停下审计并更新方案，不允许临时回退 URL 或保留旧 `/stocks` 兜底。

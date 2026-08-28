@@ -89,7 +89,12 @@ def _add_major_news(
         ("【   】摘要", "正文", "【   】摘要", None),
         ("前缀【标题】摘要", "正文", "前缀【标题】摘要", None),
         ("[半角标题]摘要", "正文", "[半角标题]摘要", None),
-        (None, "【正文中的括号】正文 fallback", "【正文中的括号】正文 fallback", None),
+        (None, "【正文标题】正文 fallback", "正文标题", None),
+        ("  ", "  【 正文标题 】正文 fallback  ", "正文标题", None),
+        (None, "正文前缀【中间括号】正文 fallback", "正文前缀【中间括号】正文 fallback", None),
+        (None, "【缺少右括号正文 fallback", "【缺少右括号正文 fallback", None),
+        (None, "【】正文 fallback", "【】正文 fallback", None),
+        ("原始标题", "【正文标题】不得覆盖", "原始标题", None),
         ("  ", "正文 fallback", "正文 fallback", None),
     ],
 )
@@ -102,7 +107,7 @@ def test_news_display_title_python_and_sql_rules_are_consistent(
 ) -> None:
     fallback_title = content.strip()[:80]
 
-    python_title = build_news_display_title(raw_title, fallback_title)
+    python_title = build_news_display_title(raw_title, content, fallback_title)
     sql_title = db_session.scalar(
         select(
             build_news_display_title_expr(
@@ -296,7 +301,23 @@ def test_market_news_extracts_leading_bracket_title_before_deduplication(
         news_time=in_window_time + timedelta(minutes=2),
         title=None,
         channels=None,
-        content="【正文中的括号】不能反向提取",
+        content="【政策与资本加持 量子计算“AlphaGo时刻”越来越近】中国科学院院士、上海交通大学量子科技学院院长丁洪给出的判断足够乐观",
+    )
+    _add_news(
+        db_session,
+        row_key_hash="brief-body-brackets-old",
+        news_time=in_window_time + timedelta(minutes=1),
+        title=None,
+        channels=None,
+        content="【政策与资本加持 量子计算“AlphaGo时刻”越来越近】较早的重复正文",
+    )
+    _add_news(
+        db_session,
+        row_key_hash="brief-body-middle-brackets",
+        news_time=in_window_time,
+        title=None,
+        channels=None,
+        content="正文前缀【中间括号】不能提取",
     )
     _add_major_news(
         db_session,
@@ -316,13 +337,19 @@ def test_market_news_extracts_leading_bracket_title_before_deduplication(
         "brief-bracket-sample",
         "brief-dedup-new",
         "brief-body-brackets",
+        "brief-body-middle-brackets",
     ]
     assert [item["title"] for item in briefs] == [
         sample_title,
         "同一展示标题",
-        "【正文中的括号】不能反向提取",
+        "政策与资本加持 量子计算“AlphaGo时刻”越来越近",
+        "正文前缀【中间括号】不能提取",
     ]
     assert "促进航空保税维修高质量发展的意见" not in briefs[0]["title"]
+    assert "中国科学院院士" not in briefs[2]["title"]
+    reader_response = app_client.get("/api/v1/wealth/market/news/items/news/brief-body-brackets")
+    assert reader_response.status_code == 200
+    assert reader_response.json()["title"] == briefs[2]["title"]
 
     assert communications_response.status_code == 200
     communications = communications_response.json()["newsCommunications"]["items"]

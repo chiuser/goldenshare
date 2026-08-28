@@ -148,7 +148,11 @@ def test_news_reader_builds_fallback_title_only_for_news(app_client, db_session)
         ("reader-missing-close", "【缺少右括号", "新闻正文", "【缺少右括号"),
         ("reader-empty-bracket", "【】尾部摘要", "新闻正文", "【】尾部摘要"),
         ("reader-middle-bracket", "前缀【标题】尾部摘要", "新闻正文", "前缀【标题】尾部摘要"),
-        ("reader-body-bracket", None, "【正文中的括号】不能反向提取", "【正文中的括号】不能反向提取"),
+        ("reader-body-bracket", None, "【正文标题】右括号后的正文不进入标题", "正文标题"),
+        ("reader-body-spaces", "  ", "  【 正文标题 】右括号后的正文  ", "正文标题"),
+        ("reader-body-middle-bracket", None, "正文前缀【中间括号】不能提取", "正文前缀【中间括号】不能提取"),
+        ("reader-body-missing-close", None, "【缺少右括号正文", "【缺少右括号正文"),
+        ("reader-title-wins", "原始标题", "【正文标题】不得覆盖", "原始标题"),
     ],
 )
 def test_news_reader_applies_news_display_title_contract(

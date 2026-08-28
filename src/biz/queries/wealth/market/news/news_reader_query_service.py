@@ -55,6 +55,7 @@ class NewsReaderQueryService:
         if content_source == "news":
             title = build_news_display_title(
                 row.title,
+                row.content,
                 _build_content_title(row.content or ""),
             )
         else:

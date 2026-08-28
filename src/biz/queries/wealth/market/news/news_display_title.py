@@ -49,9 +49,14 @@ def extract_leading_bracket_title(title: str | None) -> str | None:
     return extracted or None
 
 
-def build_news_display_title(title: str | None, fallback_title: str) -> str:
-    normalized = (title or "").strip()
-    return extract_leading_bracket_title(normalized) or normalized or fallback_title
+def build_news_display_title(
+    title: str | None,
+    content: str | None,
+    fallback_title: str,
+) -> str:
+    normalized_title = (title or "").strip()
+    candidate = normalized_title or (content or "").strip()
+    return extract_leading_bracket_title(candidate) or normalized_title or fallback_title
 
 
 def build_news_display_title_expr(
@@ -59,19 +64,16 @@ def build_news_display_title_expr(
     content_column: ColumnElement[str],
 ) -> ColumnElement[str]:
     normalized_title = func.trim(title_column)
+    candidate = func.coalesce(func.nullif(normalized_title, ""), func.trim(content_column))
     closing_position = _SubstringPosition(
-        normalized_title,
+        candidate,
         literal(NEWS_TITLE_CLOSING_BRACKET),
     )
-    extracted_title = func.trim(func.substr(normalized_title, 2, closing_position - 2))
-    legacy_display_title = func.substr(
-        func.coalesce(func.nullif(normalized_title, ""), func.trim(content_column)),
-        1,
-        80,
-    )
+    extracted_title = func.trim(func.substr(candidate, 2, closing_position - 2))
+    legacy_display_title = func.substr(candidate, 1, 80)
     return case(
         (
-            (func.substr(normalized_title, 1, 1) == literal(NEWS_TITLE_OPENING_BRACKET))
+            (func.substr(candidate, 1, 1) == literal(NEWS_TITLE_OPENING_BRACKET))
             & (closing_position > 2)
             & (func.length(extracted_title) > 0),
             extracted_title,
