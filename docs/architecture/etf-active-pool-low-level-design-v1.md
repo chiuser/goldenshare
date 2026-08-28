@@ -1,12 +1,12 @@
 # ETF 活跃池低层设计 LLD v1
 
-状态：历史旧机制 LLD / P3 planner 与 P4 fund_daily 已完成替换 / 待 P5-P8 删除剩余消费者和基础设施
+状态：历史旧机制 LLD / P3-P7 已完成运行时消费者迁移与 review 退场 / 待 P8 删除基础设施
 创建日期：2026-06-18
 最近审计：2026-08-28
 上位方案：[ETF 活跃池设计方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-active-pool-design-plan-v1.md)
-适用范围：`ops.etf_series_active`、三个 ETF 代码展开 planner、`fund_daily` serving 过滤、ETF 实时日线 Ops health 命中统计、实时监控候选与 Ops 审查中心 ETF 活跃池只读展示
+适用范围：`ops.etf_series_active` 历史机制与 P8 待删除基础设施；后续章节只记录旧 planner、writer、Health、monitor 和 review 的历史设计
 
-> 关联实施方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)；替代机制的编码设计见：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)。新方案已经确认整套 `ops.etf_series_active` 机制退场。P3/P4 已迁移三个 planner 与 `fund_daily` writer 并删除旧 cleanup；本文后续章节只记录 2026-06 的初始落地过程，当前剩余消费者以第 0 节为准。
+> 关联实施方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)；替代机制的编码设计见：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)。新方案已经确认整套 `ops.etf_series_active` 机制退场。P3-P7 已迁移三个 planner、`fund_daily` writer、实时 Health 和 monitor，并删除旧 cleanup 与 review；本文后续章节只记录 2026-06 的初始落地过程，当前剩余基础设施以第 0 节为准。
 
 ---
 
@@ -25,10 +25,10 @@ etf_sz_cons
 当前运行链必须按用途区分：
 
 1. `etf_mins/etf_sh_cons/etf_sz_cons`：P3 已改用 Basic selector，旧 resource 行仍存在但不再展开请求。
-2. `fund_daily`：请求仍按 `trade_date` 拉源端全集；P4 已改为 Raw 独立提交、Serving 由 Basic selector 与上市日过滤，旧 cleanup/CLI 已删除，旧 review 待 P7 删除。
-3. `etf_rt_daily`：provider 固定请求 `5*.SH`、`1*.SZ`，激活池只用于 health 命中统计、review 和实时监控候选资格。
+2. `fund_daily`：请求仍按 `trade_date` 拉源端全集；P4 已改为 Raw 独立提交、Serving 由 Basic selector 与上市日过滤，旧 cleanup/CLI 与旧 review 均已删除。
+3. `etf_rt_daily`：provider 固定请求 `5*.SH`、`1*.SZ`；P5/P6 已将 Health、监控候选和运行时资格改用 Basic selector，P7 已删除旧 review。
 4. `fund_adj/etf_share_size/etf_basic`：不读取激活池展开请求。
-5. P2 已提供统一 Basic selector，P3 已迁移三个代码驱动 planner，P4 已迁移 `fund_daily` Serving；仍须等实时、monitor、review 消费者清零后才能删表。
+5. P2 已提供统一 Basic selector，P3-P7 已迁移或删除全部运行时消费者；P8 才允许删除 model、DAO、contract、adapter、seed、CLI 和数据库表。
 6. `etf_rt_min` 尚未形成正式 DatasetDefinition、collector 或激活池 resource，不属于本次现行消费者迁移。
 
 具体逐 resource 替代映射、raw/serving 永久边界和删除门禁以新方案第 7、8、12、15 节为准。本文第 2 节中的“初始 resource”以及后续 1,395 固定池描述只记录原始实施，不得继续扩展成目标态。

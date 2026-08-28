@@ -1,11 +1,11 @@
 # ETF 活跃池设计方案 v1
 
-状态：历史旧机制正在退场 / P3 planner 与 P4 fund_daily 已完成替换 / 待 P5-P8 删除剩余消费者和基础设施
+状态：历史旧机制正在退场 / P3-P7 已完成运行时消费者迁移与 review 退场 / 待 P8 删除基础设施
 创建日期：2026-06-17
 最近审计：2026-08-28
 适用范围：`fund_daily`、`etf_mins`、`etf_sh_cons`、`etf_sz_cons`、ETF 实时日线流、ETF 业务查询与 Ops 审查中心
 
-> 关联实施方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)；配套编码设计见：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)。新方案已经确认整套 `ops.etf_series_active` 机制退场，ETF 身份统一改由 `core_serving.etf_basic` 提供。P3/P4 已完成 planner 与 `fund_daily` 替换，P5-P8 继续处理实时、review 和基础设施；当前运行事实以第 0 节为准，后续章节只保留原始设计与落地记录。
+> 关联实施方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)；配套编码设计见：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)。新方案已经确认整套 `ops.etf_series_active` 机制退场，ETF 身份统一改由 `core_serving.etf_basic` 提供。P3-P7 已完成 planner、`fund_daily`、实时 Health、monitor 迁移和 review 退场，P8 只处理剩余基础设施；当前运行事实以第 0 节为准，后续章节只保留原始设计与落地记录。
 
 ---
 
@@ -17,13 +17,13 @@
 
 | resource | 当前是否展开源请求 | 当前用途 |
 |---|---|---|
-| `fund_daily` | 否 | resource 行尚未删表；writer 已改用 Basic selector，旧 cleanup/CLI 已删除，旧审查页待 P7 删除 |
+| `fund_daily` | 否 | resource 行尚未删表；writer 已改用 Basic selector，旧 cleanup/CLI 与旧审查页均已删除 |
 | `etf_mins` | 否 | resource 行尚未删表；planner 已改用 Basic selector 与上市日裁剪 |
 | `etf_sh_cons` | 否 | resource 行尚未删表；planner 已改用 Basic selector 中的 `.SH` ETF |
 | `etf_sz_cons` | 否 | resource 行尚未删表；planner 已改用 Basic selector 中的 `.SZ` ETF |
-| `etf_rt_daily` | 否 | provider 仍固定请求 `5*.SH` 与 `1*.SZ`；池只用于 Ops health 命中统计、ETF 审查页和实时监控候选资格 |
+| `etf_rt_daily` | 否 | provider 仍固定请求 `5*.SH` 与 `1*.SZ`；Health、监控候选/运行时资格均已改用 Basic selector，旧审查页已删除 |
 
-`fund_daily` 与 `etf_mins` 的旧 resource 行仍物理保存在同一张 `ops.etf_series_active` 表中，但 P3/P4 后已不再驱动其 planner/writer。表、DAO、seed 和 review 需等 P5-P8 其余消费者清零后按既定顺序删除，不能把“行仍存在”误解成“仍是请求或发布上游”。
+旧 resource 行仍物理保存在同一张 `ops.etf_series_active` 表中，但 P3-P7 后已不再驱动 planner、writer、Health、monitor 或 review。表、DAO、contract、adapter、seed 和 CLI 统一留给 P8 删除，不能把“行仍存在”误解成仍有运行时消费者。
 
 以下当前不使用该池展开请求：
 

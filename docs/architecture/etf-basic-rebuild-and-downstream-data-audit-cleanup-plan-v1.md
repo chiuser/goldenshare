@@ -1,8 +1,8 @@
 # ETF 基础信息重建与下游数据审计清理技术方案 v1
 
-状态：核心业务口径 D1-D20 不变；LLD 已重新基线 / M0-M6 已完成（未执行生产重建）/ 原 M2-M8 执行序列作废，新版 M7-M12 尚未开始
+状态：核心业务口径 D1-D20 不变；LLD 已重新基线 / M0-M7 已完成（未执行生产重建）/ 原 M2-M8 执行序列作废，新版 M8-M12 尚未开始
 创建日期：2026-08-28
-最近审计：2026-08-28（M6/P6 已完成；三个代码驱动 planner、`fund_daily` serving、实时 Health、实时监控候选/写入门禁/运行时均已迁移至 ETF Basic Serving；实时 provider 保持不变，review 和旧池基础设施仍保持后续阶段边界）
+最近审计：2026-08-29（M7/P7 已完成；三个代码驱动 planner、`fund_daily` serving、实时 Health、实时监控和旧 ETF review 均已完成迁移或退场；实时 provider 保持不变，旧池基础设施和数据库表留给 M8/P8）
 适用范围：`etf_basic`、ETF 下游历史数据、ETF 对象池、ETF 查询与运维消费者
 低层设计：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
 
@@ -804,6 +804,8 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 2. CodeGraph 与精确搜索证明 planner、writer、Health、monitor、review 已无旧池消费者。
 3. 发现遗漏消费者则停止，不能进入基础设施删除。
 
+实现结果：两条旧 ETF review GET API、后端查询/schema/export、前端页面/测试/路由/导航/类型均已直接删除，无 alias、重定向或 Basic 替代页面。运行时代码和前端对旧 review 标识及旧池业务消费引用已经清零，测试只保留两条旧 GET 地址的 404 退场断言；P8 基础设施白名单已固化到配套 LLD。
+
 ### M8：激活池基础设施和 schema 退场
 
 1. 删除剩余 model/DAO/contract/adapter/seed/CLI 与独立旧测试。
@@ -865,7 +867,7 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 4. 激活池消费者按 planner、fund daily、Health、monitor、review 顺序切换；运行时消费者清零后才允许删除 DAO/model/seed 与表。
 5. 分钟 alignment 只补代码/频率的上市日前缀和现有尾部请求覆盖；不把停牌或源端空日猜成内部缺口。先只实现覆盖全部当前可请求 ETF × 五频率的 preview，用真实规模取得 TaskRun 数量和批次拍板后，才允许实现正式 submit。
 
-M6/P6 已完成，当前停在阶段边界；M7/P7 及以后仍须按用户的后续阶段指令推进。
+M7/P7 已完成，当前停在阶段边界；M8/P8 及以后仍须按用户的后续阶段指令推进。
 
 详细代码点、测试矩阵、下游只读复核、分钟补拉额度门禁和逐步开发流程见：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)。
 
@@ -886,6 +888,8 @@ M6/P6 已完成，当前停在阶段边界；M7/P7 及以后仍须按用户的�
 2026-08-28 针对激活池退场再次执行了 CodeGraph impact 和全仓代码搜索：`EtfSeriesActiveDAO` 明确影响 DAO factory、实时健康查询/API 和 DAO 测试；`EtfSeriesActiveStore` 影响 Ops adapter 与测试；具体字符串引用还覆盖 Foundation planner/writer、Ops seed/cleanup/review/monitor、App model registry/CLI、Alembic 和多组 Web 测试。宽泛的 `list_active_codes` impact 同时命中指数池，证明开发时不能按同名方法批量删除。
 
 同轮逐 DatasetDefinition、unit planner、request builder、writer 和实时 provider 复核曾确认：P3 前基于旧池展开请求的是 `etf_mins/etf_sh_cons/etf_sz_cons`，`fund_daily` 只在 serving 写入时使用旧池，`etf_rt_daily` 只在 health/监控候选侧使用旧池；`fund_adj/etf_share_size/etf_basic` 不使用旧池展开请求。P2 已删除 ingestion 无消费者的旧 `EtfBasicDAO.get_active_etfs()/get_fund_daily_candidates()`，P3 迁移三个 planner，P4 再迁移 `fund_daily` writer 并删除旧 cleanup，P5 迁移实时 Health；这些阶段前记录不能再被理解成当前仍存在的调用链。
+
+2026-08-29 P7 完成后再次同步 CodeGraph 并执行精确字符串搜索。旧 ETF review API、query method、schema、前端页面、路由、导航和共享类型均已从运行时代码清零；`ReviewCenterQueryService` 的剩余影响面只包含指数和板块 review。`EtfSeriesActive` 当前只存在于 P8 已登记的 model/DAO/contract/adapter/seed/CLI/装配与独立测试中，不再存在未登记业务消费者。
 
 源接口口径同时复核了本地 Tushare 文档 `127/199/385/387/400/407/408/471/472`。`fund_daily/fund_adj` 的全市场返回范围沿用 2026-08-28 已写入本地源文档的同日 MCP 实测，不重复发起相同源端请求；本轮没有修改源参数或字段契约，也没有把一次实测数量固化为永久门禁。
 

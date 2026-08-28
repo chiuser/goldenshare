@@ -1,11 +1,13 @@
 # ETF 实时分钟流接入 LLD v1
 
-状态：源接口、运营选择池、调度数值和代码改造边界已收口；R0B 开市验证已完成；R1A/R1B 可开发，生产启用仍等待 Redis 容量实测。
+状态：源接口与调度事实仍有效；原运营选择池依赖即将退场的 `ops.etf_series_active`，选择池及其代码边界须重新基线，当前不可按本文直接开工。
 
 创建日期：2026-08-24
-最近更新：2026-08-28
+最近更新：2026-08-29
 
 上位方案：[ETF 实时分钟流接入方案 v1](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-minute-stream-plan-v1.md)
+
+> 2026-08-29 边界校准：ETF 基础信息重建方案已确认删除整套 `ops.etf_series_active`。本文第 4 节及其关联的 contract、adapter、API、页面和测试设计暂时只保留为历史方案，后续开发前必须另行重新基线；本轮不在此处设计替代池，也不修改实时分钟代码。
 
 ---
 
@@ -747,7 +749,7 @@ error
 
 ### 10.4 ETF 实时分钟池配置页
 
-新增 `/ops/v21/realtime/etf-minute-pool` 页面，菜单名称为“ETF 实时分钟池配置”，与“实时流配置中心”和“ETF 实时监控配置中心”同级。现有 `/ops/v21/review/etf` 不增加 `etf_rt_min` resource，避免只读审查与成员管理形成两个重复入口。
+新增 `/ops/v21/realtime/etf-minute-pool` 页面的原设计需要随选择池重新基线。已退场的旧 `/ops/v21/review/etf` 不再存在，也不得作为后续成员管理入口。
 
 页面结构固定为：当前选择池主表 + “添加 ETF”抽屉。交互沿用当前 Ops 页面已经使用的抽屉列表与行内添加模式：
 

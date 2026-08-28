@@ -979,32 +979,6 @@ export interface OpsReviewActiveIndexSummaryResponse {
   pending_count: number;
 }
 
-export interface OpsReviewActiveEtfResponse {
-  total: number;
-  items: Array<{
-    resource: string;
-    ts_code: string;
-    csname: string | null;
-    extname: string | null;
-    cname: string | null;
-    exchange: string | null;
-    etf_type: string | null;
-    list_date: string | null;
-    list_status: string | null;
-    latest_fund_daily_date: string | null;
-    data_status: string;
-    first_seen_date: string;
-    last_seen_date: string;
-    last_checked_at: string;
-  }>;
-}
-
-export interface OpsReviewActiveEtfSummaryResponse {
-  active_count: number;
-  fund_daily_available_count: number;
-  pending_count: number;
-}
-
 export interface OpsReviewActiveIndexCandidateResponse {
   items: Array<{
     ts_code: string;

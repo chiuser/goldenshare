@@ -42,9 +42,6 @@ from src.ops.schemas.resolution_release import (
 )
 from src.ops.schemas.review_center import (
     CreateReviewActiveIndexRequest,
-    ReviewActiveEtfItem,
-    ReviewActiveEtfListResponse,
-    ReviewActiveEtfSummaryResponse,
     ReviewActiveIndexCandidateItem,
     ReviewActiveIndexCandidateResponse,
     ReviewActiveIndexItem,
@@ -135,9 +132,6 @@ __all__ = [
     "ProbeRunLogListResponse",
     "ReviewActiveIndexCandidateItem",
     "ReviewActiveIndexCandidateResponse",
-    "ReviewActiveEtfItem",
-    "ReviewActiveEtfListResponse",
-    "ReviewActiveEtfSummaryResponse",
     "ReviewActiveIndexItem",
     "ReviewActiveIndexListResponse",
     "ReviewActiveIndexMutationResponse",

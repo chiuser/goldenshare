@@ -47,10 +47,6 @@ def test_ops_review_center_requires_admin(app_client, user_factory) -> None:
     assert response.status_code == 403
     assert response.json()["code"] == "forbidden"
 
-    etf_response = app_client.get("/api/v1/ops/review/etf/active", headers={"Authorization": f"Bearer {token}"})
-    assert etf_response.status_code == 403
-    assert etf_response.json()["code"] == "forbidden"
-
 
 def test_ops_review_index_active_list_supports_keyword_and_page(app_client, user_factory, db_session) -> None:
     from src.ops.models.ops.index_series_active import IndexSeriesActive
@@ -423,195 +419,22 @@ def test_ops_review_index_active_add_rejects_unknown_index(app_client, user_fact
     assert response.json()["code"] == "not_found"
 
 
-def test_ops_review_etf_active_list_joins_basic_and_latest_fund_daily(app_client, user_factory, db_session) -> None:
-    from src.foundation.models.core.etf_basic import EtfBasic
-    from src.foundation.models.core.fund_daily_bar import FundDailyBar
-    from src.ops.models.ops.etf_series_active import EtfSeriesActive
-
+def test_ops_review_etf_active_routes_are_retired(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
 
-    db_session.add_all(
-        [
-            EtfBasic(
-                ts_code="510300.SH",
-                csname="沪深300ETF",
-                extname="华泰柏瑞沪深300ETF",
-                cname="沪深300交易型开放式指数证券投资基金",
-                exchange="SSE",
-                etf_type="股票型",
-                list_date=date(2012, 5, 28),
-                list_status="L",
-            ),
-            EtfSeriesActive(
-                resource="fund_daily",
-                ts_code="510300.SH",
-                first_seen_date=date(2026, 6, 16),
-                last_seen_date=date(2026, 6, 16),
-                last_checked_at=datetime(2026, 6, 17, 1, 0, tzinfo=timezone.utc),
-            ),
-            EtfSeriesActive(
-                resource="fund_daily",
-                ts_code="159919.SZ",
-                first_seen_date=date(2026, 6, 16),
-                last_seen_date=date(2026, 6, 16),
-                last_checked_at=datetime(2026, 6, 17, 1, 0, tzinfo=timezone.utc),
-            ),
-            FundDailyBar(ts_code="510300.SH", trade_date=date(2026, 6, 16)),
-            FundDailyBar(ts_code="510300.SH", trade_date=date(2026, 6, 17)),
-        ]
-    )
-    db_session.commit()
-
-    response = app_client.get(
-        "/api/v1/ops/review/etf/active?resource=fund_daily&keyword=沪深300&page=1&page_size=10",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["total"] == 1
-    item = payload["items"][0]
-    assert item["resource"] == "fund_daily"
-    assert item["ts_code"] == "510300.SH"
-    assert item["csname"] == "沪深300ETF"
-    assert item["exchange"] == "SSE"
-    assert item["etf_type"] == "股票型"
-    assert item["list_date"] == "2012-05-28"
-    assert item["list_status"] == "L"
-    assert item["latest_fund_daily_date"] == "2026-06-17"
-    assert item["data_status"] == "complete"
-
-
-def test_ops_review_etf_active_list_filters_status_and_resource(app_client, user_factory, db_session) -> None:
-    from src.foundation.models.core.fund_daily_bar import FundDailyBar
-    from src.ops.models.ops.etf_series_active import EtfSeriesActive
-
-    user_factory(username="admin", password="secret", is_admin=True)
-    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
-    token = login.json()["token"]
-
-    db_session.add_all(
-        [
-            EtfSeriesActive(
-                resource="fund_daily",
-                ts_code="510300.SH",
-                first_seen_date=date(2026, 6, 16),
-                last_seen_date=date(2026, 6, 16),
-                last_checked_at=datetime(2026, 6, 17, 1, 0, tzinfo=timezone.utc),
-            ),
-            EtfSeriesActive(
-                resource="fund_daily",
-                ts_code="159919.SZ",
-                first_seen_date=date(2026, 6, 16),
-                last_seen_date=date(2026, 6, 16),
-                last_checked_at=datetime(2026, 6, 17, 1, 0, tzinfo=timezone.utc),
-            ),
-            EtfSeriesActive(
-                resource="etf_rt_daily",
-                ts_code="588000.SH",
-                first_seen_date=date(2026, 6, 16),
-                last_seen_date=date(2026, 6, 16),
-                last_checked_at=datetime(2026, 6, 17, 1, 0, tzinfo=timezone.utc),
-            ),
-            FundDailyBar(ts_code="510300.SH", trade_date=date(2026, 6, 17)),
-            FundDailyBar(ts_code="588000.SH", trade_date=date(2026, 6, 17)),
-        ]
-    )
-    db_session.commit()
-
-    pending_response = app_client.get(
-        "/api/v1/ops/review/etf/active?resource=fund_daily&data_status=pending&page=1&page_size=10",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    assert pending_response.status_code == 200
-    pending_payload = pending_response.json()
-    assert pending_payload["total"] == 1
-    assert pending_payload["items"][0]["ts_code"] == "159919.SZ"
-    assert pending_payload["items"][0]["data_status"] == "unsynced"
-
-    rt_response = app_client.get(
-        "/api/v1/ops/review/etf/active?resource=etf_rt_daily&page=1&page_size=10",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    assert rt_response.status_code == 200
-    rt_payload = rt_response.json()
-    assert rt_payload["total"] == 1
-    assert rt_payload["items"][0]["ts_code"] == "588000.SH"
-    assert rt_payload["items"][0]["data_status"] == "complete"
-
-
-def test_ops_review_etf_active_summary_counts_available_daily(app_client, user_factory, db_session) -> None:
-    from src.foundation.models.core.fund_daily_bar import FundDailyBar
-    from src.ops.models.ops.etf_series_active import EtfSeriesActive
-
-    user_factory(username="admin", password="secret", is_admin=True)
-    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
-    token = login.json()["token"]
-
-    db_session.add_all(
-        [
-            EtfSeriesActive(
-                resource="fund_daily",
-                ts_code="510300.SH",
-                first_seen_date=date(2026, 6, 16),
-                last_seen_date=date(2026, 6, 16),
-                last_checked_at=datetime(2026, 6, 17, 1, 0, tzinfo=timezone.utc),
-            ),
-            EtfSeriesActive(
-                resource="fund_daily",
-                ts_code="159919.SZ",
-                first_seen_date=date(2026, 6, 16),
-                last_seen_date=date(2026, 6, 16),
-                last_checked_at=datetime(2026, 6, 17, 1, 0, tzinfo=timezone.utc),
-            ),
-            FundDailyBar(ts_code="510300.SH", trade_date=date(2026, 6, 17)),
-        ]
-    )
-    db_session.commit()
-
-    response = app_client.get(
-        "/api/v1/ops/review/etf/active/summary?resource=fund_daily",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    assert response.status_code == 200
-    assert response.json() == {
-        "active_count": 2,
-        "fund_daily_available_count": 1,
-        "pending_count": 1,
-    }
-
-
-def test_ops_review_etf_active_rejects_invalid_resource(app_client, user_factory) -> None:
-    user_factory(username="admin", password="secret", is_admin=True)
-    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
-    token = login.json()["token"]
-
-    response = app_client.get(
-        "/api/v1/ops/review/etf/active?resource=bad",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    assert response.status_code == 422
-    assert response.json()["code"] == "validation_error"
-
-
-def test_ops_review_etf_active_has_no_write_routes(app_client, user_factory) -> None:
-    user_factory(username="admin", password="secret", is_admin=True)
-    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
-    token = login.json()["token"]
-
-    post_response = app_client.post(
+    list_response = app_client.get(
         "/api/v1/ops/review/etf/active",
-        json={"resource": "fund_daily", "ts_code": "510300.SH"},
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert post_response.status_code == 405
+    assert list_response.status_code == 404
 
-    delete_response = app_client.delete(
-        "/api/v1/ops/review/etf/active/510300.SH?resource=fund_daily",
+    summary_response = app_client.get(
+        "/api/v1/ops/review/etf/active/summary",
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert delete_response.status_code == 404
+    assert summary_response.status_code == 404
 
 
 def test_ops_review_ths_board_list_returns_members(app_client, user_factory, db_session) -> None:

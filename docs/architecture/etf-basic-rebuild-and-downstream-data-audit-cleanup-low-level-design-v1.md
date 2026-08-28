@@ -1,6 +1,6 @@
 # ETF 基础信息重建与下游数据审计清理 LLD v1
 
-状态：重新基线完成；P0-P6 已完成（未执行生产快照重建），原 P2-P9 执行序列已作废，新版 P7-P12 尚未开始
+状态：重新基线完成；P0-P7 已完成（未执行生产快照重建），原 P2-P9 执行序列已作废，新版 P8-P12 尚未开始
 创建日期：2026-08-28
 依据方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)
 适用代码：`src/foundation/**`、`src/ops/**`、`src/app/**`、`frontend/**`、`alembic/**`
@@ -1406,6 +1406,31 @@ P3 完成门禁已满足：实际 unit 的请求起点不早于 `list_date`，Da
 P7 的“消费者零引用”允许旧基础设施本体暂时存在：model、DAO、contract、adapter、seed、CLI、历史 migration 及其独立测试仍由 P8 处理。除此以外，planner、writer、cleanup、Health、monitor、review 均不得再引用旧池。
 
 完成门禁：形成 P8 可核验的删除白名单；若发现未登记消费者，停止并修订 LLD，不进入 P8。
+
+#### P7 执行记录（2026-08-29）
+
+1. `GET /api/v1/ops/review/etf/active` 与 summary 路由已直接删除；`ReviewCenterQueryService` 的 ETF list/summary、三个 ETF 私有 helper、resource 常量和 ETF 专属 model/schema import 同步删除。指数 list/summary/candidate/mutation 和板块查询均保持原实现。
+2. `ReviewActiveEtfItem/ListResponse/SummaryResponse` 及 schema export 已删除；测试用管理员身份确认两个旧 GET 地址均返回 404。旧 POST/DELETE“没有写入口”测试随整条能力退场，不再保留历史方法级契约。
+3. `ops-v21-review-etf-page.tsx` 及其测试已删除，应用路由、route tree、审查中心导航和 `OpsReviewActiveEtf*` 共享类型同步清零。没有新建 Basic 页面、兼容路由、alias、重定向或占位页；共享的 `IconTopologyRing3` 因仍被三个数据源导航使用而保留。
+4. 浏览器在本地构建与受控 mock auth 环境验证：管理员导航中不再出现 ETF review；旧 `/app/ops/v21/review/etf` 显示 `Not Found`，且服务端请求日志没有 `/api/v1/ops/review/etf/active*`；指数和板块路由仍正常挂载并请求各自接口，控制台无错误。
+5. 后端 review API 15 个测试、三组架构护栏 16 个测试、Ruff 均通过；前端目标 5 个测试和全量 146 个测试通过，typecheck、规则检查和生产构建通过。构建只有既有大 chunk 警告；文档完整性与 `git diff --check` 通过。
+6. CodeGraph 后置索引为 up to date，包含 2,835 个文件、50,143 个节点和 127,454 条边。`OpsV21ReviewEtfPage` 已无结果，`ReviewCenterQueryService` 的剩余影响面只包含指数和板块 review；生产代码/前端对 `ReviewActiveEtf*`、两个旧 method、旧 API、旧页面文件名和旧页面路由的精确搜索均为 0，测试只保留两个 404 URL。
+7. `ops.etf_series_active` 表、model、DAO、contract、adapter、seed、CLI、历史 migration 和独立测试均未修改；本阶段没有数据库迁移、生产写入、Tushare 请求、事实清理或实时分钟代码开发。
+
+#### P8 精确删除白名单
+
+P8 只允许处理下表对象；若开工复核出现名单外的运行时消费者，必须停止并修订 LLD。
+
+| 动作 | 文件/对象 |
+|---|---|
+| 删除旧基础设施文件 | `src/foundation/dao/etf_series_active_dao.py`、`src/foundation/kernel/contracts/etf_series_active_store.py`、`src/ops/etf_series_active_store_adapter.py`、`src/ops/models/ops/etf_series_active.py`、`src/ops/services/etf_series_active_seed_service.py` |
+| 删除旧独立测试 | `tests/test_cli_ops_seed_etf_series_active.py`、`tests/test_etf_active_pool_seed_reports.py`、`tests/test_etf_series_active_dao.py`、`tests/test_etf_series_active_model.py`、`tests/test_etf_series_active_seed_service.py` |
+| 清理装配/入口 | `src/app/model_registry.py`、`src/cli.py`、`src/cli_parts/ops_handlers.py`、`src/foundation/dao/factory.py`、`src/ops/models/ops/__init__.py` |
+| 清理测试装配/反例 | `tests/web/conftest.py` 删除旧表创建；`tests/web/test_ops_etf_realtime_monitor_api.py` 删除旧池 ORM 反例并保留 Basic 不回退语义 |
+| 保留负向门禁 | `tests/test_dataset_action_resolver.py` 的 `not hasattr(..., "etf_series_active")`；`tests/test_etf_sh_cons_model.py` 的旧表不得进入申赎清单 migration 断言；P7 的 review 404 断言 |
+| migration 边界 | 保留历史 `20260618_000117_add_etf_series_active.py`；P8 重新确认真实 head 后新增 drop-table migration，不回写历史 migration |
+
+未登记为 P8 删除对象的 `index_series_active` model/DAO/service/API/页面/测试必须原样保留。ETF 实时分钟方案仍依赖旧池的历史设计已经在文首标为“选择池需重新基线”，P8 不顺带设计替代选择池。
 
 ### P8：激活池基础设施与 schema 退场
 

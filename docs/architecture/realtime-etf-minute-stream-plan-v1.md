@@ -1,9 +1,9 @@
 # ETF 实时分钟流接入方案 v1
 
-状态：源接口、运营选择池、调度数值与目标架构已冻结；R0B 开市验证已完成；R1A/R1B 可按本文与 LLD 开发，生产启用仍受 Redis 容量实测门禁约束。
+状态：源接口与调度事实仍有效；原运营选择池依赖即将退场的 `ops.etf_series_active`，选择池方案须重新基线，当前不可按本文直接开工。
 
 创建日期：2026-08-24
-最近更新：2026-08-28
+最近更新：2026-08-29
 
 关联文档：
 
@@ -11,6 +11,8 @@
 - [ETF 实时分钟流 LLD v1](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-minute-stream-low-level-design-v1.md)
 - [ETF 实时分钟流 R0B 开市验证记录](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-minute-r0b-open-market-validation-2026-08-26.md)
 - [Tushare 0416 ETF 实时分钟](/Users/congming/github/goldenshare/docs/sources/tushare/ETF专题/0416_ETF实时分钟.md)
+
+> 2026-08-29 边界校准：ETF 基础信息重建方案已确认删除整套 `ops.etf_series_active`。本文关于 `etf_rt_min` 运营选择池、成员管理和相关装配的设计暂时只保留为历史方案，后续开发前必须另行重新基线；本轮不在此处设计替代池，也不改变已验证的源接口、频率和调度事实。
 
 ---
 
