@@ -336,7 +336,8 @@
 
 .momentum-selected-identity { padding-left: 0; }
 .momentum-selected-identity > div { align-items: center; display: flex; gap: 8px; min-width: 0; }
-.momentum-selected-identity strong { font-size: 17px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.momentum-selected-identity strong { flex: 1 1 auto; font-size: 17px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.momentum-selected-identity .momentum-level-chip { flex: 0 0 auto; white-space: nowrap; }
 .momentum-selected-identity > span,
 .momentum-summary-metric > span { color: var(--cs-color-text-muted); font-size: 11px; margin-top: 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .momentum-summary-metric:last-child { border-right: 0; }
@@ -465,3 +466,10 @@
 @media (max-width: 1500px) {
   .momentum-scope-control button { padding: 0 7px; }
 }
+
+.momentum-selected-identity.compact strong { font-size: 14px; }
+.momentum-selected-identity.compact > span { font-size: 9px; }
+.momentum-selected-identity.compact .momentum-level-chip { font-size: 10px; padding: 2px 5px; }
+.momentum-selected-identity.extra-compact strong { font-size: 12px; }
+.momentum-selected-identity.extra-compact > span { font-size: 8px; }
+.momentum-selected-identity.extra-compact .momentum-level-chip { font-size: 9px; padding: 2px 4px; }
