@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：v1.11；M0、M1、Pre-M2、M2 已完成；M3 与 M3A 已实现并通过本地真实数据、自动化和三档响应式门禁，等待用户验收；未进入 M4。
+- 状态：v1.12；M0、M1、Pre-M2、M2、M3 与 M3A 已完成并通过用户验收；M4 自动化联调门禁已通过，最终 Figma 像素与交互验收待说明后另行决定。
 - 编写日期：2026-08-27。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
@@ -90,7 +90,7 @@ MarketOverviewPage
       -> shared/ui/shortcut-bar
 ```
 
-结论：页面结构、精确路由和共享 Shortcut 已完成；M2 已提供 meta/rankings/history 三个真实接口，M3 已实现动量排名结果工作区，M3A 已实现 members 第四接口、独立成员计算主链、成员局部 controller/state 和左栏下半区。当前等待用户验收。
+结论：页面结构、精确路由和共享 Shortcut 已完成；M2 已提供 meta/rankings/history 三个真实接口，M3 已实现动量排名结果工作区，M3A 已实现 members 第四接口、独立成员计算主链、成员局部 controller/state 和左栏下半区。M3 与 M3A 已于 2026-08-28 通过用户验收。
 
 ### 2.2 前端真实现状
 
@@ -1390,17 +1390,17 @@ M2 Prod 只读验收已经证明现有索引满足既有三接口查询：最重
 
 ### M3：前端动量工作区
 
-状态：`IMPLEMENTED / PENDING USER ACCEPTANCE (2026-08-28)`。
+状态：`PASS (2026-08-28)`。
 
 1. 实现 URL 状态、API/adapter/controller。
 2. 实现控件、全列表、详情摘要和两张联动 SVG 图。
 3. 实现五态，并回归 M1 已完成的四个待建设 toast 保持零副作用。
 4. 停止点：全部使用真实 API，仓库无 Mock 兜底。
-5. 1600px 命中 Figma 固定尺寸；1512px 和 1460px 按第 3.4 节连续等宽收缩；用户验收前不进入 M4。
+5. 1600px 命中 Figma 固定尺寸；1512px 和 1460px 按第 3.4 节连续等宽收缩；当前页面已通过用户验收。
 
 ### M3A：三级行业成分股明细
 
-状态：`IMPLEMENTED / PENDING USER ACCEPTANCE (2026-08-28)`。
+状态：`PASS (2026-08-28)`。
 
 1. 先同步中央异常码和静态架构护栏合同，再实现 members DTO、Query、独立 Calculator 和 QueryService；既有三个 endpoint、行业 Calculator 和首页 Top5 Query 不得修改语义。
 2. 后端先完成正反例、4 SQL 门禁和真实 API 测试，再接前端；不允许先在页面 mock 成员数据。
@@ -1408,14 +1408,16 @@ M2 Prod 只读验收已经证明现有索引满足既有三接口查询：最重
 4. 依次验收 hierarchyVersion 冲突、来源全集、逐日连乘、空值保留、局部四态、快速切换、响应式四列和首页零回退。
 5. 自动化证据：139 成员×30 日仍为 4 条 SQL；过期成员响应、普通局部重试、409 全量重载、范围键隔离、完整列表和空值保留均有正反例。
 6. 浏览器证据：1600/1512/1460 三档页面和模块横向溢出均为 0，左右栏连续等宽收缩，`390+12+464` 与 370px 成员视口不变，四列表头与内容列偏差为 0。
-7. 停止点已到达：等待用户验收，不自动进入 M4。
+7. 当前页面已于 2026-08-28 通过用户验收；按用户指令进入 M4 自动化联调门禁。
 
 ### M4：联调和交付
 
-1. 跑后端、前端、架构、typecheck、build 和 docs 检查。
-2. 完成 12 节点 Figma 像素/交互验收及 1366 宽验证。
-3. 对账市场总览、成交额、首页板块速览、股票/指数详情无回退。
-4. 用户部署后做生产只读 API 和页面验收。
+状态：`AUTOMATED GATES PASS / FIGMA FINAL ACCEPTANCE UNDECIDED (2026-08-28)`。
+
+1. 后端、前端、架构、typecheck、build 和 docs 检查已完成：冻结后端套件 `179 passed`，前端全量 `379 passed`，TypeScript 与生产构建通过；Alembic 单一 head 为 `20260828_000154`，文档完整性与 `git diff --check` 通过。
+2. 12 节点 Figma 像素/交互验收及 1366 宽验证先不执行；先向用户说明工作内容、复杂度和消耗，再由用户另行决定。
+3. 按用户 2026-08-28 的决定，不做周边页面专项人工回归；第 1 项现有自动化套件仍必须覆盖其既有回归用例。
+4. 按用户 2026-08-28 的决定，不做部署后生产只读 API 和页面验收。
 
 每个里程碑完成后停止，不自动进入下一阶段，不自动提交、推送、迁移或部署。
 
@@ -1475,12 +1477,12 @@ git diff --check
 | G12 API strict | unknown/duplicate/闭包/状态 validator | PASS (M2) |
 | G13 异常码 | 统一注册表已登记并由安全 API builder 映射 | PASS (M2) |
 | G13A 成员异常码 | 三个成员码已登记；409/局部 EMPTY/局部 ERROR 映射正确 | PASS (docs/M3A code) |
-| G14 前端真实合同 | adapter 无业务计算、无 Mock | OPEN (M3) |
-| G15 选择保持 | URL 可恢复和切换规则全矩阵 | OPEN (M3) |
-| G16 双图联动 | 同日期、独立 y、rank1 顶部、null 断线 | OPEN (M3) |
-| G17 性能 | SQL 数、P95、payload、按需加载 | PASS (M2/M3A local same-topology) / OPEN (M4 deployment) |
-| G18 回归 | 首页、成交额、板块速览、详情无回退 | OPEN (M4) |
-| G19 用户验收 | 部署后真实页面验收 | OPEN (M4) |
+| G14 前端真实合同 | adapter 无业务计算、无 Mock | PASS (M3 code/user acceptance) |
+| G15 选择保持 | URL 可恢复和切换规则全矩阵 | PASS (M3 code/user acceptance) |
+| G16 双图联动 | 同日期、独立 y、rank1 顶部、null 断线 | PASS (M3 code/user acceptance) |
+| G17 性能 | SQL 数、P95、payload、按需加载 | PASS (M2/M3A local same-topology)；按用户决定不追加生产部署验收 |
+| G18 回归 | 现有自动化套件覆盖首页、成交额、板块速览、股票/指数详情既有合同 | PASS (M4 automated gates) |
+| G19 用户验收 | 当前真实 API 页面完成用户验收；本阶段不要求部署后复验 | PASS (2026-08-28) |
 | G20 成员公式 | 1 日 pct_chg、多日逐日连乘、完整 N 日、无补值、独立于行业算法 | PASS (M3A code/tests) |
 | G21 成员局部状态 | 独立 request key/retry/abort；不污染整页五态 | PASS (M3A code/tests) |
 | G22 成员响应式 | `390+12+464`、共享四列 Grid、三档无溢出、双滚动 | PASS (Figma/M3A browser) |
@@ -1512,9 +1514,9 @@ git diff --check
 
 ### 16.2 尚未完成
 
-1. M3 动量工作区已实现并读取 M2 真实 API；与 M3A 合并后的最终页面仍等待用户验收，不得标记 PASS。
-2. M4 的部署态四接口 P95、最终 Figma 像素和全量浏览器交互验收尚未完成。
-3. 本期代码与文档尚未提交、推送或部署，本期没有迁移。
+1. M4 的 12 节点最终 Figma 像素/交互及 1366 宽验收尚未执行；先向用户说明复杂度和消耗，再另行决定。
+2. 按用户决定，本阶段不执行周边页面专项人工回归和部署后生产验收；这两项不再作为 M4 关闭条件。
+3. M3A 代码已提交为 `e13eab20`；M4 自动化门禁已通过，本轮状态与 M4 对账文档尚未提交，本期没有迁移。
 
 ## 17. 风险、回滚与停止条件
 
@@ -1545,4 +1547,4 @@ git diff --check
 
 ## 18. 结论
 
-M0、M1、Pre-M2 与 M2 已按本文收口，M3 与 M3A 均已实现。第四接口、独立成员计算主链、两个三级 scope 的局部双列表、三档响应式、真实 API、性能和首页零回退门禁均已通过；当前停止点是用户验收，确认前不得进入 M4。
+M0、M1、Pre-M2、M2、M3 与 M3A 已按本文收口，第四接口、独立成员计算主链、两个三级 scope 的局部双列表、三档响应式、真实 API 与性能门禁均已通过，并于 2026-08-28 完成用户验收。M4 自动化联调门禁也已通过；最终 Figma 像素与交互验收待说明工作量后另行决定，不执行周边页面专项人工回归或生产部署验收。
