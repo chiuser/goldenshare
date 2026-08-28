@@ -82,6 +82,7 @@
 .momentum-ranking-row-select:focus-visible,
 .momentum-drill-button:focus-visible,
 .momentum-state-surface button:focus-visible,
+.sector-member-error button:focus-visible,
 .momentum-chart-card svg:focus-visible {
   outline: 2px solid var(--cs-color-brand);
   outline-offset: 1px;
@@ -139,6 +140,7 @@
 }
 
 .momentum-ranking-panel,
+.sector-member-panel,
 .momentum-selected-summary,
 .momentum-chart-card,
 .momentum-state-surface {
@@ -155,6 +157,20 @@
   min-height: 0;
   overflow: hidden;
   width: 100%;
+}
+
+.momentum-left-workspace {
+  display: grid;
+  gap: var(--cs-space-12);
+  grid-template-rows: 390px 464px;
+  height: 866px;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.momentum-ranking-panel.momentum-ranking-panel-compact {
+  height: 390px;
 }
 
 .momentum-panel-header {
@@ -208,6 +224,156 @@
   min-height: 0;
   overflow-y: auto;
   scrollbar-gutter: stable;
+}
+
+.sector-member-panel {
+  display: flex;
+  flex-direction: column;
+  height: 464px;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+.sector-member-header {
+  align-items: center;
+  border-bottom: 1px solid var(--cs-color-border-subtle);
+  display: flex;
+  flex: 0 0 54px;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 0 14px;
+}
+
+.sector-member-header > div {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sector-member-title {
+  color: var(--cs-color-text-primary);
+  font-size: 15px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sector-member-counts {
+  color: var(--cs-color-text-muted);
+  flex: 0 0 auto;
+  font-size: 11px;
+  margin-left: 12px;
+  white-space: nowrap;
+}
+
+.sector-member-table {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sector-member-grid {
+  align-items: center;
+  column-gap: 8px;
+  display: grid;
+  grid-template-columns:
+    minmax(0, 240fr)
+    minmax(0, 176fr)
+    minmax(0, 144fr)
+    minmax(0, 192fr);
+  padding: 0 12px;
+}
+
+.sector-member-table-header {
+  border-bottom: 1px solid var(--cs-color-border-subtle);
+  color: var(--cs-color-text-muted);
+  flex: 0 0 40px;
+  font-size: 11px;
+}
+
+.sector-member-table-header span:not(:first-child),
+.sector-member-code,
+.sector-member-close,
+.sector-member-return {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.sector-member-viewport {
+  flex: 0 0 370px;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.sector-member-row {
+  border-bottom: 1px solid var(--cs-color-border-subtle);
+  height: 48px;
+}
+
+.sector-member-row:hover {
+  background: var(--cs-color-surface-card-hover);
+}
+
+.sector-member-name {
+  color: var(--cs-color-text-primary);
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sector-member-code,
+.sector-member-close {
+  color: var(--cs-color-text-secondary);
+}
+
+.sector-member-return.up { color: var(--cs-color-market-up); }
+.sector-member-return.down { color: var(--cs-color-market-down); }
+.sector-member-return.flat { color: var(--cs-color-market-flat); }
+.sector-member-return.muted { color: var(--cs-color-text-muted); }
+
+.sector-member-loading {
+  display: flex;
+  flex-direction: column;
+}
+
+.sector-member-loading i {
+  animation: momentum-pulse 1.4s ease-in-out infinite;
+  background: var(--cs-color-surface-card-hover);
+  border-bottom: 1px solid var(--cs-color-border-subtle);
+  flex: 0 0 48px;
+}
+
+.sector-member-local-state {
+  align-items: center;
+  color: var(--cs-color-text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  justify-content: center;
+  text-align: center;
+}
+
+.sector-member-error { color: var(--cs-color-danger-system); }
+
+.sector-member-error button {
+  appearance: none;
+  background: var(--cs-color-brand-weak);
+  border: 1px solid var(--cs-color-border-strong);
+  border-radius: 8px;
+  color: var(--cs-color-brand);
+  cursor: pointer;
+  height: 32px;
+  padding: 0 14px;
 }
 
 .momentum-ranking-row {

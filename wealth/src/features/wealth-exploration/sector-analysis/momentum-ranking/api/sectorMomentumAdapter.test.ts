@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildSectorMemberDetailViewModel,
   buildSectorMomentumHistoryViewModel,
   buildSectorMomentumMetaViewModel,
   buildSectorMomentumRankingViewModel,
@@ -39,7 +40,64 @@ describe("sectorMomentumAdapter", () => {
     payload.historicalRanks[1]!.tradeDate = "2026-08-19";
     expect(() => buildSectorMomentumHistoryViewModel(payload)).toThrow("两条历史序列日期不一致");
   });
+
+  it("keeps complete member order and independent nullable facts", () => {
+    const request = memberRequest();
+    const result = buildSectorMemberDetailViewModel(memberPayload(), request);
+    expect(result.status).toBe("READY");
+    if (result.status !== "READY") return;
+    expect(result.rows.map((row) => row.stockCode)).toEqual(["000001.SZ", "200001.SZ"]);
+    expect(result.rows[0]).toMatchObject({ stockNameText: "股票甲", closeText: "--", returnText: "+2.35%" });
+    expect(result.rows[1]).toMatchObject({ stockNameText: "--", closeText: "8.00", returnText: "--" });
+  });
+
+  it("rejects member request mismatch, count mismatch, and frontend reordering", () => {
+    expect(() => buildSectorMemberDetailViewModel(memberPayload(), {
+      ...memberRequest(),
+      hierarchyVersion: "stale",
+    })).toThrow("成员事实与当前请求不一致");
+
+    const badCount = memberPayload();
+    badCount.calculableCount = 2;
+    expect(() => buildSectorMemberDetailViewModel(badCount, memberRequest())).toThrow("成员覆盖计数与行不一致");
+
+    const badOrder = memberPayload();
+    badOrder.rows.reverse();
+    expect(() => buildSectorMemberDetailViewModel(badOrder, memberRequest())).toThrow("成员行未按冻结规则排序");
+  });
 });
+
+function memberRequest() {
+  return {
+    market: "CN_A" as const,
+    tradeDate: "2026-08-21",
+    hierarchyVersion: "v1",
+    sectorCode: "BK1201.DC",
+    period: 5 as const,
+    direction: "GAINERS" as const,
+  };
+}
+
+function memberPayload() {
+  return {
+    status: "READY",
+    message: null,
+    exceptionCode: null,
+    tradeDate: "2026-08-21",
+    hierarchyVersion: "v1",
+    sectorCode: "BK1201.DC",
+    sectorName: "三级甲",
+    period: 5,
+    direction: "GAINERS",
+    totalMemberCount: 2,
+    closeAvailableCount: 1,
+    calculableCount: 1,
+    rows: [
+      { stockName: "股票甲", stockCode: "000001.SZ", close: null, returnPct: 2.35 },
+      { stockName: null, stockCode: "200001.SZ", close: 8, returnPct: null },
+    ],
+  };
+}
 
 function metaPayload() {
   const nodes = [

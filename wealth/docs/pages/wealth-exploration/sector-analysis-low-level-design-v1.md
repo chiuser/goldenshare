@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：v1.9；M0、M1、Pre-M2、M2 已完成；M3 动量排名前端已实现，正在进行响应式布局纠偏和用户验收；Selected Summary 长名称两级自适应已收口。
+- 状态：v1.11；M0、M1、Pre-M2、M2 已完成；M3 与 M3A 已实现并通过本地真实数据、自动化和三档响应式门禁，等待用户验收；未进入 M4。
 - 编写日期：2026-08-27。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
@@ -12,7 +12,7 @@
 - 目标 API：`/api/v1/wealth/market/sector-analysis/**`。
 - 待拍板项：无。若编码时发现本文与当前事实冲突，必须停止并回到方案层确认。
 
-本文只定义财势探查页面结构收口和首期“横截面动量排名”的编码方案。双动量、相对轮动、成员广度、量价分布只保留按钮和“待建设”提示，不得生成路由、controller、API、Mock、隐藏工作区或计算逻辑。
+本文定义财势探查页面结构、首期“横截面动量排名”及 M3A 三级行业成分股明细的编码方案。双动量、相对轮动、成员广度、量价分布只保留按钮和“待建设”提示，不得生成路由、controller、API、Mock、隐藏工作区或计算逻辑。M3A 成分股明细只是已选三级行业的事实下钻，不属于“成员广度”。
 
 ---
 
@@ -21,7 +21,7 @@
 | 硬口径 | 编码落点 | 必须证明的正反例 |
 |---|---|---|
 | 首期只做行业动量排名 | `sector-analysis/momentum-ranking/**` | 仓库没有概念、地域、申万、Heat、预测或 QTF 依赖 |
-| Prod 是唯一在线事实源 | 三个只读 Query | 只出现 `TradeCalendar`、`WealthSectorHierarchy`、`DcDaily` |
+| Prod 是唯一在线事实源 | 既有动量 Query + M3A 成员 Query | 只出现 `TradeCalendar`、`WealthSectorHierarchy`、`DcDaily`、`DcMember`、`EquityDailyBar`；后两者只用于三级行业成员明细 |
 | 公共业务日期唯一 | `MarketPageContextQuery` + URL `tradeDate` | Pre-M2 将内部访问收敛为 1 条 SQL；20:00 默认口径、显式历史严格命中和公开合同不变；前端无本机业务日计算 |
 | 历史缺口必须可见 | Meta 日期覆盖 DTO + 日期选择器 | 覆盖区间内全部 SSE 开市日均返回；COMPLETE/PARTIAL/MISSING 不被过滤 |
 | 五类比较池固定 | `SectorMomentumScope` + `resolve_scope_pool()` | 全体一级/二级/三级与两类直属子级集合完全正确 |
@@ -30,12 +30,16 @@
 | 涨/跌只改变展示顺序 | `sort_ranking_rows()` | 同行业 `returnPct/strengthRank/percentile` 在两方向完全一致 |
 | `strengthRank` 是唯一历史排名 | `rank_strength()` | 最高收益第 1，竞赛排名，历史接口无 direction |
 | 完整列表，不做 TopN | rankings DTO + table | 返回当前比较池全部对象，null 行仍保留在末尾 |
+| 三级成员使用来源全集 | members DTO + member table | 不套 Heat 有效池；B 股、停牌或行情缺口行保留并显示 `--` |
+| 成员收益公式独立 | `SectorMemberReturnCalculator` | 1 日取 `pct_chg(t)`；多日逐日连乘；禁止复用行业首尾收盘价算法 |
+| 成员事实版本一致 | members 必填 `hierarchyVersion` | 版本不一致返回 409；禁止把不同层级版本的榜单和成员拼接 |
+| 成员局部状态隔离 | 独立 member controller/state | 成员 Loading/Empty/Error 不改变整页 READY/DELAYED，不遮蔽行业榜单和右侧详情 |
 | 当前行业尽量保留 | URL reducer + controller | 日期、周期、方向、显示范围变化不擅自换行业 |
 | 两图同时展示并联动 | `MomentumDetailPanel` | 同一交易日索引、独立纵轴、缺点断线、排名第 1 在顶部 |
 | 1600 仅是像素基线，运行时必须等宽适配 | `sector-momentum.css` | 1600px 为 `776+12+776`；1512px 自动收缩且无裁剪；不得把 1564px 写成运行时固定宽度 |
 | 页面状态只用五态 | API 四态 + 前端 LOADING | READY/DELAYED/EMPTY/ERROR；PARTIAL 只能作为日期覆盖元数据，不能成为第六种页面状态 |
 | 未建设方法零副作用 | `SectorAnalysisMethodBar` | 点击只 toast；URL、请求、图表和工作区均不变化 |
-| 不新增持久化能力 | 无迁移、表、缓存服务 | Alembic head 不变；无新 ORM model、Redis 或后台任务 |
+| 不新增持久化能力 | 复用既有 ORM；无迁移、表、缓存服务 | Alembic head 不变；无新 ORM model、Redis 或后台任务 |
 
 公式身份固定：
 
@@ -86,7 +90,7 @@ MarketOverviewPage
       -> shared/ui/shortcut-bar
 ```
 
-结论：页面结构、精确路由和共享 Shortcut 已完成；板块分析当前只有页面壳和五按钮方法栏，没有板块 API、查询、计算、Mock、图表或结果工作区。后端现状仍与 M0 审计一致。
+结论：页面结构、精确路由和共享 Shortcut 已完成；M2 已提供 meta/rankings/history 三个真实接口，M3 已实现动量排名结果工作区，M3A 已实现 members 第四接口、独立成员计算主链、成员局部 controller/state 和左栏下半区。当前等待用户验收。
 
 ### 2.2 前端真实现状
 
@@ -94,7 +98,7 @@ MarketOverviewPage
 2. `/wealth/exploration`、`/turnover-insight` 和 `/sector-analysis/momentum-ranking` 分别由 landing、turnover、sector 三页承载；板块根地址以 `replace` 保留 query 后进入动量地址。
 3. `WealthExplorationShell` 只加载公共时间和主要指数 ticker；入口首页没有成交额或板块业务请求。
 4. `TurnoverInsightPage` 独占既有 `TurnoverInsightSection/controller`，接口、超时和 adapter 合同未变。
-5. `SectorAnalysisPage` 只有一个 active 方法和四个“待建设”按钮；四按钮只产生本地 toast，不改变 URL，不发板块请求。
+5. `SectorAnalysisPage` 已挂载真实动量排名 controller/workspace；一个 active 方法和四个“待建设”按钮仍保持，四按钮只产生本地 toast，不改变 URL，不发对应方法请求。
 6. 市场总览六项数据已移入 `MarketShortcutBar`；共享卡片外层改为原生 button，内部 DOM/class、6 等分、10px 列距、12px 底距、最小高 72px 和内边距保持不变。
 7. 旧 `WealthExplorationPage`、旧私有 Shortcut、零高度 `sector-radar` 节点和对应历史门禁已经删除，不留 wrapper 或 re-export。
 8. `TopMarketBar`、`PageBreadcrumb`、market context 和主要指数 ticker 继续复用既有公共能力，没有复制或改契约。
@@ -108,6 +112,10 @@ MarketOverviewPage
 5. 当前工作区已把 `SectorHierarchyQuery` 移到 `queries/wealth/market/common/sector_hierarchy_query.py`，补齐父／root 名称、`is_leaf` 和最大 `published_at`；两个直接消费者均已切换到公共绝对 import，首页板块速览与架构回归 33 项通过。该独立完成项不等于 M2 API 已开始或完成。
 6. 现有 `sector-overview` DTO 绑定首页 Top5、概念、地域、成员、资金和 Heat，不能扩写为本页 DTO。
 7. `src/app/api/v1/router.py` 逐模块 include `src.biz.api.wealth.market.*`；板块分析只需新增一个 Biz router include，App 不承载业务逻辑。
+8. `sector_analysis.py` 当前提供 meta、rankings、history 和 members 四类事实；members 使用独立 DTO、Query、Calculator、QueryService 和前端局部状态，不改变既有三类事实。
+9. `DcMember` 已映射 `core_serving.dc_member`，业务键为 `(trade_date, ts_code, con_code)`，名称字段允许为空；`EquityDailyBar` 已映射 `core_serving.equity_daily_bar`，业务键为 `(ts_code, trade_date)`，`close/pct_chg` 均允许为空。M3A 复用现有 ORM，不新增模型或迁移。
+10. 首页 `SectorMemberQuery.load_top()` 还会连接证券和停牌事实、最多返回 5 行并按单日涨跌幅排序；它只被首页板块速览消费，M3A 禁止修改、扩写或复用该 DTO。
+11. 现有 `SectorMomentumCalculator` 的多日行业收益使用首尾收盘价比，不符合 M3A 已拍板的逐日 `pct_chg` 连乘；M3A 必须新增独立纯计算器。
 
 ### 2.4 当前状态与目标状态的差异
 
@@ -115,11 +123,12 @@ MarketOverviewPage
 |---|---|---|---|
 | 财势探查根页 | 纯入口首页（M1 已完成） | 纯入口首页 | 保持 landing 零业务请求 |
 | 成交额路由 | `/turnover-insight`（M1 已完成） | 独立子页 | 保持既有业务合同 |
-| 板块分析 | 独立子页与方法栏（M1 已完成） | 动量工作区 | M2 只实现后端，M3 才接前端 |
+| 板块分析 | M2 三接口 + M3 动量工作区已实现 | 增加三级行业成员下钻 | 插入独立 M3A，不修改既有三个 endpoint 和右侧详情 |
 | Shortcut | 共享展示 + 两个 feature wrapper（M1 已完成） | 零漂移共享能力 | 后续不得回写 feature 私有副本 |
 | 行业层级 Query | Biz 公共 Query（当前工作区已移动） | Biz 公共 Query | M2 收口时再次回归首页板块速览，不再重复移动 |
-| 动量事实 | 无 | 三个独立只读 API | 新建 sector_analysis 模块 |
-| 页面异常态 | 无板块状态 | 五态稳定骨架 | 按 Figma 正式节点实现 |
+| 动量事实 | meta/rankings/history 已实现 | 增加 members 第四个只读 API | 独立 query/calculator/service/DTO，不复用首页 Top5 |
+| 页面异常态 | 整页五态已实现 | 增加成员局部四态 | 局部失败不得升级为整页 ERROR |
+| 左栏 | 所有 scope 只有单行业榜单 | 两个三级 scope 使用上下双滚动 | 其他三个 scope 的 DOM、请求和尺寸保持不变 |
 
 ### 2.5 Prod DuckDB 只读覆盖证据
 
@@ -133,6 +142,18 @@ MarketOverviewPage
 
 这项审计关闭“是否存在缺口”的事实问题，但不关闭 M2 的实现验收：编码仍必须用同一门禁生成日期覆盖状态、空值行和断点，并通过正反例证明没有补值或隐藏缺口。
 
+### 2.6 M3A Prod 成分事实审计
+
+2026-08-28 使用现有 Web 只读连接审计当前 337 个三级行业、最近 30 个 SSE 开市日和目标日成员行情；只返回聚合数量和少量代码样本，没有写库、导出来源行或建立副本。
+
+1. 最近 30 个开市日 `2026-07-17..2026-08-27` 共 10,110 个三级行业组日，成员快照缺失为 0。
+2. 单行业成员数最小 1、P50 11、P95 约 55、最大 139；139 行冻结 DTO 估算约 `13.5KB`，低于 `256KB`，因此完整返回且不分页。
+3. 目标日 5,641 条来源成员中 5,547 条有日行情，94 条无目标日行情：78 条 B 股、3 条停牌、13 条其他缺口。全部保留为来源成员并显示 `--`，不引入证券池、停牌补零或前向填充。
+4. 1/5/10/20/30 日严格可计算数量为 `5,547/5,537/5,529/5,508/5,487`。
+5. 两张来源表未发现重复业务键；目标日名称无空白，但 ORM 允许名称为空，DTO 必须允许 null。
+
+该证据冻结 Members `<=4 SQL` 和完整列表设计；实现后仍需验证真实 API P95，不能用聚合审计替代部署态性能结论。
+
 ## 3. Figma 开发交付审计
 
 ### 3.1 正式节点基线
@@ -142,9 +163,9 @@ MarketOverviewPage
 | Ready／一级总榜涨幅 | `965:55` | 1600×1292.390625 | 默认视觉基线 |
 | Ready／一级总榜跌幅 | `971:352` | 1600×1292.390625 | 方向切换 |
 | Ready／二级总榜 | `1051:951` | 1600×1292.390625 | 全部二级、所属一级路径和双排名摘要 |
-| Ready／三级总榜 | `1051:1251` | 1600×1292.390625 | 全部三级、一级／二级路径和双排名摘要 |
+| Ready／三级总榜 | `1051:1251` | 1600×1292.390625 | 全部三级；左栏上下双滚动，成员面板 `1085:1268` |
 | Ready／一级内二级 | `987:476` | 1600×1292.390625 | 单父级选择器及下钻结果 |
-| Ready／二级内三级 | `987:776` | 1600×1292.390625 | 两级联动及下钻结果 |
+| Ready／二级内三级 | `987:776` | 1600×1292.390625 | 两级联动；左栏上下双滚动，成员面板 `1088:1268` |
 | Ready／双图 Hover | `1053:5261` | 1600×1292.390625 | 两图同日期十字线和联合 Tooltip |
 | Ready／交易日选择器 | `1062:2` | 1600×1292.390625 | COMPLETE/PARTIAL/MISSING 可见且均可选择 |
 | Loading | `1036:634` | 1600×1292.390625 | 稳定骨架加载态 |
@@ -161,13 +182,14 @@ MarketOverviewPage
 1. 正式画板直接复用 `TopMarketBar` 实例、`PageBreadcrumb` 实例、`ShortcutCard` 实例和方法 Tab 组件实例。
 2. PageShell 使用纵向 Auto Layout；`1600px` 验收基线下左右工作区为 `776 + 12 + 776 = 1564px`，运行时两列使用等分弹性轨道，不得固定为 776px。
 3. `1600px` 基线下工具栏为 `1564×128`、正文为 `1564×866`；运行时宽度均为当前 PageShell 内容宽度的 `100%`，高度不变。
-4. `1600px` 基线下榜单滚动 viewport 为 `776×772`；运行时宽度随左列变化，高度仍为 772px。固定表头高 40px、行高 56px、`clipsContent=true`、`overflowDirection=VERTICAL` 不变。
-5. 图表、涨跌数据条和滚动条叠层保留绝对坐标。它们是几何绘图区，不应改成 Auto Layout。
-6. 页面普通容器、工具栏、行、摘要卡、状态面板均使用 Auto Layout；不存在用补偿坐标模拟页面布局的新增节点。
-7. 核心颜色已绑定 `CSQ / Market Overview / M0 / Color` 变量；Delayed 新增语义变量 `System/Warning`（`VariableID:1033:2`，`#f59e0b`），Web syntax 为 `var(--cs-color-warning)`，scope 覆盖 Frame/Shape/Text Fill 和 Stroke。
-8. Shortcut 外层容器已从原始色值绑定到 `Background/Panel` 和 `Border/Subtle`。
-9. Loading skeleton 已绑定 `Background/PanelSoft`；Error 重试复用 `Button / Neutral / M0`。
-10. 模块自有正式文本已绑定可精确匹配的本地 Text Style；共享 TopMarketBar 和 ShortcutCard 内仍有少量继承自既有组件的原始色值和无 textStyleId 文本。它们是现有共享组件债务，本期不修改，否则会扩大到全站；其实际颜色与 Web Token 一致，不阻塞本模块编码。
+4. 一级、二级和一级内二级继续使用单榜单左栏：`1600px` 基线下榜单滚动 viewport 为 `776×772`；运行时宽度随左列变化，高度仍为 772px。固定表头高 40px、行高 56px、`clipsContent=true`、`overflowDirection=VERTICAL` 不变。
+5. 三级总榜和二级内三级的左栏包装节点分别为 `1085:1267/1088:1267`，均为 `776×866` 纵向 Auto Layout：上部行业榜单 `776×390`、间距 `12`、下部成员面板 `776×464`。成员面板包含 54px 标题、40px 固定表头和 370px 纵向滚动 viewport，成员行高 48px。
+6. 图表、涨跌数据条和滚动条叠层保留绝对坐标。它们是几何绘图区，不应改成 Auto Layout。
+7. 页面普通容器、工具栏、行、摘要卡、状态面板均使用 Auto Layout；不存在用补偿坐标模拟页面布局的新增节点。
+8. 核心颜色已绑定 `CSQ / Market Overview / M0 / Color` 变量；Delayed 新增语义变量 `System/Warning`（`VariableID:1033:2`，`#f59e0b`），Web syntax 为 `var(--cs-color-warning)`，scope 覆盖 Frame/Shape/Text Fill 和 Stroke。
+9. Shortcut 外层容器已从原始色值绑定到 `Background/Panel` 和 `Border/Subtle`。
+10. Loading skeleton 已绑定 `Background/PanelSoft`；Error 重试复用 `Button / Neutral / M0`。
+11. 模块自有正式文本已绑定可精确匹配的本地 Text Style；共享 TopMarketBar 和 ShortcutCard 内仍有少量继承自既有组件的原始色值和无 textStyleId 文本。它们是现有共享组件债务，本期不修改，否则会扩大到全站；其实际颜色与 Web Token 一致，不阻塞本模块编码。
 
 ### 3.3 已修正的问题
 
@@ -188,6 +210,7 @@ MarketOverviewPage
 | F13 | 一级排名轴只到 20，无法表达 31 个对象 | 高 | 涨／跌与 Hover 纵轴完整覆盖 `1..31`；二／三级总榜分别覆盖 `1..128`、`1..337` |
 | F14 | Warning Token 和模块文字样式未完成开发交付绑定 | 中 | 补 Web syntax/scope；模块自有正式文本绑定本地 Text Style，不拆共享实例 |
 | F15 | 日期字段只表达当前值，无法看到缺口日 | 高 | 新增 `1062:2`；Popover 使用真实覆盖示例显示日期、完整／部分缺失／无数据图例及 `valid/expected`，所有状态均可选择 |
+| F16 | 选中三级行业后无法继续查看成分明细 | 高 | `1051:1251/987:776` 左栏改为 `390+12+464` 双滚动；下部四列显示完整来源成员、目标日收盘价和当前周期涨跌幅 |
 
 ### 3.4 Figma 基线与运行时响应式映射
 
@@ -199,7 +222,9 @@ MarketOverviewPage
 | 方法栏 | 高 48px、内边距 4px、按钮间 4px |
 | 工具栏 | 1600 基线为 1564×128；运行时 `width:100%`，16px 内边距、两行各 44px、行间 8px |
 | 分析正文 | 1600 基线为两列各 776px；运行时 `repeat(2,minmax(0,1fr))`、列间 12px、高 866px |
-| 榜单 | 运行时宽度等于左列；标题 54px、固定表头 40px、viewport 高 772px、行 56px |
+| 单榜单左栏 | 仅一级、二级、一级内二级；运行时宽度等于左列；标题 54px、固定表头 40px、viewport 高 772px、行 56px |
+| 三级双列表左栏 | 仅三级总榜、二级内三级；总高 866px，上榜单 390px、间距 12px、下成员 464px；两个 viewport 独立纵向滚动 |
+| 成员表 | 标题 54px、固定表头 40px、viewport 370px、行 48px、左右内边距 12px；表头与行共用同一响应式 Grid |
 | 详情摘要 | 1600 基线 776×112；运行时 `width:100%`、高度 112px |
 | 趋势图 | 1600 基线每图 776×365；运行时 `width:100%`、高度 365px、图间 12px |
 | 状态面板 | 运行时 `width:100%`、高 866px，替换正文但保留工具栏及页面骨架 |
@@ -223,6 +248,18 @@ Selected Summary 的 Identity 额外使用 `ResizeObserver` 观察自身尺寸�
 3. compact 应用后必须立即再次测量；若行业名或路径仍溢出，则增加 extra-compact，行业名改为 `12px`、路径改为 `8px`，等级标签改为 `9px` 和 `2px 4px` 内边距。
 4. 容器再次变宽时必须从设计稿字号重新测量；宽度足够后自动退出两级 compact，不能永久停留在小字号。
 5. 等级标签始终 `white-space:nowrap` 且不得参与 flex 收缩；行业名和层级路径在 extra-compact 后仍保留 Tooltip/省略保护，只用于防御超过当前正式名称长度的异常数据。
+
+成分股四列在 Figma `776px` 基线内为 `240/176/144/192`，只定义相对比例。代码统一使用：
+
+```css
+grid-template-columns:
+  minmax(0, 240fr)
+  minmax(0, 176fr)
+  minmax(0, 144fr)
+  minmax(0, 192fr);
+```
+
+同一声明必须同时用于表头和每一行。名称列单行省略并提供 Tooltip；代码、收盘价和涨跌幅禁止换行，后三列右对齐。运行时不得写死 752px，否则在 1512px 视口下左栏内容宽约 708px 时会溢出。
 
 ## 4. 目标调用链
 
@@ -310,7 +347,7 @@ resolveWealthExplorationRoute(pathname: string): WealthExplorationRoute
 
 未知 `/wealth/exploration/**` 必须返回 `not-exploration`，证明它没有被误识别为本模块路由；本期继续保留 Router 当前既有 fallback，不顺手新增全站 404 或错误路由框架。
 
-### 5.4 后端公共查询移动
+### 5.4 后端公共查询移动（M2 已完成，不得重复执行）
 
 | 操作 | 文件 | 精确要求 |
 |---|---|---|
@@ -319,7 +356,7 @@ resolveWealthExplorationRoute(pathname: string): WealthExplorationRoute
 | 修改 | `sector_overview/sector_overview_query_service.py` | 相对 import 改为 common 绝对 import；行为不变 |
 | 修改 | `sector_overview/sector_selection_resolver.py` | `SectorHierarchyNode` 改为 common import |
 
-移动后必须保留：单一版本、代码唯一、一级 root、父级层次、root 闭包、`industry_level/display_order/sector_code` 稳定次序。为 Meta DTO 扩展 `SectorHierarchyNode` 的 `parent_sector_name/root_sector_name/is_leaf`，并把所有行 `published_at` 的最大值作为 Snapshot `published_at`；不新增“发布时间必须完全相同”的阻断规则，不改变首页现有选择或错误语义。
+上述移动已经完成。M3A 只复用公共查询的单一版本、代码唯一、一级 root、父级层次、root 闭包和稳定排序结果，并以现有 `baseline_version` 校验 members 请求；不得再次移动文件、增加兼容 re-export 或改变首页选择和错误语义。
 
 ### 5.4A Pre-M2 公共日期查询收敛
 
@@ -382,6 +419,28 @@ wealth/src/features/wealth-exploration/sector-analysis/
 ```
 
 首个消费者保持 feature-local，不提前沉到 shared。只有 Shortcut 是当前已经存在两个消费者且视觉合同相同的真正共享组件。
+
+### 5.7 M3A 文件级增量矩阵
+
+| 操作 | 文件 | 精确要求 |
+|---|---|---|
+| 修改 | `src/biz/api/wealth/market/sector_analysis.py` | 新增第四个 `GET /momentum/members`；继续 strict unknown/duplicate 参数；不得改变三个既有 endpoint |
+| 修改 | `src/biz/schemas/wealth/market/sector_analysis.py` | 新增严格 Members DTO 和计数不变量；不改既有 DTO |
+| 新增 | `src/biz/queries/wealth/market/sector_analysis/sector_member_detail_query.py` | 集合读取精确开市日窗口、来源成员和批量股票行情；禁止 N+1 SQL |
+| 新增 | `src/biz/queries/wealth/market/sector_analysis/sector_member_detail_query_service.py` | 版本/层级校验、调用 Query/Calculator、局部状态和 DTO 组装 |
+| 新增 | `src/biz/services/wealth/market/sector_analysis/sector_member_detail_contract.py` | 输入事实、结果事实、缺失原因和固定枚举；不引入任意表达式 |
+| 新增 | `src/biz/services/wealth/market/sector_analysis/sector_member_return_calculator.py` | 纯计算每日 `pct_chg` 连乘、Decimal 取舍、稳定排序和覆盖计数；无 IO |
+| 修改 | `tests/architecture/test_wealth_sector_analysis_guardrails.py` | 精确新增两张允许表/模型和第四 endpoint；删除只针对 `dc_member` 的旧禁止项，继续禁止其他股票衍生表、资金、Heat、DG/Lake/QTF |
+| 修改 | `wealth/docs/system/exception-code-registry.md` | 登记三个 Members 专用异常码；与本文和技术方案完全一致 |
+| 修改 | `wealth/src/features/wealth-exploration/sector-analysis/momentum-ranking/api/sectorMomentumApi.ts` | 新增 members URL/fetch；请求必带 observedTradeDate 和 hierarchyVersion |
+| 修改 | `wealth/src/features/wealth-exploration/sector-analysis/momentum-ranking/api/sectorMomentumAdapter.ts` | 严格校验响应、计数、可空字段和请求事实一致性；不计算收益或重排 |
+| 修改 | `wealth/src/features/wealth-exploration/sector-analysis/momentum-ranking/model/sectorMomentumTypes.ts` | 新增 Member DTO/ViewModel 和局部四态 |
+| 修改 | `wealth/src/features/wealth-exploration/sector-analysis/momentum-ranking/model/useMomentumRankingController.ts` | 增加独立 member requestId/AbortController/retry；不把 member 状态并入整页五态 |
+| 修改 | `wealth/src/features/wealth-exploration/sector-analysis/momentum-ranking/ui/MomentumRankingWorkspace.tsx` | 两个三级 scope 使用 `MomentumLeftWorkspace`；其他 scope 保持既有渲染 |
+| 新增 | `wealth/src/features/wealth-exploration/sector-analysis/momentum-ranking/ui/SectorMemberPanel.tsx` | 54px 标题、40px 表头、370px viewport、48px 行和局部四态 |
+| 修改 | `wealth/src/features/wealth-exploration/sector-analysis/momentum-ranking/ui/sector-momentum.css` | 冻结 `390+12+464`、共享响应式四列 Grid、独立滚动；不改右栏 |
+
+明确禁止修改：`sector_overview/sector_member_query.py`、`SectorMomentumCalculator`、`MomentumDetailPanel` 两图业务、TopMarketBar、Shortcut、数据库模型、迁移、配置和第三方依赖。
 
 ## 6. 后端合同与纯计算设计
 
@@ -598,8 +657,111 @@ percentile = (n - averageRank) / (n - 1) * 100
 | meta | 3：公共日期 1、层级（含发布时间）1、可用日期 1 |
 | rankings | 显式／默认日期均最多 5：公共日期 1、层级 1、observed 1、窗口日历 1、行情事实 1 |
 | history | 显式／默认日期均最多 5；行情仍为一次有界集合查询 |
+| members | 4：当前层级 1、精确开市日及窗口 1、来源成员 1、成员集合批量日行情 1 |
 
-实现测试使用 SQLAlchemy event counter 记录数量；Pre-M2 必须先证明公共日期查询严格为 1 条，M2 再证明 Meta/Rankings/History 分别不超过 3/5/5 条。出现按行增长即失败。允许同一请求内复用已经加载的 hierarchy snapshot，不允许增加服务端全局缓存。
+实现测试使用 SQLAlchemy event counter 记录数量；Pre-M2 已证明公共日期查询严格为 1 条，M2 已证明 Meta/Rankings/History 分别不超过 3/5/5 条。M3A 必须证明 Members 不超过 4 条，且成员数和周期变化不会增加 SQL 数。允许同一请求内复用已经加载的 hierarchy snapshot，不允许增加服务端全局缓存。
+
+### 6.12 Members 输入事实与窗口
+
+```python
+@dataclass(frozen=True, slots=True)
+class SectorMemberSourceFact:
+    stock_code: str
+    stock_name: str | None
+
+@dataclass(frozen=True, slots=True)
+class SectorMemberDailyFact:
+    stock_code: str
+    trade_date: date
+    close: Decimal | None
+    pct_change: Decimal | None
+
+@dataclass(frozen=True, slots=True)
+class SectorMemberReturnFact:
+    stock_code: str
+    stock_name: str | None
+    close: Decimal | None
+    return_pct: Decimal | None
+    return_missing_reason: Literal[
+        "NONE", "DATE_MISSING", "PCT_CHANGE_MISSING",
+        "HISTORY_INSUFFICIENT",
+    ]
+```
+
+1. 成员关系固定读取 `dc_member.trade_date=tradeDate` 且 `dc_member.ts_code=sectorCode`；不连接 `Security`、停牌表或 Heat 有效池。
+2. 1 日和多日都使用截至 `tradeDate` 的最近 N 个 SSE 开市日；成员多日公式需要 N 个每日 `pct_chg`，不是行业公式的 N+1 个收盘价。
+3. 行情查询使用全部成员代码集合和窗口日期集合一次读取，按 `trade_date, ts_code` 稳定排序；同一业务键重复立即失败，不取第一条。
+4. 目标日收盘价只读取 `close(tradeDate)`，与区间收益是否可计算相互独立：收益缺失时仍可显示收盘价，收盘价缺失时若必要 `pct_chg` 完整仍可显示区间收益。
+
+### 6.13 Members 收益纯计算
+
+1 日：
+
+```text
+memberReturnPct(1,t) = pct_chg(t)
+```
+
+N 日，其中 `N ∈ {5,10,20,30}`：
+
+```text
+requiredDates = 截至 t 的最近 N 个 SSE 开市日
+memberReturnPct(N,t) = (Π[d ∈ requiredDates](1 + pct_chg(d) / 100) - 1) × 100
+```
+
+门禁：
+
+1. 每个必要日期必须有且只有一条该股票行情；任一日期缺行返回 `DATE_MISSING`。
+2. 每个必要 `pct_chg` 必须非空且有限；否则返回 `PCT_CHANGE_MISSING`。
+3. 开市日窗口不足 N 个返回 `HISTORY_INSUFFICIENT`。
+4. 目标日 `close` 非空、有限且大于 0 时保留原值，否则 `close=null`；收盘价缺失不写入 `return_missing_reason`，避免覆盖独立的收益缺失原因。
+5. 内部使用 Decimal；`returnPct` 按 `0.0001/ROUND_HALF_UP` 输出，禁止在前端重新连乘。
+6. 不补零、不前向填充、不借用最近有价日、不按停牌自动视为 0，也不保留首尾收盘价的第二运行分支。
+
+### 6.14 Members 排序和覆盖计数
+
+```text
+GAINERS: returnPct 非空 desc, stockCode asc
+LOSERS:  returnPct 非空 asc,  stockCode asc
+null:    始终末尾, stockCode asc
+```
+
+服务必须满足：
+
+```text
+rows.length == totalMemberCount
+0 <= calculableCount <= totalMemberCount
+0 <= closeAvailableCount <= totalMemberCount
+```
+
+`calculableCount` 与 `closeAvailableCount` 彼此不要求包含关系，因为目标日收盘价和区间 `pct_chg` 的完整性是两项独立事实；这避免错误拒绝“有收益但目标 close 缺失”的合法来源行。
+
+### 6.15 Members 层级版本和状态
+
+1. 请求必须携带 rankings 返回的 `hierarchyVersion`；服务重新加载当前唯一层级快照并要求完全相等。
+2. 版本不一致返回 HTTP 409 `SA_MEMBER_FACT_MISMATCH`，不执行成员和行情查询；前端必须清空四类短期事实并从 meta 重载。
+3. `sectorCode` 必须在该版本中存在且 `industry_level=3`；否则 HTTP 400 `SA_SELECTION_INVALID`，不静默替换行业。
+4. 来源成员数大于 0 时始终返回局部 `READY`，即使全部 `close/returnPct` 为 null。
+5. 来源成员数为 0 返回局部 `EMPTY/SA_MEMBER_SOURCE_EMPTY`；查询、重复键或计算合同失败返回局部 `ERROR/SA_MEMBER_QUERY_FAILED`。
+
+### 6.16 Members Query/Service 伪代码
+
+```python
+def build_members(session, request):
+    hierarchy = hierarchy_query.load_current(session)                  # SQL 1
+    require_version_and_level3(hierarchy, request)
+    open_dates = member_query.load_open_window(session, request)       # SQL 2
+    members = member_query.load_members(session, request)              # SQL 3
+    if not members:
+        return empty_response(request, hierarchy)
+    daily = member_query.load_daily_facts(                             # SQL 4
+        session, codes={row.stock_code for row in members}, dates=open_dates
+    )
+    facts = member_calculator.calculate(members, daily, open_dates, request)
+    rows = member_calculator.sort(facts, direction=request.direction)
+    return build_strict_dto(rows, request, hierarchy)
+```
+
+Query 不返回 DTO，Calculator 不访问 Session，Service 不在循环中执行 SQL。任一层不得调用首页 `SectorMemberQuery.load_top()`。
 
 ## 7. API 与 DTO 冻结
 
@@ -611,7 +773,7 @@ percentile = (n - averageRank) / (n - 1) * 100
 router = APIRouter(prefix="/wealth/market/sector-analysis", tags=["wealth-market"])
 ```
 
-三个 `GET` 均复用 `require_quote_access` 和 `get_db_session`。每个请求先显式检查 unknown/duplicate query 参数，再做类型和闭包校验；不得依赖 FastAPI 默认忽略未知参数。
+四个 `GET` 均复用 `require_quote_access` 和 `get_db_session`。每个请求先显式检查 unknown/duplicate query 参数，再做类型和闭包校验；不得依赖 FastAPI 默认忽略未知参数。
 
 ### 7.2 Meta
 
@@ -769,8 +931,57 @@ Pydantic 全部 `ConfigDict(extra="forbid")`，并增加模型级校验：
 | 显式 MISSING 日或当前周期全部不可计算 | 200 | `SA_SOURCE_EMPTY` | EMPTY；日期缺口仍保留在选择器 |
 | 层级不可用 | 500(meta) / 200(业务响应) | `SA_HIERARCHY_UNAVAILABLE` | ERROR |
 | 未分类查询/计算异常 | 200 | `SA_QUERY_FAILED` | ERROR |
+| members 层级版本过期 | 409 | `SA_MEMBER_FACT_MISMATCH` | 成员局部 ERROR；清空四类事实并从 meta 重载 |
+| members 来源成员为空 | 200 | `SA_MEMBER_SOURCE_EMPTY` | 成员局部 EMPTY；上榜单和右详情保留 |
+| members 查询/计算失败 | 200 | `SA_MEMBER_QUERY_FAILED` | 成员局部 ERROR；仅重试 members |
 
-Meta 无法构建页面对象池时返回 500；rankings/history 已有稳定响应壳时返回 200 ERROR。两类都由同一异常 builder 生成安全文案，不返回 SQL、堆栈、连接信息或源凭据。
+Meta 无法构建页面对象池时返回 500；rankings/history 已有稳定响应壳时返回 200 ERROR；members 使用自己的严格响应壳和局部状态。三类都由同一异常 builder 生成安全文案，不返回 SQL、堆栈、连接信息或源凭据。
+
+### 7.7 Members 请求与 DTO
+
+```http
+GET /api/v1/wealth/market/sector-analysis/momentum/members
+  ?market=CN_A
+  &tradeDate=2026-08-27
+  &hierarchyVersion=dc-industry-v1
+  &sectorCode=BKyyyy.DC
+  &period=20
+  &direction=GAINERS
+```
+
+所有参数均必填；不接受 `scope/level1Code/level2Code/historyRange/range/limit/offset/sort/debug`。`market` 只允许 `CN_A`，`tradeDate` 必须是显式 ISO 日期和 SSE 开市日，`sectorCode` 必须是 `BKxxxx.DC` 且属于指定层级版本的三级行业。
+
+```python
+class SectorMemberRowDto(StrictDto):
+    stockName: str | None
+    stockCode: str
+    close: Decimal | None
+    returnPct: Decimal | None
+
+class SectorMemberDetailResponseDto(StrictDto):
+    status: Literal["READY", "EMPTY", "ERROR"]
+    message: str | None
+    exceptionCode: str | None
+    tradeDate: date
+    hierarchyVersion: str
+    sectorCode: str
+    sectorName: str
+    period: Literal[1, 5, 10, 20, 30]
+    direction: Literal["GAINERS", "LOSERS"]
+    totalMemberCount: int
+    closeAvailableCount: int
+    calculableCount: int
+    rows: list[SectorMemberRowDto]
+```
+
+模型级校验：
+
+1. `rows` 股票代码唯一，顺序满足第 6.14 节；`rows.length=totalMemberCount`。
+2. 三个 count 均非负且不大于 total；`calculableCount` 与 `closeAvailableCount` 互不要求包含。
+3. READY 必须 `totalMemberCount>0`，允许 `closeAvailableCount=0` 或 `calculableCount=0`；exceptionCode 为 null。
+4. EMPTY 必须 `totalMemberCount=closeAvailableCount=calculableCount=0`、rows 为空、exceptionCode=`SA_MEMBER_SOURCE_EMPTY`。
+5. ERROR 不返回来源行，三个 count 为 0、rows 为空；exceptionCode 只允许 `SA_MEMBER_QUERY_FAILED`。版本不一致在 HTTP 409 错误壳返回 `SA_MEMBER_FACT_MISMATCH`，不伪造 200 ERROR DTO。
+6. `stockCode` 保留完整 `ts_code`；`stockName/close/returnPct` 可空。API 使用 Decimal JSON number，不返回格式化字符串。
 
 ## 8. 前端低层设计
 
@@ -826,6 +1037,13 @@ type MomentumViewState =
   | { kind: "delayed"; meta: MetaVm; ranking: RankingVm; history: HistoryVm; selectedCode: string }
   | { kind: "empty"; meta: MetaVm; message: string }
   | { kind: "error"; meta?: MetaVm; message: string; retryable: boolean };
+
+type MemberViewState =
+  | { kind: "idle" }
+  | { kind: "loading"; key: string }
+  | { kind: "ready"; key: string; data: MemberVm }
+  | { kind: "empty"; key: string; message: string }
+  | { kind: "error"; key: string; message: string; retryable: boolean };
 ```
 
 请求阶段：
@@ -840,6 +1058,10 @@ type MomentumViewState =
 8. scope/父级/period/tradeDate 变化刷新 rankings 和 history。
 9. 每个请求使用 AbortController 和规范化 requestKey；旧响应必须在 reducer 前丢弃。
 10. rankings 与 history 的 observedDate、hierarchyVersion、formulaVersion 或日期覆盖计数任一不一致时进入 ERROR，不拼接不同事实。
+11. 只有 scope 为 `level3/level2-children` 且整页已经有 rankings READY/DELAYED 和合法 selectedCode 时派生 members 请求；请求事实固定取 rankings 的 `observedTradeDate/hierarchyVersion`，不得使用浏览器时间或 URL 原始目标日。
+12. members requestKey 为 `observedTradeDate|hierarchyVersion|sectorCode|period|direction`；`range` 不在 key 中。切换到非三级 scope 立即 abort 并置 idle。
+13. members 使用独立 `memberRequestId/memberRetryVersion/AbortController`；局部 loading/empty/error 不改变 MomentumViewState，局部重试只增加 memberRetryVersion。
+14. 普通旧响应或请求事实不匹配时只丢弃；收到 HTTP 409 `SA_MEMBER_FACT_MISMATCH` 时清空 meta/rankings/history/member 状态并重新启动 meta 请求。
 
 ### 8.4 Adapter 边界
 
@@ -850,6 +1072,8 @@ Adapter 允许：
 3. 把 Meta 的 COMPLETE/PARTIAL/MISSING 映射为日期控件的完整、部分缺失和整日缺失标记，并展示 `valid/expected`；不得重新判断覆盖状态。
 4. 按 API 有效 min/max 生成 ReturnBar 几何。
 5. 把两历史数组按日期 zip 为图表 view model，并在不一致时拒绝。
+6. 校验 Members `tradeDate/hierarchyVersion/sectorCode/period/direction` 与请求完全一致，校验代码唯一、排序、count 和状态不变量。
+7. 把 `stockName/close/returnPct` 的 null 映射为 `--`，收盘价和涨跌幅显示 2 位小数；保留原始 Decimal 数值用于颜色和已由后端确定的顺序。
 
 Adapter 禁止：
 
@@ -857,6 +1081,7 @@ Adapter 禁止：
 2. 过滤 null 行或重新做业务排序。
 3. 根据 direction 生成另一套历史排名。
 4. 补日期、补零、前向填充或用最近点延长曲线。
+5. 过滤 B 股、停牌、缺行情或空名称成员，重新排序成员，或在前端连乘 `pct_chg`。
 
 ReturnBar 只做视觉几何：有效值的 `maxAbs=max(abs(min),abs(max))`，零点固定 50%，端点为 `50% + value/maxAbs*50%`；全为 0 时只显示零线。红涨绿跌来自 CSS Token，数值文本永远保留。
 
@@ -870,14 +1095,19 @@ ReturnBar 只做视觉几何：有效值的 `maxAbs=max(abs(min),abs(max))`，�
 6. `RollingReturnChart`、`HistoricalRankChart`：纯 SVG；不引入图表库。
 7. `MomentumLinkedTooltip`：由父级 detail panel 持有一个 hoverIndex，两图共享。
 8. `MomentumStateSurface`：Loading/Empty/Error；Delayed 不替换内容，只在 DataStatus 显示实际日期。
+9. `MomentumLeftWorkspace`：只根据 scope 选择单榜单或 `390+12+464` 双列表骨架，不持有数据计算。
+10. `SectorMemberPanel`：成员标题与总数、四列表头、局部四态和滚动行；不增加股票跳转或操作列。
 
 ### 8.6 榜单滚动和长文本
 
-1. 外层 `MomentumRankingPanel` 高 866px，header 不参与滚动。
+1. 非三级 scope 的外层 `MomentumRankingPanel` 高 866px；两个三级 scope 中该 panel 高 390px，外层 `MomentumLeftWorkspace` 高 866px。
 2. viewport 使用 `overflow-y:auto; min-height:0; scrollbar-gutter:stable`。
 3. rows 容器不做虚拟化；当前层级对象规模可在一个 panel 内完整渲染。若真实 DOM 性能超预算，必须回 LLD，不自行增加 TopN。
 4. 行业和路径 `white-space:nowrap; overflow:hidden; text-overflow:ellipsis`。
 5. 只有 `scrollWidth > clientWidth` 时才提供 title/Tooltip，避免所有行都重复朗读。
+6. `SectorMemberPanel` 高 464px：header 54px、固定表头 40px、viewport 370px、行 48px；成员 viewport 与上部行业 viewport 完全独立。
+7. 成员表头和行共享 `240fr 176fr 144fr 192fr` Grid；名称单行省略，后三列禁止换行且右对齐。不得复制 Figma 的固定 752px 内容宽。
+8. 成员请求 key 变化后 `viewport.scrollTop=0`；相同 key 的局部重试不要求保留失败前滚动位置。
 
 ### 8.7 双图几何
 
@@ -956,6 +1186,18 @@ chart instances +0
 
 不得创建禁用按钮，因为产品已确认需要可点击提示；也不得切到 Draft Figma 工作区。
 
+### 9.4 Members 局部四态
+
+| 局部态 | 条件 | UI 与恢复 |
+|---|---|---|
+| IDLE | 非两个三级 scope，或整页尚未形成合法选中三级行业 | 不挂载成员面板、不发请求 |
+| LOADING | 当前 members key 请求中 | 固定标题/表头和 370px skeleton；上榜单与右详情保留 |
+| READY | 来源成员数大于 0；允许全部数值为空 | 完整行、覆盖计数和 `--`；可继续滚动和切换行业 |
+| EMPTY | 来源成员数为 0 | 只在下半区显示“暂无成分股数据” |
+| ERROR | 查询、合同或版本失败 | 只在下半区显示安全文案；普通失败仅重试 members，版本冲突重载全部事实 |
+
+成员局部状态不是第六种页面状态。整页 READY/DELAYED 只由既有 ranking/history 决定；member Loading/Empty/Error 不得改变工具栏日期状态、清空行业榜单、隐藏右侧详情或自动切换行业。
+
 ## 10. 异常码与安全
 
 `wealth/docs/system/exception-code-registry.md` 已使用模块 `sectorAnalysis` 完成编码前登记；业务代码只能引用下列现有条目：
@@ -967,6 +1209,9 @@ chart instances +0
 | `SA_HIERARCHY_UNAVAILABLE` | error | true | 错误态，禁止猜层级 |
 | `SA_SCOPE_INVALID` | warn | false | HTTP 400，修正 URL/选择 |
 | `SA_SELECTION_INVALID` | warn | false | HTTP 400，保留当前输入 |
+| `SA_MEMBER_FACT_MISMATCH` | warn | false | HTTP 409，清空四类短期事实并从 meta 重载 |
+| `SA_MEMBER_SOURCE_EMPTY` | warn | true | 成员局部 EMPTY，不影响整页 |
+| `SA_MEMBER_QUERY_FAILED` | error | true | 成员局部 ERROR，仅重试当前请求 |
 | `SA_QUERY_FAILED` | error | true | 错误态，可重试 |
 
 安全边界：
@@ -976,6 +1221,7 @@ chart instances +0
 3. 用户不可输入 SQL、字段名、表名、排序表达式或任意窗口。
 4. debug 只在 local/dev/test 生效，details 只含计数、日期、scope 和最多 5 个 sectorCode。
 5. 页面不出现 DC、数据源品牌、表名或技术堆栈。
+6. Members 不返回 SQL、缺失原因内部枚举、停牌判断、来源表名或连接信息；用户只看到完整成员行、空值和覆盖计数。
 
 ## 11. 测试设计
 
@@ -988,6 +1234,8 @@ tests/test_wealth_market_page_context_query.py
 tests/test_wealth_sector_analysis_contract.py
 tests/test_wealth_sector_momentum_calculator.py
 tests/test_wealth_sector_momentum_query_service.py
+tests/test_wealth_sector_member_return_calculator.py
+tests/test_wealth_sector_member_detail_query_service.py
 tests/web/test_wealth_sector_analysis_api.py
 tests/architecture/test_wealth_sector_analysis_guardrails.py
 ```
@@ -1009,6 +1257,14 @@ tests/architecture/test_wealth_sector_analysis_guardrails.py
 13. 启用行情登录门禁后的未登录 401、debug 环境门禁和敏感信息反例；不构造不存在的 403 权限场景。
 14. Meta/Rankings/History SQL 数分别不超过 3/5/5，且不随行业数和历史点线性增长。
 15. 公共层级 Query 移动后 `/sector-overview` 响应与既有测试零回退。
+16. Members 只接受必填 market/tradeDate/hierarchyVersion/sectorCode/period/direction；未知、重复、一级/二级、非开市日和未批准周期均拒绝。
+17. hierarchyVersion 匹配成功；不匹配时 409 `SA_MEMBER_FACT_MISMATCH`，成员和行情 SQL 均为 0。
+18. 1 日 `pct_chg(t)` 和 5/10/20/30 日每日连乘；缺首日、中间日、末日、空值、非有限值和历史不足均返回 null，不补零。
+19. 目标 close 与 returnPct 独立可空；有 return/无 close、有 close/无 return、两者皆无都保留来源行。
+20. GAINERS/LOSERS、null 末尾、同值 stockCode 升序；B 股、停牌和其他缺行情样本不被过滤。
+21. READY 允许 calculableCount=0；EMPTY 只允许来源成员为 0；三个 count、代码唯一和 rows 长度的 DTO 反例全部拒绝。
+22. Members 正常路径最多 4 SQL，且 1/139 个成员、1/30 日窗口 SQL 数相同；禁止逐股票查询。
+23. 现有三个 endpoint、行业 `SectorMomentumCalculator` 和首页 `/sector-overview` Top5 成员响应零回退。
 
 ### 11.2 前端测试
 
@@ -1042,6 +1298,12 @@ tests/test_wealth_turnover_insight_static_gates.py
 13. 四个待建设按钮只 toast，零路由/请求/图表副作用。
 14. 五态真实 API 驱动；显式 PARTIAL 使用 READY 骨架并展示缺失数，显式 MISSING 进入 EMPTY；重试只重发失败链路。
 15. 快速切换时旧响应不能覆盖当前 URL 状态。
+16. 只有 level3/level2-children 请求 members；其他三个 scope 请求数为 0，且保持既有 866px 单榜单。
+17. members key 精确包含 observedTradeDate/hierarchyVersion/sectorCode/period/direction；range 变化请求数不增加，direction 变化只刷新 ranking/member，不刷新 history。
+18. 成员局部 Loading/Ready/Empty/Error 只替换下半区；上榜单、右详情和整页 READY/DELAYED 保留。
+19. HTTP 409 层级版本冲突重载 meta；普通成员失败的重试只重发 members。
+20. 表头和行共用相同 Grid；1512px 下不横向溢出，长名称省略有 Tooltip，代码和数字不换行。
+21. `390+12+464`、成员 54/40/370/48 高度、上下独立滚动和请求 key 变化回顶均有 DOM/CSS 断言。
 
 ### 11.3 删除旧门禁的安全步骤
 
@@ -1062,6 +1324,7 @@ tests/test_wealth_turnover_insight_static_gates.py
 4. 长列表验证真实固定表头和内部滚动，不以短 fixture 替代。
 5. Tooltip、键盘、focus-visible、下钻事件隔离和双图 hover 联动人工验收。
 6. 普通 UI 相对 Figma 允许误差不超过 2px；图表坐标轴、plot padding 和零线不得无依据移动。
+7. `1051:1251/987:776` 单独验收：左栏总高 866px、上榜单 390px、间距 12px、下成员 464px；四列表头/行在 1600/1512/1460 三档严格对齐且无横向溢出。
 
 ## 12. 性能与验收门禁
 
@@ -1070,12 +1333,13 @@ tests/test_wealth_turnover_insight_static_gates.py
 | Meta P95 | <= 300ms |
 | Rankings P95 | <= 500ms |
 | History P95 | <= 700ms |
+| Members P95 | <= 500ms |
 | 当前工作区可用 | <= 1.5s，不含异常网络 |
 | 单 endpoint payload | <= 256KB |
 | 同一 query key 有效请求 | 1 |
 | 未选工作区请求/图表 | 0 |
 
-M2 Prod 只读验收已经证明现有索引满足本期查询：最重 History 查询的数据库服务端执行约 `116.8ms`，同规模完整 service DTO 与 JSON 组装 P95 为 `99.721ms`。跨公网逐条调用的本地 History P95 包含 5 次网络往返，不作为部署态 API 结论；最终同拓扑端到端 P95 仍由 M4 在部署后验收。本期没有新增索引或迁移。
+M2 Prod 只读验收已经证明现有索引满足既有三接口查询：最重 History 查询的数据库服务端执行约 `116.8ms`，同规模完整 service DTO 与 JSON 组装 P95 为 `99.721ms`。M3A 聚合审计证明最大成员数 139，不需要分页或虚拟列表；实现后以 `2026-08-27` 最大真实组日 `BK1444.DC` 的 138 行、30 日窗口连续执行 20 次本地同拓扑 GET，P95 为 `334.279ms`，响应 `12,126 bytes`，满足 Members `500ms/256KB` 门禁。M4 仍需在部署态完成四接口最终验收。本期没有新增索引或迁移。
 
 前端不引入新第三方依赖。图表用 SVG/CSS，列表先使用原生滚动。首次实现禁止为了预期性能增加虚拟列表、服务端缓存或结果表。
 
@@ -1134,6 +1398,18 @@ M2 Prod 只读验收已经证明现有索引满足本期查询：最重 History 
 4. 停止点：全部使用真实 API，仓库无 Mock 兜底。
 5. 1600px 命中 Figma 固定尺寸；1512px 和 1460px 按第 3.4 节连续等宽收缩；用户验收前不进入 M4。
 
+### M3A：三级行业成分股明细
+
+状态：`IMPLEMENTED / PENDING USER ACCEPTANCE (2026-08-28)`。
+
+1. 先同步中央异常码和静态架构护栏合同，再实现 members DTO、Query、独立 Calculator 和 QueryService；既有三个 endpoint、行业 Calculator 和首页 Top5 Query 不得修改语义。
+2. 后端先完成正反例、4 SQL 门禁和真实 API 测试，再接前端；不允许先在页面 mock 成员数据。
+3. 前端增加独立 member 状态和请求链，只在两个三级 scope 挂载 `390+12+464` 左栏；右侧摘要和图表保持不变。
+4. 依次验收 hierarchyVersion 冲突、来源全集、逐日连乘、空值保留、局部四态、快速切换、响应式四列和首页零回退。
+5. 自动化证据：139 成员×30 日仍为 4 条 SQL；过期成员响应、普通局部重试、409 全量重载、范围键隔离、完整列表和空值保留均有正反例。
+6. 浏览器证据：1600/1512/1460 三档页面和模块横向溢出均为 0，左右栏连续等宽收缩，`390+12+464` 与 370px 成员视口不变，四列表头与内容列偏差为 0。
+7. 停止点已到达：等待用户验收，不自动进入 M4。
+
 ### M4：联调和交付
 
 1. 跑后端、前端、架构、typecheck、build 和 docs 检查。
@@ -1159,6 +1435,8 @@ uv run pytest -q \
   tests/test_wealth_sector_analysis_contract.py \
   tests/test_wealth_sector_momentum_calculator.py \
   tests/test_wealth_sector_momentum_query_service.py \
+  tests/test_wealth_sector_member_return_calculator.py \
+  tests/test_wealth_sector_member_detail_query_service.py \
   tests/web/test_wealth_sector_analysis_api.py \
   tests/web/test_wealth_market_sector_overview_api.py \
   tests/test_wealth_turnover_insight_static_gates.py \
@@ -1184,22 +1462,28 @@ git diff --check
 | G03 Figma states | Loading/Delayed/Empty/Error 正式画板 | PASS |
 | G04 Design System | 公共组件复用、核心 Token、Auto Layout/绝对坐标边界正确 | PASS；共享组件遗留原始色值不扩改 |
 | G04A M0 治理门禁 | 三张 Prod 来源、无迁移、无 QTF/DG/Lake/预测、统一异常码 | PASS (M0 static guardrail) |
+| G04B M3A 治理增量 | 精确增加 DcMember/EquityDailyBar 与第四 endpoint；仍无迁移、无其他股票表/资金/Heat/QTF | PASS (M3A code/guardrail) |
 | G05 路由 | 精确四 path、未知子路由反例 | PASS (M1) |
 | G06 页面请求边界 | landing 零业务请求、模块按需挂载 | PASS (M1) |
 | G07 Shortcut 零漂移 | 市场总览 DOM/视觉/交互回归 | PASS (M1) |
 | G07A 公共日期单语句 | 20:00与显式日期语义零变化；所有合法调用恰好1条 SQL；9个消费者回归 | PASS (Pre-M2) |
 | G08 事实源 | 只读三张 Prod 表 | PASS (M2) |
+| G08A 成员事实源 | 后两张表只服务两个三级 scope 的成员明细；来源全集不被过滤 | PASS (Prod audit/M3A code) |
 | G09 公式 | 1/5/10/20/30 与 N+1 完整窗口；真实缺口不得被隐藏或补值 | PASS (M2) |
 | G10 排名语义 | listPosition/strengthRank/percentile 分离 | PASS (M2) |
 | G11 时间前沿 | 历史逐日只读截至当日事实 | PASS (M2) |
 | G12 API strict | unknown/duplicate/闭包/状态 validator | PASS (M2) |
 | G13 异常码 | 统一注册表已登记并由安全 API builder 映射 | PASS (M2) |
+| G13A 成员异常码 | 三个成员码已登记；409/局部 EMPTY/局部 ERROR 映射正确 | PASS (docs/M3A code) |
 | G14 前端真实合同 | adapter 无业务计算、无 Mock | OPEN (M3) |
 | G15 选择保持 | URL 可恢复和切换规则全矩阵 | OPEN (M3) |
 | G16 双图联动 | 同日期、独立 y、rank1 顶部、null 断线 | OPEN (M3) |
-| G17 性能 | SQL 数、P95、payload、按需加载 | PASS (M2 SQL/服务端/应用分段) / OPEN (M4 部署态端到端) |
+| G17 性能 | SQL 数、P95、payload、按需加载 | PASS (M2/M3A local same-topology) / OPEN (M4 deployment) |
 | G18 回归 | 首页、成交额、板块速览、详情无回退 | OPEN (M4) |
 | G19 用户验收 | 部署后真实页面验收 | OPEN (M4) |
+| G20 成员公式 | 1 日 pct_chg、多日逐日连乘、完整 N 日、无补值、独立于行业算法 | PASS (M3A code/tests) |
+| G21 成员局部状态 | 独立 request key/retry/abort；不污染整页五态 | PASS (M3A code/tests) |
+| G22 成员响应式 | `390+12+464`、共享四列 Grid、三档无溢出、双滚动 | PASS (Figma/M3A browser) |
 
 ### 15.1 例外白名单
 
@@ -1221,12 +1505,16 @@ git diff --check
 10. Pre-M2 已把公共业务日期查询收敛为 1 条 SQL；固定北京时间、日期边界、空日历、合法／非法市场和 9 个直接消费者均通过自动化回归。
 11. M2 已实现三个只读 API、strict schema、纯计算内核、五类比较池、日期状态、异常映射和 SQL 数门禁；定向与回归共 156 项通过。
 12. Prod 只读审计、EXPLAIN 和应用计算基准已完成；现有索引满足本期范围，无迁移、缓存或结果表。
+13. M3A 产品基线、D01-D05、两张 Figma 正式画板和 Prod 成分聚合审计已完成；最大 139 行和约 `13.5KB` 已证明完整返回不需要分页。
+14. M3A LLD 已冻结第四 endpoint、必填 hierarchyVersion、独立 Query/Calculator/Service、局部状态、响应式 Grid、异常码、4 SQL 和测试矩阵。
+15. M3A 已实现第四只读 endpoint、独立成员计算主链、局部 controller/state、响应式双列表、竞态保护和三类异常映射；后端 179 项、前端 379 项、typecheck/build 均通过。
+16. 139 成员×30 日 SQL 门禁、最大真实组日 API P95/payload 和 1600/1512/1460 浏览器三档均通过；没有新增迁移、模型、配置、依赖、缓存或分页。
 
 ### 16.2 尚未完成
 
-1. M3 动量工作区已实现并读取 M2 真实 API；响应式宽度纠偏完成后仍等待用户验收，不得标记 PASS。
-2. M4 的部署态真实 API P95、最终 Figma 像素和全量浏览器交互验收尚未完成。
-3. 本期前端与文档修改尚未提交、推送或部署，本期没有迁移。
+1. M3 动量工作区已实现并读取 M2 真实 API；与 M3A 合并后的最终页面仍等待用户验收，不得标记 PASS。
+2. M4 的部署态四接口 P95、最终 Figma 像素和全量浏览器交互验收尚未完成。
+3. 本期代码与文档尚未提交、推送或部署，本期没有迁移。
 
 ## 17. 风险、回滚与停止条件
 
@@ -1238,6 +1526,11 @@ git diff --check
 | 多日计算误用自然日 | 只从 SSE calendar 取窗口 | calculator 单测失败即停止 |
 | direction 污染历史排名 | history schema 无 direction；纯函数分离 | API 契约测试失败即停止 |
 | 历史 SQL 变 N+1 | 有界一次查询 + SQL event counter | 性能门禁失败，回到 Query 设计 |
+| 成员收益误用行业公式 | 独立 `SectorMemberReturnCalculator` 和反例；禁止复用首尾 close 计算器 | 回退 M3A，不修改 M2 行业算法 |
+| 成员请求出现 N+1 | 四条 SQL event counter，行情按代码/日期集合批量查询 | 停止 M3A，回到 Query 设计 |
+| 层级版本串代 | 请求必带 hierarchyVersion；409 后从 meta 重载 | 丢弃当前四类缓存，不拼接响应 |
+| B 股/停牌被静默过滤 | Query 只按 dc_member 来源关系，空行情保留行 | 测试发现行数减少即否决 M3A |
+| 固定四列在窄宽度溢出 | 表头/行共享 fr Grid；1600/1512/1460 三档验收 | 回退成员 CSS，不改变整页宽度合同 |
 | Figma 示例被写死 | LLD 明确示例非默认，默认由层级/排行事实产生 | code review/测试禁止固定行业代码 |
 | 1600 基线被误作运行时固定宽度 | 工作区、工具栏、状态面板使用 `width:100%`，两列使用等分弹性轨道；在 1600/1512/1460 三档实测 | 任一非 1600 宽度出现裁剪或模块级横向溢出即不通过 M3 |
 | 共享组件遗留 Token 债务 | 本期只记录，不扩大全站修改 | 不影响本模块；另立 Design System 任务 |
@@ -1246,10 +1539,10 @@ git diff --check
 
 1. 当前表字段或索引与本文不一致，且会改变查询/迁移范围。
 2. 真实 API 性能超预算，需要新增索引、缓存、结果表或虚拟列表。
-3. 产品要求引入概念、地域、申万、成员、资金、Heat、预测或 QTF。
+3. 产品要求引入概念、地域、申万、成员广度、更多成员字段、资金、Heat、预测或 QTF。
 4. Figma 需要改变页面尺寸、左右栏比例、字段、颜色、字号或图表结构。
 5. 公共 hierarchy 移动无法保持 sector-overview 行为零变化。
 
 ## 18. 结论
 
-M0、M1、Pre-M2 与 M2 已按本文收口。M3 动量工作区已经实现，当前严格停留在响应式布局与用户验收阶段；只有 1600px 像素基线、1512px 自适应、1460px 最小宽度及现有交互回归全部通过后才能标记 M3 PASS，之后才允许进入 M4。
+M0、M1、Pre-M2 与 M2 已按本文收口，M3 与 M3A 均已实现。第四接口、独立成员计算主链、两个三级 scope 的局部双列表、三档响应式、真实 API、性能和首页零回退门禁均已通过；当前停止点是用户验收，确认前不得进入 M4。

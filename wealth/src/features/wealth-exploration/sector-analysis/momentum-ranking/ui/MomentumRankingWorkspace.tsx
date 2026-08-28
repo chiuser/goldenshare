@@ -2,6 +2,7 @@ import type { MomentumRankingController } from "../model/useMomentumRankingContr
 import { MomentumControlBar } from "./MomentumControlBar";
 import { MomentumDetailPanel } from "./MomentumDetailPanel";
 import { MomentumRankingPanel } from "./MomentumRankingPanel";
+import { SectorMemberPanel } from "./SectorMemberPanel";
 import { MomentumStateSurface } from "./MomentumStateSurface";
 import "./sector-momentum.css";
 
@@ -47,12 +48,7 @@ export function MomentumRankingWorkspace({ controller }: { controller: MomentumR
             </div>
           ) : null}
           <div className="momentum-ready-grid">
-            <MomentumRankingPanel
-              onDrillDown={controller.drillDown}
-              onSelect={controller.selectSector}
-              ranking={viewState.ranking}
-              selectedCode={viewState.selectedCode}
-            />
+            <MomentumLeftWorkspace controller={controller} />
             <MomentumDetailPanel
               history={viewState.history}
               onRangeChange={controller.selectRange}
@@ -62,6 +58,35 @@ export function MomentumRankingWorkspace({ controller }: { controller: MomentumR
           </div>
         </>
       ) : null}
+    </div>
+  );
+}
+
+function MomentumLeftWorkspace({ controller }: { controller: MomentumRankingController }) {
+  const { viewState, memberState, urlState } = controller;
+  if (viewState.kind !== "ready" && viewState.kind !== "delayed") return null;
+  const showsMembers = viewState.ranking.scope === "LEVEL_3"
+    || viewState.ranking.scope === "LEVEL_2_CHILDREN";
+  const rankingPanel = (
+    <MomentumRankingPanel
+      compact={showsMembers}
+      onDrillDown={controller.drillDown}
+      onSelect={controller.selectSector}
+      ranking={viewState.ranking}
+      selectedCode={viewState.selectedCode}
+    />
+  );
+  if (!showsMembers) return rankingPanel;
+  const selected = viewState.ranking.rows.find((row) => row.sectorCode === viewState.selectedCode);
+  return (
+    <div className="momentum-left-workspace">
+      {rankingPanel}
+      <SectorMemberPanel
+        memberState={memberState}
+        onRetry={controller.retryMember}
+        period={urlState?.period ?? viewState.ranking.period}
+        sectorName={selected?.sectorName ?? "当前三级行业"}
+      />
     </div>
   );
 }

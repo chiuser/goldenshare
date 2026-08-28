@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 
 SectorMomentumScopeValue = Literal[
@@ -62,9 +70,15 @@ class SectorTradeDateAvailabilityDto(_StrictDto):
     def validate_availability(self) -> "SectorTradeDateAvailabilityDto":
         if self.validSectorCount > self.expectedSectorCount:
             raise ValueError("validSectorCount cannot exceed expectedSectorCount")
-        if self.availability == "COMPLETE" and self.validSectorCount != self.expectedSectorCount:
+        if (
+            self.availability == "COMPLETE"
+            and self.validSectorCount != self.expectedSectorCount
+        ):
             raise ValueError("COMPLETE requires full sector coverage")
-        if self.availability == "PARTIAL" and not 0 < self.validSectorCount < self.expectedSectorCount:
+        if (
+            self.availability == "PARTIAL"
+            and not 0 < self.validSectorCount < self.expectedSectorCount
+        ):
             raise ValueError("PARTIAL requires incomplete non-zero coverage")
         if self.availability == "MISSING" and self.validSectorCount != 0:
             raise ValueError("MISSING requires zero coverage")
@@ -85,7 +99,11 @@ class SectorAnalysisMetaResponseDto(_StrictDto):
         dates = [item.tradeDate for item in self.tradeDates]
         if dates != sorted(set(dates)):
             raise ValueError("tradeDates must be unique and strictly ascending")
-        if not dates or dates[0] != self.coverageStartDate or dates[-1] != self.coverageEndDate:
+        if (
+            not dates
+            or dates[0] != self.coverageStartDate
+            or dates[-1] != self.coverageEndDate
+        ):
             raise ValueError("tradeDates must span the complete coverage range")
         return self
 
@@ -109,7 +127,9 @@ class SectorAnalysisTradingDayDto(_StrictDto):
                 or self.observedAvailability is not None
                 or self.observedValidSectorCount != 0
             ):
-                raise ValueError("zero expected count is reserved for an unavailable response shell")
+                raise ValueError(
+                    "zero expected count is reserved for an unavailable response shell"
+                )
             return self
         SectorTradeDateAvailabilityDto(
             tradeDate=self.expectedTradeDate,
@@ -118,7 +138,10 @@ class SectorAnalysisTradingDayDto(_StrictDto):
             validSectorCount=self.expectedValidSectorCount,
         )
         if self.observedTradeDate is None:
-            if self.observedAvailability is not None or self.observedValidSectorCount != 0:
+            if (
+                self.observedAvailability is not None
+                or self.observedValidSectorCount != 0
+            ):
                 raise ValueError("missing observed date cannot have observed coverage")
             return self
         if self.observedAvailability is None:
@@ -171,8 +194,12 @@ class SectorRankingRowDto(_StrictDto):
     @model_validator(mode="after")
     def validate_nullable_rank(self) -> "SectorRankingRowDto":
         values = (self.returnPct, self.strengthRank, self.percentile)
-        if any(value is None for value in values) and not all(value is None for value in values):
-            raise ValueError("returnPct, strengthRank and percentile must be null together")
+        if any(value is None for value in values) and not all(
+            value is None for value in values
+        ):
+            raise ValueError(
+                "returnPct, strengthRank and percentile must be null together"
+            )
         if self.returnPct is None and any(value is not None for value in values):
             raise ValueError("null returnPct cannot carry ranking values")
         return self
@@ -194,7 +221,9 @@ class SectorRankingDto(_StrictDto):
     def validate_rows(self) -> "SectorRankingDto":
         if self.calculableCount > self.totalCount or len(self.rows) != self.totalCount:
             raise ValueError("ranking counts do not match rows")
-        if [row.listPosition for row in self.rows] != list(range(1, self.totalCount + 1)):
+        if [row.listPosition for row in self.rows] != list(
+            range(1, self.totalCount + 1)
+        ):
             raise ValueError("listPosition must be continuous")
         if sum(row.returnPct is not None for row in self.rows) != self.calculableCount:
             raise ValueError("calculableCount does not match rows")
@@ -293,6 +322,89 @@ class SectorMomentumHistoryResponseDto(_StrictDto):
             trading_day=self.tradingDay,
             exception_code=self.exceptionCode,
         )
+        return self
+
+
+class SectorMemberRowDto(_StrictDto):
+    stockName: str | None = None
+    stockCode: str = Field(pattern=r"^[0-9]{6}\.(?:SH|SZ|BJ)$")
+    close: Decimal | None = None
+    returnPct: Decimal | None = None
+
+    @field_validator("close", "returnPct")
+    @classmethod
+    def validate_finite_decimal(cls, value: Decimal | None) -> Decimal | None:
+        if value is not None and not value.is_finite():
+            raise ValueError("member numeric values must be finite")
+        return value
+
+    @field_serializer("close", "returnPct", when_used="json")
+    def serialize_decimal(self, value: Decimal | None) -> float | None:
+        return None if value is None else float(value)
+
+
+class SectorMemberDetailResponseDto(_StrictDto):
+    status: Literal["READY", "EMPTY", "ERROR"]
+    message: str | None = None
+    exceptionCode: str | None = None
+    tradeDate: date
+    hierarchyVersion: str
+    sectorCode: str = Field(pattern=r"^BK[0-9]{4}\.DC$")
+    sectorName: str
+    period: SectorMomentumPeriodValue
+    direction: SectorMomentumDirectionValue
+    totalMemberCount: int = Field(ge=0)
+    closeAvailableCount: int = Field(ge=0)
+    calculableCount: int = Field(ge=0)
+    rows: list[SectorMemberRowDto]
+
+    @model_validator(mode="after")
+    def validate_state(self) -> "SectorMemberDetailResponseDto":
+        if (
+            self.closeAvailableCount > self.totalMemberCount
+            or self.calculableCount > self.totalMemberCount
+            or len(self.rows) != self.totalMemberCount
+        ):
+            raise ValueError("member counts do not match rows")
+        codes = [row.stockCode for row in self.rows]
+        if len(codes) != len(set(codes)):
+            raise ValueError("member stock codes must be unique")
+        if sum(row.close is not None for row in self.rows) != self.closeAvailableCount:
+            raise ValueError("closeAvailableCount does not match rows")
+        if sum(row.returnPct is not None for row in self.rows) != self.calculableCount:
+            raise ValueError("calculableCount does not match rows")
+        expected_order = sorted(
+            self.rows,
+            key=lambda row: (
+                row.returnPct is None,
+                Decimal(0)
+                if row.returnPct is None
+                else (-row.returnPct if self.direction == "GAINERS" else row.returnPct),
+                row.stockCode,
+            ),
+        )
+        if self.rows != expected_order:
+            raise ValueError("member rows do not follow the frozen sort order")
+        if self.status == "READY":
+            if self.totalMemberCount <= 0 or self.exceptionCode is not None:
+                raise ValueError("READY requires source members and no exception")
+        elif self.status == "EMPTY":
+            if (
+                self.totalMemberCount != 0
+                or self.closeAvailableCount != 0
+                or self.calculableCount != 0
+                or self.rows
+                or self.exceptionCode != "SA_MEMBER_SOURCE_EMPTY"
+            ):
+                raise ValueError("EMPTY member response is invalid")
+        elif (
+            self.totalMemberCount != 0
+            or self.closeAvailableCount != 0
+            or self.calculableCount != 0
+            or self.rows
+            or self.exceptionCode != "SA_MEMBER_QUERY_FAILED"
+        ):
+            raise ValueError("ERROR member response is invalid")
         return self
 
 

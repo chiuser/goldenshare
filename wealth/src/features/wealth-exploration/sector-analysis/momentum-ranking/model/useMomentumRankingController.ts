@@ -2,19 +2,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   buildSectorMomentumHistoryViewModel,
+  buildSectorMemberDetailViewModel,
   buildSectorMomentumMetaViewModel,
   buildSectorMomentumRankingViewModel,
 } from "../api/sectorMomentumAdapter";
 import {
+  fetchSectorMemberDetail,
   fetchSectorMomentumHistory,
   fetchSectorMomentumMeta,
   fetchSectorMomentumRankings,
   SectorMomentumApiError,
+  type SectorMemberDetailRequest,
   type SectorMomentumHistoryRequest,
   type SectorMomentumRankingRequest,
 } from "../api/sectorMomentumApi";
 import type {
   MomentumViewState,
+  MemberViewState,
   SectorHistoryRange,
   SectorHierarchyNodeResponse,
   SectorMomentumHistoryViewModel,
@@ -69,12 +73,15 @@ export function useMomentumRankingController({
   const [metaState, setMetaState] = useState<MetaState>({ kind: "loading" });
   const [rankingState, setRankingState] = useState<RankingState>({ kind: "idle" });
   const [historyState, setHistoryState] = useState<HistoryState>({ kind: "idle" });
+  const [memberState, setMemberState] = useState<MemberViewState>({ kind: "idle" });
   const [metaRetryVersion, setMetaRetryVersion] = useState(0);
   const [rankingRetryVersion, setRankingRetryVersion] = useState(0);
   const [historyRetryVersion, setHistoryRetryVersion] = useState(0);
+  const [memberRetryVersion, setMemberRetryVersion] = useState(0);
   const metaRequestId = useRef(0);
   const rankingRequestId = useRef(0);
   const historyRequestId = useRef(0);
+  const memberRequestId = useRef(0);
 
   const urlState = parsed.ok ? parsed.value : null;
 
@@ -86,6 +93,7 @@ export function useMomentumRankingController({
     setMetaState({ kind: "loading" });
     setRankingState({ kind: "idle" });
     setHistoryState({ kind: "idle" });
+    setMemberState({ kind: "idle" });
 
     fetchSectorMomentumMeta(urlState.market, { signal: controller.signal })
       .then((payload) => {
@@ -181,6 +189,82 @@ export function useMomentumRankingController({
   }, [rankingKey, rankingState, resolved, selectedCode, urlState]);
   const historyKey = historyRequest ? stableRequestKey(historyRequest) : "";
 
+  const memberRequest = useMemo(() => {
+    if (!urlState || rankingState.kind !== "ready" || rankingState.key !== rankingKey || !selectedCode) {
+      return null;
+    }
+    const ranking = rankingState.data;
+    if (ranking.scope !== "LEVEL_3" && ranking.scope !== "LEVEL_2_CHILDREN") return null;
+    const observedTradeDate = ranking.tradingDay.observedTradeDate;
+    if (!observedTradeDate) return null;
+    return {
+      market: urlState.market,
+      tradeDate: observedTradeDate,
+      hierarchyVersion: ranking.hierarchyVersion,
+      sectorCode: selectedCode,
+      period: ranking.period,
+      direction: ranking.direction,
+    } satisfies SectorMemberDetailRequest;
+  }, [rankingKey, rankingState, selectedCode, urlState?.market]);
+  const memberKey = memberRequest
+    ? [
+        memberRequest.tradeDate,
+        memberRequest.hierarchyVersion,
+        memberRequest.sectorCode,
+        memberRequest.period,
+        memberRequest.direction,
+      ].join("|")
+    : "";
+
+  useEffect(() => {
+    if (!enabled || !memberRequest) {
+      memberRequestId.current += 1;
+      setMemberState({ kind: "idle" });
+      return;
+    }
+    if (memberState.kind === "ready" && memberState.key === memberKey) return;
+    const currentId = ++memberRequestId.current;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    setMemberState({ kind: "loading", key: memberKey });
+
+    fetchSectorMemberDetail(memberRequest, { signal: controller.signal })
+      .then((payload) => {
+        if (memberRequestId.current !== currentId) return;
+        const viewModel = buildSectorMemberDetailViewModel(payload, memberRequest);
+        if (viewModel.status === "EMPTY") {
+          setMemberState({ kind: "empty", key: memberKey, message: viewModel.message });
+          return;
+        }
+        if (viewModel.status === "ERROR") {
+          setMemberState({ kind: "error", key: memberKey, message: viewModel.message, retryable: true });
+          return;
+        }
+        setMemberState({ kind: "ready", key: memberKey, data: viewModel });
+      })
+      .catch((error) => {
+        if (memberRequestId.current !== currentId) return;
+        if (error instanceof SectorMomentumApiError
+            && error.status === 409
+            && error.code === "SA_MEMBER_FACT_MISMATCH") {
+          setMetaState({ kind: "loading" });
+          setRankingState({ kind: "idle" });
+          setHistoryState({ kind: "idle" });
+          setMemberState({ kind: "idle" });
+          setMetaRetryVersion((value) => value + 1);
+          return;
+        }
+        const next = toErrorState(error, "成分股数据加载失败。");
+        setMemberState({ ...next, key: memberKey });
+      })
+      .finally(() => window.clearTimeout(timeoutId));
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [enabled, memberKey, memberRetryVersion]);
+
   useEffect(() => {
     if (!enabled || !historyRequest) return;
     if (historyState.kind === "ready" && historyState.key === historyKey) return;
@@ -259,11 +343,13 @@ export function useMomentumRankingController({
   return {
     urlState: currentState,
     viewState,
+    memberState,
     retry: () => {
       if (metaState.kind === "error") setMetaRetryVersion((value) => value + 1);
       else if (rankingState.kind === "error") setRankingRetryVersion((value) => value + 1);
       else if (historyState.kind === "error") setHistoryRetryVersion((value) => value + 1);
     },
+    retryMember: () => setMemberRetryVersion((value) => value + 1),
     selectSector: (sectorCode: string) => {
       if (!currentState) return;
       navigate({ ...currentState, sectorCode }, true);

@@ -9,11 +9,21 @@ interface MomentumRankingPanelProps {
   selectedCode: string;
   onSelect: (sectorCode: string) => void;
   onDrillDown: (row: SectorRankingRowViewModel) => void;
+  compact?: boolean;
 }
 
-export function MomentumRankingPanel({ ranking, selectedCode, onSelect, onDrillDown }: MomentumRankingPanelProps) {
+export function MomentumRankingPanel({
+  ranking,
+  selectedCode,
+  onSelect,
+  onDrillDown,
+  compact = false,
+}: MomentumRankingPanelProps) {
   return (
-    <section className="momentum-ranking-panel" aria-label={buildScopeTitle(ranking)}>
+    <section
+      className={`momentum-ranking-panel${compact ? " momentum-ranking-panel-compact" : ""}`}
+      aria-label={buildScopeTitle(ranking)}
+    >
       <div className="momentum-panel-header">
         <div>
           <strong>{buildScopeTitle(ranking)}</strong>

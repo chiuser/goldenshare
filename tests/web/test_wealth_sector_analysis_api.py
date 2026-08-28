@@ -7,8 +7,12 @@ from sqlalchemy import event, select
 
 from src.foundation.config.settings import get_settings
 from src.foundation.models.core.dc_daily import DcDaily
+from src.foundation.models.core.dc_member import DcMember
 from src.foundation.models.core.trade_calendar import TradeCalendar
-from src.foundation.models.core_serving.wealth_sector_hierarchy import WealthSectorHierarchy
+from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
+from src.foundation.models.core_serving.wealth_sector_hierarchy import (
+    WealthSectorHierarchy,
+)
 
 
 TARGET_DATE = date(2026, 4, 30)
@@ -18,6 +22,8 @@ OPEN_DATES = tuple(TARGET_DATE - timedelta(days=offset) for offset in range(64, 
 def _ensure_tables(db_session) -> None:
     bind = db_session.get_bind()
     DcDaily.__table__.create(bind, checkfirst=True)
+    DcMember.__table__.create(bind, checkfirst=True)
+    EquityDailyBar.__table__.create(bind, checkfirst=True)
     WealthSectorHierarchy.__table__.create(bind, checkfirst=True)
 
 
@@ -105,6 +111,57 @@ def _seed_sector_analysis(db_session) -> None:
     db_session.commit()
 
 
+def _seed_sector_members(db_session) -> None:
+    for code, name in (
+        ("000001.SZ", "股票甲"),
+        ("000003.SZ", None),
+        ("200001.SZ", "B股样本"),
+    ):
+        db_session.add(
+            DcMember(
+                trade_date=TARGET_DATE,
+                ts_code="BK1201.DC",
+                con_code=code,
+                name=name,
+            )
+        )
+    for item in OPEN_DATES[-5:]:
+        for code, pct_chg in (("000001.SZ", "1"), ("200001.SZ", "2")):
+            db_session.add(
+                EquityDailyBar(
+                    ts_code=code,
+                    trade_date=item,
+                    open=Decimal("10"),
+                    high=Decimal("10"),
+                    low=Decimal("10"),
+                    close=None
+                    if code == "200001.SZ" and item == TARGET_DATE
+                    else Decimal("10"),
+                    pre_close=Decimal("10"),
+                    change_amount=Decimal("0"),
+                    pct_chg=Decimal(pct_chg),
+                    vol=Decimal("100"),
+                    amount=Decimal("1000"),
+                )
+            )
+    db_session.add(
+        EquityDailyBar(
+            ts_code="000003.SZ",
+            trade_date=TARGET_DATE,
+            open=Decimal("8"),
+            high=Decimal("8"),
+            low=Decimal("8"),
+            close=Decimal("8"),
+            pre_close=Decimal("8"),
+            change_amount=Decimal("0"),
+            pct_chg=None,
+            vol=Decimal("100"),
+            amount=Decimal("1000"),
+        )
+    )
+    db_session.commit()
+
+
 def _count_request_sql(engine, callback) -> tuple[int, object]:
     statements: list[str] = []
 
@@ -166,7 +223,11 @@ def test_rankings_returns_full_gain_and_loss_lists_with_stable_strength_ranks_in
         web_engine,
         lambda: app_client.get(
             "/api/v1/wealth/market/sector-analysis/momentum/rankings",
-            params={"tradeDate": TARGET_DATE.isoformat(), "scope": "LEVEL_1", "debug": 1},
+            params={
+                "tradeDate": TARGET_DATE.isoformat(),
+                "scope": "LEVEL_1",
+                "debug": 1,
+            },
         ),
     )
     losers = app_client.get(
@@ -195,10 +256,12 @@ def test_rankings_returns_full_gain_and_loss_lists_with_stable_strength_ranks_in
         "BK1001.DC",
     ]
     gain_ranks = {
-        row["sectorCode"]: row["strengthRank"] for row in gain_payload["ranking"]["rows"]
+        row["sectorCode"]: row["strengthRank"]
+        for row in gain_payload["ranking"]["rows"]
     }
     loss_ranks = {
-        row["sectorCode"]: row["strengthRank"] for row in loss_payload["ranking"]["rows"]
+        row["sectorCode"]: row["strengthRank"]
+        for row in loss_payload["ranking"]["rows"]
     }
     assert gain_ranks == loss_ranks == {"BK1001.DC": 1, "BK1002.DC": 2}
     assert gain_payload["debugInfo"]["sampleSectorCodes"] == ["BK1001.DC", "BK1002.DC"]
@@ -241,7 +304,9 @@ def test_history_returns_current_global_and_parent_ranks_and_sixty_slots_in_five
     assert payload["detail"]["scopeTitle"] == "一级甲内二级行业"
 
 
-def test_explicit_partial_keeps_full_pool_and_null_row_without_fallback(app_client, db_session) -> None:
+def test_explicit_partial_keeps_full_pool_and_null_row_without_fallback(
+    app_client, db_session
+) -> None:
     _seed_sector_analysis(db_session)
     db_session.delete(
         db_session.scalar(
@@ -301,7 +366,9 @@ def test_default_partial_falls_back_to_latest_complete_day_and_reports_delayed(
     assert payload["tradingDay"]["observedAvailability"] == "COMPLETE"
 
 
-def test_explicit_missing_day_is_empty_and_never_falls_back(app_client, db_session) -> None:
+def test_explicit_missing_day_is_empty_and_never_falls_back(
+    app_client, db_session
+) -> None:
     _seed_sector_analysis(db_session)
     for row in db_session.scalars(
         select(DcDaily).where(
@@ -462,7 +529,9 @@ def test_api_rejects_invalid_market_date_code_and_non_open_trade_date(
 ) -> None:
     _seed_sector_analysis(db_session)
     closed_date = OPEN_DATES[-5]
-    calendar = db_session.get(TradeCalendar, {"exchange": "SSE", "trade_date": closed_date})
+    calendar = db_session.get(
+        TradeCalendar, {"exchange": "SSE", "trade_date": closed_date}
+    )
     calendar.is_open = False
     db_session.commit()
     cases = (
@@ -521,7 +590,9 @@ def test_rankings_hierarchy_and_query_failures_use_safe_business_error_shells(
     assert "dc_daily" not in query_response.text
 
 
-def test_debug_payload_is_hidden_outside_local_dev_and_test(app_client, db_session, monkeypatch) -> None:
+def test_debug_payload_is_hidden_outside_local_dev_and_test(
+    app_client, db_session, monkeypatch
+) -> None:
     _seed_sector_analysis(db_session)
     monkeypatch.setenv("APP_ENV", "prod")
     monkeypatch.setenv(
@@ -541,6 +612,223 @@ def test_debug_payload_is_hidden_outside_local_dev_and_test(app_client, db_sessi
         get_settings.cache_clear()
 
 
+def test_members_returns_complete_source_rows_and_compounded_returns_in_four_sql(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    _seed_sector_analysis(db_session)
+    _seed_sector_members(db_session)
+
+    sql_count, response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/momentum/members",
+            params={
+                "market": "CN_A",
+                "tradeDate": TARGET_DATE.isoformat(),
+                "hierarchyVersion": "2026-04-30-v1",
+                "sectorCode": "BK1201.DC",
+                "period": 5,
+                "direction": "GAINERS",
+            },
+        ),
+    )
+
+    assert response.status_code == 200
+    assert sql_count == 4
+    payload = response.json()
+    assert payload["status"] == "READY"
+    assert payload["totalMemberCount"] == 3
+    assert payload["closeAvailableCount"] == 2
+    assert payload["calculableCount"] == 2
+    assert [row["stockCode"] for row in payload["rows"]] == [
+        "200001.SZ",
+        "000001.SZ",
+        "000003.SZ",
+    ]
+    assert payload["rows"][0]["close"] is None
+    assert payload["rows"][0]["returnPct"] == 10.4081
+    assert payload["rows"][1]["returnPct"] == 5.101
+    assert payload["rows"][2] == {
+        "stockName": None,
+        "stockCode": "000003.SZ",
+        "close": 8.0,
+        "returnPct": None,
+    }
+
+
+def test_members_keeps_four_sql_for_139_members_and_thirty_open_days(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    _seed_sector_analysis(db_session)
+    stock_codes = tuple(f"{1000 + index:06d}.SZ" for index in range(139))
+    db_session.add_all(
+        DcMember(
+            trade_date=TARGET_DATE,
+            ts_code="BK1201.DC",
+            con_code=stock_code,
+            name=f"样本{index:03d}",
+        )
+        for index, stock_code in enumerate(stock_codes)
+    )
+    db_session.add_all(
+        EquityDailyBar(
+            ts_code=stock_code,
+            trade_date=trade_date,
+            open=Decimal("10"),
+            high=Decimal("10"),
+            low=Decimal("10"),
+            close=Decimal("10"),
+            pre_close=Decimal("10"),
+            change_amount=Decimal("0"),
+            pct_chg=Decimal("0.1"),
+            vol=Decimal("100"),
+            amount=Decimal("1000"),
+        )
+        for stock_code in stock_codes
+        for trade_date in OPEN_DATES[-30:]
+    )
+    db_session.commit()
+
+    sql_count, response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/momentum/members",
+            params={
+                "market": "CN_A",
+                "tradeDate": TARGET_DATE.isoformat(),
+                "hierarchyVersion": "2026-04-30-v1",
+                "sectorCode": "BK1201.DC",
+                "period": 30,
+                "direction": "GAINERS",
+            },
+        ),
+    )
+
+    assert response.status_code == 200
+    assert sql_count == 4
+    assert response.json()["totalMemberCount"] == 139
+    assert response.json()["calculableCount"] == 139
+
+
+def test_members_losers_reverse_only_valid_values_and_keep_null_last(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    _seed_sector_members(db_session)
+    response = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/momentum/members",
+        params={
+            "market": "CN_A",
+            "tradeDate": TARGET_DATE.isoformat(),
+            "hierarchyVersion": "2026-04-30-v1",
+            "sectorCode": "BK1201.DC",
+            "period": 5,
+            "direction": "LOSERS",
+        },
+    )
+
+    assert response.status_code == 200
+    assert [row["stockCode"] for row in response.json()["rows"]] == [
+        "000001.SZ",
+        "200001.SZ",
+        "000003.SZ",
+    ]
+
+
+def test_members_empty_is_local_200_state(app_client, db_session) -> None:
+    _seed_sector_analysis(db_session)
+    response = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/momentum/members",
+        params={
+            "market": "CN_A",
+            "tradeDate": TARGET_DATE.isoformat(),
+            "hierarchyVersion": "2026-04-30-v1",
+            "sectorCode": "BK1202.DC",
+            "period": 1,
+            "direction": "GAINERS",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "EMPTY"
+    assert payload["exceptionCode"] == "SA_MEMBER_SOURCE_EMPTY"
+    assert payload["rows"] == []
+
+
+def test_members_version_mismatch_returns_409_before_member_queries(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    _seed_sector_analysis(db_session)
+    _seed_sector_members(db_session)
+
+    sql_count, response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/momentum/members",
+            params={
+                "market": "CN_A",
+                "tradeDate": TARGET_DATE.isoformat(),
+                "hierarchyVersion": "stale-version",
+                "sectorCode": "BK1201.DC",
+                "period": 1,
+                "direction": "GAINERS",
+            },
+        ),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "SA_MEMBER_FACT_MISMATCH"
+    assert sql_count == 1
+
+
+def test_members_rejects_missing_unknown_duplicate_non_level_three_and_closed_date(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    closed_date = OPEN_DATES[-5]
+    calendar = db_session.get(
+        TradeCalendar, {"exchange": "SSE", "trade_date": closed_date}
+    )
+    calendar.is_open = False
+    db_session.commit()
+    base = {
+        "market": "CN_A",
+        "tradeDate": TARGET_DATE.isoformat(),
+        "hierarchyVersion": "2026-04-30-v1",
+        "sectorCode": "BK1201.DC",
+        "period": 1,
+        "direction": "GAINERS",
+    }
+    cases = (
+        {key: value for key, value in base.items() if key != "market"},
+        {**base, "scope": "LEVEL_3"},
+        {**base, "sectorCode": "BK1101.DC"},
+        {**base, "tradeDate": closed_date.isoformat()},
+    )
+    for params in cases:
+        response = app_client.get(
+            "/api/v1/wealth/market/sector-analysis/momentum/members",
+            params=params,
+        )
+        assert response.status_code == 400
+    duplicate = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/momentum/members"
+        "?market=CN_A&market=CN_A&tradeDate=2026-04-30"
+        "&hierarchyVersion=2026-04-30-v1&sectorCode=BK1201.DC&period=1&direction=GAINERS"
+    )
+    assert duplicate.status_code == 400
+    assert duplicate.json()["code"] == "SA_SCOPE_INVALID"
+
+
 def test_quote_auth_requirement_is_reused(app_client, monkeypatch) -> None:
     monkeypatch.setenv("QUOTE_API_AUTH_REQUIRED", "true")
     get_settings.cache_clear()
@@ -548,6 +836,11 @@ def test_quote_auth_requirement_is_reused(app_client, monkeypatch) -> None:
         response = app_client.get("/api/v1/wealth/market/sector-analysis/meta")
         assert response.status_code == 401
         assert response.json()["code"] == "auth_required"
+        member_response = app_client.get(
+            "/api/v1/wealth/market/sector-analysis/momentum/members"
+        )
+        assert member_response.status_code == 401
+        assert member_response.json()["code"] == "auth_required"
     finally:
         monkeypatch.setenv("QUOTE_API_AUTH_REQUIRED", "false")
         get_settings.cache_clear()

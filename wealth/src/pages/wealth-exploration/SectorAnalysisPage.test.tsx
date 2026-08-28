@@ -45,9 +45,9 @@ describe("SectorAnalysisPage", () => {
     const dateOptions = within(screen.getByLabelText("分析日期")).getAllByRole("option");
     expect(dateOptions.map((option) => option.textContent)).toEqual([
       "按公共行情日期",
-      "2026-08-19 · 完整 · 4/4",
-      "2026-08-20 · 部分缺失 · 3/4",
-      "2026-08-21 · 完整 · 4/4",
+      "2026-08-19 · 完整 · 5/5",
+      "2026-08-20 · 部分缺失 · 4/5",
+      "2026-08-21 · 完整 · 5/5",
     ]);
   });
 
@@ -98,9 +98,14 @@ describe("SectorAnalysisPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "三级总榜" }));
     await screen.findByText("三级行业总榜");
+    await screen.findByRole("table", { name: "三级行业成分股明细" });
+    expect(requestCount(urls, "/momentum/members")).toBe(1);
+    expect(document.querySelector(".momentum-left-workspace")).toBeInTheDocument();
+    expect(document.querySelector(".momentum-ranking-panel-compact")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "一级内二级" }));
     await screen.findByText("一级行业甲内二级行业");
+    expect(screen.queryByRole("table", { name: "三级行业成分股明细" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("一级行业")).toBeInTheDocument();
     expect(screen.queryByLabelText("二级行业")).not.toBeInTheDocument();
 
@@ -109,6 +114,120 @@ describe("SectorAnalysisPage", () => {
     expect(screen.getByLabelText("一级行业")).toBeInTheDocument();
     expect(screen.getByLabelText("二级行业")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /下钻三级行业甲一一/ })).not.toBeInTheDocument();
+    await screen.findByRole("table", { name: "三级行业成分股明细" });
+    expect(requestCount(urls, "/momentum/members")).toBe(2);
+  });
+
+  it("keeps member requests independent from range and refreshes them for direction", async () => {
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", buildReadyFetch(urls));
+    window.history.replaceState(
+      {},
+      "",
+      `${WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH}?tradeDate=2026-08-21&scope=level3`,
+    );
+    render(<AuthProvider><WealthRouter /></AuthProvider>);
+
+    await screen.findByRole("table", { name: "三级行业成分股明细" });
+    expect(requestCount(urls, "/momentum/members")).toBe(1);
+    expect(screen.getByText("2 只 · 收盘 1 · 可算 1")).toBeInTheDocument();
+    expect(screen.getByText("股票甲")).toBeInTheDocument();
+    expect(screen.getByText("000001.SZ")).toBeInTheDocument();
+
+    fireEvent.click(within(screen.getByLabelText("历史显示范围")).getByRole("button", { name: "60日" }));
+    await waitFor(() => expect(requestCount(urls, "/momentum/history")).toBe(2));
+    expect(requestCount(urls, "/momentum/members")).toBe(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "跌幅榜" }));
+    await waitFor(() => expect(requestCount(urls, "/momentum/members")).toBe(2));
+    expect(requestCount(urls, "/momentum/history")).toBe(2);
+  });
+
+  it("keeps member failure local and retries only the member request", async () => {
+    const urls: string[] = [];
+    const ready = buildReadyFetch(urls);
+    let memberAttempt = 0;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/momentum/members") && memberAttempt++ === 0) {
+        urls.push(url);
+        return jsonResponse(memberErrorPayload(new URL(url)));
+      }
+      return ready(input);
+    }));
+    render(<SectorAnalysisPage search="?tradeDate=2026-08-21&scope=level3" />);
+
+    expect(await screen.findByText("成分股数据读取失败，请稍后重试。")).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "行业动量完整排名" })).toBeInTheDocument();
+    expect(document.querySelectorAll(".momentum-chart-card svg")).toHaveLength(2);
+    const counts = {
+      meta: requestCount(urls, "/sector-analysis/meta"),
+      rankings: requestCount(urls, "/momentum/rankings"),
+      history: requestCount(urls, "/momentum/history"),
+    };
+    fireEvent.click(within(screen.getByRole("alert")).getByRole("button", { name: "重试" }));
+    await waitFor(() => expect(requestCount(urls, "/momentum/members")).toBe(2));
+    expect(requestCount(urls, "/sector-analysis/meta")).toBe(counts.meta);
+    expect(requestCount(urls, "/momentum/rankings")).toBe(counts.rankings);
+    expect(requestCount(urls, "/momentum/history")).toBe(counts.history);
+    expect(await screen.findByText("股票甲")).toBeInTheDocument();
+  });
+
+  it("reloads all sector facts after a member hierarchy-version conflict", async () => {
+    const urls: string[] = [];
+    const ready = buildReadyFetch(urls);
+    let memberAttempt = 0;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/momentum/members") && memberAttempt++ === 0) {
+        urls.push(url);
+        return jsonResponse(
+          { code: "SA_MEMBER_FACT_MISMATCH", message: "行业分类已更新" },
+          409,
+        );
+      }
+      return ready(input);
+    }));
+    render(<SectorAnalysisPage search="?tradeDate=2026-08-21&scope=level3" />);
+
+    await waitFor(() => expect(requestCount(urls, "/sector-analysis/meta")).toBe(2));
+    await waitFor(() => expect(requestCount(urls, "/momentum/members")).toBe(2));
+    expect(await screen.findByText("股票甲")).toBeInTheDocument();
+  });
+
+  it("drops a late member response after selecting another level-three industry", async () => {
+    const urls: string[] = [];
+    const ready = buildReadyFetch(urls);
+    let resolveFirst!: (value: Response) => void;
+    const firstMember = new Promise<Response>((resolve) => { resolveFirst = resolve; });
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      const parsed = new URL(url);
+      if (url.includes("/momentum/members")
+          && parsed.searchParams.get("sectorCode") === "BK1201.DC") {
+        urls.push(url);
+        return firstMember;
+      }
+      return ready(input);
+    }));
+    window.history.replaceState(
+      {},
+      "",
+      `${WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH}?tradeDate=2026-08-21&scope=level3`,
+    );
+    render(<AuthProvider><WealthRouter /></AuthProvider>);
+
+    await screen.findByRole("button", { name: "选择三级行业甲一二" });
+    fireEvent.click(screen.getByRole("button", { name: "选择三级行业甲一二" }));
+    expect(await screen.findByText("股票乙")).toBeInTheDocument();
+    resolveFirst(jsonResponse(memberPayload(new URL(
+      "http://localhost/api/v1/wealth/market/sector-analysis/momentum/members"
+      + "?market=CN_A&tradeDate=2026-08-21&hierarchyVersion=2026-08-21-v1"
+      + "&sectorCode=BK1201.DC&period=1&direction=GAINERS",
+    ))));
+    await waitFor(() => expect(screen.getByText("股票乙")).toBeInTheDocument());
+    expect(screen.queryByText("股票甲")).not.toBeInTheDocument();
+    expect(screen.getByText("三级行业甲一二成分股")).toBeInTheDocument();
   });
 
   it("keeps explicit PARTIAL dates in READY and names missing industry facts", async () => {
@@ -129,7 +248,7 @@ describe("SectorAnalysisPage", () => {
     render(<SectorAnalysisPage search="?tradeDate=2026-08-20" />);
 
     await screen.findByRole("table", { name: "行业动量完整排名" });
-    expect(screen.getByText(/当前日期部分行业缺少数据：3\/4/)).toBeInTheDocument();
+    expect(screen.getByText(/当前日期部分行业缺少数据：4\/5/)).toBeInTheDocument();
     expect(document.querySelectorAll(".momentum-chart-card svg")).toHaveLength(2);
     expect(screen.queryByText("当前条件下暂无可计算数据")).not.toBeInTheDocument();
   });
@@ -178,7 +297,7 @@ describe("SectorAnalysisPage", () => {
 
     resolveContext(jsonResponse(contextPayload("2026-08-20")));
     await waitFor(() => expect(requestCount(urls, "/momentum/rankings")).toBe(2));
-    expect(await screen.findByText(/当前日期部分行业缺少数据：3\/4/)).toBeInTheDocument();
+    expect(await screen.findByText(/当前日期部分行业缺少数据：4\/5/)).toBeInTheDocument();
   });
 
   it("drops a late response from an obsolete period", async () => {
@@ -332,6 +451,7 @@ function buildReadyFetch(urls: string[]) {
       return jsonResponse(rankingsPayload(new URL(url)));
     }
     if (url.includes("/sector-analysis/momentum/history")) return jsonResponse(historyPayload(new URL(url)));
+    if (url.includes("/sector-analysis/momentum/members")) return jsonResponse(memberPayload(new URL(url)));
     return jsonResponse({ message: "unexpected request" }, 404);
   });
 }
@@ -365,6 +485,7 @@ function hierarchyNodes() {
     { sectorCode: "BK1002.DC", sectorName: "一级行业乙", industryLevel: 1, parentSectorCode: null, parentSectorName: null, rootSectorCode: "BK1002.DC", rootSectorName: "一级行业乙", hierarchyPath: "一级行业乙", displayOrder: 2, isLeaf: false },
     { sectorCode: "BK1101.DC", sectorName: "二级行业甲一", industryLevel: 2, parentSectorCode: "BK1001.DC", parentSectorName: "一级行业甲", rootSectorCode: "BK1001.DC", rootSectorName: "一级行业甲", hierarchyPath: "一级行业甲/二级行业甲一", displayOrder: 3, isLeaf: false },
     { sectorCode: "BK1201.DC", sectorName: "三级行业甲一一", industryLevel: 3, parentSectorCode: "BK1101.DC", parentSectorName: "二级行业甲一", rootSectorCode: "BK1001.DC", rootSectorName: "一级行业甲", hierarchyPath: "一级行业甲/二级行业甲一/三级行业甲一一", displayOrder: 4, isLeaf: true },
+    { sectorCode: "BK1202.DC", sectorName: "三级行业甲一二", industryLevel: 3, parentSectorCode: "BK1101.DC", parentSectorName: "二级行业甲一", rootSectorCode: "BK1001.DC", rootSectorName: "一级行业甲", hierarchyPath: "一级行业甲/二级行业甲一/三级行业甲一二", displayOrder: 5, isLeaf: true },
   ];
 }
 
@@ -382,9 +503,9 @@ function metaPayload() {
     coverageStartDate: "2026-08-19",
     coverageEndDate: "2026-08-21",
     tradeDates: [
-      { tradeDate: "2026-08-19", availability: "COMPLETE", expectedSectorCount: 4, validSectorCount: 4 },
-      { tradeDate: "2026-08-20", availability: "PARTIAL", expectedSectorCount: 4, validSectorCount: 3 },
-      { tradeDate: "2026-08-21", availability: "COMPLETE", expectedSectorCount: 4, validSectorCount: 4 },
+      { tradeDate: "2026-08-19", availability: "COMPLETE", expectedSectorCount: 5, validSectorCount: 5 },
+      { tradeDate: "2026-08-20", availability: "PARTIAL", expectedSectorCount: 5, validSectorCount: 4 },
+      { tradeDate: "2026-08-21", availability: "COMPLETE", expectedSectorCount: 5, validSectorCount: 5 },
     ],
   };
 }
@@ -394,10 +515,10 @@ function tradingDayPayload() {
     expectedTradeDate: "2026-08-21",
     observedTradeDate: "2026-08-21",
     expectedAvailability: "COMPLETE",
-    expectedSectorCount: 4,
-    expectedValidSectorCount: 4,
+    expectedSectorCount: 5,
+    expectedValidSectorCount: 5,
     observedAvailability: "COMPLETE",
-    observedValidSectorCount: 4,
+    observedValidSectorCount: 5,
   };
 }
 
@@ -451,7 +572,10 @@ function rowsForScope(scope: string) {
   if (scope === "LEVEL_2" || scope === "LEVEL_1_CHILDREN") {
     return [{ listPosition: 1, strengthRank: 1, sectorCode: "BK1101.DC", sectorName: "二级行业甲一", industryLevel: 2, parentSectorCode: "BK1001.DC", parentSectorName: "一级行业甲", hierarchyPath: "一级行业甲/二级行业甲一", returnPct: 1.8, percentile: 100, canDrillDown: true }];
   }
-  return [{ listPosition: 1, strengthRank: 1, sectorCode: "BK1201.DC", sectorName: "三级行业甲一一", industryLevel: 3, parentSectorCode: "BK1101.DC", parentSectorName: "二级行业甲一", hierarchyPath: "一级行业甲/二级行业甲一/三级行业甲一一", returnPct: 1.2, percentile: 100, canDrillDown: false }];
+  return [
+    { listPosition: 1, strengthRank: 1, sectorCode: "BK1201.DC", sectorName: "三级行业甲一一", industryLevel: 3, parentSectorCode: "BK1101.DC", parentSectorName: "二级行业甲一", hierarchyPath: "一级行业甲/二级行业甲一/三级行业甲一一", returnPct: 1.2, percentile: 100, canDrillDown: false },
+    { listPosition: 2, strengthRank: 2, sectorCode: "BK1202.DC", sectorName: "三级行业甲一二", industryLevel: 3, parentSectorCode: "BK1101.DC", parentSectorName: "二级行业甲一", hierarchyPath: "一级行业甲/二级行业甲一/三级行业甲一二", returnPct: 0.8, percentile: 0, canDrillDown: false },
+  ];
 }
 
 function historyPayload(url = new URL("http://localhost?scope=LEVEL_1&period=1&historyRange=20&sectorCode=BK1001.DC&tradeDate=2026-08-21")) {
@@ -498,6 +622,51 @@ function historyPayload(url = new URL("http://localhost?scope=LEVEL_1&period=1&h
   };
 }
 
+function memberPayload(url: URL) {
+  const direction = url.searchParams.get("direction") === "LOSERS" ? "LOSERS" : "GAINERS";
+  const sectorCode = url.searchParams.get("sectorCode") ?? "BK1201.DC";
+  const isSecond = sectorCode === "BK1202.DC";
+  const rows = isSecond
+    ? [{ stockName: "股票乙", stockCode: "000002.SZ", close: 12, returnPct: 1.2 }]
+    : [
+        { stockName: "股票甲", stockCode: "000001.SZ", close: null, returnPct: 2.35 },
+        { stockName: null, stockCode: "200001.SZ", close: 8, returnPct: null },
+      ];
+  return {
+    status: "READY",
+    message: null,
+    exceptionCode: null,
+    tradeDate: url.searchParams.get("tradeDate") ?? "2026-08-21",
+    hierarchyVersion: url.searchParams.get("hierarchyVersion") ?? "2026-08-21-v1",
+    sectorCode,
+    sectorName: isSecond ? "三级行业甲一二" : "三级行业甲一一",
+    period: Number(url.searchParams.get("period") ?? 1),
+    direction,
+    totalMemberCount: rows.length,
+    closeAvailableCount: rows.filter((row) => row.close !== null).length,
+    calculableCount: rows.filter((row) => row.returnPct !== null).length,
+    rows,
+  };
+}
+
+function memberErrorPayload(url: URL) {
+  return {
+    status: "ERROR",
+    message: "成分股数据读取失败，请稍后重试。",
+    exceptionCode: "SA_MEMBER_QUERY_FAILED",
+    tradeDate: url.searchParams.get("tradeDate") ?? "2026-08-21",
+    hierarchyVersion: url.searchParams.get("hierarchyVersion") ?? "2026-08-21-v1",
+    sectorCode: url.searchParams.get("sectorCode") ?? "BK1201.DC",
+    sectorName: "三级行业甲一一",
+    period: Number(url.searchParams.get("period") ?? 1),
+    direction: url.searchParams.get("direction") === "LOSERS" ? "LOSERS" : "GAINERS",
+    totalMemberCount: 0,
+    closeAvailableCount: 0,
+    calculableCount: 0,
+    rows: [],
+  };
+}
+
 function scopeTitle(scope: string) {
   if (scope === "LEVEL_1") return "一级行业总榜";
   if (scope === "LEVEL_2") return "二级行业总榜";
@@ -515,10 +684,10 @@ function delayedTradingDayPayload() {
     expectedTradeDate: "2026-08-21",
     observedTradeDate: "2026-08-20",
     expectedAvailability: "PARTIAL",
-    expectedSectorCount: 4,
-    expectedValidSectorCount: 3,
+    expectedSectorCount: 5,
+    expectedValidSectorCount: 4,
     observedAvailability: "COMPLETE",
-    observedValidSectorCount: 4,
+    observedValidSectorCount: 5,
   };
 }
 
@@ -551,7 +720,7 @@ function emptyRankingsPayload() {
       expectedTradeDate: "2026-08-20",
       observedTradeDate: null,
       expectedAvailability: "MISSING",
-      expectedSectorCount: 4,
+      expectedSectorCount: 5,
       expectedValidSectorCount: 0,
       observedAvailability: null,
       observedValidSectorCount: 0,
@@ -568,10 +737,10 @@ function partialTradingDayPayload() {
     expectedTradeDate: "2026-08-20",
     observedTradeDate: "2026-08-20",
     expectedAvailability: "PARTIAL",
-    expectedSectorCount: 4,
-    expectedValidSectorCount: 3,
+    expectedSectorCount: 5,
+    expectedValidSectorCount: 4,
     observedAvailability: "PARTIAL",
-    observedValidSectorCount: 3,
+    observedValidSectorCount: 4,
   };
 }
 

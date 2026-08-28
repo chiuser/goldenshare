@@ -169,6 +169,31 @@ export interface SectorMomentumHistoryResponse {
   exceptionCode: string | null;
 }
 
+export type SectorMemberStatus = "READY" | "EMPTY" | "ERROR";
+
+export interface SectorMemberRowResponse {
+  stockName: string | null;
+  stockCode: string;
+  close: number | null;
+  returnPct: number | null;
+}
+
+export interface SectorMemberDetailResponse {
+  status: SectorMemberStatus;
+  message: string | null;
+  exceptionCode: string | null;
+  tradeDate: string;
+  hierarchyVersion: string;
+  sectorCode: string;
+  sectorName: string;
+  period: SectorMomentumPeriod;
+  direction: SectorMomentumDirection;
+  totalMemberCount: number;
+  closeAvailableCount: number;
+  calculableCount: number;
+  rows: SectorMemberRowResponse[];
+}
+
 export interface SectorMomentumMetaViewModel extends SectorAnalysisMetaResponse {
   level1Nodes: SectorHierarchyNodeResponse[];
   level2Nodes: SectorHierarchyNodeResponse[];
@@ -206,6 +231,25 @@ export interface SectorMomentumHistoryViewModel {
   pageStatus: SectorAnalysisPageStatusResponse;
   status: "READY" | "DELAYED";
 }
+
+export interface SectorMemberRowViewModel extends SectorMemberRowResponse {
+  stockNameText: string;
+  closeText: string;
+  returnText: string;
+  directionClass: "up" | "down" | "flat" | "muted";
+}
+
+export interface SectorMemberDetailViewModel extends Omit<SectorMemberDetailResponse, "rows"> {
+  status: "READY";
+  rows: SectorMemberRowViewModel[];
+}
+
+export type MemberViewState =
+  | { kind: "idle" }
+  | { kind: "loading"; key: string }
+  | { kind: "ready"; key: string; data: SectorMemberDetailViewModel }
+  | { kind: "empty"; key: string; message: string }
+  | { kind: "error"; key: string; message: string; retryable: boolean };
 
 export type MomentumViewState =
   | { kind: "loading"; meta?: SectorMomentumMetaViewModel }

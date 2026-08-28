@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
+from decimal import Decimal
 
 import pytest
 from pydantic import ValidationError
@@ -12,6 +13,8 @@ from src.biz.queries.wealth.market.common.sector_hierarchy_query import (
 from src.biz.schemas.wealth.market.sector_analysis import (
     SectorAnalysisPageStatusDto,
     SectorAnalysisTradingDayDto,
+    SectorMemberDetailResponseDto,
+    SectorMemberRowDto,
     SectorMomentumRankingsResponseDto,
 )
 from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract import (
@@ -57,7 +60,9 @@ def _snapshot() -> SectorHierarchySnapshot:
     )
     children: dict[str | None, tuple[SectorHierarchyNode, ...]] = {}
     for parent in {node.parent_sector_code for node in nodes}:
-        children[parent] = tuple(node for node in nodes if node.parent_sector_code == parent)
+        children[parent] = tuple(
+            node for node in nodes if node.parent_sector_code == parent
+        )
     return SectorHierarchySnapshot(
         baseline_version="v1",
         published_at=datetime(2026, 8, 27, tzinfo=timezone.utc),
@@ -107,7 +112,9 @@ def test_scope_pool_resolves_the_five_frozen_comparison_sets(
         ("LEVEL_2_CHILDREN", "BK1002.DC", "BK1101.DC"),
     ],
 )
-def test_scope_pool_rejects_parent_shape_and_closure_errors(scope, level1, level2) -> None:
+def test_scope_pool_rejects_parent_shape_and_closure_errors(
+    scope, level1, level2
+) -> None:
     with pytest.raises(SectorScopeInvalidError):
         resolve_scope_pool(
             _snapshot(),
@@ -180,3 +187,90 @@ def test_response_contract_allows_zero_count_only_for_unavailable_error_shell() 
             observedAvailability="MISSING",
             observedValidSectorCount=0,
         )
+
+
+def test_member_contract_allows_independent_close_and_return_coverage() -> None:
+    dto = SectorMemberDetailResponseDto(
+        status="READY",
+        tradeDate=TARGET_DATE,
+        hierarchyVersion="v1",
+        sectorCode="BK1201.DC",
+        sectorName="三级甲",
+        period=5,
+        direction="GAINERS",
+        totalMemberCount=2,
+        closeAvailableCount=1,
+        calculableCount=1,
+        rows=[
+            SectorMemberRowDto(
+                stockName="甲",
+                stockCode="000001.SZ",
+                close=None,
+                returnPct=Decimal("2"),
+            ),
+            SectorMemberRowDto(
+                stockName="乙",
+                stockCode="000002.SZ",
+                close=Decimal("10"),
+                returnPct=None,
+            ),
+        ],
+    )
+    assert dto.closeAvailableCount == dto.calculableCount == 1
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"totalMemberCount": 1},
+        {"closeAvailableCount": 2},
+        {"calculableCount": 2},
+        {"status": "EMPTY", "exceptionCode": "SA_MEMBER_SOURCE_EMPTY"},
+        {
+            "rows": [
+                SectorMemberRowDto(
+                    stockName="乙",
+                    stockCode="000002.SZ",
+                    close=Decimal("10"),
+                    returnPct=None,
+                ),
+                SectorMemberRowDto(
+                    stockName="甲",
+                    stockCode="000001.SZ",
+                    close=None,
+                    returnPct=Decimal("2"),
+                ),
+            ]
+        },
+    ],
+)
+def test_member_contract_rejects_count_state_and_sort_mismatches(changes) -> None:
+    values = {
+        "status": "READY",
+        "tradeDate": TARGET_DATE,
+        "hierarchyVersion": "v1",
+        "sectorCode": "BK1201.DC",
+        "sectorName": "三级甲",
+        "period": 5,
+        "direction": "GAINERS",
+        "totalMemberCount": 2,
+        "closeAvailableCount": 1,
+        "calculableCount": 1,
+        "rows": [
+            SectorMemberRowDto(
+                stockName="甲",
+                stockCode="000001.SZ",
+                close=None,
+                returnPct=Decimal("2"),
+            ),
+            SectorMemberRowDto(
+                stockName="乙",
+                stockCode="000002.SZ",
+                close=Decimal("10"),
+                returnPct=None,
+            ),
+        ],
+    }
+    values.update(changes)
+    with pytest.raises(ValidationError):
+        SectorMemberDetailResponseDto(**values)

@@ -6,6 +6,8 @@ import re
 
 from src.foundation.models.core.dc_daily import DcDaily
 from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.foundation.models.core_serving.dc_member import DcMember
+from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.wealth_sector_hierarchy import (
     WealthSectorHierarchy,
 )
@@ -27,10 +29,14 @@ APPROVED_SOURCE_TABLES = {
     "core_serving.trade_calendar",
     "core_serving.wealth_sector_hierarchy",
     "core_serving.dc_daily",
+    "core_serving.dc_member",
+    "core_serving.equity_daily_bar",
 }
 APPROVED_MODEL_MODULES = {
     "src.foundation.models.core.dc_daily",
     "src.foundation.models.core.trade_calendar",
+    "src.foundation.models.core_serving.dc_member",
+    "src.foundation.models.core_serving.equity_daily_bar",
     "src.foundation.models.core_serving.wealth_sector_hierarchy",
 }
 APPROVED_SHARED_QUERY_MODULES = {
@@ -43,6 +49,9 @@ REGISTERED_EXCEPTION_CODES = {
     "SA_HIERARCHY_UNAVAILABLE",
     "SA_SCOPE_INVALID",
     "SA_SELECTION_INVALID",
+    "SA_MEMBER_FACT_MISMATCH",
+    "SA_MEMBER_SOURCE_EMPTY",
+    "SA_MEMBER_QUERY_FAILED",
     "SA_QUERY_FAILED",
 }
 
@@ -74,7 +83,6 @@ FORBIDDEN_IMPORT_PREFIXES = (
 )
 FORBIDDEN_SCOPE_TOKENS = (
     "dc_index",
-    "dc_member",
     "moneyflow",
     "sector_heat",
     "sw2021",
@@ -146,11 +154,13 @@ def _target_sources() -> dict[Path, str]:
     return {path: path.read_text(encoding="utf-8") for path in paths}
 
 
-def test_sector_analysis_source_table_contract_is_exactly_three_prod_tables() -> None:
+def test_sector_analysis_source_table_contract_is_exactly_five_prod_tables() -> None:
     actual_tables = {
         TradeCalendar.__table__.fullname,
         WealthSectorHierarchy.__table__.fullname,
         DcDaily.__table__.fullname,
+        DcMember.__table__.fullname,
+        EquityDailyBar.__table__.fullname,
     }
 
     assert actual_tables == APPROVED_SOURCE_TABLES
@@ -188,7 +198,7 @@ def test_sector_analysis_backend_only_imports_approved_fact_models_and_shared_qu
                     )
 
     assert not violations, (
-        "板块分析只能读取冻结的三张 Prod 表和两项共享查询：\n" + "\n".join(violations)
+        "板块分析只能读取冻结的五张 Prod 表和两项共享查询：\n" + "\n".join(violations)
     )
 
 
@@ -224,7 +234,7 @@ def test_sector_analysis_has_no_forbidden_subsystem_or_persistence_dependency() 
             )
 
     assert not violations, (
-        "板块分析不得接入 QTF/DG/Lake、写入链路或第四张来源表：\n"
+        "板块分析不得接入 QTF/DG/Lake、写入链路或第六张来源表：\n"
         + "\n".join(violations)
     )
 

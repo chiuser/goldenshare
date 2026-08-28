@@ -17,6 +17,8 @@ class SectorAnalysisExceptionBuilder:
         "SA_SOURCE_EMPTY": "当前条件下暂无可计算的行业数据。",
         "SA_HIERARCHY_UNAVAILABLE": "行业分类暂不可用，请稍后重试。",
         "SA_QUERY_FAILED": "板块分析数据读取失败，请稍后重试。",
+        "SA_MEMBER_SOURCE_EMPTY": "当前行业暂无成分股数据。",
+        "SA_MEMBER_QUERY_FAILED": "成分股数据读取失败，请稍后重试。",
     }
 
     @classmethod

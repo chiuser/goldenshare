@@ -3,6 +3,10 @@ import type {
   SectorAnalysisStatus,
   SectorAnalysisTradingDayResponse,
   SectorHierarchyNodeResponse,
+  SectorMemberDetailResponse,
+  SectorMemberDetailViewModel,
+  SectorMemberRowResponse,
+  SectorMemberRowViewModel,
   SectorMomentumHistoryResponse,
   SectorMomentumHistoryViewModel,
   SectorMomentumMetaViewModel,
@@ -11,7 +15,10 @@ import type {
   SectorRankingRowResponse,
   SectorRankingRowViewModel,
 } from "../model/sectorMomentumTypes";
-import { SectorMomentumApiError } from "./sectorMomentumApi";
+import {
+  SectorMomentumApiError,
+  type SectorMemberDetailRequest,
+} from "./sectorMomentumApi";
 
 export function buildSectorMomentumMetaViewModel(payload: unknown): SectorMomentumMetaViewModel {
   const response = requireRecord(payload, "Meta");
@@ -127,6 +134,52 @@ export function buildSectorMomentumHistoryViewModel(payload: unknown):
   };
 }
 
+export function buildSectorMemberDetailViewModel(
+  payload: unknown,
+  request: SectorMemberDetailRequest,
+):
+  | SectorMemberDetailViewModel
+  | { status: "EMPTY"; message: string }
+  | { status: "ERROR"; message: string } {
+  const source = requireRecord(payload, "members response");
+  const status = requireChoice(source.status, ["READY", "EMPTY", "ERROR"], "status");
+  const rows = requireArray(source.rows, "rows").map(readMemberRow);
+  const response: SectorMemberDetailResponse = {
+    status,
+    message: readNullableString(source.message, "message"),
+    exceptionCode: readNullableString(source.exceptionCode, "exceptionCode"),
+    tradeDate: requireDate(source.tradeDate, "tradeDate"),
+    hierarchyVersion: requireString(source.hierarchyVersion, "hierarchyVersion"),
+    sectorCode: requireSectorCode(source.sectorCode, "sectorCode"),
+    sectorName: requireString(source.sectorName, "sectorName"),
+    period: requireChoice(source.period, [1, 5, 10, 20, 30], "period"),
+    direction: requireChoice(source.direction, ["GAINERS", "LOSERS"], "direction"),
+    totalMemberCount: requireNonNegativeInteger(source.totalMemberCount, "totalMemberCount"),
+    closeAvailableCount: requireNonNegativeInteger(source.closeAvailableCount, "closeAvailableCount"),
+    calculableCount: requireNonNegativeInteger(source.calculableCount, "calculableCount"),
+    rows,
+  };
+  if (response.tradeDate !== request.tradeDate
+      || response.hierarchyVersion !== request.hierarchyVersion
+      || response.sectorCode !== request.sectorCode
+      || response.period !== request.period
+      || response.direction !== request.direction) {
+    throw contractError("成员事实与当前请求不一致");
+  }
+  validateMemberResponse(response);
+  if (status === "EMPTY" || status === "ERROR") {
+    return {
+      status,
+      message: response.message ?? (status === "EMPTY" ? "暂无成分股数据" : "成分股数据加载失败。"),
+    };
+  }
+  return {
+    ...response,
+    status: "READY",
+    rows: response.rows.map(buildMemberRowViewModel),
+  };
+}
+
 export function formatReturnPct(value: number | null): string {
   if (value === null) return "--";
   const prefix = value > 0 ? "+" : "";
@@ -152,6 +205,71 @@ function buildRankingRowViewModel(row: SectorRankingRowResponse, maxAbs: number)
     strengthRankText: row.strengthRank === null ? "--" : String(row.strengthRank),
     directionClass: row.returnPct === null ? "muted" : row.returnPct > 0 ? "up" : row.returnPct < 0 ? "down" : "flat",
   };
+}
+
+function buildMemberRowViewModel(row: SectorMemberRowResponse): SectorMemberRowViewModel {
+  return {
+    ...row,
+    stockNameText: row.stockName ?? "--",
+    closeText: row.close === null ? "--" : row.close.toFixed(2),
+    returnText: formatReturnPct(row.returnPct),
+    directionClass: row.returnPct === null
+      ? "muted"
+      : row.returnPct > 0
+        ? "up"
+        : row.returnPct < 0
+          ? "down"
+          : "flat",
+  };
+}
+
+function readMemberRow(value: unknown): SectorMemberRowResponse {
+  const row = requireRecord(value, "member row");
+  const close = readNullableFinite(row.close, "close");
+  if (close !== null && close <= 0) throw contractError("成员收盘价必须大于 0");
+  return {
+    stockName: readNullableString(row.stockName, "stockName"),
+    stockCode: requireStockCode(row.stockCode, "stockCode"),
+    close,
+    returnPct: readNullableFinite(row.returnPct, "returnPct"),
+  };
+}
+
+function validateMemberResponse(response: SectorMemberDetailResponse): void {
+  if (response.rows.length !== response.totalMemberCount
+      || response.rows.filter((row) => row.close !== null).length !== response.closeAvailableCount
+      || response.rows.filter((row) => row.returnPct !== null).length !== response.calculableCount
+      || response.closeAvailableCount > response.totalMemberCount
+      || response.calculableCount > response.totalMemberCount) {
+    throw contractError("成员覆盖计数与行不一致");
+  }
+  const codes = response.rows.map((row) => row.stockCode);
+  if (new Set(codes).size !== codes.length) throw contractError("成员代码不唯一");
+  const sorted = [...response.rows].sort((left, right) => {
+    if (left.returnPct === null || right.returnPct === null) {
+      if (left.returnPct === null && right.returnPct === null) return left.stockCode.localeCompare(right.stockCode);
+      return left.returnPct === null ? 1 : -1;
+    }
+    const comparison = response.direction === "GAINERS"
+      ? right.returnPct - left.returnPct
+      : left.returnPct - right.returnPct;
+    return comparison || left.stockCode.localeCompare(right.stockCode);
+  });
+  if (sorted.some((row, index) => row.stockCode !== response.rows[index]?.stockCode)) {
+    throw contractError("成员行未按冻结规则排序");
+  }
+  if (response.status === "READY") {
+    if (response.totalMemberCount <= 0 || response.exceptionCode !== null) {
+      throw contractError("READY 成员状态无来源成员或携带异常码");
+    }
+    return;
+  }
+  if (response.totalMemberCount !== 0 || response.rows.length !== 0
+      || response.closeAvailableCount !== 0 || response.calculableCount !== 0) {
+    throw contractError("成员 EMPTY/ERROR 状态携带来源行");
+  }
+  const expectedCode = response.status === "EMPTY" ? "SA_MEMBER_SOURCE_EMPTY" : "SA_MEMBER_QUERY_FAILED";
+  if (response.exceptionCode !== expectedCode) throw contractError("成员状态与异常码不一致");
 }
 
 function readRankingsResponse(payload: unknown): SectorMomentumRankingsResponse {
@@ -402,6 +520,12 @@ function readNullableDate(value: unknown, field: string): string | null {
 function requireSectorCode(value: unknown, field: string): string {
   const code = requireString(value, field);
   if (!/^BK[0-9]{4}\.DC$/.test(code)) throw contractError(`${field} 不是合法行业代码`);
+  return code;
+}
+
+function requireStockCode(value: unknown, field: string): string {
+  const code = requireString(value, field);
+  if (!/^[0-9]{6}\.(SH|SZ|BJ)$/.test(code)) throw contractError(`${field} 不是合法股票代码`);
   return code;
 }
 

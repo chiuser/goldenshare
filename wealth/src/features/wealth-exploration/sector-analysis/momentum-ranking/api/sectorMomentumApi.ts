@@ -36,6 +36,15 @@ export interface SectorMomentumHistoryRequest extends Omit<SectorMomentumRanking
   sectorCode: string;
 }
 
+export interface SectorMemberDetailRequest {
+  market: "CN_A";
+  tradeDate: string;
+  hierarchyVersion: string;
+  sectorCode: string;
+  period: SectorMomentumPeriod;
+  direction: SectorMomentumDirection;
+}
+
 export function buildSectorMomentumMetaUrl(market: "CN_A" = "CN_A"): string {
   const url = new URL(`${API_ROOT}/meta`, window.location.origin);
   url.searchParams.set("market", market);
@@ -48,6 +57,10 @@ export function buildSectorMomentumRankingsUrl(request: SectorMomentumRankingReq
 
 export function buildSectorMomentumHistoryUrl(request: SectorMomentumHistoryRequest): string {
   return buildUrl(`${API_ROOT}/momentum/history`, request);
+}
+
+export function buildSectorMemberDetailUrl(request: SectorMemberDetailRequest): string {
+  return buildUrl(`${API_ROOT}/momentum/members`, request);
 }
 
 export function fetchSectorMomentumMeta(
@@ -69,6 +82,13 @@ export function fetchSectorMomentumHistory(
   options: { signal?: AbortSignal } = {},
 ): Promise<unknown> {
   return fetchJson(buildSectorMomentumHistoryUrl(request), options);
+}
+
+export function fetchSectorMemberDetail(
+  request: SectorMemberDetailRequest,
+  options: { signal?: AbortSignal } = {},
+): Promise<unknown> {
+  return fetchJson(buildSectorMemberDetailUrl(request), options);
 }
 
 function buildUrl(path: string, request: object): string {

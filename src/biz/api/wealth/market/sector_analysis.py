@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 import re
+from typing import Literal, cast
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
@@ -16,10 +17,18 @@ from src.biz.queries.wealth.market.common.sector_hierarchy_query import (
 from src.biz.queries.wealth.market.sector_analysis.sector_momentum_query_service import (
     SectorMomentumQueryService,
 )
+from src.biz.queries.wealth.market.sector_analysis.sector_member_detail_query_service import (
+    SectorMemberDetailQueryService,
+)
 from src.biz.schemas.wealth.market.sector_analysis import (
     SectorAnalysisMetaResponseDto,
+    SectorMemberDetailResponseDto,
     SectorMomentumHistoryResponseDto,
     SectorMomentumRankingsResponseDto,
+)
+from src.biz.services.wealth.market.sector_analysis.sector_member_detail_contract import (
+    SectorMemberDetailRequest,
+    SectorMemberFactMismatchError,
 )
 from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract import (
     SectorDataQueryError,
@@ -109,9 +118,15 @@ def get_sector_momentum_rankings(
             market=_parse_market(market),
             trade_date=_parse_date(trade_date),
             scope=parse_scope(scope or "LEVEL_1"),
-            level1_code=_parse_optional_sector_code(level1_code, field_name="level1Code"),
-            level2_code=_parse_optional_sector_code(level2_code, field_name="level2Code"),
-            period=parse_period(_parse_choice_int(period, default=1, field_name="period")),
+            level1_code=_parse_optional_sector_code(
+                level1_code, field_name="level1Code"
+            ),
+            level2_code=_parse_optional_sector_code(
+                level2_code, field_name="level2Code"
+            ),
+            period=parse_period(
+                _parse_choice_int(period, default=1, field_name="period")
+            ),
             direction=parse_direction(direction or "GAINERS"),
             debug=_parse_debug(debug),
         )
@@ -157,15 +172,87 @@ def get_sector_momentum_history(
             market=_parse_market(market),
             trade_date=_parse_date(trade_date),
             scope=parse_scope(scope or "LEVEL_1"),
-            level1_code=_parse_optional_sector_code(level1_code, field_name="level1Code"),
-            level2_code=_parse_optional_sector_code(level2_code, field_name="level2Code"),
-            period=parse_period(_parse_choice_int(period, default=1, field_name="period")),
+            level1_code=_parse_optional_sector_code(
+                level1_code, field_name="level1Code"
+            ),
+            level2_code=_parse_optional_sector_code(
+                level2_code, field_name="level2Code"
+            ),
+            period=parse_period(
+                _parse_choice_int(period, default=1, field_name="period")
+            ),
             history_range=parse_history_range(
                 _parse_choice_int(history_range, default=20, field_name="historyRange")
             ),
-            sector_code=_parse_required_sector_code(sector_code, field_name="sectorCode"),
+            sector_code=_parse_required_sector_code(
+                sector_code, field_name="sectorCode"
+            ),
             debug=_parse_debug(debug),
         )
+    except SectorSelectionInvalidError as exc:
+        _raise_selection_error(exc)
+    except SectorScopeInvalidError as exc:
+        _raise_request_error(exc)
+    raise AssertionError("unreachable")
+
+
+@router.get("/momentum/members", response_model=SectorMemberDetailResponseDto)
+def get_sector_momentum_members(
+    request: Request,
+    market: str | None = Query(default=None),
+    trade_date: str | None = Query(default=None, alias="tradeDate"),
+    hierarchy_version: str | None = Query(default=None, alias="hierarchyVersion"),
+    sector_code: str | None = Query(default=None, alias="sectorCode"),
+    period: str | None = Query(default=None),
+    direction: str | None = Query(default=None),
+    _user: AuthenticatedUser | None = Depends(require_quote_access),
+    session: Session = Depends(get_db_session),
+) -> SectorMemberDetailResponseDto:
+    try:
+        _validate_query_shape(
+            request,
+            allowed={
+                "market",
+                "tradeDate",
+                "hierarchyVersion",
+                "sectorCode",
+                "period",
+                "direction",
+            },
+        )
+        parsed_date = _parse_date(trade_date)
+        if parsed_date is None:
+            raise SectorScopeInvalidError("tradeDate 为必填参数")
+        if period is None:
+            raise SectorScopeInvalidError("period 为必填参数")
+        if direction is None:
+            raise SectorScopeInvalidError("direction 为必填参数")
+        return SectorMemberDetailQueryService().build_members(
+            session,
+            request=SectorMemberDetailRequest(
+                market=_parse_required_market(market),
+                trade_date=parsed_date,
+                hierarchy_version=_parse_required_text(
+                    hierarchy_version,
+                    field_name="hierarchyVersion",
+                    max_length=128,
+                ),
+                sector_code=_parse_required_sector_code(
+                    sector_code,
+                    field_name="sectorCode",
+                ),
+                period=parse_period(
+                    _parse_choice_int(period, default=0, field_name="period")
+                ),
+                direction=parse_direction(direction),
+            ),
+        )
+    except SectorMemberFactMismatchError as exc:
+        raise WebAppError(
+            status_code=409,
+            code="SA_MEMBER_FACT_MISMATCH",
+            message="行业分类已更新，正在重新加载当前数据。",
+        ) from exc
     except SectorSelectionInvalidError as exc:
         _raise_selection_error(exc)
     except SectorScopeInvalidError as exc:
@@ -190,6 +277,25 @@ def _parse_market(raw_value: str | None) -> str:
     return market
 
 
+def _parse_required_market(raw_value: str | None) -> Literal["CN_A"]:
+    if raw_value is None:
+        raise SectorScopeInvalidError("market 为必填参数")
+    market = _parse_market(raw_value)
+    return cast(Literal["CN_A"], market)
+
+
+def _parse_required_text(
+    raw_value: str | None,
+    *,
+    field_name: str,
+    max_length: int,
+) -> str:
+    value = (raw_value or "").strip()
+    if not value or len(value) > max_length:
+        raise SectorScopeInvalidError(f"{field_name} 必须是有效的非空字符串")
+    return value
+
+
 def _parse_date(raw_value: str | None) -> date | None:
     if raw_value is None:
         return None
@@ -208,7 +314,9 @@ def _parse_choice_int(raw_value: str | None, *, default: int, field_name: str) -
     return int(value)
 
 
-def _parse_optional_sector_code(raw_value: str | None, *, field_name: str) -> str | None:
+def _parse_optional_sector_code(
+    raw_value: str | None, *, field_name: str
+) -> str | None:
     if raw_value is None:
         return None
     return _parse_required_sector_code(raw_value, field_name=field_name)
@@ -224,12 +332,18 @@ def _parse_debug(raw_value: str | None) -> bool:
     value = raw_value or "0"
     if value not in {"0", "1"}:
         raise SectorScopeInvalidError("debug 只允许 0 或 1")
-    return value == "1" and get_settings().app_env.strip().lower() in _DEBUG_ENVIRONMENTS
+    return (
+        value == "1" and get_settings().app_env.strip().lower() in _DEBUG_ENVIRONMENTS
+    )
 
 
 def _raise_request_error(exc: Exception) -> None:
-    raise WebAppError(status_code=400, code="SA_SCOPE_INVALID", message=str(exc)) from exc
+    raise WebAppError(
+        status_code=400, code="SA_SCOPE_INVALID", message=str(exc)
+    ) from exc
 
 
 def _raise_selection_error(exc: Exception) -> None:
-    raise WebAppError(status_code=400, code="SA_SELECTION_INVALID", message=str(exc)) from exc
+    raise WebAppError(
+        status_code=400, code="SA_SELECTION_INVALID", message=str(exc)
+    ) from exc
