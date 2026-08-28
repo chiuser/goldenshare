@@ -1,5 +1,6 @@
 import type { TopMarketNavKey } from "../../shared/ui/top-market-bar/topMarketBarTypes";
 import {
+  EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH,
   EXPLORATION_SECTOR_MOMENTUM_PATH,
   EXPLORATION_TURNOVER_PATH,
 } from "../../features/wealth-exploration/navigation/explorationNavigation";
@@ -9,6 +10,7 @@ export const WEALTH_EXPLORATION_PATH = "/wealth/exploration";
 export const WEALTH_EXPLORATION_TURNOVER_PATH = EXPLORATION_TURNOVER_PATH;
 export const WEALTH_EXPLORATION_SECTOR_PATH = "/wealth/exploration/sector-analysis";
 export const WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH = EXPLORATION_SECTOR_MOMENTUM_PATH;
+export const WEALTH_EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH = EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH;
 
 const ROUTE_CHANGE_EVENT = "wealth-route-change";
 const WEALTH_NAVIGATION_STATE_KEY = "__goldenshareWealthNavigation";
@@ -80,6 +82,7 @@ export type WealthExplorationRoute =
   | { kind: "turnover-insight" }
   | { kind: "sector-analysis-redirect" }
   | { kind: "sector-analysis-momentum" }
+  | { kind: "sector-analysis-dual-momentum" }
   | { kind: "not-exploration" };
 
 type RouteSearch = URLSearchParams | string | undefined;
@@ -100,11 +103,16 @@ export function buildSectorAnalysisMomentumPath(search?: RouteSearch): string {
   return appendSearch(WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH, search);
 }
 
+export function buildSectorAnalysisDualMomentumPath(search?: RouteSearch): string {
+  return appendSearch(WEALTH_EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH, search);
+}
+
 export function resolveWealthExplorationRoute(pathname: string): WealthExplorationRoute {
   if (pathname === WEALTH_EXPLORATION_PATH) return { kind: "landing" };
   if (pathname === WEALTH_EXPLORATION_TURNOVER_PATH) return { kind: "turnover-insight" };
   if (pathname === WEALTH_EXPLORATION_SECTOR_PATH) return { kind: "sector-analysis-redirect" };
   if (pathname === WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH) return { kind: "sector-analysis-momentum" };
+  if (pathname === WEALTH_EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH) return { kind: "sector-analysis-dual-momentum" };
   return { kind: "not-exploration" };
 }
 

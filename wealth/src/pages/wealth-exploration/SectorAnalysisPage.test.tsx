@@ -23,7 +23,7 @@ describe("SectorAnalysisPage", () => {
   it("renders the real momentum contract with a full ranking and two linked SVG charts", async () => {
     const urls: string[] = [];
     vi.stubGlobal("fetch", buildReadyFetch(urls));
-    const { container } = render(<SectorAnalysisPage search="?market=CN_A&tradeDate=2026-08-21" />);
+    const { container } = render(<SectorAnalysisPage method="momentum-ranking" search="?market=CN_A&tradeDate=2026-08-21" />);
 
     expect(screen.getByLabelText("动量排名加载中")).toBeInTheDocument();
     await screen.findByRole("table", { name: "行业动量完整排名" });
@@ -155,7 +155,7 @@ describe("SectorAnalysisPage", () => {
       }
       return ready(input);
     }));
-    render(<SectorAnalysisPage search="?tradeDate=2026-08-21&scope=level3" />);
+    render(<SectorAnalysisPage method="momentum-ranking" search="?tradeDate=2026-08-21&scope=level3" />);
 
     expect(await screen.findByText("成分股数据读取失败，请稍后重试。")).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "行业动量完整排名" })).toBeInTheDocument();
@@ -188,7 +188,7 @@ describe("SectorAnalysisPage", () => {
       }
       return ready(input);
     }));
-    render(<SectorAnalysisPage search="?tradeDate=2026-08-21&scope=level3" />);
+    render(<SectorAnalysisPage method="momentum-ranking" search="?tradeDate=2026-08-21&scope=level3" />);
 
     await waitFor(() => expect(requestCount(urls, "/sector-analysis/meta")).toBe(2));
     await waitFor(() => expect(requestCount(urls, "/momentum/members")).toBe(2));
@@ -245,7 +245,7 @@ describe("SectorAnalysisPage", () => {
       }
       return ready(input);
     }));
-    render(<SectorAnalysisPage search="?tradeDate=2026-08-20" />);
+    render(<SectorAnalysisPage method="momentum-ranking" search="?tradeDate=2026-08-20" />);
 
     await screen.findByRole("table", { name: "行业动量完整排名" });
     expect(screen.getByText(/当前日期部分行业缺少数据：4\/5/)).toBeInTheDocument();
@@ -256,7 +256,7 @@ describe("SectorAnalysisPage", () => {
   it("rejects invalid URL syntax before any sector business request", async () => {
     const urls: string[] = [];
     vi.stubGlobal("fetch", buildReadyFetch(urls));
-    render(<SectorAnalysisPage search="?period=15" />);
+    render(<SectorAnalysisPage method="momentum-ranking" search="?period=15" />);
 
     expect(await screen.findByText("统计周期参数无效。")).toBeInTheDocument();
     await waitFor(() => expect(requestCount(urls, "/wealth/market/context")).toBe(1));
@@ -343,7 +343,7 @@ describe("SectorAnalysisPage", () => {
       }
       return ready(input);
     }));
-    render(<SectorAnalysisPage />);
+    render(<SectorAnalysisPage method="momentum-ranking" />);
 
     await screen.findByRole("table", { name: "行业动量完整排名" });
     expect(screen.getByText(/当前展示 2026-08-20 盘后数据/)).toBeInTheDocument();
@@ -362,7 +362,7 @@ describe("SectorAnalysisPage", () => {
       }
       return ready(input);
     }));
-    render(<SectorAnalysisPage search="?tradeDate=2026-08-20" />);
+    render(<SectorAnalysisPage method="momentum-ranking" search="?tradeDate=2026-08-20" />);
 
     expect(await screen.findByText("当前条件下暂无可计算数据")).toBeInTheDocument();
     expect(screen.getByText("所选交易日没有行业行情数据。")).toBeInTheDocument();
@@ -382,7 +382,7 @@ describe("SectorAnalysisPage", () => {
       }
       return ready(input);
     }));
-    render(<SectorAnalysisPage search="?tradeDate=2026-08-21" />);
+    render(<SectorAnalysisPage method="momentum-ranking" search="?tradeDate=2026-08-21" />);
 
     expect(await screen.findByText("榜单查询失败")).toBeInTheDocument();
     expect(requestCount(urls, "/sector-analysis/meta")).toBe(1);
@@ -399,13 +399,13 @@ describe("SectorAnalysisPage", () => {
     const urls: string[] = [];
     vi.stubGlobal("fetch", buildReadyFetch(urls));
     window.history.replaceState({}, "", `${WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH}?tradeDate=2026-08-21`);
-    render(<SectorAnalysisPage search="?tradeDate=2026-08-21" />);
+    render(<SectorAnalysisPage method="momentum-ranking" search="?tradeDate=2026-08-21" />);
 
     await screen.findByRole("table", { name: "行业动量完整排名" });
     const sectorRequestCount = urls.filter((url) => url.includes("sector-analysis")).length;
     const chartCount = screen.getAllByRole("img").length;
 
-    ["双动量", "相对轮动", "成员广度", "量价分布"].forEach((label) => {
+    ["相对轮动", "成员广度", "量价分布"].forEach((label) => {
       fireEvent.click(screen.getByRole("tab", { name: label }));
       expect(screen.getByText("待建设", { selector: "#toast" })).toBeInTheDocument();
       expect(urls.filter((url) => url.includes("sector-analysis"))).toHaveLength(sectorRequestCount);

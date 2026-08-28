@@ -58,7 +58,10 @@ export function WealthRouter() {
     return <ExplorationRedirect search={location.search} />;
   }
   if (explorationRoute.kind === "sector-analysis-momentum") {
-    return <SectorAnalysisPage search={location.search} />;
+    return <SectorAnalysisPage method="momentum-ranking" search={location.search} />;
+  }
+  if (explorationRoute.kind === "sector-analysis-dual-momentum") {
+    return <SectorAnalysisPage method="dual-momentum" search={location.search} />;
   }
 
   return <MarketOverviewPage search={location.search} />;

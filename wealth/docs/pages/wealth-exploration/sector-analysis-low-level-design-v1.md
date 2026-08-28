@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：v1.14；既有动量排名 M0～M4 保持原结论；双动量 M5 合同与 M6 后端均已收口，下一步固定为 M7 前端实现，尚未进入双动量页面编码。
+- 状态：v1.15；既有动量排名 M0～M4 保持原结论；双动量 M5 合同、M6 后端与 M7 前端代码及自动化均已收口，下一步固定为 M8 真实联调和最终交付验收。
 - 编写日期：2026-08-28。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
@@ -157,7 +157,7 @@ MarketOverviewPage
 
 该证据冻结 Members `<=4 SQL` 和完整列表设计；实现后仍需验证真实 API P95，不能用聚合审计替代部署态性能结论。
 
-### 2.7 M5／M6 双动量代码与消费者审计
+### 2.7 M5～M7 双动量代码与消费者审计
 
 2026-08-28 在仓库根的最新 CodeGraph 索引上复核了后端 API、QueryService、Calculator、schema、前端路由、方法栏、URL 状态、controller、页面消费者和测试。索引状态为 up to date，共 2,787 个文件、49,059 个节点和 124,757 条边。
 
@@ -165,7 +165,7 @@ MarketOverviewPage
 2. `SectorMomentumCalculator` 已正确实现本需求所需的区间收益、竞赛排名和并列平均百分位。M6 必须复用该纯计算器；禁止复制公式、修改 `formulaVersion=1` 或在双动量分类器里重算收益和百分位。
 3. 单日快照已一次加载公共日期、层级、比较池和行情，按 `(display_order, sector_code)` 保留全量事实行；既有 Rankings service 负责方向排序与旧 DTO，新 Dual service 负责状态分类与新 DTO。History 继续走原多日网格，未进入快照重构。
 4. 公共 Meta service 已只输出日期、层级和覆盖事实；既有 Meta 与双动量 Meta 分别映射自己的 strict DTO，旧 Meta 的 `period=1/directions/historyRanges` 未泄漏到双动量。
-5. 前端目前只有 `sector-analysis-momentum` 路由，`SectorAnalysisPage` 无方法参数并始终挂载 `useMomentumRankingController`；`SectorAnalysisMethodBar` 只有 `onUnavailable`，双动量仍在待建设按钮集合。M7 必须将页面改为显式方法判别，只挂载一个 controller。
+5. 前端已具有 `sector-analysis-momentum` 与 `sector-analysis-dual-momentum` 两个精确路由；`SectorAnalysisPage` 通过显式方法判别只挂载一个 controller，`SectorAnalysisMethodBar` 对两个已建设方法执行真实导航，其余三个按钮继续仅触发“待建设”提示。
 6. 现有动量 URL/parser/API/adapter/controller 都在 `momentum-ranking` feature 内，含方向、历史范围和成员事实；不得扩成带 method 分支的通用大 controller。双动量建立 feature-local 的 Meta/Results、URL 和状态边界。
 7. CodeGraph 影响面确认 `SectorMomentumQueryService` 变化会传导到既有 meta/rankings/history API 与查询测试，`SectorMomentumCalculator` 会传导到 rankings/history 和计算测试；因此 M6 的硬回归是四个既有 endpoint 响应零变化和 calculator 全量测试，而不是只测新接口。
 8. `SectorAnalysisMethodBar` 当前唯一页面消费者是 `SectorAnalysisPage`；`parseSectorMomentumUrlState` 的直接消费者是现有 controller 和测试。新增双动量独立 parser 可避免污染现有 URL 合同。
@@ -514,7 +514,7 @@ M7 前端只允许下列增量：
 | 新增 | `wealth/src/features/wealth-exploration/sector-analysis/dual-momentum/api/sectorDualMomentumApi.ts` | 专属 Meta/Results URL、fetch 和专属有界错误类 |
 | 新增 | `wealth/src/features/wealth-exploration/sector-analysis/dual-momentum/api/sectorDualMomentumAdapter.ts` | strict 读取、数量／状态／排序／请求事实校验；不计算资格、收益或百分位 |
 | 新增 | `wealth/src/features/wealth-exploration/sector-analysis/dual-momentum/model/sectorDualMomentumTypes.ts` | 独立 DTO、ViewModel、URL、主状态和局部展示类型 |
-| 新增 | `wealth/src/features/wealth-exploration/sector-analysis/dual-momentum/model/sectorDualMomentumUrlState.ts` | 九个 URL key、默认值、枚举、父级状态和 canonical search |
+| 新增 | `wealth/src/features/wealth-exploration/sector-analysis/dual-momentum/model/sectorDualMomentumUrlState.ts` | 十个 URL key、默认值、枚举、父级状态和 canonical search |
 | 新增 | `wealth/src/features/wealth-exploration/sector-analysis/dual-momentum/model/useSectorDualMomentumController.ts` | Meta→Results、竞态、409、选择、resultView 和本地排序；不请求 history/members |
 | 新增 | `wealth/src/features/wealth-exploration/sector-analysis/dual-momentum/ui/**` | 严格实现 Toolbar、ResultPanel/List、SelectedSummary、ScatterPlot、StateSurface 和正式 CSS |
 | 修改／新增 | 对应 route、page、feature 测试 | 覆盖精确路由、按需挂载、URL、两请求、15 个状态、散点、响应式和三个待建设按钮 |
@@ -1943,15 +1943,16 @@ M2 Prod 只读验收已经证明现有索引满足既有三接口查询：最重
 
 ### M7：双动量前端
 
-状态：`READY / NOT STARTED`。
+状态：`PASS (CODE + AUTOMATED TESTS, 2026-08-28)`。
 
-1. 新增正式 route、受控方法栏、独立 API/adapter/URL/controller 和工作区。
-2. 严格实现 15 个 Figma 状态、完整列表、摘要、散点、放大、选择与响应式。
-3. 完成第 11.2 节全矩阵并回归现有动量排名后停止。
+1. 已新增正式 route、受控方法栏、独立 API／adapter／十项 URL／controller 和工作区；两个方法只挂载当前 controller。
+2. 已实现 15 个 Figma 状态、完整滚动列表、摘要、响应式散点、放大 dialog、键盘／指针选择及 `minmax(0,1fr) 12px minmax(0,1fr)` 骨架。
+3. 已覆盖五 scope、四周期、三阈值、历史恢复、局部零请求交互、5 秒超时、401、409、过期响应和快速连续筛选竞态；M7 定向 82 项、前端全量 436 项、typecheck/build 通过。
+4. 未修改 M6 后端、数据库、迁移、配置、依赖、TopMarketBar、Shortcut、既有 `MomentumRankingWorkspace` 或 Members 主链；M7 已停止，未进入 M8。
 
 ### M8：双动量联调与交付
 
-状态：`BLOCKED BY M7`。
+状态：`READY / NOT STARTED`。
 
 1. 执行真实 API smoke、SQL/P95/payload、完整后端／前端／架构／类型／构建／文档门禁。
 2. 逐一验收 15 张正式画板和 1600/1512/1460/1366 四档宽度。
@@ -2032,8 +2033,8 @@ git diff --check
 | G25 双动量 API 合同 | 专属 Meta/Results、strict DTO、五计数、状态和 409 语义 | PASS (M6 code/tests) |
 | G26 双动量公式 | 复用 basis@1；5/10/20/30、70/80/90、min group 3、零值边界 | PASS (M6 classifier/tests) |
 | G27 双动量事实源 | 只读前三张 Prod 表，无 members/股票/资金/Heat/QTF/DG/Lake | PASS (M6 guardrail) |
-| G28 双动量路由与按需挂载 | 两个方法精确路由，只挂载当前 controller，三按钮零副作用 | PASS (M5 LLD)；代码待 M7 |
-| G29 双动量前端事实边界 | adapter 无分类计算，resultView/选择/排序零请求，散点无伪点 | PASS (M5 LLD)；代码待 M7 |
+| G28 双动量路由与按需挂载 | 两个方法精确路由，只挂载当前 controller，三按钮零副作用 | PASS (M7 code/tests) |
+| G29 双动量前端事实边界 | adapter 无分类计算，resultView/选择/排序零请求，散点无伪点 | PASS (M7 code/tests) |
 | G30 双动量交付 | 后端、前端、性能、15 状态和四档宽度全量验收 | OPEN (M8) |
 
 ### 15.1 例外白名单
@@ -2063,13 +2064,14 @@ git diff --check
 17. 双动量产品基线 v1.4、技术方案 v1.19、15 张正式画板和当前代码／消费者已经完成 M5 对账。
 18. M5 已冻结公共 Meta 事实、单日动量快照、专属分类器、两只 API、strict DTO、五计数、URL/controller、散点和全矩阵测试；`SA_FACT_VERSION_MISMATCH` 已完成编码前登记。
 19. M6 已实现公共 Meta、单日快照、双动量分类器、专属 strict DTO 和两只只读 API；217 项冻结后端回归、3/5 SQL、完整 496 节点 Meta／最大 337 行 Results P95/payload 与来源架构门禁均通过。
+20. M7 已实现双动量精确路由、受控方法栏、独立 API／adapter／URL／controller、15 个正式状态和响应式工作区；定向 82 项、前端全量 436 项、typecheck/build 均通过，未修改后端合同或既有动量 DOM。
 
 ### 16.2 尚未完成
 
 1. M4 的 12 节点最终 Figma 像素/交互及 1366 宽验收尚未执行；先向用户说明复杂度和消耗，再另行决定。
 2. 按用户决定，本阶段不执行周边页面专项人工回归和部署后生产验收；这两项不再作为 M4 关闭条件。
 3. M3A 代码已提交为 `e13eab20`；M4 自动化门禁已通过，本轮状态与 M4 对账文档尚未提交，本期没有迁移。
-4. 双动量 M6 后端已完成，M7 前端和 M8 联调尚未开始；当前仓库已有双动量 Meta/Results，但仍没有双动量页面路由、controller 或工作区，不能把后端完成误写为功能已上线。
+4. 双动量 M6 后端与 M7 前端代码／自动化均已完成；M8 的真实 API smoke、四档像素与交互对照和最终用户验收尚未执行，因此仍不能把双动量误写为最终交付完成或已上线。
 
 ## 17. 风险、回滚与停止条件
 
@@ -2109,14 +2111,15 @@ git diff --check
 
 ## 18. 结论
 
-既有动量排名 M0～M4 保持原验收结论。双动量 M5 合同与 M6 后端均已完成：公共 Meta、单日事实快照、版本化分类器、两只只读 API、strict DTO、状态计数、版本冲突、3/5 SQL、完整 496 节点 Meta／最大 337 行 Results 性能和全矩阵正反例均已通过；没有新增配置、迁移、依赖、缓存或持久化。
+既有动量排名 M0～M4 保持原验收结论。双动量 M5 合同、M6 后端与 M7 前端代码／自动化均已完成：公共 Meta、单日事实快照、版本化分类器、两只只读 API、strict DTO、状态计数、版本冲突、3/5 SQL、完整 496 节点 Meta／最大 337 行 Results 性能、正式路由、独立前端事实边界和 15 个页面状态均已落地；没有新增配置、迁移、依赖、缓存或持久化。
 
-下一步严格固定为 M7 双动量前端：只实现正式路由、独立 controller/adapter/URL 状态和 15 张 Figma 工作区，不修改 M6 已冻结的后端合同。M7 完成后必须停止，不能自动进入 M8。
+下一步严格固定为 M8 双动量联调与交付验收：执行真实 API smoke，并逐一核验 15 张正式画板和 1600／1512／1460／1366 四档宽度；M8 开始前不得修改 M6/M7 已冻结合同，也不得自动开始其他分析方法。
 
 ### 18.1 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v1.15 | 2026-08-28 | 完成双动量 M7 前端：精确路由与按需挂载、独立 strict adapter／URL／controller、15 个状态、完整列表与响应式散点、历史恢复、超时／401／409／竞态保护及零请求交互均完成自动化；定向 82 项、前端全量 436 项、typecheck/build 通过，下一步 M8 |
 | v1.14 | 2026-08-28 | 完成双动量 M6 后端：公共 Meta、单日快照、分类器、专属 DTO、Meta/Results、409、3/5 SQL、完整 496 节点 Meta／最大 337 行 Results 性能和 217 项冻结回归通过；下一步 M7，未编码前端 |
 | v1.13 | 2026-08-28 | 完成双动量 M5：基于当前代码和 CodeGraph 冻结公共 Meta／单日事实快照、独立分类器、Meta/Results DTO、异常、URL/controller、散点、15 状态、性能、测试和 M6～M8 顺序；下一步 M6，未编码 |
 | v1.12 | 2026-08-28 | 记录既有动量排名 M4 自动化门禁与用户验收状态 |
