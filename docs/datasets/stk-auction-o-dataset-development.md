@@ -1,8 +1,9 @@
 # 股票开盘集合竞价数据集接入方案（`stk_auction_o`）
 
-> 状态：已落地  
-> 日期：2026-05-16  
-> 文档模板：[数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)  
+> 状态：数据集接入已落地；`P1-B3-stk_auction_o-M0` raw 直出只读复审条件通过，生产切换前仍有性能门禁
+> 日期：2026-05-16
+> raw 直出 M0 复审：2026-08-28
+> 文档模板：[数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)
 > 源站文档：[0353_股票开盘集合竞价数据.md](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/特色数据/0353_股票开盘集合竞价数据.md)
 
 ## 0. 架构基线与本轮边界
@@ -354,3 +355,30 @@ flowchart TD
 - 不把 `limit` / `offset` 暴露给运营填写。
 - 不做无时间维度 snapshot 维护；即使源端不传参数能返回最近数据，本平台维护仍要求明确交易日或交易日区间。
 - 不引入股票池自动扇出。
+
+## 11. 2026-08-28 `P1-B3-stk_auction_o-M0` raw 直出只读复审
+
+本轮只读取当前代码、CodeGraph 与生产 PostgreSQL，没有请求 Tushare、创建 TaskRun、部署、迁移、暂停 schedule 或修改业务数据。结论是：**业务数据合同、对象合同、消费者边界和有界迁移容量已通过 M0，允许另行授权 M1/M2；生产 M3a 暂不放行，必须先关闭日期完整性查询的可见性性能门禁。**
+
+### 11.1 当前实现与消费者
+
+1. 当前 Definition 仍是 `raw_core_upsert`：同一归一化批次分别写入 `raw_tushare.stk_auction_o` 与 `core_serving.equity_auction_open`；显式请求 9 个 source fields，单交易日 unit，`limit/offset` 分页和 `page_limit=10000` 均保持不变。
+2. 两层主键均为 `(ts_code, trade_date)`，均有等价的 `trade_date` 二级索引；未发现 serving 专属转换、行过滤、聚合、冲突消解、ServingPublish 旁路或仓库内 serving DML。
+3. 未发现 Biz、QTF、DG、前端或 Lake Console 对 `core_serving.equity_auction_open` 的直接读取；当前已知消费者是 Ops Catalog、freshness、日期完整性与 TaskRun 观测。仓库外 SQL、BI 和依赖 relation catalog 的工具仍需在生产切换前由运营登记。
+4. 自动入口不是独立 dataset schedule，而是 `daily_market_close_maintenance` 的两个 active schedule：#24 在 18:30，#2 在 21:02。最近自然任务中，18:30 节点按当前源端时机返回 0 行；21:02 节点返回约 5,500 行、1 页短页、0 reject/去重/重试。未来维护窗口必须同时暂停、恢复并分别验收两个入口，不能只处理其中一个。
+
+### 11.2 生产物理合同与全量数据等价
+
+1. PostgreSQL 16.13、Alembic revision `20260828_000155`；raw/serving 当前均为 `pg_default` 普通物理表，没有外部 view 依赖、用户 trigger、RLS、publication 或扩展统计对象。
+2. raw 与 serving 各有 **2,183,621 行**和同等数量的唯一 `(ts_code, trade_date)`，无空身份，日期范围均为 `2025-01-02..2026-08-27`。
+3. 按全部 20 个自然月对 9 个业务字段执行双向 `EXCEPT ALL`，每月 raw-only 和 serving-only 都为 0。月峰值是 `2026-07` 的 126,364 行；后续独立 migration 的 fail-closed 月容量门禁固定为 **160,000 行/层/月**，必须验证 160,001 行在任何 serving DDL 前失败。
+4. 当前 raw 总大小为 411,148,288 B（392.10 MiB）；serving 总大小为 382,353,408 B（364.64 MiB）。后者是本项当前 catalog 毛释放量，不能用文件系统瞬时差值替代。
+5. `raw.fetched_at = serving.updated_at` 对全部行成立；93,560 行的 `serving.created_at` 早于最新同步时间。raw-backed view 会把 `fetched_at` 投影为 `created_at/updated_at`，因此不承诺历史审计时间逐行透明；当前代码未发现这些字段的业务消费者。
+
+### 11.3 查询基线与未关闭门禁
+
+三轮交错只读基准的结果校验值均一致：最大日期 `0.112/0.135 ms`、单日全字段 5,512 行 `11.551/11.129 ms`、单股全历史 401 行 `1.475/1.293 ms`、五个交易日全市场 27,506 行 `54.081/53.961 ms`，前者均为 raw/serving 中位耗时且没有临时块读写。
+
+日期完整性代表查询返回相同 81 个交易日，但 raw/serving 中位耗时为 `75.683/54.636 ms`，raw 慢 38.5%，超过一期 20% 门禁。计划确认两层都使用日期索引；差异来自 raw 只有 80.18% heap page 为 all-visible、发生 456,208 次 heap fetch，而 serving 为 92.91% 和 188,095 次。两表约 9.9 万 dead tuple，默认 autovacuum 阈值约为 42 万行，短期不会靠默认阈值自行关闭。
+
+因此 M1 不得修改 source fields、分页、日期模型、planner、workflow 或共享 writer；只能准备本数据集 raw-only Definition、独立 migration 与测试。M2 必须在隔离 PostgreSQL 验证 160,000/160,001 行、逐月全字段差异、事务回滚、权限、三类 serving DML 拒绝、view 即时可见及上述代表查询。未来 M3a 在暂停 schedule #2/#24、停止相关 worker 且无开放任务/长事务后，须先对 raw 执行经授权的普通 `VACUUM (ANALYZE)`，再重复三轮日期完整性基准；结果仍慢于 serving 超过 20% 时，必须在 migration 前停止，不得删除 serving 表。
