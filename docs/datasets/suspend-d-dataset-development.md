@@ -1,8 +1,10 @@
 # Tushare 每日停复牌信息（`suspend_d`）数据集开发说明
 
+- 当前状态（2026-08-28）：raw 直出 M1 代码与自动化测试已完成；生产仍需经过隔离 PostgreSQL M2 和独立授权的生产 M3，不能把本文目标结构误读为已经切换。
+
 ## 1. 目标与边界
 
-- 目标：新增 `suspend_d` 数据集，完成 Tushare 接口拉取、`raw_tushare` 落库、`core_serving` 对外服务与 Ops 运维打通。
+- 目标：维护 `suspend_d` 数据集，并在不改变下游读取合同的前提下，以 `raw_tushare.suspend_d` 作为唯一物理事实表、`core_serving.equity_suspend_d` 作为只读兼容 view。
 - 本期边界：
   - 先做 `tushare` 单源，不做多源融合。
   - 已纳入 `daily_market_close_maintenance` 工作流；手动任务和自动工作流共用同一 Definition/planner/request 契约。
@@ -66,8 +68,10 @@
 
 ### 5.1 路径选择
 
-- 路径类型：`raw_tushare -> core_serving`（单源直出）
-- 选择理由：当前仅 `tushare` 源，先快速打通；后续有新源时再切到 `std + resolution`。
+- 路径类型：`raw_tushare.suspend_d -> core_serving.equity_suspend_d view`（raw 直出）
+- 唯一物理事实表：`raw_tushare.suspend_d`；ingestion 只执行 `raw_only_upsert`。
+- 对下游合同：保留 `core_serving.equity_suspend_d` 名称和显式列投影，view 禁止三类 DML；查询由 PostgreSQL 下推到 raw 的等价索引。
+- 存储边界：raw heap 与索引继续位于 SSD `pg_default`，本项不迁 HDD；切换只释放原 serving 物理表。
 
 ### 5.2 表设计
 
@@ -85,31 +89,31 @@
 
 #### B. `core_serving.equity_suspend_d`
 
-- 对外字段与 raw 业务字段一致（不带 raw 审计字段）：`ts_code`, `trade_date`, `suspend_timing`, `suspend_type`
+- 对象类型：只读普通 view，不再保存第二份物理数据。
+- 对外字段显式固定为：`id`, `row_key_hash`, `ts_code`, `trade_date`, `suspend_timing`, `suspend_type`, `created_at`, `updated_at`。
+- `created_at/updated_at` 均映射 raw `fetched_at`；已登记消费者不读取这两个审计字段，不承诺保留旧 serving 历史 `created_at` 的差异。
 - 字段长度与 raw 保持一致，`suspend_timing` 为 `varchar(128)`，不得截断日内多时段信息。
-- 索引：
-  - `uq_equity_suspend_d_row_key_hash(row_key_hash)`
-  - `idx_equity_suspend_d_trade_date(trade_date)`
-  - `idx_equity_suspend_d_ts_code_trade_date(ts_code, trade_date)`
+- view 本身没有物理索引；原有查询依赖 raw 的唯一索引、`trade_date` 索引和 `(ts_code, trade_date)` 索引完成下推。
+- 独立 `INSTEAD OF INSERT OR UPDATE OR DELETE` trigger 统一以 SQLSTATE `55000` 拒绝写入。
 
-### 5.3 幂等策略（待评审拍板）
+### 5.3 幂等与切换门禁
 
-- 方案 A（推荐）：引入 `row_key_hash`，按行内容幂等 upsert（实现简单，重复写入风险低）。
-- 方案 B：自增 `id` 主键 + 按请求粒度“先删后插”（需要定义稳定删除窗口，复杂度更高）。
-
-> 评审建议：本数据集先采用 A，后续如业务确认需要保留“同键多条历史版本”再切 B。
+- 写入冲突键固定为 `row_key_hash`；raw 物理主键继续为自增 `id`，不修改共享 upsert。
+- migration 按自然月对比 `id, row_key_hash, ts_code, trade_date, suspend_timing, suspend_type` 的双向 `EXCEPT ALL`，并验证每月 `id/row_key_hash` 均无重复。
+- 月容量上限固定为 20,000 行；任一层超限、任一字段差异、身份重复、对象/索引/权限/依赖漂移都必须在 serving DDL 前失败。
+- migration 不执行 `CASCADE`、不修改 raw 数据或索引、不提供自动 downgrade。
 
 ## 6. 维护实现设计
 
 - IngestionExecutor / SourceClient：`suspend_d` 数据集维护链路
-- `target_table`：`core_serving.equity_suspend_d`
+- `target_table`：`raw_tushare.suspend_d`
 - 参数构建规则：
   - `suspend_d.maintain`：`trade_date` 或 `start_date+end_date`
   - 区间模式：按 SSE 开市日逐日调用上游（每次传 `trade_date`）
   - `suspend_type`：未填写时不传；单选生成 1 个单值 unit；多选按去重后的 `S/R` 分别生成 unit；request builder 遇到未展开列表必须 fail-closed，禁止字符串化后请求源端
 - 写入规则：
-  - raw 先写入
-  - serving 同步写入
+  - 只 upsert `raw_tushare.suspend_d`
+  - `core_serving.equity_suspend_d` 由 view 同事务即时可见，不再发生 serving DAO 写入
 - 进度事件（用户可读）：
   - `suspend_d: 3/15 date=2026-04-10 fetched=xx written=xx`
   - 明确展示当前日期推进进度与读写统计。
@@ -128,7 +132,9 @@
   - 参数映射（单日/区间/可选枚举）
   - 无类型单 unit、单选单 unit、多选按日期和类型笛卡尔展开、非法枚举拒绝、request builder 拒绝未展开列表
   - 区间 SSE 开市日推进
-  - 幂等写入
+  - raw-only writer 只调用 `raw_suspend_d` DAO，冲突键为 `row_key_hash`
+  - ORM 字段、主键和三组 raw/serving 现存索引合同
+  - migration 顺序、20,001 行超限、全字段/双身份差异、未知依赖、三类拒写、事务回滚和离线 PostgreSQL SQL
 - 集成测试：
   - `suspend_d.maintain`（单日/区间）
   - Ops 手动任务参数链路

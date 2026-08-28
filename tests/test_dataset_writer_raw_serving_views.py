@@ -17,6 +17,7 @@ from src.foundation.models.raw.raw_moneyflow_mkt_dc import RawMoneyflowMktDc
 from src.foundation.models.raw.raw_margin import RawMargin
 from src.foundation.models.raw.raw_st import RawSt
 from src.foundation.models.raw.raw_stk_nineturn import RawStkNineTurn
+from src.foundation.models.raw.raw_suspend_d import RawSuspendD
 
 
 class _RecordingRawDao:
@@ -121,6 +122,20 @@ class _RecordingRawDao:
             },
             "raw_tushare.margin",
             None,
+        ),
+        (
+            "suspend_d",
+            "raw_suspend_d",
+            RawSuspendD,
+            {
+                "id": 642264,
+                "row_key_hash": "b" * 64,
+                "ts_code": "000001.SZ",
+                "trade_date": date(2026, 8, 27),
+                "suspend_type": "S",
+            },
+            "raw_tushare.suspend_d",
+            ["row_key_hash"],
         ),
         (
             "st",
