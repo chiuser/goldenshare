@@ -1,9 +1,10 @@
 # 股票开盘集合竞价数据集接入方案（`stk_auction_o`）
 
-> 状态：数据集接入已落地；`P1-B3-stk_auction_o-M1` raw 直出编码与自动化验证通过，下一阶段为隔离 PostgreSQL M2；生产 M3a 前仍有性能门禁
+> 状态：数据集接入已落地；`P1-B3-stk_auction_o-M0/M1/M2` 已通过；下一阶段为另行授权的生产 M3a，且必须先关闭日期完整性性能门禁
 > 日期：2026-05-16
 > raw 直出 M0 复审：2026-08-28
 > raw 直出 M1 实现：2026-08-28
+> raw 直出 M2 隔离验证：2026-08-28
 > 文档模板：[数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)
 > 源站文档：[0353_股票开盘集合竞价数据.md](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/特色数据/0353_股票开盘集合竞价数据.md)
 
@@ -396,3 +397,16 @@ M1 严格限于本数据集的 Definition storage contract、独立 Alembic revi
 6. 专项测试已覆盖 Definition/plan/filter、全部 source fields、分页、raw-only writer、ORM 字段和索引、ServingPublish 无旁路、migration 原子顺序/资源上限/依赖门禁/显式投影/拒写函数/离线 SQL 与禁止 downgrade；既有 registry、resolver、字段常量、workflow/freshness 和架构回归继续作为不变合同门禁。
 
 M1 结论为**通过**。当前生产仍是 revision 155，raw/serving 仍是两张物理表；下一阶段只能在独立授权后进入 `P1-B3-stk_auction_o-M2`，于隔离 PostgreSQL 真实验证 revision 156、160,000/160,001 行边界、事务回滚、权限恢复、三类 DML、raw 写入/view 即时可见和代表查询计划。M0 记录的日期完整性性能门禁继续阻塞 M3a，不能由 M1 静态测试替代。
+
+## 13. 2026-08-28 `P1-B3-stk_auction_o-M2` 隔离 PostgreSQL 验证
+
+M2 使用 PostgreSQL 18.4 的一次性隔离实例，实例仅监听随机 Unix socket，`listen_addresses=''`、`inet_server_addr=NULL`；每次 Alembic 前都核对最终 `get_settings()` URL、数据库名、应用用户、socket、端口和 data directory。没有连接 Prod、请求 Tushare、部署、创建 TaskRun、修改 schedule 或运行生产 vacuum。全部场景结束后临时实例停止，成功实例数据目录已删除，证据报告仅保留在 `/private/tmp/goldenshare_stk_auction_o_m2_report.json`。
+
+1. 正向库在同一自然月构造 **160,000 行/层**，revision `20260828_000155 -> 20260828_000156` 成功。Raw OID `16391`、主键索引 OID `16402`、日期索引 OID `16404` 均保持不变，两个索引继续 valid/ready 且位于 `pg_default`；Serving 从 OID `16405` 的物理表切换为 OID `16421`、0 B 普通 view。
+2. 切换后 Raw/view 均为 160,000 行和 160,000 个唯一 `(ts_code, trade_date)`；九字段双向 `EXCEPT ALL` 和 `fetched_at -> created_at/updated_at` 审计投影差异均为 0。view 列顺序、owner、Raw reader 权限、Serving `SELECT WITH GRANT OPTION`、relation/column comments 和独立拒写 trigger 全部恢复。
+3. 对 Serving 执行 `INSERT/UPDATE/DELETE` 均以 SQLSTATE `55000` 拒绝。对 Raw 的插入、更新、删除在同一事务内立即反映到 view，回滚后行数和测试身份无残留。正式 `DatasetWriter` 对一个既有身份返回 `rows_written=1`、目标表为 `raw_tushare.stk_auction_o`，Raw/view 同时看到新值；事务回滚后原值和原时间戳完整恢复。
+4. **160,001 行/月**明确触发 `monthly reconciliation exceeds safety cap`；另三个负向库分别注入业务字段差异、身份差异和外部 view 依赖，均在 Serving DDL 前失败，revision、relation OID/类型、索引、行数、comments 和 trigger 快照保持不变。
+5. 独立回滚库在同一事务完成 `DROP TABLE -> CREATE VIEW -> trigger` 后注入除零失败；回滚后 revision 155、两张物理表、Raw/Serving OID、全部索引 OID/定义/valid/ready、ACL、comments、行数和零用户 trigger 与执行前完全一致。
+6. 四类代表查询切换前后结果行数和 SHA-256 均一致且无临时块：单日 5,714 行由 Serving 日期索引下推为 Raw 日期索引，`2.520 -> 2.661 ms`；单股单日由 Serving PK 下推 Raw PK，`0.005 -> 0.007 ms`；最大日期由日期 index-only scan 下推，`0.005 -> 0.007 ms`；10 日日期完整性汇总继续使用日期索引，`8.306 -> 8.758 ms`。隔离数据上的最大正向退化约 5.4%，只证明计划形态与结果稳定，不替代生产 M3a 的可见页/vacuum 性能门禁。
+
+M2 结论为**通过**，revision 156 无需修改。生产仍是 revision 155，Raw/Serving 仍为两张物理表。下一阶段只有在另行授权后才能进入 `P1-B3-stk_auction_o-M3a`：实时只读预检后暂停 schedule #2/#24、停止目标 worker，先对生产 Raw 执行已设计的普通 `VACUUM (ANALYZE)` 并交错重测日期完整性；只有相对退化不超过 20%、结果/计划/临时块合同同时通过，才允许应用 revision 156。M2 不授权任何生产操作。
