@@ -9,6 +9,7 @@ from src.foundation.datasets.registry import get_dataset_definition
 from src.foundation.ingestion.normalizer import NormalizedBatch
 from src.foundation.ingestion.writer import DatasetWriter
 from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
+from src.foundation.models.raw.raw_dc_daily import RawDcDaily
 from src.foundation.models.raw.raw_moneyflow_cnt_ths import RawMoneyflowCntThs
 from src.foundation.models.raw.raw_moneyflow_ind_dc import RawMoneyflowIndDc
 from src.foundation.models.raw.raw_moneyflow_ind_ths import RawMoneyflowIndThs
@@ -46,6 +47,19 @@ class _RecordingRawDao:
             {"ts_code": "000001.SZ", "trade_date": date(2026, 8, 3), "freq": "daily"},
             "raw_tushare.stk_nineturn",
             None,
+        ),
+        (
+            "dc_daily",
+            "raw_dc_daily",
+            RawDcDaily,
+            {
+                "ts_code": "BK1234.DC",
+                "trade_date": date(2026, 8, 27),
+                "category": "概念板块",
+                "close": 100,
+            },
+            "raw_tushare.dc_daily",
+            ["ts_code", "trade_date", "category"],
         ),
         (
             "moneyflow_cnt_ths",

@@ -1,14 +1,14 @@
 # 生产 PostgreSQL raw 直出一期低层设计 v1
 
 - 版本：v1
-- 状态：P1-B0 与 P1-B1 已结案；`P1-B2-moneyflow_ind_dc` M0/M1/M2/M3a/M3b 已全部完成并结案；下一项为独立授权的 `P1-B2-dc_daily-M0`
+- 状态：P1-B0 与 P1-B1 已结案；`P1-B2-moneyflow_ind_dc` 已结案；`P1-B2-dc_daily` 的 M0/M1/M2 已通过，下一项为独立授权的 M3a 生产切换与即时验收
 - 更新时间：2026-08-28
 - 上位方案：[生产 PostgreSQL 存储空间优化治理专项 v2](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v2.md)
 - 目标：把一期 12 个无业务转换的 raw/core_serving 双写数据集收敛为“raw 唯一物理事实表 + 原 serving 名称只读 view”，预计释放约 3.305 GiB SSD
 
 ## 0. 边界与完成定义
 
-本文定义一期实施合同，并记录已获授权完成的 P1-B0-M1～M3、P1-B0 市场资金补充 M3b、P1-B1 M0、行业/概念/`margin` 的 M1/M2/M3a/M3b、`P1-GATE-SSE-M1/M2/M3`，以及 P1-B2 首项 `moneyflow_ind_dc` 的 M0/M1/M2/M3a/M3b。`moneyflow_ind_dc` 已完成只读生产基线、代码、自动化测试、隔离 PostgreSQL migration、切换后生产只读合同与自然运行验收；完整部署在未暂停 schedule/worker 时自动应用 revision 153 的发布顺序偏差继续作为历史事实保留，不因最终验收通过而删除。
+本文定义一期实施合同，并记录已获授权完成的 P1-B0-M1～M3、P1-B0 市场资金补充 M3b、P1-B1 M0、行业/概念/`margin` 的 M1/M2/M3a/M3b、`P1-GATE-SSE-M1/M2/M3`，P1-B2 首项 `moneyflow_ind_dc` 的 M0/M1/M2/M3a/M3b，以及 `dc_daily` 的 M0/M1/M2。`moneyflow_ind_dc` 已完成只读生产基线、代码、自动化测试、隔离 PostgreSQL migration、切换后生产只读合同与自然运行验收；完整部署在未暂停 schedule/worker 时自动应用 revision 153 的发布顺序偏差继续作为历史事实保留，不因最终验收通过而删除。`dc_daily` 当前完成只读生产复审、代码/静态 migration 合同和隔离 PostgreSQL 真实验证，尚未部署或应用生产 revision 154。
 
 一期完成必须同时满足：
 
@@ -56,7 +56,7 @@ relation 从物理表变为 view 后，下列物理或治理事实必然变化�
 
 ### 2.1 写入链事实
 
-当前 12 个数据集都使用 `DatasetWriter.write()` 的 `raw_core_upsert` 分支。`_write_raw_and_core()` 会把同一个 `NormalizedBatch` 分别按 raw/serving ORM 列过滤后写入两层；12 个 Definition 的 `serving_conflict_resolution_policy` 均为 `none`。
+一期启动前，12 个数据集都使用 `DatasetWriter.write()` 的 `raw_core_upsert` 分支；`_write_raw_and_core()` 会把同一个 `NormalizedBatch` 分别按 raw/serving ORM 列过滤后写入两层，且 12 个 Definition 的 `serving_conflict_resolution_policy` 均为 `none`。截至 2026-08-28，已完成生产切换的前 5 项已经改为 raw-only，`dc_daily` 也已在 M1 代码中改为 raw-only、但生产尚未应用 revision 154；其余 6 项仍保持双写。
 
 这证明当前主链没有额外业务转换，但不自动证明历史数据没有漂移。生产数据仍必须独立对账。
 
@@ -87,7 +87,7 @@ conflict_columns = 保持现有值
 | P1-B1 | 3 | `moneyflow_cnt_ths` | `raw_tushare.moneyflow_cnt_ths` → `core_serving.concept_moneyflow_ths` | `(trade_date, ts_code)` | 41.9 MiB | 181,560 / 181,560 | Ops/freshness；Lake raw；active 每日资金工作流 |
 | P1-B1 | 4 | `margin` | `raw_tushare.margin` → `core_serving.equity_margin` | `(trade_date, exchange_id)` | 0.3 MiB | 1,155 / 1,155 | Ops/freshness；Lake raw；active 固定源端 probe；M3b 已通过 |
 | P1-B2 | 5 | `moneyflow_ind_dc` | `raw_tushare.moneyflow_ind_dc` → `core_serving.board_moneyflow_dc` | `(trade_date, content_type, name)` | 84.27 MiB | 339,268 / 339,268 | Wealth 板块概览/热度；Lake raw；M0/M1/M2/M3a/M3b 已完成并结案 |
-| P1-B2 | 6 | `dc_daily` | `raw_tushare.dc_daily` → `core_serving.dc_daily` | `(ts_code, trade_date, category)` | 154.0 MiB | 629,993 / 629,993 | Wealth、QTF、DG source probe；Lake raw |
+| P1-B2 | 6 | `dc_daily` | `raw_tushare.dc_daily` → `core_serving.dc_daily` | `(ts_code, trade_date, category)` | 154.22 MiB | 634,116 / 634,116 | Wealth、QTF、DG source probe；Lake raw；M0/M1/M2 已通过，待 M3a |
 | P1-B2 | 7 | `suspend_d` | `raw_tushare.suspend_d` → `core_serving.equity_suspend_d` | 写入冲突键 `row_key_hash`；物理 PK `id` | 211.9 MiB | 640,481 / 640,481 | Wealth 指数/板块/连板、市场情绪；Lake raw |
 | P1-B3 | 8 | `stk_auction_o` | `raw_tushare.stk_auction_o` → `core_serving.equity_auction_open` | `(ts_code, trade_date)` | 361.9 MiB | 2,161,633 / 2,161,633 | Ops/freshness；未发现当前 Lake/DG 读取 |
 | P1-B3 | 9 | `stk_auction_c` | `raw_tushare.stk_auction_c` → `core_serving.equity_auction_close` | `(ts_code, trade_date)` | 364.1 MiB | 2,227,843 / 2,227,843 | Ops/freshness；未发现当前 Lake/DG 读取 |
@@ -96,7 +96,7 @@ conflict_columns = 保持现有值
 | P1-B4 | 12 | `stk_limit` | `raw_tushare.stk_limit` → `core_serving.equity_stk_limit` | `(ts_code, trade_date)` | 623.5 MiB | 4,569,303 / 4,569,303 | 市场情绪/走查；Lake raw |
 |  |  | **合计** |  |  | **3,548,766,208 B，约 3.305 GiB** |  |  |
 
-合计仍是 2026-08-23 全名单同一时点基线；`moneyflow_ind_dc` 行已按本次 M0 刷新到 2026-08-27 当前值。在 P1-B2 其余对象各自 M0 前，不用不同时点数据重算合计。
+合计仍是 2026-08-23 全名单同一时点基线；`moneyflow_ind_dc` 与 `dc_daily` 行已分别按各自 M0 时点刷新，不把不同时点数据重新相加伪装成同一容量快照。在 P1-B2 其余对象各自 M0 前，不用不同时点数据重算合计。
 
 批次只表达风险顺序，不表示允许合并 migration。生产发布单位始终是“一个数据集、一个 Alembic revision、一次维护窗口、一次验收”。
 
@@ -119,11 +119,13 @@ conflict_columns = 保持现有值
 13. `P1-B2-moneyflow_ind_dc-M0` 已完成 36 个自然月和全表 18 个业务字段双向 `EXCEPT ALL`，raw/serving 各 339,268 行，双向差异均为 0；生产物理合同、消费者、容量和查询计划基线见第 8 节专属记录。
 14. `P1-B2-moneyflow_ind_dc-M2` 已在仅 Unix socket 可达的 PostgreSQL 18.4 隔离实例完成 revision 153 正向 migration、30,001 行容量门禁、差异/身份/依赖 fail-closed、ACL/comment、三类 DML、正式 writer、事务回滚、即时可见和代表查询计划验收；该结论不改变生产 revision 152。
 15. `P1-B2-moneyflow_ind_dc-M3a/M3b` 已完成：revision 153 已把 serving 收敛为 0 B raw-backed view；2026-08-27 的自然 TaskRun `9633/9644/9645` 已证明 raw-only 写入、双上游 readiness、Heat 发布和同日自动幂等，详见第 8 节。
+16. `P1-B2-dc_daily-M0` 已完成 32 个自然月、634,116 行和全部 13 个业务字段双向 `EXCEPT ALL`，并建立 Wealth、QTF、DG 和 Heat 真实查询基线；`P1-B2-dc_daily-M1` 已完成 Definition、raw ORM、独立 revision 154 和专项自动化测试，详见第 8 节。
+17. `P1-B2-dc_daily-M2` 已在仅 Unix socket 可达的 PostgreSQL 18.4 隔离实例完成 revision 154、30,000/30,001 行边界、字段/身份/主键/依赖 fail-closed、ACL/comment、三类 DML、正式 writer、事务回滚、即时可见和代表查询计划验收；该结论不改变生产 revision 153。
 
 尚未完成：
 
-1. 除 `moneyflow_mkt_dc`、`moneyflow_ind_ths`、`moneyflow_cnt_ths`、`margin`、`moneyflow_ind_dc` 外，其余 7 组尚未完成全历史业务字段双向 `EXCEPT ALL`；
-2. P1-B1 中 `moneyflow_ind_ths`、`moneyflow_cnt_ths`、`margin` 已完成生产切换前后查询计划和时延验收；`moneyflow_ind_dc` 已建立切换前 raw/serving 同负载基线，其余 7 项尚未建立前后基线；
+1. 除 `moneyflow_mkt_dc`、`moneyflow_ind_ths`、`moneyflow_cnt_ths`、`margin`、`moneyflow_ind_dc`、`dc_daily` 外，其余 6 组尚未完成全历史业务字段双向 `EXCEPT ALL`；
+2. P1-B1 中 `moneyflow_ind_ths`、`moneyflow_cnt_ths`、`margin` 已完成生产切换前后查询计划和时延验收；`moneyflow_ind_dc` 已完成生产查询验收，`dc_daily` 已建立切换前 raw/serving 同负载基线；其余 6 项尚未建立前后基线；
 3. 仓库外 SQL、BI、人工脚本和依赖 relation catalog 的工具尚未完成签字；
 4. `suspend_d` 的 raw/serving `id` 必须逐行一致，不能只比较 `row_key_hash`；
 5. P1-B0 已运行生产 Biz 查询服务，但未做带登录态的浏览器验收；行业 relation 当前没有 Biz/QTF/DG serving 读取，已按 Ops/freshness、真实 SQL 和 TaskRun 完成验收；`moneyflow_ind_dc` 已完成生产查询、Heat source/readiness、自然 TaskRun 与结果回读验收；其余数据集按自身消费者逐项执行。
@@ -821,6 +823,46 @@ M2 在本轮受控创建的 PostgreSQL 18.4 临时实例完成，并做了两次
 
 `P1-B2-moneyflow_ind_dc-M3b` 据此通过；M0/M1/M2/M3a/M3b 全部完成并结案。下一阶段只能是单独授权的 `P1-B2-dc_daily-M0` 只读复审，不自动进入编码、迁移或生产操作。
 
+#### 2026-08-28 `P1-B2-dc_daily-M0` 只读复审
+
+本阶段只读取当前代码、生产 catalog、受控 SQL 结果和既有 TaskRun 诊断；没有改代码、连接源端、创建任务、部署、执行 migration 或修改 schedule。CodeGraph 索引为 current，覆盖 2,774 个文件、48,805 个节点和 113,147 条边；影响面沿 Definition、resolver/request builder、writer/DAO/ORM、Ops workflow/readiness、Wealth、QTF、DG source probe、Lake Console 和相应测试逐项复核。
+
+1. `dc_daily` 继续显式请求 13 个 source fields，支持交易日 point/range、可选 `ts_code` 和行业/概念/地域 `idx_type` fan-out；不带 filter 的一个交易日只形成一个 unit，源端分页固定为 2,000 行、offset/limit、最多 5,000 unit。M0 没有为验证重复请求 Tushare；
+2. raw/serving 都是 `pg_default` 普通物理表，主键同为 `(ts_code, trade_date, category)`，并各有 `trade_date` 和 `(trade_date, category)` 两个有效等价索引；raw 的 `lake_raw_reader` SELECT 权限必须在后续阶段保持；
+3. raw/serving 各 634,116 行，日期范围 `2024-01-02..2026-08-27`。按 32 个自然月比较全部 13 个业务字段，两个方向的 `EXCEPT ALL` 都为 0；月峰值 23,537 行，因此 revision 154 固定 30,000 行/月的 fail-closed 容量门禁；
+4. serving 物理大小为 161,710,080 B（154.22 MiB），是本项当前可释放的毛量；raw 和既有两个 raw 二级索引保持 SSD，不新增生产不存在的索引；
+5. 已知 serving 读取者包括 Wealth 板块查询、QTF `sector_source_adapter` 与 DG `dc_board_source_probe`；Lake Console 已直接读取 raw。实际消费者基线显示 DG 单日探测 raw 与 serving 约 `2.11/2.16 ms`，QTF 有界范围 raw 约慢 10.3%，完整 Wealth Heat 26 个开市日 raw 约慢 0.6%，完整 Wealth SectorMetrics 七次交错中位数 raw 约慢 1.46%，均未出现结果或结构性计划退化。单独 503 行子查询 raw 较慢只记作诊断，不能替代完整消费者验收；
+6. 当前有两个 active workflow 会写入本数据集：schedule #24 的 18:30 任务和 schedule #2 的 21:02 收盘任务。两者最近同一目标日分别读取 1,026 与 1,030 行，因此 M3a 必须同时暂停、恢复并核验，不能只处理其中一个；
+7. raw `fetched_at` 与 serving `updated_at` 全部一致；57,367 行历史 `created_at` 与 raw `fetched_at` 不同。已登记消费者不读取审计列，所以继续采用 `fetched_at AS created_at/updated_at` 的既定透明性边界，但不宣称历史审计时间逐行相同。
+
+M0 据此通过 Definition、物理对象、全字段等价、消费者、容量、查询和自动入口的 M1 准入；它没有授权任何生产修改。
+
+#### 2026-08-28 `P1-B2-dc_daily-M1` 编码与自动化测试
+
+M1 严格限于本数据集的 storage contract、raw ORM metadata、独立 migration、测试和本文档，没有修改 source client、request builder、resolver、planner、writer 共享实现、Ops workflow/readiness、schedule、QTF、DG、Lake Console、Wealth 或前端生产代码，也没有连接数据库、请求 Tushare、部署或执行 migration。
+
+1. Definition 只把 storage 收敛为 `raw_dc_daily/raw_tushare.dc_daily/raw_only_upsert/raw_with_serving_view`；13 个 source fields、日期与 filter、一个无 filter unit、2,000 行分页、5,000 unit 上限和两条 workflow 行为保持不变；
+2. `RawDcDaily` 只补齐生产已经存在的 `trade_date` 与 `(trade_date, category)` 索引 metadata；字段、类型、空值合同和三列主键未改变；
+3. 新增独立 revision `20260828_000154`，只接编码时唯一真实 head `20260827_000153`。migration 先检查 relation 类型、owner、SSD tablespace、字段、主键、四个二级索引、未知约束/依赖/ACL/RLS/trigger/rewrite/统计/security label/publication，再持有 raw/serving `SHARE` 锁按月比较 13 字段与三列身份；任何月超过 30,000 行或任何差异均在 serving DDL 前失败；
+4. 通过前置检查后才取得 serving `ACCESS EXCLUSIVE` 锁，保存并恢复 owner、非 owner SELECT grant、relation/column comments，把原表替换为显式 15 列 raw-backed view，并复用既有共享拒写函数创建本 relation 独立 trigger；禁止 `CASCADE`、raw DDL、共享函数重建和自动 downgrade；
+5. 专项正反向测试覆盖 Definition 不漂移、一个 unit 与 filter fan-out、未知 filter 拒绝、raw/serving ORM 合同、raw-only writer、ServingPublish 无旁路、migration 顺序/有界资源/差异与依赖 fail-closed、显式投影、三类拒写前置及离线 PostgreSQL SQL 渲染；registry、freshness、Wealth/QTF/DG 和架构边界纳入定向回归。
+
+M1 只在代码和静态合同层完成。生产仍处于 revision 153，`raw_tushare.dc_daily` 与 `core_serving.dc_daily` 仍是两张物理表；下一阶段只能是另行授权的 `P1-B2-dc_daily-M2` 隔离 PostgreSQL 验证。
+
+#### 2026-08-28 `P1-B2-dc_daily-M2` 隔离 PostgreSQL 验证
+
+M2 在 PostgreSQL 18.4 临时实例完成。实例只监听 `/private/tmp` 下本轮独立 Unix socket，`listen_addresses=''`、`inet_server_addr()` 为空；迁移角色 `dc_daily_m2_app` 为非超级用户，数据库名、用户、socket、恢复模式和管理员读取的 `data_directory` 都在每次 Alembic 调用前核验。`GOLDENSHARE_ENV_FILE` 指向本轮不存在的临时路径，`DATABASE_URL` 再由同一子进程读取并比对，规避仓库 env 文件覆盖命令行连接的历史风险。本轮没有连接 Prod、调用 Tushare、部署、创建 TaskRun 或修改 schedule/workflow。
+
+1. 成功库从 revision 153 升至 154，raw/serving 各 36,000 行；2024-01 恰好 30,000 行、2024-02 为 6,000 行，全部 13 个业务字段和 36,000 个三列身份一致。raw relation OID、主键和两个二级索引 OID/定义/valid/ready 状态保持不变并继续位于 `pg_default`；serving 从 8,028,160 B 物理表变为 0 B 普通 view；
+2. 隔离实例建立了真实 `gs_raw_cold_hdd` 并由管理员核验路径，但 `dc_daily` heap/index 没有对象落入 HDD。raw 的 `lake_raw_reader` SELECT 保持；serving 的 relation/column comment、PUBLIC SELECT、普通 reader SELECT 和 `WITH GRANT OPTION` 均完整恢复；
+3. view 的 INSERT/UPDATE/DELETE 全部以 SQLSTATE `55000` 被独立 trigger 拒绝。对 raw 的 INSERT、UPDATE、DELETE 会在同一事务立即反映到 view，rollback 后行数和值恢复；正式 `DatasetWriter` 只向 `raw_tushare.dc_daily` 写入 1 行，view 同事务可见，rollback 后两边均无残留；
+4. 交易日点查、分类日期范围和最大日期三类查询结果切换前后完全一致，计划从 serving 索引下推到 raw 等价索引。总成本分别为 `214.70→212.94`、`9.25→9.20`、`0.49→0.54`；末项仅增加 0.05，不构成结构性退化，仍须在生产 M3a 以真实数据复核；
+5. 单月 30,001 行库在 serving DDL 前报 `monthly reconciliation exceeds safety cap`；业务字段值差异、三列身份值差异、raw 主键顺序漂移和外部 view 依赖分别被 `monthly mismatch`、`Unexpected raw primary key`、`Unexpected view dependency` 拒绝。每个失败库都保持 revision 153、原 raw/serving OID、两张物理表、原行数和零用户 trigger；
+6. 回滚库执行 revision 154 的真实前置 SQL 和 `DROP TABLE → CREATE VIEW → trigger` 后注入除零异常；事务回滚后 revision 153、两张物理表 OID、raw 索引 OID/定义/valid/ready 和数据全部恢复；
+7. 所有场景使用独立数据库，避免失败状态污染后续证明；临时 PostgreSQL 完成后已停止，不保留监听服务。首次试运行误用了只含客户端的 `libpq/bin/initdb`，在创建数据库前因找不到同目录 `postgres` 安全失败；随后固定使用 PostgreSQL 18.4 服务端工具重新建立全新实例，未复用半初始化目录。
+
+`P1-B2-dc_daily-M2` 据此通过。该结论只关闭隔离数据库门禁；生产仍为 revision 153 和两张物理表。下一阶段只能是单独授权的 `P1-B2-dc_daily-M3a`，并必须实时复核生产代码/head、634,116 行基线漂移、32 月全字段差异、磁盘/锁/长事务/开放 TaskRun，同时暂停并回查 schedule #24 和 schedule #2 两个写入入口，再停止相关 worker、应用 revision 154、回收连接池并完成生产查询与最小 TaskRun 验收。
+
 ### S4：文档证据
 
 将 revision、部署 commit、TaskRun ID、对账结果、查询计划、磁盘释放量和残余风险写回 v2；未验收项不得标完成。
@@ -957,7 +999,7 @@ M2 在本轮受控创建的 PostgreSQL 18.4 临时实例完成，并做了两次
 4. `margin` 结案时生产 Alembic 为 `20260826_000152`、远端审计 commit 为 `f732f8bd`；随后 `moneyflow_ind_dc` 的完整部署已把生产推进到 `20260827_000153/b00d3d10`。两个快照属于不同执行阶段，不得互相覆盖；
 5. `P1-B2-moneyflow_ind_dc-M0/M1/M2/M3a/M3b` 已完成：36 月及全表 18 字段生产差异为 0，Definition 已收敛 raw-only，独立 revision `20260827_000153` 与隔离门禁通过；生产切换后静态合同、自然 raw-only TaskRun `9633`、双上游 `9633/9644`、Heat TaskRun `9645`、结果/hash 回读和自动幂等均通过。提前 migration 的发布顺序偏差继续保留为历史教训；
 6. Heat 时间口径固定为收盘工作流 21:00、资金流工作流 20:00，代码、正反向测试、生产调度器发布和自然运行均已闭环；
-7. 下一阶段只能是独立授权的 `P1-B2-dc_daily-M0` 只读复审；不得复制 `moneyflow_ind_dc` 的容量、字段、身份、消费者或 Heat 验收结论；
+7. `P1-B2-dc_daily-M0/M1/M2` 已完成；下一阶段只能是独立授权的 `P1-B2-dc_daily-M3a` 生产切换与即时验收，不得把 M2 隔离结论当成生产授权；
 8. 未来任何生产操作仍须实时确认开放 TaskRun 为 0、目标 schedule/probe 已按本项契约暂停、worker 已停止、目标锁和磁盘水位满足门禁。扩容后的容量快照不是跳过这些检查的理由；
 9. 仓库外 SQL/BI/人工脚本无法由仓库审计穷尽，若存在依赖 OID、relkind、约束 catalog、旧审计时间或 serving DML 的未登记消费者，仍是每项 migration 的残余运营风险。
 
