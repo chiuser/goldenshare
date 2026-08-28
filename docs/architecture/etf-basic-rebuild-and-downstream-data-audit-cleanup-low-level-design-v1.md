@@ -1,6 +1,6 @@
 # ETF 基础信息重建与下游数据审计清理 LLD v1
 
-状态：P0 已完成 / P1 因当前数据库迁移落后于代码 head 暂未开始 / 尚未编码与生产执行
+状态：P0、P1 已完成（P1 已完成代码、测试与 Prod 只读验收；未执行生产快照重建）/ P2-P8 未开始
 创建日期：2026-08-28
 依据方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)
 适用代码：`src/foundation/**`、`src/ops/**`、`src/app/**`、`frontend/**`、`alembic/**`
@@ -42,9 +42,9 @@ CodeGraph 审计时索引包含 2,787 个文件、49,059 个节点和 124,757 �
 
 CodeGraph 的宽泛 `list_active_codes` 影响结果同时命中 ETF 池和指数池，因此本次删除必须按 ETF 的具体类型、表名和 resource 精确执行，不能按方法名批量替换。
 
-### 2.2 当前主数据链
+### 2.2 P1 开发前主数据链（历史基线）
 
-| 环节 | 当前实现 | 已确认问题 | 目标实现 |
+| 环节 | P1 开发前实现 | 已确认问题 | P1 目标 |
 |---|---|---|---|
 | 定义 | `reference_master.py` 中 `etf_basic` 允许 6 个业务过滤字段 | 带过滤请求也可能走正式发布 | 正式 maintain 无业务过滤，只发布完整快照 |
 | 分页 | `offset_limit`，`page_limit=5000`，短页终止 | 实现可复用 | 保留并将短页完整性纳入发布门禁 |
@@ -81,7 +81,7 @@ raw 另有 `api_name/fetched_at/raw_payload`，serving 另有 `created_at/update
 
 `IngestionExecutor._process_fetched_unit()` 当前顺序是：归一化、调用 writer、统一 `session.commit()`。`fund_daily` writer 在同一事务中先 upsert raw，再查询旧激活池并写 serving。因此选择器异常会让 raw 一起回滚，与上层方案确认的 raw/serving 边界不符。
 
-`WriteResult` 当前只有统一行数和 reject 诊断，没有表达“raw 已提交、serving 未提交”的字段。LLD 因此要求扩展现有诊断 JSON，不新增 TaskRun 列。
+P1 开发前，`WriteResult` 只有统一行数和 reject 诊断。P1 已新增通用 `persistence_diagnostics`，并打通 `_RunState -> IngestionExecutor -> TaskRunIngestionContext` 的有界 JSON 链路，未新增 TaskRun 列。`fund_daily` 的“raw 已提交、serving 未提交”分层诊断仍属于 P4，本阶段未实现。
 
 ### 2.5 Tushare 契约复核
 
@@ -127,7 +127,16 @@ current = 20260828_000155
 000156 down_revision = 20260828_000155
 ```
 
-P0 没有修改或执行该迁移。代码端仍是唯一 head，但当前连接数据库落后一个版本；`heads != current` 已触发开发停止门禁。在数据库迁移基线重新对齐并再次确认唯一 head/current 前，不进入 P1，更不能创建本方案的 drop-table migration。新迁移的 `down_revision` 只能接实施时再次确认的真实唯一 head。
+P0 没有修改或执行该迁移。当时代码端仍是唯一 head，但连接数据库落后一个版本；`heads != current` 触发了开发停止门禁。
+
+2026-08-28 P1 恢复前重新实测：
+
+```text
+heads   = 20260828_000156
+current = 20260828_000156
+```
+
+唯一 head/current 已对齐，P1 停止门禁解除。P1 未新增 Alembic 迁移；未来 drop-table migration 的 `down_revision` 仍必须接实施时再次确认的真实唯一 head。
 
 ### 2.7 Prod 下游清理范围实测
 
@@ -1004,7 +1013,7 @@ P0 严格限定为同步索引、静态搜索、迁移状态检查、Prod 白名
 
 仅对 `510300.SH` 发起一次 `etf_basic` 请求，并显式指定本 LLD 的 14 个字段。源端完整返回 14 个字段，其中 `list_status=L`、`setup_date=20120504`、`list_date=20120528`、`exchange=SH`，与第 2.5 节字段契约一致；没有重复发起源端全量请求。
 
-P0 五项动作均已完成。代码链、源字段和 Prod 物理对象没有发现与 LLD 冲突；唯一停止项是第 2.6 节所述当前连接数据库仍落后于代码 head。P1 保持未开始，待迁移 head/current 重新对齐并复核后再推进。
+P0 五项动作均已完成。代码链、源字段和 Prod 物理对象没有发现与 LLD 冲突；P0 当时的唯一停止项是连接数据库落后于代码 head。该历史门禁已在 P1 开发前按第 2.6 节重新实测并解除。
 
 ### P1：ETF Basic 快照发布
 
@@ -1019,6 +1028,32 @@ P0 五项动作均已完成。代码链、源字段和 Prod 物理对象没有�
 测试：完整 `.SH/.SZ/.OF` 批次、旧代码消失、未知状态、未知后缀、交易所不一致、重复主键、reject、空结果、事务中途失败、并发锁、幂等重跑。
 
 完成门禁：任何失败都不能改变旧 raw/serving；成功后集合和 hash 不变量成立。
+
+#### P1 执行记录（2026-08-28）
+
+P1 严格限定在 ETF Basic 快照发布链路，未进入 P2 选择器、下游 planner、旧激活池删除、实时契约或前端改造。
+
+**CodeGraph 与消费者审计**
+
+P1 开发前 `codegraph status` 为 up to date，索引包含 2,798 个文件、49,327 个节点和 125,393 条边。本阶段对 `DatasetWriter` / `WriteResult` / `TaskRunCommandService` 执行 query/impact，影响面覆盖 writer 分派、executor 诊断、TaskRun API/手工任务/schedule/retry 共用创建入口和现有测试。`DatasetDefinition` 消费者还核对了 registry、manual actions、catalog、resolver/planner、schedule capability、freshness 与 dataset card；没有发现需要提前带入 P2 的契约。
+
+**实现结果**
+
+1. `etf_basic` Definition 已收口为无过滤、单并发、`buffer_all` 的 5,000 行分页快照；请求构造器固定返回空业务参数，并拒绝 6 个旧筛选参数残留。
+2. 新增 14 业务字段的纯函数校验、规范化 SHA-256 hash 和 diff；校验状态、后缀、交易所、空上市日期统计与主键唯一性。
+3. 新增 `raw_etf_basic_snapshot_replace` 专用 writer；PostgreSQL transaction advisory lock、raw 全量、serving 仅 `.SH/.SZ`、两表删除/写入/flush/集合/hash 对账均在 executor 的同一 unit 事务内完成，DAO 不 commit。
+4. `WriteResult.persistence_diagnostics` 已打通现有 TaskRun JSON，代码样本最多 20 个，没有新增 TaskRun 列。
+5. `TaskRunCommandService.stage_task_run()` 在全部共用创建入口前增加 `etf_basic` open-run 检查；第二个 `queued/running/canceling` maintain 任务会返回 409，PostgreSQL 创建侧也使用 transaction advisory lock。
+
+**测试与真实只读验收**
+
+P1 新增和直接 API 用例 34 个全部通过；Definition/registry、observed snapshot、executor progress、action catalog、manual actions、TaskRun、news concurrency 与 runtime guardrail 的扩展回归 170 个全部通过。测试覆盖固定 14 字段、无筛选请求、`.SH/.SZ/.OF`、旧代码消失、状态/后缀/交易所异常、重复主键、reject、空结果、事务中途失败、写后对账失败、两层并发锁、单次 commit、诊断上限和幂等重跑。
+
+扩大到 `tests/`（排除当前无法收集的 `tests/lake_console`）后，结果为 2,279 passed、10 skipped、7 failed。7 个失败均不在 P1 改动链路：3 个是既有架构/文档门禁与当前并行改动不一致，1 个是既有 CLI reporter 行为，2 个是仓库缺少旧激活池历史 CSV，1 个仍硬编码旧 Alembic head `20260824_000150`；P1 新增及相关回归没有失败。全量测试直接收集还会被 `tests/lake_console` 的缺失旧模块和同名测试模块冲突阻断，P1 不越界修复这些问题。
+
+Prod 只读输入严格限定为 `raw_tushare.etf_basic` 和 `core_serving.etf_basic` 的 14 个业务字段。当前两表均为 3,405 行，业务 hash 均为 `39957b8f493a81b9de4e43f14534191f519646678df2af83f702aa812b655d7b`，现有 raw 能通过新状态、后缀、交易所和主键校验。按新 serving 规则从当前 raw 投影得到 1,820 行；现有 serving 相比投影只多 1,585 个 `.OF`，没有 `.SH/.SZ` 缺失或内容差异。该数据仅是生产重建前基线；P1 未请求源端全量、未写生产表、未触发 schedule。
+
+P1 完成门禁已满足：成功路径的 raw/serving 集合和 hash 不变量成立；空结果、拒绝行、校验失败、中途写失败与对账失败均不能改变事务前的旧快照。
 
 ### P2：统一 Basic selector
 
@@ -1263,7 +1298,7 @@ foundation <- biz <- app
 
 Foundation planner/writer 只访问 Foundation 的 `core_serving.etf_basic` DAO；删除 Foundation 为读取 Ops ETF 激活池而设置的 contract。不存在 `foundation -> ops` ORM 依赖。`qtf` 不受影响。
 
-依赖矩阵的方向没有新增变化；实际实现完成后，如果关键调用链已实质变化，应同步 `codegraph-architecture-snapshot.md`，但不能在尚未编码时把目标态写成已实现事实。
+依赖矩阵的方向没有新增变化。P1 只在现有 Foundation ingestion 与 Ops TaskRun 责任内扩展专用 write path、诊断和并发门禁，没有改变子系统边界、主要入口或依赖方向，因此本阶段不更新 `codegraph-architecture-snapshot.md`。P2 以后如果关键 contract/adapter 和调用链发生实质变化，再按根规则复核是否更新。
 
 ### 16.2 必须同步的文档
 
@@ -1298,4 +1333,4 @@ Foundation planner/writer 只访问 Foundation 的 `core_serving.etf_basic` DAO�
 4. 明确保护 `fund_adj`、`etf_share_size`、公募基金域、指数池和历史实时事实。
 5. 开发顺序阻止了“先删表再找消费者”，并明确当前不建设下游事实清理系统。
 
-它不代表代码已经开发，也不授权执行生产迁移、删除或全量补拉。下一步是在用户评审通过后，从 P0 开始按阶段编码。
+本文中 P0/P1 的执行记录代表对应阶段已完成；P2-P8 仍是待实施契约。本 LLD 不授权执行生产快照重建、删表迁移、下游删除或全量补拉。下一步必须从 P2 开始，继续按阶段审计、编码和验收。

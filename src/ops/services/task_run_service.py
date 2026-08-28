@@ -33,6 +33,8 @@ from src.ops.services.news_stock_linking_window_resolver import NewsStockLinking
 
 
 NEWS_STOCK_LINKING_ADVISORY_LOCK_KEY = 8_491_716_203
+ETF_BASIC_TASK_ADVISORY_LOCK_KEY = 8_491_716_205
+ETF_BASIC_OPEN_TASK_STATUSES = ("queued", "running", "canceling")
 
 
 MONTHLY_LAST_DAY_POLICY = "monthly_last_day"
@@ -189,6 +191,7 @@ class TaskRunCommandService:
     ) -> TaskRun:
         """Build and flush a TaskRun in the caller's transaction without committing."""
         self._validate_context(context)
+        self._ensure_etf_basic_not_running(session, context)
         now = task_frozen_at or datetime.now(timezone.utc)
         if now.tzinfo is None:
             raise ValueError("task_frozen_at must include a timezone")
@@ -270,6 +273,36 @@ class TaskRunCommandService:
             session.execute(select(func.pg_advisory_xact_lock(NEWS_STOCK_LINKING_ADVISORY_LOCK_KEY)))
         if TaskRunCommandService.has_active_news_stock_linking_task(session):
             raise WebAppError(status_code=409, code="conflict", message="新闻关联维护任务已有 queued/running/canceling 任务")
+
+    @staticmethod
+    def _ensure_etf_basic_not_running(
+        session: Session,
+        context: TaskRunCreateContext,
+    ) -> None:
+        if (
+            context.task_type != "dataset_action"
+            or context.resource_key != "etf_basic"
+            or context.action != "maintain"
+        ):
+            return
+        if session.get_bind().dialect.name == "postgresql":
+            session.execute(
+                select(func.pg_advisory_xact_lock(ETF_BASIC_TASK_ADVISORY_LOCK_KEY))
+            )
+        existing_id = session.scalar(
+            select(TaskRun.id)
+            .where(TaskRun.task_type == "dataset_action")
+            .where(TaskRun.resource_key == "etf_basic")
+            .where(TaskRun.action == "maintain")
+            .where(TaskRun.status.in_(ETF_BASIC_OPEN_TASK_STATUSES))
+            .limit(1)
+        )
+        if existing_id is not None:
+            raise WebAppError(
+                status_code=409,
+                code="conflict",
+                message="ETF 基础信息已有 queued/running/canceling 维护任务",
+            )
 
     @staticmethod
     def preflight_dataset_context(session: Session, *, context: TaskRunCreateContext) -> None:

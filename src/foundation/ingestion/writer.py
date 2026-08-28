@@ -19,6 +19,14 @@ from src.foundation.dao.factory import DAOFactory
 
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.ingestion.errors import IngestionWriteError, StructuredError
+from src.foundation.ingestion.etf_basic_snapshot import (
+    ETF_BASIC_BUSINESS_FIELDS,
+    EtfBasicSnapshotValidationError,
+    compute_etf_basic_snapshot_hash,
+    diff_etf_basic_snapshots,
+    extract_etf_basic_business_row,
+    validate_etf_basic_snapshot,
+)
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot
 from src.foundation.ingestion.moneyflow_publish import publish_moneyflow_serving_for_keys
 from src.foundation.ingestion.normalizer import DatasetNormalizer, NormalizedBatch
@@ -42,6 +50,9 @@ from src.utils import parse_tushare_date
 from src.foundation.serving.publish_service import ServingPublishService
 
 
+ETF_BASIC_SNAPSHOT_ADVISORY_LOCK_KEY = 8_491_716_204
+
+
 @dataclass(slots=True, frozen=True)
 class WriteResult:
     unit_id: str
@@ -57,6 +68,7 @@ class WriteResult:
     scope_source_unique_count: int = 0
     rejected_reason_counts: dict[str, int] = field(default_factory=dict)
     rejected_reason_samples: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    persistence_diagnostics: dict[str, Any] = field(default_factory=dict)
 
 
 class DatasetWriter:
@@ -110,6 +122,12 @@ class DatasetWriter:
                 )
             )
         try:
+            if definition.storage.write_path == "raw_etf_basic_snapshot_replace":
+                return self._write_etf_basic_snapshot_replace(
+                    definition=definition,
+                    batch=batch,
+                    plan_unit=plan_unit,
+                )
             if definition.storage.write_path == "serving_direct_scope_replace":
                 return self._write_serving_direct_scope_replace(
                     definition=definition,
@@ -285,6 +303,189 @@ class DatasetWriter:
                 ),
                 retryable=False,
                 unit_id=unit_id,
+            )
+        )
+
+    def _write_etf_basic_snapshot_replace(
+        self,
+        *,
+        definition: DatasetDefinition,
+        batch: NormalizedBatch,
+        plan_unit: PlanUnitSnapshot | None,
+    ) -> WriteResult:
+        source_row_count = (
+            len(batch.rows_normalized)
+            + int(batch.rows_rejected or 0)
+            + int(batch.rows_deduplicated or 0)
+        )
+        if batch.rows_rejected or batch.rows_deduplicated:
+            raise self._etf_basic_snapshot_error(
+                unit_id=batch.unit_id,
+                message="ETF Basic 完整快照存在拒绝行或静默去重，已在业务写入前终止",
+                details={
+                    "source_rows": source_row_count,
+                    "normalized_rows": len(batch.rows_normalized),
+                    "rows_rejected": batch.rows_rejected,
+                    "rows_deduplicated": batch.rows_deduplicated,
+                    "rejected_reasons": dict(batch.rejected_reasons),
+                    "rejected_samples": dict(batch.rejected_samples),
+                },
+            )
+
+        validator_key = definition.quality.pre_write_validator_key
+        try:
+            get_pre_write_validator(str(validator_key or ""))(
+                self.session,
+                batch.rows_normalized,
+                definition,
+                plan_unit,
+            )
+            source_summary = validate_etf_basic_snapshot(
+                batch.rows_normalized,
+                source_row_count=source_row_count,
+                normalized_row_count=len(batch.rows_normalized),
+            )
+        except (PreWriteValidationError, EtfBasicSnapshotValidationError) as exc:
+            raise self._etf_basic_snapshot_error(
+                unit_id=batch.unit_id,
+                message=str(exc),
+                details=getattr(exc, "details", {}),
+            ) from exc
+
+        raw_dao, serving_dao = self._resolve_write_daos(
+            definition=definition,
+            unit_id=batch.unit_id,
+        )
+        raw_model = raw_dao.model
+        serving_model = serving_dao.model
+        self._lock_etf_basic_snapshot()
+
+        lock_rows = self.session.get_bind().dialect.name == "postgresql"
+        raw_before_rows = self._select_etf_basic_business_rows(raw_model, lock_rows=lock_rows)
+        serving_before_rows = self._select_etf_basic_business_rows(serving_model, lock_rows=lock_rows)
+        snapshot_diff = diff_etf_basic_snapshots(raw_before_rows, batch.rows_normalized)
+        raw_before_hash = compute_etf_basic_snapshot_hash(raw_before_rows)
+        serving_before_hash = compute_etf_basic_snapshot_hash(serving_before_rows)
+
+        raw_rows = self._coerce_rows_for_dao(
+            [extract_etf_basic_business_row(row) for row in batch.rows_normalized],
+            raw_dao,
+        )
+        serving_source_rows = [
+            extract_etf_basic_business_row(row)
+            for row in batch.rows_normalized
+            if str(row.get("ts_code") or "").endswith((".SH", ".SZ"))
+        ]
+        serving_rows = self._coerce_rows_for_dao(serving_source_rows, serving_dao)
+        expected_raw_codes = {str(row["ts_code"]) for row in raw_rows}
+        expected_serving_codes = {str(row["ts_code"]) for row in serving_rows}
+        expected_serving_hash = compute_etf_basic_snapshot_hash(serving_rows)
+
+        self.session.execute(delete(raw_model))
+        raw_rows_inserted = raw_dao.bulk_insert(raw_rows)
+        self.session.execute(delete(serving_model))
+        serving_rows_inserted = serving_dao.bulk_insert(serving_rows)
+        self.session.flush()
+
+        raw_after_rows = self._select_etf_basic_business_rows(raw_model)
+        serving_after_rows = self._select_etf_basic_business_rows(serving_model)
+        actual_raw_codes = {str(row["ts_code"]) for row in raw_after_rows}
+        actual_serving_codes = {str(row["ts_code"]) for row in serving_after_rows}
+        raw_business_hash = compute_etf_basic_snapshot_hash(raw_after_rows)
+        serving_business_hash = compute_etf_basic_snapshot_hash(serving_after_rows)
+
+        reconciliation_failed = (
+            raw_rows_inserted != len(raw_rows)
+            or serving_rows_inserted != len(serving_rows)
+            or actual_raw_codes != expected_raw_codes
+            or actual_serving_codes != expected_serving_codes
+            or raw_business_hash != source_summary.snapshot_hash
+            or serving_business_hash != expected_serving_hash
+        )
+        if reconciliation_failed:
+            raise self._etf_basic_snapshot_error(
+                unit_id=batch.unit_id,
+                message="ETF Basic 快照写后主键集合或业务内容 hash 对账失败",
+                details={
+                    "expected_raw_count": len(raw_rows),
+                    "raw_rows_inserted": raw_rows_inserted,
+                    "raw_after_count": len(raw_after_rows),
+                    "expected_serving_count": len(serving_rows),
+                    "serving_rows_inserted": serving_rows_inserted,
+                    "serving_after_count": len(serving_after_rows),
+                    "source_snapshot_hash": source_summary.snapshot_hash,
+                    "raw_business_hash": raw_business_hash,
+                    "expected_serving_hash": expected_serving_hash,
+                    "serving_business_hash": serving_business_hash,
+                },
+            )
+
+        snapshot_diagnostics = {
+            "source_rows": source_row_count,
+            "normalized_rows": len(batch.rows_normalized),
+            "raw_rows_written": raw_rows_inserted,
+            "raw_before_count": len(raw_before_rows),
+            "raw_after_count": len(raw_after_rows),
+            "serving_before_count": len(serving_before_rows),
+            "serving_after_count": len(serving_after_rows),
+            "source_snapshot_hash": source_summary.snapshot_hash,
+            "raw_before_business_hash": raw_before_hash,
+            "raw_business_hash": raw_business_hash,
+            "serving_before_business_hash": serving_before_hash,
+            "serving_business_hash": serving_business_hash,
+            "status_counts": dict(source_summary.status_counts),
+            "list_date_null_counts": dict(source_summary.list_date_null_counts),
+            **snapshot_diff.to_diagnostics(),
+        }
+        return WriteResult(
+            unit_id=batch.unit_id,
+            rows_written=len(serving_after_rows),
+            rows_upserted=0,
+            rows_skipped=0,
+            target_table=definition.storage.target_table,
+            conflict_strategy="raw_etf_basic_snapshot_replace",
+            rows_inserted=serving_rows_inserted,
+            scope_existing_count=len(serving_before_rows),
+            scope_source_unique_count=len(serving_rows),
+            persistence_diagnostics={"etf_basic_snapshot": snapshot_diagnostics},
+        )
+
+    def _lock_etf_basic_snapshot(self) -> None:
+        if self.session.get_bind().dialect.name != "postgresql":
+            return
+        self.session.execute(
+            text("SELECT pg_advisory_xact_lock(:lock_key)"),
+            {"lock_key": ETF_BASIC_SNAPSHOT_ADVISORY_LOCK_KEY},
+        )
+
+    def _select_etf_basic_business_rows(
+        self,
+        model,
+        *,
+        lock_rows: bool = False,
+    ) -> list[dict[str, Any]]:  # type: ignore[no-untyped-def]
+        columns = [getattr(model, field_name) for field_name in ETF_BASIC_BUSINESS_FIELDS]
+        statement = select(*columns).order_by(getattr(model, "ts_code"))
+        if lock_rows:
+            statement = statement.with_for_update()
+        return [dict(row) for row in self.session.execute(statement).mappings()]
+
+    @staticmethod
+    def _etf_basic_snapshot_error(
+        *,
+        unit_id: str,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> IngestionWriteError:
+        return IngestionWriteError(
+            StructuredError(
+                error_code="etf_basic_snapshot_invalid",
+                error_type="write",
+                phase="writer",
+                message=message,
+                retryable=False,
+                unit_id=unit_id,
+                details=dict(details or {}),
             )
         )
 

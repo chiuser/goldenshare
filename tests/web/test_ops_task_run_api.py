@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
+from types import SimpleNamespace
 
 from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
 from src.ops.models.ops.task_run import TaskRun
+from src.ops.services.task_run_service import (
+    ETF_BASIC_TASK_ADVISORY_LOCK_KEY,
+    TaskRunCommandService,
+    TaskRunCreateContext,
+)
 
 
 def auth_headers(app_client, username: str = "admin", password: str = "secret") -> dict[str, str]:  # type: ignore[no-untyped-def]
@@ -142,6 +148,91 @@ def test_ops_task_run_create_returns_readable_missing_dataset_message(app_client
 
     assert response.status_code == 422
     assert response.json()["message"] == "数据集任务缺少维护对象"
+
+
+def test_ops_task_run_rejects_second_open_etf_basic_maintenance(
+    app_client,
+    user_factory,
+    task_run_factory,
+) -> None:
+    admin = user_factory(username="admin", password="secret", is_admin=True)
+    task_run_factory(
+        requested_by_user_id=admin.id,
+        resource_key="etf_basic",
+        title="ETF 基础信息",
+        status="running",
+    )
+
+    response = app_client.post(
+        "/api/v1/ops/task-runs",
+        headers=auth_headers(app_client),
+        json={
+            "task_type": "dataset_action",
+            "resource_key": "etf_basic",
+            "action": "maintain",
+            "time_input": {"mode": "none"},
+            "filters": {},
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "conflict"
+    assert "queued/running/canceling" in response.json()["message"]
+
+
+def test_ops_task_run_allows_etf_basic_maintenance_after_previous_run_ended(
+    app_client,
+    user_factory,
+    task_run_factory,
+) -> None:
+    admin = user_factory(username="admin", password="secret", is_admin=True)
+    task_run_factory(
+        requested_by_user_id=admin.id,
+        resource_key="etf_basic",
+        title="ETF 基础信息",
+        status="success",
+    )
+
+    response = app_client.post(
+        "/api/v1/ops/task-runs",
+        headers=auth_headers(app_client),
+        json={
+            "task_type": "dataset_action",
+            "resource_key": "etf_basic",
+            "action": "maintain",
+            "time_input": {"mode": "none"},
+            "filters": {},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["resource_key"] == "etf_basic"
+    assert response.json()["status"] == "queued"
+
+
+def test_etf_basic_task_guard_uses_postgresql_transaction_advisory_lock(mocker) -> None:  # type: ignore[no-untyped-def]
+    session = mocker.Mock()
+    session.get_bind.return_value = SimpleNamespace(
+        dialect=SimpleNamespace(name="postgresql")
+    )
+    session.scalar.return_value = None
+    context = TaskRunCreateContext(
+        task_type="dataset_action",
+        resource_key="etf_basic",
+        action="maintain",
+        time_input={"mode": "none"},
+        filters={},
+        request_payload={},
+        trigger_source="test",
+        requested_by_user_id=None,
+    )
+
+    TaskRunCommandService._ensure_etf_basic_not_running(session, context)
+
+    statement = session.execute.call_args.args[0]
+    compiled = statement.compile()
+    assert "pg_advisory_xact_lock" in str(statement)
+    assert ETF_BASIC_TASK_ADVISORY_LOCK_KEY in compiled.params.values()
 
 
 def test_ops_task_run_view_returns_single_snapshot_and_nodes(

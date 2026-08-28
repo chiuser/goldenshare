@@ -284,6 +284,69 @@ def _validate_observed_serving_storage(
             normalization=normalization,
             quality=quality,
         )
+    elif storage.write_path == "raw_etf_basic_snapshot_replace":
+        _validate_etf_basic_snapshot_storage(
+            dataset_key=dataset_key,
+            input_model=input_model,
+            storage=storage,
+            planning=planning,
+            normalization=normalization,
+            quality=quality,
+        )
+
+
+def _validate_etf_basic_snapshot_storage(
+    *,
+    dataset_key: str,
+    input_model: dict[str, Any],
+    storage: DatasetStorageDefinition,
+    planning: DatasetPlanningDefinition,
+    normalization: DatasetNormalizationDefinition,
+    quality: DatasetQualityPolicy,
+) -> None:
+    invalid: list[str] = []
+    if dataset_key != "etf_basic":
+        invalid.append("专用 write path 只能由 etf_basic 使用")
+    if input_model.get("time_fields") or input_model.get("filters"):
+        invalid.append("不得暴露时间或源端筛选输入")
+    if (
+        storage.raw_dao_name != "raw_etf_basic"
+        or storage.raw_table != "raw_tushare.etf_basic"
+        or storage.core_dao_name != "etf_basic"
+        or storage.target_table != "core_serving.etf_basic"
+        or storage.serving_table != "core_serving.etf_basic"
+    ):
+        invalid.append("必须绑定既有 ETF Basic raw/serving DAO 和物理表")
+    if storage.layer_plan != "raw->serving" or storage.std_table is not None:
+        invalid.append("必须保持 raw->serving 两层结构且不得新增 std")
+    if (
+        storage.observation_dao_name is not None
+        or storage.observation_table is not None
+        or storage.stage_dao_name is not None
+        or storage.stage_table is not None
+    ):
+        invalid.append("不得配置 observation/stage 存储")
+    if storage.raw_conflict_columns is not None or storage.conflict_columns is not None:
+        invalid.append("完整快照重建不使用 upsert conflict columns")
+    if (
+        planning.pagination_policy != "offset_limit"
+        or planning.page_limit != 5000
+        or planning.fetch_concurrency != 1
+        or planning.page_processing_mode != "buffer_all"
+    ):
+        invalid.append("必须单并发缓冲完整 5000 行 offset/limit 分页")
+    if normalization.required_fields != ("ts_code",):
+        invalid.append("必须以 ts_code 作为归一化必填主键")
+    if (
+        quality.reject_policy != "fail_unit_on_any_rejection"
+        or quality.batch_unique_key_fields != ("ts_code",)
+        or quality.source_multiplicity_policy != "reject"
+        or quality.empty_result_policy != "fail_unit"
+        or quality.pre_write_validator_key != "etf_basic_snapshot"
+    ):
+        invalid.append("完整快照必须启用拒绝、非空、主键唯一和预写校验门禁")
+    if invalid:
+        raise ValueError(f"数据集定义 {dataset_key} 的 ETF Basic 快照契约非法：{'；'.join(invalid)}")
 
 
 def _validate_direct_scope_replace_storage(

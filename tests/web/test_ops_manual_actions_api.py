@@ -76,6 +76,7 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert any(action["action_key"] == "etf_share_size.maintain" for action in etf_fund_group["actions"])
     assert any(action["action_key"] == "etf_sz_cons.maintain" for action in etf_fund_group["actions"])
     assert any(action["action_key"] == "etf_mins.maintain" for action in etf_fund_group["actions"])
+    assert actions["etf_basic.maintain"]["filters"] == []
     assert [action["action_key"] for action in public_fund_group["actions"]] == [
         "fund_company.maintain",
         "mkt_idx_bmk.maintain",

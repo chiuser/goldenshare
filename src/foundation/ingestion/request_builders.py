@@ -392,26 +392,26 @@ def _index_basic_params(request, anchor_date: date | None, enum_values: dict[str
     return params
 
 
-def _etf_basic_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
-    params: dict[str, Any] = {}
-    list_status = enum_values.get("list_status", request.params.get("list_status"))
-    if isinstance(list_status, (list, tuple, set)):
-        normalized = [str(item).strip() for item in list_status if str(item).strip()]
-        if normalized:
-            params["list_status"] = ",".join(normalized)
-    elif list_status not in (None, ""):
-        params["list_status"] = str(list_status).strip()
-    for key in ("ts_code", "index_code", "mgr"):
-        value = request.params.get(key)
-        if value not in (None, ""):
-            params[key] = str(value).strip()
-    exchange = enum_values.get("exchange", request.params.get("exchange"))
-    if _has_value(exchange):
-        params["exchange"] = str(exchange).strip()
-    list_date = request.params.get("list_date")
-    if list_date not in (None, ""):
-        params["list_date"] = str(list_date).replace("-", "")
-    return params
+def _etf_basic_snapshot_params(
+    request,
+    anchor_date: date | None,
+    enum_values: dict[str, Any],
+) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del anchor_date
+    forbidden = {
+        "ts_code",
+        "index_code",
+        "exchange",
+        "mgr",
+        "list_status",
+        "list_date",
+    }
+    residual = sorted(forbidden & (set(request.params) | set(enum_values)))
+    if residual:
+        raise ValueError(f"ETF Basic 完整快照不允许源端筛选参数：{', '.join(residual)}")
+    if request.run_profile != "snapshot_refresh":
+        raise ValueError("ETF Basic 只支持不填写日期的完整快照维护")
+    return {}
 
 
 def _etf_index_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
@@ -1248,7 +1248,7 @@ __all__ = [
     "_fund_daily_params",
     "_fund_adj_params",
     "_index_basic_params",
-    "_etf_basic_params",
+    "_etf_basic_snapshot_params",
     "_etf_index_params",
     "_hk_basic_params",
     "_normalize_us_classify",

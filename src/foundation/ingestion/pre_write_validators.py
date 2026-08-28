@@ -14,6 +14,10 @@ from src.foundation.datasets.sw_industry_contracts import (
     SW2021_INDEX_CODE_ALIASES_V1,
 )
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot
+from src.foundation.ingestion.etf_basic_snapshot import (
+    EtfBasicSnapshotValidationError,
+    validate_etf_basic_snapshot,
+)
 from src.foundation.models.core_serving.sw_industry_classification import (
     SwIndustryClassification,
 )
@@ -29,6 +33,25 @@ PreWriteValidator = Callable[
     [Session, list[dict[str, Any]], DatasetDefinition, PlanUnitSnapshot | None],
     None,
 ]
+
+
+def _validate_etf_basic_snapshot(
+    session: Session,
+    rows: list[dict[str, Any]],
+    definition: DatasetDefinition,
+    plan_unit: PlanUnitSnapshot | None,
+) -> None:
+    del session
+    del definition
+    del plan_unit
+    try:
+        validate_etf_basic_snapshot(
+            rows,
+            source_row_count=len(rows),
+            normalized_row_count=len(rows),
+        )
+    except EtfBasicSnapshotValidationError as exc:
+        raise PreWriteValidationError(str(exc), details=exc.details) from exc
 
 
 def _validate_sw2021_classification_snapshot(
@@ -179,6 +202,7 @@ def _validate_sw2021_daily_scope(
 
 
 PRE_WRITE_VALIDATORS: dict[str, PreWriteValidator] = {
+    "etf_basic_snapshot": _validate_etf_basic_snapshot,
     "sw2021_classification_snapshot": _validate_sw2021_classification_snapshot,
     "sw2021_member_snapshot": _validate_sw2021_member_snapshot,
     "sw2021_daily_scope": _validate_sw2021_daily_scope,

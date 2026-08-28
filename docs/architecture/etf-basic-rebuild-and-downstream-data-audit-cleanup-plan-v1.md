@@ -1,8 +1,8 @@
 # ETF 基础信息重建与下游数据审计清理技术方案 v1
 
-状态：核心业务口径已全部确认 / 尚未实施
+状态：核心业务口径已全部确认 / M0、M1 已完成（M1 已完成代码、测试与只读验收，未执行生产重建）/ M2-M8 未开始
 创建日期：2026-08-28
-最近审计：2026-08-28（补齐请求驱动、激活池消费者、`etf_share_size` 直出口径及 Prod 下游清理范围审计）
+最近审计：2026-08-28（补齐请求驱动、激活池消费者、`etf_share_size` 直出口径和 Prod 下游清理范围；同步 M1 实现与只读验收）
 适用范围：`etf_basic`、ETF 下游历史数据、ETF 对象池、ETF 查询与运维消费者
 低层设计：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
 
@@ -48,7 +48,7 @@
 
 ## 3. 依据与当前事实
 
-### 3.1 代码事实
+### 3.1 P1 编码前代码事实与当前实现
 
 当前 `etf_basic` 定义位于：
 
@@ -56,9 +56,9 @@
 src/foundation/datasets/definitions/reference_master.py
 ```
 
-现行契约已经声明：
+P1 编码前契约声明：
 
-| 项 | 当前值 |
+| 项 | P1 编码前值 |
 |---|---|
 | 日期模型 | `snapshot/master`，无业务日期输入 |
 | raw 表 | `raw_tushare.etf_basic` |
@@ -67,6 +67,8 @@ src/foundation/datasets/definitions/reference_master.py
 | 写入路径 | `raw_core_upsert` |
 
 问题在于 `src/foundation/ingestion/writer.py::_write_raw_and_core()` 对 raw 和 serving 都执行 `bulk_upsert()`。它能新增和更新当前返回行，但不会删除本次源端没有返回的旧主键，因此不具备快照替换语义。
+
+M1 已按该问题落地：`etf_basic` 现在不暴露业务筛选，使用 `_etf_basic_snapshot_params` 和 `raw_etf_basic_snapshot_replace`；完整分页批次先经状态/后缀/交易所/主键/hash 校验，再在同一 unit 事务中重建 raw 和仅含 `.SH/.SZ` 的 serving，最后做集合与 hash 对账。生产快照尚未用该路径重建。
 
 当前 ETF 历史分钟规划位于：
 
@@ -99,7 +101,7 @@ src/foundation/ingestion/unit_planner.py::_build_etf_mins_units()
 |---|---|---|
 | `fund_adj` | 按交易日请求源端基金全集，可选显式单代码 | 源端结果全部写 raw 和 `core.fund_adj_factor` |
 | `etf_share_size` | 默认每个交易日一次全市场请求，可选显式单代码 | 源端结果全部写 raw；现有 serving view 只是 raw 直出 |
-| `etf_basic` | 无业务日期的完整主数据快照请求 | 当前仍是 raw/core upsert，待本方案改为完整快照替换 |
+| `etf_basic` | 无业务日期的完整主数据快照请求 | M1 已改为 raw/serving 同事务完整快照替换；生产尚未执行重建 |
 
 `etf_rt_min` 当前没有正式 DatasetDefinition、collector，也不在 `ETF_SERIES_ACTIVE_RESOURCES` 中；相关文档中的 `resource='etf_rt_min'` 只能视为待实施设计，不能计入现行激活池消费者。
 
@@ -746,7 +748,7 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 1. 确认本方案 D1-D20。
 2. 固化生产只读基线和受影响表清单。
 
-### M1：`etf_basic` 快照发布能力
+### M1：`etf_basic` 快照发布能力（已完成代码与只读验收）
 
 1. 收口正式发布为无过滤完整请求。
 2. 新增专用 snapshot write path。
@@ -849,4 +851,4 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 
 源接口口径同时复核了本地 Tushare 文档 `127/199/385/387/400/407/408/471/472`。`fund_daily/fund_adj` 的全市场返回范围沿用 2026-08-28 已写入本地源文档的同日 MCP 实测，不重复发起相同源端请求；本轮没有修改源参数或字段契约，也没有把一次实测数量固化为永久门禁。
 
-这些结果已经与当前代码逐项核对并落入配套 LLD 的最终开发清单。实际编码前仍须按第 12.5 节重新同步 CodeGraph，并对 `DatasetDefinition`、writer write path、激活池删除迁移、动态注册、前端路由和生产表复核；新出现的引用必须先补回 LLD，不能在实施时临时绕过。
+这些结果已经与当前代码逐项核对并落入配套 LLD 的最终开发清单。M1 开发前已重新同步 CodeGraph，并对 `DatasetDefinition`、request builder、writer/`WriteResult`、executor 诊断、TaskRun 共用创建入口和生产 Basic 表完成复核；实现与只读证据见配套 LLD 的 P1 执行记录。M2 以后仍须按第 12.5 节重新同步 CodeGraph，对激活池删除迁移、动态注册、前端路由和生产表复核；新出现的引用必须先补回 LLD，不能在实施时临时绕过。

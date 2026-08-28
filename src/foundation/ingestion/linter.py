@@ -238,6 +238,39 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
                 issues.append(
                     IngestionLintIssue(dataset_key, "immutable_fact_target_mismatch", "不可变事实的 serving_table 必须等于 target_table")
                 )
+        elif storage.write_path == "raw_etf_basic_snapshot_replace":
+            if dataset_key != "etf_basic":
+                issues.append(IngestionLintIssue(dataset_key, "etf_basic_snapshot_dataset_invalid", "ETF Basic 专用 write path 不得被其他数据集复用"))
+            if definition.source.request_builder_key != "_etf_basic_snapshot_params":
+                issues.append(IngestionLintIssue(dataset_key, "etf_basic_snapshot_request_builder_invalid", "ETF Basic 必须使用无筛选完整快照 request builder"))
+            if definition.input_model.time_fields or definition.input_model.filters:
+                issues.append(IngestionLintIssue(dataset_key, "etf_basic_snapshot_inputs_exposed", "ETF Basic 完整快照不得暴露时间或业务筛选输入"))
+            if (
+                storage.raw_dao_name != "raw_etf_basic"
+                or storage.raw_table != "raw_tushare.etf_basic"
+                or storage.core_dao_name != "etf_basic"
+                or storage.target_table != "core_serving.etf_basic"
+                or storage.serving_table != "core_serving.etf_basic"
+                or storage.layer_plan != "raw->serving"
+            ):
+                issues.append(IngestionLintIssue(dataset_key, "etf_basic_snapshot_storage_invalid", "ETF Basic 完整快照必须绑定既有 raw/serving 物理表"))
+            if (
+                definition.planning.pagination_policy != "offset_limit"
+                or definition.planning.page_limit != 5000
+                or definition.planning.fetch_concurrency != 1
+                or definition.planning.page_processing_mode != "buffer_all"
+            ):
+                issues.append(IngestionLintIssue(dataset_key, "etf_basic_snapshot_planning_invalid", "ETF Basic 完整快照必须单并发缓冲全部 offset/limit 分页"))
+            if (
+                definition.quality.reject_policy != "fail_unit_on_any_rejection"
+                or definition.quality.batch_unique_key_fields != ("ts_code",)
+                or definition.quality.source_multiplicity_policy != "reject"
+                or definition.quality.empty_result_policy != "fail_unit"
+                or definition.quality.pre_write_validator_key != "etf_basic_snapshot"
+            ):
+                issues.append(IngestionLintIssue(dataset_key, "etf_basic_snapshot_quality_invalid", "ETF Basic 完整快照质量门禁不完整"))
+            if not definition.transaction.idempotent_write_required:
+                issues.append(IngestionLintIssue(dataset_key, "etf_basic_snapshot_idempotency_missing", "ETF Basic 完整快照必须声明幂等写入"))
         elif storage.raw_dao_name is None or storage.raw_table is None:
             issues.append(
                 IngestionLintIssue(dataset_key, "raw_storage_required", "非 serving_direct_upsert 写入路径必须配置 raw DAO 和 raw 表")

@@ -162,6 +162,16 @@ class TaskRunIngestionContext(IngestionRunContext):
         cls._sanitize_paged_unit_runtime(normalized)
         source = normalized.get("source")
         pagination = source.get("pagination") if isinstance(source, dict) else None
+        persistence = normalized.get("persistence")
+        etf_basic_snapshot = (
+            persistence.get("etf_basic_snapshot")
+            if isinstance(persistence, dict)
+            else None
+        )
+        if isinstance(persistence, dict) and isinstance(etf_basic_snapshot, dict):
+            persistence["etf_basic_snapshot"] = cls._sanitize_etf_basic_snapshot(
+                etf_basic_snapshot
+            )
         if isinstance(pagination, dict) and isinstance(pagination.get("unit_samples"), list):
             original_samples = list(pagination["unit_samples"])
             pagination["unit_samples"] = original_samples[:3]
@@ -182,19 +192,23 @@ class TaskRunIngestionContext(IngestionRunContext):
         ).encode("utf-8")
         if len(compact) <= cls.MAX_INGESTION_DIAGNOSTICS_BYTES:
             return normalized
-        persistence = normalized.get("persistence")
         immutable_fact = (
             persistence.get("immutable_fact") if isinstance(persistence, dict) else None
         )
         runtime = normalized.get("runtime")
         paged_unit = runtime.get("paged_unit") if isinstance(runtime, dict) else None
+        fallback_persistence = {
+            "immutable_fact": cls._compact_immutable_fact(immutable_fact),
+        }
+        if isinstance(etf_basic_snapshot, dict):
+            fallback_persistence["etf_basic_snapshot"] = (
+                cls._compact_etf_basic_snapshot(etf_basic_snapshot)
+            )
         fallback = {
             "truncated": True,
             "original_bytes": len(encoded),
             "source": {"pagination": cls._compact_pagination(pagination)},
-            "persistence": {
-                "immutable_fact": cls._compact_immutable_fact(immutable_fact),
-            },
+            "persistence": fallback_persistence,
         }
         if isinstance(paged_unit, dict):
             fallback["runtime"] = {"paged_unit": paged_unit}
@@ -367,3 +381,85 @@ class TaskRunIngestionContext(IngestionRunContext):
         return {
             key: cls._nonnegative_int(record.get(key)) for key in keys if key in record
         }
+
+    @classmethod
+    def _sanitize_etf_basic_snapshot(cls, value: Any) -> dict[str, Any]:
+        record = value if isinstance(value, dict) else {}
+        count_keys = (
+            "source_rows",
+            "normalized_rows",
+            "raw_rows_written",
+            "raw_before_count",
+            "raw_after_count",
+            "serving_before_count",
+            "serving_after_count",
+            "added_count",
+            "removed_count",
+            "changed_count",
+            "status_changed_count",
+            "list_date_changed_count",
+        )
+        hash_keys = (
+            "source_snapshot_hash",
+            "raw_before_business_hash",
+            "raw_business_hash",
+            "serving_before_business_hash",
+            "serving_business_hash",
+        )
+        result: dict[str, Any] = {
+            key: cls._nonnegative_int(record.get(key))
+            for key in count_keys
+            if key in record
+        }
+        result.update(
+            {
+                key: cls._bounded_text(record.get(key), max_length=64)
+                for key in hash_keys
+                if key in record
+            }
+        )
+        for key in ("status_counts", "list_date_null_counts"):
+            counts = record.get(key)
+            if isinstance(counts, dict):
+                result[key] = {
+                    status: cls._nonnegative_int(counts.get(status))
+                    for status in ("L", "P", "D")
+                    if status in counts
+                }
+        truncated = bool(record.get("samples_truncated"))
+        for key in ("added_samples", "removed_samples", "changed_samples"):
+            raw_samples = record.get(key)
+            if not isinstance(raw_samples, list):
+                continue
+            samples = [
+                code
+                for item in raw_samples[:20]
+                if (code := cls._bounded_text(item, max_length=16)) is not None
+            ]
+            result[key] = samples
+            truncated = truncated or len(raw_samples) > 20
+        result["samples_truncated"] = truncated
+        pagination = record.get("pagination")
+        if isinstance(pagination, dict):
+            result["pagination"] = {
+                "page_count": cls._nonnegative_int(pagination.get("page_count")),
+                "terminal_offset": cls._optional_nonnegative_int(
+                    pagination.get("terminal_offset")
+                ),
+                "terminal_page_rows": cls._nonnegative_int(
+                    pagination.get("terminal_page_rows")
+                ),
+                "observed_short_page": bool(
+                    pagination.get("observed_short_page")
+                ),
+            }
+        return result
+
+    @classmethod
+    def _compact_etf_basic_snapshot(cls, value: Any) -> dict[str, Any]:
+        compact = cls._sanitize_etf_basic_snapshot(value)
+        for key in ("added_samples", "removed_samples", "changed_samples"):
+            compact.pop(key, None)
+        if compact:
+            compact["samples_truncated"] = True
+        return compact

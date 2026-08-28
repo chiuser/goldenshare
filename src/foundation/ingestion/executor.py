@@ -44,6 +44,7 @@ class _RunState:
     paged_unit_completed_truncated: bool = False
     rejected_reason_counts: dict[str, int] = field(default_factory=dict)
     rejected_reason_samples: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    persistence_diagnostics: dict[str, Any] = field(default_factory=dict)
     unit_done: int = 0
     unit_failed: int = 0
     error_counts: dict[str, int] = field(default_factory=dict)
@@ -650,6 +651,11 @@ class IngestionExecutor:
             state.rows_matched += int(written.rows_matched or 0)
             state.scope_existing_count += int(written.scope_existing_count or 0)
             state.scope_source_unique_count += int(written.scope_source_unique_count or 0)
+            self._merge_persistence_diagnostics(
+                state,
+                persistence_diagnostics=written.persistence_diagnostics,
+                pagination_diagnostics=getattr(source_result, "pagination_diagnostics", None),
+            )
             for reason_code, count in normalized.rejected_reasons.items():
                 state.rejected_reason_counts[reason_code] = state.rejected_reason_counts.get(reason_code, 0) + int(count or 0)
             self._merge_reason_samples(state.rejected_reason_samples, normalized.rejected_samples)
@@ -1153,7 +1159,46 @@ class IngestionExecutor:
         state.pagination_units.append(unit_diagnostics)
 
     @staticmethod
+    def _merge_persistence_diagnostics(
+        state: _RunState,
+        *,
+        persistence_diagnostics: dict[str, Any] | None,
+        pagination_diagnostics: dict[str, Any] | None,
+    ) -> None:
+        if not isinstance(persistence_diagnostics, dict) or not persistence_diagnostics:
+            return
+        normalized = {
+            str(key): dict(value) if isinstance(value, dict) else value
+            for key, value in persistence_diagnostics.items()
+        }
+        snapshot = normalized.get("etf_basic_snapshot")
+        if isinstance(snapshot, dict) and isinstance(pagination_diagnostics, dict):
+            snapshot["pagination"] = {
+                "page_count": max(int(pagination_diagnostics.get("page_count") or 0), 0),
+                "terminal_offset": pagination_diagnostics.get("terminal_offset"),
+                "terminal_page_rows": max(
+                    int(pagination_diagnostics.get("terminal_page_rows") or 0),
+                    0,
+                ),
+                "observed_short_page": bool(
+                    pagination_diagnostics.get("observed_short_page")
+                ),
+            }
+        state.persistence_diagnostics.update(normalized)
+
+    @staticmethod
     def _build_ingestion_diagnostics(state: _RunState) -> dict[str, Any]:
+        persistence = {
+            "immutable_fact": {
+                "rows_normalized_before_dedupe": state.rows_normalized_before_dedupe,
+                "rows_inserted_new": state.rows_inserted,
+                "rows_matched_existing": state.rows_matched,
+                "scope_existing_count": state.scope_existing_count,
+                "scope_source_unique_count": state.scope_source_unique_count,
+                "final_scope_count": state.final_scope_count,
+            },
+            **state.persistence_diagnostics,
+        }
         diagnostics = {
             "source": {
                 "pagination": {
@@ -1168,16 +1213,7 @@ class IngestionExecutor:
                     "truncated": state.pagination_units_truncated,
                 },
             },
-            "persistence": {
-                "immutable_fact": {
-                    "rows_normalized_before_dedupe": state.rows_normalized_before_dedupe,
-                    "rows_inserted_new": state.rows_inserted,
-                    "rows_matched_existing": state.rows_matched,
-                    "scope_existing_count": state.scope_existing_count,
-                    "scope_source_unique_count": state.scope_source_unique_count,
-                    "final_scope_count": state.final_scope_count,
-                },
-            },
+            "persistence": persistence,
         }
         if state.paged_unit_active is not None or state.paged_unit_completed:
             diagnostics["runtime"] = {
