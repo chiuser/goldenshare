@@ -20,8 +20,8 @@ class IngestionCodebookEntry:
         }
 
 
-INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-28.v2"
-INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-28T11:00:16Z"
+INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-28.v3"
+INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-28T12:14:31Z"
 
 INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("dataset_mismatch", "请求数据集与定义不一致", "validator", "检查 dataset_key 与定义绑定"),
@@ -99,6 +99,7 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("normalize.duplicate_conflict_key_inconsistent", "同一主键出现不一致数据", "normalize", "检查分页结果与源端一致性"),
     IngestionCodebookEntry("dao_not_found", "写入 DAO 路由缺失", "writer", "检查 storage.write_path 与 DAOFactory 注册"),
     IngestionCodebookEntry("etf_basic_snapshot_invalid", "ETF Basic 完整快照校验或对账失败", "validator/writer", "检查源端完整性、字段契约和事务内对账结果"),
+    IngestionCodebookEntry("fund_daily_serving_publish_failed", "基金日线 ETF Serving 发布失败", "writer/executor", "Raw 已独立提交；检查 ETF Basic 选择器或 Serving 写入后重试任务"),
     IngestionCodebookEntry("write.snapshot_rows_rejected", "完整观察快照存在拒绝行", "writer", "先解决拒绝原因，不能用部分结果替换当前快照"),
     IngestionCodebookEntry("write.unit_rows_rejected", "执行单元存在拒绝行", "writer", "先解决全部拒绝原因，当前单元不会写入"),
     IngestionCodebookEntry("write.snapshot_empty", "完整观察快照为空", "writer", "检查源端返回与字段请求，不能清空当前快照"),

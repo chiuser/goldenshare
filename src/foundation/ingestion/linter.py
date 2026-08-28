@@ -12,6 +12,7 @@ SUPPORTED_SCOPED_REPAIR_POLICIES = {"existing_point_bucket_only", "existing_obse
 SUPPORTED_DUPLICATE_KEY_POLICIES = {"allow", "dedupe_identical_reject_conflicting"}
 SUPPORTED_SOURCE_MULTIPLICITY_POLICIES = {"reject", "deduplicate_identical"}
 SUPPORTED_EMPTY_RESULT_POLICIES = {"allow", "fail_unit", "fail_unit_per_request_variant"}
+FUND_DAILY_TWO_PHASE_WRITE_PATH = "raw_fund_daily_etf_serving_publish"
 
 
 @dataclass(frozen=True, slots=True)
@@ -271,16 +272,60 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
                 issues.append(IngestionLintIssue(dataset_key, "etf_basic_snapshot_quality_invalid", "ETF Basic 完整快照质量门禁不完整"))
             if not definition.transaction.idempotent_write_required:
                 issues.append(IngestionLintIssue(dataset_key, "etf_basic_snapshot_idempotency_missing", "ETF Basic 完整快照必须声明幂等写入"))
+        elif storage.write_path == FUND_DAILY_TWO_PHASE_WRITE_PATH:
+            if dataset_key != "fund_daily":
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "fund_daily_two_phase_dataset_invalid",
+                        "fund_daily 两阶段 write path 不得被其他数据集复用",
+                    )
+                )
+            if (
+                storage.raw_dao_name != "raw_fund_daily"
+                or storage.raw_table != "raw_tushare.fund_daily"
+                or storage.core_dao_name != "fund_daily_bar"
+                or storage.target_table != "core_serving.fund_daily_bar"
+                or storage.serving_table != "core_serving.fund_daily_bar"
+                or storage.layer_plan != "raw->serving"
+            ):
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "fund_daily_two_phase_storage_invalid",
+                        "fund_daily 两阶段发布必须绑定既有 raw/serving 表",
+                    )
+                )
+            if definition.transaction.commit_policy != "raw_then_serving":
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "fund_daily_two_phase_commit_policy_invalid",
+                        "fund_daily 两阶段发布必须使用 raw_then_serving 提交策略",
+                    )
+                )
         elif storage.raw_dao_name is None or storage.raw_table is None:
             issues.append(
                 IngestionLintIssue(dataset_key, "raw_storage_required", "非 serving_direct_upsert 写入路径必须配置 raw DAO 和 raw 表")
             )
-        if definition.transaction.commit_policy != "unit":
+        if definition.transaction.commit_policy not in {"unit", "raw_then_serving"}:
             issues.append(
                 IngestionLintIssue(
                     dataset_key,
                     "invalid_commit_policy",
-                    f"transaction.commit_policy 必须为 unit，当前为 {definition.transaction.commit_policy}",
+                    "transaction.commit_policy 仅支持 unit/raw_then_serving，"
+                    f"当前为 {definition.transaction.commit_policy}",
+                )
+            )
+        elif definition.transaction.commit_policy == "raw_then_serving" and (
+            dataset_key != "fund_daily"
+            or storage.write_path != FUND_DAILY_TWO_PHASE_WRITE_PATH
+        ):
+            issues.append(
+                IngestionLintIssue(
+                    dataset_key,
+                    "raw_then_serving_not_allowed",
+                    "raw_then_serving 仅允许 fund_daily 专用两阶段 write path 使用",
                 )
             )
         if definition.planning.max_units_per_execution is not None and definition.planning.max_units_per_execution <= 0:

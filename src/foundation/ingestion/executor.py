@@ -1,20 +1,21 @@
 from __future__ import annotations
 
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
-from dataclasses import dataclass, field
-from datetime import date
+from dataclasses import dataclass, field, replace
+from datetime import date, datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.ingestion.error_mapper import IngestionErrorMapper
-from src.foundation.ingestion.errors import IngestionError, StructuredError
+from src.foundation.ingestion.errors import IngestionError, IngestionWriteError, StructuredError
 from src.foundation.ingestion.run_errors import IngestionCanceledError
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot, ValidatedDatasetActionRequest
 from src.foundation.ingestion.normalizer import DatasetNormalizer
 from src.foundation.ingestion.progress import IngestionObserver
 from src.foundation.ingestion.source_client import DatasetSourceClient, SourceFetchResult
 from src.foundation.ingestion.staged_stream import StagedStreamPublisher
-from src.foundation.ingestion.writer import DatasetWriter
+from src.foundation.ingestion.writer import DatasetWriter, WriteResult
 
 
 @dataclass(slots=True)
@@ -111,6 +112,11 @@ class IngestionExecutor:
     ) -> IngestionRunSummary:
         observer = IngestionObserver(progress_reporter=progress_reporter)
         state = _RunState()
+        eligibility_as_of = (
+            self._current_china_date()
+            if definition.transaction.commit_policy == "raw_then_serving"
+            else None
+        )
 
         total_units = len(units)
         fetch_concurrency = definition.planning.fetch_concurrency
@@ -131,6 +137,7 @@ class IngestionExecutor:
                 observer=observer,
                 state=state,
                 cancel_checker=cancel_checker,
+                eligibility_as_of=eligibility_as_of,
             )
         else:
             self._run_units_with_concurrent_fetch(
@@ -141,6 +148,7 @@ class IngestionExecutor:
                 state=state,
                 cancel_checker=cancel_checker,
                 fetch_concurrency=fetch_concurrency,
+                eligibility_as_of=eligibility_as_of,
             )
 
         return IngestionRunSummary(
@@ -518,6 +526,7 @@ class IngestionExecutor:
         observer: IngestionObserver,
         state: _RunState,
         cancel_checker,
+        eligibility_as_of: date | None,
     ) -> None:  # type: ignore[no-untyped-def]
         total_units = len(units)
         for unit in units:
@@ -543,6 +552,7 @@ class IngestionExecutor:
                 unit=unit,
                 total_units=total_units,
                 source_result=source_result,
+                eligibility_as_of=eligibility_as_of,
             )
 
     def _run_units_with_concurrent_fetch(
@@ -555,6 +565,7 @@ class IngestionExecutor:
         state: _RunState,
         cancel_checker,
         fetch_concurrency: int,
+        eligibility_as_of: date | None,
     ) -> None:  # type: ignore[no-untyped-def]
         total_units = len(units)
         unit_iter = iter(units)
@@ -602,6 +613,7 @@ class IngestionExecutor:
                             unit=unit,
                             total_units=total_units,
                             source_result=future.result(),
+                            eligibility_as_of=eligibility_as_of,
                         )
                         submit_next(executor)
             except Exception:
@@ -619,6 +631,7 @@ class IngestionExecutor:
         unit: PlanUnitSnapshot,
         total_units: int,
         source_result,
+        eligibility_as_of: date | None,
     ) -> None:  # type: ignore[no-untyped-def]
         unit_rows_fetched = 0
         unit_rows_written = 0
@@ -632,12 +645,25 @@ class IngestionExecutor:
                 expected_unit_date=unit.trade_date,
             )
             self.normalizer.raise_if_all_rejected(normalized)
-            written = self.writer.write(
-                definition=definition,
-                batch=normalized,
-                plan_unit=unit,
-                run_profile=request.run_profile,
-            )
+            if definition.transaction.commit_policy == "raw_then_serving":
+                if eligibility_as_of is None:
+                    raise RuntimeError("raw_then_serving 缺少固定 eligibility_as_of")
+                unit_rows_fetched = len(source_result.rows_raw)
+                unit_rows_rejected = normalized.rows_rejected
+                unit_rows_deduplicated = int(normalized.rows_deduplicated or 0)
+                written = self._write_raw_then_serving(
+                    definition=definition,
+                    batch=normalized,
+                    state=state,
+                    eligibility_as_of=eligibility_as_of,
+                )
+            else:
+                written = self.writer.write(
+                    definition=definition,
+                    batch=normalized,
+                    plan_unit=unit,
+                    run_profile=request.run_profile,
+                )
             unit_rows_fetched = len(source_result.rows_raw)
             unit_rows_written = written.rows_written
             unit_rows_rejected = normalized.rows_rejected + int(written.rows_rejected or 0)
@@ -662,7 +688,8 @@ class IngestionExecutor:
             for reason_code, count in written.rejected_reason_counts.items():
                 state.rejected_reason_counts[reason_code] = state.rejected_reason_counts.get(reason_code, 0) + int(count or 0)
             self._merge_reason_samples(state.rejected_reason_samples, written.rejected_reason_samples)
-            self.session.commit()
+            if definition.transaction.commit_policy != "raw_then_serving":
+                self.session.commit()
             state.rows_committed += unit_rows_written
             state.unit_done += 1
         except Exception as exc:
@@ -680,6 +707,153 @@ class IngestionExecutor:
                 unit_rows_rejected=unit_rows_rejected,
                 unit_rows_deduplicated=unit_rows_deduplicated,
             )
+
+    def _write_raw_then_serving(
+        self,
+        *,
+        definition: DatasetDefinition,
+        batch,
+        state: _RunState,
+        eligibility_as_of: date,
+    ) -> WriteResult:  # type: ignore[no-untyped-def]
+        previous_raw = dict(state.persistence_diagnostics.get("raw") or {})
+        previous_serving = dict(state.persistence_diagnostics.get("serving") or {})
+        previous_excluded = dict(
+            state.persistence_diagnostics.get("excluded_reason_counts") or {}
+        )
+        raw_result = self.writer.write_raw_phase(
+            definition=definition,
+            batch=batch,
+        )
+        persistence_diagnostics = {
+            "raw": {
+                "rows_upserted": int(previous_raw.get("rows_upserted") or 0)
+                + raw_result.rows_upserted,
+                "committed": False,
+            },
+            "serving": {
+                "eligible_rows": int(previous_serving.get("eligible_rows") or 0),
+                "rows_upserted": int(previous_serving.get("rows_upserted") or 0),
+                "committed": False,
+            },
+            "eligibility_as_of": eligibility_as_of.isoformat(),
+            "excluded_reason_counts": previous_excluded,
+        }
+        self._merge_persistence_diagnostics(
+            state,
+            persistence_diagnostics=persistence_diagnostics,
+            pagination_diagnostics=None,
+        )
+        self.session.commit()
+        persistence_diagnostics["raw"]["committed"] = True
+        self._merge_persistence_diagnostics(
+            state,
+            persistence_diagnostics=persistence_diagnostics,
+            pagination_diagnostics=None,
+        )
+
+        try:
+            serving_result = self.writer.write_serving_phase(
+                definition=definition,
+                batch=batch,
+                eligibility_as_of=eligibility_as_of,
+            )
+        except Exception as exc:
+            raise self._fund_daily_serving_publish_error(
+                exc=exc,
+                batch_unit_id=batch.unit_id,
+                persistence_diagnostics=persistence_diagnostics,
+            ) from exc
+
+        current_serving = dict(
+            serving_result.persistence_diagnostics.get("serving") or {}
+        )
+        persistence_diagnostics["serving"] = {
+            "eligible_rows": int(previous_serving.get("eligible_rows") or 0)
+            + int(current_serving.get("eligible_rows") or 0),
+            "rows_upserted": int(previous_serving.get("rows_upserted") or 0)
+            + int(current_serving.get("rows_upserted") or 0),
+            "committed": False,
+        }
+        current_excluded = dict(
+            serving_result.persistence_diagnostics.get("excluded_reason_counts") or {}
+        )
+        for reason_code, count in current_excluded.items():
+            persistence_diagnostics["excluded_reason_counts"][reason_code] = int(
+                persistence_diagnostics["excluded_reason_counts"].get(reason_code) or 0
+            ) + int(count or 0)
+        self._merge_persistence_diagnostics(
+            state,
+            persistence_diagnostics=persistence_diagnostics,
+            pagination_diagnostics=None,
+        )
+        try:
+            self.session.commit()
+        except Exception as exc:
+            raise self._fund_daily_serving_publish_error(
+                exc=exc,
+                batch_unit_id=batch.unit_id,
+                persistence_diagnostics=persistence_diagnostics,
+                failure_phase="serving_commit",
+            ) from exc
+
+        persistence_diagnostics["serving"]["committed"] = True
+        self._merge_persistence_diagnostics(
+            state,
+            persistence_diagnostics=persistence_diagnostics,
+            pagination_diagnostics=None,
+        )
+        return replace(
+            serving_result,
+            persistence_diagnostics=persistence_diagnostics,
+        )
+
+    @staticmethod
+    def _fund_daily_serving_publish_error(
+        *,
+        exc: BaseException,
+        batch_unit_id: str,
+        persistence_diagnostics: dict[str, Any],
+        failure_phase: str | None = None,
+    ) -> IngestionWriteError:
+        source_details: dict[str, Any] = {}
+        source_phase = "writer"
+        if isinstance(exc, IngestionError):
+            source_details = dict(exc.structured_error.details or {})
+            source_phase = exc.structured_error.phase
+        resolved_failure_phase = str(
+            failure_phase or source_details.get("failure_phase") or "serving_publish"
+        )
+        raw_diagnostics = dict(persistence_diagnostics.get("raw") or {})
+        serving_diagnostics = dict(persistence_diagnostics.get("serving") or {})
+        details = {
+            **source_details,
+            "failure_phase": resolved_failure_phase,
+            "raw_committed": bool(raw_diagnostics.get("committed")),
+            "raw_rows_committed": int(raw_diagnostics.get("rows_upserted") or 0),
+            "serving_eligible_rows": int(serving_diagnostics.get("eligible_rows") or 0),
+            "serving_rows_upserted": int(serving_diagnostics.get("rows_upserted") or 0),
+            "serving_committed": bool(serving_diagnostics.get("committed")),
+            "eligibility_as_of": persistence_diagnostics.get("eligibility_as_of"),
+            "excluded_reason_counts": dict(
+                persistence_diagnostics.get("excluded_reason_counts") or {}
+            ),
+        }
+        return IngestionWriteError(
+            StructuredError(
+                error_code="fund_daily_serving_publish_failed",
+                error_type="write",
+                phase=source_phase if failure_phase is None else "executor",
+                message=str(exc),
+                retryable=False,
+                unit_id=batch_unit_id,
+                details=details,
+            )
+        )
+
+    @staticmethod
+    def _current_china_date() -> date:
+        return datetime.now(ZoneInfo("Asia/Shanghai")).date()
 
     def _handle_unit_exception(
         self,

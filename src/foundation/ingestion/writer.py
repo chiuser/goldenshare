@@ -51,6 +51,9 @@ from src.foundation.serving.publish_service import ServingPublishService
 
 
 ETF_BASIC_SNAPSHOT_ADVISORY_LOCK_KEY = 8_491_716_204
+FUND_DAILY_TWO_PHASE_WRITE_PATH = "raw_fund_daily_etf_serving_publish"
+FUND_DAILY_CODE_NOT_REQUESTABLE = "CODE_NOT_REQUESTABLE_AT_PUBLISH"
+FUND_DAILY_BEFORE_LIST_DATE = "BEFORE_CURRENT_LIST_DATE"
 
 
 @dataclass(slots=True, frozen=True)
@@ -122,6 +125,17 @@ class DatasetWriter:
                 )
             )
         try:
+            if definition.storage.write_path == FUND_DAILY_TWO_PHASE_WRITE_PATH:
+                raise IngestionWriteError(
+                    StructuredError(
+                        error_code="write_failed",
+                        error_type="write",
+                        phase="writer",
+                        message="fund_daily 两阶段发布必须由 executor 分阶段执行",
+                        retryable=False,
+                        unit_id=batch.unit_id,
+                    )
+                )
             if definition.storage.write_path == "raw_etf_basic_snapshot_replace":
                 return self._write_etf_basic_snapshot_replace(
                     definition=definition,
@@ -164,13 +178,6 @@ class DatasetWriter:
                 )
             if definition.storage.write_path == "raw_index_daily_serving_upsert":
                 return self._write_index_daily_serving(
-                    definition=definition,
-                    batch=batch,
-                    raw_dao=raw_dao,
-                    core_dao=core_dao,
-                )
-            if definition.storage.write_path == "raw_fund_daily_etf_active_serving_upsert":
-                return self._write_fund_daily_etf_active_serving(
                     definition=definition,
                     batch=batch,
                     raw_dao=raw_dao,
@@ -267,6 +274,201 @@ class DatasetWriter:
             rows_rejected=sum(rejected_reason_counts.values()),
             rejected_reason_counts=rejected_reason_counts,
             rejected_reason_samples=rejected_reason_samples,
+        )
+
+    def write_raw_phase(
+        self,
+        *,
+        definition: DatasetDefinition,
+        batch: NormalizedBatch,
+    ) -> WriteResult:
+        self._validate_fund_daily_two_phase_definition(
+            definition=definition,
+            unit_id=batch.unit_id,
+        )
+        raw_dao = getattr(self.dao, definition.storage.raw_dao_name, None)
+        if raw_dao is None:
+            raise self._dao_not_found_error(definition=definition, unit_id=batch.unit_id)
+        try:
+            raw_rows = self._coerce_rows_for_dao(batch.rows_normalized, raw_dao)
+            if definition.storage.conflict_columns:
+                rows_upserted = raw_dao.bulk_upsert(
+                    raw_rows,
+                    conflict_columns=list(definition.storage.conflict_columns),
+                )
+            else:
+                rows_upserted = raw_dao.bulk_upsert(raw_rows)
+        except IngestionWriteError:
+            raise
+        except Exception as exc:
+            raise IngestionWriteError(
+                StructuredError(
+                    error_code="write_failed",
+                    error_type="write",
+                    phase="writer",
+                    message=str(exc),
+                    retryable=False,
+                    unit_id=batch.unit_id,
+                    details={"failure_phase": "raw_upsert"},
+                )
+            ) from exc
+        return WriteResult(
+            unit_id=batch.unit_id,
+            rows_written=rows_upserted,
+            rows_upserted=rows_upserted,
+            rows_skipped=batch.rows_rejected,
+            target_table=definition.storage.raw_table or "raw_tushare.fund_daily",
+            conflict_strategy="fund_daily_raw_upsert",
+        )
+
+    def write_serving_phase(
+        self,
+        *,
+        definition: DatasetDefinition,
+        batch: NormalizedBatch,
+        eligibility_as_of: date,
+    ) -> WriteResult:
+        self._validate_fund_daily_two_phase_definition(
+            definition=definition,
+            unit_id=batch.unit_id,
+        )
+        try:
+            snapshot = self.dao.etf_basic.load_requestability_snapshot(
+                as_of_date=eligibility_as_of,
+            )
+        except Exception as exc:
+            raise self._fund_daily_serving_phase_error(
+                batch=batch,
+                eligibility_as_of=eligibility_as_of,
+                failure_phase="selector",
+                message=str(exc),
+            ) from exc
+        if not snapshot.targets:
+            raise self._fund_daily_serving_phase_error(
+                batch=batch,
+                eligibility_as_of=eligibility_as_of,
+                failure_phase="selector_empty",
+                message="当前可请求 ETF 清单为空，拒绝发布 fund_daily serving",
+            )
+        requestable_by_code = {target.ts_code: target for target in snapshot.targets}
+        serving_rows: list[dict[str, Any]] = []
+        excluded_reason_counts: dict[str, int] = {}
+        for row in batch.rows_normalized:
+            ts_code = str(row.get("ts_code") or "").strip().upper()
+            target = requestable_by_code.get(ts_code)
+            if target is None:
+                excluded_reason_counts[FUND_DAILY_CODE_NOT_REQUESTABLE] = (
+                    excluded_reason_counts.get(FUND_DAILY_CODE_NOT_REQUESTABLE, 0) + 1
+                )
+                continue
+            trade_date = row.get("trade_date")
+            if not isinstance(trade_date, date):
+                trade_date = parse_tushare_date(trade_date)
+            if trade_date < target.list_date:
+                excluded_reason_counts[FUND_DAILY_BEFORE_LIST_DATE] = (
+                    excluded_reason_counts.get(FUND_DAILY_BEFORE_LIST_DATE, 0) + 1
+                )
+                continue
+            serving_rows.append(row)
+
+        try:
+            core_dao = getattr(self.dao, definition.storage.core_dao_name, None)
+            if core_dao is None:
+                raise self._dao_not_found_error(
+                    definition=definition,
+                    unit_id=batch.unit_id,
+                )
+            rejected_reason_counts, rejected_reason_samples = self._duplicate_reason_diagnostics(
+                rows=serving_rows,
+                conflict_columns=self._resolve_conflict_columns(
+                    core_dao,
+                    definition.storage.conflict_columns,
+                ),
+                unit_id=batch.unit_id,
+            )
+            rows_upserted = 0
+            if serving_rows:
+                core_rows = self._coerce_rows_for_dao(serving_rows, core_dao)
+                if definition.storage.conflict_columns:
+                    rows_upserted = core_dao.bulk_upsert(
+                        core_rows,
+                        conflict_columns=list(definition.storage.conflict_columns),
+                    )
+                else:
+                    rows_upserted = core_dao.bulk_upsert(core_rows)
+        except Exception as exc:
+            raise self._fund_daily_serving_phase_error(
+                batch=batch,
+                eligibility_as_of=eligibility_as_of,
+                failure_phase="serving_upsert",
+                message=str(exc),
+            ) from exc
+
+        return WriteResult(
+            unit_id=batch.unit_id,
+            rows_written=rows_upserted,
+            rows_upserted=rows_upserted,
+            rows_skipped=batch.rows_rejected,
+            target_table=definition.storage.target_table,
+            conflict_strategy="fund_daily_etf_serving_gate",
+            rows_rejected=sum(rejected_reason_counts.values()),
+            rejected_reason_counts=rejected_reason_counts,
+            rejected_reason_samples=rejected_reason_samples,
+            persistence_diagnostics={
+                "serving": {
+                    "eligible_rows": len(serving_rows),
+                    "rows_upserted": rows_upserted,
+                    "committed": False,
+                },
+                "eligibility_as_of": eligibility_as_of.isoformat(),
+                "excluded_reason_counts": excluded_reason_counts,
+            },
+        )
+
+    @staticmethod
+    def _validate_fund_daily_two_phase_definition(
+        *,
+        definition: DatasetDefinition,
+        unit_id: str,
+    ) -> None:
+        if (
+            definition.dataset_key == "fund_daily"
+            and definition.storage.write_path == FUND_DAILY_TWO_PHASE_WRITE_PATH
+            and definition.transaction.commit_policy == "raw_then_serving"
+        ):
+            return
+        raise IngestionWriteError(
+            StructuredError(
+                error_code="write_failed",
+                error_type="write",
+                phase="writer",
+                message="fund_daily 两阶段 writer 收到不匹配的数据集定义",
+                retryable=False,
+                unit_id=unit_id,
+            )
+        )
+
+    @staticmethod
+    def _fund_daily_serving_phase_error(
+        *,
+        batch: NormalizedBatch,
+        eligibility_as_of: date,
+        failure_phase: str,
+        message: str,
+    ) -> IngestionWriteError:
+        return IngestionWriteError(
+            StructuredError(
+                error_code="fund_daily_serving_publish_failed",
+                error_type="write",
+                phase="writer",
+                message=message,
+                retryable=False,
+                unit_id=batch.unit_id,
+                details={
+                    "failure_phase": failure_phase,
+                    "eligibility_as_of": eligibility_as_of.isoformat(),
+                },
+            )
         )
 
     def _resolve_write_daos(self, *, definition: DatasetDefinition, unit_id: str):  # type: ignore[no-untyped-def]
@@ -1240,62 +1442,6 @@ class DatasetWriter:
             rejected_reason_samples=rejected_reason_samples,
         )
 
-    def _write_fund_daily_etf_active_serving(
-        self,
-        *,
-        definition: DatasetDefinition,
-        batch: NormalizedBatch,
-        raw_dao,
-        core_dao,
-    ) -> WriteResult:
-        if not batch.rows_normalized:
-            return WriteResult(
-                unit_id=batch.unit_id,
-                rows_written=0,
-                rows_upserted=0,
-                rows_skipped=batch.rows_rejected,
-                target_table=definition.storage.target_table,
-                conflict_strategy="fund_daily_etf_active_gate",
-            )
-
-        raw_rows = self._coerce_rows_for_dao(batch.rows_normalized, raw_dao)
-        if definition.storage.conflict_columns:
-            raw_dao.bulk_upsert(raw_rows, conflict_columns=list(definition.storage.conflict_columns))
-        else:
-            raw_dao.bulk_upsert(raw_rows)
-
-        active_rows = self._filter_fund_daily_rows_by_etf_active_pool(
-            rows=batch.rows_normalized,
-            active_codes=self._resolve_active_etf_codes("fund_daily"),
-        )
-        rows_written = 0
-        rejected_reason_counts, rejected_reason_samples = self._duplicate_reason_diagnostics(
-            rows=active_rows,
-            conflict_columns=self._resolve_conflict_columns(
-                core_dao,
-                definition.storage.conflict_columns,
-            ),
-            unit_id=batch.unit_id,
-        )
-        if active_rows:
-            core_rows = self._coerce_rows_for_dao(active_rows, core_dao)
-            if definition.storage.conflict_columns:
-                rows_written = core_dao.bulk_upsert(core_rows, conflict_columns=list(definition.storage.conflict_columns))
-            else:
-                rows_written = core_dao.bulk_upsert(core_rows)
-
-        return WriteResult(
-            unit_id=batch.unit_id,
-            rows_written=rows_written,
-            rows_upserted=rows_written,
-            rows_skipped=batch.rows_rejected,
-            target_table=definition.storage.target_table,
-            conflict_strategy="fund_daily_etf_active_gate",
-            rows_rejected=sum(rejected_reason_counts.values()),
-            rejected_reason_counts=rejected_reason_counts,
-            rejected_reason_samples=rejected_reason_samples,
-        )
-
     def _write_index_period_serving(
         self,
         *,
@@ -1689,29 +1835,6 @@ class DatasetWriter:
 
     def _resolve_active_index_codes(self) -> set[str]:
         active_codes = self.dao.index_series_active.list_active_codes("index_daily")
-        return {
-            str(code).strip().upper()
-            for code in active_codes
-            if str(code).strip()
-        }
-
-    @staticmethod
-    def _filter_fund_daily_rows_by_etf_active_pool(
-        *,
-        rows: list[dict[str, Any]],
-        active_codes: set[str],
-    ) -> list[dict[str, Any]]:
-        if not active_codes:
-            return []
-        filtered_rows: list[dict[str, Any]] = []
-        for row in rows:
-            ts_code = str(row.get("ts_code") or "").strip().upper()
-            if ts_code and ts_code in active_codes:
-                filtered_rows.append(row)
-        return filtered_rows
-
-    def _resolve_active_etf_codes(self, resource: str) -> set[str]:
-        active_codes = self.dao.etf_series_active.list_active_codes(resource)
         return {
             str(code).strip().upper()
             for code in active_codes

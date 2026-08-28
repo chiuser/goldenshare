@@ -1,6 +1,6 @@
 # ETF 基础信息重建与下游数据审计清理 LLD v1
 
-状态：重新基线完成；P0-P3 已完成（未执行生产快照重建），原 P2-P9 执行序列已作废，新版 P4-P12 尚未开始
+状态：重新基线完成；P0-P4 已完成（未执行生产快照重建），原 P2-P9 执行序列已作废，新版 P5-P12 尚未开始
 创建日期：2026-08-28
 依据方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)
 适用代码：`src/foundation/**`、`src/ops/**`、`src/app/**`、`frontend/**`、`alembic/**`
@@ -97,7 +97,7 @@ raw 另有 `api_name/fetched_at/raw_payload`，serving 另有 `created_at/update
 
 ### 2.3 P3 开工前请求驱动链
 
-| 数据集/能力 | 当前代码事实 | 目标替代 |
+| 数据集/能力 | 对应阶段开工前代码事实 | 目标替代 |
 |---|---|---|
 | `etf_mins` | unit planner 从 `resource='etf_mins'` 激活池读代码；未使用 `list_date` | 当前可请求 ETF + 上市日裁剪 |
 | `etf_sh_cons` | 从 `.SH` resource 激活池读代码 | 当前可请求 ETF 中 `.SH` |
@@ -107,15 +107,15 @@ raw 另有 `api_name/fetched_at/raw_payload`，serving 另有 `created_at/update
 | `etf_share_size` | 按日期全市场；raw 单份存储、serving view 直出 | 完全不改 |
 | `etf_rt_daily` | provider 固定请求 `5*.SH`、`1*.SZ`；旧池只用于 health/候选 | provider 不改；health/候选换 Basic |
 
-P3 完成后，表中前三个 planner 已改用 Basic selector 且已按上市日裁剪；其余行仍保持表中的阶段前代码事实，待 P4-P7 迁移。
+P3 完成后，表中前三个 planner 已改用 Basic selector 且已按上市日裁剪；P4 又完成了 `fund_daily` writer 迁移和旧 cleanup 删除。表中 `etf_rt_daily` 行仍是后续 P5-P7 的阶段前代码事实。
 
-`EtfBasicDAO.get_active_etfs()` 当前把 `L/P/D` 都称为 active，`get_fund_daily_candidates()` 也接受 `L/P/D`，且 ingestion 主链没有调用这两个方法。这两个方法不能复用，目标版本直接删除并替换为语义准确的新契约，不留别名。
+P2 开工前，`EtfBasicDAO.get_active_etfs()` 把 `L/P/D` 都称为 active，`get_fund_daily_candidates()` 也接受 `L/P/D`，且 ingestion 主链没有调用这两个方法。P2 已将二者删除并替换为语义准确的新契约，没有保留别名。
 
-### 2.4 当前事务问题
+### 2.4 P4 开工前事务问题（已修复）
 
-`IngestionExecutor._process_fetched_unit()` 当前顺序是：归一化、调用 writer、统一 `session.commit()`。`fund_daily` writer 在同一事务中先 upsert raw，再查询旧激活池并写 serving。因此选择器异常会让 raw 一起回滚，与上层方案确认的 raw/serving 边界不符。
+P4 开工前，`IngestionExecutor._process_fetched_unit()` 的顺序是归一化、调用 writer、统一 `session.commit()`；`fund_daily` writer 在同一事务中先 upsert raw，再查询旧激活池并写 serving。因此选择器异常会让 raw 一起回滚，与上层方案确认的 raw/serving 边界不符。
 
-P1 开发前，`WriteResult` 只有统一行数和 reject 诊断。P1 已新增通用 `persistence_diagnostics`，并打通 `_RunState -> IngestionExecutor -> TaskRunIngestionContext` 的有界 JSON 链路，未新增 TaskRun 列。`fund_daily` 的“raw 已提交、serving 未提交”分层诊断仍属于 P4，本阶段未实现。
+P1 已新增通用 `persistence_diagnostics`，并打通 `_RunState -> IngestionExecutor -> TaskRunIngestionContext` 的有界 JSON 链路，未新增 TaskRun 列。P4 已在该既有链路中加入 `raw/serving/eligibility_as_of/excluded_reason_counts` 分层诊断，并由 executor 执行两个明确提交点；普通 `unit` 提交路径不变。
 
 ### 2.5 Tushare 契约复核
 
@@ -1316,13 +1316,13 @@ tests/test_etf_mins_dataset.py
 
 P3 完成门禁已满足：实际 unit 的请求起点不早于 `list_date`，DatasetDefinition 与 Foundation planner 对三个旧 ETF resource 的引用已清零，旧 `DAOFactory.etf_series_active` 及其他消费者仍保留给 P4-P8 逐阶段迁移。本阶段没有生产数据库、Tushare 业务数据或其他外部状态写入。
 
-### P4：`fund_daily` 两阶段发布
+### P4：`fund_daily` 两阶段发布（已完成）
 
 编码：
 
 1. 新增 `raw_then_serving` commit policy 的 linter 白名单。
 2. 拆 raw/serving writer phase。
-3. executor 增加两提交点和 partial-business-commit 诊断。
+3. executor 增加两个明确提交点，以及“Raw 已提交、Serving 未提交”的分层诊断；这不是 partial success。
 4. serving 接统一 selector 与 `trade_date >= list_date`。
 5. 删除旧 active-pool writer helper。
 6. 在本阶段唯一一次删除旧 `EtfFundDailyServingCleanupService`、`ops-cleanup-etf-fund-daily-serving` 及其测试/导出；不在 P8 重复处理。
@@ -1330,6 +1330,17 @@ P3 完成门禁已满足：实际 unit 的请求起点不早于 `list_date`，Da
 测试：全市场 raw、ETF serving、LOF/REIT 只进 raw、上市日前只进 raw、selector 空、selector 异常、serving upsert 异常、raw upsert 异常、重试幂等、显式 ts_code 不扇出。
 
 完成门禁：selector/serving 失败时 raw 已提交且 TaskRun 失败；不得出现 raw 被回滚或 serving 假成功；`fund_daily` 与 cleanup 对旧池引用清零，其他未迁移消费者仍可运行。
+
+#### P4 执行记录（2026-08-28）
+
+1. `fund_daily` Definition 已改为 `raw_fund_daily_etf_serving_publish` 和 `raw_then_serving`；linter 只对白名单中的 `fund_daily` 专用 write path 放行，其他数据集不能复用该提交策略。
+2. `DatasetWriter` 已拆出只写不提交的 `write_raw_phase()` 与 `write_serving_phase()`；Raw 保存源端完整返回，Serving 每个发布阶段只加载一次固定执行日的 Basic snapshot，并按 `trade_date >= list_date` 发布。未发布行只进入 `CODE_NOT_REQUESTABLE_AT_PUBLISH/BEFORE_CURRENT_LIST_DATE` 统计，不作为 normalizer reject。
+3. `IngestionExecutor` 在每个任务开始时固定一次中国自然日；每个 unit 先提交 Raw，再执行 selector/Serving 并提交，分层行数与排除原因在多 unit 任务中按任务累计。selector 空、selector 查询异常、Serving upsert/commit 异常统一抛 `fund_daily_serving_publish_failed`，保留已提交 Raw，unit/TaskRun 失败，顶层 `rows_written/rows_committed` 仍只表示 Serving。
+4. 已删除旧 active-pool writer helper、`EtfFundDailyServingCleanupService`、`ops-cleanup-etf-fund-daily-serving` CLI、handler 和两组专用测试；没有替代 cleanup service、CLI、删除 manifest 或兼容入口。ETF review、Health、monitor 和旧池基础设施按 P5-P8 原边界保留。
+5. request builder、分页、默认全市场请求和显式 `ts_code` 单代码探测入口未改；`fund_adj`、`etf_share_size`、实时链路、TaskRun schema、前端和数据库迁移均未修改。
+6. CodeGraph 在开工前确认 `DatasetWriter` 影响 Foundation executor 与 writer 定向测试，旧 cleanup 的 14 个符号只落在 service 和专用测试；精确搜索确认删除后 `fund_daily` 与 cleanup 对旧池引用清零，指数池及其他未迁移 ETF 消费者仍在。
+7. Definition/linter/resolver/writer/executor 与普通 executor、ETF Basic snapshot、ETF minutes、代码本、运行时注册、三组架构边界合计 279 个测试通过；剩余旧池 DAO/model/seed、CLI 和 review 消费者保护回归 64 个通过；本阶段修改的 Python 文件 Ruff 检查通过。失败注入覆盖 Raw upsert/commit、selector 空/异常、Serving upsert/commit，以及失败后 Raw 幂等重放和 Serving 再发布。
+8. 本阶段没有请求 Tushare、写入生产数据库、执行事实删除或运行旧 cleanup；历史 Serving 事实未被回删，代码消失或 `list_date` 变晚仍只影响未来发布。
 
 ### P5：实时 Health 后端与页面切换
 
@@ -1625,4 +1636,4 @@ Foundation planner/writer 只访问 Foundation 的 `core_serving.etf_basic` DAO�
 4. 明确保护 `fund_adj`、`etf_share_size`、公募基金域、指数池和历史实时事实。
 5. 开发顺序阻止了“先删表再找消费者”，并明确当前不建设下游事实清理系统。
 
-本文中 P0-P3 的执行记录代表对应阶段已完成；原 P2-P9 已作废，新版 P4-P12 均未实施。本 LLD 不授权执行生产快照重建、删表迁移、下游删除或全量补拉。当前停在 P3 阶段边界，P4 及以后仍须按用户的阶段指令逐步推进。
+本文中 P0-P4 的执行记录代表对应阶段已完成；原 P2-P9 已作废，新版 P5-P12 均未实施。本 LLD 不授权执行生产快照重建、删表迁移、下游删除或全量补拉。当前停在 P4 阶段边界，P5 及以后仍须按用户的阶段指令逐步推进。

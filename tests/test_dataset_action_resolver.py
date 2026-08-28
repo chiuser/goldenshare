@@ -138,6 +138,24 @@ def test_dataset_action_resolver_does_not_inject_dead_exchange_filter(
     assert "exchange" not in plan.units[0].request_params
 
 
+def test_fund_daily_explicit_ts_code_keeps_single_source_probe_unit(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="fund_daily",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+        filters={"ts_code": "510300.sh"},
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.planning.unit_count == 1
+    assert plan.units[0].request_params == {
+        "trade_date": "20260424",
+        "ts_code": "510300.SH",
+    }
+
+
 def test_index_daily_default_point_request_uses_index_daily_raw_request_pool(mocker) -> None:
     fake_dao = SimpleNamespace(
         trade_calendar=SimpleNamespace(),

@@ -44,6 +44,38 @@ def test_lint_rejects_invalid_source_release_policy(monkeypatch) -> None:
     ]
 
 
+def test_lint_requires_fund_daily_two_phase_commit_policy(monkeypatch) -> None:
+    definition = get_dataset_definition("fund_daily")
+    definition = replace(
+        definition,
+        transaction=replace(definition.transaction, commit_policy="unit"),
+    )
+    monkeypatch.setattr(linter_module, "list_dataset_definitions", lambda: (definition,))
+    monkeypatch.setattr(linter_module, "DATASET_RUNTIME_REGISTRY", {definition.dataset_key: object()})
+
+    report = lint_all_dataset_definitions()
+
+    assert [(issue.dataset_key, issue.code) for issue in report.issues] == [
+        ("fund_daily", "fund_daily_two_phase_commit_policy_invalid")
+    ]
+
+
+def test_lint_rejects_raw_then_serving_on_other_dataset(monkeypatch) -> None:
+    definition = get_dataset_definition("daily")
+    definition = replace(
+        definition,
+        transaction=replace(definition.transaction, commit_policy="raw_then_serving"),
+    )
+    monkeypatch.setattr(linter_module, "list_dataset_definitions", lambda: (definition,))
+    monkeypatch.setattr(linter_module, "DATASET_RUNTIME_REGISTRY", {definition.dataset_key: object()})
+
+    report = lint_all_dataset_definitions()
+
+    assert [(issue.dataset_key, issue.code) for issue in report.issues] == [
+        ("daily", "raw_then_serving_not_allowed")
+    ]
+
+
 def test_lint_rejects_raw_storage_on_direct_serving_write_path(monkeypatch) -> None:
     definition = get_dataset_definition("margin_detail")
     definition = replace(definition, storage=replace(definition.storage, raw_table="raw_tushare.margin_detail"))

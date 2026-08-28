@@ -207,7 +207,7 @@ def test_dataset_definition_projects_ths_daily_valuation_fields() -> None:
     assert definition.storage.target_table == "core_serving.ths_daily"
 
 
-def test_dataset_definition_projects_fund_daily_active_pool_serving_write_path() -> None:
+def test_dataset_definition_projects_fund_daily_two_phase_serving_write_path() -> None:
     definition = get_dataset_definition("fund_daily")
 
     assert definition.source.api_name == "fund_daily"
@@ -228,7 +228,8 @@ def test_dataset_definition_projects_fund_daily_active_pool_serving_write_path()
     assert definition.date_model.input_shape == "trade_date_or_start_end"
     assert definition.storage.raw_table == "raw_tushare.fund_daily"
     assert definition.storage.serving_table == "core_serving.fund_daily_bar"
-    assert definition.storage.write_path == "raw_fund_daily_etf_active_serving_upsert"
+    assert definition.storage.write_path == "raw_fund_daily_etf_serving_publish"
+    assert definition.transaction.commit_policy == "raw_then_serving"
     assert definition.normalization.row_transform_name == "_fund_daily_row_transform"
 
 
@@ -1353,4 +1354,7 @@ def test_dataset_definition_transaction_policy_is_explicit_fact() -> None:
     assert "row.get(\"transaction\", {})" not in inspect.getsource(definition_builder)
     commit_policy_field = next(item for item in fields(DatasetTransactionDefinition) if item.name == "commit_policy")
     assert commit_policy_field.default is MISSING
-    assert {definition.transaction.commit_policy for definition in list_dataset_definitions()} == {"unit"}
+    assert {definition.transaction.commit_policy for definition in list_dataset_definitions()} == {
+        "raw_then_serving",
+        "unit",
+    }

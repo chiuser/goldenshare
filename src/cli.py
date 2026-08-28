@@ -20,7 +20,6 @@ from src.cli_parts.ingestion_handlers import (
 )
 from src.cli_parts.ops_handlers import (
     run_ops_audit_schedule_automation_capability as _run_ops_audit_schedule_automation_capability_impl,
-    run_ops_cleanup_etf_fund_daily_serving as _run_ops_cleanup_etf_fund_daily_serving_impl,
     run_ops_archive_etf_realtime_minute_stats as _run_ops_archive_etf_realtime_minute_stats_impl,
     run_ops_date_completeness_scheduler_tick as _run_ops_date_completeness_scheduler_tick_impl,
     run_ops_date_completeness_worker_run as _run_ops_date_completeness_worker_run_impl,
@@ -85,7 +84,6 @@ from src.ops.services.operations_serving_light_refresh_service import ServingLig
 from src.ops.services.operations_stock_basic_reconcile_service import StockBasicReconcileService
 from src.ops.services.date_completeness_audit_service import DateCompletenessAuditWorker
 from src.ops.services.date_completeness_schedule_service import DateCompletenessScheduleCommandService
-from src.ops.services.etf_fund_daily_serving_cleanup_service import EtfFundDailyServingCleanupService
 from src.ops.services.etf_realtime_minute_archive_service import EtfRealtimeMinuteArchiveService
 from src.biz.services.market_mood_walkforward_validation_service import MarketMoodWalkForwardValidationService
 from src.biz.services.wealth.market.turnover.turnover_snapshot_materialize_service import (
@@ -512,29 +510,6 @@ def ops_seed_etf_series_active(
         resource=resource,
         seed_csv_path=from_seed_csv,
         apply=apply,
-        echo_fn=typer.echo,
-    )
-
-
-@app.command("ops-cleanup-etf-fund-daily-serving")
-def ops_cleanup_etf_fund_daily_serving(
-    output: Path | None = typer.Option(None, "--output", help="dry-run 输出 CSV；不传则只打印摘要。"),
-    apply: bool = typer.Option(False, "--apply", help="执行 serving 清理。默认仅预览（dry-run）。"),
-    confirm_report: Path | None = typer.Option(
-        None,
-        "--confirm-report",
-        exists=False,
-        file_okay=True,
-        dir_okay=False,
-        help="apply 时必须传入 dry-run 生成的确认 CSV。",
-    ),
-) -> None:
-    _run_ops_cleanup_etf_fund_daily_serving_impl(
-        session_local=SessionLocal,
-        service_cls=EtfFundDailyServingCleanupService,
-        apply=apply,
-        output=output,
-        confirm_report=confirm_report,
         echo_fn=typer.echo,
     )
 

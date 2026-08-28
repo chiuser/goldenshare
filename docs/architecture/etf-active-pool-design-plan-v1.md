@@ -1,11 +1,11 @@
 # ETF 活跃池设计方案 v1
 
-状态：已落地的现行旧机制 / 退场方向已确认 / 待替换实施
+状态：历史旧机制正在退场 / P3 planner 与 P4 fund_daily 已完成替换 / 待 P5-P8 删除剩余消费者和基础设施
 创建日期：2026-06-17
 最近审计：2026-08-28
 适用范围：`fund_daily`、`etf_mins`、`etf_sh_cons`、`etf_sz_cons`、ETF 实时日线流、ETF 业务查询与 Ops 审查中心
 
-> 关联待实施方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)；配套编码设计见：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)。新方案已经确认整套 `ops.etf_series_active` 机制退场，ETF 身份统一改由 `core_serving.etf_basic` 提供。实施完成后本文转为历史方案；实施前，当前运行事实以第 0 节为准，后续章节保留原始设计与落地记录。
+> 关联实施方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)；配套编码设计见：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)。新方案已经确认整套 `ops.etf_series_active` 机制退场，ETF 身份统一改由 `core_serving.etf_basic` 提供。P3/P4 已完成 planner 与 `fund_daily` 替换，P5-P8 继续处理实时、review 和基础设施；当前运行事实以第 0 节为准，后续章节只保留原始设计与落地记录。
 
 ---
 
@@ -17,19 +17,19 @@
 
 | resource | 当前是否展开源请求 | 当前用途 |
 |---|---|---|
-| `fund_daily` | 否 | `fund_daily` 按交易日请求源端全集后，只在写 `core_serving.fund_daily_bar` 时按池过滤；同时用于旧清理 service 和 ETF 审查页 |
-| `etf_mins` | 是 | 展开 ETF 代码，再按频率和时间窗口生成分钟请求 unit |
-| `etf_sh_cons` | 是 | 展开 `.SH` ETF 代码生成申赎清单请求 |
-| `etf_sz_cons` | 是 | 展开 `.SZ` ETF 代码生成申赎清单请求 |
+| `fund_daily` | 否 | resource 行尚未删表；writer 已改用 Basic selector，旧 cleanup/CLI 已删除，旧审查页待 P7 删除 |
+| `etf_mins` | 否 | resource 行尚未删表；planner 已改用 Basic selector 与上市日裁剪 |
+| `etf_sh_cons` | 否 | resource 行尚未删表；planner 已改用 Basic selector 中的 `.SH` ETF |
+| `etf_sz_cons` | 否 | resource 行尚未删表；planner 已改用 Basic selector 中的 `.SZ` ETF |
 | `etf_rt_daily` | 否 | provider 仍固定请求 `5*.SH` 与 `1*.SZ`；池只用于 Ops health 命中统计、ETF 审查页和实时监控候选资格 |
 
-`fund_daily` 与 `etf_mins` 使用同一张 `ops.etf_series_active` 表和同一套 DAO，也曾用同一份 1,395 行 seed 初始化，但主键是 `(resource, ts_code)`，因此它们是两个独立逻辑池，可以发生差异。
+`fund_daily` 与 `etf_mins` 的旧 resource 行仍物理保存在同一张 `ops.etf_series_active` 表中，但 P3/P4 后已不再驱动其 planner/writer。表、DAO、seed 和 review 需等 P5-P8 其余消费者清零后按既定顺序删除，不能把“行仍存在”误解成“仍是请求或发布上游”。
 
 以下当前不使用该池展开请求：
 
 1. `fund_adj`：按交易日请求基金全集，raw/core 全量写入。
 2. `etf_share_size`：默认每个交易日一次全市场请求，raw 全量写入，现有 serving view 直接映射 raw。
-3. `etf_basic`：独立主数据快照；当前 ingestion 没有调用 `EtfBasicDAO` 展开其他数据集请求。
+3. `etf_basic`：独立主数据快照；P3 已由 `EtfBasicDAO` 为三个代码驱动 planner 提供请求对象，P4 又为 `fund_daily` Serving 发布提供身份与上市日门禁。
 
 `etf_rt_min` 当前没有正式 DatasetDefinition、collector，也不在 resource 白名单中；相关设计稿不能当作现行消费者。
 
