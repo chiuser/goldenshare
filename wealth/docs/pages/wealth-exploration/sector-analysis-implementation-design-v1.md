@@ -1,7 +1,7 @@
 # 财势探查｜板块分析技术实施方案 v1
 
 > - 文档性质：技术实施方案与里程碑对账，不是 LLD。
-> - 当前状态：v1.19；横截面动量排名 M0～M3A 已完成，M4 自动化门禁已通过；双动量 M5 代码级 LLD 与编码门禁已收口，下一步固定为 M6 后端实现，尚未进入双动量编码。
+> - 当前状态：v1.20；横截面动量排名 M0～M3A 已完成，M4 自动化门禁已通过；双动量 M5 合同与 M6 后端均已收口，下一步固定为 M7 前端实现，尚未进入双动量页面编码。
 > - 产品事实源：[财势乾坤板块分析产品交互基线文档 v1](./sector-analysis-product-interaction-baseline-v1.md)。
 > - Figma 文件：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`。
 > - 基线日期：2026-08-28。
@@ -195,14 +195,14 @@ M1 已关闭原先三项页面差异：
 9. 首页 `SectorMemberQuery` 的 CodeGraph 消费者仍是 `MarketSectorOverviewQueryService`，语义仍为 Top5 与单日涨跌幅；板块分析完整多周期成员合同没有反向污染首页，本增量继续保持零修改。
 10. `test_wealth_sector_analysis_guardrails.py` 当前已把来源精确冻结为 `TradeCalendar/WealthSectorHierarchy/DcDaily/DcMember/EquityDailyBar` 并继续禁止资金、Heat、DG/Lake 与 QTF 依赖；双动量执行链只能使用其中前三类来源，LLD 必须为该更窄边界增加方法级反例，不能因为模块总白名单包含成员表就读取成员事实。
 
-### 2.5 双动量编码前现状与复用边界
+### 2.5 双动量 M6 实现现状与复用边界
 
 本轮再次对当前代码、消费者和测试进行 CodeGraph 影响面核验，得到以下约束：
 
 1. 前端路由目前只识别 `sector-analysis-momentum`；`SectorAnalysisPage` 只挂载 `useMomentumRankingController`，方法栏把双动量及其余三个按钮统一处理为“待建设”。双动量必须新增明确的路由判别值和独立 controller，不能在现有动量 controller 中增加模式分支。
 2. 后端 `SectorMomentumCalculator` 已经实现区间累计涨跌幅、同组平均并列排名和百分位，是双动量需要复用的客观事实算法。双动量不得复制这些公式，也不得改变其版本和现有动量排名结果。
-3. `SectorMomentumQueryService.build_rankings()` 当前同时承担日期、层级、比较池、行情窗口、计算、状态及动量排名 DTO 组装。新方法不得调用该页面 DTO 后再二次解释，也不得调用其私有方法；应先抽取页面无关的不可变“单日动量事实快照”，让现有 rankings 和新的双动量服务共同消费。
-4. 当前动量 Meta 的 `formula` 字段包含 1 日周期、榜单方向和历史范围等动量排名专属语义，不能当成双动量 Meta 使用。双动量必须拥有方法专属 Meta 响应，且周期只允许 `5/10/20/30`。
+3. `SectorMomentumQueryService.build_rankings()` 已改为消费页面无关的不可变单日动量事实快照，只负责方向排序、`listPosition` 和旧 DTO；`SectorDualMomentumQueryService` 直接消费同一快照，不调用旧页面 DTO、私有方法或第二次读取事实。
+4. 公共 Meta 已收敛为日期、层级和覆盖事实；既有动量 Meta 继续返回 1 日周期、方向和历史范围，双动量 Meta 使用独立 strict DTO，周期只允许 `5/10/20/30`。
 5. 双动量不需要 history、members 或详情接口。其列表、摘要和散点图均由同一份当日全量结果产生；“符合条件／全部行业”、选中行业和表头排序是前端展示状态，不得触发额外业务查询。
 6. 现有 `SectorAnalysisStatusResolver` 的 `READY/DELAYED/EMPTY/ERROR` 可继续作为页面主状态；`Partial Data`、`No Qualified`、`Small Group` 和 `Missing Selected Coordinate` 必须作为 Ready 内容态的确定性子状态，不能扩写公共主状态枚举。
 7. 影响面集中在 `src/biz/**/sector_analysis`、Biz 聚合路由、Wealth 板块分析路由与新双动量 feature，以及对应后端、前端和架构测试；`foundation`、`ops`、`qtf`、DG/Lake、首页板块速览和既有动量成员链路均不在修改范围。
@@ -1158,12 +1158,14 @@ SectorMomentumSnapshotQueryService
 计划新增或调整的后端文件边界：
 
 ```text
-src/biz/services/wealth/market/sector_analysis/
+src/biz/queries/wealth/market/sector_analysis/
   sector_analysis_meta_query_service.py
   sector_momentum_snapshot_query_service.py
+  sector_dual_momentum_query_service.py
+
+src/biz/services/wealth/market/sector_analysis/
   sector_dual_momentum_contract.py
   sector_dual_momentum_classifier.py
-  sector_dual_momentum_query_service.py
 
 src/biz/schemas/wealth/market/
   sector_dual_momentum.py
@@ -1513,16 +1515,17 @@ M5 已完成以下编码前门禁；它们是进入 M6 的硬约束：
 
 ### M6：双动量后端
 
-状态：`READY / NOT STARTED`。
+状态：`PASS (2026-08-28)`。
 
 1. 抽取页面无关的 Meta 事实和单日动量事实快照，保持四个既有动量 endpoint 合同不变。
 2. 实现版本化双动量分类器、Meta／Results 两个只读 endpoint 和异常码。
 3. 完成五类比较池、四周期、三阈值、四组合、小组／缺失／零符合条件及 SQL／性能正反例。
-4. 后端验收通过后停止，不自动进入前端。
+4. 验收证据：LLD 冻结后端套件 `217 passed`；既有四 endpoint、Calculator 和首页板块速览零回退；本地同拓扑最大规模 Meta 使用当前完整 496 节点层级、Results 使用最大 337 行比较池，分别为 `3/5 SQL`、P95 `14.646/158.317ms`、payload `150,638/157,518 bytes`，均低于 `500ms/256KB`。
+5. 未新增迁移、模型、配置、依赖、缓存、结果表、前端代码或生产写入；M6 已停止，未自动进入 M7。
 
 ### M7：双动量前端
 
-状态：`BLOCKED BY M6`。
+状态：`READY / NOT STARTED`。
 
 1. 新增正式路由、受控方法栏、独立 controller、strict adapter 和 URL 恢复。
 2. 严格按 15 张 Figma 正式画板实现工具栏、结果列表、选择摘要、散点图和全部边界状态。
@@ -1582,7 +1585,7 @@ M5 已完成以下编码前门禁；它们是进入 M6 的硬约束：
 
 ## 16. 编码入口与停止门禁
 
-[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md) v1.13 已完成双动量 M5：第 12A 节已经逐项映射到当前文件、类、DTO、路由、URL、状态、测试和 Figma 节点，异常码与共享事实快照边界也已冻结。下一步严格固定为 M6 后端；M6 先证明既有四 endpoint 零变化，再实现双动量分类器与两只只读接口，不进入前端。
+[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md) v1.14 已完成双动量 M6：公共 Meta、单日快照、分类器、专属 strict DTO、Meta/Results、409 版本门禁、3/5 SQL、完整 496 节点 Meta 与最大 337 行 Results 性能证据均已通过；既有四 endpoint、Calculator 与首页板块速览保持零回退。下一步严格固定为 M7 前端，不得修改 M6 已冻结的后端合同。
 
 编码期间若发现当前数据字段、索引、消费者、真实性能或 Figma 与本文/LLD 冲突，必须停止并回到方案层修正，禁止边编码边改口径。任何新增索引、迁移、缓存、结果表、第三方依赖或范围扩张都不在本方案授权内。
 
@@ -1590,6 +1593,7 @@ M5 已完成以下编码前门禁；它们是进入 M6 的硬约束：
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.20 | 2026-08-28 | 完成双动量 M6 后端：抽取公共 Meta 与单日事实快照，实现版本化分类器、专属 strict DTO、Meta/Results、409 门禁、3/5 SQL、完整 496 节点 Meta／最大 337 行 Results 性能和全矩阵回归；下一步 M7，尚未编码前端 | Codex |
 | v1.19 | 2026-08-28 | M5 完成：代码与消费者影响面、公共 Meta／单日动量事实快照、专属 strict DTO、版本冲突异常、前端 URL/controller、15 状态与 M6～M8 编码门禁已在 LLD v1.13 冻结；下一步 M6，尚未编码 | Codex |
 | v1.18 | 2026-08-28 | 按产品基线 v1.4 与双动量 15 张正式 Figma 状态完成增量技术方案：冻结独立路由、两只只读 API、共享事实快照、双动量分类状态、五类比较池、四周期、三阈值、Ready 边界态、前端 URL／选择／散点交互、性能与测试门禁；旧草稿冻结，下一步固定为 M5 LLD，不进入编码 | Codex |
 | v1.17 | 2026-08-28 | 用户确认 M3/M3A 页面通过验收；M4 自动化联调门禁以 179 项后端、379 项前端、typecheck、build、单一 Alembic head、文档与 diff 检查通过。M4 不再单列周边页面专项人工回归或生产部署验收，最终 Figma 像素与交互验收待说明工作量后另行决定 | Codex |

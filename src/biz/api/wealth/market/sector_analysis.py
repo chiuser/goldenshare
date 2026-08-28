@@ -17,6 +17,9 @@ from src.biz.queries.wealth.market.common.sector_hierarchy_query import (
 from src.biz.queries.wealth.market.sector_analysis.sector_momentum_query_service import (
     SectorMomentumQueryService,
 )
+from src.biz.queries.wealth.market.sector_analysis.sector_dual_momentum_query_service import (
+    SectorDualMomentumQueryService,
+)
 from src.biz.queries.wealth.market.sector_analysis.sector_member_detail_query_service import (
     SectorMemberDetailQueryService,
 )
@@ -25,6 +28,15 @@ from src.biz.schemas.wealth.market.sector_analysis import (
     SectorMemberDetailResponseDto,
     SectorMomentumHistoryResponseDto,
     SectorMomentumRankingsResponseDto,
+)
+from src.biz.schemas.wealth.market.sector_dual_momentum import (
+    SectorDualMomentumMetaResponseDto,
+    SectorDualMomentumResultsResponseDto,
+)
+from src.biz.services.wealth.market.sector_analysis.sector_dual_momentum_contract import (
+    SectorMomentumFactVersionMismatchError,
+    parse_dual_momentum_leading_threshold,
+    parse_dual_momentum_period,
 )
 from src.biz.services.wealth.market.sector_analysis.sector_member_detail_contract import (
     SectorMemberDetailRequest,
@@ -82,6 +94,121 @@ def get_sector_analysis_meta(
             code="SA_QUERY_FAILED",
             message="板块分析数据读取失败，请稍后重试。",
         ) from exc
+    raise AssertionError("unreachable")
+
+
+@router.get(
+    "/dual-momentum/meta",
+    response_model=SectorDualMomentumMetaResponseDto,
+)
+def get_sector_dual_momentum_meta(
+    request: Request,
+    market: str | None = Query(default=None),
+    _user: AuthenticatedUser | None = Depends(require_quote_access),
+    session: Session = Depends(get_db_session),
+) -> SectorDualMomentumMetaResponseDto:
+    try:
+        _validate_query_shape(request, allowed={"market"})
+        return SectorDualMomentumQueryService().build_meta(
+            session,
+            market=_parse_market(market),
+        )
+    except SectorScopeInvalidError as exc:
+        _raise_request_error(exc)
+    except SectorHierarchyUnavailableError as exc:
+        raise WebAppError(
+            status_code=500,
+            code="SA_HIERARCHY_UNAVAILABLE",
+            message="行业分类暂不可用，请稍后重试。",
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise WebAppError(
+            status_code=500,
+            code="SA_QUERY_FAILED",
+            message="板块分析数据读取失败，请稍后重试。",
+        ) from exc
+    raise AssertionError("unreachable")
+
+
+@router.get(
+    "/dual-momentum/results",
+    response_model=SectorDualMomentumResultsResponseDto,
+)
+def get_sector_dual_momentum_results(
+    request: Request,
+    market: str | None = Query(default=None),
+    trade_date: str | None = Query(default=None, alias="tradeDate"),
+    scope: str | None = Query(default=None),
+    level1_code: str | None = Query(default=None, alias="level1Code"),
+    level2_code: str | None = Query(default=None, alias="level2Code"),
+    period: str | None = Query(default=None),
+    leading_threshold: str | None = Query(default=None, alias="leadingThreshold"),
+    hierarchy_version: str | None = Query(default=None, alias="hierarchyVersion"),
+    debug: str | None = Query(default=None),
+    _user: AuthenticatedUser | None = Depends(require_quote_access),
+    session: Session = Depends(get_db_session),
+) -> SectorDualMomentumResultsResponseDto:
+    try:
+        _validate_query_shape(
+            request,
+            allowed={
+                "market",
+                "tradeDate",
+                "scope",
+                "level1Code",
+                "level2Code",
+                "period",
+                "leadingThreshold",
+                "hierarchyVersion",
+                "debug",
+            },
+        )
+        if scope is None:
+            raise SectorScopeInvalidError("scope 为必填参数")
+        if period is None:
+            raise SectorScopeInvalidError("period 为必填参数")
+        if leading_threshold is None:
+            raise SectorScopeInvalidError("leadingThreshold 为必填参数")
+        return SectorDualMomentumQueryService().build_results(
+            session,
+            market=_parse_required_market(market),
+            trade_date=_parse_dual_trade_date(trade_date),
+            scope=parse_scope(scope),
+            level1_code=_parse_optional_sector_code(
+                level1_code,
+                field_name="level1Code",
+            ),
+            level2_code=_parse_optional_sector_code(
+                level2_code,
+                field_name="level2Code",
+            ),
+            period=parse_dual_momentum_period(
+                _parse_choice_int(period, default=0, field_name="period")
+            ),
+            leading_threshold=parse_dual_momentum_leading_threshold(
+                _parse_choice_int(
+                    leading_threshold,
+                    default=0,
+                    field_name="leadingThreshold",
+                )
+            ),
+            hierarchy_version=_parse_required_text(
+                hierarchy_version,
+                field_name="hierarchyVersion",
+                max_length=128,
+            ),
+            debug=_parse_debug(debug),
+        )
+    except SectorMomentumFactVersionMismatchError as exc:
+        raise WebAppError(
+            status_code=409,
+            code="SA_FACT_VERSION_MISMATCH",
+            message="行业分类已更新，正在重新加载双动量数据。",
+        ) from exc
+    except SectorSelectionInvalidError as exc:
+        _raise_selection_error(exc)
+    except SectorScopeInvalidError as exc:
+        _raise_request_error(exc)
     raise AssertionError("unreachable")
 
 
@@ -305,6 +432,13 @@ def _parse_date(raw_value: str | None) -> date | None:
         return date.fromisoformat(raw_value)
     except ValueError as exc:
         raise SectorScopeInvalidError("tradeDate 不是有效日期") from exc
+
+
+def _parse_dual_trade_date(raw_value: str | None) -> date | None:
+    try:
+        return _parse_date(raw_value)
+    except SectorScopeInvalidError as exc:
+        raise SectorSelectionInvalidError(str(exc)) from exc
 
 
 def _parse_choice_int(raw_value: str | None, *, default: int, field_name: str) -> int:

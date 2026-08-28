@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from time import perf_counter
 
 from sqlalchemy import event, select
 
@@ -841,6 +842,587 @@ def test_quote_auth_requirement_is_reused(app_client, monkeypatch) -> None:
         )
         assert member_response.status_code == 401
         assert member_response.json()["code"] == "auth_required"
+        dual_meta_response = app_client.get(
+            "/api/v1/wealth/market/sector-analysis/dual-momentum/meta"
+        )
+        assert dual_meta_response.status_code == 401
+        dual_results_response = app_client.get(
+            "/api/v1/wealth/market/sector-analysis/dual-momentum/results"
+        )
+        assert dual_results_response.status_code == 401
     finally:
         monkeypatch.setenv("QUOTE_API_AUTH_REQUIRED", "false")
         get_settings.cache_clear()
+
+
+def _dual_results_params(**overrides):
+    params = {
+        "market": "CN_A",
+        "tradeDate": TARGET_DATE.isoformat(),
+        "scope": "LEVEL_2",
+        "period": 20,
+        "leadingThreshold": 80,
+        "hierarchyVersion": "2026-04-30-v1",
+        "debug": 1,
+    }
+    params.update(overrides)
+    return params
+
+
+def test_dual_meta_returns_dedicated_contract_in_three_sql(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    _seed_sector_analysis(db_session)
+
+    sql_count, response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/dual-momentum/meta",
+            params={"market": "CN_A"},
+        ),
+    )
+
+    assert response.status_code == 200
+    assert sql_count == 3
+    payload = response.json()
+    assert payload["status"] == "READY"
+    assert payload["formula"] == {
+        "formulaKey": "sector-dual-momentum",
+        "formulaVersion": 1,
+        "basisFormulaKey": "sector-cross-sectional-momentum",
+        "basisFormulaVersion": 1,
+        "periods": [5, 10, 20, 30],
+        "leadingThresholds": [70, 80, 90],
+        "minimumGroupSize": 3,
+        "scopes": [
+            "LEVEL_1",
+            "LEVEL_2",
+            "LEVEL_3",
+            "LEVEL_1_CHILDREN",
+            "LEVEL_2_CHILDREN",
+        ],
+    }
+    assert payload["defaults"] == {
+        "scope": "LEVEL_1",
+        "period": 20,
+        "leadingThreshold": 80,
+        "resultView": "QUALIFIED",
+    }
+    assert "directions" not in payload["formula"]
+    assert "historyRanges" not in payload["formula"]
+    assert 1 not in payload["formula"]["periods"]
+
+
+def test_dual_results_returns_full_canonical_rows_and_five_counts_in_five_sql(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    _seed_sector_analysis(db_session)
+
+    sql_count, response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/dual-momentum/results",
+            params=_dual_results_params(),
+        ),
+    )
+
+    assert response.status_code == 200
+    assert sql_count == 5
+    payload = response.json()
+    assert payload["status"] == "READY"
+    analysis = payload["analysis"]
+    assert analysis["totalCount"] == 3
+    assert analysis["calculableCount"] == 3
+    assert analysis["qualifiedCount"] == 1
+    assert analysis["insufficientCount"] == 0
+    assert analysis["plottableCount"] == 3
+    assert [item["sectorCode"] for item in analysis["items"]] == [
+        "BK1101.DC",
+        "BK1102.DC",
+        "BK1103.DC",
+    ]
+    assert analysis["items"][0]["qualificationStatus"] == "QUALIFIED"
+    assert analysis["items"][0]["displayStatus"] == "QUALIFIED"
+    assert analysis["items"][-1]["percentile"] == 0.0
+    assert payload["debugInfo"]["sampleSectorCodes"] == [
+        "BK1101.DC",
+        "BK1102.DC",
+        "BK1103.DC",
+    ]
+
+
+def test_dual_results_supports_all_frozen_scopes_periods_and_thresholds(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    scopes = (
+        ("LEVEL_1", {}),
+        ("LEVEL_2", {}),
+        ("LEVEL_3", {}),
+        ("LEVEL_1_CHILDREN", {"level1Code": "BK1001.DC"}),
+        (
+            "LEVEL_2_CHILDREN",
+            {"level1Code": "BK1001.DC", "level2Code": "BK1101.DC"},
+        ),
+    )
+
+    for scope, parents in scopes:
+        for period in (5, 10, 20, 30):
+            for threshold in (70, 80, 90):
+                response = app_client.get(
+                    "/api/v1/wealth/market/sector-analysis/dual-momentum/results",
+                    params=_dual_results_params(
+                        scope=scope,
+                        period=period,
+                        leadingThreshold=threshold,
+                        **parents,
+                    ),
+                )
+                assert response.status_code == 200
+                payload = response.json()
+                assert payload["status"] == "READY"
+                assert payload["analysis"]["scope"] == scope
+                assert payload["analysis"]["period"] == period
+                assert payload["analysis"]["leadingThreshold"] == threshold
+
+
+def test_dual_small_group_is_ready_with_plottable_facts_and_no_qualification(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+
+    response = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/dual-momentum/results",
+        params=_dual_results_params(scope="LEVEL_1"),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "READY"
+    assert payload["analysis"]["calculableCount"] == 2
+    assert payload["analysis"]["qualifiedCount"] == 0
+    assert payload["analysis"]["insufficientCount"] == 2
+    assert payload["analysis"]["plottableCount"] == 2
+    assert {
+        item["displayStatus"] for item in payload["analysis"]["items"]
+    } == {"SAMPLE_INSUFFICIENT"}
+
+
+def test_dual_no_qualified_is_ready_and_keeps_all_negative_facts(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    for code in ("BK1101.DC", "BK1102.DC", "BK1103.DC"):
+        row = db_session.scalar(
+            select(DcDaily).where(
+                DcDaily.ts_code == code,
+                DcDaily.trade_date == TARGET_DATE,
+                DcDaily.category == "行业板块",
+            )
+        )
+        row.close = Decimal("1")
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/dual-momentum/results",
+        params=_dual_results_params(),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "READY"
+    assert payload["analysis"]["calculableCount"] == 3
+    assert payload["analysis"]["qualifiedCount"] == 0
+    assert all(
+        item["absoluteStatus"] == "NOT_POSITIVE"
+        for item in payload["analysis"]["items"]
+    )
+
+
+def test_dual_explicit_partial_is_ready_and_preserves_missing_coordinate(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    db_session.delete(
+        db_session.scalar(
+            select(DcDaily).where(
+                DcDaily.ts_code == "BK1103.DC",
+                DcDaily.trade_date == TARGET_DATE,
+                DcDaily.category == "行业板块",
+            )
+        )
+    )
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/dual-momentum/results",
+        params=_dual_results_params(),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "READY"
+    assert payload["tradingDay"]["expectedAvailability"] == "PARTIAL"
+    assert payload["analysis"]["totalCount"] == 3
+    assert payload["analysis"]["calculableCount"] == 2
+    missing = payload["analysis"]["items"][-1]
+    assert missing["sectorCode"] == "BK1103.DC"
+    assert missing["coordinateStatus"] == "UNAVAILABLE"
+    assert missing["displayStatus"] == "DATA_INSUFFICIENT"
+    assert missing["missingReason"] == "DATE_MISSING"
+
+
+def test_dual_default_partial_falls_back_and_meta_reports_same_delayed_date(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    db_session.delete(
+        db_session.scalar(
+            select(DcDaily).where(
+                DcDaily.ts_code == "BK1202.DC",
+                DcDaily.trade_date == TARGET_DATE,
+                DcDaily.category == "行业板块",
+            )
+        )
+    )
+    db_session.commit()
+
+    meta = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/dual-momentum/meta"
+    )
+    params = _dual_results_params()
+    params.pop("tradeDate")
+    results = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/dual-momentum/results",
+        params=params,
+    )
+
+    assert meta.status_code == results.status_code == 200
+    assert meta.json()["status"] == results.json()["status"] == "DELAYED"
+    assert meta.json()["tradingDay"]["observedTradeDate"] == OPEN_DATES[-2].isoformat()
+    assert results.json()["tradingDay"]["observedTradeDate"] == OPEN_DATES[-2].isoformat()
+
+
+def test_dual_explicit_missing_is_empty_without_window_or_fact_queries(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    _seed_sector_analysis(db_session)
+    for row in db_session.scalars(
+        select(DcDaily).where(
+            DcDaily.trade_date == TARGET_DATE,
+            DcDaily.category == "行业板块",
+        )
+    ).all():
+        db_session.delete(row)
+    db_session.commit()
+
+    sql_count, response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/dual-momentum/results",
+            params=_dual_results_params(),
+        ),
+    )
+
+    assert response.status_code == 200
+    assert sql_count == 3
+    assert response.json()["status"] == "EMPTY"
+    assert response.json()["analysis"] is None
+    assert response.json()["exceptionCode"] == "SA_SOURCE_EMPTY"
+
+
+def test_dual_version_mismatch_returns_409_before_window_or_daily_facts(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    _seed_sector_analysis(db_session)
+    statements: list[str] = []
+
+    def record(_conn, _cursor, statement, _parameters, _context, _executemany) -> None:
+        statements.append(statement)
+
+    event.listen(web_engine, "before_cursor_execute", record)
+    try:
+        response = app_client.get(
+            "/api/v1/wealth/market/sector-analysis/dual-momentum/results",
+            params=_dual_results_params(hierarchyVersion="stale"),
+        )
+    finally:
+        event.remove(web_engine, "before_cursor_execute", record)
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "SA_FACT_VERSION_MISMATCH"
+    assert len(statements) == 2
+    assert "dc_daily" not in "\n".join(statements).lower()
+
+
+def test_dual_results_rejects_missing_unknown_duplicate_invalid_enum_and_date(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    base = _dual_results_params()
+    cases = (
+        {key: value for key, value in base.items() if key != "market"},
+        {key: value for key, value in base.items() if key != "scope"},
+        {key: value for key, value in base.items() if key != "period"},
+        {key: value for key, value in base.items() if key != "leadingThreshold"},
+        {key: value for key, value in base.items() if key != "hierarchyVersion"},
+        {**base, "period": 1},
+        {**base, "leadingThreshold": 75},
+        {**base, "resultView": "ALL"},
+        {**base, "direction": "GAINERS"},
+    )
+    for params in cases:
+        response = app_client.get(
+            "/api/v1/wealth/market/sector-analysis/dual-momentum/results",
+            params=params,
+        )
+        assert response.status_code == 400
+        assert response.json()["code"] == "SA_SCOPE_INVALID"
+
+    duplicate = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/dual-momentum/results"
+        "?market=CN_A&market=CN_A&tradeDate=2026-04-30&scope=LEVEL_2"
+        "&period=20&leadingThreshold=80&hierarchyVersion=2026-04-30-v1"
+    )
+    assert duplicate.status_code == 400
+    assert duplicate.json()["code"] == "SA_SCOPE_INVALID"
+
+    invalid_date = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/dual-momentum/results",
+        params=_dual_results_params(tradeDate="2026-02-30"),
+    )
+    assert invalid_date.status_code == 400
+    assert invalid_date.json()["code"] == "SA_SELECTION_INVALID"
+
+
+def test_dual_meta_rejects_unknown_and_duplicate_query_parameters(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    unknown = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/dual-momentum/meta",
+        params={"market": "CN_A", "period": 20},
+    )
+    duplicate = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/dual-momentum/meta"
+        "?market=CN_A&market=CN_A"
+    )
+
+    assert unknown.status_code == duplicate.status_code == 400
+    assert unknown.json()["code"] == duplicate.json()["code"] == "SA_SCOPE_INVALID"
+
+
+def test_dual_meta_and_results_use_safe_hierarchy_and_query_failures(
+    app_client,
+    db_session,
+) -> None:
+    _ensure_tables(db_session)
+    meta = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/dual-momentum/meta"
+    )
+    results = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/dual-momentum/results",
+        params=_dual_results_params(),
+    )
+
+    assert meta.status_code == 500
+    assert meta.json()["code"] == "SA_HIERARCHY_UNAVAILABLE"
+    assert results.status_code == 200
+    assert results.json()["status"] == "ERROR"
+    assert results.json()["exceptionCode"] == "SA_HIERARCHY_UNAVAILABLE"
+
+    _seed_sector_analysis(db_session)
+    DcDaily.__table__.drop(db_session.get_bind())
+    query_failure = app_client.get(
+        "/api/v1/wealth/market/sector-analysis/dual-momentum/results",
+        params=_dual_results_params(),
+    )
+    assert query_failure.status_code == 200
+    assert query_failure.json()["status"] == "ERROR"
+    assert query_failure.json()["exceptionCode"] == "SA_QUERY_FAILED"
+    assert "dc_daily" not in query_failure.text.lower()
+
+
+def _seed_maximum_dual_pool(db_session) -> tuple[date, str]:
+    _ensure_tables(db_session)
+    target_date = date(2026, 6, 30)
+    open_dates = tuple(
+        target_date - timedelta(days=offset) for offset in range(20, -1, -1)
+    )
+    previous = None
+    for trade_date in open_dates:
+        db_session.add(
+            TradeCalendar(
+                exchange="SSE",
+                trade_date=trade_date,
+                is_open=True,
+                pretrade_date=previous,
+            )
+        )
+        previous = trade_date
+    level_1_rows = [
+        (f"BK{1000 + index:04d}.DC", f"一级样本{index:02d}")
+        for index in range(31)
+    ]
+    level_2_rows = [
+        (
+            f"BK{2000 + index:04d}.DC",
+            f"二级样本{index:03d}",
+            level_1_rows[index % len(level_1_rows)],
+        )
+        for index in range(128)
+    ]
+    hierarchy_rows = [
+        (code, name, 1, None, code, name)
+        for code, name in level_1_rows
+    ]
+    hierarchy_rows.extend(
+        (
+            code,
+            name,
+            2,
+            parent[0],
+            parent[0],
+            f"{parent[1]}/{name}",
+        )
+        for code, name, parent in level_2_rows
+    )
+    hierarchy_rows.extend(
+        (
+            f"BK{3000 + index:04d}.DC",
+            f"三级样本{index:03d}",
+            3,
+            level_2_rows[index % len(level_2_rows)][0],
+            level_2_rows[index % len(level_2_rows)][2][0],
+            (
+                f"{level_2_rows[index % len(level_2_rows)][2][1]}/"
+                f"{level_2_rows[index % len(level_2_rows)][1]}/"
+                f"三级样本{index:03d}"
+            ),
+        )
+        for index in range(337)
+    )
+    names_by_code = {row[0]: row[1] for row in hierarchy_rows}
+    for order, (code, name, level, parent, root, path) in enumerate(
+        hierarchy_rows,
+        start=1,
+    ):
+        parent_name = names_by_code.get(parent)
+        root_name = names_by_code[root]
+        db_session.add(
+            WealthSectorHierarchy(
+                sector_code=code,
+                sector_name=name,
+                industry_level=level,
+                industry_level_name=f"{level}级行业",
+                parent_sector_code=parent,
+                parent_sector_name=parent_name,
+                root_sector_code=root,
+                root_sector_name=root_name,
+                hierarchy_path=path,
+                is_leaf=level == 3,
+                display_order=order,
+                baseline_version="maximum-v1",
+                source_received_date=target_date,
+                code_reference_trade_date=target_date,
+                published_at=datetime(2026, 6, 30, 20, 0, tzinfo=timezone.utc),
+            )
+        )
+        for date_index, trade_date in enumerate(open_dates):
+            close = Decimal(100 + order) + Decimal(date_index)
+            db_session.add(
+                DcDaily(
+                    ts_code=code,
+                    trade_date=trade_date,
+                    category="行业板块",
+                    close=close,
+                    open=close,
+                    high=close,
+                    low=close,
+                    change=Decimal("1"),
+                    pct_change=Decimal("1"),
+                    vol=Decimal("100"),
+                    amount=Decimal("1000"),
+                    swing=Decimal("1"),
+                    turnover_rate=Decimal("2"),
+                )
+            )
+    db_session.commit()
+    return target_date, "maximum-v1"
+
+
+def test_dual_maximum_337_pool_meets_sql_payload_and_local_p95_budgets(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    target_date, hierarchy_version = _seed_maximum_dual_pool(db_session)
+    params = {
+        "market": "CN_A",
+        "tradeDate": target_date.isoformat(),
+        "scope": "LEVEL_3",
+        "period": 20,
+        "leadingThreshold": 80,
+        "hierarchyVersion": hierarchy_version,
+    }
+
+    meta_sql_count, first_meta = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/dual-momentum/meta",
+            params={"market": "CN_A"},
+        ),
+    )
+    meta_durations = []
+    for _index in range(20):
+        started = perf_counter()
+        meta_response = app_client.get(
+            "/api/v1/wealth/market/sector-analysis/dual-momentum/meta",
+            params={"market": "CN_A"},
+        )
+        meta_durations.append(perf_counter() - started)
+        assert meta_response.status_code == 200
+
+    sql_count, first = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/dual-momentum/results",
+            params=params,
+        ),
+    )
+    durations = []
+    for _index in range(20):
+        started = perf_counter()
+        response = app_client.get(
+            "/api/v1/wealth/market/sector-analysis/dual-momentum/results",
+            params=params,
+        )
+        durations.append(perf_counter() - started)
+        assert response.status_code == 200
+
+    assert first.status_code == 200
+    assert first_meta.status_code == 200
+    assert len(first_meta.json()["hierarchy"]["nodes"]) == 496
+    assert meta_sql_count == 3
+    assert len(first_meta.content) <= 256 * 1024
+    assert sorted(meta_durations)[18] <= 0.5
+    assert first.json()["analysis"]["totalCount"] == 337
+    assert first.json()["analysis"]["calculableCount"] == 337
+    assert sql_count == 5
+    assert len(first.content) <= 256 * 1024
+    assert sorted(durations)[18] <= 0.5

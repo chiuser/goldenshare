@@ -18,8 +18,14 @@ from src.biz.queries.wealth.market.context.market_page_context_query import (
 from src.biz.queries.wealth.market.sector_analysis.sector_analysis_meta_query import (
     SectorAnalysisMetaQuery,
 )
+from src.biz.queries.wealth.market.sector_analysis.sector_analysis_meta_query_service import (
+    SectorAnalysisMetaQueryService,
+)
 from src.biz.queries.wealth.market.sector_analysis.sector_momentum_query import (
     SectorMomentumQuery,
+)
+from src.biz.queries.wealth.market.sector_analysis.sector_momentum_snapshot_query_service import (
+    SectorMomentumSnapshotQueryService,
 )
 from src.biz.schemas.wealth.market.sector_analysis import (
     HistoricalRankPointDto,
@@ -84,6 +90,8 @@ class SectorMomentumQueryService:
         momentum_query: SectorMomentumQuery | None = None,
         calculator: SectorMomentumCalculator | None = None,
         status_resolver: SectorAnalysisStatusResolver | None = None,
+        meta_service: SectorAnalysisMetaQueryService | None = None,
+        snapshot_service: SectorMomentumSnapshotQueryService | None = None,
     ) -> None:
         self._context_query = context_query or MarketPageContextQuery()
         self._hierarchy_query = hierarchy_query or SectorHierarchyQuery()
@@ -91,20 +99,20 @@ class SectorMomentumQueryService:
         self._query = momentum_query or SectorMomentumQuery()
         self._calculator = calculator or SectorMomentumCalculator()
         self._status = status_resolver or SectorAnalysisStatusResolver()
+        self._meta_service = meta_service or SectorAnalysisMetaQueryService(
+            context_query=self._context_query,
+            hierarchy_query=self._hierarchy_query,
+            meta_query=self._meta_query,
+        )
+        self._snapshot_service = snapshot_service or SectorMomentumSnapshotQueryService(
+            context_query=self._context_query,
+            hierarchy_query=self._hierarchy_query,
+            momentum_query=self._query,
+            calculator=self._calculator,
+        )
 
     def build_meta(self, session: Session, *, market: str) -> SectorAnalysisMetaResponseDto:
-        context = self._context_query.resolve_context(
-            session,
-            market=market,
-            requested_trade_date=None,
-        )
-        hierarchy = self._hierarchy_query.load(session)
-        all_codes = tuple(node.sector_code for node in hierarchy.nodes)
-        coverage_start, coverage = self._meta_query.load_coverage(
-            session,
-            coverage_end_date=context.trade_date,
-            sector_codes=all_codes,
-        )
+        facts = self._meta_service.load(session, market=market)
         return SectorAnalysisMetaResponseDto(
             formula=SectorFormulaDto(
                 formulaKey=FORMULA_KEY,
@@ -115,12 +123,14 @@ class SectorMomentumQueryService:
                 directions=list(ALLOWED_DIRECTIONS),
             ),
             hierarchy=SectorHierarchyDto(
-                hierarchyVersion=hierarchy.baseline_version,
-                publishedAt=hierarchy.published_at,
-                nodes=[self._hierarchy_node_dto(node) for node in hierarchy.nodes],
+                hierarchyVersion=facts.hierarchy.baseline_version,
+                publishedAt=facts.hierarchy.published_at,
+                nodes=[
+                    self._hierarchy_node_dto(node) for node in facts.hierarchy.nodes
+                ],
             ),
-            coverageStartDate=coverage_start,
-            coverageEndDate=context.trade_date,
+            coverageStartDate=facts.coverage_start_date,
+            coverageEndDate=facts.coverage_end_date,
             tradeDates=[
                 SectorTradeDateAvailabilityDto(
                     tradeDate=item.trade_date,
@@ -128,7 +138,7 @@ class SectorMomentumQueryService:
                     expectedSectorCount=item.expected_sector_count,
                     validSectorCount=item.valid_sector_count,
                 )
-                for item in coverage
+                for item in facts.trade_dates
             ],
         )
 
@@ -150,18 +160,21 @@ class SectorMomentumQueryService:
         pool: tuple[SectorHierarchyNode, ...] = ()
         try:
             context = self._load_current_context(session, market=market)
-            hierarchy = self._hierarchy_query.load(session)
-            pool = resolve_scope_pool(
-                hierarchy,
+            preparation = self._snapshot_service.prepare_for_context(
+                session,
+                context=context,
+                trade_date=trade_date,
                 scope=scope,
                 level1_code=level1_code,
                 level2_code=level2_code,
+                period=period,
             )
-            resolution = self._resolve_date(
+            hierarchy = preparation.hierarchy
+            pool = preparation.pool
+            resolution = preparation.resolution
+            snapshot = self._snapshot_service.build_prepared(
                 session,
-                context=context,
-                requested_trade_date=trade_date,
-                hierarchy=hierarchy,
+                preparation=preparation,
             )
             if (
                 resolution.observed is None
@@ -175,23 +188,7 @@ class SectorMomentumQueryService:
                     debug=debug,
                 )
 
-            open_dates = self._query.load_open_dates(
-                session,
-                end_date=resolution.observed.trade_date,
-                count=1 if period == 1 else period + 1,
-            )
-            facts = self._load_indexed_facts(
-                session,
-                nodes=pool,
-                open_dates=open_dates,
-            )
-            ranked = self._calculate_ranked(
-                nodes=pool,
-                open_dates=open_dates,
-                target_date=resolution.observed.trade_date,
-                period=period,
-                fact_index=facts,
-            )
+            ranked = tuple(row.rank_fact for row in snapshot.rows)
             calculable_count = sum(row.return_pct is not None for row in ranked)
             status = self._status.resolve(
                 trading_day=resolution,

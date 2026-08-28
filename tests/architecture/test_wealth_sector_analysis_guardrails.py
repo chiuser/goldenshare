@@ -44,6 +44,7 @@ APPROVED_SHARED_QUERY_MODULES = {
     "src.biz.queries.wealth.market.context.market_page_context_query",
 }
 REGISTERED_EXCEPTION_CODES = {
+    "SA_FACT_VERSION_MISMATCH",
     "SA_SOURCE_DELAYED",
     "SA_SOURCE_EMPTY",
     "SA_HIERARCHY_UNAVAILABLE",
@@ -54,6 +55,34 @@ REGISTERED_EXCEPTION_CODES = {
     "SA_MEMBER_QUERY_FAILED",
     "SA_QUERY_FAILED",
 }
+
+DUAL_MOMENTUM_BACKEND_PATHS = (
+    REPO_ROOT
+    / "src/biz/queries/wealth/market/sector_analysis/sector_analysis_meta_query_service.py",
+    REPO_ROOT
+    / "src/biz/queries/wealth/market/sector_analysis/sector_momentum_snapshot_query_service.py",
+    REPO_ROOT
+    / "src/biz/queries/wealth/market/sector_analysis/sector_dual_momentum_query_service.py",
+    REPO_ROOT
+    / "src/biz/services/wealth/market/sector_analysis/sector_dual_momentum_contract.py",
+    REPO_ROOT
+    / "src/biz/services/wealth/market/sector_analysis/sector_dual_momentum_classifier.py",
+    REPO_ROOT / "src/biz/schemas/wealth/market/sector_dual_momentum.py",
+)
+DUAL_MOMENTUM_FORBIDDEN_TOKENS = (
+    "dc_member",
+    "equity_daily_bar",
+    "member_detail",
+    "moneyflow",
+    "sector_heat",
+    "qtf",
+    "dagster",
+    "duckdb",
+    "parquet",
+    "prediction",
+    "forecast",
+    "success_rate",
+)
 
 BACKEND_SECTOR_ANALYSIS_PATHS = (
     REPO_ROOT / "src/biz/api/wealth/market/sector_analysis.py",
@@ -293,3 +322,39 @@ def test_sector_analysis_does_not_add_an_alembic_migration() -> None:
             violations.append(path.relative_to(REPO_ROOT).as_posix())
 
     assert not violations, "板块分析首期不允许新增迁移：\n" + "\n".join(violations)
+
+
+def test_dual_momentum_backend_stays_on_the_three_read_only_fact_sources() -> None:
+    violations: list[str] = []
+    for path in DUAL_MOMENTUM_BACKEND_PATHS:
+        source = path.read_text(encoding="utf-8")
+        relative_path = path.relative_to(REPO_ROOT).as_posix()
+        lowered = source.lower()
+        for token in DUAL_MOMENTUM_FORBIDDEN_TOKENS:
+            if token in lowered:
+                violations.append(f"{relative_path} contains forbidden token {token}")
+        for line_no, module in _python_imports(path):
+            if module.startswith("src.foundation.models") and module not in {
+                "src.foundation.models.core.dc_daily",
+                "src.foundation.models.core.trade_calendar",
+                "src.foundation.models.core_serving.wealth_sector_hierarchy",
+            }:
+                violations.append(
+                    f"{relative_path}:{line_no} imports unapproved dual source {module}"
+                )
+
+    assert not violations, (
+        "双动量只允许复用交易日历、行业层级和行业日行情：\n"
+        + "\n".join(violations)
+    )
+
+
+def test_dual_momentum_adds_only_the_two_frozen_read_only_routes() -> None:
+    api_source = (
+        REPO_ROOT / "src/biz/api/wealth/market/sector_analysis.py"
+    ).read_text(encoding="utf-8")
+
+    assert api_source.count('@router.get(\n    "/dual-momentum/') == 2
+    assert '"/dual-momentum/meta"' in api_source
+    assert '"/dual-momentum/results"' in api_source
+    assert '@router.post(\n    "/dual-momentum/' not in api_source
