@@ -1,7 +1,7 @@
 # 财势探查｜板块分析技术实施方案 v1
 
 > - 文档性质：技术实施方案与里程碑对账，不是 LLD。
-> - 当前状态：v1.21；横截面动量排名 M0～M3A 已完成，M4 自动化门禁已通过；双动量 M5 合同、M6 后端与 M7 前端代码及自动化均已收口，下一步固定为 M8 真实联调和最终交付验收。
+> - 当前状态：v1.22；横截面动量排名 M0～M3A 已完成，M4 自动化门禁已通过；双动量 M8 真实接口、15 个正式状态、四档宽度和自动化门禁已完成对账，最终用户验收及冷启动 Meta 性能结论仍待确认。
 > - 产品事实源：[财势乾坤板块分析产品交互基线文档 v1](./sector-analysis-product-interaction-baseline-v1.md)。
 > - Figma 文件：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`。
 > - 基线日期：2026-08-28。
@@ -217,7 +217,7 @@ M1 已关闭原先三项页面差异：
 | 成交额洞察 | `/wealth/exploration/turnover-insight` | M1 已实现 |
 | 板块分析默认入口 | `/wealth/exploration/sector-analysis` | `replace` 到动量排名 |
 | 横截面动量排名 | `/wealth/exploration/sector-analysis/momentum-ranking` | M3 与 M3A 已完成并通过验收 |
-| 双动量 | `/wealth/exploration/sector-analysis/dual-momentum` | M6 后端与 M7 前端代码／自动化已完成；待 M8 联调与最终验收 |
+| 双动量 | `/wealth/exploration/sector-analysis/dual-momentum` | M8 技术联调已完成；待用户验收及冷启动 Meta 性能结论确认 |
 | 相对轮动 | 暂不注册正式路由 | 按钮保留，点击提示“待建设” |
 | 成员广度 | 暂不注册正式路由 | 按钮保留，点击提示“待建设” |
 | 量价分布 | 暂不注册正式路由 | 按钮保留，点击提示“待建设” |
@@ -1534,12 +1534,14 @@ M5 已完成以下编码前门禁；它们是进入 M6 的硬约束：
 
 ### M8：双动量联调与交付验收
 
-状态：`READY / NOT STARTED`。
+状态：`TECHNICAL REVIEW COMPLETE / USER ACCEPTANCE AND COLD-START PERFORMANCE DECISION PENDING (2026-08-28)`。
 
-1. 执行双动量真实 API smoke、动量排名全量防回退、前端全量、类型检查、构建、架构和文档门禁。
-2. 对 Meta／Results 做真实只读 SQL 数量、P95 和 payload 验收，不重复进行来源数据集覆盖审计。
-3. 逐一完成 15 个正式状态、组件集和 1600／1512／1460／1366 宽度的像素与交互验收。
-4. 用户验收前不把双动量标记为完成，不自动进入下一个方法。
+1. 真实接口以公共业务日 `2026-08-27` 返回 READY：Meta 返回完整 496 节点层级，最大 `LEVEL_3` Results 返回 337 行且 337 行可计算；真实 SQL event counter 为 Meta `3`、Results `5`，payload 为 `207,102/154,491 bytes`，均满足数量和 `256KB` 门禁。
+2. 每组 20 次真实 HTTP 的首轮 P95 为 Meta `672.030ms`、Results `347.204ms`；紧接的两轮 P95 分别为 `280.642/391.372ms` 与 `307.458/372.163ms`。两轮稳态均通过 `500ms`，但冷启动 Meta 另有单次 `610.89ms`，因此不把性能写成无条件通过；该现象保留为最终验收前的明确风险。
+3. 已逐一验收 15 个正式状态：六类 Ready 工作台、Hover、Partial、Loading、Delayed、Empty、Error、Small Group、No Qualified、Missing Selected Coordinate。其中六类 Ready、Hover、Partial、Empty、Small Group、No Qualified 和 Missing Coordinate 共十二个状态使用当前真实接口；Loading 使用真实请求过程；当前生产数据无法自然产生 Delayed 和可重试 Error，因此仅在浏览器传输层注入符合冻结 DTO 的受控响应做视觉验收，没有修改代码，也没有把它们冒充为生产事实。
+4. `1600/1512/1460/1366` 按浏览器可布局区 `clientWidth` 验收：对应工作区宽 `1564/1476/1424/1424px`，两列严格为 `776/732/706/706px`，列间均为 `12px`；前三档页面和模块横向溢出为 0，1366 仅由公共 `1460px` 最小宽产生页面级横向滚动，模块自身溢出为 0。
+5. 真实浏览器交互证明结果视图、选择、排序、放大／ESC 关闭和三个待建设按钮均不产生双动量请求；周期切换和浏览器返回正确恢复 URL、20 日周期及所选行业。后端冻结套件 `203 passed`、前端全量 `436 passed`、typecheck 和生产构建均通过。
+6. 用户验收及冷启动 Meta 性能结论确认前不把双动量标记为最终完成，不自动进入下一个方法。
 
 ### 后续方法
 
@@ -1585,7 +1587,7 @@ M5 已完成以下编码前门禁；它们是进入 M6 的硬约束：
 
 ## 16. 编码入口与停止门禁
 
-[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md) v1.15 已完成双动量 M7：正式路由、受控方法栏、独立 API／adapter／URL／controller、15 个正式状态和响应式工作区均已实现，定向 82 项及前端全量 436 项测试、TypeScript 与生产构建通过；M6 后端合同、既有动量排名、TopMarketBar 与 Shortcut 未被修改。下一步严格固定为 M8 真实联调、四档像素和最终交付验收。
+[板块分析低层设计 v1](./sector-analysis-low-level-design-v1.md) v1.16 已完成双动量 M8 技术联调：真实 API、3/5 SQL、payload、15 个正式状态、四档宽度、真实交互和全量门禁均已对账；冷启动 Meta 曾超过 500ms，且最终用户验收尚未完成，因此 G30 继续保持待确认。不得自动开始其他分析方法。
 
 编码期间若发现当前数据字段、索引、消费者、真实性能或 Figma 与本文/LLD 冲突，必须停止并回到方案层修正，禁止边编码边改口径。任何新增索引、迁移、缓存、结果表、第三方依赖或范围扩张都不在本方案授权内。
 
@@ -1593,6 +1595,7 @@ M5 已完成以下编码前门禁；它们是进入 M6 的硬约束：
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| v1.22 | 2026-08-28 | 完成双动量 M8 技术联调：真实 496 节点／337 行 API、3/5 SQL、payload、15 正式状态、1600/1512/1460/1366 四档宽度、零请求交互、203 项后端与 436 项前端回归均已对账；两轮稳态 P95 通过但冷启动 Meta 曾超过 500ms，最终用户验收和性能结论仍待确认 | Codex |
 | v1.21 | 2026-08-28 | 完成双动量 M7 前端：正式路由与按需挂载、独立 strict adapter／URL／controller、15 个正式状态、响应式列表和散点、浏览器历史、超时／401／409／竞态保护及零请求交互均完成自动化；定向 82 项、前端全量 436 项、typecheck/build 通过，下一步 M8 | Codex |
 | v1.20 | 2026-08-28 | 完成双动量 M6 后端：抽取公共 Meta 与单日事实快照，实现版本化分类器、专属 strict DTO、Meta/Results、409 门禁、3/5 SQL、完整 496 节点 Meta／最大 337 行 Results 性能和全矩阵回归；下一步 M7，尚未编码前端 | Codex |
 | v1.19 | 2026-08-28 | M5 完成：代码与消费者影响面、公共 Meta／单日动量事实快照、专属 strict DTO、版本冲突异常、前端 URL/controller、15 状态与 M6～M8 编码门禁已在 LLD v1.13 冻结；下一步 M6，尚未编码 | Codex |
