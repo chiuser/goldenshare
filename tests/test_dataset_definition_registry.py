@@ -269,7 +269,7 @@ def test_dataset_definition_projects_etf_sh_cons_raw_view_facts() -> None:
     assert definition.planning.universe.request_field == "ts_code"
     assert definition.planning.universe.override_fields == ("ts_code",)
     assert [(source.type, source.resource) for source in definition.planning.universe.sources] == [
-        ("ops_etf_series_active", "etf_sh_cons"),
+        ("core_serving_etf_basic", None),
     ]
     assert definition.planning.pagination_policy == "offset_limit"
     assert definition.planning.page_limit == 3000
@@ -362,7 +362,7 @@ def test_dataset_definition_projects_etf_sz_cons_raw_view_facts() -> None:
     assert definition.planning.unit_builder_key == "build_etf_sz_cons_units"
     assert definition.planning.universe is not None
     assert [(source.type, source.resource) for source in definition.planning.universe.sources] == [
-        ("ops_etf_series_active", "etf_sz_cons"),
+        ("core_serving_etf_basic", None),
     ]
     assert definition.planning.pagination_policy == "offset_limit"
     assert definition.planning.page_limit == 3000

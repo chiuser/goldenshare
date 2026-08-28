@@ -20,8 +20,8 @@ class IngestionCodebookEntry:
         }
 
 
-INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-28.v1"
-INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-28T00:00:00Z"
+INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-28.v2"
+INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-28T11:00:16Z"
 
 INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("dataset_mismatch", "请求数据集与定义不一致", "validator", "检查 dataset_key 与定义绑定"),
@@ -53,6 +53,8 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("trade_date_anchor_required", "缺少交易日锚点", "planner", "补齐 trade_date 或 start/end 区间"),
     IngestionCodebookEntry("upstream_data_not_ready", "上游依赖数据未就绪", "planner", "先维护依赖数据集后再重试"),
     IngestionCodebookEntry("universe_empty", "规划范围为空", "planner", "检查股票池/板块池或上游基础数据"),
+    IngestionCodebookEntry("etf_not_requestable", "ETF 当前不可请求", "planner", "检查 ETF Basic 中的代码、上市状态和上市日期"),
+    IngestionCodebookEntry("window_before_list_date", "请求窗口早于 ETF 上市日期", "planner", "将请求开始日期调整到 ETF 上市日期或更晚"),
     IngestionCodebookEntry("unknown_universe_policy", "未知的规划范围策略", "planner", "检查 planning.universe_policy 配置"),
     IngestionCodebookEntry("request_builder_not_found", "请求参数构造器不存在", "planner", "检查 source.request_builder_key 与注册函数"),
     IngestionCodebookEntry("scoped_repair_policy_invalid", "定点补录策略非法", "planner", "检查筛选字段的 scoped_repair_policy 定义"),

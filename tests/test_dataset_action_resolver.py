@@ -6,6 +6,10 @@ from types import SimpleNamespace
 
 import pytest
 
+from src.foundation.dao.etf_basic_dao import (
+    EtfRequestabilitySnapshot,
+    EtfRequestTarget,
+)
 from src.foundation.ingestion.errors import IngestionPlanningError
 from src.foundation.ingestion.errors import IngestionValidationError
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
@@ -19,6 +23,54 @@ from src.foundation.ingestion.request_builders import (
     _idx_factor_pro_params,
     _stk_factor_pro_params,
 )
+
+
+ELIGIBILITY_AS_OF = date(2026, 8, 28)
+
+
+def _etf_target(ts_code: str, *, list_date: date) -> EtfRequestTarget:
+    return EtfRequestTarget(
+        ts_code=ts_code,
+        list_date=list_date,
+        exchange="SH" if ts_code.endswith(".SH") else "SZ",
+    )
+
+
+def _resolver_with_etf_targets(
+    mocker,
+    targets: list[EtfRequestTarget],
+) -> tuple[DatasetActionResolver, SimpleNamespace]:  # type: ignore[no-untyped-def]
+    targets_by_code = {target.ts_code: target for target in targets}
+
+    def get_target(*, ts_code, as_of_date, exchange=None):  # type: ignore[no-untyped-def]
+        del as_of_date
+        target = targets_by_code.get(ts_code)
+        if target is None or (exchange is not None and target.exchange != exchange):
+            return None
+        return target
+
+    etf_basic = SimpleNamespace(
+        load_requestability_snapshot=mocker.Mock(
+            return_value=EtfRequestabilitySnapshot(
+                as_of_date=ELIGIBILITY_AS_OF,
+                exchange=None,
+                targets=tuple(sorted(targets, key=lambda target: target.ts_code)),
+                serving_row_count=len(targets),
+                requestable_count=len(targets),
+                excluded_reason_counts={},
+            )
+        ),
+        get_requestable_target=mocker.Mock(side_effect=get_target),
+    )
+    mocker.patch(
+        "src.foundation.ingestion.unit_planner.DAOFactory",
+        return_value=SimpleNamespace(etf_basic=etf_basic),
+    )
+    mocker.patch(
+        "src.foundation.ingestion.unit_planner._current_china_date",
+        return_value=ELIGIBILITY_AS_OF,
+    )
+    return DatasetActionResolver(mocker.Mock()), etf_basic
 
 
 def test_dataset_action_resolver_builds_point_plan_with_real_enum_defaults(mocker) -> None:
@@ -391,12 +443,14 @@ def test_cyq_chips_request_builder_requires_ts_code() -> None:
         _cyq_chips_params(request, date(2026, 4, 24), {})
 
 
-def test_etf_sh_cons_default_point_uses_etf_active_pool(mocker) -> None:
-    fake_dao = SimpleNamespace(
-        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["510500.SH", "510300.SH"])),
+def test_etf_sh_cons_automatic_point_uses_one_sh_basic_snapshot(mocker) -> None:
+    resolver, etf_basic = _resolver_with_etf_targets(
+        mocker,
+        [
+            _etf_target("510500.SH", list_date=date(2013, 3, 15)),
+            _etf_target("510300.SH", list_date=date(2012, 5, 28)),
+        ],
     )
-    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
-    resolver = DatasetActionResolver(mocker.Mock())
     request = DatasetActionRequest(
         dataset_key="etf_sh_cons",
         action="maintain",
@@ -414,19 +468,28 @@ def test_etf_sh_cons_default_point_uses_etf_active_pool(mocker) -> None:
     assert [unit.trade_date for unit in plan.units] == [date(2026, 6, 18), date(2026, 6, 18)]
     assert {unit.pagination_policy for unit in plan.units} == {"offset_limit"}
     assert {unit.page_limit for unit in plan.units} == {3000}
-    assert [unit.progress_context for unit in plan.units] == [
-        {"unit": "etf", "ts_code": "510300.SH", "trade_date": "2026-06-18"},
-        {"unit": "etf", "ts_code": "510500.SH", "trade_date": "2026-06-18"},
+    assert [unit.progress_context["master_list_date"] for unit in plan.units] == [
+        "2012-05-28",
+        "2013-03-15",
     ]
-    fake_dao.etf_series_active.list_active_codes.assert_called_once_with("etf_sh_cons")
-
-
-def test_etf_sh_cons_explicit_code_must_be_single_sh_and_in_active_pool(mocker) -> None:
-    fake_dao = SimpleNamespace(
-        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["510300.SH", "510500.SH"])),
+    assert {unit.progress_context["requested_start_date"] for unit in plan.units} == {
+        "2026-06-18"
+    }
+    assert {unit.progress_context["effective_start_date"] for unit in plan.units} == {
+        "2026-06-18"
+    }
+    etf_basic.load_requestability_snapshot.assert_called_once_with(
+        as_of_date=ELIGIBILITY_AS_OF,
+        exchange="SH",
     )
-    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
-    resolver = DatasetActionResolver(mocker.Mock())
+    etf_basic.get_requestable_target.assert_not_called()
+
+
+def test_etf_sh_cons_explicit_code_uses_one_target_query_and_no_snapshot(mocker) -> None:
+    resolver, etf_basic = _resolver_with_etf_targets(
+        mocker,
+        [_etf_target("510300.SH", list_date=date(2012, 5, 28))],
+    )
     request = DatasetActionRequest(
         dataset_key="etf_sh_cons",
         action="maintain",
@@ -438,15 +501,16 @@ def test_etf_sh_cons_explicit_code_must_be_single_sh_and_in_active_pool(mocker) 
 
     assert plan.planning.unit_count == 1
     assert plan.units[0].request_params == {"ts_code": "510300.SH", "trade_date": "20260618"}
-    fake_dao.etf_series_active.list_active_codes.assert_called_once_with("etf_sh_cons")
-
-
-def test_etf_sh_cons_rejects_explicit_code_outside_active_pool(mocker) -> None:
-    fake_dao = SimpleNamespace(
-        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["510300.SH"])),
+    etf_basic.get_requestable_target.assert_called_once_with(
+        ts_code="510300.SH",
+        as_of_date=ELIGIBILITY_AS_OF,
+        exchange="SH",
     )
-    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
-    resolver = DatasetActionResolver(mocker.Mock())
+    etf_basic.load_requestability_snapshot.assert_not_called()
+
+
+def test_etf_sh_cons_rejects_explicit_code_outside_requestable_basic(mocker) -> None:
+    resolver, etf_basic = _resolver_with_etf_targets(mocker, [])
     request = DatasetActionRequest(
         dataset_key="etf_sh_cons",
         action="maintain",
@@ -454,57 +518,61 @@ def test_etf_sh_cons_rejects_explicit_code_outside_active_pool(mocker) -> None:
         filters={"ts_code": "510500.SH"},
     )
 
-    with pytest.raises(IngestionPlanningError, match="未配置到 active 池") as exc_info:
+    with pytest.raises(IngestionPlanningError, match="当前不可请求") as exc_info:
         resolver.build_plan(request)
 
-    assert exc_info.value.structured_error.error_code == "invalid_enum"
+    assert exc_info.value.structured_error.error_code == "etf_not_requestable"
+    assert exc_info.value.structured_error.details["exchange"] == "SH"
+    etf_basic.get_requestable_target.assert_called_once()
+    etf_basic.load_requestability_snapshot.assert_not_called()
 
 
-def test_etf_sh_cons_rejects_empty_active_pool(mocker) -> None:
-    fake_dao = SimpleNamespace(
-        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=[])),
-    )
-    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
-    resolver = DatasetActionResolver(mocker.Mock())
+def test_etf_sh_cons_rejects_empty_requestable_basic_snapshot(mocker) -> None:
+    resolver, etf_basic = _resolver_with_etf_targets(mocker, [])
     request = DatasetActionRequest(
         dataset_key="etf_sh_cons",
         action="maintain",
         time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 6, 18)),
     )
 
-    with pytest.raises(IngestionPlanningError, match="先配置 etf_sh_cons ETF 激活池") as exc_info:
+    with pytest.raises(IngestionPlanningError, match="当前没有可请求 ETF") as exc_info:
         resolver.build_plan(request)
 
     assert exc_info.value.structured_error.error_code == "universe_empty"
+    assert exc_info.value.structured_error.details["exchange"] == "SH"
+    etf_basic.load_requestability_snapshot.assert_called_once()
+    etf_basic.get_requestable_target.assert_not_called()
 
 
-def test_etf_sh_cons_rejects_non_sh_code_in_active_pool(mocker) -> None:
-    fake_dao = SimpleNamespace(
-        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["510300.SH", "159915.SZ"])),
+def test_etf_sh_cons_rejects_explicit_sz_code(mocker) -> None:
+    resolver, etf_basic = _resolver_with_etf_targets(
+        mocker,
+        [_etf_target("159915.SZ", list_date=date(2011, 12, 5))],
     )
-    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
-    resolver = DatasetActionResolver(mocker.Mock())
     request = DatasetActionRequest(
         dataset_key="etf_sh_cons",
         action="maintain",
         time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 6, 18)),
+        filters={"ts_code": "159915.SZ"},
     )
 
-    with pytest.raises(IngestionPlanningError, match="只允许 .SH ETF 代码") as exc_info:
+    with pytest.raises(IngestionPlanningError, match="当前不可请求") as exc_info:
         resolver.build_plan(request)
 
-    assert exc_info.value.structured_error.error_code == "invalid_enum"
+    assert exc_info.value.structured_error.error_code == "etf_not_requestable"
+    etf_basic.get_requestable_target.assert_called_once_with(
+        ts_code="159915.SZ",
+        as_of_date=ELIGIBILITY_AS_OF,
+        exchange="SH",
+    )
+    etf_basic.load_requestability_snapshot.assert_not_called()
 
 
 def test_etf_sh_cons_range_chunks_by_natural_half_year_without_trade_day_expansion(mocker) -> None:
-    fake_dao = SimpleNamespace(
-        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["510300.SH"])),
-        trade_calendar=SimpleNamespace(
-            get_open_dates=mocker.Mock(side_effect=AssertionError("etf_sh_cons range must not expand by trade day"))
-        ),
+    resolver, etf_basic = _resolver_with_etf_targets(
+        mocker,
+        [_etf_target("510300.SH", list_date=date(2025, 4, 10))],
     )
-    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
-    resolver = DatasetActionResolver(mocker.Mock())
     request = DatasetActionRequest(
         dataset_key="etf_sh_cons",
         action="maintain",
@@ -515,13 +583,13 @@ def test_etf_sh_cons_range_chunks_by_natural_half_year_without_trade_day_expansi
 
     assert plan.planning.unit_count == 3
     assert [unit.request_params for unit in plan.units] == [
-        {"ts_code": "510300.SH", "start_date": "20250310", "end_date": "20250630"},
+        {"ts_code": "510300.SH", "start_date": "20250410", "end_date": "20250630"},
         {"ts_code": "510300.SH", "start_date": "20250701", "end_date": "20251231"},
         {"ts_code": "510300.SH", "start_date": "20260101", "end_date": "20260529"},
     ]
     assert [unit.trade_date for unit in plan.units] == [None, None, None]
     assert [unit.progress_context["start_date"] for unit in plan.units] == [
-        "2025-03-10",
+        "2025-04-10",
         "2025-07-01",
         "2026-01-01",
     ]
@@ -530,15 +598,26 @@ def test_etf_sh_cons_range_chunks_by_natural_half_year_without_trade_day_expansi
         "2025-12-31",
         "2026-05-29",
     ]
-    fake_dao.trade_calendar.get_open_dates.assert_not_called()
+    assert {unit.progress_context["requested_start_date"] for unit in plan.units} == {
+        "2025-03-10"
+    }
+    assert {unit.progress_context["effective_start_date"] for unit in plan.units} == {
+        "2025-04-10"
+    }
+    etf_basic.load_requestability_snapshot.assert_called_once_with(
+        as_of_date=ELIGIBILITY_AS_OF,
+        exchange="SH",
+    )
 
 
 def test_etf_sh_cons_rejects_multi_code_input(mocker) -> None:
-    fake_dao = SimpleNamespace(
-        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["510300.SH", "510500.SH"])),
+    resolver, etf_basic = _resolver_with_etf_targets(
+        mocker,
+        [
+            _etf_target("510300.SH", list_date=date(2012, 5, 28)),
+            _etf_target("510500.SH", list_date=date(2013, 3, 15)),
+        ],
     )
-    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
-    resolver = DatasetActionResolver(mocker.Mock())
     request = DatasetActionRequest(
         dataset_key="etf_sh_cons",
         action="maintain",
@@ -550,6 +629,8 @@ def test_etf_sh_cons_rejects_multi_code_input(mocker) -> None:
         resolver.build_plan(request)
 
     assert exc_info.value.structured_error.error_code == "invalid_enum"
+    etf_basic.load_requestability_snapshot.assert_not_called()
+    etf_basic.get_requestable_target.assert_not_called()
 
 
 def test_etf_sh_cons_request_builder_requires_ts_code() -> None:
@@ -663,12 +744,14 @@ def test_etf_share_size_request_builder_only_emits_point_date_and_optional_code(
         _etf_share_size_params(request, None, {})
 
 
-def test_etf_sz_cons_default_point_uses_only_sz_active_pool(mocker) -> None:
-    fake_dao = SimpleNamespace(
-        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["159919.SZ", "159001.SZ"])),
+def test_etf_sz_cons_automatic_point_uses_one_sz_basic_snapshot(mocker) -> None:
+    resolver, etf_basic = _resolver_with_etf_targets(
+        mocker,
+        [
+            _etf_target("159919.SZ", list_date=date(2012, 5, 28)),
+            _etf_target("159001.SZ", list_date=date(2004, 12, 20)),
+        ],
     )
-    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
-    resolver = DatasetActionResolver(mocker.Mock())
 
     plan = resolver.build_plan(
         DatasetActionRequest(
@@ -684,24 +767,24 @@ def test_etf_sz_cons_default_point_uses_only_sz_active_pool(mocker) -> None:
         {"ts_code": "159001.SZ", "trade_date": "20260821"},
         {"ts_code": "159919.SZ", "trade_date": "20260821"},
     ]
-    assert [unit.progress_context for unit in plan.units] == [
-        {"unit": "etf", "ts_code": "159001.SZ", "trade_date": "2026-08-21"},
-        {"unit": "etf", "ts_code": "159919.SZ", "trade_date": "2026-08-21"},
+    assert [unit.progress_context["master_list_date"] for unit in plan.units] == [
+        "2004-12-20",
+        "2012-05-28",
     ]
     assert {unit.pagination_policy for unit in plan.units} == {"offset_limit"}
     assert {unit.page_limit for unit in plan.units} == {3000}
-    fake_dao.etf_series_active.list_active_codes.assert_called_once_with("etf_sz_cons")
+    etf_basic.load_requestability_snapshot.assert_called_once_with(
+        as_of_date=ELIGIBILITY_AS_OF,
+        exchange="SZ",
+    )
+    etf_basic.get_requestable_target.assert_not_called()
 
 
 def test_etf_sz_cons_range_chunks_by_natural_month_without_trade_day_expansion(mocker) -> None:
-    fake_dao = SimpleNamespace(
-        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["159919.SZ"])),
-        trade_calendar=SimpleNamespace(
-            get_open_dates=mocker.Mock(side_effect=AssertionError("etf_sz_cons range must not expand by trade day"))
-        ),
+    resolver, etf_basic = _resolver_with_etf_targets(
+        mocker,
+        [_etf_target("159919.SZ", list_date=date(2026, 2, 10))],
     )
-    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
-    resolver = DatasetActionResolver(mocker.Mock())
 
     plan = resolver.build_plan(
         DatasetActionRequest(
@@ -712,22 +795,29 @@ def test_etf_sz_cons_range_chunks_by_natural_month_without_trade_day_expansion(m
     )
 
     assert plan.run_profile == "range_rebuild"
-    assert plan.planning.unit_count == 3
+    assert plan.planning.unit_count == 2
     assert [unit.request_params for unit in plan.units] == [
-        {"ts_code": "159919.SZ", "start_date": "20260115", "end_date": "20260131"},
-        {"ts_code": "159919.SZ", "start_date": "20260201", "end_date": "20260228"},
+        {"ts_code": "159919.SZ", "start_date": "20260210", "end_date": "20260228"},
         {"ts_code": "159919.SZ", "start_date": "20260301", "end_date": "20260310"},
     ]
     assert all(unit.trade_date is None for unit in plan.units)
-    fake_dao.trade_calendar.get_open_dates.assert_not_called()
-
-
-def test_etf_sz_cons_explicit_code_must_be_single_sz_and_in_active_pool(mocker) -> None:
-    fake_dao = SimpleNamespace(
-        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["159919.SZ"])),
+    assert {unit.progress_context["requested_start_date"] for unit in plan.units} == {
+        "2026-01-15"
+    }
+    assert {unit.progress_context["effective_start_date"] for unit in plan.units} == {
+        "2026-02-10"
+    }
+    etf_basic.load_requestability_snapshot.assert_called_once_with(
+        as_of_date=ELIGIBILITY_AS_OF,
+        exchange="SZ",
     )
-    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
-    resolver = DatasetActionResolver(mocker.Mock())
+
+
+def test_etf_sz_cons_explicit_code_uses_one_target_query_and_no_snapshot(mocker) -> None:
+    resolver, etf_basic = _resolver_with_etf_targets(
+        mocker,
+        [_etf_target("159919.SZ", list_date=date(2012, 5, 28))],
+    )
 
     plan = resolver.build_plan(
         DatasetActionRequest(
@@ -740,42 +830,65 @@ def test_etf_sz_cons_explicit_code_must_be_single_sz_and_in_active_pool(mocker) 
 
     assert plan.planning.unit_count == 1
     assert plan.units[0].request_params == {"ts_code": "159919.SZ", "trade_date": "20260821"}
+    etf_basic.get_requestable_target.assert_called_once_with(
+        ts_code="159919.SZ",
+        as_of_date=ELIGIBILITY_AS_OF,
+        exchange="SZ",
+    )
+    etf_basic.load_requestability_snapshot.assert_not_called()
 
 
 @pytest.mark.parametrize(
-    ("pool_codes", "filters", "message", "error_code"),
+    "ts_code",
     (
-        ([], {}, "先配置 etf_sz_cons ETF 激活池", "universe_empty"),
-        (["159919.SZ", "510300.SH"], {}, "只允许 .SZ ETF 代码", "invalid_enum"),
-        (["159919.SZ"], {"ts_code": "510300.SH"}, "只支持深交所 ETF 代码", "invalid_enum"),
-        (["159919.SZ"], {"ts_code": "159001.SZ"}, "未配置到 active 池", "invalid_enum"),
-        (["159919.SZ", "159001.SZ"], {"ts_code": "159919.SZ,159001.SZ"}, "一次只支持维护一个显式 ETF 代码", "invalid_enum"),
+        "510300.SH",
+        "159001.SZ",
     ),
 )
-def test_etf_sz_cons_rejects_invalid_pool_and_explicit_code(
+def test_etf_sz_cons_rejects_wrong_exchange_or_non_requestable_code(
     mocker,
-    pool_codes: list[str],
-    filters: dict[str, str],
-    message: str,
-    error_code: str,
+    ts_code: str,
 ) -> None:
-    fake_dao = SimpleNamespace(
-        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=pool_codes)),
+    resolver, etf_basic = _resolver_with_etf_targets(
+        mocker,
+        [_etf_target("510300.SH", list_date=date(2012, 5, 28))],
     )
-    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
-    resolver = DatasetActionResolver(mocker.Mock())
 
-    with pytest.raises(IngestionPlanningError, match=message) as exc_info:
+    with pytest.raises(IngestionPlanningError, match="当前不可请求") as exc_info:
         resolver.build_plan(
             DatasetActionRequest(
                 dataset_key="etf_sz_cons",
                 action="maintain",
                 time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 8, 21)),
-                filters=filters,
+                filters={"ts_code": ts_code},
             )
         )
 
-    assert exc_info.value.structured_error.error_code == error_code
+    assert exc_info.value.structured_error.error_code == "etf_not_requestable"
+    assert exc_info.value.structured_error.details["exchange"] == "SZ"
+    etf_basic.get_requestable_target.assert_called_once()
+    etf_basic.load_requestability_snapshot.assert_not_called()
+
+
+def test_etf_sz_cons_rejects_multi_code_before_basic_query(mocker) -> None:
+    resolver, etf_basic = _resolver_with_etf_targets(mocker, [])
+
+    with pytest.raises(IngestionPlanningError, match="一次只支持维护一个显式 ETF 代码") as exc_info:
+        resolver.build_plan(
+            DatasetActionRequest(
+                dataset_key="etf_sz_cons",
+                action="maintain",
+                time_input=DatasetTimeInput(
+                    mode="point",
+                    trade_date=date(2026, 8, 21),
+                ),
+                filters={"ts_code": "159919.SZ,159001.SZ"},
+            )
+        )
+
+    assert exc_info.value.structured_error.error_code == "invalid_enum"
+    etf_basic.get_requestable_target.assert_not_called()
+    etf_basic.load_requestability_snapshot.assert_not_called()
 
 
 def test_etf_sz_cons_request_builder_emits_only_unit_parameters() -> None:

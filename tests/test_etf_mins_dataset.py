@@ -5,16 +5,28 @@ from types import SimpleNamespace
 
 import pytest
 
+from src.foundation.dao.etf_basic_dao import (
+    EtfRequestabilitySnapshot,
+    EtfRequestTarget,
+)
 from src.foundation.datasets.registry import get_dataset_definition
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
 from src.foundation.ingestion import source_client as source_client_module
+from src.foundation.ingestion.etf_minute_windows import (
+    ETF_MINS_RANGE_WINDOW_MONTHS,
+    build_etf_minute_windows,
+)
 from src.foundation.ingestion.errors import (
     IngestionError,
     IngestionNormalizeError,
     IngestionSourceError,
     IngestionWriteError,
 )
-from src.foundation.ingestion.execution_plan import PlanUnitSnapshot
+from src.foundation.ingestion.execution_plan import (
+    PlanUnitSnapshot,
+    ValidatedDatasetActionRequest,
+)
+from src.foundation.ingestion.executor import IngestionExecutor
 from src.foundation.ingestion.normalizer import DatasetNormalizer, NormalizedBatch
 from src.foundation.ingestion.request_builders import _etf_mins_params
 from src.foundation.ingestion.row_transforms import _etf_mins_row_transform
@@ -66,14 +78,48 @@ def _definition():  # type: ignore[no-untyped-def]
     return get_dataset_definition("etf_mins")
 
 
-def _resolver(mocker, pool_codes: list[str]) -> DatasetActionResolver:  # type: ignore[no-untyped-def]
+ELIGIBILITY_AS_OF = date(2026, 8, 28)
+
+
+def _request_target(ts_code: str, *, list_date: date) -> EtfRequestTarget:
+    return EtfRequestTarget(
+        ts_code=ts_code,
+        list_date=list_date,
+        exchange="SH" if ts_code.endswith(".SH") else "SZ",
+    )
+
+
+def _resolver(
+    mocker,
+    targets: list[EtfRequestTarget],
+) -> tuple[DatasetActionResolver, SimpleNamespace]:  # type: ignore[no-untyped-def]
+    targets_by_code = {target.ts_code: target for target in targets}
+    etf_basic = SimpleNamespace(
+        load_requestability_snapshot=mocker.Mock(
+            return_value=EtfRequestabilitySnapshot(
+                as_of_date=ELIGIBILITY_AS_OF,
+                exchange=None,
+                targets=tuple(sorted(targets, key=lambda target: target.ts_code)),
+                serving_row_count=len(targets),
+                requestable_count=len(targets),
+                excluded_reason_counts={},
+            )
+        ),
+        get_requestable_target=mocker.Mock(
+            side_effect=lambda *, ts_code, as_of_date, exchange=None: targets_by_code.get(
+                ts_code
+            )
+        ),
+    )
     fake_dao = SimpleNamespace(
-        etf_series_active=SimpleNamespace(
-            list_active_codes=mocker.Mock(return_value=pool_codes)
-        )
+        etf_basic=etf_basic,
     )
     mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
-    return DatasetActionResolver(mocker.Mock())
+    mocker.patch(
+        "src.foundation.ingestion.unit_planner._current_china_date",
+        return_value=ELIGIBILITY_AS_OF,
+    )
+    return DatasetActionResolver(mocker.Mock()), etf_basic
 
 
 def test_etf_mins_definition_is_raw_only_and_exposes_manual_schedule_contract() -> None:
@@ -100,6 +146,12 @@ def test_etf_mins_definition_is_raw_only_and_exposes_manual_schedule_contract() 
     assert definition.planning.page_limit == 8000
     assert definition.planning.max_source_rows_per_unit == 24000
     assert definition.planning.fetch_concurrency == 2
+    assert definition.planning.universe_policy == "pool"
+    assert definition.planning.universe is not None
+    assert [
+        (source.type, source.resource)
+        for source in definition.planning.universe.sources
+    ] == [("core_serving_etf_basic", None)]
     assert definition.quality.reject_policy == "fail_unit_on_any_rejection"
     assert definition.quality.batch_unique_key_fields == ("ts_code", "freq", "trade_time")
     capability = definition.capabilities.get_action("maintain")
@@ -131,8 +183,14 @@ def test_etf_mins_is_schedulable_but_not_registered_in_any_workflow() -> None:
     )
 
 
-def test_etf_mins_point_plan_uses_active_pool_and_selected_freq_order(mocker) -> None:
-    resolver = _resolver(mocker, ["510500.SH", "159915.SZ"])
+def test_etf_mins_automatic_point_plan_uses_one_basic_snapshot(mocker) -> None:
+    resolver, etf_basic = _resolver(
+        mocker,
+        [
+            _request_target("510500.SH", list_date=date(2013, 3, 15)),
+            _request_target("159915.SZ", list_date=date(2011, 12, 5)),
+        ],
+    )
     plan = resolver.build_plan(
         DatasetActionRequest(
             dataset_key="etf_mins",
@@ -157,10 +215,28 @@ def test_etf_mins_point_plan_uses_active_pool_and_selected_freq_order(mocker) ->
     assert {unit.max_source_rows_per_unit for unit in plan.units} == {24000}
     assert {unit.progress_context["window_index"] for unit in plan.units} == {1}
     assert {unit.progress_context["window_total"] for unit in plan.units} == {1}
+    assert {unit.progress_context["eligibility_as_of"] for unit in plan.units} == {
+        "2026-08-28"
+    }
+    assert {
+        unit.progress_context["master_list_date"] for unit in plan.units
+    } == {"2011-12-05", "2013-03-15"}
+    assert {unit.progress_context["requested_start_date"] for unit in plan.units} == {
+        "2026-08-21"
+    }
+    assert {unit.progress_context["effective_start_date"] for unit in plan.units} == {
+        "2026-08-21"
+    }
+    etf_basic.load_requestability_snapshot.assert_called_once_with(
+        as_of_date=ELIGIBILITY_AS_OF,
+        exchange=None,
+    )
+    etf_basic.get_requestable_target.assert_not_called()
 
 
-def test_etf_mins_range_uses_frequency_specific_calendar_month_windows(mocker) -> None:
-    resolver = _resolver(mocker, ["510300.SH"])
+def test_etf_mins_explicit_range_clips_before_frequency_windows(mocker) -> None:
+    target = _request_target("510300.SH", list_date=date(2025, 2, 10))
+    resolver, etf_basic = _resolver(mocker, [target])
     plan = resolver.build_plan(
         DatasetActionRequest(
             dataset_key="etf_mins",
@@ -174,35 +250,250 @@ def test_etf_mins_range_uses_frequency_specific_calendar_month_windows(mocker) -
         )
     )
 
-    assert [(unit.request_params["freq"], unit.request_params["start_date"], unit.request_params["end_date"]) for unit in plan.units] == [
-        ("1min", "2025-01-15 09:00:00", "2025-02-28 19:00:00"),
-        ("1min", "2025-03-01 09:00:00", "2025-04-30 19:00:00"),
-        ("1min", "2025-05-01 09:00:00", "2025-05-10 19:00:00"),
-        ("5min", "2025-01-15 09:00:00", "2025-05-10 19:00:00"),
+    assert [
+        (
+            unit.request_params["freq"],
+            unit.request_params["start_date"],
+            unit.request_params["end_date"],
+        )
+        for unit in plan.units
+    ] == [
+        ("1min", "2025-02-10 09:00:00", "2025-03-31 19:00:00"),
+        ("1min", "2025-04-01 09:00:00", "2025-05-10 19:00:00"),
+        ("5min", "2025-02-10 09:00:00", "2025-05-10 19:00:00"),
     ]
-    assert [unit.progress_context["window_index"] for unit in plan.units] == [1, 2, 3, 1]
-    assert [unit.progress_context["window_total"] for unit in plan.units] == [3, 3, 3, 1]
+    assert [unit.progress_context["window_index"] for unit in plan.units] == [1, 2, 1]
+    assert [unit.progress_context["window_total"] for unit in plan.units] == [2, 2, 1]
+    assert all(
+        unit.progress_context["requested_start_date"] == "2025-01-15"
+        and unit.progress_context["effective_start_date"] == "2025-02-10"
+        and unit.progress_context["master_list_date"] == "2025-02-10"
+        for unit in plan.units
+    )
     assert all("start=" in unit.unit_id and "end=" in unit.unit_id for unit in plan.units)
+    assert [
+        (
+            date.fromisoformat(str(unit.request_params["start_date"])[:10]),
+            date.fromisoformat(str(unit.request_params["end_date"])[:10]),
+        )
+        for unit in plan.units
+        if unit.request_params["freq"] == "1min"
+    ] == list(
+        build_etf_minute_windows(
+            freq="1min",
+            start_date=target.list_date,
+            end_date=date(2025, 5, 10),
+        )
+    )
+    etf_basic.get_requestable_target.assert_called_once_with(
+        ts_code="510300.SH",
+        as_of_date=ELIGIBILITY_AS_OF,
+        exchange=None,
+    )
+    etf_basic.load_requestability_snapshot.assert_not_called()
 
 
 @pytest.mark.parametrize(
-    ("pool_codes", "filters", "message", "error_code"),
+    ("freq", "expected_first_end"),
     (
-        ([], {"freq": ["1min"]}, "先初始化 etf_mins ETF 激活池", "universe_empty"),
-        (["510300.OF"], {"freq": ["1min"]}, "只允许 .SH/.SZ", "invalid_enum"),
-        (["510300.SH"], {"ts_code": "159915.SZ", "freq": ["1min"]}, "未配置到 etf_mins 激活池", "invalid_enum"),
-        (["510300.SH"], {"freq": []}, "分钟周期不能为空", "empty_not_allowed"),
-        (["510300.SH"], {"freq": ["90min"]}, "分钟周期不在可选范围内", "invalid_enum"),
+        ("1min", date(2025, 2, 28)),
+        ("5min", date(2025, 12, 31)),
+        ("15min", date(2027, 12, 31)),
+        ("30min", date(2030, 12, 31)),
+        ("60min", date(2034, 12, 31)),
     ),
 )
-def test_etf_mins_planner_rejects_invalid_pool_code_and_freq(
+def test_etf_minute_windows_keep_frequency_month_boundaries(
+    freq: str,
+    expected_first_end: date,
+) -> None:
+    windows = build_etf_minute_windows(
+        freq=freq,
+        start_date=date(2025, 1, 15),
+        end_date=date(2035, 12, 31),
+    )
+
+    assert ETF_MINS_RANGE_WINDOW_MONTHS[freq] in {2, 12, 36, 72, 120}
+    assert windows[0] == (date(2025, 1, 15), expected_first_end)
+    assert windows[-1][1] == date(2035, 12, 31)
+
+
+def test_etf_mins_automatic_all_before_list_date_is_zero_unit_and_zero_source_request(
     mocker,
-    pool_codes: list[str],
+) -> None:
+    resolver, etf_basic = _resolver(
+        mocker,
+        [
+            _request_target("510300.SH", list_date=date(2020, 1, 1)),
+            _request_target("159915.SZ", list_date=date(2021, 1, 1)),
+        ],
+    )
+    plan = resolver.build_plan(
+        DatasetActionRequest(
+            dataset_key="etf_mins",
+            action="maintain",
+            time_input=DatasetTimeInput(
+                mode="range",
+                start_date=date(2019, 1, 1),
+                end_date=date(2019, 12, 31),
+            ),
+            filters={"freq": ["1min"]},
+        )
+    )
+
+    assert plan.planning.unit_count == 0
+    assert plan.units == ()
+    etf_basic.load_requestability_snapshot.assert_called_once()
+    etf_basic.get_requestable_target.assert_not_called()
+
+    executor = IngestionExecutor(mocker.Mock())
+    executor.source_client.fetch = mocker.Mock(
+        side_effect=AssertionError("0-unit plan must not request source")
+    )
+    summary = executor.run(
+        request=ValidatedDatasetActionRequest(
+            request_id="etf-mins-zero-unit",
+            dataset_key="etf_mins",
+            action="maintain",
+            run_profile="range_rebuild",
+            trigger_source="manual",
+            params={"freq": ["1min"]},
+            start_date=date(2019, 1, 1),
+            end_date=date(2019, 12, 31),
+        ),
+        definition=_definition(),
+        units=plan.units,
+    )
+
+    assert (summary.unit_total, summary.unit_done, summary.unit_failed) == (0, 0, 0)
+    executor.source_client.fetch.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "time_input",
+    (
+        DatasetTimeInput(mode="point", trade_date=date(2019, 12, 31)),
+        DatasetTimeInput(
+            mode="range",
+            start_date=date(2019, 1, 1),
+            end_date=date(2019, 12, 31),
+        ),
+    ),
+)
+def test_etf_mins_explicit_window_before_list_date_is_structured_error(
+    mocker,
+    time_input: DatasetTimeInput,
+) -> None:
+    resolver, etf_basic = _resolver(
+        mocker,
+        [_request_target("510300.SH", list_date=date(2020, 1, 1))],
+    )
+
+    with pytest.raises(IngestionError, match="请求窗口整体早于上市日期") as exc_info:
+        resolver.build_plan(
+            DatasetActionRequest(
+                dataset_key="etf_mins",
+                action="maintain",
+                time_input=time_input,
+                filters={"ts_code": "510300.SH", "freq": ["1min"]},
+            )
+        )
+
+    structured = exc_info.value.structured_error
+    assert structured.error_code == "window_before_list_date"
+    assert structured.details["ts_code"] == "510300.SH"
+    assert structured.details["master_list_date"] == "2020-01-01"
+    etf_basic.get_requestable_target.assert_called_once()
+    etf_basic.load_requestability_snapshot.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("master_state", "ts_code"),
+    (
+        ("P", "510500.SH"),
+        ("D", "159901.SZ"),
+        ("L_WITHOUT_LIST_DATE", "510880.SH"),
+        ("L_FUTURE", "159999.SZ"),
+        ("OF", "510300.OF"),
+        ("MISSING", "510999.SH"),
+    ),
+)
+def test_etf_mins_explicit_non_requestable_master_states_fail_closed(
+    mocker,
+    master_state: str,
+    ts_code: str,
+) -> None:
+    del master_state
+    resolver, etf_basic = _resolver(mocker, [])
+
+    with pytest.raises(IngestionError, match="当前不可请求") as exc_info:
+        resolver.build_plan(
+            DatasetActionRequest(
+                dataset_key="etf_mins",
+                action="maintain",
+                time_input=DatasetTimeInput(
+                    mode="point",
+                    trade_date=date(2026, 8, 21),
+                ),
+                filters={"ts_code": ts_code, "freq": ["1min"]},
+            )
+        )
+
+    structured = exc_info.value.structured_error
+    assert structured.error_code == "etf_not_requestable"
+    assert structured.details == {
+        "ts_code": ts_code,
+        "as_of_date": "2026-08-28",
+        "exchange": "ALL",
+    }
+    etf_basic.get_requestable_target.assert_called_once()
+    etf_basic.load_requestability_snapshot.assert_not_called()
+
+
+def test_etf_mins_automatic_empty_basic_snapshot_reuses_universe_empty(mocker) -> None:
+    resolver, etf_basic = _resolver(mocker, [])
+
+    with pytest.raises(IngestionError, match="当前没有可请求 ETF") as exc_info:
+        resolver.build_plan(
+            DatasetActionRequest(
+                dataset_key="etf_mins",
+                action="maintain",
+                time_input=DatasetTimeInput(
+                    mode="point",
+                    trade_date=date(2026, 8, 21),
+                ),
+                filters={"freq": ["1min"]},
+            )
+        )
+
+    assert exc_info.value.structured_error.error_code == "universe_empty"
+    assert exc_info.value.structured_error.details["exchange"] == "ALL"
+    etf_basic.load_requestability_snapshot.assert_called_once()
+    etf_basic.get_requestable_target.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("filters", "message", "error_code"),
+    (
+        ({"freq": []}, "分钟周期不能为空", "empty_not_allowed"),
+        ({"freq": ["90min"]}, "分钟周期不在可选范围内", "invalid_enum"),
+        (
+            {"ts_code": "510300.SH,159915.SZ", "freq": ["1min"]},
+            "一次只支持维护一个显式 ETF 代码",
+            "invalid_enum",
+        ),
+    ),
+)
+def test_etf_mins_planner_rejects_invalid_freq_and_multi_code(
+    mocker,
     filters: dict[str, object],
     message: str,
     error_code: str,
 ) -> None:
-    resolver = _resolver(mocker, pool_codes)
+    resolver, _etf_basic = _resolver(
+        mocker,
+        [_request_target("510300.SH", list_date=date(2020, 1, 1))],
+    )
     with pytest.raises(IngestionError, match=message) as exc_info:
         resolver.build_plan(
             DatasetActionRequest(

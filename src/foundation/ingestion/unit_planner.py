@@ -2,16 +2,22 @@ from __future__ import annotations
 
 from calendar import monthrange
 from dataclasses import replace
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 import re
 from typing import Any, Callable
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased
 
 from src.foundation.config.settings import get_settings
+from src.foundation.dao.etf_basic_dao import EtfExchange, EtfRequestTarget
 from src.foundation.dao.factory import DAOFactory
 from src.foundation.datasets.models import DatasetDefinition
+from src.foundation.ingestion.etf_minute_windows import (
+    ETF_MINS_RANGE_WINDOW_MONTHS,
+    build_etf_minute_windows,
+)
 from src.foundation.ingestion.errors import IngestionPlanningError, StructuredError
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot, ValidatedDatasetActionRequest
 from src.foundation.ingestion import request_builders
@@ -30,18 +36,9 @@ from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStoc
 
 
 CYQ_CHIPS_RANGE_WINDOW_DAYS = 1095
-ETF_MINS_RESOURCE = "etf_mins"
-ETF_MINS_RANGE_WINDOW_MONTHS = {
-    "1min": 2,
-    "5min": 12,
-    "15min": 36,
-    "30min": 72,
-    "60min": 120,
-}
-ETF_SH_CONS_RESOURCE = "etf_sh_cons"
-ETF_SZ_CONS_RESOURCE = "etf_sz_cons"
 SCOPED_REPAIR_POLICY_EXISTING_POINT_BUCKET_ONLY = "existing_point_bucket_only"
 SCOPED_REPAIR_POLICY_EXISTING_OBSERVED_POINT_SCOPE_ONLY = "existing_observed_point_scope_only"
+_CHINA_TIMEZONE = ZoneInfo("Asia/Shanghai")
 _TS_CODE_PATTERN = re.compile(r"^\d{6}\.(SH|SZ|BJ)$")
 _SAFE_SOURCE_CODE_PATTERN = re.compile(r"^[A-Z0-9][A-Z0-9._-]{0,63}$")
 
@@ -1110,33 +1107,168 @@ def _split_calendar_month_windows(start_date: date, end_date: date) -> list[tupl
     return windows
 
 
-def _split_calendar_month_span_windows(
-    start_date: date,
-    end_date: date,
+def _current_china_date() -> date:
+    return datetime.now(_CHINA_TIMEZONE).date()
+
+
+def _etf_planning_error(
+    error_code: str,
+    message: str,
     *,
-    months: int,
-) -> tuple[tuple[date, date], ...]:
-    if months <= 0 or start_date > end_date:
+    details: dict[str, Any],
+) -> IngestionPlanningError:
+    return IngestionPlanningError(
+        StructuredError(
+            error_code=error_code,
+            error_type="planning",
+            phase="planner",
+            message=message,
+            retryable=False,
+            details=details,
+        )
+    )
+
+
+def _validate_requestable_etf_universe(
+    *,
+    definition: DatasetDefinition,
+    label: str,
+) -> None:
+    universe = definition.planning.universe
+    if definition.planning.universe_policy != "pool" or universe is None:
         raise DatasetUnitPlanner._planning_error(
-            "invalid_range_window",
-            "ETF 历史分钟行情切窗参数非法",
+            "unknown_universe_policy",
+            f"{label}缺少 ETF Basic Serving 规划配置",
+        )
+    if universe.request_field != "ts_code" or universe.override_fields != ("ts_code",):
+        raise DatasetUnitPlanner._planning_error(
+            "unknown_universe_policy",
+            f"{label}规划配置必须绑定 ts_code",
+        )
+    actual_sources = tuple((source.type, source.resource) for source in universe.sources)
+    if actual_sources != (("core_serving_etf_basic", None),):
+        raise DatasetUnitPlanner._planning_error(
+            "unknown_universe_policy",
+            f"{label}对象来源必须是无 resource 的 ETF Basic Serving",
         )
 
-    windows: list[tuple[date, date]] = []
-    cursor = start_date
-    while cursor <= end_date:
-        last_month_index = cursor.year * 12 + (cursor.month - 1) + (months - 1)
-        last_year, last_month_zero_based = divmod(last_month_index, 12)
-        last_month = last_month_zero_based + 1
-        natural_window_end = date(
-            last_year,
-            last_month,
-            monthrange(last_year, last_month)[1],
+
+def _resolve_requestable_etf_targets(
+    *,
+    planner: DatasetUnitPlanner,
+    request: ValidatedDatasetActionRequest,
+    definition: DatasetDefinition,
+    eligibility_as_of: date,
+    exchange: EtfExchange | None,
+    label: str,
+) -> tuple[EtfRequestTarget, ...]:
+    _validate_requestable_etf_universe(definition=definition, label=label)
+    explicit_codes = _normalize_universe_codes(
+        split_multi_values(request.params.get("ts_code"))
+    )
+    if explicit_codes:
+        if len(explicit_codes) > 1:
+            raise DatasetUnitPlanner._planning_error(
+                "invalid_enum",
+                f"{label}一次只支持维护一个显式 ETF 代码",
+            )
+        explicit_code = explicit_codes[0]
+        target = planner.dao.etf_basic.get_requestable_target(
+            ts_code=explicit_code,
+            as_of_date=eligibility_as_of,
+            exchange=exchange,
         )
-        window_end = min(natural_window_end, end_date)
-        windows.append((cursor, window_end))
-        cursor = window_end + timedelta(days=1)
-    return tuple(windows)
+        if target is None:
+            raise _etf_planning_error(
+                "etf_not_requestable",
+                f"{label}代码当前不可请求：{explicit_code}",
+                details={
+                    "ts_code": explicit_code,
+                    "as_of_date": eligibility_as_of.isoformat(),
+                    "exchange": exchange or "ALL",
+                },
+            )
+        return (target,)
+
+    snapshot = planner.dao.etf_basic.load_requestability_snapshot(
+        as_of_date=eligibility_as_of,
+        exchange=exchange,
+    )
+    if not snapshot.targets:
+        raise _etf_planning_error(
+            "universe_empty",
+            f"{label}当前没有可请求 ETF",
+            details={
+                "as_of_date": eligibility_as_of.isoformat(),
+                "exchange": exchange or "ALL",
+            },
+        )
+    return snapshot.targets
+
+
+def _resolve_requested_etf_window(
+    *,
+    request: ValidatedDatasetActionRequest,
+    label: str,
+) -> tuple[date, date]:
+    if request.run_profile == "point_incremental":
+        if request.trade_date is None:
+            raise DatasetUnitPlanner._planning_error(
+                "missing_anchor_fields",
+                f"{label}单日维护缺少交易日期",
+            )
+        return request.trade_date, request.trade_date
+    if request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise DatasetUnitPlanner._planning_error(
+                "range_required",
+                f"{label}区间维护必须同时填写开始日期和结束日期",
+            )
+        return request.start_date, request.end_date
+    raise DatasetUnitPlanner._planning_error(
+        "run_profile_unsupported",
+        f"{label}不支持该运行模式：{request.run_profile}",
+    )
+
+
+def _resolve_effective_etf_start(
+    *,
+    target: EtfRequestTarget,
+    requested_start: date,
+    requested_end: date,
+    explicit_target: bool,
+    label: str,
+) -> date | None:
+    effective_start = max(requested_start, target.list_date)
+    if effective_start <= requested_end:
+        return effective_start
+    if not explicit_target:
+        return None
+    raise _etf_planning_error(
+        "window_before_list_date",
+        f"{label}请求窗口整体早于上市日期：{target.ts_code}",
+        details={
+            "ts_code": target.ts_code,
+            "requested_start_date": requested_start.isoformat(),
+            "requested_end_date": requested_end.isoformat(),
+            "master_list_date": target.list_date.isoformat(),
+        },
+    )
+
+
+def _etf_eligibility_progress_context(
+    *,
+    eligibility_as_of: date,
+    target: EtfRequestTarget,
+    requested_start: date,
+    effective_start: date,
+) -> dict[str, str]:
+    return {
+        "eligibility_as_of": eligibility_as_of.isoformat(),
+        "master_list_date": target.list_date.isoformat(),
+        "requested_start_date": requested_start.isoformat(),
+        "effective_start_date": effective_start.isoformat(),
+    }
 
 
 def _resolve_etf_sh_cons_targets(
@@ -1144,58 +1276,51 @@ def _resolve_etf_sh_cons_targets(
     planner: DatasetUnitPlanner,
     request: ValidatedDatasetActionRequest,
     definition: DatasetDefinition,
-) -> list[str]:
-    universe = definition.planning.universe
-    if definition.planning.universe_policy != "pool" or universe is None:
-        raise DatasetUnitPlanner._planning_error("invalid_universe_config", "ETF 申赎清单缺少对象池规划配置")
-    if universe.request_field != "ts_code" or universe.override_fields != ("ts_code",):
-        raise DatasetUnitPlanner._planning_error("invalid_universe_config", "ETF 申赎清单对象池配置必须绑定 ts_code")
-    actual_sources = tuple((source.type, source.resource) for source in universe.sources)
-    if actual_sources != (("ops_etf_series_active", ETF_SH_CONS_RESOURCE),):
-        raise DatasetUnitPlanner._planning_error("invalid_universe_source", "ETF 申赎清单对象池来源配置不符合当前主链")
-
-    pool_codes = _normalize_universe_codes(planner.dao.etf_series_active.list_active_codes(ETF_SH_CONS_RESOURCE))
-    if not pool_codes:
-        raise DatasetUnitPlanner._planning_error("universe_empty", "ETF 申赎清单需要先配置 etf_sh_cons ETF 激活池")
-
-    invalid_pool_codes = [code for code in pool_codes if not code.endswith(".SH")]
-    if invalid_pool_codes:
-        raise DatasetUnitPlanner._planning_error(
-            "invalid_enum",
-            f"ETF 申赎清单 active 池只允许 .SH ETF 代码：{', '.join(invalid_pool_codes)}",
-        )
-
-    explicit_codes = _normalize_universe_codes(split_multi_values(request.params.get("ts_code")))
-    if not explicit_codes:
-        return pool_codes
-    if len(explicit_codes) > 1:
-        raise DatasetUnitPlanner._planning_error("invalid_enum", "ETF 申赎清单一次只支持维护一个显式 ETF 代码")
-
-    explicit_code = explicit_codes[0]
-    if not explicit_code.endswith(".SH"):
-        raise DatasetUnitPlanner._planning_error("invalid_enum", f"ETF 申赎清单只支持上交所 ETF 代码：{explicit_code}")
-    if explicit_code not in set(pool_codes):
-        raise DatasetUnitPlanner._planning_error("invalid_enum", f"ETF 申赎清单代码未配置到 active 池：{explicit_code}")
-    return [explicit_code]
+    eligibility_as_of: date,
+) -> tuple[EtfRequestTarget, ...]:
+    return _resolve_requestable_etf_targets(
+        planner=planner,
+        request=request,
+        definition=definition,
+        eligibility_as_of=eligibility_as_of,
+        exchange="SH",
+        label="ETF 申赎清单",
+    )
 
 
 def _build_etf_sh_cons_units(planner: DatasetUnitPlanner, request: ValidatedDatasetActionRequest, definition: DatasetDefinition) -> list[PlanUnitSnapshot]:
     request_builder = planner._resolve_request_builder(definition)
-    targets = _resolve_etf_sh_cons_targets(planner=planner, request=request, definition=definition)
-    if request.run_profile == "point_incremental":
-        if request.trade_date is None:
-            raise DatasetUnitPlanner._planning_error("missing_anchor_fields", "ETF 申赎清单单日维护缺少交易日期")
-        windows = [(request.trade_date, request.trade_date)]
-    elif request.run_profile == "range_rebuild":
-        if request.start_date is None or request.end_date is None:
-            raise DatasetUnitPlanner._planning_error("range_required", "ETF 申赎清单区间维护必须同时填写开始日期和结束日期")
-        windows = _split_calendar_half_year_windows(request.start_date, request.end_date)
-    else:
-        raise DatasetUnitPlanner._planning_error("run_profile_unsupported", f"ETF 申赎清单不支持该运行模式：{request.run_profile}")
+    requested_start, requested_end = _resolve_requested_etf_window(
+        request=request,
+        label="ETF 申赎清单",
+    )
+    eligibility_as_of = _current_china_date()
+    targets = _resolve_etf_sh_cons_targets(
+        planner=planner,
+        request=request,
+        definition=definition,
+        eligibility_as_of=eligibility_as_of,
+    )
+    explicit_target = bool(split_multi_values(request.params.get("ts_code")))
 
     units: list[PlanUnitSnapshot] = []
     ordinal = 0
-    for ts_code in targets:
+    for target in targets:
+        effective_start = _resolve_effective_etf_start(
+            target=target,
+            requested_start=requested_start,
+            requested_end=requested_end,
+            explicit_target=explicit_target,
+            label="ETF 申赎清单",
+        )
+        if effective_start is None:
+            continue
+        if request.run_profile == "point_incremental":
+            windows = ((effective_start, requested_end),)
+        else:
+            windows = tuple(
+                _split_calendar_half_year_windows(effective_start, requested_end)
+            )
         for window_start, window_end in windows:
             if request.run_profile == "point_incremental":
                 unit_trade_date = window_start
@@ -1203,7 +1328,7 @@ def _build_etf_sh_cons_units(planner: DatasetUnitPlanner, request: ValidatedData
             else:
                 unit_trade_date = None
                 date_values = {"start_date": window_start.isoformat(), "end_date": window_end.isoformat()}
-            merged_values = {"ts_code": ts_code, **date_values}
+            merged_values = {"ts_code": target.ts_code, **date_values}
             units.append(
                 PlanUnitSnapshot(
                     unit_id=build_unit_id(
@@ -1216,7 +1341,17 @@ def _build_etf_sh_cons_units(planner: DatasetUnitPlanner, request: ValidatedData
                     source_key=request.source_key or definition.source.source_key_default,
                     trade_date=unit_trade_date,
                     request_params=request_builder(request, unit_trade_date, merged_values),
-                    progress_context={"unit": "etf", "ts_code": ts_code, **date_values},
+                    progress_context={
+                        "unit": "etf",
+                        "ts_code": target.ts_code,
+                        **date_values,
+                        **_etf_eligibility_progress_context(
+                            eligibility_as_of=eligibility_as_of,
+                            target=target,
+                            requested_start=requested_start,
+                            effective_start=effective_start,
+                        ),
+                    },
                     pagination_policy=definition.planning.pagination_policy,
                     page_limit=definition.planning.page_limit,
                 )
@@ -1230,39 +1365,16 @@ def _resolve_etf_sz_cons_targets(
     planner: DatasetUnitPlanner,
     request: ValidatedDatasetActionRequest,
     definition: DatasetDefinition,
-) -> list[str]:
-    universe = definition.planning.universe
-    if definition.planning.universe_policy != "pool" or universe is None:
-        raise DatasetUnitPlanner._planning_error("invalid_universe_config", "深市 ETF 持仓组合缺少对象池规划配置")
-    if universe.request_field != "ts_code" or universe.override_fields != ("ts_code",):
-        raise DatasetUnitPlanner._planning_error("invalid_universe_config", "深市 ETF 持仓组合对象池配置必须绑定 ts_code")
-    actual_sources = tuple((source.type, source.resource) for source in universe.sources)
-    if actual_sources != (("ops_etf_series_active", ETF_SZ_CONS_RESOURCE),):
-        raise DatasetUnitPlanner._planning_error("invalid_universe_source", "深市 ETF 持仓组合对象池来源配置不符合当前主链")
-
-    pool_codes = _normalize_universe_codes(planner.dao.etf_series_active.list_active_codes(ETF_SZ_CONS_RESOURCE))
-    if not pool_codes:
-        raise DatasetUnitPlanner._planning_error("universe_empty", "深市 ETF 持仓组合需要先配置 etf_sz_cons ETF 激活池")
-
-    invalid_pool_codes = [code for code in pool_codes if not code.endswith(".SZ")]
-    if invalid_pool_codes:
-        raise DatasetUnitPlanner._planning_error(
-            "invalid_enum",
-            f"深市 ETF 持仓组合 active 池只允许 .SZ ETF 代码：{', '.join(invalid_pool_codes)}",
-        )
-
-    explicit_codes = _normalize_universe_codes(split_multi_values(request.params.get("ts_code")))
-    if not explicit_codes:
-        return pool_codes
-    if len(explicit_codes) > 1:
-        raise DatasetUnitPlanner._planning_error("invalid_enum", "深市 ETF 持仓组合一次只支持维护一个显式 ETF 代码")
-
-    explicit_code = explicit_codes[0]
-    if not explicit_code.endswith(".SZ"):
-        raise DatasetUnitPlanner._planning_error("invalid_enum", f"深市 ETF 持仓组合只支持深交所 ETF 代码：{explicit_code}")
-    if explicit_code not in set(pool_codes):
-        raise DatasetUnitPlanner._planning_error("invalid_enum", f"深市 ETF 持仓组合代码未配置到 active 池：{explicit_code}")
-    return [explicit_code]
+    eligibility_as_of: date,
+) -> tuple[EtfRequestTarget, ...]:
+    return _resolve_requestable_etf_targets(
+        planner=planner,
+        request=request,
+        definition=definition,
+        eligibility_as_of=eligibility_as_of,
+        exchange="SZ",
+        label="深市 ETF 持仓组合",
+    )
 
 
 def _build_etf_sz_cons_units(
@@ -1271,21 +1383,35 @@ def _build_etf_sz_cons_units(
     definition: DatasetDefinition,
 ) -> list[PlanUnitSnapshot]:
     request_builder = planner._resolve_request_builder(definition)
-    targets = _resolve_etf_sz_cons_targets(planner=planner, request=request, definition=definition)
-    if request.run_profile == "point_incremental":
-        if request.trade_date is None:
-            raise DatasetUnitPlanner._planning_error("missing_anchor_fields", "深市 ETF 持仓组合单日维护缺少交易日期")
-        windows = [(request.trade_date, request.trade_date)]
-    elif request.run_profile == "range_rebuild":
-        if request.start_date is None or request.end_date is None:
-            raise DatasetUnitPlanner._planning_error("range_required", "深市 ETF 持仓组合区间维护必须同时填写开始日期和结束日期")
-        windows = _split_calendar_month_windows(request.start_date, request.end_date)
-    else:
-        raise DatasetUnitPlanner._planning_error("run_profile_unsupported", f"深市 ETF 持仓组合不支持该运行模式：{request.run_profile}")
+    requested_start, requested_end = _resolve_requested_etf_window(
+        request=request,
+        label="深市 ETF 持仓组合",
+    )
+    eligibility_as_of = _current_china_date()
+    targets = _resolve_etf_sz_cons_targets(
+        planner=planner,
+        request=request,
+        definition=definition,
+        eligibility_as_of=eligibility_as_of,
+    )
+    explicit_target = bool(split_multi_values(request.params.get("ts_code")))
 
     units: list[PlanUnitSnapshot] = []
     ordinal = 0
-    for ts_code in targets:
+    for target in targets:
+        effective_start = _resolve_effective_etf_start(
+            target=target,
+            requested_start=requested_start,
+            requested_end=requested_end,
+            explicit_target=explicit_target,
+            label="深市 ETF 持仓组合",
+        )
+        if effective_start is None:
+            continue
+        if request.run_profile == "point_incremental":
+            windows = ((effective_start, requested_end),)
+        else:
+            windows = tuple(_split_calendar_month_windows(effective_start, requested_end))
         for window_start, window_end in windows:
             if request.run_profile == "point_incremental":
                 unit_trade_date = window_start
@@ -1293,7 +1419,7 @@ def _build_etf_sz_cons_units(
             else:
                 unit_trade_date = None
                 date_values = {"start_date": window_start.isoformat(), "end_date": window_end.isoformat()}
-            merged_values = {"ts_code": ts_code, **date_values}
+            merged_values = {"ts_code": target.ts_code, **date_values}
             units.append(
                 PlanUnitSnapshot(
                     unit_id=build_unit_id(
@@ -1306,7 +1432,17 @@ def _build_etf_sz_cons_units(
                     source_key=request.source_key or definition.source.source_key_default,
                     trade_date=unit_trade_date,
                     request_params=request_builder(request, unit_trade_date, merged_values),
-                    progress_context={"unit": "etf", "ts_code": ts_code, **date_values},
+                    progress_context={
+                        "unit": "etf",
+                        "ts_code": target.ts_code,
+                        **date_values,
+                        **_etf_eligibility_progress_context(
+                            eligibility_as_of=eligibility_as_of,
+                            target=target,
+                            requested_start=requested_start,
+                            effective_start=effective_start,
+                        ),
+                    },
                     pagination_policy=definition.planning.pagination_policy,
                     page_limit=definition.planning.page_limit,
                 )
@@ -1392,63 +1528,16 @@ def _resolve_etf_mins_targets(
     planner: DatasetUnitPlanner,
     request: ValidatedDatasetActionRequest,
     definition: DatasetDefinition,
-) -> list[str]:
-    universe = definition.planning.universe
-    if definition.planning.universe_policy != "pool" or universe is None:
-        raise DatasetUnitPlanner._planning_error(
-            "unknown_universe_policy",
-            "ETF 历史分钟行情缺少对象池规划配置",
-        )
-    if universe.request_field != "ts_code" or universe.override_fields != ("ts_code",):
-        raise DatasetUnitPlanner._planning_error(
-            "unknown_universe_policy",
-            "ETF 历史分钟行情对象池配置必须绑定 ts_code",
-        )
-    actual_sources = tuple((source.type, source.resource) for source in universe.sources)
-    if actual_sources != (("ops_etf_series_active", ETF_MINS_RESOURCE),):
-        raise DatasetUnitPlanner._planning_error(
-            "unknown_universe_policy",
-            "ETF 历史分钟行情对象池来源配置不符合当前主链",
-        )
-
-    pool_codes = _normalize_universe_codes(
-        planner.dao.etf_series_active.list_active_codes(ETF_MINS_RESOURCE)
+    eligibility_as_of: date,
+) -> tuple[EtfRequestTarget, ...]:
+    return _resolve_requestable_etf_targets(
+        planner=planner,
+        request=request,
+        definition=definition,
+        eligibility_as_of=eligibility_as_of,
+        exchange=None,
+        label="ETF 历史分钟行情",
     )
-    if not pool_codes:
-        raise DatasetUnitPlanner._planning_error(
-            "universe_empty",
-            "ETF 历史分钟行情需要先初始化 etf_mins ETF 激活池",
-        )
-    invalid_pool_codes = [
-        code for code in pool_codes if not (code.endswith(".SH") or code.endswith(".SZ"))
-    ]
-    if invalid_pool_codes:
-        raise DatasetUnitPlanner._planning_error(
-            "invalid_enum",
-            "ETF 历史分钟行情激活池只允许 .SH/.SZ 代码："
-            + ", ".join(invalid_pool_codes),
-        )
-
-    explicit_codes = _normalize_universe_codes(split_multi_values(request.params.get("ts_code")))
-    if not explicit_codes:
-        return pool_codes
-    if len(explicit_codes) > 1:
-        raise DatasetUnitPlanner._planning_error(
-            "invalid_enum",
-            "ETF 历史分钟行情一次只支持维护一个显式 ETF 代码",
-        )
-    explicit_code = explicit_codes[0]
-    if not (explicit_code.endswith(".SH") or explicit_code.endswith(".SZ")):
-        raise DatasetUnitPlanner._planning_error(
-            "invalid_enum",
-            f"ETF 历史分钟行情只支持 .SH/.SZ ETF 代码：{explicit_code}",
-        )
-    if explicit_code not in set(pool_codes):
-        raise DatasetUnitPlanner._planning_error(
-            "invalid_enum",
-            f"ETF 历史分钟行情代码未配置到 etf_mins 激活池：{explicit_code}",
-        )
-    return [explicit_code]
 
 
 def _build_etf_mins_units(
@@ -1470,39 +1559,41 @@ def _build_etf_mins_units(
             "invalid_enum",
             f"ETF 历史分钟行情频率无效：{', '.join(invalid_freqs)}",
         )
-    selected_freqs = [freq for freq in allowed_freqs if freq in set(raw_freqs)]
+    requested_freqs = set(raw_freqs)
+    selected_freqs = [freq for freq in allowed_freqs if freq in requested_freqs]
+    requested_start, requested_end = _resolve_requested_etf_window(
+        request=request,
+        label="ETF 历史分钟行情",
+    )
+    eligibility_as_of = _current_china_date()
     targets = _resolve_etf_mins_targets(
         planner=planner,
         request=request,
         definition=definition,
+        eligibility_as_of=eligibility_as_of,
     )
+    explicit_target = bool(split_multi_values(request.params.get("ts_code")))
 
     units: list[PlanUnitSnapshot] = []
     ordinal = 0
-    for ts_code in targets:
+    for target in targets:
+        effective_start = _resolve_effective_etf_start(
+            target=target,
+            requested_start=requested_start,
+            requested_end=requested_end,
+            explicit_target=explicit_target,
+            label="ETF 历史分钟行情",
+        )
+        if effective_start is None:
+            continue
         for freq in selected_freqs:
             if request.run_profile == "point_incremental":
-                if request.trade_date is None:
-                    raise DatasetUnitPlanner._planning_error(
-                        "missing_anchor_fields",
-                        "ETF 历史分钟行情单日维护缺少交易日期",
-                    )
-                date_windows = ((request.trade_date, request.trade_date),)
-            elif request.run_profile == "range_rebuild":
-                if request.start_date is None or request.end_date is None:
-                    raise DatasetUnitPlanner._planning_error(
-                        "range_required",
-                        "ETF 历史分钟行情区间维护必须同时填写开始日期和结束日期",
-                    )
-                date_windows = _split_calendar_month_span_windows(
-                    request.start_date,
-                    request.end_date,
-                    months=ETF_MINS_RANGE_WINDOW_MONTHS[freq],
-                )
+                date_windows = ((effective_start, requested_end),)
             else:
-                raise DatasetUnitPlanner._planning_error(
-                    "run_profile_unsupported",
-                    f"ETF 历史分钟行情不支持该运行模式：{request.run_profile}",
+                date_windows = build_etf_minute_windows(
+                    freq=freq,
+                    start_date=effective_start,
+                    end_date=requested_end,
                 )
 
             for window_index, (window_start_date, window_end_date) in enumerate(
@@ -1515,7 +1606,7 @@ def _build_etf_mins_units(
                 window_start = f"{window_start_date.isoformat()} 09:00:00"
                 window_end = f"{window_end_date.isoformat()} 19:00:00"
                 merged_values = {
-                    "ts_code": ts_code,
+                    "ts_code": target.ts_code,
                     "freq": freq,
                     "window_start": window_start,
                     "window_end": window_end,
@@ -1523,7 +1614,7 @@ def _build_etf_mins_units(
                 units.append(
                     PlanUnitSnapshot(
                         unit_id=(
-                            f"etf_mins:ts_code={ts_code}:freq={freq}:"
+                            f"etf_mins:ts_code={target.ts_code}:freq={freq}:"
                             f"start={window_start.replace(' ', 'T')}:"
                             f"end={window_end.replace(' ', 'T')}:{ordinal}"
                         ),
@@ -1537,12 +1628,18 @@ def _build_etf_mins_units(
                         ),
                         progress_context={
                             "unit": "etf",
-                            "ts_code": ts_code,
+                            "ts_code": target.ts_code,
                             "freq": freq,
                             "start_date": window_start,
                             "end_date": window_end,
                             "window_index": window_index,
                             "window_total": len(date_windows),
+                            **_etf_eligibility_progress_context(
+                                eligibility_as_of=eligibility_as_of,
+                                target=target,
+                                requested_start=requested_start,
+                                effective_start=effective_start,
+                            ),
                         },
                         pagination_policy="offset_limit",
                         page_limit=definition.planning.page_limit,
