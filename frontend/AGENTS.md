@@ -47,15 +47,14 @@
 进入前端任务前，先阅读并理解以下文件：
 
 1. `docs/architecture/design-principles.md`
-2. `docs/frontend/frontend-application-phase1.md`
+2. `docs/frontend/frontend-current-standards.md`
 3. `docs/frontend/frontend-technology-and-component-selection.md`
 4. `docs/frontend/frontend-delivery-workflow-v1.md`
 5. `docs/frontend/frontend-design-tokens-and-component-catalog-v1.md`
-6. `docs/frontend/frontend-current-standards.md`
-7. `docs/frontend/frontend-regression-and-baseline-workflow-v1.md`
-8. `docs/frontend/frontend-governance-rollout-plan-v1.md`
-9. `docs/frontend/frontend-phase6-execution-plan-v1.md`
-10. 当前目标文件及其相邻目录中的已有实现
+6. `docs/frontend/frontend-regression-and-baseline-workflow-v1.md`
+7. `docs/frontend/frontend-governance-rollout-plan-v1.md`
+8. `docs/frontend/frontend-phase6-execution-plan-v1.md`
+9. 当前目标文件及其相邻目录中的已有实现
 
 不要在未确认现有共享组件、页面模式、API 类型和测试方式前直接写页面。
 

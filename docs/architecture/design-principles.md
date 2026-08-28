@@ -163,7 +163,7 @@ Implication:
 Reference:
 
 - see `docs/frontend/frontend-technology-and-component-selection.md` for the current frontend platform selection analysis
-- see `docs/frontend/frontend-application-phase1.md` for the first frontend application architecture
+- see `docs/frontend/frontend-current-standards.md` for the current frontend application and delivery guardrails
 
 ## UI Copy and Interaction Language Principle
 

@@ -341,7 +341,7 @@
 
 前端交付流程与以下文档配套使用：
 
-- `docs/frontend/frontend-application-phase1.md`
+- `docs/frontend/frontend-current-standards.md`
 - `docs/frontend/frontend-technology-and-component-selection.md`
 - `docs/frontend/frontend-design-tokens-and-component-catalog-v1.md`
 - `frontend/AGENTS.md`

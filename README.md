@@ -53,7 +53,7 @@ Web 环境相关变量见 `.env.web.example`。
 相关设计文档：
 
 - [frontend-technology-and-component-selection.md](/Users/congming/github/goldenshare/docs/frontend/frontend-technology-and-component-selection.md)
-- [frontend-application-phase1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-application-phase1.md)
+- [frontend-current-standards.md](/Users/congming/github/goldenshare/docs/frontend/frontend-current-standards.md)
 - [dataset-catalog.md](/Users/congming/github/goldenshare/docs/datasets/dataset-catalog.md)
 
 ### 本地开发

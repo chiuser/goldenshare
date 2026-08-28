@@ -21,7 +21,7 @@
 本稿综合以下来源整理而成：
 
 1. `docs/architecture/design-principles.md`
-2. `docs/frontend/frontend-application-phase1.md`
+2. 已退出当前工作树的历史《前端应用一期设计》（仅通过 Git 历史追溯，不再作为当前必读）
 3. `docs/frontend/frontend-technology-and-component-selection.md`
 4. 用户提供的 `design-system.md`
 5. 用户提供的 `component-catalog.md`

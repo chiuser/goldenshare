@@ -8,14 +8,13 @@
 
 当以下文档出现冲突时，以本文件为准：
 
-1. `frontend-application-phase1.md`
-2. `frontend-delivery-workflow-v1.md`
-3. `frontend-design-tokens-and-component-catalog-v1.md`
-4. `frontend-governance-rollout-plan-v1.md`
-5. `frontend-phase2-execution-brief-v1.md`
-6. `frontend-phase5-execution-plan-v1.md`
-7. `frontend-phase6-execution-plan-v1.md`
-8. `frontend-regression-and-baseline-workflow-v1.md`
+1. `frontend-delivery-workflow-v1.md`
+2. `frontend-design-tokens-and-component-catalog-v1.md`
+3. `frontend-governance-rollout-plan-v1.md`
+4. `frontend-phase2-execution-brief-v1.md`
+5. `frontend-phase5-execution-plan-v1.md`
+6. `frontend-phase6-execution-plan-v1.md`
+7. `frontend-regression-and-baseline-workflow-v1.md`
 
 ---
 
