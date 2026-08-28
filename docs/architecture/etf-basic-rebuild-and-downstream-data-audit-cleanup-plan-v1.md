@@ -1,8 +1,8 @@
 # ETF 基础信息重建与下游数据审计清理技术方案 v1
 
-状态：核心业务口径 D1-D20 不变；LLD 已重新基线 / M0-M4 已完成（未执行生产重建）/ 原 M2-M8 执行序列作废，新版 M5-M12 尚未开始
+状态：核心业务口径 D1-D20 不变；LLD 已重新基线 / M0-M6 已完成（未执行生产重建）/ 原 M2-M8 执行序列作废，新版 M7-M12 尚未开始
 创建日期：2026-08-28
-最近审计：2026-08-28（M4/P4 已完成；三个代码驱动 planner 与 `fund_daily` serving 均已迁移至 ETF Basic Serving；`fund_daily` Raw/Serving 已拆为两阶段提交，旧 fund daily cleanup 已删除；Health、monitor 和 review 仍使用旧池，旧池基础设施未删除）
+最近审计：2026-08-28（M6/P6 已完成；三个代码驱动 planner、`fund_daily` serving、实时 Health、实时监控候选/写入门禁/运行时均已迁移至 ETF Basic Serving；实时 provider 保持不变，review 和旧池基础设施仍保持后续阶段边界）
 适用范围：`etf_basic`、ETF 下游历史数据、ETF 对象池、ETF 查询与运维消费者
 低层设计：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
 
@@ -95,7 +95,7 @@ P3 开工前白名单包含五个 resource，实际用途如下：
 | `fund_daily` | 否 | 按 `trade_date` 拉源端当日全集；只在写 `core_serving.fund_daily_bar` 时读取 `resource='fund_daily'` 做白名单过滤 | 源请求保持按日全集；serving 改用当前可请求 ETF 清单 |
 | `etf_rt_daily` | 否 | provider 固定请求 `5*.SH`、`1*.SZ`；激活池只用于 Ops health 的池总数和批次命中数 | 源请求保持通配符；health/业务候选改用当前可请求 ETF 清单 |
 
-P4 完成后，前三个 resource 已不再被 DatasetDefinition 和 Foundation planner 读取，`fund_daily` writer 与旧 cleanup 也已不再读取旧池；当前仅 `etf_rt_daily` 的 Health、monitor、review 等后续阶段消费者仍保留旧池依赖。
+P5 完成后，前三个 resource 已不再被 DatasetDefinition 和 Foundation planner 读取，`fund_daily` writer、旧 cleanup 和实时 Health 也已不再读取旧池；当前仅 `etf_rt_daily` 的 monitor、review 等后续阶段消费者仍保留旧池依赖。
 
 同一组代码相关数据集中，以下三个当前完全不读取激活池，也不读取 `etf_basic` 展开请求：
 
@@ -630,7 +630,7 @@ ETF 下游只读复核：沿用发布检查中的受控 SQL/统计口径，不�
 | `etf_mins` | `DatasetUnitPlanner` | 展开分钟请求代码 | 改读当前可请求 ETF 清单，并把 `list_date` 带入窗口裁剪 |
 | `etf_sh_cons` | `DatasetUnitPlanner` | 展开上交所申赎清单请求代码 | 改读当前可请求 ETF 清单中的 `.SH` |
 | `etf_sz_cons` | `DatasetUnitPlanner` | 展开深交所申赎清单请求代码 | 改读当前可请求 ETF 清单中的 `.SZ` |
-| `etf_rt_daily` | `RealtimeFeedHealthQueryService`、ETF 审查页、实时监控候选校验 | health 命中统计、只读展示、监控候选资格；不参与 provider 请求 | health 和监控候选改读当前可请求 ETF 清单；provider 保留固定通配符；旧审查页删除 |
+| `etf_rt_daily` | Health 和实时监控已迁移；当前只剩 ETF 审查页 | Health 与监控资格均按当前可请求 ETF 计算；旧池只供 P7 待删除的只读审查页使用，不参与 provider 请求 | P5 已完成 Health，P6 已完成监控迁移；P7 删除旧审查页；provider 始终保留固定通配符 |
 
 非 resource 消费者同样纳入退场：seed CLI/service、DAO factory、ORM/model registry、Foundation contract 与 Ops adapter、Alembic 表和索引、前端 `/ops/v21/review/etf` 路由/导航/页面、实时健康类型和文案、对应后端与前端测试。当前 `EtfSeriesActiveStore`/Ops adapter 没有运行时业务调用者，只有实现与测试，但仍必须与旧机制一起删除。
 
@@ -781,17 +781,22 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 
 实现结果：`fund_daily` 使用 `raw_fund_daily_etf_serving_publish + raw_then_serving`；Raw 提交成功后，selector 或 Serving 写入/提交失败会保留 Raw 并让 unit/TaskRun 失败。顶层写入行数只表示 Serving，分层状态写入既有 `persistence` 诊断；请求参数、分页和显式单代码探测入口均未改变。
 
-### M5：实时 Health 迁移
+### M5：实时 Health 迁移（已完成）
 
 1. Health 分母和命中数改为当前可请求 ETF。
 2. 后端与前端字段改为 `eligible_*`。
 3. provider 通配符请求与 Redis 发布保持不变。
 
-### M6：实时监控迁移
+实现结果：每次 ETF Health API 调用固定一次中国自然日并加载一份 Basic requestability snapshot；响应只提供 `eligible_etf_count/eligible_snapshot_count`，旧 `active_*` 字段未保留 alias。空资格集合正常返回 `0/0`，Redis 不可用时仍保留 Basic 分母并把命中数置零。API 路径、源端统计字段、页面轮询、固定沪深通配符和 Redis batch/snapshot/delta 均未修改。
+
+### M6：实时监控迁移（已完成）
 
 1. candidate endpoint、pool add、ETF rule 与 runtime 改用 Basic selector。
 2. 保留运营监控池、规则、历史告警与分钟统计。
 3. 空资格集合时候选返回空页；runtime 只复用现有 `skipped` 结果与 message 正常 no-op，不新增计数字段、TaskRun 或诊断持久化。
+4. `run_after_etf_batch()` 只做指标计算和告警，不写分钟统计；独立旧分钟归档 service/CLI 已由专门监控 LLD 冻结并安排退场，不纳入本阶段改造。
+
+实现结果：候选接口已直接改为 `/eligible-etfs`，查询从同一份 Basic requestable subquery 起表并保留原分页、搜索、规模排序和监控池标记；新增监控对象、重新启用对象及 ETF 级规则写入均增加当前资格门禁。每个实时批次固定一次中国自然日和一份 Basic snapshot，只对“enabled monitor pool 与 requestable codes 的交集”读取指标、基线并生成告警；空集合统一正常跳过。运营监控池、规则、历史告警、分钟统计、provider、Redis 契约和独立旧分钟归档链均未改变。
 
 ### M7：旧 review 删除与消费者清零
 
@@ -860,7 +865,7 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 4. 激活池消费者按 planner、fund daily、Health、monitor、review 顺序切换；运行时消费者清零后才允许删除 DAO/model/seed 与表。
 5. 分钟 alignment 只补代码/频率的上市日前缀和现有尾部请求覆盖；不把停牌或源端空日猜成内部缺口。先只实现覆盖全部当前可请求 ETF × 五频率的 preview，用真实规模取得 TaskRun 数量和批次拍板后，才允许实现正式 submit。
 
-M4/P4 已完成，当前停在阶段边界；M5/P5 及以后仍须按用户的后续阶段指令推进。
+M6/P6 已完成，当前停在阶段边界；M7/P7 及以后仍须按用户的后续阶段指令推进。
 
 详细代码点、测试矩阵、下游只读复核、分钟补拉额度门禁和逐步开发流程见：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)。
 
@@ -880,8 +885,8 @@ M4/P4 已完成，当前停在阶段边界；M5/P5 及以后仍须按用户的�
 
 2026-08-28 针对激活池退场再次执行了 CodeGraph impact 和全仓代码搜索：`EtfSeriesActiveDAO` 明确影响 DAO factory、实时健康查询/API 和 DAO 测试；`EtfSeriesActiveStore` 影响 Ops adapter 与测试；具体字符串引用还覆盖 Foundation planner/writer、Ops seed/cleanup/review/monitor、App model registry/CLI、Alembic 和多组 Web 测试。宽泛的 `list_active_codes` impact 同时命中指数池，证明开发时不能按同名方法批量删除。
 
-同轮逐 DatasetDefinition、unit planner、request builder、writer 和实时 provider 复核曾确认：P3 前基于旧池展开请求的是 `etf_mins/etf_sh_cons/etf_sz_cons`，`fund_daily` 只在 serving 写入时使用旧池，`etf_rt_daily` 只在 health/监控候选侧使用旧池；`fund_adj/etf_share_size/etf_basic` 不使用旧池展开请求。P2 已删除 ingestion 无消费者的旧 `EtfBasicDAO.get_active_etfs()/get_fund_daily_candidates()`，P3 迁移三个 planner，P4 再迁移 `fund_daily` writer 并删除旧 cleanup；这些阶段记录不能再被理解成当前仍存在的调用链。
+同轮逐 DatasetDefinition、unit planner、request builder、writer 和实时 provider 复核曾确认：P3 前基于旧池展开请求的是 `etf_mins/etf_sh_cons/etf_sz_cons`，`fund_daily` 只在 serving 写入时使用旧池，`etf_rt_daily` 只在 health/监控候选侧使用旧池；`fund_adj/etf_share_size/etf_basic` 不使用旧池展开请求。P2 已删除 ingestion 无消费者的旧 `EtfBasicDAO.get_active_etfs()/get_fund_daily_candidates()`，P3 迁移三个 planner，P4 再迁移 `fund_daily` writer 并删除旧 cleanup，P5 迁移实时 Health；这些阶段前记录不能再被理解成当前仍存在的调用链。
 
 源接口口径同时复核了本地 Tushare 文档 `127/199/385/387/400/407/408/471/472`。`fund_daily/fund_adj` 的全市场返回范围沿用 2026-08-28 已写入本地源文档的同日 MCP 实测，不重复发起相同源端请求；本轮没有修改源参数或字段契约，也没有把一次实测数量固化为永久门禁。
 
-这些结果已经与当前代码逐项核对并落入配套 LLD。重新基线时进一步确认：`DAOFactory.etf_basic` 已经存在；planner、fund daily writer、Health、monitor candidate 和 review 当时分别依赖旧池；candidate 分页需要 count/page 两条 SQL；旧 cleanup 与 review 曾被重复分配到多个删除阶段。新版 M2-M12 已据此重排。M1-M4 的实现与测试证据见 LLD 对应执行记录；M5 以后仍须重新同步 CodeGraph，对剩余 Health、monitor、review、动态注册、前端路由和生产表复核，新出现的引用必须先补回 LLD，不能在实施时临时绕过。
+这些结果已经与当前代码逐项核对并落入配套 LLD。重新基线时进一步确认：`DAOFactory.etf_basic` 已经存在；planner、fund daily writer、Health、monitor candidate 和 review 当时分别依赖旧池；candidate 分页需要 count/page 两条 SQL；旧 cleanup 与 review 曾被重复分配到多个删除阶段。新版 M2-M12 已据此重排。M1-M6 的实现与测试证据见 LLD 对应执行记录；M7 以后仍须重新同步 CodeGraph，对剩余 review、动态注册、前端路由和生产表复核，新出现的引用必须先补回 LLD，不能在实施时临时绕过。

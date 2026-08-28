@@ -102,8 +102,8 @@ export interface OpsRealtimeEtfRtDailyHealthResponse {
   current_batch_received_at: string | null;
   current_batch_published_at: string | null;
   source_snapshot_count: number;
-  active_pool_count: number;
-  active_snapshot_count: number;
+  eligible_etf_count: number;
+  eligible_snapshot_count: number;
   snapshot_count: number;
   source_row_count: number;
   source_elapsed_ms: number | null;

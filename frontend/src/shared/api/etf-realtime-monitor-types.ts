@@ -1,4 +1,4 @@
-export interface EtfRealtimeMonitorActiveEtfItem {
+export interface EtfRealtimeMonitorEligibleEtfItem {
   ts_code: string;
   csname: string | null;
   extname: string | null;
@@ -14,8 +14,8 @@ export interface EtfRealtimeMonitorActiveEtfItem {
   in_monitor_pool: boolean;
 }
 
-export interface EtfRealtimeMonitorActiveEtfListResponse {
-  items: EtfRealtimeMonitorActiveEtfItem[];
+export interface EtfRealtimeMonitorEligibleEtfListResponse {
+  items: EtfRealtimeMonitorEligibleEtfItem[];
   page: number;
   page_size: number;
   total: number;

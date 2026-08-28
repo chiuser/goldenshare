@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 from src.app.dependencies.realtime import get_realtime_state_store
 from src.app.web.app import app
+from src.foundation.dao.etf_basic_dao import EtfBasicDAO, EtfRequestabilitySnapshot
+from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.realtime import (
     InMemoryRealtimeStateStore,
     STOCK_RT_DAILY_FEED_KEY,
@@ -13,7 +15,6 @@ from src.foundation.realtime import (
     get_realtime_stock_rt_min_config,
 )
 from src.foundation.realtime.state_store import UnavailableRealtimeStateStore
-from src.ops.models.ops.etf_series_active import EtfSeriesActive
 from src.ops.queries.realtime_feed_health_query_service import RealtimeFeedHealthQueryService
 from tests.realtime_runtime_config_helpers import seed_realtime_runtime_config
 
@@ -283,35 +284,55 @@ def test_ops_stock_rt_min_health_api_returns_all_supported_freqs(
     assert by_freq["15MIN"]["status"] == "idle"
 
 
-def test_ops_etf_rt_daily_health_api_reports_source_and_active_pool_counts(
+def test_ops_etf_rt_daily_health_api_reports_source_and_eligible_etf_counts(
     app_client,
     auth_token,
     db_session,
     trade_calendar_factory,
+    mocker,
 ) -> None:
     seed_realtime_runtime_config(db_session, etf={"enabled": True})
     today = datetime.now(CN_TIMEZONE).date()
-    checked_at = datetime.now(CN_TIMEZONE)
     trade_calendar_factory(exchange="SSE", trade_date=today, is_open=True)
     db_session.add_all(
         [
-            EtfSeriesActive(
-                resource="etf_rt_daily",
+            EtfBasic(
                 ts_code="510300.SH",
-                first_seen_date=today,
-                last_seen_date=today,
-                last_checked_at=checked_at,
+                csname="沪深300ETF",
+                list_date=date(2012, 5, 28),
+                list_status="L",
+                exchange="SH",
             ),
-            EtfSeriesActive(
-                resource="etf_rt_daily",
+            EtfBasic(
                 ts_code="159915.SZ",
-                first_seen_date=today,
-                last_seen_date=today,
-                last_checked_at=checked_at,
+                csname="创业板ETF",
+                list_date=date(2011, 12, 9),
+                list_status="L",
+                exchange="SZ",
+            ),
+            EtfBasic(
+                ts_code="999999.SH",
+                csname="未上市样本",
+                list_date=date(2026, 1, 1),
+                list_status="P",
+                exchange="SH",
             ),
         ]
     )
     db_session.commit()
+    load_calls: list[tuple[date, str | None]] = []
+    original_load_snapshot = EtfBasicDAO.load_requestability_snapshot
+
+    def tracked_load_snapshot(
+        self: EtfBasicDAO,
+        *,
+        as_of_date: date,
+        exchange: str | None = None,
+    ) -> EtfRequestabilitySnapshot:
+        load_calls.append((as_of_date, exchange))
+        return original_load_snapshot(self, as_of_date=as_of_date, exchange=exchange)
+
+    mocker.patch.object(EtfBasicDAO, "load_requestability_snapshot", tracked_load_snapshot)
     config = get_realtime_etf_rt_daily_config(db_session)
     store = InMemoryRealtimeStateStore()
     store.publish_batch(
@@ -359,11 +380,88 @@ def test_ops_etf_rt_daily_health_api_reports_source_and_active_pool_counts(
     assert payload["feed_key"] == "tushare_etf_rt_k"
     assert payload["current_batch_id"] == "batch-etf-health"
     assert payload["source_snapshot_count"] == 2
-    assert payload["active_pool_count"] == 2
-    assert payload["active_snapshot_count"] == 1
+    assert payload["eligible_etf_count"] == 2
+    assert payload["eligible_snapshot_count"] == 1
+    assert "active_pool_count" not in payload
+    assert "active_snapshot_count" not in payload
     assert payload["segment_counts"] == {"SH": 1, "SZ": 1}
     assert payload["invalid_count"] == 1
     assert payload["invalid_reason_counts"] == {"missing_ts_code": 1}
+    assert load_calls == [(today, None)]
+
+
+def test_ops_etf_rt_daily_health_api_returns_zero_coverage_for_empty_eligibility(
+    app_client,
+    auth_token,
+    db_session,
+    trade_calendar_factory,
+) -> None:
+    seed_realtime_runtime_config(db_session, etf={"enabled": True})
+    now = datetime.now(CN_TIMEZONE)
+    trade_calendar_factory(exchange="SSE", trade_date=now.date(), is_open=True)
+    config = get_realtime_etf_rt_daily_config(db_session)
+    store = InMemoryRealtimeStateStore()
+    store.publish_batch(
+        feed_key=config.feed_key,
+        batch_id="batch-etf-empty-eligibility",
+        snapshots=[{"ts_code": "510300.SH", "trade_time": now.isoformat(), "close": "1.23"}],
+        meta={
+            "received_at": now.isoformat(),
+            "published_at": now.isoformat(),
+            "source_row_count": 1,
+        },
+        ttl_seconds=259200,
+        keep_recent_batches=3,
+        batch_stream_maxlen=5000,
+        delta_stream_maxlen=200000,
+    )
+    app.dependency_overrides[get_realtime_state_store] = lambda: store
+
+    response = app_client.get(
+        "/api/v1/ops/realtime/etf-rt-daily/health",
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["source_snapshot_count"] == 1
+    assert payload["eligible_etf_count"] == 0
+    assert payload["eligible_snapshot_count"] == 0
+    assert payload["status"] != "unavailable"
+
+
+def test_ops_etf_rt_daily_health_api_keeps_eligible_denominator_on_redis_failure(
+    app_client,
+    auth_token,
+    db_session,
+    trade_calendar_factory,
+) -> None:
+    seed_realtime_runtime_config(db_session, etf={"enabled": True})
+    today = datetime.now(CN_TIMEZONE).date()
+    trade_calendar_factory(exchange="SSE", trade_date=today, is_open=True)
+    db_session.add(
+        EtfBasic(
+            ts_code="510300.SH",
+            csname="沪深300ETF",
+            list_date=date(2012, 5, 28),
+            list_status="L",
+            exchange="SH",
+        )
+    )
+    db_session.commit()
+    app.dependency_overrides[get_realtime_state_store] = lambda: UnavailableRealtimeStateStore("redis down")
+
+    response = app_client.get(
+        "/api/v1/ops/realtime/etf-rt-daily/health",
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "unavailable"
+    assert payload["redis_connected"] is False
+    assert payload["eligible_etf_count"] == 1
+    assert payload["eligible_snapshot_count"] == 0
 
 
 def test_ops_stock_rt_min_health_api_can_filter_single_freq(

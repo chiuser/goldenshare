@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
-from src.foundation.dao.etf_series_active_dao import EtfSeriesActiveDAO
+from src.foundation.dao.etf_basic_dao import EtfBasicDAO
 from src.foundation.realtime import (
     STOCK_RT_MIN_ALLOWED_FREQS,
     RealtimeMarketClock,
@@ -132,13 +132,14 @@ class RealtimeFeedHealthQueryService:
     def build_etf_rt_daily_health(self, session: Session) -> OpsRealtimeEtfRtDailyHealthResponse:
         config = get_realtime_etf_rt_daily_config(session)
         now = self._now_provider().astimezone(CN_TIMEZONE)
+        eligibility = EtfBasicDAO(session).load_requestability_snapshot(as_of_date=now.date())
+        eligible_codes = tuple(target.ts_code for target in eligibility.targets)
         clock = RealtimeMarketClock().resolve(
             session,
             exchange=config.exchange,
             collection_sessions=config.collection_sessions,
             now=now,
         )
-        active_codes = EtfSeriesActiveDAO(session).list_active_codes("etf_rt_daily")
         enabled = config.enabled
         collection_status = "disabled" if not enabled else clock.collection_status
         page_polling_enabled = enabled and collection_status == "open"
@@ -146,7 +147,7 @@ class RealtimeFeedHealthQueryService:
             "feed_key": config.feed_key,
             "display_name": config.display_name,
             "enabled": enabled,
-            "active_pool_count": len(active_codes),
+            "eligible_etf_count": eligibility.requestable_count,
             "max_calls_per_minute": config.max_calls_per_minute,
             "poll_interval_seconds": config.poll_interval_seconds,
             "is_trading_day": clock.is_trading_day,
@@ -167,7 +168,11 @@ class RealtimeFeedHealthQueryService:
             batch_id = self._store.get_current_batch_id(config.feed_key)
             meta = self._store.get_batch_meta(config.feed_key, batch_id) if batch_id else None
             snapshot_count = self._store.get_batch_snapshot_count(config.feed_key, batch_id) if batch_id else 0
-            active_snapshot_count = len(self._store.get_snapshots(config.feed_key, batch_id, active_codes)) if batch_id and active_codes else 0
+            eligible_snapshot_count = (
+                len(self._store.get_snapshots(config.feed_key, batch_id, eligible_codes))
+                if batch_id and eligible_codes
+                else 0
+            )
         except RealtimeStateStoreUnavailable as exc:
             return OpsRealtimeEtfRtDailyHealthResponse(
                 **base_payload,
@@ -176,7 +181,7 @@ class RealtimeFeedHealthQueryService:
                 collector_running=False,
                 last_error_message=str(exc),
                 source_snapshot_count=0,
-                active_snapshot_count=0,
+                eligible_snapshot_count=0,
                 snapshot_count=0,
                 source_row_count=0,
                 request_count_last_minute=0,
@@ -211,7 +216,7 @@ class RealtimeFeedHealthQueryService:
             current_batch_received_at=_string_or_none(meta.get("received_at")),
             current_batch_published_at=_string_or_none(meta.get("published_at")),
             source_snapshot_count=snapshot_count,
-            active_snapshot_count=active_snapshot_count,
+            eligible_snapshot_count=eligible_snapshot_count,
             snapshot_count=snapshot_count,
             source_row_count=_int_value(meta.get("source_row_count"), default=snapshot_count),
             source_elapsed_ms=_float_or_none(meta.get("source_elapsed_ms")),

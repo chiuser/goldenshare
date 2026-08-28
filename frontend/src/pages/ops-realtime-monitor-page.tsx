@@ -284,7 +284,7 @@ function EtfFeedSection({ health }: { health: OpsRealtimeEtfRtDailyHealthRespons
     <>
       <SectionCard
         title="ETF 实时日线"
-        description="Redis 保存源端 ETF 批次事实；活跃池命中只用于运营观察，不在采集阶段裁剪。"
+        description="Redis 保存源端 ETF 完整批次；当前可请求 ETF 只用于观察业务覆盖，不在采集阶段裁剪。"
         action={
           <Group gap="xs">
             <StatusBadge value={health.status} />
@@ -314,9 +314,9 @@ function EtfFeedSection({ health }: { health: OpsRealtimeEtfRtDailyHealthRespons
           </Grid.Col>
           <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
             <StatCard
-              label="活跃池命中"
-              value={`${formatNumber(health.active_snapshot_count)} / ${formatNumber(health.active_pool_count)}`}
-              hint="当前批次命中 ETF 活跃池数量 / 活跃池总数"
+              label="可请求 ETF 覆盖"
+              value={`${formatNumber(health.eligible_snapshot_count)} / ${formatNumber(health.eligible_etf_count)}`}
+              hint="当前批次命中的可请求 ETF 数量 / 当前可请求 ETF 总数"
               hintDisplay="inline"
             />
           </Grid.Col>

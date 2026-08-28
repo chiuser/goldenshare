@@ -1,6 +1,6 @@
 # ETF 基础信息重建与下游数据审计清理 LLD v1
 
-状态：重新基线完成；P0-P4 已完成（未执行生产快照重建），原 P2-P9 执行序列已作废，新版 P5-P12 尚未开始
+状态：重新基线完成；P0-P6 已完成（未执行生产快照重建），原 P2-P9 执行序列已作废，新版 P7-P12 尚未开始
 创建日期：2026-08-28
 依据方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)
 适用代码：`src/foundation/**`、`src/ops/**`、`src/app/**`、`frontend/**`、`alembic/**`
@@ -38,7 +38,7 @@
 | R20 | 曾给 Basic universe source 再挂一个 `resource='requestable_etf'` | Basic 没有多资源选择，这个伪 resource 没有信息量，还容易被理解成新池 | source 只保留 `type='core_serving_etf_basic'`；全市场/SH/SZ 由三个既有 builder 固定决定 |
 | R21 | 分钟 preview 未限定 6,500 万行 raw 的查询形状和 Prod 超时 | 可能出现 ETF×频率 N+1 查询或无界聚合，给生产库制造长期压力 | P9A 只允许集合查询、只读事务和 60 秒 statement timeout；现有索引仍不能满足时停止，不擅自加索引 |
 
-原 P2-P9 的文字不得再作为开发或发布依据。P0/P1 的执行记录仍然有效；新版 P2 和 P3 已按本文重新实现并验收，P4 及以后没有已完成代码可继承。
+原 P2-P9 的文字不得再作为开发或发布依据。本文 P0-P6 的执行记录均为当前有效基线；P7 及以后没有已完成代码可继承。
 
 ### 1.2 重排后的核心结果
 
@@ -107,7 +107,7 @@ raw 另有 `api_name/fetched_at/raw_payload`，serving 另有 `created_at/update
 | `etf_share_size` | 按日期全市场；raw 单份存储、serving view 直出 | 完全不改 |
 | `etf_rt_daily` | provider 固定请求 `5*.SH`、`1*.SZ`；旧池只用于 health/候选 | provider 不改；health/候选换 Basic |
 
-P3 完成后，表中前三个 planner 已改用 Basic selector 且已按上市日裁剪；P4 又完成了 `fund_daily` writer 迁移和旧 cleanup 删除。表中 `etf_rt_daily` 行仍是后续 P5-P7 的阶段前代码事实。
+P3 完成后，表中前三个 planner 已改用 Basic selector 且已按上市日裁剪；P4 又完成了 `fund_daily` writer 迁移和旧 cleanup 删除；P5 再迁移实时 Health。表中 `etf_rt_daily` 行现在只剩 monitor 与 review 的后续阶段消费者仍符合阶段前旧池事实。
 
 P2 开工前，`EtfBasicDAO.get_active_etfs()` 把 `L/P/D` 都称为 active，`get_fund_daily_candidates()` 也接受 `L/P/D`，且 ingestion 主链没有调用这两个方法。P2 已将二者删除并替换为语义准确的新契约，没有保留别名。
 
@@ -759,10 +759,12 @@ EtfRealtimeMonitorActiveEtfListResponse
 1. 新增监控对象，以及把现有对象从 disabled 改为 enabled 时，用 `get_requestable_target()` 校验；保持 disabled 的备注/分组修改允许保存。
 2. 新增或修改 ETF scope rule 时同时校验监控池成员和当前可请求资格；group scope rule 不逐代码固化资格。
 3. `EtfRealtimeMonitorService.run_after_etf_batch()` 处理前将 enabled monitor pool 与当前可请求集合求交集。
-4. 已失效配置即使仍保留在配置表中，也不得产生新统计或告警。
+4. 已失效配置即使仍保留在配置表中，也不得参与本批指标计算或产生新告警。
 5. 历史 `etf_realtime_alert` 和分钟统计保留，不因主数据变化删除。
 
-第 3 项的读取时点是**每次实时批次进入 `run_after_etf_batch()` 时一次**，本批监控计算期间固定；不是每条指标或每条规则重查 Basic。当前可请求集合为空时，本批次正常 no-op，不写新统计、不发新告警；返回 `EtfRealtimeMonitorRunResult(status='skipped', evaluated_count=0, alert_count=0, message='eligible ETF set empty')` 供现有 collector 日志输出。不新增 `eligible_etf_count` 字段、TaskRun 记录或其他诊断持久化；provider 的抓取与 Redis 发布仍不受影响。
+第 3 项的读取时点是**每次实时批次进入 `run_after_etf_batch()` 时一次**，本批监控计算期间固定；不是每条指标或每条规则重查 Basic。当前可请求集合为空时，本批次正常 no-op，不做指标计算、不发新告警；返回 `EtfRealtimeMonitorRunResult(status='skipped', evaluated_count=0, alert_count=0, message='eligible ETF set empty')` 供现有 collector 日志输出。不新增 `eligible_etf_count` 字段、TaskRun 记录或其他诊断持久化；provider 的抓取与 Redis 发布仍不受影响。
+
+`run_after_etf_batch()` 当前只读取既有 `ops.etf_realtime_minute_stat` 作为历史基线并生成告警，本身不写分钟统计。独立手工入口 `EtfRealtimeMinuteArchiveService` / `ops-archive-etf-realtime-minute-stats` 已由《ETF 实时成交额异动监控 LLD v1》冻结并安排退场，不属于 P6，也不得为了本阶段继续扩展。仓库内没有该 CLI 的自动调用方；在其正式退场前，运营若手工执行，它仍按 enabled monitor pool 工作。这一已知边界不改变当前 Prod 审计中“不可请求监控配置为 0”的事实。
 
 ### 8.5 旧 review 页面删除
 
@@ -1336,13 +1338,13 @@ P3 完成门禁已满足：实际 unit 的请求起点不早于 `list_date`，Da
 1. `fund_daily` Definition 已改为 `raw_fund_daily_etf_serving_publish` 和 `raw_then_serving`；linter 只对白名单中的 `fund_daily` 专用 write path 放行，其他数据集不能复用该提交策略。
 2. `DatasetWriter` 已拆出只写不提交的 `write_raw_phase()` 与 `write_serving_phase()`；Raw 保存源端完整返回，Serving 每个发布阶段只加载一次固定执行日的 Basic snapshot，并按 `trade_date >= list_date` 发布。未发布行只进入 `CODE_NOT_REQUESTABLE_AT_PUBLISH/BEFORE_CURRENT_LIST_DATE` 统计，不作为 normalizer reject。
 3. `IngestionExecutor` 在每个任务开始时固定一次中国自然日；每个 unit 先提交 Raw，再执行 selector/Serving 并提交，分层行数与排除原因在多 unit 任务中按任务累计。selector 空、selector 查询异常、Serving upsert/commit 异常统一抛 `fund_daily_serving_publish_failed`，保留已提交 Raw，unit/TaskRun 失败，顶层 `rows_written/rows_committed` 仍只表示 Serving。
-4. 已删除旧 active-pool writer helper、`EtfFundDailyServingCleanupService`、`ops-cleanup-etf-fund-daily-serving` CLI、handler 和两组专用测试；没有替代 cleanup service、CLI、删除 manifest 或兼容入口。ETF review、Health、monitor 和旧池基础设施按 P5-P8 原边界保留。
+4. 已删除旧 active-pool writer helper、`EtfFundDailyServingCleanupService`、`ops-cleanup-etf-fund-daily-serving` CLI、handler 和两组专用测试；没有替代 cleanup service、CLI、删除 manifest 或兼容入口。P4 交付时 ETF review、Health、monitor 和旧池基础设施按 P5-P8 原边界保留；其中 Health 已在后续 P5 完成迁移。
 5. request builder、分页、默认全市场请求和显式 `ts_code` 单代码探测入口未改；`fund_adj`、`etf_share_size`、实时链路、TaskRun schema、前端和数据库迁移均未修改。
 6. CodeGraph 在开工前确认 `DatasetWriter` 影响 Foundation executor 与 writer 定向测试，旧 cleanup 的 14 个符号只落在 service 和专用测试；精确搜索确认删除后 `fund_daily` 与 cleanup 对旧池引用清零，指数池及其他未迁移 ETF 消费者仍在。
 7. Definition/linter/resolver/writer/executor 与普通 executor、ETF Basic snapshot、ETF minutes、代码本、运行时注册、三组架构边界合计 279 个测试通过；剩余旧池 DAO/model/seed、CLI 和 review 消费者保护回归 64 个通过；本阶段修改的 Python 文件 Ruff 检查通过。失败注入覆盖 Raw upsert/commit、selector 空/异常、Serving upsert/commit，以及失败后 Raw 幂等重放和 Serving 再发布。
 8. 本阶段没有请求 Tushare、写入生产数据库、执行事实删除或运行旧 cleanup；历史 Serving 事实未被回删，代码消失或 `list_date` 变晚仍只影响未来发布。
 
-### P5：实时 Health 后端与页面切换
+### P5：实时 Health 后端与页面切换（已完成）
 
 编码：
 
@@ -1353,7 +1355,18 @@ P3 完成门禁已满足：实际 unit 的请求起点不早于 `list_date`，Da
 
 完成门禁：provider 请求参数快照测试保持固定通配符；Health 链不再引用旧池；候选、monitor runtime 和 review 尚未在本阶段删除。
 
-### P6：实时监控候选、配置和运行时切换
+#### P5 执行记录（2026-08-28）
+
+1. `RealtimeFeedHealthQueryService.build_etf_rt_daily_health()` 已删除 `EtfSeriesActiveDAO` 依赖；每次 API 调用固定当前中国自然日并只调用一次 `EtfBasicDAO.load_requestability_snapshot(as_of_date)`，随后用同一份 target codes 计算当前 Redis batch 命中数。
+2. 后端响应、前端类型和页面消费已从 `active_pool_count/active_snapshot_count` 直接切换为 `eligible_etf_count/eligible_snapshot_count`；没有 Pydantic alias、旧 JSON 字段或前端 fallback。`/api/v1/ops/realtime/etf-rt-daily/health` 路径及其余源端、批次、状态和轮询字段未改。
+3. selector 空集合时，源端批次仍照常读取，资格分母和命中数返回 `0/0`，不标记为 Redis 不可用，也不以源端全量回填分母；Redis 不可用时保留已加载的 Basic 分母，命中数返回 0。
+4. 实时监控页只把旧“活跃池命中”卡片改为“可请求 ETF 覆盖”，继续复用现有 `SectionCard/StatCard`，没有调整布局、查询路径、轮询策略或其他实时对象页面状态。
+5. provider、runtime config、collector、Redis key、batch/snapshot/delta 发布实现均未修改；现有请求参数快照测试继续固定 `5*.SH` 与 `1*.SZ` 两个源请求段。
+6. P6 的 candidate/pool/rule/runtime、P7 的旧 ETF review，以及 P8 的 DAO/model/seed/CLI/table 均保持原边界；本阶段没有数据库迁移、生产写入、Tushare 请求或配置变化。
+7. 开发前 CodeGraph 索引为 up to date，包含 2,814 个文件、49,728 个节点和 126,369 条边；query/impact 与精确搜索覆盖 Health query、Ops API/schema、前端类型/页面及后端和前端测试，未发现需要扩大 P5 的隐藏消费者。
+8. ETF Basic DAO、Health API、实时 provider/state/config/collector 与三组架构边界共 68 个后端测试通过，相关 Ruff 检查通过；前端 typecheck、规则检查、149 个测试和生产构建全部通过。测试包含资格/非资格交集、单次 snapshot 调用、空资格、Redis 故障和旧字段缺失。
+
+### P6：实时监控候选、配置和运行时切换（已完成）
 
 编码：
 
@@ -1364,8 +1377,22 @@ P3 完成门禁已满足：实际 unit 的请求起点不早于 `list_date`，Da
 5. `run_after_etf_batch()` 每批加载一次 snapshot，并以 `enabled monitor pool ∩ requestable codes` 执行；空交集只返回现有 `skipped` 结果和 message，不新增计数或诊断持久化。
 6. 同步监控配置前端 API、DTO、页面和测试。
 7. 保留 `ops.etf_realtime_monitor_pool/rule/alert/minute_stat` 及历史数据。
+8. 不修改独立旧分钟归档 service/CLI；它保持冻结并由专门的实时监控 LLD 后续退场。
 
 完成门禁：candidate、pool add、ETF rule 与 runtime 对旧池引用清零；空 selector 时 candidate 返回空页、runtime no-op；review 页面仍可暂时读旧池，留给 P7 独立删除。
+
+#### P6 执行记录（2026-08-28）
+
+1. 候选 API、service method 和 DTO 已从 `active` 直接改名为 `eligible`；`GET /api/v1/ops/realtime/etf-monitor/eligible-etfs` 每次请求固定一次中国自然日并只构造一次 `EtfBasicDAO.requestable_targets_subquery(as_of_date)`，count/page 复用同一对象。查询仍关联最新 `fund_daily`、最新 `raw_tushare.etf_share_size` 和运营监控池，保留关键词、分页、规模降序与代码排序；旧 `/active-etfs` 无 alias，测试确认 404。
+2. 候选资格的正反样本覆盖 `.SH/.SZ + L + 有效上市日`，以及 `P/D`、空上市日、未来上市日、`.OF` 和代码后缀/交易所冲突。旧激活池即使仍有对应记录也不会回退；Basic 空集合返回 `200 + total=0 + items=[]`。
+3. 新增监控对象无论 `enabled` 取值均通过 `get_requestable_target()`；`disabled -> enabled` 重新校验，`disabled -> disabled`、`enabled -> enabled` 和 `enabled -> disabled` 保持既定行为。失败仍使用 `422 / invalid_etf`，且测试确认不会新增记录或把 disabled 状态误改为 enabled。
+4. ETF 级规则创建和修改先校验监控池成员，再校验当前可请求资格，失败沿用 `422 / invalid_scope` 且不污染原规则；group 规则只校验分组存在，global 规则保持 `__GLOBAL__`。规则删除、窗口、比例、冲突和默认规则逻辑未改。
+5. `run_after_etf_batch()` 在批次开始固定当前中国时间，读取 enabled monitor pool 后只加载一次 Basic requestability snapshot，并只对两者交集读取 Redis 指标、历史基线和创建告警。`trade_date` 仍只决定行情交易日；Basic 名称查询只提供展示元数据，不改变资格集合。
+6. 空监控池、空 Basic 或无交集统一返回 `status='skipped'`、`evaluated_count=0`、`alert_count=0` 和 `message='eligible ETF set empty'`；此路径不读规则、不计算指标、不调用飞书、不产生告警。selector 异常不回退旧池并继续抛给 collector 既有失败隔离；原告警提交顺序、飞书失败隔离、单 ETF 失败隔离和冷却升级行为保持。
+7. 前端类型、query key、状态/组件参数和请求路径均迁移为 `eligibleEtf*` / `EligibleEtf*` / `/eligible-etfs`；候选文案改为“从当前可请求 ETF 中选择”。每页 50 条、关键词搜索、规模展示、分组选择和逐行添加保持，页面布局、监控池管理、规则编辑与告警区域未改。
+8. `EtfRealtimeMinuteArchiveService`、`ops-archive-etf-realtime-minute-stats`、provider、Redis contract、实时配置、review center、旧池 DAO/model/contract/adapter/seed/CLI/table 均未修改。旧归档回归测试继续通过；P7 仍负责 review，P8 仍负责旧池基础设施和数据库表。
+9. 后端 P6/旧归档/collector CLI 定向测试 26 个通过，实时 API 与三组架构边界回归 33 个通过，修改 Python 文件 Ruff 通过。前端目标测试 3 个、全量测试 149 个、typecheck、规则检查和生产构建通过；构建只有既有大 chunk 警告。浏览器核验时发现本机 `5173` 正运行独立 `wealth` 前端，因此未接管或重启用户服务；P6 页面请求与文案由目标测试和全量构建验证。
+10. 完成后 CodeGraph 索引为 up to date，包含 2,830 个文件、50,141 个节点和 127,564 条边；query/impact 与精确搜索复核 pool/rule/runtime/API/schema/frontend/tests，未发现新增消费者或依赖越界。P6 监控链对 `EtfSeriesActive`、`list_active_etfs`、`ActiveEtf` 和 `/active-etfs` 的生产引用已清零；旧 review 引用按 P7 边界保留。未执行生产写入、数据库迁移、Tushare 请求、旧分钟归档或历史数据清理。
 
 ### P7：旧 ETF 激活池 review 能力删除与消费者清零
 
@@ -1636,4 +1663,4 @@ Foundation planner/writer 只访问 Foundation 的 `core_serving.etf_basic` DAO�
 4. 明确保护 `fund_adj`、`etf_share_size`、公募基金域、指数池和历史实时事实。
 5. 开发顺序阻止了“先删表再找消费者”，并明确当前不建设下游事实清理系统。
 
-本文中 P0-P4 的执行记录代表对应阶段已完成；原 P2-P9 已作废，新版 P5-P12 均未实施。本 LLD 不授权执行生产快照重建、删表迁移、下游删除或全量补拉。当前停在 P4 阶段边界，P5 及以后仍须按用户的阶段指令逐步推进。
+本文中 P0-P6 的执行记录代表对应阶段已完成；原 P2-P9 已作废，新版 P7-P12 均未实施。本 LLD 不授权执行生产快照重建、删表迁移、下游删除或全量补拉。当前停在 P6 阶段边界，P7 及以后仍须按用户的阶段指令逐步推进。

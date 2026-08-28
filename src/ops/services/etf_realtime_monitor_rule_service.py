@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.app.exceptions import WebAppError
+from src.foundation.dao.etf_basic_dao import EtfBasicDAO
 from src.ops.models.ops.etf_realtime_monitor_pool import EtfRealtimeMonitorPool
 from src.ops.models.ops.etf_realtime_monitor_rule import EtfRealtimeMonitorRule
 from src.ops.schemas.etf_realtime_monitor import (
@@ -17,6 +20,7 @@ from src.ops.schemas.etf_realtime_monitor import (
 
 
 GLOBAL_SCOPE_KEY = "__GLOBAL__"
+CN_TIMEZONE = ZoneInfo("Asia/Shanghai")
 SUPPORTED_WINDOWS = (1, 5, 15)
 DEFAULT_OBSERVE_RATIO = Decimal("2.0")
 DEFAULT_ALERT_RATIO = Decimal("3.0")
@@ -204,6 +208,16 @@ class EtfRealtimeMonitorRuleService:
         )
         if exists is None:
             raise WebAppError(status_code=422, code="invalid_scope", message="ETF 规则必须指向监控池中的 ETF")
+        target = EtfBasicDAO(session).get_requestable_target(
+            ts_code=normalized_scope_key,
+            as_of_date=datetime.now(CN_TIMEZONE).date(),
+        )
+        if target is None:
+            raise WebAppError(
+                status_code=422,
+                code="invalid_scope",
+                message="ETF 规则必须指向当前可请求的监控池 ETF",
+            )
         return normalized_scope_type, normalized_scope_key
 
 

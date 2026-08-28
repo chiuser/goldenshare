@@ -6,7 +6,7 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class EtfRealtimeMonitorActiveEtfItem(BaseModel):
+class EtfRealtimeMonitorEligibleEtfItem(BaseModel):
     ts_code: str
     csname: str | None = None
     extname: str | None = None
@@ -22,8 +22,8 @@ class EtfRealtimeMonitorActiveEtfItem(BaseModel):
     in_monitor_pool: bool
 
 
-class EtfRealtimeMonitorActiveEtfListResponse(BaseModel):
-    items: list[EtfRealtimeMonitorActiveEtfItem]
+class EtfRealtimeMonitorEligibleEtfListResponse(BaseModel):
+    items: list[EtfRealtimeMonitorEligibleEtfItem]
     page: int
     page_size: int
     total: int

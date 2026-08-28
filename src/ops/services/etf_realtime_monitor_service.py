@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from src.foundation.dao.etf_basic_dao import EtfBasicDAO
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.realtime.etf_volume_metrics import (
     DATA_QUALITY_OK,
@@ -57,6 +58,7 @@ class EtfRealtimeMonitorService:
         feed_key: str,
         trade_date: datetime | None = None,
     ) -> EtfRealtimeMonitorRunResult:
+        now = datetime.now(CN_TIMEZONE)
         pool_items = list(
             session.scalars(
                 select(EtfRealtimeMonitorPool)
@@ -64,13 +66,22 @@ class EtfRealtimeMonitorService:
                 .order_by(EtfRealtimeMonitorPool.ts_code)
             ).all()
         )
+        eligibility = EtfBasicDAO(session).load_requestability_snapshot(
+            as_of_date=now.date()
+        )
+        eligible_codes = {target.ts_code for target in eligibility.targets}
+        pool_items = [item for item in pool_items if item.ts_code in eligible_codes]
         if not pool_items:
-            return EtfRealtimeMonitorRunResult(status="skipped", evaluated_count=0, alert_count=0, message="monitor pool empty")
+            return EtfRealtimeMonitorRunResult(
+                status="skipped",
+                evaluated_count=0,
+                alert_count=0,
+                message="eligible ETF set empty",
+            )
         rule_items = list(session.scalars(select(EtfRealtimeMonitorRule).where(EtfRealtimeMonitorRule.enabled.is_(True))).all())
         if not rule_items:
             return EtfRealtimeMonitorRunResult(status="skipped", evaluated_count=0, alert_count=0, message="monitor rules empty")
 
-        now = datetime.now(CN_TIMEZONE)
         target_trade_date = (trade_date or now).astimezone(CN_TIMEZONE).date()
         ts_codes = [item.ts_code for item in pool_items]
         etf_names = _load_etf_names(session, ts_codes, logger=self._logger)

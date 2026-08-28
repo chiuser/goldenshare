@@ -1,28 +1,30 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session
 
 from src.app.exceptions import WebAppError
+from src.foundation.dao.etf_basic_dao import EtfBasicDAO
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.fund_daily_bar import FundDailyBar
 from src.foundation.models.raw.raw_etf_share_size import RawEtfShareSize
 from src.ops.models.ops.etf_realtime_alert import EtfRealtimeAlert
 from src.ops.models.ops.etf_realtime_monitor_pool import EtfRealtimeMonitorPool
 from src.ops.models.ops.etf_realtime_monitor_rule import EtfRealtimeMonitorRule
-from src.ops.models.ops.etf_series_active import EtfSeriesActive
 from src.ops.schemas.etf_realtime_monitor import (
-    EtfRealtimeMonitorActiveEtfItem,
-    EtfRealtimeMonitorActiveEtfListResponse,
+    EtfRealtimeMonitorEligibleEtfItem,
+    EtfRealtimeMonitorEligibleEtfListResponse,
     EtfRealtimeMonitorMutationResponse,
     EtfRealtimeMonitorPoolItem,
     EtfRealtimeMonitorPoolListResponse,
 )
 
 
-ETF_RT_DAILY_RESOURCE = "etf_rt_daily"
+CN_TIMEZONE = ZoneInfo("Asia/Shanghai")
 ETF_MONITOR_GROUPS = {
     "broad_base": "宽基ETF",
     "theme": "主题ETF",
@@ -30,60 +32,72 @@ ETF_MONITOR_GROUPS = {
 
 
 class EtfRealtimeMonitorPoolService:
-    def list_active_etfs(
+    def list_eligible_etfs(
         self,
         session: Session,
         *,
         keyword: str | None,
         page: int,
         page_size: int,
-    ) -> EtfRealtimeMonitorActiveEtfListResponse:
+    ) -> EtfRealtimeMonitorEligibleEtfListResponse:
+        as_of_date = datetime.now(CN_TIMEZONE).date()
+        requestable_targets = EtfBasicDAO(session).requestable_targets_subquery(
+            as_of_date=as_of_date
+        )
         latest_daily = _latest_fund_daily_subquery()
         latest_size = _latest_etf_share_size_subquery()
         stmt = (
             select(
-                EtfSeriesActive.ts_code,
-                EtfBasic.csname,
-                EtfBasic.extname,
-                EtfBasic.cname,
-                EtfBasic.exchange,
-                EtfBasic.etf_type,
-                EtfBasic.list_date,
-                EtfBasic.list_status,
+                requestable_targets.c.ts_code,
+                requestable_targets.c.csname,
+                requestable_targets.c.extname,
+                requestable_targets.c.cname,
+                requestable_targets.c.exchange,
+                requestable_targets.c.etf_type,
+                requestable_targets.c.list_date,
+                requestable_targets.c.list_status,
                 latest_daily.c.latest_fund_daily_date,
                 latest_size.c.size_trade_date,
                 latest_size.c.total_share_wan,
                 latest_size.c.total_size_wan,
                 EtfRealtimeMonitorPool.id.label("pool_id"),
             )
-            .outerjoin(EtfBasic, EtfBasic.ts_code == EtfSeriesActive.ts_code)
-            .outerjoin(latest_daily, latest_daily.c.ts_code == EtfSeriesActive.ts_code)
-            .outerjoin(latest_size, latest_size.c.ts_code == EtfSeriesActive.ts_code)
-            .outerjoin(EtfRealtimeMonitorPool, EtfRealtimeMonitorPool.ts_code == EtfSeriesActive.ts_code)
-            .where(EtfSeriesActive.resource == ETF_RT_DAILY_RESOURCE)
+            .select_from(requestable_targets)
+            .outerjoin(
+                latest_daily, latest_daily.c.ts_code == requestable_targets.c.ts_code
+            )
+            .outerjoin(
+                latest_size, latest_size.c.ts_code == requestable_targets.c.ts_code
+            )
+            .outerjoin(
+                EtfRealtimeMonitorPool,
+                EtfRealtimeMonitorPool.ts_code == requestable_targets.c.ts_code,
+            )
         )
         if keyword:
             pattern = f"%{keyword.strip()}%"
             stmt = stmt.where(
                 or_(
-                    EtfSeriesActive.ts_code.ilike(pattern),
-                    EtfBasic.csname.ilike(pattern),
-                    EtfBasic.extname.ilike(pattern),
-                    EtfBasic.cname.ilike(pattern),
+                    requestable_targets.c.ts_code.ilike(pattern),
+                    requestable_targets.c.csname.ilike(pattern),
+                    requestable_targets.c.extname.ilike(pattern),
+                    requestable_targets.c.cname.ilike(pattern),
                 )
             )
-        total = session.execute(select(func.count()).select_from(stmt.subquery())).scalar_one()
+        total = session.execute(
+            select(func.count()).select_from(stmt.subquery())
+        ).scalar_one()
         rows = session.execute(
             stmt.order_by(
                 latest_size.c.total_size_wan.desc().nullslast(),
-                EtfSeriesActive.ts_code.asc(),
+                requestable_targets.c.ts_code.asc(),
             )
             .offset((page - 1) * page_size)
             .limit(page_size)
         ).all()
-        return EtfRealtimeMonitorActiveEtfListResponse(
+        return EtfRealtimeMonitorEligibleEtfListResponse(
             items=[
-                EtfRealtimeMonitorActiveEtfItem(
+                EtfRealtimeMonitorEligibleEtfItem(
                     ts_code=row.ts_code,
                     csname=row.csname,
                     extname=row.extname,
@@ -230,7 +244,7 @@ class EtfRealtimeMonitorPoolService:
     ) -> EtfRealtimeMonitorMutationResponse:
         normalized_ts_code = _normalize_ts_code(ts_code)
         _assert_group(group_key, group_name)
-        _assert_active_etf(session, normalized_ts_code)
+        _assert_requestable_etf(session, normalized_ts_code)
         existing = session.scalar(select(EtfRealtimeMonitorPool).where(EtfRealtimeMonitorPool.ts_code == normalized_ts_code))
         if existing is not None:
             raise WebAppError(status_code=409, code="conflict", message="该 ETF 已在监控池中")
@@ -263,6 +277,8 @@ class EtfRealtimeMonitorPoolService:
         item = session.get(EtfRealtimeMonitorPool, item_id)
         if item is None:
             raise WebAppError(status_code=404, code="not_found", message="监控池记录不存在")
+        if not item.enabled and enabled:
+            _assert_requestable_etf(session, item.ts_code)
         item.group_key = group_key
         item.group_name = group_name
         item.enabled = enabled
@@ -307,15 +323,13 @@ def _latest_etf_share_size_subquery():
     )
 
 
-def _assert_active_etf(session: Session, ts_code: str) -> None:
-    exists = session.scalar(
-        select(EtfSeriesActive.ts_code)
-        .where(EtfSeriesActive.resource == ETF_RT_DAILY_RESOURCE)
-        .where(EtfSeriesActive.ts_code == ts_code)
-        .limit(1)
+def _assert_requestable_etf(session: Session, ts_code: str) -> None:
+    target = EtfBasicDAO(session).get_requestable_target(
+        ts_code=ts_code,
+        as_of_date=datetime.now(CN_TIMEZONE).date(),
     )
-    if exists is None:
-        raise WebAppError(status_code=422, code="invalid_etf", message="ETF 不在实时 ETF 活跃池中")
+    if target is None:
+        raise WebAppError(status_code=422, code="invalid_etf", message="ETF 当前不满足可请求条件")
 
 
 def _assert_group(group_key: str, group_name: str) -> None:

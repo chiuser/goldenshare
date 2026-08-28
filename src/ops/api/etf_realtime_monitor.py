@@ -9,10 +9,10 @@ from src.app.auth.dependencies import require_admin
 from src.app.auth.domain import AuthenticatedUser
 from src.app.dependencies import get_db_session
 from src.ops.schemas.etf_realtime_monitor import (
-    EtfRealtimeMonitorActiveEtfListResponse,
     EtfRealtimeMonitorAlertDetailResponse,
     EtfRealtimeMonitorAlertListResponse,
     EtfRealtimeMonitorDefaultRulesResponse,
+    EtfRealtimeMonitorEligibleEtfListResponse,
     EtfRealtimeMonitorMutationResponse,
     EtfRealtimeMonitorPoolListResponse,
     EtfRealtimeMonitorPoolRequest,
@@ -29,15 +29,15 @@ from src.ops.services.etf_realtime_monitor_rule_service import EtfRealtimeMonito
 router = APIRouter(prefix="/ops/realtime/etf-monitor", tags=["ops"])
 
 
-@router.get("/active-etfs", response_model=EtfRealtimeMonitorActiveEtfListResponse)
-def list_active_etfs_for_monitor(
+@router.get("/eligible-etfs", response_model=EtfRealtimeMonitorEligibleEtfListResponse)
+def list_eligible_etfs_for_monitor(
     _user: AuthenticatedUser = Depends(require_admin),
     session: Session = Depends(get_db_session),
     keyword: str | None = Query(default=None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=50),
-) -> EtfRealtimeMonitorActiveEtfListResponse:
-    return EtfRealtimeMonitorPoolService().list_active_etfs(
+) -> EtfRealtimeMonitorEligibleEtfListResponse:
+    return EtfRealtimeMonitorPoolService().list_eligible_etfs(
         session,
         keyword=keyword,
         page=page,

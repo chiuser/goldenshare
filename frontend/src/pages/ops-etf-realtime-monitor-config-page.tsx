@@ -20,8 +20,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import { apiRequest } from "../shared/api/client";
 import type {
-  EtfRealtimeMonitorActiveEtfListResponse,
   EtfRealtimeMonitorAlertListResponse,
+  EtfRealtimeMonitorEligibleEtfListResponse,
   EtfRealtimeMonitorPoolItem,
   EtfRealtimeMonitorPoolListResponse,
   EtfRealtimeMonitorRuleItem,
@@ -78,9 +78,9 @@ export function OpsEtfRealtimeMonitorConfigPage() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<string | null>("pool");
   const [poolKeyword, setPoolKeyword] = useState("");
-  const [activeEtfKeyword, setActiveEtfKeyword] = useState("");
+  const [eligibleEtfKeyword, setEligibleEtfKeyword] = useState("");
   const [poolPage, setPoolPage] = useState(1);
-  const [activeEtfPage, setActiveEtfPage] = useState(1);
+  const [eligibleEtfPage, setEligibleEtfPage] = useState(1);
   const [poolDrawerOpen, setPoolDrawerOpen] = useState(false);
   const [ruleDrawerOpen, setRuleDrawerOpen] = useState(false);
   const [poolDraft, setPoolDraft] = useState<PoolDraft>(() => emptyPoolDraft());
@@ -96,14 +96,14 @@ export function OpsEtfRealtimeMonitorConfigPage() {
       return apiRequest<EtfRealtimeMonitorPoolListResponse>(`${API_PREFIX}/pool?${params.toString()}`);
     },
   });
-  const activeEtfQuery = useQuery({
-    queryKey: ["ops", "etf-realtime-monitor", "active-etfs", activeEtfKeyword, activeEtfPage],
+  const eligibleEtfQuery = useQuery({
+    queryKey: ["ops", "etf-realtime-monitor", "eligible-etfs", eligibleEtfKeyword, eligibleEtfPage],
     enabled: poolDrawerOpen && !poolDraft.id,
     placeholderData: keepPreviousData,
     queryFn: () => {
-      const params = new URLSearchParams({ page: String(activeEtfPage), page_size: "50" });
-      if (activeEtfKeyword.trim()) params.set("keyword", activeEtfKeyword.trim());
-      return apiRequest<EtfRealtimeMonitorActiveEtfListResponse>(`${API_PREFIX}/active-etfs?${params.toString()}`);
+      const params = new URLSearchParams({ page: String(eligibleEtfPage), page_size: "50" });
+      if (eligibleEtfKeyword.trim()) params.set("keyword", eligibleEtfKeyword.trim());
+      return apiRequest<EtfRealtimeMonitorEligibleEtfListResponse>(`${API_PREFIX}/eligible-etfs?${params.toString()}`);
     },
   });
   const rulesQuery = useQuery({
@@ -188,13 +188,13 @@ export function OpsEtfRealtimeMonitorConfigPage() {
   }, [poolKeyword]);
 
   useEffect(() => {
-    setActiveEtfPage(1);
-  }, [activeEtfKeyword]);
+    setEligibleEtfPage(1);
+  }, [eligibleEtfKeyword]);
 
   const openAddPoolDrawer = () => {
     setPoolDraft(emptyPoolDraft());
-    setActiveEtfKeyword("");
-    setActiveEtfPage(1);
+    setEligibleEtfKeyword("");
+    setEligibleEtfPage(1);
     setPoolDrawerOpen(true);
   };
 
@@ -253,12 +253,12 @@ export function OpsEtfRealtimeMonitorConfigPage() {
       <PoolDrawer
         opened={poolDrawerOpen}
         draft={poolDraft}
-        activeEtfs={activeEtfQuery.data}
-        activeEtfsLoading={activeEtfQuery.isLoading}
-        activeEtfPage={activeEtfPage}
-        activeEtfKeyword={activeEtfKeyword}
-        onActiveEtfPageChange={setActiveEtfPage}
-        onActiveEtfKeywordChange={setActiveEtfKeyword}
+        eligibleEtfs={eligibleEtfQuery.data}
+        eligibleEtfsLoading={eligibleEtfQuery.isLoading}
+        eligibleEtfPage={eligibleEtfPage}
+        eligibleEtfKeyword={eligibleEtfKeyword}
+        onEligibleEtfPageChange={setEligibleEtfPage}
+        onEligibleEtfKeywordChange={setEligibleEtfKeyword}
         onClose={() => setPoolDrawerOpen(false)}
         onDraftChange={setPoolDraft}
         onAdd={(draft) => savePoolMutation.mutate(draft)}
@@ -302,7 +302,7 @@ function PoolTable({
     <TableShell
       loading={loading}
       hasData={(data?.items ?? []).length > 0}
-      emptyState={<EmptyState title="监控池为空" description="点击添加ETF，从实时 ETF 活跃池中选择代表性 ETF。" />}
+      emptyState={<EmptyState title="监控池为空" description="点击添加ETF，从当前可请求 ETF 中选择代表性 ETF。" />}
       summary={<Pager page={page} pageCount={pageCount} total={data?.total ?? 0} onPageChange={onPageChange} />}
       minWidth={1180}
     >
@@ -435,13 +435,13 @@ function AlertTable({ data, loading, error }: { data?: EtfRealtimeMonitorAlertLi
 function PoolDrawer({
   opened,
   draft,
-  activeEtfs,
-  activeEtfsLoading,
-  activeEtfPage,
-  activeEtfKeyword,
-  onActiveEtfPageChange,
+  eligibleEtfs,
+  eligibleEtfsLoading,
+  eligibleEtfPage,
+  eligibleEtfKeyword,
+  onEligibleEtfPageChange,
   onClose,
-  onActiveEtfKeywordChange,
+  onEligibleEtfKeywordChange,
   onDraftChange,
   onAdd,
   onSubmit,
@@ -450,12 +450,12 @@ function PoolDrawer({
 }: {
   opened: boolean;
   draft: PoolDraft;
-  activeEtfs?: EtfRealtimeMonitorActiveEtfListResponse;
-  activeEtfsLoading: boolean;
-  activeEtfPage: number;
-  activeEtfKeyword: string;
-  onActiveEtfPageChange: (page: number) => void;
-  onActiveEtfKeywordChange: (keyword: string) => void;
+  eligibleEtfs?: EtfRealtimeMonitorEligibleEtfListResponse;
+  eligibleEtfsLoading: boolean;
+  eligibleEtfPage: number;
+  eligibleEtfKeyword: string;
+  onEligibleEtfPageChange: (page: number) => void;
+  onEligibleEtfKeywordChange: (keyword: string) => void;
   onClose: () => void;
   onDraftChange: (draft: PoolDraft) => void;
   onAdd: (draft: PoolDraft) => void;
@@ -463,7 +463,7 @@ function PoolDrawer({
   addingTsCode: string | null;
   saving: boolean;
 }) {
-  const activePageCount = Math.max(1, Math.ceil((activeEtfs?.total || 0) / 50));
+  const eligiblePageCount = Math.max(1, Math.ceil((eligibleEtfs?.total || 0) / 50));
   const [rowDrafts, setRowDrafts] = useState<Record<string, PoolDraft>>({});
 
   useEffect(() => {
@@ -471,15 +471,15 @@ function PoolDrawer({
   }, [opened, draft.id]);
 
   useEffect(() => {
-    if (draft.id || !activeEtfs) return;
+    if (draft.id || !eligibleEtfs) return;
     setRowDrafts((current) => {
       const next = { ...current };
-      for (const item of activeEtfs.items) {
+      for (const item of eligibleEtfs.items) {
         if (!next[item.ts_code]) next[item.ts_code] = emptyPoolDraft(item.ts_code);
       }
       return next;
     });
-  }, [activeEtfs, draft.id]);
+  }, [eligibleEtfs, draft.id]);
 
   return (
     <Drawer opened={opened} onClose={onClose} title={draft.id ? "编辑监控ETF" : "添加监控ETF"} position="right" size={1120}>
@@ -490,10 +490,10 @@ function PoolDrawer({
               <TextInput
                 label="搜索待添加 ETF"
                 placeholder="输入代码或名称"
-                value={activeEtfKeyword}
-                onChange={(event) => onActiveEtfKeywordChange(event.currentTarget.value)}
+                value={eligibleEtfKeyword}
+                onChange={(event) => onEligibleEtfKeywordChange(event.currentTarget.value)}
               />
-              <TableShell loading={activeEtfsLoading} hasData={(activeEtfs?.items ?? []).length > 0} emptyState={<EmptyState title="没有匹配的 ETF" />} summary={<Pager page={activeEtfPage} pageCount={activePageCount} total={activeEtfs?.total ?? 0} onPageChange={onActiveEtfPageChange} />} minWidth={0}>
+              <TableShell loading={eligibleEtfsLoading} hasData={(eligibleEtfs?.items ?? []).length > 0} emptyState={<EmptyState title="没有匹配的 ETF" />} summary={<Pager page={eligibleEtfPage} pageCount={eligiblePageCount} total={eligibleEtfs?.total ?? 0} onPageChange={onEligibleEtfPageChange} />} minWidth={0}>
                 <OpsTable>
                   <Table.Thead>
                     <Table.Tr>
@@ -507,9 +507,9 @@ function PoolDrawer({
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
-                    {(activeEtfs?.items ?? []).map((item) => (
+                    {(eligibleEtfs?.items ?? []).map((item) => (
                       <Table.Tr key={item.ts_code}>
-                        <OpsTableCell align="left"><Stack gap={0}><Text fw={600}><HighlightMatch value={item.csname || item.extname || item.cname || "—"} keyword={activeEtfKeyword} /></Text><Text size="xs" c="dimmed"><HighlightMatch value={item.ts_code} keyword={activeEtfKeyword} /></Text></Stack></OpsTableCell>
+                        <OpsTableCell align="left"><Stack gap={0}><Text fw={600}><HighlightMatch value={item.csname || item.extname || item.cname || "—"} keyword={eligibleEtfKeyword} /></Text><Text size="xs" c="dimmed"><HighlightMatch value={item.ts_code} keyword={eligibleEtfKeyword} /></Text></Stack></OpsTableCell>
                         <OpsTableCell align="left">{formatEtfShare(item.total_share_wan)}</OpsTableCell>
                         <OpsTableCell align="left">{formatEtfSize(item.total_size_wan)}</OpsTableCell>
                         <OpsTableCell align="left">{item.exchange || "—"}</OpsTableCell>

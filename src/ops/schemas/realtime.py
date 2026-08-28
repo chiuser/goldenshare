@@ -107,8 +107,8 @@ class OpsRealtimeEtfRtDailyHealthResponse(BaseModel):
     current_batch_received_at: str | None = None
     current_batch_published_at: str | None = None
     source_snapshot_count: int
-    active_pool_count: int
-    active_snapshot_count: int
+    eligible_etf_count: int
+    eligible_snapshot_count: int
     snapshot_count: int
     source_row_count: int
     source_elapsed_ms: float | None = None

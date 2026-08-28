@@ -142,8 +142,8 @@ const etfHealth: OpsRealtimeEtfRtDailyHealthResponse = {
   current_batch_received_at: "2026-06-18T10:15:01+08:00",
   current_batch_published_at: "2026-06-18T10:15:02+08:00",
   source_snapshot_count: 3309,
-  active_pool_count: 1395,
-  active_snapshot_count: 1320,
+  eligible_etf_count: 1395,
+  eligible_snapshot_count: 1320,
   snapshot_count: 3309,
   source_row_count: 3309,
   source_elapsed_ms: 240,
@@ -211,6 +211,9 @@ describe("实时流监控页", () => {
     expect(await screen.findByText("provider degraded")).toBeInTheDocument();
     expect(await screen.findByText("ETF 实时日线存在无效行")).toBeInTheDocument();
     expect(await screen.findByText(/SH 1,727 行/)).toBeInTheDocument();
+    expect(await screen.findByText("可请求 ETF 覆盖")).toBeInTheDocument();
+    expect(await screen.findByText("1,320 / 1,395")).toBeInTheDocument();
+    expect(screen.queryByText("活跃池命中")).not.toBeInTheDocument();
     expect((await screen.findAllByText("已停用")).length).toBeGreaterThan(0);
   });
 
