@@ -1,7 +1,7 @@
 # 生产 PostgreSQL 存储空间优化治理专项 v2
 
 - 版本：v2
-- 状态：P1-B0、P1-B1 已结案；`P1-B2-moneyflow_ind_dc` 已结案；`P1-B2-dc_daily` 与 `P1-B2-suspend_d` 已完成 M3a 并待自然 M3b；`P1-B3-stk_auction_o-M0` 条件通过，M3a 前仍有性能门禁
+- 状态：P1-B0、P1-B1 已结案；`P1-B2-moneyflow_ind_dc` 已结案；`P1-B2-dc_daily` 与 `P1-B2-suspend_d` 已完成 M3a 并待自然 M3b；`P1-B3-stk_auction_o-M0/M1` 已通过，下一阶段为隔离 PostgreSQL M2，M3a 前仍有性能门禁
 - 更新时间：2026-08-28
 - 范围：生产 PostgreSQL 小对象 SSD→HDD 迁移，以及无业务转换的 raw/core_serving 重复物理存储收口
 - 不在范围：`stk_mins` 大分区迁移、删除 raw 源事实、修改 Tushare 请求语义、自动执行生产 DDL
@@ -400,6 +400,14 @@ M0 严格限于当前代码、CodeGraph 与生产只读证据，没有请求 Tus
 
 自动入口是 `daily_market_close_maintenance` 的 schedule #24（18:30）与 #2（21:02）。最近自然节点中，18:30 返回 0 行短页，21:02 返回约 5,500 行单页短页且 reject/去重/重试为 0；未来 M3a 必须同时暂停和恢复两个入口。M0 结论为**条件通过**：可另行授权 M1/M2，但 M3a 暂不放行。生产切换前须在停止写入后执行经授权的普通 `VACUUM (ANALYZE) raw_tushare.stk_auction_o` 并重跑三轮日期完整性基准；结果仍慢于 serving 超过 20% 或出现结果/计划异常时，必须在 migration 前停止。普通 vacuum 不是 Alembic 步骤，也不计入释放量。
 
+### 2.23 2026-08-28 `P1-B3-stk_auction_o-M1`
+
+M1 只修改 `stk_auction_o` 自身 Definition storage contract，新增独立 revision `20260828_000156`、专项/参数化测试并同步文档；没有修改 ORM/DAO、共享 writer、source fields、request builder、日期/unit、分页、workflow/freshness、Ops、Biz/QTF/DG/Lake/frontend，也没有连接数据库、请求 Tushare、部署、migration、TaskRun、schedule 或 vacuum。
+
+Definition 现在通过既有 `raw_only_upsert` 只写 `raw_tushare.stk_auction_o`，原 `core_serving.equity_auction_open` 名称由 revision 156 切换为显式 11 列 raw-backed view。migration 接真实 head 155，先验证两张物理表的 owner、raw SSD、列、主键、单列日期索引、ACL 与未知依赖，再按自然月对九字段做双向 `EXCEPT ALL`；每层每月固定 160,000 行上限，160,001 行、身份/字段差异或未知合同必须在 serving DDL 前失败。切换禁止 `CASCADE`、raw DDL/DML、共享函数重建和自动 downgrade；owner、SELECT ACL、comments 被恢复，serving 三类 DML 由既有受控函数和独立 trigger 拒绝。
+
+专项测试证明 Definition/plan/filter/source fields/分页保持不变、正式 writer 只写 raw、两层 ORM 业务合同和日期索引一致、ServingPublish 无旁路、migration 资源/依赖/锁顺序/显式投影/拒写/离线 SQL 合同成立；相关 registry、resolver、workflow/freshness 与架构回归继续通过。M1 结论为**通过**，但生产仍是 revision 155 和两张物理表；下一阶段只能另行授权隔离 PostgreSQL M2。M0 的日期完整性性能门禁继续阻塞未来 M3a，不能因为 M1 静态验证通过而跳过 vacuum 后复测。
+
 ## 3. Track A：独立小对象 SSD→HDD 迁移
 
 ### 3.1 A0：历史日线轻量叶分区
@@ -519,7 +527,7 @@ raw 直出一期口径固定后，原 A1 不能再作为六表迁移批次执行
 | `moneyflow_mkt_dc` | 0.2 MiB | **已证** | 是 | **P1-B0-M3 通过；补充自然工作流数据链通过** |
 | `moneyflow_ths` | 460.9 MiB | 待分块证明 | 是 | 一期 P1-B3；raw 固定留 SSD |
 | `stk_auction_c` | 364.1 MiB | 待分块证明 | 是 | 一期 P1-B3；raw 固定留 SSD |
-| `stk_auction_o` | 364.64 MiB | **20 月、2,183,621 行、9 业务字段双向差异为 0** | 是 | M0 条件通过；raw 固定留 SSD；M3a 前关闭日期完整性性能门禁 |
+| `stk_auction_o` | 364.64 MiB | **20 月、2,183,621 行、9 业务字段双向差异为 0** | 是 | M0/M1 已通过；下一步 M2；raw 固定留 SSD；M3a 前关闭日期完整性性能门禁 |
 | `stk_limit` | 623.5 MiB | 待分块证明 | 是 | 一期 P1-B4；raw 固定留 SSD |
 | `stock_st` | 71.0 MiB | 待证明 | 是 | **旁路修复服务仍双写，当前禁止改造** |
 | `suspend_d` | 211.91 MiB | **320 月、640,504 行、6 业务字段双向差异为 0** | 是 | 多个 Wealth 查询消费者；`id` 逐行一致；M0/M1/M2/M3a 和 filter 修复完成，待自然 M3b |
@@ -591,7 +599,7 @@ raw 直出一期口径固定后，原 A1 不能再作为六表迁移批次执行
 | P1-B2 | 5 | `moneyflow_ind_dc` | `raw_tushare.moneyflow_ind_dc` → `core_serving.board_moneyflow_dc` | 84.27 MiB | 339,268 / 339,268 | **M0/M1/M2/M3a/M3b 全部通过并结案；已释放 88,358,912 B** |
 | P1-B2 | 6 | `dc_daily` | `raw_tushare.dc_daily` → `core_serving.dc_daily` | 154.22 MiB | 634,116 / 634,116 | **M0/M1/M2/M3a 通过；已释放 161,710,080 B，待两个自然 workflow 的 M3b** |
 | P1-B2 | 7 | `suspend_d` | `raw_tushare.suspend_d` → `core_serving.equity_suspend_d` | 211.91 MiB | 640,504 / 640,504 | **M0/M1/M2/M3a、消费者复审及 filter 前置修复完成；待自然 M3b** |
-| P1-B3 | 8 | `stk_auction_o` | `raw_tushare.stk_auction_o` → `core_serving.equity_auction_open` | 364.64 MiB | 2,183,621 / 2,183,621 | **M0 20 月九字段等价与 160,000 行/月容量已冻结；M1/M2 可另行授权，M3a 前关闭日期完整性性能门禁** |
+| P1-B3 | 8 | `stk_auction_o` | `raw_tushare.stk_auction_o` → `core_serving.equity_auction_open` | 364.64 MiB | 2,183,621 / 2,183,621 | **M0 等价/容量与 M1 raw-only/revision 156 已通过；下一步 M2，M3a 前关闭日期完整性性能门禁** |
 | P1-B3 | 9 | `stk_auction_c` | `raw_tushare.stk_auction_c` → `core_serving.equity_auction_close` | 364.1 MiB | 2,227,843 / 2,227,843 | 当前直接消费者少；全字段等价待证 |
 | P1-B3 | 10 | `moneyflow_ths` | `raw_tushare.moneyflow_ths` → `core_serving.equity_moneyflow_ths` | 460.9 MiB | 2,050,984 / 2,050,984 | 全字段等价待证 |
 | P1-B4 | 11 | `moneyflow_dc` | `raw_tushare.moneyflow_dc` → `core_serving.equity_moneyflow_dc` | 1,072.8 MiB | 4,120,988 / 4,120,988 | 一期最高单表收益；全字段等价待证 |
@@ -698,7 +706,7 @@ raw 直出一期口径固定后，原 A1 不能再作为六表迁移批次执行
 | P1-GATE-SSE | schedule SSE 与在线 Alembic | 消除长事务并使锁等待有界 | **M1/M2/M3 通过；共享生产门禁已解除** |
 | P1-B1 | `moneyflow_ind_ths` → `moneyflow_cnt_ths` → `margin` | 小表逐项验证；margin 最后处理 probe | **三项 M1/M2/M3a/M3b 全部通过并结案** |
 | P1-B2 | `moneyflow_ind_dc` → `dc_daily` → `suspend_d` | 验证 Wealth/QTF/DG 直接消费者与特殊身份键 | **`moneyflow_ind_dc` 已结案；`dc_daily` 与 `suspend_d` 的 M0/M1/M2/M3a 已通过并登记自然 M3b** |
-| P1-B3 | `stk_auction_o` → `stk_auction_c` → `moneyflow_ths` | 验证百万行级数据等价、切换和查询性能 | `stk_auction_o-M0` 条件通过；可另行授权 M1/M2，M3a 前必须关闭自身性能门禁；后两项未开始 |
+| P1-B3 | `stk_auction_o` → `stk_auction_c` → `moneyflow_ths` | 验证百万行级数据等价、切换和查询性能 | `stk_auction_o-M0/M1` 已通过，下一步 M2；M3a 前必须关闭自身性能门禁；后两项未开始 |
 | P1-B4 | `moneyflow_dc` → `stk_limit` | 释放一期主要空间并验收市场情绪消费者 | B3 全部验收后逐项授权 |
 | V2-A0 | `equity_daily_bar_light_p1990` | tablespace 微迁移先导 | Track B 后置，需单独授权 |
 | V2-A1 | `p1991`～`p1999` | 释放约 178.3 MiB | A0 通过后授权 |

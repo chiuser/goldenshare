@@ -1,8 +1,9 @@
 # 股票开盘集合竞价数据集接入方案（`stk_auction_o`）
 
-> 状态：数据集接入已落地；`P1-B3-stk_auction_o-M0` raw 直出只读复审条件通过，生产切换前仍有性能门禁
+> 状态：数据集接入已落地；`P1-B3-stk_auction_o-M1` raw 直出编码与自动化验证通过，下一阶段为隔离 PostgreSQL M2；生产 M3a 前仍有性能门禁
 > 日期：2026-05-16
 > raw 直出 M0 复审：2026-08-28
+> raw 直出 M1 实现：2026-08-28
 > 文档模板：[数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)
 > 源站文档：[0353_股票开盘集合竞价数据.md](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/特色数据/0353_股票开盘集合竞价数据.md)
 
@@ -192,15 +193,15 @@
 ```python
 "storage": {
     "raw_dao_name": "raw_stk_auction_o",
-    "core_dao_name": "equity_auction_open",
-    "target_table": "core_serving.equity_auction_open",
-    "delivery_mode": "single_source_serving",
-    "layer_plan": "raw->serving",
+    "core_dao_name": "raw_stk_auction_o",
+    "target_table": "raw_tushare.stk_auction_o",
+    "delivery_mode": "raw_with_serving_view",
+    "layer_plan": "raw->serving_view",
     "std_table": None,
     "serving_table": "core_serving.equity_auction_open",
     "raw_table": "raw_tushare.stk_auction_o",
     "conflict_columns": None,
-    "write_path": "raw_core_upsert",
+    "write_path": "raw_only_upsert",
 }
 ```
 
@@ -209,7 +210,7 @@
 | 表 | 主键 | 索引 | 字段 |
 | --- | --- | --- | --- |
 | `raw_tushare.stk_auction_o` | `(ts_code, trade_date)` | `idx_raw_tushare_stk_auction_o_trade_date` | 源字段 + `api_name` + `fetched_at` + `raw_payload` |
-| `core_serving.equity_auction_open` | `(ts_code, trade_date)` | `idx_equity_auction_open_trade_date` | 源字段 + `created_at` + `updated_at` |
+| `core_serving.equity_auction_open` | 普通只读 view，不再有独立主键/索引物理对象 | 查询下推 raw 的 `trade_date` 索引 | 显式投影 9 个源字段，`fetched_at` 投影为 `created_at/updated_at` |
 
 价格字段使用 `Numeric(18, 4)`；`vol`、`amount` 使用 `Numeric(20, 4)`。
 
@@ -382,3 +383,16 @@ flowchart TD
 日期完整性代表查询返回相同 81 个交易日，但 raw/serving 中位耗时为 `75.683/54.636 ms`，raw 慢 38.5%，超过一期 20% 门禁。计划确认两层都使用日期索引；差异来自 raw 只有 80.18% heap page 为 all-visible、发生 456,208 次 heap fetch，而 serving 为 92.91% 和 188,095 次。两表约 9.9 万 dead tuple，默认 autovacuum 阈值约为 42 万行，短期不会靠默认阈值自行关闭。
 
 因此 M1 不得修改 source fields、分页、日期模型、planner、workflow 或共享 writer；只能准备本数据集 raw-only Definition、独立 migration 与测试。M2 必须在隔离 PostgreSQL 验证 160,000/160,001 行、逐月全字段差异、事务回滚、权限、三类 serving DML 拒绝、view 即时可见及上述代表查询。未来 M3a 在暂停 schedule #2/#24、停止相关 worker 且无开放任务/长事务后，须先对 raw 执行经授权的普通 `VACUUM (ANALYZE)`，再重复三轮日期完整性基准；结果仍慢于 serving 超过 20% 时，必须在 migration 前停止，不得删除 serving 表。
+
+## 12. 2026-08-28 `P1-B3-stk_auction_o-M1` 编码与自动化验证
+
+M1 严格限于本数据集的 Definition storage contract、独立 Alembic revision、专项测试与现行文档。没有连接 PostgreSQL、请求 Tushare、部署、执行 migration、创建 TaskRun、暂停 schedule 或运行 `VACUUM`；source fields、日期/unit、`ts_code` filter、10,000 行分页、request builder、normalizer、共享 writer、workflow/freshness 和前端合同均未改变。
+
+1. Definition 已从 raw/core 双写收敛为 `raw_only_upsert`：`raw_dao_name/core_dao_name` 均指向既有 `raw_stk_auction_o`，正式写入目标改为 `raw_tushare.stk_auction_o`；`core_serving.equity_auction_open` 名称继续作为 serving view 对下游提供原 11 列合同。
+2. `RawStkAuctionO` 已完整声明生产现有的 `(ts_code, trade_date)` 主键和单列 `trade_date` 索引，业务字段与原 serving ORM 名称、类型、nullability 完全一致，因此 M1 没有修改 ORM、DAO factory、索引或共享 writer。参数化 writer 测试证明正式写入只调用 raw DAO，serving 不再获得第二份物理写入。
+3. 新增独立 revision `20260828_000156`，其 `down_revision` 连接编码时唯一真实 head `20260828_000155`。migration 在任何 serving DDL 前验证两层均为预期普通物理表、owner、raw SSD tablespace、精确列/主键/索引、未知依赖、ACL/RLS/publication/security label 与共享拒写函数合同；raw 先取 `SHARE` 锁，serving 后取 `SHARE` 锁，九字段逐自然月双向 `EXCEPT ALL` 通过后才获取 serving `ACCESS EXCLUSIVE` 锁。
+4. 月度容量上限按 M0 证据固定为每层 160,000 行；160,001 行、任一身份/字段差异或未知对象合同都必须在 `DROP TABLE` 前失败并由同一事务整体回滚。migration 不创建或修改 raw 索引，不写 raw 数据，不使用 `CASCADE`，也禁止自动 downgrade。
+5. 切换后的普通 view 使用显式 11 列投影：九个源字段加 `fetched_at AS created_at/updated_at`；原 owner、非 owner `SELECT` 权限、relation/column comments 被动态恢复，并使用已有 `reject_raw_direct_serving_view_dml()` 与本 relation 独立 trigger 拒绝 `INSERT/UPDATE/DELETE`。这保持表名和查询列透明，但不承诺原 relation OID、relkind、PK/index catalog 或历史 `created_at` 值透明。
+6. 专项测试已覆盖 Definition/plan/filter、全部 source fields、分页、raw-only writer、ORM 字段和索引、ServingPublish 无旁路、migration 原子顺序/资源上限/依赖门禁/显式投影/拒写函数/离线 SQL 与禁止 downgrade；既有 registry、resolver、字段常量、workflow/freshness 和架构回归继续作为不变合同门禁。
+
+M1 结论为**通过**。当前生产仍是 revision 155，raw/serving 仍是两张物理表；下一阶段只能在独立授权后进入 `P1-B3-stk_auction_o-M2`，于隔离 PostgreSQL 真实验证 revision 156、160,000/160,001 行边界、事务回滚、权限恢复、三类 DML、raw 写入/view 即时可见和代表查询计划。M0 记录的日期完整性性能门禁继续阻塞 M3a，不能由 M1 静态测试替代。
