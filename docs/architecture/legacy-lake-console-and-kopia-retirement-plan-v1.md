@@ -1,8 +1,8 @@
 # 旧 Lake Console、Kopia 与旧湖迁移适配器清退专项方案 v2
 
-状态：代码逐项审计与 LLD 已完成 / 清退口径已拍板 / 等待评审与实施授权
+状态：代码逐项复核与 LLD 细化完成 / 清退与恢复工具重构口径已全部拍板 / 尚未实施
 
-审计日期：2026-08-27
+审计日期：2026-08-28
 
 适用仓库：`/Users/congming/github/goldenshare`
 
@@ -47,14 +47,26 @@ lake_console/docs/templates/dagster-dataset-onboarding-template.html
 4. `ops.dataset_status_snapshot` 及其 ORM、service、CLI、任务完成副作用、freshness/date completeness 查询和页面消费者：全部保留。
 5. `lake_console/orchestrator/**` 的正式 Dagster 主链、当前 ClickHouse、DuckDB、Parquet、正式 Lake 读写和无 Kopia 发布机制：全部保留。
 6. 根目录现行运营后台 `frontend/**`、Wealth、QTF、`src/foundation/clients/local_lake/**`：全部保留。
-7. 历史文档和历史 Dagster event 中用于说明过去事实的旧湖/Kopia 字样：允许保留，但不能继续构成可执行入口。
+7. 历史 Dagster event 中已经写入的旧湖/Kopia 字样：允许保留，不改写既有 event；86 份纯旧 Console
+   文档不再留在当前工作树，必要结果摘要迁入现行总账后删除，全文只通过 Git 历史追溯。
 8. 对旧湖路径和 Kopia 的禁止性规则、负向测试：保留并按新事实更新。
 
-### 0.4 待拍板项
+### 0.4 新增拍板结果
 
-**没有遗留的方案设计决策。**
+1. `stk_mins_raw_replace_from_prod` 的**业务能力保留并重构**：继续支持“prod DB 可信、正式 Raw
+   单日五频错误”的离线恢复，但候选、审计、报告和 checkpoint 全部迁入正式 staging 根；删除正式
+   根内 `_staging/_quarantine`、backup 和假整体回滚设计，改为逐文件 fingerprint、checkpoint、验证和
+   幂等续跑。
+2. 原拟 `HISTORICALIZE` 的 86 份纯旧 Console 文档不再保留在当前工作树。对后续仍有价值的执行数量、
+   修复结果和数据语义先压缩进现行 Dagster 总账/设计文档，清理全部现行引用后删除原文；Git 历史是
+   全文追溯面，不创建新的 archive 目录或 tombstone 文件。
+3. `main` 与 `dev-interface` 完全追平不再作为本专项开工门禁；实施以当前 `dev-interface` 的已记录 HEAD、
+   CodeGraph 状态和精确工作区白名单为基线，不因分支进度差异扩大或缩小清退范围。
+4. Raw `stk_mins` 恢复工具不新增自造排它锁。它继续是人工、非 active 的离线工具；并发安全收敛为
+   “同日期只允许一个未完成 recovery run + 执行前进入明确维护窗口 + 确认没有同日期写任务”。
 
-下一步唯一需要用户授权的是：是否按本文开始实际删除与修改。物理旧湖和 ignored 环境不是本轮待拍板项，它们已经明确延期到代码清退之后的独立审计。
+当前没有未决业务口径。物理旧湖和 ignored 环境已经明确延期到代码清退后的独立审计；代码清退和
+恢复工具重构仍需用户另行明确授权后实施。
 
 ---
 
@@ -73,7 +85,7 @@ lake_console/docs/templates/dagster-dataset-onboarding-template.html
 | 旧湖/历史备份 → 正式湖 bootstrap | 删除 | 一次性迁移适配器，不是现行同步能力 |
 | 正式湖内部 raw → silver → gold 派生 | 保留 | 当前生产数据链 |
 | 正式 Tushare / prod DB readonly ingestion | 保留 | 当前源端接入能力 |
-| 历史文档中的旧路径和旧 source metadata | 作为历史证据保留 | 不能篡改已发生事实 |
+| 86 份纯旧 Console 文档中的旧路径/source metadata | 摘要迁入现行总账后删除原文 | 防止旧设计继续被搜索和误用；全文仍可从 Git 历史追溯 |
 
 ### 1.2 旧 Lake Console 的精确定义
 
@@ -147,9 +159,9 @@ CodeGraph 审计时索引为 up to date：
 
 | 指标 | 数值 |
 |---|---:|
-| files | 2,736 |
-| nodes | 48,208 |
-| edges | 111,611 |
+| files | 2,787 |
+| nodes | 49,059 |
+| edges | 124,757 |
 | backend | node:sqlite / full WAL |
 
 影响面查询至少覆盖：
@@ -160,12 +172,36 @@ CodeGraph 审计时索引为 up to date：
 4. `IngestionSource`。
 5. `plan_stk_mins_migration`。
 6. `stock_identity_map_bootstrap_spec`。
+7. `plan_stk_mins_raw_replace_from_prod` / `apply_stk_mins_raw_replace_from_prod` 及专属 CLI。
+8. `StockMinsLakeReader`、`MajorIndexMinsLakeReader`、`StockNineTurnLakeReader`、
+   `IndexNineTurnLakeReader` 到 Biz API/Wealth 页面的消费者。
 
 CodeGraph 对 enum member 字符串和动态 CLI 分支覆盖有限，因此又用全仓文本搜索和逐文件阅读复核了入口、调用方、被调用方、测试、文档和 catalog。
 
 ### 2.3 审计边界
 
 本轮是静态只读审计：没有运行 `dg`，没有加载或写入 Dagster instance，没有执行迁移、materialize、job、sensor、backfill、runless event、数据库写入或 Lake 写入。
+
+### 2.4 文档遗漏复盘与防漏方法
+
+上一版遗漏的不是代码依赖，而是文档候选发现方式不完整：当时主要从“86 份待删旧文档的入链引用”
+向外查，因此能发现谁链接了旧文档；但没有再从“将被删除的代码符号、配置名、旧湖路径和恢复工具名”
+反向扫描全部 tracked 文本文件。没有链接旧文档、却直接写着 `old_lake_bootstrap`、
+`BootstrapDatasetSpec`、`lake_console/backend` 或旧恢复路径的现行文档因此漏入矩阵。
+
+本轮改为三路独立发现、逐文件归类：
+
+1. **删除目标反向引用**：逐个扫描 86 份待删文档、三个待删模板、旧 frontend/backend 路径的入链。
+2. **运行符号与路径扫描**：扫描 `OLD_LAKE_BOOTSTRAP`、`old_lake_root`、`BootstrapDatasetSpec`、
+   `old_lake_executor`、Kopia、旧物理湖路径、`lake_console/backend|frontend`、
+   `stk_mins_raw_replace_from_prod` 及旧 staging/quarantine 口径。
+3. **矩阵反向对账**：所有命中文件必须进入 LLD 第 9.4 节，或明确属于将整体删除的
+   `lake_console/backend/**`、`lake_console/frontend/**`、专属入口/配置边界；不能仅凭“是负向禁令”
+   就不登记。
+
+经本轮复扫，逐文件矩阵由 125 份扩为 143 份。实施 M0、M5 和 M7 都要重跑同一组扫描；只有
+“未归类命中文件为 0、待删文档现行入链为 0、矩阵路径不存在/重复为 0”才允许继续。这样不能承诺未来
+新增文件永远不会出现，但可以保证当前 HEAD 上的新增命中不会被静默漏过。
 
 ---
 
@@ -271,19 +307,94 @@ STK_MINS_BOOTSTRAP_SELECT_TEMPLATE
 
 其他当前 DuckDB SQL contract 必须保留。
 
-### 3.6 Catalog 必须按真实来源改，不可机械替换 enum
+### 3.6 Raw `stk_mins` 离线替换工具与 Catalog 最终重构口径
 
-当前 `IngestionSource.OLD_LAKE_BOOTSTRAP` 出现在多个资产声明中。清退后的正确处理不是统一替换成另一个 source：
+`stk_mins_raw_replace_from_prod` 不是旧湖迁移器，也不是 Kopia。它是 2026-07-27 分钟数据事故后增加的
+**非 active、单交易日、五频整体替换**工具：当正式 Lake 已经存在某日 1/5/15/30/60 分钟 Raw 文件，
+但这些文件被确认不完整或错误，而生产 PostgreSQL `raw_tushare.stk_mins` 仍保有可信完整副本时，
+它从生产库重新导出五个候选文件并整体替换正式 Raw。
 
-| 资产 | 清退后来源口径 |
-|---|---|
-| silver `adj_factor` | `bootstrap_sources=(DERIVED_FROM_ASSETS,)` |
-| raw `stk_mins` | ingestion 保留 `TUSHARE_API` / `PROD_DB_READONLY`；`bootstrap_sources=(PROD_DB_READONLY,)`，用于当前正式生产库只读的单日五频恢复 |
-| silver `stk_mins` | `bootstrap_sources=(DERIVED_FROM_ASSETS,)` |
-| gold `stk_mins_qfq` | `bootstrap_sources=(DERIVED_FROM_ASSETS,)` |
-| silver `index_daily` | `bootstrap_sources=(DERIVED_FROM_ASSETS,)` |
+真实链路为：
 
-代码复核后共确认 17 个 catalog entry 需要修改。实施时必须逐个对照 asset definition、job/sensor 和真实读取路径，禁止为了让 enum 消失而机械改 catalog 文本。尤其不得清空 Raw `stk_mins` 的 bootstrap source，否则会与当前 `stk_mins_raw_replace_from_prod` 恢复能力冲突。
+```text
+人工 CLI plan
+  -> 只读核验 ops.task_run 的全市场成功任务
+  -> 从正式 Lake 的 stock_basic 推导当日应有股票代码集合
+  -> 聚合核验 prod raw_tushare.stk_mins 五频代码、行数、键和时间范围
+  -> 冻结现有五个正式 Raw 文件 SHA-256
+  -> 输出 /private/tmp plan + fingerprint
+
+人工审阅后 CLI apply + --apply + plan report
+  -> 重新生成同一 plan，拒绝 stale plan
+  -> DuckDB 从 prod PostgreSQL 导出五个 staging Parquet
+  -> 逐文件校验 schema、日期、频率、代码集合、行数、空键、重复键和 09:30-15:00
+  -> 五个旧 Raw 先移入 quarantine
+  -> 五个 staging 逐一 os.replace 到正式 Raw
+  -> 中途失败则尝试把已移动的五个旧文件恢复
+```
+
+它不会注册 asset、job、sensor 或 check，不会被日常 Dagster 自动调用，也不会主动补 Dagster event。
+正常 Raw job 只在替换成功后通过 `reuse_existing` 重新记录 materialization/check。仓库内正向调用方仅有
+专属 CLI；其余引用是单元测试、静态门禁和 2026-07-27 的历史执行设计。新 BSE recovery 虽也使用
+candidate/audit/promote/checkpoint，但只修复冻结的 BSE 代码/日期范围，不能替代“任意单日全市场五频
+从 prod DB 整体恢复”。
+
+当前日常 Raw job 也不能替代它：`source=prod_db` 只允许 `reuse_existing`，目标已存在时不会覆盖；
+`merge_repair` 只允许 `source=tushare`，用于缺失代码合并，不是从 prod DB 重建并整体替换五频文件。
+所以从能力角度看，这个 CLI 填补的是一个真实空档。用户已拍板保留该恢复能力，但现实现不得原样
+进入清退后的正式代码基线。
+
+当前实现有三个必须正视的问题：
+
+1. staging 位于正式 Raw 树下的 `raw/tushare/stk_mins/_staging/**`，不在唯一允许的
+   `/Volumes/datasource/data_lake_staging`。
+2. 旧五频文件被移动到正式根下 `_quarantine/**` 并在成功后长期保留；这实质上是正式根内的
+   运行时备份，与“正式根只允许 raw/silver/gold、不得用文件备份或快照做安全恢复”的现行规则冲突。
+3. 五个 `os.replace()` 只保证单个文件替换原子，不能构成五文件事务。Python 捕获到异常时会尝试
+   回滚，但进程被强杀、宿主机掉电或文件系统异常时回滚代码可能根本不会执行，正式 Raw 可能短暂或
+   持久处于“部分频率已新、部分频率仍旧”的混合状态；因此不能把现实现描述为真正的五频原子替换。
+
+最终处理已经确定：
+
+| 能力 | 代码处理 | Catalog 处理 |
+|---|---|---|
+| 单日全市场五频 prod-DB 恢复 | **保留能力、重构实现**：报告/candidate/checkpoint 全迁 `DEFAULT_LAKE_STAGING_ROOT`；按 candidate → audit → checkpointed promote 重写；每个频率冻结 old/new fingerprint 并记录 `pending/promoted/verified`；删除正式根 quarantine/backup 和整体回滚设计 | Raw `stk_mins` ingestion 保留当前 `TUSHARE_API`、`PROD_DB_READONLY`；五个 entry 固定为 `bootstrap_sources=(PROD_DB_READONLY,)` |
+
+除 Raw `stk_mins` 这一项外，其余 12 个受影响 catalog entry 的目标已经确定：
+
+| 资产 | 数量 | 清退后来源口径 |
+|---|---:|---|
+| silver `adj_factor` | 1 | `bootstrap_sources=(DERIVED_FROM_ASSETS,)` |
+| silver `stk_mins` | 5 | `bootstrap_sources=(DERIVED_FROM_ASSETS,)` |
+| gold `stk_mins_qfq` | 5 | 只保留 `DERIVED_FROM_ASSETS` |
+| silver `index_daily` | 1 | `bootstrap_sources=(DERIVED_FROM_ASSETS,)` |
+
+总计 17 个 catalog entry 的目标值已经全部确定。禁止为了让 enum 消失而机械替换 catalog，也禁止在
+恢复工具尚未完成 staging/checkpoint 重构和验收时提前把不合规实现描述成可用正式入口。
+
+#### 3.6.1 并发保护为什么需要、做到什么程度
+
+这个工具会替换同一交易日的五个正式 Raw 文件。唯一需要防的并发问题是：人工恢复尚未完成时，
+另一个日常、repair、history 或第二个 recovery 又写同一日期，导致 checkpoint 看到的文件指纹和现场
+不一致。它不需要常驻锁服务，也不需要为整个 Dagster 新增一套并发系统。
+
+上一版 LLD 提出的 run-root 排它锁只能挡住第二个 recovery CLI，挡不住 Dagster 或其它 repair writer，
+并且与仓库“禁止自造锁文件”的规则冲突，属于复杂但保护不完整的设计，本轮删除。最终采用：
+
+1. 同一日期发现未完成 checkpoint 时，只允许用原 `recovery_run_id` 续跑，禁止创建第二个 run。
+2. `apply` 前进入人工维护窗口，暂停或禁止可能写同日期的自动/手动入口，并确认没有 running/queued run。
+3. 五频全部 `verified` 前不恢复相关入口、不补 materialization/check、不宣称恢复完成。
+
+#### 3.6.2 M4 性能门禁是什么
+
+M4 的性能门禁只约束上述单日五频 Raw 恢复，不涉及 Ops Dataset Status Snapshot，也不约束普通页面查询。
+原因是该工具要从生产 PostgreSQL 读取约 180 万分钟行、生成并审计五个 Parquet 后才替换正式文件；如果
+实现意外变成逐股票查询、Python 明细循环或无界全表扫描，可能长时间占用生产库、内存和 staging 磁盘。
+
+门禁不是要求“越快越好”，而是在编码前冻结一个简单上界：一个交易日、五个频率、五个候选文件；
+按集合 SQL/流式导出执行；以 2026-07-27 的 1,776,093 行、约 42.5 MiB、实际 109.973 秒作为样本，
+候选生成与审计超过 5 分钟或空间不足时在正式 promote 前停止并报告。它只防止实现退化和无界执行，
+不改变恢复结果的业务判断。
 
 ### 3.7 一次性事件补录模块的处置
 
@@ -364,6 +475,66 @@ lake_console/orchestrator/tests/test_adj_factor_silver_bootstrap_events.py
 
 删除测试的依据必须是被测能力退役，不得为了让测试通过而删掉保护现行能力的断言。
 
+### 3.12 `src/foundation/clients/local_lake/**` 是当前 Wealth 读取链，不是旧 Console
+
+这里的 `local_lake` 表示“本机 Web 进程直接只读正式 Lake Parquet”，不是
+`lake_console/backend` 管理的旧湖。当前代码链已经逐项确认：
+
+```text
+APP_ENV=dev|local
++ WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED=true
++ GOLDENSHARE_LAKE_ROOT=/Volumes/datasource/data_lake
+  -> src/app/api/v1/router.py 按 capability 挂载分钟 routers
+  -> src/biz/api/wealth/market/{stock,index}_detail_*minutes*.py
+  -> Biz query service
+  -> src/foundation/clients/local_lake/*_reader.py
+  -> DuckDB 只读正式 Gold Parquet
+  -> Wealth 股票详情页 / 指数详情页
+```
+
+当前实际数据集和页面为：
+
+| Reader | 正式 Lake 数据集 | API | 页面消费者 |
+|---|---|---|---|
+| `stock_mins_reader.py` | `gold/quote/stk_mins_qfq`、`gold/indicator/stk_mins_qfq_macd_kdj` | `/api/v1/wealth/market/stock-detail/minutes`、`minute-indicators` | `/wealth/market/stock/{tsCode}` 分钟 K 线与指标 |
+| `stock_nine_turn_reader.py` | `gold/quote/stk_mins_qfq`、`gold/indicator/stk_mins_qfq_nineturn` | `/api/v1/wealth/market/stock-detail/minute-nine-turn` | 股票详情分钟九转层 |
+| `major_index_mins_reader.py` | `gold/quote/major_index_mins`、`gold/indicator/major_index_mins_technical` | `/api/v1/wealth/market/index-detail/minutes`、`minute-indicators` | `/wealth/market/index/{tsCode}` 分钟 K 线与指标 |
+| `index_nine_turn_reader.py` | `gold/quote/major_index_mins`、`gold/indicator/major_index_mins_nineturn` | `/api/v1/wealth/market/index-detail/minute-nine-turn` | 指数详情分钟九转层 |
+
+这些路由默认不在生产挂载：resolver 只允许 `APP_ENV=dev|local` 且显式开关开启。指数分钟 capability、
+股票九转和指数九转还强制 Lake 根精确等于 `/Volumes/datasource/data_lake`；普通股票分钟
+`StockMinsLakeReader` 当前只校验配置根可读和路径不越界，**没有**同等的正式根精确门禁。因此实施
+回归必须使用正式根验证，同时不能在本轮顺带读取或修改 ignored 配置；该不一致作为后续配置治理风险
+记录，不能反过来成为删除当前 Reader 的理由。因此本专项保护它们的原因不是“旧 Console
+也有 DuckDB”，而是它们是当前 Wealth 本地分钟产品的真实消费者。删除旧 frontend/backend 时不得
+顺手删除 `local-lake` optional dependency、capability resolver、Biz API/query service、Wealth API client
+或页面周期能力。
+
+### 3.13 86 份旧文档的价值复核与删除结论
+
+逐文件阅读标题、状态、实现链接、结果段并做全仓入链引用扫描后，86 份文件的结论如下：
+
+| 分组 | 数量 | 是否保留全文 | 处理依据 |
+|---|---:|---|---|
+| 旧 Console 架构、页面、API、CLI、模型、Kopia、旧 benchmark | 25 | 否 | 产品和实现整体删除；当前 Dagster/Wealth 不依赖这些合同，旧 benchmark 也不能约束当前代码 |
+| 旧 Console 数据集接入说明 | 5 | 否 | 目标目录、Catalog、Planner、CLI 和模板全部退役；现行生产/Dagster 文档已独立存在 |
+| 旧 Console prod-raw/core-db 导出方案 | 42 | 否 | 只描述待删导出服务、旧目录和旧页面；当前来源合同由 DatasetDefinition、source docs、正式 Dagster LLD 和代码承接 |
+| `stk_mins` clean/repair/indicator 历史方案 | 14 | 原文否、最小结果摘要保留 | 旧命令/路径/备份方案会误导；但部分修复数字、baseline provenance、停牌/身份映射语义对理解正式新湖来源仍有价值 |
+
+因此 86 份文件全部从当前工作树删除。14 份 `stk_mins` 文档只迁以下不可替代结果，不迁旧实现步骤：
+
+1. `clean_next` 最终 schema、分区/行数和全量复审结论。
+2. 历史 3,735 个严重低行数分区恢复摘要。
+3. 2022 北交所 30m 专项和 2024-10-30 多频污染专项的影响范围、行数变化及修复后
+   `issue_count=0`。
+4. 分钟线与日线代码集合不能 strict equality，差异需按停牌和身份映射解释的结论。
+5. 正式新湖 bootstrap 已经在现行 Dagster 设计中采用的 source/path/count/check 结果。
+
+摘要统一落入 `lake_console/docs/design/dagster-bootstrap-legacy-links.md` 或已经自足承载同一事实的现行
+`stk_mins` Dagster 设计。删除前必须清理 `docs/README.md`、onboarding、risk register、research 方案和
+正式 Dagster 文档中的全部入链引用。Git 历史保留完整原文，因此不新建 `archive/`、不复制 86 份文件、
+不留 tombstone；后续物理旧湖审计必须重新读取物理数据，不能把这些点时文档当作当前数据事实。
+
 ---
 
 ## 4. 文件级处置分类
@@ -424,7 +595,8 @@ lake_console/docs/design/dagster-major-index-mins-data-onboarding-plan.md
 
 1. 现行 Dagster 方案必须改指向正式 Dagster onboarding 模板。
 2. `docs/README.md` 只保留正式模板入口。
-3. 历史文档若需要证明当时依据，使用不可点击的历史路径文字或在文首说明模板已删除；不得恢复死链接。
+3. 86 份纯旧 Console 文档会在必要结果摘要迁移、现行引用清零后删除，不保留不可点击历史路径、
+   archive 副本或 tombstone；完整原文按 Git 历史追溯。
 4. 有效检查项合并完成并通过文档审计后，删除旧模板。
 
 旧 `lake-prod-raw-db-export-template.md` 的现行引用同样切到正式模板/性能治理；历史引用按历史路径处理。旧 Lake 模板之间的互相引用必须一起清理，不能留下链式死链接。
@@ -444,6 +616,9 @@ ops.dataset_status_snapshot 全链
 正式 Lake candidate/audit/promote/checkpoint/原子替换
 正式 stock_identity_map 资产、job、sensor、checks/readiness
 ```
+
+`stk_mins_raw_replace_from_prod` 按第 3.6 节进入“保留能力、必须重构”的修改清单；现模块和 CLI 不得
+原样视为保留完成。
 
 ### 4.6 F 类：代码清退后另轮处理
 
@@ -491,17 +666,16 @@ lake_console/config.local.toml
 5. `lake_console/docs/design/dagster-new-lake-asset-catalog-design.md` 和 run-contract 治理文档：移除旧迁移 source 的现行契约表述。
 6. `dagster-phase-2-design.html` 等历史设计：保留历史事实并加退役边界，不把历史方案重写成从未发生。
 
-### 5.3 历史旧 Console 文档
+### 5.3 旧 Console 文档与历史证据
 
-旧 Local Lake 架构、页面、API、Kopia、Sync Center、repair 和数据集开发记录逐份保留为历史证据，不批量删除。每份按以下规则审计：
+86 份纯旧 Console 文档按已拍板口径从当前工作树删除，不继续以“历史文档”名义整篇保留。仍有当前
+生产事实的混合文档只修旧段落和时态；只包含禁止 Kopia/旧湖的现行负向门禁保留不改；必要执行数字和
+数据语义先压缩进唯一现行迁移总账或当前 Dagster 设计。
 
-1. 文首是否明确“历史/冻结/不可执行”。
-2. 是否仍用现在时宣称旧功能可用。
-3. 是否包含可点击的已删除代码链接。
-4. 是否被 `docs/README.md` 或现行方案当作入口。
-5. 是否混有仍有效的正式 Dagster/生产内容；混合文档只修边界，不误删现行部分。
-
-历史文件可以记录 `OLD_LAKE_BOOTSTRAP`、旧绝对路径、Kopia 命令和执行结果，但必须是历史叙述，不能留下可复制的现行操作指导。
+每个命中文件都必须按 LLD 第 9.4 节归为 `DELETE_AFTER_MIGRATION`、`MODIFY_CURRENT`、
+`MODIFY_MIXED`、`DELETE_LEGACY_DOC` 或 `KEEP_CURRENT_VERIFY`。位于旧 frontend/backend 整体删除边界
+内的文档、AGENTS 和本地 skills 由 263 文件精确清单覆盖，不重复进入外部文档矩阵。禁止临场批量替换，
+也禁止用“只是历史文字”跳过归类。
 
 ---
 
@@ -514,65 +688,98 @@ lake_console/config.local.toml
 3. 对混合模块重新列出正向消费者。
 4. 只读检查本机是否仍有旧 Console 进程；发现遗留进程只说明运行状态，不扩大代码保留范围。
 5. 形成 tracked 文件删除白名单和修改白名单；不得使用目录上层模糊删除。
+6. 重跑第 2.4 节三路文档扫描，确认未归类命中文件、矩阵重复/不存在路径和待删文档现行入链均为 0。
 
 准入：依赖图与本文第 3、4 节一致；任何新增消费者都必须先补回方案。
 
 ### M1：先迁出混合模块中的现行能力
 
 1. 迁移 `stk_mins_migration.py` 中的中性 helper。
-2. 拆出现行 silver/qfq/technical/repair CLI。
-3. 更新全部 imports、dispatcher 和测试。
-4. 验证正式 history/event/repair 路径不再依赖名称含 `migration` 的旧模块。
+2. 更新全部现行消费者和 helper 单元测试。
+3. 验证正式 history/event/repair 路径不再依赖旧 migration helper。
 
 准入：旧 migration module 只剩待删能力，现行消费者为 0。
 
-### M2：模板内容归并与现行引用切换
+### M2A：CLI 等价迁移
 
-1. 将两份旧模板的有效增量写入正式 Dagster onboarding 模板或性能治理文档。
-2. 删除正式模板中旧湖 bootstrap 作为正常路径的内容。
-3. 更新所有现行 onboarding 方案和 `docs/README.md` 引用。
-4. 处理历史文档中的模板死链接和历史说明。
-5. 删除两份旧模板和 `dagster-bootstrap-migration-template.html`。
+1. 冻结当前 28 个命令的 parser/handler 合同：7 个旧命令、21 个当前命令。
+2. 为 21 个当前命令记录命令名、参数/default/required/choices、handler、目标函数、参数映射、输出 key、
+   side-effect 类型和确认门禁。
+3. 新增四个职责 CLI，把 21 个命令按 LLD 映射原样迁入；此阶段禁止改变 selector、默认值、输出或
+   确认语义。
+4. 用 fake dependency 对旧、新入口做同输入双跑，比较规范化 Namespace、目标调用和输出字典；不执行
+   Lake、Dagster 或数据库写入。
+5. 21 个等价合同全绿后，删除原混合 dispatcher；7 个旧命令不迁移、不留 alias。
 
-准入：新数据集接入不需要打开任何待删除模板，且正式模板覆盖第 3.10 节检查项。
+准入：21 个当前命令行为等价；7 个旧命令在新入口均不存在；旧 dispatcher 当前消费者为 0。
 
-### M3：原子删除旧 Console 和 Kopia
+### M2B：CLI 安全门禁收紧
 
-精确删除第 4.1 节旧产品对象。前端、后端、专属脚本、配置样例和测试必须同轮完成。
+只在 M2A 等价基线通过后，单独实施并测试两项已批准的现行安全修正：
 
-删除后立即反查以下路径仍存在：
+1. Silver register/report 的 selector 只允许正式 Silver 文件或显式 partition keys，不再接受含糊 `--all`
+   或 `--all-from-raw-files`。
+2. MACD/KDJ baseline event 强制 `start_date == end_date` 且 planner 只能选出一个 partition；`--dry-run`
+   不能绕过。
 
-```text
-lake_console/orchestrator/**
-lake_console/docs/**
-lake_console/reports/**
-lake_console/bin/lake-clickhouse-start
-lake_console/bin/lake-prod-clickhouse-tunnel
-```
+准入：等价迁移失败和安全加固失败可分别定位；不得把安全变更混入“迁移等价”验收。
 
-### M4：删除旧湖迁移适配器
+### M3：删除旧 migration 主体
 
-1. 删除旧 bootstrap dataset specs 和 executor。
-2. 删除旧 enum members、exports、CLI 分支和参数。
-3. 删除七个旧 SQL templates。
-4. 逐资产修正 catalog source/bootstrap 声明。
-5. 删除一次性旧 event 模块和专属测试。
-6. 删除旧 producer 后，确认历史 event 无需数据迁移。
-7. 保留并补强旧根拒绝测试。
+1. 删除只剩旧 raw/identity-map migration、event report、audit 和 metadata 的主体。
+2. 删除纯旧测试，运行 Silver/QFQ/derived/MACD-KDJ 定向回归。
 
-### M5：规则和历史文档收口
+准入：`stk_mins_migration.py` 和原 CLI 不留 wrapper、re-export 或兼容 alias。
 
-按第 5 节修改规则、README、skills、现行设计、历史总账和死链接。更新 CodeGraph 架构快照时只写清退后的真实边界。
+### M4：重构 Raw 恢复工具并删除 generic old-lake adapter
 
-### M6：回归验收
+1. 先把 `stk_mins_raw_replace_from_prod` 的 report/candidate/checkpoint 迁到正式 staging 根，完成逐文件
+   fingerprint、`pending/promoted/verified` checkpoint、中断判定、幂等续跑和五频最终核验。
+2. 删除正式根 `_staging/_quarantine`、backup 和整体回滚路径；恢复工具新测试全绿后才进入旧适配器删除。
+3. 删除旧 bootstrap dataset specs、executor、旧 enum members、exports、CLI 分支和参数。
+4. 删除七个旧 SQL templates。
+5. 逐资产修正 17 个 catalog source/bootstrap 声明；Raw `stk_mins` 五项固定保留
+   `bootstrap_sources=(PROD_DB_READONLY,)`。
+6. 删除一次性旧 event 模块和专属测试。
+7. 删除旧 producer 后，确认历史 event 无需数据迁移。
+8. 保留并补强旧根拒绝测试。
+9. 恢复工具不新增 lock/pid 文件；按第 3.6.1 节用未完成 checkpoint 唯一性和人工维护窗口防止同日期并发。
+10. 按第 3.6.2 节冻结单日五频性能预算；超过预算或 staging 空间不足时必须停在正式 promote 之前。
+
+### M5：模板迁移、证据摘要收敛与旧文档删除
+
+1. 把两份旧模板的有效增量先写入正式 Dagster onboarding 模板或性能治理文档。
+2. 更新现行 onboarding 和 S0 索引引用。
+3. 把旧 `stk_mins clean_next` 重建、两次专项修复、代码集合差异和正式新湖 bootstrap 所需的最小结果
+   摘要迁入 `dagster-bootstrap-legacy-links.md` 或已经承载同一事实的现行 Dagster 设计；不复制旧命令。
+4. 更新所有 current/mixed 文档引用，确保不再依赖待删旧文档。
+5. 按 LLD 逐文件矩阵删除 86 份纯旧 Console 文档；不建立 archive 目录或 tombstone。
+6. 删除两份旧模板和 `dagster-bootstrap-migration-template.html`。
+
+准入：新数据集接入不依赖待删除模板；86 份删除矩阵无遗漏；必要历史结果已在单一现行总账中有摘要；
+现行文档和索引对 86 份文件的正向链接为 0；尚未删除的旧 Console 代码在此阶段仍按“待删”描述，
+不能提前把规则写成“已删除”。
+
+### M6：原子删除旧 Console/Kopia并同步当前规则
+
+1. 精确删除第 4.1 节旧产品对象，frontend、backend、tests、入口和示例配置同轮完成。
+2. 同一原子阶段更新根/lake_console/orchestrator AGENTS、CODING_STANDARDS、skills、README、当前架构
+   文档和 CodeGraph snapshot 为“代码已清退、禁止恢复”的真实事实。
+3. 立即反查 `lake_console/orchestrator/**`、`lake_console/docs/**`、`lake_console/reports/**`、两个 ClickHouse
+   bin、Wealth `local_lake` 读取链仍存在。
+
+### M7：全量回归验收
 
 执行第 7 节的静态、单元、definitions、文档和差异门禁。任何保留主链失败都必须修复真实依赖，禁止恢复兼容 wrapper、空 module、旧 enum 或旧 CLI alias。
 
-### M7：后续独立工作，不属于本轮
+### M8：后续独立工作，不属于本轮
 
 1. 物理旧湖逐目录数据审计，另行决定是否删除。
 2. ignored 环境逐路径精确删除。
 3. 两者都需要独立清单和回退口径，不与 Git 代码清退混合。
+
+M8 不是本专项实施阶段，不包含在本轮授权、提交、验收或回退范围中；只有 M0–M7 完成并稳定后，
+才可另立方案、重新审计和单独授权。
 
 ---
 
@@ -592,6 +799,7 @@ tests/lake_console
 docs/templates/lake-dataset-development-template.md
 docs/templates/lake-prod-raw-db-export-template.md
 lake_console/docs/templates/dagster-bootstrap-migration-template.html
+LLD 第 9.4.2–9.4.3 节列出的 86 份纯旧 Console 文档
 ```
 
 预期保留：
@@ -617,9 +825,19 @@ src/ops/services/operations_dataset_status_snapshot_service.py
 6. catalog 不再声明旧 bootstrap source/spec。
 7. 当前 history/event/repair 代码不 import 旧 migration module。
 
-允许保留：历史文档、历史 event metadata、禁止规则和负向测试中的旧字符串。
+允许保留：历史 event metadata、现行迁移总账中的必要结果摘要、禁止规则和负向测试中的旧字符串。
 
-### 7.3 正式 Dagster 回归
+### 7.3 CLI 行为等价与安全加固验收
+
+1. 当前 28 个命令 inventory 与代码一致：7 个旧命令删除、21 个当前命令迁移。
+2. 21 个当前命令逐个比较旧/新 parser 的参数名、类型、default、required、choices 和 action。
+3. 使用 fake dependency 对比旧/新 handler 的目标函数、传参和值规范化、输出字典 key 和异常时点；
+   禁止用真实 Lake/Dagster 写入做等价测试。
+4. M2A 等价用例全部通过后，M2B 才运行 Silver selector 和 MACD/KDJ 单分区门禁正反例。
+5. 任何当前命令出现名称、默认行为、输出或副作用差异，都必须解释为已批准的 M2B 安全修改；否则视为
+   拆分回归，不得删除旧 CLI。
+
+### 7.4 正式 Dagster 回归
 
 实施时按实际变更文件选择并记录定向测试，至少覆盖：
 
@@ -632,7 +850,7 @@ src/ops/services/operations_dataset_status_snapshot_service.py
 
 `dg` definitions 检查需要按仓库规则另行获得明确执行授权；不得把本方案评审视为自动授权。任何验收不得触发 materialize、job、sensor、backfill 或 runless event。
 
-### 7.4 现行 DuckDB/Parquet、Ops 和前端保护
+### 7.5 现行 DuckDB/Parquet、Ops 和前端保护
 
 1. `src/foundation/clients/local_lake/**` 与分钟 API 回归通过。
 2. 根 `pyproject.toml` 的 `local-lake` DuckDB optional dependency 仍在。
@@ -640,7 +858,7 @@ src/ops/services/operations_dataset_status_snapshot_service.py
 4. 根 `frontend/**` 构建/定向测试不受旧 frontend 删除影响。
 5. ClickHouse 启动和 tunnel 脚本仍存在并通过语法检查。
 
-### 7.5 模板验收
+### 7.6 模板验收
 
 正式 Dagster onboarding 模板必须能独立回答：
 
@@ -651,9 +869,9 @@ src/ops/services/operations_dataset_status_snapshot_service.py
 5. prod DB 读取如何保证只读、白名单、显式投影、参数绑定和流式拉取。
 6. 真实 smoke 如何对账源端、归一化、写入、拒绝和目标行数。
 
-如果任何一项只能从旧模板找到，M2 不得通过，旧模板不能先删。
+如果任何一项只能从旧模板找到，M5 不得通过，旧模板不能先删。
 
-### 7.6 文档与工作区门禁
+### 7.7 文档与工作区门禁
 
 ```bash
 python3 scripts/check_docs_integrity.py
@@ -680,6 +898,8 @@ git diff --name-status
 | 旧模板先删、有效检查未迁 | 新数据集接入失去性能/安全门禁 | 正式模板逐项覆盖后再删 |
 | 旧模板只加历史 banner 仍留在 templates | 新开发继续误用 | 更新引用后从 templates 删除 |
 | 删除旧 backend 时连 DuckDB/Parquet 依赖一起删 | 当前正式 Lake/分钟查询失效 | 保留现行 reader 和 optional dependency 回归 |
+| 把离线 Raw 恢复工具当旧湖迁移器直接删 | 丢失单日全市场五频事故恢复能力 | 已拍板保留能力；第 3.6 节重构项必须进入修改白名单 |
+| 原样保留 Raw 恢复工具 | 正式根出现 `_staging/_quarantine` 和长期备份，违反当前路径规则 | 必须迁到正式 staging，改用逐文件 fingerprint/checkpoint/verified 和幂等续跑 |
 | 顺带删除物理旧湖、reports、ignored 环境 | 未审计数据或证据丢失 | 明确分轮，当前禁止触碰 |
 
 ---
@@ -715,4 +935,6 @@ Ops Dataset Status Snapshot、正式 orchestrator、ClickHouse、正式 DuckDB/P
 
 ### 10.5 下一步
 
-方案和 LLD 已无待拍板技术项。评审通过并收到实施授权后，严格按 LLD 的 M0 → M7 推进；本轮文档修改不构成代码删除、`dg` 执行、数据写入或物理目录清理授权。
+清退边界、Raw 恢复工具重构和 86 份旧文档删除口径已经全部拍板。下一步需由用户单独授权实施，
+并严格按 M0 → M7 推进。M8 是物理旧湖和 ignored 环境的后续独立专项，不属于本轮。本轮文档修改
+不构成代码/旧文档删除、`dg` 执行、数据写入或物理目录清理授权。
