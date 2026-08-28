@@ -1,8 +1,10 @@
 # 旧 Lake Console、Kopia 与旧湖迁移适配器清退低层设计 v1
 
-状态：代码逐项复核完成 / LLD 已补逐文件删除矩阵与 CLI 等价门禁 / Raw 恢复工具重构已拍板 / 尚未实施
+状态：代码逐项复核完成 / M0 已闭环 145 份逐文件矩阵 / CLI 等价门禁与 Raw 恢复工具重构已拍板 / 尚未实施
 
 审计基线：`dev-interface`，`c232889858d6fe93a3224bf65d3cdb682e4382f0`（用户无关工作区改动不纳入本专项）
+
+M0 复核基线：`dev-interface`，`66a21e854659f26826e8bc6ad2836d49eaf622fe`（核心清退代码边界与原审计基线一致；文档矩阵按当前 HEAD 复扫）
 
 分支口径：用户已确认 `main` 无需在本专项实施前强制追平；实施基线只认当前 `dev-interface` 的记录
 HEAD、CodeGraph 状态和精确文件白名单。
@@ -1052,6 +1054,11 @@ lake_console/docs/templates/dagster-bootstrap-migration-template.html
 全部 tracked 文本文件。因此，不链接86份旧文档、却直接描述 `BootstrapDatasetSpec`、
 `old_lake_bootstrap`、旧 backend 或 Raw recovery 旧路径的现行文档没有进入候选集。
 
+M0 又把旧路径扫描从 `stk_mins_raw_replace_from_prod` 的旧 `_staging/_quarantine` 口径扩展到正式
+Lake 的历史 `_quarantine` 执行证据，补出两份只记录正式 Dagster 历史执行的现行文档。它们不属于
+旧 Console/Kopia，也不提供旧湖执行入口，统一登记为 `KEEP_CURRENT_VERIFY`；原矩阵遗漏是扫描口径
+过窄，不是删除范围扩大。
+
 矩阵现在由三份机器可复跑的候选清单交叉生成：
 
 1. 86 份待删文档、三个待删模板、旧 frontend/backend 路径的反向引用清单。
@@ -1065,8 +1072,8 @@ lake_console/docs/templates/dagster-bootstrap-migration-template.html
 除此之外，每个命中文件都必须有一行处理码；仅包含“禁止 Kopia/旧湖”的当前文档也登记为
 `KEEP_CURRENT_VERIFY`，不再静默排除。
 
-本矩阵共 143 份文件：3 份迁移后删除、31 份现行文档修改、10 份混合文档局部修改、86 份纯旧文档
-删除、13 份现行文档只验证。86 份删除目标全部逐文件列名；任何新增发现必须先补矩阵，禁止扩大目录级
+本矩阵共 145 份文件：3 份迁移后删除、31 份现行文档修改、10 份混合文档局部修改、86 份纯旧文档
+删除、15 份现行文档只验证。86 份删除目标全部逐文件列名；任何新增发现必须先补矩阵，禁止扩大目录级
 删除范围。实施 M0、M5 和 M7 均要求三份候选清单的未归类命中、重复路径和不存在路径为 0。
 
 #### 9.4.1 当前规则、索引、模板和正式 Dagster 文档
@@ -1105,6 +1112,7 @@ lake_console/docs/templates/dagster-bootstrap-migration-template.html
 | `docs/datasets/index-wave4-trend-reversal-backtest-plan-v1.md` | `MODIFY_CURRENT` | 删除旧 index-mins/indicator/MACD 文档引用，改指正式 major-index 分钟接入、canonical bars 和现行 MACD/KDJ Dagster 设计 |
 | `lake_console/docs/design/dagster-stk-mins-asset-design.html` | `MODIFY_CURRENT` | 删除 clean_next 代码集合审计原文链接；保留已写入本文的停牌/身份映射/非 strict equality 正式语义，并改引历史迁移总账 |
 | `lake_console/docs/design/dagster-stk-mins-qfq-macd-kdj-indicators-plan.md` | `MODIFY_CURRENT` | 删除两个旧指标文档引用；当前递推、性能和验收只以本文及 canonical bars LLD 为准 |
+| `lake_console/docs/design/dagster-stk-mins-qfq-macd-kdj-reconciliation-recovery-r5-low-level-design.md` | `KEEP_CURRENT_VERIFY` | 仅记录正式 Dagster MACD/KDJ recovery 已发生的 quarantine 历史证据；保留不改，不把正式 Lake 历史 quarantine 误判为旧 Console/Kopia |
 | `lake_console/docs/design/dagster-etf-market-data-prod-db-onboarding-plan-v1.md` | `MODIFY_CURRENT` | 删除旧 etf-basic Console 导出方案引用和历史依据段；保留当前 source docs、正式 Dagster 方案与代码证据 |
 | `lake_console/docs/design/dagster-phase-2-design.html` | `MODIFY_CURRENT` | 删除旧 suspend-d Console 导出方案引用；保留 Tushare source docs、实测记录和当前 Dagster 契约 |
 | `lake_console/docs/design/dagster-phase-2-low-level-design.html` | `MODIFY_MIXED` | 保留第二期已发生的迁移结果；删除“generic old-lake spec/executor 长期保留并复用”的当前设计，明确 executable adapter 已退役、历史 metadata 只读保留 |
@@ -1121,6 +1129,7 @@ lake_console/docs/templates/dagster-bootstrap-migration-template.html
 | `lake_console/docs/design/dagster-gold-wealth-market-turnover-dataset-design.md` | `KEEP_CURRENT_VERIFY` | 仅包含无 Kopia/无正式根 staging 的当前门禁，保留不改 |
 | `lake_console/docs/design/dagster-gold-wealth-market-turnover-dataset-low-level-design.md` | `KEEP_CURRENT_VERIFY` | 同上；历史执行数字和当前 staging 合同均不依赖旧 Console |
 | `lake_console/docs/design/dagster-stock-qfq-nineturn-dataset-plan.md` | `KEEP_CURRENT_VERIFY` | 仅记录执行未使用 Kopia/旧湖，保留为现行负向证据 |
+| `lake_console/docs/design/dagster-stock-qfq-nineturn-dataset-low-level-design.md` | `KEEP_CURRENT_VERIFY` | 仅记录正式 Dagster 九转治理已发生的 quarantine/manifest 历史证据；保留不改，不纳入旧产品清退 |
 | `wealth/docs/pages/market-overview/sector-overview-low-level-design-v2.md` | `KEEP_CURRENT_VERIFY` | 只声明不新增 Kopia/旧湖路径，保留当前禁止项 |
 | `wealth/docs/pages/market-overview/sector-overview-m2-coding-gate-v2.md` | `KEEP_CURRENT_VERIFY` | 只记录 Heat 链无 Kopia的验收事实，不受本专项删除影响 |
 | `wealth/docs/system/detail-page-nine-turn-integration-implementation-design-v1.md` | `KEEP_CURRENT_VERIFY` | 只记录分钟九转执行未使用 migration/Kopia，保留历史执行证据 |
