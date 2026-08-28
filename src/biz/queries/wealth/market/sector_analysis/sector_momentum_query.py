@@ -164,8 +164,8 @@ class SectorMomentumQuery:
         end_date: date,
         count: int,
     ) -> tuple[date, ...]:
-        if count <= 0 or count > 90:
-            raise SectorDataQueryError("open-date window must be between 1 and 90")
+        if count <= 0 or count > 95:
+            raise SectorDataQueryError("open-date window must be between 1 and 95")
         rows = session.scalars(
             select(TradeCalendar.trade_date)
             .where(

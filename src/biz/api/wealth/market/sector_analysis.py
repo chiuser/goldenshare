@@ -17,6 +17,9 @@ from src.biz.queries.wealth.market.common.sector_hierarchy_query import (
 from src.biz.queries.wealth.market.sector_analysis.sector_momentum_query_service import (
     SectorMomentumQueryService,
 )
+from src.biz.queries.wealth.market.sector_analysis.sector_relative_rotation_query_service import (
+    SectorRelativeRotationQueryService,
+)
 from src.biz.queries.wealth.market.sector_analysis.sector_dual_momentum_query_service import (
     SectorDualMomentumQueryService,
 )
@@ -32,6 +35,10 @@ from src.biz.schemas.wealth.market.sector_analysis import (
 from src.biz.schemas.wealth.market.sector_dual_momentum import (
     SectorDualMomentumMetaResponseDto,
     SectorDualMomentumResultsResponseDto,
+)
+from src.biz.schemas.wealth.market.sector_relative_rotation import (
+    SectorRelativeRotationMetaResponseDto,
+    SectorRelativeRotationResultsResponseDto,
 )
 from src.biz.services.wealth.market.sector_analysis.sector_dual_momentum_contract import (
     SectorMomentumFactVersionMismatchError,
@@ -50,6 +57,10 @@ from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract imp
     parse_history_range,
     parse_period,
     parse_scope,
+)
+from src.biz.services.wealth.market.sector_analysis.sector_relative_rotation_contract import (
+    parse_relative_rotation_period,
+    parse_relative_rotation_trail_length,
 )
 from src.foundation.config.settings import get_settings
 
@@ -204,6 +215,127 @@ def get_sector_dual_momentum_results(
             status_code=409,
             code="SA_FACT_VERSION_MISMATCH",
             message="行业分类已更新，正在重新加载双动量数据。",
+        ) from exc
+    except SectorSelectionInvalidError as exc:
+        _raise_selection_error(exc)
+    except SectorScopeInvalidError as exc:
+        _raise_request_error(exc)
+    raise AssertionError("unreachable")
+
+
+@router.get(
+    "/relative-rotation/meta",
+    response_model=SectorRelativeRotationMetaResponseDto,
+)
+def get_sector_relative_rotation_meta(
+    request: Request,
+    market: str | None = Query(default=None),
+    _user: AuthenticatedUser | None = Depends(require_quote_access),
+    session: Session = Depends(get_db_session),
+) -> SectorRelativeRotationMetaResponseDto:
+    try:
+        _validate_query_shape(request, allowed={"market"})
+        return SectorRelativeRotationQueryService().build_meta(
+            session,
+            market=_parse_required_market(market),
+        )
+    except SectorScopeInvalidError as exc:
+        _raise_request_error(exc)
+    except SectorHierarchyUnavailableError as exc:
+        raise WebAppError(
+            status_code=500,
+            code="SA_HIERARCHY_UNAVAILABLE",
+            message="行业分类暂不可用，请稍后重试。",
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise WebAppError(
+            status_code=500,
+            code="SA_QUERY_FAILED",
+            message="板块分析数据读取失败，请稍后重试。",
+        ) from exc
+    raise AssertionError("unreachable")
+
+
+@router.get(
+    "/relative-rotation/results",
+    response_model=SectorRelativeRotationResultsResponseDto,
+)
+def get_sector_relative_rotation_results(
+    request: Request,
+    market: str | None = Query(default=None),
+    trade_date: str | None = Query(default=None, alias="tradeDate"),
+    scope: str | None = Query(default=None),
+    level1_code: str | None = Query(default=None, alias="level1Code"),
+    level2_code: str | None = Query(default=None, alias="level2Code"),
+    period: str | None = Query(default=None),
+    trail_length: str | None = Query(default=None, alias="trailLength"),
+    sector_code: str | None = Query(default=None, alias="sectorCode"),
+    hierarchy_version: str | None = Query(default=None, alias="hierarchyVersion"),
+    debug: str | None = Query(default=None),
+    _user: AuthenticatedUser | None = Depends(require_quote_access),
+    session: Session = Depends(get_db_session),
+) -> SectorRelativeRotationResultsResponseDto:
+    try:
+        _validate_query_shape(
+            request,
+            allowed={
+                "market",
+                "tradeDate",
+                "scope",
+                "level1Code",
+                "level2Code",
+                "period",
+                "trailLength",
+                "sectorCode",
+                "hierarchyVersion",
+                "debug",
+            },
+        )
+        if scope is None:
+            raise SectorScopeInvalidError("scope 为必填参数")
+        if period is None:
+            raise SectorScopeInvalidError("period 为必填参数")
+        if trail_length is None:
+            raise SectorScopeInvalidError("trailLength 为必填参数")
+        return SectorRelativeRotationQueryService().build_results(
+            session,
+            market=_parse_required_market(market),
+            trade_date=_parse_dual_trade_date(trade_date),
+            scope=parse_scope(scope),
+            level1_code=_parse_optional_sector_code(
+                level1_code,
+                field_name="level1Code",
+            ),
+            level2_code=_parse_optional_sector_code(
+                level2_code,
+                field_name="level2Code",
+            ),
+            period=parse_relative_rotation_period(
+                _parse_choice_int(period, default=0, field_name="period")
+            ),
+            trail_length=parse_relative_rotation_trail_length(
+                _parse_choice_int(
+                    trail_length,
+                    default=0,
+                    field_name="trailLength",
+                )
+            ),
+            sector_code=_parse_optional_sector_code(
+                sector_code,
+                field_name="sectorCode",
+            ),
+            hierarchy_version=_parse_required_text(
+                hierarchy_version,
+                field_name="hierarchyVersion",
+                max_length=128,
+            ),
+            debug=_parse_debug(debug),
+        )
+    except SectorMomentumFactVersionMismatchError as exc:
+        raise WebAppError(
+            status_code=409,
+            code="SA_FACT_VERSION_MISMATCH",
+            message="行业分类已更新，正在重新加载相对轮动数据。",
         ) from exc
     except SectorSelectionInvalidError as exc:
         _raise_selection_error(exc)

@@ -2,17 +2,17 @@
 
 ## 0. 文档状态
 
-- 状态：v1.17；既有动量排名 M0～M4 保持原结论；双动量 M5～M8 已完成，用户已验收页面并接受当前冷启动性能，本需求结束。
+- 状态：v1.20；既有动量排名 M0～M4 与双动量 M5～M8 保持完成结论；相对轮动 M10 后端、正反例、来源边界和最大窗口自动化门禁已完成；下一步固定为 M11 前端，尚未开始。
 - 编写日期：2026-08-28。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
 - 技术依据：[财势探查｜板块分析技术实施方案 v1](./sector-analysis-implementation-design-v1.md)。
 - Figma：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`，页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）。
-- 目标路由：`/wealth/exploration/sector-analysis/momentum-ranking`、`/wealth/exploration/sector-analysis/dual-momentum`。
-- 目标 API：既有 `/api/v1/wealth/market/sector-analysis/meta|momentum/**`；新增 `/api/v1/wealth/market/sector-analysis/dual-momentum/meta|results`。
+- 目标路由：既有 `/wealth/exploration/sector-analysis/momentum-ranking`、`/wealth/exploration/sector-analysis/dual-momentum`；M11 新增 `/wealth/exploration/sector-analysis/relative-rotation`。
+- 目标 API：既有 `/api/v1/wealth/market/sector-analysis/meta|momentum/**` 与 `/dual-momentum/meta|results`；M10 新增 `/relative-rotation/meta|results`。
 - 待拍板项：无。若编码时发现本文与当前事实冲突，必须停止并回到方案层确认。
 
-本文定义财势探查页面结构、已完成的“横截面动量排名”与 M3A 三级行业成分股明细，以及第二个独立方法“双动量”的代码级方案。双动量只描述当前行业同时满足绝对动量和相对动量的状态，不做预测、信号或综合评分。相对轮动、成员广度、量价分布继续只保留按钮和“待建设”提示，不得生成路由、controller、API、Mock、隐藏工作区或计算逻辑。M3A 成分股明细只是已选三级行业的事实下钻，不属于“成员广度”。
+本文定义财势探查页面结构、已完成的“横截面动量排名”、M3A 三级行业成分股明细和“双动量”，并在第 6.21～8.22 节冻结第三个独立方法“相对轮动”的代码级方案。相对轮动只描述行业当前同组强度位置及相对 5 个交易日前的变化，不做预测、传统 RRG、综合评分或发布。M10 后端已完成，M11 完成前相对轮动继续只显示“待建设”；成员广度和量价分布始终只保留按钮与提示，不得生成路由、controller、API、Mock、隐藏工作区或计算逻辑。M3A 成分股明细只是已选三级行业的事实下钻，不属于“成员广度”。
 
 ---
 
@@ -41,7 +41,11 @@
 | 双动量是独立方法 | 独立 route、Meta/Results、controller 和工作区 | 动量排名与双动量不能同时挂载；不得复制收益/排名公式或解释旧页面 DTO |
 | 双动量周期与阈值固定 | period `5/10/20/30`；threshold `70/80/90` | 1 日、任意周期、任意阈值均拒绝；阈值相等时计入领先 |
 | 双动量只描述当前状态 | `sector-dual-momentum@1` 分类器 | 不输出综合分、预测、信号、成功率、Lift 或发布状态 |
-| 未建设方法零副作用 | `SectorAnalysisMethodBar` | 相对轮动、成员广度、量价分布点击只 toast；URL、请求、图表和工作区均不变化 |
+| 相对轮动是第三个独立方法 | `sector-relative-rotation@1` + 独立 route/API/controller | 不使用传统 RRG、不读取宽基、不与前两种方法混算 |
+| 相对轮动只复用冻结动量事实 | `SectorMomentumCalculator.calculate_for_dates()/rank_strength()` | 不复制区间收益、百分位公式；前端不得计算 X/Y 或象限 |
+| 相对轮动参数固定 | `period=5/10/20/30`、`lookback=5`、`trail=20/30/60`、`minGroup=3` | 1 日、任意 lookback/trail、任意分界值和页面自定义公式均拒绝 |
+| 相对轮动原子响应 | Results 同时返回当前全量快照与一条选中轨迹 | 选中切换不能先换名称再显示旧轨迹；搜索/象限筛选/hover/放大零请求 |
+| 未建设方法零副作用 | `SectorAnalysisMethodBar` | M11 前相对轮动与始终未建设的成员广度、量价分布只 toast；M11 后只剩后两者 toast |
 | 不新增持久化能力 | 复用既有 ORM；无迁移、表、缓存服务 | Alembic head 不变；无新 ORM model、Redis 或后台任务 |
 
 公式身份固定：
@@ -171,6 +175,36 @@ MarketOverviewPage
 8. `SectorAnalysisMethodBar` 当前唯一页面消费者是 `SectorAnalysisPage`；`parseSectorMomentumUrlState` 的直接消费者是现有 controller 和测试。新增双动量独立 parser 可避免污染现有 URL 合同。
 9. 双动量不需要 history、members、成分股、资金、Heat、QTF、DG/Lake 或数据库写入；其列表、摘要和散点图都由同一个 Results 全量响应派生。M5 没有发现需要新增配置、依赖、迁移、缓存、结果表或账号的理由。
 
+### 2.8 M9 相对轮动代码、消费者与性能审计
+
+2026-08-28 使用仓库根最新 CodeGraph 索引（up to date，2,816 files、49,716 nodes、126,302 edges）和当前源码完成实现前影响面核验。审计覆盖 `SectorMomentumCalculator`、`SectorMomentumQuery`、`SectorMomentumSnapshotQueryService`、动量／双动量 QueryService、Biz router/schema、`SectorAnalysisPage`、方法栏、前端路由、双动量独立 controller／adapter／SVG 以及全部直接测试消费者。
+
+1. `SectorMomentumCalculator.calculate_for_dates()` 已能在一个内存事实索引上批量生成多个目标交易日的完整 N 日收益；`rank_strength()` 已固定最强 100、最弱 0、并列平均百分位和 0.1 精度。相对轮动只能组合这两项公开纯计算能力，不能调用 `SectorMomentumQueryService` 的私有 `_rank_by_date()`，也不能复制公式。
+2. `SectorMomentumSnapshotQueryService.prepare_for_context()` 已按“公共日期→层级版本→比较池→目标日解析”返回不可变准备事实。相对轮动可以复用该公开方法完成前三项 SQL 与版本前置门禁，但不能循环调用 `build_prepared()`，否则会为每个轨迹日期重复读取开市日和行情。
+3. `SectorMomentumQuery.load_open_dates()` 当前明确拒绝 `count>90`；M10 只允许把该上限和错误文案精确改为95，并增加96拒绝反例。既有 History 最大请求仍为90，不得改变其输出或允许任意窗口。
+4. 正常 Results 的真实 SQL 形态可以固定为5条：公共 page context 1条、层级 1条、目标日解析 1条、95日交易日 1条、当前比较池行情 1条。`dc_daily` 必须只出现一条集合查询，禁止按日期、行业或轨迹点循环读取。
+5. `SectorMomentumQueryService.build_history()` 已有多日网格思路，但还会为了详情摘要并入全层级／父级池，且 DTO 是单行业收益与排名趋势，不符合相对轮动的“当前全池 + 一条轨迹”原子合同；不得复用或扩写该 endpoint。
+6. `SectorDualMomentumQueryService`、schema、adapter、URL 和 controller 提供了专属方法分层、strict DTO、5秒超时、409重载、过期响应丢弃和按需挂载范式。相对轮动应复制职责形态而不是复制业务字段或在其中增加 method 分支。
+7. 当前 `SectorAnalysisPage` 和 `SectorAnalysisMethodBar` 的可用方法类型只包含 `momentum-ranking | dual-momentum`；`WealthRouter/routerState` 也只有两个精确方法路由。M11 必须一次性增加第三个判别分支，并继续让成员广度和量价分布保持零请求 toast。
+8. `tests/architecture/test_wealth_sector_analysis_guardrails.py` 已把板块分析来源全集冻结为五张表，但相对轮动方法级白名单仍需单独限制为前三张；同时需要把相对轮动文件加入禁止 QTF/DG/Lake/预测/持久化扫描。
+9. 中央注册表原先把 `SA_FACT_VERSION_MISMATCH` 写成“双动量专用”，与技术方案要求的同语义复用冲突。本轮已把它收敛为双动量／相对轮动 Results 共用的页面级层级版本冲突；成员局部请求仍单独使用 `SA_MEMBER_FACT_MISMATCH`，没有新增异常码。
+10. 配置审计结论为“不适用”：period、5日改善、trailLength、最小组规模、X轴范围和分界线都是版本化公式合同；本期不增加 env、Settings、数据库配置、配置文件、运营开关或页面常量的第二事实源。
+
+M9 最大窗口使用现有 Web 只读连接做了有界核验：只读当前发布的337个三级行业、最近95个 SSE 开市日，事实行31,614条；不导出来源行、不保存快照。结果如下：
+
+| 证据 | 结果 | 结论 |
+|---|---:|---|
+| SQL 数 | 5 | 通过 |
+| `dc_daily` 行数 | 31,614（理论上限32,015） | 有界 |
+| 目标计算日期 | 65（60轨迹+5比较前沿） | 与公式一致 |
+| 冻结 DTO 估算最大响应 | 159,859 bytes | 通过256KB |
+| 数据库5条 SQL 的 `EXPLAIN ANALYZE` 执行合计 | 91.868ms | 通过分段预算 |
+| 纯计算+DTO/JSON 50次 P95 | 107.363ms | 通过分段预算 |
+| 同拓扑核心链路估算 P95 | 199.231ms | 低于500ms，允许进入 M10 |
+| 本机跨网络全链20次 P95 | 2,343.531ms | 只记录网络诊断，不冒充部署态 P95 |
+
+分段估算只关闭 M10 的“方案是否明显不可行”门禁，不代替 M12 的部署态真实 HTTP P95。M10 不得以该结果为由删减行业、轨迹或字段，也不得引入缓存、索引、结果表或分页。
+
 ## 3. Figma 开发交付审计
 
 ### 3.1 正式节点基线
@@ -214,7 +248,26 @@ MarketOverviewPage
 
 上述 15 张正式页面均为 `1600×1292.390625`，双动量工作区实例为 `1564×1006`，组件集为 `1132:9777`，交互说明节点为 `1137:422`。运行时继续使用等宽弹性 Grid，不把 1564px 写成固定宽度。
 
-相对轮动、成员广度、量价分布的节点 `967:158/967:244/967:330` 仍是 Draft，只证明按钮位置，不是本期工作区实现依据。
+相对轮动旧草稿 `967:158` 已冻结并移出正式交付区；成员广度和量价分布的 `967:244/967:330` 继续只是 Draft 按钮占位。相对轮动唯一正式基线为：
+
+| 状态 | 节点 | 编码用途 |
+|---|---|---|
+| Ready／一级总榜 | `1150:5870` | 默认一级总榜、20日强度、20日轨迹 |
+| Ready／二级总榜 | `1152:6286` | 全部二级行业同组轮动 |
+| Ready／三级总榜 | `1152:7139` | 337个三级行业密集点与完整列表 |
+| Ready／一级内二级 | `1152:7994` | 所选一级直属二级池 |
+| Ready／二级内三级 | `1152:8838` | 两级联动后的直属三级池 |
+| Ready／Hover | `1154:7772` | 单点 Tooltip，不常驻全部名称 |
+| Ready／Small Group | `1155:8264` | 坐标可绘制但不解释象限 |
+| Ready／Missing Selected Coordinate | `1156:8578` | 全池保留、选中轨迹断线／不可绘制 |
+| Delayed | `1156:13471` | 最近完整盘后日与实际日期提示 |
+| Ready／放大图 | `1157:9236` | 与普通图共用同一坐标范围 |
+| Loading | `1158:9938` | 保留方法栏和工具栏的稳定骨架 |
+| Empty | `1158:10319` | 显式缺失或全池无当前百分位 |
+| Error | `1158:10707` | 安全文案与重试 |
+| Ready／Filtered | `1161:10430` | 列表局部搜索／象限过滤，图中全量点不变 |
+
+相对轮动组件交付根为 `1148:5611`，状态徽标集为 `1148:5622`，列表行集为 `1148:5647`。14张页面均为 `1600×1292.390625`，工作区为 `1564×1006`；页面普通布局使用 Auto Layout，四象限绘图区和放大图内部坐标保留绝对定位。
 
 ### 3.2 结构与 Design System 结论
 
@@ -520,6 +573,49 @@ M7 前端只允许下列增量：
 | 修改／新增 | 对应 route、page、feature 测试 | 覆盖精确路由、按需挂载、URL、两请求、15 个状态、散点、响应式和三个待建设按钮 |
 
 禁止在 M6/M7 修改 `SectorMomentumCalculator` 公式、Members 查询／controller、`MomentumRankingWorkspace` DOM、首页板块速览、TopMarketBar、Shortcut、Foundation/Ops/QTF/DG/Lake、ORM、Alembic、配置、依赖或构建脚本。若共享快照无法保持旧 Rankings JSON 和测试零变化，M6 必须停止，不能退回复制公式或兼容分支。
+
+### 5.9 M10／M11 相对轮动文件级增量矩阵
+
+M10 后端只允许下列增量：
+
+| 操作 | 文件 | 精确要求 |
+|---|---|---|
+| 新增 | `src/biz/services/wealth/market/sector_analysis/sector_relative_rotation_contract.py` | 公式身份、四周期、固定5日、三轨迹长度、状态枚举、不可变日期切片／坐标事实和 parser；不得导入 Session、ORM、schema 或 API |
+| 新增 | `src/biz/services/wealth/market/sector_analysis/sector_relative_rotation_calculator.py` | 只消费按日期的 `SectorRankFact`，计算 X/Y、样本解释、象限、缺失原因和 canonical 顺序；无 IO、无文案、不重算收益／排名 |
+| 新增 | `src/biz/queries/wealth/market/sector_analysis/sector_relative_rotation_query_service.py` | 复用公共 Meta、snapshot preparation、MomentumQuery/Calculator/StatusResolver；5 SQL 内批量生成当前全池和选中轨迹并映射 DTO |
+| 新增 | `src/biz/schemas/wealth/market/sector_relative_rotation.py` | 专属 strict Meta/Results DTO、状态组合、计数、日期槽、选择、排序和请求事实 validator；不扩写旧 schema |
+| 修改 | `src/biz/queries/wealth/market/sector_analysis/sector_momentum_query.py` | 仅把 `load_open_dates()` 上限90改为95并同步错误文案；96继续拒绝，其他 SQL 不变 |
+| 修改 | `src/biz/api/wealth/market/sector_analysis.py` | 增加相对轮动 Meta/Results 两只 GET；复用 quote auth、unknown/duplicate 检查和安全异常映射 |
+| 修改 | `tests/architecture/test_wealth_sector_analysis_guardrails.py` | 相对轮动只允许前三张 Prod 表和既有共享查询；禁止成员、股票、资金、Heat、指数、QTF、DG/Lake、写入、迁移和配置 |
+| 新增 | `tests/test_wealth_sector_relative_rotation_calculator.py` | 公式、并列、象限边界、小组、缺失、断点、排序和未来扰动纯计算正反例 |
+| 新增 | `tests/test_wealth_sector_relative_rotation_query_service.py` | Meta/Results、5 SQL、95日、选择、日期状态、计数、轨迹槽、版本和异常正反例 |
+| 修改 | `tests/test_wealth_sector_momentum_query_service.py` | 95允许／96拒绝，同时证明既有 History 90日事实不变 |
+| 修改 | `tests/web/test_wealth_sector_analysis_api.py` | 新增两只真实 endpoint、strict query、401/400/409/500 和旧六只 endpoint response 回归 |
+
+M11 前端只允许下列增量：
+
+| 操作 | 文件 | 精确要求 |
+|---|---|---|
+| 修改 | `wealth/src/app/routes/routerState.ts` | 增加 path 常量／builder 和 `sector-analysis-relative-rotation` 判别值；未知子路由仍失败闭合 |
+| 修改 | `wealth/src/app/routes/WealthRouter.tsx` | 第三个精确分支向同一页面传 `method="relative-rotation"` |
+| 修改 | `wealth/src/pages/wealth-exploration/SectorAnalysisPage.tsx` | 第三个独立 content 分支；按 method 只挂载一个 controller，公共 Shell/context 不变 |
+| 修改 | `wealth/src/features/wealth-exploration/sector-analysis/navigation/SectorAnalysisMethodBar.tsx` | `SectorAnalysisMethod` 增加第三项；相对轮动正式导航，成员广度／量价分布仍 toast |
+| 新增 | `.../relative-rotation/api/sectorRelativeRotationApi.ts` | 专属 Meta/Results GET、5秒超时所需 signal 和安全错误类 |
+| 新增 | `.../relative-rotation/api/sectorRelativeRotationAdapter.ts` | 精确字段、枚举、数量、canonical 顺序、日期槽和请求事实校验；不得计算百分位、差值或象限 |
+| 新增 | `.../relative-rotation/model/sectorRelativeRotationTypes.ts` | 独立 wire/view/url/controller 类型和判别联合状态 |
+| 新增 | `.../relative-rotation/model/sectorRelativeRotationUrlState.ts` | 十一个 URL key、默认值、父级闭包、canonical search 和非法输入失败闭合 |
+| 新增 | `.../relative-rotation/model/useSectorRelativeRotationController.ts` | Meta→Results、request key、Abort、409一次重载、原子选中轨迹、本地搜索／象限过滤和 URL 恢复 |
+| 新增 | `.../relative-rotation/model/relativeRotationPlotGeometry.ts` | 仅处理 SVG 像素映射、对称Y轴、刻度、避让和一份不可变 `plotScale`；不得产生业务坐标 |
+| 新增 | `.../relative-rotation/ui/**` | Toolbar、SelectedSummary、Plot、IndustryList、StateSurface、ExpandedDialog 和正式 CSS |
+| 新增／修改 | 对应 route/page/feature 测试 | 覆盖精确路由、按需挂载、URL、14状态、图表、完整列表、响应式、可访问性和两个待建设按钮 |
+
+前端目录中的 `...` 固定展开为：
+
+```text
+wealth/src/features/wealth-exploration/sector-analysis/relative-rotation/
+```
+
+禁止在 M10/M11 修改 `SectorMomentumCalculator` 现有公式、动量／双动量 schema 和 DTO、Members 主链、首页板块速览、TopMarketBar、Shortcut、Foundation/Ops/QTF/DG/Lake、ORM、Alembic、依赖、配置或构建／部署脚本。若实现需要超出本矩阵，必须停止并回到方案层，不得“顺手”扩写。
 
 ## 6. 后端合同与纯计算设计
 
@@ -985,6 +1081,287 @@ items.length = totalCount
 
 正常 Results 查询顺序固定为：公共日期、层级、observed 覆盖／回退、窗口日历、一次行业行情集合查询，最多 5 条 SQL。显式 MISSING 日不回退；默认 PARTIAL/MISSING 才按既有公共延迟规则回退。双动量不得增加第二套日期规则、自然日减法、逐行业 SQL、缓存、快照副本或结果表。
 
+### 6.21 相对轮动合同与不可变事实
+
+`sector_relative_rotation_contract.py` 固定声明：
+
+```python
+SectorRelativeRotationPeriod = Literal[5, 10, 20, 30]
+SectorRelativeRotationTrailLength = Literal[20, 30, 60]
+SectorRelativeRotationStatus = Literal[
+    "LEADING_IMPROVING",
+    "WEAK_IMPROVING",
+    "STRONG_NOT_IMPROVING",
+    "WEAK_NOT_IMPROVING",
+    "SAMPLE_INSUFFICIENT",
+    "DATA_INSUFFICIENT",
+]
+SectorRelativeCoordinateStatus = Literal["PLOTTABLE", "UNAVAILABLE"]
+SectorRelativeGroupInterpretation = Literal["QUADRANT", "SAMPLE_INSUFFICIENT"]
+
+FORMULA_KEY = "sector-relative-rotation"
+FORMULA_VERSION = 1
+BASIS_FORMULA_KEY = "sector-cross-sectional-momentum"
+BASIS_FORMULA_VERSION = 1
+IMPROVEMENT_LOOKBACK_DAYS = 5
+MINIMUM_GROUP_SIZE = 3
+X_DOMAIN = (Decimal("0.0"), Decimal("100.0"))
+X_SPLIT = Decimal("50.0")
+Y_SPLIT = Decimal("0.0")
+ALLOWED_PERIODS = (5, 10, 20, 30)
+ALLOWED_TRAIL_LENGTHS = (20, 30, 60)
+```
+
+parser 只接受上述枚举；缺字段、bool 冒充 int、非整数、1日、90日、任意改善周期和任意分界值均拒绝。公式常量只在该 contract 中定义；schema Meta 和前端 adapter 必须校验服务端返回值，不再各维护一套可执行常量。
+
+纯计算中间事实：
+
+```python
+@dataclass(frozen=True, slots=True)
+class SectorRelativeRotationRankSlice:
+    trade_date: date
+    returns: tuple[SectorReturnFact, ...]
+    ranked: tuple[SectorRankFact, ...]
+    calculable_count: int
+
+@dataclass(frozen=True, slots=True)
+class SectorRelativeRotationPointFact:
+    sector_code: str
+    trade_date: date
+    return_pct: Decimal | None
+    strength_rank: int | None
+    percentile: Decimal | None
+    percentile_delta_5d: Decimal | None
+    current_calculable_count: int
+    comparison_calculable_count: int
+    rotation_status: SectorRelativeRotationStatus
+    coordinate_status: SectorRelativeCoordinateStatus
+    current_missing_reason: MissingReason | None
+    comparison_missing_reason: MissingReason | None
+```
+
+`SectorRelativeRotationRankSlice` 中两组事实来自同一次 `calculate_for_dates()` 与紧随其后的 `rank_strength()`：`returns` 保留精确缺失原因，`ranked` 保留排名和百分位。构造及纯计算入口必须验证两组事实数量一致、行业代码唯一且顺序一致、`return_pct` 一致；有收益时缺失原因必须为 `NONE`，无收益时缺失原因不得为 `NONE`，否则立即拒绝。计算器不得重算收益、排名或猜测缺失原因。
+
+`MissingReason="NONE"` 在 PointFact 中规范化为 null；不得新增同义缺失原因。PointFact 不持有 ORM、DTO、页面文案或 CSS 状态。
+
+### 6.22 批量输入、日期槽与查询编排
+
+`SectorRelativeRotationQueryService.build_results()` 的正常路径固定为：
+
+```python
+context = context_query.resolve_context(session, market="CN_A")       # SQL 1
+preparation = snapshot_service.prepare_for_context(                    # SQL 2 + 3
+    session,
+    context=context,
+    trade_date=request.trade_date,
+    scope=request.scope,
+    level1_code=request.level1_code,
+    level2_code=request.level2_code,
+    period=request.period,
+    expected_hierarchy_version=request.hierarchy_version,
+    date_errors_are_selection=True,
+)
+
+if observed is None or observed.availability == "MISSING":
+    return EMPTY
+
+required_count = request.period + IMPROVEMENT_LOOKBACK_DAYS + request.trail_length
+open_dates = momentum_query.load_open_dates(                            # SQL 4
+    session, end_date=observed.trade_date, count=required_count
+)
+facts = momentum_query.load_facts(                                      # SQL 5
+    session,
+    sector_codes=pool_codes,
+    start_date=open_dates[0],
+    end_date=open_dates[-1],
+)
+fact_index = momentum_calculator.index_facts(facts)
+
+candidate_display_dates = open_dates[-request.trail_length:]
+display_dates = tuple(
+    day for day in candidate_display_dates
+    if day >= preparation.resolution.coverage_start_date
+)
+comparison_dates = tuple(
+    open_dates[open_dates.index(day) - IMPROVEMENT_LOOKBACK_DAYS]
+    for day in display_dates
+)
+calculation_dates = tuple(sorted(set(display_dates + comparison_dates)))
+returns_by_date = momentum_calculator.calculate_for_dates(
+    sector_codes=pool_codes,
+    open_dates=open_dates,
+    target_dates=calculation_dates,
+    period=request.period,
+    fact_index=fact_index,
+)
+rank_slices = {
+    day: make_rank_slice(
+        day,
+        returns_by_date[day],
+        momentum_calculator.rank_strength(returns_by_date[day]),
+    )
+    for day in calculation_dates
+}
+points_by_date = relative_calculator.calculate_grid(
+    sector_codes=pool_codes,
+    open_dates=open_dates,
+    display_dates=display_dates,
+    rank_slices=rank_slices,
+)
+return build_atomic_response(current=display_dates[-1], selected=request.sector_code)
+```
+
+实现细节：
+
+1. `required_count` 范围为30～95；`load_open_dates()` 返回实际存在的 SSE 开市日，按升序。不能因为行情缺失而删交易日。
+2. `calculation_dates` 必须按 `open_dates` 的位置取值并去重、升序；不得使用 `date - timedelta(days=5)`。
+3. `display_dates` 只有在来源覆盖起点晚于请求轨迹起点时才缩短；覆盖区间内的 PARTIAL/MISSING 日必须继续保留为 null 槽。
+4. `calculate_for_dates()` 每请求只调用一次；`rank_strength()` 每个 calculation date 调用一次但只操作内存，不产生 SQL。`make_rank_slice()` 同时保留两组同源事实并执行第6.21节的一致性门禁，不允许只传排名事实而丢失缺失原因。
+5. `SectorMomentumSnapshotQueryService.prepare_for_context()` 是唯一允许复用的 snapshot 方法；不得调用 `build()` 或 `build_prepared()`，避免重复日历／行情 SQL。
+6. `SectorRelativeRotationQueryService` 不调用 `SectorMomentumQueryService.build_history()`、`SectorDualMomentumQueryService` 或任何页面 DTO。
+7. 只要进入行情读取，`load_facts()` 必须恰好一次；异常和409前置路径可以少于5条 SQL，但不能多于5条。
+
+### 6.23 X/Y、样本解释与四象限纯计算
+
+对每个展示日 `d` 和行业 `s`：
+
+```text
+current     = ranks[d][s]
+comparison  = ranks[open_date_index(d)-5][s]
+X           = current.percentile
+Y           = quantize_0_1(current.percentile - comparison.percentile)
+```
+
+分类顺序必须先处理缺失，再处理样本，最后处理象限：
+
+```python
+if current.percentile is None:
+    X = None
+    Y = None
+    coordinate = "UNAVAILABLE"
+    status = "DATA_INSUFFICIENT"
+elif comparison.percentile is None:
+    X = current.percentile
+    Y = None
+    coordinate = "UNAVAILABLE"
+    status = "DATA_INSUFFICIENT"
+elif current_count < 3 or comparison_count < 3:
+    X = current.percentile
+    Y = quantized_delta
+    coordinate = "PLOTTABLE"
+    status = "SAMPLE_INSUFFICIENT"
+elif X >= 50 and Y > 0:
+    status = "LEADING_IMPROVING"
+elif X < 50 and Y > 0:
+    status = "WEAK_IMPROVING"
+elif X >= 50 and Y <= 0:
+    status = "STRONG_NOT_IMPROVING"
+else:
+    status = "WEAK_NOT_IMPROVING"
+```
+
+边界不允许解释漂移：`X=50` 属于较强侧；`Y=0` 属于未增强；`Y` 在 Decimal 中计算并以 `ROUND_HALF_UP` 量化到0.1个百分点。前端只展示数值和服务端状态，不得用浮点重新分类。
+
+当前日的 `groupInterpretation` 只由当前与5日前两个截面的 `calculable_count` 决定：二者均不少于3为 `QUADRANT`，否则为 `SAMPLE_INSUFFICIENT`。它不由选中行业决定。小组不足时所有有二维坐标的行都必须是 `SAMPLE_INSUFFICIENT`，四个象限计数全为0。
+
+### 6.24 当前快照、选中轨迹和规范选择
+
+当前快照对应 `observedTradeDate`，必须包含比较池全部行业。规范选择规则：
+
+1. 请求显式 `sectorCode`：必须在当前比较池；否则抛 `SectorSelectionInvalidError` 并返回400，不静默换行业。
+2. 请求缺省 `sectorCode`：先取 canonical 顺序第一只 `PLOTTABLE` 行；若没有可绘制行但页面仍有可计算 X，则取第一只当前百分位存在的行；否则主状态为 EMPTY，不构造 analysis。
+3. READY/DELAYED 的 `analysis.selectedSectorCode` 必须有值，`selectedTrail` 必须存在并与其代码一致。Missing Selected Coordinate 通过轨迹点内 null 和 `coordinateStatus=UNAVAILABLE` 表达，不把整个 `selectedTrail` 设为 null。
+4. `selectedTrail.points` 与 `display_dates` 一一对应、严格升序、日期唯一；每个日期槽都保留，即使 X/Y 均为空。
+5. `requestedLength` 等于请求枚举，`dateSlotCount == points.length <= requestedLength`。只允许因 `coverageStartDate` 较晚而缩短；不得按可绘制点数压缩。
+6. 轨迹只返回所选行业；不得为全部行业返回60日历史，以免扩大 payload 和前端状态。
+
+当前 items canonical 顺序：
+
+```text
+PLOTTABLE:
+  percentile desc, percentileDelta5d desc, sectorCode asc
+current percentile exists but Y missing:
+  percentile desc, sectorCode asc
+current percentile missing:
+  sectorCode asc
+```
+
+`SAMPLE_INSUFFICIENT` 有二维坐标，因此属于第一组。排序只能在 service 中执行一次；schema 和 adapter 只验证，不另行排序。
+
+### 6.25 数量、状态与时间前沿不变量
+
+```text
+totalCount = len(items) = len(resolve_scope_pool())
+currentCalculableCount = count(item.percentile is not null)
+plottableCount = count(item.coordinateStatus == PLOTTABLE)
+missingCoordinateCount = totalCount - plottableCount
+```
+
+当 `groupInterpretation=QUADRANT`：
+
+```text
+sum(four quadrantCounts) == plottableCount
+every PLOTTABLE row has one quadrant status
+```
+
+当 `groupInterpretation=SAMPLE_INSUFFICIENT`：
+
+```text
+sum(four quadrantCounts) == 0
+every PLOTTABLE row has SAMPLE_INSUFFICIENT
+```
+
+主状态：
+
+1. 当前日 `currentCalculableCount>0` 且 observed=expected：READY。
+2. 默认日回退且 `currentCalculableCount>0`：DELAYED。
+3. 显式 MISSING、没有 display date 或当前日 `currentCalculableCount=0`：EMPTY，`analysis=null`。
+4. 层级、查询、纯计算或 DTO 不变量失败：ERROR，`analysis=null`。
+5. `plottableCount=0` 但 `currentCalculableCount>0` 仍为 Ready/Delayed 的 Missing Coordinate 内容态，因为一维 X 事实仍可展示。
+
+时间前沿反例必须证明：修改任意计算日 `d` 之后的 `dc_daily` 输入，不改变 `d` 的 return、rank、percentile、Y、状态和缺失原因；把未来行加入 fact_index 也不能改变已计算日期。任何基于响应末日回填旧点、用当前排名替代历史排名或连接 null 两端的实现都判为失败。
+
+### 6.26 Meta、Results 组合和异常顺序
+
+相对轮动 Meta 直接复用 `SectorAnalysisMetaQueryService.load()` 的不可变事实并映射专属 DTO；正常路径3条 SQL，不读取轮动结果。
+
+Results 的异常顺序固定为：
+
+1. API 校验 unknown/duplicate、格式和固定枚举；失败0条业务 SQL。
+2. 公共 context 与层级加载后立即校验 `hierarchyVersion`；不一致返回409，行情 SQL为0。
+3. `resolve_scope_pool()` 校验父级闭包；非法范围返回400，不加载窗口行情。
+4. 解析日期；显式非法日期返回400，显式 MISSING 返回200 EMPTY，默认延迟按公共规则回退。
+5. 批量读取日历和行情，执行纯计算与 strict DTO。
+6. 已知 scope/selection/version 异常必须透传；层级不可用映射 `SA_HIERARCHY_UNAVAILABLE`，其余未分类内部异常映射 `SA_QUERY_FAILED`。不得用大范围 `except` 把400/409吞成200 ERROR。
+
+### 6.27 M10 后端伪代码停止点
+
+```python
+class SectorRelativeRotationQueryService:
+    def build_meta(...) -> SectorRelativeRotationMetaResponseDto: ...
+
+    def build_results(...) -> SectorRelativeRotationResultsResponseDto:
+        # 只执行第6.22节主链，不处理前端 search/quadrant。
+        ...
+
+class SectorRelativeRotationCalculator:
+    def calculate_grid(
+        *,
+        sector_codes: tuple[str, ...],
+        open_dates: tuple[date, ...],
+        display_dates: tuple[date, ...],
+        rank_slices: Mapping[date, SectorRelativeRotationRankSlice],
+    ) -> dict[date, tuple[SectorRelativeRotationPointFact, ...]]: ...
+
+    def canonical_sort(
+        rows: Iterable[SectorRelativeRotationPointFact],
+    ) -> tuple[SectorRelativeRotationPointFact, ...]: ...
+```
+
+`rank_slices` 中每个切片必须同时携带已经计算好的 `SectorReturnFact` 和 `SectorRankFact`。计算器只做对齐校验、X/Y、样本与四象限计算；不得从排名事实反推或猜测缺失原因。
+
+M10 完成后必须停止：只允许后端、测试、异常注册表／两份既有设计文档的状态对账；不增加前端路由，不把方法按钮改成可用，不修改 Figma，不部署、不读写新数据源。
+
 ## 7. API 与 DTO 冻结
 
 ### 7.1 Router 形态
@@ -995,7 +1372,7 @@ items.length = totalCount
 router = APIRouter(prefix="/wealth/market/sector-analysis", tags=["wealth-market"])
 ```
 
-四个 `GET` 均复用 `require_quote_access` 和 `get_db_session`。每个请求先显式检查 unknown/duplicate query 参数，再做类型和闭包校验；不得依赖 FastAPI 默认忽略未知参数。
+既有六个 `GET` 与 M10 新增两个 `GET` 均复用 `require_quote_access` 和 `get_db_session`。每个请求先显式检查 unknown/duplicate query 参数，再做类型和闭包校验；不得依赖 FastAPI 默认忽略未知参数。
 
 ### 7.2 Meta
 
@@ -1360,6 +1737,190 @@ class SectorDualMomentumResultsResponseDto(StrictDto):
 
 `SA_MEMBER_FACT_MISMATCH` 只能用于成员请求，不能承担双动量版本冲突；两者恢复范围不同。409 必须发生在行情 SQL 之前。
 
+### 7.11 相对轮动 Meta 请求与 DTO
+
+```http
+GET /api/v1/wealth/market/sector-analysis/relative-rotation/meta?market=CN_A
+```
+
+只接受一个且仅一个 `market=CN_A`；重复、未知或其他市场返回400。DTO：
+
+```python
+class SectorRelativeRotationFormulaDto(StrictDto):
+    formulaKey: Literal["sector-relative-rotation"]
+    formulaVersion: Literal[1]
+    basisFormulaKey: Literal["sector-cross-sectional-momentum"]
+    basisFormulaVersion: Literal[1]
+    periods: list[Literal[5, 10, 20, 30]]
+    improvementLookbackDays: Literal[5]
+    trailLengths: list[Literal[20, 30, 60]]
+    minimumGroupSize: Literal[3]
+    scopes: list[SectorMomentumScopeValue]
+    xDomain: tuple[Literal[0], Literal[100]]
+    xSplit: Literal[50]
+    ySplit: Literal[0]
+
+class SectorRelativeRotationDefaultsDto(StrictDto):
+    scope: Literal["LEVEL_1"]
+    period: Literal[20]
+    trailLength: Literal[20]
+    quadrantFilter: Literal["ALL"]
+
+class SectorRelativeRotationMetaResponseDto(StrictDto):
+    status: Literal["READY", "DELAYED"]
+    tradingDay: SectorAnalysisTradingDayDto
+    pageStatus: SectorAnalysisPageStatusDto
+    message: str | None
+    exceptionCode: str | None
+    debugInfo: SectorAnalysisDebugInfoDto | None
+    formula: SectorRelativeRotationFormulaDto
+    defaults: SectorRelativeRotationDefaultsDto
+    hierarchy: SectorHierarchyDto
+    coverageStartDate: date
+    coverageEndDate: date
+    tradeDates: list[SectorTradeDateAvailabilityDto]
+```
+
+列表枚举顺序必须与 contract 完全一致；Meta 不返回 search、用户当前 quadrant、行业坐标或轨迹。状态、交易日、日期覆盖和 hierarchy validator 复用双动量 Meta 的公共 DTO，不复制校验函数。
+
+### 7.12 相对轮动 Results 请求与 DTO
+
+```http
+GET /api/v1/wealth/market/sector-analysis/relative-rotation/results
+  ?market=CN_A
+  &scope=LEVEL_1
+  &period=20
+  &trailLength=20
+  &hierarchyVersion=dc-industry-v1
+```
+
+严格请求字段：
+
+```text
+market=CN_A                                      required
+tradeDate=YYYY-MM-DD                             optional
+scope=LEVEL_1|LEVEL_2|LEVEL_3|LEVEL_1_CHILDREN|LEVEL_2_CHILDREN required
+level1Code=BKxxxx.DC                              conditional
+level2Code=BKxxxx.DC                              conditional
+period=5|10|20|30                                required
+trailLength=20|30|60                             required
+sectorCode=BKxxxx.DC                              optional
+hierarchyVersion=<trimmed non-empty, max 128>     required
+debug=0|1                                         optional
+```
+
+禁止 `improvementLookbackDays/minimumGroupSize/xSplit/ySplit/quadrant/search/direction/threshold/historyRange/resultView/range/limit/offset/sort`；出现即400，不能接收后忽略。
+
+```python
+RelativeRotationStatusValue = Literal[
+    "LEADING_IMPROVING", "WEAK_IMPROVING",
+    "STRONG_NOT_IMPROVING", "WEAK_NOT_IMPROVING",
+    "SAMPLE_INSUFFICIENT", "DATA_INSUFFICIENT",
+]
+RelativeCoordinateStatusValue = Literal["PLOTTABLE", "UNAVAILABLE"]
+RelativeMissingReasonValue = Literal[
+    "HISTORY_INSUFFICIENT", "DATE_MISSING", "CLOSE_MISSING",
+    "CLOSE_NON_POSITIVE", "PCT_CHANGE_MISSING",
+]
+
+class SectorRelativeRotationRowDto(StrictDto):
+    sectorCode: str
+    sectorName: str
+    industryLevel: Literal[1, 2, 3]
+    parentSectorCode: str | None
+    parentSectorName: str | None
+    hierarchyPath: str
+    canDrillDown: bool
+    returnPct: float | None
+    strengthRank: int | None
+    percentile: float | None
+    percentileDelta5d: float | None
+    rotationStatus: RelativeRotationStatusValue
+    coordinateStatus: RelativeCoordinateStatusValue
+    currentMissingReason: RelativeMissingReasonValue | None
+    comparisonMissingReason: RelativeMissingReasonValue | None
+
+class SectorRelativeRotationTrailPointDto(StrictDto):
+    tradeDate: date
+    returnPct: float | None
+    percentile: float | None
+    percentileDelta5d: float | None
+    rotationStatus: RelativeRotationStatusValue
+    coordinateStatus: RelativeCoordinateStatusValue
+    currentMissingReason: RelativeMissingReasonValue | None
+    comparisonMissingReason: RelativeMissingReasonValue | None
+
+class SectorRelativeRotationTrailDto(StrictDto):
+    sectorCode: str
+    requestedLength: Literal[20, 30, 60]
+    dateSlotCount: int
+    points: list[SectorRelativeRotationTrailPointDto]
+
+class SectorRelativeRotationQuadrantCountsDto(StrictDto):
+    leadingImproving: int
+    weakImproving: int
+    strongNotImproving: int
+    weakNotImproving: int
+
+class SectorRelativeRotationAnalysisDto(StrictDto):
+    formulaKey: Literal["sector-relative-rotation"]
+    formulaVersion: Literal[1]
+    basisFormulaKey: Literal["sector-cross-sectional-momentum"]
+    basisFormulaVersion: Literal[1]
+    hierarchyVersion: str
+    scope: SectorMomentumScopeValue
+    period: Literal[5, 10, 20, 30]
+    improvementLookbackDays: Literal[5]
+    trailLength: Literal[20, 30, 60]
+    minimumGroupSize: Literal[3]
+    parentSelection: SectorParentSelectionDto
+    selectedSectorCode: str
+    groupInterpretation: Literal["QUADRANT", "SAMPLE_INSUFFICIENT"]
+    totalCount: int
+    currentCalculableCount: int
+    plottableCount: int
+    missingCoordinateCount: int
+    quadrantCounts: SectorRelativeRotationQuadrantCountsDto
+    items: list[SectorRelativeRotationRowDto]
+    selectedTrail: SectorRelativeRotationTrailDto
+
+class SectorRelativeRotationResultsResponseDto(StrictDto):
+    status: SectorAnalysisStatusValue
+    tradingDay: SectorAnalysisTradingDayDto
+    pageStatus: SectorAnalysisPageStatusDto
+    analysis: SectorRelativeRotationAnalysisDto | None
+    message: str | None
+    exceptionCode: str | None
+    debugInfo: SectorAnalysisDebugInfoDto | None
+```
+
+跨字段 validator 必须逐项重算：
+
+1. READY/DELAYED 必须有 analysis、至少一个当前百分位、合法选中代码和完全匹配的 selectedTrail；EMPTY/ERROR 必须 `analysis=null`。
+2. items 行业代码唯一，长度等于 totalCount，且严格满足第6.24节 canonical 顺序；selected code 必须存在于 items。
+3. `returnPct/strengthRank/percentile` 同空同有；当前缺失时三个值全空且 currentMissingReason 非空。比较百分位不直接返回，`percentileDelta5d` 为空时 comparisonMissingReason 必须说明原因，除非当前本身已缺失。
+4. `PLOTTABLE` 必须 `percentile` 与 `percentileDelta5d` 同有，missing reasons 均空，rotationStatus 不能 DATA_INSUFFICIENT；`UNAVAILABLE` 必须不能伪造完整二维坐标。
+5. `groupInterpretation=QUADRANT` 时可绘制行只能属于四象限且计数之和等于 plottable；`SAMPLE_INSUFFICIENT` 时可绘制行全为该状态且四计数为0。
+6. `missingCoordinateCount=totalCount-plottableCount`，全部 count 非负且不超过 total。
+7. trail 日期严格升序、唯一，`dateSlotCount=points.length<=requestedLength`，最后一个槽必须等于 `observedTradeDate`；所有点 sector 隐含等于 trail sector，不重复返回代码。
+8. Response 的 scope/period/trailLength/hierarchyVersion 和父级选择必须与规范化请求一致；adapter 在前端再次校验，不接受服务端静默改参数。
+9. JSON 数值必须有限；return 保留4位、percentile/delta保留1位，不返回 Decimal 字符串、格式化百分号、综合分或前端文案。
+
+### 7.13 相对轮动 HTTP 与异常映射
+
+| 情况 | HTTP | code | 处理 |
+|---|---:|---|---|
+| 未登录 | 401 | 认证层 | 公共权限壳；不验证不存在的403路径 |
+| unknown/duplicate、非法枚举／格式／父级闭包 | 400 | `SA_SCOPE_INVALID` | 停止，不执行后续事实查询 |
+| 显式 sectorCode 不在池或日期非法 | 400 | `SA_SELECTION_INVALID` | 不静默换行业／日期 |
+| hierarchyVersion 过期 | 409 | `SA_FACT_VERSION_MISMATCH` | 丢弃相对轮动 Meta/Results，只重载相对轮动 Meta |
+| 默认目标日延迟 | 200 | `SA_SOURCE_DELAYED` | DELAYED，事实终点使用 observed 日 |
+| 显式 MISSING 或当前百分位全空 | 200 | `SA_SOURCE_EMPTY` | EMPTY，不借旧日 |
+| 层级不可用 | 500 Meta／200 Results | `SA_HIERARCHY_UNAVAILABLE` | 稳定 ERROR |
+| 未分类查询／计算／DTO失败 | 500 Meta／200 Results | `SA_QUERY_FAILED` | 稳定 ERROR，可重试 |
+
+相对轮动与双动量复用 `SA_FACT_VERSION_MISMATCH` 的同一层级版本语义，但恢复状态必须按当前方法隔离；不得清空另一方法或动量排名状态。成员请求继续使用 `SA_MEMBER_FACT_MISMATCH`。
+
 ## 8. 前端低层设计
 
 ### 8.1 Shell 状态
@@ -1614,6 +2175,194 @@ grid-template-columns: minmax(0, 1fr) 12px minmax(0, 1fr);
 
 颜色、边框、圆角、字体、字号、间距和阴影只使用现有 `--cs-*` Token 与板块分析公共 class。M7 不新增 Design Token、不修改 TopMarketBar/Shortcut、不从 Figma 复制十六进制值，也不引入图表库。
 
+### 8.16 相对轮动路由、方法装配与 URL 状态
+
+路由判别联合新增：
+
+```ts
+type WealthExplorationRoute =
+  | /* existing */
+  | { kind: "sector-analysis-relative-rotation" };
+
+export const WEALTH_EXPLORATION_SECTOR_RELATIVE_ROTATION_PATH =
+  "/wealth/exploration/sector-analysis/relative-rotation";
+
+export type SectorAnalysisMethod =
+  | "momentum-ranking"
+  | "dual-momentum"
+  | "relative-rotation";
+```
+
+根 `/sector-analysis` 仍 replace 到动量排名；未知方法继续 `not-exploration`。方法切换只保留跨方法公共 query：`market=CN_A`、`debug=1`、合法 `tradeDate`；不得把 period、scope、父级、行业或列表过滤状态带到另一种公式。
+
+相对轮动 URL 状态：
+
+```ts
+interface SectorRelativeRotationUrlState {
+  market: "CN_A";
+  debug: boolean;
+  tradeDate: string | null;
+  scope: "level1" | "level2" | "level3" | "level1-children" | "level2-children";
+  level1Code: string | null;
+  level2Code: string | null;
+  period: 5 | 10 | 20 | 30;
+  trailLength: 20 | 30 | 60;
+  sectorCode: string | null;
+  quadrant: "all" | "leading-improving" | "weak-improving"
+    | "strong-not-improving" | "weak-not-improving";
+  search: string;
+}
+```
+
+默认值为 `CN_A / debug=false / tradeDate=null / level1 / 20 / 20 / sector=null / quadrant=all / search=""`。parser 必须：
+
+1. 只允许上述11个 key，重复 key 失败；代码匹配 `BK[0-9]{4}.DC`，日期做真实 ISO 校验。
+2. `search` 先 trim，空字符串不写 URL，长度上限64个 Unicode code points；超限失败而不是截断。
+3. 全层级 scope 不接受父级；一级内二级只接受 level1；二级内三级同时接受闭包内 level1/level2。
+4. canonical builder 省略默认值和 null；用户改变日期／scope／父级／period／trail 使用 push，行业／象限／搜索使用 replace。
+5. URL 不合法进入不可重试 Error，Meta/Results 请求均为0；不得偷偷恢复默认值掩盖坏书签。
+
+### 8.17 相对轮动 controller 状态机
+
+状态分层：
+
+```ts
+type RelativeMetaState = Idle | Loading | Ready(metaKey, meta) | Error;
+type RelativeResultsState = Idle | Loading | Ready(resultsKey, data)
+  | Empty(resultsKey, message) | Error;
+type RelativeViewState = Loading | Ready | Delayed | Empty | Error;
+```
+
+请求键：
+
+```text
+metaKey = market
+resultsKey = market|debug|tradeDate|scope|level1|level2|period|trailLength|
+             sectorCode|hierarchyVersion
+```
+
+`quadrant/search` 不进入 resultsKey。controller 顺序：
+
+1. method 未激活或公共 context 尚未匹配 URL 时维持 idle，API请求0；卸载时 abort Meta/Results。
+2. Meta strict 成功后，用 Meta 层级和默认值规范 URL；闭包不合法进入 Error，不发 Results。
+3. 生成 Results 请求。每次事实参数变化递增 requestId 并 abort 旧请求；只有 `requestId + resultsKey + 当前URL` 全部一致的响应可提交。
+4. 初始 sectorCode 缺省时由服务端规范选择；成功后用 replace 把 response 的 `selectedSectorCode` 写回 URL，不再补发同 key 请求。
+5. 行／圆点选择先把新 sectorCode 写入 URL并发 Results；等待期间继续渲染上一份完整“selectedCode + summary + trail + plotScale”，只显示局部 pending，不得把新名称配旧轨迹。新原子响应成功后一次切换。
+6. scope/父级切换时，若旧 sector 仍在新池则保留，否则置 null；一级变化先选择其第一直属二级，再校验二级内三级闭包。
+7. 搜索和象限过滤用 `useMemo` 派生 `visibleRows`，只影响列表；`plotRows` 始终来自全量 items，当前选择即使被过滤也保留。
+8. 409 只允许一次“清相对轮动 Meta/Results→重载相对轮动 Meta”；同一轮再次409进入可重试 Error，禁止无限循环，也不清其他方法状态。
+9. 超时固定5000ms；Abort 与旧响应不显示错误。401交公共权限壳；普通错误安全重试当前阶段。
+
+### 8.18 strict adapter 与 ViewModel 边界
+
+`sectorRelativeRotationAdapter.ts` 必须从 `unknown` 开始逐层执行 exact-record 校验，字段白名单与第7.11/7.12节完全一致。它可以生成：
+
+```text
+returnText / percentileText / deltaText
+statusText / statusClass
+scopeTitle / dateLabel
+```
+
+但不得：
+
+1. 从 returnPct 重算 percentile／rank。
+2. 从两个 percentile 重算 delta。
+3. 根据 X/Y 重算象限或小组状态。
+4. 删除缺失行、删除 null 日期槽、压缩轨迹或改变 canonical items 顺序。
+5. 为缺坐标生成0、上一个值或屏幕中心。
+
+adapter 必须复算全部计数、日期槽、状态组合和排序；任一不变量失败进入 Error，不展示部分解析结果。
+
+### 8.19 组件职责和事件边界
+
+| 组件 | 唯一职责 |
+|---|---|
+| `RelativeRotationWorkspace` | 组合 toolbar、主状态和 Ready 主区，不计算业务事实 |
+| `RelativeRotationToolbar` | scope/父级/日期/period/trail 控件和数据日期提示 |
+| `RelativeRotationSelectedSummary` | 当前行业名称、路径、X/Y、区间涨跌幅与状态；长名称单行保护 |
+| `RelativeRotationPlot` | 全量当前圆点、选中轨迹、Hover、键盘选择和放大入口 |
+| `RelativeRotationIndustryList` | 搜索、象限筛选、完整滚动列表、当前选中行 |
+| `RelativeRotationStateSurface` | Loading/Empty/Error 稳定正文骨架 |
+| `RelativeRotationExpandedDialog` | 复用相同 points/trail/plotScale，仅改变容器尺寸 |
+
+行点击和圆点点击都调用 `selectSector(code)`；列表中的下钻箭头只对 `canDrillDown=true` 生效并 stopPropagation，按现有父级规则切 scope。搜索框、象限 chip、Hover、放大、关闭弹层不得调用 API。
+
+### 8.20 SVG 几何、坐标范围和标签避让
+
+Figma 正式实例实际属性已在 M9 只读核验：主图工作区 `1088×866`，Chart Header `1088×56`，Selected Summary `1088×75`，Quadrant Plot `1088×733`；绘图区边界为 `left=68/right=36/top=44/bottom=56`，即 `984×633`。实现固定内部 viewBox：
+
+```ts
+const VIEWBOX = { width: 1088, height: 733 } as const;
+const PLOT = { left: 68, right: 36, top: 44, bottom: 56 } as const;
+```
+
+像素映射：
+
+```text
+x(value) = left + value / 100 * plotWidth
+y(value) = top + (yMax - value) / (yMax - yMin) * plotHeight
+```
+
+`plotScale` 在 controller/useMemo 中由“当前全量 PLOTTABLE items + selectedTrail PLOTTABLE points”的有限 delta 生成：
+
+```ts
+raw = max(abs(all finite deltas), 0)
+extent = raw === 0 ? 1 : niceCeil(raw * 1.08)
+yMin = -extent
+yMax = extent
+xMin = 0
+xMax = 100
+```
+
+`niceCeil` 只能使用 `1/2/5 × 10^n` 的向上刻度；纵轴固定5条刻度 `[-extent, -extent/2, 0, extent/2, extent]`，显示到最多1位小数；横轴固定 `[0,25,50,75,100]`。普通图和放大图接收同一个 frozen `plotScale` 对象，放大不得重算。
+
+绘制顺序：背景象限→网格/轴→全量普通点→选中轨迹分段线／轨迹点→选中当前点→常驻选中标签→Hover Tooltip。null 轨迹点把 path 切成多段，不跨缺口连线。Small Group 使用中性点，但位置不变。
+
+名称策略：
+
+1. 只有当前选中行业显示常驻标签；其他337个点只在 hover/focus 时显示 Tooltip。
+2. 标签宽度按 Canvas/SVG `getComputedTextLength()` 的实测值加左右12px，不按字符数猜；最大宽220px，超出时名称视觉省略且 Tooltip保留全名。
+3. 标签候选依次尝试右上、左上、右下、左下，和 viewBox 四边保持至少8px；若与 Tooltip 冲突，Tooltip优先并把常驻标签移到下一个候选。
+4. 指针位置用 `getBoundingClientRect()` 映射到 viewBox；命中半径按实际宽度换算，重叠点优先当前选中，再按距离、sectorCode稳定决定。
+
+### 8.21 响应式布局和滚动
+
+Figma 1600基线：Toolbar `1564×128`（内边距12、两行48、行距8）；正文 `1564×866`，主图1088、间距12、列表464。CSS：
+
+```css
+.relative-rotation-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cs-space-12);
+  min-width: 0;
+  width: 100%;
+}
+
+.relative-rotation-ready-grid {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 2.344827586fr)
+    12px
+    minmax(360px, 1fr);
+  height: 866px;
+  min-width: 0;
+  width: 100%;
+}
+```
+
+右侧 Industry List 高866：Header 52、过滤区120、Viewport 694，viewport 设置 `overflow-y:auto; scrollbar-gutter:stable`，表头／行共用同一 CSS Grid。完整337行不分页、不虚拟截断；搜索无结果只显示列表局部空态，左图不变。
+
+1512/1460 时主图和列表连续收缩，所有 flex/grid 子项 `min-width:0`；1366只允许公共 `body min-width:1460px` 产生页面级横向查看。模块不能固定1564、增加第二层横向滚动或 CSS scale。
+
+### 8.22 Design System 与可访问性
+
+1. 只使用现有 `--cs-*` 颜色、字体、圆角、阴影和4px间距节奏；不新增 Design Token，不复制 Figma 十六进制值。
+2. 数字使用 `var(--cs-font-family-number)` 与 `font-variant-numeric:tabular-nums`；状态不能只靠颜色，必须带中文文本。
+3. SVG 圆点可聚焦，Enter/Space选择；搜索、filter、放大和关闭均为原生 button/input。focus-visible 使用现有品牌轮廓。
+4. 弹层 `role=dialog aria-modal=true`，打开聚焦关闭按钮，ESC／遮罩／按钮关闭，关闭后焦点回到放大按钮。
+5. `prefers-reduced-motion` 下禁用轨迹/点过渡；数据更新不得用动画掩盖旧新事实切换。
+6. 行业全名、层级路径和状态都有可访问名称；视觉省略不影响 `title/aria-label` 完整内容。
+
 ## 9. 状态、缺失与交互规则
 
 ### 9.1 五态
@@ -1639,7 +2388,7 @@ grid-template-columns: minmax(0, 1fr) 12px minmax(0, 1fr);
 
 ### 9.3 方法按钮
 
-点击“动量排名／双动量”进入各自正式路由，只挂载目标方法。点击“相对轮动／成员广度／量价分布”：
+M11 前点击“动量排名／双动量”进入各自正式路由，只挂载目标方法；相对轮动仍与成员广度／量价分布执行下列零副作用。M11 完成后相对轮动改为第三个正式路由，只剩成员广度／量价分布执行：
 
 ```text
 toast = 待建设
@@ -1676,6 +2425,20 @@ chart instances +0
 
 以上状态可以同时出现，例如 Partial Data + No Qualified；它们只由 Results 事实派生，不增加网络请求、页面主状态或异常码。Delayed 也可以携带这些内容状态，但页面必须优先明确实际盘后日期。
 
+### 9.6 相对轮动 Ready 内容状态
+
+| 内容状态 | 判定 | 展示规则 |
+|---|---|---|
+| 普通 Ready | 当前组两截面均不少于3且选中坐标可绘制 | 四象限、全量圆点、列表、摘要和轨迹完整展示 |
+| Partial Data | `0<currentCalculableCount<totalCount` 或 `missingCoordinateCount>0` | 缺失行业保留在列表；无坐标不绘点，计数明确可见 |
+| Small Group | `groupInterpretation=SAMPLE_INSUFFICIENT` | 有坐标行业使用中性点；四象限计数为0，不给象限解释 |
+| Missing Selected Coordinate | 选中行业当前或5日前百分位缺失 | 其他圆点／列表保留；摘要显示可用事实，轨迹保留日期槽并断线，不造点 |
+| Filtered | `quadrant!=all` 或 search 非空 | 只过滤右侧列表；图中全量当前快照、选中点和轨迹不变；零请求 |
+| Hover | 圆点或行获得 pointer/focus | 只出现一个 Tooltip；不常驻其他行业名称，不发请求 |
+| Enlarged | 打开放大图 | 复用相同坐标和 plotScale；不请求、不重算业务坐标 |
+
+以上内容态可以与 DELAYED/Partial Data 同时存在；主状态仍只有 Loading/Ready/Delayed/Empty/Error。搜索无匹配不是整页 Empty，Missing Selected Coordinate 不是 Error，Small Group 不是“没有数据”。
+
 ## 10. 异常码与安全
 
 `wealth/docs/system/exception-code-registry.md` 已使用模块 `sectorAnalysis` 完成编码前登记；业务代码只能引用下列现有条目：
@@ -1687,7 +2450,7 @@ chart instances +0
 | `SA_HIERARCHY_UNAVAILABLE` | error | true | 错误态，禁止猜层级 |
 | `SA_SCOPE_INVALID` | warn | false | HTTP 400，修正 URL/选择 |
 | `SA_SELECTION_INVALID` | warn | false | HTTP 400，保留当前输入 |
-| `SA_FACT_VERSION_MISMATCH` | warn | false | 双动量 Results HTTP 409；清空双动量 Meta/Results 并重新加载 Meta |
+| `SA_FACT_VERSION_MISMATCH` | warn | false | 双动量／相对轮动 Results HTTP 409；只清空当前方法 Meta/Results 并重新加载该方法 Meta |
 | `SA_MEMBER_FACT_MISMATCH` | warn | false | HTTP 409，清空四类短期事实并从 meta 重载 |
 | `SA_MEMBER_SOURCE_EMPTY` | warn | true | 成员局部 EMPTY，不影响整页 |
 | `SA_MEMBER_QUERY_FAILED` | error | true | 成员局部 ERROR，仅重试当前请求 |
@@ -1701,13 +2464,14 @@ chart instances +0
 4. debug 只在 local/dev/test 生效，details 只含计数、日期、scope 和最多 5 个 sectorCode。
 5. 页面不出现 DC、数据源品牌、表名或技术堆栈。
 6. Members 不返回 SQL、缺失原因内部枚举、停牌判断、来源表名或连接信息；用户只看到完整成员行、空值和覆盖计数。
-7. 双动量只暴露第 7.9 节批准的有界 `missingReason`；不返回 SQL、表名、连接、计算堆栈、原始异常或 debug 技术 payload。`SA_FACT_VERSION_MISMATCH` 与成员版本冲突码不得互换。
+7. 双动量只暴露第 7.9 节批准的有界 `missingReason`；相对轮动只暴露第 7.12 节的 current/comparison 缺失原因。两者都不返回 SQL、表名、连接、计算堆栈、原始异常或 debug 技术 payload。
+8. `SA_FACT_VERSION_MISMATCH` 与成员版本冲突码不得互换；相对轮动409只重载相对轮动短期事实，不清空双动量或动量排名状态。
 
 ## 11. 测试设计
 
 ### 11.1 后端单元测试
 
-新增：
+既有测试继续保留，并在 M10 增加最后两项：
 
 ```text
 tests/test_wealth_market_page_context_query.py
@@ -1719,6 +2483,8 @@ tests/test_wealth_sector_member_detail_query_service.py
 tests/test_wealth_sector_momentum_snapshot_query_service.py
 tests/test_wealth_sector_dual_momentum_classifier.py
 tests/test_wealth_sector_dual_momentum_query_service.py
+tests/test_wealth_sector_relative_rotation_calculator.py
+tests/test_wealth_sector_relative_rotation_query_service.py
 tests/web/test_wealth_sector_analysis_api.py
 tests/architecture/test_wealth_sector_analysis_guardrails.py
 ```
@@ -1755,6 +2521,18 @@ tests/architecture/test_wealth_sector_analysis_guardrails.py
 28. hierarchyVersion 匹配；过期返回 409 `SA_FACT_VERSION_MISMATCH` 且行情 SQL 为 0；重用成员专用 code 的反例失败。
 29. 双动量 Meta/Results 分别不超过 3/5 SQL，且只使用 `TradeCalendar/WealthSectorHierarchy/DcDaily`；成员、股票、资金、Heat、QTF、DG/Lake、迁移、配置和预测词门禁保持 0。
 30. 既有四个 endpoint、现有 Calculator、首页板块速览及完整后端冻结套件零回退。
+31. 相对轮动合同只接受五类 scope、`period=5/10/20/30`、`trailLength=20/30/60`、`improvementLookbackDays=5`、`minimumGroupSize=3`；未知值、未知字段、重复 query、错误父子闭包和越界行业代码全部拒绝。
+32. `X=P(d,N)`、`Y=P(d,N)-P(d-5,N)` 使用既有区间收益和平均并列百分位；覆盖 `X/Y` 为零、四象限边界、同值、负值、全 null 和稳定 `sectorCode` tie-break。
+33. 每个目标日期独立排名；修改 `d+1` 以后事实不改变 `d` 的收益、百分位、坐标、状态或轨迹槽，跨 scope、跨父级和跨层级事实不能进入比较池。
+34. 当前和比较截面分别覆盖可计算行业数为 2/3 的边界：小组不足仍返回中性客观坐标但象限计数为零；组规模达到3才允许象限解释。
+35. 当前缺失、5日前缺失、轨迹中间缺失、覆盖开始日晚于窗口、完整窗口不足、非正或非有限收盘均保留明确 null 槽；不得补零、前向填充、压缩交易日或跨缺口连线。
+35A. 日期切片中的收益事实与排名事实必须数量、代码、顺序和收益值一致；重复代码、错序、错值、可计算事实带缺失原因、不可计算事实缺失原因丢失均立即失败，不允许计算器猜测原因。
+36. 未显式选择行业时选 canonical 第一只可绘制行业，否则第一行；显式选择必须属于当前比较池。READY/DELAYED 的 `selectedTrail` 必须存在、代码一致、日期升序唯一、末槽等于 `observedTradeDate`。
+37. `total/currentCalculable/plottable/missingCoordinate/quadrantCounts`、唯一代码、canonical 排序、`groupInterpretation`、状态组合和 strict DTO 全部有篡改反例。
+38. Results 只允许最大95个开市日，96拒绝；一次请求严格为5条 SQL，行情只读取一次，SQL 数不随行业数、目标日期数或轨迹长度增长。
+39. 层级版本冲突在任何行情 SQL 前返回409 `SA_FACT_VERSION_MISMATCH`；401、400、409、500 均使用安全 DTO，Prod debug 不泄露 SQL、表名、连接或堆栈。
+40. 相对轮动只读取前三张 Prod 表；成员、股票、资金、Heat、宽基、申万、QTF、DG/Lake、写事务、迁移、配置、缓存、结果表和第三方依赖保持0。
+41. 相对轮动加入后，既有动量排名三只、成员一只、双动量两只共六只 endpoint，以及 Calculator、首页板块速览和冻结后端套件必须零变化。
 
 ### 11.2 前端测试
 
@@ -1800,6 +2578,14 @@ tests/test_wealth_turnover_insight_static_gates.py
 25. strict adapter 拒绝未知字段、公式版本、固定数组乱序、请求事实错代、计数、规范排序和状态组合错误；前端源码无资格公式。
 26. 列表／散点双向选择、选中与资格视觉分离、10px Hover 命中、缺坐标无伪点、Small Group 中性点、放大 dialog 零请求。
 27. 15 个双动量正式状态和 1600/1512/1460/1366 四档宽度；长名称、完整长列表和密集散点无新增换行、裁剪、重叠或模块级横向溢出。
+28. 相对轮动第三条精确 route、方法栏 active 和按需挂载正确；进入 M11 前仍是“待建设”零请求，进入 M11 后只挂载相对轮动 controller，其他两个 controller 不运行。
+29. 相对轮动 URL 十一个 key、默认值、五 scope、父级保留／省略、日期、周期、轨迹长度、象限筛选、搜索、sectorCode 和浏览器前进／后退完整恢复；非法组合失败闭合。
+30. Meta→Results 时序、5秒超时、401、409单次 Meta 重载、重复409停止、请求 key 与旧响应丢弃；比较池／日期／周期／轨迹／行业切换原子替换当前快照和选中轨迹。
+31. strict adapter 拒绝未知字段、公式版本、固定数组乱序、请求事实错代、重复行业、计数、canonical 顺序、错误象限、伪坐标、丢失日期槽和状态组合错误；前端源码无收益、百分位、改善值或象限公式。
+32. 搜索、象限筛选、Hover 和放大均为零业务请求；筛选只改变右侧可见行，不删除主图中的全量当前圆点，不改变服务端计数或选中对象。
+33. 行与圆点双向选择；只有选中行业显示常驻名称和轨迹，其他行业只在 Tooltip 显示；缺坐标不生成 `(0,0)`，null 轨迹槽断线，小组不足使用中性样式。
+34. 普通图与放大图共享同一 `plotScale`；横轴固定 `0..100`、50分界，纵轴围绕0对称并使用 `1/2/5×10^n` nice ceiling 与5个刻度。
+35. 逐一覆盖相对轮动14个正式状态和 `1600/1512/1460/1366` 四档宽度；最长三级行业名、337个密集圆点、完整滚动列表、Tooltip避让、键盘焦点、ESC／遮罩关闭均无新增换行、裁剪、重叠或模块级横向溢出。
 
 ### 11.3 删除旧门禁的安全步骤
 
@@ -1824,6 +2610,10 @@ tests/test_wealth_turnover_insight_static_gates.py
 8. 双动量逐一对照第 3.1 节 15 个正式节点和组件集 `1132:9777`；旧草稿 `967:72` 不得出现在截图依据或代码注释中。
 9. 双动量 1600px 工作区命中 `1564×1006` 和 `776+12+776`；1512/1460 连续等宽收缩，1366 只出现页面级横向滚动。
 10. No Qualified、Small Group、Missing Selected Coordinate 和 Partial Data 必须在 Ready 骨架内验收；不能用 Empty/Error 画板替代。
+11. 相对轮动逐一对照第3.1节14个正式节点；默认 Ready 根节点 `1150:5870` 必须命中 `1600×1292.390625`，工作区 `1150:6227` 为 `1564×1006`。
+12. 相对轮动工具栏 `1564×128`、主体 `1564×866`、图表列 `1088×866`、列表列 `464×866`、列间距12px；1512/1460连续收缩，1366只允许公共页面级滚动。
+13. 主图 `1088×733` 内绘图区固定 `left=68/right=36/top=44/bottom=56`；普通图和放大图使用同一坐标范围，Small Group、Missing Selected Coordinate、Filtered、Delayed、Loading、Empty、Error 均按正式画板单独验收。
+14. 相对轮动旧草稿 `967:158`、Archive 区域以及传统 RRG 术语／宽基字段不得进入实现、fixture、截图或验收说明。
 
 ## 12. 性能与验收门禁
 
@@ -1835,12 +2625,17 @@ tests/test_wealth_turnover_insight_static_gates.py
 | Members P95 | <= 500ms |
 | 双动量 Meta P95 | <= 500ms |
 | 双动量 Results P95 | <= 500ms |
+| 相对轮动 Meta P95 | <= 500ms |
+| 相对轮动 Results P95 | <= 500ms |
+| 相对轮动 Results 最大开市日窗口 | 95；96 必须拒绝 |
 | 当前工作区可用 | <= 1.5s，不含异常网络 |
 | 单 endpoint payload | <= 256KB |
 | 同一 query key 有效请求 | 1 |
 | 未选工作区请求/图表 | 0 |
 
 M2 Prod 只读验收已经证明现有索引满足既有三接口查询：最重 History 查询的数据库服务端执行约 `116.8ms`，同规模完整 service DTO 与 JSON 组装 P95 为 `99.721ms`。M3A 聚合审计证明最大成员数 139，不需要分页或虚拟列表；实现后以 `2026-08-27` 最大真实组日 `BK1444.DC` 的 138 行、30 日窗口连续执行 20 次本地同拓扑 GET，P95 为 `334.279ms`，响应 `12,126 bytes`，满足 Members `500ms/256KB` 门禁。M6 使用当前完整 496 节点层级 Meta 与最大 337 行比较池 Results，各执行 20 次本地同拓扑 GET：双动量 Meta 为 3 SQL、P95 `14.646ms`、`150,638 bytes`，Results 为 5 SQL、P95 `158.317ms`、`157,518 bytes`，均满足 `500ms/256KB`；没有新增缓存、索引、结果表或迁移。
+
+M9 使用现有 Web 只读连接对当前发布337个三级行业和最近95个 SSE 开市日做了有界审计：行情事实实际返回31,614行，理论上限32,015行；不导出来源行、不保存快照。跨网络完整链路20次 P95 为 `2343.531ms`，只用于识别网络环境差异；数据库端5条 SQL 的执行时间合计 `91.868ms`，其中行情事实查询 `45.847ms`，纯计算、DTO 与 JSON 50次 P95 为 `107.363ms`。按同部署拓扑核心链路估算 P95 为 `199.231ms`，低于500ms，因此关闭 M10 的可行性门禁。该分段结果不能代替 M12 的部署态真实 HTTP P95，也不能作为增加缓存、索引、结果表或删减返回事实的理由。
 
 前端不引入新第三方依赖。图表用 SVG/CSS，列表先使用原生滚动。首次实现禁止为了预期性能增加虚拟列表、服务端缓存或结果表。
 
@@ -1961,6 +2756,46 @@ M2 Prod 只读验收已经证明现有索引满足既有三接口查询：最重
 5. 真实交互验证结果视图、选择、排序、放大和待建设按钮零双动量请求；周期切换与浏览器返回恢复正确。完整后端套件 `203 passed`、前端全量 `436 passed`、typecheck 和生产构建通过。
 6. 用户已完成页面验收并接受冷启动性能现状，M8 与本次双动量需求正式关闭；不自动开始相对轮动或其他方法。
 
+### M9：相对轮动 LLD 与编码门禁
+
+状态：`PASS (2026-08-28)`。
+
+1. 已将产品基线 v1.8、技术方案 v1.25 和 Figma 14个正式节点逐项映射到第5.9、6.21～8.22、11～17节的文件、类、DTO、查询、状态、URL、SVG几何和测试合同。
+2. CodeGraph 已覆盖现有动量 Calculator、Query、Snapshot QueryService、双动量 service、API/schema、页面/router/method/controller/adapter/SVG 与测试消费者；未发现必须改变既有公式或六只 endpoint 的实现障碍。
+3. 已冻结两只只读 endpoint、3/5 SQL、最大95个开市日、一次行情批量读取、当前全量快照和选中轨迹的原子响应、409恢复及六只既有 endpoint 零变化门禁。
+4. 已核对中央异常码：相对轮动复用既有 `SA_*`，只把 `SA_FACT_VERSION_MISMATCH` 的适用范围从双动量扩为双动量／相对轮动，不增加新码；配置审计结论为“不适用”。
+5. 最大337个三级行业、95个开市日的有界只读审计和分段性能测量已通过 M10 可行性门禁；跨网络耗时不冒充部署态结论，M12 仍须做真实 HTTP P95。
+6. M9 仅修改既有技术方案、LLD 和异常码注册表，没有编码、注册路由、修改 Figma、增加迁移／依赖／配置或写入生产数据。
+
+### M10：相对轮动后端
+
+状态：`PASS (2026-08-28)`。
+
+1. 已严格按第5.9、6.21～7.13节实现公式合同、纯计算器、QueryService、strict DTO 和两只只读 API。
+2. 既有开市日查询上限已从90精确扩为95并保留96拒绝；一次 Results 请求只读取一次行情事实，最多5条 SQL。
+3. 日期切片按批准纠偏同时携带同源收益事实与排名事实，并校验日期、代码、顺序、数量、收益值和缺失状态；精确缺失原因不再从排名空值猜测。
+4. 第11.1节正反例、来源架构门禁、既有六只 endpoint 零变化和最大337行业×95日结构／payload门禁均已通过；冻结后端回归为 `261 passed`。
+5. 自动化性能门禁覆盖纯计算、DTO 与 JSON P95 不超过400ms，并为同进程数据库链路保留约100ms预算；部署同拓扑真实 HTTP P95 仍在 M12 验收，不用本地 SQLite／TestClient 冒充。
+6. M10 没有新增前端 route、启用方法按钮、修改 Figma、迁移、配置、依赖、缓存或结果表，也没有部署或提交；完成后按停止点停在 M11 之前。
+
+### M11：相对轮动前端
+
+状态：`NEXT / NOT STARTED`。
+
+1. 严格按第5.9、8.16～8.22节增加第三条路由、独立 API／strict adapter／URL／controller 和响应式工作区。
+2. 逐一实现正式 Figma 14个状态；搜索、象限筛选、Hover 和放大零业务请求，参数或行业切换原子刷新 Results。
+3. 完成第11.2和11.4节的自动化、四档宽度、长名称、密集圆点、完整列表与无障碍验收。
+4. 停止点：只交付前端与测试；不修改 M10 后端合同，不部署、不提交、不进入 M12。
+
+### M12：相对轮动联调与交付
+
+状态：`BLOCKED BY M11`。
+
+1. 使用真实只读 API 对账五种比较范围、四个强度周期、三种轨迹长度、四象限、小组、缺失、日期和轨迹事实。
+2. 验收 3/5 SQL、256KB、部署态真实 HTTP P95、14个正式状态及 `1600/1512/1460/1366` 四档宽度。
+3. 证明三个已完成方法只挂载当前 controller，成员广度和量价分布继续为零请求“待建设”。
+4. 完成后等待用户验收和关闭指令；不自动进入成员广度、量价分布或其他需求。
+
 每个里程碑完成后停止，不自动进入下一阶段，不自动提交、推送、迁移或部署。
 
 ## 14. 验证命令
@@ -1984,6 +2819,8 @@ uv run pytest -q \
   tests/test_wealth_sector_momentum_snapshot_query_service.py \
   tests/test_wealth_sector_dual_momentum_classifier.py \
   tests/test_wealth_sector_dual_momentum_query_service.py \
+  tests/test_wealth_sector_relative_rotation_calculator.py \
+  tests/test_wealth_sector_relative_rotation_query_service.py \
   tests/web/test_wealth_sector_analysis_api.py \
   tests/web/test_wealth_market_sector_overview_api.py \
   tests/test_wealth_turnover_insight_static_gates.py \
@@ -2039,6 +2876,14 @@ git diff --check
 | G28 双动量路由与按需挂载 | 两个方法精确路由，只挂载当前 controller，三按钮零副作用 | PASS (M7 code/tests) |
 | G29 双动量前端事实边界 | adapter 无分类计算，resultView/选择/排序零请求，散点无伪点 | PASS (M7 code/tests) |
 | G30 双动量交付 | 后端、前端、性能、15 状态和四档宽度全量验收 | PASS (M8 技术证据、用户验收与冷启动性能决策已完成) |
+| G31 相对轮动产品与 Figma | 产品基线 v1.8、14个正式节点、旧草稿冻结及非传统 RRG 边界一致 | PASS (M9 docs/Figma) |
+| G32 相对轮动代码影响面 | Calculator、Query、Snapshot、API、前端消费者、测试和六只冻结 endpoint 已逐项审计 | PASS (M9 CodeGraph/current code) |
+| G33 相对轮动性能可行性 | 337行业×95开市日、5 SQL、一次行情读取、分段同拓扑估算低于500ms | PASS (M9 bounded read-only audit)；部署态 HTTP 留待 M12 |
+| G34 相对轮动异常与配置 | 复用既有异常码且注册表已对账；无运营配置、环境变量或第二套常量 | PASS (M9 docs/registry audit) |
+| G35 相对轮动后端 | 专属合同／计算器／QueryService／DTO／两只 API、95/96门禁及零回退 | PASS (M10 code/tests) |
+| G36 相对轮动前端 | 第三路由、独立 controller、strict adapter、11项 URL、14状态和响应式 SVG | OPEN (M11) |
+| G37 相对轮动交付 | 真实 API、3/5 SQL、payload/P95、四档宽度、交互与用户验收 | OPEN (M12) |
+| G38 相对轮动架构边界 | 只读前三张 Prod 表；无 QTF/DG/Lake/宽基/申万/成员/迁移/配置/依赖 | PASS (M10 backend)；M11/M12 继续保持该边界 |
 
 ### 15.1 例外白名单
 
@@ -2068,6 +2913,13 @@ git diff --check
 18. M5 已冻结公共 Meta 事实、单日动量快照、专属分类器、两只 API、strict DTO、五计数、URL/controller、散点和全矩阵测试；`SA_FACT_VERSION_MISMATCH` 已完成编码前登记。
 19. M6 已实现公共 Meta、单日快照、双动量分类器、专属 strict DTO 和两只只读 API；217 项冻结后端回归、3/5 SQL、完整 496 节点 Meta／最大 337 行 Results P95/payload 与来源架构门禁均通过。
 20. M7 已实现双动量精确路由、受控方法栏、独立 API／adapter／URL／controller、15 个正式状态和响应式工作区；定向 82 项、前端全量 436 项、typecheck/build 均通过，未修改后端合同或既有动量 DOM。
+21. 相对轮动产品基线 v1.8、技术方案 v1.25、Figma 14个正式节点及当前前后端消费者已完成 M9 代码级对账；本 LLD 已冻结 M10/M11 的精确文件、类、DTO、请求、响应、查询、公式、URL、状态和 SVG 几何。
+22. M9 CodeGraph 影响面覆盖现有 Calculator、Query、Snapshot、双动量 service、API/schema、页面/router/method/controller/adapter/SVG 与测试；相对轮动不需要修改既有公式、页面 DTO 或跨子系统依赖。
+23. M9 有界只读审计使用当前337个三级行业、最近95个 SSE 开市日和31,614条行情事实；5条 SQL 执行合计 `91.868ms`、纯计算与 DTO/JSON P95 `107.363ms`、同拓扑核心估算 P95 `199.231ms`，允许进入 M10。
+24. 中央异常码、无配置结论、六只既有 endpoint 零变化、95允许／96拒绝、一次行情读取及 M10～M12 停止点均已落入文档；M9 没有代码、路由、Figma、迁移、依赖、配置或生产写入。
+25. M10 已实现版本化内部合同、纯计算器、专属 QueryService／strict DTO／两只只读 API；日期切片的收益与排名事实具备完整对齐反例，精确缺失原因直接来自同源收益事实。
+26. M10 最大337行业×95日结构门禁证明 Results 为5条 SQL、一次行情读取、完整337行、60个轨迹日期槽且 payload 不超过256KB；纯计算、DTO 与 JSON 自动化 P95 不超过400ms，部署态真实 HTTP P95 仍留在 M12。
+27. M10 冻结后端回归 `261 passed`；没有新增前端、迁移、配置、依赖、缓存、结果表或跨子系统反向依赖，下一步只允许进入 M11。
 
 ### 16.2 已接受的非阻断项与历史记录
 
@@ -2075,6 +2927,7 @@ git diff --check
 2. 周边页面专项人工回归和部署后生产验收按用户此前决定不执行，不再作为本期关闭条件。
 3. M3A 代码已提交为 `e13eab20`，M4 自动化门禁已通过，本期没有迁移。
 4. 双动量 M8 的真实 API、SQL/payload、15 状态、四档宽度、真实交互和全量门禁已经完成；用户已验收页面并接受当前冷启动性能，本需求不存在待执行收口项。
+5. 相对轮动 M9 的跨网络完整链路 P95 `2343.531ms` 只保留为诊断记录，不用于否定同拓扑可行性，也不作为上线性能证据；M12 仍必须实测部署态真实 HTTP P95。
 
 ## 17. 风险、回滚与停止条件
 
@@ -2100,6 +2953,14 @@ git diff --check
 | 前端自行分类 | 页面依据收益／百分位重算资格 | strict adapter 只读服务端状态；源码静态门禁禁止公式 |
 | 方法切换双请求 | 两个 controller 同时挂载或隐藏 DOM | route 判别只渲染一个 feature；请求计数反例 |
 | 旧草稿进入开发 | 引用 `967:72` 而非 15 张正式画板 | 设计节点测试清单和 code review 拒绝 |
+| 相对轮动被误写成传统 RRG | 引入宽基指数、RS-Ratio 或 RS-Momentum | 只允许 `sector-relative-rotation@1` 的同组百分位与5日变化；来源门禁直接拒绝 |
+| 前端复制轮动公式 | 页面自行计算区间收益、百分位、5日变化或象限 | 后端返回全部业务事实；strict adapter 和源码门禁只校验、展示 |
+| 95日窗口出现 N+1 | 按行业、轨迹日期或目标日期循环查行情 | 开市日、层级和行情各批量一次；SQL event counter 固定 Results 最多5条 |
+| 当前快照和轨迹串代 | 切换行业或参数时旧轨迹覆盖新快照 | 单个 Results 原子返回；完整 request key + AbortController + generation 丢弃旧响应 |
+| 缺失事实形成伪坐标 | null 被补为0、前值或连接缺口两端 | DTO保留日期空槽和缺失原因；adapter拒绝伪点，SVG按 null 分段 |
+| 小组被赋予象限含义 | 2个可计算行业仍按强弱状态着色 | `minimumGroupSize=3`；小组只画中性客观坐标，象限计数必须为0 |
+| 普通图与放大图漂移 | 两处分别计算纵轴或刻度 | controller/useMemo 只生成一份 plotScale，两处复用同一坐标合同 |
+| 密集点和长名重叠 | 337行业全部常驻名称或按字符硬截断 | 仅选中行业常驻；其他名称只在 Tooltip，按真实文字宽度测量和边界避让 |
 
 必须停止并等待确认的情况：
 
@@ -2111,17 +2972,24 @@ git diff --check
 6. 单日快照抽取不能保持既有四 endpoint response、SQL 数或 Calculator 语义零变化。
 7. 双动量需要新增数据库、索引、缓存、配置、依赖、结果表、成员／股票事实或产品未批准字段。
 8. Figma 正式节点与本文 DTO、状态或响应式合同出现无法消除的冲突。
+9. 最大95日窗口在部署同拓扑仍超过5 SQL、256KB或稳态 P95 500ms，需要新增索引、缓存、结果表、分页或截断事实。
+10. 相对轮动实现需要修改既有动量／成员／双动量六只 endpoint、现有 `SectorMomentumCalculator` 公式或首页板块速览语义。
+11. 必须引入宽基、申万、成员、股票、资金、Heat、QTF、DG/Lake、写事务、新配置、新依赖或数据库迁移才能完成相对轮动。
+12. `selectedTrail`、当前快照、日期槽、计数或状态无法在一次 Results 响应内保持同一 hierarchyVersion、observedTradeDate 和参数事实。
 
 ## 18. 结论
 
-既有动量排名 M0～M4 保持原验收结论。双动量 M5～M7 代码已经完成，M8 的真实 API、3/5 SQL、payload、15 个正式状态、四档宽度、零请求交互和全量自动化也已对账；没有新增配置、迁移、依赖、缓存或持久化。
+既有动量排名 M0～M4 与双动量 M5～M8 保持原验收结论。相对轮动 M9 已完成产品、技术方案、Figma、当前代码、消费者、异常码、配置边界和最大窗口性能的代码级对账；没有需要用户新增拍板的口径，也没有发现阻止后端编码的事实冲突。
 
-双动量 M8 与 G30 已完成并关闭，本需求结束。后续若启动相对轮动、成员广度或量价分布，必须作为独立新需求重新完成产品口径、正式 Figma、技术方案和 LLD；不得沿用本需求自动进入开发。
+相对轮动 M10 后端及正反例测试已完成，G35 与后端阶段的 G38 已关闭。下一步只允许进入 M11 前端；M11 尚未开始，相对轮动按钮仍须显示“待建设”，M12 联调继续受 M11 阻断。部署同拓扑真实 HTTP P95 属于 M12，不得把本地 SQLite／TestClient 诊断结果冒充上线结论。成员广度、量价分布和其他研究能力继续排除在本需求之外。
 
 ### 18.1 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v1.20 | 2026-08-28 | 完成相对轮动 M10 后端：实现版本化合同、纯计算器、QueryService、strict DTO 和两只只读 API；落实收益／排名事实对齐纠偏，95允许／96拒绝、3/5 SQL、一次行情读取、最大337×95结构／payload、精确缺失、状态、来源边界及261项冻结回归通过，下一步固定为 M11；部署态真实 HTTP P95仍留在M12 |
+| v1.19 | 2026-08-28 | M10 开工纠偏：日期切片同时保留同源收益事实和排名事实，冻结两者对齐门禁，使 current/comparison 缺失原因可由真实输入直接传递；不改变产品、公式、API、SQL 或里程碑边界 |
+| v1.18 | 2026-08-28 | 完成相对轮动 M9 代码级 LLD：对账当前代码与消费者、冻结 M10/M11 文件和类、两只 strict API、95日单次批量查询、公式／状态／URL／SVG几何、异常和测试矩阵；最大337行业×95日的有界只读分段性能门禁通过，下一步固定为 M10 后端，尚未编码 |
 | v1.17 | 2026-08-28 | 用户确认页面验收无重大问题并接受当前冷启动性能；双动量 M8/G30 关闭，本需求结束，不再新增性能优化任务，也不自动进入其他分析方法 |
 | v1.16 | 2026-08-28 | 完成双动量 M8 技术联调：真实 496 节点／337 行 API、3/5 SQL、payload、15 正式状态、1600/1512/1460/1366 四档宽度、零请求交互、203 项后端与 436 项前端回归均已对账；两轮稳态 P95 通过但冷启动 Meta 曾超过 500ms，最终用户验收和性能结论仍待确认 |
 | v1.15 | 2026-08-28 | 完成双动量 M7 前端：精确路由与按需挂载、独立 strict adapter／URL／controller、15 个状态、完整列表与响应式散点、历史恢复、超时／401／409／竞态保护及零请求交互均完成自动化；定向 82 项、前端全量 436 项、typecheck/build 通过，下一步 M8 |

@@ -83,6 +83,20 @@ DUAL_MOMENTUM_FORBIDDEN_TOKENS = (
     "forecast",
     "success_rate",
 )
+RELATIVE_ROTATION_BACKEND_PATHS = (
+    REPO_ROOT
+    / "src/biz/queries/wealth/market/sector_analysis/sector_relative_rotation_query_service.py",
+    REPO_ROOT
+    / "src/biz/services/wealth/market/sector_analysis/sector_relative_rotation_contract.py",
+    REPO_ROOT
+    / "src/biz/services/wealth/market/sector_analysis/sector_relative_rotation_calculator.py",
+    REPO_ROOT / "src/biz/schemas/wealth/market/sector_relative_rotation.py",
+)
+RELATIVE_ROTATION_FORBIDDEN_TOKENS = DUAL_MOMENTUM_FORBIDDEN_TOKENS + (
+    "benchmark_index",
+    "rs_ratio",
+    "rs_momentum",
+)
 
 BACKEND_SECTOR_ANALYSIS_PATHS = (
     REPO_ROOT / "src/biz/api/wealth/market/sector_analysis.py",
@@ -358,3 +372,39 @@ def test_dual_momentum_adds_only_the_two_frozen_read_only_routes() -> None:
     assert '"/dual-momentum/meta"' in api_source
     assert '"/dual-momentum/results"' in api_source
     assert '@router.post(\n    "/dual-momentum/' not in api_source
+
+
+def test_relative_rotation_backend_stays_on_the_three_read_only_fact_sources() -> None:
+    violations: list[str] = []
+    for path in RELATIVE_ROTATION_BACKEND_PATHS:
+        source = path.read_text(encoding="utf-8")
+        relative_path = path.relative_to(REPO_ROOT).as_posix()
+        lowered = source.lower()
+        for token in RELATIVE_ROTATION_FORBIDDEN_TOKENS:
+            if token in lowered:
+                violations.append(f"{relative_path} contains forbidden token {token}")
+        for line_no, module in _python_imports(path):
+            if module.startswith("src.foundation.models") and module not in {
+                "src.foundation.models.core.dc_daily",
+                "src.foundation.models.core.trade_calendar",
+                "src.foundation.models.core_serving.wealth_sector_hierarchy",
+            }:
+                violations.append(
+                    f"{relative_path}:{line_no} imports unapproved rotation source {module}"
+                )
+
+    assert not violations, (
+        "相对轮动只允许复用交易日历、行业层级和行业日行情：\n"
+        + "\n".join(violations)
+    )
+
+
+def test_relative_rotation_adds_only_the_two_frozen_read_only_routes() -> None:
+    api_source = (
+        REPO_ROOT / "src/biz/api/wealth/market/sector_analysis.py"
+    ).read_text(encoding="utf-8")
+
+    assert api_source.count('@router.get(\n    "/relative-rotation/') == 2
+    assert '"/relative-rotation/meta"' in api_source
+    assert '"/relative-rotation/results"' in api_source
+    assert '@router.post(\n    "/relative-rotation/' not in api_source

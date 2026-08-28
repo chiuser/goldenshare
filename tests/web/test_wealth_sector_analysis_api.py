@@ -850,6 +850,14 @@ def test_quote_auth_requirement_is_reused(app_client, monkeypatch) -> None:
             "/api/v1/wealth/market/sector-analysis/dual-momentum/results"
         )
         assert dual_results_response.status_code == 401
+        relative_meta_response = app_client.get(
+            "/api/v1/wealth/market/sector-analysis/relative-rotation/meta"
+        )
+        assert relative_meta_response.status_code == 401
+        relative_results_response = app_client.get(
+            "/api/v1/wealth/market/sector-analysis/relative-rotation/results"
+        )
+        assert relative_results_response.status_code == 401
     finally:
         monkeypatch.setenv("QUOTE_API_AUTH_REQUIRED", "false")
         get_settings.cache_clear()
@@ -1258,11 +1266,16 @@ def test_dual_meta_and_results_use_safe_hierarchy_and_query_failures(
     assert "dc_daily" not in query_failure.text.lower()
 
 
-def _seed_maximum_dual_pool(db_session) -> tuple[date, str]:
+def _seed_maximum_dual_pool(
+    db_session,
+    *,
+    open_date_count: int = 21,
+) -> tuple[date, str]:
     _ensure_tables(db_session)
     target_date = date(2026, 6, 30)
     open_dates = tuple(
-        target_date - timedelta(days=offset) for offset in range(20, -1, -1)
+        target_date - timedelta(days=offset)
+        for offset in range(open_date_count - 1, -1, -1)
     )
     previous = None
     for trade_date in open_dates:
@@ -1426,3 +1439,194 @@ def test_dual_maximum_337_pool_meets_sql_payload_and_local_p95_budgets(
     assert sql_count == 5
     assert len(first.content) <= 256 * 1024
     assert sorted(durations)[18] <= 0.5
+
+
+def _relative_results_params(**overrides):
+    params = {
+        "market": "CN_A",
+        "tradeDate": TARGET_DATE.isoformat(),
+        "scope": "LEVEL_2",
+        "period": 20,
+        "trailLength": 20,
+        "hierarchyVersion": "2026-04-30-v1",
+        "debug": 1,
+    }
+    params.update(overrides)
+    return params
+
+
+def test_relative_rotation_meta_and_results_keep_three_and_five_sql_contracts(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    _seed_sector_analysis(db_session)
+
+    meta_sql_count, meta_response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/relative-rotation/meta",
+            params={"market": "CN_A"},
+        ),
+    )
+    result_sql_count, result_response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/relative-rotation/results",
+            params=_relative_results_params(),
+        ),
+    )
+
+    assert meta_response.status_code == 200
+    assert meta_sql_count == 3
+    assert meta_response.json()["formula"] == {
+        "formulaKey": "sector-relative-rotation",
+        "formulaVersion": 1,
+        "basisFormulaKey": "sector-cross-sectional-momentum",
+        "basisFormulaVersion": 1,
+        "periods": [5, 10, 20, 30],
+        "improvementLookbackDays": 5,
+        "trailLengths": [20, 30, 60],
+        "minimumGroupSize": 3,
+        "scopes": [
+            "LEVEL_1",
+            "LEVEL_2",
+            "LEVEL_3",
+            "LEVEL_1_CHILDREN",
+            "LEVEL_2_CHILDREN",
+        ],
+        "xDomain": [0, 100],
+        "xSplit": 50,
+        "ySplit": 0,
+    }
+    assert result_response.status_code == 200
+    assert result_sql_count == 5
+    payload = result_response.json()
+    assert payload["status"] == "READY"
+    analysis = payload["analysis"]
+    assert analysis["totalCount"] == 3
+    assert analysis["currentCalculableCount"] == 3
+    assert analysis["plottableCount"] == 3
+    assert analysis["missingCoordinateCount"] == 0
+    assert analysis["selectedTrail"]["sectorCode"] == analysis["selectedSectorCode"]
+    assert analysis["selectedTrail"]["dateSlotCount"] == 20
+    assert analysis["selectedTrail"]["points"][-1]["tradeDate"] == TARGET_DATE.isoformat()
+
+
+def test_relative_rotation_supports_all_scopes_periods_and_trail_lengths(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    scopes = (
+        ("LEVEL_1", {}),
+        ("LEVEL_2", {}),
+        ("LEVEL_3", {}),
+        ("LEVEL_1_CHILDREN", {"level1Code": "BK1001.DC"}),
+        (
+            "LEVEL_2_CHILDREN",
+            {"level1Code": "BK1001.DC", "level2Code": "BK1101.DC"},
+        ),
+    )
+
+    for scope, parents in scopes:
+        for period in (5, 10, 20, 30):
+            for trail_length in (20, 30, 60):
+                response = app_client.get(
+                    "/api/v1/wealth/market/sector-analysis/relative-rotation/results",
+                    params=_relative_results_params(
+                        scope=scope,
+                        period=period,
+                        trailLength=trail_length,
+                        **parents,
+                    ),
+                )
+                assert response.status_code == 200
+                assert response.json()["status"] == "READY"
+                assert response.json()["analysis"]["scope"] == scope
+                assert response.json()["analysis"]["period"] == period
+                assert response.json()["analysis"]["trailLength"] == trail_length
+
+
+def test_relative_rotation_version_mismatch_returns_409_before_daily_reads(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    _seed_sector_analysis(db_session)
+
+    sql_count, response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/relative-rotation/results",
+            params=_relative_results_params(hierarchyVersion="stale"),
+        ),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "SA_FACT_VERSION_MISMATCH"
+    assert sql_count == 2
+
+
+def test_relative_rotation_rejects_missing_unknown_duplicate_and_illegal_inputs(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    path = "/api/v1/wealth/market/sector-analysis/relative-rotation/results"
+    invalid_cases = (
+        {key: value for key, value in _relative_results_params().items() if key != "market"},
+        {**_relative_results_params(), "period": 1},
+        {**_relative_results_params(), "trailLength": 90},
+        {**_relative_results_params(), "improvementLookbackDays": 5},
+        {**_relative_results_params(), "sectorCode": "BK9999.DC"},
+        {**_relative_results_params(), "scope": "LEVEL_1_CHILDREN"},
+        {**_relative_results_params(), "tradeDate": "2026-02-30"},
+    )
+    for params in invalid_cases:
+        response = app_client.get(path, params=params)
+        assert response.status_code == 400
+        assert response.json()["code"] in {
+            "SA_SCOPE_INVALID",
+            "SA_SELECTION_INVALID",
+        }
+    duplicate = app_client.get(
+        path
+        + "?market=CN_A&market=CN_A&scope=LEVEL_1&period=20&trailLength=20"
+        + "&hierarchyVersion=2026-04-30-v1"
+    )
+    assert duplicate.status_code == 400
+    assert duplicate.json()["code"] == "SA_SCOPE_INVALID"
+
+
+def test_relative_rotation_maximum_window_meets_sql_and_payload_budgets(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    target_date, hierarchy_version = _seed_maximum_dual_pool(
+        db_session,
+        open_date_count=95,
+    )
+    params = {
+        "market": "CN_A",
+        "tradeDate": target_date.isoformat(),
+        "scope": "LEVEL_3",
+        "period": 30,
+        "trailLength": 60,
+        "hierarchyVersion": hierarchy_version,
+    }
+
+    sql_count, first = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/relative-rotation/results",
+            params=params,
+        ),
+    )
+    assert first.status_code == 200
+    assert first.json()["analysis"]["totalCount"] == 337
+    assert first.json()["analysis"]["currentCalculableCount"] == 337
+    assert first.json()["analysis"]["selectedTrail"]["dateSlotCount"] == 60
+    assert sql_count == 5
+    assert len(first.content) <= 256 * 1024
