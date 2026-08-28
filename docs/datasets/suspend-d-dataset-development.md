@@ -1,6 +1,6 @@
 # Tushare 每日停复牌信息（`suspend_d`）数据集开发说明
 
-- 当前状态（2026-08-28）：raw 直出 M1 代码与自动化测试已完成；生产仍需经过隔离 PostgreSQL M2 和独立授权的生产 M3，不能把本文目标结构误读为已经切换。
+- 当前状态（2026-08-28）：raw 直出 M0/M1/M2 已完成，revision 155 已通过隔离 PostgreSQL 正反向验收；生产仍为 revision 154 和两张物理表，必须经过独立授权的生产 M3a 才能切换，不能把本文目标结构误读为已经上线。
 
 ## 1. 目标与边界
 
@@ -146,3 +146,10 @@
 1. 主键与幂等策略：采用 `row_key_hash`（已拍板）。
 2. 数据状态分组：归到“股票”（已拍板）。
 3. 自动任务：默认开放创建（已拍板）。
+
+## 10. raw 直出阶段验收状态
+
+- M0：生产只读证明 raw/serving 各 640,504 行，320 个自然月按 `id, row_key_hash, ts_code, trade_date, suspend_timing, suspend_type` 双向差异为 0；月峰值 17,074，容量门禁固定为 20,000 行。
+- M1：Definition 已切到 `raw_only_upsert`，独立 revision 155 与专项自动化测试完成；没有修改源字段、日期/unit、分页或 workflow 合同。
+- M2：PostgreSQL 18.4 隔离实例已通过 20,000/20,001 行边界、字段及双身份差异、未知依赖、ACL/comment、三类 DML `55000`、正式 writer、raw/view 即时可见、事务回滚和三类查询计划验收。未连接 Prod、未请求 Tushare。
+- 待办：独立授权的 M3a；执行时必须重新核验生产版本、revision、全量差异、开放任务、目标锁、磁盘水位，并同时暂停/恢复 schedule #24 与 #2。M3a 通过后再把两个自然 workflow 的后续观察登记为 M3b。

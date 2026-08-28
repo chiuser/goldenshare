@@ -1,7 +1,7 @@
 # 生产 PostgreSQL 存储空间优化治理专项 v2
 
 - 版本：v2
-- 状态：P1-B0、P1-B1 已结案；`P1-B2-moneyflow_ind_dc` 已结案；`P1-B2-dc_daily` 的 M0/M1/M2/M3a 已通过，待两个既有 workflow 的自然 M3b 验收；`P1-B2-suspend_d-M0/M1` 与 filter 前置修复已完成，下一步为独立授权的 M2
+- 状态：P1-B0、P1-B1 已结案；`P1-B2-moneyflow_ind_dc` 已结案；`P1-B2-dc_daily` 的 M0/M1/M2/M3a 已通过，待两个既有 workflow 的自然 M3b 验收；`P1-B2-suspend_d-M0/M1/M2` 与 filter 前置修复已完成，下一步为独立授权的生产 M3a
 - 更新时间：2026-08-28
 - 范围：生产 PostgreSQL 小对象 SSD→HDD 迁移，以及无业务转换的 raw/core_serving 重复物理存储收口
 - 不在范围：`stk_mins` 大分区迁移、删除 raw 源事实、修改 Tushare 请求语义、自动执行生产 DDL
@@ -369,6 +369,16 @@ M1 已按一期 LLD 完成编码与静态验收，没有连接任何数据库、
 独立 revision `20260828_000155` 只接真实 head 154，先验证两层 relation/owner/SSD/列/主键/三组索引/ACL/依赖，再在 `SHARE` 锁内按自然月比较六个业务字段及 `id/row_key_hash` 双身份；月容量上限为 20,000 行。通过后才以 `ACCESS EXCLUSIVE` 把 serving 替换为显式 8 列 raw-backed view，恢复 owner、SELECT ACL 和 comments，并创建独立三类拒写 trigger；禁止 `CASCADE`、raw DDL、共享函数重建和自动 downgrade。
 
 专项测试同时证明 raw-only writer 只写 raw、冲突键仍是 `row_key_hash`，并覆盖 Definition、fan-out、ORM、ServingPublish 无旁路、20,001 行超限、字段/身份/约束/依赖 fail-closed、显式投影和离线 PostgreSQL SQL。M1 只关闭代码门禁；生产仍为 revision 154 和两张物理表，下一步只能在另行授权后进入隔离 PostgreSQL M2。
+
+### 2.20 2026-08-28 `P1-B2-suspend_d-M2`
+
+M2 已在仅监听私有 Unix socket 的 PostgreSQL 18.4 临时实例完成。应用 migration 的非超级用户通过独立 env 文件连接；每次 Alembic 调用前分别用应用连接和临时管理员只读确认 URL、数据库、用户、无 TCP 地址、恢复状态、socket、端口及 `data_directory`。本阶段没有连接 Prod、请求 Tushare、部署、创建 TaskRun 或修改 schedule/workflow。
+
+revision 155 在单月精确 20,000 行、总计 24,000 行的正向库成功应用，raw table/索引 OID 保持，serving 成为 0 B 普通 view；全行、`id`、`row_key_hash` 与双向差集一致。owner、带授权选项的 SELECT、raw reader 权限、relation/column comments 和拒写 trigger 全部恢复，三类 DML 均返回 `55000`。raw DML 与正式 `DatasetWriter` 都证明 view 同事务即时可见；冲突更新后 raw/view 同为新 `id=24001`，回滚后恢复原 `id=1`，无数据残留。
+
+20,001 行单月、业务字段差异、`id` 差异、`row_key_hash` 差异和未知 view 依赖五类负向库都在 serving DDL 前失败，revision、对象/index OID、relkind 和行数快照不变；切换后注入事务错误的独立库也完整恢复两张物理表和 revision 154。交易日点查、代码日期点查、最大日期三类结果 hash 不变，计划从 serving 索引下推 raw 等价索引，总成本为 `494.56→572.75`、`8.31→8.31`、`0.38→0.39`，没有临时块读写。第一项成本增加 15.8%，低于 20% 隔离门禁；生产真实消费者时延仍须由 M3a 交错重复测量。
+
+M2 据此通过且无需修改 revision 155 或业务代码。生产仍为 revision 154 和两张物理表；下一阶段只能是单独授权的 M3a，并须实时重做生产身份、任务、锁、磁盘、全量差异及两个 workflow schedule 的维护窗口门禁。
 
 ## 3. Track A：独立小对象 SSD→HDD 迁移
 
