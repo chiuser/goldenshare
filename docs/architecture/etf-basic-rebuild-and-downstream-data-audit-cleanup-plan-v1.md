@@ -1,8 +1,10 @@
 # ETF 基础信息重建与下游数据审计清理技术方案 v1
 
-状态：核心业务口径已确认 / 1 项待拍板 / 尚未实施
+状态：核心业务口径已全部确认 / 尚未实施
 创建日期：2026-08-28
+最近审计：2026-08-28（补齐请求驱动、激活池消费者、`etf_share_size` 直出口径及 Prod 下游清理范围审计）
 适用范围：`etf_basic`、ETF 下游历史数据、ETF 对象池、ETF 查询与运维消费者
+低层设计：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
 
 ---
 
@@ -12,10 +14,11 @@
 
 1. `raw_tushare.etf_basic` 完整保存 Tushare 当前返回的 ETF 基础信息快照。
 2. `core_serving.etf_basic` 只发布真正供下游使用的沪深交易所 ETF，即 `.SH/.SZ`。
-3. 所有 ETF 下游请求的代码、上市状态和最早请求日期，都必须来自 `core_serving.etf_basic`。
-4. 历史 `.OF` 别名不做改名、不与 `.SH/.SZ` 合并；旧别名数据删除后，如交易所代码缺数据，再按交易所代码重新拉取。
-5. 首次重建时，ETF 下游数据按获批的主数据快照做代码与上市日期双重清理；以后新增请求继续受当前主数据约束，但主数据代码消失或上市日期变晚不追溯删除既有历史。
+3. 凡源接口需要按 ETF 代码展开请求，其代码、上市状态和最早请求日期都必须来自 `core_serving.etf_basic`；支持按交易日一次拉取源端全集的接口继续使用全市场请求，不得为了“使用 Basic”退化成逐 ETF 请求。
+4. 历史 `.OF` 别名不做改名、不与 `.SH/.SZ` 合并；当前下游未发现旧别名。若以后审计发现，先按精确范围另行评审，获批删除后再按交易所代码补拉缺失数据。
+5. 当前 Prod 下游没有命中已确认删除口径的数据，因此不建设通用清理 CLI、manifest 或 apply 工作流；首次重建后只复跑一次只读审计。代码消失或上市日期变晚只影响后续请求，不追溯删除既有历史。
 6. `ops.etf_series_active` 整套激活池机制退场，不再作为任何 ETF 下游的上游或二次筛选条件。
+7. `fund_daily`、`fund_adj`、`etf_share_size` 均保持源端全市场请求：`fund_daily` 的 raw 保存源端完整返回、ETF serving 受 ETF 主数据约束；`fund_adj` 的 raw/core 保存源端完整基金事实；`etf_share_size` 的 raw 与业务口径没有差异，继续采用 raw 单份存储和 serving 直出 view，不接入 ETF Basic 过滤。
 
 最关键的实现变化是：`etf_basic` 不能继续使用当前“只 upsert、不删除旧主键”的写法，必须改成受控的完整快照替换。否则每天同步也无法删除源端已经消失的旧 `.OF` 和历史错误代码。
 
@@ -28,8 +31,8 @@
 1. 将生产 `etf_basic` 重建为与 Tushare 当前源端一致的 raw 快照。
 2. 建立只含 `.SH/.SZ` 的 ETF serving 主数据。
 3. 让 ETF 历史分钟请求从上市日开始，避免请求上市前不可能存在的数据。
-4. 审计并清理 ETF 下游中的旧代码、非交易所代码和上市日前数据。
-5. 保证后续每日同步不会重新积累已经从源端消失的主数据。
+4. 审计 ETF 下游中的旧代码、非交易所代码和当前上市日前数据；当前审计无已确认删除对象，因此本方案不实现通用下游清理能力。
+5. 保证后续每日同步不会重新积累已经从源端消失的 ETF 主数据或重新走旧激活池口径。
 6. 将 ETF 数据域与公募基金 `.OF` 数据域明确隔离。
 
 ### 2.2 非目标
@@ -73,6 +76,32 @@ src/foundation/ingestion/unit_planner.py::_build_etf_mins_units()
 ```
 
 它目前从 `ops.etf_series_active(resource='etf_mins')` 取代码，只校验 `.SH/.SZ`，没有读取 `etf_basic.list_date`，所以无法自动把请求起点收缩到上市日。
+
+当前代码进一步确认：`EtfBasicDAO` 虽然已有 `get_active_etfs()` 和 `get_fund_daily_candidates()`，但 ingestion 主链没有调用者；`fund_daily` 的测试还明确断言不得回退调用 `get_fund_daily_candidates()`。因此，**当前没有任何数据集以 `etf_basic` 展开源请求**。
+
+### 3.1.1 当前请求驱动与激活池用途
+
+`ops.etf_series_active` 是同一张物理表，主键为 `(resource, ts_code)`。`fund_daily` 和 `etf_mins` 使用同一套表与 DAO，也曾用同一份 1,395 只 ETF seed 初始化，但它们是两个独立 resource，后续集合可以不同，不能称为“同一批逻辑数据”。
+
+当前白名单包含五个 resource，实际用途如下：
+
+| resource / 数据集 | 当前是否由激活池展开源请求 | 当前真实用途 | 目标替代 |
+|---|---|---|---|
+| `etf_mins` | 是 | 从 `resource='etf_mins'` 取代码，再按代码、频率、时间窗口生成 unit | 当前可请求 ETF 清单 + `list_date` |
+| `etf_sh_cons` | 是 | 从独立 `.SH` resource 取 ETF 代码生成申赎清单请求 | 当前可请求 ETF 清单中的 `.SH` |
+| `etf_sz_cons` | 是 | 从独立 `.SZ` resource 取 ETF 代码生成申赎清单请求 | 当前可请求 ETF 清单中的 `.SZ` |
+| `fund_daily` | 否 | 按 `trade_date` 拉源端当日全集；只在写 `core_serving.fund_daily_bar` 时读取 `resource='fund_daily'` 做白名单过滤 | 源请求保持按日全集；serving 改用当前可请求 ETF 清单 |
+| `etf_rt_daily` | 否 | provider 固定请求 `5*.SH`、`1*.SZ`；激活池只用于 Ops health 的池总数和批次命中数 | 源请求保持通配符；health/业务候选改用当前可请求 ETF 清单 |
+
+同一组代码相关数据集中，以下三个当前完全不读取激活池，也不读取 `etf_basic` 展开请求：
+
+| 数据集 | 当前请求方式 | 当前写入边界 |
+|---|---|---|
+| `fund_adj` | 按交易日请求源端基金全集，可选显式单代码 | 源端结果全部写 raw 和 `core.fund_adj_factor` |
+| `etf_share_size` | 默认每个交易日一次全市场请求，可选显式单代码 | 源端结果全部写 raw；现有 serving view 只是 raw 直出 |
+| `etf_basic` | 无业务日期的完整主数据快照请求 | 当前仍是 raw/core upsert，待本方案改为完整快照替换 |
+
+`etf_rt_min` 当前没有正式 DatasetDefinition、collector，也不在 `ETF_SERIES_ACTIVE_RESOURCES` 中；相关文档中的 `resource='etf_rt_min'` 只能视为待实施设计，不能计入现行激活池消费者。
 
 ### 3.2 Tushare 当前源端快照
 
@@ -134,7 +163,20 @@ core.fund_adj_factor
 ops.etf_series_active
 ```
 
-因此当前主要污染集中在 `etf_basic` 本身。但下游规则仍必须落地，否则未来源端再次调整身份时还会重新产生不一致。
+因此当前主要污染集中在 `etf_basic` 本身。2026-08-28 进一步以当前 Tushare ETF Basic 为基准，对计划涉及的 Prod 下游做了精确只读审计：
+
+| 对象 | 当前规模 | 非 `.SH/.SZ` | 不在当前源端 ETF Basic | 交易所身份冲突 | 已确认删除候选 |
+|---|---:|---:|---:|---:|---:|
+| `raw_tushare.etf_minute_bar` | 约 6,584 万行，1,395 个代码 | 0 | 0 | 0 | 0 |
+| `raw_tushare.etf_sh_cons` | 5,675,323 行，803 个代码 | 0 | 0 | 0 | 0 |
+| `raw_tushare.etf_sz_cons` | 11,567,504 行，720 个代码 | 0 | 0 | 0 | 0 |
+| `core_serving.fund_daily_bar` | 1,180,869 行，1,395 个代码 | 0 | 0 | 0 | 0 |
+| `ops.etf_realtime_monitor_pool` | 3 行 | - | 0 个无效配置 | - | 0 |
+| `ops.etf_realtime_monitor_rule` | 0 条 ETF 规则 | - | 0 | - | 0 |
+
+`core_serving.fund_daily_bar` 另有 2,091 行、3 个代码的事实日期早于**当前** `list_date`。在没有历史主数据版本的前提下，无法证明这是脏数据还是源端上市日后移/代码复用；按 D15 只报告、不删除。ETF 分钟表的同类精确候选为 0。
+
+结论是：当前没有值得建设通用清理系统的删除量。`etf_basic` 重建后仍需复跑同一组只读统计，防止重建快照变化造成审计基准漂移；若届时出现非零的明确旧 `.OF` 身份候选，必须停下来按精确表和代码另立一次性处理方案，不能由本方案预置的通用删除程序自动处理。
 
 `etf_index` 虽然名称带 ETF，但其 `ts_code` 语义是“基准指数代码”，不是“ETF 交易代码”。它通过 `etf_basic.index_code` 与 ETF 发生关系，不能拿 `etf_index.ts_code` 与 ETF 主数据的 `ts_code` 做差集清理，因此明确排除在本次代码身份清理之外。
 
@@ -147,7 +189,7 @@ ops.etf_series_active
 1. `159908.SZ` 当前上市日期为 2018-12-10，但分钟源端可以返回 2011 年数据。
 2. `510680.SH` 当前上市日期为 2015-12-15，但分钟源端可以返回 2013 年数据。
 
-这说明同一个交易代码可能被历史产品使用过。首次清理基准和以后新增请求都必须同时使用当时生效的 `list_date`；不能只凭 `ts_code` 接受上市前数据。首次清理完成后，如源端以后把 `list_date` 改晚，不追溯删除已经验收并落库的历史，按 D15 处理。
+这说明同一个交易代码可能被历史产品使用过。以后新增请求必须同时使用执行时的 `list_date`，不能继续请求当时上市日前的区间；但既有历史不能仅凭当前 `list_date` 追溯删除，按 D15 处理。
 
 ---
 
@@ -158,21 +200,25 @@ ops.etf_series_active
 | D1 | `raw_tushare.etf_basic` 是 Tushare 当前返回的完整快照，不主动过滤 `.OF`。 |
 | D2 | `core_serving.etf_basic` 只包含当前 raw 中的 `.SH/.SZ` 行。 |
 | D3 | 首次重建采用“先完整取数并校验，再在一个业务事务内先删后写”的方式；不得先清空数据库再请求源端。 |
-| D4 | `.OF` 不改名、不合并；ETF 专用下游与 ETF serving 中的旧 `.OF` 行直接删除，缺失的 `.SH/.SZ` 数据重新拉取；源端返回范围比 ETF basic 更宽的场内基金 raw 按 P1 处理。 |
-| D5 | 所有 ETF 请求的代码、状态与上市日必须以 `core_serving.etf_basic` 为身份依据。 |
+| D4 | `.OF` 不改名、不合并；当前下游旧 `.OF` 候选为 0。以后若在 ETF 专用代码拉取结果或需要 ETF 主数据对齐的 serving 中发现旧 `.OF`，必须按精确表和代码另行评审，获批后删除并按 `.SH/.SZ` 重新拉取；按日期返回源端全集的 raw/core 及其同口径直出 view 不按 ETF Basic 删除。 |
+| D5 | 凡源接口需要按 ETF 代码展开请求，代码、状态与上市日必须以 `core_serving.etf_basic` 为身份依据；按日期全市场请求不做逐代码展开。 |
 | D6 | `L + list_date 有效且不晚于执行日` 才能发起新增历史请求；`P` 和 `L + list_date 为空` 不请求。 |
-| D7 | `D` 不再发起新增请求；既有历史可以保留，首次清理时只删除获批基准上市日前的数据。 |
-| D8 | 首次重建清理完成时，有日期的 ETF 事实不得早于获批清理快照中的 `list_date`；以后新增请求也不得早于执行时的 `list_date`。 |
+| D7 | `D` 不再发起新增请求；既有历史保留，不因当前状态或当前 `list_date` 追溯删除。 |
+| D8 | 以后按代码新增请求不得早于执行时的 `list_date`；既有事实早于当前 `list_date` 时只报告，不作为自动删除依据。保存源端全集的 raw/core 及其同口径直出 view 同样不按 ETF Basic 删除。 |
 | D9 | 当前接口没有 `delist_date`，因此暂不按退市日做上界裁剪。 |
 | D10 | 公募基金域中的合法 `.OF` 不因 ETF 主数据重建被删除。 |
 | D11 | 3 条当前源端 `.OF` 可以保留在 raw，但不得进入 serving 和后续同步链路。 |
-| D12 | `ops.etf_series_active` 整套激活池机制彻底退场；所有 ETF 下游统一以 `core_serving.etf_basic` 为身份上游，共用一套“当前可请求 ETF”判断。 |
-| D13 | 下游清理不导出被删除行备份；执行成功后不提供按旧行恢复，只保留审计清单和执行结果。 |
+| D12 | `ops.etf_series_active` 整套激活池机制彻底退场；所有需要判断 ETF 身份的下游统一以 `core_serving.etf_basic` 为身份上游，并按用途分别读取“ETF 主数据清单”或“当前可请求 ETF 清单”。 |
+| D13 | 当前 Prod 审计中已确认删除候选为 0，本方案不建设通用清理 CLI、manifest、apply 或备份/恢复能力；重建后复核若出现非零明确候选，另行按精确表和代码评审。 |
 | D14 | `etf_basic` 继续只保存当前态，不新增历史表、SCD 字段或每日快照表；TaskRun 只保留行数、hash 和变更摘要。 |
-| D15 | 首次全量清理完成后，若某代码以后从 `etf_basic` 消失，或其 `list_date` 被改晚，只停止该代码后续请求并记录差异，不删除已经验收并落库的历史数据。 |
+| D15 | `etf_basic` 重建后，若某代码以后从主数据消失，或其 `list_date` 被改晚，只停止该代码后续请求并记录差异，不删除已经验收并落库的历史数据。 |
 | D16 | 删除 `ops.etf_series_active` 属于高风险迁移；编码前必须先完成独立 LLD、全量消费者映射、迁移顺序和回归门禁，禁止把“计划已列影响面”当成可以直接删表的依据。 |
+| D17 | `fund_daily`、`fund_adj`、`etf_share_size` 默认保持按交易日一次拉取源端全集，不按 ETF Basic 扇出请求；显式单代码入口仍需按各数据集定位在 LLD 中决定是否保留。 |
+| D18 | `raw_tushare.fund_daily`、`raw_tushare.fund_adj`、`core.fund_adj_factor`、`raw_tushare.etf_share_size` 永久保留源端返回范围，不做“不在 ETF Basic 即删除”；`core_serving.etf_share_size` 继续逐列直出 raw，不过滤、不重命名、不派生。 |
+| D19 | `core_serving.fund_daily_bar` 改用当前可请求 ETF 清单做写入白名单，并校验 `trade_date >= list_date`；`fund_adj` 在出现明确 ETF serving 消费者前不新建 ETF 过滤层；`etf_share_size` 不接入 ETF 主数据门禁，也不新建物理 core/serving 表。 |
+| D20 | `etf_rt_daily` 继续使用固定沪深通配符获取源端批次，ETF Basic 只替代其 health/业务候选中的旧池口径，不改变 provider 请求段。 |
 
-### 4.1 两个长期清单与一个一次性清理基准
+### 4.1 两个长期清单与一次发布审计基准
 
 原方案使用 `M/A/H` 三个字母只是文档缩写，不是现有数据库表，也不是应暴露给运营的业务概念。该写法不直观，并且在 D15 已确认后，“可保留历史集合”也不应继续作为日常删除依据，因此删除这组缩写。
 
@@ -181,7 +227,7 @@ ops.etf_series_active
 1. **ETF 主数据清单**：`core_serving.etf_basic` 中全部 `.SH/.SZ` 行，用于回答“平台当前承认哪些 ETF 身份”，其中可以包含 `L/P/D`。
 2. **当前可请求 ETF 清单**：ETF 主数据清单中满足 `list_status='L'`、`list_date` 非空且 `list_date <= 执行日` 的行，用于回答“今天可以为哪些 ETF 发起新增请求”。
 
-首次重建另外生成一份**一次性清理基准**：它绑定获批的 `etf_basic` snapshot hash，用来审计并清理旧 `.OF`、未知代码和当时上市日前的数据。它不是长期选择器，也不能在以后代码消失或 `list_date` 变晚时自动重算并删除历史。
+首次重建后另外形成一份**一次发布审计基准**：它绑定验收通过的 `etf_basic` snapshot hash，只用于复跑下游只读统计并证明删除候选仍为 0。它不是长期选择器，不生成 delete manifest，也不能因代码消失或 `list_date` 变晚而删除历史。
 
 “统一提供”是指 Foundation 只实现一次公共判断，下游直接取结果。它不表示所有数据集的请求逻辑都相同：
 
@@ -215,8 +261,8 @@ flowchart TD
   D --> E["从本批 raw 派生 .SH/.SZ"]
   E --> F["DELETE + INSERT\ncore_serving.etf_basic"]
   F --> G["集合对账后提交"]
-  G --> H["生成下游审计清单\n不在主数据/上市日前/异常状态"]
-  H --> I["受控清理"]
+  G --> H["复跑下游只读审计\n身份/上市日前/异常状态"]
+  H --> I["确认已批准删除候选仍为 0"]
   I --> J["按当前可请求 ETF 清单与 list_date\n生成补拉计划"]
 ```
 
@@ -225,7 +271,7 @@ flowchart TD
 1. 源端完整取数和分页结束发生在数据库事务之前。
 2. raw 与 serving 的替换发生在同一个业务数据事务内，任何一步失败都回滚到旧快照。
 3. TaskRun、进度、审计状态使用独立事务；状态写入失败不得回滚已提交的业务数据。
-4. 下游物理删除不与 `etf_basic` 发布放在同一个事务，更不能由数据库级联删除触发。
+4. 本方案不执行下游事实删除；若只读复核意外出现明确旧 `.OF` 身份，停止并另立精确方案。
 
 ---
 
@@ -296,44 +342,47 @@ serving 非 .SH/.SZ 行数 = 0
 
 ---
 
-## 7. 下游审计与清理规则
+## 7. 下游只读审计规则
 
-### 7.1 原因码
+### 7.1 审计分类
 
-所有候选删除行必须先归入明确原因，禁止只输出一条大 SQL 的总行数：
+只读审计必须把异常归入明确分类，禁止只输出一条总行数。当前各类已确认删除候选均为 0：
 
-| 原因码 | 含义 | 默认动作 |
+| 分类 | 含义 | 动作 |
 |---|---|---|
-| `CODE_NOT_IN_ETF_MASTER` | `ts_code` 不在获批的首次清理基准 | 首次重建中的 ETF 专用旧身份删除；日常新变化只报告、不删除 |
-| `NON_EXCHANGE_ETF_SUFFIX` | ETF 专用数据出现非 `.SH/.SZ` | 删除 |
-| `BEFORE_BASELINE_LIST_DATE` | 事实日期早于获批清理快照中的 `list_date` | 首次重建时删除；以后 `list_date` 变晚不追溯删除 |
-| `PENDING_ETF_HAS_FACT` | `P` 状态却已经有行情/规模/申赎事实 | 删除前单列复核 |
+| `CODE_NOT_IN_ETF_MASTER` | `.SH/.SZ` 代码不在当前 ETF 主数据 | 只报告；可能是代码消失，不自动删除 |
+| `NON_EXCHANGE_ETF_SUFFIX` | ETF 专用代码拉取结果或需要主数据对齐的 serving 出现非 `.SH/.SZ` | 当前为 0；若重建后非零，停止并另立精确清理方案 |
+| `BEFORE_CURRENT_LIST_DATE` | 既有事实日期早于当前 `list_date` | 只报告；可能是上市日后移或代码复用，不自动删除 |
+| `PENDING_ETF_HAS_FACT` | `P` 状态却已经出现在 ETF 专用代码拉取结果或需要主数据对齐的 serving | 只报告，不自动删除 |
 | `LISTED_WITHOUT_LIST_DATE_HAS_FACT` | `L` 但无上市日，却已有事实 | 只报告，不自动删除 |
-| `OBSOLETE_ACTIVE_POOL_ROW` | 旧 `ops.etf_series_active` 遗留行 | 随激活池机制退场统一删除 |
+| `OBSOLETE_ACTIVE_POOL_ROW` | 旧 `ops.etf_series_active` 遗留行 | 不是事实清理；随整张激活池表退场 |
 
 ### 7.2 日期字段映射
 
 | 数据类型 | 用于上市日下界判断的字段 |
 |---|---|
-| 日线、复权因子、规模、申赎清单 | `trade_date` |
+| ETF serving 日线、按代码展开的申赎清单 | `trade_date` |
 | ETF 历史分钟 | `DATE(trade_time)` |
 | 无日期 ETF 快照 | 只做代码集合对齐 |
 
-### 7.3 清理对象矩阵
+### 7.3 审计对象矩阵
 
 | 数据集/对象 | 当前物理层 | 对齐依据 | 计划动作 |
 |---|---|---|---|
-| `etf_mins` | `raw_tushare.etf_minute_bar` | 首次清理基准 + 当前可请求清单 | 首次删除旧身份、非交易所后缀和基准上市日前分钟；以后只按当前可请求清单补拉 |
-| `etf_share_size` | raw 表 + serving view | 首次清理基准 + 当前可请求清单 | 首次清理 raw；view 自动跟随；以后不因主数据变化追溯删除 |
-| `etf_sh_cons` | raw 表 + serving view | 当前可请求清单且 `.SH` | 首次清理 raw；请求对象直接来自 serving |
-| `etf_sz_cons` | raw 表 + serving view | 当前可请求清单且 `.SZ` | 首次清理 raw；请求对象直接来自 serving |
-| `fund_daily` serving | `core_serving.fund_daily_bar` | 当前可请求清单 | 首次清理旧身份和基准上市日前数据；以后写入按 serving 主数据过滤，不追溯删除 |
-| `fund_daily` raw | `raw_tushare.fund_daily` | 源端当日完整返回 | 先审计；永久口径见待拍板项 P1 |
-| `fund_adj` | `raw_tushare.fund_adj`、`core.fund_adj_factor` | 源端当日完整返回 | 先审计；永久口径见待拍板项 P1 |
-| 旧 ETF 激活池 | `ops.etf_series_active` | 已退场 | 删除表、模型、DAO、contract、seed、CLI、API、页面与测试，不保留兼容读取 |
-| 实时监控池/规则/统计/告警 | `ops.etf_realtime_*` | 当前可请求清单 | 审计孤儿代码；配置与历史事实分开处理 |
+| `etf_mins` | `raw_tushare.etf_minute_bar` | 当前 ETF 主数据 + 当前可请求清单 | 重建后只读复核；当前删除候选为 0；以后只按当前可请求清单补拉 |
+| `etf_share_size` | `raw_tushare.etf_share_size` + `core_serving.etf_share_size` 直出 view | 源端当日完整返回 | 保持 raw 单份存储和 serving 逐列直出；不按 ETF Basic 过滤或清理，不新增物理 core/serving 表 |
+| `etf_sh_cons` | raw 表 + serving view | 当前可请求清单且 `.SH` | 重建后只读复核；当前删除候选为 0；请求对象直接来自 serving |
+| `etf_sz_cons` | raw 表 + serving view | 当前可请求清单且 `.SZ` | 重建后只读复核；当前删除候选为 0；请求对象直接来自 serving |
+| `fund_daily` serving | `core_serving.fund_daily_bar` | 当前可请求清单 + 新写入时 `trade_date >= list_date` | 当前身份删除候选为 0；既有上市日前事实只报告；以后写入按 serving 主数据和上市日过滤 |
+| `fund_daily` raw | `raw_tushare.fund_daily` | 源端当日完整返回 | 永久保留，不按 ETF Basic 删除 |
+| `fund_adj` | `raw_tushare.fund_adj`、`core.fund_adj_factor` | 源端当日完整返回 | 永久保留，不按 ETF Basic 删除；当前不属于 ETF serving 清理范围 |
+| `etf_rt_daily` | 固定通配符源请求 + Redis 批次 | 源端完整批次；health/业务候选使用当前可请求清单 | provider 不改成逐代码请求；只替换旧激活池统计和候选口径 |
+| 旧 ETF 激活池 | `ops.etf_series_active` | 计划退场，当前仍在运行 | 删除表、模型、DAO、contract、seed、CLI、API、页面与测试，不保留兼容读取 |
+| 实时监控池/规则/统计/告警 | `ops.etf_realtime_*` | 当前可请求清单 | 当前无无效配置；运行时按资格过滤；历史事实不删 |
 | `etf_index` | raw + serving 指数基准表 | 指数代码，不使用 ETF 主数据清单 | 明确排除；只能审计 `etf_basic.index_code -> etf_index.ts_code` 的引用关系 |
 | 公募基金基础、经理、份额等 | 公募基金域 raw/current/obs | 不使用 ETF 主数据清单 | 明确排除，合法 `.OF` 保留 |
+
+本矩阵中的“ETF 专用代码拉取结果”特指请求对象由 ETF 主数据展开的 `etf_mins/etf_sh_cons/etf_sz_cons`。不能因为数据集名称包含 `ETF`，就把按交易日返回源端全集的 `etf_share_size` raw 或其直出 serving view 按 Basic 过滤、迁移或物理删除。
 
 ### 7.4 删除不是改名
 
@@ -343,12 +392,12 @@ serving 非 .SH/.SZ 行数 = 0
 UPDATE ... SET ts_code='100000.SZ' WHERE ts_code='100000.OF'
 ```
 
-正确处理：
+如果重建后的只读复核意外发现此类旧 `.OF`，正确处理是：
 
-1. 删除 ETF 下游中的 `100000.OF` 候选行。
+1. 停止发布流程，先按精确表、代码和行数单独评审，不调用通用删除程序；源端全集型 raw/core 及其同口径直出 view 不因 ETF Basic 缺少该代码而删除。
 2. 检查 `100000.SZ` 在对应源接口中是否可取得数据。
 3. 如果可取得，按 `100000.SZ` 和当前 `list_date` 重新拉取。
-4. 如果源端没有数据，记录为 `SOURCE_NOT_READY`，不制造替代行。
+4. 获得单独授权后才删除精确旧 `.OF` 行；如果源端没有交易所代码数据，记录为 `SOURCE_NOT_READY`，不制造替代行。
 
 这样可以避免把两个不同代码命名空间的数据错误拼成一条历史序列。
 
@@ -356,15 +405,17 @@ UPDATE ... SET ts_code='100000.SZ' WHERE ts_code='100000.OF'
 
 ## 8. raw 与 serving 的边界
 
-### 8.1 ETF 专用接口
+### 8.1 按 ETF 代码展开的专用接口
 
-`etf_basic/etf_mins/etf_share_size/etf_sh_cons/etf_sz_cons` 的 `ts_code` 都表达 ETF 交易代码。它们的下游请求身份必须由 ETF serving 主数据约束；历史遗留的非主数据代码属于清理对象。
+当前真正按 ETF 代码展开请求的只有 `etf_mins/etf_sh_cons/etf_sz_cons`。目标态中，它们的请求身份必须由 ETF serving 主数据约束；历史遗留异常只进入发布后的只读复核，当前不建设自动清理能力。
+
+`etf_basic` 是独立主数据快照，不是下游请求。`etf_share_size` 虽然名称和 `ts_code` 都表达 ETF，但默认请求是“每个交易日一次全市场”，因此它的 raw 边界按第 8.2 节处理，不能归入逐 ETF 展开接口。
 
 `etf_index.ts_code` 表达基准指数代码，不属于这一规则，不能因为它不在 ETF 主数据中就删除。
 
 ### 8.2 源端返回范围比 ETF basic 更宽的场内基金接口
 
-这里原来写的“混合基金源端全集”过于含糊。它不是指全部公募基金，也不是指把 `.OF` 场外基金混进 ETF。准确含义是：**按交易日不传 `ts_code` 请求 `fund_daily/fund_adj` 时，源端返回它所覆盖的全部场内基金代码；这个范围比当前 `etf_basic` 更宽。**
+这里原来写的“混合基金源端全集”过于含糊。它不是指全部公募基金，也不是指把 `.OF` 场外基金混进 ETF。准确含义是：**按交易日不传 `ts_code` 请求 `fund_daily/fund_adj` 时，源端返回它所覆盖的全部场内基金代码；这个范围比当前 `etf_basic` 更宽。** `etf_share_size` 当前也采用每个交易日一次全市场请求，但它是独立 ETF 份额规模接口，不以 `fund_basic` 作为请求上游。
 
 2026-08-28 对 2026-08-27 交易日的 Tushare 实测：
 
@@ -382,13 +433,14 @@ UPDATE ... SET ts_code='100000.SZ' WHERE ts_code='100000.OF'
 1. `raw_tushare.fund_daily` 保存源端完整基金日线事实。
 2. `core_serving.fund_daily_bar` 才按 ETF 服务范围过滤。
 
-因此不能直接对 `raw_tushare.fund_daily` 做“凡不在 `etf_basic` 就全部删除”，否则会把合法的 LOF、REIT 等场内基金事实一起删掉。这一永久口径需要在 P1 拍板。
+已确认的永久口径是：
 
-不论 P1 如何选择，以下规则不变：
-
-1. ETF 业务消费者只能读取经过 ETF 主数据约束的 serving。
-2. 公募基金域的合法 `.OF` 不进入 ETF 清理范围。
-3. 当前生产审计中，1,585 个旧 ETF 身份与 `fund_daily/fund_adj` 的交集都是 0，所以 P1 不阻塞本次 `etf_basic` 重建。
+1. `raw_tushare.fund_daily` 保存源端当日完整基金日线事实；`core_serving.fund_daily_bar` 才按当前可请求 ETF 清单和 `trade_date >= list_date` 过滤。
+2. `raw_tushare.fund_adj` 与 `core.fund_adj_factor` 保存源端当日完整基金复权因子；当前没有 ETF 专用 serving，不按 ETF Basic 清理。
+3. `raw_tushare.etf_share_size` 保存源端当日完整返回；其业务口径与 raw 没有差异，`core_serving.etf_share_size` 继续逐列直出 raw，不接入 ETF Basic 或 `list_date` 过滤，也不重复建设物理 serving 表。
+4. `fund_daily/fund_adj` 返回的额外代码虽然可以在 `fund_basic` 找到，但当前程序不是先读 `fund_basic` 再展开请求；它们来自源接口自身的当日全市场返回。
+5. 公募基金域的合法 `.OF` 不进入 ETF 清理范围。
+6. 当前生产审计中，1,585 个旧 ETF 身份与 `fund_daily/fund_adj` 的交集都是 0；这两张源端全集事实链不需要因本次 `etf_basic` 重建做物理删除。
 
 ### 8.3 “所有下游直接使用 serving”的实现含义
 
@@ -399,13 +451,16 @@ UPDATE ... SET ts_code='100000.SZ' WHERE ts_code='100000.OF'
 读取指定执行日的当前可请求 ETF 清单
 ```
 
-所有 ETF planner、writer、实时健康统计和监控候选列表都消费统一结果。禁止下游自行拼接 `.SH/.SZ`、`list_status` 和 `list_date` 这些共同条件，否则很快又会产生多套口径。具体函数名和 DAO 形态在 LLD 决定，技术方案不提前把伪代码名称写成契约。
+需要 ETF 身份判断的 planner、writer、实时健康统计和监控候选列表都消费统一结果。禁止这些消费者自行拼接 `.SH/.SZ`、`list_status` 和 `list_date` 等共同条件，否则很快又会产生多套口径。`etf_share_size` 直接表达源端 ETF 份额规模事实，raw 与业务口径相同，不属于需要 ETF Basic 二次判断身份的消费者。具体函数名和 DAO 形态在 LLD 决定，技术方案不提前把伪代码名称写成契约。
+
+这里的“消费统一结果”不表示每个 Tushare 分页请求都重新查 Basic，也不表示每天预生成一个新池。代码驱动数据集在一次任务规划开始时读取并固定本次清单；`fund_daily` 在一次 serving 发布开始时读取；Health、监控候选和监控运行时分别在一次 API 查询或一次实时批次运行开始时读取。详细时点由 LLD 第 4.4 节约束。
 
 各下游仍保留源接口特有的拉取规则。例如：
 
-1. `etf_mins`、申赎清单等按代码工作的接口，使用当前可请求 ETF 清单生成代码级请求，再按各自窗口和分页规则执行。
-2. `fund_daily` 按 `trade_date` 一次请求当日源端全集并分页，不应为了“先读 basic”改成每只 ETF 各发一次请求；它先读取当前可请求 ETF 清单作为当日 serving 白名单，raw 保存源端当日完整返回，serving 只写入白名单交集。
-3. 主数据新增、`P -> L` 或补齐上市日期时，缺口计算只对变化代码生成定向补拉；普通每日任务仍按数据集最省请求额度的原生方式执行。
+1. `etf_mins`、`etf_sh_cons`、`etf_sz_cons` 使用当前可请求 ETF 清单生成代码级请求，再按各自窗口和分页规则执行。
+2. `fund_daily`、`fund_adj`、`etf_share_size` 默认按 `trade_date` 一次请求当日源端全集并分页，不应为了“先读 Basic”改成每只 ETF 各发一次请求；只有 `fund_daily` 的 ETF serving 在写入时按主数据收口，`fund_adj` 保持源端基金事实，`etf_share_size` 保持 raw 与直出 view 同口径。
+3. `etf_rt_daily` 保留 `5*.SH`、`1*.SZ` 两个固定请求段，Basic 只负责替代 health/业务候选里的旧池集合。
+4. 主数据新增、`P -> L` 或补齐上市日期时，代码驱动接口只对变化代码生成定向补拉；按日全市场接口继续沿用原生每日请求，不额外制造逐代码补拉。
 
 `ops.etf_realtime_monitor_pool` 是运营选择“重点监控哪些 ETF”的业务配置，不是数据同步激活池。它可以保留，但其候选项与有效性必须由当前可请求 ETF 清单约束。
 
@@ -415,7 +470,7 @@ UPDATE ... SET ts_code='100000.SZ' WHERE ts_code='100000.OF'
 
 ### 9.1 对象来源
 
-`etf_mins` 的全量历史目标直接来自当前可请求 ETF 清单，不再从固定 1,395 激活池取全市场代码。显式单代码请求也必须命中该清单，不能提供主数据中不存在的代码，也不能提供 `P/D/list_date 为空` 的代码。`fund_daily`、ETF 实时流、`etf_sh_cons`、`etf_sz_cons` 等其他 ETF 下游同样使用 serving 的统一判断，不再保留 resource 级激活池。
+`etf_mins` 的全量历史目标直接来自当前可请求 ETF 清单，不再从固定 1,395 激活池取全市场代码。显式单代码请求也必须命中该清单，不能提供主数据中不存在的代码，也不能提供 `P/D/list_date 为空` 的代码。`etf_sh_cons`、`etf_sz_cons` 同样用该清单展开代码；`fund_daily` 只把它作为 serving 写入白名单；ETF 实时日线只把它用于 health/业务候选，不改变通配符源请求。四类用途不再保留 resource 级激活池。
 
 ### 9.2 上市日裁剪
 
@@ -463,51 +518,43 @@ trade_date >= list_date
 
 ---
 
-## 10. 审计、确认与清理执行
+## 10. 发布后只读复核
 
-### 10.1 审计清单
+### 10.1 复核内容
 
-每张表生成独立报告，至少包含：
+`etf_basic` 重建并通过 raw/serving 集合验收后，复跑第 3.4 节的只读统计，至少输出：
 
 ```text
-snapshot_id
 source_snapshot_hash
 table_name
-reason_code
-ts_code
-master_list_status
-master_list_date
-min_fact_date
-max_fact_date
+audit_category
+code_count
 row_count
-key_checksum
+bounded_samples
+min_fact_date / max_fact_date
 ```
 
-报告必须区分：
+`source_snapshot_hash` 只用于证明统计对应哪一版当前 ETF Basic。这里不引入 `snapshot_id`，不新增 ETF Basic 历史快照表，也不为 TaskRun 增加专用字段。
 
-1. 确定可删。
-2. 只报告、需要人工看。
-3. 明确排除。
+统计必须区分：
 
-### 10.2 执行门禁
+1. 非 `.SH/.SZ` 的旧 ETF 身份。
+2. 当前主数据中不存在的 `.SH/.SZ` 代码。
+3. 事实日期早于当前 `list_date`。
+4. `P`、`L + list_date 为空` 等状态异常。
+5. 明确排除的源端全集和公募基金域。
 
-1. 默认只 dry-run。
-2. 每张表独立确认，不允许用一个总开关清理所有业务表。
-3. 清理前检查相关 Dataset TaskRun 没有处于 `queued/running/canceling`。
-4. 确认报告必须与当前 `etf_basic` snapshot hash 一致；主数据变化后旧报告作废。
-5. 实际删除范围只能是已确认报告中的主键集合，不能在 apply 时重新扩大。
-6. 大表按可核验批次处理，避免一个超大事务。
-7. 每批提交后重新计算剩余候选数和保留集 checksum。
+### 10.2 结果门禁
 
-### 10.3 不备份与不可恢复边界
+1. 本方案只执行只读统计，不新增产品 CLI、service、manifest、CSV 或 apply 模式。
+2. 当前已确认删除候选为 0；重建后仍为 0 时，本阶段直接验收结束。
+3. `CODE_NOT_IN_ETF_MASTER` 和 `BEFORE_CURRENT_LIST_DATE` 即使非零也只报告，不触发删除。
+4. 若 `NON_EXCHANGE_ETF_SUFFIX` 意外非零，停止后续发布动作，提交精确表、代码、主键和行数供单独评审。
+5. 任何未来删除都必须另获明确授权并另立一次性方案；不得恢复本节已经否决的通用清理工作流。
 
-按 D13，本次下游清理不导出被删除行备份。必须明确接受以下边界：
+### 10.3 不建设清理能力的理由
 
-1. 单批事务提交前可以回滚；提交成功后不能恢复旧 `.OF` 或其他被删历史行。
-2. 审计 CSV、行数和 checksum 只证明删了什么，不包含完整行，不能用于恢复。
-3. 当前 canonical `.SH/.SZ` 数据如需恢复，只能重新向 Tushare 拉取。
-4. Tushare 已不再提供的旧别名数据，删除后永久丢弃；这正是本次清理目标。
-5. 因为没有备份，apply 必须继续保留逐表确认、snapshot hash、精确主键集合和单表事务门禁。
+当前六类对象的明确删除候选均为 0。为一个零规模问题建设通用删除、确认文件、断点续跑、hash 校验和恢复边界，会增加长期维护面，却不能改善本次数据结果。正确做法是保留可复跑的只读核验口径，把未来真实非零问题按当时的精确范围处理。
 
 ---
 
@@ -519,8 +566,7 @@ key_checksum
 | 批次字段/状态/后缀异常 | 阻断发布，输出异常报告 |
 | raw/serving 替换事务失败 | 整体回滚到旧 `etf_basic` |
 | Ops 状态写入失败 | 只影响观测，不回滚已经提交的业务数据 |
-| 下游清理中途失败 | 保留已提交批次的审计记录，从未完成批次续跑 |
-| 清理范围与确认报告不一致 | 拒绝执行 |
+| 下游只读复核与当前基线不一致 | 停止发布流程，重新审计；不执行删除 |
 | canonical `.SH/.SZ` 源端无数据 | 记录 `SOURCE_NOT_READY`，不从 `.OF` 复制 |
 
 ---
@@ -538,30 +584,30 @@ src/foundation/ingestion/request_builders.py
 src/foundation/ingestion/unit_planner.py
 src/foundation/ingestion/writer.py
 src/foundation/dao/etf_basic_dao.py
+Alembic：在最终版本删除 ops.etf_series_active；不得为 etf_share_size 新增视图迁移或物理 serving 表
 ```
 
 职责：
 
 1. 把 `etf_basic` 改成完整 snapshot 发布契约。
 2. 提供 ETF 主数据清单和当前可请求 ETF 清单的统一查询能力。
-3. 在 ETF 下游 planner 中使用主数据和上市日。
-4. 在 ETF 专用 writer 中增加主数据门禁。
+3. 在三个代码驱动的 ETF planner 中使用主数据和上市日。
+4. 在 `fund_daily` writer 中增加主数据门禁但不裁剪 raw；`etf_share_size` 的 raw、直出 view 和现有读取路径保持不变。
 
 ### 12.2 Ops
 
 计划新增或调整：
 
 ```text
-ETF 下游对齐审计 service
-ETF 下游受控清理 service
-现有 fund_daily serving cleanup service
+ETF 下游只读复核：沿用发布检查中的受控 SQL/统计口径，不新增运行时 service 或 CLI
+直接删除现有 fund_daily serving cleanup service 及旧 CLI，不提供替代清理入口
 删除 ETF 激活池 model / DAO / contract / adapter / seed / CLI
-删除 ETF 激活池审查 API、页面与 realtime health 依赖
+删除 ETF 激活池审查 API、页面；realtime health 保留但改读 ETF serving
 实时监控候选列表改读 ETF serving
 对应 CLI 与测试
 ```
 
-现有 `EtfFundDailyServingCleanupService` 只按 `ops.etf_series_active(resource='fund_daily')` 清理 serving，并强制 raw 行数不变。它不能直接承担本方案的全域主数据审计，必须由基于 ETF serving 的统一清理服务替代，旧 pool 语义必须清零。
+当前 Prod 审计已经证明没有需要该能力处理的数据。现有 `EtfFundDailyServingCleanupService` 只按 `ops.etf_series_active(resource='fund_daily')` 清理 serving；随着旧池退场，该 service 与 `ops-cleanup-etf-fund-daily-serving` CLI 直接删除，不复用、不改名，也不建设替代入口。
 
 激活池退场的当前影响面已核对到：
 
@@ -571,6 +617,20 @@ ETF 下游受控清理 service
 4. 前端：ETF 活跃池审查页、路由/导航、实时监控候选和健康文案。
 5. 数据库：`ops.etf_series_active` 表和索引。
 6. 测试：model/DAO/seed/planner/writer/API/frontend 全部旧池断言。
+
+逐 resource 的替代映射已经确认如下；配套 LLD 已按此映射落定编码方案，实施时不能再笼统写“所有数据集改读 Basic”：
+
+| 旧 resource | 当前消费者 | 当前用途 | 替代后行为 |
+|---|---|---|---|
+| `fund_daily` | `DatasetWriter`、`EtfFundDailyServingCleanupService`、ETF 审查页 | serving 写入/旧清理白名单与只读展示，不参与源请求 | writer 改读当前可请求 ETF 清单并对新写入执行上市日下界；旧 cleanup、CLI 和审查页直接删除 |
+| `etf_mins` | `DatasetUnitPlanner` | 展开分钟请求代码 | 改读当前可请求 ETF 清单，并把 `list_date` 带入窗口裁剪 |
+| `etf_sh_cons` | `DatasetUnitPlanner` | 展开上交所申赎清单请求代码 | 改读当前可请求 ETF 清单中的 `.SH` |
+| `etf_sz_cons` | `DatasetUnitPlanner` | 展开深交所申赎清单请求代码 | 改读当前可请求 ETF 清单中的 `.SZ` |
+| `etf_rt_daily` | `RealtimeFeedHealthQueryService`、ETF 审查页、实时监控候选校验 | health 命中统计、只读展示、监控候选资格；不参与 provider 请求 | health 和监控候选改读当前可请求 ETF 清单；provider 保留固定通配符；旧审查页删除 |
+
+非 resource 消费者同样纳入退场：seed CLI/service、DAO factory、ORM/model registry、Foundation contract 与 Ops adapter、Alembic 表和索引、前端 `/ops/v21/review/etf` 路由/导航/页面、实时健康类型和文案、对应后端与前端测试。当前 `EtfSeriesActiveStore`/Ops adapter 没有运行时业务调用者，只有实现与测试，但仍必须与旧机制一起删除。
+
+`etf_rt_min` 不在当前资源白名单和运行时消费者清单中；LLD 不得为删除一个尚未落地的 resource 虚构迁移步骤。
 
 ### 12.3 Biz 与查询消费者
 
@@ -589,7 +649,7 @@ ETF 下游受控清理 service
 
 ```text
 foundation：主数据、请求规划、归一化、写入
-ops：审计、人工确认、清理编排、运行观测
+ops：只读审计、运行观测与实时监控
 biz：只消费 serving 主数据
 app：组合装配
 ```
@@ -621,11 +681,14 @@ app：组合装配
 4. `L + list_date 有效` 从上市日开始生成分钟 unit。
 5. 用户开始日期晚于上市日时，使用用户开始日期。
 6. `D` 不生成新请求，但上市日后的历史不因状态本身被删除。
-7. ETF 专用 raw 表清理后，对应 serving view 自动一致。
-8. `fund_daily/etf_mins/etf_sh_cons/etf_sz_cons/实时 ETF` 都从统一 serving 选择器取得目标。
+7. 按代码展开的 ETF 专用 raw 表在只读复核中无旧身份删除候选，对应 serving view 无需清理。
+8. `etf_mins/etf_sh_cons/etf_sz_cons` 从统一选择器取得请求代码；`fund_daily` 只用它过滤 serving；实时 ETF 只用它统计 health/约束业务候选。
 9. 实时监控候选只返回当前可请求 ETF，监控池配置本身继续独立存在。
-10. `fund_daily` 单日维护只按交易日请求源端全集并分页，不因 ETF 数量拆成逐代码请求；serving 写入使用当前可请求 ETF 清单过滤。
+10. `fund_daily` 单日维护只按交易日请求源端全集并分页，不因 ETF 数量拆成逐代码请求；serving 写入使用当前可请求 ETF 清单，并拒绝早于对应 `list_date` 的行。
 11. 日常同步发现代码消失或 `list_date` 变晚时，停止后续请求并记录差异，既有事实行保持不变。
+12. `fund_adj` 单日源端结果全部进入 raw/core，不读取 ETF Basic 或旧激活池过滤。
+13. `etf_share_size` 默认每个交易日只生成一个全市场 unit，raw 保留全部源端结果，serving view 继续逐列直出 raw，不读取 ETF Basic 或 `list_date`。
+14. `etf_rt_daily` 仍只发固定沪深通配符请求，替换健康统计口径不会增加逐 ETF 请求。
 
 ### 13.2 负向测试
 
@@ -634,12 +697,14 @@ app：组合装配
 3. `P`、`L + list_date 为空`、尚未到上市日的 ETF 不得生成请求。
 4. 上市日前窗口不得生成 unit。
 5. 不能把 `.OF` 行更新成 `.SH/.SZ`。
-6. ETF 清理不能命中公募基金域表。
-7. 过期 snapshot hash 的确认报告不能 apply。
-8. 存在运行中相关 TaskRun 时不能清理。
-9. DatasetDefinition、planner、writer、Ops API 和前端不得残留 `ops_etf_series_active` 或固定 1,395 池 fallback。
-10. serving 选择器为空时不得回退到旧激活池、seed CSV 或源端全量代码。
-11. 日常代码消失或 `list_date` 变晚不得触发下游 DELETE。
+6. ETF 改造不得对公募基金域执行删除。
+7. 不得新增通用下游清理 CLI、service、manifest 或 apply 模式。
+8. DatasetDefinition、planner、writer、Ops API 和前端不得残留 `ops_etf_series_active` 或固定 1,395 池 fallback。
+9. serving 选择器为空时不得回退到旧激活池、seed CSV 或源端全量代码。
+10. 日常代码消失或 `list_date` 变晚不得触发下游 DELETE。
+11. 不得对 `fund_daily/fund_adj/etf_share_size` 的源端全集 raw/core 执行“不在 ETF Basic 即删除”。
+12. 不得把 `fund_daily/fund_adj/etf_share_size/etf_rt_daily` 改成按 ETF Basic 逐代码扇出请求。
+13. 不得修改 `core_serving.etf_share_size` 直出语义、为其增加 ETF Basic 过滤，或新建重复存储的物理 core/serving 表。
 
 ### 13.3 生产验收
 
@@ -654,15 +719,15 @@ serving 未知后缀 = 0
 重复主键 = 0
 ```
 
-首次下游清理验收：
+重建后下游只读复核：
 
 ```text
-ETF 专用表 CODE_NOT_IN_ETF_MASTER = 0
-ETF 专用表 NON_EXCHANGE_ETF_SUFFIX = 0
-有日期 ETF 事实 BEFORE_BASELINE_LIST_DATE = 0
+按代码展开的 ETF 专用表与需主数据对齐的 serving：NON_EXCHANGE_ETF_SUFFIX = 0
+CODE_NOT_IN_ETF_MASTER 和 BEFORE_CURRENT_LIST_DATE 只报告，不执行 DELETE
 运行时代码对 ops.etf_series_active 的引用 = 0
 生产 ops.etf_series_active 表 = 不存在
-公募基金排除表的行数与 checksum 不因本次清理变化
+fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发生历史删除
+公募基金排除表不因本次改造发生历史删除
 ```
 
 补拉验收：
@@ -678,9 +743,8 @@ ETF 专用表 NON_EXCHANGE_ETF_SUFFIX = 0
 
 ### M0：口径冻结
 
-1. 确认本方案 D1-D16。
-2. 拍板第 15 节 P1。
-3. 固化生产只读基线和受影响表清单。
+1. 确认本方案 D1-D20。
+2. 固化生产只读基线和受影响表清单。
 
 ### M1：`etf_basic` 快照发布能力
 
@@ -691,20 +755,19 @@ ETF 专用表 NON_EXCHANGE_ETF_SUFFIX = 0
 
 ### M2：主数据选择器与下游门禁
 
-1. 先完成第 12.5 节要求的激活池退场专项 LLD 和逐消费者替代映射，评审通过前不删代码、不删表。
+1. 先评审通过配套 LLD 已完成的激活池退场清单和逐消费者替代映射；评审通过前不删代码、不删表。
 2. 提供 ETF 主数据清单和当前可请求 ETF 清单的统一查询能力。
-3. 所有 ETF planner、writer、实时健康和监控候选统一接入 serving 选择器。
+3. 三个代码驱动 planner、`fund_daily` writer、实时健康和监控候选按第 12.2 节映射接入统一选择器；`etf_share_size` 明确不接入。
 4. ETF 分钟 planner 接入当前可请求 ETF 清单和 `list_date`。
 5. 运行时消费者切换并验证完成后，删除 `ops.etf_series_active` model/DAO/contract/adapter/seed/CLI/API/UI 及全部消费者。
 6. 最后新增迁移删除 `ops.etf_series_active` 表，不保留兼容读取。
 7. 输出真实请求量预览。
 
-### M3：审计与清理能力
+### M3：只读审计基线
 
-1. 建立逐表 dry-run 报告。
-2. 建立 snapshot hash、确认报告和 apply 门禁。
-3. 明确不导出被删除行备份，只保留候选主键、统计与 checksum。
-4. 先在非生产数据验证幂等、事务回滚和断点续跑。
+1. 将第 3.4 节的表范围、分类、统计字段和当前结果固化为发布检查项。
+2. 不新增通用清理 service、CLI、manifest、CSV 或 apply 模式。
+3. 保留 `source_snapshot_hash`，用于证明复核对应哪一版 Basic 快照。
 
 ### M4：生产 `etf_basic` 重建
 
@@ -714,15 +777,16 @@ ETF 专用表 NON_EXCHANGE_ETF_SUFFIX = 0
 
 ### M5：下游只读审计
 
-1. 逐表生成候选清单。
-2. 确认公募基金排除集不受影响。
-3. 对每张表的删除行数、代码数、日期范围和不可恢复影响做评审。
+1. 对按代码展开的 ETF 专用表和需要 ETF 主数据对齐的 serving 复跑第 3.4 节统计。
+2. 对 `fund_daily/fund_adj` 源端全集 raw/core，以及 `etf_share_size` raw 与直出 serving view，只做边界核验，不生成 ETF 删除候选。
+3. 确认公募基金排除集不受影响。
+4. 确认 `NON_EXCHANGE_ETF_SUFFIX=0`；其他异常分类只报告。
 
-### M6：受控清理
+### M6：审计结果门禁
 
-1. 每张表单独授权、单独执行、单独验收。
-2. 先小表和 Ops 孤儿配置，再处理大表历史行情。
-3. 任何异常立即停止后续表，不扩大范围。
+1. M5 结果仍为 0 时，本阶段无操作并直接验收结束。
+2. 若发现非 `.SH/.SZ` 的明确旧身份，停止后续动作并另立一次性精确处理方案。
+3. 不因 `.SH/.SZ` 代码从 Basic 消失或当前 `list_date` 晚于历史事实日期而删除既有数据。
 
 ### M7：ETF 历史分钟补拉
 
@@ -742,24 +806,28 @@ ETF 专用表 NON_EXCHANGE_ETF_SUFFIX = 0
 
 ---
 
-## 15. 待拍板事项
+## 15. 已完成拍板与剩余边界
 
-### P1：`fund_daily/fund_adj` 的 raw 是否按 ETF basic 裁剪
+### 15.1 场内基金全集口径已确认
 
-两个选项：
+已经确认以下 raw/serving 边界：
 
-1. **继续保留源端当日完整返回**：raw 不按 ETF basic 裁剪，ETF serving 才严格对齐。
-2. **把整个数据集改成 ETF 专用**：raw 中凡不在 ETF 主数据的代码也删除，以后请求也只围绕 ETF。
+1. `fund_daily`、`fund_adj` 按交易日返回的额外 `.SH/.SZ` 代码是合法场内基金事实，主要来自 `fund_basic(market='E', status='L')` 所描述的 LOF、REIT 等对象；但 `fund_basic` 不是这两个请求的展开上游。
+2. `raw_tushare.fund_daily`、`raw_tushare.fund_adj`、`core.fund_adj_factor` 不按 ETF Basic 裁剪。
+3. `raw_tushare.etf_share_size` 保存源端当日完整返回；`core_serving.etf_share_size` 继续逐列直出 raw。两者业务口径相同，不按 ETF Basic 或上市日期裁剪，不新增物理 serving 表。
+4. 只有 `core_serving.fund_daily_bar` 承担基金日线中的 ETF 服务范围与上市日下界收口；这一规则不外推到 `etf_share_size`。
+5. 当前没有剩余业务口径待拍板。
 
-人话解释：这里的“源端当日完整返回”不是 3 万多只场内外公募基金。它是调用 `fund_daily(trade_date=某日)` 或 `fund_adj(trade_date=某日)` 时，接口当天实际返回的全部场内代码。2026-08-27 实测中，`fund_daily` 有 470 个代码不在 ETF basic，主要是 LOF、REIT 等合法场内基金；它们不是 ETF 业务对象，但确实是该源接口返回的事实。
+### 15.2 工程设计已由 LLD 落定
 
-建议：**选择 1**。这与已经确认的“raw 保存源站、serving 给下游”原则一致。对 ETF 业务，只要求 `core_serving.fund_daily_bar` 对齐；`fund_adj` 在明确 ETF serving 消费者前先只审计，不做破坏性清理。
+上述业务口径对应的工程设计已经在配套 LLD 中完成，编码必须以该文档为约束：
 
-### 15.1 待拍板项对实施的影响
+1. `EtfBasicDAO` 统一提供主数据清单、当前可请求目标和可复用查询子句；`list_date` 通过不可空的请求目标值对象进入 planner。
+2. `fund_daily` 使用 raw 先提交、serving 后发布的两阶段事务；选择器或 serving 失败不得回滚已提交 raw，也不得假成功。
+3. `etf_rt_daily` health 改为 `eligible_etf_count/eligible_snapshot_count`，监控候选改为 `/eligible-etfs`，不保留旧字段或 endpoint alias。
+4. 激活池消费者切换、静态清零、不可逆 Alembic drop-table 和无兼容维护窗口发布顺序均已逐项列清。
 
-| 待拍板项 | 是否阻塞 `etf_basic` 重建 | 是否阻塞下游物理清理 | 是否阻塞分钟全量补拉 |
-|---|---|---|---|
-| P1 场内基金接口 raw 口径 | 否 | 仅阻塞 `fund_daily/fund_adj` raw | 否，ETF 分钟不受影响 |
+详细代码点、测试矩阵、下游只读复核、分钟补拉额度门禁和逐步开发流程见：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)。
 
 ---
 
@@ -777,4 +845,8 @@ ETF 专用表 NON_EXCHANGE_ETF_SUFFIX = 0
 
 2026-08-28 针对激活池退场再次执行了 CodeGraph impact 和全仓代码搜索：`EtfSeriesActiveDAO` 明确影响 DAO factory、实时健康查询/API 和 DAO 测试；`EtfSeriesActiveStore` 影响 Ops adapter 与测试；具体字符串引用还覆盖 Foundation planner/writer、Ops seed/cleanup/review/monitor、App model registry/CLI、Alembic 和多组 Web 测试。宽泛的 `list_active_codes` impact 同时命中指数池，证明开发时不能按同名方法批量删除。
 
-这些结果只是专项 LLD 的输入，不是最终清单。实际开发前仍须按第 12.5 节重新同步 CodeGraph，并对 `DatasetDefinition`、writer write path、激活池删除迁移、动态注册、前端路由和生产表做全量消费者复核。
+同轮逐 DatasetDefinition、unit planner、request builder、writer 和实时 provider 复核还确认：当前基于旧池展开请求的只有 `etf_mins/etf_sh_cons/etf_sz_cons`；`fund_daily` 只在 serving 写入时使用旧池；`etf_rt_daily` 只在 health/监控候选侧使用旧池；`fund_adj/etf_share_size/etf_basic` 不使用旧池展开请求。全仓搜索没有发现 ingestion 主链调用 `EtfBasicDAO.get_active_etfs()` 或 `get_fund_daily_candidates()`，所以目标态是一次真实的事实源切换，不能按“已有 Basic 驱动只需删旧表”估算工作量。
+
+源接口口径同时复核了本地 Tushare 文档 `127/199/385/387/400/407/408/471/472`。`fund_daily/fund_adj` 的全市场返回范围沿用 2026-08-28 已写入本地源文档的同日 MCP 实测，不重复发起相同源端请求；本轮没有修改源参数或字段契约，也没有把一次实测数量固化为永久门禁。
+
+这些结果已经与当前代码逐项核对并落入配套 LLD 的最终开发清单。实际编码前仍须按第 12.5 节重新同步 CodeGraph，并对 `DatasetDefinition`、writer write path、激活池删除迁移、动态注册、前端路由和生产表复核；新出现的引用必须先补回 LLD，不能在实施时临时绕过。

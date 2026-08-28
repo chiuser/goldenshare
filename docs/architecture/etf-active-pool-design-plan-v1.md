@@ -1,14 +1,47 @@
 # ETF 活跃池设计方案 v1
 
-状态：核心能力已落地 / 后续增强待单独立项
+状态：已落地的现行旧机制 / 退场方向已确认 / 待替换实施
 创建日期：2026-06-17
-适用范围：`fund_daily`、ETF 实时日线流、后续 ETF 业务查询与 Ops 审查中心
+最近审计：2026-08-28
+适用范围：`fund_daily`、`etf_mins`、`etf_sh_cons`、`etf_sz_cons`、ETF 实时日线流、ETF 业务查询与 Ops 审查中心
 
-> 关联待实施方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)。本文继续记录当前已落地的活跃池事实；新方案已经确认整套 `ops.etf_series_active` 机制退场，所有 ETF 下游改用 `core_serving.etf_basic`。在新方案实施前，以本文当前实现为准；实施完成后本文转为历史方案。
+> 关联待实施方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)；配套编码设计见：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)。新方案已经确认整套 `ops.etf_series_active` 机制退场，ETF 身份统一改由 `core_serving.etf_basic` 提供。实施完成后本文转为历史方案；实施前，当前运行事实以第 0 节为准，后续章节保留原始设计与落地记录。
 
 ---
 
-## 1. 目标
+## 0. 2026-08-28 当前实现校准
+
+本文最初只为 `fund_daily` 与 `etf_rt_daily` 两个 resource 设计，后来又被 `etf_mins/etf_sh_cons/etf_sz_cons` 扩展使用。原始章节中“初始只定义两个 resource”是历史决策，不再代表当前完整资源清单。
+
+当前 `ETF_SERIES_ACTIVE_RESOURCES` 共五个 resource：
+
+| resource | 当前是否展开源请求 | 当前用途 |
+|---|---|---|
+| `fund_daily` | 否 | `fund_daily` 按交易日请求源端全集后，只在写 `core_serving.fund_daily_bar` 时按池过滤；同时用于旧清理 service 和 ETF 审查页 |
+| `etf_mins` | 是 | 展开 ETF 代码，再按频率和时间窗口生成分钟请求 unit |
+| `etf_sh_cons` | 是 | 展开 `.SH` ETF 代码生成申赎清单请求 |
+| `etf_sz_cons` | 是 | 展开 `.SZ` ETF 代码生成申赎清单请求 |
+| `etf_rt_daily` | 否 | provider 仍固定请求 `5*.SH` 与 `1*.SZ`；池只用于 Ops health 命中统计、ETF 审查页和实时监控候选资格 |
+
+`fund_daily` 与 `etf_mins` 使用同一张 `ops.etf_series_active` 表和同一套 DAO，也曾用同一份 1,395 行 seed 初始化，但主键是 `(resource, ts_code)`，因此它们是两个独立逻辑池，可以发生差异。
+
+以下当前不使用该池展开请求：
+
+1. `fund_adj`：按交易日请求基金全集，raw/core 全量写入。
+2. `etf_share_size`：默认每个交易日一次全市场请求，raw 全量写入，现有 serving view 直接映射 raw。
+3. `etf_basic`：独立主数据快照；当前 ingestion 没有调用 `EtfBasicDAO` 展开其他数据集请求。
+
+`etf_rt_min` 当前没有正式 DatasetDefinition、collector，也不在 resource 白名单中；相关设计稿不能当作现行消费者。
+
+目标替代方式不是“一律按 Basic 逐代码请求”：
+
+1. `etf_mins/etf_sh_cons/etf_sz_cons` 改由当前可请求 ETF 清单展开代码。
+2. `fund_daily/fund_adj/etf_share_size` 保持按交易日全市场请求；`fund_daily` 的 ETF serving 按 ETF 主数据和上市日收口，`fund_adj` 保存源端基金事实，`etf_share_size` 保持 raw 单份存储和 serving 逐列直出，不接入 ETF Basic 过滤。
+3. `etf_rt_daily` 保持固定通配符请求，只把 health/业务候选的旧池口径替换为 ETF Basic Serving。
+
+---
+
+## 1. 原始设计目标（历史）
 
 建立一套 ETF 专属活跃池，用来回答两个问题：
 
@@ -23,7 +56,7 @@
 
 ---
 
-## 2. 依据与现状
+## 2. 原始依据与 2026-06 现状快照（历史）
 
 ### 2.1 已审计的指数活跃池
 
@@ -95,7 +128,7 @@ index_mins        000300.SH
 
 ---
 
-## 3. 核心决策
+## 3. 原始核心决策（历史）
 
 ### 3.1 新建 ETF 专属表，不复用指数表
 
