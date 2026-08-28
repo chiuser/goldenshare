@@ -4,6 +4,8 @@
 创建日期：2026-06-17
 适用范围：`fund_daily`、ETF 实时日线流、后续 ETF 业务查询与 Ops 审查中心
 
+> 关联待实施方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)。本文继续记录当前已落地的活跃池事实；新方案已经确认整套 `ops.etf_series_active` 机制退场，所有 ETF 下游改用 `core_serving.etf_basic`。在新方案实施前，以本文当前实现为准；实施完成后本文转为历史方案。
+
 ---
 
 ## 1. 目标

@@ -1,5 +1,7 @@
 # ETF 历史分钟行情数据集接入方案 v1
 
+> 关联待实施方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)。本文记录当前已落地的 `etf_mins` 激活池与切窗实现；新方案拟改为从 `core_serving.etf_basic` 的可请求集合取全量目标，并按 `list_date` 裁剪请求起点，尚未实施。
+
 状态：M1-M8 已完成；生产部署、HDD 迁移、1,395 只 ETF 活跃池、最小同步、全池区间同步和自动任务均已验收通过。
 
 创建日期：2026-08-24

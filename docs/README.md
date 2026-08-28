@@ -71,6 +71,7 @@ docs/
 - [ETF 实时日线流接入方案 v1（代码已接入 / 生产已启用 / 开市批次验收已完成）](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-daily-stream-plan-v1.md)
 - [ETF 实时分钟流接入方案 v1（核心源端语义已验证；尚未开发）](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-minute-stream-plan-v1.md)
 - [ETF 实时分钟流接入 LLD v1（设计已更新；待开发）](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-minute-stream-low-level-design-v1.md)
+- [ETF 基础信息重建与下游数据审计清理技术方案 v1（激活池退场与不备份已确认 / 3 项待拍板 / 尚未实施）](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)
 - [ETF 历史分钟行情数据集接入方案 v1（M1-M8 已完成，生产全池与自动任务验收通过）](/Users/congming/github/goldenshare/docs/datasets/etf-mins-dataset-development.md)
 - [ETF 历史分钟行情数据集 LLD v1（M1-M8 已完成，生产事实已收口）](/Users/congming/github/goldenshare/docs/datasets/etf-mins-dataset-low-level-design-v1.md)
 - [上证指数日线趋势通道实时计算方案 v1（代码已实现，生产验收已完成）](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-plan-v1.md)

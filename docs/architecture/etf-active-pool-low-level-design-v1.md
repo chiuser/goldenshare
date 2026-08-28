@@ -5,6 +5,8 @@
 上位方案：[ETF 活跃池设计方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-active-pool-design-plan-v1.md)
 适用范围：`ops.etf_series_active`、`fund_daily` serving 过滤、ETF 实时日线 Ops health 命中统计、Ops 审查中心 ETF 活跃池只读展示
 
+> 关联待实施方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)。本文继续描述当前代码；新方案已经确认整套 `ops.etf_series_active` 机制退场。实施完成后本文转为历史 LLD，不保留固定 1,395 池或兼容读取。
+
 ---
 
 ## 1. 本文目标
