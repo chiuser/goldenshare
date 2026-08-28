@@ -3020,7 +3020,7 @@ DATASET_ROWS = ({'identity': {'dataset_key': 'adj_factor', 'display_name': 'Â§çÊ
               'conflict_columns': ('row_key_hash',),
               'write_path': 'raw_core_upsert'},
   'planning': {'universe_policy': 'no_pool',
-               'enum_fanout_fields': (),
+               'enum_fanout_fields': ('suspend_type',),
                'enum_fanout_defaults': {},
                'pagination_policy': 'offset_limit',
                'chunk_size': None,

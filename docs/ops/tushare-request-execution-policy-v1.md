@@ -451,9 +451,9 @@
 
 - 接口：`suspend_d`
 - 源文档：`docs/sources/tushare/股票数据/行情数据/0214_每日停复牌信息.md`
-- 分页：文档未写明单次上限数值；默认不强制写死 `limit`，如需统一分页可用保守值 `limit=2000`。
+- 分页：`offset/limit`，当前 `page_limit=5000`；短页结束，不设置任意最大页数。
 - 默认请求：默认按 `start_date/end_date` 过滤交易日，逐 `trade_date` 请求；若只给 `trade_date` 则按单日请求。
-- 用户传参规则：用户若显式传 `ts_code`、`suspend_type`，单值直接透传；若 `suspend_type` 传入多值则按枚举扇出请求；若 `suspend_type` 为全选则折叠为不传该字段；未传不补。
+- 用户传参规则：用户若显式传 `ts_code` 就原样透传；`suspend_type` 未传时不补，传入一个或多个值时按去重后的合法 `S/R` 单值扇出请求。全选 `S+R` 形成两个单值 unit，禁止把列表字面量传给源端。
 - 时间执行：以交易日为基准；区间任务先筛交易日，再逐日请求。
 
 ### `ths_daily`（同花顺板块行情）

@@ -5,7 +5,7 @@
 - 目标：新增 `suspend_d` 数据集，完成 Tushare 接口拉取、`raw_tushare` 落库、`core_serving` 对外服务与 Ops 运维打通。
 - 本期边界：
   - 先做 `tushare` 单源，不做多源融合。
-  - 不纳入现有工作流（先独立任务稳定）。
+  - 已纳入 `daily_market_close_maintenance` 工作流；手动任务和自动工作流共用同一 Definition/planner/request 契约。
   - `suspend_d.maintain` 必须显式传时间参数（`trade_date` 或 `start_date+end_date`），禁止无时间全量。
 
 ## 2. 上游接口
@@ -23,7 +23,7 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `ts_code` | str | 否 | 股票代码（如 `000001.SZ`） | 代码 | 是（可选） | 文本输入 | 原样传递 |
 | `trade_date` | str | 否 | 交易日期（YYYYMMDD） | 时间 | 是 | 日期选择器（单日） | UI 日期 -> YYYYMMDD |
-| `suspend_type` | str | 否 | 停复牌类型（`S` 停牌 / `R` 复牌） | 枚举 | 是（可选） | 单选下拉 | 枚举值原样传递 |
+| `suspend_type` | str | 否 | 停复牌类型（`S` 停牌 / `R` 复牌） | 枚举 | 是（可选） | 多选下拉 | 未选时不传；选择一个或多个值时由 planner 按合法单值扇出，源端永远只接收 `S` 或 `R` 字符串 |
 
 ### 3.2 输出字段（上游原生，全量落库）
 
@@ -40,8 +40,10 @@
 - 是否支持区间回补：是（`start_date+end_date`，执行层按日扇出）
 - 时间粒度：日
 - 时间推进策略：交易日历（按开市日期推进）
-- 是否需要分页循环：否（上游无 `limit/offset`）
+- 是否需要分页循环：是；按现有通用 `offset/limit` 分页，`page_limit=5000`，短页结束，不设置任意最大页数
 - 是否有级联依赖：否
+
+2026-08-28 使用 `tushareMcp` 对 `trade_date=20260827`、显式四个 source fields 做了最小真实验证：不传 `suspend_type` 返回 4 行，`S` 返回 3 行，`R` 返回 1 行，且 `S/R` 多重集并集与无过滤结果一致；把列表错误转换为 `"['S', 'R']"` 时源端返回 `50101`。因此多选是运营意图，不能直接作为源参数；必须先在 planner 中拆成单值 unit。
 
 ## 4. 参数与交互设计（Ops）
 
@@ -53,7 +55,7 @@
   - 区间：开始日期 + 结束日期（执行层按交易日历逐日映射为 `trade_date` 请求）
 3. 第三步：其他输入条件
   - `股票代码`（可选）
-  - `停复牌类型`（可选，`全部 / 停牌(S) / 复牌(R)`）
+  - `停复牌类型`（可选多选；不选表示全部，选择 `S/R` 时分别形成合法源请求）
 
 ### 4.2 自动任务
 
@@ -103,7 +105,8 @@
 - `target_table`：`core_serving.equity_suspend_d`
 - 参数构建规则：
   - `suspend_d.maintain`：`trade_date` 或 `start_date+end_date`
-  - 区间模式：按自然日逐日调用上游（每次传 `trade_date`）
+  - 区间模式：按 SSE 开市日逐日调用上游（每次传 `trade_date`）
+  - `suspend_type`：未填写时不传；单选生成 1 个单值 unit；多选按去重后的 `S/R` 分别生成 unit；request builder 遇到未展开列表必须 fail-closed，禁止字符串化后请求源端
 - 写入规则：
   - raw 先写入
   - serving 同步写入
@@ -123,7 +126,8 @@
 
 - 单元测试：
   - 参数映射（单日/区间/可选枚举）
-  - 区间自然日推进
+  - 无类型单 unit、单选单 unit、多选按日期和类型笛卡尔展开、非法枚举拒绝、request builder 拒绝未展开列表
+  - 区间 SSE 开市日推进
   - 幂等写入
 - 集成测试：
   - `suspend_d.maintain`（单日/区间）
