@@ -1,8 +1,8 @@
 # Tushare 个股资金流向（DC）（`moneyflow_dc`）数据集开发说明
 
-- 当前阶段：`P1-B4-moneyflow_dc-M1` 已通过，下一步为独立授权的 M2
-- 当前代码：Definition 已切换为 `raw_only_upsert + raw_with_serving_view`；Raw ORM 已声明生产既有两个二级索引；独立 revision `20260829_000161` 已完成离线验证
-- 当前生产：Raw 与 Serving 仍为两张 SSD 物理表、生产仍按已部署旧版本双写；M1 未连接或修改任何数据库
+- 当前阶段：`P1-B4-moneyflow_dc-M3a` 已通过；M3b 已登记为 `2026-08-31 20:00+08` 的 schedule #4 自然工作流观察
+- 当前代码：生产已部署 `dc191135`；Definition 使用 `raw_only_upsert + raw_with_serving_view`，Raw ORM 声明既有两个二级索引，独立 revision `20260829_000161` 已应用
+- 当前生产：`raw_tushare.moneyflow_dc` 是 SSD 唯一物理事实表；`core_serving.equity_moneyflow_dc` 是受保护的 0 B Raw-backed view；schedule #4 已原样恢复
 - 目标形态：`raw_tushare.moneyflow_dc` 为唯一物理事实表，`core_serving.equity_moneyflow_dc` 保留为受保护的只读 Raw-backed view
 
 ## 0. 当前架构基线（必须遵守）
@@ -13,9 +13,9 @@
 - 当前是否多源：否（仅 `tushare`）
 - 是否已具备 std 映射与融合策略：否
 - 当前开发代码 target_table：`raw_tushare.moneyflow_dc`
-- 当前生产已部署旧版 target_table：`core_serving.equity_moneyflow_dc`
-- 当前生产物理路径：`raw_tushare -> core_serving` 双物理表、双写
-- revision 161 应用后的目标路径：`raw_tushare` 唯一物理事实表 + 原 Serving 名称只读 view
+- 当前生产 target_table：`raw_tushare.moneyflow_dc`
+- 当前生产物理路径：`raw_tushare` 唯一物理事实表 + 原 Serving 名称只读 view
+- revision 161 已应用；目标路径已在生产落地
 
 ---
 
@@ -208,3 +208,32 @@ M1 严格按 M0 冻结合同完成，只修改本数据集及共享 writer 的�
 6. 专项测试覆盖 Definition/Resolver/filter/pagination 不漂移、Raw/Serving ORM 字段类型和索引合同、ServingPublish 无旁路、Raw freshness target、writer 只写 Raw、migration 顺序/禁止项和完整 PostgreSQL 离线 SQL 渲染。M1 完整回归结果以本轮交付记录为准。
 
 结论：`P1-B4-moneyflow_dc-M1` **通过**。生产仍为两张物理表，尚未释放 1,131,995,136 B；下一步只能在独立授权后进入 M2，在隔离 PostgreSQL 真实应用 revision 161，并验证 170,000 行通过、170,001 行 DDL 前拒绝、三类 view DML 拒绝、事务回滚、writer 同事务即时可见和代表查询计划。M1 不构成任何生产 migration 授权。
+
+## 13. `P1-B4-moneyflow_dc-M2` 隔离 PostgreSQL 验收结论（2026-08-29）
+
+M2 使用本轮新建的 PostgreSQL 18.4 一次性实例。实例关闭 TCP 监听，只能通过随机 Unix socket 访问；每次 Alembic 前均核对最终 `get_settings()` URL、数据库、用户、socket、端口、`inet_server_addr=NULL`、恢复状态和 data directory。应用角色明确为非超级用户，且没有建库、建角色或复制权限；临时 `gs_raw_cold_hdd` 也位于该隔离根目录。全程没有连接 Prod、请求 Tushare、部署、创建 TaskRun、修改 schedule #4 或执行生产 DDL。
+
+1. **170,000 行正向边界通过**：revision 从 `20260829_000160` 成功升级到 `20260829_000161`。Raw relation OID 及主键、日期索引、实体日期索引的 OID/定义/valid/ready 状态全部保持不变，并继续位于 `pg_default`；Serving 从物理表切换为 0 B 普通 view。Raw/view 均为 170,000 行、170,000 个唯一身份，15 个业务字段双向差异和审计时间投影差异均为 0。
+2. **metadata 与拒写通过**：owner、Raw reader、Serving reader、带授权选项的 SELECT、relation/column comments 和独立拒写 trigger 均正确恢复；对 Serving 执行 INSERT、UPDATE、DELETE 均返回 SQLSTATE `55000`。
+3. **即时可见与事务边界通过**：直接对 Raw 执行插入、更新、删除时，view 在同一事务立即反映结果，回滚后无残留。正式 `DatasetWriter` 的目标明确为 `raw_tushare.moneyflow_dc`，写入 1 行后 Raw/view 同时看到更新，回滚后 Raw/view 均恢复原值。
+4. **查询透明通过**：单日、单代码、代码范围、最大日期和日期完整性五类查询的切换前后行数与结果 hash 全部一致；计划从 Serving 物理索引切换为等价 Raw 主键/日期/实体日期索引，临时读写块均为 0。单次隔离样本实际耗时分别为 `1.789→1.753 ms`、`0.004→0.005 ms`、`0.013→0.012 ms`、`0.005→0.005 ms`、`4.930→4.636 ms`，只作为计划与明显退化门禁证据，不外推为生产 SLA。
+5. **五类 DDL 前失败门禁通过**：170,001 行、业务字段差异、身份差异、未知 view 依赖、缺失 Raw 实体日期索引均使 migration 返回失败，并保持 revision、两张物理表、OID、索引、行数、comments 和 trigger 快照不变。
+6. **事务原子性通过**：在完成 `DROP TABLE -> CREATE VIEW -> trigger` 后注入故障，整个 migration 回滚到 revision `20260829_000160`、原 Raw/Serving 物理表及原 OID/索引/metadata 状态。
+
+隔离实例已经停止，临时数据根已删除；可复核报告保留在 `/private/tmp/goldenshare_moneyflow_dc_m2_report.json`。`P1-B4-moneyflow_dc-M2` 据此**通过**，revision 161 与业务代码无需修改。生产仍未切换、1,131,995,136 B 尚未释放；下一步只能在独立授权后进入生产 M3a，并重新实时核对生产身份、head、schedule #4、worker、开放任务、锁、长事务、磁盘、全量差异和代表查询。M2 不构成部署或生产 migration 授权。
+
+## 14. `P1-B4-moneyflow_dc-M3a` 生产即时验收结论（2026-08-29）
+
+M3a 于 `22:54..23:09+08` 按“暂停 schedule → 停 scheduler/generic worker → 复核全量差异 → 性能门禁 → maintenance migration → 连接池回收 → 查询/DML → 最小 TaskRun → 恢复 schedule/服务”的顺序完成，没有标准部署提前应用 migration 的顺序偏差。
+
+1. 维护前生产为 PostgreSQL 16.13、revision `20260829_000160`；远端代码由 `96b1a865` 快进到已推送的 `dc191135`。schedule #4 为 `daily_moneyflow_maintenance`、工作日 `20:00`，暂停前后 cron、时区、`next_run_at=2026-08-31 20:00+08` 和 `last_triggered_at` 均未漂移。暂停与恢复分别形成 config revision `129/130`。
+2. schedule 暂停、scheduler 与 generic worker 停止后，开放 TaskRun、开放 `moneyflow_dc` node、开放完整性审计 run、目标 relation 锁、等待锁和超过 30 秒事务均为 0。36 个自然月、4,151,016 行、4,151,016 个身份和 15 个业务字段双向 `EXCEPT ALL` 再次为 0；月峰值仍为 139,877，低于 170,000 门禁。
+3. 迁移前日期完整性查询发现 Raw 统计信息陈旧：20 轮中位 `167.036 ms`，较旧 Serving 的 `98.824 ms` 退化约 69%，因此先停止发布。根因是 Raw `trade_date` 统计滞后导致 planner 选择串行计划；经明确同意只执行 `ANALYZE raw_tushare.moneyflow_dc (trade_date)` 后，Raw 20 轮中位降至 `98.261 ms`，与 Serving `96.454 ms` 的差异约 1.87%，门禁关闭。该 ANALYZE 只更新 planner 统计，不改业务数据。
+4. maintenance migration `160 → 161` 一次成功。Raw relation OID `22836` 及主键/日期/实体日期索引 OID `22843/22845/22846` 保持不变、valid/ready 且继续位于 SSD `pg_default`；Serving 由 OID `22899` 的 1,131,995,136 B 物理表变为新 OID `2041227` 的 0 B 普通 view，旧 OID 已消失，确定性 catalog 毛释放量为 1,131,995,136 B。
+5. view 保持 17 列合同，15 个业务字段直接读取 Raw，`created_at/updated_at` 均投影 `fetched_at`；Raw/view 全表行数、唯一身份、日期范围一致，15 字段双向差异和审计时间投影差异均为 0。owner、Raw reader、拒写 trigger 与权限合同正确；Serving INSERT/UPDATE/DELETE 均返回 SQLSTATE `55000`，测试事务没有残留行。
+6. 迁移后五类代表查询结果 hash 全部一致，视图计划下推 Raw 的等价索引且临时块为 0。三轮单日样本一度显示约 47% 抖动，因此按停止门禁补做 20 轮交替复测；最终 Raw/view 中位为 `13.602/13.371 ms`，视图没有结构性退化。日期完整性、最大日期、五日市场范围和单股范围同样通过结果与计划门禁。
+7. Web、generic worker、date-completeness worker 与 task-completion worker 回收连接池后，临时执行脚本先因远端 `/private/tmp` 权限和误用仓库 `.env.web.local` 两次在副作用前失败，均未创建 TaskRun 或调用 Tushare；核对 systemd unit 后，改用其真实 `/etc/goldenshare/web.env`。随后通过正式 `ManualActionCommandService → DatasetActionResolver → TaskRun` 主链创建唯一 TaskRun `10149`，目标日 `2026-08-28`。任务 `1/1/0` 成功；分页为 `offset=0` 的 6,000 行和 `offset=6000` 的 7 行，第二页短页结束；读取/保存 `6007/6007`，reject、去重、重试均为 0。
+8. TaskRun 后 Raw/view 当日均为 6,007 行和 6,007 个身份，15 字段双向差异为 0，全部行的 `fetched_at/updated_at` 位于节点执行窗口。全表仍为 4,151,016 行和 4,151,016 个身份，证明已有日期重跑为幂等刷新，没有新增重复事实。
+9. schedule #4 已原样恢复 active，scheduler、generic worker、Web、date-completeness worker、task-completion worker 全部 active，两个健康端点返回正常；最终开放 TaskRun、开放目标 node、目标锁、等待锁和超过 30 秒事务均为 0。根盘最终可用 53,534,212,096 B、使用率 81%；瞬时 `df` 只作水位证据，不替代 catalog 释放量。
+
+`P1-B4-moneyflow_dc-M3a` 据此**通过**。生产已是 Raw 唯一物理事实表和读取透明的 0 B Serving view；下一步不是继续开发，而是在统一夜间台账中完成 `P1-B4-moneyflow_dc-M3b`：只读验收 `2026-08-31 20:00+08` schedule #4 自然父任务内的 `moneyflow_dc` 节点。M3b 不创建额外任务、不重复请求 Tushare，也不阻塞 `stk_limit-M0` 的独立只读复审。
