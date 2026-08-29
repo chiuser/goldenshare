@@ -11,6 +11,7 @@ from src.foundation.ingestion.writer import DatasetWriter
 from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
 from src.foundation.models.raw.raw_dc_daily import RawDcDaily
 from src.foundation.models.raw.raw_moneyflow_cnt_ths import RawMoneyflowCntThs
+from src.foundation.models.raw.raw_moneyflow_dc import RawMoneyflowDc
 from src.foundation.models.raw.raw_moneyflow_ind_dc import RawMoneyflowIndDc
 from src.foundation.models.raw.raw_moneyflow_ind_ths import RawMoneyflowIndThs
 from src.foundation.models.raw.raw_moneyflow_mkt_dc import RawMoneyflowMktDc
@@ -75,6 +76,18 @@ class _RecordingRawDao:
                 "net_amount": 0,
             },
             "raw_tushare.moneyflow_cnt_ths",
+            None,
+        ),
+        (
+            "moneyflow_dc",
+            "raw_moneyflow_dc",
+            RawMoneyflowDc,
+            {
+                "trade_date": date(2026, 8, 22),
+                "ts_code": "000001.SZ",
+                "net_amount": 0,
+            },
+            "raw_tushare.moneyflow_dc",
             None,
         ),
         (

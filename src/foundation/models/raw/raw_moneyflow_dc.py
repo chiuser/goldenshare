@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Numeric, String, Text, text
+from sqlalchemy import Date, DateTime, Index, Numeric, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.foundation.models.base import Base
@@ -10,7 +10,15 @@ from src.foundation.models.base import Base
 
 class RawMoneyflowDc(Base):
     __tablename__ = "moneyflow_dc"
-    __table_args__ = {"schema": "raw_tushare"}
+    __table_args__ = (
+        Index("idx_raw_tushare_moneyflow_dc_trade_date", "trade_date"),
+        Index(
+            "idx_raw_tushare_moneyflow_dc_ts_code_trade_date",
+            "ts_code",
+            "trade_date",
+        ),
+        {"schema": "raw_tushare"},
+    )
 
     trade_date: Mapped[date] = mapped_column(Date, primary_key=True)
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)
