@@ -1,9 +1,14 @@
 # Tushare 每日涨跌停价格（`stk_limit`）数据集开发说明
 
+- 状态：现有数据集已运行；`P1-B4-stk_limit-M0/M1` 已通过，下一阶段为独立授权的隔离 PostgreSQL M2
+- 更新时间：2026-08-30
+- 专项依据：[生产 PostgreSQL raw 直出一期低层设计 v1](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-raw-direct-serving-phase-one-lld-v1.md)
+
 ## 1. 目标与边界
 
-- 目标：新增 `stk_limit` 数据集，完成 Tushare 接口拉取、`raw_tushare` 落库、`core_serving` 对外服务与 Ops 运维打通。
-- 本期边界：
+- 既有目标：完成 Tushare 接口拉取、`raw_tushare` 落库、`core_serving` 对外服务与 Ops 运维打通。
+- 当前治理目标：在保持原 `core_serving.equity_stk_limit` 读取名称和业务字段不变的前提下，把重复物理存储收敛为 Raw 唯一物理事实表与只读 Serving view。
+- 既有运行边界：
   - 纳入现有工作流 `daily_market_close_maintenance`（收盘后自动流程覆盖）。
   - 维护动作必须显式传时间参数（`trade_date` 或 `start_date+end_date`），禁止“无时间全量”。
 
@@ -50,20 +55,21 @@
 
 ### 4.2 服务层
 
-- 表：`core_serving.equity_stk_limit`
+- 读取名称：`core_serving.equity_stk_limit`
+- M1 代码合同：revision `20260830_000162` 应用后成为显式 Raw-backed 只读 view；生产在 M2/M3a 前仍是原物理表
 - 主键：`(ts_code, trade_date)`
 - 字段：`pre_close`, `up_limit`, `down_limit`
-- 系统字段：`created_at`, `updated_at`
-- 索引：`idx_equity_stk_limit_trade_date(trade_date)`
+- 系统字段：`created_at`, `updated_at` 均由 Raw `fetched_at` 投影
+- 查询索引：下推到 Raw 的 `idx_raw_tushare_stk_limit_trade_date(trade_date)` 与主键；view 自身不再拥有索引或主键
 
 ## 5. 同步实现策略
 
-### 5.1 日常同步（INCREMENTAL）
+### 5.1 单日维护（point）
 
 - 必传 `trade_date`。
 - 按单交易日请求，使用 `limit/offset` 分页拉取直至无数据。
 
-### 5.2 历史同步（FULL）
+### 5.2 日期范围维护（range）
 
 - 允许：
   - 单日（`trade_date`）
@@ -78,21 +84,56 @@
 - Freshness 元数据：
   - `dataset_key`: `stk_limit`
   - `display_name`: `每日涨跌停价格`
-  - `domain`: `股票`
+  - `domain`: `equity_market / 股票行情`
   - `observed_date_column`: `trade_date`
 
 ## 7. 测试覆盖
 
-- `tests/test_sync_stk_limit_service.py`
-  - 增量参数校验
-  - 分页与落库
-  - 历史同步显式时间约束
-  - 区间按交易日历扇出
-- `tests/test_sync_registry.py`
-  - 注册表包含 `stk_limit`
+- `tests/test_dataset_definition_registry.py`
+  - Definition、目标表与日期主体完整性事实
 - `tests/test_ops_action_catalog.py`
-  - action catalog 参数契约
+  - action catalog 与工作流步骤
 - `tests/test_fields_constants.py`
   - `STK_LIMIT_FIELDS` 常量覆盖
 - `tests/test_extended_models.py`
-  - `equity_stk_limit` 主键与索引
+  - Raw/Serving 主键与索引
+- `tests/test_ops_freshness_snapshot_query_service.py`
+  - freshness target 投影
+- `tests/web/test_ops_date_completeness_api.py`
+  - 日期主体矩阵审计
+- `tests/architecture/test_dataset_runtime_registry_guardrails.py`
+  - Definition/runtime registry 边界
+- `tests/test_stk_limit_raw_view_m1.py`
+  - storage-only Definition、`ts_code` filter、5,800 行分页逐页显式 fields、Raw-only writer、模型/索引、ServingPublish 旁路、migration SQL 和禁止自动 downgrade
+
+M1 已独立固化 `_stk_limit_params` 的 resolver 结果、5,800 行分页逐页 fields 与 Raw-only writer；生产历史 TaskRun 只作为 M0 源端行为证据，不替代自动化门禁。
+
+## 8. `P1-B4-stk_limit-M0` 只读复审与 M1 准入合同（2026-08-29）
+
+本阶段只读取当前代码、CodeGraph、生产 PostgreSQL catalog、汇总数据、查询计划和既有 TaskRun 诊断。没有修改代码或生产配置，没有部署、migration、暂停 schedule、创建 TaskRun、调用 Tushare 或写业务数据。
+
+1. 当前 Definition 显式请求全部 5 个源字段：`trade_date, ts_code, pre_close, up_limit, down_limit`。point/range 由交易日历展开为逐交易日 unit，request builder 每个 unit 只生成 `trade_date` 和可选 `ts_code`；source client 每一页都传完整 `source_fields`，按 `offset/limit=5800` 请求，只有短页才结束，没有任意最大页数。生产 schedule #24/#2 对 `2026-08-28` 的两个自然 node 均执行 `5800+1968=7768` 两页，最终短页、无截断、重试、reject 或去重；M0 没有重复请求 Tushare。
+2. 当前 storage 仍是 `raw_stk_limit + equity_stk_limit + raw_core_upsert`。共享 writer 对同一 normalized batch 仅按两套 ORM 列过滤后分别 upsert，未发现 Serving 专属转换、过滤、聚合、冲突消解、`ServingPublish` mapping 或显式 Serving DML 旁路。M1 只允许修改本数据集 storage delivery，不改 resolver、request builder、normalizer、source client、分页、日期模型、filter、工作流或共享 writer。
+3. 生产为 PostgreSQL 16.13、revision `20260829_000161`。Raw/Serving OID 为 `21604/21614`，均由 `goldenshare_user` 持有，都是 SSD `pg_default` 普通物理表；Raw 总大小 `661,782,528 B`，Serving 总大小 `664,354,816 B`（633.58 MiB），后者是当前可释放 catalog 毛量。两层 5 个业务列的名称、顺序、类型和 nullability 一致，主键都是 `(ts_code, trade_date)`，并各有等价 `(trade_date)` 索引；四个索引全部 valid/ready 且位于 `pg_default`。
+4. Raw 独有 `lake_raw_reader SELECT`，Serving 只有 owner 权限；relation/column comments 均为空。未发现非主键约束、外键、用户 trigger、RLS/policy、外部 view/materialized view、function dependency或仓库内旁路写入。M0 时没有开放 TaskRun、目标 relation 锁或超过 30 秒的事务。
+5. Raw/Serving 各 `4,608,112` 行和同数唯一 `(ts_code, trade_date)`，日期范围均为 `2024-01-02..2026-08-28`，空身份与异常 Raw `api_name` 均为 0。32 个自然月逐月比较全部 5 个业务字段，Raw-only/Serving-only 差异全部为 0；最大业务行宽 61 B。
+6. 自然月峰值为 `2026-07` 的 177,009 行。独立 migration 的容量门禁固定为 **220,000 行/层/月**：按实测峰值上浮约 20% 后向上取整；M2 必须证明 220,000 行通过、220,001 行在任何 Serving DDL 前 fail-closed。迁移继续使用 `work_mem=16MB`、`statement_timeout=300s` 按自然月有界对账，禁止无界全表差集，也不得复制其它数据集的行数阈值。
+7. Raw `fetched_at` 与 Serving `updated_at` 对全部 4,608,112 行一致；514,328 行历史 `created_at` 与 `fetched_at` 不同。仓库内没有发现 `EquityStkLimit.created_at/updated_at` 消费者，因此 view 继续采用一期固定投影 `fetched_at AS created_at/updated_at`，但只承诺已登记消费者的 5 个业务字段透明，不承诺历史 `created_at`、relation OID/relkind 或约束 catalog 透明。
+8. 仓库内 Serving 业务消费者只有 `MarketMoodCalculator` 的日期范围复合键外连接，以及 `MarketMoodWalkForwardValidationService` 的按交易日存在性检查；对应入口是 Ops CLI 走查与集成测试，没有发现前端、QTF 或 DG 直接读取 Serving。Lake Console 已显式从 Raw 导出同一 5 字段。代表查询结果由全量等价和相同 join key 保证一致；计划分别命中两层等价日期/主键索引。20 日市场情绪 join 的 Raw/Serving 单次执行约 `628.8/657.1 ms`；64 个交易日存在性查询交错热样本中位约 `0.849/0.770 ms`，Raw 退化约 10.3%，低于本项 20% 停止线。两层 all-visible 为 93.91%/94.28%，没有先执行 vacuum 的依据。
+9. 自动入口不是一个 schedule：同一个 `daily_market_close_maintenance` workflow 当前有 schedule #24（工作日 18:30）和 #2（工作日 21:02），`stk_limit` 是第 9 个 step。M3a 必须同时暂停并原样恢复二者，停止 scheduler 与会领取该 workflow 的 generic worker；M3b 必须在切换后的首个自然交易日分别核验两个父任务内的 `stk_limit` node，不允许用其中一个替代另一个。M0 快照时二者下一次分别为 `2026-08-31 18:30/21:02+08`。
+10. M1 只允许：把 Definition storage 改为 `raw_stk_limit` 双 DAO 名、`raw_tushare.stk_limit` target、`raw_with_serving_view / raw->serving_view / raw_only_upsert`；新增接编码时真实 Alembic head 的独立 migration；新增专项与共享回归测试。Raw ORM 已声明生产现有 `(trade_date)` 索引，不需要补 ORM 索引，不得创建、重建或移动 Raw 表/索引。
+11. migration 必须在所有 Serving DDL 前校验 relation/owner/SSD/列/主键/索引/ACL/comments/依赖及 220,000 行月容量；按 Raw `SHARE` → Serving `SHARE` → 32 月身份和五字段双向差集 → Serving `ACCESS EXCLUSIVE` 的顺序执行。view 只能显式投影 `ts_code, trade_date, pre_close, up_limit, down_limit, fetched_at AS created_at, fetched_at AS updated_at`，恢复 metadata 并挂本 view 独立三类 DML 拒写 trigger；禁止 `CASCADE`、Raw DDL/DML、共享函数重建和自动 downgrade。
+
+结论：`P1-B4-stk_limit-M0` **通过**，具备 M1 编码准入。M1 仍需单独授权；本结论不授权隔离 PostgreSQL、生产 migration、TaskRun、schedule 修改或任何 Tushare 请求。仓库外 SQL、BI、人工脚本和依赖 OID/relkind/catalog/历史 `created_at` 的工具仍是残余运营风险。
+
+## 9. `P1-B4-stk_limit-M1` 实现与验证（2026-08-30）
+
+M1 严格限定为代码、独立 Alembic revision、测试和文档；没有连接 PostgreSQL、应用 migration、部署、创建 TaskRun、修改 schedule 或请求 Tushare。
+
+1. `DatasetDefinition` 只修改 storage delivery：`raw_dao_name/core_dao_name` 均为 `raw_stk_limit`，`target_table=raw_tushare.stk_limit`，`delivery_mode=raw_with_serving_view`，`layer_plan=raw->serving_view`，`write_path=raw_only_upsert`。五个 source fields、日期模型、point/range、可选 `ts_code`、5,800 行分页、能力和工作流未修改。
+2. 独立 revision `20260830_000162` 接编码时真实 head `20260829_000161`。它不创建或修改 Raw 表/索引，不触碰 Raw 数据；所有 Serving DDL 前先校验双方物理关系、owner、列、主键、唯一一个日期二级索引、Raw SSD tablespace、Raw `lake_raw_reader SELECT`、Serving ACL/comment、依赖和每层每月 220,000 行上限。
+3. migration 锁序固定为 Raw `SHARE` → Serving `SHARE` → 自然月身份和五业务字段双向 `EXCEPT ALL` → Serving `ACCESS EXCLUSIVE`。切换只执行无 `CASCADE` 的 Serving table 删除与同名显式 view 创建；投影严格为 `ts_code, trade_date, pre_close, up_limit, down_limit, fetched_at AS created_at, fetched_at AS updated_at`，复用既有受保护拒写函数并为本 view 创建独立三类 DML trigger。自动 downgrade 明确禁止。
+4. freshness 与日期主体完整性继续由 Definition 派生，但物理审计目标改为 `raw_tushare.stk_limit`；Biz 两个市场情绪消费者仍通过原 `EquityStkLimit` ORM 读取 `core_serving.equity_stk_limit`，无需改消费者代码。
+5. 专项测试覆盖 storage-only 变更、未知 filter 拒绝、Raw/Serving 五字段类型与索引、ServingPublish 不存在、每页完整 fields、`5800+1` 短页结束、Raw-only writer 不调用 Serving DAO、migration 顺序/禁止项/offline SQL 和 downgrade 拒绝；共享测试覆盖 registry、freshness、日期主体矩阵、resolver 与架构边界。
+
+结论：`P1-B4-stk_limit-M1` **通过**，下一步只能在独立授权后进入 M2。M1 只证明代码合同和静态/自动化门禁，不代表 migration 已在任何 PostgreSQL 实例应用，也不代表生产已释放空间。

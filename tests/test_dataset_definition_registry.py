@@ -493,7 +493,14 @@ def test_dataset_definition_projects_news_single_table_conflict_key() -> None:
 def test_dataset_definition_projects_stk_limit_subject_completeness_facts() -> None:
     definition = get_dataset_definition("stk_limit")
 
-    assert definition.storage.target_table == "core_serving.equity_stk_limit"
+    assert definition.storage.raw_dao_name == "raw_stk_limit"
+    assert definition.storage.core_dao_name == "raw_stk_limit"
+    assert definition.storage.target_table == "raw_tushare.stk_limit"
+    assert definition.storage.raw_table == "raw_tushare.stk_limit"
+    assert definition.storage.serving_table == "core_serving.equity_stk_limit"
+    assert definition.storage.delivery_mode == "raw_with_serving_view"
+    assert definition.storage.layer_plan == "raw->serving_view"
+    assert definition.storage.write_path == "raw_only_upsert"
     assert definition.date_model.observed_field == "trade_date"
     assert definition.completeness.scope == "date_subject_matrix"
     assert definition.completeness.subject_kind == "stock"

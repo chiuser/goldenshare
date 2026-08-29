@@ -1,0 +1,453 @@
+from __future__ import annotations
+
+from datetime import date
+import importlib.util
+from io import StringIO
+from pathlib import Path
+from types import SimpleNamespace
+
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
+import pytest
+from sqlalchemy.dialects import postgresql
+
+from src.foundation.datasets.registry import get_dataset_definition
+from src.foundation.ingestion import (
+    DatasetActionRequest,
+    DatasetActionResolver,
+    DatasetTimeInput,
+)
+from src.foundation.ingestion.errors import IngestionValidationError
+from src.foundation.ingestion.execution_plan import PlanUnitSnapshot
+from src.foundation.ingestion.normalizer import NormalizedBatch
+from src.foundation.ingestion import source_client as source_client_module
+from src.foundation.ingestion.source_client import DatasetSourceClient
+from src.foundation.ingestion.writer import DatasetWriter
+from src.foundation.models.core.equity_stk_limit import EquityStkLimit
+from src.foundation.models.raw.raw_stk_limit import RawStkLimit
+from src.foundation.models.table_model_registry import get_model_by_table_name
+from src.foundation.serving.targets import get_target_dao_attr
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+MIGRATION_PATH = (
+    REPO_ROOT / "alembic/versions/20260830_000162_make_stk_limit_raw_view.py"
+)
+SOURCE_FIELDS = (
+    "trade_date",
+    "ts_code",
+    "pre_close",
+    "up_limit",
+    "down_limit",
+)
+TABLE_FIELDS = (
+    "ts_code",
+    "trade_date",
+    "pre_close",
+    "up_limit",
+    "down_limit",
+)
+
+
+def _load_migration():  # type: ignore[no-untyped-def]
+    spec = importlib.util.spec_from_file_location(
+        "migration_20260830_000162", MIGRATION_PATH
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    return migration
+
+
+def _postgresql_type(column) -> str:  # type: ignore[no-untyped-def]
+    return str(column.type.compile(dialect=postgresql.dialect()))
+
+
+def test_stk_limit_definition_changes_only_storage_delivery_contract(
+    mocker,
+) -> None:
+    definition = get_dataset_definition("stk_limit")
+
+    assert definition.source.api_name == "stk_limit"
+    assert definition.source.source_fields == SOURCE_FIELDS
+    assert definition.source.request_builder_key == "_stk_limit_params"
+    assert definition.source.base_params == {}
+    assert definition.date_model.date_axis == "trade_open_day"
+    assert definition.date_model.bucket_rule == "every_open_day"
+    assert definition.date_model.window_mode == "point_or_range"
+    assert definition.date_model.input_shape == "trade_date_or_start_end"
+    assert definition.date_model.observed_field == "trade_date"
+    assert definition.date_model.audit_applicable is True
+    assert tuple(field.name for field in definition.input_model.time_fields) == (
+        "trade_date",
+        "start_date",
+        "end_date",
+    )
+    assert tuple(field.name for field in definition.input_model.filters) == ("ts_code",)
+    assert definition.planning.universe_policy == "no_pool"
+    assert definition.planning.enum_fanout_fields == ()
+    assert definition.planning.pagination_policy == "offset_limit"
+    assert definition.planning.page_limit == 5800
+    assert definition.planning.max_units_per_execution is None
+    assert definition.planning.unit_builder_key == "generic"
+    assert definition.capabilities.actions[0].action == "maintain"
+    assert definition.capabilities.actions[0].manual_enabled is True
+    assert definition.capabilities.actions[0].schedule_enabled is True
+    assert definition.capabilities.actions[0].retry_enabled is True
+    assert definition.capabilities.actions[0].supported_time_modes == (
+        "point",
+        "range",
+    )
+
+    assert definition.storage.raw_dao_name == "raw_stk_limit"
+    assert definition.storage.core_dao_name == "raw_stk_limit"
+    assert definition.storage.target_table == "raw_tushare.stk_limit"
+    assert definition.storage.raw_table == "raw_tushare.stk_limit"
+    assert definition.storage.serving_table == "core_serving.equity_stk_limit"
+    assert definition.storage.delivery_mode == "raw_with_serving_view"
+    assert definition.storage.layer_plan == "raw->serving_view"
+    assert definition.storage.write_path == "raw_only_upsert"
+    assert definition.storage.conflict_columns is None
+
+    plan = DatasetActionResolver(mocker.Mock()).build_plan(
+        DatasetActionRequest(
+            dataset_key="stk_limit",
+            action="maintain",
+            time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 8, 27)),
+        )
+    )
+    assert plan.source.fields == SOURCE_FIELDS
+    assert plan.planning.unit_count == 1
+    assert plan.planning.pagination_policy == "offset_limit"
+    assert plan.writing.raw_dao_name == "raw_stk_limit"
+    assert plan.writing.core_dao_name == "raw_stk_limit"
+    assert plan.writing.target_table == "raw_tushare.stk_limit"
+    assert plan.writing.write_path == "raw_only_upsert"
+    assert plan.units[0].request_params == {"trade_date": "20260827"}
+    assert plan.units[0].pagination_policy == "offset_limit"
+    assert plan.units[0].page_limit == 5800
+
+
+def test_stk_limit_preserves_ts_code_filter_and_rejects_unknown_filter(
+    mocker,
+) -> None:
+    plan = DatasetActionResolver(mocker.Mock()).build_plan(
+        DatasetActionRequest(
+            dataset_key="stk_limit",
+            action="maintain",
+            time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 8, 27)),
+            filters={"ts_code": " 000001.sz "},
+        )
+    )
+    assert plan.planning.unit_count == 1
+    assert plan.units[0].request_params == {
+        "trade_date": "20260827",
+        "ts_code": "000001.SZ",
+    }
+
+    with pytest.raises(IngestionValidationError, match="存在未定义参数：content_type"):
+        DatasetActionResolver(mocker.Mock()).build_plan(
+            DatasetActionRequest(
+                dataset_key="stk_limit",
+                action="maintain",
+                time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 8, 27)),
+                filters={"content_type": "概念板块"},
+            )
+        )
+
+
+def test_stk_limit_models_have_identical_business_contract_and_one_date_index() -> None:
+    raw_table = RawStkLimit.__table__
+    serving_table = EquityStkLimit.__table__
+
+    assert raw_table.schema == "raw_tushare"
+    assert serving_table.schema == "core_serving"
+    assert tuple(raw_table.columns.keys()) == TABLE_FIELDS + (
+        "api_name",
+        "fetched_at",
+        "raw_payload",
+    )
+    assert tuple(serving_table.columns.keys()) == TABLE_FIELDS + (
+        "created_at",
+        "updated_at",
+    )
+    assert tuple(raw_table.primary_key.columns.keys()) == ("ts_code", "trade_date")
+    assert tuple(serving_table.primary_key.columns.keys()) == (
+        "ts_code",
+        "trade_date",
+    )
+
+    for field_name in SOURCE_FIELDS:
+        raw_column = raw_table.columns[field_name]
+        serving_column = serving_table.columns[field_name]
+        assert _postgresql_type(raw_column) == _postgresql_type(serving_column)
+        assert raw_column.nullable == serving_column.nullable
+
+    assert {index.name: tuple(index.columns.keys()) for index in raw_table.indexes} == {
+        "idx_raw_tushare_stk_limit_trade_date": ("trade_date",),
+    }
+    assert {
+        index.name: tuple(index.columns.keys()) for index in serving_table.indexes
+    } == {
+        "idx_equity_stk_limit_trade_date": ("trade_date",),
+    }
+
+
+def test_stk_limit_is_not_registered_for_serving_publish_bypass() -> None:
+    assert get_target_dao_attr("stk_limit") is None
+
+
+def test_stk_limit_raw_target_is_registered_for_freshness_and_completeness() -> None:
+    assert get_model_by_table_name("raw_tushare.stk_limit") is RawStkLimit
+
+
+def test_stk_limit_source_client_repeats_all_fields_until_5800_short_page(
+    monkeypatch,
+) -> None:
+    definition = get_dataset_definition("stk_limit")
+    calls: list[dict[str, object]] = []
+
+    class Connector:
+        def call(
+            self, *, api_name: str, params: dict, fields: tuple[str, ...]
+        ) -> list[dict]:
+            calls.append(
+                {"api_name": api_name, "params": dict(params), "fields": tuple(fields)}
+            )
+            offset = int(params["offset"])
+            if offset == 0:
+                return [
+                    {
+                        "trade_date": "20260828",
+                        "ts_code": f"{index:06d}.SZ",
+                        "pre_close": "10.00",
+                        "up_limit": "11.00",
+                        "down_limit": "9.00",
+                    }
+                    for index in range(5800)
+                ]
+            return [
+                {
+                    "trade_date": "20260828",
+                    "ts_code": "600000.SH",
+                    "pre_close": "10.00",
+                    "up_limit": "11.00",
+                    "down_limit": "9.00",
+                }
+            ]
+
+    monkeypatch.setattr(
+        source_client_module,
+        "create_source_connector",
+        lambda _source_key: Connector(),
+    )
+    result = DatasetSourceClient().fetch(
+        definition=definition,
+        unit=PlanUnitSnapshot(
+            unit_id="stk-limit-u1",
+            dataset_key="stk_limit",
+            source_key="tushare",
+            trade_date=date(2026, 8, 28),
+            request_params={"trade_date": "20260828"},
+            progress_context={},
+            pagination_policy="offset_limit",
+            page_limit=5800,
+        ),
+    )
+
+    assert [call["params"] for call in calls] == [
+        {"trade_date": "20260828", "offset": 0, "limit": 5800},
+        {"trade_date": "20260828", "offset": 5800, "limit": 5800},
+    ]
+    assert all(call["api_name"] == "stk_limit" for call in calls)
+    assert all(call["fields"] == SOURCE_FIELDS for call in calls)
+    assert len(result.rows_raw) == 5801
+    assert result.pagination_diagnostics["observed_short_page"] is True
+    assert result.pagination_diagnostics["terminal_offset"] == 5800
+
+
+class _StubRawDao:
+    model = RawStkLimit
+
+    def __init__(self) -> None:
+        self.bulk_upsert_calls: list[list[dict]] = []
+
+    def bulk_upsert(self, rows: list[dict], conflict_columns=None):  # type: ignore[no-untyped-def]
+        self.bulk_upsert_calls.append(rows)
+        return len(rows)
+
+
+class _ForbiddenServingDao:
+    model = EquityStkLimit
+
+    def __init__(self) -> None:
+        self.bulk_upsert_calls = 0
+
+    def bulk_upsert(self, rows: list[dict], conflict_columns=None):  # type: ignore[no-untyped-def]
+        self.bulk_upsert_calls += 1
+        raise AssertionError("stk_limit raw_only_upsert must not write serving")
+
+
+def test_stk_limit_writer_only_upserts_raw_table(mocker) -> None:
+    raw_dao = _StubRawDao()
+    serving_dao = _ForbiddenServingDao()
+    mocker.patch(
+        "src.foundation.ingestion.writer.DAOFactory",
+        return_value=SimpleNamespace(
+            raw_stk_limit=raw_dao,
+            equity_stk_limit=serving_dao,
+        ),
+    )
+    definition = get_dataset_definition("stk_limit")
+    batch = NormalizedBatch(
+        unit_id="stk-limit-u1",
+        rows_normalized=[
+            {
+                "trade_date": date(2026, 8, 28),
+                "ts_code": "600000.SH",
+                "pre_close": 10,
+                "up_limit": 11,
+                "down_limit": 9,
+            }
+        ],
+        rows_rejected=0,
+        rejected_reasons={},
+    )
+
+    result = DatasetWriter(session=mocker.Mock()).write(
+        definition=definition,
+        batch=batch,
+    )
+
+    assert raw_dao.bulk_upsert_calls == [batch.rows_normalized]
+    assert serving_dao.bulk_upsert_calls == 0
+    assert result.target_table == "raw_tushare.stk_limit"
+    assert result.rows_written == 1
+
+
+def test_stk_limit_migration_is_independent_atomic_and_fail_closed() -> None:
+    source = MIGRATION_PATH.read_text(encoding="utf-8")
+    uppercase = source.upper()
+
+    assert 'revision = "20260830_000162"' in source
+    assert 'down_revision = "20260829_000161"' in source
+    assert "SET LOCAL lock_timeout = '15s'" in source
+    assert "SET LOCAL statement_timeout = '300s'" in source
+    assert "SET LOCAL work_mem = '16MB'" in source
+    assert "SET LOCAL temp_file_limit" not in source
+    assert "max_rows_per_month constant bigint := 220000" in source
+    assert "monthly reconciliation exceeds safety cap" in source
+    assert "date_trunc('month', raw_min_date)" in source
+    assert "WHILE window_start <= raw_max_date LOOP" in source
+    assert "count(DISTINCT (ts_code, trade_date))" in source
+    assert source.count("pg_catalog.unnest(constraint_row.conkey)") == 2
+    assert "raw_tushare.stk_limit must remain on SSD pg_default" in source
+    assert "idx_raw_tushare_stk_limit_trade_date" in source
+    assert "idx_equity_stk_limit_trade_date" in source
+    assert source.count("AND NOT index_row.indisunique") == 2
+    assert source.count("AND index_row.indexprs IS NULL") == 2
+    assert "required lake_raw_reader SELECT" in source
+    assert "grantee_role.rolname IS DISTINCT FROM 'lake_raw_reader'" in source
+    assert "Unexpected column-level ACL" in source
+    assert "Unexpected non-primary-key constraint on raw_tushare.stk_limit" in source
+    assert "constraint_row.contype NOT IN ('p', 'n')" in source
+    assert "Unexpected function dependency" in source
+    assert "Unexpected logical-publication contract" in source
+    assert "Unexpected rewrite rule" in source
+    assert "Unexpected extended statistics" in source
+    assert "Unexpected security label" in source
+    assert "LOCK TABLE raw_tushare.stk_limit IN SHARE MODE" in source
+    assert "LOCK TABLE core_serving.equity_stk_limit IN SHARE MODE" in source
+    assert "LOCK TABLE core_serving.equity_stk_limit IN ACCESS EXCLUSIVE MODE" in source
+    assert uppercase.count("EXCEPT ALL") == 2
+    assert "DROP TABLE core_serving.equity_stk_limit" in source
+    assert "DROP TABLE core_serving.equity_stk_limit CASCADE" not in source
+    assert "DROP TABLE raw_tushare.stk_limit" not in source
+    assert "CREATE VIEW core_serving.equity_stk_limit AS" in source
+    assert "SELECT *" not in uppercase
+    assert "fetched_at AS created_at" in source
+    assert "fetched_at AS updated_at" in source
+    assert "reject_raw_direct_serving_view_dml" in source
+    assert "Required DML rejection function contract is missing or invalid" in source
+    assert (
+        "CREATE FUNCTION core_serving.reject_raw_direct_serving_view_dml" not in source
+    )
+    assert "INSTEAD OF INSERT OR UPDATE OR DELETE" in source
+    assert "Failed to restore serving metadata" in source
+    assert "automatic downgrade is forbidden" in source
+    assert "dc_daily" not in source
+    assert "content_type" not in source
+    assert "CREATE INDEX" not in uppercase
+    assert "ALTER TABLE raw_tushare.stk_limit" not in source
+    assert "INSERT INTO raw_tushare.stk_limit" not in source
+    assert "UPDATE raw_tushare.stk_limit" not in source
+    assert "DELETE FROM raw_tushare.stk_limit" not in source
+
+    raw_lock_at = source.index("LOCK TABLE raw_tushare.stk_limit IN SHARE MODE")
+    serving_lock_at = source.index(
+        "LOCK TABLE core_serving.equity_stk_limit IN SHARE MODE"
+    )
+    equality_at = source.index("EXCEPT ALL")
+    exclusive_lock_at = source.index(
+        "LOCK TABLE core_serving.equity_stk_limit IN ACCESS EXCLUSIVE MODE"
+    )
+    drop_at = source.index("DROP TABLE core_serving.equity_stk_limit")
+    create_view_at = source.index("CREATE VIEW core_serving.equity_stk_limit AS")
+    assert (
+        raw_lock_at
+        < serving_lock_at
+        < equality_at
+        < exclusive_lock_at
+        < drop_at
+        < create_view_at
+    )
+
+
+def test_stk_limit_migration_renders_complete_postgresql_sql() -> None:
+    migration = _load_migration()
+    for sql_name in (
+        "_SET_BOUNDED_SESSION_LIMITS",
+        "_PREFLIGHT_RELATIONS",
+        "_LOCK_SOURCE_RELATIONS",
+        "_PREFLIGHT_CONTRACT",
+        "_VERIFY_DATA_EQUIVALENCE",
+        "_VERIFY_EXISTING_REJECT_FUNCTION",
+        "_LOCK_SERVING_FOR_SWITCH",
+        "_SWITCH_RELATION",
+        "_VERIFY_VIEW_CONTRACT",
+    ):
+        sql_value = getattr(migration, sql_name)
+        statements = (sql_value,) if isinstance(sql_value, str) else sql_value
+        assert statements
+        for sql in statements:
+            assert isinstance(sql, str)
+            assert sql.strip()
+            assert not sql.lstrip().startswith("_")
+
+    output = StringIO()
+    context = MigrationContext.configure(
+        dialect_name="postgresql",
+        opts={"as_sql": True, "output_buffer": output},
+    )
+    with Operations.context(context):
+        migration.upgrade()
+
+    sql = output.getvalue()
+    assert "CREATE VIEW core_serving.equity_stk_limit AS" in sql
+    assert "CREATE TRIGGER trg_equity_stk_limit_reject_dml" in sql
+    assert "ts_code|character varying(16)|NOT NULL" in sql
+    assert "trade_date|date|NOT NULL" in sql
+    assert "pre_close|numeric(18,4)|NULL" in sql
+    assert "up_limit|numeric(18,4)|NULL" in sql
+    assert "down_limit|numeric(18,4)|NULL" in sql
+    assert "api_name|character varying(32)|NOT NULL" in sql
+    assert "created_at|timestamp with time zone|NOT NULL" in sql
+    assert "numeric(18,4)NULL" not in sql
+    assert "DROP TABLE core_serving.equity_stk_limit CASCADE" not in sql
+    assert "DROP TABLE raw_tushare.stk_limit" not in sql
+
+
+def test_stk_limit_migration_forbids_automatic_downgrade() -> None:
+    with pytest.raises(RuntimeError, match="automatic downgrade is forbidden"):
+        _load_migration().downgrade()

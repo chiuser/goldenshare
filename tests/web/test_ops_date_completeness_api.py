@@ -1093,7 +1093,7 @@ def test_date_subject_matrix_worker_supports_stk_limit_dataset(app_client, user_
     db_session.execute(
         text(
             """
-            create table core_serving.equity_stk_limit (
+            create table raw_tushare.stk_limit (
                 ts_code text not null,
                 trade_date date not null
             )
@@ -1103,7 +1103,7 @@ def test_date_subject_matrix_worker_supports_stk_limit_dataset(app_client, user_
     db_session.execute(
         text(
             """
-            insert into core_serving.equity_stk_limit (ts_code, trade_date)
+            insert into raw_tushare.stk_limit (ts_code, trade_date)
             values
               ('000001.SZ', '2026-04-24'),
               ('001257.SZ', '2026-04-24'),
@@ -1128,7 +1128,7 @@ def test_date_subject_matrix_worker_supports_stk_limit_dataset(app_client, user_
 
     assert run is not None
     assert run.dataset_key == "stk_limit"
-    assert run.target_table == "core_serving.equity_stk_limit"
+    assert run.target_table == "raw_tushare.stk_limit"
     assert run.audit_scope == "date_subject_matrix"
     assert run.subject_kind == "stock"
     assert run.result_status == "failed"
@@ -1152,7 +1152,7 @@ def test_date_subject_matrix_worker_supports_stk_limit_dataset(app_client, user_
     assert details[0].bucket_value == date(2026, 4, 27)
     assert details[0].subject_key == "001257.SZ"
     assert details[0].subject_name == "立新能源"
-    assert details[0].target_table == "core_serving.equity_stk_limit"
+    assert details[0].target_table == "raw_tushare.stk_limit"
     assert details[0].subject_key_json == {"ts_code": "001257.SZ"}
     assert details[0].actual_key_json == {"ts_code": "001257.SZ", "trade_date": "2026-04-27"}
 

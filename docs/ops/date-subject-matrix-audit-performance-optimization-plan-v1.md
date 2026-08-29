@@ -61,10 +61,12 @@
 | `adj_factor` | `core.equity_adj_factor` | `stock` | `stock_basic_active_lifecycle` | `ts_code` |
 | `daily` | `core_serving.equity_daily_bar` | `stock` | `stock_basic_active_lifecycle` | `ts_code` |
 | `daily_basic` | `core_serving.equity_daily_basic` | `stock` | `stock_basic_active_lifecycle` | `ts_code` |
-| `stk_limit` | `core_serving.equity_stk_limit` | `stock` | `stock_basic_active_lifecycle` | `ts_code` |
+| `stk_limit` | `raw_tushare.stk_limit` | `stock` | `stock_basic_active_lifecycle` | `ts_code` |
 | `stk_factor_pro` | `core_serving.equity_factor_pro` | `stock` | `stock_basic_active_lifecycle` | `ts_code` |
 
 M2 第一版只承诺覆盖以上 5 个数据集。它们共享的是“执行方式”，不是所有对象池业务语义。
+
+`stk_limit` 已在 2026-08-30 的 raw 直出 M1 中把 Definition 审计目标改为 Raw；原 `core_serving.equity_stk_limit` 名称继续服务业务只读消费者，不再作为 completeness 的物理事实源。第 8.2 节保留 2026-05-17 对旧 Serving 物理表的历史性能证据，不将其改写成切换后的测量结果。
 
 ### 2.2 可通用与不可硬通用的边界
 

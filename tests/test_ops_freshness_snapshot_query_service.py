@@ -227,7 +227,7 @@ def test_observed_model_registry_covers_equity_daily_business_date_tables() -> N
         "core_serving.equity_auction_open",
         "core_serving.equity_margin",
         "core_serving.equity_margin_detail",
-        "core_serving.equity_stk_limit",
+        "raw_tushare.stk_limit",
         "core_serving.equity_stock_st",
         "core_serving.equity_suspend_d",
         "raw_tushare.cyq_perf",
