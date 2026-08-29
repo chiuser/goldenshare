@@ -41,10 +41,11 @@
 分层部署约束：
 
 1. `--platform-only` / `--ops-only` / `--foundation-only` 默认不处理 `goldenshare-realtime-collector.service`。
-2. `goldenshare-ops-task-completion-worker.service` 只要 `DEPLOY_FOUNDATION=1` 或 `DEPLOY_OPS=1` 就必须 enable + restart。
-3. `goldenshare-ops-stk-mins-worker.service` 和 `goldenshare-ops-index-mins-worker.service` 只要 `DEPLOY_FOUNDATION=1` 或 `DEPLOY_OPS=1` 就必须 enable + restart。
-4. 需要在非全量部署中同时处理实时采集服务时，必须显式传 `--with-realtime`。
-5. 全量部署默认处理实时采集服务；如需跳过，显式传 `--skip-realtime`。
+2. `goldenshare-date-completeness-worker.service` 只要 `DEPLOY_OPS=1` 就必须 enable + restart。
+3. `goldenshare-ops-task-completion-worker.service` 只要 `DEPLOY_FOUNDATION=1` 或 `DEPLOY_OPS=1` 就必须 enable + restart。
+4. `goldenshare-ops-stk-mins-worker.service` 和 `goldenshare-ops-index-mins-worker.service` 只要 `DEPLOY_FOUNDATION=1` 或 `DEPLOY_OPS=1` 就必须 enable + restart。
+5. 需要在非全量部署中同时处理实时采集服务时，必须显式传 `--with-realtime`。
+6. 全量部署默认处理实时采集服务；如需跳过，显式传 `--skip-realtime`。
 
 ---
 
@@ -53,10 +54,11 @@
 若使用 `goldenshare` 用户部署，应在 sudoers 中仅放行：
 
 1. `systemctl daemon-reload/restart/status`（受部署脚本管理的服务）
-2. `systemctl enable goldenshare-ops-task-completion-worker.service`（TaskRun 完成副作用 worker 是常驻服务，必须开机自启动）
-3. `systemctl enable goldenshare-ops-stk-mins-worker.service` 和 `systemctl enable goldenshare-ops-index-mins-worker.service`（分钟线专用 worker 是常驻服务，必须开机自启动）
-4. `systemctl enable goldenshare-realtime-collector.service`（实时 collector 是常驻服务，必须开机自启动）
-5. 受部署脚本管理的 unit 模板到 `/etc/systemd/system` 的 `install -m 644`
+2. `systemctl enable goldenshare-date-completeness-worker.service`（日期完整性审计 worker 是常驻服务，必须开机自启动）
+3. `systemctl enable goldenshare-ops-task-completion-worker.service`（TaskRun 完成副作用 worker 是常驻服务，必须开机自启动）
+4. `systemctl enable goldenshare-ops-stk-mins-worker.service` 和 `systemctl enable goldenshare-ops-index-mins-worker.service`（分钟线专用 worker 是常驻服务，必须开机自启动）
+5. `systemctl enable goldenshare-realtime-collector.service`（实时 collector 是常驻服务，必须开机自启动）
+6. 受部署脚本管理的 unit 模板到 `/etc/systemd/system` 的 `install -m 644`
 
 不要给无边界的 root 命令白名单。
 

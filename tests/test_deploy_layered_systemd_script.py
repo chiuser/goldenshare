@@ -8,6 +8,21 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_deploy_script_enables_date_completeness_worker_for_ops_layer() -> None:
+    script = (ROOT / "scripts" / "deploy-layered-systemd.sh").read_text(encoding="utf-8")
+    unit = (ROOT / "scripts" / "goldenshare-date-completeness-worker.service").read_text(encoding="utf-8")
+
+    ops_case_start = script.index("    ops)")
+    ops_case_end = script.index("    platform)", ops_case_start)
+    ops_case = script[ops_case_start:ops_case_end]
+
+    enable = ops_case.index('sudo_systemctl enable "${DATE_COMPLETENESS_WORKER_SERVICE}"')
+    restart = ops_case.index('sudo_systemctl restart "${DATE_COMPLETENESS_WORKER_SERVICE}"')
+    assert enable < restart
+    assert "[Install]" in unit
+    assert "WantedBy=multi-user.target" in unit
+
+
 def test_deploy_script_manages_task_completion_worker_for_foundation_or_ops_layers() -> None:
     script = (ROOT / "scripts" / "deploy-layered-systemd.sh").read_text(encoding="utf-8")
 
@@ -60,6 +75,14 @@ def test_sudoers_allows_task_completion_worker_deploy_commands() -> None:
         "/usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-ops-task-completion-worker.service "
         "/etc/systemd/system/goldenshare-ops-task-completion-worker.service"
     ) in sudoers
+
+
+def test_sudoers_allows_date_completeness_worker_autostart() -> None:
+    sudoers = (ROOT / "scripts" / "goldenshare-deploy.sudoers").read_text(encoding="utf-8")
+
+    assert "/usr/bin/systemctl restart goldenshare-date-completeness-worker.service" in sudoers
+    assert "/usr/bin/systemctl status goldenshare-date-completeness-worker.service" in sudoers
+    assert "/usr/bin/systemctl enable goldenshare-date-completeness-worker.service" in sudoers
 
 
 def test_sudoers_allows_both_minute_worker_deploy_commands() -> None:

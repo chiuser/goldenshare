@@ -1,6 +1,6 @@
 # 本地/生产双环境操作边界 v1
 
-更新时间：2026-04-20
+更新时间：2026-08-29
 
 ## 1. 目标
 
@@ -51,7 +51,8 @@
    - `goldenshare-ops-worker.service`
    - `goldenshare-ops-scheduler.service`
    - `goldenshare-date-completeness-worker.service`
-3. 仅当 `scripts/goldenshare-*.service` 发生改动时，才同步 unit 文件到 `/etc/systemd/system`。
+3. `goldenshare-date-completeness-worker.service` 是常驻审计服务，Ops 发布必须执行 `enable + restart`，保证服务器重启后自动启动。
+4. 仅当 `scripts/goldenshare-*.service` 发生改动时，才同步 unit 文件到 `/etc/systemd/system`。
 
 ## 3. 发布前预检脚本说明
 

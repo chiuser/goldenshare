@@ -188,7 +188,7 @@ ensure_sudo_ready() {
   - systemctl restart/status goldenshare-web.service
   - systemctl restart/status goldenshare-ops-worker.service
   - systemctl restart/status goldenshare-ops-scheduler.service
-  - systemctl restart/status goldenshare-date-completeness-worker.service
+  - systemctl restart/status/enable goldenshare-date-completeness-worker.service
   - systemctl restart/status/enable goldenshare-ops-task-completion-worker.service
   - systemctl restart/status/enable goldenshare-ops-stk-mins-worker.service
   - systemctl restart/status/enable goldenshare-ops-index-mins-worker.service
@@ -256,6 +256,8 @@ restart_layer_services() {
     ops)
       log "重启 Ops 调度层（scheduler）"
       sudo_systemctl restart "${SCHEDULER_SERVICE}"
+      log "启用 Ops 审计执行层（date completeness worker）自启动"
+      sudo_systemctl enable "${DATE_COMPLETENESS_WORKER_SERVICE}" >/dev/null
       log "重启 Ops 审计执行层（date completeness worker）"
       sudo_systemctl restart "${DATE_COMPLETENESS_WORKER_SERVICE}"
       ;;

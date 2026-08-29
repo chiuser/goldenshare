@@ -12,6 +12,7 @@ goldenshare ALL=(root) NOPASSWD: \
   /usr/bin/systemctl restart goldenshare-ops-index-mins-worker.service, \
   /usr/bin/systemctl restart goldenshare-qtf-worker.service, \
   /usr/bin/systemctl restart goldenshare-realtime-collector.service, \
+  /usr/bin/systemctl enable goldenshare-date-completeness-worker.service, \
   /usr/bin/systemctl enable goldenshare-ops-task-completion-worker.service, \
   /usr/bin/systemctl enable goldenshare-ops-stk-mins-worker.service, \
   /usr/bin/systemctl enable goldenshare-ops-index-mins-worker.service, \
