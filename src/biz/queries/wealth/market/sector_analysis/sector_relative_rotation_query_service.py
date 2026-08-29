@@ -83,6 +83,7 @@ from src.biz.services.wealth.market.sector_analysis.sector_relative_rotation_con
     SectorRelativeRotationPointFact,
     SectorRelativeRotationTrailLength,
     make_rank_slice,
+    make_selected_rank_slice,
 )
 
 
@@ -111,7 +112,9 @@ class SectorRelativeRotationQueryService:
     ) -> None:
         self._context_query = context_query or MarketPageContextQuery()
         self._meta_service = meta_service or SectorAnalysisMetaQueryService()
-        self._snapshot_service = snapshot_service or SectorMomentumSnapshotQueryService()
+        self._snapshot_service = (
+            snapshot_service or SectorMomentumSnapshotQueryService()
+        )
         self._query = momentum_query or SectorMomentumQuery()
         self._momentum_calculator = momentum_calculator or SectorMomentumCalculator()
         self._relative_calculator = (
@@ -133,7 +136,9 @@ class SectorRelativeRotationQueryService:
             calculable_count=resolution.observed.valid_sector_count,
         )
         if status.status not in {"READY", "DELAYED"}:
-            raise SectorDataQueryError("relative-rotation meta has no usable business date")
+            raise SectorDataQueryError(
+                "relative-rotation meta has no usable business date"
+            )
         return SectorRelativeRotationMetaResponseDto(
             status=status.status,
             tradingDay=self._trading_day(resolution),
@@ -256,23 +261,27 @@ class SectorRelativeRotationQueryService:
                 period=period,
                 fact_index=fact_index,
             )
-            rank_slices = {
+            current_date = display_dates[-1]
+            current_position = date_indexes[current_date]
+            current_comparison_date = open_dates[
+                current_position - IMPROVEMENT_LOOKBACK_DAYS
+            ]
+            full_rank_slices = {
                 item: make_rank_slice(
                     item,
                     returns_by_date[item],
                     self._momentum_calculator.rank_strength(returns_by_date[item]),
                 )
-                for item in calculation_dates
+                for item in (current_comparison_date, current_date)
             }
-            points_by_date = self._relative_calculator.calculate_grid(
+            current_points = self._relative_calculator.calculate_current_snapshot(
                 sector_codes=pool_codes,
                 open_dates=open_dates,
-                display_dates=display_dates,
-                rank_slices=rank_slices,
+                current_date=current_date,
+                current_slice=full_rank_slices[current_date],
+                comparison_slice=full_rank_slices[current_comparison_date],
             )
 
-            current_date = display_dates[-1]
-            current_points = points_by_date[current_date]
             current_calculable_count = sum(
                 item.percentile is not None for item in current_points
             )
@@ -285,14 +294,51 @@ class SectorRelativeRotationQueryService:
 
             sorted_points = self._relative_calculator.canonical_sort(current_points)
             selected_code = sector_code or self._default_selection(sorted_points)
+            selected_rank_slices = {}
+            for item in calculation_dates:
+                if item in full_rank_slices:
+                    rank_slice = full_rank_slices[item]
+                    selected_index = next(
+                        index
+                        for index, rank_fact in enumerate(rank_slice.ranked)
+                        if rank_fact.sector_code == selected_code
+                    )
+                    selected_rank_slices[item] = make_selected_rank_slice(
+                        item,
+                        rank_slice.returns[selected_index],
+                        rank_slice.ranked[selected_index],
+                        rank_slice.calculable_count,
+                    )
+                    continue
+                selected_rank, calculable_count = (
+                    self._momentum_calculator.rank_selected(
+                        returns_by_date[item],
+                        sector_code=selected_code,
+                    )
+                )
+                selected_return = next(
+                    return_fact
+                    for return_fact in returns_by_date[item]
+                    if return_fact.sector_code == selected_code
+                )
+                selected_rank_slices[item] = make_selected_rank_slice(
+                    item,
+                    selected_return,
+                    selected_rank,
+                    calculable_count,
+                )
+            selected_points = self._relative_calculator.calculate_selected_trail(
+                selected_sector_code=selected_code,
+                open_dates=open_dates,
+                display_dates=display_dates,
+                rank_slices=selected_rank_slices,
+            )
             group_interpretation = self._group_interpretation(current_points)
             quadrant_counts = self._quadrant_counts(
                 current_points,
                 group_interpretation=group_interpretation,
             )
-            node_by_code = {
-                node.sector_code: node for node in preparation.pool
-            }
+            node_by_code = {node.sector_code: node for node in preparation.pool}
             items = [
                 self._row_dto(
                     point=point,
@@ -301,14 +347,6 @@ class SectorRelativeRotationQueryService:
                 )
                 for point in sorted_points
             ]
-            selected_points = tuple(
-                next(
-                    point
-                    for point in points_by_date[item]
-                    if point.sector_code == selected_code
-                )
-                for item in display_dates
-            )
             selected_trail = SectorRelativeRotationTrailDto(
                 sectorCode=selected_code,
                 requestedLength=trail_length,
@@ -413,7 +451,9 @@ class SectorRelativeRotationQueryService:
             None,
         ) or next((item for item in rows if item.percentile is not None), None)
         if selected is None:
-            raise SectorDataQueryError("relative-rotation has no selectable current fact")
+            raise SectorDataQueryError(
+                "relative-rotation has no selectable current fact"
+            )
         return selected.sector_code
 
     @staticmethod

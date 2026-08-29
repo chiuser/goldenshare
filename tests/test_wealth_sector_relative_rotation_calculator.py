@@ -14,7 +14,9 @@ from src.biz.services.wealth.market.sector_analysis.sector_relative_rotation_cal
 )
 from src.biz.services.wealth.market.sector_analysis.sector_relative_rotation_contract import (
     SectorRelativeRotationRankSlice,
+    SectorRelativeRotationSelectedRankSlice,
     make_rank_slice,
+    make_selected_rank_slice,
     parse_relative_rotation_period,
     parse_relative_rotation_trail_length,
 )
@@ -62,24 +64,85 @@ def _slice(
     return make_rank_slice(trade_date, returns, ranked)
 
 
-def test_calculator_covers_four_quadrants_and_frozen_boundaries() -> None:
-    grid = SectorRelativeRotationCalculator.calculate_grid(
+def _snapshot(
+    *,
+    comparison: SectorRelativeRotationRankSlice,
+    current: SectorRelativeRotationRankSlice,
+):
+    return SectorRelativeRotationCalculator.calculate_current_snapshot(
         sector_codes=CODES,
         open_dates=OPEN_DATES,
-        display_dates=(CURRENT_DATE,),
-        rank_slices={
-            COMPARISON_DATE: _slice(
-                COMPARISON_DATE,
-                percentiles=("50", "30", "60", "50"),
-            ),
-            CURRENT_DATE: _slice(
-                CURRENT_DATE,
-                percentiles=("60", "40", "60", "40"),
-            ),
-        },
+        current_date=CURRENT_DATE,
+        current_slice=current,
+        comparison_slice=comparison,
     )
 
-    points = grid[CURRENT_DATE]
+
+def _selected_slice(
+    rank_slice: SectorRelativeRotationRankSlice,
+    *,
+    sector_code: str = CODES[0],
+) -> SectorRelativeRotationSelectedRankSlice:
+    index = next(
+        index
+        for index, item in enumerate(rank_slice.ranked)
+        if item.sector_code == sector_code
+    )
+    return make_selected_rank_slice(
+        rank_slice.trade_date,
+        rank_slice.returns[index],
+        rank_slice.ranked[index],
+        rank_slice.calculable_count,
+    )
+
+
+def _legacy_grid(
+    *,
+    display_dates: tuple[date, ...],
+    rank_slices: dict[date, SectorRelativeRotationRankSlice],
+):
+    """Test-only oracle matching the removed full historical grid orchestration."""
+    date_indexes = {item: index for index, item in enumerate(OPEN_DATES)}
+    return {
+        display_date: tuple(
+            SectorRelativeRotationCalculator._calculate_point(  # noqa: SLF001
+                sector_code=sector_code,
+                trade_date=display_date,
+                current=(
+                    rank_slices[display_date].returns[index],
+                    rank_slices[display_date].ranked[index],
+                ),
+                comparison=(
+                    rank_slices[OPEN_DATES[date_indexes[display_date] - 5]].returns[
+                        index
+                    ],
+                    rank_slices[OPEN_DATES[date_indexes[display_date] - 5]].ranked[
+                        index
+                    ],
+                ),
+                current_count=rank_slices[display_date].calculable_count,
+                comparison_count=rank_slices[
+                    OPEN_DATES[date_indexes[display_date] - 5]
+                ].calculable_count,
+            )
+            for index, sector_code in enumerate(CODES)
+        )
+        for display_date in display_dates
+    }
+
+
+def test_calculator_covers_four_quadrants_and_frozen_boundaries() -> None:
+    points = _snapshot(
+        comparison=_slice(
+            COMPARISON_DATE,
+            percentiles=("50", "30", "60", "50"),
+        ),
+        current=_slice(
+            CURRENT_DATE,
+            percentiles=("60", "40", "60", "40"),
+        ),
+    )
+
     assert [item.percentile_delta_5d for item in points] == [
         Decimal("10.0"),
         Decimal("10.0"),
@@ -96,23 +159,17 @@ def test_calculator_covers_four_quadrants_and_frozen_boundaries() -> None:
 
 
 def test_small_group_keeps_coordinates_but_never_assigns_a_quadrant() -> None:
-    grid = SectorRelativeRotationCalculator.calculate_grid(
-        sector_codes=CODES,
-        open_dates=OPEN_DATES,
-        display_dates=(CURRENT_DATE,),
-        rank_slices={
-            COMPARISON_DATE: _slice(
-                COMPARISON_DATE,
-                percentiles=("100", "0", None, None),
-            ),
-            CURRENT_DATE: _slice(
-                CURRENT_DATE,
-                percentiles=("100", "50", "0", None),
-            ),
-        },
+    points = _snapshot(
+        comparison=_slice(
+            COMPARISON_DATE,
+            percentiles=("100", "0", None, None),
+        ),
+        current=_slice(
+            CURRENT_DATE,
+            percentiles=("100", "50", "0", None),
+        ),
     )
 
-    points = grid[CURRENT_DATE]
     assert points[0].rotation_status == "SAMPLE_INSUFFICIENT"
     assert points[0].coordinate_status == "PLOTTABLE"
     assert points[1].rotation_status == "SAMPLE_INSUFFICIENT"
@@ -120,26 +177,23 @@ def test_small_group_keeps_coordinates_but_never_assigns_a_quadrant() -> None:
     assert points[2].comparison_missing_reason == "DATE_MISSING"
 
 
-def test_current_and_comparison_missing_reasons_are_preserved_without_coordinates() -> None:
-    grid = SectorRelativeRotationCalculator.calculate_grid(
-        sector_codes=CODES,
-        open_dates=OPEN_DATES,
-        display_dates=(CURRENT_DATE,),
-        rank_slices={
-            COMPARISON_DATE: _slice(
-                COMPARISON_DATE,
-                percentiles=("100", None, "50", "0"),
-                reasons=("NONE", "CLOSE_NON_POSITIVE", "NONE", "NONE"),
-            ),
-            CURRENT_DATE: _slice(
-                CURRENT_DATE,
-                percentiles=(None, "100", "50", "0"),
-                reasons=("CLOSE_MISSING", "NONE", "NONE", "NONE"),
-            ),
-        },
+def test_current_and_comparison_missing_reasons_are_preserved_without_coordinates() -> (
+    None
+):
+    points = _snapshot(
+        comparison=_slice(
+            COMPARISON_DATE,
+            percentiles=("100", None, "50", "0"),
+            reasons=("NONE", "CLOSE_NON_POSITIVE", "NONE", "NONE"),
+        ),
+        current=_slice(
+            CURRENT_DATE,
+            percentiles=(None, "100", "50", "0"),
+            reasons=("CLOSE_MISSING", "NONE", "NONE", "NONE"),
+        ),
     )
 
-    current_missing, comparison_missing = grid[CURRENT_DATE][:2]
+    current_missing, comparison_missing = points[:2]
     assert current_missing.current_missing_reason == "CLOSE_MISSING"
     assert current_missing.percentile is None
     assert current_missing.percentile_delta_5d is None
@@ -151,23 +205,18 @@ def test_current_and_comparison_missing_reasons_are_preserved_without_coordinate
 
 
 def test_canonical_sort_keeps_plottable_then_x_only_then_missing() -> None:
-    grid = SectorRelativeRotationCalculator.calculate_grid(
-        sector_codes=CODES,
-        open_dates=OPEN_DATES,
-        display_dates=(CURRENT_DATE,),
-        rank_slices={
-            COMPARISON_DATE: _slice(
-                COMPARISON_DATE,
-                percentiles=("60", None, "70", "0"),
-            ),
-            CURRENT_DATE: _slice(
-                CURRENT_DATE,
-                percentiles=("80", "90", None, "80"),
-            ),
-        },
+    points = _snapshot(
+        comparison=_slice(
+            COMPARISON_DATE,
+            percentiles=("60", None, "70", "0"),
+        ),
+        current=_slice(
+            CURRENT_DATE,
+            percentiles=("80", "90", None, "80"),
+        ),
     )
 
-    sorted_rows = SectorRelativeRotationCalculator.canonical_sort(grid[CURRENT_DATE])
+    sorted_rows = SectorRelativeRotationCalculator.canonical_sort(points)
     assert [item.sector_code for item in sorted_rows] == [
         "BK1004.DC",
         "BK1001.DC",
@@ -178,30 +227,36 @@ def test_canonical_sort_keeps_plottable_then_x_only_then_missing() -> None:
 
 def test_future_slice_cannot_change_an_existing_coordinate() -> None:
     slices = {
-        COMPARISON_DATE: _slice(
-            COMPARISON_DATE,
-            percentiles=("50", "30", "60", "50"),
+        COMPARISON_DATE: _selected_slice(
+            _slice(
+                COMPARISON_DATE,
+                percentiles=("50", "30", "60", "50"),
+            )
         ),
-        CURRENT_DATE: _slice(
-            CURRENT_DATE,
-            percentiles=("60", "40", "60", "40"),
+        CURRENT_DATE: _selected_slice(
+            _slice(
+                CURRENT_DATE,
+                percentiles=("60", "40", "60", "40"),
+            )
         ),
     }
-    baseline = SectorRelativeRotationCalculator.calculate_grid(
-        sector_codes=CODES,
+    baseline = SectorRelativeRotationCalculator.calculate_selected_trail(
+        selected_sector_code=CODES[0],
         open_dates=OPEN_DATES,
         display_dates=(CURRENT_DATE,),
         rank_slices=slices,
     )
-    with_future = SectorRelativeRotationCalculator.calculate_grid(
-        sector_codes=CODES,
+    with_future = SectorRelativeRotationCalculator.calculate_selected_trail(
+        selected_sector_code=CODES[0],
         open_dates=OPEN_DATES,
         display_dates=(CURRENT_DATE,),
         rank_slices={
             **slices,
-            OPEN_DATES[6]: _slice(
-                OPEN_DATES[6],
-                percentiles=("0", "100", "0", "100"),
+            OPEN_DATES[6]: _selected_slice(
+                _slice(
+                    OPEN_DATES[6],
+                    percentiles=("0", "100", "0", "100"),
+                )
             ),
         },
     )
@@ -209,11 +264,96 @@ def test_future_slice_cannot_change_an_existing_coordinate() -> None:
     assert with_future == baseline
 
 
+def test_selected_trail_preserves_date_slots_and_uses_one_sector_only() -> None:
+    final_date = OPEN_DATES[10]
+    slices = {
+        COMPARISON_DATE: _selected_slice(
+            _slice(COMPARISON_DATE, percentiles=("50", "30", "60", "50"))
+        ),
+        CURRENT_DATE: _selected_slice(
+            _slice(CURRENT_DATE, percentiles=("60", "40", "60", "40"))
+        ),
+        final_date: _selected_slice(
+            _slice(final_date, percentiles=("90", "30", "60", "50"))
+        ),
+    }
+
+    points = SectorRelativeRotationCalculator.calculate_selected_trail(
+        selected_sector_code=CODES[0],
+        open_dates=OPEN_DATES,
+        display_dates=(CURRENT_DATE, final_date),
+        rank_slices=slices,
+    )
+
+    assert [item.trade_date for item in points] == [CURRENT_DATE, final_date]
+    assert [item.sector_code for item in points] == [CODES[0], CODES[0]]
+    assert [item.percentile_delta_5d for item in points] == [
+        Decimal("10.0"),
+        Decimal("30.0"),
+    ]
+
+
+@pytest.mark.parametrize("selected_sector_code", CODES)
+def test_sparse_snapshot_and_trail_exactly_match_removed_full_grid_oracle(
+    selected_sector_code: str,
+) -> None:
+    final_date = OPEN_DATES[10]
+    display_dates = (CURRENT_DATE, final_date)
+    full_slices = {
+        COMPARISON_DATE: _slice(
+            COMPARISON_DATE,
+            percentiles=("50", "30", "60", None),
+        ),
+        CURRENT_DATE: _slice(
+            CURRENT_DATE,
+            percentiles=("60", "40", "60", "40"),
+        ),
+        final_date: _slice(
+            final_date,
+            percentiles=("90", "40", None, "40"),
+        ),
+    }
+    legacy = _legacy_grid(
+        display_dates=display_dates,
+        rank_slices=full_slices,
+    )
+
+    current = SectorRelativeRotationCalculator.calculate_current_snapshot(
+        sector_codes=CODES,
+        open_dates=OPEN_DATES,
+        current_date=final_date,
+        current_slice=full_slices[final_date],
+        comparison_slice=full_slices[CURRENT_DATE],
+    )
+    selected_slices = {
+        item: _selected_slice(rank_slice, sector_code=selected_sector_code)
+        for item, rank_slice in full_slices.items()
+    }
+    trail = SectorRelativeRotationCalculator.calculate_selected_trail(
+        selected_sector_code=selected_sector_code,
+        open_dates=OPEN_DATES,
+        display_dates=display_dates,
+        rank_slices=selected_slices,
+    )
+
+    assert current == legacy[final_date]
+    assert trail == tuple(
+        next(
+            point
+            for point in legacy[display_date]
+            if point.sector_code == selected_sector_code
+        )
+        for display_date in display_dates
+    )
+
+
 @pytest.mark.parametrize(
     "mutation",
     ("length", "duplicate", "order", "value", "reason", "date", "count"),
 )
-def test_rank_slice_rejects_every_return_rank_alignment_violation(mutation: str) -> None:
+def test_rank_slice_rejects_every_return_rank_alignment_violation(
+    mutation: str,
+) -> None:
     valid = _slice(CURRENT_DATE, percentiles=("100", "66.7", "33.3", "0"))
     returns = list(valid.returns)
     ranked = list(valid.ranked)
@@ -258,6 +398,55 @@ def test_rank_slice_rejects_every_return_rank_alignment_violation(mutation: str)
             trade_date=CURRENT_DATE,
             returns=tuple(returns),
             ranked=tuple(ranked),
+            calculable_count=calculable_count,
+        )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ("code", "value", "reason", "date", "count"),
+)
+def test_selected_rank_slice_rejects_alignment_violations(mutation: str) -> None:
+    full = _slice(CURRENT_DATE, percentiles=("100", "66.7", "33.3", "0"))
+    return_fact = full.returns[0]
+    rank_fact = full.ranked[0]
+    calculable_count = full.calculable_count
+    if mutation == "code":
+        rank_fact = SectorRankFact(
+            CODES[1],
+            rank_fact.return_pct,
+            rank_fact.strength_rank,
+            rank_fact.percentile,
+        )
+    elif mutation == "value":
+        rank_fact = SectorRankFact(
+            rank_fact.sector_code,
+            Decimal("999"),
+            rank_fact.strength_rank,
+            rank_fact.percentile,
+        )
+    elif mutation == "reason":
+        return_fact = SectorReturnFact(
+            return_fact.sector_code,
+            return_fact.trade_date,
+            return_fact.return_pct,
+            "DATE_MISSING",
+        )
+    elif mutation == "date":
+        return_fact = SectorReturnFact(
+            return_fact.sector_code,
+            COMPARISON_DATE,
+            return_fact.return_pct,
+            "NONE",
+        )
+    else:
+        calculable_count = 0
+
+    with pytest.raises(ValueError):
+        SectorRelativeRotationSelectedRankSlice(
+            trade_date=CURRENT_DATE,
+            return_fact=return_fact,
+            rank_fact=rank_fact,
             calculable_count=calculable_count,
         )
 

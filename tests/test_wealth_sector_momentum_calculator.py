@@ -22,7 +22,9 @@ def _dates(count: int) -> tuple[date, ...]:
     return tuple(START_DATE + timedelta(days=index) for index in range(count))
 
 
-def _fact(code: str, item: date, *, close: str | None, pct: str | None) -> SectorDailyFact:
+def _fact(
+    code: str, item: date, *, close: str | None, pct: str | None
+) -> SectorDailyFact:
     return SectorDailyFact(
         sector_code=code,
         trade_date=item,
@@ -191,6 +193,70 @@ def test_single_calculable_row_has_percentile_one_hundred() -> None:
     )
     assert ranked[0].strength_rank == 1
     assert ranked[0].percentile == Decimal("100.0")
+
+
+def test_selected_rank_is_identical_to_full_rank_for_ties_missing_and_single_row() -> (
+    None
+):
+    item = _dates(1)[0]
+    samples = (
+        (
+            SectorReturnFact("BK1001.DC", item, Decimal("5"), "NONE"),
+            SectorReturnFact("BK1002.DC", item, Decimal("3"), "NONE"),
+            SectorReturnFact("BK1003.DC", item, Decimal("3"), "NONE"),
+            SectorReturnFact("BK1004.DC", item, None, "DATE_MISSING"),
+        ),
+        (
+            SectorReturnFact("BK1001.DC", item, None, "DATE_MISSING"),
+            SectorReturnFact("BK1002.DC", item, Decimal("1"), "NONE"),
+        ),
+    )
+
+    for returns in samples:
+        full = SectorMomentumCalculator.rank_strength(returns)
+        calculable_count = sum(row.percentile is not None for row in full)
+        for expected in full:
+            selected, selected_count = SectorMomentumCalculator.rank_selected(
+                returns,
+                sector_code=expected.sector_code,
+            )
+            assert selected == expected
+            assert selected_count == calculable_count
+
+
+@pytest.mark.parametrize(
+    "returns",
+    (
+        (
+            SectorReturnFact(
+                "BK1001.DC",
+                START_DATE,
+                Decimal("1"),
+                "NONE",
+            ),
+        ),
+        (
+            SectorReturnFact(
+                "BK9999.DC",
+                START_DATE,
+                Decimal("1"),
+                "NONE",
+            ),
+            SectorReturnFact(
+                "BK9999.DC",
+                START_DATE,
+                Decimal("2"),
+                "NONE",
+            ),
+        ),
+    ),
+)
+def test_selected_rank_rejects_absent_or_duplicate_selected_sector(returns) -> None:
+    with pytest.raises(ValueError):
+        SectorMomentumCalculator.rank_selected(
+            returns,
+            sector_code="BK9999.DC",
+        )
 
 
 @pytest.mark.parametrize("period", [1, 5, 10, 20, 30])

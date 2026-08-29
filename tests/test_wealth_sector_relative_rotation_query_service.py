@@ -43,6 +43,9 @@ from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract imp
     SectorSelectionInvalidError,
     SectorTradingDateResolution,
 )
+from src.biz.services.wealth.market.sector_analysis.sector_relative_rotation_calculator import (
+    SectorRelativeRotationCalculator,
+)
 
 
 OPEN_DATES = tuple(date(2026, 7, 1) + timedelta(days=index) for index in range(30))
@@ -111,11 +114,7 @@ def _preparation(
         "MISSING" if missing else ("PARTIAL" if delayed else "COMPLETE"),
         0 if missing else (3 if delayed else 4),
     )
-    observed = (
-        expected
-        if not delayed
-        else _availability(OPEN_DATES[-2], "COMPLETE", 4)
-    )
+    observed = expected if not delayed else _availability(OPEN_DATES[-2], "COMPLETE", 4)
     return SectorMomentumSnapshotPreparation(
         context=_context(),
         hierarchy=_hierarchy(),
@@ -217,11 +216,41 @@ class _MomentumQuery:
 
 class _CountingCalculator(SectorMomentumCalculator):
     def __init__(self) -> None:
-        self.grid_calls = 0
+        self.calculate_for_dates_calls = 0
+        self.rank_strength_calls = 0
+        self.rank_selected_calls = 0
 
     def calculate_for_dates(self, **kwargs):
-        self.grid_calls += 1
+        self.calculate_for_dates_calls += 1
         return super().calculate_for_dates(**kwargs)
+
+    def rank_strength(self, return_facts):
+        self.rank_strength_calls += 1
+        return super().rank_strength(return_facts)
+
+    def rank_selected(self, return_facts, *, sector_code):
+        self.rank_selected_calls += 1
+        return super().rank_selected(return_facts, sector_code=sector_code)
+
+
+class _CountingRelativeCalculator(SectorRelativeRotationCalculator):
+    def __init__(self) -> None:
+        self.current_calls = 0
+        self.trail_calls = 0
+        self.current_point_count = 0
+        self.trail_point_count = 0
+
+    def calculate_current_snapshot(self, **kwargs):
+        self.current_calls += 1
+        points = super().calculate_current_snapshot(**kwargs)
+        self.current_point_count += len(points)
+        return points
+
+    def calculate_selected_trail(self, **kwargs):
+        self.trail_calls += 1
+        points = super().calculate_selected_trail(**kwargs)
+        self.trail_point_count += len(points)
+        return points
 
 
 def _service(
@@ -229,10 +258,12 @@ def _service(
     snapshot_service: _SnapshotService | None = None,
     query: _MomentumQuery | None = None,
     calculator: _CountingCalculator | None = None,
+    relative_calculator: _CountingRelativeCalculator | None = None,
 ):
     context_query = _ContextQuery()
     momentum_query = query or _MomentumQuery()
     momentum_calculator = calculator or _CountingCalculator()
+    rotation_calculator = relative_calculator or _CountingRelativeCalculator()
     return (
         SectorRelativeRotationQueryService(
             context_query=context_query,  # type: ignore[arg-type]
@@ -240,10 +271,12 @@ def _service(
             snapshot_service=snapshot_service or _SnapshotService(),  # type: ignore[arg-type]
             momentum_query=momentum_query,  # type: ignore[arg-type]
             momentum_calculator=momentum_calculator,
+            relative_calculator=rotation_calculator,
         ),
         context_query,
         momentum_query,
         momentum_calculator,
+        rotation_calculator,
     )
 
 
@@ -297,8 +330,10 @@ def test_meta_returns_frozen_formula_and_defaults() -> None:
     }
 
 
-def test_results_read_one_grid_once_and_return_atomic_snapshot_and_trail() -> None:
-    service, context_query, query, calculator = _service()
+def test_results_read_once_and_materialize_only_current_snapshot_and_selected_trail() -> (
+    None
+):
+    service, context_query, query, calculator, relative_calculator = _service()
     response = _build_results(service)
 
     assert response.status == "READY"
@@ -313,15 +348,19 @@ def test_results_read_one_grid_once_and_return_atomic_snapshot_and_trail() -> No
     assert context_query.calls == 1
     assert query.open_calls == query.fact_calls == 1
     assert query.requested_count == 30
-    assert calculator.grid_calls == 1
+    assert calculator.calculate_for_dates_calls == 1
+    assert calculator.rank_strength_calls == 2
+    assert calculator.rank_selected_calls == 23
+    assert relative_calculator.current_calls == 1
+    assert relative_calculator.current_point_count == 4
+    assert relative_calculator.trail_calls == 1
+    assert relative_calculator.trail_point_count == 20
 
 
 def test_missing_current_and_comparison_facts_keep_precise_reasons_and_slots() -> None:
     current_missing = ("BK1004.DC", TARGET_DATE)
     comparison_window_missing = ("BK1003.DC", OPEN_DATES[-11])
-    query = _MomentumQuery(
-        missing_facts={current_missing, comparison_window_missing}
-    )
+    query = _MomentumQuery(missing_facts={current_missing, comparison_window_missing})
     service, *_rest = _service(query=query)
     response = _build_results(service, sector_code="BK1004.DC")
 
@@ -333,11 +372,14 @@ def test_missing_current_and_comparison_facts_keep_precise_reasons_and_slots() -
     assert by_code["BK1003.DC"].currentMissingReason is None
     assert by_code["BK1003.DC"].comparisonMissingReason == "DATE_MISSING"
     assert response.analysis.selectedTrail.dateSlotCount == 20
-    assert response.analysis.selectedTrail.points[-1].currentMissingReason == "DATE_MISSING"
+    assert (
+        response.analysis.selectedTrail.points[-1].currentMissingReason
+        == "DATE_MISSING"
+    )
 
 
 def test_no_current_calculable_facts_returns_empty_without_analysis() -> None:
-    service, _context, query, calculator = _service(
+    service, _context, query, calculator, relative_calculator = _service(
         query=_MomentumQuery(no_facts=True)
     )
     response = _build_results(service)
@@ -346,17 +388,28 @@ def test_no_current_calculable_facts_returns_empty_without_analysis() -> None:
     assert response.exceptionCode == "SA_SOURCE_EMPTY"
     assert response.analysis is None
     assert query.open_calls == query.fact_calls == 1
-    assert calculator.grid_calls == 1
+    assert calculator.calculate_for_dates_calls == 1
+    assert calculator.rank_strength_calls == 2
+    assert calculator.rank_selected_calls == 0
+    assert relative_calculator.current_calls == 1
+    assert relative_calculator.current_point_count == 4
+    assert relative_calculator.trail_calls == 0
 
 
 def test_explicit_missing_date_stops_before_calendar_or_fact_reads() -> None:
     snapshot_service = _SnapshotService(preparation=_preparation(missing=True))
-    service, _context, query, calculator = _service(snapshot_service=snapshot_service)
+    service, _context, query, calculator, relative_calculator = _service(
+        snapshot_service=snapshot_service
+    )
     response = _build_results(service)
 
     assert response.status == "EMPTY"
     assert query.open_calls == query.fact_calls == 0
-    assert calculator.grid_calls == 0
+    assert calculator.calculate_for_dates_calls == 0
+    assert calculator.rank_strength_calls == 0
+    assert calculator.rank_selected_calls == 0
+    assert relative_calculator.current_calls == 0
+    assert relative_calculator.trail_calls == 0
 
 
 def test_delayed_date_uses_observed_day_as_snapshot_and_trail_end() -> None:
@@ -371,13 +424,17 @@ def test_delayed_date_uses_observed_day_as_snapshot_and_trail_end() -> None:
 
 
 def test_explicit_selection_outside_pool_stops_before_window_reads() -> None:
-    service, _context, query, calculator = _service()
+    service, _context, query, calculator, relative_calculator = _service()
 
     with pytest.raises(SectorSelectionInvalidError):
         _build_results(service, sector_code="BK9999.DC")
 
     assert query.open_calls == query.fact_calls == 0
-    assert calculator.grid_calls == 0
+    assert calculator.calculate_for_dates_calls == 0
+    assert calculator.rank_strength_calls == 0
+    assert calculator.rank_selected_calls == 0
+    assert relative_calculator.current_calls == 0
+    assert relative_calculator.trail_calls == 0
 
 
 def test_version_and_scope_errors_are_not_hidden_by_safe_error_shell() -> None:
@@ -385,9 +442,7 @@ def test_version_and_scope_errors_are_not_hidden_by_safe_error_shell() -> None:
         SectorMomentumFactVersionMismatchError("stale"),
         SectorSelectionInvalidError("invalid date"),
     ):
-        service, *_rest = _service(
-            snapshot_service=_SnapshotService(failure=failure)
-        )
+        service, *_rest = _service(snapshot_service=_SnapshotService(failure=failure))
         with pytest.raises(type(failure)):
             _build_results(service)
 
@@ -400,9 +455,7 @@ def test_version_and_scope_errors_are_not_hidden_by_safe_error_shell() -> None:
     ),
 )
 def test_internal_failures_return_safe_error_shells(failure, expected_code) -> None:
-    service, *_rest = _service(
-        snapshot_service=_SnapshotService(failure=failure)
-    )
+    service, *_rest = _service(snapshot_service=_SnapshotService(failure=failure))
     response = _build_results(service)
 
     assert response.status == "ERROR"
@@ -443,7 +496,9 @@ def test_strict_schema_rejects_counts_sort_coordinates_and_trail_tampering() -> 
             SectorRelativeRotationResultsResponseDto.model_validate(mutation)
 
 
-def test_maximum_grid_compute_and_json_p95_stays_within_m10_core_budget() -> None:
+def test_maximum_sparse_core_compute_and_json_p95_stays_within_in_memory_budget() -> (
+    None
+):
     open_dates = tuple(date(2026, 4, 1) + timedelta(days=index) for index in range(95))
     target_date = open_dates[-1]
     codes = tuple(f"BK{3000 + index:04d}.DC" for index in range(337))
@@ -528,11 +583,17 @@ def test_maximum_grid_compute_and_json_p95_stays_within_m10_core_budget() -> Non
         def load_facts(self, _session, **_kwargs):
             return facts
 
+    momentum_calculator = _CountingCalculator()
+    relative_calculator = _CountingRelativeCalculator()
     service = SectorRelativeRotationQueryService(
         context_query=LargeContextQuery(),  # type: ignore[arg-type]
         snapshot_service=LargeSnapshotService(),  # type: ignore[arg-type]
         momentum_query=LargeMomentumQuery(),  # type: ignore[arg-type]
+        momentum_calculator=momentum_calculator,
+        relative_calculator=relative_calculator,
     )
+    # This is an in-memory core budget only. It intentionally excludes auth,
+    # SQL execution, result transfer, and SQLAlchemy row materialization.
     durations = []
     for _index in range(20):
         started = perf_counter()
@@ -554,6 +615,13 @@ def test_maximum_grid_compute_and_json_p95_stays_within_m10_core_budget() -> Non
         assert response.status == "READY"
 
     assert sorted(durations)[18] <= 0.4
+    assert momentum_calculator.calculate_for_dates_calls == 20
+    assert momentum_calculator.rank_strength_calls == 40
+    assert momentum_calculator.rank_selected_calls == 20 * 63
+    assert relative_calculator.current_calls == 20
+    assert relative_calculator.current_point_count == 20 * 337
+    assert relative_calculator.trail_calls == 20
+    assert relative_calculator.trail_point_count == 20 * 60
 
 
 def test_open_date_window_accepts_95_but_rejects_96() -> None:

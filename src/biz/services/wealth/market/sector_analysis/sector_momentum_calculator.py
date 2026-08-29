@@ -23,7 +23,9 @@ class SectorMomentumCalculator:
     """Deterministic price-only cross-sectional momentum calculations."""
 
     @staticmethod
-    def index_facts(facts: Iterable[SectorDailyFact]) -> dict[tuple[str, date], SectorDailyFact]:
+    def index_facts(
+        facts: Iterable[SectorDailyFact],
+    ) -> dict[tuple[str, date], SectorDailyFact]:
         indexed: dict[tuple[str, date], SectorDailyFact] = {}
         for fact in facts:
             key = (fact.sector_code, fact.trade_date)
@@ -46,7 +48,9 @@ class SectorMomentumCalculator:
         try:
             target_index = open_dates.index(target_date)
         except ValueError as exc:
-            raise ValueError("target date is absent from the supplied open-date window") from exc
+            raise ValueError(
+                "target date is absent from the supplied open-date window"
+            ) from exc
         return tuple(
             self._calculate_one(
                 sector_code=sector_code,
@@ -71,7 +75,9 @@ class SectorMomentumCalculator:
         date_indexes = {item: index for index, item in enumerate(open_dates)}
         if any(item not in date_indexes for item in target_dates):
             raise ValueError("target date is absent from the supplied open-date window")
-        results: dict[date, list[SectorReturnFact]] = {item: [] for item in target_dates}
+        results: dict[date, list[SectorReturnFact]] = {
+            item: [] for item in target_dates
+        }
         for sector_code in sector_codes:
             facts = tuple(fact_index.get((sector_code, item)) for item in open_dates)
             if period == 1:
@@ -155,9 +161,46 @@ class SectorMomentumCalculator:
         return {item: tuple(rows) for item, rows in results.items()}
 
     @staticmethod
-    def rank_strength(return_facts: Iterable[SectorReturnFact]) -> tuple[SectorRankFact, ...]:
+    def rank_strength(
+        return_facts: Iterable[SectorReturnFact],
+    ) -> tuple[SectorRankFact, ...]:
+        rows, ranks_by_value, _calculable_count = (
+            SectorMomentumCalculator._strength_rank_lookup(return_facts)
+        )
+        return tuple(
+            SectorMomentumCalculator._rank_fact(row, ranks_by_value) for row in rows
+        )
+
+    @staticmethod
+    def rank_selected(
+        return_facts: Iterable[SectorReturnFact],
+        *,
+        sector_code: str,
+    ) -> tuple[SectorRankFact, int]:
+        """Project one sector rank from the same full cross-sectional lookup."""
+        rows, ranks_by_value, calculable_count = (
+            SectorMomentumCalculator._strength_rank_lookup(return_facts)
+        )
+        selected = tuple(row for row in rows if row.sector_code == sector_code)
+        if len(selected) != 1:
+            raise ValueError("selected sector must occur exactly once in return facts")
+        return (
+            SectorMomentumCalculator._rank_fact(selected[0], ranks_by_value),
+            calculable_count,
+        )
+
+    @staticmethod
+    def _strength_rank_lookup(
+        return_facts: Iterable[SectorReturnFact],
+    ) -> tuple[
+        tuple[SectorReturnFact, ...],
+        dict[Decimal, tuple[int, Decimal]],
+        int,
+    ]:
         rows = tuple(return_facts)
-        valid_values = tuple(row.return_pct for row in rows if row.return_pct is not None)
+        valid_values = tuple(
+            row.return_pct for row in rows if row.return_pct is not None
+        )
         frequencies: dict[Decimal, int] = {}
         for value in valid_values:
             frequencies[value] = frequencies.get(value, 0) + 1
@@ -168,7 +211,9 @@ class SectorMomentumCalculator:
             if len(valid_values) == 1:
                 percentile = Decimal("100.0")
             else:
-                average_rank = Decimal(greater) + (Decimal(equal) + Decimal(1)) / Decimal(2)
+                average_rank = Decimal(greater) + (
+                    Decimal(equal) + Decimal(1)
+                ) / Decimal(2)
                 percentile = (
                     (Decimal(len(valid_values)) - average_rank)
                     / Decimal(len(valid_values) - 1)
@@ -176,29 +221,30 @@ class SectorMomentumCalculator:
                 ).quantize(PERCENTILE_QUANTUM, rounding=ROUND_HALF_UP)
             ranks_by_value[value] = (greater + 1, percentile)
             greater += equal
+        return rows, ranks_by_value, len(valid_values)
 
-        result: list[SectorRankFact] = []
-        for row in rows:
-            if row.return_pct is None:
-                result.append(
-                    SectorRankFact(
-                        sector_code=row.sector_code,
-                        return_pct=None,
-                        strength_rank=None,
-                        percentile=None,
-                    )
-                )
-                continue
-            strength_rank, percentile = ranks_by_value[row.return_pct]
-            result.append(
-                SectorRankFact(
-                    sector_code=row.sector_code,
-                    return_pct=row.return_pct.quantize(RETURN_QUANTUM, rounding=ROUND_HALF_UP),
-                    strength_rank=strength_rank,
-                    percentile=percentile,
-                )
+    @staticmethod
+    def _rank_fact(
+        row: SectorReturnFact,
+        ranks_by_value: dict[Decimal, tuple[int, Decimal]],
+    ) -> SectorRankFact:
+        if row.return_pct is None:
+            return SectorRankFact(
+                sector_code=row.sector_code,
+                return_pct=None,
+                strength_rank=None,
+                percentile=None,
             )
-        return tuple(result)
+        strength_rank, percentile = ranks_by_value[row.return_pct]
+        return SectorRankFact(
+            sector_code=row.sector_code,
+            return_pct=row.return_pct.quantize(
+                RETURN_QUANTUM,
+                rounding=ROUND_HALF_UP,
+            ),
+            strength_rank=strength_rank,
+            percentile=percentile,
+        )
 
     @staticmethod
     def sort_ranking_rows(
@@ -241,7 +287,9 @@ class SectorMomentumCalculator:
             if fact is None:
                 return SectorReturnFact(sector_code, target_date, None, "DATE_MISSING")
             if fact.pct_change is None or not fact.pct_change.is_finite():
-                return SectorReturnFact(sector_code, target_date, None, "PCT_CHANGE_MISSING")
+                return SectorReturnFact(
+                    sector_code, target_date, None, "PCT_CHANGE_MISSING"
+                )
             return SectorReturnFact(
                 sector_code,
                 target_date,
@@ -250,7 +298,9 @@ class SectorMomentumCalculator:
             )
 
         if target_index < period:
-            return SectorReturnFact(sector_code, target_date, None, "HISTORY_INSUFFICIENT")
+            return SectorReturnFact(
+                sector_code, target_date, None, "HISTORY_INSUFFICIENT"
+            )
         required_dates = open_dates[target_index - period : target_index + 1]
         required_facts: list[SectorDailyFact] = []
         for required_date in required_dates:
@@ -262,7 +312,9 @@ class SectorMomentumCalculator:
         if any(value is None or not value.is_finite() for value in closes):
             return SectorReturnFact(sector_code, target_date, None, "CLOSE_MISSING")
         if any(value <= 0 for value in closes if value is not None):
-            return SectorReturnFact(sector_code, target_date, None, "CLOSE_NON_POSITIVE")
+            return SectorReturnFact(
+                sector_code, target_date, None, "CLOSE_NON_POSITIVE"
+            )
         start_close = closes[0]
         end_close = closes[-1]
         assert start_close is not None and end_close is not None
