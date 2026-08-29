@@ -1,6 +1,6 @@
 # Tushare 每日涨跌停价格（`stk_limit`）数据集开发说明
 
-- 状态：现有数据集已运行；`P1-B4-stk_limit-M0/M1/M2` 已通过，下一阶段为独立授权的生产 M3a
+- 状态：现有数据集已运行；`P1-B4-stk_limit-M0/M1/M2/M3a` 已通过，生产已 raw 直出；M3b 待 `2026-08-31` 两个自然 workflow 分别验收
 - 更新时间：2026-08-30
 - 专项依据：[生产 PostgreSQL raw 直出一期低层设计 v1](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-raw-direct-serving-phase-one-lld-v1.md)
 
@@ -149,3 +149,19 @@ M2 在本轮创建的 PostgreSQL 18.4 一次性实例执行。实例只监听 `/
 5. 20 日市场情绪复合键 join 与按交易日存在性查询在切换前后结果行数和 hash 一致，切换后分别下推 Raw 主键和 `idx_raw_tushare_stk_limit_trade_date`，无临时块。隔离样本耗时约为 `0.214 -> 0.194 ms`、`0.069 -> 0.062 ms`，只作为计划与索引形态证据，不替代生产 SLA。
 
 隔离实例已停止，临时数据目录已删除；完整报告保留在 `/private/tmp/goldenshare_stk_limit_m2_report.json`。`P1-B4-stk_limit-M2` **通过**，revision 162 和业务代码无需修改。生产仍为 revision 161、Raw/Serving 双物理表和旧双写部署，尚未释放 664,354,816 B；下一阶段只能在独立授权后进入生产 M3a。
+
+## 11. `P1-B4-stk_limit-M3a` 生产即时验收（2026-08-30）
+
+M3a 于 `06:50..06:59+08` 按维护窗口顺序完成。生产切换、即时查询与唯一一次受控 TaskRun 均通过；没有创建额外 workflow、历史任务或 schedule，也没有重复执行失败任务。
+
+1. 实时预检确认 PostgreSQL 16.13、revision 161、远端旧 commit `dc191135`。Raw/Serving 均为 SSD `pg_default` 物理表，各 4,608,112 行和同数身份，日期范围 `2024-01-02..2026-08-28`；32 个自然月五字段双向差异为 0，月峰值 177,009，低于 220,000 停止线。开放 TaskRun、目标 node、完整性审计 run、目标锁、等待锁和超过 30 秒事务均为 0；根盘可用 53,501,075,456 B。
+2. schedule #24/#2 通过正式 `OpsScheduleCommandService` 分别暂停，config revision `131/132` 留痕；cron、时区、next/last timing 均未被改写。scheduler 与 generic worker 逐个停止并回查后，32 月锁前最终对账仍为 4,608,112/4,608,112、五字段差异 0。
+3. `--maintenance-migration` 只拉取并安装包含 M1/M2 的 `da84a32a`，应用 revision `161→162`；前端/Wealth 构建、seed、unit 同步、TaskRun 创建和服务自动恢复全部跳过。Raw relation OID `21604`、主键/日期索引 OID `21611/21613` 保持不变且继续位于 SSD；Serving 变为 OID `2041913` 的 0 B view，确定性 catalog 毛释放量为原 Serving relation 的 664,354,816 B。
+4. view 显式投影 5 个业务字段与 `fetched_at AS created_at/updated_at`；owner、Raw `lake_raw_reader SELECT`、Serving ACL 和独立拒写 trigger 正确。Raw/view 全表行数、身份、日期范围、32 月五字段与审计时间投影全部一致；Serving `INSERT/UPDATE/DELETE` 均以 SQLSTATE `55000` 拒绝，回滚测试行残留为 0。
+5. 20 日市场情绪 join 与 64 日日期存在性查询的 Raw/view 结果 hash 一致。切换后 view 被优化器下推到 Raw；20 日 join 约 575 ms，相对切换前 Serving 约 567 ms 为约 1.5% 波动；64 日存在性约 0.76 ms，使用 `idx_raw_tushare_stk_limit_trade_date`，均无临时块或超过 20% 的结构性退化。
+6. Web、日期完整性 worker、TaskRun 收尾 worker 与 generic worker 逐个回收连接池后，通过正式 `ManualActionCommandService → DatasetActionResolver → TaskRun` 创建唯一 TaskRun `10182`，目标为 point `2026-08-28`。第一次远端 Python 命令在解释阶段因引号错误失败，服务方法没有执行；回查 TaskRun 最大 ID 和开放任务确认没有创建任务或请求 Tushare 后，才执行正式创建。
+7. TaskRun `10182` 为 `success`、`1/1/0`；源端两页 `5800+1968`、terminal offset 5,800、最终短页、无截断和重试。读取/保存 `7,768/7,768`，reject、去重均为 0。Raw/view 当日各 7,768 行和身份，五字段差异 0；7,768 行的 `fetched_at` 全部位于 node `15895` 的执行窗口内，全表仍为 4,608,112 行，证明已有日期重跑幂等。
+8. schedule #2/#24 经 config revision `133/134` 原样恢复 active，下一次仍分别为 `2026-08-31 21:02/18:30+08`；scheduler 恢复后开放任务、目标 node、完整性审计 run、目标锁、等待锁和长事务均为 0。Web、generic worker、scheduler、日期完整性、TaskRun 收尾、两类分钟线、QTF 与 realtime 服务全部 active，两个健康端点正常；终态根盘可用 55,182,610,432 B，文件系统瞬时变化不作为确定性释放量。
+9. 维护期间远端在 `06:56:04+08` 另有一次 fast-forward 到 `4e54dec8`。该提交是 `da84a32a` 的后继，只新增/更新 8 份财务数据集文档，没有修改代码、migration、Definition 或运行契约；本并发事实保留在验收记录中，但不改变本项结论。
+
+`P1-B4-stk_limit-M3a` **通过**。生产现为 revision 162、Raw 唯一物理事实表和 0 B Serving view。`P1-B4-stk_limit-M3b` 已登记为后续 TODO：必须分别核验 `2026-08-31 18:30+08` 的 schedule #24 与 `21:02+08` 的 schedule #2 父 TaskRun 中 `stk_limit` node；不得用一个自然入口替代另一个，也不得为 M3b 创建额外任务或重复请求源端。

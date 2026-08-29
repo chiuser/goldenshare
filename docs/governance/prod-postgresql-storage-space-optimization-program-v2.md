@@ -1,7 +1,7 @@
 # 生产 PostgreSQL 存储空间优化治理专项 v2
 
 - 版本：v2
-- 状态：P1-B0、P1-B1 与 P1-B2 已结案；`P1-B3-stk_auction_o` 已结案，`stk_auction_c`、`moneyflow_ths` 与 `moneyflow_dc` 已完成 M0/M1/M2/M3a，M3b 待 `2026-08-31` 自然观察；`P1-B4-stk_limit-M0/M1/M2` 已通过，下一项为独立授权的生产 M3a
+- 状态：一期 12 项均已完成生产 raw 直出 M3a；P1-B0/P1-B1/P1-B2 与 `stk_auction_o` 已结案，`stk_auction_c`、`moneyflow_ths`、`moneyflow_dc`、`stk_limit` 的 M3b 待 `2026-08-31` 自然观察
 - 更新时间：2026-08-30
 - 范围：生产 PostgreSQL 小对象 SSD→HDD 迁移，以及无业务转换的 raw/core_serving 重复物理存储收口
 - 不在范围：`stk_mins` 大分区迁移、删除 raw 源事实、修改 Tushare 请求语义、自动执行生产 DDL
@@ -573,6 +573,16 @@ M2 使用只监听随机 Unix socket 的 PostgreSQL 18.4 一次性实例，应�
 
 实例已停止，临时数据根已删除；报告位于 `/private/tmp/goldenshare_stk_limit_m2_report.json`。M2 据此通过，revision 162 与业务代码无需修改。生产仍为 revision 161、双物理表和旧双写部署，664,354,816 B 尚未释放；下一阶段只能独立授权生产 M3a，并实时复核版本/head、schedule #24/#2、worker、开放任务、锁、长事务、32 月全字段差异、查询与磁盘门禁。
 
+### 2.40 2026-08-30 `P1-B4-stk_limit-M3a` 生产验收事实
+
+M3a 于 `06:50..06:59+08` 按维护顺序完成。生产预检为 PostgreSQL 16.13、revision 161、远端旧 commit `dc191135`；Raw/Serving 各 4,608,112 行和身份，32 月五字段差异为 0、月峰值 177,009。schedule #24/#2 经 config revision `131/132` 分别暂停，scheduler/generic worker 停止后开放任务、目标 node、完整性审计 run、目标锁、等待锁和超过 30 秒事务均为 0。
+
+`--maintenance-migration` 只拉取并安装 `da84a32a`、应用 revision 161→162，不构建、不 seed、不同步 unit、不创建任务或隐式恢复服务。Raw OID `21604` 与索引 OID `21611/21613` 保持不变并继续位于 SSD；Serving 成为 OID `2041913` 的 0 B view，确定性 catalog 毛释放 664,354,816 B。Raw/view 全表行数、身份、日期范围、32 月五字段和审计投影一致；owner/ACL/Raw reader/拒写 trigger 正确，三类 DML 均返回 `55000`。
+
+两类市场情绪查询结果 hash 一致、view 下推 Raw、无临时块，切换后时延未超过 20% 停止线。回收 Web 与 Ops 连接池后，正式 TaskRun `10182` 对 `2026-08-28` 成功执行 `5800+1968` 两页，读取/保存 `7,768/7,768`，reject、去重、重试均为 0；Raw/view 当日各 7,768 行和身份、五字段差异 0，全表仍为 4,608,112 行。第一次远端 Python 创建命令只在解释阶段失败，服务未执行且无 TaskRun/Tushare 请求，回查后才正式创建唯一任务。
+
+schedule #2/#24 经 config revision `133/134` 原样恢复 active，下一次仍为 `2026-08-31 21:02/18:30+08`；九个常驻服务与两个健康端点正常，最终开放任务、锁和长事务为 0。维护期间远端另有一次 fast-forward 到 `4e54dec8`，该提交是 `da84a32a` 的后继且只改财务数据集文档，不涉及本项运行合同。M3a 据此通过；M3b 已登记为两个自然父任务分别验收，不创建额外任务或重复请求源端。
+
 ## 3. Track A：独立小对象 SSD→HDD 迁移
 
 ### 3.1 A0：历史日线轻量叶分区
@@ -693,7 +703,7 @@ raw 直出一期口径固定后，原 A1 不能再作为六表迁移批次执行
 | `moneyflow_ths` | 468.18 MiB | **21 月、2,077,033 行、13 业务字段双向差异为 0** | 是 | **M0/M1/M2/M3a 通过；revision 159 已切换 0 B view 并释放 490,921,984 B，M3b 待自然观察；Raw 固定留 SSD** |
 | `stk_auction_c` | 372.19 MiB | **20 月、2,255,593 行、9 业务字段双向差异为 0** | 是 | **M0/M1/M2/M3a 通过；生产 revision 158、0 B raw-backed view，已释放 390,266,880 B；M3b 待自然观察** |
 | `stk_auction_o` | 364.64 MiB | **20 月、2,183,621 行、9 业务字段双向差异为 0** | 是 | **M0/M1/M2/M3a/M3b 通过并结案；生产已为 0 B raw-backed view，已释放 382,353,408 B** |
-| `stk_limit` | 664,354,816 B（633.58 MiB） | **32 月、4,608,112 行、5 业务字段双向差异为 0** | 是 | **M0/M1/M2 通过；revision 162 的 220,000/220,001 行、拒写、回滚、writer 和市场情绪查询均通过；下一步生产 M3a；Raw 固定留 SSD** |
+| `stk_limit` | 664,354,816 B（633.58 MiB） | **32 月、4,608,112 行、5 业务字段双向差异为 0** | 是 | **M0/M1/M2/M3a 通过；生产 revision 162、0 B Serving view，已释放 664,354,816 B；M3b 待 #24/#2 自然观察；Raw 固定留 SSD** |
 | `stock_st` | 71.0 MiB | 待证明 | 是 | **旁路修复服务仍双写，当前禁止改造** |
 | `suspend_d` | 211.91 MiB | **320 月、640,504 行、6 业务字段双向差异为 0** | 是 | 多个 Wealth 查询消费者；`id` 逐行一致；M0/M1/M2/M3a/M3b 和 filter 修复完成并结案 |
 | `ths_daily` | 511.6 MiB | 待分块证明 | 否，缺 1 组 | 一期外；后续在 Track A 与 raw 直出之间重新评审 |
@@ -768,7 +778,7 @@ raw 直出一期口径固定后，原 A1 不能再作为六表迁移批次执行
 | P1-B3 | 9 | `stk_auction_c` | `raw_tushare.stk_auction_c` → `core_serving.equity_auction_close` | 372.19 MiB | 2,255,593 / 2,255,593 | **M0/M1/M2/M3a 通过；生产 revision 158、0 B Serving view，已释放 390,266,880 B；M3b 待自然观察** |
 | P1-B3 | 10 | `moneyflow_ths` | `raw_tushare.moneyflow_ths` → `core_serving.equity_moneyflow_ths` | 468.18 MiB | 2,077,033 / 2,077,033 | **M0/M1/M2/M3a 已通过；生产 revision 159、0 B view，M3b 待 schedule #4 自然观察** |
 | P1-B4 | 11 | `moneyflow_dc` | `raw_tushare.moneyflow_dc` → `core_serving.equity_moneyflow_dc` | 1,131,995,136 B（约 1.054 GiB） | 4,151,016 / 4,151,016 | **M0/M1/M2/M3a 已通过；生产 revision 161、0 B Serving view，已释放 1,131,995,136 B；M3b 待自然观察** |
-| P1-B4 | 12 | `stk_limit` | `raw_tushare.stk_limit` → `core_serving.equity_stk_limit` | 664,354,816 B（633.58 MiB） | 4,608,112 / 4,608,112 | **M0/M1/M2 已通过；revision 162 待生产 M3a；生产仍为双物理表** |
+| P1-B4 | 12 | `stk_limit` | `raw_tushare.stk_limit` → `core_serving.equity_stk_limit` | 664,354,816 B（633.58 MiB） | 4,608,112 / 4,608,112 | **M0/M1/M2/M3a 已通过；生产 revision 162、0 B Serving view，已释放 664,354,816 B；M3b 待自然观察** |
 |  |  | **合计** |  | **3,548,766,208 B，约 3.305 GiB** |  |  |
 
 内部批次大小仍以 2026-08-23 全名单同一时点基线统计：P1-B0 237,568 B；P1-B1 54,050,816 B（约 51.55 MiB）；P1-B2 471,261,184 B（约 449.43 MiB）；P1-B3 1,244,495,872 B（约 1.159 GiB）；P1-B4 1,778,720,768 B（约 1.657 GiB）。`moneyflow_ind_dc`、`dc_daily`、`suspend_d`、`stk_auction_o`、`stk_auction_c`、`moneyflow_ths` 与 `moneyflow_dc` 的各自 M0 当前 Serving 值已分别刷新为 88,358,912 B、161,710,080 B、222,199,808 B、382,353,408 B、390,266,880 B、490,921,984 B 与 1,131,995,136 B；不同 M0 时点不混合重算批次合计。
@@ -876,7 +886,7 @@ raw 直出一期口径固定后，原 A1 不能再作为六表迁移批次执行
 | P1-B1 | `moneyflow_ind_ths` → `moneyflow_cnt_ths` → `margin` | 小表逐项验证；margin 最后处理 probe | **三项 M1/M2/M3a/M3b 全部通过并结案** |
 | P1-B2 | `moneyflow_ind_dc` → `dc_daily` → `suspend_d` | 验证 Wealth/QTF/DG 直接消费者与特殊身份键 | **三项 M0/M1/M2/M3a/M3b 全部通过并结案** |
 | P1-B3 | `stk_auction_o` → `stk_auction_c` → `moneyflow_ths` | 验证百万行级数据等价、切换和查询性能 | `stk_auction_o` 已结案；`stk_auction_c` 与 `moneyflow_ths` 的 M0/M1/M2/M3a 已通过并完成生产切换，M3b 均待 `2026-08-31` 自然观察 |
-| P1-B4 | `moneyflow_dc` → `stk_limit` | 释放一期主要空间并验收市场情绪消费者 | `moneyflow_dc-M0/M1/M2/M3a` 已通过并完成生产切换，M3b 待自然观察；`stk_limit-M0/M1/M2` 已通过，下一步为独立授权的生产 M3a；B3/B4 M3b 待触发不构成阻塞 |
+| P1-B4 | `moneyflow_dc` → `stk_limit` | 释放一期主要空间并验收市场情绪消费者 | 两项 M0/M1/M2/M3a 均通过并完成生产切换；M3b 待 `2026-08-31` 自然观察 |
 | V2-A0 | `equity_daily_bar_light_p1990` | tablespace 微迁移先导 | Track B 后置，需单独授权 |
 | V2-A1 | `p1991`～`p1999` | 释放约 178.3 MiB | A0 通过后授权 |
 | V2-A2 | `fund_adj/ths_daily` | 后置 HDD 候选，理论约 828.9 MiB | 一期完成后重新评审 |
@@ -942,13 +952,13 @@ raw 直出一期口径固定后，原 A1 不能再作为六表迁移批次执行
 
 ## 9. 本轮未完成事项与残余不确定性
 
-1. 一期 12 组都已完成精确行数、唯一身份与全部业务字段的有界双向差集；`stk_limit` 已完成 32 个自然月五字段全 0，并在 M2 复现相同锁内对账、正负容量和回滚合同。隔离结论不能替代生产 M3a 的实时最终复核。
+1. 一期 12 组都已完成精确行数、唯一身份、全部业务字段的有界双向差集和生产 M3a raw 直出切换；`stk_limit` 生产最终复核为 32 月五字段全 0、月峰值 177,009，TaskRun `10182` 通过。
 2. P1-B0 已完成 M3，并补充通过 schedule #4 的市场资金节点自然运行数据链；P1-B1 行业、概念和 margin 均已完成 M1/M2/M3a/M3b。margin 的自然 TaskRun `9573` 于固定窗口成功处理 `2026-08-26`，当日只触发 1 次。本次历史工作流 M3b TaskRun 因部署锁等待于 20:07 而非 20:00 创建，不能作为准点性证据。概念 M3a 的自动 migration 偏差和 SSE 长事务阻塞 migration 150 均已记录；共享问题现已完成 M1 代码收口、M2 隔离真实 migration 验收和 M3 生产 SSE/有界锁等待验收。
 3. 未核验所有仓库外 SQL 消费者；这是 P1-B0 的残余运营风险，也是每个后续数据集的独立准入门禁。
 4. 没有整库可恢复备份条件时，极端磁盘/实例故障风险仍存在；本文只能通过小对象、单事务和 fail-closed 降低人为操作风险。
 5. SSD 扩容后的 51.68 GiB 是 2026-08-24 快照；`moneyflow_ind_dc` M0 时为 48.78 GiB。磁盘、任务和锁状态会持续漂移，任何未来执行必须重新采样，不能因名义容量升至 270 GB 而跳过容量门禁。
 6. 2026-08-26 SSE/有界锁等待 M3 已关闭共享迁移基础设施问题；2026-08-27 `moneyflow_ind_dc` revision 153 又被完整部署在未暂停 schedule/worker 时提前应用。切换后没有观察到数据或查询损坏，但该流程偏差必须保留，并再次证明“完整部署”不能承担维护窗口前的代码安装动作。
-7. Heat 上游时间合同已由 schedule #4/#36 在 `2026-08-27` 的自然成功链闭环；`moneyflow_ind_dc` 不再有开放验收项。`dc_daily`、`suspend_d` 与 `stk_auction_o` 的 M0/M1/M2/M3a/M3b 均已完成并结案；`stk_auction_o` 的标准部署提前迁移偏差继续保留。`stk_auction_c`、`moneyflow_ths` 与 `moneyflow_dc` 的 M0/M1/M2/M3a 已通过并分别完成生产 revision 158/159/161 切换，M3b 均已登记在 `2026-08-31` 自然观察；`stk_limit-M0/M1/M2` 已通过，下一项是独立授权的生产 M3a。
+7. Heat 上游时间合同已由 schedule #4/#36 在 `2026-08-27` 的自然成功链闭环；`moneyflow_ind_dc` 不再有开放验收项。`dc_daily`、`suspend_d` 与 `stk_auction_o` 的 M0/M1/M2/M3a/M3b 均已完成并结案；`stk_auction_o` 的标准部署提前迁移偏差继续保留。`stk_auction_c`、`moneyflow_ths`、`moneyflow_dc` 与 `stk_limit` 的 M0/M1/M2/M3a 已通过并分别完成生产 revision 158/159/161/162 切换，M3b 均已登记在 `2026-08-31` 自然观察。
 8. 两个 `2026-08-28` 父 workflow 中的 `anns_d` 节点出现 69/184 行 `write.duplicate_conflict_key_in_batch:row_key_hash`，已另列独立只读数据质量审计 TODO；尚未证明六个 source fields 完全相同，不能直接按完全重复结案。
 
 ## 10. 相关基线
