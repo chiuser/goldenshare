@@ -19,6 +19,8 @@ class SectorAnalysisExceptionBuilder:
         "SA_QUERY_FAILED": "板块分析数据读取失败，请稍后重试。",
         "SA_MEMBER_SOURCE_EMPTY": "当前行业暂无成分股数据。",
         "SA_MEMBER_QUERY_FAILED": "成分股数据读取失败，请稍后重试。",
+        "SA_BREADTH_SOURCE_EMPTY": "当前行业暂无成员广度来源数据。",
+        "SA_BREADTH_QUERY_FAILED": "成员广度数据读取失败，请稍后重试。",
     }
 
     @classmethod

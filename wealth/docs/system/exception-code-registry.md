@@ -248,6 +248,9 @@
 | `SA_MEMBER_FACT_MISMATCH` | `sectorAnalysis` | warn | false | false | 成员请求携带的行业层级版本与当前发布版本不一致 | rankings 返回后层级重新发布，或客户端使用过期 hierarchyVersion | HTTP 409；丢弃当前 meta/rankings/history/members 短期事实并从 meta 重新加载 | biz-api | Phase-6-M3A | active |
 | `SA_MEMBER_SOURCE_EMPTY` | `sectorAnalysis` | warn | false | true | 目标交易日所选三级行业没有来源成员 | 精确 `tradeDate + sectorCode` 的 dc_member 来源集合为空 | 只在成员下半区显示 EMPTY；上方行业榜单和右侧详情继续可用 | biz-api | Phase-6-M3A | active |
 | `SA_MEMBER_QUERY_FAILED` | `sectorAnalysis` | error | false | true | 成员关系、股票日行情或成员收益合同处理失败 | SQL、重复业务键、窗口、Decimal 计算或 DTO 不变量失败 | 只在成员下半区显示 ERROR 并重试 members；不清空整页事实 | biz-api | Phase-6-M3A | active |
+| `SA_BREADTH_FACT_MISMATCH` | `sectorAnalysis` | warn | false | false | 成员广度请求携带的行业层级版本与当前发布版本不一致 | 成员广度 Meta 返回后层级重新发布，或客户端使用过期 hierarchyVersion | HTTP 409；只清空成员广度事实并重新加载成员广度 Meta | biz-api | Phase-6-M14 | active |
+| `SA_BREADTH_SOURCE_EMPTY` | `sectorAnalysis` | warn | false | true | 选中行业在目标交易日没有来源成员 | 精确 `tradeDate + sectorCode` 的成员广度来源集合为空 | Details 局部 EMPTY；排名和页面骨架保留 | biz-api | Phase-6-M14 | active |
+| `SA_BREADTH_QUERY_FAILED` | `sectorAnalysis` | error | false | true | 成员广度查询、纯计算或合同组合失败 | SQL、重复业务键、窗口、Decimal 计算或 DTO 不变量失败 | 当前成员广度 endpoint 进入安全 ERROR；不泄露技术细节 | biz-api | Phase-6-M14 | active |
 | `SA_QUERY_FAILED` | `sectorAnalysis` | error | false | true | 板块分析查询或纯计算出现未分类失败 | SQL、日期窗口、结果唯一性、DTO 组合或未知内部异常 | 稳定 ERROR；安全文案和重试，不展示不完整结果 | biz-api | Phase-6 | active |
 
 补充规则：
@@ -257,6 +260,7 @@
 3. 401/403 继续复用认证层，不新增同义 `SA_*`。
 4. `SA_MEMBER_SOURCE_EMPTY/SA_MEMBER_QUERY_FAILED` 只作用于成员下半区，不得升级为整页 EMPTY/ERROR；`SA_MEMBER_FACT_MISMATCH` 必须重新加载全部页面事实，禁止局部重试后拼接不同层级版本。
 5. `SA_FACT_VERSION_MISMATCH` 只用于双动量和相对轮动 Results 的页面级层级版本冲突；前端只丢弃并重载当前方法的 Meta/Results。它与成员局部请求使用的 `SA_MEMBER_FACT_MISMATCH` 恢复范围不同，不得互相替代。版本不一致必须在行业行情查询前返回 409。
+6. `SA_BREADTH_SOURCE_EMPTY/SA_BREADTH_QUERY_FAILED` 只作用于成员广度 Details 或当前 Rankings；个别股票和单项指标缺失只返回覆盖率与原因，不升级成技术异常。`SA_BREADTH_FACT_MISMATCH` 只重载成员广度事实，不清空其它板块分析方法。
 
 ## 12. 变更规则
 

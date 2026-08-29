@@ -8,6 +8,7 @@ from src.foundation.models.core.dc_daily import DcDaily
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.dc_member import DcMember
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
+from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core_serving.wealth_sector_hierarchy import (
     WealthSectorHierarchy,
 )
@@ -31,12 +32,14 @@ APPROVED_SOURCE_TABLES = {
     "core_serving.dc_daily",
     "core_serving.dc_member",
     "core_serving.equity_daily_bar",
+    "core.equity_adj_factor",
 }
 APPROVED_MODEL_MODULES = {
     "src.foundation.models.core.dc_daily",
     "src.foundation.models.core.trade_calendar",
     "src.foundation.models.core_serving.dc_member",
     "src.foundation.models.core_serving.equity_daily_bar",
+    "src.foundation.models.core_serving.equity_adj_factor",
     "src.foundation.models.core_serving.wealth_sector_hierarchy",
 }
 APPROVED_SHARED_QUERY_MODULES = {
@@ -53,6 +56,9 @@ REGISTERED_EXCEPTION_CODES = {
     "SA_MEMBER_FACT_MISMATCH",
     "SA_MEMBER_SOURCE_EMPTY",
     "SA_MEMBER_QUERY_FAILED",
+    "SA_BREADTH_FACT_MISMATCH",
+    "SA_BREADTH_SOURCE_EMPTY",
+    "SA_BREADTH_QUERY_FAILED",
     "SA_QUERY_FAILED",
 }
 
@@ -96,6 +102,17 @@ RELATIVE_ROTATION_FORBIDDEN_TOKENS = DUAL_MOMENTUM_FORBIDDEN_TOKENS + (
     "benchmark_index",
     "rs_ratio",
     "rs_momentum",
+)
+MEMBER_BREADTH_BACKEND_PATHS = (
+    REPO_ROOT
+    / "src/biz/queries/wealth/market/sector_analysis/sector_member_breadth_query.py",
+    REPO_ROOT
+    / "src/biz/queries/wealth/market/sector_analysis/sector_member_breadth_query_service.py",
+    REPO_ROOT
+    / "src/biz/services/wealth/market/sector_analysis/sector_member_breadth_contract.py",
+    REPO_ROOT
+    / "src/biz/services/wealth/market/sector_analysis/sector_member_breadth_calculator.py",
+    REPO_ROOT / "src/biz/schemas/wealth/market/sector_member_breadth.py",
 )
 
 BACKEND_SECTOR_ANALYSIS_PATHS = (
@@ -197,13 +214,14 @@ def _target_sources() -> dict[Path, str]:
     return {path: path.read_text(encoding="utf-8") for path in paths}
 
 
-def test_sector_analysis_source_table_contract_is_exactly_five_prod_tables() -> None:
+def test_sector_analysis_source_table_contract_is_exactly_six_prod_tables() -> None:
     actual_tables = {
         TradeCalendar.__table__.fullname,
         WealthSectorHierarchy.__table__.fullname,
         DcDaily.__table__.fullname,
         DcMember.__table__.fullname,
         EquityDailyBar.__table__.fullname,
+        EquityAdjFactor.__table__.fullname,
     }
 
     assert actual_tables == APPROVED_SOURCE_TABLES
@@ -241,7 +259,7 @@ def test_sector_analysis_backend_only_imports_approved_fact_models_and_shared_qu
                     )
 
     assert not violations, (
-        "板块分析只能读取冻结的五张 Prod 表和两项共享查询：\n" + "\n".join(violations)
+        "板块分析只能读取冻结的六张 Prod 表和两项共享查询：\n" + "\n".join(violations)
     )
 
 
@@ -277,7 +295,7 @@ def test_sector_analysis_has_no_forbidden_subsystem_or_persistence_dependency() 
             )
 
     assert not violations, (
-        "板块分析不得接入 QTF/DG/Lake、写入链路或第六张来源表：\n"
+        "板块分析不得接入 QTF/DG/Lake、写入链路或第七张来源表：\n"
         + "\n".join(violations)
     )
 
@@ -358,15 +376,14 @@ def test_dual_momentum_backend_stays_on_the_three_read_only_fact_sources() -> No
                 )
 
     assert not violations, (
-        "双动量只允许复用交易日历、行业层级和行业日行情：\n"
-        + "\n".join(violations)
+        "双动量只允许复用交易日历、行业层级和行业日行情：\n" + "\n".join(violations)
     )
 
 
 def test_dual_momentum_adds_only_the_two_frozen_read_only_routes() -> None:
-    api_source = (
-        REPO_ROOT / "src/biz/api/wealth/market/sector_analysis.py"
-    ).read_text(encoding="utf-8")
+    api_source = (REPO_ROOT / "src/biz/api/wealth/market/sector_analysis.py").read_text(
+        encoding="utf-8"
+    )
 
     assert api_source.count('@router.get(\n    "/dual-momentum/') == 2
     assert '"/dual-momentum/meta"' in api_source
@@ -394,17 +411,45 @@ def test_relative_rotation_backend_stays_on_the_three_read_only_fact_sources() -
                 )
 
     assert not violations, (
-        "相对轮动只允许复用交易日历、行业层级和行业日行情：\n"
-        + "\n".join(violations)
+        "相对轮动只允许复用交易日历、行业层级和行业日行情：\n" + "\n".join(violations)
     )
 
 
 def test_relative_rotation_adds_only_the_two_frozen_read_only_routes() -> None:
-    api_source = (
-        REPO_ROOT / "src/biz/api/wealth/market/sector_analysis.py"
-    ).read_text(encoding="utf-8")
+    api_source = (REPO_ROOT / "src/biz/api/wealth/market/sector_analysis.py").read_text(
+        encoding="utf-8"
+    )
 
     assert api_source.count('@router.get(\n    "/relative-rotation/') == 2
     assert '"/relative-rotation/meta"' in api_source
     assert '"/relative-rotation/results"' in api_source
     assert '@router.post(\n    "/relative-rotation/' not in api_source
+
+
+def test_member_breadth_adj_factor_is_isolated_to_its_query() -> None:
+    breadth_query = MEMBER_BREADTH_BACKEND_PATHS[0]
+    violations: list[str] = []
+    for path in _iter_files(BACKEND_SECTOR_ANALYSIS_PATHS, suffixes=(".py",)):
+        imported_modules = {module for _, module in _python_imports(path)}
+        imports_factor = (
+            "src.foundation.models.core_serving.equity_adj_factor" in imported_modules
+        )
+        if imports_factor and path != breadth_query:
+            violations.append(
+                f"{path.relative_to(REPO_ROOT).as_posix()} imports EquityAdjFactor"
+            )
+    assert not violations, "复权因子只能由成员广度 Query 读取：\n" + "\n".join(
+        violations
+    )
+
+
+def test_member_breadth_adds_only_the_three_frozen_read_only_routes() -> None:
+    api_source = (REPO_ROOT / "src/biz/api/wealth/market/sector_analysis.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert api_source.count('@router.get(\n    "/member-breadth/') == 3
+    assert '"/member-breadth/meta"' in api_source
+    assert '"/member-breadth/rankings"' in api_source
+    assert '"/member-breadth/details"' in api_source
+    assert '@router.post(\n    "/member-breadth/' not in api_source

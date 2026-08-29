@@ -26,6 +26,9 @@ from src.biz.queries.wealth.market.sector_analysis.sector_dual_momentum_query_se
 from src.biz.queries.wealth.market.sector_analysis.sector_member_detail_query_service import (
     SectorMemberDetailQueryService,
 )
+from src.biz.queries.wealth.market.sector_analysis.sector_member_breadth_query_service import (
+    SectorMemberBreadthQueryService,
+)
 from src.biz.schemas.wealth.market.sector_analysis import (
     SectorAnalysisMetaResponseDto,
     SectorMemberDetailResponseDto,
@@ -40,6 +43,11 @@ from src.biz.schemas.wealth.market.sector_relative_rotation import (
     SectorRelativeRotationMetaResponseDto,
     SectorRelativeRotationResultsResponseDto,
 )
+from src.biz.schemas.wealth.market.sector_member_breadth import (
+    SectorMemberBreadthDetailsResponseDto,
+    SectorMemberBreadthMetaResponseDto,
+    SectorMemberBreadthRankingsResponseDto,
+)
 from src.biz.services.wealth.market.sector_analysis.sector_dual_momentum_contract import (
     SectorMomentumFactVersionMismatchError,
     parse_dual_momentum_leading_threshold,
@@ -48,6 +56,15 @@ from src.biz.services.wealth.market.sector_analysis.sector_dual_momentum_contrac
 from src.biz.services.wealth.market.sector_analysis.sector_member_detail_contract import (
     SectorMemberDetailRequest,
     SectorMemberFactMismatchError,
+)
+from src.biz.services.wealth.market.sector_analysis.sector_member_breadth_contract import (
+    SectorMemberBreadthDetailsRequest,
+    SectorMemberBreadthFactMismatchError,
+    SectorMemberBreadthRankingsRequest,
+    parse_member_breadth_direction,
+    parse_member_breadth_history_range,
+    parse_member_breadth_ma_period,
+    parse_member_breadth_metric,
 )
 from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract import (
     SectorDataQueryError,
@@ -336,6 +353,208 @@ def get_sector_relative_rotation_results(
             status_code=409,
             code="SA_FACT_VERSION_MISMATCH",
             message="行业分类已更新，正在重新加载相对轮动数据。",
+        ) from exc
+    except SectorSelectionInvalidError as exc:
+        _raise_selection_error(exc)
+    except SectorScopeInvalidError as exc:
+        _raise_request_error(exc)
+    raise AssertionError("unreachable")
+
+
+@router.get(
+    "/member-breadth/meta",
+    response_model=SectorMemberBreadthMetaResponseDto,
+)
+def get_sector_member_breadth_meta(
+    request: Request,
+    market: str | None = Query(default=None),
+    _user: AuthenticatedUser | None = Depends(require_quote_access),
+    session: Session = Depends(get_db_session),
+) -> SectorMemberBreadthMetaResponseDto:
+    try:
+        _validate_query_shape(request, allowed={"market"})
+        return SectorMemberBreadthQueryService().build_meta(
+            session,
+            market=_parse_market(market),
+        )
+    except SectorScopeInvalidError as exc:
+        _raise_request_error(exc)
+    except SectorHierarchyUnavailableError as exc:
+        raise WebAppError(
+            status_code=500,
+            code="SA_HIERARCHY_UNAVAILABLE",
+            message="行业分类暂不可用，请稍后重试。",
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise WebAppError(
+            status_code=500,
+            code="SA_BREADTH_QUERY_FAILED",
+            message="成员广度数据读取失败，请稍后重试。",
+        ) from exc
+    raise AssertionError("unreachable")
+
+
+@router.get(
+    "/member-breadth/rankings",
+    response_model=SectorMemberBreadthRankingsResponseDto,
+)
+def get_sector_member_breadth_rankings(
+    request: Request,
+    market: str | None = Query(default=None),
+    trade_date: str | None = Query(default=None, alias="tradeDate"),
+    scope: str | None = Query(default=None),
+    level1_code: str | None = Query(default=None, alias="level1Code"),
+    level2_code: str | None = Query(default=None, alias="level2Code"),
+    direction: str | None = Query(default=None),
+    metric: str | None = Query(default=None),
+    ma_period: str | None = Query(default=None, alias="maPeriod"),
+    hierarchy_version: str | None = Query(default=None, alias="hierarchyVersion"),
+    _user: AuthenticatedUser | None = Depends(require_quote_access),
+    session: Session = Depends(get_db_session),
+) -> SectorMemberBreadthRankingsResponseDto:
+    try:
+        _validate_query_shape(
+            request,
+            allowed={
+                "market",
+                "tradeDate",
+                "scope",
+                "level1Code",
+                "level2Code",
+                "direction",
+                "metric",
+                "maPeriod",
+                "hierarchyVersion",
+            },
+        )
+        parsed_date = _parse_dual_trade_date(trade_date)
+        if parsed_date is None:
+            raise SectorSelectionInvalidError("tradeDate 为必填参数")
+        if scope is None:
+            raise SectorScopeInvalidError("scope 为必填参数")
+        if direction is None:
+            raise SectorScopeInvalidError("direction 为必填参数")
+        if metric is None:
+            raise SectorScopeInvalidError("metric 为必填参数")
+        if ma_period is None:
+            raise SectorScopeInvalidError("maPeriod 为必填参数")
+        return SectorMemberBreadthQueryService().build_rankings(
+            session,
+            request=SectorMemberBreadthRankingsRequest(
+                market=_parse_required_market(market),
+                trade_date=parsed_date,
+                scope=parse_scope(scope),
+                level1_code=_parse_optional_sector_code(
+                    level1_code,
+                    field_name="level1Code",
+                ),
+                level2_code=_parse_optional_sector_code(
+                    level2_code,
+                    field_name="level2Code",
+                ),
+                direction=parse_member_breadth_direction(direction),
+                metric=parse_member_breadth_metric(metric),
+                ma_period=parse_member_breadth_ma_period(
+                    _parse_choice_int(
+                        ma_period,
+                        default=0,
+                        field_name="maPeriod",
+                    )
+                ),
+                hierarchy_version=_parse_required_text(
+                    hierarchy_version,
+                    field_name="hierarchyVersion",
+                    max_length=128,
+                ),
+            ),
+        )
+    except SectorMemberBreadthFactMismatchError as exc:
+        raise WebAppError(
+            status_code=409,
+            code="SA_BREADTH_FACT_MISMATCH",
+            message="行业分类已更新，正在重新加载成员广度数据。",
+        ) from exc
+    except SectorSelectionInvalidError as exc:
+        _raise_selection_error(exc)
+    except SectorScopeInvalidError as exc:
+        _raise_request_error(exc)
+    raise AssertionError("unreachable")
+
+
+@router.get(
+    "/member-breadth/details",
+    response_model=SectorMemberBreadthDetailsResponseDto,
+)
+def get_sector_member_breadth_details(
+    request: Request,
+    market: str | None = Query(default=None),
+    trade_date: str | None = Query(default=None, alias="tradeDate"),
+    sector_code: str | None = Query(default=None, alias="sectorCode"),
+    direction: str | None = Query(default=None),
+    ma_period: str | None = Query(default=None, alias="maPeriod"),
+    history_range: str | None = Query(default=None, alias="historyRange"),
+    hierarchy_version: str | None = Query(default=None, alias="hierarchyVersion"),
+    _user: AuthenticatedUser | None = Depends(require_quote_access),
+    session: Session = Depends(get_db_session),
+) -> SectorMemberBreadthDetailsResponseDto:
+    try:
+        _validate_query_shape(
+            request,
+            allowed={
+                "market",
+                "tradeDate",
+                "sectorCode",
+                "direction",
+                "maPeriod",
+                "historyRange",
+                "hierarchyVersion",
+            },
+        )
+        parsed_date = _parse_dual_trade_date(trade_date)
+        if parsed_date is None:
+            raise SectorSelectionInvalidError("tradeDate 为必填参数")
+        if direction is None:
+            raise SectorScopeInvalidError("direction 为必填参数")
+        if ma_period is None:
+            raise SectorScopeInvalidError("maPeriod 为必填参数")
+        if history_range is None:
+            raise SectorScopeInvalidError("historyRange 为必填参数")
+        return SectorMemberBreadthQueryService().build_details(
+            session,
+            request=SectorMemberBreadthDetailsRequest(
+                market=_parse_required_market(market),
+                trade_date=parsed_date,
+                sector_code=_parse_required_sector_code(
+                    sector_code,
+                    field_name="sectorCode",
+                ),
+                direction=parse_member_breadth_direction(direction),
+                ma_period=parse_member_breadth_ma_period(
+                    _parse_choice_int(
+                        ma_period,
+                        default=0,
+                        field_name="maPeriod",
+                    )
+                ),
+                history_range=parse_member_breadth_history_range(
+                    _parse_choice_int(
+                        history_range,
+                        default=0,
+                        field_name="historyRange",
+                    )
+                ),
+                hierarchy_version=_parse_required_text(
+                    hierarchy_version,
+                    field_name="hierarchyVersion",
+                    max_length=128,
+                ),
+            ),
+        )
+    except SectorMemberBreadthFactMismatchError as exc:
+        raise WebAppError(
+            status_code=409,
+            code="SA_BREADTH_FACT_MISMATCH",
+            message="行业分类已更新，正在重新加载成员广度数据。",
         ) from exc
     except SectorSelectionInvalidError as exc:
         _raise_selection_error(exc)

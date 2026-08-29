@@ -11,6 +11,7 @@ from src.foundation.models.core.dc_daily import DcDaily
 from src.foundation.models.core.dc_member import DcMember
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
+from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core_serving.wealth_sector_hierarchy import (
     WealthSectorHierarchy,
 )
@@ -24,6 +25,7 @@ def _ensure_tables(db_session) -> None:
     bind = db_session.get_bind()
     DcDaily.__table__.create(bind, checkfirst=True)
     DcMember.__table__.create(bind, checkfirst=True)
+    EquityAdjFactor.__table__.create(bind, checkfirst=True)
     EquityDailyBar.__table__.create(bind, checkfirst=True)
     WealthSectorHierarchy.__table__.create(bind, checkfirst=True)
 
@@ -160,6 +162,54 @@ def _seed_sector_members(db_session) -> None:
             amount=Decimal("1000"),
         )
     )
+    db_session.commit()
+
+
+def _seed_member_breadth(db_session) -> None:
+    """Seed complete bounded facts for all seven hierarchy nodes."""
+
+    _seed_sector_analysis(db_session)
+    for sector_index, (sector_code, *_rest) in enumerate(_hierarchy_rows(), start=1):
+        stock_codes = tuple(
+            f"{sector_index:02d}{stock_index:04d}.SZ" for stock_index in range(1, 6)
+        )
+        for item in OPEN_DATES[-20:]:
+            for stock_index, stock_code in enumerate(stock_codes, start=1):
+                db_session.add(
+                    DcMember(
+                        trade_date=item,
+                        ts_code=sector_code,
+                        con_code=stock_code,
+                        name=f"股票{sector_index}-{stock_index}",
+                    )
+                )
+        for date_index, item in enumerate(OPEN_DATES[-60:], start=1):
+            for stock_index, stock_code in enumerate(stock_codes, start=1):
+                close = Decimal(10 + stock_index) + Decimal(date_index) / Decimal(10)
+                positive_count = min(sector_index, 5)
+                pct_chg = Decimal(1 if stock_index <= positive_count else -1)
+                db_session.add(
+                    EquityDailyBar(
+                        ts_code=stock_code,
+                        trade_date=item,
+                        open=close,
+                        high=close,
+                        low=close,
+                        close=close,
+                        pre_close=close,
+                        change_amount=Decimal(0),
+                        pct_chg=pct_chg,
+                        vol=Decimal(100),
+                        amount=Decimal(100 * stock_index),
+                    )
+                )
+                db_session.add(
+                    EquityAdjFactor(
+                        ts_code=stock_code,
+                        trade_date=item,
+                        adj_factor=Decimal(1),
+                    )
+                )
     db_session.commit()
 
 
@@ -858,6 +908,18 @@ def test_quote_auth_requirement_is_reused(app_client, monkeypatch) -> None:
             "/api/v1/wealth/market/sector-analysis/relative-rotation/results"
         )
         assert relative_results_response.status_code == 401
+        breadth_meta_response = app_client.get(
+            "/api/v1/wealth/market/sector-analysis/member-breadth/meta"
+        )
+        assert breadth_meta_response.status_code == 401
+        breadth_rankings_response = app_client.get(
+            "/api/v1/wealth/market/sector-analysis/member-breadth/rankings"
+        )
+        assert breadth_rankings_response.status_code == 401
+        breadth_details_response = app_client.get(
+            "/api/v1/wealth/market/sector-analysis/member-breadth/details"
+        )
+        assert breadth_details_response.status_code == 401
     finally:
         monkeypatch.setenv("QUOTE_API_AUTH_REQUIRED", "false")
         get_settings.cache_clear()
@@ -891,7 +953,6 @@ def test_dual_meta_returns_dedicated_contract_in_three_sql(
             params={"market": "CN_A"},
         ),
     )
-
     assert response.status_code == 200
     assert sql_count == 3
     payload = response.json()
@@ -1017,9 +1078,9 @@ def test_dual_small_group_is_ready_with_plottable_facts_and_no_qualification(
     assert payload["analysis"]["qualifiedCount"] == 0
     assert payload["analysis"]["insufficientCount"] == 2
     assert payload["analysis"]["plottableCount"] == 2
-    assert {
-        item["displayStatus"] for item in payload["analysis"]["items"]
-    } == {"SAMPLE_INSUFFICIENT"}
+    assert {item["displayStatus"] for item in payload["analysis"]["items"]} == {
+        "SAMPLE_INSUFFICIENT"
+    }
 
 
 def test_dual_no_qualified_is_ready_and_keeps_all_negative_facts(
@@ -1104,9 +1165,7 @@ def test_dual_default_partial_falls_back_and_meta_reports_same_delayed_date(
     )
     db_session.commit()
 
-    meta = app_client.get(
-        "/api/v1/wealth/market/sector-analysis/dual-momentum/meta"
-    )
+    meta = app_client.get("/api/v1/wealth/market/sector-analysis/dual-momentum/meta")
     params = _dual_results_params()
     params.pop("tradeDate")
     results = app_client.get(
@@ -1117,7 +1176,9 @@ def test_dual_default_partial_falls_back_and_meta_reports_same_delayed_date(
     assert meta.status_code == results.status_code == 200
     assert meta.json()["status"] == results.json()["status"] == "DELAYED"
     assert meta.json()["tradingDay"]["observedTradeDate"] == OPEN_DATES[-2].isoformat()
-    assert results.json()["tradingDay"]["observedTradeDate"] == OPEN_DATES[-2].isoformat()
+    assert (
+        results.json()["tradingDay"]["observedTradeDate"] == OPEN_DATES[-2].isoformat()
+    )
 
 
 def test_dual_explicit_missing_is_empty_without_window_or_fact_queries(
@@ -1240,9 +1301,7 @@ def test_dual_meta_and_results_use_safe_hierarchy_and_query_failures(
     db_session,
 ) -> None:
     _ensure_tables(db_session)
-    meta = app_client.get(
-        "/api/v1/wealth/market/sector-analysis/dual-momentum/meta"
-    )
+    meta = app_client.get("/api/v1/wealth/market/sector-analysis/dual-momentum/meta")
     results = app_client.get(
         "/api/v1/wealth/market/sector-analysis/dual-momentum/results",
         params=_dual_results_params(),
@@ -1289,8 +1348,7 @@ def _seed_maximum_dual_pool(
         )
         previous = trade_date
     level_1_rows = [
-        (f"BK{1000 + index:04d}.DC", f"一级样本{index:02d}")
-        for index in range(31)
+        (f"BK{1000 + index:04d}.DC", f"一级样本{index:02d}") for index in range(31)
     ]
     level_2_rows = [
         (
@@ -1300,10 +1358,7 @@ def _seed_maximum_dual_pool(
         )
         for index in range(128)
     ]
-    hierarchy_rows = [
-        (code, name, 1, None, code, name)
-        for code, name in level_1_rows
-    ]
+    hierarchy_rows = [(code, name, 1, None, code, name) for code, name in level_1_rows]
     hierarchy_rows.extend(
         (
             code,
@@ -1510,7 +1565,9 @@ def test_relative_rotation_meta_and_results_keep_three_and_five_sql_contracts(
     assert analysis["missingCoordinateCount"] == 0
     assert analysis["selectedTrail"]["sectorCode"] == analysis["selectedSectorCode"]
     assert analysis["selectedTrail"]["dateSlotCount"] == 20
-    assert analysis["selectedTrail"]["points"][-1]["tradeDate"] == TARGET_DATE.isoformat()
+    assert (
+        analysis["selectedTrail"]["points"][-1]["tradeDate"] == TARGET_DATE.isoformat()
+    )
 
 
 def test_relative_rotation_supports_all_scopes_periods_and_trail_lengths(
@@ -1575,7 +1632,11 @@ def test_relative_rotation_rejects_missing_unknown_duplicate_and_illegal_inputs(
     _seed_sector_analysis(db_session)
     path = "/api/v1/wealth/market/sector-analysis/relative-rotation/results"
     invalid_cases = (
-        {key: value for key, value in _relative_results_params().items() if key != "market"},
+        {
+            key: value
+            for key, value in _relative_results_params().items()
+            if key != "market"
+        },
         {**_relative_results_params(), "period": 1},
         {**_relative_results_params(), "trailLength": 90},
         {**_relative_results_params(), "improvementLookbackDays": 5},
@@ -1630,3 +1691,335 @@ def test_relative_rotation_maximum_window_meets_sql_and_payload_budgets(
     assert first.json()["analysis"]["selectedTrail"]["dateSlotCount"] == 60
     assert sql_count == 5
     assert len(first.content) <= 256 * 1024
+
+
+def _member_breadth_rankings_params(**overrides):
+    params = {
+        "market": "CN_A",
+        "tradeDate": TARGET_DATE.isoformat(),
+        "scope": "LEVEL_1",
+        "direction": "UP",
+        "metric": "MEMBER_COUNT",
+        "maPeriod": 20,
+        "hierarchyVersion": "2026-04-30-v1",
+    }
+    params.update(overrides)
+    return params
+
+
+def _member_breadth_details_params(**overrides):
+    params = {
+        "market": "CN_A",
+        "tradeDate": TARGET_DATE.isoformat(),
+        "sectorCode": "BK1201.DC",
+        "direction": "UP",
+        "maPeriod": 20,
+        "historyRange": 20,
+        "hierarchyVersion": "2026-04-30-v1",
+    }
+    params.update(overrides)
+    return params
+
+
+def test_member_breadth_meta_reuses_public_context_and_three_sql_contract(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    _seed_sector_analysis(db_session)
+
+    started = perf_counter()
+    sql_count, response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/member-breadth/meta",
+            params={"market": "CN_A"},
+        ),
+    )
+    elapsed = perf_counter() - started
+
+    assert response.status_code == 200
+    assert sql_count == 3
+    assert elapsed < 1
+    payload = response.json()
+    assert payload["formulaKey"] == "sector-member-breadth"
+    assert payload["formulaVersion"] == 1
+    assert payload["dateCoverageBasis"] == "INDUSTRY_DAILY"
+    assert payload["dateContext"] == {
+        "expectedTradeDate": TARGET_DATE.isoformat(),
+        "defaultTradeDate": TARGET_DATE.isoformat(),
+        "defaultStatus": "READY",
+        "displayText": f"当前展示 {TARGET_DATE.isoformat()} 盘后数据",
+    }
+    assert payload["metrics"] == ["MEMBER_COUNT", "TURNOVER", "MA_POSITION"]
+    assert payload["maPeriods"] == [5, 10, 15, 20, 30, 60]
+    assert payload["historyRanges"] == [20, 30, 60]
+    assert payload["minimumCalculableCount"] == 5
+    assert payload["minimumCoveragePct"] == 80
+
+
+def test_member_breadth_rankings_return_full_list_in_four_sql(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    _seed_member_breadth(db_session)
+
+    started = perf_counter()
+    sql_count, response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/member-breadth/rankings",
+            params=_member_breadth_rankings_params(),
+        ),
+    )
+    elapsed = perf_counter() - started
+
+    assert response.status_code == 200
+    assert sql_count == 4
+    assert elapsed < 1
+    payload = response.json()
+    assert payload["status"] == "READY"
+    assert payload["totalSectorCount"] == 2
+    assert payload["eligibleSectorCount"] == 2
+    assert len(payload["rows"]) == 2
+    assert [row["sectorCode"] for row in payload["rows"]] == [
+        "BK1002.DC",
+        "BK1001.DC",
+    ]
+    assert [row["metricValuePct"] for row in payload["rows"]] == [40.0, 20.0]
+    assert [row["rank"] for row in payload["rows"]] == [1, 2]
+
+
+def test_member_breadth_ma_rankings_read_factors_without_extra_sql(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    _seed_member_breadth(db_session)
+
+    started = perf_counter()
+    sql_count, response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/member-breadth/rankings",
+            params=_member_breadth_rankings_params(
+                metric="MA_POSITION",
+                maPeriod=60,
+            ),
+        ),
+    )
+    elapsed = perf_counter() - started
+
+    assert response.status_code == 200
+    assert sql_count == 4
+    assert elapsed < 2
+    payload = response.json()
+    assert payload["status"] == "READY"
+    assert payload["availability"]["status"] == "AVAILABLE"
+    assert [row["metricValuePct"] for row in payload["rows"]] == [100.0, 100.0]
+    assert [row["rank"] for row in payload["rows"]] == [1, 1]
+
+
+def test_member_breadth_details_return_three_metrics_trend_and_members_in_four_sql(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    _seed_member_breadth(db_session)
+
+    started = perf_counter()
+    sql_count, response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/member-breadth/details",
+            params=_member_breadth_details_params(),
+        ),
+    )
+    elapsed = perf_counter() - started
+
+    assert response.status_code == 200
+    assert sql_count == 4
+    assert elapsed < 1
+    assert len(response.content) <= 512 * 1024
+    payload = response.json()
+    assert payload["status"] == "READY"
+    assert [item["metric"] for item in payload["compositions"]] == [
+        "MEMBER_COUNT",
+        "TURNOVER",
+        "MA_POSITION",
+    ]
+    assert len(payload["trend"]) == 20
+    assert payload["trend"][-1]["tradeDate"] == TARGET_DATE.isoformat()
+    assert len(payload["members"]) == 5
+    assert [row["stockCode"] for row in payload["members"]] == [
+        "060005.SZ",
+        "060004.SZ",
+        "060003.SZ",
+        "060002.SZ",
+        "060001.SZ",
+    ]
+    assert all(row["maRelation"] == "ABOVE" for row in payload["members"])
+
+
+def test_member_breadth_version_mismatch_stops_after_hierarchy_read(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    _seed_sector_analysis(db_session)
+
+    sql_count, response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/member-breadth/rankings",
+            params=_member_breadth_rankings_params(hierarchyVersion="stale"),
+        ),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "SA_BREADTH_FACT_MISMATCH"
+    assert sql_count == 1
+
+
+def test_member_breadth_rejects_missing_unknown_duplicate_and_illegal_inputs(
+    app_client,
+    db_session,
+) -> None:
+    _seed_sector_analysis(db_session)
+    path = "/api/v1/wealth/market/sector-analysis/member-breadth/rankings"
+    base = _member_breadth_rankings_params()
+    scope_invalid_cases = (
+        {key: value for key, value in base.items() if key != "market"},
+        {key: value for key, value in base.items() if key != "scope"},
+        {**base, "metric": "PRICE"},
+        {**base, "direction": "GAINERS"},
+        {**base, "maPeriod": 25},
+        {**base, "unknown": "value"},
+    )
+    for params in scope_invalid_cases:
+        response = app_client.get(path, params=params)
+        assert response.status_code == 400
+        assert response.json()["code"] == "SA_SCOPE_INVALID"
+
+    invalid_date = app_client.get(
+        path,
+        params={**base, "tradeDate": "2026-02-30"},
+    )
+    assert invalid_date.status_code == 400
+    assert invalid_date.json()["code"] == "SA_SELECTION_INVALID"
+
+    duplicate = app_client.get(
+        path
+        + "?market=CN_A&market=CN_A&tradeDate=2026-04-30&scope=LEVEL_1"
+        + "&direction=UP&metric=MEMBER_COUNT&maPeriod=20"
+        + "&hierarchyVersion=2026-04-30-v1"
+    )
+    assert duplicate.status_code == 400
+    assert duplicate.json()["code"] == "SA_SCOPE_INVALID"
+
+
+def test_member_breadth_rejects_future_closed_and_precoverage_dates(
+    app_client,
+    db_session,
+) -> None:
+    _seed_member_breadth(db_session)
+    closed_date = OPEN_DATES[-2]
+    calendar = db_session.get(
+        TradeCalendar,
+        {"exchange": "SSE", "trade_date": closed_date},
+    )
+    calendar.is_open = False
+    precoverage_date = OPEN_DATES[0] - timedelta(days=1)
+    db_session.add(
+        TradeCalendar(
+            exchange="SSE",
+            trade_date=precoverage_date,
+            is_open=True,
+            pretrade_date=None,
+        )
+    )
+    db_session.commit()
+
+    for trade_date in (
+        TARGET_DATE + timedelta(days=1),
+        closed_date,
+        precoverage_date,
+    ):
+        response = app_client.get(
+            "/api/v1/wealth/market/sector-analysis/member-breadth/rankings",
+            params=_member_breadth_rankings_params(
+                tradeDate=trade_date.isoformat(),
+            ),
+        )
+        assert response.status_code == 400
+        assert response.json()["code"] == "SA_SELECTION_INVALID"
+
+
+def test_member_breadth_missing_selected_relations_returns_safe_empty_details(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    _seed_sector_analysis(db_session)
+
+    sql_count, response = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/member-breadth/details",
+            params=_member_breadth_details_params(),
+        ),
+    )
+
+    assert response.status_code == 200
+    assert sql_count == 3
+    assert response.json()["status"] == "EMPTY"
+    assert response.json()["exceptionCode"] == "SA_BREADTH_SOURCE_EMPTY"
+    assert response.json()["compositions"] == []
+    assert response.json()["trend"] == []
+    assert response.json()["members"] == []
+
+
+def test_member_breadth_hierarchy_unavailable_keeps_common_exception_semantics(
+    app_client,
+    db_session,
+    web_engine,
+) -> None:
+    _seed_sector_analysis(db_session)
+    for row in db_session.scalars(select(WealthSectorHierarchy)).all():
+        db_session.delete(row)
+    db_session.commit()
+
+    meta_sql_count, meta = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/member-breadth/meta",
+            params={"market": "CN_A"},
+        ),
+    )
+    ranking_sql_count, rankings = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/member-breadth/rankings",
+            params=_member_breadth_rankings_params(),
+        ),
+    )
+    details_sql_count, details = _count_request_sql(
+        web_engine,
+        lambda: app_client.get(
+            "/api/v1/wealth/market/sector-analysis/member-breadth/details",
+            params=_member_breadth_details_params(),
+        ),
+    )
+
+    assert meta.status_code == 500
+    assert meta.json()["code"] == "SA_HIERARCHY_UNAVAILABLE"
+    assert meta_sql_count == 2
+    assert rankings.status_code == 200
+    assert rankings.json()["status"] == "ERROR"
+    assert rankings.json()["exceptionCode"] == "SA_HIERARCHY_UNAVAILABLE"
+    assert ranking_sql_count == 1
+    assert details.status_code == 200
+    assert details.json()["status"] == "ERROR"
+    assert details.json()["exceptionCode"] == "SA_HIERARCHY_UNAVAILABLE"
+    assert details_sql_count == 1
