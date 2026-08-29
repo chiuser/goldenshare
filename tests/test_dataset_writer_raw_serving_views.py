@@ -16,6 +16,7 @@ from src.foundation.models.raw.raw_moneyflow_ind_ths import RawMoneyflowIndThs
 from src.foundation.models.raw.raw_moneyflow_mkt_dc import RawMoneyflowMktDc
 from src.foundation.models.raw.raw_margin import RawMargin
 from src.foundation.models.raw.raw_st import RawSt
+from src.foundation.models.raw.raw_stk_auction_c import RawStkAuctionC
 from src.foundation.models.raw.raw_stk_auction_o import RawStkAuctionO
 from src.foundation.models.raw.raw_stk_nineturn import RawStkNineTurn
 from src.foundation.models.raw.raw_suspend_d import RawSuspendD
@@ -148,6 +149,18 @@ class _RecordingRawDao:
                 "close": 10.5,
             },
             "raw_tushare.stk_auction_o",
+            None,
+        ),
+        (
+            "stk_auction_c",
+            "raw_stk_auction_c",
+            RawStkAuctionC,
+            {
+                "ts_code": "000001.SZ",
+                "trade_date": date(2026, 8, 27),
+                "close": 10.5,
+            },
+            "raw_tushare.stk_auction_c",
             None,
         ),
         (

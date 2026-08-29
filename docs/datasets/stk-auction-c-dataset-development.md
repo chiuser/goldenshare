@@ -1,6 +1,6 @@
 # 股票收盘集合竞价数据集接入方案（`stk_auction_c`）
 
-> 状态：数据集接入已落地；`P1-B3-stk_auction_c-M0` raw 直出只读复审通过，下一阶段为另行授权的 M1
+> 状态：数据集接入已落地；`P1-B3-stk_auction_c-M0/M1` 已通过，下一阶段为另行授权的 M2
 > 日期：2026-05-16  
 > raw 直出 M0 复审：2026-08-29
 > 文档模板：[数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)  
@@ -338,7 +338,7 @@ flowchart TD
 - 源端 fetched 行数。
 - normalized 行数。
 - raw 写入行数。
-- serving 写入行数。
+- raw-backed serving view 对应行数；M1 后 writer 不再写 serving。
 - rejected 行数与 reason code。
 - `core_serving.equity_auction_close` 对应交易日实际行数。
 
@@ -403,3 +403,41 @@ M1 的本数据集 migration 容量门禁固定为每层每自然月最多 160,0
 `P1-B3-stk_auction_c-M0` **通过**，可以在另行授权后进入 M1。M1 只允许修改本数据集 Definition storage contract、必要的 raw ORM 索引 metadata、独立 Alembic revision 和专项测试；可以沿用已经验证的 raw-backed view 与数据库拒写合同，但必须基于本数据集 9 字段、160,000 行/月和两个收盘工作流入口独立实现，不得新增共享框架或照搬前一数据集的生产结论。
 
 M0 不构成 M1、M2 或生产 M3a 授权。生产 M3a 前仍须重新确认真实 Alembic head、开放 TaskRun 为 0、schedule #2/#24 均已暂停、目标 worker 已停止、无目标锁/长事务、根盘和 WAL 水位安全，并重跑全量等价与代表查询。仓库外 SQL、BI、人工脚本若依赖 OID、relkind、约束 catalog、历史审计时间或 serving DML，仍须由运营登记。
+
+## 12. 2026-08-29 raw 直出 M1 实现结论
+
+### 12.1 Alembic 先决条件更新
+
+M0 生产只读快照的 Alembic head 是 `20260828_000156`，这是当时生产事实，继续保留。M1 编码开始前，本地线性迁移链已经由 ETF active pool 退场 revision 推进到唯一 head `20260829_000157`；因此本数据集新增独立 revision `20260829_000158`，并明确设置 `down_revision = 20260829_000157`。`alembic heads` 只返回 158，没有产生分叉或复用 157。
+
+### 12.2 Definition 与写入合同
+
+`stk_auction_c` 只修改 storage contract：
+
+- `raw_dao_name/core_dao_name` 均为 `raw_stk_auction_c`；
+- `target_table/raw_table` 均为 `raw_tushare.stk_auction_c`；
+- `delivery_mode=raw_with_serving_view`；
+- `layer_plan=raw->serving_view`；
+- `write_path=raw_only_upsert`；
+- `serving_table` 仍为 `core_serving.equity_auction_close`。
+
+九个 source fields、`_stk_auction_c_params`、交易日 point/range、可选 `ts_code`、每开市日一个 unit、10,000 行 `limit/offset` 分页、手动/schedule/retry 能力、工作流顺序和两个生产 schedule 均未改变。`RawStkAuctionC` 已经声明生产既有 `(ts_code, trade_date)` 主键和单列 `trade_date` 索引，DAOFactory 也已有 raw DAO，因此 M1 没有修改 ORM、DAO、writer、resolver、request builder、normalizer、Ops、前端、QTF、DG 或 Lake。
+
+### 12.3 独立 migration
+
+revision 158 与前一项 migration 物理分离，只处理 `raw_tushare.stk_auction_c` 和 `core_serving.equity_auction_close`：
+
+1. 设置事务级 `lock_timeout=15s`、`statement_timeout=120s`、`work_mem=16MB`，不修改全局配置和 `temp_file_limit`。
+2. DDL 前验证两张 relation 必须仍是当前角色拥有的非分区物理表；Raw heap、主键和交易日索引必须继续位于 SSD `pg_default`。
+3. 验证两层完整列签名、主键、唯一/二级索引、约束、ACL、trigger、RLS、view/function/rewrite 依赖、扩展统计、安全标签与 publication；任何未知合同直接失败。
+4. 先按 Raw→Serving 顺序取得 `SHARE` 锁，再按自然月比较 9 个业务字段和两列身份唯一性。每层每月最多 160,000 行；超限或任一双向 `EXCEPT ALL` 差异在 Serving 独占锁和 DDL 前失败。
+5. 验证既有 `core_serving.reject_raw_direct_serving_view_dml()` 的 owner、语言、安全与权限合同，不在本 revision 创建或重写共享函数。
+6. 取得 Serving `ACCESS EXCLUSIVE` 锁后，无 `CASCADE` 删除原物理 Serving 表，创建显式 11 列 Raw-backed view；`created_at/updated_at` 均投影 Raw `fetched_at`。
+7. 动态恢复原 owner、非 owner SELECT/grant option、relation/column comments，并创建本 relation 独立的三类 DML 拒绝 trigger；完成后再次验证 view 列、owner、trigger 与共享函数合同。
+8. 禁止自动 downgrade；恢复物理 Serving 必须另行设计和授权前向 migration。
+
+### 12.4 自动化验证与边界
+
+M1 新增专项测试，覆盖 Definition/plan、`ts_code` 正反例、Raw/Serving 字段及索引合同、ServingPublish 旁路不存在、Raw-only writer、freshness/date-completeness Raw target、revision 158→157 迁移链、160,000 行门禁、月度差异、未知依赖、锁与 DDL 顺序、显式 view、ACL/comment、三类 DML 和禁止 downgrade，并完成 PostgreSQL offline SQL 渲染。
+
+`P1-B3-stk_auction_c-M1` **通过**，但只证明代码与静态 migration 合同。没有连接任何数据库、请求 Tushare、部署、执行 migration、创建 TaskRun 或修改 schedule；生产仍是两张物理表和原双写代码。下一阶段只能在独立授权后进入 M2，在隔离 PostgreSQL 真实应用 revision 158，验证 160,000/160,001 行边界、差异/依赖 fail-closed、权限、三类 DML、事务回滚、Raw 写入后 view 即时可见和代表查询计划。M1 不构成生产 M3a 授权。

@@ -608,7 +608,12 @@ def test_dataset_definition_projects_stock_auction_facts() -> None:
     assert close_definition.source.api_name == "stk_auction_c"
     assert close_definition.source.request_builder_key == "_stk_auction_c_params"
     assert close_definition.storage.raw_table == "raw_tushare.stk_auction_c"
-    assert close_definition.storage.target_table == "core_serving.equity_auction_close"
+    assert close_definition.storage.core_dao_name == "raw_stk_auction_c"
+    assert close_definition.storage.target_table == "raw_tushare.stk_auction_c"
+    assert close_definition.storage.delivery_mode == "raw_with_serving_view"
+    assert close_definition.storage.layer_plan == "raw->serving_view"
+    assert close_definition.storage.write_path == "raw_only_upsert"
+    assert close_definition.storage.serving_table == "core_serving.equity_auction_close"
 
 
 def test_us_hot_markets_are_disabled_by_default(tmp_path, monkeypatch) -> None:
@@ -1246,6 +1251,12 @@ def test_dataset_definition_storage_layer_facts_are_explicit() -> None:
             "raw_tushare.suspend_d",
             "core_serving.equity_suspend_d",
         ),
+        (
+            "stk_auction_c",
+            "raw_stk_auction_c",
+            "raw_tushare.stk_auction_c",
+            "core_serving.equity_auction_close",
+        ),
     ):
         definition = get_dataset_definition(dataset_key)
         assert definition.storage.raw_dao_name == raw_dao_name
@@ -1283,6 +1294,7 @@ def test_raw_serving_view_definitions_project_raw_freshness_targets() -> None:
         ("moneyflow_mkt_dc", "raw_tushare.moneyflow_mkt_dc"),
         ("margin", "raw_tushare.margin"),
         ("suspend_d", "raw_tushare.suspend_d"),
+        ("stk_auction_c", "raw_tushare.stk_auction_c"),
     ):
         projection = dataset_definition_projection.get_dataset_freshness_projection(dataset_key)
         assert projection is not None
