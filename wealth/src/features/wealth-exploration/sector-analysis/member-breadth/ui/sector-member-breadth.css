@@ -78,10 +78,28 @@
 .member-breadth-trend-legend .member, .member-breadth-trend-line.member { background: var(--cs-color-brand); stroke: var(--cs-color-brand); }
 .member-breadth-trend-legend .turnover, .member-breadth-trend-line.turnover { background: var(--cs-color-info); stroke: var(--cs-color-info); }
 .member-breadth-trend-legend .ma, .member-breadth-trend-line.ma { background: var(--cs-color-warning); stroke: var(--cs-color-warning); }
-.member-breadth-trend-svg { display: block; flex: 1 1 auto; min-height: 0; width: 100%; }
+.member-breadth-trend-body { flex: 1 1 auto; min-height: 0; position: relative; }
+.member-breadth-trend-svg { display: block; height: 100%; min-height: 0; width: 100%; }
 .member-breadth-grid-line { stroke: var(--cs-color-chart-grid-primary); stroke-width: 1; }
 .member-breadth-axis-label { fill: var(--cs-color-chart-axis-label); font-family: var(--cs-font-family-number); font-size: 10px; }
 .member-breadth-trend-line { stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
+.member-breadth-inspection-crosshair { stroke: var(--cs-color-chart-crosshair-line); stroke-dasharray: 3 3; stroke-width: 1; }
+.member-breadth-inspection-point { stroke: var(--cs-color-surface-panel); stroke-width: 2; }
+.member-breadth-inspection-point.member { fill: var(--cs-color-brand); }
+.member-breadth-inspection-point.turnover { fill: var(--cs-color-info); }
+.member-breadth-inspection-point.ma { fill: var(--cs-color-warning); }
+.member-breadth-inspection-axis-pill rect { fill: var(--cs-color-chart-tooltip-bg); stroke: var(--cs-color-chart-tooltip-border); }
+.member-breadth-inspection-axis-pill text { fill: var(--cs-color-text-primary); font-family: var(--cs-font-family-number); font-size: 9px; }
+.member-breadth-trend-tooltip { background: var(--cs-color-chart-tooltip-bg); border: 1px solid var(--cs-color-chart-tooltip-border); border-radius: 8px; box-shadow: var(--cs-shadow-panel); display: flex; flex-direction: column; gap: 5px; padding: 9px var(--cs-space-10); pointer-events: none; position: absolute; top: var(--cs-space-8); width: 176px; z-index: 4; }
+.member-breadth-trend-tooltip.right { left: clamp(var(--cs-space-8), calc(var(--member-breadth-inspection-x) + var(--cs-space-12)), calc(100% - 184px)); }
+.member-breadth-trend-tooltip.left { left: clamp(var(--cs-space-8), calc(var(--member-breadth-inspection-x) - 188px), calc(100% - 184px)); }
+.member-breadth-trend-tooltip strong { color: var(--cs-color-text-primary); font-family: var(--cs-font-family-number); font-size: 11px; }
+.member-breadth-trend-tooltip span { align-items: center; color: var(--cs-color-text-secondary); display: grid; font-size: 10px; gap: 5px; grid-template-columns: 7px minmax(0, 1fr) auto; }
+.member-breadth-trend-tooltip span i { border-radius: 50%; height: 7px; width: 7px; }
+.member-breadth-trend-tooltip span i.member { background: var(--cs-color-brand); }
+.member-breadth-trend-tooltip span i.turnover { background: var(--cs-color-info); }
+.member-breadth-trend-tooltip span i.ma { background: var(--cs-color-warning); }
+.member-breadth-trend-tooltip span b { color: var(--cs-color-text-primary); font-family: var(--cs-font-family-number); font-weight: 500; }
 .member-breadth-member-panel { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; min-width: 0; }
 .member-breadth-member-panel > header { flex-basis: 52px; }
 .member-breadth-member-table { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
@@ -108,6 +126,7 @@
 .member-breadth-workspace .flat { color: var(--cs-color-market-flat); }
 .member-breadth-workspace .muted { color: var(--cs-color-text-muted); }
 .member-breadth-workspace button:focus-visible, .member-breadth-workspace select:focus-visible { outline: 2px solid var(--cs-color-brand); outline-offset: 1px; }
+.member-breadth-trend-svg:focus-visible { outline: 2px solid var(--cs-color-brand); outline-offset: -2px; }
 @keyframes member-breadth-pulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
 @media (max-width: 1512px) {
   .member-breadth-segmented button { padding: 0 6px; }

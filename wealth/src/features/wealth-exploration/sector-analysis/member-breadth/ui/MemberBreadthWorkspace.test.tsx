@@ -94,6 +94,57 @@ describe("MemberBreadthWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "下跌广度" })); await waitFor(() => expect(baseline()).toEqual([4, 4]));
   });
 
+  it("keeps trend inspection local, preserves it for ranking metric changes and clears it for every Details identity change", async () => {
+    const urls: string[] = []; vi.stubGlobal("fetch", buildReadyFetch(urls));
+    window.history.replaceState({}, "", `${WEALTH_EXPLORATION_SECTOR_MEMBER_BREADTH_PATH}?tradeDate=2026-08-27&sectorCode=BK1001.DC`);
+    render(<AuthProvider><WealthRouter /></AuthProvider>);
+    await screen.findByRole("table", { name: "成员广度成分股完整明细" });
+
+    const activate = () => {
+      const svg = screen.getByRole("img", { name: /成员广度趋势/ });
+      Object.defineProperty(svg, "getBoundingClientRect", { configurable: true, value: () => ({ left: 0, top: 0, width: 920, height: 244, x: 0, y: 0, right: 920, bottom: 244, toJSON: () => ({}) }) });
+      fireEvent.click(svg, { clientX: 475, clientY: 100 });
+      expect(screen.getByRole("tooltip")).toBeInTheDocument();
+    };
+    const expectCleared = async () => waitFor(() => expect(screen.queryByRole("tooltip")).not.toBeInTheDocument());
+
+    const requestCount = urls.length;
+    const currentUrl = window.location.href;
+    activate();
+    expect(urls).toHaveLength(requestCount);
+    expect(window.location.href).toBe(currentUrl);
+
+    fireEvent.click(screen.getByRole("button", { name: "成交额占比" }));
+    await waitFor(() => expect(count(urls, "/member-breadth/rankings")).toBe(2));
+    expect(count(urls, "/member-breadth/details")).toBe(1);
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+
+    fireEvent.click(within(screen.getByText("历史范围").parentElement!).getByRole("button", { name: "30日" }));
+    await waitFor(() => expect(count(urls, "/member-breadth/details")).toBe(2));
+    await expectCleared();
+    activate();
+
+    fireEvent.click(screen.getByRole("button", { name: "下跌广度" }));
+    await waitFor(() => expect(count(urls, "/member-breadth/details")).toBe(3));
+    await expectCleared();
+    activate();
+
+    fireEvent.click(screen.getByRole("button", { name: "MA60" }));
+    await waitFor(() => expect(count(urls, "/member-breadth/details")).toBe(4));
+    await expectCleared();
+    activate();
+
+    fireEvent.click(screen.getByRole("button", { name: /选择通信/ }));
+    await screen.findByLabelText("通信成员广度摘要");
+    expect(count(urls, "/member-breadth/details")).toBe(5);
+    await expectCleared();
+    activate();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "分析日期" }), { target: { value: "2026-08-26" } });
+    await waitFor(() => expect(count(urls, "/member-breadth/details")).toBe(6));
+    await expectCleared();
+  });
+
   it("supports all scopes, independent missing MA facts and null trend breaks", async () => {
     const urls: string[] = []; vi.stubGlobal("fetch", buildReadyFetch(urls, { maUnavailable: true }));
     window.history.replaceState({}, "", `${WEALTH_EXPLORATION_SECTOR_MEMBER_BREADTH_PATH}?tradeDate=2026-08-27&sectorCode=BK1001.DC`);

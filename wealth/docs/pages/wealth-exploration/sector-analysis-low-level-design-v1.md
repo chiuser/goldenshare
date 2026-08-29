@@ -2,7 +2,7 @@
 
 ## 0. 文档状态
 
-- 状态：v1.32；既有动量排名 M0～M4、双动量 M5～M8 与相对轮动 M9～M12R 均已完成并关闭；成员广度 M14 后端与 M15 前端已完成。M16R 等价计算内核纠偏已完成本地代码与自动化收口；成员广度仍须部署后完整重跑 M16，尚未交付。
+- 状态：v1.35；既有动量排名 M0～M4、双动量 M5～M8 与相对轮动 M9～M12R 均已完成并关闭；成员广度 M14 后端、M15 前端、M16R 等价计算内核纠偏及 M16I 趋势查看均已完成本地代码与自动化收口。成员广度仍须部署 M16R+M16I 同一版本并完整重跑 M16，尚未交付。
 - 编写日期：2026-08-30。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
@@ -12,7 +12,7 @@
 - 目标 API：既有八只板块分析 API 保持不变；M14 新增 `/member-breadth/meta|rankings|details` 三只只读 API。
 - 待拍板项：无。成员广度的日期检查、三指标独立缺失、复权因子边界、自动／历史日期语义和 MA60 两秒门禁均已确认；M14 不得自行扩大范围。
 
-本文定义财势探查页面结构、已完成的“横截面动量排名”、M3A 三级行业成分股明细、“双动量”“相对轮动”和第四个独立方法“成员广度”的代码级方案。成员广度只描述成分股数量、成交额和均线位置三项客观参与度，不做综合分、预测、信号或发布。M14 已完成后端与三只只读 API，M15 已完成精确前端路由、controller 和正式工作区；M16 已验证生产事实与 payload，但真实性能失败并停止，M16R 已完成本地等价计算纠偏，最终部署性能与页面验收仍未执行。量价分布继续不在本需求。M3A 成分股明细只是已选三级行业的事实下钻，不属于“成员广度”。
+本文定义财势探查页面结构、已完成的“横截面动量排名”、M3A 三级行业成分股明细、“双动量”“相对轮动”和第四个独立方法“成员广度”的代码级方案。成员广度只描述成分股数量、成交额和均线位置三项客观参与度，不做综合分、预测、信号或发布。M14 已完成后端与三只只读 API，M15 已完成精确前端路由、controller 和正式工作区；M16 已验证生产事实与 payload，但真实性能失败并停止，M16R 已完成本地等价计算纠偏，M16I 已完成本地代码、自动化和浏览器验收。最终部署性能与页面验收仍未执行。量价分布继续不在本需求。M3A 成分股明细只是已选三级行业的事实下钻，不属于“成员广度”。
 
 ---
 
@@ -197,7 +197,7 @@ MarketOverviewPage
 4. 正常 Results 的真实 SQL 形态可以固定为5条：公共 page context 1条、层级 1条、目标日解析 1条、95日交易日 1条、当前比较池行情 1条。`dc_daily` 必须只出现一条集合查询，禁止按日期、行业或轨迹点循环读取。
 5. `SectorMomentumQueryService.build_history()` 已有多日网格思路，但还会为了详情摘要并入全层级／父级池，且 DTO 是单行业收益与排名趋势，不符合相对轮动的“当前全池 + 一条轨迹”原子合同；不得复用或扩写该 endpoint。
 6. `SectorDualMomentumQueryService`、schema、adapter、URL 和 controller 提供了专属方法分层、strict DTO、5秒超时、409重载、过期响应丢弃和按需挂载范式。相对轮动应复制职责形态而不是复制业务字段或在其中增加 method 分支。
-7. 当前 `SectorAnalysisPage` 和 `SectorAnalysisMethodBar` 的可用方法类型只包含 `momentum-ranking | dual-momentum`；`WealthRouter/routerState` 也只有两个精确方法路由。M11 必须一次性增加第三个判别分支，并继续让成员广度和量价分布保持零请求 toast。
+7. M9 审计时，`SectorAnalysisPage` 和 `SectorAnalysisMethodBar` 的可用方法类型只包含 `momentum-ranking | dual-momentum`，`WealthRouter/routerState` 也只有两个精确方法路由；因此 M11 必须一次性增加第三个判别分支，并在当时继续让成员广度和量价分布保持零请求 toast。该历史事实已由 M11 和 M15 依次推进为当前四条正式方法路由，只有量价分布仍保持 toast。
 8. `tests/architecture/test_wealth_sector_analysis_guardrails.py` 已把板块分析来源全集冻结为五张表，但相对轮动方法级白名单仍需单独限制为前三张；同时需要把相对轮动文件加入禁止 QTF/DG/Lake/预测/持久化扫描。
 9. 中央注册表原先把 `SA_FACT_VERSION_MISMATCH` 写成“双动量专用”，与技术方案要求的同语义复用冲突。本轮已把它收敛为双动量／相对轮动 Results 共用的页面级层级版本冲突；成员局部请求仍单独使用 `SA_MEMBER_FACT_MISMATCH`，没有新增异常码。
 10. 配置审计结论为“不适用”：period、5日改善、trailLength、最小组规模、X轴范围和分界线都是版本化公式合同；本期不增加 env、Settings、数据库配置、配置文件、运营开关或页面常量的第二事实源。
@@ -685,6 +685,18 @@ wealth/src/features/wealth-exploration/sector-analysis/
 ```
 
 M14/M15 禁止修改现有 M3A 成员明细、三个已完成方法的 API／DTO／公式／DOM、首页板块速览、TopMarketBar、Shortcut、Foundation 模型／同步、Ops、QTF、DG/Lake、Alembic、依赖、配置或部署脚本。若需要新增索引、缓存、结果表、分页、截断或后台任务，立即停止。
+
+M16I 只允许下列前端增量：
+
+| 操作 | 文件 | 精确要求 |
+|---|---|---|
+| 修改 | `.../member-breadth/ui/MemberBreadthWorkspace.tsx` | 持有趋势查看的局部 UI 状态；按 Details 身份、trend 替换和非 Ready 状态清除，排名 metric 刷新造成的正文短暂卸载不得清除；不得进入 controller／URL／跨页面存储 |
+| 修改 | `.../member-breadth/ui/MemberBreadthTrendChart.tsx` | 受控消费 `IDLE/ACTIVE` 局部状态，增加真实容器到 viewBox 坐标映射、最近交易日吸附、十字线、轴浮标、三线有效交点、同日 Tooltip和空白单击／Esc退出；不得改折线事实或请求 |
+| 修改 | `.../member-breadth/ui/sector-member-breadth.css` | 只增加交互层、Tooltip、浮标、交点和 focus-visible 样式；全部使用现有 `--cs-*` token，图表卡尺寸、viewBox、plot padding和页面骨架不变 |
+| 新增 | `.../member-breadth/ui/MemberBreadthTrendChart.test.tsx` | 组件级正反例覆盖单击进入、日期吸附、左右／上下移动、null、Tooltip避让、离开保留、空白单击／Esc退出、身份变化清除、响应式坐标映射和零请求 |
+| 修改 | `.../member-breadth/ui/MemberBreadthWorkspace.test.tsx` | 只补工作区切换行业／日期／方向／MA／历史范围时清除交互，以及切换排名指标不误清除、不新增请求的集成断言 |
+
+上表中的 `...` 固定展开为 `wealth/src/features/wealth-exploration/sector-analysis`。M16I 不修改 API、DTO、adapter、URL、controller、后端、数据库、迁移、Figma 页面骨架、其他分析方法或量价分布；若实现需要扩大范围，立即停止并回到方案层。
 
 ## 6. 后端合同与纯计算设计
 
@@ -2505,7 +2517,7 @@ SVG 使用固定的 `776×365` 内部坐标系，但由浏览器按实际容器�
 type SectorAnalysisMethod = "momentum-ranking" | "dual-momentum";
 ```
 
-该段记录 M7 完成时的双动量装配基线：页面只根据路由判别值创建一个 controller 和一个工作区，不得用 CSS 隐藏其他方法。M11 已在第 8.16 节既定联合类型上增加相对轮动第三分支；三个已完成方法分别导航到自己的 path，并只保留跨方法共享的 `market/debug/tradeDate`。成员广度和量价分布继续 toast“待建设”，零 URL、controller、请求和图表副作用。板块分析根地址仍 replace 到动量排名。
+该段记录 M7 完成时的双动量装配基线：页面只根据路由判别值创建一个 controller 和一个工作区，不得用 CSS 隐藏其他方法。M11 已在第 8.16 节既定联合类型上增加相对轮动第三分支；当时三个已完成方法分别导航到自己的 path，并只保留跨方法共享的 `market/debug/tradeDate`，成员广度和量价分布仍 toast“待建设”。该句只记录 M11 历史状态；M15 已增加成员广度第四分支，当前仅量价分布继续保持零 URL、controller、请求和图表副作用的“待建设”状态。板块分析根地址仍 replace 到动量排名。
 
 ### 8.11 双动量 URL 状态
 
@@ -2826,14 +2838,54 @@ adapter 必须复核第7.14～7.16节全部枚举、数量、日期、组成和�
 
 | 组件 | 唯一职责 |
 |---|---|
-| `MemberBreadthWorkspace` | 组合 toolbar、主状态和 Ready Grid |
+| `MemberBreadthWorkspace` | 组合 toolbar、主状态和 Ready Grid；M16I 持有不进入 controller／URL 的趋势查看局部状态，以跨越排名指标刷新造成的 Ready 正文短暂卸载 |
 | `MemberBreadthToolbar` | scope/父级/日期/方向/metric/maPeriod/historyRange 控件与实际日期提示 |
 | `MemberBreadthRankingPanel` | 完整行业榜、固定表头、选中和样本不足表达 |
 | `MemberBreadthSelectedSummary` | 当前行业身份、路径、三项覆盖摘要 |
 | `MemberBreadthCompositionBars` | 三项独立组成条；只消费 DTO 百分比 |
-| `MemberBreadthTrendChart` | 20/30/60 日期槽和三条事实线；null 断线 |
+| `MemberBreadthTrendChart` | 20/30/60 日期槽和三条事实线；null 断线；M16I 受控消费工作区局部查看状态并负责事件、坐标映射和绘制 |
 | `MemberBreadthMemberTable` | 完整成员明细、固定表头和内部滚动 |
 | `MemberBreadthStateSurface` | Loading/Empty/Error 和 Details 局部 Empty/Error |
+
+#### 8.25.1 M16I 趋势图交互状态机与几何
+
+Figma 状态映射固定为：默认 `IDLE` 视觉依据 `1186:11797`；单击进入后的 `ACTIVE` 视觉依据 `1190:15904`，其中视觉叠层子节点为 `1190:15918`（`1004×232`）。`1190:15904` 是静态视觉验收画板，只冻结横纵十字线、三项交点、浮动轴标签、Tooltip 层级和右侧日期左向避让；鼠标连续移动、Tooltip 右向分支、null 单项和退出行为继续以本节合同及自动化为准，不得从单张静态画板自行推断。
+
+开工审计事实：`MemberBreadthTrendChart.tsx` 是无事件处理器的静态 SVG；排名 metric 变化虽然不刷新 Details，但 `useSectorMemberBreadthController` 会把 Rankings 暂时置为 Loading，`MemberBreadthWorkspace` 因而卸载整个 Ready 正文。若状态只存在于 TrendChart，组件卸载必然违反“metric变化不清除”。M16I 因此把状态提升到持续挂载的 Workspace，仍属于当前方法内部的局部 UI 状态；不得修改 controller，也不得使用模块级缓存或全局状态。股票详情 `DetailChartWorkspace` 已有十字线、浮动轴标签和 Tooltip 左右避让，但其交互由图表库的 pointer move 直接驱动。M16I 只借鉴后者的视觉与边界处理，不复用多面板图表组件，也不改变“单击后才进入查看”的批准语义。
+
+局部状态固定为：
+
+```ts
+type MemberBreadthTrendInspection = null | {
+  index: number;
+  pointerY: number;
+};
+```
+
+- 该状态由 `MemberBreadthWorkspace` 的 React state 持有，通过受控属性传给 TrendChart；`null` 即 `IDLE`，非空即 `ACTIVE`。
+- `index` 是 `details.trend` 的真实日期下标，不保存任意 x 值，也不插值日期或三项指标。
+- `pointerY` 是 clamp 后的 viewBox 绘图区 y 坐标，只用于横向辅助线和纵轴浮动标签，不写入 URL、controller 或业务状态。
+
+几何与事件顺序固定为：
+
+1. 继续使用 `VIEW = 920×244`、`left=48/right=18/top=22/bottom=30`；SVG 固定 `preserveAspectRatio="none"`，指针坐标通过 `svg.getBoundingClientRect()` 按实际宽高分别映射到 viewBox，禁止使用浏览器默认等比留白，也禁止假设 CSS 像素等于 viewBox 单位。
+2. 主按钮单击落在有效 plot 内时，先计算 `rawIndex = (x-left)/plotWidth×(pointCount-1)`，再 `Math.round()` 并 clamp 到 `0..pointCount-1`；同时 clamp y 到 `top..top+plotHeight`，写入一个新的原子状态。
+3. `ACTIVE` 后的 `pointermove` 只有在 plot 内才更新；左右移动重复上述最近日期吸附，上下移动只改变 `pointerY`。`pointerleave` 不清除状态。
+4. SVG 内但 plot 外的空白／坐标轴区域再次单击，或可聚焦图表交互面接收 `Escape`，统一置为 `null`。进入 `ACTIVE` 的单击必须把焦点交给图表交互面，使 Esc 有明确作用域；退出后不修改当前行业或页面其他焦点状态。
+5. Workspace 收到新的交互身份时清除：`tradeDate + sectorCode + direction + maPeriod + historyRange` 任一变化、Details 非 Ready、页面 Empty/Error 或 trend 被替换均回到 `IDLE`。排名 `metric` 不属于 Details 身份；其刷新期间允许 TrendChart 随 Ready 正文短暂卸载，完成后必须恢复同一状态，不得清除。
+
+`ACTIVE` 绘制顺序固定为：既有网格／轴 → 三条折线 → 纵向日期线与横向百分比线 → 三个有效系列交点 → x/y 浮动轴标签。Tooltip 使用 SVG 外同一图表 body 内的绝对定位 HTML，位于所有绘图层之上：
+
+1. x 浮标显示吸附日 `MM-DD`，Tooltip 标题显示完整 `YYYY-MM-DD`；y 浮标显示由 `pointerY` 反算的 `0..100%` 一位小数。
+2. 交点读取同一 `trend[index]` 的 `memberPct/turnoverPct/maPositionPct`。有效值以系列色实心圆和面板色描边高亮；null 不画圆点。
+3. Tooltip 三行顺序固定为“成分股占比／成交额占比／均线位置占比”，有效值一位小数百分比，null 为 `--`；只格式化 DTO，不计算业务事实。
+4. 吸附 x 超过 plot 宽度62%时 Tooltip 放左侧，否则放右侧；最终位置对图表 body 四边 clamp。Tooltip 使用 `pointer-events:none`，不得阻断移动、单击或退出。
+5. 十字线使用 `--cs-color-chart-crosshair-line`，Tooltip 使用 `--cs-color-chart-tooltip-bg/border`，交点继续使用 `member/turnover/ma` 三系列 token；不得新增十六进制颜色或第二套 tooltip 样式。
+6. `details.trend` 为空时保持静态空图语义且不可进入 `ACTIVE`；全日三项都为 null 时日期仍可吸附，三点均不画，Tooltip 三项均显示 `--`。
+
+该交互完全使用已加载 Details：点击、移动、退出、Tooltip 避让和焦点操作的成员广度 API 请求增量必须严格为0。
+
+Figma Active 画板中的视觉叠层 `1190:15918` 为 `1004×232`，仅代表1600px设计基线下的视觉比例。运行时仍以本节既有 `VIEW = 920×244` 和 `svg.getBoundingClientRect()` 做真实容器到 viewBox 的映射；不得复制 Figma 绝对 x/y、不得把 `1004×232` 写成固定尺寸，也不得为匹配静态画板改写第8.26节的响应式骨架。
 
 ### 8.26 成员广度响应式与 Design System
 
@@ -3158,6 +3210,12 @@ tests/test_wealth_turnover_insight_static_gates.py
 8. 完整行业榜与成员表固定表头、独立滚动；趋势 null 断线；前端不计算公式或补值。
 9. 13张正式 Figma 状态逐一对照；1600基线 `548+12+1004`，1512/1460连续收缩，1366仅公共页面级滚动。
 10. 长行业／股票名、最大列表、MA60慢请求、Details局部失败、键盘、focus-visible、Tooltip和重试无裁剪／串代／整页误清空。
+11. `MemberBreadthTrendChart` 初始无十字线；plot 内主按钮单击按真实容器映射并吸附最近交易日，不能命中日期间的任意像素或插值值。
+12. `ACTIVE` 的日期纵线、百分比横线、x/y浮标、三项有效交点和Tooltip必须来自同一状态；左右移动切换日期，上下移动只改变横线。
+13. null 系列不画交点且Tooltip显示 `--`；全null日期仍允许查看日期，但不得生成0值或伪点。
+14. Tooltip 在62%边界切换左右侧并对四边clamp；pointerleave保留最后读数，plot外空白／轴区域再次单击和Escape都回到 `IDLE`。
+15. `tradeDate/sectorCode/direction/maPeriod/historyRange` 或Details状态变化清除；单改排名metric不清除。以上交互不改变URL、controller或任何成员广度请求数。
+16. 1600/1512/1460/1366四档都使用 `getBoundingClientRect()` 映射到同一viewBox；交互层不得改变图表卡高度、plot padding、null断线、成员表或其他三个方法DOM。
 
 ## 12. 性能与验收门禁
 
@@ -3474,7 +3532,7 @@ M12R 只删除无输出价值的中间事实物化，不改变任何公开业务
 2. Meta 两轮20次 P95 为 `211.896ms/209.411ms`，通过一秒门禁。三级 MA20 Rankings 的已完成请求约为 `19.926～22.471s`；三级 MA60 Rankings 单次服务端日志耗时 `64.580s`，明确超过两秒门禁。最大 Rankings 失败后停止其余性能采样，不用不完整样本伪造 P95。
 3. 全部请求结束后，Web 实时线程采样为0% CPU、健康检查正常，无需重启。M13 的生产查询计划已给出 MA60 数据库阶段约1.54秒，而完整 HTTP 达64.58秒；虽然当前没有逐阶段运行时计时、不能编造各阶段占比，但代码已确认 `rank_requested_metric()` 对337个行业逐一调用 `calculate_composition()`，而后者每次都对同一批行情重建 `market_index`；`build_details()` 又对当前三项和每个趋势日三项重复扫描关系并重建行情索引。现有成员广度 HTTP 性能测试只有2个行业、每个5只成员，只证明了小样本合同与 SQL 数，没有覆盖生产337行业和约16,923条目标日关系。这是必须先补齐的测试缺口和必须删除的重复计算；纠偏后仍需分段计时确认是否存在第二瓶颈。
 4. 因真实性能失败，13张正式 Figma、真实页面交互和四档宽度验收没有继续执行；M15 fixture 证据仍有效但不能代替 M16，G47 保持失败开放，成员广度不得关闭。
-5. 严格触发第17节停止条件：不得自行放宽门禁，不得新增缓存、索引、结果表、分页或截断，不得自动进入量价分布。后续仅允许先提交并确认语义等价的计算内核纠偏方案。
+5. 严格触发第17节停止条件：不得自行放宽门禁，不得新增缓存、索引、结果表、分页或截断，不得自动进入量价分布。该问题已由 M16R 完成本地等价纠偏，M16I 也已完成本地收口；完整 M16 仍须部署二者的同一版本后从头执行。
 
 #### M16R：等价计算内核纠偏
 
@@ -3487,6 +3545,16 @@ M12R 只删除无输出价值的中间事实物化，不改变任何公开业务
 5. 纠偏通过后重新部署，从 Meta、非MA60 Rankings/Details、MA60 Rankings/Details 两轮20次开始完整重跑 M16，再执行13状态、五scope、两方向、三指标、六均线、三趋势范围和四档页面验收。未通过原一秒／两秒门禁时再次停止，不得继续叠加方案。
 
 实现仅修改 `sector_member_breadth_calculator.py` 与对应计算器测试；冻结后端回归 `347 passed`，未新增迁移、依赖、配置、缓存、持久化表或跨子系统依赖。本地现实规模时间只用于证明重复工作已被删除，不能代替部署后的完整 HTTP 门禁。M16R 完成后停在本地代码收口，不自动部署、不提前关闭 G47。
+
+#### M16I：成员广度趋势图十字线交互增量
+
+状态：`LOCAL CODE + AUTOMATION + BROWSER PASS / DEPLOYMENT PENDING (2026-08-30)`。
+
+1. 产品口径和正式 Figma Active 状态 `1190:15904` 已完成；按第5.10和8.25.1节，只修改 Workspace 局部状态、趋势图组件、局部样式、组件测试和最小工作区集成测试。
+2. 实现 `IDLE/ACTIVE`：单击plot进入、最近交易日吸附、日期纵线、百分比横线、x/y浮标、三条有效交点和同日Tooltip；null不造点，Tooltip显示 `--`。
+3. pointerleave保留最后读数；SVG内plot外空白／坐标轴区域再次单击或Escape退出。Details身份／状态变化清除，排名metric变化不清除。
+4. 全部交互必须零请求、零URL变化、零controller变化；不得修改API/DTO/adapter、后端、数据库、迁移、Figma页面骨架、其他方法或量价分布。
+5. 第11.5节新增正反例、定向23项、前端全量508项、typecheck、build和四档浏览器验收均已通过；已停止在本地验收，不自动提交、部署或关闭G47。下一步是部署M16R+M16I并完整重跑M16。
 
 每个里程碑完成后停止，不自动进入下一阶段，不自动提交、推送、迁移或部署。
 
@@ -3579,14 +3647,15 @@ git diff --check
 | G37 相对轮动交付 | 真实 API、3/5 SQL、payload/P95、四档宽度、交互与用户验收 | PASS：部署性能、既有前端证据与用户验收已完成 |
 | G38 相对轮动架构边界 | 只读前三张 Prod 表；无 QTF/DG/Lake/宽基/申万/成员/迁移/配置/依赖 | PASS (M10 backend)；M11/M12 继续保持该边界 |
 | G39 M12R 纠偏合同 | 真实瓶颈证据、稀疏等价方案、旧路径安全删除、共享回归和失败停止门禁完整 | PASS：两轮 HTTP P95 `848.025/847.416ms`，通过现行1,000ms门禁 |
-| G40 成员广度产品与 Figma | 三独立指标、五scope、六均线、三趋势范围、13正式状态和Design System一致 | PASS (M13 docs/Figma) |
+| G40 成员广度产品与 Figma | 三独立指标、五scope、六均线、三趋势范围、13个既有正式状态和1个趋势查看Active状态与Design System一致 | PASS (M13 baseline + M16I product/Figma) |
 | G41 成员广度代码影响面 | M3A不可复用、独立后端／前端链、既有八endpoint和三方法零变化 | PASS (M13 CodeGraph/current code) |
 | G42 成员广度日期合同 | Meta零成员历史扫描；公共日期默认回退；URL显式历史不回退 | PASS (M14 backend + M15 frontend) |
 | G43 成员广度公式与缺失 | 三分母、`close×adj_factor`、5+80%、缺因子只影响MA | PASS (M14 code/tests) |
 | G44 成员广度 API/SQL | 三只strict API、3/4/4 SQL；计算接口复用公共页面日期并合并窗口／覆盖／成员查询；Rankings单指标、Details三项 | PASS (M14 code/tests) |
 | G45 成员广度后端 | contract/calculator/query/service/schema/API与正反例 | PASS (M14 code/tests) |
 | G46 成员广度前端 | 第四route、URL/controller、13态、响应式和按需挂载 | PASS (M15 code/tests/browser fixture) |
-| G47 成员广度交付 | 真实事实、payload、非MA60一秒、MA60两秒、四档宽度和用户验收 | OPEN：事实与payload通过；M16R本地等价纠偏及现实规模门禁通过，部署后性能与页面验收未执行 |
+| G46A 成员广度趋势图交互 | 单击进入、日期吸附、十字轴、三交点、同日Tooltip、null、避让、保留／退出、身份清除和零请求 | PASS (M16I code/tests/browser)：定向23项、前端508项、typecheck/build和四档浏览器验收通过 |
+| G47 成员广度交付 | 真实事实、payload、非MA60一秒、MA60两秒、四档宽度和用户验收 | OPEN：事实与payload通过；M16R与M16I本地收口通过，等待部署后性能／页面验收 |
 
 ### 15.1 例外白名单
 
@@ -3626,12 +3695,13 @@ git diff --check
 28. M11 已实现第三条精确路由、独立 API／strict adapter／11项 URL／controller、14态工作区、共享坐标 SVG 和完整滚动列表；相对轮动定向62项、前端全量473项、typecheck/build及20项静态／架构门禁通过。真实 API、部署态 P95 和四档最终人工视觉验收继续严格留在 M12。
 29. M12 已完成远程部署和真实 API 首轮审计：Meta、3/5 SQL、payload、337行和60槽事实完整性通过；首轮 Results 两轮 P95 `1250.883/1275.006ms` 触发原门禁并进入 M12R，属于历史审计事实。
 30. M12R 已完成稀疏计算、旧网格安全删除和部署复测：两个完整排名切片服务当前全榜，其余最多63日只投影选中行业，坐标对象收敛为337个当前点与60个轨迹点；测试内旧路径 oracle、共享消费者、全 API 矩阵和前端 strict adapter 零变化门禁通过。部署提交 `a110f6a9` 的两轮最大 Results P95 为 `848.025/847.416ms`，通过用户确认的1,000ms门禁；结合既有页面与交互验收，M12/M12R 均已关闭。
-31. 成员广度产品基线、13张正式Figma和技术方案 v1.40 已完成对账；M14 已按冻结的精确文件、类、三只 API、strict DTO 和三项公式落地，M15 已完成第四路由、strict adapter、九字段 URL、controller、正式状态和响应式布局。
+31. 成员广度产品基线、13张既有正式状态Figma和技术方案已完成对账；M16I 另新增趋势查看 Active 状态 `1190:15904`，不改变既有页面骨架。M14 已按冻结的精确文件、类、三只 API、strict DTO 和三项公式落地，M15 已完成第四路由、strict adapter、九字段 URL、controller、正式状态和响应式布局。
 32. M13 CodeGraph 影响面确认成员广度只能新增独立 Biz／Wealth 链；现有 M3A 只读 close/pct_chg 且不读复权因子，禁止复用或改写。
 33. M13 性能审计已否决 Meta 全历史成员完整性扫描，冻结公共3 SQL；实际缺口随计算返回。三级 MA60 数据库聚合约1.54秒，用户确认该路径两秒门禁，其他请求保持一秒。
 34. 自动日期／显式历史、复权因子只影响MA、Rankings只算所选指标、Details三项独立事实、3/4/4 SQL、119日和 M14～M16 停止点均已落档；M15 按合法选择是否存在分别采用“并发 Rankings/Details”和“先 Rankings 后 Details”，没有猜测默认行业。M15 没有修改后端、异常注册表、Figma或生产状态。
 35. M16 生产事实、范围和 payload 已通过，Meta 稳态 P95 通过；MA20 Rankings 约19.9～22.5秒、MA60 Rankings 单次64.58秒，代码已确认同一请求内存在重复构建整批行情索引和重复扫描成员关系。第17节停止条件已触发，G47 保持开放。
 36. M16R 已删除上述重复工作：Rankings 每请求只建一次行情索引并按行业分组，Details 按日期分组且组成／趋势／成员共享索引；旧／新全矩阵等价、两类现实规模及冻结后端347项通过。部署后完整 M16 复测仍是关闭 G47 的必要条件。
+37. M16I 已按最新批准交互实现为纯前端零请求增量：Workspace 局部状态跨排名指标刷新保留，TrendChart 完成单击后十字线查看、交易日吸附、三线交点、同日Tooltip、离开保留及空白单击／Escape退出；非等比例容器按固定 viewBox 精确映射。定向23项、前端508项、typecheck/build和四档浏览器验收通过，G46A关闭。
 
 ### 16.2 已接受的非阻断项与历史记录
 
@@ -3708,12 +3778,15 @@ git diff --check
 
 成员广度 M15 前端已经完成：已消费冻结的三只 API 合同，建立第四条独立路由、strict adapter、URL/controller、正式状态工作区和四档响应式布局，并通过前端全量、类型、构建、冻结后端和受控 fixture 浏览器验收。
 
-M16 已使用部署后的真实认证 API 核对生产日期、496行业、资格分布、最大625成员 Details 和 payload，事实部分通过；但 MA20／MA60 Rankings 性能明确失败。M16R 已完成本地等价计算内核纠偏：完整行情索引在每个请求内只构建一次，关系按行业或日期一次分组，旧／新全矩阵结果一致，现实规模测试和347项冻结后端回归通过。成员广度当前仍不能关闭，下一步固定为部署同一提交后完整重跑 M16 性能与页面验收。
+M16 已使用部署后的真实认证 API 核对生产日期、496行业、资格分布、最大625成员 Details 和 payload，事实部分通过；但 MA20／MA60 Rankings 性能明确失败。M16R 已完成本地等价计算内核纠偏：完整行情索引在每个请求内只构建一次，关系按行业或日期一次分组，旧／新全矩阵结果一致，现实规模测试和347项冻结后端回归通过。M16I 趋势查看已完成产品、Figma、代码、自动化与四档浏览器验收。成员广度当前仍不能关闭，下一步固定为部署 M16R+M16I 并完整重跑 M16 性能与页面验收。
 
 ### 18.1 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v1.35 | 2026-08-30 | 完成M16I本地收口：Workspace持有纯局部查看状态并跨排名指标刷新保留，TrendChart实现单击进入、交易日吸附、横纵十字线、三系列交点、同日Tooltip、null、左右避让、离开保留、空白单击／Escape退出和身份变化清除；显式`preserveAspectRatio="none"`保证非等比例容器与固定viewBox一致。定向23项、前端508项、typecheck/build和四档浏览器验收通过，G46A关闭；G47等待部署后完整M16 |
+| v1.34 | 2026-08-30 | 校准M16I产品、Figma和代码阶段：默认IDLE引用`1186:11797`，Active视觉引用`1190:15904`；明确Active只是静态视觉基线，运行时继续以真实容器映射既有`920×244` viewBox，不复制Figma绝对坐标；G40更新设计证据，G46A改为DESIGN PASS/CODE OPEN，代码与验收仍未执行 |
+| v1.33 | 2026-08-30 | 按用户确认增加M16I编码方案：当前静态成员广度趋势图新增IDLE/ACTIVE状态、真实容器到viewBox映射、最近交易日吸附、横纵十字线与浮动轴标签、三线有效交点、同日三值Tooltip、null语义、62%左右避让、离开保留、plot外空白单击或Escape退出，以及Details身份变化清除；限定四个前端文件、零请求、零URL/controller/API/DTO/后端/数据层变化，G46A保持OPEN等待实现 |
 | v1.32 | 2026-08-30 | 完成成员广度 M16R 本地代码收口：Rankings 单次索引＋按行业分组，Details 单次索引＋按日期分组并由组成／趋势／成员共享；新增三指标／两方向／六均线旧新全矩阵等价，以及337行业／16,923关系和625成员／119日／60趋势槽现实规模门禁，纯计算约1.16s／1.03s，冻结后端347项通过。对外合同、SQL、前端和数据层未变；G47继续开放，等待部署后完整M16复测 |
 | v1.31 | 2026-08-29 | 执行成员广度 M16 生产验收：公共日期、496行业、五scope、资格分布、最大625成员、六均线、三趋势范围和payload通过，Meta两轮P95约212/209ms通过；三级MA20约19.9～22.5秒、MA60单次64.58秒，明确不通过性能门禁。代码审计确认排名／详情重复重建整批行情索引并重复扫描关系；按停止条件中止，记录待确认的M16R等价内核纠偏范围，G47保持失败开放 |
 | v1.30 | 2026-08-29 | 完成成员广度 M15 前端：新增第四条精确路由、strict adapter、九字段 URL、独立 controller 与正式工作区；落实合法选择并发、无选择先 Rankings 后 Details、5秒超时、401、一次409重载、局部错误、竞态丢弃、完整滚动列表、趋势断点及四档自适应；前端501项、工作区16项、typecheck/build、后端317项和受控 fixture 浏览器验收通过，下一步固定M16真实联调与性能验收 |
