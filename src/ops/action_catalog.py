@@ -31,6 +31,8 @@ class ActionParameter:
     options: tuple[str, ...] = ()
     multi_value: bool = False
     default_value: Any | None = None
+    option_labels: dict[str, str] = field(default_factory=dict)
+    select_all_enabled: bool = False
 
 
 @dataclass(slots=True, frozen=True)

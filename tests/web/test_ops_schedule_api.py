@@ -1070,6 +1070,47 @@ def test_ops_schedule_create_supports_fina_indicator_success_cursor_policy(app_c
     assert payload["params_json"]["schedule_policy_params"] == {"initial_start_date": "2026-08-01"}
 
 
+def test_ops_schedule_financial_statement_persists_real_report_type_defaults_and_rejects_empty(
+    app_client,
+    user_factory,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+    payload = {
+        "target_type": "dataset_action",
+        "target_key": "income.maintain",
+        "display_name": "利润表自动维护",
+        "schedule_type": "cron",
+        "cron_expr": "0 19 * * *",
+        "timezone": "Asia/Shanghai",
+        "calendar_policy": "since_last_success_day_range",
+        "params_json": {
+            "time_input": {"mode": "range"},
+            "schedule_policy_params": {"initial_start_date": "2026-08-01"},
+        },
+    }
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json=payload,
+    )
+    assert response.status_code == 200
+    assert response.json()["params_json"]["filters"] == {
+        "report_type": [str(value) for value in range(1, 13)]
+    }
+
+    payload["display_name"] = "空报表类型"
+    payload["params_json"]["filters"] = {"report_type": []}
+    empty = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json=payload,
+    )
+    assert empty.status_code == 422
+
+
 @pytest.mark.parametrize(
     ("schedule_patch", "params_json", "expected_message"),
     (

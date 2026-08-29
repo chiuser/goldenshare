@@ -1,6 +1,6 @@
 # A 股现金流量表（`cashflow`）数据集接入 LLD v1
 
-状态：**设计完成，待开发**
+状态：**代码已实现，待运营部署、迁移、同步与页面验收**
 编写日期：2026-08-30
 上位方案：[A 股现金流量表接入技术方案 v1](/Users/congming/github/goldenshare/docs/datasets/cashflow-dataset-development.md)
 
@@ -469,7 +469,7 @@ Definition 自动投影出：
 | `src/foundation/datasets/freshness_policies.py` | 注册 `event_run_trace`。 |
 | Ops 展示目录 | `equity_financial` order 50。 |
 | 新 Alembic revision | HDD 表、PK、索引、serving view。 |
-| `tests/test_cashflow_dataset.py` | 数据集主测试。 |
+| `tests/test_financial_statement_datasets.py` | 三张财务报表共享契约与数据集主测试。 |
 | 架构/runtime/Ops 测试 | 更新事实集合和负向护栏。 |
 
 ## 13. 测试矩阵
@@ -514,8 +514,8 @@ Definition 自动投影出：
 ## 15. 验证命令
 
 ```bash
-uv run ruff check src/foundation/datasets src/foundation/ingestion src/foundation/models/raw/raw_cashflow.py src/foundation/dao/factory.py src/ops tests/test_cashflow_dataset.py
-uv run pytest -q tests/test_cashflow_dataset.py tests/test_dataset_action_resolver.py tests/test_dataset_definition_registry.py tests/test_foundation_table_model_registry.py
+uv run ruff check src/foundation/datasets src/foundation/ingestion src/foundation/models/raw/raw_cashflow.py src/foundation/dao/factory.py src/ops tests/test_financial_statement_datasets.py
+uv run pytest -q tests/test_financial_statement_datasets.py tests/test_dataset_definition_registry.py tests/test_foundation_table_model_registry.py
 uv run pytest -q tests/web/test_ops_catalog_api.py tests/web/test_ops_manual_actions_api.py tests/web/test_ops_schedule_api.py
 uv run pytest -q tests/architecture/test_subsystem_dependency_matrix.py tests/architecture/test_dataset_runtime_registry_guardrails.py
 uv run goldenshare ingestion-lint-definitions

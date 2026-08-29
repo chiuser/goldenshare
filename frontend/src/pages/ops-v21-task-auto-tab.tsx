@@ -55,6 +55,7 @@ import { DataTable, type DataTableColumn } from "../shared/ui/data-table";
 import { DetailDrawer } from "../shared/ui/detail-drawer";
 import { EmptyState } from "../shared/ui/empty-state";
 import { MonthField } from "../shared/ui/month-field";
+import { OpsEnumMultiSelect } from "../shared/ui/ops-enum-multi-select";
 import { OpsTableCellText } from "../shared/ui/ops-table";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
@@ -1101,6 +1102,9 @@ export function OpsAutomationPage() {
               .map((item) => item.trim())
               .filter(Boolean);
         if (!values.length) {
+          if (param.required) {
+            params[param.key] = [];
+          }
           continue;
         }
         params[param.key] = values;
@@ -2394,9 +2398,12 @@ export function OpsAutomationPage() {
                         {selectedActionParameters.map((param) => (
                           <Grid.Col key={param.key} span={{ base: 12, md: 6 }}>
                             {(param.param_type === "enum" && param.multi_value) ? (
-                              <Checkbox.Group
+                              <OpsEnumMultiSelect
                                 label={param.display_name}
                                 description={param.description}
+                                options={normalizeParamOptions(param.options)}
+                                optionLabels={param.option_labels}
+                                selectAllEnabled={param.select_all_enabled}
                                 value={
                                   Array.isArray(form.field_values[param.key])
                                     ? (form.field_values[param.key] as string[])
@@ -2411,13 +2418,7 @@ export function OpsAutomationPage() {
                                     field_values: { ...current.field_values, [param.key]: values },
                                   }))
                                 }
-                              >
-                                <Stack gap={6} mt="xs">
-                                  {normalizeParamOptions(param.options).map((option) => (
-                                    <Checkbox key={option} value={option} label={option} />
-                                  ))}
-                                </Stack>
-                              </Checkbox.Group>
+                              />
                             ) : param.param_type === "enum" ? (
                               <Select
                                 label={param.display_name}

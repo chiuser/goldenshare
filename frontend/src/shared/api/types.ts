@@ -560,6 +560,8 @@ export interface OpsAutomationCapability {
       options: string[];
       multi_value: boolean;
       default_value: string | string[] | number | boolean | null;
+      option_labels?: Record<string, string>;
+      select_all_enabled?: boolean;
     }>;
   }>;
   time_input_contract: {
@@ -646,6 +648,8 @@ export interface OpsCatalogResponse {
       options: string[];
       multi_value: boolean;
       default_value: string | string[] | number | boolean | null;
+      option_labels?: Record<string, string>;
+      select_all_enabled?: boolean;
     }>;
   }>;
   workflows: Array<{
@@ -672,6 +676,8 @@ export interface OpsCatalogResponse {
       options: string[];
       multi_value: boolean;
       default_value: string | string[] | number | boolean | null;
+      option_labels?: Record<string, string>;
+      select_all_enabled?: boolean;
     }>;
     steps?: Array<{
       step_key: string;
@@ -750,6 +756,8 @@ export interface OpsManualActionsResponse {
         options: string[];
         multi_value: boolean;
         default_value: string | string[] | number | boolean | null;
+        option_labels?: Record<string, string>;
+        select_all_enabled?: boolean;
       }>;
       search_keywords: string[];
       action_order: number;

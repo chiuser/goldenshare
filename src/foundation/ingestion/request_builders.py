@@ -78,6 +78,38 @@ def _fina_indicator_vip_params(request, anchor_date: date | None, enum_values: d
     return {"ann_date": anchor_date.strftime("%Y%m%d")}
 
 
+def _financial_statement_vip_params(
+    *,
+    anchor_date: date | None,
+    enum_values: dict[str, Any],
+    label: str,
+) -> dict[str, Any]:
+    if anchor_date is None:
+        raise ValueError(f"{label}维护缺少公告日期锚点")
+    report_type = str(enum_values.get("report_type") or "").strip()
+    if report_type not in {str(value) for value in range(1, 13)}:
+        raise ValueError(f"{label}报表类型必须是 1 至 12")
+    return {
+        "ann_date": anchor_date.strftime("%Y%m%d"),
+        "report_type": report_type,
+    }
+
+
+def _income_vip_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del request
+    return _financial_statement_vip_params(anchor_date=anchor_date, enum_values=enum_values, label="利润表")
+
+
+def _balancesheet_vip_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del request
+    return _financial_statement_vip_params(anchor_date=anchor_date, enum_values=enum_values, label="资产负债表")
+
+
+def _cashflow_vip_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del request
+    return _financial_statement_vip_params(anchor_date=anchor_date, enum_values=enum_values, label="现金流量表")
+
+
 def _fund_portfolio_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     del enum_values
     if anchor_date is None:
@@ -1239,6 +1271,9 @@ __all__ = [
     "_fund_div_params",
     "_express_vip_params",
     "_fina_indicator_vip_params",
+    "_income_vip_params",
+    "_balancesheet_vip_params",
+    "_cashflow_vip_params",
     "_fund_portfolio_params",
     "_stk_limit_params",
     "_stk_auction_o_params",

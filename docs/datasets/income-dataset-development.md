@@ -1,6 +1,6 @@
 # A 股利润表（`income`）数据集接入技术方案 v1
 
-状态：**关键口径已确认，LLD 已完成，待开发**
+状态：**代码已实现，待运营部署、迁移、同步与页面验收**
 编写日期：2026-08-29
 适用范围：Tushare `income_vip` 接入 Goldenshare Prod
 
@@ -183,7 +183,7 @@ raw 逐列保存全部源字段，数值字段使用 nullable `NUMERIC`，日期
 2. `(ann_date, report_type, ts_code)`，服务 unit 对账与公告日查询。
 3. `(report_type, ts_code, end_date, update_flag DESC, f_ann_date DESC, ann_date DESC)`，服务 serving 选择和单公司报告期查询。
 
-table heap、主键与两个二级索引全部显式放入 `gs_raw_cold_hdd`。migration 必须先验证 tablespace 存在，不存在则在创建任何 relation 前失败，禁止回退 SSD。实施前重新读取真实 Alembic head；本文记录的当前 head `20260829_000161` 不是未来编码时可直接照抄的 `down_revision`。
+table heap、主键与两个二级索引全部显式放入 `gs_raw_cold_hdd`。migration 必须先验证 tablespace 存在，不存在则在创建任何 relation 前失败，禁止回退 SSD。已实现 migration 为 `20260830_000163`，接实施时真实 head `20260830_000162`。
 
 ## 7. Serving 唯一报表规则
 

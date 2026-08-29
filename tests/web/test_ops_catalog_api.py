@@ -234,7 +234,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert actions["maintenance.rebuild_dm"]["display_name"] == "刷新数据集市快照"
 
     catalog_items = [*actions.values(), *workflows.values()]
-    assert sum(item["schedule_enabled"] for item in catalog_items) == 95
+    assert sum(item["schedule_enabled"] for item in catalog_items) == 98
     assert all(
         (item["automation_capability"] is not None) is item["schedule_enabled"]
         for item in catalog_items
@@ -454,6 +454,8 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
                     "options": [],
                     "multi_value": False,
                     "default_value": None,
+                    "option_labels": {},
+                    "select_all_enabled": False,
                 }
             ],
         }
@@ -489,10 +491,29 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
                     "options": [],
                     "multi_value": False,
                     "default_value": None,
+                    "option_labels": {},
+                    "select_all_enabled": False,
                 }
             ],
         }
     ]
+
+    for action_key, display_name in (
+        ("income.maintain", "利润表"),
+        ("balancesheet.maintain", "资产负债表"),
+        ("cashflow.maintain", "现金流量表"),
+    ):
+        statement = actions[action_key]
+        assert statement["target_display_name"] == display_name
+        assert statement["group_key"] == "equity_financial"
+        assert statement["freshness_policy"] == "event_run_trace"
+        report_type = next(param for param in statement["parameters"] if param["key"] == "report_type")
+        assert report_type["required"] is True
+        assert report_type["multi_value"] is True
+        assert report_type["options"] == [str(value) for value in range(1, 13)]
+        assert report_type["option_labels"]["1"] == "合并报表"
+        assert report_type["select_all_enabled"] is True
+        assert report_type["default_value"] == [str(value) for value in range(1, 13)]
 
 
 def test_ops_catalog_includes_schedule_binding_counts(app_client, user_factory, ops_schedule_factory) -> None:

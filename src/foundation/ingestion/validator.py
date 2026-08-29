@@ -193,8 +193,13 @@ class DatasetRequestValidator:
         fields = {field.name: field for field in (*definition.input_model.time_fields, *definition.input_model.filters)}
 
         for field in fields.values():
-            if field.name not in normalized and field.default is not None:
-                normalized[field.name] = field.default
+            if field.name not in normalized:
+                default_value = field.default
+                fanout_default = definition.planning.enum_fanout_defaults.get(field.name)
+                if default_value is None and fanout_default:
+                    default_value = list(fanout_default) if field.multi_value else fanout_default[0]
+                if default_value is not None:
+                    normalized[field.name] = default_value
             if field.required and field.name not in normalized:
                 raise self._error("required_param_missing", f"缺少必填参数：{self._field_label(field, field.name)}")
             if field.name in normalized:

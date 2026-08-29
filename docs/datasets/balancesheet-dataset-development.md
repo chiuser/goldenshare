@@ -1,6 +1,6 @@
 # A 股资产负债表（`balancesheet`）数据集接入技术方案 v1
 
-状态：**关键口径已确认，LLD 已完成，待开发**
+状态：**代码已实现，待运营部署、迁移、同步与页面验收**
 编写日期：2026-08-29
 适用范围：Tushare `balancesheet_vip` 接入 Goldenshare Prod
 
@@ -131,7 +131,7 @@ raw 额外保存 `source_content_hash`、`api_name='balancesheet_vip'`、`fetche
 2. `(ann_date, report_type, ts_code)`。
 3. `(report_type, ts_code, end_date, update_flag DESC, f_ann_date DESC, ann_date DESC)`。
 
-全部物理 relation 位于 `gs_raw_cold_hdd`。migration 在建表前验证 tablespace，禁止静默回退 SSD。编码时重新读取真实 Alembic head；当前 `20260829_000161` 仅是方案编写时证据。
+全部物理 relation 位于 `gs_raw_cold_hdd`。migration 在建表前验证 tablespace，禁止静默回退 SSD。已实现 migration 为 `20260830_000164`，接利润表 migration `20260830_000163`。
 
 ## 7. Serving 规则
 

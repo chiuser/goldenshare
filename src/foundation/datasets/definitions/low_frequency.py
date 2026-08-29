@@ -5,6 +5,26 @@ from src.foundation.datasets.fina_indicator_contracts import (
     FINA_INDICATOR_IDENTITY_FIELDS,
     FINA_INDICATOR_SOURCE_FIELDS,
 )
+from src.foundation.datasets.balancesheet_contracts import (
+    BALANCESHEET_DATE_FIELDS,
+    BALANCESHEET_DECIMAL_FIELDS,
+    BALANCESHEET_SOURCE_FIELDS,
+)
+from src.foundation.datasets.cashflow_contracts import (
+    CASHFLOW_DATE_FIELDS,
+    CASHFLOW_DECIMAL_FIELDS,
+    CASHFLOW_SOURCE_FIELDS,
+)
+from src.foundation.datasets.financial_statement_contracts import (
+    FINANCIAL_STATEMENT_IDENTITY_FIELDS,
+    FINANCIAL_STATEMENT_REPORT_TYPE_LABELS,
+    FINANCIAL_STATEMENT_REPORT_TYPE_VALUES,
+)
+from src.foundation.datasets.income_contracts import (
+    INCOME_DATE_FIELDS,
+    INCOME_DECIMAL_FIELDS,
+    INCOME_SOURCE_FIELDS,
+)
 
 
 EXPRESS_SOURCE_FIELDS = (
@@ -42,6 +62,171 @@ EXPRESS_SOURCE_FIELDS = (
     "remark",
     "update_flag",
 )
+
+
+def _financial_statement_dataset_row(
+    *,
+    dataset_key: str,
+    display_name: str,
+    api_name: str,
+    source_doc_id: str,
+    source_fields: tuple[str, ...],
+    date_fields: tuple[str, ...],
+    decimal_fields: tuple[str, ...],
+    request_builder_key: str,
+    row_transform_name: str,
+    raw_dao_name: str,
+    serving_table: str,
+) -> dict:
+    raw_table = f"raw_tushare.{dataset_key}"
+    return {
+        "identity": {
+            "dataset_key": dataset_key,
+            "display_name": display_name,
+            "description": f"按公告自然日维护 A 股全市场{display_name}源站事实。",
+            "aliases": (),
+        },
+        "domain": {"domain_key": "low_frequency", "domain_display_name": "低频数据"},
+        "source": {
+            "source_key_default": "tushare",
+            "source_keys": ("tushare",),
+            "adapter_key": "tushare",
+            "api_name": api_name,
+            "source_fields": source_fields,
+            "source_doc_id": source_doc_id,
+            "request_builder_key": request_builder_key,
+            "base_params": {},
+        },
+        "date_model": {
+            "date_axis": "natural_day",
+            "bucket_rule": "not_applicable",
+            "window_mode": "point_or_range",
+            "input_shape": "ann_date_or_start_end",
+            "observed_field": "ann_date",
+            "audit_applicable": False,
+            "not_applicable_reason": f"{display_name}是公告事件数据，不要求每个自然日都有记录。",
+        },
+        "input_model": {
+            "time_fields": (
+                {
+                    "name": "ann_date",
+                    "field_type": "date",
+                    "display_name": "公告日期",
+                    "description": f"按一个自然公告日拉取全市场{display_name}事实。",
+                },
+                {
+                    "name": "start_date",
+                    "field_type": "date",
+                    "display_name": "开始日期",
+                    "description": "区间维护开始自然日，内部逐日展开。",
+                },
+                {
+                    "name": "end_date",
+                    "field_type": "date",
+                    "display_name": "结束日期",
+                    "description": "区间维护结束自然日，内部逐日展开。",
+                },
+            ),
+            "filters": (
+                {
+                    "name": "report_type",
+                    "field_type": "list",
+                    "required": True,
+                    "multi_value": True,
+                    "enum_values": FINANCIAL_STATEMENT_REPORT_TYPE_VALUES,
+                    "option_labels": FINANCIAL_STATEMENT_REPORT_TYPE_LABELS,
+                    "select_all_enabled": True,
+                    "display_name": "报表类型",
+                    "description": "默认维护全部报表类型；可取消全部后选择具体类型。",
+                },
+            ),
+            "required_groups": (),
+            "mutually_exclusive_groups": (),
+            "dependencies": (),
+        },
+        "storage": {
+            "raw_dao_name": raw_dao_name,
+            "core_dao_name": raw_dao_name,
+            "target_table": raw_table,
+            "delivery_mode": "raw_with_serving_view",
+            "layer_plan": "raw->serving_view",
+            "std_table": None,
+            "serving_table": serving_table,
+            "raw_table": raw_table,
+            "observation_dao_name": None,
+            "observation_table": None,
+            "raw_conflict_columns": None,
+            "conflict_columns": FINANCIAL_STATEMENT_IDENTITY_FIELDS,
+            "write_path": "raw_only_upsert",
+        },
+        "planning": {
+            "universe_policy": "no_pool",
+            "enum_fanout_fields": ("report_type",),
+            "enum_fanout_defaults": {"report_type": FINANCIAL_STATEMENT_REPORT_TYPE_VALUES},
+            "pagination_policy": "offset_limit",
+            "page_limit": 5_000,
+            "chunk_size": None,
+            "max_units_per_execution": None,
+            "unit_builder_key": "build_financial_statement_units",
+            "fetch_concurrency": 1,
+        },
+        "normalization": {
+            "date_fields": date_fields,
+            "decimal_fields": decimal_fields,
+            "required_fields": (*FINANCIAL_STATEMENT_IDENTITY_FIELDS, "source_content_hash"),
+            "row_transform_name": row_transform_name,
+        },
+        "capabilities": {
+            "actions": (
+                {
+                    "action": "maintain",
+                    "manual_enabled": True,
+                    "schedule_enabled": True,
+                    "retry_enabled": True,
+                    "supported_time_modes": ("point", "range"),
+                    "schedule_time_policy": {
+                        "policy": "since_last_success_day_range",
+                        "schedule_types": ("cron",),
+                        "cron_repeat_modes": ("daily", "weekly", "monthly"),
+                        "explicit_time_input": "forbidden",
+                        "generated_time_mode": "range",
+                        "generated_time_field": "start_date_end_date",
+                        "policy_parameters": (
+                            {
+                                "name": "initial_start_date",
+                                "field_type": "date",
+                                "required": True,
+                                "display_name": "首次覆盖开始日期",
+                                "description": "首次自动同步从该自然日开始；后续从最后成功窗口的下一日续跑。",
+                            },
+                        ),
+                    },
+                },
+            ),
+        },
+        "observability": {
+            "progress_label": dataset_key,
+            "observed_field": "ann_date",
+            "audit_applicable": False,
+        },
+        "quality": {
+            "reject_policy": "fail_unit_on_any_rejection",
+            "required_fields": (*FINANCIAL_STATEMENT_IDENTITY_FIELDS, "source_content_hash"),
+            "unit_date_field": "ann_date",
+            "duplicate_key_policy": "allow",
+            "batch_unique_key_fields": FINANCIAL_STATEMENT_IDENTITY_FIELDS,
+            "source_multiplicity_policy": "deduplicate_identical",
+            "empty_result_policy": "allow",
+        },
+        "transaction": {
+            "commit_policy": "unit",
+            "idempotent_write_required": True,
+            "write_volume_assessment": (
+                "每个公告自然日和报表类型为独立全市场 unit，page_limit=5000；全部分页、归一化和冲突检查"
+                "完成后，在一个业务事务内分批 upsert 到 HDD raw 表；serving 普通 view 不发生第二次写入。"
+            ),
+        },
+    }
 
 
 DATASET_ROWS = ({'identity': {'dataset_key': 'dividend', 'display_name': '分红送股', 'description': '维护分红送股数据。', 'aliases': ()},
@@ -540,4 +725,44 @@ DATASET_ROWS = ({'identity': {'dataset_key': 'dividend', 'display_name': '分红
              "在一个业务事务内分批 upsert 到 HDD raw 表；serving 普通 view 不发生第二次写入。"
          ),
      },
- })
+ },
+ _financial_statement_dataset_row(
+     dataset_key="income",
+     display_name="利润表",
+     api_name="income_vip",
+     source_doc_id="tushare.income",
+     source_fields=INCOME_SOURCE_FIELDS,
+     date_fields=INCOME_DATE_FIELDS,
+     decimal_fields=INCOME_DECIMAL_FIELDS,
+     request_builder_key="_income_vip_params",
+     row_transform_name="_income_row_transform",
+     raw_dao_name="raw_income",
+     serving_table="core_serving.equity_income",
+ ),
+ _financial_statement_dataset_row(
+     dataset_key="balancesheet",
+     display_name="资产负债表",
+     api_name="balancesheet_vip",
+     source_doc_id="tushare.balancesheet",
+     source_fields=BALANCESHEET_SOURCE_FIELDS,
+     date_fields=BALANCESHEET_DATE_FIELDS,
+     decimal_fields=BALANCESHEET_DECIMAL_FIELDS,
+     request_builder_key="_balancesheet_vip_params",
+     row_transform_name="_balancesheet_row_transform",
+     raw_dao_name="raw_balancesheet",
+     serving_table="core_serving.equity_balancesheet",
+ ),
+ _financial_statement_dataset_row(
+     dataset_key="cashflow",
+     display_name="现金流量表",
+     api_name="cashflow_vip",
+     source_doc_id="tushare.cashflow",
+     source_fields=CASHFLOW_SOURCE_FIELDS,
+     date_fields=CASHFLOW_DATE_FIELDS,
+     decimal_fields=CASHFLOW_DECIMAL_FIELDS,
+     request_builder_key="_cashflow_vip_params",
+     row_transform_name="_cashflow_row_transform",
+     raw_dao_name="raw_cashflow",
+     serving_table="core_serving.equity_cashflow",
+ ),
+)

@@ -67,7 +67,13 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert public_fund_group["group_label"] == "公募基金"
     equity_financial_group = next(group for group in payload["groups"] if group["group_key"] == "equity_financial")
     assert equity_financial_group["group_label"] == "A股财务数据"
-    assert [action["action_key"] for action in equity_financial_group["actions"]] == ["express.maintain"]
+    assert [action["action_key"] for action in equity_financial_group["actions"]] == [
+        "express.maintain",
+        "fina_indicator.maintain",
+        "income.maintain",
+        "balancesheet.maintain",
+        "cashflow.maintain",
+    ]
     workflow_group = next(group for group in payload["groups"] if group["group_key"] == "workflow")
     assert workflow_group["group_label"] == "工作流"
 
@@ -96,6 +102,17 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert express["filters"] == []
     assert [item["mode"] for item in express["time_form"]["modes"]] == ["point", "range"]
     assert all(item["selection_rule"] == "calendar_day" for item in express["time_form"]["modes"])
+    for action_key in ("income.maintain", "balancesheet.maintain", "cashflow.maintain"):
+        statement = actions[action_key]
+        assert [item["mode"] for item in statement["time_form"]["modes"]] == ["point", "range"]
+        report_type = statement["filters"][0]
+        assert report_type["key"] == "report_type"
+        assert report_type["required"] is True
+        assert report_type["multi_value"] is True
+        assert report_type["options"] == [str(value) for value in range(1, 13)]
+        assert report_type["option_labels"]["1"] == "合并报表"
+        assert report_type["select_all_enabled"] is True
+        assert report_type["default_value"] == [str(value) for value in range(1, 13)]
     assert actions["daily.maintain"]["display_name"] == "维护股票日线"
     assert actions["cyq_chips.maintain"]["display_name"] == "维护每日筹码分布"
     assert actions["cyq_chips.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
@@ -490,6 +507,33 @@ def test_ops_manual_action_task_run_supports_trade_cal_default_none_mode(app_cli
     assert payload["run"]["resource_key"] == "trade_cal"
     assert payload["run"]["time_input"] == {"mode": "none"}
     assert payload["run"]["filters"] == {}
+
+
+def test_ops_manual_action_financial_statement_defaults_to_real_report_types_and_rejects_empty(
+    app_client,
+    user_factory,
+) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/income.maintain/task-runs",
+        headers=headers,
+        json={"time_input": {"mode": "point", "ann_date": "2026-08-29"}, "filters": {}},
+    )
+    assert response.status_code == 200
+    assert response.json()["run"]["filters"] == {
+        "report_type": [str(value) for value in range(1, 13)]
+    }
+
+    empty = app_client.post(
+        "/api/v1/ops/manual-actions/income.maintain/task-runs",
+        headers=headers,
+        json={
+            "time_input": {"mode": "point", "ann_date": "2026-08-29"},
+            "filters": {"report_type": []},
+        },
+    )
+    assert empty.status_code == 422
 
 
 def test_ops_manual_action_task_run_supports_public_fund_full_snapshots(app_client, user_factory) -> None:

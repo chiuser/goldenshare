@@ -104,17 +104,20 @@ from src.foundation.models.raw.raw_adj_factor import RawAdjFactor
 from src.foundation.models.raw.raw_anns_d import RawAnnsD
 from src.foundation.models.raw.raw_bak_basic import RawBakBasic
 from src.foundation.models.raw.raw_block_trade import RawBlockTrade
+from src.foundation.models.raw.raw_balancesheet import RawBalancesheet
 from src.foundation.models.raw.raw_bse_mapping import RawBseMapping
 from src.foundation.models.raw.raw_daily import RawDaily
 from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
 from src.foundation.models.raw.raw_cyq_chips import RawCyqChips
 from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
+from src.foundation.models.raw.raw_cashflow import RawCashflow
 from src.foundation.models.raw.raw_dividend import RawDividend
 from src.foundation.models.raw.raw_etf_basic import RawEtfBasic
 from src.foundation.models.raw.raw_etf_index import RawEtfIndex
 from src.foundation.models.raw.raw_etf_minute_bar import RawEtfMinuteBar
 from src.foundation.models.raw.raw_etf_share_size import RawEtfShareSize
 from src.foundation.models.raw.raw_fina_indicator import RawFinaIndicator
+from src.foundation.models.raw.raw_income import RawIncome
 from src.foundation.models.raw.raw_fund_daily import RawFundDaily
 from src.foundation.models.raw.raw_fund_adj import RawFundAdj
 from src.foundation.models.raw.raw_hk_basic import RawHkBasic
@@ -245,16 +248,19 @@ __all__ = [
     "RawAnnsD",
     "RawBakBasic",
     "RawBlockTrade",
+    "RawBalancesheet",
     "RawDaily",
     "RawDailyBasic",
     "RawCyqChips",
     "RawCyqPerf",
+    "RawCashflow",
     "RawDividend",
     "RawEtfBasic",
     "RawEtfIndex",
     "RawEtfMinuteBar",
     "RawEtfShareSize",
     "RawFinaIndicator",
+    "RawIncome",
     "RawFundDaily",
     "RawFundAdj",
     "RawHkBasic",

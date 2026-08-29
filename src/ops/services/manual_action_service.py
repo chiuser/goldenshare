@@ -291,13 +291,25 @@ class ManualActionTaskRunResolver:
         allowed = {param.key: param for param in self.route.filters}
         normalized: dict[str, Any] = {}
         for key, value in (raw_filters or {}).items():
-            if self._is_empty(value):
-                continue
             param = allowed.get(key)
             if param is None:
                 raise WebAppError(status_code=422, code="validation_error", message=f"不支持的筛选项：{key}")
+            if self._is_empty(value):
+                if param.required:
+                    raise WebAppError(
+                        status_code=422,
+                        code="validation_error",
+                        message=f"{self._param_label(param)}不能为空",
+                    )
+                continue
             normalized_value = self._normalize_filter_value(param, value)
             if self._is_empty(normalized_value):
+                if param.required:
+                    raise WebAppError(
+                        status_code=422,
+                        code="validation_error",
+                        message=f"{self._param_label(param)}不能为空",
+                    )
                 continue
             normalized[key] = normalized_value
         return normalized
@@ -312,8 +324,7 @@ class ManualActionTaskRunResolver:
     def _fill_default_filter(filters: dict[str, Any], key: str, default_value: Any | None) -> None:
         if default_value in (None, "", []):
             return
-        current = filters.get(key)
-        if current in (None, "", []):
+        if key not in filters:
             filters[key] = default_value
 
     def _normalize_filter_value(self, param: ActionParameter, value: Any) -> Any:

@@ -99,9 +99,22 @@ class DatasetInputField:
     default: Any = None
     enum_values: tuple[str, ...] = ()
     multi_value: bool = False
+    option_labels: dict[str, str] = field(default_factory=dict)
+    select_all_enabled: bool = False
     display_name: str = ""
     description: str = ""
     scoped_repair_policy: str | None = None
+
+    def __post_init__(self) -> None:
+        unknown_labels = sorted(set(self.option_labels) - set(self.enum_values))
+        if unknown_labels:
+            raise ValueError(
+                f"字段 {self.name} 的选项标签包含未声明枚举值：{', '.join(unknown_labels)}"
+            )
+        if self.select_all_enabled and (not self.multi_value or not self.enum_values):
+            raise ValueError(
+                f"字段 {self.name} 启用全选时必须同时声明多值输入和非空枚举"
+            )
 
     @property
     def display_label(self) -> str:

@@ -1,7 +1,6 @@
 import {
   Badge,
   Button,
-  Checkbox,
   Radio,
   Grid,
   Group,
@@ -31,6 +30,7 @@ import { AlertBar } from "../shared/ui/alert-bar";
 import { CALENDAR_QUARTER_END_SELECTION_RULE, CALENDAR_WEEK_FRIDAY_SELECTION_RULE, DateField, type DateSelectionRule } from "../shared/ui/date-field";
 import { EmptyState } from "../shared/ui/empty-state";
 import { MonthField } from "../shared/ui/month-field";
+import { OpsEnumMultiSelect } from "../shared/ui/ops-enum-multi-select";
 import { SectionCard } from "../shared/ui/section-card";
 import { TradeDateField, type TradeDateSelectionRule } from "../shared/ui/trade-date-field";
 
@@ -122,7 +122,7 @@ function buildDefaultFieldValues(action: ManualAction) {
 function mergeDefaultFieldValues(action: ManualAction, fieldValues: Record<string, string | string[]>) {
   const merged = { ...fieldValues };
   for (const [key, value] of Object.entries(buildDefaultFieldValues(action))) {
-    if (isEmptyFieldValue(merged[key])) {
+    if (!(key in merged)) {
       merged[key] = value;
     }
   }
@@ -494,7 +494,7 @@ function normalizeFilterValue(param: ManualActionFilter, rawValue: string | stri
           .split(",")
           .map((item) => item.trim())
           .filter(Boolean);
-    return values.length ? values : undefined;
+    return values.length ? values : (param.required ? [] : undefined);
   }
   const singleValue = Array.isArray(rawValue) ? rawValue[0] : rawValue;
   if (singleValue === "") {
@@ -1090,9 +1090,13 @@ export function OpsManualTaskTab() {
                         {selectedAction.filters.map((param) => (
                           <Grid.Col key={param.key} span={{ base: 12, md: 6 }}>
                             {(param.param_type === "enum" && param.multi_value) ? (
-                              <Checkbox.Group
+                              <OpsEnumMultiSelect
                                 label={param.display_name}
                                 description={param.description}
+                                options={normalizeParamOptions(param.options)}
+                                optionLabels={param.option_labels}
+                                selectAllEnabled={param.select_all_enabled}
+                                layout="row"
                                 value={
                                   Array.isArray(effectiveFieldValues[param.key])
                                     ? (effectiveFieldValues[param.key] as string[])
@@ -1107,13 +1111,7 @@ export function OpsManualTaskTab() {
                                     field_values: { ...current.field_values, [param.key]: values },
                                   }))
                                 }
-                              >
-                                <Group gap="lg" mt="xs">
-                                  {normalizeParamOptions(param.options).map((option) => (
-                                    <Checkbox key={option} value={option} label={option} />
-                                  ))}
-                                </Group>
-                              </Checkbox.Group>
+                              />
                             ) : (param.param_type === "enum" && param.key === "is_new") ? (
                               <Radio.Group
                                 label={param.display_name}

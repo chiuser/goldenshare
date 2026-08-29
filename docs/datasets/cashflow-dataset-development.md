@@ -1,6 +1,6 @@
 # A 股现金流量表（`cashflow`）数据集接入技术方案 v1
 
-状态：**关键口径已确认，LLD 已完成，待开发**
+状态：**代码已实现，待运营部署、迁移、同步与页面验收**
 编写日期：2026-08-29
 适用范围：Tushare `cashflow_vip` 接入 Goldenshare Prod
 
@@ -131,7 +131,7 @@ raw 额外保存 `source_content_hash`、`api_name='cashflow_vip'`、`fetched_at
 2. `(ann_date, report_type, ts_code)`。
 3. `(report_type, ts_code, end_date, update_flag DESC, f_ann_date DESC, ann_date DESC)`。
 
-表和全部索引必须位于 `gs_raw_cold_hdd`。migration 先验证 tablespace，不存在则 fail-closed。编码时重新读取 Alembic head；当前 `20260829_000161` 只记录方案编写时状态。
+表和全部索引必须位于 `gs_raw_cold_hdd`。migration 先验证 tablespace，不存在则 fail-closed。已实现 migration 为 `20260830_000165`，接资产负债表 migration `20260830_000164`。
 
 ## 7. Serving 唯一报表
 

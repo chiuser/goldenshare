@@ -24,6 +24,12 @@ from src.foundation.datasets.public_fund_contracts import (
     mkt_idx_bmk_identity,
 )
 from src.foundation.datasets.fina_indicator_contracts import FINA_INDICATOR_SOURCE_FIELDS
+from src.foundation.datasets.balancesheet_contracts import BALANCESHEET_SOURCE_FIELDS
+from src.foundation.datasets.cashflow_contracts import CASHFLOW_SOURCE_FIELDS
+from src.foundation.datasets.financial_statement_contracts import (
+    FINANCIAL_STATEMENT_REPORT_TYPE_VALUES,
+)
+from src.foundation.datasets.income_contracts import INCOME_SOURCE_FIELDS
 from src.foundation.ingestion.observed_snapshot import compute_source_content_hash
 from src.foundation.datasets.sw_industry_contracts import (
     SW2021_CLASSIFICATION_VERSION,
@@ -276,6 +282,60 @@ def _fina_indicator_row_transform(row: dict[str, Any]) -> dict[str, Any]:
         source_fields=FINA_INDICATOR_SOURCE_FIELDS,
     )
     return transformed
+
+
+def _financial_statement_row_transform(
+    row: dict[str, Any],
+    *,
+    source_fields: tuple[str, ...],
+) -> dict[str, Any]:
+    transformed = {
+        key: value.replace("\x00", "") if isinstance(value, str) else value
+        for key, value in row.items()
+    }
+    transformed["ts_code"] = str(transformed.get("ts_code") or "").strip().upper()
+    for field_name in ("report_type", "comp_type", "end_type", "update_flag"):
+        transformed[field_name] = str(transformed.get(field_name) or "").strip()
+
+    if not transformed["ts_code"]:
+        raise RowTransformReject("normalize.empty_not_allowed:ts_code", "字段 ts_code 不允许为空")
+    for field_name in ("ann_date", "f_ann_date", "end_date"):
+        if not isinstance(transformed.get(field_name), date):
+            raise RowTransformReject(
+                f"normalize.empty_not_allowed:{field_name}",
+                f"字段 {field_name} 不允许为空",
+            )
+    if transformed["report_type"] not in FINANCIAL_STATEMENT_REPORT_TYPE_VALUES:
+        raise RowTransformReject(
+            "normalize.invalid_enum:report_type",
+            "字段 report_type 必须是 1 至 12",
+        )
+    if not transformed["comp_type"]:
+        raise RowTransformReject("normalize.empty_not_allowed:comp_type", "字段 comp_type 不允许为空")
+    if not transformed["end_type"]:
+        raise RowTransformReject("normalize.empty_not_allowed:end_type", "字段 end_type 不允许为空")
+    if transformed["update_flag"] not in {"0", "1"}:
+        raise RowTransformReject(
+            "normalize.invalid_enum:update_flag",
+            "字段 update_flag 必须是 0 或 1",
+        )
+    transformed["source_content_hash"] = compute_source_content_hash(
+        row=transformed,
+        source_fields=source_fields,
+    )
+    return transformed
+
+
+def _income_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    return _financial_statement_row_transform(row, source_fields=INCOME_SOURCE_FIELDS)
+
+
+def _balancesheet_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    return _financial_statement_row_transform(row, source_fields=BALANCESHEET_SOURCE_FIELDS)
+
+
+def _cashflow_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    return _financial_statement_row_transform(row, source_fields=CASHFLOW_SOURCE_FIELDS)
 
 
 def _fund_portfolio_staged_fact_row_transform(row: dict[str, Any]) -> dict[str, Any]:
@@ -1095,6 +1155,9 @@ __all__ = [
     "_fund_div_immutable_fact_row_transform",
     "_express_revisable_fact_row_transform",
     "_fina_indicator_row_transform",
+    "_income_row_transform",
+    "_balancesheet_row_transform",
+    "_cashflow_row_transform",
     "_fund_portfolio_staged_fact_row_transform",
     "_trade_cal_row_transform",
     "_stock_basic_row_transform",

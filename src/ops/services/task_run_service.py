@@ -164,16 +164,49 @@ class TaskRunCommandService:
         params_json: dict[str, Any] | None,
         trigger_source: str = "schedule",
     ) -> None:
+        normalized_params = self.normalize_schedule_target_params(
+            target_type=target_type,
+            target_key=target_key,
+            params_json=dict(params_json or {}),
+        )
         context = self._context_from_schedule_target(
             session=None,
             target_type=target_type,
             target_key=target_key,
-            params_json=dict(params_json or {}),
+            params_json=normalized_params,
             trigger_source=trigger_source,
             requested_by_user_id=None,
             schedule_id=None,
         )
         self._validate_context(context)
+
+    @staticmethod
+    def normalize_schedule_target_params(
+        *,
+        target_type: str,
+        target_key: str,
+        params_json: dict[str, Any],
+    ) -> dict[str, Any]:
+        normalized = dict(params_json or {})
+        if target_type != "dataset_action":
+            return normalized
+        try:
+            definition, _action = get_dataset_definition_by_action_key(target_key)
+        except KeyError:
+            return normalized
+        filters = TaskRunCommandService._extract_filters(normalized)
+        filters_with_defaults = TaskRunCommandService._apply_dataset_filter_defaults(
+            definition,
+            filters,
+        )
+        persisted_default_fields = {
+            field.name for field in definition.input_model.filters if field.select_all_enabled
+        }
+        for field_name in persisted_default_fields:
+            normalized.pop(field_name, None)
+        if persisted_default_fields:
+            normalized["filters"] = filters_with_defaults
+        return normalized
 
     def create_task_run(self, session: Session, *, context: TaskRunCreateContext) -> TaskRun:
         task_run = self.stage_task_run(session, context=context)
@@ -1046,12 +1079,37 @@ class TaskRunCommandService:
         for field in definition.input_model.filters:
             if not field.required:
                 continue
-            value = filters.get(field.name, field.default)
+            if field.name in filters:
+                value = filters[field.name]
+            else:
+                value = field.default
+                fanout_default = definition.planning.enum_fanout_defaults.get(field.name)
+                if value is None and fanout_default:
+                    value = list(fanout_default) if field.multi_value else fanout_default[0]
             if value in (None, "", []):
                 missing.append(field.display_label)
         if missing:
             joined = "、".join(missing)
             raise WebAppError(status_code=422, code="validation_error", message=f"{definition.display_name} 缺少必填参数：{joined}")
+
+    @staticmethod
+    def _apply_dataset_filter_defaults(
+        definition: DatasetDefinition,
+        filters: dict[str, Any],
+    ) -> dict[str, Any]:
+        normalized = dict(filters or {})
+        for field in definition.input_model.filters:
+            if not field.select_all_enabled:
+                continue
+            if field.name in normalized:
+                continue
+            default_value = field.default
+            fanout_default = definition.planning.enum_fanout_defaults.get(field.name)
+            if default_value is None and fanout_default:
+                default_value = list(fanout_default) if field.multi_value else fanout_default[0]
+            if default_value is not None:
+                normalized[field.name] = default_value
+        return normalized
 
     @staticmethod
     def _dataset_action_request_payload(params_json: dict[str, Any]) -> dict[str, Any]:

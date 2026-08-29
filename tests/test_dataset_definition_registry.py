@@ -28,7 +28,7 @@ def test_dataset_definition_registry_covers_runtime_registry() -> None:
     runtime_keys = set(DATASET_RUNTIME_REGISTRY)
 
     assert definition_keys == runtime_keys
-    assert len(definition_keys) == 91
+    assert len(definition_keys) == 94
 
 
 def test_dataset_definition_registry_covers_freshness_policy_mapping() -> None:
@@ -44,7 +44,7 @@ def test_dataset_definition_universe_policy_current_state_is_explicit() -> None:
 
     assert Counter(policies.values()) == Counter(
         {
-            "no_pool": 80,
+            "no_pool": 83,
             "pool": 11,
         }
     )

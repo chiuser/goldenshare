@@ -88,11 +88,13 @@ from src.foundation.models.raw.raw_adj_factor import RawAdjFactor
 from src.foundation.models.raw.raw_anns_d import RawAnnsD
 from src.foundation.models.raw.raw_bak_basic import RawBakBasic
 from src.foundation.models.raw.raw_block_trade import RawBlockTrade
+from src.foundation.models.raw.raw_balancesheet import RawBalancesheet
 from src.foundation.models.raw.raw_bse_mapping import RawBseMapping
 from src.foundation.models.raw.raw_daily import RawDaily
 from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
 from src.foundation.models.raw.raw_cyq_chips import RawCyqChips
 from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
+from src.foundation.models.raw.raw_cashflow import RawCashflow
 from src.foundation.models.raw.raw_etf_basic import RawEtfBasic
 from src.foundation.models.raw.raw_etf_index import RawEtfIndex
 from src.foundation.models.raw.raw_etf_minute_bar import RawEtfMinuteBar
@@ -100,6 +102,7 @@ from src.foundation.models.raw.raw_etf_sh_cons import RawEtfShCons
 from src.foundation.models.raw.raw_etf_share_size import RawEtfShareSize
 from src.foundation.models.raw.raw_etf_sz_cons import RawEtfSzCons
 from src.foundation.models.raw.raw_fina_indicator import RawFinaIndicator
+from src.foundation.models.raw.raw_income import RawIncome
 from src.foundation.models.raw.raw_fund_daily import RawFundDaily
 from src.foundation.models.raw.raw_fund_adj import RawFundAdj
 from src.foundation.models.raw.raw_hk_basic import RawHkBasic
@@ -263,6 +266,7 @@ class DAOFactory:
         self.raw_moneyflow_mkt_dc = GenericDAO(session, RawMoneyflowMktDc)
         self.raw_top_list = GenericDAO(session, RawTopList)
         self.raw_block_trade = GenericDAO(session, RawBlockTrade)
+        self.raw_balancesheet = GenericDAO(session, RawBalancesheet)
         self.raw_dividend = RawDividendDAO(session)
         self.raw_etf_basic = GenericDAO(session, RawEtfBasic)
         self.raw_etf_index = GenericDAO(session, RawEtfIndex)
@@ -271,6 +275,8 @@ class DAOFactory:
         self.raw_etf_share_size = GenericDAO(session, RawEtfShareSize)
         self.raw_etf_sz_cons = GenericDAO(session, RawEtfSzCons)
         self.raw_fina_indicator = GenericDAO(session, RawFinaIndicator)
+        self.raw_income = GenericDAO(session, RawIncome)
+        self.raw_cashflow = GenericDAO(session, RawCashflow)
         self.raw_hk_basic = GenericDAO(session, RawHkBasic)
         self.raw_us_basic = GenericDAO(session, RawUsBasic)
         self.raw_fund_daily = GenericDAO(session, RawFundDaily)

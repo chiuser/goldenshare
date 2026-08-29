@@ -621,6 +621,56 @@ def _build_natural_day_point_units(
     )
 
 
+def _build_financial_statement_units(
+    planner: DatasetUnitPlanner,
+    request: ValidatedDatasetActionRequest,
+    definition: DatasetDefinition,
+) -> list[PlanUnitSnapshot]:
+    request_builder = planner._resolve_request_builder(definition)
+    if request.run_profile == "point_incremental":
+        if request.trade_date is None:
+            raise DatasetUnitPlanner._planning_error("missing_anchor_fields", "财务报表单日维护缺少公告日期")
+        anchors = [request.trade_date]
+    elif request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise DatasetUnitPlanner._planning_error(
+                "range_required",
+                "财务报表区间维护必须同时填写开始日期和结束日期",
+            )
+        anchors = _expand_natural_dates(request.start_date, request.end_date)
+    else:
+        raise DatasetUnitPlanner._planning_error(
+            "run_profile_unsupported",
+            f"财务报表不支持该运行模式：{request.run_profile}",
+        )
+    enum_combinations = resolve_enum_combinations(
+        request=request,
+        fields=definition.planning.enum_fanout_fields,
+        missing_field_defaults=definition.planning.enum_fanout_defaults,
+    )
+    report_type_field = next(
+        (field for field in definition.input_model.filters if field.name == "report_type"),
+        None,
+    )
+    if report_type_field is not None:
+        report_type_order = {
+            value: index for index, value in enumerate(report_type_field.enum_values)
+        }
+        enum_combinations.sort(
+            key=lambda item: report_type_order.get(str(item.get("report_type")), len(report_type_order))
+        )
+    return build_plan_units(
+        request=request,
+        definition=definition,
+        anchors=anchors,
+        enum_combinations=enum_combinations,
+        request_builder=request_builder,
+        pagination_policy_override=definition.planning.pagination_policy,
+        page_limit_override=definition.planning.page_limit,
+        progress_context_builder=planner._progress_context_builder(definition),
+    )
+
+
 def _build_sw_daily_units(
     planner: DatasetUnitPlanner,
     request: ValidatedDatasetActionRequest,
@@ -1992,6 +2042,7 @@ _CUSTOM_UNIT_BUILDERS: dict[str, Callable[[DatasetUnitPlanner, ValidatedDatasetA
     "build_etf_sz_cons_units": _build_etf_sz_cons_units,
     "build_cctv_news_units": _build_cctv_news_units,
     "build_dc_member_units": _build_dc_member_units,
+    "build_financial_statement_units": _build_financial_statement_units,
     "build_major_news_units": _build_major_news_units,
     "build_natural_day_point_units": _build_natural_day_point_units,
     "build_news_units": _build_news_units,

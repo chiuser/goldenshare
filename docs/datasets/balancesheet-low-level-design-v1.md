@@ -1,6 +1,6 @@
 # A 股资产负债表（`balancesheet`）数据集接入 LLD v1
 
-状态：**设计完成，待开发**
+状态：**代码已实现，待运营部署、迁移、同步与页面验收**
 编写日期：2026-08-30
 上位方案：[A 股资产负债表接入技术方案 v1](/Users/congming/github/goldenshare/docs/datasets/balancesheet-dataset-development.md)
 
@@ -256,7 +256,7 @@ docs/datasets/balancesheet-low-level-design-v1.md
 src/foundation/datasets/balancesheet_contracts.py
 src/foundation/models/raw/raw_balancesheet.py
 alembic/versions/<next>_add_balancesheet_dataset.py
-tests/test_balancesheet_dataset.py
+tests/test_financial_statement_datasets.py
 ```
 
 ### 修改
@@ -310,8 +310,8 @@ tests/web/test_ops_schedule_api.py
 ## 13. 验证命令
 
 ```bash
-uv run ruff check src/foundation/datasets src/foundation/ingestion src/foundation/models/raw/raw_balancesheet.py src/foundation/dao/factory.py src/ops tests/test_balancesheet_dataset.py
-uv run pytest -q tests/test_balancesheet_dataset.py tests/test_dataset_action_resolver.py tests/test_dataset_definition_registry.py tests/test_foundation_table_model_registry.py
+uv run ruff check src/foundation/datasets src/foundation/ingestion src/foundation/models/raw/raw_balancesheet.py src/foundation/dao/factory.py src/ops tests/test_financial_statement_datasets.py
+uv run pytest -q tests/test_financial_statement_datasets.py tests/test_dataset_definition_registry.py tests/test_foundation_table_model_registry.py
 uv run pytest -q tests/web/test_ops_catalog_api.py tests/web/test_ops_manual_actions_api.py tests/web/test_ops_schedule_api.py
 uv run pytest -q tests/architecture/test_subsystem_dependency_matrix.py tests/architecture/test_dataset_runtime_registry_guardrails.py
 uv run goldenshare ingestion-lint-definitions

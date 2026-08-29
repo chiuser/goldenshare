@@ -430,6 +430,8 @@ class ManualActionQueryService:
             options=tuple(field.enum_values),
             multi_value=field.multi_value,
             default_value=dataset_field_default_value(field, enum_fanout_defaults),
+            option_labels=dict(field.option_labels),
+            select_all_enabled=field.select_all_enabled,
         )
 
     @staticmethod
@@ -457,6 +459,8 @@ class ManualActionQueryService:
             options=list(param.options),
             multi_value=param.multi_value,
             default_value=param.default_value,
+            option_labels=dict(param.option_labels),
+            select_all_enabled=param.select_all_enabled,
         )
 
     @staticmethod

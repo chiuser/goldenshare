@@ -100,7 +100,11 @@ class OperationsScheduleService:
         created_by_user_id: int,
     ) -> OpsSchedule:
         self._validate_target(target_type, target_key)
-        normalized_params = dict(params_json or {})
+        normalized_params = self.task_run_service.normalize_schedule_target_params(
+            target_type=target_type,
+            target_key=target_key,
+            params_json=dict(params_json or {}),
+        )
         self._validate_heat_schedule_contract(
             target_type=target_type,
             target_key=target_key,
@@ -275,6 +279,12 @@ class OperationsScheduleService:
             schedule.retry_policy_json = dict(changes["retry_policy_json"] or {})
         if "concurrency_policy_json" in changed_fields:
             schedule.concurrency_policy_json = dict(changes["concurrency_policy_json"] or {})
+
+        schedule.params_json = self.task_run_service.normalize_schedule_target_params(
+            target_type=schedule.target_type,
+            target_key=schedule.target_key,
+            params_json=dict(schedule.params_json or {}),
+        )
 
         self.task_run_service.validate_schedule_target(
             target_type=schedule.target_type,

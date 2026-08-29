@@ -14,6 +14,8 @@ class ActionParameterResponse(BaseModel):
     options: list[str]
     multi_value: bool
     default_value: Any | None = None
+    option_labels: dict[str, str]
+    select_all_enabled: bool
 
 
 class TriggerModeCapabilityResponse(BaseModel):

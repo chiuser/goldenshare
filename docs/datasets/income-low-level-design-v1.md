@@ -1,6 +1,6 @@
 # A 股利润表（`income`）数据集接入 LLD v1
 
-状态：**设计完成，待开发**
+状态：**代码已实现，待运营部署、迁移、同步与页面验收**
 编写日期：2026-08-30
 上位方案：[A 股利润表接入技术方案 v1](/Users/congming/github/goldenshare/docs/datasets/income-dataset-development.md)
 
@@ -337,7 +337,7 @@ tests/test_foundation_table_model_registry.py
 
 ### 8.2 Migration
 
-新增 migration 前必须重新执行 `alembic heads`。2026-08-30 审计 head 为 `20260829_000161`，它只是审计证据，不得在未来实现时凭文档硬编码。
+实施时已重新执行 `alembic heads`；利润表 migration 为 `20260830_000163`，接当时真实 head `20260830_000162`。
 
 upgrade 顺序：
 
@@ -399,7 +399,7 @@ src/foundation/models/raw/raw_income.py
 alembic/versions/<next>_add_income_dataset.py
 frontend/src/shared/ui/ops-enum-multi-select.tsx               # 三表共用，只新增一次
 frontend/src/shared/ui/ops-enum-multi-select.test.tsx
-tests/test_income_dataset.py
+tests/test_financial_statement_datasets.py
 ```
 
 ### 修改
@@ -473,8 +473,8 @@ frontend/src/pages/ops-v21-task-auto-tab.test.tsx
 ## 13. 验证命令
 
 ```bash
-uv run ruff check src/foundation/datasets src/foundation/ingestion src/foundation/models/raw/raw_income.py src/foundation/dao/factory.py src/ops tests/test_income_dataset.py
-uv run pytest -q tests/test_income_dataset.py tests/test_dataset_action_resolver.py tests/test_dataset_definition_registry.py tests/test_foundation_table_model_registry.py
+uv run ruff check src/foundation/datasets src/foundation/ingestion src/foundation/models/raw/raw_income.py src/foundation/dao/factory.py src/ops tests/test_financial_statement_datasets.py
+uv run pytest -q tests/test_financial_statement_datasets.py tests/test_dataset_definition_registry.py tests/test_foundation_table_model_registry.py
 uv run pytest -q tests/web/test_ops_catalog_api.py tests/web/test_ops_manual_actions_api.py tests/web/test_ops_schedule_api.py
 uv run pytest -q tests/architecture/test_subsystem_dependency_matrix.py tests/architecture/test_dataset_runtime_registry_guardrails.py
 uv run goldenshare ingestion-lint-definitions
