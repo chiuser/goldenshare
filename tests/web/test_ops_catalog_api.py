@@ -234,7 +234,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert actions["maintenance.rebuild_dm"]["display_name"] == "刷新数据集市快照"
 
     catalog_items = [*actions.values(), *workflows.values()]
-    assert sum(item["schedule_enabled"] for item in catalog_items) == 94
+    assert sum(item["schedule_enabled"] for item in catalog_items) == 95
     assert all(
         (item["automation_capability"] is not None) is item["schedule_enabled"]
         for item in catalog_items
@@ -437,6 +437,41 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     ]
     assert express["automation_capability"]["probe_conditions"] == []
     assert express["automation_capability"]["calendar_policy_rules"] == [
+        {
+            "policy": "since_last_success_day_range",
+            "schedule_types": ["cron"],
+            "cron_repeat_modes": ["daily", "weekly", "monthly"],
+            "explicit_time_input": "forbidden",
+            "generated_time_mode": "range",
+            "generated_time_field": "start_date_end_date",
+            "policy_parameters": [
+                {
+                    "key": "initial_start_date",
+                    "display_name": "首次覆盖开始日期",
+                    "param_type": "date",
+                    "description": "首次自动同步从该自然日开始；后续从最后成功窗口的下一日续跑。",
+                    "required": True,
+                    "options": [],
+                    "multi_value": False,
+                    "default_value": None,
+                }
+            ],
+        }
+    ]
+
+    fina_indicator = actions["fina_indicator.maintain"]
+    assert fina_indicator["target_display_name"] == "财务指标"
+    assert fina_indicator["group_key"] == "equity_financial"
+    assert fina_indicator["group_label"] == "A股财务数据"
+    assert fina_indicator["group_order"] == 3
+    assert fina_indicator["freshness_policy"] == "event_run_trace"
+    assert [param["key"] for param in fina_indicator["parameters"]] == ["ann_date", "start_date", "end_date"]
+    assert fina_indicator["automation_capability"]["default_trigger_mode"] == "schedule"
+    assert fina_indicator["automation_capability"]["trigger_options"] == [
+        {"mode": "schedule", "allowed_schedule_types": ["cron"]}
+    ]
+    assert fina_indicator["automation_capability"]["probe_conditions"] == []
+    assert fina_indicator["automation_capability"]["calendar_policy_rules"] == [
         {
             "policy": "since_last_success_day_range",
             "schedule_types": ["cron"],

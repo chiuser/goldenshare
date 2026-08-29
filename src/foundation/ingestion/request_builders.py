@@ -70,6 +70,14 @@ def _express_vip_params(request, anchor_date: date | None, enum_values: dict[str
     return {"ann_date": anchor_date.strftime("%Y%m%d")}
 
 
+def _fina_indicator_vip_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del request
+    del enum_values
+    if anchor_date is None:
+        raise ValueError("财务指标维护缺少公告日期锚点")
+    return {"ann_date": anchor_date.strftime("%Y%m%d")}
+
+
 def _fund_portfolio_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     del enum_values
     if anchor_date is None:
@@ -1230,6 +1238,7 @@ __all__ = [
     "_fund_share_params",
     "_fund_div_params",
     "_express_vip_params",
+    "_fina_indicator_vip_params",
     "_fund_portfolio_params",
     "_stk_limit_params",
     "_stk_auction_o_params",

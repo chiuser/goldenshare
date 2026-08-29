@@ -120,7 +120,7 @@ EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
         "st",
         "stock_company",
     },
-    "low_frequency": {"dividend", "express", "stk_holdernumber"},
+    "low_frequency": {"dividend", "express", "fina_indicator", "stk_holdernumber"},
     "news": {"cctv_news", "major_news", "news", "anns_d", "irm_qa_sh", "irm_qa_sz"},
     "public_fund": {"fund_basic", "fund_company", "fund_manager", "fund_share", "fund_div", "fund_portfolio", "mkt_idx_bmk"},
 }

@@ -936,6 +936,38 @@ def test_scheduler_success_cursor_pauses_oversized_window_with_planner_issue(
     assert refreshed.next_run_at is None
 
 
+def test_scheduler_fina_indicator_success_cursor_allows_more_than_366_natural_days(
+    db_session,
+    ops_schedule_factory,
+) -> None:
+    due_at = datetime(2026, 5, 14, 11, 0, tzinfo=timezone.utc)
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="fina_indicator.maintain",
+        schedule_type="cron",
+        cron_expr="0 19 * * *",
+        timezone_name="Asia/Shanghai",
+        calendar_policy="since_last_success_day_range",
+        params_json={
+            "time_input": {"mode": "range"},
+            "schedule_policy_params": {"initial_start_date": "2025-05-12"},
+        },
+        next_run_at=due_at,
+    )
+
+    created = OperationsScheduler().run_once(db_session, now=due_at)
+
+    assert len(created) == 1
+    task_run = created[0]
+    assert task_run.schedule_id == schedule.id
+    assert task_run.status == "queued"
+    assert task_run.time_input_json == {
+        "mode": "range",
+        "start_date": "2025-05-12",
+        "end_date": "2026-05-13",
+    }
+
+
 def test_scheduler_rolls_back_staged_task_and_schedule_advance_together(
     db_session,
     ops_schedule_factory,

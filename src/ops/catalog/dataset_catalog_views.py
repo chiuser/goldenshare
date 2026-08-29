@@ -80,6 +80,7 @@ OPS_DATASET_DEFAULT_VIEW = DatasetCatalogView(
         DatasetCatalogItem("margin_detail", "equity_market", 115),
         DatasetCatalogItem("top_list", "equity_market", 120),
         DatasetCatalogItem("express", "equity_financial", 10),
+        DatasetCatalogItem("fina_indicator", "equity_financial", 20),
         DatasetCatalogItem("dc_index", "board_theme", 10),
         DatasetCatalogItem("dc_member", "board_theme", 20),
         DatasetCatalogItem("dc_daily", "board_theme", 30),

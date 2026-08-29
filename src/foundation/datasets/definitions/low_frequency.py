@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+from src.foundation.datasets.fina_indicator_contracts import (
+    FINA_INDICATOR_DECIMAL_FIELDS,
+    FINA_INDICATOR_IDENTITY_FIELDS,
+    FINA_INDICATOR_SOURCE_FIELDS,
+)
+
 
 EXPRESS_SOURCE_FIELDS = (
     "ts_code",
@@ -397,6 +403,141 @@ DATASET_ROWS = ({'identity': {'dataset_key': 'dividend', 'display_name': '分红
              "每个公告自然日为独立全市场 unit，page_limit=5000；完成全部分页、归一化和完全重复去重后，"
              "在一个事务内取得 scope advisory lock，核验完整公告日范围；同一披露事实的源端修订覆盖当前行，"
              "源端少行或拒绝行会使整个 unit 失败。"
+         ),
+     },
+ },
+ {
+     "identity": {
+         "dataset_key": "fina_indicator",
+         "display_name": "财务指标",
+         "description": "按公告自然日维护 A 股全市场财务指标源站事实。",
+         "aliases": (),
+     },
+     "domain": {"domain_key": "low_frequency", "domain_display_name": "低频数据"},
+     "source": {
+         "source_key_default": "tushare",
+         "source_keys": ("tushare",),
+         "adapter_key": "tushare",
+         "api_name": "fina_indicator_vip",
+         "source_fields": FINA_INDICATOR_SOURCE_FIELDS,
+         "source_doc_id": "tushare.fina_indicator",
+         "request_builder_key": "_fina_indicator_vip_params",
+         "base_params": {},
+     },
+     "date_model": {
+         "date_axis": "natural_day",
+         "bucket_rule": "not_applicable",
+         "window_mode": "point_or_range",
+         "input_shape": "ann_date_or_start_end",
+         "observed_field": "ann_date",
+         "audit_applicable": False,
+         "not_applicable_reason": "财务指标是公告事件数据，不要求每个自然日都有记录。",
+     },
+     "input_model": {
+         "time_fields": (
+             {
+                 "name": "ann_date",
+                 "field_type": "date",
+                 "display_name": "公告日期",
+                 "description": "按一个自然公告日拉取全市场财务指标事实。",
+             },
+             {
+                 "name": "start_date",
+                 "field_type": "date",
+                 "display_name": "开始日期",
+                 "description": "区间维护开始自然日，内部逐日展开。",
+             },
+             {
+                 "name": "end_date",
+                 "field_type": "date",
+                 "display_name": "结束日期",
+                 "description": "区间维护结束自然日，内部逐日展开。",
+             },
+         ),
+         "filters": (),
+         "required_groups": (),
+         "mutually_exclusive_groups": (),
+         "dependencies": (),
+     },
+     "storage": {
+         "raw_dao_name": "raw_fina_indicator",
+         "core_dao_name": "raw_fina_indicator",
+         "target_table": "raw_tushare.fina_indicator",
+         "delivery_mode": "raw_with_serving_view",
+         "layer_plan": "raw->serving_view",
+         "std_table": None,
+         "serving_table": "core_serving.equity_fina_indicator",
+         "raw_table": "raw_tushare.fina_indicator",
+         "observation_dao_name": None,
+         "observation_table": None,
+         "raw_conflict_columns": None,
+         "conflict_columns": FINA_INDICATOR_IDENTITY_FIELDS,
+         "write_path": "raw_only_upsert",
+     },
+     "planning": {
+         "universe_policy": "no_pool",
+         "enum_fanout_fields": (),
+         "enum_fanout_defaults": {},
+         "pagination_policy": "offset_limit",
+         "page_limit": 5_000,
+         "chunk_size": None,
+         "max_units_per_execution": None,
+         "unit_builder_key": "build_natural_day_point_units",
+         "fetch_concurrency": 1,
+     },
+     "normalization": {
+         "date_fields": ("ann_date", "end_date"),
+         "decimal_fields": FINA_INDICATOR_DECIMAL_FIELDS,
+         "required_fields": (*FINA_INDICATOR_IDENTITY_FIELDS, "source_content_hash"),
+         "row_transform_name": "_fina_indicator_row_transform",
+     },
+     "capabilities": {
+         "actions": (
+             {
+                 "action": "maintain",
+                 "manual_enabled": True,
+                 "schedule_enabled": True,
+                 "retry_enabled": True,
+                 "supported_time_modes": ("point", "range"),
+                 "schedule_time_policy": {
+                     "policy": "since_last_success_day_range",
+                     "schedule_types": ("cron",),
+                     "cron_repeat_modes": ("daily", "weekly", "monthly"),
+                     "explicit_time_input": "forbidden",
+                     "generated_time_mode": "range",
+                     "generated_time_field": "start_date_end_date",
+                     "policy_parameters": (
+                         {
+                             "name": "initial_start_date",
+                             "field_type": "date",
+                             "required": True,
+                             "display_name": "首次覆盖开始日期",
+                             "description": "首次自动同步从该自然日开始；后续从最后成功窗口的下一日续跑。",
+                         },
+                     ),
+                 },
+             },
+         ),
+     },
+     "observability": {
+         "progress_label": "fina_indicator",
+         "observed_field": "ann_date",
+         "audit_applicable": False,
+     },
+     "quality": {
+         "reject_policy": "fail_unit_on_any_rejection",
+         "required_fields": (*FINA_INDICATOR_IDENTITY_FIELDS, "source_content_hash"),
+         "unit_date_field": "ann_date",
+         "duplicate_key_policy": "allow",
+         "batch_unique_key_fields": FINA_INDICATOR_IDENTITY_FIELDS,
+         "source_multiplicity_policy": "deduplicate_identical",
+     },
+     "transaction": {
+         "commit_policy": "unit",
+         "idempotent_write_required": True,
+         "write_volume_assessment": (
+             "每个公告自然日为独立全市场 unit，page_limit=5000；全部分页、归一化和冲突检查完成后，"
+             "在一个业务事务内分批 upsert 到 HDD raw 表；serving 普通 view 不发生第二次写入。"
          ),
      },
  })

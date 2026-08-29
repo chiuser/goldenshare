@@ -204,6 +204,8 @@ docs/
 
 主要数据集开发说明：
 - [A股业绩快报 `express` LLD v1（M1–M4b 已完成；M4c 自动任务已正确配置，待首次触发与对账验收）](/Users/congming/github/goldenshare/docs/datasets/equity-express-low-level-design-v1.md)
+- [A股财务指标 `fina_indicator` 接入技术方案 v1（代码已实现，待运营部署与验收）](/Users/congming/github/goldenshare/docs/datasets/fina-indicator-dataset-development.md)
+- [A股财务指标 `fina_indicator` LLD v1（代码已实现，待运营部署与验收）](/Users/congming/github/goldenshare/docs/datasets/fina-indicator-low-level-design-v1.md)
 - [公募基金九数据集接入总览与分批推进计划 v1（B0–B4 已生产验收；B7 fund_portfolio M0–M3 已生产验收，尚未历史回补或创建 schedule）](/Users/congming/github/goldenshare/docs/datasets/public-fund-nine-dataset-onboarding-program-plan-v1.md)
 - [公募基金 B0：观察快照直出最小地基 LLD v1（已实现）](/Users/congming/github/goldenshare/docs/datasets/public-fund-b0-observed-snapshot-foundation-low-level-design-v1.md)
 - [公募基金 B1：基金管理人与业绩基准库 LLD v1（已实现并完成生产验收）](/Users/congming/github/goldenshare/docs/datasets/public-fund-b1-static-reference-low-level-design-v1.md)

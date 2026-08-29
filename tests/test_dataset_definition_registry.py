@@ -28,7 +28,7 @@ def test_dataset_definition_registry_covers_runtime_registry() -> None:
     runtime_keys = set(DATASET_RUNTIME_REGISTRY)
 
     assert definition_keys == runtime_keys
-    assert len(definition_keys) == 90
+    assert len(definition_keys) == 91
 
 
 def test_dataset_definition_registry_covers_freshness_policy_mapping() -> None:
@@ -44,7 +44,7 @@ def test_dataset_definition_universe_policy_current_state_is_explicit() -> None:
 
     assert Counter(policies.values()) == Counter(
         {
-            "no_pool": 79,
+            "no_pool": 80,
             "pool": 11,
         }
     )
@@ -1210,6 +1210,12 @@ def test_dataset_definition_storage_layer_facts_are_explicit() -> None:
         ("stk_nineturn", "raw_stk_nineturn", "raw_tushare.stk_nineturn", "core_serving.equity_nineturn"),
         ("etf_share_size", "raw_etf_share_size", "raw_tushare.etf_share_size", "core_serving.etf_share_size"),
         (
+            "fina_indicator",
+            "raw_fina_indicator",
+            "raw_tushare.fina_indicator",
+            "core_serving.equity_fina_indicator",
+        ),
+        (
             "dc_daily",
             "raw_dc_daily",
             "raw_tushare.dc_daily",
@@ -1293,6 +1299,7 @@ def test_raw_serving_view_definitions_project_raw_freshness_targets() -> None:
         ("cyq_perf", "raw_tushare.cyq_perf"),
         ("stk_nineturn", "raw_tushare.stk_nineturn"),
         ("etf_share_size", "raw_tushare.etf_share_size"),
+        ("fina_indicator", "raw_tushare.fina_indicator"),
         ("dc_daily", "raw_tushare.dc_daily"),
         ("moneyflow_cnt_ths", "raw_tushare.moneyflow_cnt_ths"),
         ("moneyflow_ind_dc", "raw_tushare.moneyflow_ind_dc"),

@@ -23,6 +23,8 @@ from src.foundation.datasets.public_fund_contracts import (
     fund_share_identity,
     mkt_idx_bmk_identity,
 )
+from src.foundation.datasets.fina_indicator_contracts import FINA_INDICATOR_SOURCE_FIELDS
+from src.foundation.ingestion.observed_snapshot import compute_source_content_hash
 from src.foundation.datasets.sw_industry_contracts import (
     SW2021_CLASSIFICATION_VERSION,
     SW2021_NORMALIZATION_RULE_VERSION,
@@ -250,6 +252,29 @@ def _express_revisable_fact_row_transform(row: dict[str, Any]) -> dict[str, Any]
     )
     transformed["source_entity_key"] = f"express:{hashlib.sha256(identity_payload.encode('utf-8')).hexdigest()}"
     transformed["identity_basis"] = _EXPRESS_IDENTITY_BASIS
+    return transformed
+
+
+def _fina_indicator_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    ts_code = _strip_nul_text(transformed.get("ts_code")).strip().upper()
+    update_flag = _strip_nul_text(transformed.get("update_flag")).strip()
+    ann_date = transformed.get("ann_date")
+    end_date = transformed.get("end_date")
+    if not ts_code:
+        raise RowTransformReject("normalize.empty_not_allowed:ts_code", "字段 ts_code 不允许为空")
+    if not isinstance(ann_date, date):
+        raise RowTransformReject("normalize.empty_not_allowed:ann_date", "字段 ann_date 不允许为空")
+    if not isinstance(end_date, date):
+        raise RowTransformReject("normalize.empty_not_allowed:end_date", "字段 end_date 不允许为空")
+    if not update_flag:
+        raise RowTransformReject("normalize.empty_not_allowed:update_flag", "字段 update_flag 不允许为空")
+    transformed["ts_code"] = ts_code
+    transformed["update_flag"] = update_flag
+    transformed["source_content_hash"] = compute_source_content_hash(
+        row=transformed,
+        source_fields=FINA_INDICATOR_SOURCE_FIELDS,
+    )
     return transformed
 
 
@@ -1069,6 +1094,7 @@ __all__ = [
     "_fund_share_observed_fact_row_transform",
     "_fund_div_immutable_fact_row_transform",
     "_express_revisable_fact_row_transform",
+    "_fina_indicator_row_transform",
     "_fund_portfolio_staged_fact_row_transform",
     "_trade_cal_row_transform",
     "_stock_basic_row_transform",

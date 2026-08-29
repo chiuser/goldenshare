@@ -1040,6 +1040,36 @@ def test_ops_schedule_create_supports_express_success_cursor_policy(app_client, 
     assert payload["params_json"]["schedule_policy_params"] == {"initial_start_date": "2026-08-01"}
 
 
+def test_ops_schedule_create_supports_fina_indicator_success_cursor_policy(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "fina_indicator.maintain",
+            "display_name": "财务指标自动维护",
+            "schedule_type": "cron",
+            "cron_expr": "0 19 * * *",
+            "timezone": "Asia/Shanghai",
+            "calendar_policy": "since_last_success_day_range",
+            "params_json": {
+                "time_input": {"mode": "range"},
+                "schedule_policy_params": {"initial_start_date": "2026-08-01"},
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["target_key"] == "fina_indicator.maintain"
+    assert payload["calendar_policy"] == "since_last_success_day_range"
+    assert payload["params_json"]["schedule_policy_params"] == {"initial_start_date": "2026-08-01"}
+
+
 @pytest.mark.parametrize(
     ("schedule_patch", "params_json", "expected_message"),
     (

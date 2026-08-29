@@ -99,6 +99,7 @@ from src.foundation.models.raw.raw_etf_minute_bar import RawEtfMinuteBar
 from src.foundation.models.raw.raw_etf_sh_cons import RawEtfShCons
 from src.foundation.models.raw.raw_etf_share_size import RawEtfShareSize
 from src.foundation.models.raw.raw_etf_sz_cons import RawEtfSzCons
+from src.foundation.models.raw.raw_fina_indicator import RawFinaIndicator
 from src.foundation.models.raw.raw_fund_daily import RawFundDaily
 from src.foundation.models.raw.raw_fund_adj import RawFundAdj
 from src.foundation.models.raw.raw_hk_basic import RawHkBasic
@@ -269,6 +270,7 @@ class DAOFactory:
         self.raw_etf_sh_cons = GenericDAO(session, RawEtfShCons)
         self.raw_etf_share_size = GenericDAO(session, RawEtfShareSize)
         self.raw_etf_sz_cons = GenericDAO(session, RawEtfSzCons)
+        self.raw_fina_indicator = GenericDAO(session, RawFinaIndicator)
         self.raw_hk_basic = GenericDAO(session, RawHkBasic)
         self.raw_us_basic = GenericDAO(session, RawUsBasic)
         self.raw_fund_daily = GenericDAO(session, RawFundDaily)
