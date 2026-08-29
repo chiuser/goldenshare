@@ -6,20 +6,24 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.asset_guards.dc_board_raw_quality import RAW_DC_QUALITY_SPECS
+from orchestrator.defs.asset_guards.dc_board_relations import audit_raw_board_relation
 from orchestrator.defs.assets.dc_board_raw import (
     raw_tushare_dc_daily,
     raw_tushare_dc_index,
     raw_tushare_dc_member,
 )
 from orchestrator.defs.duckdb_sql import describe_parquet_query, read_parquet
-from orchestrator.defs.asset_guards.dc_board_relations import audit_raw_board_relation
-from orchestrator.defs.asset_guards.dc_board_raw_quality import RAW_DC_QUALITY_SPECS
 from orchestrator.defs.partitions import (
     cn_a_dc_daily_trade_days,
     cn_a_dc_index_trade_days,
     cn_a_dc_member_trade_days,
 )
-from orchestrator.defs.paths import raw_dc_daily_path, raw_dc_index_path, raw_dc_member_path
+from orchestrator.defs.paths import (
+    raw_dc_daily_path,
+    raw_dc_index_path,
+    raw_dc_member_path,
+)
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_DC_DAILY_SCHEMA,
@@ -276,11 +280,7 @@ def raw_tushare_dc_index_core_check(
         path_builder=raw_dc_index_path,
         schema=RAW_TUSHARE_DC_INDEX_SCHEMA,
         key_columns=("ts_code", "trade_date"),
-        identity_predicate=(
-            "ts_code IS NOT NULL AND regexp_full_match(trim(CAST(ts_code AS VARCHAR)), '^BK[0-9]{4}\\.DC$') "
-            "AND idx_type IN ('行业板块', '概念板块', '地域板块') "
-            "AND name IS NOT NULL AND trim(CAST(name AS VARCHAR)) <> ''"
-        ),
+        identity_predicate=RAW_DC_QUALITY_SPECS["dc_index"].identity_condition,
         identity_columns=("ts_code", "idx_type", "name"),
         numeric_predicate=RAW_DC_QUALITY_SPECS["dc_index"].numeric_condition,
         coverage_column=RAW_DC_QUALITY_SPECS["dc_index"].coverage_column,

@@ -174,12 +174,12 @@ def _write_daily_index_baseline(root: Path, codes: tuple[str, ...]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     categories = ("行业板块", "概念板块", "地域板块")
     values = ", ".join(
-        f"('{code}', '{categories[index % len(categories)]}')"
+        f"('{code}', '{_RAW_TRADE_DATE}', '板块', '股票', '000001.SZ', 1.0, 2.0, 3.0, 4.0, 5, 6, '{categories[index % len(categories)]}', 'L1')"
         for index, code in enumerate(codes)
     )
     with duckdb.connect(":memory:") as connection:
         connection.execute(
-            f"COPY (SELECT * FROM (VALUES {values}) AS t(ts_code, idx_type)) TO ? (FORMAT PARQUET)",
+            f"COPY (SELECT * FROM (VALUES {values}) AS t(ts_code, trade_date, name, \"leading\", leading_code, pct_change, leading_pct, total_mv, turnover_rate, up_num, down_num, idx_type, level)) TO ? (FORMAT PARQUET)",
             [str(path)],
         )
 

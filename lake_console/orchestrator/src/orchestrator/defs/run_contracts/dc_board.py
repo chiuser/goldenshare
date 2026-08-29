@@ -32,6 +32,23 @@ DC_INDEX_FIELDS = (
     "idx_type",
     "level",
 )
+
+# Eastmoney can return a synthetic board row while a board has no usable
+# daily observation.  It is identified by the complete field combination,
+# not by the display name alone: real "历史新高/历史新低" rows remain valid.
+DC_INDEX_PLACEHOLDER_NAMES = frozenset(("历史新高", "历史新低"))
+DC_INDEX_PLACEHOLDER_REASON_CODE = "source_placeholder_row"
+DC_INDEX_PLACEHOLDER_SQL = (
+    "(coalesce(trim(CAST(name AS VARCHAR)), '') IN ('历史新高', '历史新低')) "
+    "AND (coalesce(trim(CAST(\"leading\" AS VARCHAR)), '') IN ('', '-')) "
+    "AND (coalesce(trim(CAST(leading_code AS VARCHAR)), '') = '') "
+    "AND coalesce(pct_change, 0) = 0 "
+    "AND coalesce(leading_pct, 0) = 0 "
+    "AND coalesce(total_mv, 0) = 0 "
+    "AND coalesce(turnover_rate, 0) = 0 "
+    "AND up_num IS NULL "
+    "AND down_num IS NULL"
+)
 DC_MEMBER_FIELDS = ("trade_date", "ts_code", "con_code", "name")
 DC_DAILY_FIELDS = (
     "ts_code",
@@ -191,6 +208,34 @@ def _canonical_source_value(value: object) -> object:
             return None
         return format(numeric, ".15g")
     return str(value)
+
+
+def is_dc_index_placeholder(row: Mapping[str, object]) -> bool:
+    """Return whether a normalized source row is a known board placeholder."""
+
+    def text(value: object) -> str:
+        return "" if value is None else str(value).strip()
+
+    def zero_or_null(value: object) -> bool:
+        if value is None:
+            return True
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            return False
+        return math.isfinite(numeric) and numeric == 0
+
+    return (
+        text(row.get("name")) in DC_INDEX_PLACEHOLDER_NAMES
+        and text(row.get("leading")) in {"", "-"}
+        and text(row.get("leading_code")) == ""
+        and zero_or_null(row.get("pct_change"))
+        and zero_or_null(row.get("leading_pct"))
+        and zero_or_null(row.get("total_mv"))
+        and zero_or_null(row.get("turnover_rate"))
+        and row.get("up_num") is None
+        and row.get("down_num") is None
+    )
 
 
 def _canonical_source_rows(

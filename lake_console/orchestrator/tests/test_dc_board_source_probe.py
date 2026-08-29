@@ -10,6 +10,7 @@ from orchestrator.defs.run_contracts.dc_board import (
     DC_INDEX_FIELDS,
     DC_INDEX_TYPES,
     build_dc_board_prod_completion_snapshot,
+    is_dc_index_placeholder,
 )
 from orchestrator.defs.tushare_request_policy import TushareRequestPolicy
 
@@ -48,11 +49,13 @@ class _FakeTushare:
         partial_daily: bool = False,
         fail_daily: bool = False,
         daily_close: float = 1.0,
+        placeholder_index: bool = False,
     ):
         self.calls = []
         self.partial_daily = partial_daily
         self.fail_daily = fail_daily
         self.daily_close = daily_close
+        self.placeholder_index = placeholder_index
 
     def call(self, api_name, params, fields):
         self.calls.append((api_name, dict(params), tuple(fields)))
@@ -60,14 +63,32 @@ class _FakeTushare:
             return TushareResult(rows=[], columns=tuple(fields), metadata={})
         if api_name == "dc_index":
             index = DC_INDEX_TYPES.index(params["idx_type"])
-            return TushareResult(
-                rows=[
+            rows = [
+                {
+                    "idx_type": params["idx_type"],
+                    "ts_code": f"BK{index + 1:04d}.DC",
+                    "trade_date": _RAW_TRADE_DATE,
+                }
+            ]
+            if self.placeholder_index and params["idx_type"] == "概念板块":
+                rows.append(
                     {
                         "idx_type": params["idx_type"],
-                        "ts_code": f"BK{index + 1:04d}.DC",
+                        "ts_code": "BK1675.DC",
                         "trade_date": _RAW_TRADE_DATE,
+                        "name": "历史新高",
+                        "leading": "-",
+                        "leading_code": None,
+                        "pct_change": 0.0,
+                        "leading_pct": 0.0,
+                        "total_mv": 0.0,
+                        "turnover_rate": 0.0,
+                        "up_num": None,
+                        "down_num": None,
                     }
-                ],
+                )
+            return TushareResult(
+                rows=rows,
                 columns=tuple(fields),
                 metadata={},
             )
@@ -277,6 +298,51 @@ def test_complete_tushare_source_requires_all_index_and_daily_rows():
         "dc_daily",
     ]
     assert all(call[2] in (DC_INDEX_FIELDS, DC_DAILY_FIELDS) for call in source.calls)
+
+
+def test_source_filters_exact_placeholder_but_keeps_normal_rows():
+    source = _FakeTushare(placeholder_index=True)
+    result = load_tushare_dc_index_daily_source_snapshot(
+        tushare=source,
+        trade_date=_TRADE_DATE,
+        prod_completion=_completion(),
+        policy=_policy(),
+    )
+
+    assert result.ready is True
+    assert result.placeholder_row_count == 1
+    assert result.snapshot is not None
+    assert result.snapshot.index_row_count == 3
+    assert all(
+        "BK1675.DC" not in {row["ts_code"] for row in rows}
+        for rows in result.index_rows_by_type.values()
+    )
+    assert is_dc_index_placeholder(
+        {
+            "name": "历史新高",
+            "leading": "-",
+            "leading_code": None,
+            "pct_change": 0.0,
+            "leading_pct": 0.0,
+            "total_mv": 0.0,
+            "turnover_rate": 0.0,
+            "up_num": None,
+            "down_num": None,
+        }
+    )
+    assert not is_dc_index_placeholder(
+        {
+            "name": "历史新高",
+            "leading": "股票一",
+            "leading_code": "000001.SZ",
+            "pct_change": 1.0,
+            "leading_pct": 2.0,
+            "total_mv": 100.0,
+            "turnover_rate": 3.0,
+            "up_num": 1,
+            "down_num": 1,
+        }
+    )
 
 
 def test_complete_tushare_source_rejects_partial_daily_response():

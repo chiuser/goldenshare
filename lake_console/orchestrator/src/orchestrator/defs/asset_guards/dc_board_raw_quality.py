@@ -2,17 +2,25 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Sequence
 
-from orchestrator.defs.paths import raw_dc_daily_path, raw_dc_index_path, raw_dc_member_path
+from orchestrator.defs.paths import (
+    raw_dc_daily_path,
+    raw_dc_index_path,
+    raw_dc_member_path,
+)
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_DC_DAILY_SCHEMA,
     RAW_TUSHARE_DC_INDEX_SCHEMA,
     RAW_TUSHARE_DC_MEMBER_SCHEMA,
 )
-from orchestrator.defs.run_contracts.dc_board import DC_DAILY_CATEGORIES, DC_INDEX_TYPES
+from orchestrator.defs.run_contracts.dc_board import (
+    DC_DAILY_CATEGORIES,
+    DC_INDEX_PLACEHOLDER_SQL,
+    DC_INDEX_TYPES,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,7 +39,8 @@ class RawQualitySpec:
 _INDEX_IDENTITY = (
     "ts_code IS NOT NULL AND regexp_full_match(trim(CAST(ts_code AS VARCHAR)), '^BK[0-9]{4}\\.DC$') "
     f"AND idx_type IN ({', '.join(repr(value) for value in DC_INDEX_TYPES)}) "
-    "AND name IS NOT NULL AND trim(CAST(name AS VARCHAR)) <> ''"
+    "AND name IS NOT NULL AND trim(CAST(name AS VARCHAR)) <> '' "
+    f"AND NOT ({DC_INDEX_PLACEHOLDER_SQL})"
 )
 _INDEX_NUMERIC = (
     "(pct_change IS NOT NULL AND NOT isfinite(pct_change)) "

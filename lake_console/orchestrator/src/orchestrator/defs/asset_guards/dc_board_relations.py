@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from orchestrator.defs.duckdb_sql import read_parquet
+from orchestrator.defs.run_contracts.dc_board import DC_INDEX_PLACEHOLDER_SQL
 
 
 def _relation_failure(
@@ -21,7 +22,11 @@ def _relation_failure(
     if mode == "index_subset_daily":
         sql = f"""
         WITH source_codes AS (SELECT DISTINCT ts_code FROM {source_relation}),
-        index_codes AS (SELECT DISTINCT ts_code FROM {index_relation}),
+        index_codes AS (
+            SELECT DISTINCT ts_code
+            FROM {index_relation}
+            WHERE NOT ({DC_INDEX_PLACEHOLDER_SQL})
+        ),
         index_only AS (
             SELECT ts_code FROM index_codes
             EXCEPT
@@ -31,7 +36,11 @@ def _relation_failure(
         """
         sample_sql = f"""
         WITH source_codes AS (SELECT DISTINCT ts_code FROM {source_relation}),
-        index_codes AS (SELECT DISTINCT ts_code FROM {index_relation}),
+        index_codes AS (
+            SELECT DISTINCT ts_code
+            FROM {index_relation}
+            WHERE NOT ({DC_INDEX_PLACEHOLDER_SQL})
+        ),
         index_only AS (
             SELECT ts_code FROM index_codes EXCEPT SELECT ts_code FROM source_codes
         )

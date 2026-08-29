@@ -1068,3 +1068,20 @@ M1C 的 300 秒是 2026-07-14 profiling 的历史基线，不再是当前生效�
 详细报告：`/private/tmp/dc_board_m1_tushare_validation_report_20260714.json`。
 
 这些是离线审计和运维诊断事实，不写入业务 parquet 字段，也不进入 sensor cursor 的逐行明细。
+
+### 5.5.8 M10.3：已知源端占位行治理（代码完成）
+
+2026-08-27 的只读审计发现，`BK1675.DC`（名称“历史新高”）出现过一条源端占位记录：没有领先股票和领先股票代码，涨跌幅、领先股票涨跌幅、总市值、换手率均为 0，涨跌家数为空。该行同时出现在 prod `core_serving.dc_index` 与 Tushare 返回中；2026-08-12 Tushare 没有该行，2026-08-28 又返回了带真实领先股票和统计值的正常行。
+
+不能按名称单独过滤，因为名称为“历史新高”或“历史新低”的正常板块记录也可能带真实统计信息。只有以下条件全部成立时，才认定为源端占位行：
+
+- `name` 为“历史新高”或“历史新低”；
+- `leading` 为空或为 `-`，`leading_code` 为空；
+- `pct_change`、`leading_pct`、`total_mv`、`turnover_rate` 均为空或为 0；
+- `up_num`、`down_num` 均为空。
+
+代码职责固定为：Tushare source probe 在结构校验后过滤该行；Raw `dc_index` core check 和 Silver `dc_index` core check 将该行视为身份不合法；Silver writer 再次过滤它；`dc_daily` 同日覆盖关系和 `dc_member` 诊断只按过滤后的有效板块集合判断。prod 仍只承担完成时机和诊断职责，不向 Raw 写入或替换任何 prod 行。实现只复用既有请求结果和 DuckDB 查询，不增加 asset、check、job、sensor、动态分区或额外 source 请求。
+
+当前本地 `raw/silver dc_index`、`raw/silver dc_daily` 的 `2026-08-27` 文件均不存在，因此该日期不执行物理删除或凭空重建；不改 prod、不改其它日期、不写 Dagster event。后续重新生成该日期时，Raw/Silver 会自动排除该占位行；若目标文件已存在，则必须走既有 staging 校验和原子替换。
+
+实施结果：上述规则已落到当前 DC source probe、Raw/Silver 质量门禁、Silver 写入和同日关系校验；正常的“历史新高/历史新低”记录仍保留。针对 `2026-08-27` 的只读复核报告为 `/private/tmp/dc_board_20260827_placeholder_correction_audit.json`，四个目标文件均不存在，实际修正动作是 no-op，没有修改 Lake、prod 或 Dagster。DC 专项测试共 `99 passed`，占位行新增覆盖包含 source 过滤、Silver 过滤、Raw check 拒绝和关系校验。

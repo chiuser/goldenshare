@@ -75,6 +75,24 @@ def _index_row(trade_date: str = "20260714", ts_code: str = "BK0001.DC") -> tupl
     )
 
 
+def _index_placeholder_row(trade_date: str = "20260714") -> tuple[object, ...]:
+    return (
+        "BK1675.DC",
+        trade_date,
+        "历史新高",
+        "-",
+        None,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        None,
+        None,
+        "概念板块",
+        None,
+    )
+
+
 def _member_row(trade_date: str = "20260714", ts_code: str = "BK0001.DC") -> tuple[object, ...]:
     return (trade_date, ts_code, "000001.SZ", "股票一")
 
@@ -164,6 +182,30 @@ def test_dc_daily_keeps_category_in_business_key(tmp_path):
     assert connection.execute(
         f"SELECT count(*), count(DISTINCT category) FROM read_parquet('{result.target_file_path}')"
     ).fetchone() == (2, 2)
+
+
+def test_silver_index_filters_exact_source_placeholder(tmp_path):
+    root = Path(tmp_path)
+    _write_calendar(root)
+    normal_high_row = list(_index_row())
+    normal_high_row[2] = "历史新高"
+    _write_valid_raw(
+        root,
+        "dc_index",
+        [tuple(normal_high_row), _index_placeholder_row()],
+    )
+
+    result = write_silver_dc_index_partition(
+        lake_root_path=root, duckdb=_MemoryDuckDB(), partition_key="2026-07-14"
+    )
+
+    assert result.source_row_count == 2
+    assert result.filtered_placeholder_row_count == 1
+    assert result.output_row_count == 1
+    connection = duckdb.connect(":memory:")
+    assert connection.execute(
+        f"SELECT count(*), count(*) FILTER (WHERE ts_code = 'BK1675.DC') FROM read_parquet('{result.target_file_path}')"
+    ).fetchone() == (1, 0)
 
 
 def test_identical_normalized_duplicates_are_deduplicated(tmp_path):

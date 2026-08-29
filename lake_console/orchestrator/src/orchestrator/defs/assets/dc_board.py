@@ -60,6 +60,7 @@ from orchestrator.defs.run_contracts.dc_board import (
     DC_DAILY_FIELDS,
     DC_DAILY_PAGE_LIMIT,
     DC_INDEX_FIELDS,
+    DC_INDEX_PLACEHOLDER_SQL,
     DC_INDEX_TYPES,
     DC_MEMBER_FIELDS,
     DC_MEMBER_PAGE_LIMIT,
@@ -445,6 +446,7 @@ def _validate_dc_daily_covers_same_day_index(
             SELECT DISTINCT trim(CAST(ts_code AS VARCHAR)) AS ts_code
             FROM {read_parquet(index_path)}
             WHERE ts_code IS NOT NULL AND trim(CAST(ts_code AS VARCHAR)) <> ''
+              AND NOT ({DC_INDEX_PLACEHOLDER_SQL})
         ), missing_codes AS (
             SELECT ts_code FROM index_codes
             EXCEPT
@@ -781,6 +783,7 @@ def write_dc_index_partition(
                 "prod_index_extra_identity_count": source_result.index_extra_count,
                 "prod_daily_missing_identity_count": source_result.daily_missing_count,
                 "prod_daily_extra_identity_count": source_result.daily_extra_count,
+                "dc_index_placeholder_row_count": source_result.placeholder_row_count,
             },
         )
 
@@ -942,9 +945,14 @@ def write_dc_member_partition(
             partition_key=partition_key,
         )
         try:
-            prod_pairs = load_prod_dc_member_pairs(
-                prod_postgres=prod_postgres,
-                trade_date=partition_key,
+            candidate_code_set = set(normalized_codes)
+            prod_pairs = tuple(
+                pair
+                for pair in load_prod_dc_member_pairs(
+                    prod_postgres=prod_postgres,
+                    trade_date=partition_key,
+                )
+                if pair[0] in candidate_code_set
             )
         except DcBoardSourceValidationError as exc:
             raise DcBoardRawValidationError(str(exc)) from exc

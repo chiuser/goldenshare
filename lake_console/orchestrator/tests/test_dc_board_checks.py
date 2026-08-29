@@ -2,11 +2,13 @@ from pathlib import Path
 
 import duckdb
 
-from orchestrator.defs.assets.dc_board_raw import raw_tushare_dc_index
+from orchestrator.defs.asset_guards.dc_board_raw_quality import RAW_DC_INDEX_QUALITY
 from orchestrator.defs.checks.dc_board_checks import _core_check
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource
-from orchestrator.defs.run_contracts.asset_column_schemas import RAW_TUSHARE_DC_INDEX_SCHEMA
 from orchestrator.defs.paths import raw_dc_index_path
+from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    RAW_TUSHARE_DC_INDEX_SCHEMA,
+)
 
 
 class _Context:
@@ -77,3 +79,30 @@ def test_core_check_reports_missing_file(tmp_path) -> None:
     )
     assert result.passed is False
     assert result.metadata["goldenshare/reason_code"].value == "file_missing"
+
+
+def test_core_check_rejects_exact_source_placeholder(tmp_path) -> None:
+    root = Path(tmp_path)
+    path = raw_dc_index_path(root, "2026-07-14")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = duckdb.connect()
+    connection.execute(
+        f"COPY (SELECT 'BK1675.DC' AS ts_code, '20260714' AS trade_date, '历史新高' AS name, '-' AS \"leading\", NULL::VARCHAR AS leading_code, 0.0::DOUBLE AS pct_change, 0.0::DOUBLE AS leading_pct, 0.0::DOUBLE AS total_mv, 0.0::DOUBLE AS turnover_rate, NULL::INTEGER AS up_num, NULL::INTEGER AS down_num, '概念板块' AS idx_type, NULL::VARCHAR AS level) TO '{path}' (FORMAT PARQUET)"
+    )
+    connection.close()
+
+    result = _core_check(
+        context=_Context(),
+        lake_root=LakeRootResource(root_path=str(root)),
+        duckdb_resource=_MemoryDuckDB(),
+        dataset="dc_index",
+        path_builder=raw_dc_index_path,
+        schema=RAW_TUSHARE_DC_INDEX_SCHEMA,
+        key_columns=("ts_code", "trade_date"),
+        identity_predicate=RAW_DC_INDEX_QUALITY.identity_condition,
+        identity_columns=("ts_code", "idx_type", "name"),
+    )
+    assert result.passed is False
+    assert result.metadata["goldenshare/failed_rules"].value == [
+        "dataset_identity_fields_legal"
+    ]

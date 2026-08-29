@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Sequence
 
 from orchestrator.defs.paths import (
     silver_dc_daily_path,
@@ -16,7 +16,11 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_DC_INDEX_SCHEMA,
     SILVER_DC_MEMBER_SCHEMA,
 )
-from orchestrator.defs.run_contracts.dc_board import DC_DAILY_CATEGORIES, DC_INDEX_TYPES
+from orchestrator.defs.run_contracts.dc_board import (
+    DC_DAILY_CATEGORIES,
+    DC_INDEX_PLACEHOLDER_SQL,
+    DC_INDEX_TYPES,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,7 +38,8 @@ _INDEX_IDENTITY = (
     "ts_code IS NOT NULL AND regexp_full_match(ts_code, '^BK[0-9]{4}\\.DC$') "
     "AND name IS NOT NULL AND trim(name) <> '' "
     f"AND idx_type IN ({', '.join(repr(value) for value in DC_INDEX_TYPES)}) "
-    "AND (leading_code IS NULL OR regexp_full_match(leading_code, '^[0-9]{6}\\.(SZ|SH|BJ)$'))"
+    "AND (leading_code IS NULL OR regexp_full_match(leading_code, '^[0-9]{6}\\.(SZ|SH|BJ)$')) "
+    f"AND NOT ({DC_INDEX_PLACEHOLDER_SQL})"
 )
 _INDEX_NUMERIC = (
     "(pct_change IS NOT NULL AND NOT isfinite(pct_change)) "

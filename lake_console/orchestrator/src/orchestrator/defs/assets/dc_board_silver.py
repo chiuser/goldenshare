@@ -5,10 +5,10 @@ the only source input; cross-dataset membership differences are intentionally
 not treated as Silver failures.
 """
 
+import os
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-import os
 from time import perf_counter
 from uuid import uuid4
 
@@ -58,6 +58,7 @@ from orchestrator.defs.run_contracts.asset_tags import (
 )
 from orchestrator.defs.run_contracts.dc_board import (
     DC_DAILY_CATEGORIES,
+    DC_INDEX_PLACEHOLDER_SQL,
     DC_INDEX_TYPES,
 )
 from orchestrator.defs.run_contracts.metadata import (
@@ -65,7 +66,6 @@ from orchestrator.defs.run_contracts.metadata import (
     build_asset_definition_metadata,
     build_materialization_metadata,
 )
-
 
 _BOARD_CODE_RE = r"^BK[0-9]{4}\.DC$"
 _STOCK_CODE_RE = r"^[0-9]{6}\.(SZ|SH|BJ)$"
@@ -89,6 +89,7 @@ class DcBoardSilverWriteResult:
     reject_reason_counts: dict[str, int]
     observed_columns: tuple[str, ...]
     elapsed_ms: float
+    filtered_placeholder_row_count: int = 0
 
     def to_metadata(self) -> dict[str, object]:
         return {
@@ -105,6 +106,7 @@ class DcBoardSilverWriteResult:
             "reject_reason_counts": self.reject_reason_counts,
             "observed_columns": list(self.observed_columns),
             "elapsed_ms": round(self.elapsed_ms, 3),
+            "filtered_placeholder_row_count": self.filtered_placeholder_row_count,
             "write_mode": "duckdb_set_based_atomic_replace",
         }
 
@@ -393,8 +395,26 @@ def _stage_silver_partition(
             f"raw {dataset} has no rows for {partition_key}."
         )
 
+    effective_normalized_sql = normalized_sql
+    filtered_placeholder_row_count = 0
+    if dataset == "dc_index":
+        effective_normalized_sql = (
+            f"SELECT * FROM ({normalized_sql}) normalized "
+            f"WHERE NOT ({DC_INDEX_PLACEHOLDER_SQL})"
+        )
+        effective_row_count = int(
+            connection.execute(
+                f"SELECT count(*) FROM ({effective_normalized_sql}) effective"
+            ).fetchone()[0]
+        )
+        filtered_placeholder_row_count = source_row_count - effective_row_count
+        if effective_row_count <= 0:
+            raise DcBoardSilverValidationError(
+                f"raw {dataset} contains only source placeholder rows for {partition_key}."
+            )
+
     rejection_rows = connection.execute(
-        spec.rejection_sql_builder(normalized_sql, partition_key)
+        spec.rejection_sql_builder(effective_normalized_sql, partition_key)
     ).fetchall()
     reject_reason_counts = {str(row[0]): int(row[1]) for row in rejection_rows}
     rejected_row_count = sum(reject_reason_counts.values())
@@ -409,7 +429,7 @@ def _stage_silver_partition(
     )
     duplicate_removed_count, conflict_key_count = _conflict_counts(
         connection,
-        normalized_sql,
+        effective_normalized_sql,
         spec.key_columns,
         value_columns,
     )
@@ -420,7 +440,7 @@ def _stage_silver_partition(
         )
 
     output_sql = (
-        f"SELECT DISTINCT * FROM ({normalized_sql}) normalized "
+        f"SELECT DISTINCT * FROM ({effective_normalized_sql}) normalized "
         f"ORDER BY {', '.join(spec.key_columns)}"
     )
     target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -460,6 +480,7 @@ def _stage_silver_partition(
             reject_reason_counts=reject_reason_counts,
             observed_columns=tuple(column.name for column in spec.silver_schema),
             elapsed_ms=(perf_counter() - started_at) * 1000,
+            filtered_placeholder_row_count=filtered_placeholder_row_count,
         ),
         staging_path=staging_path,
     )

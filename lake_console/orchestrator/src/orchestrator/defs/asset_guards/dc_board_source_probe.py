@@ -23,6 +23,7 @@ from orchestrator.defs.run_contracts.dc_board import (
     DC_DAILY_PAGE_LIMIT,
     DC_INDEX_FIELDS,
     DC_INDEX_PAGE_LIMIT,
+    DC_INDEX_PLACEHOLDER_REASON_CODE,
     DC_INDEX_TYPES,
     DC_MEMBER_BACKOFF_BASE_SECONDS,
     DC_MEMBER_BACKOFF_MAX_SECONDS,
@@ -32,6 +33,7 @@ from orchestrator.defs.run_contracts.dc_board import (
     DcBoardTushareSourceSnapshot,
     build_dc_board_prod_completion_snapshot,
     build_dc_board_tushare_source_snapshot,
+    is_dc_index_placeholder,
 )
 from orchestrator.defs.tushare_request_policy import (
     TushareRequestPolicy,
@@ -93,6 +95,7 @@ class DcBoardTushareSourceResult:
     index_extra_count: int = 0
     daily_missing_count: int = 0
     daily_extra_count: int = 0
+    placeholder_row_count: int = 0
     error: str | None = None
 
     @property
@@ -123,7 +126,10 @@ class DcBoardTushareSourceResult:
             "index_extra_count": self.index_extra_count,
             "daily_missing_count": self.daily_missing_count,
             "daily_extra_count": self.daily_extra_count,
+            "placeholder_row_count": self.placeholder_row_count,
         }
+        if self.placeholder_row_count:
+            summary["placeholder_reason_code"] = DC_INDEX_PLACEHOLDER_REASON_CODE
         if self.snapshot is not None:
             summary.update(self.snapshot.compact_summary())
         if self.error:
@@ -453,6 +459,7 @@ def load_tushare_dc_index_daily_source_snapshot(
     effective_policy = policy or build_dc_board_request_policy()
     index_result = None
     daily_result = None
+    placeholder_row_count = 0
     try:
         index_result = execute_bounded_code_pages(
             codes=DC_INDEX_TYPES,
@@ -502,6 +509,16 @@ def load_tushare_dc_index_daily_source_snapshot(
         index_rows = tuple(row for rows in index_rows_by_type.values() for row in rows)
         _validate_identity_rows(rows=index_rows, trade_date=trade_date, kind="dc_index")
 
+        effective_index_rows_by_type: dict[str, tuple[dict[str, object], ...]] = {}
+        for idx_type, rows in index_rows_by_type.items():
+            effective_rows = tuple(
+                row for row in rows if not is_dc_index_placeholder(row)
+            )
+            placeholder_row_count += len(rows) - len(effective_rows)
+            effective_index_rows_by_type[idx_type] = effective_rows
+        index_rows_by_type = effective_index_rows_by_type
+        index_rows = tuple(row for rows in index_rows_by_type.values() for row in rows)
+
         remaining_request_budget = (
             effective_policy.max_requests - index_result.request_count
         )
@@ -520,6 +537,7 @@ def load_tushare_dc_index_daily_source_snapshot(
                 snapshot=None,
                 index_rows_by_type=index_rows_by_type,
                 daily_rows=(),
+                placeholder_row_count=placeholder_row_count,
                 error="dc_index exhausted the shared dc_index/dc_daily request budget.",
             )
         daily_policy = replace(
@@ -569,6 +587,7 @@ def load_tushare_dc_index_daily_source_snapshot(
                 snapshot=None,
                 index_rows_by_type=index_rows_by_type,
                 daily_rows=(),
+                placeholder_row_count=placeholder_row_count,
                 error=str(daily_result.to_details(max_failure_samples=3)),
             )
         daily_rows = tuple(daily_result.rows)
@@ -630,6 +649,7 @@ def load_tushare_dc_index_daily_source_snapshot(
             index_extra_count=index_extra_count,
             daily_missing_count=daily_missing_count,
             daily_extra_count=daily_extra_count,
+            placeholder_row_count=placeholder_row_count,
         )
     except DcBoardSourceValidationError as exc:
         index_request_count = (
@@ -655,6 +675,7 @@ def load_tushare_dc_index_daily_source_snapshot(
             snapshot=None,
             index_rows_by_type={},
             daily_rows=(),
+            placeholder_row_count=placeholder_row_count,
             error=str(exc),
         )
     except Exception as exc:  # noqa: BLE001 - Tushare source access must fail closed.
@@ -681,6 +702,7 @@ def load_tushare_dc_index_daily_source_snapshot(
             snapshot=None,
             index_rows_by_type={},
             daily_rows=(),
+            placeholder_row_count=placeholder_row_count,
             error=str(exc),
         )
 

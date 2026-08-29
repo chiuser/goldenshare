@@ -1456,3 +1456,23 @@ enable 或正式 run。
 ### 全局停止条件
 
 任一阶段发现 Tushare 分页不完整、请求量超预算、单 tick 超过 Dagster RPC 安全预算、check 归属不正确、数据湖文件被部分覆盖或需要依赖历史 event 才能判断 ready，立即停在当前 milestone，不继续扩范围。
+
+#### M10.3：已知源端占位行治理（代码完成）
+
+2026-08-27 的只读审计发现，`BK1675.DC` 曾返回一条“历史新高”占位行：`leading` 为空或为 `-`、`leading_code` 为空，`pct_change`、`leading_pct`、`total_mv`、`turnover_rate` 为 0，`up_num`、`down_num` 为空。该行不是有效板块业务事实。不能按名称单独过滤，因为其它日期存在带真实领先股票和统计值的正常“历史新高/历史新低”记录。
+
+占位行的唯一识别条件是上述字段与名称条件同时成立，并且实现时必须对所有 `AND/OR` 分组加括号。该规则集中在 `defs/run_contracts/dc_board.py`，由以下路径共同使用：
+
+| 路径 | 行为 |
+| --- | --- |
+| `asset_guards/dc_board_source_probe.py` | Tushare `dc_index` 通过结构校验后过滤占位行，再做类型覆盖和 source fingerprint |
+| `assets/dc_board.py` | Raw index 记录过滤数；`dc_daily` 覆盖和 member 诊断只按有效 index 集合 |
+| `assets/dc_board_silver.py` | Silver index 在既有拒绝、冲突和原子 promote 前再次过滤 |
+| `asset_guards/dc_board_raw_quality.py` / `dc_board_silver_quality.py` | Raw/Silver core check 和 readiness 将占位行判为身份不合法 |
+| `asset_guards/dc_board_relations.py` | `index_subset_daily` 使用有效 index 集合，避免无效占位行制造假缺口 |
+
+Tushare 仍是日常 Raw 的内容来源；prod 仍只提供完成时机与差异诊断，不会成为内容裁决源，也不会把 prod 行写入 Lake。当前本地 2026-08-27 四个相关目标文件均不存在，所以不做物理删除、不创建空文件、不写 Dagster event；后续重建会在现有 staging/原子替换边界内自动排除占位行。
+
+验收要求：正常“历史新高/历史新低”保留；精确占位行在 source probe、Raw/Silver check 和 Silver writer 中得到预期结果；三类 index 类型过滤后仍齐全，否则 fail closed；正常路径请求次数、分区、schema、job/sensor 和 prod 只读语义不变。
+
+实施结果：规则已在当前代码中完成，并通过 DC 专项测试 `99 passed`。只读审计报告 `/private/tmp/dc_board_20260827_placeholder_correction_audit.json` 显示，2026-08-27 的 raw/silver `dc_index` 与 `dc_daily` 目标文件均不存在，因此没有需要删除的物理行，本次修正为 no-op；没有写 Lake、prod、Dagster event 或动态分区。后续该日期若按现有链路重建，会在 source probe 和 Silver writer 两道边界排除精确占位行。
