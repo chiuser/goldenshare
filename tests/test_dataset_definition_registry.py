@@ -1240,6 +1240,12 @@ def test_dataset_definition_storage_layer_facts_are_explicit() -> None:
             "core_serving.market_moneyflow_dc",
         ),
         (
+            "moneyflow_ths",
+            "raw_moneyflow_ths",
+            "raw_tushare.moneyflow_ths",
+            "core_serving.equity_moneyflow_ths",
+        ),
+        (
             "margin",
             "raw_margin",
             "raw_tushare.margin",
@@ -1292,6 +1298,7 @@ def test_raw_serving_view_definitions_project_raw_freshness_targets() -> None:
         ("moneyflow_ind_dc", "raw_tushare.moneyflow_ind_dc"),
         ("moneyflow_ind_ths", "raw_tushare.moneyflow_ind_ths"),
         ("moneyflow_mkt_dc", "raw_tushare.moneyflow_mkt_dc"),
+        ("moneyflow_ths", "raw_tushare.moneyflow_ths"),
         ("margin", "raw_tushare.margin"),
         ("suspend_d", "raw_tushare.suspend_d"),
         ("stk_auction_c", "raw_tushare.stk_auction_c"),

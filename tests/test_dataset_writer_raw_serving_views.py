@@ -14,6 +14,7 @@ from src.foundation.models.raw.raw_moneyflow_cnt_ths import RawMoneyflowCntThs
 from src.foundation.models.raw.raw_moneyflow_ind_dc import RawMoneyflowIndDc
 from src.foundation.models.raw.raw_moneyflow_ind_ths import RawMoneyflowIndThs
 from src.foundation.models.raw.raw_moneyflow_mkt_dc import RawMoneyflowMktDc
+from src.foundation.models.raw.raw_moneyflow_ths import RawMoneyflowThs
 from src.foundation.models.raw.raw_margin import RawMargin
 from src.foundation.models.raw.raw_st import RawSt
 from src.foundation.models.raw.raw_stk_auction_c import RawStkAuctionC
@@ -111,6 +112,18 @@ class _RecordingRawDao:
                 "net_amount": 0,
             },
             "raw_tushare.moneyflow_mkt_dc",
+            None,
+        ),
+        (
+            "moneyflow_ths",
+            "raw_moneyflow_ths",
+            RawMoneyflowThs,
+            {
+                "trade_date": date(2026, 8, 22),
+                "ts_code": "000001.SZ",
+                "net_amount": 0,
+            },
+            "raw_tushare.moneyflow_ths",
             None,
         ),
         (
