@@ -1,6 +1,6 @@
 # ETF 历史分钟行情数据集接入方案 v1
 
-状态：已落地；对象来源已切换为 ETF Basic Serving，生产全量对齐尚未执行
+状态：已落地；对象来源已切换为 ETF Basic Serving；P9A 指定区间 Preview 与 P9B 受控 Submit 代码已完成，原全历史 Preview 已作废，生产 TaskRun 与补拉均未执行
 创建日期：2026-08-24
 最近更新：2026-08-29
 LLD：[ETF 历史分钟行情数据集 LLD v1](/Users/congming/github/goldenshare/docs/datasets/etf-mins-dataset-low-level-design-v1.md)
@@ -11,6 +11,8 @@ LLD：[ETF 历史分钟行情数据集 LLD v1](/Users/congming/github/goldenshar
 `etf_mins` 维护 Tushare 原生 ETF 历史分钟行情，唯一物理事实表为 `raw_tushare.etf_minute_bar`。当前代码不再读取 ETF 激活池；所有按代码展开的请求都由 `core_serving.etf_basic` 的统一当前可请求 selector 驱动，并在生成窗口前把起点裁到 ETF 上市日。
 
 本次对象来源切换只改变未来请求规划，不删除既有分钟事实，也不自动补齐全量历史。生产全量对齐由主方案 P9-P12 单独预览、授权和执行。
+
+P9A 只提供必填的 `alignment_start_date/alignment_end_date`。它固定本次中国日期和一份 Basic snapshot，把全部当前可请求 ETF 放入 target hash；其中上市日晚于截止日的 ETF 只计数、不生成区间。其余对象按五个原生频率检查指定区间内的 raw 首尾边界和明确成功 TaskRun 请求证据；每只 ETF 的有效起点取指定开始日与上市日之后的首个 SSE 开市日，不检查内部逐日空洞，也不把纯休市范围规划成请求。
 
 ## 2. 源接口与字段
 
@@ -114,3 +116,19 @@ ts_code / freq / window
 2. 不因当前 `D`、代码消失或 `list_date` 变晚而删除历史分钟事实。
 3. 不在普通计划中自动请求 Tushare 补齐全历史。
 4. 不把停牌或源端空日自动判定为内部分钟缺口。
+5. P9A 不请求 Tushare、不创建 TaskRun、不写数据库，也不提供 submit/apply 入口。
+6. raw 首尾边界按自然月执行 `ts_code + freq + COUNT/MIN/MAX` 集合统计；每条 SQL 只访问该月分区，再与同一次 Basic snapshot 在内存中求交。禁止跨全部分区聚合、ETF×频率 N+1，以及月度超时后自动改成周度重复扫描。
+
+2026-08-29 使用本地未部署代码对 Prod 完成 `2026-01-01` 至 `2026-08-28` 的只读 Preview：1,647 个当前可请求 ETF 全部进入对齐，1,395 个已有指定区间首尾覆盖，252 个需要从 2026 年首个开市日或更晚上市日补到截止日。最终生成 252 个 action、1,774 个 unit；源请求下界 1,774、分页请求上界 7,096。五个频率均无尾部缺口；此前默认追溯上市日的 44,793-unit 计划已作废。该结果只用于 P9B 规模拍板，没有创建 TaskRun、请求 Tushare 或写入生产数据库。
+
+## 8. P9B 受控 Submit
+
+P9B 新增唯一显式入口：
+
+```text
+goldenshare ops-submit-etf-minute-alignment --plan plan.json --confirm-plan-hash <sha256> --batch-size <正整数>
+```
+
+它不会直接请求 Tushare，也不会自己生成 unit。计划文件先在数据库外完成 schema、hash、action 和 unit 数复核；随后在一个可重复读事务中串行检查 open `etf_mins` TaskRun、一次加载当前 Basic snapshot，并复用 P9A 的日历和月度覆盖查询。Basic target 变化、action 早于当前上市日或覆盖只发生部分变化时整批拒绝，要求重新 Preview。完全覆盖的 action 跳过，仍精确缺失的前 `batch-size` 个 action 才通过现有 `TaskRunCommandService.stage_task_run()` 转成正式 range TaskRun，整批只提交一次。
+
+用户已选择首次实际补拉使用 10 个 action，但 CLI 不把 10 设为默认值。P9B 当前只完成代码和测试，没有执行生产 submit；实际批次必须等待 P10 发布门禁、部署和 P12 独立授权。

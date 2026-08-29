@@ -63,5 +63,7 @@ def test_s13_a18_a19_n01_automation_cannot_claim_pixel_or_release_acceptance() -
     assert "### Slice 16：候选版本部署、性能与观测验收" in lld_source
     assert "A18" in lld_source
     assert "OPEN" in lld_source
-    assert "Slice 14 保持 OPEN" in lld_source
+    assert "Slice 14 结论为 PASS" in lld_source
+    assert "Slice 14 已闭环" in lld_source
+    assert "Slice 15 正式像素尚未验收" in lld_source
     assert "不得进入 Slice 15" in lld_source

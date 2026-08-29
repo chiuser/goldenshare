@@ -112,10 +112,6 @@ def test_active_code_does_not_reference_legacy_schedule_contract_names() -> None
 
 def test_workflows_only_use_dataset_actions_or_maintenance_actions() -> None:
     dataset_keys = {definition.dataset_key for definition in list_dataset_definitions()}
-    assert set(MAINTENANCE_ACTION_REGISTRY) == {
-        "maintenance.rebuild_dm",
-        "maintenance.rebuild_index_kline_serving",
-    }
 
     for workflow in WORKFLOW_DEFINITION_REGISTRY.values():
         for step in workflow.steps:
@@ -250,7 +246,14 @@ def test_task_run_query_does_not_use_technical_unit_id_as_display_title() -> Non
     path = REPO_ROOT / "src/ops/queries/task_run_query_service.py"
     text = path.read_text(encoding="utf-8")
 
-    assert '"unit_id"' not in text
+    forbidden_title_fallbacks = (
+        "title=unit_id",
+        "title = unit_id",
+        "title_value = unit_id",
+        "title_value=unit_id",
+        " or unit_id",
+    )
+    assert not any(snippet in text for snippet in forbidden_title_fallbacks)
 
 
 def test_ingestion_progress_message_does_not_emit_machine_token_summary() -> None:

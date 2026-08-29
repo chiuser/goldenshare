@@ -25,6 +25,7 @@ from src.cli_parts.ops_handlers import (
     run_ops_date_completeness_worker_run as _run_ops_date_completeness_worker_run_impl,
     run_ops_date_completeness_worker_serve as _run_ops_date_completeness_worker_serve_impl,
     run_ops_daily_health_report as _run_ops_daily_health_report_impl,
+    run_ops_preview_etf_minute_alignment as _run_ops_preview_etf_minute_alignment_impl,
     run_ops_rebuild_dataset_status as _run_ops_rebuild_dataset_status_impl,
     run_ops_reconcile_task_runs as _run_ops_reconcile_task_runs_impl,
     run_ops_scheduler_serve as _run_ops_scheduler_serve_impl,
@@ -32,6 +33,7 @@ from src.cli_parts.ops_handlers import (
     run_ops_seed_default_single_source as _run_ops_seed_default_single_source_impl,
     run_ops_seed_moneyflow_multi_source as _run_ops_seed_moneyflow_multi_source_impl,
     run_ops_seed_realtime_runtime_config as _run_ops_seed_realtime_runtime_config_impl,
+    run_ops_submit_etf_minute_alignment as _run_ops_submit_etf_minute_alignment_impl,
     run_ops_task_completion_worker_serve as _run_ops_task_completion_worker_serve_impl,
     run_ops_lane_worker_run as _run_ops_lane_worker_run_impl,
     run_ops_lane_worker_serve as _run_ops_lane_worker_serve_impl,
@@ -83,6 +85,12 @@ from src.ops.services.operations_stock_basic_reconcile_service import StockBasic
 from src.ops.services.date_completeness_audit_service import DateCompletenessAuditWorker
 from src.ops.services.date_completeness_schedule_service import DateCompletenessScheduleCommandService
 from src.ops.services.etf_realtime_minute_archive_service import EtfRealtimeMinuteArchiveService
+from src.ops.services.etf_minute_history_alignment_plan_service import (
+    EtfMinuteHistoryAlignmentPlanService,
+)
+from src.ops.services.etf_minute_history_alignment_submit_service import (
+    EtfMinuteHistoryAlignmentSubmitService,
+)
 from src.biz.services.market_mood_walkforward_validation_service import MarketMoodWalkForwardValidationService
 from src.biz.services.wealth.market.turnover.turnover_snapshot_materialize_service import (
     TurnoverSnapshotMaterializeService,
@@ -356,6 +364,68 @@ def ops_daily_health_report(
         report_date_text=report_date,
         output_format=output_format,
         output=output,
+        echo_fn=typer.echo,
+    )
+
+
+@app.command("ops-preview-etf-minute-alignment")
+def ops_preview_etf_minute_alignment(
+    alignment_start_date: str = typer.Option(
+        ...,
+        "--alignment-start-date",
+        help="对齐开始日，格式 YYYY-MM-DD；可为休市日",
+    ),
+    alignment_end_date: str = typer.Option(
+        ...,
+        "--alignment-end-date",
+        help="对齐截止日，格式 YYYY-MM-DD；必须是当前已完成的 SSE 开市日",
+    ),
+    output: Path | None = typer.Option(
+        None,
+        "--output",
+        help="可选完整 JSON 输出路径；不传时只打印摘要",
+    ),
+) -> None:
+    _run_ops_preview_etf_minute_alignment_impl(
+        session_local=SessionLocal,
+        service_cls=EtfMinuteHistoryAlignmentPlanService,
+        alignment_start_date_text=alignment_start_date,
+        alignment_end_date_text=alignment_end_date,
+        output=output,
+        echo_fn=typer.echo,
+    )
+
+
+@app.command("ops-submit-etf-minute-alignment")
+def ops_submit_etf_minute_alignment(
+    plan: Path = typer.Option(
+        ...,
+        "--plan",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        resolve_path=True,
+        help="已审核的 P9A alignment plan JSON 文件",
+    ),
+    confirm_plan_hash: str = typer.Option(
+        ...,
+        "--confirm-plan-hash",
+        help="人工确认的完整 plan_content_hash",
+    ),
+    batch_size: int = typer.Option(
+        ...,
+        "--batch-size",
+        min=1,
+        help="本次最多创建的 TaskRun 数量；首次生产批次已拍板为 10",
+    ),
+) -> None:
+    _run_ops_submit_etf_minute_alignment_impl(
+        session_local=SessionLocal,
+        service_cls=EtfMinuteHistoryAlignmentSubmitService,
+        plan_path=plan,
+        confirmed_plan_hash=confirm_plan_hash,
+        batch_size=batch_size,
         echo_fn=typer.echo,
     )
 

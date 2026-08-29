@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import os
+import tempfile
 import time
 from datetime import date
 from decimal import Decimal
@@ -8,6 +11,13 @@ from typing import Callable
 
 import typer
 from sqlalchemy import text
+
+from src.ops.services.etf_minute_history_alignment_plan_service import (
+    EtfMinuteHistoryAlignmentPlanError,
+)
+from src.ops.services.etf_minute_history_alignment_submit_service import (
+    EtfMinuteHistoryAlignmentSubmitError,
+)
 
 
 def run_ops_rebuild_dataset_status(*, session_local, dataset_status_snapshot_service_cls, echo_fn: Callable[[str], None]) -> None:
@@ -42,6 +52,116 @@ def run_ops_audit_schedule_automation_capability(
     echo_fn(report.to_json())
     if not report.passed:
         raise typer.Exit(code=1)
+
+
+def run_ops_preview_etf_minute_alignment(
+    *,
+    session_local,
+    service_cls,
+    alignment_start_date_text: str,
+    alignment_end_date_text: str,
+    output: Path | None,
+    echo_fn: Callable[[str], None],
+) -> None:
+    try:
+        alignment_start_date = date.fromisoformat(alignment_start_date_text)
+    except ValueError as exc:
+        raise typer.BadParameter(
+            "--alignment-start-date 必须是 YYYY-MM-DD"
+        ) from exc
+
+    try:
+        alignment_end_date = date.fromisoformat(alignment_end_date_text)
+    except ValueError as exc:
+        raise typer.BadParameter(
+            "--alignment-end-date 必须是 YYYY-MM-DD"
+        ) from exc
+
+    try:
+        with session_local() as session:
+            session.execute(
+                text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+            )
+            session.execute(text("SET LOCAL statement_timeout = '180s'"))
+            try:
+                plan = service_cls().build_plan(
+                    session,
+                    alignment_start_date=alignment_start_date,
+                    alignment_end_date=alignment_end_date,
+                )
+            finally:
+                session.rollback()
+    except EtfMinuteHistoryAlignmentPlanError as exc:
+        raise typer.BadParameter(f"{exc.code}: {exc.message}") from exc
+
+    summary = plan.render_summary()
+    if output is None:
+        echo_fn(summary)
+        return
+
+    _write_text_atomically(output, plan.to_json())
+    echo_fn(summary)
+    echo_fn(f"ops-preview-etf-minute-alignment: written={output}")
+
+
+def run_ops_submit_etf_minute_alignment(
+    *,
+    session_local,
+    service_cls,
+    plan_path: Path,
+    confirmed_plan_hash: str,
+    batch_size: int,
+    echo_fn: Callable[[str], None],
+) -> None:
+    try:
+        plan_payload = json.loads(plan_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise typer.BadParameter(f"--plan 无法读取有效 JSON：{exc}") from exc
+
+    service = service_cls()
+    try:
+        confirmed_plan = service.validate_plan_payload(
+            plan_payload,
+            confirmed_plan_hash=confirmed_plan_hash,
+        )
+        with session_local() as session:
+            session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"))
+            session.execute(text("SET LOCAL statement_timeout = '180s'"))
+            result = service.submit(
+                session,
+                plan=confirmed_plan,
+                batch_size=batch_size,
+            )
+    except (
+        EtfMinuteHistoryAlignmentPlanError,
+        EtfMinuteHistoryAlignmentSubmitError,
+    ) as exc:
+        raise typer.BadParameter(f"{exc.code}: {exc.message}") from exc
+
+    echo_fn(result.render_summary())
+
+
+def _write_text_atomically(output: Path, content: str) -> None:
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=output.parent,
+            prefix=f".{output.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary_path = Path(handle.name)
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, output)
+    except Exception:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+        raise
 
 
 def run_ops_daily_health_report(

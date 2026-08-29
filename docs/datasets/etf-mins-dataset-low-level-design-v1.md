@@ -1,6 +1,6 @@
 # ETF 历史分钟行情数据集 LLD v1
 
-状态：当前实现基线；Basic 驱动 planner 已完成，生产全量对齐待独立阶段
+状态：当前实现基线；Basic 驱动 planner、指定区间 P9A Preview 与 P9B 受控 Submit 代码已完成；原全历史 Preview 已作废，生产 TaskRun 与补拉均未执行
 最近更新：2026-08-29
 上位方案：[ETF 历史分钟行情数据集接入方案 v1](/Users/congming/github/goldenshare/docs/datasets/etf-mins-dataset-development.md)
 主数据重建 LLD：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
@@ -129,3 +129,37 @@ ts_code, freq, window_start, window_end
 ## 8. 发布和数据边界
 
 P3 的代码迁移不执行生产补拉。P8 只删除旧池代码并准备 migration，不执行生产 DDL。生产旧表删除与 Basic 正式重建留给 P11；分钟全量对齐必须先经 P9 只读 preview，再按 P12 独立额度授权创建正式 TaskRun。
+
+## 9. P9A 全量对齐 Preview
+
+公开入口固定为：
+
+```text
+goldenshare ops-preview-etf-minute-alignment --alignment-start-date YYYY-MM-DD --alignment-end-date YYYY-MM-DD [--output plan.json]
+```
+
+服务在一次 `REPEATABLE READ + READ ONLY` 事务中固定 UTC 时钟、中国资格日期、指定区间内的 SSE 开市日和 Basic snapshot，并设置每条语句 180 秒 statement timeout。全部当前可请求 ETF 进入 `request_target_hash`；只有 `list_date <= alignment_end_date` 的对象进入五频率覆盖计算，晚于截止日的对象单独计数。每只 ETF 的 effective start 是不早于 `max(alignment_start_date, list_date)` 的首个 SSE 开市日。
+
+raw 边界从最早 effective start 所在月到截止月逐月统计。每月一条 SQL 固定返回 `ts_code/freq/COUNT/MIN/MAX`，日期使用 `[month_start, next_month_start)`，必须只裁到该月分区；数据库查询不关联 Basic，服务在内存中再按 target desired interval 裁剪。查询次数只随指定区间覆盖的月份数增长，不随 ETF、频率或历史上市年限增长。月内允许只扫描该月分区；如果触及其他月份或单月达到 180 秒超时，阶段立即停止，不自动按周重试、不加索引、不提高超时。
+
+覆盖区间先裁到 `[effective_start_date, alignment_end_date]`，仅生成 prefix/suffix。内部 gap 明确不审计；候选缺口不含任何 SSE 开市日时直接丢弃。无 raw 但有成功显式任务时只能记为 `successful_task_only_covered_target_frequency_count`，不能声称源端返回零行。每个有效缺口复用 `build_etf_minute_windows()` 计算 unit，相同代码和日期范围才合并频率。
+
+P9A 只输出 plan、摘要和可选 JSON 文件；不调用 connector/writer/TaskRunCommandService，不 commit、不提供 submit/apply 参数。生产规模报告由本地未部署代码在同一个只读事务中直接生成，不部署服务。
+
+2026-08-29 的 Prod 只读执行以 `2026-01-01` 至 `2026-08-28` 为指定区间、`2026-08-29` 为资格日期，约 32 秒完成且没有触发单月 180 秒门禁。1,647 个 requestable target 全部进入 alignment；五频率 raw 覆盖合计 6,975 个 target/frequency，252 个 ETF 的 prefix 缺口合计 1,260 个 target/frequency，suffix 缺口 0，成功 TaskRun-only 覆盖 0。最终计划有 252 个 action、1,774 个 unit，请求上下界为 1,774–7,096；167 个 action 从首个开市日 `2026-01-05` 开始，85 个按更晚上市日开始。此前无开始日、默认追溯上市日的全历史计划已作废。
+
+## 10. P9B Submit 事务与门禁
+
+唯一入口固定为：
+
+```text
+goldenshare ops-submit-etf-minute-alignment --plan plan.json --confirm-plan-hash <sha256> --batch-size <正整数>
+```
+
+计划 JSON 必须与 P9A 固定 schema 完全一致，人工确认 hash 必须等于文件 hash，去掉自身字段后的规范 JSON 复算 hash 也必须一致。action 代码、五频率顺序、日期、稳定排序和 `build_etf_minute_windows()` unit 数全部重验；文件无效时不打开数据库会话。
+
+数据库阶段使用单个 `REPEATABLE READ` 事务和 180 秒语句门禁。PostgreSQL 先取得 P9B 专用 transaction advisory lock，持锁后和 stage 前分别拒绝 open `etf_mins` TaskRun。submit 固定一次 UTC/中国日期，一次加载 Basic snapshot，复算 target hash并用内存 map 校验所有代码与上市日；同一 snapshot 交给 P9A service 复用 SSE 日历、月度 raw 覆盖和成功 TaskRun 覆盖查询。
+
+原 action 已完全覆盖时幂等跳过；仍缺失时必须保持代码、频率集合和日期范围精确一致。部分频率或部分日期变化会整批返回 `plan_coverage_changed`，不能拿旧范围重复请求，也不能由 submit 自行缩改范围。选中的前 `batch-size` 个 action 只通过 `TaskRunCommandService.stage_task_run()` 创建现有 `etf_mins` range TaskRun；全部 stage 成功后一次 commit，任一失败全部 rollback。正式 resolver/planner 仍会在 worker 执行时再次应用当前 ETF 资格和上市日门禁。
+
+首次生产批次已拍板为 10 个 action，但 `--batch-size` 仍必填且没有默认配置。P9B 开发没有运行该命令；生产 TaskRun、Tushare 请求和分钟写入均为零，下一步是 P10 候选环境发布门禁。
