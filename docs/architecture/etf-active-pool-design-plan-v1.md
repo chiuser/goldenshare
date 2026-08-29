@@ -1,6 +1,6 @@
 # ETF 激活池历史设计与退场记录 v1
 
-状态：历史机制；运行时、运维入口和代码基础设施已退场，生产物理表待独立维护窗口删除
+状态：历史机制；运行时、运维入口、代码基础设施和生产物理表均已退场
 创建日期：2026-06-17
 退场日期：2026-08-29
 替代方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)
@@ -81,13 +81,13 @@ AND ts_code 后缀与 exchange 一致
 4. P6：迁移实时监控候选、写入门禁和运行时交集。
 5. P7：删除 ETF Review API/UI，证明运行时消费者为零。
 6. P8：删除 model、DAO、contract、adapter、seed、CLI、装配和专属测试；准备不可逆 drop migration。
-7. P11：只有取得独立生产维护窗口授权后，才物理删除生产表。
+7. P11：取得独立生产维护窗口授权后，已物理删除生产表并验证指数池保持。
 
 ## 6. Schema 历史与当前边界
 
 历史建表 migration `20260618_000117_add_etf_series_active.py` 必须保留在 Alembic 链中。P8 新增 `20260829_000157_drop_etf_series_active.py`，只执行精确的 `DROP TABLE ops.etf_series_active`，不使用 `CASCADE` 或 `IF EXISTS`，downgrade 明确拒绝恢复旧表。
 
-P8 代码完成不等于生产表已经删除。本阶段不备份、不迁移 5,708 行，也不执行生产 DDL。生产物理删除、版本发布和 ETF Basic 正式重建统一留给 P11 的独立授权。
+P8 代码完成时没有备份或迁移旧池 5,708 行，也没有执行生产 DDL。P11 独立授权后，生产已升至 migration `20260829_000157`，`ops.etf_series_active` 已不存在，`ops.index_series_active` 仍保留 6,014 行。旧池不可恢复，后续只允许前向修复 Basic selector 或其消费者。
 
 ## 7. 永久禁止项
 

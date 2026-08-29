@@ -1,6 +1,6 @@
 # ETF 激活池历史 LLD 与退场实现记录 v1
 
-状态：历史 LLD；P3-P8 的消费者迁移与代码退场已完成，生产 drop 待 P11
+状态：历史 LLD；P3-P8 的消费者迁移与代码退场已完成，P11 生产 drop 已完成
 创建日期：2026-06-18
 退场更新：2026-08-29
 上位历史记录：[ETF 激活池历史设计与退场记录 v1](/Users/congming/github/goldenshare/docs/architecture/etf-active-pool-design-plan-v1.md)
@@ -109,4 +109,4 @@ downgrade 抛出 `RuntimeError`，明确不可逆。禁止 `CASCADE`、`IF EXIST
 
 ## 7. 发布边界
 
-P8 没有执行生产 migration。生产旧表仍保留到 P11，届时必须在独立维护窗口停止相关进程、确认无运行任务、发布无旧引用的新版本，再执行精确 drop。drop 后不支持回滚到依赖旧池的版本，只允许前向修复 Basic selector 或其消费者。
+P8 没有执行生产 migration。P11 独立授权后，生产已升至 `20260829_000157`，精确 drop 已生效，旧表不存在，指数池仍正常。drop 后不支持回滚到依赖旧池的版本，只允许前向修复 Basic selector 或其消费者。

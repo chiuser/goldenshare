@@ -1,8 +1,8 @@
 # ETF 基础信息重建与下游数据审计清理技术方案 v1
 
-状态：核心业务口径 D1-D20 不变；LLD 已重新基线 / M0-M10 已完成，候选环境、总回归和生产只读发布门禁已通过 / 原全历史 Preview 已作废，未执行生产重建、生产删表、TaskRun 提交或分钟补拉，M11-M12 尚未开始
+状态：核心业务口径 D1-D20 不变；LLD 已重新基线 / M0-M11 已完成，生产旧激活池表已删除，ETF Basic 已按正式快照路径重建并通过下游只读审计 / 原全历史 Preview 已作废，未执行分钟 alignment submit、分钟补拉或下游事实删除，M12 待独立授权
 创建日期：2026-08-28
-最近审计：2026-08-29（M10 已通过临时 PostgreSQL 18 升级/故障注入、全量回归和生产只读审计；同区间 Preview 复算仍为 252 个 ETF、252 个 action、1,774 个 unit；未在生产创建 TaskRun）
+最近审计：2026-08-29（M11 生产 TaskRun `9837` 已成功重建 ETF Basic：源端/raw 1,829 行、serving 1,826 行、当前可请求 ETF 1,647 个；`ops.etf_series_active` 已不存在；下游明确删除候选仍为 0；未执行分钟 submit 或补拉）
 适用范围：`etf_basic`、ETF 下游历史数据、ETF 对象池、ETF 查询与运维消费者
 低层设计：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
 
@@ -41,7 +41,7 @@
 2. 不合并两个代码下的历史行情。
 3. 不删除 `fund_basic`、`fund_manager`、`fund_share` 等公募基金域中的合法 `.OF` 数据。
 4. 不凭名称相似度自动判定身份。
-5. 不在本方案阶段执行生产删表、清表、回填或迁移。
+5. 不在代码开发阶段擅自执行生产操作；旧池 drop 和 Basic 重建只能在独立授权的 M11 维护窗口执行，已于 2026-08-29 完成。下游事实删除和分钟补拉仍不属于 M11。
 6. 不引入 Kopia，也不使用旧 Lake 路径保存清理备份。
 
 ---
@@ -68,7 +68,7 @@ P1 编码前契约声明：
 
 问题在于 `src/foundation/ingestion/writer.py::_write_raw_and_core()` 对 raw 和 serving 都执行 `bulk_upsert()`。它能新增和更新当前返回行，但不会删除本次源端没有返回的旧主键，因此不具备快照替换语义。
 
-M1 已按该问题落地：`etf_basic` 现在不暴露业务筛选，使用 `_etf_basic_snapshot_params` 和 `raw_etf_basic_snapshot_replace`；完整分页批次先经状态/后缀/交易所/主键/hash 校验，再在同一 unit 事务中重建 raw 和仅含 `.SH/.SZ` 的 serving，最后做集合与 hash 对账。生产快照尚未用该路径重建。
+M1 已按该问题落地：`etf_basic` 现在不暴露业务筛选，使用 `_etf_basic_snapshot_params` 和 `raw_etf_basic_snapshot_replace`；完整分页批次先经状态/后缀/交易所/主键/hash 校验，再在同一 unit 事务中重建 raw 和仅含 `.SH/.SZ` 的 serving，最后做集合与 hash 对账。M11 已使用该正式路径完成首次生产重建。
 
 当前 ETF 历史分钟规划位于：
 
@@ -103,7 +103,7 @@ P5 完成后，前三个 resource 已不再被 DatasetDefinition 和 Foundation 
 |---|---|---|
 | `fund_adj` | 按交易日请求源端基金全集，可选显式单代码 | 源端结果全部写 raw 和 `core.fund_adj_factor` |
 | `etf_share_size` | 默认每个交易日一次全市场请求，可选显式单代码 | 源端结果全部写 raw；现有 serving view 只是 raw 直出 |
-| `etf_basic` | 无业务日期的完整主数据快照请求 | M1 已改为 raw/serving 同事务完整快照替换；生产尚未执行重建 |
+| `etf_basic` | 无业务日期的完整主数据快照请求 | M1 已改为 raw/serving 同事务完整快照替换；M11 已完成首次生产重建 |
 
 `etf_rt_min` 当前没有正式 DatasetDefinition、collector，也不在 `ETF_SERIES_ACTIVE_RESOURCES` 中；相关文档中的 `resource='etf_rt_min'` 只能视为待实施设计，不能计入现行激活池消费者。
 
@@ -136,7 +136,7 @@ P5 完成后，前三个 resource 已不再被 DatasetDefinition 和 Foundation 
 2. serving 不发布这 3 条 `.OF`。
 3. 下游不把它们当作请求代码。
 
-### 3.3 生产当前差异
+### 3.3 生产重建前基线与重建后结果
 
 2026-08-28 生产只读审计结果：
 
@@ -150,6 +150,19 @@ P5 完成后，前三个 resource 已不再被 DatasetDefinition 和 Foundation 
 | 当前源端有、prod 没有 | 5 |
 
 1,585 条旧身份中，1,579 条可以按“相同六位数字 + 当前交易所代码”找到 `.SH/.SZ` 对应项。名称、设立日期、上市日期、管理人、托管人等字段也高度一致。这足以支持“源端代码体系发生了系统性规范化”的判断，但不能把它理解成可安全执行的数据库行改名。
+
+2026-08-29 M11 通过正式 `etf_basic.maintain` TaskRun `9837` 完成生产快照重建：
+
+| 项 | raw | serving |
+|---|---:|---:|
+| 总行数 | 1,829 | 1,826 |
+| `.OF` | 3 | 0 |
+| `.SH` | 1,033 | 1,033 |
+| `.SZ` | 793 | 793 |
+| `L / P / D` | 1,658 / 44 / 127 | 1,657 / 42 / 127 |
+| `list_date` 为空 | 51 | 49 |
+
+TaskRun 源端取回 1,829 行、写入 serving 1,826 行、拒绝 0 行；raw 的 `.SH/.SZ` 14 个业务字段与 serving 双向差集均为 0，raw 只多出源端仍返回的 3 条 `.OF`。当前可请求 ETF 为 1,647 个。完整快照诊断保存在 TaskRun node `15730` 中；TaskRun 汇总行只保留计数，不重复该诊断 JSON。
 
 ### 3.4 下游当前污染情况
 
@@ -180,7 +193,7 @@ ops.etf_series_active
 
 `core_serving.fund_daily_bar` 另有 2,091 行、3 个代码的事实日期早于**当前** `list_date`。在没有历史主数据版本的前提下，无法证明这是脏数据还是源端上市日后移/代码复用；按 D15 只报告、不删除。ETF 分钟表的同类精确候选为 0。
 
-结论是：当前没有值得建设通用清理系统的删除量。`etf_basic` 重建后仍需复跑同一组只读统计，防止重建快照变化造成审计基准漂移；若届时出现非零的明确旧 `.OF` 身份候选，必须停下来按精确表和代码另立一次性处理方案，不能由本方案预置的通用删除程序自动处理。
+结论是：当前没有值得建设通用清理系统的删除量。M11 重建后已复跑同一组只读统计：`fund_daily_bar`、`etf_minute_bar`、`etf_sh_cons`、`etf_sz_cons` 分别为 1,182,264、67,870,940、5,675,323、11,646,418 行，均没有非交易所后缀、主数据缺失、交易所冲突、P 状态或“L 但无上市日”事实。仍只有 `fund_daily_bar` 的 3 个代码、2,091 行早于当前 `list_date`，按 D15 保留。因此明确删除候选仍为 0，M11 没有执行任何下游事实删除。
 
 `etf_index` 虽然名称带 ETF，但其 `ts_code` 语义是“基准指数代码”，不是“ETF 交易代码”。它通过 `etf_basic.index_code` 与 ETF 发生关系，不能拿 `etf_index.ts_code` 与 ETF 主数据的 `ts_code` 做差集清理，因此明确排除在本次代码身份清理之外。
 
@@ -381,7 +394,7 @@ serving 非 .SH/.SZ 行数 = 0
 | `fund_daily` raw | `raw_tushare.fund_daily` | 源端当日完整返回 | 永久保留，不按 ETF Basic 删除 |
 | `fund_adj` | `raw_tushare.fund_adj`、`core.fund_adj_factor` | 源端当日完整返回 | 永久保留，不按 ETF Basic 删除；当前不属于 ETF serving 清理范围 |
 | `etf_rt_daily` | 固定通配符源请求 + Redis 批次 | 源端完整批次；health/业务候选使用当前可请求清单 | provider 不改成逐代码请求；只替换旧激活池统计和候选口径 |
-| 旧 ETF 激活池 | `ops.etf_series_active` | 运行时与代码基础设施已退场；生产物理表尚未执行 drop | 代码、API、页面和测试已删除；P11 独立维护窗口执行物理删表，不保留兼容读取 |
+| 旧 ETF 激活池 | `ops.etf_series_active` | 运行时、代码基础设施和生产物理表均已退场 | P11 已执行精确 drop；不保留兼容读取或回退到旧池的版本 |
 | 实时监控池/规则/统计/告警 | `ops.etf_realtime_*` | 当前可请求清单 | 当前无无效配置；运行时按资格过滤；历史事实不删 |
 | `etf_index` | raw + serving 指数基准表 | 指数代码，不使用 ETF 主数据清单 | 明确排除；只能审计 `etf_basic.index_code -> etf_index.ts_code` 的引用关系 |
 | 公募基金基础、经理、份额等 | 公募基金域 raw/current/obs | 不使用 ETF 主数据清单 | 明确排除，合法 `.OF` 保留 |
@@ -840,12 +853,14 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 
 后端目标测试、完整 Web、架构门禁、CLI、Ruff、前端 typecheck/rules/test/build、文档完整性和项目 Python 3.13 发布预检均通过。生产只读 runbook 在 `REPEATABLE READ + READ ONLY`、180 秒语句门禁下完成并回滚：四个 ETF 下游没有非交易所后缀、主数据缺失、交易所冲突、P 状态或“L 但无上市日”事实；监控配置没有不可请求 ETF；仅 `core_serving.fund_daily_bar` 有 3 个代码、2,091 行早于当前 `list_date`，按 D7 保留，不形成删除候选。2026-01-01 至 2026-08-28 的分钟 Preview 再次得到 252 个代码、252 个 action、1,774 个 unit、1,774–7,096 次源请求边界，未执行 submit。
 
-### M11：生产切换、Basic 重建与只读审计
+### M11：生产切换、Basic 重建与只读审计（已完成）
 
 1. 获得独立生产授权后，在维护窗口发布新代码并删除旧激活池表。
 2. 使用正式 snapshot 路径重建 `etf_basic`，不做旧行备份。
 3. 验收源端/raw/serving 集合，并复跑下游只读审计。
 4. 明确删除候选仍为 0 时恢复日常服务；意外非零时停止，不临时删除事实。
+
+执行结果：用户已部署 commit `6b07ae96c9dab353f801c80c9d77006e12ecc404`，部署流程已在 Basic 重建前将 Alembic 升至 `20260829_000157` 并重启服务，因此实际顺序与上述理想维护顺序不同，本记录不倒置或伪造执行证据。开工回查确认旧表已不存在、指数池仍有 6,014 行、相关开放 TaskRun 为 0，且 Web、Ops worker、Task completion worker、scheduler 和 realtime collector 均正常。随后精确暂停 schedule `1/39/40`，通过正式手工 action 仅创建一个 ETF Basic TaskRun `9837`，完成快照重建、raw/serving 对账、下游只读审计和实时链路冒烟后，只恢复这 3 个 schedule。未执行分钟 submit、事实删除或第二次 Tushare 请求。
 
 ### M12：分钟补拉与日常治理
 
@@ -880,7 +895,7 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 4. 激活池消费者按 planner、fund daily、Health、monitor、review 顺序切换；运行时消费者清零后才允许删除 DAO/model/seed 与表。
 5. 分钟 alignment 只补运营指定区间内、按上市日和 SSE 开市日裁剪后的代码/频率前缀与尾部请求覆盖；不把停牌、内部空洞或纯休市范围猜成缺口。先只实现覆盖全部当前可请求 ETF × 五频率的 preview，用真实规模取得 TaskRun 数量和批次拍板后，才允许实现正式 submit。
 
-M9A/P9A 已按 `2026-01-01` 至 `2026-08-28` 指定区间完成代码和生产只读 Preview；真实计划需补 252 个 ETF、252 个 action、1,774 个 unit，源请求下界 1,774、分页请求上界 7,096。此前默认追溯上市日的 44,793-unit 计划已作废。M9B/P9B 已完成受控 Submit 代码，首次实际批次已拍板为 10 个 action，但没有执行该命令。M10 已完成候选环境、总回归、生产只读审计和同口径 Preview 复算，当前代码具备进入 M11 生产维护窗口的条件；生产旧表仍存在，且未创建 TaskRun、未请求 Tushare、未执行分钟补拉，不能把发布门禁通过写成生产删表或数据对齐完成。下一阶段是取得独立授权后执行 M11。
+M9A/P9A 已按 `2026-01-01` 至 `2026-08-28` 指定区间完成代码和生产只读 Preview；真实计划需补 252 个 ETF、252 个 action、1,774 个 unit，源请求下界 1,774、分页请求上界 7,096。此前默认追溯上市日的 44,793-unit 计划已作废。M9B/P9B 已完成受控 Submit 代码，首次实际批次已拍板为 10 个 action，但没有执行该命令。M10 已完成候选环境、总回归、生产只读审计和同口径 Preview 复算；M11 已完成生产旧表 drop、ETF Basic 正式重建、下游只读审计与实时链路验收。下一阶段是 M12：先基于重建后快照重新 Preview，再展示新的 action/unit/请求边界；没有第二次明确授权时不得执行 submit 或分钟补拉。
 
 详细代码点、测试矩阵、下游只读复核、分钟补拉额度门禁和逐步开发流程见：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)。
 

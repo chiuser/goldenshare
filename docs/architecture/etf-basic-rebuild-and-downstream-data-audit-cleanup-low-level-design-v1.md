@@ -1,6 +1,6 @@
 # ETF 基础信息重建与下游数据审计清理 LLD v1
 
-状态：重新基线完成；P0-P10 已完成，候选环境、总回归和生产只读发布门禁已通过；原全历史 Preview 已作废，未执行生产快照重建、生产删表、TaskRun 提交或分钟补拉，P11-P12 尚未开始
+状态：重新基线完成；P0-P11 已完成，生产旧激活池表已删除，ETF Basic 正式快照已重建并通过下游只读与实时链路验收；原全历史 Preview 已作废，未执行分钟 alignment submit、分钟补拉或下游事实删除，P12 待第二次独立授权
 创建日期：2026-08-28
 依据方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)
 适用代码：`src/foundation/**`、`src/ops/**`、`src/app/**`、`frontend/**`、`alembic/**`
@@ -38,7 +38,7 @@
 | R20 | 曾给 Basic universe source 再挂一个 `resource='requestable_etf'` | Basic 没有多资源选择，这个伪 resource 没有信息量，还容易被理解成新池 | source 只保留 `type='core_serving_etf_basic'`；全市场/SH/SZ 由三个既有 builder 固定决定 |
 | R21 | 分钟 preview 未限定 6,500 万行 raw 的查询形状和 Prod 超时 | 可能出现 ETF×频率 N+1 查询或无界聚合，给生产库制造长期压力 | P9A 按月执行集合统计，每条 SQL 只裁到一个月分区并受 180 秒 timeout 保护；现有物理结构仍不能满足时停止，不擅自加索引 |
 
-原 P2-P9 的文字不得再作为开发或发布依据。本文 P0-P10 的执行记录均为当前有效基线；P9B 只能消费指定区间版本的 P9A JSON，已作废的无开始日全历史 Preview 不得作为后续输入。
+原 P2-P9 的文字不得再作为开发或发布依据。本文 P0-P11 的执行记录均为当前有效基线；P9B 只能消费指定区间版本的 P9A JSON，已作废的无开始日全历史 Preview 不得作为后续输入。
 
 ### 1.2 重排后的核心结果
 
@@ -1559,9 +1559,9 @@ P10 完成后，当前代码和迁移具备进入 P11 生产维护窗口的条�
 
 ### P11：生产切换、Basic 重建与只读审计
 
-本阶段需要用户单独授权，授权范围只包含新版本切换、`ops.etf_series_active` drop、`etf_basic` 正式快照重建和下游只读验收，不包含分钟补拉或下游事实删除。
+本阶段已获得用户单独授权并完成。授权范围只包含新版本切换、`ops.etf_series_active` drop、`etf_basic` 正式快照重建和下游只读验收，不包含分钟补拉或下游事实删除。
 
-顺序固定：
+原计划顺序：
 
 ```text
 维护窗口与零运行任务
@@ -1575,6 +1575,18 @@ P10 完成后，当前代码和迁移具备进入 P11 生产维护窗口的条�
 ```
 
 若 Basic 重建失败，P1 的快照事务保留上一版 raw/serving；新 selector 会过滤旧 serving 中的 `.OF`，但相关 schedule 保持暂停，必须前向修复并重新验收。若复核意外出现明确非交易所身份，停止并另行评审，不执行事实删除。
+
+#### P11 执行记录（2026-08-29）
+
+1. 用户先完成了正常发布；生产代码为 `6b07ae96c9dab353f801c80c9d77006e12ecc404`，Alembic current/head 均为 `20260829_000157`，`ops.etf_series_active` 已不存在，`ops.index_series_active` 仍有 6,014 行。这意味着实际部署和 drop 早于本次 Basic 维护窗口；文档如实保留该顺序，不把后续验收倒写成迁移前门禁。开工时已再确认旧池无代码消费者、相关开放 TaskRun 为 0，因此没有重跑 migration 或制造补证据。
+2. 精确暂停 schedule `1` (`reference_data_refresh`)、`39` (`etf_mins.maintain`)、`40` (`etf_sz_cons.maintain`)，暂停后再次确认 `etf_basic/etf_mins/etf_sz_cons` 开放 TaskRun 为 0。暂停和恢复均调用正式 `OpsScheduleCommandService`，没有直接改 schedule 表。
+3. 通过正式 `ManualActionCommandService -> TaskRunCommandService` 仅创建一个 `etf_basic.maintain` TaskRun `9837`。该任务于 11:26:15 开始、11:26:17 结束，状态 `success`，`unit_total/done/failed=1/1/0`，`rows_fetched/saved/rejected=1829/1826/0`。没有二次 Tushare 请求。
+4. 完整 snapshot diagnostics 保存在 TaskRun node `15730`，而非 TaskRun 汇总行：`source_rows=1829`、`raw_rows_written=1829`、`raw_before/after=3410/1829`、`serving_before/after=3410/1826`、`added/removed/changed=4/1585/4`。源端 hash 与重建后 raw hash 均为 `0419160d0e213575a3f1ae26d0e53b2b5b574d89d3bf53e1b35e6f80c011c061`，serving hash 为 `256ad66925266b54c25234c66acde45c9ffbf9e83ebc539a632c1625a52d9166`。
+5. 物理对账确认 raw 1,829 行（`.OF/.SH/.SZ=3/1033/793`）、serving 1,826 行（`0/1033/793`）；raw `.SH/.SZ` 与 serving 的 14 个业务字段双向差集均为 0。当前可请求 ETF 为 1,647 个。
+6. 在同一个 `REPEATABLE READ + READ ONLY` 事务中复跑下游 runbook，明确删除候选仍为 0。`fund_daily_bar`、`etf_minute_bar`、`etf_sh_cons`、`etf_sz_cons` 总行数分别为 1,182,264、67,870,940、5,675,323、11,646,418；仅 `fund_daily_bar` 保留已拍板不删的 3 个代码、2,091 行“早于当前 `list_date`”历史。受保护的 `raw_tushare.fund_daily` 1 条和 `raw_tushare.etf_share_size` 234,042 行/1,643 代码保持；历史 alert/stat 均为 0 行。
+7. 生产只读服务冒烟返回 eligible ETF 1,647 个，候选前 50 个全部满足 `L + 有上市日 + SH/SZ 后缀与 exchange 一致`；实时 Health 为 `idle/market_closed`，Redis 连通、collector 正在运行，`source_snapshot_count=2332`、`eligible_snapshot_count=1647`。监控池 3 个且全部 enabled，3 条 global 规则全部 enabled。
+8. schedule `1/39/40` 已按原计划恢复为 active，下次执行分别为 2026-08-31 20:00、20:35、20:40；相关开放 TaskRun 仍为 0。Web、Ops worker、Task completion worker、scheduler 和 realtime collector 均为 active，`/api/health` 与 `/api/v1/health` 均返回 `ok/prod`。
+9. P11 没有执行下游 DELETE、分钟 alignment submit、分钟补拉、第二个 Basic TaskRun 或其他数据集任务。
 
 ### P12：分钟全量补拉与最终对账
 
@@ -1765,4 +1777,4 @@ Foundation planner/writer 只访问 Foundation 的 `core_serving.etf_basic` DAO�
 4. 明确保护 `fund_adj`、`etf_share_size`、公募基金域、指数池和历史实时事实。
 5. 开发顺序阻止了“先删表再找消费者”，并明确当前不建设下游事实清理系统。
 
-本文中 P0-P10 的执行记录代表对应阶段已经完成；原 P2-P9 以及 P9A 的无开始日全历史 Preview 均已作废。P9A 完成指定区间只读 Preview，P9B 只完成显式、受控、原子创建现有 TaskRun 的能力，P10 已完成候选环境、总回归和生产只读发布门禁。本 LLD 不授权执行生产快照重建、生产删表迁移、下游删除、TaskRun 提交或分钟补拉。当前具备进入 P11 生产维护窗口的条件，但仍需用户单独授权；首次 10-action 生产批次继续等待部署完成后 P12 的第二次独立授权。
+本文中 P0-P11 的执行记录代表对应阶段已经完成；原 P2-P9 以及 P9A 的无开始日全历史 Preview 均已作废。P9A 完成指定区间只读 Preview，P9B 只完成显式、受控、原子创建现有 TaskRun 的能力，P10 已完成发布门禁，P11 已完成生产旧池 drop、Basic 重建、下游只读审计和运行态验收。本文中的 P11 授权已消耗完毕，不能继承为 P12 授权。下一阶段只能先在重建后 Basic snapshot 上重新生成指定区间 Preview；首次 10-action 生产批次仍需 P12 的第二次独立授权，未授权时不得 submit 或补拉。

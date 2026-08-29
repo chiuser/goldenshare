@@ -108,7 +108,7 @@ ts_code / freq / window
 
 ## 7. 历史机制与当前边界
 
-旧实现曾以 `ops.etf_series_active(resource='etf_mins')` 的 1,395 个代码展开请求。该数量只是一份历史 seed/生产快照，不是当前 ETF 全集。P3 已迁移 planner，P8 已删除旧池代码基础设施并准备 drop migration；生产物理表仍待 P11 独立维护窗口删除。
+旧实现曾以 `ops.etf_series_active(resource='etf_mins')` 的 1,395 个代码展开请求。该数量只是一份历史 seed/生产快照，不是当前 ETF 全集。P3 已迁移 planner，P8 已删除旧池代码基础设施并准备 drop migration，P11 已完成生产物理表删除和 Basic 正式重建。
 
 明确不做：
 

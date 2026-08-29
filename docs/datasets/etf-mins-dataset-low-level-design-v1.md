@@ -128,7 +128,7 @@ ts_code, freq, window_start, window_end
 
 ## 8. 发布和数据边界
 
-P3 的代码迁移不执行生产补拉。P8 只删除旧池代码并准备 migration，不执行生产 DDL。生产旧表删除与 Basic 正式重建留给 P11；分钟全量对齐必须先经 P9 只读 preview，再按 P12 独立额度授权创建正式 TaskRun。
+P3 的代码迁移不执行生产补拉。P8 只删除旧池代码并准备 migration，没有执行生产 DDL。P11 已完成生产旧表删除与 Basic 正式重建；分钟全量对齐必须先在重建后快照上重新生成只读 preview，再按 P12 独立额度授权创建正式 TaskRun。
 
 ## 9. P9A 全量对齐 Preview
 
