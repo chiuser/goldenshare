@@ -165,6 +165,12 @@ class DatasetWriter:
                     batch=batch,
                     plan_unit=plan_unit,
                 )
+            if definition.storage.write_path == "serving_revisable_fact_scope_upsert":
+                return self._write_serving_revisable_fact_scope_upsert(
+                    definition=definition,
+                    batch=batch,
+                    plan_unit=plan_unit,
+                )
 
             raw_dao, core_dao = self._resolve_write_daos(definition=definition, unit_id=batch.unit_id)
             if definition.storage.write_path == "raw_index_period_serving_upsert":
@@ -1320,6 +1326,188 @@ class DatasetWriter:
             rows_skipped=0,
             target_table=definition.storage.target_table,
             conflict_strategy="serving_immutable_fact_insert",
+            rows_inserted=rows_inserted,
+            rows_matched=rows_matched,
+            scope_existing_count=len(persisted_hashes),
+            scope_source_unique_count=len(incoming_hashes),
+        )
+
+    def _write_serving_revisable_fact_scope_upsert(
+        self,
+        *,
+        definition: DatasetDefinition,
+        batch: NormalizedBatch,
+        plan_unit: PlanUnitSnapshot | None,
+    ) -> WriteResult:
+        scope_field = definition.quality.unit_date_field
+        scope_value = plan_unit.trade_date if plan_unit is not None else None
+        if not scope_field or scope_value is None:
+            raise self._observed_snapshot_error(
+                code="write.revisable_fact_scope_invalid",
+                unit_id=batch.unit_id,
+                message="可修订事实写入缺少执行单元日期范围",
+            )
+        if batch.rows_rejected:
+            raise self._observed_snapshot_error(
+                code="write.revisable_fact_rows_rejected",
+                unit_id=batch.unit_id,
+                message="可修订事实存在归一化拒绝行，不能写入部分日期范围",
+                details={"rows_rejected": batch.rows_rejected},
+            )
+
+        fact_dao = getattr(self.dao, definition.storage.core_dao_name, None)
+        if fact_dao is None:
+            raise self._dao_not_found_error(definition=definition, unit_id=batch.unit_id)
+        table = getattr(getattr(fact_dao, "model", None), "__table__", None)
+        if table is None or not callable(getattr(fact_dao, "bulk_upsert", None)):
+            raise self._observed_snapshot_error(
+                code="write.revisable_fact_storage_invalid",
+                unit_id=batch.unit_id,
+                message="可修订事实 DAO 未实现 upsert 协议",
+            )
+        required_columns = {
+            *definition.source.source_fields,
+            "source_entity_key",
+            "source_content_hash",
+            "identity_basis",
+            "ingested_at",
+            scope_field,
+        }
+        missing_columns = sorted(required_columns - {column.name for column in table.columns})
+        if missing_columns:
+            raise self._observed_snapshot_error(
+                code="write.revisable_fact_storage_invalid",
+                unit_id=batch.unit_id,
+                message="可修订事实目标表缺少协议或显式 source field 列",
+                details={"missing_columns": missing_columns},
+            )
+
+        validated_rows: list[dict[str, Any]] = []
+        incoming_hashes: dict[str, str] = {}
+        for row in batch.rows_normalized:
+            if row.get(scope_field) != scope_value:
+                raise self._observed_snapshot_error(
+                    code="write.revisable_fact_scope_invalid",
+                    unit_id=batch.unit_id,
+                    message="可修订事实行日期与执行单元范围不一致",
+                    details={"scope_field": scope_field, "expected": str(scope_value), "actual": str(row.get(scope_field))},
+                )
+            source_entity_key = row.get("source_entity_key")
+            if not isinstance(source_entity_key, str) or not source_entity_key.strip():
+                raise self._observed_snapshot_error(
+                    code="write.source_entity_key_missing",
+                    unit_id=batch.unit_id,
+                    message="可修订事实行缺少非空 source_entity_key",
+                )
+            identity_basis = row.get("identity_basis")
+            if not isinstance(identity_basis, str) or not identity_basis.strip():
+                raise self._observed_snapshot_error(
+                    code="write.revisable_fact_identity_invalid",
+                    unit_id=batch.unit_id,
+                    message="可修订事实行缺少非空 identity_basis",
+                )
+            try:
+                source_content_hash = compute_source_content_hash(
+                    row=row,
+                    source_fields=definition.source.source_fields,
+                )
+            except SourceFieldMissingError as exc:
+                raise self._observed_snapshot_error(
+                    code="write.source_field_missing",
+                    unit_id=batch.unit_id,
+                    message=str(exc),
+                    details={"field": exc.field},
+                ) from exc
+            except ObservedSnapshotHashError as exc:
+                raise self._observed_snapshot_error(
+                    code="write.revisable_fact_content_hash_invalid",
+                    unit_id=batch.unit_id,
+                    message=str(exc),
+                ) from exc
+            if source_entity_key in incoming_hashes:
+                raise self._observed_snapshot_error(
+                    code="write.revisable_fact_identity_conflict",
+                    unit_id=batch.unit_id,
+                    message="可修订事实中同一实体键出现多条不同源事实",
+                    details={"source_entity_key": source_entity_key},
+                )
+            incoming_hashes[source_entity_key] = source_content_hash
+            validated_rows.append({**row, "source_content_hash": source_content_hash})
+
+        model = fact_dao.model
+        filters = [getattr(model, scope_field) == scope_value]
+        self._lock_scope(model=model, filters=filters, scope={scope_field: scope_value})
+        existing_hashes = {
+            str(entity_key): str(content_hash)
+            for entity_key, content_hash in self.session.execute(
+                select(model.source_entity_key, model.source_content_hash).where(and_(*filters))
+            )
+        }
+        if not validated_rows:
+            if existing_hashes:
+                raise self._observed_snapshot_error(
+                    code="write.revisable_fact_scope_regression",
+                    unit_id=batch.unit_id,
+                    message="源端空结果会使已入库日期范围回退，拒绝接受",
+                    details={"existing_rows": len(existing_hashes)},
+                )
+            return WriteResult(
+                unit_id=batch.unit_id,
+                rows_written=0,
+                rows_upserted=0,
+                rows_skipped=0,
+                target_table=definition.storage.target_table,
+                conflict_strategy="serving_revisable_fact_scope_upsert",
+            )
+
+        missing_existing = sorted(set(existing_hashes) - set(incoming_hashes))
+        if missing_existing:
+            raise self._observed_snapshot_error(
+                code="write.revisable_fact_scope_regression",
+                unit_id=batch.unit_id,
+                message="本次源端范围缺少已入库事实，拒绝范围回退",
+                details={"missing_count": len(missing_existing), "sample_keys": missing_existing[:3]},
+            )
+
+        ingested_at = utc_now()
+        changed_rows = [
+            {**row, "ingested_at": ingested_at}
+            for row in validated_rows
+            if existing_hashes.get(row["source_entity_key"]) != row["source_content_hash"]
+        ]
+        rows_upserted = fact_dao.bulk_upsert(
+            self._coerce_rows_for_dao(changed_rows, fact_dao),
+            conflict_columns=["source_entity_key"],
+        )
+        if rows_upserted != len(changed_rows):
+            raise self._observed_snapshot_error(
+                code="write.revisable_fact_persistence_incomplete",
+                unit_id=batch.unit_id,
+                message="可修订事实写入行数与已验证变更行数不一致",
+                details={"expected_upserted": len(changed_rows), "actual_upserted": rows_upserted},
+            )
+        persisted_hashes = {
+            str(entity_key): str(content_hash)
+            for entity_key, content_hash in self.session.execute(
+                select(model.source_entity_key, model.source_content_hash).where(and_(*filters))
+            )
+        }
+        if persisted_hashes != incoming_hashes:
+            raise self._observed_snapshot_error(
+                code="write.revisable_fact_persistence_incomplete",
+                unit_id=batch.unit_id,
+                message="可修订事实写后核对未与本次完整范围一致",
+                details={"expected_rows": len(incoming_hashes), "actual_rows": len(persisted_hashes)},
+            )
+        rows_inserted = sum(key not in existing_hashes for key in incoming_hashes)
+        rows_matched = len(incoming_hashes) - len(changed_rows)
+        return WriteResult(
+            unit_id=batch.unit_id,
+            rows_written=len(validated_rows),
+            rows_upserted=rows_upserted,
+            rows_skipped=0,
+            target_table=definition.storage.target_table,
+            conflict_strategy="serving_revisable_fact_scope_upsert",
             rows_inserted=rows_inserted,
             rows_matched=rows_matched,
             scope_existing_count=len(persisted_hashes),

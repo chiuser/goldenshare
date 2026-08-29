@@ -1,12 +1,12 @@
 # A股业绩快报（`express`）数据集低层设计 v1
 
-状态：**M1/M2/M3/M4a/M4b 已完成；M4c 生产自动任务已正确配置，待首次计划触发与对账验收**
-编写日期：2026-08-10；M1/M2/M3/M4a/M4b/M4c 状态更新：2026-08-11
+状态：**源端修订覆盖能力已实现，待部署；历史修订由运营按公告日期范围手动重跑**
+编写日期：2026-08-10；最近状态更新：2026-08-29
 适用范围：Tushare `express_vip` 业绩快报接入 Goldenshare Prod
 
 ## 1. 结论先行
 
-`express` 应设计为“按公告自然日维护的全市场不可变事件事实”：平台调用 `express_vip`，每个 unit 只向源端传一个 `ann_date`，完成该日全部分页、33 个字段归一化和完整性校验后，在一个事务内只插入新事实。
+`express` 是“按公告自然日维护的全市场可修订当前披露事实”：平台调用 `express_vip`，每个 unit 只向源端传一个 `ann_date`，完成该日全部分页、33 个字段归一化和完整性校验后，在一个事务内保存该公告日的源端当前版本。
 
 业务表只建 `core_serving.equity_express`，不建 raw、std、current、observation、EAV 或 JSON 影子表。表、主键索引和全部二级索引都放在 `gs_raw_cold_hdd`；PostgreSQL 共享 WAL 继续留在 SSD。
 
@@ -18,7 +18,15 @@
 4. 失败或取消不推进覆盖游标；retry 复用原 TaskRun 的同一时间窗口。
 5. 调度参数和续跑逻辑由通用 schedule capability contract 驱动，不得在前端或 Ops 服务中增加 `express` key 白名单。
 
-当前没有尚未拍板的 M1–M4b 业务设计项。生产 migration、首次同步、幂等验收和历史回补均已完成。管理员随后通过生产运营页面创建、启用并校正了 M4c 自动任务；当前不需要新增代码开发，只需完成首次计划触发和对账验收，详见 20.9。
+`2026-08-29` 已确认源端会在同一 `(ts_code, ann_date, end_date)` 身份下修订字段值，且 `update_flag` 不可靠。因此旧的“内容冲突即拒绝”口径已废止；后续以第 21 节为准。第 20 节及更早内容保留为当时的上线与回补证据，不再表示现行写入语义。
+
+### 1.1 当前写入契约：只保留源端当前修订版本
+
+1. 业务表继续只使用 `core_serving.equity_express`；不新建 raw、版本历史、observation 或修订账本，也不新增迁移。
+2. 身份仍固定为 `(ts_code, ann_date, end_date)`，并继续映射为稳定的 `source_entity_key`。同一身份的源内容不同，表示源端修订，覆盖当前行的全部 33 个源字段、`source_content_hash` 与 `ingested_at`。
+3. 同一公告日完整范围仍必须闭合：源端本次缺少任何已经入库的身份、分页失败、归一化拒绝或写后核对不一致，整个 unit 失败，绝不删除已有行或以部分结果覆盖。
+4. 本轮不自动扫描或自动重跑历史公告日。运营按需要从页面手动发起公告日期点或区间维护；自动任务仅继续维护其正常未来窗口。
+5. `TaskRun#10110` 是本次根因证据：`300124.SZ / 2026-08-24 / 2026-06-30` 已入库值为 `is_audit=2`，源端随后返回 `is_audit=0`，两次 `update_flag` 都为 `0`。因此不能把 `update_flag` 当作修订判断依据，必须比较完整显式 source fields 的内容哈希。
 
 ## 2. 目标、范围与明确不做
 
@@ -26,7 +34,7 @@
 
 - 冻结 `express_vip` 参数、显式字段、分页和全市场完整性契约；
 - 分开时间输入、执行 unit、freshness/audit 三层语义；
-- 固定单事实表、主键、去重、修订和 fail-closed 规则；
+- 固定单事实表、主键、去重、当前修订覆盖和 fail-closed 规则；
 - 给出 Definition、planner、request builder、normalizer、writer、ORM/DAO、migration、Ops/UI 和测试的真实落点；
 - 把自动任务“首次起点 + 最后成功续跑”表达为通用契约，并证明不会要求现有自动任务重新配置。
 
@@ -39,7 +47,7 @@
 - 不实施历史回补，不自动 seed schedule；
 - 不暴露 `ts_code`、`period`、`start_date/end_date` 等源端筛选参数；
 - 不把本数据集接入 Lake/Dagster；
-- 不为“可能的晚到或上游原地修改”自行增加重叠窗口或 observation 表。
+- 不为“可能的晚到或上游原地修改”自行增加重叠窗口、observation 表或版本历史；已确认的源端原地修订按本章当前事实覆盖规则处理。
 
 ## 3. 依据与当前基线
 
@@ -61,7 +69,7 @@ DatasetDefinition / definition builder / runtime registry guard
   -> manual actions / catalog / workflow exclusion
   -> DatasetActionResolver / natural-day unit planner
   -> request builder / paginated source client
-  -> normalizer / immutable writer / DAO factory
+  -> normalizer / revisable writer / DAO factory
   -> ORM registry / freshness / dataset cards / snapshot rebuild
   -> schedule time policy resolver / capability resolver
   -> schedule schema / catalog query / TaskRun service / scheduler
@@ -76,8 +84,8 @@ M1 已新增 `express` Definition、ORM、DAO 注册、migration、Ops item 与�
 build_natural_day_point_units
 offset_limit 源端分页（每页显式 fields，短页结束）
 source_multiplicity_policy=deduplicate_identical
-serving_immutable_fact_insert
-ImmutableFactDAO
+serving_revisable_fact_scope_upsert
+GenericDAO（仅承担当前事实 upsert；范围锁与完整性核对仍在 writer）
 TaskRun 任务详情与 event-run freshness
 ```
 
@@ -190,7 +198,7 @@ open_net_assets, open_bps, perf_summary, is_audit, remark, update_flag
 - unit 请求参数只有 `ann_date`，`fields/limit/offset` 由通用 source client 添加；
 - 一个 unit 一个业务事务；分页不是部分提交边界；
 - 锁 scope 为 `express + ann_date`；
-- 任一 reject、跨日行、字段缺失、同身份内容冲突或数据库失败导致整个 unit 回滚。
+- 任一 reject、跨日行、字段缺失、同批身份内容冲突或数据库失败导致整个 unit 回滚。
 
 ### 5.3 freshness / audit 语义
 
@@ -221,10 +229,10 @@ open_net_assets, open_bps, perf_summary, is_audit, remark, update_flag
 | 33 个字段完全一样的源行 | 该 unit 仅保留 1 条，`rows_deduplicated` 记录差额，不进业务表。 |
 | 同一三元身份在同批出现不同内容 | fail-closed，不依赖 DAO 的“最后一行覆盖”。 |
 | 目标已有同身份同内容 | 幂等匹配，不新增行，不改动原 `ingested_at`。 |
-| 目标已有同身份不同内容 | `write.immutable_fact_conflict`，整个 unit 失败，需人工核查源端语义。 |
+| 目标已有同身份不同内容 | 视为源端修订，覆盖该当前行的全部源字段、内容哈希与 `ingested_at`；不保留旧版本。 |
 | 新公告与旧公告的 `ann_date` 不同 | 两条都插入，新公告不覆盖旧公告。 |
 | 某日首次请求为空，目标 scope 也为空 | 合法 no-op，该 unit 可成功。 |
-| 某日目标已有事实，重跑时源端缺少既有身份 | `write.immutable_scope_regression`，禁止把源端短暂回退当成删除。 |
+| 某日目标已有事实，重跑时源端缺少既有身份 | `write.revisable_fact_scope_regression`，禁止把源端短暂回退当成删除。 |
 
 当前 33 字段宽范围样本中没有发现 exact duplicate 或三元身份重复；上述策略是完整性门禁，不是声称源端已经出现了这两类异常。
 
@@ -238,12 +246,12 @@ open_net_assets, open_bps, perf_summary, is_audit, remark, update_flag
 | source | `api_name=express_vip`，`source_doc_id=tushare.express`，33 字段，request builder=`_express_vip_params` |
 | date_model | `natural_day / not_applicable / point_or_range / ann_date_or_start_end / observed_field=ann_date / audit=false` |
 | input_model | `ann_date,start_date,end_date`；无 filters |
-| storage | `source->serving`；`serving_immutable_fact_insert`；只有 `core_serving.equity_express` |
+| storage | `source->serving`；`serving_revisable_fact_scope_upsert`；只有 `core_serving.equity_express` |
 | planning | `no_pool / offset_limit / page_limit=5000 / max_units=366 / build_natural_day_point_units / concurrency=1` |
-| normalization | 2 个日期、26 个数值、不可变事实 transform；身份字段必填 |
+| normalization | 2 个日期、26 个数值、可修订事实 transform；身份字段必填 |
 | capabilities | manual point/range；cron daily/weekly/monthly；retry；无 once/probe/workflow |
 | observability | `progress_label=express`，`observed_field=ann_date`，`EVENT_RUN_TRACE` |
-| quality | reject 全部记录；unit_date=`ann_date`；完全重复去重；同身份冲突失败 |
+| quality | 任一 reject 失败；unit_date=`ann_date`；完全重复去重；同批身份冲突失败 |
 | transaction | `commit_policy=unit`；一公告日一事务；幂等必须 |
 
 ### 7.1 时间输入
@@ -263,7 +271,7 @@ Resolver 必须拒绝：无时间输入、point/range 混用、只给区间一�
 - `date_fields=(ann_date,end_date)`；
 - `decimal_fields` 为 `revenue` 至 `open_bps` 的 26 个数值字段；
 - `required_fields=(ts_code,ann_date,end_date,source_entity_key)`；
-- `row_transform_name=_express_immutable_fact_row_transform`；
+- `row_transform_name=_express_revisable_fact_row_transform`；
 - transform 必须放在 `src/foundation/ingestion/row_transforms.py`，由已有动态加载机制调用；不修改 normalizer 主链，不在 request builder 里生成身份。
 
 首版不创建通用“财务数据 contracts”模块。字段 tuple 保留在 Definition，纯身份转换保留在 `row_transforms.py`；只有未来第二个数据集证明身份算法完全相同时才评审提取，避免为了“共享”提前过耦合。
@@ -299,16 +307,16 @@ TaskRun 主进度按自然日 unit 展示；分页诊断使用现有逐页读取
 
 ### 8.3 Writer/DAO 复用结论
 
-复用 `serving_immutable_fact_insert` 和 `ImmutableFactDAO`，不新增 writer/DAO 类型。这两个现有契约已支持：
+使用 `serving_revisable_fact_scope_upsert` 和 `GenericDAO`；writer 负责公告日范围锁、完整性核对与变更筛选，DAO 仅负责当前事实 upsert。该契约支持：
 
 - 按 unit scope 取 advisory lock；
 - 任一 reject 阻断发布；
 - 同批完全重复去重，同身份不同内容阻断；
-- 对比已存事实，检测回退与内容冲突；
-- 只插入新身份，不 update/delete 旧事实；
+- 对比已存事实，检测范围回退；
+- 只插入新身份；已有同身份内容修订时更新当前行，不 delete、不保留旧版本；
 - 写后精确对账。
 
-DAO factory 只增加 `self.equity_express = ImmutableFactDAO(session, EquityExpress)`。Definition 的 `core_dao_name` 对应 `equity_express`，`raw_dao_name/raw_table/observation_*` 均为 `None`。
+DAO factory 使用 `self.equity_express = GenericDAO(session, EquityExpress)`。Definition 的 `core_dao_name` 对应 `equity_express`，`raw_dao_name/raw_table/observation_*` 均为 `None`。
 
 ## 9. 表结构、ORM、DAO 与 HDD migration
 
@@ -525,7 +533,7 @@ Calendar capability API 的每条 rule 新增通用 `policy_parameters`，复用
 | request builder | `request_builders.py` | 只生成 ann_date | ts_code/period/start/end 不得进源请求 |
 | source client | `source_clients.py` | 每页33 fields，5000 页大小，短页结束 | 第二页丢 fields/满页早停失败 |
 | normalizer | `normalizer.py`、`row_transforms.py` | 日期/数值/身份/完全重复去重 | 空主键、跨日、同身份冲突失败 |
-| writer/DAO | `writer.py`、`immutable_fact_dao.py`、`factory.py` | 只插入不可变新事实 | 回退/内容冲突/任一 reject 回滚 |
+| writer/DAO | `writer.py`、`generic.py`、`factory.py` | 核验完整公告日后写入当前事实 | 回退/任一 reject/写后核对失败回滚 |
 | ORM/migration | model registry/Alembic | 显式列单表，所有 relation 在 HDD | 缺 tablespace 原子失败，不回退 SSD |
 | freshness/cards | freshness resolver/dataset cards/snapshot | event-run trace，target table 回退展示 | 不得显示伪 raw/空日缺数 |
 | date audit | completeness audit | 明确不适用 | 不得生成连续期望桶 |
@@ -557,7 +565,7 @@ Calendar capability API 的每条 rule 新增通用 `policy_parameters`，复用
 | `src/foundation/datasets/definitions/low_frequency.py` | 新增 33 字段 `express` Definition |
 | `src/foundation/datasets/definitions/__init__.py` | 注册/导入低频 Definition（如当前自动发现不需则不做无效改动） |
 | `src/foundation/ingestion/request_builders.py` | `_express_vip_params` |
-| `src/foundation/ingestion/row_transforms.py` | `_express_immutable_fact_row_transform` |
+| `src/foundation/ingestion/row_transforms.py` | `_express_revisable_fact_row_transform` |
 | `src/foundation/models/core_serving/equity_express.py` | 新 ORM |
 | `src/foundation/dao/factory.py` | 注册现有 `ImmutableFactDAO` |
 | `alembic/versions/<then-head>_add_equity_express.py` | HDD 显式列单表与索引 |
@@ -668,8 +676,8 @@ git diff --check
 | EX-01 | 使用 `express_vip` 全市场 | Definition/request builder | 单日返回全市场样本 | 不得调用 `express` 单股通道 | M0 实测、M1 契约已落地；M2 connector 与 M3 正式 TaskRun 均通过 |
 | EX-02 | 33 fields 逐页显式请求且全保存 | Definition/client/ORM/migration | 第二页仍有 33 fields | 默认字段/丢 `update_flag` 失败 | M1 自动化、M2 单日源端哈希对账、M3 生产字段/冻结指纹对账通过 |
 | EX-03 | point/range 逐自然日 | date model/planner | 周末仍生成 unit | 交易日展开/宽区间请求失败 | M1 已完成 |
-| EX-04 | direct-serving 单不可变事实表 | Definition/writer/DAO/model | 新公告新增、幂等重跑 | raw/current/observation/覆盖旧事实禁止 | M1 已完成 |
-| EX-05 | 三元身份和内容冲突 fail-closed | transform/writer | 新 ann_date 可并存 | 同身份不同内容阻断 | M1 已完成 |
+| EX-04 | direct-serving 单当前事实表 | Definition/writer/DAO/model | 新公告新增、幂等重跑、源端修订覆盖当前行 | raw/observation/版本历史禁止 | 2026-08-29 已实现，待部署 |
+| EX-05 | 三元身份、完整范围和同批冲突 fail-closed | transform/writer | 新 ann_date 可并存、同身份修订可覆盖 | 同批冲突、范围回退或部分结果阻断 | 2026-08-29 已实现，待部署 |
 | EX-06 | table/PK/index 全部 HDD，WAL 不改 | migration | 真实 tablespace 路径 | 缺 HDD 不得落默认盘 | M2 隔离库 5 个 relation 均命中 `gs_raw_cold_hdd`；Prod 冷存储真实路径已只读确认 |
 | EX-07 | Ops 新增“A股财务数据” | catalog | 手动/自动均显示新组 | 不得塞入 A股行情 | M1 已完成 |
 | EX-08 | cron 可配 daily/weekly/monthly+时间 | capability/API/UI | 三种周期可保存 | once/intraday/probe/fallback 拒绝 | M1 自动化完成；生产页面已实际创建工作日 20:03 cron |
@@ -704,7 +712,7 @@ git diff --check
 | --- | --- | --- |
 | 宽范围页序不稳定原因未证明 | 可能重复/漏行 | 生产只按 ann_date，有界分页，同身份冲突失败 |
 | `is_audit=2` 语义未文档化 | 布尔化会丢信息 | 保留 nullable INTEGER 原值，不加 0/1 CHECK |
-| 同三元身份真的被上游原地修改 | 不可变契约冲突 | fail-closed 并人工核查，不覆盖 |
+| 同三元身份被上游原地修改 | 当前事实错误或任务失败 | 比较完整 source hash 后覆盖当前行；不保留旧版本 |
 | 一次窗口太长 | 配额/耗时/失败面扩大 | 366 unit 上限，手动/调度共用 preflight |
 | scheduler 并发重复入队 | 重复任务和额外请求 | 到期行锁+创建/推进单事务+并发测试 |
 | 后端先于前端部署新必填参数 | 旧 UI 不能创建 express schedule | 前后端同版本部署，API/browser 验收后才创建 schedule |
@@ -950,3 +958,36 @@ M4c 只剩以下运维验收，不需要代码开发：
 1. 2026-08-12 20:03 首次计划触发后确认 TaskRun 的窗口为 `2026-08-11..2026-08-11`，状态为 success、`unit_done=unit_total=1`、`unit_failed=0`，且 reject/issue 为 0。
 2. 使用正式 TaskRun 诊断和目标表增量做一次五段对账；不额外请求 Tushare。
 3. 上述验收通过后，将 M4c 标为完成。此后 Express 数据集没有剩余开发或上线步骤，只进入自动任务日常监控；任何频率调整都属于运营配置变更。
+
+## 21. 2026-08-29 源端修订覆盖收口
+
+### 21.1 根因与结论
+
+`TaskRun#10110` 在第一个 `ann_date=2026-08-24` unit 失败，错误码为 `write.immutable_fact_conflict`。只读核对确认同一业务身份 `300124.SZ / 2026-08-24 / 2026-06-30` 的已入库 `is_audit=2`，而源端当前返回 `is_audit=0`；两次 `update_flag` 都是 `0`。这证明源端允许原地修订，并且不能依赖 `update_flag` 识别修订。
+
+现行结论：`express` 不是不可变事实，而是按公告日完整范围维护的**当前披露事实**。旧版本不具备业务价值，也不保留。
+
+### 21.2 已实现代码口径
+
+| 环节 | 当前实现 | 不做的事 |
+| --- | --- | --- |
+| Definition | `write_path=serving_revisable_fact_scope_upsert`；任一 reject 使 unit 失败 | 不改变日期输入、分页、对象池、自动任务策略或 freshness 语义 |
+| 身份 | `source_entity_key` 继续由 `(ts_code, ann_date, end_date)` 生成 | 不把 `update_flag` 加入身份，也不以它作为修订开关 |
+| writer | 对 `ann_date` 取得事务级 scope lock；完整分页归一化后比较 33 个显式源字段哈希 | 不删除 scope 内旧行，不接受源端部分结果 |
+| 持久化 | 新身份 INSERT；同身份哈希变化 UPDATE 当前行的全部源字段、内容哈希和 `ingested_at`；同内容不写入 | 不建 raw、observation、历史版本或修订账本 |
+| DAO/model | 复用 `GenericDAO` 和已有 `core_serving.equity_express` 单表 | 不改表结构、不做 Alembic migration |
+| 历史处理 | 运营按需手动选择 `ann_date` 点或区间重跑 | 不扫描历史、不自动回补、不重建或清空数据 |
+
+源端少行、空结果、归一化拒绝、同批同身份不同内容、写入行数不一致或写后哈希不一致，仍会使当前 unit 失败并回滚。也就是说，修订可以覆盖，范围回退不可以覆盖。
+
+### 21.3 回归门禁
+
+专项测试覆盖以下事实：
+
+1. 首次写入、内容完全相同的重跑和同身份源端修订分别得到 insert、no-op 与当前行 update。
+2. 修订后表中仍只有一个业务身份，且当前字段和内容哈希与本次源数据一致。
+3. 源端少行仍报 `write.revisable_fact_scope_regression`，不会删除已有当前事实。
+4. 任意归一化拒绝仍报 `write.revisable_fact_rows_rejected`，不会发布部分公告日结果。
+5. 10,000 行单元的去重、单行修订和事务完整性继续受专项测试保护。
+
+部署后，`TaskRun#10110` 的 `2026-08-24..2026-08-31` 可以重新提交；更早日期由运营根据需要手动选择范围重跑。无需重建表、重新创建自动任务或改动现有 schedule。

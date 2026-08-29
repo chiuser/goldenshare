@@ -272,7 +272,7 @@ DATASET_ROWS = ({'identity': {'dataset_key': 'dividend', 'display_name': '分红
      "identity": {
          "dataset_key": "express",
          "display_name": "业绩快报",
-         "description": "按公告自然日维护 A 股全市场业绩快报不可变披露事实。",
+         "description": "按公告自然日维护 A 股全市场业绩快报当前披露事实；源端修订覆盖同一披露事实。",
          "aliases": (),
      },
      "domain": {"domain_key": "low_frequency", "domain_display_name": "低频数据"},
@@ -334,7 +334,7 @@ DATASET_ROWS = ({'identity': {'dataset_key': 'dividend', 'display_name': '分红
          "observation_table": None,
          "raw_conflict_columns": None,
          "conflict_columns": ("source_entity_key",),
-         "write_path": "serving_immutable_fact_insert",
+         "write_path": "serving_revisable_fact_scope_upsert",
      },
      "planning": {
          "universe_policy": "no_pool",
@@ -351,7 +351,7 @@ DATASET_ROWS = ({'identity': {'dataset_key': 'dividend', 'display_name': '分红
          "date_fields": ("ann_date", "end_date"),
          "decimal_fields": EXPRESS_SOURCE_FIELDS[3:29],
          "required_fields": ("ts_code", "ann_date", "end_date", "source_entity_key"),
-         "row_transform_name": "_express_immutable_fact_row_transform",
+         "row_transform_name": "_express_revisable_fact_row_transform",
      },
      "capabilities": {
          "actions": (
@@ -383,7 +383,7 @@ DATASET_ROWS = ({'identity': {'dataset_key': 'dividend', 'display_name': '分红
      },
      "observability": {"progress_label": "express", "observed_field": "ann_date", "audit_applicable": False},
      "quality": {
-         "reject_policy": "record_rejections",
+         "reject_policy": "fail_unit_on_any_rejection",
          "required_fields": ("ts_code", "ann_date", "end_date", "source_entity_key"),
          "unit_date_field": "ann_date",
          "duplicate_key_policy": "allow",
@@ -395,7 +395,8 @@ DATASET_ROWS = ({'identity': {'dataset_key': 'dividend', 'display_name': '分红
          "idempotent_write_required": True,
          "write_volume_assessment": (
              "每个公告自然日为独立全市场 unit，page_limit=5000；完成全部分页、归一化和完全重复去重后，"
-             "在一个事务内取得 scope advisory lock，核验已有不可变事实并只 INSERT 新事实。"
+             "在一个事务内取得 scope advisory lock，核验完整公告日范围；同一披露事实的源端修订覆盖当前行，"
+             "源端少行或拒绝行会使整个 unit 失败。"
          ),
      },
  })

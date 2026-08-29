@@ -20,8 +20,8 @@ class IngestionCodebookEntry:
         }
 
 
-INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-28.v3"
-INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-28T12:14:31Z"
+INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-29.v1"
+INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-29T00:00:00Z"
 
 INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("dataset_mismatch", "请求数据集与定义不一致", "validator", "检查 dataset_key 与定义绑定"),
@@ -119,6 +119,14 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("write.immutable_scope_regression", "不可变事实范围回退", "writer", "核对源端本次结果是否缺行或为空"),
     IngestionCodebookEntry("write.immutable_fact_conflict", "不可变事实与已有内容冲突", "writer", "人工核对源端是否发生修订或身份规则是否错误"),
     IngestionCodebookEntry("write.immutable_persistence_incomplete", "不可变事实写入核对失败", "writer", "回滚后检查目标表约束和事务状态"),
+    IngestionCodebookEntry("write.revisable_fact_rows_rejected", "可修订事实存在拒绝行", "writer", "先解决拒绝原因，不能用部分日期范围覆盖当前事实"),
+    IngestionCodebookEntry("write.revisable_fact_scope_invalid", "可修订事实日期范围非法", "writer", "核对执行单元和源行公告日期"),
+    IngestionCodebookEntry("write.revisable_fact_storage_invalid", "可修订事实存储契约无效", "writer", "检查 serving ORM 与显式 source field 列"),
+    IngestionCodebookEntry("write.revisable_fact_content_hash_invalid", "可修订事实内容哈希失败", "writer", "检查 source field 类型与哈希序列化"),
+    IngestionCodebookEntry("write.revisable_fact_identity_invalid", "可修订事实身份依据缺失", "writer", "检查 identity transform 与 identity_basis"),
+    IngestionCodebookEntry("write.revisable_fact_identity_conflict", "同批可修订事实身份冲突", "writer", "检查身份字段是否足以唯一表示源事件"),
+    IngestionCodebookEntry("write.revisable_fact_scope_regression", "可修订事实范围回退", "writer", "核对源端本次结果是否缺行或为空"),
+    IngestionCodebookEntry("write.revisable_fact_persistence_incomplete", "可修订事实写入核对失败", "writer", "回滚后检查目标表约束和事务状态"),
     IngestionCodebookEntry("write.staged_scope_busy", "基金持仓发布器已有执行占用", "staged_publisher", "等待现有任务结束后重试"),
     IngestionCodebookEntry("staged_scope_rows_rejected", "基金持仓暂存范围存在拒绝行", "executor", "先核验拒绝原因，禁止发布部分报告期"),
     IngestionCodebookEntry("pagination_short_page_missing", "分页未观察到终止短页", "executor", "检查分页迭代器和源端终止条件"),

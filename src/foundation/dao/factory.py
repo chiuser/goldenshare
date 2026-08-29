@@ -203,7 +203,7 @@ class DAOFactory:
         self.fund_company_current = ObservedSnapshotDAO(session, FundCompanyCurrent)
         self.fund_company_observation = ObservedSnapshotDAO(session, FundCompanyObservation)
         self.fund_div = ImmutableFactDAO(session, FundDiv)
-        self.equity_express = ImmutableFactDAO(session, EquityExpress)
+        self.equity_express = GenericDAO(session, EquityExpress)
         self.fund_portfolio = ImmutableFactDAO(session, FundPortfolio)
         self.fund_portfolio_stage = FundPortfolioDAO(session)
         self.fund_manager_current = ObservedSnapshotDAO(session, FundManagerCurrent)

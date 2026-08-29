@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from src.foundation.dao.factory import DAOFactory
-from src.foundation.dao.immutable_fact_dao import ImmutableFactDAO
+from src.foundation.dao.generic import GenericDAO
 from src.foundation.datasets.definitions.low_frequency import EXPRESS_SOURCE_FIELDS
 from src.foundation.datasets.registry import get_dataset_definition
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
@@ -95,7 +95,7 @@ def test_express_definition_freezes_full_fields_daily_units_and_storage_contract
     assert definition.planning.page_limit == 5_000
     assert definition.planning.max_units_per_execution == 366
     assert definition.planning.fetch_concurrency == 1
-    assert definition.storage.write_path == "serving_immutable_fact_insert"
+    assert definition.storage.write_path == "serving_revisable_fact_scope_upsert"
     assert definition.storage.raw_table is None
     assert definition.storage.observation_table is None
     assert definition.quality.source_multiplicity_policy == "deduplicate_identical"
@@ -234,12 +234,12 @@ def express_db_session():  # type: ignore[no-untyped-def]
 def _writer(session: Session, mocker) -> DatasetWriter:  # type: ignore[no-untyped-def]
     mocker.patch(
         "src.foundation.ingestion.writer.DAOFactory",
-        return_value=SimpleNamespace(equity_express=ImmutableFactDAO(session, EquityExpress)),
+        return_value=SimpleNamespace(equity_express=GenericDAO(session, EquityExpress)),
     )
     return DatasetWriter(session)
 
 
-def test_express_writer_is_idempotent_and_rejects_scope_regression_or_content_change(
+def test_express_writer_is_idempotent_updates_source_revisions_and_rejects_scope_regression(
     express_db_session: Session,
     mocker,
 ) -> None:  # type: ignore[no-untyped-def]
@@ -266,27 +266,47 @@ def test_express_writer_is_idempotent_and_rejects_scope_regression_or_content_ch
         "0",
     )
 
+    first_ingested_at = stored.ingested_at
+
     with pytest.raises(IngestionWriteError) as regression:
         writer.write(
             definition=definition,
             batch=_normalized([_express_row()], unit_date=day, unit_id="regression"),
             plan_unit=_unit(day, unit_id="regression"),
         )
-    assert regression.value.structured_error.error_code == "write.immutable_scope_regression"
+    assert regression.value.structured_error.error_code == "write.revisable_fact_scope_regression"
     express_db_session.rollback()
 
-    with pytest.raises(IngestionWriteError) as changed:
-        writer.write(
-            definition=definition,
-            batch=_normalized(
-                [_express_row(update_flag="1"), _express_row(ts_code="000002.SZ")],
-                unit_date=day,
-                unit_id="changed",
-            ),
-            plan_unit=_unit(day, unit_id="changed"),
-        )
-    assert changed.value.structured_error.error_code == "write.immutable_fact_conflict"
-    express_db_session.rollback()
+    revised = writer.write(
+        definition=definition,
+        batch=_normalized(
+            [_express_row(is_audit=0), _express_row(ts_code="000002.SZ")],
+            unit_date=day,
+            unit_id="revised",
+        ),
+        plan_unit=_unit(day, unit_id="revised"),
+    )
+    express_db_session.commit()
+    assert (revised.rows_inserted, revised.rows_upserted, revised.rows_matched) == (0, 1, 1)
+    express_db_session.expire_all()
+    revised_stored = express_db_session.scalar(
+        select(EquityExpress).where(EquityExpress.ts_code == "000001.SZ")
+    )
+    assert revised_stored is not None
+    assert revised_stored.is_audit == 0
+    assert revised_stored.ingested_at != first_ingested_at
+
+    after_revision = writer.write(
+        definition=definition,
+        batch=_normalized(
+            [_express_row(is_audit=0), _express_row(ts_code="000002.SZ")],
+            unit_date=day,
+            unit_id="after-revision",
+        ),
+        plan_unit=_unit(day, unit_id="after-revision"),
+    )
+    express_db_session.commit()
+    assert (after_revision.rows_inserted, after_revision.rows_upserted, after_revision.rows_matched) == (0, 0, 2)
 
     partial = NormalizedBatch(
         unit_id="partial",
@@ -296,12 +316,12 @@ def test_express_writer_is_idempotent_and_rejects_scope_regression_or_content_ch
     )
     with pytest.raises(IngestionWriteError) as rejected:
         writer.write(definition=definition, batch=partial, plan_unit=_unit(day, unit_id="partial"))
-    assert rejected.value.structured_error.error_code == "write.immutable_rows_rejected"
+    assert rejected.value.structured_error.error_code == "write.revisable_fact_rows_rejected"
     express_db_session.rollback()
     assert len(express_db_session.scalars(select(EquityExpress)).all()) == 2
 
 
-def test_express_ten_thousand_row_unit_is_deduplicated_and_rolls_back_atomically(
+def test_express_ten_thousand_row_unit_is_deduplicated_and_updates_current_facts_atomically(
     express_db_session: Session,
     mocker,
 ) -> None:  # type: ignore[no-untyped-def]
@@ -320,14 +340,16 @@ def test_express_ten_thousand_row_unit_is_deduplicated_and_rolls_back_atomically
     changed_rows = list(rows)
     changed_rows[0] = _express_row(ts_code="000000.SZ", revenue="9.99")
     changed = _normalized(changed_rows, unit_date=day, unit_id="capacity-conflict")
-    with pytest.raises(IngestionWriteError) as conflict:
-        writer.write(
-            definition=definition,
-            batch=changed,
-            plan_unit=_unit(day, unit_id="capacity-conflict"),
-        )
-    assert conflict.value.structured_error.error_code == "write.immutable_fact_conflict"
-    express_db_session.rollback()
+    revised = writer.write(
+        definition=definition,
+        batch=changed,
+        plan_unit=_unit(day, unit_id="capacity-revision"),
+    )
+    express_db_session.commit()
+    assert (revised.rows_inserted, revised.rows_upserted, revised.rows_matched) == (0, 1, 9_999)
+    stored = express_db_session.scalar(select(EquityExpress).where(EquityExpress.ts_code == "000000.SZ"))
+    assert stored is not None
+    assert stored.revenue == pytest.approx(9.99)
     assert len(express_db_session.scalars(select(EquityExpress)).all()) == 10_000
 
 
@@ -335,7 +357,7 @@ def test_express_registry_dao_catalog_workflow_and_migration_contracts() -> None
     table_model_registry.cache_clear()
     assert table_model_registry()["core_serving.equity_express"] is EquityExpress
     factory = DAOFactory(SimpleNamespace())
-    assert isinstance(factory.equity_express, ImmutableFactDAO)
+    assert isinstance(factory.equity_express, GenericDAO)
     assert factory.equity_express.model is EquityExpress
     assert set(EquityExpress.__table__.columns.keys()) == {
         "source_entity_key",

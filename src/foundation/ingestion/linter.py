@@ -239,6 +239,51 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
                 issues.append(
                     IngestionLintIssue(dataset_key, "immutable_fact_target_mismatch", "不可变事实的 serving_table 必须等于 target_table")
                 )
+        elif storage.write_path == "serving_revisable_fact_scope_upsert":
+            if storage.raw_dao_name is not None or storage.raw_table is not None or storage.std_table is not None:
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "revisable_fact_raw_or_std_forbidden",
+                        "serving_revisable_fact_scope_upsert 不得配置 raw DAO/raw/std 表",
+                    )
+                )
+            if storage.observation_dao_name is not None or storage.observation_table is not None:
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "revisable_fact_observation_forbidden",
+                        "serving_revisable_fact_scope_upsert 不得配置 observation DAO/表",
+                    )
+                )
+            if storage.conflict_columns != ("source_entity_key",):
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "revisable_fact_conflict_columns_invalid",
+                        "可修订事实 conflict_columns 必须仅为 source_entity_key",
+                    )
+                )
+            if not storage.core_dao_name.strip():
+                issues.append(
+                    IngestionLintIssue(dataset_key, "revisable_fact_core_dao_missing", "可修订事实必须配置 core_dao_name")
+                )
+            if storage.layer_plan != "source->serving":
+                issues.append(
+                    IngestionLintIssue(dataset_key, "revisable_fact_layer_plan_invalid", "可修订事实的 layer_plan 必须为 source->serving")
+                )
+            if storage.serving_table != storage.target_table:
+                issues.append(
+                    IngestionLintIssue(dataset_key, "revisable_fact_target_mismatch", "可修订事实的 serving_table 必须等于 target_table")
+                )
+            if definition.quality.reject_policy != "fail_unit_on_any_rejection":
+                issues.append(
+                    IngestionLintIssue(
+                        dataset_key,
+                        "revisable_fact_reject_policy_invalid",
+                        "可修订事实必须拒绝任意归一化失败行",
+                    )
+                )
         elif storage.write_path == "raw_etf_basic_snapshot_replace":
             if dataset_key != "etf_basic":
                 issues.append(IngestionLintIssue(dataset_key, "etf_basic_snapshot_dataset_invalid", "ETF Basic 专用 write path 不得被其他数据集复用"))

@@ -232,7 +232,7 @@ def _fund_div_immutable_fact_row_transform(row: dict[str, Any]) -> dict[str, Any
     return transformed
 
 
-def _express_immutable_fact_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+def _express_revisable_fact_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
     ts_code = str(transformed.get("ts_code") or "").strip().upper()
     ann_date = transformed.get("ann_date")
@@ -1068,7 +1068,7 @@ __all__ = [
     "_fund_manager_observed_snapshot_row_transform",
     "_fund_share_observed_fact_row_transform",
     "_fund_div_immutable_fact_row_transform",
-    "_express_immutable_fact_row_transform",
+    "_express_revisable_fact_row_transform",
     "_fund_portfolio_staged_fact_row_transform",
     "_trade_cal_row_transform",
     "_stock_basic_row_transform",
