@@ -1,14 +1,14 @@
 # 生产 PostgreSQL raw 直出一期低层设计 v1
 
 - 版本：v1
-- 状态：P1-B0、P1-B1 与 P1-B2 已结案；`P1-B3-stk_auction_o` 已结案，`stk_auction_c`、`moneyflow_ths` 与 `moneyflow_dc` 已完成 M0/M1/M2/M3a，M3b 待 `2026-08-31` 自然观察；`P1-B4-stk_limit-M0/M1` 已通过，下一项为独立授权的 M2
+- 状态：P1-B0、P1-B1 与 P1-B2 已结案；`P1-B3-stk_auction_o` 已结案，`stk_auction_c`、`moneyflow_ths` 与 `moneyflow_dc` 已完成 M0/M1/M2/M3a，M3b 待 `2026-08-31` 自然观察；`P1-B4-stk_limit-M0/M1/M2` 已通过，下一项为独立授权的生产 M3a
 - 更新时间：2026-08-30
 - 上位方案：[生产 PostgreSQL 存储空间优化治理专项 v2](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v2.md)
 - 目标：把一期 12 个无业务转换的 raw/core_serving 双写数据集收敛为“raw 唯一物理事实表 + 原 serving 名称只读 view”，预计释放约 3.305 GiB SSD
 
 ## 0. 边界与完成定义
 
-本文定义一期实施合同，并记录已获授权完成的 P1-B0-M1～M3、P1-B0 市场资金补充 M3b、P1-B1 M0、行业/概念/`margin` 的 M1/M2/M3a/M3b、`P1-GATE-SSE-M1/M2/M3`，以及 P1-B2 三项与 `P1-B3-stk_auction_o` 的 M0/M1/M2/M3a/M3b。`moneyflow_ind_dc` 已完成只读生产基线、代码、自动化测试、隔离 PostgreSQL migration、切换后生产只读合同与自然运行验收；完整部署在未暂停 schedule/worker 时自动应用 revision 153 的发布顺序偏差继续作为历史事实保留，不因最终验收通过而删除。`dc_daily`、`suspend_d` 已按维护窗口顺序完成生产 revision 154/155、连接池回收、查询合同、最小 TaskRun 与自然双工作流验收。`stk_auction_o` 生产已为 revision 156，日期完整性门禁经普通 vacuum 和真实基准关闭，TaskRun `9726` 与自然工作流验收均通过；但标准完整部署在本轮正式暂停 schedule/worker 前自动应用 revision 156 的顺序偏差同样保留。上述四项均已结案。`stk_auction_c` 已按正确维护顺序完成 M0/M1/M2/M3a，生产为 revision 158、Raw 唯一物理事实表和 0 B Serving view；TaskRun `10111` 即时验收通过，M3b 只待两个既有 schedule 的下一次自然工作流观察。`moneyflow_ths` 已按正确维护顺序完成 M0/M1/M2/M3a，生产为 revision 159、Raw 唯一物理事实表和 0 B Serving view；TaskRun `10128` 即时验收通过，M3b 只待 schedule #4 下一次自然工作流观察。`moneyflow_dc` 也已按正确维护顺序完成 M0/M1/M2/M3a，生产为 revision 161、Raw 唯一物理事实表和 0 B Serving view；TaskRun `10149` 即时验收通过，M3b 与 `moneyflow_ths` 共用下一次 schedule #4 父任务但必须按各自 node 独立验收。`stk_limit` 已完成 M0/M1，当前开发代码为 Raw-only 且独立 revision 162 已就绪，但生产仍为 revision 161、双物理表和旧双写部署；下一步只能另行授权 M2。
+本文定义一期实施合同，并记录已获授权完成的 P1-B0-M1～M3、P1-B0 市场资金补充 M3b、P1-B1 M0、行业/概念/`margin` 的 M1/M2/M3a/M3b、`P1-GATE-SSE-M1/M2/M3`，以及 P1-B2 三项与 `P1-B3-stk_auction_o` 的 M0/M1/M2/M3a/M3b。`moneyflow_ind_dc` 已完成只读生产基线、代码、自动化测试、隔离 PostgreSQL migration、切换后生产只读合同与自然运行验收；完整部署在未暂停 schedule/worker 时自动应用 revision 153 的发布顺序偏差继续作为历史事实保留，不因最终验收通过而删除。`dc_daily`、`suspend_d` 已按维护窗口顺序完成生产 revision 154/155、连接池回收、查询合同、最小 TaskRun 与自然双工作流验收。`stk_auction_o` 生产已为 revision 156，日期完整性门禁经普通 vacuum 和真实基准关闭，TaskRun `9726` 与自然工作流验收均通过；但标准完整部署在本轮正式暂停 schedule/worker 前自动应用 revision 156 的顺序偏差同样保留。上述四项均已结案。`stk_auction_c` 已按正确维护顺序完成 M0/M1/M2/M3a，生产为 revision 158、Raw 唯一物理事实表和 0 B Serving view；TaskRun `10111` 即时验收通过，M3b 只待两个既有 schedule 的下一次自然工作流观察。`moneyflow_ths` 已按正确维护顺序完成 M0/M1/M2/M3a，生产为 revision 159、Raw 唯一物理事实表和 0 B Serving view；TaskRun `10128` 即时验收通过，M3b 只待 schedule #4 下一次自然工作流观察。`moneyflow_dc` 也已按正确维护顺序完成 M0/M1/M2/M3a，生产为 revision 161、Raw 唯一物理事实表和 0 B Serving view；TaskRun `10149` 即时验收通过，M3b 与 `moneyflow_ths` 共用下一次 schedule #4 父任务但必须按各自 node 独立验收。`stk_limit` 已完成 M0/M1/M2，开发代码、独立 revision 162 和隔离 PostgreSQL 验收均已通过；生产仍为 revision 161、双物理表和旧双写部署，下一步只能另行授权生产 M3a。
 
 一期完成必须同时满足：
 
@@ -56,7 +56,7 @@ relation 从物理表变为 view 后，下列物理或治理事实必然变化�
 
 ### 2.1 写入链事实
 
-一期启动前，12 个数据集都使用 `DatasetWriter.write()` 的 `raw_core_upsert` 分支；`_write_raw_and_core()` 会把同一个 `NormalizedBatch` 分别按 raw/serving ORM 列过滤后写入两层，且 12 个 Definition 的 `serving_conflict_resolution_policy` 均为 `none`。截至 2026-08-30，前 11 项已经完成生产 raw-only 切换；`stk_auction_c`、`moneyflow_ths` 与 `moneyflow_dc` 的 M3b 待 `2026-08-31` 自然观察。`stk_limit` 的开发代码已在 M1 切为 Raw-only，但生产仍保持双物理表和旧双写部署，必须等待 M2/M3a 才能切换。
+一期启动前，12 个数据集都使用 `DatasetWriter.write()` 的 `raw_core_upsert` 分支；`_write_raw_and_core()` 会把同一个 `NormalizedBatch` 分别按 raw/serving ORM 列过滤后写入两层，且 12 个 Definition 的 `serving_conflict_resolution_policy` 均为 `none`。截至 2026-08-30，前 11 项已经完成生产 raw-only 切换；`stk_auction_c`、`moneyflow_ths` 与 `moneyflow_dc` 的 M3b 待 `2026-08-31` 自然观察。`stk_limit` 的开发代码和隔离 M2 已通过，但生产仍保持双物理表和旧双写部署，必须等待 M3a 才能切换。
 
 这证明当前主链没有额外业务转换，但不自动证明历史数据没有漂移。生产数据仍必须独立对账。
 
@@ -93,7 +93,7 @@ conflict_columns = 保持现有值
 | P1-B3 | 9 | `stk_auction_c` | `raw_tushare.stk_auction_c` → `core_serving.equity_auction_close` | `(ts_code, trade_date)` | 372.19 MiB | 2,255,593 / 2,255,593 | M0/M1/M2/M3a 通过；生产 revision 158、0 B Serving view，已释放 390,266,880 B；M3b 待自然观察 |
 | P1-B3 | 10 | `moneyflow_ths` | `raw_tushare.moneyflow_ths` → `core_serving.equity_moneyflow_ths` | `(trade_date, ts_code)` | 468.18 MiB | 2,077,033 / 2,077,033 | M0/M1/M2/M3a 已通过；生产 revision 159、0 B view；M3b 待 schedule #4 自然观察 |
 | P1-B4 | 11 | `moneyflow_dc` | `raw_tushare.moneyflow_dc` → `core_serving.equity_moneyflow_dc` | `(trade_date, ts_code)` | 1,131,995,136 B（约 1.054 GiB） | 4,151,016 / 4,151,016 | Ops/freshness；Lake raw；M0/M1/M2/M3a 已通过，M3b 待自然观察 |
-| P1-B4 | 12 | `stk_limit` | `raw_tushare.stk_limit` → `core_serving.equity_stk_limit` | `(ts_code, trade_date)` | 664,354,816 B（633.58 MiB） | 4,608,112 / 4,608,112 | M0/M1 已通过；revision 162 待 M2；市场情绪/走查；Lake raw |
+| P1-B4 | 12 | `stk_limit` | `raw_tushare.stk_limit` → `core_serving.equity_stk_limit` | `(ts_code, trade_date)` | 664,354,816 B（633.58 MiB） | 4,608,112 / 4,608,112 | M0/M1/M2 已通过；revision 162 待生产 M3a；市场情绪/走查；Lake raw |
 |  |  | **合计** |  |  | **3,548,766,208 B，约 3.305 GiB** |  |  |
 
 合计仍是 2026-08-23 全名单同一时点基线；各数据集行中的后续 M0 当前值用于本项设计，不把不同时点数据重新相加伪装成同一容量快照。
@@ -132,18 +132,18 @@ conflict_columns = 保持现有值
 26. `P1-B3-moneyflow_ths-M1` 已完成：Definition storage、Raw ORM 两个既存索引 metadata、独立 revision 159、专项和共享回归均已落地；生产仍为 revision 158 和旧双写部署，下一阶段为独立授权的隔离 PostgreSQL M2。
 27. `P1-B3-moneyflow_ths-M2/M3a` 已完成：隔离 PostgreSQL 七项场景通过；生产按维护顺序应用 revision 159，Raw OID/索引保留、Serving 成为 0 B view，TaskRun `10128`、查询、拒写、连接池、schedule #4 暂停/恢复和服务健康均闭环。M3b 待 schedule #4 下一次自然工作流观察。
 28. `P1-B4-moneyflow_dc-M0/M1/M2/M3a` 已完成：生产 revision 161、Raw 唯一物理事实表、Serving 0 B view、TaskRun `10149` 与查询/拒写/连接池/schedule #4 均通过，已释放 1,131,995,136 B；M3b 待自然观察。
-29. `P1-B4-stk_limit-M0/M1` 已完成：生产两层各 4,608,112 行和同数身份，32 个自然月五字段双向差异均为 0；月峰值 177,009，容量合同固定为 220,000/220,001 行。Definition 已切为 Raw-only，独立 revision 162、专项分页/writer/migration 测试与 freshness/completeness Raw target 已落地；生产仍为 revision 161、双物理表和旧双写部署。
+29. `P1-B4-stk_limit-M0/M1/M2` 已完成：生产两层各 4,608,112 行和同数身份，32 个自然月五字段双向差异均为 0；月峰值 177,009，容量合同固定为 220,000/220,001 行。Definition 已切为 Raw-only，独立 revision 162、专项分页/writer/migration 测试与 freshness/completeness Raw target 已落地；隔离 PostgreSQL 已通过正负容量、权限、拒写、回滚、writer 和查询计划验收。生产仍为 revision 161、双物理表和旧双写部署。
 
 尚未完成：
 
-1. 一期 12 项都已完成自身 M0 的全历史业务字段双向 `EXCEPT ALL`；当前只有 `stk_limit` 尚未完成 M2/M3a 及生产切换；
-2. `stk_limit` 已建立市场情绪 join 与日期存在性两类真实查询基线，Raw 最大有意义退化约 10.3%，低于 20% 停止线；后续 M2/M3a 仍须对切换前后结果 hash、索引下推、临时块和交错中位时延重新验收；
+1. 一期 12 项都已完成自身 M0 的全历史业务字段双向 `EXCEPT ALL`；当前只有 `stk_limit` 尚未完成生产 M3a 及生产切换；
+2. `stk_limit` 已建立生产 M0 的市场情绪 join 与日期存在性基线，Raw 最大有意义退化约 10.3%；M2 又在隔离 PostgreSQL 验证切换前后结果 hash、Raw 主键/日期索引下推和零临时块。生产 M3a 仍须实时复测结果和交错时延；
 3. 仓库外 SQL、BI、人工脚本和依赖 relation catalog 的工具尚未完成签字；
 4. `suspend_d` 的 `id` 逐行一致已证明；`suspend_type` 多选输入与 planner fan-out 不一致已在 M1 前独立修复，并随生产 commit `9d32b266` 生效；
-5. P1-B0 已运行生产 Biz 查询服务，但未做带登录态的浏览器验收；行业 relation 当前没有 Biz/QTF/DG serving 读取，已按 Ops/freshness、真实 SQL 和 TaskRun 完成验收；`moneyflow_ind_dc` 已完成生产查询、Heat source/readiness、自然 TaskRun 与结果回读验收；`dc_daily`、`suspend_d` 与 `stk_auction_o` 均已完成代表查询、最小 TaskRun 和两个既有 workflow 的自然 M3b；`stk_auction_c` 已完成代表查询和最小 TaskRun，两个既有 workflow 的自然 M3b 待观察；`stk_limit` 已完成切换前 M0 查询基线，切换后的正式验收仍属于 M2/M3a/M3b。
+5. P1-B0 已运行生产 Biz 查询服务，但未做带登录态的浏览器验收；行业 relation 当前没有 Biz/QTF/DG serving 读取，已按 Ops/freshness、真实 SQL 和 TaskRun 完成验收；`moneyflow_ind_dc` 已完成生产查询、Heat source/readiness、自然 TaskRun 与结果回读验收；`dc_daily`、`suspend_d` 与 `stk_auction_o` 均已完成代表查询、最小 TaskRun 和两个既有 workflow 的自然 M3b；`stk_auction_c` 已完成代表查询和最小 TaskRun，两个既有 workflow 的自然 M3b 待观察；`stk_limit` 已完成切换前 M0 查询基线和隔离 M2 查询验收，生产正式验收仍属于 M3a/M3b。
 6. `anns_d` 在 TaskRun `9747/9773` 中出现 69/184 行批内 `row_key_hash` 冲突，已另列独立只读数据质量审计 TODO；该问题不属于一期 12 个 raw 直出对象，且未授权源端请求、代码或生产数据修改。
 
-因此，名单与顺序已固定；前 11 项已完成生产 raw 直出切换，只剩 `stk_limit` 尚未切换。它未通过 M2 与第 7 节生产门禁前，禁止 drop serving 表。
+因此，名单与顺序已固定；前 11 项已完成生产 raw 直出切换，只剩 `stk_limit` 尚未切换。它未通过 M3a 与第 7 节生产门禁前，禁止 drop serving 表。
 
 ### 2.4 当前代码消费者清单
 
@@ -194,17 +194,17 @@ conflict_columns = 保持现有值
 | ID | 硬需求 | 实现落点 | 正向门禁 | 反向门禁 | 当前状态 |
 | --- | --- | --- | --- | --- | --- |
 | RD-001 | raw 成为唯一物理事实表 | 对应 Definition、现有 `raw_only_upsert` | writer 仅调用 raw DAO | serving DAO 零调用 | 前 11 项生产已切换；`stk_limit` M1 已通过专项 writer 零 Serving DAO 调用，生产待 M3a |
-| RD-002 | 原 serving 名称和业务列合同不变 | 每数据集独立 migration、原 serving ORM | ORM/SQL 查询结果一致 | 禁止改 Biz/QTF/DG relation 名 | `stk_limit` M1 的 revision 162 已显式固定同名 view 与五业务列；真实 PostgreSQL/生产结果待 M2/M3a |
-| RD-003 | serving 禁止写入 | Definition + DB INSTEAD OF reject trigger | SELECT 正常 | INSERT/UPDATE/DELETE 均失败 | `stk_limit` M1 已固化独立拒写 trigger SQL；三类真实 DML 待 M2/M3a |
+| RD-002 | 原 serving 名称和业务列合同不变 | 每数据集独立 migration、原 serving ORM | ORM/SQL 查询结果一致 | 禁止改 Biz/QTF/DG relation 名 | `stk_limit` M2 已在真实隔离 PostgreSQL 验证同名 view、五业务列和查询 hash；生产结果待 M3a |
+| RD-003 | serving 禁止写入 | Definition + DB INSTEAD OF reject trigger | SELECT 正常 | INSERT/UPDATE/DELETE 均失败 | `stk_limit` M2 三类真实 DML 均返回 SQLSTATE `55000`；生产待 M3a 复验 |
 | RD-004 | 全量事实无差异 | 生产维护窗口分块对账 | 两层差集均为 0 | 任一差异阻断 migration | 12/12 已完成各自 M0 的全业务字段有界双向差集；`stk_limit` 为 32 月五字段全 0 |
-| RD-005 | raw 索引覆盖查询 | raw ORM index 声明、生产索引、计划基准 | 代表查询使用等价索引 | 计划/延迟退化阻断 | 已切换项通过；`stk_limit` M0 的市场情绪 join/日期存在性查询使用等价索引，Raw 最大有意义退化约 10.3% |
+| RD-005 | raw 索引覆盖查询 | raw ORM index 声明、生产索引、计划基准 | 代表查询使用等价索引 | 计划/延迟退化阻断 | `stk_limit` M0 生产基线低于 20% 停止线，M2 又验证 Raw 主键/日期索引下推与零临时块；生产待 M3a 复验 |
 | RD-006 | 现有 schedule 不重建 | action key/date/capability 不变 | 暂停后原 schedule 恢复 | 禁止自动 seed/重建 | P1-B0/B1 资金数据集一直由 schedule #4 workflow 覆盖；本专项未创建或重建 schedule |
 | RD-007 | Lake/DG 已知读取合同不变 | Lake raw 白名单、DG `dc_board_source_probe` | 既有测试与真实只读查询通过 | 禁止切换 Lake source 或写 Lake | 静态审计完成 |
 | RD-008 | 不改变源端请求 | Definition 只改 storage | connector/request 测试不变 | 禁止改 fields/分页/date model | 12 项代码均保持原请求合同；`stk_limit` M1 已测试五字段、逐交易日 unit、5,800 行逐页 fields 与短页结束 |
 | RD-009 | 一个数据集一个发布单元 | 独立 revision/commit/deploy 记录 | M3a 独立授权；M3b 统一登记并按数据集节点验收 | 禁止批量 drop、外推生产授权或把“尚未触发”当成失败 | 已固定；仅已发现且未解决的共享运行链异常阻塞后续 M3a |
-| RD-010 | owner/grant/comment 可追溯 | migration 动态快照与恢复 | 非 owner SELECT 权限一致 | 未知 grant/comment 阻断 | `stk_limit` M1 固定 Raw `lake_raw_reader SELECT` 与 Serving metadata 动态恢复；真实验证待 M2 |
+| RD-010 | owner/grant/comment 可追溯 | migration 动态快照与恢复 | 非 owner SELECT 权限一致 | 未知 grant/comment 阻断 | `stk_limit` M2 已验证 owner、Raw reader、Serving grant option 和 relation/column comments 恢复；生产待 M3a |
 | RD-011 | Ops 观测改读 raw | `target_table` 派生、freshness registry | 新 TaskRun/freshness 读 raw | 历史 TaskRun 不回写 | `stk_limit` M1 已把 freshness/date completeness target 改为 `raw_tushare.stk_limit` 并通过共享测试 |
-| RD-012 | 失败不破坏 raw | 同事务 DDL、禁止自动 downgrade | 提交前失败原子回滚 | 禁止清表/删 raw | `stk_limit` revision 162 静态禁止 Raw DDL/DML、`CASCADE` 与自动 downgrade；真实回滚待 M2 |
+| RD-012 | 失败不破坏 raw | 同事务 DDL、禁止自动 downgrade | 提交前失败原子回滚 | 禁止清表/删 raw | `stk_limit` M2 已验证七类 DDL 前失败快照不变及切换后注错完整回滚；生产待 M3a |
 
 ## 4. Definition、writer、ORM 与 DAO 设计
 
@@ -1199,6 +1199,18 @@ M1 只修改本数据集代码、独立 migration、测试与本文，不连接 
 
 `P1-B4-stk_limit-M1` 据此**通过**，下一步只能单独授权 M2：在隔离 PostgreSQL 真实应用 revision 162，验证 220,000/220,001 行、列/身份/索引/依赖/ACL fail-closed、三类 DML、事务回滚、正式 writer 即时可见和两类市场情绪查询计划。M1 不改变生产 revision 161、双物理表或旧部署写入行为。
 
+#### 2026-08-30 `P1-B4-stk_limit-M2` 隔离 PostgreSQL 验收
+
+M2 在本轮创建的 PostgreSQL 18.4 一次性实例执行。实例 `listen_addresses=''`，只允许随机 Unix socket 连接，应用侧 `inet_server_addr()` 为空；应用角色 `stk_limit_m2_app` 为非超级用户，且没有建库、建角色或复制权限。每次 Alembic 前都通过只含目标 URL 的独立 `GOLDENSHARE_ENV_FILE` 核对最终 URL、数据库、用户、socket、端口、恢复状态和 data directory，未读取仓库 `.env.web.local`。全程没有连接 Prod、请求 Tushare、部署、创建 TaskRun 或修改 schedule/workflow。
+
+1. 220,000 行单月正向库从 revision 161 成功升级到 162。Raw relation OID `16392` 与主键/日期索引 OID `16403/16405`、定义、valid/ready 状态保持不变，且全部位于 `pg_default`；Serving 变为 OID `16430`、0 B 普通 view。Raw/view 各 220,000 行和同数唯一身份，五业务字段双向差异与审计投影差异均为 0。
+2. Raw `lake_raw_reader SELECT`、Serving reader 的 `SELECT WITH GRANT OPTION`、owner、relation/column comments 和独立 `trg_equity_stk_limit_reject_dml` 全部恢复。Serving `INSERT/UPDATE/DELETE` 均返回 SQLSTATE `55000`。Raw 插入/更新/删除在同一事务内立即反映到 view，回滚后无残留。
+3. 正式 `DatasetWriter` 只报告目标 `raw_tushare.stk_limit` 并保存 1 行；Raw/view 在同一事务内得到相同 `up_limit` 与时间戳，回滚后恢复原值，证明已部署 M1 Definition 不会尝试写 Serving view。
+4. 220,001 行、业务字段差异、身份差异、Raw 列类型漂移、外部 view 依赖、缺失 Raw 日期索引和额外 Raw ACL 七个负向数据库均在 Serving DDL 前失败；各自 revision、relation/OID、索引、列、ACL、comments、trigger 与行数快照不变。另一个数据库在完成 Serving `DROP TABLE -> CREATE VIEW -> trigger` 后注入除零错误，transaction 完整回滚到 revision 161 与原两张物理表。
+5. 20 日市场情绪复合键 join 和按交易日存在性查询的切换前后行数/hash 一致，切换后分别下推 `stk_limit_pkey` 与 `idx_raw_tushare_stk_limit_trade_date`，全部计划零临时块。隔离样本时延约为 `0.214 -> 0.194 ms` 与 `0.069 -> 0.062 ms`；它们只证明结果、索引形态和 bounded work，不作为生产 SLA。
+
+隔离实例已停止，临时数据根已删除；报告保留于 `/private/tmp/goldenshare_stk_limit_m2_report.json`。`P1-B4-stk_limit-M2` 据此**通过**，revision 162 与业务代码无需修改。生产仍为 revision 161、双物理表和旧双写部署，尚未释放 664,354,816 B；下一阶段只能另行授权 M3a，并在执行前重新完成生产版本/head、schedule #24/#2、worker、开放任务、锁、长事务、32 月全字段差异、两类查询和磁盘门禁。
+
 ### S4：文档证据
 
 将 revision、部署 commit、TaskRun ID、对账结果、查询计划、磁盘释放量和残余风险写回 v2；未验收项不得标完成。
@@ -1255,7 +1267,7 @@ M1 只修改本数据集代码、独立 migration、测试与本文，不连接 
 | `stk_auction_c` | M0 已证 2,255,593 行、20 月九字段全量等价，月峰值 132,619；受每日收盘 schedule #24/#2 覆盖，当前无 Biz/QTF/DG/frontend/Lake 直读；Raw 日期完整性相对旧 Serving 退化 12.55%，当前无需 vacuum | raw-only writer、显式 view、拒写函数、按月有界差集、单数据集 revision；本数据集独立固定 160,000 行/月门禁 | 直接复制开盘竞价 migration/消费者/vacuum 结论；忽略 18:30 空结果与 21:02 就绪的双入口时序 |
 | `moneyflow_ths` | M0 已证 2,077,033 行、21 月十三字段全量等价，月峰值 116,993；受每日资金 schedule #4 覆盖，Lake 已读 Raw，当前无 Biz/QTF/frontend/DG Serving 直读；Raw 日期完整性退化 2.85%，无需 vacuum | raw-only writer、显式 view、拒写函数、按月有界差集、单数据集 revision；本数据集独立固定 150,000 行/月门禁 | 竞价数据集的 160,000 上限、#2/#24 双入口、vacuum 结论或九字段 migration；忽略 35,990 行历史 `created_at` 不透明边界 |
 | `moneyflow_dc` | M0/M1/M2/M3a 已通过；生产 revision 161、Raw 唯一物理事实表、0 B Serving view，TaskRun `10149` 通过并释放 1,131,995,136 B；M3b 待自然观察 | raw-only writer、显式 view、拒写函数、按月有界差集、单数据集 revision；本数据集独立固定 170,000 行/月与 300 秒 statement timeout | B3 的 150,000/160,000 上限、#2/#24、vacuum 结论或 13 字段 migration；忽略 2,350,240 行历史 `created_at` 不透明边界；把同一 schedule #4 内另一个 node 的 M3b 当成本 node 验收 |
-| P1-B4 `stk_limit` | M0 已证明 4,608,112 行、32 个自然月五字段全量等价、两类市场情绪查询和 #24/#2 双自动入口；M1 已完成 Raw-only Definition 与独立 revision 162，下一步为 M2 | 只能复用阶段状态机、审计方法、Raw-only writer、受保护 view 与单数据集 revision 原则 | `moneyflow_dc` 的字段、主键、170,000 行上限、消费者、vacuum、schedule 或查询结论；M2 仍须独立验证本项 220,000/220,001 行门禁与真实 PostgreSQL 行为 |
+| P1-B4 `stk_limit` | M0 已证明 4,608,112 行、32 个自然月五字段全量等价、两类市场情绪查询和 #24/#2 双自动入口；M1/M2 已完成 Raw-only Definition、revision 162 与隔离 PostgreSQL 全门禁，下一步为生产 M3a | 只能复用阶段状态机、审计方法、Raw-only writer、受保护 view 与单数据集 revision 原则 | `moneyflow_dc` 的字段、主键、170,000 行上限、消费者、vacuum、schedule 或查询结论；M3a 仍须独立复核本项 220,000 行月门禁、生产查询和双 workflow 写入入口 |
 
 ### 9.4 后续统一状态机
 
@@ -1346,7 +1358,7 @@ M1 只修改本数据集代码、独立 migration、测试与本文，不连接 
 10. `P1-B3-stk_auction_c-M0/M1/M2/M3a` 已通过：生产 M0 证明两层各 2,255,593 行、20 月九字段等价、月峰值 132,619 与查询门禁；M1/M2 完成 Raw-only Definition、独立 revision 158、160,000/160,001 行、权限、拒写、writer、回滚和查询计划；M3a 按维护窗口正确顺序应用 revision 158，TaskRun `10111` 与最终对账通过。生产现为 Raw 唯一物理事实表和 0 B Serving view，已释放 390,266,880 B；M3b 待统一夜间台账自然观察；
 11. `P1-B3-moneyflow_ths-M0/M1/M2/M3a` 已通过：生产 M0 证明两层各 2,077,033 行、21 月十三字段等价与 150,000 行/月门禁；M1/M2 完成 Raw-only Definition、独立 revision 159、隔离容量/差异/权限/拒写/writer/回滚和查询门禁；M3a 按正确维护顺序应用 revision 159，TaskRun `10128` 与最终对账通过。生产现为 Raw 唯一物理事实表和 0 B Serving view，已释放 490,921,984 B；M3b 待 schedule #4 自然观察；
 12. `P1-B4-moneyflow_dc-M0/M1/M2/M3a` 已通过：生产 revision 161、Raw OID/索引保持不变、Serving 为 0 B view，TaskRun `10149` 两页读取/保存 6,007/6,007 且 0 reject/去重/重试；已释放 1,131,995,136 B。M3b 待 schedule #4 的 `2026-08-31 20:00+08` 自然工作流观察；
-13. `P1-B4-stk_limit-M0/M1` 已通过：生产 M0 证明两层各 4,608,112 行、32 月五字段差异为 0，并固定 220,000/220,001 行月容量合同、市场情绪查询、双 schedule 与审计时间边界；M1 完成 Raw-only Definition、独立 revision 162、逐页 fields、Raw-only writer、freshness/completeness 和 migration 自动化门禁。生产仍为 revision 161、双物理表和旧双写部署；下一步只能独立授权 M2；
+13. `P1-B4-stk_limit-M0/M1/M2` 已通过：生产 M0 证明两层各 4,608,112 行、32 月五字段差异为 0，并固定 220,000/220,001 行月容量合同、市场情绪查询、双 schedule 与审计时间边界；M1 完成 Raw-only Definition、独立 revision 162、逐页 fields、Raw-only writer、freshness/completeness 和 migration 自动化门禁；M2 完成真实隔离 PostgreSQL 正负容量、ACL/依赖/索引、三类拒写、writer、回滚与查询计划验收。生产仍为 revision 161、双物理表和旧双写部署；下一步只能独立授权 M3a；
 14. 未来任何生产操作仍须实时确认开放 TaskRun 为 0、目标 schedule/probe 已按本项契约暂停、worker 已停止、目标锁和磁盘水位满足门禁。扩容后的容量快照不是跳过这些检查的理由；
 15. 仓库外 SQL/BI/人工脚本无法由仓库审计穷尽，若存在依赖 OID、relkind、约束 catalog、旧审计时间或 serving DML 的未登记消费者，仍是每项 migration 的残余运营风险。
 

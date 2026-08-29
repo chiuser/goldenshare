@@ -1,6 +1,6 @@
 # Tushare 每日涨跌停价格（`stk_limit`）数据集开发说明
 
-- 状态：现有数据集已运行；`P1-B4-stk_limit-M0/M1` 已通过，下一阶段为独立授权的隔离 PostgreSQL M2
+- 状态：现有数据集已运行；`P1-B4-stk_limit-M0/M1/M2` 已通过，下一阶段为独立授权的生产 M3a
 - 更新时间：2026-08-30
 - 专项依据：[生产 PostgreSQL raw 直出一期低层设计 v1](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-raw-direct-serving-phase-one-lld-v1.md)
 
@@ -56,7 +56,7 @@
 ### 4.2 服务层
 
 - 读取名称：`core_serving.equity_stk_limit`
-- M1 代码合同：revision `20260830_000162` 应用后成为显式 Raw-backed 只读 view；生产在 M2/M3a 前仍是原物理表
+- M1/M2 已验证合同：revision `20260830_000162` 应用后成为显式 Raw-backed 只读 view；生产在 M3a 前仍是原物理表
 - 主键：`(ts_code, trade_date)`
 - 字段：`pre_close`, `up_limit`, `down_limit`
 - 系统字段：`created_at`, `updated_at` 均由 Raw `fetched_at` 投影
@@ -137,3 +137,15 @@ M1 严格限定为代码、独立 Alembic revision、测试和文档；没有连
 5. 专项测试覆盖 storage-only 变更、未知 filter 拒绝、Raw/Serving 五字段类型与索引、ServingPublish 不存在、每页完整 fields、`5800+1` 短页结束、Raw-only writer 不调用 Serving DAO、migration 顺序/禁止项/offline SQL 和 downgrade 拒绝；共享测试覆盖 registry、freshness、日期主体矩阵、resolver 与架构边界。
 
 结论：`P1-B4-stk_limit-M1` **通过**，下一步只能在独立授权后进入 M2。M1 只证明代码合同和静态/自动化门禁，不代表 migration 已在任何 PostgreSQL 实例应用，也不代表生产已释放空间。
+
+## 10. `P1-B4-stk_limit-M2` 隔离 PostgreSQL 验收（2026-08-30）
+
+M2 在本轮创建的 PostgreSQL 18.4 一次性实例执行。实例只监听 `/private/tmp` 下随机 Unix socket，`listen_addresses=''`、`inet_server_addr()` 为空；应用角色 `stk_limit_m2_app` 为非超级用户，也没有建库、建角色或复制权限。每次 Alembic 前都通过只含目标 URL 的独立 env 文件核对数据库、用户、socket、端口、恢复状态和 data directory，未读取仓库 `.env.web.local`。本轮没有连接 Prod、请求 Tushare、部署、创建 TaskRun 或修改 schedule/workflow。
+
+1. 220,000 行单月正向边界库成功从 revision 161 升级到 162。Raw relation OID 与主键/日期索引 OID、定义、valid/ready 状态全部保持不变并留在 `pg_default`；Serving 成为 0 B 普通 view。Raw/view 均为 220,000 行和 220,000 个唯一身份，五业务字段双向差异及 `fetched_at -> created_at/updated_at` 投影差异均为 0。
+2. Raw 的 `lake_raw_reader SELECT`、Serving reader 的 `SELECT WITH GRANT OPTION`、owner、relation/column comments 和独立 DML trigger 全部恢复。Serving `INSERT/UPDATE/DELETE` 均返回 SQLSTATE `55000`；Raw 插入、更新、删除立即由 view 可见且事务回滚后无残留。
+3. 正式 `DatasetWriter` 只写 `raw_tushare.stk_limit`，在同一事务内可从 view 读到更新值和时间戳；回滚后 Raw/view 都恢复原值，报告目标表和保存行数分别为 `raw_tushare.stk_limit`、1。
+4. 220,001 行、业务字段差异、身份差异、Raw 列类型漂移、未知依赖、缺失 Raw 日期索引和额外 Raw ACL 七类负向场景全部在 Serving DDL 前失败；revision、relation/OID、索引、列、ACL、comments、trigger 和行数快照均保持不变。另一个数据库在完成 `DROP TABLE -> CREATE VIEW -> trigger` 后注入错误，事务完整回滚到 revision 161 和原两张物理表。
+5. 20 日市场情绪复合键 join 与按交易日存在性查询在切换前后结果行数和 hash 一致，切换后分别下推 Raw 主键和 `idx_raw_tushare_stk_limit_trade_date`，无临时块。隔离样本耗时约为 `0.214 -> 0.194 ms`、`0.069 -> 0.062 ms`，只作为计划与索引形态证据，不替代生产 SLA。
+
+隔离实例已停止，临时数据目录已删除；完整报告保留在 `/private/tmp/goldenshare_stk_limit_m2_report.json`。`P1-B4-stk_limit-M2` **通过**，revision 162 和业务代码无需修改。生产仍为 revision 161、Raw/Serving 双物理表和旧双写部署，尚未释放 664,354,816 B；下一阶段只能在独立授权后进入生产 M3a。
