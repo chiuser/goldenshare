@@ -1,8 +1,8 @@
 # ETF 基础信息重建与下游数据审计清理技术方案 v1
 
-状态：核心业务口径 D1-D20 不变；LLD 已重新基线 / M0-M9B 已完成代码，M9A 已按运营指定区间完成生产只读 Preview，M9B 仅完成受控 Submit 能力 / 原全历史 Preview 已作废，未执行生产重建、生产删表、TaskRun 提交或分钟补拉，M10-M12 尚未开始
+状态：核心业务口径 D1-D20 不变；LLD 已重新基线 / M0-M10 已完成，候选环境、总回归和生产只读发布门禁已通过 / 原全历史 Preview 已作废，未执行生产重建、生产删表、TaskRun 提交或分钟补拉，M11-M12 尚未开始
 创建日期：2026-08-28
-最近审计：2026-08-29（M9A/P9A 已按 2026-01-01 至 2026-08-28 指定区间完成生产只读 Preview；需补 252 个 ETF、252 个 action、1,774 个 unit；M9B/P9B 已按首批 10 个 action 的口径完成代码，但没有在生产创建 TaskRun）
+最近审计：2026-08-29（M10 已通过临时 PostgreSQL 18 升级/故障注入、全量回归和生产只读审计；同区间 Preview 复算仍为 252 个 ETF、252 个 action、1,774 个 unit；未在生产创建 TaskRun）
 适用范围：`etf_basic`、ETF 下游历史数据、ETF 对象池、ETF 查询与运维消费者
 低层设计：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
 
@@ -836,6 +836,10 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 2. 固化第 3.4 节只读 SQL 为生产 runbook；不新增通用事实清理 service、CLI、删除 manifest 或 apply。
 3. 候选环境不执行生产补拉或事实删除。
 
+实现结果：在一次性 PostgreSQL 18 候选库中，从旧 head `20260828_000156` 升级到 `20260829_000157`，确认只删除 `ops.etf_series_active`，`ops.index_series_active` 及其样本保持不变，Alembic current 与唯一 head 一致；新 Web 进程的 health/docs 均返回 200。候选 fixture 同时验证了 ETF Basic 完整快照的 `.OF` raw 保留、`.SH/.SZ` serving 发布、幂等重跑和失败原子回滚，以及 fund daily raw 已提交后 serving 发布失败可观测、可重试的两阶段边界。
+
+后端目标测试、完整 Web、架构门禁、CLI、Ruff、前端 typecheck/rules/test/build、文档完整性和项目 Python 3.13 发布预检均通过。生产只读 runbook 在 `REPEATABLE READ + READ ONLY`、180 秒语句门禁下完成并回滚：四个 ETF 下游没有非交易所后缀、主数据缺失、交易所冲突、P 状态或“L 但无上市日”事实；监控配置没有不可请求 ETF；仅 `core_serving.fund_daily_bar` 有 3 个代码、2,091 行早于当前 `list_date`，按 D7 保留，不形成删除候选。2026-01-01 至 2026-08-28 的分钟 Preview 再次得到 252 个代码、252 个 action、1,774 个 unit、1,774–7,096 次源请求边界，未执行 submit。
+
 ### M11：生产切换、Basic 重建与只读审计
 
 1. 获得独立生产授权后，在维护窗口发布新代码并删除旧激活池表。
@@ -876,7 +880,7 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 4. 激活池消费者按 planner、fund daily、Health、monitor、review 顺序切换；运行时消费者清零后才允许删除 DAO/model/seed 与表。
 5. 分钟 alignment 只补运营指定区间内、按上市日和 SSE 开市日裁剪后的代码/频率前缀与尾部请求覆盖；不把停牌、内部空洞或纯休市范围猜成缺口。先只实现覆盖全部当前可请求 ETF × 五频率的 preview，用真实规模取得 TaskRun 数量和批次拍板后，才允许实现正式 submit。
 
-M9A/P9A 已按 `2026-01-01` 至 `2026-08-28` 指定区间完成代码和生产只读 Preview；真实计划需补 252 个 ETF、252 个 action、1,774 个 unit，源请求下界 1,774、分页请求上界 7,096。此前默认追溯上市日的 44,793-unit 计划已作废。M9B/P9B 已完成受控 Submit 代码，首次实际批次已拍板为 10 个 action，但本阶段没有执行该命令。生产旧表仍存在，且未创建 TaskRun、未请求 Tushare、未执行分钟补拉，不能把 P8-P9B 代码完成写成生产删表或数据对齐完成。下一阶段是 M10 候选环境发布门禁。
+M9A/P9A 已按 `2026-01-01` 至 `2026-08-28` 指定区间完成代码和生产只读 Preview；真实计划需补 252 个 ETF、252 个 action、1,774 个 unit，源请求下界 1,774、分页请求上界 7,096。此前默认追溯上市日的 44,793-unit 计划已作废。M9B/P9B 已完成受控 Submit 代码，首次实际批次已拍板为 10 个 action，但没有执行该命令。M10 已完成候选环境、总回归、生产只读审计和同口径 Preview 复算，当前代码具备进入 M11 生产维护窗口的条件；生产旧表仍存在，且未创建 TaskRun、未请求 Tushare、未执行分钟补拉，不能把发布门禁通过写成生产删表或数据对齐完成。下一阶段是取得独立授权后执行 M11。
 
 详细代码点、测试矩阵、下游只读复核、分钟补拉额度门禁和逐步开发流程见：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)。
 

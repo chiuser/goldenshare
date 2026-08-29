@@ -1,6 +1,6 @@
 # ETF 基础信息重建与下游数据审计清理 LLD v1
 
-状态：重新基线完成；P0-P9B 已完成代码，P9A 已按运营指定区间完成生产只读 Preview，P9B 仅完成受控 Submit 能力；原全历史 Preview 已作废，未执行生产快照重建、生产删表、TaskRun 提交或分钟补拉，P10-P12 尚未开始
+状态：重新基线完成；P0-P10 已完成，候选环境、总回归和生产只读发布门禁已通过；原全历史 Preview 已作废，未执行生产快照重建、生产删表、TaskRun 提交或分钟补拉，P11-P12 尚未开始
 创建日期：2026-08-28
 依据方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)
 适用代码：`src/foundation/**`、`src/ops/**`、`src/app/**`、`frontend/**`、`alembic/**`
@@ -38,7 +38,7 @@
 | R20 | 曾给 Basic universe source 再挂一个 `resource='requestable_etf'` | Basic 没有多资源选择，这个伪 resource 没有信息量，还容易被理解成新池 | source 只保留 `type='core_serving_etf_basic'`；全市场/SH/SZ 由三个既有 builder 固定决定 |
 | R21 | 分钟 preview 未限定 6,500 万行 raw 的查询形状和 Prod 超时 | 可能出现 ETF×频率 N+1 查询或无界聚合，给生产库制造长期压力 | P9A 按月执行集合统计，每条 SQL 只裁到一个月分区并受 180 秒 timeout 保护；现有物理结构仍不能满足时停止，不擅自加索引 |
 
-原 P2-P9 的文字不得再作为开发或发布依据。本文 P0-P9B 的执行记录均为当前有效基线；P9B 只能消费指定区间版本的 P9A JSON，已作废的无开始日全历史 Preview 不得作为后续输入。
+原 P2-P9 的文字不得再作为开发或发布依据。本文 P0-P10 的执行记录均为当前有效基线；P9B 只能消费指定区间版本的 P9A JSON，已作废的无开始日全历史 Preview 不得作为后续输入。
 
 ### 1.2 重排后的核心结果
 
@@ -1542,6 +1542,21 @@ P9B 完成门禁：只有显式 submit 命令才创建 TaskRun；提交前只读
 
 完成门禁：D1-D20 测试矩阵全部有证据，不能只以“测试总数通过”代替口径对账。
 
+#### P10 执行记录（2026-08-29）
+
+1. 在 `/private/tmp` 创建一次性 PostgreSQL 18 候选环境，从旧 Alembic head `20260828_000156` 完整升级到 `20260829_000157`。历史迁移需要的 `lake_raw_writer` 角色只在该候选库中按真实前置条件创建；升级后 `ops.etf_series_active` 已不存在，`ops.index_series_active` 及其样本仍存在，Alembic current 与唯一 head 一致。候选环境已停止，未连接或修改 Prod。
+2. 候选环境暴露出一个既有迁移历史事实：从空库回放的历史迁移只创建旧 `raw.etf_basic/core.etf_basic` 与 `raw.fund_daily/core.fund_daily_bar` 形态，不能自然得到当前 `raw_tushare/core_serving` 形态。P10 没有伪造迁移历史或扩大 migration 范围，而是在一次性候选库中显式创建当前四个模型表用于业务逻辑 fixture；这不影响本次旧池 drop migration 的真实性，但 P11 只能在已具备当前 schema 的正式环境执行，不得把空库回放当作当前 schema 的构建方式。
+3. 新代码启动的候选 Web 进程中 `/api/health` 与 `/api/docs` 均返回 200。Basic 小型完整快照验证 raw 保留 `100000.OF/159919.SZ/510300.SH`，serving 只发布两条 `.SH/.SZ`，重复执行幂等；注入 serving 发布失败时，同一 snapshot 事务完整回滚并保留上一版 raw/serving。
+4. fund daily 故障注入验证 raw 三行先独立提交；serving 发布失败返回结构化 `fund_daily_serving_publish_failed`，不回滚 raw、不伪造 serving 成功；重试后 raw 仍为三行，serving 只发布当前合格的 `510300.SH`。
+5. D1-D20 目标回归 412 个测试通过；完整 Web 为 870 passed、1 skipped；架构测试 95 个通过；CLI 为 56 passed、1 deselected。被排除的是此前已由用户确认后续单独修复的 progress reporter 旧测试，本阶段没有修改。Ruff、Alembic 单 head、文档完整性和 `git diff --check` 均通过。
+6. 前端完整测试 39 个文件、146 个用例通过，typecheck、规则检查和生产构建通过；构建仅保留已有的大 chunk warning。使用项目要求的 Python 3.13 环境执行 `scripts/release-preflight.sh`，Python 编译、Web 冒烟、16 个最小回归、165 个 Web 关键测试、5 个架构测试和前端生产构建全部通过。
+7. 生产只读 runbook 使用 `REPEATABLE READ + READ ONLY`、180 秒 statement timeout 和 5 秒 lock timeout，约 80 秒完成并明确 `ROLLBACK`。四个 ETF 下游只有总量行，没有 `NON_EXCHANGE_ETF_SUFFIX`、`CODE_NOT_IN_ETF_MASTER`、`EXCHANGE_MISMATCH`、`PENDING_ETF_HAS_FACT` 或 `LISTED_WITHOUT_LIST_DATE_HAS_FACT`；实时监控 pool/rule 也没有不可请求代码。
+8. 同一审计仅发现 `core_serving.fund_daily_bar` 有 3 个代码、2,091 行早于当前 `list_date`。这属于 D7 已明确的“当前 list_date 变晚不追溯删除”边界，因此删除候选仍为 0。受保护身份校验记录 `raw_tushare.fund_daily` 的 1 条 `.OF` 事实和 `raw_tushare.etf_share_size` 的 234,042 行/1,643 个代码；历史 realtime alert/minute stat 均为 0 行，没有执行删除。
+9. 使用生产只读连接重新生成 `2026-01-01` 至 `2026-08-28` Preview：当前可请求/参与对齐 ETF 均为 1,647，raw 已覆盖 6,975 个 target/frequency，缺少前缀 1,260 个 target/frequency、尾部 0；最终为 252 个代码、252 个 action、1,774 个 unit，请求边界 1,774–7,096。最早 action 起点为 2026-01-05，最晚为 2026-08-28；`request_target_hash=8972736114ecbd14d3245e6c59d80c63b463752a15db5b8bfe7ee5ca7ebd31c3`。结果与 P9A 规模一致，未调用 submit。
+10. P10 后置 CodeGraph 为 2,834 个文件、50,276 个节点和 127,383 条边。`EtfSeriesActive` 无结果，旧 endpoint/CLI/type 只存在于明确退场负向测试；`IndexSeriesActive` 仍有 40 个影响符号；alignment plan/submit 没有 API、schedule、runtime 或前端消费者，只有显式 CLI 入口。P10 没有执行生产 DDL、Basic 重建、TaskRun 创建、Tushare 请求、worker 或分钟补拉。
+
+P10 完成后，当前代码和迁移具备进入 P11 生产维护窗口的条件。这个结论只表示发布门禁通过，不构成生产执行授权，也不包含 P12 的首批 10-action 分钟补拉授权。
+
 ### P11：生产切换、Basic 重建与只读审计
 
 本阶段需要用户单独授权，授权范围只包含新版本切换、`ops.etf_series_active` drop、`etf_basic` 正式快照重建和下游只读验收，不包含分钟补拉或下游事实删除。
@@ -1736,7 +1751,7 @@ Foundation planner/writer 只访问 Foundation 的 `core_serving.etf_basic` DAO�
 2. 生产复核对象或统计结果若与本 LLD 不一致，必须重新审计并修订 LLD。
 3. Tushare 关键字段、分页或返回范围若与本轮实测不一致，必须先修本地源文档和设计。
 4. `NON_EXCHANGE_ETF_SUFFIX` 若实际非零，必须停止并另立精确一次性方案；`PENDING_ETF_HAS_FACT` 只报告，不自动删除。
-5. P9A 真实 preview 的 action、unit 或请求上下界达到不可接受量级时，停在 P9A，不实现 submit。可以重新评审无额外请求的 action 分组或执行批次，但不能取消上市日、已有覆盖和正式 TaskRun 主链门禁。
+5. P9A 真实 preview 的规模门禁已关闭：用户已接受 252 个 action、1,774 个 unit 和 1,774–7,096 次请求边界，并单独授权 P9B 开发；该决定不自动授权生产 submit。
 
 ---
 
@@ -1750,4 +1765,4 @@ Foundation planner/writer 只访问 Foundation 的 `core_serving.etf_basic` DAO�
 4. 明确保护 `fund_adj`、`etf_share_size`、公募基金域、指数池和历史实时事实。
 5. 开发顺序阻止了“先删表再找消费者”，并明确当前不建设下游事实清理系统。
 
-本文中 P0-P9B 的执行记录代表对应阶段代码已完成；原 P2-P9 以及 P9A 的无开始日全历史 Preview 均已作废。P9A 完成指定区间只读 Preview，P9B 只完成显式、受控、原子创建现有 TaskRun 的能力，P10-P12 尚未实施。本 LLD 不授权执行生产快照重建、生产删表迁移、下游删除、TaskRun 提交或分钟补拉。当前停在 P9B 代码边界，下一阶段是 P10 候选环境发布门禁；首次 10-action 生产批次仍须等待部署后 P12 的独立授权。
+本文中 P0-P10 的执行记录代表对应阶段已经完成；原 P2-P9 以及 P9A 的无开始日全历史 Preview 均已作废。P9A 完成指定区间只读 Preview，P9B 只完成显式、受控、原子创建现有 TaskRun 的能力，P10 已完成候选环境、总回归和生产只读发布门禁。本 LLD 不授权执行生产快照重建、生产删表迁移、下游删除、TaskRun 提交或分钟补拉。当前具备进入 P11 生产维护窗口的条件，但仍需用户单独授权；首次 10-action 生产批次继续等待部署完成后 P12 的第二次独立授权。
