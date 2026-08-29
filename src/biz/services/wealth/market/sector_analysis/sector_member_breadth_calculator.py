@@ -47,20 +47,39 @@ class SectorMemberBreadthCalculator:
             )
         )
         market_index = self.index_market_facts(market_facts)
+        return self._calculate_composition_from_index(
+            metric=metric,
+            target_date=target_date,
+            relations=relation_rows,
+            market_index=market_index,
+            open_dates=open_dates,
+            ma_period=ma_period,
+        )
+
+    def _calculate_composition_from_index(
+        self,
+        *,
+        metric: SectorMemberBreadthMetric,
+        target_date: date,
+        relations: tuple[MemberRelationFact, ...],
+        market_index: dict[tuple[str, date], MemberMarketFact],
+        open_dates: tuple[date, ...],
+        ma_period: SectorMemberBreadthMaPeriod,
+    ) -> MemberBreadthCompositionFact:
         if metric == "MEMBER_COUNT":
             return self._member_composition(
-                relations=relation_rows,
+                relations=relations,
                 target_date=target_date,
                 market_index=market_index,
             )
         if metric == "TURNOVER":
             return self._turnover_composition(
-                relations=relation_rows,
+                relations=relations,
                 target_date=target_date,
                 market_index=market_index,
             )
         return self._ma_composition(
-            relations=relation_rows,
+            relations=relations,
             target_date=target_date,
             market_index=market_index,
             open_dates=open_dates,
@@ -79,17 +98,32 @@ class SectorMemberBreadthCalculator:
         relations: Iterable[MemberRelationFact],
         market_facts: Iterable[MemberMarketFact],
     ) -> tuple[MemberBreadthRankFact, ...]:
-        relation_rows = tuple(relations)
-        market_rows = tuple(market_facts)
+        requested_sector_codes = tuple(dict.fromkeys(sector_codes))
+        if not requested_sector_codes:
+            return ()
+        relations_by_sector: dict[str, list[MemberRelationFact]] = {
+            sector_code: [] for sector_code in requested_sector_codes
+        }
+        for relation in relations:
+            if relation.trade_date != target_date:
+                continue
+            bucket = relations_by_sector.get(relation.sector_code)
+            if bucket is not None:
+                bucket.append(relation)
+        sorted_relations_by_sector = {
+            sector_code: tuple(
+                sorted(rows, key=lambda row: (row.stock_code, row.sector_code))
+            )
+            for sector_code, rows in relations_by_sector.items()
+        }
+        market_index = self.index_market_facts(market_facts)
         compositions: dict[str, MemberBreadthCompositionFact] = {}
-        for sector_code in sector_codes:
-            compositions[sector_code] = self.calculate_composition(
+        for sector_code in requested_sector_codes:
+            compositions[sector_code] = self._calculate_composition_from_index(
                 metric=metric,
                 target_date=target_date,
-                relations=(
-                    row for row in relation_rows if row.sector_code == sector_code
-                ),
-                market_facts=market_rows,
+                relations=sorted_relations_by_sector[sector_code],
+                market_index=market_index,
                 open_dates=open_dates,
                 ma_period=ma_period,
             )
@@ -155,16 +189,29 @@ class SectorMemberBreadthCalculator:
         relations: Iterable[MemberRelationFact],
         market_facts: Iterable[MemberMarketFact],
     ) -> MemberBreadthDetailsFact:
-        relation_rows = tuple(
-            row for row in relations if row.sector_code == sector_code
-        )
-        market_rows = tuple(market_facts)
+        requested_dates = set(relation_dates)
+        requested_dates.add(target_date)
+        relations_by_date: dict[date, list[MemberRelationFact]] = {
+            item: [] for item in requested_dates
+        }
+        for relation in relations:
+            if relation.sector_code != sector_code:
+                continue
+            bucket = relations_by_date.get(relation.trade_date)
+            if bucket is not None:
+                bucket.append(relation)
+        sorted_relations_by_date = {
+            item: tuple(sorted(rows, key=lambda row: (row.stock_code, row.sector_code)))
+            for item, rows in relations_by_date.items()
+        }
+        market_index = self.index_market_facts(market_facts)
+        target_relations = sorted_relations_by_date[target_date]
         compositions = tuple(
-            self.calculate_composition(
+            self._calculate_composition_from_index(
                 metric=metric,
                 target_date=target_date,
-                relations=relation_rows,
-                market_facts=market_rows,
+                relations=target_relations,
+                market_index=market_index,
                 open_dates=open_dates,
                 ma_period=ma_period,
             )
@@ -174,11 +221,11 @@ class SectorMemberBreadthCalculator:
         trend: list[MemberBreadthTrendPointFact] = []
         for trend_date in relation_dates:
             point_compositions = tuple(
-                self.calculate_composition(
+                self._calculate_composition_from_index(
                     metric=metric,
                     target_date=trend_date,
-                    relations=relation_rows,
-                    market_facts=market_rows,
+                    relations=sorted_relations_by_date[trend_date],
+                    market_index=market_index,
                     open_dates=tuple(item for item in open_dates if item <= trend_date),
                     ma_period=ma_period,
                 )
@@ -209,10 +256,8 @@ class SectorMemberBreadthCalculator:
             direction=direction,
             ma_period=ma_period,
             open_dates=open_dates,
-            relations=tuple(
-                row for row in relation_rows if row.trade_date == target_date
-            ),
-            market_facts=market_rows,
+            relations=target_relations,
+            market_index=market_index,
         )
         return MemberBreadthDetailsFact(
             compositions=compositions,
@@ -377,9 +422,8 @@ class SectorMemberBreadthCalculator:
         ma_period: SectorMemberBreadthMaPeriod,
         open_dates: tuple[date, ...],
         relations: tuple[MemberRelationFact, ...],
-        market_facts: tuple[MemberMarketFact, ...],
+        market_index: dict[tuple[str, date], MemberMarketFact],
     ) -> tuple[MemberBreadthMemberFact, ...]:
-        market_index = self.index_market_facts(market_facts)
         amount_rows: dict[str, Decimal] = {}
         for relation in relations:
             market = market_index.get((relation.stock_code, target_date))

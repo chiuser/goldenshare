@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import date, timedelta
 from decimal import Decimal
+from time import perf_counter
 
 import pytest
 
@@ -9,8 +11,14 @@ from src.biz.services.wealth.market.sector_analysis.sector_member_breadth_calcul
     SectorMemberBreadthCalculator,
 )
 from src.biz.services.wealth.market.sector_analysis.sector_member_breadth_contract import (
+    MemberBreadthDetailsFact,
+    MemberBreadthRankFact,
+    MemberBreadthTrendPointFact,
     MemberMarketFact,
     MemberRelationFact,
+    SectorMemberBreadthDirection,
+    SectorMemberBreadthMaPeriod,
+    SectorMemberBreadthMetric,
     parse_member_breadth_direction,
     parse_member_breadth_history_range,
     parse_member_breadth_ma_period,
@@ -22,6 +30,18 @@ from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract imp
 
 
 TARGET_DATE = date(2026, 8, 28)
+
+
+class _IndexCountingCalculator(SectorMemberBreadthCalculator):
+    def __init__(self) -> None:
+        self.market_index_build_count = 0
+
+    def index_market_facts(
+        self,
+        facts: Iterable[MemberMarketFact],
+    ) -> dict[tuple[str, date], MemberMarketFact]:
+        self.market_index_build_count += 1
+        return SectorMemberBreadthCalculator.index_market_facts(facts)
 
 
 def _open_dates(count: int) -> tuple[date, ...]:
@@ -64,6 +84,182 @@ def _market(
         amount_thousand_yuan=None if amount is None else Decimal(amount),
         adj_factor=None if adj_factor is None else Decimal(adj_factor),
     )
+
+
+def _legacy_rank_requested_metric(
+    calculator: SectorMemberBreadthCalculator,
+    *,
+    sector_codes: tuple[str, ...],
+    target_date: date,
+    metric: SectorMemberBreadthMetric,
+    direction: SectorMemberBreadthDirection,
+    ma_period: SectorMemberBreadthMaPeriod,
+    open_dates: tuple[date, ...],
+    relations: tuple[MemberRelationFact, ...],
+    market_facts: tuple[MemberMarketFact, ...],
+) -> tuple[MemberBreadthRankFact, ...]:
+    compositions = {
+        sector_code: calculator.calculate_composition(
+            metric=metric,
+            target_date=target_date,
+            relations=(row for row in relations if row.sector_code == sector_code),
+            market_facts=market_facts,
+            open_dates=open_dates,
+            ma_period=ma_period,
+        )
+        for sector_code in sector_codes
+    }
+    eligible = []
+    ineligible = []
+    for sector_code, composition in compositions.items():
+        value = calculator.selected_pct(composition, direction=direction)
+        if composition.coverage.eligible and value is not None:
+            eligible.append((sector_code, value, composition))
+        else:
+            ineligible.append((sector_code, composition))
+    eligible.sort(key=lambda item: (-item[1], item[0]))
+    ineligible.sort(key=lambda item: item[0])
+
+    rank_total = len(eligible)
+    ranked: list[MemberBreadthRankFact] = []
+    previous_value: Decimal | None = None
+    previous_rank = 0
+    for position, (sector_code, value, composition) in enumerate(eligible, start=1):
+        rank = previous_rank if previous_value == value else position
+        ranked.append(
+            MemberBreadthRankFact(
+                sector_code=sector_code,
+                metric_calculable=True,
+                metric_value_pct=value,
+                rank=rank,
+                rank_total=rank_total,
+                coverage=composition.coverage,
+                reason_codes=composition.coverage.reason_codes,
+            )
+        )
+        previous_value = value
+        previous_rank = rank
+    ranked.extend(
+        MemberBreadthRankFact(
+            sector_code=sector_code,
+            metric_calculable=(
+                calculator.selected_pct(composition, direction=direction) is not None
+            ),
+            metric_value_pct=None,
+            rank=None,
+            rank_total=None,
+            coverage=composition.coverage,
+            reason_codes=composition.coverage.reason_codes,
+        )
+        for sector_code, composition in ineligible
+    )
+    return tuple(ranked)
+
+
+def _legacy_build_details(
+    calculator: SectorMemberBreadthCalculator,
+    *,
+    sector_code: str,
+    target_date: date,
+    direction: SectorMemberBreadthDirection,
+    ma_period: SectorMemberBreadthMaPeriod,
+    open_dates: tuple[date, ...],
+    relation_dates: tuple[date, ...],
+    relations: tuple[MemberRelationFact, ...],
+    market_facts: tuple[MemberMarketFact, ...],
+) -> MemberBreadthDetailsFact:
+    relation_rows = tuple(row for row in relations if row.sector_code == sector_code)
+    compositions = tuple(
+        calculator.calculate_composition(
+            metric=metric,
+            target_date=target_date,
+            relations=relation_rows,
+            market_facts=market_facts,
+            open_dates=open_dates,
+            ma_period=ma_period,
+        )
+        for metric in ("MEMBER_COUNT", "TURNOVER", "MA_POSITION")
+    )
+    trend = []
+    for trend_date in relation_dates:
+        point_compositions = tuple(
+            calculator.calculate_composition(
+                metric=metric,
+                target_date=trend_date,
+                relations=relation_rows,
+                market_facts=market_facts,
+                open_dates=tuple(item for item in open_dates if item <= trend_date),
+                ma_period=ma_period,
+            )
+            for metric in ("MEMBER_COUNT", "TURNOVER", "MA_POSITION")
+        )
+        trend.append(
+            MemberBreadthTrendPointFact(
+                trade_date=trend_date,
+                member_pct=calculator.selected_pct(
+                    point_compositions[0], direction=direction
+                ),
+                turnover_pct=calculator.selected_pct(
+                    point_compositions[1], direction=direction
+                ),
+                ma_position_pct=calculator.selected_pct(
+                    point_compositions[2], direction=direction
+                ),
+                member_reason_codes=point_compositions[0].coverage.reason_codes,
+                turnover_reason_codes=point_compositions[1].coverage.reason_codes,
+                ma_position_reason_codes=point_compositions[2].coverage.reason_codes,
+            )
+        )
+    target_relations = tuple(
+        row for row in relation_rows if row.trade_date == target_date
+    )
+    members = calculator._build_members(
+        target_date=target_date,
+        direction=direction,
+        ma_period=ma_period,
+        open_dates=open_dates,
+        relations=target_relations,
+        market_index=calculator.index_market_facts(market_facts),
+    )
+    return MemberBreadthDetailsFact(
+        compositions=compositions,
+        trend=tuple(trend),
+        members=members,
+    )
+
+
+def _equivalence_facts() -> tuple[
+    tuple[str, ...],
+    tuple[date, ...],
+    tuple[MemberRelationFact, ...],
+    tuple[MemberMarketFact, ...],
+]:
+    open_dates = _open_dates(60)
+    sector_codes = tuple(f"BK2{index:03d}.DC" for index in range(1, 5))
+    relations = tuple(
+        MemberRelationFact(
+            sector_code=sector_code,
+            trade_date=trade_date,
+            stock_code=f"{sector_index:02d}{member_index:04d}.SZ",
+            stock_name=f"股票{sector_index}-{member_index}",
+        )
+        for sector_index, sector_code in enumerate(sector_codes, start=1)
+        for trade_date in open_dates[-20:]
+        for member_index in range(1, 7)
+    )
+    market_facts = tuple(
+        _market(
+            stock_code=f"{sector_index:02d}{member_index:04d}.SZ",
+            trade_date=trade_date,
+            close=str(10 + day_index + member_index),
+            pct_change=str(((sector_index + member_index + day_index) % 3) - 1),
+            amount=str(100 + sector_index * 10 + member_index * 5 + day_index),
+        )
+        for sector_index in range(1, 5)
+        for member_index in range(1, 7)
+        for day_index, trade_date in enumerate(open_dates)
+    )
+    return sector_codes, open_dates, relations, market_facts
 
 
 def test_member_and_turnover_use_independent_denominators_and_ignore_factor_gaps() -> (
@@ -400,6 +596,177 @@ def test_future_market_and_members_do_not_change_past_details() -> None:
     )
 
     assert perturbed == baseline
+
+
+@pytest.mark.parametrize(
+    ("metric", "direction", "ma_period"),
+    [
+        (metric, direction, ma_period)
+        for metric in ("MEMBER_COUNT", "TURNOVER", "MA_POSITION")
+        for direction in ("UP", "DOWN")
+        for ma_period in ((5, 10, 15, 20, 30, 60) if metric == "MA_POSITION" else (20,))
+    ],
+)
+def test_rankings_match_legacy_oracle_for_the_full_metric_matrix(
+    metric: SectorMemberBreadthMetric,
+    direction: SectorMemberBreadthDirection,
+    ma_period: SectorMemberBreadthMaPeriod,
+) -> None:
+    sector_codes, open_dates, relations, market_facts = _equivalence_facts()
+    calculator = SectorMemberBreadthCalculator()
+
+    expected = _legacy_rank_requested_metric(
+        calculator,
+        sector_codes=sector_codes,
+        target_date=TARGET_DATE,
+        metric=metric,
+        direction=direction,
+        ma_period=ma_period,
+        open_dates=open_dates,
+        relations=relations,
+        market_facts=market_facts,
+    )
+    actual = calculator.rank_requested_metric(
+        sector_codes=sector_codes,
+        target_date=TARGET_DATE,
+        metric=metric,
+        direction=direction,
+        ma_period=ma_period,
+        open_dates=open_dates,
+        relations=relations,
+        market_facts=market_facts,
+    )
+
+    assert actual == expected
+
+
+@pytest.mark.parametrize("direction", ["UP", "DOWN"])
+@pytest.mark.parametrize("ma_period", [5, 10, 15, 20, 30, 60])
+def test_details_match_legacy_oracle_for_every_direction_and_ma_period(
+    direction: SectorMemberBreadthDirection,
+    ma_period: SectorMemberBreadthMaPeriod,
+) -> None:
+    sector_codes, open_dates, relations, market_facts = _equivalence_facts()
+    calculator = SectorMemberBreadthCalculator()
+    relation_dates = open_dates[-20:]
+
+    expected = _legacy_build_details(
+        calculator,
+        sector_code=sector_codes[0],
+        target_date=TARGET_DATE,
+        direction=direction,
+        ma_period=ma_period,
+        open_dates=open_dates,
+        relation_dates=relation_dates,
+        relations=relations,
+        market_facts=market_facts,
+    )
+    actual = calculator.build_details(
+        sector_code=sector_codes[0],
+        target_date=TARGET_DATE,
+        direction=direction,
+        ma_period=ma_period,
+        open_dates=open_dates,
+        relation_dates=relation_dates,
+        relations=relations,
+        market_facts=market_facts,
+    )
+
+    assert actual == expected
+
+
+def test_realistic_level3_ma60_rankings_build_one_market_index() -> None:
+    calculator = _IndexCountingCalculator()
+    open_dates = _open_dates(60)
+    sector_codes = tuple(f"BK{index:04d}.DC" for index in range(1, 338))
+    stock_codes = tuple(f"S{index:06d}.SZ" for index in range(5_523))
+    relations: list[MemberRelationFact] = []
+    relation_index = 0
+    for sector_index, sector_code in enumerate(sector_codes):
+        sector_size = 51 if sector_index < 73 else 50
+        for _ in range(sector_size):
+            stock_code = stock_codes[relation_index % len(stock_codes)]
+            relations.append(
+                MemberRelationFact(
+                    sector_code=sector_code,
+                    trade_date=TARGET_DATE,
+                    stock_code=stock_code,
+                    stock_name=None,
+                )
+            )
+            relation_index += 1
+    market_facts = tuple(
+        _market(
+            stock_code=stock_code,
+            trade_date=trade_date,
+            close=str(10 + day_index),
+        )
+        for stock_code in stock_codes
+        for day_index, trade_date in enumerate(open_dates)
+    )
+
+    started_at = perf_counter()
+    ranked = calculator.rank_requested_metric(
+        sector_codes=sector_codes,
+        target_date=TARGET_DATE,
+        metric="MA_POSITION",
+        direction="UP",
+        ma_period=60,
+        open_dates=open_dates,
+        relations=relations,
+        market_facts=market_facts,
+    )
+    elapsed_seconds = perf_counter() - started_at
+
+    assert len(relations) == 16_923
+    assert len(ranked) == 337
+    assert all(item.rank is not None for item in ranked)
+    assert calculator.market_index_build_count == 1
+    assert elapsed_seconds < 2
+
+
+def test_realistic_largest_details_build_one_market_index() -> None:
+    calculator = _IndexCountingCalculator()
+    open_dates = _open_dates(119)
+    relation_dates = open_dates[-60:]
+    stock_codes = tuple(f"L{index:06d}.SZ" for index in range(625))
+    relations = tuple(
+        MemberRelationFact(
+            sector_code="BK1205.DC",
+            trade_date=trade_date,
+            stock_code=stock_code,
+            stock_name=None,
+        )
+        for trade_date in relation_dates
+        for stock_code in stock_codes
+    )
+    market_facts = tuple(
+        _market(
+            stock_code=stock_code,
+            trade_date=trade_date,
+            close=str(10 + day_index),
+        )
+        for stock_code in stock_codes
+        for day_index, trade_date in enumerate(open_dates)
+    )
+
+    started_at = perf_counter()
+    details = calculator.build_details(
+        sector_code="BK1205.DC",
+        target_date=TARGET_DATE,
+        direction="UP",
+        ma_period=60,
+        open_dates=open_dates,
+        relation_dates=relation_dates,
+        relations=relations,
+        market_facts=market_facts,
+    )
+    elapsed_seconds = perf_counter() - started_at
+
+    assert len(details.members) == 625
+    assert len(details.trend) == 60
+    assert calculator.market_index_build_count == 1
+    assert elapsed_seconds < 2
 
 
 def test_member_breadth_parsers_reject_unapproved_values() -> None:
