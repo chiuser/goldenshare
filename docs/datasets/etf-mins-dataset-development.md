@@ -1,6 +1,6 @@
 # ETF 历史分钟行情数据集接入方案 v1
 
-状态：Basic 驱动、Preview 和普通手动任务多代码扇开已落地；旧 alignment Submit 已删除；待部署和独立生产执行授权
+状态：Basic 驱动、Preview 和普通手动任务多代码扇开已落地；旧 alignment Submit 已删除；2026 年指定区间生产补拉与对账已完成
 创建日期：2026-08-24
 最近更新：2026-08-29
 LLD：[ETF 历史分钟行情数据集 LLD v1](/Users/congming/github/goldenshare/docs/datasets/etf-mins-dataset-low-level-design-v1.md)
@@ -10,7 +10,7 @@ LLD：[ETF 历史分钟行情数据集 LLD v1](/Users/congming/github/goldenshar
 
 `etf_mins` 维护 Tushare 原生 ETF 历史分钟行情，唯一物理事实表为 `raw_tushare.etf_minute_bar`。当前代码不再读取 ETF 激活池；所有按代码展开的请求都由 `core_serving.etf_basic` 的统一当前可请求 selector 驱动，并在生成窗口前把起点裁到 ETF 上市日。
 
-本次对象来源切换只改变未来请求规划，不删除既有分钟事实，也不自动补齐全量历史。生产对齐由主方案 P9-P12 单独 Preview、授权和执行。已经执行的 unit 保持有效；后续范围一律以新 Preview 重算，不从已取消 TaskRun 的汇总状态猜测。
+本次对象来源切换只改变未来请求规划，不删除既有分钟事实，也不自动补齐全量历史。主方案 P9-P12 已完成 `2026-01-01..2026-08-28` 指定区间的 Preview、授权、执行和对账。已经执行的 unit 保持有效；未来若处理其他区间，一律以新 Preview 重算，不从已取消 TaskRun 的汇总状态猜测。
 
 P9A 只提供必填的 `alignment_start_date/alignment_end_date`。它固定本次中国日期和一份 Basic snapshot，把全部当前可请求 ETF 放入 target hash；其中上市日晚于截止日的 ETF 只计数、不生成区间。其余对象按五个原生频率检查指定区间内的 raw 首尾边界和明确成功 TaskRun 请求证据；每只 ETF 的有效起点取指定开始日与上市日之后的首个 SSE 开市日，不检查内部逐日空洞，也不把纯休市范围规划成请求。
 
@@ -147,6 +147,6 @@ P9A 对成功 TaskRun 的覆盖解析同步兼容历史单代码字符串和新�
 
 本轮选择“一个普通手动任务”意味着接受一个已知的小额重复请求：`159539.SZ` 的 `1min` 会从 `2026-01-05` 开始，重复请求此前已覆盖的 2026 年上半年三个 2 个月窗口；幂等 upsert 不会产生重复事实，预计总 unit 从精确 Preview 的 1,333 增至 1,336。若要求完全不重复，只能把该代码拆成额外手动任务，这与本轮单任务目标冲突。
 
-生产执行前确认没有开放的 `etf_mins` TaskRun，并避开日常 schedule 39 的执行窗口；如时间重叠则临时暂停该 schedule。任务完成后复核 raw 物理覆盖并重跑 Preview。多代码代码与回归已完成；未部署、未授权继续生产补拉。
+生产执行记录：门禁确认开放 `etf_mins` TaskRun 为 0，schedule 39 不与本轮重叠，181 个代码全部当前可请求。普通手动 TaskRun `10117` 以一个任务展开 1,336 个 unit，全部成功，抓取并保存 7,606,095 行，失败、拒绝、去重和 issue 均为 0。补后 Preview 确认 1,647 个当前可请求 ETF 的 8,235 个代码/频率组合全部由 raw 覆盖，prefix/suffix 缺口、action 和 unit 均为 0。本结论不包括区间内部空洞审计。
 
 实施验收：Definition/manual API/catalog 已统一暴露多值 `ts_code`；单代码仍查单 target，多代码仅查一次 snapshot，任一无效代码整单拒绝；每个 unit 仍使用标量代码和现有切窗。Preview 兼容历史单代码与新数组覆盖，旧 Submit 命令和 service 已删除。详细文件、测试数和 CodeGraph 证据见主 LLD 的“R1-R4 实施记录”。

@@ -1,8 +1,8 @@
 # ETF 基础信息重建与下游数据审计清理技术方案 v1
 
-状态：核心业务口径 D1-D20 不变；M0-M11 已完成，M12 旧 alignment Submit 已删除、普通 `etf_mins` 手动任务多代码扇开代码已完成；待部署和独立生产执行授权；原全历史 Preview 已作废，未执行下游事实删除
+状态：核心业务口径 D1-D20 不变；M0-M12 已全部完成，旧 alignment Submit 已删除，普通 `etf_mins` 多代码手动任务已完成 2026 年指定区间补拉与生产对账；原全历史 Preview 已作废，未执行下游事实删除
 创建日期：2026-08-28
-最近审计：2026-08-29（首批 TaskRun `9842-9851` 全部成功；后续 `9862-10103` 按用户指令停止，61 个已成功、181 个已取消、开放任务 0，成功任务保存 1,603,395 行；停止后只读 Preview 已重算为 181 个代码、182 个 action、1,333 个 unit）
+最近审计：2026-08-29（普通多代码 TaskRun `10117` 以 `1336/1336` unit 成功结束，抓取并保存 7,606,095 行，失败、拒绝、去重和 issue 均为 0；补后只读 Preview 确认 1,647 个当前可请求 ETF 的 8,235 个代码/频率组合均由 raw 物理数据覆盖，prefix/suffix 缺口、action 和 unit 均为 0）
 适用范围：`etf_basic`、ETF 下游历史数据、ETF 对象池、ETF 查询与运维消费者
 低层设计：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
 
@@ -862,7 +862,7 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 
 执行结果：用户已部署 commit `6b07ae96c9dab353f801c80c9d77006e12ecc404`，部署流程已在 Basic 重建前将 Alembic 升至 `20260829_000157` 并重启服务，因此实际顺序与上述理想维护顺序不同，本记录不倒置或伪造执行证据。开工回查确认旧表已不存在、指数池仍有 6,014 行、相关开放 TaskRun 为 0，且 Web、Ops worker、Task completion worker、scheduler 和 realtime collector 均正常。随后精确暂停 schedule `1/39/40`，通过正式手工 action 仅创建一个 ETF Basic TaskRun `9837`，完成快照重建、raw/serving 对账、下游只读审计和实时链路冒烟后，只恢复这 3 个 schedule。未执行分钟 submit、事实删除或第二次 Tushare 请求。
 
-### M12：分钟补拉纠偏与普通手动任务多代码扇开（代码已完成，待部署与执行授权）
+### M12：分钟补拉纠偏与普通手动任务多代码扇开（已完成）
 
 1. 已完成 unit 保持有效，不回滚、不删除、不重复猜测。后续范围以 raw 首尾覆盖重跑 Preview 为唯一事实源。
 2. `etf_mins.ts_code` 改为公开多值输入；手动页面接受逗号分隔代码并由现有手动动作 API 保存为一个 TaskRun 的 `filters_json.ts_code` 数组。
@@ -873,7 +873,7 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 7. 生产执行前确认没有开放的 `etf_mins` TaskRun并避开 schedule 39 的执行窗口；如预计重叠则临时暂停，完成物理覆盖和最终 Preview 后恢复。
 8. 新契约完成评审、开发、回归和部署后，仍需独立的生产提交授权；不因本文评审自动继续补拉。
 
-代码实施结果：M12 R1-R4 已完成。多代码仅在 `etf_mins` planner 开启，一次手动 POST 保存一个 TaskRun，planner 再在一份 Basic snapshot 内校验并扇开；旧 Submit 生产实现已清零，Preview 仍是只读工具。目标后端、架构、前端与静态门禁已通过；当前代码未部署，未执行新 TaskRun 或 Tushare 请求。
+代码实施结果：M12 R1-R4 已完成并部署。多代码仅在 `etf_mins` planner 开启，一次手动 POST 保存一个 TaskRun，planner 再在一份 Basic snapshot 内校验并扇开；旧 Submit 生产实现已清零，Preview 仍是只读工具。目标后端、架构、前端与静态门禁已通过；R5 生产执行和最终对账结果见下文。
 
 Preview 执行结果：在生产部署版本上运行一次 `2026-01-01` 至 `2026-08-28` 的正式只读 Preview，约 32 秒完成。计划覆盖 1,647 个当前可请求 ETF，需要 252 个 action、1,774 个 unit，源请求边界为 1,774–7,096；五个频率均是 252 个前缀缺口、尾部缺口为 0。`request_target_hash=8972736114ecbd14d3245e6c59d80c63b463752a15db5b8bfe7ee5ca7ebd31c3`，全部 action 与 M10 计划相同；旧 `.OF` 产生的 1,585 个 `NON_EXCHANGE_SUFFIX` 排除项已清零。计划文件 `plan_content_hash=d31ac369d8c115b905735f1c0c92adb0cbca4004818494c36ef644c4568dfe80`，仅保存在生产服务器和本机 `/private/tmp`，不纳入仓库。Preview 前后 `etf_mins` 成功 TaskRun 均为 10 个、开放 TaskRun 均为 0，证明没有执行 submit。
 
@@ -882,6 +882,10 @@ Preview 执行结果：在生产部署版本上运行一次 `2026-01-01` 至 `20
 停止记录：用户随后确认一次提交批后计划中的 242 个 action，CLI 原子创建 TaskRun `9862-10103`。运行过程中用户指出“一个代码一个 TaskRun”不符合目标，要求停止并改为一个 TaskRun 内部展开全部代码。系统通过既有 TaskRun cancel 契约停止该组任务：61 个已成功、181 个已取消，开放任务为 0；成功任务共保存 1,603,395 行，失败和拒绝均为 0。TaskRun `9923` 在取消前已完成 3/8 unit，业务数据可能已有分 unit 提交，因此旧批后 plan 和 242-action 数量均不得继续使用；当时必须重新只读 Preview，现已完成。下一版不能省略 `ts_code`，否则会展开 Basic 全部 1,647 个 ETF；正确目标是让普通手动任务显式接收 181 个代码，并由现有 planner 在一个 TaskRun 内按代码、频率、上市日和日期窗口展开 units。
 
 停止后安全终态：再次只读 Preview 得到 `plan_content_hash=86ff27cc39b24f843165c155126ec27950f80f2fe86a12e17738453da0e73d24`，Basic `request_target_hash` 仍为 `8972736114ecbd14d3245e6c59d80c63b463752a15db5b8bfe7ee5ca7ebd31c3`。当前待补范围为 181 个代码、182 个 action、1,333 个 unit，请求下界 1,333、分页上界 5,332。本轮一个普通手动任务统一使用 `2026-01-05..2026-08-28` 和五频率；因此 `159539.SZ` 的 `1min` 会额外重复三个已覆盖窗口，预计总 unit 为 1,336、请求边界为 1,336–5,344。幂等 upsert 不产生重复事实。本次 Preview 未请求 Tushare、未创建 TaskRun、未写数据库。
+
+最终单任务执行与对账结果：部署后确认旧队列仍为 61 个成功、181 个取消，开放 `etf_mins` TaskRun 为 0；schedule 39 下次触发时间为 2026-08-31 20:35，与本轮不重叠，因此未暂停。生产预检确认 181 个代码全部当前可请求，并精确展开 1,336 个 unit；随后只创建普通手动 TaskRun `10117`。该任务于 17:04:07 开始、17:48:14 结束，状态 `success`，`unit_total/done/failed=1336/1336/0`，抓取和保存均为 7,606,095 行，拒绝、去重和 issue 均为 0；任务中的 181 个代码与停止后 Preview 清单逐个一致。
+
+补后只读 Preview 使用相同的 `2026-01-01..2026-08-28` 口径，得到 `plan_content_hash=ec836cc7722f22b44ad13266eeace59a334ebd459d910c3c95207e1253b7ca72`；`request_target_hash` 仍为 `8972736114ecbd14d3245e6c59d80c63b463752a15db5b8bfe7ee5ca7ebd31c3`。1,647 个当前可请求 ETF 的 8,235 个代码/频率组合均由 raw 物理数据覆盖，`successful_task_only_covered_target_frequency_count=0`，prefix/suffix 缺口、action、unit 和后续请求上下界均为 0。V1 按已拍板口径仍不审计区间内部空洞。至此 M12 正式关闭。
 
 ---
 
@@ -907,7 +911,7 @@ Preview 执行结果：在生产部署版本上运行一次 `2026-01-01` 至 `20
 4. 激活池消费者按 planner、fund daily、Health、monitor、review 顺序切换；运行时消费者清零后才允许删除 DAO/model/seed 与表。
 5. 分钟 Preview 只审计运营指定区间内、按上市日和 SSE 开市日裁剪后的代码/频率前缀与尾部请求覆盖；不把停牌、内部空洞或纯休市范围猜成缺口。执行时把 Preview 得到的代码清单输入一个普通手动 TaskRun，由既有 planner 扇开 unit；不再使用 alignment Submit。
 
-M9A/P9A 已按 `2026-01-01` 至 `2026-08-28` 指定区间完成代码和生产只读 Preview；此前默认追溯上市日的 44,793-unit 计划已作废。M9B/P9B 的“一 action 一 TaskRun”提交模型已停止，当前开放分钟任务为 0。停止后 Preview 已重算为 181 个代码、182 个 action、1,333 个精确 unit；普通手动任务统一日期后预计为 1,336 个 unit。多代码扇开方案已同步到 LLD；未经评审、开发、发布和执行授权不得继续补拉。
+M9A/P9A 已按 `2026-01-01` 至 `2026-08-28` 指定区间完成代码和生产只读 Preview；此前默认追溯上市日的 44,793-unit 计划已作废。M9B/P9B 的“一 action 一 TaskRun”提交模型已停止，并由普通多代码 TaskRun `10117` 完成剩余补拉。补后 Preview 已确认指定区间 action/unit 均为 0，当前开放分钟任务为 0。未来若补拉 2026 年以前数据，必须由运营重新指定时间区间并先跑只读 Preview；planner 继续按各 ETF `list_date` 裁剪请求起点。
 
 详细代码点、测试矩阵、下游只读复核、分钟补拉额度门禁和逐步开发流程见：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)。
 
@@ -935,4 +939,4 @@ M9A/P9A 已按 `2026-01-01` 至 `2026-08-28` 指定区间完成代码和生产�
 
 源接口口径同时复核了本地 Tushare 文档 `127/199/385/387/400/407/408/471/472`。`fund_daily/fund_adj` 的全市场返回范围沿用 2026-08-28 已写入本地源文档的同日 MCP 实测，不重复发起相同源端请求；本轮没有修改源参数或字段契约，也没有把一次实测数量固化为永久门禁。
 
-这些结果已经与当前代码逐项核对并落入配套 LLD。重新基线时进一步确认：`DAOFactory.etf_basic` 已经存在；planner、fund daily writer、Health、monitor candidate 和 review 当时分别依赖旧池；candidate 分页需要 count/page 两条 SQL；旧 cleanup 与 review 曾被重复分配到多个删除阶段。新版 M2-M12 已据此重排。M1-M8 的实现与测试证据见 LLD 对应执行记录；M9 以后仍须重新同步 CodeGraph 并复核真实生产范围，新出现的冲突必须先补回 LLD，不能在实施时临时绕过。
+这些结果已经与当前代码逐项核对并落入配套 LLD。重新基线时进一步确认：`DAOFactory.etf_basic` 已经存在；planner、fund daily writer、Health、monitor candidate 和 review 当时分别依赖旧池；candidate 分页需要 count/page 两条 SQL；旧 cleanup 与 review 曾被重复分配到多个删除阶段。新版 M2-M12 已据此重排并全部完成。各阶段实现、测试和生产验收证据见 LLD 对应执行记录；未来若启动新的时间区间补拉或范围治理，必须重新同步 CodeGraph、复核真实生产范围，并先把新口径落回方案和 LLD。

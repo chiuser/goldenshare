@@ -1,6 +1,6 @@
 # ETF 历史分钟行情数据集 LLD v1
 
-状态：Basic 驱动、Preview 与普通手动任务多代码扇开已落地；旧 alignment Submit 已删除；待部署和独立生产执行授权
+状态：Basic 驱动、Preview 与普通手动任务多代码扇开已落地；旧 alignment Submit 已删除；2026 年指定区间生产补拉与对账已完成
 最近更新：2026-08-29
 上位方案：[ETF 历史分钟行情数据集接入方案 v1](/Users/congming/github/goldenshare/docs/datasets/etf-mins-dataset-development.md)
 主数据重建 LLD：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
@@ -140,7 +140,7 @@ ts_code, freq, window_start, window_end
 
 ## 8. 发布和数据边界
 
-P3 的代码迁移不执行生产补拉。P8 只删除旧池代码并准备 migration，没有执行生产 DDL。P11 已完成生产旧表删除与 Basic 正式重建；P12 的只读 Preview 已从重建后快照得到待补代码清单。后续由普通手动任务提交一个 TaskRun，不再使用 alignment Submit。
+P3 的代码迁移不执行生产补拉。P8 只删除旧池代码并准备 migration，没有执行生产 DDL。P11 已完成生产旧表删除与 Basic 正式重建；P12 已通过只读 Preview 得到待补代码清单，并由一个普通多代码手动 TaskRun 完成补拉和最终对账，不再使用 alignment Submit。
 
 ## 9. P9A 全量对齐 Preview
 
@@ -243,10 +243,12 @@ ts_code = Preview 输出的 181 个去重代码
 
 planner 会按每个代码的 `list_date` 再裁剪起点。唯一已知的额外请求是 `159539.SZ`：其 `1min` 实际只缺 `2026-07-01..2026-08-28`，统一日期输入会额外请求 2026 年上半年的三个 2 个月窗口。幂等 upsert 不会产生重复事实，但 unit 预计从 1,333 增为 1,336，请求边界从 1,333–5,332 增为 1,336–5,344。本轮以“一个普通手动任务”优先，接受这三个额外 unit；若未来要求绝对零重复，应拆成独立手动任务，而不是恢复专用 Submit。
 
-生产执行前确认 open `etf_mins` TaskRun 为 0，并避开 schedule 39 执行窗口；若预计重叠则临时暂停它。任务完成后复核 raw 物理覆盖并重跑 Preview。代码开发与回归已完成；未部署且未获得独立执行授权，不得继续生产补拉。
+生产执行时确认 open `etf_mins` TaskRun 为 0，schedule 39 不与本轮重叠，因此未暂停。普通手动 TaskRun `10117` 保存 181 个代码和五频率，展开并完成 `1336/1336` unit，抓取并保存 7,606,095 行，失败、拒绝、去重和 issue 均为 0。补后只读 Preview 确认 8,235 个 target/frequency 组合全部由 raw 覆盖，TaskRun-only 覆盖为 0，prefix/suffix 缺口、action 和 unit 均为 0。
 
 ## 11. 实施验收记录
 
 2026-08-29 完成代码实施：Definition 多值契约、单代码/多代码/无代码三条 Basic 查询路径、多代码整单失败、按上市日分代码裁剪、稳定 unit 扇开、Preview 多代码覆盖还原和旧 Submit 清零均已落地。一次 manual API POST 保存一个 TaskRun 及数组 `filters_json.ts_code`，每个实际 unit 仍只带一个标量代码。
 
 目标后端测试 247 项、架构护栏 61 项、前端全量 147 项、Ruff、typecheck、rules 和 build 通过。全量 CLI 只保留已在 P8-P10 记录的无关 progress reporter 旧失败；本轮不修改该共享能力。CodeGraph 后置复核确认多代码开关只在 ETF 分钟链开启，沪深申赎和 Preview 之外没有新消费者。
+
+生产验收：TaskRun `10117` 和补后 Preview 均于 2026-08-29 完成。`request_target_hash=8972736114ecbd14d3245e6c59d80c63b463752a15db5b8bfe7ee5ca7ebd31c3` 与停止后 Preview 一致，证明 Basic 请求身份未漂移；补后 `plan_content_hash=ec836cc7722f22b44ad13266eeace59a334ebd459d910c3c95207e1253b7ca72`。本轮只验收指定区间的 prefix/suffix 覆盖，`interior_gap_not_audited=true` 仍为有效边界。至此本 LLD 生产门禁关闭；未来其他时间区间需重新 Preview 和独立授权。

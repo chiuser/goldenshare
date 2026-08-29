@@ -1,6 +1,6 @@
 # ETF 基础信息重建与下游数据审计清理 LLD v1
 
-状态：P0-P11 已完成；P12 R1-R4 多代码手动任务代码与回归已完成，旧 alignment Submit 已删除；当前开放分钟任务为 0，R5 待部署和独立生产执行授权；原全历史 Preview 已作废，未执行下游事实删除
+状态：P0-P12 已全部完成；P12 R1-R5 多代码手动任务、生产补拉与最终对账已完成，旧 alignment Submit 已删除，当前开放分钟任务为 0；原全历史 Preview 已作废，未执行下游事实删除
 创建日期：2026-08-28
 依据方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)
 适用代码：`src/foundation/**`、`src/ops/**`、`src/app/**`、`frontend/**`、`alembic/**`
@@ -1582,7 +1582,7 @@ P10 完成后，当前代码和迁移具备进入 P11 生产维护窗口的条�
 
 ### P12：分钟全量补拉与最终对账
 
-本阶段的旧分批方案已停止。当前不是“继续下一批”，而是先按第 10.4 节完成普通手动任务多代码契约的开发、回归和重新发布：
+本阶段的旧分批方案已停止，并已按第 10.4 节改用普通手动任务多代码契约完成开发、部署、生产执行和对账：
 
 1. 保留已成功和已完成 unit 的业务数据，不回滚、不删除。
 2. 后续范围只由新 Preview 根据 raw 覆盖计算，不依赖已取消 TaskRun 的零值汇总。
@@ -1723,9 +1723,9 @@ frontend/src/pages/ops-v21-task-manual-tab.test.tsx
 4. 旧 `EtfMinuteHistoryAlignmentSubmitService`、两份专属测试、CLI handler 和 `ops-submit-etf-minute-alignment` 注册已删除，没有 alias 或 fallback。Preview service/CLI 保留；`_parse_task_coverage()` 同时识别历史单代码字符串与新的非空字符串数组，规范化后按代码 × 频率还原覆盖；空、混合类型或含空字符串的数组整条忽略。
 5. 目标后端回归 247 项通过，包含 Definition、resolver/planner、Preview、manual API、catalog 和 Preview CLI；架构依赖/legacy 护栏 61 项通过；Ruff 通过。前端目标页 18 项与全量 147 项测试通过，typecheck、rules 和生产 build 通过。全量 CLI 回归为 52 通过、1 个已知失败：`test_attach_cli_progress_reporter_emits_throttled_progress`；该失败已在 P8-P10 记录，本轮未修改 `src/cli_parts/shared.py` 或其测试，按范围不越界修复。
 6. 后置 CodeGraph sync 后索引为 2,833 个文件、50,254 个节点、127,286 条边。`_resolve_requestable_etf_targets` 的生产影响面仍只有沪市申赎、深市申赎和 ETF 分钟三条 planner 链；`_parse_task_coverage` 的生产消费者仍只有 Preview 内部加载链。静态搜索确认 Submit 类、service import、handler 与 CLI 注册在生产代码中为零，测试只保留旧命令不存在的负向断言。
-7. 本阶段没有连接 Tushare、写入 Prod、创建 TaskRun、修改 schedule/Settings/dispatcher/TaskRun 生命周期或增加 migration。R5 仍是独立的部署后生产操作，本记录不构成补拉授权。
+7. R1-R4 开发阶段没有连接 Tushare、写入 Prod、创建 TaskRun、修改 schedule/Settings/dispatcher/TaskRun 生命周期或增加 migration。R5 后续在独立生产授权下执行，证据见下节。
 
-##### R5：部署后的生产执行（需用户另行授权）
+##### R5：部署后的生产执行（已完成，2026-08-29）
 
 ```text
 确认 open etf_mins TaskRun = 0
@@ -1739,7 +1739,15 @@ frontend/src/pages/ops-v21-task-manual-tab.test.tsx
 -> 如曾暂停则恢复 schedule 39
 ```
 
-R1-R4 开发阶段不执行生产手动任务、Tushare 请求、分钟写入、数据库迁移或事实删除。
+R5 执行记录：
+
+1. 生产代码部署后，只读门禁确认旧 TaskRun `9862-10103` 仍为 61 个成功、181 个取消，开放 `etf_mins` TaskRun 为 0；schedule 39 下次触发为 2026-08-31 20:35，不与本轮重叠，未暂停计划。
+2. 停止后 Preview 的 181 个去重代码全部仍满足 Basic 当前可请求条件；生产当前 planner 预检确认统一 `2026-01-05..2026-08-28` 和五频率输入展开 181 个代码、1,336 个 unit。
+3. 获得独立执行授权后只创建一个普通 `dataset_action / etf_mins` TaskRun `10117`；`filters_json.ts_code` 精确保存上述 181 个代码，`filters_json.freq` 为五频率，与停止后清单的 SHA-256 比对一致。TaskRun `10103` 之后只有这一个新 `etf_mins` 任务。
+4. TaskRun `10117` 于 17:04:07 开始、17:48:14 结束，状态 `success`，耗时 2,646.357 秒；`unit_total/done/failed=1336/1336/0`，`rows_fetched/saved=7606095/7606095`，拒绝、去重、primary issue 和 TaskRun issue 均为 0。
+5. 补后使用相同 `2026-01-01..2026-08-28` 口径重跑只读 Preview，生成 `plan_id=etf-minute-alignment-ec27ce95c85b4c29aa4c5ab051e13f90`、`plan_content_hash=ec836cc7722f22b44ad13266eeace59a334ebd459d910c3c95207e1253b7ca72`；`request_target_hash` 仍为 `8972736114ecbd14d3245e6c59d80c63b463752a15db5b8bfe7ee5ca7ebd31c3`，请求身份集合未漂移。
+6. 可请求/参与对齐 ETF 均为 1,647；8,235 个 target/frequency 组合全部由 raw 物理数据覆盖，TaskRun-only 覆盖为 0，prefix/suffix 缺口、action、unit 和请求边界均为 0。`interior_gap_not_audited=true` 仍是已拍板边界，不把该结论扩大为区间内每个分钟都已连续对账。
+7. 最终开放 `etf_mins` TaskRun 为 0，未执行下游 DELETE、数据库迁移、schedule 修改或额外 TaskRun。至此 P12 正式关闭。
 
 ---
 
@@ -1930,4 +1938,4 @@ Foundation planner/writer 只访问 Foundation 的 `core_serving.etf_basic` DAO�
 4. 明确保护 `fund_adj`、`etf_share_size`、公募基金域、指数池和历史实时事实。
 5. 开发顺序阻止了“先删表再找消费者”，并明确当前不建设下游事实清理系统。
 
-本文中 P0-P11 的执行记录代表对应阶段已经完成；原 P2-P9 以及 P9A 的无开始日全历史 Preview 均已作废。P10 已完成原发布门禁，P11 已完成生产旧池 drop 和 Basic 重建。P12 的“一 action 一 TaskRun”方案已在生产停止，当前 61 个后续任务成功、181 个取消、开放任务 0；停止后 Preview 已重算为 181 代码/182 action/1,333 个精确 unit。第 16.3 节已确认改用一个普通手动 TaskRun，统一日期后预计 1,336 个 unit。P12 R1-R4 代码、测试和静态清零已完成；下一阶段是部署与部署后 R5 验收，未完成部署并获得独立生产授权前不得继续补拉。
+本文中 P0-P12 的执行记录代表对应阶段已经完成；原 P2-P9 以及 P9A 的无开始日全历史 Preview 均已作废。P10 已完成发布门禁，P11 已完成生产旧池 drop 和 Basic 重建；P12 的“一 action 一 TaskRun”方案在生产停止后，已由普通多代码 TaskRun `10117` 完成剩余 1,336 个 unit。补后 Preview 确认 8,235 个 target/frequency 组合全部有 raw 物理覆盖，prefix/suffix 缺口、action 和 unit 均为 0，开放任务为 0。至此本 LLD 完成；未来对 2026 年以前数据的补拉不是 P12 延伸，必须使用新的运营指定区间、只读 Preview 和独立生产授权。
