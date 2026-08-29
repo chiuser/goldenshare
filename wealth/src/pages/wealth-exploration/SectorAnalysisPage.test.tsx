@@ -395,7 +395,7 @@ describe("SectorAnalysisPage", () => {
     expect(requestCount(urls, "/momentum/history")).toBe(1);
   });
 
-  it("keeps URL, requests, active method, and charts unchanged when either unavailable method is selected", async () => {
+  it("keeps URL, requests, active method, and charts unchanged when the remaining unavailable method is selected", async () => {
     const urls: string[] = [];
     vi.stubGlobal("fetch", buildReadyFetch(urls));
     window.history.replaceState({}, "", `${WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH}?tradeDate=2026-08-21`);
@@ -405,12 +405,10 @@ describe("SectorAnalysisPage", () => {
     const sectorRequestCount = urls.filter((url) => url.includes("sector-analysis")).length;
     const chartCount = screen.getAllByRole("img").length;
 
-    ["成员广度", "量价分布"].forEach((label) => {
-      fireEvent.click(screen.getByRole("tab", { name: label }));
-      expect(screen.getByText("待建设", { selector: "#toast" })).toBeInTheDocument();
-      expect(urls.filter((url) => url.includes("sector-analysis"))).toHaveLength(sectorRequestCount);
-      expect(screen.getAllByRole("img")).toHaveLength(chartCount);
-    });
+    fireEvent.click(screen.getByRole("tab", { name: "量价分布" }));
+    expect(screen.getByText("待建设", { selector: "#toast" })).toBeInTheDocument();
+    expect(urls.filter((url) => url.includes("sector-analysis"))).toHaveLength(sectorRequestCount);
+    expect(screen.getAllByRole("img")).toHaveLength(chartCount);
     expect(window.location.pathname).toBe(WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH);
     expect(window.location.search).toBe("?tradeDate=2026-08-21");
     expect(screen.getByRole("tab", { name: "动量排名" })).toHaveAttribute("aria-pressed", "true");

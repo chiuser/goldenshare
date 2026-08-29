@@ -3,9 +3,13 @@ import { useCallback } from "react";
 import {
   buildSectorAnalysisDualMomentumPath,
   buildSectorAnalysisMomentumPath,
+  buildSectorAnalysisMemberBreadthPath,
   buildSectorAnalysisRelativeRotationPath,
   navigateWealth,
 } from "../../app/routes/routerState";
+import { useSectorMemberBreadthController } from "../../features/wealth-exploration/sector-analysis/member-breadth/model/useSectorMemberBreadthController";
+import { MemberBreadthStateSurface } from "../../features/wealth-exploration/sector-analysis/member-breadth/ui/MemberBreadthStateSurface";
+import { MemberBreadthWorkspace } from "../../features/wealth-exploration/sector-analysis/member-breadth/ui/MemberBreadthWorkspace";
 import { useSectorDualMomentumController } from "../../features/wealth-exploration/sector-analysis/dual-momentum/model/useSectorDualMomentumController";
 import { DualMomentumStateSurface } from "../../features/wealth-exploration/sector-analysis/dual-momentum/ui/DualMomentumStateSurface";
 import { DualMomentumWorkspace } from "../../features/wealth-exploration/sector-analysis/dual-momentum/ui/DualMomentumWorkspace";
@@ -45,7 +49,9 @@ function SectorAnalysisContent({ method, search, shell }: { method: SectorAnalys
       ? buildSectorAnalysisMomentumPath(sharedSearch)
       : nextMethod === "dual-momentum"
         ? buildSectorAnalysisDualMomentumPath(sharedSearch)
-        : buildSectorAnalysisRelativeRotationPath(sharedSearch);
+        : nextMethod === "relative-rotation"
+          ? buildSectorAnalysisRelativeRotationPath(sharedSearch)
+          : buildSectorAnalysisMemberBreadthPath(buildMemberBreadthSharedSearch(routeSearch));
     navigateWealth(path);
   }, [method, routeSearch]);
 
@@ -59,8 +65,22 @@ function SectorAnalysisContent({ method, search, shell }: { method: SectorAnalys
       {method === "momentum-ranking" ? <MomentumMethodContent contextMatchesRoute={contextMatchesRoute} routeSearch={routeSearch} shell={shell} /> : null}
       {method === "dual-momentum" ? <DualMomentumMethodContent contextMatchesRoute={contextMatchesRoute} routeSearch={routeSearch} shell={shell} /> : null}
       {method === "relative-rotation" ? <RelativeRotationMethodContent contextMatchesRoute={contextMatchesRoute} routeSearch={routeSearch} shell={shell} /> : null}
+      {method === "member-breadth" ? <MemberBreadthMethodContent contextMatchesRoute={contextMatchesRoute} routeSearch={routeSearch} shell={shell} /> : null}
     </>
   );
+}
+
+function MemberBreadthMethodContent({ contextMatchesRoute, routeSearch, shell }: { contextMatchesRoute: boolean; routeSearch: string; shell: WealthExplorationShellRenderProps }) {
+  const handleNavigateSearch = useCallback((nextSearch: string, options?: { replace?: boolean }) => {
+    navigateWealth(buildSectorAnalysisMemberBreadthPath(nextSearch), options);
+  }, []);
+  const controller = useSectorMemberBreadthController({
+    enabled: shell.model.contextState === "ready" && contextMatchesRoute,
+    search: routeSearch,
+    onNavigateSearch: handleNavigateSearch,
+  });
+  if (shell.model.contextState === "error") return <div className="member-breadth-workspace"><MemberBreadthStateSurface kind="error" message={shell.contextErrorMessage ?? "页面时间上下文加载失败。"} onRetry={shell.model.retryContext} retryable /></div>;
+  return <MemberBreadthWorkspace controller={controller} />;
 }
 
 function MomentumMethodContent({ contextMatchesRoute, routeSearch, shell }: { contextMatchesRoute: boolean; routeSearch: string; shell: WealthExplorationShellRenderProps }) {
@@ -117,6 +137,17 @@ function buildSharedMethodSearch(search: string): string {
   const tradeDate = source.get("tradeDate");
   if (market === "CN_A") target.set("market", market);
   if (debug === "1") target.set("debug", debug);
+  if (tradeDate) target.set("tradeDate", tradeDate);
+  const query = target.toString();
+  return query ? `?${query}` : "";
+}
+
+function buildMemberBreadthSharedSearch(search: string): string {
+  const source = new URLSearchParams(search);
+  const target = new URLSearchParams();
+  const market = source.get("market");
+  const tradeDate = source.get("tradeDate");
+  if (market === "CN_A") target.set("market", market);
   if (tradeDate) target.set("tradeDate", tradeDate);
   const query = target.toString();
   return query ? `?${query}` : "";

@@ -66,6 +66,9 @@ export function WealthRouter() {
   if (explorationRoute.kind === "sector-analysis-relative-rotation") {
     return <SectorAnalysisPage method="relative-rotation" search={location.search} />;
   }
+  if (explorationRoute.kind === "sector-analysis-member-breadth") {
+    return <SectorAnalysisPage method="member-breadth" search={location.search} />;
+  }
 
   return <MarketOverviewPage search={location.search} />;
 }

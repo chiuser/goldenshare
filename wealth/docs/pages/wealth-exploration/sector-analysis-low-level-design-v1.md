@@ -2,17 +2,17 @@
 
 ## 0. 文档状态
 
-- 状态：v1.29；既有动量排名 M0～M4、双动量 M5～M8 与相对轮动 M9～M12R 均已完成并关闭；成员广度 M14 后端已按本 LLD 完成，下一步固定为 M15 前端，尚未启用成员广度页面路由。
+- 状态：v1.30；既有动量排名 M0～M4、双动量 M5～M8 与相对轮动 M9～M12R 均已完成并关闭；成员广度 M14 后端与 M15 前端已按本 LLD 完成，下一步固定为 M16 真实联调与交付验收。
 - 编写日期：2026-08-29。
 - 适用仓库：`/Users/congming/github/goldenshare`，当前开发分支 `dev-interface`。
 - 产品依据：[财势乾坤板块分析产品交互基线文档](./sector-analysis-product-interaction-baseline-v1.md)。
 - 技术依据：[财势探查｜板块分析技术实施方案 v1](./sector-analysis-implementation-design-v1.md)。
 - Figma：`Goldenshare Web`，file key `RADlZzREU4lPVviYfkLy6x`，页面 `14 Wealth Exploration - Sector Analysis`（`965:2`）。
-- 目标路由：既有 `/wealth/exploration/sector-analysis/momentum-ranking`、`/wealth/exploration/sector-analysis/dual-momentum`、`/wealth/exploration/sector-analysis/relative-rotation`；M15 才允许新增 `/wealth/exploration/sector-analysis/member-breadth`。
+- 目标路由：`/wealth/exploration/sector-analysis/momentum-ranking`、`/wealth/exploration/sector-analysis/dual-momentum`、`/wealth/exploration/sector-analysis/relative-rotation`、`/wealth/exploration/sector-analysis/member-breadth` 四条精确路由均已实现。
 - 目标 API：既有八只板块分析 API 保持不变；M14 新增 `/member-breadth/meta|rankings|details` 三只只读 API。
 - 待拍板项：无。成员广度的日期检查、三指标独立缺失、复权因子边界、自动／历史日期语义和 MA60 两秒门禁均已确认；M14 不得自行扩大范围。
 
-本文定义财势探查页面结构、已完成的“横截面动量排名”、M3A 三级行业成分股明细、“双动量”和“相对轮动”，并冻结第四个独立方法“成员广度”的代码级方案。成员广度只描述成分股数量、成交额和均线位置三项客观参与度，不做综合分、预测、信号或发布。M14 已完成后端与三只只读 API；M15 完成前成员广度继续保留按钮与提示，不得提前生成半成品前端路由、controller、Mock 或隐藏工作区。量价分布继续不在本需求。M3A 成分股明细只是已选三级行业的事实下钻，不属于“成员广度”。
+本文定义财势探查页面结构、已完成的“横截面动量排名”、M3A 三级行业成分股明细、“双动量”“相对轮动”和第四个独立方法“成员广度”的代码级方案。成员广度只描述成分股数量、成交额和均线位置三项客观参与度，不做综合分、预测、信号或发布。M14 已完成后端与三只只读 API，M15 已完成精确前端路由、controller 和正式工作区；真实 API、生产事实与性能继续由 M16 验收。量价分布继续不在本需求。M3A 成分股明细只是已选三级行业的事实下钻，不属于“成员广度”。
 
 ---
 
@@ -221,7 +221,7 @@ M9 最大窗口使用现有 Web 只读连接做了有界核验：只读当前发
 
 2026-08-29 使用仓库根最新 CodeGraph 索引（up to date，2,833 files、50,270 nodes、126,705 edges）、当前源码和 Prod 只读 `EXPLAIN ANALYZE` 完成编码前审计。影响面只包括 Biz 板块分析 API／schema／query／service、中央异常注册表、Wealth 板块分析路由／方法栏／页面及新增 feature；Foundation 模型、同步、Ops、QTF、DG/Lake、首页板块速览和三个已完成方法不需要修改。
 
-1. M13 审计时没有成员广度 API、schema、query、calculator、service、route、controller 或运行页面；M14 已新增独立后端合同与三只 API，`SectorAnalysisMethodBar` 仍把成员广度作为本地“待建设”按钮，前端 route/controller/feature 继续等待 M15。既有方法 DTO 未被偷渡成员广度字段。
+1. M13 审计时没有成员广度 API、schema、query、calculator、service、route、controller 或运行页面；M14 已新增独立后端合同与三只 API，M15 已新增第四条精确 route、独立 API/adapter/URL/controller/feature，并从 `SectorAnalysisMethodBar` 移除成员广度“待建设”行为。既有方法 DTO 未被偷渡成员广度字段。
 2. `SectorMemberDetailQueryService` 只服务 M3A 三级行业成员明细：最多30日，只读取目标日成员和 `close/pct_chg`，区间涨跌幅使用逐日 `pct_chg` 连乘，不读取复权因子。它没有五类比较池、历史逐日成员、成交额或均线语义，M14 必须建立独立链路。
 3. `core.equity_adj_factor` 是本需求唯一复权因子表；均线位置使用 `close × adj_factor`。任何窗口日缺价格或因子，只使对应股票的均线事实不可计算，不影响该股票的数量／成交额事实，也不使整个日期回退。
 4. 现有 `SectorTradeDateAvailabilityDto` 只能表达当前行业 `dc_daily` 的 `COMPLETE/PARTIAL/MISSING`，不能同时表达“三项成员指标各自可用性”。成员广度 Meta 只复用它作为公共交易日期覆盖；Rankings／Details 使用自己的指标可用性合同，禁止改写这个既有公开 DTO。
@@ -674,7 +674,7 @@ M15 前端只允许下列增量：
 | 新增 | `.../member-breadth/api/sectorMemberBreadthAdapter.ts` | strict 枚举、日期模式、数量、组成和、百分比、资格、排名、趋势槽和请求事实校验；不重算业务公式 |
 | 新增 | `.../member-breadth/model/sectorMemberBreadthTypes.ts` | 独立 wire/view/url/controller 类型和五态／局部状态 |
 | 新增 | `.../member-breadth/model/sectorMemberBreadthUrlState.ts` | `market/tradeDate/scope/level1Code/level2Code/direction/metric/maPeriod/historyRange/sectorCode`；URL 有日期即显式历史 |
-| 新增 | `.../member-breadth/model/useSectorMemberBreadthController.ts` | Meta→实际日期→Rankings+Details、request key、Abort、409一次重载、选择保持和默认延迟提示 |
+| 新增 | `.../member-breadth/model/useSectorMemberBreadthController.ts` | Meta→实际日期；合法选中行业时 Rankings+Details 并发，无合法选中行业时 Rankings→规范默认行业→Details；request key、Abort、409一次重载、选择保持和默认延迟提示 |
 | 新增 | `.../member-breadth/ui/**` | Toolbar、RankingPanel、SelectedSummary、CompositionBars、TrendChart、MemberTable、StateSurface 和正式 CSS |
 | 新增／修改 | 对应 route/page/feature 测试 | 覆盖精确路由、零隐藏挂载、自动／历史日期、13状态、滚动、四档宽度、可访问性和量价分布零副作用 |
 
@@ -2798,13 +2798,19 @@ enter route
   -> GET Meta
   -> actualDate = URL.tradeDate ?? Meta.defaultTradeDate
   -> actualDate null => EMPTY
-  -> parallel GET Rankings(actualDate) + GET Details(actualDate, selected/default sector)
+  -> URL sectorCode 合法且仍属于当前比较池
+       => parallel GET Rankings(actualDate) + GET Details(actualDate, sectorCode)
+  -> URL 无合法 sectorCode
+       => GET Rankings(actualDate)
+       => selected = defaultSelectedSectorCode ?? rows[0]?.sectorCode
+       => selected null => EMPTY
+       => GET Details(actualDate, selected)
 ```
 
 1. 自动模式的页面主状态由 `Meta.defaultStatus + Rankings/Details` 合成；Meta DELAYED 时使用实际默认日内容和延迟提示。显式历史模式忽略 Meta 的默认延迟提示。
 2. Meta、Rankings、Details 各自使用完整 request key、AbortController 和 generation；旧响应不得覆盖当前 URL。
 3. scope、父级、日期或 maPeriod 改变时刷新 Rankings 和 Details；direction 改变刷新二者；metric 只刷新 Rankings；historyRange 或 sectorCode 只刷新 Details。
-4. Rankings 新池仍包含当前 sectorCode 时保持选择；退出比较池时选择第一只有资格行业，没有资格行业则保留第一行并允许 Details 显示样本不足。
+4. controller 只能根据 Rankings 返回的完整池判断当前 sectorCode 是否仍有效；仍在池内时保持选择，退出比较池时选择 `defaultSelectedSectorCode`，没有资格行业则保留第一行并允许 Details 显示样本不足。Meta 不提供排名资格，禁止用层级顺序猜默认选择；无合法选择时不得提前发一次无效 Details。
 5. 409 只清空成员广度短期事实，最多自动重载一次 Meta；不得清空或重发其他三个方法。
 6. Rankings Ready 而 Details Empty/Error 时保留左榜和右侧局部状态；Details 慢不得使已完成 Rankings 回退到 Loading。
 7. 未进入成员广度路由时三只请求数均为0，DOM 和趋势图实例均为0。
@@ -3145,7 +3151,7 @@ tests/test_wealth_turnover_insight_static_gates.py
 1. 第四条精确 route、方法栏、前进／后退；未进入成员广度时三请求和图表实例为0。
 2. URL 无 tradeDate 保持自动模式且不把 defaultTradeDate 写回；用户选历史才写入，清除后恢复自动模式。
 3. 同一日期在自动回退时显示 Delayed，显式历史时不显示自动回退；页面不得根据日期相等自行判断。
-4. Meta→Rankings+Details 时序、两个事实请求并发、局部先完成、5秒超时、Abort、request key、409一次重载和旧响应丢弃。
+4. Meta→实际日期后，有合法 sectorCode 时 Rankings/Details 并发且允许局部先完成；无合法 sectorCode 时必须由 Rankings 解析 `defaultSelectedSectorCode ?? rows[0]` 后再发 Details。两条路径均覆盖5秒超时、Abort、request key、409一次重载和旧响应丢弃，并证明没有猜测行业或无效 Details 预请求。
 5. 五 scope、父级级联、两方向、三指标、六均线、三历史范围、选择保持和默认第一资格行业。
 6. metric 变化只请求 Rankings；historyRange/sectorCode 只请求 Details；maPeriod/scope/父级/日期刷新二者。
 7. 复权因子缺失只使 MA 内容 `--`；成员／成交额卡、榜单和趋势仍显示真实 DTO。
@@ -3452,11 +3458,13 @@ M12R 只删除无输出价值的中间事实物化，不改变任何公开业务
 
 ### M15：成员广度前端
 
-状态：`PENDING`。
+状态：`PASS (2026-08-29)`。
 
-1. 严格按第5.10、8.23～9.7节新增第四 route、独立 API／adapter／URL／controller 和正式工作区。
-2. 完成自动／历史日期、三项独立缺失、局部状态、竞态、滚动、趋势断点、13态和四档宽度自动化。
-3. 保持三个已完成方法零变化，量价分布继续待建设；完成后停止，不部署、不进入 M16。
+1. 已按第5.10、8.23～9.7节新增第四 route、独立 API／strict adapter／九字段 URL／controller 和正式工作区；成员广度只在精确路由挂载，量价分布继续待建设。
+2. 已落实两条请求顺序：合法 `sectorCode` 在 Meta 后并发 Rankings/Details；没有合法选择时先 Rankings，再按 `defaultSelectedSectorCode ?? rows[0]` 请求 Details，禁止猜测行业或无效预请求。
+3. 已覆盖自动／历史日期、三项独立缺失、主 Empty/Error、局部 Details 状态、5秒超时、401、409一次重载、旧响应丢弃、固定表头独立滚动、趋势断点和四档宽度。
+4. 前端全量 `501 passed`，新增成员广度工作区 `16 passed`，typecheck、production build及冻结后端317项通过；1600/1512/1460/1366四档受控 fixture 浏览器验收通过。真实认证 API、496行业、最大 Details、SQL、payload和P95没有在 M15 冒充完成，继续属于 M16。
+5. 没有修改既有三个方法、后端 API、数据库、迁移、Foundation、Ops、QTF、配置、依赖或部署；M15 在此停止。
 
 ### M16：成员广度联调与交付验收
 
@@ -3560,11 +3568,11 @@ git diff --check
 | G39 M12R 纠偏合同 | 真实瓶颈证据、稀疏等价方案、旧路径安全删除、共享回归和失败停止门禁完整 | PASS：两轮 HTTP P95 `848.025/847.416ms`，通过现行1,000ms门禁 |
 | G40 成员广度产品与 Figma | 三独立指标、五scope、六均线、三趋势范围、13正式状态和Design System一致 | PASS (M13 docs/Figma) |
 | G41 成员广度代码影响面 | M3A不可复用、独立后端／前端链、既有八endpoint和三方法零变化 | PASS (M13 CodeGraph/current code) |
-| G42 成员广度日期合同 | Meta零成员历史扫描；公共日期默认回退；URL显式历史不回退 | PASS (M14 backend)；URL显示语义等待M15前端 |
+| G42 成员广度日期合同 | Meta零成员历史扫描；公共日期默认回退；URL显式历史不回退 | PASS (M14 backend + M15 frontend) |
 | G43 成员广度公式与缺失 | 三分母、`close×adj_factor`、5+80%、缺因子只影响MA | PASS (M14 code/tests) |
 | G44 成员广度 API/SQL | 三只strict API、3/4/4 SQL；计算接口复用公共页面日期并合并窗口／覆盖／成员查询；Rankings单指标、Details三项 | PASS (M14 code/tests) |
 | G45 成员广度后端 | contract/calculator/query/service/schema/API与正反例 | PASS (M14 code/tests) |
-| G46 成员广度前端 | 第四route、URL/controller、13态、响应式和按需挂载 | OPEN (M15) |
+| G46 成员广度前端 | 第四route、URL/controller、13态、响应式和按需挂载 | PASS (M15 code/tests/browser fixture) |
 | G47 成员广度交付 | 真实事实、payload、非MA60一秒、MA60两秒、四档宽度和用户验收 | OPEN (M16) |
 
 ### 15.1 例外白名单
@@ -3605,10 +3613,10 @@ git diff --check
 28. M11 已实现第三条精确路由、独立 API／strict adapter／11项 URL／controller、14态工作区、共享坐标 SVG 和完整滚动列表；相对轮动定向62项、前端全量473项、typecheck/build及20项静态／架构门禁通过。真实 API、部署态 P95 和四档最终人工视觉验收继续严格留在 M12。
 29. M12 已完成远程部署和真实 API 首轮审计：Meta、3/5 SQL、payload、337行和60槽事实完整性通过；首轮 Results 两轮 P95 `1250.883/1275.006ms` 触发原门禁并进入 M12R，属于历史审计事实。
 30. M12R 已完成稀疏计算、旧网格安全删除和部署复测：两个完整排名切片服务当前全榜，其余最多63日只投影选中行业，坐标对象收敛为337个当前点与60个轨迹点；测试内旧路径 oracle、共享消费者、全 API 矩阵和前端 strict adapter 零变化门禁通过。部署提交 `a110f6a9` 的两轮最大 Results P95 为 `848.025/847.416ms`，通过用户确认的1,000ms门禁；结合既有页面与交互验收，M12/M12R 均已关闭。
-31. 成员广度产品基线、13张正式Figma和技术方案 v1.37 已完成对账；M14 已按冻结的精确文件、类、三只 API、strict DTO 和三项公式落地，URL、前端状态与响应式布局继续由 M15 实施。
+31. 成员广度产品基线、13张正式Figma和技术方案 v1.38 已完成对账；M14 已按冻结的精确文件、类、三只 API、strict DTO 和三项公式落地，M15 已完成第四路由、strict adapter、九字段 URL、controller、正式状态和响应式布局。
 32. M13 CodeGraph 影响面确认成员广度只能新增独立 Biz／Wealth 链；现有 M3A 只读 close/pct_chg 且不读复权因子，禁止复用或改写。
 33. M13 性能审计已否决 Meta 全历史成员完整性扫描，冻结公共3 SQL；实际缺口随计算返回。三级 MA60 数据库聚合约1.54秒，用户确认该路径两秒门禁，其他请求保持一秒。
-34. 自动日期／显式历史、复权因子只影响MA、Rankings只算所选指标、Details三项独立事实、3/4/4 SQL、119日和 M14～M16 停止点均已落档；M14 开工审计进一步冻结公共页面日期＋窗口覆盖成员合并查询，M13及本次纠偏均没有修改运行代码、测试、异常注册表、Figma或生产状态。
+34. 自动日期／显式历史、复权因子只影响MA、Rankings只算所选指标、Details三项独立事实、3/4/4 SQL、119日和 M14～M16 停止点均已落档；M15 按合法选择是否存在分别采用“并发 Rankings/Details”和“先 Rankings 后 Details”，没有猜测默认行业。M15 没有修改后端、异常注册表、Figma或生产状态。
 
 ### 16.2 已接受的非阻断项与历史记录
 
@@ -3683,12 +3691,15 @@ git diff --check
 
 既有动量排名 M0～M4、双动量 M5～M8 和相对轮动 M9～M12R 保持原验收结论。成员广度 M14 后端已经完成，三只 strict 只读 API、独立合同与计算、集合查询、3/4/4 SQL、119日边界、异常和正反例均通过自动化门禁。
 
-成员广度下一步严格固定为 M15 前端：消费已冻结的三只 API，建立第四条独立路由、strict adapter、URL/controller、13态工作区和四档响应式布局。M14 在此停止；部署真实数据、稳态 P95 和用户页面验收仍属于 M16，不能以本地自动化冒充完成。
+成员广度 M15 前端已经完成：已消费冻结的三只 API 合同，建立第四条独立路由、strict adapter、URL/controller、正式状态工作区和四档响应式布局，并通过前端全量、类型、构建、冻结后端和受控 fixture 浏览器验收。
+
+下一步严格固定为 M16：部署后使用真实认证 API 核对生产日期、496行业、资格分布、最大成员 Details、3/4/4 SQL、payload、分层稳态 P95 和最终页面交互。M15 没有执行这些真实部署验收，不能用 fixture 或本地自动化冒充完成。
 
 ### 18.1 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| v1.30 | 2026-08-29 | 完成成员广度 M15 前端：新增第四条精确路由、strict adapter、九字段 URL、独立 controller 与正式工作区；落实合法选择并发、无选择先 Rankings 后 Details、5秒超时、401、一次409重载、局部错误、竞态丢弃、完整滚动列表、趋势断点及四档自适应；前端501项、工作区16项、typecheck/build、后端317项和受控 fixture 浏览器验收通过，下一步固定M16真实联调与性能验收 |
 | v1.29 | 2026-08-29 | 完成成员广度 M14 后端：新增不可变合同、纯计算器、窗口覆盖成员合并查询、行情因子查询、QueryService、strict DTO、三只只读 API 和正反例；证明3/4/4 SQL、119允许/120拒绝、六均线、三项独立缺失、5+80%、竞争排名、完整成员、401/409/payload及既有消费者零回退；统一层级不可用的 Meta HTTP500／业务HTTP200安全 Error 语义；317项冻结回归通过，下一步固定M15 |
 | v1.28 | 2026-08-29 | 修正 M14 开工审计发现的日期校验与4 SQL冲突：Meta维持公共日期／层级／日期覆盖3条；Rankings／Details 固定为层级、既有公共页面日期、SSE窗口＋当前层级dc_daily覆盖起点＋成员关系合并查询、行情＋因子4条；冻结 `MemberBreadthWindowRelationsFact`、合并查询入参／输出、日期上下界与休市日反例，不复制20:00算法、不信任前端Meta、不增加历史成员预扫描，尚未编码 |
 | v1.27 | 2026-08-29 | 完成成员广度 M13 代码级 LLD：基于 CodeGraph、当前代码和 Prod EXPLAIN 否决 Meta 全历史成员完整性扫描，冻结公共日期覆盖3 SQL、自动／显式日期模式、三指标独立缺失、`close×adj_factor` 六均线、Rankings单指标、Details三项、3/4/4 SQL、119日、非MA60一秒／MA60两秒、精确文件／DTO／前后端状态／测试／G40～G47及M14～M16顺序；尚未编码 |

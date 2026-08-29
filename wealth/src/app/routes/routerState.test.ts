@@ -5,12 +5,14 @@ import {
   WEALTH_EXPLORATION_PATH,
   WEALTH_EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH,
   WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH,
+  WEALTH_EXPLORATION_SECTOR_MEMBER_BREADTH_PATH,
   WEALTH_EXPLORATION_SECTOR_RELATIVE_ROTATION_PATH,
   WEALTH_EXPLORATION_SECTOR_PATH,
   WEALTH_EXPLORATION_TURNOVER_PATH,
   buildIndexDetailPath,
   buildSectorAnalysisDualMomentumPath,
   buildSectorAnalysisMomentumPath,
+  buildSectorAnalysisMemberBreadthPath,
   buildSectorAnalysisRelativeRotationPath,
   buildSectorAnalysisPath,
   buildStockDetailPath,
@@ -69,6 +71,9 @@ describe("wealth exploration route", () => {
     expect(buildSectorAnalysisRelativeRotationPath("?market=CN_A&tradeDate=2026-08-21")).toBe(
       "/wealth/exploration/sector-analysis/relative-rotation?market=CN_A&tradeDate=2026-08-21",
     );
+    expect(buildSectorAnalysisMemberBreadthPath("?market=CN_A&tradeDate=2026-08-21")).toBe(
+      "/wealth/exploration/sector-analysis/member-breadth?market=CN_A&tradeDate=2026-08-21",
+    );
   });
 
   it("resolves only the six frozen exploration paths", () => {
@@ -78,6 +83,7 @@ describe("wealth exploration route", () => {
     expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH)).toEqual({ kind: "sector-analysis-momentum" });
     expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH)).toEqual({ kind: "sector-analysis-dual-momentum" });
     expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_SECTOR_RELATIVE_ROTATION_PATH)).toEqual({ kind: "sector-analysis-relative-rotation" });
+    expect(resolveWealthExplorationRoute(WEALTH_EXPLORATION_SECTOR_MEMBER_BREADTH_PATH)).toEqual({ kind: "sector-analysis-member-breadth" });
     expect(resolveWealthExplorationRoute("/wealth/exploration/extra")).toEqual({ kind: "not-exploration" });
     expect(resolveWealthExplorationRoute("/wealth/exploration/sector-analysis/unknown")).toEqual({ kind: "not-exploration" });
   });

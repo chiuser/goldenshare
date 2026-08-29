@@ -47,7 +47,7 @@ describe("DualMomentumWorkspace", () => {
     expect(screen.getByRole("tab", { name: "动量排名" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("keeps unavailable methods as a zero-side-effect toast", async () => {
+  it("keeps the remaining unavailable method as a zero-side-effect toast", async () => {
     const urls: string[] = [];
     vi.stubGlobal("fetch", buildDualReadyFetch(urls));
     window.history.replaceState({}, "", `${WEALTH_EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH}?tradeDate=2026-08-27`);
@@ -56,13 +56,11 @@ describe("DualMomentumWorkspace", () => {
     const businessRequests = urls.filter((url) => url.includes("sector-analysis")).length;
     const path = `${window.location.pathname}${window.location.search}`;
     const chartCount = document.querySelectorAll(".dual-scatter-svg").length;
-    for (const label of ["成员广度", "量价分布"]) {
-      fireEvent.click(screen.getByRole("tab", { name: label }));
-      expect(screen.getByText("待建设", { selector: "#toast" })).toBeInTheDocument();
-      expect(`${window.location.pathname}${window.location.search}`).toBe(path);
-      expect(urls.filter((url) => url.includes("sector-analysis"))).toHaveLength(businessRequests);
-      expect(document.querySelectorAll(".dual-scatter-svg")).toHaveLength(chartCount);
-    }
+    fireEvent.click(screen.getByRole("tab", { name: "量价分布" }));
+    expect(screen.getByText("待建设", { selector: "#toast" })).toBeInTheDocument();
+    expect(`${window.location.pathname}${window.location.search}`).toBe(path);
+    expect(urls.filter((url) => url.includes("sector-analysis"))).toHaveLength(businessRequests);
+    expect(document.querySelectorAll(".dual-scatter-svg")).toHaveLength(chartCount);
   });
 
   it("keeps result view, selection, sorting and enlarge local with zero requests", async () => {

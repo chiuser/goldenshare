@@ -1,0 +1,4 @@
+export function MemberBreadthStateSurface({ kind, message, retryable, onRetry, local = false }: { kind: "loading" | "empty" | "error"; message?: string; retryable?: boolean; onRetry?: () => void; local?: boolean }) {
+  if (kind === "loading") return <section aria-label="成员广度加载中" className={`member-breadth-state ${local ? "local" : ""}`}><div className="member-breadth-loading-bars"><i /><i /><i /><i /></div></section>;
+  return <section className={`member-breadth-state ${local ? "local" : ""} ${kind === "error" ? "error" : ""}`} role={kind === "error" ? "alert" : "status"}><i className="member-breadth-state-icon" aria-hidden="true">{kind === "error" ? "!" : "—"}</i><strong>{kind === "empty" ? "暂无成员广度数据" : "成员广度加载失败"}</strong><span>{message}</span>{retryable && onRetry ? <button type="button" onClick={onRetry}>重新加载</button> : null}</section>;
+}

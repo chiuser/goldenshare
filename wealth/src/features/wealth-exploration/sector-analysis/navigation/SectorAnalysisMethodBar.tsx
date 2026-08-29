@@ -4,14 +4,15 @@ interface SectorAnalysisMethodBarProps {
   onUnavailable: () => void;
 }
 
-export type SectorAnalysisMethod = "momentum-ranking" | "dual-momentum" | "relative-rotation";
+export type SectorAnalysisMethod = "momentum-ranking" | "dual-momentum" | "relative-rotation" | "member-breadth";
 
 const availableMethods: ReadonlyArray<{ key: SectorAnalysisMethod; label: string }> = [
   { key: "momentum-ranking", label: "动量排名" },
   { key: "dual-momentum", label: "双动量" },
   { key: "relative-rotation", label: "相对轮动" },
+  { key: "member-breadth", label: "成员广度" },
 ];
-const unavailableMethods = ["成员广度", "量价分布"] as const;
+const unavailableMethods = ["量价分布"] as const;
 
 export function SectorAnalysisMethodBar({ activeMethod, onSelect, onUnavailable }: SectorAnalysisMethodBarProps) {
   return (
