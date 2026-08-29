@@ -1,6 +1,6 @@
 # 股票收盘集合竞价数据集接入方案（`stk_auction_c`）
 
-> 状态：数据集接入已落地；`P1-B3-stk_auction_c-M0/M1/M2` 已通过，下一阶段为另行授权的生产 M3a
+> 状态：数据集接入已落地；`P1-B3-stk_auction_c-M0/M1/M2/M3a` 已通过，生产已切换为 Raw 唯一物理事实表与 0 B Serving view；M3b 待下一次自然工作流观察
 > 日期：2026-05-16  
 > raw 直出 M0 复审：2026-08-29
 > 文档模板：[数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)  
@@ -454,3 +454,18 @@ M2 使用 PostgreSQL 18.4 的一次性隔离实例，实例仅监听随机 Unix 
 6. 单日、单股票、最大日期和 10 日日期完整性四类查询切换前后结果行数与 SHA-256 一致，计划分别从 Serving 索引下推到 Raw 的日期索引或主键，临时块均为 0。两类有代表性的批量查询耗时为单日 `2.653 -> 2.577 ms`、日期完整性 `8.419 -> 8.757 ms`；单股票和最大日期均小于 `0.01 ms`，只视为计划形态证据，不用微秒级抖动推导生产性能。
 
 `P1-B3-stk_auction_c-M2` **通过**，revision 158 无需修改。该结论只证明 migration 在隔离 PostgreSQL 满足容量、原子性、权限、拒写、writer、即时可见和查询计划合同；生产仍为 revision 156、两张物理表及已部署的双写代码，尚未释放 Serving 空间。下一阶段只能在另行授权后进入生产 M3a：重新做生产只读预检，暂停 schedule #2/#24，确认开放 TaskRun、目标 node、锁和长事务为 0，停止目标 worker，实时复测代表查询门禁后再安装 Raw-only 代码并显式应用 revision 158。M2 不授权部署、生产 migration 或最小 TaskRun。
+
+## 14. 2026-08-29 `P1-B3-stk_auction_c-M3a` 生产切换与即时验收
+
+M3a 于 `16:26..16:32+08` 按维护窗口顺序完成，没有使用会在门禁前自动迁移并重启服务的标准完整部署：
+
+1. 生产实时预检确认 Alembic 为 `20260829_000157`，schedule #2/#24 均为 active 且合同仍为 `daily_market_close_maintenance`、`Asia/Shanghai`、`30 18 * * 1,2,3,4,5` 与 `2 21 * * 1,2,3,4,5`。开放 TaskRun、目标 node、目标锁、等待锁和超过 30 秒事务均为 0；根盘可用 `51,424,526,336 B`。
+2. Raw/Serving 切换前均为 2,255,593 行和同数唯一 `(ts_code, trade_date)`，日期范围 `2025-01-02..2026-08-28`。20 个自然月逐月九字段双向 `EXCEPT ALL` 全部为 0，月峰值 132,619；外键、用户 trigger、列 ACL、RLS、依赖 view/function、rewrite rule、扩展统计、security label 与 publication 均无阻塞。
+3. 切换前五类查询结果 hash 一致、计划命中对应 Raw/Serving 日期索引或主键、临时块为 0。Raw 相对旧 Serving 最大正向退化出现在单日查询，为 `11.856/11.066 ms`、约 7.14%，低于 20% 停止阈值；Raw all-visible page 为 95.21%，本数据集不需要复制 `stk_auction_o` 的生产 vacuum 步骤。
+4. schedule #2/#24 通过正式 `OpsScheduleCommandService` 暂停，config revision `123/124` 记录 paused；scheduler 与通用 worker 停止后再次完成同一组全量对账和任务/锁门禁。随后只使用 `bash scripts/deploy-systemd.sh dev-interface --maintenance-migration` 安装远端 commit `3030524987a15740333240c4bf4edf49df4ff383` 并应用 revision `157 -> 158`；该模式没有构建前端/Wealth、seed、同步 unit、创建任务或自动重启服务。
+5. Raw relation OID `808835` 与 PK/日期索引保持不变，索引 valid/ready 且继续位于 SSD `pg_default`。Serving 由 390,266,880 B 物理表切为 OID `2038214`、0 B 普通 view，显式投影九个业务字段以及 `fetched_at AS created_at/updated_at`。owner 和 Raw 的 `lake_raw_reader SELECT` 保持不变，Serving 独立拒写 trigger 存在；`INSERT/UPDATE/DELETE` 均以 SQLSTATE `55000` 拒绝且没有测试行残留。
+6. Web、日期完整性 worker 与 TaskRun 收尾 worker 已重启回收连接池，两个健康端点均返回 200。仓库审计未发现 QTF 对该 relation 的消费者，因此没有做无关 QTF 重启。切换后五类 Raw/view 查询 hash 继续一致，view 全部下推 Raw 索引且无临时块；view 相对 Raw 最大中位数开销为 `0.004 ms`（最大百分比约 3.25% 的 `max(trade_date)` 查询），批量查询最大开销约 1.2%。
+7. 通用 worker 单独启动后，正式 Manual Action 创建 TaskRun `10111`，只请求 `2026-08-28` 一个 point unit。父任务 `1/1` 成功、0 失败；目标 node 1 页短页读取/保存 `5,551/5,551`，reject、去重和重试均为 0。目标日 5,551 行全部在任务时间窗内刷新，Raw/view 各 5,551 行和唯一身份，九字段双向差异为 0；全表仍为 2,255,593 行，证明既有日期原位更新且没有制造重复。Raw upsert 验收以 `rows_saved` 和任务时间窗内 `fetched_at` 为准，诊断中的 immutable-fact 插入/匹配子字段不适用于本 writer，未拿它们冒充对账指标。
+8. 开放任务归零后，schedule #2/#24 通过正式服务恢复为 active，config revision `125/126` 记录 resumed；cron、时区、`next_run_at=2026-08-31 18:30/21:02+08` 与 `last_triggered_at` 均保持不变。Web、generic worker、scheduler、日期完整性、TaskRun 收尾和 QTF worker 最终均为 active，健康端点为 200，开放任务、目标 node、目标锁、等待锁和长事务均为 0；最终 Raw/view 全表仍各为 2,255,593 行及同数唯一身份，根盘可用 `51,782,873,088 B`。文件系统瞬时变化包含依赖安装、WAL 和运行噪声，确定性释放量只认原 Serving relation 的 390,266,880 B。
+
+`P1-B3-stk_auction_c-M3a` 据此**通过**。生产现已是 Raw 唯一物理事实表与读取透明的 0 B Serving view，M0/M1/M2/M3a 全部闭环。M3b 只等待 schedule #24（18:30）与 #2（21:02）的下一次自然工作流，分别核对父 TaskRun 和 `stk_auction_c` node；该待观察项不授权额外 Tushare 请求，也不阻塞后续数据集独立 M0/M1/M2/M3a。
