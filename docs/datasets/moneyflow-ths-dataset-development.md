@@ -8,9 +8,9 @@
 - 当前是否多源：否（仅 `tushare`）
 - 是否已具备 std 映射与融合策略：否
 - 当前代码 target_table：`raw_tushare.moneyflow_ths`
-- 当前生产路径：`raw_tushare + core_serving` 两张物理表、`raw_core_upsert`
+- 当前生产路径：`raw_tushare.moneyflow_ths` 唯一物理事实表、`raw_only_upsert`；`core_serving.equity_moneyflow_ths` 为 0 B 只读 view
 - raw 直出专项目标：`raw_tushare.moneyflow_ths` 唯一物理事实表，原 `core_serving.equity_moneyflow_ths` 名称保留为只读 view
-- 当前阶段：`P1-B3-moneyflow_ths-M0/M1` 已通过；生产尚未应用 revision 159，仍是双物理表和既有双写部署
+- 当前阶段：`P1-B3-moneyflow_ths-M0/M1/M2/M3a` 已通过并完成生产切换；M3b 待 schedule #4 下一次自然工作流观察
 
 ---
 
@@ -109,8 +109,8 @@
 
 ### 5.1 路径选择
 
-- 当前路径：同一 normalized batch 同时 upsert `raw_tushare.moneyflow_ths` 与 `core_serving.equity_moneyflow_ths`
-- M1 已实现路径：只 upsert Raw，原 Serving 名称由 revision 159 改为显式列投影的只读 view
+- 切换前路径：同一 normalized batch 同时 upsert `raw_tushare.moneyflow_ths` 与 `core_serving.equity_moneyflow_ths`
+- 当前路径：只 upsert Raw，原 Serving 名称已由 revision 159 改为显式列投影的只读 view
 - 选择理由：M0 已证明两层全部 13 个业务字段、主键和 21 个自然月数据完全一致，当前没有 Serving 专属业务转换
 - 不在本次范围：引入 std、多源融合、修改 Tushare fields/分页/日期模型、修改 Ops 输入或自动任务时间
 
@@ -128,8 +128,7 @@
 
 - 主键：`(trade_date, ts_code)`
 - 对外口径：与上游业务字段一致（不含审计字段）
-- 当前形态：生产物理表；M1 已实现只读 view migration，但尚未在隔离库或生产应用
-- 目标形态：保留原 relation 名的普通只读 view；13 个业务字段同名投影，`fetched_at AS created_at/updated_at`
+- 当前形态：保留原 relation 名的 0 B 普通只读 view；13 个业务字段同名投影，`fetched_at AS created_at/updated_at`
 - 索引：
   - `idx_equity_moneyflow_ths_trade_date(trade_date)`
   - `idx_equity_moneyflow_ths_ts_code_trade_date(ts_code, trade_date)`
@@ -141,7 +140,7 @@
 
 - IngestionExecutor / SourceClient：`moneyflow_ths` 数据集维护链路
 - 当前代码 `target_table`：`raw_tushare.moneyflow_ths`；Serving 仍通过原名称读取
-- 当前生产部署仍是旧双写版本，必须等 M2 通过和 M3a 独立授权后才能切换
+- 当前生产部署为 commit `754f6c78`、revision 159 和 `raw_only_upsert`；Serving 原名称继续透明承载只读查询
 - 参数构建：
   - `moneyflow_ths.maintain`：`trade_date` 或 `start_date+end_date` + 可选 `ts_code`
 - 幂等：按主键 upsert
@@ -181,8 +180,8 @@
 - [x] 数据状态页可按 `trade_date` 展示
 - [x] M0 已完成 21 月、2,077,033 行、13 字段生产只读等价审计
 - [x] M1 raw-only Definition、ORM metadata、独立 migration 和自动化测试
-- [ ] M2 隔离 PostgreSQL 验证
-- [ ] M3a 生产切换与即时验收
+- [x] M2 隔离 PostgreSQL 验证
+- [x] M3a 生产切换与即时验收
 - [ ] M3b 首个自然工作流验收
 
 ---
@@ -224,3 +223,29 @@
 3. 独立 migration `20260829_000159` 接真实 head `20260829_000158`，固定 Raw→Serving 锁序、16 MiB `work_mem`、15 秒锁等待、120 秒 statement timeout、150,000 行/层/月容量门禁、13 字段双向 `EXCEPT ALL`、`(trade_date, ts_code)` 唯一性、对象依赖/ACL/comment/索引/tablespace 门禁和三类 DML 拒绝；禁止 `CASCADE`、共享拒写函数重建和自动 downgrade。
 4. 专项与共享回归覆盖 Definition/plan/filter、ORM 类型/空值/主键/索引、Raw-only writer、Raw freshness/date-completeness target、ServingPublish 旁路、migration 离线 SQL 与禁止项；M1 未连接数据库、未请求 Tushare、未部署、未创建 TaskRun、未修改 schedule #4。
 5. M1 结论：**通过**。下一阶段仅为另行授权的 M2，在隔离 PostgreSQL 验证 150,000/150,001 行、原子回滚、权限与三类 DML、正式 writer 即时可见和查询计划；不得把本轮代码测试当成数据库验收或生产切换证据。
+
+---
+
+## 13. 2026-08-29 `P1-B3-moneyflow_ths-M2` 隔离 PostgreSQL 验收结论
+
+1. M2 使用本轮新建的 PostgreSQL 18.4 一次性实例，`listen_addresses=''`，只允许随机 Unix socket 连接；应用 migration 的角色为非超级用户。每次 Alembic 调用前均核对最终配置 URL、数据库、用户、socket、端口、`inet_server_addr=NULL`、恢复状态和 data directory，并把 `gs_raw_cold_hdd` 映射到临时目录用于身份门禁。本轮没有连接 Prod、请求 Tushare、部署、创建 TaskRun 或修改 schedule #4。
+2. 150,000 行/月正向场景从 revision 158 成功应用 159。Raw relation OID `16392` 及主键、日期索引、`(ts_code, trade_date)` 索引 OID/定义/valid/ready 状态保持不变，全部继续位于 `pg_default`；Serving 从物理表变为 0 B 普通 view。Raw/view 都是 150,000 行和 150,000 个唯一身份，13 个业务字段双向差异为 0。
+3. owner、Raw/Serving SELECT 权限、grant option、relation/column comments 与独立拒写 trigger 均恢复；Serving 的 `INSERT/UPDATE/DELETE` 全部返回 SQLSTATE `55000`。直接 Raw DML 和正式 `DatasetWriter` 写入都由 view 即时可见，writer 明确写入 `raw_tushare.moneyflow_ths`，事务回滚后没有残留。
+4. 150,001 行、业务字段差异、身份差异、未知外部 view 依赖、缺失 Raw `(ts_code, trade_date)` 索引五个负向场景均在 Serving DDL 前失败，并保持 revision、relation、索引、行数、comments 与 trigger 快照不变；另一个场景在完成表转 view 后注入异常，整个 migration transaction 回滚到 revision 158 和原两张物理表。
+5. 单日、单股票、股票区间、最大日期和日期完整性五类查询的结果行数与 hash 前后一致，计划从等价 Serving 索引下推到 Raw 索引，临时读写块均为 0。受控样本中批量查询实际耗时未见阻塞性退化；M3a 仍须用实时生产数据重新执行代表查询门禁。
+6. 首次验证运行在 migration 已成功后，因测试脚本错误地强制单股票点查必须使用主键，而 PostgreSQL 合理选择了等价的 `(ts_code, trade_date)` 索引，故测试脚本主动判失败。该临时实例已停止，未把结果冒充通过；修正为“结果一致且命中等价实体日期索引”后，从全新数据目录完整复跑七个场景并全部通过。最终报告为 `/private/tmp/goldenshare_moneyflow_ths_m2_report.json`，成功实例已停止且数据目录已删除。
+7. M2 结论：**通过**，revision 159 和业务代码无需修改。生产仍为 revision 158、两张物理表和旧双写部署；下一阶段只能是另行授权的 `P1-B3-moneyflow_ths-M3a`，并必须重新完成生产身份、任务、schedule #4、worker、锁、长事务、磁盘、全量对账和查询计划门禁。
+
+---
+
+## 14. 2026-08-29 `P1-B3-moneyflow_ths-M3a` 生产切换与即时验收结论
+
+1. M3a 于 `18:47..18:57+08` 按维护合同完成。切换前生产为 commit `fe3caa3b`、revision 158；schedule #4 active 且下一次触发为 `2026-08-31 20:00+08`。开放 TaskRun、目标 node、目标 relation 锁、等待锁和 30 秒以上事务均为 0，Web、generic worker、scheduler、日期完整性和 TaskRun 收尾服务均 active，两个健康端点为 200。
+2. 切换前 Raw/Serving 各 2,077,033 行和同数唯一 `(trade_date, ts_code)`，日期范围 `2024-12-19..2026-08-28`；21 个自然月逐月 13 字段双向 `EXCEPT ALL` 全为 0，月峰值 116,993。对象依赖门禁全部为 0，Raw/Serving 均为 `pg_default` 物理表，原 Serving 大小为 490,921,984 B。
+3. 切换前五类查询结果一致、命中等价索引、临时块为 0。首次三轮中亚毫秒“最大日期”查询出现 0.037 ms 抖动，补做 21 轮交错复测后 Raw/Serving 中位数为 `0.109/0.121 ms`；其余有实际数据量的查询 Raw 相对 Serving 约 `-9.2%..+6.0%`，性能门禁通过且无需 vacuum。
+4. schedule #4 通过正式服务暂停并由 config revision 127 留痕，cron、时区和 next/last timing 未改变；scheduler 与 generic worker 分别停止后，再次完成 21 月全量对账。`--maintenance-migration` 只安装 commit `754f6c78` 并应用 revision 158→159，没有前端构建、seed、unit 同步、隐式任务或服务重启。
+5. Raw relation OID `22825` 保持不变，主键和两个二级索引仍 valid/ready 且位于 `pg_default`；Serving 由 OID `22890` 物理表变为 OID `2039022`、0 B 普通 view。owner、Raw `lake_raw_reader SELECT`、Serving ACL 和独立拒写 trigger 正确，三类 DML 均返回 SQLSTATE `55000` 且无测试残留；原 Serving 490,921,984 B 已由 catalog 确认释放。
+6. Web、日期完整性和 TaskRun 收尾连接池回收后，远端运行时 Definition 明确为 `raw_tushare.moneyflow_ths + raw_only_upsert`。切换后五类 Raw/view 查询 hash 一致并全部下推 Raw 索引，无临时块；批量查询最大 view/Raw 相对开销低于 6%。
+7. 正式 TaskRun `10128` 请求 `2026-08-28` 一个 point unit 并一次成功：1 页短页读取/保存 `5,211/5,211`，reject、去重、重试均为 0。目标日 Raw/view 各 5,211 行和身份，全部 5,211 行在任务窗口刷新，13 字段双向差异为 0；全表最终仍为 2,077,033 行和同数身份。
+8. schedule #4 通过 config revision 128 原样恢复 active，scheduler 与 generic worker 均恢复；Web、日期完整性、TaskRun 收尾服务和两个健康端点全部正常，开放任务、锁和长事务为 0。根盘可用空间从预检 `51,782,713,344 B` 变为最终 `52,283,146,240 B`，但确定性释放量只认 catalog 的 490,921,984 B，不把文件系统噪声计入收益。
+9. M3a 结论：**通过**。生产已经是 Raw 唯一物理事实表和读取透明的 0 B Serving view；`P1-B3-moneyflow_ths-M3b` 只待 schedule #4 下一次自然工作流观察，不创建额外任务、不重复请求源端。
