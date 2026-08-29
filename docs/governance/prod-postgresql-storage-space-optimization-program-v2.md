@@ -1,7 +1,7 @@
 # 生产 PostgreSQL 存储空间优化治理专项 v2
 
 - 版本：v2
-- 状态：P1-B0、P1-B1 与 P1-B2 已结案；`P1-B3-stk_auction_o` 已结案，`P1-B3-stk_auction_c-M0/M1` 已通过；下一阶段为另行授权的 `P1-B3-stk_auction_c-M2`
+- 状态：P1-B0、P1-B1 与 P1-B2 已结案；`P1-B3-stk_auction_o` 已结案，`P1-B3-stk_auction_c-M0/M1/M2` 已通过；下一阶段为另行授权的生产 `P1-B3-stk_auction_c-M3a`
 - 更新时间：2026-08-29
 - 范围：生产 PostgreSQL 小对象 SSD→HDD 迁移，以及无业务转换的 raw/core_serving 重复物理存储收口
 - 不在范围：`stk_mins` 大分区迁移、删除 raw 源事实、修改 Tushare 请求语义、自动执行生产 DDL
@@ -452,6 +452,16 @@ revision 158 在任何 Serving DDL 前验证 relation/owner/raw SSD/列/主键/�
 
 专项与回归测试覆盖 Definition/plan、filter、分页、ORM/索引、Raw-only writer、freshness/date-completeness、ServingPublish 旁路、revision 158→157、容量/差异/依赖 fail-closed、锁和 DDL 顺序、权限/注释、三类 DML、禁止 downgrade及 PostgreSQL offline SQL 渲染。M1 没有连接数据库、请求 Tushare、部署、执行 migration、创建 TaskRun 或修改 schedule；生产仍为两张物理表和已部署双写代码。下一阶段只能是另行授权的 M2。
 
+### 2.29 2026-08-29 `P1-B3-stk_auction_c-M2` 隔离验收事实
+
+M2 在 `listen_addresses=''`、仅随机 Unix socket 可达的 PostgreSQL 18.4 一次性实例执行。每个数据库在 Alembic 前均核对最终应用配置 URL、数据库、用户、socket、端口与 data directory，避免配置优先级误连其它数据库；全程未连接 Prod、请求 Tushare、部署、创建 TaskRun、修改 schedule 或执行生产 DDL。实例已停止且数据目录已删除，报告留存在 `/private/tmp/goldenshare_stk_auction_c_m2_report.json`。
+
+160,000 行/月正向库从 revision 157 成功应用 158：Raw relation 与两个索引 OID 保持不变，索引 valid/ready 且位于 `pg_default`；Serving 从物理表切为 0 B view。Raw/view 行数、唯一身份、九字段双向差集和审计时间投影全部一致；owner、Raw/Serving SELECT ACL、grant option、relation/column comments 与独立拒写 trigger 均恢复。Serving 三类 DML 全部返回 SQLSTATE `55000`；Raw DML 与正式 `DatasetWriter` 的结果立即在 view 可见，事务回滚后无残留且 writer 目标明确为 `raw_tushare.stk_auction_c`。
+
+160,001 行、业务字段差异、身份差异和外部 view 依赖四个场景均在 Serving DDL 前失败，revision/relation/index/rows/comments/trigger 快照保持不变；另一个数据库在完成 `DROP TABLE -> CREATE VIEW -> trigger` 后注入故障，整个 migration transaction 回滚到 revision 157 及原两张物理表。四类代表查询的结果 hash 一致，计划下推 Raw PK/日期索引且无临时块；批量查询耗时为单日 `2.653 -> 2.577 ms`、日期完整性 `8.419 -> 8.757 ms`，两个亚毫秒点查询只作为计划证据。
+
+M2 据此通过，revision 158 无需修改。生产仍为 revision 156、两张物理表和已部署双写代码，390,266,880 B 尚未释放；下一阶段只能另行授权生产 M3a，并重新执行任务、锁、worker、schedule、磁盘和代表查询实时门禁。
+
 ## 3. Track A：独立小对象 SSD→HDD 迁移
 
 ### 3.1 A0：历史日线轻量叶分区
@@ -570,7 +580,7 @@ raw 直出一期口径固定后，原 A1 不能再作为六表迁移批次执行
 | `moneyflow_ind_ths` | 9.3 MiB | **已证** | 是 | **P1-B1-industry-M3a/M3b 通过；已切换为 raw-backed view** |
 | `moneyflow_mkt_dc` | 0.2 MiB | **已证** | 是 | **P1-B0-M3 通过；补充自然工作流数据链通过** |
 | `moneyflow_ths` | 460.9 MiB | 待分块证明 | 是 | 一期 P1-B3；raw 固定留 SSD |
-| `stk_auction_c` | 372.19 MiB | **20 月、2,255,593 行、9 业务字段双向差异为 0** | 是 | **M0/M1 通过；revision 158 接 157；下一阶段 M2；生产 serving 仍为物理表，尚未释放 390,266,880 B** |
+| `stk_auction_c` | 372.19 MiB | **20 月、2,255,593 行、9 业务字段双向差异为 0** | 是 | **M0/M1/M2 通过；revision 158 隔离验收通过；下一阶段生产 M3a；生产 serving 仍为物理表，尚未释放 390,266,880 B** |
 | `stk_auction_o` | 364.64 MiB | **20 月、2,183,621 行、9 业务字段双向差异为 0** | 是 | **M0/M1/M2/M3a/M3b 通过并结案；生产已为 0 B raw-backed view，已释放 382,353,408 B** |
 | `stk_limit` | 623.5 MiB | 待分块证明 | 是 | 一期 P1-B4；raw 固定留 SSD |
 | `stock_st` | 71.0 MiB | 待证明 | 是 | **旁路修复服务仍双写，当前禁止改造** |
@@ -644,7 +654,7 @@ raw 直出一期口径固定后，原 A1 不能再作为六表迁移批次执行
 | P1-B2 | 6 | `dc_daily` | `raw_tushare.dc_daily` → `core_serving.dc_daily` | 154.22 MiB | 634,116 / 634,116 | **M0/M1/M2/M3a/M3b 全部通过并结案；已释放 161,710,080 B** |
 | P1-B2 | 7 | `suspend_d` | `raw_tushare.suspend_d` → `core_serving.equity_suspend_d` | 211.91 MiB | 640,504 / 640,504 | **M0/M1/M2/M3a/M3b、消费者复审及 filter 前置修复完成并结案；已释放 222,199,808 B** |
 | P1-B3 | 8 | `stk_auction_o` | `raw_tushare.stk_auction_o` → `core_serving.equity_auction_open` | 364.64 MiB | 2,183,621 / 2,183,621 | **M0/M1/M2/M3a/M3b 全部通过并结案；已释放 382,353,408 B** |
-| P1-B3 | 9 | `stk_auction_c` | `raw_tushare.stk_auction_c` → `core_serving.equity_auction_close` | 372.19 MiB | 2,255,593 / 2,255,593 | **M0/M1 通过：Definition 和独立 revision 158 已完成；下一阶段 M2；生产尚未释放 390,266,880 B** |
+| P1-B3 | 9 | `stk_auction_c` | `raw_tushare.stk_auction_c` → `core_serving.equity_auction_close` | 372.19 MiB | 2,255,593 / 2,255,593 | **M0/M1/M2 通过：Definition、revision 158 与隔离验收完成；下一阶段生产 M3a；生产尚未释放 390,266,880 B** |
 | P1-B3 | 10 | `moneyflow_ths` | `raw_tushare.moneyflow_ths` → `core_serving.equity_moneyflow_ths` | 460.9 MiB | 2,050,984 / 2,050,984 | 全字段等价待证 |
 | P1-B4 | 11 | `moneyflow_dc` | `raw_tushare.moneyflow_dc` → `core_serving.equity_moneyflow_dc` | 1,072.8 MiB | 4,120,988 / 4,120,988 | 一期最高单表收益；全字段等价待证 |
 | P1-B4 | 12 | `stk_limit` | `raw_tushare.stk_limit` → `core_serving.equity_stk_limit` | 623.5 MiB | 4,569,303 / 4,569,303 | 市场情绪消费者；全字段等价待证，最后执行 |
@@ -750,7 +760,7 @@ raw 直出一期口径固定后，原 A1 不能再作为六表迁移批次执行
 | P1-GATE-SSE | schedule SSE 与在线 Alembic | 消除长事务并使锁等待有界 | **M1/M2/M3 通过；共享生产门禁已解除** |
 | P1-B1 | `moneyflow_ind_ths` → `moneyflow_cnt_ths` → `margin` | 小表逐项验证；margin 最后处理 probe | **三项 M1/M2/M3a/M3b 全部通过并结案** |
 | P1-B2 | `moneyflow_ind_dc` → `dc_daily` → `suspend_d` | 验证 Wealth/QTF/DG 直接消费者与特殊身份键 | **三项 M0/M1/M2/M3a/M3b 全部通过并结案** |
-| P1-B3 | `stk_auction_o` → `stk_auction_c` → `moneyflow_ths` | 验证百万行级数据等价、切换和查询性能 | `stk_auction_o` 已结案；`stk_auction_c-M0/M1` 已通过，下一阶段为另行授权的 M2；`moneyflow_ths` 未开始 |
+| P1-B3 | `stk_auction_o` → `stk_auction_c` → `moneyflow_ths` | 验证百万行级数据等价、切换和查询性能 | `stk_auction_o` 已结案；`stk_auction_c-M0/M1/M2` 已通过，下一阶段为另行授权的生产 M3a；`moneyflow_ths` 未开始 |
 | P1-B4 | `moneyflow_dc` → `stk_limit` | 释放一期主要空间并验收市场情绪消费者 | B3 全部验收后逐项授权 |
 | V2-A0 | `equity_daily_bar_light_p1990` | tablespace 微迁移先导 | Track B 后置，需单独授权 |
 | V2-A1 | `p1991`～`p1999` | 释放约 178.3 MiB | A0 通过后授权 |
@@ -822,7 +832,7 @@ raw 直出一期口径固定后，原 A1 不能再作为六表迁移批次执行
 4. 没有整库可恢复备份条件时，极端磁盘/实例故障风险仍存在；本文只能通过小对象、单事务和 fail-closed 降低人为操作风险。
 5. SSD 扩容后的 51.68 GiB 是 2026-08-24 快照；`moneyflow_ind_dc` M0 时为 48.78 GiB。磁盘、任务和锁状态会持续漂移，任何未来执行必须重新采样，不能因名义容量升至 270 GB 而跳过容量门禁。
 6. 2026-08-26 SSE/有界锁等待 M3 已关闭共享迁移基础设施问题；2026-08-27 `moneyflow_ind_dc` revision 153 又被完整部署在未暂停 schedule/worker 时提前应用。切换后没有观察到数据或查询损坏，但该流程偏差必须保留，并再次证明“完整部署”不能承担维护窗口前的代码安装动作。
-7. Heat 上游时间合同已由 schedule #4/#36 在 `2026-08-27` 的自然成功链闭环；`moneyflow_ind_dc` 不再有开放验收项。`dc_daily`、`suspend_d` 与 `stk_auction_o` 的 M0/M1/M2/M3a/M3b 均已完成并结案；`stk_auction_o` 的标准部署提前迁移偏差继续保留。`stk_auction_c-M0/M1` 已通过，下一开发阶段是另行授权的 `P1-B3-stk_auction_c-M2`。
+7. Heat 上游时间合同已由 schedule #4/#36 在 `2026-08-27` 的自然成功链闭环；`moneyflow_ind_dc` 不再有开放验收项。`dc_daily`、`suspend_d` 与 `stk_auction_o` 的 M0/M1/M2/M3a/M3b 均已完成并结案；`stk_auction_o` 的标准部署提前迁移偏差继续保留。`stk_auction_c-M0/M1/M2` 已通过，下一开发阶段是另行授权的生产 `P1-B3-stk_auction_c-M3a`。
 8. 两个 `2026-08-28` 父 workflow 中的 `anns_d` 节点出现 69/184 行 `write.duplicate_conflict_key_in_batch:row_key_hash`，已另列独立只读数据质量审计 TODO；尚未证明六个 source fields 完全相同，不能直接按完全重复结案。
 
 ## 10. 相关基线

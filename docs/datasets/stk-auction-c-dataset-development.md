@@ -1,6 +1,6 @@
 # 股票收盘集合竞价数据集接入方案（`stk_auction_c`）
 
-> 状态：数据集接入已落地；`P1-B3-stk_auction_c-M0/M1` 已通过，下一阶段为另行授权的 M2
+> 状态：数据集接入已落地；`P1-B3-stk_auction_c-M0/M1/M2` 已通过，下一阶段为另行授权的生产 M3a
 > 日期：2026-05-16  
 > raw 直出 M0 复审：2026-08-29
 > 文档模板：[数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)  
@@ -441,3 +441,16 @@ revision 158 与前一项 migration 物理分离，只处理 `raw_tushare.stk_au
 M1 新增专项测试，覆盖 Definition/plan、`ts_code` 正反例、Raw/Serving 字段及索引合同、ServingPublish 旁路不存在、Raw-only writer、freshness/date-completeness Raw target、revision 158→157 迁移链、160,000 行门禁、月度差异、未知依赖、锁与 DDL 顺序、显式 view、ACL/comment、三类 DML 和禁止 downgrade，并完成 PostgreSQL offline SQL 渲染。
 
 `P1-B3-stk_auction_c-M1` **通过**，但只证明代码与静态 migration 合同。没有连接任何数据库、请求 Tushare、部署、执行 migration、创建 TaskRun 或修改 schedule；生产仍是两张物理表和原双写代码。下一阶段只能在独立授权后进入 M2，在隔离 PostgreSQL 真实应用 revision 158，验证 160,000/160,001 行边界、差异/依赖 fail-closed、权限、三类 DML、事务回滚、Raw 写入后 view 即时可见和代表查询计划。M1 不构成生产 M3a 授权。
+
+## 13. 2026-08-29 `P1-B3-stk_auction_c-M2` 隔离 PostgreSQL 验证
+
+M2 使用 PostgreSQL 18.4 的一次性隔离实例，实例仅监听随机 Unix socket，`listen_addresses=''`、`inet_server_addr=NULL`。每次 Alembic 前均通过应用最终 `get_settings()` URL 和数据库连接核对数据库名、应用用户、socket、端口及 data directory，避免 `.env` 优先级把迁移带到其它数据库。没有连接 Prod、请求 Tushare、部署、创建 TaskRun、修改 schedule 或执行生产 DDL。六个场景完成后临时实例已停止，数据目录已删除；机器可读证据保留在 `/private/tmp/goldenshare_stk_auction_c_m2_report.json`。
+
+1. 正向库在同一自然月构造 **160,000 行/层**，revision `20260829_000157 -> 20260829_000158` 成功。Raw OID `16391`、主键索引 OID `16402`、日期索引 OID `16404` 均保持不变，两个索引继续 valid/ready 且位于 `pg_default`；Serving 从 OID `16405` 的物理表切换为 OID `16421`、0 B 普通 view。
+2. 切换后 Raw/view 均为 160,000 行和 160,000 个唯一 `(ts_code, trade_date)`；九字段双向 `EXCEPT ALL` 与 `fetched_at -> created_at/updated_at` 审计投影差异均为 0。view 列、owner、Raw reader、Serving `SELECT WITH GRANT OPTION`、relation/column comments 及独立拒写 trigger 全部恢复。
+3. Serving `INSERT/UPDATE/DELETE` 均返回 SQLSTATE `55000`。Raw 的插入、更新和删除在同一事务内立即反映到 view，回滚后行数及测试身份无残留。正式 `DatasetWriter` 对一个既有身份返回 `rows_written=1`、目标为 `raw_tushare.stk_auction_c`，Raw/view 同时出现新值；事务回滚后原值及原时间戳完整恢复。
+4. **160,001 行/月**明确触发 `monthly reconciliation exceeds safety cap`；另三个负向库分别注入业务字段差异、身份差异和外部 view 依赖，均在 Serving DDL 前失败。四个负向库的 revision、relation OID/类型、索引、行数、comments 和 trigger 快照均保持原状。
+5. 独立回滚库在同一 migration transaction 完成 `DROP TABLE -> CREATE VIEW -> trigger` 后注入失败；回滚后 revision 157、两张物理表、Raw/Serving OID、索引 OID/定义/valid/ready、ACL、comments、行数与零用户 trigger 全部恢复。
+6. 单日、单股票、最大日期和 10 日日期完整性四类查询切换前后结果行数与 SHA-256 一致，计划分别从 Serving 索引下推到 Raw 的日期索引或主键，临时块均为 0。两类有代表性的批量查询耗时为单日 `2.653 -> 2.577 ms`、日期完整性 `8.419 -> 8.757 ms`；单股票和最大日期均小于 `0.01 ms`，只视为计划形态证据，不用微秒级抖动推导生产性能。
+
+`P1-B3-stk_auction_c-M2` **通过**，revision 158 无需修改。该结论只证明 migration 在隔离 PostgreSQL 满足容量、原子性、权限、拒写、writer、即时可见和查询计划合同；生产仍为 revision 156、两张物理表及已部署的双写代码，尚未释放 Serving 空间。下一阶段只能在另行授权后进入生产 M3a：重新做生产只读预检，暂停 schedule #2/#24，确认开放 TaskRun、目标 node、锁和长事务为 0，停止目标 worker，实时复测代表查询门禁后再安装 Raw-only 代码并显式应用 revision 158。M2 不授权部署、生产 migration 或最小 TaskRun。
