@@ -1,6 +1,6 @@
 # ETF 基础信息重建与下游数据审计清理 LLD v1
 
-状态：P0-P12 已全部完成；P12 R1-R5 多代码手动任务、生产补拉与最终对账已完成，旧 alignment Submit 已删除，当前开放分钟任务为 0；原全历史 Preview 已作废，未执行下游事实删除
+状态：P0-P12 开发与既定生产动作已完成；P12 R1-R5 多代码手动任务、生产补拉与分钟对账已完成，旧 alignment Submit 已删除，当前开放分钟任务为 0；旧激活池消费者的补充生产验收执行中，`etf_sh_cons` 与 `fund_daily` 已通过，`etf_sz_cons` 自然调度和 ETF 实时开市批次待验，全部完成前本需求不正式关闭；原全历史 Preview 已作废，未执行下游事实删除
 创建日期：2026-08-28
 依据方案：[ETF 基础信息重建与下游数据审计清理技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)
 适用代码：`src/foundation/**`、`src/ops/**`、`src/app/**`、`frontend/**`、`alembic/**`
@@ -1747,7 +1747,98 @@ R5 执行记录：
 4. TaskRun `10117` 于 17:04:07 开始、17:48:14 结束，状态 `success`，耗时 2,646.357 秒；`unit_total/done/failed=1336/1336/0`，`rows_fetched/saved=7606095/7606095`，拒绝、去重、primary issue 和 TaskRun issue 均为 0。
 5. 补后使用相同 `2026-01-01..2026-08-28` 口径重跑只读 Preview，生成 `plan_id=etf-minute-alignment-ec27ce95c85b4c29aa4c5ab051e13f90`、`plan_content_hash=ec836cc7722f22b44ad13266eeace59a334ebd459d910c3c95207e1253b7ca72`；`request_target_hash` 仍为 `8972736114ecbd14d3245e6c59d80c63b463752a15db5b8bfe7ee5ca7ebd31c3`，请求身份集合未漂移。
 6. 可请求/参与对齐 ETF 均为 1,647；8,235 个 target/frequency 组合全部由 raw 物理数据覆盖，TaskRun-only 覆盖为 0，prefix/suffix 缺口、action、unit 和请求边界均为 0。`interior_gap_not_audited=true` 仍是已拍板边界，不把该结论扩大为区间内每个分钟都已连续对账。
-7. 最终开放 `etf_mins` TaskRun 为 0，未执行下游 DELETE、数据库迁移、schedule 修改或额外 TaskRun。至此 P12 正式关闭。
+7. 最终开放 `etf_mins` TaskRun 为 0，未执行下游 DELETE、数据库迁移、schedule 修改或额外 TaskRun。至此 P12 的分钟补拉与对账范围关闭；整个需求仍须通过下文“旧激活池消费者生产补充验收”后才能正式关闭。
+
+#### 最终关闭补充门禁：旧激活池消费者生产验收（执行中）
+
+##### 1. 缺口依据与验收目标
+
+2026-08-29 在关闭后复核中确认：迁移到 ETF Basic 的代码链已经完成自动化回归，但除 `etf_mins` 外，不能证明所有原激活池消费者都在新代码和重建后的 Basic 上真实运行过。当前证据如下：
+
+| 消费者 | 自动化证据 | 切换后生产证据 | 当前结论 |
+|---|---|---|---|
+| `etf_mins` | planner、上市日裁剪、多代码和 writer 回归通过 | TaskRun `10117` 成功，补后 Preview 缺口为 0 | 已满足，不得重复请求 |
+| `etf_sh_cons` | 自动/显式 planner、SH scope、上市日裁剪和 writer 回归通过 | 2026-08-29 全量只读计划与单代码 TaskRun `10126` 均通过 | 已满足，不得扩大为 921 个源请求 |
+| `etf_sz_cons` | 自动/显式 planner、SZ scope、上市日裁剪和 writer 回归通过 | 最近成功 TaskRun `9769` 在切换前；schedule `40` 下一次自然运行尚未发生 | 待首次切换后自然调度验收 |
+| `fund_daily` serving | raw/serving 两阶段、Basic 过滤和失败隔离回归通过 | 2026-08-29 单交易日 TaskRun `10127` 及 Raw/Serving 物理对账通过 | 已满足，不得重复请求同一日期 |
+| ETF 实时 Health/候选/monitor | eligible candidate、pool/rule 门禁和 runtime 求交回归通过 | 休市只读冒烟已通过；没有开市自然批次的 monitor 证据 | 待开市自然批次验收 |
+| ETF Review | 退场 API 404 和相邻指数/板块回归通过 | 已删除 | 不再要求运行 |
+
+本轮重新执行 Basic、三个 planner、三个 writer/两阶段 executor、实时 Health/monitor 和 Review 退场相关定向测试，共 `256 passed`。这证明代码路径可运行，但不能替代下列生产验收。
+
+##### 2. 总体执行约束
+
+1. 每次操作开始时固定中国自然日和一份 `core_serving.etf_basic` 当前可请求快照；记录总数、SH/SZ 分市场数量和互斥排除统计。验收不得重新拼装状态条件，也不得读取已删除的 `ops.etf_series_active`。
+2. 只选择已经完成交易且源端数据已就绪的最近 SSE 开市日。不得用未来日期、当日未完成数据或纯休市日期制造成功结果。
+3. 每个数据集开始前确认相同 `resource_key` 没有 `queued/running/canceling` TaskRun，并复核相关 schedule 的上次/下次触发时间。存在自然调度时优先等待自然运行，禁止再建重复手工任务。
+4. 任何手工生产任务都必须先用当前 resolver/planner 做只读预检，记录 TaskRun 数、unit 数、代码数、日期和预计源请求量；实际提交必须与预检完全一致，并在源请求前另获用户明确授权。
+5. 每次只允许一个验收对象进入执行，上一项 TaskRun、物理数据和 TaskRun issue 尚未对账完成时不得开始下一项。不得合并为 workflow，也不得借验收扩大历史补拉范围。
+6. 不修改 DatasetDefinition、request builder、writer、schedule、monitor pool/rule、Settings、数据库 schema 或源端限速；不执行 DELETE、清表、重建、迁移、假告警或额外 Basic 同步。
+7. TaskRun 失败、selector 异常、unit 数与预检不一致、出现 `.OF`/交易所冲突/空或未来上市日、源端未就绪、额度不足或 schedule 重叠时立即停止。不得回退旧池、盲目 retry 或重复请求同一范围。
+8. 验收证据必须来自当前生产代码、TaskRun/node/issue、限定范围的物理表只读对账和实时 collector 日志；页面成功提示、历史任务或单元测试不能单独作为生产通过证据。
+
+##### 3. `etf_mins`：复用既有证据，不重复执行
+
+1. 复用 TaskRun `10117` 的 `1336/1336/0` unit、`7,606,095/7,606,095/0` 抓取/保存/拒绝结果和无 issue 证据。
+2. 复用补后 Preview：1,647 个当前可请求 ETF 的 8,235 个代码/频率组合均有 raw 首尾覆盖，prefix/suffix、action 和 unit 均为 0。
+3. `request_target_hash` 必须与任务前保持一致；`interior_gap_not_audited=true` 继续是本需求边界。
+4. 本项已经通过。不得为了统一流程再次创建分钟 TaskRun或请求 Tushare。
+
+##### 4. `etf_sz_cons`：等待 schedule 40 的自然运行
+
+1. 保持 schedule `40` active，不提前手工触发；以切换后第一次正常 `etf_sz_cons.maintain` TaskRun 为验收对象。
+2. 调度生成的 point 计划必须无显式 `ts_code`，只加载一次 SZ scope Basic snapshot；`unit_total` 必须等于本次预检中 `list_date <= trade_date` 的当前可请求 `.SZ` ETF 数，每个 unit 只含一个 `.SZ` 标量代码，且 `trade_date >= list_date`。
+3. TaskRun 必须 `success`、`unit_done=unit_total`、`unit_failed=0`、`rows_fetched>0`、`rows_saved>0`、`rows_rejected=0`，且没有 primary issue 或 TaskRun issue。
+4. 物理对账限定本次交易日：raw 中不得出现非 `.SZ`、exchange 冲突、不在同次 Basic 快照或早于 `list_date` 的本轮新增身份；TaskRun/node 的代码集合必须与预检集合相同。
+5. 如果自然调度没有创建任务、任务形状不同或失败，先审计 scheduler、resolver、源端和 writer 根因；不得立即补一个手工任务掩盖自然链路问题。
+
+##### 5. `etf_sh_cons`：全量只读计划 + 单代码生产任务
+
+1. 当前没有 `etf_sh_cons` schedule。选择一个最近且源端已就绪的 SSE 开市日，先用生产当前 resolver/planner 构建一次无显式 `ts_code` 的只读 point 计划；该步骤不得创建 TaskRun或请求 Tushare。
+2. 全量只读计划必须只加载一次 SH scope Basic snapshot；`unit_count` 必须等于 `list_date <= trade_date` 的当前可请求 `.SH` ETF 数。全部 unit 只能包含一个 `.SH` 标量代码，`trade_date >= list_date`，代码集合与同次 Basic 快照裁剪结果完全一致。
+3. 源请求和 writer 的生产验收只选择上述计划中的一个合格、已有稳定历史数据的 `.SH` ETF，以同一交易日提交一个普通 `etf_sh_cons.maintain` point TaskRun。单代码实际任务必须只调用一次 `get_requestable_target()`，计划只有一个 unit，源请求参数精确为该 `ts_code + trade_date`。
+4. “全量只读计划”证明自动 snapshot 展开，“单代码生产任务”证明 Basic 门禁、request builder、Tushare connector、分页和 writer；两项与已通过的自动 planner 回归共同构成验收，不为验证 fan-out 消耗全部 SH ETF 的源请求额度。
+5. 单代码 TaskRun 必须 `success`、`unit_total=unit_done=1`、`unit_failed=0`、`rows_fetched>0`、`rows_saved>0`、`rows_rejected=0`，且没有 primary issue 或 TaskRun issue。
+6. 物理对账限定本次 `ts_code + trade_date`：raw 行数必须与 TaskRun 保存数一致，主键无重复，代码为 `.SH`，并且该代码在同次 Basic 快照中满足当前可请求且 `trade_date >= list_date`。
+
+##### 6. `fund_daily`：一个交易日的全市场两阶段任务
+
+1. 选择一个最近且源端已就绪、尚无同范围开放任务的交易日，使用普通 `fund_daily.maintain` point 动作，`filters` 保持空，不传 `ts_code`。这仍是一次全市场源请求，不按 ETF Basic 逐代码展开。
+2. TaskRun 必须只有一个日期 unit 并最终 `success`、`unit_done=unit_total=1`、`unit_failed=0`、`rows_fetched>0`、`rows_rejected=0`，且没有 `fund_daily_serving_publish_failed`、primary issue 或 TaskRun issue。
+3. raw 阶段必须完整保存该交易日源端返回，不因 Basic 过滤减少；serving 阶段只发布同次 Basic 当前可请求代码且 `trade_date >= list_date` 的行。`rows_saved` 按现行契约表示 serving，不要求与 `rows_fetched` 相等。
+4. 在同一个只读快照中计算“该交易日 raw 规范行与 Basic 资格求交”的期望集合，与 `core_serving.fund_daily_bar` 做双向 `EXCEPT ALL`；两个方向差集都必须为 0。排除数量必须能按不在 Basic、早于上市日等现有 reason code 对账。
+5. 如果 raw 已提交但 serving 失败，保留 raw，TaskRun 必须失败并停止验收；不得声称成功，也不得盲目重请求源端。先定位 selector/serving 根因并另行决定修复方式。
+
+##### 6.1 2026-08-29 已完成生产验收记录
+
+1. 开工预检在一个 `REPEATABLE READ + READ ONLY` 事务中固定中国自然日 `2026-08-29` 和最近 SSE 开市日 `2026-08-28`。同一次 `EtfBasicDAO.load_requestability_snapshot()` 得到当前可请求 ETF 1,647 个，其中 SH 921、SZ 726；互斥排除为 `LIST_DATE_AFTER_AS_OF=3`、`LIST_DATE_NULL=7`、`STATUS_NOT_LISTED=169`。相关数据集没有开放 TaskRun；仅 `etf_sz_cons.maintain` 存在 active schedule `40`，下一次自然运行是 2026-08-31，因此本日没有提前触发 SZ 任务。
+2. `etf_sh_cons` 无代码 point 预检只构建只读计划 `etf_sh_cons:maintain:point_incremental:b99391449cb65b4e`，没有创建 TaskRun 或请求 Tushare。计划 921 个 unit 与同次 SH Basic snapshot 的 921 个代码逐项完全一致，证明生产 resolver 会按 Basic 自动全量展开；由于源接口的一个 unit 只携带一个标量 `ts_code`，若真实执行该计划会产生约 921 次代码级源请求，因此验收没有执行这个全量计划。
+3. `etf_sh_cons` 只从上述集合选取 `510300.SH`，以同一交易日创建一个普通 point TaskRun `10126`。TaskRun 和 node `15839` 均为 `success`，计划键为 `etf_sh_cons:maintain:point_incremental:36c2482eeceb7775`，`unit_total/done/failed=1/1/0`，抓取/保存/拒绝/去重为 `300/300/0/0`，primary issue 和 TaskRun issue 均为 0。物理表限定 `510300.SH + 2026-08-28` 为 300 行、300 个不同成分代码，本轮 `fetched_at` 与 node 执行窗口一致，错误代码、错误日期和重复主键均为 0。该项以 1 次真实源请求完成自动展开、单对象 Basic 门禁、request builder、connector、分页和 writer 的组合验收，不再请求其余 920 个代码。
+4. `fund_daily` 预检计划为 `fund_daily:maintain:point_incremental:b6e972635ee6fbab`，只有一个日期 unit，请求参数只含 `trade_date=20260828`，不会按 ETF 逐代码展开。普通 point TaskRun `10127` 和 node `15840` 均为 `success`，`unit_total/done/failed=1/1/0`，只发生 1 页源请求且没有 retry，抓取 2,112 行；Raw upsert 2,112 行并先独立提交，Serving upsert 1,647 行，拒绝和去重均为 0，primary issue 和 TaskRun issue 均为 0。Serving 诊断按 `CODE_NOT_REQUESTABLE_AT_PUBLISH` 排除 465 行，与抓取数和发布数精确相抵。
+5. `fund_daily` 后置物理对账在新的 `REPEATABLE READ + READ ONLY` 事务中再次通过公共 Basic snapshot 取得 1,647 个当前可请求代码，而不是在审计 SQL 中另拼状态条件。`2026-08-28` 的 Raw 为 2,112 行/2,112 个代码，其中 465 个不在当前可请求集合、早于上市日为 0；期望 Serving 和实际 Serving 均为 1,647 行/1,647 个代码，缺失、额外和九个业务数值字段不一致均为 0。该项证明 Raw 保留源端全集、Serving 精确使用 Basic 资格发布。
+6. 上述两个手工任务按顺序执行，上一项完成 TaskRun、issue 和物理对账后才开始下一项；没有修改 schedule、配置、schema 或代码，没有 DELETE、Basic 重建、历史补拉或重复的独立 Tushare 探测。`etf_sh_cons` 与 `fund_daily` 的补充生产门禁现已通过；后续只等待 schedule `40` 的首次切换后自然运行和一个 ETF 实时开市自然批次。
+
+##### 7. ETF 实时链：等待开市自然批次
+
+1. 不手工请求 Tushare、不修改实时配置、monitor pool、规则或阈值；等待现有 realtime collector 在开市时产生一个正常 `etf_rt_daily` batch。
+2. 同一批次必须满足 collector `status=ok`、`batch_id` 非空、`fetched_rows>0`、`snapshot_count>0`、`invalid_count=0`；Health 的 `eligible_etf_count` 必须等于同一中国自然日 Basic snapshot 的 requestable count。
+3. 候选接口返回 200，total 与同日 Basic requestable count 一致；抽查项全部满足 `L + 有效 list_date + .SH/.SZ 后缀与 exchange 一致`。旧 `/active-etfs` 继续为 404。
+4. 对同一个 batch，collector 日志必须出现 `monitor_status=ok` 且 `failed=0`；enabled monitor pool 与 Basic requestable codes 的交集必须非空，Redis 中不合格 ETF 即使有快照也不得进入监控输入。
+5. `evaluated` 和 `alerts` 可以因基线、数据质量、规则阈值或冷却为 0，不作为失败条件；不得通过降低阈值、伪造历史基线或制造告警来通过验收。
+
+##### 8. 最终关闭条件与证据回填
+
+只有以下条件全部满足，本需求才能再次标记“正式关闭”：
+
+1. `etf_mins` 既有生产证据复核通过，没有重复请求。
+2. `etf_sz_cons` 首次切换后自然 schedule TaskRun 通过全部计划、TaskRun 和物理对账条件。
+3. `etf_sh_cons` 的无代码全量只读计划与一个单代码 point TaskRun 分别通过自动展开、端到端执行和物理对账条件。
+4. `fund_daily` 一个交易日全市场 TaskRun 通过 raw/serving 两阶段和双向差集对账。
+5. ETF 实时链一个开市自然批次通过 Basic eligibility、候选、Health 和 monitor 日志门禁。
+6. 所有相关 `resource_key` 最终开放 TaskRun 为 0；没有新增未解释 issue、重复任务、schedule 漂移或旧激活池引用。
+7. 将任务编号、日期、Basic 数量、unit、请求/保存/排除、物理差集、实时 batch 和日志证据回填本节；同步主方案和 `docs/README.md` 状态，再运行文档完整性检查。
+
+任一项未满足时，已通过的其他项保留，不回滚业务事实；文档状态保持“补充生产验收待完成”，不得用“自动化测试全部通过”替代生产证据。
 
 ---
 
@@ -1938,4 +2029,4 @@ Foundation planner/writer 只访问 Foundation 的 `core_serving.etf_basic` DAO�
 4. 明确保护 `fund_adj`、`etf_share_size`、公募基金域、指数池和历史实时事实。
 5. 开发顺序阻止了“先删表再找消费者”，并明确当前不建设下游事实清理系统。
 
-本文中 P0-P12 的执行记录代表对应阶段已经完成；原 P2-P9 以及 P9A 的无开始日全历史 Preview 均已作废。P10 已完成发布门禁，P11 已完成生产旧池 drop 和 Basic 重建；P12 的“一 action 一 TaskRun”方案在生产停止后，已由普通多代码 TaskRun `10117` 完成剩余 1,336 个 unit。补后 Preview 确认 8,235 个 target/frequency 组合全部有 raw 物理覆盖，prefix/suffix 缺口、action 和 unit 均为 0，开放任务为 0。至此本 LLD 完成；未来对 2026 年以前数据的补拉不是 P12 延伸，必须使用新的运营指定区间、只读 Preview 和独立生产授权。
+本文中 P0-P12 的开发与既定执行记录代表对应阶段已经完成；原 P2-P9 以及 P9A 的无开始日全历史 Preview 均已作废。P10 已完成发布门禁，P11 已完成生产旧池 drop 和 Basic 重建；P12 的“一 action 一 TaskRun”方案在生产停止后，已由普通多代码 TaskRun `10117` 完成剩余 1,336 个 unit。补后 Preview 确认 8,235 个 target/frequency 组合全部有 raw 物理覆盖，prefix/suffix 缺口、action 和 unit 均为 0，开放任务为 0。上述结果只关闭分钟对齐范围；本 LLD 的整体完成还必须通过“旧激活池消费者生产补充验收”。未来对 2026 年以前数据的补拉不是该补充验收或 P12 的延伸，必须使用新的运营指定区间、只读 Preview 和独立生产授权。

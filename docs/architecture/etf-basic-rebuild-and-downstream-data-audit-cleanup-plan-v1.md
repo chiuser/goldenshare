@@ -1,8 +1,8 @@
 # ETF 基础信息重建与下游数据审计清理技术方案 v1
 
-状态：核心业务口径 D1-D20 不变；M0-M12 已全部完成，旧 alignment Submit 已删除，普通 `etf_mins` 多代码手动任务已完成 2026 年指定区间补拉与生产对账；原全历史 Preview 已作废，未执行下游事实删除
+状态：核心业务口径 D1-D20 不变；M0-M12 开发与既定生产动作已完成，普通 `etf_mins` 多代码手动任务已完成 2026 年指定区间补拉与分钟对账；旧激活池消费者的补充生产验收执行中，`etf_sh_cons` 与 `fund_daily` 已通过，`etf_sz_cons` 自然调度和 ETF 实时开市批次待验，全部完成前本需求不正式关闭；原全历史 Preview 已作废，未执行下游事实删除
 创建日期：2026-08-28
-最近审计：2026-08-29（普通多代码 TaskRun `10117` 以 `1336/1336` unit 成功结束，抓取并保存 7,606,095 行，失败、拒绝、去重和 issue 均为 0；补后只读 Preview 确认 1,647 个当前可请求 ETF 的 8,235 个代码/频率组合均由 raw 物理数据覆盖，prefix/suffix 缺口、action 和 unit 均为 0）
+最近审计：2026-08-29（普通多代码 TaskRun `10117` 与补后 Preview 已关闭分钟对齐范围；`etf_sh_cons` 全量只读计划与单代码 TaskRun `10126` 已通过，`fund_daily` 单日 TaskRun `10127` 及 Raw/Serving 对账已通过；`etf_sz_cons` 和实时 monitor 仍待自然生产运行证据）
 适用范围：`etf_basic`、ETF 下游历史数据、ETF 对象池、ETF 查询与运维消费者
 低层设计：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
 
@@ -886,6 +886,8 @@ Preview 执行结果：在生产部署版本上运行一次 `2026-01-01` 至 `20
 最终单任务执行与对账结果：部署后确认旧队列仍为 61 个成功、181 个取消，开放 `etf_mins` TaskRun 为 0；schedule 39 下次触发时间为 2026-08-31 20:35，与本轮不重叠，因此未暂停。生产预检确认 181 个代码全部当前可请求，并精确展开 1,336 个 unit；随后只创建普通手动 TaskRun `10117`。该任务于 17:04:07 开始、17:48:14 结束，状态 `success`，`unit_total/done/failed=1336/1336/0`，抓取和保存均为 7,606,095 行，拒绝、去重和 issue 均为 0；任务中的 181 个代码与停止后 Preview 清单逐个一致。
 
 补后只读 Preview 使用相同的 `2026-01-01..2026-08-28` 口径，得到 `plan_content_hash=ec836cc7722f22b44ad13266eeace59a334ebd459d910c3c95207e1253b7ca72`；`request_target_hash` 仍为 `8972736114ecbd14d3245e6c59d80c63b463752a15db5b8bfe7ee5ca7ebd31c3`。1,647 个当前可请求 ETF 的 8,235 个代码/频率组合均由 raw 物理数据覆盖，`successful_task_only_covered_target_frequency_count=0`，prefix/suffix 缺口、action、unit 和后续请求上下界均为 0。V1 按已拍板口径仍不审计区间内部空洞。至此 M12 正式关闭。
+
+M12 关闭只代表分钟补拉范围完成，不代表整个旧激活池迁移已经完成生产验收。`etf_sh_cons` 与 `fund_daily` 已按 LLD 的“最终关闭补充门禁”取得切换后的真实生产证据；当前只剩 `etf_sz_cons` 首次切换后自然调度和 ETF 实时 monitor 开市自然批次。该门禁不新增开发里程碑，也不允许借验收扩大补数范围。
 
 ---
 
