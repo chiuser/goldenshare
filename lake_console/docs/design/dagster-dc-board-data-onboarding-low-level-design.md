@@ -1476,3 +1476,31 @@ Tushare 仍是日常 Raw 的内容来源；prod 仍只提供完成时机与差�
 验收要求：正常“历史新高/历史新低”保留；精确占位行在 source probe、Raw/Silver check 和 Silver writer 中得到预期结果；三类 index 类型过滤后仍齐全，否则 fail closed；正常路径请求次数、分区、schema、job/sensor 和 prod 只读语义不变。
 
 实施结果：规则已在当前代码中完成，并通过 DC 专项测试 `99 passed`。只读审计报告 `/private/tmp/dc_board_20260827_placeholder_correction_audit.json` 显示，2026-08-27 的 raw/silver `dc_index` 与 `dc_daily` 目标文件均不存在，因此没有需要删除的物理行，本次修正为 no-op；没有写 Lake、prod、Dagster event 或动态分区。后续该日期若按现有链路重建，会在 source probe 和 Silver writer 两道边界排除精确占位行。
+
+#### M10.3-P：prod 历史错误行清理（已完成）
+
+当前代码只负责阻止占位行进入新的 DG Raw/Silver；prod 历史错误行已通过独立的数据修正操作清理，不能由日常 writer 顺手删除。执行前的只读证据为 `/private/tmp/dc_board_prod_cleanup_preflight_20260829.json`：
+
+- `core_serving.dc_index` 在 `2026-08-27 + BK1675.DC` 命中 1 条完整占位行；
+- `core_serving.dc_daily` 同范围为 0 条；
+- `core_serving.dc_member` 同范围命中 1 条 `BK1675.DC - 688835.SH` 成员关系。
+
+因此，修正单元固定为“删除 1 条 `dc_member` 孤立关系 + 删除 1 条满足完整占位条件的 `dc_index` 行”。只删除 index 会留下 member 对不存在板块的孤儿关系，并使 prod 完成闭环失效。`dc_daily` 没有目标行，不执行删除。
+
+执行契约如下：
+
+1. 执行前重新做精确只读复核，目标行数必须仍为 `dc_index=1`、`dc_member=1`、`dc_daily=0`，字段必须与 preflight 一致；否则停止。
+2. 将两条目标记录做精确字段备份并生成 SHA-256 manifest；不做全表备份，不使用 Kopia，不记录密码。
+3. 单事务锁定目标行，重新验证完整占位谓词；先删除 `dc_member`，再删除 `dc_index`，通过 `RETURNING` 确认删除数正好为 2。删除条件必须包含日期、板块代码和完整占位字段，禁止按名称或整日范围粗删。
+4. 事务内验证目标两表均无记录、`dc_daily` 仍无记录、同日 prod 三表没有新孤儿关系；失败即回滚。
+5. 提交后只读审计 prod 目标消失、非目标事实未变、完成快照不再出现 BK1675；DG Lake、Dagster 和 Tushare 均不写入。
+
+该操作已获得 prod 数据写入批准并完成。提交后如需恢复，使用精确备份另起恢复操作；不会在日常同步代码中加入删除逻辑。由于本地 2026-08-27 目标文件不存在，prod 修正完成后也不生成 DG 历史文件，后续重建继续由现有 source probe/Silver writer 过滤占位行。
+
+#### M10.3-P 实施结果（2026-08-29）
+
+- 按 `AGENTS.local.md` 规定，使用 `bash scripts/psql-remote.sh` 连接远程业务库；未使用无权限的 `lake_raw_writer` 账号，也未绕过受控入口。
+- 执行前重新复核仍为 `dc_index=1`、`dc_member=1`、`dc_daily=0`；精确备份 manifest 为 `/private/tmp/dc_board_prod_cleanup_backup_20260829/manifest.json`。
+- 单事务删除严格为：`core_serving.dc_member` 1 条、`core_serving.dc_index` 1 条，`core_serving.dc_daily` 0 条。事务内删除数和闭环校验均通过。
+- 提交后目标记录均为 0；同日剩余 `dc_index=1030`、`dc_member=93176`、`dc_daily=1030`，成员孤儿数为 0，占位行数为 0。
+- 提交后审计报告为 `/private/tmp/dc_board_prod_cleanup_post_audit_20260829.json`。本次没有修改 Lake、Dagster、Tushare 或动态分区。

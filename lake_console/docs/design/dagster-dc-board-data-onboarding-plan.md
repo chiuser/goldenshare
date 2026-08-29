@@ -1085,3 +1085,42 @@ M1C 的 300 秒是 2026-07-14 profiling 的历史基线，不再是当前生效�
 当前本地 `raw/silver dc_index`、`raw/silver dc_daily` 的 `2026-08-27` 文件均不存在，因此该日期不执行物理删除或凭空重建；不改 prod、不改其它日期、不写 Dagster event。后续重新生成该日期时，Raw/Silver 会自动排除该占位行；若目标文件已存在，则必须走既有 staging 校验和原子替换。
 
 实施结果：上述规则已落到当前 DC source probe、Raw/Silver 质量门禁、Silver 写入和同日关系校验；正常的“历史新高/历史新低”记录仍保留。针对 `2026-08-27` 的只读复核报告为 `/private/tmp/dc_board_20260827_placeholder_correction_audit.json`，四个目标文件均不存在，实际修正动作是 no-op，没有修改 Lake、prod 或 Dagster。DC 专项测试共 `99 passed`，占位行新增覆盖包含 source 过滤、Silver 过滤、Raw check 拒绝和关系校验。
+
+### 5.5.9 M10.3-P：prod 历史错误行清理（已完成）
+
+代码治理已经完成；prod 中的历史错误事实已按独立修正单元完成清理。该动作不是日常同步，也不改变 Tushare、Raw、Silver、Dagster 或 prod 表结构。
+
+#### 当前只读基线
+
+报告：`/private/tmp/dc_board_prod_cleanup_preflight_20260829.json`。
+
+| 表 | 精确范围 | 当前结果 | 处理口径 |
+| --- | --- | ---: | --- |
+| `core_serving.dc_index` | `trade_date=2026-08-27 AND ts_code='BK1675.DC'` | 1 条 | 删除精确占位行 |
+| `core_serving.dc_daily` | `trade_date=2026-08-27 AND ts_code='BK1675.DC'` | 0 条 | 不操作 |
+| `core_serving.dc_member` | `trade_date=2026-08-27 AND ts_code='BK1675.DC'` | 1 条 | 删除孤立成员关系 |
+
+目标 `dc_index` 行的类型为“概念板块”、名称为“历史新高”，并完全满足 `source_placeholder_row` 规则。目标 member 行是 `BK1675.DC - 688835.SH`。由于 `dc_index` 删除后该 member 会失去父板块，不能只删 index，必须把这两条错误/孤立事实作为一个修正单元处理。
+
+#### 执行步骤
+
+1. **只读复核**：执行前重新按完整占位条件核对 `dc_index` 恰为 1 条、`dc_member` 恰为 1 条、`dc_daily` 恰为 0 条；任一数量或字段变化即停止。
+2. **精确备份**：将上述两张表命中的完整字段导出到 `/private/tmp`，生成行数、字段清单和 SHA-256 manifest。禁止全表导出、禁止把密码或连接串写入报告。
+3. **单事务修正**：在同一事务中锁定并再次核对目标行，先删除同日同板块的 member，再删除满足完整占位条件的 `dc_index` 行；使用 `RETURNING` 核验删除数必须是 `1 + 1`。不执行 `dc_daily` 删除，不按日期范围、不按名称模糊删除。
+4. **事务内回查**：确认目标 `dc_index`、`dc_member` 均为 0，`dc_daily` 仍为 0，并确认 2026-08-27 的 prod 三表内部闭环没有产生新的孤立关系；任何异常立即回滚。
+5. **提交后只读审计**：输出 post-audit 报告，确认目标记录消失、非目标记录未改变、prod 完成快照不再包含 BK1675，且本地 Lake/Dagster 事实没有被触碰。
+
+#### 边界与回滚
+
+- 该修正只允许写 `core_serving.dc_index` 和 `core_serving.dc_member` 的上述精确行；不改 `index_basic`、`dc_daily`、Tushare、Lake、Dagster event/check/run 或动态分区。
+- 预检查、精确备份、事务内数量核对任一不通过，禁止执行删除。
+- 事务提交前可直接回滚；提交后如需恢复，使用精确备份另立恢复操作，不现场拼接插入语句。
+- 修正完成后，2026-08-27 仍不会凭空生成 DG 文件；DG 该日期四个目标文件当前不存在，后续若重建，现有占位过滤规则继续生效。
+
+#### M10.3-P 实施结果（2026-08-29）
+
+- 按 `AGENTS.local.md` 规定，使用 `bash scripts/psql-remote.sh` 连接远程业务库；未使用无权限的 `lake_raw_writer` 账号，也未绕过受控入口。
+- 执行前重新复核仍为 `dc_index=1`、`dc_member=1`、`dc_daily=0`；精确备份位于 `/private/tmp/dc_board_prod_cleanup_backup_20260829/manifest.json`。
+- 单事务删除严格为：`core_serving.dc_member` 1 条、`core_serving.dc_index` 1 条，`core_serving.dc_daily` 0 条。事务内删除数和闭环校验均通过。
+- 提交后目标记录均为 0；同日剩余 `dc_index=1030`、`dc_member=93176`、`dc_daily=1030`，成员孤儿数为 0，占位行数为 0。
+- 提交后审计报告为 `/private/tmp/dc_board_prod_cleanup_post_audit_20260829.json`。本次没有修改 Lake、Dagster、Tushare 或动态分区。
