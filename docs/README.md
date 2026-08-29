@@ -206,6 +206,12 @@ docs/
 - [A股业绩快报 `express` LLD v1（M1–M4b 已完成；M4c 自动任务已正确配置，待首次触发与对账验收）](/Users/congming/github/goldenshare/docs/datasets/equity-express-low-level-design-v1.md)
 - [A股财务指标 `fina_indicator` 接入技术方案 v1（已完成生产验收，需求关闭）](/Users/congming/github/goldenshare/docs/datasets/fina-indicator-dataset-development.md)
 - [A股财务指标 `fina_indicator` LLD v1（已完成生产验收，需求关闭）](/Users/congming/github/goldenshare/docs/datasets/fina-indicator-low-level-design-v1.md)
+- [A股利润表 `income` 接入技术方案 v1（关键口径已确认，LLD 已完成，待开发）](/Users/congming/github/goldenshare/docs/datasets/income-dataset-development.md)
+- [A股利润表 `income` 接入 LLD v1（设计完成，待开发）](/Users/congming/github/goldenshare/docs/datasets/income-low-level-design-v1.md)
+- [A股资产负债表 `balancesheet` 接入技术方案 v1（关键口径已确认，LLD 已完成，待开发）](/Users/congming/github/goldenshare/docs/datasets/balancesheet-dataset-development.md)
+- [A股资产负债表 `balancesheet` 接入 LLD v1（设计完成，待开发）](/Users/congming/github/goldenshare/docs/datasets/balancesheet-low-level-design-v1.md)
+- [A股现金流量表 `cashflow` 接入技术方案 v1（关键口径已确认，LLD 已完成，待开发）](/Users/congming/github/goldenshare/docs/datasets/cashflow-dataset-development.md)
+- [A股现金流量表 `cashflow` 接入 LLD v1（设计完成，待开发）](/Users/congming/github/goldenshare/docs/datasets/cashflow-low-level-design-v1.md)
 - [公募基金九数据集接入总览与分批推进计划 v1（B0–B4 已生产验收；B7 fund_portfolio M0–M3 已生产验收，尚未历史回补或创建 schedule）](/Users/congming/github/goldenshare/docs/datasets/public-fund-nine-dataset-onboarding-program-plan-v1.md)
 - [公募基金 B0：观察快照直出最小地基 LLD v1（已实现）](/Users/congming/github/goldenshare/docs/datasets/public-fund-b0-observed-snapshot-foundation-low-level-design-v1.md)
 - [公募基金 B1：基金管理人与业绩基准库 LLD v1（已实现并完成生产验收）](/Users/congming/github/goldenshare/docs/datasets/public-fund-b1-static-reference-low-level-design-v1.md)
@@ -359,5 +365,6 @@ docs/
 
 ## 9. 产品原始材料
 
+- [东财行业财务指标统计分析报表方案 v1（待评审）](/Users/congming/github/goldenshare/docs/product/dc-industry-financial-analysis-report-plan-v1.md)
 - [行情图表页接口需求说明](/Users/congming/github/goldenshare/docs/product/行情图表页接口需求说明_基于当前数据基座.md)
 - [财势乾坤交易系统需求说明（PDF）](/Users/congming/github/goldenshare/docs/product/财势乾坤交易系统需求说明.pdf)
