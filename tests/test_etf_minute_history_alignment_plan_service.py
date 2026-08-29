@@ -451,9 +451,12 @@ def test_requested_window_changes_plan_hash_but_not_request_target_hash() -> Non
     assert narrowed.actions[0].start_date == date(2025, 1, 2)
 
 
-def test_task_parser_restores_point_and_multi_frequency_range() -> None:
+def test_task_parser_restores_multi_code_point_and_historical_string_range() -> None:
     point = _service()._parse_task_coverage(  # noqa: SLF001
-        filters_json={"ts_code": "510300.sh", "freq": ["5min", "1min"]},
+        filters_json={
+            "ts_code": ["510300.sh", "159915.sz", "510300.SH"],
+            "freq": ["5min", "1min"],
+        },
         time_input_json={"mode": "point", "trade_date": "2026-08-28"},
     )
     range_items = _service()._parse_task_coverage(  # noqa: SLF001
@@ -465,10 +468,16 @@ def test_task_parser_restores_point_and_multi_frequency_range() -> None:
         },
     )
 
-    assert [(item.frequency, item.start_date, item.end_date) for item in point] == [
-        ("1min", ALIGNMENT_END_DATE, ALIGNMENT_END_DATE),
-        ("5min", ALIGNMENT_END_DATE, ALIGNMENT_END_DATE),
+    assert [
+        (item.ts_code, item.frequency, item.start_date, item.end_date)
+        for item in point
+    ] == [
+        ("159915.SZ", "1min", ALIGNMENT_END_DATE, ALIGNMENT_END_DATE),
+        ("159915.SZ", "5min", ALIGNMENT_END_DATE, ALIGNMENT_END_DATE),
+        ("510300.SH", "1min", ALIGNMENT_END_DATE, ALIGNMENT_END_DATE),
+        ("510300.SH", "5min", ALIGNMENT_END_DATE, ALIGNMENT_END_DATE),
     ]
+    assert {item.ts_code for item in range_items} == {"510300.SH"}
     assert [item.frequency for item in range_items] == ["15min", "60min"]
 
 
@@ -476,7 +485,9 @@ def test_task_parser_restores_point_and_multi_frequency_range() -> None:
     ("filters_json", "time_input_json"),
     [
         ({"freq": ["1min"]}, {"mode": "point", "trade_date": "2026-08-28"}),
-        ({"ts_code": ["510300.SH"], "freq": ["1min"]}, {"mode": "point", "trade_date": "2026-08-28"}),
+        ({"ts_code": [], "freq": ["1min"]}, {"mode": "point", "trade_date": "2026-08-28"}),
+        ({"ts_code": ["510300.SH", 159915], "freq": ["1min"]}, {"mode": "point", "trade_date": "2026-08-28"}),
+        ({"ts_code": ["510300.SH", "  "], "freq": ["1min"]}, {"mode": "point", "trade_date": "2026-08-28"}),
         ({"ts_code": "510300.SH", "freq": []}, {"mode": "point", "trade_date": "2026-08-28"}),
         ({"ts_code": "510300.SH", "freq": ["2min"]}, {"mode": "point", "trade_date": "2026-08-28"}),
         ({"ts_code": "510300.SH", "freq": ["1min"]}, {"mode": "point"}),
@@ -710,7 +721,10 @@ def test_successful_task_loader_executes_one_query_and_ignores_invalid_rows(mock
     result = mocker.Mock()
     result.all.return_value = [
         (
-            {"ts_code": "510300.SH", "freq": ["1min", "5min"]},
+            {
+                "ts_code": ["510300.SH", "159915.SZ"],
+                "freq": ["1min", "5min"],
+            },
             {"mode": "range", "start_date": "2026-08-01", "end_date": "2026-08-28"},
         ),
         ({"freq": ["1min"]}, {"mode": "point", "trade_date": "2026-08-28"}),
@@ -721,7 +735,12 @@ def test_successful_task_loader_executes_one_query_and_ignores_invalid_rows(mock
     coverages = _service()._load_successful_task_coverages(session)  # noqa: SLF001
 
     session.execute.assert_called_once()
-    assert [item.frequency for item in coverages] == ["1min", "5min"]
+    assert [(item.ts_code, item.frequency) for item in coverages] == [
+        ("159915.SZ", "1min"),
+        ("159915.SZ", "5min"),
+        ("510300.SH", "1min"),
+        ("510300.SH", "5min"),
+    ]
 
 
 @pytest.mark.parametrize("failing_loader", ["raw", "task"])

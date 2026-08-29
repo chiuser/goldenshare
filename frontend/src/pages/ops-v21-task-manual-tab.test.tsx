@@ -339,6 +339,53 @@ const mockManualActions = {
       ],
     },
     {
+      group_key: "etf_fund",
+      group_label: "ETF基金",
+      group_order: 6,
+      actions: [
+        {
+          action_key: "etf_mins.maintain",
+          action_type: "dataset_action",
+          display_name: "维护ETF 历史分钟行情",
+          description: "维护 Tushare ETF 原生历史分钟行情。",
+          resource_key: "etf_mins",
+          resource_display_name: "ETF 历史分钟行情",
+          date_model: {
+            date_axis: "trade_open_day",
+            bucket_rule: "every_open_day",
+            window_mode: "point_or_range",
+            input_shape: "trade_date_or_start_end",
+            observed_field: "trade_time",
+            audit_applicable: false,
+            not_applicable_reason: "分钟完整性审计需要交易时段分钟网格。",
+          },
+          time_form: tradeDatePointRangeForm,
+          filters: [
+            {
+              ...textParam,
+              key: "ts_code",
+              display_name: "ETF 代码",
+              param_type: "string",
+              description: "可输入逗号分隔的多个 ETF 代码。",
+              multi_value: true,
+            },
+            {
+              key: "freq",
+              display_name: "分钟周期",
+              param_type: "enum",
+              description: "至少选择一个 Tushare 原生分钟周期。",
+              required: true,
+              multi_value: true,
+              options: ["1min", "5min", "15min", "30min", "60min"],
+              default_value: null,
+            },
+          ],
+          search_keywords: ["etf_mins", "ETF 历史分钟行情"],
+          action_order: 70,
+        },
+      ],
+    },
+    {
       group_key: "leader_board",
       group_label: "榜单",
       group_order: 4,
@@ -490,7 +537,13 @@ vi.mock("../shared/api/client", () => ({
     if (path === "/api/v1/ops/manual-actions") {
       return mockManualActions;
     }
-    if (path === "/api/v1/ops/manual-actions/dc_hot.maintain/task-runs" && options?.method === "POST") {
+    if (
+      (
+        path === "/api/v1/ops/manual-actions/dc_hot.maintain/task-runs"
+        || path === "/api/v1/ops/manual-actions/etf_mins.maintain/task-runs"
+      )
+      && options?.method === "POST"
+    ) {
       return {
         run: {
           id: 1234,
@@ -832,6 +885,51 @@ describe("手动任务页", () => {
           },
         },
       }),
+    );
+  });
+
+  it("ETF 历史分钟手动任务将逗号代码作为一次提交的多值筛选条件", async () => {
+    window.localStorage.setItem(
+      "goldenshare.frontend.ops.task-center.manual.draft",
+      JSON.stringify({
+        action_id: "etf_mins.maintain",
+        time_mode: "range",
+        selected_date: "",
+        start_date: "2026-01-01",
+        end_date: "2026-08-28",
+        selected_month: "",
+        start_month: "",
+        end_month: "",
+        field_values: {
+          ts_code: "510300.SH, 159915.SZ",
+          freq: ["1min", "5min"],
+        },
+      }),
+    );
+    renderPage("/app/ops/v21/datasets/tasks?tab=manual");
+
+    expect((await screen.findAllByText("维护ETF 历史分钟行情")).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("ETF 代码")).toHaveValue("510300.SH, 159915.SZ");
+    fireEvent.click(screen.getByRole("button", { name: "提交维护任务" }));
+
+    await waitFor(() =>
+      expect(apiRequest).toHaveBeenCalledWith(
+        "/api/v1/ops/manual-actions/etf_mins.maintain/task-runs",
+        {
+          method: "POST",
+          body: {
+            time_input: {
+              mode: "range",
+              start_date: "2026-01-01",
+              end_date: "2026-08-28",
+            },
+            filters: {
+              ts_code: ["510300.SH", "159915.SZ"],
+              freq: ["1min", "5min"],
+            },
+          },
+        },
+      ),
     );
   });
 

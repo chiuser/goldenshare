@@ -5,6 +5,7 @@ from datetime import date, datetime, timezone
 import pytest
 from sqlalchemy import select
 
+from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core_serving.security_serving import Security
 from src.ops.action_catalog import END_DATE_PARAM, START_DATE_PARAM, TRADE_DATE_PARAM, WORKFLOW_DEFINITION_REGISTRY, WorkflowDefinition
 from src.ops.models.ops.index_series_active import IndexSeriesActive
@@ -118,6 +119,8 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     etf_mins_filters = {
         item["key"]: item for item in actions["etf_mins.maintain"]["filters"]
     }
+    assert etf_mins_filters["ts_code"]["multi_value"] is True
+    assert "逗号分隔" in etf_mins_filters["ts_code"]["description"]
     assert etf_mins_filters["freq"]["required"] is True
     assert etf_mins_filters["freq"]["multi_value"] is True
     assert etf_mins_filters["freq"]["options"] == [
@@ -360,6 +363,63 @@ def test_ops_manual_action_task_run_creates_point_job(app_client, user_factory, 
         "action": "maintain",
         "time_input": {"mode": "point", "trade_date": "2026-04-24"},
         "filters": {},
+    }
+
+
+def test_ops_manual_action_creates_one_etf_mins_task_with_multi_code_filters(
+    app_client,
+    user_factory,
+    db_session,
+) -> None:
+    headers = _admin_headers(app_client, user_factory)
+    db_session.add_all(
+        [
+            EtfBasic(
+                ts_code="510300.SH",
+                list_date=date(2012, 5, 28),
+                list_status="L",
+                exchange="SH",
+            ),
+            EtfBasic(
+                ts_code="159915.SZ",
+                list_date=date(2011, 12, 5),
+                list_status="L",
+                exchange="SZ",
+            ),
+        ]
+    )
+    db_session.flush()
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/etf_mins.maintain/task-runs",
+        headers=headers,
+        json={
+            "time_input": {
+                "mode": "range",
+                "start_date": "2026-01-01",
+                "end_date": "2026-08-28",
+            },
+            "filters": {
+                "ts_code": ["510300.SH", "159915.SZ"],
+                "freq": ["1min", "5min"],
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run"]["resource_key"] == "etf_mins"
+    assert payload["run"]["filters"] == {
+        "ts_code": ["510300.SH", "159915.SZ"],
+        "freq": ["1min", "5min"],
+    }
+    task_run = db_session.scalar(
+        select(TaskRun).where(TaskRun.id == payload["run"]["id"])
+    )
+    assert task_run is not None
+    assert task_run.filters_json == {
+        "ts_code": ["510300.SH", "159915.SZ"],
+        "freq": ["1min", "5min"],
     }
 
 

@@ -628,9 +628,21 @@ class EtfMinuteHistoryAlignmentPlanService:
         if not isinstance(filters_json, dict) or not isinstance(time_input_json, dict):
             return ()
         ts_code_value = filters_json.get("ts_code")
-        if not isinstance(ts_code_value, str) or not ts_code_value.strip():
+        if isinstance(ts_code_value, str):
+            raw_ts_codes = (ts_code_value,)
+        elif (
+            isinstance(ts_code_value, list)
+            and ts_code_value
+            and all(isinstance(value, str) and value.strip() for value in ts_code_value)
+        ):
+            raw_ts_codes = tuple(ts_code_value)
+        else:
             return ()
-        ts_code = ts_code_value.strip().upper()
+        ts_codes = tuple(
+            sorted({value.strip().upper() for value in raw_ts_codes if value.strip()})
+        )
+        if not ts_codes:
+            return ()
         frequency_values = filters_json.get("freq")
         if not isinstance(frequency_values, list) or not frequency_values:
             return ()
@@ -673,6 +685,7 @@ class EtfMinuteHistoryAlignmentPlanService:
                 start_date=start_date,
                 end_date=end_date,
             )
+            for ts_code in ts_codes
             for frequency in frequencies
         )
 

@@ -1161,6 +1161,7 @@ def _resolve_requestable_etf_targets(
     eligibility_as_of: date,
     exchange: EtfExchange | None,
     label: str,
+    allow_multiple_explicit: bool = False,
 ) -> tuple[EtfRequestTarget, ...]:
     _validate_requestable_etf_universe(definition=definition, label=label)
     explicit_codes = _normalize_universe_codes(
@@ -1168,10 +1169,30 @@ def _resolve_requestable_etf_targets(
     )
     if explicit_codes:
         if len(explicit_codes) > 1:
-            raise DatasetUnitPlanner._planning_error(
-                "invalid_enum",
-                f"{label}一次只支持维护一个显式 ETF 代码",
+            if not allow_multiple_explicit:
+                raise DatasetUnitPlanner._planning_error(
+                    "invalid_enum",
+                    f"{label}一次只支持维护一个显式 ETF 代码",
+                )
+            snapshot = planner.dao.etf_basic.load_requestability_snapshot(
+                as_of_date=eligibility_as_of,
+                exchange=exchange,
             )
+            targets_by_code = {target.ts_code: target for target in snapshot.targets}
+            invalid_ts_codes = [
+                ts_code for ts_code in explicit_codes if ts_code not in targets_by_code
+            ]
+            if invalid_ts_codes:
+                raise _etf_planning_error(
+                    "etf_not_requestable",
+                    f"{label}代码当前不可请求：{', '.join(invalid_ts_codes)}",
+                    details={
+                        "invalid_ts_codes": invalid_ts_codes,
+                        "as_of_date": eligibility_as_of.isoformat(),
+                        "exchange": exchange or "ALL",
+                    },
+                )
+            return tuple(targets_by_code[ts_code] for ts_code in explicit_codes)
         explicit_code = explicit_codes[0]
         target = planner.dao.etf_basic.get_requestable_target(
             ts_code=explicit_code,
@@ -1537,6 +1558,7 @@ def _resolve_etf_mins_targets(
         eligibility_as_of=eligibility_as_of,
         exchange=None,
         label="ETF 历史分钟行情",
+        allow_multiple_explicit=True,
     )
 
 

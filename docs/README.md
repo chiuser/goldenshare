@@ -71,10 +71,10 @@ docs/
 - [ETF 实时日线流接入方案 v1（代码已接入 / 生产已启用 / 开市批次验收已完成）](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-daily-stream-plan-v1.md)
 - [ETF 实时分钟流接入方案 v1（仅保留源端与调度证据 / 覆盖范围须重新基线 / 当前不可开工）](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-minute-stream-plan-v1.md)
 - [ETF 实时分钟流接入 LLD v1（旧池实现设计已撤销 / 当前不可作为编码依据）](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-minute-stream-low-level-design-v1.md)
-- [ETF 基础信息重建与下游数据审计清理技术方案 v1（M0-M11 已完成 / 生产 Basic 重建与旧池删表已验收 / M12 待独立授权）](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)
-- [ETF 基础信息重建与下游数据审计清理 LLD v1（P0-P11 已完成 / 下一阶段为 P12 重新 Preview 与独立补拉授权）](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
-- [ETF 历史分钟行情数据集接入方案 v1（已由 ETF Basic Serving 驱动 / 生产全量对齐未执行）](/Users/congming/github/goldenshare/docs/datasets/etf-mins-dataset-development.md)
-- [ETF 历史分钟行情数据集 LLD v1（Basic 资格与上市日裁剪为当前实现基线）](/Users/congming/github/goldenshare/docs/datasets/etf-mins-dataset-low-level-design-v1.md)
+- [ETF 基础信息重建与下游数据审计清理技术方案 v1（M0-M11 已完成 / M12 多代码手动任务代码已完成 / 待部署与独立执行授权）](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-plan-v1.md)
+- [ETF 基础信息重建与下游数据审计清理 LLD v1（P0-P11 已完成 / P12 R1-R4 已完成 / R5 待部署后授权）](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
+- [ETF 历史分钟行情数据集接入方案 v1（Basic 驱动、Preview 与多代码手动任务已落地 / 待部署与执行授权）](/Users/congming/github/goldenshare/docs/datasets/etf-mins-dataset-development.md)
+- [ETF 历史分钟行情数据集 LLD v1（多代码扇开 R1-R4 已完成 / 生产补拉未授权）](/Users/congming/github/goldenshare/docs/datasets/etf-mins-dataset-low-level-design-v1.md)
 - [上证指数日线趋势通道实时计算方案 v1（代码已实现，生产验收已完成）](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-plan-v1.md)
 - [上证指数日线趋势通道实时计算 LLD v1（代码已实现，生产验收已完成）](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md)
 - [上证指数日线趋势通道 M4 只读与性能验收报告（历史验收快照）](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-m4-readonly-performance-validation-2026-08-10.md)
@@ -347,7 +347,7 @@ docs/
 ## 8. 文档治理
 
 - [生产 PostgreSQL 存储空间优化治理专项 v1（既有专项与 stk_mins 原专项记录；本轮新工作不再追加）](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v1.md)
-- [生产 PostgreSQL 存储空间优化治理专项 v2（P1-B0、P1-B1、P1-B2 与 `stk_auction_o` 已结案；`stk_auction_c-M0/M1` 已通过，下一阶段 M2；`anns_d` 批内身份冲突另列只读审计 TODO）](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v2.md)
+- [生产 PostgreSQL 存储空间优化治理专项 v2（P1-B0、P1-B1、P1-B2 与 `stk_auction_o` 已结案；`stk_auction_c-M0/M1/M2` 已通过，下一阶段生产 M3a；`anns_d` 批内身份冲突另列只读审计 TODO）](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-storage-space-optimization-program-v2.md)
 - [生产 PostgreSQL raw 直出一期低层设计 v1（P1-B0、P1-B1、P1-B2 与 `stk_auction_o` 的生产切换及自然 M3b 已验收结案）](/Users/congming/github/goldenshare/docs/governance/prod-postgresql-raw-direct-serving-phase-one-lld-v1.md)
 - [文档信息架构与待整合清单 v1](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md)
 - [文档维护基线 v1](/Users/congming/github/goldenshare/docs/governance/docs-maintenance-baseline-v1.md)

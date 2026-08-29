@@ -141,6 +141,8 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert etf_mins["schedule_enabled"] is True
     etf_mins_params = {param["key"]: param for param in etf_mins["parameters"]}
     assert list(etf_mins_params) == ["trade_date", "start_date", "end_date", "ts_code", "freq"]
+    assert etf_mins_params["ts_code"]["multi_value"] is True
+    assert "逗号分隔" in etf_mins_params["ts_code"]["description"]
     assert etf_mins_params["freq"]["multi_value"] is True
     assert etf_mins_params["freq"]["default_value"] is None
     assert etf_mins_params["freq"]["options"] == ["1min", "5min", "15min", "30min", "60min"]

@@ -146,6 +146,10 @@ def test_etf_mins_definition_is_raw_only_and_exposes_manual_schedule_contract() 
     assert definition.planning.page_limit == 8000
     assert definition.planning.max_source_rows_per_unit == 24000
     assert definition.planning.fetch_concurrency == 2
+    filters = {field.name: field for field in definition.input_model.filters}
+    assert filters["ts_code"].field_type == "string"
+    assert filters["ts_code"].multi_value is True
+    assert "逗号分隔" in filters["ts_code"].description
     assert definition.planning.universe_policy == "pool"
     assert definition.planning.universe is not None
     assert [
@@ -291,6 +295,123 @@ def test_etf_mins_explicit_range_clips_before_frequency_windows(mocker) -> None:
         exchange=None,
     )
     etf_basic.load_requestability_snapshot.assert_not_called()
+
+
+def test_etf_mins_multi_code_range_normalizes_once_and_fans_out_stably(mocker) -> None:
+    resolver, etf_basic = _resolver(
+        mocker,
+        [
+            _request_target("510300.SH", list_date=date(2026, 1, 1)),
+            _request_target("159915.SZ", list_date=date(2026, 2, 10)),
+        ],
+    )
+
+    plan = resolver.build_plan(
+        DatasetActionRequest(
+            dataset_key="etf_mins",
+            action="maintain",
+            time_input=DatasetTimeInput(
+                mode="range",
+                start_date=date(2026, 1, 1),
+                end_date=date(2026, 3, 15),
+            ),
+            filters={
+                "ts_code": " 510300.sh,159915.sz,510300.SH ",
+                "freq": ["5min", "1min"],
+            },
+        )
+    )
+
+    assert [
+        (
+            unit.request_params["ts_code"],
+            unit.request_params["freq"],
+            unit.request_params["start_date"],
+            unit.request_params["end_date"],
+        )
+        for unit in plan.units
+    ] == [
+        ("159915.SZ", "1min", "2026-02-10 09:00:00", "2026-03-15 19:00:00"),
+        ("159915.SZ", "5min", "2026-02-10 09:00:00", "2026-03-15 19:00:00"),
+        ("510300.SH", "1min", "2026-01-01 09:00:00", "2026-02-28 19:00:00"),
+        ("510300.SH", "1min", "2026-03-01 09:00:00", "2026-03-15 19:00:00"),
+        ("510300.SH", "5min", "2026-01-01 09:00:00", "2026-03-15 19:00:00"),
+    ]
+    assert all(isinstance(unit.request_params["ts_code"], str) for unit in plan.units)
+    etf_basic.load_requestability_snapshot.assert_called_once_with(
+        as_of_date=ELIGIBILITY_AS_OF,
+        exchange=None,
+    )
+    etf_basic.get_requestable_target.assert_not_called()
+
+
+def test_etf_mins_multi_code_rejects_entire_plan_when_any_code_is_not_requestable(
+    mocker,
+) -> None:
+    resolver, etf_basic = _resolver(
+        mocker,
+        [_request_target("510300.SH", list_date=date(2020, 1, 1))],
+    )
+
+    with pytest.raises(IngestionError, match="当前不可请求") as exc_info:
+        resolver.build_plan(
+            DatasetActionRequest(
+                dataset_key="etf_mins",
+                action="maintain",
+                time_input=DatasetTimeInput(
+                    mode="point",
+                    trade_date=date(2026, 8, 21),
+                ),
+                filters={
+                    "ts_code": ["999999.sh", "510300.sh", "888888.sz"],
+                    "freq": ["1min"],
+                },
+            )
+        )
+
+    structured = exc_info.value.structured_error
+    assert structured.error_code == "etf_not_requestable"
+    assert structured.details == {
+        "invalid_ts_codes": ["888888.SZ", "999999.SH"],
+        "as_of_date": "2026-08-28",
+        "exchange": "ALL",
+    }
+    etf_basic.load_requestability_snapshot.assert_called_once()
+    etf_basic.get_requestable_target.assert_not_called()
+
+
+def test_etf_mins_multi_code_window_before_any_list_date_rejects_entire_plan(
+    mocker,
+) -> None:
+    resolver, etf_basic = _resolver(
+        mocker,
+        [
+            _request_target("159915.SZ", list_date=date(2021, 1, 1)),
+            _request_target("510300.SH", list_date=date(2020, 1, 1)),
+        ],
+    )
+
+    with pytest.raises(IngestionError, match="请求窗口整体早于上市日期") as exc_info:
+        resolver.build_plan(
+            DatasetActionRequest(
+                dataset_key="etf_mins",
+                action="maintain",
+                time_input=DatasetTimeInput(
+                    mode="range",
+                    start_date=date(2019, 1, 1),
+                    end_date=date(2019, 12, 31),
+                ),
+                filters={
+                    "ts_code": ["510300.SH", "159915.SZ"],
+                    "freq": ["1min"],
+                },
+            )
+        )
+
+    assert exc_info.value.structured_error.error_code == "window_before_list_date"
+    assert exc_info.value.structured_error.details["ts_code"] == "159915.SZ"
+    etf_basic.load_requestability_snapshot.assert_called_once()
+    etf_basic.get_requestable_target.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -477,14 +598,9 @@ def test_etf_mins_automatic_empty_basic_snapshot_reuses_universe_empty(mocker) -
     (
         ({"freq": []}, "分钟周期不能为空", "empty_not_allowed"),
         ({"freq": ["90min"]}, "分钟周期不在可选范围内", "invalid_enum"),
-        (
-            {"ts_code": "510300.SH,159915.SZ", "freq": ["1min"]},
-            "一次只支持维护一个显式 ETF 代码",
-            "invalid_enum",
-        ),
     ),
 )
-def test_etf_mins_planner_rejects_invalid_freq_and_multi_code(
+def test_etf_mins_planner_rejects_invalid_freq(
     mocker,
     filters: dict[str, object],
     message: str,

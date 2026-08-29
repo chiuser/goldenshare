@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import os
 import tempfile
 import time
@@ -14,9 +13,6 @@ from sqlalchemy import text
 
 from src.ops.services.etf_minute_history_alignment_plan_service import (
     EtfMinuteHistoryAlignmentPlanError,
-)
-from src.ops.services.etf_minute_history_alignment_submit_service import (
-    EtfMinuteHistoryAlignmentSubmitError,
 )
 
 
@@ -102,43 +98,6 @@ def run_ops_preview_etf_minute_alignment(
     _write_text_atomically(output, plan.to_json())
     echo_fn(summary)
     echo_fn(f"ops-preview-etf-minute-alignment: written={output}")
-
-
-def run_ops_submit_etf_minute_alignment(
-    *,
-    session_local,
-    service_cls,
-    plan_path: Path,
-    confirmed_plan_hash: str,
-    batch_size: int,
-    echo_fn: Callable[[str], None],
-) -> None:
-    try:
-        plan_payload = json.loads(plan_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise typer.BadParameter(f"--plan 无法读取有效 JSON：{exc}") from exc
-
-    service = service_cls()
-    try:
-        confirmed_plan = service.validate_plan_payload(
-            plan_payload,
-            confirmed_plan_hash=confirmed_plan_hash,
-        )
-        with session_local() as session:
-            session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"))
-            session.execute(text("SET LOCAL statement_timeout = '180s'"))
-            result = service.submit(
-                session,
-                plan=confirmed_plan,
-                batch_size=batch_size,
-            )
-    except (
-        EtfMinuteHistoryAlignmentPlanError,
-        EtfMinuteHistoryAlignmentSubmitError,
-    ) as exc:
-        raise typer.BadParameter(f"{exc.code}: {exc.message}") from exc
-
-    echo_fn(result.render_summary())
 
 
 def _write_text_atomically(output: Path, content: str) -> None:

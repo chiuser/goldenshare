@@ -1,8 +1,8 @@
 # ETF 基础信息重建与下游数据审计清理技术方案 v1
 
-状态：核心业务口径 D1-D20 不变；LLD 已重新基线 / M0-M11 已完成，生产旧激活池表已删除，ETF Basic 已按正式快照路径重建并通过下游只读审计 / 原全历史 Preview 已作废，未执行分钟 alignment submit、分钟补拉或下游事实删除，M12 待独立授权
+状态：核心业务口径 D1-D20 不变；M0-M11 已完成，M12 旧 alignment Submit 已删除、普通 `etf_mins` 手动任务多代码扇开代码已完成；待部署和独立生产执行授权；原全历史 Preview 已作废，未执行下游事实删除
 创建日期：2026-08-28
-最近审计：2026-08-29（M11 生产 TaskRun `9837` 已成功重建 ETF Basic：源端/raw 1,829 行、serving 1,826 行、当前可请求 ETF 1,647 个；`ops.etf_series_active` 已不存在；下游明确删除候选仍为 0；未执行分钟 submit 或补拉）
+最近审计：2026-08-29（首批 TaskRun `9842-9851` 全部成功；后续 `9862-10103` 按用户指令停止，61 个已成功、181 个已取消、开放任务 0，成功任务保存 1,603,395 行；停止后只读 Preview 已重算为 181 个代码、182 个 action、1,333 个 unit）
 适用范围：`etf_basic`、ETF 下游历史数据、ETF 对象池、ETF 查询与运维消费者
 低层设计：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)
 
@@ -470,7 +470,7 @@ UPDATE ... SET ts_code='100000.SZ' WHERE ts_code='100000.OF'
 
 需要 ETF 身份判断的 planner、writer、实时健康统计和监控候选列表都消费统一结果。禁止这些消费者自行拼接 `.SH/.SZ`、`list_status` 和 `list_date` 等共同条件，否则很快又会产生多套口径。`etf_share_size` 直接表达源端 ETF 份额规模事实，raw 与业务口径相同，不属于需要 ETF Basic 二次判断身份的消费者。具体函数名和 DAO 形态在 LLD 决定，技术方案不提前把伪代码名称写成契约。
 
-这里的“消费统一结果”不表示每个 Tushare 分页请求都重新查 Basic，也不表示每天预生成一个新池。代码驱动数据集的自动计划在一次规划开始时读取并固定一份对应范围的清单；显式单代码计划只查询该代码一次，不为一个代码加载全市场清单。`fund_daily` 在一次 serving 发布开始时读取；Health、监控候选和监控运行时分别在一次 API 查询或一次实时批次运行开始时读取。详细时点由 LLD 第 4.4 节约束。
+这里的“消费统一结果”不表示每个 Tushare 分页请求都重新查 Basic，也不表示每天预生成一个新池。代码驱动数据集的自动计划在一次规划开始时读取并固定一份对应范围的清单；显式单代码计划只查询该代码一次。M12 的 `etf_mins` 显式多代码计划只加载一次全市场 snapshot 并在内存中校验，不逐代码查询；沪深申赎仍保持单代码。`fund_daily` 在一次 serving 发布开始时读取；Health、监控候选和监控运行时分别在一次 API 查询或一次实时批次运行开始时读取。详细时点由 LLD 第 4.4 节约束。
 
 各下游仍保留源接口特有的拉取规则。例如：
 
@@ -487,7 +487,7 @@ UPDATE ... SET ts_code='100000.SZ' WHERE ts_code='100000.OF'
 
 ### 9.1 对象来源
 
-`etf_mins` 的全量历史目标直接来自当前可请求 ETF 清单，不再从固定 1,395 激活池取全市场代码。显式单代码请求也必须命中该清单，不能提供主数据中不存在的代码，也不能提供 `P/D/list_date 为空` 的代码。`etf_sh_cons`、`etf_sz_cons` 同样用该清单展开代码；`fund_daily` 只把它作为 serving 写入白名单；ETF 实时日线只把它用于 health/业务候选，不改变通配符源请求。四类用途不再保留 resource 级激活池。
+`etf_mins` 的全量历史目标直接来自当前可请求 ETF 清单，不再从固定 1,395 激活池取全市场代码。显式单代码或多代码请求都必须命中该清单，不能提供主数据中不存在的代码，也不能提供 `P/D/list_date 为空` 的代码；多代码中任一项不合格时整次失败。`etf_sh_cons`、`etf_sz_cons` 同样用该清单展开代码；`fund_daily` 只把它作为 serving 写入白名单；ETF 实时日线只把它用于 health/业务候选，不改变通配符源请求。四类用途不再保留 resource 级激活池。
 
 ### 9.2 上市日裁剪
 
@@ -498,7 +498,7 @@ effective_start_date = max(用户或任务要求的 start_date, etf_basic.list_d
 effective_end_date   = 用户或任务要求的 end_date
 ```
 
-如果 `effective_start_date > effective_end_date`，该 ETF 不生成任何源请求 unit，不能向 Tushare 发空请求。自动计划不额外持久化这类跳过数量；显式单代码请求应返回结构化越界错误。
+如果 `effective_start_date > effective_end_date`，该 ETF 不生成任何源请求 unit，不能向 Tushare 发空请求。自动计划不额外持久化这类跳过数量；任一显式代码越界时整次返回结构化错误。
 
 point 请求同样要校验：
 
@@ -531,7 +531,7 @@ trade_date >= list_date
 5. 按当前 `page_limit=8000` 和每 unit 最大 24,000 行计算的源请求次数下界与分页请求上界。
 6. 已有 raw 和成功显式 TaskRun 覆盖后真正需要补拉的 action 与 unit 数。
 
-计划预览不伪造总耗时：实际墙钟还受 endpoint 限速、worker 排队、并发、网络、重试、归一化和入库影响。只有真实 action/TaskRun 规模、请求上下界和批次大小经确认后才允许建设提交入口并进入补拉；首个已批准批次结束后，再用真实请求数和耗时反馈后续批次。不得用固定的“从 2020-01-01 开始”或同一个全市场起点代替逐 ETF 上市日。
+计划预览不伪造总耗时：实际墙钟还受 endpoint 限速、worker 排队、并发、网络、重试、归一化和入库影响。只有真实代码/action/unit 规模与请求上下界经确认后，才允许把这份精确范围作为一个 TaskRun 提交。TaskRun 是统一运营意图，不是一个大事务；内部仍按 unit 请求和提交。不得用固定的“从 2020-01-01 开始”或同一个全市场起点代替逐 ETF 上市日。
 
 ---
 
@@ -829,7 +829,7 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 
 实现结果：旧池五个生产文件、DAOFactory/model registry/ORM export、seed CLI/handler 和五份专属测试已删除；Web fixture 不再创建旧表，实时监控反例改为纯 Basic 不可请求样本。新增 `20260829_000157_drop_etf_series_active.py`，接真实 head `20260828_000156`，upgrade 只精确 drop `ops.etf_series_active`，downgrade 明确不可逆。已落地 ETF 数据集文档改写为当前 Basic 或全市场口径；未实现的实时分钟、监控重构和 DG 接入已移除旧池可执行设计并标记为重新基线前不可开工。生产 DDL、Tushare、Basic 重建、分钟补拉和历史事实删除均未执行。
 
-### M9：分钟 alignment 计划与提交工具
+### M9：分钟 alignment Preview 与历史提交工具
 
 1. **M9A 只实现 preview**：公开输入只有必填的 `alignment_start_date/alignment_end_date`；开始日可为休市日，截止日必须是当前交易日历中不晚于最近开市日的 SSE 开市日。每次固定当前中国日期和一份 Basic snapshot，覆盖全部当前可请求 ETF 与五个原生频率；不提供历史 `as_of_date`、代码子集或频率子集入口。
 2. 全部当前可请求 ETF 都进入 `request_target_hash`；其中 `list_date <= alignment_end_date` 的对象才进入对齐计算。上市日晚于截止日的对象不生成反向或空区间，单独计入 `list_date_after_alignment_end_count`，并用 `alignment_target_etf_count` 解释实际参与对齐的对象数。
@@ -838,10 +838,10 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 5. 无 raw 边界但存在成功显式 TaskRun 覆盖时，只计入 `successful_task_only_covered_target_frequency_count`。它仅表示该 target/frequency 已有成功明确请求证据，不推断或声称源端一定返回零行。
 6. 同一代码、同一起止日期的多个频率合并成一个正式 action，不同日期范围不得强行合并。preview 输出 action 数、unit 数、源请求下界与分页请求上界，不请求 Tushare、不写业务表、不创建 TaskRun，也不伪造总耗时。
 7. raw 查询次数只随待审计自然月数量增长，不随 ETF 或频率数量增长；TaskRun 仍只读取一次。全部查询在同一个 `REPEATABLE READ + READ ONLY` 事务中执行，每条语句固定 180 秒 timeout。月内统计允许只扫描该月分区；若查询计划触及一个月之外的 raw 分区、任一月份达到 180 秒超时或影响生产稳定性则停止，不自动降级为周度重复扫描，也不偷带索引或 schema 修改。
-8. M9A 不访问 Tushare，把真实 action/unit 规模、频率分布和请求上下界展示给用户。用户确认规模并明确选择首批 `batch-size` 前，仓库中不得出现 submit 入口；文档不凭空计算“推荐批次”。规模不可接受时先停下重新评审无额外请求的分组方式，不能用调小批次掩盖 TaskRun 过多。
-9. **M9B 仅在规模拍板后实施**：独立 submit 入口只创建现有正式 `etf_mins` TaskRun；提交时一次性重载 Basic snapshot 和内存 target map，重新校验仅由 `(ts_code, list_date, exchange)` 构成的 `request_target_hash`、上市日和已有覆盖，禁止逐 action 重查 Basic。并发锁、open `etf_mins` TaskRun 拒绝和整批 TaskRun 原子 stage/commit 只在该 submit service 内实现，不扩展共享 TaskRun 契约。
+8. M9A 不访问 Tushare，把真实代码/action/unit 规模、频率分布和请求上下界展示给用户，并可作为普通手动任务的待补代码清单来源。
+9. **M9B 的旧 Submit 已作废并在 M12 删除**：不再开发 alignment 专用 payload、dispatcher 分支或提交服务。正式执行改为扩展普通 `etf_mins` 手动动作的 `ts_code` 多值能力，由既有 resolver/planner 在一个 TaskRun 内扇开。
 
-实现结果：用户已确认 252-action 规模并选择首次实际补拉使用 `batch-size=10`。M9B 新增显式 `ops-submit-etf-minute-alignment`，计划 JSON 必须通过确认 hash、内容 hash、固定 schema、action 顺序和 unit 重算校验；提交事务持专用 advisory lock，拒绝已有 open `etf_mins` TaskRun，一次加载当前 Basic snapshot，并复用 P9A 月度覆盖查询重新判断 action。已完全覆盖的 action 跳过；范围或频率只发生部分变化时整批拒绝并要求重新 Preview。仍精确缺失的 action 才通过现有 `TaskRunCommandService.stage_task_run()` 整批暂存并一次 commit。M9B 开发没有连接 Prod、创建 TaskRun、请求 Tushare 或执行分钟补拉；`batch-size=10` 不是 CLI 默认值，实际首批仍须等待 M10、部署和 M12 独立授权。
+历史结果：旧 M9B 以 `--batch-size` 选取 action，每个 action stage 一个 TaskRun。它已通过代码和早期发布门禁，但生产执行证明任务粒度不符合运营目标，已按用户指令停止，不再是当前可执行方案。
 
 ### M10：候选环境与发布门禁
 
@@ -862,14 +862,26 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 
 执行结果：用户已部署 commit `6b07ae96c9dab353f801c80c9d77006e12ecc404`，部署流程已在 Basic 重建前将 Alembic 升至 `20260829_000157` 并重启服务，因此实际顺序与上述理想维护顺序不同，本记录不倒置或伪造执行证据。开工回查确认旧表已不存在、指数池仍有 6,014 行、相关开放 TaskRun 为 0，且 Web、Ops worker、Task completion worker、scheduler 和 realtime collector 均正常。随后精确暂停 schedule `1/39/40`，通过正式手工 action 仅创建一个 ETF Basic TaskRun `9837`，完成快照重建、raw/serving 对账、下游只读审计和实时链路冒烟后，只恢复这 3 个 schedule。未执行分钟 submit、事实删除或第二次 Tushare 请求。
 
-### M12：分钟补拉与日常治理
+### M12：分钟补拉纠偏与普通手动任务多代码扇开（代码已完成，待部署与执行授权）
 
-1. 在 M11 的 Basic snapshot 上生成生产 alignment plan。
-2. 向用户展示 ETF 数、action 数、unit 数、请求上下界和拟采用的 `batch-size`；批次大小由用户明确选择，不由 preview 伪造推荐值，也不提供无法可靠计算的总耗时预测。
-3. 取得第二次独立授权后分批创建正式 TaskRun；首个已批准批次结束后先反馈真实请求数和实际耗时，再继续后续批次。
-4. 完成请求、TaskRun、写入与幂等对账。
-5. 后续 Basic 新增或 `P -> L` 由下一次人工 preview 发现；不新增自动补拉 schedule。
-6. `L -> D`、代码消失或 `list_date` 变晚只影响新请求，不追溯删除历史。
+1. 已完成 unit 保持有效，不回滚、不删除、不重复猜测。后续范围以 raw 首尾覆盖重跑 Preview 为唯一事实源。
+2. `etf_mins.ts_code` 改为公开多值输入；手动页面接受逗号分隔代码并由现有手动动作 API 保存为一个 TaskRun 的 `filters_json.ts_code` 数组。
+3. planner 对一个代码保留单对象查询，对两个及以上代码只加载一次 Basic snapshot；全部代码统一校验后，按代码、频率、上市日和窗口扇开 unit。任一代码不合格时整次失败，不部分执行。
+4. Preview 的成功 TaskRun coverage parser 同时识别历史单代码字符串和新多代码数组，按代码 × 频率还原请求覆盖；无代码任务与非法数组继续忽略，避免源端空结果窗口被重复规划。
+5. 删除 alignment Submit service、CLI 和专属测试；保留只读 Preview。不得新建专用 payload、dispatcher 分支、TaskRun 类型、数据库字段、进度语义或重试语义。
+6. 一个普通 TaskRun 继续沿用每 unit 独立提交、抓取并发 2、幂等 raw upsert、既有 fail-fast/取消/重试行为；不增加全局 `etf_mins` open-task 互斥。
+7. 生产执行前确认没有开放的 `etf_mins` TaskRun并避开 schedule 39 的执行窗口；如预计重叠则临时暂停，完成物理覆盖和最终 Preview 后恢复。
+8. 新契约完成评审、开发、回归和部署后，仍需独立的生产提交授权；不因本文评审自动继续补拉。
+
+代码实施结果：M12 R1-R4 已完成。多代码仅在 `etf_mins` planner 开启，一次手动 POST 保存一个 TaskRun，planner 再在一份 Basic snapshot 内校验并扇开；旧 Submit 生产实现已清零，Preview 仍是只读工具。目标后端、架构、前端与静态门禁已通过；当前代码未部署，未执行新 TaskRun 或 Tushare 请求。
+
+Preview 执行结果：在生产部署版本上运行一次 `2026-01-01` 至 `2026-08-28` 的正式只读 Preview，约 32 秒完成。计划覆盖 1,647 个当前可请求 ETF，需要 252 个 action、1,774 个 unit，源请求边界为 1,774–7,096；五个频率均是 252 个前缀缺口、尾部缺口为 0。`request_target_hash=8972736114ecbd14d3245e6c59d80c63b463752a15db5b8bfe7ee5ca7ebd31c3`，全部 action 与 M10 计划相同；旧 `.OF` 产生的 1,585 个 `NON_EXCHANGE_SUFFIX` 排除项已清零。计划文件 `plan_content_hash=d31ac369d8c115b905735f1c0c92adb0cbca4004818494c36ef644c4568dfe80`，仅保存在生产服务器和本机 `/private/tmp`，不纳入仓库。Preview 前后 `etf_mins` 成功 TaskRun 均为 10 个、开放 TaskRun 均为 0，证明没有执行 submit。
+
+首批执行结果：用户明确确认上述 plan hash 和 `batch-size=10` 后，提交命令只运行一次，原子创建 TaskRun `9842-9851`，精确对应计划 action 1-10，没有跳过已覆盖 action。10 个任务全部成功，50/50 unit 实际形成 50 个源分页请求、重试 0，共抓取并保存 20,223 行，拒绝、去重和 TaskRun issue 均为 0；首个任务开始至最后任务结束为 21.436 秒。目标 10 个代码的五频率物理行数合计同为 20,223，且每个代码/频率的首尾交易日均覆盖各自 action 边界；表主键仍为 `(ts_code, freq, trade_time)`。批后只读 Preview 的 `request_target_hash` 不变，原 10 个代码均已退出计划，剩余 242 个 action、1,724 个 unit，请求边界 1,724–6,896。没有提交第二批，也没有执行下游 DELETE。
+
+停止记录：用户随后确认一次提交批后计划中的 242 个 action，CLI 原子创建 TaskRun `9862-10103`。运行过程中用户指出“一个代码一个 TaskRun”不符合目标，要求停止并改为一个 TaskRun 内部展开全部代码。系统通过既有 TaskRun cancel 契约停止该组任务：61 个已成功、181 个已取消，开放任务为 0；成功任务共保存 1,603,395 行，失败和拒绝均为 0。TaskRun `9923` 在取消前已完成 3/8 unit，业务数据可能已有分 unit 提交，因此旧批后 plan 和 242-action 数量均不得继续使用；当时必须重新只读 Preview，现已完成。下一版不能省略 `ts_code`，否则会展开 Basic 全部 1,647 个 ETF；正确目标是让普通手动任务显式接收 181 个代码，并由现有 planner 在一个 TaskRun 内按代码、频率、上市日和日期窗口展开 units。
+
+停止后安全终态：再次只读 Preview 得到 `plan_content_hash=86ff27cc39b24f843165c155126ec27950f80f2fe86a12e17738453da0e73d24`，Basic `request_target_hash` 仍为 `8972736114ecbd14d3245e6c59d80c63b463752a15db5b8bfe7ee5ca7ebd31c3`。当前待补范围为 181 个代码、182 个 action、1,333 个 unit，请求下界 1,333、分页上界 5,332。本轮一个普通手动任务统一使用 `2026-01-05..2026-08-28` 和五频率；因此 `159539.SZ` 的 `1min` 会额外重复三个已覆盖窗口，预计总 unit 为 1,336、请求边界为 1,336–5,344。幂等 upsert 不产生重复事实。本次 Preview 未请求 Tushare、未创建 TaskRun、未写数据库。
 
 ---
 
@@ -893,9 +905,9 @@ fund_daily/fund_adj/etf_share_size 源端全集 raw/core 不因本次改造发�
 2. `fund_daily` 使用 raw 先提交、serving 后发布的两阶段事务；选择器或 serving 失败不得回滚已提交 raw，也不得假成功。
 3. `etf_rt_daily` health 改为 `eligible_etf_count/eligible_snapshot_count`，监控候选改为 `/eligible-etfs`，不保留旧字段或 endpoint alias。
 4. 激活池消费者按 planner、fund daily、Health、monitor、review 顺序切换；运行时消费者清零后才允许删除 DAO/model/seed 与表。
-5. 分钟 alignment 只补运营指定区间内、按上市日和 SSE 开市日裁剪后的代码/频率前缀与尾部请求覆盖；不把停牌、内部空洞或纯休市范围猜成缺口。先只实现覆盖全部当前可请求 ETF × 五频率的 preview，用真实规模取得 TaskRun 数量和批次拍板后，才允许实现正式 submit。
+5. 分钟 Preview 只审计运营指定区间内、按上市日和 SSE 开市日裁剪后的代码/频率前缀与尾部请求覆盖；不把停牌、内部空洞或纯休市范围猜成缺口。执行时把 Preview 得到的代码清单输入一个普通手动 TaskRun，由既有 planner 扇开 unit；不再使用 alignment Submit。
 
-M9A/P9A 已按 `2026-01-01` 至 `2026-08-28` 指定区间完成代码和生产只读 Preview；真实计划需补 252 个 ETF、252 个 action、1,774 个 unit，源请求下界 1,774、分页请求上界 7,096。此前默认追溯上市日的 44,793-unit 计划已作废。M9B/P9B 已完成受控 Submit 代码，首次实际批次已拍板为 10 个 action，但没有执行该命令。M10 已完成候选环境、总回归、生产只读审计和同口径 Preview 复算；M11 已完成生产旧表 drop、ETF Basic 正式重建、下游只读审计与实时链路验收。下一阶段是 M12：先基于重建后快照重新 Preview，再展示新的 action/unit/请求边界；没有第二次明确授权时不得执行 submit 或分钟补拉。
+M9A/P9A 已按 `2026-01-01` 至 `2026-08-28` 指定区间完成代码和生产只读 Preview；此前默认追溯上市日的 44,793-unit 计划已作废。M9B/P9B 的“一 action 一 TaskRun”提交模型已停止，当前开放分钟任务为 0。停止后 Preview 已重算为 181 个代码、182 个 action、1,333 个精确 unit；普通手动任务统一日期后预计为 1,336 个 unit。多代码扇开方案已同步到 LLD；未经评审、开发、发布和执行授权不得继续补拉。
 
 详细代码点、测试矩阵、下游只读复核、分钟补拉额度门禁和逐步开发流程见：[ETF 基础信息重建与下游数据审计清理 LLD v1](/Users/congming/github/goldenshare/docs/architecture/etf-basic-rebuild-and-downstream-data-audit-cleanup-low-level-design-v1.md)。
 

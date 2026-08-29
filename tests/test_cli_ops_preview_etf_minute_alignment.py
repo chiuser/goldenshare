@@ -261,3 +261,11 @@ def test_cli_help_exposes_only_fixed_preview_inputs() -> None:
         "--apply",
     ):
         assert forbidden not in result.stdout
+
+
+def test_cli_no_longer_registers_etf_minute_alignment_submit_command() -> None:
+    result = CliRunner().invoke(app, ["--help"])
+
+    assert result.exit_code == 0
+    assert "ops-preview-etf-minute-alignment" in result.stdout
+    assert "ops-submit-etf-minute-alignment" not in result.stdout

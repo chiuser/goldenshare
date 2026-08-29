@@ -33,7 +33,6 @@ from src.cli_parts.ops_handlers import (
     run_ops_seed_default_single_source as _run_ops_seed_default_single_source_impl,
     run_ops_seed_moneyflow_multi_source as _run_ops_seed_moneyflow_multi_source_impl,
     run_ops_seed_realtime_runtime_config as _run_ops_seed_realtime_runtime_config_impl,
-    run_ops_submit_etf_minute_alignment as _run_ops_submit_etf_minute_alignment_impl,
     run_ops_task_completion_worker_serve as _run_ops_task_completion_worker_serve_impl,
     run_ops_lane_worker_run as _run_ops_lane_worker_run_impl,
     run_ops_lane_worker_serve as _run_ops_lane_worker_serve_impl,
@@ -87,9 +86,6 @@ from src.ops.services.date_completeness_schedule_service import DateCompleteness
 from src.ops.services.etf_realtime_minute_archive_service import EtfRealtimeMinuteArchiveService
 from src.ops.services.etf_minute_history_alignment_plan_service import (
     EtfMinuteHistoryAlignmentPlanService,
-)
-from src.ops.services.etf_minute_history_alignment_submit_service import (
-    EtfMinuteHistoryAlignmentSubmitService,
 )
 from src.biz.services.market_mood_walkforward_validation_service import MarketMoodWalkForwardValidationService
 from src.biz.services.wealth.market.turnover.turnover_snapshot_materialize_service import (
@@ -392,40 +388,6 @@ def ops_preview_etf_minute_alignment(
         alignment_start_date_text=alignment_start_date,
         alignment_end_date_text=alignment_end_date,
         output=output,
-        echo_fn=typer.echo,
-    )
-
-
-@app.command("ops-submit-etf-minute-alignment")
-def ops_submit_etf_minute_alignment(
-    plan: Path = typer.Option(
-        ...,
-        "--plan",
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        readable=True,
-        resolve_path=True,
-        help="已审核的 P9A alignment plan JSON 文件",
-    ),
-    confirm_plan_hash: str = typer.Option(
-        ...,
-        "--confirm-plan-hash",
-        help="人工确认的完整 plan_content_hash",
-    ),
-    batch_size: int = typer.Option(
-        ...,
-        "--batch-size",
-        min=1,
-        help="本次最多创建的 TaskRun 数量；首次生产批次已拍板为 10",
-    ),
-) -> None:
-    _run_ops_submit_etf_minute_alignment_impl(
-        session_local=SessionLocal,
-        service_cls=EtfMinuteHistoryAlignmentSubmitService,
-        plan_path=plan,
-        confirmed_plan_hash=confirm_plan_hash,
-        batch_size=batch_size,
         echo_fn=typer.echo,
     )
 
