@@ -1,6 +1,6 @@
 # A 股财务指标（`fina_indicator`）低层设计 v1
 
-状态：**代码已实现，待运营部署与验收**
+状态：**已完成生产验收，需求关闭**
 编写日期：2026-08-29
 上位方案：[A 股财务指标数据集接入技术方案 v1](/Users/congming/github/goldenshare/docs/datasets/fina-indicator-dataset-development.md)
 源接口：[Tushare 财务指标数据](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/财务数据/0079_财务指标数据.md)
@@ -739,10 +739,10 @@ DatasetCatalogItem("fina_indicator", "equity_financial", 20)
 ### M7：计划对账与交接
 
 1. 对照 FI-01..FI-10 逐条记录代码、测试和证据。
-2. 更新方案/LLD 状态为“代码已实现，待运营部署与验收”。
-3. 明确生产 deployment、migration、同步和页面验收不在开发动作内。
+2. 更新方案/LLD 状态为“已完成生产验收，需求关闭”。
+3. 记录运营侧已完成 deployment、migration、同步和页面验收，不把这些生产动作误写成开发代码动作。
 
-实施结果：M0-M5 与 M7 已完成；M6 中的生产 migration、真实同步、HDD catalog 和页面验收由运营在部署后执行，本轮未连接或修改生产环境。
+实施结果：M0-M7 均已完成；Prod migration、真实同步、HDD catalog 和页面验收已于 2026-08-29 完成，证据见第 18 节。
 
 ## 14. 验证命令
 
@@ -804,3 +804,12 @@ uv run python scripts/check_docs_integrity.py
 ## 17. 待拍板项
 
 无。上位方案中的身份、指纹、修订覆盖、HDD、时间模型、自动任务和范围边界均已确认；本文已把它们映射到当前真实代码与测试点。
+
+## 18. 生产验收与关闭
+
+1. 运营已确认部署、migration、真实同步和页面展示通过。
+2. Prod raw 表有 42,809 行，四字段身份数同为 42,809；公告日期范围为 `2025-01-01 ~ 2026-08-29`。
+3. table heap、主键和两个二级索引全部位于 `gs_raw_cold_hdd`，serving 普通 view 无独立物理存储。
+4. 2026 年一季报按报告期末上市口径覆盖 5,493 / 5,496 家；三个差异代码已明确，不作为接入链路缺陷继续跟踪。
+5. 2026 年半年报覆盖 5,368 / 5,528 家，达到验收时“超过 5,000 家披露”的数量预期。
+6. 本 LLD 的实现、自动化门禁和生产验收已闭环，`fina_indicator` 接入需求关闭。

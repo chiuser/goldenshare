@@ -1,6 +1,6 @@
 # A 股财务指标（`fina_indicator`）数据集接入技术方案 v1
 
-状态：**代码已实现，待运营部署与验收**
+状态：**已完成生产验收，需求关闭**
 编写日期：2026-08-29
 适用范围：Tushare `fina_indicator_vip` 接入 Goldenshare Prod
 
@@ -65,7 +65,7 @@ Tushare fina_indicator_vip
 1. 代码已完成 `fina_indicator` DatasetDefinition、ORM、DAO、request builder、row transform、catalog/freshness 登记与自动化测试。
 2. 新增 migration `20260829_000160`，其 `down_revision` 连接实施时真实唯一 head `20260829_000159`；当前代码 migration head 为 `20260829_000160`。
 3. migration 已实现 `gs_raw_cold_hdd` fail-closed：目标 tablespace 不存在时，在创建 schema、table、index 或 view 前失败。
-4. 本轮没有部署、执行数据库 migration、发起生产同步或创建 OpsSchedule；Prod relation、TaskRun 和页面状态仍以运营部署后的实际验收为准。
+4. Prod 已完成部署、数据库 migration、数据同步和页面验收；生产证据见本文第 15 节。
 
 ### 3.3 CodeGraph 影响面
 
@@ -387,23 +387,23 @@ V1 支持普通 cron，不支持 probe、fallback、once、intraday 或 workflow
 | M3 | Definition 与执行链 | Definition、planner、request builder、normalizer、writer |
 | M4 | Ops 投影 | catalog、manual/schedule、freshness，明确 workflow/probe 排除 |
 | M5 | 自动化门禁 | Definition、分页、写入、HDD、Ops、架构测试 |
-| M6 | 运营真实验收（本轮未执行） | 有数据日、空日期、幂等、五段对账、HDD catalog 证据 |
+| M6 | 运营真实验收（已完成） | 有数据日、覆盖率、身份幂等、HDD catalog 和页面验收证据 |
 | M7 | 文档收口 | 开发文档和 LLD 更新为真实状态；生产动作另行授权 |
 
 ## 13. 硬需求追溯账本
 
 | ID | 硬需求 | 代码落点 | 正向门禁 | 反向门禁 | 状态 |
 | --- | --- | --- | --- | --- | --- |
-| FI-01 | 使用 `fina_indicator_vip` 全市场公告日请求 | Definition/request builder | 公告日返回全市场 | 不得调用普通接口逐股扇出 | 代码与自动化门禁完成，待运营验收 |
-| FI-02 | 显式请求并保存全部 167 fields | Definition/ORM/migration/view | 字段逐列一致 | 默认 108 字段方案失败 | 代码与自动化门禁完成，待运营验收 |
-| FI-03 | point/range 按自然日逐日 unit | date model/planner | 周末仍生成 unit | 不得走交易日历或宽区间源请求 | 代码与自动化门禁完成，待运营验收 |
-| FI-04 | 四字段身份保留 0/1 两类事实；同身份字段修正必须覆盖 | ORM/normalizer/writer | 两个 flag 可并存；改一个指标后原行和指纹被覆盖 | 三字段主键、只存 flag=1、同批冲突最后一行胜出均失败 | 代码与自动化门禁完成，待运营验收 |
-| FI-05 | raw 单写、serving 普通 view | storage/writer/migration | raw/view 同事务一致 | 不得双写 serving 物理表 | 代码与自动化门禁完成，待运营验收 |
-| FI-06 | table/PK/index 全部 HDD | migration | catalog 全命中 `gs_raw_cold_hdd` | 缺 HDD 必须零创建，禁止 SSD fallback | 迁移代码与 fail-closed 测试完成，待运营 migration 后验收 |
-| FI-07 | event freshness，不做日期完整性 | policy/projection | 空公告日成功可保持正常 | 不得按连续自然日判缺口 | 代码与自动化门禁完成，待运营验收 |
-| FI-08 | 手动 + 普通自动任务，不进 workflow/probe | capabilities/catalog | 两类入口可见 | workflow/probe 必须不存在 | 代码与自动化门禁完成，待运营验收 |
-| FI-09 | 不设置无源端依据的日期跨度硬上限 | Definition/resolver | 超过 366 日的合法区间仍可规划 | 不得保留 366/367 日人工阈值 | 代码与自动化门禁完成，待运营验收 |
-| FI-10 | Ops 状态不影响业务事务 | executor/TaskRun adapter | 状态失败不回滚已提交 raw | 不得把状态写入纳入 raw 事务 | 复用既有事务边界并通过回归，待运营验收 |
+| FI-01 | 使用 `fina_indicator_vip` 全市场公告日请求 | Definition/request builder | 公告日返回全市场 | 不得调用普通接口逐股扇出 | 已完成并验收 |
+| FI-02 | 显式请求并保存全部 167 fields | Definition/ORM/migration/view | 字段逐列一致 | 默认 108 字段方案失败 | 已完成并验收 |
+| FI-03 | point/range 按自然日逐日 unit | date model/planner | 周末仍生成 unit | 不得走交易日历或宽区间源请求 | 已完成并验收 |
+| FI-04 | 四字段身份保留 0/1 两类事实；同身份字段修正必须覆盖 | ORM/normalizer/writer | 两个 flag 可并存；改一个指标后原行和指纹被覆盖 | 三字段主键、只存 flag=1、同批冲突最后一行胜出均失败 | 已完成并验收 |
+| FI-05 | raw 单写、serving 普通 view | storage/writer/migration | raw/view 同事务一致 | 不得双写 serving 物理表 | 已完成并验收 |
+| FI-06 | table/PK/index 全部 HDD | migration | catalog 全命中 `gs_raw_cold_hdd` | 缺 HDD 必须零创建，禁止 SSD fallback | 已完成并验收 |
+| FI-07 | event freshness，不做日期完整性 | policy/projection | 空公告日成功可保持正常 | 不得按连续自然日判缺口 | 已完成并验收 |
+| FI-08 | 手动 + 普通自动任务，不进 workflow/probe | capabilities/catalog | 两类入口可见 | workflow/probe 必须不存在 | 已完成并验收 |
+| FI-09 | 不设置无源端依据的日期跨度硬上限 | Definition/resolver | 超过 366 日的合法区间仍可规划 | 不得保留 366/367 日人工阈值 | 已完成并验收 |
+| FI-10 | Ops 状态不影响业务事务 | executor/TaskRun adapter | 状态失败不回滚已提交 raw | 不得把状态写入纳入 raw 事务 | 已完成并验收 |
 
 ## 14. 已确认决策
 
@@ -411,3 +411,14 @@ V1 支持普通 cron，不支持 probe、fallback、once、intraday 或 workflow
 2. 不设置 366 天或其他缺少源端依据的日期跨度硬上限；请求量按输入自然日数真实计算，运营可自行分批提交长区间。
 3. 首次历史维护起点不进入代码常量，部署后由运营在创建自动任务时填写 `initial_start_date`。
 4. 当前没有其他待拍板项，可以进入 LLD。
+
+## 15. 生产验收与关闭
+
+验收日期：2026-08-29。
+
+1. 运营已确认 Prod 部署、数据库 migration、数据同步和页面展示符合预期。
+2. `raw_tushare.fina_indicator` 已有 42,809 行，四字段身份数同为 42,809，没有身份重复；公告日期范围为 `2025-01-01 ~ 2026-08-29`。
+3. `raw_tushare.fina_indicator` table heap、命名主键和两个二级索引均位于 `gs_raw_cold_hdd`；`core_serving.equity_fina_indicator` 为 0 字节普通 view。
+4. 2026 年一季报按报告期末上市口径应覆盖 5,496 家，已覆盖 5,493 家，覆盖率 99.95%。三个差异代码已明确，其中当前仍上市且季末前已上市的差异仅 `002731.SZ`；该差异不阻塞数据集接入验收。
+5. 2026 年半年报按报告期末上市口径应覆盖 5,528 家，已覆盖 5,368 家，覆盖率 97.11%，超过“截至验收日披露超过 5,000 家”的预期。
+6. FI-01 至 FI-10 均已完成代码、自动化门禁与生产验收，本需求正式关闭；后续数据更新属于正常运营维护，不再作为接入开发尾项。
