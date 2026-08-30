@@ -1,6 +1,6 @@
 # A 股资产负债表（`balancesheet`）数据集接入 LLD v1
 
-状态：**共享 `end_type` 规范化 LLD 已按 Prod 现状对齐；`20260830_000166` 已部署，代码与 migration `20260830_000167` 待实现**
+状态：**共享 `end_type` 规范化代码与 migration `20260830_000167` 已按本 LLD 实现；待运营部署迁移并重跑验收**
 编写日期：2026-08-30
 上位方案：[A 股资产负债表接入技术方案 v1](/Users/congming/github/goldenshare/docs/datasets/balancesheet-dataset-development.md)
 

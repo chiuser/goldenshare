@@ -1,6 +1,6 @@
 # A 股资产负债表（`balancesheet`）数据集接入技术方案 v1
 
-状态：**共享 `end_type` 规范化方案已按 Prod 现状对齐；`20260830_000166` 已部署，规范化代码与 migration `20260830_000167` 待实现**
+状态：**共享 `end_type` 规范化代码与 migration `20260830_000167` 已实现；待运营部署迁移并重跑验收**
 编写日期：2026-08-29
 适用范围：Tushare `balancesheet_vip` 接入 Goldenshare Prod
 

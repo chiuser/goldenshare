@@ -20,8 +20,8 @@ class IngestionCodebookEntry:
         }
 
 
-INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-29.v1"
-INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-29T00:00:00Z"
+INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-30.v2"
+INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-30T00:00:00Z"
 
 INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("dataset_mismatch", "请求数据集与定义不一致", "validator", "检查 dataset_key 与定义绑定"),
@@ -161,6 +161,19 @@ INGESTION_REASON_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("normalize.required_field_missing", "必填字段缺失", "normalize", "检查字段映射和空值处理"),
     IngestionCodebookEntry("normalize.invalid_date", "日期字段非法", "normalize", "检查日期格式与解析规则"),
     IngestionCodebookEntry("normalize.invalid_decimal", "数值字段非法", "normalize", "检查数值格式与精度转换"),
+    IngestionCodebookEntry("normalize.invalid_enum", "枚举字段非法", "normalize", "检查源站枚举值与数据集契约"),
+    IngestionCodebookEntry(
+        "normalize.financial_statement_end_date_invalid",
+        "财务报表报告期非季度末",
+        "normalize",
+        "核验 end_date 必须是 03-31、06-30、09-30 或 12-31",
+    ),
+    IngestionCodebookEntry(
+        "normalize.end_type_mismatch",
+        "报告期类型与报告期不一致",
+        "normalize",
+        "核验 end_type 与 end_date 的季度映射",
+    ),
     IngestionCodebookEntry("normalize.numeric_precision_overflow:div_cash", "现金分红精度超出存储上限", "normalize", "核验源值；禁止舍入后写入"),
     IngestionCodebookEntry("normalize.numeric_precision_overflow:base_unit", "分红基数精度超出存储上限", "normalize", "核验源值；禁止舍入后写入"),
     IngestionCodebookEntry("normalize.numeric_precision_overflow:ear_distr", "可分配收益精度超出存储上限", "normalize", "核验源值；禁止舍入后写入"),

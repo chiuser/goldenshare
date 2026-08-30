@@ -225,8 +225,9 @@ class DatasetNormalizer:
             rows_deduplicated=rows_deduplicated,
         )
 
-    @staticmethod
+    @classmethod
     def _apply_source_multiplicity_policy(
+        cls,
         *,
         definition: DatasetDefinition,
         rows: list[dict[str, Any]],
@@ -251,12 +252,10 @@ class DatasetNormalizer:
         seen_hashes: set[str] = set()
         for row in rows:
             try:
-                content_hash = str(row.get(DatasetNormalizer._SOURCE_CONTENT_HASH_FIELD) or "")
-                if not content_hash:
-                    content_hash = compute_source_content_hash(
-                        row=row,
-                        source_fields=definition.source.source_fields,
-                    )
+                content_hash = cls._resolve_source_content_hash(
+                    row=row,
+                    source_fields=definition.source.source_fields,
+                )
             except ObservedSnapshotHashError as exc:
                 raise IngestionNormalizeError(
                     StructuredError(
@@ -273,6 +272,21 @@ class DatasetNormalizer:
             seen_hashes.add(content_hash)
             unique_rows.append(row)
         return unique_rows, len(rows) - len(unique_rows)
+
+    @classmethod
+    def _resolve_source_content_hash(
+        cls,
+        *,
+        row: dict[str, Any],
+        source_fields: tuple[str, ...],
+    ) -> str:
+        canonical_hash = str(row.get("source_content_hash") or "").strip()
+        if canonical_hash:
+            return canonical_hash
+        raw_hash = str(row.get(cls._SOURCE_CONTENT_HASH_FIELD) or "").strip()
+        if raw_hash:
+            return raw_hash
+        return compute_source_content_hash(row=row, source_fields=source_fields)
 
     @classmethod
     def _validate_batch_unique_keys(
@@ -296,18 +310,27 @@ class DatasetNormalizer:
                 continue
 
             first_row_index, first_row = existing
-            first_source_hash = str(first_row.get(cls._SOURCE_CONTENT_HASH_FIELD) or "")
-            duplicate_source_hash = str(row.get(cls._SOURCE_CONTENT_HASH_FIELD) or "")
-            source_rows_equal = (
-                first_source_hash == duplicate_source_hash
-                if first_source_hash and duplicate_source_hash
-                else all(
-                    field_name in first_row
-                    and field_name in row
-                    and first_row[field_name] == row[field_name]
-                    for field_name in source_fields
+            try:
+                first_source_hash = cls._resolve_source_content_hash(
+                    row=first_row,
+                    source_fields=source_fields,
                 )
-            )
+                duplicate_source_hash = cls._resolve_source_content_hash(
+                    row=row,
+                    source_fields=source_fields,
+                )
+            except ObservedSnapshotHashError as exc:
+                raise IngestionNormalizeError(
+                    StructuredError(
+                        error_code="normalize.source_content_hash_invalid",
+                        error_type="normalize",
+                        phase="normalizer",
+                        message=str(exc),
+                        retryable=False,
+                        unit_id=unit_id,
+                    )
+                ) from exc
+            source_rows_equal = first_source_hash == duplicate_source_hash
             error_code = (
                 "normalize.batch_unique_key_duplicate"
                 if source_rows_equal

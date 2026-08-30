@@ -11,7 +11,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 INGESTION_ROOT = REPO_ROOT / "src/foundation/ingestion"
 DISPATCHER_PATH = REPO_ROOT / "src/ops/runtime/task_run_dispatcher.py"
 WORKER_PATH = REPO_ROOT / "src/ops/runtime/worker.py"
-NORMALIZER_PATH = INGESTION_ROOT / "normalizer.py"
 
 ERROR_CODE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)*$")
 REASON_CODE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+(?::[a-z0-9_]+)?$")
@@ -86,19 +85,18 @@ def _extract_error_codes_from_file(path: Path) -> set[str]:
     return codes
 
 
-def _extract_reason_codes_from_normalizer(path: Path) -> set[str]:
+def _extract_reason_codes_from_file(path: Path) -> set[str]:
     module = _read_ast(path)
     reason_codes: set[str] = set()
 
     for node in ast.walk(module):
         if isinstance(node, ast.Call):
             call_name = _call_name(node.func)
-            if call_name not in {"_increase_reason", "_with_field"}:
-                continue
-            for arg in node.args:
-                literal = _literal_string(arg)
-                if literal is not None and REASON_CODE_PATTERN.fullmatch(literal):
-                    reason_codes.add(literal)
+            if call_name in {"_increase_reason", "_with_field", "RowTransformReject"}:
+                for arg in node.args:
+                    literal = _literal_string(arg)
+                    if literal is not None and REASON_CODE_PATTERN.fullmatch(literal):
+                        reason_codes.add(literal)
         if isinstance(node, ast.Return):
             literal = _literal_string(node.value)
             if literal is not None and REASON_CODE_PATTERN.fullmatch(literal):
@@ -126,7 +124,9 @@ def test_ingestion_error_codes_in_runtime_must_exist_in_codebook() -> None:
 
 
 def test_ingestion_reason_codes_in_runtime_must_exist_in_codebook() -> None:
-    produced_reason_codes = _extract_reason_codes_from_normalizer(NORMALIZER_PATH)
+    produced_reason_codes: set[str] = set()
+    for path in sorted(INGESTION_ROOT.rglob("*.py")):
+        produced_reason_codes.update(_extract_reason_codes_from_file(path))
     produced_reason_roots = {_strip_reason_field_suffix(code) for code in produced_reason_codes}
 
     codebook_reason_codes = {entry.code for entry in INGESTION_REASON_CODEBOOK}

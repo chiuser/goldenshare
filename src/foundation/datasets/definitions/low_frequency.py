@@ -173,7 +173,11 @@ def _financial_statement_dataset_row(
         "normalization": {
             "date_fields": date_fields,
             "decimal_fields": decimal_fields,
-            "required_fields": (*FINANCIAL_STATEMENT_IDENTITY_FIELDS, "source_content_hash"),
+            "required_fields": (
+                *FINANCIAL_STATEMENT_IDENTITY_FIELDS,
+                "end_type",
+                "source_content_hash",
+            ),
             "row_transform_name": row_transform_name,
         },
         "capabilities": {
@@ -211,7 +215,11 @@ def _financial_statement_dataset_row(
         },
         "quality": {
             "reject_policy": "fail_unit_on_any_rejection",
-            "required_fields": (*FINANCIAL_STATEMENT_IDENTITY_FIELDS, "source_content_hash"),
+            "required_fields": (
+                *FINANCIAL_STATEMENT_IDENTITY_FIELDS,
+                "end_type",
+                "source_content_hash",
+            ),
             "unit_date_field": "ann_date",
             "duplicate_key_policy": "allow",
             "batch_unique_key_fields": FINANCIAL_STATEMENT_IDENTITY_FIELDS,

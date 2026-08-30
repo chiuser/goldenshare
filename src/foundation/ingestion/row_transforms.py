@@ -27,6 +27,7 @@ from src.foundation.datasets.fina_indicator_contracts import FINA_INDICATOR_SOUR
 from src.foundation.datasets.balancesheet_contracts import BALANCESHEET_SOURCE_FIELDS
 from src.foundation.datasets.cashflow_contracts import CASHFLOW_SOURCE_FIELDS
 from src.foundation.datasets.financial_statement_contracts import (
+    FINANCIAL_STATEMENT_END_TYPE_BY_MONTH_DAY,
     FINANCIAL_STATEMENT_REPORT_TYPE_VALUES,
 )
 from src.foundation.datasets.income_contracts import INCOME_SOURCE_FIELDS
@@ -297,7 +298,7 @@ def _financial_statement_row_transform(
     for field_name in ("report_type", "comp_type", "update_flag"):
         transformed[field_name] = str(transformed.get(field_name) or "").strip()
     raw_end_type = transformed.get("end_type")
-    transformed["end_type"] = (
+    normalized_end_type = (
         str(raw_end_type).strip() if raw_end_type not in (None, "") else None
     )
 
@@ -309,6 +310,28 @@ def _financial_statement_row_transform(
                 f"normalize.empty_not_allowed:{field_name}",
                 f"字段 {field_name} 不允许为空",
             )
+    expected_end_type = FINANCIAL_STATEMENT_END_TYPE_BY_MONTH_DAY.get(
+        transformed["end_date"].strftime("%m%d")
+    )
+    if expected_end_type is None:
+        raise RowTransformReject(
+            "normalize.financial_statement_end_date_invalid",
+            "财务报表 end_date 必须是自然季度末",
+        )
+    if normalized_end_type is None:
+        transformed["end_type"] = expected_end_type
+    elif normalized_end_type not in FINANCIAL_STATEMENT_END_TYPE_BY_MONTH_DAY.values():
+        raise RowTransformReject(
+            "normalize.invalid_enum:end_type",
+            "字段 end_type 必须是 1 至 4",
+        )
+    elif normalized_end_type != expected_end_type:
+        raise RowTransformReject(
+            "normalize.end_type_mismatch",
+            f"字段 end_type={normalized_end_type} 与 end_date 对应的 {expected_end_type} 不一致",
+        )
+    else:
+        transformed["end_type"] = normalized_end_type
     if transformed["report_type"] not in FINANCIAL_STATEMENT_REPORT_TYPE_VALUES:
         raise RowTransformReject(
             "normalize.invalid_enum:report_type",

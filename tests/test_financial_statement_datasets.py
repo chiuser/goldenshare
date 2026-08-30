@@ -17,6 +17,7 @@ from src.foundation.datasets.balancesheet_contracts import (
 )
 from src.foundation.datasets.cashflow_contracts import CASHFLOW_DECIMAL_FIELDS, CASHFLOW_SOURCE_FIELDS
 from src.foundation.datasets.financial_statement_contracts import (
+    FINANCIAL_STATEMENT_END_TYPE_BY_MONTH_DAY,
     FINANCIAL_STATEMENT_IDENTITY_FIELDS,
     FINANCIAL_STATEMENT_REPORT_TYPE_LABELS,
     FINANCIAL_STATEMENT_REPORT_TYPE_VALUES,
@@ -173,6 +174,8 @@ def test_financial_statement_definition_storage_and_ops_contract(
     assert definition.storage.serving_table == serving_table
     assert definition.storage.write_path == "raw_only_upsert"
     assert definition.storage.conflict_columns == FINANCIAL_STATEMENT_IDENTITY_FIELDS
+    assert "end_type" in definition.normalization.required_fields
+    assert "end_type" in definition.quality.required_fields
     assert definition.quality.batch_unique_key_fields == FINANCIAL_STATEMENT_IDENTITY_FIELDS
     assert definition.quality.empty_result_policy == "allow"
     assert definition.quality.reject_policy == "fail_unit_on_any_rejection"
@@ -334,7 +337,7 @@ def test_financial_statement_normalizer_preserves_versions_and_rejects_identity_
     assert len(batch.rows_normalized) == 2
     assert batch.rows_normalized[0]["ts_code"] == "000001.SZ"
     assert batch.rows_normalized[0]["comp_type"] == "7"
-    assert batch.rows_normalized[0]["end_type"] is None
+    assert batch.rows_normalized[0]["end_type"] == "2"
     assert all(isinstance(batch.rows_normalized[0][field], Decimal) for field in decimal_fields)
     assert {row["update_flag"] for row in batch.rows_normalized} == {"0", "1"}
     assert all(len(str(row["source_content_hash"])) == 64 for row in batch.rows_normalized)
@@ -350,6 +353,122 @@ def test_financial_statement_normalizer_preserves_versions_and_rejects_identity_
             ]
         )
     assert conflict.value.structured_error.error_code == "normalize.batch_unique_key_conflicting"
+
+
+@pytest.mark.parametrize(
+    "dataset_key,source_fields,decimal_fields",
+    [(case[0], case[2], case[3]) for case in CASES],
+)
+@pytest.mark.parametrize(
+    ("end_date", "expected_end_type"),
+    (
+        ("20260331", "1"),
+        ("20260630", "2"),
+        ("20260930", "3"),
+        ("20261231", "4"),
+    ),
+)
+def test_financial_statement_normalizer_derives_quarter_end_type(
+    dataset_key: str,
+    source_fields: tuple[str, ...],
+    decimal_fields: tuple[str, ...],
+    end_date: str,
+    expected_end_type: str,
+) -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition(dataset_key),
+        fetch_result=SourceFetchResult(
+            unit_id=dataset_key,
+            request_count=1,
+            retry_count=0,
+            latency_ms=0,
+            rows_raw=[_row(source_fields, decimal_fields, end_date=end_date, end_type=None)],
+        ),
+        expected_unit_date=date(2026, 8, 29),
+    )
+
+    assert batch.rows_rejected == 0
+    assert batch.rows_normalized[0]["end_type"] == expected_end_type
+
+
+@pytest.mark.parametrize(
+    "dataset_key,source_fields,decimal_fields",
+    [(case[0], case[2], case[3]) for case in CASES],
+)
+def test_financial_statement_normalizer_deduplicates_null_and_canonical_end_type(
+    dataset_key: str,
+    source_fields: tuple[str, ...],
+    decimal_fields: tuple[str, ...],
+) -> None:
+    definition = get_dataset_definition(dataset_key)
+
+    def normalize(rows: list[dict[str, object]]):  # type: ignore[no-untyped-def]
+        return DatasetNormalizer().normalize(
+            definition=definition,
+            fetch_result=SourceFetchResult(
+                unit_id=dataset_key,
+                request_count=1,
+                retry_count=0,
+                latency_ms=0,
+                rows_raw=rows,
+            ),
+            expected_unit_date=date(2026, 8, 29),
+        )
+
+    combined = normalize(
+        [
+            _row(source_fields, decimal_fields, end_type=None),
+            _row(source_fields, decimal_fields, end_type="2"),
+        ]
+    )
+    derived = normalize([_row(source_fields, decimal_fields, end_type=None)])
+    explicit = normalize([_row(source_fields, decimal_fields, end_type="2")])
+
+    assert len(combined.rows_normalized) == 1
+    assert combined.rows_deduplicated == 1
+    assert combined.rows_normalized[0]["end_type"] == "2"
+    assert (
+        derived.rows_normalized[0]["source_content_hash"]
+        == explicit.rows_normalized[0]["source_content_hash"]
+    )
+
+
+@pytest.mark.parametrize(
+    "dataset_key,source_fields,decimal_fields",
+    [(case[0], case[2], case[3]) for case in CASES],
+)
+@pytest.mark.parametrize(
+    ("overrides", "reason_code"),
+    (
+        (
+            {"end_date": "20260531", "end_type": None},
+            "normalize.financial_statement_end_date_invalid",
+        ),
+        ({"end_type": "5"}, "normalize.invalid_enum:end_type"),
+        ({"end_type": "3"}, "normalize.end_type_mismatch"),
+    ),
+)
+def test_financial_statement_normalizer_rejects_invalid_end_type_contract(
+    dataset_key: str,
+    source_fields: tuple[str, ...],
+    decimal_fields: tuple[str, ...],
+    overrides: dict[str, object],
+    reason_code: str,
+) -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition(dataset_key),
+        fetch_result=SourceFetchResult(
+            unit_id=dataset_key,
+            request_count=1,
+            retry_count=0,
+            latency_ms=0,
+            rows_raw=[_row(source_fields, decimal_fields, **overrides)],
+        ),
+        expected_unit_date=date(2026, 8, 29),
+    )
+
+    assert batch.rows_normalized == []
+    assert batch.rejected_reasons == {reason_code: 1}
 
 
 class _StubRawDao:
@@ -415,7 +534,7 @@ def test_financial_statement_writer_model_dao_and_migration_contract(
         "fetched_at",
     }
     assert list(model.__table__.primary_key.columns.keys()) == list(FINANCIAL_STATEMENT_IDENTITY_FIELDS)
-    assert model.__table__.columns.end_type.nullable is True
+    assert model.__table__.columns.end_type.nullable is False
     assert all(isinstance(model.__table__.columns[field].type, Numeric) for field in decimal_fields)
     factory = DAOFactory(SimpleNamespace())
     dao = getattr(factory, dao_name)
@@ -505,6 +624,100 @@ def test_financial_statement_nullable_end_type_migration_contract(monkeypatch) -
 
     with pytest.raises(RuntimeError, match="不支持自动 downgrade"):
         migration.downgrade()
+
+
+def test_financial_statement_end_type_enforcement_migration_contract(monkeypatch) -> None:
+    migration_path = (
+        ROOT
+        / "alembic/versions/20260830_000167_enforce_financial_statement_end_type.py"
+    )
+    migration = _load_migration(migration_path, "financial_statement_end_type_enforcement")
+    migration_text = migration_path.read_text(encoding="utf-8")
+
+    assert migration.revision == "20260830_000167"
+    assert migration.down_revision == "20260830_000166"
+    assert migration._IDENTITY_FIELDS == FINANCIAL_STATEMENT_IDENTITY_FIELDS
+    assert migration._TABLES == ("income", "balancesheet", "cashflow")
+    assert migration._END_TYPE_BY_MONTH_DAY == FINANCIAL_STATEMENT_END_TYPE_BY_MONTH_DAY
+    assert "ALTER COLUMN end_type SET NOT NULL" in migration_text
+    assert "WHERE end_type IS NULL" in migration_text
+    assert "ALTER COLUMN end_type DROP NOT NULL" not in migration_text
+    assert "PRIMARY KEY USING INDEX" not in migration_text
+    assert "TABLESPACE" not in migration_text
+    assert "DELETE FROM" not in migration_text
+    assert "op.drop_table" not in migration_text
+
+    class ScalarResult:
+        def __init__(self, value: object) -> None:
+            self.value = value
+
+        def scalar(self) -> object:
+            return self.value
+
+    class ValidBind:
+        dialect = SimpleNamespace(name="postgresql")
+
+        @staticmethod
+        def execute(statement, *_args, **_kwargs):  # type: ignore[no-untyped-def]
+            sql = str(statement)
+            if "to_regclass" in sql:
+                return ScalarResult(1)
+            if "information_schema.table_constraints" in sql:
+                return ScalarResult(",".join(FINANCIAL_STATEMENT_IDENTITY_FIELDS))
+            if "SELECT count(*)" in sql:
+                return ScalarResult(0)
+            raise AssertionError(f"unexpected migration query: {sql}")
+
+    ddl_calls: list[str] = []
+    monkeypatch.setattr(migration.op, "get_bind", lambda: ValidBind())
+    monkeypatch.setattr(migration.op, "execute", lambda statement: ddl_calls.append(str(statement)))
+    migration.upgrade()
+
+    assert len(ddl_calls) == 6
+    assert all(call.startswith("UPDATE raw_tushare.") for call in ddl_calls[:3])
+    assert all("WHERE end_type IS NULL" in call for call in ddl_calls[:3])
+    assert all("ALTER COLUMN end_type SET NOT NULL" in call for call in ddl_calls[3:])
+    with pytest.raises(RuntimeError, match="不支持自动 downgrade"):
+        migration.downgrade()
+
+
+def test_financial_statement_end_type_enforcement_migration_fails_before_writes(
+    monkeypatch,
+) -> None:
+    migration_path = (
+        ROOT
+        / "alembic/versions/20260830_000167_enforce_financial_statement_end_type.py"
+    )
+    migration = _load_migration(migration_path, "financial_statement_end_type_invalid_data")
+
+    class ScalarResult:
+        def __init__(self, value: object) -> None:
+            self.value = value
+
+        def scalar(self) -> object:
+            return self.value
+
+    class InvalidDataBind:
+        dialect = SimpleNamespace(name="postgresql")
+
+        @staticmethod
+        def execute(statement, *_args, **_kwargs):  # type: ignore[no-untyped-def]
+            sql = str(statement)
+            if "to_regclass" in sql:
+                return ScalarResult(1)
+            if "information_schema.table_constraints" in sql:
+                return ScalarResult(",".join(FINANCIAL_STATEMENT_IDENTITY_FIELDS))
+            if "NOT IN ('0331', '0630', '0930', '1231')" in sql:
+                return ScalarResult(1)
+            raise AssertionError(f"unexpected migration query: {sql}")
+
+    ddl_calls: list[str] = []
+    monkeypatch.setattr(migration.op, "get_bind", lambda: InvalidDataBind())
+    monkeypatch.setattr(migration.op, "execute", lambda statement: ddl_calls.append(str(statement)))
+
+    with pytest.raises(RuntimeError, match="非季度末 end_date"):
+        migration.upgrade()
+    assert ddl_calls == []
 
 
 def _load_migration(path: Path, dataset_key: str) -> ModuleType:

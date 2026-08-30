@@ -33,7 +33,7 @@ class RawCashflow(Base):
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
     comp_type: Mapped[str] = mapped_column(String(8), nullable=False)
     report_type: Mapped[str] = mapped_column(String(8), nullable=False)
-    end_type: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    end_type: Mapped[str] = mapped_column(String(8), nullable=False)
 
     locals().update(
         {field_name: mapped_column(Numeric(), nullable=True) for field_name in CASHFLOW_DECIMAL_FIELDS}
