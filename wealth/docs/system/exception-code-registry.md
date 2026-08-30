@@ -251,6 +251,7 @@
 | `SA_BREADTH_FACT_MISMATCH` | `sectorAnalysis` | warn | false | false | 成员广度请求携带的行业层级版本与当前发布版本不一致 | 成员广度 Meta 返回后层级重新发布，或客户端使用过期 hierarchyVersion | HTTP 409；只清空成员广度事实并重新加载成员广度 Meta | biz-api | Phase-6-M14 | active |
 | `SA_BREADTH_SOURCE_EMPTY` | `sectorAnalysis` | warn | false | true | 选中行业在目标交易日没有来源成员 | 精确 `tradeDate + sectorCode` 的成员广度来源集合为空 | Details 局部 EMPTY；排名和页面骨架保留 | biz-api | Phase-6-M14 | active |
 | `SA_BREADTH_QUERY_FAILED` | `sectorAnalysis` | error | false | true | 成员广度查询、纯计算或合同组合失败 | SQL、重复业务键、窗口、Decimal 计算或 DTO 不变量失败 | 当前成员广度 endpoint 进入安全 ERROR；不泄露技术细节 | biz-api | Phase-6-M14 | active |
+| `SA_PRICE_VOLUME_FACT_MISMATCH` | `sectorAnalysis` | warn | false | false | 量价分布请求携带的行业层级版本与当前发布版本不一致 | 量价分布 Meta 返回后层级重新发布，或客户端使用过期 hierarchyVersion 请求 Snapshot／Details | HTTP 409；只清空量价分布短期事实并重新加载量价分布 Meta；不得继续读取行情 | biz-api | Phase-6-M17 | active |
 | `SA_QUERY_FAILED` | `sectorAnalysis` | error | false | true | 板块分析查询或纯计算出现未分类失败 | SQL、日期窗口、结果唯一性、DTO 组合或未知内部异常 | 稳定 ERROR；安全文案和重试，不展示不完整结果 | biz-api | Phase-6 | active |
 
 补充规则：

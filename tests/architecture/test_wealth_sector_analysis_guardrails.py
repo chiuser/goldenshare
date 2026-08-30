@@ -59,6 +59,7 @@ REGISTERED_EXCEPTION_CODES = {
     "SA_BREADTH_FACT_MISMATCH",
     "SA_BREADTH_SOURCE_EMPTY",
     "SA_BREADTH_QUERY_FAILED",
+    "SA_PRICE_VOLUME_FACT_MISMATCH",
     "SA_QUERY_FAILED",
 }
 
@@ -113,6 +114,46 @@ MEMBER_BREADTH_BACKEND_PATHS = (
     REPO_ROOT
     / "src/biz/services/wealth/market/sector_analysis/sector_member_breadth_calculator.py",
     REPO_ROOT / "src/biz/schemas/wealth/market/sector_member_breadth.py",
+)
+PRICE_VOLUME_BACKEND_PATHS = (
+    REPO_ROOT
+    / "src/biz/queries/wealth/market/sector_analysis/sector_price_volume_query.py",
+    REPO_ROOT
+    / "src/biz/queries/wealth/market/sector_analysis/sector_price_volume_query_service.py",
+    REPO_ROOT
+    / "src/biz/services/wealth/market/sector_analysis/sector_price_volume_contract.py",
+    REPO_ROOT
+    / "src/biz/services/wealth/market/sector_analysis/sector_price_volume_calculator.py",
+    REPO_ROOT / "src/biz/schemas/wealth/market/sector_price_volume.py",
+)
+PRICE_VOLUME_APPROVED_MODEL_MODULES = {
+    "src.foundation.models.core.dc_daily",
+    "src.foundation.models.core.trade_calendar",
+    "src.foundation.models.core_serving.wealth_sector_hierarchy",
+}
+PRICE_VOLUME_FORBIDDEN_TOKENS = (
+    "dc_member",
+    "equity_daily_bar",
+    "equity_adj_factor",
+    "moneyflow",
+    "sector_heat",
+    "qtf",
+    "dagster",
+    "duckdb",
+    "parquet",
+    "redis",
+    "mapped_column",
+    "__tablename__",
+)
+PRICE_VOLUME_FORBIDDEN_IMPORT_PREFIXES = (
+    "src.foundation.config",
+    "src.foundation.ingestion",
+    "src.ops",
+    "src.operations",
+    "qtf",
+    "lake_console",
+    "orchestrator",
+    "dagster",
 )
 
 BACKEND_SECTOR_ANALYSIS_PATHS = (
@@ -480,4 +521,39 @@ def test_member_breadth_details_uses_one_projection_path_without_degradation() -
     assert not any(
         token in (query_source + service_source + calculator_source).lower()
         for token in forbidden_degradation_tokens
+    )
+
+
+def test_price_volume_backend_is_pre_gated_to_three_read_only_fact_sources() -> None:
+    """M17 freezes the M18 source boundary before those business files exist."""
+
+    violations: list[str] = []
+    for path in PRICE_VOLUME_BACKEND_PATHS:
+        if not path.exists():
+            continue
+        source = path.read_text(encoding="utf-8")
+        relative_path = path.relative_to(REPO_ROOT).as_posix()
+        lowered = source.lower()
+        for token in PRICE_VOLUME_FORBIDDEN_TOKENS:
+            if token in lowered:
+                violations.append(f"{relative_path} contains forbidden token {token}")
+        for line_no, module in _python_imports(path):
+            if (
+                module.startswith("src.foundation.models")
+                and module not in PRICE_VOLUME_APPROVED_MODEL_MODULES
+            ):
+                violations.append(
+                    f"{relative_path}:{line_no} imports unapproved price-volume source {module}"
+                )
+            if any(
+                _matches_prefix(module, prefix)
+                for prefix in PRICE_VOLUME_FORBIDDEN_IMPORT_PREFIXES
+            ):
+                violations.append(
+                    f"{relative_path}:{line_no} imports forbidden subsystem/config {module}"
+                )
+
+    assert not violations, (
+        "量价分布只允许读取交易日历、行业层级和行业日行情，且不得增加配置、"
+        "缓存、持久化或外部子系统依赖：\n" + "\n".join(violations)
     )
