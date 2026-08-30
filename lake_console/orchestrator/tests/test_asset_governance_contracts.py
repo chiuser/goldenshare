@@ -26,6 +26,7 @@ from orchestrator.defs.assets.dc_daily_technical_serving import (
     prod_ch_dc_daily_technical,
 )
 from orchestrator.defs.assets.dc_industry_hierarchy import silver_dc_industry_hierarchy
+from orchestrator.defs.assets.etf_basic import raw_tushare_etf_basic
 from orchestrator.defs.assets.idx_factor_pro_raw import raw_tushare_idx_factor_pro
 from orchestrator.defs.assets.idx_factor_pro_silver import silver_index_factor_pro
 from orchestrator.defs.assets.index_basic import (
@@ -244,6 +245,7 @@ DAGSTER_TAG_VALUE_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,63}$")
 ACTIVE_ASSET_DEFINITIONS = (
     raw_tushare_trade_calendar,
     silver_trade_calendar,
+    raw_tushare_etf_basic,
     raw_tushare_stock_basic,
     silver_stock_basic,
     silver_stock_lifecycle,
@@ -325,7 +327,6 @@ def _asset_specs_and_definitions_by_key():
 ACTIVE_ASSET_SPECS_BY_KEY, ACTIVE_ASSETS_BY_KEY = _asset_specs_and_definitions_by_key()
 ASSETS_WITHOUT_COLUMN_SCHEMA = {"lake_root_health"}
 CONTRACT_ONLY_CATALOG_ASSET_KEYS = {
-    "raw_tushare_etf_basic",
     "silver_etf_basic",
     "raw_etf_mins_1m",
     "raw_etf_mins_5m",

@@ -404,7 +404,6 @@ PROD_CH_DC_DAILY_TECHNICAL_CHECKS = (
 )
 
 PLANNED_CATALOG_ASSET_KEYS = {
-    "raw_tushare_etf_basic",
     "silver_etf_basic",
     *(f"raw_etf_mins_{freq}m" for freq in ETF_MINS_ASSET_FREQS),
     *(f"silver_etf_mins_{freq}m" for freq in ETF_MINS_ASSET_FREQS),

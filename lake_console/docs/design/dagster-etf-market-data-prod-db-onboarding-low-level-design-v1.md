@@ -1,6 +1,6 @@
 # ETF Basic 与历史分钟 DG 接入低层设计（LLD）v1
 
-状态：架构口径已收敛；P0、P1 已完成；P2 及以后尚未授权；N3B 与 N6 按后续阶段评审；尚未授权 Bootstrap、事件补录或 Sensor 启用
+状态：架构口径已收敛；P0-P2 已完成；P3 及以后尚未授权；N3B 与 N6 按后续阶段评审；尚未授权 Bootstrap、事件补录或 Sensor 启用
 
 创建日期：2026-08-29
 
@@ -53,7 +53,7 @@ Basic 源文档：[Tushare ETF 基础信息](../../../docs/sources/tushare/ETF�
 | N5 | 正式分钟文件只允许新增或语义相同复用；内容冲突立即停止，绝不自动覆盖 | 已确认；约束日常 writer、Bootstrap 和 repair 边界 |
 | N6 | Basic 与分钟 Sensor 的上海时间运行窗口在上线前确认；全部先以 `STOPPED` 发布 | 可延后；只阻断 P10 启用，不阻断前序代码 |
 
-当前没有需要立即补充拍板的架构口径。P0、P1 已经获准并完成；P2 及以后仍须逐阶段另行授权。首次分钟 Raw 物理写入必须使用 P6 plan 动态冻结的 N4 水位，并执行 N5 冲突策略。N3 固定拆为 P7A observation/profile 和 P7B policy freeze/decision 两步；P7A 完成但 P7B 尚未确认期间，不得生成 `silver_eligible`、写 Silver、补 green check event 或启用分钟日常 Sensors。
+当前没有需要立即补充拍板的架构口径。P0-P2 已经获准并完成；P3 及以后仍须逐阶段另行授权。首次分钟 Raw 物理写入必须使用 P6 plan 动态冻结的 N4 水位，并执行 N5 冲突策略。N3 固定拆为 P7A observation/profile 和 P7B policy freeze/decision 两步；P7A 完成但 P7B 尚未确认期间，不得生成 `silver_eligible`、写 Silver、补 green check event 或启用分钟日常 Sensors。
 
 ---
 
@@ -1642,6 +1642,7 @@ sha256
 | 2026-08-29 | Tushare `etf_basic` 无过滤/显式字段均为 1,829 行 | Basic 当前一页、小内存处理合理 |
 | 2026-08-29 技术方案基线 | 当前可请求量级约 1,647 个，Prod 分钟约 6,787 万行 | 只用于预估；说明不能 Python 明细循环或对 Prod 做 N3 全量审计，不是代码常量 |
 | 2026-08-30 P0 | 实际 `TushareResource` 的 `offset=0/5000` 分别返回 1,829/0 行，字段一致且无重复代码 | 关闭真实分页边界，不引入新的分页机制或人工行数上限 |
+| 2026-08-30 P2 | 实际 `TushareResource` 经正式 P2 writer 写入 `/private/tmp`：source/raw 均为 1,829 行、14 字段一致、主键和值域通过、Raw hash 回读一致，1 个短页请求 | 证明源请求、通用分页、staging、Raw schema、内容 hash 和不可变提升在临时湖闭环；未触碰正式 Lake 或 Dagster instance |
 | 2026-08-30 P0 | `.SH/.SZ` 在五频分钟中分别只对应 `XSHG/XSHE`；单日五频 coverage 1 条 SQL 为 4.538 秒，10 个交易日 1 条 SQL 为 14.573 秒 | 冻结 exchange 比较映射，并证明 P4 可按同一查询形状实现单日/最多 10 日 evaluator |
 | 2026-08-30 P0 | 20 个交易日按频率聚合约 1,046 万行，最大单频为 `1min` 的 7,854,190 行，聚合耗时 19.916 秒；单日 `1min` 导出并回读 396,927 行、4.44 MB、29.750 秒，DuckDB temp 增量为 0 | 冻结 P6 单频 20 日批次的真实行数量级和明细导出基线；不是正式 Lake 写入 |
 
@@ -1872,11 +1873,15 @@ tests/test_etf_mins_pre2026_protection.py
 
 执行结果：已登记 12 条 contract-only Catalog entries 和 4 个 partition models；已落地 4 份字段 schema、6 个正式/候选路径 helper、ETF Basic 内容/请求范围 hash、分钟频率/日期/exchange 比较纯合同，以及专属 `cn_a_etf_mins_trade_days`。现有 registry-first 治理测试明确把这些条目标记为 planned，`readiness=False`；本阶段没有新增 asset/check/job/sensor，也没有加载或访问正式 Dagster instance、Prod DB、Tushare 或正式 Lake。
 
-### P2：ETF Basic Raw
+### P2：ETF Basic Raw（已完成）
 
 原样复用通用 full-file helper 的 `limit/offset` 短页分页，实现 Tushare staging、全页校验、Raw hash、不可变提升、三个 Raw checks 和 Raw job。不增加 ETF 专属页数/行数熔断，不修改通用 helper，也不得在 ETF asset 复制分页循环；Sensor 统一留到 P10。
 
 完成条件：临时目录 fixture 和经批准的最小真实 Tushare 快照完成 source/raw 行数、字段、主键、hash 对账；不写正式 Lake，除非另行授权。
+
+执行结果：已实现 `raw_tushare_etf_basic`、`raw_tushare_etf_basic_source_contract_check`、`raw_tushare_etf_basic_key_domain_check`、`raw_tushare_etf_basic_content_hash_check` 和 `raw_etf_basic_update_job`。Raw 没有业务 config，固定以 `{}` 和显式 14 字段调用未修改的 `fetch_tushare_full_file_to_raw`；候选按 Raw schema 两次回读复算 hash 后，只允许 `write_new/reuse_existing`，同 hash 路径内容冲突使用 `etf_basic_snapshot_conflict` 停止。测试已覆盖正常短页、5,000 行边界、第二页失败、空结果、列漂移、跨页重复、状态/后缀/exchange 错误、`.OF` 保留、hash 回读、等价复用、新版本和冲突停止；三项 checks 均为非分区 `blocking=True`，Raw job 只选择该资产和三项 checks。正式 Definitions 已通过 `dg check defs`。
+
+真实临时验收：2026-08-30 在 `/private/tmp` 通过实际 `TushareResource` 拉取 1,829 行，写入 Raw 仍为 1,829 行、字段顺序精确为 14 列，状态 `D=127/L=1658/P=44`、后缀 `OF=3/SH=1033/SZ=793`，内容 hash `1b68a978cf1fdae5f457da0c899387b8130314256ee10e0636279335f39b8b44` 可从 Parquet 回读复算。临时目录随验证结束清理；未写正式 Lake、正式 Dagster instance、Prod DB，也未实现 P3 或 P10。
 
 ### P3：ETF Basic Silver 与 latest-only selector
 

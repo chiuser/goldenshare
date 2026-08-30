@@ -1,6 +1,6 @@
 # ETF 市场数据 DG 接入技术方案 v1
 
-状态：架构口径已收敛；P0、P1 已完成；P2 及以后尚未授权；N3B 与 N6 仍按后续阶段评审；尚未授权 Bootstrap、补事件或启用 Sensor
+状态：架构口径已收敛；P0-P2 已完成；P3 及以后尚未授权；N3B 与 N6 仍按后续阶段评审；尚未授权 Bootstrap、补事件或启用 Sensor
 创建日期：2026-08-27
 最近更新：2026-08-30
 适用范围：`lake_console/orchestrator` 正式 Dagster 数据湖
@@ -606,11 +606,15 @@ tushare_request_count / page_count / quota_impact
 
 先完成 registry、字段合同、路径、频率/日期/hash 纯函数和专属动态分区，不注册可写资产。
 
-已落地 12 条 contract-only Catalog entries、4 个 partition models、4 份字段 schema、6 个正式/候选路径 helper、ETF Basic/分钟纯合同和专属 `cn_a_etf_mins_trade_days`。ETF asset、check、job、sensor 和正式运行入口仍不存在；验证只运行隔离单元/静态测试，没有读取正式 Dagster instance、Prod DB 或正式 Lake。
+已落地 12 条 contract-only Catalog entries、4 个 partition models、4 份字段 schema、6 个正式/候选路径 helper、ETF Basic/分钟纯合同和专属 `cn_a_etf_mins_trade_days`。P1 结束时 ETF asset、check、job、sensor 和正式运行入口均不存在；验证只运行隔离单元/静态测试，没有读取正式 Dagster instance、Prod DB 或正式 Lake。
 
-### P2：ETF Basic Raw
+### P2：ETF Basic Raw（已完成）
 
 原样复用通用 full-file helper 的 `limit/offset` 短页分页，实现无业务过滤拉取、staging、内容 hash、不可变提升和 Raw checks，不增加 ETF 专属页数/行数熔断，也不复制第二套分页循环。分页、跨页重复、列漂移和请求失败随本阶段实现一起测试。
+
+已落地 `raw_tushare_etf_basic`、三项 blocking checks 和 `raw_etf_basic_update_job`。候选只写 run-scoped staging，按 14 字段 Raw schema 回读并复算内容 hash；正式目标只允许新建或同 hash 等价复用，冲突立即停止，不建立 `current` 文件。隔离测试覆盖短页、恰好 5,000 行继续翻页、第二页失败、空结果、字段漂移、跨页重复、未知状态/后缀、沪深 exchange 错配、`.OF` 保留、同内容复用、不同内容新建和正式目标冲突。
+
+2026-08-30 又用实际 `TushareResource` 在 `/private/tmp` 完成一次完整闭环：源端 1,829 行、Raw 1,829 行、14 字段一致、主键和值域通过、内容 hash 回读一致，分布仍为 `L=1658/P=44/D=127` 和 `SH=1033/SZ=793/OF=3`；没有写正式 Lake、正式 Dagster instance 或 Prod DB。正式 Definitions 已通过加载校验，Sensor 仍未实现。
 
 ### P3：ETF Basic Silver 与 latest-only selector
 
@@ -688,7 +692,7 @@ tushare_request_count / page_count / quota_impact
 
 ### 16.2 后续阶段仍需管理员拍板
 
-当前没有需要立即补充拍板的架构口径。P0、P1 已经获准并完成；P2 及以后仍须逐阶段另行授权。N3 的流程已经确认，但具体 blocking/WARN 分类必须等 P7A 真实报告后在 P7B 单独评审；N6 只在 P10 Sensor 启用前确认。
+当前没有需要立即补充拍板的架构口径。P0-P2 已经获准并完成；P3 及以后仍须逐阶段另行授权。N3 的流程已经确认，但具体 blocking/WARN 分类必须等 P7A 真实报告后在 P7B 单独评审；N6 只在 P10 Sensor 启用前确认。
 
 | 阶段门禁 | 待确认事项 | 阻断范围 |
 | --- | --- | --- |
